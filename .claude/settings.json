@@ -1,17 +1,15 @@
 {
   "env": {
-    "ANTHROPIC_AUTH_TOKEN": "sk-",
     "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
-    "ANTHROPIC_MODEL": "deepseek-chat",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-chat",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-chat",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-pro",
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32000"
+    "ANTHROPIC_AUTH_TOKEN": "sk-ee05b7b7c11e442494ef7fc456252529",
+    "ANTHROPIC_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro"
   },
-  "permissions": {
-    "allow": [],
-    "deny": []
-  },
-  "alwaysThinkingEnabled": false
+  "model": "deepseek-v4-pro",
+  "theme": "dark",
+  "includeCoAuthoredBy": false,
+  "effortLevel": "xhigh",
+  "autoUpdatesChannel": "latest"
 }
