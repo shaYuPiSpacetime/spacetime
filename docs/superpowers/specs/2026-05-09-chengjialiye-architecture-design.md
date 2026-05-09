@@ -25,6 +25,7 @@
 | 数据库 | MySQL | 8.0 |
 | 缓存 | Redis | 7.x |
 | 认证 | 轻量 Token 校验（拦截器 + Redis） | — |
+| 工具库 | Hutool | 5.8+ |
 | API 文档 | Knife4j | — |
 | 文件存储 | 阿里云 OSS | — |
 | 构建 | Maven | — |
@@ -244,6 +245,7 @@ PRIMARY KEY (id)
 7. 异常统一抛 BusinessException，GlobalExceptionHandler 拦截处理
 8. 日期字段用 LocalDateTime，禁止 java.util.Date
 9. 敏感字段脱敏用工具类 DesensitizeUtil.mask()
+10. 工具类优先使用 Hutool（如 StrUtil、CollUtil、DateUtil、BeanUtil 等），Hutool 没有的再自行封装到 common/util/
 
 ---
 
