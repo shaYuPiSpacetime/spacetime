@@ -79,7 +79,7 @@ React 管理后台（浏览器） ──调 /admin/**──┐
 ```
 spacetime/                          ← 项目根目录（即本仓库）
 ├── backend/                     ← Spring Boot 项目
-│   ├── src/main/java/com/chengjialiye/
+│   ├── src/main/java/com/spacetime/
 │   │   ├── common/              ← 公共模块
 │   │   │   ├── entity/          ← 实体类（数据库表映射）
 │   │   │   ├── enums/           ← 枚举常量
@@ -105,7 +105,7 @@ spacetime/                          ← 项目根目录（即本仓库）
 │   │   │   └── dto/
 │   │   │       ├── request/
 │   │   │       └── response/
-│   │   └── ChengjialiyeApplication.java
+│   │   └── SpacetimeApplication.java
 │   ├── src/main/resources/
 │   │   ├── application.yml
 │   │   ├── application-dev.yml
