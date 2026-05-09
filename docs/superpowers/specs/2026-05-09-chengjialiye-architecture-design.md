@@ -77,7 +77,7 @@ React 管理后台（浏览器） ──调 /admin/**──┐
 ### 3.4 项目目录结构
 
 ```
-chengjialiye/
+spacetime/                          ← 项目根目录（即本仓库）
 ├── backend/                     ← Spring Boot 项目
 │   ├── src/main/java/com/chengjialiye/
 │   │   ├── common/              ← 公共模块
@@ -86,14 +86,15 @@ chengjialiye/
 │   │   │   ├── util/            ← 工具类
 │   │   │   ├── config/          ← Spring 配置
 │   │   │   ├── exception/       ← 异常定义 + 全局异常处理
-│   │   │   └── result/          ← 统一返回体 R<T>
+│   │   │   ├── result/          ← 统一返回体 R<T>
+│   │   │   ├── dao/             ← 数据访问接口（共用）
+│   │   │   ├── dao/impl/        ← 数据访问实现（共用）
+│   │   │   ├── mapper/          ← MyBatis-Plus Mapper + XML（共用）
+│   │   │   └── interceptor/     ← 拦截器（Token、日志等）
 │   │   ├── admin/               ← 管理后台模块
 │   │   │   ├── controller/
 │   │   │   ├── service/         ← 接口
 │   │   │   ├── service/impl/    ← 实现类
-│   │   │   ├── dao/             ← 数据访问接口
-│   │   │   ├── dao/impl/        ← 数据访问实现
-│   │   │   ├── mapper/          ← MyBatis-Plus Mapper + XML
 │   │   │   └── dto/
 │   │   │       ├── request/
 │   │   │       └── response/
@@ -101,9 +102,6 @@ chengjialiye/
 │   │   │   ├── controller/
 │   │   │   ├── service/
 │   │   │   ├── service/impl/
-│   │   │   ├── dao/
-│   │   │   ├── dao/impl/
-│   │   │   ├── mapper/
 │   │   │   └── dto/
 │   │   │       ├── request/
 │   │   │       └── response/
@@ -157,7 +155,8 @@ Controller → Service(接口) → ServiceImpl → DAO(接口) → DAOImpl → M
 
 - `admin/` 和 `miniapp/` 不能互相调用（import）
 - 两个包只能依赖 `common/`
-- Entity 统一放 `common/entity/`，所有 Mapper 引用同一份
+- Entity 统一放 `common/entity/`
+- DAO + Mapper 统一放 `common/`，admin 和 miniapp 的 ServiceImpl 共用同一套数据访问层
 
 ---
 
@@ -239,7 +238,7 @@ PRIMARY KEY (id)
 1. Controller 不写业务逻辑，只做参数校验 + 调 Service + 返回 R<T>
 2. Controller 统一返回 `R<T>`（code + msg + data）
 3. Service 接口必须写，不能在 Controller 直接调 ServiceImpl
-4. Mapper 不能跨包调用：admin 的 Service 不能调 miniapp 的 Mapper
+4. ServiceImpl 不能直接调 Mapper：必须通过 DAO 层访问数据，DAO + Mapper 在 common/ 中供 admin 和 miniapp 共用
 5. 分页查询统一用 MyBatis-Plus Page + LambdaQueryWrapper
 6. 复杂 SQL 写 XML，简单查询用 LambdaQueryWrapper
 7. 异常统一抛 BusinessException，GlobalExceptionHandler 拦截处理
