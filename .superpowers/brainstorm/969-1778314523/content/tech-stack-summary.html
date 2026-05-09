@@ -1,0 +1,71 @@
+<h2>技术栈全貌 — 确认版</h2>
+<p class="subtitle">这是目前确认的所有选型，最后过一遍，我们进入架构详细设计</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+
+<div class="mockup" style="margin:0;">
+  <div class="mockup-header">后端</div>
+  <div class="mockup-body" style="line-height:2;">
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="color:#888;padding:2px 8px;">语言</td><td><strong>Java 21</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">框架</td><td><strong>Spring Boot 3.x</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">ORM</td><td><strong>MyBatis-Plus 3.5+</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">数据库</td><td><strong>MySQL 8.0</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">缓存</td><td><strong>Redis 7.x</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">认证</td><td><strong>Spring Security + JWT</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">API 文档</td><td><strong>Knife4j (Swagger)</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">构建</td><td><strong>Maven</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">文件存储</td><td><strong>MinIO</strong> <span style="color:#888;">（本地/自建）</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="mockup" style="margin:0;">
+  <div class="mockup-header">前端 · 管理后台</div>
+  <div class="mockup-body" style="line-height:2;">
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="color:#888;padding:2px 8px;">框架</td><td><strong>React 18+</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">语言</td><td><strong>TypeScript</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">构建</td><td><strong>Vite</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">UI 组件</td><td><strong>shadcn/ui + Radix UI</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">样式</td><td><strong>Tailwind CSS</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">路由</td><td><strong>react-router-dom v6</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">状态管理</td><td><strong>Zustand</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">HTTP</td><td><strong>axios</strong></td></tr>
+      <tr><td style="color:#888;padding:2px 8px;">图表</td><td><strong>ECharts</strong></td></tr>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<div class="mockup" style="margin-top:20px;">
+  <div class="mockup-header">项目目录结构（整体）</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:13px;line-height:1.7;">
+    <span style="font-weight:bold;">chengjialiye/</span><br/>
+    ├── <span style="color:#e65100;">backend/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← Spring Boot 项目</span><br/>
+    │&nbsp;&nbsp;&nbsp;├── src/main/java/com/chengjialiye/<br/>
+    │&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── common/...<br/>
+    │&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── admin/...<br/>
+    │&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── miniapp/...<br/>
+    │&nbsp;&nbsp;&nbsp;├── src/main/resources/<br/>
+    │&nbsp;&nbsp;&nbsp;└── pom.xml<br/>
+    ├── <span style="color:#1565c0;">admin-web/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← React 管理后台前端</span><br/>
+    │&nbsp;&nbsp;&nbsp;├── src/<br/>
+    │&nbsp;&nbsp;&nbsp;├── package.json<br/>
+    │&nbsp;&nbsp;&nbsp;└── vite.config.ts<br/>
+    └── <span style="color:#6a1b9a;">docs/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 产品文档 + 后续开发文档</span>
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px;">
+  <h3>还差什么要确认的？</h3>
+  <ul>
+    <li>✅ 后端架构方案（单体 + 包分区）</li>
+    <li>✅ Java 21 + Spring Boot 3 + MyBatis-Plus + MySQL 8.0</li>
+    <li>✅ React + TS + Vite + shadcn/ui + Zustand</li>
+    <li>Redis / MinIO / Knife4j / Maven —— 这些我直接定了，没问题吧？</li>
+    <li>❓ 部署方式：Docker 还是直接 JAR 包？</li>
+    <li>❓ 消息队列需要吗（站内信、通知推送异步化）？</li>
+  </ul>
+</div>

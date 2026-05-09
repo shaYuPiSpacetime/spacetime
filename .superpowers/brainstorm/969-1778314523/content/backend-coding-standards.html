@@ -1,0 +1,55 @@
+<h2>3. 后端编码规范</h2>
+
+<div class="mockup">
+  <div class="mockup-header">Java 类命名规范</div>
+  <div class="mockup-body" style="line-height:2;font-size:14px;">
+
+<table style="width:100%;border-collapse:collapse;">
+<tr style="background:#1565c0;color:#fff;">
+  <td style="padding:6px 12px;">层级</td>
+  <td style="padding:6px 12px;">命名</td>
+  <td style="padding:6px 12px;">示例</td>
+</tr>
+<tr><td style="padding:4px 10px;">Controller</td><td style="font-family:monospace;padding:4px 10px;">Xxx<b>Controller</b></td><td style="font-family:monospace;padding:4px 10px;">UserMgrController</td></tr>
+<tr><td style="padding:4px 10px;">Service 接口</td><td style="font-family:monospace;padding:4px 10px;">Xxx<b>Service</b></td><td style="font-family:monospace;padding:4px 10px;">UserMgrService</td></tr>
+<tr><td style="padding:4px 10px;">Service 实现</td><td style="font-family:monospace;padding:4px 10px;">Xxx<b>ServiceImpl</b></td><td style="font-family:monospace;padding:4px 10px;">UserMgrServiceImpl</td></tr>
+<tr><td style="padding:4px 10px;">Mapper</td><td style="font-family:monospace;padding:4px 10px;">Xxx<b>Mapper</b></td><td style="font-family:monospace;padding:4px 10px;">UserMapper</td></tr>
+<tr><td style="padding:4px 10px;">Entity</td><td style="font-family:monospace;padding:4px 10px;">表名</td><td style="font-family:monospace;padding:4px 10px;">AppUser</td></tr>
+<tr><td style="padding:4px 10px;">Request DTO</td><td style="font-family:monospace;padding:4px 10px;">Xxx<b>Req</b></td><td style="font-family:monospace;padding:4px 10px;">UserPageReq</td></tr>
+<tr><td style="padding:4px 10px;">Response VO</td><td style="font-family:monospace;padding:4px 10px;">Xxx<b>VO</b></td><td style="font-family:monospace;padding:4px 10px;">UserDetailVO</td></tr>
+<tr><td style="padding:4px 10px;">枚举</td><td style="font-family:monospace;padding:4px 10px;">Xxx<b>Enum</b></td><td style="font-family:monospace;padding:4px 10px;">UserStatusEnum</td></tr>
+</table>
+
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:16px;">
+  <div class="mockup-header">关键约束</div>
+  <div class="mockup-body" style="font-size:14px;line-height:1.8;">
+    <ul>
+      <li><strong>Controller 不写业务逻辑</strong>，只做参数校验 + 调 Service + 返回</li>
+      <li>Controller 统一返回 <code style="background:#eee;padding:1px 4px;">R&lt;T&gt;</code>（code + msg + data）</li>
+      <li><strong>Service 接口必须写</strong>，不能直接在 Controller 调 ServiceImpl</li>
+      <li><strong>Mapper 不能跨包调用</strong>：admin 的 Service 不能调 miniapp 的 Mapper</li>
+      <li>分页查询统一用 <strong>MyBatis-Plus Page + LambdaQueryWrapper</strong></li>
+      <li>复杂 SQL 写 XML，简单查询用 LambdaQueryWrapper</li>
+      <li>异常统一抛 <code style="background:#eee;padding:1px 4px;">BusinessException</code>，GlobalExceptionHandler 拦截</li>
+      <li>日期字段用 <strong>LocalDateTime</strong>，别用 Date</li>
+      <li>手机号/身份证 脱敏用工具类 <code style="background:#eee;padding:1px 4px;">DesensitizeUtil.mask()</code></li>
+    </ul>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:16px;">
+  <div class="mockup-header">SQL 规范</div>
+  <div class="mockup-body" style="font-size:14px;line-height:1.8;">
+    <ul>
+      <li>关键字<strong>大写</strong>，表名字段名<strong>小写下划线</strong>（SELECT ... FROM ... WHERE ...）</li>
+      <li>禁止 <code>SELECT *</code>，必须列出字段</li>
+      <li>WHERE 条件里的列<strong>必须走索引</strong>，新表建表时同步评估索引</li>
+      <li>批量操作用 MyBatis-Plus <code>saveBatch / updateBatch</code>，禁止循环单条</li>
+      <li>模糊查询用 <code>LIKE CONCAT('%', #{val}, '%')</code>，不用 <code>${}</code> 拼接</li>
+      <li>分页查询必须有 ORDER BY，否则每次翻页结果可能不同</li>
+    </ul>
+  </div>
+</div>

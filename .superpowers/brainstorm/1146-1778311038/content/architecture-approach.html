@@ -1,0 +1,48 @@
+<h2>后端整体架构选型</h2>
+<p class="subtitle">第一步：先定后端架构范式，这决定了目录结构、部署方式、团队协作模式</p>
+
+<div class="options">
+  <div class="option" data-choice="mono" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>单仓库单体应用</h3>
+      <p>一个后端项目，按模块分 controller/service/mapper。管理后台和小程序共享同一套 API 服务层。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>开发最快，一个 IDE 搞定</li><li>共享鉴权、ORM、工具类</li><li>部署简单，一个 jar/容器</li><li>小团队（3-5人）最高效</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>后期模块耦合风险</li><li>全部模块一起编译部署</li><li>团队扩大后易冲突</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="modular" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>单仓库模块化单体</h3>
+      <p>一个 Git 仓库，Maven/Gradle 多模块。拆分为 common / admin-api / miniapp-api / service 等子模块。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>模块边界清晰，强制分层</li><li>可独立编译子模块</li><li>Common 层复用，避免代码重复</li><li>后期可拆分微服务</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>初期搭建多一步模块配置</li><li>模块间接口需提前约定</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="micro" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>微服务（多仓库/多模块）</h3>
+      <p>独立部署：用户服务、认证服务、测评服务、财务服务、运营服务。通过 Gateway + RPC/消息队列通信。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>独立部署、独立扩容</li><li>团队可并行开发不同服务</li><li>技术栈可异构</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>运维成本高（DevOps/SRE）</li><li>分布式事务、服务发现复杂</li><li>初期 ROI 极低</li><li>小团队根本忙不过来</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top: 32px;">推荐</h3>
+<p><strong>B — 单仓库模块化单体</strong>，理由：</p>
+<ul>
+  <li>模块边界预埋好（admin-api / miniapp-api / common），未来拆微服务零重构</li>
+  <li>团队开发时各自改自己的模块，不会互相踩脚</li>
+  <li>Common 层抽取后，两个 API 模块体量都很轻</li>
+</ul>

@@ -1,0 +1,49 @@
+<h2>方案 A — 包路径分区</h2>
+<p class="subtitle">一个 Spring Boot 项目，通过 package 划清模块边界</p>
+
+<div class="mockup">
+  <div class="mockup-header">项目包结构</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 14px; line-height: 1.8;">
+    <div style="margin:4px 0;">com.chengjialiye</div>
+    <div style="padding-left: 20px; border-left: 2px solid #ddd;">
+      <div style="margin:4px 0;">├── <span style="background:#e3f2fd;padding:1px 4px;border-radius:2px;">common/</span> <span style="color:#888;">← 公共：实体、工具、配置、异常</span></div>
+      <div style="padding-left: 8px;">│&nbsp;&nbsp;&nbsp;├── entity/&nbsp;&nbsp;&nbsp;<span style="color:#aaa;">User, Order, Scale...</span></div>
+      <div style="padding-left: 8px;">│&nbsp;&nbsp;&nbsp;├── util/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#aaa;">JwtUtil, DesensitizeUtil...</span></div>
+      <div style="padding-left: 8px;">│&nbsp;&nbsp;&nbsp;├── config/&nbsp;&nbsp;&nbsp;<span style="color:#aaa;">RedisConfig, SecurityConfig...</span></div>
+      <div style="padding-left: 8px;">│&nbsp;&nbsp;&nbsp;└── exception/</div>
+      <div style="margin:8px 0;">├── <span style="background:#fff3e0;padding:1px 4px;border-radius:2px;">admin/</span> <span style="color:#888;">← 管理后台</span></div>
+      <div style="padding-left: 8px;">│&nbsp;&nbsp;&nbsp;├── controller/&nbsp;&nbsp;&nbsp;<span style="color:#aaa;">UserMgrController, AuditController...</span></div>
+      <div style="padding-left: 8px;">│&nbsp;&nbsp;&nbsp;├── service/</div>
+      <div style="padding-left: 8px;">│&nbsp;&nbsp;&nbsp;└── dto/</div>
+      <div style="margin:8px 0;">└── <span style="background:#e8f5e9;padding:1px 4px;border-radius:2px;">miniapp/</span> <span style="color:#888;">← 小程序端</span></div>
+      <div style="padding-left: 8px;">&nbsp;&nbsp;&nbsp;&nbsp;├── controller/&nbsp;&nbsp;&nbsp;<span style="color:#aaa;">MateController, VipController...</span></div>
+      <div style="padding-left: 8px;">&nbsp;&nbsp;&nbsp;&nbsp;├── service/</div>
+      <div style="padding-left: 8px;">&nbsp;&nbsp;&nbsp;&nbsp;└── dto/</div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>调用规则（团队约束）</h3>
+  <div style="display:flex;align-items:center;gap:20px;justify-content:center;padding:20px;background:#fafafa;border-radius:8px;">
+    <div style="background:#fff3e0;border:1px solid #ff9800;border-radius:8px;padding:12px 20px;text-align:center;">
+      <strong>admin/</strong>
+    </div>
+    <span>→ 可以调 →</span>
+    <div style="background:#e3f2fd;border:1px solid #2196f3;border-radius:8px;padding:12px 20px;text-align:center;">
+      <strong>common/</strong>
+    </div>
+    <span>← 可以调 ←</span>
+    <div style="background:#e8f5e9;border:1px solid #4caf50;border-radius:8px;padding:12px 20px;text-align:center;">
+      <strong>miniapp/</strong>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:12px;">
+    <span style="background:#ffebee;padding:2px 8px;border-radius:4px;">admin/ 和 miniapp/ 不能互相调用</span>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top: 24px;">
+  <div class="pros"><h4>和方案 B 相比</h4><ul><li>更简单，一个项目启动就能跑全部</li><li>不需要 Maven 多模块配置</li><li>包名就是边界，约定大于配置</li></ul></div>
+  <div class="cons"><h4>要注意</h4><ul><li>admin/ 和 miniapp/ 不能互相 import（靠 Code Review 守住）</li><li>以后拆微服务需要搬代码</li></ul></div>
+</div>

@@ -1,0 +1,68 @@
+<h2>4. 前端编码规范 + 目录结构</h2>
+
+<div class="mockup">
+  <div class="mockup-header">admin-web 目录结构</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:13px;line-height:1.7;">
+
+src/<br/>
+├── <strong>components/</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 公共组件</span><br/>
+│&nbsp;&nbsp;&nbsp;├── ui/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← shadcn/ui 组件</span><br/>
+│&nbsp;&nbsp;&nbsp;├── layout/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← AppLayout, Sidebar, Header</span><br/>
+│&nbsp;&nbsp;&nbsp;└── common/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← PageContainer, DataTable, ConfirmDialog</span><br/>
+├── <strong>pages/</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 页面（按菜单模块分）</span><br/>
+│&nbsp;&nbsp;&nbsp;├── user/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 用户管理</span><br/>
+│&nbsp;&nbsp;&nbsp;├── auth/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 认证审核</span><br/>
+│&nbsp;&nbsp;&nbsp;├── scale/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 量表管理</span><br/>
+│&nbsp;&nbsp;&nbsp;├── finance/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 财务中心</span><br/>
+│&nbsp;&nbsp;&nbsp;├── operation/ &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 运营中心</span><br/>
+│&nbsp;&nbsp;&nbsp;├── system/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 系统管理</span><br/>
+│&nbsp;&nbsp;&nbsp;├── promotion/ &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 推广管理</span><br/>
+│&nbsp;&nbsp;&nbsp;└── login/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 登录页</span><br/>
+├── <strong>hooks/</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 自定义 hooks</span><br/>
+│&nbsp;&nbsp;&nbsp;├── useAuth.ts<br/>
+│&nbsp;&nbsp;&nbsp;├── useTable.ts &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 分页+搜索+排序</span><br/>
+│&nbsp;&nbsp;&nbsp;└── usePermission.ts<br/>
+├── <strong>stores/</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← Zustand stores</span><br/>
+│&nbsp;&nbsp;&nbsp;├── authStore.ts<br/>
+│&nbsp;&nbsp;&nbsp;└── appStore.ts<br/>
+├── <strong>api/</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← axios 请求</span><br/>
+│&nbsp;&nbsp;&nbsp;├── request.ts &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← axios 实例，拦截器，统一错误</span><br/>
+│&nbsp;&nbsp;&nbsp;├── user.ts<br/>
+│&nbsp;&nbsp;&nbsp;└── finance.ts<br/>
+├── <strong>router/</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← react-router-dom 路由配置</span><br/>
+│&nbsp;&nbsp;&nbsp;├── index.tsx<br/>
+│&nbsp;&nbsp;&nbsp;└── guard.tsx &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 路由守卫（登录/权限）</span><br/>
+├── <strong>types/</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← TypeScript 类型</span><br/>
+├── <strong>utils/</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 工具函数</span><br/>
+├── App.tsx<br/>
+└── main.tsx
+
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:16px;">
+  <div class="mockup-header">命名规范</div>
+  <div class="mockup-body" style="font-size:14px;line-height:2;">
+    <ul>
+      <li><strong>组件文件</strong>：PascalCase — <code style="background:#eee;padding:1px 4px;">UserList.tsx</code></li>
+      <li><strong>页面目录</strong>：kebab-case — <code style="background:#eee;padding:1px 4px;">user-mgr/</code></li>
+      <li><strong>Hook</strong>：<code style="background:#eee;padding:1px 4px;">useXxx.ts</code></li>
+      <li><strong>Store</strong>：<code style="background:#eee;padding:1px 4px;">xxxStore.ts</code></li>
+      <li><strong>API 文件</strong>：按模块 — <code style="background:#eee;padding:1px 4px;">user.ts, finance.ts</code></li>
+      <li><strong>Type</strong>：<code style="background:#eee;padding:1px 4px;">XxxVO, XxxReq</code>（和后端对齐）</li>
+    </ul>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:16px;">
+  <div class="mockup-header">关键约束</div>
+  <div class="mockup-body" style="font-size:14px;line-height:2;">
+    <ul>
+      <li>页面组件只负责<strong>拼 UI + 调 Hook</strong>，不写业务逻辑</li>
+      <li>API 调用统一走 <code style="background:#eee;padding:1px 4px;">api/</code> 目录，不在页面里直接 axios</li>
+      <li>列表页统一用 <code style="background:#eee;padding:1px 4px;">useTable</code> hook 管理分页/搜索/排序</li>
+      <li>路由守卫在 router/guard.tsx 统一处理，不在每个页面判断</li>
+      <li>敏感字段脱敏在工具函数做，不在 JSX 里直接 slice</li>
+    </ul>
+  </div>
+</div>

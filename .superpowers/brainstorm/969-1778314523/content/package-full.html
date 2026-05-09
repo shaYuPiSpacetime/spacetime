@@ -1,0 +1,116 @@
+<h2>完整包结构 — Java 21 + MyBatis-Plus</h2>
+<p class="subtitle">每个业务包内部统一分层：controller → service → service.impl → mapper</p>
+
+<div class="mockup">
+  <div class="mockup-header">com.chengjialiye 完整目录树</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.8;">
+    <div style="margin:4px 0;"><strong>com.chengjialiye</strong></div>
+    <div style="padding-left: 12px; border-left: 2px solid #ddd;">
+
+      <div style="margin:6px 0;font-weight:bold;color:#1565c0;">├── common/</div>
+      <div style="padding-left: 16px; color:#666;">
+        │&nbsp;&nbsp;├── <strong>entity/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── User.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── Order.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── Scale.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── BaseEntity.java &nbsp;<span style="color:#888;">← 公共字段(id, createTime, updateTime)</span><br/>
+        │&nbsp;&nbsp;├── <strong>enums/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── UserStatus.java, AuthStatus.java...<br/>
+        │&nbsp;&nbsp;├── <strong>util/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── JwtUtil.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── DesensitizeUtil.java<br/>
+        │&nbsp;&nbsp;├── <strong>config/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── MybatisPlusConfig.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── RedisConfig.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── SecurityConfig.java<br/>
+        │&nbsp;&nbsp;├── <strong>exception/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── BusinessException.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── GlobalExceptionHandler.java<br/>
+        │&nbsp;&nbsp;└── <strong>result/</strong><br/>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── R.java &nbsp;<span style="color:#888;">← 统一返回体</span>
+      </div>
+
+      <div style="margin:12px 0;font-weight:bold;color:#e65100;">├── admin/</div>
+      <div style="padding-left: 16px; color:#666;">
+        │&nbsp;&nbsp;├── <strong>controller/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── UserMgrController.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── AuditController.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── FinanceController.java<br/>
+        │&nbsp;&nbsp;├── <strong>service/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── UserMgrService.java &nbsp;<span style="color:#888;">← 接口</span><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── AuditService.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── FinanceService.java<br/>
+        │&nbsp;&nbsp;├── <strong>service/impl/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── UserMgrServiceImpl.java &nbsp;<span style="color:#888;">← 实现类</span><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── AuditServiceImpl.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── FinanceServiceImpl.java<br/>
+        │&nbsp;&nbsp;├── <strong>mapper/</strong><br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── UserMapper.java<br/>
+        │&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── OrderMapper.java<br/>
+        │&nbsp;&nbsp;└── <strong>dto/</strong><br/>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <strong>request/</strong><br/>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── UserPageReq.java<br/>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── AuditPassReq.java<br/>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <strong>response/</strong><br/>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── UserDetailVO.java<br/>
+        │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── OrderVO.java
+      </div>
+
+      <div style="margin:12px 0;font-weight:bold;color:#2e7d32;">└── miniapp/</div>
+      <div style="padding-left: 16px; color:#666;">
+        &nbsp;&nbsp;&nbsp;&nbsp;├── <strong>controller/</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── MateController.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── VipController.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── SoulTestController.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── <strong>service/</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── MateService.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── VipService.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── SoulTestService.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── <strong>service/impl/</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── MateServiceImpl.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── VipServiceImpl.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── SoulTestServiceImpl.java<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── <strong>mapper/</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;└── <strong>dto/</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <strong>request/</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <strong>response/</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>统一分层规范（每个业务包必须遵守）</h3>
+  <div style="display:flex;flex-direction:column;gap:8px;padding:16px;background:#fafafa;border-radius:8px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="background:#1565c0;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;min-width:80px;text-align:center;">controller</span>
+      <span>接收请求、参数校验、调 service、返回 R&lt;T&gt;</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="background:#e65100;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;min-width:80px;text-align:center;">service</span>
+      <span>接口定义，只声明方法签名和 Javadoc</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="background:#6a1b9a;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;min-width:80px;text-align:center;">service.impl</span>
+      <span>实现类，加 @Service，注入 Mapper，写业务逻辑。禁止直接调 controller</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="background:#2e7d32;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;min-width:80px;text-align:center;">mapper</span>
+      <span>MyBatis-Plus BaseMapper 接口，复杂 SQL 写 XML</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="background:#c62828;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;min-width:80px;text-align:center;">dto</span>
+      <span>request = 入参对象（加 @Valid 校验注解），response = 返回给前端的 VO</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>技术要点</h3>
+  <ul>
+    <li><strong>Java 21</strong> — 虚拟线程（Virtual Threads）、Record、Pattern Matching</li>
+    <li><strong>MyBatis-Plus 3.5+</strong> — BaseMapper 自动 CRUD，LambdaQueryWrapper，分页插件</li>
+    <li><strong>Entity 统一放 common/entity/</strong>，所有 mapper 都可以引用同一份实体</li>
+    <li><strong>DTO 不要跨包用</strong> — admin 的 dto 只在 admin 包内流转，miniapp 同理</li>
+  </ul>
+</div>

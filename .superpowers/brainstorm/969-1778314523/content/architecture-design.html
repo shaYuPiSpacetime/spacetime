@@ -1,0 +1,83 @@
+<h2>1. 系统架构总览</h2>
+<p class="subtitle">从"谁调谁"的角度看整体部署架构</p>
+
+<div style="background:#fafafa;padding:24px;border-radius:8px;text-align:center;margin-top:16px;">
+
+<div style="display:flex;justify-content:center;align-items:center;gap:0;flex-wrap:wrap;padding:20px;">
+
+<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+
+<div style="background:#fff;border:2px solid #1565c0;border-radius:12px;padding:16px 24px;width:180px;">
+  <strong>React 管理后台</strong>
+  <div style="font-size:12px;color:#888;margin-top:4px;">admin-web</div>
+  <div style="font-size:11px;color:#aaa;">浏览器 访问</div>
+</div>
+
+<div style="background:#1565c0;color:#fff;border-radius:8px;padding:8px 16px;font-size:13px;">
+  调 /admin/** 接口
+</div>
+
+</div>
+
+<div style="font-size:28px;padding:0 12px;">→</div>
+
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+
+<div style="background:#fff;border:2px solid #e65100;border-radius:12px;padding:16px 24px;width:280px;">
+  <strong>Spring Boot 后端</strong>
+  <div style="font-size:12px;color:#888;">Docker 容器</div>
+  <div style="border-top:1px solid #eee;margin-top:8px;padding-top:8px;font-size:12px;text-align:left;line-height:1.6;">
+    <span style="background:#fff3e0;">admin/</span> 管理后台接口<br/>
+    <span style="background:#e8f5e9;">miniapp/</span> 小程序接口<br/>
+    <span style="background:#e3f2fd;">common/</span> 公共层<br/>
+  </div>
+</div>
+
+<div style="display:flex;gap:16px;margin-top:4px;">
+<div style="background:#1565c0;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;">MySQL 8.0</div>
+<div style="background:#e65100;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;">Redis</div>
+<div style="background:#2e7d32;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;">OSS</div>
+</div>
+
+</div>
+
+<div style="font-size:28px;padding:0 12px;">←</div>
+
+<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+
+<div style="background:#fff;border:2px solid #2e7d32;border-radius:12px;padding:16px 24px;width:180px;">
+  <strong>微信小程序</strong>
+  <div style="font-size:12px;color:#888;margin-top:4px;">移动端</div>
+  <div style="font-size:11px;color:#aaa;">独立项目</div>
+</div>
+
+<div style="background:#2e7d32;color:#fff;border-radius:8px;padding:8px 16px;font-size:13px;">
+  调 /miniapp/** 接口
+</div>
+
+</div>
+
+</div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>关键点</h3>
+  <ul>
+    <li>管理后台和小程序<strong>共用同一个后端服务</strong>，通过 URL 前缀区分：<code>/admin/**</code> 和 <code>/miniapp/**</code></li>
+    <li>认证拦截器按前缀分别校验：admin 用管理后台 Token，miniapp 用微信授权 Token</li>
+    <li>小程序前端是独立项目，但调的是<strong>同一个后端</strong></li>
+    <li>Docker 部署，一个容器搞定整个后端</li>
+    <li>Redis 存 Token、验证码、配置缓存</li>
+    <li>阿里云 OSS 存图片/文件、Excel 导出</li>
+  </ul>
+</div>
+
+<div class="section" style="margin-top:20px;">
+  <h3>认证流程（简版）</h3>
+  <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:16px;background:#f5f5f5;border-radius:8px;font-size:13px;">
+    请求 → <span style="color:#e65100;">TokenInterceptor</span>（从 Header 取 Token）
+    → <span style="color:#e65100;">Redis 校验</span>（是否存在，是否过期）
+    → 通过：写入 ThreadLocal 当前用户
+    → 不通过：返回 401
+  </div>
+</div>

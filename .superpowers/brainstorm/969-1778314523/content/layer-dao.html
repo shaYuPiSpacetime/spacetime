@@ -1,0 +1,95 @@
+<h2>分层架构 — 加入 DAO 层</h2>
+<p class="subtitle">Controller → Service → ServiceImpl → DAO → DAOImpl → Mapper</p>
+
+<div class="mockup">
+  <div class="mockup-header">完整调用链</div>
+  <div class="mockup-body" style="text-align:center;padding:20px;">
+
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;font-size:13px;">
+
+<span style="background:#1565c0;color:#fff;padding:8px 14px;border-radius:6px;font-weight:bold;">Controller</span>
+<span>&rarr;</span>
+<span style="background:#e65100;color:#fff;padding:8px 14px;border-radius:6px;font-weight:bold;">Service<br/><small>接口</small></span>
+<span>&rarr;</span>
+<span style="background:#6a1b9a;color:#fff;padding:8px 14px;border-radius:6px;font-weight:bold;">ServiceImpl<br/><small>实现类</small></span>
+<span>&rarr;</span>
+<span style="background:#2e7d32;color:#fff;padding:8px 14px;border-radius:6px;font-weight:bold;">DAO<br/><small>接口</small></span>
+<span>&rarr;</span>
+<span style="background:#c62828;color:#fff;padding:8px 14px;border-radius:6px;font-weight:bold;">DAOImpl<br/><small>实现类</small></span>
+<span>&rarr;</span>
+<span style="background:#37474f;color:#fff;padding:8px 14px;border-radius:6px;font-weight:bold;">Mapper<br/><small>SQL在这里</small></span>
+
+</div>
+
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:16px;">
+  <div class="mockup-header">各层职责</div>
+  <div class="mockup-body" style="line-height:2;font-size:13px;">
+<table style="width:100%;border-collapse:collapse;">
+<tr style="background:#ddd;">
+  <td style="padding:4px 10px;font-weight:bold;">层</td>
+  <td style="padding:4px 10px;font-weight:bold;">职责</td>
+  <td style="padding:4px 10px;font-weight:bold;">不能做什么</td>
+</tr>
+<tr>
+  <td style="padding:4px 10px;">Controller</td>
+  <td style="padding:4px 10px;">接收请求、参数校验(@Valid)、调 Service、返回 R&lt;T&gt;</td>
+  <td style="padding:4px 10px;">不能写业务逻辑，不能直接调 DAO</td>
+</tr>
+<tr>
+  <td style="padding:4px 10px;">Service</td>
+  <td style="padding:4px 10px;">接口定义 + Javadoc</td>
+  <td style="padding:4px 10px;">没有任何实现代码</td>
+</tr>
+<tr>
+  <td style="padding:4px 10px;">ServiceImpl</td>
+  <td style="padding:4px 10px;">业务逻辑、事务控制(@Transactional)、组装数据</td>
+  <td style="padding:4px 10px;">不能写 SQL，不能直接调 Mapper</td>
+</tr>
+<tr>
+  <td style="padding:4px 10px;">DAO</td>
+  <td style="padding:4px 10px;">数据访问接口定义</td>
+  <td style="padding:4px 10px;">没有任何实现代码</td>
+</tr>
+<tr>
+  <td style="padding:4px 10px;">DAOImpl</td>
+  <td style="padding:4px 10px;">数据访问实现，注入 Mapper，调 MyBatis-Plus</td>
+  <td style="padding:4px 10px;">不能写业务逻辑（纯粹的数据存取）</td>
+</tr>
+<tr>
+  <td style="padding:4px 10px;">Mapper</td>
+  <td style="padding:4px 10px;">继承 BaseMapper&lt;Entity&gt;，写 XML SQL</td>
+  <td style="padding:4px 10px;">不写业务逻辑</td>
+</tr>
+</table>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:16px;">
+  <div class="mockup-header">包结构（以 admin 为例）</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:13px;line-height:1.7;">
+
+admin/<br/>
+├── <strong>controller/</strong><br/>
+│&nbsp;&nbsp;&nbsp;└── UserMgrController.java<br/>
+├── <strong>service/</strong><br/>
+│&nbsp;&nbsp;&nbsp;├── UserMgrService.java &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 接口</span><br/>
+│&nbsp;&nbsp;&nbsp;└── <strong>impl/</strong><br/>
+│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── UserMgrServiceImpl.java &nbsp;<span style="color:#888;">← 实现</span><br/>
+├── <strong>dao/</strong><br/>
+│&nbsp;&nbsp;&nbsp;├── UserDao.java &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 接口</span><br/>
+│&nbsp;&nbsp;&nbsp;└── <strong>impl/</strong><br/>
+│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── UserDaoImpl.java &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 实现，注入 Mapper</span><br/>
+├── <strong>mapper/</strong><br/>
+│&nbsp;&nbsp;&nbsp;├── UserMapper.java &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← extends BaseMapper&lt;AppUser&gt;</span><br/>
+│&nbsp;&nbsp;&nbsp;└── UserMapper.xml &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">← 复杂 SQL</span><br/>
+└── <strong>dto/</strong><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;├── request/<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── UserPageReq.java<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;└── response/<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── UserDetailVO.java
+
+  </div>
+</div>

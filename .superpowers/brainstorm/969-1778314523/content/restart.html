@@ -1,0 +1,50 @@
+<h2>系统架构总览</h2>
+<p class="subtitle">从"谁调谁"的角度看整体部署架构</p>
+
+<div class="mockup">
+  <div class="mockup-header">请求流向</div>
+  <div class="mockup-body" style="text-align:center;line-height:2.5;font-size:15px;">
+    <div style="padding:20px;">
+      <strong>React 管理后台</strong>（浏览器）
+      &nbsp;&rarr;&nbsp;<span style="background:#fff3e0;padding:4px 12px;">调 /admin/**</span>
+      &nbsp;&rarr;&nbsp;
+      <strong>Spring Boot 后端</strong>（Docker 容器）
+      <br/>
+      <strong>微信小程序</strong>（独立项目）
+      &nbsp;&rarr;&nbsp;<span style="background:#e8f5e9;padding:4px 12px;">调 /miniapp/**</span>
+      &nbsp;&rarr;&nbsp;
+      <strong>同一个 Spring Boot</strong>
+      <br/><br/>
+      <span style="color:#888;">后端连接：</span>
+      MySQL 8.0 &nbsp;|&nbsp; Redis 7.x &nbsp;|&nbsp; 阿里云 OSS
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:20px;">
+  <div class="mockup-header">后端包结构</div>
+  <div class="mockup-body" style="line-height:2;font-size:14px;">
+    com.chengjialiye<br/>
+    &nbsp;&nbsp;<span style="background:#fff3e0;">admin/</span>&nbsp; controller / service / service.impl / mapper / dto<br/>
+    &nbsp;&nbsp;<span style="background:#e8f5e9;">miniapp/</span>&nbsp; controller / service / service.impl / mapper / dto<br/>
+    &nbsp;&nbsp;<span style="background:#e3f2fd;">common/</span>&nbsp; entity / enums / util / config / exception / result
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:20px;">
+  <div class="mockup-header">认证流程（轻量）</div>
+  <div class="mockup-body" style="text-align:center;font-size:14px;padding:16px;">
+    请求 &rarr; <strong>TokenInterceptor</strong> 取 Header Token
+    &rarr; Redis 校验（存在/未过期）
+    &rarr; 通过则写入 ThreadLocal
+    &rarr; 不通过则返回 401
+  </div>
+</div>
+
+<h3>技术栈确认</h3>
+<table style="width:100%;border-collapse:collapse;font-size:14px;">
+<tr><td style="padding:4px 8px;color:#888;">后端</td><td style="padding:4px 8px;">Java 21 · Spring Boot 3 · MyBatis-Plus · MySQL 8.0 · Redis · OSS · Maven · Docker</td></tr>
+<tr><td style="padding:4px 8px;color:#888;">前端</td><td style="padding:4px 8px;">React 18 · TypeScript · Vite · shadcn/ui · Radix UI · Tailwind CSS · react-router-dom v6 · Zustand · axios · ECharts</td></tr>
+<tr><td style="padding:4px 8px;color:#888;">认证</td><td style="padding:4px 8px;">轻量 Token 校验（拦截器 + Redis，非 Spring Security）</td></tr>
+<tr><td style="padding:4px 8px;color:#888;">部署</td><td style="padding:4px 8px;">Docker，无 MQ</td></tr>
+</table>

@@ -1,0 +1,72 @@
+<h2>2. 数据库设计概览</h2>
+<p class="subtitle">按业务域分表组，统一字段规范</p>
+
+<div class="mockup">
+  <div class="mockup-header">核心表（19 张）</div>
+  <div class="mockup-body" style="font-size:13px;line-height:1.9;">
+
+<table style="width:100%;border-collapse:collapse;">
+
+<tr style="background:#1565c0;color:#fff;">
+  <td style="padding:8px 12px;font-weight:bold;">业务域</td>
+  <td style="padding:8px 12px;font-weight:bold;">表名</td>
+  <td style="padding:8px 12px;font-weight:bold;">说明</td>
+</tr>
+
+<tr style="background:#e3f2fd;"><td colspan="3" style="padding:6px 12px;"><strong>认证与权限</strong></td></tr>
+<tr><td></td><td style="font-family:monospace;">sys_user</td><td>管理员账号</td></tr>
+<tr><td></td><td style="font-family:monospace;">sys_role</td><td>角色表</td></tr>
+<tr><td></td><td style="font-family:monospace;">sys_permission</td><td>权限点（菜单/按钮/接口/数据）</td></tr>
+<tr><td></td><td style="font-family:monospace;">sys_role_permission</td><td>角色-权限关联</td></tr>
+<tr><td></td><td style="font-family:monospace;">sys_log</td><td>操作日志</td></tr>
+
+<tr style="background:#fff3e0;"><td colspan="3" style="padding:6px 12px;"><strong>用户中心</strong></td></tr>
+<tr><td></td><td style="font-family:monospace;">app_user</td><td>小程序用户（核心）</td></tr>
+<tr><td></td><td style="font-family:monospace;">app_user_auth</td><td>认证记录（实名/学历/头像）</td></tr>
+
+<tr style="background:#e8f5e9;"><td colspan="3" style="padding:6px 12px;"><strong>测评系统</strong></td></tr>
+<tr><td></td><td style="font-family:monospace;">scale</td><td>量表基本信息</td></tr>
+<tr><td></td><td style="font-family:monospace;">scale_dimension</td><td>维度</td></tr>
+<tr><td></td><td style="font-family:monospace;">scale_question</td><td>题目</td></tr>
+<tr><td></td><td style="font-family:monospace;">scale_question_option</td><td>选项</td></tr>
+<tr><td></td><td style="font-family:monospace;">scale_result_range</td><td>结果分段</td></tr>
+
+<tr style="background:#fce4ec;"><td colspan="3" style="padding:6px 12px;"><strong>财务</strong></td></tr>
+<tr><td></td><td style="font-family:monospace;">pay_order</td><td>充值/VIP 订单</td></tr>
+<tr><td></td><td style="font-family:monospace;">pay_refund</td><td>退款记录</td></tr>
+<tr><td></td><td style="font-family:monospace;">app_user_coin_log</td><td>成家币流水</td></tr>
+
+<tr style="background:#ede7f6;"><td colspan="3" style="padding:6px 12px;"><strong>运营 + 推广</strong></td></tr>
+<tr><td></td><td style="font-family:monospace;">promotion_rule</td><td>推广奖励规则</td></tr>
+<tr><td></td><td style="font-family:monospace;">promotion_record</td><td>推广记录</td></tr>
+<tr><td></td><td style="font-family:monospace;">promotion_agent</td><td>代理信息</td></tr>
+</table>
+
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:20px;">
+  <div class="mockup-header">所有表统一字段</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:13px;line-height:1.8;">
+id&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BIGINT&nbsp;&nbsp;主键，自增<br/>
+create_time&nbsp;&nbsp;DATETIME&nbsp;创建时间<br/>
+update_time&nbsp;&nbsp;DATETIME&nbsp;更新时间<br/>
+is_deleted&nbsp;&nbsp;&nbsp;TINYINT&nbsp;&nbsp;逻辑删除（MyBatis-Plus 自动填充）<br/>
+create_by&nbsp;&nbsp;&nbsp;&nbsp;BIGINT&nbsp;&nbsp;创建人 ID<br/>
+update_by&nbsp;&nbsp;&nbsp;&nbsp;BIGINT&nbsp;&nbsp;更新人 ID
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:20px;">
+  <div class="mockup-header">MySQL 规范要点</div>
+  <div class="mockup-body" style="font-size:14px;line-height:1.8;">
+    <ul>
+      <li>字符集：<strong>utf8mb4</strong>，排序规则 utf8mb4_general_ci</li>
+      <li>所有表用 <strong>InnoDB</strong> 引擎</li>
+      <li>手机号、身份证用 <strong>VARCHAR</strong>，金额用 <strong>DECIMAL(10,2)</strong></li>
+      <li>状态字段统一 <strong>TINYINT</strong>，枚举值在实体类定义常量</li>
+      <li>索引命名：<strong>idx_表名_字段</strong>，唯一索引：<strong>uk_表名_字段</strong></li>
+      <li>配置类数据（商业化参数、系统配置）用<strong>单表 KV 结构</strong>，不建每项一张表</li>
+    </ul>
+  </div>
+</div>

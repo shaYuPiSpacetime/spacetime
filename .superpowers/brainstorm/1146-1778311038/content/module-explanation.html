@@ -1,0 +1,55 @@
+<h2>模块化单体 — 模块划分解读</h2>
+<p class="subtitle">一个 Git 仓库，每个模块是一个独立编译单元（Maven/Gradle submodule），之间通过接口调用，不是 HTTP</p>
+
+<div class="mockup">
+  <div class="mockup-header">项目根目录 / 子模块结构</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 14px; line-height: 1.8;">
+    <div style="background:#f0f0f0;padding:8px 12px;border-radius:4px;margin-bottom:8px;">
+      <strong>chengjialiye/</strong> &nbsp;&nbsp;&nbsp;<span style="color:#888;">← 一个 Git 仓库</span>
+    </div>
+    <div style="padding-left: 20px; border-left: 2px solid #ddd;">
+      <div style="margin:4px 0;">├── <span style="background:#e3f2fd;padding:1px 4px;border-radius:2px;">common/</span> &nbsp;<span style="color:#888;">← 公共模块（被所有人依赖）</span></div>
+      <div style="padding-left: 16px; color:#666; margin-bottom:6px;">
+        实体类(User, Order)、工具类、异常定义、<br/>
+        Redis配置、统一的 API 返回格式
+      </div>
+      <div style="margin:4px 0;">├── <span style="background:#fff3e0;padding:1px 4px;border-radius:2px;">admin-api/</span> &nbsp;<span style="color:#888;">← 管理后台接口</span></div>
+      <div style="padding-left: 16px; color:#666; margin-bottom:6px;">
+        管理员登录、用户管理、审核、财务对账、<br/>
+        量表配置、活动运营、推广管理...
+      </div>
+      <div style="margin:4px 0;">├── <span style="background:#e8f5e9;padding:1px 4px;border-radius:2px;">miniapp-api/</span> &nbsp;<span style="color:#888;">← 小程序接口</span></div>
+      <div style="padding-left: 16px; color:#666; margin-bottom:6px;">
+        觅缘推荐、心印测评、精选/理想型、VIP 购买、<br/>
+        消息/通知、社区动态...
+      </div>
+      <div style="margin:4px 0;">└── <span style="background:#fce4ec;padding:1px 4px;border-radius:2px;">admin-web/</span> &nbsp;<span style="color:#888;">← 管理后台前端（Vue 3）</span></div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>调用关系</h3>
+  <div style="display:flex;align-items:center;gap:20px;justify-content:center;flex-wrap:wrap;padding:20px;background:#fafafa;border-radius:8px;">
+    <div style="background:#fff3e0;border:1px solid #ff9800;border-radius:8px;padding:12px 20px;text-align:center;">
+      <strong>admin-api</strong><br/><span style="font-size:12px;color:#888;">管理后台后端</span>
+    </div>
+    <span style="font-size:20px;">→</span>
+    <div style="background:#e3f2fd;border:1px solid #2196f3;border-radius:8px;padding:12px 20px;text-align:center;">
+      <strong>common</strong><br/><span style="font-size:12px;color:#888;">实体/工具/配置</span>
+    </div>
+    <span style="font-size:20px;">←</span>
+    <div style="background:#e8f5e9;border:1px solid #4caf50;border-radius:8px;padding:12px 20px;text-align:center;">
+      <strong>miniapp-api</strong><br/><span style="font-size:12px;color:#888;">小程序后端</span>
+    </div>
+  </div>
+  <p style="text-align:center;color:#888;margin-top:8px;">两个 API 模块都依赖 common，但 admin-api 和 miniapp-api 互相独立<br/>同一套 User/Order 实体，不用写两遍</p>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>一句话概括</h3>
+  <p><strong>common</strong> = 大家都要用的东西放这里（实体类、工具类、公共配置）</p>
+  <p><strong>admin-api</strong> = 运营人员用的后台系统的接口</p>
+  <p><strong>miniapp-api</strong> = 用户在小程序上看到的所有功能的接口</p>
+  <p><strong>admin-web</strong> = 前端页面（Vue 项目，调 admin-api 的接口）</p>
+</div>

@@ -7,9 +7,11 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro"
   },
-  "model": "deepseek-v4-pro",
-  "theme": "dark",
   "includeCoAuthoredBy": false,
+  "model": "deepseek-v4-pro",
+  "enabledPlugins": {},
   "effortLevel": "xhigh",
-  "autoUpdatesChannel": "latest"
+  "autoUpdatesChannel": "latest",
+  "theme": "dark"
 }
+

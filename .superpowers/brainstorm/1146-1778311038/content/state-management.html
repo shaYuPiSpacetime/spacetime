@@ -1,0 +1,43 @@
+<h2>React 状态管理</h2>
+<p class="subtitle">管理后台的状态量：登录态、用户信息、路由权限、列表查询条件、UI 状态</p>
+
+<div class="options">
+  <div class="option" data-choice="zustand" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Zustand</h3>
+      <p>轻量、无模板代码、TypeScript 友好、按需订阅渲染。React 社区当前最主流选择。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>API 极简，5 分钟上手</li><li>无 Provider 包裹地狱</li><li>ts 类型推断自然</li><li>体积小（~1KB）</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>没有 Redux DevTools 那么成熟的调试工具链</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="context" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>React Context + useReducer</h3>
+      <p>React 内置方案。不需要额外依赖。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>零依赖</li><li>足够覆盖后台常见场景</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Context 值变化时所有消费者重渲染</li><li>多 Context 嵌套恶心</li><li>没有中间件（如持久化、日志）</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="redux" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Redux Toolkit</h3>
+      <p>老牌方案，生态最全。但管理后台场景偏重。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>RTK Query 可接管 API 请求</li><li>DevTools 调试最强</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>模板代码多（slice/createAsyncThunk）</li><li>对管理后台来说太重了</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>推荐</h3>
+<p><strong>A — Zustand</strong>。管理后台的状态模式很固定（登录 → 拿菜单 → CRUD），不需要 Redux 的复杂度。Zustand 足够用，新人看一眼就明白。</p>

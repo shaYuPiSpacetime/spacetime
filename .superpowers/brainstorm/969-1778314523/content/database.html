@@ -1,0 +1,37 @@
+<h2>数据库选型</h2>
+<p class="subtitle">影响到 JSON 字段、全文搜索、字符集、运维成本</p>
+
+<div class="options">
+  <div class="option" data-choice="mysql" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>MySQL 8.0+</h3>
+      <p>最主流。国内云厂商默认支持，运维资料丰富。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>团队最熟悉，学习成本为零</li><li>云厂商 RDS 一键创建</li><li>MyBatis-Plus 兼容性最好</li><li>8.0 支持 JSON 字段、窗口函数、CTE</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>JSON 查询不如 PostgreSQL 灵活</li><li>全文搜索弱（中文需额外 ES）</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="pg" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>PostgreSQL 15+</h3>
+      <p>功能最强。JSONB、全文搜索、数组类型原生支持。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>JSONB 字段灵活（量表计分规则等配置类数据很适合）</li><li>原生全文搜索可省 ES</li><li>数组、枚举类型丰富</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>国内云厂商 RDS 稍贵</li><li>团队需要学习曲线</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>推荐</h3>
+<p><strong>MySQL 8.0</strong>。理由：</p>
+<ul>
+  <li>你们项目没到需要 PG 高级特性的规模</li>
+  <li>MyBatis-Plus 对 MySQL 适配最成熟</li>
+  <li>微信小程序生态几乎清一色 MySQL，招人也方便</li>
+  <li>后期真有搜索需求可以补 ES，没必要为这个换 PG</li>
+</ul>
