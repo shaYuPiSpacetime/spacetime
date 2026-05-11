@@ -56,9 +56,18 @@ Controller  → 接收请求、参数校验、调用 Service
 Service     → 业务逻辑接口
 ServiceImpl → 业务逻辑实现，调用 DAO
 DAO         → 数据访问接口
-DAOImpl     → 数据访问实现，调用 Mapper
-Mapper      → MyBatis-Plus BaseMapper
+DAOImpl     → 数据访问实现，调用 MyBatis Mapper
+Mapper      → MyBatis-Plus BaseMapper（数据库映射层）
 ```
+
+> **⚠️ 关键约束：每一层只能调用紧邻的下一层。**
+> - Controller 不能跳过 Service 直接调 DAO
+> - **ServiceImpl 不能跳过 DAO 直接调 MyBatis Mapper**
+> - 只有 DAOImpl 可以注入和调用 MyBatis Mapper
+
+> **🔑 名词区分：**
+> - **MyBatis Mapper**（`XxxMapper`）= 数据库映射接口，继承 `BaseMapper`，**只有 DAOImpl 能调**
+> - **Jackson ObjectMapper**（`com.fasterxml.jackson.databind.ObjectMapper`）= JSON 序列化/反序列化工具，**与数据库无关**，Service 层可以使用
 
 ### 2.2 包结构
 
@@ -391,7 +400,8 @@ export default function UserMgrPage() {
 
 | 禁止 | 正确做法 |
 |------|---------|
-| Controller 直接调用 Mapper | 走完整六层：Controller → Service → DAO → Mapper |
+| Controller 直接调用 MyBatis Mapper | 走完整六层：Controller → Service → DAO → MyBatis Mapper |
+| ServiceImpl 直接调 MyBatis Mapper | 必须通过 DAO 层，只有 DAOImpl 能注入 MyBatis Mapper |
 | 各层自己 try-catch | 抛异常，交给 GlobalExceptionHandler |
 | 硬编码错误码数字 | 使用 ResultCodeEnum |
 | 密码明文/MD5 | 使用 BCrypt |
@@ -399,5 +409,6 @@ export default function UserMgrPage() {
 | 无注释代码 | 类/方法/字段必须有注释 |
 | 魔法值 | 提取为常量或枚举 |
 | admin/ 调用 miniapp/ | 两个模块只能依赖 common/ |
-| ServiceImpl 直接调 Mapper | 必须通过 DAO 层 |
 | 日期用 java.util.Date | 统一用 LocalDateTime |
+
+> **📌 Jackson ObjectMapper 不是 "Mapper"：** `com.fasterxml.jackson.databind.ObjectMapper` 是 JSON 序列化工具，与 MyBatis 的数据库 Mapper 是完全不同的概念。Service/ServiceImpl 可以使用它做 JSON 操作，不受 "禁止直接调 Mapper" 规则的限制。
