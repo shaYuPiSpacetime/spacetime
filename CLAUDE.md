@@ -26,10 +26,4 @@
 | 上线准备 | 准备部署 | `gstack-ship` | 打包、环境检查、发布总结 |
 | 提交/PR | 需要提交 | `git-utils` | 分支、commit、提 PR |
 
-**提交门禁（强提醒，可跳过）：** 用户说"提交代码"时，提示"提交前需完成自检和 Code Review"。
-- 用户选择跳过 → 直接 `git-utils` 提交
-- 用户选择不跳过 → 按以下顺序执行：
-  1. `superpowers:verification-before-completion` 跑编译/测试
-  2. 对照 `./TEAM_STANDARDS.md` 逐条校验
-  3. `superpowers:requesting-code-review` 检查是否合规、是否有隐患
-  4. `git-utils` 提交
+**提交门禁（强提醒，可跳过）：** 用户每次说"提交代码"时，提示"提交前建议完成自检和 Code Review"，用户选择跳过则直接 `git-utils` 提交，选择不跳过则依次执行：① `superpowers:verification-before-completion` 自检 → ② 对照 `./TEAM_STANDARDS.md` 逐条校验 → ③ `superpowers:requesting-code-review` 通用审查 → ④ `git-utils` 提交。
