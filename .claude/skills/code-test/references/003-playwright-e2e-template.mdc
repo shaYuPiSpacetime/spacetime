@@ -1,0 +1,219 @@
+---
+description: 变更代码测试 - L4 Playwright E2E 前端浏览器自动化测试模板（多 UI 框架）
+alwaysApply: false
+---
+
+# L4 - Playwright E2E 测试模板
+
+---
+
+## 项目结构
+
+```
+frontend/e2e-tests/                     # Playwright 基础设施
+├── package.json                        # @playwright/test
+├── playwright.config.ts                # Chromium only + video + retries
+├── tsconfig.json
+├── .env                                # 本地环境变量（gitignore）
+└── tests/
+    ├── helpers/auth.ts                 # Token 注入（X-Auth-Token）+ 多角色支持
+    └── {模块名}.spec.ts                # 从 testcase.md L4 章节派生
+```
+
+## 运行命令
+
+### 环境地址获取优先级
+
+`frontend/e2e-tests/.env` 中配置地址变量：
+
+| 变量 | 用途 | 对应测试层级 |
+|------|------|------------|
+| `BASE_URL` | 前端页面地址（Playwright） | L4 |
+| `API_URL` | 后端接口地址（cURL） | L1 |
+
+1. **优先**：`.env` 中有值 → 直接使用，不再询问
+2. **最终**：未配置 → 询问用户确认
+
+```bash
+cd frontend
+
+# 方式 1（推荐）：.env 文件已配好 BASE_URL 和 TOKEN，直接运行
+npx playwright test
+npx playwright test --headed   # 看操作过程
+npx playwright test --ui       # 交互式调试
+
+# 方式 2：命令行传入（覆盖 .env）
+BASE_URL=http://localhost:5173 TOKEN=xxx npx playwright test
+
+npx playwright show-report     # HTML 报告
+```
+
+## 支持的前端项目
+
+| 项目 | UI 框架 | 选择器风格 |
+|------|---------|-----------|
+| frontend | React 18 + Tailwind CSS + shadcn/ui | Tailwind class + shadcn/ui 组件选择器 |
+
+## 登录机制
+
+Spacetime 用 Zustand authStore + localStorage 存 Token（key: `token`），不走登录页：
+
+```typescript
+await page.goto(baseURL);
+await page.evaluate((t) => localStorage.setItem('token', t), token);
+await page.reload();
+```
+
+## .env 配置
+
+`frontend/e2e-tests/.env` 模板：
+
+```env
+# ──── 地址配置 ────
+# 前端页面地址（L4 Playwright 用）
+BASE_URL=http://localhost:5173
+# 后端接口地址（L1 cURL 用）
+API_URL=http://localhost:8080
+
+# ──── 认证配置 ────
+TOKEN=你的默认Token
+
+# 多角色 Token（L4 多角色测试时使用）
+TOKEN_ADMIN=管理员Token
+TOKEN_USER=普通用户Token
+```
+
+## 测试文件模板
+
+```typescript
+import { test, expect } from '@playwright/test';
+import { loginWithToken, getToken } from './helpers/auth';
+
+const PAGE_PATH = '/{路由路径}';  // React Router，无 hash
+
+test.describe('{功能名称}', () => {
+  test.beforeEach(async ({ page, baseURL }) => {
+    await loginWithToken(page, baseURL!, getToken());
+    await page.goto(`${baseURL}${PAGE_PATH}`);
+    await page.waitForSelector('{核心元素}', { timeout: 10000 });
+  });
+
+  // 用例
+});
+```
+
+## 用例模板
+
+### UI 显隐验证
+
+```typescript
+test('{元素}在{条件}下应{可见/不可见}', async ({ page }) => {
+  const row = page.locator('tbody tr', { hasText: '{文本}' }).first();
+  if (await row.count() === 0) test.skip(true, '无测试数据');
+  await expect(row.locator('a', { hasText: '{按钮}' })).toBeVisible();
+  // 或 .toHaveCount(0) 验证不可见
+});
+```
+
+### 交互流程
+
+```typescript
+test('{操作}完整流程', async ({ page }) => {
+  await page.locator('button', { hasText: '{按钮}' }).first().click();
+  await expect(page.locator('[role="dialog"]')).toBeVisible();
+  await page.locator('text={选项}').click();
+  await page.locator('[role="dialog"] button', { hasText: '确定' }).click();
+  // 二次确认（如有）
+  await page.locator('[role="alertdialog"] button', { hasText: '确定' }).click();
+  await expect(page.locator('.text-green-600, .text-red-600')).toBeVisible();
+});
+```
+
+### 多角色验证
+
+```typescript
+import { loginWithToken, getRoleToken } from './helpers/auth';
+
+const roles = [
+  { name: '财务', envKey: 'TOKEN_ACCOUNTING' },
+  { name: '商务', envKey: 'TOKEN_SALESMAN' },
+];
+for (const role of roles) {
+  test(`${role.name} - 按钮可见性`, async ({ page, baseURL }) => {
+    const token = getRoleToken(role.envKey);
+    if (!token) test.skip(true, `未配置 ${role.name} Token（${role.envKey}）`);
+    await loginWithToken(page, baseURL!, token!);
+    await page.goto(`${baseURL}${PAGE_PATH}`);
+    // 验证按钮
+  });
+}
+```
+
+### API Mock（隔离后端依赖）
+
+```typescript
+test('接口超时应展示错误提示', async ({ page }) => {
+  await page.route('**/admin/xxx', route =>
+    route.fulfill({ status: 500, body: JSON.stringify({ code: 5000, msg: '服务异常', data: null }) })
+  );
+  await page.goto(`${baseURL}${PAGE_PATH}`);
+  await expect(page.locator('.text-destructive, .text-red-500')).toBeVisible();
+});
+
+test('空列表应展示空状态', async ({ page }) => {
+  await page.route('**/admin/xxx/list', route =>
+    route.fulfill({ status: 200, body: JSON.stringify({ code: 200, msg: 'success', data: { records: [], total: 0 } }) })
+  );
+  await page.goto(`${baseURL}${PAGE_PATH}`);
+  await expect(page.getByText('暂无数据')).toBeVisible();
+});
+```
+
+---
+
+## 选择器速查（React 18 + Tailwind CSS + shadcn/ui）
+
+### shadcn/ui 组件选择器
+
+| 组件 | 选择器 |
+|------|-------|
+| 表格行 | `page.locator('tbody tr')` |
+| 表头 | `page.locator('thead th')` |
+| 操作按钮 | `row.locator('button', { hasText: '文案' })` |
+| Dialog 弹窗 | `page.locator('[role="dialog"]')` |
+| AlertDialog 确认 | `page.locator('[role="alertdialog"]')` |
+| Dialog 确定按钮 | `page.locator('[role="dialog"] button', { hasText: '确定' })` |
+| Toast / Sonner | `page.locator('[data-sonner-toaster]')` 或 `page.locator('.toaster')` |
+| Input | `page.locator('input[placeholder="xxx"]')` |
+| Select 下拉 | `page.locator('[role="combobox"]').click()` → `page.locator('[role="option"]', { hasText: '选项' })` |
+| Tabs 切换 | `page.locator('[role="tab"]', { hasText: 'Tab名' })` |
+| 分页按钮 | `page.locator('button', { hasText: /^[0-9]+$/ })` |
+| Badge 徽标 | `page.locator('.inline-flex.items-center.rounded-full')` |
+| Card 卡片 | `page.locator('.rounded-xl.border')` |
+| Checkbox | `page.locator('[role="checkbox"]')` |
+| Dropdown 菜单 | `page.locator('[role="menu"]')` |
+| Dropdown 菜单项 | `page.locator('[role="menuitem"]', { hasText: '选项' })` |
+| Sheet 侧边抽屉 | `page.locator('[role="dialog"][aria-label]')` 或 `page.locator('.fixed.inset-y-0')` |
+
+### Tailwind 状态类选择器
+
+| 场景 | 选择器 |
+|------|-------|
+| 禁用按钮 | `page.locator('button:disabled')` |
+| 可见元素 | `page.locator('.block')` / `page.locator('.flex')` |
+| 隐藏元素 | `page.locator('.hidden')` |
+| 加载中 | `page.locator('.animate-spin')` |
+| 错误状态文本 | `page.locator('.text-red-500, .text-red-600, .text-destructive')` |
+| 成功状态文本 | `page.locator('.text-green-500, .text-green-600')` |
+| 侧边栏链接 | `page.locator('aside a, nav a')` |
+
+> 优先 `hasText` 和 `role` 按语义定位，比 CSS class 更抗 UI 微调。shadcn/ui 组件大量使用 Radix UI 原语，自带 `role` 属性。
+
+## 注意事项
+
+1. `BASE_URL`（前端页面）和 `API_URL`（后端接口）优先从 `frontend/e2e-tests/.env` 读取，未配置时询问用户，均不硬编码
+2. 测试数据不可控时用 `test.skip`，不让环境问题导致测试红
+3. shadcn/ui 组件有动画（基于 Radix UI），操作间用 `waitForSelector` 等待
+4. 涉及后端 API 的用例标注"需联调环境"，或用 `page.route()` mock
+5. 状态变更类注意顺序——先测读再测写
+6. 写入类测试考虑用 API Mock 隔离，避免污染测试环境数据
