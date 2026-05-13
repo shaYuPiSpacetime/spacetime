@@ -1,6 +1,7 @@
 package com.spacetime.admin.controller;
 
 import com.spacetime.admin.dto.request.LoginReq;
+import com.spacetime.admin.dto.response.LoginVO;
 import com.spacetime.admin.service.AuthService;
 import com.spacetime.common.constant.AuthConstant;
 import com.spacetime.common.result.R;
@@ -24,7 +25,7 @@ public class AuthController {
 
     /** 管理后台登录 */
     @PostMapping("/login")
-    public R<?> login(@Valid @RequestBody LoginReq req) {
+    public R<LoginVO> login(@Valid @RequestBody LoginReq req) {
         return R.ok(authService.login(req));
     }
 

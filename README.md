@@ -4,15 +4,17 @@
 
 ## 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 后端框架 | Spring Boot 3.4 + Java 21 |
-| ORM | MyBatis-Plus 3.5 |
-| 数据库 | MySQL 8.0 |
-| 缓存 | Redis 7.x |
-| 前端 | React 18 + TypeScript + Vite |
-| UI | Tailwind CSS + shadcn/ui |
-| 状态管理 | Zustand |
+
+| 层级   | 技术                           |
+| ---- | ---------------------------- |
+| 后端框架 | Spring Boot 3.4 + Java 21    |
+| ORM  | MyBatis-Plus 3.5             |
+| 数据库  | MySQL 8.0                    |
+| 缓存   | Redis 7.x                    |
+| 前端   | React 18 + TypeScript + Vite |
+| UI   | Tailwind CSS + shadcn/ui     |
+| 状态管理 | Zustand                      |
+
 
 ## 项目结构
 

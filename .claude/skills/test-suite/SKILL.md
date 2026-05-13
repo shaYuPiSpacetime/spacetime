@@ -14,26 +14,30 @@ Run and manage tests. Invoke via `/test-suite` or when Claude detects test-relat
 ## Operations
 
 ### `run-all`
+
 Run the full test suite. Auto-detects the framework.
 
 ### `run-file <path>`
+
 Run tests in a specific file.
 
 ### `coverage`
+
 Run tests with coverage reporting.
 
 ## Framework Detection
 
-| Config File | Framework |
-|---|---|
-| `jest.config.*` | `npx jest` |
-| `vitest.config.*` | `npx vitest run` |
-| `pytest.ini` / `pyproject.toml` (pytest) | `python -m pytest` |
-| `package.json` scripts | `npm test` / `yarn test` |
+| Config File                              | Framework                |
+| ---------------------------------------- | ------------------------ |
+| `jest.config.*`                          | `npx jest`               |
+| `vitest.config.*`                        | `npx vitest run`         |
+| `pytest.ini` / `pyproject.toml` (pytest) | `python -m pytest`       |
+| `package.json` scripts                   | `npm test` / `yarn test` |
 
 ## Reporting
 
 After running tests, summarise:
+
 - Total passed / failed / skipped
 - Coverage percentages (lines, branches, functions)
 - Any new failures with file:line references

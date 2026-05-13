@@ -8,12 +8,12 @@
 
 ### 1.1 必须写注释的场景
 
-| 场景 | 注释形式 | 示例 |
-|------|---------|------|
-| 每个类/接口 | 类级 Javadoc | `/** 用户服务接口 */` |
+| 场景             | 注释形式       | 示例                          |
+| ---------------- | -------------- | ----------------------------- |
+| 每个类/接口      | 类级 Javadoc   | `/** 用户服务接口 */`         |
 | 每个 public 方法 | 方法级 Javadoc | `/** @param token @return */` |
-| 每个字段 | 行注释 | `/** 状态码 */` |
-| 关键步骤 | 行内注释 | `// 1. 校验 token` |
+| 每个字段         | 行注释         | `/** 状态码 */`               |
+| 关键步骤         | 行内注释       | `// 1. 校验 token`            |
 
 ### 1.2 类注释模板
 
@@ -61,11 +61,13 @@ Mapper      → MyBatis-Plus BaseMapper（数据库映射层）
 ```
 
 > **⚠️ 关键约束：每一层只能调用紧邻的下一层。**
+>
 > - Controller 不能跳过 Service 直接调 DAO
 > - **ServiceImpl 不能跳过 DAO 直接调 MyBatis Mapper**
 > - 只有 DAOImpl 可以注入和调用 MyBatis Mapper
 
 > **🔑 名词区分：**
+>
 > - **MyBatis Mapper**（`XxxMapper`）= 数据库映射接口，继承 `BaseMapper`，**只有 DAOImpl 能调**
 > - **Jackson ObjectMapper**（`com.fasterxml.jackson.databind.ObjectMapper`）= JSON 序列化/反序列化工具，**与数据库无关**，Service 层可以使用
 
@@ -128,23 +130,23 @@ frontend/
 
 ## 3. 命名规范
 
-| 类型 | 规则 | 示例 |
-|------|------|------|
-| 类名（后端） | 大驼峰 | `TokenInterceptor` |
-| 方法名（后端） | 小驼峰 | `getUserById()` |
-| 变量名 | 小驼峰 | `accessKeyId` |
-| 常量（后端） | 全大写+下划线 | `TOKEN_HEADER` |
-| 实体类 | 表名转大驼峰 | `SysUser` → `sys_user` |
-| 前端组件文件 | PascalCase | `UserList.tsx` |
-| 前端页面目录 | kebab-case | `user-mgr/` |
-| 前端 Hook | `useXxx.ts` | `useAuth.ts` |
-| 前端 Store | `xxxStore.ts` | `authStore.ts` |
-| Service 接口 | `XxxService` | `AuthService` |
-| Service 实现 | `XxxServiceImpl` | `AuthServiceImpl` |
-| DAO 接口 | `XxxDao` | `UserDao` |
-| DAO 实现 | `XxxDaoImpl` | `UserDaoImpl` |
-| Mapper | `XxxMapper` | `SysUserMapper` |
-| Controller | `XxxController` | `AuthController` |
+| 类型           | 规则             | 示例                   |
+| -------------- | ---------------- | ---------------------- |
+| 类名（后端）   | 大驼峰           | `TokenInterceptor`     |
+| 方法名（后端） | 小驼峰           | `getUserById()`        |
+| 变量名         | 小驼峰           | `accessKeyId`          |
+| 常量（后端）   | 全大写+下划线    | `TOKEN_HEADER`         |
+| 实体类         | 表名转大驼峰     | `SysUser` → `sys_user` |
+| 前端组件文件   | PascalCase       | `UserList.tsx`         |
+| 前端页面目录   | kebab-case       | `user-mgr/`            |
+| 前端 Hook      | `useXxx.ts`      | `useAuth.ts`           |
+| 前端 Store     | `xxxStore.ts`    | `authStore.ts`         |
+| Service 接口   | `XxxService`     | `AuthService`          |
+| Service 实现   | `XxxServiceImpl` | `AuthServiceImpl`      |
+| DAO 接口       | `XxxDao`         | `UserDao`              |
+| DAO 实现       | `XxxDaoImpl`     | `UserDaoImpl`          |
+| Mapper         | `XxxMapper`      | `SysUserMapper`        |
+| Controller     | `XxxController`  | `AuthController`       |
 
 ---
 
@@ -171,7 +173,15 @@ return R.fail("用户名不能为空");
 - `BUSINESS_ERROR(5001)` — 业务异常
 - `SYSTEM_ERROR(5000)` — 系统异常
 
-### 4.3 异常处理
+### 4.3 Controller 返回类型
+
+- **禁止 `R<?>` 通配符返回**，必须精确返回具体类型
+- 返回单个对象：`R<LoginVO>`、`R<UserDetailVO>`
+- 返回列表：`R<List<MenuVO>>`
+- 返回分页：`R<Page<UserVO>>`
+- 无返回数据：`R<Void>`
+
+### 4.4 异常处理
 
 - 业务异常：抛 `BusinessException`
 - 不要在各层 try-catch，统一由 `GlobalExceptionHandler` 处理
@@ -184,6 +194,12 @@ return R.fail("用户名不能为空");
 - 所有实体必须继承 `BaseEntity`
 - 使用 `@TableLogic` 逻辑删除，禁止物理删除
 - 字符集统一 `utf8mb4`，引擎统一 `InnoDB`
+- **实体字段有多个固定值时必须提取为枚举**，并在字段注释中用 `@see` 关联枚举类
+
+```java
+/** 状态 @see CommonStatusEnum */
+private String status;
+```
 
 ---
 
@@ -254,6 +270,7 @@ export function UserCard({ user, onEdit }: UserCardProps) {
 ```
 
 核心规则：
+
 1. 一个文件只 export 一个组件（页面目录除外）
 2. Hooks 声明 → 派生状态 → 事件处理 → JSX 渲染，按此顺序
 3. 组件 Props 必须定义 TypeScript 接口
@@ -276,12 +293,12 @@ export function UserCard({ user, onEdit }: UserCardProps) {
 
 ### 8.3 状态管理规范
 
-| 数据类型 | 存放位置 | 示例 |
-|---------|---------|------|
-| 登录用户信息 | Zustand authStore | token, nickname |
-| 页面内 UI 状态 | 组件 useState | modal 开关, 表单值 |
-| 服务端数据 | hooks 中管理 | 列表数据, 详情数据 |
-| 全局配置 | Zustand store | 主题, 侧边栏折叠 |
+| 数据类型       | 存放位置          | 示例               |
+| -------------- | ----------------- | ------------------ |
+| 登录用户信息   | Zustand authStore | token, nickname    |
+| 页面内 UI 状态 | 组件 useState     | modal 开关, 表单值 |
+| 服务端数据     | hooks 中管理      | 列表数据, 详情数据 |
+| 全局配置       | Zustand store     | 主题, 侧边栏折叠   |
 
 ### 8.4 路由规范
 
@@ -320,6 +337,7 @@ const handleLogin = async () => {
 ```
 
 核心规则：
+
 1. 所有请求函数放 `api/` 目录，按业务模块分文件
 2. 页面组件禁止直接 `import axios` 或调 `request`
 3. 每个 API 函数必须标注参数和返回值类型
@@ -383,32 +401,34 @@ export default function UserMgrPage() {
 
 ### 8.8 前端禁止事项
 
-| 禁止 | 正确做法 |
-|------|---------|
-| 页面内直接 `import axios` | 走 `api/` 目录封装的函数 |
-| JSX 中写复杂业务逻辑 | 提取到 hooks 或 utils |
+| 禁止                                    | 正确做法                    |
+| --------------------------------------- | --------------------------- |
+| 页面内直接 `import axios`               | 走 `api/` 目录封装的函数    |
+| JSX 中写复杂业务逻辑                    | 提取到 hooks 或 utils       |
 | JSX 中 `user.phone.slice(0,3) + '****'` | 用 `utils/mask.ts` 脱敏函数 |
-| 内联 `style={{}}` | 使用 Tailwind CSS class |
-| 组件文件 export 多个组件 | 一个文件一个组件 |
-| API 函数无类型标注 | 参数/返回值必须标注类型 |
-| 硬编码路由路径 | 从路由配置表引用 |
-| 密码/身份证等敏感信息 console 输出 | 禁止输出或用脱敏工具 |
+| 内联 `style={{}}`                       | 使用 Tailwind CSS class     |
+| 组件文件 export 多个组件                | 一个文件一个组件            |
+| API 函数无类型标注                      | 参数/返回值必须标注类型     |
+| 硬编码路由路径                          | 从路由配置表引用            |
+| 密码/身份证等敏感信息 console 输出      | 禁止输出或用脱敏工具        |
 
 ---
 
 ## 9. 后端禁止事项
 
-| 禁止 | 正确做法 |
-|------|---------|
-| Controller 直接调用 MyBatis Mapper | 走完整六层：Controller → Service → DAO → MyBatis Mapper |
-| ServiceImpl 直接调 MyBatis Mapper | 必须通过 DAO 层，只有 DAOImpl 能注入 MyBatis Mapper |
-| 各层自己 try-catch | 抛异常，交给 GlobalExceptionHandler |
-| 硬编码错误码数字 | 使用 ResultCodeEnum |
-| 密码明文/MD5 | 使用 BCrypt |
-| 物理删除数据 | 使用 @TableLogic 逻辑删除 |
-| 无注释代码 | 类/方法/字段必须有注释 |
-| 魔法值 | 提取为常量或枚举 |
-| admin/ 调用 miniapp/ | 两个模块只能依赖 common/ |
-| 日期用 java.util.Date | 统一用 LocalDateTime |
+| 禁止                               | 正确做法                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------- |
+| Controller 直接调用 MyBatis Mapper | 走完整六层：Controller → Service → DAO → MyBatis Mapper                   |
+| ServiceImpl 直接调 MyBatis Mapper  | 必须通过 DAO 层，只有 DAOImpl 能注入 MyBatis Mapper                       |
+| 各层自己 try-catch                 | 抛异常，交给 GlobalExceptionHandler                                       |
+| 硬编码错误码数字                   | 使用 ResultCodeEnum                                                       |
+| 密码明文/MD5                       | 使用 BCrypt                                                               |
+| 物理删除数据                       | 使用 @TableLogic 逻辑删除                                                 |
+| 无注释代码                         | 类/方法/字段必须有注释                                                    |
+| 魔法值（字符串字面量）             | 提取为常量或枚举；枚举创建后禁止使用字符串字面量，必须用 `Enum.getCode()` |
+| admin/ 调用 miniapp/               | 两个模块只能依赖 common/                                                  |
+| 日期用 java.util.Date              | 统一用 LocalDateTime                                                      |
+| Controller 返回 `R<?>` 通配符      | 必须返回具体类型，如 `R<LoginVO>`、`R<Void>`                              |
+| 实体字段有固定值却不提取枚举       | 提取为 Enum，字段注释用 `@see` 关联枚举类                                 |
 
 > **📌 Jackson ObjectMapper 不是 "Mapper"：** `com.fasterxml.jackson.databind.ObjectMapper` 是 JSON 序列化工具，与 MyBatis 的数据库 Mapper 是完全不同的概念。Service/ServiceImpl 可以使用它做 JSON 操作，不受 "禁止直接调 Mapper" 规则的限制。

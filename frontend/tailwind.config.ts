@@ -34,11 +34,41 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar-bg))',
+          foreground: 'hsl(var(--sidebar-foreground))',
+          active: 'hsl(var(--sidebar-active))',
+        },
+        header: 'hsl(var(--header-bg))',
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
+        female: {
+          bg: 'hsl(var(--female-bg))',
+          text: 'hsl(var(--female-text))',
+        },
+        male: {
+          bg: 'hsl(var(--male-bg))',
+          text: 'hsl(var(--male-text))',
+        },
+        pagination: {
+          DEFAULT: 'hsl(var(--pagination-bg))',
+          active: 'hsl(var(--pagination-active))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+      },
+      spacing: {
+        sidebar: 'var(--sidebar-width)',
+        header: 'var(--header-height)',
       },
     },
   },

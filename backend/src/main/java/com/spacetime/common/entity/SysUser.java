@@ -23,8 +23,10 @@ public class SysUser extends BaseEntity {
     private String email;
     /** 手机号 */
     private String phone;
-    /** 状态：ENABLED 启用 / DISABLED 禁用 */
+    /** 状态 @see CommonStatusEnum */
     private String status;
+    /** 头像 URL */
+    private String avatar;
     /** 最后登录时间 */
     private LocalDateTime lastLoginTime;
 }

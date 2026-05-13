@@ -24,6 +24,17 @@ public class UserDaoImpl implements UserDao {
     }
 
     @Override
+    public SysUser selectByUsernameOrPhone(String account) {
+        SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, account));
+        if (user == null) {
+            user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                    .eq(SysUser::getPhone, account));
+        }
+        return user;
+    }
+
+    @Override
     public SysUser selectById(Long id) {
         return sysUserMapper.selectById(id);
     }
@@ -31,5 +42,20 @@ public class UserDaoImpl implements UserDao {
     @Override
     public Page<SysUser> selectPage(Page<SysUser> page, LambdaQueryWrapper<SysUser> wrapper) {
         return sysUserMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public void insert(SysUser user) {
+        sysUserMapper.insert(user);
+    }
+
+    @Override
+    public void updateById(SysUser user) {
+        sysUserMapper.updateById(user);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        sysUserMapper.deleteById(id);
     }
 }

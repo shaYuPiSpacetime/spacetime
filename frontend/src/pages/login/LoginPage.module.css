@@ -1,0 +1,214 @@
+.container {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  background: rgba(81, 144, 246, 1);
+}
+
+/* Full-viewport illustration layer */
+.bgLayer {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 1);
+}
+
+.bgLayer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('./assets/image_1.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Content layer on top of illustration */
+.content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  width: 248.82px;
+  height: 92px;
+  margin-top: 5.46vh;
+  margin-left: 3.96vw;
+  flex-shrink: 0;
+}
+
+.cardWrapper {
+  width: 509px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  margin-left: 50.47vw;
+  margin-top: 32px;
+}
+
+.brandRow {
+  width: 266px;
+  height: 44px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.welcomeText {
+  font-family: 'Inter', sans-serif;
+  font-size: 36px;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 1);
+  line-height: normal;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.subtitleText {
+  margin-top: 12px;
+  margin-left: 26px;
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 1);
+  line-height: normal;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.glassCard {
+  margin-top: 54px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  width: 509px;
+  height: 557px;
+  background-image: url('./assets/image_3.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.tabText {
+  margin-top: 57px;
+  margin-left: 50px;
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 1);
+  line-height: normal;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.tabIndicator {
+  width: 96px;
+  height: 6px;
+  margin-top: 11px;
+  margin-left: 50px;
+}
+
+.inputField {
+  margin-top: 60px;
+  margin-left: 50px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 410px;
+  height: 68px;
+  background-image: url('./assets/image_5.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.inputFieldCode {
+  margin-top: 20px;
+  margin-left: 50px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 410px;
+  height: 68px;
+  background-image: url('./assets/image_6.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.realInput {
+  width: 100%;
+  height: 100%;
+  padding-left: 30px;
+  padding-right: 30px;
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  color: #333;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.realInput::placeholder {
+  color: rgba(153, 153, 153, 1);
+}
+
+.loginButton {
+  margin-top: 69px;
+  margin-left: 54px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 403px;
+  height: 68px;
+  background-image: url('./assets/image_7.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+}
+
+.loginButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.loginBtnText {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  white-space: nowrap;
+  color: rgba(40, 118, 255, 1);
+  line-height: normal;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.errorText {
+  margin-top: 12px;
+  margin-left: 54px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #F43434;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(40, 118, 255, 0.2);
+  border-top-color: rgba(40, 118, 255, 1);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

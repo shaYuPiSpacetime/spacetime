@@ -5,8 +5,11 @@ import com.spacetime.common.enums.ResultCodeEnum;
 import com.spacetime.common.result.R;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.stream.Collectors;
 
 /**
  * 全局异常处理器
@@ -24,6 +27,16 @@ public class GlobalExceptionHandler {
     public R<Void> handleBusinessException(BusinessException e) {
         log.warn("business error: {}", e.getMessage());
         return R.fail(e.getCode(), e.getMessage());
+    }
+
+    /** 参数校验失败：返回具体字段和错误信息 */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public R<Void> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        log.warn("validation error: {}", message);
+        return R.fail(ResultCodeEnum.PARAM_ERROR.getCode(), message);
     }
 
     /** 未知异常：生成 requestId 并打印完整堆栈，方便排查 */
