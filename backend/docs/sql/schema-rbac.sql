@@ -90,7 +90,14 @@ INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, icon
 (10, 1,  '菜单管理', 'C', '/system/menu', 'system/MenuManagement', 'Menu',     'system:menu:list',   3, 1),
 (11, 10, '新增菜单', 'F', NULL,    NULL,              NULL,       'system:menu:add',    1, 0),
 (12, 10, '编辑菜单', 'F', NULL,    NULL,              NULL,       'system:menu:edit',   2, 0),
-(13, 10, '删除菜单', 'F', NULL,    NULL,              NULL,       'system:menu:delete', 3, 0);
+(13, 10, '删除菜单', 'F', NULL,    NULL,              NULL,       'system:menu:delete', 3, 0),
+-- 字典管理
+(14, 1,  '字典管理', 'M', NULL,    NULL,              'BookOpen',  NULL,                4, 1),
+(15, 14, '字典类型', 'C', '/system/dict-type', 'system/DictTypeManagement', 'List',      'system:dict:list',   1, 1),
+(16, 14, '字典数据', 'C', '/system/dict-data', 'system/DictDataManagement', 'Database',  'system:dict:list',   2, 1),
+(17, 14, '新增字典', 'F', NULL,    NULL,              NULL,        'system:dict:add',    1, 0),
+(18, 14, '编辑字典', 'F', NULL,    NULL,              NULL,        'system:dict:edit',   2, 0),
+(19, 14, '删除字典', 'F', NULL,    NULL,              NULL,        'system:dict:delete', 3, 0);
 
 -- 超级管理员拥有所有菜单权限
 INSERT INTO sys_role_menu (role_id, menu_id)

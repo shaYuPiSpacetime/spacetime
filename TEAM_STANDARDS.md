@@ -173,7 +173,16 @@ return R.fail("用户名不能为空");
 - `BUSINESS_ERROR(5001)` — 业务异常
 - `SYSTEM_ERROR(5000)` — 系统异常
 
-### 4.3 Controller 返回类型
+### 4.3 时间字段序列化规范
+
+- **所有接口返回的时间类型字段统一使用字符串格式 `yyyy-MM-dd HH:mm:ss`**
+- `LocalDateTime` → `"2026-05-14 18:04:42"`
+- `LocalDate` → `"2026-05-14"`
+- `LocalTime` → `"18:04:42"`
+- 全局配置位于 `JacksonConfig.java`，VO 中禁止单独使用 `@JsonFormat` 覆盖格式
+- 前端 VO 类型中时间字段统一标注为 `string` 类型
+
+### 4.4 Controller 返回类型
 
 - **禁止 `R<?>` 通配符返回**，必须精确返回具体类型
 - 返回单个对象：`R<LoginVO>`、`R<UserDetailVO>`
@@ -181,7 +190,7 @@ return R.fail("用户名不能为空");
 - 返回分页：`R<Page<UserVO>>`
 - 无返回数据：`R<Void>`
 
-### 4.4 异常处理
+### 4.5 异常处理
 
 - 业务异常：抛 `BusinessException`
 - 不要在各层 try-catch，统一由 `GlobalExceptionHandler` 处理

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 const API_URL = process.env.API_URL || 'http://localhost:8080';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 
 /**
  * 登录并注入 token 到浏览器 localStorage
@@ -30,7 +31,7 @@ export async function loginViaApi(
     version: 0,
   };
 
-  await page.goto('/');
+  await page.goto(`${BASE_URL}/`);
   await page.evaluate(
     ({ t, a }) => {
       localStorage.setItem('token', t);

@@ -8,6 +8,8 @@ import { PlaceholderPage } from '@/pages/placeholder/PlaceholderPage';
 import UserManagement from '@/pages/admin/UserManagement';
 import RoleManagement from '@/pages/admin/RoleManagement';
 import MenuManagement from '@/pages/admin/MenuManagement';
+import DictTypeManagement from '@/pages/admin/DictTypeManagement';
+import DictDataManagement from '@/pages/admin/DictDataManagement';
 
 export default function AppRouter() {
   return (
@@ -30,6 +32,8 @@ export default function AppRouter() {
         <Route path="system/user" element={<UserManagement />} />
         <Route path="system/role" element={<RoleManagement />} />
         <Route path="system/menu" element={<MenuManagement />} />
+        <Route path="system/dict-type" element={<DictTypeManagement />} />
+        <Route path="system/dict-data" element={<DictDataManagement />} />
 
         {/* Placeholder routes */}
         <Route path="match" element={<PlaceholderPage title="匹配" />} />
