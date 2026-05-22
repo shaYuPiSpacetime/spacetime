@@ -1,0 +1,23 @@
+# Core ML stack
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.6.1
+scipy==1.15.3
+catboost==1.2.7
+implicit==0.7.2
+
+# API и frontend
+fastapi==0.116.1
+uvicorn==0.35.0
+streamlit==1.45.1
+requests==2.32.3
+
+# Дополнительно 
+joblib==1.4.2
+tqdm==4.67.1
+RapidFuzz==3.13.0
+typing_extensions==4.12.2
+
+# Для работы со векторной БД
+qdrant-client
+

@@ -10,6 +10,7 @@ import RoleManagement from '@/pages/admin/RoleManagement';
 import MenuManagement from '@/pages/admin/MenuManagement';
 import DictTypeManagement from '@/pages/admin/DictTypeManagement';
 import DictDataManagement from '@/pages/admin/DictDataManagement';
+import PromotionManagement from '@/pages/promotion/PromotionManagement';
 
 export default function AppRouter() {
   return (
@@ -34,6 +35,13 @@ export default function AppRouter() {
         <Route path="system/menu" element={<MenuManagement />} />
         <Route path="system/dict-type" element={<DictTypeManagement />} />
         <Route path="system/dict-data" element={<DictDataManagement />} />
+
+        {/* Promotion */}
+        <Route path="promotion/rules" element={<PromotionManagement />} />
+        <Route path="promotion/invites" element={<PromotionManagement />} />
+        <Route path="promotion/rewards" element={<PromotionManagement />} />
+        <Route path="promotion/agents" element={<PromotionManagement />} />
+        <Route path="promotion/settlements" element={<PromotionManagement />} />
 
         {/* Placeholder routes */}
         <Route path="match" element={<PlaceholderPage title="匹配" />} />
