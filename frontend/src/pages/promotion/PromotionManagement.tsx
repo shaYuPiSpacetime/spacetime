@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Check, Edit, Plus, RefreshCcw, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,28 +118,6 @@ export default function PromotionManagement() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>推广裂变</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {TABS.map((tab) => (
-              <Link
-                key={tab.key}
-                to={tab.path}
-                className={cn(
-                  'rounded-md border px-3 py-2 text-sm transition-colors',
-                  activeTab === tab.key ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted',
-                )}
-              >
-                {tab.title}
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {activeTab === 'rules' && <RulesPanel />}
       {activeTab === 'invites' && <InvitesPanel />}
       {activeTab === 'rewards' && <RewardsPanel />}

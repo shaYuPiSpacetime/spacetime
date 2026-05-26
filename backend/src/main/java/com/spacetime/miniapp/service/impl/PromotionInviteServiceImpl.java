@@ -73,7 +73,7 @@ public class PromotionInviteServiceImpl implements PromotionInviteService {
         sourceTraceDao.insert(trace);
         if (PromotionSourceTypeEnum.AGENT_CODE.getCode().equals(trace.getSourceType()) && StrUtil.isNotBlank(trace.getAgentCode())) {
             PromotionAgentCode code = agentCodeDao.selectByAgentCode(trace.getAgentCode());
-            if (code != null) {
+            if (code != null && "enabled".equals(code.getStatus())) {
                 PromotionAgentEvent event = new PromotionAgentEvent();
                 event.setAgentId(code.getAgentId());
                 event.setAgentCode(code.getAgentCode());
@@ -101,8 +101,14 @@ public class PromotionInviteServiceImpl implements PromotionInviteService {
         if (StrUtil.isNotBlank(agentCode)) {
             agent = agentCodeDao.selectByAgentCode(agentCode);
         }
+        if (agent != null && !"enabled".equals(agent.getStatus())) {
+            agent = null;
+        }
         if (agent == null && trace != null && StrUtil.isNotBlank(trace.getAgentCode())) {
             agent = agentCodeDao.selectByAgentCode(trace.getAgentCode());
+            if (agent != null && !"enabled".equals(agent.getStatus())) {
+                agent = null;
+            }
         }
 
         PromotionInviteRelation relation = new PromotionInviteRelation();

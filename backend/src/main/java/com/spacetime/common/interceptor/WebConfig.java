@@ -22,7 +22,13 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(tokenInterceptor)
                 .addPathPatterns("/admin/**", "/miniapp/**")
-                .excludePathPatterns("/admin/login", "/miniapp/login/**");
+                .excludePathPatterns(
+                        "/admin/login",
+                        "/miniapp/login/**",
+                        "/miniapp/promotion/invite/rules",
+                        "/miniapp/promotion/invite/share-log",
+                        "/miniapp/promotion/invite/agent-source"
+                );
 
         registry.addInterceptor(permissionInterceptor)
                 .addPathPatterns("/admin/**")

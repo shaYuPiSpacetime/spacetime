@@ -22,6 +22,7 @@ import {
   Shield,
   Menu,
   Lock,
+  ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -90,16 +91,17 @@ function SidebarMenuItem({ item, level = 0 }: { item: RouterVO; level?: number }
               ? 'text-sidebar-active font-medium'
               : 'text-sidebar-foreground hover:text-sidebar-active',
           )}
+          style={{ paddingLeft: `${16 + level * 18}px` }}
         >
           {childActive && (
             <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-sm bg-sidebar-active" />
           )}
           <Icon className="h-[18px] w-[18px] shrink-0" />
           <span className="min-w-0 flex-1 truncate">{item.meta.title}</span>
-          <span
+          <ChevronDown
             className={cn(
-              'h-1.5 w-1.5 rotate-45 border-r border-b border-current transition-transform',
-              expanded && 'rotate-[225deg]',
+              'h-4 w-4 shrink-0 transition-transform',
+              !expanded && '-rotate-90',
             )}
           />
         </button>
@@ -134,6 +136,47 @@ function SidebarMenuItem({ item, level = 0 }: { item: RouterVO; level?: number }
   );
 }
 
+function SidebarSection({ section }: { section: RouterVO }) {
+  const location = useLocation();
+  const items = sortMenuItems(section.children ?? []);
+  const childActive = hasActiveChild(location.pathname, section);
+  const [expanded, setExpanded] = useState<boolean>(childActive);
+
+  useEffect(() => {
+    if (childActive) setExpanded(true);
+  }, [childActive]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className={cn(
+          'flex w-full items-center gap-2 px-4 py-1 text-left text-[11px] font-medium uppercase tracking-wider transition-colors',
+          childActive ? 'text-sidebar-active' : 'text-muted-foreground/60 hover:text-sidebar-foreground',
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{section.meta.title}</span>
+        <ChevronDown
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 transition-transform',
+            !expanded && '-rotate-90',
+          )}
+        />
+      </button>
+      {expanded && (
+        <div className="space-y-0.5">
+          {items.map((item) => (
+            <SidebarMenuItem key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar() {
   const menuTree = useMenuStore((s) => s.menuTree);
   const fetchRouters = useMenuStore((s) => s.fetchRouters);
@@ -152,16 +195,7 @@ export function Sidebar() {
 
       <nav className="flex-1 space-y-4 py-3">
         {visibleMenuTree.map((section) => (
-          <div key={section.id}>
-            <div className="px-4 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
-              {section.meta.title}
-            </div>
-            <div className="space-y-0.5">
-              {sortMenuItems(section.children ?? []).map((item) => (
-                <SidebarMenuItem key={item.id} item={item} />
-              ))}
-            </div>
-          </div>
+          <SidebarSection key={section.id} section={section} />
         ))}
       </nav>
 
