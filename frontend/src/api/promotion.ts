@@ -17,7 +17,6 @@ export interface PromotionRuleVO {
   dailyLimit?: number;
   effectiveTime?: string;
   expireTime?: string;
-  agentGroup?: string;
   status: string;
   remark?: string;
   createTime?: string;
@@ -28,16 +27,17 @@ export interface PromotionInviteRelationVO {
   relationNo: string;
   sourceType: string;
   inviterId?: number;
+  inviterName?: string;
   inviteeId: number;
+  inviteeName?: string;
   agentId?: number;
-  agentCode?: string;
+  agentName?: string;
+  qrCode?: string;
   status: string;
   bindTime: string;
   firstLoginTime?: string;
   profileCompleteTime?: string;
   verifySuccessTime?: string;
-  invalidReason?: string;
-  frozenReason?: string;
   totalRewardCoin?: number;
 }
 
@@ -46,7 +46,9 @@ export interface PromotionRewardLogVO {
   rewardNo: string;
   relationId: number;
   inviterId: number;
+  inviterName?: string;
   inviteeId: number;
+  inviteeName?: string;
   eventType: string;
   rewardCoin: number;
   status: string;
@@ -64,19 +66,18 @@ export interface PromotionAgentVO {
   contactPhone?: string;
   school?: string;
   campus?: string;
-  agentGroup?: string;
   status: string;
   remark?: string;
   createTime?: string;
 }
 
-export interface PromotionAgentCodeVO {
+export interface PromotionAgentQrCodeVO {
   id: number;
   agentId: number;
-  agentCode: string;
+  qrCode: string;
   miniappPath: string;
   qrUrl?: string;
-  posterUrl?: string;
+  materialUrl?: string;
   versionNo: number;
   status: string;
 }
@@ -85,6 +86,7 @@ export interface PromotionSettlementVO {
   id: number;
   settlementNo: string;
   agentId: number;
+  agentName?: string;
   periodStart: string;
   periodEnd: string;
   statsDesc?: string;
@@ -119,30 +121,15 @@ export function updatePromotionRuleStatus(id: number, status: string) {
   return request.put(`/admin/promotion/rules/${id}/status`, { status });
 }
 
-export function savePromotionRuleTiers(
-  id: number,
-  tiers: { minCount: number; maxCount: number; rewardAmount: number; status?: string; remark?: string }[],
-) {
-  return request.put(`/admin/promotion/rules/${id}/tiers`, tiers);
-}
-
 export function getPromotionInvites(params: {
   page: number;
   size: number;
-  inviterId?: number;
-  inviteeId?: number;
+  inviterKeyword?: string;
+  inviteeKeyword?: string;
   sourceType?: string;
   status?: string;
 }) {
   return request.get('/admin/promotion/invites/list', { params });
-}
-
-export function markPromotionInviteInvalid(id: number, remark?: string) {
-  return request.put(`/admin/promotion/invites/${id}/invalid`, { remark });
-}
-
-export function unfreezePromotionInvite(id: number, remark?: string) {
-  return request.put(`/admin/promotion/invites/${id}/unfreeze`, { remark });
 }
 
 export function getPromotionRewards(params: {
@@ -186,14 +173,14 @@ export function updatePromotionAgentStatus(id: number, status: string) {
   return request.put(`/admin/promotion/agents/${id}/status`, { status });
 }
 
-export function regeneratePromotionAgentCode(id: number) {
-  return request.post(`/admin/promotion/agents/${id}/codes/regenerate`);
+export function regeneratePromotionAgentQrCode(id: number) {
+  return request.post(`/admin/promotion/agents/${id}/qr-codes/regenerate`);
 }
 
 export function getPromotionSettlements(params: {
   page: number;
   size: number;
-  agentId?: number;
+  agentKeyword?: string;
   status?: string;
 }) {
   return request.get('/admin/promotion/settlements/list', { params });

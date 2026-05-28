@@ -19,7 +19,6 @@ public class PromotionRuleVO {
     private BigDecimal dailyLimit;
     private LocalDateTime effectiveTime;
     private LocalDateTime expireTime;
-    private String agentGroup;
     private String status;
     private String remark;
     private LocalDateTime createTime;

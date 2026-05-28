@@ -6,20 +6,19 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.PromotionAgentPageReq;
 import com.spacetime.admin.dto.request.PromotionAgentSaveReq;
-import com.spacetime.admin.dto.response.PromotionAgentCodeVO;
+import com.spacetime.admin.dto.response.PromotionAgentQrCodeVO;
 import com.spacetime.admin.dto.response.PromotionAgentVO;
 import com.spacetime.admin.service.PromotionAgentAdminService;
-import com.spacetime.common.dao.PromotionAgentCodeDao;
+import com.spacetime.common.dao.PromotionAgentQrCodeDao;
 import com.spacetime.common.dao.PromotionAgentDao;
 import com.spacetime.common.dao.PromotionAgentEventDao;
 import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.entity.PromotionAgent;
-import com.spacetime.common.entity.PromotionAgentCode;
+import com.spacetime.common.entity.PromotionAgentQrCode;
 import com.spacetime.common.entity.PromotionAgentEvent;
 import com.spacetime.common.entity.PromotionAuditLog;
 import com.spacetime.common.enums.PromotionAgentStatusEnum;
 import com.spacetime.common.exception.BusinessException;
-import com.spacetime.common.util.DesensitizeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminService {
     private final PromotionAgentDao agentDao;
-    private final PromotionAgentCodeDao agentCodeDao;
+    private final PromotionAgentQrCodeDao qrCodeDao;
     private final PromotionAgentEventDao agentEventDao;
     private final PromotionAuditLogDao auditLogDao;
 
@@ -73,9 +72,6 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
         if (StrUtil.isBlank(agent.getStatus())) {
             agent.setStatus(PromotionAgentStatusEnum.NORMAL.getCode());
         }
-        if (StrUtil.isBlank(agent.getAgentGroup())) {
-            agent.setAgentGroup("DEFAULT");
-        }
         agentDao.insert(agent);
         audit("agent", agent.getId(), "create", null, agent.getAgentName());
         return agent.getId();
@@ -91,7 +87,6 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
         entity.setContactPhone(agent.getContactPhone());
         entity.setSchool(agent.getSchool());
         entity.setCampus(agent.getCampus());
-        entity.setAgentGroup(agent.getAgentGroup());
         entity.setStatus(agent.getStatus());
         entity.setRemark(agent.getRemark());
         agentDao.updateById(entity);
@@ -110,29 +105,29 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
 
     @Override
     @Transactional
-    public PromotionAgentCodeVO regenerateCode(Long agentId) {
+    public PromotionAgentQrCodeVO regenerateCode(Long agentId) {
         requireAgent(agentId);
-        PromotionAgentCode code = new PromotionAgentCode();
+        PromotionAgentQrCode code = new PromotionAgentQrCode();
         code.setAgentId(agentId);
-        code.setAgentCode("A" + IdUtil.fastSimpleUUID().substring(0, 15));
-        code.setMiniappPath("/pages/index/index?agentCode=" + code.getAgentCode());
+        code.setQrCode("A" + IdUtil.fastSimpleUUID().substring(0, 15));
+        code.setMiniappPath("/pages/index/index?qrCode=" + code.getQrCode());
         code.setVersionNo(1);
         code.setStatus("enabled");
-        agentCodeDao.insert(code);
-        audit("agent_code", code.getId(), "create", null, code.getAgentCode());
+        qrCodeDao.insert(code);
+        audit("qr_code", code.getId(), "create", null, code.getQrCode());
         return toCodeVO(code);
     }
 
     @Override
     @Transactional
     public void disableCode(Long codeId) {
-        PromotionAgentCode code = agentCodeDao.selectById(codeId);
+        PromotionAgentQrCode code = qrCodeDao.selectById(codeId);
         if (code == null) {
-            throw new BusinessException("代理码不存在");
+            throw new BusinessException("校园代理二维码不存在");
         }
         code.setStatus("disabled");
-        agentCodeDao.updateById(code);
-        audit("agent_code", codeId, "disable", "enabled", "disabled");
+        qrCodeDao.updateById(code);
+        audit("qr_code", codeId, "disable", "enabled", "disabled");
     }
 
     @Override
@@ -161,7 +156,6 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
         agent.setContactPhone(req.getContactPhone());
         agent.setSchool(req.getSchool());
         agent.setCampus(req.getCampus());
-        agent.setAgentGroup(req.getAgentGroup());
         agent.setStatus(req.getStatus());
         agent.setRemark(req.getRemark());
         return agent;
@@ -172,24 +166,23 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
         vo.setId(entity.getId());
         vo.setAgentName(entity.getAgentName());
         vo.setContactName(entity.getContactName());
-        vo.setContactPhone(DesensitizeUtil.maskPhone(entity.getContactPhone()));
+        vo.setContactPhone(entity.getContactPhone());
         vo.setSchool(entity.getSchool());
         vo.setCampus(entity.getCampus());
-        vo.setAgentGroup(entity.getAgentGroup());
         vo.setStatus(entity.getStatus());
         vo.setRemark(entity.getRemark());
         vo.setCreateTime(entity.getCreateTime());
         return vo;
     }
 
-    private PromotionAgentCodeVO toCodeVO(PromotionAgentCode entity) {
-        PromotionAgentCodeVO vo = new PromotionAgentCodeVO();
+    private PromotionAgentQrCodeVO toCodeVO(PromotionAgentQrCode entity) {
+        PromotionAgentQrCodeVO vo = new PromotionAgentQrCodeVO();
         vo.setId(entity.getId());
         vo.setAgentId(entity.getAgentId());
-        vo.setAgentCode(entity.getAgentCode());
+        vo.setQrCode(entity.getQrCode());
         vo.setMiniappPath(entity.getMiniappPath());
         vo.setQrUrl(entity.getQrUrl());
-        vo.setPosterUrl(entity.getPosterUrl());
+        vo.setMaterialUrl(entity.getMaterialUrl());
         vo.setVersionNo(entity.getVersionNo());
         vo.setStatus(entity.getStatus());
         return vo;

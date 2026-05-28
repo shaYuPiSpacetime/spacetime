@@ -8,6 +8,7 @@ import com.spacetime.common.entity.PromotionRewardLog;
  */
 public interface PromotionRewardLogDao {
     PromotionRewardLog selectById(Long id);
+    PromotionRewardLog selectByRelationIdAndEventType(Long relationId, String eventType);
     Page<PromotionRewardLog> selectPage(Page<PromotionRewardLog> page, com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PromotionRewardLog> wrapper);
     void insert(PromotionRewardLog entity);
     void updateById(PromotionRewardLog entity);

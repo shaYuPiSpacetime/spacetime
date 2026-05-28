@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.PromotionAgentPageReq;
 import com.spacetime.admin.dto.request.PromotionAgentSaveReq;
 import com.spacetime.admin.dto.request.PromotionStatusUpdateReq;
-import com.spacetime.admin.dto.response.PromotionAgentCodeVO;
+import com.spacetime.admin.dto.response.PromotionAgentQrCodeVO;
 import com.spacetime.admin.dto.response.PromotionAgentVO;
 import com.spacetime.admin.service.PromotionAgentAdminService;
 import com.spacetime.common.annotation.RequirePermission;
@@ -61,10 +61,10 @@ public class PromotionAgentController {
         return R.ok();
     }
 
-    /** 生成或重生成代理码 */
-    @PostMapping("/{id}/codes/regenerate")
+    /** 生成或重生成校园代理二维码 */
+    @PostMapping("/{id}/qr-codes/regenerate")
     @RequirePermission("promotion:agent:code")
-    public R<PromotionAgentCodeVO> regenerateCode(@PathVariable Long id) {
+    public R<PromotionAgentQrCodeVO> regenerateCode(@PathVariable Long id) {
         return R.ok(promotionAgentAdminService.regenerateCode(id));
     }
 

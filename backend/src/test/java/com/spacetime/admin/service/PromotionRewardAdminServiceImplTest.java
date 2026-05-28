@@ -3,6 +3,7 @@ package com.spacetime.admin.service;
 import com.spacetime.admin.service.impl.PromotionRewardAdminServiceImpl;
 import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.dao.PromotionRewardLogDao;
+import com.spacetime.common.dao.UserDao;
 import com.spacetime.common.entity.PromotionRewardLog;
 import com.spacetime.common.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +28,8 @@ class PromotionRewardAdminServiceImplTest {
     private PromotionRewardLogDao rewardLogDao;
     @Mock
     private PromotionAuditLogDao auditLogDao;
+    @Mock
+    private UserDao userDao;
 
     @InjectMocks
     private PromotionRewardAdminServiceImpl service;

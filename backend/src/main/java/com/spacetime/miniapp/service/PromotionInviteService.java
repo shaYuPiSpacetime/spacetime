@@ -19,9 +19,13 @@ public interface PromotionInviteService {
     /** 记录分享/扫码来源 */
     PromotionSourceTrace shareLog(PromotionSourceTrace trace);
     /** 绑定邀请关系 */
-    PromotionInviteRelation bind(Long userId, String traceNo, String inviteCode, String agentCode);
-    /** 获取海报 */
-    Map<String, Object> poster(Long userId);
+    PromotionInviteRelation bind(Long userId, String traceNo, String inviteCode, String qrCode);
+    /** 被邀请人资料完善后推进邀请关系 */
+    PromotionInviteRelation markProfileCompleted(Long inviteeId);
+    /** 被邀请人三项认证完成后推进邀请关系 */
+    PromotionInviteRelation markVerifySuccess(Long inviteeId);
+    /** 获取普通用户二维码 */
+    Map<String, Object> qrCode(Long userId);
     /** 查询代理来源 */
-    Map<String, Object> agentSource(String agentCode);
+    Map<String, Object> qrSource(String qrCode);
 }

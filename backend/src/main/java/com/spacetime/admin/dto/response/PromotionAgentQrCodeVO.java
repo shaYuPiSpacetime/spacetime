@@ -3,16 +3,16 @@ package com.spacetime.admin.dto.response;
 import lombok.Data;
 
 /**
- * 代理码响应
+ * 校园代理二维码响应
  */
 @Data
-public class PromotionAgentCodeVO {
+public class PromotionAgentQrCodeVO {
     private Long id;
     private Long agentId;
-    private String agentCode;
+    private String qrCode;
     private String miniappPath;
     private String qrUrl;
-    private String posterUrl;
+    private String materialUrl;
     private Integer versionNo;
     private String status;
 }

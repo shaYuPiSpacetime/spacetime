@@ -5,8 +5,7 @@ package com.spacetime.common.enums;
  */
 public enum PromotionRuleTypeEnum {
     USER_INVITE("user_invite"),
-    AGENT_BONUS("agent_bonus"),
-    RISK_CONTROL("risk_control");
+    AGENT_BONUS("agent_bonus");
 
     private final String code;
 

@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
 public class PromotionAgentEvent extends BaseEntity {
     /** 代理ID */
     private Long agentId;
-    /** 代理码 */
-    private String agentCode;
+    /** 校园代理二维码编号 */
+    private String qrCode;
     /** 邀请关系ID */
     private Long relationId;
     /** 被推广用户ID */

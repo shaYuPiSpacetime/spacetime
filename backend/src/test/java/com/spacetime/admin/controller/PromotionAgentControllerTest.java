@@ -1,6 +1,6 @@
 package com.spacetime.admin.controller;
 
-import com.spacetime.admin.dto.response.PromotionAgentCodeVO;
+import com.spacetime.admin.dto.response.PromotionAgentQrCodeVO;
 import com.spacetime.admin.service.PromotionAgentAdminService;
 import com.spacetime.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,18 +50,18 @@ class PromotionAgentControllerTest {
     }
 
     @Test
-    @DisplayName("L2-09 生成代理码返回 agentCode 和 miniappPath")
-    void regenerateCode_shouldReturnAgentCode() throws Exception {
-        PromotionAgentCodeVO vo = new PromotionAgentCodeVO();
-        vo.setAgentCode("A001");
-        vo.setMiniappPath("/pages/index/index?agentCode=A001");
+    @DisplayName("L2-09 生成校园代理二维码返回 qrCode 和 miniappPath")
+    void regenerateCode_shouldReturnQrCode() throws Exception {
+        PromotionAgentQrCodeVO vo = new PromotionAgentQrCodeVO();
+        vo.setQrCode("A001");
+        vo.setMiniappPath("/pages/index/index?qrCode=A001");
         vo.setStatus("enabled");
         when(service.regenerateCode(1L)).thenReturn(vo);
 
-        mockMvc.perform(post("/admin/promotion/agents/1/codes/regenerate"))
+        mockMvc.perform(post("/admin/promotion/agents/1/qr-codes/regenerate"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.agentCode").value("A001"))
-                .andExpect(jsonPath("$.data.miniappPath").value("/pages/index/index?agentCode=A001"));
+                .andExpect(jsonPath("$.data.qrCode").value("A001"))
+                .andExpect(jsonPath("$.data.miniappPath").value("/pages/index/index?qrCode=A001"));
     }
 }

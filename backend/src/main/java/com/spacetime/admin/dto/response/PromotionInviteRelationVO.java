@@ -14,15 +14,16 @@ public class PromotionInviteRelationVO {
     private String relationNo;
     private String sourceType;
     private Long inviterId;
+    private String inviterName;
     private Long inviteeId;
+    private String inviteeName;
     private Long agentId;
-    private String agentCode;
+    private String agentName;
+    private String qrCode;
     private String status;
     private LocalDateTime bindTime;
     private LocalDateTime firstLoginTime;
     private LocalDateTime profileCompleteTime;
     private LocalDateTime verifySuccessTime;
-    private String invalidReason;
-    private String frozenReason;
     private BigDecimal totalRewardCoin;
 }

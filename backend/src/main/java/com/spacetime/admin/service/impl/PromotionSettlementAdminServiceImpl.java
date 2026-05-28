@@ -8,8 +8,10 @@ import com.spacetime.admin.dto.request.PromotionSettlementCreateReq;
 import com.spacetime.admin.dto.request.PromotionSettlementPageReq;
 import com.spacetime.admin.dto.response.PromotionSettlementVO;
 import com.spacetime.admin.service.PromotionSettlementAdminService;
+import com.spacetime.common.dao.PromotionAgentDao;
 import com.spacetime.common.dao.PromotionAgentSettlementDao;
 import com.spacetime.common.dao.PromotionAuditLogDao;
+import com.spacetime.common.entity.PromotionAgent;
 import com.spacetime.common.entity.PromotionAgentSettlement;
 import com.spacetime.common.entity.PromotionAuditLog;
 import com.spacetime.common.enums.PromotionSettlementStatusEnum;
@@ -29,17 +31,47 @@ import java.time.LocalDateTime;
 public class PromotionSettlementAdminServiceImpl implements PromotionSettlementAdminService {
     private final PromotionAgentSettlementDao settlementDao;
     private final PromotionAuditLogDao auditLogDao;
+    private final PromotionAgentDao agentDao;
 
     @Override
     public Page<PromotionSettlementVO> list(PromotionSettlementPageReq req) {
+        java.util.List<Long> agentIds = findAgentIds(req.getAgentKeyword());
+        if (StrUtil.isNotBlank(req.getAgentKeyword()) && agentIds.isEmpty()) {
+            return new Page<>(req.getPage(), req.getSize(), 0);
+        }
         LambdaQueryWrapper<PromotionAgentSettlement> wrapper = new LambdaQueryWrapper<PromotionAgentSettlement>()
                 .eq(req.getAgentId() != null, PromotionAgentSettlement::getAgentId, req.getAgentId())
+                .in(!agentIds.isEmpty(), PromotionAgentSettlement::getAgentId, agentIds)
                 .eq(StrUtil.isNotBlank(req.getStatus()), PromotionAgentSettlement::getStatus, req.getStatus())
                 .orderByDesc(PromotionAgentSettlement::getCreateTime);
         Page<PromotionAgentSettlement> page = settlementDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<PromotionSettlementVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(page.getRecords().stream().map(this::toVO).toList());
         return result;
+    }
+
+    private java.util.List<Long> findAgentIds(String keyword) {
+        if (StrUtil.isBlank(keyword)) {
+            return java.util.List.of();
+        }
+        LambdaQueryWrapper<PromotionAgent> wrapper = new LambdaQueryWrapper<PromotionAgent>()
+                .like(PromotionAgent::getAgentName, keyword)
+                .or()
+                .like(PromotionAgent::getContactName, keyword)
+                .or()
+                .like(PromotionAgent::getContactPhone, keyword);
+        return agentDao.selectPage(new Page<>(1, 100), wrapper).getRecords().stream()
+                .map(PromotionAgent::getId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    private String agentName(Long agentId) {
+        if (agentId == null) {
+            return null;
+        }
+        PromotionAgent agent = agentDao.selectById(agentId);
+        return agent == null ? null : agent.getAgentName();
     }
 
     @Override
@@ -120,6 +152,7 @@ public class PromotionSettlementAdminServiceImpl implements PromotionSettlementA
         vo.setId(entity.getId());
         vo.setSettlementNo(entity.getSettlementNo());
         vo.setAgentId(entity.getAgentId());
+        vo.setAgentName(agentName(entity.getAgentId()));
         vo.setPeriodStart(entity.getPeriodStart());
         vo.setPeriodEnd(entity.getPeriodEnd());
         vo.setStatsDesc(entity.getStatsDesc());

@@ -12,8 +12,12 @@ import lombok.EqualsAndHashCode;
 public class PromotionInvitePageReq extends PageReq {
     /** 邀请人ID */
     private Long inviterId;
+    /** 邀请人姓名/手机号/账号 */
+    private String inviterKeyword;
     /** 被邀请人ID */
     private Long inviteeId;
+    /** 被邀请人姓名/手机号/账号 */
+    private String inviteeKeyword;
     /** 来源类型 */
     private String sourceType;
     /** 状态 */

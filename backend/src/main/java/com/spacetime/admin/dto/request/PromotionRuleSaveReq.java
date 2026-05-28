@@ -30,8 +30,6 @@ public class PromotionRuleSaveReq {
     private LocalDateTime effectiveTime;
     /** 失效时间 */
     private LocalDateTime expireTime;
-    /** 适用代理组 */
-    private String agentGroup;
     /** 状态 */
     private String status;
     /** 备注 */

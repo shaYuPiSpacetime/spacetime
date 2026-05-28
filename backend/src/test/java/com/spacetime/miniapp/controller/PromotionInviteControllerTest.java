@@ -41,16 +41,16 @@ class PromotionInviteControllerTest {
     }
 
     @Test
-    @DisplayName("L2-12/F1-P0-04 分享记录可匿名调用")
+    @DisplayName("L2-12/F1-P0-04 二维码来源记录可匿名调用")
     void shareLog_shouldAllowAnonymous() throws Exception {
         PromotionSourceTrace trace = new PromotionSourceTrace();
         trace.setTraceNo("TR1");
-        trace.setSourceType("share_card");
+        trace.setSourceType("user_qr");
         when(service.shareLog(any())).thenReturn(trace);
 
         mockMvc.perform(post("/miniapp/promotion/invite/share-log")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"sourceType\":\"share_card\",\"inviterId\":100}"))
+                        .content("{\"sourceType\":\"user_qr\",\"inviterId\":100}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.traceNo").value("TR1"));

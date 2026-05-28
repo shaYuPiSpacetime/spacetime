@@ -4,11 +4,11 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.spacetime.common.dao.PromotionAgentCodeDao;
+import com.spacetime.common.dao.PromotionAgentQrCodeDao;
 import com.spacetime.common.dao.PromotionAgentEventDao;
 import com.spacetime.common.dao.PromotionInviteRelationDao;
 import com.spacetime.common.dao.PromotionSourceTraceDao;
-import com.spacetime.common.entity.PromotionAgentCode;
+import com.spacetime.common.entity.PromotionAgentQrCode;
 import com.spacetime.common.entity.PromotionAgentEvent;
 import com.spacetime.common.entity.PromotionInviteRelation;
 import com.spacetime.common.entity.PromotionSourceTrace;
@@ -32,7 +32,7 @@ import java.util.Map;
 public class PromotionInviteServiceImpl implements PromotionInviteService {
     private final PromotionSourceTraceDao sourceTraceDao;
     private final PromotionInviteRelationDao relationDao;
-    private final PromotionAgentCodeDao agentCodeDao;
+    private final PromotionAgentQrCodeDao qrCodeDao;
     private final PromotionAgentEventDao agentEventDao;
 
     @Override
@@ -71,12 +71,12 @@ public class PromotionInviteServiceImpl implements PromotionInviteService {
         trace.setTraceNo(StrUtil.blankToDefault(trace.getTraceNo(), "TR" + IdUtil.getSnowflakeNextIdStr()));
         trace.setBindStatus("unbound");
         sourceTraceDao.insert(trace);
-        if (PromotionSourceTypeEnum.AGENT_CODE.getCode().equals(trace.getSourceType()) && StrUtil.isNotBlank(trace.getAgentCode())) {
-            PromotionAgentCode code = agentCodeDao.selectByAgentCode(trace.getAgentCode());
+        if (PromotionSourceTypeEnum.AGENT_QR.getCode().equals(trace.getSourceType()) && StrUtil.isNotBlank(trace.getQrCode())) {
+            PromotionAgentQrCode code = qrCodeDao.selectByQrCode(trace.getQrCode());
             if (code != null && "enabled".equals(code.getStatus())) {
                 PromotionAgentEvent event = new PromotionAgentEvent();
                 event.setAgentId(code.getAgentId());
-                event.setAgentCode(code.getAgentCode());
+                event.setQrCode(code.getQrCode());
                 event.setEventType("click");
                 event.setEventTime(LocalDateTime.now());
                 event.setBonusGenerated(0);
@@ -88,7 +88,7 @@ public class PromotionInviteServiceImpl implements PromotionInviteService {
 
     @Override
     @Transactional
-    public PromotionInviteRelation bind(Long userId, String traceNo, String inviteCode, String agentCode) {
+    public PromotionInviteRelation bind(Long userId, String traceNo, String inviteCode, String qrCode) {
         if (userId == null) {
             throw new BusinessException("登录用户不能为空");
         }
@@ -97,15 +97,15 @@ public class PromotionInviteServiceImpl implements PromotionInviteService {
             return exist;
         }
         PromotionSourceTrace trace = StrUtil.isBlank(traceNo) ? null : sourceTraceDao.selectByTraceNo(traceNo);
-        PromotionAgentCode agent = null;
-        if (StrUtil.isNotBlank(agentCode)) {
-            agent = agentCodeDao.selectByAgentCode(agentCode);
+        PromotionAgentQrCode agent = null;
+        if (StrUtil.isNotBlank(qrCode)) {
+            agent = qrCodeDao.selectByQrCode(qrCode);
         }
         if (agent != null && !"enabled".equals(agent.getStatus())) {
             agent = null;
         }
-        if (agent == null && trace != null && StrUtil.isNotBlank(trace.getAgentCode())) {
-            agent = agentCodeDao.selectByAgentCode(trace.getAgentCode());
+        if (agent == null && trace != null && StrUtil.isNotBlank(trace.getQrCode())) {
+            agent = qrCodeDao.selectByQrCode(trace.getQrCode());
             if (agent != null && !"enabled".equals(agent.getStatus())) {
                 agent = null;
             }
@@ -115,27 +115,29 @@ public class PromotionInviteServiceImpl implements PromotionInviteService {
         relation.setRelationNo("IR" + IdUtil.getSnowflakeNextIdStr());
         relation.setSourceTraceId(trace == null ? null : trace.getId());
         relation.setInviteeId(userId);
-        relation.setStatus(PromotionRelationStatusEnum.LOGIN_SUCCESS.getCode());
+        relation.setStatus(PromotionRelationStatusEnum.REGISTERED.getCode());
         relation.setBindTime(LocalDateTime.now());
+        relation.setRegisterTime(LocalDateTime.now());
         relation.setFirstLoginTime(LocalDateTime.now());
 
         if (agent != null) {
-            relation.setSourceType(PromotionSourceTypeEnum.AGENT_CODE.getCode());
+            relation.setSourceType(PromotionSourceTypeEnum.AGENT_QR.getCode());
             relation.setAgentId(agent.getAgentId());
-            relation.setAgentCode(agent.getAgentCode());
+            relation.setQrCode(agent.getQrCode());
         } else if (trace != null) {
             if (trace.getInviterId() != null && trace.getInviterId().equals(userId)) {
                 throw new BusinessException("不能邀请自己");
             }
-            relation.setSourceType(trace.getSourceType());
+            relation.setSourceType(PromotionSourceTypeEnum.USER_QR.getCode());
             relation.setInviterId(trace.getInviterId());
         } else if (StrUtil.isNotBlank(inviteCode)) {
-            relation.setSourceType(PromotionSourceTypeEnum.INVITE_CODE.getCode());
+            relation.setSourceType(PromotionSourceTypeEnum.USER_QR.getCode());
         } else {
             throw new BusinessException("邀请来源不能为空");
         }
 
         relationDao.insert(relation);
+        recordAgentEventIfNeeded(relation, PromotionRelationStatusEnum.REGISTERED.getCode());
         if (trace != null) {
             trace.setInviteeUserId(userId);
             trace.setBindStatus("bound");
@@ -145,20 +147,82 @@ public class PromotionInviteServiceImpl implements PromotionInviteService {
     }
 
     @Override
-    public Map<String, Object> poster(Long userId) {
+    @Transactional
+    public PromotionInviteRelation markProfileCompleted(Long inviteeId) {
+        PromotionInviteRelation relation = requireRelationByInvitee(inviteeId);
+        if (PromotionRelationStatusEnum.PROFILE_COMPLETED.getCode().equals(relation.getStatus())
+                || PromotionRelationStatusEnum.VERIFY_SUCCESS.getCode().equals(relation.getStatus())) {
+            return relation;
+        }
+        relation.setStatus(PromotionRelationStatusEnum.PROFILE_COMPLETED.getCode());
+        if (relation.getProfileCompleteTime() == null) {
+            relation.setProfileCompleteTime(LocalDateTime.now());
+        }
+        relationDao.updateById(relation);
+        recordAgentEventIfNeeded(relation, PromotionRelationStatusEnum.PROFILE_COMPLETED.getCode());
+        return relation;
+    }
+
+    @Override
+    @Transactional
+    public PromotionInviteRelation markVerifySuccess(Long inviteeId) {
+        PromotionInviteRelation relation = requireRelationByInvitee(inviteeId);
+        if (PromotionRelationStatusEnum.VERIFY_SUCCESS.getCode().equals(relation.getStatus())) {
+            return relation;
+        }
+        relation.setStatus(PromotionRelationStatusEnum.VERIFY_SUCCESS.getCode());
+        if (relation.getProfileCompleteTime() == null) {
+            relation.setProfileCompleteTime(LocalDateTime.now());
+        }
+        if (relation.getVerifySuccessTime() == null) {
+            relation.setVerifySuccessTime(LocalDateTime.now());
+        }
+        relationDao.updateById(relation);
+        recordAgentEventIfNeeded(relation, PromotionRelationStatusEnum.VERIFY_SUCCESS.getCode());
+        return relation;
+    }
+
+    private PromotionInviteRelation requireRelationByInvitee(Long inviteeId) {
+        if (inviteeId == null) {
+            throw new BusinessException("被邀请用户不能为空");
+        }
+        PromotionInviteRelation relation = relationDao.selectByInviteeId(inviteeId);
+        if (relation == null) {
+            throw new BusinessException("邀请关系不存在");
+        }
+        return relation;
+    }
+
+    private void recordAgentEventIfNeeded(PromotionInviteRelation relation, String eventType) {
+        if (!PromotionSourceTypeEnum.AGENT_QR.getCode().equals(relation.getSourceType()) || relation.getAgentId() == null) {
+            return;
+        }
+        PromotionAgentEvent event = new PromotionAgentEvent();
+        event.setAgentId(relation.getAgentId());
+        event.setQrCode(relation.getQrCode());
+        event.setRelationId(relation.getId());
+        event.setUserId(relation.getInviteeId());
+        event.setEventType(eventType);
+        event.setEventTime(LocalDateTime.now());
+        event.setBonusGenerated(0);
+        agentEventDao.insert(event);
+    }
+
+    @Override
+    public Map<String, Object> qrCode(Long userId) {
         Map<String, Object> result = new HashMap<>();
-        result.put("posterUrl", null);
+        result.put("materialUrl", null);
         result.put("qrUrl", null);
         result.put("miniappPath", "/pages/index/index?inviterId=" + userId);
         return result;
     }
 
     @Override
-    public Map<String, Object> agentSource(String agentCode) {
-        PromotionAgentCode code = agentCodeDao.selectByAgentCode(agentCode);
+    public Map<String, Object> qrSource(String qrCode) {
+        PromotionAgentQrCode code = qrCodeDao.selectByQrCode(qrCode);
         Map<String, Object> result = new HashMap<>();
         result.put("available", code != null && "enabled".equals(code.getStatus()));
-        result.put("agentCode", agentCode);
+        result.put("qrCode", qrCode);
         result.put("miniappPath", code == null ? null : code.getMiniappPath());
         return result;
     }

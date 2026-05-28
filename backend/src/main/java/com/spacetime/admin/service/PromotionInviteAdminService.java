@@ -12,8 +12,4 @@ public interface PromotionInviteAdminService {
     Page<PromotionInviteRelationVO> list(PromotionInvitePageReq req);
     /** 查询邀请关系详情 */
     PromotionInviteRelationVO detail(Long id);
-    /** 人工标记无效 */
-    void markInvalid(Long id, String remark);
-    /** 人工解除冻结 */
-    void unfreeze(Long id, String remark);
 }

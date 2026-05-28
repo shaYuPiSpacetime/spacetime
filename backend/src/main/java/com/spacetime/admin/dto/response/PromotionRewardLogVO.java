@@ -14,7 +14,9 @@ public class PromotionRewardLogVO {
     private String rewardNo;
     private Long relationId;
     private Long inviterId;
+    private String inviterName;
     private Long inviteeId;
+    private String inviteeName;
     private String eventType;
     private BigDecimal rewardCoin;
     private String status;

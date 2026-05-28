@@ -21,8 +21,8 @@ public class PromotionSourceTrace extends BaseEntity {
     private String inviteCode;
     /** 代理ID */
     private Long agentId;
-    /** 代理码 */
-    private String agentCode;
+    /** 校园代理二维码编号 */
+    private String qrCode;
     /** 已登录用户ID */
     private Long visitorUserId;
     /** 注册后绑定用户ID */

@@ -44,11 +44,11 @@ CREATE TABLE IF NOT EXISTS promotion_rule_tier (
 CREATE TABLE IF NOT EXISTS promotion_source_trace (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     trace_no VARCHAR(64) NOT NULL COMMENT '来源追踪号',
-    source_type VARCHAR(30) NOT NULL COMMENT 'share_card/poster/invite_code/agent_code',
+    source_type VARCHAR(30) NOT NULL COMMENT 'user_qr/agent_qr',
     inviter_id BIGINT DEFAULT NULL COMMENT '普通邀请人ID',
     invite_code VARCHAR(64) DEFAULT NULL COMMENT '普通邀请码',
     agent_id BIGINT DEFAULT NULL COMMENT '代理ID',
-    agent_code VARCHAR(64) DEFAULT NULL COMMENT '代理码',
+    qr_code VARCHAR(64) DEFAULT NULL COMMENT '校园代理二维码编号',
     visitor_user_id BIGINT DEFAULT NULL COMMENT '打开时已登录用户ID',
     invitee_user_id BIGINT DEFAULT NULL COMMENT '注册后绑定用户ID',
     scene VARCHAR(255) DEFAULT NULL COMMENT '小程序scene或路径参数',
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS promotion_source_trace (
     deleted TINYINT DEFAULT 0,
     UNIQUE KEY uk_trace_no (trace_no),
     INDEX idx_source_inviter (source_type, inviter_id),
-    INDEX idx_source_agent (source_type, agent_code),
+    INDEX idx_source_agent (source_type, qr_code),
     INDEX idx_invitee (invitee_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='推广来源追踪表';
 
@@ -70,20 +70,18 @@ CREATE TABLE IF NOT EXISTS promotion_invite_relation (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     relation_no VARCHAR(64) NOT NULL COMMENT '关系编号',
     source_trace_id BIGINT DEFAULT NULL COMMENT '来源记录ID',
-    source_type VARCHAR(30) NOT NULL COMMENT 'share_card/poster/invite_code/agent_code',
+    source_type VARCHAR(30) NOT NULL COMMENT 'user_qr/agent_qr',
     inviter_id BIGINT DEFAULT NULL COMMENT '普通邀请人ID',
     invitee_id BIGINT NOT NULL COMMENT '被邀请用户ID',
     agent_id BIGINT DEFAULT NULL COMMENT '代理ID',
-    agent_code VARCHAR(64) DEFAULT NULL COMMENT '代理码',
-    status VARCHAR(30) DEFAULT 'login_success' COMMENT 'clicked/registered/login_success/profile_completed/verify_success/rewarded/frozen/invalid',
+    qr_code VARCHAR(64) DEFAULT NULL COMMENT '校园代理二维码编号',
+    status VARCHAR(30) DEFAULT 'registered' COMMENT 'registered/profile_completed/verify_success',
     bind_time DATETIME NOT NULL COMMENT '绑定时间',
     first_click_time DATETIME DEFAULT NULL,
     register_time DATETIME DEFAULT NULL,
     first_login_time DATETIME DEFAULT NULL,
     profile_complete_time DATETIME DEFAULT NULL,
     verify_success_time DATETIME DEFAULT NULL,
-    invalid_reason VARCHAR(500) DEFAULT NULL,
-    frozen_reason VARCHAR(500) DEFAULT NULL,
     total_reward_coin DECIMAL(16,4) DEFAULT 0,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -141,13 +139,13 @@ CREATE TABLE IF NOT EXISTS promotion_agent (
     INDEX idx_school_status (school, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='校园代理表';
 
-CREATE TABLE IF NOT EXISTS promotion_agent_code (
+CREATE TABLE IF NOT EXISTS promotion_agent_qr_code (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     agent_id BIGINT NOT NULL COMMENT '代理ID',
-    agent_code VARCHAR(64) NOT NULL COMMENT '代理专属码',
+    qr_code VARCHAR(64) NOT NULL COMMENT '校园代理二维码编号',
     miniapp_path VARCHAR(255) NOT NULL COMMENT '小程序路径',
     qr_url VARCHAR(500) DEFAULT NULL COMMENT '二维码OSS地址',
-    poster_url VARCHAR(500) DEFAULT NULL COMMENT '海报OSS地址',
+    material_url VARCHAR(500) DEFAULT NULL COMMENT '二维码素材OSS地址',
     version_no INT DEFAULT 1 COMMENT '版本号',
     status VARCHAR(20) DEFAULT 'enabled' COMMENT 'enabled/disabled',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -155,17 +153,17 @@ CREATE TABLE IF NOT EXISTS promotion_agent_code (
     created_by BIGINT DEFAULT NULL,
     updated_by BIGINT DEFAULT NULL,
     deleted TINYINT DEFAULT 0,
-    UNIQUE KEY uk_agent_code (agent_code),
+    UNIQUE KEY uk_qr_code (qr_code),
     INDEX idx_agent_status (agent_id, status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='代理专属码表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='校园代理二维码表';
 
 CREATE TABLE IF NOT EXISTS promotion_agent_event (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     agent_id BIGINT NOT NULL,
-    agent_code VARCHAR(64) NOT NULL,
+    qr_code VARCHAR(64) NOT NULL,
     relation_id BIGINT DEFAULT NULL,
     user_id BIGINT DEFAULT NULL COMMENT '被推广用户ID',
-    event_type VARCHAR(50) NOT NULL COMMENT 'click/register/login_success/profile_completed/verify_success/first_vip/first_coin_recharge',
+    event_type VARCHAR(50) NOT NULL COMMENT 'click/registered/profile_completed/verify_success/first_vip/first_coin_recharge',
     event_time DATETIME NOT NULL,
     bonus_generated TINYINT DEFAULT 0 COMMENT '是否已生成奖金',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -256,7 +254,7 @@ VALUES
 (730, 700, '校园代理', 'C', '/promotion/agents', 'promotion/PromotionManagement', 'UserCheck', 'promotion:agent:list', 4, 1),
 (731, 730, '新增代理', 'F', NULL, NULL, NULL, 'promotion:agent:add', 1, 0),
 (732, 730, '编辑代理', 'F', NULL, NULL, NULL, 'promotion:agent:edit', 2, 0),
-(733, 730, '代理码管理', 'F', NULL, NULL, NULL, 'promotion:agent:code', 3, 0),
+(733, 730, '二维码管理', 'F', NULL, NULL, NULL, 'promotion:agent:code', 3, 0),
 (740, 700, '代理结算', 'C', '/promotion/settlements', 'promotion/PromotionManagement', 'DollarSign', 'promotion:settlement:list', 5, 1),
 (741, 740, '生成结算', 'F', NULL, NULL, NULL, 'promotion:settlement:add', 1, 0),
 (742, 740, '确认结算', 'F', NULL, NULL, NULL, 'promotion:settlement:confirm', 2, 0),

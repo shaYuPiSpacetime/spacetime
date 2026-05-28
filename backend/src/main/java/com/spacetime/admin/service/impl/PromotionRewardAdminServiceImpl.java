@@ -8,8 +8,10 @@ import com.spacetime.admin.dto.response.PromotionRewardLogVO;
 import com.spacetime.admin.service.PromotionRewardAdminService;
 import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.dao.PromotionRewardLogDao;
+import com.spacetime.common.dao.UserDao;
 import com.spacetime.common.entity.PromotionAuditLog;
 import com.spacetime.common.entity.PromotionRewardLog;
+import com.spacetime.common.entity.SysUser;
 import com.spacetime.common.enums.PromotionRewardStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ import java.time.LocalDateTime;
 public class PromotionRewardAdminServiceImpl implements PromotionRewardAdminService {
     private final PromotionRewardLogDao rewardLogDao;
     private final PromotionAuditLogDao auditLogDao;
+    private final UserDao userDao;
 
     @Override
     public Page<PromotionRewardLogVO> list(PromotionRewardPageReq req) {
@@ -100,7 +103,9 @@ public class PromotionRewardAdminServiceImpl implements PromotionRewardAdminServ
         vo.setRewardNo(entity.getRewardNo());
         vo.setRelationId(entity.getRelationId());
         vo.setInviterId(entity.getInviterId());
+        vo.setInviterName(userDisplayName(entity.getInviterId()));
         vo.setInviteeId(entity.getInviteeId());
+        vo.setInviteeName(userDisplayName(entity.getInviteeId()));
         vo.setEventType(entity.getEventType());
         vo.setRewardCoin(entity.getRewardCoin());
         vo.setStatus(entity.getStatus());
@@ -110,5 +115,16 @@ public class PromotionRewardAdminServiceImpl implements PromotionRewardAdminServ
         vo.setReviewRemark(entity.getReviewRemark());
         vo.setCreateTime(entity.getCreateTime());
         return vo;
+    }
+
+    private String userDisplayName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        SysUser user = userDao.selectById(userId);
+        if (user == null) {
+            return null;
+        }
+        return StrUtil.blankToDefault(user.getNickname(), user.getUsername());
     }
 }

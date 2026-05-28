@@ -15,7 +15,6 @@ public class PromotionAgentVO {
     private String contactPhone;
     private String school;
     private String campus;
-    private String agentGroup;
     private String status;
     private String remark;
     private LocalDateTime createTime;

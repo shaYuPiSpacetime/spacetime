@@ -12,6 +12,8 @@ import lombok.EqualsAndHashCode;
 public class PromotionSettlementPageReq extends PageReq {
     /** 代理ID */
     private Long agentId;
+    /** 代理名称/联系人/手机号 */
+    private String agentKeyword;
     /** 状态 */
     private String status;
 }

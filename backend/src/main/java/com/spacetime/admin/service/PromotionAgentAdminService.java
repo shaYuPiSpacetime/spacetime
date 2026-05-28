@@ -3,7 +3,7 @@ package com.spacetime.admin.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.PromotionAgentPageReq;
 import com.spacetime.admin.dto.request.PromotionAgentSaveReq;
-import com.spacetime.admin.dto.response.PromotionAgentCodeVO;
+import com.spacetime.admin.dto.response.PromotionAgentQrCodeVO;
 import com.spacetime.admin.dto.response.PromotionAgentVO;
 import com.spacetime.common.entity.PromotionAgentEvent;
 
@@ -21,9 +21,9 @@ public interface PromotionAgentAdminService {
     void update(Long id, PromotionAgentSaveReq req);
     /** 更新代理状态 */
     void updateStatus(Long id, String status);
-    /** 生成代理码 */
-    PromotionAgentCodeVO regenerateCode(Long agentId);
-    /** 停用代理码 */
+    /** 生成校园代理二维码 */
+    PromotionAgentQrCodeVO regenerateCode(Long agentId);
+    /** 停用校园代理二维码 */
     void disableCode(Long codeId);
     /** 查询代理事件 */
     Page<PromotionAgentEvent> events(Long agentId, int page, int size, String eventType);

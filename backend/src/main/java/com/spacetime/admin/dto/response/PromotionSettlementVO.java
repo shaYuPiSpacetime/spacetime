@@ -14,6 +14,7 @@ public class PromotionSettlementVO {
     private Long id;
     private String settlementNo;
     private Long agentId;
+    private String agentName;
     private LocalDate periodStart;
     private LocalDate periodEnd;
     private String statsDesc;

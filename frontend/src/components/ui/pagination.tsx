@@ -12,7 +12,8 @@ interface PaginationProps {
 }
 
 function Pagination({ current, total, pageSize = 10, onChange, className }: PaginationProps) {
-  const totalPages = Math.ceil(total / pageSize);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safeCurrent = Math.min(Math.max(current, 1), totalPages);
 
   const pages = React.useMemo(() => {
     const items: (number | 'ellipsis')[] = [];
@@ -20,28 +21,26 @@ function Pagination({ current, total, pageSize = 10, onChange, className }: Pagi
       for (let i = 1; i <= totalPages; i++) items.push(i);
     } else {
       items.push(1);
-      if (current > 3) items.push('ellipsis');
-      for (let i = Math.max(2, current - 1); i <= Math.min(totalPages - 1, current + 1); i++) {
+      if (safeCurrent > 3) items.push('ellipsis');
+      for (let i = Math.max(2, safeCurrent - 1); i <= Math.min(totalPages - 1, safeCurrent + 1); i++) {
         items.push(i);
       }
-      if (current < totalPages - 2) items.push('ellipsis');
+      if (safeCurrent < totalPages - 2) items.push('ellipsis');
       items.push(totalPages);
     }
     return items;
-  }, [current, totalPages]);
-
-  if (totalPages <= 1) return null;
+  }, [safeCurrent, totalPages]);
 
   return (
     <div className={cn('flex items-center gap-1 text-sm text-muted-foreground', className)}>
       <span className="mr-4 text-xs">
-        共{total}条记录 第 {current} / {totalPages} 页
+        共{total}条记录 第 {safeCurrent} / {totalPages} 页
       </span>
 
-      <Button variant="ghost" size="icon" className="h-[30px] w-[30px] bg-pagination rounded-none" disabled={current === 1} onClick={() => onChange(1)}>
+      <Button variant="ghost" size="icon" className="h-[30px] w-[30px] bg-pagination rounded-none" disabled={safeCurrent === 1} onClick={() => onChange(1)}>
         <ChevronsLeft className="h-3 w-3" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-[30px] w-[30px] bg-pagination rounded-none" disabled={current === 1} onClick={() => onChange(current - 1)}>
+      <Button variant="ghost" size="icon" className="h-[30px] w-[30px] bg-pagination rounded-none" disabled={safeCurrent === 1} onClick={() => onChange(safeCurrent - 1)}>
         <ChevronLeft className="h-3 w-3" />
       </Button>
 
@@ -51,11 +50,11 @@ function Pagination({ current, total, pageSize = 10, onChange, className }: Pagi
         ) : (
           <Button
             key={page}
-            variant={page === current ? 'default' : 'ghost'}
+            variant={page === safeCurrent ? 'default' : 'ghost'}
             size="icon"
             className={cn(
               'h-[30px] w-[30px] rounded-none text-xs font-normal',
-              page === current ? 'bg-primary text-primary-foreground' : 'bg-pagination text-muted-foreground',
+              page === safeCurrent ? 'bg-primary text-primary-foreground' : 'bg-pagination text-muted-foreground',
             )}
             onClick={() => onChange(page)}
           >
@@ -64,10 +63,10 @@ function Pagination({ current, total, pageSize = 10, onChange, className }: Pagi
         ),
       )}
 
-      <Button variant="ghost" size="icon" className="h-[30px] w-[30px] bg-pagination rounded-none" disabled={current === totalPages} onClick={() => onChange(current + 1)}>
+      <Button variant="ghost" size="icon" className="h-[30px] w-[30px] bg-pagination rounded-none" disabled={safeCurrent === totalPages} onClick={() => onChange(safeCurrent + 1)}>
         <ChevronRight className="h-3 w-3" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-[30px] w-[30px] bg-pagination rounded-none" disabled={current === totalPages} onClick={() => onChange(totalPages)}>
+      <Button variant="ghost" size="icon" className="h-[30px] w-[30px] bg-pagination rounded-none" disabled={safeCurrent === totalPages} onClick={() => onChange(totalPages)}>
         <ChevronsRight className="h-3 w-3" />
       </Button>
 
@@ -78,7 +77,7 @@ function Pagination({ current, total, pageSize = 10, onChange, className }: Pagi
           onChange={(e) => {
             const newSize = Number(e.target.value);
             const newTotalPages = Math.ceil(total / newSize);
-            onChange(Math.min(current, newTotalPages));
+            onChange(Math.min(safeCurrent, Math.max(1, newTotalPages)));
           }}
         >
           <option value={10}>10条/页</option>

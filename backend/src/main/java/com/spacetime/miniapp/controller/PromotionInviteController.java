@@ -55,19 +55,19 @@ public class PromotionInviteController {
                 currentUserId(),
                 body.get("traceNo"),
                 body.get("inviteCode"),
-                body.get("agentCode")));
+                body.get("qrCode")));
     }
 
-    /** 获取邀请海报 */
-    @GetMapping("/poster")
-    public R<Map<String, Object>> poster() {
-        return R.ok(promotionInviteService.poster(currentUserId()));
+    /** 获取普通用户二维码 */
+    @GetMapping("/qr-code")
+    public R<Map<String, Object>> qrCode() {
+        return R.ok(promotionInviteService.qrCode(currentUserId()));
     }
 
     /** 查询代理来源 */
-    @GetMapping("/agent-source")
-    public R<Map<String, Object>> agentSource(@RequestParam String agentCode) {
-        return R.ok(promotionInviteService.agentSource(agentCode));
+    @GetMapping("/qr-source")
+    public R<Map<String, Object>> qrSource(@RequestParam String qrCode) {
+        return R.ok(promotionInviteService.qrSource(qrCode));
     }
 
     private Long currentUserId() {

@@ -26,8 +26,8 @@ public class PromotionInviteRelation extends BaseEntity {
     private Long inviteeId;
     /** 代理ID */
     private Long agentId;
-    /** 代理码 */
-    private String agentCode;
+    /** 校园代理二维码编号 */
+    private String qrCode;
     /** 状态 */
     private String status;
     /** 绑定时间 */
@@ -42,10 +42,6 @@ public class PromotionInviteRelation extends BaseEntity {
     private LocalDateTime profileCompleteTime;
     /** 三项认证完成时间 */
     private LocalDateTime verifySuccessTime;
-    /** 无效原因 */
-    private String invalidReason;
-    /** 冻结原因 */
-    private String frozenReason;
     /** 累计奖励 */
     private BigDecimal totalRewardCoin;
 }

@@ -2,8 +2,8 @@
 # ================================================================
 # 推广裂变 - L1 接口测试脚本（已实现接口范围）
 # 范围：
-#   - 小程序匿名接口：rules/share-log/agent-source
-#   - 后台：规则、邀请列表、奖励列表/复核、代理/代理码、结算
+#   - 小程序匿名接口：rules/share-log/qr-source
+#   - 后台：规则、邀请列表、奖励列表/复核、代理/二维码、结算
 # 未纳入：
 #   - 导出、代理统计、代理奖金明细等当前未完整实现接口
 #   - PRD-03/04/06 真实通知、成家币、认证/支付联动
@@ -176,7 +176,7 @@ assert_eq "F1-P0-02" "获取活动规则可匿名访问" "200" "$RESP_CODE"
 assert_contains "F1-P0-02-body" "活动规则包含三项认证说明" "三项认证" "$RESP_BODY"
 
 TRACE_MARK="l1-$(date +%s)"
-SHARE_RESP=$(api_post_no_token "$API_URL/miniapp/promotion/invite/share-log" "{\"sourceType\":\"share_card\",\"scene\":\"$TRACE_MARK\"}")
+SHARE_RESP=$(api_post_no_token "$API_URL/miniapp/promotion/invite/share-log" "{\"sourceType\":\"user_qr\",\"scene\":\"$TRACE_MARK\"}")
 parse_response "$SHARE_RESP"
 TRACE_NO=$(json_field "$RESP_BODY" "data.traceNo")
 assert_eq "F1-P0-04" "记录普通分享来源" "200" "$RESP_CODE"
@@ -246,7 +246,7 @@ NON_EXIST_REWARD_CODE=$(json_field "$RESP_BODY" "code")
 assert_eq "F3-P2-03" "审核不存在/非 frozen 奖励应失败" "5001" "$NON_EXIST_REWARD_CODE"
 
 echo ""
-echo "── 4. 代理与代理码 ──"
+echo "── 4. 代理与二维码 ──"
 AGENT_NAME="L1Agent$(date +%s)"
 CREATE_AGENT_RESP=$(api_post_json "$API_URL/admin/promotion/agents" "{\"agentName\":\"$AGENT_NAME\",\"contactName\":\"L1\",\"contactPhone\":\"13800000000\",\"school\":\"测试大学\",\"campus\":\"主校区\",\"agentGroup\":\"DEFAULT\",\"status\":\"normal\"}")
 parse_response "$CREATE_AGENT_RESP"
@@ -259,19 +259,19 @@ assert_eq "F3-P1-03" "查询代理列表" "200" "$RESP_CODE"
 assert_contains "F3-P1-03-body" "代理列表包含新建代理" "$AGENT_NAME" "$RESP_BODY"
 
 if [ -n "$AGENT_ID" ]; then
-  CODE_RESP=$(api_post_json "$API_URL/admin/promotion/agents/$AGENT_ID/codes/regenerate" "{}")
+  CODE_RESP=$(api_post_json "$API_URL/admin/promotion/agents/$AGENT_ID/qr-codes/regenerate" "{}")
   parse_response "$CODE_RESP"
-  AGENT_CODE=$(json_field "$RESP_BODY" "data.agentCode")
-  AGENT_CODE_ID=$(json_field "$RESP_BODY" "data.id")
-  assert_eq "F3-P0-06" "生成代理码" "200" "$RESP_CODE"
-  assert_contains "F3-P0-06-code" "返回代理码" "A" "$AGENT_CODE"
+  QR_CODE=$(json_field "$RESP_BODY" "data.qrCode")
+  QR_CODE_ID=$(json_field "$RESP_BODY" "data.id")
+  assert_eq "F3-P0-06" "生成代理二维码" "200" "$RESP_CODE"
+  assert_contains "F3-P0-06-code" "返回二维码编号" "A" "$QR_CODE"
 
-  AGENT_SOURCE_RESP=$(api_get_no_token "$API_URL/miniapp/promotion/invite/agent-source?agentCode=$AGENT_CODE")
+  AGENT_SOURCE_RESP=$(api_get_no_token "$API_URL/miniapp/promotion/invite/qr-source?qrCode=$QR_CODE")
   parse_response "$AGENT_SOURCE_RESP"
   assert_eq "F1-P1-01" "查询代理来源" "200" "$RESP_CODE"
   assert_contains "F1-P1-01-body" "代理来源 available=true" "available\":true" "$RESP_BODY"
 
-  AGENT_SHARE_RESP=$(api_post_no_token "$API_URL/miniapp/promotion/invite/share-log" "{\"sourceType\":\"agent_code\",\"agentCode\":\"$AGENT_CODE\"}")
+  AGENT_SHARE_RESP=$(api_post_no_token "$API_URL/miniapp/promotion/invite/share-log" "{\"sourceType\":\"agent_qr\",\"qrCode\":\"$QR_CODE\"}")
   parse_response "$AGENT_SHARE_RESP"
   assert_eq "F1-P0-05" "记录代理扫码来源" "200" "$RESP_CODE"
 
@@ -279,10 +279,10 @@ if [ -n "$AGENT_ID" ]; then
   parse_response "$PAUSE_RESP"
   assert_eq "F3-P1-02" "变更代理状态为 paused" "200" "$RESP_CODE"
 
-  if [ -n "$AGENT_CODE_ID" ]; then
-    DISABLE_CODE_RESP=$(api_put_json "$API_URL/admin/promotion/agent-codes/$AGENT_CODE_ID/disable" "{}")
+  if [ -n "$QR_CODE_ID" ]; then
+    DISABLE_CODE_RESP=$(api_put_json "$API_URL/admin/promotion/agent-qr-codes/$QR_CODE_ID/disable" "{}")
     parse_response "$DISABLE_CODE_RESP"
-    assert_eq "F3-P1-01" "停用代理码" "200" "$RESP_CODE"
+    assert_eq "F3-P1-01" "停用代理二维码" "200" "$RESP_CODE"
   fi
 else
   skip_test "F3-P0-06/F1-P1-01/F1-P0-05/F3-P1-02" "代理链式测试" "代理创建失败"

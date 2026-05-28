@@ -15,6 +15,7 @@ import com.spacetime.common.entity.PromotionAuditLog;
 import com.spacetime.common.entity.PromotionRule;
 import com.spacetime.common.entity.PromotionRuleTier;
 import com.spacetime.common.enums.CommonStatusEnum;
+import com.spacetime.common.enums.PromotionRuleTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -85,7 +86,6 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
         entity.setDailyLimit(changed.getDailyLimit());
         entity.setEffectiveTime(changed.getEffectiveTime());
         entity.setExpireTime(changed.getExpireTime());
-        entity.setAgentGroup(changed.getAgentGroup());
         entity.setStatus(changed.getStatus());
         entity.setRemark(changed.getRemark());
         ruleDao.updateById(entity);
@@ -144,6 +144,11 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
         if (req.getEffectiveTime() != null && req.getExpireTime() != null && req.getEffectiveTime().isAfter(req.getExpireTime())) {
             throw new BusinessException("生效时间不能晚于失效时间");
         }
+        if (StrUtil.isNotBlank(req.getRuleType())
+                && !PromotionRuleTypeEnum.USER_INVITE.getCode().equals(req.getRuleType())
+                && !PromotionRuleTypeEnum.AGENT_BONUS.getCode().equals(req.getRuleType())) {
+            throw new BusinessException("规则类型不支持");
+        }
     }
 
     private void validateTierRanges(List<PromotionRuleTierReq> tiers) {
@@ -175,7 +180,6 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
         rule.setDailyLimit(req.getDailyLimit());
         rule.setEffectiveTime(req.getEffectiveTime());
         rule.setExpireTime(req.getExpireTime());
-        rule.setAgentGroup(req.getAgentGroup());
         rule.setStatus(req.getStatus());
         rule.setRemark(req.getRemark());
         return rule;
@@ -192,7 +196,6 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
         vo.setDailyLimit(entity.getDailyLimit());
         vo.setEffectiveTime(entity.getEffectiveTime());
         vo.setExpireTime(entity.getExpireTime());
-        vo.setAgentGroup(entity.getAgentGroup());
         vo.setStatus(entity.getStatus());
         vo.setRemark(entity.getRemark());
         vo.setCreateTime(entity.getCreateTime());

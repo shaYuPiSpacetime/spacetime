@@ -4,10 +4,8 @@ package com.spacetime.common.enums;
  * 推广来源类型
  */
 public enum PromotionSourceTypeEnum {
-    SHARE_CARD("share_card"),
-    POSTER("poster"),
-    INVITE_CODE("invite_code"),
-    AGENT_CODE("agent_code");
+    USER_QR("user_qr"),
+    AGENT_QR("agent_qr");
 
     private final String code;
 

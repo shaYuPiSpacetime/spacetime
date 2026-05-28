@@ -27,7 +27,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/miniapp/login/**",
                         "/miniapp/promotion/invite/rules",
                         "/miniapp/promotion/invite/share-log",
-                        "/miniapp/promotion/invite/agent-source"
+                        "/miniapp/promotion/invite/qr-source"
                 );
 
         registry.addInterceptor(permissionInterceptor)

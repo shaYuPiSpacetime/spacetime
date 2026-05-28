@@ -22,6 +22,13 @@ public class PromotionRewardLogDaoImpl implements PromotionRewardLogDao {
     }
 
     @Override
+    public PromotionRewardLog selectByRelationIdAndEventType(Long relationId, String eventType) {
+        return mapper.selectOne(new LambdaQueryWrapper<PromotionRewardLog>()
+                .eq(PromotionRewardLog::getRelationId, relationId)
+                .eq(PromotionRewardLog::getEventType, eventType));
+    }
+
+    @Override
     public Page<PromotionRewardLog> selectPage(Page<PromotionRewardLog> page, LambdaQueryWrapper<PromotionRewardLog> wrapper) {
         return mapper.selectPage(page, wrapper);
     }
