@@ -11,6 +11,12 @@ import MenuManagement from '@/pages/admin/MenuManagement';
 import DictTypeManagement from '@/pages/admin/DictTypeManagement';
 import DictDataManagement from '@/pages/admin/DictDataManagement';
 import PromotionManagement from '@/pages/promotion/PromotionManagement';
+import ContentArticlePage from '@/pages/content/ContentArticlePage';
+import AppConfigPage from '@/pages/content/AppConfigPage';
+import MobileEntryConfigPage from '@/pages/content/MobileEntryConfigPage';
+import SearchHotWordPage from '@/pages/content/SearchHotWordPage';
+import SearchBlockWordPage from '@/pages/content/SearchBlockWordPage';
+import ContentOperationLogPage from '@/pages/content/ContentOperationLogPage';
 
 export default function AppRouter() {
   return (
@@ -43,6 +49,14 @@ export default function AppRouter() {
         <Route path="promotion/agents" element={<PromotionManagement />} />
         <Route path="promotion/settlements" element={<PromotionManagement />} />
 
+        {/* Content Management */}
+        <Route path="content/articles" element={<ContentArticlePage />} />
+        <Route path="content/app-config" element={<AppConfigPage />} />
+        <Route path="content/mobile-entries" element={<MobileEntryConfigPage />} />
+        <Route path="content/search-hot-words" element={<SearchHotWordPage />} />
+        <Route path="content/search-block-words" element={<SearchBlockWordPage />} />
+        <Route path="content/operation-logs" element={<ContentOperationLogPage />} />
+
         {/* Placeholder routes */}
         <Route path="match" element={<PlaceholderPage title="匹配" />} />
         <Route path="scale" element={<PlaceholderPage title="量表" />} />
@@ -59,7 +73,6 @@ export default function AppRouter() {
         <Route path="support" element={<PlaceholderPage title="客服" />} />
         <Route path="finance" element={<PlaceholderPage title="财务" />} />
         <Route path="data" element={<PlaceholderPage title="数据" />} />
-        <Route path="content" element={<PlaceholderPage title="内容" />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
