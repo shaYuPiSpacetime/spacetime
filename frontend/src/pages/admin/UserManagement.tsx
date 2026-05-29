@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Pencil, Trash2, Shield, Search, RotateCcw } from 'lucide-react';
+import { Pencil, Trash2, Shield, Search, RotateCcw, LockKeyhole } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,15 @@ import {
   type UserVO,
   type UserDetailVO,
 } from '@/api/user';
+import {
+  getUserBlacklist,
+  getUserHiddenDynamics,
+  getUserKeywordBlocks,
+  getUserSecuritySummary,
+  type AdminRelationBlockVO,
+  type AdminUserKeywordVO,
+  type AdminUserSecuritySummaryVO,
+} from '@/api/userSecurity';
 import { getAllRoles, type RoleVO } from '@/api/role';
 
 const STATUS_OPTIONS = [
@@ -48,6 +57,12 @@ export default function UserManagement() {
   const [allRoles, setAllRoles] = useState<RoleVO[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
   const [roleSaving, setRoleSaving] = useState(false);
+
+  const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
+  const [securitySummary, setSecuritySummary] = useState<AdminUserSecuritySummaryVO | null>(null);
+  const [blacklist, setBlacklist] = useState<AdminRelationBlockVO[]>([]);
+  const [hiddenDynamics, setHiddenDynamics] = useState<AdminRelationBlockVO[]>([]);
+  const [keywords, setKeywords] = useState<AdminUserKeywordVO[]>([]);
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -135,6 +150,20 @@ export default function UserManagement() {
     setSelectedRoleIds((prev) => prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]);
   }
 
+  async function openSecurityDialog(id: number) {
+    setSecurityDialogOpen(true);
+    const [summaryRes, blacklistRes, hiddenRes, keywordRes] = await Promise.all([
+      getUserSecuritySummary(id),
+      getUserBlacklist(id, { page: 1, size: 5 }),
+      getUserHiddenDynamics(id, { page: 1, size: 5 }),
+      getUserKeywordBlocks(id),
+    ]);
+    setSecuritySummary((summaryRes as any).data);
+    setBlacklist((blacklistRes as any).data?.records ?? []);
+    setHiddenDynamics((hiddenRes as any).data?.records ?? []);
+    setKeywords((keywordRes as any).data ?? []);
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -210,6 +239,9 @@ export default function UserManagement() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openRoleDialog(u.id)} title="分配角色">
                         <Shield className="h-4 w-4" />
                       </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openSecurityDialog(u.id)} title="安全详情">
+                        <LockKeyhole className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -279,6 +311,47 @@ export default function UserManagement() {
           <Button onClick={handleSaveRoles} disabled={roleSaving}>{roleSaving ? '保存中…' : '保存'}</Button>
         </div>
       </Dialog>
+
+      <Dialog open={securityDialogOpen} onClose={() => setSecurityDialogOpen(false)} className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>用户安全详情</DialogTitle>
+          <DialogDescription>{securitySummary ? `${securitySummary.nickname} #${securitySummary.userId}` : '加载用户安全信息'}</DialogDescription>
+        </DialogHeader>
+        {securitySummary ? (
+          <div className="mt-4 space-y-5">
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="rounded-md border p-3">黑名单：{securitySummary.blacklistCount}</div>
+              <div className="rounded-md border p-3">动态屏蔽：{securitySummary.hiddenDynamicCount}</div>
+              <div className="rounded-md border p-3">关键词：{securitySummary.keywordCount}</div>
+              <div className="rounded-md border p-3">反馈：{securitySummary.feedbackCount}</div>
+              <div className="rounded-md border p-3">搜索：{securitySummary.searchCount}</div>
+              <div className="rounded-md border p-3">注销：{securitySummary.cancelStatus}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <SecurityList title="黑名单" rows={blacklist.map((r) => `${r.targetNickname} #${r.targetUserId}`)} />
+              <SecurityList title="不看TA动态" rows={hiddenDynamics.map((r) => `${r.targetNickname} #${r.targetUserId}`)} />
+            </div>
+            <SecurityList title="个人关键词" rows={keywords.map((k) => k.keyword)} />
+          </div>
+        ) : (
+          <div className="mt-4 text-sm text-muted-foreground">加载中...</div>
+        )}
+      </Dialog>
+    </div>
+  );
+}
+
+function SecurityList({ title, rows }: { title: string; rows: string[] }) {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="mb-2 text-sm font-medium">{title}</div>
+      {rows.length === 0 ? (
+        <div className="text-sm text-muted-foreground">暂无数据</div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {rows.map((row) => <Badge key={row} variant="secondary">{row}</Badge>)}
+        </div>
+      )}
     </div>
   );
 }

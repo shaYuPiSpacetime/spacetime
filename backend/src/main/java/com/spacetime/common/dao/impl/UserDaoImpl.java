@@ -6,7 +6,10 @@ import com.spacetime.common.dao.UserDao;
 import com.spacetime.common.entity.SysUser;
 import com.spacetime.common.mapper.SysUserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 /**
  * 用户数据访问层实现
@@ -42,6 +45,28 @@ public class UserDaoImpl implements UserDao {
     @Override
     public Page<SysUser> selectPage(Page<SysUser> page, LambdaQueryWrapper<SysUser> wrapper) {
         return sysUserMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public Page<SysUser> search(Page<SysUser> page, String keyword) {
+        LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like(SysUser::getUsername, keyword)
+                    .or()
+                    .like(SysUser::getNickname, keyword)
+                    .or()
+                    .like(SysUser::getPhone, keyword));
+        }
+        wrapper.orderByDesc(SysUser::getCreateTime);
+        return sysUserMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public List<SysUser> selectByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return sysUserMapper.selectBatchIds(ids);
     }
 
     @Override

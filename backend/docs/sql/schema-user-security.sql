@@ -1,0 +1,142 @@
+-- PRD-06 用户安全设置与搜索主链路
+
+CREATE TABLE IF NOT EXISTS app_user_privacy_setting (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  show_distance TINYINT NOT NULL DEFAULT 1 COMMENT '是否展示距离',
+  hide_active_time TINYINT NOT NULL DEFAULT 0 COMMENT '是否隐藏活跃时间',
+  show_marital_status TINYINT NOT NULL DEFAULT 1 COMMENT '是否展示婚恋状态',
+  profile_update_visible TINYINT NOT NULL DEFAULT 1 COMMENT '资料更新是否可见',
+  only_opposite_interaction TINYINT NOT NULL DEFAULT 0 COMMENT '只接受异性互动',
+  personalized_push TINYINT NOT NULL DEFAULT 1 COMMENT '个性化推荐/推送',
+  match_chat_hint TINYINT NOT NULL DEFAULT 1 COMMENT '匹配聊天提示',
+  smart_reply TINYINT NOT NULL DEFAULT 1 COMMENT '智能回复',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_privacy_user (user_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户隐私设置表';
+
+CREATE TABLE IF NOT EXISTS app_user_notification_setting (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  interaction TINYINT NOT NULL DEFAULT 1 COMMENT '互动通知',
+  community TINYINT NOT NULL DEFAULT 1 COMMENT '社区通知',
+  daily_recommend TINYINT NOT NULL DEFAULT 1 COMMENT '每日推荐',
+  app_exit TINYINT NOT NULL DEFAULT 1 COMMENT '离开应用提醒',
+  match_success TINYINT NOT NULL DEFAULT 1 COMMENT '匹配成功',
+  chat TINYINT NOT NULL DEFAULT 1 COMMENT '聊天消息',
+  whisper TINYINT NOT NULL DEFAULT 1 COMMENT '悄悄话',
+  certification TINYINT NOT NULL DEFAULT 1 COMMENT '认证通知',
+  report TINYINT NOT NULL DEFAULT 1 COMMENT '举报/申诉通知',
+  asset TINYINT NOT NULL DEFAULT 1 COMMENT '资产通知',
+  banner_in_app TINYINT NOT NULL DEFAULT 1 COMMENT '站内横幅',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_notification_user (user_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户通知设置表';
+
+CREATE TABLE IF NOT EXISTS app_user_relation_block (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+  user_id BIGINT NOT NULL COMMENT '操作用户ID',
+  target_user_id BIGINT NOT NULL COMMENT '目标用户ID',
+  block_type VARCHAR(30) NOT NULL COMMENT 'BLACKLIST/HIDDEN_DYNAMIC',
+  source_scene VARCHAR(50) DEFAULT NULL COMMENT '来源场景',
+  status VARCHAR(30) NOT NULL DEFAULT 'ENABLED' COMMENT 'ENABLED/DISABLED',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_relation_block (user_id, target_user_id, block_type, deleted),
+  KEY idx_relation_target (target_user_id, block_type, status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户屏蔽关系表';
+
+CREATE TABLE IF NOT EXISTS app_user_keyword_block (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  keyword VARCHAR(80) NOT NULL COMMENT '个人屏蔽关键词',
+  status VARCHAR(30) NOT NULL DEFAULT 'ENABLED' COMMENT 'ENABLED/DISABLED',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_user_keyword (user_id, keyword, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户个人关键词屏蔽表';
+
+CREATE TABLE IF NOT EXISTS app_user_feedback (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  feedback_type VARCHAR(50) NOT NULL COMMENT '反馈类型',
+  content VARCHAR(2000) NOT NULL COMMENT '反馈内容',
+  image_urls VARCHAR(2000) DEFAULT NULL COMMENT '截图URL，JSON数组',
+  contact VARCHAR(100) DEFAULT NULL COMMENT '联系方式',
+  status VARCHAR(30) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/PROCESSING/RESOLVED/CLOSED',
+  handle_remark VARCHAR(1000) DEFAULT NULL COMMENT '处理备注',
+  handled_by BIGINT DEFAULT NULL COMMENT '处理人',
+  handled_time DATETIME DEFAULT NULL COMMENT '处理时间',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  KEY idx_feedback_user (user_id, deleted),
+  KEY idx_feedback_status (status, create_time, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户反馈表';
+
+CREATE TABLE IF NOT EXISTS app_user_cancel_request (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  status VARCHAR(30) NOT NULL DEFAULT 'COOLING_OFF' COMMENT 'COOLING_OFF/REVOKED/CANCELLED/BLOCKED',
+  reason VARCHAR(500) DEFAULT NULL COMMENT '注销原因',
+  block_reason VARCHAR(1000) DEFAULT NULL COMMENT '阻断原因',
+  remark VARCHAR(1000) DEFAULT NULL COMMENT '后台备注',
+  cooling_end_time DATETIME DEFAULT NULL COMMENT '后悔期结束时间',
+  revoked_time DATETIME DEFAULT NULL COMMENT '撤销时间',
+  final_cancel_time DATETIME DEFAULT NULL COMMENT '最终注销时间',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  KEY idx_cancel_user (user_id, status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户注销申请表';
+
+CREATE TABLE IF NOT EXISTS app_user_search_log (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  keyword VARCHAR(100) NOT NULL COMMENT '搜索关键词',
+  search_type VARCHAR(30) NOT NULL COMMENT 'all/user/post/topic',
+  result_count INT NOT NULL DEFAULT 0 COMMENT '返回结果数',
+  violation TINYINT NOT NULL DEFAULT 0 COMMENT '是否命中违规词',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'BaseEntity统一字段，本表不做UPDATE',
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  KEY idx_search_user_time (user_id, create_time, deleted),
+  KEY idx_search_keyword (keyword, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户搜索日志表';
+
+CREATE TABLE IF NOT EXISTS app_user_security_audit_log (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+  user_id BIGINT NOT NULL COMMENT '目标用户ID',
+  operator_id BIGINT DEFAULT NULL COMMENT '操作人ID',
+  biz_type VARCHAR(50) NOT NULL COMMENT '业务类型',
+  biz_id BIGINT DEFAULT NULL COMMENT '业务ID',
+  action VARCHAR(50) NOT NULL COMMENT '动作',
+  before_value VARCHAR(2000) DEFAULT NULL COMMENT '变更前摘要',
+  after_value VARCHAR(2000) DEFAULT NULL COMMENT '变更后摘要',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  KEY idx_security_audit_user (user_id, create_time, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户安全设置审计日志';

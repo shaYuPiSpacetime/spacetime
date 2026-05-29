@@ -30,7 +30,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/miniapp/promotion/invite/qr-source",
                         "/miniapp/content/**",
                         "/miniapp/mobile-config/**",
-                        "/miniapp/search/**"
+                        "/miniapp/search/hot-words",
+                        "/miniapp/search/config"
                 );
 
         registry.addInterceptor(permissionInterceptor)

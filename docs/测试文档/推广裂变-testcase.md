@@ -18,12 +18,12 @@
 
 | 维度 | 评估结果 | 得分 |
 |------|----------|------|
-| A 新增/修改接口数 | 小程序 7 个接口，后台规则/邀请/奖励/代理/结算/导出约 25+ 个接口 | 2 |
+| A 新增/修改接口数 | 小程序 7 个接口，后台规则/邀请/奖励/代理/结算约 20+ 个接口；邀请导出、代理统计、结算导出/代理奖金明细导出不纳入本期 | 2 |
 | B 状态流转逻辑 | 邀请关系、奖励、代理、奖金、结算均有多状态流转 | 2 |
 | C 纯计算/规则逻辑 | 阶梯奖励、代理奖金、风控冻结、幂等、防重复发放 | 2 |
 | D 数据关联复杂度 | 规则、来源、关系、奖励、代理、事件、奖金、结算、成家币、通知 | 2 |
 | E 老代码影响范围 | 需接入注册登录、资料完成、三项认证、支付成功等核心 Service | 2 |
-| F 安全变更 | 新增大量后台权限码、冻结/结算/导出等敏感操作 | 1 |
+| F 安全变更 | 新增大量后台权限码、冻结/结算等敏感操作；导出权限为后续增强预留 | 1 |
 | **总分** |  | **11 → L1 + L2 + L3** |
 
 ### 前端评估
@@ -98,13 +98,13 @@
 | F2-P1-01 | P1 | 启停规则 | `PUT /admin/promotion/rules/{id}/status` | 规则存在 | 链式 | 状态切换成功，禁用后不再匹配奖励 | 详情 + L3 验证 |
 | F2-P1-02 | P1 | 人工标记邀请关系无效 | `PUT /admin/promotion/invites/{id}/invalid` | 关系非 invalid | fixture | 状态变为 `invalid`，写审计日志 | 详情查询 |
 | F2-P1-03 | P1 | 人工解除邀请关系冻结 | `PUT /admin/promotion/invites/{id}/unfreeze` | 关系为 `frozen` | fixture | 状态恢复，写审计日志 | 详情查询 |
-| F2-P1-04 | P1 | 导出邀请关系 | `GET /admin/promotion/invites/export` | 有导出权限 | 自动查询 | 返回文件流，筛选条件生效 | 响应头/内容断言 |
+| F2-P1-04 | P1 | 导出邀请关系 | `GET /admin/promotion/invites/export` | 有导出权限 | 自动查询 | 非本期需求范围，当前不执行 | 后续增强用例 |
 | F2-P2-01 | P2 | 新增规则金额为负数 | `POST /admin/promotion/rules` | 有权限 | 构造负数 | 返回参数错误或业务错误 | 响应断言 |
 | F2-P2-02 | P2 | 保存阶梯区间重叠 | `PUT /admin/promotion/rules/{id}/tiers` | 规则存在 | 构造重叠区间 | 返回业务错误 | 响应断言 |
 | F2-P2-03 | P2 | 查询不存在的邀请详情 | `GET /admin/promotion/invites/999999999` | 有权限 | 固定值 | 返回业务错误或空数据 | 响应断言 |
 | F2-P3-01 | P3 | 无 Token 查询规则 | `GET /admin/promotion/rules/list` | 无 Token | 无需数据 | 返回 401 | HTTP 状态断言 |
 | F2-P3-02 | P3 | 无权限新增规则 | `POST /admin/promotion/rules` | Token 缺少 `promotion:rule:add` | 低权限 Token | 返回 403 | HTTP 状态断言 |
-| F2-P3-03 | P3 | 无权限导出邀请关系 | `GET /admin/promotion/invites/export` | Token 缺少导出权限 | 低权限 Token | 返回 403 | HTTP 状态断言 |
+| F2-P3-03 | P3 | 无权限导出邀请关系 | `GET /admin/promotion/invites/export` | Token 缺少导出权限 | 低权限 Token | 非本期需求范围，当前不执行 | 后续增强用例 |
 
 ### 3.3 后台奖励流水、代理与结算接口
 
@@ -116,14 +116,14 @@
 | F3-P0-04 | P0 | 确认冻结奖励无效作废 | `PUT /admin/promotion/rewards/{id}/reject` | 奖励为 frozen | fixture | 状态 `invalid`，不写成家币流水，写审计日志 | 查询奖励 |
 | F3-P0-05 | P0 | 新增代理 | `POST /admin/promotion/agents` | 有 `promotion:agent:add` | 管理员 Token | 返回代理 ID | 详情查询 |
 | F3-P0-06 | P0 | 生成校园代理二维码 | `POST /admin/promotion/agents/{id}/qr-codes/regenerate` | 代理存在 | 链式 | 返回唯一二维码编号、小程序路径 | 查询代理详情 |
-| F3-P0-07 | P0 | 查询代理统计 | `GET /admin/promotion/agent-stats/list` | 存在代理事件 | fixture | 返回点击、注册、登录、资料、三项认证、奖金统计 | 响应断言 |
+| F3-P0-07 | P0 | 查询代理统计 | `GET /admin/promotion/agent-stats/list` | 存在代理事件 | fixture | 非本期需求范围，当前不执行 | 后续增强用例 |
 | F3-P0-08 | P0 | 生成结算单 | `POST /admin/promotion/settlements` | 有待结算奖金 | fixture | 返回结算单 ID，奖金明细关联结算单 | 查询结算详情/奖金 |
 | F3-P0-09 | P0 | 标记结算单已确认 | `PUT /admin/promotion/settlements/{id}/confirm` | 结算单 pending | 链式 | 状态 `confirmed` | 查询结算单 |
 | F3-P0-10 | P0 | 标记结算单已发放 | `PUT /admin/promotion/settlements/{id}/paid` | 结算单 confirmed | 链式 | 状态 `paid`，记录已发金额和时间 | 查询结算单 |
 | F3-P1-01 | P1 | 停用校园代理二维码 | `PUT /admin/promotion/agent-qr-codes/{id}/disable` | 二维码 enabled | 链式 | 状态 disabled，后续不建立新代理关系 | 查询二维码/绑定验证 |
 | F3-P1-02 | P1 | 变更代理状态为 paused | `PUT /admin/promotion/agents/{id}/status` | 代理 normal | 链式 | 状态 paused，写审计日志 | 查询代理 |
 | F3-P1-03 | P1 | 查询代理详情三 Tab | `GET /admin/promotion/agents/{id}` | 存在事件/奖金/结算 | fixture | 返回代理基础信息、推广明细、奖金明细、结算记录入口数据 | 响应断言 |
-| F3-P1-04 | P1 | 导出结算明细 | `GET /admin/promotion/settlements/{id}/export` | 结算单存在 | 链式 | 返回文件流 | 响应头/内容断言 |
+| F3-P1-04 | P1 | 导出结算明细 | `GET /admin/promotion/settlements/{id}/export` | 结算单存在 | 链式 | 非本期需求范围，当前不执行 | 后续增强用例 |
 | F3-P2-01 | P2 | 重复生成同代理同周期结算单 | `POST /admin/promotion/settlements` | 周期已有结算单 | 链式重复请求 | 返回业务错误，不重复关联奖金 | 查询结算单数量 |
 | F3-P2-02 | P2 | 已发放结算单再次标记发放 | `PUT /admin/promotion/settlements/{id}/paid` | 状态 paid | 链式重复请求 | 返回业务错误，状态不变 | 查询结算单 |
 | F3-P2-03 | P2 | 审核非 frozen 奖励 | `PUT /admin/promotion/rewards/{id}/approve` | 奖励为 success/invalid | fixture | 返回状态不允许 | 响应断言 |
@@ -189,7 +189,7 @@
 | L4-07 | P1 | 推广素材与二维码 | 渠道运营进入素材页 → 下载/停用校园代理二维码 | 二维码状态变化，按钮权限正确 |
 | L4-08 | P1 | 代理详情 | 打开代理详情 → 切换推广明细/奖金明细/结算记录 Tab | 各 Tab 数据加载正常，空态友好 |
 | L4-09 | P2 | 规则配置异常 | 新增规则输入负数金额或重叠阶梯 | 前端拦截或后端错误 toast，弹窗不关闭 |
-| L4-10 | P3 | 权限差异 | 使用只读运营账号访问推广规则页 | 新增/编辑/删除/导出按钮不可见 |
+| L4-10 | P3 | 权限差异 | 使用只读运营账号访问推广规则页 | 新增/编辑/删除按钮不可见；导出按钮本期不展示 |
 | L4-11 | P3 | 权限差异 | 使用无推广权限账号访问 `/promotion/rules` | 显示无权限或路由不可达 |
 
 ## 7. 前端手动测试用例
@@ -201,7 +201,7 @@
 | M-03 | P0 | 检查冻结处理二次确认弹窗 | 操作前必须确认并填写备注 |  |  |
 | M-04 | P0 | 检查代理新增/编辑表单 | 必填项、状态、学校、校区、规则组校验正确 |  |  |
 | M-05 | P1 | 检查结算单金额展示 | 金额保留两位或四位小数，字段不溢出 |  |  |
-| M-06 | P1 | 检查导出按钮 | 无数据时给出提示，有数据时可下载 |  |  |
+| M-06 | P1 | 检查导出按钮 | 本期不展示邀请/结算导出入口 |  |  |
 | M-07 | P1 | 检查长手机号/长学校名/长备注 | 表格不撑破布局，文本省略或换行合理 |  |  |
 | M-08 | P2 | 检查多个页面返回和刷新 | 筛选条件、分页、Tab 状态符合预期 |  |  |
 | M-09 | P2 | 检查接口失败态 | toast 显示错误，页面不白屏 |  |  |

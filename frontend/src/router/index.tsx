@@ -17,6 +17,8 @@ import MobileEntryConfigPage from '@/pages/content/MobileEntryConfigPage';
 import SearchHotWordPage from '@/pages/content/SearchHotWordPage';
 import SearchBlockWordPage from '@/pages/content/SearchBlockWordPage';
 import ContentOperationLogPage from '@/pages/content/ContentOperationLogPage';
+import FeedbackPage from '@/pages/user-security/FeedbackPage';
+import CancelRequestPage from '@/pages/user-security/CancelRequestPage';
 
 export default function AppRouter() {
   return (
@@ -56,6 +58,10 @@ export default function AppRouter() {
         <Route path="content/search-hot-words" element={<SearchHotWordPage />} />
         <Route path="content/search-block-words" element={<SearchBlockWordPage />} />
         <Route path="content/operation-logs" element={<ContentOperationLogPage />} />
+
+        {/* User Security */}
+        <Route path="user-security/feedback" element={<FeedbackPage />} />
+        <Route path="user-security/cancel-requests" element={<CancelRequestPage />} />
 
         {/* Placeholder routes */}
         <Route path="match" element={<PlaceholderPage title="匹配" />} />

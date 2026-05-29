@@ -4,6 +4,7 @@
 
 - `docs/技术方案/2026-05-22-推广裂变与邀请奖励-tcdesign.md`
 - `docs/技术方案/2026-05-28-公共内容配置-tcdesign.md`
+- `docs/技术方案/2026-05-29-PRD-06用户安全设置与搜索主链路-tcdesign.md`
 - `backend/src/main/java/com/spacetime/miniapp/controller/*`
 - `backend/src/main/java/com/spacetime/common/interceptor/WebConfig.java`
 
@@ -46,7 +47,10 @@ X-Auth-Token: <miniapp token>
 - `/miniapp/promotion/invite/qr-source`
 - `/miniapp/content/**`
 - `/miniapp/mobile-config/**`
-- `/miniapp/search/**`
+- `/miniapp/search/hot-words`
+- `/miniapp/search/config`
+
+说明：`/miniapp/search/results` 是搜索结果主链路，需要登录态。
 
 无 token 访问登录态接口时，当前实际返回：
 
@@ -662,9 +666,457 @@ Controller 统一返回 `R<T>`：
 }
 ```
 
-## 6. 枚举值说明
+## 6. 用户安全设置与搜索主链路
 
-### 6.1 公共内容
+本章节对应 PRD-06 第二阶段，小程序前端通过这些接口完成“我的页、认证中心、设置、安全设置、反馈、注销、搜索结果”主链路。
+
+### 6.1 我的页聚合
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/profile/home`      |
+| Method | `GET`                        |
+| Auth   | 登录态                       |
+| Query  | 无                           |
+
+响应字段：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "userId": 1,
+    "nickname": "peter",
+    "avatar": "",
+    "gender": "MALE",
+    "age": 25,
+    "school": "示例大学",
+    "city": "上海",
+    "profileCompletion": 80,
+    "realNameStatus": "PENDING",
+    "avatarStatus": "PENDING",
+    "educationStatus": "PENDING",
+    "vipStatus": null,
+    "coinBalance": null,
+    "entries": []
+  }
+}
+```
+
+说明：`entries` 复用移动端入口配置；认证与资产字段允许在对应 PRD 未接入前返回占位值或 `null`。
+
+### 6.2 认证中心聚合
+
+| 项目   | 说明                                      |
+| ------ | ----------------------------------------- |
+| Path   | `/miniapp/profile/certification-center`   |
+| Method | `GET`                                     |
+| Auth   | 登录态                                    |
+| Query  | 无                                        |
+
+响应字段：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "realNameStatus": "PENDING",
+    "avatarStatus": "PENDING",
+    "educationStatus": "PENDING",
+    "title": "完成认证，提升匹配可信度",
+    "description": "实名认证、头像认证、学历认证由认证模块承接"
+  }
+}
+```
+
+### 6.3 设置页聚合
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/settings/home`     |
+| Method | `GET`                        |
+| Auth   | 登录态                       |
+| Query  | 无                           |
+
+响应字段：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "phoneBindStatus": "BOUND",
+    "maskedPhone": "138****0000",
+    "wechatBindStatus": "UNBOUND",
+    "entries": [],
+    "currentVersion": "1.0.0"
+  }
+}
+```
+
+### 6.4 隐私设置
+
+#### 6.4.1 查询隐私设置
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/settings/privacy`  |
+| Method | `GET`                        |
+| Auth   | 登录态                       |
+| Query  | 无                           |
+
+#### 6.4.2 保存隐私设置
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/settings/privacy`  |
+| Method | `PUT`                        |
+| Auth   | 登录态                       |
+| Body   | `MiniappPrivacySettingReq`   |
+
+请求/响应字段：
+
+```json
+{
+  "showDistance": false,
+  "hideActiveTime": false,
+  "showMaritalStatus": true,
+  "profileUpdateVisible": true,
+  "onlyOppositeInteraction": true,
+  "personalizedPush": true,
+  "matchChatHint": true,
+  "smartReply": true
+}
+```
+
+说明：PUT 支持部分字段更新，未传字段保持原值。
+
+### 6.5 通知设置
+
+#### 6.5.1 查询通知设置
+
+| 项目   | 说明                              |
+| ------ | --------------------------------- |
+| Path   | `/miniapp/settings/notifications` |
+| Method | `GET`                             |
+| Auth   | 登录态                            |
+| Query  | 无                                |
+
+#### 6.5.2 保存通知设置
+
+| 项目   | 说明                              |
+| ------ | --------------------------------- |
+| Path   | `/miniapp/settings/notifications` |
+| Method | `PUT`                             |
+| Auth   | 登录态                            |
+| Body   | `MiniappNotificationSettingReq`   |
+
+请求/响应字段：
+
+```json
+{
+  "interaction": true,
+  "community": true,
+  "dailyRecommend": true,
+  "appExit": true,
+  "matchSuccess": true,
+  "chat": false,
+  "whisper": true,
+  "certification": true,
+  "report": true,
+  "asset": true,
+  "bannerInApp": true
+}
+```
+
+说明：PUT 支持部分字段更新，未传字段保持原值。
+
+### 6.6 黑名单与不看 TA 动态
+
+#### 6.6.1 黑名单列表
+
+| 项目   | 说明                                    |
+| ------ | --------------------------------------- |
+| Path   | `/miniapp/settings/blocks/blacklist`    |
+| Method | `GET`                                   |
+| Auth   | 登录态                                  |
+| Query  | `page` 默认 `1`；`size` 默认 `20`       |
+
+响应字段：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 1,
+        "targetUserId": 2,
+        "targetNickname": "普通已注册",
+        "targetAvatar": "",
+        "blockType": "BLACKLIST",
+        "sourceScene": "PROFILE",
+        "createTime": "2026-05-29 15:00:00"
+      }
+    ],
+    "total": 1,
+    "size": 20,
+    "current": 1,
+    "pages": 1
+  }
+}
+```
+
+#### 6.6.2 加入/解除黑名单
+
+| 项目   | 说明                                      |
+| ------ | ----------------------------------------- |
+| Path   | `/miniapp/settings/blocks/blacklist`      |
+| Method | `POST`                                    |
+| Auth   | 登录态                                    |
+| Body   | `targetUserId` 必填；`sourceScene` 可选   |
+
+```json
+{
+  "targetUserId": 2,
+  "sourceScene": "PROFILE"
+}
+```
+
+| 项目       | 说明                                      |
+| ---------- | ----------------------------------------- |
+| Path       | `/miniapp/settings/blocks/blacklist/{id}` |
+| Method     | `DELETE`                                  |
+| Auth       | 登录态                                    |
+| Path Param | `id` 屏蔽关系 ID                          |
+
+#### 6.6.3 不看 TA 动态列表
+
+| 项目   | 说明                                        |
+| ------ | ------------------------------------------- |
+| Path   | `/miniapp/settings/blocks/hidden-dynamics`  |
+| Method | `GET`                                       |
+| Auth   | 登录态                                      |
+| Query  | `page` 默认 `1`；`size` 默认 `20`           |
+
+#### 6.6.4 加入/移除不看 TA 动态
+
+| 项目   | 说明                                        |
+| ------ | ------------------------------------------- |
+| Path   | `/miniapp/settings/blocks/hidden-dynamics`  |
+| Method | `POST`                                      |
+| Auth   | 登录态                                      |
+| Body   | `targetUserId` 必填；`sourceScene` 可选     |
+
+| 项目       | 说明                                             |
+| ---------- | ------------------------------------------------ |
+| Path       | `/miniapp/settings/blocks/hidden-dynamics/{id}`  |
+| Method     | `DELETE`                                         |
+| Auth       | 登录态                                           |
+| Path Param | `id` 屏蔽关系 ID                                 |
+
+### 6.7 个人关键词屏蔽
+
+#### 6.7.1 关键词列表
+
+| 项目   | 说明                                   |
+| ------ | -------------------------------------- |
+| Path   | `/miniapp/settings/keyword-blocks`     |
+| Method | `GET`                                  |
+| Auth   | 登录态                                 |
+| Query  | 无                                     |
+
+响应字段：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "id": 1,
+      "keyword": "屏蔽词",
+      "createTime": "2026-05-29 15:00:00"
+    }
+  ]
+}
+```
+
+#### 6.7.2 新增/删除关键词
+
+| 项目   | 说明                                   |
+| ------ | -------------------------------------- |
+| Path   | `/miniapp/settings/keyword-blocks`     |
+| Method | `POST`                                 |
+| Auth   | 登录态                                 |
+| Body   | `keyword` 必填                         |
+
+```json
+{
+  "keyword": "屏蔽词"
+}
+```
+
+| 项目       | 说明                                      |
+| ---------- | ----------------------------------------- |
+| Path       | `/miniapp/settings/keyword-blocks/{id}`   |
+| Method     | `DELETE`                                  |
+| Auth       | 登录态                                    |
+| Path Param | `id` 关键词 ID                            |
+
+说明：个人关键词只保存用户自己的社区内容屏蔽规则，不用于整体拦截搜索词。
+
+### 6.8 反馈提交
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/feedback`          |
+| Method | `POST`                       |
+| Auth   | 登录态                       |
+| Body   | `MiniappFeedbackSubmitReq`   |
+
+请求示例：
+
+```json
+{
+  "feedbackType": "BUG",
+  "content": "页面展示异常",
+  "imageUrls": [
+    "https://example.com/feedback/1.png"
+  ],
+  "contact": "13800000000"
+}
+```
+
+响应 `data` 为反馈 ID：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": 1
+}
+```
+
+### 6.9 注销申请与退出登录
+
+#### 6.9.1 查询注销状态
+
+| 项目   | 说明                              |
+| ------ | --------------------------------- |
+| Path   | `/miniapp/account/cancel-status`  |
+| Method | `GET`                             |
+| Auth   | 登录态                            |
+| Query  | 无                                |
+
+响应字段：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "id": 1,
+    "status": "COOLING_OFF",
+    "reason": "不再使用",
+    "blockReason": null,
+    "coolingEndTime": "2026-06-05 15:00:00",
+    "coolingDays": 7
+  }
+}
+```
+
+#### 6.9.2 提交注销申请
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/account/cancel`    |
+| Method | `POST`                       |
+| Auth   | 登录态                       |
+| Body   | `confirm` 必填；`reason` 可选 |
+
+```json
+{
+  "confirm": true,
+  "reason": "不再使用"
+}
+```
+
+响应 `data` 为注销申请 ID。
+
+#### 6.9.3 撤销注销申请
+
+| 项目   | 说明                              |
+| ------ | --------------------------------- |
+| Path   | `/miniapp/account/cancel/revoke`  |
+| Method | `POST`                            |
+| Auth   | 登录态                            |
+| Body   | 无                                |
+
+#### 6.9.4 退出登录
+
+| 项目   | 说明                |
+| ------ | ------------------- |
+| Path   | `/miniapp/logout`   |
+| Method | `POST`              |
+| Auth   | 登录态              |
+| Body   | 无                  |
+
+说明：退出登录会让当前 `X-Auth-Token` 失效。
+
+### 6.10 搜索结果聚合
+
+| 项目   | 说明                                      |
+| ------ | ----------------------------------------- |
+| Path   | `/miniapp/search/results`                 |
+| Method | `GET`                                     |
+| Auth   | 登录态                                    |
+| Query  | `keyword` 必填；`type` 默认 `all`；`page` 默认 `1`；`size` 默认 `20` |
+
+响应字段：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "keyword": "peter",
+    "type": "all",
+    "tabs": [
+      "all",
+      "user",
+      "post",
+      "topic"
+    ],
+    "items": [
+      {
+        "id": 1,
+        "type": "user",
+        "title": "peter",
+        "subtitle": "上海 示例大学",
+        "avatar": ""
+      }
+    ],
+    "hasMore": false,
+    "totalCount": 1,
+    "violation": false,
+    "message": null
+  }
+}
+```
+
+说明：
+
+- `type` 当前支持 `all`、`user`、`post`、`topic`。
+- 动态和话题结果为 PRD-05 预留，未接入内容表时可返回空列表。
+- 命中搜索违规词时返回 `violation=true` 与提示文案，不返回正常结果。
+
+## 7. 枚举值说明
+
+### 7.1 公共内容
 
 | 字段          | 枚举值             | 说明                             |
 | ------------- | ------------------ | -------------------------------- |
@@ -678,7 +1130,7 @@ Controller 统一返回 `R<T>`：
 | `contentType` | `H5`               | H5 链接，读取 `contentUrl`       |
 | `contentType` | `NATIVE`           | 原生内容，详情读取 `contentBody` |
 
-### 6.2 移动端入口
+### 7.2 移动端入口
 
 | 字段            | 枚举值              | 说明           |
 | --------------- | ------------------- | -------------- |
@@ -693,7 +1145,7 @@ Controller 统一返回 `R<T>`：
 | `loginRequired` | `0`                 | 不要求登录     |
 | `loginRequired` | `1`                 | 要求登录       |
 
-### 6.3 搜索配置
+### 7.3 搜索配置
 
 | 字段        | 枚举值             | 说明         |
 | ----------- | ------------------ | ------------ |
@@ -705,7 +1157,7 @@ Controller 统一返回 `R<T>`：
 
 说明：搜索屏蔽词当前在 service 中提供 `validateKeyword(keyword)` 能力，但尚未暴露独立小程序 Controller 接口。
 
-### 6.4 推广邀请
+### 7.4 推广邀请
 
 | 字段          | 枚举值                       | 说明                    |
 | ------------- | ---------------------------- | ----------------------- |
@@ -721,7 +1173,26 @@ Controller 统一返回 `R<T>`：
 | `rewardEvent` | `first_vip_reward`           | 首次会员奖励            |
 | `rewardEvent` | `first_coin_recharge_reward` | 首次成家币充值奖励      |
 
-### 6.5 通用状态
+### 7.5 用户安全与搜索主链路
+
+| 字段           | 枚举值             | 说明                       |
+| -------------- | ------------------ | -------------------------- |
+| `blockType`    | `BLACKLIST`        | 黑名单                     |
+| `blockType`    | `HIDDEN_DYNAMIC`   | 不看 TA 动态               |
+| `feedbackType` | `BUG`              | 问题反馈                   |
+| `feedbackType` | `SUGGESTION`       | 功能建议                   |
+| `feedbackType` | `REPORT`           | 举报或安全相关反馈         |
+| `cancelStatus` | `NONE`             | 无注销申请                 |
+| `cancelStatus` | `COOLING_OFF`      | 注销后悔期中               |
+| `cancelStatus` | `REVOKED`          | 用户已撤销注销申请         |
+| `cancelStatus` | `CANCELLED`        | 注销完成                   |
+| `cancelStatus` | `BLOCKED`          | 存在阻断项，暂不允许注销   |
+| `searchType`   | `all`              | 综合搜索                   |
+| `searchType`   | `user`             | 用户搜索                   |
+| `searchType`   | `post`             | 动态搜索，当前预留         |
+| `searchType`   | `topic`            | 话题搜索，当前预留         |
+
+### 7.6 通用状态
 
 | 字段     | 枚举值     | 说明 |
 | -------- | ---------- | ---- |
