@@ -16,3 +16,4 @@ frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
 frontend/.playwright-browsers/
+miniapp/

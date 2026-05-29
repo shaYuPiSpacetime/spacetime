@@ -19,6 +19,10 @@ import SearchBlockWordPage from '@/pages/content/SearchBlockWordPage';
 import ContentOperationLogPage from '@/pages/content/ContentOperationLogPage';
 import FeedbackPage from '@/pages/user-security/FeedbackPage';
 import CancelRequestPage from '@/pages/user-security/CancelRequestPage';
+import FinanceManagement from '@/pages/finance/FinanceManagement';
+import VipBenefitManagement from '@/pages/config/VipBenefitManagement';
+import VipPackageManagement from '@/pages/config/VipPackageManagement';
+import CoinPackageManagement from '@/pages/config/CoinPackageManagement';
 
 export default function AppRouter() {
   return (
@@ -63,6 +67,16 @@ export default function AppRouter() {
         <Route path="user-security/feedback" element={<FeedbackPage />} />
         <Route path="user-security/cancel-requests" element={<CancelRequestPage />} />
 
+        {/* Finance Center */}
+        <Route path="finance/orders" element={<FinanceManagement />} />
+        <Route path="finance/flows" element={<FinanceManagement />} />
+        <Route path="finance/refunds" element={<FinanceManagement />} />
+
+        {/* Commercial Config */}
+        <Route path="config/vip-benefits" element={<VipBenefitManagement />} />
+        <Route path="config/vip-packages" element={<VipPackageManagement />} />
+        <Route path="config/coin-packages" element={<CoinPackageManagement />} />
+
         {/* Placeholder routes */}
         <Route path="match" element={<PlaceholderPage title="匹配" />} />
         <Route path="scale" element={<PlaceholderPage title="量表" />} />
@@ -77,7 +91,6 @@ export default function AppRouter() {
         <Route path="operations" element={<PlaceholderPage title="运营" />} />
         <Route path="system" element={<PlaceholderPage title="系统" />} />
         <Route path="support" element={<PlaceholderPage title="客服" />} />
-        <Route path="finance" element={<PlaceholderPage title="财务" />} />
         <Route path="data" element={<PlaceholderPage title="数据" />} />
       </Route>
 
