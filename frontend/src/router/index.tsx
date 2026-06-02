@@ -17,6 +17,7 @@ import MobileEntryConfigPage from '@/pages/content/MobileEntryConfigPage';
 import SearchHotWordPage from '@/pages/content/SearchHotWordPage';
 import SearchBlockWordPage from '@/pages/content/SearchBlockWordPage';
 import ContentOperationLogPage from '@/pages/content/ContentOperationLogPage';
+import CommunityManagementPage from '@/pages/community/CommunityManagementPage';
 import FeedbackPage from '@/pages/user-security/FeedbackPage';
 import CancelRequestPage from '@/pages/user-security/CancelRequestPage';
 import FinanceManagement from '@/pages/finance/FinanceManagement';
@@ -62,6 +63,12 @@ export default function AppRouter() {
         <Route path="content/search-hot-words" element={<SearchHotWordPage />} />
         <Route path="content/search-block-words" element={<SearchBlockWordPage />} />
         <Route path="content/operation-logs" element={<ContentOperationLogPage />} />
+
+        {/* Community Management */}
+        <Route path="community/posts" element={<CommunityManagementPage />} />
+        <Route path="community/comments" element={<CommunityManagementPage />} />
+        <Route path="community/reports" element={<CommunityManagementPage />} />
+        <Route path="community/configs" element={<CommunityManagementPage />} />
 
         {/* User Security */}
         <Route path="user-security/feedback" element={<FeedbackPage />} />

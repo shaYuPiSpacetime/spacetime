@@ -14,7 +14,9 @@ public enum MobilePageCodeEnum {
     /** 安全中心 */
     SECURITY_CENTER("SECURITY_CENTER", "安全中心"),
     /** 搜索结果Tab */
-    SEARCH_RESULT_TAB("SEARCH_RESULT_TAB", "搜索结果Tab");
+    SEARCH_RESULT_TAB("SEARCH_RESULT_TAB", "搜索结果Tab"),
+    /** 社区首页 Tab */
+    COMMUNITY_HOME_TAB("COMMUNITY_HOME_TAB", "社区首页Tab");
 
     /** 页面编码（存入数据库） */
     private final String code;

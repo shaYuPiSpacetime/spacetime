@@ -15,6 +15,8 @@ public enum ConfigGroupEnum {
     ABOUT("ABOUT", "关于"),
     /** 搜索 */
     SEARCH("SEARCH", "搜索"),
+    /** 社区与互动 */
+    COMMUNITY("COMMUNITY", "社区与互动"),
     /** 我的页 */
     MY_PAGE("MY_PAGE", "我的页"),
     /** 设置页 */
