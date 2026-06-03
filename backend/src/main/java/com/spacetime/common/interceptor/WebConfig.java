@@ -18,12 +18,18 @@ public class WebConfig implements WebMvcConfigurer {
     private final TokenInterceptor tokenInterceptor;
     private final PermissionInterceptor permissionInterceptor;
 
+    /**
+     * 注册拦截器链
+     * TokenInterceptor → PermissionInterceptor（admin 权限校验）
+     */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 1. 登录拦截器：拦截 admin 和 miniapp 所有接口
         registry.addInterceptor(tokenInterceptor)
                 .addPathPatterns("/admin/**", "/miniapp/**")
                 .excludePathPatterns(
                         "/admin/login",
+                        "/miniapp/auth/**",
                         "/miniapp/login/**",
                         "/miniapp/promotion/invite/rules",
                         "/miniapp/promotion/invite/share-log",
@@ -34,6 +40,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/miniapp/search/config"
                 );
 
+        // 2. 权限拦截器：仅拦截 admin 接口，放行登录/退出/路由
         registry.addInterceptor(permissionInterceptor)
                 .addPathPatterns("/admin/**")
                 .excludePathPatterns("/admin/login", "/admin/logout", "/admin/routers");

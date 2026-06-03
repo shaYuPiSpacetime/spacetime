@@ -26,6 +26,11 @@ public class TokenInterceptor implements HandlerInterceptor {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 请求前拦截：校验 token 并写入用户上下文
+     * 流程：1.取token → 2.判断前缀 → 3.查Redis → 4.写入ThreadLocal
+     * @return true 放行，false 拦截（返回401）
+     */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         // 1. 获取请求头中的 token
@@ -54,6 +59,9 @@ public class TokenInterceptor implements HandlerInterceptor {
         return true;
     }
 
+    /**
+     * 请求完成后清除 ThreadLocal，防止内存泄漏
+     */
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         // 请求结束后清除 ThreadLocal，防止内存泄漏

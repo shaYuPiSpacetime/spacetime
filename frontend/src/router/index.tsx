@@ -18,6 +18,8 @@ import SearchHotWordPage from '@/pages/content/SearchHotWordPage';
 import SearchBlockWordPage from '@/pages/content/SearchBlockWordPage';
 import ContentOperationLogPage from '@/pages/content/ContentOperationLogPage';
 import CommunityManagementPage from '@/pages/community/CommunityManagementPage';
+import VerificationManagementPage from '@/pages/verify/VerificationManagementPage';
+import ModerationPage from '@/pages/moderation/ModerationPage';
 import FeedbackPage from '@/pages/user-security/FeedbackPage';
 import CancelRequestPage from '@/pages/user-security/CancelRequestPage';
 import FinanceManagement from '@/pages/finance/FinanceManagement';
@@ -69,6 +71,15 @@ export default function AppRouter() {
         <Route path="community/comments" element={<CommunityManagementPage />} />
         <Route path="community/reports" element={<CommunityManagementPage />} />
         <Route path="community/configs" element={<CommunityManagementPage />} />
+
+        {/* Verification Audit */}
+        <Route path="verify/real-name" element={<VerificationManagementPage />} />
+        <Route path="verify/education" element={<VerificationManagementPage />} />
+        <Route path="verify/avatar" element={<VerificationManagementPage />} />
+
+        {/* Content Moderation */}
+        <Route path="moderation/photos" element={<ModerationPage />} />
+        <Route path="moderation/texts" element={<ModerationPage />} />
 
         {/* User Security */}
         <Route path="user-security/feedback" element={<FeedbackPage />} />
