@@ -1,13 +1,12 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useLoad } from '@tarojs/taro'
 import { useCoins } from '@/hooks/useCoins'
-import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
 
 /**
  * 成家币交易明细页
  * 展示收入/支出记录列表，支持空状态提示
- * 对齐蓝湖设计：顶部导航 → 交易记录列表 / 空状态占位
+ * 对齐蓝湖设计：交易记录列表 / 空状态占位
  */
 export default function CoinsDetailPage() {
   const {
@@ -33,9 +32,6 @@ export default function CoinsDetailPage() {
 
   return (
     <View className="flex flex-col min-h-screen bg-[#F5F7FA]">
-      {/* 顶部导航 */}
-      <PageHeader title="交易明细" />
-
       {/* 加载中 */}
       {transactionsLoading && (
         <View className="flex items-center justify-center py-20">

@@ -21,11 +21,10 @@ export default function LoginAgePage() {
     const month = MONTHS[value[1]]
     const day = DAYS[value[2]]
     if (!year) return
-    Taro.showToast({ title: `已选择 ${year}${month}${day}`, icon: 'success', duration: 1000 })
+    Taro.showToast({ title: `已选择 ${year}${month}${day}`, icon: 'success', duration: 800 })
     setTimeout(() => {
-      // 注册完成，进入主应用
-      Taro.switchTab({ url: '/pages/index/index' })
-    }, 1000)
+      Taro.navigateTo({ url: '/pages/login/education' })
+    }, 800)
   }
 
   return (
@@ -33,21 +32,8 @@ export default function LoginAgePage() {
       className="min-h-screen flex flex-col px-[16px]"
       style={{ background: 'linear-gradient(180deg,#E8F4FF 0%,#F0F7FF 100%)' }}
     >
-      {/* Header */}
-      <View className="flex flex-row items-center justify-between pt-[12px] pb-[6px]">
-        <View className="w-[30px] h-[30px] flex items-center justify-center" onClick={() => Taro.navigateBack()}>
-          <Text className="text-lg text-[#333]">‹</Text>
-        </View>
-        <View className="flex flex-row items-center gap-[10px]">
-          <Text className="text-base text-[#999]">···</Text>
-          <View className="w-[18px] h-[18px] rounded-full border border-[#999] flex items-center justify-center">
-            <Text className="text-xs text-[#999]">⊙</Text>
-          </View>
-        </View>
-      </View>
-
       {/* 标题区 */}
-      <View className="flex flex-col items-center mt-[32px] mb-[20px]">
+      <View className="flex flex-col items-center mt-[84px] mb-[20px]">
         <Text className="text-lg font-semibold text-[#153060] mb-[8px]">请选择</Text>
         <Text className="text-xs text-[#999]">—你是哪一年出生（为你推荐匹配的异性）—</Text>
       </View>
@@ -56,28 +42,28 @@ export default function LoginAgePage() {
       <PickerView
         value={value}
         onChange={handleChange}
-        indicatorStyle="height: 44px; border-top: 1.5px solid #2876FF; border-bottom: 1.5px solid #2876FF; border-radius: 10px; background: rgba(238,245,255,0.9);"
-        maskStyle="background: linear-gradient(180deg,rgba(238,246,255,0.8) 0%,rgba(238,246,255,0.1) 100%),linear-gradient(0deg,rgba(238,246,255,0.8) 0%,rgba(238,246,255,0.1) 100%);"
-        style={{ height: '220px' }}
+        indicatorStyle="height: 44px; border-top: 1.5px solid #2876FF; border-bottom: 1.5px solid #2876FF; border-radius: 10px; background: rgba(40,118,255,0.08);"
+        maskStyle="background: linear-gradient(180deg,rgba(232,244,255,1) 0%,rgba(232,244,255,0.6) 40%,rgba(232,244,255,0) 60%,rgba(232,244,255,0.6) 90%,rgba(232,244,255,1) 100%);"
+        style={{ width: '100%', height: '220px' }}
       >
         <PickerViewColumn>
           {YEARS.map((y) => (
-            <View key={y} className="flex items-center justify-center h-[44px]">
-              <Text className="text-base text-[#153060]">{y}</Text>
+            <View key={y} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '44px' }}>
+              <Text style={{ fontSize: '16px', color: '#153060', fontWeight: '500' }}>{y}</Text>
             </View>
           ))}
         </PickerViewColumn>
         <PickerViewColumn>
           {MONTHS.map((m) => (
-            <View key={m} className="flex items-center justify-center h-[44px]">
-              <Text className="text-base text-[#153060]">{m}</Text>
+            <View key={m} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '44px' }}>
+              <Text style={{ fontSize: '16px', color: '#153060', fontWeight: '500' }}>{m}</Text>
             </View>
           ))}
         </PickerViewColumn>
         <PickerViewColumn>
           {DAYS.map((d) => (
-            <View key={d} className="flex items-center justify-center h-[44px]">
-              <Text className="text-base text-[#153060]">{d}</Text>
+            <View key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '44px' }}>
+              <Text style={{ fontSize: '16px', color: '#153060', fontWeight: '500' }}>{d}</Text>
             </View>
           ))}
         </PickerViewColumn>

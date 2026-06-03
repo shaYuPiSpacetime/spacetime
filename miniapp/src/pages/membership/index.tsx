@@ -1,6 +1,5 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useEffect, useState } from 'react'
-import Taro from '@tarojs/taro'
 import { useMembership } from '@/hooks/useMembership'
 
 /** VIP 权益列表 */
@@ -51,25 +50,7 @@ export default function MembershipPage() {
 
   return (
     <View className="min-h-screen flex flex-col" style={{ background: '#1A1A1A' }}>
-
-      {/* ── 顶部导航（深色）── */}
-      <View className="flex flex-row items-center justify-between px-[12px] py-[10px]">
-        <View
-          className="w-[30px] h-[30px] flex items-center justify-center"
-          onClick={() => Taro.navigateBack()}
-        >
-          <Text className="text-lg text-white">‹</Text>
-        </View>
-        <Text className="text-lg font-semibold text-white">会员中心</Text>
-        <View className="flex flex-row items-center gap-[8px]">
-          <Text className="text-base text-[#888]">···</Text>
-          <View className="w-[18px] h-[18px] rounded-full border border-[#888] flex items-center justify-center">
-            <Text className="text-xs text-[#888]">⊙</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView scrollY className="flex-1" style={{ paddingBottom: '90px' }}>
+      <ScrollView scrollY className="flex-1" style={{ paddingTop: '12px', paddingBottom: '90px' }}>
 
         {/* ── 用户信息 ── */}
         <View className="px-[16px] pt-[6px] pb-[14px] flex flex-row items-center">

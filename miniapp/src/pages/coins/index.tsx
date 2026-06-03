@@ -1,6 +1,5 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useEffect } from 'react'
-import Taro from '@tarojs/taro'
 import { useCoins } from '@/hooks/useCoins'
 
 /**
@@ -40,25 +39,7 @@ export default function CoinsPage() {
 
   return (
     <View className="min-h-screen bg-[#F0F6FF] flex flex-col">
-
-      {/* ── 顶部导航 ── */}
-      <View className="flex flex-row items-center justify-between px-[12px] py-[10px] bg-transparent">
-        <View
-          className="w-[30px] h-[30px] flex items-center justify-center"
-          onClick={() => Taro.navigateBack()}
-        >
-          <Text className="text-lg text-[#153060]">‹</Text>
-        </View>
-        <Text className="text-lg font-semibold text-[#153060]">成家币</Text>
-        <View className="flex flex-row items-center gap-[8px]">
-          <Text className="text-base text-[#999]">···</Text>
-          <View className="w-[18px] h-[18px] rounded-full border border-[#999] flex items-center justify-center">
-            <Text className="text-xs text-[#999]">⊙</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView scrollY className="flex-1" style={{ paddingBottom: '86px' }}>
+      <ScrollView scrollY className="flex-1" style={{ paddingTop: '12px', paddingBottom: '86px' }}>
 
         {/* ── 余额卡片 ── */}
         <View
