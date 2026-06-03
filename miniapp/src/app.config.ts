@@ -1,5 +1,6 @@
 export default {
   pages: [
+    'pages/login/index',
     'pages/index/index',
     'pages/community/index',
     'pages/assessment/index',
@@ -10,7 +11,6 @@ export default {
     'pages/membership/records',
     'pages/coins/index',
     'pages/coins/detail',
-    'pages/login/index',
     'pages/login/gender',
     'pages/login/education',
     'pages/login/address',
@@ -23,6 +23,7 @@ export default {
     navigationBarTextStyle: 'black'
   },
   tabBar: {
+    custom: true,
     color: '#999999',
     selectedColor: '#2876FF',
     backgroundColor: '#ffffff',

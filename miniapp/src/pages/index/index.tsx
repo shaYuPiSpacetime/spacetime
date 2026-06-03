@@ -56,18 +56,12 @@ export default function IndexPage() {
               return (
                 <View
                   key={tab}
-                  className="mr-[16px] pb-[10px] relative"
+                  className="mr-[16px] pb-[10px]"
                   onClick={() => setActiveSubTab(idx)}
                 >
                   <Text className="text-base" style={{ color: '#7F8494', fontWeight: isActive ? '500' : 'normal' }}>
                     {tab}
                   </Text>
-                  {isActive && (
-                    <View
-                      className="absolute bottom-0 left-0 right-0 h-[4px] rounded-t-[3px]"
-                      style={{ background: 'rgba(40,118,255,0.8)' }}
-                    />
-                  )}
                 </View>
               );
             })}
@@ -77,10 +71,6 @@ export default function IndexPage() {
           <View className="flex flex-row items-center gap-[12px] pb-[10px]">
             <Text className="text-base text-[#888]">⏱</Text>
             <Text className="text-base text-[#888]">⚙</Text>
-            <Text className="text-base text-[#888]">···</Text>
-            <View className="w-[20px] h-[20px] rounded-full border border-[#888] flex items-center justify-center">
-              <Text className="text-xs text-[#888]">○</Text>
-            </View>
           </View>
         </View>
       </View>

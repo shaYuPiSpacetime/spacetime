@@ -15,7 +15,10 @@ export default function LoginAddressPage() {
   const handleNext = () => {
     if (!selected) return Taro.showToast({ title: '请选择居住地', icon: 'none' })
     setStep('age')
-    Taro.navigateTo({ url: '/pages/login/age' })
+    Taro.showToast({ title: '注册完成', icon: 'success', duration: 1000 })
+    setTimeout(() => {
+      Taro.switchTab({ url: '/pages/index/index' })
+    }, 1000)
   }
 
   const handleLocation = () => {
@@ -27,21 +30,8 @@ export default function LoginAddressPage() {
       className="min-h-screen flex flex-col px-[16px]"
       style={{ background: 'linear-gradient(180deg,#E8F4FF 0%,#F0F7FF 100%)' }}
     >
-      {/* Header */}
-      <View className="flex flex-row items-center justify-between pt-[12px] pb-[6px]">
-        <View className="w-[30px] h-[30px] flex items-center justify-center" onClick={() => Taro.navigateBack()}>
-          <Text className="text-lg text-[#333]">‹</Text>
-        </View>
-        <View className="flex flex-row items-center gap-[10px]">
-          <Text className="text-base text-[#999]">···</Text>
-          <View className="w-[18px] h-[18px] rounded-full border border-[#999] flex items-center justify-center">
-            <Text className="text-xs text-[#999]">⊙</Text>
-          </View>
-        </View>
-      </View>
-
       {/* 标题区 */}
-      <View className="flex flex-col items-center mt-[32px] mb-[32px]">
+      <View className="flex flex-col items-center mt-[84px] mb-[32px]">
         <Text className="text-lg font-semibold text-[#153060] mb-[8px]">请选择</Text>
         <Text className="text-xs text-[#999]">—你的居住地（为你推荐匹配的异性）—</Text>
       </View>

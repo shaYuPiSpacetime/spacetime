@@ -87,12 +87,12 @@ function buildProfileData(): ProfileData {
 
   return {
     isLoggedIn: auth.isLoggedIn,
-    nickname: auth.nickname || '未设置昵称',
+    // mock 文案对齐 Figma 设计稿
+    nickname: auth.nickname || '筱脑虎',
     avatarUrl: auth.avatar || '',
-    // 以下为 mock 占位字段，后续从用户详情接口获取
     location: '杭州市',
-    age: 26,
-    zodiac: '天蝎座',
+    age: 28,
+    zodiac: '双鱼座',
     isVerified: true,
     verifiedLabels: ['实名认证', '学历认证', '工作认证'],
     // 会员信息

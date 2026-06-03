@@ -62,6 +62,15 @@ const config = {
       mode: 'hash'
     },
     postcss: {
+      pxtransform: {
+        enable: true,
+        config: {
+          // H5 自测用: html font-size 在 375px 宽时 = 50px（由 deviceRatio 计算）
+          // 所以 baseFontSize 也设为 50，保证 px→rem 转换与根字号对齐
+          // 用法: 打开 http://localhost:10087，Chrome DevTools 切到 375×812
+          baseFontSize: 50,
+        }
+      },
       autoprefixer: { enable: true, config: {} },
       cssModules: {
         enable: true,

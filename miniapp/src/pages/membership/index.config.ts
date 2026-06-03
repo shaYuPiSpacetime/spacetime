@@ -1,4 +1,5 @@
 export default {
   navigationBarTitleText: '会员中心',
-  navigationStyle: 'custom',
+  navigationBarBackgroundColor: '#1A1A1A',
+  navigationBarTextStyle: 'white',
 }

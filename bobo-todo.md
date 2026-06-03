@@ -21,9 +21,13 @@
 
 https://lanhuapp.com/link/#/invite?sid=lXB9eRla
 
+蓝湖链接：https://lanhuapp.com/link/#/invite?sid=lXW7rf47
+
 根据https://lanhuapp.com/web/#/item/project/stage?pid=00cf551c-26f6-49e5-82db-1dc6fda9ca3a
 mcp1:1还原小程序蓝湖ui稿,在miniapp中。用其他模型跑起来一塌糊涂，字体都太大了。需要 1:1 还原
 
 npm run build:h5 -- --watch
 
 启动管理后台和后台项目
+
+figma https://www.figma.com/design/BqQhSLVSvuLYrZsgVlKmkU/%E6%88%90%E5%AE%B6%E7%AB%8B%E4%B8%9A?t=NH6dggfURmTA3PuA-1
