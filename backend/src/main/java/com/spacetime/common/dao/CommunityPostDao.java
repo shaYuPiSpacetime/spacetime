@@ -6,6 +6,9 @@ import com.spacetime.common.entity.CommunityPost;
 
 import java.util.List;
 
+/**
+ * 社区内容数据访问接口
+ */
 public interface CommunityPostDao {
     CommunityPost selectById(Long id);
     Page<CommunityPost> selectPage(Page<CommunityPost> page, LambdaQueryWrapper<CommunityPost> wrapper);

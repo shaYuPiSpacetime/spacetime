@@ -9,6 +9,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * 社区点赞数据访问实现
+ */
 @Repository
 @RequiredArgsConstructor
 public class CommunityLikeDaoImpl implements CommunityLikeDao {

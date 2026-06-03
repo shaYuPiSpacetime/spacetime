@@ -16,3 +16,7 @@
 后端至少 L1 cURL + L3 Service 单测；后台页面完成后再补 L4 Playwright。
 6、直接询问代码是否都已完成；查看未完成的部分自行决定如何处理
 7、根据测试用例进行测试，L4 Playwright需安装（AI装就完事了）测试完成会有测试报告，自己看测试报告以及还需自行测试的部分
+
+8、完善miniapp-api.md
+
+https://lanhuapp.com/link/#/invite?sid=lXB9eRla

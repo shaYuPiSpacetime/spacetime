@@ -1,4 +1,4 @@
-package com.spacetime.common.service;
+package com.spacetime.miniapp.service;
 
 /**
  * 成家币流水服务

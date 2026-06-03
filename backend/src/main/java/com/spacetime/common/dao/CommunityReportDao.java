@@ -6,6 +6,9 @@ import com.spacetime.common.entity.CommunityReport;
 
 import java.util.List;
 
+/**
+ * 社区举报数据访问接口
+ */
 public interface CommunityReportDao {
     CommunityReport selectById(Long id);
     Page<CommunityReport> selectPage(Page<CommunityReport> page, LambdaQueryWrapper<CommunityReport> wrapper);

@@ -1,11 +1,11 @@
-package com.spacetime.common.service.impl;
+package com.spacetime.miniapp.service.impl;
 
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserCoinLogDao;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.enums.FlowTypeEnum;
-import com.spacetime.common.service.CoinLogService;
+import com.spacetime.miniapp.service.CoinLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

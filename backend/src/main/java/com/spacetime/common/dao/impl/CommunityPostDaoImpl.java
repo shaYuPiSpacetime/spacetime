@@ -10,6 +10,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * 社区内容数据访问实现
+ */
 @Repository
 @RequiredArgsConstructor
 public class CommunityPostDaoImpl implements CommunityPostDao {

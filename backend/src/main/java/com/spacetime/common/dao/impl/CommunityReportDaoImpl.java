@@ -10,6 +10,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * 社区举报数据访问实现
+ */
 @Repository
 @RequiredArgsConstructor
 public class CommunityReportDaoImpl implements CommunityReportDao {
