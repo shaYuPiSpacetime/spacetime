@@ -19,26 +19,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 管理后台 — 小程序用户管理服务实现
- * 支持按关键词/学校/性别/状态/认证状态多条件筛选分页
+ * 含用户分页查询（多条件筛选 + EXISTS子查询）、用户详情、账号状态变更
+ * 认证状态筛选使用 EXISTS 子查询在 SQL 层完成，保证分页准确
  */
 @Service
 @RequiredArgsConstructor
 public class AppUserAdminServiceImpl implements AppUserAdminService {
 
+    /** 时间格式化器 */
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final AppUserDao appUserDao;
     private final AppUserVerificationDao verificationDao;
 
-    /**
-     * 用户分页查询
-     * 基础筛选直接在 SQL 完成，认证状态筛选在后置过滤（因认证在独立表）
-     * @param req 筛选条件（关键词/昵称/学校/性别/状态/认证状态）
-     * @return 分页结果
-     */
     @Override
     public Page<AppUserListVO> getUserPage(AppUserPageReq req) {
         LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
@@ -50,39 +49,37 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                 .eq(StrUtil.isNotBlank(req.getAccountStatus()), AppUser::getAccountStatus, req.getAccountStatus())
                 .eq(StrUtil.isNotBlank(req.getGender()), AppUser::getGender, req.getGender())
                 .eq(req.getFirstLoginCompleted() != null, AppUser::getFirstLoginCompleted, req.getFirstLoginCompleted())
+                .eq(req.getUserId() != null, AppUser::getId, req.getUserId())
+                .ge(StrUtil.isNotBlank(req.getRegisterTimeStart()), AppUser::getRegisterTime, req.getRegisterTimeStart() + " 00:00:00")
+                .le(StrUtil.isNotBlank(req.getRegisterTimeEnd()), AppUser::getRegisterTime, req.getRegisterTimeEnd() + " 23:59:59")
                 .orderByDesc(AppUser::getCreateTime);
-        Page<AppUser> page = appUserDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
 
-        // 如果按认证状态筛选，后置过滤（认证在独立 verification 表）
-        if (StrUtil.isNotBlank(req.getRealNameStatus()) || StrUtil.isNotBlank(req.getEducationStatus())
-                || StrUtil.isNotBlank(req.getAvatarVerifyStatus())) {
-            page.setRecords(page.getRecords().stream()
-                    .filter(user -> matchVerification(user.getId(),
-                            req.getRealNameStatus(), req.getEducationStatus(), req.getAvatarVerifyStatus()))
-                    .toList());
+        // 认证状态筛选：用 EXISTS 子查询在 SQL 层完成，保证分页准确
+        if (StrUtil.isNotBlank(req.getRealNameStatus())) {
+            wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.real_name_status = '" + req.getRealNameStatus() + "'");
+        }
+        if (StrUtil.isNotBlank(req.getEducationStatus())) {
+            wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.education_status = '" + req.getEducationStatus() + "'");
+        }
+        if (StrUtil.isNotBlank(req.getAvatarVerifyStatus())) {
+            wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.avatar_verify_status = '" + req.getAvatarVerifyStatus() + "'");
         }
 
+        Page<AppUser> page = appUserDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
+
+        // 批量加载所有用户的认证状态（避免 N+1）
+        List<Long> userIds = page.getRecords().stream().map(AppUser::getId).toList();
+        Map<Long, AppUserVerification> verifyMap = userIds.isEmpty() ? Map.of() : verificationDao.selectList(
+                new LambdaQueryWrapper<AppUserVerification>().in(AppUserVerification::getUserId, userIds))
+                .stream().collect(Collectors.toMap(AppUserVerification::getUserId, v -> v, (a, b) -> a));
+
         Page<AppUserListVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(page.getRecords().stream().map(this::toListVO).toList());
+        result.setRecords(page.getRecords().stream()
+                .map(user -> toListVO(user, verifyMap.get(user.getId())))
+                .toList());
         return result;
     }
 
-    /** 校验用户的认证状态是否匹配筛选条件 */
-    private boolean matchVerification(Long userId, String realNameStatus, String educationStatus, String avatarVerifyStatus) {
-        AppUserVerification v = verificationDao.selectOne(
-                new LambdaQueryWrapper<AppUserVerification>().eq(AppUserVerification::getUserId, userId));
-        if (v == null) return false;
-        if (StrUtil.isNotBlank(realNameStatus) && !realNameStatus.equals(v.getRealNameStatus())) return false;
-        if (StrUtil.isNotBlank(educationStatus) && !educationStatus.equals(v.getEducationStatus())) return false;
-        if (StrUtil.isNotBlank(avatarVerifyStatus) && !avatarVerifyStatus.equals(v.getAvatarVerifyStatus())) return false;
-        return true;
-    }
-
-    /**
-     * 用户详情查询（含认证信息）
-     * @param id 用户ID
-     * @return 用户完整资料 + 认证详情
-     */
     @Override
     public AppUserDetailVO getUserDetail(Long id) {
         AppUser user = appUserDao.selectById(id);
@@ -92,11 +89,6 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return toDetailVO(user, verification);
     }
 
-    /**
-     * 变更用户账号状态（冻结/解冻等）
-     * @param id 用户ID
-     * @param status 目标状态
-     */
     @Override
     @Transactional
     public void updateUserStatus(Long id, String status) {
@@ -109,8 +101,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         appUserDao.updateById(user);
     }
 
-    /** 将实体转换为列表 VO，关联查询认证状态 */
-    private AppUserListVO toListVO(AppUser user) {
+    private AppUserListVO toListVO(AppUser user, AppUserVerification v) {
         AppUserListVO vo = new AppUserListVO();
         vo.setId(user.getId());
         vo.setAvatar(user.getAvatar());
@@ -123,18 +114,23 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setAccountStatus(user.getAccountStatus());
         vo.setRegisterTime(user.getRegisterTime() != null ? user.getRegisterTime().format(FMT) : null);
         vo.setLastLoginTime(user.getLastLoginTime() != null ? user.getLastLoginTime().format(FMT) : null);
-        // 关联查询认证状态
-        AppUserVerification v = verificationDao.selectOne(
-                new LambdaQueryWrapper<AppUserVerification>().eq(AppUserVerification::getUserId, user.getId()));
         if (v != null) {
             vo.setRealNameStatus(v.getRealNameStatus());
             vo.setEducationStatus(v.getEducationStatus());
             vo.setAvatarVerifyStatus(v.getAvatarVerifyStatus());
         }
+        vo.setAccessStatus(computeAccessStatusLabel(user, v));
         return vo;
     }
 
-    /** 将实体转换为详情 VO，含完整认证信息 */
+    /** 计算准入状态标签：账号异常→blocked，未完成首登→blocked，未实名→browse_only，实名通过→full_access */
+    private String computeAccessStatusLabel(AppUser user, AppUserVerification v) {
+        if (!"NORMAL".equals(user.getAccountStatus())) return "blocked";
+        if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() == 0) return "blocked";
+        boolean realNamePassed = v != null && "APPROVED".equals(v.getRealNameStatus());
+        return realNamePassed ? "full_access" : "browse_only";
+    }
+
     private AppUserDetailVO toDetailVO(AppUser user, AppUserVerification v) {
         AppUserDetailVO vo = new AppUserDetailVO();
         vo.setId(user.getId());
@@ -167,7 +163,21 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setRegisterTime(user.getRegisterTime() != null ? user.getRegisterTime().format(FMT) : null);
         vo.setLastLoginTime(user.getLastLoginTime() != null ? user.getLastLoginTime().format(FMT) : null);
         vo.setAccountStatus(user.getAccountStatus());
-        // 认证信息
+        // 准入信息
+        boolean firstLoginDone = user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1;
+        boolean accountNormal = "NORMAL".equals(user.getAccountStatus());
+        boolean realNamePassed = v != null && "APPROVED".equals(v.getRealNameStatus());
+        if (!accountNormal || !firstLoginDone) {
+            vo.setCanBrowseCards(false); vo.setCanMatch(false); vo.setCanBeExposed(false);
+            vo.setBlockReason(!accountNormal ? "账号状态异常" : "请先完成资料初始化");
+        } else {
+            vo.setCanBrowseCards(true);
+            vo.setCanMatch(realNamePassed);
+            vo.setCanBeExposed(realNamePassed);
+            vo.setBlockReason(realNamePassed ? null : "完成实名认证后，才可曝光和匹配");
+        }
+        vo.setViolationCount(0);
+        vo.setFeedbackCount(0);
         if (v != null) {
             VerificationDetailVO vd = new VerificationDetailVO();
             vd.setRealNameStatus(v.getRealNameStatus());

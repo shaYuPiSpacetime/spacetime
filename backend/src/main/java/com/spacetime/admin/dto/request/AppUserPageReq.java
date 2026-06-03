@@ -28,4 +28,10 @@ public class AppUserPageReq extends PageReq {
     private String avatarVerifyStatus;
     /** 是否完成首登 */
     private Integer firstLoginCompleted;
+    /** 用户ID精确筛选 */
+    private Long userId;
+    /** 注册时间范围起（yyyy-MM-dd） */
+    private String registerTimeStart;
+    /** 注册时间范围止（yyyy-MM-dd） */
+    private String registerTimeEnd;
 }

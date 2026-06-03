@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { RotateCcw, CheckCircle, XCircle } from 'lucide-react';
+import { RotateCcw, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,17 +13,22 @@ import { Avatar } from '@/components/ui/avatar';
 import {
   getPhotoModerationPage,
   getTextModerationPage,
+  getPhotoModerationDetail,
+  getTextModerationDetail,
   auditPhoto,
   auditText,
   type ModerationVO,
+  type ModerationDetailVO,
   type PageResult,
 } from '@/api/verification';
 
 type TabConfig = {
   key: string;
   title: string;
-  fetchFn: (params: { page: number; size: number; userId?: number; status?: string }) => Promise<any>;
+  fetchFn: (params: { page: number; size: number; keyword?: string; status?: string }) => Promise<any>;
+  detailFn: (id: number) => Promise<any>;
   auditFn: (id: number, data: { action: string; rejectReason?: string }) => Promise<any>;
+  detailTitle: string;
 };
 
 const TABS: Record<string, TabConfig> = {
@@ -31,13 +36,17 @@ const TABS: Record<string, TabConfig> = {
     key: 'photos',
     title: '资料照片审核',
     fetchFn: getPhotoModerationPage,
+    detailFn: getPhotoModerationDetail,
     auditFn: auditPhoto,
+    detailTitle: '照片审核详情',
   },
   '/moderation/texts': {
     key: 'texts',
     title: '文字内容审核',
     fetchFn: getTextModerationPage,
+    detailFn: getTextModerationDetail,
     auditFn: auditText,
+    detailTitle: '文字审核详情',
   },
 };
 
@@ -55,6 +64,11 @@ const STATUS_MAP: Record<string, { label: string; variant: 'success' | 'destruct
   NOT_SUBMITTED: { label: '未提交', variant: 'secondary' },
 };
 
+const CONTENT_TYPE_MAP: Record<string, string> = {
+  '照片': '照片',
+  '文字': '文字',
+};
+
 export default function ModerationPage() {
   const location = useLocation();
   const currentPath = Object.keys(TABS).find((p) => location.pathname.startsWith(p)) || '/moderation/photos';
@@ -63,7 +77,7 @@ export default function ModerationPage() {
   const [list, setList] = useState<ModerationVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [userId, setUserId] = useState('');
+  const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -73,13 +87,18 @@ export default function ModerationPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [auditing, setAuditing] = useState(false);
 
+  // Detail modal state
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detail, setDetail] = useState<ModerationDetailVO | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
       const res = await tab.fetchFn({
         page,
         size: 10,
-        userId: userId ? Number(userId) : undefined,
+        keyword: keyword || undefined,
         status: status || undefined,
       });
       const data = res.data as PageResult<ModerationVO>;
@@ -88,7 +107,7 @@ export default function ModerationPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, page, userId, status]);
+  }, [tab, page, keyword, status]);
 
   useEffect(() => {
     fetchList();
@@ -106,6 +125,17 @@ export default function ModerationPage() {
     setAuditAction('REJECT');
     setRejectReason('');
     setAuditOpen(true);
+  }
+
+  async function openDetail(record: ModerationVO) {
+    setDetailLoading(true);
+    setDetailOpen(true);
+    try {
+      const res = await tab.detailFn(record.id);
+      setDetail(res.data as ModerationDetailVO);
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   async function handleAudit() {
@@ -133,10 +163,10 @@ export default function ModerationPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
             <Input
-              placeholder="用户ID"
-              value={userId}
-              onChange={(e) => { setUserId(e.target.value); setPage(1); }}
-              className="w-32"
+              placeholder="搜索昵称"
+              value={keyword}
+              onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
+              className="w-40"
             />
             <Select
               options={STATUS_OPTIONS}
@@ -147,7 +177,7 @@ export default function ModerationPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { setUserId(''); setStatus(''); setPage(1); }}
+              onClick={() => { setKeyword(''); setStatus(''); setPage(1); }}
             >
               <RotateCcw className="h-4 w-4 mr-1" /> 重置
             </Button>
@@ -157,7 +187,6 @@ export default function ModerationPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>用户</TableHead>
-                <TableHead>用户ID</TableHead>
                 <TableHead>内容类型</TableHead>
                 <TableHead>内容预览</TableHead>
                 <TableHead>状态</TableHead>
@@ -167,9 +196,9 @@ export default function ModerationPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">加载中…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">加载中…</TableCell></TableRow>
               ) : list.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : list.map((v) => {
                 const st = STATUS_MAP[v.status] || { label: v.status, variant: 'secondary' as const };
                 return (
@@ -180,24 +209,28 @@ export default function ModerationPage() {
                         <span className="text-sm font-medium">{v.nickname || '-'}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{v.userId}</TableCell>
-                    <TableCell>{v.contentType}</TableCell>
+                    <TableCell>{CONTENT_TYPE_MAP[v.contentType] || v.contentType}</TableCell>
                     <TableCell className="max-w-[200px] truncate text-muted-foreground">
                       {v.contentPreview || '-'}
                     </TableCell>
                     <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                     <TableCell className="text-muted-foreground">{v.submitTime || '-'}</TableCell>
                     <TableCell>
-                      {v.status === 'PENDING' && (
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => openApprove(v)}>
-                            <CheckCircle className="h-4 w-4 mr-1 text-green-600" /> 通过
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => openReject(v)}>
-                            <XCircle className="h-4 w-4 mr-1 text-red-600" /> 驳回
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openDetail(v)}>
+                          <Eye className="h-4 w-4 mr-1" /> 查看
+                        </Button>
+                        {v.status === 'PENDING' && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => openApprove(v)}>
+                              <CheckCircle className="h-4 w-4 mr-1 text-green-600" /> 通过
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openReject(v)}>
+                              <XCircle className="h-4 w-4 mr-1 text-red-600" /> 驳回
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -209,6 +242,95 @@ export default function ModerationPage() {
         </CardContent>
       </Card>
 
+      {/* Detail Dialog */}
+      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{tab.detailTitle}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-4">
+          {detailLoading ? (
+            <p className="text-center text-muted-foreground py-4">加载中…</p>
+          ) : detail ? (
+            <>
+              {/* User info */}
+              <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-md">
+                <Avatar className="h-10 w-10" src={detail.avatar || undefined} fallback={detail.nickname?.[0] || 'U'} />
+                <div>
+                  <p className="font-medium">{detail.nickname}</p>
+                  <p className="text-xs text-muted-foreground">用户ID: {detail.userId} · {CONTENT_TYPE_MAP[detail.contentType] || detail.contentType}</p>
+                </div>
+              </div>
+
+              {/* Full content */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">审核内容</h4>
+                {detail.contentType === '照片' ? (
+                  <div className="space-y-2">
+                    {detail.contentFull ? (
+                      (() => {
+                        try {
+                          const urls: string[] = JSON.parse(detail.contentFull);
+                          return urls.map((url, i) => (
+                            <img key={i} src={url} alt={`照片${i + 1}`} className="max-w-full rounded-md border" />
+                          ));
+                        } catch {
+                          return <img src={detail.contentFull} alt="照片" className="max-w-full rounded-md border" />;
+                        }
+                      })()
+                    ) : (
+                      <p className="text-sm text-muted-foreground">暂无照片</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {detail.contentField && (
+                      <p className="text-xs text-muted-foreground">字段: {detail.contentField}</p>
+                    )}
+                    <p className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded-md">
+                      {detail.contentFull || '-'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Audit info */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">审核信息</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-muted-foreground">提交时间:</span> {detail.submitTime || '-'}</div>
+                  <div><span className="text-muted-foreground">状态:</span> <Badge variant={STATUS_MAP[detail.status]?.variant || 'secondary'}>{STATUS_MAP[detail.status]?.label || detail.status}</Badge></div>
+                </div>
+                {detail.rejectReason && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">驳回原因:</span> <span className="text-red-600">{detail.rejectReason}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Audit actions (only for PENDING) */}
+              {detail.status === 'PENDING' && (
+                <div className="space-y-3 border-t pt-4">
+                  <div>
+                    <label className="text-sm font-medium">审核操作</label>
+                    <div className="flex gap-2 mt-1">
+                      <Button size="sm" onClick={() => { setAuditTarget({ id: detail.id } as ModerationVO); setAuditAction('APPROVE'); setRejectReason(''); setAuditOpen(true); }}>
+                        <CheckCircle className="h-4 w-4 mr-1" /> 通过
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => { setAuditTarget({ id: detail.id } as ModerationVO); setAuditAction('REJECT'); setRejectReason(''); setAuditOpen(true); }}>
+                        <XCircle className="h-4 w-4 mr-1" /> 驳回
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-center text-muted-foreground py-4">加载详情失败</p>
+          )}
+        </div>
+      </Dialog>
+
+      {/* Audit confirm dialog */}
       <Dialog open={auditOpen} onClose={() => setAuditOpen(false)}>
         <DialogHeader>
           <DialogTitle>{auditAction === 'APPROVE' ? '确认通过' : '确认驳回'}</DialogTitle>

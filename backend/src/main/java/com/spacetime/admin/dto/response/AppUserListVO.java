@@ -35,4 +35,6 @@ public class AppUserListVO {
     private String registerTime;
     /** 最近登录时间 */
     private String lastLoginTime;
+    /** 核心准入状态（计算字段：browse_only / full_access / blocked） */
+    private String accessStatus;
 }

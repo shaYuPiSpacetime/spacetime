@@ -13,6 +13,7 @@ export interface AppUserListVO {
   firstLoginCompleted: number;
   profileScore: number;
   accountStatus: string;
+  accessStatus: string;
   registerTime: string;
   lastLoginTime: string;
 }
@@ -67,6 +68,12 @@ export interface AppUserDetailVO {
   lastLoginTime: string;
   accountStatus: string;
   verification: VerificationDetailVO;
+  canBrowseCards: boolean;
+  canMatch: boolean;
+  canBeExposed: boolean;
+  blockReason: string;
+  violationCount: number;
+  feedbackCount: number;
 }
 
 export interface PageResult<T> {
@@ -88,6 +95,9 @@ export function getAppUserList(params: {
   educationStatus?: string;
   avatarVerifyStatus?: string;
   firstLoginCompleted?: number;
+  userId?: number;
+  registerTimeStart?: string;
+  registerTimeEnd?: string;
 }) {
   return request.get('/admin/users/app/list', { params });
 }

@@ -69,4 +69,16 @@ public class AppUserDetailVO {
     private String accountStatus;
     /** 认证详情 */
     private VerificationDetailVO verification;
+    /** 是否可浏览觅缘卡片 */
+    private Boolean canBrowseCards;
+    /** 是否可匹配操作 */
+    private Boolean canMatch;
+    /** 是否可进入曝光 */
+    private Boolean canBeExposed;
+    /** 不可用原因文案 */
+    private String blockReason;
+    /** 历史违规记录数（v1预留，默认0） */
+    private Integer violationCount;
+    /** 反馈/申诉记录数（v1预留，默认0） */
+    private Integer feedbackCount;
 }

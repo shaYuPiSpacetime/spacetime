@@ -420,6 +420,41 @@ export default function UserMgrPage() {
 | API 函数无类型标注                      | 参数/返回值必须标注类型     |
 | 硬编码路由路径                          | 从路由配置表引用            |
 | 密码/身份证等敏感信息 console 输出      | 禁止输出或用脱敏工具        |
+| 状态/类型等枚举值直接展示英文 code      | 定义映射表转为中文展示      |
+
+### 8.9 枚举值中文化规范
+
+后端返回的状态、类型等枚举值均为英文 code（如 `PENDING`、`BACHELOR`、`CHSI`），前端展示时必须转为中文。
+
+**规则：**
+
+1. 页面文件顶部定义 `XXX_MAP` 映射表，将英文 code 映射为 `{ label, variant }` 或中文 string
+2. 渲染时优先取映射值，未匹配时兜底展示原始值或 `-`
+3. 映射表命名：`{枚举含义}_MAP`（如 `STATUS_MAP`、`EDUCATION_LEVEL_MAP`）
+
+**示例：**
+
+```tsx
+// 枚举值→{中文标签, Badge样式} 映射
+const STATUS_MAP: Record<string, { label: string; variant: 'success' | 'destructive' | 'warning' | 'secondary' }> = {
+  PENDING: { label: '待审核', variant: 'warning' },
+  APPROVED: { label: '已通过', variant: 'success' },
+  REJECTED: { label: '已驳回', variant: 'destructive' },
+  NOT_CERTIFIED: { label: '未认证', variant: 'secondary' },
+  EXPIRED: { label: '已失效', variant: 'secondary' },
+};
+
+// 纯中文标签映射
+const EDUCATION_LEVEL_MAP: Record<string, string> = {
+  BACHELOR: '本科',
+  MASTER: '硕士',
+  DOCTOR: '博士',
+};
+
+// 渲染时使用
+const st = STATUS_MAP[record.status] || { label: record.status, variant: 'secondary' as const };
+<Badge variant={st.variant}>{st.label}</Badge>
+```
 
 ---
 
