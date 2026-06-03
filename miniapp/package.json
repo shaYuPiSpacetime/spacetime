@@ -1,0 +1,71 @@
+{
+  "name": "chengjialiye-miniapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "成家立业微信小程序",
+  "templateInfo": {
+    "name": "default",
+    "typescript": true,
+    "css": "sass"
+  },
+  "scripts": {
+    "dev:weapp": "npm run build:weapp -- --watch",
+    "build:weapp": "taro build --type weapp",
+    "dev:swan": "npm run build:swan -- --watch",
+    "dev:alipay": "npm run build:alipay -- --watch",
+    "dev:tt": "npm run build:tt -- --watch",
+    "dev:h5": "npm run build:h5 -- --watch",
+    "build:swan": "taro build --type swan",
+    "build:alipay": "taro build --type alipay",
+    "build:tt": "taro build --type tt",
+    "build:h5": "taro build --type h5",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write src"
+  },
+  "browserslist": [
+    "last 3 versions",
+    "Android >= 4.1",
+    "ios >= 8"
+  ],
+  "dependencies": {
+    "@antmjs/vantui": "^3.7.0",
+    "@tarojs/components": "4.1.9",
+    "@tarojs/helper": "4.1.9",
+    "@tarojs/plugin-framework-react": "^4.1.9",
+    "@tarojs/plugin-platform-alipay": "4.1.9",
+    "@tarojs/plugin-platform-h5": "4.1.9",
+    "@tarojs/plugin-platform-swan": "4.1.9",
+    "@tarojs/plugin-platform-tt": "4.1.9",
+    "@tarojs/plugin-platform-weapp": "4.1.9",
+    "@tarojs/react": "4.1.9",
+    "@tarojs/runtime": "4.1.9",
+    "@tarojs/shared": "4.1.9",
+    "@tarojs/taro": "4.1.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-react": "^7.24.0",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.13",
+    "@tarojs/cli": "4.1.9",
+    "@tarojs/webpack5-runner": "4.1.9",
+    "@types/react": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "autoprefixer": "^10.5.0",
+    "babel-plugin-import": "^1.13.8",
+    "babel-preset-taro": "4.1.9",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "postcss": "^8.5.15",
+    "prettier": "^3.8.3",
+    "react-refresh": "^0.14.0",
+    "sass": "^1.69.0",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~5.6.0",
+    "weapp-tailwindcss": "^3.7.0",
+    "webpack": "5.91.0"
+  }
+}
