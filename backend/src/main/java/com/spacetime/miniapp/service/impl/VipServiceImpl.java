@@ -19,6 +19,7 @@ import com.spacetime.miniapp.dto.response.VipPackageVO;
 import com.spacetime.miniapp.dto.response.VipStatusVO;
 import com.spacetime.miniapp.service.VipService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,14 +28,25 @@ import java.util.stream.Collectors;
 /**
  * 小程序 VIP 服务实现
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VipServiceImpl implements VipService {
+
+    /** VIP套餐数据访问 */
     private final VipPackageDao vipPackageDao;
+    /** VIP权益数据访问 */
     private final VipBenefitDao vipBenefitDao;
+    /** 用户资产数据访问 */
     private final UserAssetDao userAssetDao;
+    /** 交易订单数据访问 */
     private final TradeOrderDao tradeOrderDao;
 
+    /**
+     * 查询已启用VIP套餐列表
+     *
+     * @return 已启用的VIP套餐列表（按排序字段升序）
+     */
     @Override
     public List<VipPackageVO> getPackages() {
         // 1. 查询已启用的套餐，按排序字段升序
@@ -57,6 +69,11 @@ public class VipServiceImpl implements VipService {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * 查询已启用VIP权益列表
+     *
+     * @return 已启用的VIP权益列表（按展示顺序排序）
+     */
     @Override
     public List<VipBenefitVO> getBenefits() {
         // 1. 查询已启用的权益，按展示顺序排序
@@ -77,6 +94,12 @@ public class VipServiceImpl implements VipService {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * 查询用户VIP状态
+     *
+     * @param userId 用户ID
+     * @return 用户VIP状态信息
+     */
     @Override
     public VipStatusVO getStatus(Long userId) {
         // 1. 查询用户资产
@@ -90,8 +113,16 @@ public class VipServiceImpl implements VipService {
         return vo;
     }
 
+    /**
+     * 分页查询用户VIP订单
+     *
+     * @param userId 用户ID
+     * @param req    分页请求参数
+     * @return VIP订单分页列表
+     */
     @Override
     public Page<VipOrderVO> getOrders(Long userId, PageReq req) {
+        log.info("查询VIP订单: userId={}, page={}, size={}", userId, req.getPage(), req.getSize());
         // 1. 查询 VIP 类型订单
         LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(TradeOrder::getUserId, userId)

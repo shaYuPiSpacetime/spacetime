@@ -11,6 +11,7 @@ import com.spacetime.common.entity.VipPackage;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,16 @@ import java.util.List;
  * VIP 套餐后台服务实现
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class VipPackageAdminServiceImpl implements VipPackageAdminService {
+    /** VIP 套餐数据访问对象 */
     private final VipPackageDao vipPackageDao;
 
+    /**
+     * 查询全部套餐列表，按排序字段升序
+     * @return 套餐列表
+     */
     @Override
     public List<VipPackageVO> list() {
         LambdaQueryWrapper<VipPackage> wrapper = new LambdaQueryWrapper<VipPackage>()
@@ -32,6 +39,11 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
         return page.getRecords().stream().map(this::toVO).toList();
     }
 
+    /**
+     * 查询套餐详情
+     * @param id 套餐ID
+     * @return 套餐详情
+     */
     @Override
     public VipPackageVO detail(Long id) {
         return toVO(requirePackage(id));
@@ -45,6 +57,11 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
         return entity;
     }
 
+    /**
+     * 创建套餐，默认启用
+     * @param req 套餐保存请求
+     * @return 新套餐ID
+     */
     @Override
     @Transactional
     public Long create(VipPackageSaveReq req) {
@@ -53,9 +70,15 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
             entity.setStatus(CommonStatusEnum.ENABLED.getCode());
         }
         vipPackageDao.insert(entity);
+        log.info("创建VIP套餐: id={}, packageName={}, price={}", entity.getId(), entity.getPackageName(), entity.getPrice());
         return entity.getId();
     }
 
+    /**
+     * 更新套餐信息
+     * @param id 套餐ID
+     * @param req 套餐保存请求
+     */
     @Override
     @Transactional
     public void update(Long id, VipPackageSaveReq req) {
@@ -71,14 +94,21 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
         entity.setSortOrder(changed.getSortOrder());
         entity.setStatus(changed.getStatus());
         vipPackageDao.updateById(entity);
+        log.info("更新VIP套餐: id={}, packageName={}", id, entity.getPackageName());
     }
 
+    /**
+     * 更新套餐状态（启用/停用）
+     * @param id 套餐ID
+     * @param status 目标状态
+     */
     @Override
     @Transactional
     public void updateStatus(Long id, String status) {
         VipPackage entity = requirePackage(id);
         entity.setStatus(status);
         vipPackageDao.updateById(entity);
+        log.info("变更VIP套餐状态: id={}, status={}", id, status);
     }
 
     private VipPackage toEntity(VipPackageSaveReq req) {

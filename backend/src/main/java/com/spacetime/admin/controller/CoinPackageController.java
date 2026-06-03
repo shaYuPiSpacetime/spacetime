@@ -19,30 +19,47 @@ import java.util.List;
 @RequestMapping("/admin/coin/packages")
 @RequiredArgsConstructor
 public class CoinPackageController {
+    /** 成家币套餐后台服务 */
     private final CoinPackageAdminService coinPackageAdminService;
 
-    /** 查询全部套餐列表 */
+    /**
+     * 查询全部套餐列表
+     * @return 套餐列表
+     */
     @GetMapping("/list")
     @RequirePermission("coin:package:list")
     public R<List<CoinPackageVO>> list() {
         return R.ok(coinPackageAdminService.list());
     }
 
-    /** 查询套餐详情 */
+    /**
+     * 查询套餐详情
+     * @param id 套餐ID
+     * @return 套餐详情
+     */
     @GetMapping("/{id}")
     @RequirePermission("coin:package:list")
     public R<CoinPackageVO> detail(@PathVariable Long id) {
         return R.ok(coinPackageAdminService.detail(id));
     }
 
-    /** 新增套餐 */
+    /**
+     * 新增套餐
+     * @param req 套餐保存请求
+     * @return 新套餐ID
+     */
     @PostMapping
     @RequirePermission("coin:package:add")
     public R<Long> create(@Valid @RequestBody CoinPackageSaveReq req) {
         return R.ok(coinPackageAdminService.create(req));
     }
 
-    /** 编辑套餐 */
+    /**
+     * 编辑套餐
+     * @param id 套餐ID
+     * @param req 套餐保存请求
+     * @return 空响应
+     */
     @PutMapping("/{id}")
     @RequirePermission("coin:package:edit")
     public R<Void> update(@PathVariable Long id, @Valid @RequestBody CoinPackageSaveReq req) {
@@ -50,7 +67,12 @@ public class CoinPackageController {
         return R.ok();
     }
 
-    /** 启停套餐 */
+    /**
+     * 启停套餐
+     * @param id 套餐ID
+     * @param req 状态更新请求
+     * @return 空响应
+     */
     @PutMapping("/{id}/status")
     @RequirePermission("coin:package:edit")
     public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusUpdateReq req) {

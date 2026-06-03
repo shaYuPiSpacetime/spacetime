@@ -10,8 +10,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class CommunityReportPageReq extends PageReq {
+    /** 举报人ID */
     private Long reporterId;
+    /** 举报目标类型 @see CommunityReportTargetTypeEnum */
     private String targetType;
+    /** 举报状态 @see CommunityReportStatusEnum */
     private String status;
+    /** 举报原因编码 */
     private String reasonCode;
 }

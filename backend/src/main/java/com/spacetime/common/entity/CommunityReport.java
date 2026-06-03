@@ -29,7 +29,7 @@ public class CommunityReport extends BaseEntity {
     /** 处理动作 @see CommunityReportHandleActionEnum */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String handleAction;
-    /** 处理备注 */
+    /** 处理说明 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String handleRemark;
     /** 处理人ID */

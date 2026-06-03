@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class UserUnlockRecordDaoImpl implements UserUnlockRecordDao {
+    /** 解锁记录 MyBatis Mapper */
     private final UserUnlockRecordMapper mapper;
 
     @Override

@@ -17,9 +17,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/admin/finance/flows")
 @RequiredArgsConstructor
 public class FinanceFlowController {
+    /** 财务管理后台服务 */
     private final FinanceAdminService financeAdminService;
 
-    /** 分页查询成家币流水 */
+    /**
+     * 分页查询成家币流水
+     * @param req 流水分页查询请求
+     * @return 流水分页数据
+     */
     @GetMapping("/list")
     @RequirePermission("finance:flow:list")
     public R<Page<CoinFlowVO>> list(@Valid FlowPageReq req) {

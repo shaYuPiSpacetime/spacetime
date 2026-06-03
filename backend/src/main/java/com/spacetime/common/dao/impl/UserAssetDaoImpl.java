@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class UserAssetDaoImpl implements UserAssetDao {
+    /** 用户资产 MyBatis Mapper */
     private final UserAssetMapper mapper;
 
     @Override

@@ -17,9 +17,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/admin/finance/refunds")
 @RequiredArgsConstructor
 public class FinanceRefundController {
+    /** 财务管理后台服务 */
     private final FinanceAdminService financeAdminService;
 
-    /** 分页查询退款订单 */
+    /**
+     * 分页查询退款订单
+     * @param req 退款订单分页查询请求
+     * @return 退款订单分页数据
+     */
     @GetMapping("/list")
     @RequirePermission("finance:refund:list")
     public R<Page<TradeOrderVO>> list(@Valid RefundPageReq req) {

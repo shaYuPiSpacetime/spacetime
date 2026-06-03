@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class UserCoinLogDaoImpl implements UserCoinLogDao {
+    /** 成家币流水 MyBatis Mapper */
     private final UserCoinLogMapper mapper;
 
     @Override

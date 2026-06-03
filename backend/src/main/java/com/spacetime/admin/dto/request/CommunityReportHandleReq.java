@@ -8,8 +8,11 @@ import lombok.Data;
  */
 @Data
 public class CommunityReportHandleReq {
+    /** 处理结果状态 @see CommunityReportStatusEnum */
     @NotBlank(message = "处理结果不能为空")
     private String status;
+    /** 处理动作 @see CommunityReportHandleActionEnum */
     private String handleAction;
+    /** 处理备注 */
     private String handleRemark;
 }

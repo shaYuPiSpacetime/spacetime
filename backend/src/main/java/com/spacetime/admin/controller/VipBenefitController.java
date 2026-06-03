@@ -19,30 +19,47 @@ import java.util.List;
 @RequestMapping("/admin/vip/benefits")
 @RequiredArgsConstructor
 public class VipBenefitController {
+    /** VIP 权益后台服务 */
     private final VipBenefitAdminService vipBenefitAdminService;
 
-    /** 查询全部权益列表 */
+    /**
+     * 查询全部权益列表
+     * @return 权益列表
+     */
     @GetMapping("/list")
     @RequirePermission("vip:benefit:list")
     public R<List<VipBenefitVO>> list() {
         return R.ok(vipBenefitAdminService.list());
     }
 
-    /** 查询权益详情 */
+    /**
+     * 查询权益详情
+     * @param id 权益ID
+     * @return 权益详情
+     */
     @GetMapping("/{id}")
     @RequirePermission("vip:benefit:list")
     public R<VipBenefitVO> detail(@PathVariable Long id) {
         return R.ok(vipBenefitAdminService.detail(id));
     }
 
-    /** 新增权益 */
+    /**
+     * 新增权益
+     * @param req 权益保存请求
+     * @return 新权益ID
+     */
     @PostMapping
     @RequirePermission("vip:benefit:add")
     public R<Long> create(@Valid @RequestBody VipBenefitSaveReq req) {
         return R.ok(vipBenefitAdminService.create(req));
     }
 
-    /** 编辑权益 */
+    /**
+     * 编辑权益
+     * @param id 权益ID
+     * @param req 权益保存请求
+     * @return 空响应
+     */
     @PutMapping("/{id}")
     @RequirePermission("vip:benefit:edit")
     public R<Void> update(@PathVariable Long id, @Valid @RequestBody VipBenefitSaveReq req) {
@@ -50,7 +67,12 @@ public class VipBenefitController {
         return R.ok();
     }
 
-    /** 启停权益 */
+    /**
+     * 启停权益
+     * @param id 权益ID
+     * @param req 状态更新请求
+     * @return 空响应
+     */
     @PutMapping("/{id}/status")
     @RequirePermission("vip:benefit:edit")
     public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusUpdateReq req) {

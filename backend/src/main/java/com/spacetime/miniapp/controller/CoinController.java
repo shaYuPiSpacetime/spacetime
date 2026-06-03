@@ -22,21 +22,37 @@ import java.util.List;
 @RequestMapping("/miniapp/coin")
 @RequiredArgsConstructor
 public class CoinController {
+
+    /** 成家币服务 */
     private final CoinService coinService;
 
-    /** 成家币套餐列表 */
+    /**
+     * 查询已启用成家币套餐列表
+     *
+     * @return 成家币套餐列表
+     */
     @GetMapping("/packages")
     public R<List<CoinPackageVO>> getPackages() {
         return R.ok(coinService.getPackages());
     }
 
-    /** 成家币余额 */
+    /**
+     * 查询当前用户成家币余额
+     *
+     * @return 成家币余额信息
+     */
     @GetMapping("/balance")
     public R<CoinBalanceVO> getBalance() {
         return R.ok(coinService.getBalance(currentUserId()));
     }
 
-    /** 成家币流水 */
+    /**
+     * 分页查询当前用户成家币流水
+     *
+     * @param page 页码，默认1
+     * @param size 每页条数，默认10
+     * @return 成家币流水分页列表
+     */
     @GetMapping("/flows")
     public R<Page<CoinFlowVO>> getFlows(@RequestParam(defaultValue = "1") int page,
                                          @RequestParam(defaultValue = "10") int size) {

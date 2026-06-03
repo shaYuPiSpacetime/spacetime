@@ -15,6 +15,7 @@ import com.spacetime.miniapp.dto.response.CoinFlowVO;
 import com.spacetime.miniapp.dto.response.CoinPackageVO;
 import com.spacetime.miniapp.service.CoinService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,13 +24,23 @@ import java.util.stream.Collectors;
 /**
  * 小程序成家币服务实现
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CoinServiceImpl implements CoinService {
+
+    /** 成家币套餐数据访问 */
     private final CoinPackageDao coinPackageDao;
+    /** 用户资产数据访问 */
     private final UserAssetDao userAssetDao;
+    /** 成家币流水数据访问 */
     private final UserCoinLogDao userCoinLogDao;
 
+    /**
+     * 查询已启用成家币套餐列表
+     *
+     * @return 已启用的成家币套餐列表（按排序字段升序）
+     */
     @Override
     public List<CoinPackageVO> getPackages() {
         // 1. 查询已启用的套餐，按排序字段升序
@@ -52,6 +63,12 @@ public class CoinServiceImpl implements CoinService {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * 查询用户成家币余额
+     *
+     * @param userId 用户ID
+     * @return 成家币余额信息
+     */
     @Override
     public CoinBalanceVO getBalance(Long userId) {
         // 1. 查询用户资产
@@ -66,8 +83,16 @@ public class CoinServiceImpl implements CoinService {
         return vo;
     }
 
+    /**
+     * 分页查询用户成家币流水
+     *
+     * @param userId 用户ID
+     * @param req    分页请求参数
+     * @return 成家币流水分页列表
+     */
     @Override
     public Page<CoinFlowVO> getFlows(Long userId, PageReq req) {
+        log.info("查询成家币流水: userId={}, page={}, size={}", userId, req.getPage(), req.getSize());
         // 1. 分页查询用户流水
         Page<UserCoinLog> logPage = userCoinLogDao.selectPageByUserId(
                 new Page<>(req.getPage(), req.getSize()), userId);

@@ -10,7 +10,9 @@ public enum CommunityGateModeEnum {
     LOGIN_ONLY("LOGIN_ONLY", "仅登录"),
     FULL_CERT("FULL_CERT", "需三项认证");
 
+    /** 枚举编码 */
     private final String code;
+    /** 枚举描述 */
     private final String desc;
 
     CommunityGateModeEnum(String code, String desc) {

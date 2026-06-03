@@ -22,6 +22,7 @@ import com.spacetime.miniapp.dto.response.UnlockRecordVO;
 import com.spacetime.miniapp.dto.response.UnlockVO;
 import com.spacetime.miniapp.service.AssetService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,16 +34,27 @@ import java.util.stream.Collectors;
 /**
  * 小程序用户资产服务实现
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssetServiceImpl implements AssetService {
+
+    /** 用户资产数据访问 */
     private final UserAssetDao userAssetDao;
+    /** 解锁记录数据访问 */
     private final UserUnlockRecordDao userUnlockRecordDao;
+    /** 成家币流水数据访问 */
     private final UserCoinLogDao userCoinLogDao;
 
     /** 每条解锁消耗成家币（首版硬编码） */
     private static final int UNLOCK_PRICE_PER_ITEM = 10;
 
+    /**
+     * 查询用户资产汇总
+     *
+     * @param userId 用户ID
+     * @return 资产汇总信息
+     */
     @Override
     public AssetSummaryVO getSummary(Long userId) {
         // 1. 查询用户资产
@@ -62,11 +74,21 @@ public class AssetServiceImpl implements AssetService {
         return vo;
     }
 
+    /**
+     * 批量解锁（消耗成家币解锁指定目标用户）
+     *
+     * @param userId 当前用户ID
+     * @param req    解锁请求（场景 + 目标用户ID列表）
+     * @return 解锁结果（解锁人数、消耗成家币数）
+     */
     @Override
     @Transactional
     public UnlockVO unlock(Long userId, UnlockReq req) {
         String unlockScene = req.getUnlockScene();
         List<Long> targetUserIds = req.getTargetUserIds();
+        log.info("解锁操作: userId={}, scene={}, count={}, cost={}",
+                userId, unlockScene, targetUserIds != null ? targetUserIds.size() : 0,
+                targetUserIds != null ? UNLOCK_PRICE_PER_ITEM * targetUserIds.size() : 0);
 
         // 1. 校验目标用户列表不为空
         if (targetUserIds == null || targetUserIds.isEmpty()) {
@@ -133,6 +155,13 @@ public class AssetServiceImpl implements AssetService {
         return vo;
     }
 
+    /**
+     * 分页查询用户解锁记录
+     *
+     * @param userId 用户ID
+     * @param req    分页请求参数
+     * @return 解锁记录分页列表
+     */
     @Override
     public Page<UnlockRecordVO> getRecords(Long userId, PageReq req) {
         // 1. 分页查询用户解锁记录

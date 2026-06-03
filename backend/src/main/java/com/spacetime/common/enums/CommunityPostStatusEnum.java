@@ -13,7 +13,9 @@ public enum CommunityPostStatusEnum {
     DELETED("DELETED", "已删除"),
     BLOCKED("BLOCKED", "已屏蔽");
 
+    /** 枚举编码 */
     private final String code;
+    /** 枚举描述 */
     private final String desc;
 
     CommunityPostStatusEnum(String code, String desc) {

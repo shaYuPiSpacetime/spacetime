@@ -11,6 +11,7 @@ import com.spacetime.common.entity.VipBenefit;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,16 @@ import java.util.List;
  * VIP 权益后台服务实现
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class VipBenefitAdminServiceImpl implements VipBenefitAdminService {
+    /** VIP 权益数据访问对象 */
     private final VipBenefitDao vipBenefitDao;
 
+    /**
+     * 查询全部权益列表，按排序字段升序
+     * @return 权益列表
+     */
     @Override
     public List<VipBenefitVO> list() {
         LambdaQueryWrapper<VipBenefit> wrapper = new LambdaQueryWrapper<VipBenefit>()
@@ -32,6 +39,11 @@ public class VipBenefitAdminServiceImpl implements VipBenefitAdminService {
         return page.getRecords().stream().map(this::toVO).toList();
     }
 
+    /**
+     * 查询权益详情
+     * @param id 权益ID
+     * @return 权益详情
+     */
     @Override
     public VipBenefitVO detail(Long id) {
         return toVO(requireBenefit(id));
@@ -45,6 +57,11 @@ public class VipBenefitAdminServiceImpl implements VipBenefitAdminService {
         return entity;
     }
 
+    /**
+     * 创建权益，默认启用
+     * @param req 权益保存请求
+     * @return 新权益ID
+     */
     @Override
     @Transactional
     public Long create(VipBenefitSaveReq req) {
@@ -53,9 +70,15 @@ public class VipBenefitAdminServiceImpl implements VipBenefitAdminService {
             entity.setStatus(CommonStatusEnum.ENABLED.getCode());
         }
         vipBenefitDao.insert(entity);
+        log.info("创建VIP权益: id={}, benefitCode={}, benefitName={}", entity.getId(), entity.getBenefitCode(), entity.getBenefitName());
         return entity.getId();
     }
 
+    /**
+     * 更新权益信息
+     * @param id 权益ID
+     * @param req 权益保存请求
+     */
     @Override
     @Transactional
     public void update(Long id, VipBenefitSaveReq req) {
@@ -68,14 +91,21 @@ public class VipBenefitAdminServiceImpl implements VipBenefitAdminService {
         entity.setDisplayOrder(changed.getDisplayOrder());
         entity.setStatus(changed.getStatus());
         vipBenefitDao.updateById(entity);
+        log.info("更新VIP权益: id={}, benefitCode={}", id, entity.getBenefitCode());
     }
 
+    /**
+     * 更新权益状态（启用/停用）
+     * @param id 权益ID
+     * @param status 目标状态
+     */
     @Override
     @Transactional
     public void updateStatus(Long id, String status) {
         VipBenefit entity = requireBenefit(id);
         entity.setStatus(status);
         vipBenefitDao.updateById(entity);
+        log.info("变更VIP权益状态: id={}, status={}", id, status);
     }
 
     private VipBenefit toEntity(VipBenefitSaveReq req) {

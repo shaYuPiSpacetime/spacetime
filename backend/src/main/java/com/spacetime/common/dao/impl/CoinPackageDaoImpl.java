@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class CoinPackageDaoImpl implements CoinPackageDao {
+    /** 成家币套餐 MyBatis Mapper */
     private final CoinPackageMapper mapper;
 
     @Override

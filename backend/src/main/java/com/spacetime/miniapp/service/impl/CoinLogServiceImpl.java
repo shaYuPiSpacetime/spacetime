@@ -22,7 +22,10 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class CoinLogServiceImpl implements CoinLogService {
+
+    /** 用户资产数据访问 */
     private final UserAssetDao userAssetDao;
+    /** 成家币流水数据访问 */
     private final UserCoinLogDao userCoinLogDao;
 
     @Override

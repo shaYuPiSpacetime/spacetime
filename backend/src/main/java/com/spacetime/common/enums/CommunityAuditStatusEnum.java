@@ -11,7 +11,9 @@ public enum CommunityAuditStatusEnum {
     APPROVED("APPROVED", "审核通过"),
     REJECTED("REJECTED", "审核驳回");
 
+    /** 枚举编码 */
     private final String code;
+    /** 枚举描述 */
     private final String desc;
 
     CommunityAuditStatusEnum(String code, String desc) {

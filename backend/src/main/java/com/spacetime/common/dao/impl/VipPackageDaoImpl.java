@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class VipPackageDaoImpl implements VipPackageDao {
+    /** VIP套餐 MyBatis Mapper */
     private final VipPackageMapper mapper;
 
     @Override

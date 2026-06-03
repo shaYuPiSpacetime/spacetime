@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class VipBenefitDaoImpl implements VipBenefitDao {
+    /** VIP权益 MyBatis Mapper */
     private final VipBenefitMapper mapper;
 
     @Override

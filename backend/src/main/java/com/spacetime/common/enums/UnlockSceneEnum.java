@@ -9,6 +9,7 @@ public enum UnlockSceneEnum {
     IDEAL_USER("ideal_user"),
     FEATURED_PROFILE("featured_profile");
 
+    /** 枚举编码 */
     private final String code;
 
     UnlockSceneEnum(String code) {

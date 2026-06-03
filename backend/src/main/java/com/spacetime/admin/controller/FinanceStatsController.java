@@ -14,9 +14,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/admin/finance/stats")
 @RequiredArgsConstructor
 public class FinanceStatsController {
+    /** 财务管理后台服务 */
     private final FinanceAdminService financeAdminService;
 
-    /** 按日统计交易数据 */
+    /**
+     * 按日统计交易数据
+     * @param date 统计日期（格式 yyyy-MM-dd）
+     * @return 当日统计数据
+     */
     @GetMapping("/daily")
     @RequirePermission("finance:stats:view")
     public R<DailyStatsVO> dailyStats(@RequestParam String date) {

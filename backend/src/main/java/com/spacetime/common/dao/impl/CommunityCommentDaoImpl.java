@@ -16,6 +16,7 @@ import java.util.List;
 @Repository
 @RequiredArgsConstructor
 public class CommunityCommentDaoImpl implements CommunityCommentDao {
+    /** 社区评论 MyBatis Mapper */
     private final CommunityCommentMapper mapper;
 
     @Override

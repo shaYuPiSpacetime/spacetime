@@ -8,6 +8,7 @@ public enum VipStatusEnum {
     ACTIVE("active"),
     EXPIRED("expired");
 
+    /** 枚举编码 */
     private final String code;
 
     VipStatusEnum(String code) {

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class TradeOrderDaoImpl implements TradeOrderDao {
+    /** 交易订单 MyBatis Mapper */
     private final TradeOrderMapper mapper;
 
     @Override

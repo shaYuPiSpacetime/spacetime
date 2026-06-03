@@ -14,6 +14,7 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.util.DesensitizeUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,20 +28,34 @@ import java.util.stream.Collectors;
  * 后台社区管理服务实现
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class CommunityAdminServiceImpl implements CommunityAdminService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    /** 社区动态数据访问对象 */
     private final CommunityPostDao communityPostDao;
+    /** 社区评论数据访问对象 */
     private final CommunityCommentDao communityCommentDao;
+    /** 社区举报数据访问对象 */
     private final CommunityReportDao communityReportDao;
+    /** 应用配置数据访问对象 */
     private final AppConfigDao appConfigDao;
+    /** 移动端入口配置数据访问对象 */
     private final MobileEntryConfigDao mobileEntryConfigDao;
+    /** 字典数据访问对象 */
     private final DictDataDao dictDataDao;
+    /** 用户数据访问对象 */
     private final UserDao userDao;
+    /** 内容操作日志数据访问对象 */
     private final ContentOperationLogDao contentOperationLogDao;
 
+    /**
+     * 分页查询动态列表，支持按作者、类型、状态、审核状态、话题、关键词筛选
+     * @param req 动态分页查询请求
+     * @return 动态分页数据
+     */
     @Override
     public Page<CommunityPostAdminVO> getPostPage(CommunityPostPageReq req) {
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
@@ -58,11 +73,21 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         return result;
     }
 
+    /**
+     * 查询动态详情（含作者信息）
+     * @param id 动态ID
+     * @return 动态详情
+     */
     @Override
     public CommunityPostAdminVO getPostDetail(Long id) {
         return toPostAdminVO(requirePost(id));
     }
 
+    /**
+     * 审核动态（通过/驳回），审核通过后状态变为已发布，驳回后变为已拒绝
+     * @param id 动态ID
+     * @param req 审核请求
+     */
     @Override
     @Transactional
     public void auditPost(Long id, CommunityPostAuditReq req) {
@@ -71,15 +96,24 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         if (auditStatus == null) {
             throw new BusinessException("不支持的审核状态");
         }
+        // 设置审核信息
         post.setAuditStatus(auditStatus.getCode());
         post.setAuditRemark(StrUtil.blankToDefault(StrUtil.trim(req.getAuditRemark()), null));
+        // 根据审核结果更新发布状态：通过→已发布，驳回→已拒绝
         post.setStatus(CommunityAuditStatusEnum.APPROVED.equals(auditStatus)
                 ? CommunityPostStatusEnum.PUBLISHED.getCode()
                 : CommunityPostStatusEnum.REJECTED.getCode());
         communityPostDao.updateById(post);
+        // 记录操作日志
         writeLog("COMMUNITY_POST", post.getId(), "AUDIT", null, auditStatus.getCode());
+        log.info("审核{}: postId={}, auditStatus={}", CommunityAuditStatusEnum.APPROVED.equals(auditStatus) ? "通过" : "驳回", id, auditStatus.getCode());
     }
 
+    /**
+     * 分页查询评论列表，支持按动态、作者、状态、审核状态、关键词筛选
+     * @param req 评论分页查询请求
+     * @return 评论分页数据
+     */
     @Override
     public Page<CommunityCommentAdminVO> getCommentPage(CommunityCommentPageReq req) {
         LambdaQueryWrapper<CommunityComment> wrapper = new LambdaQueryWrapper<CommunityComment>()
@@ -95,6 +129,11 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         return result;
     }
 
+    /**
+     * 审核评论（通过/驳回），审核通过后状态变为已发布，驳回后变为已拒绝
+     * @param id 评论ID
+     * @param req 审核请求
+     */
     @Override
     @Transactional
     public void auditComment(Long id, CommunityCommentAuditReq req) {
@@ -103,15 +142,24 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         if (auditStatus == null) {
             throw new BusinessException("不支持的审核状态");
         }
+        // 设置审核信息
         comment.setAuditStatus(auditStatus.getCode());
         comment.setAuditRemark(StrUtil.blankToDefault(StrUtil.trim(req.getAuditRemark()), null));
+        // 根据审核结果更新发布状态：通过→已发布，驳回→已拒绝
         comment.setStatus(CommunityAuditStatusEnum.APPROVED.equals(auditStatus)
                 ? CommunityPostStatusEnum.PUBLISHED.getCode()
                 : CommunityPostStatusEnum.REJECTED.getCode());
         communityCommentDao.updateById(comment);
+        // 记录操作日志
         writeLog("COMMUNITY_COMMENT", comment.getId(), "AUDIT", null, auditStatus.getCode());
+        log.info("审核{}: commentId={}, auditStatus={}", CommunityAuditStatusEnum.APPROVED.equals(auditStatus) ? "通过" : "驳回", id, auditStatus.getCode());
     }
 
+    /**
+     * 分页查询举报列表，支持按举报人、目标类型、状态、原因类别筛选
+     * @param req 举报分页查询请求
+     * @return 举报分页数据
+     */
     @Override
     public Page<CommunityReportAdminVO> getReportPage(CommunityReportPageReq req) {
         LambdaQueryWrapper<CommunityReport> wrapper = new LambdaQueryWrapper<CommunityReport>()
@@ -126,11 +174,16 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         return result;
     }
 
+    /**
+     * 处理举报：校验状态 → 设置处理信息 → 执行处理动作 → 更新举报单 → 记录日志
+     * @param id 举报ID
+     * @param req 举报处理请求
+     */
     @Override
     @Transactional
     public void handleReport(Long id, CommunityReportHandleReq req) {
+        // 1. 校验状态：幂等性保护，仅待处理状态的举报单可处理
         CommunityReport report = requireReport(id);
-        // 幂等性保护：仅待处理状态的举报单可处理
         if (!CommunityReportStatusEnum.PENDING.getCode().equals(report.getStatus())) {
             throw new BusinessException("该举报单已处理，请勿重复操作");
         }
@@ -138,19 +191,31 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         if (status == null) {
             throw new BusinessException("不支持的举报状态");
         }
+
+        // 2. 设置处理信息
         report.setStatus(status.getCode());
         report.setHandleAction(StrUtil.blankToDefault(StrUtil.trim(req.getHandleAction()), null));
         report.setHandleRemark(StrUtil.blankToDefault(StrUtil.trim(req.getHandleRemark()), null));
         report.setHandlerId(UserContextHolder.get() != null ? UserContextHolder.get().getId() : null);
 
+        // 3. 执行处理动作：已解决且有处理动作时，对目标内容执行对应操作
         if (CommunityReportStatusEnum.RESOLVED.equals(status)
                 && StrUtil.isNotBlank(req.getHandleAction())) {
             applyHandleAction(report.getTargetType(), report.getTargetId(), req.getHandleAction());
         }
+
+        // 4. 更新举报单
         communityReportDao.updateById(report);
+
+        // 5. 记录日志
         writeLog("COMMUNITY_REPORT", report.getId(), "HANDLE", null, status.getCode());
+        log.info("处理举报: reportId={}, status={}, handleAction={}", id, status.getCode(), req.getHandleAction());
     }
 
+    /**
+     * 查询社区配置列表（互动准入、动态上限、举报入口等 7 项配置）
+     * @return 配置列表
+     */
     @Override
     public List<AppConfigVO> getCommunityConfigs() {
         Map<String, AppConfig> configMap = appConfigDao.selectByKeys(List.of(
@@ -174,9 +239,14 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         );
     }
 
+    /**
+     * 批量保存社区配置（逐一 upsert）
+     * @param req 配置批量保存请求
+     */
     @Override
     @Transactional
     public void saveCommunityConfigs(AppConfigBatchReq req) {
+        // 1. 逐一 upsert 每项配置
         for (AppConfigBatchReq.AppConfigItem item : req.getItems()) {
             AppConfig entity = new AppConfig();
             entity.setConfigKey(item.getConfigKey());
@@ -188,21 +258,33 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             entity.setRemark(item.getRemark());
             appConfigDao.upsert(entity);
         }
+        // 2. 记录操作日志
         writeLog("COMMUNITY_CONFIG", null, "BATCH_SAVE", null, String.valueOf(req.getItems().size()));
+        log.info("批量保存社区配置: itemCount={}", req.getItems().size());
     }
 
+    /**
+     * 查询社区首页Tab配置（基于 COMMUNITY_HOME_TAB 页面编码）
+     * @return 移动端入口配置列表
+     */
     @Override
     public List<MobileEntryConfigVO> getHomeTabs() {
         return mobileEntryConfigDao.selectByPageCode(MobilePageCodeEnum.COMMUNITY_HOME_TAB.getCode())
                 .stream().map(this::toMobileEntryVO).toList();
     }
 
+    /**
+     * 根据处理动作代码对目标内容执行对应操作
+     * @param targetType 举报目标类型（动态/评论）
+     * @param targetId 目标ID
+     * @param actionCode 处理动作代码
+     */
     private void applyHandleAction(String targetType, Long targetId, String actionCode) {
         CommunityReportHandleActionEnum action = CommunityReportHandleActionEnum.getByCode(actionCode);
         if (action == null) {
             throw new BusinessException("不支持的处理动作");
         }
-        // 匹配动作与目标类型，执行对应处理
+        // BLOCK_POST：下架动态，校验目标类型必须为动态
         if (CommunityReportHandleActionEnum.BLOCK_POST.equals(action)) {
             if (!CommunityReportTargetTypeEnum.POST.getCode().equals(targetType)) {
                 throw new BusinessException("当前举报目标不是动态，无法执行下架操作");
@@ -210,8 +292,10 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             CommunityPost post = requirePost(targetId);
             post.setStatus(CommunityPostStatusEnum.BLOCKED.getCode());
             communityPostDao.updateById(post);
+            log.info("下架动态: postId={}", targetId);
             return;
         }
+        // BLOCK_COMMENT：屏蔽评论，校验目标类型必须为评论
         if (CommunityReportHandleActionEnum.BLOCK_COMMENT.equals(action)) {
             if (!CommunityReportTargetTypeEnum.COMMENT.getCode().equals(targetType)) {
                 throw new BusinessException("当前举报目标不是评论，无法执行屏蔽操作");
@@ -219,14 +303,17 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             CommunityComment comment = requireComment(targetId);
             comment.setStatus(CommunityPostStatusEnum.BLOCKED.getCode());
             communityCommentDao.updateById(comment);
+            log.info("屏蔽评论: commentId={}", targetId);
             return;
         }
+        // DISMISS：驳回举报无需操作目标内容
         if (CommunityReportHandleActionEnum.DISMISS.equals(action)) {
-            // 驳回举报无需操作目标内容
+            log.info("驳回举报: targetType={}, targetId={}", targetType, targetId);
             return;
         }
-        // WARN_USER 等动作当前阶段仅记录，不操作目标内容（通知系统将在 PRD-03 落地后接入）
+        // WARN_USER：警告用户，当前阶段仅记录，不操作目标内容（通知系统将在 PRD-03 落地后接入）
         if (CommunityReportHandleActionEnum.WARN_USER.equals(action)) {
+            log.info("警告用户: targetType={}, targetId={}", targetType, targetId);
             return;
         }
         throw new BusinessException("不支持的动作与目标组合");

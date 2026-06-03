@@ -17,18 +17,18 @@ public class CommunityPost extends BaseEntity {
     private Long authorId;
     /** 动态类型 @see CommunityPostTypeEnum */
     private String postType;
-    /** 标题 */
+    /** 诚意贴标题 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String title;
-    /** 正文 */
+    /** 正文内容 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String content;
-    /** 图片URL列表(JSON数组) */
+    /** 图片URL列表（JSON数组） */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String imageUrls;
     /** 话题ID */
     private Long topicId;
-    /** @提及用户ID列表(JSON数组) */
+    /** @提及用户ID列表（JSON数组） */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String mentionUserIds;
     /** 发布状态 @see CommunityPostStatusEnum */

@@ -15,6 +15,7 @@ import java.util.List;
 @Repository
 @RequiredArgsConstructor
 public class CommunityFollowDaoImpl implements CommunityFollowDao {
+    /** 社区关注 MyBatis Mapper */
     private final CommunityFollowMapper mapper;
 
     @Override

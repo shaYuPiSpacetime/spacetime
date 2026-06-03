@@ -23,27 +23,47 @@ import java.util.List;
 @RequestMapping("/miniapp/vip")
 @RequiredArgsConstructor
 public class VipController {
+
+    /** VIP 服务 */
     private final VipService vipService;
 
-    /** VIP 套餐列表 */
+    /**
+     * 查询已启用VIP套餐列表
+     *
+     * @return VIP套餐列表
+     */
     @GetMapping("/packages")
     public R<List<VipPackageVO>> getPackages() {
         return R.ok(vipService.getPackages());
     }
 
-    /** VIP 权益列表 */
+    /**
+     * 查询已启用VIP权益列表
+     *
+     * @return VIP权益列表
+     */
     @GetMapping("/benefits")
     public R<List<VipBenefitVO>> getBenefits() {
         return R.ok(vipService.getBenefits());
     }
 
-    /** 当前用户 VIP 状态 */
+    /**
+     * 查询当前用户VIP状态
+     *
+     * @return 用户VIP状态信息（VIP状态、到期时间等）
+     */
     @GetMapping("/status")
     public R<VipStatusVO> getStatus() {
         return R.ok(vipService.getStatus(currentUserId()));
     }
 
-    /** VIP 订单记录 */
+    /**
+     * 分页查询当前用户VIP订单记录
+     *
+     * @param page 页码，默认1
+     * @param size 每页条数，默认10
+     * @return VIP订单分页列表
+     */
     @GetMapping("/orders")
     public R<Page<VipOrderVO>> getOrders(@RequestParam(defaultValue = "1") int page,
                                           @RequestParam(defaultValue = "10") int size) {

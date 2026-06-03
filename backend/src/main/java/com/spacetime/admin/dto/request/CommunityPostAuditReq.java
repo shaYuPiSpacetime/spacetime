@@ -8,7 +8,9 @@ import lombok.Data;
  */
 @Data
 public class CommunityPostAuditReq {
+    /** 审核状态 @see CommunityAuditStatusEnum */
     @NotBlank(message = "审核状态不能为空")
     private String auditStatus;
+    /** 审核备注 */
     private String auditRemark;
 }

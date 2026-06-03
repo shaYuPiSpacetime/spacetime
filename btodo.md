@@ -20,3 +20,5 @@
 8、完善miniapp-api.md
 
 https://lanhuapp.com/link/#/invite?sid=lXB9eRla
+
+这个项目有多个页面，先列出所有设计图让我选，https://lanhuapp.com/web/#/item/project/stage?pid=00cf551c-26f6-49e5-82db-1dc6fda9ca3a

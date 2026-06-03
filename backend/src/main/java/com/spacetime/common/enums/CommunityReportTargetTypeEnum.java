@@ -11,7 +11,9 @@ public enum CommunityReportTargetTypeEnum {
     COMMENT("comment", "评论"),
     USER("user", "用户");
 
+    /** 枚举编码 */
     private final String code;
+    /** 枚举描述 */
     private final String desc;
 
     CommunityReportTargetTypeEnum(String code, String desc) {

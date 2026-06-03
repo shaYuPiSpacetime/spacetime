@@ -12,7 +12,9 @@ public enum CommunityReportHandleActionEnum {
     BLOCK_COMMENT("BLOCK_COMMENT", "屏蔽评论"),
     WARN_USER("WARN_USER", "警告用户");
 
+    /** 枚举编码 */
     private final String code;
+    /** 枚举描述 */
     private final String desc;
 
     CommunityReportHandleActionEnum(String code, String desc) {

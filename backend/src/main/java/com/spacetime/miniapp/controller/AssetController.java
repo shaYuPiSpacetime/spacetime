@@ -13,30 +13,52 @@ import com.spacetime.miniapp.dto.response.UnlockVO;
 import com.spacetime.miniapp.service.AssetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * 小程序用户资产控制器
  */
+@Slf4j
 @RestController
 @RequestMapping("/miniapp/asset")
 @RequiredArgsConstructor
 public class AssetController {
+
+    /** 用户资产服务 */
     private final AssetService assetService;
 
-    /** 用户资产汇总 */
+    /**
+     * 查询当前用户资产汇总
+     *
+     * @return 用户资产汇总信息（VIP状态、成家币余额、今日免费用量等）
+     */
     @GetMapping("/summary")
     public R<AssetSummaryVO> getSummary() {
         return R.ok(assetService.getSummary(currentUserId()));
     }
 
-    /** 批量解锁 */
+    /**
+     * 批量解锁用户（谁喜欢我/谁看过我/理想型/精选推荐）
+     *
+     * @param req 解锁请求（场景 + 目标用户ID列表）
+     * @return 解锁结果（解锁人数、消耗成家币）
+     */
     @PostMapping("/unlock")
     public R<UnlockVO> unlock(@Valid @RequestBody UnlockReq req) {
-        return R.ok(assetService.unlock(currentUserId(), req));
+        Long userId = currentUserId();
+        log.info("解锁操作: userId={}, scene={}, count={}", userId, req.getUnlockScene(),
+                req.getTargetUserIds() != null ? req.getTargetUserIds().size() : 0);
+        return R.ok(assetService.unlock(userId, req));
     }
 
-    /** 解锁记录 */
+    /**
+     * 分页查询当前用户解锁记录
+     *
+     * @param page 页码，默认1
+     * @param size 每页条数，默认10
+     * @return 解锁记录分页列表
+     */
     @GetMapping("/unlock-records")
     public R<Page<UnlockRecordVO>> getRecords(@RequestParam(defaultValue = "1") int page,
                                                @RequestParam(defaultValue = "10") int size) {

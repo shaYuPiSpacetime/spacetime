@@ -11,7 +11,9 @@ public enum CommunityReportStatusEnum {
     RESOLVED("RESOLVED", "已处理"),
     REJECTED("REJECTED", "已驳回");
 
+    /** 枚举编码 */
     private final String code;
+    /** 枚举描述 */
     private final String desc;
 
     CommunityReportStatusEnum(String code, String desc) {

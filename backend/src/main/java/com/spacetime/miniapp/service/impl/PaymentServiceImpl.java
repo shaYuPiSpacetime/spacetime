@@ -24,6 +24,7 @@ import com.spacetime.miniapp.dto.response.CreateOrderVO;
 import com.spacetime.miniapp.dto.response.PayResultVO;
 import com.spacetime.miniapp.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,20 +34,35 @@ import java.time.LocalDateTime;
 /**
  * 小程序支付服务实现
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
+
+    /** VIP套餐数据访问 */
     private final VipPackageDao vipPackageDao;
+    /** 成家币套餐数据访问 */
     private final CoinPackageDao coinPackageDao;
+    /** 交易订单数据访问 */
     private final TradeOrderDao tradeOrderDao;
+    /** 用户资产数据访问 */
     private final UserAssetDao userAssetDao;
+    /** 成家币流水数据访问 */
     private final UserCoinLogDao userCoinLogDao;
 
+    /**
+     * 创建支付订单（VIP套餐或成家币套餐购买）
+     *
+     * @param userId 用户ID
+     * @param req    订单请求（订单类型、套餐ID）
+     * @return 订单创建结果（订单ID、订单编号）
+     */
     @Override
     @Transactional
     public CreateOrderVO createOrder(Long userId, CreateOrderReq req) {
         String orderType = req.getOrderType();
         Long packageId = req.getPackageId();
+        log.info("创建订单: userId={}, orderType={}, packageId={}", userId, orderType, packageId);
 
         // 1. 根据订单类型校验套餐存在且已启用
         BigDecimal payAmount;
@@ -88,6 +104,13 @@ public class PaymentServiceImpl implements PaymentService {
         return vo;
     }
 
+    /**
+     * mock 模拟支付（开发调试用，模拟支付回调）
+     *
+     * @param userId  用户ID
+     * @param orderId 订单ID
+     * @return 支付结果（订单编号、状态、资产变更）
+     */
     @Override
     @Transactional
     public PayResultVO mockPay(Long userId, Long orderId) {
@@ -102,6 +125,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         // 2. 幂等处理：已支付直接返回当前状态
         if (OrderStatusEnum.SUCCESS.getCode().equals(order.getOrderStatus())) {
+            log.info("订单已支付幂等返回: userId={}, orderId={}, orderNo={}", userId, orderId, order.getOrderNo());
             return buildPayResult(order);
         }
         if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())) {
@@ -119,10 +143,17 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException("不支持的订单类型");
         }
 
+        log.info("模拟支付成功: userId={}, orderId={}, orderType={}, amount={}",
+                userId, orderId, order.getOrderType(), order.getPayAmount());
         return buildPayResult(order);
     }
 
-    /** 处理 VIP 支付 */
+    /**
+     * 处理 VIP 支付（更新订单状态 + 计算VIP到期时间 + 更新用户资产）
+     *
+     * @param order 交易订单
+     * @param now   当前时间
+     */
     private void processVipPayment(TradeOrder order, LocalDateTime now) {
         // 1. 查询套餐信息
         VipPackage vipPkg = vipPackageDao.selectById(order.getPackageId());
@@ -166,7 +197,12 @@ public class PaymentServiceImpl implements PaymentService {
         userAssetDao.updateById(asset);
     }
 
-    /** 处理成家币支付 */
+    /**
+     * 处理成家币支付（更新订单状态 + 计算币数并更新余额 + 写流水）
+     *
+     * @param order 交易订单
+     * @param now   当前时间
+     */
     private void processCoinPayment(TradeOrder order, LocalDateTime now) {
         // 1. 查询套餐信息
         CoinPackage coinPkg = coinPackageDao.selectById(order.getPackageId());
@@ -218,7 +254,12 @@ public class PaymentServiceImpl implements PaymentService {
         userCoinLogDao.insert(coinLog);
     }
 
-    /** 构造支付结果 */
+    /**
+     * 构造支付结果 VO
+     *
+     * @param order 交易订单
+     * @return 支付结果（订单编号、状态、当前资产信息）
+     */
     private PayResultVO buildPayResult(TradeOrder order) {
         PayResultVO vo = new PayResultVO();
         vo.setOrderNo(order.getOrderNo());

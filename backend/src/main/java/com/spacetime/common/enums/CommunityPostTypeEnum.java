@@ -10,7 +10,9 @@ public enum CommunityPostTypeEnum {
     COMMUNITY("community", "社区动态"),
     SINCERE_POST("sincere_post", "诚意贴");
 
+    /** 枚举编码 */
     private final String code;
+    /** 枚举描述 */
     private final String desc;
 
     CommunityPostTypeEnum(String code, String desc) {

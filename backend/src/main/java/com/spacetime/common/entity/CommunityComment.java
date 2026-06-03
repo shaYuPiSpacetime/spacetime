@@ -17,7 +17,7 @@ public class CommunityComment extends BaseEntity {
     private Long postId;
     /** 评论者ID */
     private Long authorId;
-    /** 父评论ID(楼中楼回复) */
+    /** 父评论ID（楼中楼回复） */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long parentCommentId;
     /** 被回复者ID */
