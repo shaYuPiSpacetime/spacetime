@@ -237,8 +237,8 @@ function RulesPanel() {
       ...form,
       rewardAmount: Number(form.rewardAmount || 0),
       dailyLimit: num(form.dailyLimit),
-      effectiveTime: form.effectiveTime || undefined,
-      expireTime: form.expireTime || undefined,
+      effectiveTime: form.effectiveTime ? form.effectiveTime + ':00' : undefined,
+      expireTime: form.expireTime ? form.expireTime + ':00' : undefined,
       remark: form.remark || undefined,
     };
     if (editing) await updatePromotionRule(editing.id, payload);

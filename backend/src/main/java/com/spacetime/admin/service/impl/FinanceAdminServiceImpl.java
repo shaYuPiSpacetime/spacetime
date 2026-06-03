@@ -131,9 +131,12 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
     public void processRefund(Long id, RefundReq req) {
         TradeOrder order = requireOrder(id);
 
-        // 1. 校验订单状态：仅支持退款已支付成功的订单
-        if (!OrderStatusEnum.SUCCESS.getCode().equals(order.getOrderStatus())) {
-            throw new BusinessException("仅支持对已支付成功的订单进行退款");
+        // 1. 校验订单状态：支持已支付或退款中的订单
+        String currentStatus = order.getOrderStatus();
+        boolean canRefund = OrderStatusEnum.SUCCESS.getCode().equals(currentStatus)
+                || OrderStatusEnum.REFUNDING.getCode().equals(currentStatus);
+        if (!canRefund) {
+            throw new BusinessException("仅支持对已支付或退款中的订单进行退款");
         }
         log.info("开始处理退款: orderId={}, orderNo={}, reason={}", id, order.getOrderNo(), req.getReason());
 

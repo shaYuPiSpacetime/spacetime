@@ -93,16 +93,33 @@ const BIZ_SCENE_LABELS: Record<string, string> = {
   refund: '退款',
   admin_grant: '后台发放',
   system_deduct: '系统扣减',
+  unlock: '解锁嘉宾',
+  whisper: '发送悄悄话',
+  gift: '系统赠送',
+  event_reward: '活动奖励',
 };
 
 const REFUND_STATUS_LABELS: Record<string, string> = {
-  pending: '待处理',
-  processing: '处理中',
-  success: '已退款',
-  rejected: '已拒绝',
+  refunding: '退款中',
+  refunded: '已退款',
 };
 
 // ==================== 工具函数 ====================
+
+/** 将日期字符串 "YYYY-MM-DD" 转为后端 LocalDateTime ISO 格式 "YYYY-MM-DDTHH:MM:SS" */
+function toStartDateTime(value?: string): string | undefined {
+  if (!value) return undefined;
+  // 已经是带时间的格式（datetime-local），只需把 T 替换掉即可
+  if (value.includes('T')) return value + ':00';
+  // date input 的纯日期格式
+  return `${value}T00:00:00`;
+}
+
+function toEndDateTime(value?: string): string | undefined {
+  if (!value) return undefined;
+  if (value.includes('T')) return value + ':00';
+  return `${value}T23:59:59`;
+}
 
 function getTabFromPath(pathname: string): TabKey {
   return TABS.find((tab) => pathname.startsWith(tab.path))?.key ?? 'orders';
@@ -149,15 +166,14 @@ function flowTypeBadge(type?: string) {
   );
 }
 
-/** 退款状态 Badge */
+/** 退款状态 Badge（字段名 orderStatus，值 refunding/refunded） */
 function refundStatusBadge(status?: string) {
   if (!status) return <span>-</span>;
   const label = labelOf(status, REFUND_STATUS_LABELS);
-  const success = status === 'success';
-  const warning = status === 'pending' || status === 'processing';
-  const danger = status === 'rejected';
+  const warning = status === 'refunding';
+  const success = status === 'refunded';
   return (
-    <Badge variant={success ? 'success' : warning ? 'warning' : danger ? 'destructive' : 'secondary'}>
+    <Badge variant={success ? 'success' : warning ? 'warning' : 'secondary'}>
       {label}
     </Badge>
   );
@@ -227,8 +243,8 @@ function OrdersPanel() {
           orderNo: query.orderNo || undefined,
           orderType: query.orderType || undefined,
           orderStatus: query.orderStatus || undefined,
-          startTime: query.startTime || undefined,
-          endTime: query.endTime || undefined,
+          startTime: toStartDateTime(query.startTime),
+          endTime: toEndDateTime(query.endTime),
         }),
       );
       setList(data.records ?? []);
@@ -461,8 +477,8 @@ function FlowsPanel() {
           userId: query.userId ? Number(query.userId) : undefined,
           flowType: query.flowType || undefined,
           bizScene: query.bizScene || undefined,
-          startTime: query.startTime || undefined,
-          endTime: query.endTime || undefined,
+          startTime: toStartDateTime(query.startTime),
+          endTime: toEndDateTime(query.endTime),
         }),
       );
       setList(data.records ?? []);
@@ -629,8 +645,8 @@ function RefundsPanel() {
           size: 10,
           orderNo: query.orderNo || undefined,
           userId: query.userId ? Number(query.userId) : undefined,
-          startTime: query.startTime || undefined,
-          endTime: query.endTime || undefined,
+          startTime: toStartDateTime(query.startTime),
+          endTime: toEndDateTime(query.endTime),
         }),
       );
       setList(data.records ?? []);
@@ -667,7 +683,7 @@ function RefundsPanel() {
     setRefundSaving(true);
     try {
       await processRefund(refundDialog.id, {
-        refundReason: refundReason.trim(),
+        reason: refundReason.trim(),
         refundAmount: refundAmount ? Number(refundAmount) : undefined,
       });
       showToast('退款处理成功', 'success');
@@ -732,11 +748,11 @@ function RefundsPanel() {
               <TableHead>订单号</TableHead>
               <TableHead>用户ID</TableHead>
               <TableHead>订单类型</TableHead>
+              <TableHead>套餐名称</TableHead>
               <TableHead>支付金额</TableHead>
-              <TableHead>退款金额</TableHead>
-              <TableHead>退款原因</TableHead>
               <TableHead>退款状态</TableHead>
-              <TableHead>退款时间</TableHead>
+              <TableHead>退款原因</TableHead>
+              <TableHead>支付时间 / 创建时间</TableHead>
               <TableHead>操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -759,18 +775,18 @@ function RefundsPanel() {
                   <TableCell className="font-mono text-xs">{row.orderNo}</TableCell>
                   <TableCell>{row.userId}</TableCell>
                   <TableCell>{labelOf(row.orderType, ORDER_TYPE_LABELS)}</TableCell>
+                  <TableCell>{row.packageName || '-'}</TableCell>
                   <TableCell>¥{(row.payAmount ?? 0).toFixed(2)}</TableCell>
-                  <TableCell>¥{(row.refundAmount ?? 0).toFixed(2)}</TableCell>
+                  <TableCell>{refundStatusBadge(row.orderStatus)}</TableCell>
                   <TableCell className="max-w-[120px] truncate">{row.refundReason || '-'}</TableCell>
-                  <TableCell>{refundStatusBadge(row.refundStatus)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {row.finishTime || row.applyTime || '-'}
+                    {row.successTime || row.createTime || '-'}
                   </TableCell>
                   <TableCell>
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={row.refundStatus !== 'pending'}
+                      disabled={row.orderStatus !== 'refunding'}
                       onClick={() => openRefundDialog(row)}
                     >
                       <RotateCcw className="mr-1 h-4 w-4" />

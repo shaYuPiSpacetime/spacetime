@@ -33,19 +33,18 @@ export interface CoinFlow {
   createTime?: string;
 }
 
-/** 退款记录 */
+/** 退款记录（API 实际返回字段） */
 export interface RefundRecord {
   id: number;
   orderNo: string;
   userId: number;
   orderType: string;
+  packageName?: string;
   payAmount: number;
-  refundAmount: number;
+  orderStatus: string;       // API 返回: refunding / refunded
+  successTime?: string;
+  createTime?: string;
   refundReason?: string;
-  refundStatus: string;
-  applyTime?: string;
-  finishTime?: string;
-  remark?: string;
 }
 
 /** 每日统计 */
@@ -77,8 +76,8 @@ export function getOrderDetail(id: number) {
   return request.get<TradeOrder>(`/admin/finance/orders/${id}`);
 }
 
-/** 处理退款 */
-export function processRefund(id: number, data: { refundReason: string; refundAmount?: number }) {
+/** 处理退款（后端参数: reason） */
+export function processRefund(id: number, data: { reason: string; refundAmount?: number }) {
   return request.put(`/admin/finance/orders/${id}/refund`, data);
 }
 

@@ -21,4 +21,9 @@
 
 https://lanhuapp.com/link/#/invite?sid=lXB9eRla
 
-这个项目有多个页面，先列出所有设计图让我选，https://lanhuapp.com/web/#/item/project/stage?pid=00cf551c-26f6-49e5-82db-1dc6fda9ca3a
+根据https://lanhuapp.com/web/#/item/project/stage?pid=00cf551c-26f6-49e5-82db-1dc6fda9ca3a
+mcp1:1还原小程序蓝湖ui稿,在miniapp中。用其他模型跑起来一塌糊涂，字体都太大了。需要 1:1 还原
+
+npm run build:h5 -- --watch
+
+启动管理后台和后台项目

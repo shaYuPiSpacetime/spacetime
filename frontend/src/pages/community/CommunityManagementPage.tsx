@@ -82,6 +82,72 @@ const REPORT_ACTION_OPTIONS = [
   { value: 'WARN_USER', label: '警告用户' },
 ];
 
+// ==================== 标签映射（英文值 → 中文展示） ====================
+
+const CONTENT_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待发布',
+  PUBLISHED: '已发布',
+  REJECTED: '已驳回',
+  DELETED: '已删除',
+  BLOCKED: '已屏蔽',
+};
+
+const AUDIT_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待审核',
+  APPROVED: '审核通过',
+  REJECTED: '审核驳回',
+};
+
+const REPORT_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待处理',
+  RESOLVED: '已处理',
+  REJECTED: '已驳回',
+};
+
+const POST_TYPE_LABELS: Record<string, string> = {
+  community: '社区动态',
+  sincere_post: '诚意贴',
+};
+
+const TARGET_TYPE_LABELS: Record<string, string> = {
+  post: '动态',
+  comment: '评论',
+  user: '用户',
+};
+
+const HANDLE_ACTION_LABELS: Record<string, string> = {
+  DISMISS: '驳回举报',
+  BLOCK_POST: '下架动态',
+  BLOCK_COMMENT: '屏蔽评论',
+  WARN_USER: '警告用户',
+};
+
+const CONFIG_TYPE_LABELS: Record<string, string> = {
+  TEXT: '文本',
+  NUMBER: '数字',
+  BOOLEAN: '开关',
+};
+
+const CONFIG_KEY_LABELS: Record<string, string> = {
+  'community.interaction_gate_mode': '互动准入模式',
+  'community.post_max_images': '动态图片上限',
+  'community.post_max_text_length': '动态文字上限',
+  'community.sincere_post_min_text_length': '诚意贴正文下限',
+  'community.report_entry_enabled': '举报入口开关',
+  'community.contact_info_allowed': '联系方式开关',
+  'community.post_max_mentions': '@用户人数上限',
+};
+
+const GATE_MODE_OPTIONS = [
+  { value: 'LOGIN_ONLY', label: '仅登录' },
+  { value: 'FULL_CERT', label: '三项认证（未落地勿选）' },
+];
+
+const BOOL_OPTIONS = [
+  { value: 'true', label: '开启' },
+  { value: 'false', label: '关闭' },
+];
+
 function pageData<T>(res: unknown): PageResult<T> {
   return ((res as any).data ?? { records: [], total: 0, current: 1, size: 10 }) as PageResult<T>;
 }
@@ -90,14 +156,21 @@ function getTabFromPath(pathname: string): TabKey {
   return TABS.find((tab) => pathname.startsWith(tab.path))?.key ?? 'posts';
 }
 
+function clabel(value: string | undefined, labels: Record<string, string>): string {
+  if (!value) return '-';
+  return labels[value] ?? value;
+}
+
 function statusBadge(status?: string) {
   if (!status) return <span>-</span>;
+  const allLabels = { ...CONTENT_STATUS_LABELS, ...AUDIT_STATUS_LABELS, ...REPORT_STATUS_LABELS };
+  const label = clabel(status, allLabels);
   const success = status === 'PUBLISHED' || status === 'APPROVED' || status === 'RESOLVED';
   const warning = status === 'PENDING';
   const danger = status === 'REJECTED' || status === 'DELETED' || status === 'BLOCKED';
   return (
     <Badge variant={success ? 'success' : warning ? 'warning' : danger ? 'destructive' : 'secondary'}>
-      {status}
+      {label}
     </Badge>
   );
 }
@@ -217,7 +290,7 @@ function PostsPanel() {
             ) : list.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.authorName || '-'}<div className="text-xs text-muted-foreground">{row.authorPhone || '-'}</div></TableCell>
-                <TableCell>{row.postType}</TableCell>
+                <TableCell>{clabel(row.postType, POST_TYPE_LABELS)}</TableCell>
                 <TableCell className="max-w-[260px] truncate">{row.title ? `${row.title} / ` : ''}{row.content}</TableCell>
                 <TableCell>{row.topicName || '-'}</TableCell>
                 <TableCell>{row.likeCount}/{row.commentCount}/{row.reportCount}</TableCell>
@@ -460,12 +533,12 @@ function ReportsPanel() {
             ) : list.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.reporterName || '-'}<div className="text-xs text-muted-foreground">{row.reporterPhone || '-'}</div></TableCell>
-                <TableCell>{row.targetType}</TableCell>
+                <TableCell>{clabel(row.targetType, TARGET_TYPE_LABELS)}</TableCell>
                 <TableCell>{row.targetId}</TableCell>
                 <TableCell>{row.reasonLabel || row.reasonCode}</TableCell>
                 <TableCell className="max-w-[200px] truncate">{row.extraText || '-'}</TableCell>
                 <TableCell>{statusBadge(row.status)}</TableCell>
-                <TableCell>{row.handleAction || '-'}</TableCell>
+                <TableCell>{clabel(row.handleAction, HANDLE_ACTION_LABELS)}</TableCell>
                 <TableCell>
                   {hasPermission('community:report:handle') ? (
                     <Button variant="ghost" size="sm" onClick={() => openHandle(row)}>处理</Button>
@@ -499,6 +572,90 @@ function ReportsPanel() {
   );
 }
 
+/** 单个配置项：根据 configType 自动选择 Input 或 Select */
+function ConfigItem({
+  item,
+  index,
+  disabled,
+  onChange,
+}: {
+  item: AppConfigVO;
+  index: number;
+  disabled: boolean;
+  onChange: (index: number, value: string) => void;
+}) {
+  const configKey = item.configKey;
+  const configType = item.configType;
+  const chineseKey = CONFIG_KEY_LABELS[configKey] ?? configKey;
+
+  // 布尔类型 → Select 下拉
+  if (configType === 'BOOLEAN') {
+    return (
+      <div className="rounded-lg border p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="font-medium">{chineseKey}</div>
+            <div className="text-xs text-muted-foreground">{item.remark || configKey}</div>
+          </div>
+          <Badge variant="secondary">{clabel(configType, CONFIG_TYPE_LABELS)}</Badge>
+        </div>
+        <div className="mt-3">
+          <Select
+            options={BOOL_OPTIONS}
+            value={item.configValue}
+            disabled={disabled}
+            onChange={(v) => onChange(index, v)}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // 互动准入模式 → Select 下拉
+  if (configKey === 'community.interaction_gate_mode') {
+    return (
+      <div className="rounded-lg border p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="font-medium">{chineseKey}</div>
+            <div className="text-xs text-muted-foreground">{item.remark || configKey}</div>
+          </div>
+          <Badge variant="secondary">{clabel(configType, CONFIG_TYPE_LABELS)}</Badge>
+        </div>
+        <div className="mt-3">
+          <Select
+            options={GATE_MODE_OPTIONS}
+            value={item.configValue}
+            disabled={disabled}
+            onChange={(v) => onChange(index, v)}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // TEXT / NUMBER 类型 → Input
+  return (
+    <div className="rounded-lg border p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="font-medium">{chineseKey}</div>
+          <div className="text-xs text-muted-foreground">{item.remark || configKey}</div>
+        </div>
+        <Badge variant="secondary">{clabel(configType, CONFIG_TYPE_LABELS)}</Badge>
+      </div>
+      <div className="mt-3">
+        <Input
+          type={configType === 'NUMBER' ? 'number' : 'text'}
+          value={item.configValue}
+          disabled={disabled}
+          onChange={(e) => onChange(index, e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ConfigsPanel() {
   const { hasPermission } = usePermission();
   const [configs, setConfigs] = useState<AppConfigVO[]>([]);
@@ -524,7 +681,10 @@ function ConfigsPanel() {
     fetchData();
   }, [fetchData]);
 
-  const tabSummary = useMemo(() => tabs.map((item) => `${item.entryName}(${item.status})`).join(' / ') || '暂无首页Tab配置', [tabs]);
+  const tabSummary = useMemo(
+    () => tabs.map((item) => `${item.entryName}(${item.status === 'ENABLED' ? '启用' : '停用'})`).join(' / ') || '暂无首页Tab配置',
+    [tabs],
+  );
 
   async function saveConfigs() {
     setSaving(true);
@@ -565,22 +725,13 @@ function ConfigsPanel() {
         ) : (
           <div className="space-y-3">
             {configs.map((item, index) => (
-              <div key={item.configKey} className="rounded-lg border p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="font-medium">{item.configKey}</div>
-                    <div className="text-xs text-muted-foreground">{item.remark || '-'}</div>
-                  </div>
-                  <Badge variant="secondary">{item.configType}</Badge>
-                </div>
-                <div className="mt-3">
-                  <Input
-                    value={item.configValue}
-                    disabled={!hasPermission('community:config:edit')}
-                    onChange={(e) => updateConfig(index, e.target.value)}
-                  />
-                </div>
-              </div>
+              <ConfigItem
+                key={item.configKey}
+                item={item}
+                index={index}
+                disabled={!hasPermission('community:config:edit')}
+                onChange={updateConfig}
+              />
             ))}
           </div>
         )}

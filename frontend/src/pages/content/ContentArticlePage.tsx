@@ -55,7 +55,7 @@ function toDateTimeInput(value?: string) {
 }
 
 function toBackendDateTime(value: string) {
-  return value ? value.replace('T', ' ') + ':00' : undefined;
+  return value ? value + ':00' : undefined;
 }
 
 export default function ContentArticlePage() {

@@ -4,8 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Select } from '@/components/ui/select';
 import { getAppConfigList, batchSaveAppConfig, type AppConfigVO } from '@/api/content';
 import { cn } from '@/lib/utils';
+
+const CONFIG_TYPE_LABELS: Record<string, string> = {
+  TEXT: '文本',
+  NUMBER: '数字',
+  BOOLEAN: '开关',
+  JSON: 'JSON',
+};
+
+const BOOL_OPTIONS = [
+  { value: 'true', label: '开启' },
+  { value: 'false', label: '关闭' },
+];
 
 type TabKey = 'AGREEMENT' | 'ABOUT' | 'SEARCH' | 'MY_PAGE' | 'SETTINGS_PAGE' | 'SECURITY_CENTER';
 
@@ -100,8 +113,12 @@ function ConfigGroupPanel({ group }: { group: string }) {
               <div className="text-sm font-medium">{item.configKey}</div>
               <div className="text-xs text-muted-foreground">{item.remark || '-'}</div>
             </div>
-            <Input className="flex-1" value={item.configValue} onChange={(e) => updateItem(index, 'configValue', e.target.value)} />
-            <Badge variant="secondary">{item.configType || 'TEXT'}</Badge>
+            {item.configType === 'BOOLEAN' ? (
+              <Select className="flex-1" options={BOOL_OPTIONS} value={item.configValue} onChange={(v) => updateItem(index, 'configValue', v)} />
+            ) : (
+              <Input className="flex-1" type={item.configType === 'NUMBER' ? 'number' : 'text'} value={item.configValue} onChange={(e) => updateItem(index, 'configValue', e.target.value)} />
+            )}
+            <Badge variant="secondary">{CONFIG_TYPE_LABELS[item.configType] ?? item.configType}</Badge>
             <label className="flex items-center gap-1 text-xs">
               <input type="checkbox" checked={item.publicVisible === 1} onChange={(e) => updateItem(index, 'publicVisible', e.target.checked ? 1 : 0)} />
               公开
