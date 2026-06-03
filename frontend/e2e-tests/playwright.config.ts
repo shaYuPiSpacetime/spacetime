@@ -4,6 +4,10 @@ export default defineConfig({
   testDir: './tests',
   timeout: 30000,
   retries: 1,
+  reporter: [
+    ['html', { outputFolder: '../playwright-report' }],
+    ['list'],
+  ],
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:5173',
     screenshot: 'only-on-failure',
