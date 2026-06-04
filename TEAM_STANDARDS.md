@@ -476,3 +476,200 @@ const st = STATUS_MAP[record.status] || { label: record.status, variant: 'second
 | 实体字段有固定值却不提取枚举       | 提取为 Enum，字段注释用 `@see` 关联枚举类                                 |
 
 > **📌 Jackson ObjectMapper 不是 "Mapper"：** `com.fasterxml.jackson.databind.ObjectMapper` 是 JSON 序列化工具，与 MyBatis 的数据库 Mapper 是完全不同的概念。Service/ServiceImpl 可以使用它做 JSON 操作，不受 "禁止直接调 Mapper" 规则的限制。
+
+---
+
+## 10. 小程序编码规范
+
+### 10.1 导航栏规范（强制）
+
+**所有小程序页面统一使用 `navigationStyle: 'custom'` + `CustomNavBar` 组件**，禁止使用系统默认导航栏。
+
+**原因：**
+- 系统导航栏有 0.5px 底部分割线，无法消除
+- 系统导航栏背景色无法与页面背景无缝衔接
+- 自定义导航栏可实现状态栏区域透明，页面背景延伸到顶
+
+**页面配置：**
+
+```ts
+// xxx.config.ts — 所有页面统一
+export default {
+  navigationStyle: 'custom',
+}
+```
+
+**CustomNavBar 使用方式：**
+
+```tsx
+import CustomNavBar from '@/components/CustomNavBar'
+
+// 子页面（需要返回按钮 + 标题）
+<CustomNavBar title="会员中心" bgColor="#1A1A1A" titleColor="#FFFFFF" showBack />
+
+// Tab 页面（仅需状态栏占位，透明无标题）
+<CustomNavBar bgColor="transparent" />
+
+// 渐变背景页（透明导航栏，背景可透出）
+<CustomNavBar title="选择性别" bgColor="transparent" showBack />
+```
+
+**组件 Props：**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `title` | `string` | - | 标题文字，不传则不显示 |
+| `bgColor` | `string` | `#FFFFFF` | 背景色，渐变页用 `transparent` |
+| `showBack` | `boolean` | `false` | 是否显示返回按钮 |
+| `titleColor` | `string` | `#000000` | 标题文字颜色 |
+
+> **⚠️ 新页面必须这样配置，Code Review 时以此为门禁。**
+
+### 10.2 蓝湖设计稿管理规范
+
+**从蓝湖下载的设计稿统一放在 `miniapp/.lanhu-ref/` 目录下**，按功能模块分目录，模仿 `miniapp/.figma-ref/` 的组织方式。
+
+**目录结构：**
+
+```
+miniapp/.lanhu-ref/
+├── 登录/           # 登录相关设计稿
+│   ├── 登录.png
+│   ├── 登录-授权.png
+│   ├── 登录-性别选择.png
+│   ├── 登录-学历.png
+│   ├── 登录-地址.png
+│   └── 登录-年龄选择.png
+├── 觅缘/           # 觅缘（推荐）设计稿
+├── 精选/           # 精选设计稿
+├── 我的/           # 个人中心设计稿
+├── 会员中心/       # 会员中心设计稿
+├── 成家币/         # 成家币设计稿
+└── 匹配/           # 匹配/管理后台设计稿
+```
+
+**下载方式：**
+
+```bash
+# 1. 用蓝湖 MCP 列出所有设计稿
+mcp__lanhu__lanhu_design --url "<蓝湖项目URL>" --mode list
+
+# 2. 从返回的 CDN URL 批量下载
+curl -sL -o "文件名.png" "<CDN URL>"
+
+# 3. 用 analyze 模式获取 HTML/CSS 布局信息
+mcp__lanhu__lanhu_design --url "<URL>" --mode analyze --design_names '["设计稿名"]' --include '["html","tokens","layout"]'
+```
+
+### 10.3 1:1 设计还原流程
+
+每做一个新页面，按以下步骤执行：
+
+```
+Step 1：从蓝湖下载对应设计稿到 .lanhu-ref/
+Step 2：用 MCP analyze 模式提取 HTML+CSS+Tokens+Layout
+Step 3：对照蓝湖标注逐项翻译为代码
+Step 4：用 Tailwind 设计 Token（非任意值）
+Step 5：编译验证 → 对照设计稿截图核对
+```
+
+**度量转换（蓝湖 750px 坐标系）：**
+
+| 蓝湖标注 | Tailwind 类 | 实际 rpx | 说明 |
+|---------|------------|---------|------|
+| 12px | `text-xs` | 24rpx | 辅助文字 |
+| 14px | `text-sm` | 28rpx | 正文 |
+| 16px | `text-base` | 32rpx | 标题 |
+| 18px | `text-lg` | 36rpx | 大标题 |
+| 24px | `text-xl` | 48rpx | - |
+
+> **关键公式**：蓝湖 750px 设计值 ÷ 2 = CSS px = rpx（designWidth=375）
+
+**颜色 Token（tailwind.config.js 已定义）：**
+
+| Token | 色值 | 用途 |
+|-------|------|------|
+| `brand-blue` | `#2876FF` | 按钮/高亮/链接 |
+| `primary` | `#E54D42` | 品牌红 |
+| `text-dark` | `#153060` | 深色标题 |
+| `vip-gold` | `#FFC969` | VIP 金色 |
+
+**还原后核对清单：**
+
+- [ ] 背景色/背景图是否与设计稿一致
+- [ ] 页面左右边距、区块间距
+- [ ] 所有文字的字号、颜色、行高
+- [ ] 卡片圆角、内边距
+- [ ] 按钮尺寸、圆角、颜色
+- [ ] 分割线/边框颜色
+- [ ] 底部安全区 `env(safe-area-inset-bottom)`
+
+### 10.4 背景图使用规范
+
+当蓝湖设计稿的主体是一张完整插画（非纯色/渐变背景）时：
+
+1. **视觉由背景图提供**：将设计稿 PNG 放入 `src/assets/`，用 `<Image mode="widthFix">` 全屏展示
+2. **代码只放透明热区**：按钮/文字等交互元素只做透明 `<View onClick={...}>` 覆盖在对应位置
+3. **禁止双重渲染**：背景图已有的视觉元素（按钮、文字等），代码不应再画一遍，否则会重叠
+
+```tsx
+// ✅ 正确：背景图提供视觉，代码只放透明热区
+<View className="relative w-full h-screen">
+  <Image className="absolute top-0 left-0 w-full" src={bgImg} mode="widthFix" />
+  {/* 透明热区 — 对齐背景图中的按钮位置 */}
+  <View className="absolute left-0 right-0" style={{ bottom: '107rpx', height: '98rpx' }}
+    onClick={handleClick}
+  />
+</View>
+
+// ❌ 错误：背景图里已有按钮，代码又画了一个白色按钮
+<Image src={bgImg} mode="widthFix" />
+<View className="bg-white rounded-btn" onClick={handleClick}>
+  <Text>立即使用</Text>
+</View>
+```
+
+### 10.5 小程序目录结构补充
+
+```
+miniapp/
+├── src/
+│   ├── assets/
+│   │   ├── icons/          # Tab 图标等小图标
+│   │   ├── profile/        # 个人页配图
+│   │   └── login/          # 登录页背景图
+│   ├── components/
+│   │   ├── AppTabBar/       # 自定义底部 TabBar
+│   │   ├── CustomNavBar/    # 自定义顶部导航栏（所有页面必用）
+│   │   ├── EmptyState/      # 空状态占位组件
+│   │   ├── SectionCard/     # 通用卡片容器
+│   │   └── UserCard/        # 用户信息卡片
+│   ├── hooks/               # 自定义 hooks
+│   ├── pages/               # 页面，按功能分目录
+│   ├── services/            # Mock 数据 / API 服务
+│   ├── stores/              # Zustand stores
+│   └── types/               # TypeScript 类型
+├── .figma-ref/              # Figma 设计参考图
+├── .lanhu-ref/              # 蓝湖设计稿（按模块分目录）
+│   ├── 登录/
+│   ├── 觅缘/
+│   ├── 精选/
+│   ├── 我的/
+│   ├── 会员中心/
+│   ├── 成家币/
+│   └── 匹配/
+├── tailwind.config.js
+└── config/index.ts
+```
+
+### 10.6 小程序禁止事项
+
+| 禁止 | 正确做法 |
+|------|---------|
+| 使用系统默认导航栏 | 统一 `navigationStyle: 'custom'` + `CustomNavBar` |
+| 页面 config 忘记设 custom | 每个新页面必须配 `navigationStyle: 'custom'` |
+| 背景图+代码双重渲染按钮 | 背景图提供视觉，代码只放透明热区 |
+| 用 CSS 渐变/手绘替代设计稿背景 | 从蓝湖下载设计稿原图，用 `<Image>` 展示 |
+| 设计稿图片散落各处 | 统一放 `.lanhu-ref/` 按模块分目录 |
+| 蓝湖标注值直接当 rpx 用 | 蓝湖 750px ÷ 2 = CSS px = rpx |
+| 自定义样式覆盖 Tailwind Token | 优先用 `tailwind.config.js` 已定义的颜色/字号/圆角 |
