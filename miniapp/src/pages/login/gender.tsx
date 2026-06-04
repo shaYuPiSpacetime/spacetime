@@ -2,6 +2,7 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
+import CustomNavBar from '@/components/CustomNavBar'
 
 /**
  * 登录-性别选择 — 1:1 还原蓝湖「登录-性别选择」设计稿
@@ -21,10 +22,10 @@ export default function LoginGenderPage() {
       className="min-h-screen flex flex-col px-[16px]"
       style={{ background: 'linear-gradient(180deg,#E8F4FF 0%,#F0F7FF 100%)' }}
     >
-      {/* 标题区 */}
-      <View className="flex flex-col items-center mt-[84px] mb-[32px]">
-        <Text className="text-lg font-semibold text-[#153060] mb-[8px]">请选择</Text>
-        <Text className="text-xs text-[#999]">—你的性别（注册后性别不可更改）—</Text>
+      <CustomNavBar title="选择性别" bgColor="transparent" showBack />
+      {/* 页面标题由 CustomNavBar 展示 */}
+      <View className="flex flex-col items-center mt-[48px] mb-[32px]">
+        <Text className="text-xs text-[#999]">你的性别，注册后不可更改</Text>
       </View>
 
       {/* 选项 */}

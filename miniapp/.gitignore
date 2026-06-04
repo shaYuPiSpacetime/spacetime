@@ -4,3 +4,5 @@ dist/
 *.local
 project.private.config.json
 .DS_Store
+bobo-todo.md
+.lanhu-ref/

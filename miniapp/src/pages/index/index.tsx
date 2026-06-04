@@ -2,6 +2,7 @@ import { View, Text, Textarea, Image } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { useState } from 'react';
 import { useMatch } from '@/hooks/useMatch';
+import CustomNavBar from '@/components/CustomNavBar';
 
 /** 顶部 Sub-Tab */
 const SUB_TABS = ['心印测试', '精选', '理想型'];
@@ -36,20 +37,11 @@ export default function IndexPage() {
 
   return (
     <View className="min-h-screen bg-[#F5F7FA] flex flex-col">
+      <CustomNavBar bgColor="transparent" />
 
-      {/* ── 顶部导航 Header ── */}
-      <View className="bg-white px-[12px] pt-[10px] pb-[0px]">
+      {/* 内容筛选栏，页面标题由 CustomNavBar 展示 */}
+      <View className="px-[12px] pt-[10px] pb-[0px]">
         <View className="flex flex-row items-center">
-          {/* 品牌 Logo */}
-          <View className="flex flex-row items-center mr-[6px]">
-            <View
-              className="w-[24px] h-[24px] rounded-[4px] bg-[#2876FF] flex items-center justify-center mr-[4px]"
-            >
-              <Text className="text-xs text-white font-bold">觅</Text>
-            </View>
-          </View>
-
-          {/* Sub-tabs */}
           <View className="flex flex-row flex-1">
             {SUB_TABS.map((tab, idx) => {
               const isActive = idx === activeSubTab;
@@ -79,17 +71,17 @@ export default function IndexPage() {
       <View className="relative mx-[12px] mt-[10px] rounded-t-[16px] overflow-hidden" style={{ height: '280px' }}>
         {user ? (
           user.avatar ? (
-            <Image className="absolute inset-0 w-full h-full" src={user.avatar} mode="aspectFill" />
+            <Image className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }} src={user.avatar} mode="aspectFill" />
           ) : (
             <View
               className="absolute inset-0 flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg,#B3C9E8 0%,#7FA8CF 100%)' }}
+              style={{ background: 'linear-gradient(135deg,#B3C9E8 0%,#7FA8CF 100%)', zIndex: 0 }}
             >
               <Text className="text-[48px] text-white/40">{user.nickname?.charAt(0)}</Text>
             </View>
           )
         ) : (
-          <View className="absolute inset-0 bg-[#D0E5FA] flex items-center justify-center">
+          <View className="absolute inset-0 bg-[#D0E5FA] flex items-center justify-center" style={{ zIndex: 0 }}>
             <Text className="text-base text-[#999]">加载中...</Text>
           </View>
         )}
@@ -97,14 +89,14 @@ export default function IndexPage() {
         {/* 右上角转发按钮 */}
         <View
           className="absolute top-[12px] right-[12px] w-[24px] h-[24px] rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.6)' }}
+          style={{ background: 'rgba(0,0,0,0.6)', zIndex: 1 }}
         >
           <Text className="text-xs text-white">↗</Text>
         </View>
 
         {/* 底部用户信息 */}
         {user && (
-          <View className="absolute bottom-[10px] left-[12px]">
+          <View className="absolute bottom-[10px] left-[12px]" style={{ zIndex: 1 }}>
             <Text className="text-[19px] font-semibold text-white">{user.nickname}</Text>
             <View className="flex flex-row items-center gap-[6px] mt-[2px]">
               <View className="px-[8px] py-[2px] rounded-[24px] bg-[#E3F1FE]">
@@ -136,7 +128,7 @@ export default function IndexPage() {
           </View>
         </View>
         <Text className="text-xs text-[#999] text-center block mb-[14px]">
-          —第一时间抓住ta的目光—
+          第一时间抓住TA的目光
         </Text>
 
         {/* 对方简介行 */}
@@ -213,7 +205,7 @@ export default function IndexPage() {
       {showCertPopup && (
         <View
           className="fixed inset-0 flex items-end justify-center"
-          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 100 }}
+          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 10000, top: 'env(safe-area-inset-top)' }}
           onClick={closeCertPopup}
         >
           <View

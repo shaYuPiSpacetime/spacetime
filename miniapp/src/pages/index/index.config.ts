@@ -1,3 +1,3 @@
 export default {
-  navigationBarTitleText: '觅缘'
+  navigationStyle: 'custom',
 }

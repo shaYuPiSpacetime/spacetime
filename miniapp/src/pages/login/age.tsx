@@ -1,6 +1,7 @@
 import { View, Text, PickerView, PickerViewColumn } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
+import CustomNavBar from '@/components/CustomNavBar'
 const YEARS = Array.from({ length: 30 }, (_, i) => `${1985 + i}年`)
 const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}月`)
 const DAYS = Array.from({ length: 31 }, (_, i) => `${i + 1}日`)
@@ -32,38 +33,38 @@ export default function LoginAgePage() {
       className="min-h-screen flex flex-col px-[16px]"
       style={{ background: 'linear-gradient(180deg,#E8F4FF 0%,#F0F7FF 100%)' }}
     >
-      {/* 标题区 */}
-      <View className="flex flex-col items-center mt-[84px] mb-[20px]">
-        <Text className="text-lg font-semibold text-[#153060] mb-[8px]">请选择</Text>
-        <Text className="text-xs text-[#999]">—你是哪一年出生（为你推荐匹配的异性）—</Text>
+      <CustomNavBar title="选择年龄" bgColor="transparent" showBack />
+      {/* 页面标题由 CustomNavBar 展示 */}
+      <View className="flex flex-col items-center mt-[48px] mb-[20px]">
+        <Text className="text-xs text-[#999]">选择出生日期，为你推荐匹配的异性</Text>
       </View>
 
       {/* 三列 Picker */}
       <PickerView
         value={value}
         onChange={handleChange}
-        indicatorStyle="height: 44px; border-top: 1.5px solid #2876FF; border-bottom: 1.5px solid #2876FF; border-radius: 10px; background: rgba(40,118,255,0.08);"
-        maskStyle="background: linear-gradient(180deg,rgba(232,244,255,1) 0%,rgba(232,244,255,0.6) 40%,rgba(232,244,255,0) 60%,rgba(232,244,255,0.6) 90%,rgba(232,244,255,1) 100%);"
+        indicatorStyle="height: 44px; border-radius: 10px; background: rgba(238,245,255,0.9); box-shadow: 0 6px 18px rgba(40,118,255,0.12);"
+        maskStyle="background: linear-gradient(180deg,rgba(238,246,255,0.8) 0%,rgba(238,246,255,0.1) 100%),linear-gradient(0deg,rgba(238,246,255,0.8) 0%,rgba(238,246,255,0.1) 100%);"
         style={{ width: '100%', height: '220px' }}
       >
         <PickerViewColumn>
           {YEARS.map((y) => (
-            <View key={y} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '44px' }}>
-              <Text style={{ fontSize: '16px', color: '#153060', fontWeight: '500' }}>{y}</Text>
+            <View key={y} className="flex items-center justify-center h-[44px]">
+              <Text className="text-base text-[#153060]">{y}</Text>
             </View>
           ))}
         </PickerViewColumn>
         <PickerViewColumn>
           {MONTHS.map((m) => (
-            <View key={m} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '44px' }}>
-              <Text style={{ fontSize: '16px', color: '#153060', fontWeight: '500' }}>{m}</Text>
+            <View key={m} className="flex items-center justify-center h-[44px]">
+              <Text className="text-base text-[#153060]">{m}</Text>
             </View>
           ))}
         </PickerViewColumn>
         <PickerViewColumn>
           {DAYS.map((d) => (
-            <View key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '44px' }}>
-              <Text style={{ fontSize: '16px', color: '#153060', fontWeight: '500' }}>{d}</Text>
+            <View key={d} className="flex items-center justify-center h-[44px]">
+              <Text className="text-base text-[#153060]">{d}</Text>
             </View>
           ))}
         </PickerViewColumn>

@@ -1,9 +1,9 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Tabs, Tab } from '@antmjs/vantui'
 import { EmptyState } from '@/components/EmptyState'
 import { useMembership } from '@/hooks/useMembership'
+import CustomNavBar from '@/components/CustomNavBar'
 import type { MemberStatus } from '@/types/membership'
 
 /** Tab 选项配置 */
@@ -47,24 +47,26 @@ export default function RecordsPage() {
 
   return (
     <View className="min-h-screen bg-gray-50">
+      <CustomNavBar title="会员记录" showBack />
       {/* ===== Tab 筛选栏 ===== */}
-      <View className="bg-white">
-        <Tabs
-          active={STATUS_TABS.findIndex((t) => t.key === activeStatus)}
-          sticky
-          ellipsis={false}
-          swipeable
-          onChange={(e) => {
-            const tab = STATUS_TABS[e.detail.index]
-            if (tab) {
-              changeStatus(tab.key)
-            }
-          }}
-        >
-          {STATUS_TABS.map((tab) => (
-            <Tab key={tab.key} title={tab.label} />
-          ))}
-        </Tabs>
+      <View className="px-4 pt-3">
+        <View className="flex flex-row gap-2 rounded-[10px] bg-white p-1">
+          {STATUS_TABS.map((tab) => {
+            const isActive = tab.key === activeStatus
+            return (
+              <View
+                key={tab.key}
+                className="flex-1 rounded-[8px] py-2 flex items-center justify-center"
+                style={{ background: isActive ? '#2876FF' : 'transparent' }}
+                onClick={() => changeStatus(tab.key)}
+              >
+                <Text className="text-sm" style={{ color: isActive ? '#FFFFFF' : '#666666' }}>
+                  {tab.label}
+                </Text>
+              </View>
+            )
+          })}
+        </View>
       </View>
 
       {/* ===== 记录列表 ===== */}

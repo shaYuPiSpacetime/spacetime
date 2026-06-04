@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import CustomNavBar from '@/components/CustomNavBar'
 
 /** 测评项目 Mock 数据 */
 interface AssessmentItem {
@@ -70,6 +71,7 @@ export default function AssessmentPage() {
   if (MOCK_ASSESSMENTS.length === 0) {
     return (
       <View className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <CustomNavBar bgColor="transparent" />
         <Text className="text-4xl mb-4">📋</Text>
         <Text className="text-sm text-gray-400">暂无测评项目，敬请期待</Text>
       </View>
@@ -78,6 +80,7 @@ export default function AssessmentPage() {
 
   return (
     <View className="min-h-screen bg-gray-50">
+      <CustomNavBar bgColor="transparent" />
       {/* 页面头部横幅 */}
       <View className="mx-3 mt-3 bg-gradient-to-r from-primary to-primary-light rounded-card px-5 py-6">
         <Text className="text-lg font-bold text-white">发现你的情感密码</Text>
@@ -148,7 +151,7 @@ export default function AssessmentPage() {
 
         {/* 底部提示 */}
         <View className="flex items-center justify-center py-6">
-          <Text className="text-xs text-gray-300">— 更多测评即将上线 —</Text>
+          <Text className="text-xs text-gray-300">更多测评即将上线</Text>
         </View>
       </View>
     </View>

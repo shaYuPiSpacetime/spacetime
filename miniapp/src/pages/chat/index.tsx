@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
+import CustomNavBar from '@/components/CustomNavBar'
 
 /** 消息会话 Mock 数据 */
 interface ChatItem {
@@ -81,6 +82,7 @@ export default function ChatPage() {
   if (chats.length === 0) {
     return (
       <View className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <CustomNavBar bgColor="transparent" />
         <Text className="text-4xl mb-4">💬</Text>
         <Text className="text-sm text-gray-400">暂无消息</Text>
         <Text className="text-xs text-gray-300 mt-1">
@@ -95,6 +97,7 @@ export default function ChatPage() {
 
   return (
     <View className="min-h-screen bg-gray-50">
+      <CustomNavBar bgColor="transparent" />
       {/* 消息列表 */}
       <View className="pt-2 pb-4">
         {chats.map((chat) => (
@@ -148,7 +151,7 @@ export default function ChatPage() {
 
         {/* 底部提示 */}
         <View className="flex items-center justify-center py-6">
-          <Text className="text-xs text-gray-300">— 共 {totalUnread} 条未读消息 —</Text>
+          <Text className="text-xs text-gray-300">共 {totalUnread} 条未读消息</Text>
         </View>
       </View>
     </View>

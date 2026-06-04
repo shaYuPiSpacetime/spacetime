@@ -1,3 +1,3 @@
 export default {
-  navigationBarTitleText: '精选',
+  navigationStyle: 'custom',
 }

@@ -1,3 +1,3 @@
 export default {
-  navigationBarTitleText: '测评'
+  navigationStyle: 'custom',
 }

@@ -2,6 +2,7 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
+import CustomNavBar from '@/components/CustomNavBar'
 
 const CITIES = ['北京市', '上海市', '杭州市', '深圳市', '广州市', '成都市', '武汉市', '南京市', '西安市', '重庆市']
 
@@ -30,10 +31,10 @@ export default function LoginAddressPage() {
       className="min-h-screen flex flex-col px-[16px]"
       style={{ background: 'linear-gradient(180deg,#E8F4FF 0%,#F0F7FF 100%)' }}
     >
-      {/* 标题区 */}
-      <View className="flex flex-col items-center mt-[84px] mb-[32px]">
-        <Text className="text-lg font-semibold text-[#153060] mb-[8px]">请选择</Text>
-        <Text className="text-xs text-[#999]">—你的居住地（为你推荐匹配的异性）—</Text>
+      <CustomNavBar title="选择地区" bgColor="transparent" showBack />
+      {/* 页面标题由 CustomNavBar 展示 */}
+      <View className="flex flex-col items-center mt-[48px] mb-[32px]">
+        <Text className="text-xs text-[#999]">你的居住地，为你推荐匹配的异性</Text>
       </View>
 
       {/* 城市选择行 */}

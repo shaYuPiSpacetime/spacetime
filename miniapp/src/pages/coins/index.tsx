@@ -1,6 +1,7 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useEffect } from 'react'
 import { useCoins } from '@/hooks/useCoins'
+import CustomNavBar from '@/components/CustomNavBar'
 
 /**
  * 成家币 — 1:1 还原蓝湖「成家币」设计稿
@@ -39,6 +40,7 @@ export default function CoinsPage() {
 
   return (
     <View className="min-h-screen bg-[#F0F6FF] flex flex-col">
+      <CustomNavBar title="成家币" bgColor="#F0F6FF" titleColor="#153060" showBack />
       <ScrollView scrollY className="flex-1" style={{ paddingTop: '12px', paddingBottom: '86px' }}>
 
         {/* ── 余额卡片 ── */}

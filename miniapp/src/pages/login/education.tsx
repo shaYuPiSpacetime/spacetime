@@ -2,6 +2,7 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
+import CustomNavBar from '@/components/CustomNavBar'
 
 const OPTIONS = ['博士', '硕士', '本科', '大专']
 
@@ -23,10 +24,10 @@ export default function LoginEducationPage() {
       className="min-h-screen flex flex-col px-[16px]"
       style={{ background: 'linear-gradient(180deg,#E8F4FF 0%,#F0F7FF 100%)' }}
     >
-      {/* 标题区 */}
-      <View className="flex flex-col items-center mt-[84px] mb-[32px]">
-        <Text className="text-lg font-semibold text-[#153060] mb-[8px]">请选择</Text>
-        <Text className="text-xs text-[#999]">—你的最高学历（为你推荐匹配的异性）—</Text>
+      <CustomNavBar title="选择学历" bgColor="transparent" showBack />
+      {/* 页面标题由 CustomNavBar 展示 */}
+      <View className="flex flex-col items-center mt-[48px] mb-[32px]">
+        <Text className="text-xs text-[#999]">你的最高学历，为你推荐匹配的异性</Text>
       </View>
 
       {/* 选项列表 */}

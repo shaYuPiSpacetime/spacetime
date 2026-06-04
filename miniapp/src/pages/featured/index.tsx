@@ -5,6 +5,7 @@ import { useFeatured } from '@/hooks/useFeatured'
 import { mockCoinBalance, mockCoinPackages } from '@/services/mock'
 import type { FeaturedGuest } from '@/types/featured'
 import type { CoinPackage } from '@/types/coin'
+import CustomNavBar from '@/components/CustomNavBar'
 
 /** 页面顶部 Sub-Tab */
 const SUB_TABS = ['心印测试', '精选', '理想型']
@@ -58,21 +59,10 @@ export default function FeaturedPage() {
 
   return (
     <View className="min-h-screen bg-[#F5F7FA] flex flex-col">
-
-      {/* ── 顶部导航 Header ── */}
-      <View className="bg-white px-[12px] pt-[10px] pb-[0px]">
-        {/* 行：品牌 + sub-tabs + 操作图标 */}
+      <CustomNavBar title="精选" bgColor="#F5F7FA" showBack />
+      {/* 内容筛选栏，页面标题由 CustomNavBar 展示 */}
+      <View className="px-[12px] pt-[10px] pb-[0px]">
         <View className="flex flex-row items-center">
-          {/* 品牌 Logo */}
-          <View className="flex flex-row items-center mr-[6px]">
-            <View
-              className="w-[24px] h-[24px] rounded-[4px] bg-[#2876FF] flex items-center justify-center mr-[4px]"
-            >
-              <Text className="text-xs text-white font-bold">觅</Text>
-            </View>
-          </View>
-
-          {/* Sub-tabs */}
           <View className="flex flex-row flex-1">
             {SUB_TABS.map((tab, idx) => {
               const isActive = idx === activeSubTab
@@ -115,13 +105,14 @@ export default function FeaturedPage() {
               {guest.avatar ? (
                 <Image
                   className="absolute inset-0 w-full h-full"
+                  style={{ zIndex: 0 }}
                   src={guest.avatar}
                   mode="aspectFill"
                 />
               ) : (
                 <View
                   className="absolute inset-0"
-                  style={{ background: 'linear-gradient(135deg,#B0C4E4 0%,#7A9DCA 100%)' }}
+                  style={{ background: 'linear-gradient(135deg,#B0C4E4 0%,#7A9DCA 100%)', zIndex: 0 }}
                 />
               )}
 
@@ -129,7 +120,7 @@ export default function FeaturedPage() {
               {guest.isLocked && (
                 <View
                   className="absolute inset-0 flex items-center justify-center"
-                  style={{ background: 'rgba(0,0,0,0.35)' }}
+                  style={{ background: 'rgba(0,0,0,0.35)', zIndex: 1 }}
                 >
                   <Text className="text-[40px]">🔒</Text>
                 </View>
@@ -138,7 +129,7 @@ export default function FeaturedPage() {
               {/* 底部渐变信息层 */}
               <View
                 className="absolute bottom-0 left-0 right-0 pt-[40px] pb-[12px] px-[12px]"
-                style={{ background: 'linear-gradient(0deg,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0.2) 65%,rgba(255,255,255,0) 100%)' }}
+                style={{ background: 'linear-gradient(0deg,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0.2) 65%,rgba(255,255,255,0) 100%)', zIndex: 2 }}
               >
                 <Text className="text-[19px] font-semibold text-white">{guest.nickname}</Text>
                 <Text className="text-sm text-white/80 mt-[2px]">
@@ -150,7 +141,7 @@ export default function FeaturedPage() {
               {idx === 0 && (
                 <View
                   className="absolute top-[10px] right-[10px] px-[5px] py-[1px] rounded-[13px]"
-                  style={{ background: '#EE2525', border: '2px solid #fff', minWidth: '24px' }}
+                  style={{ background: '#EE2525', border: '2px solid #fff', minWidth: '24px', zIndex: 3 }}
                 >
                   <Text className="text-xs text-white text-center">{guests.length + 42}</Text>
                 </View>
@@ -185,7 +176,7 @@ export default function FeaturedPage() {
       {authModalVisible && (
         <View
           className="fixed inset-0 flex items-center justify-center px-[28px]"
-          style={{ background: 'rgba(0,0,0,0.3)', zIndex: 100 }}
+          style={{ background: 'rgba(0,0,0,0.3)', zIndex: 10000, top: 'env(safe-area-inset-top)' }}
           onClick={hideAuthModal}
         >
           <View
@@ -215,7 +206,7 @@ export default function FeaturedPage() {
       {coinModalVisible && (
         <View
           className="fixed inset-0"
-          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 100 }}
+          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 10000, top: 'env(safe-area-inset-top)' }}
           onClick={hideCoinModal}
         >
           <View
@@ -269,7 +260,7 @@ export default function FeaturedPage() {
       {unlockModalVisible && selectedGuest && (
         <View
           className="fixed inset-0"
-          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 100 }}
+          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 10000, top: 'env(safe-area-inset-top)' }}
           onClick={hideUnlockModal}
         >
           <View

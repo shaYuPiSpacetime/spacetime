@@ -1,6 +1,8 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useEffect, useState } from 'react'
+import Taro from '@tarojs/taro'
 import { useMembership } from '@/hooks/useMembership'
+import CustomNavBar from '@/components/CustomNavBar'
 
 /** VIP 权益列表 */
 const VIP_BENEFITS = [
@@ -50,6 +52,7 @@ export default function MembershipPage() {
 
   return (
     <View className="min-h-screen flex flex-col" style={{ background: '#1A1A1A' }}>
+      <CustomNavBar title="会员中心" bgColor="#1A1A1A" titleColor="#FFFFFF" showBack />
       <ScrollView scrollY className="flex-1" style={{ paddingTop: '12px', paddingBottom: '90px' }}>
 
         {/* ── 用户信息 ── */}
@@ -132,9 +135,6 @@ export default function MembershipPage() {
                   <Text className="text-xs text-[#888] mt-[3px] leading-relaxed">{benefit.desc}</Text>
                 </View>
               </View>
-              {idx < VIP_BENEFITS.length - 1 && (
-                <View className="mx-[14px] h-px bg-[#333]" />
-              )}
             </View>
           ))}
         </View>
@@ -147,7 +147,6 @@ export default function MembershipPage() {
         className="fixed bottom-0 left-0 right-0 px-[12px]"
         style={{
           background: '#1A1A1A',
-          borderTop: '1px solid #333',
           paddingTop: '10px',
           paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',
         }}

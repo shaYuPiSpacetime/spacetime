@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
+import CustomNavBar from '@/components/CustomNavBar'
 
 /** 社区动态 Mock 数据 */
 interface CommunityPost {
@@ -98,6 +99,7 @@ export default function CommunityPage() {
   if (posts.length === 0) {
     return (
       <View className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <CustomNavBar bgColor="transparent" />
         <Text className="text-4xl mb-4">📭</Text>
         <Text className="text-sm text-gray-400">暂无动态，快去发布第一条吧</Text>
       </View>
@@ -107,6 +109,7 @@ export default function CommunityPage() {
   // 4. 渲染动态列表
   return (
     <View className="min-h-screen bg-gray-50">
+      <CustomNavBar bgColor="transparent" />
       <View className="pt-2 pb-4">
         {posts.map((post) => (
           <View
@@ -172,7 +175,7 @@ export default function CommunityPage() {
 
         {/* 底部提示 */}
         <View className="flex items-center justify-center py-6">
-          <Text className="text-xs text-gray-300">— 没有更多了 —</Text>
+          <Text className="text-xs text-gray-300">没有更多了</Text>
         </View>
       </View>
     </View>

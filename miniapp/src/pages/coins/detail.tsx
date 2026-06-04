@@ -2,6 +2,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import { useLoad } from '@tarojs/taro'
 import { useCoins } from '@/hooks/useCoins'
 import { EmptyState } from '@/components/EmptyState'
+import CustomNavBar from '@/components/CustomNavBar'
 
 /**
  * 成家币交易明细页
@@ -32,6 +33,7 @@ export default function CoinsDetailPage() {
 
   return (
     <View className="flex flex-col min-h-screen bg-[#F5F7FA]">
+      <CustomNavBar title="交易明细" bgColor="#F5F7FA" showBack />
       {/* 加载中 */}
       {transactionsLoading && (
         <View className="flex items-center justify-center py-20">

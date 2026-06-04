@@ -3,6 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useCallback } from 'react'
 import { useProfile } from '@/hooks/useProfile'
 import AppTabBar from '@/components/AppTabBar'
+import CustomNavBar from '@/components/CustomNavBar'
 
 import cardCoin from '@/assets/profile/card-coin.png'
 import cardInvite from '@/assets/profile/card-invite.png'
@@ -35,6 +36,7 @@ export default function ProfilePage() {
 
   return (
     <View style={{ background: '#F5F8FF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <CustomNavBar bgColor="transparent" />
       <ScrollView scrollY style={{ flex: 1, height: 0, paddingBottom: '52px' }}>
 
         {/* ─────────────────────────────────────────────────
@@ -206,8 +208,8 @@ export default function ProfilePage() {
         <View style={{ margin: '8px 12px 0', display: 'flex', flexDirection: 'row', gap: '8px' }}>
           {/* 成家币卡片 */}
           <View style={{ flex: 1, height: '79px', borderRadius: '12px', overflow: 'hidden', position: 'relative' }} onClick={goToCoin}>
-            <Image src={cardCoin} style={{ width: '100%', height: '100%' }} mode="scaleToFill" />
-            <View style={{ position: 'absolute', top: '14px', left: '12px', display: 'flex', flexDirection: 'column' }}>
+            <Image src={cardCoin} style={{ width: '100%', height: '100%', zIndex: 0 }} mode="scaleToFill" />
+            <View style={{ position: 'absolute', top: '14px', left: '12px', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
               <Text style={{ fontSize: '14px', fontWeight: '700', color: '#00469F' }}>成家币</Text>
               <Text style={{ fontSize: '10px', color: '#00469F', marginTop: '4px' }}>查看成家币</Text>
             </View>
@@ -215,8 +217,8 @@ export default function ProfilePage() {
 
           {/* 邀请好友卡片 */}
           <View style={{ flex: 1, height: '79px', borderRadius: '12px', overflow: 'hidden', position: 'relative' }} onClick={goToInvite}>
-            <Image src={cardInvite} style={{ width: '100%', height: '100%' }} mode="scaleToFill" />
-            <View style={{ position: 'absolute', top: '14px', left: '12px', display: 'flex', flexDirection: 'column' }}>
+            <Image src={cardInvite} style={{ width: '100%', height: '100%', zIndex: 0 }} mode="scaleToFill" />
+            <View style={{ position: 'absolute', top: '14px', left: '12px', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
               <Text style={{ fontSize: '14px', fontWeight: '700', color: '#6600AF' }}>邀请好友</Text>
               <Text style={{ fontSize: '10px', color: '#A055C3', marginTop: '4px' }}>免费获得成家币</Text>
             </View>
@@ -252,8 +254,6 @@ export default function ProfilePage() {
                 {/* 箭头 Figma: 返回图标 20×34px → 10×17px */}
                 <Text style={{ fontSize: '16px', color: '#CCCCCC' }}>›</Text>
               </View>
-              {/* 分隔线 Figma: fill#EFF4FC */}
-              {idx < 2 && <View style={{ height: '1px', background: '#EFF4FC', marginLeft: '25px' }} />}
             </View>
           ))}
         </View>
