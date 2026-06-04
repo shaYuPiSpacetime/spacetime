@@ -101,6 +101,44 @@ Store    → Zustand 全局状态
 5. 颜色/字号    → 用 tailwind.config.js 已定义的 Token
 ```
 
+#### 3.3.1 多 Agent 并行 UI 还原（批量页面）
+
+当需要同时还原多个页面时，使用 Workflow 并行调度：
+
+```
+1. 蓝湖 MCP 批量 analyze  →  获取所有目标设计稿的 HTML+CSS+Tokens
+2. 分类设计模式           →  image 模式（整张背景图）vs HTML 模式（可提取元素）
+3. Workflow 并行派发      →  每个页面一个 agent，同时实现
+4. 统一编译验证           →  npx taro build --type weapp
+```
+
+**调度脚本模板**：
+
+```javascript
+const designs = {
+  页面A: { page: 'pages/a/index.tsx', design: '设计稿名', mode: 'html', specs: '...' },
+  页面B: { page: 'pages/b/index.tsx', design: '设计稿名', mode: 'image', specs: '...' },
+}
+
+// Phase 1: 分析
+phase('Analyze')
+// 蓝湖 MCP 批量获取设计数据
+
+// Phase 2: 并行实现
+phase('Implement')
+await parallel(Object.entries(designs).map(([name, d]) => async () => {
+  await agent(/* 实现 prompt */, { label: `restore:${name}` })
+}))
+
+// Phase 3: 验证
+phase('Verify')
+await agent('cd miniapp && npx taro build --type weapp')
+```
+
+**设计模式判断**：
+- `image` 模式：蓝湖 analyze 返回 fallback_mode=sketch，设计是一张整图 → 背景图 + 透明热区
+- `html` 模式：蓝湖 analyze 返回完整 HTML 布局 → 精确提取尺寸/颜色/字体实现
+
 **可用 Skill**：`superpowers:executing-plans`、`superpowers:test-driven-development`
 
 **编码同步检查项**：

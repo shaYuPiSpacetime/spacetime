@@ -604,30 +604,57 @@ Step 5：编译验证 → 对照设计稿截图核对
 - [ ] 分割线/边框颜色
 - [ ] 底部安全区 `env(safe-area-inset-bottom)`
 
-### 10.4 背景图使用规范
+### 10.4 页面渲染模式选择（强制）
 
-当蓝湖设计稿的主体是一张完整插画（非纯色/渐变背景）时：
+**所有页面默认使用代码渲染**（Text / Image / View + Tailwind），禁止用整张设计稿图片替代。
 
-1. **视觉由背景图提供**：将设计稿 PNG 放入 `src/assets/`，用 `<Image mode="widthFix">` 全屏展示
-2. **代码只放透明热区**：按钮/文字等交互元素只做透明 `<View onClick={...}>` 覆盖在对应位置
-3. **禁止双重渲染**：背景图已有的视觉元素（按钮、文字等），代码不应再画一遍，否则会重叠
+#### 10.4.1 代码渲染模式（默认，99% 页面）
+
+设计稿只是参考，UI 的每个元素都由代码实现：
 
 ```tsx
-// ✅ 正确：背景图提供视觉，代码只放透明热区
+// ✅ 正确：代码渲染每一个 UI 元素
+<View className="bg-white rounded-card p-4">
+  <Text className="text-lg font-semibold text-text-dark">标题</Text>
+  <Text className="text-sm text-gray-400">副标题</Text>
+  <View className="bg-brand-blue rounded-btn" onClick={handleClick}>
+    <Text className="text-white">按钮</Text>
+  </View>
+</View>
+
+// ❌ 错误：把整张设计稿 PNG 当背景图用
+<Image className="w-full" src={fullPageDesignPng} mode="widthFix" />
+<View style={{ top: '200rpx', height: '50rpx' }} onClick={handleClick} />
+```
+
+**原因：**
+- 体积大 — 设计稿 PNG 动辄 1MB+，小程序主包限制 2MB
+- 不可维护 — 改文案/改颜色必须重新切图
+- 不适配 — 不同屏幕比例会拉伸变形
+- 不无障碍 — 文字在图片里，屏幕阅读器无法识别
+
+#### 10.4.2 背景图模式（仅限纯插画启动页）
+
+**只有**登录启动页这种纯插画页面（无文字列表、无卡片、无数据）才可以用背景图模式：
+
+| 判断条件 | 渲染模式 |
+|---------|---------|
+| 页面包含文字列表、卡片、表单、标签 | **必须代码渲染** |
+| 页面包含用户数据（头像、昵称、数字等） | **必须代码渲染** |
+| 页面是纯插画 + 1 个 CTA 按钮 | 可用背景图 + 透明热区 |
+
+```tsx
+// ✅ 唯一允许的背景图场景：纯插画启动页
 <View className="relative w-full h-screen">
-  <Image className="absolute top-0 left-0 w-full" src={bgImg} mode="widthFix" />
-  {/* 透明热区 — 对齐背景图中的按钮位置 */}
+  <Image className="absolute top-0 left-0 w-full" src={illustBg} mode="widthFix" />
+  {/* 背景图提供视觉，代码只放透明热区 */}
   <View className="absolute left-0 right-0" style={{ bottom: '107rpx', height: '98rpx' }}
     onClick={handleClick}
   />
 </View>
-
-// ❌ 错误：背景图里已有按钮，代码又画了一个白色按钮
-<Image src={bgImg} mode="widthFix" />
-<View className="bg-white rounded-btn" onClick={handleClick}>
-  <Text>立即使用</Text>
-</View>
 ```
+
+> **⚠️ 凡是含文字列表、卡片、用户数据的页面用背景图模式，Code Review 直接打回。**
 
 ### 10.5 小程序目录结构补充
 
@@ -673,3 +700,5 @@ miniapp/
 | 设计稿图片散落各处 | 统一放 `.lanhu-ref/` 按模块分目录 |
 | 蓝湖标注值直接当 rpx 用 | 蓝湖 750px ÷ 2 = CSS px = rpx |
 | 自定义样式覆盖 Tailwind Token | 优先用 `tailwind.config.js` 已定义的颜色/字号/圆角 |
+| 整张设计稿 PNG 当页面背景 | 代码渲染每一个 UI 元素，设计稿只是参考（10.4） |
+| 内容页用透明热区覆盖背景图 | 文字/卡片/列表必须用 Text/View 代码实现（10.4） |
