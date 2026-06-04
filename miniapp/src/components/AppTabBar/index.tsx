@@ -100,10 +100,24 @@ export default function AppTabBar({ active }: Props) {
                 style={{ flex: 1, position: 'relative', height: '52px' }}
                 onClick={() => handlePress(tab)}
               >
+                {/* 白底圆 — 比蓝圆大 20%（65px vs 54px），在蓝圆下方 */}
                 <View
                   style={{
                     position: 'absolute',
-                    top: '-20px',
+                    top: '-22px',
+                    left: '50%',
+                    marginLeft: '-32px',
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: '#FFFFFF',
+                  }}
+                />
+                {/* 蓝圆 — 54px，向上突出 */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: '-24px',
                     left: '50%',
                     marginLeft: '-27px',
                     width: '54px',

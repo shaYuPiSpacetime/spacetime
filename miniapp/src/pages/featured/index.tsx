@@ -11,9 +11,14 @@ import CustomNavBar from '@/components/CustomNavBar'
 const SUB_TABS = ['心印测试', '精选', '理想型']
 
 /**
- * 精选首页 — 1:1 还原蓝湖「成家-精选」设计稿
- * 特征：两张大图卡片堆叠 + 认证弹窗 + 购买成家币弹窗 + 解锁嘉宾弹窗
- * 蓝湖 750px → ÷2 → 实际 CSS px
+ * 精选首页 — 1:1 还原蓝湖「成家-精选-无认证」设计稿
+ *
+ * 蓝湖设计规格（750px ÷ 2 → CSS px = rpx）：
+ * - 背景：#F5F7FA
+ * - 顶部 Sub-Tab 切换 + 右侧操作图标
+ * - 嘉宾大图卡片堆叠（3张），锁定状态显示 🔒 蒙层
+ * - 底部「解锁更多精选嘉宾」Banner + 立即解锁按钮
+ * - 认证弹窗 / 购买成家币弹窗 / 解锁嘉宾弹窗
  */
 export default function FeaturedPage() {
   const {
@@ -30,7 +35,7 @@ export default function FeaturedPage() {
     selectedGuest,
   } = useFeatured()
 
-  const [activeSubTab, setActiveSubTab] = useState(1) // 默认精选
+  const [activeSubTab, setActiveSubTab] = useState(1) // 默认「精选」
 
   const unlockCost = selectedGuest?.unlockCost ?? 0
   const afterBalance = Math.max(0, mockCoinBalance - unlockCost)
@@ -60,8 +65,9 @@ export default function FeaturedPage() {
   return (
     <View className="min-h-screen bg-[#F5F7FA] flex flex-col">
       <CustomNavBar title="精选" bgColor="#F5F7FA" showBack />
-      {/* 内容筛选栏，页面标题由 CustomNavBar 展示 */}
-      <View className="px-[12px] pt-[10px] pb-[0px]">
+
+      {/* ── Sub-Tab 筛选栏 ── */}
+      <View className="px-[12px] pt-[6px] pb-[4px]">
         <View className="flex flex-row items-center">
           <View className="flex flex-row flex-1">
             {SUB_TABS.map((tab, idx) => {
@@ -69,22 +75,18 @@ export default function FeaturedPage() {
               return (
                 <View
                   key={tab}
-                  className="mr-[16px] pb-[10px]"
+                  className="mr-[16px] pb-[8px]"
+                  style={{ borderBottom: isActive ? '2px solid #7F8494' : '2px solid transparent' }}
                   onClick={() => setActiveSubTab(idx)}
                 >
-                  <Text
-                    className="text-base font-medium"
-                    style={{ color: isActive ? '#7F8494' : '#7F8494', fontWeight: isActive ? '500' : 'normal' }}
-                  >
+                  <Text className="text-[15px]" style={{ color: '#7F8494', fontWeight: isActive ? 600 : 400 }}>
                     {tab}
                   </Text>
                 </View>
               )
             })}
           </View>
-
-          {/* 右侧操作图标 */}
-          <View className="flex flex-row items-center gap-[12px] pb-[10px]">
+          <View className="flex flex-row items-center gap-[12px] pb-[8px]">
             <Text className="text-base text-[#888]">⏱</Text>
             <Text className="text-base text-[#888]">⚙</Text>
           </View>
@@ -93,15 +95,18 @@ export default function FeaturedPage() {
 
       {/* ── 嘉宾卡片列表 ── */}
       <ScrollView scrollY className="flex-1" showScrollbar={false}>
-        <View className="px-[12px] pt-[10px]">
+        <View className="px-[12px] pt-[8px]">
           {guests.map((guest, idx) => (
             <View
               key={guest.id}
-              className="relative rounded-b-[16px] overflow-hidden mb-[10px]"
-              style={{ height: '260px' }}
+              className="relative rounded-[16px] overflow-hidden mb-[10px]"
+              style={{
+                height: idx === 0 ? '260px' : '220px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+              }}
               onClick={() => handleCardClick(guest)}
             >
-              {/* 背景图 */}
+              {/* 背景图 / 占位渐变 */}
               {guest.avatar ? (
                 <Image
                   className="absolute inset-0 w-full h-full"
@@ -112,7 +117,12 @@ export default function FeaturedPage() {
               ) : (
                 <View
                   className="absolute inset-0"
-                  style={{ background: 'linear-gradient(135deg,#B0C4E4 0%,#7A9DCA 100%)', zIndex: 0 }}
+                  style={{
+                    background: idx === 0
+                      ? 'linear-gradient(135deg, #B0C4E4 0%, #7A9DCA 100%)'
+                      : 'linear-gradient(135deg, #C4B5D4 0%, #9A7DCA 100%)',
+                    zIndex: 0,
+                  }}
                 />
               )}
 
@@ -122,28 +132,49 @@ export default function FeaturedPage() {
                   className="absolute inset-0 flex items-center justify-center"
                   style={{ background: 'rgba(0,0,0,0.35)', zIndex: 1 }}
                 >
-                  <Text className="text-[40px]">🔒</Text>
+                  <View
+                    className="rounded-full flex items-center justify-center"
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      background: 'rgba(255,255,255,0.2)',
+                    }}
+                  >
+                    <Text className="text-[28px]">🔒</Text>
+                  </View>
                 </View>
               )}
 
               {/* 底部渐变信息层 */}
               <View
                 className="absolute bottom-0 left-0 right-0 pt-[40px] pb-[12px] px-[12px]"
-                style={{ background: 'linear-gradient(0deg,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0.2) 65%,rgba(255,255,255,0) 100%)', zIndex: 2 }}
+                style={{
+                  background: 'linear-gradient(0deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)',
+                  zIndex: 2,
+                }}
               >
-                <Text className="text-[19px] font-semibold text-white">{guest.nickname}</Text>
-                <Text className="text-sm text-white/80 mt-[2px]">
-                  {guest.age}岁 · {guest.education} {guest.height ? `· ${guest.height}cm` : ''}
+                <Text className="text-[18px] font-semibold text-white">{guest.nickname}</Text>
+                <Text className="text-[13px] text-white/80 mt-[2px]">
+                  {guest.age}岁 · {guest.education}{guest.height ? ` · ${guest.height}cm` : ''}
                 </Text>
               </View>
 
-              {/* 右上角数字角标 (仅第一个) */}
+              {/* 右上角数字角标 (仅第一张) */}
               {idx === 0 && (
                 <View
-                  className="absolute top-[10px] right-[10px] px-[5px] py-[1px] rounded-[13px]"
-                  style={{ background: '#EE2525', border: '2px solid #fff', minWidth: '24px', zIndex: 3 }}
+                  className="absolute top-[10px] right-[10px] flex items-center justify-center"
+                  style={{
+                    background: '#EE2525',
+                    border: '2px solid #FFFFFF',
+                    borderRadius: '13px',
+                    minWidth: '24px',
+                    height: '20px',
+                    paddingLeft: '6px',
+                    paddingRight: '6px',
+                    zIndex: 3,
+                  }}
                 >
-                  <Text className="text-xs text-white text-center">{guests.length + 42}</Text>
+                  <Text className="text-[11px] text-white">{guests.length + 42}</Text>
                 </View>
               )}
             </View>
@@ -152,51 +183,63 @@ export default function FeaturedPage() {
 
         {/* ── 解锁更多嘉宾 Banner ── */}
         <View
-          className="mx-[12px] mb-[16px] rounded-[8px] flex flex-row items-center justify-between px-[16px] py-[12px]"
-          style={{ background: 'rgba(40,118,255,0.1)' }}
+          className="mx-[12px] mb-[16px] rounded-[8px] flex flex-row items-center justify-between px-[16px] py-[14px]"
+          style={{ background: 'rgba(40,118,255,0.08)' }}
         >
           <View>
-            <Text className="text-base font-semibold text-[#153060]">解锁更多精选嘉宾</Text>
-            <Text className="text-xs text-[#666] mt-[2px]">从这一刻起，遇见你的小确幸</Text>
+            <Text className="text-[15px] font-semibold text-[#153060]">解锁更多精选嘉宾</Text>
+            <Text className="text-[12px] text-[#666] mt-[2px]">从这一刻起，遇见你的小确幸</Text>
           </View>
           <View
-            className="px-[14px] py-[7px] rounded-[8px] bg-[#2876FF]"
+            className="px-[16px] py-[8px] rounded-[8px] bg-[#2876FF]"
             onClick={showAuthModal}
           >
-            <Text className="text-base text-white font-semibold">立即解锁</Text>
+            <Text className="text-[14px] text-white font-semibold">立即解锁</Text>
           </View>
         </View>
 
         <View className="h-[80px]" />
       </ScrollView>
 
-      {/* ══════════════ 弹窗体系 ══════════════ */}
+      {/* ══════════════════ 弹窗体系 ══════════════════ */}
 
       {/* ── 认证弹窗 ── */}
       {authModalVisible && (
         <View
-          className="fixed inset-0 flex items-center justify-center px-[28px]"
-          style={{ background: 'rgba(0,0,0,0.3)', zIndex: 10000, top: 'env(safe-area-inset-top)' }}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0,0,0,0.55)', top: 'env(safe-area-inset-top)' }}
           onClick={hideAuthModal}
         >
           <View
-            className="w-full rounded-[16px] bg-[#EEF5FF] px-[24px] py-[32px] flex flex-col items-center"
+            className="flex flex-col items-center"
+            style={{
+              width: '310px',
+              background: '#FFFFFF',
+              borderRadius: '16px',
+              padding: '36px 28px 28px 28px',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 图标占位 */}
             <View
-              className="w-[64px] h-[64px] rounded-[14px] bg-[#2876FF] flex items-center justify-center mb-[16px]"
+              className="flex items-center justify-center mb-[16px]"
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '14px',
+                background: '#2876FF',
+              }}
             >
-              <Text className="text-2xl text-white">✎</Text>
+              <Text className="text-[28px] text-white">✎</Text>
             </View>
-            <Text className="text-lg font-semibold text-[#153060] text-center leading-relaxed">
+            <Text className="text-[16px] font-semibold text-[#153060] text-center leading-[24px] mb-[20px]">
               {'完善资料并完成认证\n解锁更多专属权益'}
             </Text>
             <View
-              className="mt-[20px] w-full py-[14px] rounded-[8px] bg-[#2876FF] flex items-center justify-center"
+              className="w-full flex items-center justify-center rounded-[8px] bg-[#2876FF]"
+              style={{ height: '44px' }}
               onClick={hideAuthModal}
             >
-              <Text className="text-base font-semibold text-white">立即完善</Text>
+              <Text className="text-[15px] font-semibold text-white">立即完善</Text>
             </View>
           </View>
         </View>
@@ -205,8 +248,8 @@ export default function FeaturedPage() {
       {/* ── 购买成家币底部弹窗 ── */}
       {coinModalVisible && (
         <View
-          className="fixed inset-0"
-          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 10000, top: 'env(safe-area-inset-top)' }}
+          className="fixed inset-0 z-50"
+          style={{ background: 'rgba(0,0,0,0.4)', top: 'env(safe-area-inset-top)' }}
           onClick={hideCoinModal}
         >
           <View
@@ -215,8 +258,12 @@ export default function FeaturedPage() {
           >
             <Text className="text-lg font-semibold text-[#153060] text-center block mb-[6px]">充值成家币</Text>
             <View className="flex flex-row justify-between mb-[12px]">
-              <Text className="text-sm text-[#333]">本次消耗 {unlockCost} <Text className="text-xs text-[#FFC969]">◉</Text></Text>
-              <Text className="text-sm text-[#333]">余额 {mockCoinBalance} <Text className="text-xs text-[#FFC969]">◉</Text></Text>
+              <Text className="text-sm text-[#333]">
+                本次消耗 {unlockCost} <Text className="text-xs text-[#FFC969]">◉</Text>
+              </Text>
+              <Text className="text-sm text-[#333]">
+                余额 {mockCoinBalance} <Text className="text-xs text-[#FFC969]">◉</Text>
+              </Text>
             </View>
 
             <View className="flex flex-col items-center mb-[10px]">
@@ -224,7 +271,6 @@ export default function FeaturedPage() {
               <Text className="text-xs text-[#999] mt-[2px]">购买后若遇心仪嘉宾，需要使用成家币才能继续「对你心动」</Text>
             </View>
 
-            {/* 套餐横向滚动 */}
             <ScrollView scrollX showScrollbar={false} className="mb-[14px]">
               <View className="flex flex-row gap-[10px]">
                 {mockCoinPackages.map((pkg) => (
@@ -259,19 +305,16 @@ export default function FeaturedPage() {
       {/* ── 解锁嘉宾底部弹窗 ── */}
       {unlockModalVisible && selectedGuest && (
         <View
-          className="fixed inset-0"
-          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 10000, top: 'env(safe-area-inset-top)' }}
+          className="fixed inset-0 z-50"
+          style={{ background: 'rgba(0,0,0,0.4)', top: 'env(safe-area-inset-top)' }}
           onClick={hideUnlockModal}
         >
           <View
             className="absolute bottom-0 left-0 right-0 rounded-t-[16px] bg-white px-[16px] pt-[20px] pb-[32px]"
             onClick={(e) => e.stopPropagation()}
           >
-            <Text className="text-lg font-semibold text-[#153060] text-center block mb-[16px]">
-              解锁嘉宾
-            </Text>
+            <Text className="text-lg font-semibold text-[#153060] text-center block mb-[16px]">解锁嘉宾</Text>
 
-            {/* 嘉宾信息 */}
             <View className="flex flex-row items-center mb-[14px] p-[12px] bg-[#F5F7FA] rounded-[10px]">
               <View className="w-[40px] h-[40px] rounded-full bg-[#D0E5FA] flex items-center justify-center mr-[12px]">
                 <Text className="text-base text-[#2876FF]">{selectedGuest.nickname.charAt(0)}</Text>
@@ -282,7 +325,6 @@ export default function FeaturedPage() {
               </View>
             </View>
 
-            {/* 费用明细 */}
             <View className="mb-[14px]">
               {[
                 { label: '解锁费用', value: `${unlockCost} 成家币` },
@@ -304,13 +346,13 @@ export default function FeaturedPage() {
 
             <View className="flex flex-row gap-[10px]">
               <View
-                className="flex-1 py-[13px] rounded-[49px] border border-[#E0E0E0] flex items-center justify-center"
+                className="flex-1 py-[13px] rounded-full-btn border border-[#E0E0E0] flex items-center justify-center"
                 onClick={hideUnlockModal}
               >
                 <Text className="text-base text-[#666]">取消</Text>
               </View>
               <View
-                className="flex-1 py-[13px] rounded-[49px] bg-[#2876FF] flex items-center justify-center"
+                className="flex-1 py-[13px] rounded-full-btn bg-[#2876FF] flex items-center justify-center"
                 onClick={handleUnlockConfirm}
               >
                 <Text className="text-base font-semibold text-white">

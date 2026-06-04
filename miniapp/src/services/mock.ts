@@ -82,8 +82,9 @@ export const mockMembershipPlans: MembershipPlan[] = [
 ];
 
 /** 模拟我的会员状态 */
+/** 模拟我的会员状态 — 蓝湖设计稿「我的会员已过期状态」 */
 export const mockMyMembership: MyMembership = {
-  status: 'none',
+  status: 'expired',
 };
 
 /** 模拟成家币套餐 */

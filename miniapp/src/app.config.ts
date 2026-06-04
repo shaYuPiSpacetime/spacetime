@@ -1,11 +1,12 @@
 export default {
   pages: [
-    'pages/login/index',
+    'pages/profile/index',
     'pages/index/index',
     'pages/community/index',
     'pages/assessment/index',
     'pages/chat/index',
-    'pages/profile/index',
+    'pages/login/index',
+    'pages/profile/edit',
     'pages/featured/index',
     'pages/membership/index',
     'pages/membership/records',

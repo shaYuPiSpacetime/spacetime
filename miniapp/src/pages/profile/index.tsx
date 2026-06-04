@@ -30,7 +30,7 @@ export default function ProfilePage() {
   useEffect(() => { syncNavTitle() }, [syncNavTitle])
   useDidShow(() => { syncNavTitle() })
 
-  const { nickname, avatarUrl, location, age, zodiac, isVerified, membership, likedCount, beLikedCount, visitorCount } = data
+  const { nickname, avatarUrl, location, age, zodiac, isVerified, membership, likedCount, beLikedCount } = data
   const isVip = membership?.status === 'active'
   const subInfo = [location, age != null ? `${age}岁` : '', zodiac].filter(Boolean).join(' | ')
 
@@ -53,13 +53,14 @@ export default function ProfilePage() {
             {/* Figma: 位图 x:31,y:186,w:98,h:98 → x:15,y:9,w:49,h:49 */}
             <View style={{ position: 'relative', marginRight: '12px', flexShrink: 0, paddingBottom: '10px' }}>
               <View style={{
-                width: '49px', height: '49px', borderRadius: '50%',
-                background: '#D0E5FA', border: '3px solid #fff',
+                width: '55px', height: '55px', borderRadius: '50%',
+                background: 'linear-gradient(135deg, #B8D4F0 0%, #8AB8E0 100%)',
+                border: '3px solid #fff', boxShadow: '0 4px 12px rgba(40,118,255,0.1)',
                 overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {avatarUrl
-                  ? <Image src={avatarUrl} style={{ width: '49px', height: '49px' }} mode="aspectFill" />
-                  : <Text style={{ fontSize: '18px', color: '#2876FF' }}>{nickname?.charAt(0) ?? '?'}</Text>
+                  ? <Image src={avatarUrl} style={{ width: '55px', height: '55px' }} mode="aspectFill" />
+                  : <Text style={{ fontSize: '22px', color: '#fff', fontWeight: 600 }}>{nickname?.charAt(0) ?? '?'}</Text>
                 }
               </View>
               {/* 50% 药丸 Figma: x:35,y:261,w:90,h:30 → w:45,h:15 at avatar bottom */}
@@ -74,8 +75,8 @@ export default function ProfilePage() {
               </View>
             </View>
 
-            {/* 昵称 + 认证 + 编辑 + 位置 */}
-            <View style={{ flex: 1, paddingTop: '2px' }}>
+            {/* 昵称 + 认证 + 编辑 + 位置 — 与头像 55px 垂直居中 */}
+            <View style={{ flex: 1, height: '55px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               {/* 行1: 昵称 + 认证 badge + 编辑资料 */}
               <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '5px' }}>
@@ -117,29 +118,14 @@ export default function ProfilePage() {
           display: 'flex', flexDirection: 'row', alignItems: 'center',
           paddingLeft: '22px', paddingRight: '16px',
         }}>
-          {/* 3 列 */}
-          <View style={{ flex: 1, display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* 2 列 — 蓝湖设计稿：心动 + 被喜欢 */}
+          <View style={{ flex: 1, display: 'flex', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
             {[
-              { count: likedCount,  label: '我喜欢的', badge: ''    },
-              { count: beLikedCount, label: '喜欢我的', badge: '45'  },
-              { count: visitorCount, label: '最近来访', badge: '99+' },
+              { count: likedCount,  label: '心动' },
+              { count: beLikedCount, label: '被喜欢' },
             ].map((item) => (
               <View key={item.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                {/* 数字 + 红标悬浮 */}
-                <View style={{ position: 'relative', display: 'inline-flex' }}>
-                  <Text style={{ fontSize: '19px', fontWeight: '600', color: '#333333' }}>{item.count}</Text>
-                  {item.badge && (
-                    <View style={{
-                      position: 'absolute', top: '-2px', right: '-14px',
-                      minWidth: '14px', height: '14px', borderRadius: '7px',
-                      background: '#EE2525', border: '1px solid #fff',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      paddingLeft: '2px', paddingRight: '2px',
-                    }}>
-                      <Text style={{ fontSize: '8px', color: '#fff' }}>{item.badge}</Text>
-                    </View>
-                  )}
-                </View>
+                <Text style={{ fontSize: '19px', fontWeight: '600', color: '#333333' }}>{item.count}</Text>
                 <Text style={{ fontSize: '12px', color: '#999999', marginTop: '2px' }}>{item.label}</Text>
               </View>
             ))}

@@ -100,9 +100,10 @@ function buildProfileData(): ProfileData {
     // 成家币余额（当前为 number，包装为对象以兼容后续接口）
     coinBalance: { balance: mockCoinBalance },
     // 统计数据（mock 占位）
-    likedCount: 3,
-    beLikedCount: 55,
-    visitorCount: 55,
+    // 蓝湖设计稿：45心动 + 99被喜欢
+    likedCount: 45,
+    beLikedCount: 99,
+    visitorCount: 99,
   };
 }
 

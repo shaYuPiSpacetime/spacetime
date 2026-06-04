@@ -27,8 +27,8 @@ export function useMatch() {
   const [showWhisperPopup, setShowWhisperPopup] = useState(false);
 
   // ========== 用户状态 ==========
-  /** 是否已完善个人信息（Mock：默认完善） */
-  const [isProfileComplete] = useState(true);
+  /** 是否已完善个人信息（Mock：默认未完善，展示信息未完善状态） */
+  const [isProfileComplete] = useState(false);
   /** 当前输入的悄悄话文字 */
   const [yoText, setYoText] = useState('');
 
@@ -119,9 +119,9 @@ export function useMatch() {
 
   // ========== 导航 ==========
 
-  /** 跳转到个人信息编辑页 */
+  /** 跳转到个人信息编辑页 — 独立非 Tab 页面，不切换 Tab */
   const navigateToProfileEdit = useCallback(() => {
-    Taro.switchTab({ url: '/pages/profile/index' });
+    Taro.navigateTo({ url: '/pages/profile/edit' });
   }, []);
 
   return {
