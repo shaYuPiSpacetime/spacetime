@@ -573,6 +573,8 @@ Step 4：用 Tailwind 设计 Token（非任意值）
 Step 5：编译验证 → 对照设计稿截图核对
 ```
 
+> **🔴 改代码前先确保 `npm run dev:weapp` 在运行！** 没有 watch 进程 = 改了不编译 = 开发者工具里看到的永远是旧的。每次修改后等 Webpack 输出 `Compiled successfully` 再去看效果。
+
 **度量转换（蓝湖 750px 坐标系）：**
 
 | 蓝湖标注 | Tailwind 类 | 实际 rpx | 说明 |
@@ -702,3 +704,85 @@ miniapp/
 | 自定义样式覆盖 Tailwind Token | 优先用 `tailwind.config.js` 已定义的颜色/字号/圆角 |
 | 整张设计稿 PNG 当页面背景 | 代码渲染每一个 UI 元素，设计稿只是参考（10.4） |
 | 内容页用透明热区覆盖背景图 | 文字/卡片/列表必须用 Text/View 代码实现（10.4） |
+| 给 PickerView 子元素设 style/className | 原生组件不认 CSS，只能用 maskStyle/indicatorStyle（10.7） |
+| style 中用 alignItems/justifyContent 但没写 display: 'flex' | flex 属性必须配 `display: 'flex'`，否则不生效（10.8） |
+| flex 容器里用 Text 做布局（换行/居中/间距） | 用 `View` + `textAlign: 'center'`，Text 是原生内联元素不参与 flex（10.8） |
+| 改完小程序代码不编译就去开发者工具看效果 | 先 `npm run dev:weapp`（watch 模式），确认 Webpack 编译通过再验收 |
+
+### 10.7 微信原生组件约束（强制）
+
+**PickerView、PickerViewColumn 是微信原生组件**，渲染由客户端原生层控制，不是 WebView。因此：
+
+- **子元素的 `style`、`className`、`fontWeight`、`color` 等 CSS 属性一律不生效**
+- 可生效的属性只有 PickerView 自身的 `indicatorStyle` 和 `maskStyle`（均为字符串，非 CSS 对象）
+- 选项文字颜色由系统主题决定（浅色模式下选中项为深色、未选中项为灰色）
+
+**正确做法：**
+
+```tsx
+// ✅ 通过 indicatorStyle/maskStyle 控制外观，子元素不设任何样式
+<PickerView
+  value={value}
+  onChange={handleChange}
+  indicatorStyle="height: 44px; border-radius: 10px; background: rgba(235,240,250,0.9);"
+  maskStyle="background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.2) 100%);"
+  style={{ width: '100%', height: '220px', background: '#FFFFFF', borderRadius: '16rpx' }}
+>
+  <PickerViewColumn>
+    {items.map((item) => (
+      <View key={item} className="flex items-center justify-center h-[44px]">
+        <Text>{item}</Text>  {/* 不设任何 style/className */}
+      </View>
+    ))}
+  </PickerViewColumn>
+</PickerView>
+
+// ❌ 错误：给原生组件子元素加样式，完全不生效
+<Text style={{ color: '#000', fontWeight: 700 }}>{item}</Text>
+```
+
+**如果需要完全自定义选择器样式**（自定义颜色、字号、行高、动画），必须放弃 PickerView，用 ScrollView + View 手写选择器组件。
+
+> **⚠️ Code Review 看到 PickerView 子元素带 style/className 就直接打回。**
+
+### 10.8 Text 组件布局陷阱（强制）
+
+**微信小程序的 `<text>` 是原生内联元素，不参与 flex 布局。**  
+即使父容器设置了 `display: 'flex'` + `flexDirection: 'column'` + `alignItems: 'center'`，`<text>` 子元素也不会换行、不会居中。
+
+**原因：**
+- 微信小程序 `<text>` 是客户端原生组件，渲染层级独立于 WebView
+- `<text>` 默认 `display: inline`（内联），多个 `<text>` 会并排显示在一行
+- `<text>` 不完全支持 flex 容器上下文，`flexDirection` / `alignItems` 对它无效
+
+**规则：需要布局控制（换行、居中、间距）的文字，必须用 `<View>` 代替 `<Text>`。**
+
+```tsx
+// ❌ 错误：Text 在 flex 容器中不换行、不居中
+<View style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+  <Text>标题</Text>    {/* 不会换行！不会居中！ */}
+  <Text>描述</Text>
+</View>
+
+// ✅ 正确：用 View + textAlign 替代 flex
+<View style={{ textAlign: 'center' }}>
+  <View style={{ fontSize: '36rpx', lineHeight: '50rpx' }}>标题</View>
+  <View style={{ fontSize: '28rpx', marginTop: '28rpx' }}>描述</View>
+</View>
+```
+
+**Text vs View 使用决策：**
+
+| 场景 | 用什么 | 原因 |
+|------|--------|------|
+| 单行纯文字（无布局需求） | `Text` | 轻量，内联即可 |
+| 需要换行/居中/间距 | `View` | View 是块级元素，天然换行；`textAlign: 'center'` 可靠居中 |
+| 需要 flex 布局 | `View` | View 完整支持 flex 上下文 |
+| 长文本自动换行 | `Text`（设置 `space` 等原生属性） | Text 有原生文本处理能力 |
+
+**快速检查清单：**
+- 看到两个以上 `Text` 需要上下排列 → 换成 `View`
+- 看到 `alignItems: 'center'` 下面有 `Text` → 换成 `View` + `textAlign: 'center'`
+- 看到 `display: 'flex'` 下面有 `Text` → 换成 `View`
+
+> **⚠️ Code Review 看到 flex 容器里用 Text 做布局就直接打回。**
