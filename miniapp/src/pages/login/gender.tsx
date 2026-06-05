@@ -2,82 +2,120 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
-import CustomNavBar from '@/components/CustomNavBar'
+import LoginProfileShell from './components/LoginProfileShell'
 
 /**
  * 登录-性别选择 — 1:1 还原蓝湖「登录-性别选择」设计稿
  */
 export default function LoginGenderPage() {
-  const { setStep } = useLogin()
-  const [selected, setSelected] = useState<'female' | 'male' | null>(null)
+  const { setStep, updateUserInfo } = useLogin()
+  const [selected, setSelected] = useState<'female' | 'male'>('female')
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!selected) return Taro.showToast({ title: '请选择性别', icon: 'none' })
+    updateUserInfo({ gender: selected })
     setStep('age')
-    Taro.navigateTo({ url: '/pages/login/age' })
+    await Taro.navigateTo({ url: '/pages/login/age' })
   }
 
   return (
-    <View
-      className="min-h-screen flex flex-col px-[16px]"
-      style={{ background: 'linear-gradient(180deg,#E8F4FF 0%,#F0F7FF 100%)' }}
+    <LoginProfileShell
+      description="—你的性别（注册后性别不可更改）—"
+      nextActive
+      onNext={handleNext}
     >
-      <CustomNavBar title="选择性别" bgColor="transparent" showBack />
-      {/* 页面标题由 CustomNavBar 展示 */}
-      <View className="flex flex-col items-center mt-[48px] mb-[32px]">
-        <Text className="text-xs text-[#999]">你的性别，注册后不可更改</Text>
-      </View>
+      <GenderCard
+        active={selected === 'female'}
+        gender="female"
+        label="我是女生"
+        top="448rpx"
+        onClick={() => setSelected('female')}
+      />
+      <GenderCard
+        active={selected === 'male'}
+        gender="male"
+        label="我是男生"
+        top="693rpx"
+        onClick={() => setSelected('male')}
+      />
+    </LoginProfileShell>
+  )
+}
 
-      {/* 选项 */}
-      <View className="flex flex-col gap-[16px]">
-        {/* 女生 */}
-        <View
-          className="flex flex-row items-center justify-between px-[24px] py-[20px] rounded-[12px]"
+interface GenderCardProps {
+  active: boolean
+  gender: 'female' | 'male'
+  label: string
+  top: string
+  onClick: () => void
+}
+
+function GenderCard({ active, gender, label, top, onClick }: GenderCardProps) {
+  const isFemale = gender === 'female'
+  const activeBorder = isFemale ? '#FF7F8C' : '#2876FF'
+  const iconBg = isFemale
+    ? 'radial-gradient(circle at 35% 30%, #FFD5DC 0%, #FF9EAF 46%, #F6758C 100%)'
+    : 'radial-gradient(circle at 35% 30%, #CFE3FF 0%, #82B3FF 48%, #2F7DFF 100%)'
+
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top,
+        width: '700rpx',
+        height: '196rpx',
+        borderRadius: '32rpx',
+        background: active
+          ? isFemale
+            ? 'linear-gradient(180deg, #FFF2F3 0%, #FFE0E4 100%)'
+            : 'linear-gradient(180deg, #F1F7FF 0%, #E1EEFF 100%)'
+          : 'rgba(255,255,255,0.76)',
+        border: active ? `4rpx solid ${activeBorder}` : '4rpx solid rgba(255,255,255,0)',
+      }}
+      onClick={onClick}
+      hoverClass="btn-hover"
+    >
+      <Text
+        style={{
+          position: 'absolute',
+          left: '66rpx',
+          top: '72rpx',
+          color: active ? '#333333' : '#999999',
+          fontSize: '40rpx',
+          fontWeight: 500,
+          lineHeight: '56rpx',
+        }}
+      >
+        {label}
+      </Text>
+      <View
+        style={{
+          position: 'absolute',
+          right: '78rpx',
+          top: '43rpx',
+          width: '118rpx',
+          height: '118rpx',
+          borderRadius: '59rpx',
+          background: iconBg,
+          boxShadow: isFemale
+            ? '0 10rpx 18rpx rgba(246, 117, 140, 0.28)'
+            : '0 10rpx 18rpx rgba(47, 125, 255, 0.24)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text
           style={{
-            background: selected === 'female' ? 'rgba(255,180,200,0.15)' : 'rgba(255,255,255,0.9)',
-            border: selected === 'female' ? '1.5px solid #F5A0B5' : '1.5px solid rgba(255,255,255,0.9)',
+            color: 'rgba(255,255,255,0.82)',
+            fontSize: '74rpx',
+            fontWeight: 500,
+            lineHeight: '100rpx',
           }}
-          onClick={() => setSelected('female')}
         >
-          <Text className="text-lg font-medium" style={{ color: selected === 'female' ? '#333' : '#666' }}>
-            我是女生
-          </Text>
-          <View
-            className="w-[48px] h-[48px] rounded-full flex items-center justify-center"
-            style={{ background: 'radial-gradient(circle,#FFC0D0 0%,#EE88AA 100%)' }}
-          >
-            <Text className="text-xl text-white">♀</Text>
-          </View>
-        </View>
-
-        {/* 男生 */}
-        <View
-          className="flex flex-row items-center justify-between px-[24px] py-[20px] rounded-[12px]"
-          style={{
-            background: selected === 'male' ? 'rgba(150,190,255,0.12)' : 'rgba(255,255,255,0.9)',
-            border: selected === 'male' ? '1.5px solid #96BEFF' : '1.5px solid rgba(255,255,255,0.9)',
-          }}
-          onClick={() => setSelected('male')}
-        >
-          <Text className="text-lg font-medium text-[#999]">我是男生</Text>
-          <View
-            className="w-[48px] h-[48px] rounded-full flex items-center justify-center"
-            style={{ background: 'radial-gradient(circle,#AAD0FF 0%,#6699EE 100%)' }}
-          >
-            <Text className="text-xl text-white">♂</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 底部下一步按钮 */}
-      <View className="flex-1 flex items-end justify-center pb-[48px]">
-        <View
-          className="w-[56px] h-[56px] rounded-full flex items-center justify-center"
-          style={{ background: selected ? '#2876FF' : 'rgba(40,118,255,0.3)' }}
-          onClick={handleNext}
-        >
-          <Text className="text-xl text-white">→</Text>
-        </View>
+          {isFemale ? '♀' : '♂'}
+        </Text>
       </View>
     </View>
   )

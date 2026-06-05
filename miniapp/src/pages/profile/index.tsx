@@ -1,4 +1,4 @@
-import { View, Text, Image, ScrollView } from '@tarojs/components'
+import { View, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useCallback } from 'react'
 import { useProfile } from '@/hooks/useProfile'
@@ -60,7 +60,7 @@ export default function ProfilePage() {
               }}>
                 {avatarUrl
                   ? <Image src={avatarUrl} style={{ width: '55px', height: '55px' }} mode="aspectFill" />
-                  : <Text style={{ fontSize: '22px', color: '#fff', fontWeight: 600 }}>{nickname?.charAt(0) ?? '?'}</Text>
+                  : <View style={{ fontSize: '22px', color: '#fff', fontWeight: 600 }}>{nickname?.charAt(0) ?? '?'}</View>
                 }
               </View>
               {/* 50% 药丸 Figma: x:35,y:261,w:90,h:30 → w:45,h:15 at avatar bottom */}
@@ -71,7 +71,7 @@ export default function ProfilePage() {
               }}>
                 {/* 铅笔图标 (Figma 178:177, 编辑 14×14) */}
                 <Image src={iconCert} style={{ width: '7px', height: '7px', marginRight: '2px', opacity: 0.7 }} mode="aspectFit" />
-                <Text style={{ fontSize: '9px', color: '#2876FF', fontWeight: '500' }}>50%</Text>
+                <View style={{ fontSize: '9px', color: '#2876FF', fontWeight: '500' }}>50%</View>
               </View>
             </View>
 
@@ -81,7 +81,7 @@ export default function ProfilePage() {
               <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '5px' }}>
                   {/* 昵称 Figma: style_LW2IIQ:32px→16px,w500,#333 */}
-                  <Text style={{ fontSize: '16px', fontWeight: '500', color: '#333333' }}>{nickname}</Text>
+                  <View style={{ fontSize: '16px', fontWeight: '500', color: '#333333' }}>{nickname}</View>
                   {/* 三重认证 Figma: 178:167, bg#E3F1FE, text#5D89DD, 20px→10px */}
                   {isVerified && (
                     <View style={{
@@ -90,18 +90,18 @@ export default function ProfilePage() {
                       paddingLeft: '5px', paddingRight: '7px', paddingTop: '2px', paddingBottom: '2px',
                     }}>
                       <Image src={iconCert} style={{ width: '12px', height: '12px', marginRight: '2px' }} mode="aspectFit" />
-                      <Text style={{ fontSize: '10px', color: '#5D89DD' }}>三重认证</Text>
+                      <View style={{ fontSize: '10px', color: '#5D89DD' }}>三重认证</View>
                     </View>
                   )}
                 </View>
                 {/* 编辑资料 Figma: style_HUVOPJ:22px→11px,#999 */}
                 <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }} onClick={goToEditProfile}>
-                  <Text style={{ fontSize: '11px', color: '#999999' }}>编辑资料</Text>
-                  <Text style={{ fontSize: '11px', color: '#999999' }}> ›</Text>
+                  <View style={{ fontSize: '11px', color: '#999999' }}>编辑资料</View>
+                  <View style={{ fontSize: '11px', color: '#999999' }}> ›</View>
                 </View>
               </View>
               {/* 行2: 位置|年龄|星座 Figma: style_XAUHUF:26px→13px,#333 */}
-              <Text style={{ fontSize: '13px', color: '#333333', marginTop: '5px' }}>{subInfo}</Text>
+              <View style={{ fontSize: '13px', color: '#333333', marginTop: '5px' }}>{subInfo}</View>
             </View>
           </View>
         </View>
@@ -125,8 +125,8 @@ export default function ProfilePage() {
               { count: beLikedCount, label: '被喜欢' },
             ].map((item) => (
               <View key={item.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Text style={{ fontSize: '19px', fontWeight: '600', color: '#333333' }}>{item.count}</Text>
-                <Text style={{ fontSize: '12px', color: '#999999', marginTop: '2px' }}>{item.label}</Text>
+                <View style={{ fontSize: '19px', fontWeight: '600', color: '#333333' }}>{item.count}</View>
+                <View style={{ fontSize: '12px', color: '#999999', marginTop: '2px' }}>{item.label}</View>
               </View>
             ))}
           </View>
@@ -138,8 +138,8 @@ export default function ProfilePage() {
             paddingTop: '5px', paddingBottom: '5px',
             display: 'flex', flexDirection: 'row', alignItems: 'center',
           }} onClick={() => Taro.showToast({ title: '提升人气', icon: 'none' })}>
-            <Text style={{ fontSize: '12px', color: '#2876FF', marginRight: '2px' }}>⚡</Text>
-            <Text style={{ fontSize: '12px', color: '#2876FF' }}>提升人气</Text>
+            <View style={{ fontSize: '12px', color: '#2876FF', marginRight: '2px' }}>⚡</View>
+            <View style={{ fontSize: '12px', color: '#2876FF' }}>提升人气</View>
           </View>
         </View>
 
@@ -168,9 +168,9 @@ export default function ProfilePage() {
             {/* Figma: VIP 图标 48×38px → 24×19px */}
             <Image src={iconVip} style={{ width: '24px', height: '19px', marginRight: '8px' }} mode="aspectFit" />
             {/* Figma: style_ADQM2S:28px→14px,w500,#FFC969 */}
-            <Text style={{ fontSize: '14px', fontWeight: '500', color: '#FFC969' }}>
+            <View style={{ fontSize: '14px', fontWeight: '500', color: '#FFC969' }}>
               {isVip ? 'VIP会员续费，享尊享特权' : 'VIP会员已过期，开通享尊享特权'}
-            </Text>
+            </View>
           </View>
           {/* 立即开通 Figma: w:160,h:48 → 80×24px */}
           <View style={{
@@ -182,9 +182,9 @@ export default function ProfilePage() {
             flexShrink: 0, marginLeft: '8px',
           }}>
             {/* Figma: style_XAUHUF:26px→13px,#232323 */}
-            <Text style={{ fontSize: '13px', fontWeight: '500', color: '#232323' }}>
+            <View style={{ fontSize: '13px', fontWeight: '500', color: '#232323' }}>
               {isVip ? '立即续费' : '立即开通'}
-            </Text>
+            </View>
           </View>
         </View>
 
@@ -196,8 +196,8 @@ export default function ProfilePage() {
           <View style={{ flex: 1, height: '79px', borderRadius: '12px', overflow: 'hidden', position: 'relative' }} onClick={goToCoin}>
             <Image src={cardCoin} style={{ width: '100%', height: '100%', zIndex: 0 }} mode="scaleToFill" />
             <View style={{ position: 'absolute', top: '14px', left: '12px', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Text style={{ fontSize: '14px', fontWeight: '700', color: '#00469F' }}>成家币</Text>
-              <Text style={{ fontSize: '10px', color: '#00469F', marginTop: '4px' }}>查看成家币</Text>
+              <View style={{ fontSize: '14px', fontWeight: '700', color: '#00469F' }}>成家币</View>
+              <View style={{ fontSize: '10px', color: '#00469F', marginTop: '4px' }}>查看成家币</View>
             </View>
           </View>
 
@@ -205,8 +205,8 @@ export default function ProfilePage() {
           <View style={{ flex: 1, height: '79px', borderRadius: '12px', overflow: 'hidden', position: 'relative' }} onClick={goToInvite}>
             <Image src={cardInvite} style={{ width: '100%', height: '100%', zIndex: 0 }} mode="scaleToFill" />
             <View style={{ position: 'absolute', top: '14px', left: '12px', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Text style={{ fontSize: '14px', fontWeight: '700', color: '#6600AF' }}>邀请好友</Text>
-              <Text style={{ fontSize: '10px', color: '#A055C3', marginTop: '4px' }}>免费获得成家币</Text>
+              <View style={{ fontSize: '14px', fontWeight: '700', color: '#6600AF' }}>邀请好友</View>
+              <View style={{ fontSize: '10px', color: '#A055C3', marginTop: '4px' }}>免费获得成家币</View>
             </View>
           </View>
         </View>
@@ -224,7 +224,7 @@ export default function ProfilePage() {
             { label: '我的动态', icon: iconPost, onClick: goToMyPosts },
             { label: '帮助与客服', icon: iconService, onClick: goToHelp },
             { label: '设置', icon: iconSettings, onClick: goToSettings },
-          ].map((item, idx) => (
+          ].map((item) => (
             <View key={item.label}>
               <View style={{
                 display: 'flex', flexDirection: 'row',
@@ -235,10 +235,10 @@ export default function ProfilePage() {
                   {/* Figma: 图标 30×28px → 15×14px */}
                   <Image src={item.icon} style={{ width: '15px', height: '14px', marginRight: '10px', opacity: 0.7 }} mode="aspectFit" />
                   {/* Figma: style_U456XR:28px→14px,#595F77 */}
-                  <Text style={{ fontSize: '14px', color: '#595F77' }}>{item.label}</Text>
+                  <View style={{ fontSize: '14px', color: '#595F77' }}>{item.label}</View>
                 </View>
                 {/* 箭头 Figma: 返回图标 20×34px → 10×17px */}
-                <Text style={{ fontSize: '16px', color: '#CCCCCC' }}>›</Text>
+                <View style={{ fontSize: '16px', color: '#CCCCCC' }}>›</View>
               </View>
             </View>
           ))}

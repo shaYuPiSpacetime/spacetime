@@ -25,3 +25,8 @@ page {
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* 全局 hover 反馈 — 提升小程序 tap 事件可靠性 */
+.btn-hover {
+  opacity: 0.85;
+}

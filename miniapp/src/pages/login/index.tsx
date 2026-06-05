@@ -20,6 +20,7 @@ export default function LoginAuthPage() {
   const { updateUserInfo, setStep } = useLogin()
   const [agreed, setAgreed] = useState(false)
   const [showDialog, setShowDialog] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useLoad(() => {
     setShowDialog(true)
@@ -49,12 +50,16 @@ export default function LoginAuthPage() {
       setShowDialog(true)
       return
     }
+    if (loading) return
+    setLoading(true)
     try {
       updateUserInfo({ avatar: '', nickname: '微信用户' })
       setStep('gender')
-      Taro.navigateTo({ url: '/pages/login/gender' })
+      await Taro.navigateTo({ url: '/pages/login/gender' })
     } catch {
       Taro.showToast({ title: '启动失败，请重试', icon: 'none' })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -84,6 +89,7 @@ export default function LoginAuthPage() {
             right: '57rpx',
             height: '98rpx',
           }}
+          hoverClass="btn-hover"
           onClick={handleUse}
         />
 
