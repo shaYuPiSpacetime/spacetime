@@ -32,3 +32,6 @@ npm run build:h5 -- --watch
 启动管理后台和后台项目
 
 figma https://www.figma.com/design/BqQhSLVSvuLYrZsgVlKmkU/%E6%88%90%E5%AE%B6%E7%AB%8B%E4%B8%9A?t=NH6dggfURmTA3PuA-1
+
+
+蓝湖 1:1 还原推荐朋友,认证所有页面，注意页面要分模块，按规范还原，背景图要一致，所有的都要一模一样，并更新文档

@@ -483,7 +483,7 @@ const st = STATUS_MAP[record.status] || { label: record.status, variant: 'second
 
 ### 10.1 导航栏规范（强制）
 
-**所有小程序页面统一使用 `navigationStyle: 'custom'` + `CustomNavBar` 组件**，禁止使用系统默认导航栏。
+**所有小程序页面统一使用 `navigationStyle: 'custom'` + `CustomNavBar` 组件**，禁止使用系统默认导航栏。蓝湖 1:1 还原页可使用同等约束的模块壳组件（如 `LanhuNav`、`LanhuTopTabs`），但必须遵守 10.1.1 的原生胶囊与顶部对齐规则。
 
 **原因：**
 - 系统导航栏有 0.5px 底部分割线，无法消除
@@ -524,6 +524,40 @@ import CustomNavBar from '@/components/CustomNavBar'
 | `titleColor` | `string` | `#000000` | 标题文字颜色 |
 
 > **⚠️ 新页面必须这样配置，Code Review 时以此为门禁。**
+
+### 10.1.1 微信原生胶囊与蓝湖顶部还原规范（强制）
+
+微信小程序右上角的 `...` 和圆点胶囊由客户端原生渲染，业务代码不得再次自绘。
+
+**强制规则：**
+
+- 页面顶部不得写 `•••`、`⊙`、`...`、圆点等模拟原生胶囊的元素。
+- 自定义导航/顶部业务 Tab 只负责左侧返回、标题、业务 Tab，不绘制右上原生胶囊。
+- 顶部业务 Tab 要给原生胶囊预留右侧安全宽度，当前 750rpx 设计稿统一按 `padding: '86rpx 160rpx 0 25rpx'` 对齐。
+- 同一组顶部业务 Tab 必须绑定真实点击行为；未实现项要明确 toast，不允许只画不可点击文字。
+- Tab 页面和伪 Tab 页面底部统一使用 `AppTabBar`，不得在页面里再自绘一套底部 TabBar，避免切换时图标上下抖动。
+
+**蓝湖壳组件约定：**
+
+```tsx
+// 顶部业务 Tab：不画右侧胶囊，只给原生胶囊留出 160rpx 右侧空间
+<LanhuTopTabs active="精选" onTabClick={handleTopTabClick} />
+
+// 子页面标题：只画标题/返回，不画右侧原生胶囊
+<LanhuNav title="会员中心" tone="dark" showBack />
+
+// 底部：委托统一 AppTabBar
+<LanhuTabBar active="index" />
+```
+
+**提交前静态扫描：**
+
+```bash
+rg -n "•••|⊙|↺|☷|ProfileTabBar|SELF_DRAWN_TABBAR_ROUTES" miniapp/src
+rg -n "LanhuTopTabs active|onTabClick|LanhuTabBar active" miniapp/src/pages
+```
+
+第一条除业务文案或图标枚举外不应命中；命中顶部/底部壳代码时必须确认不是模拟原生胶囊或局部 TabBar。
 
 ### 10.2 蓝湖设计稿管理规范
 
