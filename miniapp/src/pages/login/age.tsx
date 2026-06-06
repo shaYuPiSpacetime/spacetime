@@ -150,7 +150,9 @@ function AgeColumnText({ value, color, size }: { value: string; color: string; s
     <View
       style={{
         width: '233rpx',
+        display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       <Text

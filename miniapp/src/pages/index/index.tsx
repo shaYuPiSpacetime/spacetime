@@ -1,21 +1,25 @@
-import { View, Text, Textarea, Image } from '@tarojs/components';
-import Taro from '@tarojs/taro';
-import { useState } from 'react';
-import { useMatch } from '@/hooks/useMatch';
-import CustomNavBar from '@/components/CustomNavBar';
+import { Image, ScrollView, Text, Textarea, View } from '@tarojs/components'
+import Taro from '@tarojs/taro'
+import { useState } from 'react'
+import { useMatch } from '@/hooks/useMatch'
+import {
+  LANHU_BLUE,
+  LANHU_NAVY,
+  LANHU_SOFT_BG,
+} from '@/pages/lanhu/LanhuShell'
 
-/** 顶部 Sub-Tab */
-const SUB_TABS = ['心印测试', '精选', '理想型'];
+import matchHero from '@/assets/lanhu/pages/match-hero.png'
+import matchPhoto from '@/assets/lanhu/pages/match-photo.png'
 
-/**
- * 觅缘首页 (Tab: 推荐) — 1:1 还原蓝湖「成家-觅缘-信息未完善」设计稿
- *
- * 蓝湖设计规格（750px ÷ 2 → 375 CSS px = rpx）：
- * - 背景：浅蓝渐变 #E8F4FF → #F0F7FF
- * - 顶部 Sub-Tab：心印测试 | 精选 | 理想型，灰度色 #7F8494
- * - 信息完善状态：大图卡片 + 悄悄话交互面板
- * - 信息未完善状态：用户头像 + 引导文案 + 完善信息按钮
- */
+const PROFILE_TAGS = ['IT女神', '户外发烧友', '热爱旅行', '电子竞技']
+const BASIC_INFO = ['女', '97年', '163cm', '双鱼座']
+const QUESTIONS = [
+  { title: '自我介绍', text: '白天是咨询顾问，晚上是手冲咖啡爱好者。喜欢把生活过得柔软，也愿意认真奔赴每一次相遇。' },
+  { title: '我理想中的恋人', text: '会认真倾听，有稳定的情绪，也愿意一起把平凡日子过成小小的节日。' },
+  { title: '我的理想家庭是什么样', text: '有趣、坦诚、热爱生活。彼此都能做自己，一起探索世界。' },
+  { title: '相处中你最看重什么', text: '真诚沟通、彼此尊重、共同成长。' },
+]
+
 export default function IndexPage() {
   const {
     currentUser,
@@ -25,308 +29,637 @@ export default function IndexPage() {
     showCertPopup,
     openCertPopup,
     closeCertPopup,
-    isProfileComplete,
     navigateToProfileEdit,
-  } = useMatch();
+  } = useMatch()
 
-  const [activeSubTab, setActiveSubTab] = useState(0);
-
-  const user = currentUser;
+  const [expanded, setExpanded] = useState(false)
+  const user = currentUser
 
   const handleSend = async () => {
     if (!yoText.trim()) {
-      Taro.showToast({ title: '请写点什么', icon: 'none' });
-      return;
+      Taro.showToast({ title: '请写点什么', icon: 'none' })
+      return
     }
-    await sendYoText();
-    Taro.showToast({ title: '发送成功', icon: 'success' });
-  };
-
-  // ===================================================================
-  // 信息已完善 — 大图卡片 + 悄悄话面板
-  // ===================================================================
-  if (isProfileComplete) {
-    return (
-      <View className="min-h-screen bg-[#F5F7FA] flex flex-col">
-        <CustomNavBar bgColor="transparent" />
-
-        {/* 内容筛选栏 */}
-        <View className="px-[12px] pt-[10px] pb-[0px]">
-          <View className="flex flex-row items-center">
-            <View className="flex flex-row flex-1">
-              {SUB_TABS.map((tab, idx) => {
-                const isActive = idx === activeSubTab;
-                return (
-                  <View
-                    key={tab}
-                    className="mr-[16px] pb-[10px]"
-                    onClick={() => setActiveSubTab(idx)}
-                  >
-                    <Text className="text-base" style={{ color: '#7F8494', fontWeight: isActive ? '500' : 'normal' }}>
-                      {tab}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-            <View className="flex flex-row items-center gap-[12px] pb-[10px]">
-              <Text className="text-base text-[#888]">⏱</Text>
-              <Text className="text-base text-[#888]">⚙</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── 用户大图卡片 ── */}
-        <View className="relative mx-[12px] mt-[10px] rounded-t-[16px] overflow-hidden" style={{ height: '280px' }}>
-          {user ? (
-            user.avatar ? (
-              <Image className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }} src={user.avatar} mode="aspectFill" />
-            ) : (
-              <View
-                className="absolute inset-0 flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,#B3C9E8 0%,#7FA8CF 100%)', zIndex: 0 }}
-              >
-                <Text className="text-[48px] text-white/40">{user.nickname?.charAt(0)}</Text>
-              </View>
-            )
-          ) : (
-            <View className="absolute inset-0 bg-[#D0E5FA] flex items-center justify-center" style={{ zIndex: 0 }}>
-              <Text className="text-base text-[#999]">加载中...</Text>
-            </View>
-          )}
-
-          <View
-            className="absolute top-[12px] right-[12px] w-[24px] h-[24px] rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.6)', zIndex: 1 }}
-          >
-            <Text className="text-xs text-white">↗</Text>
-          </View>
-
-          {user && (
-            <View className="absolute bottom-[10px] left-[12px]" style={{ zIndex: 1 }}>
-              <Text className="text-[19px] font-semibold text-white">{user.nickname}</Text>
-              <View className="flex flex-row items-center gap-[6px] mt-[2px]">
-                <View className="px-[8px] py-[2px] rounded-[24px] bg-[#E3F1FE]">
-                  <Text className="text-xs text-[#2876FF]">{user.age}岁</Text>
-                </View>
-                {user.education && (
-                  <View className="px-[8px] py-[2px] rounded-[24px] bg-[rgba(0,0,0,0.2)]">
-                    <Text className="text-xs text-white">{user.education}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* ── 悄悄话发送面板 ── */}
-        <View
-          className="mx-[12px] rounded-b-[32px] bg-white px-[20px] pt-[22px] pb-[24px]"
-          style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
-        >
-          <View className="flex flex-row items-center justify-center mb-[2px]">
-            <Text className="text-base font-semibold text-[#333]">悄悄话</Text>
-            <View
-              className="ml-[4px] w-[16px] h-[16px] rounded-full border border-[#999] flex items-center justify-center"
-              onClick={openCertPopup}
-            >
-              <Text className="text-xs text-[#999]">?</Text>
-            </View>
-          </View>
-          <Text className="text-xs text-[#999] text-center block mb-[14px]">
-            第一时间抓住TA的目光
-          </Text>
-
-          {user && (
-            <View className="flex flex-row items-center mb-[12px]">
-              <View className="w-[32px] h-[32px] rounded-full bg-[#D0E5FA] mr-[10px] flex items-center justify-center overflow-hidden">
-                {user.avatar ? (
-                  <Image className="w-full h-full" src={user.avatar} mode="aspectFill" />
-                ) : (
-                  <Text className="text-base text-[#2876FF]">{user.nickname?.charAt(0)}</Text>
-                )}
-              </View>
-              <View>
-                <Text className="text-sm font-semibold text-[#333]">{user.nickname}</Text>
-                <Text className="text-xs text-[#999]">
-                  {user.age}岁 {user.tags.length > 0 ? `· ${user.tags[0]}` : ''} {user.education}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          <View
-            className="w-full rounded-[10px] p-[12px] mb-[12px]"
-            style={{ border: '1px solid #2876FF', minHeight: '80px' }}
-          >
-            <Textarea
-              className="w-full text-sm text-[#333]"
-              style={{ minHeight: '56px' }}
-              value={yoText}
-              placeholder="写点什么···"
-              placeholderStyle="color:#BBBBBB;font-size:14px"
-              maxlength={60}
-              onInput={(e) => setYoText(e.detail.value)}
-              autoHeight
-            />
-            <View className="flex justify-end">
-              <Text className="text-xs text-[#999]">{yoText.length}/60</Text>
-            </View>
-          </View>
-
-          <View className="flex flex-row items-center justify-between">
-            <View className="flex flex-row items-center">
-              <View className="w-[18px] h-[18px] rounded-full bg-[#FFC969] flex items-center justify-center mr-[4px]">
-                <Text className="text-xs text-white font-bold">¢</Text>
-              </View>
-              <Text className="text-lg font-bold text-[#2876FF]">100</Text>
-            </View>
-            <View
-              className="px-[24px] py-[11px] rounded-[32px] bg-[#2876FF] flex items-center justify-center"
-              onClick={handleSend}
-            >
-              <Text className="text-base font-semibold text-white">发送悄悄话</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* VIP 提示 */}
-        <View className="mx-[12px] mt-[10px] flex items-center justify-center">
-          <View
-            className="flex flex-row items-center px-[16px] py-[8px] rounded-[20px]"
-            style={{ background: '#1F1F2E' }}
-            onClick={() => Taro.navigateTo({ url: '/pages/membership/index' })}
-          >
-            <Text className="text-xs text-[#FFC969] mr-[4px]">◇</Text>
-            <Text className="text-xs text-[#FFC969]">开通VIP会员每天一个悄悄话</Text>
-          </View>
-        </View>
-
-        {/* ── 三重认证说明弹窗 ── */}
-        {showCertPopup && (
-          <View
-            className="fixed inset-0 flex items-end justify-center z-50"
-            style={{ background: 'rgba(0,0,0,0.4)', top: 'env(safe-area-inset-top)' }}
-            onClick={closeCertPopup}
-          >
-            <View
-              className="w-full rounded-t-[16px] bg-white px-[20px] pt-[20px] pb-[32px]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Text className="text-lg font-semibold text-[#333] text-center block mb-[6px]">什么是悄悄话？</Text>
-              <Text className="text-sm text-[#666] text-center block mb-[16px]">一种匿名但有诚意的沟通方式</Text>
-              {[
-                { title: '匿名发送', desc: '对方看不到你的真实身份，只有匹配成功后才互相可见' },
-                { title: '需要成家币', desc: '每条悄悄话消耗 100 成家币，体现你的诚意' },
-                { title: '对方回复后自动匹配', desc: '如果对方也回复了你，双方会自动进入聊天列表' },
-              ].map((item, idx) => (
-                <View key={idx} className="flex flex-row items-start mb-[12px]">
-                  <Text className="text-base text-[#2876FF] mr-[8px] mt-[1px]">✓</Text>
-                  <View>
-                    <Text className="text-sm font-semibold text-[#333]">{item.title}</Text>
-                    <Text className="text-xs text-[#999] mt-[2px]">{item.desc}</Text>
-                  </View>
-                </View>
-              ))}
-              <View
-                className="w-full py-[14px] rounded-full-btn bg-[#2876FF] flex items-center justify-center mt-[8px]"
-                onClick={closeCertPopup}
-              >
-                <Text className="text-base font-semibold text-white">我知道了</Text>
-              </View>
-            </View>
-          </View>
-        )}
-      </View>
-    );
+    await sendYoText()
+    Taro.showToast({ title: '发送成功', icon: 'success' })
   }
 
-  // ===================================================================
-  // 信息未完善 — 代码渲染，与设计稿 1:1 对齐
-  // ===================================================================
+  if (!user) {
+    return (
+      <View style={{ minHeight: '100vh', background: LANHU_SOFT_BG }}>
+        <MatchHeader />
+        <Text style={{ display: 'block', marginTop: '300rpx', textAlign: 'center', color: '#999999' }}>
+          加载中...
+        </Text>
+      </View>
+    )
+  }
+
+  return (
+    <View style={{ minHeight: '100vh', background: LANHU_SOFT_BG }}>
+      <ScrollView scrollY style={{ height: '100vh' }} showScrollbar={false}>
+        <MatchHeader />
+
+        <View style={{ width: '750rpx', padding: '0 8rpx 244rpx', boxSizing: 'border-box' }}>
+          <HeroCard onCert={openCertPopup} />
+          <ProfileInfo onEdit={navigateToProfileEdit} />
+          <TagsBlock />
+          <QuestionCard title="自我介绍" text={QUESTIONS[0].text} highlight />
+          <PhotoQuestion title="我的小幸运" />
+          {QUESTIONS.slice(1).map((item) => (
+            <QuestionCard key={item.title} title={item.title} text={item.text} />
+          ))}
+          <PhotoQuestion title="闲暇时我会做些什么" />
+          <PhotoWall />
+          <IpBlock />
+          <View style={{ height: '60rpx' }} />
+        </View>
+      </ScrollView>
+
+      <BottomAction
+        value={yoText}
+        expanded={expanded}
+        onExpand={() => setExpanded(true)}
+        onInput={setYoText}
+        onSend={handleSend}
+        onClose={() => setExpanded(false)}
+      />
+      {showCertPopup && (
+        <CertSheet onClose={closeCertPopup} />
+      )}
+    </View>
+  )
+}
+
+function MatchHeader() {
+  const tabs = ['觅缘', '心印测试', '精选', '理想型']
+
+  const handleTabClick = (tab: string) => {
+    if (tab === '精选') {
+      Taro.navigateTo({ url: '/pages/featured/index' })
+      return
+    }
+    if (tab !== '觅缘') {
+      Taro.showToast({ title: '功能建设中', icon: 'none' })
+    }
+  }
+
   return (
     <View
-      className="min-h-screen flex flex-col items-center"
-      style={{ background: 'linear-gradient(180deg, #E8F4FF 0%, #F0F7FF 40%, #F5F8FF 100%)' }}
+      style={{
+        width: '750rpx',
+        height: '176rpx',
+        padding: '86rpx 160rpx 0 25rpx',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+      }}
     >
-      <CustomNavBar bgColor="transparent" />
-
-      {/* Sub-Tab 栏 */}
-      <View className="w-full px-[24px] pt-[10px] pb-[12px]">
-        <View className="flex flex-row">
-          {SUB_TABS.map((tab, idx) => {
-            const isActive = idx === activeSubTab;
-            return (
+      {tabs.map((tab) => {
+        const isActive = tab === '觅缘'
+        return (
+          <View
+            key={tab}
+            style={{
+              position: 'relative',
+              height: '58rpx',
+              display: 'flex',
+              alignItems: 'center',
+              marginRight: tab === '觅缘' ? '28rpx' : '24rpx',
+              flexShrink: 0,
+            }}
+            onClick={() => handleTabClick(tab)}
+          >
+            <Text
+              style={{
+                color: isActive ? LANHU_NAVY : '#7F8494',
+                fontSize: isActive ? '34rpx' : '30rpx',
+                fontWeight: isActive ? 800 : 600,
+                lineHeight: '42rpx',
+                textShadow: isActive ? '0 4rpx 0 rgba(40,118,255,0.16)' : 'none',
+              }}
+            >
+              {tab}
+            </Text>
+            {tab === '觅缘' && (
               <View
-                key={tab}
-                className="mr-[20px] pb-[8px]"
-                style={{ borderBottom: isActive ? '2px solid #7F8494' : '2px solid transparent' }}
-                onClick={() => setActiveSubTab(idx)}
+                style={{
+                  position: 'absolute',
+                  right: '-14rpx',
+                  top: '-2rpx',
+                  minWidth: '28rpx',
+                  height: '22rpx',
+                  borderRadius: '11rpx',
+                  background: '#FF3F5E',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4rpx',
+                }}
               >
-                <Text className="text-[15px]" style={{ color: '#7F8494', fontWeight: isActive ? 600 : 400 }}>
-                  {tab}
-                </Text>
+                <Text style={{ color: '#FFFFFF', fontSize: '15rpx', lineHeight: '20rpx' }}>45</Text>
               </View>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* ── 用户头像占位 ── */}
-      <View className="mt-[40px]">
-        <View
-          className="rounded-full flex items-center justify-center"
-          style={{
-            width: '100px',
-            height: '100px',
-            background: 'linear-gradient(135deg, #D0E5FA 0%, #A8C8F0 100%)',
-            border: '3px solid #FFFFFF',
-            boxShadow: '0 4px 20px rgba(40,118,255,0.12)',
-          }}
-        >
-          <Text className="text-[40px] text-[#2876FF]/40">?</Text>
-        </View>
-      </View>
-
-      {/* ── 引导文案 ── */}
-      <View className="flex flex-col items-center mt-[24px] px-[40px]">
-        <Text
-          className="text-[18px] font-semibold text-center leading-[28px]"
-          style={{ color: '#153060' }}
-        >
-          完善个人信息
-        </Text>
-        <Text
-          className="text-[13px] text-center mt-[8px] leading-[20px]"
-          style={{ color: '#7F8494' }}
-        >
-          完成资料认证后，即可解锁匹配功能
-        </Text>
-      </View>
-
-      {/* ── 完善信息 CTA 按钮 ── */}
-      <View className="w-full px-[32px] mt-[32px]">
-        <View
-          className="w-full rounded-[10px] flex items-center justify-center"
-          style={{
-            height: '50px',
-            background: '#2876FF',
-            boxShadow: '0 4px 16px rgba(40,118,255,0.25)',
-          }}
-          onClick={navigateToProfileEdit}
-        >
-          <Text className="text-[17px] font-semibold text-white">完善信息</Text>
-        </View>
-      </View>
-
-      {/* ── 底部提示 ── */}
-      <Text
-        className="text-[11px] mt-[16px]"
-        style={{ color: '#AAAAAA' }}
-        onClick={openCertPopup}
-      >
-        为什么要完善信息？
-      </Text>
+            )}
+            {isActive && (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: '0',
+                  bottom: '2rpx',
+                  width: '52rpx',
+                  height: '6rpx',
+                  borderRadius: '3rpx',
+                  background: LANHU_BLUE,
+                }}
+              />
+            )}
+          </View>
+        )
+      })}
     </View>
-  );
+  )
+}
+
+function HeroCard({ onCert }: { onCert: () => void }) {
+  return (
+    <View
+      style={{
+        position: 'relative',
+        width: '734rpx',
+        height: '820rpx',
+        borderRadius: '32rpx',
+        overflow: 'hidden',
+        margin: '0 auto',
+        background: '#D6E6F5',
+      }}
+    >
+      <Image src={matchHero} mode="aspectFill" style={{ width: '734rpx', height: '820rpx' }} />
+      <View
+        style={{
+          position: 'absolute',
+          right: '22rpx',
+          top: '22rpx',
+          width: '56rpx',
+          height: '56rpx',
+          borderRadius: '28rpx',
+          background: 'rgba(255,255,255,0.82)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onClick={onCert}
+      >
+        <Text style={{ color: LANHU_BLUE, fontSize: '32rpx' }}>✓</Text>
+      </View>
+      <View
+        style={{
+          position: 'absolute',
+          left: '52rpx',
+          bottom: '30rpx',
+          right: '40rpx',
+          height: '150rpx',
+        }}
+      >
+        <Image
+          src={matchHero}
+          mode="aspectFill"
+          style={{
+            position: 'absolute',
+            left: '0',
+            bottom: '-5rpx',
+            width: '142rpx',
+            height: '142rpx',
+            borderRadius: '71rpx',
+            border: '8rpx solid #FFFFFF',
+          }}
+        />
+        <View style={{ position: 'absolute', left: '190rpx', top: '22rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '38rpx', fontWeight: 700, lineHeight: '54rpx', textShadow: '0 2rpx 8rpx rgba(0,0,0,0.25)' }}>
+            筱脑虎
+          </Text>
+          <View
+            style={{
+              height: '48rpx',
+              borderRadius: '24rpx',
+              background: '#E3F1FE',
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: '0 16rpx',
+              marginLeft: '18rpx',
+            }}
+            onClick={onCert}
+          >
+            <Text style={{ color: LANHU_BLUE, fontSize: '26rpx', marginRight: '8rpx' }}>🛡</Text>
+            <Text style={{ color: LANHU_BLUE, fontSize: '24rpx', fontWeight: 600 }}>三重认证</Text>
+          </View>
+        </View>
+        <View
+          style={{
+            position: 'absolute',
+            left: '214rpx',
+            top: '82rpx',
+            height: '50rpx',
+            borderRadius: '25rpx',
+            background: 'rgba(255,255,255,0.34)',
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: '0 20rpx',
+          }}
+        >
+          <Text style={{ color: '#FF637E', fontSize: '25rpx', marginRight: '10rpx' }}>♥</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: '24rpx', fontWeight: 600 }}>佛系交友</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function ProfileInfo({ onEdit }: { onEdit: () => void }) {
+  return (
+    <View
+      style={{
+        width: '734rpx',
+        margin: '-2rpx auto 0',
+        borderRadius: '0 0 32rpx 32rpx',
+        background: '#FFFFFF',
+        padding: '24rpx 24rpx 28rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '20rpx' }}>
+        <Text style={{ color: '#FF5B7C', fontSize: '32rpx', lineHeight: '40rpx', marginRight: '16rpx' }}>♀</Text>
+        <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>{BASIC_INFO.join(' | ')}</Text>
+      </View>
+      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', paddingBottom: '22rpx', borderBottom: '1rpx solid #EEF2F6' }}>
+        <Text style={{ color: '#4FA1FF', fontSize: '31rpx', lineHeight: '40rpx', marginRight: '15rpx' }}>♙</Text>
+        <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>现居浙江杭州 | 河南人</Text>
+      </View>
+      <InfoLine label="职业：" value="工程师 | 浙江某某有限公司" ok />
+      <InfoLine label="学历：" value="硕士 | 浙江工商管理大学" ok />
+      <View
+        style={{
+          marginTop: '18rpx',
+          height: '58rpx',
+          borderRadius: '29rpx',
+          background: '#F4F8FF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onClick={onEdit}
+      >
+        <Text style={{ color: LANHU_BLUE, fontSize: '24rpx', fontWeight: 600 }}>完善资料，提升匹配度</Text>
+      </View>
+    </View>
+  )
+}
+
+function InfoLine({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
+  return (
+    <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '20rpx' }}>
+      <Text style={{ color: LANHU_BLUE, fontSize: '28rpx', width: '94rpx', lineHeight: '40rpx', fontWeight: 700 }}>{label}</Text>
+      <Text style={{ color: '#333333', fontSize: '28rpx', flex: 1, lineHeight: '40rpx' }}>{value}</Text>
+      {ok && <Text style={{ color: '#44B476', fontSize: '22rpx' }}>已认证</Text>}
+    </View>
+  )
+}
+
+function TagsBlock() {
+  return (
+    <View
+      style={{
+        width: '700rpx',
+        margin: '18rpx auto 0',
+        borderRadius: '24rpx',
+        background: '#FFFFFF',
+        padding: '26rpx 24rpx 22rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>我的标签</Text>
+      <View style={{ display: 'flex', flexDirection: 'row', marginTop: '20rpx', flexWrap: 'wrap' }}>
+        {PROFILE_TAGS.map((tag) => (
+          <View
+            key={tag}
+            style={{
+              height: '40rpx',
+              padding: '0 17rpx',
+              marginRight: '10rpx',
+              borderRadius: '20rpx',
+              background: '#FFFFFF',
+              border: '1rpx solid #E2E6EF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#333333', fontSize: '22rpx', lineHeight: '30rpx' }}>
+              {tag}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function QuestionCard({ title, text, highlight = false }: { title: string; text: string; highlight?: boolean }) {
+  return (
+    <View
+      style={{
+        width: '700rpx',
+        margin: '18rpx auto 0',
+        borderRadius: '24rpx',
+        background: '#FFFFFF',
+        padding: '26rpx 24rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>{title}</Text>
+      <Text style={{ display: 'block', marginTop: '18rpx', color: '#575E6F', fontSize: '24rpx', lineHeight: '40rpx' }}>
+        {text}
+      </Text>
+      {highlight && (
+        <View style={{ marginTop: '20rpx', display: 'flex', justifyContent: 'flex-end' }}>
+          <View
+            style={{
+              width: '44rpx',
+              height: '44rpx',
+              borderRadius: '22rpx',
+              background: LANHU_BLUE,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>↗</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  )
+}
+
+function PhotoQuestion({ title }: { title: string }) {
+  return (
+    <View
+      style={{
+        width: '700rpx',
+        margin: '18rpx auto 0',
+        borderRadius: '24rpx',
+        background: '#FFFFFF',
+        overflow: 'hidden',
+      }}
+    >
+      <Image src={matchPhoto} mode="aspectFill" style={{ width: '700rpx', height: '520rpx' }} />
+      <View style={{ padding: '24rpx', boxSizing: 'border-box' }}>
+        <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>{title}</Text>
+        <Text style={{ display: 'block', color: '#575E6F', fontSize: '24rpx', lineHeight: '40rpx', marginTop: '16rpx' }}>
+          咖啡馆、博物馆、海边散步，都是我喜欢认真生活的证据。
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+function PhotoWall() {
+  const photos = [matchHero, matchPhoto, matchHero, matchPhoto, matchHero]
+  return (
+    <View
+      style={{
+        width: '700rpx',
+        margin: '18rpx auto 0',
+        borderRadius: '24rpx',
+        background: '#FFFFFF',
+        padding: '24rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>个人动态（6）</Text>
+      <View style={{ display: 'flex', flexDirection: 'row', marginTop: '18rpx' }}>
+        {photos.map((photo, index) => (
+          <Image
+            key={index}
+            src={photo}
+            mode="aspectFill"
+            style={{
+              width: '116rpx',
+              height: '116rpx',
+              borderRadius: '8rpx',
+              marginRight: index === photos.length - 1 ? 0 : '13rpx',
+            }}
+          />
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function IpBlock() {
+  return (
+    <View
+      style={{
+        width: '700rpx',
+        height: '210rpx',
+        margin: '18rpx auto 0',
+        borderRadius: '24rpx',
+        background: '#FFFFFF',
+        padding: '24rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>IP所属地</Text>
+      <View
+        style={{
+          marginTop: '20rpx',
+          height: '116rpx',
+          borderRadius: '16rpx',
+          background: '#F3F8FF',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: LANHU_BLUE, fontSize: '42rpx', lineHeight: '46rpx' }}>⌖</Text>
+        <Text style={{ color: '#5E6D86', fontSize: '22rpx', marginTop: '4rpx' }}>上海</Text>
+      </View>
+    </View>
+  )
+}
+
+function BottomAction({
+  value,
+  expanded,
+  onExpand,
+  onInput,
+  onSend,
+  onClose,
+}: {
+  value: string
+  expanded: boolean
+  onExpand: () => void
+  onInput: (value: string) => void
+  onSend: () => void
+  onClose: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'fixed',
+        left: '0',
+        right: '0',
+        bottom: 'calc(104rpx + env(safe-area-inset-bottom))',
+        height: expanded ? '300rpx' : '112rpx',
+        background: '#FFFFFF',
+        borderRadius: expanded ? '32rpx 32rpx 0 0' : '0',
+        zIndex: 30,
+        padding: expanded ? '26rpx 28rpx' : '18rpx 25rpx',
+        boxSizing: 'border-box',
+        boxShadow: '0 -4rpx 18rpx rgba(41,75,120,0.08)',
+      }}
+    >
+      {expanded ? (
+        <>
+          <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginBottom: '16rpx' }}>
+            <Text style={{ color: LANHU_NAVY, fontSize: '30rpx', fontWeight: 600 }}>悄悄话</Text>
+            <Text style={{ color: '#999999', fontSize: '28rpx' }} onClick={onClose}>收起</Text>
+          </View>
+          <Textarea
+            value={value}
+            maxlength={60}
+            placeholder="写点什么..."
+            placeholderStyle="color:#B7BDC8;font-size:26rpx"
+            onInput={(event) => onInput(event.detail.value)}
+            style={{
+              width: '694rpx',
+              height: '112rpx',
+              border: `2rpx solid ${LANHU_BLUE}`,
+              borderRadius: '20rpx',
+              padding: '18rpx',
+              boxSizing: 'border-box',
+              color: '#333333',
+              fontSize: '26rpx',
+            }}
+          />
+          <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: '18rpx' }}>
+            <Text style={{ color: '#999999', fontSize: '22rpx' }}>{value.length}/60</Text>
+            <View
+              style={{
+                width: '210rpx',
+                height: '66rpx',
+                borderRadius: '33rpx',
+                background: LANHU_BLUE,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onClick={onSend}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>发送</Text>
+            </View>
+          </View>
+        </>
+      ) : (
+        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <View
+            style={{
+              width: '76rpx',
+              height: '76rpx',
+              borderRadius: '38rpx',
+              background: '#A6ADB9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: '18rpx',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: '36rpx' }}>×</Text>
+          </View>
+          <View
+            style={{
+              flex: 1,
+              height: '76rpx',
+              borderRadius: '38rpx',
+              background: LANHU_BLUE,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onClick={onExpand}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>悄悄话</Text>
+          </View>
+          <View
+            style={{
+              width: '76rpx',
+              height: '76rpx',
+              borderRadius: '38rpx',
+              background: '#FF6B86',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginLeft: '18rpx',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: '34rpx' }}>♥</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  )
+}
+
+function CertSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <View
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        zIndex: 60,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex',
+        alignItems: 'flex-end',
+      }}
+      onClick={onClose}
+    >
+      <View
+        style={{
+          width: '750rpx',
+          borderRadius: '32rpx 32rpx 0 0',
+          background: '#FFFFFF',
+          padding: '42rpx 32rpx 56rpx',
+          boxSizing: 'border-box',
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Text style={{ display: 'block', textAlign: 'center', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 700 }}>
+          三重认证说明
+        </Text>
+        <Text style={{ display: 'block', textAlign: 'center', color: '#7D8798', fontSize: '24rpx', marginTop: '12rpx' }}>
+          真实身份、学历和工作认证，让每次相遇更安心。
+        </Text>
+        <View
+          style={{
+            height: '88rpx',
+            borderRadius: '44rpx',
+            background: LANHU_BLUE,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '34rpx',
+          }}
+          onClick={onClose}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>我知道了</Text>
+        </View>
+      </View>
+    </View>
+  )
 }

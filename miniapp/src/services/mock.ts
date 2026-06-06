@@ -52,47 +52,47 @@ export const mockFeaturedGuests: FeaturedGuest[] = [
 export const mockMembershipPlans: MembershipPlan[] = [
   {
     id: 1,
-    name: '月卡会员',
-    price: 30,
-    originalPrice: 60,
-    duration: 30,
-    durationLabel: '1个月',
+    name: '包年',
+    price: 568,
+    originalPrice: 688,
+    duration: 365,
+    durationLabel: '12个月',
+    tag: '专属2.1折',
     perks: ['无限解锁嘉宾', '查看谁喜欢我', '专属认证标识', '优先推荐'],
   },
   {
     id: 2,
-    name: '季卡会员',
-    price: 78,
-    originalPrice: 180,
+    name: '包季',
+    price: 418,
+    originalPrice: 418,
     duration: 90,
     durationLabel: '3个月',
-    tag: '热门',
+    tag: '专属5.2折',
     perks: ['无限解锁嘉宾', '查看谁喜欢我', '专属认证标识', '优先推荐', '每月成家币礼包'],
   },
   {
     id: 3,
-    name: '年卡会员',
-    price: 258,
-    originalPrice: 720,
-    duration: 365,
-    durationLabel: '12个月',
-    tag: '最划算',
+    name: '包月',
+    price: 268,
+    originalPrice: 268,
+    duration: 30,
+    durationLabel: '1个月',
+    tag: '尝鲜首选',
     perks: ['无限解锁嘉宾', '查看谁喜欢我', '专属认证标识', '优先推荐', '每月成家币礼包', '专属客服'],
   },
 ];
 
-/** 模拟我的会员状态 */
-/** 模拟我的会员状态 — 蓝湖设计稿「我的会员已过期状态」 */
+/** 模拟我的会员状态 — 蓝湖设计稿「会员未开通」默认验收态 */
 export const mockMyMembership: MyMembership = {
-  status: 'expired',
+  status: 'none',
 };
 
 /** 模拟成家币套餐 */
 export const mockCoinPackages: CoinPackage[] = [
-  { id: 1, amount: 60, price: 6, label: '60个' },
-  { id: 2, amount: 180, price: 18, label: '180个', tag: '热门' },
-  { id: 3, amount: 500, price: 50, label: '500个', tag: '推荐' },
-  { id: 4, amount: 1200, price: 120, label: '1200个', tag: '最划算' },
+  { id: 1, amount: 100, price: 8, label: '解锁2位嘉宾' },
+  { id: 2, amount: 3000, price: 268, label: '60位嘉宾', tag: '热销推荐' },
+  { id: 3, amount: 6000, price: 428, label: '150位嘉宾', tag: '节省最多' },
+  { id: 4, amount: 12000, price: 698, label: '300位嘉宾' },
 ];
 
 /** 模拟成家币余额 */
@@ -100,10 +100,9 @@ export const mockCoinBalance = 1800;
 
 /** 模拟成家币交易明细 */
 export const mockCoinTransactions: CoinTransaction[] = [
-  { id: 1, type: 'income', amount: 500, description: '充值 500 成家币', time: '2026-06-03 12:30', balance: 1800 },
-  { id: 2, type: 'expense', amount: -45, description: '解锁嘉宾 @小雨', time: '2026-06-02 15:20', balance: 1300 },
-  { id: 3, type: 'income', amount: 100, description: '邀请好友奖励', time: '2026-06-01 10:00', balance: 1345 },
-  { id: 4, type: 'expense', amount: -30, description: '发送悄悄话', time: '2026-05-31 20:15', balance: 1245 },
+  { id: 1, type: 'income', amount: 100, description: '邀请好友获得', time: '2026.04.29 15:26:56', balance: 1800 },
+  { id: 2, type: 'income', amount: 100, description: '邀请好友获得', time: '2026.04.29 15:26:56', balance: 1700 },
+  { id: 3, type: 'income', amount: 100, description: '邀请好友获得', time: '2026.04.29 15:26:56', balance: 1600 },
 ];
 
 /** 模拟成家币用途列表 */
@@ -120,8 +119,8 @@ export const mockCoinUsages: CoinUsage[] = [
 
 /** 模拟会员记录 */
 export const mockMembershipRecords: MembershipRecord[] = [
-  { id: 1, planName: '月卡会员', amount: 30, startTime: '2026-05-03 10:00', endTime: '2026-06-03 10:00', status: '已过期' },
-  { id: 2, planName: '年卡会员', amount: 258, startTime: '2025-06-03 10:00', endTime: '2026-06-03 10:00', status: '即将过期' },
+  { id: 1, planName: '时空邂逅VIP', amount: 568, startTime: '2026.05.28 15:58', endTime: '2027.05.27 15:58', status: '生效中' },
+  { id: 2, planName: '时空邂逅VIP', amount: 568, startTime: '2026.05.28 15:58', endTime: '2027.05.27 15:58', status: '已退款' },
 ];
 
 /** 模拟觅缘推荐用户 */

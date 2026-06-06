@@ -19,7 +19,7 @@ export function useCoins() {
   const [packagesLoading, setPackagesLoading] = useState(false)
 
   /* ---------- 选中的套餐 ---------- */
-  const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(null)
+  const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(mockCoinPackages[1] ?? null)
 
   /* ---------- 支付状态 ---------- */
   const [payLoading, setPayLoading] = useState(false)

@@ -27,8 +27,8 @@ export function useMatch() {
   const [showWhisperPopup, setShowWhisperPopup] = useState(false);
 
   // ========== 用户状态 ==========
-  /** 是否已完善个人信息（Mock：默认未完善，展示信息未完善状态） */
-  const [isProfileComplete] = useState(false);
+  /** 是否已完善个人信息（Mock：默认完善，展示蓝湖「信息完善」验收态） */
+  const [isProfileComplete] = useState(true);
   /** 当前输入的悄悄话文字 */
   const [yoText, setYoText] = useState('');
 

@@ -1,5 +1,11 @@
 /** 登录步骤 */
-export type LoginStep = 'auth' | 'gender' | 'education' | 'address' | 'age';
+export type LoginStep =
+  | 'auth'
+  | 'gender'
+  | 'education'
+  | 'address'
+  | 'age'
+  | 'verification';
 
 /** 登录用户信息 */
 export interface LoginUserInfo {
@@ -10,4 +16,12 @@ export interface LoginUserInfo {
   age?: number;
   avatar?: string;
   nickname?: string;
+  height?: string;
+  weight?: string;
+  hometown?: string;
+  career?: string;
+  income?: string;
+  introduction?: string;
+  avatarLocalPath?: string;
+  avatarReviewStatus?: 'none' | 'pending' | 'approved';
 }

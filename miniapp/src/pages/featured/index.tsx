@@ -1,25 +1,20 @@
-import { View, Text, ScrollView, Image } from '@tarojs/components'
-import { useState } from 'react'
+import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useFeatured } from '@/hooks/useFeatured'
 import { mockCoinBalance, mockCoinPackages } from '@/services/mock'
-import type { FeaturedGuest } from '@/types/featured'
 import type { CoinPackage } from '@/types/coin'
-import CustomNavBar from '@/components/CustomNavBar'
+import type { FeaturedGuest } from '@/types/featured'
+import {
+  LANHU_BLUE,
+  LANHU_NAVY,
+  LANHU_SOFT_BG,
+  LanhuBottomModal,
+  LanhuTabBar,
+  LanhuTopTabs,
+} from '@/pages/lanhu/LanhuShell'
 
-/** 页面顶部 Sub-Tab */
-const SUB_TABS = ['心印测试', '精选', '理想型']
+import featuredPerson from '@/assets/lanhu/pages/featured-person.png'
 
-/**
- * 精选首页 — 1:1 还原蓝湖「成家-精选-无认证」设计稿
- *
- * 蓝湖设计规格（750px ÷ 2 → CSS px = rpx）：
- * - 背景：#F5F7FA
- * - 顶部 Sub-Tab 切换 + 右侧操作图标
- * - 嘉宾大图卡片堆叠（3张），锁定状态显示 🔒 蒙层
- * - 底部「解锁更多精选嘉宾」Banner + 立即解锁按钮
- * - 认证弹窗 / 购买成家币弹窗 / 解锁嘉宾弹窗
- */
 export default function FeaturedPage() {
   const {
     guests,
@@ -35,16 +30,15 @@ export default function FeaturedPage() {
     selectedGuest,
   } = useFeatured()
 
-  const [activeSubTab, setActiveSubTab] = useState(1) // 默认「精选」
-
   const unlockCost = selectedGuest?.unlockCost ?? 0
-  const afterBalance = Math.max(0, mockCoinBalance - unlockCost)
   const balanceInsufficient = mockCoinBalance < unlockCost
 
   const handleCardClick = (guest: FeaturedGuest) => {
     if (guest.isLocked) {
       showUnlockModal(guest)
+      return
     }
+    Taro.showToast({ title: '已为你保留心动', icon: 'none' })
   }
 
   const handleUnlockConfirm = () => {
@@ -57,312 +51,319 @@ export default function FeaturedPage() {
     }
   }
 
-  const handleBuyPackage = (_pkg: CoinPackage) => {
+  const handleBuyPackage = () => {
     hideCoinModal()
     Taro.showToast({ title: '支付功能建设中', icon: 'none' })
   }
 
-  return (
-    <View className="min-h-screen bg-[#F5F7FA] flex flex-col">
-      <CustomNavBar title="精选" bgColor="#F5F7FA" showBack />
+  const handleTopTabClick = (tab: '觅缘' | '心印测试' | '精选' | '理想型') => {
+    if (tab === '觅缘') {
+      Taro.navigateBack({
+        delta: 1,
+        fail: () => {
+          Taro.switchTab({ url: '/pages/index/index' })
+        },
+      })
+      return
+    }
+    if (tab !== '精选') {
+      Taro.showToast({ title: '功能建设中', icon: 'none' })
+    }
+  }
 
-      {/* ── Sub-Tab 筛选栏 ── */}
-      <View className="px-[12px] pt-[6px] pb-[4px]">
-        <View className="flex flex-row items-center">
-          <View className="flex flex-row flex-1">
-            {SUB_TABS.map((tab, idx) => {
-              const isActive = idx === activeSubTab
-              return (
-                <View
-                  key={tab}
-                  className="mr-[16px] pb-[8px]"
-                  style={{ borderBottom: isActive ? '2px solid #7F8494' : '2px solid transparent' }}
-                  onClick={() => setActiveSubTab(idx)}
-                >
-                  <Text className="text-[15px]" style={{ color: '#7F8494', fontWeight: isActive ? 600 : 400 }}>
-                    {tab}
-                  </Text>
-                </View>
-              )
-            })}
-          </View>
-          <View className="flex flex-row items-center gap-[12px] pb-[8px]">
-            <Text className="text-base text-[#888]">⏱</Text>
-            <Text className="text-base text-[#888]">⚙</Text>
-          </View>
+  return (
+    <View style={{ minHeight: '100vh', background: LANHU_SOFT_BG }}>
+      <ScrollView scrollY style={{ height: '100vh' }} showScrollbar={false}>
+        <LanhuTopTabs active="精选" onTabClick={handleTopTabClick} />
+        <View style={{ width: '750rpx', padding: '0 25rpx 176rpx', boxSizing: 'border-box' }}>
+          {guests.slice(0, 2).map((guest, index) => (
+            <FeaturedCard
+              key={guest.id}
+              guest={guest}
+              index={index}
+              locked={index > 0 || guest.isLocked}
+              onClick={() => handleCardClick(index > 0 ? { ...guest, isLocked: true } : guest)}
+            />
+          ))}
+
+          <UnlockBanner onClick={showAuthModal} />
+        </View>
+      </ScrollView>
+      <LanhuTabBar active="index" />
+
+      {authModalVisible && <AuthModal onClose={hideAuthModal} />}
+      {unlockModalVisible && selectedGuest && (
+        <UnlockModal
+          guest={selectedGuest}
+          balanceInsufficient={balanceInsufficient}
+          onClose={hideUnlockModal}
+          onConfirm={handleUnlockConfirm}
+        />
+      )}
+      {coinModalVisible && (
+        <CoinModal onClose={hideCoinModal} onBuy={handleBuyPackage} />
+      )}
+    </View>
+  )
+}
+
+function FeaturedCard({
+  guest,
+  index,
+  locked,
+  onClick,
+}: {
+  guest: FeaturedGuest
+  index: number
+  locked: boolean
+  onClick: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'relative',
+        width: '700rpx',
+        height: '985rpx',
+        borderRadius: '8rpx 8rpx 32rpx 32rpx',
+        overflow: 'hidden',
+        background: '#D8E6F0',
+        marginTop: index === 0 ? '0' : '22rpx',
+      }}
+      onClick={onClick}
+    >
+      <Image src={featuredPerson} mode="aspectFill" style={{ width: '700rpx', height: '985rpx' }} />
+      {locked && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.08)',
+          }}
+        />
+      )}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: '260rpx',
+          background: 'linear-gradient(0deg, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.18) 62%, rgba(0,0,0,0) 100%)',
+        }}
+      />
+      <View style={{ position: 'absolute', left: '31rpx', bottom: '31rpx' }}>
+        <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>筱脑虎</Text>
+        <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '3rpx' }}>
+          28岁 双鱼座 本科
+        </Text>
+      </View>
+      <View
+        style={{
+          position: 'absolute',
+          right: '29rpx',
+          bottom: '27rpx',
+          width: '92rpx',
+          height: '92rpx',
+          borderRadius: '46rpx',
+          background: '#FF637E',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: '44rpx', lineHeight: '46rpx' }}>♥</Text>
+      </View>
+    </View>
+  )
+}
+
+function UnlockBanner({ onClick }: { onClick: () => void }) {
+  return (
+    <View
+      style={{
+        position: 'relative',
+        width: '700rpx',
+        height: '164rpx',
+        marginTop: '24rpx',
+        borderRadius: '8rpx',
+        background: 'linear-gradient(180deg, #7DA8FF 0%, #6594FA 100%)',
+        overflow: 'hidden',
+        padding: '30rpx 24rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <View style={{ position: 'absolute', left: '-28rpx', top: '-26rpx', width: '86rpx', height: '86rpx', borderRadius: '43rpx', background: 'rgba(255,255,255,0.18)' }} />
+      <View style={{ position: 'absolute', right: '-8rpx', bottom: '-28rpx', width: '96rpx', height: '96rpx', borderRadius: '48rpx', background: 'rgba(255,255,255,0.16)' }} />
+      <Text style={{ color: '#FFFFFF', fontSize: '34rpx', fontWeight: 700, lineHeight: '48rpx' }}>
+        解锁更多精选嘉宾
+      </Text>
+      <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '3rpx' }}>
+        从这一刻起，遇见你的小确幸
+      </Text>
+      <View
+        style={{
+          position: 'absolute',
+          right: '48rpx',
+          top: '52rpx',
+          width: '158rpx',
+          height: '70rpx',
+          borderRadius: '8rpx',
+          background: LANHU_BLUE,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onClick={onClick}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 700 }}>立即解锁</Text>
+      </View>
+    </View>
+  )
+}
+
+function AuthModal({ onClose }: { onClose: () => void }) {
+  return (
+    <View
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.52)',
+        zIndex: 60,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <View
+        style={{
+          width: '620rpx',
+          borderRadius: '32rpx',
+          background: '#FFFFFF',
+          padding: '62rpx 54rpx 48rpx',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <View
+          style={{
+            width: '118rpx',
+            height: '118rpx',
+            borderRadius: '28rpx',
+            background: LANHU_BLUE,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '32rpx',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '58rpx' }}>✎</Text>
+        </View>
+        <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700, lineHeight: '48rpx', textAlign: 'center' }}>
+          完善资料并完成认证{'\n'}解锁更多专属权益
+        </Text>
+        <View
+          style={{
+            width: '510rpx',
+            height: '88rpx',
+            borderRadius: '16rpx',
+            background: LANHU_BLUE,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '38rpx',
+          }}
+          onClick={onClose}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即完善</Text>
         </View>
       </View>
+    </View>
+  )
+}
 
-      {/* ── 嘉宾卡片列表 ── */}
-      <ScrollView scrollY className="flex-1" showScrollbar={false}>
-        <View className="px-[12px] pt-[8px]">
-          {guests.map((guest, idx) => (
+function UnlockModal({
+  guest,
+  balanceInsufficient,
+  onClose,
+  onConfirm,
+}: {
+  guest: FeaturedGuest
+  balanceInsufficient: boolean
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <LanhuBottomModal onClose={onClose}>
+      <Text style={{ display: 'block', textAlign: 'center', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 700 }}>
+        解锁嘉宾
+      </Text>
+      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '30rpx', padding: '24rpx', borderRadius: '20rpx', background: '#F6F9FF' }}>
+        <Image src={featuredPerson} mode="aspectFill" style={{ width: '88rpx', height: '88rpx', borderRadius: '44rpx', marginRight: '22rpx' }} />
+        <View>
+          <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700 }}>{guest.nickname}</Text>
+          <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', marginTop: '8rpx' }}>{guest.age}岁 · {guest.education}</Text>
+        </View>
+      </View>
+      <Text style={{ display: 'block', color: balanceInsufficient ? '#E54D42' : '#666666', fontSize: '26rpx', textAlign: 'center', marginTop: '26rpx' }}>
+        本次消耗 {guest.unlockCost} 成家币，当前余额 {mockCoinBalance}
+      </Text>
+      <View style={{ display: 'flex', flexDirection: 'row', gap: '18rpx', marginTop: '30rpx' }}>
+        <View style={{ flex: 1, height: '88rpx', borderRadius: '44rpx', border: '1rpx solid #E1E4EA', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+          <Text style={{ color: '#666666', fontSize: '30rpx' }}>取消</Text>
+        </View>
+        <View style={{ flex: 1, height: '88rpx', borderRadius: '44rpx', background: LANHU_BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onConfirm}>
+          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>{balanceInsufficient ? '去购买' : '确认解锁'}</Text>
+        </View>
+      </View>
+    </LanhuBottomModal>
+  )
+}
+
+function CoinModal({ onClose, onBuy }: { onClose: () => void; onBuy: (pkg: CoinPackage) => void }) {
+  return (
+    <LanhuBottomModal onClose={onClose}>
+      <Text style={{ display: 'block', textAlign: 'center', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 700 }}>
+        充值成家币
+      </Text>
+      <ScrollView scrollX showScrollbar={false} style={{ marginTop: '28rpx', width: '690rpx' }}>
+        <View style={{ display: 'flex', flexDirection: 'row' }}>
+          {mockCoinPackages.map((pkg) => (
             <View
-              key={guest.id}
-              className="relative rounded-[16px] overflow-hidden mb-[10px]"
+              key={pkg.id}
               style={{
-                height: idx === 0 ? '260px' : '220px',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                width: '170rpx',
+                height: '190rpx',
+                borderRadius: '20rpx',
+                border: `3rpx solid ${pkg.id === 2 ? LANHU_BLUE : '#E4E8F0'}`,
+                background: pkg.id === 2 ? '#EEF6FF' : '#FFFFFF',
+                marginRight: '18rpx',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-              onClick={() => handleCardClick(guest)}
+              onClick={() => onBuy(pkg)}
             >
-              {/* 背景图 / 占位渐变 */}
-              {guest.avatar ? (
-                <Image
-                  className="absolute inset-0 w-full h-full"
-                  style={{ zIndex: 0 }}
-                  src={guest.avatar}
-                  mode="aspectFill"
-                />
-              ) : (
-                <View
-                  className="absolute inset-0"
-                  style={{
-                    background: idx === 0
-                      ? 'linear-gradient(135deg, #B0C4E4 0%, #7A9DCA 100%)'
-                      : 'linear-gradient(135deg, #C4B5D4 0%, #9A7DCA 100%)',
-                    zIndex: 0,
-                  }}
-                />
-              )}
-
-              {/* 锁定蒙层 */}
-              {guest.isLocked && (
-                <View
-                  className="absolute inset-0 flex items-center justify-center"
-                  style={{ background: 'rgba(0,0,0,0.35)', zIndex: 1 }}
-                >
-                  <View
-                    className="rounded-full flex items-center justify-center"
-                    style={{
-                      width: '60px',
-                      height: '60px',
-                      background: 'rgba(255,255,255,0.2)',
-                    }}
-                  >
-                    <Text className="text-[28px]">🔒</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* 底部渐变信息层 */}
-              <View
-                className="absolute bottom-0 left-0 right-0 pt-[40px] pb-[12px] px-[12px]"
-                style={{
-                  background: 'linear-gradient(0deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)',
-                  zIndex: 2,
-                }}
-              >
-                <Text className="text-[18px] font-semibold text-white">{guest.nickname}</Text>
-                <Text className="text-[13px] text-white/80 mt-[2px]">
-                  {guest.age}岁 · {guest.education}{guest.height ? ` · ${guest.height}cm` : ''}
-                </Text>
-              </View>
-
-              {/* 右上角数字角标 (仅第一张) */}
-              {idx === 0 && (
-                <View
-                  className="absolute top-[10px] right-[10px] flex items-center justify-center"
-                  style={{
-                    background: '#EE2525',
-                    border: '2px solid #FFFFFF',
-                    borderRadius: '13px',
-                    minWidth: '24px',
-                    height: '20px',
-                    paddingLeft: '6px',
-                    paddingRight: '6px',
-                    zIndex: 3,
-                  }}
-                >
-                  <Text className="text-[11px] text-white">{guests.length + 42}</Text>
-                </View>
-              )}
+              <Text style={{ color: LANHU_BLUE, fontSize: '30rpx', fontWeight: 700 }}>{pkg.amount}</Text>
+              <Text style={{ color: '#666666', fontSize: '22rpx', marginTop: '7rpx' }}>{pkg.label}</Text>
+              <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700, marginTop: '12rpx' }}>¥{pkg.price}</Text>
             </View>
           ))}
         </View>
-
-        {/* ── 解锁更多嘉宾 Banner ── */}
-        <View
-          className="mx-[12px] mb-[16px] rounded-[8px] flex flex-row items-center justify-between px-[16px] py-[14px]"
-          style={{ background: 'rgba(40,118,255,0.08)' }}
-        >
-          <View>
-            <Text className="text-[15px] font-semibold text-[#153060]">解锁更多精选嘉宾</Text>
-            <Text className="text-[12px] text-[#666] mt-[2px]">从这一刻起，遇见你的小确幸</Text>
-          </View>
-          <View
-            className="px-[16px] py-[8px] rounded-[8px] bg-[#2876FF]"
-            onClick={showAuthModal}
-          >
-            <Text className="text-[14px] text-white font-semibold">立即解锁</Text>
-          </View>
-        </View>
-
-        <View className="h-[80px]" />
       </ScrollView>
-
-      {/* ══════════════════ 弹窗体系 ══════════════════ */}
-
-      {/* ── 认证弹窗 ── */}
-      {authModalVisible && (
-        <View
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.55)', top: 'env(safe-area-inset-top)' }}
-          onClick={hideAuthModal}
-        >
-          <View
-            className="flex flex-col items-center"
-            style={{
-              width: '310px',
-              background: '#FFFFFF',
-              borderRadius: '16px',
-              padding: '36px 28px 28px 28px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <View
-              className="flex items-center justify-center mb-[16px]"
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '14px',
-                background: '#2876FF',
-              }}
-            >
-              <Text className="text-[28px] text-white">✎</Text>
-            </View>
-            <Text className="text-[16px] font-semibold text-[#153060] text-center leading-[24px] mb-[20px]">
-              {'完善资料并完成认证\n解锁更多专属权益'}
-            </Text>
-            <View
-              className="w-full flex items-center justify-center rounded-[8px] bg-[#2876FF]"
-              style={{ height: '44px' }}
-              onClick={hideAuthModal}
-            >
-              <Text className="text-[15px] font-semibold text-white">立即完善</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* ── 购买成家币底部弹窗 ── */}
-      {coinModalVisible && (
-        <View
-          className="fixed inset-0 z-50"
-          style={{ background: 'rgba(0,0,0,0.4)', top: 'env(safe-area-inset-top)' }}
-          onClick={hideCoinModal}
-        >
-          <View
-            className="absolute bottom-0 left-0 right-0 rounded-t-[16px] bg-white px-[16px] pt-[16px] pb-[32px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Text className="text-lg font-semibold text-[#153060] text-center block mb-[6px]">充值成家币</Text>
-            <View className="flex flex-row justify-between mb-[12px]">
-              <Text className="text-sm text-[#333]">
-                本次消耗 {unlockCost} <Text className="text-xs text-[#FFC969]">◉</Text>
-              </Text>
-              <Text className="text-sm text-[#333]">
-                余额 {mockCoinBalance} <Text className="text-xs text-[#FFC969]">◉</Text>
-              </Text>
-            </View>
-
-            <View className="flex flex-col items-center mb-[10px]">
-              <Text className="text-base font-semibold text-[#153060]">额外查看10位精选嘉宾</Text>
-              <Text className="text-xs text-[#999] mt-[2px]">购买后若遇心仪嘉宾，需要使用成家币才能继续「对你心动」</Text>
-            </View>
-
-            <ScrollView scrollX showScrollbar={false} className="mb-[14px]">
-              <View className="flex flex-row gap-[10px]">
-                {mockCoinPackages.map((pkg) => (
-                  <View
-                    key={pkg.id}
-                    className="flex-shrink-0 w-[90px] rounded-[10px] border-[2px] border-[#2876FF] bg-[#EEF5FF] py-[12px] flex flex-col items-center"
-                    onClick={() => handleBuyPackage(pkg)}
-                  >
-                    <Text className="text-base font-bold text-[#2876FF]">{pkg.amount}</Text>
-                    <Text className="text-xs text-[#666] mt-[2px]">{pkg.label}</Text>
-                    <Text className="text-base font-bold text-[#153060] mt-[4px]">¥{pkg.price}</Text>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-
-            <View
-              className="w-full py-[14px] rounded-[20px] bg-[#2876FF] flex items-center justify-center mb-[8px]"
-              onClick={() => handleBuyPackage(mockCoinPackages[0])}
-            >
-              <Text className="text-lg font-semibold text-white">立即获取成家币</Text>
-            </View>
-            <View className="flex flex-row items-center justify-center">
-              <View className="w-[14px] h-[14px] rounded-full border border-[#999] mr-[6px]" />
-              <Text className="text-xs text-[#999]">阅读并同意</Text>
-              <Text className="text-xs text-[#2876FF]">《时空邂逅充值协议》</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* ── 解锁嘉宾底部弹窗 ── */}
-      {unlockModalVisible && selectedGuest && (
-        <View
-          className="fixed inset-0 z-50"
-          style={{ background: 'rgba(0,0,0,0.4)', top: 'env(safe-area-inset-top)' }}
-          onClick={hideUnlockModal}
-        >
-          <View
-            className="absolute bottom-0 left-0 right-0 rounded-t-[16px] bg-white px-[16px] pt-[20px] pb-[32px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Text className="text-lg font-semibold text-[#153060] text-center block mb-[16px]">解锁嘉宾</Text>
-
-            <View className="flex flex-row items-center mb-[14px] p-[12px] bg-[#F5F7FA] rounded-[10px]">
-              <View className="w-[40px] h-[40px] rounded-full bg-[#D0E5FA] flex items-center justify-center mr-[12px]">
-                <Text className="text-base text-[#2876FF]">{selectedGuest.nickname.charAt(0)}</Text>
-              </View>
-              <View>
-                <Text className="text-base font-semibold text-[#333]">{selectedGuest.nickname}</Text>
-                <Text className="text-xs text-[#999]">{selectedGuest.age}岁 · {selectedGuest.education}</Text>
-              </View>
-            </View>
-
-            <View className="mb-[14px]">
-              {[
-                { label: '解锁费用', value: `${unlockCost} 成家币` },
-                { label: '当前余额', value: `${mockCoinBalance} 成家币` },
-                { label: '解锁后余额', value: `${afterBalance} 成家币`, danger: balanceInsufficient },
-              ].map((row) => (
-                <View key={row.label} className="flex flex-row justify-between py-[6px]">
-                  <Text className="text-sm text-[#999]">{row.label}</Text>
-                  <Text className={`text-sm ${row.danger ? 'text-[#E54D42]' : 'text-[#333]'}`}>{row.value}</Text>
-                </View>
-              ))}
-            </View>
-
-            {balanceInsufficient && (
-              <Text className="text-xs text-[#E54D42] text-center block mb-[8px]">
-                成家币余额不足，请先购买成家币
-              </Text>
-            )}
-
-            <View className="flex flex-row gap-[10px]">
-              <View
-                className="flex-1 py-[13px] rounded-full-btn border border-[#E0E0E0] flex items-center justify-center"
-                onClick={hideUnlockModal}
-              >
-                <Text className="text-base text-[#666]">取消</Text>
-              </View>
-              <View
-                className="flex-1 py-[13px] rounded-full-btn bg-[#2876FF] flex items-center justify-center"
-                onClick={handleUnlockConfirm}
-              >
-                <Text className="text-base font-semibold text-white">
-                  {balanceInsufficient ? '去购买' : '确认解锁'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      )}
-    </View>
+      <View style={{ height: '88rpx', borderRadius: '44rpx', background: LANHU_BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '30rpx' }} onClick={() => onBuy(mockCoinPackages[1])}>
+        <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即获取成家币</Text>
+      </View>
+    </LanhuBottomModal>
   )
 }

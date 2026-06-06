@@ -1,10 +1,10 @@
-import { View, Image, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { useEffect, useCallback } from 'react'
+import { Image, Text, View } from '@tarojs/components'
+import Taro from '@tarojs/taro'
+import { useEffect, useState } from 'react'
 import { useProfile } from '@/hooks/useProfile'
-import AppTabBar from '@/components/AppTabBar'
-import CustomNavBar from '@/components/CustomNavBar'
 
+import profileBg from '@/assets/profile/profile-bg.png'
+import defaultAvatar from '@/assets/profile/default-avatar.png'
 import cardCoin from '@/assets/profile/card-coin.png'
 import cardInvite from '@/assets/profile/card-invite.png'
 import iconVip from '@/assets/profile/icon-vip.png'
@@ -13,241 +13,613 @@ import iconService from '@/assets/profile/icon-service.png'
 import iconSettings from '@/assets/profile/icon-settings.png'
 import iconCert from '@/assets/profile/icon-cert.png'
 
+const PROFILE_STATS = [
+  { value: 3, label: '我喜欢的' },
+  { value: 55, label: '喜欢我的' },
+  { value: 55, label: '最近来访' },
+]
+
 /**
- * 我的 — 1:1 Figma node 178:3 (750px ÷ 2 = CSS px)
- *
- * 原生小程序状态栏+胶囊(168px Figma = 84px CSS)由系统提供，
- * H5 下从 y=0 开始渲染，省去等高占位。
+ * 我的 — 蓝湖「我的」未开通状态自绘还原。
  */
 export default function ProfilePage() {
-  const { data, fetch, goToEditProfile, goToVip, goToCoin, goToInvite, goToMyPosts, goToHelp, goToSettings } = useProfile()
-  useEffect(() => { fetch() }, [fetch])
+  const {
+    data,
+    fetch,
+    goToEditProfile,
+    goToVip,
+    goToCoin,
+    goToInvite,
+    goToMyPosts,
+    goToHelp,
+    goToSettings,
+  } = useProfile()
 
-  /** 确保导航栏标题始终显示"我的"（Figma 设计稿导航栏居中标题） */
-  const syncNavTitle = useCallback(() => {
-    Taro.setNavigationBarTitle({ title: '我的' })
-  }, [])
-  useEffect(() => { syncNavTitle() }, [syncNavTitle])
-  useDidShow(() => { syncNavTitle() })
+  useEffect(() => {
+    fetch()
+  }, [fetch])
 
-  const { nickname, avatarUrl, location, age, zodiac, isVerified, membership, likedCount, beLikedCount } = data
-  const isVip = membership?.status === 'active'
-  const subInfo = [location, age != null ? `${age}岁` : '', zodiac].filter(Boolean).join(' | ')
+  const nickname = data.nickname || '筱脑虎'
+  const sourceAvatar = data.avatarUrl?.trim() || defaultAvatar
+  const [avatar, setAvatar] = useState(defaultAvatar)
+  const location = data.location || '杭州市'
+  const ageText = data.age != null ? `${data.age}岁` : '28岁'
+  const zodiac = data.zodiac || '双鱼座'
+  const subInfo = `${location}丨${ageText}丨${zodiac}`
+
+  useEffect(() => {
+    setAvatar(sourceAvatar)
+  }, [sourceAvatar])
 
   return (
-    <View style={{ background: '#F5F8FF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <CustomNavBar bgColor="transparent" />
-      <ScrollView scrollY style={{ flex: 1, height: 0, paddingBottom: '52px' }}>
+    <View
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        overflow: 'hidden',
+        background: '#F3F5FB',
+      }}
+    >
+      <Image
+        src={profileBg}
+        mode="widthFix"
+        style={{
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          width: '750rpx',
+        }}
+      />
 
-        {/* ─────────────────────────────────────────────────
-            Hero 区  背景从导航栏底部无缝衔接（导航栏 bg 已设为 #E3F1FE）
-        ───────────────────────────────────────────────── */}
-        <View style={{
-          background: 'linear-gradient(180deg,#E3F1FE 0%,#EEF5FF 100%)',
-          padding: '0 12px 0 12px',
-          minHeight: '73px',
-        }}>
-          <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
+      <View
+        style={{
+          position: 'relative',
+          width: '750rpx',
+          height: '1624rpx',
+        }}
+      >
+        <HeaderBlock
+          avatar={avatar}
+          nickname={nickname}
+          subInfo={subInfo}
+          showCert={data.isVerified}
+          onEdit={goToEditProfile}
+          onAvatarError={() => setAvatar(defaultAvatar)}
+        />
+        <StatsCard />
+        <VipBanner onClick={goToVip} />
+        <FeatureCards onCoin={goToCoin} onInvite={goToInvite} />
+        <MenuCard
+          onPost={goToMyPosts}
+          onHelp={goToHelp}
+          onSettings={goToSettings}
+        />
+      </View>
+    </View>
+  )
+}
 
-            {/* 头像 + 50% 药丸 */}
-            {/* Figma: 位图 x:31,y:186,w:98,h:98 → x:15,y:9,w:49,h:49 */}
-            <View style={{ position: 'relative', marginRight: '12px', flexShrink: 0, paddingBottom: '10px' }}>
-              <View style={{
-                width: '55px', height: '55px', borderRadius: '50%',
-                background: 'linear-gradient(135deg, #B8D4F0 0%, #8AB8E0 100%)',
-                border: '3px solid #fff', boxShadow: '0 4px 12px rgba(40,118,255,0.1)',
-                overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {avatarUrl
-                  ? <Image src={avatarUrl} style={{ width: '55px', height: '55px' }} mode="aspectFill" />
-                  : <View style={{ fontSize: '22px', color: '#fff', fontWeight: 600 }}>{nickname?.charAt(0) ?? '?'}</View>
-                }
-              </View>
-              {/* 50% 药丸 Figma: x:35,y:261,w:90,h:30 → w:45,h:15 at avatar bottom */}
-              <View style={{
-                position: 'absolute', bottom: '0', left: '50%', marginLeft: '-22px',
-                width: '44px', height: '16px', borderRadius: '8px', background: '#E3F1FE',
-                display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {/* 铅笔图标 (Figma 178:177, 编辑 14×14) */}
-                <Image src={iconCert} style={{ width: '7px', height: '7px', marginRight: '2px', opacity: 0.7 }} mode="aspectFit" />
-                <View style={{ fontSize: '9px', color: '#2876FF', fontWeight: '500' }}>50%</View>
-              </View>
-            </View>
+function HeaderBlock({
+  avatar,
+  nickname,
+  subInfo,
+  showCert,
+  onEdit,
+  onAvatarError,
+}: {
+  avatar: string
+  nickname: string
+  subInfo: string
+  showCert: boolean
+  onEdit: () => void
+  onAvatarError: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '186rpx',
+        width: '700rpx',
+        height: '105rpx',
+      }}
+    >
+      <Image
+        src={avatar}
+        mode="aspectFill"
+        onError={onAvatarError}
+        style={{
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          width: '111rpx',
+          height: '111rpx',
+          borderRadius: '56rpx',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: '123rpx',
+          top: '8rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <Text
+          style={{
+            color: '#333333',
+            fontSize: '32rpx',
+            fontWeight: 500,
+            lineHeight: '45rpx',
+          }}
+        >
+          {nickname}
+        </Text>
+        {showCert && <CertBadge />}
+      </View>
+      <Text
+        style={{
+          position: 'absolute',
+          left: '124rpx',
+          top: '64rpx',
+          color: '#333333',
+          fontSize: '26rpx',
+          lineHeight: '37rpx',
+        }}
+      >
+        {subInfo}
+      </Text>
+      <View
+        style={{
+          position: 'absolute',
+          right: '0',
+          top: '40rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+        onClick={onEdit}
+        hoverClass="btn-hover"
+      >
+        <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '31rpx' }}>
+          编辑资料
+        </Text>
+        <Text style={{ color: '#999999', fontSize: '36rpx', lineHeight: '31rpx' }}>
+          ›
+        </Text>
+      </View>
+    </View>
+  )
+}
 
-            {/* 昵称 + 认证 + 编辑 + 位置 — 与头像 55px 垂直居中 */}
-            <View style={{ flex: 1, height: '55px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              {/* 行1: 昵称 + 认证 badge + 编辑资料 */}
-              <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '5px' }}>
-                  {/* 昵称 Figma: style_LW2IIQ:32px→16px,w500,#333 */}
-                  <View style={{ fontSize: '16px', fontWeight: '500', color: '#333333' }}>{nickname}</View>
-                  {/* 三重认证 Figma: 178:167, bg#E3F1FE, text#5D89DD, 20px→10px */}
-                  {isVerified && (
-                    <View style={{
-                      display: 'flex', flexDirection: 'row', alignItems: 'center',
-                      background: '#E3F1FE', borderRadius: '4px',
-                      paddingLeft: '5px', paddingRight: '7px', paddingTop: '2px', paddingBottom: '2px',
-                    }}>
-                      <Image src={iconCert} style={{ width: '12px', height: '12px', marginRight: '2px' }} mode="aspectFit" />
-                      <View style={{ fontSize: '10px', color: '#5D89DD' }}>三重认证</View>
-                    </View>
-                  )}
-                </View>
-                {/* 编辑资料 Figma: style_HUVOPJ:22px→11px,#999 */}
-                <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }} onClick={goToEditProfile}>
-                  <View style={{ fontSize: '11px', color: '#999999' }}>编辑资料</View>
-                  <View style={{ fontSize: '11px', color: '#999999' }}> ›</View>
-                </View>
-              </View>
-              {/* 行2: 位置|年龄|星座 Figma: style_XAUHUF:26px→13px,#333 */}
-              <View style={{ fontSize: '13px', color: '#333333', marginTop: '5px' }}>{subInfo}</View>
-            </View>
+function CertBadge() {
+  return (
+    <View
+      style={{
+        width: '138rpx',
+        height: '48rpx',
+        borderRadius: '8rpx',
+        background: '#E3F1FE',
+        marginLeft: '22rpx',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Image
+        src={iconCert}
+        mode="aspectFit"
+        style={{
+          width: '28rpx',
+          height: '28rpx',
+          marginRight: '6rpx',
+        }}
+      />
+      <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx' }}>
+        三重认证
+      </Text>
+    </View>
+  )
+}
+
+function StatsCard() {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '314rpx',
+        width: '700rpx',
+        height: '178rpx',
+        borderRadius: '12rpx',
+        background: '#FFFFFF',
+        boxShadow: '0 2rpx 26rpx rgba(227,241,254,1)',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: '528rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+        }}
+      >
+        {PROFILE_STATS.map((item) => (
+          <View
+            key={item.label}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <Text
+              style={{
+                color: '#333333',
+                fontSize: '40rpx',
+                fontWeight: 500,
+                lineHeight: '56rpx',
+              }}
+            >
+              {item.value}
+            </Text>
+            <Text
+              style={{
+                color: '#999999',
+                fontSize: '26rpx',
+                lineHeight: '37rpx',
+                marginTop: '7rpx',
+              }}
+            >
+              {item.label}
+            </Text>
           </View>
+        ))}
+      </View>
+      <View
+        style={{
+          flex: 1,
+          height: '64rpx',
+          borderRadius: '100rpx 0 0 100rpx',
+          background: '#E3F1FE',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingLeft: '25rpx',
+        }}
+        onClick={() => Taro.showToast({ title: '提升人气', icon: 'none' })}
+        hoverClass="btn-hover"
+      >
+        <Text
+          style={{
+            color: '#2876FF',
+            fontSize: '38rpx',
+            lineHeight: '40rpx',
+            marginRight: '10rpx',
+          }}
+        >
+          ⚡
+        </Text>
+        <Text
+          style={{
+            color: '#2876FF',
+            fontSize: '24rpx',
+            fontWeight: 500,
+            lineHeight: '33rpx',
+          }}
+        >
+          提升人气
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+function VipBanner({ onClick }: { onClick: () => void }) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '512rpx',
+        width: '700rpx',
+        height: '128rpx',
+        borderRadius: '12rpx',
+        background: 'linear-gradient(90deg, #1E1E1E 0%, #3A3A3A 100%)',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        overflow: 'hidden',
+      }}
+      onClick={onClick}
+      hoverClass="btn-hover"
+    >
+      <VipDecoration />
+      <Image
+        src={iconVip}
+        mode="aspectFit"
+        style={{
+          width: '48rpx',
+          height: '38rpx',
+          marginLeft: '23rpx',
+          marginRight: '24rpx',
+          zIndex: 1,
+        }}
+      />
+      <Text
+        style={{
+          color: '#FFC969',
+          fontSize: '28rpx',
+          fontWeight: 500,
+          lineHeight: '40rpx',
+          zIndex: 1,
+        }}
+      >
+        开通VIP，享尊享特权
+      </Text>
+      <View
+        style={{
+          position: 'absolute',
+          right: '30rpx',
+          top: '40rpx',
+          width: '160rpx',
+          height: '48rpx',
+          borderRadius: '24rpx',
+          background: '#FFC969',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4rpx 8rpx rgba(0,0,0,0.35)',
+          zIndex: 2,
+        }}
+      >
+        <Text
+          style={{
+            color: '#232323',
+            fontSize: '26rpx',
+            fontWeight: 500,
+            lineHeight: '37rpx',
+          }}
+        >
+          立即开通
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+function VipDecoration() {
+  return (
+    <>
+      <View
+        style={{
+          position: 'absolute',
+          right: '9rpx',
+          top: '-20rpx',
+          width: '190rpx',
+          height: '190rpx',
+          border: '12rpx solid rgba(255,201,105,0.16)',
+          transform: 'rotate(45deg)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          right: '-61rpx',
+          top: '46rpx',
+          width: '125rpx',
+          height: '125rpx',
+          border: '12rpx solid rgba(255,201,105,0.16)',
+          transform: 'rotate(45deg)',
+        }}
+      />
+    </>
+  )
+}
+
+function FeatureCards({
+  onCoin,
+  onInvite,
+}: {
+  onCoin: () => void
+  onInvite: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '660rpx',
+        width: '700rpx',
+        height: '158rpx',
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+      }}
+    >
+      <FeatureCard
+        image={cardCoin}
+        title="成家币"
+        subtitle="查看成家币"
+        titleColor="#00469F"
+        subtitleColor="#00469F"
+        onClick={onCoin}
+      />
+      <FeatureCard
+        image={cardInvite}
+        title="邀请好友"
+        subtitle="免费获得成家币"
+        titleColor="#6600AF"
+        subtitleColor="#A055C3"
+        onClick={onInvite}
+      />
+    </View>
+  )
+}
+
+function FeatureCard({
+  image,
+  title,
+  subtitle,
+  titleColor,
+  subtitleColor,
+  onClick,
+}: {
+  image: string
+  title: string
+  subtitle: string
+  titleColor: string
+  subtitleColor: string
+  onClick: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'relative',
+        width: '340rpx',
+        height: '158rpx',
+        borderRadius: '8rpx',
+        overflow: 'hidden',
+      }}
+      onClick={onClick}
+      hoverClass="btn-hover"
+    >
+      <Image
+        src={image}
+        mode="scaleToFill"
+        style={{
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          width: '340rpx',
+          height: '158rpx',
+        }}
+      />
+      <Text
+        style={{
+          position: 'absolute',
+          left: '22rpx',
+          top: '20rpx',
+          color: titleColor,
+          fontSize: '28rpx',
+          fontWeight: 500,
+          lineHeight: '40rpx',
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          position: 'absolute',
+          left: '22rpx',
+          top: '66rpx',
+          color: subtitleColor,
+          fontSize: '20rpx',
+          lineHeight: '28rpx',
+        }}
+      >
+        {subtitle}
+      </Text>
+    </View>
+  )
+}
+
+function MenuCard({
+  onPost,
+  onHelp,
+  onSettings,
+}: {
+  onPost: () => void
+  onHelp: () => void
+  onSettings: () => void
+}) {
+  const items = [
+    { label: '我的动态', icon: iconPost, onClick: onPost },
+    { label: '帮助与客服', icon: iconService, onClick: onHelp },
+    { label: '设置', icon: iconSettings, onClick: onSettings },
+  ]
+
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '838rpx',
+        width: '700rpx',
+        height: '282rpx',
+        borderRadius: '8rpx',
+        background: '#FFFFFF',
+      }}
+    >
+      {items.map((item, index) => (
+        <View
+          key={item.label}
+          style={{
+            position: 'absolute',
+            left: '20rpx',
+            top: `${27 + index * 94}rpx`,
+            width: '660rpx',
+          }}
+        >
+          <View
+            style={{
+              height: '40rpx',
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+            onClick={item.onClick}
+            hoverClass="btn-hover"
+          >
+            <View
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Image
+                src={item.icon}
+                mode="aspectFit"
+                style={{
+                  width: '30rpx',
+                  height: '30rpx',
+                  marginRight: '47rpx',
+                }}
+              />
+              <Text
+                style={{
+                  color: '#595F77',
+                  fontSize: '28rpx',
+                  lineHeight: '40rpx',
+                }}
+              >
+                {item.label}
+              </Text>
+            </View>
+            <Text style={{ color: '#999999', fontSize: '58rpx', lineHeight: '40rpx' }}>
+              ›
+            </Text>
+          </View>
+          {index < items.length - 1 && (
+            <View
+              style={{
+                width: '660rpx',
+                height: '1rpx',
+                background: '#EFF4FC',
+                marginTop: '26rpx',
+              }}
+            />
+          )}
         </View>
-
-        {/* ─────────────────────────────────────────────────
-            统计卡片  Figma: x:25,y:314,w:700,h:178 → margin:8 12, h:89px
-        ───────────────────────────────────────────────── */}
-        <View style={{
-          margin: '8px 12px 0',
-          background: '#fff',
-          borderRadius: '12px',
-          boxShadow: '0 1px 13px 0 rgba(227,241,254,1)',
-          height: '89px',
-          display: 'flex', flexDirection: 'row', alignItems: 'center',
-          paddingLeft: '22px', paddingRight: '16px',
-        }}>
-          {/* 2 列 — 蓝湖设计稿：心动 + 被喜欢 */}
-          <View style={{ flex: 1, display: 'flex', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
-            {[
-              { count: likedCount,  label: '心动' },
-              { count: beLikedCount, label: '被喜欢' },
-            ].map((item) => (
-              <View key={item.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <View style={{ fontSize: '19px', fontWeight: '600', color: '#333333' }}>{item.count}</View>
-                <View style={{ fontSize: '12px', color: '#999999', marginTop: '2px' }}>{item.label}</View>
-              </View>
-            ))}
-          </View>
-          {/* 提升人气 Figma: fill#E3F1FE,⚡+提升人气 */}
-          <View style={{
-            marginLeft: '12px', flexShrink: 0,
-            background: '#E3F1FE', borderRadius: '100px',
-            paddingLeft: '10px', paddingRight: '12px',
-            paddingTop: '5px', paddingBottom: '5px',
-            display: 'flex', flexDirection: 'row', alignItems: 'center',
-          }} onClick={() => Taro.showToast({ title: '提升人气', icon: 'none' })}>
-            <View style={{ fontSize: '12px', color: '#2876FF', marginRight: '2px' }}>⚡</View>
-            <View style={{ fontSize: '12px', color: '#2876FF' }}>提升人气</View>
-          </View>
-        </View>
-
-        {/* ─────────────────────────────────────────────────
-            VIP 横幅  Figma: x:25,y:512,w:700,h:128 → h:64px
-        ───────────────────────────────────────────────── */}
-        <View style={{
-          margin: '8px 12px 0',
-          borderRadius: '10px',
-          background: 'linear-gradient(90deg,#151515 2%,#484848 98%)',
-          height: '64px',
-          display: 'flex', flexDirection: 'row', alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingLeft: '14px', paddingRight: '14px',
-          overflow: 'hidden', position: 'relative',
-        }} onClick={goToVip}>
-          {/* 右侧菱形背景装饰（半透明） */}
-          <View style={{
-            position: 'absolute', right: '80px', top: '-20px',
-            width: '80px', height: '80px',
-            borderRadius: '4px',
-            border: '12px solid rgba(255,201,105,0.12)',
-            transform: 'rotate(45deg)',
-          }} />
-          <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-            {/* Figma: VIP 图标 48×38px → 24×19px */}
-            <Image src={iconVip} style={{ width: '24px', height: '19px', marginRight: '8px' }} mode="aspectFit" />
-            {/* Figma: style_ADQM2S:28px→14px,w500,#FFC969 */}
-            <View style={{ fontSize: '14px', fontWeight: '500', color: '#FFC969' }}>
-              {isVip ? 'VIP会员续费，享尊享特权' : 'VIP会员已过期，开通享尊享特权'}
-            </View>
-          </View>
-          {/* 立即开通 Figma: w:160,h:48 → 80×24px */}
-          <View style={{
-            background: '#FFC969', borderRadius: '24px',
-            paddingLeft: '14px', paddingRight: '14px',
-            height: '30px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
-            flexShrink: 0, marginLeft: '8px',
-          }}>
-            {/* Figma: style_XAUHUF:26px→13px,#232323 */}
-            <View style={{ fontSize: '13px', fontWeight: '500', color: '#232323' }}>
-              {isVip ? '立即续费' : '立即开通'}
-            </View>
-          </View>
-        </View>
-
-        {/* ─────────────────────────────────────────────────
-            功能双卡片 —— 左右布局，描述在各自标题下方（Figma 设计稿要求）
-        ───────────────────────────────────────────────── */}
-        <View style={{ margin: '8px 12px 0', display: 'flex', flexDirection: 'row', gap: '8px' }}>
-          {/* 成家币卡片 */}
-          <View style={{ flex: 1, height: '79px', borderRadius: '12px', overflow: 'hidden', position: 'relative' }} onClick={goToCoin}>
-            <Image src={cardCoin} style={{ width: '100%', height: '100%', zIndex: 0 }} mode="scaleToFill" />
-            <View style={{ position: 'absolute', top: '14px', left: '12px', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
-              <View style={{ fontSize: '14px', fontWeight: '700', color: '#00469F' }}>成家币</View>
-              <View style={{ fontSize: '10px', color: '#00469F', marginTop: '4px' }}>查看成家币</View>
-            </View>
-          </View>
-
-          {/* 邀请好友卡片 */}
-          <View style={{ flex: 1, height: '79px', borderRadius: '12px', overflow: 'hidden', position: 'relative' }} onClick={goToInvite}>
-            <Image src={cardInvite} style={{ width: '100%', height: '100%', zIndex: 0 }} mode="scaleToFill" />
-            <View style={{ position: 'absolute', top: '14px', left: '12px', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
-              <View style={{ fontSize: '14px', fontWeight: '700', color: '#6600AF' }}>邀请好友</View>
-              <View style={{ fontSize: '10px', color: '#A055C3', marginTop: '4px' }}>免费获得成家币</View>
-            </View>
-          </View>
-        </View>
-
-        {/* ─────────────────────────────────────────────────
-            菜单列表  Figma: x:25,y:838,w:700,h:282 → h:141px
-            每行: y 间距 282/3=94 Figma → 47px CSS
-        ───────────────────────────────────────────────── */}
-        <View style={{
-          margin: '8px 12px 0',
-          background: '#fff', borderRadius: '12px',
-          paddingLeft: '12px', paddingRight: '12px',
-        }}>
-          {[
-            { label: '我的动态', icon: iconPost, onClick: goToMyPosts },
-            { label: '帮助与客服', icon: iconService, onClick: goToHelp },
-            { label: '设置', icon: iconSettings, onClick: goToSettings },
-          ].map((item) => (
-            <View key={item.label}>
-              <View style={{
-                display: 'flex', flexDirection: 'row',
-                alignItems: 'center', justifyContent: 'space-between',
-                height: '47px',
-              }} onClick={item.onClick}>
-                <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                  {/* Figma: 图标 30×28px → 15×14px */}
-                  <Image src={item.icon} style={{ width: '15px', height: '14px', marginRight: '10px', opacity: 0.7 }} mode="aspectFit" />
-                  {/* Figma: style_U456XR:28px→14px,#595F77 */}
-                  <View style={{ fontSize: '14px', color: '#595F77' }}>{item.label}</View>
-                </View>
-                {/* 箭头 Figma: 返回图标 20×34px → 10×17px */}
-                <View style={{ fontSize: '16px', color: '#CCCCCC' }}>›</View>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        <View style={{ height: '20px' }} />
-      </ScrollView>
-
-      <AppTabBar active="profile" />
+      ))}
     </View>
   )
 }

@@ -1,82 +1,126 @@
-import { View, Text, ScrollView } from '@tarojs/components'
+import { ScrollView, Text, View } from '@tarojs/components'
 import { useLoad } from '@tarojs/taro'
+import { useState } from 'react'
 import { useCoins } from '@/hooks/useCoins'
-import { EmptyState } from '@/components/EmptyState'
-import CustomNavBar from '@/components/CustomNavBar'
+import { LANHU_BLUE, LANHU_NAVY, LanhuNav } from '@/pages/lanhu/LanhuShell'
+import type { CoinTransaction } from '@/types/coin'
 
-/**
- * 成家币交易明细页
- * 展示收入/支出记录列表，支持空状态提示
- * 对齐蓝湖设计：交易记录列表 / 空状态占位
- */
+const TABS = ['全部', '获取', '消耗'] as const
+
 export default function CoinsDetailPage() {
   const {
     transactions,
     transactionsLoading,
     fetchTransactions,
   } = useCoins()
+  const [active, setActive] = useState<(typeof TABS)[number]>('全部')
 
-  /** 页面加载时拉取交易明细 */
   useLoad(() => {
     fetchTransactions()
   })
 
-  /** 格式化金额显示：收入显示 +金额，支出显示 -金额 */
-  const formatAmount = (amount: number): string => {
-    return amount > 0 ? `+${amount}` : `${amount}`
-  }
-
-  /** 根据交易类型返回颜色 */
-  const getAmountColor = (type: 'income' | 'expense'): string => {
-    return type === 'income' ? 'text-brand-blue' : 'text-[#333333]'
-  }
+  const filtered = transactions.filter((item) => {
+    if (active === '获取') return item.type === 'income'
+    if (active === '消耗') return item.type === 'expense'
+    return true
+  })
 
   return (
-    <View className="flex flex-col min-h-screen bg-[#F5F7FA]">
-      <CustomNavBar title="交易明细" bgColor="#F5F7FA" showBack />
-      {/* 加载中 */}
-      {transactionsLoading && (
-        <View className="flex items-center justify-center py-20">
-          <Text className="text-sm text-gray-400">加载中...</Text>
-        </View>
-      )}
-
-      {/* 空状态 */}
-      {!transactionsLoading && transactions.length === 0 && (
-        <EmptyState text="暂无交易记录" />
-      )}
-
-      {/* 交易记录列表 */}
-      {!transactionsLoading && transactions.length > 0 && (
-        <ScrollView scrollY className="flex-1 px-6 pt-4">
-          {transactions.map((item) => (
+    <View style={{ minHeight: '100vh', background: '#FFFFFF' }}>
+      <LanhuNav title="成家币明细" showBack />
+      <View
+        style={{
+          width: '750rpx',
+          height: '88rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: '0 25rpx',
+          boxSizing: 'border-box',
+        }}
+      >
+        {TABS.map((tab) => {
+          const isActive = tab === active
+          return (
             <View
-              key={item.id}
-              className="bg-white rounded-card px-6 py-4 mb-3 flex items-center justify-between"
+              key={tab}
+              style={{
+                width: '156rpx',
+                height: '70rpx',
+                display: 'flex',
+                alignItems: 'center',
+                position: 'relative',
+                marginRight: '4rpx',
+              }}
+              onClick={() => setActive(tab)}
             >
-              {/* 左侧：类型描述 + 时间 */}
-              <View className="flex flex-col flex-1 min-w-0">
-                <Text className="text-base text-text-dark font-medium truncate">
-                  {item.description}
-                </Text>
-                <Text className="text-xs text-gray-400 mt-1">{item.time}</Text>
-              </View>
-
-              {/* 右侧：金额 + 余额 */}
-              <View className="flex flex-col items-end ml-4 shrink-0">
-                <Text
-                  className={`text-base font-semibold ${getAmountColor(item.type)}`}
-                >
-                  {formatAmount(item.amount)}
-                </Text>
-                <Text className="text-xs text-gray-400 mt-1">
-                  余额 {item.balance}
-                </Text>
-              </View>
+              <Text style={{ color: isActive ? LANHU_NAVY : '#999999', fontSize: '30rpx', fontWeight: isActive ? 700 : 400 }}>
+                {tab}
+              </Text>
+              {isActive && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: '0',
+                    bottom: '8rpx',
+                    width: '48rpx',
+                    height: '6rpx',
+                    borderRadius: '3rpx',
+                    background: LANHU_BLUE,
+                  }}
+                />
+              )}
             </View>
-          ))}
+          )
+        })}
+      </View>
+
+      {transactionsLoading ? (
+        <Text style={{ display: 'block', textAlign: 'center', color: '#999999', marginTop: '160rpx' }}>
+          加载中...
+        </Text>
+      ) : filtered.length === 0 ? (
+        <Text style={{ display: 'block', textAlign: 'center', color: '#999999', marginTop: '160rpx' }}>
+          暂无交易记录
+        </Text>
+      ) : (
+        <ScrollView scrollY style={{ height: 'calc(100vh - 264rpx)' }} showScrollbar={false}>
+          <View style={{ width: '750rpx', padding: '0 25rpx 80rpx', boxSizing: 'border-box' }}>
+            {filtered.map((item) => (
+              <DetailRow key={item.id} item={item} />
+            ))}
+          </View>
         </ScrollView>
       )}
+    </View>
+  )
+}
+
+function DetailRow({ item }: { item: CoinTransaction }) {
+  const amount = item.amount > 0 ? `+${item.amount}` : `${item.amount}`
+
+  return (
+    <View
+      style={{
+        position: 'relative',
+        height: '152rpx',
+        borderBottom: '1rpx solid #D9D9D9',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
+          {item.description}
+        </Text>
+        <Text style={{ display: 'block', color: '#9A9A9A', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '22rpx' }}>
+          {item.time}
+        </Text>
+      </View>
+      <Text style={{ color: LANHU_BLUE, fontSize: '34rpx', lineHeight: '48rpx' }}>
+        {amount}
+      </Text>
     </View>
   )
 }

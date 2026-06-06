@@ -8,7 +8,7 @@ import LoginProfileShell from './components/LoginProfileShell'
  * 登录-地址 — 1:1 还原蓝湖「登录-地址」设计稿
  */
 export default function LoginAddressPage() {
-  const { provinces, getCities, updateUserInfo, submit } = useLogin()
+  const { provinces, getCities, updateUserInfo, setStep } = useLogin()
   const [selected, setSelected] = useState<string>('')
   const [cityValue, setCityValue] = useState([0, 0])
 
@@ -18,7 +18,10 @@ export default function LoginAddressPage() {
 
   const handleNext = () => {
     if (!selected) return Taro.showToast({ title: '请选择居住地', icon: 'none' })
-    submit()
+    setStep('verification')
+    Taro.navigateTo({ url: '/pages/verification/basic' }).catch(() => {
+      Taro.showToast({ title: '跳转失败，请重试', icon: 'none' })
+    })
   }
 
   const handleCityColumnChange = (e: { detail: { column: number; value: number } }) => {

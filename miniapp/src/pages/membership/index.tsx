@@ -1,91 +1,40 @@
-import { View, Text, ScrollView } from '@tarojs/components'
+import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { useMembership } from '@/hooks/useMembership'
-import CustomNavBar from '@/components/CustomNavBar'
+import type { MembershipPlan, MemberStatus } from '@/types/membership'
+import {
+  LANHU_DARK,
+  LANHU_GOLD,
+  LanhuNav,
+} from '@/pages/lanhu/LanhuShell'
 
-/**
- * 会员中心页面 — 1:1 还原蓝湖「会员中心-全」设计稿
- *
- * 设计来源：蓝湖 750×2796 设计稿，深色主题 #151515
- * 关键转换：蓝湖 750px ÷ 2 = CSS px（designWidth=375，CSS 1px = 2rpx）
- *
- * 设计规格速查表（蓝湖值 → CSS值）：
- * ┌──────────────────────┬──────────┬──────────┐
- * │ 元素                  │ 蓝湖 px   │ CSS px   │
- * ├──────────────────────┼──────────┼──────────┤
- * │ 页面标题              │ 32px     │ 16px     │
- * │ 副标题                │ 26px     │ 13px     │
- * │ VIP特权标题           │ 28px     │ 14px     │
- * │ 特权卡片高度          │ 168px    │ 84px     │
- * │ 特权卡片圆角          │ 12px     │ 6px      │
- * │ 特权卡片间距          │ 20px     │ 10px     │
- * │ 卡片背景色            │ #22201F  │ #22201F  │
- * │ 金色文字              │ #FFC969  │ #FFC969  │
- * └──────────────────────┴──────────┴──────────┘
- */
+import defaultAvatar from '@/assets/profile/default-avatar.png'
+import vipBg from '@/assets/lanhu/pages/member-vip-bg.png'
 
-/** VIP 9大特权 — 设计稿真实文案 */
-const VIP_BENEFITS = [
-  {
-    icon: '❤',
-    title: '心动名单',
-    sub: '123人',
-    desc: '一键揭晓谁喜欢你',
-  },
-  {
-    icon: '👁',
-    title: '访客记录',
-    sub: '340人',
-    desc: '谁看过你全公开',
-  },
-  {
-    icon: '💬',
-    title: '每日悄悄话',
-    sub: '1条',
-    desc: '直接弹到对方主页',
-  },
-  {
-    icon: '⭐',
-    title: '额外浏览',
-    sub: '10位',
-    desc: '比别人多一倍机会',
-  },
-  {
-    icon: '🔍',
-    title: '精准筛选',
-    sub: '',
-    desc: '只看最合心意的人',
-  },
-  {
-    icon: '⚡',
-    title: '曝光拉满',
-    sub: '',
-    desc: '优先展示给活跃用户',
-  },
-  {
-    icon: '🕶',
-    title: '隐身模式',
-    sub: '',
-    desc: '只对选中的人可见',
-  },
-  {
-    icon: '↩',
-    title: '三天回放',
-    sub: '',
-    desc: '滑过的嘉宾都能找回',
-  },
-  {
-    icon: '♥',
-    title: '额外心动',
-    sub: '+5次',
-    desc: '每天多看5张嘉宾',
-  },
+const BENEFITS = [
+  { icon: '♡', title: '心动名单一键揭晓：', value: '123人', desc: '有人对你心动了！看到喜欢的，立即发起对话' },
+  { icon: '◎', title: '谁来看过你：', value: '340位访客', desc: '访客全公开，别让在意你的人白等' },
+  { icon: 'yo', title: '每日专属悄悄话1条', value: '', desc: '消息直接弹到对方主页，第一时间抓住ta的目光' },
+  { icon: '☆', title: '每日额外浏览10位嘉宾', value: '', desc: '比别人多一倍的机会，更快遇见对的人' },
+  { icon: '▾', title: '精准筛选功能', value: '', desc: '按你的标准定制筛选条件，只看最合心意的人' },
+  { icon: '♢', title: '曝光度拉满', value: '', desc: '你的资料优先展示给活跃用户和你心仪的对象' },
+  { icon: '◌', title: '隐身模式', value: '', desc: '只对你选中的人可见，主动权完全在你手上' },
+  { icon: '↶', title: '三天回放功能', value: '', desc: '最近3天滑过的嘉宾都能找回，手滑也不怕' },
+  { icon: '☻', title: '每日多5次心动机会', value: '', desc: '每天额外多看5张心动嘉宾，让缘分不被错过' },
 ]
 
 export default function MembershipPage() {
-  const { plans, fetchMyMembership, fetchPlans, selectPlan, confirmPay, payLoading } =
-    useMembership()
+  const {
+    myMembership,
+    plans,
+    fetchMyMembership,
+    fetchPlans,
+    selectPlan,
+    confirmPay,
+    payLoading,
+    goToRecords,
+  } = useMembership()
   const [activePlanId, setActivePlanId] = useState<number | null>(null)
 
   useEffect(() => {
@@ -93,279 +42,285 @@ export default function MembershipPage() {
     fetchPlans()
   }, [fetchMyMembership, fetchPlans])
 
-  // 默认选中第一个套餐
   useEffect(() => {
     if (plans.length > 0 && activePlanId === null) {
-      setActivePlanId(plans[0].id)
-      selectPlan(plans[0])
+      const defaultPlan = plans[0]
+      setActivePlanId(defaultPlan.id)
+      selectPlan(defaultPlan)
     }
   }, [plans, activePlanId, selectPlan])
 
-  const activePlan = plans.find((p) => p.id === activePlanId)
+  const activePlan = plans.find((plan) => plan.id === activePlanId)
 
-  const handleSelectPlan = (plan: (typeof plans)[number]) => {
+  const handleSelect = (plan: MembershipPlan) => {
     setActivePlanId(plan.id)
     selectPlan(plan)
   }
 
   const handlePay = async () => {
-    if (!activePlan) return Taro.showToast({ title: '请选择套餐', icon: 'none' })
+    if (!activePlan) {
+      Taro.showToast({ title: '请选择套餐', icon: 'none' })
+      return
+    }
     await confirmPay()
   }
 
   return (
-    <View className="min-h-screen flex flex-col" style={{ background: '#151515' }}>
-      {/* 自定义导航栏 — navigationStyle: 'custom' */}
-      <CustomNavBar title="会员中心" bgColor="#151515" titleColor="#FFFFFF" showBack />
-
-      <ScrollView scrollY className="flex-1" style={{ paddingBottom: '90px' }}>
-        {/* ========== 页面标题区 ========== */}
-        {/* 蓝湖 750 设计稿：标题 32px → 16px，副标题 26px → 13px */}
-        <View className="px-[16px] pt-[14px] pb-[6px]">
-          <Text
-            className="font-semibold text-white"
-            style={{ fontSize: '16px' /* 蓝湖 32px → 16px */ }}
-          >
-            会员中心
-          </Text>
-        </View>
-        <View className="px-[16px] pb-[14px]">
-          <Text
-            className="text-white"
-            style={{ fontSize: '13px' /* 蓝湖 26px → 13px */ }}
-          >
-            专属9大特权，加速双向奔赴
-          </Text>
-        </View>
-
-        {/* ========== 用户信息卡片 ========== */}
-        <View className="mx-[16px] mb-[16px] rounded-[6px] flex flex-row items-center px-[12px] py-[12px]"
-          style={{ background: '#1E1C1B' }}
-        >
-          {/* 头像占位 — 蓝湖 80px → 40px CSS */}
-          <View
-            className="rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ width: '40px', height: '40px', background: '#333' }}
-          >
-            <Text style={{ fontSize: '18px', color: '#888' }}>?</Text>
-          </View>
-          <View className="ml-[10px] flex-1">
-            <Text className="text-white font-semibold" style={{ fontSize: '14px' }}>
-              筱脑虎
-            </Text>
-            <Text className="text-[#999] mt-[2px]" style={{ fontSize: '12px' }}>
-              你还不是会员，开通立享超多特权
-            </Text>
-          </View>
-          {/* 会员标识 */}
-          <View
-            className="rounded-[4px] px-[8px] py-[2px] flex-shrink-0"
-            style={{ background: '#FFC969' }}
-          >
-            <Text style={{ fontSize: '10px', color: '#333', fontWeight: 600 }}>开通会员</Text>
-          </View>
-        </View>
-
-        {/* ========== 套餐选择 — 横向滚动 ========== */}
-        <ScrollView scrollX showScrollbar={false} className="px-[12px]">
-          <View className="flex flex-row gap-[10px] pr-[12px] pb-[4px]">
-            {plans.map((plan) => {
-              const isActive = plan.id === activePlanId
-              const pricePerMonth = (plan.price / (plan.duration / 30)).toFixed(0)
-              return (
-                <View
-                  key={plan.id}
-                  className="flex-shrink-0 rounded-[8px] py-[12px] px-[10px] flex flex-col items-center relative"
-                  style={{
-                    width: '100px',
-                    border: isActive ? '1.5px solid #FFC969' : '1.5px solid #333',
-                    background: isActive ? '#2A2200' : '#1E1C1B',
-                  }}
-                  onClick={() => handleSelectPlan(plan)}
-                >
-                  {/* 标签 — 热门/最划算 */}
-                  {plan.tag && (
-                    <View
-                      className="absolute flex items-center justify-center"
-                      style={{ top: '-9px', left: 0, right: 0 }}
-                    >
-                      <View
-                        className="rounded-[4px] px-[6px] py-[1px]"
-                        style={{ background: '#FFC969' }}
-                      >
-                        <Text style={{ fontSize: '10px', fontWeight: 700, color: '#333' }}>
-                          {plan.tag}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                  <Text
-                    className="font-semibold"
-                    style={{ fontSize: '15px', color: '#FFC969' }}
-                  >
-                    {plan.durationLabel}
-                  </Text>
-                  <Text style={{ fontSize: '11px', color: '#FFC969', marginTop: '2px' }}>
-                    {plan.name}
-                  </Text>
-                  <View className="flex flex-row items-end mt-[6px]">
-                    <Text style={{ fontSize: '12px', color: '#FFC969' }}>¥</Text>
-                    <Text
-                      className="font-bold leading-none"
-                      style={{ fontSize: '20px', color: '#FFC969' }}
-                    >
-                      {pricePerMonth}
-                    </Text>
-                    <Text style={{ fontSize: '10px', color: '#999', marginBottom: '1px' }}>
-                      /月
-                    </Text>
-                  </View>
-                  {plan.originalPrice != null && plan.originalPrice > 0 && (
-                    <Text
-                      style={{
-                        fontSize: '10px',
-                        color: '#666',
-                        marginTop: '2px',
-                        textDecoration: 'line-through',
-                      }}
-                    >
-                      ¥{plan.originalPrice}
-                    </Text>
-                  )}
-                </View>
-              )
-            })}
-          </View>
-        </ScrollView>
-
-        {/* ========== VIP特权 标题 ========== */}
-        {/* 蓝湖 28px → 14px CSS */}
-        <View className="flex flex-row items-center justify-center mt-[20px] mb-[14px]">
-          <View style={{ width: '16px', height: '1px', background: '#FFC969', opacity: 0.4 }} />
-          <Text
-            className="font-semibold mx-[8px]"
-            style={{ fontSize: '14px', color: '#FFC969' /* 蓝湖 28px → 14px */ }}
-          >
-            VIP特权
-          </Text>
-          <View style={{ width: '16px', height: '1px', background: '#FFC969', opacity: 0.4 }} />
-        </View>
-
-        {/* ========== 9大特权 3×3 网格 ========== */}
-        {/* 卡片规格：蓝湖 168px 高 → 84px CSS，圆角 12px → 6px CSS，间距 20px → 10px CSS */}
-        <View
-          className="flex flex-row flex-wrap px-[16px]"
-          style={{ columnGap: '10px', rowGap: '10px' /* 蓝湖 20px → 10px */ }}
-        >
-          {VIP_BENEFITS.map((benefit, idx) => (
-            <View
-              key={idx}
-              className="flex flex-col items-center justify-center rounded-[6px]"
-              style={{
-                width: 'calc((100% - 20px) / 3)' /* 3列均分，减去2个gap */,
-                height: '84px' /* 蓝湖 168px → 84px */,
-                background: '#22201F',
-              }}
-            >
-              {/* 图标 — 蓝湖约 36px → 18px CSS */}
-              <Text style={{ fontSize: '18px', lineHeight: '20px' }}>{benefit.icon}</Text>
-              {/* 标题 */}
-              <View className="flex flex-row items-center mt-[4px]">
-                <Text
-                  className="text-white font-semibold"
-                  style={{ fontSize: '12px', lineHeight: '16px' }}
-                >
-                  {benefit.title}
-                </Text>
-                {benefit.sub ? (
-                  <Text
-                    style={{
-                      fontSize: '11px',
-                      color: '#FFC969',
-                      fontWeight: 600,
-                      marginLeft: '2px',
-                      lineHeight: '16px',
-                    }}
-                  >
-                    {benefit.sub}
-                  </Text>
-                ) : null}
-              </View>
-              {/* 描述 */}
-              <Text
-                className="text-[#888] mt-[2px]"
-                style={{ fontSize: '10px', lineHeight: '14px' }}
-              >
-                {benefit.desc}
-              </Text>
-            </View>
+    <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
+      <LanhuNav title="会员中心" tone="dark" showBack />
+      <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)', paddingBottom: '220rpx', boxSizing: 'border-box' }} showScrollbar={false}>
+        <View style={{ width: '750rpx', padding: '0 25rpx 220rpx', boxSizing: 'border-box' }}>
+          <MemberHero status={myMembership.status} onRecords={goToRecords} />
+          <PlanRail plans={plans} activePlanId={activePlanId} onSelect={handleSelect} />
+          <BenefitTitle />
+          {BENEFITS.map((item) => (
+            <BenefitCard key={item.title} {...item} />
           ))}
         </View>
-
-        {/* 底部留白 — 为固定购买栏让位 */}
-        <View style={{ height: '20px' }} />
       </ScrollView>
+      <PayBar plan={activePlan} loading={payLoading} status={myMembership.status} onPay={handlePay} />
+    </View>
+  )
+}
 
-      {/* ========== 底部购买栏（固定） ========== */}
-      <View
-        className="fixed bottom-0 left-0 right-0 px-[16px]"
+function MemberHero({ status, onRecords }: { status: MemberStatus; onRecords: () => void }) {
+  const desc = status === 'active'
+    ? '你的会员权益正在生效中'
+    : status === 'expired'
+      ? '会员已过期，续费继续享权益'
+      : '你还不是会员，开通立享超多特权'
+
+  return (
+    <View
+      style={{
+        position: 'relative',
+        width: '700rpx',
+        height: '240rpx',
+        borderRadius: '12rpx',
+        overflow: 'hidden',
+        background: '#2B2928',
+      }}
+      onClick={onRecords}
+    >
+      <Image src={vipBg} mode="scaleToFill" style={{ width: '700rpx', height: '240rpx', opacity: 0.95 }} />
+      <Image
+        src={defaultAvatar}
+        mode="aspectFill"
         style={{
-          background: '#151515',
-          borderTop: '0.5px solid #222',
-          paddingTop: '10px',
-          paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',
+          position: 'absolute',
+          left: '38rpx',
+          top: '59rpx',
+          width: '80rpx',
+          height: '80rpx',
+          borderRadius: '40rpx',
+          border: `2rpx solid ${LANHU_GOLD}`,
+        }}
+      />
+      <Text style={{ position: 'absolute', left: '150rpx', top: '58rpx', color: LANHU_GOLD, fontSize: '28rpx', fontWeight: 700 }}>
+        筱脑虎
+      </Text>
+      <Text style={{ position: 'absolute', left: '150rpx', top: '104rpx', color: LANHU_GOLD, fontSize: '26rpx' }}>
+        {desc}
+      </Text>
+      <Text style={{ position: 'absolute', left: '38rpx', bottom: '44rpx', color: '#FFFFFF', fontSize: '30rpx', fontWeight: 500 }}>
+        专属9大特权，加速双向奔赴
+      </Text>
+    </View>
+  )
+}
+
+function PlanRail({
+  plans,
+  activePlanId,
+  onSelect,
+}: {
+  plans: MembershipPlan[]
+  activePlanId: number | null
+  onSelect: (plan: MembershipPlan) => void
+}) {
+  const displayPlans = plans.length > 0 ? plans : []
+
+  return (
+    <ScrollView scrollX showScrollbar={false} style={{ width: '725rpx', marginTop: '54rpx' }}>
+      <View style={{ display: 'flex', flexDirection: 'row', height: '230rpx', paddingLeft: '0' }}>
+        {displayPlans.map((plan, index) => {
+          const isActive = plan.id === activePlanId
+          const label = index === 0 ? '专属2.1折' : index === 1 ? '专属5.2折' : index === 2 ? '尝鲜首选' : '专属优惠'
+          const pricePerMonth = plan.duration >= 365 ? '57.33' : plan.duration >= 90 ? '139.33' : '268.00'
+          const duration = plan.duration >= 365 ? '12个月' : plan.duration >= 90 ? '3个月' : '1个月'
+
+          return (
+            <View
+              key={plan.id}
+              style={{
+                position: 'relative',
+                flexShrink: 0,
+                width: '220rpx',
+                height: '224rpx',
+                borderRadius: '12rpx',
+                border: isActive ? `4rpx solid ${LANHU_GOLD}` : '0',
+                background: '#252323',
+                marginRight: '16rpx',
+                padding: '48rpx 24rpx 20rpx',
+                boxSizing: 'border-box',
+              }}
+              onClick={() => onSelect(plan)}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  left: '16rpx',
+                  top: '-22rpx',
+                  height: '46rpx',
+                  borderRadius: '8rpx',
+                  background: LANHU_GOLD,
+                  padding: '0 18rpx',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#8B5B19', fontSize: '22rpx', fontWeight: 600 }}>{label}</Text>
+              </View>
+              <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx' }}>包{duration === '12个月' ? '年' : duration === '3个月' ? '季' : '月'}</Text>
+              <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '42rpx', fontWeight: 700, lineHeight: '58rpx', marginTop: '8rpx' }}>
+                {duration}
+              </Text>
+              <Text style={{ display: 'block', color: LANHU_GOLD, fontSize: '28rpx', fontWeight: 700, marginTop: '8rpx' }}>
+                ¥{pricePerMonth}/月
+              </Text>
+              <Text style={{ display: 'block', color: '#9C9C9C', fontSize: '22rpx', textDecoration: 'line-through', marginTop: '8rpx' }}>
+                ¥{plan.originalPrice}.00
+              </Text>
+            </View>
+          )
+        })}
+      </View>
+    </ScrollView>
+  )
+}
+
+function BenefitTitle() {
+  return (
+    <View style={{ height: '98rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: LANHU_GOLD, fontSize: '42rpx', marginRight: '20rpx' }}>⌁</Text>
+      <Text style={{ color: LANHU_GOLD, fontSize: '30rpx', fontWeight: 700 }}>VIP特权</Text>
+      <Text style={{ color: LANHU_GOLD, fontSize: '42rpx', marginLeft: '20rpx' }}>⌁</Text>
+    </View>
+  )
+}
+
+function BenefitCard({
+  icon,
+  title,
+  value,
+  desc,
+}: {
+  icon: string
+  title: string
+  value: string
+  desc: string
+}) {
+  return (
+    <View
+      style={{
+        width: '700rpx',
+        height: '168rpx',
+        borderRadius: '12rpx',
+        background: '#22201F',
+        marginBottom: '20rpx',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: '0 36rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <View style={{ width: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '26rpx' }}>
+        <Text style={{ color: '#C4913F', fontSize: icon === 'yo' ? '42rpx' : '58rpx', fontWeight: icon === 'yo' ? 700 : 400 }}>
+          {icon}
+        </Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: '#C4913F', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
+          {title}
+        </Text>
+        {value && (
+          <Text style={{ color: LANHU_GOLD, fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
+            {value}
+          </Text>
+        )}
+        <Text style={{ display: 'block', color: '#9B7847', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '10rpx' }}>
+          {desc}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+function PayBar({
+  plan,
+  loading,
+  status,
+  onPay,
+}: {
+  plan?: MembershipPlan
+  loading: boolean
+  status: MemberStatus
+  onPay: () => void
+}) {
+  const buttonText = status === 'active' ? '立即续费' : '立即开通'
+  const price = plan?.duration && plan.duration >= 365 ? '568.00' : plan?.price?.toFixed(2) ?? '568.00'
+
+  return (
+    <View
+      style={{
+        position: 'fixed',
+        left: '0',
+        right: '0',
+        bottom: '0',
+        minHeight: '236rpx',
+        borderRadius: '12rpx 12rpx 0 0',
+        background: '#FFFFFF',
+        padding: '40rpx 25rpx calc(30rpx + env(safe-area-inset-bottom))',
+        boxSizing: 'border-box',
+        zIndex: 20,
+      }}
+    >
+      <View
+        style={{
+          height: '98rpx',
+          borderRadius: '49rpx',
+          background: '#211D1E',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingLeft: '32rpx',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
         }}
       >
-        <View className="flex flex-row items-center justify-between mb-[8px]">
-          {/* 价格 */}
-          <View className="flex flex-row items-baseline">
-            <Text
-              className="font-bold"
-              style={{ fontSize: '22px', color: '#FFC969' }}
-            >
-              ¥{activePlan?.price ?? '---'}
-            </Text>
-            <Text style={{ fontSize: '12px', color: '#888', marginLeft: '4px' }}>
-              /{activePlan?.durationLabel ?? ''}
-            </Text>
-          </View>
-          {/* 支付按钮 */}
-          <View
-            className="rounded-[24px] flex items-center justify-center"
-            style={{
-              background: '#FFC969',
-              opacity: payLoading ? 0.7 : 1,
-              paddingTop: '12px',
-              paddingBottom: '12px',
-              paddingLeft: '40px',
-              paddingRight: '40px',
-            }}
-            onClick={handlePay}
-          >
-            <Text
-              className="font-semibold"
-              style={{ fontSize: '15px', color: '#151515' }}
-            >
-              {payLoading ? '开通中...' : '立即开通'}
-            </Text>
-          </View>
+        <Text style={{ color: LANHU_GOLD, fontSize: '30rpx', fontWeight: 700 }}>¥{price}/包年</Text>
+        <View
+          style={{
+            width: '248rpx',
+            height: '98rpx',
+            borderRadius: '49rpx',
+            background: LANHU_GOLD,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: loading ? 0.72 : 1,
+          }}
+          onClick={onPay}
+        >
+          <Text style={{ color: '#211D1E', fontSize: '34rpx', fontWeight: 700 }}>{loading ? '开通中...' : buttonText}</Text>
         </View>
-        {/* 协议 */}
-        <View className="flex flex-row items-center">
-          <View
-            className="rounded-full border flex-shrink-0 mr-[6px]"
-            style={{
-              width: '14px',
-              height: '14px',
-              borderColor: '#666',
-              borderWidth: '1px',
-            }}
-          />
-          <Text style={{ fontSize: '11px', color: '#666' }}>阅读并同意</Text>
-          <Text style={{ fontSize: '11px', color: '#2876FF' }}>
-            《时空邂逅会员服务协议》
-          </Text>
-        </View>
+      </View>
+      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '30rpx' }}>
+        <View style={{ width: '28rpx', height: '28rpx', borderRadius: '14rpx', border: '1rpx solid #C4913F', marginRight: '12rpx' }} />
+        <Text style={{ color: '#666666', fontSize: '24rpx' }}>阅读并同意</Text>
+        <Text style={{ color: '#C4913F', fontSize: '24rpx' }}>《时空邂逅会员服务协议》</Text>
       </View>
     </View>
   )

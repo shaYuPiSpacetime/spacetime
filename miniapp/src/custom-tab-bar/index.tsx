@@ -6,9 +6,14 @@ import AppTabBar, { type TabKey } from '@/components/AppTabBar'
 const PATH_TO_TAB: Record<string, TabKey> = {
   'pages/index/index': 'index',
   'pages/community/index': 'community',
-  'pages/assessment/index': 'assessment',
+  'pages/recommend/index': 'recommend',
   'pages/chat/index': 'chat',
   'pages/profile/index': 'profile',
+}
+
+function getCurrentRoute() {
+  const pages = Taro.getCurrentPages()
+  return pages.length > 0 ? pages[pages.length - 1]?.route ?? '' : ''
 }
 
 /**
@@ -23,13 +28,10 @@ export default function CustomTabBar() {
 
   /** 根据当前页面路径推导激活 Tab */
   const updateActiveTab = () => {
-    const pages = Taro.getCurrentPages()
-    if (pages.length > 0) {
-      const route: string | undefined = pages[pages.length - 1]?.route
-      if (route) {
-        const key = PATH_TO_TAB[route]
-        if (key) setActiveKey(key)
-      }
+    const route = getCurrentRoute()
+    if (route) {
+      const key = PATH_TO_TAB[route]
+      if (key) setActiveKey(key)
     }
   }
 

@@ -6,6 +6,8 @@ export default {
     'pages/chat/index',
     'pages/profile/index',
     'pages/index/index',
+    'pages/recommend/index',
+    'pages/recommend/post',
     'pages/profile/edit',
     'pages/featured/index',
     'pages/membership/index',
@@ -15,7 +17,18 @@ export default {
     'pages/login/gender',
     'pages/login/education',
     'pages/login/address',
-    'pages/login/age'
+    'pages/login/age',
+    'pages/verification/basic',
+    'pages/verification/height-weight',
+    'pages/verification/hometown',
+    'pages/verification/career',
+    'pages/verification/income',
+    'pages/verification/avatar',
+    'pages/verification/avatar-album',
+    'pages/verification/avatar-crop',
+    'pages/verification/avatar-review',
+    'pages/verification/intro',
+    'pages/verification/intro-edit'
   ],
   window: {
     backgroundTextStyle: 'light',
@@ -43,10 +56,10 @@ export default {
         selectedIconPath: 'assets/icons/tab-community-active.png'
       },
       {
-        pagePath: 'pages/assessment/index',
+        pagePath: 'pages/recommend/index',
         text: '推荐',
-        iconPath: 'assets/icons/tab-assessment.png',
-        selectedIconPath: 'assets/icons/tab-assessment-active.png'
+        iconPath: 'assets/icons/tab-recommend.png',
+        selectedIconPath: 'assets/icons/tab-recommend.png'
       },
       {
         pagePath: 'pages/chat/index',
