@@ -5,6 +5,7 @@
 .idea
 .waylog
 .gstack/
+.runtime/
 
 # Playwright
 node_modules/
