@@ -7,10 +7,10 @@ import bg from '@/assets/lanhu/verification/verification-bg.png'
 export type VerificationStage = 'basic' | 'avatar' | 'intro' | 'triple'
 
 const STAGES: Array<{ key: VerificationStage; label: string; left: string; dot: string }> = [
-  { key: 'basic', label: '基本资料', left: '60rpx', dot: '92rpx' },
-  { key: 'avatar', label: '添加头像', left: '230rpx', dot: '262rpx' },
-  { key: 'intro', label: '自我介绍', left: '420rpx', dot: '432rpx' },
-  { key: 'triple', label: '三重认证', left: '590rpx', dot: '602rpx' },
+  { key: 'basic', label: '基本资料', left: '42rpx', dot: '92rpx' },
+  { key: 'avatar', label: '添加头像', left: '212rpx', dot: '262rpx' },
+  { key: 'intro', label: '自我介绍', left: '382rpx', dot: '432rpx' },
+  { key: 'triple', label: '三重认证', left: '552rpx', dot: '602rpx' },
 ]
 
 interface VerificationShellProps {
@@ -103,10 +103,18 @@ export default function VerificationShell({
 }
 
 function Header({ onBack }: { onBack: () => void }) {
+  const menu = Taro.getMenuButtonBoundingClientRect?.()
+  const system = Taro.getSystemInfoSync()
+  const scale = system.windowWidth ? 750 / system.windowWidth : 2
+  const top = menu ? `${menu.top * scale}rpx` : '88rpx'
+  const height = menu ? `${menu.height * scale}rpx` : '64rpx'
+  const arrowTop = menu ? `${((menu.height * scale) - 28) / 2}rpx` : '14rpx'
+  const titleTop = menu ? `${menu.top * scale + ((menu.height * scale) - 45) / 2}rpx` : '96rpx'
+
   return (
     <View style={{ position: 'relative', width: '750rpx', height: '176rpx' }}>
       <View
-        style={{ position: 'absolute', left: '20rpx', top: '92rpx', width: '56rpx', height: '56rpx', zIndex: 10 }}
+        style={{ position: 'absolute', left: '20rpx', top, width: '56rpx', height, zIndex: 10 }}
         onClick={onBack}
         hoverClass="btn-hover"
       >
@@ -114,9 +122,9 @@ function Header({ onBack }: { onBack: () => void }) {
           style={{
             position: 'absolute',
             left: '14rpx',
-            top: '7rpx',
-            width: '30rpx',
-            height: '30rpx',
+            top: arrowTop,
+            width: '28rpx',
+            height: '28rpx',
             borderLeft: '5rpx solid #697E9C',
             borderBottom: '5rpx solid #697E9C',
             transform: 'rotate(45deg)',
@@ -127,7 +135,7 @@ function Header({ onBack }: { onBack: () => void }) {
         style={{
           position: 'absolute',
           left: '0',
-          top: '96rpx',
+          top: titleTop,
           width: '750rpx',
           color: '#0C285A',
           fontSize: '32rpx',
@@ -145,10 +153,10 @@ function Header({ onBack }: { onBack: () => void }) {
 function IntroBlock() {
   return (
     <View style={{ position: 'absolute', left: '25rpx', top: '224rpx', width: '700rpx' }}>
-      <Text style={{ display: 'block', color: '#0C285A', fontSize: '40rpx', fontWeight: 800, lineHeight: '56rpx' }}>
+      <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 800, lineHeight: '67rpx' }}>
         完善资料和认证
       </Text>
-      <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '18rpx' }}>
+      <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '16rpx' }}>
         时空邂逅是一个严肃、靠谱的交友平台，请认真填写资料
       </Text>
     </View>
@@ -174,26 +182,27 @@ function Progress({ stage }: { stage: VerificationStage }) {
       {STAGES.map((item, index) => {
         const isActive = item.key === stage
         return (
-          <View key={item.key} style={{ position: 'absolute', left: item.left, top: '34rpx', textAlign: 'center' }}>
+          <View key={item.key} style={{ position: 'absolute', left: item.left, top: '34rpx', width: '120rpx', textAlign: 'center' }}>
             <View
               style={{
                 height: '40rpx',
                 borderRadius: '20rpx',
                 background: isActive ? '#2876FF' : 'transparent',
-                padding: '0 16rpx',
+                padding: '0 10rpx',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxSizing: 'border-box',
               }}
             >
-              <Text style={{ color: isActive ? '#FFFFFF' : '#999999', fontSize: '25rpx', lineHeight: '36rpx' }}>
+              <Text style={{ color: isActive ? '#FFFFFF' : '#999999', fontSize: '25rpx', lineHeight: '36rpx', whiteSpace: 'nowrap' }}>
                 {item.label}
               </Text>
             </View>
             {isActive && (
               <View
                 style={{
-                  marginLeft: '48rpx',
+                  marginLeft: '52rpx',
                   width: '0',
                   height: '0',
                   borderLeft: '8rpx solid transparent',
@@ -281,7 +290,6 @@ export function FieldRow({
         alignItems: 'center',
       }}
       onClick={onClick}
-      hoverClass={onClick ? 'btn-hover' : undefined}
     >
       <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx', width: '190rpx' }}>{label}</Text>
       <View style={{ flex: 1, textAlign: 'right' }}>

@@ -15,7 +15,7 @@ export default function VerificationAvatarCropPage() {
       avatarLocalPath: avatar,
       avatarReviewStatus: 'pending',
     })
-    Taro.navigateTo({ url: '/pages/verification/avatar-review' })
+    Taro.redirectTo({ url: '/pages/verification/avatar-review' })
   }
 
   return (
@@ -79,7 +79,7 @@ export default function VerificationAvatarCropPage() {
           fontWeight: 700,
           lineHeight: '40rpx',
         }}
-        onClick={() => Taro.navigateBack()}
+        onClick={() => Taro.redirectTo({ url: '/pages/verification/avatar' })}
       >
         取消
       </Text>

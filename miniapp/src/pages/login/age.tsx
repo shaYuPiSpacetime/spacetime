@@ -35,9 +35,11 @@ export default function LoginAgePage() {
     const birthdayPassed =
       now.getMonth() + 1 > value[1] + 1 ||
       (now.getMonth() + 1 === value[1] + 1 && now.getDate() >= value[2] + 1)
-    updateUserInfo({ age: now.getFullYear() - year - (birthdayPassed ? 0 : 1) })
+    const month = String(value[1] + 1).padStart(2, '0')
+    const day = String(value[2] + 1).padStart(2, '0')
+    updateUserInfo({ age: now.getFullYear() - year - (birthdayPassed ? 0 : 1), birthday: `${year}/${month}/${day}` })
     setStep('education')
-    Taro.navigateTo({ url: '/pages/login/education' }).catch(() => {
+    Taro.redirectTo({ url: '/pages/login/education' }).catch(() => {
       Taro.showToast({ title: '跳转失败，请重试', icon: 'none' })
     })
   }

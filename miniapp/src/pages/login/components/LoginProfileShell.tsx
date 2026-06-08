@@ -22,7 +22,7 @@ function handleBack() {
   if (pages.length > 1) {
     Taro.navigateBack()
   } else {
-    Taro.navigateTo({ url: '/pages/login/index' })
+    Taro.redirectTo({ url: '/pages/login/index' })
   }
 }
 

@@ -1,7 +1,7 @@
 import { PropsWithChildren } from 'react'
 import Taro, { useLaunch } from '@tarojs/taro'
 import { useAuthStore } from './stores/authStore'
-import { TOKEN_KEY } from './constants/config'
+import { MOCK_ENABLED, TOKEN_KEY } from './constants/config'
 
 import './app.scss'
 
@@ -9,6 +9,12 @@ function App({ children }: PropsWithChildren<object>) {
   const { checkLogin } = useAuthStore()
 
   useLaunch(() => {
+    if (MOCK_ENABLED) {
+      // Mock 阶段不做启动未登录拦截，便于直接验收登录/认证流程页。
+      checkLogin()
+      return
+    }
+
     // 小程序启动时检查本地登录态
     const token = Taro.getStorageSync(TOKEN_KEY)
     if (!token) {

@@ -1,5 +1,6 @@
 export default {
   pages: [
+    'pages/verification/triple',
     'pages/login/index',
     'pages/community/index',
     'pages/assessment/index',
@@ -28,7 +29,13 @@ export default {
     'pages/verification/avatar-crop',
     'pages/verification/avatar-review',
     'pages/verification/intro',
-    'pages/verification/intro-edit'
+    'pages/verification/intro-edit',
+    'pages/verification/real-name',
+    'pages/verification/education-student',
+    'pages/verification/education-mainland',
+    'pages/verification/education-chsi-help',
+    'pages/verification/education-diploma-no',
+    'pages/verification/education-certificate-upload'
   ],
   window: {
     backgroundTextStyle: 'light',

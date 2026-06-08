@@ -15,7 +15,7 @@ export default function LoginGenderPage() {
     if (!selected) return Taro.showToast({ title: '请选择性别', icon: 'none' })
     updateUserInfo({ gender: selected })
     setStep('age')
-    await Taro.navigateTo({ url: '/pages/login/age' })
+    await Taro.redirectTo({ url: '/pages/login/age' })
   }
 
   return (

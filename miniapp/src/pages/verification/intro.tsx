@@ -8,7 +8,8 @@ export default function VerificationIntroPage() {
       stage="intro"
       primaryText="下一步"
       primaryActive={false}
-      onPrimary={() => Taro.navigateTo({ url: '/pages/verification/intro-edit' })}
+      onPrimary={() => Taro.redirectTo({ url: '/pages/verification/intro-edit' })}
+      onBack={() => Taro.redirectTo({ url: '/pages/verification/avatar-review' })}
     >
       <View
         style={{
@@ -22,7 +23,7 @@ export default function VerificationIntroPage() {
           padding: '52rpx 30rpx',
           boxSizing: 'border-box',
         }}
-        onClick={() => Taro.navigateTo({ url: '/pages/verification/intro-edit' })}
+        onClick={() => Taro.redirectTo({ url: '/pages/verification/intro-edit' })}
         hoverClass="btn-hover"
       >
         <Text style={{ display: 'block', color: '#0C285A', fontSize: '30rpx', fontWeight: 800, lineHeight: '42rpx' }}>

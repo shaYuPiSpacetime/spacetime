@@ -1,27 +1,35 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { useState } from 'react'
 import VerificationShell from './components/VerificationShell'
+import AvatarRuleBubbles from './components/AvatarRuleBubbles'
+import { chooseAndCropAvatar } from '@/utils/avatar'
 import goodAvatar from '@/assets/lanhu/verification/avatar-good.png'
 import badAvatar from '@/assets/lanhu/verification/avatar-bad.png'
 
 export default function VerificationAvatarAlbumPage() {
+  const [choosing, setChoosing] = useState(false)
+
   const handleChoose = async () => {
+    if (choosing) return
+    setChoosing(true)
     try {
-      const res = await Taro.chooseImage({ count: 1 })
-      const path = res.tempFilePaths[0]
-      if (!path) return
-      Taro.navigateTo({ url: `/pages/verification/avatar-crop?path=${encodeURIComponent(path)}` })
+      const avatarPath = await chooseAndCropAvatar()
+      if (!avatarPath) return
+      await Taro.redirectTo({ url: `/pages/verification/avatar-crop?path=${encodeURIComponent(avatarPath)}` })
     } catch {
       Taro.showToast({ title: '已取消选择', icon: 'none' })
+    } finally {
+      setChoosing(false)
     }
   }
 
   return (
-    <VerificationShell stage="avatar" primaryText="知道了，去选照片" onPrimary={handleChoose}>
+    <VerificationShell stage="avatar" primaryText={choosing ? '正在打开相册' : '知道了，去选照片'} onPrimary={handleChoose}>
       <AvatarGuide dimmed />
       <View
         style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.32)', zIndex: 20 }}
-        onClick={() => Taro.navigateBack()}
+        onClick={() => Taro.redirectTo({ url: '/pages/verification/avatar' })}
       >
         <View
           style={{
@@ -45,7 +53,7 @@ export default function VerificationAvatarAlbumPage() {
           <View style={{ height: '16rpx', background: '#F0F4FA' }} />
           <View
             style={{ height: '100rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => Taro.navigateBack()}
+            onClick={() => Taro.redirectTo({ url: '/pages/verification/avatar' })}
             hoverClass="btn-hover"
           >
             <Text style={{ color: '#999999', fontSize: '30rpx', lineHeight: '42rpx' }}>取消</Text>
@@ -95,28 +103,7 @@ function AvatarGuide({ dimmed = false }: { dimmed?: boolean }) {
         >
           <Text style={{ color: '#FFFFFF', fontSize: '62rpx', lineHeight: '74rpx' }}>✓</Text>
         </View>
-        <View style={{ position: 'absolute', left: '346rpx', top: '44rpx' }}>
-          {['本人照片', '能看清长相', '展示完美的你'].map((item, index) => (
-            <View
-              key={item}
-              style={{
-                position: 'absolute',
-                left: '0',
-                top: `${index * 94}rpx`,
-                height: '58rpx',
-                borderRadius: '29rpx',
-                background: '#EAF4FF',
-                padding: '0 24rpx',
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: '25rpx', lineHeight: '34rpx', marginRight: '10rpx' }}>☺</Text>
-              <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx' }}>{item}</Text>
-            </View>
-          ))}
-        </View>
+        <AvatarRuleBubbles />
       </View>
       <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '72rpx' }}>
         以下照片不能通过审核

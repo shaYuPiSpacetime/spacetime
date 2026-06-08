@@ -34,7 +34,7 @@ export default function BasicPickerPage({ kind }: BasicPickerPageProps) {
   }
 
   return (
-    <VerificationShell stage="basic" primaryText="继续认证" onPrimary={() => Taro.navigateTo({ url: '/pages/verification/avatar' })} scroll>
+    <VerificationShell stage="basic" primaryText="继续认证" onPrimary={() => Taro.redirectTo({ url: '/pages/verification/avatar' })} scroll>
       <BasicInfoCard userInfo={userInfo} />
       <BottomPicker title={pickerTitle(kind)} onConfirm={handleConfirm} onClose={() => Taro.navigateBack()}>
         {kind === 'height-weight' ? (
@@ -85,7 +85,6 @@ function PickerLine({ label, value }: { label: string; value: string }) {
         flexDirection: 'row',
         alignItems: 'center',
       }}
-      hoverClass="btn-hover"
     >
       <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{label}</Text>
       <View style={{ flex: 1, textAlign: 'right' }}>

@@ -18,7 +18,7 @@ export default function LoginEducationPage() {
     if (!selected) return Taro.showToast({ title: '请选择学历', icon: 'none' })
     updateUserInfo({ education: selected })
     setStep('address')
-    await Taro.navigateTo({ url: '/pages/login/address' })
+    await Taro.redirectTo({ url: '/pages/login/address' })
   }
 
   return (

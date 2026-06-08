@@ -1,4 +1,5 @@
 import { Text, Textarea, View } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import VerificationShell from './components/VerificationShell'
@@ -7,18 +8,24 @@ const DEFAULT_INTRO =
   '这里是个人的自我介绍，我是一个好人，这里是个人的自我介绍，我是一个好人，这里是个人的自我介绍，我是一个好人，这里是个人的自我介绍，我是一个好人，这里是个人的自我介绍，我是一个好人。'
 
 export default function VerificationIntroEditPage() {
-  const { userInfo, updateUserInfo, submit } = useLogin()
+  const { userInfo, updateUserInfo } = useLogin()
   const [intro, setIntro] = useState(userInfo.introduction || DEFAULT_INTRO)
   const canSubmit = intro.trim().length >= 20
 
   const handleSubmit = () => {
     if (!canSubmit) return
     updateUserInfo({ introduction: intro.trim() })
-    submit()
+    Taro.redirectTo({ url: '/pages/verification/triple' })
   }
 
   return (
-    <VerificationShell stage="intro" primaryText="下一步" primaryActive={canSubmit} onPrimary={handleSubmit}>
+    <VerificationShell
+      stage="intro"
+      primaryText="下一步"
+      primaryActive={canSubmit}
+      onPrimary={handleSubmit}
+      onBack={() => Taro.redirectTo({ url: '/pages/verification/intro' })}
+    >
       <View
         style={{
           position: 'absolute',

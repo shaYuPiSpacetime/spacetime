@@ -55,7 +55,7 @@ export default function LoginAuthPage() {
     try {
       updateUserInfo({ avatar: '', nickname: '微信用户' })
       setStep('gender')
-      await Taro.navigateTo({ url: '/pages/login/gender' })
+      await Taro.redirectTo({ url: '/pages/login/gender' })
     } catch {
       Taro.showToast({ title: '启动失败，请重试', icon: 'none' })
     } finally {

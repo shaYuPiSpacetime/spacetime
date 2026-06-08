@@ -9,7 +9,11 @@ export default function VerificationAvatarReviewPage() {
   const avatar = userInfo.avatarLocalPath || userInfo.avatar || fallbackAvatar
 
   return (
-    <VerificationShell stage="avatar" onPrimary={() => Taro.navigateTo({ url: '/pages/verification/intro' })}>
+    <VerificationShell
+      stage="avatar"
+      onPrimary={() => Taro.redirectTo({ url: '/pages/verification/intro' })}
+      onBack={() => Taro.redirectTo({ url: '/pages/verification/avatar' })}
+    >
       <View
         style={{
           position: 'absolute',

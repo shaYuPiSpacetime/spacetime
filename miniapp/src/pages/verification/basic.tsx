@@ -22,7 +22,7 @@ export default function VerificationBasicPage() {
     <VerificationShell
       stage="basic"
       primaryText="继续认证"
-      onPrimary={() => Taro.navigateTo({ url: '/pages/verification/avatar' })}
+      onPrimary={() => Taro.redirectTo({ url: '/pages/verification/avatar' })}
       onBack={handleBack}
       scroll
     >

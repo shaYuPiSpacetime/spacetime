@@ -19,7 +19,7 @@ export default function LoginAddressPage() {
   const handleNext = () => {
     if (!selected) return Taro.showToast({ title: '请选择居住地', icon: 'none' })
     setStep('verification')
-    Taro.navigateTo({ url: '/pages/verification/basic' }).catch(() => {
+    Taro.redirectTo({ url: '/pages/verification/basic' }).catch(() => {
       Taro.showToast({ title: '跳转失败，请重试', icon: 'none' })
     })
   }

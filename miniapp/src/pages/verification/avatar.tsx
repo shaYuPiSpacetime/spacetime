@@ -1,15 +1,38 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { useState } from 'react'
 import VerificationShell from './components/VerificationShell'
+import AvatarRuleBubbles from './components/AvatarRuleBubbles'
+import { chooseAndCropAvatar } from '@/utils/avatar'
 import goodAvatar from '@/assets/lanhu/verification/avatar-good.png'
 import badAvatar from '@/assets/lanhu/verification/avatar-bad.png'
 
-const RULES = ['本人照片', '能看清长相', '展示完美的你']
 const BAD_CASES = ['非人物照', '风景照', '模糊遮挡', '无正脸']
 
 export default function VerificationAvatarPage() {
+  const [choosing, setChoosing] = useState(false)
+
+  const handleChoose = async () => {
+    if (choosing) return
+    setChoosing(true)
+    try {
+      const avatarPath = await chooseAndCropAvatar()
+      if (!avatarPath) return
+      await Taro.redirectTo({ url: `/pages/verification/avatar-crop?path=${encodeURIComponent(avatarPath)}` })
+    } catch {
+      Taro.showToast({ title: '已取消选择', icon: 'none' })
+    } finally {
+      setChoosing(false)
+    }
+  }
+
   return (
-    <VerificationShell stage="avatar" primaryText="知道了，去选照片" onPrimary={() => Taro.navigateTo({ url: '/pages/verification/avatar-album' })}>
+    <VerificationShell
+      stage="avatar"
+      primaryText={choosing ? '正在打开相册' : '知道了，去选照片'}
+      onPrimary={handleChoose}
+      onBack={() => Taro.redirectTo({ url: '/pages/verification/basic' })}
+    >
       <View
         style={{
           position: 'absolute',
@@ -46,11 +69,7 @@ export default function VerificationAvatarPage() {
           >
             <Text style={{ color: '#FFFFFF', fontSize: '62rpx', lineHeight: '74rpx' }}>✓</Text>
           </View>
-          <View style={{ position: 'absolute', left: '346rpx', top: '44rpx' }}>
-            {RULES.map((item, index) => (
-              <RuleBubble key={item} text={item} top={`${index * 94}rpx`} />
-            ))}
-          </View>
+          <AvatarRuleBubbles />
         </View>
         <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '72rpx' }}>
           以下照片不能通过审核
@@ -77,27 +96,5 @@ export default function VerificationAvatarPage() {
         </View>
       </View>
     </VerificationShell>
-  )
-}
-
-function RuleBubble({ text, top }: { text: string; top: string }) {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        left: '0',
-        top,
-        height: '58rpx',
-        borderRadius: '29rpx',
-        background: '#EAF4FF',
-        padding: '0 24rpx',
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}
-    >
-      <Text style={{ fontSize: '25rpx', lineHeight: '34rpx', marginRight: '10rpx' }}>☺</Text>
-      <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx' }}>{text}</Text>
-    </View>
   )
 }
