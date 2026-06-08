@@ -820,3 +820,43 @@ miniapp/
 - 看到 `display: 'flex'` 下面有 `Text` → 换成 `View`
 
 > **⚠️ Code Review 看到 flex 容器里用 Text 做布局就直接打回。**
+
+### 10.9 Mock 服务规范
+
+小程序在未接后端时可使用 Mock 模式独立运行，所有 API 调用通过全局开关控制。
+
+**全局开关：** `src/constants/config.ts` 中的 `MOCK_ENABLED`
+
+```typescript
+/** 全局 Mock 开关：true=使用 Mock 数据不请求后端，false=正常请求后端 */
+export const MOCK_ENABLED = true
+```
+
+**Mock 实现规则：**
+
+1. 每个 service 函数在入口处检查 `MOCK_ENABLED`，为 `true` 时直接返回 Mock 数据，不发起网络请求
+2. Mock 数据必须与后端约定的响应结构完全一致（类型标注复用 `types/` 中的接口）
+3. Mock 成功时调用 `Taro.showToast` 给用户反馈，模拟真实交互体验
+4. Mock 数据集中定义在 service 文件顶部，标注 `// ==================== Mock 数据 ====================`
+
+**示例（`services/verification.ts`）：**
+
+```typescript
+import { MOCK_ENABLED } from '@/constants/config'
+
+export async function submitRealName(data: RealNameSubmitReq): Promise<VerificationStatusVO> {
+  if (MOCK_ENABLED) {
+    Taro.showToast({ title: '实名认证提交成功', icon: 'success' })
+    return { realNameStatus: 'APPROVED', verifyLevel: 1, unlockMateRecommend: true }
+  }
+  return post<VerificationStatusVO>('/miniapp/verify/real-name', data)
+}
+```
+
+**对接后端时：** 只需将 `MOCK_ENABLED` 改为 `false`，无需修改任何 service 代码。
+
+**Code Review 检查项：**
+
+- [ ] 新增 API 接口是否已添加 Mock 分支
+- [ ] Mock 返回数据结构是否与 `types/` 类型定义一致
+- [ ] Mock 模式下是否仍残留真实网络请求调用

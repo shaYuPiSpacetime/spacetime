@@ -2295,4 +2295,124 @@ Controller 统一返回 `R<T>`：
 | 字段 | 枚举值 | 说明 |
 | --- | --- | --- |
 | `interactionGateMode` | `LOGIN_ONLY` | 仅需登录（当前默认，PRD-01 未落地时的降级模式） |
-| `interactionGateMode` | `FULL_CERT` | 需三项认证全部通过（依赖 PRD-01 认证模块）
+| `interactionGateMode` | `FULL_CERT` | 需三项认证全部通过（依赖 PRD-01 认证模块） |
+
+## 15. 用户认证
+
+本章节对应 PRD-01 认证模块，覆盖实名认证、学历认证、头像认证的提交接口。**所有接口均需登录态。**
+
+### 15.1 认证状态查询
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/verify/status`     |
+| Method | `GET`                        |
+| Auth   | 登录态                       |
+| Query  | 无                           |
+
+响应字段：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "realNameStatus": "APPROVED",
+    "realNameRejectReason": null,
+    "educationStatus": "PENDING",
+    "educationRejectReason": null,
+    "avatarVerifyStatus": "NONE",
+    "avatarVerifyRejectReason": null,
+    "profilePhotoAuditStatus": null,
+    "openTextAuditStatus": null,
+    "verifyLevel": 1,
+    "unlockMateRecommend": true
+  }
+}
+```
+
+说明：
+- `realNameStatus` / `educationStatus` / `avatarVerifyStatus` 取值：`NONE`（未提交）/ `PENDING`（审核中）/ `APPROVED`（已通过）/ `REJECTED`（已驳回）
+- `verifyLevel` 为已通过认证项数量（0-3）
+- `unlockMateRecommend` 实名认证通过后为 `true`
+
+### 15.2 提交实名认证
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/verify/real-name`  |
+| Method | `POST`                       |
+| Auth   | 登录态                       |
+| Body   | `RealNameSubmitReq`          |
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `realName` | String | 是 | 真实姓名 |
+| `idCard` | String | 是 | 18 位身份证号 |
+
+请求示例：
+
+```json
+{
+  "realName": "张三",
+  "idCard": "110101199003076633"
+}
+```
+
+响应字段同 15.1 认证状态查询。
+
+Mock 模式下（`MOCK_ENABLED=true`）：直接返回 `realNameStatus: "APPROVED"`，不请求后端。
+
+### 15.3 提交学历认证
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/verify/education`  |
+| Method | `POST`                       |
+| Auth   | 登录态                       |
+| Body   | `EducationSubmitReq`         |
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `educationMethod` | String | 是 | 认证方式：`CHSI`（学信网）/ `ONLINE_CODE`（在线验证码）/ `DIPLOMA_NO`（证书编号） |
+| `verificationCode` | String | 否 | 在线验证码（`ONLINE_CODE` 时必填） |
+| `diplomaNo` | String | 否 | 证书编号（`DIPLOMA_NO` 时必填） |
+
+请求示例：
+
+```json
+{
+  "educationMethod": "CHSI",
+  "verificationCode": ""
+}
+```
+
+响应字段同 15.1 认证状态查询。
+
+Mock 模式下：返回 `educationStatus: "PENDING"`（审核中）。
+
+### 15.4 提交头像认证
+
+| 项目   | 说明                         |
+| ------ | ---------------------------- |
+| Path   | `/miniapp/verify/avatar`     |
+| Method | `POST`                       |
+| Auth   | 登录态                       |
+| Body   | 无                           |
+
+说明：提交前需已上传头像，首版 mock 直接标记通过。
+
+响应字段同 15.1 认证状态查询。
+
+### 15.5 Mock 模式说明
+
+小程序在 `src/constants/config.ts` 中提供全局 Mock 开关 `MOCK_ENABLED`：
+
+- `true`（默认）：认证接口直接返回 Mock 数据，不请求后端，前端可独立完成全部认证流程
+- `false`：正常请求后端接口
+
+对接后端时只需将开关改为 `false`，无需修改 service 代码。
