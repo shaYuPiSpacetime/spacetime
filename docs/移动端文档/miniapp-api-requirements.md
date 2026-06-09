@@ -600,3 +600,639 @@ sequenceDiagram
 3. 优先修“登录真实 token -> 资料落库 -> 认证状态 -> 我的页真实资料”这条主链路。
 4. 商业化链路后端能力较完整，当前主要是前端路径、字段和 hook Mock 未替换。
 5. 推荐、觅缘、精选、测评、消息是体验主入口，但后端主接口缺口最多，必须明确排期或保留 Mock 标识。
+
+## 9. 接口全量合同：出入参与对接状态
+
+### 9.1 全局约定
+
+| 项目 | 约定 |
+| --- | --- |
+| Base URL | 本地按环境配置拼接，本文只写 path |
+| 登录态 Header | `X-Auth-Token: <token>` |
+| Content-Type | `application/json` |
+| 统一响应 | `{ "code": 200, "msg": "success", "data": T }` |
+| 分页响应 | MyBatis-Plus `Page<T>`：`records`、`total`、`size`、`current`、`pages` |
+| 时间字段 | 后端现有 `LocalDateTime` 或字符串；前端展示前统一格式化 |
+| 状态标记 | `已实现` 表示后端 Controller 当前存在；`前端需改` 表示当前小程序服务函数路径/字段不一致；`建议新增` 表示后端缺口 |
+
+### 9.2 登录与首登资料接口
+
+#### 9.2.1 微信登录
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端需改路径 |
+| Method | `POST` |
+| Path | `/miniapp/auth/wechat-login` |
+| Auth | 公开 |
+| 当前前端 | `POST /miniapp/login` |
+
+请求 `WechatLoginReq`：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `code` | string | 是 | `Taro.login()` / `wx.login()` 返回的临时 code |
+
+响应 `WechatLoginVO`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `token` | string | 小程序登录凭证，后续放入 `X-Auth-Token` |
+| `userId` | number | 当前用户 ID |
+| `firstLoginCompleted` | boolean | 是否已完成首登资料初始化 |
+
+前端适配：当前 `LoginVO` 还期望 `nickname/avatar`，但后端登录响应没有这两个字段；应登录成功后再调 `GET /miniapp/profile/home` 或 `GET /miniapp/profile/detail` 获取资料。
+
+#### 9.2.2 查询首登资料状态
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端未接 |
+| Method | `GET` |
+| Path | `/miniapp/profile/init-status` |
+| Auth | 登录态 |
+| Query | 无 |
+
+响应 `ProfileInitStatusVO`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `firstLoginCompleted` | boolean | 是否已完成首登 |
+| `currentStep` | number | 当前步骤，后端定义为 `1/2/3` |
+| `nextStep` | number/null | 下一步，已完成时为 null |
+| `savedFields` | `ProfileDetailVO` | 已保存资料字段 |
+
+#### 9.2.3 保存首登资料
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端未接 |
+| Method | `POST` |
+| Path | `/miniapp/profile/init-save` |
+| Auth | 登录态 |
+
+请求 `ProfileInitSaveReq`：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `step` | number | 是 | 当前步骤号 |
+| `nickname` | string | 否 | 昵称 |
+| `gender` | string | 否 | 性别 |
+| `birthday` | string | 否 | 出生日期，建议 `yyyy-MM-dd` |
+| `height` | number | 否 | 身高 cm |
+| `locationProvince` | string | 否 | 居住省 |
+| `locationCity` | string | 否 | 居住市 |
+| `locationDistrict` | string | 否 | 居住区县 |
+| `hometownProvince` | string | 否 | 家乡省 |
+| `hometownCity` | string | 否 | 家乡市 |
+| `school` | string | 否 | 学校 |
+| `major` | string | 否 | 专业 |
+| `educationLevel` | string | 否 | 最高学历 |
+| `emotionalStatus` | string | 否 | 感情状态 |
+| `datingGoal` | string | 否 | 脱单目标 |
+| `maritalStatus` | string | 否 | 婚姻状态 |
+| `avatar` | string | 否 | 头像 URL |
+| `aboutMe` | string | 否 | 关于我 |
+| `hopeTheyKnow` | string | 否 | 希望 TA 了解 |
+
+响应：`ProfileInitStatusVO`。
+
+#### 9.2.4 完成首登资料
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端未接 |
+| Method | `POST` |
+| Path | `/miniapp/profile/init-complete` |
+| Auth | 登录态 |
+| Body | 同 `ProfileInitSaveReq`，用于最后一步提交 |
+| Response | `ProfileDetailVO` |
+
+### 9.3 资料、我的页与认证接口
+
+#### 9.3.1 我的页聚合资料
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端未接 |
+| Method | `GET` |
+| Path | `/miniapp/profile/home` |
+| Auth | 登录态 |
+| 当前前端 | `useProfile` 纯 Mock；`services/user.ts` 调 `/miniapp/user/info` |
+
+响应 `MiniappProfileHomeVO`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `userId` | number | 用户 ID |
+| `nickname` | string | 昵称 |
+| `avatar` | string | 头像 URL |
+| `gender` | string | 性别 |
+| `age` | number | 年龄 |
+| `school` | string | 学校 |
+| `city` | string | 城市 |
+| `profileCompletion` | number | 资料完整度 |
+| `realNameStatus` | string | 实名认证状态 |
+| `avatarStatus` | string | 头像认证状态 |
+| `educationStatus` | string | 学历认证状态 |
+| `vipStatus` | string | VIP 状态 |
+| `coinBalance` | number | 成家币余额 |
+| `entries` | `MiniappEntryConfigVO[]` | 我的页动态入口配置 |
+
+前端还缺字段：`zodiac`、`likedCount`、`beLikedCount`、`visitorCount`、`boost` 相关字段。可由后端扩展 `profile/home`，或新增统计/曝光接口。
+
+#### 9.3.2 资料详情
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端编辑页未接 |
+| Method | `GET` |
+| Path | `/miniapp/profile/detail` |
+| Auth | 登录态 |
+
+响应 `ProfileDetailVO`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `userId` | number | 用户 ID |
+| `avatar` | string | 头像 |
+| `nickname` | string | 昵称 |
+| `gender` | string | 性别 |
+| `birthday` | string | 出生日期 |
+| `age` | number | 年龄 |
+| `height` | number | 身高 cm |
+| `locationProvince/locationCity/locationDistrict` | string | 居住地 |
+| `hometownProvince/hometownCity` | string | 家乡 |
+| `school` | string | 学校 |
+| `major` | string | 专业 |
+| `educationLevel` | string | 最高学历 |
+| `emotionalStatus` | string | 感情状态 |
+| `datingGoal` | string | 脱单目标 |
+| `maritalStatus` | string | 婚姻状态 |
+| `aboutMe` | string | 关于我 |
+| `hopeTheyKnow` | string | 希望 TA 了解 |
+| `voiceIntroUrl` | string | 语音介绍 URL |
+| `voiceIntroDuration` | number | 语音时长秒 |
+| `tags` | string | 标签 JSON |
+| `photos` | string | 相册 JSON |
+| `profileBgImage` | string | 资料页背景图 |
+| `mbtiType` | string | MBTI |
+| `zodiac` | string | 星座 |
+| `profileScore` | number | 资料完整度分 |
+| `firstLoginCompleted` | boolean | 是否完成首登 |
+| `accessStatus` | `AccessStatusVO` | 准入状态 |
+
+#### 9.3.3 编辑资料
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端编辑页未接 |
+| Method | `PATCH` |
+| Path | `/miniapp/profile` |
+| Auth | 登录态 |
+
+请求 `ProfileUpdateReq`：字段与 `ProfileDetailVO` 中可编辑字段一致，null 不更新；包括 `nickname/avatar/birthday/height/location*/hometown*/school/major/educationLevel/emotionalStatus/datingGoal/maritalStatus/aboutMe/hopeTheyKnow/voiceIntroUrl/voiceIntroDuration/mbtiType/profileBgImage`。
+
+响应：`ProfileDetailVO`。
+
+#### 9.3.4 准入状态
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端未接 |
+| Method | `GET` |
+| Path | `/miniapp/profile/access-status` |
+| Auth | 登录态 |
+
+响应 `AccessStatusVO`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `canBrowseCards` | boolean | 是否可浏览卡片 |
+| `canMatch` | boolean | 是否可匹配 |
+| `canBeExposed` | boolean | 是否可被曝光 |
+| `blockReason` | string/null | 阻断原因 |
+
+#### 9.3.5 认证状态
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端服务路径一致 |
+| Method | `GET` |
+| Path | `/miniapp/verify/status` |
+| Auth | 登录态 |
+
+响应 `VerificationStatusVO`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `realNameStatus` | string | 实名认证状态 |
+| `realNameRejectReason` | string | 实名驳回原因 |
+| `educationStatus` | string | 学历认证状态 |
+| `educationRejectReason` | string | 学历驳回原因 |
+| `avatarVerifyStatus` | string | 头像认证状态 |
+| `avatarVerifyRejectReason` | string | 头像驳回原因 |
+| `profilePhotoAuditStatus` | string | 照片审核状态 |
+| `openTextAuditStatus` | string | 文字审核状态 |
+| `verifyLevel` | number | 认证等级 0-3 |
+| `unlockMateRecommend` | boolean | 是否解锁配对推荐 |
+
+#### 9.3.6 提交实名认证
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端服务路径一致 |
+| Method | `POST` |
+| Path | `/miniapp/verify/real-name` |
+| Auth | 登录态 |
+
+请求 `RealNameSubmitReq`：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `realName` | string | 是 | 真实姓名 |
+| `idCard` | string | 是 | 18 位身份证号，后端有正则校验 |
+
+响应：`VerificationStatusVO`。
+
+#### 9.3.7 提交学历认证
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端服务路径一致 |
+| Method | `POST` |
+| Path | `/miniapp/verify/education` |
+| Auth | 登录态 |
+
+请求 `EducationSubmitReq`：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `educationMethod` | string | 是 | 认证方式，如 `CHSI`、`ONLINE_CODE`、`DIPLOMA_NO` |
+| `verificationCode` | string | 条件必填 | 学信网在线验证码 |
+| `diplomaNo` | string | 条件必填 | 毕业证/学位证书编号 |
+
+响应：`VerificationStatusVO`。
+
+#### 9.3.8 提交头像认证
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端服务存在但页面链路偏本地 |
+| Method | `POST` |
+| Path | `/miniapp/verify/avatar` |
+| Auth | 登录态 |
+| Body | 无 |
+| Response | `VerificationStatusVO` |
+
+#### 9.3.9 认证中心聚合
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端未接 |
+| Method | `GET` |
+| Path | `/miniapp/profile/certification-center` |
+| Auth | 登录态 |
+
+响应 `MiniappCertificationCenterVO`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `realNameStatus` | string | 实名认证状态 |
+| `avatarStatus` | string | 头像认证状态 |
+| `educationStatus` | string | 学历认证状态 |
+| `title` | string | 中心页标题/提示 |
+| `description` | string | 中心页说明 |
+
+### 9.4 成家/觅缘、精选、测评接口
+
+#### 9.4.1 觅缘推荐列表
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 建议新增；当前前端已有旧服务 `GET /miniapp/match/recommend` |
+| Method | `GET` |
+| Path | `/miniapp/match/recommend` |
+| Auth | 登录态 |
+
+Query：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `page` | number | 否 | 默认 1 |
+| `size` | number | 否 | 默认 10 |
+| `gender` | string | 否 | 筛选性别 |
+| `city` | string | 否 | 城市 |
+| `minAge/maxAge` | number | 否 | 年龄范围 |
+| `educationLevel` | string | 否 | 学历 |
+| `onlyVerified` | boolean | 否 | 是否只看认证用户 |
+
+响应 `Page<MatchUserCardVO>`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | number | 用户 ID |
+| `nickname` | string | 昵称 |
+| `avatar` | string | 头像 |
+| `age` | number | 年龄 |
+| `gender` | string | 性别 |
+| `school` | string | 学校 |
+| `educationLevel` | string | 学历 |
+| `city` | string | 城市 |
+| `height` | number | 身高 |
+| `zodiac` | string | 星座 |
+| `tags` | string[] | 标签 |
+| `distance` | string | 距离文案 |
+| `verifyLevel` | number | 认证等级 |
+| `profileCompletion` | number | 资料完整度 |
+| `photos` | string[] | 照片 |
+| `liked` | boolean | 当前用户是否已喜欢 |
+| `favorited` | boolean | 当前用户是否已收藏 |
+
+#### 9.4.2 觅缘互动
+
+| 接口 | 状态 | Method | Path | 请求 body | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| Yo 打招呼 | 建议新增 | `POST` | `/miniapp/match/yo` | `{ "targetUserId": 1002 }` | `{ "success": true, "remainCount": 2 }` |
+| 发送悄悄话 | 建议新增 | `POST` | `/miniapp/match/whisper` | `{ "targetUserId": 1002, "content": "你好呀" }` | `{ "messageId": 1, "coinCost": 0, "remainFreeCount": 0 }` |
+| 喜欢用户 | 建议新增 | `POST` | `/miniapp/match/like` | `{ "targetUserId": 1002 }` | `{ "liked": true, "isMatch": false }` |
+| 收藏用户 | 建议新增 | `POST` | `/miniapp/match/favorite` | `{ "targetUserId": 1002 }` | `{ "favorited": true }` |
+| 不喜欢/下一位 | 建议新增 | `POST` | `/miniapp/match/pass` | `{ "targetUserId": 1002 }` | `{ "success": true }` |
+
+认证/资料门槛：前端应先读 `GET /miniapp/profile/access-status` 和 `GET /miniapp/verify/status`，后端接口仍需在操作时二次校验。
+
+#### 9.4.3 精选嘉宾列表
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 建议新增；当前 `useFeatured` 纯 Mock |
+| Method | `GET` |
+| Path | `/miniapp/featured/list` |
+| Auth | 登录态 |
+
+Query：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `tab` | string | 否 | `test` 心印测试、`featured` 精选、`ideal` 理想型 |
+| `page` | number | 否 | 默认 1 |
+| `size` | number | 否 | 默认 10 |
+
+响应 `Page<FeaturedGuestVO>`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | number | 用户 ID |
+| `nickname` | string | 昵称 |
+| `avatar` | string | 头像 |
+| `age` | number | 年龄 |
+| `education` | string | 学历/学校展示 |
+| `location` | string | 城市 |
+| `height` | number | 身高 |
+| `photos` | string[] | 照片 |
+| `authStatus` | string | `none/single/double/triple` |
+| `isLocked` | boolean | 是否锁定 |
+| `unlockCost` | number | 解锁成家币 |
+| `tags` | string[] | 标签 |
+
+解锁复用：`POST /miniapp/asset/unlock`，`unlockScene` 建议传 `featured_profile`。
+
+#### 9.4.4 测评
+
+| 接口 | 状态 | Method | Path | 入参 | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 量表列表 | 建议新增；前端已有服务 | `GET` | `/miniapp/assessment/scales` | 无 | `ScaleVO[]` |
+| 量表题目 | 建议新增 | `GET` | `/miniapp/assessment/scales/{scaleId}/questions` | path `scaleId` | `QuestionVO[]` |
+| 提交测评 | 建议新增；前端已有服务 | `POST` | `/miniapp/assessment/submit` | `{ "scaleId": 1, "answers": [{ "questionId": 1, "optionId": 3 }] }` | `reportId: number` |
+| 测评报告 | 建议新增；前端已有服务 | `GET` | `/miniapp/assessment/report/{reportId}` | path `reportId` | `AssessmentReportVO` |
+
+`ScaleVO` 字段：`id/name/description/questionCount/duration/icon`。
+`AssessmentReportVO` 字段：`id/scaleName/score/resultLevel/resultText/dimensions/createTime`。
+
+### 9.5 商业化：VIP、成家币、支付、资产解锁
+
+#### 9.5.1 VIP 套餐列表
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端需改路径和字段 |
+| Method | `GET` |
+| Path | `/miniapp/vip/packages` |
+| Auth | 登录态 |
+| 当前前端 | `GET /miniapp/payment/vip/packages` |
+
+响应 `VipPackageVO[]`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | number | 套餐 ID |
+| `packageName` | string | 套餐名称 |
+| `packageType` | string | 套餐类型 |
+| `price` | number | 售价 |
+| `originPrice` | number | 原价 |
+| `durationDays` | number | 有效天数 |
+| `recommendFlag` | number | 是否推荐 |
+| `packageTag` | string | 标签 |
+
+#### 9.5.2 VIP 权益列表
+
+| 项目 | 内容 |
+| --- | --- |
+| 状态 | 已实现，前端未接 |
+| Method | `GET` |
+| Path | `/miniapp/vip/benefits` |
+| Auth | 登录态 |
+
+响应 `VipBenefitVO[]`：`id/benefitCode/benefitName/benefitType/benefitDesc/displayOrder`。
+
+#### 9.5.3 VIP 状态与订单
+
+| 接口 | 状态 | Method | Path | Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| VIP 状态 | 已实现，前端未接 | `GET` | `/miniapp/vip/status` | 无 | `{ vipStatus, vipExpireTime }` |
+| VIP 订单 | 已实现，前端未接 | `GET` | `/miniapp/vip/orders` | `page/size` 默认 1/10 | `Page<VipOrderVO>` |
+
+`VipOrderVO` 字段：`id/orderNo/packageName/payAmount/orderStatus/successTime/expireTime`。
+
+#### 9.5.4 成家币套餐、余额、流水
+
+| 接口 | 状态 | Method | Path | Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 成家币套餐 | 已实现，前端需改路径/字段 | `GET` | `/miniapp/coin/packages` | 无 | `CoinPackageVO[]` |
+| 成家币余额 | 已实现，前端未接 | `GET` | `/miniapp/coin/balance` | 无 | `{ coinBalance }` |
+| 成家币流水 | 已实现，前端未接 | `GET` | `/miniapp/coin/flows` | `page/size` 默认 1/10 | `Page<CoinFlowVO>` |
+
+`CoinPackageVO` 字段：`id/packageName/amount/coinCount/bonusCoinCount/recommendFlag/packageTag/packageDesc`。
+`CoinFlowVO` 字段：`id/flowNo/flowType/changeAmount/balanceAfter/bizScene/bizDesc/createTime`。
+
+前端字段映射：`amount <- coinCount`、`price <- amount`、`bonus <- bonusCoinCount`。
+
+#### 9.5.5 创建支付订单与模拟支付
+
+| 接口 | 状态 | Method | Path | 请求 | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 创建订单 | 已实现，前端需改路径/入参 | `POST` | `/miniapp/payment/create-order` | `{ "orderType": "vip|coin", "packageId": 1 }` | `{ "orderId": 1, "orderNo": "..." }` |
+| 模拟支付 | 已实现，前端未接 | `POST` | `/miniapp/payment/mock-pay/{orderId}` | path `orderId` | `{ "orderNo", "orderStatus", "coinBalance", "vipExpireTime" }` |
+
+注意：当前后端 `CreateOrderVO` 没有 `payParams`；若要接微信真实支付，需要后端补微信支付参数字段，或新增支付预下单返回对象。
+
+#### 9.5.6 用户资产与解锁
+
+| 接口 | 状态 | Method | Path | 请求/Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 资产汇总 | 已实现，前端未接 | `GET` | `/miniapp/asset/summary` | 无 | `AssetSummaryVO` |
+| 批量解锁 | 已实现，前端未接 | `POST` | `/miniapp/asset/unlock` | `{ "unlockScene": "featured_profile", "targetUserIds": [1002] }` | `{ "unlockedCount": 1, "coinCost": 45 }` |
+| 解锁记录 | 已实现，前端未接 | `GET` | `/miniapp/asset/unlock-records` | `page/size` 默认 1/10 | `Page<UnlockRecordVO>` |
+
+`AssetSummaryVO` 字段：`vipStatus/vipExpireTime/coinBalance/todayFreeWhisperRemain/totalRecharge`。
+`UnlockRecordVO` 字段：`id/unlockScene/unlockMethod/coinCost/effectiveTime/expireTime/status`。
+
+### 9.6 推荐朋友、社区、发布动态接口
+
+#### 9.6.1 社区内容列表与详情
+
+| 接口 | 状态 | Method | Path | Query/Path | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 内容列表 | 已实现，前端需改路径/字段 | `GET` | `/miniapp/community/posts` | `postType?`、`topicId?`、`page=1`、`size=10` | `Page<CommunityPostCardVO>` |
+| 内容详情 | 已实现，前端未接 | `GET` | `/miniapp/community/posts/{id}` | path `id` | `CommunityPostDetailVO` |
+
+`CommunityPostCardVO` 字段：`id/authorId/authorName/authorAvatar/postType/title/content/imageUrls/topicId/topicName/likeCount/commentCount/reportCount/liked/followingAuthor/status/auditStatus/createTime`。
+`CommunityPostDetailVO` 在列表字段基础上增加 `mentionUserIds/auditRemark`。
+
+前端字段映射：`userId <- authorId`、`nickname <- authorName`、`avatar <- authorAvatar`、`images <- imageUrls`。
+
+#### 9.6.2 发布与删除内容
+
+| 接口 | 状态 | Method | Path | 请求 | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 发布内容 | 已实现，前端需改路径/入参 | `POST` | `/miniapp/community/posts` | `CommunityPostCreateReq` | 新内容 ID |
+| 删除内容 | 已实现，前端未接 | `DELETE` | `/miniapp/community/posts/{id}` | path `id` | null |
+
+请求 `CommunityPostCreateReq`：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `postType` | string | 是 | 内容类型；推荐页需约定 `joy/sincerity/community` |
+| `title` | string | 否 | 标题 |
+| `content` | string | 是 | 正文 |
+| `imageUrls` | string[] | 否 | 图片 URL 列表 |
+| `topicId` | number | 是 | 话题 ID |
+| `mentionUserIds` | number[] | 否 | @ 用户 |
+
+#### 9.6.3 评论、点赞、关注、举报、配置
+
+| 接口 | 状态 | Method | Path | 请求/Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 评论列表 | 已实现，前端未接 | `GET` | `/miniapp/community/posts/{id}/comments` | path `id`，`page/size` | `Page<CommunityCommentVO>` |
+| 发表评论 | 已实现，前端未接 | `POST` | `/miniapp/community/comments` | `{ postId, parentCommentId?, replyUserId?, content }` | 新评论 ID |
+| 删除评论 | 已实现，前端未接 | `DELETE` | `/miniapp/community/comments/{id}` | path `id` | null |
+| 点赞/取消 | 已实现，前端未接 | `POST` | `/miniapp/community/posts/{id}/like` | path `id` | `{ liked, likeCount }` |
+| 关注/取消 | 已实现，前端未接 | `POST` | `/miniapp/community/follows/{targetUserId}` | path `targetUserId` | `{ following }` |
+| 举报 | 已实现，前端未接 | `POST` | `/miniapp/community/reports` | `{ targetType, targetId, reasonCode, extraText? }` | 新举报 ID |
+| 社区配置 | 已实现，前端未接 | `GET` | `/miniapp/community/config` | 无 | `CommunityConfigVO` |
+
+`CommunityCommentVO` 字段：`id/postId/authorId/authorName/authorAvatar/parentCommentId/replyUserId/replyUserName/content/status/auditStatus/createTime`。
+`CommunityConfigVO` 字段：`interactionGateMode/postMaxImages/postMaxTextLength/postMaxMentions/sincerePostMinTextLength/contactInfoAllowed/reportEntryEnabled/homeTabs`。
+
+### 9.7 推广邀请接口
+
+| 接口 | 状态 | Method | Path | 请求/Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 邀请首页 | 已实现，前端未接 | `GET` | `/miniapp/promotion/invite/home` | 无 | `{ successInviteCount, totalRewardCoin, nextTierText }` |
+| 活动规则 | 已实现，前端未接 | `GET` | `/miniapp/promotion/invite/rules` | 无 | `{ rewardRule, riskRule, successRule }` |
+| 邀请记录 | 已实现，前端需改路径 | `GET` | `/miniapp/promotion/invite/records` | `page=1`、`size=20`、`status?` | `Page<PromotionInviteRelation>` |
+| 记录分享来源 | 已实现，前端未接 | `POST` | `/miniapp/promotion/invite/share-log` | `PromotionSourceTrace` 部分字段 | `PromotionSourceTrace` |
+| 绑定邀请关系 | 已实现，前端需改路径/入参 | `POST` | `/miniapp/promotion/invite/bind` | `{ traceNo?, inviteCode?, qrCode? }` | `PromotionInviteRelation` |
+| 获取普通用户二维码 | 已实现，前端需改路径/出参 | `GET` | `/miniapp/promotion/invite/qr-code` | 无 | `{ materialUrl, qrUrl, miniappPath }` |
+| 查询代理二维码来源 | 已实现，前端未接 | `GET` | `/miniapp/promotion/invite/qr-source` | `qrCode` 必填 | `{ qrCode, available, ... }` |
+
+当前前端旧接口：
+
+| 当前前端 | 应改为 |
+| --- | --- |
+| `GET /miniapp/promotion/invites` | `GET /miniapp/promotion/invite/records` |
+| `GET /miniapp/promotion/invite-code` | `GET /miniapp/promotion/invite/qr-code` |
+| `POST /miniapp/promotion/use-code { code }` | `POST /miniapp/promotion/invite/bind { inviteCode }` |
+
+### 9.8 设置、安全、帮助客服、搜索与配置接口
+
+#### 9.8.1 设置与账号安全
+
+| 接口 | 状态 | Method | Path | 请求/Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 设置首页 | 已实现，前端页面缺 | `GET` | `/miniapp/settings/home` | 无 | `MiniappSettingsHomeVO` |
+| 隐私设置查询 | 已实现，前端页面缺 | `GET` | `/miniapp/settings/privacy` | 无 | `MiniappPrivacySettingVO` |
+| 隐私设置保存 | 已实现，前端页面缺 | `PUT` | `/miniapp/settings/privacy` | `MiniappPrivacySettingReq` | null |
+| 通知设置查询 | 已实现，前端页面缺 | `GET` | `/miniapp/settings/notifications` | 无 | `MiniappNotificationSettingVO` |
+| 通知设置保存 | 已实现，前端页面缺 | `PUT` | `/miniapp/settings/notifications` | `MiniappNotificationSettingReq` | null |
+| 黑名单列表 | 已实现，前端页面缺 | `GET` | `/miniapp/settings/blocks/blacklist` | `page=1`、`size=20` | `Page<MiniappBlockedUserVO>` |
+| 加黑名单 | 已实现，前端页面缺 | `POST` | `/miniapp/settings/blocks/blacklist` | `{ targetUserId, sourceScene? }` | block ID |
+| 移除黑名单 | 已实现，前端页面缺 | `DELETE` | `/miniapp/settings/blocks/blacklist/{id}` | path `id` | null |
+| 不看 TA 动态列表 | 已实现，前端页面缺 | `GET` | `/miniapp/settings/blocks/hidden-dynamics` | `page/size` | `Page<MiniappBlockedUserVO>` |
+| 添加不看 TA 动态 | 已实现，前端页面缺 | `POST` | `/miniapp/settings/blocks/hidden-dynamics` | `{ targetUserId, sourceScene? }` | block ID |
+| 移除不看 TA 动态 | 已实现，前端页面缺 | `DELETE` | `/miniapp/settings/blocks/hidden-dynamics/{id}` | path `id` | null |
+| 关键词屏蔽列表 | 已实现，前端页面缺 | `GET` | `/miniapp/settings/keyword-blocks` | 无 | `MiniappUserKeywordVO[]` |
+| 添加关键词 | 已实现，前端页面缺 | `POST` | `/miniapp/settings/keyword-blocks` | `{ keyword }` | keyword ID |
+| 删除关键词 | 已实现，前端页面缺 | `DELETE` | `/miniapp/settings/keyword-blocks/{id}` | path `id` | null |
+| 注销状态 | 已实现，前端页面缺 | `GET` | `/miniapp/account/cancel-status` | 无 | `MiniappAccountCancelStatusVO` |
+| 申请注销 | 已实现，前端页面缺 | `POST` | `/miniapp/account/cancel` | `{ confirm, reason }` | cancel ID |
+| 撤销注销 | 已实现，前端页面缺 | `POST` | `/miniapp/account/cancel/revoke` | 无 | null |
+| 退出登录 | 已实现，前端未调 | `POST` | `/miniapp/logout` | Header token | null |
+
+`MiniappPrivacySettingReq/VO` 字段：`showDistance/hideActiveTime/showMaritalStatus/profileUpdateVisible/onlyOppositeInteraction/personalizedPush/matchChatHint/smartReply`。
+`MiniappNotificationSettingReq/VO` 字段：`interaction/community/dailyRecommend/appExit/matchSuccess/chat/whisper/certification/report/asset/bannerInApp`。
+
+#### 9.8.2 帮助客服与公共内容
+
+| 接口 | 状态 | Method | Path | 请求/Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 公告列表 | 已实现，前端页面缺 | `GET` | `/miniapp/content/announcements` | `page=1`、`size=10` | `Page<MiniappArticleVO>` |
+| 帮助文档 | 已实现，前端页面缺 | `GET` | `/miniapp/content/help-docs` | `category?`、`page/size` | `Page<MiniappArticleVO>` |
+| 规则/协议 | 已实现，前端页面缺 | `GET` | `/miniapp/content/rules` | `type=RULE` | `MiniappArticleVO[]` |
+| 内容详情 | 已实现，前端页面缺 | `GET` | `/miniapp/content/articles/{id}` | path `id` | `MiniappArticleDetailVO` |
+| 公开配置 | 已实现，前端页面缺 | `GET` | `/miniapp/content/config` | `keys` 逗号分隔 | `Map<string,string>` |
+| 反馈提交 | 已实现，前端页面缺 | `POST` | `/miniapp/feedback` | `{ feedbackType, content, imageUrls?, contact? }` | feedback ID |
+
+`MiniappArticleVO` 字段：`id/type/category/title/summary/coverUrl/contentType/contentUrl/sort/createTime`；详情额外 `contentBody`。
+
+#### 9.8.3 移动端入口配置与搜索
+
+| 接口 | 状态 | Method | Path | 请求/Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 页面入口配置 | 已实现，前端未接 | `GET` | `/miniapp/mobile-config/entries` | `pageCode` 必填 | `MiniappEntryConfigVO[]` |
+| 搜索热词 | 已实现，前端未接 | `GET` | `/miniapp/search/hot-words` | `limit=10` | `MiniappHotWordVO[]` |
+| 搜索配置 | 已实现，前端未接 | `GET` | `/miniapp/search/config` | 无 | `MiniappSearchConfigVO` |
+| 搜索结果 | 已实现，前端未接 | `GET` | `/miniapp/search/results` | `keyword`、`type=all`、`page=1`、`size=20` | `MiniappSearchResultPageVO` |
+
+`MiniappEntryConfigVO` 字段：`entryKey/entryName/icon/jumpType/jumpTarget/badgeText/badgeType/loginRequired/sort`。
+`MiniappSearchResultPageVO` 字段：`keyword/type/tabs/items/hasMore/totalCount/violation/message`。
+
+### 9.9 消息接口
+
+当前 `pages/chat/index` 有入口，但未见前端服务函数和后端 miniapp 消息 Controller。为保证底部“消息”Tab 可闭环，建议新增：
+
+| 接口 | 状态 | Method | Path | 请求/Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 会话列表 | 建议新增 | `GET` | `/miniapp/messages/conversations` | `page=1`、`size=20` | `Page<ConversationVO>` |
+| 消息列表 | 建议新增 | `GET` | `/miniapp/messages/conversations/{conversationId}/messages` | path `conversationId`，`beforeId?`，`size=20` | `MessageVO[]` |
+| 发送消息 | 建议新增 | `POST` | `/miniapp/messages/send` | `{ targetUserId, contentType, content, imageUrl?, clientMsgId }` | `MessageVO` |
+| 标记已读 | 建议新增 | `POST` | `/miniapp/messages/conversations/{conversationId}/read` | path `conversationId` | `{ unreadCount: 0 }` |
+| 未读汇总 | 建议新增 | `GET` | `/miniapp/messages/unread-count` | 无 | `{ totalUnread, conversationUnread }` |
+
+`ConversationVO` 建议字段：`conversationId/targetUserId/targetNickname/targetAvatar/lastMessage/lastMessageTime/unreadCount/matchStatus`。
+`MessageVO` 建议字段：`id/conversationId/senderId/receiverId/contentType/content/imageUrl/status/createTime/clientMsgId`。
+
+### 9.10 我的页统计与提升人气接口
+
+当前蓝湖“我的”页有 `我喜欢的/喜欢我的/最近来访/提升人气`，后端缺专用接口。建议新增：
+
+| 接口 | 状态 | Method | Path | 请求/Query | 响应 data |
+| --- | --- | --- | --- | --- | --- |
+| 我的统计 | 建议新增 | `GET` | `/miniapp/profile/stats` | 无 | `{ likedCount, beLikedCount, visitorCount }` |
+| 我喜欢的人 | 建议新增 | `GET` | `/miniapp/profile/likes/given` | `page/size` | `Page<SimpleUserCardVO>` |
+| 喜欢我的人 | 建议新增 | `GET` | `/miniapp/profile/likes/received` | `page/size` | `Page<SimpleUserCardVO>` |
+| 最近来访 | 建议新增 | `GET` | `/miniapp/profile/visitors` | `page/size` | `Page<SimpleUserCardVO>` |
+| 提升人气配置 | 建议新增 | `GET` | `/miniapp/boost/config` | 无 | `{ enabled, coinCost, durationHours, expectedExposureText }` |
+| 购买提升人气 | 建议新增 | `POST` | `/miniapp/boost/purchase` | `{ packageId?, coinCost }` | `{ boostId, coinCost, expireTime }` |
+
+`SimpleUserCardVO` 建议字段：`userId/nickname/avatar/age/city/school/verifyLevel/isLocked/unlockCost`。
