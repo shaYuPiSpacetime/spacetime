@@ -49,6 +49,9 @@ Taro.navigateBack({
 3. `LanhuTabBar` 只能委托 `AppTabBar`，不得复制底部图标布局。
 4. “精选”属于成家主链路，底部高亮使用 `active="index"`。
 5. “推荐”底部 Tab 入口固定为 `/pages/recommend/index`，不再使用旧 `/pages/assessment/index` 作为 Tab 入口。
+6. 底栏运行时必须保持同一套 DOM 结构，只切换 icon、文字颜色和字重，不得按 active 分支替换整张背景图，否则 `消息`、`我的` 之间切换会出现明显抖动或图标短暂丢失。
+7. 蓝湖 `我的` 底栏关键坐标：外层高度 `166rpx`，主体白底从 `top: 22rpx` 开始，中心白圆 `left: 300rpx; top: 0; width: 150rpx; height: 150rpx`，中心蓝圆 `126rpx`，右侧蓝点 `left: 690rpx; top: 22rpx; width: 16rpx; height: 16rpx`。
+8. `tabbar-bg.png` 只作为蓝湖视觉参考图保留，不得作为运行时代码的底栏背景；底部白底、中心圆和图标文字统一由 `AppTabBar` 按固定坐标绘制。
 
 ## 推荐朋友与认证模块
 
@@ -78,10 +81,22 @@ Taro.navigateBack({
 2. 认证页面只放在 `miniapp/src/pages/verification/`。
 3. 推荐资源只放 `miniapp/src/assets/lanhu/recommend/`。
 4. 认证资源只放 `miniapp/src/assets/lanhu/verification/`。
-5. 认证蓝湖参考图统一放 `miniapp/.lanhu-ref/认证/`，运行时局部切图统一放 `miniapp/src/assets/lanhu/verification/slices/` 并通过本地 import 引入。
-6. 页面代码不得直接引用 `lanhuapp.com`、`alipic.lanhuapp.com` 等远程蓝湖 CDN。
-7. 两个模块不得复用整屏截图当页面，背景图只提供底色/纹理，文字、卡片、按钮、弹窗必须代码绘制。
-8. 认证流程固定接在地址页之后：`登录 → 性别 → 年龄 → 学历 → 地址 → 认证 → 首页`。
+5. 推荐蓝湖参考图统一放 `miniapp/.lanhu-ref/推荐/`，运行时局部切图统一放 `miniapp/src/assets/lanhu/recommend/slices/` 并通过本地 import 引入。
+6. 认证蓝湖参考图统一放 `miniapp/.lanhu-ref/认证/`，运行时局部切图统一放 `miniapp/src/assets/lanhu/verification/slices/` 并通过本地 import 引入。
+7. 页面代码不得直接引用 `lanhuapp.com`、`alipic.lanhuapp.com` 等远程蓝湖 CDN。
+8. 两个模块不得复用整屏截图当页面，背景图只提供底色/纹理，文字、卡片、按钮、弹窗必须代码绘制。
+9. 认证流程固定接在地址页之后：`登录 → 性别 → 年龄 → 学历 → 地址 → 认证 → 首页`。
+
+推荐运行切图至少包含：动态头像、诚意贴城市图、未认证弹窗插画；当前文件为 `avatar-xiaolaohu.png`、`city-tower.png`、`city-night.png`、`verify-note.png`。
+
+### 推荐朋友还原口径
+
+1. 推荐首页固定为 `朋友 / 社区` 顶部业务 Tab，`朋友` 高亮，`社区` 必须跳转 `/pages/community/index`。
+2. 二级 Tab 固定为 `觅知音 / 悦目 / 诚意贴`，白色 700rpx 胶囊容器，高亮蓝色下划线宽 96rpx。
+3. `觅知音` 按蓝湖稿展示蓝色渐变横幅、标题和说明文字，不补不存在的卡片内容。
+4. `悦目` 展示问题动态卡片和底部发布浮动按钮，三点操作只打开底部操作面板，不跳转页面。
+5. `诚意贴` 展示个人动态卡片、本地城市图片、话题标签和未认证弹窗；未认证弹窗按钮进入 `/pages/verification/basic`。
+6. `发布动态` 页面标题固定为 `发布动态`，底部话题胶囊与图片/视频/表情工具栏固定下方，右上原生胶囊不自绘。
 
 认证运行切图至少包含：三重认证三项圆形图标、学历上传相机图标、学信网验证编码 4 张步骤示意图。
 
@@ -106,6 +121,7 @@ rg -n "LanhuTopTabs active|onTabClick|LanhuTabBar active" miniapp/src/pages
 rg -n "pages/recommend|pages/verification|recommend|LoginStep|LoginUserInfo" miniapp/src
 rg -n "Taro\\.navigateTo\\(\\{ url: '/pages/(login|verification)" miniapp/src/pages/login miniapp/src/pages/verification
 rg -n "https://alipic\\.lanhuapp|lanhuapp\\.com" miniapp/src/pages/verification miniapp/src/assets/lanhu/verification
+rg -n "https://alipic\\.lanhuapp|lanhuapp\\.com" miniapp/src/pages/recommend miniapp/src/assets/lanhu/recommend
 git diff --check -- miniapp/src TEAM_STANDARDS.md docs/移动端文档/miniapp-lanhu-ui-regression-guard.md
 ```
 
@@ -116,4 +132,5 @@ git diff --check -- miniapp/src TEAM_STANDARDS.md docs/移动端文档/miniapp-l
 - 第三条确认推荐 Tab 迁移、认证路由、登录流程类型和认证草稿字段仍在。
 - 第四条在登录/认证连续流程内不应命中；若命中，必须确认它不是连续步骤推进。
 - 第五条不应命中认证运行代码和运行资产中的远程蓝湖资源。
+- 第六条不应命中推荐运行代码和运行资产中的远程蓝湖资源。
 - `git diff --check` 必须无输出。
