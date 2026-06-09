@@ -7,7 +7,8 @@ import profileBg from '@/assets/profile/profile-bg.png'
 import defaultAvatar from '@/assets/profile/default-avatar.png'
 import cardCoin from '@/assets/profile/card-coin.png'
 import cardInvite from '@/assets/profile/card-invite.png'
-import iconVip from '@/assets/profile/icon-vip.png'
+import boostButton from '@/assets/profile/boost-button.png'
+import vipBanner from '@/assets/profile/vip-banner.png'
 import iconPost from '@/assets/profile/icon-post.png'
 import iconService from '@/assets/profile/icon-service.png'
 import iconSettings from '@/assets/profile/icon-settings.png'
@@ -175,7 +176,8 @@ function HeaderBlock({
         style={{
           position: 'absolute',
           right: '0',
-          top: '40rpx',
+          top: '39rpx',
+          height: '34rpx',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
@@ -183,12 +185,31 @@ function HeaderBlock({
         onClick={onEdit}
         hoverClass="btn-hover"
       >
-        <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '31rpx' }}>
+        <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '34rpx' }}>
           编辑资料
         </Text>
-        <Text style={{ color: '#999999', fontSize: '36rpx', lineHeight: '31rpx' }}>
-          ›
-        </Text>
+        <View
+          style={{
+            width: '14rpx',
+            height: '34rpx',
+            marginLeft: '4rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: '8rpx',
+              height: '8rpx',
+              boxSizing: 'border-box',
+              borderTop: '3rpx solid #999999',
+              borderRight: '3rpx solid #999999',
+              transform: 'rotate(45deg)',
+              marginTop: '-1rpx',
+            }}
+          />
+        </View>
       </View>
     </View>
   )
@@ -287,35 +308,19 @@ function StatsCard() {
           flex: 1,
           height: '64rpx',
           borderRadius: '100rpx 0 0 100rpx',
-          background: '#E3F1FE',
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingLeft: '25rpx',
+          overflow: 'hidden',
         }}
         onClick={() => Taro.showToast({ title: '提升人气', icon: 'none' })}
         hoverClass="btn-hover"
       >
-        <Text
+        <Image
+          src={boostButton}
+          mode="scaleToFill"
           style={{
-            color: '#2876FF',
-            fontSize: '38rpx',
-            lineHeight: '40rpx',
-            marginRight: '10rpx',
+            width: '172rpx',
+            height: '64rpx',
           }}
-        >
-          ⚡
-        </Text>
-        <Text
-          style={{
-            color: '#2876FF',
-            fontSize: '24rpx',
-            fontWeight: 500,
-            lineHeight: '33rpx',
-          }}
-        >
-          提升人气
-        </Text>
+        />
       </View>
     </View>
   )
@@ -331,95 +336,23 @@ function VipBanner({ onClick }: { onClick: () => void }) {
         width: '700rpx',
         height: '128rpx',
         borderRadius: '12rpx',
-        background: 'linear-gradient(90deg, #1E1E1E 0%, #3A3A3A 100%)',
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
         overflow: 'hidden',
       }}
       onClick={onClick}
       hoverClass="btn-hover"
     >
-      <VipDecoration />
       <Image
-        src={iconVip}
-        mode="aspectFit"
-        style={{
-          width: '48rpx',
-          height: '38rpx',
-          marginLeft: '23rpx',
-          marginRight: '24rpx',
-          zIndex: 1,
-        }}
-      />
-      <Text
-        style={{
-          color: '#FFC969',
-          fontSize: '28rpx',
-          fontWeight: 500,
-          lineHeight: '40rpx',
-          zIndex: 1,
-        }}
-      >
-        开通VIP，享尊享特权
-      </Text>
-      <View
+        src={vipBanner}
+        mode="scaleToFill"
         style={{
           position: 'absolute',
-          right: '30rpx',
-          top: '40rpx',
-          width: '160rpx',
-          height: '48rpx',
-          borderRadius: '24rpx',
-          background: '#FFC969',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4rpx 8rpx rgba(0,0,0,0.35)',
-          zIndex: 2,
+          left: '0',
+          top: '0',
+          width: '700rpx',
+          height: '128rpx',
         }}
-      >
-        <Text
-          style={{
-            color: '#232323',
-            fontSize: '26rpx',
-            fontWeight: 500,
-            lineHeight: '37rpx',
-          }}
-        >
-          立即开通
-        </Text>
-      </View>
+      />
     </View>
-  )
-}
-
-function VipDecoration() {
-  return (
-    <>
-      <View
-        style={{
-          position: 'absolute',
-          right: '9rpx',
-          top: '-20rpx',
-          width: '190rpx',
-          height: '190rpx',
-          border: '12rpx solid rgba(255,201,105,0.16)',
-          transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '-61rpx',
-          top: '46rpx',
-          width: '125rpx',
-          height: '125rpx',
-          border: '12rpx solid rgba(255,201,105,0.16)',
-          transform: 'rotate(45deg)',
-        }}
-      />
-    </>
   )
 }
 
@@ -591,7 +524,7 @@ function MenuCard({
                 style={{
                   width: '30rpx',
                   height: '30rpx',
-                  marginRight: '47rpx',
+                  marginRight: '20rpx',
                 }}
               />
               <Text

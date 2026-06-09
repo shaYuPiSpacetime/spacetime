@@ -1,11 +1,11 @@
 export default {
   pages: [
+    'pages/profile/index',
     'pages/verification/triple',
     'pages/login/index',
     'pages/community/index',
     'pages/assessment/index',
     'pages/chat/index',
-    'pages/profile/index',
     'pages/index/index',
     'pages/recommend/index',
     'pages/recommend/post',
@@ -54,13 +54,13 @@ export default {
         pagePath: 'pages/index/index',
         text: '成家',
         iconPath: 'assets/icons/tab-home.png',
-        selectedIconPath: 'assets/icons/tab-home-active.png'
+        selectedIconPath: 'assets/icons/tab-home.png'
       },
       {
         pagePath: 'pages/community/index',
         text: '立业',
-        iconPath: 'assets/icons/tab-community.png',
-        selectedIconPath: 'assets/icons/tab-community-active.png'
+        iconPath: 'assets/icons/tab-work.png',
+        selectedIconPath: 'assets/icons/tab-work.png'
       },
       {
         pagePath: 'pages/recommend/index',
@@ -71,13 +71,13 @@ export default {
       {
         pagePath: 'pages/chat/index',
         text: '消息',
-        iconPath: 'assets/icons/tab-chat.png',
-        selectedIconPath: 'assets/icons/tab-chat-active.png'
+        iconPath: 'assets/icons/tab-message.png',
+        selectedIconPath: 'assets/icons/tab-message.png'
       },
       {
         pagePath: 'pages/profile/index',
         text: '我的',
-        iconPath: 'assets/icons/tab-profile.png',
+        iconPath: 'assets/icons/tab-profile-active.png',
         selectedIconPath: 'assets/icons/tab-profile-active.png'
       }
     ]

@@ -24,7 +24,8 @@ function getCurrentRoute() {
  * Taro 构建时会自动在 app.config 注入 custom-tab-bar 组件路径。
  */
 export default function CustomTabBar() {
-  const [activeKey, setActiveKey] = useState<TabKey>('index')
+  const initialRoute = getCurrentRoute()
+  const [activeKey, setActiveKey] = useState<TabKey>(PATH_TO_TAB[initialRoute] ?? 'profile')
 
   /** 根据当前页面路径推导激活 Tab */
   const updateActiveTab = () => {
