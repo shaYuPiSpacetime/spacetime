@@ -559,6 +559,55 @@ rg -n "LanhuTopTabs active|onTabClick|LanhuTabBar active" miniapp/src/pages
 
 第一条除业务文案或图标枚举外不应命中；命中顶部/底部壳代码时必须确认不是模拟原生胶囊或局部 TabBar。
 
+### 10.1.2 小程序上传检查与包体积规范（强制）
+
+微信开发者工具上传检查必须长期满足以下门禁，尤其是蓝湖 1:1 还原后新增大图、背景图、切图时：
+
+| 检查项 | 项目规范 |
+|--------|----------|
+| 主包尺寸 | 主包不含插件应小于 `1.5M`，主包只放 Tab 页、Tab 图标、全局组件和极少量轻量子页 |
+| 未使用 JS | 主包内不得存在主包未使用的 JS/TS 页面或工具文件 |
+| 未使用组件 | 主包内不得存在主包未使用的组件 |
+| 组件按需注入 | `miniapp/src/app.config.ts` 必须保留 `lazyCodeLoading: 'requiredComponents'`，`project.config.json`、`project.private.config.json` 必须保留 `"lazyCodeLoading": "requiredComponents"` |
+| 图片和音频资源 | 主包图片/音频资源总量不得超过 `200K`；当前微信开发者工具“代码包 图片和音频资源”检查也按全上传包口径控制在 `200K` 内；运行时单文件不得超过 `200K` |
+| 插件体积 | 不引入超过 `200K` 的大插件；确需引入时必须先评估主包影响 |
+
+**分包规则：**
+
+- Tab 主页面必须留在主包：`pages/index/index`、`pages/community/index`、`pages/chat/index`、`pages/recommend/index`、`pages/profile/index`。
+- 非 Tab 重资源页面必须优先放分包，例如登录、认证、精选、会员中心、成家币、测评等页面。
+- 分包配置字段必须使用微信官方 `subPackages`，不要写小写 `subpackages`。
+- 分包 `root` 不得覆盖包含 Tab 页的目录。比如 `pages/profile` 包含 `pages/profile/index`，`pages/recommend` 包含 `pages/recommend/index`，不能把整个目录设为分包 root。
+- 主包可保留少量与 Tab 强相关的轻量子页，例如当前 `pages/profile/edit`、`pages/recommend/post`；新增前必须确认不会推高主包。
+
+**资源规则：**
+
+- 运行时资源放 `miniapp/src/assets`，必须是实际页面会 import 的局部切图或压缩图。
+- 蓝湖整屏参考图、未压缩原图、替换前的大图统一放 `miniapp/.lanhu-ref/` 或其子目录，不得留在 `miniapp/src/assets`。
+- `miniapp/.lanhu-ref` 必须配置到 `miniapp/project.config.json` 的 `packOptions.ignore`，避免参考图进入上传包。
+- 大尺寸照片、插画、背景图优先转为 WebP；新增 WebP 时必须保留 `miniapp/types/global.d.ts` 中的 `declare module '*.webp'`。
+- 分包专用图片必须通过 `miniapp/config/index.ts` 的 `imageUrlLoaderOption.name` / `mediaUrlLoaderOption.name` 输出到对应分包目录，不能在 `dist/assets` 留重复副本。
+- 页面代码不得引用远程蓝湖 CDN，也不得 import `.lanhu-ref` 下的参考图。
+- 不要靠“当前未引用”假设打包器一定剔除资源；不用的 JS、组件、图片应移出 `src` 或删除。
+
+**上传前静态检查：**
+
+```bash
+find miniapp/src/assets -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.mp3' -o -name '*.mp4' \) -size +200k -print
+find miniapp/dist -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.mp3' -o -name '*.mp4' \) -size +200k -print
+find miniapp/dist -type f | awk '!/miniapp\/dist\/pages\/(login|verification|featured|membership|coins|assessment)\// {print}' | xargs stat -f '%z' | awk '{s+=$1} END {printf "main-package-mib=%.2f\n", s/1024/1024}'
+find miniapp/dist/assets -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.mp3' -o -name '*.mp4' \) -exec stat -f '%z' {} + | awk '{s+=$1} END {printf "main-assets-kib=%.1f\n", s/1024}'
+find miniapp/dist -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.mp3' -o -name '*.mp4' \) -exec stat -f '%z' {} + | awk '{s+=$1} END {printf "all-assets-kib=%.1f\n", s/1024}'
+du -sh miniapp/src/assets
+du -sh miniapp/dist miniapp/dist/assets miniapp/dist/pages miniapp/dist/prebundle 2>/dev/null
+rg -n "enableSourceMap|prebundle|optimizeMainPackage|imageUrlLoaderOption|lazyCodeLoading|subPackages|packOptions" miniapp/config/index.ts miniapp/src/app.config.ts miniapp/project.config.json miniapp/project.private.config.json
+rg -n "subpackages" miniapp/src/app.config.ts miniapp/dist/app.json
+rg -n "lanhuapp\\.com|alipic\\.lanhuapp|\\.lanhu-ref" miniapp/src
+git diff --check -- miniapp/src/app.config.ts miniapp/project.config.json miniapp/project.private.config.json miniapp/types/global.d.ts miniapp/src/assets
+```
+
+前两条必须无输出；主包估算必须低于 `1.5M`，`main-assets-kib` 与 `all-assets-kib` 都必须低于 `200K`。若 `src` 通过但 `dist` 未通过，说明开发者工具读取的是旧编译产物，必须清理 `dist` 或重新生成上传包。
+
 ### 10.2 蓝湖设计稿管理规范
 
 **从蓝湖下载的设计稿统一放在 `miniapp/.lanhu-ref/` 目录下**，按功能模块分目录，模仿 `miniapp/.figma-ref/` 的组织方式。
@@ -664,7 +713,7 @@ Step 5：编译验证 → 对照设计稿截图核对
 ```
 
 **原因：**
-- 体积大 — 设计稿 PNG 动辄 1MB+，小程序主包限制 2MB
+- 体积大 — 设计稿 PNG 动辄 1MB+，当前上传门禁按主包不含插件小于 `1.5M` 控制
 - 不可维护 — 改文案/改颜色必须重新切图
 - 不适配 — 不同屏幕比例会拉伸变形
 - 不无障碍 — 文字在图片里，屏幕阅读器无法识别
@@ -732,7 +781,7 @@ miniapp/
 | 使用系统默认导航栏 | 统一 `navigationStyle: 'custom'` + `CustomNavBar` |
 | 页面 config 忘记设 custom | 每个新页面必须配 `navigationStyle: 'custom'` |
 | 背景图+代码双重渲染按钮 | 背景图提供视觉，代码只放透明热区 |
-| 用 CSS 渐变/手绘替代设计稿背景 | 从蓝湖下载设计稿原图，用 `<Image>` 展示 |
+| 用 CSS 渐变/手绘替代设计稿背景 | 从蓝湖切局部背景并压缩为运行资源，整屏原图只放 `.lanhu-ref/` 归档 |
 | 设计稿图片散落各处 | 统一放 `.lanhu-ref/` 按模块分目录 |
 | 蓝湖标注值直接当 rpx 用 | 蓝湖 750px ÷ 2 = CSS px = rpx |
 | 自定义样式覆盖 Tailwind Token | 优先用 `tailwind.config.js` 已定义的颜色/字号/圆角 |

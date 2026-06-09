@@ -8,6 +8,8 @@
 
 本文档优先回答一个问题：小程序按蓝湖主流程点击时，当前能不能跑通；如果不能，是路由断、接口断、字段不匹配，还是靠 Mock 代偿。
 
+包体积、分包、切图压缩和微信上传检查门禁以 `TEAM_STANDARDS.md` 的 `10.1.2 小程序上传检查与包体积规范`、`docs/移动端文档/miniapp-lanhu-ui-regression-guard.md` 的 `包体积与上传检查` 为准；流程标为“可通”前必须同时满足主包 `<1.5M`、主包图片/音频 `<200K`、全上传包图片/音频 `<200K`、单资源 `<200K`。
+
 蓝湖与本地切图参照：
 
 | 业务域 | 本地蓝湖参考图 |
@@ -303,7 +305,7 @@ flowchart TD
 | 三重认证标签 | Mock 固定 true | `GET /miniapp/profile/certification-center`、`GET /miniapp/verify/status` | 前端未接 |
 | 我喜欢的/喜欢我的/最近来访 | Mock 固定数字 | 未见对应统计接口 | 后端缺或待确认 |
 | 提升人气按钮 | 本地切图 `boost-button.png` | 待确认商业化接口 | 未闭环 |
-| VIP Banner | 本地切图 `vip-banner.png` | `GET /miniapp/vip/status` | 入口旧路径 |
+| VIP Banner | 本地切图 `vip-banner.webp` | `GET /miniapp/vip/status` | 入口旧路径 |
 | 成家币卡片 | 本地资产 | `GET /miniapp/coin/balance` | 入口旧路径 |
 | 邀请好友卡片 | 本地资产 | `/miniapp/promotion/invite/*` | 前端未接 |
 | 我的动态 | 本地菜单 | 可复用 `/community/posts?author=me` 但未见接口参数 | 路由旧路径 |
