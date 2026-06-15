@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { useAuthStore } from '@/stores/authStore'
-import loginBg from '@/assets/login/login-bg.png'
+import loginBg from '@/assets/login/login-bg.webp'
 
 /**
  * 登录-授权页 — 1:1 还原蓝湖「登录」设计稿
  *
  * 蓝湖设计规格（750px ÷ 2 → 375 CSS px = rpx）：
- * - 全屏背景插画（login-bg.png），Image mode="widthFix" 自适应宽度
+ * - 全屏背景插画（login-bg.webp），Image mode="widthFix" 自适应宽度
  * - 底部白色胶囊按钮「立即使用」，蓝色文字 #2876FF
  * - 按钮区域：左右 114rpx，距底部 215rpx
  * - 按钮：圆角 10px，上下内边距 12px

@@ -1,41 +1,74 @@
 export default {
+  lazyCodeLoading: 'requiredComponents',
   pages: [
     'pages/profile/index',
-    'pages/verification/triple',
-    'pages/login/index',
     'pages/community/index',
-    'pages/assessment/index',
     'pages/chat/index',
     'pages/index/index',
     'pages/recommend/index',
     'pages/recommend/post',
-    'pages/profile/edit',
-    'pages/featured/index',
-    'pages/membership/index',
-    'pages/membership/records',
-    'pages/coins/index',
-    'pages/coins/detail',
-    'pages/login/gender',
-    'pages/login/education',
-    'pages/login/address',
-    'pages/login/age',
-    'pages/verification/basic',
-    'pages/verification/height-weight',
-    'pages/verification/hometown',
-    'pages/verification/career',
-    'pages/verification/income',
-    'pages/verification/avatar',
-    'pages/verification/avatar-album',
-    'pages/verification/avatar-crop',
-    'pages/verification/avatar-review',
-    'pages/verification/intro',
-    'pages/verification/intro-edit',
-    'pages/verification/real-name',
-    'pages/verification/education-student',
-    'pages/verification/education-mainland',
-    'pages/verification/education-chsi-help',
-    'pages/verification/education-diploma-no',
-    'pages/verification/education-certificate-upload'
+    'pages/profile/edit'
+  ],
+  subPackages: [
+    {
+      root: 'pages/login',
+      pages: [
+        'index',
+        'gender',
+        'education',
+        'address',
+        'age'
+      ]
+    },
+    {
+      root: 'pages/verification',
+      pages: [
+        'triple',
+        'basic',
+        'height-weight',
+        'hometown',
+        'career',
+        'income',
+        'avatar',
+        'avatar-album',
+        'avatar-crop',
+        'avatar-review',
+        'intro',
+        'intro-edit',
+        'real-name',
+        'education-student',
+        'education-mainland',
+        'education-chsi-help',
+        'education-diploma-no',
+        'education-certificate-upload'
+      ]
+    },
+    {
+      root: 'pages/featured',
+      pages: [
+        'index'
+      ]
+    },
+    {
+      root: 'pages/membership',
+      pages: [
+        'index',
+        'records'
+      ]
+    },
+    {
+      root: 'pages/coins',
+      pages: [
+        'index',
+        'detail'
+      ]
+    },
+    {
+      root: 'pages/assessment',
+      pages: [
+        'index'
+      ]
+    }
   ],
   window: {
     backgroundTextStyle: 'light',

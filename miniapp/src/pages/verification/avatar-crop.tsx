@@ -1,7 +1,7 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
-import fallbackAvatar from '@/assets/lanhu/verification/avatar-good.png'
+import fallbackAvatar from '@/assets/lanhu/verification/avatar-good.webp'
 
 export default function VerificationAvatarCropPage() {
   const router = useRouter()

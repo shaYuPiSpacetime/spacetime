@@ -19,9 +19,10 @@
     "uglifyFileName": false,
     "checkInvalidKey": true,
     "checkSiteMap": true,
-    "uploadWithSourceMap": true,
+    "uploadWithSourceMap": false,
     "compileHotReLoad": false,
     "lazyloadPlaceholderEnable": false,
+    "lazyCodeLoading": "requiredComponents",
     "useMultiFrameRuntime": true,
     "babelSetting": {
       "ignore": [],
@@ -43,7 +44,16 @@
   "compileType": "miniprogram",
   "libVersion": "3.6.0",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": ".lanhu-ref"
+      },
+      {
+        "type": "suffix",
+        "value": ".map"
+      }
+    ],
     "include": []
   },
   "editorSetting": {

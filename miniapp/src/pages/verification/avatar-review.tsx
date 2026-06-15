@@ -2,7 +2,7 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import VerificationShell from './components/VerificationShell'
-import fallbackAvatar from '@/assets/lanhu/verification/avatar-good.png'
+import fallbackAvatar from '@/assets/lanhu/verification/avatar-good.webp'
 
 export default function VerificationAvatarReviewPage() {
   const { userInfo } = useLogin()

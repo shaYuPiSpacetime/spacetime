@@ -5,10 +5,10 @@ import { useLogin } from '@/hooks/useLogin'
 import { submitEducation } from '@/services/verification'
 import VerificationSubShell from './components/VerificationSubShell'
 import { AgreementRow, CustomerServiceLink, SubmitButton } from './components/EducationVerificationShared'
-import chsiStep1 from '@/assets/lanhu/verification/slices/chsi-step-1.png'
-import chsiStep2 from '@/assets/lanhu/verification/slices/chsi-step-2.png'
-import chsiStep3 from '@/assets/lanhu/verification/slices/chsi-step-3.png'
-import chsiStep4 from '@/assets/lanhu/verification/slices/chsi-step-4.png'
+import chsiStep1 from '@/assets/lanhu/verification/slices/chsi-step-1.webp'
+import chsiStep2 from '@/assets/lanhu/verification/slices/chsi-step-2.webp'
+import chsiStep3 from '@/assets/lanhu/verification/slices/chsi-step-3.webp'
+import chsiStep4 from '@/assets/lanhu/verification/slices/chsi-step-4.webp'
 
 const STEPS = [
   {

@@ -4,8 +4,8 @@ import { useState } from 'react'
 import VerificationShell from './components/VerificationShell'
 import AvatarRuleBubbles from './components/AvatarRuleBubbles'
 import { chooseAndCropAvatar } from '@/utils/avatar'
-import goodAvatar from '@/assets/lanhu/verification/avatar-good.png'
-import badAvatar from '@/assets/lanhu/verification/avatar-bad.png'
+import goodAvatar from '@/assets/lanhu/verification/avatar-good.webp'
+import badAvatar from '@/assets/lanhu/verification/avatar-bad.webp'
 
 const BAD_CASES = ['非人物照', '风景照', '模糊遮挡', '无正脸']
 

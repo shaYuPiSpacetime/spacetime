@@ -13,7 +13,7 @@ import {
   LanhuTopTabs,
 } from '@/pages/lanhu/LanhuShell'
 
-import featuredPerson from '@/assets/lanhu/pages/featured-person.png'
+import featuredPerson from '@/assets/lanhu/pages/featured-person.webp'
 
 export default function FeaturedPage() {
   const {

@@ -1,9 +1,9 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import VerificationShell from './components/VerificationShell'
-import avatarIcon from '@/assets/lanhu/verification/slices/cert-avatar.png'
-import realNameIcon from '@/assets/lanhu/verification/slices/cert-realname.png'
-import educationIcon from '@/assets/lanhu/verification/slices/cert-education.png'
+import avatarIcon from '@/assets/lanhu/verification/slices/cert-avatar.webp'
+import realNameIcon from '@/assets/lanhu/verification/slices/cert-realname.webp'
+import educationIcon from '@/assets/lanhu/verification/slices/cert-education.webp'
 
 const CERT_ITEMS = [
   {

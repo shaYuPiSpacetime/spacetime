@@ -8,8 +8,8 @@ import {
   LANHU_SOFT_BG,
 } from '@/pages/lanhu/LanhuShell'
 
-import matchHero from '@/assets/lanhu/pages/match-hero.png'
-import matchPhoto from '@/assets/lanhu/pages/match-photo.png'
+import matchHero from '@/assets/lanhu/pages/match-hero.webp'
+import matchPhoto from '@/assets/lanhu/pages/match-photo.webp'
 
 const PROFILE_TAGS = ['IT女神', '户外发烧友', '热爱旅行', '电子竞技']
 const BASIC_INFO = ['女', '97年', '163cm', '双鱼座']

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
-import bg from '@/assets/lanhu/verification/verification-bg.png'
+import bg from '@/assets/lanhu/verification/verification-bg.webp'
 
 export type VerificationStage = 'basic' | 'avatar' | 'intro' | 'triple'
 

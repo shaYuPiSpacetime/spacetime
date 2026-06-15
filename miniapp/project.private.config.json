@@ -5,6 +5,7 @@
     "urlCheck": false,
     "coverView": true,
     "lazyloadPlaceholderEnable": false,
+    "lazyCodeLoading": "requiredComponents",
     "skylineRenderEnable": false,
     "preloadBackgroundData": false,
     "autoAudits": false,

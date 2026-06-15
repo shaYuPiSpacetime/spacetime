@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import bg from '@/assets/lanhu/verification/verification-bg.png'
+import bg from '@/assets/lanhu/verification/verification-bg.webp'
 
 interface VerificationSubShellProps {
   title: string

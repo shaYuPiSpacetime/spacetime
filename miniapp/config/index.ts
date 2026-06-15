@@ -2,6 +2,31 @@ import path from 'node:path'
 import { defineConfig } from '@tarojs/cli'
 import { UnifiedWebpackPluginV5 } from 'weapp-tailwindcss/webpack'
 
+function miniAssetName(moduleId: string) {
+  const normalized = moduleId.replace(/\\/g, '/')
+  const relativePath = normalized.includes('/src/')
+    ? normalized.slice(normalized.lastIndexOf('/src/') + '/src/'.length)
+    : normalized.replace(/^.*?src\//, '')
+
+  if (relativePath.startsWith('assets/login/')) {
+    return `pages/login/${relativePath}`
+  }
+  if (relativePath.startsWith('assets/lanhu/verification/')) {
+    return `pages/verification/${relativePath}`
+  }
+  if (relativePath === 'assets/lanhu/pages/featured-person.webp') {
+    return `pages/featured/${relativePath}`
+  }
+  if (relativePath === 'assets/lanhu/pages/member-vip-bg.webp') {
+    return `pages/membership/${relativePath}`
+  }
+  if (relativePath === 'assets/lanhu/pages/coin-balance-bg.webp') {
+    return `pages/coins/${relativePath}`
+  }
+
+  return relativePath
+}
+
 const config = {
   projectName: 'chengjialiye',
   date: '2026-05-27',
@@ -14,6 +39,7 @@ const config = {
   },
   sourceRoot: 'src',
   outputRoot: 'dist',
+  enableSourceMap: false,
 
   defineConstants: {
     'process.env.API_BASE_URL': JSON.stringify(
@@ -33,9 +59,27 @@ const config = {
   },
 
   framework: 'react',
-  compiler: 'webpack5',
+  compiler: {
+    type: 'webpack5' as const,
+    prebundle: {
+      enable: false
+    }
+  },
 
   mini: {
+    enableSourceMap: false,
+    output: {
+      clean: true
+    },
+    imageUrlLoaderOption: {
+      name: miniAssetName
+    },
+    mediaUrlLoaderOption: {
+      name: miniAssetName
+    },
+    optimizeMainPackage: {
+      enable: true
+    },
     webpackChain(chain) {
       // weapp-tailwindcss 插件
       chain.plugin('weapp-tailwindcss').use(UnifiedWebpackPluginV5, [{ appType: 'taro' }])

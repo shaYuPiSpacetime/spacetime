@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import uploadCamera from '@/assets/lanhu/verification/slices/upload-camera.png'
+import uploadCamera from '@/assets/lanhu/verification/slices/upload-camera.webp'
 
 export function VerificationStatusTabs({ active }: { active: 'avatar' | 'realName' | 'education' }) {
   const tabs = [

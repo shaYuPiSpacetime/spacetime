@@ -9,7 +9,7 @@ import {
   LanhuNav,
 } from '@/pages/lanhu/LanhuShell'
 
-import coinBalanceBg from '@/assets/lanhu/pages/coin-balance-bg.png'
+import coinBalanceBg from '@/assets/lanhu/pages/coin-balance-bg.webp'
 
 const USAGE_ICONS: Record<string, string> = {
   '送悄悄话': 'yo',

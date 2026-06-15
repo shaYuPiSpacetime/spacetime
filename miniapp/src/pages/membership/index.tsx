@@ -9,8 +9,8 @@ import {
   LanhuNav,
 } from '@/pages/lanhu/LanhuShell'
 
-import defaultAvatar from '@/assets/profile/default-avatar.png'
-import vipBg from '@/assets/lanhu/pages/member-vip-bg.png'
+import defaultAvatar from '@/assets/profile/default-avatar.webp'
+import vipBg from '@/assets/lanhu/pages/member-vip-bg.webp'
 
 const BENEFITS = [
   { icon: '♡', title: '心动名单一键揭晓：', value: '123人', desc: '有人对你心动了！看到喜欢的，立即发起对话' },

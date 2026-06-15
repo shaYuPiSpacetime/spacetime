@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Image, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import profileBg from '@/assets/login/profile-bg.png'
+import profileBg from '@/assets/login/profile-bg.webp'
 
 interface LoginProfileShellProps {
   description: string
