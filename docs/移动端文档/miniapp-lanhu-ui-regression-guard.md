@@ -96,13 +96,26 @@ Taro.navigateBack({
 1. `miniapp/src/assets` 只放运行时真实 import 的资源；主包图片/音频总量与全上传包图片/音频总量都不得超过 `200K`，图片/音频/视频单文件也不得超过 `200K`。
 2. 蓝湖整屏参考图、压缩前原图、弃用资源统一放 `miniapp/.lanhu-ref/` 或其子目录，不能留在 `src/assets`。
 3. `miniapp/project.config.json` 必须通过 `packOptions.ignore` 忽略 `.lanhu-ref` 和 `.map`，`uploadWithSourceMap` 必须为 `false`。
-4. 大尺寸照片、插画、背景图优先转 WebP；页面改为 import `.webp` 后，必须确认 `miniapp/types/global.d.ts` 已声明 `declare module '*.webp'`。
-5. `miniapp/src/app.config.ts` 必须保留 `lazyCodeLoading: 'requiredComponents'`，微信项目配置也要保留 `"lazyCodeLoading": "requiredComponents"`。
-6. 登录、认证、精选、会员中心、成家币、测评等非 Tab 重资源页面必须放分包；Tab 页面不能放入分包。
-7. 分包字段必须使用微信官方 `subPackages`，不得写小写 `subpackages`。
-8. 分包 `root` 不能覆盖包含 Tab 页的目录，例如 `pages/profile`、`pages/recommend`。
-9. 分包专用切图不能统一输出到根 `dist/assets`，必须通过 `miniapp/config/index.ts` 的 `imageUrlLoaderOption.name` / `mediaUrlLoaderOption.name` 输出到对应分包目录，且不能在根 `dist/assets` 留重复副本。
-10. 主包不得留下未使用页面、组件、图标和历史切图；不用的运行资产要移出 `src`，同时清掉 `dist` 旧产物。
+4. 蓝湖切图必须先自动转 WebP，再进入 `miniapp/src/assets`；原始 PNG/JPG 只归档到 `miniapp/.lanhu-ref/` 或 `miniapp/.lanhu-ref/compressed-source-backup/`。
+5. 除 Tab 图标、小于 `4K` 的线性图标、确需透明像素且 WebP 体积不优的极小 PNG 外，运行时代码不得新增 `.png` / `.jpg` 大图。
+6. 页面改为 import `.webp` 后，必须确认 `miniapp/types/global.d.ts` 已声明 `declare module '*.webp'`。
+7. `miniapp/src/app.config.ts` 必须保留 `lazyCodeLoading: 'requiredComponents'`，微信项目配置也要保留 `"lazyCodeLoading": "requiredComponents"`。
+8. 登录、认证、精选、会员中心、成家币、测评等非 Tab 重资源页面必须放分包；Tab 页面不能放入分包。
+9. 分包字段必须使用微信官方 `subPackages`，不得写小写 `subpackages`。
+10. 分包 `root` 不能覆盖包含 Tab 页的目录，例如 `pages/profile`、`pages/recommend`。
+11. 分包专用切图不能统一输出到根 `dist/assets`，必须通过 `miniapp/config/index.ts` 的 `imageUrlLoaderOption.name` / `mediaUrlLoaderOption.name` 输出到对应分包目录，且不能在根 `dist/assets` 留重复副本。
+12. 主包不得留下未使用页面、组件、图标和历史切图；不用的运行资产要移出 `src`，同时清掉 `dist` 旧产物。
+
+切图落地命令：
+
+```bash
+mkdir -p miniapp/.lanhu-ref/compressed-source-backup/<模块名>
+cp <切图原文件.png> miniapp/.lanhu-ref/compressed-source-backup/<模块名>/
+cwebp -q 60 -m 6 -metadata none <切图原文件.png> -o miniapp/src/assets/<模块名>/<切图名>.webp
+find miniapp/src/assets -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \) -size +4k -print
+```
+
+最后一条必须无输出；确需保留超过 `4K` 的 PNG/JPG 时，需要在变更说明里写明原因。
 
 ### 推荐朋友还原口径
 
@@ -147,6 +160,7 @@ du -sh miniapp/dist miniapp/dist/assets miniapp/dist/pages miniapp/dist/prebundl
 rg -n "enableSourceMap|prebundle|optimizeMainPackage|imageUrlLoaderOption|lazyCodeLoading|subPackages|packOptions" miniapp/config/index.ts miniapp/src/app.config.ts miniapp/project.config.json miniapp/project.private.config.json
 rg -n "subpackages" miniapp/src/app.config.ts miniapp/dist/app.json
 rg -n "lanhuapp\\.com|alipic\\.lanhuapp|\\.lanhu-ref" miniapp/src
+find miniapp/src/assets -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \) -size +4k -print
 node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('miniapp/project.config.json','utf8')); JSON.parse(fs.readFileSync('miniapp/project.private.config.json','utf8')); console.log('json ok')"
 git diff --check -- miniapp/src TEAM_STANDARDS.md docs/移动端文档/miniapp-lanhu-ui-regression-guard.md
 ```
@@ -167,5 +181,6 @@ git diff --check -- miniapp/src TEAM_STANDARDS.md docs/移动端文档/miniapp-l
 - 第十四条确认按需注入、分包、SourceMap、prebundle、上传忽略和分包图片输出配置仍在。
 - 第十五条不应命中；若命中，说明仍存在小写分包字段。
 - 第十六条不应命中运行代码引用远程蓝湖 CDN 或 `.lanhu-ref`。
-- 第十七条必须输出 `json ok`。
+- 第十七条 PNG/JPG 大图扫描必须无输出；确需保留时必须说明原因。
+- 第十八条必须输出 `json ok`。
 - `git diff --check` 必须无输出。
