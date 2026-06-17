@@ -276,24 +276,29 @@ CREATE TABLE IF NOT EXISTS promotion_audit_log (
 -- 说明：若已初始化 RBAC，可按需执行本段。ID 使用 700 段避免与基础菜单冲突。
 -- ======================================================
 
-INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, icon, perms, menu_sort, visible)
+INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, icon, perms, menu_sort, visible, status)
 VALUES
-(700, 0, '推广裂变', 'M', NULL, NULL, 'Share2', NULL, 70, 1),
-(701, 700, '规则配置', 'C', '/promotion/rules', 'promotion/PromotionManagement', 'Settings', 'promotion:rule:list', 1, 1),
-(702, 701, '新增规则', 'F', NULL, NULL, NULL, 'promotion:rule:add', 1, 0),
-(703, 701, '编辑规则', 'F', NULL, NULL, NULL, 'promotion:rule:edit', 2, 0),
-(710, 700, '邀请关系', 'C', '/promotion/invites', 'promotion/PromotionManagement', 'Users', 'promotion:invite:list', 2, 1),
-(711, 710, '邀请审核', 'F', NULL, NULL, NULL, 'promotion:invite:review', 1, 0),
-(720, 700, '奖励审核', 'C', '/promotion/rewards', 'promotion/PromotionManagement', 'Coins', 'promotion:reward:list', 3, 1),
-(721, 720, '奖励复核', 'F', NULL, NULL, NULL, 'promotion:reward:review', 1, 0),
-(730, 700, '校园代理', 'C', '/promotion/agents', 'promotion/PromotionManagement', 'UserCheck', 'promotion:agent:list', 4, 1),
-(731, 730, '新增代理', 'F', NULL, NULL, NULL, 'promotion:agent:add', 1, 0),
-(732, 730, '编辑代理', 'F', NULL, NULL, NULL, 'promotion:agent:edit', 2, 0),
-(733, 730, '二维码管理', 'F', NULL, NULL, NULL, 'promotion:agent:code', 3, 0),
-(740, 700, '代理结算', 'C', '/promotion/settlements', 'promotion/PromotionManagement', 'DollarSign', 'promotion:settlement:list', 5, 1),
-(741, 740, '生成结算', 'F', NULL, NULL, NULL, 'promotion:settlement:add', 1, 0),
-(742, 740, '确认结算', 'F', NULL, NULL, NULL, 'promotion:settlement:confirm', 2, 0),
-(743, 740, '发放结算', 'F', NULL, NULL, NULL, 'promotion:settlement:pay', 3, 0)
+(700, 0, '推广裂变', 'M', NULL, NULL, 'Share2', NULL, 70, 1, 'ENABLED'),
+(701, 700, '推广规则配置', 'C', '/promotion/rule-config', 'promotion/PromotionManagement', 'Settings', 'promotion:rule:list', 1, 1, 'ENABLED'),
+(702, 701, '保存普通奖励规则', 'F', NULL, NULL, NULL, 'promotion:rule:invite:save', 1, 0, 'ENABLED'),
+(703, 701, '保存代理奖励规则', 'F', NULL, NULL, NULL, 'promotion:rule:agent:save', 2, 0, 'ENABLED'),
+(704, 701, '保存风控参数', 'F', NULL, NULL, NULL, 'promotion:rule:risk:save', 3, 0, 'ENABLED'),
+(710, 700, '普通邀请关系', 'C', '/promotion/invite-relation', 'promotion/PromotionManagement', 'Users', 'promotion:relation:list', 2, 1, 'ENABLED'),
+(711, 710, '邀请关系处理', 'F', NULL, NULL, NULL, 'promotion:relation:review', 1, 0, 'ENABLED'),
+(712, 700, '邀请关系详情', 'C', '/promotion/invite-relation', 'promotion/PromotionManagement', 'FileText', 'promotion:relation:detail', 3, 0, 'ENABLED'),
+(720, 700, '普通邀请奖励流水', 'C', '/promotion/invite-reward', 'promotion/PromotionManagement', 'Coins', 'promotion:reward:list', 4, 1, 'ENABLED'),
+(721, 700, '冻结奖励处理页', 'C', '/promotion/invite-reward/frozen', 'promotion/PromotionManagement', 'ShieldAlert', 'promotion:reward:frozen', 5, 1, 'ENABLED'),
+(722, 721, '冻结奖励处理', 'F', NULL, NULL, NULL, 'promotion:reward:review', 1, 0, 'ENABLED'),
+(730, 700, '代理列表', 'C', '/promotion/agent', 'promotion/PromotionManagement', 'UserCheck', 'promotion:agent:list', 6, 1, 'ENABLED'),
+(731, 730, '新增代理', 'F', NULL, NULL, NULL, 'promotion:agent:add', 1, 0, 'ENABLED'),
+(732, 730, '编辑代理', 'F', NULL, NULL, NULL, 'promotion:agent:edit', 2, 0, 'ENABLED'),
+(733, 700, '代理详情页', 'C', '/promotion/agent', 'promotion/PromotionManagement', 'FileText', 'promotion:agent:detail', 7, 0, 'ENABLED'),
+(740, 700, '代理结算管理', 'C', '/promotion/settlement', 'promotion/PromotionManagement', 'DollarSign', 'promotion:settlement:list', 8, 1, 'ENABLED'),
+(742, 740, '确认结算', 'F', NULL, NULL, NULL, 'promotion:settlement:confirm', 1, 0, 'ENABLED'),
+(743, 740, '发放结算', 'F', NULL, NULL, NULL, 'promotion:settlement:pay', 2, 0, 'ENABLED'),
+(750, 700, '推广素材与二维码管理', 'C', '/promotion/material', 'promotion/PromotionManagement', 'QrCode', 'promotion:material:list', 9, 1, 'ENABLED'),
+(751, 750, '重生成二维码', 'F', NULL, NULL, NULL, 'promotion:material:regenerate', 1, 0, 'ENABLED'),
+(752, 750, '停用二维码展示', 'F', NULL, NULL, NULL, 'promotion:material:disable', 2, 0, 'ENABLED')
 ON DUPLICATE KEY UPDATE
 menu_name = VALUES(menu_name),
 parent_id = VALUES(parent_id),
@@ -303,4 +308,5 @@ component = VALUES(component),
 icon = VALUES(icon),
 perms = VALUES(perms),
 menu_sort = VALUES(menu_sort),
-visible = VALUES(visible);
+visible = VALUES(visible),
+status = VALUES(status);

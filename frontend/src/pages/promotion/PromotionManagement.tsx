@@ -46,15 +46,16 @@ import {
 } from '@/api/promotion';
 import { cn } from '@/lib/utils';
 
-type TabKey = 'rules' | 'invites' | 'rewards' | 'agents' | 'materials' | 'settlements';
+type TabKey = 'rules' | 'invites' | 'rewards' | 'frozenRewards' | 'agents' | 'materials' | 'settlements';
 
 const TABS: { key: TabKey; title: string; path: string }[] = [
-  { key: 'rules', title: '规则配置', path: '/promotion/rule-config' },
-  { key: 'invites', title: '邀请关系', path: '/promotion/invite-relation' },
-  { key: 'rewards', title: '奖励审核', path: '/promotion/invite-reward' },
-  { key: 'agents', title: '校园代理', path: '/promotion/agent' },
-  { key: 'materials', title: '推广素材', path: '/promotion/material' },
-  { key: 'settlements', title: '代理结算', path: '/promotion/settlement' },
+  { key: 'rules', title: '推广规则配置', path: '/promotion/rule-config' },
+  { key: 'invites', title: '普通邀请关系', path: '/promotion/invite-relation' },
+  { key: 'rewards', title: '普通邀请奖励流水', path: '/promotion/invite-reward' },
+  { key: 'frozenRewards', title: '冻结奖励处理页', path: '/promotion/invite-reward/frozen' },
+  { key: 'agents', title: '代理列表', path: '/promotion/agent' },
+  { key: 'materials', title: '推广素材与二维码管理', path: '/promotion/material' },
+  { key: 'settlements', title: '代理结算管理', path: '/promotion/settlement' },
 ];
 
 const RULE_TYPE_OPTIONS = [
@@ -110,15 +111,8 @@ const SETTLEMENT_STATUS_OPTIONS = [
 ];
 
 function getTabFromPath(pathname: string): TabKey {
-  const legacy: Record<string, TabKey> = {
-    '/promotion/rules': 'rules',
-    '/promotion/invites': 'invites',
-    '/promotion/rewards': 'rewards',
-    '/promotion/agents': 'agents',
-    '/promotion/settlements': 'settlements',
-  };
-  if (legacy[pathname]) {
-    return legacy[pathname];
+  if (pathname.startsWith('/promotion/invite-reward/frozen')) {
+    return 'frozenRewards';
   }
   return TABS.find((tab) => pathname.startsWith(tab.path))?.key ?? 'rules';
 }
@@ -204,6 +198,7 @@ export default function PromotionManagement() {
       {activeTab === 'rules' && <RulesPanel />}
       {activeTab === 'invites' && <InvitesPanel />}
       {activeTab === 'rewards' && <RewardsPanel />}
+      {activeTab === 'frozenRewards' && <RewardsPanel frozenOnly />}
       {activeTab === 'agents' && <AgentsPanel />}
       {activeTab === 'materials' && <MaterialsPanel />}
       {activeTab === 'settlements' && <SettlementsPanel />}
@@ -561,10 +556,26 @@ function RulesPanel() {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>规则配置</CardTitle>
+        <CardTitle>推广规则配置</CardTitle>
         <Button onClick={openCreate}><Plus className="mr-1 h-4 w-4" />新增规则</Button>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="推广规则配置">
+          {['普通用户奖励', '代理奖励', '关系有效期', '风控参数'].map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              role="tab"
+              aria-selected={index === 0}
+              className={cn(
+                'h-9 rounded-md border px-3 text-sm',
+                index === 0 ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <Select className="w-36" options={RULE_TYPE_OPTIONS} value={filters.ruleType} onChange={(v) => setFilters({ ...filters, ruleType: v })} />
           <Select className="w-44" options={RULE_EVENT_OPTIONS} value={filters.eventType} onChange={(v) => setFilters({ ...filters, eventType: v })} />
@@ -657,7 +668,7 @@ function InvitesPanel() {
 
   return (
     <Card>
-      <CardHeader><CardTitle>邀请关系</CardTitle></CardHeader>
+      <CardHeader><CardTitle>普通邀请关系</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <Input className="w-44" placeholder="邀请人姓名/手机号" value={filters.inviterKeyword} onChange={(e) => setFilters({ ...filters, inviterKeyword: e.target.value })} />
@@ -683,11 +694,12 @@ function InvitesPanel() {
   );
 }
 
-function RewardsPanel() {
+function RewardsPanel({ frozenOnly = false }: { frozenOnly?: boolean }) {
   const [list, setList] = useState<PromotionRewardLogVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ status: 'frozen', eventType: '' });
+  const defaultStatus = frozenOnly ? 'frozen' : '';
+  const [filters, setFilters] = useState({ status: defaultStatus, eventType: '' });
   const [query, setQuery] = useState(filters);
   const [loading, setLoading] = useState(false);
   const [reviewDialog, setReviewDialog] = useState<{ row: PromotionRewardLogVO; pass: boolean } | null>(null);
@@ -708,7 +720,7 @@ function RewardsPanel() {
 
   function handleSearch() {
     setPage(1);
-    setQuery(filters);
+    setQuery(frozenOnly ? { ...filters, status: 'frozen' } : filters);
   }
 
   function openReviewDialog(row: PromotionRewardLogVO, pass: boolean) {
@@ -734,21 +746,27 @@ function RewardsPanel() {
 
   return (
     <Card>
-      <CardHeader><CardTitle>奖励审核</CardTitle></CardHeader>
+      <CardHeader><CardTitle>{frozenOnly ? '冻结奖励处理页' : '普通邀请奖励流水'}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
-          <Select className="w-36" options={REWARD_STATUS_OPTIONS} value={filters.status} onChange={(v) => setFilters({ ...filters, status: v })} />
+          {!frozenOnly && <Select className="w-36" options={REWARD_STATUS_OPTIONS} value={filters.status} onChange={(v) => setFilters({ ...filters, status: v })} />}
+          {frozenOnly && <Select className="w-40" options={[{ value: 'frozen', label: '冻结中' }]} value="frozen" onChange={() => undefined} />}
           <Select className="w-44" options={RULE_EVENT_OPTIONS} value={filters.eventType} onChange={(v) => setFilters({ ...filters, eventType: v })} />
           <Button size="sm" onClick={handleSearch}><Search className="mr-1 h-4 w-4" />查询</Button>
-          <Button variant="outline" size="sm" onClick={() => { const next = { status: 'frozen', eventType: '' }; setFilters(next); setPage(1); setQuery(next); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
+          <Button variant="outline" size="sm" onClick={() => { const next = { status: defaultStatus, eventType: '' }; setFilters(next); setPage(1); setQuery(next); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
         </div>
         <Table>
-          <TableHeader><TableRow><TableHead>流水号</TableHead><TableHead>邀请人</TableHead><TableHead>被邀请人</TableHead><TableHead>事件</TableHead><TableHead>奖励</TableHead><TableHead>审核拒绝原因</TableHead><TableHead>状态</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>奖励流水号</TableHead><TableHead>邀请人</TableHead><TableHead>被邀请人</TableHead><TableHead>奖励事件</TableHead><TableHead>奖励币数</TableHead><TableHead>{frozenOnly ? '冻结原因' : '审核拒绝原因'}</TableHead><TableHead>状态</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
           <TableBody>
             {loading ? <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.rewardNo}</TableCell><TableCell>{row.inviterName || '-'}</TableCell><TableCell>{row.inviteeName || '-'}</TableCell><TableCell>{labelOf(row.eventType, EVENT_LABELS)}</TableCell><TableCell>{row.rewardCoin}</TableCell><TableCell>{row.reviewRemark || labelOf(row.riskReason, RISK_LABELS) || '-'}</TableCell><TableCell>{statusBadge(row.status)}</TableCell>
-                <TableCell><div className="flex gap-1"><Button disabled={row.status !== 'frozen'} variant="ghost" size="icon" className="h-8 w-8" onClick={() => openReviewDialog(row, true)}><Check className="h-4 w-4" /></Button><Button disabled={row.status !== 'frozen'} variant="ghost" size="icon" className="h-8 w-8" onClick={() => openReviewDialog(row, false)}><X className="h-4 w-4" /></Button></div></TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button disabled={row.status !== 'frozen'} variant="ghost" size="sm" onClick={() => openReviewDialog(row, true)}><Check className="mr-1 h-4 w-4" />确认发放</Button>
+                    <Button disabled={row.status !== 'frozen'} variant="ghost" size="sm" onClick={() => openReviewDialog(row, false)}><X className="mr-1 h-4 w-4" />确认无效</Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -757,8 +775,8 @@ function RewardsPanel() {
       </CardContent>
       <Dialog open={!!reviewDialog} onClose={() => setReviewDialog(null)} className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{reviewDialog?.pass ? '通过奖励审核' : '拒绝奖励审核'}</DialogTitle>
-          <DialogDescription>{reviewDialog?.pass ? '确认后奖励将标记为已通过' : '请填写审核拒绝原因'}</DialogDescription>
+          <DialogTitle>{reviewDialog?.pass ? '确认有效并发放' : '确认无效并作废'}</DialogTitle>
+          <DialogDescription>{reviewDialog?.pass ? '确认后奖励将写入发放流水，并移出冻结队列' : '作废后不可恢复，请填写处理备注'}</DialogDescription>
         </DialogHeader>
         {reviewDialog && (
           <div className="mt-4 space-y-4">
@@ -769,12 +787,12 @@ function RewardsPanel() {
               <div className="mt-2 flex justify-between gap-4"><span className="text-muted-foreground">奖励</span><span>{reviewDialog.row.rewardCoin}</span></div>
             </div>
             <label className="space-y-1 text-sm font-medium">
-              {reviewDialog.pass ? '审核备注' : '审核拒绝原因'}
+              {reviewDialog.pass ? '审核备注' : '处理备注'}
               <textarea
                 className="min-h-[96px] w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={reviewRemark}
                 onChange={(e) => setReviewRemark(e.target.value)}
-                placeholder={reviewDialog.pass ? '可选' : '请输入拒绝原因'}
+                placeholder={reviewDialog.pass ? '可选' : '请输入处理备注'}
               />
             </label>
             <div className="flex justify-end gap-2">
@@ -840,7 +858,7 @@ function AgentsPanel() {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between"><CardTitle>校园代理</CardTitle><Button onClick={openCreate}><Plus className="mr-1 h-4 w-4" />新增代理</Button></CardHeader>
+      <CardHeader className="flex-row items-center justify-between"><CardTitle>代理列表</CardTitle><Button onClick={openCreate}><Plus className="mr-1 h-4 w-4" />新增代理</Button></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
           <Input className="w-56" placeholder="代理/联系人/手机号" value={filters.keyword} onChange={(e) => setFilters({ ...filters, keyword: e.target.value })} />
@@ -928,7 +946,7 @@ function MaterialsPanel() {
 
   return (
     <Card>
-      <CardHeader><CardTitle>推广素材与二维码</CardTitle></CardHeader>
+      <CardHeader><CardTitle>推广素材与二维码管理</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
           <Input className="w-40" placeholder="代理ID" value={filters.agentId} onChange={(e) => setFilters({ ...filters, agentId: e.target.value })} />
@@ -1018,7 +1036,7 @@ function SettlementsPanel() {
 
   return (
     <Card>
-      <CardHeader><CardTitle>代理结算</CardTitle></CardHeader>
+      <CardHeader><CardTitle>代理结算管理</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
           <Input className="w-56" placeholder="代理名称/联系人/手机号" value={filters.agentKeyword} onChange={(e) => setFilters({ ...filters, agentKeyword: e.target.value })} />

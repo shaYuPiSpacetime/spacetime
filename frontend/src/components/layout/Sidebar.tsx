@@ -25,6 +25,7 @@ import {
   Shield,
   ShieldAlert,
   ScrollText,
+  QrCode,
   Menu,
   Lock,
   ChevronDown,
@@ -60,6 +61,7 @@ const iconMap: Record<string, LucideIcon> = {
   Shield,
   ShieldAlert,
   ScrollText,
+  QrCode,
   Menu,
   Lock,
 };
