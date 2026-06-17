@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Check, Edit, Plus, QrCode, RefreshCcw, Search, X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Check, Edit, Plus, QrCode, RefreshCcw, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,19 +15,29 @@ import {
   confirmPromotionSettlement,
   createPromotionAgent,
   createPromotionRule,
+  disablePromotionMaterial,
   getPromotionAgents,
+  getPromotionAgentDetail,
+  getPromotionAgentEvents,
+  getPromotionInviteDetail,
   getPromotionInvites,
+  getPromotionMaterials,
   getPromotionRewards,
   getPromotionRules,
   getPromotionSettlements,
   paidPromotionSettlement,
   regeneratePromotionAgentQrCode,
+  regeneratePromotionMaterial,
+  unfreezePromotionInvite,
+  invalidatePromotionInvite,
   rejectPromotionReward,
   updatePromotionAgent,
   updatePromotionAgentStatus,
   updatePromotionRule,
   updatePromotionRuleStatus,
   type PageResult,
+  type PromotionAgentQrCodeVO,
+  type PromotionAgentEventVO,
   type PromotionAgentVO,
   type PromotionInviteRelationVO,
   type PromotionRewardLogVO,
@@ -35,14 +46,15 @@ import {
 } from '@/api/promotion';
 import { cn } from '@/lib/utils';
 
-type TabKey = 'rules' | 'invites' | 'rewards' | 'agents' | 'settlements';
+type TabKey = 'rules' | 'invites' | 'rewards' | 'agents' | 'materials' | 'settlements';
 
 const TABS: { key: TabKey; title: string; path: string }[] = [
-  { key: 'rules', title: '规则配置', path: '/promotion/rules' },
-  { key: 'invites', title: '邀请关系', path: '/promotion/invites' },
-  { key: 'rewards', title: '奖励审核', path: '/promotion/rewards' },
-  { key: 'agents', title: '校园代理', path: '/promotion/agents' },
-  { key: 'settlements', title: '代理结算', path: '/promotion/settlements' },
+  { key: 'rules', title: '规则配置', path: '/promotion/rule-config' },
+  { key: 'invites', title: '邀请关系', path: '/promotion/invite-relation' },
+  { key: 'rewards', title: '奖励审核', path: '/promotion/invite-reward' },
+  { key: 'agents', title: '校园代理', path: '/promotion/agent' },
+  { key: 'materials', title: '推广素材', path: '/promotion/material' },
+  { key: 'settlements', title: '代理结算', path: '/promotion/settlement' },
 ];
 
 const RULE_TYPE_OPTIONS = [
@@ -62,8 +74,8 @@ const RULE_EVENT_OPTIONS = [
 
 const SOURCE_OPTIONS = [
   { value: '', label: '全部来源' },
-  { value: 'user_qr', label: '普通用户' },
-  { value: 'agent_qr', label: '校园代理' },
+  { value: 'normal_user', label: '普通用户' },
+  { value: 'campus_agent', label: '校园代理' },
 ];
 
 const REWARD_STATUS_OPTIONS = [
@@ -79,6 +91,8 @@ const INVITE_STATUS_OPTIONS = [
   { value: 'registered', label: '已注册' },
   { value: 'profile_completed', label: '已完善资料' },
   { value: 'verify_success', label: '已认证' },
+  { value: 'frozen', label: '冻结' },
+  { value: 'invalid', label: '无效' },
 ];
 
 const AGENT_STATUS_OPTIONS = [
@@ -90,13 +104,22 @@ const AGENT_STATUS_OPTIONS = [
 
 const SETTLEMENT_STATUS_OPTIONS = [
   { value: '', label: '全部状态' },
-  { value: 'pending', label: '待确认' },
+  { value: 'unsettled', label: '待结算' },
   { value: 'confirmed', label: '已确认' },
   { value: 'paid', label: '已发放' },
-  { value: 'cancelled', label: '已取消' },
 ];
 
 function getTabFromPath(pathname: string): TabKey {
+  const legacy: Record<string, TabKey> = {
+    '/promotion/rules': 'rules',
+    '/promotion/invites': 'invites',
+    '/promotion/rewards': 'rewards',
+    '/promotion/agents': 'agents',
+    '/promotion/settlements': 'settlements',
+  };
+  if (legacy[pathname]) {
+    return legacy[pathname];
+  }
   return TABS.find((tab) => pathname.startsWith(tab.path))?.key ?? 'rules';
 }
 
@@ -104,11 +127,15 @@ function pageData<T>(res: unknown): PageResult<T> {
   return ((res as any).data ?? { records: [], total: 0, current: 1, size: 10 }) as PageResult<T>;
 }
 
+function responseData<T>(res: unknown): T {
+  return (res as any).data as T;
+}
+
 function statusBadge(status?: string) {
   if (!status) return <span>-</span>;
   const label = labelOf(status, STATUS_LABELS);
   const success = ['ENABLED', 'normal', 'success', 'paid', 'enabled'].includes(status);
-  const warning = ['pending', 'frozen', 'paused', 'confirmed'].includes(status);
+  const warning = ['pending', 'unsettled', 'frozen', 'paused', 'confirmed'].includes(status);
   const danger = ['DISABLED', 'invalid', 'terminated', 'cancelled', 'disabled'].includes(status);
   return (
     <Badge variant={success ? 'success' : warning ? 'warning' : danger ? 'destructive' : 'secondary'}>
@@ -126,6 +153,7 @@ const STATUS_LABELS: Record<string, string> = {
   paused: '暂停',
   terminated: '终止',
   pending: '待处理',
+  unsettled: '待结算',
   confirmed: '已确认',
   paid: '已发放',
   cancelled: '已取消',
@@ -161,7 +189,15 @@ function qrImageUrl(text: string) {
 
 export default function PromotionManagement() {
   const location = useLocation();
+  const params = useParams();
   const activeTab = getTabFromPath(location.pathname);
+
+  if (activeTab === 'invites' && params.id) {
+    return <InviteDetailPanel id={Number(params.id)} />;
+  }
+  if (activeTab === 'agents' && params.id) {
+    return <AgentDetailPanel id={Number(params.id)} />;
+  }
 
   return (
     <div className="space-y-4">
@@ -169,7 +205,270 @@ export default function PromotionManagement() {
       {activeTab === 'invites' && <InvitesPanel />}
       {activeTab === 'rewards' && <RewardsPanel />}
       {activeTab === 'agents' && <AgentsPanel />}
+      {activeTab === 'materials' && <MaterialsPanel />}
       {activeTab === 'settlements' && <SettlementsPanel />}
+    </div>
+  );
+}
+
+function InviteDetailPanel({ id }: { id: number }) {
+  const navigate = useNavigate();
+  const [detail, setDetail] = useState<PromotionInviteRelationVO | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [reviewAction, setReviewAction] = useState<'unfreeze' | 'invalid' | null>(null);
+  const [remark, setRemark] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const fetchDetail = useCallback(async () => {
+    setLoading(true);
+    try {
+      setDetail(responseData<PromotionInviteRelationVO>(await getPromotionInviteDetail(id)));
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchDetail(); }, [fetchDetail]);
+
+  async function submitReview() {
+    if (!reviewAction || !detail) return;
+    if (reviewAction === 'invalid' && !remark.trim()) return;
+    setSaving(true);
+    try {
+      if (reviewAction === 'unfreeze') await unfreezePromotionInvite(detail.id, remark.trim() || undefined);
+      else await invalidatePromotionInvite(detail.id, remark.trim());
+      setReviewAction(null);
+      setRemark('');
+      fetchDetail();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/promotion/invite-relation')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <CardTitle>邀请关系详情</CardTitle>
+        </div>
+        <div className="flex gap-2">
+          <Button disabled={!detail || detail.status !== 'frozen'} variant="outline" size="sm" onClick={() => setReviewAction('unfreeze')}>解除冻结</Button>
+          <Button disabled={!detail || detail.status === 'invalid'} variant="outline" size="sm" onClick={() => setReviewAction('invalid')}>标记无效</Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="py-12 text-center text-muted-foreground">加载中...</div>
+        ) : !detail ? (
+          <div className="py-12 text-center text-muted-foreground">暂无数据</div>
+        ) : (
+          <>
+            <div className="grid gap-3 md:grid-cols-3">
+              <InfoItem label="关系编号" value={detail.relationNo} />
+              <InfoItem label="来源类型" value={labelOf(detail.sourceType, SOURCE_LABELS)} />
+              <InfoItem label="关系状态" value={statusBadge(detail.status)} />
+              <InfoItem label="邀请来源" value={detail.sourceType === 'campus_agent' ? (detail.agentName || '-') : (detail.inviterName || '-')} />
+              <InfoItem label="被邀请人" value={detail.inviteeName || `ID ${detail.inviteeId}`} />
+              <InfoItem label="累计奖励" value={String(detail.totalRewardCoin ?? 0)} />
+              <InfoItem label="冻结前状态" value={detail.frozenBeforeStatus ? labelOf(detail.frozenBeforeStatus, STATUS_LABELS) : '-'} />
+              <InfoItem label="无效原因" value={detail.invalidReason || '-'} />
+              <InfoItem label="二维码编号" value={detail.qrCode || '-'} />
+            </div>
+            <div className="rounded-md border border-border">
+              <Table>
+                <TableHeader><TableRow><TableHead>节点</TableHead><TableHead>时间</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  <TableRow><TableCell>绑定关系</TableCell><TableCell>{detail.bindTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>首次登录</TableCell><TableCell>{detail.firstLoginTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>资料完善</TableCell><TableCell>{detail.profileCompleteTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>认证成功</TableCell><TableCell>{detail.verifySuccessTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>成功口径命中</TableCell><TableCell>{detail.successMetricHitTime || '-'}</TableCell></TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
+      </CardContent>
+      <Dialog open={!!reviewAction} onClose={() => setReviewAction(null)} className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{reviewAction === 'unfreeze' ? '解除邀请关系冻结' : '标记邀请关系无效'}</DialogTitle>
+          <DialogDescription>{reviewAction === 'unfreeze' ? '解除后将恢复冻结前状态，并把冻结奖励转回待处理' : '标记无效后，关联奖励流水会同步置为无效'}</DialogDescription>
+        </DialogHeader>
+        <div className="mt-4 space-y-4">
+          <label className="space-y-1 text-sm font-medium">
+            {reviewAction === 'invalid' ? '无效原因' : '审核备注'}
+            <textarea
+              className="min-h-[96px] w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              placeholder={reviewAction === 'invalid' ? '请输入无效原因' : '可选'}
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setReviewAction(null)}>取消</Button>
+            <Button onClick={submitReview} disabled={saving || (reviewAction === 'invalid' && !remark.trim())}>{saving ? '提交中...' : '确认'}</Button>
+          </div>
+        </div>
+      </Dialog>
+    </Card>
+  );
+}
+
+function AgentDetailPanel({ id }: { id: number }) {
+  const navigate = useNavigate();
+  const [detail, setDetail] = useState<PromotionAgentVO | null>(null);
+  const [events, setEvents] = useState<PromotionAgentEventVO[]>([]);
+  const [materials, setMaterials] = useState<PromotionAgentQrCodeVO[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [codeDialog, setCodeDialog] = useState<{ qrCode: string; miniappPath: string; qrUrl?: string } | null>(null);
+
+  const fetchDetail = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [agentRes, eventRes, materialRes] = await Promise.all([
+        getPromotionAgentDetail(id),
+        getPromotionAgentEvents(id, { page: 1, size: 10 }),
+        getPromotionMaterials({ page: 1, size: 10, agentId: id }),
+      ]);
+      setDetail(responseData<PromotionAgentVO>(agentRes));
+      setEvents(pageData<PromotionAgentEventVO>(eventRes).records ?? []);
+      setMaterials(pageData<PromotionAgentQrCodeVO>(materialRes).records ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchDetail(); }, [fetchDetail]);
+
+  async function handleRegenerateAgentCode() {
+    const res = await regeneratePromotionAgentQrCode(id);
+    const code = responseData<PromotionAgentQrCodeVO>(res);
+    setCodeDialog({ qrCode: code.qrCode, miniappPath: code.miniappPath, qrUrl: code.qrUrl });
+    fetchDetail();
+  }
+
+  async function handleRegenerateMaterial(row: PromotionAgentQrCodeVO) {
+    await regeneratePromotionMaterial(row.id);
+    fetchDetail();
+  }
+
+  async function handleDisableMaterial(row: PromotionAgentQrCodeVO) {
+    await disablePromotionMaterial(row.id, '代理详情停用');
+    fetchDetail();
+  }
+
+  const stat = detail?.stat;
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/promotion/agent')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <CardTitle>校园代理详情</CardTitle>
+        </div>
+        <Button size="sm" onClick={handleRegenerateAgentCode}><QrCode className="mr-1 h-4 w-4" />生成二维码</Button>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {loading ? (
+          <div className="py-12 text-center text-muted-foreground">加载中...</div>
+        ) : !detail ? (
+          <div className="py-12 text-center text-muted-foreground">暂无数据</div>
+        ) : (
+          <>
+            <div className="grid gap-3 md:grid-cols-4">
+              <InfoItem label="代理编号" value={detail.agentNo || '-'} />
+              <InfoItem label="代理名称" value={detail.agentName} />
+              <InfoItem label="联系人" value={`${detail.contactName || '-'} ${detail.contactPhone || ''}`.trim()} />
+              <InfoItem label="状态" value={statusBadge(detail.status)} />
+              <InfoItem label="学校" value={detail.school || '-'} />
+              <InfoItem label="校区" value={detail.campus || '-'} />
+              <InfoItem label="奖金规则组" value={detail.bonusRuleGroup || '-'} />
+              <InfoItem label="创建时间" value={detail.createTime || '-'} />
+            </div>
+            <div className="grid gap-3 md:grid-cols-4">
+              <Metric label="点击" value={stat?.clickCnt} />
+              <Metric label="注册" value={stat?.registerCnt} />
+              <Metric label="资料完善" value={stat?.profileCnt} />
+              <Metric label="认证成功" value={stat?.verifyCnt} />
+              <Metric label="成功口径" value={stat?.successCnt} />
+              <Metric label="待结算" value={stat?.bonusPendingAmount} />
+              <Metric label="已确认" value={stat?.bonusConfirmedAmount} />
+              <Metric label="已发放" value={stat?.bonusPaidAmount} />
+            </div>
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">推广素材</h3>
+              <Table>
+                <TableHeader><TableRow><TableHead>二维码</TableHead><TableHead>版本</TableHead><TableHead>状态</TableHead><TableHead>路径</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {materials.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : materials.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.qrCode}</TableCell>
+                      <TableCell>{row.versionNo}</TableCell>
+                      <TableCell>{statusBadge(row.status)}</TableCell>
+                      <TableCell className="max-w-xs break-all text-xs text-muted-foreground">{row.miniappPath}</TableCell>
+                      <TableCell><div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => handleRegenerateMaterial(row)}>重生成</Button><Button disabled={row.status === 'disabled'} variant="ghost" size="sm" onClick={() => handleDisableMaterial(row)}>停用</Button></div></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </section>
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">最近推广事件</h3>
+              <Table>
+                <TableHeader><TableRow><TableHead>事件</TableHead><TableHead>用户ID</TableHead><TableHead>关系ID</TableHead><TableHead>二维码</TableHead><TableHead>时间</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {events.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : events.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{labelOf(row.eventType, EVENT_LABELS)}</TableCell>
+                      <TableCell>{row.userId ?? '-'}</TableCell>
+                      <TableCell>{row.relationId ?? '-'}</TableCell>
+                      <TableCell>{row.qrCode}</TableCell>
+                      <TableCell>{row.eventTime || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </section>
+          </>
+        )}
+      </CardContent>
+      <Dialog open={!!codeDialog} onClose={() => setCodeDialog(null)} className="max-w-sm">
+        <DialogHeader><DialogTitle>校园代理二维码</DialogTitle><DialogDescription>二维码已生成并加入素材列表</DialogDescription></DialogHeader>
+        {codeDialog && (
+          <div className="mt-4 space-y-4">
+            <div className="flex justify-center">
+              <img className="h-[180px] w-[180px] rounded border border-border" src={codeDialog.qrUrl || qrImageUrl(codeDialog.miniappPath || codeDialog.qrCode)} alt="校园代理二维码" />
+            </div>
+            <div className="rounded-md bg-muted p-3 text-sm">
+              <div>二维码编号：{codeDialog.qrCode}</div>
+              <div className="mt-1 break-all text-muted-foreground">路径：{codeDialog.miniappPath}</div>
+            </div>
+          </div>
+        )}
+      </Dialog>
+    </Card>
+  );
+}
+
+function InfoItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/20 p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-medium">{value}</div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value?: number }) {
+  return (
+    <div className="rounded-md border border-border p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value ?? 0}</div>
     </div>
   );
 }
@@ -317,6 +616,7 @@ function RulesPanel() {
 }
 
 function InvitesPanel() {
+  const navigate = useNavigate();
   const [list, setList] = useState<PromotionInviteRelationVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -372,7 +672,7 @@ function InvitesPanel() {
           <TableBody>
             {loading ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
-                <TableCell>{row.relationNo}</TableCell><TableCell>{labelOf(row.sourceType, SOURCE_LABELS)}</TableCell><TableCell>{row.sourceType === 'agent_qr' ? (row.agentName || '-') : (row.inviterName || '-')}</TableCell><TableCell>{row.inviteeName || '-'}</TableCell><TableCell>{statusBadge(row.status)}</TableCell><TableCell>{row.bindTime ?? '-'}</TableCell>
+                <TableCell><button className="font-medium text-primary hover:underline" onClick={() => navigate(`/promotion/invite-relation/${row.id}`)}>{row.relationNo}</button></TableCell><TableCell>{labelOf(row.sourceType, SOURCE_LABELS)}</TableCell><TableCell>{row.sourceType === 'campus_agent' ? (row.agentName || '-') : (row.inviterName || '-')}</TableCell><TableCell>{row.inviteeName || '-'}</TableCell><TableCell>{statusBadge(row.status)}</TableCell><TableCell>{row.bindTime ?? '-'}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -489,6 +789,7 @@ function RewardsPanel() {
 }
 
 function AgentsPanel() {
+  const navigate = useNavigate();
   const [list, setList] = useState<PromotionAgentVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -552,7 +853,7 @@ function AgentsPanel() {
           <TableBody>
             {loading ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
-                <TableCell><div className="font-medium">{row.agentName}</div><div className="text-xs text-muted-foreground">{row.remark || '-'}</div></TableCell><TableCell>{row.contactName || '-'}<div className="text-xs text-muted-foreground">{row.contactPhone || '-'}</div></TableCell><TableCell>{row.school || '-'} / {row.campus || '-'}</TableCell><TableCell>{statusBadge(row.status)}</TableCell><TableCell>{row.createTime || '-'}</TableCell>
+                <TableCell><button className="font-medium text-primary hover:underline" onClick={() => navigate(`/promotion/agent/${row.id}`)}>{row.agentName}</button><div className="text-xs text-muted-foreground">{row.remark || '-'}</div></TableCell><TableCell>{row.contactName || '-'}<div className="text-xs text-muted-foreground">{row.contactPhone || '-'}</div></TableCell><TableCell>{row.school || '-'} / {row.campus || '-'}</TableCell><TableCell>{statusBadge(row.status)}</TableCell><TableCell>{row.createTime || '-'}</TableCell>
                 <TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)}><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="sm" onClick={() => updatePromotionAgentStatus(row.id, row.status === 'normal' ? 'paused' : 'normal').then(fetchList)}>{row.status === 'normal' ? '暂停' : '恢复'}</Button><Button variant="ghost" size="sm" onClick={() => handleCode(row.id)}><QrCode className="mr-1 h-4 w-4" />二维码</Button></div></TableCell>
               </TableRow>
             ))}
@@ -585,6 +886,81 @@ function AgentsPanel() {
           </div>
         )}
       </Dialog>
+    </Card>
+  );
+}
+
+function MaterialsPanel() {
+  const [list, setList] = useState<PromotionAgentQrCodeVO[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState({ agentId: '', status: '' });
+  const [query, setQuery] = useState(filters);
+  const [loading, setLoading] = useState(false);
+
+  const fetchList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = pageData<PromotionAgentQrCodeVO>(await getPromotionMaterials({
+        page,
+        size: 10,
+        agentId: num(query.agentId),
+        status: query.status || undefined,
+      }));
+      setList(data.records ?? []);
+      setTotal(data.total ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, query]);
+
+  useEffect(() => { fetchList(); }, [fetchList]);
+
+  async function handleRegenerate(row: PromotionAgentQrCodeVO) {
+    await regeneratePromotionMaterial(row.id);
+    fetchList();
+  }
+
+  async function handleDisable(row: PromotionAgentQrCodeVO) {
+    await disablePromotionMaterial(row.id, '停用展示');
+    fetchList();
+  }
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>推广素材与二维码</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-3">
+          <Input className="w-40" placeholder="代理ID" value={filters.agentId} onChange={(e) => setFilters({ ...filters, agentId: e.target.value })} />
+          <Select className="w-36" options={[{ value: '', label: '全部状态' }, { value: 'enabled', label: '启用' }, { value: 'disabled', label: '停用' }]} value={filters.status} onChange={(v) => setFilters({ ...filters, status: v })} />
+          <Button size="sm" onClick={() => { setPage(1); setQuery(filters); }}><Search className="mr-1 h-4 w-4" />查询</Button>
+          <Button variant="outline" size="sm" onClick={() => { const empty = { agentId: '', status: '' }; setFilters(empty); setPage(1); setQuery(empty); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
+        </div>
+        <Table>
+          <TableHeader><TableRow><TableHead>二维码</TableHead><TableHead>代理ID</TableHead><TableHead>版本</TableHead><TableHead>状态</TableHead><TableHead>小程序路径</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {loading ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>
+                  <div className="font-medium">{row.qrCode}</div>
+                  <div className="mt-2"><img className="h-16 w-16 rounded border border-border" src={row.qrUrl || qrImageUrl(row.miniappPath || row.qrCode)} alt="推广二维码" /></div>
+                </TableCell>
+                <TableCell>{row.agentId}</TableCell>
+                <TableCell>{row.versionNo}</TableCell>
+                <TableCell>{statusBadge(row.status)}</TableCell>
+                <TableCell className="max-w-xs break-all text-xs text-muted-foreground">{row.miniappPath}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleRegenerate(row)}>重生成</Button>
+                    <Button disabled={row.status === 'disabled'} variant="ghost" size="sm" onClick={() => handleDisable(row)}>停用</Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <Pagination current={page} total={total} onChange={setPage} />
+      </CardContent>
     </Card>
   );
 }
@@ -656,7 +1032,7 @@ function SettlementsPanel() {
             {loading ? <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
                 <TableCell><div className="font-medium">{row.settlementNo}</div><div className="text-xs text-muted-foreground">{row.statsDesc || row.remark || '-'}</div></TableCell><TableCell>{row.agentName || '-'}</TableCell><TableCell>{row.periodStart} 至 {row.periodEnd}</TableCell><TableCell>{row.payableAmount}</TableCell><TableCell>{row.paidAmount ?? 0}</TableCell><TableCell>{statusBadge(row.status)}</TableCell>
-                <TableCell><div className="flex gap-1"><Button disabled={row.status !== 'pending'} variant="ghost" size="sm" onClick={() => openSettlementDialog(row, 'confirm')}>确认</Button><Button disabled={row.status !== 'confirmed'} variant="ghost" size="sm" onClick={() => openSettlementDialog(row, 'paid')}>发放</Button></div></TableCell>
+                <TableCell><div className="flex gap-1"><Button disabled={row.status !== 'unsettled'} variant="ghost" size="sm" onClick={() => openSettlementDialog(row, 'confirm')}>确认</Button><Button disabled={row.status !== 'confirmed'} variant="ghost" size="sm" onClick={() => openSettlementDialog(row, 'paid')}>发放</Button></div></TableCell>
               </TableRow>
             ))}
           </TableBody>

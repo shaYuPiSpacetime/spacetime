@@ -7,14 +7,21 @@ import com.spacetime.admin.dto.request.PromotionInvitePageReq;
 import com.spacetime.admin.dto.response.PromotionInviteRelationVO;
 import com.spacetime.admin.service.PromotionInviteAdminService;
 import com.spacetime.common.dao.PromotionAgentDao;
+import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.dao.PromotionInviteRelationDao;
+import com.spacetime.common.dao.PromotionRewardLogDao;
 import com.spacetime.common.dao.UserDao;
 import com.spacetime.common.entity.PromotionAgent;
+import com.spacetime.common.entity.PromotionAuditLog;
 import com.spacetime.common.entity.PromotionInviteRelation;
+import com.spacetime.common.entity.PromotionRewardLog;
 import com.spacetime.common.entity.SysUser;
+import com.spacetime.common.enums.PromotionRelationStatusEnum;
+import com.spacetime.common.enums.PromotionRewardStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 邀请关系后台服务实现
@@ -25,6 +32,8 @@ public class PromotionInviteAdminServiceImpl implements PromotionInviteAdminServ
     private final PromotionInviteRelationDao relationDao;
     private final UserDao userDao;
     private final PromotionAgentDao agentDao;
+    private final PromotionRewardLogDao rewardLogDao;
+    private final PromotionAuditLogDao auditLogDao;
 
     @Override
     public Page<PromotionInviteRelationVO> list(PromotionInvitePageReq req) {
@@ -91,6 +100,36 @@ public class PromotionInviteAdminServiceImpl implements PromotionInviteAdminServ
         return toVO(requireRelation(id));
     }
 
+    @Override
+    @Transactional
+    public void unfreeze(Long id, String remark) {
+        PromotionInviteRelation relation = requireRelation(id);
+        if (!PromotionRelationStatusEnum.FROZEN.getCode().equals(relation.getStatus())) {
+            throw new BusinessException("只有冻结中的邀请关系可以解除冻结");
+        }
+        String beforeStatus = relation.getStatus();
+        String restoredStatus = StrUtil.blankToDefault(relation.getFrozenBeforeStatus(), PromotionRelationStatusEnum.REGISTERED.getCode());
+        relation.setStatus(restoredStatus);
+        relationDao.updateById(relation);
+        updateFrozenRewards(id, PromotionRewardStatusEnum.PENDING.getCode(), remark);
+        audit("invite_relation", id, "unfreeze", beforeStatus, restoredStatus);
+    }
+
+    @Override
+    @Transactional
+    public void markInvalid(Long id, String remark) {
+        PromotionInviteRelation relation = requireRelation(id);
+        if (PromotionRelationStatusEnum.INVALID.getCode().equals(relation.getStatus())) {
+            return;
+        }
+        String before = relation.getStatus();
+        relation.setStatus(PromotionRelationStatusEnum.INVALID.getCode());
+        relation.setInvalidReason(remark);
+        relationDao.updateById(relation);
+        updateRelationRewards(id, PromotionRewardStatusEnum.INVALID.getCode(), remark);
+        audit("invite_relation", id, "invalid", before, remark);
+    }
+
     private PromotionInviteRelation requireRelation(Long id) {
         PromotionInviteRelation relation = relationDao.selectById(id);
         if (relation == null) {
@@ -112,11 +151,46 @@ public class PromotionInviteAdminServiceImpl implements PromotionInviteAdminServ
         vo.setAgentName(agentDisplayName(entity.getAgentId()));
         vo.setQrCode(entity.getQrCode());
         vo.setStatus(entity.getStatus());
+        vo.setFrozenBeforeStatus(entity.getFrozenBeforeStatus());
+        vo.setInvalidReason(entity.getInvalidReason());
         vo.setBindTime(entity.getBindTime());
         vo.setFirstLoginTime(entity.getFirstLoginTime());
         vo.setProfileCompleteTime(entity.getProfileCompleteTime());
         vo.setVerifySuccessTime(entity.getVerifySuccessTime());
+        vo.setSuccessMetricHitTime(entity.getSuccessMetricHitTime());
         vo.setTotalRewardCoin(entity.getTotalRewardCoin());
         return vo;
+    }
+
+    private void updateFrozenRewards(Long relationId, String status, String remark) {
+        Page<PromotionRewardLog> page = rewardLogDao.selectPage(new Page<>(1, 500, false),
+                new LambdaQueryWrapper<PromotionRewardLog>()
+                        .eq(PromotionRewardLog::getRelationId, relationId)
+                        .eq(PromotionRewardLog::getStatus, PromotionRewardStatusEnum.FROZEN.getCode()));
+        for (PromotionRewardLog reward : page.getRecords()) {
+            reward.setStatus(status);
+            reward.setReviewRemark(remark);
+            rewardLogDao.updateById(reward);
+        }
+    }
+
+    private void updateRelationRewards(Long relationId, String status, String remark) {
+        Page<PromotionRewardLog> page = rewardLogDao.selectPage(new Page<>(1, 500, false),
+                new LambdaQueryWrapper<PromotionRewardLog>().eq(PromotionRewardLog::getRelationId, relationId));
+        for (PromotionRewardLog reward : page.getRecords()) {
+            reward.setStatus(status);
+            reward.setReviewRemark(remark);
+            rewardLogDao.updateById(reward);
+        }
+    }
+
+    private void audit(String bizType, Long bizId, String action, String beforeValue, String afterValue) {
+        PromotionAuditLog log = new PromotionAuditLog();
+        log.setBizType(bizType);
+        log.setBizId(bizId);
+        log.setAction(action);
+        log.setBeforeValue(beforeValue);
+        log.setAfterValue(afterValue);
+        auditLogDao.insert(log);
     }
 }

@@ -9,7 +9,6 @@ import com.spacetime.common.dao.PromotionRuleDao;
 import com.spacetime.common.entity.PromotionInviteRelation;
 import com.spacetime.common.entity.PromotionRewardLog;
 import com.spacetime.common.entity.PromotionRule;
-import com.spacetime.common.enums.PromotionRewardEventEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.service.PromotionInviteEventService;
 import com.spacetime.miniapp.service.PromotionInviteService;
@@ -88,22 +87,9 @@ public class PromotionInviteEventServiceImpl implements PromotionInviteEventServ
                                 .ge(PromotionRule::getExpireTime, LocalDateTime.now()))
                         .orderByDesc(PromotionRule::getCreateTime));
         if (page.getRecords().isEmpty()) {
-            return defaultRewardAmount(eventType);
+            return BigDecimal.ZERO;
         }
         PromotionRule rule = page.getRecords().get(0);
         return rule.getRewardAmount() == null ? BigDecimal.ZERO : rule.getRewardAmount();
-    }
-
-    private BigDecimal defaultRewardAmount(String eventType) {
-        if (PromotionRewardEventEnum.REGISTER_LOGIN_REWARD.getCode().equals(eventType)) {
-            return new BigDecimal("10");
-        }
-        if (PromotionRewardEventEnum.PROFILE_COMPLETE_REWARD.getCode().equals(eventType)) {
-            return new BigDecimal("20");
-        }
-        if (PromotionRewardEventEnum.VERIFY_COMPLETE_REWARD.getCode().equals(eventType)) {
-            return new BigDecimal("30");
-        }
-        return BigDecimal.ZERO;
     }
 }

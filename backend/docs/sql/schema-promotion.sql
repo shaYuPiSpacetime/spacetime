@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS promotion_invite_relation (
     first_login_time DATETIME DEFAULT NULL,
     profile_complete_time DATETIME DEFAULT NULL,
     verify_success_time DATETIME DEFAULT NULL,
+    frozen_before_status VARCHAR(30) DEFAULT NULL COMMENT '冻结前状态',
+    invalid_reason VARCHAR(100) DEFAULT NULL COMMENT '无效原因',
+    success_metric_hit_time DATETIME DEFAULT NULL COMMENT '命中后台成功口径时间',
     total_reward_coin DECIMAL(16,4) DEFAULT 0,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -123,12 +126,14 @@ CREATE TABLE IF NOT EXISTS promotion_reward_log (
 
 CREATE TABLE IF NOT EXISTS promotion_agent (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    agent_no VARCHAR(64) DEFAULT NULL COMMENT '代理展示编号',
     agent_name VARCHAR(100) NOT NULL COMMENT '代理名称',
     contact_name VARCHAR(50) DEFAULT NULL COMMENT '联系人',
     contact_phone VARCHAR(30) DEFAULT NULL COMMENT '联系电话',
     school VARCHAR(100) DEFAULT NULL COMMENT '学校',
     campus VARCHAR(100) DEFAULT NULL COMMENT '校区',
     agent_group VARCHAR(50) DEFAULT 'DEFAULT' COMMENT '奖金规则组',
+    bonus_rule_group VARCHAR(64) DEFAULT NULL COMMENT '正式版奖金规则组',
     status VARCHAR(20) DEFAULT 'normal' COMMENT 'normal/paused/terminated',
     remark VARCHAR(500) DEFAULT NULL,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -136,8 +141,38 @@ CREATE TABLE IF NOT EXISTS promotion_agent (
     created_by BIGINT DEFAULT NULL,
     updated_by BIGINT DEFAULT NULL,
     deleted TINYINT DEFAULT 0,
+    UNIQUE KEY uk_agent_no (agent_no),
     INDEX idx_school_status (school, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='校园代理表';
+
+CREATE TABLE IF NOT EXISTS promo_agent_stat (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    agent_id BIGINT NOT NULL COMMENT '代理ID',
+    agent_no VARCHAR(64) DEFAULT NULL COMMENT '代理展示编号',
+    click_cnt INT DEFAULT 0 COMMENT '累计扫码/点击数',
+    register_cnt INT DEFAULT 0 COMMENT '累计注册数',
+    profile_cnt INT DEFAULT 0 COMMENT '累计资料完善数',
+    verify_cnt INT DEFAULT 0 COMMENT '累计认证完成数',
+    success_cnt INT DEFAULT 0 COMMENT '累计成功邀请数',
+    first_vip_cnt INT DEFAULT 0 COMMENT '累计首次会员数',
+    first_coin_recharge_cnt INT DEFAULT 0 COMMENT '累计首次充值成家币人数',
+    bonus_due_amount DECIMAL(16,4) DEFAULT 0 COMMENT '累计应发奖金',
+    bonus_pending_amount DECIMAL(16,4) DEFAULT 0 COMMENT '累计待结算奖金',
+    bonus_confirmed_amount DECIMAL(16,4) DEFAULT 0 COMMENT '累计已确认待发奖金',
+    bonus_paid_amount DECIMAL(16,4) DEFAULT 0 COMMENT '累计已发奖金',
+    last_event_time DATETIME DEFAULT NULL COMMENT '最近一次代理事件时间',
+    last_settlement_time DATETIME DEFAULT NULL COMMENT '最近一次结算状态更新时间',
+    last_rebuild_time DATETIME DEFAULT NULL COMMENT '最近一次全量重算时间',
+    stat_version INT DEFAULT 0 COMMENT '统计版本',
+    remark VARCHAR(500) DEFAULT NULL,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by BIGINT DEFAULT NULL,
+    updated_by BIGINT DEFAULT NULL,
+    deleted TINYINT DEFAULT 0,
+    UNIQUE KEY uk_agent_id (agent_id),
+    INDEX idx_agent_no (agent_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='校园代理统计预聚合表';
 
 CREATE TABLE IF NOT EXISTS promotion_agent_qr_code (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -204,7 +239,7 @@ CREATE TABLE IF NOT EXISTS promotion_agent_settlement (
     stats_desc VARCHAR(500) DEFAULT NULL COMMENT '统计口径说明',
     payable_amount DECIMAL(16,4) NOT NULL COMMENT '应结算金额',
     paid_amount DECIMAL(16,4) DEFAULT 0 COMMENT '已结算金额',
-    status VARCHAR(30) DEFAULT 'pending' COMMENT 'pending/confirmed/paid/cancelled',
+    status VARCHAR(30) DEFAULT 'unsettled' COMMENT 'unsettled/confirmed/paid/cancelled',
     confirm_time DATETIME DEFAULT NULL,
     paid_time DATETIME DEFAULT NULL,
     operator_id BIGINT DEFAULT NULL,

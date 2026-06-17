@@ -1,11 +1,12 @@
 package com.spacetime.admin.service;
 
-import com.spacetime.admin.dto.request.PromotionSettlementCreateReq;
 import com.spacetime.admin.service.impl.PromotionSettlementAdminServiceImpl;
+import com.spacetime.common.dao.PromotionAgentDao;
 import com.spacetime.common.dao.PromotionAgentSettlementDao;
 import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.entity.PromotionAgentSettlement;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.PromotionAgentStatService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,11 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,40 +27,18 @@ class PromotionSettlementAdminServiceImplTest {
     private PromotionAgentSettlementDao settlementDao;
     @Mock
     private PromotionAuditLogDao auditLogDao;
+    @Mock
+    private PromotionAgentDao agentDao;
+    @Mock
+    private PromotionAgentStatService agentStatService;
 
     @InjectMocks
     private PromotionSettlementAdminServiceImpl service;
 
     @Test
-    @DisplayName("F3-P0-08 生成结算单默认 pending")
-    void createSettlement_shouldPending() {
-        PromotionSettlementCreateReq req = createReq();
-
-        service.create(req);
-
-        verify(settlementDao).insert(argThat(settlement ->
-                settlement.getSettlementNo().startsWith("ST")
-                        && "pending".equals(settlement.getStatus())
-                        && BigDecimal.ZERO.compareTo(settlement.getPaidAmount()) == 0));
-        verify(auditLogDao).insert(any());
-    }
-
-    @Test
-    @DisplayName("L2-10/F3 结算开始日期不能晚于结束日期")
-    void createSettlement_invalidPeriod_shouldReject() {
-        PromotionSettlementCreateReq req = createReq();
-        req.setPeriodStart(LocalDate.of(2026, 5, 2));
-        req.setPeriodEnd(LocalDate.of(2026, 5, 1));
-
-        assertThatThrownBy(() -> service.create(req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("结算开始日期不能晚于结束日期");
-    }
-
-    @Test
-    @DisplayName("F3-P0-09 pending 可以确认")
-    void confirmPending_shouldConfirmed() {
-        PromotionAgentSettlement settlement = settlement(1L, "pending");
+    @DisplayName("F3-P0-09 unsettled 可以确认")
+    void confirmUnsettled_shouldConfirmed() {
+        PromotionAgentSettlement settlement = settlement(1L, "unsettled");
         when(settlementDao.selectById(1L)).thenReturn(settlement);
 
         service.confirm(1L, "财务确认");
@@ -70,6 +46,7 @@ class PromotionSettlementAdminServiceImplTest {
         assertThat(settlement.getStatus()).isEqualTo("confirmed");
         assertThat(settlement.getConfirmTime()).isNotNull();
         verify(settlementDao).updateById(settlement);
+        verify(agentStatService).safeRefreshBySettlement(1L);
     }
 
     @Test
@@ -86,22 +63,13 @@ class PromotionSettlementAdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("F3-P2-02 pending 不能直接发放")
-    void paidPending_shouldReject() {
-        when(settlementDao.selectById(1L)).thenReturn(settlement(1L, "pending"));
+    @DisplayName("F3-P2-02 unsettled 不能直接发放")
+    void paidUnsettled_shouldReject() {
+        when(settlementDao.selectById(1L)).thenReturn(settlement(1L, "unsettled"));
 
         assertThatThrownBy(() -> service.paid(1L, BigDecimal.TEN, "直接发"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("只有已确认结算单可以标记发放");
-    }
-
-    private PromotionSettlementCreateReq createReq() {
-        PromotionSettlementCreateReq req = new PromotionSettlementCreateReq();
-        req.setAgentId(1L);
-        req.setPeriodStart(LocalDate.of(2026, 5, 1));
-        req.setPeriodEnd(LocalDate.of(2026, 5, 31));
-        req.setPayableAmount(new BigDecimal("100.00"));
-        return req;
     }
 
     private PromotionAgentSettlement settlement(Long id, String status) {

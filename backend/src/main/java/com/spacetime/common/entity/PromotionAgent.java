@@ -11,6 +11,8 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @TableName("promotion_agent")
 public class PromotionAgent extends BaseEntity {
+    /** 代理展示编号 */
+    private String agentNo;
     /** 代理名称 */
     private String agentName;
     /** 联系人 */
@@ -23,6 +25,8 @@ public class PromotionAgent extends BaseEntity {
     private String campus;
     /** 奖金规则组 */
     private String agentGroup;
+    /** 奖金规则组（正式版字段） */
+    private String bonusRuleGroup;
     /** 状态 */
     private String status;
     /** 备注 */

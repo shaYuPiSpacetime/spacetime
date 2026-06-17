@@ -4,10 +4,11 @@ package com.spacetime.common.enums;
  * 结算单状态
  */
 public enum PromotionSettlementStatusEnum {
+    UNSETTLED("unsettled"),
+    /** 旧值兼容：待确认 */
     PENDING("pending"),
     CONFIRMED("confirmed"),
-    PAID("paid"),
-    CANCELLED("cancelled");
+    PAID("paid");
 
     private final String code;
 
@@ -17,5 +18,9 @@ public enum PromotionSettlementStatusEnum {
 
     public String getCode() {
         return code;
+    }
+
+    public static boolean isUnsettled(String code) {
+        return UNSETTLED.code.equals(code) || PENDING.code.equals(code);
     }
 }

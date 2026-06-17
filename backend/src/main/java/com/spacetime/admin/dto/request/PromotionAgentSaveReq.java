@@ -19,6 +19,8 @@ public class PromotionAgentSaveReq {
     private String school;
     /** 校区 */
     private String campus;
+    /** 奖金规则组 */
+    private String bonusRuleGroup;
     /** 状态 */
     private String status;
     /** 备注 */

@@ -23,6 +23,10 @@ public interface PromotionAgentAdminService {
     void updateStatus(Long id, String status);
     /** 生成校园代理二维码 */
     PromotionAgentQrCodeVO regenerateCode(Long agentId);
+    /** 基于素材二维码重新生成新版本 */
+    PromotionAgentQrCodeVO regenerateMaterialCode(Long codeId);
+    /** 分页查询二维码素材 */
+    Page<PromotionAgentQrCodeVO> materials(Long agentId, int page, int size, String status);
     /** 停用校园代理二维码 */
     void disableCode(Long codeId);
     /** 查询代理事件 */

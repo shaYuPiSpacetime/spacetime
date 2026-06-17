@@ -6,7 +6,9 @@ package com.spacetime.common.enums;
 public enum PromotionRelationStatusEnum {
     REGISTERED("registered"),
     PROFILE_COMPLETED("profile_completed"),
-    VERIFY_SUCCESS("verify_success");
+    VERIFY_SUCCESS("verify_success"),
+    FROZEN("frozen"),
+    INVALID("invalid");
 
     private final String code;
 

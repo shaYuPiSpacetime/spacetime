@@ -2,7 +2,6 @@ package com.spacetime.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.PromotionReviewReq;
-import com.spacetime.admin.dto.request.PromotionSettlementCreateReq;
 import com.spacetime.admin.dto.request.PromotionSettlementPageReq;
 import com.spacetime.admin.dto.request.PromotionSettlementPaidReq;
 import com.spacetime.admin.dto.response.PromotionSettlementVO;
@@ -28,13 +27,6 @@ public class PromotionSettlementController {
     @RequirePermission("promotion:settlement:list")
     public R<Page<PromotionSettlementVO>> list(@Valid PromotionSettlementPageReq req) {
         return R.ok(promotionSettlementAdminService.list(req));
-    }
-
-    /** 生成结算单 */
-    @PostMapping
-    @RequirePermission("promotion:settlement:add")
-    public R<Long> create(@Valid @RequestBody PromotionSettlementCreateReq req) {
-        return R.ok(promotionSettlementAdminService.create(req));
     }
 
     /** 标记已确认 */

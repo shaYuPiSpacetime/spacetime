@@ -61,8 +61,8 @@ class PromotionInviteEventServiceImplTest {
     }
 
     @Test
-    @DisplayName("资料完善事件推进关系并生成奖励流水")
-    void handleProfileEvent_shouldAdvanceRelationAndGenerateReward() {
+    @DisplayName("未配置资料完善奖励时只推进关系，不生成默认奖励")
+    void handleProfileEvent_noRule_shouldAdvanceWithoutDefaultReward() {
         PromotionInviteRelation relation = relation();
         when(promotionInviteService.markProfileCompleted(200L)).thenReturn(relation);
         when(ruleDao.selectPage(any(), any())).thenReturn(new Page<>(1, 1));
@@ -70,9 +70,7 @@ class PromotionInviteEventServiceImplTest {
         service.handleInviteEvent(200L, "profile_complete_reward");
 
         verify(promotionInviteService).markProfileCompleted(200L);
-        verify(rewardLogDao).insert(argThat(log ->
-                "profile_complete_reward".equals(log.getEventType())
-                        && log.getRewardCoin().compareTo(new BigDecimal("20")) == 0));
+        verify(rewardLogDao, never()).insert(any());
     }
 
     @Test

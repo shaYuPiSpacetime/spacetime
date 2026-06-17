@@ -1,7 +1,8 @@
 package com.spacetime.miniapp.controller;
 
-import com.spacetime.common.entity.PromotionSourceTrace;
 import com.spacetime.common.exception.GlobalExceptionHandler;
+import com.spacetime.miniapp.dto.response.InviteRulesVO;
+import com.spacetime.miniapp.dto.response.InviteSourceTraceVO;
 import com.spacetime.miniapp.service.PromotionInviteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,14 +44,14 @@ class PromotionInviteControllerTest {
     @Test
     @DisplayName("L2-12/F1-P0-04 二维码来源记录可匿名调用")
     void shareLog_shouldAllowAnonymous() throws Exception {
-        PromotionSourceTrace trace = new PromotionSourceTrace();
+        InviteSourceTraceVO trace = new InviteSourceTraceVO();
         trace.setTraceNo("TR1");
-        trace.setSourceType("user_qr");
+        trace.setSourceType("normal_user");
         when(service.shareLog(any())).thenReturn(trace);
 
         mockMvc.perform(post("/miniapp/promotion/invite/share-log")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"sourceType\":\"user_qr\",\"inviterId\":100}"))
+                        .content("{\"sourceType\":\"normal_user\",\"inviterId\":100}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.traceNo").value("TR1"));
@@ -59,7 +60,9 @@ class PromotionInviteControllerTest {
     @Test
     @DisplayName("F1-P0-02 活动规则接口返回成功")
     void rules_shouldReturnSuccess() throws Exception {
-        when(service.rules()).thenReturn(java.util.Map.of("successRule", "三项认证完成"));
+        InviteRulesVO rules = new InviteRulesVO();
+        rules.setSuccessRule("三项认证完成");
+        when(service.rules()).thenReturn(rules);
 
         mockMvc.perform(get("/miniapp/promotion/invite/rules"))
                 .andExpect(status().isOk())

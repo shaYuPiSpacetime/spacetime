@@ -21,9 +21,12 @@ public class PromotionInviteRelationVO {
     private String agentName;
     private String qrCode;
     private String status;
+    private String frozenBeforeStatus;
+    private String invalidReason;
     private LocalDateTime bindTime;
     private LocalDateTime firstLoginTime;
     private LocalDateTime profileCompleteTime;
     private LocalDateTime verifySuccessTime;
+    private LocalDateTime successMetricHitTime;
     private BigDecimal totalRewardCoin;
 }

@@ -5,6 +5,7 @@ import com.spacetime.admin.dto.request.PromotionRulePageReq;
 import com.spacetime.admin.dto.request.PromotionRuleSaveReq;
 import com.spacetime.admin.dto.request.PromotionRuleTierReq;
 import com.spacetime.admin.dto.request.PromotionStatusUpdateReq;
+import com.spacetime.admin.dto.response.PromotionRuleConfigVO;
 import com.spacetime.admin.dto.response.PromotionRuleVO;
 import com.spacetime.admin.service.PromotionRuleAdminService;
 import com.spacetime.common.annotation.RequirePermission;
@@ -29,6 +30,13 @@ public class PromotionRuleController {
     @RequirePermission("promotion:rule:list")
     public R<Page<PromotionRuleVO>> list(@Valid PromotionRulePageReq req) {
         return R.ok(promotionRuleAdminService.list(req));
+    }
+
+    /** 查询正式版规则配置聚合详情 */
+    @GetMapping("/config")
+    @RequirePermission("promotion:rule:list")
+    public R<PromotionRuleConfigVO> config() {
+        return R.ok(promotionRuleAdminService.config());
     }
 
     /** 查询推广规则详情 */

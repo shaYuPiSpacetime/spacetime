@@ -3,6 +3,7 @@ package com.spacetime.miniapp.service;
 import com.spacetime.common.dao.PromotionAgentDao;
 import com.spacetime.common.dao.PromotionAgentQrCodeDao;
 import com.spacetime.common.dao.PromotionAgentSettlementDao;
+import com.spacetime.common.dao.PromotionInviteRelationDao;
 import com.spacetime.common.dao.UserDao;
 import com.spacetime.common.entity.PromotionAgent;
 import com.spacetime.common.entity.PromotionAgentQrCode;
@@ -47,6 +48,8 @@ class PromotionInviteSeedDataTest {
     @Autowired
     private PromotionAgentSettlementDao settlementDao;
     @Autowired
+    private PromotionInviteRelationDao relationDao;
+    @Autowired
     private UserDao userDao;
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -83,28 +86,30 @@ class PromotionInviteSeedDataTest {
     private PromotionInviteRelation seedUserQr(String traceNo, Long inviteeId, String targetStatus) {
         PromotionSourceTrace trace = new PromotionSourceTrace();
         trace.setTraceNo(traceNo);
-        trace.setSourceType("user_qr");
+        trace.setSourceType("normal_user");
         trace.setInviterId(USER_INVITER_ID);
         trace.setScene("seed-user-qr");
         promotionInviteService.shareLog(trace);
 
-        PromotionInviteRelation relation = promotionInviteService.bind(inviteeId, traceNo, null, null);
+        promotionInviteService.bind(inviteeId, traceNo, null, null);
+        PromotionInviteRelation relation = relationDao.selectByInviteeId(inviteeId);
         advanceStatus(inviteeId, targetStatus);
-        assertThat(relation.getSourceType()).isEqualTo("user_qr");
+        assertThat(relation.getSourceType()).isEqualTo("normal_user");
         return relation;
     }
 
     private void seedAgentQr(String traceNo, Long inviteeId, String qrCode, String targetStatus) {
         PromotionSourceTrace trace = new PromotionSourceTrace();
         trace.setTraceNo(traceNo);
-        trace.setSourceType("agent_qr");
+        trace.setSourceType("campus_agent");
         trace.setQrCode(qrCode);
         trace.setScene("seed-agent-qr");
         promotionInviteService.shareLog(trace);
 
-        PromotionInviteRelation relation = promotionInviteService.bind(inviteeId, traceNo, null, qrCode);
+        promotionInviteService.bind(inviteeId, traceNo, null, qrCode);
+        PromotionInviteRelation relation = relationDao.selectByInviteeId(inviteeId);
         advanceStatus(inviteeId, targetStatus);
-        assertThat(relation.getSourceType()).isEqualTo("agent_qr");
+        assertThat(relation.getSourceType()).isEqualTo("campus_agent");
     }
 
     private void advanceStatus(Long inviteeId, String targetStatus) {
@@ -146,7 +151,7 @@ class PromotionInviteSeedDataTest {
     }
 
     private void seedSettlements(Long agentId) {
-        createSettlement(agentId, "ST_SEED_PENDING", "pending", new BigDecimal("120.00"), BigDecimal.ZERO, "待确认结算单");
+        createSettlement(agentId, "ST_SEED_UNSETTLED", "unsettled", new BigDecimal("120.00"), BigDecimal.ZERO, "待结算单");
         createSettlement(agentId, "ST_SEED_CONFIRMED", "confirmed", new BigDecimal("180.00"), BigDecimal.ZERO, "已确认待发放结算单");
         createSettlement(agentId, "ST_SEED_PAID", "paid", new BigDecimal("240.00"), new BigDecimal("240.00"), "已发放结算单");
     }
@@ -229,6 +234,12 @@ class PromotionInviteSeedDataTest {
                 "ALTER TABLE promotion_source_trace ADD COLUMN qr_code VARCHAR(64) DEFAULT NULL COMMENT '校园代理二维码编号'");
         addColumnIfMissing("promotion_invite_relation", "qr_code",
                 "ALTER TABLE promotion_invite_relation ADD COLUMN qr_code VARCHAR(64) DEFAULT NULL COMMENT '校园代理二维码编号'");
+        addColumnIfMissing("promotion_invite_relation", "frozen_before_status",
+                "ALTER TABLE promotion_invite_relation ADD COLUMN frozen_before_status VARCHAR(30) DEFAULT NULL COMMENT '冻结前状态'");
+        addColumnIfMissing("promotion_invite_relation", "invalid_reason",
+                "ALTER TABLE promotion_invite_relation ADD COLUMN invalid_reason VARCHAR(100) DEFAULT NULL COMMENT '无效原因'");
+        addColumnIfMissing("promotion_invite_relation", "success_metric_hit_time",
+                "ALTER TABLE promotion_invite_relation ADD COLUMN success_metric_hit_time DATETIME DEFAULT NULL COMMENT '命中后台成功口径时间'");
         addColumnIfMissing("promotion_agent_event", "qr_code",
                 "ALTER TABLE promotion_agent_event ADD COLUMN qr_code VARCHAR(64) DEFAULT NULL COMMENT '校园代理二维码编号'");
         modifyColumnNullableIfExists("promotion_agent_event", "agent_code",

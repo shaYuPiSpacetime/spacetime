@@ -42,6 +42,12 @@ public class PromotionInviteRelation extends BaseEntity {
     private LocalDateTime profileCompleteTime;
     /** 三项认证完成时间 */
     private LocalDateTime verifySuccessTime;
+    /** 冻结前状态 */
+    private String frozenBeforeStatus;
+    /** 无效原因 */
+    private String invalidReason;
+    /** 命中后台成功口径时间 */
+    private LocalDateTime successMetricHitTime;
     /** 累计奖励 */
     private BigDecimal totalRewardCoin;
 }

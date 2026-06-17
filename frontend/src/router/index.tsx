@@ -52,11 +52,20 @@ export default function AppRouter() {
         <Route path="system/dict-data" element={<DictDataManagement />} />
 
         {/* Promotion */}
-        <Route path="promotion/rules" element={<PromotionManagement />} />
-        <Route path="promotion/invites" element={<PromotionManagement />} />
-        <Route path="promotion/rewards" element={<PromotionManagement />} />
-        <Route path="promotion/agents" element={<PromotionManagement />} />
-        <Route path="promotion/settlements" element={<PromotionManagement />} />
+        <Route path="promotion/rule-config" element={<PromotionManagement />} />
+        <Route path="promotion/invite-relation" element={<PromotionManagement />} />
+        <Route path="promotion/invite-relation/:id" element={<PromotionManagement />} />
+        <Route path="promotion/invite-reward" element={<PromotionManagement />} />
+        <Route path="promotion/invite-reward/frozen" element={<PromotionManagement />} />
+        <Route path="promotion/agent" element={<PromotionManagement />} />
+        <Route path="promotion/agent/:id" element={<PromotionManagement />} />
+        <Route path="promotion/material" element={<PromotionManagement />} />
+        <Route path="promotion/settlement" element={<PromotionManagement />} />
+        <Route path="promotion/rules" element={<Navigate to="/promotion/rule-config" replace />} />
+        <Route path="promotion/invites" element={<Navigate to="/promotion/invite-relation" replace />} />
+        <Route path="promotion/rewards" element={<Navigate to="/promotion/invite-reward" replace />} />
+        <Route path="promotion/agents" element={<Navigate to="/promotion/agent" replace />} />
+        <Route path="promotion/settlements" element={<Navigate to="/promotion/settlement" replace />} />
 
         {/* Content Management */}
         <Route path="content/articles" element={<ContentArticlePage />} />

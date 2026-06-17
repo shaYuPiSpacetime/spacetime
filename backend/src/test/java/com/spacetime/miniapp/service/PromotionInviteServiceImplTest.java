@@ -8,6 +8,9 @@ import com.spacetime.common.entity.PromotionAgentQrCode;
 import com.spacetime.common.entity.PromotionInviteRelation;
 import com.spacetime.common.entity.PromotionSourceTrace;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.PromotionAgentStatService;
+import com.spacetime.miniapp.dto.response.InviteBindVO;
+import com.spacetime.miniapp.dto.response.InviteSourceTraceVO;
 import com.spacetime.miniapp.service.impl.PromotionInviteServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +37,8 @@ class PromotionInviteServiceImplTest {
     private PromotionAgentQrCodeDao qrCodeDao;
     @Mock
     private PromotionAgentEventDao agentEventDao;
+    @Mock
+    private PromotionAgentStatService agentStatService;
 
     @InjectMocks
     private PromotionInviteServiceImpl service;
@@ -42,14 +47,14 @@ class PromotionInviteServiceImplTest {
     @DisplayName("F1-P0-04 普通用户二维码来源写入 traceNo 和 unbound")
     void shareLog_normal_shouldCreateTrace() {
         PromotionSourceTrace trace = new PromotionSourceTrace();
-        trace.setSourceType("user_qr");
+        trace.setSourceType("normal_user");
         trace.setInviterId(100L);
 
-        PromotionSourceTrace result = service.shareLog(trace);
+        InviteSourceTraceVO result = service.shareLog(trace);
 
         assertThat(result.getTraceNo()).startsWith("TR");
         assertThat(result.getBindStatus()).isEqualTo("unbound");
-        verify(sourceTraceDao).insert(trace);
+        verify(sourceTraceDao).insert(argThat(saved -> "normal_user".equals(saved.getSourceType())));
     }
 
     @Test
@@ -66,18 +71,19 @@ class PromotionInviteServiceImplTest {
         PromotionSourceTrace trace = new PromotionSourceTrace();
         trace.setId(1L);
         trace.setTraceNo("TR1");
-        trace.setSourceType("user_qr");
+        trace.setSourceType("normal_user");
         trace.setInviterId(100L);
         when(sourceTraceDao.selectByTraceNo("TR1")).thenReturn(trace);
 
-        PromotionInviteRelation relation = service.bind(200L, "TR1", null, null);
+        InviteBindVO relation = service.bind(200L, "TR1", null, null);
 
-        assertThat(relation.getInviterId()).isEqualTo(100L);
-        assertThat(relation.getInviteeId()).isEqualTo(200L);
         assertThat(relation.getStatus()).isEqualTo("registered");
-        assertThat(relation.getRegisterTime()).isNotNull();
+        assertThat(relation.getSourceType()).isEqualTo("normal_user");
         assertThat(trace.getBindStatus()).isEqualTo("bound");
-        verify(relationDao).insert(relation);
+        verify(relationDao).insert(argThat(saved ->
+                Long.valueOf(100L).equals(saved.getInviterId())
+                        && Long.valueOf(200L).equals(saved.getInviteeId())
+                        && saved.getRegisterTime() != null));
         verify(sourceTraceDao).updateById(trace);
     }
 
@@ -86,7 +92,7 @@ class PromotionInviteServiceImplTest {
     void bind_selfInvite_shouldReject() {
         PromotionSourceTrace trace = new PromotionSourceTrace();
         trace.setTraceNo("TR1");
-        trace.setSourceType("user_qr");
+        trace.setSourceType("normal_user");
         trace.setInviterId(200L);
         when(sourceTraceDao.selectByTraceNo("TR1")).thenReturn(trace);
 
@@ -106,9 +112,9 @@ class PromotionInviteServiceImplTest {
         existing.setInviterId(100L);
         when(relationDao.selectByInviteeId(200L)).thenReturn(existing);
 
-        PromotionInviteRelation relation = service.bind(200L, "TR2", null, null);
+        InviteBindVO relation = service.bind(200L, "TR2", null, null);
 
-        assertThat(relation).isSameAs(existing);
+        assertThat(relation.getRelationId()).isEqualTo(1L);
         verify(sourceTraceDao, never()).selectByTraceNo(any());
         verify(relationDao, never()).insert(any());
     }
@@ -118,46 +124,46 @@ class PromotionInviteServiceImplTest {
     void bind_agentPriority_shouldPreferAgent() {
         PromotionSourceTrace trace = new PromotionSourceTrace();
         trace.setTraceNo("TR1");
-        trace.setSourceType("user_qr");
+        trace.setSourceType("normal_user");
         trace.setInviterId(100L);
         PromotionAgentQrCode agent = enabledQrCode();
         when(sourceTraceDao.selectByTraceNo("TR1")).thenReturn(trace);
         when(qrCodeDao.selectByQrCode("A001")).thenReturn(agent);
 
-        PromotionInviteRelation relation = service.bind(200L, "TR1", null, "A001");
+        InviteBindVO relation = service.bind(200L, "TR1", null, "A001");
 
-        assertThat(relation.getSourceType()).isEqualTo("agent_qr");
-        assertThat(relation.getAgentId()).isEqualTo(9L);
-        assertThat(relation.getInviterId()).isNull();
+        assertThat(relation.getSourceType()).isEqualTo("campus_agent");
+        verify(relationDao).insert(argThat(saved ->
+                Long.valueOf(9L).equals(saved.getAgentId()) && saved.getInviterId() == null));
     }
 
     @Test
-    @DisplayName("F3-P1-01/L3-15 停用校园代理二维码不应建立代理关系")
-    void bind_disabledQrCode_shouldRejectAgentRelation() {
+    @DisplayName("F3-P1-01/L3-15 停用校园代理二维码仍可建立归因关系")
+    void bind_disabledQrCode_shouldStillAttribute() {
         PromotionAgentQrCode disabled = enabledQrCode();
         disabled.setStatus("disabled");
         when(qrCodeDao.selectByQrCode("A001")).thenReturn(disabled);
 
-        assertThatThrownBy(() -> service.bind(200L, null, null, "A001"))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("邀请来源不能为空");
+        InviteBindVO result = service.bind(200L, null, null, "A001");
 
-        verify(relationDao, never()).insert(any());
+        assertThat(result.getSourceType()).isEqualTo("campus_agent");
+        verify(relationDao).insert(argThat(saved -> Long.valueOf(9L).equals(saved.getAgentId())));
     }
 
     @Test
-    @DisplayName("F1-P0-05 只有 enabled 校园代理二维码记录 click 事件")
-    void shareLog_disabledQrCode_shouldNotCreateClickEvent() {
+    @DisplayName("F1-P0-05 停用校园代理二维码仍记录 click 事件")
+    void shareLog_disabledQrCode_shouldCreateClickEvent() {
         PromotionAgentQrCode disabled = enabledQrCode();
         disabled.setStatus("disabled");
         when(qrCodeDao.selectByQrCode("A001")).thenReturn(disabled);
 
         PromotionSourceTrace trace = new PromotionSourceTrace();
-        trace.setSourceType("agent_qr");
+        trace.setSourceType("campus_agent");
         trace.setQrCode("A001");
         service.shareLog(trace);
 
-        verify(agentEventDao, never()).insert(any());
+        verify(agentEventDao).insert(any());
+        verify(agentStatService).safeRefreshByEvent(9L);
     }
 
     @Test
@@ -165,9 +171,9 @@ class PromotionInviteServiceImplTest {
     void qrSource_shouldExposeAvailability() {
         when(qrCodeDao.selectByQrCode("A001")).thenReturn(enabledQrCode());
 
-        assertThat(service.qrSource("A001"))
-                .containsEntry("available", true)
-                .containsEntry("qrCode", "A001");
+        var source = service.qrSource("A001");
+        assertThat(source.getAvailable()).isTrue();
+        assertThat(source.getQrCode()).isEqualTo("A001");
     }
 
     @Test
@@ -225,7 +231,7 @@ class PromotionInviteServiceImplTest {
         relation.setId(1L);
         relation.setInviteeId(200L);
         relation.setInviterId(100L);
-        relation.setSourceType("user_qr");
+        relation.setSourceType("normal_user");
         relation.setStatus(status);
         return relation;
     }

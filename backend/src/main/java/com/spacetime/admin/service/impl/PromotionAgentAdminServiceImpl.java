@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.PromotionAgentPageReq;
 import com.spacetime.admin.dto.request.PromotionAgentSaveReq;
 import com.spacetime.admin.dto.response.PromotionAgentQrCodeVO;
+import com.spacetime.admin.dto.response.PromotionAgentStatVO;
 import com.spacetime.admin.dto.response.PromotionAgentVO;
 import com.spacetime.admin.service.PromotionAgentAdminService;
 import com.spacetime.common.dao.PromotionAgentQrCodeDao;
@@ -16,9 +17,11 @@ import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.entity.PromotionAgent;
 import com.spacetime.common.entity.PromotionAgentQrCode;
 import com.spacetime.common.entity.PromotionAgentEvent;
+import com.spacetime.common.entity.PromotionAgentStat;
 import com.spacetime.common.entity.PromotionAuditLog;
 import com.spacetime.common.enums.PromotionAgentStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.PromotionAgentStatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +36,7 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
     private final PromotionAgentQrCodeDao qrCodeDao;
     private final PromotionAgentEventDao agentEventDao;
     private final PromotionAuditLogDao auditLogDao;
+    private final PromotionAgentStatService agentStatService;
 
     @Override
     public Page<PromotionAgentVO> list(PromotionAgentPageReq req) {
@@ -69,10 +73,14 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
     @Transactional
     public Long create(PromotionAgentSaveReq req) {
         PromotionAgent agent = toEntity(req);
+        if (StrUtil.isBlank(agent.getAgentNo())) {
+            agent.setAgentNo(nextAgentNo());
+        }
         if (StrUtil.isBlank(agent.getStatus())) {
             agent.setStatus(PromotionAgentStatusEnum.NORMAL.getCode());
         }
         agentDao.insert(agent);
+        agentStatService.initAgentStat(agent);
         audit("agent", agent.getId(), "create", null, agent.getAgentName());
         return agent.getId();
     }
@@ -87,6 +95,8 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
         entity.setContactPhone(agent.getContactPhone());
         entity.setSchool(agent.getSchool());
         entity.setCampus(agent.getCampus());
+        entity.setAgentGroup(agent.getAgentGroup());
+        entity.setBonusRuleGroup(agent.getBonusRuleGroup());
         entity.setStatus(agent.getStatus());
         entity.setRemark(agent.getRemark());
         agentDao.updateById(entity);
@@ -111,11 +121,38 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
         code.setAgentId(agentId);
         code.setQrCode("A" + IdUtil.fastSimpleUUID().substring(0, 15));
         code.setMiniappPath("/pages/index/index?qrCode=" + code.getQrCode());
-        code.setVersionNo(1);
+        code.setVersionNo(nextQrVersion(agentId));
         code.setStatus("enabled");
         qrCodeDao.insert(code);
         audit("qr_code", code.getId(), "create", null, code.getQrCode());
         return toCodeVO(code);
+    }
+
+    @Override
+    @Transactional
+    public PromotionAgentQrCodeVO regenerateMaterialCode(Long codeId) {
+        PromotionAgentQrCode oldCode = qrCodeDao.selectById(codeId);
+        if (oldCode == null) {
+            throw new BusinessException("校园代理二维码不存在");
+        }
+        if (!"disabled".equals(oldCode.getStatus())) {
+            oldCode.setStatus("disabled");
+            qrCodeDao.updateById(oldCode);
+            audit("qr_code", codeId, "disable_for_regenerate", "enabled", "disabled");
+        }
+        return regenerateCode(oldCode.getAgentId());
+    }
+
+    @Override
+    public Page<PromotionAgentQrCodeVO> materials(Long agentId, int page, int size, String status) {
+        LambdaQueryWrapper<PromotionAgentQrCode> wrapper = new LambdaQueryWrapper<PromotionAgentQrCode>()
+                .eq(agentId != null, PromotionAgentQrCode::getAgentId, agentId)
+                .eq(StrUtil.isNotBlank(status), PromotionAgentQrCode::getStatus, status)
+                .orderByDesc(PromotionAgentQrCode::getCreateTime);
+        Page<PromotionAgentQrCode> result = qrCodeDao.selectPage(new Page<>(page, Math.min(size, 100)), wrapper);
+        Page<PromotionAgentQrCodeVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(result.getRecords().stream().map(this::toCodeVO).toList());
+        return voPage;
     }
 
     @Override
@@ -156,6 +193,8 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
         agent.setContactPhone(req.getContactPhone());
         agent.setSchool(req.getSchool());
         agent.setCampus(req.getCampus());
+        agent.setAgentGroup(req.getBonusRuleGroup());
+        agent.setBonusRuleGroup(req.getBonusRuleGroup());
         agent.setStatus(req.getStatus());
         agent.setRemark(req.getRemark());
         return agent;
@@ -164,15 +203,54 @@ public class PromotionAgentAdminServiceImpl implements PromotionAgentAdminServic
     private PromotionAgentVO toVO(PromotionAgent entity) {
         PromotionAgentVO vo = new PromotionAgentVO();
         vo.setId(entity.getId());
+        vo.setAgentNo(entity.getAgentNo());
         vo.setAgentName(entity.getAgentName());
         vo.setContactName(entity.getContactName());
         vo.setContactPhone(entity.getContactPhone());
         vo.setSchool(entity.getSchool());
         vo.setCampus(entity.getCampus());
+        vo.setBonusRuleGroup(StrUtil.blankToDefault(entity.getBonusRuleGroup(), entity.getAgentGroup()));
         vo.setStatus(entity.getStatus());
         vo.setRemark(entity.getRemark());
+        vo.setStat(toStatVO(agentStatService.getOrEmpty(entity.getId())));
         vo.setCreateTime(entity.getCreateTime());
         return vo;
+    }
+
+    private PromotionAgentStatVO toStatVO(PromotionAgentStat stat) {
+        PromotionAgentStatVO vo = new PromotionAgentStatVO();
+        vo.setClickCnt(stat.getClickCnt());
+        vo.setRegisterCnt(stat.getRegisterCnt());
+        vo.setProfileCnt(stat.getProfileCnt());
+        vo.setVerifyCnt(stat.getVerifyCnt());
+        vo.setSuccessCnt(stat.getSuccessCnt());
+        vo.setFirstVipCnt(stat.getFirstVipCnt());
+        vo.setFirstCoinRechargeCnt(stat.getFirstCoinRechargeCnt());
+        vo.setBonusDueAmount(stat.getBonusDueAmount());
+        vo.setBonusPendingAmount(stat.getBonusPendingAmount());
+        vo.setBonusConfirmedAmount(stat.getBonusConfirmedAmount());
+        vo.setBonusPaidAmount(stat.getBonusPaidAmount());
+        vo.setLastEventTime(stat.getLastEventTime());
+        vo.setLastSettlementTime(stat.getLastSettlementTime());
+        vo.setStatVersion(stat.getStatVersion());
+        return vo;
+    }
+
+    private String nextAgentNo() {
+        return "AGT-" + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+                + "-" + IdUtil.fastSimpleUUID().substring(0, 6).toUpperCase();
+    }
+
+    private int nextQrVersion(Long agentId) {
+        Page<PromotionAgentQrCode> page = qrCodeDao.selectPage(new Page<>(1, 1, false),
+                new LambdaQueryWrapper<PromotionAgentQrCode>()
+                        .eq(PromotionAgentQrCode::getAgentId, agentId)
+                        .orderByDesc(PromotionAgentQrCode::getVersionNo));
+        return page.getRecords().stream()
+                .findFirst()
+                .map(PromotionAgentQrCode::getVersionNo)
+                .map(version -> version + 1)
+                .orElse(1);
     }
 
     private PromotionAgentQrCodeVO toCodeVO(PromotionAgentQrCode entity) {

@@ -34,10 +34,13 @@ export interface PromotionInviteRelationVO {
   agentName?: string;
   qrCode?: string;
   status: string;
+  frozenBeforeStatus?: string;
+  invalidReason?: string;
   bindTime: string;
   firstLoginTime?: string;
   profileCompleteTime?: string;
   verifySuccessTime?: string;
+  successMetricHitTime?: string;
   totalRewardCoin?: number;
 }
 
@@ -61,14 +64,34 @@ export interface PromotionRewardLogVO {
 
 export interface PromotionAgentVO {
   id: number;
+  agentNo?: string;
   agentName: string;
   contactName?: string;
   contactPhone?: string;
   school?: string;
   campus?: string;
+  bonusRuleGroup?: string;
   status: string;
   remark?: string;
+  stat?: PromotionAgentStatVO;
   createTime?: string;
+}
+
+export interface PromotionAgentStatVO {
+  clickCnt?: number;
+  registerCnt?: number;
+  profileCnt?: number;
+  verifyCnt?: number;
+  successCnt?: number;
+  firstVipCnt?: number;
+  firstCoinRechargeCnt?: number;
+  bonusDueAmount?: number;
+  bonusPendingAmount?: number;
+  bonusConfirmedAmount?: number;
+  bonusPaidAmount?: number;
+  lastEventTime?: string;
+  lastSettlementTime?: string;
+  statVersion?: number;
 }
 
 export interface PromotionAgentQrCodeVO {
@@ -80,6 +103,18 @@ export interface PromotionAgentQrCodeVO {
   materialUrl?: string;
   versionNo: number;
   status: string;
+}
+
+export interface PromotionAgentEventVO {
+  id: number;
+  agentId: number;
+  qrCode: string;
+  relationId?: number;
+  userId?: number;
+  eventType: string;
+  eventTime: string;
+  bonusGenerated?: boolean;
+  createTime?: string;
 }
 
 export interface PromotionSettlementVO {
@@ -129,7 +164,19 @@ export function getPromotionInvites(params: {
   sourceType?: string;
   status?: string;
 }) {
-  return request.get('/admin/promotion/invites/list', { params });
+  return request.get('/admin/promotion/invite-relations/list', { params });
+}
+
+export function getPromotionInviteDetail(id: number) {
+  return request.get(`/admin/promotion/invite-relations/${id}`);
+}
+
+export function unfreezePromotionInvite(id: number, remark?: string) {
+  return request.put(`/admin/promotion/invite-relations/${id}/unfreeze`, { remark });
+}
+
+export function invalidatePromotionInvite(id: number, remark?: string) {
+  return request.put(`/admin/promotion/invite-relations/${id}/invalid`, { remark });
 }
 
 export function getPromotionRewards(params: {
@@ -140,15 +187,15 @@ export function getPromotionRewards(params: {
   eventType?: string;
   status?: string;
 }) {
-  return request.get('/admin/promotion/rewards/list', { params });
+  return request.get('/admin/promotion/invite-rewards/list', { params });
 }
 
 export function approvePromotionReward(id: number, remark?: string) {
-  return request.put(`/admin/promotion/rewards/${id}/approve`, { remark });
+  return request.put(`/admin/promotion/invite-rewards/${id}/approve`, { remark });
 }
 
 export function rejectPromotionReward(id: number, remark?: string) {
-  return request.put(`/admin/promotion/rewards/${id}/reject`, { remark });
+  return request.put(`/admin/promotion/invite-rewards/${id}/reject`, { remark });
 }
 
 export function getPromotionAgents(params: {
@@ -173,8 +220,37 @@ export function updatePromotionAgentStatus(id: number, status: string) {
   return request.put(`/admin/promotion/agents/${id}/status`, { status });
 }
 
+export function getPromotionAgentDetail(id: number) {
+  return request.get(`/admin/promotion/agents/${id}`);
+}
+
+export function getPromotionAgentEvents(id: number, params: {
+  page: number;
+  size: number;
+  eventType?: string;
+}) {
+  return request.get(`/admin/promotion/agents/${id}/events`, { params });
+}
+
 export function regeneratePromotionAgentQrCode(id: number) {
   return request.post(`/admin/promotion/agents/${id}/qr-codes/regenerate`);
+}
+
+export function getPromotionMaterials(params: {
+  page: number;
+  size: number;
+  agentId?: number;
+  status?: string;
+}) {
+  return request.get('/admin/promotion/materials/list', { params });
+}
+
+export function disablePromotionMaterial(id: number, remark?: string) {
+  return request.put(`/admin/promotion/materials/${id}/disable`, { remark });
+}
+
+export function regeneratePromotionMaterial(id: number) {
+  return request.post(`/admin/promotion/materials/${id}/regenerate`);
 }
 
 export function getPromotionSettlements(params: {
@@ -184,10 +260,6 @@ export function getPromotionSettlements(params: {
   status?: string;
 }) {
   return request.get('/admin/promotion/settlements/list', { params });
-}
-
-export function createPromotionSettlement(data: Partial<PromotionSettlementVO>) {
-  return request.post('/admin/promotion/settlements', data);
 }
 
 export function confirmPromotionSettlement(id: number, remark?: string) {

@@ -1,343 +1,381 @@
-#!/bin/bash
-# ================================================================
-# 推广裂变 - L1 接口测试脚本（已实现接口范围）
-# 范围：
-#   - 小程序匿名接口：rules/share-log/qr-source
-#   - 后台：规则、邀请列表、奖励列表/复核、代理/二维码、结算
-# 未纳入：
-#   - 邀请导出、代理统计、代理奖金明细/结算导出不纳入本期需求范围
-#   - PRD-03/04/06 真实通知、成家币、认证/支付联动
-# ================================================================
-API_URL="${API_URL:-http://localhost:8080}"
-ADMIN_USERNAME="${ADMIN_USERNAME:-peter}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-000000}"
+#!/usr/bin/env bash
+set -u
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
+# 推广裂变与邀请奖励 L1 接口测试。
+# 需要 API_URL；后台用 TOKEN，小程序用 MINIAPP_TOKEN（未提供则跳过小程序登录态用例）。
+# 可选夹具：LOW_PRIV_TOKEN、TEST_FROZEN_REWARD_ID、TEST_FROZEN_RELATION_ID、
+# TEST_SETTLEMENT_UNSETTLED_ID、TEST_SETTLEMENT_CONFIRMED_ID。
 
-api_post_no_token() { curl -s -w "\n%{http_code}" -X POST "$1" -H "Content-Type: application/json" -d "$2"; }
-api_get_no_token()  { curl -s -w "\n%{http_code}" -X GET "$1"; }
-api_post_json()     { curl -s -w "\n%{http_code}" -X POST "$1" -H "X-Auth-Token: ${TOKEN}" -H "Content-Type: application/json" -d "$2"; }
-api_get()           { curl -s -w "\n%{http_code}" -X GET "$1" -H "X-Auth-Token: ${TOKEN}"; }
-api_put_json()      { curl -s -w "\n%{http_code}" -X PUT "$1" -H "X-Auth-Token: ${TOKEN}" -H "Content-Type: application/json" -d "$2"; }
+API_URL="${API_URL:-${BASE_URL:-}}"
+TOKEN="${TOKEN:-}"
+MINIAPP_TOKEN="${MINIAPP_TOKEN:-}"
+LOW_PRIV_TOKEN="${LOW_PRIV_TOKEN:-}"
 
-parse_response() { RESP_CODE=$(echo "$1" | tail -1); RESP_BODY=$(echo "$1" | sed '$d'); }
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+TOTAL=0
+PASS=0
+FAIL=0
+SKIP=0
+
+trim_base() {
+  printf '%s' "$1" | sed 's#/$##'
+}
+
+API_URL="$(trim_base "$API_URL")"
+
+record_pass() {
+  TOTAL=$((TOTAL + 1))
+  PASS=$((PASS + 1))
+  printf "%b✅ %s | %s%b\n" "$GREEN" "$1" "$2" "$NC"
+}
+
+record_fail() {
+  TOTAL=$((TOTAL + 1))
+  FAIL=$((FAIL + 1))
+  printf "%b❌ %s | %s%b\n" "$RED" "$1" "$2" "$NC"
+}
+
+record_skip() {
+  TOTAL=$((TOTAL + 1))
+  SKIP=$((SKIP + 1))
+  printf "%b⏭️ %s | %s%b\n" "$YELLOW" "$1" "$2" "$NC"
+}
+
+body_code() {
+  local resp="$1"
+  HTTP_CODE="$(printf '%s' "$resp" | tail -n 1)"
+  RESP_BODY="$(printf '%s' "$resp" | sed '$d')"
+}
+
 json_field() {
-  echo "$1" | python3 -c "
-import sys,json
-d=json.load(sys.stdin)
-for k in '$2'.split('.'):
-    if isinstance(d, dict): d=d.get(k)
-    else: d=None
-v=d if d is not None else ''
-print(str(v).lower() if isinstance(v, bool) else v)
-" 2>/dev/null
+  local field="$1"
+  printf '%s' "$2" | sed -n "s/.*\"$field\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -1
 }
-json_eval() {
-  BODY="$1" EXPR="$2" python3 - <<'PY' 2>/dev/null
-import json, os
-d = json.loads(os.environ["BODY"])
-safe = {"next": next, "str": str, "len": len}
-print(eval(os.environ["EXPR"], {"__builtins__": {}}, {"d": d, **safe}))
-PY
+
+json_number_field() {
+  local field="$1"
+  printf '%s' "$2" | sed -n "s/.*\"$field\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" | head -1
 }
-json_ids_by_perms() {
-  BODY="$1" python3 - "${@:2}" <<'PY' 2>/dev/null
-import json, os, sys
-perms = set(sys.argv[1:])
-d = json.loads(os.environ["BODY"])
-ids = []
-def walk(items):
-    for item in items or []:
-        if item.get("perms") in perms:
-            ids.append(str(item.get("id")))
-        walk(item.get("children"))
-walk(d.get("data"))
-print(",".join(ids))
-PY
+
+expect_http() {
+  local id="$1"
+  local desc="$2"
+  local expect="$3"
+  local resp="$4"
+  body_code "$resp"
+  if [ "$HTTP_CODE" = "$expect" ]; then
+    record_pass "$id" "$desc HTTP=$HTTP_CODE"
+  else
+    record_fail "$id" "$desc HTTP=$HTTP_CODE body=$(printf '%s' "$RESP_BODY" | head -c 220)"
+  fi
 }
-login_admin() {
-  LOGIN_RESP=$(api_post_no_token "$API_URL/admin/login" "{\"account\":\"$ADMIN_USERNAME\",\"password\":\"$ADMIN_PASSWORD\"}")
-  parse_response "$LOGIN_RESP"
-  TOKEN=$(json_field "$RESP_BODY" "data.token")
+
+expect_2xx_body_has() {
+  local id="$1"
+  local desc="$2"
+  local resp="$3"
+  shift 3
+  body_code "$resp"
+  if [ "$HTTP_CODE" != "200" ]; then
+    record_fail "$id" "$desc HTTP=$HTTP_CODE body=$(printf '%s' "$RESP_BODY" | head -c 220)"
+    return
+  fi
+  local missing=""
+  for needle in "$@"; do
+    if ! printf '%s' "$RESP_BODY" | grep -q "$needle"; then
+      missing="$missing $needle"
+    fi
+  done
+  if [ -z "$missing" ]; then
+    record_pass "$id" "$desc HTTP=$HTTP_CODE"
+  else
+    record_fail "$id" "$desc missing=$missing body=$(printf '%s' "$RESP_BODY" | head -c 220)"
+  fi
+}
+
+api_get() {
+  curl -sS -w "\n%{http_code}" -X GET "$API_URL$1" -H "X-Auth-Token: $TOKEN"
+}
+
+api_get_no_token() {
+  curl -sS -w "\n%{http_code}" -X GET "$API_URL$1"
+}
+
+api_put_json() {
+  curl -sS -w "\n%{http_code}" -X PUT "$API_URL$1" -H "X-Auth-Token: $TOKEN" -H "Content-Type: application/json" -d "$2"
+}
+
+api_put_json_token() {
+  curl -sS -w "\n%{http_code}" -X PUT "$API_URL$2" -H "X-Auth-Token: $1" -H "Content-Type: application/json" -d "$3"
+}
+
+api_post_json() {
+  curl -sS -w "\n%{http_code}" -X POST "$API_URL$1" -H "X-Auth-Token: $TOKEN" -H "Content-Type: application/json" -d "$2"
+}
+
+api_post_json_token() {
+  curl -sS -w "\n%{http_code}" -X POST "$API_URL$2" -H "X-Auth-Token: $1" -H "Content-Type: application/json" -d "$3"
+}
+
+mini_get() {
+  curl -sS -w "\n%{http_code}" -X GET "$API_URL$1" -H "X-Auth-Token: $MINIAPP_TOKEN"
+}
+
+mini_post_json() {
+  curl -sS -w "\n%{http_code}" -X POST "$API_URL$1" -H "X-Auth-Token: $MINIAPP_TOKEN" -H "Content-Type: application/json" -d "$2"
+}
+
+require_api() {
+  if [ -z "$API_URL" ]; then
+    echo "缺少 API_URL，请设置 API_URL 或 BASE_URL"
+    exit 2
+  fi
+}
+
+require_admin_token_or_skip() {
   if [ -z "$TOKEN" ]; then
-    echo -e "${RED}❌ 登录失败，无法获取 Token (resp: $RESP_BODY)${NC}"
-    exit 1
+    record_skip "$1" "$2：未提供 TOKEN"
+    return 1
   fi
-}
-ensure_promotion_permissions() {
-  local perms_csv role_id user_id user_role_ids bind_role_ids
-  local required_perms=(
-    "promotion:rule:list" "promotion:rule:add" "promotion:rule:edit"
-    "promotion:invite:list" "promotion:invite:review"
-    "promotion:reward:list" "promotion:reward:review"
-    "promotion:agent:list" "promotion:agent:add" "promotion:agent:edit" "promotion:agent:code"
-    "promotion:settlement:list" "promotion:settlement:add" "promotion:settlement:confirm" "promotion:settlement:pay"
-  )
-
-  parse_response "$(api_get "$API_URL/admin/menu/list")"
-  perms_csv=$(json_ids_by_perms "$RESP_BODY" "${required_perms[@]}")
-  if [ -z "$perms_csv" ]; then
-    echo -e "${YELLOW}⚠️  未发现 promotion 权限菜单，开始创建测试权限节点${NC}"
-    local sort=1
-    for perm in "${required_perms[@]}"; do
-      parse_response "$(api_post_json "$API_URL/admin/menu" "{\"parentId\":0,\"menuName\":\"$perm\",\"menuType\":\"F\",\"perms\":\"$perm\",\"menuSort\":$sort,\"status\":\"ENABLED\",\"visible\":0,\"remark\":\"L1测试自举创建\"}")"
-      if [ "$RESP_CODE" != "200" ]; then
-        echo -e "${RED}❌ 创建权限 $perm 失败: $RESP_BODY${NC}"
-        exit 1
-      fi
-      sort=$((sort+1))
-    done
-    parse_response "$(api_get "$API_URL/admin/menu/list")"
-    perms_csv=$(json_ids_by_perms "$RESP_BODY" "${required_perms[@]}")
-    if [ -z "$perms_csv" ]; then
-      echo -e "${RED}❌ 创建后仍未查询到 promotion 权限菜单${NC}"
-      exit 1
-    fi
-  fi
-
-  parse_response "$(api_get "$API_URL/admin/role/list?page=1&size=100")"
-  role_id=$(json_eval "$RESP_BODY" "next((r.get('id') for r in d.get('data',{}).get('records',[]) if r.get('roleCode') == 'promotion_l1_test' or r.get('roleName') == '推广测试角色'), '')")
-  if [ -z "$role_id" ]; then
-    parse_response "$(api_post_json "$API_URL/admin/role" '{"roleName":"推广测试角色","roleCode":"promotion_l1_test","roleGroup":"TEST","roleSort":990,"status":"ENABLED","remark":"PRD-07 L1/L4测试自举角色"}')"
-    role_id=$(json_field "$RESP_BODY" "data")
-  fi
-  if [ -z "$role_id" ]; then
-    echo -e "${RED}❌ 准备推广测试角色失败: $RESP_BODY${NC}"
-    exit 1
-  fi
-
-  parse_response "$(api_put_json "$API_URL/admin/role/$role_id/menus" "{\"menuIds\":[${perms_csv}]}")"
-  if [ "$RESP_CODE" != "200" ]; then
-    echo -e "${RED}❌ 绑定推广权限到测试角色失败: $RESP_BODY${NC}"
-    exit 1
-  fi
-
-  parse_response "$(api_get "$API_URL/admin/user/list?page=1&size=100")"
-  user_id=$(json_eval "$RESP_BODY" "next((u.get('id') for u in d.get('data',{}).get('records',[]) if u.get('username') == '$ADMIN_USERNAME'), '')")
-  if [ -z "$user_id" ]; then
-    echo -e "${RED}❌ 未找到测试账号 $ADMIN_USERNAME${NC}"
-    exit 1
-  fi
-  parse_response "$(api_get "$API_URL/admin/user/$user_id")"
-  user_role_ids=$(json_eval "$RESP_BODY" "','.join(str(x) for x in (d.get('data',{}).get('roleIds') or []))")
-  bind_role_ids="$user_role_ids"
-  if [ "$ADMIN_USERNAME" = "peter" ] && ! echo ",$bind_role_ids," | grep -q ",1,"; then
-    if [ -n "$bind_role_ids" ]; then
-      bind_role_ids="1,$bind_role_ids"
-    else
-      bind_role_ids="1"
-    fi
-  fi
-  if ! echo ",$bind_role_ids," | grep -q ",$role_id,"; then
-    if [ -n "$bind_role_ids" ]; then
-      bind_role_ids="$bind_role_ids,$role_id"
-    else
-      bind_role_ids="$role_id"
-    fi
-  fi
-  parse_response "$(api_put_json "$API_URL/admin/user/$user_id/roles" "{\"roleIds\":[${bind_role_ids}]}")"
-  if [ "$RESP_CODE" != "200" ]; then
-    echo -e "${RED}❌ 绑定测试角色到用户失败: $RESP_BODY${NC}"
-    exit 1
-  fi
-
-  login_admin
-  echo "✅ 已预置 promotion 权限并刷新 Token"
+  return 0
 }
 
-TOTAL=0; PASS=0; FAIL=0; SKIP=0
-assert_eq() { local id="$1" d="$2" e="$3" a="$4"; TOTAL=$((TOTAL+1)); if [ "$e" = "$a" ]; then PASS=$((PASS+1)); echo -e "${GREEN}✅ [$id] $d${NC}"; else FAIL=$((FAIL+1)); echo -e "${RED}❌ [$id] $d | exp=$e act=$a${NC}"; echo "   body=$RESP_BODY"; fi; }
-assert_contains() { local id="$1" d="$2" k="$3" a="$4"; TOTAL=$((TOTAL+1)); if echo "$a" | grep -q "$k"; then PASS=$((PASS+1)); echo -e "${GREEN}✅ [$id] $d${NC}"; else FAIL=$((FAIL+1)); echo -e "${RED}❌ [$id] $d | need:$k${NC}"; echo "   body=$a"; fi; }
-skip_test() { TOTAL=$((TOTAL+1)); SKIP=$((SKIP+1)); echo -e "${YELLOW}⏭️  [$1] $2 | $3${NC}"; }
-
-echo "=========================================="
-echo " 推广裂变 L1 接口测试（已实现范围）"
-echo " API_URL: $API_URL"
-echo "=========================================="
-
-echo ""
-echo "── 0. 环境检查 & 登录 ──"
-parse_response "$(api_get_no_token "$API_URL/admin/routers")"
-if [ "$RESP_CODE" = "000" ]; then
-  echo -e "${RED}❌ 后端 $API_URL 无法连接${NC}"
-  exit 1
-fi
-echo "✅ 后端 $API_URL 可达"
-
-login_admin
-echo "✅ 登录成功，Token=${TOKEN:0:12}..."
-ensure_promotion_permissions
-
-echo ""
-echo "── 1. 小程序匿名推广接口 ──"
-RULES_RESP=$(api_get_no_token "$API_URL/miniapp/promotion/invite/rules")
-parse_response "$RULES_RESP"
-assert_eq "F1-P0-02" "获取活动规则可匿名访问" "200" "$RESP_CODE"
-assert_contains "F1-P0-02-body" "活动规则包含三项认证说明" "三项认证" "$RESP_BODY"
-
-TRACE_MARK="l1-$(date +%s)"
-SHARE_RESP=$(api_post_no_token "$API_URL/miniapp/promotion/invite/share-log" "{\"sourceType\":\"user_qr\",\"scene\":\"$TRACE_MARK\"}")
-parse_response "$SHARE_RESP"
-TRACE_NO=$(json_field "$RESP_BODY" "data.traceNo")
-assert_eq "F1-P0-04" "记录普通分享来源" "200" "$RESP_CODE"
-assert_contains "F1-P0-04-trace" "返回 traceNo" "TR" "$RESP_BODY"
-
-MISSING_SOURCE_RESP=$(api_post_no_token "$API_URL/miniapp/promotion/invite/share-log" "{\"inviterId\":100}")
-parse_response "$MISSING_SOURCE_RESP"
-MISSING_SOURCE_CODE=$(json_field "$RESP_BODY" "code")
-assert_eq "F1-P2-01" "分享来源缺少来源类型" "5001" "$MISSING_SOURCE_CODE"
-
-echo ""
-echo "── 2. 推广规则管理 ──"
-RULE_NAME="L1PromotionRule$(date +%s)"
-CREATE_RULE_RESP=$(api_post_json "$API_URL/admin/promotion/rules" "{\"ruleName\":\"$RULE_NAME\",\"ruleType\":\"user_invite\",\"eventType\":\"register_login_reward\",\"rewardAmount\":10,\"rewardUnit\":\"coin\",\"status\":\"ENABLED\"}")
-parse_response "$CREATE_RULE_RESP"
-RULE_ID=$(json_field "$RESP_BODY" "data")
-assert_eq "F2-P0-01" "新增普通邀请奖励规则" "200" "$RESP_CODE"
-
-RULE_LIST_RESP=$(api_get "$API_URL/admin/promotion/rules/list?page=1&size=10&ruleType=user_invite")
-parse_response "$RULE_LIST_RESP"
-assert_eq "F2-P0-04" "查询规则列表" "200" "$RESP_CODE"
-assert_contains "F2-P0-04-body" "规则列表包含新建规则" "$RULE_NAME" "$RESP_BODY"
-
-if [ -n "$RULE_ID" ]; then
-  UPDATE_RULE_RESP=$(api_put_json "$API_URL/admin/promotion/rules/$RULE_ID" "{\"ruleName\":\"$RULE_NAME-已编辑\",\"ruleType\":\"user_invite\",\"eventType\":\"register_login_reward\",\"rewardAmount\":12,\"rewardUnit\":\"coin\",\"status\":\"ENABLED\"}")
-  parse_response "$UPDATE_RULE_RESP"
-  assert_eq "F2-P0-02" "编辑规则" "200" "$RESP_CODE"
-
-  TIER_RESP=$(api_put_json "$API_URL/admin/promotion/rules/$RULE_ID/tiers" "[{\"minCount\":0,\"maxCount\":2,\"rewardAmount\":5,\"status\":\"ENABLED\"},{\"minCount\":3,\"maxCount\":8,\"rewardAmount\":10,\"status\":\"ENABLED\"}]")
-  parse_response "$TIER_RESP"
-  assert_eq "F2-P0-03" "保存阶梯规则" "200" "$RESP_CODE"
-
-  OVERLAP_RESP=$(api_put_json "$API_URL/admin/promotion/rules/$RULE_ID/tiers" "[{\"minCount\":1,\"maxCount\":5,\"rewardAmount\":5},{\"minCount\":5,\"maxCount\":8,\"rewardAmount\":10}]")
-  parse_response "$OVERLAP_RESP"
-  OVERLAP_CODE=$(json_field "$RESP_BODY" "code")
-  assert_eq "F2-P2-02" "保存阶梯区间重叠应失败" "5001" "$OVERLAP_CODE"
-
-  STATUS_RESP=$(api_put_json "$API_URL/admin/promotion/rules/$RULE_ID/status" "{\"status\":\"DISABLED\"}")
-  parse_response "$STATUS_RESP"
-  assert_eq "F2-P1-01" "启停规则" "200" "$RESP_CODE"
-else
-  skip_test "F2-P0-02/F2-P0-03/F2-P1-01" "规则后续链式测试" "规则创建失败"
-fi
-
-NEG_RULE_RESP=$(api_post_json "$API_URL/admin/promotion/rules" "{\"ruleName\":\"L1NegativeReward\",\"ruleType\":\"user_invite\",\"eventType\":\"register_login_reward\",\"rewardAmount\":-1,\"rewardUnit\":\"coin\"}")
-parse_response "$NEG_RULE_RESP"
-NEG_RULE_CODE=$(json_field "$RESP_BODY" "code")
-assert_eq "F2-P2-01" "新增规则金额为负数" "5001" "$NEG_RULE_CODE"
-
-INVITE_LIST_RESP=$(api_get "$API_URL/admin/promotion/invites/list?page=1&size=10")
-parse_response "$INVITE_LIST_RESP"
-assert_eq "F2-P0-05" "查询邀请关系列表" "200" "$RESP_CODE"
-
-echo ""
-echo "── 3. 奖励流水与复核 ──"
-REWARD_LIST_RESP=$(api_get "$API_URL/admin/promotion/rewards/list?page=1&size=10")
-parse_response "$REWARD_LIST_RESP"
-assert_eq "F3-P0-01" "查询奖励流水列表" "200" "$RESP_CODE"
-
-FROZEN_RESP=$(api_get "$API_URL/admin/promotion/rewards/frozen?page=1&size=10")
-parse_response "$FROZEN_RESP"
-assert_eq "F3-P0-02" "查询冻结队列" "200" "$RESP_CODE"
-
-NON_EXIST_REWARD_RESP=$(api_put_json "$API_URL/admin/promotion/rewards/999999999/approve" "{\"remark\":\"不存在\"}")
-parse_response "$NON_EXIST_REWARD_RESP"
-NON_EXIST_REWARD_CODE=$(json_field "$RESP_BODY" "code")
-assert_eq "F3-P2-03" "审核不存在/非 frozen 奖励应失败" "5001" "$NON_EXIST_REWARD_CODE"
-
-echo ""
-echo "── 4. 代理与二维码 ──"
-AGENT_NAME="L1Agent$(date +%s)"
-CREATE_AGENT_RESP=$(api_post_json "$API_URL/admin/promotion/agents" "{\"agentName\":\"$AGENT_NAME\",\"contactName\":\"L1\",\"contactPhone\":\"13800000000\",\"school\":\"测试大学\",\"campus\":\"主校区\",\"agentGroup\":\"DEFAULT\",\"status\":\"normal\"}")
-parse_response "$CREATE_AGENT_RESP"
-AGENT_ID=$(json_field "$RESP_BODY" "data")
-assert_eq "F3-P0-05" "新增代理" "200" "$RESP_CODE"
-
-AGENT_LIST_RESP=$(api_get "$API_URL/admin/promotion/agents/list?page=1&size=10&keyword=$AGENT_NAME")
-parse_response "$AGENT_LIST_RESP"
-assert_eq "F3-P1-03" "查询代理列表" "200" "$RESP_CODE"
-assert_contains "F3-P1-03-body" "代理列表包含新建代理" "$AGENT_NAME" "$RESP_BODY"
-
-if [ -n "$AGENT_ID" ]; then
-  CODE_RESP=$(api_post_json "$API_URL/admin/promotion/agents/$AGENT_ID/qr-codes/regenerate" "{}")
-  parse_response "$CODE_RESP"
-  QR_CODE=$(json_field "$RESP_BODY" "data.qrCode")
-  QR_CODE_ID=$(json_field "$RESP_BODY" "data.id")
-  assert_eq "F3-P0-06" "生成代理二维码" "200" "$RESP_CODE"
-  assert_contains "F3-P0-06-code" "返回二维码编号" "A" "$QR_CODE"
-
-  AGENT_SOURCE_RESP=$(api_get_no_token "$API_URL/miniapp/promotion/invite/qr-source?qrCode=$QR_CODE")
-  parse_response "$AGENT_SOURCE_RESP"
-  assert_eq "F1-P1-01" "查询代理来源" "200" "$RESP_CODE"
-  assert_contains "F1-P1-01-body" "代理来源 available=true" "available\":true" "$RESP_BODY"
-
-  AGENT_SHARE_RESP=$(api_post_no_token "$API_URL/miniapp/promotion/invite/share-log" "{\"sourceType\":\"agent_qr\",\"qrCode\":\"$QR_CODE\"}")
-  parse_response "$AGENT_SHARE_RESP"
-  assert_eq "F1-P0-05" "记录代理扫码来源" "200" "$RESP_CODE"
-
-  PAUSE_RESP=$(api_put_json "$API_URL/admin/promotion/agents/$AGENT_ID/status" "{\"status\":\"paused\"}")
-  parse_response "$PAUSE_RESP"
-  assert_eq "F3-P1-02" "变更代理状态为 paused" "200" "$RESP_CODE"
-
-  if [ -n "$QR_CODE_ID" ]; then
-    DISABLE_CODE_RESP=$(api_put_json "$API_URL/admin/promotion/agent-qr-codes/$QR_CODE_ID/disable" "{}")
-    parse_response "$DISABLE_CODE_RESP"
-    assert_eq "F3-P1-01" "停用代理二维码" "200" "$RESP_CODE"
+require_mini_token_or_skip() {
+  if [ -z "$MINIAPP_TOKEN" ]; then
+    record_skip "$1" "$2：未提供 MINIAPP_TOKEN"
+    return 1
   fi
-else
-  skip_test "F3-P0-06/F1-P1-01/F1-P0-05/F3-P1-02" "代理链式测试" "代理创建失败"
-fi
+  return 0
+}
 
-BAD_AGENT_RESP=$(api_post_json "$API_URL/admin/promotion/agents" "{\"school\":\"测试大学\"}")
-parse_response "$BAD_AGENT_RESP"
-BAD_AGENT_CODE=$(json_field "$RESP_BODY" "code")
-assert_eq "F3-P2-04" "新增代理缺少代理名称" "4001" "$BAD_AGENT_CODE"
-
-echo ""
-echo "── 5. 结算单 ──"
-if [ -n "$AGENT_ID" ]; then
-  SETTLE_RESP=$(api_post_json "$API_URL/admin/promotion/settlements" "{\"agentId\":$AGENT_ID,\"periodStart\":\"2026-05-01\",\"periodEnd\":\"2026-05-31\",\"payableAmount\":100,\"statsDesc\":\"L1测试\"}")
-  parse_response "$SETTLE_RESP"
-  SETTLEMENT_ID=$(json_field "$RESP_BODY" "data")
-  assert_eq "F3-P0-08" "生成结算单" "200" "$RESP_CODE"
-
-  SETTLE_LIST_RESP=$(api_get "$API_URL/admin/promotion/settlements/list?page=1&size=10&agentId=$AGENT_ID")
-  parse_response "$SETTLE_LIST_RESP"
-  assert_eq "F3-P0-list" "查询结算单列表" "200" "$RESP_CODE"
-
-  if [ -n "$SETTLEMENT_ID" ]; then
-    CONFIRM_RESP=$(api_put_json "$API_URL/admin/promotion/settlements/$SETTLEMENT_ID/confirm" "{\"remark\":\"L1确认\"}")
-    parse_response "$CONFIRM_RESP"
-    assert_eq "F3-P0-09" "标记结算单已确认" "200" "$RESP_CODE"
-
-    PAID_RESP=$(api_put_json "$API_URL/admin/promotion/settlements/$SETTLEMENT_ID/paid" "{\"paidAmount\":100,\"remark\":\"L1发放\"}")
-    parse_response "$PAID_RESP"
-    assert_eq "F3-P0-10" "标记结算单已发放" "200" "$RESP_CODE"
-
-    PAID_AGAIN_RESP=$(api_put_json "$API_URL/admin/promotion/settlements/$SETTLEMENT_ID/paid" "{\"paidAmount\":100,\"remark\":\"重复发放\"}")
-    parse_response "$PAID_AGAIN_RESP"
-    PAID_AGAIN_CODE=$(json_field "$RESP_BODY" "code")
-    assert_eq "F3-P2-02" "已发放结算单再次标记发放应失败" "5001" "$PAID_AGAIN_CODE"
+require_fixture_or_skip() {
+  local value="$1"
+  local id="$2"
+  local desc="$3"
+  local name="$4"
+  if [ -z "$value" ]; then
+    record_skip "$id" "$desc：未提供 $name"
+    return 1
   fi
-else
-  skip_test "F3-P0-08/F3-P0-09/F3-P0-10" "结算链式测试" "代理创建失败"
+  return 0
+}
+
+require_api
+
+echo "== 推广裂变 L1 接口测试 =="
+echo "API_URL=$API_URL"
+
+if require_mini_token_or_skip "F1-P0-01" "获取邀请首页"; then
+  expect_2xx_body_has "F1-P0-01" "获取邀请首页" "$(mini_get "/miniapp/promotion/invite/home")" "successInviteCount" "arrivedCoin" "recentRecords"
 fi
 
-BAD_PERIOD_RESP=$(api_post_json "$API_URL/admin/promotion/settlements" "{\"agentId\":1,\"periodStart\":\"2026-06-01\",\"periodEnd\":\"2026-05-01\",\"payableAmount\":100}")
-parse_response "$BAD_PERIOD_RESP"
-BAD_PERIOD_CODE=$(json_field "$RESP_BODY" "code")
-assert_eq "F3-P2-period" "结算开始日期晚于结束日期应失败" "5001" "$BAD_PERIOD_CODE"
+if require_mini_token_or_skip "F1-P0-02" "获取活动规则"; then
+  expect_2xx_body_has "F1-P0-02" "获取活动规则" "$(mini_get "/miniapp/promotion/invite/rules")" "successMetric" "reward"
+fi
 
-echo ""
-echo "── 6. 非本期需求范围记录 ──"
-skip_test "F2-P1-04" "导出邀请关系" "非本期需求范围"
-skip_test "F3-P0-07" "查询代理统计" "非本期需求范围"
-skip_test "F3-P1-04" "导出结算明细" "非本期需求范围"
+if require_mini_token_or_skip "F1-P0-03" "查询邀请记录"; then
+  expect_2xx_body_has "F1-P0-03" "查询邀请记录" "$(mini_get "/miniapp/promotion/invite/records?page=1&size=10")" "records" "total"
+fi
 
-echo ""
-echo "=========================================="
-echo "L1 汇总: 总计 $TOTAL / 通过 $PASS / 失败 $FAIL / 跳过 $SKIP"
-echo "=========================================="
+TRACE_NORMAL="TR_L1_$(date +%s)"
+SHARE_NORMAL_BODY="{\"traceNo\":\"$TRACE_NORMAL\",\"sourceType\":\"normal_user\",\"inviterId\":1,\"scene\":\"l1\",\"deviceHash\":\"l1-device\"}"
+expect_2xx_body_has "F1-P0-04" "记录普通用户来源" "$(curl -sS -w "\n%{http_code}" -X POST "$API_URL/miniapp/promotion/invite/share-log" -H "Content-Type: application/json" -d "$SHARE_NORMAL_BODY")" "traceNo" "normal_user"
+
+if require_fixture_or_skip "${TEST_AGENT_QR_CODE:-}" "F1-P0-05" "记录校园代理来源" "TEST_AGENT_QR_CODE"; then
+  TRACE_AGENT="TR_L1_AGENT_$(date +%s)"
+  SHARE_AGENT_BODY="{\"traceNo\":\"$TRACE_AGENT\",\"sourceType\":\"campus_agent\",\"qrCode\":\"$TEST_AGENT_QR_CODE\",\"scene\":\"l1\"}"
+  expect_2xx_body_has "F1-P0-05" "记录校园代理来源" "$(curl -sS -w "\n%{http_code}" -X POST "$API_URL/miniapp/promotion/invite/share-log" -H "Content-Type: application/json" -d "$SHARE_AGENT_BODY")" "traceNo" "campus_agent"
+fi
+
+if require_mini_token_or_skip "F1-P1-05" "获取普通用户二维码"; then
+  expect_2xx_body_has "F1-P1-05" "获取普通用户二维码" "$(mini_get "/miniapp/promotion/invite/qr-code")" "qrCode"
+fi
+
+if require_fixture_or_skip "${TEST_AGENT_QR_CODE:-}" "F1-P1-06" "解析代理二维码来源" "TEST_AGENT_QR_CODE"; then
+  expect_2xx_body_has "F1-P1-06" "解析代理二维码来源" "$(curl -sS -w "\n%{http_code}" -X GET "$API_URL/miniapp/promotion/invite/qr-source?qrCode=$TEST_AGENT_QR_CODE")" "available" "miniappPath"
+fi
+
+if require_mini_token_or_skip "F1-P2-01" "无效来源绑定"; then
+  expect_http "F1-P2-01" "无效来源绑定" "200" "$(mini_post_json "/miniapp/promotion/invite/bind" '{"traceNo":"TR_NOT_EXISTS_L1","qrCode":"QR_NOT_EXISTS_L1"}')"
+fi
+
+expect_http "F1-P3-01" "未登录访问邀请首页" "401" "$(api_get_no_token "/miniapp/promotion/invite/home")"
+expect_http "F1-P3-02" "未登录访问邀请记录" "401" "$(api_get_no_token "/miniapp/promotion/invite/records")"
+
+if require_admin_token_or_skip "F2-P0-01" "获取规则配置聚合详情"; then
+  expect_2xx_body_has "F2-P0-01" "获取规则配置聚合详情" "$(api_get "/admin/promotion/rule-config")" "inviteReward" "agentBonus" "risk"
+fi
+
+INVITE_REWARD_BODY='{"events":[{"eventType":"register_login_reward","enabled":true,"amount":1},{"eventType":"profile_complete_reward","enabled":true,"amount":2},{"eventType":"verify_complete_reward","enabled":true,"amount":3},{"eventType":"first_vip_reward","enabled":true,"amount":4},{"eventType":"first_coin_reward","enabled":true,"amount":5}],"successMetric":"verify_complete_reward","rewardMode":"fixed","rewardCap":1000,"ladder":[]}'
+if require_admin_token_or_skip "F2-P0-02" "保存普通奖励配置"; then
+  expect_http "F2-P0-02" "保存普通奖励配置" "200" "$(api_put_json "/admin/promotion/rule-config/invite-reward" "$INVITE_REWARD_BODY")"
+fi
+
+AGENT_RULE_BODY='{"ruleGroups":[{"groupCode":"L1_GROUP","groupName":"L1测试规则组","enabled":true,"events":[{"eventType":"register_login_reward","enabled":true,"amount":1},{"eventType":"verify_complete_reward","enabled":true,"amount":3}]}]}'
+if require_admin_token_or_skip "F2-P0-03" "保存代理奖金规则组"; then
+  expect_http "F2-P0-03" "保存代理奖金规则组" "200" "$(api_put_json "/admin/promotion/rule-config/agent-bonus" "$AGENT_RULE_BODY")"
+fi
+
+RISK_BODY='{"dailyCap":50,"deviceThreshold":5,"phoneThreshold":5,"paymentThreshold":3,"freezeSwitch":true,"reviewSwitch":true}'
+if require_admin_token_or_skip "F2-P0-04" "保存风控参数"; then
+  expect_http "F2-P0-04" "保存风控参数" "200" "$(api_put_json "/admin/promotion/rule-config/risk" "$RISK_BODY")"
+fi
+
+INVALID_LADDER_BODY='{"events":[{"eventType":"register_login_reward","enabled":true,"amount":1}],"successMetric":"verify_complete_reward","rewardMode":"ladder","ladder":[{"minCount":1,"maxCount":10,"amount":1,"enabled":true},{"minCount":5,"maxCount":20,"amount":2,"enabled":true}]}'
+if require_admin_token_or_skip "F2-P1-02" "阶梯区间重叠"; then
+  expect_http "F2-P1-02" "阶梯区间重叠" "200" "$(api_put_json "/admin/promotion/rule-config/invite-reward" "$INVALID_LADDER_BODY")"
+fi
+
+INVALID_EVENT_BODY='{"events":[{"eventType":"register_login_reward","enabled":true}],"successMetric":"verify_complete_reward","rewardMode":"fixed"}'
+if require_admin_token_or_skip "F2-P1-03" "启用事件但金额为空"; then
+  expect_http "F2-P1-03" "启用事件但金额为空" "200" "$(api_put_json "/admin/promotion/rule-config/invite-reward" "$INVALID_EVENT_BODY")"
+fi
+
+LADDER_BODY='{"events":[{"eventType":"register_login_reward","enabled":true,"amount":1}],"successMetric":"verify_complete_reward","rewardMode":"ladder","ladder":[{"minCount":1,"maxCount":10,"amount":1,"enabled":true},{"minCount":11,"maxCount":20,"amount":2,"enabled":true}]}'
+if require_admin_token_or_skip "F2-P1-04" "奖励方式选阶梯+有效档位保存"; then
+  expect_http "F2-P1-04" "奖励方式选阶梯+有效档位保存" "200" "$(api_put_json "/admin/promotion/rule-config/invite-reward" "$LADDER_BODY")"
+fi
+
+INVALID_RISK_BODY='{"dailyCap":0,"deviceThreshold":0,"phoneThreshold":-1,"paymentThreshold":0,"freezeSwitch":true,"reviewSwitch":true}'
+if require_admin_token_or_skip "F2-P2-01" "风控阈值非法"; then
+  expect_http "F2-P2-01" "风控阈值非法" "200" "$(api_put_json "/admin/promotion/rule-config/risk" "$INVALID_RISK_BODY")"
+fi
+
+if [ -n "$LOW_PRIV_TOKEN" ]; then
+  expect_http "F2-P3-01" "低权限无权保存风控" "403" "$(api_put_json_token "$LOW_PRIV_TOKEN" "/admin/promotion/rule-config/risk" "$RISK_BODY")"
+else
+  record_skip "F2-P3-01" "未提供 LOW_PRIV_TOKEN"
+fi
+expect_http "F2-P3-02" "未登录读取规则" "401" "$(api_get_no_token "/admin/promotion/rule-config")"
+
+if require_admin_token_or_skip "F3-P0-01" "邀请关系列表"; then
+  REL_LIST="$(api_get "/admin/promotion/invite-relations/list?page=1&size=10")"
+  expect_2xx_body_has "F3-P0-01" "邀请关系列表" "$REL_LIST" "records" "total"
+  body_code "$REL_LIST"
+  RELATION_ID="$(json_number_field "id" "$RESP_BODY")"
+fi
+
+if [ -n "${RELATION_ID:-}" ]; then
+  expect_2xx_body_has "F3-P0-02" "邀请关系详情" "$(api_get "/admin/promotion/invite-relations/$RELATION_ID")" "relationNo" "status"
+else
+  record_skip "F3-P0-02" "未从邀请关系列表发现关系 ID"
+fi
+
+if require_admin_token_or_skip "F3-P0-03" "奖励流水列表"; then
+  REWARD_LIST="$(api_get "/admin/promotion/invite-rewards/list?page=1&size=10")"
+  expect_2xx_body_has "F3-P0-03" "奖励流水列表" "$REWARD_LIST" "records" "total"
+fi
+
+if require_admin_token_or_skip "F3-P0-04" "冻结奖励队列"; then
+  expect_2xx_body_has "F3-P0-04" "冻结奖励队列" "$(api_get "/admin/promotion/invite-rewards/frozen/list?page=1&size=10")" "records" "total"
+fi
+
+if require_fixture_or_skip "${TEST_FROZEN_REWARD_ID:-}" "F3-P0-05" "冻结奖励确认发放" "TEST_FROZEN_REWARD_ID"; then
+  expect_http "F3-P0-05" "冻结奖励确认发放" "200" "$(api_put_json "/admin/promotion/invite-rewards/$TEST_FROZEN_REWARD_ID/approve" '{"remark":"L1 approve"}')"
+fi
+
+if require_fixture_or_skip "${TEST_FROZEN_REWARD_REJECT_ID:-}" "F3-P0-06" "冻结奖励确认无效" "TEST_FROZEN_REWARD_REJECT_ID"; then
+  expect_http "F3-P0-06" "冻结奖励确认无效" "200" "$(api_put_json "/admin/promotion/invite-rewards/$TEST_FROZEN_REWARD_REJECT_ID/reject" '{"remark":"L1 reject"}')"
+fi
+
+if require_fixture_or_skip "${TEST_FROZEN_RELATION_ID:-}" "F3-P1-01" "邀请关系解除冻结" "TEST_FROZEN_RELATION_ID"; then
+  expect_http "F3-P1-01" "邀请关系解除冻结" "200" "$(api_put_json "/admin/promotion/invite-relations/$TEST_FROZEN_RELATION_ID/unfreeze" '{"remark":"L1 unfreeze"}')"
+fi
+
+if require_fixture_or_skip "${TEST_INVALID_RELATION_ID:-}" "F3-P1-02" "邀请关系人工判无效" "TEST_INVALID_RELATION_ID"; then
+  expect_http "F3-P1-02" "邀请关系人工判无效" "200" "$(api_put_json "/admin/promotion/invite-relations/$TEST_INVALID_RELATION_ID/invalid" '{"remark":"L1 invalid"}')"
+fi
+
+if require_admin_token_or_skip "F3-P2-02" "不存在关系详情"; then
+  expect_http "F3-P2-02" "不存在关系详情" "200" "$(api_get "/admin/promotion/invite-relations/999999999")"
+fi
+
+if require_admin_token_or_skip "F4-P0-01" "新增代理"; then
+  AGENT_BODY="{\"agentName\":\"L1测试代理$(date +%s)\",\"contactName\":\"L1\",\"contactPhone\":\"13800000000\",\"school\":\"测试大学\",\"bonusRuleGroup\":\"L1_GROUP\",\"status\":\"normal\",\"remark\":\"L1\"}"
+  AGENT_CREATE="$(api_post_json "/admin/promotion/agents" "$AGENT_BODY")"
+  expect_http "F4-P0-01" "新增代理" "200" "$AGENT_CREATE"
+  body_code "$AGENT_CREATE"
+  AGENT_ID="$(json_number_field "data" "$RESP_BODY")"
+fi
+
+if require_admin_token_or_skip "F4-P0-02" "代理列表"; then
+  AGENT_LIST="$(api_get "/admin/promotion/agents/list?page=1&size=10")"
+  expect_2xx_body_has "F4-P0-02" "代理列表" "$AGENT_LIST" "records" "total"
+  if [ -z "${AGENT_ID:-}" ]; then
+    body_code "$AGENT_LIST"
+    AGENT_ID="$(json_number_field "id" "$RESP_BODY")"
+  fi
+fi
+
+if [ -n "${AGENT_ID:-}" ]; then
+  expect_2xx_body_has "F4-P0-03" "代理详情" "$(api_get "/admin/promotion/agents/$AGENT_ID")" "agentNo" "agentName"
+else
+  record_skip "F4-P0-03" "未发现代理 ID"
+fi
+
+if require_admin_token_or_skip "F4-P0-04" "素材二维码列表"; then
+  MATERIAL_LIST="$(api_get "/admin/promotion/materials/list?page=1&size=10")"
+  expect_2xx_body_has "F4-P0-04" "素材二维码列表" "$MATERIAL_LIST" "records" "total"
+  body_code "$MATERIAL_LIST"
+  MATERIAL_ID="$(json_number_field "id" "$RESP_BODY")"
+fi
+
+if [ -n "${MATERIAL_ID:-}" ]; then
+  expect_2xx_body_has "F4-P0-05" "重新生成二维码" "$(curl -sS -w "\n%{http_code}" -X POST "$API_URL/admin/promotion/materials/$MATERIAL_ID/regenerate" -H "X-Auth-Token: $TOKEN")" "qrCode" "version"
+else
+  record_skip "F4-P0-05" "未发现素材 ID"
+fi
+
+if require_admin_token_or_skip "F4-P0-06" "结算列表"; then
+  expect_2xx_body_has "F4-P0-06" "结算列表" "$(api_get "/admin/promotion/settlements/list?page=1&size=10")" "records" "total"
+fi
+
+if require_fixture_or_skip "${TEST_SETTLEMENT_UNSETTLED_ID:-}" "F4-P0-07" "标记结算已确认" "TEST_SETTLEMENT_UNSETTLED_ID"; then
+  expect_http "F4-P0-07" "标记结算已确认" "200" "$(api_put_json "/admin/promotion/settlements/$TEST_SETTLEMENT_UNSETTLED_ID/confirm" '{"remark":"L1 confirm"}')"
+fi
+
+if require_fixture_or_skip "${TEST_SETTLEMENT_CONFIRMED_ID:-}" "F4-P0-08" "标记结算已发放" "TEST_SETTLEMENT_CONFIRMED_ID"; then
+  expect_http "F4-P0-08" "标记结算已发放" "200" "$(api_put_json "/admin/promotion/settlements/$TEST_SETTLEMENT_CONFIRMED_ID/paid" '{"paidAmount":1,"remark":"L1 paid"}')"
+fi
+
+if [ -n "${AGENT_ID:-}" ]; then
+  expect_http "F4-P1-01" "暂停代理" "200" "$(api_put_json "/admin/promotion/agents/$AGENT_ID/status" '{"status":"paused"}')"
+else
+  record_skip "F4-P1-01" "未发现代理 ID"
+fi
+
+if require_fixture_or_skip "${TEST_TERMINATE_AGENT_ID:-}" "F4-P1-02" "终止代理" "TEST_TERMINATE_AGENT_ID"; then
+  expect_http "F4-P1-02" "终止代理" "200" "$(api_put_json "/admin/promotion/agents/$TEST_TERMINATE_AGENT_ID/status" '{"status":"terminated"}')"
+fi
+
+if [ -n "${MATERIAL_ID:-}" ]; then
+  expect_http "F4-P1-03" "停用二维码展示" "200" "$(api_put_json "/admin/promotion/materials/$MATERIAL_ID/disable" '{"remark":"L1 disable"}')"
+else
+  record_skip "F4-P1-03" "未发现素材 ID"
+fi
+
+if require_fixture_or_skip "${TEST_SETTLEMENT_PAID_ID:-}" "F4-P2-02" "paid 结算单重复发放" "TEST_SETTLEMENT_PAID_ID"; then
+  expect_http "F4-P2-02" "paid 结算单重复发放" "200" "$(api_put_json "/admin/promotion/settlements/$TEST_SETTLEMENT_PAID_ID/paid" '{"paidAmount":1,"remark":"L1 repeat paid"}')"
+fi
+
+if [ -n "$LOW_PRIV_TOKEN" ]; then
+  expect_http "F4-P3-01" "低权限无权新增代理" "403" "$(api_post_json_token "$LOW_PRIV_TOKEN" "/admin/promotion/agents" '{"agentName":"低权限代理"}')"
+else
+  record_skip "F4-P3-01" "未提供 LOW_PRIV_TOKEN"
+fi
+
+if [ -n "$LOW_PRIV_TOKEN" ] && [ -n "${TEST_SETTLEMENT_CONFIRMED_ID:-}" ]; then
+  expect_http "F4-P3-02" "低权限无权标记 paid" "403" "$(api_put_json_token "$LOW_PRIV_TOKEN" "/admin/promotion/settlements/$TEST_SETTLEMENT_CONFIRMED_ID/paid" '{"paidAmount":1,"remark":"low forbidden"}')"
+else
+  record_skip "F4-P3-02" "未提供 LOW_PRIV_TOKEN 或 TEST_SETTLEMENT_CONFIRMED_ID"
+fi
+
+echo "总计 $TOTAL / 通过 $PASS / 失败 $FAIL / 跳过 $SKIP"
+
 if [ "$FAIL" -gt 0 ]; then
   exit 1
 fi

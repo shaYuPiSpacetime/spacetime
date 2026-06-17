@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
-const API_URL = process.env.API_URL || 'http://localhost:8080';
-const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+const API_URL = (process.env.API_URL || 'http://127.0.0.1:8080').replace('localhost', '127.0.0.1');
+const BASE_URL = (process.env.BASE_URL || 'http://127.0.0.1:5173').replace('localhost', '127.0.0.1');
 
 /**
  * 登录并注入 token 到浏览器 localStorage

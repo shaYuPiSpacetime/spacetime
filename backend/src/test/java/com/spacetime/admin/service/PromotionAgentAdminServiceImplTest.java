@@ -1,5 +1,6 @@
 package com.spacetime.admin.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.PromotionAgentSaveReq;
 import com.spacetime.admin.dto.response.PromotionAgentQrCodeVO;
 import com.spacetime.admin.service.impl.PromotionAgentAdminServiceImpl;
@@ -10,6 +11,7 @@ import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.entity.PromotionAgent;
 import com.spacetime.common.entity.PromotionAgentQrCode;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.PromotionAgentStatService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +36,8 @@ class PromotionAgentAdminServiceImplTest {
     private PromotionAgentEventDao agentEventDao;
     @Mock
     private PromotionAuditLogDao auditLogDao;
+    @Mock
+    private PromotionAgentStatService agentStatService;
 
     @InjectMocks
     private PromotionAgentAdminServiceImpl service;
@@ -50,6 +54,7 @@ class PromotionAgentAdminServiceImplTest {
                 "北大校园代理".equals(agent.getAgentName())
                         && "normal".equals(agent.getStatus())
                         && agent.getAgentGroup() == null));
+        verify(agentStatService).initAgentStat(any(PromotionAgent.class));
         verify(auditLogDao).insert(any());
     }
 
@@ -59,12 +64,18 @@ class PromotionAgentAdminServiceImplTest {
         PromotionAgent agent = new PromotionAgent();
         agent.setId(1L);
         agent.setAgentName("代理");
+        PromotionAgentQrCode latestCode = new PromotionAgentQrCode();
+        latestCode.setVersionNo(2);
+        Page<PromotionAgentQrCode> latestPage = new Page<>(1, 1);
+        latestPage.setRecords(java.util.List.of(latestCode));
         when(agentDao.selectById(1L)).thenReturn(agent);
+        when(qrCodeDao.selectPage(any(), any())).thenReturn(latestPage);
 
         PromotionAgentQrCodeVO vo = service.regenerateCode(1L);
 
         assertThat(vo.getQrCode()).startsWith("A");
         assertThat(vo.getMiniappPath()).contains("qrCode=");
+        assertThat(vo.getVersionNo()).isEqualTo(3);
         assertThat(vo.getStatus()).isEqualTo("enabled");
         verify(qrCodeDao).insert(any(PromotionAgentQrCode.class));
     }

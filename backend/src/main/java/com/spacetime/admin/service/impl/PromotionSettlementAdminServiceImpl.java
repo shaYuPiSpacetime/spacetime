@@ -1,10 +1,8 @@
 package com.spacetime.admin.service.impl;
 
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.spacetime.admin.dto.request.PromotionSettlementCreateReq;
 import com.spacetime.admin.dto.request.PromotionSettlementPageReq;
 import com.spacetime.admin.dto.response.PromotionSettlementVO;
 import com.spacetime.admin.service.PromotionSettlementAdminService;
@@ -16,6 +14,7 @@ import com.spacetime.common.entity.PromotionAgentSettlement;
 import com.spacetime.common.entity.PromotionAuditLog;
 import com.spacetime.common.enums.PromotionSettlementStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.PromotionAgentStatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +31,7 @@ public class PromotionSettlementAdminServiceImpl implements PromotionSettlementA
     private final PromotionAgentSettlementDao settlementDao;
     private final PromotionAuditLogDao auditLogDao;
     private final PromotionAgentDao agentDao;
+    private final PromotionAgentStatService agentStatService;
 
     @Override
     public Page<PromotionSettlementVO> list(PromotionSettlementPageReq req) {
@@ -76,42 +76,18 @@ public class PromotionSettlementAdminServiceImpl implements PromotionSettlementA
 
     @Override
     @Transactional
-    public Long create(PromotionSettlementCreateReq req) {
-        PromotionAgentSettlement settlement = new PromotionAgentSettlement();
-        settlement.setAgentId(req.getAgentId());
-        settlement.setPeriodStart(req.getPeriodStart());
-        settlement.setPeriodEnd(req.getPeriodEnd());
-        settlement.setStatsDesc(req.getStatsDesc());
-        settlement.setPayableAmount(req.getPayableAmount());
-        settlement.setRemark(req.getRemark());
-        if (settlement.getPeriodStart().isAfter(settlement.getPeriodEnd())) {
-            throw new BusinessException("结算开始日期不能晚于结束日期");
-        }
-        settlement.setSettlementNo("ST" + IdUtil.getSnowflakeNextIdStr());
-        if (settlement.getPayableAmount() == null) {
-            settlement.setPayableAmount(BigDecimal.ZERO);
-        }
-        if (settlement.getPaidAmount() == null) {
-            settlement.setPaidAmount(BigDecimal.ZERO);
-        }
-        settlement.setStatus(PromotionSettlementStatusEnum.PENDING.getCode());
-        settlementDao.insert(settlement);
-        audit("settlement", settlement.getId(), "create", null, settlement.getSettlementNo());
-        return settlement.getId();
-    }
-
-    @Override
-    @Transactional
     public void confirm(Long id, String remark) {
         PromotionAgentSettlement settlement = detail(id);
-        if (!PromotionSettlementStatusEnum.PENDING.getCode().equals(settlement.getStatus())) {
+        if (!PromotionSettlementStatusEnum.isUnsettled(settlement.getStatus())) {
             throw new BusinessException("只有待确认结算单可以确认");
         }
+        String before = settlement.getStatus();
         settlement.setStatus(PromotionSettlementStatusEnum.CONFIRMED.getCode());
         settlement.setConfirmTime(LocalDateTime.now());
         settlement.setRemark(remark);
         settlementDao.updateById(settlement);
-        audit("settlement", id, "confirm", PromotionSettlementStatusEnum.PENDING.getCode(), remark);
+        agentStatService.safeRefreshBySettlement(settlement.getAgentId());
+        audit("settlement", id, "confirm", before, remark);
     }
 
     @Override
@@ -126,6 +102,7 @@ public class PromotionSettlementAdminServiceImpl implements PromotionSettlementA
         settlement.setPaidTime(LocalDateTime.now());
         settlement.setRemark(remark);
         settlementDao.updateById(settlement);
+        agentStatService.safeRefreshBySettlement(settlement.getAgentId());
         audit("settlement", id, "paid", PromotionSettlementStatusEnum.CONFIRMED.getCode(), remark);
     }
 
