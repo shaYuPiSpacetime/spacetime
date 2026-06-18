@@ -15,9 +15,11 @@ import com.spacetime.admin.service.PromotionRuleAdminService;
 import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.dao.PromotionRuleDao;
 import com.spacetime.common.dao.PromotionRuleTierDao;
+import com.spacetime.common.dao.UserDao;
 import com.spacetime.common.entity.PromotionAuditLog;
 import com.spacetime.common.entity.PromotionRule;
 import com.spacetime.common.entity.PromotionRuleTier;
+import com.spacetime.common.entity.SysUser;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.PromotionRuleTypeEnum;
 import com.spacetime.common.exception.BusinessException;
@@ -37,6 +39,7 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
     private final PromotionRuleDao ruleDao;
     private final PromotionRuleTierDao tierDao;
     private final PromotionAuditLogDao auditLogDao;
+    private final UserDao userDao;
 
     @Override
     public Page<PromotionRuleVO> list(PromotionRulePageReq req) {
@@ -44,6 +47,7 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
                 .eq(StrUtil.isNotBlank(req.getRuleType()), PromotionRule::getRuleType, req.getRuleType())
                 .eq(StrUtil.isNotBlank(req.getEventType()), PromotionRule::getEventType, req.getEventType())
                 .eq(StrUtil.isNotBlank(req.getStatus()), PromotionRule::getStatus, req.getStatus())
+                .orderByDesc(PromotionRule::getUpdateTime)
                 .orderByDesc(PromotionRule::getCreateTime);
         Page<PromotionRule> page = ruleDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<PromotionRuleVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
@@ -158,6 +162,7 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
         if (StrUtil.isBlank(rule.getStatus())) {
             rule.setStatus(CommonStatusEnum.ENABLED.getCode());
         }
+        validateEnabledUnique(rule.getRuleType(), rule.getEventType(), null, rule.getStatus());
         ruleDao.insert(rule);
         audit("rule", rule.getId(), "create", null, rule.getRuleName());
         return rule.getId();
@@ -179,6 +184,7 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
         entity.setExpireTime(changed.getExpireTime());
         entity.setStatus(changed.getStatus());
         entity.setRemark(changed.getRemark());
+        validateEnabledUnique(entity.getRuleType(), entity.getEventType(), id, entity.getStatus());
         ruleDao.updateById(entity);
         audit("rule", id, "update", null, entity.getRuleName());
     }
@@ -188,6 +194,7 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
     public void updateStatus(Long id, String status) {
         PromotionRule entity = requireRule(id);
         String before = entity.getStatus();
+        validateEnabledUnique(entity.getRuleType(), entity.getEventType(), id, status);
         entity.setStatus(status);
         ruleDao.updateById(entity);
         audit("rule", id, "status", before, status);
@@ -320,10 +327,29 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
         rule.setEffectiveTime(effectiveTime);
         rule.setExpireTime(expireTime);
         rule.setStatus(enabled ? CommonStatusEnum.ENABLED.getCode() : CommonStatusEnum.DISABLED.getCode());
+        validateEnabledUnique(rule.getRuleType(), rule.getEventType(), rule.getId(), rule.getStatus());
         if (rule.getId() == null) {
             ruleDao.insert(rule);
         } else {
             ruleDao.updateById(rule);
+        }
+    }
+
+    private void validateEnabledUnique(String ruleType, String eventType, Long currentId, String status) {
+        if (!CommonStatusEnum.ENABLED.getCode().equals(status)) {
+            return;
+        }
+        if (StrUtil.isBlank(ruleType) || StrUtil.isBlank(eventType)) {
+            return;
+        }
+        LambdaQueryWrapper<PromotionRule> wrapper = new LambdaQueryWrapper<PromotionRule>()
+                .eq(PromotionRule::getRuleType, ruleType)
+                .eq(PromotionRule::getEventType, eventType)
+                .eq(PromotionRule::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .ne(currentId != null, PromotionRule::getId, currentId);
+        boolean exists = !ruleDao.selectPage(new Page<>(1, 1), wrapper).getRecords().isEmpty();
+        if (exists) {
+            throw new BusinessException("同一数据类型、事件在启用状态下只能保留一条规则");
         }
     }
 
@@ -387,6 +413,22 @@ public class PromotionRuleAdminServiceImpl implements PromotionRuleAdminService 
         vo.setStatus(entity.getStatus());
         vo.setRemark(entity.getRemark());
         vo.setCreateTime(entity.getCreateTime());
+        vo.setUpdateTime(entity.getUpdateTime());
+        vo.setCreatedBy(entity.getCreatedBy());
+        vo.setCreatedByName(userDisplayName(entity.getCreatedBy()));
+        vo.setUpdatedBy(entity.getUpdatedBy());
+        vo.setUpdatedByName(userDisplayName(entity.getUpdatedBy()));
         return vo;
+    }
+
+    private String userDisplayName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        SysUser user = userDao.selectById(userId);
+        if (user == null) {
+            return null;
+        }
+        return StrUtil.blankToDefault(user.getNickname(), user.getUsername());
     }
 }

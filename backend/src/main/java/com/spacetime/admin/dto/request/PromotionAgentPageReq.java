@@ -12,6 +12,8 @@ import lombok.EqualsAndHashCode;
 public class PromotionAgentPageReq extends PageReq {
     /** 关键词 */
     private String keyword;
+    /** 代理编号 */
+    private String agentNo;
     /** 学校 */
     private String school;
     /** 状态 */

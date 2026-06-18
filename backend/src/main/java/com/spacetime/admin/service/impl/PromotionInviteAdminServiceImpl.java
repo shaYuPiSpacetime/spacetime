@@ -44,12 +44,15 @@ public class PromotionInviteAdminServiceImpl implements PromotionInviteAdminServ
             return new Page<>(req.getPage(), req.getSize(), 0);
         }
         LambdaQueryWrapper<PromotionInviteRelation> wrapper = new LambdaQueryWrapper<PromotionInviteRelation>()
+                .like(StrUtil.isNotBlank(req.getRelationNo()), PromotionInviteRelation::getRelationNo, req.getRelationNo())
                 .eq(req.getInviterId() != null, PromotionInviteRelation::getInviterId, req.getInviterId())
                 .in(!inviterIds.isEmpty(), PromotionInviteRelation::getInviterId, inviterIds)
                 .eq(req.getInviteeId() != null, PromotionInviteRelation::getInviteeId, req.getInviteeId())
                 .in(!inviteeIds.isEmpty(), PromotionInviteRelation::getInviteeId, inviteeIds)
                 .eq(StrUtil.isNotBlank(req.getSourceType()), PromotionInviteRelation::getSourceType, req.getSourceType())
                 .eq(StrUtil.isNotBlank(req.getStatus()), PromotionInviteRelation::getStatus, req.getStatus())
+                .ge(req.getBindStartTime() != null, PromotionInviteRelation::getBindTime, req.getBindStartTime())
+                .le(req.getBindEndTime() != null, PromotionInviteRelation::getBindTime, req.getBindEndTime())
                 .orderByDesc(PromotionInviteRelation::getBindTime);
         Page<PromotionInviteRelation> page = relationDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<PromotionInviteRelationVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
@@ -144,22 +147,111 @@ public class PromotionInviteAdminServiceImpl implements PromotionInviteAdminServ
         vo.setRelationNo(entity.getRelationNo());
         vo.setSourceType(entity.getSourceType());
         vo.setInviterId(entity.getInviterId());
-        vo.setInviterName(userDisplayName(entity.getInviterId()));
+        SysUser inviter = user(entity.getInviterId());
+        vo.setInviterUuid(userUuid(inviter, entity.getInviterId()));
+        vo.setInviterName(userDisplayName(inviter));
+        vo.setInviterPhone(inviter == null ? null : inviter.getPhone());
         vo.setInviteeId(entity.getInviteeId());
-        vo.setInviteeName(userDisplayName(entity.getInviteeId()));
+        SysUser invitee = user(entity.getInviteeId());
+        vo.setInviteeUuid(userUuid(invitee, entity.getInviteeId()));
+        vo.setInviteeName(userDisplayName(invitee));
+        vo.setInviteePhone(invitee == null ? null : invitee.getPhone());
         vo.setAgentId(entity.getAgentId());
-        vo.setAgentName(agentDisplayName(entity.getAgentId()));
+        PromotionAgent agent = agent(entity.getAgentId());
+        vo.setAgentNo(agent == null ? null : agent.getAgentNo());
+        vo.setAgentName(agent == null ? null : agent.getAgentName());
         vo.setQrCode(entity.getQrCode());
         vo.setStatus(entity.getStatus());
         vo.setFrozenBeforeStatus(entity.getFrozenBeforeStatus());
         vo.setInvalidReason(entity.getInvalidReason());
         vo.setBindTime(entity.getBindTime());
+        vo.setFirstClickTime(entity.getFirstClickTime());
+        vo.setRegisterTime(entity.getRegisterTime());
         vo.setFirstLoginTime(entity.getFirstLoginTime());
         vo.setProfileCompleteTime(entity.getProfileCompleteTime());
         vo.setVerifySuccessTime(entity.getVerifySuccessTime());
         vo.setSuccessMetricHitTime(entity.getSuccessMetricHitTime());
         vo.setTotalRewardCoin(entity.getTotalRewardCoin());
+        vo.setRewardRecords(rewardRecords(entity.getId()));
+        vo.setRiskRecords(riskRecords(entity.getId()));
+        vo.setAuditRecords(auditRecords(entity.getId()));
         return vo;
+    }
+
+    private SysUser user(Long userId) {
+        return userId == null ? null : userDao.selectById(userId);
+    }
+
+    private PromotionAgent agent(Long agentId) {
+        return agentId == null ? null : agentDao.selectById(agentId);
+    }
+
+    private String userUuid(SysUser user, Long userId) {
+        if (user == null) {
+            return userId == null ? null : String.valueOf(userId);
+        }
+        return StrUtil.blankToDefault(user.getUsername(), String.valueOf(user.getId()));
+    }
+
+    private String userDisplayName(SysUser user) {
+        if (user == null) {
+            return null;
+        }
+        return StrUtil.blankToDefault(user.getNickname(), user.getUsername());
+    }
+
+    private java.util.List<PromotionInviteRelationVO.RewardRecordVO> rewardRecords(Long relationId) {
+        Page<PromotionRewardLog> page = rewardLogDao.selectPage(new Page<>(1, 200, false),
+                new LambdaQueryWrapper<PromotionRewardLog>()
+                        .eq(PromotionRewardLog::getRelationId, relationId)
+                        .orderByDesc(PromotionRewardLog::getCreateTime));
+        return page.getRecords().stream().map(reward -> {
+            PromotionInviteRelationVO.RewardRecordVO vo = new PromotionInviteRelationVO.RewardRecordVO();
+            vo.setId(reward.getId());
+            vo.setRewardNo(reward.getRewardNo());
+            vo.setEventType(reward.getEventType());
+            vo.setRewardCoin(reward.getRewardCoin());
+            vo.setStatus(reward.getStatus());
+            vo.setCreateTime(reward.getCreateTime());
+            vo.setArriveTime(reward.getArriveTime());
+            vo.setRiskReason(reward.getRiskReason());
+            return vo;
+        }).toList();
+    }
+
+    private java.util.List<PromotionInviteRelationVO.RiskRecordVO> riskRecords(Long relationId) {
+        Page<PromotionRewardLog> page = rewardLogDao.selectPage(new Page<>(1, 200, false),
+                new LambdaQueryWrapper<PromotionRewardLog>()
+                        .eq(PromotionRewardLog::getRelationId, relationId)
+                        .isNotNull(PromotionRewardLog::getRiskReason)
+                        .orderByDesc(PromotionRewardLog::getCreateTime));
+        return page.getRecords().stream().map(reward -> {
+            PromotionInviteRelationVO.RiskRecordVO vo = new PromotionInviteRelationVO.RiskRecordVO();
+            vo.setId(reward.getId());
+            vo.setRiskReason(reward.getRiskReason());
+            vo.setStatus(reward.getStatus());
+            vo.setCreateTime(reward.getCreateTime());
+            vo.setReviewRemark(reward.getReviewRemark());
+            return vo;
+        }).toList();
+    }
+
+    private java.util.List<PromotionInviteRelationVO.AuditRecordVO> auditRecords(Long relationId) {
+        Page<PromotionAuditLog> page = auditLogDao.selectPage(new Page<>(1, 200, false),
+                new LambdaQueryWrapper<PromotionAuditLog>()
+                        .eq(PromotionAuditLog::getBizType, "invite_relation")
+                        .eq(PromotionAuditLog::getBizId, relationId)
+                        .orderByDesc(PromotionAuditLog::getCreateTime));
+        return page.getRecords().stream().map(log -> {
+            PromotionInviteRelationVO.AuditRecordVO vo = new PromotionInviteRelationVO.AuditRecordVO();
+            vo.setId(log.getId());
+            vo.setAction(log.getAction());
+            vo.setBeforeValue(log.getBeforeValue());
+            vo.setAfterValue(log.getAfterValue());
+            vo.setRemark(log.getRemark());
+            vo.setCreateTime(log.getCreateTime());
+            return vo;
+        }).toList();
     }
 
     private void updateFrozenRewards(Long relationId, String status, String remark) {

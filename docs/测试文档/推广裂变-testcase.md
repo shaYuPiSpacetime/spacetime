@@ -95,6 +95,8 @@
 | F2-P0-02 | P0 | 保存普通奖励配置 | `PUT /admin/promotion/rule-config/invite-reward` | 运营/超管权限 | 自构建 | 5 类事件、成功口径、奖励方式、阶梯保存成功 | 再查详情 |
 | F2-P0-03 | P0 | 保存代理奖金规则组 | `PUT /admin/promotion/rule-config/agent-bonus` | 渠道运营/超管权限 | 自构建 | 规则组可被代理新增/编辑选择 | 再查详情 |
 | F2-P0-04 | P0 | 保存风控参数 | `PUT /admin/promotion/rule-config/risk` | 风控/超管权限 | 自构建 | 阈值和开关保存成功，写审计 | 再查详情 |
+| F2-P0-05 | P0 | 规则列表审计字段与排序 | `GET /admin/promotion/rules/list` | 存在多条规则 | 自动查询 | 返回创建时间、修改时间、创建人、修改人；按修改时间、创建时间倒序 | 响应断言 |
+| F2-P0-06 | P0 | 启用规则唯一性 | 新增/编辑/启用规则 | 已存在相同数据类型+事件且状态=启用的规则 | 构造重复启用规则 | 阻止保存，提示同一数据类型、事件在启用状态下只能保留一条规则 | 响应断言 |
 | F2-P1-01 | P1 | 成功统计口径无默认值 | `GET /admin/promotion/rule-config` | 清空配置或新环境 | 测试环境 | 未配置时不返回默认成功口径 | 响应断言 |
 | F2-P1-02 | P1 | 阶梯区间重叠 | `PUT /admin/promotion/rule-config/invite-reward` | 运营/超管权限 | 构造非法阶梯 | 返回参数/业务错误，不保存 | 响应断言 |
 | F2-P1-03 | P1 | 启用事件但金额为空 | `PUT /admin/promotion/rule-config/invite-reward` | 运营/超管权限 | 构造非法事件 | 返回校验错误 | 响应断言 |

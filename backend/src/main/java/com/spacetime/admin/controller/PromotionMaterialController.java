@@ -29,10 +29,12 @@ public class PromotionMaterialController {
     @GetMapping("/list")
     @RequirePermission("promotion:agent:list")
     public R<Page<PromotionAgentQrCodeVO>> list(@RequestParam(required = false) Long agentId,
+                                                @RequestParam(required = false) String agentKeyword,
+                                                @RequestParam(required = false) String qrCode,
                                                 @RequestParam(defaultValue = "1") int page,
                                                 @RequestParam(defaultValue = "20") int size,
                                                 @RequestParam(required = false) String status) {
-        return R.ok(promotionAgentAdminService.materials(agentId, page, size, status));
+        return R.ok(promotionAgentAdminService.materials(agentId, agentKeyword, qrCode, page, size, status));
     }
 
     /** 重新生成二维码。 */

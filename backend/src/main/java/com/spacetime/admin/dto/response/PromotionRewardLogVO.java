@@ -14,13 +14,18 @@ public class PromotionRewardLogVO {
     private String rewardNo;
     private Long relationId;
     private Long inviterId;
+    private String inviterUuid;
     private String inviterName;
+    private String inviterPhone;
     private Long inviteeId;
+    private String inviteeUuid;
     private String inviteeName;
+    private String inviteePhone;
     private String eventType;
     private BigDecimal rewardCoin;
     private String status;
     private String riskReason;
+    private LocalDateTime frozenTime;
     private LocalDateTime arriveTime;
     private LocalDateTime reviewTime;
     private String reviewRemark;

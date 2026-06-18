@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Edit, Plus, QrCode, RefreshCcw, Search, X } from 'lucide-react';
@@ -18,16 +18,19 @@ import {
   disablePromotionMaterial,
   getPromotionAgents,
   getPromotionAgentDetail,
-  getPromotionAgentEvents,
   getPromotionInviteDetail,
   getPromotionInvites,
   getPromotionMaterials,
+  getPromotionRuleConfig,
   getPromotionRewards,
   getPromotionRules,
   getPromotionSettlements,
   paidPromotionSettlement,
   regeneratePromotionAgentQrCode,
   regeneratePromotionMaterial,
+  savePromotionAgentBonusConfig,
+  savePromotionInviteRewardConfig,
+  savePromotionRiskConfig,
   unfreezePromotionInvite,
   invalidatePromotionInvite,
   rejectPromotionReward,
@@ -37,10 +40,10 @@ import {
   updatePromotionRuleStatus,
   type PageResult,
   type PromotionAgentQrCodeVO,
-  type PromotionAgentEventVO,
   type PromotionAgentVO,
   type PromotionInviteRelationVO,
   type PromotionRewardLogVO,
+  type PromotionRuleConfigVO,
   type PromotionRuleVO,
   type PromotionSettlementVO,
 } from '@/api/promotion';
@@ -73,6 +76,11 @@ const RULE_EVENT_OPTIONS = [
   { value: 'first_coin_recharge_reward', label: '首次充值奖励' },
 ];
 
+const REWARD_EVENTS = RULE_EVENT_OPTIONS.filter((option) => option.value).map((option) => ({
+  eventType: option.value,
+  label: option.label,
+}));
+
 const SOURCE_OPTIONS = [
   { value: '', label: '全部来源' },
   { value: 'normal_user', label: '普通用户' },
@@ -98,9 +106,9 @@ const INVITE_STATUS_OPTIONS = [
 
 const AGENT_STATUS_OPTIONS = [
   { value: '', label: '全部状态' },
-  { value: 'normal', label: '正常' },
-  { value: 'paused', label: '暂停' },
-  { value: 'terminated', label: '终止' },
+  { value: 'normal', label: '正常推广' },
+  { value: 'paused', label: '暂停推广' },
+  { value: 'terminated', label: '终止合作' },
 ];
 
 const SETTLEMENT_STATUS_OPTIONS = [
@@ -143,9 +151,9 @@ const STATUS_LABELS: Record<string, string> = {
   DISABLED: '停用',
   enabled: '启用',
   disabled: '停用',
-  normal: '正常',
-  paused: '暂停',
-  terminated: '终止',
+  normal: '正常推广',
+  paused: '暂停推广',
+  terminated: '终止合作',
   pending: '待处理',
   unsettled: '待结算',
   confirmed: '已确认',
@@ -179,6 +187,29 @@ function num(value?: number | string) {
 
 function qrImageUrl(text: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(text)}`;
+}
+
+function userLine(uuid?: string, name?: string, phone?: string) {
+  return (
+    <div className="space-y-0.5">
+      <div className="font-medium">{uuid || '-'}</div>
+      <div className="text-xs text-muted-foreground">{[name, phone].filter(Boolean).join(' / ') || '-'}</div>
+    </div>
+  );
+}
+
+function amount(value?: number) {
+  return value ?? 0;
+}
+
+function periodText(row: PromotionSettlementVO) {
+  return row.periodText || `${row.periodStart || '-'} 至 ${row.periodEnd || '-'}`;
+}
+
+function monthEnd(month: string) {
+  const [year, monthIndex] = month.split('-').map(Number);
+  if (!year || !monthIndex) return undefined;
+  return new Date(year, monthIndex, 0).toISOString().slice(0, 10);
 }
 
 export default function PromotionManagement() {
@@ -263,11 +294,12 @@ function InviteDetailPanel({ id }: { id: number }) {
           <>
             <div className="grid gap-3 md:grid-cols-3">
               <InfoItem label="关系编号" value={detail.relationNo} />
-              <InfoItem label="来源类型" value={labelOf(detail.sourceType, SOURCE_LABELS)} />
+              <InfoItem label="邀请来源" value={labelOf(detail.sourceType, SOURCE_LABELS)} />
               <InfoItem label="关系状态" value={statusBadge(detail.status)} />
-              <InfoItem label="邀请来源" value={detail.sourceType === 'campus_agent' ? (detail.agentName || '-') : (detail.inviterName || '-')} />
-              <InfoItem label="被邀请人" value={detail.inviteeName || `ID ${detail.inviteeId}`} />
-              <InfoItem label="累计奖励" value={String(detail.totalRewardCoin ?? 0)} />
+              <InfoItem label="邀请人信息" value={userLine(detail.inviterUuid, detail.inviterName, detail.inviterPhone)} />
+              <InfoItem label="被邀请人信息" value={userLine(detail.inviteeUuid, detail.inviteeName, detail.inviteePhone)} />
+              <InfoItem label="代理信息" value={detail.agentNo || detail.agentName ? `${detail.agentNo || '-'} / ${detail.agentName || '-'}` : '-'} />
+              <InfoItem label="累计已发放奖励" value={String(detail.totalRewardCoin ?? 0)} />
               <InfoItem label="冻结前状态" value={detail.frozenBeforeStatus ? labelOf(detail.frozenBeforeStatus, STATUS_LABELS) : '-'} />
               <InfoItem label="无效原因" value={detail.invalidReason || '-'} />
               <InfoItem label="二维码编号" value={detail.qrCode || '-'} />
@@ -276,14 +308,67 @@ function InviteDetailPanel({ id }: { id: number }) {
               <Table>
                 <TableHeader><TableRow><TableHead>节点</TableHead><TableHead>时间</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  <TableRow><TableCell>绑定关系</TableCell><TableCell>{detail.bindTime || '-'}</TableCell></TableRow>
-                  <TableRow><TableCell>首次登录</TableCell><TableCell>{detail.firstLoginTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>首次点击</TableCell><TableCell>{detail.firstClickTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>首次注册</TableCell><TableCell>{detail.registerTime || detail.bindTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>首次成功登录</TableCell><TableCell>{detail.firstLoginTime || '-'}</TableCell></TableRow>
                   <TableRow><TableCell>资料完善</TableCell><TableCell>{detail.profileCompleteTime || '-'}</TableCell></TableRow>
-                  <TableRow><TableCell>认证成功</TableCell><TableCell>{detail.verifySuccessTime || '-'}</TableCell></TableRow>
-                  <TableRow><TableCell>成功口径命中</TableCell><TableCell>{detail.successMetricHitTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>认证完成</TableCell><TableCell>{detail.verifySuccessTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>首次会员</TableCell><TableCell>{detail.firstVipTime || '-'}</TableCell></TableRow>
+                  <TableRow><TableCell>首次充值</TableCell><TableCell>{detail.firstCoinRechargeTime || '-'}</TableCell></TableRow>
                 </TableBody>
               </Table>
             </div>
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">奖励触发记录</h3>
+              <Table>
+                <TableHeader><TableRow><TableHead>奖励流水号</TableHead><TableHead>奖励事件</TableHead><TableHead>奖励币数</TableHead><TableHead>奖励状态</TableHead><TableHead>创建时间</TableHead><TableHead>到账时间</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(detail.rewardRecords ?? []).length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : detail.rewardRecords!.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.rewardNo || '-'}</TableCell>
+                      <TableCell>{labelOf(row.eventType, EVENT_LABELS)}</TableCell>
+                      <TableCell>{row.rewardCoin ?? 0}</TableCell>
+                      <TableCell>{statusBadge(row.status)}</TableCell>
+                      <TableCell>{row.createTime || '-'}</TableCell>
+                      <TableCell>{row.arriveTime || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </section>
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">风控命中记录</h3>
+              <Table>
+                <TableHeader><TableRow><TableHead>命中原因</TableHead><TableHead>奖励状态</TableHead><TableHead>命中时间</TableHead><TableHead>处理备注</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(detail.riskRecords ?? []).length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : detail.riskRecords!.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{labelOf(row.riskReason, RISK_LABELS)}</TableCell>
+                      <TableCell>{statusBadge(row.status)}</TableCell>
+                      <TableCell>{row.createTime || '-'}</TableCell>
+                      <TableCell>{row.reviewRemark || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </section>
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">操作日志</h3>
+              <Table>
+                <TableHeader><TableRow><TableHead>动作</TableHead><TableHead>变更前</TableHead><TableHead>变更后</TableHead><TableHead>备注</TableHead><TableHead>时间</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(detail.auditRecords ?? []).length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : detail.auditRecords!.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.action || '-'}</TableCell>
+                      <TableCell>{row.beforeValue || '-'}</TableCell>
+                      <TableCell>{row.afterValue || '-'}</TableCell>
+                      <TableCell>{row.remark || '-'}</TableCell>
+                      <TableCell>{row.createTime || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </section>
           </>
         )}
       </CardContent>
@@ -315,22 +400,15 @@ function InviteDetailPanel({ id }: { id: number }) {
 function AgentDetailPanel({ id }: { id: number }) {
   const navigate = useNavigate();
   const [detail, setDetail] = useState<PromotionAgentVO | null>(null);
-  const [events, setEvents] = useState<PromotionAgentEventVO[]>([]);
-  const [materials, setMaterials] = useState<PromotionAgentQrCodeVO[]>([]);
   const [loading, setLoading] = useState(false);
   const [codeDialog, setCodeDialog] = useState<{ qrCode: string; miniappPath: string; qrUrl?: string } | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<'promo' | 'bonus' | 'settlement'>('promo');
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     try {
-      const [agentRes, eventRes, materialRes] = await Promise.all([
-        getPromotionAgentDetail(id),
-        getPromotionAgentEvents(id, { page: 1, size: 10 }),
-        getPromotionMaterials({ page: 1, size: 10, agentId: id }),
-      ]);
+      const agentRes = await getPromotionAgentDetail(id);
       setDetail(responseData<PromotionAgentVO>(agentRes));
-      setEvents(pageData<PromotionAgentEventVO>(eventRes).records ?? []);
-      setMaterials(pageData<PromotionAgentQrCodeVO>(materialRes).records ?? []);
     } finally {
       setLoading(false);
     }
@@ -342,16 +420,6 @@ function AgentDetailPanel({ id }: { id: number }) {
     const res = await regeneratePromotionAgentQrCode(id);
     const code = responseData<PromotionAgentQrCodeVO>(res);
     setCodeDialog({ qrCode: code.qrCode, miniappPath: code.miniappPath, qrUrl: code.qrUrl });
-    fetchDetail();
-  }
-
-  async function handleRegenerateMaterial(row: PromotionAgentQrCodeVO) {
-    await regeneratePromotionMaterial(row.id);
-    fetchDetail();
-  }
-
-  async function handleDisableMaterial(row: PromotionAgentQrCodeVO) {
-    await disablePromotionMaterial(row.id, '代理详情停用');
     fetchDetail();
   }
 
@@ -379,7 +447,7 @@ function AgentDetailPanel({ id }: { id: number }) {
               <InfoItem label="代理编号" value={detail.agentNo || '-'} />
               <InfoItem label="代理名称" value={detail.agentName} />
               <InfoItem label="联系人" value={`${detail.contactName || '-'} ${detail.contactPhone || ''}`.trim()} />
-              <InfoItem label="状态" value={statusBadge(detail.status)} />
+              <InfoItem label="合作状态" value={statusBadge(detail.status)} />
               <InfoItem label="学校" value={detail.school || '-'} />
               <InfoItem label="校区" value={detail.campus || '-'} />
               <InfoItem label="奖金规则组" value={detail.bonusRuleGroup || '-'} />
@@ -395,40 +463,75 @@ function AgentDetailPanel({ id }: { id: number }) {
               <Metric label="已确认" value={stat?.bonusConfirmedAmount} />
               <Metric label="已发放" value={stat?.bonusPaidAmount} />
             </div>
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold">推广素材</h3>
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="代理详情">
+              {[
+                { key: 'promo', label: '推广明细' },
+                { key: 'bonus', label: '奖金明细' },
+                { key: 'settlement', label: '结算记录' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeDetailTab === tab.key}
+                  className={cn('h-9 rounded-md border px-3 text-sm', activeDetailTab === tab.key ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}
+                  onClick={() => setActiveDetailTab(tab.key as typeof activeDetailTab)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {activeDetailTab === 'promo' && (
               <Table>
-                <TableHeader><TableRow><TableHead>二维码</TableHead><TableHead>版本</TableHead><TableHead>状态</TableHead><TableHead>路径</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>被推广用户 UUID</TableHead><TableHead>姓名/手机号</TableHead><TableHead>注册时间</TableHead><TableHead>首次成功登录时间</TableHead><TableHead>推广关系状态</TableHead><TableHead>当前用户状态</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {materials.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : materials.map((row) => (
+                  {(detail.promotionEvents ?? []).length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : detail.promotionEvents!.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell>{row.qrCode}</TableCell>
-                      <TableCell>{row.versionNo}</TableCell>
-                      <TableCell>{statusBadge(row.status)}</TableCell>
-                      <TableCell className="max-w-xs break-all text-xs text-muted-foreground">{row.miniappPath}</TableCell>
-                      <TableCell><div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => handleRegenerateMaterial(row)}>重生成</Button><Button disabled={row.status === 'disabled'} variant="ghost" size="sm" onClick={() => handleDisableMaterial(row)}>停用</Button></div></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </section>
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold">最近推广事件</h3>
-              <Table>
-                <TableHeader><TableRow><TableHead>事件</TableHead><TableHead>用户ID</TableHead><TableHead>关系ID</TableHead><TableHead>二维码</TableHead><TableHead>时间</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {events.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : events.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>{labelOf(row.eventType, EVENT_LABELS)}</TableCell>
-                      <TableCell>{row.userId ?? '-'}</TableCell>
-                      <TableCell>{row.relationId ?? '-'}</TableCell>
-                      <TableCell>{row.qrCode}</TableCell>
+                      <TableCell>{row.userUuid || '-'}</TableCell>
+                      <TableCell>{[row.userName, row.userPhone].filter(Boolean).join(' / ') || '-'}</TableCell>
+                      <TableCell>{row.eventType === 'register_login_reward' ? row.eventTime || '-' : '-'}</TableCell>
                       <TableCell>{row.eventTime || '-'}</TableCell>
+                      <TableCell>{labelOf(row.eventType, EVENT_LABELS)}</TableCell>
+                      <TableCell>{row.bonusGenerated ? '已生成奖金' : '未生成奖金'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </section>
+            )}
+            {activeDetailTab === 'bonus' && (
+              <Table>
+                <TableHeader><TableRow><TableHead>奖金明细订单号</TableHead><TableHead>奖金事件类型</TableHead><TableHead>对应用户</TableHead><TableHead>奖金金额</TableHead><TableHead>生成时间</TableHead><TableHead>状态</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(detail.bonusRecords ?? []).length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : detail.bonusRecords!.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.bonusNo || '-'}</TableCell>
+                      <TableCell>{labelOf(row.eventType, EVENT_LABELS)}</TableCell>
+                      <TableCell>{[row.userUuid, row.userName].filter(Boolean).join(' / ') || '-'}</TableCell>
+                      <TableCell>{amount(row.bonusAmount)}</TableCell>
+                      <TableCell>{row.createTime || '-'}</TableCell>
+                      <TableCell>{statusBadge(row.status)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            {activeDetailTab === 'settlement' && (
+              <Table>
+                <TableHeader><TableRow><TableHead>结算单号</TableHead><TableHead>结算周期</TableHead><TableHead>结算金额</TableHead><TableHead>结算方式</TableHead><TableHead>结算状态</TableHead><TableHead>结算时间</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(detail.settlementRecords ?? []).length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : detail.settlementRecords!.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.settlementNo}</TableCell>
+                      <TableCell>{periodText(row)}</TableCell>
+                      <TableCell>{row.payableAmount}</TableCell>
+                      <TableCell>{row.settlementMethod || '线下发放'}</TableCell>
+                      <TableCell>{statusBadge(row.status)}</TableCell>
+                      <TableCell>{row.paidTime || row.confirmTime || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </>
         )}
       </CardContent>
@@ -472,6 +575,8 @@ function RulesPanel() {
   const [list, setList] = useState<PromotionRuleVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [activeConfigTab, setActiveConfigTab] = useState<'invite' | 'agent' | 'validity' | 'risk'>('invite');
+  const [config, setConfig] = useState<PromotionRuleConfigVO | null>(null);
   const [filters, setFilters] = useState({ ruleType: '', eventType: '', status: '' });
   const [query, setQuery] = useState(filters);
   const [loading, setLoading] = useState(false);
@@ -489,6 +594,29 @@ function RulesPanel() {
     status: 'ENABLED',
     remark: '',
   });
+  const [inviteConfig, setInviteConfig] = useState({
+    successMetric: 'register_login_reward',
+    rewardMode: 'fixed',
+    rewardCap: '',
+    effectiveTime: '',
+    expireTime: '',
+    events: REWARD_EVENTS.map((event) => ({ eventType: event.eventType, enabled: false, amount: '' })),
+    ladder: [{ minCount: '1', maxCount: '5', amount: '', enabled: true }],
+  });
+  const [agentConfig, setAgentConfig] = useState({
+    groupCode: 'default',
+    groupName: '默认代理规则组',
+    enabled: true,
+    events: REWARD_EVENTS.map((event) => ({ eventType: event.eventType, enabled: false, amount: '' })),
+  });
+  const [riskConfig, setRiskConfig] = useState({
+    dailyCap: '',
+    deviceThreshold: '',
+    phoneThreshold: '',
+    paymentThreshold: '',
+    freezeSwitch: true,
+    reviewSwitch: true,
+  });
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -496,6 +624,7 @@ function RulesPanel() {
       const data = pageData<PromotionRuleVO>(await getPromotionRules({ page, size: 10, ruleType: query.ruleType || undefined, eventType: query.eventType || undefined, status: query.status || undefined }));
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
+      setConfig(responseData<PromotionRuleConfigVO>(await getPromotionRuleConfig()));
     } finally {
       setLoading(false);
     }
@@ -553,6 +682,62 @@ function RulesPanel() {
     setQuery(empty);
   }
 
+  function updateInviteEvent(eventType: string, patch: Partial<{ enabled: boolean; amount: string }>) {
+    setInviteConfig((current) => ({
+      ...current,
+      events: current.events.map((event) => event.eventType === eventType ? { ...event, ...patch } : event),
+    }));
+  }
+
+  function updateAgentEvent(eventType: string, patch: Partial<{ enabled: boolean; amount: string }>) {
+    setAgentConfig((current) => ({
+      ...current,
+      events: current.events.map((event) => event.eventType === eventType ? { ...event, ...patch } : event),
+    }));
+  }
+
+  async function saveInviteConfig() {
+    if (!window.confirm('确认修改规则？将立即生效')) return;
+    await savePromotionInviteRewardConfig({
+      events: inviteConfig.events.map((event) => ({ eventType: event.eventType, enabled: event.enabled, amount: Number(event.amount || 0) })),
+      successMetric: inviteConfig.successMetric,
+      rewardMode: inviteConfig.rewardMode,
+      rewardCap: num(inviteConfig.rewardCap),
+      effectiveTime: inviteConfig.effectiveTime ? `${inviteConfig.effectiveTime}:00` : undefined,
+      expireTime: inviteConfig.expireTime ? `${inviteConfig.expireTime}:00` : undefined,
+      ladder: inviteConfig.rewardMode === 'ladder'
+        ? inviteConfig.ladder.map((tier) => ({ minCount: Number(tier.minCount), maxCount: Number(tier.maxCount), amount: Number(tier.amount || 0), enabled: tier.enabled }))
+        : undefined,
+    });
+    fetchList();
+  }
+
+  async function saveAgentConfig() {
+    if (!window.confirm('确认修改规则？将立即生效')) return;
+    await savePromotionAgentBonusConfig({
+      ruleGroups: [{
+        groupCode: agentConfig.groupCode,
+        groupName: agentConfig.groupName,
+        enabled: agentConfig.enabled,
+        events: agentConfig.events.map((event) => ({ eventType: event.eventType, enabled: event.enabled, amount: Number(event.amount || 0) })),
+      }],
+    });
+    fetchList();
+  }
+
+  async function saveRiskConfig() {
+    if (!window.confirm('确认修改规则？将立即生效')) return;
+    await savePromotionRiskConfig({
+      dailyCap: num(riskConfig.dailyCap),
+      deviceThreshold: num(riskConfig.deviceThreshold),
+      phoneThreshold: num(riskConfig.phoneThreshold),
+      paymentThreshold: num(riskConfig.paymentThreshold),
+      freezeSwitch: riskConfig.freezeSwitch,
+      reviewSwitch: riskConfig.reviewSwitch,
+    });
+    fetchList();
+  }
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
@@ -561,21 +746,100 @@ function RulesPanel() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="推广规则配置">
-          {['普通用户奖励', '代理奖励', '关系有效期', '风控参数'].map((label, index) => (
+          {[
+            { key: 'invite', label: '普通用户奖励' },
+            { key: 'agent', label: '代理奖励' },
+            { key: 'validity', label: '关系有效期' },
+            { key: 'risk', label: '风控参数' },
+          ].map((tab) => (
             <button
-              key={label}
+              key={tab.key}
               type="button"
               role="tab"
-              aria-selected={index === 0}
+              aria-selected={activeConfigTab === tab.key}
               className={cn(
                 'h-9 rounded-md border px-3 text-sm',
-                index === 0 ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground',
+                activeConfigTab === tab.key ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground',
               )}
+              onClick={() => setActiveConfigTab(tab.key as typeof activeConfigTab)}
             >
-              {label}
+              {tab.label}
             </button>
           ))}
         </div>
+        {activeConfigTab === 'invite' && (
+          <div className="space-y-4 rounded-md border border-border p-4">
+            <div className="grid gap-3 md:grid-cols-4">
+              <label className="space-y-1 text-sm font-medium">成功邀请统计节点<Select options={RULE_EVENT_OPTIONS.filter((o) => o.value)} value={inviteConfig.successMetric} onChange={(v) => setInviteConfig({ ...inviteConfig, successMetric: v })} /></label>
+              <label className="space-y-1 text-sm font-medium">奖励方式<Select options={[{ value: 'fixed', label: '固定' }, { value: 'ladder', label: '阶梯' }]} value={inviteConfig.rewardMode} onChange={(v) => setInviteConfig({ ...inviteConfig, rewardMode: v })} /></label>
+              <label className="space-y-1 text-sm font-medium">奖励上限<Input type="number" value={inviteConfig.rewardCap} onChange={(e) => setInviteConfig({ ...inviteConfig, rewardCap: e.target.value })} /></label>
+              <label className="space-y-1 text-sm font-medium">生效时间<Input type="datetime-local" value={inviteConfig.effectiveTime} onChange={(e) => setInviteConfig({ ...inviteConfig, effectiveTime: e.target.value })} /></label>
+              <label className="space-y-1 text-sm font-medium">失效时间<Input type="datetime-local" value={inviteConfig.expireTime} onChange={(e) => setInviteConfig({ ...inviteConfig, expireTime: e.target.value })} /></label>
+            </div>
+            <Table>
+              <TableHeader><TableRow><TableHead>奖励事件</TableHead><TableHead>启用</TableHead><TableHead>奖励币数</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {inviteConfig.events.map((event) => (
+                  <TableRow key={event.eventType}>
+                    <TableCell>{labelOf(event.eventType, EVENT_LABELS)}</TableCell>
+                    <TableCell><input type="checkbox" checked={event.enabled} onChange={(e) => updateInviteEvent(event.eventType, { enabled: e.target.checked })} /></TableCell>
+                    <TableCell><Input className="w-32" type="number" disabled={!event.enabled} value={event.amount} onChange={(e) => updateInviteEvent(event.eventType, { amount: e.target.value })} /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {inviteConfig.rewardMode === 'ladder' && (
+              <div className="grid gap-3 md:grid-cols-4">
+                <label className="space-y-1 text-sm font-medium">阶梯起始人数<Input type="number" value={inviteConfig.ladder[0].minCount} onChange={(e) => setInviteConfig({ ...inviteConfig, ladder: [{ ...inviteConfig.ladder[0], minCount: e.target.value }] })} /></label>
+                <label className="space-y-1 text-sm font-medium">阶梯结束人数<Input type="number" value={inviteConfig.ladder[0].maxCount} onChange={(e) => setInviteConfig({ ...inviteConfig, ladder: [{ ...inviteConfig.ladder[0], maxCount: e.target.value }] })} /></label>
+                <label className="space-y-1 text-sm font-medium">单人币数<Input type="number" value={inviteConfig.ladder[0].amount} onChange={(e) => setInviteConfig({ ...inviteConfig, ladder: [{ ...inviteConfig.ladder[0], amount: e.target.value }] })} /></label>
+              </div>
+            )}
+            <div className="flex justify-end"><Button onClick={saveInviteConfig}>保存普通用户奖励</Button></div>
+          </div>
+        )}
+        {activeConfigTab === 'agent' && (
+          <div className="space-y-4 rounded-md border border-border p-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="space-y-1 text-sm font-medium">规则组编码<Input value={agentConfig.groupCode} onChange={(e) => setAgentConfig({ ...agentConfig, groupCode: e.target.value })} /></label>
+              <label className="space-y-1 text-sm font-medium">规则组名称<Input value={agentConfig.groupName} onChange={(e) => setAgentConfig({ ...agentConfig, groupName: e.target.value })} /></label>
+              <label className="flex items-center gap-2 pt-6 text-sm font-medium"><input type="checkbox" checked={agentConfig.enabled} onChange={(e) => setAgentConfig({ ...agentConfig, enabled: e.target.checked })} />启用规则组</label>
+            </div>
+            <Table>
+              <TableHeader><TableRow><TableHead>代理奖金事件</TableHead><TableHead>启用</TableHead><TableHead>单次金额</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {agentConfig.events.map((event) => (
+                  <TableRow key={event.eventType}>
+                    <TableCell>{labelOf(event.eventType, EVENT_LABELS)}</TableCell>
+                    <TableCell><input type="checkbox" checked={event.enabled} onChange={(e) => updateAgentEvent(event.eventType, { enabled: e.target.checked })} /></TableCell>
+                    <TableCell><Input className="w-32" type="number" disabled={!event.enabled} value={event.amount} onChange={(e) => updateAgentEvent(event.eventType, { amount: e.target.value })} /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="flex justify-end"><Button onClick={saveAgentConfig}>保存代理奖励</Button></div>
+          </div>
+        )}
+        {activeConfigTab === 'validity' && (
+          <div className="grid gap-3 rounded-md border border-border p-4 md:grid-cols-3">
+            <InfoItem label="普通邀请关系有效期" value="永久有效" />
+            <InfoItem label="代理推广关系有效期" value="永久有效" />
+            <InfoItem label="有效期说明" value={config?.relationValidityText || '奖励完成后通常无实际作用，后续新增奖励事件可复用归因'} />
+          </div>
+        )}
+        {activeConfigTab === 'risk' && (
+          <div className="space-y-4 rounded-md border border-border p-4">
+            <div className="grid gap-3 md:grid-cols-4">
+              <label className="space-y-1 text-sm font-medium">单日奖励上限<Input type="number" value={riskConfig.dailyCap} onChange={(e) => setRiskConfig({ ...riskConfig, dailyCap: e.target.value })} /></label>
+              <label className="space-y-1 text-sm font-medium">同设备邀请阈值<Input type="number" value={riskConfig.deviceThreshold} onChange={(e) => setRiskConfig({ ...riskConfig, deviceThreshold: e.target.value })} /></label>
+              <label className="space-y-1 text-sm font-medium">同手机号异常阈值<Input type="number" value={riskConfig.phoneThreshold} onChange={(e) => setRiskConfig({ ...riskConfig, phoneThreshold: e.target.value })} /></label>
+              <label className="space-y-1 text-sm font-medium">同支付账号异常阈值<Input type="number" value={riskConfig.paymentThreshold} onChange={(e) => setRiskConfig({ ...riskConfig, paymentThreshold: e.target.value })} /></label>
+              <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={riskConfig.freezeSwitch} onChange={(e) => setRiskConfig({ ...riskConfig, freezeSwitch: e.target.checked })} />冻结开关</label>
+              <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={riskConfig.reviewSwitch} onChange={(e) => setRiskConfig({ ...riskConfig, reviewSwitch: e.target.checked })} />人工复核开关</label>
+            </div>
+            <div className="flex justify-end"><Button onClick={saveRiskConfig}>保存风控参数</Button></div>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <Select className="w-36" options={RULE_TYPE_OPTIONS} value={filters.ruleType} onChange={(v) => setFilters({ ...filters, ruleType: v })} />
           <Select className="w-44" options={RULE_EVENT_OPTIONS} value={filters.eventType} onChange={(v) => setFilters({ ...filters, eventType: v })} />
@@ -584,9 +848,9 @@ function RulesPanel() {
           <Button variant="outline" size="sm" onClick={handleReset}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
         </div>
         <Table>
-          <TableHeader><TableRow><TableHead>规则</TableHead><TableHead>类型</TableHead><TableHead>事件</TableHead><TableHead>奖励</TableHead><TableHead>上限</TableHead><TableHead>状态</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>规则</TableHead><TableHead>数据类型</TableHead><TableHead>事件</TableHead><TableHead>奖励</TableHead><TableHead>上限</TableHead><TableHead>状态</TableHead><TableHead>修改时间</TableHead><TableHead>创建时间</TableHead><TableHead>修改人</TableHead><TableHead>创建人</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
+            {loading ? <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
                 <TableCell><div className="font-medium">{row.ruleName}</div><div className="text-xs text-muted-foreground">{row.remark || '-'}</div></TableCell>
                 <TableCell>{labelOf(row.ruleType, RULE_TYPE_LABELS)}</TableCell>
@@ -594,6 +858,10 @@ function RulesPanel() {
                 <TableCell>{row.rewardAmount} {labelOf(row.rewardUnit, UNIT_LABELS)}</TableCell>
                 <TableCell>{row.dailyLimit ?? '-'}</TableCell>
                 <TableCell>{statusBadge(row.status)}</TableCell>
+                <TableCell className="whitespace-nowrap text-xs">{row.updateTime || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap text-xs">{row.createTime || '-'}</TableCell>
+                <TableCell>{row.updatedByName || row.updatedBy || '-'}</TableCell>
+                <TableCell>{row.createdByName || row.createdBy || '-'}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)}><Edit className="h-4 w-4" /></Button>
@@ -631,7 +899,7 @@ function InvitesPanel() {
   const [list, setList] = useState<PromotionInviteRelationVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ inviterKeyword: '', inviteeKeyword: '', sourceType: '', status: '' });
+  const [filters, setFilters] = useState({ relationNo: '', inviterKeyword: '', inviteeKeyword: '', sourceType: '', status: '', bindStartTime: '', bindEndTime: '' });
   const [query, setQuery] = useState(filters);
   const [loading, setLoading] = useState(false);
 
@@ -641,10 +909,13 @@ function InvitesPanel() {
       const data = pageData<PromotionInviteRelationVO>(await getPromotionInvites({
         page,
         size: 10,
+        relationNo: query.relationNo || undefined,
         inviterKeyword: query.inviterKeyword || undefined,
         inviteeKeyword: query.inviteeKeyword || undefined,
         sourceType: query.sourceType || undefined,
         status: query.status || undefined,
+        bindStartTime: query.bindStartTime ? `${query.bindStartTime}T00:00:00` : undefined,
+        bindEndTime: query.bindEndTime ? `${query.bindEndTime}T23:59:59` : undefined,
       }));
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
@@ -660,10 +931,20 @@ function InvitesPanel() {
   }
 
   function handleReset() {
-    const empty = { inviterKeyword: '', inviteeKeyword: '', sourceType: '', status: '' };
+    const empty = { relationNo: '', inviterKeyword: '', inviteeKeyword: '', sourceType: '', status: '', bindStartTime: '', bindEndTime: '' };
     setFilters(empty);
     setPage(1);
     setQuery(empty);
+  }
+
+  async function handleInvalid(row: PromotionInviteRelationVO) {
+    await invalidatePromotionInvite(row.id, '列表人工标记无效');
+    fetchList();
+  }
+
+  async function handleUnfreeze(row: PromotionInviteRelationVO) {
+    await unfreezePromotionInvite(row.id, '列表人工解除冻结');
+    fetchList();
   }
 
   return (
@@ -671,19 +952,36 @@ function InvitesPanel() {
       <CardHeader><CardTitle>普通邀请关系</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Input className="w-44" placeholder="邀请人姓名/手机号" value={filters.inviterKeyword} onChange={(e) => setFilters({ ...filters, inviterKeyword: e.target.value })} />
-          <Input className="w-44" placeholder="被邀人姓名/手机号" value={filters.inviteeKeyword} onChange={(e) => setFilters({ ...filters, inviteeKeyword: e.target.value })} />
+          <Input className="w-44" placeholder="邀请关系编号" value={filters.relationNo} onChange={(e) => setFilters({ ...filters, relationNo: e.target.value })} />
+          <Input className="w-52" placeholder="邀请人UUID/手机号" value={filters.inviterKeyword} onChange={(e) => setFilters({ ...filters, inviterKeyword: e.target.value })} />
+          <Input className="w-52" placeholder="被邀请人UUID/手机号" value={filters.inviteeKeyword} onChange={(e) => setFilters({ ...filters, inviteeKeyword: e.target.value })} />
           <Select className="w-36" options={SOURCE_OPTIONS} value={filters.sourceType} onChange={(v) => setFilters({ ...filters, sourceType: v })} />
           <Select className="w-40" options={INVITE_STATUS_OPTIONS} value={filters.status} onChange={(v) => setFilters({ ...filters, status: v })} />
+          <Input className="w-40" type="date" value={filters.bindStartTime} onChange={(e) => setFilters({ ...filters, bindStartTime: e.target.value })} />
+          <Input className="w-40" type="date" value={filters.bindEndTime} onChange={(e) => setFilters({ ...filters, bindEndTime: e.target.value })} />
           <Button size="sm" onClick={handleSearch}><Search className="mr-1 h-4 w-4" />查询</Button>
           <Button variant="outline" size="sm" onClick={handleReset}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
         </div>
         <Table>
-          <TableHeader><TableRow><TableHead>关系编号</TableHead><TableHead>来源</TableHead><TableHead>邀请来源</TableHead><TableHead>被邀请人</TableHead><TableHead>状态</TableHead><TableHead>绑定时间</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>邀请关系编号</TableHead><TableHead>邀请人 UUID/昵称</TableHead><TableHead>被邀请人 UUID/手机号</TableHead><TableHead>来源类型</TableHead><TableHead>当前状态</TableHead><TableHead>当前已发放奖励</TableHead><TableHead>绑定时间</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
+            {loading ? <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
-                <TableCell><button className="font-medium text-primary hover:underline" onClick={() => navigate(`/promotion/invite-relation/${row.id}`)}>{row.relationNo}</button></TableCell><TableCell>{labelOf(row.sourceType, SOURCE_LABELS)}</TableCell><TableCell>{row.sourceType === 'campus_agent' ? (row.agentName || '-') : (row.inviterName || '-')}</TableCell><TableCell>{row.inviteeName || '-'}</TableCell><TableCell>{statusBadge(row.status)}</TableCell><TableCell>{row.bindTime ?? '-'}</TableCell>
+                <TableCell><button className="font-medium text-primary hover:underline" onClick={() => navigate(`/promotion/invite-relation/${row.id}`)}>{row.relationNo}</button></TableCell>
+                <TableCell>{userLine(row.inviterUuid, row.inviterName, undefined)}</TableCell>
+                <TableCell>{userLine(row.inviteeUuid, row.inviteeName, row.inviteePhone)}</TableCell>
+                <TableCell>{labelOf(row.sourceType, SOURCE_LABELS)}</TableCell>
+                <TableCell>{statusBadge(row.status)}</TableCell>
+                <TableCell>{row.totalRewardCoin ?? 0}</TableCell>
+                <TableCell>{row.bindTime ?? '-'}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`/promotion/invite-relation/${row.id}`)}>详情</Button>
+                    <Button disabled={row.status !== 'frozen' && row.status !== 'invalid'} variant="ghost" size="sm" onClick={() => navigate(`/promotion/invite-relation/${row.id}`)}>风控</Button>
+                    <Button disabled={row.status === 'invalid'} variant="ghost" size="sm" onClick={() => handleInvalid(row)}>标无效</Button>
+                    <Button disabled={row.status !== 'frozen'} variant="ghost" size="sm" onClick={() => handleUnfreeze(row)}>解冻</Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -695,11 +993,12 @@ function InvitesPanel() {
 }
 
 function RewardsPanel({ frozenOnly = false }: { frozenOnly?: boolean }) {
+  const navigate = useNavigate();
   const [list, setList] = useState<PromotionRewardLogVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const defaultStatus = frozenOnly ? 'frozen' : '';
-  const [filters, setFilters] = useState({ status: defaultStatus, eventType: '' });
+  const [filters, setFilters] = useState({ rewardNo: '', inviterKeyword: '', inviteeKeyword: '', status: defaultStatus, eventType: '', startTime: '', endTime: '' });
   const [query, setQuery] = useState(filters);
   const [loading, setLoading] = useState(false);
   const [reviewDialog, setReviewDialog] = useState<{ row: PromotionRewardLogVO; pass: boolean } | null>(null);
@@ -709,7 +1008,17 @@ function RewardsPanel({ frozenOnly = false }: { frozenOnly?: boolean }) {
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const data = pageData<PromotionRewardLogVO>(await getPromotionRewards({ page, size: 10, eventType: query.eventType || undefined, status: query.status || undefined }));
+      const data = pageData<PromotionRewardLogVO>(await getPromotionRewards({
+        page,
+        size: 10,
+        rewardNo: query.rewardNo || undefined,
+        inviterKeyword: query.inviterKeyword || undefined,
+        inviteeKeyword: query.inviteeKeyword || undefined,
+        eventType: query.eventType || undefined,
+        status: query.status || undefined,
+        startTime: query.startTime ? `${query.startTime}T00:00:00` : undefined,
+        endTime: query.endTime ? `${query.endTime}T23:59:59` : undefined,
+      }));
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
@@ -749,20 +1058,42 @@ function RewardsPanel({ frozenOnly = false }: { frozenOnly?: boolean }) {
       <CardHeader><CardTitle>{frozenOnly ? '冻结奖励处理页' : '普通邀请奖励流水'}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
+          <Input className="w-44" placeholder="奖励流水号" value={filters.rewardNo} onChange={(e) => setFilters({ ...filters, rewardNo: e.target.value })} />
+          <Input className="w-48" placeholder="邀请人UUID/手机号" value={filters.inviterKeyword} onChange={(e) => setFilters({ ...filters, inviterKeyword: e.target.value })} />
+          <Input className="w-52" placeholder="被邀请人UUID/手机号" value={filters.inviteeKeyword} onChange={(e) => setFilters({ ...filters, inviteeKeyword: e.target.value })} />
           {!frozenOnly && <Select className="w-36" options={REWARD_STATUS_OPTIONS} value={filters.status} onChange={(v) => setFilters({ ...filters, status: v })} />}
           {frozenOnly && <Select className="w-40" options={[{ value: 'frozen', label: '冻结中' }]} value="frozen" onChange={() => undefined} />}
           <Select className="w-44" options={RULE_EVENT_OPTIONS} value={filters.eventType} onChange={(v) => setFilters({ ...filters, eventType: v })} />
+          <Input className="w-40" type="date" value={filters.startTime} onChange={(e) => setFilters({ ...filters, startTime: e.target.value })} />
+          <Input className="w-40" type="date" value={filters.endTime} onChange={(e) => setFilters({ ...filters, endTime: e.target.value })} />
           <Button size="sm" onClick={handleSearch}><Search className="mr-1 h-4 w-4" />查询</Button>
-          <Button variant="outline" size="sm" onClick={() => { const next = { status: defaultStatus, eventType: '' }; setFilters(next); setPage(1); setQuery(next); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
+          <Button variant="outline" size="sm" onClick={() => { const next = { rewardNo: '', inviterKeyword: '', inviteeKeyword: '', status: defaultStatus, eventType: '', startTime: '', endTime: '' }; setFilters(next); setPage(1); setQuery(next); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
         </div>
         <Table>
-          <TableHeader><TableRow><TableHead>奖励流水号</TableHead><TableHead>邀请人</TableHead><TableHead>被邀请人</TableHead><TableHead>奖励事件</TableHead><TableHead>奖励币数</TableHead><TableHead>{frozenOnly ? '冻结原因' : '审核拒绝原因'}</TableHead><TableHead>状态</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>奖励流水号</TableHead><TableHead>邀请人</TableHead><TableHead>被邀请人</TableHead><TableHead>奖励事件</TableHead><TableHead>奖励币数</TableHead>{frozenOnly ? <><TableHead>冻结原因</TableHead><TableHead>冻结时间</TableHead></> : <><TableHead>奖励状态</TableHead><TableHead>创建时间</TableHead><TableHead>到账时间</TableHead></>}<TableHead>操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
+            {loading ? <TableRow><TableCell colSpan={frozenOnly ? 8 : 9} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={frozenOnly ? 8 : 9} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
-                <TableCell>{row.rewardNo}</TableCell><TableCell>{row.inviterName || '-'}</TableCell><TableCell>{row.inviteeName || '-'}</TableCell><TableCell>{labelOf(row.eventType, EVENT_LABELS)}</TableCell><TableCell>{row.rewardCoin}</TableCell><TableCell>{row.reviewRemark || labelOf(row.riskReason, RISK_LABELS) || '-'}</TableCell><TableCell>{statusBadge(row.status)}</TableCell>
+                <TableCell>{row.rewardNo}</TableCell>
+                <TableCell>{userLine(row.inviterUuid, row.inviterName, row.inviterPhone)}</TableCell>
+                <TableCell>{userLine(row.inviteeUuid, row.inviteeName, row.inviteePhone)}</TableCell>
+                <TableCell>{labelOf(row.eventType, EVENT_LABELS)}</TableCell>
+                <TableCell>{row.rewardCoin}</TableCell>
+                {frozenOnly ? (
+                  <>
+                    <TableCell>{labelOf(row.riskReason, RISK_LABELS)}</TableCell>
+                    <TableCell>{row.frozenTime || row.createTime || '-'}</TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell>{statusBadge(row.status)}</TableCell>
+                    <TableCell>{row.createTime || '-'}</TableCell>
+                    <TableCell>{row.arriveTime || '-'}</TableCell>
+                  </>
+                )}
                 <TableCell>
                   <div className="flex gap-1">
+                    {!frozenOnly && <Button variant="ghost" size="sm" onClick={() => row.relationId && navigate(`/promotion/invite-relation/${row.relationId}`)}>详情</Button>}
                     <Button disabled={row.status !== 'frozen'} variant="ghost" size="sm" onClick={() => openReviewDialog(row, true)}><Check className="mr-1 h-4 w-4" />确认发放</Button>
                     <Button disabled={row.status !== 'frozen'} variant="ghost" size="sm" onClick={() => openReviewDialog(row, false)}><X className="mr-1 h-4 w-4" />确认无效</Button>
                   </div>
@@ -811,18 +1142,18 @@ function AgentsPanel() {
   const [list, setList] = useState<PromotionAgentVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ keyword: '', status: '' });
+  const [filters, setFilters] = useState({ agentNo: '', keyword: '', school: '', status: '' });
   const [query, setQuery] = useState(filters);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [codeDialog, setCodeDialog] = useState<{ qrCode: string; miniappPath: string; qrUrl?: string } | null>(null);
   const [editing, setEditing] = useState<PromotionAgentVO | null>(null);
-  const [form, setForm] = useState({ agentName: '', contactName: '', contactPhone: '', school: '', campus: '', status: 'normal', remark: '' });
+  const [form, setForm] = useState({ agentName: '', contactName: '', contactPhone: '', school: '', campus: '', bonusRuleGroup: '', status: 'normal', remark: '' });
 
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const data = pageData<PromotionAgentVO>(await getPromotionAgents({ page, size: 10, keyword: query.keyword || undefined, status: query.status || undefined }));
+      const data = pageData<PromotionAgentVO>(await getPromotionAgents({ page, size: 10, agentNo: query.agentNo || undefined, keyword: query.keyword || undefined, school: query.school || undefined, status: query.status || undefined }));
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
@@ -833,13 +1164,13 @@ function AgentsPanel() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ agentName: '', contactName: '', contactPhone: '', school: '', campus: '', status: 'normal', remark: '' });
+    setForm({ agentName: '', contactName: '', contactPhone: '', school: '', campus: '', bonusRuleGroup: '', status: 'normal', remark: '' });
     setDialogOpen(true);
   }
 
   function openEdit(row: PromotionAgentVO) {
     setEditing(row);
-    setForm({ agentName: row.agentName, contactName: row.contactName ?? '', contactPhone: row.contactPhone ?? '', school: row.school ?? '', campus: row.campus ?? '', status: row.status ?? 'normal', remark: row.remark ?? '' });
+    setForm({ agentName: row.agentName, contactName: row.contactName ?? '', contactPhone: row.contactPhone ?? '', school: row.school ?? '', campus: row.campus ?? '', bonusRuleGroup: row.bonusRuleGroup ?? '', status: row.status ?? 'normal', remark: row.remark ?? '' });
     setDialogOpen(true);
   }
 
@@ -861,18 +1192,29 @@ function AgentsPanel() {
       <CardHeader className="flex-row items-center justify-between"><CardTitle>代理列表</CardTitle><Button onClick={openCreate}><Plus className="mr-1 h-4 w-4" />新增代理</Button></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
-          <Input className="w-56" placeholder="代理/联系人/手机号" value={filters.keyword} onChange={(e) => setFilters({ ...filters, keyword: e.target.value })} />
+          <Input className="w-44" placeholder="代理编号" value={filters.agentNo} onChange={(e) => setFilters({ ...filters, agentNo: e.target.value })} />
+          <Input className="w-48" placeholder="代理名称" value={filters.keyword} onChange={(e) => setFilters({ ...filters, keyword: e.target.value })} />
+          <Input className="w-40" placeholder="学校" value={filters.school} onChange={(e) => setFilters({ ...filters, school: e.target.value })} />
           <Select className="w-36" options={AGENT_STATUS_OPTIONS} value={filters.status} onChange={(v) => setFilters({ ...filters, status: v })} />
           <Button size="sm" onClick={() => { setPage(1); setQuery(filters); }}><Search className="mr-1 h-4 w-4" />查询</Button>
-          <Button variant="outline" size="sm" onClick={() => { const empty = { keyword: '', status: '' }; setFilters(empty); setPage(1); setQuery(empty); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
+          <Button variant="outline" size="sm" onClick={() => { const empty = { agentNo: '', keyword: '', school: '', status: '' }; setFilters(empty); setPage(1); setQuery(empty); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
         </div>
         <Table>
-          <TableHeader><TableRow><TableHead>代理</TableHead><TableHead>联系人</TableHead><TableHead>学校/校区</TableHead><TableHead>状态</TableHead><TableHead>创建时间</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>代理编号</TableHead><TableHead>代理名称</TableHead><TableHead>学校</TableHead><TableHead>累计扫码/点击数</TableHead><TableHead>累计注册数</TableHead><TableHead>累计成功邀请人数</TableHead><TableHead>累计应发奖金</TableHead><TableHead>累计已发奖金</TableHead><TableHead>累计待结算奖金</TableHead><TableHead>合作状态</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
+            {loading ? <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
-                <TableCell><button className="font-medium text-primary hover:underline" onClick={() => navigate(`/promotion/agent/${row.id}`)}>{row.agentName}</button><div className="text-xs text-muted-foreground">{row.remark || '-'}</div></TableCell><TableCell>{row.contactName || '-'}<div className="text-xs text-muted-foreground">{row.contactPhone || '-'}</div></TableCell><TableCell>{row.school || '-'} / {row.campus || '-'}</TableCell><TableCell>{statusBadge(row.status)}</TableCell><TableCell>{row.createTime || '-'}</TableCell>
-                <TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)}><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="sm" onClick={() => updatePromotionAgentStatus(row.id, row.status === 'normal' ? 'paused' : 'normal').then(fetchList)}>{row.status === 'normal' ? '暂停' : '恢复'}</Button><Button variant="ghost" size="sm" onClick={() => handleCode(row.id)}><QrCode className="mr-1 h-4 w-4" />二维码</Button></div></TableCell>
+                <TableCell><button className="font-medium text-primary hover:underline" onClick={() => navigate(`/promotion/agent/${row.id}`)}>{row.agentNo || '-'}</button></TableCell>
+                <TableCell><div className="font-medium">{row.agentName}</div><div className="text-xs text-muted-foreground">{row.contactName || '-'} / {row.contactPhone || '-'}</div></TableCell>
+                <TableCell>{row.school || '-'}<div className="text-xs text-muted-foreground">{row.campus || '-'}</div></TableCell>
+                <TableCell>{row.stat?.clickCnt ?? 0}</TableCell>
+                <TableCell>{row.stat?.registerCnt ?? 0}</TableCell>
+                <TableCell>{row.stat?.successCnt ?? 0}</TableCell>
+                <TableCell>{amount(row.bonusDueAmount ?? row.stat?.bonusDueAmount)}</TableCell>
+                <TableCell>{amount(row.bonusPaidAmount ?? row.stat?.bonusPaidAmount)}</TableCell>
+                <TableCell>{amount(row.bonusPendingAmount ?? row.stat?.bonusPendingAmount)}</TableCell>
+                <TableCell>{statusBadge(row.status)}</TableCell>
+                <TableCell><div className="flex flex-wrap gap-1"><Button variant="ghost" size="sm" onClick={() => navigate(`/promotion/agent/${row.id}`)}>详情</Button><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)}><Edit className="h-4 w-4" /></Button><Button disabled={row.status !== 'normal'} variant="ghost" size="sm" onClick={() => updatePromotionAgentStatus(row.id, 'paused').then(fetchList)}>暂停</Button><Button disabled={row.status !== 'paused'} variant="ghost" size="sm" onClick={() => updatePromotionAgentStatus(row.id, 'normal').then(fetchList)}>恢复</Button><Button disabled={row.status === 'terminated'} variant="ghost" size="sm" onClick={() => updatePromotionAgentStatus(row.id, 'terminated').then(fetchList)}>终止</Button><Button variant="ghost" size="sm" onClick={() => handleCode(row.id)}><QrCode className="mr-1 h-4 w-4" />二维码</Button></div></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -885,6 +1227,7 @@ function AgentsPanel() {
           <label className="space-y-1 text-sm font-medium">代理名称<Input value={form.agentName} onChange={(e) => setForm({ ...form, agentName: e.target.value })} /></label>
           <div className="grid grid-cols-2 gap-3"><label className="space-y-1 text-sm font-medium">联系人<Input value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} /></label><label className="space-y-1 text-sm font-medium">联系电话<Input value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value })} /></label></div>
           <div className="grid grid-cols-2 gap-3"><label className="space-y-1 text-sm font-medium">学校<Input value={form.school} onChange={(e) => setForm({ ...form, school: e.target.value })} /></label><label className="space-y-1 text-sm font-medium">校区<Input value={form.campus} onChange={(e) => setForm({ ...form, campus: e.target.value })} /></label></div>
+          <label className="space-y-1 text-sm font-medium">奖金规则组<Input value={form.bonusRuleGroup} onChange={(e) => setForm({ ...form, bonusRuleGroup: e.target.value })} /></label>
           <label className="space-y-1 text-sm font-medium">状态<Select options={AGENT_STATUS_OPTIONS.filter((o) => o.value)} value={form.status} onChange={(v) => setForm({ ...form, status: v })} /></label>
           <label className="space-y-1 text-sm font-medium">备注<Input value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} /></label>
           <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button><Button onClick={handleSave}>保存</Button></div>
@@ -912,7 +1255,7 @@ function MaterialsPanel() {
   const [list, setList] = useState<PromotionAgentQrCodeVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ agentId: '', status: '' });
+  const [filters, setFilters] = useState({ agentKeyword: '', qrCode: '', status: '' });
   const [query, setQuery] = useState(filters);
   const [loading, setLoading] = useState(false);
 
@@ -922,7 +1265,8 @@ function MaterialsPanel() {
       const data = pageData<PromotionAgentQrCodeVO>(await getPromotionMaterials({
         page,
         size: 10,
-        agentId: num(query.agentId),
+        agentKeyword: query.agentKeyword || undefined,
+        qrCode: query.qrCode || undefined,
         status: query.status || undefined,
       }));
       setList(data.records ?? []);
@@ -949,28 +1293,34 @@ function MaterialsPanel() {
       <CardHeader><CardTitle>推广素材与二维码管理</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
-          <Input className="w-40" placeholder="代理ID" value={filters.agentId} onChange={(e) => setFilters({ ...filters, agentId: e.target.value })} />
+          <Input className="w-48" placeholder="代理编号/名称" value={filters.agentKeyword} onChange={(e) => setFilters({ ...filters, agentKeyword: e.target.value })} />
+          <Input className="w-44" placeholder="二维码编号" value={filters.qrCode} onChange={(e) => setFilters({ ...filters, qrCode: e.target.value })} />
           <Select className="w-36" options={[{ value: '', label: '全部状态' }, { value: 'enabled', label: '启用' }, { value: 'disabled', label: '停用' }]} value={filters.status} onChange={(v) => setFilters({ ...filters, status: v })} />
           <Button size="sm" onClick={() => { setPage(1); setQuery(filters); }}><Search className="mr-1 h-4 w-4" />查询</Button>
-          <Button variant="outline" size="sm" onClick={() => { const empty = { agentId: '', status: '' }; setFilters(empty); setPage(1); setQuery(empty); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
+          <Button variant="outline" size="sm" onClick={() => { const empty = { agentKeyword: '', qrCode: '', status: '' }; setFilters(empty); setPage(1); setQuery(empty); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
         </div>
         <Table>
-          <TableHeader><TableRow><TableHead>二维码</TableHead><TableHead>代理ID</TableHead><TableHead>版本</TableHead><TableHead>状态</TableHead><TableHead>小程序路径</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>代理编号</TableHead><TableHead>所属代理</TableHead><TableHead>二维码编号</TableHead><TableHead>专属二维码</TableHead><TableHead>小程序专属路径</TableHead><TableHead>二维码素材模板</TableHead><TableHead>二维码状态</TableHead><TableHead>有效期</TableHead><TableHead>当前版本</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
+            {loading ? <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
+                <TableCell>{row.agentNo || '-'}</TableCell>
+                <TableCell>{row.agentName || '-'}</TableCell>
                 <TableCell>
                   <div className="font-medium">{row.qrCode}</div>
-                  <div className="mt-2"><img className="h-16 w-16 rounded border border-border" src={row.qrUrl || qrImageUrl(row.miniappPath || row.qrCode)} alt="推广二维码" /></div>
                 </TableCell>
-                <TableCell>{row.agentId}</TableCell>
-                <TableCell>{row.versionNo}</TableCell>
-                <TableCell>{statusBadge(row.status)}</TableCell>
+                <TableCell><img className="h-16 w-16 rounded border border-border" src={row.qrUrl || qrImageUrl(row.miniappPath || row.qrCode)} alt="推广二维码" /></TableCell>
                 <TableCell className="max-w-xs break-all text-xs text-muted-foreground">{row.miniappPath}</TableCell>
+                <TableCell>{row.materialTemplate || '默认海报模板'}</TableCell>
+                <TableCell>{statusBadge(row.status)}</TableCell>
+                <TableCell>{row.validityText || '永久有效'}</TableCell>
+                <TableCell>{row.versionNo}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => window.open(row.qrUrl || qrImageUrl(row.miniappPath || row.qrCode), '_blank')}>下载</Button>
                     <Button variant="ghost" size="sm" onClick={() => handleRegenerate(row)}>重生成</Button>
                     <Button disabled={row.status === 'disabled'} variant="ghost" size="sm" onClick={() => handleDisable(row)}>停用</Button>
+                    <Button disabled={(row.versionNo ?? 1) <= 1} variant="ghost" size="sm">历史</Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -987,7 +1337,7 @@ function SettlementsPanel() {
   const [list, setList] = useState<PromotionSettlementVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ agentKeyword: '', status: '' });
+  const [filters, setFilters] = useState({ settlementNo: '', agentKeyword: '', period: '', status: '' });
   const [query, setQuery] = useState(filters);
   const [loading, setLoading] = useState(false);
   const [settlementDialog, setSettlementDialog] = useState<{ row: PromotionSettlementVO; action: 'confirm' | 'paid' } | null>(null);
@@ -998,7 +1348,9 @@ function SettlementsPanel() {
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const data = pageData<PromotionSettlementVO>(await getPromotionSettlements({ page, size: 10, agentKeyword: query.agentKeyword || undefined, status: query.status || undefined }));
+      const periodStart = query.period ? `${query.period}-01` : undefined;
+      const periodEnd = query.period ? monthEnd(query.period) : undefined;
+      const data = pageData<PromotionSettlementVO>(await getPromotionSettlements({ page, size: 10, settlementNo: query.settlementNo || undefined, agentKeyword: query.agentKeyword || undefined, status: query.status || undefined, periodStart, periodEnd }));
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
@@ -1039,18 +1391,29 @@ function SettlementsPanel() {
       <CardHeader><CardTitle>代理结算管理</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
-          <Input className="w-56" placeholder="代理名称/联系人/手机号" value={filters.agentKeyword} onChange={(e) => setFilters({ ...filters, agentKeyword: e.target.value })} />
+          <Input className="w-44" placeholder="结算单号" value={filters.settlementNo} onChange={(e) => setFilters({ ...filters, settlementNo: e.target.value })} />
+          <Input className="w-52" placeholder="代理编号/名称" value={filters.agentKeyword} onChange={(e) => setFilters({ ...filters, agentKeyword: e.target.value })} />
+          <Input className="w-40" type="month" value={filters.period} onChange={(e) => setFilters({ ...filters, period: e.target.value })} />
           <Select className="w-36" options={SETTLEMENT_STATUS_OPTIONS} value={filters.status} onChange={(v) => setFilters({ ...filters, status: v })} />
           <Button size="sm" onClick={() => { setPage(1); setQuery(filters); }}><Search className="mr-1 h-4 w-4" />查询</Button>
-          <Button variant="outline" size="sm" onClick={() => { const empty = { agentKeyword: '', status: '' }; setFilters(empty); setPage(1); setQuery(empty); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
+          <Button variant="outline" size="sm" onClick={() => { const empty = { settlementNo: '', agentKeyword: '', period: '', status: '' }; setFilters(empty); setPage(1); setQuery(empty); }}><RefreshCcw className="mr-1 h-4 w-4" />重置</Button>
+          <Button variant="outline" size="sm" disabled={list.length === 0}>导出结算列表</Button>
         </div>
         <Table>
-          <TableHeader><TableRow><TableHead>结算单</TableHead><TableHead>代理</TableHead><TableHead>周期</TableHead><TableHead>应发</TableHead><TableHead>实发</TableHead><TableHead>状态</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>结算单号</TableHead><TableHead>代理</TableHead><TableHead>结算周期</TableHead><TableHead>统计口径说明</TableHead><TableHead>应结算金额</TableHead><TableHead>已结算金额</TableHead><TableHead>结算状态</TableHead><TableHead>备注</TableHead><TableHead>收款相关信息</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
+            {loading ? <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">加载中...</TableCell></TableRow> : list.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow> : list.map((row) => (
               <TableRow key={row.id}>
-                <TableCell><div className="font-medium">{row.settlementNo}</div><div className="text-xs text-muted-foreground">{row.statsDesc || row.remark || '-'}</div></TableCell><TableCell>{row.agentName || '-'}</TableCell><TableCell>{row.periodStart} 至 {row.periodEnd}</TableCell><TableCell>{row.payableAmount}</TableCell><TableCell>{row.paidAmount ?? 0}</TableCell><TableCell>{statusBadge(row.status)}</TableCell>
-                <TableCell><div className="flex gap-1"><Button disabled={row.status !== 'unsettled'} variant="ghost" size="sm" onClick={() => openSettlementDialog(row, 'confirm')}>确认</Button><Button disabled={row.status !== 'confirmed'} variant="ghost" size="sm" onClick={() => openSettlementDialog(row, 'paid')}>发放</Button></div></TableCell>
+                <TableCell><div className="font-medium">{row.settlementNo}</div></TableCell>
+                <TableCell>{row.agentDisplay || `${row.agentNo || '-'} / ${row.agentName || '-'}`}</TableCell>
+                <TableCell>{periodText(row)}</TableCell>
+                <TableCell>{row.caliberDesc || row.statsDesc || '-'}</TableCell>
+                <TableCell>{row.payableAmount}</TableCell>
+                <TableCell>{row.paidAmount ?? 0}</TableCell>
+                <TableCell>{statusBadge(row.status)}</TableCell>
+                <TableCell>{row.remark || '-'}</TableCell>
+                <TableCell>{row.payeeInfo || '首版不采集'}</TableCell>
+                <TableCell><div className="flex flex-wrap gap-1"><Button disabled={row.status !== 'unsettled'} variant="ghost" size="sm" onClick={() => openSettlementDialog(row, 'confirm')}>标记已确认</Button><Button disabled={row.status !== 'confirmed'} variant="ghost" size="sm" onClick={() => openSettlementDialog(row, 'paid')}>标记已发放</Button><Button variant="ghost" size="sm">导出明细</Button></div></TableCell>
               </TableRow>
             ))}
           </TableBody>

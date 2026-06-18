@@ -32,16 +32,43 @@ public class PromotionRewardAdminServiceImpl implements PromotionRewardAdminServ
 
     @Override
     public Page<PromotionRewardLogVO> list(PromotionRewardPageReq req) {
+        java.util.List<Long> inviterIds = findUserIds(req.getInviterKeyword());
+        java.util.List<Long> inviteeIds = findUserIds(req.getInviteeKeyword());
+        if (StrUtil.isNotBlank(req.getInviterKeyword()) && inviterIds.isEmpty()
+                || StrUtil.isNotBlank(req.getInviteeKeyword()) && inviteeIds.isEmpty()) {
+            return new Page<>(req.getPage(), req.getSize(), 0);
+        }
         LambdaQueryWrapper<PromotionRewardLog> wrapper = new LambdaQueryWrapper<PromotionRewardLog>()
+                .like(StrUtil.isNotBlank(req.getRewardNo()), PromotionRewardLog::getRewardNo, req.getRewardNo())
                 .eq(req.getInviterId() != null, PromotionRewardLog::getInviterId, req.getInviterId())
+                .in(!inviterIds.isEmpty(), PromotionRewardLog::getInviterId, inviterIds)
                 .eq(req.getInviteeId() != null, PromotionRewardLog::getInviteeId, req.getInviteeId())
+                .in(!inviteeIds.isEmpty(), PromotionRewardLog::getInviteeId, inviteeIds)
                 .eq(StrUtil.isNotBlank(req.getEventType()), PromotionRewardLog::getEventType, req.getEventType())
                 .eq(StrUtil.isNotBlank(req.getStatus()), PromotionRewardLog::getStatus, req.getStatus())
+                .ge(req.getStartTime() != null, PromotionRewardLog::getCreateTime, req.getStartTime())
+                .le(req.getEndTime() != null, PromotionRewardLog::getCreateTime, req.getEndTime())
                 .orderByDesc(PromotionRewardLog::getCreateTime);
         Page<PromotionRewardLog> page = rewardLogDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<PromotionRewardLogVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(page.getRecords().stream().map(this::toVO).toList());
         return result;
+    }
+
+    private java.util.List<Long> findUserIds(String keyword) {
+        if (StrUtil.isBlank(keyword)) {
+            return java.util.List.of();
+        }
+        LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<SysUser>()
+                .like(SysUser::getNickname, keyword)
+                .or()
+                .like(SysUser::getUsername, keyword)
+                .or()
+                .like(SysUser::getPhone, keyword);
+        return userDao.selectPage(new Page<>(1, 100), wrapper).getRecords().stream()
+                .map(SysUser::getId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
     }
 
     @Override
@@ -103,13 +130,20 @@ public class PromotionRewardAdminServiceImpl implements PromotionRewardAdminServ
         vo.setRewardNo(entity.getRewardNo());
         vo.setRelationId(entity.getRelationId());
         vo.setInviterId(entity.getInviterId());
-        vo.setInviterName(userDisplayName(entity.getInviterId()));
+        SysUser inviter = user(entity.getInviterId());
+        vo.setInviterUuid(userUuid(inviter, entity.getInviterId()));
+        vo.setInviterName(userDisplayName(inviter));
+        vo.setInviterPhone(inviter == null ? null : inviter.getPhone());
         vo.setInviteeId(entity.getInviteeId());
-        vo.setInviteeName(userDisplayName(entity.getInviteeId()));
+        SysUser invitee = user(entity.getInviteeId());
+        vo.setInviteeUuid(userUuid(invitee, entity.getInviteeId()));
+        vo.setInviteeName(userDisplayName(invitee));
+        vo.setInviteePhone(invitee == null ? null : invitee.getPhone());
         vo.setEventType(entity.getEventType());
         vo.setRewardCoin(entity.getRewardCoin());
         vo.setStatus(entity.getStatus());
         vo.setRiskReason(entity.getRiskReason());
+        vo.setFrozenTime(PromotionRewardStatusEnum.FROZEN.getCode().equals(entity.getStatus()) ? entity.getCreateTime() : null);
         vo.setArriveTime(entity.getArriveTime());
         vo.setReviewTime(entity.getReviewTime());
         vo.setReviewRemark(entity.getReviewRemark());
@@ -117,11 +151,18 @@ public class PromotionRewardAdminServiceImpl implements PromotionRewardAdminServ
         return vo;
     }
 
-    private String userDisplayName(Long userId) {
-        if (userId == null) {
-            return null;
+    private SysUser user(Long userId) {
+        return userId == null ? null : userDao.selectById(userId);
+    }
+
+    private String userUuid(SysUser user, Long userId) {
+        if (user == null) {
+            return userId == null ? null : String.valueOf(userId);
         }
-        SysUser user = userDao.selectById(userId);
+        return StrUtil.blankToDefault(user.getUsername(), String.valueOf(user.getId()));
+    }
+
+    private String userDisplayName(SysUser user) {
         if (user == null) {
             return null;
         }

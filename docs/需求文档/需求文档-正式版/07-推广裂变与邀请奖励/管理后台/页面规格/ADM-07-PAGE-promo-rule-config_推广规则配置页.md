@@ -53,6 +53,23 @@
 
 ## 4. 字段表
 
+### 4.1 规则列表字段
+
+| 字段 ID | 显示名 | 类型 | 必填 | 取值范围 | 展示/排序规则 | 默认值 | 可编辑 | 敏感级别 | 数据来源 |
+|---------|--------|------|------|----------|---------------|--------|--------|----------|----------|
+| `ADM-07-PAGE-promo-rule-config-LIST-rule-name` | 规则名称 | string | 是 | — | 展示规则名称与备注 | — | 否 | 普通 | `promotion_rule.rule_name` |
+| `...-LIST-rule-type` | 数据类型 | enum | 是 | 普通邀请/代理奖金/风控参数 | 只展示中文名称 | — | 否 | 普通 | `promotion_rule.rule_type` |
+| `...-LIST-event-type` | 事件 | enum | 是 | 注册成功登录奖励/资料完善奖励/认证完成奖励/首次会员奖励/首次充值奖励等 | 只展示中文名称 | — | 否 | 普通 | `promotion_rule.event_type` |
+| `...-LIST-reward` | 奖励 | decimal+enum | 是 | 金额+单位 | 成家币/现金/计数/布尔值按中文单位展示 | — | 否 | 普通 | `promotion_rule.reward_amount` / `reward_unit` |
+| `...-LIST-daily-limit` | 上限 | decimal | 否 | ≥0 | 无上限展示 `-` | — | 否 | 普通 | `promotion_rule.daily_limit` |
+| `...-LIST-status` | 状态 | enum | 是 | 启用/停用 | 只展示中文名称；同一「数据类型+事件」启用状态只能存在一条数据 | 启用 | 可编辑 | 普通 | `promotion_rule.status` |
+| `...-LIST-update-time` | 修改时间 | datetime | 是 | `yyyy-MM-dd HH:mm:ss` | 列表先按修改时间倒序，再按创建时间倒序 | — | 否 | 普通 | `promotion_rule.update_time` |
+| `...-LIST-create-time` | 创建时间 | datetime | 是 | `yyyy-MM-dd HH:mm:ss` | 同修改时间相同时按创建时间倒序 | — | 否 | 普通 | `promotion_rule.create_time` |
+| `...-LIST-updated-by` | 修改人 | string | 否 | 系统用户 | 展示昵称/账号，缺失展示用户 ID 或 `-` | — | 否 | 普通 | `promotion_rule.updated_by` |
+| `...-LIST-created-by` | 创建人 | string | 否 | 系统用户 | 展示昵称/账号，缺失展示用户 ID 或 `-` | — | 否 | 普通 | `promotion_rule.created_by` |
+
+> 列表约束：新增、编辑、启用规则时，若存在相同「数据类型 + 事件」且状态=启用的其他规则，应阻止保存并提示“同一数据类型、事件在启用状态下只能保留一条规则”。
+
 ### 4.2 表单字段
 
 #### Tab1 普通用户奖励

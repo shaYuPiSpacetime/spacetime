@@ -40,9 +40,12 @@ public class PromotionSettlementAdminServiceImpl implements PromotionSettlementA
             return new Page<>(req.getPage(), req.getSize(), 0);
         }
         LambdaQueryWrapper<PromotionAgentSettlement> wrapper = new LambdaQueryWrapper<PromotionAgentSettlement>()
+                .like(StrUtil.isNotBlank(req.getSettlementNo()), PromotionAgentSettlement::getSettlementNo, req.getSettlementNo())
                 .eq(req.getAgentId() != null, PromotionAgentSettlement::getAgentId, req.getAgentId())
                 .in(!agentIds.isEmpty(), PromotionAgentSettlement::getAgentId, agentIds)
                 .eq(StrUtil.isNotBlank(req.getStatus()), PromotionAgentSettlement::getStatus, req.getStatus())
+                .ge(req.getPeriodStart() != null, PromotionAgentSettlement::getPeriodStart, req.getPeriodStart())
+                .le(req.getPeriodEnd() != null, PromotionAgentSettlement::getPeriodEnd, req.getPeriodEnd())
                 .orderByDesc(PromotionAgentSettlement::getCreateTime);
         Page<PromotionAgentSettlement> page = settlementDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<PromotionSettlementVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
@@ -55,6 +58,8 @@ public class PromotionSettlementAdminServiceImpl implements PromotionSettlementA
             return java.util.List.of();
         }
         LambdaQueryWrapper<PromotionAgent> wrapper = new LambdaQueryWrapper<PromotionAgent>()
+                .like(PromotionAgent::getAgentNo, keyword)
+                .or()
                 .like(PromotionAgent::getAgentName, keyword)
                 .or()
                 .like(PromotionAgent::getContactName, keyword)
@@ -72,6 +77,10 @@ public class PromotionSettlementAdminServiceImpl implements PromotionSettlementA
         }
         PromotionAgent agent = agentDao.selectById(agentId);
         return agent == null ? null : agent.getAgentName();
+    }
+
+    private PromotionAgent agent(Long agentId) {
+        return agentId == null ? null : agentDao.selectById(agentId);
     }
 
     @Override
@@ -129,13 +138,20 @@ public class PromotionSettlementAdminServiceImpl implements PromotionSettlementA
         vo.setId(entity.getId());
         vo.setSettlementNo(entity.getSettlementNo());
         vo.setAgentId(entity.getAgentId());
-        vo.setAgentName(agentName(entity.getAgentId()));
+        PromotionAgent agent = agent(entity.getAgentId());
+        vo.setAgentNo(agent == null ? null : agent.getAgentNo());
+        vo.setAgentName(agent == null ? null : agent.getAgentName());
+        vo.setAgentDisplay(agent == null ? null : agent.getAgentNo() + " / " + agent.getAgentName());
         vo.setPeriodStart(entity.getPeriodStart());
         vo.setPeriodEnd(entity.getPeriodEnd());
+        vo.setPeriodText(entity.getPeriodStart() + " 至 " + entity.getPeriodEnd());
         vo.setStatsDesc(entity.getStatsDesc());
+        vo.setCaliberDesc(StrUtil.blankToDefault(entity.getStatsDesc(), "按正式版推广成功口径统计"));
         vo.setPayableAmount(entity.getPayableAmount());
         vo.setPaidAmount(entity.getPaidAmount());
         vo.setStatus(entity.getStatus());
+        vo.setSettlementMethod("线下发放");
+        vo.setPayeeInfo("以代理合同/备注为准");
         vo.setConfirmTime(entity.getConfirmTime());
         vo.setPaidTime(entity.getPaidTime());
         vo.setRemark(entity.getRemark());

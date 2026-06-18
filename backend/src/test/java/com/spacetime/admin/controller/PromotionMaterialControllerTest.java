@@ -49,7 +49,7 @@ class PromotionMaterialControllerTest {
         PromotionAgentQrCodeVO row = code();
         Page<PromotionAgentQrCodeVO> page = new Page<>(1, 10, 1);
         page.setRecords(List.of(row));
-        when(service.materials(9L, 1, 10, "enabled")).thenReturn(page);
+        when(service.materials(9L, null, null, 1, 10, "enabled")).thenReturn(page);
 
         mockMvc.perform(get("/admin/promotion/materials/list?agentId=9&page=1&size=10&status=enabled"))
                 .andExpect(status().isOk())

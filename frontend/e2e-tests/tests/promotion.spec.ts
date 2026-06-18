@@ -40,6 +40,11 @@ test.describe('推广裂变 E2E 测试（正式版 ADM-07 页面树）', () => {
     await expect(page.getByRole('tab', { name: '代理奖励' })).toBeVisible();
     await expect(page.getByRole('tab', { name: '关系有效期' })).toBeVisible();
     await expect(page.getByRole('tab', { name: '风控参数' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '数据类型' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '修改时间' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '创建时间' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '修改人' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '创建人' })).toBeVisible();
   });
 
   test('L4-03 普通邀请关系列表可筛选并进入详情', async ({ page }) => {
@@ -47,8 +52,13 @@ test.describe('推广裂变 E2E 测试（正式版 ADM-07 页面树）', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: '普通邀请关系' })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByPlaceholder('邀请人姓名/手机号')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByPlaceholder('被邀人姓名/手机号')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByPlaceholder('邀请关系编号')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByPlaceholder('邀请人UUID/手机号', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByPlaceholder('被邀请人UUID/手机号', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('columnheader', { name: '邀请关系编号' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '邀请人 UUID/昵称' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '被邀请人 UUID/手机号' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '当前已发放奖励' })).toBeVisible();
     await expect(page.getByRole('button', { name: '查询' })).toBeVisible();
     await expect(page.locator('table')).toBeVisible({ timeout: 5000 });
   });
@@ -60,6 +70,8 @@ test.describe('推广裂变 E2E 测试（正式版 ADM-07 页面树）', () => {
     await expect(page.getByRole('heading', { name: '冻结奖励处理页' })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: '查询' })).toBeVisible();
     await expect(page.getByText('冻结中')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '冻结原因' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '冻结时间' })).toBeVisible();
     await expect(page.locator('table')).toBeVisible({ timeout: 5000 });
   });
 
@@ -68,6 +80,9 @@ test.describe('推广裂变 E2E 测试（正式版 ADM-07 页面树）', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: '代理列表' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByPlaceholder('代理编号')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '累计扫码/点击数' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '累计待结算奖金' })).toBeVisible();
     await page.getByRole('button', { name: /新增代理/ }).click();
     await expect(page.getByRole('heading', { name: '新增代理' })).toBeVisible({ timeout: 5000 });
 
@@ -78,7 +93,7 @@ test.describe('推广裂变 E2E 测试（正式版 ADM-07 页面树）', () => {
     await expect(page.getByRole('heading', { name: '新增代理' })).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('L4-06 代理详情页面展示统计与素材区域', async ({ page }) => {
+  test('L4-06 代理详情页面展示正式版三类明细 Tab', async ({ page }) => {
     const agentId = process.env.TEST_AGENT_ID;
     test.skip(!agentId, '需要 TEST_AGENT_ID');
 
@@ -88,8 +103,9 @@ test.describe('推广裂变 E2E 测试（正式版 ADM-07 页面树）', () => {
     await expect(page.getByRole('heading', { name: '校园代理详情' })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('代理编号')).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('成功口径')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole('heading', { name: '推广素材' })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole('heading', { name: '最近推广事件' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('tab', { name: '推广明细' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('tab', { name: '奖金明细' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('tab', { name: '结算记录' })).toBeVisible({ timeout: 5000 });
   });
 
   test('L4-07 推广素材与二维码管理页面加载', async ({ page }) => {
@@ -97,7 +113,11 @@ test.describe('推广裂变 E2E 测试（正式版 ADM-07 页面树）', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: '推广素材与二维码管理' })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByPlaceholder('代理ID')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByPlaceholder('代理编号/名称')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByPlaceholder('二维码编号')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('columnheader', { name: '代理编号' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '二维码素材模板' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '有效期' })).toBeVisible();
     await expect(page.getByRole('button', { name: '查询' })).toBeVisible();
     await expect(page.locator('table')).toBeVisible({ timeout: 5000 });
   });
@@ -107,7 +127,10 @@ test.describe('推广裂变 E2E 测试（正式版 ADM-07 页面树）', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: '代理结算管理' })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByPlaceholder('代理名称/联系人/手机号')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByPlaceholder('结算单号')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByPlaceholder('代理编号/名称')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('columnheader', { name: '统计口径说明' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '收款相关信息' })).toBeVisible();
     await expect(page.getByRole('button', { name: '查询' })).toBeVisible();
     await expect(page.getByRole('button', { name: /生成结算单/ })).not.toBeVisible();
     await expect(page.locator('table')).toBeVisible({ timeout: 5000 });

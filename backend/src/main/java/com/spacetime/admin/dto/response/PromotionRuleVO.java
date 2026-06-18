@@ -22,4 +22,9 @@ public class PromotionRuleVO {
     private String status;
     private String remark;
     private LocalDateTime createTime;
+    private LocalDateTime updateTime;
+    private Long createdBy;
+    private String createdByName;
+    private Long updatedBy;
+    private String updatedByName;
 }

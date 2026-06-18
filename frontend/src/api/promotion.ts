@@ -20,6 +20,18 @@ export interface PromotionRuleVO {
   status: string;
   remark?: string;
   createTime?: string;
+  updateTime?: string;
+  createdBy?: number;
+  createdByName?: string;
+  updatedBy?: number;
+  updatedByName?: string;
+}
+
+export interface PromotionRuleConfigVO {
+  inviteRewardRules?: PromotionRuleVO[];
+  agentBonusRules?: PromotionRuleVO[];
+  riskRules?: PromotionRuleVO[];
+  relationValidityText?: string;
 }
 
 export interface PromotionInviteRelationVO {
@@ -27,21 +39,61 @@ export interface PromotionInviteRelationVO {
   relationNo: string;
   sourceType: string;
   inviterId?: number;
+  inviterUuid?: string;
   inviterName?: string;
+  inviterPhone?: string;
   inviteeId: number;
+  inviteeUuid?: string;
   inviteeName?: string;
+  inviteePhone?: string;
   agentId?: number;
+  agentNo?: string;
   agentName?: string;
   qrCode?: string;
   status: string;
   frozenBeforeStatus?: string;
   invalidReason?: string;
   bindTime: string;
+  firstClickTime?: string;
+  registerTime?: string;
   firstLoginTime?: string;
   profileCompleteTime?: string;
   verifySuccessTime?: string;
+  firstVipTime?: string;
+  firstCoinRechargeTime?: string;
   successMetricHitTime?: string;
   totalRewardCoin?: number;
+  rewardRecords?: PromotionInviteRewardRecordVO[];
+  riskRecords?: PromotionInviteRiskRecordVO[];
+  auditRecords?: PromotionInviteAuditRecordVO[];
+}
+
+export interface PromotionInviteRewardRecordVO {
+  id: number;
+  rewardNo?: string;
+  eventType?: string;
+  rewardCoin?: number;
+  status?: string;
+  createTime?: string;
+  arriveTime?: string;
+  riskReason?: string;
+}
+
+export interface PromotionInviteRiskRecordVO {
+  id: number;
+  riskReason?: string;
+  status?: string;
+  createTime?: string;
+  reviewRemark?: string;
+}
+
+export interface PromotionInviteAuditRecordVO {
+  id: number;
+  action?: string;
+  beforeValue?: string;
+  afterValue?: string;
+  remark?: string;
+  createTime?: string;
 }
 
 export interface PromotionRewardLogVO {
@@ -49,13 +101,18 @@ export interface PromotionRewardLogVO {
   rewardNo: string;
   relationId: number;
   inviterId: number;
+  inviterUuid?: string;
   inviterName?: string;
+  inviterPhone?: string;
   inviteeId: number;
+  inviteeUuid?: string;
   inviteeName?: string;
+  inviteePhone?: string;
   eventType: string;
   rewardCoin: number;
   status: string;
   riskReason?: string;
+  frozenTime?: string;
   arriveTime?: string;
   reviewTime?: string;
   reviewRemark?: string;
@@ -71,9 +128,16 @@ export interface PromotionAgentVO {
   school?: string;
   campus?: string;
   bonusRuleGroup?: string;
+  bonusDueAmount?: number;
+  bonusPaidAmount?: number;
+  bonusPendingAmount?: number;
   status: string;
   remark?: string;
   stat?: PromotionAgentStatVO;
+  qrCodes?: PromotionAgentQrCodeVO[];
+  promotionEvents?: PromotionAgentEventRecordVO[];
+  bonusRecords?: PromotionAgentBonusRecordVO[];
+  settlementRecords?: PromotionSettlementVO[];
   createTime?: string;
 }
 
@@ -97,12 +161,17 @@ export interface PromotionAgentStatVO {
 export interface PromotionAgentQrCodeVO {
   id: number;
   agentId: number;
+  agentNo?: string;
+  agentName?: string;
   qrCode: string;
   miniappPath: string;
   qrUrl?: string;
   materialUrl?: string;
+  materialTemplate?: string;
+  validityText?: string;
   versionNo: number;
   status: string;
+  createTime?: string;
 }
 
 export interface PromotionAgentEventVO {
@@ -117,17 +186,50 @@ export interface PromotionAgentEventVO {
   createTime?: string;
 }
 
+export interface PromotionAgentEventRecordVO {
+  id: number;
+  qrCode?: string;
+  relationId?: number;
+  userId?: number;
+  userUuid?: string;
+  userName?: string;
+  userPhone?: string;
+  eventType?: string;
+  eventTime?: string;
+  bonusGenerated?: number;
+}
+
+export interface PromotionAgentBonusRecordVO {
+  id: number;
+  bonusNo?: string;
+  relationId?: number;
+  userId?: number;
+  userUuid?: string;
+  userName?: string;
+  eventType?: string;
+  bonusAmount?: number;
+  status?: string;
+  settlementId?: number;
+  createTime?: string;
+}
+
 export interface PromotionSettlementVO {
   id: number;
   settlementNo: string;
   agentId: number;
+  agentNo?: string;
   agentName?: string;
+  agentDisplay?: string;
   periodStart: string;
   periodEnd: string;
+  periodText?: string;
   statsDesc?: string;
+  caliberDesc?: string;
   payableAmount: number;
   paidAmount?: number;
   status: string;
+  settlementMethod?: string;
+  payeeInfo?: string;
   confirmTime?: string;
   paidTime?: string;
   remark?: string;
@@ -156,13 +258,54 @@ export function updatePromotionRuleStatus(id: number, status: string) {
   return request.put(`/admin/promotion/rules/${id}/status`, { status });
 }
 
+export function getPromotionRuleConfig() {
+  return request.get('/admin/promotion/rule-config');
+}
+
+export function savePromotionInviteRewardConfig(data: {
+  events: { eventType: string; enabled: boolean; amount: number }[];
+  successMetric: string;
+  rewardMode: string;
+  rewardCap?: number;
+  effectiveTime?: string;
+  expireTime?: string;
+  ladder?: { minCount: number; maxCount: number; amount: number; enabled: boolean }[];
+}) {
+  return request.put('/admin/promotion/rule-config/invite-reward', data);
+}
+
+export function savePromotionAgentBonusConfig(data: {
+  ruleGroups: {
+    groupCode: string;
+    groupName: string;
+    enabled: boolean;
+    events: { eventType: string; enabled: boolean; amount: number }[];
+  }[];
+}) {
+  return request.put('/admin/promotion/rule-config/agent-bonus', data);
+}
+
+export function savePromotionRiskConfig(data: {
+  dailyCap?: number;
+  deviceThreshold?: number;
+  phoneThreshold?: number;
+  paymentThreshold?: number;
+  freezeSwitch: boolean;
+  reviewSwitch: boolean;
+}) {
+  return request.put('/admin/promotion/rule-config/risk', data);
+}
+
 export function getPromotionInvites(params: {
   page: number;
   size: number;
+  relationNo?: string;
   inviterKeyword?: string;
   inviteeKeyword?: string;
   sourceType?: string;
   status?: string;
+  bindStartTime?: string;
+  bindEndTime?: string;
 }) {
   return request.get('/admin/promotion/invite-relations/list', { params });
 }
@@ -182,10 +325,15 @@ export function invalidatePromotionInvite(id: number, remark?: string) {
 export function getPromotionRewards(params: {
   page: number;
   size: number;
+  rewardNo?: string;
   inviterId?: number;
+  inviterKeyword?: string;
   inviteeId?: number;
+  inviteeKeyword?: string;
   eventType?: string;
   status?: string;
+  startTime?: string;
+  endTime?: string;
 }) {
   return request.get('/admin/promotion/invite-rewards/list', { params });
 }
@@ -202,6 +350,7 @@ export function getPromotionAgents(params: {
   page: number;
   size: number;
   keyword?: string;
+  agentNo?: string;
   school?: string;
   status?: string;
 }) {
@@ -240,6 +389,8 @@ export function getPromotionMaterials(params: {
   page: number;
   size: number;
   agentId?: number;
+  agentKeyword?: string;
+  qrCode?: string;
   status?: string;
 }) {
   return request.get('/admin/promotion/materials/list', { params });
@@ -256,8 +407,11 @@ export function regeneratePromotionMaterial(id: number) {
 export function getPromotionSettlements(params: {
   page: number;
   size: number;
+  settlementNo?: string;
   agentKeyword?: string;
   status?: string;
+  periodStart?: string;
+  periodEnd?: string;
 }) {
   return request.get('/admin/promotion/settlements/list', { params });
 }

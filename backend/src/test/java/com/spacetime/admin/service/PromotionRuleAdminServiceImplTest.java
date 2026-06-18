@@ -1,11 +1,13 @@
 package com.spacetime.admin.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.PromotionRuleSaveReq;
 import com.spacetime.admin.dto.request.PromotionRuleTierReq;
 import com.spacetime.admin.service.impl.PromotionRuleAdminServiceImpl;
 import com.spacetime.common.dao.PromotionAuditLogDao;
 import com.spacetime.common.dao.PromotionRuleDao;
 import com.spacetime.common.dao.PromotionRuleTierDao;
+import com.spacetime.common.dao.UserDao;
 import com.spacetime.common.entity.PromotionRule;
 import com.spacetime.common.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +35,8 @@ class PromotionRuleAdminServiceImplTest {
     private PromotionRuleTierDao tierDao;
     @Mock
     private PromotionAuditLogDao auditLogDao;
+    @Mock
+    private UserDao userDao;
 
     @InjectMocks
     private PromotionRuleAdminServiceImpl service;
@@ -87,6 +91,22 @@ class PromotionRuleAdminServiceImplTest {
         verify(tierDao).deleteByRuleId(1L);
         verify(tierDao, times(2)).insert(any());
         verify(auditLogDao).insert(any());
+    }
+
+    @Test
+    @DisplayName("F2-P0-06/L3 相同数据类型和事件只能有一条启用规则")
+    void create_duplicateEnabledRule_shouldReject() {
+        PromotionRuleSaveReq req = validRuleReq();
+        req.setStatus("ENABLED");
+        Page<PromotionRule> duplicated = new Page<>(1, 1);
+        duplicated.setRecords(List.of(rule(99L)));
+        when(ruleDao.selectPage(any(), any())).thenReturn(duplicated);
+
+        assertThatThrownBy(() -> service.create(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("同一数据类型、事件在启用状态下只能保留一条规则");
+
+        verify(ruleDao, never()).insert(any());
     }
 
     private PromotionRuleSaveReq validRuleReq() {
