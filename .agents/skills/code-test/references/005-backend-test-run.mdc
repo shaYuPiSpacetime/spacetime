@@ -1,0 +1,42 @@
+---
+description: 后端 L1/L2-L3 测试执行命令速查（复制即用，路径相对仓库根）
+alwaysApply: false
+---
+
+# 后端测试执行命令
+
+> 在 **spacetime 仓库根目录** 下执行；`$REPO` 可自行设为该根路径。
+
+## L1（cURL 脚本）
+
+```bash
+REPO="$(git rev-parse --show-toplevel)"
+cd "$REPO/frontend/e2e-tests"
+set -a && [ -f .env ] && . ./.env && set +a
+# L1 打的是后端：.env 里 BASE_URL 往往是前端页（L4），必须用 API_URL
+export BASE_URL="${API_URL:?请在 .env 配置 API_URL}"
+export TOKEN="${TOKEN:?请在 .env 配置 TOKEN 或 export TOKEN=...}"
+
+bash "$REPO/docs/测试文档/{模块名称}-test-l1.sh"
+```
+
+仅临时跑一次（未用 `.env`）：
+
+```bash
+API_URL="http://localhost:8080" TOKEN="your-token" bash docs/测试文档/{模块名称}-test-l1.sh
+```
+
+## L2 / L3（Maven）
+
+```bash
+REPO="$(git rev-parse --show-toplevel)"
+cd "$REPO/backend"
+
+mvn test
+# 指定类：
+mvn test -Dtest=XxxControllerTest
+# 指定方法：
+mvn test -Dtest=XxxControllerTest#methodName
+```
+
+Spacetime 后端统一 Java 21 + Spring Boot 3.4 + JUnit 5，无需 JUnit 4 兼容。

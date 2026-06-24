@@ -6,6 +6,7 @@
 .waylog
 .gstack/
 .runtime/
+.codex/config.toml
 
 # Playwright
 node_modules/
