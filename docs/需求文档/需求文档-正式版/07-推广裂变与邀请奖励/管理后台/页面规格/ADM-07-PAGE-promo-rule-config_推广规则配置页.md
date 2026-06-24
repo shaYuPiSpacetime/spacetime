@@ -4,7 +4,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
-| v0.1 | 2026-06-12 | 皮林雄 | 初稿 |
+| 版本01 | 2026-06-24 | Codex | 版本 01：按最终确认口径收敛 |
 
 - **页面 ID**：`ADM-07-PAGE-promo-rule-config`
 - **所属模块 PRD**：`../模块PRD文档/模块PRD_ADM-07_推广管理.md`
@@ -60,7 +60,7 @@
 | `ADM-07-PAGE-promo-rule-config-LIST-rule-name` | 规则名称 | string | 是 | — | 展示规则名称与备注 | — | 否 | 普通 | `promotion_rule.rule_name` |
 | `...-LIST-rule-type` | 数据类型 | enum | 是 | 普通邀请/代理奖金/风控参数 | 只展示中文名称 | — | 否 | 普通 | `promotion_rule.rule_type` |
 | `...-LIST-event-type` | 事件 | enum | 是 | 注册成功登录奖励/资料完善奖励/认证完成奖励/首次会员奖励/首次充值奖励等 | 只展示中文名称 | — | 否 | 普通 | `promotion_rule.event_type` |
-| `...-LIST-reward` | 奖励 | decimal+enum | 是 | 金额+单位 | 成家币/现金/计数/布尔值按中文单位展示 | — | 否 | 普通 | `promotion_rule.reward_amount` / `reward_unit` |
+| `...-LIST-reward` | 奖励 | decimal+enum | 是 | 金额+单位 | 千寻币/现金/计数/布尔值按中文单位展示 | — | 否 | 普通 | `promotion_rule.reward_amount` / `reward_unit` |
 | `...-LIST-daily-limit` | 上限 | decimal | 否 | ≥0 | 无上限展示 `-` | — | 否 | 普通 | `promotion_rule.daily_limit` |
 | `...-LIST-status` | 状态 | enum | 是 | 启用/停用 | 只展示中文名称；同一「数据类型+事件」启用状态只能存在一条数据 | 启用 | 可编辑 | 普通 | `promotion_rule.status` |
 | `...-LIST-update-time` | 修改时间 | datetime | 是 | `yyyy-MM-dd HH:mm:ss` | 列表先按修改时间倒序，再按创建时间倒序 | — | 否 | 普通 | `promotion_rule.update_time` |
@@ -96,8 +96,8 @@
 | `...-FIELD-agent-bonus-rules` | 代理奖金规则组 | json | 是 | 规则组名称、是否启用、适用说明、5 类奖金事件配置 | 规则组名称唯一；已绑定代理的规则组不可删除，仅可停用后不再新增绑定 | 无 | 渠道运营/超管 | 普通 | `M07-CFG-agent-bonus-rules` |
 | `...-FIELD-agent-bonus-events` | 代理奖金事件 | json×5 | 是 | 注册成功登录/资料完善/认证完成/首次会员/首次充值，每项：单次金额+生效时间+是否启用 | 金额≥0；首次会员/首次充值依赖 PRD-04 支付成功事件；只展示中文名称 | 无 | 渠道运营/超管 | 普通 | `M07-CFG-agent-bonus-rules` |
 
-> 说明：代理奖励默认走奖金/佣金台账，不走成家币到账；首版不做自动打款；代理成功邀请人数口径统一取后台 `M07-RULE-invite-success` 配置节点。
-> 付费归因规则：代理关系永久有效，首次会员/首次充值成家币继续归因原代理；不做续费、复购、长期消费分成（`M07-RULE-agent-paid-attribution`）。
+> 说明：代理奖励默认走奖金/佣金台账，不走千寻币到账；首版不做自动打款；代理成功邀请人数口径统一取后台 `M07-RULE-invite-success` 配置节点。
+> 付费归因规则：代理关系永久有效，首次会员/首次充值千寻币继续归因原代理；不做续费、复购、长期消费分成（`M07-RULE-agent-paid-attribution`）。
 > 代理列表新增/编辑代理时的「奖金规则组」下拉来源于本 Tab 的 `M07-CFG-agent-bonus-rules`，首版不新增单独的代理组管理页。
 
 #### Tab3 关系有效期
