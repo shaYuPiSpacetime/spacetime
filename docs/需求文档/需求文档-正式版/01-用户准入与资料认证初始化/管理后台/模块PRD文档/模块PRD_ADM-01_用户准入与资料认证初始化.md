@@ -166,14 +166,14 @@
 
 | 页面 ID | 页面名 | 页面规格文件 | 对应蓝湖设计稿 | 优先级 |
 |---------|--------|--------------|----------------|--------|
-| `ADM-01-PAGE-app-user-management` | App 用户管理 | `../页面规格/ADM-01-PAGE-app-user-management_App用户管理页.md` | `匹配-客户管理`、`匹配-客户管理-画像弹窗` | P0 |
-| `ADM-01-PAGE-real-name-audit` | 实名认证审核 | `../页面规格/ADM-01-PAGE-real-name-audit_实名认证审核页.md` | 待补 | P0 |
-| `ADM-01-PAGE-avatar-audit` | 头像认证审核 | `../页面规格/ADM-01-PAGE-avatar-audit_头像认证审核页.md` | `匹配-客户管理-头像审核` | P0 |
-| `ADM-01-PAGE-education-audit` | 学历认证审核 | `../页面规格/ADM-01-PAGE-education-audit_学历认证审核页.md` | 待补 | P0 |
-| `ADM-01-PAGE-profile-photo-audit` | 资料图片审核 | `../页面规格/ADM-01-PAGE-profile-photo-audit_资料图片审核页.md` | 待补 | P1 |
-| `ADM-01-PAGE-open-text-audit` | 开放性文字审核 | `../页面规格/ADM-01-PAGE-open-text-audit_开放性文字审核页.md` | 待补 | P1 |
-| `ADM-01-PAGE-access-config` | 准入与认证配置 | `../页面规格/ADM-01-PAGE-access-config_准入与认证配置页.md` | 待补 | P1 |
-| `ADM-01-PAGE-access-dict` | 准入字典管理 | `../页面规格/ADM-01-PAGE-access-dict_准入字典管理页.md` | 待补 | P1 |
+| `ADM-01-PAGE-app-user-management` | App 用户管理 | `../页面规格/App用户管理页.md` | `匹配-客户管理`、`匹配-客户管理-画像弹窗` | P0 |
+| `ADM-01-PAGE-real-name-audit` | 实名认证审核 | `../页面规格/实名认证审核页.md` | 待补 | P0 |
+| `ADM-01-PAGE-avatar-audit` | 头像认证审核 | `../页面规格/头像认证审核页.md` | `匹配-客户管理-头像审核` | P0 |
+| `ADM-01-PAGE-education-audit` | 学历认证审核 | `../页面规格/学历认证审核页.md` | 待补 | P0 |
+| `ADM-01-PAGE-profile-photo-audit` | 资料图片审核 | `../页面规格/资料图片审核页.md` | 待补 | P1 |
+| `ADM-01-PAGE-open-text-audit` | 开放性文字审核 | `../页面规格/开放性文字审核页.md` | 待补 | P1 |
+| `ADM-01-PAGE-access-config` | 准入与认证配置 | `../页面规格/准入与认证配置页.md` | 待补 | P1 |
+| `ADM-01-PAGE-access-dict` | 准入字典管理 | `../页面规格/准入字典管理页.md` | 待补 | P1 |
 
 ---
 
