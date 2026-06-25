@@ -4,14 +4,14 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
-| 版本01 | 2026-06-24 | Codex | 版本 01：按最终确认口径收敛 |
+| 版本01 | 2026-06-25 | Codex | 确定版 |
 
 - **页面 ID**：`APP-01-PAGE-profile-extended-edit`
 - **所属模块 PRD**：`../模块PRD文档/模块PRD_APP-01_用户准入与资料认证初始化.md`
 - **页面路由**：待技术方案确认
 - **入口来源**：编辑资料总页扩展资料入口
 - **对应设计稿**：待补
-- **对应后台**：`ADM-01-PAGE-profile-photo-audit`、`ADM-01-PAGE-open-text-audit`、`ADM-01-PAGE-access-dict`
+- **对应后台/公共定义**：`ADM-01-PAGE-profile-photo-audit`、`ADM-01-PAGE-open-text-audit`、`M01-DICT-system-field-map`
 
 ---
 
