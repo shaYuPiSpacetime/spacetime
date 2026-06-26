@@ -4,6 +4,8 @@
 
 | 版本   | 日期       | 修改人 | 变更摘要 |
 | ------ | ---------- | ------ | -------- |
+| 版本03 | 2026-06-26 | Codex  | 同步轻量导入字段按配置必填 |
+| 版本02 | 2026-06-26 | Codex  | 补充 PRD-04 商业化筛选条件与列表字段引用 |
 | 版本01 | 2026-06-25 | Codex  | 确定版   |
 
 - **页面 ID**：`ADM-01-PAGE-app-user-management`
@@ -83,7 +85,7 @@
 |------|----------|---------|
 | 弹窗标题 | `批量导入 App 用户`、说明文案、关闭入口 | 说明文案提示“仅用于线下用户信息导入，不会发送短信验证码，不会自动通过认证” |
 | 步骤提示 | 1 下载模板、2 上传 Excel、3 预校验、4 确认导入 | 使用横向步骤条或轻量说明条，当前状态高亮 |
-| 模板下载 | `下载 Excel 模板` 按钮、模板字段范围摘要 | 摘要展示必填字段：手机号、真实姓名、身份证号、性别、出生日期、身份、最高学历、现居省市 |
+| 模板下载 | `下载 Excel 模板` 按钮、模板字段范围摘要 | 摘要展示固定必填字段：手机号、真实姓名、身份证号、性别、出生日期；身份、最高学历、现居地按字段配置校验 |
 | 文件上传 | 拖拽/点击上传 Excel，展示文件名、大小、上传状态 | 支持 `.xlsx`；单文件大小和行数上限按技术方案配置；上传新文件覆盖当前待导入文件 |
 | 预校验结果 | 总行数、可导入行数、失败行数、重复数据数、错误报告下载 | 上传后先预校验；存在失败行时可下载错误报告；失败行不写入 |
 | 风险提示 | 导入不覆盖已有用户；手机号/身份证号重复的行失败；认证状态不自动通过 | 使用 warning 提示条，不放在普通说明文案里 |
@@ -118,11 +120,47 @@
 | 项 | 口径 |
 |----|------|
 | 模板字段来源 | 引用后台模块 PRD 的 `ADM-01-DATA-user-import-fields`；页面规格不另建字段全集 |
-| 必填字段 | 手机号、真实姓名、身份证号、性别、出生日期、身份、最高学历、现居省份、现居城市 |
+| 必填字段 | 固定必填：手机号、真实姓名、身份证号、性别、出生日期；按配置必填：身份、最高学历、现居省份、现居城市 |
 | 不导入字段 | 短信验证码、微信授权、协议勾选、图片/音频材料、定位经纬度、系统状态字段 |
 | 重复校验 | 手机号或身份证号命中存量用户时，该行失败，不覆盖已有用户 |
 | 状态生成 | 导入成功后系统计算资料完整度、年龄、星座、首登状态、核心准入状态；认证状态不因导入自动通过 |
 | 审计 | 每次导入生成批次号，记录导入人、文件名、总行数、成功/失败数量、失败原因文件 |
+
+### 3.2 PRD-04 商业化字段补充
+
+> 本节承接旧后台 PRD-04 对用户列表页的商业化字段要求。字段规则、枚举、状态和权限不在 ADM-01 重复定义，统一引用 PRD-04：`../../../04-商业化（VIP、千寻币、解锁与资产中心）/PRD-04_模块公共定义.md` 与 `../../../04-商业化（VIP、千寻币、解锁与资产中心）/管理后台/ADM-04_端内定义.md`。
+
+#### 3.2.1 商业化筛选条件
+
+| 筛选 ID | 筛选名 | 类型 | 选项来源 | 是否多选 | 默认值 | 是否可清除 |
+|---------|--------|------|----------|----------|--------|-----------|
+| `ADM-01-PAGE-app-user-management-FILTER-user-keyword` | 用户关键词 | 搜索框 | 用户 ID / 昵称 / 绑定手机号 | 否 | 无 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-school` | 学校 | 搜索框/下拉 | `M01-DICT-system-field-map` 学校字段 | 否 | 全部 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-register-time` | 注册时间 | 日期范围 | 系统 | 否 | 全部 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-user-status` | 用户状态 | 下拉 | 用户账号状态 | 是 | 全部 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-triple-cert` | 三项认证状态 | 下拉 | `M01-SM-triple-certification` 汇总状态 | 是 | 全部 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-vip-status` | VIP 状态 | 下拉 | `M04-ENUM-vip-status` | 是 | 全部 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-vip-expire-time` | VIP 到期时间 | 日期范围 | PRD-04 用户资产摘要 | 否 | 全部 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-coin-balance` | 千寻币余额范围 | 数值区间 | PRD-04 用户资产摘要 | 否 | 全部 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-has-unlock` | 是否存在解锁记录 | 下拉 | 是/否 | 否 | 全部 | 是 |
+| `ADM-01-PAGE-app-user-management-FILTER-has-refund` | 是否存在退款订单 | 下拉 | 是/否 | 否 | 全部 | 是 |
+
+#### 3.2.2 商业化列表字段
+
+| 字段 ID | 显示名 | 类型 | 必填 | 取值范围 | 校验规则 | 默认值 | 可编辑 | 敏感级别 | 数据来源 |
+|---------|--------|------|------|----------|----------|--------|--------|----------|----------|
+| `ADM-01-PAGE-app-user-management-FIELD-avatar` | 头像 | image | 是 | 已上传头像 | 图片缺失展示默认头像 | 默认头像 | 否 | 敏感 | `M01-DATA-user-input-fields` |
+| `ADM-01-PAGE-app-user-management-FIELD-nickname` | 昵称 | string | 是 | 2-12 字或配置范围 | 超长省略 | `-` | 否 | 普通 | `M01-DATA-user-input-fields` |
+| `ADM-01-PAGE-app-user-management-FIELD-phone-masked` | 手机号 | string | 否 | 手机号 | 默认脱敏，完整查看需 `ADM-04`/`ADM-01` 敏感权限 | `-` | 否 | 敏感（138****1234） | 用户账号 |
+| `ADM-01-PAGE-app-user-management-FIELD-school` | 学校 | string | 否 | 学校字典/用户填写 | 未填写展示 `-` | `-` | 否 | 普通 | `M01-DICT-system-field-map` |
+| `ADM-01-PAGE-app-user-management-FIELD-triple-cert-status` | 三项认证状态 | enum/json | 是 | 实名/头像/学历三项状态 | 三项必须同时可见；只展示中文状态 | 未提交 | 否 | 普通 | `M01-SM-triple-certification` |
+| `ADM-01-PAGE-app-user-management-FIELD-vip-status` | VIP 状态 | enum | 是 | `M04-ENUM-vip-status` | 只展示中文名称；PRD-04 未上线时隐藏 | `inactive` | 否 | 普通 | PRD-04 用户资产摘要 |
+| `ADM-01-PAGE-app-user-management-FIELD-vip-expire-time` | VIP 到期时间 | datetime | 否 | `yyyy-MM-dd HH:mm:ss` | 未开通展示 `-` | `-` | 否 | 普通 | PRD-04 用户资产摘要 |
+| `ADM-01-PAGE-app-user-management-FIELD-coin-balance` | 当前千寻币余额 | int | 是 | ≥0 | PRD-04 未上线时隐藏；数值按用户资产摘要展示 | 0 | 否 | 敏感 | PRD-04 用户资产摘要 |
+| `ADM-01-PAGE-app-user-management-FIELD-total-recharge` | 累计充值金额 | decimal | 否 | ≥0 | 无权限时隐藏；导出需 ADM-04 导出权限 | 0 | 否 | 敏感 | PRD-04 订单汇总 |
+| `ADM-01-PAGE-app-user-management-FIELD-last-consume-time` | 最近一次消费时间 | datetime | 否 | `yyyy-MM-dd HH:mm:ss` | 无消费展示 `-` | `-` | 否 | 普通 | PRD-04 资产流水 |
+| `ADM-01-PAGE-app-user-management-FIELD-user-status` | 用户状态 | enum | 是 | 用户账号状态 | 只展示中文名称 | 正常 | 否 | 普通 | 用户账号 |
+| `ADM-01-PAGE-app-user-management-FIELD-register-time` | 注册时间 | datetime | 是 | `yyyy-MM-dd HH:mm:ss` | 默认排序字段 | 无 | 否 | 普通 | 用户账号 |
 
 ---
 
