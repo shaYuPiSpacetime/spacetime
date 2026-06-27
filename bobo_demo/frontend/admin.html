@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bobo_demo | 管理后台</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html"><span class="brand-mark">ADM</span><span>用户准入管理后台</span></a>
+      <div class="top-actions">
+        <a class="btn" href="index.html">总览</a>
+        <a class="btn" href="mobile.html">移动端</a>
+        <button class="btn primary" data-open-modal="configModal">保存配置</button>
+      </div>
+    </header>
+
+    <main class="admin-shell">
+      <nav class="admin-nav">
+        <h2>后台菜单</h2>
+        <p class="muted">认证审核队列</p>
+        <button data-admin-page="ADM-01-PAGE-app-user-management">App 用户管理</button>
+        <button data-admin-page="ADM-01-PAGE-access-config">准入与认证配置</button>
+        <button data-admin-page="ADM-01-PAGE-avatar-audit" data-audit-type="avatar">头像认证审核</button>
+        <button data-admin-page="ADM-01-PAGE-real-name-audit" data-audit-type="realName">实名认证审核</button>
+        <button data-admin-page="ADM-01-PAGE-education-audit" data-audit-type="education">学历认证审核</button>
+        <button data-admin-page="ADM-01-PAGE-profile-photo-audit" data-audit-type="profilePhoto">资料图片审核</button>
+        <button data-admin-page="ADM-01-PAGE-open-text-audit" data-audit-type="openText">开放性文字审核</button>
+      </nav>
+
+      <div class="content">
+        <section class="section admin-page" id="ADM-01-PAGE-app-user-management">
+          <div class="section-head">
+            <div><h2>App 用户管理</h2><p class="muted">卡片宫格让运营先看状态，再进画像详情抽屉处理认证缺口。</p></div>
+            <div class="action-row"><button class="btn" data-open-modal="importModal">批量导入</button><button class="btn" data-open-modal="exportModal">导出</button></div>
+          </div>
+          <div class="metric-grid admin-stat-row">
+            <div class="metric"><strong>3</strong><span>当前筛选用户</span></div>
+            <div class="metric"><strong>1</strong><span>核心准入开放</span></div>
+            <div class="metric"><strong>2</strong><span>认证未完成</span></div>
+            <div class="metric"><strong>1</strong><span>冻结账号</span></div>
+            <div class="metric"><strong>每页 10 条</strong><span>分页规则</span></div>
+          </div>
+          <div class="query-grid">
+            <label class="field"><span>查询条件：用户关键词</span><input value="林知夏"></label>
+            <label class="field"><span>账号状态</span><select><option>全部</option><option>正常</option><option>冻结</option></select></label>
+            <label class="field"><span>准入状态</span><select><option>全部</option><option>已开放</option><option>认证未完成</option></select></label>
+            <label class="field"><span>注册时间</span><input type="date" value="2026-06-27"></label>
+          </div>
+          <div class="action-row">
+            <button class="btn primary" data-toast="已应用筛选条件，列表刷新到第 1 页">查询</button>
+            <button class="btn" data-toast="已重置查询条件">重置</button>
+          </div>
+          <div class="card-grid users" data-render="users" style="margin-top:16px"></div>
+          <div class="pagination">分页：1 / 1，共 3 条，每页 10 条</div>
+        </section>
+
+        <section class="section admin-page" id="ADM-01-PAGE-access-config">
+          <div class="section-head">
+            <div><h2>准入与认证配置</h2><p class="muted">配置项区分可配置、不可配置、修改权限和影响页面，保存时生成审计日志。</p></div>
+            <button class="btn" data-open-drawer="configLogDrawer">变更日志</button>
+          </div>
+          <div class="tabs">
+            <span class="tag success">准入门槛</span>
+            <span class="tag">字段配置</span>
+            <span class="tag">资料完整度</span>
+            <span class="tag">上传限制</span>
+            <span class="tag">审核 SLA</span>
+            <span class="tag">文案配置</span>
+            <span class="tag">安全策略</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>配置项</th><th>当前值</th><th>控件类型</th><th>可配置</th><th>不可配置原因</th><th>修改权限</th><th>影响页面</th></tr></thead>
+              <tbody>
+                <tr><td>实名认证通过</td><td>必须</td><td>只读开关</td><td>不可配置</td><td>核心准入固定规则</td><td>系统内置</td><td>核心拦截、推荐、私信</td></tr>
+                <tr><td>头像认证通过</td><td>必须</td><td>只读开关</td><td>不可配置</td><td>核心准入固定规则</td><td>系统内置</td><td>头像页、审核队列</td></tr>
+                <tr><td>学历认证通过</td><td>必须</td><td>只读开关</td><td>不可配置</td><td>核心准入固定规则</td><td>系统内置</td><td>学历认证页、核心准入</td></tr>
+                <tr><td>年龄范围</td><td>18-60 岁</td><td>数字输入</td><td>可配置</td><td>-</td><td>准入配置管理员</td><td>出生日期页</td></tr>
+                <tr><td>资料完整度</td><td>职场人 96 / 在校生 100</td><td>分值表格</td><td>可配置</td><td>-</td><td>准入配置管理员</td><td>基本资料、编辑资料总页</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="action-row" style="margin-top:14px"><button class="btn primary" data-open-modal="configModal">保存当前 Tab</button><button class="btn" data-toast="分值总和为 100，校验通过">校验完整度分值</button></div>
+        </section>
+
+        <section class="section admin-page" id="ADM-01-PAGE-avatar-audit">
+          <h2>头像认证审核</h2>
+          <div class="metric-grid"><div class="metric"><strong>18</strong><span>待审核</span></div><div class="metric"><strong>42</strong><span>机审通过</span></div><div class="metric"><strong>3</strong><span>人工驳回</span></div><div class="metric"><strong>27</strong><span>今日处理</span></div></div>
+          <div class="query-grid"><label class="field"><span>用户</span><input value="林知夏"></label><label class="field"><span>审核状态</span><select><option>待审核</option></select></label><label class="field"><span>审核来源</span><select><option>全部</option><option>机审</option><option>人工审核</option></select></label><label class="field"><span>提交时间</span><input type="date" value="2026-06-27"></label></div>
+          <div class="table-wrap"><table><thead><tr><th>审核单</th><th>用户</th><th>对象</th><th>状态</th><th>来源</th><th>提交时间</th><th>原因</th><th>操作</th></tr></thead><tbody data-render="audits"></tbody></table></div>
+          <div class="pagination">分页：1 / 2，每页 10 条</div>
+        </section>
+
+        <section class="section admin-page" id="ADM-01-PAGE-real-name-audit">
+          <h2>实名认证审核</h2>
+          <p class="muted">手机号、姓名、身份证号默认脱敏，查看完整高敏需要二次确认并写审计。</p>
+          <div class="action-row"><button class="btn primary" data-audit-type="realName">刷新实名审核列表</button><button class="btn" data-toast="查看完整高敏已记录审计">查看高敏二次确认</button></div>
+          <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>审核单</th><th>用户</th><th>对象</th><th>状态</th><th>来源</th><th>提交时间</th><th>原因</th><th>操作</th></tr></thead><tbody data-render="audits"></tbody></table></div>
+        </section>
+
+        <section class="section admin-page" id="ADM-01-PAGE-education-audit">
+          <h2>学历认证审核</h2>
+          <p class="muted">包含学校、学历、认证方式、材料摘要和 SLA 标记，临近 24 小时优先处理。</p>
+          <div class="action-row"><button class="btn primary" data-audit-type="education">刷新学历审核列表</button><button class="btn" data-toast="已下载材料并记录审计">下载材料</button></div>
+          <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>审核单</th><th>用户</th><th>对象</th><th>状态</th><th>来源</th><th>提交时间</th><th>原因</th><th>操作</th></tr></thead><tbody data-render="audits"></tbody></table></div>
+        </section>
+
+        <section class="section admin-page" id="ADM-01-PAGE-profile-photo-audit">
+          <h2>资料图片审核</h2>
+          <p class="muted">相册照片与资料背景图和头像认证隔离，单张驳回只影响单张展示。</p>
+          <div class="action-row"><button class="btn primary" data-audit-type="profilePhoto">刷新资料图片审核</button><button class="btn" data-toast="已打开图片预览弹窗">查看大图</button></div>
+          <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>审核单</th><th>用户</th><th>对象</th><th>状态</th><th>来源</th><th>提交时间</th><th>原因</th><th>操作</th></tr></thead><tbody data-render="audits"></tbody></table></div>
+        </section>
+
+        <section class="section admin-page" id="ADM-01-PAGE-open-text-audit">
+          <h2>开放性文字审核</h2>
+          <p class="muted">审核关于我、希望 TA 了解、资料问答等文本，支持查看完整文本、通过、驳回、人工复核。</p>
+          <div class="action-row"><button class="btn primary" data-audit-type="openText">刷新文字审核</button><button class="btn" data-toast="已打开文本详情">查看详情</button></div>
+          <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>审核单</th><th>用户</th><th>对象</th><th>状态</th><th>来源</th><th>提交时间</th><th>原因</th><th>操作</th></tr></thead><tbody data-render="audits"></tbody></table></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="userDrawer" aria-hidden="true">
+    <aside class="drawer">
+      <div class="section-head"><h2>画像详情</h2><button class="btn" data-close-drawer>关闭</button></div>
+      <div data-render="drawer-user"></div>
+    </aside>
+  </div>
+
+  <div class="drawer-backdrop" id="auditDrawer" aria-hidden="true">
+    <aside class="drawer">
+      <div class="section-head"><h2>审核详情</h2><button class="btn" data-close-drawer>关闭</button></div>
+      <div data-render="audit-detail"></div>
+    </aside>
+  </div>
+
+  <div class="drawer-backdrop" id="configLogDrawer" aria-hidden="true">
+    <aside class="drawer">
+      <div class="section-head"><h2>变更日志</h2><button class="btn" data-close-drawer>关闭</button></div>
+      <div class="table-wrap"><table><thead><tr><th>审计号</th><th>配置项</th><th>前值</th><th>后值</th><th>操作人</th></tr></thead><tbody><tr><td>CFG-BOBO-001</td><td>年龄范围</td><td>20-60</td><td>18-60</td><td>demo-admin</td></tr><tr><td>CFG-BOBO-002</td><td>审核 SLA</td><td>实名 48h</td><td>实名 24h</td><td>demo-admin</td></tr></tbody></table></div>
+    </aside>
+  </div>
+
+  <div class="modal-backdrop" id="importModal" aria-hidden="true"><div class="modal"><h2>批量导入 App 用户</h2><p class="muted">Demo 不上传真实文件，仅模拟预校验：20 条数据，18 条成功，2 条失败。</p><button class="btn" data-toast="已下载导入模板">下载模板</button><button class="btn primary" data-close-modal data-toast="导入完成：成功 18 条，失败 2 条，列表刷新到第 1 页">确认导入</button></div></div>
+  <div class="modal-backdrop" id="exportModal" aria-hidden="true"><div class="modal"><h2>导出固定字段且不掩码</h2><p class="muted">导出前二次确认，记录审计；Demo 不生成真实文件。</p><button class="btn primary" data-close-modal data-toast="已生成静态导出任务，审计记录新增">确认导出</button></div></div>
+  <div class="modal-backdrop" id="configModal" aria-hidden="true"><div class="modal"><h2>保存高风险配置</h2><label class="field"><span>变更原因</span><textarea rows="3">PRD-01 静态演示调整准入配置。</textarea></label><button class="btn primary" data-close-modal data-toast="保存成功，审计号 CFG-BOBO-001">确认保存</button></div></div>
+  <div class="modal-backdrop" id="remarkModal" aria-hidden="true"><div class="modal"><h2>编辑备注</h2><textarea rows="4">重点跟进实名认证和学历认证缺口。</textarea><button class="btn primary" data-close-modal data-toast="备注已保存，画像详情已刷新">保存备注</button></div></div>
+
+  <script src="mock/demo-data.js"></script>
+  <script src="assets/demo.js"></script>
+</body>
+</html>
