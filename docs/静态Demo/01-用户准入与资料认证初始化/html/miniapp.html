@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>移动端 Demo - 用户准入与资料认证初始化</title>
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">APP</span>
+        <span>移动端用户准入与资料认证</span>
+      </a>
+      <div class="top-actions">
+        <a class="btn" href="index.html">总览</a>
+        <a class="btn" href="admin.html">管理后台</a>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="side-nav" aria-label="移动端页面导航">
+        <h2>注册与轻量资料</h2>
+        <a href="#APP-01-PAGE-login-auth">APP-01 登录授权</a>
+        <a href="#APP-01-PAGE-light-gender">APP-02 性别选择</a>
+        <a href="#APP-01-PAGE-light-birthday">APP-03 出生日期</a>
+        <a href="#APP-01-PAGE-light-identity">APP-04 身份选择</a>
+        <a href="#APP-01-PAGE-light-education">APP-05 学历选择</a>
+        <a href="#APP-01-PAGE-light-location">APP-06 现居地</a>
+        <h3>资料认证</h3>
+        <a href="#APP-01-PAGE-verify-basic">APP-07 基础资料认证</a>
+        <a href="#APP-01-PAGE-verify-avatar">APP-08 头像认证</a>
+        <a href="#APP-01-PAGE-verify-intro">APP-09 自我介绍</a>
+        <a href="#APP-01-PAGE-verify-triple">APP-10 三重认证</a>
+        <a href="#APP-01-PAGE-real-name">APP-11 实名认证</a>
+        <a href="#APP-01-PAGE-education">APP-12 学历认证</a>
+        <h3>拦截与编辑</h3>
+        <a href="#APP-01-PAGE-core-access-block">APP-13 核心功能拦截</a>
+        <a href="#APP-01-PAGE-profile-edit-home">APP-14 编辑资料总页</a>
+        <a href="#APP-01-PAGE-profile-basic-edit">APP-15 基础资料编辑</a>
+        <a href="#APP-01-PAGE-profile-extended-edit">APP-16 扩展资料编辑</a>
+      </aside>
+
+      <div class="content">
+        <section class="section-band mobile-flow-dashboard" aria-label="移动端用户旅程">
+          <div class="page-head">
+            <h1>移动端用户旅程</h1>
+            <p>按真实首登链路串联：登录授权 -> 轻量资料 -> 基础资料 -> 头像/文本/三重认证 -> 核心功能准入 -> 资料编辑。</p>
+          </div>
+          <div class="section-body">
+            <div class="flow-rail" aria-label="连续交互进度">
+              <div class="flow-step is-active" data-flow-step="登录授权">登录</div>
+              <div class="flow-step" data-flow-step="轻量资料">轻量资料</div>
+              <div class="flow-step" data-flow-step="资料认证">资料认证</div>
+              <div class="flow-step" data-flow-step="三重认证">三重认证</div>
+              <div class="flow-step" data-flow-step="核心准入">核心准入</div>
+              <div class="flow-step" data-flow-step="资料编辑">资料编辑</div>
+            </div>
+            <div class="progress flow-progress"><span data-flow-progress style="width:8%"></span></div>
+            <div class="summary-row">
+              <div class="metric"><strong data-flow-current>登录授权</strong><span>当前步骤</span></div>
+              <div class="metric"><strong data-flow-next>选择性别</strong><span>下一步</span></div>
+              <div class="metric"><strong data-mini-score>76%</strong><span>资料完整度</span></div>
+              <div class="metric"><strong data-core-access>未开放</strong><span>核心功能准入</span></div>
+            </div>
+            <div class="mobile-status-board">
+              <span class="tag warning">头像：<strong data-status-avatar>未提交</strong></span>
+              <span class="tag warning">实名：<strong data-status-real-name>未提交</strong></span>
+              <span class="tag warning">学历：<strong data-status-education>未提交</strong></span>
+              <span class="tag warning">认证缺口：<strong data-core-gaps>头像、实名、学历</strong></span>
+            </div>
+          </div>
+        </section>
+        <section class="section-band mobile-page is-default" id="APP-01-PAGE-login-auth" data-mobile-page>
+          <div class="page-head">
+            <h1>APP-01 登录授权页</h1>
+            <p>覆盖微信授权、手机号短信降级、协议勾选、第三方能力不可用、验证码错误与倒计时状态。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:41</span><span>Spacetime</span></div>
+              <div class="phone-screen">
+                <h2>欢迎来到成家立业</h2>
+                <p>完成登录后进入用户准入初始化流程。</p>
+                <div class="mini-panel">
+                  <div class="avatar-preview">成</div>
+                  <div class="form-stack" style="margin-top:16px">
+                    <button class="btn primary full" data-flow-action="login" data-next-page="APP-01-PAGE-light-gender" data-toast="微信授权成功，进入性别选择">微信一键登录</button>
+                    <button class="btn full" data-open-modal="thirdPartyModal">微信不可用，使用手机号登录</button>
+                    <label class="field">
+                      <span>手机号</span>
+                      <input value="13890019001" inputmode="numeric" aria-label="手机号">
+                    </label>
+                    <div class="two-col">
+                      <label class="field">
+                        <span>验证码</span>
+                        <input value="6329" inputmode="numeric" aria-label="验证码">
+                      </label>
+                      <button class="btn" data-toast="验证码已发送，60 秒后可重发" data-toast-type="warning">重新获取</button>
+                    </div>
+                    <label class="helper">
+                      <input type="checkbox" checked>
+                      我已阅读并同意用户协议和隐私政策
+                    </label>
+                    <button class="btn full" data-open-modal="privacyModal">查看用户协议和隐私政策</button>
+                  </div>
+                </div>
+                <div class="notice">
+                  <strong>异常状态</strong>
+                  未勾选协议时置灰登录按钮；验证码错误提示“验证码不正确或已过期”；手机号命中冻结账号时阻断进入。
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>交互状态</h2>
+              <ul class="check-list">
+                <li><span>微信授权成功</span><strong>跳转 APP-02</strong></li>
+                <li><span>手机号短信登录</span><strong>60 秒倒计时</strong></li>
+                <li><span>第三方不可用</span><strong>弹窗提示</strong></li>
+                <li><span>协议未确认</span><strong>阻断登录</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-light-gender" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-02 性别选择页</h2>
+            <p>性别是准入基础字段，提交后在用户资料中展示，已认证后不可随意修改。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:42</span><span>1/5</span></div>
+              <div class="phone-screen">
+                <h2>请选择你的性别</h2>
+                <p>用于资料展示与匹配推荐。</p>
+                <div class="mini-panel form-stack">
+                  <div class="segmented" role="group" aria-label="性别">
+                    <button class="is-selected" type="button">女</button>
+                    <button type="button">男</button>
+                  </div>
+                  <div class="notice">
+                    <strong>未选择状态</strong>
+                    继续按钮保持不可用，页面底部展示“请选择后继续”。
+                  </div>
+                  <button class="btn primary full" data-flow-action="gender" data-next-page="APP-01-PAGE-light-birthday" data-toast="性别已保存，进入出生日期">继续</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>字段映射</h2>
+              <ul class="kv-list">
+                <li><span>字段</span><strong>gender</strong></li>
+                <li><span>字典</span><strong>女 / 男</strong></li>
+                <li><span>资料完整度</span><strong>计分</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-light-birthday" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-03 出生日期页</h2>
+            <p>出生日期用于计算年龄、星座与准入年龄门槛；未满 18 岁触发阻断。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:43</span><span>2/5</span></div>
+              <div class="phone-screen">
+                <h2>你的出生日期</h2>
+                <p>系统会按准入门槛判断是否可继续注册。</p>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="birthday" data-next-page="APP-01-PAGE-light-identity" data-success="出生日期已保存，年龄 29 岁，进入身份选择">
+                  <label class="field">
+                    <span>出生日期</span>
+                    <input type="date" value="1996-08-18">
+                  </label>
+                  <div class="notice">
+                    <strong>自动计算</strong>
+                    年龄 29 岁，星座狮子座。后台准入门槛当前为 18-60 岁。
+                  </div>
+                  <div class="action-row">
+                    <button class="btn primary" type="submit">继续</button>
+                    <button class="btn danger" type="button" data-open-modal="ageBlockModal">未满 18 岁示例</button>
+                  </div>
+                </form>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>年龄拦截</h2>
+              <p>低于配置年龄时不进入后续资料页，提示“当前年龄暂不符合平台准入要求”。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-light-identity" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-04 身份选择页</h2>
+            <p>区分在校生与职场人，影响基础资料字段、资料完整度分值与学历认证材料。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:44</span><span>3/5</span></div>
+              <div class="phone-screen">
+                <h2>你当前的身份</h2>
+                <p>后续页面将展示对应字段。</p>
+                <div class="mini-panel form-stack">
+                  <div class="chip-row">
+                    <button class="chip" type="button">在校生</button>
+                    <button class="chip is-selected" type="button">职场人</button>
+                  </div>
+                  <ul class="check-list">
+                    <li><span>在校生</span><strong>学校 / 专业 / 入学年份</strong></li>
+                    <li><span>职场人</span><strong>职业 / 公司 / 年收入</strong></li>
+                  </ul>
+                  <button class="btn primary full" data-flow-action="identity" data-next-page="APP-01-PAGE-light-education" data-toast="身份已保存为职场人，进入学历选择">继续</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>配置联动</h2>
+              <p>后台字段配置可调整身份字段是否展示、是否必填、是否计入资料完整度。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-light-education" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-05 学历选择页</h2>
+            <p>轻量选择最高学历，不等同学历认证；后续认证页提交学信网验证码或学生证材料。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:45</span><span>4/5</span></div>
+              <div class="phone-screen">
+                <h2>你的最高学历</h2>
+                <p>选择后进入现居地页面。</p>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="lightEducation" data-next-page="APP-01-PAGE-light-location" data-success="最高学历已保存，进入现居地">
+                  <label class="field">
+                    <span>最高学历</span>
+                    <select>
+                      <option>博士</option>
+                      <option>硕士</option>
+                      <option selected>本科</option>
+                      <option>大专</option>
+                    </select>
+                  </label>
+                  <button class="btn primary full" type="submit">继续</button>
+                  <button class="btn full" type="button" data-open-modal="overseasModal">海外学历暂不支持认证</button>
+                </form>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>缺口状态</h2>
+              <p>海外学历选择可展示，但认证初始化阶段提示“暂不支持认证”，引导用户先完成其他资料。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-light-location" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-06 现居地页</h2>
+            <p>支持定位授权、定位失败降级手动选择、省市区三级字段和保存后进入基础资料认证。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:46</span><span>5/5</span></div>
+              <div class="phone-screen">
+                <h2>你现在生活在哪里</h2>
+                <p>用于同城推荐和资料展示。</p>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="location" data-next-page="APP-01-PAGE-verify-basic" data-success="轻量资料完成，进入基础资料认证">
+                  <div class="action-row">
+                    <button class="btn primary" type="button" data-toast="定位成功：上海市浦东新区">使用当前位置</button>
+                    <button class="btn" type="button" data-open-modal="locationFailModal">定位失败</button>
+                  </div>
+                  <div class="two-col">
+                    <label class="field"><span>城市</span><input value="上海市"></label>
+                    <label class="field"><span>区县</span><input value="浦东新区"></label>
+                  </div>
+                  <button class="btn primary full" type="submit">完成轻量资料</button>
+                </form>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>进入条件</h2>
+              <ul class="check-list">
+                <li><span>轻量资料完成</span><strong>生成 App 用户档案</strong></li>
+                <li><span>定位失败</span><strong>手动选择兜底</strong></li>
+                <li><span>保存失败</span><strong>保留当前填写内容</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-verify-basic" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-07 基础资料认证页</h2>
+            <p>集中展示资料完整度、昵称、职业/学校字段、认证任务入口与缺失项提醒。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:48</span><span>资料认证</span></div>
+              <div class="phone-screen">
+                <h2><span data-mini-name>林知夏</span>，完善你的资料</h2>
+                <p>资料完整度 <strong data-mini-score>76%</strong></p>
+                <div class="progress"><span data-mini-score-bar style="width:76%"></span></div>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="basicProfile" data-next-page="APP-01-PAGE-verify-avatar" data-success="基础资料已保存，进入头像认证">
+                  <label class="field"><span>昵称</span><input value="知夏"></label>
+                  <label class="field"><span>职业</span><input value="产品经理"></label>
+                  <label class="field"><span>公司</span><input value="星河科技"></label>
+                  <label class="field"><span>年收入</span><select><option selected>20-50万</option><option>50万以上</option></select></label>
+                  <button class="btn primary full" type="submit">保存并继续认证</button>
+                </form>
+                <div class="mini-panel">
+                  <ul class="check-list">
+                    <li><span>头像认证</span><strong data-status-avatar>审核中</strong></li>
+                    <li><span>实名认证</span><strong data-status-real-name>未提交</strong></li>
+                    <li><span>学历认证</span><strong data-status-education>未提交</strong></li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>资料完整度规则</h2>
+              <p>轻量资料、基础资料和扩展资料按后台配置分值计算；认证状态不直接计分，但会影响核心功能准入。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-verify-avatar" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-08 头像认证页</h2>
+            <p>支持上传、裁剪、提交审核、上传失败、机审驳回和人工审核中状态。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:49</span><span>头像认证</span></div>
+              <div class="phone-screen">
+                <h2>上传清晰本人头像</h2>
+                <p>头像认证通过后才计入三重认证。</p>
+                <div class="mini-panel form-stack">
+                  <div class="avatar-preview">知夏</div>
+                  <div class="action-row">
+                    <button class="btn primary" data-flow-action="avatar" data-next-page="APP-01-PAGE-verify-intro" data-toast="头像已提交，进入自我介绍">提交审核</button>
+                    <button class="btn" data-open-modal="uploadFailModal">上传失败示例</button>
+                  </div>
+                  <ul class="check-list">
+                    <li><span>当前状态</span><strong>审核中</strong></li>
+                    <li><span>审核来源</span><strong>微信图片安全 + 人工复核</strong></li>
+                    <li><span>驳回示例</span><strong>图片过度模糊 / 非本人头像</strong></li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>状态展示</h2>
+              <div class="status-row">
+                <span class="tag warning">待人工审核</span>
+                <span class="tag success">审核通过-机审</span>
+                <span class="tag danger">审核驳回-人工审核</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-verify-intro" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-09 自我介绍页</h2>
+            <p>还原开放文本审核、驳回后重填、字数统计、语音介绍和资料完整度联动。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:50</span><span>自我介绍</span></div>
+              <div class="phone-screen">
+                <h2>让 TA 更了解你</h2>
+                <p>关于我、希望 TA 了解和语音介绍会进入开放文本审核。</p>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="intro" data-next-page="APP-01-PAGE-verify-triple" data-success="自我介绍已提交，进入三重认证">
+                  <label class="field">
+                    <span>关于我</span>
+                    <textarea id="introText" maxlength="500" data-char-count>喜欢认真生活，也喜欢把周末留给展览和长跑。</textarea>
+                    <span class="helper" data-count-for="introText">0/500</span>
+                  </label>
+                  <label class="field">
+                    <span>希望 TA 了解</span>
+                    <textarea maxlength="300">期待稳定真诚的关系，拒绝导流和联系方式外露。</textarea>
+                  </label>
+                  <div class="upload-tile">语音介绍 · 28 秒 · 审核中</div>
+                  <div class="notice">
+                    <strong>驳回原因</strong>
+                    请删去联系方式后重新提交，保存后状态回到审核中。
+                  </div>
+                  <button class="btn primary full" type="submit">重新提交审核</button>
+                </form>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>开放文本审核</h2>
+              <p>文本和语音介绍都展示审核来源、展示标签、驳回原因和重新提交入口。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-verify-triple" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-10 三重认证页</h2>
+            <p>核心准入由实名认证、头像认证、学历认证三项共同决定；单身承诺不是第四项认证。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:51</span><span>三重认证</span></div>
+              <div class="phone-screen">
+                <h2>完成三重认证</h2>
+                <p>完成三重认证后才可使用该功能：查看心动、发起牵线、深度联系。</p>
+                <div class="mini-panel">
+                  <ul class="check-list">
+                    <li><span>头像认证</span><strong data-status-avatar>审核中</strong></li>
+                    <li><span>实名认证</span><strong data-status-real-name>未提交</strong></li>
+                    <li><span>学历认证</span><strong data-status-education>未提交</strong></li>
+                  </ul>
+                </div>
+                <div class="mini-panel">
+                  <label class="helper">
+                    <input type="checkbox" checked>
+                    我确认当前婚恋状态真实有效，并接受单身承诺违规处理规则。
+                  </label>
+                </div>
+                <div class="action-row">
+                  <button class="btn primary" type="button" data-flow-action="goRealName" data-next-page="APP-01-PAGE-real-name">去实名</button>
+                  <button class="btn" type="button" data-flow-action="goEducation" data-next-page="APP-01-PAGE-education">去学历认证</button>
+                  <button class="btn success" type="button" data-flow-action="completeCert" data-next-page="APP-01-PAGE-profile-edit-home">模拟三重认证通过</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>准入规则</h2>
+              <p>核心功能开放条件：实名认证通过、头像认证通过、学历认证通过、账号状态正常。任一缺失时进入 APP-13 拦截。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-real-name" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-11 实名认证页</h2>
+            <p>按公共定义使用姓名、身份证号、手机号三要素，不引入人脸认证。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:52</span><span>实名认证</span></div>
+              <div class="phone-screen">
+                <h2>提交实名认证</h2>
+                <p>信息仅用于认证，不在前台公开展示。</p>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="realName" data-next-page="APP-01-PAGE-verify-triple" data-success="实名认证已通过，返回三重认证">
+                  <label class="field"><span>真实姓名</span><input value="林知夏"></label>
+                  <label class="field"><span>身份证号</span><input value="310101********0824"></label>
+                  <label class="field"><span>认证手机号</span><input value="138****9001"></label>
+                  <label class="helper"><input type="checkbox" checked> 我确认信息真实，若认证失败将按提示重新提交。</label>
+                  <button class="btn primary full" type="submit">提交认证</button>
+                </form>
+                <div class="notice">
+                  <strong>失败/驳回状态</strong>
+                  三要素不一致时展示失败原因；人工驳回时展示“身份证号与姓名不一致”等驳回原因。
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>安全说明</h2>
+              <p>静态 Demo 只展示脱敏身份证号，不保存真实证件信息。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-education" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-12 学历认证页</h2>
+            <p>职场人提交学信网在线验证码；在校生提交学生证材料，材料上传数展示为 0/4。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:53</span><span>学历认证</span></div>
+              <div class="phone-screen">
+                <h2>学历认证</h2>
+                <p>当前身份：职场人；最高学历：本科。</p>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="education" data-next-page="APP-01-PAGE-verify-triple" data-success="学历认证已通过，返回三重认证">
+                  <div class="segmented">
+                    <button class="is-selected" type="button">学信网验证码</button>
+                    <button type="button">学生证材料</button>
+                  </div>
+                  <label class="field"><span>在线验证码</span><input value="ABCD-EFGH-IJKL"></label>
+                  <label class="field"><span>毕业院校</span><input value="复旦大学"></label>
+                  <div class="upload-grid">
+                    <div class="upload-tile">学生证封面 0/4</div>
+                    <div class="upload-tile">学籍页 0/4</div>
+                  </div>
+                  <div class="action-row">
+                    <button class="btn primary" type="submit">提交审核</button>
+                    <button class="btn" type="button" data-open-modal="overseasModal">暂不支持认证</button>
+                  </div>
+                </form>
+                <div class="notice">
+                  <strong>失败/驳回状态</strong>
+                  验证码过期、学信网核验失败、学生证照片不清晰时均展示具体原因并保留重新提交入口。
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>审核来源</h2>
+              <div class="status-row">
+                <span class="tag success">审核通过-机审</span>
+                <span class="tag warning">待人工审核</span>
+                <span class="tag danger">审核驳回-人工审核</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-core-access-block" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-13 核心功能拦截页</h2>
+            <p>核心功能统一展示缺口列表、认证入口和账号状态说明。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:54</span><span>核心功能</span></div>
+              <div class="phone-screen">
+                <h2>暂时无法使用该功能</h2>
+                <p>完成三重认证后才可使用该功能。</p>
+                <div class="mini-panel">
+                  <ul class="check-list">
+                    <li><span>实名认证</span><strong data-status-real-name>未完成</strong></li>
+                    <li><span>头像认证</span><strong data-status-avatar>审核中</strong></li>
+                    <li><span>学历认证</span><strong data-status-education>未完成</strong></li>
+                    <li><span>账号状态</span><strong>正常</strong></li>
+                  </ul>
+                </div>
+                <button class="btn primary full" data-flow-action="coreBlock" data-open-modal="coreBlockModal">查看认证缺口</button>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>统一拦截</h2>
+              <p>心动列表、发起牵线、深度联系等核心入口复用同一弹窗规则，避免页面各自实现。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-profile-edit-home" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-14 编辑资料总页</h2>
+            <p>集中展示资料完整度、头像/背景图/相册、基础资料与扩展资料入口。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:55</span><span>编辑资料</span></div>
+              <div class="phone-screen">
+                <h2>我的资料</h2>
+                <p>资料完整度 <strong data-mini-score>76%</strong></p>
+                <div class="progress"><span data-mini-score-bar style="width:76%"></span></div>
+                <div class="mini-panel">
+                  <div class="photo-preview">资料背景图 · 待上传</div>
+                  <div class="action-row" style="margin-top:12px">
+                    <button class="btn primary" type="button" data-flow-action="goProfileBasic" data-next-page="APP-01-PAGE-profile-basic-edit">基础资料</button>
+                    <button class="btn" type="button" data-flow-action="goProfileExtended" data-next-page="APP-01-PAGE-profile-extended-edit">扩展资料</button>
+                  </div>
+                </div>
+                <ul class="check-list">
+                  <li><span>头像认证</span><strong data-status-avatar>审核中</strong></li>
+                  <li><span>开放文本</span><strong>已驳回</strong></li>
+                  <li><span>相册</span><strong>3/9</strong></li>
+                </ul>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>资料入口</h2>
+              <p>编辑总页补齐 Lanhu 缺口中的资料编辑入口，状态与认证任务同步展示。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-profile-basic-edit" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-15 基础资料编辑页</h2>
+            <p>基础资料包含昵称、现居地、职业/学校等字段；部分认证字段锁定展示。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:56</span><span>基础资料</span></div>
+              <div class="phone-screen">
+                <h2>基础资料</h2>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="profileBasic" data-next-page="APP-01-PAGE-profile-edit-home" data-success="基础资料编辑已保存，返回资料总页">
+                  <label class="field"><span>昵称</span><input value="知夏"></label>
+                  <label class="field"><span>现居地</span><input value="上海市 浦东新区"></label>
+                  <label class="field"><span>职业</span><input value="产品经理"></label>
+                  <label class="field"><span>公司</span><input value="星河科技"></label>
+                  <label class="field"><span>身份证号</span><input value="实名认证后锁定展示" disabled></label>
+                  <button class="btn primary full" type="submit">保存</button>
+                </form>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>字段权限</h2>
+              <p>性别、出生日期、身份证号等字段在认证后锁定；编辑页只允许改动未锁定字段。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band mobile-page" id="APP-01-PAGE-profile-extended-edit" data-mobile-page>
+          <div class="page-head">
+            <h2>APP-16 扩展资料编辑页</h2>
+            <p>包含关于我、希望 TA 了解、相册、资料背景图、兴趣标签、语音介绍等字段。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:57</span><span>扩展资料</span></div>
+              <div class="phone-screen">
+                <h2>扩展资料</h2>
+                <form class="mini-panel form-stack" data-demo-form data-flow-action="profileExtended" data-next-page="APP-01-PAGE-profile-edit-home" data-success="扩展资料已保存，返回资料总页">
+                  <label class="field">
+                    <span>关于我</span>
+                    <textarea maxlength="500">喜欢认真生活，也喜欢把周末留给展览和长跑。</textarea>
+                  </label>
+                  <label class="field">
+                    <span>兴趣标签</span>
+                    <input value="长跑、展览、咖啡、独立电影">
+                  </label>
+                  <div class="upload-grid">
+                    <div class="upload-tile">相册 3/9</div>
+                    <div class="upload-tile">资料背景图 0/1</div>
+                    <div class="upload-tile">语音介绍 28 秒</div>
+                    <div class="upload-tile">开放文本审核中</div>
+                  </div>
+                  <button class="btn primary full" type="submit">保存扩展资料</button>
+                </form>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>审核联动</h2>
+              <p>相册、背景图进入资料照片审核；关于我、希望 TA 了解和语音介绍进入开放文本审核。</p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="privacyModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+      <h2 id="privacyTitle">用户协议和隐私政策</h2>
+      <p>用户需确认阅读用户协议和隐私政策后才能登录；未勾选时登录按钮置灰并提示确认协议。</p>
+      <div class="action-row"><button class="btn primary" data-close>知道了</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="thirdPartyModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="thirdPartyTitle">
+      <h2 id="thirdPartyTitle">第三方登录暂不可用</h2>
+      <p>微信授权失败或能力不可用时，页面降级为手机号短信登录，已填写手机号会保留。</p>
+      <div class="action-row"><button class="btn primary" data-close>使用手机号继续</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="ageBlockModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ageTitle">
+      <h2 id="ageTitle">暂不符合准入年龄</h2>
+      <p>当前年龄未满 18 岁，不进入后续资料认证流程。后台可配置年龄范围，默认 18-60 岁。</p>
+      <div class="action-row"><button class="btn primary" data-close>返回修改</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="locationFailModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="locationTitle">
+      <h2 id="locationTitle">定位失败</h2>
+      <p>无法获取当前位置，请手动选择省市区；保存后继续进入资料认证。</p>
+      <div class="action-row"><button class="btn primary" data-close>手动选择</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="uploadFailModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
+      <h2 id="uploadTitle">上传失败</h2>
+      <p>网络异常或图片大小超过后台上传限制时，保留当前页面并允许重新选择文件。</p>
+      <div class="action-row"><button class="btn primary" data-close>重新上传</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="coreBlockModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="coreTitle">
+      <h2 id="coreTitle">完成三重认证后才可使用该功能</h2>
+      <ul class="check-list">
+        <li><span>实名认证</span><strong data-status-real-name>未提交</strong></li>
+        <li><span>头像认证</span><strong data-status-avatar>审核中</strong></li>
+        <li><span>学历认证</span><strong data-status-education>未提交</strong></li>
+      </ul>
+      <div class="action-row"><button class="btn primary" data-close data-flow-action="goRealName" data-next-page="APP-01-PAGE-real-name">去认证</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="overseasModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="overseasTitle">
+      <h2 id="overseasTitle">暂不支持认证</h2>
+      <p>当前初始化范围暂不支持海外学历认证，可先完成头像、实名和资料完整度补充。</p>
+      <div class="action-row"><button class="btn primary" data-close>知道了</button></div>
+    </div>
+  </div>
+
+  <script src="mock/demo-data.js"></script>
+  <script src="assets/demo.js"></script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>01-用户准入与资料认证初始化 静态 Demo</title>
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="返回静态 Demo 首页">
+        <span class="brand-mark">01</span>
+        <span>用户准入与资料认证初始化</span>
+      </a>
+      <nav class="top-actions" aria-label="静态 Demo 入口">
+        <a class="btn primary" href="miniapp.html">移动端 Demo</a>
+        <a class="btn" href="admin.html">管理后台 Demo</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <aside class="side-nav">
+        <h2>交付物</h2>
+        <a href="#scope">页面范围</a>
+        <a href="#source">需求来源</a>
+        <a href="#restore">还原策略</a>
+        <a href="miniapp.html">打开移动端</a>
+        <a href="admin.html">打开管理后台</a>
+      </aside>
+
+      <div class="content">
+        <section class="hero-band" id="scope">
+          <div class="hero-copy">
+            <h1>01-用户准入与资料认证初始化静态 Demo</h1>
+            <p>覆盖移动端注册准入、资料认证、核心功能拦截、资料编辑，以及管理后台用户管理、准入配置、审核队列。页面为纯静态 HTML，数据全部来自 mock，不依赖后端接口。</p>
+            <div class="metric-strip">
+              <div class="metric"><strong>23</strong><span>页面/状态入口</span></div>
+              <div class="metric"><strong>16</strong><span>移动端页面</span></div>
+              <div class="metric"><strong>7</strong><span>管理后台页面</span></div>
+              <div class="metric"><strong>95%+</strong><span>目标还原度</span></div>
+            </div>
+          </div>
+          <div class="portal-grid">
+            <a class="portal-card" href="miniapp.html">
+              <div>
+                <h2>移动端 Demo</h2>
+                <p>登录授权、轻量资料、头像/实名/学历认证、单身承诺、资料完整度与资料编辑。</p>
+              </div>
+              <span class="btn primary">进入移动端</span>
+            </a>
+            <a class="portal-card" href="admin.html">
+              <div>
+                <h2>管理后台 Demo</h2>
+                <p>App 用户管理、画像详情、批量导入、导出确认、准入配置与五类审核队列。</p>
+              </div>
+              <span class="btn">进入后台</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="section-band" id="source">
+          <div class="page-head">
+            <h2>需求来源</h2>
+            <p>静态 Demo 按工作流读取正式版 PRD、页面说明、公共定义与 Lanhu 缺口清单后生成。</p>
+          </div>
+          <div class="section-body">
+            <div class="summary-row">
+              <div class="setting-card">
+                <h3>移动端</h3>
+                <p>APP-01 至 APP-16，包含短信登录降级、年龄拦截、定位失败、上传失败、三重认证缺口等状态。</p>
+              </div>
+              <div class="setting-card">
+                <h3>管理后台</h3>
+                <p>ADM-01 至 ADM-07，包含卡片式用户管理、画像抽屉、批量导入、准入配置与审核工作台。</p>
+              </div>
+              <div class="setting-card">
+                <h3>公共定义</h3>
+                <p>字段池、字典、认证状态、审核来源、展示标签、配置项、核心准入规则均按公共定义落地。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-band" id="restore">
+          <div class="page-head">
+            <h2>还原策略</h2>
+            <p>通过页面锚点、表单控件、状态标签、弹窗/抽屉、配置面板和审核表格还原关键业务流。</p>
+          </div>
+          <div class="section-body">
+            <ul class="check-list">
+              <li><span>所有页面均拥有独立页面 ID 与导航锚点</span><strong>已覆盖</strong></li>
+              <li><span>所有关键异常状态以静态模块或弹窗方式呈现</span><strong>已覆盖</strong></li>
+              <li><span>导入、导出、高风险配置保存、驳回原因必填以弹窗呈现</span><strong>已覆盖</strong></li>
+              <li><span>用户画像详情、审核详情以抽屉/表格联动呈现</span><strong>已覆盖</strong></li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="mock/demo-data.js"></script>
+  <script src="assets/demo.js"></script>
+</body>
+</html>
