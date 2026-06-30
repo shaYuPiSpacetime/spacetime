@@ -58,7 +58,7 @@
 | `APP-04-PAGE-asset-center-ACT-goto-coin-recharge` | 去充值 | 余额卡 | 已登录 | 已登录 | 否 | 跳 `APP-04-PAGE-coin-recharge` | — |
 | `APP-04-PAGE-asset-center-ACT-goto-coin-flow` | 千寻币流水 | 记录入口 | 已登录 | 已登录 | 否 | 跳 `APP-04-PAGE-coin-flow` | — |
 | `APP-04-PAGE-asset-center-ACT-goto-vip-orders` | 会员订单 | 记录入口 | 已登录 | 已登录 | 否 | 跳 `APP-04-PAGE-vip-orders` | — |
-| `APP-04-PAGE-asset-center-ACT-goto-subscription-manage` | 管理连续订阅 | 连续订阅入口 | 存在连续订阅关系或曾购买连续订阅套餐 | 已登录 | 否 | 跳 `APP-04-PAGE-subscription-manage` | 连续订阅未接入时展示说明态 |
+| `APP-04-PAGE-asset-center-ACT-goto-subscription-manage` | 管理连续订阅 | 连续订阅入口 | 存在连续订阅关系或曾购买连续订阅套餐 | 已登录 | 否 | 跳 `APP-04-PAGE-subscription-manage` | 连续订阅服务不可用时展示重试/取消指引 |
 | `APP-04-PAGE-asset-center-ACT-refresh` | 刷新资产 | 错误/刷新入口 | 已登录 | 已登录 | 否 | 重新拉取资产摘要 | 失败保留错误态 |
 
 ---
@@ -74,7 +74,7 @@
 | 业务态-会员生效 | `vipStatus=active` | 会员卡展示有效期与续费 | 续费 | `M04-SM-vip-status` |
 | 业务态-会员过期 | `vipStatus=expired` | 会员卡展示已过期 | 续费 | `M04-SM-vip-status` |
 | 降级态 | 订单/流水入口统计加载失败 | 入口仍展示，摘要显示 `-` | 进入详情页查看 | — |
-| 降级态 | 连续订阅服务未接入 | 不展示管理入口或展示暂无连续订阅说明 | 开通普通会员 | `M04-SRV-wechat-subscription` |
+| 降级态 | 连续订阅服务不可用 | 展示重试或取消指引；无订阅关系时不展示管理入口 | 开通普通会员/稍后重试 | `M04-SRV-wechat-subscription` |
 
 ---
 

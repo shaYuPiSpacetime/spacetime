@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>移动端 Demo - 商业化</title>
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">APP</span>
+        <span>移动端商业化 Demo</span>
+      </a>
+      <div class="top-actions">
+        <a class="btn" href="index.html">总览</a>
+        <a class="btn" href="admin.html">管理后台</a>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="side-nav" aria-label="移动端页面导航">
+        <h2>购买与资产</h2>
+        <a href="#APP-04-PAGE-vip-center">会员中心</a>
+        <a href="#APP-04-PAGE-coin-recharge">千寻币充值</a>
+        <a href="#APP-04-PAGE-asset-center">资产中心</a>
+        <a href="#APP-04-PAGE-subscription-manage">连续订阅管理</a>
+        <h3>追溯与触点</h3>
+        <a href="#APP-04-PAGE-coin-flow">千寻币流水</a>
+        <a href="#APP-04-PAGE-vip-orders">会员订单</a>
+        <a href="#APP-04-PAGE-payment-result">支付结果</a>
+        <a href="#APP-04-PAGE-paywall-modal">付费弹窗</a>
+      </aside>
+
+      <div class="content">
+        <section class="section-band">
+          <div class="page-head">
+            <h1>移动端商业化用户旅程</h1>
+            <p>从业务触点付费引导，到购买、支付结果、资产中心追溯和连续订阅管理，全部使用本地 mock 串联。</p>
+          </div>
+          <div class="section-body">
+            <div class="flow-rail">
+              <div class="flow-step is-active" data-flow-step="付费触点">付费触点</div>
+              <div class="flow-step" data-flow-step="选择套餐">选择套餐</div>
+              <div class="flow-step" data-flow-step="支付结果">支付结果</div>
+              <div class="flow-step" data-flow-step="资产追溯">资产追溯</div>
+              <div class="flow-step" data-flow-step="订阅管理">订阅管理</div>
+            </div>
+            <div class="progress" style="margin-top:14px"><span data-flow-progress style="width:20%"></span></div>
+            <div class="summary-row">
+              <div class="metric"><strong data-vip-status>生效中</strong><span>会员状态</span></div>
+              <div class="metric"><strong data-coin-balance>180</strong><span>千寻币余额</span></div>
+              <div class="metric"><strong data-free-whisper>1</strong><span>免费悄悄话</span></div>
+              <div class="metric"><strong>未开放</strong><span>核心准入</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-04-PAGE-vip-center">
+          <div class="page-head">
+            <h2>APP-04-PAGE-vip-center 时空邂逅会员中心页</h2>
+            <p>展示会员状态、权益、套餐和协议；连续订阅接入真实自动续费口径，服务不可用时降级提示。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:41</span><span>时空邂逅会员</span></div>
+              <div class="phone-screen">
+                <div class="commerce-hero-card">
+                  <span class="tag warning">核心准入提示</span>
+                  <h2>时空邂逅会员</h2>
+                  <p data-core-access-tip>完成三重认证后，相关社交权益才会实际生效</p>
+                  <div class="summary-row" style="grid-template-columns:repeat(2,1fr)">
+                    <div><strong data-vip-status>生效中</strong><span>会员状态</span></div>
+                    <div><strong>2026-12-31</strong><span>有效期至</span></div>
+                  </div>
+                  <button class="btn full" style="margin-top:12px" data-jump="#APP-04-PAGE-subscription-manage">管理连续订阅</button>
+                </div>
+
+                <div class="mini-panel">
+                  <h3>会员权益</h3>
+                  <div class="benefit-grid" data-render="vip-benefits"></div>
+                </div>
+
+                <div class="mini-panel">
+                  <div class="tab-strip">
+                    <button class="tab-btn is-active" data-package-type="normal">普通套餐</button>
+                    <button class="tab-btn" data-package-type="subscription">连续订阅套餐</button>
+                  </div>
+                  <div class="package-grid" data-render="vip-packages"></div>
+                </div>
+
+                <label class="helper">
+                  <input type="checkbox" checked data-vip-agreement>
+                  我已阅读会员协议；连续订阅套餐需同意连续订阅服务协议
+                </label>
+                <div class="fixed-paybar">
+                  <button class="btn full" data-open-modal="vipAgreementModal">查看协议</button>
+                  <button class="btn primary full" data-pay-vip>立即续费 39 元</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>状态与异常</h2>
+              <ul class="check-list">
+                <li><span>套餐被下架</span><strong>toast + 刷新套餐</strong></li>
+                <li><span>未勾选协议</span><strong>阻断支付</strong></li>
+                <li><span>连续订阅不可用</span><strong>Tab 置灰</strong></li>
+                <li><span>未完成三重认证</span><strong>提示购买与使用分离</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-04-PAGE-coin-recharge">
+          <div class="page-head">
+            <h2>APP-04-PAGE-coin-recharge 千寻币充值页</h2>
+            <p>当前余额、来源场景、后台配置套餐和支付不可用态；套餐金额/币数只作为 mock 演示。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:45</span><span>千寻币充值</span></div>
+              <div class="phone-screen">
+                <div class="commerce-hero-card coin-card">
+                  <span class="tag success">千寻币不过期</span>
+                  <h2><span data-coin-balance>180</span></h2>
+                  <p>当前余额。充值成功后优先返回来源场景：喜欢我的单条解锁。</p>
+                </div>
+                <div class="mini-panel">
+                  <h3>选择充值套餐</h3>
+                  <div class="package-grid" data-render="coin-packages"></div>
+                </div>
+                <div class="notice">
+                  <strong>购买说明</strong>
+                  用户侧只展示总余额；充值币、赠送币、退款退回和邀请奖励在后台流水区分。
+                </div>
+                <div class="fixed-paybar">
+                  <button class="btn danger full" data-open-modal="payUnavailableModal">模拟支付不可用</button>
+                  <button class="btn primary full" data-pay-coin>立即充值 30 元</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>字段映射</h2>
+              <ul class="kv-list">
+                <li><span>余额</span><strong>用户资产摘要</strong></li>
+                <li><span>套餐</span><strong>M04-CFG-coin-package-list</strong></li>
+                <li><span>来源场景</span><strong>用于支付成功回跳</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-04-PAGE-asset-center">
+          <div class="page-head">
+            <h2>APP-04-PAGE-asset-center 资产中心页</h2>
+            <p>统一查看会员状态、千寻币余额、免费悄悄话和记录入口。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:50</span><span>资产中心</span></div>
+              <div class="phone-screen">
+                <div class="commerce-hero-card">
+                  <h2>资产中心</h2>
+                  <p data-core-access-tip>完成三重认证后，相关社交权益才会实际生效</p>
+                  <div class="summary-row" style="grid-template-columns:repeat(2,1fr)">
+                    <div><strong data-vip-status>生效中</strong><span>会员</span></div>
+                    <div><strong data-coin-balance>180</strong><span>千寻币</span></div>
+                  </div>
+                </div>
+                <div class="mini-panel">
+                  <h3>今日权益</h3>
+                  <div class="entry-list">
+                    <div class="entry-item"><span>免费悄悄话剩余</span><strong data-free-whisper>1 次</strong></div>
+                    <div class="entry-item"><span>连续订阅</span><strong>下次续费 2026-07-30</strong></div>
+                  </div>
+                </div>
+                <div class="mini-panel entry-list">
+                  <button class="btn full" data-jump="#APP-04-PAGE-coin-flow">查看千寻币流水</button>
+                  <button class="btn full" data-jump="#APP-04-PAGE-vip-orders">查看会员订单</button>
+                  <button class="btn full" data-jump="#APP-04-PAGE-subscription-manage">管理连续订阅</button>
+                  <button class="btn primary full" data-jump="#APP-04-PAGE-coin-recharge">去充值</button>
+                  <button class="btn danger full" data-toast="资产摘要刷新失败，已保留上次数据" data-toast-type="danger">模拟刷新失败</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>空态与降级</h2>
+              <ul class="check-list">
+                <li><span>新用户无订单/流水</span><strong>入口保留，摘要显示暂无</strong></li>
+                <li><span>资产摘要失败</span><strong>toast + 重试</strong></li>
+                <li><span>订阅服务不可用</span><strong>展示取消指引</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-04-PAGE-subscription-manage">
+          <div class="page-head">
+            <h2>APP-04-PAGE-subscription-manage 连续订阅管理页</h2>
+            <p>查看订阅状态、下次续费信息和取消续费入口；服务不可用时展示取消指引。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:55</span><span>连续订阅</span></div>
+              <div class="phone-screen">
+                <div class="commerce-hero-card">
+                  <span class="tag success">订阅生效中</span>
+                  <h2 data-subscription-title>连续包月</h2>
+                  <p>下次续费时间：2026-07-30 09:00:00</p>
+                </div>
+                <div class="mini-panel">
+                  <h3>套餐与扣费说明</h3>
+                  <ul class="kv-list">
+                    <li><span>续费金额</span><strong>29.00 元</strong></li>
+                    <li><span>续费周期</span><strong>每月</strong></li>
+                    <li><span>会员状态</span><strong>生效中</strong></li>
+                  </ul>
+                </div>
+                <div class="mini-panel">
+                  <h3>取消续费指引</h3>
+                  <div class="guide-steps" data-render="subscription-guide"></div>
+                </div>
+                <div class="fixed-paybar">
+                  <button class="btn full" data-jump="#APP-04-PAGE-vip-orders">查看会员订单</button>
+                  <button class="btn danger full" data-open-modal="subscriptionCancelModal">取消续费</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>服务不可用兜底</h2>
+              <p>微信连续订阅服务不可用时，不展示不可执行的真实取消按钮，保留平台内步骤指引和稍后重试。</p>
+              <button class="btn full" data-toast="连续订阅暂不可用，请选择普通套餐或稍后重试" data-toast-type="warning">模拟服务不可用</button>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-04-PAGE-coin-flow">
+          <div class="page-head">
+            <h2>APP-04-PAGE-coin-flow 千寻币流水页</h2>
+            <p>分页展示充值、消费、奖励、退款退回等流水；收入和支出方向清晰区分。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>10:02</span><span>千寻币流水</span></div>
+              <div class="phone-screen">
+                <div class="commerce-hero-card coin-card">
+                  <h2><span data-coin-balance>180</span> 千寻币</h2>
+                  <p>默认按发生时间倒序，每页 20 条，移动端加载更多。</p>
+                </div>
+                <div class="tab-strip" data-flow-tabs>
+                  <button class="tab-btn is-active" data-flow-filter="全部">全部</button>
+                  <button class="tab-btn" data-flow-filter="充值">充值</button>
+                  <button class="tab-btn" data-flow-filter="消费">消费</button>
+                  <button class="tab-btn" data-flow-filter="奖励">奖励</button>
+                  <button class="tab-btn" data-flow-filter="退款退回">退款</button>
+                </div>
+                <div class="flow-list" data-render="coin-flows"></div>
+                <button class="btn full" data-toast="已加载下一页流水">加载更多</button>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>空态</h2>
+              <p>当筛选无流水时展示“暂无千寻币流水”，并保留去充值入口。</p>
+              <button class="btn full" data-render-empty-flow>模拟空态</button>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-04-PAGE-vip-orders">
+          <div class="page-head">
+            <h2>APP-04-PAGE-vip-orders 会员订单记录页</h2>
+            <p>展示会员订单、支付状态和退款状态；前台不开放主动退款申请。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>10:08</span><span>会员订单</span></div>
+              <div class="phone-screen">
+                <div class="notice"><strong>退款边界</strong>退款中/已退款只做状态展示，不展示主动申请退款按钮。</div>
+                <div class="order-card-list" data-render="vip-orders"></div>
+                <button class="btn full" data-toast="已加载更多会员订单">加载更多</button>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>订单状态</h2>
+              <ul class="check-list">
+                <li><span>支付成功</span><strong>展示支付时间和到期时间</strong></li>
+                <li><span>退款中</span><strong>展示退款说明入口</strong></li>
+                <li><span>已退款</span><strong>展示退款完成结果</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-04-PAGE-payment-result">
+          <div class="page-head">
+            <h2>APP-04-PAGE-payment-result 支付结果承接页</h2>
+            <p>承接成功、失败、取消和资产刷新中；取消/关闭态说明资产未变化，未支付订单固定 30 分钟关闭。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>10:12</span><span>支付结果</span></div>
+              <div class="phone-screen">
+                <div class="commerce-hero-card" data-render="payment-result"></div>
+                <div class="tab-strip">
+                  <button class="tab-btn is-active" data-payment-state="success">成功</button>
+                  <button class="tab-btn" data-payment-state="failed">失败</button>
+                  <button class="tab-btn" data-payment-state="closed">取消</button>
+                  <button class="tab-btn" data-payment-state="refreshing">刷新中</button>
+                </div>
+                <div class="fixed-paybar">
+                  <button class="btn primary full" data-jump="#APP-04-PAGE-asset-center">去资产中心</button>
+                  <button class="btn full" data-toast="已返回来源页并刷新权益/余额">返回来源页</button>
+                  <button class="btn full" data-toast="正在重新查询订单结果">刷新结果</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>结果联动</h2>
+              <p>支付成功刷新会员/余额；支付失败可重新支付；支付取消不变更资产；资产刷新失败保留成功结果。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-04-PAGE-paywall-modal">
+          <div class="page-head">
+            <h2>APP-04-PAGE-paywall-modal 业务场景付费引导弹窗</h2>
+            <p>统一承接 VIP 引导、千寻币扣币确认和余额不足快捷充值。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>10:18</span><span>付费弹窗</span></div>
+              <div class="phone-screen">
+                <div class="commerce-hero-card">
+                  <h2>业务付费触点</h2>
+                  <p>喜欢我的、最近看过我的、悄悄话、理想型、精选主页等场景统一唤起。</p>
+                </div>
+                <div class="mini-panel">
+                  <h3>弹窗形态</h3>
+                  <div class="entry-list">
+                    <button class="btn full" data-open-paywall="vip-all">VIP 引导：解锁全部</button>
+                    <button class="btn full" data-open-paywall="coin-like-one">扣币确认：单条解锁</button>
+                    <button class="btn full" data-open-paywall="coin-balance-low">余额不足：快捷充值</button>
+                    <button class="btn danger full" data-open-paywall="core-blocked">核心准入受限</button>
+                  </div>
+                </div>
+                <div class="notice">
+                  <strong>规则</strong>
+                  喜欢/访客单条走千寻币，解锁全部走会员；理想型/精选按次扣千寻币，VIP 不免单。
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h2>操作后变化</h2>
+              <ul class="check-list">
+                <li><span>余额充足扣币</span><strong>余额减少，流水新增</strong></li>
+                <li><span>余额不足</span><strong>展示快捷充值套餐</strong></li>
+                <li><span>VIP 引导</span><strong>跳会员中心并携带来源</strong></li>
+                <li><span>核心准入受限</span><strong>提示先完成三重认证</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="vipAgreementModal" aria-hidden="true">
+    <div class="modal">
+      <h2>会员协议与连续订阅服务协议</h2>
+      <p>会员套餐购买后立即生效；连续订阅套餐将通过微信小程序真实自动续费扣款。套餐价格和标签以后台配置快照为准。</p>
+      <div class="modal-actions">
+        <button class="btn" onclick="DemoCommon.closeModal(this)">关闭</button>
+        <button class="btn primary" onclick="DemoCommon.closeModal(this);showToast('已阅读协议')">我已了解</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="payUnavailableModal" aria-hidden="true">
+    <div class="modal">
+      <h2>支付暂不可用</h2>
+      <p>微信支付服务不可用，支付按钮置灰或提示稍后重试，不创建成功资产。</p>
+      <div class="modal-actions">
+        <button class="btn primary" onclick="DemoCommon.closeModal(this)">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="subscriptionCancelModal" aria-hidden="true">
+    <div class="modal">
+      <h2>取消续费确认</h2>
+      <p>取消续费不会影响已支付会员有效期。确认后打开微信连续订阅管理入口或展示平台内取消步骤。</p>
+      <div class="modal-actions">
+        <button class="btn" onclick="DemoCommon.closeModal(this)">暂不取消</button>
+        <button class="btn danger" onclick="DemoCommon.closeModal(this);showToast('已打开微信连续订阅管理入口','warning')">继续取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="paywallModal" aria-hidden="true">
+    <div class="modal" data-render="paywall-modal"></div>
+  </div>
+
+  <script src="../../shared/demo-common.js"></script>
+  <script src="mock/demo-data.js"></script>
+  <script src="assets/demo.js"></script>
+</body>
+</html>

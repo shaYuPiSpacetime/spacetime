@@ -4,6 +4,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本03 | 2026-06-30 | Codex | 收口连续订阅真实自动续费扣款口径 |
 | 版本02 | 2026-06-26 | Codex | 补充连续订阅管理入口 |
 | 版本01 | 2026-06-25 | Codex | 版本 01：由旧版 VIP 会员中心页转写正式版 |
 
@@ -68,7 +69,7 @@
 | `APP-04-PAGE-vip-center-FIELD-core-access-tip` | 准入提示 | string | 否 | `M04-TXT-core-access-purchase-tip` | 未完成三重认证时展示 | 无 | 否 | 普通 | PRD-01 核心准入状态 |
 | `APP-04-PAGE-vip-center-FIELD-subscription-entry` | 连续订阅管理入口 | json | 否 | 当前存在连续订阅关系 | 有连续订阅套餐/订阅状态时展示 | 无 | 否 | 普通 | 用户会员订阅状态 |
 | `APP-04-PAGE-vip-center-FIELD-benefits` | 权益列表 | json | 是 | `M04-CFG-vip-benefit-list` | 仅展示启用权益，按后台排序 | 空列表 | 否 | 普通 | 后台商业化配置 |
-| `APP-04-PAGE-vip-center-FIELD-package-type` | 套餐类型 | enum | 是 | `M04-ENUM-vip-package-type` | 连续订阅未接入时隐藏或置灰 | `normal` | 用户切换 | 普通 | 后台商业化配置 |
+| `APP-04-PAGE-vip-center-FIELD-package-type` | 套餐类型 | enum | 是 | `M04-ENUM-vip-package-type` | 连续订阅商品不可用时置灰 | `normal` | 用户切换 | 普通 | 后台商业化配置 |
 | `APP-04-PAGE-vip-center-FIELD-package-card` | 套餐卡片 | json | 是 | 上架套餐 | 价格、有效天数、套餐编号不能为空 | 无 | 用户选择 | 普通 | `M04-CFG-vip-package-list` / `M04-CFG-subscription-package-list` |
 | `APP-04-PAGE-vip-center-FIELD-package-tag` | 套餐标签 | string | 否 | `M04-CFG-package-tag-list` | 最多展示 1-2 个标签，超出折叠 | 无 | 否 | 普通 | 后台商业化配置 |
 | `APP-04-PAGE-vip-center-FIELD-agreement-checked` | 协议勾选 | bool | 是 | 是/否 | 未勾选不可支付 | 否 | 用户勾选 | 普通 | 用户操作 |
@@ -82,8 +83,8 @@
 | 操作 ID | 操作名 | 位置 | 触发条件 | 前置权限 | 二次确认 | 成功态 | 失败态 |
 |---------|--------|------|----------|----------|----------|--------|--------|
 | `APP-04-PAGE-vip-center-ACT-select-package` | 选择套餐 | 套餐卡片区 | 套餐状态=`on` | 已登录 | 否 | 高亮选中套餐，底部按钮刷新价格 | 套餐下架则提示 `M04-ERR-package-offline` 并刷新套餐 |
-| `APP-04-PAGE-vip-center-ACT-switch-package-type` | 切换套餐类型 | 套餐类型 Tab | 对应类型有可售套餐 | 已登录 | 否 | 展示对应套餐列表 | 连续订阅未接入则提示 `M04-ERR-subscription-unsupported` |
-| `APP-04-PAGE-vip-center-ACT-manage-subscription` | 管理连续订阅 | 状态区下方 | 存在连续订阅关系或曾购买连续订阅套餐 | 已登录 | 否 | 跳 `APP-04-PAGE-subscription-manage` | 连续订阅未接入时展示说明态 |
+| `APP-04-PAGE-vip-center-ACT-switch-package-type` | 切换套餐类型 | 套餐类型 Tab | 对应类型有可售套餐 | 已登录 | 否 | 展示对应套餐列表 | 连续订阅商品不可用则提示 `M04-ERR-subscription-unsupported` |
+| `APP-04-PAGE-vip-center-ACT-manage-subscription` | 管理连续订阅 | 状态区下方 | 存在连续订阅关系或曾购买连续订阅套餐 | 已登录 | 否 | 跳 `APP-04-PAGE-subscription-manage` | 连续订阅服务不可用时展示重试/取消指引 |
 | `APP-04-PAGE-vip-center-ACT-open-agreement` | 查看协议 | 协议区 | — | 已登录 | 否 | 打开协议页/弹窗 | 协议加载失败可重试 |
 | `APP-04-PAGE-vip-center-ACT-pay` | 立即开通/续费 | 底部固定 | 已选套餐且协议已勾选 | 已登录 | 否 | 创建订单并拉起微信支付；成功后跳 `APP-04-PAGE-payment-result` | 未勾协议字段提示；支付不可用 `M04-ERR-pay-unavailable` |
 
@@ -93,7 +94,7 @@
 
 | 触发字段 | 触发事件 | 影响字段 | 联动行为 | 备注 |
 |----------|----------|----------|----------|------|
-| 套餐类型 | 切换为连续订阅 | 协议勾选 | 必须额外展示连续订阅服务协议 | `M04-TBC-subscription-pay` |
+| 套餐类型 | 切换为连续订阅 | 协议勾选 | 必须额外展示连续订阅服务协议；支付成功后进入真实自动续费关系 | `M04-TERM-subscription` |
 | 连续订阅状态 | 存在订阅关系 | 连续订阅管理入口 | 状态区展示管理入口和下次续费/状态摘要 | `APP-04-PAGE-subscription-manage` |
 | 选中套餐 | 变化 | 底部支付按钮 | 展示选中套餐价格和开通/续费文案 | |
 | 核心准入状态 | 未开放 | 准入提示 | 展示购买与使用分离提示，不阻塞购买 | `M04-RULE-core-access-gate` |
@@ -112,7 +113,7 @@
 | 业务态-生效中 | `vipStatus=active` | 展示有效期和续费 | 续费 | `M04-SM-vip-status` |
 | 业务态-已过期 | `vipStatus=expired` | 展示已过期和续费提示 | 续费 | `M04-SM-vip-status` |
 | 降级态 | 支付服务不可用 | 支付按钮置灰 | 稍后重试 | `M04-SRV-wechat-pay` |
-| 降级态 | 连续订阅服务未接入 | 连续订阅 Tab 隐藏或置灰；管理入口展示说明态 | 选择普通套餐 | `M04-SRV-wechat-subscription` |
+| 降级态 | 连续订阅服务不可用 | 连续订阅 Tab 置灰；管理入口展示重试或取消指引 | 选择普通套餐/稍后重试 | `M04-SRV-wechat-subscription` |
 
 ---
 

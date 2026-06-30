@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本04 | 2026-06-30 | Codex | 收口 4 个产品拍板项：连续订阅接入真实自动续费、未支付订单固定 30 分钟关闭、套餐价格全部后台配置、退款首版仅查询与状态展示，影响 `APP-04-PAGE-vip-center`、`APP-04-PAGE-subscription-manage`、`APP-04-PAGE-payment-result`、`ADM-04-PAGE-commerce-config`、`ADM-04-PAGE-refund-list` |
 | 版本03 | 2026-06-26 | Codex | 补充退款资产回退、准入撤销后的权益暂停、场景单价边界、社交与订单参数配置归属、会员到期提醒天数和连续订阅管理能力，影响 `ADM-04-PAGE-commerce-config`、`APP-04-PAGE-vip-center`、`APP-04-PAGE-asset-center`、`APP-04-PAGE-paywall-modal`、`APP-04-PAGE-subscription-manage` |
 | 版本02 | 2026-06-26 | Codex | 补充接口路径由技术方案承接的约束说明，影响 PRD-04 第 10 节 |
 | 版本01 | 2026-06-25 | Codex | 版本 01：由旧版移动端/管理后台 PRD-04 转写正式版核心定义，影响 APP-04/ADM-04 全部页面 |
@@ -22,21 +23,25 @@
 | M04-04 | VIP 到期后全量权益即时回退；已单条购买记录继续保持清晰 | `M04-RULE-vip-expire`、`M04-SM-vip-status` |
 | M04-05 | 悄悄话普通用户可用千寻币发送；VIP 默认每日 1 次免费悄悄话，次数后台可配，用完后继续走千寻币 | `M04-RULE-whisper-pay`、`M04-CFG-vip-free-whisper-daily` |
 | M04-06 | 千寻币用户侧只展示一个总余额；充值币、赠送币、退款退回、邀请奖励等来源在后台流水区分；千寻币不过期 | `M04-RULE-coin-balance` |
-| M04-07 | 前台不开放主动退款申请；特批退款由后台/线下处理，前台订单支持展示 `refunding`、`refunded` | `M04-RULE-refund-display`、`M04-SM-trade-order` |
+| M04-07 | 前台不开放主动退款申请；特批退款由线下流程或系统状态同步产生，后台首版仅查询和展示 `refunding`、`refunded` | `M04-RULE-refund-display`、`M04-SM-trade-order` |
 | M04-08 | 理想型支持单个/批量解锁，单次最多 5 个，VIP 也照常扣千寻币，默认保留 90 天且后台可配 | `M04-RULE-ideal-unlock` |
 | M04-09 | 精选主页按次扣千寻币，默认回看 3 天且后台可配 | `M04-RULE-featured-unlock` |
 | M04-10 | 人气曝光包首版仅做产品预留，不展开售卖、推荐分发、曝光次数、扣减和收益分析 | `M04-RULE-exposure-pack-reserve` |
 | M04-11 | PRD-07 邀请奖励到账写入 PRD-04 千寻币流水，奖励触发和归因仍由 PRD-07 定义 | `M04-RULE-invite-reward-flow` |
 | M04-12 | 千寻币消费场景单价只覆盖 6 个消费场景；邀请奖励 `invite_*` 只做入账流水场景，奖励金额由 PRD-07 配置 | `M04-RULE-coin-consume-price-scope`、`M04-CFG-coin-scene-price` |
+| M04-13 | 连续订阅首版接入微信小程序真实自动续费扣款，不再仅展示说明入口 | `M04-TERM-subscription`、`M04-SRV-wechat-subscription`、`APP-04-PAGE-subscription-manage` |
+| M04-14 | 未支付订单自动关闭时长固定为 30 分钟，首版不提供后台配置 | `M04-RULE-order-close-timeout`、`M04-SM-trade-order` |
+| M04-15 | VIP/千寻币套餐具体价格、币数、标签默认值不继承旧文档示例值，全部由后台配置 | `M04-CFG-vip-package-list`、`M04-CFG-coin-package-list`、`M04-CFG-package-tag-list` |
+| M04-16 | 特批退款首版仅做记录查询和状态展示，不开放复杂审批流，不在退款记录页人工改状态 | `M04-RULE-refund-display`、`ADM-04-PAGE-refund-list` |
 
-### 1.1 待确认项
+### 1.1 已收口确认项
 
-| 待确认 ID | 问题 | 当前处理方式 | 影响页面 |
-|-----------|------|--------------|----------|
-| `M04-TBC-subscription-pay` | 微信小程序连续订阅是否在首版接入真实自动续费扣款，还是仅展示连续订阅套餐入口 | 先标为 `[待确认]`；VIP 页保留连续订阅说明区，支付规则以支付接入方案为准 | `APP-04-PAGE-vip-center`、`ADM-04-PAGE-commerce-config` |
-| `M04-TBC-order-close-timeout` | 未支付订单自动关闭倒计时时长 | 作为后台配置项，不写死默认值 | `APP-04-PAGE-payment-result`、`ADM-04-PAGE-commerce-order-list` |
-| `M04-TBC-package-default-price` | VIP/千寻币套餐具体价格、币数、标签默认值 | 不继承旧文档示例价格，全部由后台配置 | `APP-04-PAGE-vip-center`、`APP-04-PAGE-coin-recharge` |
-| `M04-TBC-refund-owner` | 特批退款的后台责任角色与审批链路 | 首版仅做记录查询和状态展示，不开放复杂审批流 | `ADM-04-PAGE-refund-list` |
+| 原问题 | 已确认结论 | 影响页面 |
+|--------|------------|----------|
+| 连续订阅是否接入真实自动续费扣款 | 接入真实自动续费扣款；前台展示购买、管理、取消续费入口/指引 | `APP-04-PAGE-vip-center`、`APP-04-PAGE-subscription-manage`、`ADM-04-PAGE-commerce-config` |
+| 未支付订单自动关闭倒计时时长 | 固定 30 分钟，不做后台配置 | `APP-04-PAGE-payment-result`、`ADM-04-PAGE-commerce-order-list` |
+| VIP/千寻币套餐具体价格、币数、标签默认值 | 不继承旧文档示例价格，VIP/千寻币套餐价格、币数、标签全部由后台配置 | `APP-04-PAGE-vip-center`、`APP-04-PAGE-coin-recharge`、`ADM-04-PAGE-commerce-config` |
+| 特批退款后台责任角色与审批链路 | 首版仅做记录查询和状态展示，不开放复杂审批流 | `ADM-04-PAGE-refund-list` |
 
 ---
 
@@ -51,7 +56,7 @@
 | `M04-TERM-all-unlock` | 全量解锁 | 解锁全部 | 用户通过会员权益在有效期内查看某类列表的全部清晰记录 | 否 |
 | `M04-TERM-trade-order` | 商业化订单 | 支付订单 | VIP 购买或千寻币充值生成的交易订单 | 否 |
 | `M04-TERM-asset-flow` | 资产流水 | 成家币流水 | 千寻币余额、会员权益、退款/赠送/邀请奖励等资产变动记录 | 否 |
-| `M04-TERM-subscription` | 连续订阅 | 自动续费 | 按周期续费的会员套餐形态；首版真实自动续费接入见 `M04-TBC-subscription-pay` | 否 |
+| `M04-TERM-subscription` | 连续订阅 | 自动续费 | 按周期自动续费的会员套餐形态；首版接入微信小程序真实自动续费扣款 | 否 |
 | `M04-TERM-special-refund` | 特批退款 | 人工退款 | 前台不主动申请，由后台/线下因重复支付、系统故障、客诉等原因处理的退款 | 否 |
 | `M04-TERM-exposure-pack` | 人气曝光包 | 曝光包 | 后续可能售卖的曝光类商品，首版仅保留预留口径 | 否 |
 
@@ -81,7 +86,7 @@
 | 值（code） | 显示名 | 说明 | 排序 | 是否默认 | 状态 |
 |------------|--------|------|------|----------|------|
 | `normal` | 普通套餐 | 一次性购买固定有效期 | 1 | 是 | 启用 |
-| `subscription` | 连续订阅套餐 | 周期性续费套餐；真实扣费接入待确认 | 2 | 否 | 启用 |
+| `subscription` | 连续订阅套餐 | 周期性自动续费套餐，首版接入微信小程序真实自动续费扣款 | 2 | 否 | 启用 |
 
 ### 3.3 `M04-ENUM-vip-benefit-type` 会员权益类型
 
@@ -169,7 +174,7 @@
 | 枚举 ID | 中文名 | 是否后台可配 | 备注 |
 |---------|--------|-------------|------|
 | `M04-ENUM-vip-status` | 会员状态 | 否 | 状态机驱动 |
-| `M04-ENUM-vip-package-type` | 会员套餐类型 | 否 | 真实连续订阅接入待确认 |
+| `M04-ENUM-vip-package-type` | 会员套餐类型 | 否 | 连续订阅首版接入微信真实自动续费 |
 | `M04-ENUM-vip-benefit-type` | 会员权益类型 | 部分 | 权益项启停/排序可配 |
 | `M04-ENUM-package-status` | 套餐状态 | 否 | 操作驱动 |
 | `M04-ENUM-order-type` | 订单类型 | 否 | 曝光包订单首版停用 |
@@ -198,7 +203,7 @@
 |----------|-----------|----------|----------|--------|
 | （无） | 创建订单 | `unpaid` | 套餐上架且用户已登录 | 锁定订单金额、套餐快照、来源场景 |
 | `unpaid` | 支付成功回调 | `success` | 回调验签通过且幂等校验通过 | 发放会员/千寻币，触发 `M04-EVT-payment-success` |
-| `unpaid` | 用户取消或超时关闭 | `closed` | 未收到成功回调 | 不变更资产 |
+| `unpaid` | 用户取消或 30 分钟超时关闭 | `closed` | 未收到成功回调 | 不变更资产 |
 | `unpaid` | 支付失败 | `failed` | 支付渠道返回失败 | 不变更资产 |
 | `success` | 特批退款发起 | `refunding` | 后台/线下确认进入退款 | 前台订单展示退款中 |
 | `refunding` | 退款成功回调/人工确认 | `refunded` | 幂等校验通过 | 按 `M04-RULE-refund-asset-reversal` 回收或回退资产，触发 `M04-EVT-refund-success` |
@@ -226,9 +231,10 @@
 | `M04-RULE-whisper-pay` | 悄悄话支付 | APP 消息链路 | 普通用户直接扣千寻币；VIP 优先扣每日免费次数，用完后扣千寻币；同一目标未回复/未失效前不可重复发送 | 与 PRD-03 消息状态联动 |
 | `M04-RULE-ideal-unlock` | 理想型解锁 | APP 推荐链路 | 单个/批量均走千寻币；单次最多勾选数取 `M04-CFG-ideal-batch-max`；VIP 不免单；保留期取 `M04-CFG-ideal-unlock-retention-days` | 默认 5 个/90 天 |
 | `M04-RULE-featured-unlock` | 精选主页解锁 | APP 推荐链路 | 走千寻币按次扣减；保留期取 `M04-CFG-featured-unlock-retention-days` | 默认 3 天 |
-| `M04-RULE-payment-result` | 支付结果承接 | `APP-04-PAGE-payment-result` | 成功刷新权益/余额并可回来源；失败保留订单上下文可重试；取消不变更资产，订单后续关闭 | 订单关闭时长待确认 |
-| `M04-RULE-refund-display` | 退款展示 | APP/ADM | 前台不开放主动退款申请；订单记录展示退款中/已退款；后台承接退款查询与轻量处理 | 复杂审批流后续 |
-| `M04-RULE-refund-asset-reversal` | 退款资产回退 | APP/ADM | 首版特批退款仅自动处理未消费或可全量回收的订单；会员订单退款从退款完成时停止对应会员权益，已使用的全量查看/筛选/消息权益不反向计费，曾生效过的会员状态落 `expired`，未生效即退款落 `inactive`；千寻币订单退款时若余额足以扣回到账币数则扣回并写 `refund` 流水，若余额不足或已消费则不自动扣成负数，转人工处理并保留 `refunding`/备注 | 技术方案需落退款前置校验和人工处理原因 |
+| `M04-RULE-payment-result` | 支付结果承接 | `APP-04-PAGE-payment-result` | 成功刷新权益/余额并可回来源；失败保留订单上下文可重试；取消不变更资产，订单在 30 分钟后自动关闭 | 关闭时长见 `M04-RULE-order-close-timeout` |
+| `M04-RULE-order-close-timeout` | 未支付订单关闭 | APP/ADM | 商业化订单创建后若 30 分钟内未支付成功，订单自动进入 `closed`；30 分钟为首版固定值，不提供后台配置 | 支付成功回调晚于关闭时按技术方案做幂等与补偿判断 |
+| `M04-RULE-refund-display` | 退款展示 | APP/ADM | 前台不开放主动退款申请；订单记录展示退款中/已退款；后台首版仅承接退款记录查询和状态展示 | 不开放复杂审批流，不在退款记录页人工改状态 |
+| `M04-RULE-refund-asset-reversal` | 退款资产回退 | APP/ADM | 首版特批退款仅自动处理未消费或可全量回收的订单；会员订单退款从退款完成时停止对应会员权益，已使用的全量查看/筛选/消息权益不反向计费，曾生效过的会员状态落 `expired`，未生效即退款落 `inactive`；千寻币订单退款时若余额足以扣回到账币数则扣回并写 `refund` 流水，若余额不足或已消费则不自动扣成负数，转线下处理并保留 `refunding`/备注 | 技术方案需落退款前置校验和线下处理原因 |
 | `M04-RULE-coin-consume-price-scope` | 千寻币消费单价范围 | APP/ADM | `M04-CFG-coin-scene-price` 只配置 `whisper`、`likes_unlock_one`、`viewers_unlock_one`、`ideal_user_unlock`、`ideal_batch_unlock`、`featured_profile_unlock` 6 个消费场景；`invite_*` 仅作为 PRD-07 奖励入账场景，不进入消费单价配置 | 避免奖励场景被误配为消费扣费 |
 | `M04-RULE-exposure-pack-reserve` | 曝光包预留 | APP/ADM | 首版只在文案和配置层保留场景占位，不允许上架售卖 | 待推荐规则补齐后另写 PRD |
 | `M04-RULE-invite-reward-flow` | 邀请奖励入账 | PRD-07/PRD-04 | PRD-07 奖励成功后写 PRD-04 千寻币流水，`flowType=reward`，`bizScene` 使用 `invite_*` | 触发与风控归 PRD-07 |
@@ -246,7 +252,7 @@
 | `M04-CFG-vip-view-quota` | 会员每日查看配额 | 20 | int | 移动端配置管理/商业化配置/社交与订单参数 Tab | 是 | 是 |
 | `M04-CFG-vip-free-whisper-daily` | 会员每日免费悄悄话次数 | 1 | int | 移动端配置管理/商业化配置 | 是 | 是 |
 | `M04-CFG-vip-package-list` | 普通会员套餐 | 无固定价格 | json | 移动端配置管理/商业化配置 | 是 | 是 |
-| `M04-CFG-subscription-package-list` | 连续订阅套餐 | `[待确认]` | json | 移动端配置管理/商业化配置 | 是 | 是 |
+| `M04-CFG-subscription-package-list` | 连续订阅套餐 | 由后台配置 | json | 移动端配置管理/商业化配置 | 是 | 是 |
 | `M04-CFG-coin-package-list` | 千寻币套餐 | 4 档结构，价格/币数不写死 | json | 移动端配置管理/商业化配置 | 是 | 是 |
 | `M04-CFG-package-tag-list` | 套餐标签/角标 | 推荐、热销、尝新首选、最多人选、节省最多等 | json | 移动端配置管理/商业化配置 | 是 | 否 |
 | `M04-CFG-coin-scene-price` | 千寻币消费场景单价 | 6 个消费场景均由后台配置 | json | 移动端配置管理/商业化配置 | 是 | 是 |
@@ -254,7 +260,6 @@
 | `M04-CFG-ideal-unlock-retention-days` | 理想型解锁保留天数 | 90 | int | 移动端配置管理/商业化配置 | 是 | 是 |
 | `M04-CFG-featured-unlock-retention-days` | 精选主页回看天数 | 3 | int | 移动端配置管理/商业化配置 | 是 | 是 |
 | `M04-CFG-vip-expire-remind-days` | 会员到期提醒提前天数 | 3 | int | 移动端配置管理/商业化配置/社交与订单参数 Tab | 是 | 否 |
-| `M04-CFG-order-close-timeout` | 未支付订单关闭时长 | `[待确认]` | int | 移动端配置管理/商业化配置/社交与订单参数 Tab | 是 | 否 |
 | `M04-CFG-refund-display` | 退款中/已退款前台展示开关 | 开 | bool | 移动端配置管理/商业化配置/社交与订单参数 Tab | 是 | 是 |
 | `M04-CFG-exposure-pack-reserve-switch` | 曝光包预留开关 | 关 | bool | 移动端配置管理/商业化配置 | 是 | 否 |
 | `M04-CFG-copy` | 商业化文案配置 | 见第 8 节 | json | 运营中心/文案与消息中心 | 是 | 否 |
@@ -266,7 +271,7 @@
 | 服务 ID | 服务名 | 用途 | 不可用兜底 |
 |---------|--------|------|------------|
 | `M04-SRV-wechat-pay` | 微信支付 | VIP 购买、千寻币充值 | 支付按钮置灰或提示稍后重试；不创建成功资产 |
-| `M04-SRV-wechat-subscription` | 微信连续订阅 | 连续订阅套餐扣费，首版接入待确认 | 若未接入，连续订阅套餐不展示或展示说明不可购买 |
+| `M04-SRV-wechat-subscription` | 微信连续订阅 | 连续订阅套餐真实自动续费扣款、订阅状态查询和取消续费承接 | 服务不可用时连续订阅套餐置灰，订阅管理页展示稍后重试或取消指引 |
 | `M04-SRV-notification` | 消息/通知中心 | 充值成功、余额变动、会员到期提醒 | 通知失败不阻塞资产入账，进入重试 |
 
 ---
@@ -319,7 +324,7 @@
 | APP | 查询会员状态 | 返回会员状态、有效期、权益可用性、到期提醒 | `M04-SM-vip-status` |
 | APP | 查询会员套餐与权益 | 返回普通套餐/连续订阅套餐、权益列表、标签、价格快照 | `M04-CFG-vip-package-list` |
 | APP | 创建会员订单 | 选择套餐后创建待支付订单 | `M04-SM-trade-order` |
-| APP | 查询/管理连续订阅 | 返回连续订阅状态、下次续费时间、取消续费入口或指引 | `M04-TBC-subscription-pay` |
+| APP | 查询/管理连续订阅 | 返回连续订阅状态、下次续费时间、取消续费入口或指引 | `M04-TERM-subscription` |
 | APP | 查询千寻币套餐 | 返回 4 档或后台配置套餐、标签、推荐档位 | `M04-CFG-coin-package-list` |
 | APP | 创建千寻币订单 | 选择套餐后创建待支付订单 | `M04-SM-trade-order` |
 | APP | 查询资产摘要 | 返回会员状态、千寻币余额、免费悄悄话剩余次数 | `M04-RULE-coin-balance` |
@@ -331,18 +336,18 @@
 | ADM | 用户商业化详情 | 在用户详情中查看资产摘要、订单、流水、解锁、退款 | `M04-RULE-asset-retention` |
 | ADM | 商业化订单管理 | 查询会员/千寻币订单，导出，查看退款状态 | `M04-SM-trade-order` |
 | ADM | 资产流水管理 | 查询千寻币流水与会员权益流水 | `M04-ENUM-flow-type` |
-| ADM | 退款记录管理 | 查询特批退款记录，处理轻量退款状态 | `M04-RULE-refund-display` |
+| ADM | 退款记录管理 | 查询特批退款记录和状态展示 | `M04-RULE-refund-display` |
 | ADM | 轻量对账 | 按日统计订单数、金额、退款数 | `M04-RULE-asset-retention` |
 
 ---
 
 ## 11. 评审结论（初稿自检）
 
-> 本节按 `docs/需求文档/标准/05_PRD评审清单.md` 做初稿自检；由于仍存在 4 个待确认项，本版不标“定稿通过”。
+> 本节按 `docs/需求文档/标准/05_PRD评审清单.md` 做初稿自检；2026-06-30 已收口 4 个原问题。
 
 | 维度 | P0 自检结论 | 说明 |
 |------|-------------|------|
-| 产品维度 | 有条件通过 | 模块目标、范围、边界、页面树、关键流程、字段/操作/状态和验收均已覆盖；`M04-TBC-*` 4 项待产品拍板 |
+| 产品维度 | 通过 | 模块目标、范围、边界、页面树、关键流程、字段/操作/状态和验收均已覆盖；原 4 个问题已拍板回写 |
 | 技术维度 | 有条件通过 | 核心数据模型、枚举、状态机、配置、权限、审计、幂等与第三方降级已登记；接口路径仍待技术方案阶段落具体设计 |
 | 一致性维度 | 有条件通过 | 正式虚拟币统一为“千寻币”；核心准入引用 PRD-01；邀请奖励流水引用 PRD-07；设计稿核对尚未完成 |
 
@@ -350,7 +355,5 @@
 
 | # | 遗留项 | 负责人 | 截止日期 |
 |---|--------|--------|----------|
-| 1 | `M04-TBC-subscription-pay` 连续订阅真实扣费接入方式 | 产品/技术 | 待定 |
-| 2 | `M04-TBC-order-close-timeout` 未支付订单关闭时长 | 产品/技术 | 待定 |
-| 3 | `M04-TBC-package-default-price` VIP/千寻币套餐默认价格与标签 | 产品/运营 | 待定 |
-| 4 | `M04-TBC-refund-owner` 特批退款责任角色与处理链路 | 产品/财务 | 待定 |
+| 1 | 技术方案阶段补充接口路径、DTO、权限与幂等键映射 | 技术 | 待定 |
+| 2 | Figma 设计稿链接回填 | 产品/设计 | 待定 |

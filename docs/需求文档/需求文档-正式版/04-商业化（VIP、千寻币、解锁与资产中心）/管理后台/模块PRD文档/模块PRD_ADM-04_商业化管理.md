@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本04 | 2026-06-30 | Codex | 收口未支付订单 30 分钟固定关闭、连续订阅真实自动续费和退款首版仅查询展示 |
 | 版本03 | 2026-06-26 | Codex | 页面规格文件名对齐 PRD-01 标准命名，更新页面清单路径 |
 | 版本02 | 2026-06-26 | Codex | 同步商业化配置页社交与订单参数、UI 画板补充和退款资产回退口径 |
 | 版本01 | 2026-06-25 | Codex | 版本 01：由旧版管理后台 PRD-04 转写正式版模块入口 |
@@ -48,7 +49,7 @@
 异常：
   - 套餐价格/币数缺失：校验阻断
   - 上架套餐无协议/支付配置：校验阻断或置为下架
-  - 连续订阅未接入：对应套餐不允许上架
+  - 连续订阅商品/协议未配置：对应套餐不允许上架
 ```
 
 ### 3.2 客服排查流程
@@ -122,11 +123,11 @@
 | 需求 ID | 能力 | 优先级 | 关联页面 ID | 备注 |
 |---------|------|--------|-------------|------|
 | `ADM-04-RULE-commerce-config` | 会员权益/套餐、千寻币套餐、单价、解锁保留期配置 | P0 | `ADM-04-PAGE-commerce-config` | 高风险保存需审计 |
-| `ADM-04-RULE-social-order-param` | 普通/会员查看配额、会员到期提醒、未支付订单关闭时长、退款展示开关 | P0 | `ADM-04-PAGE-commerce-config` | 统一收敛到社交与订单参数 Tab |
+| `ADM-04-RULE-social-order-param` | 普通/会员查看配额、会员到期提醒、退款展示开关 | P0 | `ADM-04-PAGE-commerce-config` | 统一收敛到社交与订单参数 Tab；未支付订单关闭时长固定 30 分钟不配置 |
 | `ADM-04-RULE-user-asset-detail` | 用户详情商业化 Tab | P0 | `ADM-04-PAGE-user-asset-detail` | 查询排查，不直接改资产 |
 | `ADM-04-RULE-order-list` | 会员/千寻币订单查询与导出 | P0 | `ADM-04-PAGE-commerce-order-list` | |
 | `ADM-04-RULE-asset-flow-list` | 资产流水查询与导出 | P0 | `ADM-04-PAGE-asset-flow-list` | 包含邀请奖励 |
-| `ADM-04-RULE-refund-list` | 特批退款记录查询、状态展示与轻量标记已退款 | P1 | `ADM-04-PAGE-refund-list` | 按 `M04-RULE-refund-asset-reversal` 处理资产回退，不做复杂审批流 |
+| `ADM-04-RULE-refund-list` | 特批退款记录查询与状态展示 | P1 | `ADM-04-PAGE-refund-list` | 首版不开放复杂审批流，不在页面人工改状态 |
 | `ADM-04-RULE-reconcile` | 按日轻量对账 | P1 | `ADM-04-PAGE-commerce-reconcile` | 不做渠道级追账 |
 | `ADM-04-RULE-copy-message` | 商业化文案/通知模板配置 | P0 | `ADM-GLB-PAGE-copy-message-center` | 商业化分组 |
 | `ADM-04-RULE-audit` | 商业化高风险操作审计 | P0 | 多页 | 继承后台审计基线 |
@@ -202,7 +203,7 @@
 |-------------|----------|-------------|
 | 配置保存 | 多管理员同时修改 | 版本号/乐观锁 + 审计 |
 | 支付成功回调 | 渠道重复回调 | orderNo + channelTradeNo 唯一 |
-| 退款处理 | 人工重复点击/渠道回调 | refundNo 唯一 |
+| 退款状态同步 | 渠道重复回调/状态重复同步 | refundNo 唯一 |
 | 资产人工修正 | 超管重复提交 | requestId + 审计原因 |
 | 导出 | 重复点击导出 | 异步任务去重或生成多任务均可审计 |
 
