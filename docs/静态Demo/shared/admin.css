@@ -1,0 +1,493 @@
+/* 管理后台静态 Demo 公共组件。模块样式可以在其后覆盖这些规则。 */
+.admin-shell {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  min-height: calc(100vh - 64px);
+}
+
+.admin-nav {
+  padding: 18px 14px;
+  border-right: 1px solid var(--line);
+  background: #111827;
+  color: #d1d5db;
+}
+
+.admin-nav h2 {
+  margin: 0 8px 14px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.admin-nav a {
+  display: block;
+  margin: 4px 0;
+  padding: 9px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.admin-nav a:hover,
+.admin-nav a.is-active {
+  background: #243044;
+  color: #fff;
+}
+
+.admin-content {
+  min-width: 0;
+  padding: 24px;
+}
+
+.admin-page {
+  display: none;
+}
+
+.admin-content .admin-page:first-child {
+  display: block;
+}
+
+.admin-content:has(.admin-page:target) .admin-page {
+  display: none;
+}
+
+.admin-content .admin-page:target {
+  display: block;
+}
+
+.admin-demo {
+  background: #eef3fa;
+  color: #0f172a;
+}
+
+.admin-demo .shell {
+  min-width: 1440px;
+  min-height: 1080px;
+  background: #eef3fa;
+}
+
+.admin-demo .topbar {
+  display: none;
+}
+
+.admin-demo .admin-shell {
+  grid-template-columns: 192px minmax(0, 1fr);
+  min-height: 1080px;
+  background: #eef3fa;
+}
+
+.admin-demo .admin-nav {
+  position: sticky;
+  top: 0;
+  height: 1080px;
+  padding: 20px 12px;
+  border-right: 0;
+  background: #101827;
+  color: #cbd5e1;
+}
+
+.admin-brand-panel {
+  display: grid;
+  gap: 8px;
+  margin: 0 8px 12px;
+}
+
+.admin-brand-panel strong {
+  color: #ffffff;
+  font-size: 20px;
+  line-height: 29px;
+}
+
+.admin-brand-panel span {
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.admin-demo .admin-nav a {
+  display: flex;
+  align-items: center;
+  width: 168px;
+  height: 34px;
+  margin: 6px 8px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: #101827;
+  color: #d1d5db;
+  font-size: 12px;
+  line-height: 19px;
+}
+
+.admin-demo .admin-nav a:hover,
+.admin-demo .admin-nav a.is-active {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.admin-rule-card {
+  display: grid;
+  gap: 8px;
+  width: 168px;
+  min-height: 132px;
+  margin: 18px 8px 0;
+  padding: 12px;
+  border: 1px solid #263449;
+  border-radius: 8px;
+  background: #172033;
+}
+
+.admin-rule-card strong {
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.admin-rule-card span {
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.admin-demo .admin-content.content {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  background: #eef3fa;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-bar input,
+.filter-bar select {
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--surface-soft);
+  color: #344054;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-page table {
+  min-width: 1120px;
+}
+
+.admin-page td .tag {
+  margin: 0 4px 4px 0;
+}
+
+.query-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.query-panel h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.query-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.control-field {
+  display: grid;
+  gap: 5px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.control-field input,
+.control-field select,
+table input,
+table select,
+table textarea,
+.pagination select {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--text);
+}
+
+table textarea {
+  width: 240px;
+  min-height: 54px;
+  resize: vertical;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-board-backdrop.is-open {
+  display: block;
+  overflow: auto;
+  background: #edf3fb;
+}
+
+.admin-modal-stage {
+  width: min(920px, calc(100vw - 48px));
+  margin: 40px auto;
+}
+
+.admin-stage-heading {
+  margin-bottom: 32px;
+}
+
+.admin-stage-heading h1 {
+  margin: 0;
+  color: #2563eb;
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 56px;
+}
+
+.admin-stage-heading p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 34px;
+}
+
+.admin-board-card,
+.admin-import-board {
+  position: relative;
+  border: 1px solid #d4dfef;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.admin-board-card {
+  min-height: 420px;
+  padding: 46px 54px 40px;
+}
+
+.admin-board-card h2,
+.admin-import-board h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 44px;
+}
+
+.admin-board-subtitle {
+  margin: 8px 0 0;
+  color: #63738d;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 30px;
+}
+
+.admin-board-close {
+  position: absolute;
+  top: 50px;
+  right: 50px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-board-close:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.admin-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  margin-top: 28px;
+  padding: 0 14px;
+  border-radius: 7px;
+  background: #eff4fa;
+}
+
+.admin-section-title span {
+  width: 3px;
+  height: 18px;
+  border-radius: 99px;
+  background: #2563eb;
+}
+
+.admin-section-title strong {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.admin-board-body {
+  margin-top: 22px;
+}
+
+.admin-board-actions,
+.admin-board-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
+}
+
+.admin-primary-btn,
+.admin-danger-btn,
+.admin-plain-btn,
+.import-soft-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 128px;
+  height: 54px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 28px;
+  white-space: nowrap;
+}
+
+.admin-primary-btn {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.admin-danger-btn {
+  background: #dc7700;
+  color: #ffffff;
+}
+
+.admin-plain-btn {
+  background: transparent;
+  color: #334155;
+}
+
+.import-soft-btn {
+  background: #eaf4ff;
+  color: #2563eb;
+}
+
+.admin-form {
+  margin-top: 26px;
+}
+
+.admin-form .field {
+  font-size: 15px;
+}
+
+.admin-form input,
+.admin-form select,
+.admin-form textarea {
+  min-height: 48px;
+  border-color: #d4dfef;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.admin-warning-panel {
+  margin: 28px 0;
+  padding: 24px 28px;
+  border: 1px solid #ffc27d;
+  border-radius: 12px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.admin-warning-panel strong {
+  display: block;
+  color: #9a3412;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 32px;
+}
+
+.admin-warning-panel p {
+  margin: 12px 0 0;
+  font-size: 18px;
+  line-height: 30px;
+}
+
+.admin-table-panel {
+  margin-top: 30px;
+  overflow: auto;
+  border: 1px solid #d4dfef;
+  border-radius: 14px;
+}
+
+.admin-table-panel table {
+  min-width: 780px;
+}

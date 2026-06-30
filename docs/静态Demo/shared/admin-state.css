@@ -1,0 +1,25 @@
+/* 后台页面状态层：必须在模块样式之后加载，保证 hash 页面切换稳定。 */
+.admin-demo .admin-content .admin-page {
+  display: none !important;
+}
+
+.admin-demo .admin-content .admin-page:first-child {
+  display: block !important;
+}
+
+.admin-demo .admin-content:has(.admin-page:target) .admin-page {
+  display: none !important;
+}
+
+.admin-demo .admin-content .admin-page:target {
+  display: block !important;
+}
+
+.admin-demo .admin-content:has(.admin-page:target) .admin-page:target {
+  display: block !important;
+}
+
+.drawer-backdrop:target,
+.modal-backdrop:target {
+  display: block !important;
+}

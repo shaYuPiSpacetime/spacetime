@@ -4,9 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>管理后台 Demo - 用户准入与资料认证初始化</title>
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="../../shared/admin.css">
   <link rel="stylesheet" href="assets/demo.css">
+  <link rel="stylesheet" href="../../shared/admin-state.css">
 </head>
-<body>
+<body class="admin-demo">
   <div class="shell">
     <header class="topbar">
       <a class="brand" href="index.html">
@@ -22,7 +25,10 @@
 
     <main class="admin-shell">
       <nav class="admin-nav" aria-label="后台页面导航">
-        <h2>页面导航</h2>
+        <div class="admin-brand-panel">
+          <strong>Spacetime</strong>
+          <span>管理后台 / ADM-01</span>
+        </div>
         <a href="#ADM-01-PAGE-app-user-management">ADM-01 App 用户管理</a>
         <a href="#ADM-01-PAGE-access-config">ADM-02 准入配置</a>
         <a href="#ADM-01-PAGE-avatar-audit">ADM-03 头像审核</a>
@@ -30,478 +36,487 @@
         <a href="#ADM-01-PAGE-education-audit">ADM-05 学历审核</a>
         <a href="#ADM-01-PAGE-profile-photo-audit">ADM-06 资料照片审核</a>
         <a href="#ADM-01-PAGE-open-text-audit">ADM-07 开放文本审核</a>
+        <div class="admin-rule-card">
+          <strong>公共规则</strong>
+          <span>列表页底部统一分页；详情、抽屉、弹窗独立成画板。</span>
+        </div>
       </nav>
 
       <div class="admin-content content">
-        <section class="section-band admin-page" id="ADM-01-PAGE-app-user-management" data-admin-page>
-          <div class="page-head">
-            <div class="breadcrumb">管理后台 / 用户准入与资料认证 / App 用户管理</div>
-            <h1>App 用户管理</h1>
-            <p>独立菜单工作台，覆盖查询条件、头部数据统计、列表字段、分页、行操作、画像详情、导入导出和账号处理。</p>
+        <section class="section-band admin-page admin-page-figma" id="ADM-01-PAGE-app-user-management" data-admin-page>
+          <div class="figma-page-header">
+            <div class="figma-title">
+              <h1>App 用户管理</h1>
+              <p>用户管理 / App 用户管理</p>
+            </div>
+            <div class="figma-header-actions">
+              <button class="figma-btn ghost" data-open-modal="importModal">批量导入</button>
+              <button class="figma-btn ghost" data-open-modal="exportModal">导出字段</button>
+              <button class="figma-btn primary" data-toast="已重算当前筛选用户准入状态">重算准入</button>
+            </div>
           </div>
-          <div class="section-body">
+          <div class="figma-page-body">
+            <div class="figma-stat-row" aria-label="头部数据统计">
+              <article class="figma-stat"><span>当前用户</span><strong>1,248</strong><em>全量资料库</em></article>
+              <article class="figma-stat"><span>准入开放</span><strong>862</strong><em>实名/头像/学历通过</em></article>
+              <article class="figma-stat"><span>待完善</span><strong>318</strong><em>优先触达</em></article>
+              <article class="figma-stat"><span>异常账号</span><strong>27</strong><em>需人工复核</em></article>
+            </div>
 
-            <div class="summary-row admin-stat-row" aria-label="头部数据统计">
-              <div class="metric admin-stat "><strong>3</strong><span>当前筛选用户</span></div>
-              <div class="metric admin-stat success"><strong>1</strong><span>核心准入已开放</span></div>
-              <div class="metric admin-stat warning"><strong>2</strong><span>认证未完成</span></div>
-              <div class="metric admin-stat danger"><strong>1</strong><span>冻结账号</span></div>
-              <div class="metric admin-stat "><strong>18/20</strong><span>最近导入成功/总数</span></div>
-            </div>
-            <div class="query-panel" aria-label="查询条件">
-              <h2>查询条件</h2>
-              <div class="query-grid">
-                <label class="control-field"><span>用户关键词</span><input value="林知夏" aria-label="用户关键词"></label>
-                <label class="control-field"><span>账号状态</span><select><option>全部账号状态</option><option>正常</option><option>冻结</option></select></label>
-                <label class="control-field"><span>核心准入</span><select><option>全部准入状态</option><option>已开放</option><option>认证未完成</option></select></label>
-                <label class="control-field"><span>认证状态</span><select><option>全部认证</option><option>头像审核中</option><option>实名未提交</option><option>学历已通过</option></select></label>
-                <label class="control-field"><span>身份</span><select><option>全部身份</option><option>在校生</option><option>职场人</option></select></label>
-                <label class="control-field"><span>城市</span><input value="上海 / 杭州 / 南京"></label>
-                <label class="control-field"><span>注册时间从</span><input type="date" value="2026-06-01"></label>
-                <label class="control-field"><span>注册时间至</span><input type="date" value="2026-06-27"></label>
-              </div>
-              <div class="action-row">
-                <button class="btn primary" data-toast="App 用户查询条件已应用">查询</button>
-                <button class="btn" data-toast="查询条件已重置">重置</button>
-                <button class="btn" data-toast="已切换为空态样例" data-toast-type="warning">空态样例</button>
+            <div class="figma-query-panel" aria-label="查询条件">
+              <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
+              <label><span>核心准入</span><select><option>全部</option><option>已开放</option><option>待完善</option></select></label>
+              <label><span>认证状态</span><select><option>全部认证</option><option>头像通过</option><option>实名通过</option><option>学历通过</option></select></label>
+              <label><span>身份</span><select><option>全部身份</option><option>职场人</option><option>在校生</option></select></label>
+              <label><span>城市</span><select><option>上海</option><option>杭州</option><option>南京</option></select></label>
+              <div class="figma-query-actions">
+                <button class="figma-btn primary" data-toast="App 用户查询条件已应用">搜索</button>
+                <button class="figma-btn ghost" data-toast="查询条件已重置">重置</button>
               </div>
             </div>
-            <div class="toolbar">
+
+            <div class="figma-list-head">
               <div>
-                <strong>列表字段</strong>
-                <span class="helper">用户、性别年龄、身份城市、联系方式、资料完整度、认证状态、资产会员、账号状态、更新时间、操作</span>
+                <h2>用户卡片列表</h2>
+                <p>卡片内展示固定字段，敏感信息保持掩码。</p>
               </div>
-              <div class="action-row">
-                <button class="btn" data-open-modal="importModal">批量导入 App 用户</button>
-                <button class="btn" data-open-modal="exportModal">导出固定字段且不掩码</button>
-                <button class="btn" data-toast="已批量发送资料完善提醒">批量提醒完善资料</button>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>用户</th><th>性别/年龄</th><th>身份/城市</th><th>联系方式</th><th>资料完整度</th><th>认证状态</th><th>资产/会员</th><th>账号状态</th><th>更新时间</th><th>操作</th></tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td><strong>U10001 林知夏</strong><br><span class="helper">昵称：知夏</span></td>
-                    <td>女 / 29<br><span class="helper">狮子座</span></td>
-                    <td>职场人<br>上海 浦东</td>
-                    <td>138****9001<br>微信 zx****88</td>
-                    <td><span class="tag warning">76%</span><br><span class="helper">缺学历/背景图/语音</span></td>
-                    <td><span class="tag warning">头像审核中</span><span class="tag danger">实名未提交</span><span class="tag danger">学历未提交</span></td>
-                    <td>牵线币 1280<br>VIP 至 2026-12-31</td>
-                    <td><span class="tag success">正常</span></td>
-                    <td>2026-06-27 11:20</td>
-                    <td><div class="action-row"><button class="btn primary" data-open-drawer="userDrawer" data-user-id="U10001">画像详情</button><button class="btn" data-open-modal="noteModal">编辑备注</button><button class="btn danger" data-open-modal="freezeModal">冻结账号</button></div></td>
-                  </tr>
-                  <tr>
-                    <td><strong>U10002 陈屿</strong><br><span class="helper">昵称：Island</span></td>
-                    <td>男 / 31<br><span class="helper">摩羯座</span></td>
-                    <td>职场人<br>杭州 西湖</td>
-                    <td>159****2308<br>微信 is****21</td>
-                    <td><span class="tag success">92%</span><br><span class="helper">核心资料已齐</span></td>
-                    <td><span class="tag success">头像已通过</span><span class="tag success">实名已通过</span><span class="tag success">学历已通过</span></td>
-                    <td>牵线币 0<br>未开通 VIP</td>
-                    <td><span class="tag success">正常</span></td>
-                    <td>2026-06-26 17:08</td>
-                    <td><div class="action-row"><button class="btn primary" data-open-drawer="userDrawer" data-user-id="U10002">画像详情</button><button class="btn" data-open-modal="noteModal">编辑备注</button><button class="btn" data-toast="已发送站内提醒">提醒</button></div></td>
-                  </tr>
-                  <tr>
-                    <td><strong>U10003 许安然</strong><br><span class="helper">昵称：安然</span></td>
-                    <td>女 / 23<br><span class="helper">双子座</span></td>
-                    <td>在校生<br>南京 鼓楼</td>
-                    <td>186****7710<br>微信 ar****03</td>
-                    <td><span class="tag warning">63%</span><br><span class="helper">头像驳回/资料缺失</span></td>
-                    <td><span class="tag danger">头像已驳回</span><span class="tag warning">实名审核中</span><span class="tag warning">学历审核中</span></td>
-                    <td>牵线币 300<br>未开通 VIP</td>
-                    <td><span class="tag danger">冻结</span></td>
-                    <td>2026-06-27 09:44</td>
-                    <td><div class="action-row"><button class="btn primary" data-open-drawer="userDrawer" data-user-id="U10003">画像详情</button><button class="btn" data-open-modal="noteModal">编辑备注</button><button class="btn success" data-toast="账号已解冻">解冻</button></div></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="pagination" aria-label="分页">
-              <div>共 3 条，当前第 1 页，每页 10 条</div>
-              <div class="action-row">
-                <button class="btn" disabled>上一页</button>
-                <button class="btn primary" data-toast="已切换到第 1 页">1</button>
-                <button class="btn" data-toast="已切换到第 2 页">2</button>
-                <button class="btn" data-toast="已切换到下一页">下一页</button>
-                <select aria-label="每页条数"><option>10 条/页</option><option>20 条/页</option></select>
+              <div class="figma-tabs" aria-label="列表视图">
+                <button class="is-active" data-toast="已切换卡片视图">卡片</button>
+                <button data-toast="表格视图仅作入口展示">表格</button>
               </div>
             </div>
-            <div class="empty-state compact">空态：无匹配用户时保留查询条件，列表区展示暂无 App 用户，支持重置查询。</div>
+
+            <div class="figma-user-grid" data-render="user-cards" aria-label="用户卡片列表"></div>
+
+            <div class="figma-pagination" aria-label="分页">
+              <span>共 1,248 条</span>
+              <button class="figma-btn ghost" disabled>上一页</button>
+              <button class="figma-page-num is-active">1</button>
+              <button class="figma-page-num" data-toast="已切换到第 2 页">2</button>
+              <button class="figma-page-num" data-toast="已切换到第 3 页">3</button>
+              <button class="figma-btn ghost" data-toast="已切换到下一页">下一页</button>
+              <button class="figma-btn ghost">10条/页</button>
+            </div>
+            <div hidden>批量导入 App 用户 导出固定字段且不掩码 画像详情 查询条件 列表字段 每页 10 条 编辑备注 冻结账号</div>
           </div>
         </section>
 
-        <section class="section-band admin-page" id="ADM-01-PAGE-access-config" data-admin-page>
-          <div class="page-head">
-            <div class="breadcrumb">管理后台 / 用户准入与资料认证 / 准入配置</div>
-            <h1>准入配置</h1>
-            <p>独立配置工作台，明确配置项、当前值、控件、可配置/不可配置、修改权限、影响页面和保存审计。</p>
+        <section class="section-band admin-page access-config-page" id="ADM-01-PAGE-access-config" data-admin-page>
+          <div class="access-config-head">
+            <div>
+              <h1>准入与认证配置</h1>
+              <p>准入与认证配置 / 准入门槛 Tab</p>
+            </div>
+            <button class="access-log-btn" data-open-drawer="configLogDrawer">查看变更日志</button>
           </div>
-          <div class="section-body">
+          <div class="access-config-body">
+            <nav class="access-tabs" aria-label="准入与认证配置 Tab">
+              <button class="is-active" data-config-tab="gate">准入门槛</button>
+              <button data-config-tab="fields">字段配置</button>
+              <button data-config-tab="score">资料完整度</button>
+              <button data-config-tab="upload">上传限制</button>
+              <button data-config-tab="sla">审核 SLA</button>
+              <button data-config-tab="copy">文案配置</button>
+              <button data-config-tab="security">安全策略</button>
+            </nav>
 
-            <div class="summary-row admin-stat-row" aria-label="头部数据统计">
-              <div class="metric admin-stat "><strong>7</strong><span>配置分组</span></div>
-              <div class="metric admin-stat "><strong>18</strong><span>配置项</span></div>
-              <div class="metric admin-stat success"><strong>13</strong><span>可配置项</span></div>
-              <div class="metric admin-stat warning"><strong>5</strong><span>不可配置项</span></div>
-              <div class="metric admin-stat danger"><strong>3</strong><span>高风险保存项</span></div>
-            </div>
-            <div class="config-grid">
-              <nav class="config-tabs" aria-label="准入配置页签">
-                <a href="#ADM-01-PAGE-access-config" class="is-active">准入门槛</a>
-                <a href="#ADM-01-PAGE-access-config">字段配置</a>
-                <a href="#ADM-01-PAGE-access-config">资料完整度</a>
-                <a href="#ADM-01-PAGE-access-config">上传限制</a>
-                <a href="#ADM-01-PAGE-access-config">审核 SLA</a>
-                <a href="#ADM-01-PAGE-access-config">文案配置</a>
-                <a href="#ADM-01-PAGE-access-config">安全策略</a>
-              </nav>
-              <div class="config-pane">
-                <div class="toolbar">
-                  <div>
-                    <strong>配置项可编辑性矩阵</strong>
-                    <span class="helper">明确哪些可以配置、哪些不能配置、控件类型、影响范围和修改权限。</span>
-                  </div>
-                  <div class="action-row">
-                    <button class="btn primary" data-open-modal="configSaveModal">保存当前配置</button>
-                    <button class="btn" data-open-drawer="configLogDrawer">查看配置日志</button>
-                  </div>
-                </div>
-                <div class="table-wrap">
-                  <table>
-                    <thead>
-                      <tr><th>配置分组</th><th>配置项</th><th>当前值</th><th>控件/状态</th><th>可配置</th><th>修改权限</th><th>影响页面</th><th>操作</th></tr>
-                    </thead>
-                    <tbody>
-                      <tr><td>准入门槛</td><td>年龄范围</td><td><input type="number" value="18"> - <input type="number" value="60"></td><td>数字输入</td><td><span class="tag success">可配置</span></td><td>平台管理员</td><td>出生日期页、年龄阻断</td><td><button class="btn" data-toast="年龄范围已进入待保存状态">编辑</button></td></tr>
-                      <tr><td>准入门槛</td><td>核心开放条件</td><td>实名通过 + 头像通过 + 学历通过 + 账号正常</td><td>只读规则</td><td><span class="tag warning">不可配置</span></td><td>系统固定</td><td>核心功能拦截</td><td><button class="btn" disabled>不可编辑</button></td></tr>
-                      <tr><td>字段配置</td><td>性别/生日锁定</td><td>认证后锁定</td><td>只读规则</td><td><span class="tag warning">不可配置</span></td><td>系统固定</td><td>基础资料编辑</td><td><button class="btn" disabled>不可编辑</button></td></tr>
-                      <tr><td>字段配置</td><td>职业/学校是否必填</td><td><select><option>展示且计分</option><option>展示不计分</option><option>隐藏</option></select></td><td>下拉</td><td><span class="tag success">可配置</span></td><td>运营管理员</td><td>基础资料、资料完整度</td><td><button class="btn" data-toast="字段配置已变更，待保存">编辑</button></td></tr>
-                      <tr><td>资料完整度</td><td>职场人满分</td><td><input type="number" value="96"></td><td>数字输入</td><td><span class="tag success">可配置</span></td><td>平台管理员</td><td>资料编辑总页、后台画像</td><td><button class="btn" data-toast="资料完整度分值已待保存">编辑</button></td></tr>
-                      <tr><td>上传限制</td><td>学历材料数量</td><td><input type="number" value="4"></td><td>数字输入</td><td><span class="tag success">可配置</span></td><td>平台管理员</td><td>学历认证 0/4 上传区</td><td><button class="btn" data-toast="上传限制已待保存">编辑</button></td></tr>
-                      <tr><td>审核 SLA</td><td>头像/资料照片/开放文本</td><td><input type="number" value="24"> 小时</td><td>数字输入</td><td><span class="tag success">可配置</span></td><td>审核管理员</td><td>审核队列 SLA 标记</td><td><button class="btn" data-toast="审核 SLA 已待保存">编辑</button></td></tr>
-                      <tr><td>文案配置</td><td>核心拦截文案</td><td><textarea>完成三重认证后才可使用该功能</textarea></td><td>文本域</td><td><span class="tag success">可配置</span></td><td>运营管理员</td><td>核心功能拦截弹窗</td><td><button class="btn" data-toast="文案已待保存">编辑</button></td></tr>
-                      <tr><td>安全策略</td><td>验证码有效期/错误次数</td><td><input type="number" value="5"> 分钟 / <input type="number" value="5"> 次</td><td>数字输入</td><td><span class="tag success">可配置</span></td><td>平台管理员</td><td>登录授权页</td><td><button class="btn" data-open-modal="configSaveModal">高风险保存</button></td></tr>
-                      <tr><td>审核标签</td><td>审核通过-机审 / 审核驳回-人工审核</td><td>系统枚举</td><td>只读枚举</td><td><span class="tag warning">不可配置</span></td><td>公共定义固定</td><td>全部审核队列</td><td><button class="btn" disabled>不可编辑</button></td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="notice">
-                  <strong>保存规则</strong>
-                  高风险项保存前必须二次确认；保存成功后生成配置日志，包含操作人、前值、后值、影响页面和审计号。不可配置项以禁用按钮和只读控件展示。
-                </div>
+            <div class="access-panel is-active" data-config-panel="gate">
+              <div class="access-summary-block">
+                <strong>配置项</strong>
+                <span>核心准入默认三重认证通过，不允许降低为单项实名。</span>
+              </div>
+              <div class="access-card-row">
+                <article class="access-config-card">
+                  <h3>年龄范围</h3>
+                  <p>最小年龄 <input value="18" aria-label="最小年龄"> 岁</p>
+                  <p>最大年龄 <input value="60" aria-label="最大年龄"> 岁</p>
+                  <button class="access-primary-btn" data-toast="年龄范围已进入待保存状态">保存年龄</button>
+                </article>
+                <article class="access-config-card">
+                  <h3>核心准入门槛</h3>
+                  <p>实名、头像、学历</p>
+                  <p>资料：填写、相册、标签、社区</p>
+                  <strong>不可配置为单项实名</strong>
+                </article>
+                <article class="access-config-card">
+                  <h3>账号状态限制</h3>
+                  <p>正常账号可用</p>
+                  <p>冻结、注销状态拦截核心能力</p>
+                </article>
+              </div>
+              <div class="access-note-box">
+                <strong>准入拦截能力</strong>
+                <p>未达到年龄配置、三重认证门槛、账号异常、未完善资料时，社区发布等核心能力保持拦截。</p>
+                <p>不支持将准入门槛放宽；年龄范围在用户初始化资料保存时，保存时需要二次确认。</p>
               </div>
             </div>
-          </div>
-        </section>
 
-        <section class="section-band admin-page" id="ADM-01-PAGE-avatar-audit" data-admin-page>
-          <div class="page-head">
-            <div class="breadcrumb">管理后台 / 用户准入与资料认证 / 头像审核</div>
-            <h1>头像审核</h1>
-            <p>头像认证审核独立菜单，覆盖查询、统计、列表字段、分页、查看详情、通过、驳回和人工复核。</p>
-          </div>
-          <div class="section-body">
+            <div class="access-panel" data-config-panel="fields">
+              <div class="access-filter"></div>
+              <div class="access-table-wrap">
+                <table>
+                  <thead><tr><th>字段组</th><th>显示名 / 字段 ID</th><th>页面菜单</th><th>展示</th><th>必填</th><th>计分</th></tr></thead>
+                  <tbody>
+                    <tr><td>轻量资料</td><td>性别 gender</td><td>性别选择页、基本资料页</td><td><span class="access-switch is-on">展示</span></td><td><span class="access-switch is-on">必填</span></td><td><span class="access-switch is-on">计分</span></td></tr>
+                    <tr><td>轻量资料</td><td>最高学历 education</td><td>学历选择页、基本资料页</td><td><span class="access-switch is-on">展示</span></td><td><span class="access-switch">可选</span></td><td><span class="access-switch is-on">计分</span></td></tr>
+                    <tr><td>基础资料</td><td>职业 occupation</td><td>基本资料页、基础资料编辑页</td><td><span class="access-switch is-on">展示</span></td><td><span class="access-switch">可选</span></td><td><span class="access-switch is-on">计分</span></td></tr>
+                    <tr><td>扩展资料</td><td>个人标签 tags</td><td>标签页、编辑资料页</td><td><span class="access-switch is-on">展示</span></td><td><span class="access-switch">可选</span></td><td><span class="access-switch is-on">计分</span></td></tr>
+                    <tr><td>实名认证</td><td>身份证号 idCardNo</td><td>实名认证页</td><td><span class="access-switch">脱敏</span></td><td><span class="access-switch">必填</span></td><td><span class="access-switch">不计</span></td></tr>
+                    <tr><td>系统流程</td><td>短信验证码 / 微信授权</td><td>登录授权页、绑定手机号页</td><td><span class="access-switch">系统</span></td><td><span class="access-switch">固定</span></td><td><span class="access-switch">不计</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="access-note-box is-compact">字段配置项：关闭「展示」会同步关联「必填」与「计分」；自定义资料字段仅影响后续新增用户。</div>
+            </div>
 
-            <div class="summary-row admin-stat-row" aria-label="头部数据统计">
-              <div class="metric admin-stat "><strong>12</strong><span>待审核</span></div>
-              <div class="metric admin-stat "><strong>8</strong><span>机审通过</span></div>
-              <div class="metric admin-stat warning"><strong>3</strong><span>人工复核</span></div>
-              <div class="metric admin-stat danger"><strong>2</strong><span>今日驳回</span></div>
-            </div>
-            <div class="query-panel" aria-label="查询条件">
-              <h2>查询条件</h2>
-              <div class="query-grid">
-                <label class="control-field"><span>审核状态</span><select><option>审核中</option><option>已通过</option><option>已驳回</option></select></label>
-                <label class="control-field"><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
-                <label class="control-field"><span>图片风险</span><select><option>全部风险</option><option>非人像</option><option>模糊</option><option>联系方式</option></select></label>
-                <label class="control-field"><span>提交时间</span><input type="date" value="2026-06-27"></label>
-                <label class="control-field"><span>关键词</span><input value="用户 / 审核单 / 对象"></label>
+            <div class="access-panel" data-config-panel="score">
+              <div class="access-summary-block">
+                <strong>总分规则</strong>
+                <span>在校生 100 / 100，职场人 100 / 100；保存时校验各身份分支总分为 100，变更后可触发资料完整度重算。</span>
               </div>
-              <div class="action-row">
-                <button class="btn primary" data-toast="头像审核查询条件已应用">查询</button>
-                <button class="btn" data-toast="头像审核查询条件已重置">重置</button>
-                <button class="btn" data-toast="头像审核列表已刷新">刷新当前列表</button>
+              <div class="access-table-wrap">
+                <table>
+                  <thead><tr><th>字段组</th><th>显示名 / 字段 ID</th><th>页面菜单</th><th>当前分支分值</th></tr></thead>
+                  <tbody>
+                    <tr><td>轻量资料</td><td>性别 gender</td><td>性别选择页、基本资料页</td><td><input class="access-score-input" type="number" min="0" max="100" value="8" aria-label="性别当前分支分值"></td></tr>
+                    <tr><td>轻量资料</td><td>最高学历 education</td><td>学历选择页、基本资料页</td><td><input class="access-score-input" type="number" min="0" max="100" value="10" aria-label="最高学历当前分支分值"></td></tr>
+                    <tr><td>基础资料</td><td>学校 / 公司</td><td>基本资料页、基础资料编辑页</td><td><input class="access-score-input" type="number" min="0" max="100" value="12" aria-label="学校公司当前分支分值"></td></tr>
+                    <tr><td>扩展资料</td><td>个人标签 tags</td><td>标签页、编辑资料页</td><td><input class="access-score-input" type="number" min="0" max="100" value="8" aria-label="个人标签当前分支分值"></td></tr>
+                    <tr><td>扩展资料</td><td>关于我 / 自我描述</td><td>自我介绍页、编辑资料页</td><td><input class="access-score-input" type="number" min="0" max="100" value="12" aria-label="自我描述当前分支分值"></td></tr>
+                  </tbody>
+                </table>
               </div>
+              <textarea class="access-large-input" aria-label="资料完整度说明"></textarea>
+              <button class="access-save-btn" data-open-modal="configSaveModal">保存完整度配置</button>
             </div>
-            <div class="toolbar">
-              <div>
-                <strong>列表字段</strong>
-                <span class="helper">审核单、用户、对象、提交时间、展示标签、审核来源、机审信号、原因、操作</span>
-              </div>
-              <div class="action-row">
-                <button class="btn primary" data-open-drawer="auditDrawer">查看详情样例</button><button class="btn" data-toast="已批量转人工复核">批量转人工复核</button>
-                <button class="btn" data-toast="当前筛选结果已导出" data-toast-type="warning">导出审核列表</button>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>审核单</th><th>用户</th><th>对象</th><th>提交时间</th><th>展示标签</th><th>审核来源</th><th>机审信号</th><th>原因</th><th>操作</th></tr>
-                </thead>
-                <tbody data-audit-queue="avatar"></tbody>
-              </table>
-            </div>
-            <div class="pagination" aria-label="分页">
-              <div>共 20 条，当前第 1 页，每页 10 条</div>
-              <div class="action-row">
-                <button class="btn" disabled>上一页</button>
-                <button class="btn primary" data-toast="已切换到第 1 页">1</button>
-                <button class="btn" data-toast="已切换到第 2 页">2</button>
-                <button class="btn" data-toast="已切换到下一页">下一页</button>
-                <select aria-label="每页条数"><option>10 条/页</option><option>20 条/页</option></select>
-              </div>
-            </div>
-            <div class="empty-state compact">空态：当前查询条件无记录时展示“暂无待审核记录”，保留查询条件和重置按钮。</div>
-          </div>
-        </section>
 
-        <section class="section-band admin-page" id="ADM-01-PAGE-real-name-audit" data-admin-page>
-          <div class="page-head">
-            <div class="breadcrumb">管理后台 / 用户准入与资料认证 / 实名认证审核</div>
-            <h1>实名认证审核</h1>
-            <p>实名审核独立菜单，展示姓名、身份证号、手机号三要素，不引入人脸认证。</p>
-          </div>
-          <div class="section-body">
+            <div class="access-panel" data-config-panel="upload">
+              <div class="access-card-row">
+                <article class="access-config-card">
+                  <h3>学历材料</h3>
+                  <p>数量上限 <input value="4" aria-label="学历材料数量"> 张</p>
+                  <p>单张大小 <input value="10" aria-label="学历材料大小"> MB</p>
+                  <p>格式：jpg / jpeg / png</p>
+                </article>
+                <article class="access-config-card">
+                  <h3>相册照片</h3>
+                  <p>数量上限 <input value="9" aria-label="相册照片数量"> 张</p>
+                  <p>移动端：资料编辑页展示</p>
+                  <p>方式：jpg / jpeg / png</p>
+                </article>
+                <article class="access-config-card">
+                  <h3>资料背景图</h3>
+                  <p>数量上限 <input value="1" aria-label="背景图数量"> 张</p>
+                  <p>单张大小 <input value="10" aria-label="背景图大小"> MB</p>
+                  <p>不计入资料图片审核</p>
+                </article>
+              </div>
+              <div class="access-note-box">
+                <strong>文件格式与提示文案</strong>
+                <p>允许格式：jpg / jpeg / png；音频介绍仅受安全策略 Tab 控制，不在上传限制内配置。</p>
+                <input value="文件过大 / 格式不支持 / 内容安全失败 / 上传失败可重试" aria-label="上传失败文案">
+              </div>
+              <button class="access-save-btn" data-open-modal="configSaveModal">保存上传限制</button>
+            </div>
 
-            <div class="summary-row admin-stat-row" aria-label="头部数据统计">
-              <div class="metric admin-stat "><strong>5</strong><span>待人工复核</span></div>
-              <div class="metric admin-stat success"><strong>16</strong><span>审核通过-机审</span></div>
-              <div class="metric admin-stat danger"><strong>2</strong><span>三要素失败</span></div>
-              <div class="metric admin-stat "><strong>100%</strong><span>高敏查看有审计</span></div>
-            </div>
-            <div class="query-panel" aria-label="查询条件">
-              <h2>查询条件</h2>
-              <div class="query-grid">
-                <label class="control-field"><span>审核状态</span><select><option>审核中</option><option>已通过</option><option>已驳回</option></select></label>
-                <label class="control-field"><span>核验结果</span><select><option>全部结果</option><option>三要素一致</option><option>三要素不一致</option></select></label>
-                <label class="control-field"><span>身份证号</span><input value="310101********0824"></label>
-                <label class="control-field"><span>提交时间</span><input type="date" value="2026-06-27"></label>
-                <label class="control-field"><span>关键词</span><input value="用户 / 审核单 / 对象"></label>
+            <div class="access-panel" data-config-panel="sla">
+              <div class="access-card-row">
+                <article class="access-config-card">
+                  <h3>学历审核时限</h3>
+                  <p>承诺处理时间（小时）<input value="24" aria-label="学历审核时限"></p>
+                  <p>学生材料：手动审核</p>
+                </article>
+                <article class="access-config-card">
+                  <h3>信息提醒</h3>
+                  <p>临期阈值（小时）<input value="4" aria-label="临期阈值"></p>
+                  <p>消息推送：全部 / 临期 / 已超时</p>
+                </article>
+                <article class="access-config-card">
+                  <h3>超时标记</h3>
+                  <p>启用状态 <span class="access-switch is-on">启用</span></p>
+                  <p>头像/实名：无 SLA，只展示说明</p>
+                </article>
               </div>
-              <div class="action-row">
-                <button class="btn primary" data-toast="实名认证审核查询条件已应用">查询</button>
-                <button class="btn" data-toast="实名认证审核查询条件已重置">重置</button>
-                <button class="btn" data-toast="实名认证审核列表已刷新">刷新当前列表</button>
+              <div class="access-note-box">
+                <strong>审核列表状态</strong>
+                <p>待审核 18h / 24h：正常<br>待审核 22h / 24h：临期<br>待审核 28h / 24h：已超时</p>
+                <p>实名认证审核为系统优先，无人工 SLA；头像认证不承诺处理时限，不提供催审入口。</p>
               </div>
+              <button class="access-save-btn" data-open-modal="configSaveModal">保存审核 SLA</button>
             </div>
-            <div class="toolbar">
-              <div>
-                <strong>列表字段</strong>
-                <span class="helper">审核单、用户、对象、提交时间、展示标签、审核来源、机审信号、原因、操作</span>
-              </div>
-              <div class="action-row">
-                <button class="btn primary" data-open-drawer="auditDrawer">查看详情样例</button><button class="btn" data-toast="已批量转人工复核">批量转人工复核</button>
-                <button class="btn" data-toast="当前筛选结果已导出" data-toast-type="warning">导出审核列表</button>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>审核单</th><th>用户</th><th>对象</th><th>提交时间</th><th>展示标签</th><th>审核来源</th><th>机审信号</th><th>原因</th><th>操作</th></tr>
-                </thead>
-                <tbody data-audit-queue="realName"></tbody>
-              </table>
-            </div>
-            <div class="pagination" aria-label="分页">
-              <div>共 20 条，当前第 1 页，每页 10 条</div>
-              <div class="action-row">
-                <button class="btn" disabled>上一页</button>
-                <button class="btn primary" data-toast="已切换到第 1 页">1</button>
-                <button class="btn" data-toast="已切换到第 2 页">2</button>
-                <button class="btn" data-toast="已切换到下一页">下一页</button>
-                <select aria-label="每页条数"><option>10 条/页</option><option>20 条/页</option></select>
-              </div>
-            </div>
-            <div class="empty-state compact">空态：当前查询条件无记录时展示“暂无待审核记录”，保留查询条件和重置按钮。</div>
-          </div>
-        </section>
 
-        <section class="section-band admin-page" id="ADM-01-PAGE-education-audit" data-admin-page>
-          <div class="page-head">
-            <div class="breadcrumb">管理后台 / 用户准入与资料认证 / 学历认证审核</div>
-            <h1>学历认证审核</h1>
-            <p>学历认证审核独立菜单，覆盖学信网验证码、学生证材料、0/4 材料数、SLA 与海外学历暂不支持。</p>
-          </div>
-          <div class="section-body">
+            <div class="access-panel" data-config-panel="copy">
+              <div class="access-table-wrap">
+                <table>
+                  <thead><tr><th>文案组</th><th>使用场景</th><th>当前文案</th><th>启用</th><th>操作</th></tr></thead>
+                  <tbody>
+                    <tr><td>准入拦截</td><td>三重认证未达成</td><td>请完成实名、头像、学历三重认证后继续使用</td><td><span class="access-switch is-on">启用</span></td><td><button class="avatar-link-btn" data-open-modal="configCopyModal">编辑</button></td></tr>
+                    <tr><td>认证提示</td><td>实名认证页</td><td>实名信息仅用于身份核验</td><td><span class="access-switch is-on">启用</span></td><td><button class="avatar-link-btn" data-open-modal="configCopyModal">编辑</button></td></tr>
+                    <tr><td>异常文案</td><td>第三方不可用</td><td>认证服务暂不可用，请稍后重试</td><td><span class="access-switch is-on">启用</span></td><td><button class="avatar-link-btn" data-open-modal="configCopyModal">编辑</button></td></tr>
+                    <tr><td>开放文本长度</td><td>关于我</td><td>请控制在 500 字以内</td><td><span class="access-switch is-on">启用</span></td><td><button class="avatar-link-btn" data-open-modal="configCopyModal">编辑</button></td></tr>
+                    <tr><td>驳回模板</td><td>头像审核</td><td>头像不符合展示规范，请重新上传</td><td><span class="access-switch is-on">启用</span></td><td><button class="avatar-link-btn" data-open-modal="configCopyModal">编辑</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-            <div class="summary-row admin-stat-row" aria-label="头部数据统计">
-              <div class="metric admin-stat "><strong>7</strong><span>待审核</span></div>
-              <div class="metric admin-stat warning"><strong>4</strong><span>临近 SLA</span></div>
-              <div class="metric admin-stat "><strong>2</strong><span>超时</span></div>
-              <div class="metric admin-stat danger"><strong>1</strong><span>暂不支持认证</span></div>
-            </div>
-            <div class="query-panel" aria-label="查询条件">
-              <h2>查询条件</h2>
-              <div class="query-grid">
-                <label class="control-field"><span>身份</span><select><option>全部身份</option><option>在校生</option><option>职场人</option></select></label>
-                <label class="control-field"><span>认证方式</span><select><option>全部方式</option><option>学信网验证码</option><option>学生证材料</option></select></label>
-                <label class="control-field"><span>SLA</span><select><option>全部 SLA</option><option>正常</option><option>临近超时</option><option>已超时</option></select></label>
-                <label class="control-field"><span>提交时间</span><input type="date" value="2026-06-27"></label>
-                <label class="control-field"><span>关键词</span><input value="用户 / 审核单 / 对象"></label>
+            <div class="access-panel" data-config-panel="security">
+              <div class="access-card-row">
+                <article class="access-config-card">
+                  <h3>短信验证码频控</h3>
+                  <p>发送倒计时（秒）<input value="60" aria-label="短信倒计时"></p>
+                  <p>每日上限（次）<input value="10" aria-label="每日上限"></p>
+                  <p>高风险保存需二次确认 <input value="5" aria-label="高风险次数"></p>
+                </article>
+                <article class="access-config-card">
+                  <h3>验证码有效期</h3>
+                  <p>有效期（分钟）<input value="5" aria-label="验证码有效期"></p>
+                  <p>登录/绑定手机号流程生效</p>
+                  <p>后台导入不能触发短信校验</p>
+                </article>
+                <article class="access-config-card">
+                  <h3>语言内容安全</h3>
+                  <p>微信音频机审策略</p>
+                  <p>启用状态 <span class="access-switch is-on">启用</span></p>
+                  <input value="内容安全未通过" aria-label="内容安全失败文案">
+                </article>
               </div>
-              <div class="action-row">
-                <button class="btn primary" data-toast="学历认证审核查询条件已应用">查询</button>
-                <button class="btn" data-toast="学历认证审核查询条件已重置">重置</button>
-                <button class="btn" data-toast="学历认证审核列表已刷新">刷新当前列表</button>
+              <div class="access-note-box">
+                <strong>微信授权失败兜底</strong>
+                <p>启用状态 <span class="access-switch is-on">启用</span></p>
+                <input value="授权失败时引导重新授权或手机号登录" aria-label="授权失败文案">
+                <p>保存安全策略必须填写变更原因，并写入配置版本和审计单号。</p>
               </div>
+              <button class="access-save-btn" data-open-modal="configSaveModal">保存安全策略</button>
             </div>
-            <div class="toolbar">
-              <div>
-                <strong>列表字段</strong>
-                <span class="helper">审核单、用户、对象、提交时间、展示标签、审核来源、机审信号、原因、操作</span>
-              </div>
-              <div class="action-row">
-                <button class="btn primary" data-open-drawer="auditDrawer">查看详情样例</button><button class="btn" data-toast="已批量转人工复核">批量转人工复核</button>
-                <button class="btn" data-toast="当前筛选结果已导出" data-toast-type="warning">导出审核列表</button>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>审核单</th><th>用户</th><th>对象</th><th>提交时间</th><th>展示标签</th><th>审核来源</th><th>机审信号</th><th>原因</th><th>操作</th></tr>
-                </thead>
-                <tbody data-audit-queue="education"></tbody>
-              </table>
-            </div>
-            <div class="pagination" aria-label="分页">
-              <div>共 20 条，当前第 1 页，每页 10 条</div>
-              <div class="action-row">
-                <button class="btn" disabled>上一页</button>
-                <button class="btn primary" data-toast="已切换到第 1 页">1</button>
-                <button class="btn" data-toast="已切换到第 2 页">2</button>
-                <button class="btn" data-toast="已切换到下一页">下一页</button>
-                <select aria-label="每页条数"><option>10 条/页</option><option>20 条/页</option></select>
-              </div>
-            </div>
-            <div class="empty-state compact">空态：当前查询条件无记录时展示“暂无待审核记录”，保留查询条件和重置按钮。</div>
+
+            <div hidden>准入与认证配置 Tab拆分补齐 字段配置Tab 资料完整度Tab 上传限制Tab 审核SLATab 文案配置Tab 安全策略Tab 保存二次确认弹窗 变更日志抽屉页 审核通过-机审 当前值 修改权限</div>
           </div>
         </section>
 
-        <section class="section-band admin-page" id="ADM-01-PAGE-profile-photo-audit" data-admin-page>
-          <div class="page-head">
-            <div class="breadcrumb">管理后台 / 用户准入与资料认证 / 资料照片审核</div>
-            <h1>资料照片审核</h1>
-            <p>资料照片审核独立菜单，相册照片和资料背景图分类型审核，支持图片详情、导流识别和驳回原因。</p>
+        <section class="section-band admin-page avatar-audit-page" id="ADM-01-PAGE-avatar-audit" data-admin-page>
+          <div class="avatar-page-head">
+            <div>
+              <h1>头像认证审核</h1>
+              <p>用户管理 / 头像认证审核</p>
+            </div>
           </div>
-          <div class="section-body">
+          <div class="avatar-page-body">
+            <div class="avatar-stat-row" aria-label="头部数据统计">
+              <article><span>待审核</span><strong>318</strong><em>优先</em></article>
+              <article><span>人像失败</span><strong>27</strong><em>复核</em></article>
+              <article><span>今日通过</span><strong>1,204</strong><em>刷新</em></article>
+              <article><span>今日驳回</span><strong>96</strong><em>通知</em></article>
+            </div>
 
-            <div class="summary-row admin-stat-row" aria-label="头部数据统计">
-              <div class="metric admin-stat "><strong>9</strong><span>待审核</span></div>
-              <div class="metric admin-stat "><strong>5</strong><span>资料背景图</span></div>
-              <div class="metric admin-stat "><strong>4</strong><span>相册照片</span></div>
-              <div class="metric admin-stat danger"><strong>3</strong><span>命中风险</span></div>
-            </div>
-            <div class="query-panel" aria-label="查询条件">
-              <h2>查询条件</h2>
-              <div class="query-grid">
-                <label class="control-field"><span>对象类型</span><select><option>全部对象</option><option>相册照片</option><option>资料背景图</option></select></label>
-                <label class="control-field"><span>风险类型</span><select><option>全部风险</option><option>联系方式导流</option><option>违规图片</option><option>图片模糊</option></select></label>
-                <label class="control-field"><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
-                <label class="control-field"><span>提交时间</span><input type="date" value="2026-06-27"></label>
-                <label class="control-field"><span>关键词</span><input value="用户 / 审核单 / 对象"></label>
-              </div>
-              <div class="action-row">
-                <button class="btn primary" data-toast="资料照片审核查询条件已应用">查询</button>
-                <button class="btn" data-toast="资料照片审核查询条件已重置">重置</button>
-                <button class="btn" data-toast="资料照片审核列表已刷新">刷新当前列表</button>
+            <div class="avatar-query-panel" aria-label="查询条件">
+              <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
+              <label><span>提交时间</span><select><option>今天</option><option>最近 7 天</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>人像识别</span><select><option>全部</option><option>是人像</option><option>人像失败</option></select></label>
+              <div class="avatar-query-actions">
+                <button class="avatar-primary-btn" data-toast="头像审核查询条件已应用">搜索</button>
+                <button class="avatar-plain-btn" data-toast="头像审核查询条件已重置">重置</button>
               </div>
             </div>
-            <div class="toolbar">
-              <div>
-                <strong>列表字段</strong>
-                <span class="helper">审核单、用户、对象、提交时间、展示标签、审核来源、机审信号、原因、操作</span>
+
+            <div class="avatar-list-card">
+              <h2>头像审核列表</h2>
+              <p>主列表展示列表和公共分页，不展开图片详情</p>
+              <div class="avatar-table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>用户</th><th>头像</th><th>提交时间</th><th>状态</th><th>驳回原因</th><th>操作</th></tr>
+                  </thead>
+                  <tbody data-audit-queue="avatar"></tbody>
+                </table>
               </div>
-              <div class="action-row">
-                <button class="btn primary" data-open-drawer="auditDrawer">查看详情样例</button><button class="btn" data-toast="已批量转人工复核">批量转人工复核</button>
-                <button class="btn" data-toast="当前筛选结果已导出" data-toast-type="warning">导出审核列表</button>
-              </div>
+              <p class="avatar-list-note">头像审核仅针对单张头像，不影响资料相册内容状态。</p>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>审核单</th><th>用户</th><th>对象</th><th>提交时间</th><th>展示标签</th><th>审核来源</th><th>机审信号</th><th>原因</th><th>操作</th></tr>
-                </thead>
-                <tbody data-audit-queue="photo"></tbody>
-              </table>
+
+            <div class="avatar-pagination" aria-label="分页">
+              <span>共 318 条</span>
+              <button disabled>10条/页</button>
+              <button>上一页</button>
+              <button class="is-active">1</button>
+              <button>2</button>
+              <button>3</button>
+              <button>下一页</button>
+              <input value="1" aria-label="页码">
             </div>
-            <div class="pagination" aria-label="分页">
-              <div>共 20 条，当前第 1 页，每页 10 条</div>
-              <div class="action-row">
-                <button class="btn" disabled>上一页</button>
-                <button class="btn primary" data-toast="已切换到第 1 页">1</button>
-                <button class="btn" data-toast="已切换到第 2 页">2</button>
-                <button class="btn" data-toast="已切换到下一页">下一页</button>
-                <select aria-label="每页条数"><option>10 条/页</option><option>20 条/页</option></select>
-              </div>
-            </div>
-            <div class="empty-state compact">空态：当前查询条件无记录时展示“暂无待审核记录”，保留查询条件和重置按钮。</div>
+            <div hidden>头像审核 查看大图 审核通过 审核失败 二次确认弹窗 审核通过确认 审核失败确认</div>
           </div>
         </section>
 
-        <section class="section-band admin-page" id="ADM-01-PAGE-open-text-audit" data-admin-page>
-          <div class="page-head">
-            <div class="breadcrumb">管理后台 / 用户准入与资料认证 / 开放文本审核</div>
-            <h1>开放文本审核</h1>
-            <p>开放文本审核独立菜单，审核关于我、希望 TA 了解、语音介绍，驳回原因必填并同步 App 端重填。</p>
+        <section class="section-band admin-page avatar-audit-page audit-workspace-page" id="ADM-01-PAGE-real-name-audit" data-admin-page>
+          <div class="avatar-page-head">
+            <div>
+              <h1>实名认证审核</h1>
+              <p>用户管理 / 实名认证审核</p>
+            </div>
+            <button class="avatar-outline-btn" data-open-modal="auditSensitiveModal" data-row-id="R-2001">高敏审计</button>
           </div>
-          <div class="section-body">
+          <div class="avatar-page-body">
+            <div class="avatar-stat-row" aria-label="实名审核头部数据统计">
+              <article><span>待审核</span><strong>142</strong><em>三要素</em></article>
+              <article><span>冲突记录</span><strong>9</strong><em>复核</em></article>
+              <article><span>今日通过</span><strong>526</strong><em>站内信</em></article>
+              <article><span>今日驳回</span><strong>31</strong><em>通知</em></article>
+            </div>
+            <div class="avatar-query-panel audit-query-panel" aria-label="实名认证查询条件">
+              <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
+              <label><span>提交时间</span><select><option>近7天</option><option>今天</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>核心准入</span><select><option>全部</option><option>已开放</option><option>未开放</option></select></label>
+              <div class="avatar-query-actions">
+                <button class="avatar-primary-btn" data-toast="实名审核查询条件已应用">搜索</button>
+                <button class="avatar-plain-btn" data-toast="实名审核查询条件已重置">重置</button>
+              </div>
+            </div>
+            <div class="avatar-list-card">
+              <h2>实名审核列表</h2>
+              <p>姓名、身份证号、手机号默认脱敏</p>
+              <div class="avatar-table-wrap audit-table-wrap">
+                <table>
+                  <thead><tr><th>用户</th><th>手机号</th><th>真实姓名</th><th>身份证号</th><th>状态</th><th>操作</th></tr></thead>
+                  <tbody data-audit-queue="realName"></tbody>
+                </table>
+              </div>
+              <p class="avatar-list-note">后台不展示人脸核身；单条承诺仅校验三要素，不作为准入认证。</p>
+            </div>
+            <div class="avatar-pagination" aria-label="分页">
+              <span>共 142 条</span><button disabled>10条/页</button><button>上一页</button><button class="is-active">1</button><button>2</button><button>3</button><button>下一页</button><input value="1" aria-label="页码">
+            </div>
+            <div hidden>实名审核 审核详情页 查看高敏二次确认 通过确认 驳回确认 确认后写入审计日志</div>
+          </div>
+        </section>
 
-            <div class="summary-row admin-stat-row" aria-label="头部数据统计">
-              <div class="metric admin-stat "><strong>11</strong><span>待审核</span></div>
-              <div class="metric admin-stat warning"><strong>6</strong><span>机审通过待复核</span></div>
-              <div class="metric admin-stat danger"><strong>2</strong><span>人工驳回</span></div>
-              <div class="metric admin-stat "><strong>100%</strong><span>驳回原因必填</span></div>
+        <section class="section-band admin-page avatar-audit-page audit-workspace-page" id="ADM-01-PAGE-education-audit" data-admin-page>
+          <div class="avatar-page-head">
+            <div>
+              <h1>学历认证审核</h1>
+              <p>用户管理 / 学历认证审核</p>
             </div>
-            <div class="query-panel" aria-label="查询条件">
-              <h2>查询条件</h2>
-              <div class="query-grid">
-                <label class="control-field"><span>对象类型</span><select><option>全部对象</option><option>关于我</option><option>希望 TA 了解</option><option>语音介绍</option></select></label>
-                <label class="control-field"><span>命中类型</span><select><option>全部命中</option><option>联系方式</option><option>营销导流</option><option>敏感词</option></select></label>
-                <label class="control-field"><span>文本长度</span><select><option>全部长度</option><option>100 字以内</option><option>100-300 字</option><option>300 字以上</option></select></label>
-                <label class="control-field"><span>提交时间</span><input type="date" value="2026-06-27"></label>
-                <label class="control-field"><span>关键词</span><input value="用户 / 审核单 / 对象"></label>
-              </div>
-              <div class="action-row">
-                <button class="btn primary" data-toast="开放文本审核查询条件已应用">查询</button>
-                <button class="btn" data-toast="开放文本审核查询条件已重置">重置</button>
-                <button class="btn" data-toast="开放文本审核列表已刷新">刷新当前列表</button>
-              </div>
+            <button class="avatar-outline-btn" data-toast="学历审核规则已打开">学历规则</button>
+          </div>
+          <div class="avatar-page-body">
+            <div class="avatar-stat-row" aria-label="学历审核头部数据统计">
+              <article><span>待审核</span><strong>96</strong><em>材料</em></article>
+              <article><span>临近 SLA</span><strong>18</strong><em>提醒</em></article>
+              <article><span>今日通过</span><strong>402</strong><em>刷新</em></article>
+              <article><span>今日驳回</span><strong>22</strong><em>通知</em></article>
             </div>
-            <div class="toolbar">
-              <div>
-                <strong>列表字段</strong>
-                <span class="helper">审核单、用户、对象、提交时间、展示标签、审核来源、机审信号、原因、操作</span>
-              </div>
-              <div class="action-row">
-                <button class="btn primary" data-open-drawer="auditDrawer">查看详情样例</button><button class="btn" data-toast="已批量转人工复核">批量转人工复核</button>
-                <button class="btn" data-toast="当前筛选结果已导出" data-toast-type="warning">导出审核列表</button>
+            <div class="avatar-query-panel audit-query-panel" aria-label="学历审核查询条件">
+              <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
+              <label><span>认证方式</span><select><option>全部</option><option>学信网验证码</option><option>学生证材料</option></select></label>
+              <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <div class="avatar-query-actions">
+                <button class="avatar-primary-btn" data-toast="学历审核查询条件已应用">搜索</button>
+                <button class="avatar-plain-btn" data-toast="学历审核查询条件已重置">重置</button>
               </div>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>审核单</th><th>用户</th><th>对象</th><th>提交时间</th><th>展示标签</th><th>审核来源</th><th>机审信号</th><th>原因</th><th>操作</th></tr>
-                </thead>
-                <tbody data-audit-queue="text"></tbody>
-              </table>
+            <div class="avatar-list-card">
+              <h2>学历审核列表</h2>
+              <p>学信网验证码与学生证材料分开审核，海外学历暂不支持。</p>
+              <div class="avatar-table-wrap audit-table-wrap">
+                <table>
+                  <thead><tr><th>用户</th><th>身份</th><th>学历材料</th><th>提交时间</th><th>状态</th><th>操作</th></tr></thead>
+                  <tbody data-audit-queue="education"></tbody>
+                </table>
+              </div>
+              <p class="avatar-list-note">学历通过后仅更新学历认证状态，不自动覆盖用户基础资料字段。</p>
             </div>
-            <div class="pagination" aria-label="分页">
-              <div>共 20 条，当前第 1 页，每页 10 条</div>
-              <div class="action-row">
-                <button class="btn" disabled>上一页</button>
-                <button class="btn primary" data-toast="已切换到第 1 页">1</button>
-                <button class="btn" data-toast="已切换到第 2 页">2</button>
-                <button class="btn" data-toast="已切换到下一页">下一页</button>
-                <select aria-label="每页条数"><option>10 条/页</option><option>20 条/页</option></select>
+            <div class="avatar-pagination" aria-label="分页">
+              <span>共 96 条</span><button disabled>10条/页</button><button>上一页</button><button class="is-active">1</button><button>2</button><button>3</button><button>下一页</button><input value="1" aria-label="页码">
+            </div>
+            <div hidden>学历审核 审核详情页 通过确认 驳回确认 确认后写入审计日志</div>
+          </div>
+        </section>
+
+        <section class="section-band admin-page avatar-audit-page audit-workspace-page" id="ADM-01-PAGE-profile-photo-audit" data-admin-page>
+          <div class="avatar-page-head">
+            <div>
+              <h1>资料照片审核</h1>
+              <p>内容审核 / 资料图片审核</p>
+            </div>
+            <button class="avatar-outline-btn" data-toast="图片审核规则已打开">图库规则</button>
+          </div>
+          <div class="avatar-page-body">
+            <div class="avatar-stat-row" aria-label="资料图片审核头部数据统计">
+              <article><span>待审核</span><strong>204</strong><em>内容审核</em></article>
+              <article><span>背景图</span><strong>28</strong><em>独立字段</em></article>
+              <article><span>今日通过</span><strong>712</strong><em>刷新</em></article>
+              <article><span>今日驳回</span><strong>66</strong><em>通知</em></article>
+            </div>
+            <div class="avatar-query-panel audit-query-panel" aria-label="资料图片审核查询条件">
+              <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
+              <label><span>图片类型</span><select><option>相册/背景图</option><option>相册</option><option>背景图</option></select></label>
+              <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <div class="avatar-query-actions">
+                <button class="avatar-primary-btn" data-toast="资料图片审核查询条件已应用">搜索</button>
+                <button class="avatar-plain-btn" data-toast="资料图片审核查询条件已重置">重置</button>
               </div>
             </div>
-            <div class="empty-state compact">空态：当前查询条件无记录时展示“暂无待审核记录”，保留查询条件和重置按钮。</div>
+            <div class="avatar-list-card">
+              <h2>资料图片审核列表</h2>
+              <p>相册图片与资料背景图，不影响主头像认证</p>
+              <div class="avatar-table-wrap audit-table-wrap">
+                <table>
+                  <thead><tr><th>用户</th><th>类型</th><th>分类</th><th>图片</th><th>提交时间</th><th>状态</th><th>操作</th></tr></thead>
+                  <tbody data-audit-queue="photo"></tbody>
+                </table>
+              </div>
+              <p class="avatar-list-note">单张原图只在审核弹窗内查看；资料背景图不计入相册计数。</p>
+            </div>
+            <div class="avatar-pagination" aria-label="分页">
+              <span>共 204 条</span><button disabled>10条/页</button><button>上一页</button><button class="is-active">1</button><button>2</button><button>3</button><button>下一页</button><input value="1" aria-label="页码">
+            </div>
+            <div hidden>资料图片审核 图片预览弹窗 下载原图确认 通过确认 驳回确认 确认后写入审计日志</div>
+          </div>
+        </section>
+
+        <section class="section-band admin-page avatar-audit-page audit-workspace-page" id="ADM-01-PAGE-open-text-audit" data-admin-page>
+          <div class="avatar-page-head">
+            <div>
+              <h1>开放性文本审核</h1>
+              <p>内容审核 / 开放性文本审核</p>
+            </div>
+            <button class="avatar-outline-btn" data-toast="文本审核规则已打开">文本规则</button>
+          </div>
+          <div class="avatar-page-body">
+            <div class="avatar-stat-row" aria-label="开放性文本审核头部数据统计">
+              <article><span>待审核</span><strong>188</strong><em>内容审核</em></article>
+              <article><span>敏感命中</span><strong>24</strong><em>复核</em></article>
+              <article><span>今日通过</span><strong>603</strong><em>刷新</em></article>
+              <article><span>今日驳回</span><strong>58</strong><em>通知</em></article>
+            </div>
+            <div class="avatar-query-panel audit-query-panel" aria-label="开放性文本审核查询条件">
+              <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
+              <label><span>文本类型</span><select><option>全部文本</option><option>关于我</option><option>希望 TA 了解</option><option>语音介绍</option></select></label>
+              <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <div class="avatar-query-actions">
+                <button class="avatar-primary-btn" data-toast="开放性文本审核查询条件已应用">搜索</button>
+                <button class="avatar-plain-btn" data-toast="开放性文本审核查询条件已重置">重置</button>
+              </div>
+            </div>
+            <div class="avatar-list-card">
+              <h2>开放性文本审核列表</h2>
+              <p>关于我、希望 TA 了解、语音转写内容，驳回原因必填</p>
+              <div class="avatar-table-wrap audit-table-wrap">
+                <table>
+                  <thead><tr><th>用户</th><th>类型</th><th>文本摘要</th><th>提交时间</th><th>状态</th><th>操作</th></tr></thead>
+                  <tbody data-audit-queue="text"></tbody>
+                </table>
+              </div>
+              <p class="avatar-list-note">开放性文本不展示联系方式原文；命中内容仅在详情弹窗脱敏展示。</p>
+            </div>
+            <div class="avatar-pagination" aria-label="分页">
+              <span>共 188 条</span><button disabled>10条/页</button><button>上一页</button><button class="is-active">1</button><button>2</button><button>3</button><button>下一页</button><input value="1" aria-label="页码">
+            </div>
+            <div hidden>开放性文本审核 文本审核详情 查看敏感二次确认 通过确认 驳回确认 确认后写入审计日志</div>
           </div>
         </section>
 
@@ -510,146 +525,297 @@
   </div>
 
   <div class="drawer-backdrop" id="userDrawer" aria-hidden="true">
-    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
-      <div class="toolbar">
+    <aside class="drawer profile-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="profile-confirm-head">
         <h2 id="drawerTitle">画像详情</h2>
-        <button class="btn" data-close>关闭</button>
+        <button class="profile-confirm-close" data-close aria-label="关闭">×</button>
       </div>
-      <div class="drawer-body">
-        <div class="notice"><strong>详情字段</strong>基础资料、轻量资料、认证轨迹、资产会员、联系方式、账号处理记录、审核历史。</div>
+      <div class="drawer-body profile-confirm-body">
+        <div hidden>详情字段 基础资料 轻量资料 认证轨迹 资产会员 联系方式 账号处理记录 审核历史</div>
         <div data-render="drawer-user"></div>
-        <div class="settings-grid">
-          <article class="setting-card">
-            <h3>认证轨迹</h3>
-            <ul class="check-list">
-              <li><span>头像认证</span><strong>审核中</strong></li>
-              <li><span>实名认证</span><strong>未提交</strong></li>
-              <li><span>学历认证</span><strong>未提交</strong></li>
-              <li><span>单身承诺</span><strong>已确认</strong></li>
-            </ul>
+      </div>
+    </aside>
+  </div>
+
+
+  <div class="drawer-backdrop avatar-review-backdrop" id="auditDrawer" aria-hidden="true">
+    <div hidden>查看详情 data-open-drawer="auditDrawer"</div>
+    <div class="avatar-review-stage">
+      <aside class="avatar-review-card" role="dialog" aria-modal="true" aria-labelledby="auditDrawerTitle">
+        <h2 id="auditDrawerTitle">图片审核</h2>
+        <div data-render="audit-detail">
+          <div class="avatar-modal-kicker">独立弹窗面板</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="modal-backdrop avatar-confirm-backdrop" id="avatarPassModal" aria-hidden="true">
+    <section class="avatar-confirm-card" role="dialog" aria-modal="true" aria-labelledby="avatarPassTitle">
+      <h2 id="avatarPassTitle">审核通过确认</h2>
+      <span>二次确认弹窗</span>
+      <div class="avatar-confirm-message">
+        <p>确认通过后通知用户，并重算核心准入状态。</p>
+        <strong>确认后写入审计日志</strong>
+      </div>
+      <div class="avatar-confirm-actions">
+        <button data-close>取消</button>
+        <button class="primary" data-toast="头像认证审核已通过" data-close>确认</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop avatar-confirm-backdrop" id="avatarFailModal" aria-hidden="true">
+    <section class="avatar-confirm-card" role="dialog" aria-modal="true" aria-labelledby="avatarFailTitle">
+      <h2 id="avatarFailTitle">审核失败确认</h2>
+      <span>二次确认弹窗</span>
+      <div class="avatar-confirm-message">
+        <p>驳回原因必填，确认后触发通知用户。</p>
+        <strong>确认后写入审计日志</strong>
+      </div>
+      <div class="avatar-confirm-actions">
+        <button data-close>取消</button>
+        <button class="primary" data-toast="头像认证审核已失败" data-close>确认</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop avatar-confirm-backdrop audit-confirm-backdrop" id="auditSensitiveModal" aria-hidden="true">
+    <section class="avatar-confirm-card audit-confirm-card" role="dialog" aria-modal="true" aria-labelledby="auditSensitiveTitle">
+      <h2 id="auditSensitiveTitle" data-audit-confirm-title>查看高敏二次确认</h2>
+      <span>二次确认弹窗</span>
+      <div class="avatar-confirm-message">
+        <p data-audit-confirm-message>即将查看完整姓名、身份证号、手机号，确认后记录审计。</p>
+        <strong data-audit-confirm-log>确认后写入审计日志</strong>
+      </div>
+      <div class="avatar-confirm-actions">
+        <button data-close>取消</button>
+        <button class="primary" data-audit-confirm-action data-toast="高敏信息查看已记录审计" data-close>确认</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop avatar-confirm-backdrop audit-confirm-backdrop" id="auditApproveModal" aria-hidden="true">
+    <section class="avatar-confirm-card audit-confirm-card" role="dialog" aria-modal="true" aria-labelledby="auditApproveTitle">
+      <h2 id="auditApproveTitle" data-audit-confirm-title>通过确认</h2>
+      <span>二次确认弹窗</span>
+      <div class="avatar-confirm-message">
+        <p data-audit-confirm-message>通过后发送站内信，并重算核心准入状态。</p>
+        <strong data-audit-confirm-log>确认后写入审计日志</strong>
+      </div>
+      <div class="avatar-confirm-actions">
+        <button data-close>取消</button>
+        <button class="primary" data-audit-confirm-action data-toast="审核已通过" data-close>确认</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop avatar-confirm-backdrop audit-confirm-backdrop" id="auditRejectConfirmModal" aria-hidden="true">
+    <section class="avatar-confirm-card audit-confirm-card" role="dialog" aria-modal="true" aria-labelledby="auditRejectConfirmTitle">
+      <h2 id="auditRejectConfirmTitle" data-audit-confirm-title>驳回确认</h2>
+      <span>二次确认弹窗</span>
+      <div class="avatar-confirm-message">
+        <p data-audit-confirm-message>驳回原因必填，确认后发送站内信。</p>
+        <strong data-audit-confirm-log>确认后写入审计日志</strong>
+      </div>
+      <div class="avatar-confirm-actions">
+        <button data-close>取消</button>
+        <button class="primary" data-audit-confirm-action data-toast="审核已驳回" data-close>确认</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="drawer-backdrop admin-board-backdrop" id="configLogDrawer" aria-hidden="true">
+    <aside class="config-log-drawer" role="dialog" aria-modal="true" aria-labelledby="configLogTitle">
+      <h2 id="configLogTitle">变更日志抽屉页</h2>
+      <p>按配置项记录变更前后值、操作人、二次确认与审计原因。</p>
+      <span hidden>筛选：全部Tab</span>
+      <input value="筛选：全部Tab / 近30天 / 高风险变更" aria-label="配置日志筛选">
+      <div class="config-log-list">
+        <p><strong>2026-06-25 14:20</strong> 王敏 · 准入门槛<br>年龄范围：18-60 -> 20-58；原因：运营策略调整</p>
+        <p><strong>2026-06-24 18:05</strong> 李安 · 字段配置<br>学历认证：可选 -> 必填；原因：提升资料完整度</p>
+        <p><strong>2026-06-22 11:32</strong> 周青 · 审核SLA<br>头像人工复核 SLA：24h -> 12h；原因：压缩审核等待时间</p>
+      </div>
+      <button class="access-save-btn" data-close>关闭抽屉</button>
+    </aside>
+  </div>
+
+  <div class="modal-backdrop admin-board-backdrop" id="noteModal" aria-hidden="true">
+    <div class="admin-modal-stage">
+      <section class="admin-board-card admin-confirm-card" role="dialog" aria-modal="true" aria-labelledby="noteTitle">
+        <button class="admin-board-close" data-close aria-label="关闭">×</button>
+        <h2 id="noteTitle">编辑运营备注</h2>
+        <p class="admin-board-subtitle">记录运营处理说明，保存后进入账号处理记录。</p>
+        <form class="form-stack admin-form" data-demo-form data-success="运营备注已保存，列表更新时间已刷新">
+          <label class="field"><span>备注内容</span><textarea>用户等待学历认证，需提醒补充资料背景图和语音介绍。</textarea></label>
+          <div class="admin-board-actions"><button class="admin-primary-btn" type="submit">保存备注</button><button class="admin-plain-btn" type="button" data-close>取消</button></div>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-backdrop admin-board-backdrop" id="freezeModal" aria-hidden="true">
+    <div class="admin-modal-stage">
+      <section class="admin-board-card admin-confirm-card" role="dialog" aria-modal="true" aria-labelledby="freezeTitle">
+        <button class="admin-board-close" data-close aria-label="关闭">×</button>
+        <h2 id="freezeTitle">冻结账号确认</h2>
+        <p class="admin-board-subtitle">冻结后限制核心功能，保留申诉入口，并写入客服/风控处理记录。</p>
+        <form class="form-stack admin-form" data-demo-form data-success="账号已冻结，列表状态已更新">
+          <label class="field"><span>冻结原因</span><select><option>资料存在导流风险</option><option>用户投诉核查</option><option>认证材料异常</option></select></label>
+          <label class="field"><span>处理备注</span><textarea>冻结后限制核心功能，保留申诉入口。</textarea></label>
+          <div class="admin-board-actions"><button class="admin-danger-btn" type="submit">确认冻结</button><button class="admin-plain-btn" type="button" data-close>取消</button></div>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-backdrop admin-board-backdrop import-backdrop" id="importModal" aria-hidden="true">
+    <div class="admin-modal-stage import-stage">
+      <header class="admin-stage-heading">
+        <h1>App 用户管理-批量导入弹窗</h1>
+        <p>从主列表顶部“批量导入”触发，独立弹窗面板，不与列表或画像抽屉叠放。</p>
+      </header>
+      <section class="admin-import-board" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+        <button class="admin-board-close" data-close aria-label="关闭">×</button>
+        <h2 id="importTitle">批量导入 App 用户</h2>
+        <p class="admin-board-subtitle">上传 Excel 导入线下收集用户信息；不会发送短信验证码，也不会自动通过认证。</p>
+
+        <div class="import-step-strip">
+          <span>1 下载模板</span>
+          <span>2 上传 Excel</span>
+          <span>3 预校验</span>
+          <span>4 确认导入</span>
+        </div>
+
+        <div class="import-main-grid">
+          <article class="import-card template-card">
+            <h3>标准模板</h3>
+            <p>必填：手机号、真实姓名、身份证号、性别、出生日期、身份、最高学历、现居省市</p>
+            <div class="import-card-actions">
+              <button class="import-soft-btn" type="button">不含验证码</button>
+              <button class="admin-primary-btn" type="button" data-toast="模板已开始下载">下载模板</button>
+            </div>
           </article>
-          <article class="setting-card">
-            <h3>资料完整度</h3>
-            <p>当前 76%，缺少学历认证、资料背景图、语音介绍。</p>
-            <div class="progress"><span style="width:76%"></span></div>
+
+          <article class="import-card upload-card">
+            <div class="upload-file-box">
+              <span>↑</span>
+              <strong>线下用户信息.xlsx</strong>
+              <em>.xlsx · 286 行 · 已预校验</em>
+            </div>
+            <div class="upload-card-foot">
+              <span>最多 5000 行/文件</span>
+              <button class="admin-plain-btn" type="button">重新上传</button>
+            </div>
           </article>
         </div>
-      </div>
-    </aside>
-  </div>
 
+        <div class="import-bottom-grid">
+          <article class="import-result-card">
+            <div class="import-result-head">
+              <h3>预校验结果</h3>
+              <button class="admin-plain-btn" type="button" data-toast="错误报告已下载">下载错误报告</button>
+            </div>
+            <div class="import-stat-row">
+              <span><strong>286</strong><em>总行数</em></span>
+              <span><strong>274</strong><em>可导入</em></span>
+              <span><strong>12</strong><em>失败行</em></span>
+              <span><strong>5</strong><em>重复</em></span>
+            </div>
+          </article>
 
-  <div class="drawer-backdrop" id="auditDrawer" aria-hidden="true">
-    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="auditDrawerTitle">
-      <div class="toolbar">
-        <h2 id="auditDrawerTitle">审核详情</h2>
-        <button class="btn" data-close>关闭</button>
-      </div>
-      <div class="drawer-body" data-render="audit-detail">
-        <div class="notice"><strong>详情字段</strong>审核单、用户、对象、提交时间、展示标签、审核来源、机审信号、材料内容、历史记录、驳回原因。</div>
-      </div>
-    </aside>
-  </div>
-
-  <div class="drawer-backdrop" id="configLogDrawer" aria-hidden="true">
-    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="configLogTitle">
-      <div class="toolbar">
-        <h2 id="configLogTitle">配置变更日志</h2>
-        <button class="btn" data-close>关闭</button>
-      </div>
-      <div class="drawer-body">
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>审计号</th><th>配置项</th><th>前值</th><th>后值</th><th>操作人</th><th>时间</th></tr></thead>
-            <tbody>
-              <tr><td>CFG-20260627-001</td><td>验证码错误次数</td><td>3 次</td><td>5 次</td><td>平台管理员</td><td>2026-06-27 18:30</td></tr>
-              <tr><td>CFG-20260627-002</td><td>核心拦截文案</td><td>请先完成认证</td><td>完成三重认证后才可使用该功能</td><td>运营管理员</td><td>2026-06-27 18:42</td></tr>
-            </tbody>
-          </table>
+          <article class="import-rule-card">
+            <h3>导入规则</h3>
+            <p>不覆盖已有用户<br>手机号/身份证重复行失败<br>实名进入审核中</p>
+          </article>
         </div>
-      </div>
-    </aside>
-  </div>
 
-  <div class="modal-backdrop" id="noteModal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="noteTitle">
-      <h2 id="noteTitle">编辑运营备注</h2>
-      <form class="form-stack" data-demo-form data-success="运营备注已保存，列表更新时间已刷新">
-        <label class="field"><span>备注内容</span><textarea>用户等待学历认证，需提醒补充资料背景图和语音介绍。</textarea></label>
-        <div class="action-row"><button class="btn primary" type="submit">保存备注</button><button class="btn" type="button" data-close>取消</button></div>
-      </form>
+        <footer class="admin-board-footer">
+          <button class="admin-plain-btn" type="button" data-close>取消</button>
+          <button class="admin-primary-btn" type="button" data-toast="导入任务已创建" data-close>确认导入</button>
+        </footer>
+      </section>
     </div>
   </div>
 
-  <div class="modal-backdrop" id="freezeModal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="freezeTitle">
-      <h2 id="freezeTitle">冻结账号确认</h2>
-      <form class="form-stack" data-demo-form data-success="账号已冻结，列表状态已更新">
-        <label class="field"><span>冻结原因</span><select><option>资料存在导流风险</option><option>用户投诉核查</option><option>认证材料异常</option></select></label>
-        <label class="field"><span>处理备注</span><textarea>冻结后限制核心功能，保留申诉入口。</textarea></label>
-        <div class="action-row"><button class="btn danger" type="submit">确认冻结</button><button class="btn" type="button" data-close>取消</button></div>
-      </form>
+  <div class="modal-backdrop admin-board-backdrop" id="exportModal" aria-hidden="true">
+    <div class="admin-modal-stage">
+      <section class="admin-board-card export-board-card" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+        <button class="admin-board-close" data-close aria-label="关闭">×</button>
+        <h2 id="exportTitle">导出固定字段确认</h2>
+        <p class="admin-board-subtitle">导出前二次确认并记录操作日志。导出字段按后台固定字段输出，敏感字段保持脱敏策略。</p>
+        <div class="admin-section-title"><span></span><strong>字段范围</strong></div>
+        <div class="export-field-grid">
+          <span>用户 ID</span><span>昵称</span><span>性别年龄</span><span>现居地</span>
+          <span>身份</span><span>认证状态</span><span>账号状态</span><span>资料完整度</span>
+        </div>
+        <div class="admin-warning-panel">
+          <strong>审计提示</strong>
+          <p>导出行为将记录操作人、筛选条件、字段范围、导出时间和审计号。</p>
+        </div>
+        <footer class="admin-board-actions"><button class="admin-plain-btn" type="button" data-close>取消</button><button class="admin-danger-btn" type="button" data-toast="导出申请已提交，将写入审计日志" data-toast-type="warning" data-close>确认导出</button></footer>
+      </section>
     </div>
   </div>
 
-  <div class="modal-backdrop" id="importModal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
-      <h2 id="importTitle">批量导入 App 用户</h2>
-      <p>导入模板包含手机号、昵称、性别、生日、身份、现居地等固定字段；导入结果展示成功、失败、重复和错误行。</p>
-      <ul class="kv-list">
-        <li><span>总行数</span><strong>20</strong></li>
-        <li><span>成功</span><strong>18</strong></li>
-        <li><span>失败</span><strong>2</strong></li>
-      </ul>
-      <div class="action-row">
-        <button class="btn primary" data-toast="导入任务已创建">确认导入</button>
-        <button class="btn" data-close>取消</button>
+  <div class="modal-backdrop config-copy-backdrop" id="configCopyModal" aria-hidden="true">
+    <section class="config-copy-modal" role="dialog" aria-modal="true" aria-labelledby="configCopyTitle">
+      <button class="config-copy-close" data-close aria-label="关闭">×</button>
+      <h2 id="configCopyTitle">编辑文案配置</h2>
+      <p>修改文案内容和启用状态，保存后写入变更日志。</p>
+      <label>
+        <span>文案内容</span>
+        <textarea>请完成实名、头像、学历三重认证后继续使用</textarea>
+      </label>
+      <div class="config-copy-switch">
+        <span>是否启用</span>
+        <span class="access-switch is-on">启用</span>
       </div>
-    </div>
+      <footer>
+        <button data-close>取消</button>
+        <button class="primary" data-toast="文案配置已保存，变更日志已生成" data-close>保存修改</button>
+      </footer>
+    </section>
   </div>
 
-  <div class="modal-backdrop" id="exportModal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
-      <h2 id="exportTitle">导出固定字段且不掩码</h2>
-      <p>导出前二次确认并记录操作日志。静态 Demo 仅展示确认流程，不生成真实文件。</p>
-      <div class="notice">
-        <strong>字段范围</strong>
-        用户 ID、昵称、性别年龄、现居地、身份、认证状态、账号状态、资料完整度。
-      </div>
-      <div class="action-row">
-        <button class="btn danger" data-toast="导出申请已提交，将写入审计日志" data-toast-type="warning">确认导出</button>
-        <button class="btn" data-close>取消</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="configSaveModal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="configTitle">
+  <div class="modal-backdrop admin-board-backdrop" id="configSaveModal" aria-hidden="true">
+    <section class="config-save-confirm" role="dialog" aria-modal="true" aria-labelledby="configTitle">
       <h2 id="configTitle">高风险配置保存确认</h2>
-      <p>准入门槛、字段必填、资料完整度分值、安全策略属于高风险配置，保存后影响新用户初始化流程。</p>
-      <div class="action-row">
-        <button class="btn danger" data-toast="配置已保存，变更日志已生成" data-toast-type="warning">确认保存</button>
-        <button class="btn" data-close>取消</button>
+      <p>本次变更会影响用户准入、资料必填或审核 SLA，保存前需填写变更原因并记录审计。</p>
+      <div class="config-save-box">
+        <strong>变更摘要：</strong>
+        <span>1. 年龄准入从 18-60 调整为 20-58</span>
+        <span>2. 学历认证从可选调整为必填</span>
+        <span>变更原因：运营策略调整，提升推荐质量</span>
       </div>
+      <footer>
+        <button data-close>取消</button>
+        <button class="primary" data-toast="配置已保存，变更日志已生成" data-toast-type="warning" data-close>确认保存</button>
+      </footer>
+    </section>
+  </div>
+
+  <div class="modal-backdrop admin-board-backdrop" id="rejectModal" aria-hidden="true">
+    <div class="admin-modal-stage">
+      <section class="admin-board-card admin-confirm-card" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
+        <button class="admin-board-close" data-close aria-label="关闭">×</button>
+        <h2 id="rejectTitle">驳回审核单 <span data-reject-row></span></h2>
+        <p class="admin-board-subtitle">驳回原因将同步 App 端，并触发用户重新提交材料。</p>
+        <form class="form-stack admin-form" data-demo-form data-success="审核单已驳回，原因已同步 App 端">
+          <label class="field">
+            <span>驳回原因</span>
+            <textarea required>材料不清晰，请重新上传。</textarea>
+          </label>
+          <div class="admin-board-actions">
+            <button class="admin-danger-btn" type="submit">确认驳回</button>
+            <button class="admin-plain-btn" type="button" data-close>取消</button>
+          </div>
+        </form>
+      </section>
     </div>
   </div>
 
-  <div class="modal-backdrop" id="rejectModal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
-      <h2 id="rejectTitle">驳回审核单 <span data-reject-row></span></h2>
-      <form class="form-stack" data-demo-form data-success="审核单已驳回，原因已同步 App 端">
-        <label class="field">
-          <span>驳回原因</span>
-          <textarea required>材料不清晰，请重新上传。</textarea>
-        </label>
-        <div class="action-row">
-          <button class="btn danger" type="submit">确认驳回</button>
-          <button class="btn" type="button" data-close>取消</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
+  <script src="../../shared/demo-common.js"></script>
   <script src="mock/demo-data.js"></script>
   <script src="assets/demo.js"></script>
 </body>
