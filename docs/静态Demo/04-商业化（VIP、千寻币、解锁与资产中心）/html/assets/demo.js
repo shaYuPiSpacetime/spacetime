@@ -110,6 +110,19 @@
     if (payButton && state.selectedCoin) payButton.textContent = `立即充值 ${state.selectedCoin.payAmount} 元`;
   }
 
+  function renderCoinScenes() {
+    const target = qs('[data-render="coin-scenes"]');
+    if (!target) return;
+    const rows = (data.config?.scenePrices || []).filter((item) => item.enabled).slice(0, 6);
+    target.innerHTML = rows.map((item) => `
+      <div class="benefit-item">
+        <strong>${escapeHtml(item.scene)}</strong>
+        <span>${escapeHtml(item.code)}</span>
+        ${tag(`${escapeHtml(item.price)} 千寻币`)}
+      </div>
+    `).join('');
+  }
+
   function renderSubscriptionGuide() {
     const target = qs('[data-render="subscription-guide"]');
     if (!target) return;
@@ -148,8 +161,10 @@
       <article class="order-card">
         <div>
           <strong>${escapeHtml(row.packageName)} · ${escapeHtml(row.orderNo)}</strong>
-          <span>${escapeHtml(row.packageType)} / ${money(row.amount)}</span>
-          <span class="helper">支付时间：${escapeHtml(row.payTime)} / 到期：${escapeHtml(row.expireTime)}</span>
+          <span>${escapeHtml(row.packageType)} / ${escapeHtml(row.duration)} / ${escapeHtml(row.subscriptionFlag || '普通')}</span>
+          <span>原价 ${money(row.originalAmount || row.amount)} / 优惠价 ${money(row.amount)} / ${escapeHtml(row.payChannel || '微信支付')}</span>
+          <span class="helper">创建：${escapeHtml(row.createTime || '-')} / 支付：${escapeHtml(row.payTime)} / 到期：${escapeHtml(row.expireTime)}</span>
+          ${row.agreementSnapshot ? `<span class="helper">协议快照：${escapeHtml(row.agreementSnapshot)}</span>` : ''}
           ${row.refundNote ? `<div class="notice"><strong>退款说明</strong>${escapeHtml(row.refundNote)}</div>` : ''}
         </div>
         ${tag(row.status)}
@@ -242,14 +257,19 @@
   function renderAdminBenefits() {
     const target = qs('[data-render="admin-benefits"]');
     if (!target) return;
+    const configText = (item) => {
+      if (item.configType === '次数') return `<input type="number" value="${escapeHtml(item.configValue || 0)}" style="width:88px"> 次/日`;
+      if (item.configType === '分数') return `<input type="number" value="${escapeHtml(item.configValue || 0)}" style="width:88px"> 分`;
+      return '<span class="helper">仅开关</span>';
+    };
     target.innerHTML = (data.vipBenefits || []).map((item) => `
       <tr>
         <td>${escapeHtml(item.code)}</td>
-        <td>${escapeHtml(item.name)}</td>
+        <td>${escapeHtml(item.adminName || item.name)}</td>
         <td>${escapeHtml(item.type)}</td>
         <td>${escapeHtml(item.desc)}</td>
         <td><span class="mini-switch">启用</span></td>
-        <td>${item.code === 'message' ? `<input type="number" value="${escapeHtml(item.dailyCount || 1)}" style="width:88px"> 次/日` : '<span class="helper">不适用</span>'}</td>
+        <td>${configText(item)}</td>
       </tr>
     `).join('');
   }
@@ -606,6 +626,10 @@
         window.location.hash = 'APP-04-PAGE-payment-result';
       }
       if (target.matches('[data-pay-coin]')) {
+        if (!qs('[data-coin-agreement]')?.checked) {
+          showToast('请先勾选千寻币充值协议', 'warning');
+          return;
+        }
         const add = (state.selectedCoin?.coinCount || 0) + (state.selectedCoin?.bonusCoin || 0);
         state.coinBalance += add;
         syncAssetText();
@@ -683,6 +707,7 @@
     renderVipBenefits();
     renderVipPackages();
     renderCoinPackages();
+    renderCoinScenes();
     renderSubscriptionGuide();
     renderCoinFlows();
     renderVipOrders();

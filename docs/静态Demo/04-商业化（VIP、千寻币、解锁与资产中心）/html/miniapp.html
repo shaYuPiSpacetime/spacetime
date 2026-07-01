@@ -131,10 +131,18 @@
                   <h3>选择充值套餐</h3>
                   <div class="package-grid" data-render="coin-packages"></div>
                 </div>
+                <div class="mini-panel">
+                  <h3>千寻币消费场景</h3>
+                  <div class="benefit-grid" data-render="coin-scenes"></div>
+                </div>
                 <div class="notice">
                   <strong>购买说明</strong>
-                  用户侧只展示总余额；充值币、赠送币、退款退回和邀请奖励在后台流水区分。
+                  用户侧只展示总余额；消费场景按后台配置的 6 个场景收口，邀请奖励只入账不扣费。
                 </div>
+                <label class="helper">
+                  <input type="checkbox" checked data-coin-agreement>
+                  我已阅读并同意《时空邂逅千寻币充值协议》
+                </label>
                 <div class="fixed-paybar">
                   <button class="btn danger full" data-open-modal="payUnavailableModal">模拟支付不可用</button>
                   <button class="btn primary full" data-pay-coin>立即充值 30 元</button>
@@ -326,7 +334,7 @@
         <section class="section-band" id="APP-04-PAGE-paywall-modal">
           <div class="page-head">
             <h2>APP-04-PAGE-paywall-modal 业务场景付费引导弹窗</h2>
-            <p>统一承接 VIP 引导、千寻币扣币确认和余额不足快捷充值。</p>
+            <p>统一承接会员引导、千寻币扣币确认和余额不足快捷充值。</p>
           </div>
           <div class="section-body phone-stage">
             <article class="phone">
@@ -339,7 +347,7 @@
                 <div class="mini-panel">
                   <h3>弹窗形态</h3>
                   <div class="entry-list">
-                    <button class="btn full" data-open-paywall="vip-all">VIP 引导：解锁全部</button>
+                    <button class="btn full" data-open-paywall="vip-all">会员引导：解锁全部</button>
                     <button class="btn full" data-open-paywall="coin-like-one">扣币确认：单条解锁</button>
                     <button class="btn full" data-open-paywall="coin-balance-low">余额不足：快捷充值</button>
                     <button class="btn danger full" data-open-paywall="core-blocked">核心准入受限</button>
@@ -347,7 +355,7 @@
                 </div>
                 <div class="notice">
                   <strong>规则</strong>
-                  喜欢/访客单条走千寻币，解锁全部走会员；理想型/精选按次扣千寻币，VIP 不免单。
+                  喜欢/访客单条走千寻币，解锁全部走会员；理想型/精选按次扣千寻币，会员不免单。
                 </div>
               </div>
             </article>
@@ -356,7 +364,7 @@
               <ul class="check-list">
                 <li><span>余额充足扣币</span><strong>余额减少，流水新增</strong></li>
                 <li><span>余额不足</span><strong>展示快捷充值套餐</strong></li>
-                <li><span>VIP 引导</span><strong>跳会员中心并携带来源</strong></li>
+                <li><span>会员引导</span><strong>跳会员中心并携带来源</strong></li>
                 <li><span>核心准入受限</span><strong>提示先完成三重认证</strong></li>
               </ul>
             </article>

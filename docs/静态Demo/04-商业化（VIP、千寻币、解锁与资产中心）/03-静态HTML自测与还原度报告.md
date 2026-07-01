@@ -128,7 +128,7 @@
 | `mini-APP-04-PAGE-coin-flow-default.png` | 千寻币流水 | 默认页 | 390x844 | 已覆盖 | 是 | 类型 Tab 和流水列表。 |
 | `mini-APP-04-PAGE-vip-orders-default.png` | 会员订单 | 默认页 | 390x844 | 已覆盖 | 是 | 订单卡和退款状态说明。 |
 | `mini-APP-04-PAGE-payment-result-default.png` | 支付结果 | 默认页 | 390x844 | 已覆盖 | 是 | 成功态。 |
-| `mini-APP-04-PAGE-paywall-modal-default.png` | 付费弹窗 | 关键弹窗 | 390x844 | 已覆盖 | 是 | VIP 引导半屏弹窗。 |
+| `mini-APP-04-PAGE-paywall-modal-default.png` | 付费弹窗 | 关键弹窗 | 390x844 | 已覆盖 | 是 | 会员引导半屏弹窗。 |
 | `mini-FLOW-app-vip-agreement-modal.png` | 会员协议 | 关键弹窗 | 390x844 | 已覆盖 | 是 | 会员协议和连续订阅协议。 |
 | `mini-STATE-app-pay-unavailable-modal.png` | 支付不可用 | 异常态 | 390x844 | 已覆盖 | 是 | 微信支付不可用提示。 |
 | `mini-FLOW-app-subscription-cancel-modal.png` | 取消续费 | 关键弹窗 | 390x844 | 已覆盖 | 是 | 取消续费确认。 |

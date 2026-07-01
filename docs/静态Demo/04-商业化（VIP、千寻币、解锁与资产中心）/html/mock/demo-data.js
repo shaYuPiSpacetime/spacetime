@@ -13,10 +13,15 @@ window.DEMO_DATA = {
     selectedCoinPackage: 'COIN-300',
   },
   vipBenefits: [
-    { code: 'all_unlock', name: '全量查看', desc: '会员期内查看喜欢我的和最近看过我的全部清晰记录', type: '全量查看', enabled: true },
-    { code: 'filter', name: '高级筛选', desc: '解锁更多择偶偏好筛选项，提高推荐命中率', type: '高级筛选', enabled: true },
-    { code: 'message', name: '免费悄悄话', desc: '每日免费悄悄话次数，用完后继续走千寻币', type: '消息权益', enabled: true, dailyCount: 1 },
-    { code: 'privacy', name: '隐私权益', desc: '隐藏访问记录等隐私能力，具体以后台配置为准', type: '隐私权益', enabled: true },
+    { code: 'heart_list', name: '心动名单一键揭晓', adminName: '心动名单', desc: '有人对你心动了，看到喜欢的，立即发起对话', type: '心动名单', enabled: true, configType: '开关' },
+    { code: 'visitor_list', name: '谁来看过你', adminName: '访客', desc: '访客全公开，别让在意你的人白等', type: '访客', enabled: true, configType: '开关' },
+    { code: 'free_whisper', name: '每日专属悄悄话', adminName: '免费悄悄话', desc: '消息直接弹到对方主页，第一时间抓住 ta 的目光', type: '免费悄悄话', enabled: true, configType: '次数', configValue: 1 },
+    { code: 'extra_browse', name: '每日额外浏览', adminName: '额外浏览', desc: '每天额外浏览更多嘉宾，发现更契合的人', type: '额外浏览', enabled: true, configType: '次数', configValue: 10 },
+    { code: 'advanced_filter', name: '精准筛选功能', adminName: '高级筛选', desc: '按你条件定向筛选，只看最合心意的人', type: '高级筛选', enabled: true, configType: '开关' },
+    { code: 'exposure_score', name: '曝光度拉满', adminName: '曝光', desc: '资料优先展示给活跃用户和你心仪的对象', type: '曝光', enabled: true, configType: '分数', configValue: 80 },
+    { code: 'privacy', name: '隐身模式', adminName: '隐私权益', desc: '只对你选中的人可见，主动权完全在你手上', type: '隐私权益', enabled: true, configType: '开关' },
+    { code: 'three_day_replay', name: '三天回放功能', adminName: '三天回放', desc: '最近 3 天错过的缘分都能找回，手滑也不怕', type: '三天回放', enabled: true, configType: '开关' },
+    { code: 'daily_heart_chance', name: '每日心动机会', adminName: '每日心动机会', desc: '每天额外获得更多心动机会，让缘分不被错过', type: '每日心动机会', enabled: true, configType: '次数', configValue: 5 },
   ],
   vipPackages: [
     { id: 'VIP-MONTH-01', name: '月度会员', type: 'normal', originalPrice: 49, price: 39, duration: '31 天', tag: '后台配置', unit: '约 1.26 元/天', status: 'on' },
@@ -50,9 +55,9 @@ window.DEMO_DATA = {
     { id: 'AFL-20260628-0008', type: '退款退回', amount: 100, scene: '退款退回', desc: '特批退款后千寻币回退', time: '2026-06-28 16:20:00' },
   ],
   vipOrders: [
-    { orderNo: 'ORD-20260630-1001', packageName: '连续包月', packageType: '连续订阅套餐', amount: '29.00', status: '支付成功', payTime: '2026-06-30 10:12:30', expireTime: '2026-07-30 09:00:00' },
-    { orderNo: 'ORD-20260621-0828', packageName: '季度会员', packageType: '普通套餐', amount: '99.00', status: '已退款', payTime: '2026-06-21 09:20:18', expireTime: '-', refundNote: '退款已完成，会员权益按退款结果回退。' },
-    { orderNo: 'ORD-20260520-0188', packageName: '月度会员', packageType: '普通套餐', amount: '39.00', status: '已退款', payTime: '2026-05-20 12:08:44', expireTime: '-', refundNote: '退款已完成，曾生效会员状态展示已过期。' },
+    { orderNo: 'ORD-20260630-1001', packageName: '连续包月', packageType: '连续订阅套餐', duration: '每月自动续费', originalAmount: '39.00', amount: '29.00', payChannel: '微信支付', status: '支付成功', createTime: '2026-06-30 10:11:58', payTime: '2026-06-30 10:12:30', expireTime: '2026-07-30 09:00:00', subscriptionFlag: '连续订阅', agreementSnapshot: '时空邂逅会员服务协议 / 微信连续订阅扣款' },
+    { orderNo: 'ORD-20260621-0828', packageName: '季度会员', packageType: '普通套餐', duration: '93 天', originalAmount: '129.00', amount: '99.00', payChannel: '微信支付', status: '已退款', createTime: '2026-06-21 09:18:10', payTime: '2026-06-21 09:20:18', expireTime: '-', subscriptionFlag: '普通', refundNote: '退款已完成，会员权益按退款结果回退。' },
+    { orderNo: 'ORD-20260520-0188', packageName: '月度会员', packageType: '普通套餐', duration: '31 天', originalAmount: '49.00', amount: '39.00', payChannel: '微信支付', status: '已退款', createTime: '2026-05-20 12:07:20', payTime: '2026-05-20 12:08:44', expireTime: '-', subscriptionFlag: '普通', refundNote: '退款已完成，曾生效会员状态展示已过期。' },
   ],
   paymentResults: {
     success: { title: '支付成功', status: '支付成功', desc: '千寻币已到账：320；资产中心已刷新。', orderNo: 'ORD-20260630-1002', orderType: '千寻币充值订单' },
@@ -109,7 +114,7 @@ window.DEMO_DATA = {
   orders: [
     { orderNo: 'ORD-20260630-1001', user: 'U100281 林晓雨 138****6128', type: '会员订单', packageName: '连续包月', amount: '29.00', status: '支付成功', createTime: '2026-06-30 10:11:58', payTime: '2026-06-30 10:12:30', channelNo: 'WX2026063010123091', source: '会员中心' },
     { orderNo: 'ORD-20260630-1002', user: 'U100281 林晓雨 138****6128', type: '千寻币充值订单', packageName: '300 千寻币', amount: '30.00', status: '支付成功', createTime: '2026-06-30 10:13:10', payTime: '2026-06-30 10:13:40', channelNo: 'WX2026063010134088', source: '余额不足弹窗' },
-    { orderNo: 'ORD-20260630-1003', user: 'U100372 陈一鸣 159****2308', type: '会员订单', packageName: '季度会员', amount: '99.00', status: '待支付', createTime: '2026-06-30 10:20:00', payTime: '-', channelNo: '-', source: '业务 VIP 引导' },
+    { orderNo: 'ORD-20260630-1003', user: 'U100372 陈一鸣 159****2308', type: '会员订单', packageName: '季度会员', amount: '99.00', status: '待支付', createTime: '2026-06-30 10:20:00', payTime: '-', channelNo: '-', source: '业务会员引导' },
     { orderNo: 'ORD-20260621-0828', user: 'U100281 林晓雨 138****6128', type: '会员订单', packageName: '季度会员', amount: '99.00', status: '已退款', createTime: '2026-06-21 09:18:10', payTime: '2026-06-21 09:20:18', channelNo: 'WX2026062109201881', source: '会员中心' },
   ],
   assetFlows: [

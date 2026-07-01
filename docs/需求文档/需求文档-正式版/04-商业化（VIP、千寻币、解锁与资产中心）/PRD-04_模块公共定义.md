@@ -6,6 +6,8 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本07 | 2026-07-01 | Codex | 按蓝湖 UI 已确认维度同步会员权益与千寻币消费场景：全量查看拆为心动名单/访客，补额外浏览、曝光、三天回放、每日心动机会配置，前台统一“千寻币/时空邂逅会员”，影响 `APP-04-PAGE-vip-center`、`APP-04-PAGE-coin-recharge`、`APP-04-PAGE-vip-orders`、`APP-04-PAGE-paywall-modal`、`ADM-04-PAGE-commerce-config` |
+| 版本06 | 2026-07-01 | Codex | 收口 3 个产品拍板项：首版不做 SVIP/高端服务，后台不做连续订阅状态同步操作，demo 积分管理不属于 PRD-04 首版且千寻币为唯一付费虚拟币，影响 `APP-04-PAGE-vip-center`、`APP-04-PAGE-coin-recharge`、`APP-04-PAGE-coin-flow`、`ADM-04-PAGE-commerce-config`、`ADM-04-PAGE-user-asset-detail`、`ADM-04-PAGE-commerce-order-list`、`ADM-04-PAGE-asset-flow-list`、`ADM-04-PAGE-commerce-reconcile` |
 | 版本05 | 2026-06-30 | Codex | 修正管理后台口径：会员权益仅启停/免费悄悄话次数可配，订单详情内发起退款并默认生成已退款记录，用户商业化详情由用户管理详情承载不作为 ADM-04 独立后台页，影响 `ADM-04-PAGE-commerce-config`、`ADM-04-PAGE-commerce-order-list`、`ADM-04-PAGE-refund-list`、`ADM-04-PAGE-user-asset-detail` |
 | 版本04 | 2026-06-30 | Codex | 收口 4 个产品拍板项：连续订阅接入真实自动续费、未支付订单固定 30 分钟关闭、套餐价格全部后台配置、退款首版仅查询与状态展示，影响 `APP-04-PAGE-vip-center`、`APP-04-PAGE-subscription-manage`、`APP-04-PAGE-payment-result`、`ADM-04-PAGE-commerce-config`、`ADM-04-PAGE-refund-list` |
 | 版本03 | 2026-06-26 | Codex | 补充退款资产回退、准入撤销后的权益暂停、场景单价边界、社交与订单参数配置归属、会员到期提醒天数和连续订阅管理能力，影响 `ADM-04-PAGE-commerce-config`、`APP-04-PAGE-vip-center`、`APP-04-PAGE-asset-center`、`APP-04-PAGE-paywall-modal`、`APP-04-PAGE-subscription-manage` |
@@ -19,10 +21,10 @@
 | 编号 | 结论 | 文档落点 |
 |------|------|----------|
 | M04-01 | 正式虚拟币名称统一为“千寻币”，旧称“成家币”不再作为前台展示名 | `GLB-TERM-cheng-coin`、`M04-TERM-coin` |
-| M04-02 | 商业化模块对已登录用户可见；未完成三重认证可购买 VIP/千寻币，但社交权益实际使用仍受 `M01-RULE-core-access` 限制 | `M04-RULE-core-access-gate` |
-| M04-03 | `喜欢我的`、`最近看过我的`：单条解锁走千寻币，解锁全部走 VIP，不做“千寻币解锁全部” | `M04-RULE-like-viewer-unlock` |
-| M04-04 | VIP 到期后全量权益即时回退；已单条购买记录继续保持清晰 | `M04-RULE-vip-expire`、`M04-SM-vip-status` |
-| M04-05 | 悄悄话普通用户可用千寻币发送；VIP 默认每日 1 次免费悄悄话，次数后台可配，用完后继续走千寻币 | `M04-RULE-whisper-pay`、`M04-CFG-vip-free-whisper-daily` |
+| M04-02 | 商业化模块对已登录用户可见；未完成三重认证可购买时空邂逅会员/千寻币，但社交权益实际使用仍受 `M01-RULE-core-access` 限制 | `M04-RULE-core-access-gate` |
+| M04-03 | `喜欢我的`、`最近看过我的`：单条解锁走千寻币，解锁全部走时空邂逅会员，不做“千寻币解锁全部” | `M04-RULE-like-viewer-unlock` |
+| M04-04 | 时空邂逅会员到期后会员权益即时回退；已单条购买记录继续保持清晰 | `M04-RULE-vip-expire`、`M04-SM-vip-status` |
+| M04-05 | 悄悄话普通用户可用千寻币发送；会员默认每日 1 次免费悄悄话，次数后台可配，用完后继续走千寻币 | `M04-RULE-whisper-pay`、`M04-CFG-vip-free-whisper-daily` |
 | M04-06 | 千寻币用户侧只展示一个总余额；充值币、赠送币、退款退回、邀请奖励等来源在后台流水区分；千寻币不过期 | `M04-RULE-coin-balance` |
 | M04-07 | 前台不开放主动退款申请；后台在商业化订单详情中发起特批退款，填写退款原因、资产回退处理和退款金额；本期提交即默认生成 `refunded` 退款记录，不做审批流 | `M04-RULE-refund-display`、`M04-SM-trade-order` |
 | M04-08 | 理想型支持单个/批量解锁，单次最多 5 个，VIP 也照常扣千寻币，默认保留 90 天且后台可配 | `M04-RULE-ideal-unlock` |
@@ -34,6 +36,9 @@
 | M04-14 | 未支付订单自动关闭时长固定为 30 分钟，首版不提供后台配置 | `M04-RULE-order-close-timeout`、`M04-SM-trade-order` |
 | M04-15 | VIP/千寻币套餐具体价格、币数、标签默认值不继承旧文档示例值，全部由后台配置 | `M04-CFG-vip-package-list`、`M04-CFG-coin-package-list`、`M04-CFG-package-tag-list` |
 | M04-16 | 退款记录页仅展示由商业化订单详情发起后的退款台账；列表不提供退款状态筛选，不做审批流，不在退款记录页人工改状态 | `M04-RULE-refund-display`、`ADM-04-PAGE-refund-list` |
+| M04-17 | 首版会员体系只做“时空邂逅会员”一个层级，不做 SVIP、高端服务、人工高端会员商品或高端服务后台配置 | `M04-RULE-member-tier-scope`、`APP-04-PAGE-vip-center` |
+| M04-18 | 首版管理后台只查看会员状态与订单，不提供微信连续订阅状态主动查询、同步、取消续费等后台操作；连续订阅状态管理由移动端订阅管理页承接 | `M04-RULE-admin-subscription-scope`、`ADM-04-PAGE-user-asset-detail`、`ADM-04-PAGE-commerce-order-list` |
+| M04-19 | demo 中“积分管理”不属于 PRD-04 首版；千寻币是唯一付费虚拟币口径，不建设积分公式、积分规则、积分记录等并行资产体系 | `M04-RULE-paid-coin-scope`、`APP-04-PAGE-coin-recharge`、`APP-04-PAGE-coin-flow`、`ADM-04-PAGE-commerce-config`、`ADM-04-PAGE-asset-flow-list`、`ADM-04-PAGE-commerce-reconcile` |
 
 ### 1.1 已收口确认项
 
@@ -43,6 +48,9 @@
 | 未支付订单自动关闭倒计时时长 | 固定 30 分钟，不做后台配置 | `APP-04-PAGE-payment-result`、`ADM-04-PAGE-commerce-order-list` |
 | VIP/千寻币套餐具体价格、币数、标签默认值 | 不继承旧文档示例价格，VIP/千寻币套餐价格、币数、标签全部由后台配置 | `APP-04-PAGE-vip-center`、`APP-04-PAGE-coin-recharge`、`ADM-04-PAGE-commerce-config` |
 | 特批退款后台责任角色与审批链路 | 首版由商业化订单详情发起退款并默认已退款，退款记录页只做台账查询，不开放审批流 | `ADM-04-PAGE-commerce-order-list`、`ADM-04-PAGE-refund-list` |
+| 会员层级是否包含 SVIP/高端服务 | 不包含；首版只有“时空邂逅会员”一个会员层级，套餐仅分普通套餐和连续订阅套餐 | `APP-04-PAGE-vip-center`、`ADM-04-PAGE-commerce-config` |
+| 后台是否做连续订阅状态同步 | 不做；后台仅配置连续订阅套餐和查看会员状态/订单，订阅状态查询与取消续费由移动端承接 | `APP-04-PAGE-subscription-manage`、`ADM-04-PAGE-user-asset-detail`、`ADM-04-PAGE-commerce-order-list` |
+| demo 积分管理是否纳入 PRD-04 | 不纳入；千寻币为唯一付费虚拟币，积分公式/规则/记录不属于本期范围 | `APP-04-PAGE-coin-recharge`、`APP-04-PAGE-coin-flow`、`ADM-04-PAGE-commerce-config`、`ADM-04-PAGE-asset-flow-list`、`ADM-04-PAGE-commerce-reconcile` |
 
 ---
 
@@ -50,8 +58,8 @@
 
 | 术语 ID | 统一术语 | 禁用旧称/别名 | 定义 | 是否需提升全局 |
 |---------|----------|--------------|------|---------------|
-| `M04-TERM-vip` | 时空邂逅会员 | VIP、成家会员 | 平台持续型付费权益，承接全量查看、高级筛选、免费悄悄话、配额扩容等能力 | 否 |
-| `M04-TERM-coin` | 千寻币 | 成家币 | 平台虚拟币，用户侧展示一个总余额，用于按次消费、奖励入账和资产流水 | 已提升为 `GLB-TERM-cheng-coin` |
+| `M04-TERM-vip` | 时空邂逅会员 | VIP、成家会员、SVIP、高端服务 | 平台持续型付费权益，承接心动名单、访客、免费悄悄话、额外浏览、高级筛选、曝光、隐私权益、三天回放、每日心动机会等能力；首版仅一个会员层级 | 否 |
+| `M04-TERM-coin` | 千寻币 | 成家币、积分、虚拟积分 | 平台唯一付费虚拟币，用户侧展示一个总余额，用于按次消费、奖励入账和资产流水 | 已提升为 `GLB-TERM-cheng-coin` |
 | `M04-TERM-asset-center` | 资产中心 | 资产明细 | 用户查看会员状态、千寻币余额、流水与订单入口的移动端页面集合 | 否 |
 | `M04-TERM-single-unlock` | 单条解锁 | 单个解锁 | 用户用千寻币购买某一条关系/访客/用户主页等对象的清晰查看权 | 否 |
 | `M04-TERM-all-unlock` | 全量解锁 | 解锁全部 | 用户通过会员权益在有效期内查看某类列表的全部清晰记录 | 否 |
@@ -93,12 +101,15 @@
 
 | 值（code） | 显示名 | 说明 | 排序 | 是否默认 | 状态 |
 |------------|--------|------|------|----------|------|
-| `quota` | 配额扩容 | 每日查看/推荐等次数提升 | 1 | 否 | 启用 |
-| `all_unlock` | 全量查看 | 在会员期内查看某类列表全部清晰信息 | 2 | 否 | 启用 |
-| `message` | 消息权益 | 免费悄悄话等消息相关权益 | 3 | 否 | 启用 |
-| `filter` | 高级筛选 | 解锁高级筛选项 | 4 | 否 | 启用 |
-| `privacy` | 隐私权益 | 隐藏访问记录等隐私能力 | 5 | 否 | 启用 |
-| `exposure` | 曝光权益 | 曝光类权益预留，首版不展开售卖 | 6 | 否 | 启用 |
+| `heart_list` | 心动名单 | 心动名单一键揭晓/全量查看 | 1 | 否 | 启用 |
+| `visitor_list` | 访客 | 访客全公开/全量查看 | 2 | 否 | 启用 |
+| `free_whisper` | 免费悄悄话 | 会员每日免费悄悄话次数 | 3 | 否 | 启用 |
+| `extra_browse` | 额外浏览 | 每日额外浏览人数/次数 | 4 | 否 | 启用 |
+| `advanced_filter` | 高级筛选 | 前台展示为精准筛选功能，解锁高级筛选项 | 5 | 否 | 启用 |
+| `exposure_score` | 曝光 | 曝光提升分数/权重 | 6 | 否 | 启用 |
+| `privacy` | 隐私权益 | 前台展示为隐身模式，隐藏访问记录等隐私能力 | 7 | 否 | 启用 |
+| `three_day_replay` | 三天回放 | 最近 3 天浏览/曝光等记录回放 | 8 | 否 | 启用 |
+| `daily_heart_chance` | 每日心动机会 | 每日额外心动机会次数 | 9 | 否 | 启用 |
 
 ### 3.4 `M04-ENUM-package-status` 套餐状态
 
@@ -225,23 +236,27 @@
 
 | 规则 ID | 规则描述 | 涉及端/页面 | 判定逻辑 | 备注 |
 |---------|----------|-------------|----------|------|
-| `M04-RULE-core-access-gate` | 购买与使用分离 | APP-04 全部购买页 | 已登录用户可购买 VIP/千寻币；涉及真实曝光、喜欢、私信、社区的权益使用必须满足 `M01-RULE-core-access`；核心准入从通过回退为未通过时，全量查看/高级筛选/私信/曝光类权益即时暂停，恢复准入后自动恢复；已生效的单条解锁记录保持 | 未完成三重认证时购买前后均提示 |
-| `M04-RULE-vip-benefit` | 会员权益统一配置 | `APP-04-PAGE-vip-center` / `ADM-04-PAGE-commerce-config` | 全量查看、高级筛选、隐私权益为系统内置权益，后台仅配置启停；免费悄悄话除启停外额外配置每日免费次数；权益名称、类型、说明不可编辑，不提供排序 | 固定展示顺序：全量查看、高级筛选、免费悄悄话、隐私权益 |
-| `M04-RULE-vip-expire` | 会员到期回退 | APP/ADM | 到期后全量查看、高级筛选、隐藏访问记录、额外配额、免费悄悄话即时失效；单条购买记录不受影响 | |
+| `M04-RULE-core-access-gate` | 购买与使用分离 | APP-04 全部购买页 | 已登录用户可购买时空邂逅会员/千寻币；涉及真实曝光、喜欢、私信、社区的权益使用必须满足 `M01-RULE-core-access`；核心准入从通过回退为未通过时，心动名单、访客、高级筛选、私信、曝光类权益即时暂停，恢复准入后自动恢复；已生效的单条解锁记录保持 | 未完成三重认证时购买前后均提示 |
+| `M04-RULE-vip-benefit` | 会员权益统一配置 | `APP-04-PAGE-vip-center` / `ADM-04-PAGE-commerce-config` | 会员权益为系统内置固定集合，权益名称、类型、说明不可编辑，不提供新增、删除、排序；后台按权益配置开关，并按权益类型补充次数或分数字段 | 固定展示顺序：心动名单、访客、免费悄悄话、额外浏览、高级筛选、曝光、隐私权益、三天回放、每日心动机会 |
+| `M04-RULE-vip-benefit-config-fields` | 会员权益配置字段边界 | `ADM-04-PAGE-commerce-config` | 心动名单、访客、高级筛选、隐私权益、三天回放仅配置开关；免费悄悄话配置开关+每日次数；额外浏览配置开关+每日次数；曝光配置开关+分数；每日心动机会配置开关+每日次数 | 前台展示名以 UI 为准：精准筛选对应高级筛选，隐身对应隐私权益 |
+| `M04-RULE-member-tier-scope` | 单会员层级 | APP/ADM | 首版仅提供“时空邂逅会员”一个会员层级；套餐类型只允许普通套餐和连续订阅套餐；不提供 SVIP、高端服务、人工高端会员商品或对应后台配置 | demo 或历史文档中出现的 SVIP/高端服务均不纳入首版 |
+| `M04-RULE-vip-expire` | 会员到期回退 | APP/ADM | 到期后心动名单、访客、免费悄悄话、额外浏览、高级筛选、曝光、隐私权益、三天回放、每日心动机会即时失效；单条购买记录不受影响 | |
 | `M04-RULE-coin-balance` | 千寻币余额规则 | APP/ADM | 用户侧只展示总余额；千寻币不过期；后台流水区分充值、赠送、奖励、退款退回等来源 | 不做双余额池 |
-| `M04-RULE-like-viewer-unlock` | 喜欢/访客解锁 | APP 关系链路 | 单条解锁走千寻币；解锁全部走 VIP；单条购买永久可见；两个模块解锁状态相互独立 | 不做千寻币解锁全部；`likes_unlock_one` 与 `viewers_unlock_one` 单价独立可配，也允许运营设为相同价格 |
-| `M04-RULE-whisper-pay` | 悄悄话支付 | APP 消息链路 | 普通用户直接扣千寻币；VIP 优先扣每日免费次数，用完后扣千寻币；同一目标未回复/未失效前不可重复发送 | 与 PRD-03 消息状态联动 |
-| `M04-RULE-ideal-unlock` | 理想型解锁 | APP 推荐链路 | 单个/批量均走千寻币；单次最多勾选数取 `M04-CFG-ideal-batch-max`；VIP 不免单；保留期取 `M04-CFG-ideal-unlock-retention-days` | 默认 5 个/90 天 |
+| `M04-RULE-like-viewer-unlock` | 喜欢/访客解锁 | APP 关系链路 | 单条解锁走千寻币；解锁全部走时空邂逅会员；单条购买永久可见；两个模块解锁状态相互独立 | 不做千寻币解锁全部；`likes_unlock_one` 与 `viewers_unlock_one` 单价独立可配，也允许运营设为相同价格 |
+| `M04-RULE-whisper-pay` | 悄悄话支付 | APP 消息链路 | 普通用户直接扣千寻币；会员优先扣每日免费次数，用完后扣千寻币；同一目标未回复/未失效前不可重复发送 | 与 PRD-03 消息状态联动 |
+| `M04-RULE-ideal-unlock` | 理想型解锁 | APP 推荐链路 | 单个/批量均走千寻币；单次最多勾选数取 `M04-CFG-ideal-batch-max`；会员不免单；保留期取 `M04-CFG-ideal-unlock-retention-days` | 默认 5 个/90 天 |
 | `M04-RULE-featured-unlock` | 精选主页解锁 | APP 推荐链路 | 走千寻币按次扣减；保留期取 `M04-CFG-featured-unlock-retention-days` | 默认 3 天 |
 | `M04-RULE-payment-result` | 支付结果承接 | `APP-04-PAGE-payment-result` | 成功刷新权益/余额并可回来源；失败保留订单上下文可重试；取消不变更资产，订单在 30 分钟后自动关闭 | 关闭时长见 `M04-RULE-order-close-timeout` |
 | `M04-RULE-order-close-timeout` | 未支付订单关闭 | APP/ADM | 商业化订单创建后若 30 分钟内未支付成功，订单自动进入 `closed`；30 分钟为首版固定值，不提供后台配置 | 支付成功回调晚于关闭时按技术方案做幂等与补偿判断 |
 | `M04-RULE-refund-display` | 退款展示 | APP/ADM | 前台不开放主动退款申请；后台在商业化订单详情中发起退款并二次确认，提交后新增退款记录；退款记录页默认展示已退款台账、发起人、原因和资产回退处理，不提供退款状态筛选或审批流 | 不在退款记录页人工改状态 |
-| `M04-RULE-refund-asset-reversal` | 退款资产回退 | APP/ADM | 首版特批退款仅自动处理未消费或可全量回收的订单；会员订单退款从退款完成时停止对应会员权益，已使用的全量查看/筛选/消息权益不反向计费，曾生效过的会员状态落 `expired`，未生效即退款落 `inactive`；千寻币订单退款时若余额足以扣回到账币数则扣回并写 `refund` 流水，若余额不足或已消费则不自动扣成负数，转线下处理并保留 `refunding`/备注 | 技术方案需落退款前置校验和线下处理原因 |
+| `M04-RULE-refund-asset-reversal` | 退款资产回退 | APP/ADM | 首版特批退款仅自动处理未消费或可全量回收的订单；会员订单退款从退款完成时停止对应会员权益，已使用的心动名单、访客、筛选、消息权益不反向计费，曾生效过的会员状态落 `expired`，未生效即退款落 `inactive`；千寻币订单退款时若余额足以扣回到账币数则扣回并写 `refund` 流水，若余额不足或已消费则不自动扣成负数，转线下处理并保留 `refunding`/备注 | 技术方案需落退款前置校验和线下处理原因 |
 | `M04-RULE-coin-consume-price-scope` | 千寻币消费单价范围 | APP/ADM | `M04-CFG-coin-scene-price` 只配置 `whisper`、`likes_unlock_one`、`viewers_unlock_one`、`ideal_user_unlock`、`ideal_batch_unlock`、`featured_profile_unlock` 6 个消费场景；`invite_*` 仅作为 PRD-07 奖励入账场景，不进入消费单价配置 | 避免奖励场景被误配为消费扣费 |
+| `M04-RULE-paid-coin-scope` | 唯一付费虚拟币口径 | APP/ADM | 千寻币是 PRD-04 唯一付费虚拟币；demo 中“积分管理”不纳入首版，不建设积分公式、积分规则、积分记录，也不与千寻币做双资产并行展示 | 如后续需要积分体系，应另立 PRD，不复用千寻币字段 |
 | `M04-RULE-exposure-pack-reserve` | 曝光包预留 | APP/ADM | 首版只在文案和配置层保留场景占位，不允许上架售卖 | 待推荐规则补齐后另写 PRD |
 | `M04-RULE-invite-reward-flow` | 邀请奖励入账 | PRD-07/PRD-04 | PRD-07 奖励成功后写 PRD-04 千寻币流水，`flowType=reward`，`bizScene` 使用 `invite_*` | 触发与风控归 PRD-07 |
 | `M04-RULE-order-idempotency` | 订单与流水幂等 | APP/ADM | 支付回调、退款回调、解锁扣币、邀请奖励入账均需用业务幂等键避免重复发放/扣减 | 技术方案需落唯一键 |
 | `M04-RULE-asset-retention` | 资产记录留存 | APP/ADM | 资产流水、订单、退款记录长期保留；用户注销后按合规策略匿名化或受控留存 | 不删除财务台账 |
+| `M04-RULE-admin-subscription-scope` | 后台连续订阅边界 | ADM | 后台首版只配置连续订阅套餐/微信商品/协议，并查看会员状态与订单结果；不提供微信连续订阅状态主动查询、同步、取消续费、代用户取消等后台操作 | 用户订阅状态查询、刷新和取消续费入口由 `APP-04-PAGE-subscription-manage` 承接 |
 
 ---
 
@@ -253,6 +268,9 @@
 | `M04-CFG-normal-view-quota` | 普通用户每日查看配额 | 10 | int | 移动端配置管理/商业化配置/社交与订单参数 Tab | 是 | 是 |
 | `M04-CFG-vip-view-quota` | 会员每日查看配额 | 20 | int | 移动端配置管理/商业化配置/社交与订单参数 Tab | 是 | 是 |
 | `M04-CFG-vip-free-whisper-daily` | 会员每日免费悄悄话次数 | 1 | int | 移动端配置管理/商业化配置 | 是 | 是 |
+| `M04-CFG-vip-extra-browse-daily` | 会员每日额外浏览次数 | 由后台配置 | int | 移动端配置管理/商业化配置 | 是 | 是 |
+| `M04-CFG-vip-exposure-score` | 会员曝光提升分数 | 由后台配置 | int | 移动端配置管理/商业化配置 | 是 | 是 |
+| `M04-CFG-vip-daily-heart-chance` | 会员每日心动机会次数 | 由后台配置 | int | 移动端配置管理/商业化配置 | 是 | 是 |
 | `M04-CFG-vip-package-list` | 普通会员套餐 | 无固定价格 | json | 移动端配置管理/商业化配置 | 是 | 是 |
 | `M04-CFG-subscription-package-list` | 连续订阅套餐 | 由后台配置 | json | 移动端配置管理/商业化配置 | 是 | 是 |
 | `M04-CFG-coin-package-list` | 千寻币套餐 | 4 档结构，价格/币数不写死 | json | 移动端配置管理/商业化配置 | 是 | 是 |
@@ -265,6 +283,20 @@
 | `M04-CFG-refund-display` | 退款中/已退款前台展示开关 | 开 | bool | 移动端配置管理/商业化配置/社交与订单参数 Tab | 是 | 是 |
 | `M04-CFG-exposure-pack-reserve-switch` | 曝光包预留开关 | 关 | bool | 移动端配置管理/商业化配置 | 是 | 否 |
 | `M04-CFG-copy` | 商业化文案配置 | 见第 8 节 | json | 运营中心/文案与消息中心 | 是 | 否 |
+
+### 6.1 会员权益配置明细
+
+| 权益 code | 前台 UI 名称 | 后台能力名 | 配置字段 | 引用配置 | 说明 |
+|-----------|--------------|------------|----------|----------|------|
+| `heart_list` | 心动名单一键揭晓 | 心动名单 | 开关 | `M04-CFG-vip-benefit-list` | 原“全量查看”拆分为心动名单和访客 |
+| `visitor_list` | 谁来看过你 / 访客全公开 | 访客 | 开关 | `M04-CFG-vip-benefit-list` | 原“全量查看”拆分为心动名单和访客 |
+| `free_whisper` | 每日专属悄悄话 | 免费悄悄话 | 开关 + 每日次数 | `M04-CFG-vip-benefit-list`、`M04-CFG-vip-free-whisper-daily` | 次数用完后继续走千寻币 |
+| `extra_browse` | 每日额外浏览 | 额外浏览 | 开关 + 每日次数 | `M04-CFG-vip-benefit-list`、`M04-CFG-vip-extra-browse-daily` | 次数由后台配置 |
+| `advanced_filter` | 精准筛选功能 | 高级筛选 | 开关 | `M04-CFG-vip-benefit-list` | 前台名称按 UI 展示，后台能力名保持高级筛选 |
+| `exposure_score` | 曝光度拉满 | 曝光 | 开关 + 分数 | `M04-CFG-vip-benefit-list`、`M04-CFG-vip-exposure-score` | 会员权益曝光分数，不等同曝光包预留 |
+| `privacy` | 隐身模式 | 隐私权益 | 开关 | `M04-CFG-vip-benefit-list` | 前台名称按 UI 展示，后台能力名保持隐私权益 |
+| `three_day_replay` | 三天回放功能 | 三天回放 | 开关 | `M04-CFG-vip-benefit-list` | 只控制是否启用 |
+| `daily_heart_chance` | 每日心动机会 | 每日心动机会 | 开关 + 每日次数 | `M04-CFG-vip-benefit-list`、`M04-CFG-vip-daily-heart-chance` | 次数由后台配置 |
 
 ---
 
@@ -327,19 +359,19 @@
 | APP | 查询会员套餐与权益 | 返回普通套餐/连续订阅套餐、权益列表、标签、价格快照 | `M04-CFG-vip-package-list` |
 | APP | 创建会员订单 | 选择套餐后创建待支付订单 | `M04-SM-trade-order` |
 | APP | 查询/管理连续订阅 | 返回连续订阅状态、下次续费时间、取消续费入口或指引 | `M04-TERM-subscription` |
-| APP | 查询千寻币套餐 | 返回 4 档或后台配置套餐、标签、推荐档位 | `M04-CFG-coin-package-list` |
+| APP | 查询千寻币套餐 | 返回后台配置的千寻币套餐、标签、推荐档位；不返回积分或其他付费虚拟币套餐 | `M04-CFG-coin-package-list`、`M04-RULE-paid-coin-scope` |
 | APP | 创建千寻币订单 | 选择套餐后创建待支付订单 | `M04-SM-trade-order` |
 | APP | 查询资产摘要 | 返回会员状态、千寻币余额、免费悄悄话剩余次数 | `M04-RULE-coin-balance` |
-| APP | 查询千寻币流水 | 支持分页查看充值/消费/赠送/奖励/退款流水 | `M04-ENUM-flow-type` |
+| APP | 查询千寻币流水 | 支持分页查看充值/消费/赠送/奖励/退款流水；不返回积分或其他付费虚拟币流水 | `M04-ENUM-flow-type`、`M04-RULE-paid-coin-scope` |
 | APP | 查询会员订单 | 支持分页查看会员购买记录与退款状态 | `M04-ENUM-order-status` |
 | APP | 单条/按次解锁 | likes/viewers/ideal/featured 等场景扣币并写解锁记录 | `M04-SM-unlock-record` |
 | APP | 支付结果查询 | 支付后轮询订单状态、刷新资产 | `M04-RULE-payment-result` |
-| ADM | 商业化配置 | 配置套餐、权益、单价、保留期、社交与订单参数、曝光包预留 | `M04-CFG-*` |
-| ADM | 用户商业化详情 | 在用户详情中查看资产摘要、订单、流水、解锁、退款 | `M04-RULE-asset-retention` |
-| ADM | 商业化订单管理 | 查询会员/千寻币订单，导出，查看退款状态，在订单详情中发起特批退款 | `M04-SM-trade-order` |
-| ADM | 资产流水管理 | 查询千寻币流水与会员权益流水 | `M04-ENUM-flow-type` |
+| ADM | 商业化配置 | 配置套餐、权益、单价、保留期、社交与订单参数、曝光包预留；不含积分管理 | `M04-CFG-*`、`M04-RULE-paid-coin-scope` |
+| ADM | 用户商业化详情 | 在用户详情中查看资产摘要、订单、流水、解锁、退款；不提供连续订阅状态同步操作 | `M04-RULE-asset-retention`、`M04-RULE-admin-subscription-scope` |
+| ADM | 商业化订单管理 | 查询会员/千寻币订单，导出，查看退款状态，在订单详情中发起特批退款；不提供连续订阅状态同步操作 | `M04-SM-trade-order`、`M04-RULE-admin-subscription-scope` |
+| ADM | 资产流水管理 | 查询千寻币流水与会员权益流水；不展示积分或其他付费虚拟币流水 | `M04-ENUM-flow-type`、`M04-RULE-paid-coin-scope` |
 | ADM | 退款记录管理 | 查询由订单详情发起的已退款记录、发起人、退款原因和资产回退处理 | `M04-RULE-refund-display` |
-| ADM | 轻量对账 | 按日统计订单数、金额、退款数 | `M04-RULE-asset-retention` |
+| ADM | 轻量对账 | 按日统计会员与千寻币订单数、金额、退款数；不统计 SVIP、高端服务、积分或其他付费虚拟币收入 | `M04-RULE-asset-retention`、`M04-RULE-member-tier-scope`、`M04-RULE-paid-coin-scope` |
 
 ---
 

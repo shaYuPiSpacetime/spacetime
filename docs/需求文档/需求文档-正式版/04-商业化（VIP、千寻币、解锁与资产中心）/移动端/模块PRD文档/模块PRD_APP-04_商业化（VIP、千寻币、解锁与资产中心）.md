@@ -5,6 +5,8 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本07 | 2026-07-01 | Codex | 同步蓝湖 UI 已确认维度：会员权益 9 项、会员引导文案、千寻币充值协议与 6 个消费场景 |
+| 版本06 | 2026-07-01 | Codex | 补充首版不做 SVIP/高端服务、千寻币为唯一付费虚拟币的移动端边界 |
 | 版本05 | 2026-06-30 | Codex | 收口连续订阅真实自动续费、未支付订单 30 分钟关闭和套餐价格后台配置口径 |
 | 版本04 | 2026-06-26 | Codex | 页面规格文件名对齐 PRD-01 标准命名，更新页面清单路径 |
 | 版本03 | 2026-06-26 | Codex | 补充连续订阅管理页和余额不足快捷充值承接 |
@@ -15,7 +17,7 @@
 
 ## 1. 模块目标
 
-移动端 PRD-04 统一承接小程序内所有商业化能力：持续型权益走时空邂逅会员，按次消费走千寻币，资产中心统一展示余额、会员状态、订单与流水。模块目标是在不破坏核心准入门槛的前提下，让用户能清楚理解“为什么付费、付费得到什么、何时生效、如何追溯”。
+移动端 PRD-04 统一承接小程序内所有商业化能力：持续型权益走时空邂逅会员，按次消费走千寻币，资产中心统一展示余额、会员状态、订单与流水。首版仅提供“时空邂逅会员”一个会员层级，不做 SVIP、高端服务或人工高端会员商品。模块目标是在不破坏核心准入门槛的前提下，让用户能清楚理解“为什么付费、付费得到什么、何时生效、如何追溯”。
 
 **用户故事：** 作为已登录用户，我想在触发受限场景时快速开通会员或充值千寻币，并能在资产中心追溯订单与流水，以便持续使用平台的高级权益和按次解锁能力。
 
@@ -28,7 +30,7 @@
 | 角色 | 在本模块中做什么 | 引用全局角色/规则 |
 |------|------------------|-------------------|
 | 未登录访客 | 触发付费入口时被引导登录 | `GLB-ROLE-visitor` |
-| 已登录普通用户 | 查看套餐、购买 VIP/千寻币、查看资产、发起按次解锁 | `GLB-ROLE-app-user` |
+| 已登录普通用户 | 查看套餐、购买时空邂逅会员/千寻币、查看资产、发起按次解锁 | `GLB-ROLE-app-user` |
 | 未完成三重认证用户 | 可购买资产，但社交权益使用受限 | `M01-RULE-core-access`、`M04-RULE-core-access-gate` |
 | 三重认证通过用户 | 可购买并使用对应权益 | `M01-RULE-core-access` |
 
@@ -39,10 +41,10 @@
 ### 3.1 会员购买与权益生效流程
 
 ```
-入口：我的 -> 时空邂逅会员，或业务场景 VIP 引导弹窗
+入口：我的 -> 时空邂逅会员，或业务场景会员引导弹窗
 正常路径：
-  1. 用户进入会员中心，查看当前会员状态、权益和套餐
-  2. 选择普通套餐或连续订阅套餐；连续订阅套餐接入微信真实自动续费扣款
+  1. 用户进入会员中心，查看当前会员状态、9 项权益和套餐
+  2. 选择普通套餐或连续订阅套餐；不出现 SVIP/高端服务套餐；连续订阅套餐接入微信真实自动续费扣款
   3. 勾选对应协议后发起微信支付
   4. 支付成功回调进入 `M04-SM-trade-order=success`
   5. 会员状态进入 `M04-SM-vip-status=active`
@@ -61,9 +63,10 @@
 入口：我的 -> 千寻币，或余额不足/单条解锁/悄悄话等付费弹窗
 正常路径：
   1. 用户查看当前余额和后台配置的千寻币套餐
-  2. 选择套餐并发起支付
-  3. 支付成功后写充值流水，刷新余额
-  4. 若来自业务场景，回到来源场景继续解锁/发送/查看
+  2. 查看按后台配置收口的 6 个消费场景说明
+  3. 选择套餐并勾选千寻币充值协议后发起支付
+  4. 支付成功后写充值流水，刷新余额
+  5. 若来自业务场景，回到来源场景继续解锁/发送/查看
 按次消费：
   - 余额充足：确认后扣减千寻币，写 `consume` 流水和解锁记录
   - 余额不足：在弹窗内展示 1-2 个快捷充值套餐和更多套餐入口，不允许透支
@@ -95,8 +98,8 @@
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
-| 会员权益 | `vip_benefit` | 后台配置的会员权益项 | 04 | benefitCode, benefitType, enabled, displayOrder |
-| 会员套餐 | `vip_package` | 普通套餐/连续订阅套餐 | 04 | packageNo, packageType, price, durationDays, status |
+| 会员权益 | `vip_benefit` | 后台配置的 9 项会员权益项 | 04 | benefitCode, benefitType, enabled, configValue, displayOrder |
+| 会员套餐 | `vip_package` | 普通套餐/连续订阅套餐；首版不含 SVIP/高端服务套餐 | 04 | packageNo, packageType, price, durationDays, status |
 | 千寻币套餐 | `coin_package` | 千寻币充值套餐 | 04 | packageNo, payAmount, coinCount, bonusCoinCount, status |
 | 商业化订单 | `trade_order` | 会员和千寻币支付订单 | 04 | orderNo, orderType, packageNo, payAmount, orderStatus |
 | 用户资产摘要 | `user_asset` | 用户当前会员状态与千寻币余额 | 04 | userId, vipStatus, vipExpireTime, coinBalance |
@@ -137,7 +140,7 @@
 | `APP-04-RULE-coin-flow` | 千寻币流水分页查询 | P0 | `APP-04-PAGE-coin-flow` | 包含邀请奖励 |
 | `APP-04-RULE-vip-orders` | 会员订单记录查询 | P0 | `APP-04-PAGE-vip-orders` | 覆盖退款中/已退款 |
 | `APP-04-RULE-payment-result` | 支付成功/失败/取消承接 | P0 | `APP-04-PAGE-payment-result` | |
-| `APP-04-RULE-paywall-modal` | 业务场景付费引导弹窗 | P0 | `APP-04-PAGE-paywall-modal` | VIP/千寻币统一承接 |
+| `APP-04-RULE-paywall-modal` | 业务场景付费引导弹窗 | P0 | `APP-04-PAGE-paywall-modal` | 会员引导/千寻币统一承接；会员不免单场景需提示 |
 | `APP-04-RULE-unlock` | 喜欢/访客/理想型/精选按次解锁 | P0 | `APP-04-PAGE-paywall-modal` | 具体业务页面引用本规则 |
 | `APP-04-RULE-whisper-pay` | 悄悄话免费次数与扣币 | P0 | — | 由 PRD-03 页面引用 |
 
@@ -152,6 +155,8 @@
 | 多层礼包包 | 增加配置复杂度 | 隐藏 | 后续 |
 | 资产图表化分析 | 非用户核心任务 | 隐藏 | 后续 |
 | 曝光包真实售卖 | 推荐分发规则未定 | 仅预留文案/配置，不上架 | 推荐规则完善后另补 |
+| SVIP/高端服务会员层级 | 首版只做一个会员层级 | 不展示入口、套餐、权益和支付引导 | 后续如需高端服务另补 PRD |
+| 积分/其他付费虚拟币体系 | 千寻币为唯一付费虚拟币 | 不展示积分余额、积分兑换、积分规则等入口 | 后续如需积分体系另补 PRD |
 | Web/App/线下支付渠道 | 当前为微信小程序内商业化 | 隐藏 | 后续 |
 
 ---
@@ -239,8 +244,8 @@
 | `unlock_one_click` | 点击单条/按次解锁 | scene, targetType, targetId, costCoin |
 | `unlock_pay_success` | 单条/按次解锁成功 | scene, targetType, costCoin |
 | `paywall_show` | 付费弹窗曝光 | scene, payAsset |
-| `vip_guide_show` | VIP 引导弹窗曝光 | scene, sourcePage |
-| `vip_guide_click` | 点击 VIP 引导开通 | scene, sourcePage |
+| `vip_guide_show` | 会员引导弹窗曝光 | scene, sourcePage |
+| `vip_guide_click` | 点击会员引导开通 | scene, sourcePage |
 | `coin_guide_show` | 千寻币引导/余额不足弹窗曝光 | scene, costCoin, balance |
 | `coin_guide_click` | 点击千寻币引导充值 | scene, costCoin, balance |
 
