@@ -16,6 +16,7 @@
     paymentState: 'success',
     coinFlowFilter: '全部',
     coinBalance: data.appAsset?.coinBalance || 0,
+    currentRefundOrder: null,
   };
 
   function money(value) {
@@ -241,14 +242,14 @@
   function renderAdminBenefits() {
     const target = qs('[data-render="admin-benefits"]');
     if (!target) return;
-    target.innerHTML = (data.vipBenefits || []).map((item, index) => `
+    target.innerHTML = (data.vipBenefits || []).map((item) => `
       <tr>
         <td>${escapeHtml(item.code)}</td>
-        <td><input value="${escapeHtml(item.name)}"></td>
-        <td><select><option>${escapeHtml(item.type)}</option></select></td>
-        <td><input value="${escapeHtml(item.desc)}"></td>
+        <td>${escapeHtml(item.name)}</td>
+        <td>${escapeHtml(item.type)}</td>
+        <td>${escapeHtml(item.desc)}</td>
         <td><span class="mini-switch">启用</span></td>
-        <td><input type="number" value="${index + 1}" style="width:72px"></td>
+        <td>${item.code === 'message' ? `<input type="number" value="${escapeHtml(item.dailyCount || 1)}" style="width:88px"> 次/日` : '<span class="helper">不适用</span>'}</td>
       </tr>
     `).join('');
   }
@@ -262,11 +263,12 @@
           <td>${escapeHtml(item.id)}</td>
           <td>${escapeHtml(item.name)}</td>
           <td>${escapeHtml(item.type === 'subscription' ? '连续订阅套餐' : '普通套餐')}</td>
+          <td>${money(item.originalPrice || item.price)}</td>
           <td>${money(item.price)}</td>
           <td>${escapeHtml(item.duration)}</td>
           <td>${tag(item.tag)}</td>
           <td>${tag(item.status === 'on' ? '上架' : '下架')}</td>
-          <td><button class="btn" data-open-modal="packageEditModal">编辑</button> <button class="btn danger" data-toast="套餐已下架，历史订单保留" data-toast-type="warning">下架</button></td>
+          <td><button class="btn" data-open-modal="vipPackageEditModal">编辑</button> <button class="btn danger" data-toast="套餐已下架，历史订单保留" data-toast-type="warning">下架</button></td>
         </tr>
       `).join('');
     }
@@ -276,12 +278,14 @@
         <tr>
           <td>${escapeHtml(item.id)}</td>
           <td>${escapeHtml(item.name)}</td>
+          <td>${money(item.originalPrice || item.payAmount)}</td>
           <td>${money(item.payAmount)}</td>
           <td>${escapeHtml(item.coinCount)}</td>
           <td>${escapeHtml(item.bonusCoin)}</td>
           <td>${tag(item.tag)}</td>
           <td>${item.recommended ? tag('推荐档') : '-'}</td>
           <td>${tag(item.status === 'on' ? '上架' : '下架')}</td>
+          <td><button class="btn" data-open-modal="coinPackageEditModal">编辑</button></td>
         </tr>
       `).join('');
     }
@@ -349,7 +353,7 @@
     const rows = [
       ['订单总数', '128'],
       ['支付成功金额', '18,420.00'],
-      ['退款中', '16'],
+      ['已退款', String((data.refunds || []).length)],
       ['今日订单', '42'],
     ];
     target.innerHTML = rows.map(([label, value]) => `<article class="stat-card"><span>${label}</span><strong>${value}</strong></article>`).join('');
@@ -385,7 +389,7 @@
     target.innerHTML = (data.refunds || []).map((row) => `
       <tr>
         <td>${escapeHtml(row.refundNo)}</td><td>${escapeHtml(row.orderNo)}</td><td>${escapeHtml(row.user)}</td><td>${money(row.amount)}</td><td>${tag(row.status)}</td>
-        <td>${escapeHtml(row.reason)}</td><td>${escapeHtml(row.reversal)}</td><td>${escapeHtml(row.createdTime)}</td><td>${escapeHtml(row.finishedTime)}</td>
+        <td>${escapeHtml(row.initiator || '-')}</td><td>${escapeHtml(row.reason)}</td><td>${escapeHtml(row.reversal)}</td><td>${escapeHtml(row.createdTime)}</td><td>${escapeHtml(row.finishedTime)}</td>
         <td><button class="btn" data-open-refund="${escapeHtml(row.refundNo)}">详情</button></td>
       </tr>
     `).join('');
@@ -439,10 +443,77 @@
 
   function openOrderDetail(orderNo) {
     const item = (data.orders || []).find((row) => row.orderNo === orderNo) || data.orders?.[0];
+    state.currentRefundOrder = item;
     renderDetail('[data-render="order-detail"]', item, [
       ['订单号', 'orderNo'], ['用户', 'user'], ['订单类型', 'type'], ['套餐名称', 'packageName'], ['支付金额', 'amount'], ['订单状态', 'status'], ['渠道流水', 'channelNo'], ['来源场景', 'source'],
     ]);
+    const detailTarget = qs('[data-render="order-detail"]');
+    if (detailTarget) {
+      detailTarget.insertAdjacentHTML('beforeend', '<div class="notice"><strong>退款入口</strong>支付成功且未退款订单可在详情抽屉内发起退款；提交后默认生成已退款记录。</div>');
+    }
+    const refundButton = qs('[data-refund-from-drawer]');
+    if (refundButton && item) {
+      const canRefund = item.status === '支付成功';
+      refundButton.disabled = !canRefund;
+      refundButton.textContent = canRefund ? '发起退款' : '已退款/不可退款';
+    }
     openDrawer('orderDrawer');
+  }
+
+  function fillRefundModal(order) {
+    if (!order) return;
+    const orderInput = qs('[data-refund-order-no]');
+    const amountInput = qs('[data-refund-amount]');
+    const reasonInput = qs('[data-refund-reason]');
+    if (orderInput) orderInput.value = order.orderNo;
+    if (amountInput) amountInput.value = order.amount;
+    if (reasonInput) reasonInput.value = `${order.packageName} 重复购买，客服核实后特批退款。`;
+    openModal('refundApplyModal');
+  }
+
+  function submitRefund() {
+    const order = state.currentRefundOrder;
+    if (!order) {
+      showToast('请先打开订单详情', 'warning');
+      return;
+    }
+    const amount = qs('[data-refund-amount]')?.value?.trim();
+    const reason = qs('[data-refund-reason]')?.value?.trim();
+    const reversal = qs('[data-refund-reversal]')?.value || '回收会员权益';
+    if (!amount || !reason) {
+      showToast('请填写退款金额和退款原因', 'warning');
+      return;
+    }
+    if (Number(amount) > Number(order.amount)) {
+      showToast('退款金额不能大于订单实付金额', 'warning');
+      return;
+    }
+    const nextNo = `RFD-20260630-${String((data.refunds || []).length + 1).padStart(3, '0')}`;
+    const refund = {
+      refundNo: nextNo,
+      orderNo: order.orderNo,
+      user: order.user,
+      amount,
+      status: '已退款',
+      initiator: '财务-李青',
+      reason,
+      reversal,
+      remark: '订单详情内发起，申请即默认已退款',
+      createdTime: '2026-06-30 11:58:00',
+      finishedTime: '2026-06-30 11:58:00',
+    };
+    data.refunds = data.refunds || [];
+    data.refunds.unshift(refund);
+    order.status = '已退款';
+    renderOrders();
+    renderRefunds();
+    renderOrderStats();
+    const modal = qs('#refundApplyModal');
+    if (modal) modal.classList.remove('is-open');
+    const drawer = qs('#orderDrawer');
+    if (drawer) drawer.classList.remove('is-open');
+    showToast(`退款已完成，生成退款单 ${nextNo}`);
+    window.location.hash = 'ADM-04-PAGE-refund-list';
   }
 
   function openFlowDetail(flowNo) {
@@ -456,10 +527,10 @@
   function openRefundDetail(refundNo) {
     const item = (data.refunds || []).find((row) => row.refundNo === refundNo) || data.refunds?.[0];
     renderDetail('[data-render="refund-detail"]', item, [
-      ['退款单号', 'refundNo'], ['关联订单', 'orderNo'], ['用户', 'user'], ['退款金额', 'amount'], ['退款状态', 'status'], ['退款原因', 'reason'], ['资产回退', 'reversal'], ['处理备注', 'remark'], ['发起时间', 'createdTime'], ['完成时间', 'finishedTime'],
+      ['退款单号', 'refundNo'], ['关联订单', 'orderNo'], ['用户', 'user'], ['退款金额', 'amount'], ['退款状态', 'status'], ['发起人', 'initiator'], ['退款原因', 'reason'], ['资产回退', 'reversal'], ['处理备注', 'remark'], ['发起时间', 'createdTime'], ['完成时间', 'finishedTime'],
     ]);
     const target = qs('[data-render="refund-detail"]');
-    if (target) target.insertAdjacentHTML('beforeend', '<div class="notice"><strong>只读边界</strong>退款记录管理页首版不提供人工改状态按钮。</div>');
+    if (target) target.insertAdjacentHTML('beforeend', '<div class="notice"><strong>只读边界</strong>退款记录由订单详情发起后生成，本期申请即默认已退款；退款记录页不提供状态筛选和人工改状态按钮。</div>');
     openDrawer('refundDrawer');
   }
 
@@ -485,6 +556,14 @@
         openModal(target.dataset.openModal);
       }
       if (target.matches('[data-open-drawer]')) openDrawer(target.dataset.openDrawer);
+      if (target.matches('[data-refund-from-drawer]')) {
+        if (!state.currentRefundOrder || target.disabled) {
+          showToast('当前订单不可发起退款', 'warning');
+        } else {
+          fillRefundModal(state.currentRefundOrder);
+        }
+      }
+      if (target.matches('[data-submit-refund]')) submitRefund();
       if (target.matches('[data-jump]')) {
         const href = target.dataset.jump;
         if (target.dataset.closeCurrentModal !== undefined) {

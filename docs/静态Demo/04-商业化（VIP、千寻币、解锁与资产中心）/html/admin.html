@@ -29,14 +29,13 @@
           <span>管理后台 / ADM-04</span>
         </div>
         <a href="#ADM-04-PAGE-commerce-config">移动端配置 / 商业化配置</a>
-        <a href="#ADM-04-PAGE-user-asset-detail">用户管理 / 商业化详情</a>
         <a href="#ADM-04-PAGE-commerce-order-list">财务中心 / 商业化订单</a>
         <a href="#ADM-04-PAGE-asset-flow-list">财务中心 / 资产流水</a>
         <a href="#ADM-04-PAGE-refund-list">财务中心 / 退款记录</a>
         <a href="#ADM-04-PAGE-commerce-reconcile">财务中心 / 轻量对账</a>
         <div class="admin-rule-card">
           <strong>业务边界</strong>
-          <span>不新增独立商业化工作台；退款首版仅查询展示，配置保存与导出需审计。</span>
+          <span>不新增独立商业化工作台；资产与订单摘要由用户管理详情弹窗承载，订单详情内发起退款。</span>
         </div>
       </nav>
 
@@ -73,19 +72,20 @@
               <div class="config-panel is-active" data-config-panel="benefits">
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>权益编码</th><th>名称</th><th>类型</th><th>说明</th><th>启停</th><th>排序</th></tr></thead>
+                    <thead><tr><th>权益编码</th><th>名称</th><th>类型</th><th>说明</th><th>启停</th><th>免费次数</th></tr></thead>
                     <tbody data-render="admin-benefits"></tbody>
                   </table>
                 </div>
+                <div class="notice"><strong>配置边界</strong>全量查看、高级筛选、隐私权益仅支持启停；免费悄悄话可额外配置每日次数；名称、类型、说明不可编辑，不提供排序。</div>
               </div>
               <div class="config-panel" data-config-panel="vipPackages">
                 <div class="toolbar">
                   <strong>普通套餐 / 连续订阅套餐</strong>
-                  <button class="btn primary" data-open-modal="packageEditModal">新增套餐</button>
+                  <button class="btn primary" data-open-modal="vipPackageEditModal">新增套餐</button>
                 </div>
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>套餐编号</th><th>套餐名称</th><th>类型</th><th>价格</th><th>时长/周期</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>套餐编号</th><th>套餐名称</th><th>类型</th><th>原价</th><th>优惠价</th><th>时长/周期</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
                     <tbody data-render="admin-vip-packages"></tbody>
                   </table>
                 </div>
@@ -94,11 +94,11 @@
               <div class="config-panel" data-config-panel="coinPackages">
                 <div class="toolbar">
                   <strong>千寻币套餐</strong>
-                  <button class="btn primary" data-open-modal="packageEditModal">新增币包</button>
+                  <button class="btn primary" data-open-modal="coinPackageEditModal">新增币包</button>
                 </div>
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>套餐编号</th><th>名称</th><th>支付金额</th><th>到账币数</th><th>赠送币</th><th>标签</th><th>推荐</th><th>状态</th></tr></thead>
+                    <thead><tr><th>套餐编号</th><th>名称</th><th>原价</th><th>优惠价</th><th>到账币数</th><th>赠送币</th><th>标签</th><th>推荐</th><th>状态</th><th>操作</th></tr></thead>
                     <tbody data-render="admin-coin-packages"></tbody>
                   </table>
                 </div>
@@ -138,45 +138,10 @@
           </div>
         </section>
 
-        <section class="section-band admin-page" id="ADM-04-PAGE-user-asset-detail" data-admin-page>
-          <div class="admin-page-inner">
-            <div class="admin-page-header">
-              <div>
-                <h1>用户商业化详情</h1>
-                <p>用户管理中心 / 用户详情 / 商业化 Tab。客服排查资产、订单、流水、解锁与退款问题。</p>
-              </div>
-              <button class="btn danger" data-open-modal="assetAdjustModal">人工修正资产</button>
-            </div>
-            <div class="notice"><strong>疑似异常</strong><span data-user-risk>余额与流水汇总差异 8 千寻币，建议财务复核幂等记录。</span></div>
-            <div class="admin-summary-grid" data-render="user-asset-summary"></div>
-            <div class="admin-panel">
-              <nav class="detail-tabs">
-                <button class="detail-tab is-active" data-detail-tab="userOrders">会员订单</button>
-                <button class="detail-tab" data-detail-tab="userFlows">千寻币流水</button>
-                <button class="detail-tab" data-detail-tab="unlockRecords">解锁记录</button>
-                <button class="detail-tab" data-detail-tab="userRefunds">退款记录</button>
-              </nav>
-              <div class="detail-panel is-active" data-detail-panel="userOrders">
-                <div class="table-wrap"><table><thead><tr><th>订单号</th><th>类型</th><th>套餐</th><th>金额</th><th>状态</th><th>支付时间</th><th>操作</th></tr></thead><tbody data-render="user-orders"></tbody></table></div>
-              </div>
-              <div class="detail-panel" data-detail-panel="userFlows">
-                <div class="table-wrap"><table><thead><tr><th>流水号</th><th>类型</th><th>变动</th><th>场景</th><th>时间</th><th>操作</th></tr></thead><tbody data-render="user-flows"></tbody></table></div>
-              </div>
-              <div class="detail-panel" data-detail-panel="unlockRecords">
-                <div class="table-wrap"><table><thead><tr><th>解锁记录号</th><th>场景</th><th>对象</th><th>方式</th><th>消耗</th><th>状态</th><th>有效至</th></tr></thead><tbody data-render="unlock-records"></tbody></table></div>
-              </div>
-              <div class="detail-panel" data-detail-panel="userRefunds">
-                <div class="table-wrap"><table><thead><tr><th>退款单号</th><th>订单号</th><th>金额</th><th>状态</th><th>回退结果</th><th>操作</th></tr></thead><tbody data-render="user-refunds"></tbody></table></div>
-              </div>
-              <div class="pagination"><span>每个 Tab 默认最近 30 天，每页 10 条</span><button class="btn" data-toast="已切换到下一页">下一页</button></div>
-            </div>
-          </div>
-        </section>
-
         <section class="section-band admin-page" id="ADM-04-PAGE-commerce-order-list" data-admin-page>
           <div class="admin-page-inner">
             <div class="admin-page-header">
-              <div><h1>商业化订单管理</h1><p>查询会员订单和千寻币充值订单，定位支付、退款、到账异常。</p></div>
+              <div><h1>商业化订单管理</h1><p>查询会员订单和千寻币充值订单；支付成功订单可在详情抽屉内发起退款。</p></div>
               <button class="btn primary" data-open-modal="exportModal" data-export-type="订单">导出订单</button>
             </div>
             <div class="admin-summary-grid" data-render="order-stats"></div>
@@ -185,7 +150,7 @@
               <div class="query-grid">
                 <label class="control-field">订单/用户搜索<input value="ORD-20260630"></label>
                 <label class="control-field">订单类型<select><option>全部</option><option>会员订单</option><option>千寻币充值订单</option></select></label>
-                <label class="control-field">订单状态<select><option>全部</option><option>支付成功</option><option>待支付</option><option>退款中</option></select></label>
+                <label class="control-field">订单状态<select><option>全部</option><option>支付成功</option><option>待支付</option><option>已退款</option></select></label>
                 <label class="control-field">支付时间<input type="date" value="2026-06-30"></label>
               </div>
               <div class="admin-actions"><button class="btn primary" data-toast="订单查询条件已应用">查询</button><button class="btn" data-toast="查询条件已重置">重置</button></div>
@@ -225,13 +190,13 @@
         <section class="section-band admin-page" id="ADM-04-PAGE-refund-list" data-admin-page>
           <div class="admin-page-inner">
             <div class="admin-page-header">
-              <div><h1>退款记录管理</h1><p>首版仅查询特批退款状态、原因、资产回退和前台展示结果，不开放页面内人工改状态。</p></div>
+              <div><h1>退款记录管理</h1><p>展示商业化订单详情内发起的退款台账；本期申请即默认已退款，不做审批流。</p></div>
               <button class="btn primary" data-open-modal="exportModal" data-export-type="退款记录">导出退款</button>
             </div>
             <div class="admin-summary-grid">
-              <article class="stat-card"><span>退款中</span><strong>16</strong></article>
-              <article class="stat-card"><span>已退款</span><strong>42</strong></article>
-              <article class="stat-card"><span>线下处理</span><strong>5</strong></article>
+              <article class="stat-card"><span>今日发起</span><strong data-refund-count>3</strong></article>
+              <article class="stat-card"><span>已退款</span><strong data-refunded-count>42</strong></article>
+              <article class="stat-card"><span>订单内发起</span><strong>100%</strong></article>
               <article class="stat-card"><span>今日退款金额</span><strong>206.00</strong></article>
             </div>
             <div class="query-panel">
@@ -240,11 +205,11 @@
                 <label class="control-field">退款单号<input value="RFD-20260630"></label>
                 <label class="control-field">订单号<input value="ORD-20260621"></label>
                 <label class="control-field">用户<input value="林晓雨"></label>
-                <label class="control-field">退款状态<select><option>全部</option><option>退款中</option><option>已退款</option></select></label>
+                <label class="control-field">退款时间<input type="date" value="2026-06-30"></label>
               </div>
               <div class="admin-actions"><button class="btn primary" data-toast="退款查询条件已应用">查询</button><button class="btn" data-toast="查询条件已重置">重置</button></div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>退款单号</th><th>订单号</th><th>用户</th><th>金额</th><th>状态</th><th>原因</th><th>资产回退</th><th>发起时间</th><th>完成时间</th><th>操作</th></tr></thead><tbody data-render="refunds"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>退款单号</th><th>订单号</th><th>用户</th><th>金额</th><th>状态</th><th>发起人</th><th>原因</th><th>资产回退</th><th>发起时间</th><th>完成时间</th><th>操作</th></tr></thead><tbody data-render="refunds"></tbody></table></div>
             <div class="pagination"><span>共 58 条，默认 10 条/页</span><button class="btn primary">1</button><button class="btn" data-toast="已切换下一页">下一页</button></div>
           </div>
         </section>
@@ -274,7 +239,7 @@
   </div>
 
   <div class="drawer-backdrop" id="configLogDrawer" aria-hidden="true"><aside class="drawer"><h2>配置变更日志</h2><div class="drawer-body" data-render="config-logs"></div><div class="drawer-actions"><button class="btn" onclick="DemoCommon.closeDrawer(this)">关闭</button></div></aside></div>
-  <div class="drawer-backdrop" id="orderDrawer" aria-hidden="true"><aside class="drawer"><h2>订单详情</h2><div class="drawer-body" data-render="order-detail"></div><div class="drawer-actions"><button class="btn" onclick="DemoCommon.closeDrawer(this)">关闭</button></div></aside></div>
+  <div class="drawer-backdrop" id="orderDrawer" aria-hidden="true"><aside class="drawer"><h2>订单详情</h2><div class="drawer-body" data-render="order-detail"></div><div class="drawer-actions"><button class="btn" onclick="DemoCommon.closeDrawer(this)">关闭</button><button class="btn danger" data-refund-from-drawer>发起退款</button></div></aside></div>
   <div class="drawer-backdrop" id="flowDrawer" aria-hidden="true"><aside class="drawer"><h2>流水详情</h2><div class="drawer-body" data-render="flow-detail"></div><div class="drawer-actions"><button class="btn" onclick="DemoCommon.closeDrawer(this)">关闭</button></div></aside></div>
   <div class="drawer-backdrop" id="refundDrawer" aria-hidden="true"><aside class="drawer"><h2>退款详情</h2><div class="drawer-body" data-render="refund-detail"></div><div class="drawer-actions"><button class="btn" onclick="DemoCommon.closeDrawer(this)">关闭</button></div></aside></div>
 
@@ -287,13 +252,16 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="packageEditModal" aria-hidden="true">
+  <div class="modal-backdrop" id="vipPackageEditModal" aria-hidden="true">
     <div class="modal">
-      <h2>套餐新增/编辑</h2>
+      <h2>会员套餐新增/编辑</h2>
       <div class="form-stack">
         <label class="field">套餐名称<input value="连续包月"></label>
-        <label class="field">套餐类型<select><option>普通套餐</option><option selected>连续订阅套餐</option><option>千寻币套餐</option></select></label>
-        <label class="field">价格/金额<input value="29.00"></label>
+        <label class="field">套餐类型<select><option>普通套餐</option><option selected>连续订阅套餐</option></select></label>
+        <label class="field">原价<input value="39.00"></label>
+        <label class="field">优惠价<input value="29.00"></label>
+        <label class="field">时长/周期<input value="每月自动续费"></label>
+        <label class="field">标签<input value="连续订阅"></label>
         <label class="field">微信连续订阅商品<input value="wx-subscribe-monthly-001"></label>
       </div>
       <div class="notice"><strong>校验</strong>连续订阅套餐上架前必须绑定微信连续订阅商品、周期和协议。</div>
@@ -301,16 +269,35 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="assetAdjustModal" aria-hidden="true">
+  <div class="modal-backdrop" id="coinPackageEditModal" aria-hidden="true">
     <div class="modal">
-      <h2>人工修正资产</h2>
-      <p>仅超级管理员可操作，必须填写原因并记录审计。</p>
+      <h2>千寻币套餐新增/编辑</h2>
       <div class="form-stack">
-        <label class="field">资产类型<select><option>千寻币</option><option>会员权益</option></select></label>
-        <label class="field">变动数量<input value="+8"></label>
-        <label class="field">修正原因<textarea>排查幂等记录后补齐差异流水。</textarea></label>
+        <label class="field">套餐类型<select disabled><option selected>千寻币套餐</option></select></label>
+        <label class="field">套餐名称<input value="300 千寻币"></label>
+        <label class="field">原价<input value="36.00"></label>
+        <label class="field">优惠价<input value="30.00"></label>
+        <label class="field">到账币数<input value="300" type="number"></label>
+        <label class="field">赠送币数<input value="20" type="number"></label>
+        <label class="field">标签<input value="推荐"></label>
+        <label class="field">是否推荐<select><option selected>推荐档</option><option>普通档</option></select></label>
       </div>
-      <div class="modal-actions"><button class="btn" onclick="DemoCommon.closeModal(this)">取消</button><button class="btn danger" onclick="DemoCommon.closeModal(this);showToast('人工修正已写入 adjust 流水和审计日志','warning')">确认修正</button></div>
+      <div class="notice"><strong>推荐规则</strong>同一时间最多 1 个推荐档，保存后移动端充值页刷新。</div>
+      <div class="modal-actions"><button class="btn" onclick="DemoCommon.closeModal(this)">取消</button><button class="btn primary" onclick="DemoCommon.closeModal(this);showToast('千寻币套餐已进入待保存变更')">保存草稿</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="refundApplyModal" aria-hidden="true">
+    <div class="modal">
+      <h2>发起退款二次确认</h2>
+      <p>提交后将生成退款记录，状态默认已退款，并按资产回退处理写入审计。</p>
+      <div class="form-stack">
+        <label class="field">订单号<input data-refund-order-no value="ORD-20260630-1001" readonly></label>
+        <label class="field">退款金额<input data-refund-amount value="29.00"></label>
+        <label class="field">资产回退处理<select data-refund-reversal><option>回收会员权益</option><option>扣回到账千寻币</option><option>无需回退</option><option>线下处理备注</option></select></label>
+        <label class="field">退款原因<textarea data-refund-reason>用户重复购买，客服核实后特批退款。</textarea></label>
+      </div>
+      <div class="modal-actions"><button class="btn" onclick="DemoCommon.closeModal(this)">取消</button><button class="btn danger" data-submit-refund>确认退款</button></div>
     </div>
   </div>
 
