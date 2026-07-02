@@ -11,11 +11,126 @@
   const openDrawer = common.openDrawer || (() => {});
   const closeDrawer = common.closeDrawer || (() => {});
 
+  function relationProfile(user) {
+    const profile = (data.relationProfiles && data.relationProfiles[user.id]) || {};
+    return {
+      relationAccessStatus: profile.relationAccessStatus || (user.statuses?.core === '已开放' ? '开放' : '未开放'),
+      vipStatus: profile.vipStatus || (user.vip ? '生效中' : '未开通'),
+      hiddenVisitStatus: profile.hiddenVisitStatus || (user.vip ? '未开启' : '权益不可用'),
+      visitorUv7d: profile.visitorUv7d ?? 0,
+      visitorPv7d: profile.visitorPv7d ?? 0,
+      activeLikedCount: profile.activeLikedCount ?? 0,
+      activeMutualCount: profile.activeMutualCount ?? 0,
+      lastMatchTime: profile.lastMatchTime || '-',
+      records: profile.records || { likes: [], visits: [], matches: [], unlocks: [] },
+    };
+  }
+
+  function relationClass(value) {
+    if (/开放|生效|已开启|相互喜欢|全量可见|已解锁|正常展示/.test(value)) return 'success';
+    if (/未开放|账号异常|权益不可用|已失效|冻结|失败|恢复默认/.test(value)) return 'danger';
+    if (/未开通|未开启|未解锁|模糊|隐藏|已过期|待/.test(value)) return 'warning';
+    return 'brand';
+  }
+
+  function renderRelationPill(label, value) {
+    return `<span class="figma-relation-pill ${relationClass(value)}">${escapeHtml(label)}：${escapeHtml(value)}</span>`;
+  }
+
+  function renderRelationRecordPanels(relation) {
+    const configs = [
+      {
+        key: 'likes',
+        label: '喜欢记录',
+        columns: [
+          ['记录编号', 'id'],
+          ['对方用户', 'oppositeUser'],
+          ['状态', 'status'],
+          ['解锁状态', 'unlockStatus'],
+          ['发生时间', 'happenedAt'],
+          ['失效原因', 'invalidReason'],
+        ],
+      },
+      {
+        key: 'visits',
+        label: '访客记录',
+        columns: [
+          ['记录编号', 'id'],
+          ['对方用户', 'oppositeUser'],
+          ['访问次数', 'visitCount'],
+          ['最近访问', 'lastVisitAt'],
+          ['解锁状态', 'unlockStatus'],
+          ['展示状态', 'hiddenStatus'],
+        ],
+      },
+      {
+        key: 'matches',
+        label: '相互喜欢',
+        columns: [
+          ['匹配编号', 'id'],
+          ['对方用户', 'oppositeUser'],
+          ['关系状态', 'status'],
+          ['匹配时间', 'matchedAt'],
+          ['主页联动', 'profileAction'],
+        ],
+      },
+      {
+        key: 'unlocks',
+        label: '解锁记录',
+        columns: [
+          ['解锁单号', 'id'],
+          ['关系类型', 'relationType'],
+          ['关联记录', 'targetRecord'],
+          ['支付方式', 'payType'],
+          ['展示状态', 'displayStatus'],
+          ['创建时间', 'createdAt'],
+        ],
+      },
+    ];
+
+    const tabs = configs.map((config, index) => `
+      <button class="${index === 0 ? 'is-active' : ''}" data-user-relation-tab="${config.key}">${config.label}</button>
+    `).join('');
+
+    const panels = configs.map((config, index) => {
+      const rows = relation.records?.[config.key] || [];
+      const header = config.columns.map(([label]) => `<th>${escapeHtml(label)}</th>`).join('');
+      const body = rows.map((row) => `
+        <tr>
+          ${config.columns.map(([label, field]) => {
+            const value = row[field] ?? '-';
+            const isStatus = /status|Status|Reason|Action/.test(field);
+            return `<td data-label="${escapeHtml(label)}">${isStatus ? `<span class="avatar-status ${relationClass(value)}">${escapeHtml(value)}</span>` : escapeHtml(value)}</td>`;
+          }).join('')}
+        </tr>
+      `).join('');
+
+      return `
+        <section class="profile-relation-panel ${index === 0 ? 'is-active' : ''}" data-user-relation-panel="${config.key}">
+          ${rows.length ? `
+            <table class="profile-relation-table">
+              <thead><tr>${header}</tr></thead>
+              <tbody>${body}</tbody>
+            </table>
+          ` : `<div class="profile-relation-empty">暂无${escapeHtml(config.label)}</div>`}
+        </section>
+      `;
+    }).join('');
+
+    return `
+      <div class="profile-relation-block">
+        <nav class="profile-relation-tabs" aria-label="关系记录 Tab">${tabs}</nav>
+        <div class="profile-relation-panels">${panels}</div>
+      </div>
+    `;
+  }
+
   function renderUserCards() {
     const container = qs('[data-render="user-cards"]');
     if (!container || !data.adminUsers) return;
 
     container.innerHTML = data.adminUsers.map((user) => {
+      const relation = relationProfile(user);
       const verifyBadges = (user.verifyBadges || Object.values(user.statuses || {}))
         .slice(0, 3)
         .map((value) => `<span class="figma-verify-badge ${statusClass(value)}">${escapeHtml(value)}</span>`)
@@ -44,16 +159,28 @@
             </div>
           </div>
 
+          <div class="figma-relation-badges" aria-label="关系反馈状态">
+            ${renderRelationPill('关系', relation.relationAccessStatus)}
+            ${renderRelationPill('VIP', relation.vipStatus)}
+            ${renderRelationPill('隐访', relation.hiddenVisitStatus)}
+          </div>
+
           <div class="figma-card-metrics">
             <div><span>完整度</span><strong>${escapeHtml(user.scoreLabel || `${user.score}/100`)}</strong></div>
             <div><span>千寻币</span><strong>${escapeHtml(user.coin)}</strong></div>
             <div><span>微信</span><strong>${escapeHtml(user.wechat)}</strong></div>
           </div>
 
+          <div class="figma-card-metrics is-relation">
+            <div><span>7天访客</span><strong>${escapeHtml(relation.visitorUv7d)}</strong></div>
+            <div><span>被喜欢</span><strong>${escapeHtml(relation.activeLikedCount)}</strong></div>
+            <div><span>相互喜欢</span><strong>${escapeHtml(relation.activeMutualCount)}</strong></div>
+          </div>
+
           <div class="figma-card-footer">
             <div class="figma-verify-row">${verifyBadges}</div>
             <div class="figma-card-actions">
-              <button class="figma-card-action primary" data-open-drawer="userDrawer" data-user-id="${escapeHtml(user.id)}">画像</button>
+              <button class="figma-card-action primary" data-open-drawer="userDrawer" data-user-id="${escapeHtml(user.id)}">详情/关系</button>
               <button class="figma-card-action secondary" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(user.auditId || 'A-1001')}">头像审核</button>
             </div>
           </div>
@@ -104,6 +231,7 @@
     const riskLogs = detail.riskLogs || [
       ['陈依怡', '2026.02.15 14:30', '风控', '账号风险复核完成并记录审计'],
     ];
+    const relation = relationProfile(user);
 
     const renderFields = (fields) => fields.map(([label, value]) => `
       <div class="profile-confirm-field">
@@ -167,6 +295,20 @@
             <strong>资料完整度 ${escapeHtml(detail.scoreLabel || user.scoreLabel || `${score} / 100`)}</strong>
             <div class="profile-confirm-progress"><span style="width:${Math.max(0, Math.min(score, 100))}%"></span></div>
           </div>
+        </section>
+
+        ${renderSectionTitle('关系反馈')}
+        <section class="profile-confirm-relation">
+          <div class="profile-relation-summary">
+            <article><span>关系反馈准入</span><strong class="${relationClass(relation.relationAccessStatus)}">${escapeHtml(relation.relationAccessStatus)}</strong></article>
+            <article><span>VIP 状态</span><strong class="${relationClass(relation.vipStatus)}">${escapeHtml(relation.vipStatus)}</strong></article>
+            <article><span>隐藏访问记录</span><strong class="${relationClass(relation.hiddenVisitStatus)}">${escapeHtml(relation.hiddenVisitStatus)}</strong></article>
+            <article><span>7天访客 UV/PV</span><strong>${escapeHtml(relation.visitorUv7d)} / ${escapeHtml(relation.visitorPv7d)}</strong></article>
+            <article><span>当前被喜欢</span><strong>${escapeHtml(relation.activeLikedCount)}</strong></article>
+            <article><span>当前相互喜欢</span><strong>${escapeHtml(relation.activeMutualCount)}</strong></article>
+            <article class="is-wide"><span>最近匹配成功时间</span><strong>${escapeHtml(relation.lastMatchTime)}</strong></article>
+          </div>
+          ${renderRelationRecordPanels(relation)}
         </section>
 
         ${renderSectionTitle('千寻币/VIP')}
@@ -762,6 +904,15 @@
         const tabName = configTab.dataset.configTab;
         qsa('[data-config-tab]', page).forEach((node) => node.classList.toggle('is-active', node === configTab));
         qsa('[data-config-panel]', page).forEach((node) => node.classList.toggle('is-active', node.dataset.configPanel === tabName));
+        return;
+      }
+
+      const userRelationTab = event.target.closest('[data-user-relation-tab]');
+      if (userRelationTab) {
+        const block = userRelationTab.closest('.profile-relation-block');
+        const tabName = userRelationTab.dataset.userRelationTab;
+        qsa('[data-user-relation-tab]', block).forEach((node) => node.classList.toggle('is-active', node === userRelationTab));
+        qsa('[data-user-relation-panel]', block).forEach((node) => node.classList.toggle('is-active', node.dataset.userRelationPanel === tabName));
         return;
       }
 

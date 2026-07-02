@@ -223,6 +223,142 @@ window.DEMO_DATA = {
       accountStatus: '正常',
     },
   ],
+  relationProfiles: {
+    U10001: {
+      relationAccessStatus: '开放',
+      vipStatus: '生效中',
+      hiddenVisitStatus: '已开启',
+      visitorUv7d: 42,
+      visitorPv7d: 68,
+      activeLikedCount: 18,
+      activeMutualCount: 6,
+      lastMatchTime: '2026-07-02 13:42:18',
+      records: {
+        likes: [
+          { id: 'LIK-20260702-0001', oppositeUser: '周语桐 U100352', status: '生效中', unlockStatus: '已解锁', happenedAt: '2026-07-02 13:21', invalidReason: '-' },
+          { id: 'LIK-20260701-0028', oppositeUser: '沈嘉禾 U100418', status: '已失效', unlockStatus: '未解锁', happenedAt: '2026-07-01 19:04', invalidReason: '对方账号已冻结' },
+          { id: 'LIK-20260630-0015', oppositeUser: '陆清和 U100516', status: '生效中', unlockStatus: '全量可见', happenedAt: '2026-06-30 22:16', invalidReason: '-' },
+        ],
+        visits: [
+          { id: 'VIS-20260702-0036', oppositeUser: '陆清和 U100516', visitCount: '7天 5 次', lastVisitAt: '2026-07-02 12:32', unlockStatus: '已解锁', hiddenStatus: '正常展示' },
+          { id: 'VIS-20260701-0091', oppositeUser: '陈一鸣 U100193', visitCount: '7天 2 次', lastVisitAt: '2026-07-01 20:41', unlockStatus: '未解锁', hiddenStatus: '模糊展示' },
+          { id: 'VIS-20260629-0042', oppositeUser: '许安然 U100279', visitCount: '7天 1 次', lastVisitAt: '2026-06-29 09:18', unlockStatus: '未解锁', hiddenStatus: '对方已隐藏访问' },
+        ],
+        matches: [
+          { id: 'MAT-20260702-0008', oppositeUser: '陆清和 U100516', status: '相互喜欢', matchedAt: '2026-07-02 13:42', profileAction: '主页 Yo 已切换聊天' },
+          { id: 'MAT-20260628-0012', oppositeUser: '周语桐 U100352', status: '相互喜欢', matchedAt: '2026-06-28 18:20', profileAction: '主页 Yo 已切换聊天' },
+        ],
+        unlocks: [
+          { id: 'UNL-20260702-0016', relationType: '访客记录', targetRecord: 'VIS-20260702-0036', payType: '千寻币', displayStatus: '生效中', createdAt: '2026-07-02 12:35' },
+          { id: 'UNL-20260630-0009', relationType: '喜欢记录', targetRecord: 'LIK-20260630-0015', payType: 'VIP 全量', displayStatus: '生效中', createdAt: '2026-06-30 22:18' },
+        ],
+      },
+    },
+    U10002: {
+      relationAccessStatus: '开放',
+      vipStatus: '未开通',
+      hiddenVisitStatus: '权益不可用',
+      visitorUv7d: 6,
+      visitorPv7d: 9,
+      activeLikedCount: 3,
+      activeMutualCount: 0,
+      lastMatchTime: '-',
+      records: {
+        likes: [
+          { id: 'LIK-20260701-0017', oppositeUser: '林晓雨 U100281', status: '生效中', unlockStatus: '未解锁', happenedAt: '2026-07-01 20:41', invalidReason: '-' },
+        ],
+        visits: [
+          { id: 'VIS-20260702-0011', oppositeUser: '林晓雨 U100281', visitCount: '7天 2 次', lastVisitAt: '2026-07-02 10:14', unlockStatus: '未解锁', hiddenStatus: '模糊展示' },
+        ],
+        matches: [],
+        unlocks: [],
+      },
+    },
+    U10003: {
+      relationAccessStatus: '未开放',
+      vipStatus: '未开通',
+      hiddenVisitStatus: '权益不可用',
+      visitorUv7d: 0,
+      visitorPv7d: 0,
+      activeLikedCount: 0,
+      activeMutualCount: 0,
+      lastMatchTime: '-',
+      records: {
+        likes: [],
+        visits: [],
+        matches: [],
+        unlocks: [],
+      },
+    },
+    U10004: {
+      relationAccessStatus: '开放',
+      vipStatus: '已过期',
+      hiddenVisitStatus: '未开启',
+      visitorUv7d: 17,
+      visitorPv7d: 24,
+      activeLikedCount: 9,
+      activeMutualCount: 2,
+      lastMatchTime: '2026-06-28 18:20:09',
+      records: {
+        likes: [
+          { id: 'LIK-20260630-0047', oppositeUser: '林晓雨 U100281', status: '生效中', unlockStatus: '已解锁', happenedAt: '2026-06-30 21:42', invalidReason: '-' },
+        ],
+        visits: [
+          { id: 'VIS-20260701-0033', oppositeUser: '陆清和 U100516', visitCount: '7天 3 次', lastVisitAt: '2026-07-01 16:22', unlockStatus: '已解锁', hiddenStatus: '正常展示' },
+        ],
+        matches: [
+          { id: 'MAT-20260628-0012', oppositeUser: '林晓雨 U100281', status: '相互喜欢', matchedAt: '2026-06-28 18:20', profileAction: '主页 Yo 已切换聊天' },
+        ],
+        unlocks: [
+          { id: 'UNL-20260701-0007', relationType: '访客记录', targetRecord: 'VIS-20260701-0033', payType: '千寻币', displayStatus: '生效中', createdAt: '2026-07-01 16:24' },
+        ],
+      },
+    },
+    U10005: {
+      relationAccessStatus: '未开放',
+      vipStatus: '未开通',
+      hiddenVisitStatus: '权益不可用',
+      visitorUv7d: 3,
+      visitorPv7d: 4,
+      activeLikedCount: 4,
+      activeMutualCount: 1,
+      lastMatchTime: '2026-06-26 11:09:40',
+      records: {
+        likes: [
+          { id: 'LIK-20260626-0021', oppositeUser: '林晓雨 U100281', status: '已失效', unlockStatus: '未解锁', happenedAt: '2026-06-26 11:04', invalidReason: '核心准入未开放' },
+        ],
+        visits: [],
+        matches: [
+          { id: 'MAT-20260626-0005', oppositeUser: '许安然 U100279', status: '已失效', matchedAt: '2026-06-26 11:09', profileAction: '关系失效，主页按钮恢复默认' },
+        ],
+        unlocks: [],
+      },
+    },
+    U10006: {
+      relationAccessStatus: '开放',
+      vipStatus: '生效中',
+      hiddenVisitStatus: '已开启',
+      visitorUv7d: 31,
+      visitorPv7d: 52,
+      activeLikedCount: 12,
+      activeMutualCount: 4,
+      lastMatchTime: '2026-07-02 13:42:18',
+      records: {
+        likes: [
+          { id: 'LIK-20260630-0015', oppositeUser: '林晓雨 U100281', status: '生效中', unlockStatus: '全量可见', happenedAt: '2026-06-30 22:16', invalidReason: '-' },
+        ],
+        visits: [
+          { id: 'VIS-20260702-0036', oppositeUser: '林晓雨 U100281', visitCount: '7天 5 次', lastVisitAt: '2026-07-02 12:32', unlockStatus: '已解锁', hiddenStatus: '正常展示' },
+        ],
+        matches: [
+          { id: 'MAT-20260702-0008', oppositeUser: '林晓雨 U100281', status: '相互喜欢', matchedAt: '2026-07-02 13:42', profileAction: '主页 Yo 已切换聊天' },
+        ],
+        unlocks: [
+          { id: 'UNL-20260702-0016', relationType: '访客记录', targetRecord: 'VIS-20260702-0036', payType: '千寻币', displayStatus: '生效中', createdAt: '2026-07-02 12:35' },
+        ],
+      },
+    },
+  },
   importBatch: {
     fileName: '线下用户导入-20260627.xlsx',
     total: 20,

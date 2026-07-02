@@ -58,9 +58,9 @@
           <div class="figma-page-body">
             <div class="figma-stat-row" aria-label="头部数据统计">
               <article class="figma-stat"><span>当前用户</span><strong>1,248</strong><em>全量资料库</em></article>
-              <article class="figma-stat"><span>准入开放</span><strong>862</strong><em>实名/头像/学历通过</em></article>
-              <article class="figma-stat"><span>待完善</span><strong>318</strong><em>优先触达</em></article>
-              <article class="figma-stat"><span>异常账号</span><strong>27</strong><em>需人工复核</em></article>
+              <article class="figma-stat"><span>核心准入开放</span><strong>862</strong><em>实名/头像/学历通过</em></article>
+              <article class="figma-stat"><span>关系反馈开放</span><strong>794</strong><em>喜欢/访客可展示</em></article>
+              <article class="figma-stat"><span>7天访客 UV</span><strong>1,846</strong><em>去重访问人数</em></article>
             </div>
 
             <div class="figma-query-panel" aria-label="查询条件">
@@ -69,6 +69,9 @@
               <label><span>认证状态</span><select><option>全部认证</option><option>头像通过</option><option>实名通过</option><option>学历通过</option></select></label>
               <label><span>身份</span><select><option>全部身份</option><option>职场人</option><option>在校生</option></select></label>
               <label><span>城市</span><select><option>上海</option><option>杭州</option><option>南京</option></select></label>
+              <label><span>关系反馈准入</span><select><option>全部</option><option>开放</option><option>未开放</option><option>账号异常</option></select></label>
+              <label><span>VIP 状态</span><select><option>全部</option><option>生效中</option><option>未开通</option><option>已过期</option></select></label>
+              <label><span>隐藏访问记录</span><select><option>全部</option><option>已开启</option><option>未开启</option><option>权益不可用</option></select></label>
               <div class="figma-query-actions">
                 <button class="figma-btn primary" data-toast="App 用户查询条件已应用">搜索</button>
                 <button class="figma-btn ghost" data-toast="查询条件已重置">重置</button>
@@ -78,7 +81,7 @@
             <div class="figma-list-head">
               <div>
                 <h2>用户卡片列表</h2>
-                <p>卡片内展示固定字段，敏感信息保持掩码。</p>
+                <p>卡片内展示固定字段、关系反馈字段和敏感信息掩码。</p>
               </div>
               <div class="figma-tabs" aria-label="列表视图">
                 <button class="is-active" data-toast="已切换卡片视图">卡片</button>
@@ -97,7 +100,7 @@
               <button class="figma-btn ghost" data-toast="已切换到下一页">下一页</button>
               <button class="figma-btn ghost">10条/页</button>
             </div>
-            <div hidden>批量导入 App 用户 导出固定字段且不掩码 画像详情 查询条件 列表字段 每页 10 条 编辑备注 冻结账号</div>
+            <div hidden>批量导入 App 用户 导出固定字段且不掩码 画像详情 查询条件 关系列表字段 关系反馈准入状态 最近 7 天被访问人数 当前有效被喜欢数 当前有效相互喜欢数 是否开启隐藏访问记录权益 每页 10 条 编辑备注 冻结账号</div>
           </div>
         </section>
 

@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>移动端 Demo - 关系反馈与互动链路</title>
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body class="relation-miniapp-demo">
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="返回静态 Demo 首页">
+        <span class="brand-mark">APP</span>
+        <span>关系反馈移动端 Demo</span>
+      </a>
+      <nav class="top-actions" aria-label="静态 Demo 入口">
+        <a class="btn" href="index.html">总览</a>
+        <a class="btn" href="admin.html">管理后台</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <aside class="side-nav" aria-label="移动端页面导航">
+        <h2>关系反馈</h2>
+        <a href="#APP-02-PAGE-likes-me">喜欢我的</a>
+        <a href="#APP-02-PAGE-recent-viewers">最近看过我的</a>
+        <a href="#APP-02-PAGE-mutual-matches">相互喜欢</a>
+        <h3>弹窗链路</h3>
+        <a href="#APP-02-PAGE-match-success-modal">匹配成功弹窗</a>
+        <a href="#APP-02-PAGE-single-unlock-modal">单条解锁弹窗</a>
+      </aside>
+
+      <div class="content">
+        <section class="hero-band relation-hero">
+          <div class="hero-copy">
+            <h1>移动端关系反馈用户旅程</h1>
+            <p>覆盖喜欢我的、最近看过我的、相互喜欢、匹配成功弹窗和单条解锁弹窗；支付、扣币、会员全量查看统一跳转 PRD-04。</p>
+            <div class="metric-strip">
+              <div class="metric"><strong>5</strong><span>移动端页面</span></div>
+              <div class="metric"><strong>3</strong><span>列表状态</span></div>
+              <div class="metric"><strong>2</strong><span>核心弹窗</span></div>
+              <div class="metric"><strong>PRD-04</strong><span>付费承接</span></div>
+            </div>
+          </div>
+          <div class="mini-summary-card">
+            <h2>首版固定口径</h2>
+            <ul class="check-list compact">
+              <li><span>最近访客展示窗口</span><strong>7 天</strong></li>
+              <li><span>访客去重窗口</span><strong>30 分钟</strong></li>
+              <li><span>喜欢我的模糊上限</span><strong>10 条</strong></li>
+              <li><span>匹配成功弹窗</span><strong>首次一次</strong></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-02-PAGE-likes-me">
+          <div class="page-head">
+            <h2>APP-02-PAGE-likes-me 喜欢我的列表页</h2>
+            <p>普通用户看到模糊态；会员或单条解锁后清晰；关系失效时前台展示失效原因。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone relation-phone">
+              <div class="phone-bar"><span>9:41</span><span>喜欢我的</span></div>
+              <div class="phone-screen screen-state" data-mode-screen="likes" data-mode="blur">
+                <div class="app-nav">
+                  <span class="nav-icon">‹</span>
+                  <strong>喜欢我的</strong>
+                  <span class="nav-icon">···</span>
+                </div>
+                <div class="relation-hero-card heart">
+                  <span class="tag warning">普通用户</span>
+                  <h2>32 人喜欢你</h2>
+                  <p>完成单条解锁或开通会员后，可查看清晰资料。</p>
+                </div>
+                <div class="state-controls" data-control-group="likes">
+                  <button class="tab-btn is-active" type="button" data-set-mode="likes:blur">模糊态</button>
+                  <button class="tab-btn" type="button" data-set-mode="likes:clear">清晰态</button>
+                  <button class="tab-btn" type="button" data-set-mode="likes:invalid">失效态</button>
+                </div>
+                <div class="relation-list">
+                  <article class="relation-card state-blur">
+                    <div class="avatar portrait-a is-blur" aria-label="模糊头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>喜欢你的人</strong>
+                        <span class="tag brand">1 小时前</span>
+                      </div>
+                      <p>同城 · 金牛座 · 喜欢露营</p>
+                      <div class="weak-tags">
+                        <span>弱识别标签</span>
+                        <span>不展示昵称年龄学校</span>
+                      </div>
+                    </div>
+                    <button class="btn primary full" type="button" data-open-single-unlock="likes">只看 ta</button>
+                  </article>
+                  <article class="relation-card state-clear">
+                    <div class="avatar portrait-b" aria-label="清晰头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>林同学 · 25</strong>
+                        <span class="tag success">已解锁</span>
+                      </div>
+                      <p>复旦大学 · 产品经理 · 171cm</p>
+                      <div class="weak-tags">
+                        <span>同城</span>
+                        <span>已相互喜欢</span>
+                      </div>
+                    </div>
+                    <div class="action-row">
+                      <button class="btn full" type="button" data-toast="进入对方婚恋用户主页">看主页</button>
+                      <button class="btn primary full" type="button" data-open-relation-modal="matchSuccessModal">去聊天</button>
+                    </div>
+                  </article>
+                  <article class="relation-card is-invalid state-invalid">
+                    <div class="avatar portrait-c is-disabled" aria-label="失效头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>该关系已失效</strong>
+                        <span class="tag danger">已失效</span>
+                      </div>
+                      <p>失效原因：对方取消喜欢。不可解锁，不可进入主页。</p>
+                    </div>
+                    <button class="btn full" type="button" data-open-relation-modal="invalidReasonModal">查看原因</button>
+                  </article>
+                </div>
+                <div class="fixed-paybar">
+                  <button class="btn full" type="button" data-open-single-unlock="likes">只看 ta</button>
+                  <button class="btn primary full" type="button" data-toast="解锁全部将跳转 PRD-04 会员引导">解锁全部</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h3>页面还原点</h3>
+              <ul class="check-list">
+                <li><span>模糊态不展示强识别字段</span><strong>M02-RULE-blur-display</strong></li>
+                <li><span>单条清晰权益永久有效</span><strong>M02-RULE-unlock-visibility</strong></li>
+                <li><span>失效态展示原因</span><strong>M02-RULE-relation-invalid</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-02-PAGE-recent-viewers">
+          <div class="page-head">
+            <h2>APP-02-PAGE-recent-viewers 最近看过我的列表页</h2>
+            <p>只展示最近 7 天访客，统计区区分 UV/PV；开启隐藏访问记录的访问者不进入对方列表。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone relation-phone">
+              <div class="phone-bar"><span>9:48</span><span>最近看过我的</span></div>
+              <div class="phone-screen screen-state" data-mode-screen="viewers" data-mode="blur">
+                <div class="app-nav">
+                  <span class="nav-icon">‹</span>
+                  <strong>最近看过我的</strong>
+                  <span class="nav-icon">···</span>
+                </div>
+                <div class="visitor-stat-grid">
+                  <div><strong>18</strong><span>今日访客 UV</span></div>
+                  <div><strong>42</strong><span>今日浏览 PV</span></div>
+                  <div><strong>326</strong><span>总浏览 PV</span></div>
+                </div>
+                <div class="state-controls" data-control-group="viewers">
+                  <button class="tab-btn is-active" type="button" data-set-mode="viewers:blur">模糊态</button>
+                  <button class="tab-btn" type="button" data-set-mode="viewers:clear">清晰态</button>
+                  <button class="tab-btn" type="button" data-set-mode="viewers:invalid">失效态</button>
+                </div>
+                <div class="date-group">
+                  <span>今日</span>
+                  <strong>30 分钟内重复访问仅展示 1 条</strong>
+                </div>
+                <div class="relation-list">
+                  <article class="relation-card state-blur">
+                    <div class="avatar portrait-d is-blur" aria-label="模糊头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>刚刚看过你</strong>
+                        <span class="tag brand">访问 2 次</span>
+                      </div>
+                      <p>同乡 · 985/211 · 运动标签</p>
+                    </div>
+                    <button class="btn primary full" type="button" data-open-single-unlock="viewers">揭秘是谁</button>
+                  </article>
+                  <article class="relation-card state-clear">
+                    <div class="avatar portrait-e" aria-label="清晰头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>陈同学 · 27</strong>
+                        <span class="tag success">会员可见</span>
+                      </div>
+                      <p>上海 · 建筑设计师 · 今日访问 3 次</p>
+                      <div class="weak-tags">
+                        <span>对方送过悄悄话</span>
+                        <span>NEW</span>
+                      </div>
+                    </div>
+                    <button class="btn full" type="button" data-toast="进入对方婚恋用户主页">回看主页</button>
+                  </article>
+                  <article class="relation-card is-invalid state-invalid">
+                    <div class="avatar portrait-f is-disabled" aria-label="失效头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>访客记录已失效</strong>
+                        <span class="tag danger">已失效</span>
+                      </div>
+                      <p>失效原因：对方账号已注销。历史解锁可在 PRD-04 资产中心追溯。</p>
+                    </div>
+                    <button class="btn full" type="button" data-open-relation-modal="invalidReasonModal">查看原因</button>
+                  </article>
+                </div>
+                <div class="fixed-paybar">
+                  <button class="btn full" type="button" data-open-single-unlock="viewers">只看 ta</button>
+                  <button class="btn primary full" type="button" data-toast="解锁全部访客将跳转 PRD-04 会员引导">解锁全部访客</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h3>页面还原点</h3>
+              <ul class="check-list">
+                <li><span>展示窗口固定最近 7 天</span><strong>M02-PARAM-visitor-visible-days</strong></li>
+                <li><span>同一主页访问 30 分钟去重</span><strong>M02-PARAM-visit-dedup-minutes</strong></li>
+                <li><span>隐藏访问记录权益归 PRD-04/06</span><strong>M02-RULE-hidden-visit</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-02-PAGE-mutual-matches">
+          <div class="page-head">
+            <h2>APP-02-PAGE-mutual-matches 相互喜欢列表页</h2>
+            <p>有效匹配展示聊天和主页入口；失效匹配置灰并展示失效原因。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone relation-phone">
+              <div class="phone-bar"><span>9:55</span><span>相互喜欢</span></div>
+              <div class="phone-screen">
+                <div class="app-nav">
+                  <span class="nav-icon">‹</span>
+                  <strong>相互喜欢</strong>
+                  <span class="tag success">4 人</span>
+                </div>
+                <div class="match-banner">
+                  <div>
+                    <strong>匹配后主页动作已变更</strong>
+                    <span>对方主页 Yo 按钮改为聊天 icon，底部主按钮改为聊天。</span>
+                  </div>
+                  <button class="btn primary" type="button" data-open-relation-modal="matchSuccessModal">模拟匹配</button>
+                </div>
+                <div class="relation-list">
+                  <article class="relation-card match-card">
+                    <div class="avatar portrait-g" aria-label="清晰头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>周同学 · 26</strong>
+                        <span class="tag success">matched</span>
+                      </div>
+                      <p>来源：双方互送爱心 · 10 分钟前</p>
+                    </div>
+                    <div class="action-row">
+                      <button class="btn primary full" type="button" data-toast="进入 PRD-03 会话页，女性保护由 PRD-03 判定">聊天</button>
+                      <button class="btn full" type="button" data-toast="进入对方主页，主页主按钮展示聊天">看主页</button>
+                    </div>
+                  </article>
+                  <article class="relation-card match-card">
+                    <div class="avatar portrait-h" aria-label="清晰头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>许同学 · 24</strong>
+                        <span class="tag brand">悄悄话回复</span>
+                      </div>
+                      <p>来源：whisper_reply · 今日 08:42</p>
+                    </div>
+                    <div class="action-row">
+                      <button class="btn primary full" type="button" data-toast="进入聊天页">聊天</button>
+                      <button class="btn full" type="button" data-toast="进入对方主页">看主页</button>
+                    </div>
+                  </article>
+                  <article class="relation-card match-card is-invalid">
+                    <div class="avatar portrait-i is-disabled" aria-label="失效头像"></div>
+                    <div class="relation-info">
+                      <div class="card-line">
+                        <strong>匹配已失效</strong>
+                        <span class="tag danger">invalid</span>
+                      </div>
+                      <p>失效原因：我取消喜欢。聊天入口已关闭。</p>
+                    </div>
+                    <button class="btn full" type="button" data-open-relation-modal="invalidReasonModal">查看原因</button>
+                  </article>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h3>页面还原点</h3>
+              <ul class="check-list">
+                <li><span>有效匹配优先，失效记录置后</span><strong>查询与列表</strong></li>
+                <li><span>悄悄话回复可生成匹配</span><strong>M02-RULE-whisper-match</strong></li>
+                <li><span>主页按钮联动输出给 PRD-05</span><strong>M02-RULE-profile-action-after-match</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-02-PAGE-match-success-modal">
+          <div class="page-head">
+            <h2>APP-02-PAGE-match-success-modal 匹配成功弹窗</h2>
+            <p>首次匹配成功即时弹出；关闭后同一对用户不重复弹；聊天受保护提示由 PRD-03 承接。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone relation-phone">
+              <div class="phone-bar"><span>10:02</span><span>婚恋主页</span></div>
+              <div class="phone-screen profile-preview">
+                <div class="profile-cover">
+                  <div class="avatar portrait-j large" aria-label="主页头像"></div>
+                </div>
+                <div class="profile-body">
+                  <h2>周同学 · 26</h2>
+                  <p>同城 · 喜欢摄影 · 期待认真了解</p>
+                  <div class="profile-action-row">
+                    <button class="circle-action" type="button">聊天</button>
+                    <button class="btn primary full" type="button">聊天</button>
+                  </div>
+                  <div class="notice">
+                    <strong>联动后状态</strong>
+                    匹配成功后主页 Yo 按钮改为聊天 icon，底部主按钮改为聊天。
+                  </div>
+                  <button class="btn primary full" type="button" data-open-relation-modal="matchSuccessModal">打开匹配成功弹窗</button>
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h3>弹窗内容</h3>
+              <ul class="check-list">
+                <li><span>双方头像</span><strong>PRD-01 审核头像</strong></li>
+                <li><span>按钮组</span><strong>去看看 ta / 去聊天 / 稍后再说</strong></li>
+                <li><span>同一对用户仅首次弹一次</span><strong>M02-PARAM-match-popup-once</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-02-PAGE-single-unlock-modal">
+          <div class="page-head">
+            <h2>APP-02-PAGE-single-unlock-modal 单条解锁弹窗场景</h2>
+            <p>PRD-02 只定义喜欢/访客场景文案和按钮组合；扣币、余额不足、充值结果复用 PRD-04 付费弹窗。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone relation-phone">
+              <div class="phone-bar"><span>10:08</span><span>单条解锁</span></div>
+              <div class="phone-screen">
+                <div class="unlock-card">
+                  <div class="avatar portrait-k is-blur large" aria-label="模糊头像"></div>
+                  <h2>查看对方资料</h2>
+                  <p>根据来源页使用不同副标题，按钮固定为“只看 ta”和“解锁全部”。</p>
+                  <div class="scenario-grid">
+                    <button class="package-card" type="button" data-open-single-unlock="likes">
+                      <span class="package-tag">喜欢我的</span>
+                      <strong>解锁喜欢你的人</strong>
+                      <span>只看 ta · 20 千寻币</span>
+                    </button>
+                    <button class="package-card" type="button" data-open-single-unlock="viewers">
+                      <span class="package-tag">最近看过我的</span>
+                      <strong>揭秘是谁来看过你</strong>
+                      <span>只看 ta · 20 千寻币</span>
+                    </button>
+                  </div>
+                  <button class="btn primary full" type="button" data-open-single-unlock="likes">打开单条解锁弹窗</button>
+                </div>
+                <div class="notice">
+                  <strong>边界</strong>
+                  “只看 ta”扣千寻币，“解锁全部”开通会员；实际支付容器统一复用 PRD-04。
+                </div>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h3>场景差异</h3>
+              <ul class="check-list">
+                <li><span>喜欢我的副标题</span><strong>解锁喜欢你的人</strong></li>
+                <li><span>最近看过我的副标题</span><strong>揭秘是谁来看过你</strong></li>
+                <li><span>余额不足态</span><strong>PRD-04 承接</strong></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="singleUnlockModal" aria-hidden="true">
+    <div class="modal relation-modal" role="dialog" aria-modal="true" aria-labelledby="singleUnlockTitle">
+      <div class="modal-visual">
+        <div class="avatar portrait-l is-blur large" aria-label="模糊头像"></div>
+      </div>
+      <h2 id="singleUnlockTitle">查看对方资料</h2>
+      <p data-single-unlock-subtitle>解锁喜欢你的人</p>
+      <div class="notice"><strong>扣费确认</strong><span data-single-unlock-cost>只看 ta 需要 20 千寻币，确认后当前记录永久清晰。</span></div>
+      <div class="modal-actions stack">
+        <button class="btn" type="button" data-close-modal>取消</button>
+        <button class="btn" type="button" data-toast="解锁全部将跳转 PRD-04 会员引导" data-close-modal>解锁全部</button>
+        <button class="btn primary" type="button" data-toast="扣币成功，当前记录已变为清晰态" data-close-modal>只看 ta</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="matchSuccessModal" aria-hidden="true">
+    <div class="modal relation-modal match-modal" role="dialog" aria-modal="true" aria-labelledby="matchSuccessTitle">
+      <div class="match-avatars">
+        <div class="avatar portrait-m large" aria-label="我的头像"></div>
+        <div class="match-heart">♥</div>
+        <div class="avatar portrait-n large" aria-label="对方头像"></div>
+      </div>
+      <h2 id="matchSuccessTitle">你们相互喜欢啦</h2>
+      <p>可以去看看 ta 的主页，也可以进入聊天；后续聊天顺序由 PRD-03 女性保护规则判定。</p>
+      <div class="modal-actions stack">
+        <button class="btn" type="button" data-close-modal>稍后再说</button>
+        <button class="btn" type="button" data-toast="进入对方婚恋用户主页，主页主按钮已变为聊天" data-close-modal>去看看 ta</button>
+        <button class="btn primary" type="button" data-toast="进入 PRD-03 会话页" data-close-modal>去聊天</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="invalidReasonModal" aria-hidden="true">
+    <div class="modal relation-modal" role="dialog" aria-modal="true" aria-labelledby="invalidReasonTitle">
+      <h2 id="invalidReasonTitle">关系已失效</h2>
+      <p>该关系已失效：对方取消喜欢、拉黑、账号注销、冻结、封禁或认证失效。前台展示原因，后台保留记录可查。</p>
+      <div class="modal-actions">
+        <button class="btn primary" type="button" data-close-modal>知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../shared/demo-common.js"></script>
+  <script src="assets/miniapp.js"></script>
+</body>
+</html>
