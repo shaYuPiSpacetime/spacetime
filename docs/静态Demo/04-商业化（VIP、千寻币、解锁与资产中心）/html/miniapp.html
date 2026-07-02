@@ -25,7 +25,6 @@
         <h2>购买与资产</h2>
         <a href="#APP-04-PAGE-vip-center">会员中心</a>
         <a href="#APP-04-PAGE-coin-recharge">千寻币充值</a>
-        <a href="#APP-04-PAGE-asset-center">资产中心</a>
         <a href="#APP-04-PAGE-subscription-manage">连续订阅管理</a>
         <h3>追溯与触点</h3>
         <a href="#APP-04-PAGE-coin-flow">千寻币流水</a>
@@ -38,14 +37,14 @@
         <section class="section-band">
           <div class="page-head">
             <h1>移动端商业化用户旅程</h1>
-            <p>从业务触点付费引导，到购买、支付结果、资产中心追溯和连续订阅管理，全部使用本地 mock 串联。</p>
+            <p>从业务触点付费引导，到购买、支付结果、流水/订单追溯和连续订阅管理，全部使用本地 mock 串联。</p>
           </div>
           <div class="section-body">
             <div class="flow-rail">
               <div class="flow-step is-active" data-flow-step="付费触点">付费触点</div>
               <div class="flow-step" data-flow-step="选择套餐">选择套餐</div>
               <div class="flow-step" data-flow-step="支付结果">支付结果</div>
-              <div class="flow-step" data-flow-step="资产追溯">资产追溯</div>
+              <div class="flow-step" data-flow-step="记录追溯">记录追溯</div>
               <div class="flow-step" data-flow-step="订阅管理">订阅管理</div>
             </div>
             <div class="progress" style="margin-top:14px"><span data-flow-progress style="width:20%"></span></div>
@@ -137,7 +136,7 @@
                 </div>
                 <div class="notice">
                   <strong>购买说明</strong>
-                  用户侧只展示总余额；消费场景按后台配置的 6 个场景收口，邀请奖励只入账不扣费。
+                  用户侧只展示总余额；消费场景按后台配置的 8 个场景收口，移动端展示名称和图标均取后台配置，邀请奖励只入账不扣费。
                 </div>
                 <label class="helper">
                   <input type="checkbox" checked data-coin-agreement>
@@ -155,50 +154,6 @@
                 <li><span>余额</span><strong>用户资产摘要</strong></li>
                 <li><span>套餐</span><strong>M04-CFG-coin-package-list</strong></li>
                 <li><span>来源场景</span><strong>用于支付成功回跳</strong></li>
-              </ul>
-            </article>
-          </div>
-        </section>
-
-        <section class="section-band" id="APP-04-PAGE-asset-center">
-          <div class="page-head">
-            <h2>APP-04-PAGE-asset-center 资产中心页</h2>
-            <p>统一查看会员状态、千寻币余额、免费悄悄话和记录入口。</p>
-          </div>
-          <div class="section-body phone-stage">
-            <article class="phone">
-              <div class="phone-bar"><span>9:50</span><span>资产中心</span></div>
-              <div class="phone-screen">
-                <div class="commerce-hero-card">
-                  <h2>资产中心</h2>
-                  <p data-core-access-tip>完成三重认证后，相关社交权益才会实际生效</p>
-                  <div class="summary-row" style="grid-template-columns:repeat(2,1fr)">
-                    <div><strong data-vip-status>生效中</strong><span>会员</span></div>
-                    <div><strong data-coin-balance>180</strong><span>千寻币</span></div>
-                  </div>
-                </div>
-                <div class="mini-panel">
-                  <h3>今日权益</h3>
-                  <div class="entry-list">
-                    <div class="entry-item"><span>免费悄悄话剩余</span><strong data-free-whisper>1 次</strong></div>
-                    <div class="entry-item"><span>连续订阅</span><strong>下次续费 2026-07-30</strong></div>
-                  </div>
-                </div>
-                <div class="mini-panel entry-list">
-                  <button class="btn full" data-jump="#APP-04-PAGE-coin-flow">查看千寻币流水</button>
-                  <button class="btn full" data-jump="#APP-04-PAGE-vip-orders">查看会员订单</button>
-                  <button class="btn full" data-jump="#APP-04-PAGE-subscription-manage">管理连续订阅</button>
-                  <button class="btn primary full" data-jump="#APP-04-PAGE-coin-recharge">去充值</button>
-                  <button class="btn danger full" data-toast="资产摘要刷新失败，已保留上次数据" data-toast-type="danger">模拟刷新失败</button>
-                </div>
-              </div>
-            </article>
-            <article class="mini-panel">
-              <h2>空态与降级</h2>
-              <ul class="check-list">
-                <li><span>新用户无订单/流水</span><strong>入口保留，摘要显示暂无</strong></li>
-                <li><span>资产摘要失败</span><strong>toast + 重试</strong></li>
-                <li><span>订阅服务不可用</span><strong>展示取消指引</strong></li>
               </ul>
             </article>
           </div>
@@ -318,7 +273,8 @@
                   <button class="tab-btn" data-payment-state="refreshing">刷新中</button>
                 </div>
                 <div class="fixed-paybar">
-                  <button class="btn primary full" data-jump="#APP-04-PAGE-asset-center">去资产中心</button>
+                  <button class="btn primary full" data-jump="#APP-04-PAGE-coin-flow">查看千寻币流水</button>
+                  <button class="btn full" data-jump="#APP-04-PAGE-vip-orders">查看会员订单</button>
                   <button class="btn full" data-toast="已返回来源页并刷新权益/余额">返回来源页</button>
                   <button class="btn full" data-toast="正在重新查询订单结果">刷新结果</button>
                 </div>
@@ -342,7 +298,7 @@
               <div class="phone-screen">
                 <div class="commerce-hero-card">
                   <h2>业务付费触点</h2>
-                  <p>喜欢我的、最近看过我的、悄悄话、理想型、觅缘回看等场景统一唤起。</p>
+                  <p>喜欢我的、最近看过我的、悄悄话、理想型、合拍的人、知音-觅知音、立业-职业推荐等场景统一唤起。</p>
                 </div>
                 <div class="mini-panel">
                   <h3>弹窗形态</h3>
@@ -350,12 +306,13 @@
                     <button class="btn full" data-open-paywall="vip-all">会员引导：解锁全部</button>
                     <button class="btn full" data-open-paywall="coin-like-one">扣币确认：单条解锁</button>
                     <button class="btn full" data-open-paywall="coin-balance-low">余额不足：快捷充值</button>
+                    <button class="btn full" data-open-paywall="career-recommend">扣币确认：职业推荐</button>
                     <button class="btn danger full" data-open-paywall="core-blocked">核心准入受限</button>
                   </div>
                 </div>
                 <div class="notice">
                   <strong>规则</strong>
-                  喜欢/访客单条走千寻币，解锁全部走会员；理想型/觅缘回看按次扣千寻币，会员不免单。
+                  喜欢/访客单条走千寻币，解锁全部走会员；理想型/合拍的人/知音-觅知音/立业-职业推荐按次扣千寻币，会员不免单。
                 </div>
               </div>
             </article>

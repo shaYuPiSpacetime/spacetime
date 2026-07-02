@@ -51,6 +51,7 @@ window.DEMO_DATA = {
   coinFlows: [
     { id: 'AFL-20260630-0001', type: '充值', amount: 320, scene: '千寻币充值', desc: '充值 300 + 赠送 20 千寻币', time: '2026-06-30 10:12:30' },
     { id: 'AFL-20260630-0002', type: '消费', amount: -8, scene: '解锁喜欢我的单条', desc: '查看林晓雨的清晰资料', time: '2026-06-30 10:18:02' },
+    { id: 'AFL-20260630-0003', type: '消费', amount: -26, scene: '立业-职业推荐', desc: '解锁本次职业测评结果推荐职业', time: '2026-06-30 10:22:18' },
     { id: 'AFL-20260629-0011', type: '奖励', amount: 50, scene: '邀请认证完成奖励', desc: 'PRD-07 邀请好友完成认证', time: '2026-06-29 19:32:11' },
     { id: 'AFL-20260628-0008', type: '退款退回', amount: 100, scene: '退款退回', desc: '特批退款后千寻币回退', time: '2026-06-28 16:20:00' },
   ],
@@ -60,7 +61,7 @@ window.DEMO_DATA = {
     { orderNo: 'ORD-20260520-0188', packageName: '月度会员', packageType: '普通套餐', duration: '31 天', originalAmount: '49.00', amount: '39.00', payChannel: '微信支付', status: '已退款', createTime: '2026-05-20 12:07:20', payTime: '2026-05-20 12:08:44', expireTime: '-', subscriptionFlag: '普通', refundNote: '退款已完成，曾生效会员状态展示已过期。' },
   ],
   paymentResults: {
-    success: { title: '支付成功', status: '支付成功', desc: '千寻币已到账：320；资产中心已刷新。', orderNo: 'ORD-20260630-1002', orderType: '千寻币充值订单' },
+    success: { title: '支付成功', status: '支付成功', desc: '千寻币已到账：320；余额与流水已刷新。', orderNo: 'ORD-20260630-1002', orderType: '千寻币充值订单' },
     failed: { title: '支付失败', status: '支付失败', desc: '支付渠道返回失败，资产未发生变化，可重新支付。', orderNo: 'ORD-20260630-1003', orderType: '会员订单' },
     closed: { title: '支付已取消', status: '已关闭', desc: '支付已取消，资产未发生变化；未支付订单固定 30 分钟自动关闭。', orderNo: 'ORD-20260630-1004', orderType: '会员订单' },
     refreshing: { title: '支付成功，资产刷新中', status: '支付成功', desc: '支付回调成功，资产摘要刷新中，可手动重试。', orderNo: 'ORD-20260630-1005', orderType: '会员订单' },
@@ -68,8 +69,9 @@ window.DEMO_DATA = {
   paywallScenarios: [
     { id: 'vip-all', title: '解锁全部喜欢我的', asset: '时空邂逅会员', cost: 0, balance: 180, desc: '单条走千寻币，解锁全部走会员。' },
     { id: 'coin-like-one', title: '解锁喜欢我的单条', asset: '千寻币', cost: 8, balance: 180, desc: '扣币成功后当前记录永久清晰可见。' },
-    { id: 'coin-balance-low', title: '觅缘回看单条解锁', asset: '千寻币', cost: 28, balance: 20, desc: '余额不足时展示快捷充值和更多套餐入口。' },
-    { id: 'core-blocked', title: '发送悄悄话', asset: '千寻币', cost: 12, balance: 180, desc: '购买与使用分离，核心准入未开放时使用受限。' },
+    { id: 'coin-balance-low', title: '合拍的人（单个）', asset: '千寻币', cost: 20, balance: 10, desc: '余额不足时展示快捷充值和更多套餐入口。' },
+    { id: 'career-recommend', title: '立业-职业推荐', asset: '千寻币', cost: 26, balance: 180, desc: '完成职业测评后按本次测评结果单次解锁；重新完成职业测评时才需再次解锁。' },
+    { id: 'core-blocked', title: '发送悄悄话（单次）', asset: '千寻币', cost: 12, balance: 180, desc: '购买与使用分离，核心准入未开放时使用受限。' },
   ],
   config: {
     version: 'CFG-v04.20260630',
@@ -82,12 +84,14 @@ window.DEMO_DATA = {
       unpaidCloseTimeout: '固定 30 分钟',
     },
     scenePrices: [
-      { scene: '发送悄悄话', code: 'whisper', price: 12, enabled: true, mobileIcon: 'icon-whisper' },
-      { scene: '解锁喜欢我的单条', code: 'likes_unlock_one', price: 8, enabled: true, mobileIcon: 'icon-heart-unlock' },
-      { scene: '解锁最近看过我的单条', code: 'viewers_unlock_one', price: 8, enabled: true, mobileIcon: 'icon-eye-unlock' },
-      { scene: '解锁理想型用户', code: 'ideal_user_unlock', price: 18, enabled: true, mobileIcon: 'icon-target-user' },
-      { scene: '批量解锁理想型用户', code: 'ideal_batch_unlock', price: 15, enabled: true, mobileIcon: 'icon-target-batch' },
-      { scene: '解锁觅缘回看单条', code: 'fate_replay_unlock_one', price: 28, enabled: true, mobileIcon: 'icon-fate-replay' },
+      { scene: '发送悄悄话', mobileDisplayName: '发送悄悄话（单次）', code: 'whisper', price: 12, enabled: true, mobileIcon: 'icon-whisper', desc: '单次发送悄悄话' },
+      { scene: '解锁喜欢我的单条', mobileDisplayName: '解锁喜欢我的单条', code: 'likes_unlock_one', price: 8, enabled: true, mobileIcon: 'icon-heart-unlock', desc: '查看单条喜欢我的清晰信息' },
+      { scene: '解锁最近看过我的单条', mobileDisplayName: '解锁最近看过我的单条', code: 'viewers_unlock_one', price: 8, enabled: true, mobileIcon: 'icon-eye-unlock', desc: '查看单条访客清晰信息' },
+      { scene: '解锁理想型用户', mobileDisplayName: '解锁理想型用户（单个）', code: 'ideal_user_unlock', price: 18, enabled: true, mobileIcon: 'icon-target-user', desc: '单个理想型用户解锁' },
+      { scene: '批量解锁理想型用户', mobileDisplayName: '批量解锁理想型用户', code: 'ideal_batch_unlock', price: 15, enabled: true, mobileIcon: 'icon-target-batch', desc: '多个理想型用户批量解锁' },
+      { scene: '合拍的人', mobileDisplayName: '合拍的人（单个）', code: 'compatible_person_unlock_one', price: 20, enabled: true, mobileIcon: 'icon-compatible-person', desc: '由测评结果推荐的人' },
+      { scene: '解锁知音-觅知音', mobileDisplayName: '解锁知音-觅知音（单个）', code: 'soulmate_mizhiyin_unlock_one', price: 28, enabled: true, mobileIcon: 'icon-soulmate', desc: '单个解锁知音对象' },
+      { scene: '立业-职业推荐', mobileDisplayName: '立业-职业推荐', code: 'career_recommend_unlock_one', price: 26, enabled: true, mobileIcon: 'icon-career-recommend', desc: '当用户完成职业测评时根据测评结果去推荐职业，单次解锁；重新完成职业测评时才需再次解锁' },
     ],
     logs: [
       { id: 'CFG-20260630-003', operator: '运营-沈青', item: '千寻币套餐', before: '300 千寻币 / 30 元', after: '300+20 千寻币 / 30 元', time: '2026-06-30 09:20' },
@@ -109,7 +113,8 @@ window.DEMO_DATA = {
   },
   unlockRecords: [
     { no: 'ULK-20260630-001', scene: '解锁喜欢我的单条', target: 'U100488 林晓雨', method: '千寻币单条', coin: 8, status: '生效中', expire: '永久', time: '2026-06-30 10:18:02' },
-    { no: 'ULK-20260628-031', scene: '解锁觅缘回看单条', target: '觅缘回看 FATE-0821', method: '千寻币按次', coin: 28, status: '已失效', expire: '2026-07-01 00:00:00', time: '2026-06-28 08:12:00' },
+    { no: 'ULK-20260630-018', scene: '立业-职业推荐', target: '职业测评报告 CAREER-0630', method: '千寻币按次', coin: 26, status: '生效中', expire: '本次测评结果有效期内', time: '2026-06-30 10:22:18' },
+    { no: 'ULK-20260628-031', scene: '合拍的人（单个）', target: '测评推荐 CP-0821', method: '千寻币按次', coin: 20, status: '已失效', expire: '2026-09-26 00:00:00', time: '2026-06-28 08:12:00' },
   ],
   orders: [
     { orderNo: 'ORD-20260630-1001', user: 'U100281 林晓雨 138****6128', type: '会员订单', packageName: '连续包月', amount: '29.00', status: '支付成功', createTime: '2026-06-30 10:11:58', payTime: '2026-06-30 10:12:30', channelNo: 'WX2026063010123091', source: '会员中心' },
@@ -120,6 +125,7 @@ window.DEMO_DATA = {
   assetFlows: [
     { flowNo: 'AFL-20260630-0001', user: 'U100281 林晓雨', assetType: '千寻币', flowType: '充值', amount: '+320', scene: '千寻币充值', orderNo: 'ORD-20260630-1002', time: '2026-06-30 10:13:40', before: 2260, after: 2580, idempotencyKey: 'pay:ORD-20260630-1002', remark: '充值 300 + 赠送 20 千寻币' },
     { flowNo: 'AFL-20260630-0002', user: 'U100281 林晓雨', assetType: '千寻币', flowType: '消费', amount: '-8', scene: '解锁喜欢我的单条', orderNo: '-', time: '2026-06-30 10:18:02', before: 2580, after: 2572, idempotencyKey: 'unlock:U100281:likes:U100488', remark: '单条解锁扣币' },
+    { flowNo: 'AFL-20260630-0003', user: 'U100281 林晓雨', assetType: '千寻币', flowType: '消费', amount: '-26', scene: '立业-职业推荐', orderNo: '-', time: '2026-06-30 10:22:18', before: 2572, after: 2546, idempotencyKey: 'unlock:U100281:career:CAREER-0630', remark: '解锁职业测评结果推荐职业' },
     { flowNo: 'AFL-20260629-0011', user: 'U100372 陈一鸣', assetType: '千寻币', flowType: '奖励', amount: '+50', scene: '邀请认证完成奖励', orderNo: '-', time: '2026-06-29 19:32:11', before: 40, after: 90, idempotencyKey: 'invite:REL-887:verify', remark: 'PRD-07 奖励入账' },
   ],
   refunds: [

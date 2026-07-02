@@ -23,7 +23,9 @@
     'icon-eye-unlock': '👁',
     'icon-target-user': '◎',
     'icon-target-batch': '◎+',
-    'icon-fate-replay': '↺',
+    'icon-compatible-person': '≋',
+    'icon-soulmate': '知',
+    'icon-career-recommend': '业',
   };
 
   const state = {
@@ -142,13 +144,13 @@
   function renderCoinScenes() {
     const target = qs('[data-render="coin-scenes"]');
     if (!target) return;
-    const rows = (data.config?.scenePrices || []).filter((item) => item.enabled).slice(0, 6);
+    const rows = (data.config?.scenePrices || []).filter((item) => item.enabled);
     target.innerHTML = rows.map((item) => `
       <div class="benefit-item with-icon">
         ${mobileIcon(item.mobileIcon)}
         <div>
-          <strong>${escapeHtml(item.scene)}</strong>
-          <span>${escapeHtml(item.code)}</span>
+          <strong>${escapeHtml(item.mobileDisplayName || item.scene)}</strong>
+          <span>${escapeHtml(item.desc || item.code)}</span>
           ${tag(`${escapeHtml(item.price)} 千寻币`)}
         </div>
       </div>
@@ -351,7 +353,9 @@
       <tr>
         <td>${escapeHtml(item.scene)}</td>
         <td>${escapeHtml(item.code)}</td>
+        <td><input class="icon-config-input" value="${escapeHtml(item.mobileDisplayName || item.scene)}" aria-label="移动端展示名称"></td>
         <td>${iconConfigInput(item.mobileIcon)}</td>
+        <td>${escapeHtml(item.desc || '-')}</td>
         <td><input type="number" value="${escapeHtml(item.price)}" style="width:88px"> 千寻币</td>
         <td><span class="mini-switch">${item.enabled ? '启用' : '停用'}</span></td>
         <td>APP 付费弹窗 / 来源业务页</td>

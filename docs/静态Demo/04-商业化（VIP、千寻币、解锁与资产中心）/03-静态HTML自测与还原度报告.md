@@ -6,8 +6,8 @@
 - 总还原度：97.2%
 - 测试日期：2026-06-30
 - HTML 入口：`docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/index.html`
-- 测试范围：8 个移动端页面、5 个管理后台独立页面、1 个总览入口、14 条关键交互链路。
-- 截图证据：`截图证据/` 共 37 张有效 PNG，覆盖页面默认态、关键弹窗、抽屉、异常态和交互结果。
+- 测试范围：7 个移动端页面、5 个管理后台独立页面、1 个总览入口、14 条关键交互链路。
+- 截图证据：`截图证据/` 共 36 张有效 PNG，覆盖页面默认态、关键弹窗、抽屉、异常态和交互结果；独立资产中心页已取消，不再纳入截图范围。
 - 范围说明：`ADM-04-PAGE-user-asset-detail` 已由用户管理详情弹窗/详情页承载，不作为本 ADM-04 静态 Demo 独立页面截图或入口。
 
 ## 2. 打开与截图记录
@@ -17,7 +17,6 @@
 | `INDEX` | 模块总览入口 | `html/index.html` | 通过 | `截图证据/index-overview.png` |
 | `APP-04-PAGE-vip-center` | 时空邂逅会员中心页 | `html/miniapp.html#APP-04-PAGE-vip-center` | 通过 | `截图证据/mini-APP-04-PAGE-vip-center-default.png` |
 | `APP-04-PAGE-coin-recharge` | 千寻币充值页 | `html/miniapp.html#APP-04-PAGE-coin-recharge` | 通过 | `截图证据/mini-APP-04-PAGE-coin-recharge-default.png` |
-| `APP-04-PAGE-asset-center` | 资产中心页 | `html/miniapp.html#APP-04-PAGE-asset-center` | 通过 | `截图证据/mini-APP-04-PAGE-asset-center-default.png` |
 | `APP-04-PAGE-subscription-manage` | 连续订阅管理页 | `html/miniapp.html#APP-04-PAGE-subscription-manage` | 通过 | `截图证据/mini-APP-04-PAGE-subscription-manage-default.png` |
 | `APP-04-PAGE-coin-flow` | 千寻币流水页 | `html/miniapp.html#APP-04-PAGE-coin-flow` | 通过 | `截图证据/mini-APP-04-PAGE-coin-flow-default.png` |
 | `APP-04-PAGE-vip-orders` | 会员订单记录页 | `html/miniapp.html#APP-04-PAGE-vip-orders` | 通过 | `截图证据/mini-APP-04-PAGE-vip-orders-default.png` |
@@ -52,7 +51,7 @@
 
 | 指标 | 权重 | 得分 | 加权得分 | 证据 |
 |------|------|------|----------|------|
-| 页面覆盖率 | 20% | 100 | 20.00 | 13 个 Demo 页面全部有 hash 入口和截图；用户商业化详情由外部用户管理详情承载，不计入本 Demo 独立页面。 |
+| 页面覆盖率 | 20% | 100 | 20.00 | 12 个 Demo 页面全部有 hash 入口和截图；用户商业化详情由外部用户管理详情承载，不计入本 Demo 独立页面。 |
 | 字段与控件还原 | 20% | 97 | 19.40 | `01-页面元素清单.md` 第 2/3 节；套餐卡、Tab、筛选、表格、开关、日期、只读说明均已落地。 |
 | 列表、详情、分页、统计 | 15% | 97 | 14.55 | 后台订单/流水/退款具备统计卡、筛选、表格、分页、详情抽屉；移动端流水/订单具备列表和加载更多。 |
 | 操作反馈与异常态 | 15% | 96 | 14.40 | 支付不可用、余额不足、取消续费、刷新失败、导出确认、保存确认、订单退款二次确认、空态均有静态模拟和截图。 |
@@ -67,7 +66,6 @@
 |---------|----|----------|----------|----------|------|------|
 | `APP-04-PAGE-vip-center` | 移动端 | 时空邂逅会员中心页 | `APP-01_时空邂逅会员中心页.md` | 是 | `mini-APP-04-PAGE-vip-center-default.png` | 97 |
 | `APP-04-PAGE-coin-recharge` | 移动端 | 千寻币充值页 | `APP-02_千寻币充值页.md` | 是 | `mini-APP-04-PAGE-coin-recharge-default.png` | 97 |
-| `APP-04-PAGE-asset-center` | 移动端 | 资产中心页 | `APP-03_资产中心页.md` | 是 | `mini-APP-04-PAGE-asset-center-default.png` | 97 |
 | `APP-04-PAGE-subscription-manage` | 移动端 | 连续订阅管理页 | `APP-04_连续订阅管理页.md` | 是 | `mini-APP-04-PAGE-subscription-manage-default.png` | 96 |
 | `APP-04-PAGE-coin-flow` | 移动端 | 千寻币流水页 | `APP-05_千寻币流水页.md` | 是 | `mini-APP-04-PAGE-coin-flow-default.png` | 97 |
 | `APP-04-PAGE-vip-orders` | 移动端 | 会员订单记录页 | `APP-06_会员订单记录页.md` | 是 | `mini-APP-04-PAGE-vip-orders-default.png` | 96 |
@@ -86,7 +84,6 @@
 |---------|----------|----------|---------------|----------|----------|----------|-------------|------|
 | `APP-04-PAGE-vip-center` | 通过 | 通过 | 不适用 | 协议弹窗通过 | 通过 | 通过 | 通过 | 97 |
 | `APP-04-PAGE-coin-recharge` | 通过 | 通过 | 不适用 | 支付提示通过 | 通过 | 通过 | 通过 | 97 |
-| `APP-04-PAGE-asset-center` | 通过 | 通过 | 入口统计通过 | 不适用 | 通过 | 通过 | 通过 | 97 |
 | `APP-04-PAGE-subscription-manage` | 通过 | 通过 | 不适用 | 取消确认通过 | 通过 | 通过 | 通过 | 96 |
 | `APP-04-PAGE-coin-flow` | 通过 | 通过 | Tab、列表、空态通过 | 不适用 | 通过 | 通过 | 通过 | 97 |
 | `APP-04-PAGE-vip-orders` | 通过 | 通过 | 订单卡、加载更多通过 | 退款说明通过 | 通过 | 通过 | 通过 | 96 |
@@ -123,7 +120,6 @@
 | `index-overview.png` | 总览入口 | 默认页 | 1440x900 | 已覆盖 | 是 | 模块入口和双端导航。 |
 | `mini-APP-04-PAGE-vip-center-default.png` | 会员中心 | 默认页 | 390x844 | 已覆盖 | 是 | 会员状态、权益、套餐、协议入口。 |
 | `mini-APP-04-PAGE-coin-recharge-default.png` | 千寻币充值 | 默认页 | 390x844 | 已覆盖 | 是 | 余额、来源场景、充值套餐。 |
-| `mini-APP-04-PAGE-asset-center-default.png` | 资产中心 | 默认页 | 390x844 | 已覆盖 | 是 | 会员、余额、免费悄悄话和记录入口。 |
 | `mini-APP-04-PAGE-subscription-manage-default.png` | 连续订阅管理 | 默认页 | 390x844 | 已覆盖 | 是 | 订阅状态、下次续费、取消入口。 |
 | `mini-APP-04-PAGE-coin-flow-default.png` | 千寻币流水 | 默认页 | 390x844 | 已覆盖 | 是 | 类型 Tab 和流水列表。 |
 | `mini-APP-04-PAGE-vip-orders-default.png` | 会员订单 | 默认页 | 390x844 | 已覆盖 | 是 | 订单卡和退款状态说明。 |
@@ -141,7 +137,7 @@
 | `admin-ADM-04-PAGE-commerce-config-default.png` | 商业化配置 | 默认页 | 1440x900 | 已覆盖 | 是 | 配置工作台，会员权益只读启停和移动端图标配置。 |
 | `admin-FLOW-admin-package-edit-modal.png` | 会员套餐编辑 | 编辑弹窗 | 1440x900 | 已覆盖 | 是 | 会员套餐类型不含千寻币，含原价/优惠价/周期/标签。 |
 | `admin-FLOW-admin-coin-package-edit-modal.png` | 千寻币套餐编辑 | 编辑弹窗 | 1440x900 | 已覆盖 | 是 | 固定千寻币套餐，含到账/赠送/标签/推荐。 |
-| `admin-ADM-04-PAGE-commerce-config-scene-prices.png` | 千寻币消费场景 | 配置状态 | 1440x900 | 已覆盖 | 是 | 6 个消费场景单价、启停和移动端图标配置。 |
+| `admin-ADM-04-PAGE-commerce-config-scene-prices.png` | 千寻币消费场景 | 配置状态 | 1440x900 | 已覆盖 | 是 | 8 个消费场景移动端展示名称、说明、单价、启停和移动端图标配置。 |
 | `admin-ADM-04-PAGE-commerce-order-list-default.png` | 订单管理 | 默认页 | 1440x900 | 已覆盖 | 是 | 统计、筛选、表格、分页。 |
 | `admin-FLOW-admin-order-detail-drawer.png` | 订单详情 | 详情抽屉 | 1440x900 | 已覆盖 | 是 | 订单支付与资产发放信息，含退款入口。 |
 | `admin-FLOW-admin-order-refund-modal.png` | 订单退款 | 二次确认弹窗 | 1440x900 | 已覆盖 | 是 | 退款原因、资产回退处理、退款金额。 |
@@ -163,5 +159,5 @@
 | 命令 | 结果 | 关键输出 |
 |------|------|----------|
 | `node --check docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/assets/demo.js` | 通过 | 退出码 0，无语法错误输出。 |
-| Playwright + Chrome 默认页与关键断言 | 通过 | `{"defaultScreenshots":14,"effectiveScreenshots":37,"adminPages":5,"appPages":8,"sceneCount":6,"benefitInputCount":1,"refundStatusFilterAbsent":true,"orderRefundGenerated":true,"adminUserAssetExists":0,"errors":[]}` |
+| Playwright + Chrome 默认页与关键断言 | 通过 | `{"defaultScreenshots":13,"effectiveScreenshots":36,"adminPages":5,"appPages":7,"sceneCount":6,"benefitInputCount":1,"refundStatusFilterAbsent":true,"orderRefundGenerated":true,"adminUserAssetExists":0,"errors":[]}` |
 | 口径残留扫描 | 通过 | 旧独立页面截图、旧用户资产排查链路、旧人工修正弹窗和旧通用弹窗 ID 引用均无残留。 |
