@@ -68,7 +68,7 @@ window.DEMO_DATA = {
   paywallScenarios: [
     { id: 'vip-all', title: '解锁全部喜欢我的', asset: '时空邂逅会员', cost: 0, balance: 180, desc: '单条走千寻币，解锁全部走会员。' },
     { id: 'coin-like-one', title: '解锁喜欢我的单条', asset: '千寻币', cost: 8, balance: 180, desc: '扣币成功后当前记录永久清晰可见。' },
-    { id: 'coin-balance-low', title: '精选主页回看', asset: '千寻币', cost: 68, balance: 20, desc: '余额不足时展示快捷充值和更多套餐入口。' },
+    { id: 'coin-balance-low', title: '觅缘回看单条解锁', asset: '千寻币', cost: 28, balance: 20, desc: '余额不足时展示快捷充值和更多套餐入口。' },
     { id: 'core-blocked', title: '发送悄悄话', asset: '千寻币', cost: 12, balance: 180, desc: '购买与使用分离，核心准入未开放时使用受限。' },
   ],
   config: {
@@ -87,7 +87,7 @@ window.DEMO_DATA = {
       { scene: '解锁最近看过我的单条', code: 'viewers_unlock_one', price: 8, enabled: true, mobileIcon: 'icon-eye-unlock' },
       { scene: '解锁理想型用户', code: 'ideal_user_unlock', price: 18, enabled: true, mobileIcon: 'icon-target-user' },
       { scene: '批量解锁理想型用户', code: 'ideal_batch_unlock', price: 15, enabled: true, mobileIcon: 'icon-target-batch' },
-      { scene: '精选主页解锁', code: 'featured_profile_unlock', price: 68, enabled: true, mobileIcon: 'icon-featured-profile' },
+      { scene: '解锁觅缘回看单条', code: 'fate_replay_unlock_one', price: 28, enabled: true, mobileIcon: 'icon-fate-replay' },
     ],
     logs: [
       { id: 'CFG-20260630-003', operator: '运营-沈青', item: '千寻币套餐', before: '300 千寻币 / 30 元', after: '300+20 千寻币 / 30 元', time: '2026-06-30 09:20' },
@@ -109,7 +109,7 @@ window.DEMO_DATA = {
   },
   unlockRecords: [
     { no: 'ULK-20260630-001', scene: '解锁喜欢我的单条', target: 'U100488 林晓雨', method: '千寻币单条', coin: 8, status: '生效中', expire: '永久', time: '2026-06-30 10:18:02' },
-    { no: 'ULK-20260628-031', scene: '精选主页解锁', target: '精选主页 FP-0821', method: '千寻币按次', coin: 68, status: '已失效', expire: '2026-07-01 00:00:00', time: '2026-06-28 08:12:00' },
+    { no: 'ULK-20260628-031', scene: '解锁觅缘回看单条', target: '觅缘回看 FATE-0821', method: '千寻币按次', coin: 28, status: '已失效', expire: '2026-07-01 00:00:00', time: '2026-06-28 08:12:00' },
   ],
   orders: [
     { orderNo: 'ORD-20260630-1001', user: 'U100281 林晓雨 138****6128', type: '会员订单', packageName: '连续包月', amount: '29.00', status: '支付成功', createTime: '2026-06-30 10:11:58', payTime: '2026-06-30 10:12:30', channelNo: 'WX2026063010123091', source: '会员中心' },

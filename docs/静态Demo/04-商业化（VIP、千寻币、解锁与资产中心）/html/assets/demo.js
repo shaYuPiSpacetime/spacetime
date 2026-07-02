@@ -23,7 +23,7 @@
     'icon-eye-unlock': '👁',
     'icon-target-user': '◎',
     'icon-target-batch': '◎+',
-    'icon-featured-profile': '★',
+    'icon-fate-replay': '↺',
   };
 
   const state = {

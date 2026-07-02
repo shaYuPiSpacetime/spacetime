@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本05 | 2026-07-02 | Codex | 按一期上线目标将消费场景中的精选主页解锁替换为觅缘回看单条解锁 |
 | 版本04 | 2026-07-02 | Codex | 千寻币消费场景列表新增移动端图标取值口径：图标取后台 `M04-CFG-coin-scene-price.mobileIcon` 配置 |
 | 版本03 | 2026-07-01 | Codex | 补充值协议勾选，千寻币用途按后台 6 个消费场景收口 |
 | 版本02 | 2026-07-01 | Codex | 明确千寻币为 PRD-04 唯一付费虚拟币，充值页不展示积分或其他虚拟币套餐 |
@@ -10,7 +11,7 @@
 - **页面 ID**：`APP-04-PAGE-coin-recharge`
 - **所属模块 PRD**：`../模块PRD文档/模块PRD_APP-04_商业化（VIP、千寻币、解锁与资产中心）.md`
 - **页面路由**：`/pages/commerce/coin-recharge`
-- **入口来源**：我的页「千寻币」；余额不足弹窗；单条解锁/悄悄话/理想型/精选付费触点
+- **入口来源**：我的页「千寻币」；余额不足弹窗；单条解锁/悄悄话/理想型/觅缘回看付费触点
 - **对应后台**：`ADM-04-PAGE-commerce-config`
 
 ---
@@ -72,7 +73,7 @@
 | 支付成功 | 订单成功 | 当前余额 | 刷新余额并写 `M04-EVT-coin-recharged` | |
 | 套餐类型 | 返回积分/其他付费虚拟币套餐 | 套餐区 | 不展示该套餐，视为配置越界并提示刷新 | `M04-RULE-paid-coin-scope` |
 | 充值协议 | 未勾选点击支付 | 支付按钮/字段提示 | 阻断支付并提示先阅读并勾选千寻币充值协议 | |
-| 消费场景 | 加载配置 | 用途说明区 | 仅展示 `whisper`、`likes_unlock_one`、`viewers_unlock_one`、`ideal_user_unlock`、`ideal_batch_unlock`、`featured_profile_unlock` 6 个消费场景；图标取 `M04-CFG-coin-scene-price.mobileIcon` | `M04-RULE-coin-consume-price-scope` |
+| 消费场景 | 加载配置 | 用途说明区 | 仅展示 `whisper`、`likes_unlock_one`、`viewers_unlock_one`、`ideal_user_unlock`、`ideal_batch_unlock`、`fate_replay_unlock_one` 6 个消费场景；图标取 `M04-CFG-coin-scene-price.mobileIcon` | `M04-RULE-coin-consume-price-scope` |
 
 ---
 
