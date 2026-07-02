@@ -9,9 +9,25 @@
   const openModal = common.openModal || (() => {});
   const openDrawer = common.openDrawer || (() => {});
 
+  const iconGlyphs = {
+    'icon-heart-list': '♥',
+    'icon-visitor': '👁',
+    'icon-whisper': '✉',
+    'icon-browse-plus': '+',
+    'icon-filter': '⌕',
+    'icon-exposure': '★',
+    'icon-privacy': '◌',
+    'icon-replay-3d': '↺',
+    'icon-heart-chance': '♡',
+    'icon-heart-unlock': '♥',
+    'icon-eye-unlock': '👁',
+    'icon-target-user': '◎',
+    'icon-target-batch': '◎+',
+    'icon-featured-profile': '★',
+  };
+
   const state = {
-    packageType: 'normal',
-    selectedVip: data.vipPackages?.[0],
+    selectedVip: data.subscriptionPackages?.find((item) => item.status === 'on' && item.wxProductReady !== false) || data.vipPackages?.[0],
     selectedCoin: data.coinPackages?.find((item) => item.recommended) || data.coinPackages?.[0],
     paymentState: 'success',
     coinFlowFilter: '全部',
@@ -25,6 +41,16 @@
 
   function tag(text) {
     return `<span class="tag ${statusClass(text)}">${escapeHtml(text)}</span>`;
+  }
+
+  function mobileIcon(iconCode) {
+    const code = iconCode || 'icon-default';
+    const glyph = iconGlyphs[code] || '•';
+    return `<span class="mobile-icon" title="${escapeHtml(code)}">${escapeHtml(glyph)}</span>`;
+  }
+
+  function iconConfigInput(iconCode) {
+    return `<input class="icon-config-input" value="${escapeHtml(iconCode || '')}" aria-label="移动端图标配置">`;
   }
 
   function amountClass(value) {
@@ -50,16 +76,19 @@
     const target = qs('[data-render="vip-benefits"]');
     if (!target) return;
     target.innerHTML = (data.vipBenefits || []).map((item) => `
-      <div class="benefit-item">
-        <strong>${escapeHtml(item.name)}</strong>
-        <span>${escapeHtml(item.desc)}</span>
-        ${tag(item.type)}
+      <div class="benefit-item with-icon">
+        ${mobileIcon(item.mobileIcon)}
+        <div>
+          <strong>${escapeHtml(item.name)}</strong>
+          <span>${escapeHtml(item.desc)}</span>
+          ${tag(item.type)}
+        </div>
       </div>
     `).join('');
   }
 
   function currentVipPackages() {
-    return state.packageType === 'subscription' ? (data.subscriptionPackages || []) : (data.vipPackages || []);
+    return [...(data.subscriptionPackages || []), ...(data.vipPackages || [])];
   }
 
   function renderVipPackages() {
@@ -76,7 +105,7 @@
       const disabled = item.status !== 'on' || item.wxProductReady === false ? ' is-disabled' : '';
       return `
         <button class="package-card${selected}${disabled}" data-select-vip="${escapeHtml(item.id)}" type="button">
-          <span class="package-tag">${escapeHtml(item.tag)}</span>
+          <span class="package-tag">${escapeHtml(item.type === 'subscription' ? `推荐 · ${item.tag}` : item.tag)}</span>
           <span>${escapeHtml(item.name)}</span>
           <strong>${money(item.price)}</strong>
           <span>${escapeHtml(item.duration)}</span>
@@ -86,7 +115,7 @@
     }).join('');
     const payButton = qs('[data-pay-vip]');
     if (payButton && state.selectedVip) {
-      payButton.textContent = `${state.selectedVip.type === 'subscription' ? '开通连续订阅' : '立即续费'} ${state.selectedVip.price} 元`;
+      payButton.textContent = `${state.selectedVip.type === 'subscription' ? '优先开通连续订阅' : '立即续费'} ${state.selectedVip.price} 元`;
     }
   }
 
@@ -115,10 +144,13 @@
     if (!target) return;
     const rows = (data.config?.scenePrices || []).filter((item) => item.enabled).slice(0, 6);
     target.innerHTML = rows.map((item) => `
-      <div class="benefit-item">
-        <strong>${escapeHtml(item.scene)}</strong>
-        <span>${escapeHtml(item.code)}</span>
-        ${tag(`${escapeHtml(item.price)} 千寻币`)}
+      <div class="benefit-item with-icon">
+        ${mobileIcon(item.mobileIcon)}
+        <div>
+          <strong>${escapeHtml(item.scene)}</strong>
+          <span>${escapeHtml(item.code)}</span>
+          ${tag(`${escapeHtml(item.price)} 千寻币`)}
+        </div>
       </div>
     `).join('');
   }
@@ -267,6 +299,7 @@
         <td>${escapeHtml(item.code)}</td>
         <td>${escapeHtml(item.adminName || item.name)}</td>
         <td>${escapeHtml(item.type)}</td>
+        <td>${iconConfigInput(item.mobileIcon)}</td>
         <td>${escapeHtml(item.desc)}</td>
         <td><span class="mini-switch">启用</span></td>
         <td>${configText(item)}</td>
@@ -318,6 +351,7 @@
       <tr>
         <td>${escapeHtml(item.scene)}</td>
         <td>${escapeHtml(item.code)}</td>
+        <td>${iconConfigInput(item.mobileIcon)}</td>
         <td><input type="number" value="${escapeHtml(item.price)}" style="width:88px"> 千寻币</td>
         <td><span class="mini-switch">${item.enabled ? '启用' : '停用'}</span></td>
         <td>APP 付费弹窗 / 来源业务页</td>
@@ -593,21 +627,16 @@
         window.location.hash = href.replace('#', '');
       }
 
-      if (target.matches('[data-package-type]')) {
-        state.packageType = target.dataset.packageType;
-        setActiveButton(target, '[data-package-type]');
-        renderVipPackages();
-        if (state.packageType === 'subscription') showToast('连续订阅套餐接入微信真实自动续费');
-      }
       if (target.matches('[data-select-vip]')) {
         const item = currentVipPackages().find((row) => row.id === target.dataset.selectVip);
         if (!item) return;
         if (item.status !== 'on' || item.wxProductReady === false) {
-          showToast('连续订阅商品或协议未配置，暂不可上架', 'warning');
+          showToast(item.type === 'subscription' ? '连续订阅商品或协议未配置，暂不可上架' : '套餐已下架，请刷新后重试', 'warning');
           return;
         }
         state.selectedVip = item;
         renderVipPackages();
+        if (item.type === 'subscription') showToast('连续订阅套餐接入微信真实自动续费');
       }
       if (target.matches('[data-select-coin]')) {
         const item = (data.coinPackages || []).find((row) => row.id === target.dataset.selectCoin);

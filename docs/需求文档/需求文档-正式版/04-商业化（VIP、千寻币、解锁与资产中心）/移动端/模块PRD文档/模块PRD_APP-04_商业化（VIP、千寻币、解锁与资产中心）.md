@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本08 | 2026-07-02 | Codex | 会员中心权益列表与千寻币充值页消费场景列表新增后台配置图标取值口径 |
 | 版本07 | 2026-07-01 | Codex | 同步蓝湖 UI 已确认维度：会员权益 9 项、会员引导文案、千寻币充值协议与 6 个消费场景 |
 | 版本06 | 2026-07-01 | Codex | 补充首版不做 SVIP/高端服务、千寻币为唯一付费虚拟币的移动端边界 |
 | 版本05 | 2026-06-30 | Codex | 收口连续订阅真实自动续费、未支付订单 30 分钟关闭和套餐价格后台配置口径 |
@@ -43,7 +44,7 @@
 ```
 入口：我的 -> 时空邂逅会员，或业务场景会员引导弹窗
 正常路径：
-  1. 用户进入会员中心，查看当前会员状态、9 项权益和套餐
+  1. 用户进入会员中心，查看当前会员状态、9 项权益和套餐；权益列表图标取后台 `M04-CFG-vip-benefit-list.mobileIcon`
   2. 选择普通套餐或连续订阅套餐；不出现 SVIP/高端服务套餐；连续订阅套餐接入微信真实自动续费扣款
   3. 勾选对应协议后发起微信支付
   4. 支付成功回调进入 `M04-SM-trade-order=success`
@@ -63,7 +64,7 @@
 入口：我的 -> 千寻币，或余额不足/单条解锁/悄悄话等付费弹窗
 正常路径：
   1. 用户查看当前余额和后台配置的千寻币套餐
-  2. 查看按后台配置收口的 6 个消费场景说明
+  2. 查看按后台配置收口的 6 个消费场景说明；消费场景图标取后台 `M04-CFG-coin-scene-price.mobileIcon`
   3. 选择套餐并勾选千寻币充值协议后发起支付
   4. 支付成功后写充值流水，刷新余额
   5. 若来自业务场景，回到来源场景继续解锁/发送/查看
@@ -98,9 +99,10 @@
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
-| 会员权益 | `vip_benefit` | 后台配置的 9 项会员权益项 | 04 | benefitCode, benefitType, enabled, configValue, displayOrder |
+| 会员权益 | `vip_benefit` | 后台配置的 9 项会员权益项 | 04 | benefitCode, benefitType, enabled, configValue, mobileIcon, displayOrder |
 | 会员套餐 | `vip_package` | 普通套餐/连续订阅套餐；首版不含 SVIP/高端服务套餐 | 04 | packageNo, packageType, price, durationDays, status |
 | 千寻币套餐 | `coin_package` | 千寻币充值套餐 | 04 | packageNo, payAmount, coinCount, bonusCoinCount, status |
+| 千寻币消费场景配置 | `coin_consume_scene_config` | 后台配置的 6 个千寻币消费场景 | 04 | sceneCode, price, enabled, mobileIcon |
 | 商业化订单 | `trade_order` | 会员和千寻币支付订单 | 04 | orderNo, orderType, packageNo, payAmount, orderStatus |
 | 用户资产摘要 | `user_asset` | 用户当前会员状态与千寻币余额 | 04 | userId, vipStatus, vipExpireTime, coinBalance |
 | 资产流水 | `asset_flow` | 资产变动记录 | 04 | flowNo, userId, assetType, flowType, changeAmount, bizScene |
@@ -133,8 +135,8 @@
 
 | 需求 ID | 能力 | 优先级 | 关联页面 ID | 备注 |
 |---------|------|--------|-------------|------|
-| `APP-04-RULE-vip-center` | 会员中心：状态、权益、套餐、协议、支付 | P0 | `APP-04-PAGE-vip-center` | 连续订阅接入微信真实自动续费 |
-| `APP-04-RULE-coin-recharge` | 千寻币充值：余额、套餐、支付 | P0 | `APP-04-PAGE-coin-recharge` | 套餐数量/价格后台配置 |
+| `APP-04-RULE-vip-center` | 会员中心：状态、权益、套餐、协议、支付 | P0 | `APP-04-PAGE-vip-center` | 连续订阅接入微信真实自动续费；权益图标取后台配置 |
+| `APP-04-RULE-coin-recharge` | 千寻币充值：余额、套餐、消费场景、支付 | P0 | `APP-04-PAGE-coin-recharge` | 套餐数量/价格后台配置；消费场景图标取后台配置 |
 | `APP-04-RULE-asset-center` | 资产中心：会员状态、余额、记录入口 | P0 | `APP-04-PAGE-asset-center` | |
 | `APP-04-RULE-subscription-manage` | 连续订阅管理：查看订阅状态、下次续费时间、取消续费入口/指引 | P0 | `APP-04-PAGE-subscription-manage` | 真实自动续费接入微信连续订阅 |
 | `APP-04-RULE-coin-flow` | 千寻币流水分页查询 | P0 | `APP-04-PAGE-coin-flow` | 包含邀请奖励 |

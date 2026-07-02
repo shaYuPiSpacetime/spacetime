@@ -138,10 +138,10 @@
 | `mini-FLOW-app-paywall-coin-confirm-action.png` | 扣币确认 | 关键弹窗 | 390x844 | 已覆盖 | 是 | 单条解锁扣币确认。 |
 | `mini-FLOW-app-paywall-balance-insufficient-action.png` | 余额不足 | 关键弹窗 | 390x844 | 已覆盖 | 是 | 快捷充值套餐。 |
 | `mini-STATE-app-core-blocked-modal.png` | 核心准入受限 | 异常态 | 390x844 | 已覆盖 | 是 | 三重认证提示。 |
-| `admin-ADM-04-PAGE-commerce-config-default.png` | 商业化配置 | 默认页 | 1440x900 | 已覆盖 | 是 | 配置工作台，会员权益只读启停。 |
+| `admin-ADM-04-PAGE-commerce-config-default.png` | 商业化配置 | 默认页 | 1440x900 | 已覆盖 | 是 | 配置工作台，会员权益只读启停和移动端图标配置。 |
 | `admin-FLOW-admin-package-edit-modal.png` | 会员套餐编辑 | 编辑弹窗 | 1440x900 | 已覆盖 | 是 | 会员套餐类型不含千寻币，含原价/优惠价/周期/标签。 |
 | `admin-FLOW-admin-coin-package-edit-modal.png` | 千寻币套餐编辑 | 编辑弹窗 | 1440x900 | 已覆盖 | 是 | 固定千寻币套餐，含到账/赠送/标签/推荐。 |
-| `admin-ADM-04-PAGE-commerce-config-scene-prices.png` | 场景单价 | 配置状态 | 1440x900 | 已覆盖 | 是 | 6 个消费场景。 |
+| `admin-ADM-04-PAGE-commerce-config-scene-prices.png` | 千寻币消费场景 | 配置状态 | 1440x900 | 已覆盖 | 是 | 6 个消费场景单价、启停和移动端图标配置。 |
 | `admin-ADM-04-PAGE-commerce-order-list-default.png` | 订单管理 | 默认页 | 1440x900 | 已覆盖 | 是 | 统计、筛选、表格、分页。 |
 | `admin-FLOW-admin-order-detail-drawer.png` | 订单详情 | 详情抽屉 | 1440x900 | 已覆盖 | 是 | 订单支付与资产发放信息，含退款入口。 |
 | `admin-FLOW-admin-order-refund-modal.png` | 订单退款 | 二次确认弹窗 | 1440x900 | 已覆盖 | 是 | 退款原因、资产回退处理、退款金额。 |

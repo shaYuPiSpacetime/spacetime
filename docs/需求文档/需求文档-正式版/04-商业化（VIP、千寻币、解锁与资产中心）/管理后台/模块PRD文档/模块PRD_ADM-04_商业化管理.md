@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本08 | 2026-07-02 | Codex | 商业化配置新增会员权益与千寻币消费场景移动端图标配置；场景单价统一更名为千寻币消费场景 |
 | 版本07 | 2026-07-01 | Codex | 同步蓝湖 UI 已确认会员权益维度，商业化配置页补 9 项会员权益及次数/分数字段 |
 | 版本06 | 2026-07-01 | Codex | 补充后台边界：只看会员状态/订单，不做连续订阅状态同步操作；demo 积分管理不属于 PRD-04 首版 |
 | 版本05 | 2026-06-30 | Codex | 同步后台修正：用户商业化详情由用户管理详情承载，不作为独立页面；订单详情发起退款并生成默认已退款记录 |
@@ -30,7 +31,7 @@
 
 | 角色 | 在本模块中做什么 | 引用全局角色 |
 |------|------------------|-------------|
-| 运营 | 配置会员权益、套餐、千寻币套餐、商业化文案 | `GLB-ROLE-operation` |
+| 运营 | 配置会员权益、套餐、千寻币套餐、千寻币消费场景、移动端图标和商业化文案 | `GLB-ROLE-operation` |
 | 客服 | 查看用户资产与订单流水，协助客诉排查 | `GLB-ROLE-customer-service` |
 | 财务/结算 | 查看订单、退款、资产流水、轻量对账并导出 | `GLB-ROLE-finance` |
 | 风控 | 查看异常资产与退款风险记录 | `GLB-ROLE-risk` |
@@ -46,7 +47,7 @@
 入口：移动端配置管理 -> 商业化配置
 正常路径：
   1. 运营进入商业化配置页
-  2. 配置 9 项会员权益、会员套餐、千寻币套餐、场景单价、解锁保留期、社交与订单参数、曝光包预留
+  2. 配置 9 项会员权益、会员套餐、千寻币套餐、千寻币消费场景、解锁保留期、社交与订单参数、曝光包预留；会员权益和千寻币消费场景均维护移动端图标
   3. 高风险配置保存时二次确认
   4. 保存后立即生效，写审计日志
 异常：
@@ -93,7 +94,8 @@
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
-| 会员权益 | `vip_benefit` | 会员权益配置 | 04 | benefitCode, benefitType, enabled, configValue |
+| 会员权益 | `vip_benefit` | 会员权益配置 | 04 | benefitCode, benefitType, enabled, configValue, mobileIcon |
+| 千寻币消费场景 | `coin_consume_scene_config` | 6 个千寻币消费场景配置 | 04 | sceneCode, price, enabled, mobileIcon |
 | 会员套餐 | `vip_package` | 会员套餐配置 | 04 | packageNo, packageType, price, durationDays, status |
 | 千寻币套餐 | `coin_package` | 千寻币套餐配置 | 04 | packageNo, payAmount, coinCount, bonusCoinCount |
 | 商业化订单 | `trade_order` | VIP/千寻币订单 | 04 | orderNo, userId, orderType, payAmount, orderStatus |
@@ -128,7 +130,7 @@
 
 | 需求 ID | 能力 | 优先级 | 关联页面 ID | 备注 |
 |---------|------|--------|-------------|------|
-| `ADM-04-RULE-commerce-config` | 会员权益/套餐、千寻币套餐、单价、解锁保留期配置 | P0 | `ADM-04-PAGE-commerce-config` | 会员权益按 9 项固定集合配置；高风险保存需审计；不含 SVIP/高端服务和积分管理 |
+| `ADM-04-RULE-commerce-config` | 会员权益/套餐、千寻币套餐、千寻币消费场景、解锁保留期配置 | P0 | `ADM-04-PAGE-commerce-config` | 会员权益按 9 项固定集合配置；会员权益和千寻币消费场景均配置移动端图标；高风险保存需审计；不含 SVIP/高端服务和积分管理 |
 | `ADM-04-RULE-social-order-param` | 普通/会员查看配额、会员到期提醒、退款展示开关 | P0 | `ADM-04-PAGE-commerce-config` | 统一收敛到社交与订单参数 Tab；未支付订单关闭时长固定 30 分钟不配置 |
 | `ADM-04-RULE-user-asset-detail` | 用户详情商业化 Tab | P0 | `ADM-04-PAGE-user-asset-detail` | 由用户管理详情弹窗/详情页承载，不作为 ADM-04 独立菜单页；查询排查，不直接改资产，不做订阅状态同步 |
 | `ADM-04-RULE-order-list` | 会员/千寻币订单查询、导出与订单内发起退款 | P0 | `ADM-04-PAGE-commerce-order-list` | 发起退款需二次确认并填写原因、资产回退处理、退款金额；不做订阅状态同步 |
