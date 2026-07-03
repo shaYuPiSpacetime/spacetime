@@ -1519,6 +1519,77 @@
   padding-bottom: 44px;
 }
 
+.module-supplement-stage {
+  width: min(960px, calc(100vw - 48px));
+}
+
+.module-supplement-card {
+  min-height: 0;
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+  padding-bottom: 34px;
+}
+
+.module-supplement-tabs {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 8px;
+  border: 1px solid #d7e0ec;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.module-supplement-tabs button {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.module-supplement-tabs button.is-active {
+  border-color: #2563eb;
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.12);
+}
+
+.module-supplement-panel {
+  display: none;
+  margin-top: 18px;
+}
+
+.module-supplement-panel.is-active {
+  display: block;
+}
+
+.module-supplement-intro {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  background: #eef6ff;
+}
+
+.module-supplement-intro strong {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 20px;
+}
+
+.module-supplement-intro span {
+  color: #475569;
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .export-board-card {
   min-height: 560px;
 }
@@ -1810,6 +1881,7 @@
 .profile-confirm-extra,
 .profile-confirm-cert,
 .profile-confirm-relation,
+.profile-confirm-message,
 .profile-confirm-logs,
 .profile-confirm-risk {
   padding: 2px 22px 4px;
@@ -1969,7 +2041,15 @@
   margin-bottom: 12px;
 }
 
-.profile-relation-summary article {
+.profile-message-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.profile-relation-summary article,
+.profile-message-summary article {
   min-height: 54px;
   padding: 9px 10px;
   border: 1px solid #d7e0ec;
@@ -1977,25 +2057,30 @@
   background: #f8fafc;
 }
 
-.profile-relation-summary article.is-wide {
+.profile-relation-summary article.is-wide,
+.profile-message-summary article.is-wide {
   grid-column: span 3;
 }
 
 .profile-relation-summary span,
-.profile-relation-summary strong {
+.profile-relation-summary strong,
+.profile-message-summary span,
+.profile-message-summary strong {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.profile-relation-summary span {
+.profile-relation-summary span,
+.profile-message-summary span {
   color: #64748b;
   font-size: 11px;
   line-height: 15px;
 }
 
-.profile-relation-summary strong {
+.profile-relation-summary strong,
+.profile-message-summary strong {
   margin-top: 5px;
   color: #0f172a;
   font-size: 13px;
@@ -2053,6 +2138,162 @@
 
 .profile-relation-panel.is-active {
   display: block;
+}
+
+.profile-message-latest {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.profile-message-latest p {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.profile-message-latest span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 17px;
+}
+
+.profile-message-latest strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-message-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.profile-message-panel {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #d7e0ec;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.profile-message-panel h4 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.profile-message-panel p {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  margin: 0 0 8px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.profile-message-panel p:last-child {
+  margin-bottom: 0;
+}
+
+.profile-message-panel span,
+.profile-message-panel strong,
+.profile-message-panel b,
+.profile-message-panel em,
+.profile-message-panel time {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-message-panel span,
+.profile-message-panel time {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.profile-message-panel strong {
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.profile-message-panel b {
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 15px;
+}
+
+.profile-message-panel em {
+  color: #334155;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 15px;
+}
+
+.module-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5edf6;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.module-pagination span {
+  margin-right: auto;
+  font-weight: 800;
+}
+
+.module-pagination em {
+  padding: 0 2px;
+  color: #64748b;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.module-pagination button {
+  height: 26px;
+  min-width: 26px;
+  padding: 0 8px;
+  border: 1px solid #d7e0ec;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.module-pagination button.is-active {
+  border-color: #2563eb;
+  background: #eaf2ff;
+  color: #2563eb;
+}
+
+.module-pagination button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .profile-relation-table {
@@ -2340,6 +2581,7 @@
   .profile-confirm-extra,
   .profile-confirm-cert,
   .profile-confirm-relation,
+  .profile-confirm-message,
   .profile-confirm-logs,
   .profile-confirm-risk {
     padding-right: 8px;
@@ -2357,16 +2599,29 @@
 
   .profile-confirm-grid,
   .profile-confirm-score,
-  .profile-relation-summary {
+  .profile-relation-summary,
+  .profile-message-summary,
+  .profile-message-tabs {
     grid-template-columns: 1fr;
   }
 
-  .profile-relation-summary article.is-wide {
+  .profile-relation-summary article.is-wide,
+  .profile-message-summary article.is-wide {
     grid-column: span 1;
   }
 
   .profile-relation-tabs {
     flex-wrap: wrap;
+  }
+
+  .module-pagination {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .module-pagination span {
+    width: 100%;
+    margin-right: 0;
   }
 
   .profile-relation-panel {
@@ -2797,7 +3052,7 @@
 .figma-user-card {
   position: relative;
   width: 360px;
-  height: 326px;
+  height: 300px;
   overflow: hidden;
   border: 1px solid #d8e2f0;
   border-radius: 8px;
@@ -2906,62 +3161,13 @@
   line-height: 15px;
 }
 
-.figma-relation-badges {
-  position: absolute;
-  left: 18px;
-  top: 150px;
-  display: flex;
-  gap: 6px;
-  width: 320px;
-}
-
-.figma-relation-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 108px;
-  height: 22px;
-  padding: 0 8px;
-  overflow: hidden;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.figma-relation-pill.success {
-  background: #e8f7ee;
-  color: #16a34a;
-}
-
-.figma-relation-pill.warning {
-  background: #fff7ed;
-  color: #d97706;
-}
-
-.figma-relation-pill.danger {
-  background: #fff1f2;
-  color: #e11d48;
-}
-
-.figma-relation-pill.brand {
-  background: #eef6ff;
-  color: #2563eb;
-}
-
 .figma-card-metrics {
   position: absolute;
   left: 18px;
-  top: 178px;
+  top: 154px;
   display: grid;
   grid-template-columns: 96px 96px 104px;
   gap: 12px;
-}
-
-.figma-card-metrics.is-relation {
-  top: 236px;
 }
 
 .figma-card-metrics div {
@@ -2996,9 +3202,9 @@
 .figma-card-footer {
   position: absolute;
   left: 18px;
-  top: 296px;
+  top: 218px;
   width: 332px;
-  height: 30px;
+  height: 64px;
 }
 
 .figma-verify-row {
@@ -3035,33 +3241,39 @@
 }
 
 .figma-card-actions {
-  position: absolute;
-  left: 172px;
-  top: 0;
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .figma-card-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
   height: 30px;
+  padding: 0 8px;
   border: 0;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 16px;
+  white-space: nowrap;
 }
 
 .figma-card-action.primary {
-  width: 78px;
   background: #2563eb;
   color: #ffffff;
 }
 
+.figma-card-action.tertiary {
+  border: 1px solid #bfdbfe;
+  background: #eef6ff;
+  color: #2563eb;
+}
+
 .figma-card-action.secondary {
-  width: 78px;
   background: #ffffff;
   color: #334155;
 }

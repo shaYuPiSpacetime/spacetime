@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>管理后台 Demo - 用户准入与资料认证初始化</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../../shared/base.css">
   <link rel="stylesheet" href="../../shared/admin.css">
   <link rel="stylesheet" href="assets/demo.css">
@@ -81,7 +82,7 @@
             <div class="figma-list-head">
               <div>
                 <h2>用户卡片列表</h2>
-                <p>卡片内展示固定字段、关系反馈字段和敏感信息掩码。</p>
+                <p>卡片内展示固定字段和敏感信息掩码，跨模块补充从卡片按钮进入。</p>
               </div>
               <div class="figma-tabs" aria-label="列表视图">
                 <button class="is-active" data-toast="已切换卡片视图">卡片</button>
@@ -100,7 +101,7 @@
               <button class="figma-btn ghost" data-toast="已切换到下一页">下一页</button>
               <button class="figma-btn ghost">10条/页</button>
             </div>
-            <div hidden>批量导入 App 用户 导出固定字段且不掩码 画像详情 查询条件 关系列表字段 关系反馈准入状态 最近 7 天被访问人数 当前有效被喜欢数 当前有效相互喜欢数 是否开启隐藏访问记录权益 每页 10 条 编辑备注 冻结账号</div>
+            <div hidden>批量导入 App 用户 导出固定字段且不掩码 画像详情 模块补充 查询条件 每页 10 条 编辑备注 冻结账号</div>
           </div>
         </section>
 
@@ -538,6 +539,17 @@
         <div data-render="drawer-user"></div>
       </div>
     </aside>
+  </div>
+
+  <div class="modal-backdrop admin-board-backdrop module-supplement-backdrop" id="moduleSupplementModal" aria-hidden="true">
+    <div class="admin-modal-stage module-supplement-stage">
+      <section class="admin-board-card module-supplement-card" role="dialog" aria-modal="true" aria-labelledby="moduleSupplementTitle">
+        <button class="admin-board-close" data-close aria-label="关闭">×</button>
+        <h2 id="moduleSupplementTitle" data-render="module-supplement-title">模块补充</h2>
+        <p class="admin-board-subtitle">承接 PRD-02 关系反馈与 PRD-03 消息互动，不直接铺在用户列表和画像详情内。</p>
+        <div data-render="module-supplement-body"></div>
+      </section>
+    </div>
   </div>
 
 

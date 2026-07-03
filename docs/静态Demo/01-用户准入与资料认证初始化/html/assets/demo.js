@@ -10,6 +10,7 @@
   const closeModal = common.closeModal || (() => {});
   const openDrawer = common.openDrawer || (() => {});
   const closeDrawer = common.closeDrawer || (() => {});
+  const MODULE_PAGE_SIZE = 5;
 
   function relationProfile(user) {
     const profile = (data.relationProfiles && data.relationProfiles[user.id]) || {};
@@ -26,6 +27,23 @@
     };
   }
 
+  function messageProfile(user) {
+    const profile = (data.messageProfiles && data.messageProfiles[user.id]) || {};
+    return {
+      userNo: profile.userNo || user.profileNo || user.id,
+      unreadTotal: profile.unreadTotal ?? 0,
+      whisperPending: profile.whisperPending ?? 0,
+      recentNotice: profile.recentNotice || '无未读通知',
+      chatReportCount: profile.chatReportCount ?? 0,
+      conversationStatus: profile.conversationStatus || '普通私信未开启',
+      lastPrivateMessage: profile.lastPrivateMessage || '-',
+      lastNotification: profile.lastNotification || '-',
+      lastWhisper: profile.lastWhisper || '-',
+      auditSummary: profile.auditSummary || '高敏内容查看需二次确认并记录审计',
+      records: profile.records || { privateMessages: [], whispers: [], notifications: [], reports: [] },
+    };
+  }
+
   function relationClass(value) {
     if (/开放|生效|已开启|相互喜欢|全量可见|已解锁|正常展示/.test(value)) return 'success';
     if (/未开放|账号异常|权益不可用|已失效|冻结|失败|恢复默认/.test(value)) return 'danger';
@@ -33,8 +51,45 @@
     return 'brand';
   }
 
-  function renderRelationPill(label, value) {
-    return `<span class="figma-relation-pill ${relationClass(value)}">${escapeHtml(label)}：${escapeHtml(value)}</span>`;
+  function renderModulePagination(total, pageSize = MODULE_PAGE_SIZE) {
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const pageButtons = Array.from({ length: pageCount }, (_, index) => {
+      const page = index + 1;
+      return `<button class="${page === 1 ? 'is-active' : ''}" data-page-target="${page}" ${page === 1 ? 'aria-current="page"' : ''}>${page}</button>`;
+    }).join('');
+
+    return `
+      <div class="module-pagination" data-module-pagination data-current-page="1" data-page-count="${pageCount}" aria-label="分页">
+        <span>共 ${escapeHtml(total)} 条</span>
+        <button data-page-action="prev" disabled>上一页</button>
+        ${pageButtons}
+        <button data-page-action="next" ${pageCount <= 1 ? 'disabled' : ''}>下一页</button>
+        <em>${escapeHtml(pageSize)}条/页</em>
+      </div>
+    `;
+  }
+
+  function updateModulePagination(pagination, targetPage) {
+    if (!pagination) return;
+    const pageCount = Math.max(1, Number(pagination.dataset.pageCount) || 1);
+    const nextPage = Math.min(Math.max(Number(targetPage) || 1, 1), pageCount);
+    pagination.dataset.currentPage = String(nextPage);
+
+    qsa('[data-page-target]', pagination).forEach((button) => {
+      const isActive = Number(button.dataset.pageTarget) === nextPage;
+      button.classList.toggle('is-active', isActive);
+      if (isActive) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
+
+    qsa('[data-page-action="prev"]', pagination).forEach((button) => { button.disabled = nextPage <= 1; });
+    qsa('[data-page-action="next"]', pagination).forEach((button) => { button.disabled = nextPage >= pageCount; });
+
+    const scope = pagination.closest('[data-pagination-scope]');
+    if (!scope) return;
+    qsa('[data-page-index]', scope).forEach((row) => {
+      row.hidden = Number(row.dataset.pageIndex) !== nextPage;
+    });
   }
 
   function renderRelationRecordPanels(relation) {
@@ -95,24 +150,28 @@
     const panels = configs.map((config, index) => {
       const rows = relation.records?.[config.key] || [];
       const header = config.columns.map(([label]) => `<th>${escapeHtml(label)}</th>`).join('');
-      const body = rows.map((row) => `
-        <tr>
+      const body = rows.map((row, rowIndex) => {
+        const pageIndex = Math.floor(rowIndex / MODULE_PAGE_SIZE) + 1;
+        return `
+        <tr data-page-index="${pageIndex}" ${pageIndex > 1 ? 'hidden' : ''}>
           ${config.columns.map(([label, field]) => {
             const value = row[field] ?? '-';
             const isStatus = /status|Status|Reason|Action/.test(field);
             return `<td data-label="${escapeHtml(label)}">${isStatus ? `<span class="avatar-status ${relationClass(value)}">${escapeHtml(value)}</span>` : escapeHtml(value)}</td>`;
           }).join('')}
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       return `
-        <section class="profile-relation-panel ${index === 0 ? 'is-active' : ''}" data-user-relation-panel="${config.key}">
+        <section class="profile-relation-panel ${index === 0 ? 'is-active' : ''}" data-user-relation-panel="${config.key}" data-pagination-scope>
           ${rows.length ? `
             <table class="profile-relation-table">
               <thead><tr>${header}</tr></thead>
               <tbody>${body}</tbody>
             </table>
           ` : `<div class="profile-relation-empty">暂无${escapeHtml(config.label)}</div>`}
+          ${renderModulePagination(rows.length)}
         </section>
       `;
     }).join('');
@@ -125,12 +184,140 @@
     `;
   }
 
+  function renderMessageRecordPanels(message) {
+    const configs = [
+      {
+        key: 'privateMessages',
+        label: '私信',
+        empty: '暂无普通私信记录',
+        render: (item) => `
+          <span>${escapeHtml(item.id)}</span>
+          <strong>${escapeHtml(item.oppositeUser)}</strong>
+          <b>${escapeHtml(item.status)}</b>
+          <em>${escapeHtml(item.preview)}</em>
+          <time>${escapeHtml(item.time)}</time>
+        `,
+      },
+      {
+        key: 'whispers',
+        label: '悄悄话',
+        empty: '暂无悄悄话记录',
+        render: (item) => `
+          <span>${escapeHtml(item.id)}</span>
+          <strong>${escapeHtml(item.oppositeUser)}</strong>
+          <b>${escapeHtml(item.status)}</b>
+          <em>${escapeHtml(item.preview)}</em>
+          <time>${escapeHtml(item.time)}</time>
+        `,
+      },
+      {
+        key: 'notifications',
+        label: '通知',
+        empty: '暂无通知记录',
+        render: (item) => `
+          <span>${escapeHtml(item.id)}</span>
+          <strong>${escapeHtml(item.type)} / ${escapeHtml(item.bizType)}</strong>
+          <b>${escapeHtml(item.status)}</b>
+          <em>${escapeHtml(item.title)}</em>
+          <time>${escapeHtml(item.time)}</time>
+        `,
+      },
+      {
+        key: 'reports',
+        label: '举报',
+        empty: '暂无聊天举报记录',
+        render: (item) => `
+          <span>${escapeHtml(item.id)}</span>
+          <strong>${escapeHtml(item.oppositeUser)}</strong>
+          <b>${escapeHtml(item.status)}</b>
+          <em>${escapeHtml(item.reason)}</em>
+          <time>${escapeHtml(item.time)}</time>
+        `,
+      },
+    ];
+
+    return configs.map((config) => {
+      const rows = message.records?.[config.key] || [];
+      const body = rows.map((item, rowIndex) => {
+        const pageIndex = Math.floor(rowIndex / MODULE_PAGE_SIZE) + 1;
+        return `<p data-page-index="${pageIndex}" ${pageIndex > 1 ? 'hidden' : ''}>${config.render(item)}</p>`;
+      }).join('');
+
+      return `
+        <article class="profile-message-panel" data-pagination-scope>
+          <h4>${escapeHtml(config.label)} Tab</h4>
+          ${rows.length ? body : `<div class="profile-relation-empty">${escapeHtml(config.empty)}</div>`}
+          ${renderModulePagination(rows.length)}
+        </article>
+      `;
+    }).join('');
+  }
+
+  function renderModuleSupplementModal(userId) {
+    const user = (data.adminUsers || []).find((item) => item.id === userId) || (data.adminUsers || [])[0];
+    const title = qs('[data-render="module-supplement-title"]');
+    const body = qs('[data-render="module-supplement-body"]');
+    if (!user || !body) return;
+
+    const relation = relationProfile(user);
+    const message = messageProfile(user);
+    const profileNo = user.profileNo || message.userNo || user.id;
+
+    if (title) title.textContent = `${user.name} ${profileNo} · 模块补充`;
+
+    body.innerHTML = `
+      <nav class="module-supplement-tabs" aria-label="模块补充 Tab">
+        <button class="is-active" data-module-tab="relation">关系反馈</button>
+        <button data-module-tab="message">消息互动</button>
+      </nav>
+
+      <section class="module-supplement-panel is-active" data-module-panel="relation">
+        <div class="module-supplement-intro">
+          <strong>PRD-02 关系反馈与互动链路</strong>
+          <span>从用户卡片进入，仅在弹窗内承接跨模块运营与审计信息。</span>
+        </div>
+        <div class="profile-relation-summary">
+          <article><span>关系反馈准入</span><strong class="${relationClass(relation.relationAccessStatus)}">${escapeHtml(relation.relationAccessStatus)}</strong></article>
+          <article><span>VIP 状态</span><strong class="${relationClass(relation.vipStatus)}">${escapeHtml(relation.vipStatus)}</strong></article>
+          <article><span>隐藏访问记录</span><strong class="${relationClass(relation.hiddenVisitStatus)}">${escapeHtml(relation.hiddenVisitStatus)}</strong></article>
+          <article><span>7天访客 UV/PV</span><strong>${escapeHtml(relation.visitorUv7d)} / ${escapeHtml(relation.visitorPv7d)}</strong></article>
+          <article><span>当前被喜欢</span><strong>${escapeHtml(relation.activeLikedCount)}</strong></article>
+          <article><span>当前相互喜欢</span><strong>${escapeHtml(relation.activeMutualCount)}</strong></article>
+          <article class="is-wide"><span>最近匹配成功时间</span><strong>${escapeHtml(relation.lastMatchTime)}</strong></article>
+        </div>
+        ${renderRelationRecordPanels(relation)}
+      </section>
+
+      <section class="module-supplement-panel" data-module-panel="message">
+        <div class="module-supplement-intro">
+          <strong>PRD-03 消息、私信与通知中心</strong>
+          <span>消息互动信息不铺在列表或画像详情内，由本弹窗集中查看。</span>
+        </div>
+        <div class="profile-message-summary">
+          <article><span>消息未读数</span><strong>${escapeHtml(message.unreadTotal)}</strong></article>
+          <article><span>待回复悄悄话</span><strong>${escapeHtml(message.whisperPending)}</strong></article>
+          <article><span>最近通知</span><strong>${escapeHtml(message.recentNotice)}</strong></article>
+          <article><span>聊天举报数</span><strong>${escapeHtml(message.chatReportCount)}</strong></article>
+          <article class="is-wide"><span>普通私信状态</span><strong>${escapeHtml(message.conversationStatus)}</strong></article>
+          <article class="is-wide"><span>高敏查看审计</span><strong>${escapeHtml(message.auditSummary)}</strong></article>
+        </div>
+        <div class="profile-message-latest">
+          <p><span>最近私信</span><strong>${escapeHtml(message.lastPrivateMessage)}</strong></p>
+          <p><span>最近悄悄话</span><strong>${escapeHtml(message.lastWhisper)}</strong></p>
+          <p><span>最近通知</span><strong>${escapeHtml(message.lastNotification)}</strong></p>
+        </div>
+        <div class="profile-message-tabs">
+          ${renderMessageRecordPanels(message)}
+        </div>
+      </section>
+    `;
+  }
+
   function renderUserCards() {
     const container = qs('[data-render="user-cards"]');
     if (!container || !data.adminUsers) return;
 
     container.innerHTML = data.adminUsers.map((user) => {
-      const relation = relationProfile(user);
       const verifyBadges = (user.verifyBadges || Object.values(user.statuses || {}))
         .slice(0, 3)
         .map((value) => `<span class="figma-verify-badge ${statusClass(value)}">${escapeHtml(value)}</span>`)
@@ -159,28 +346,17 @@
             </div>
           </div>
 
-          <div class="figma-relation-badges" aria-label="关系反馈状态">
-            ${renderRelationPill('关系', relation.relationAccessStatus)}
-            ${renderRelationPill('VIP', relation.vipStatus)}
-            ${renderRelationPill('隐访', relation.hiddenVisitStatus)}
-          </div>
-
           <div class="figma-card-metrics">
             <div><span>完整度</span><strong>${escapeHtml(user.scoreLabel || `${user.score}/100`)}</strong></div>
             <div><span>千寻币</span><strong>${escapeHtml(user.coin)}</strong></div>
             <div><span>微信</span><strong>${escapeHtml(user.wechat)}</strong></div>
           </div>
 
-          <div class="figma-card-metrics is-relation">
-            <div><span>7天访客</span><strong>${escapeHtml(relation.visitorUv7d)}</strong></div>
-            <div><span>被喜欢</span><strong>${escapeHtml(relation.activeLikedCount)}</strong></div>
-            <div><span>相互喜欢</span><strong>${escapeHtml(relation.activeMutualCount)}</strong></div>
-          </div>
-
           <div class="figma-card-footer">
             <div class="figma-verify-row">${verifyBadges}</div>
             <div class="figma-card-actions">
-              <button class="figma-card-action primary" data-open-drawer="userDrawer" data-user-id="${escapeHtml(user.id)}">详情/关系</button>
+              <button class="figma-card-action primary" data-open-drawer="userDrawer" data-user-id="${escapeHtml(user.id)}">详情</button>
+              <button class="figma-card-action tertiary" data-open-modal="moduleSupplementModal" data-user-id="${escapeHtml(user.id)}">模块补充</button>
               <button class="figma-card-action secondary" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(user.auditId || 'A-1001')}">头像审核</button>
             </div>
           </div>
@@ -231,8 +407,6 @@
     const riskLogs = detail.riskLogs || [
       ['陈依怡', '2026.02.15 14:30', '风控', '账号风险复核完成并记录审计'],
     ];
-    const relation = relationProfile(user);
-
     const renderFields = (fields) => fields.map(([label, value]) => `
       <div class="profile-confirm-field">
         <span>${escapeHtml(label)}</span>
@@ -295,20 +469,6 @@
             <strong>资料完整度 ${escapeHtml(detail.scoreLabel || user.scoreLabel || `${score} / 100`)}</strong>
             <div class="profile-confirm-progress"><span style="width:${Math.max(0, Math.min(score, 100))}%"></span></div>
           </div>
-        </section>
-
-        ${renderSectionTitle('关系反馈')}
-        <section class="profile-confirm-relation">
-          <div class="profile-relation-summary">
-            <article><span>关系反馈准入</span><strong class="${relationClass(relation.relationAccessStatus)}">${escapeHtml(relation.relationAccessStatus)}</strong></article>
-            <article><span>VIP 状态</span><strong class="${relationClass(relation.vipStatus)}">${escapeHtml(relation.vipStatus)}</strong></article>
-            <article><span>隐藏访问记录</span><strong class="${relationClass(relation.hiddenVisitStatus)}">${escapeHtml(relation.hiddenVisitStatus)}</strong></article>
-            <article><span>7天访客 UV/PV</span><strong>${escapeHtml(relation.visitorUv7d)} / ${escapeHtml(relation.visitorPv7d)}</strong></article>
-            <article><span>当前被喜欢</span><strong>${escapeHtml(relation.activeLikedCount)}</strong></article>
-            <article><span>当前相互喜欢</span><strong>${escapeHtml(relation.activeMutualCount)}</strong></article>
-            <article class="is-wide"><span>最近匹配成功时间</span><strong>${escapeHtml(relation.lastMatchTime)}</strong></article>
-          </div>
-          ${renderRelationRecordPanels(relation)}
         </section>
 
         ${renderSectionTitle('千寻币/VIP')}
@@ -864,6 +1024,7 @@
 
       const modalButton = event.target.closest('[data-open-modal]');
       if (modalButton) {
+        if (modalButton.dataset.openModal === 'moduleSupplementModal') renderModuleSupplementModal(modalButton.dataset.userId);
         if (modalButton.dataset.rowId) renderAuditConfirm(modalButton.dataset.openModal, modalButton.dataset.rowId);
         openModal(modalButton.dataset.openModal);
         if (modalButton.dataset.rowId) {
@@ -881,6 +1042,8 @@
 
       const closeButton = event.target.closest('[data-close]');
       if (closeButton) {
+        const closeTarget = closeButton.closest('.modal-backdrop, .drawer-backdrop');
+        if (closeTarget && closeTarget.contains(document.activeElement)) document.activeElement.blur();
         closeModal(closeButton);
         closeDrawer(closeButton);
       }
@@ -913,6 +1076,26 @@
         const tabName = userRelationTab.dataset.userRelationTab;
         qsa('[data-user-relation-tab]', block).forEach((node) => node.classList.toggle('is-active', node === userRelationTab));
         qsa('[data-user-relation-panel]', block).forEach((node) => node.classList.toggle('is-active', node.dataset.userRelationPanel === tabName));
+        return;
+      }
+
+      const moduleTab = event.target.closest('[data-module-tab]');
+      if (moduleTab) {
+        const modal = moduleTab.closest('#moduleSupplementModal');
+        const tabName = moduleTab.dataset.moduleTab;
+        qsa('[data-module-tab]', modal).forEach((node) => node.classList.toggle('is-active', node === moduleTab));
+        qsa('[data-module-panel]', modal).forEach((node) => node.classList.toggle('is-active', node.dataset.modulePanel === tabName));
+        return;
+      }
+
+      const pageButton = event.target.closest('[data-page-action], [data-page-target]');
+      if (pageButton) {
+        const pagination = pageButton.closest('[data-module-pagination]');
+        const currentPage = Number(pagination?.dataset.currentPage) || 1;
+        const targetPage = pageButton.dataset.pageTarget
+          ? Number(pageButton.dataset.pageTarget)
+          : currentPage + (pageButton.dataset.pageAction === 'next' ? 1 : -1);
+        updateModulePagination(pagination, targetPage);
         return;
       }
 

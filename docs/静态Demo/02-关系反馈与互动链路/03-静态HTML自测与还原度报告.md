@@ -20,7 +20,8 @@
 | 单条解锁弹窗 | `截图证据/mini-FLOW-single-unlock-modal.png` | 可按喜欢/访客场景切换副标题与扣费说明，支付容器明确交给 PRD-04 |
 | 匹配成功弹窗 | `截图证据/mini-FLOW-match-success-modal.png` | 展示双方头像、一次性弹窗提示、去主页/去聊天/稍后再说按钮 |
 | 移动端窄屏烟测 | `截图证据/mini-mobile-smoke.png` | 侧边导航在窄屏下回到普通流式布局，不遮挡页面内容 |
-| 用户管理增强合并说明 | `截图证据/admin-ADM-02-PAGE-user-management-merged-default.png` | 明确说明用户列表字段补充、用户详情关系记录区块均已合并至 01 原 App 用户管理 Demo |
+| 用户管理增强合并说明 | `截图证据/admin-ADM-02-PAGE-user-management-merged-default.png` | 明确说明关系反馈能力已合并至 01 原 App 用户管理卡片的“模块补充”弹窗 |
+| 01 模块补充弹窗关系反馈 | `截图证据/01-module-supplement-relation-pagination.png` | 关系反馈 Tab 内喜欢记录、访客记录、相互喜欢、解锁记录均有 5 条/页分页组件 |
 | 后台窄屏烟测 | `截图证据/admin-mobile-smoke.png` | 页面不空白，核心合并说明可纵向浏览 |
 
 ## 3. 交互验证
@@ -32,6 +33,7 @@
 | 相互喜欢/主页联动展示 | 通过；页面展示主页 Yo 按钮已变为聊天入口的联动说明 |
 | 匹配成功弹窗 | 通过；按钮组和 PRD-03 女性保护引用文案均展示 |
 | 管理后台承接说明 | 通过；02 后台页面只保留合并说明和跳转 01 App 用户管理入口 |
+| 01 模块补充弹窗关系反馈 | 通过；关系反馈 Tab 内喜欢记录、访客记录、相互喜欢、解锁记录均展示 5 条/页分页组件 |
 
 ## 4. PRD 还原度
 
@@ -42,8 +44,8 @@
 | `APP-02-PAGE-mutual-matches` | 已实现 | 覆盖有效匹配、悄悄话回复匹配、失效原因、聊天/主页入口 |
 | `APP-02-PAGE-match-success-modal` | 已实现 | 覆盖匹配成功弹窗和主页按钮联动说明 |
 | `APP-02-PAGE-single-unlock-modal` | 已实现 | 覆盖喜欢/访客两类副标题，扣费与会员全量解锁边界指向 PRD-04 |
-| `ADM-02-PAGE-user-list-relation-fields` | 已合并 | 不再作为 02 独立菜单页展示，已合并到 `01-用户准入与资料认证初始化/html/admin.html#ADM-01-PAGE-app-user-management` |
-| `ADM-02-PAGE-user-relation-section` | 已合并 | 不再作为 02 独立菜单页展示，已合并到 01 原 App 用户管理的画像详情抽屉 |
+| `ADM-02-PAGE-user-list-relation-fields` | 已合并 | 不再作为 02 独立菜单页展示，已合并到 `01-用户准入与资料认证初始化/html/admin.html#ADM-01-PAGE-app-user-management` 的用户卡片按钮行 |
+| `ADM-02-PAGE-user-relation-section` | 已合并 | 不再作为 02 独立菜单页展示，已合并到 01 原 App 用户管理的模块补充弹窗-关系反馈 Tab |
 | `ADM-02-PAGE-relation-config` | 不做 | 本轮确认关系反馈规则代码固定实现，不提供后台配置页、保存确认弹窗或配置日志 |
 
 ## 5. 修复记录
@@ -57,4 +59,4 @@
 
 ## 6. 结论
 
-02 静态 Demo 已补齐移动端演示面，并保留后台“已合并到 01 原 App 用户管理”的说明入口。当前版本不依赖后端接口；真实前端接入时，PRD-02 的移动端页面可按本 demo 拆页实现，后台用户列表增强和用户详情关系区块继续落在 ADM-01 原 App 用户管理页面内，关系反馈规则按代码固定实现，不提供 PRD-02 独立后台配置页。
+02 静态 Demo 已补齐移动端演示面，并保留后台“已合并到 01 原 App 用户管理”的说明入口。当前版本不依赖后端接口；真实前端接入时，PRD-02 的移动端页面可按本 demo 拆页实现，后台关系反馈承接继续落在 ADM-01 原 App 用户管理卡片的“模块补充”弹窗内，关系反馈规则按代码固定实现，不提供 PRD-02 独立后台配置页。

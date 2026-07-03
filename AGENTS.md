@@ -27,6 +27,14 @@ When the user asks to run a generic test suite or investigate test failures:
 1. Read `.claude/skills/test-suite/SKILL.md` if present.
 2. Prefer the repository's documented commands.
 
+当用户要求编写正式 PRD、继续 PRD 固定流程、运行 ClaudeCode/Claude Code CLI PRD 核查，或执行自动 PRD 核查闭环时：
+
+1. 读取 `.claude/skills/prd-design/SKILL.md`。
+2. 如存在 `docs/流程规范/PRD正式版全自动工作流.md`，按该流程执行。
+3. Codex 先编写或更新正式版 PRD；当用户要求 Claude CLI 自动核查时，执行 `scripts/prd_workflow/claude_prd_review.sh --round 1` 进行第一轮只读核查。
+4. Codex 完成整改并更新 `PRD-XX_核查整改记录.md` 后，执行 `scripts/prd_workflow/claude_prd_review.sh --round 2` 进行第二轮深度复核。
+5. 如果 Claude CLI 不可用或未认证，生成 Claude 核查任务文件，并明确报告阻塞原因，不得静默跳过核查。
+
 ## Claude Agent Files As References
 
 The files under `.claude/agents/` describe Claude Code subagents. Codex cannot spawn those Claude agents automatically, but should use their instructions as role references when the user asks for that style of work.
