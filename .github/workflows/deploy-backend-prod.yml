@@ -15,7 +15,7 @@ concurrency:
 
 env:
   ALIYUN_CR_REGISTRY: registry.cn-hangzhou.aliyuncs.com
-  ALIYUN_REGISTRY_USER_NAME: bobo2026
+  ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'
   DOCKER_NAMESPACE: bobo2026
   BACKEND_IMAGE_NAME: spacetime-backend-prod
   BACKEND_IMAGE_TAG: latest

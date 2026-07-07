@@ -41,7 +41,7 @@ load_env() {
   export ADMIN_SSL_DIR="${ADMIN_SSL_DIR:-/mnt/data/spacetime-prod/ssl}"
   export NGINX_IMAGE="${NGINX_IMAGE:-nginx:1.27-alpine}"
   export ALIYUN_CR_REGISTRY="${ALIYUN_CR_REGISTRY:-registry.cn-hangzhou.aliyuncs.com}"
-  export ALIYUN_REGISTRY_USER_NAME="${ALIYUN_REGISTRY_USER_NAME:-bobo2026}"
+  export ALIYUN_REGISTRY_USER_NAME="${ALIYUN_REGISTRY_USER_NAME:-393841724@qq.com}"
   export DOCKER_NAMESPACE="${DOCKER_NAMESPACE:-bobo2026}"
   export ADMIN_IMAGE_NAME="${ADMIN_IMAGE_NAME:-spacetime-admin-prod}"
   export ADMIN_IMAGE_TAG="${ADMIN_IMAGE_TAG:-latest}"

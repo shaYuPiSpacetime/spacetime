@@ -59,7 +59,7 @@ assertIncludes(adminWorkflow, 'spacetime-admin-prod', '.github/workflows/deploy-
 assertNotIncludes(adminWorkflow, 'ADMIN_SSL_CERT_PEM', '.github/workflows/deploy-admin-prod.yml');
 assertNotIncludes(adminWorkflow, 'ADMIN_SSL_CERT_KEY', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'registry.cn-hangzhou.aliyuncs.com', '.github/workflows/deploy-admin-prod.yml');
-assertIncludes(adminWorkflow, 'ALIYUN_REGISTRY_USER_NAME: bobo2026', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'", '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'PROD_SERVER_HOST: 112.124.59.146', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'bash scripts/deploy-prod-local.sh admin', '.github/workflows/deploy-admin-prod.yml');
@@ -68,7 +68,7 @@ const backendWorkflow = read('.github/workflows/deploy-backend-prod.yml');
 assertIncludes(backendWorkflow, 'spacetime-backend-prod', '.github/workflows/deploy-backend-prod.yml');
 for (const expected of [
   'registry.cn-hangzhou.aliyuncs.com',
-  'ALIYUN_REGISTRY_USER_NAME: bobo2026',
+  "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'",
   'PROD_SERVER_HOST: 112.124.59.146',
   'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy',
   'bash scripts/deploy-prod-local.sh backend',
@@ -97,7 +97,7 @@ for (const expected of [
 const envExample = read('deploy/server.prod.env.example');
 for (const expected of [
   'ALIYUN_CR_REGISTRY=registry.cn-hangzhou.aliyuncs.com',
-  'ALIYUN_REGISTRY_USER_NAME=bobo2026',
+  'ALIYUN_REGISTRY_USER_NAME=393841724@qq.com',
   'ALIYUN_REGISTRY_PASSWORD=',
   'ADMIN_IMAGE=registry.cn-hangzhou.aliyuncs.com/bobo2026/spacetime-admin-prod:latest',
   'BACKEND_IMAGE=registry.cn-hangzhou.aliyuncs.com/bobo2026/spacetime-backend-prod:latest',
