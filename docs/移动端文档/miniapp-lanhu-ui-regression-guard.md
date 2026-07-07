@@ -75,6 +75,19 @@ Taro.navigateBack({
 - 实名认证链路：`/pages/verification/real-name`
 - 学历认证链路：`/pages/verification/education-student`、`/pages/verification/education-mainland`、`/pages/verification/education-chsi-help`、`/pages/verification/education-diploma-no`、`/pages/verification/education-certificate-upload`
 
+### 编辑资料关联页面
+
+1. 小程序启动验收页当前固定为 `/pages/profile/edit`，页面只保留入口、摘要展示和可点击按钮，不承载多个临时编辑态。
+2. 编辑资料关联页统一放入 `pages/profile-edit` 分包，注册页面为 `intro`、`tags`、`about`、`songs`、`voice`。
+3. 基础资料入口必须跳转 `/pages/verification/basic`，不新建重复基础资料页。
+4. 自我介绍入口必须跳转 `/pages/profile-edit/intro`，页面使用 `profile.editProfile.intro` 结构化数据，不允许把文字编辑塞进旧弹窗。
+5. 我的标签入口必须跳转 `/pages/profile-edit/tags`，页面使用 `profile.tagGroups` 和 `profile.defaultSelectedTags`，不得在编辑资料页恢复临时标签弹层。
+6. 关于我入口必须跳转 `/pages/profile-edit/about`，具体条目使用 `/pages/profile-edit/about?topic=meet` 等 topic 路由；`见面便好（样式复用）` 对应 `topic=meet`。
+7. 爱听的歌曲入口必须跳转 `/pages/profile-edit/songs`，添加成功态使用 `/pages/profile-edit/songs?variant=added`，不得再复用编辑资料页里的选项弹层。
+8. 语音介绍入口必须跳转 `/pages/profile-edit/voice?variant=voice`，六个蓝湖状态统一由 `voice` 页面承载：`voice`、`recording`、`exit`、`play`、`complete`、`delete`。删除成功轻提示使用 `delete-success` 状态。
+9. 旧的 `profile/edit` + `?variant` 聚合方式只允许保留蓝湖明确存在的底部选择态，例如感情状态；歌曲、关于我、语音删除、资料填写不得再塞回该聚合页。
+10. 编辑资料及其关联页禁止整页切图。头像、照片、标签、歌曲、关于我、语音波形、按钮和弹层必须用动态组件绘制，数据统一从 `lanhuDemo` 结构化 mock 读取，后续接后台只替换数据来源。
+
 ### 模块边界
 
 1. 推荐朋友页面只放在 `miniapp/src/pages/recommend/`。
