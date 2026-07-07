@@ -122,6 +122,7 @@ restart_backend() {
     --name spacetime-backend-prod \
     --restart unless-stopped \
     --network spacetime-prod \
+    --network-alias backend \
     --env-file "$PROD_ENV_FILE" \
     -e SPRING_PROFILES_ACTIVE=prod \
     -e TZ=Asia/Shanghai \
@@ -135,6 +136,7 @@ restart_admin() {
     --name spacetime-admin-prod \
     --restart unless-stopped \
     --network spacetime-prod \
+    --network-alias admin-web \
     "$ADMIN_IMAGE" >/dev/null
 }
 
