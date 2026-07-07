@@ -27,10 +27,14 @@ require_command() {
 
 load_env() {
   require_file "$PROD_ENV_FILE"
+  local registry_password_from_pipeline="${ALIYUN_REGISTRY_PASSWORD:-}"
   set -a
   # shellcheck disable=SC1090
   . "$PROD_ENV_FILE"
   set +a
+  if [ -n "$registry_password_from_pipeline" ]; then
+    export ALIYUN_REGISTRY_PASSWORD="$registry_password_from_pipeline"
+  fi
 
   export PROJECT_NAME="${PROJECT_NAME:-spacetime-prod}"
   export ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.shikongxiehou.com}"

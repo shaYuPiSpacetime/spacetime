@@ -19,6 +19,9 @@ env:
   DOCKER_NAMESPACE: bobo2026
   ADMIN_IMAGE_NAME: spacetime-admin-prod
   ADMIN_IMAGE_TAG: latest
+  PROD_SERVER_HOST: 112.124.59.146
+  PROD_SERVER_USER: root
+  PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy
 
 jobs:
   build:
@@ -58,10 +61,19 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy admin on production server
-        run: bash deploy/scripts/deploy-prod-local.sh admin
+      - name: Deploy admin over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+        with:
+          host: ${{ env.PROD_SERVER_HOST }}
+          username: ${{ env.PROD_SERVER_USER }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          envs: ALIYUN_REGISTRY_PASSWORD
+          script_stop: true
+          script: |
+            set -e
+            cd "${{ env.PROD_DEPLOY_DIR }}"
+            bash scripts/deploy-prod-local.sh admin
