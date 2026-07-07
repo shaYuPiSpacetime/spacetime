@@ -549,7 +549,7 @@
         return {
           title: '查看敏感二次确认',
           message: '即将查看脱敏后的命中内容和审核依据，确认后记录审计。',
-          toast: `开放性文本敏感查看已记录：${row?.id || ''}`,
+          toast: `开放性文字敏感查看已记录：${row?.id || ''}`,
           danger: false,
         };
       }
@@ -703,7 +703,7 @@
       target.innerHTML = `
         <div class="avatar-modal-kicker">独立详情面板</div>
         <div class="audit-text-preview">
-          <strong>开放性文本 / ${escapeHtml(row.object || '内容')}</strong>
+          <strong>开放性文字 / ${escapeHtml(row.object || '内容')}</strong>
           <p>${escapeHtml(row.fullText || row.summary || '喜欢真诚沟通，希望周末能一起看展、运动，慢慢了解彼此。')}</p>
         </div>
         <div class="avatar-ai-tag">命中信号：${escapeHtml(row.signal || '微信文本安全通过')}</div>
@@ -771,6 +771,7 @@
               <td>${escapeHtml(row.object)}</td>
               <td>${escapeHtml(row.submittedAt)}</td>
               <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
+              <td>${escapeHtml(row.source || '-')}</td>
               <td>${escapeHtml(row.reason || '-')}</td>
               <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(actionLabel)}</button></td>
             </tr>
@@ -787,6 +788,7 @@
             <td>${escapeHtml(row.realName || row.user)}</td>
             <td>${escapeHtml(row.idNo || '-')}</td>
             <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
+            <td>${escapeHtml(row.source || '-')}</td>
             <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(row.actionLabel || '查看详情')}</button></td>
           </tr>
         `).join('');
@@ -801,6 +803,7 @@
             <td>${escapeHtml(row.object || '-')}</td>
             <td>${escapeHtml(row.submittedAt)}</td>
             <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
+            <td>${escapeHtml(row.source || '-')}</td>
             <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(row.actionLabel || '查看')}</button></td>
           </tr>
         `).join('');
@@ -816,6 +819,7 @@
             <td>${escapeHtml(row.imageCount || '1张')}</td>
             <td>${escapeHtml(row.submittedAt)}</td>
             <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
+            <td>${escapeHtml(row.source || '-')}</td>
             <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(row.actionLabel || '查看大图')}</button></td>
           </tr>
         `).join('');
@@ -830,6 +834,7 @@
             <td>${escapeHtml(row.summary || row.signal || '-')}</td>
             <td>${escapeHtml(row.submittedAt)}</td>
             <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
+            <td>${escapeHtml(row.source || '-')}</td>
             <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(row.actionLabel || '查看')}</button></td>
           </tr>
         `).join('');

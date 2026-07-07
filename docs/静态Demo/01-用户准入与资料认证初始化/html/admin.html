@@ -20,7 +20,6 @@
       <div class="top-actions">
         <a class="btn" href="index.html">总览</a>
         <a class="btn" href="miniapp.html">移动端</a>
-        <button class="btn primary" data-open-modal="configSaveModal">保存当前配置</button>
       </div>
     </header>
 
@@ -35,8 +34,8 @@
         <a href="#ADM-01-PAGE-avatar-audit">ADM-03 头像审核</a>
         <a href="#ADM-01-PAGE-real-name-audit">ADM-04 实名审核</a>
         <a href="#ADM-01-PAGE-education-audit">ADM-05 学历审核</a>
-        <a href="#ADM-01-PAGE-profile-photo-audit">ADM-06 资料照片审核</a>
-        <a href="#ADM-01-PAGE-open-text-audit">ADM-07 开放文本审核</a>
+        <a href="#ADM-01-PAGE-profile-photo-audit">ADM-06 资料图片审核</a>
+        <a href="#ADM-01-PAGE-open-text-audit">ADM-07 开放性文字审核</a>
         <div class="admin-rule-card">
           <strong>公共规则</strong>
           <span>列表页底部统一分页；详情、抽屉、弹窗独立成画板。</span>
@@ -101,7 +100,7 @@
               <button class="figma-btn ghost" data-toast="已切换到下一页">下一页</button>
               <button class="figma-btn ghost">10条/页</button>
             </div>
-            <div hidden>批量导入 App 用户 导出固定字段且不掩码 画像详情 模块补充 查询条件 每页 10 条 编辑备注 冻结账号</div>
+            <div hidden>批量导入 App 用户 导出固定字段且不掩码 画像详情 模块补充 查询条件 每页 10 条 冻结账号</div>
           </div>
         </section>
 
@@ -212,7 +211,7 @@
                   <h3>资料背景图</h3>
                   <p>数量上限 <input value="1" aria-label="背景图数量"> 张</p>
                   <p>单张大小 <input value="10" aria-label="背景图大小"> MB</p>
-                  <p>不计入资料图片审核</p>
+                  <p>进入资料图片审核，不计入相册计数</p>
                 </article>
               </div>
               <div class="access-note-box">
@@ -279,7 +278,7 @@
                   <p>后台导入不能触发短信校验</p>
                 </article>
                 <article class="access-config-card">
-                  <h3>语言内容安全</h3>
+                  <h3>语音内容安全</h3>
                   <p>微信音频机审策略</p>
                   <p>启用状态 <span class="access-switch is-on">启用</span></p>
                   <input value="内容安全未通过" aria-label="内容安全失败文案">
@@ -317,6 +316,7 @@
               <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
               <label><span>提交时间</span><select><option>今天</option><option>最近 7 天</option></select></label>
               <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <label><span>人像识别</span><select><option>全部</option><option>是人像</option><option>人像失败</option></select></label>
               <div class="avatar-query-actions">
                 <button class="avatar-primary-btn" data-toast="头像审核查询条件已应用">搜索</button>
@@ -330,7 +330,7 @@
               <div class="avatar-table-wrap">
                 <table>
                   <thead>
-                    <tr><th>用户</th><th>头像</th><th>提交时间</th><th>状态</th><th>驳回原因</th><th>操作</th></tr>
+                    <tr><th>用户</th><th>头像</th><th>提交时间</th><th>状态</th><th>审核来源</th><th>驳回原因</th><th>操作</th></tr>
                   </thead>
                   <tbody data-audit-queue="avatar"></tbody>
                 </table>
@@ -371,6 +371,7 @@
               <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
               <label><span>提交时间</span><select><option>近7天</option><option>今天</option></select></label>
               <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <label><span>核心准入</span><select><option>全部</option><option>已开放</option><option>未开放</option></select></label>
               <div class="avatar-query-actions">
                 <button class="avatar-primary-btn" data-toast="实名审核查询条件已应用">搜索</button>
@@ -382,7 +383,7 @@
               <p>姓名、身份证号、手机号默认脱敏</p>
               <div class="avatar-table-wrap audit-table-wrap">
                 <table>
-                  <thead><tr><th>用户</th><th>手机号</th><th>真实姓名</th><th>身份证号</th><th>状态</th><th>操作</th></tr></thead>
+                  <thead><tr><th>用户</th><th>手机号</th><th>真实姓名</th><th>身份证号</th><th>状态</th><th>审核来源</th><th>操作</th></tr></thead>
                   <tbody data-audit-queue="realName"></tbody>
                 </table>
               </div>
@@ -415,6 +416,7 @@
               <label><span>认证方式</span><select><option>全部</option><option>学信网验证码</option><option>学生证材料</option></select></label>
               <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
               <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <div class="avatar-query-actions">
                 <button class="avatar-primary-btn" data-toast="学历审核查询条件已应用">搜索</button>
                 <button class="avatar-plain-btn" data-toast="学历审核查询条件已重置">重置</button>
@@ -425,7 +427,7 @@
               <p>学信网验证码与学生证材料分开审核，海外学历暂不支持。</p>
               <div class="avatar-table-wrap audit-table-wrap">
                 <table>
-                  <thead><tr><th>用户</th><th>身份</th><th>学历材料</th><th>提交时间</th><th>状态</th><th>操作</th></tr></thead>
+                  <thead><tr><th>用户</th><th>身份</th><th>学历材料</th><th>提交时间</th><th>状态</th><th>审核来源</th><th>操作</th></tr></thead>
                   <tbody data-audit-queue="education"></tbody>
                 </table>
               </div>
@@ -441,7 +443,7 @@
         <section class="section-band admin-page avatar-audit-page audit-workspace-page" id="ADM-01-PAGE-profile-photo-audit" data-admin-page>
           <div class="avatar-page-head">
             <div>
-              <h1>资料照片审核</h1>
+              <h1>资料图片审核</h1>
               <p>内容审核 / 资料图片审核</p>
             </div>
             <button class="avatar-outline-btn" data-toast="图片审核规则已打开">图库规则</button>
@@ -458,6 +460,7 @@
               <label><span>图片类型</span><select><option>相册/背景图</option><option>相册</option><option>背景图</option></select></label>
               <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
               <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <div class="avatar-query-actions">
                 <button class="avatar-primary-btn" data-toast="资料图片审核查询条件已应用">搜索</button>
                 <button class="avatar-plain-btn" data-toast="资料图片审核查询条件已重置">重置</button>
@@ -468,7 +471,7 @@
               <p>相册图片与资料背景图，不影响主头像认证</p>
               <div class="avatar-table-wrap audit-table-wrap">
                 <table>
-                  <thead><tr><th>用户</th><th>类型</th><th>分类</th><th>图片</th><th>提交时间</th><th>状态</th><th>操作</th></tr></thead>
+                  <thead><tr><th>用户</th><th>类型</th><th>分类</th><th>图片</th><th>提交时间</th><th>状态</th><th>审核来源</th><th>操作</th></tr></thead>
                   <tbody data-audit-queue="photo"></tbody>
                 </table>
               </div>
@@ -484,43 +487,44 @@
         <section class="section-band admin-page avatar-audit-page audit-workspace-page" id="ADM-01-PAGE-open-text-audit" data-admin-page>
           <div class="avatar-page-head">
             <div>
-              <h1>开放性文本审核</h1>
-              <p>内容审核 / 开放性文本审核</p>
+              <h1>开放性文字审核</h1>
+              <p>内容审核 / 开放性文字审核</p>
             </div>
             <button class="avatar-outline-btn" data-toast="文本审核规则已打开">文本规则</button>
           </div>
           <div class="avatar-page-body">
-            <div class="avatar-stat-row" aria-label="开放性文本审核头部数据统计">
+            <div class="avatar-stat-row" aria-label="开放性文字审核头部数据统计">
               <article><span>待审核</span><strong>188</strong><em>内容审核</em></article>
               <article><span>敏感命中</span><strong>24</strong><em>复核</em></article>
               <article><span>今日通过</span><strong>603</strong><em>刷新</em></article>
               <article><span>今日驳回</span><strong>58</strong><em>通知</em></article>
             </div>
-            <div class="avatar-query-panel audit-query-panel" aria-label="开放性文本审核查询条件">
+            <div class="avatar-query-panel audit-query-panel" aria-label="开放性文字审核查询条件">
               <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
               <label><span>文本类型</span><select><option>全部文本</option><option>关于我</option><option>希望 TA 了解</option><option>语音介绍</option></select></label>
               <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
               <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <div class="avatar-query-actions">
-                <button class="avatar-primary-btn" data-toast="开放性文本审核查询条件已应用">搜索</button>
-                <button class="avatar-plain-btn" data-toast="开放性文本审核查询条件已重置">重置</button>
+                <button class="avatar-primary-btn" data-toast="开放性文字审核查询条件已应用">搜索</button>
+                <button class="avatar-plain-btn" data-toast="开放性文字审核查询条件已重置">重置</button>
               </div>
             </div>
             <div class="avatar-list-card">
-              <h2>开放性文本审核列表</h2>
+              <h2>开放性文字审核列表</h2>
               <p>关于我、希望 TA 了解、语音转写内容，驳回原因必填</p>
               <div class="avatar-table-wrap audit-table-wrap">
                 <table>
-                  <thead><tr><th>用户</th><th>类型</th><th>文本摘要</th><th>提交时间</th><th>状态</th><th>操作</th></tr></thead>
+                  <thead><tr><th>用户</th><th>类型</th><th>文本摘要</th><th>提交时间</th><th>状态</th><th>审核来源</th><th>操作</th></tr></thead>
                   <tbody data-audit-queue="text"></tbody>
                 </table>
               </div>
-              <p class="avatar-list-note">开放性文本不展示联系方式原文；命中内容仅在详情弹窗脱敏展示。</p>
+              <p class="avatar-list-note">开放性文字不展示联系方式原文；命中内容仅在详情弹窗脱敏展示。</p>
             </div>
             <div class="avatar-pagination" aria-label="分页">
               <span>共 188 条</span><button disabled>10条/页</button><button>上一页</button><button class="is-active">1</button><button>2</button><button>3</button><button>下一页</button><input value="1" aria-label="页码">
             </div>
-            <div hidden>开放性文本审核 文本审核详情 查看敏感二次确认 通过确认 驳回确认 确认后写入审计日志</div>
+            <div hidden>开放性文字审核 文本审核详情 查看敏感二次确认 通过确认 驳回确认 确认后写入审计日志</div>
           </div>
         </section>
 
@@ -655,20 +659,6 @@
     </aside>
   </div>
 
-  <div class="modal-backdrop admin-board-backdrop" id="noteModal" aria-hidden="true">
-    <div class="admin-modal-stage">
-      <section class="admin-board-card admin-confirm-card" role="dialog" aria-modal="true" aria-labelledby="noteTitle">
-        <button class="admin-board-close" data-close aria-label="关闭">×</button>
-        <h2 id="noteTitle">编辑运营备注</h2>
-        <p class="admin-board-subtitle">记录运营处理说明，保存后进入账号处理记录。</p>
-        <form class="form-stack admin-form" data-demo-form data-success="运营备注已保存，列表更新时间已刷新">
-          <label class="field"><span>备注内容</span><textarea>用户等待学历认证，需提醒补充资料背景图和语音介绍。</textarea></label>
-          <div class="admin-board-actions"><button class="admin-primary-btn" type="submit">保存备注</button><button class="admin-plain-btn" type="button" data-close>取消</button></div>
-        </form>
-      </section>
-    </div>
-  </div>
-
   <div class="modal-backdrop admin-board-backdrop" id="freezeModal" aria-hidden="true">
     <div class="admin-modal-stage">
       <section class="admin-board-card admin-confirm-card" role="dialog" aria-modal="true" aria-labelledby="freezeTitle">
@@ -758,11 +748,13 @@
       <section class="admin-board-card export-board-card" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
         <button class="admin-board-close" data-close aria-label="关闭">×</button>
         <h2 id="exportTitle">导出固定字段确认</h2>
-        <p class="admin-board-subtitle">导出前二次确认并记录操作日志。导出字段按后台固定字段输出，敏感字段保持脱敏策略。</p>
+        <p class="admin-board-subtitle">导出前二次确认并记录操作日志。导出字段按后台固定字段输出，导出文件不做掩码。</p>
         <div class="admin-section-title"><span></span><strong>字段范围</strong></div>
         <div class="export-field-grid">
-          <span>用户 ID</span><span>昵称</span><span>性别年龄</span><span>现居地</span>
-          <span>身份</span><span>认证状态</span><span>账号状态</span><span>资料完整度</span>
+          <span>用户姓名</span><span>用户昵称</span><span>身份证号</span><span>性别</span>
+          <span>出生日期</span><span>身份</span><span>婚姻状况</span><span>个人标签</span>
+          <span>资料完整度</span><span>首登引导状态</span><span>核心准入状态</span><span>头像认证状态</span>
+          <span>实名认证状态</span><span>学历认证状态</span>
         </div>
         <div class="admin-warning-panel">
           <strong>审计提示</strong>

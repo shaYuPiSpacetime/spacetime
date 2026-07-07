@@ -34,7 +34,7 @@
 | `locationProvince` / `locationCity` / `locationDistrict` | 现居地 | dict | 后台配置 | 是 | 支持定位/手动选择 |
 | `height` | 身高 | int | 后台配置 | 是 | cm |
 | `weight` | 体重 | int | 后台配置 | 是 | kg |
-| `hometownProvince` / `hometownCity` / `hometownDistrict` | 家乡 | dict | 后台配置 | 是 | 中国大陆地区 |
+| `hometownProvince` / `hometownCity` / `hometownDistrict` | 家乡 | dict | 后台配置 | 是 | 中国大陆地区；不展示海外地区/国家入口 |
 | `residence` | 户口所在地 | dict/string | 后台配置 | 是 | 可与家乡并存，由配置决定是否启用 |
 | `identityType` | 身份 | enum | 后台配置 | 是 | 在校生/职场人 |
 | `educationLevel` | 最高学历 | dict | 后台配置 | 是 | 系统字典 |

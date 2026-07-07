@@ -512,10 +512,10 @@ window.DEMO_DATA = {
       { id: 'P-4004', user: '王启航', object: '相册照片 / 其他', type: '相册', category: '其他', imageCount: '1张', submittedAt: '昨天16:30', status: '已驳回', source: '人工审核', display: '审核驳回-人工审核', reason: '包含联系方式导流', signal: '命中二维码/联系方式', actionLabel: '复核', confirmSubject: '资料图片' },
     ],
     text: [
-      { id: 'T-5001', user: '林晓雨', object: '关于我', summary: '喜欢稳定真诚的关系，周末看展运动...', fullText: '喜欢稳定真诚的关系，周末看展运动，希望能慢慢了解彼此。', submittedAt: '06-24 10:12', status: '待审核', source: '机审', display: '待人工审核', reason: '-', signal: '微信文本安全通过', actionLabel: '查看', confirmSubject: '开放性文本' },
-      { id: 'T-5002', user: '陈一鸣', object: '希望 TA 了解', summary: '可线下约咖啡，联系方式已隐藏...', fullText: '可线下约咖啡，联系方式已隐藏，建议先站内沟通。', submittedAt: '06-24 09:44', status: '敏感命中', source: '机审', display: '待人工复核', reason: '疑似联系方式导流', signal: '命中联系方式', actionLabel: '复核', confirmSubject: '开放性文本' },
-      { id: 'T-5003', user: '周语桐', object: '问答内容', summary: '生活方式：不吸烟、少饮酒、可接受宠物', fullText: '生活方式：不吸烟、少饮酒、可接受宠物。', submittedAt: '昨天18:01', status: '已通过', source: '人工审核', display: '审核通过-人工审核', reason: '-', signal: '文本 38 字', actionLabel: '详情', confirmSubject: '开放性文本' },
-      { id: 'T-5004', user: '王启航', object: '语音介绍', summary: '语音转写 18s，存在营销导流表述', fullText: '语音转写 18s，存在营销导流表述，需用户重录。', submittedAt: '昨天16:30', status: '已驳回', source: '人工审核', display: '审核驳回-人工审核', reason: '营销导流', signal: '语音转写命中敏感词', actionLabel: '查看', confirmSubject: '开放性文本' },
+      { id: 'T-5001', user: '林晓雨', object: '关于我', summary: '喜欢稳定真诚的关系，周末看展运动...', fullText: '喜欢稳定真诚的关系，周末看展运动，希望能慢慢了解彼此。', submittedAt: '06-24 10:12', status: '待审核', source: '机审', display: '待人工审核', reason: '-', signal: '微信文本安全通过', actionLabel: '查看', confirmSubject: '开放性文字' },
+      { id: 'T-5002', user: '陈一鸣', object: '希望 TA 了解', summary: '可线下约咖啡，联系方式已隐藏...', fullText: '可线下约咖啡，联系方式已隐藏，建议先站内沟通。', submittedAt: '06-24 09:44', status: '敏感命中', source: '机审', display: '待人工复核', reason: '疑似联系方式导流', signal: '命中联系方式', actionLabel: '复核', confirmSubject: '开放性文字' },
+      { id: 'T-5003', user: '周语桐', object: '问答内容', summary: '生活方式：不吸烟、少饮酒、可接受宠物', fullText: '生活方式：不吸烟、少饮酒、可接受宠物。', submittedAt: '昨天18:01', status: '已通过', source: '人工审核', display: '审核通过-人工审核', reason: '-', signal: '文本 38 字', actionLabel: '详情', confirmSubject: '开放性文字' },
+      { id: 'T-5004', user: '王启航', object: '语音介绍', summary: '语音转写 18s，存在营销导流表述', fullText: '语音转写 18s，存在营销导流表述，需用户重录。', submittedAt: '昨天16:30', status: '已驳回', source: '人工审核', display: '审核驳回-人工审核', reason: '营销导流', signal: '语音转写命中敏感词', actionLabel: '查看', confirmSubject: '开放性文字' },
     ],
   },
   configTabs: {
