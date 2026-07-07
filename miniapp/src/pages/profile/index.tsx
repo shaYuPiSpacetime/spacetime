@@ -1,7 +1,9 @@
 import { Image, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { useProfile } from '@/hooks/useProfile'
+import { getDemoPageData } from '@/services/lanhuDemo'
+import type { MyMembership } from '@/types/membership'
 
 import profileBg from '@/assets/profile/profile-bg.webp'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -14,16 +16,36 @@ import iconService from '@/assets/profile/icon-service.png'
 import iconSettings from '@/assets/profile/icon-settings.png'
 import iconCert from '@/assets/profile/icon-cert.png'
 
-const PROFILE_STATS = [
-  { value: 3, label: '我喜欢的' },
-  { value: 55, label: '喜欢我的' },
-  { value: 55, label: '最近来访' },
-]
+const membershipDemo = getDemoPageData('membership')
+const profileBaseDemo = getDemoPageData('profile')
+const profileDemo = profileBaseDemo as typeof profileBaseDemo & {
+  preview: {
+    title: string
+    subtitle: string
+    ctaText: string
+    chips: string[]
+  }
+}
+type ProfileMembershipVariant = 'none' | 'active' | 'expired'
+
+function resolveProfileMembershipVariant(value?: string): ProfileMembershipVariant {
+  if (value === 'active' || value === 'expired') return value
+  return 'none'
+}
+
+function membershipForProfileVariant(variant: ProfileMembershipVariant, fallback: MyMembership | null): MyMembership {
+  if (variant === 'active') return membershipDemo.activeMembership
+  if (variant === 'expired') return membershipDemo.expiredMembership
+  return fallback || membershipDemo.myMembership
+}
 
 /**
  * 我的 — 蓝湖「我的」未开通状态自绘还原。
  */
 export default function ProfilePage() {
+  const router = useRouter()
+  const isPreview = router.params.variant === 'preview'
+  const variant = resolveProfileMembershipVariant(String(router.params.variant || 'none'))
   const {
     data,
     fetch,
@@ -40,13 +62,20 @@ export default function ProfilePage() {
     fetch()
   }, [fetch])
 
-  const nickname = data.nickname || '筱脑虎'
+  const nickname = data.nickname || '时空用户'
   const sourceAvatar = data.avatarUrl?.trim() || defaultAvatar
   const [avatar, setAvatar] = useState(defaultAvatar)
   const location = data.location || '杭州市'
   const ageText = data.age != null ? `${data.age}岁` : '28岁'
   const zodiac = data.zodiac || '双鱼座'
   const subInfo = `${location}丨${ageText}丨${zodiac}`
+  const membership = membershipForProfileVariant(variant, data.membership)
+  const membershipVariant = membership.status
+  const stats = [
+    { value: data.likedCount, label: '我喜欢的' },
+    { value: data.beLikedCount, label: '喜欢我的' },
+    { value: data.visitorCount, label: '最近来访' },
+  ]
 
   useEffect(() => {
     setAvatar(sourceAvatar)
@@ -87,14 +116,113 @@ export default function ProfilePage() {
           onEdit={goToEditProfile}
           onAvatarError={() => setAvatar(defaultAvatar)}
         />
-        <StatsCard />
-        <VipBanner onClick={goToVip} />
-        <FeatureCards onCoin={goToCoin} onInvite={goToInvite} />
-        <MenuCard
-          onPost={goToMyPosts}
-          onHelp={goToHelp}
-          onSettings={goToSettings}
-        />
+        {isPreview ? (
+          <PreviewProfileCard onEdit={goToEditProfile} />
+        ) : (
+          <>
+            <StatsCard stats={stats} />
+            <VipBanner
+              status={membershipVariant}
+              expireTime={membership.expireTime}
+              onClick={() => {
+                if (membershipVariant === 'none') {
+                  goToVip()
+                  return
+                }
+                Taro.navigateTo({ url: `/pages/membership/index?variant=${membershipVariant}` })
+              }}
+            />
+            <FeatureCards onCoin={goToCoin} onInvite={goToInvite} />
+            <MenuCard
+              onPost={goToMyPosts}
+              onHelp={goToHelp}
+              onSettings={goToSettings}
+            />
+          </>
+        )}
+      </View>
+    </View>
+  )
+}
+
+function PreviewProfileCard({ onEdit }: { onEdit: () => void }) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '330rpx',
+        width: '700rpx',
+        minHeight: '470rpx',
+        borderRadius: '64rpx',
+        background: '#FFFFFF',
+        padding: '42rpx 34rpx 34rpx',
+        boxSizing: 'border-box',
+        boxShadow: '0 18rpx 42rpx rgba(11, 38, 90, 0.08)',
+      }}
+    >
+      <Text style={{ display: 'block', color: '#0C285A', fontSize: '40rpx', fontWeight: 800, lineHeight: '56rpx' }}>
+        {profileDemo.preview.title}
+      </Text>
+      <Text style={{ display: 'block', color: '#697E9C', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '12rpx' }}>
+        {profileDemo.preview.subtitle}
+      </Text>
+
+      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', marginTop: '30rpx' }}>
+        {profileDemo.preview.chips.map((chip) => (
+          <View
+            key={chip}
+            style={{
+              height: '58rpx',
+              borderRadius: '98rpx',
+              background: '#EEF6FF',
+              padding: '0 26rpx',
+              marginRight: '16rpx',
+              marginBottom: '16rpx',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#2876FF', fontSize: '24rpx', fontWeight: 700, lineHeight: '34rpx' }}>{chip}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View
+        style={{
+          height: '176rpx',
+          borderRadius: '32rpx',
+          background: '#F7FAFF',
+          marginTop: '18rpx',
+          padding: '26rpx 28rpx',
+          boxSizing: 'border-box',
+        }}
+      >
+        <Text style={{ display: 'block', color: '#333333', fontSize: '30rpx', fontWeight: 800, lineHeight: '42rpx' }}>
+          关于我
+        </Text>
+        <Text style={{ display: 'block', color: '#697E9C', fontSize: '24rpx', lineHeight: '38rpx', marginTop: '12rpx' }}>
+          真诚靠谱，喜欢稳定沟通，也期待一起探索城市生活。
+        </Text>
+      </View>
+
+      <View
+        style={{
+          height: '98rpx',
+          borderRadius: '98rpx',
+          background: '#2876FF',
+          marginTop: '30rpx',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onClick={onEdit}
+        hoverClass="btn-hover"
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 800, lineHeight: '45rpx' }}>
+          {profileDemo.preview.ctaText}
+        </Text>
       </View>
     </View>
   )
@@ -246,7 +374,7 @@ function CertBadge() {
   )
 }
 
-function StatsCard() {
+function StatsCard({ stats }: { stats: Array<{ value: number; label: string }> }) {
   return (
     <View
       style={{
@@ -271,7 +399,7 @@ function StatsCard() {
           justifyContent: 'space-around',
         }}
       >
-        {PROFILE_STATS.map((item) => (
+        {stats.map((item) => (
           <View
             key={item.label}
             style={{
@@ -326,7 +454,26 @@ function StatsCard() {
   )
 }
 
-function VipBanner({ onClick }: { onClick: () => void }) {
+function VipBanner({
+  status,
+  expireTime,
+  onClick,
+}: {
+  status: MyMembership['status']
+  expireTime?: string
+  onClick: () => void
+}) {
+  const title = status === 'active'
+    ? '会员权益生效中'
+    : status === 'expired'
+      ? '会员已过期'
+      : '开通会员享特权'
+  const subtitle = status === 'active'
+    ? `有效期至 ${expireTime || '2027.05.27 15:58'}`
+    : status === 'expired'
+      ? '续费后继续查看心动名单'
+      : '查看谁喜欢我、访客和更多推荐'
+
   return (
     <View
       style={{
@@ -352,6 +499,31 @@ function VipBanner({ onClick }: { onClick: () => void }) {
           height: '128rpx',
         }}
       />
+      <Text
+        style={{
+          position: 'absolute',
+          left: '34rpx',
+          top: '28rpx',
+          color: '#5C3610',
+          fontSize: '28rpx',
+          fontWeight: 700,
+          lineHeight: '40rpx',
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          position: 'absolute',
+          left: '34rpx',
+          top: '72rpx',
+          color: '#7D552B',
+          fontSize: '22rpx',
+          lineHeight: '31rpx',
+        }}
+      >
+        {subtitle}
+      </Text>
     </View>
   )
 }

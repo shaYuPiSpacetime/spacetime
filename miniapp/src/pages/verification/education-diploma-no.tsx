@@ -1,22 +1,28 @@
-import { Input, Picker, Text, View } from '@tarojs/components'
+import { Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import { submitEducation } from '@/services/verification'
 import VerificationSubShell from './components/VerificationSubShell'
 import { AgreementRow, CustomerServiceLink, FormRow, SubmitButton } from './components/EducationVerificationShared'
+import { LanhuOptionSheet } from './components/LanhuPickerSheet'
 
 const EDUCATION_LEVELS = ['博士', '硕士', '本科', '大专', '高中/中专']
+const DEFAULT_SCHOOL_NAME = '浙江大学'
+const DEFAULT_EDUCATION_LEVEL = '本科'
+const DEFAULT_DIPLOMA_NO = '103351202006001234'
+const DEFAULT_REAL_NAME = '筱脑虎'
 
 export default function VerificationEducationDiplomaNoPage() {
   const { userInfo, updateUserInfo } = useLogin()
-  const [schoolName, setSchoolName] = useState(userInfo.schoolName || '')
-  const [educationLevel, setEducationLevel] = useState(userInfo.educationLevel || userInfo.education || '')
-  const [diplomaNo, setDiplomaNo] = useState(userInfo.diplomaNo || '')
-  const [realName, setRealName] = useState(userInfo.realName || '')
-  const [agreed, setAgreed] = useState(false)
+  const [schoolName, setSchoolName] = useState(userInfo.schoolName || DEFAULT_SCHOOL_NAME)
+  const [educationLevel, setEducationLevel] = useState(userInfo.educationLevel || userInfo.education || DEFAULT_EDUCATION_LEVEL)
+  const [diplomaNo, setDiplomaNo] = useState(userInfo.diplomaNo || DEFAULT_DIPLOMA_NO)
+  const [realName, setRealName] = useState(userInfo.realName || DEFAULT_REAL_NAME)
+  const [agreed, setAgreed] = useState(true)
+  const [showEducationSheet, setShowEducationSheet] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const canSubmit = schoolName.trim().length > 0 && educationLevel && diplomaNo.trim().length > 0 && realName.trim().length > 0 && agreed
+  const canSubmit = schoolName.trim().length > 0 && educationLevel.length > 0 && diplomaNo.trim().length > 0 && realName.trim().length > 0 && agreed
 
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return
@@ -49,11 +55,11 @@ export default function VerificationEducationDiplomaNoPage() {
         }}
       >
         <FormInputRow label="学校名称" value={schoolName} placeholder="请输入" onInput={setSchoolName} />
-        <Picker range={EDUCATION_LEVELS} value={Math.max(0, EDUCATION_LEVELS.indexOf(educationLevel))} onChange={(event) => setEducationLevel(EDUCATION_LEVELS[Number(event.detail.value)] || '')}>
+        <View onClick={() => setShowEducationSheet(true)}>
           <FormRow label="学历" top="20rpx">
             <Text style={{ color: educationLevel ? '#333333' : '#999999', fontSize: '26rpx', lineHeight: '37rpx' }}>{educationLevel || '请选择'}</Text>
           </FormRow>
-        </Picker>
+        </View>
         <FormInputRow label="证书编号" value={diplomaNo} placeholder="毕业证书/学位证书编号" onInput={setDiplomaNo} top="20rpx" />
         <FormInputRow label="姓名" value={realName} placeholder="证书上的姓名" onInput={setRealName} top="20rpx" />
         <Text style={{ display: 'block', color: '#333333', fontSize: '24rpx', lineHeight: '40rpx', marginTop: '20rpx' }}>
@@ -68,6 +74,18 @@ export default function VerificationEducationDiplomaNoPage() {
       <SubmitButton top="1026rpx" active={Boolean(canSubmit)} submitting={submitting} onClick={handleSubmit} />
       <AgreementRow top="1146rpx" checked={agreed} onToggle={() => setAgreed((value) => !value)} />
       <CustomerServiceLink top="1274rpx" />
+      {showEducationSheet && (
+        <LanhuOptionSheet
+          title="学历"
+          options={EDUCATION_LEVELS}
+          value={educationLevel}
+          onConfirm={(value) => {
+            setEducationLevel(value)
+            setShowEducationSheet(false)
+          }}
+          onClose={() => setShowEducationSheet(false)}
+        />
+      )}
     </VerificationSubShell>
   )
 }

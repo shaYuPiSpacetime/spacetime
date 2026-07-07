@@ -1,5 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { getWindowMetrics } from '@/utils/system'
 
 export interface CustomNavBarProps {
   /** 标题文字，不传则无标题 */
@@ -24,7 +25,7 @@ export default function CustomNavBar({
   showBack = false,
   titleColor = '#000000',
 }: CustomNavBarProps) {
-  const systemInfo = Taro.getSystemInfoSync()
+  const systemInfo = getWindowMetrics()
   const statusBarHeight = systemInfo.statusBarHeight ?? 20
 
   const handleBack = () => {

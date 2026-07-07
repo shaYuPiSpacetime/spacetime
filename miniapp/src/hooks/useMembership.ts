@@ -1,7 +1,17 @@
 import { useState, useCallback, useMemo } from 'react'
 import Taro from '@tarojs/taro'
 import type { MembershipPlan, MembershipRecord, MyMembership, MemberStatus } from '@/types/membership'
-import { mockMembershipPlans, mockMyMembership, mockMembershipRecords } from '@/services/mock'
+import { getDemoPageData } from '@/services/lanhuDemo'
+
+const membershipDemo = getDemoPageData('membership')
+type MembershipDemoVariant = 'none' | 'active' | 'expired' | 'annual' | 'subscription'
+export type MembershipPayState = 'idle' | 'wechat-pay' | 'pay-success' | 'pay-cancel' | 'unpaid-sheet'
+
+function membershipForVariant(variant: MembershipDemoVariant): MyMembership {
+  if (variant === 'active' || variant === 'annual' || variant === 'subscription') return { ...membershipDemo.activeMembership }
+  if (variant === 'expired') return { ...membershipDemo.expiredMembership }
+  return { ...membershipDemo.myMembership }
+}
 
 /**
  * 会员模块 hook
@@ -9,13 +19,13 @@ import { mockMembershipPlans, mockMyMembership, mockMembershipRecords } from '@/
  *
  * 注意：当前所有数据使用 Mock，后续接入真实 API 只需替换 fetch* 函数。
  */
-export function useMembership() {
+export function useMembership(variant: MembershipDemoVariant = 'none') {
   /* ---------- 会员状态 ---------- */
-  const [myMembership, setMyMembership] = useState<MyMembership>(mockMyMembership)
+  const [myMembership, setMyMembership] = useState<MyMembership>(() => membershipForVariant(variant))
   const [statusLoading, setStatusLoading] = useState(false)
 
   /* ---------- 套餐列表 ---------- */
-  const [plans, setPlans] = useState<MembershipPlan[]>(mockMembershipPlans)
+  const [plans, setPlans] = useState<MembershipPlan[]>(membershipDemo.plans)
   const [plansLoading, setPlansLoading] = useState(false)
 
   /* ---------- 选中的套餐 ---------- */
@@ -24,6 +34,7 @@ export function useMembership() {
   /* ---------- 支付弹窗 ---------- */
   const [payPopupVisible, setPayPopupVisible] = useState(false)
   const [payLoading, setPayLoading] = useState(false)
+  const [payState, setPayState] = useState<MembershipPayState>('idle')
 
   /* ---------- 状态筛选 Tab ---------- */
   const [activeStatus, setActiveStatus] = useState<MemberStatus | 'all'>('all')
@@ -31,6 +42,7 @@ export function useMembership() {
   /* ---------- 会员记录 ---------- */
   const [records, setRecords] = useState<MembershipRecord[]>([])
   const [recordsLoading, setRecordsLoading] = useState(false)
+  const [benefits] = useState(membershipDemo.benefits)
 
   /** 筛选后的记录列表 */
   const filteredRecords = useMemo(() => {
@@ -48,21 +60,21 @@ export function useMembership() {
   const fetchMyMembership = useCallback(async () => {
     setStatusLoading(true)
     try {
-      // TODO: 替换为真实 API 调用
+      // 后续替换为真实 API 调用
       await new Promise((resolve) => setTimeout(resolve, 500))
-      setMyMembership({ ...mockMyMembership })
+      setMyMembership(membershipForVariant(variant))
     } finally {
       setStatusLoading(false)
     }
-  }, [])
+  }, [variant])
 
   /** 加载套餐列表（Mock 实现） */
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true)
     try {
-      // TODO: 替换为真实 API 调用
+      // 后续替换为真实 API 调用
       await new Promise((resolve) => setTimeout(resolve, 300))
-      setPlans([...mockMembershipPlans])
+      setPlans([...membershipDemo.plans])
     } finally {
       setPlansLoading(false)
     }
@@ -72,43 +84,85 @@ export function useMembership() {
   const fetchRecords = useCallback(async () => {
     setRecordsLoading(true)
     try {
-      // TODO: 替换为真实 API 调用
+      // 后续替换为真实 API 调用
       await new Promise((resolve) => setTimeout(resolve, 500))
-      setRecords([...mockMembershipRecords])
+      setRecords([...membershipDemo.records])
     } finally {
       setRecordsLoading(false)
     }
   }, [])
 
-  /** 选中套餐并打开支付弹窗 */
+  /** 选中套餐 */
   const selectPlan = useCallback((plan: MembershipPlan) => {
     setSelectedPlan(plan)
-    setPayPopupVisible(true)
   }, [])
 
   /** 关闭支付弹窗 */
   const closePayPopup = useCallback(() => {
     setPayPopupVisible(false)
+    setPayState('idle')
     setSelectedPlan(null)
   }, [])
 
-  /** 确认支付 */
-  const confirmPay = useCallback(async () => {
-    if (!selectedPlan) return
+  /** 预览指定支付状态，供蓝湖 demo query 直达 */
+  const previewPayState = useCallback((nextState: MembershipPayState) => {
+    setPayState(nextState)
+    setPayPopupVisible(nextState !== 'idle')
+  }, [])
+
+  /** 打开 mock 微信支付面板 */
+  const openWechatPay = useCallback(() => {
+    if (!selectedPlan) {
+      Taro.showToast({ title: '请选择套餐', icon: 'none' })
+      return
+    }
+    setPayPopupVisible(true)
+    setPayState('wechat-pay')
+  }, [selectedPlan])
+
+  /** 模拟支付成功 */
+  const simulatePaySuccess = useCallback(async () => {
+    if (!selectedPlan) {
+      Taro.showToast({ title: '请选择套餐', icon: 'none' })
+      return
+    }
     setPayLoading(true)
     try {
-      // TODO: 替换为真实支付 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // 后续替换为真实支付 API 调用
+      await new Promise((resolve) => setTimeout(resolve, 360))
       Taro.showToast({ title: '支付成功', icon: 'success' })
-      closePayPopup()
-      // 刷新状态
-      await fetchMyMembership()
+      setMyMembership({ ...membershipDemo.activeMembership })
+      setPayPopupVisible(true)
+      setPayState('pay-success')
     } catch {
       Taro.showToast({ title: '支付失败，请重试', icon: 'none' })
     } finally {
       setPayLoading(false)
     }
-  }, [selectedPlan, closePayPopup, fetchMyMembership])
+  }, [selectedPlan])
+
+  /** 模拟取消支付 */
+  const simulatePayCancel = useCallback(() => {
+    setPayPopupVisible(true)
+    setPayState('pay-cancel')
+  }, [])
+
+  /** 展示未支付挽留底部弹层 */
+  const showUnpaidSheet = useCallback(() => {
+    setPayPopupVisible(true)
+    setPayState('unpaid-sheet')
+  }, [])
+
+  /** 隐藏支付状态层 */
+  const hidePaymentLayer = useCallback(() => {
+    setPayPopupVisible(false)
+    setPayState('idle')
+  }, [])
+
+  /** 确认支付 */
+  const confirmPay = useCallback(async () => {
+    openWechatPay()
+  }, [openWechatPay])
 
   /** 跳转到会员记录页 */
   const goToRecords = useCallback(() => {
@@ -129,10 +183,12 @@ export function useMembership() {
     selectedPlan,
     payPopupVisible,
     payLoading,
+    payState,
     activeStatus,
     records,
     recordsLoading,
     filteredRecords,
+    benefits,
     /* 方法 */
     fetchMyMembership,
     fetchPlans,
@@ -140,6 +196,12 @@ export function useMembership() {
     selectPlan,
     closePayPopup,
     confirmPay,
+    openWechatPay,
+    simulatePaySuccess,
+    simulatePayCancel,
+    showUnpaidSheet,
+    hidePaymentLayer,
+    previewPayState,
     goToRecords,
     changeStatus,
   }

@@ -9,15 +9,21 @@ import com.spacetime.admin.dto.request.RefundPageReq;
 import com.spacetime.admin.dto.request.RefundReq;
 import com.spacetime.admin.dto.response.CoinFlowVO;
 import com.spacetime.admin.dto.response.DailyStatsVO;
+import com.spacetime.admin.dto.response.ExportTaskVO;
+import com.spacetime.admin.dto.response.ReconcileDailyVO;
+import com.spacetime.admin.dto.response.RefundDetailVO;
+import com.spacetime.admin.dto.response.RefundRecordVO;
 import com.spacetime.admin.dto.response.TradeOrderDetailVO;
 import com.spacetime.admin.dto.response.TradeOrderVO;
 import com.spacetime.admin.service.FinanceAdminService;
 import com.spacetime.common.dao.CoinPackageDao;
+import com.spacetime.common.dao.RefundRecordDao;
 import com.spacetime.common.dao.TradeOrderDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserCoinLogDao;
 import com.spacetime.common.dao.UserDao;
 import com.spacetime.common.entity.CoinPackage;
+import com.spacetime.common.entity.RefundRecord;
 import com.spacetime.common.entity.SysUser;
 import com.spacetime.common.entity.TradeOrder;
 import com.spacetime.common.entity.UserAsset;
@@ -26,6 +32,8 @@ import com.spacetime.common.enums.FlowTypeEnum;
 import com.spacetime.common.enums.OrderStatusEnum;
 import com.spacetime.common.enums.OrderTypeEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.interceptor.UserContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -56,6 +64,8 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
     private final CoinPackageDao coinPackageDao;
     /** 用户数据访问对象 */
     private final UserDao userDao;
+    /** 退款记录数据访问对象 */
+    private final RefundRecordDao refundRecordDao;
 
     /**
      * 分页查询订单列表，支持多条件筛选
@@ -131,23 +141,39 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
     public void processRefund(Long id, RefundReq req) {
         TradeOrder order = requireOrder(id);
 
-        // 1. 校验订单状态：支持已支付或退款中的订单
+        // 1. 校验订单状态：只允许已支付订单发起退款
         String currentStatus = order.getOrderStatus();
-        boolean canRefund = OrderStatusEnum.SUCCESS.getCode().equals(currentStatus)
-                || OrderStatusEnum.REFUNDING.getCode().equals(currentStatus);
-        if (!canRefund) {
-            throw new BusinessException("仅支持对已支付或退款中的订单进行退款");
+        if (!OrderStatusEnum.SUCCESS.getCode().equals(currentStatus)) {
+            throw new BusinessException("仅支持对已支付订单进行退款");
+        }
+        RefundRecord existing = refundRecordDao.selectByOrderId(id);
+        if (existing != null) {
+            throw new BusinessException("订单已存在退款记录");
         }
         log.info("开始处理退款: orderId={}, orderNo={}, reason={}", id, order.getOrderNo(), req.getReason());
 
-        // 2. 如果是成家币订单，退回成家币
+        RefundRecord refundRecord = buildRefundRecord(order, req);
+        refundRecordDao.insert(refundRecord);
+
+        String assetRollbackAction = req.getAssetRollbackAction();
         if (OrderTypeEnum.COIN.getCode().equals(order.getOrderType())) {
-            refundCoin(order);
+            refundCoin(order, refundRecord.getId());
+            assetRollbackAction = StrUtil.blankToDefault(assetRollbackAction, "coin_balance_rollback");
+        } else {
+            assetRollbackAction = StrUtil.blankToDefault(assetRollbackAction, "vip_order_refund_only");
         }
 
-        // 3. 更新订单为已退款
+        // 3. 更新退款单与订单为已退款
+        LocalDateTime now = LocalDateTime.now();
+        refundRecord.setRefundStatus("success");
+        refundRecord.setAssetRollbackAction(assetRollbackAction);
+        refundRecord.setChannelRefundStatus("mock_success");
+        refundRecord.setChannelResponseSummary("模拟退款成功，真实微信退款字段预留");
+        refundRecord.setRefundTime(now);
+        refundRecordDao.updateById(refundRecord);
+
         order.setOrderStatus(OrderStatusEnum.REFUNDED.getCode());
-        order.setRefundTime(LocalDateTime.now());
+        order.setRefundTime(now);
         order.setRefundReason(req.getReason());
         tradeOrderDao.updateById(order);
         log.info("退款处理完成: orderId={}, orderNo={}", id, order.getOrderNo());
@@ -156,7 +182,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
     /**
      * 退回成家币：增加用户资产余额并记录流水
      */
-    private void refundCoin(TradeOrder order) {
+    private void refundCoin(TradeOrder order, Long refundRecordId) {
         UserAsset asset = userAssetDao.selectByUserId(order.getUserId());
         if (asset == null) {
             throw new BusinessException("用户资产不存在");
@@ -166,7 +192,8 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         int refundCoinCount = getRefundCoinCount(order);
 
         // 更新用户资产余额
-        int newBalance = asset.getCoinBalance() + refundCoinCount;
+        int balanceBefore = asset.getCoinBalance() == null ? 0 : asset.getCoinBalance();
+        int newBalance = balanceBefore + refundCoinCount;
         asset.setCoinBalance(newBalance);
         userAssetDao.updateById(asset);
 
@@ -178,11 +205,12 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         coinLog.setUserId(order.getUserId());
         coinLog.setFlowType(FlowTypeEnum.REFUND.getCode());
         coinLog.setChangeAmount(refundCoinCount);
+        coinLog.setBalanceBefore(balanceBefore);
         coinLog.setBalanceAfter(newBalance);
         coinLog.setBizScene("订单退款");
         coinLog.setBizDesc("订单 " + order.getOrderNo() + " 退款退回成家币");
-        coinLog.setRefId(order.getId());
-        coinLog.setRefType("trade_order");
+        coinLog.setRefId(refundRecordId);
+        coinLog.setRefType("refund_record");
         userCoinLogDao.insert(coinLog);
     }
 
@@ -205,19 +233,33 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
      * @return 退款订单分页数据
      */
     @Override
-    public Page<TradeOrderVO> getRefundList(RefundPageReq req) {
-        LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<TradeOrder>()
-                .like(StrUtil.isNotBlank(req.getOrderNo()), TradeOrder::getOrderNo, req.getOrderNo())
-                .eq(req.getUserId() != null, TradeOrder::getUserId, req.getUserId())
-                .ge(req.getStartTime() != null, TradeOrder::getCreateTime, req.getStartTime())
-                .le(req.getEndTime() != null, TradeOrder::getCreateTime, req.getEndTime())
-                .and(w -> w.eq(TradeOrder::getOrderStatus, OrderStatusEnum.REFUNDING.getCode())
-                        .or().eq(TradeOrder::getOrderStatus, OrderStatusEnum.REFUNDED.getCode()))
-                .orderByDesc(TradeOrder::getCreateTime);
-        Page<TradeOrder> page = tradeOrderDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
-        Page<TradeOrderVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(page.getRecords().stream().map(this::toOrderVO).toList());
+    public Page<RefundRecordVO> getRefundList(RefundPageReq req) {
+        LambdaQueryWrapper<RefundRecord> wrapper = new LambdaQueryWrapper<RefundRecord>()
+                .like(StrUtil.isNotBlank(req.getOrderNo()), RefundRecord::getOrderNo, req.getOrderNo())
+                .eq(req.getUserId() != null, RefundRecord::getUserId, req.getUserId())
+                .ge(req.getStartTime() != null, RefundRecord::getCreateTime, req.getStartTime())
+                .le(req.getEndTime() != null, RefundRecord::getCreateTime, req.getEndTime())
+                .orderByDesc(RefundRecord::getCreateTime);
+        Page<RefundRecord> page = refundRecordDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
+        Page<RefundRecordVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        result.setRecords(page.getRecords().stream()
+                .map(refund -> toRefundVO(refund, tradeOrderDao.selectById(refund.getOrderId())))
+                .toList());
         return result;
+    }
+
+    @Override
+    public RefundDetailVO getRefundDetail(Long id) {
+        RefundRecord refund = refundRecordDao.selectById(id);
+        if (refund == null) {
+            throw new BusinessException("退款记录不存在");
+        }
+        TradeOrder order = tradeOrderDao.selectById(refund.getOrderId());
+        RefundDetailVO vo = new RefundDetailVO();
+        vo.setRefund(toRefundVO(refund, order));
+        vo.setOrder(order == null ? null : getOrderDetail(order.getId()));
+        vo.setAssetRollbackDesc(refund.getAssetRollbackAction());
+        return vo;
     }
 
     /**
@@ -263,6 +305,62 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         return vo;
     }
 
+    @Override
+    public ReconcileDailyVO getReconcileDaily(String date) {
+        LocalDate localDate = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        LocalDateTime startOfDay = localDate.atStartOfDay();
+        LocalDateTime endOfDay = localDate.plusDays(1).atStartOfDay();
+
+        Page<TradeOrder> orderPage = tradeOrderDao.selectPage(new Page<>(1, 10000),
+                new LambdaQueryWrapper<TradeOrder>()
+                        .ge(TradeOrder::getCreateTime, startOfDay)
+                        .lt(TradeOrder::getCreateTime, endOfDay));
+        List<TradeOrder> orders = orderPage.getRecords();
+        Page<RefundRecord> refundPage = refundRecordDao.selectPage(new Page<>(1, 10000),
+                new LambdaQueryWrapper<RefundRecord>()
+                        .ge(RefundRecord::getCreateTime, startOfDay)
+                        .lt(RefundRecord::getCreateTime, endOfDay));
+        List<RefundRecord> refunds = refundPage.getRecords();
+
+        String successCode = OrderStatusEnum.SUCCESS.getCode();
+        String refundedCode = OrderStatusEnum.REFUNDED.getCode();
+        BigDecimal orderAmount = orders.stream()
+                .filter(o -> successCode.equals(o.getOrderStatus()) || refundedCode.equals(o.getOrderStatus()))
+                .map(TradeOrder::getPayAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal refundAmount = refunds.stream()
+                .map(RefundRecord::getRefundAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        ReconcileDailyVO vo = new ReconcileDailyVO();
+        vo.setDate(date);
+        vo.setSuccessOrderCount(orders.stream().filter(o -> successCode.equals(o.getOrderStatus())).count());
+        vo.setVipOrderCount(orders.stream().filter(o -> OrderTypeEnum.VIP.getCode().equals(o.getOrderType())).count());
+        vo.setCoinOrderCount(orders.stream().filter(o -> OrderTypeEnum.COIN.getCode().equals(o.getOrderType())).count());
+        vo.setRefundOrderCount((long) refunds.size());
+        vo.setOrderAmount(orderAmount);
+        vo.setRefundAmount(refundAmount);
+        vo.setNetAmount(orderAmount.subtract(refundAmount));
+        vo.setRefundRate(orderAmount.compareTo(BigDecimal.ZERO) == 0
+                ? BigDecimal.ZERO
+                : refundAmount.divide(orderAmount, 4, java.math.RoundingMode.HALF_UP));
+        return vo;
+    }
+
+    @Override
+    public ExportTaskVO createExportTask(String exportType) {
+        ExportTaskVO vo = new ExportTaskVO();
+        vo.setTaskNo("EXP" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                + UUID.randomUUID().toString().substring(0, 6));
+        vo.setExportType(exportType);
+        vo.setStatus("created");
+        vo.setMessage("导出任务已创建，静态闭环版本不生成真实文件");
+        vo.setCreateTime(LocalDateTime.now());
+        return vo;
+    }
+
     private TradeOrder requireOrder(Long id) {
         TradeOrder order = tradeOrderDao.selectById(id);
         if (order == null) {
@@ -285,6 +383,10 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         vo.setPackageId(entity.getPackageId());
         vo.setPackageName(entity.getPackageName());
         vo.setPayAmount(entity.getPayAmount());
+        vo.setPayChannel(entity.getPayChannel());
+        vo.setChannelTradeNo(entity.getChannelTradeNo());
+        vo.setPrepayId(entity.getPrepayId());
+        vo.setNotifySummary(entity.getNotifySummary());
         vo.setOrderStatus(entity.getOrderStatus());
         vo.setSuccessTime(entity.getSuccessTime());
         vo.setExpireTime(entity.getExpireTime());
@@ -301,12 +403,53 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         vo.setUserId(entity.getUserId());
         vo.setFlowType(entity.getFlowType());
         vo.setChangeAmount(entity.getChangeAmount());
+        vo.setBalanceBefore(entity.getBalanceBefore());
         vo.setBalanceAfter(entity.getBalanceAfter());
         vo.setBizScene(entity.getBizScene());
         vo.setBizDesc(entity.getBizDesc());
         vo.setRefId(entity.getRefId());
         vo.setRefType(entity.getRefType());
         vo.setCreateTime(entity.getCreateTime());
+        return vo;
+    }
+
+    private RefundRecord buildRefundRecord(TradeOrder order, RefundReq req) {
+        UserContext ctx = UserContextHolder.get();
+        RefundRecord refund = new RefundRecord();
+        refund.setRefundNo("RF" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                + UUID.randomUUID().toString().substring(0, 6));
+        refund.setOrderId(order.getId());
+        refund.setOrderNo(order.getOrderNo());
+        refund.setUserId(order.getUserId());
+        refund.setRefundAmount(req.getRefundAmount() != null ? req.getRefundAmount() : Objects.requireNonNullElse(order.getPayAmount(), BigDecimal.ZERO));
+        refund.setRefundReason(req.getReason());
+        refund.setRefundStatus("processing");
+        refund.setOperatorId(ctx != null ? ctx.getId() : null);
+        refund.setOperatorName(ctx != null ? ctx.getNickname() : null);
+        refund.setChannelRefundStatus("mock_pending");
+        return refund;
+    }
+
+    private RefundRecordVO toRefundVO(RefundRecord refund, TradeOrder order) {
+        RefundRecordVO vo = new RefundRecordVO();
+        vo.setId(refund.getId());
+        vo.setRefundNo(refund.getRefundNo());
+        vo.setOrderId(refund.getOrderId());
+        vo.setOrderNo(refund.getOrderNo());
+        vo.setUserId(refund.getUserId());
+        vo.setRefundAmount(refund.getRefundAmount());
+        vo.setRefundReason(refund.getRefundReason());
+        vo.setRefundStatus(refund.getRefundStatus());
+        vo.setAssetRollbackAction(refund.getAssetRollbackAction());
+        vo.setChannelRefundStatus(refund.getChannelRefundStatus());
+        vo.setRefundTime(refund.getRefundTime());
+        vo.setCreateTime(refund.getCreateTime());
+        if (order != null) {
+            vo.setOrderType(order.getOrderType());
+            vo.setPackageName(order.getPackageName());
+            vo.setPayAmount(order.getPayAmount());
+            vo.setOrderStatus(order.getOrderStatus());
+        }
         return vo;
     }
 }

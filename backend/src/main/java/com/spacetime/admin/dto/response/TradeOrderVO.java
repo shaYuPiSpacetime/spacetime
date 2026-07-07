@@ -24,6 +24,14 @@ public class TradeOrderVO {
     private String packageName;
     /** 支付金额（元） */
     private BigDecimal payAmount;
+    /** 支付渠道 */
+    private String payChannel;
+    /** 渠道交易单号 */
+    private String channelTradeNo;
+    /** 微信预支付交易会话标识 */
+    private String prepayId;
+    /** 支付回调原始摘要 */
+    private String notifySummary;
     /** 订单状态 @see OrderStatusEnum */
     private String orderStatus;
     /** 支付成功时间 */

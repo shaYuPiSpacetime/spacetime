@@ -1,0 +1,88 @@
+name: spacetime-admin-prod
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'frontend/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy-admin-prod.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: spacetime-prod-deploy
+  cancel-in-progress: false
+
+env:
+  ALIYUN_CR_REGISTRY: crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com
+  ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'
+  DOCKER_NAMESPACE: bobo2026
+  ADMIN_IMAGE_NAME: bobo2026
+  ADMIN_IMAGE_TAG: spacetime-admin-prod
+  NGINX_IMAGE_NAME: bobo2026
+  NGINX_IMAGE_TAG: spacetime-nginx-prod
+  PROD_SERVER_HOST: 112.124.59.146
+  PROD_SERVER_USER: root
+  PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate ACR password
+        env:
+          HAS_ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD != '' }}
+        run: |
+          if [ "$HAS_ALIYUN_REGISTRY_PASSWORD" != "true" ]; then
+            echo "::error::请在 GitHub Secrets 中配置 ALIYUN_REGISTRY_PASSWORD"
+            exit 1
+          fi
+
+      - name: Login to ACR
+        uses: aliyun/acr-login@v1
+        with:
+          login-server: ${{ env.ALIYUN_CR_REGISTRY }}
+          username: ${{ env.ALIYUN_REGISTRY_USER_NAME }}
+          password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+
+      - name: Build admin image
+        run: |
+          set -e
+          docker build \
+            -f frontend/Dockerfile \
+            -t "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${ADMIN_IMAGE_NAME}:${ADMIN_IMAGE_TAG}" \
+            frontend
+
+      - name: Push nginx runtime image
+        run: |
+          set -e
+          docker pull nginx:1.27-alpine
+          docker tag nginx:1.27-alpine "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${NGINX_IMAGE_NAME}:${NGINX_IMAGE_TAG}"
+          docker push "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${NGINX_IMAGE_NAME}:${NGINX_IMAGE_TAG}"
+
+      - name: Push admin image
+        run: |
+          set -e
+          docker push "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${ADMIN_IMAGE_NAME}:${ADMIN_IMAGE_TAG}"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy admin over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+        with:
+          host: ${{ env.PROD_SERVER_HOST }}
+          username: ${{ env.PROD_SERVER_USER }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          envs: ALIYUN_REGISTRY_PASSWORD
+          script_stop: true
+          script: |
+            set -e
+            cd "${{ env.PROD_DEPLOY_DIR }}"
+            bash scripts/deploy-prod-local.sh admin

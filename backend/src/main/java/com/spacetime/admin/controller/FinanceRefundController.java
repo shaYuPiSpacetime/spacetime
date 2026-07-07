@@ -2,7 +2,9 @@ package com.spacetime.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.RefundPageReq;
-import com.spacetime.admin.dto.response.TradeOrderVO;
+import com.spacetime.admin.dto.response.ExportTaskVO;
+import com.spacetime.admin.dto.response.RefundDetailVO;
+import com.spacetime.admin.dto.response.RefundRecordVO;
 import com.spacetime.admin.service.FinanceAdminService;
 import com.spacetime.common.annotation.RequirePermission;
 import com.spacetime.common.result.R;
@@ -27,7 +29,28 @@ public class FinanceRefundController {
      */
     @GetMapping("/list")
     @RequirePermission("finance:refund:list")
-    public R<Page<TradeOrderVO>> list(@Valid RefundPageReq req) {
+    public R<Page<RefundRecordVO>> list(@Valid RefundPageReq req) {
         return R.ok(financeAdminService.getRefundList(req));
+    }
+
+    /**
+     * 查询退款详情
+     * @param id 退款记录 ID
+     * @return 退款详情
+     */
+    @GetMapping("/list/{id}")
+    @RequirePermission("finance:refund:list")
+    public R<RefundDetailVO> detail(@PathVariable Long id) {
+        return R.ok(financeAdminService.getRefundDetail(id));
+    }
+
+    /**
+     * 创建退款导出任务
+     * @return 导出任务
+     */
+    @PostMapping("/export")
+    @RequirePermission("finance:refund:list")
+    public R<ExportTaskVO> export() {
+        return R.ok(financeAdminService.createExportTask("commercial_refunds"));
     }
 }

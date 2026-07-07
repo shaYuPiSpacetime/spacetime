@@ -17,6 +17,10 @@ public class CoinPackage extends BaseEntity {
     private String packageName;
     /** 售价 */
     private BigDecimal amount;
+    /** 原价 */
+    private BigDecimal originAmount;
+    /** 优惠价 */
+    private BigDecimal discountAmount;
     /** 成家币数量 */
     private Integer coinCount;
     /** 赠送成家币数量 */
@@ -25,6 +29,8 @@ public class CoinPackage extends BaseEntity {
     private Integer recommendFlag;
     /** 套餐标签 */
     private String packageTag;
+    /** 移动端展示标签 */
+    private String mobileTag;
     /** 套餐描述 */
     private String packageDesc;
     /** 排序号 */

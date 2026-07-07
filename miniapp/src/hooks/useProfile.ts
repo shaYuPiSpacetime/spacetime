@@ -1,11 +1,15 @@
 import { useState, useCallback } from 'react';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '@/stores/authStore';
-import { mockMyMembership, mockCoinBalance } from '@/services/mock';
+import { getDemoPageData } from '@/services/lanhuDemo';
 import type { MyMembership } from '@/types/membership';
 
+const profileDemo = getDemoPageData('profile');
+const membershipDemo = getDemoPageData('membership');
+const coinsDemo = getDemoPageData('coins');
+
 /**
- * 成家币余额数据结构（当前阶段 mockCoinBalance 为 number，后续接口返回完整对象）
+ * 成家币余额数据结构（当前阶段 demo 数据为 number，后续接口返回完整对象）
  */
 interface CoinBalance {
   /** 可用余额 */
@@ -87,23 +91,22 @@ function buildProfileData(): ProfileData {
 
   return {
     isLoggedIn: auth.isLoggedIn,
-    // mock 文案对齐 Figma 设计稿
-    nickname: auth.nickname || '筱脑虎',
+    // mock 文案对齐蓝湖设计稿
+    nickname: auth.nickname || profileDemo.nickname,
     avatarUrl: auth.avatar || '',
-    location: '杭州市',
-    age: 28,
-    zodiac: '双鱼座',
-    isVerified: true,
-    verifiedLabels: ['实名认证', '学历认证', '工作认证'],
+    location: profileDemo.location,
+    age: profileDemo.age,
+    zodiac: profileDemo.zodiac,
+    isVerified: profileDemo.isVerified,
+    verifiedLabels: profileDemo.verifiedLabels,
     // 会员信息
-    membership: mockMyMembership ?? null,
+    membership: membershipDemo.myMembership ?? null,
     // 成家币余额（当前为 number，包装为对象以兼容后续接口）
-    coinBalance: { balance: mockCoinBalance },
+    coinBalance: { balance: coinsDemo.balance },
     // 统计数据（mock 占位）
-    // 蓝湖设计稿：45心动 + 99被喜欢
-    likedCount: 45,
-    beLikedCount: 99,
-    visitorCount: 99,
+    likedCount: profileDemo.stats.likedCount,
+    beLikedCount: profileDemo.stats.beLikedCount,
+    visitorCount: profileDemo.stats.visitorCount,
   };
 }
 
@@ -164,37 +167,37 @@ export function useProfile(): UseProfileReturn {
 
   /** 跳转编辑资料页 */
   const goToEditProfile = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/profile/edit/index' });
+    Taro.navigateTo({ url: '/pages/profile/edit' });
   }, []);
 
   /** 跳转 VIP 开通/权益页 */
   const goToVip = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/vip/index' });
+    Taro.navigateTo({ url: '/pages/membership/index' });
   }, []);
 
   /** 跳转成家币明细页 */
   const goToCoin = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/coin/index' });
+    Taro.navigateTo({ url: '/pages/coins/index' });
   }, []);
 
   /** 跳转邀请好友页 */
   const goToInvite = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/invite/index' });
+    Taro.showToast({ title: '邀请好友演示待补充', icon: 'none' });
   }, []);
 
   /** 跳转我的动态页 */
   const goToMyPosts = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/moments/my/index' });
+    Taro.showToast({ title: '我的动态演示待补充', icon: 'none' });
   }, []);
 
   /** 跳转帮助与客服页 */
   const goToHelp = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/help/index' });
+    Taro.showToast({ title: '帮助与客服演示待补充', icon: 'none' });
   }, []);
 
   /** 跳转设置页 */
   const goToSettings = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/settings/index' });
+    Taro.showToast({ title: '设置演示待补充', icon: 'none' });
   }, []);
 
   return {

@@ -3,6 +3,7 @@ package com.spacetime.admin.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.FlowPageReq;
 import com.spacetime.admin.dto.response.CoinFlowVO;
+import com.spacetime.admin.dto.response.ExportTaskVO;
 import com.spacetime.admin.service.FinanceAdminService;
 import com.spacetime.common.annotation.RequirePermission;
 import com.spacetime.common.result.R;
@@ -29,5 +30,15 @@ public class FinanceFlowController {
     @RequirePermission("finance:flow:list")
     public R<Page<CoinFlowVO>> list(@Valid FlowPageReq req) {
         return R.ok(financeAdminService.getFlowList(req));
+    }
+
+    /**
+     * 创建流水导出任务
+     * @return 导出任务
+     */
+    @PostMapping("/export")
+    @RequirePermission("finance:flow:list")
+    public R<ExportTaskVO> export() {
+        return R.ok(financeAdminService.createExportTask("commercial_flows"));
     }
 }

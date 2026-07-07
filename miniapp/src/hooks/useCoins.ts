@@ -1,7 +1,10 @@
 import { useState, useCallback } from 'react'
 import Taro from '@tarojs/taro'
 import type { CoinPackage, CoinTransaction, CoinUsage } from '@/types/coin'
-import { mockCoinBalance, mockCoinPackages, mockCoinTransactions, mockCoinUsages } from '@/services/mock'
+import { getDemoPageData } from '@/services/lanhuDemo'
+
+const coinsDemo = getDemoPageData('coins')
+export type CoinPayState = 'idle' | 'wechat-pay' | 'pay-success' | 'pay-cancel'
 
 /**
  * 成家币模块 hook
@@ -11,25 +14,26 @@ import { mockCoinBalance, mockCoinPackages, mockCoinTransactions, mockCoinUsages
  */
 export function useCoins() {
   /* ---------- 余额 ---------- */
-  const [balance, setBalance] = useState<number>(mockCoinBalance)
+  const [balance, setBalance] = useState<number>(coinsDemo.balance)
   const [balanceLoading, setBalanceLoading] = useState(false)
 
   /* ---------- 套餐列表 ---------- */
-  const [packages, setPackages] = useState<CoinPackage[]>(mockCoinPackages)
+  const [packages, setPackages] = useState<CoinPackage[]>(coinsDemo.packages)
   const [packagesLoading, setPackagesLoading] = useState(false)
 
   /* ---------- 选中的套餐 ---------- */
-  const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(mockCoinPackages[1] ?? null)
+  const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(coinsDemo.packages[1] ?? null)
 
   /* ---------- 支付状态 ---------- */
   const [payLoading, setPayLoading] = useState(false)
+  const [payState, setPayState] = useState<CoinPayState>('idle')
 
   /* ---------- 交易明细 ---------- */
   const [transactions, setTransactions] = useState<CoinTransaction[]>([])
   const [transactionsLoading, setTransactionsLoading] = useState(false)
 
   /* ---------- 用途列表 ---------- */
-  const [usages] = useState<CoinUsage[]>(mockCoinUsages)
+  const [usages] = useState<CoinUsage[]>(coinsDemo.usages)
 
   /* ---------- 操作方法 ---------- */
 
@@ -37,9 +41,9 @@ export function useCoins() {
   const fetchBalance = useCallback(async () => {
     setBalanceLoading(true)
     try {
-      // TODO: 替换为真实 API 调用
+      // 后续替换为真实 API 调用
       await new Promise((resolve) => setTimeout(resolve, 500))
-      setBalance(mockCoinBalance)
+      setBalance(coinsDemo.balance)
     } finally {
       setBalanceLoading(false)
     }
@@ -49,9 +53,9 @@ export function useCoins() {
   const fetchPackages = useCallback(async () => {
     setPackagesLoading(true)
     try {
-      // TODO: 替换为真实 API 调用
+      // 后续替换为真实 API 调用
       await new Promise((resolve) => setTimeout(resolve, 300))
-      setPackages([...mockCoinPackages])
+      setPackages([...coinsDemo.packages])
     } finally {
       setPackagesLoading(false)
     }
@@ -61,9 +65,9 @@ export function useCoins() {
   const fetchTransactions = useCallback(async () => {
     setTransactionsLoading(true)
     try {
-      // TODO: 替换为真实 API 调用
+      // 后续替换为真实 API 调用
       await new Promise((resolve) => setTimeout(resolve, 500))
-      setTransactions([...mockCoinTransactions])
+      setTransactions([...coinsDemo.transactions])
     } finally {
       setTransactionsLoading(false)
     }
@@ -74,28 +78,54 @@ export function useCoins() {
     setSelectedPackage(pkg)
   }, [])
 
-  /** 确认支付（Mock 实现） */
-  const purchase = useCallback(async () => {
+  /** 预览指定支付状态，供蓝湖 demo query 直达 */
+  const previewPayState = useCallback((nextState: CoinPayState) => {
+    setPayState(nextState)
+  }, [])
+
+  /** 打开 mock 微信支付面板 */
+  const openWechatPay = useCallback(() => {
+    if (!selectedPackage) {
+      Taro.showToast({ title: '请选择充值套餐', icon: 'none' })
+      return
+    }
+    setPayState('wechat-pay')
+  }, [selectedPackage])
+
+  /** 模拟支付成功 */
+  const simulatePaySuccess = useCallback(async () => {
     if (!selectedPackage) {
       Taro.showToast({ title: '请选择充值套餐', icon: 'none' })
       return
     }
     setPayLoading(true)
     try {
-      // TODO: 替换为真实支付 API 调用（wx.requestPayment）
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // 后续替换为真实支付 API 调用（wx.requestPayment）
+      await new Promise((resolve) => setTimeout(resolve, 360))
       Taro.showToast({ title: '支付成功', icon: 'success' })
-      // 更新余额
       setBalance((prev) => prev + selectedPackage.amount)
-      setSelectedPackage(null)
-      // 刷新余额
-      await fetchBalance()
+      setPayState('pay-success')
     } catch {
       Taro.showToast({ title: '支付失败，请重试', icon: 'none' })
     } finally {
       setPayLoading(false)
     }
-  }, [selectedPackage, fetchBalance])
+  }, [selectedPackage])
+
+  /** 模拟取消支付 */
+  const simulatePayCancel = useCallback(() => {
+    setPayState('pay-cancel')
+  }, [])
+
+  /** 隐藏支付状态层 */
+  const hidePaymentLayer = useCallback(() => {
+    setPayState('idle')
+  }, [])
+
+  /** 确认支付（Mock 实现） */
+  const purchase = useCallback(async () => {
+    openWechatPay()
+  }, [openWechatPay])
 
   /** 跳转到交易明细页 */
   const goToDetail = useCallback(() => {
@@ -110,6 +140,7 @@ export function useCoins() {
     packagesLoading,
     selectedPackage,
     payLoading,
+    payState,
     transactions,
     transactionsLoading,
     usages,
@@ -119,6 +150,11 @@ export function useCoins() {
     fetchTransactions,
     selectPackage,
     purchase,
+    openWechatPay,
+    simulatePaySuccess,
+    simulatePayCancel,
+    hidePaymentLayer,
+    previewPayState,
     goToDetail,
   }
 }

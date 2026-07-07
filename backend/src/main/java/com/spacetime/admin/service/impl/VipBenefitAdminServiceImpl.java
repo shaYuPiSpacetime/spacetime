@@ -88,6 +88,9 @@ public class VipBenefitAdminServiceImpl implements VipBenefitAdminService {
         entity.setBenefitName(changed.getBenefitName());
         entity.setBenefitType(changed.getBenefitType());
         entity.setBenefitDesc(changed.getBenefitDesc());
+        entity.setMobileIcon(changed.getMobileIcon());
+        entity.setBenefitValue(changed.getBenefitValue());
+        entity.setFixedFlag(changed.getFixedFlag());
         entity.setDisplayOrder(changed.getDisplayOrder());
         entity.setStatus(changed.getStatus());
         vipBenefitDao.updateById(entity);
@@ -114,6 +117,9 @@ public class VipBenefitAdminServiceImpl implements VipBenefitAdminService {
         entity.setBenefitName(req.getBenefitName());
         entity.setBenefitType(req.getBenefitType());
         entity.setBenefitDesc(req.getBenefitDesc());
+        entity.setMobileIcon(req.getMobileIcon());
+        entity.setBenefitValue(req.getBenefitValue());
+        entity.setFixedFlag(req.getFixedFlag());
         entity.setDisplayOrder(req.getDisplayOrder());
         entity.setStatus(req.getStatus());
         return entity;
@@ -126,6 +132,9 @@ public class VipBenefitAdminServiceImpl implements VipBenefitAdminService {
         vo.setBenefitName(entity.getBenefitName());
         vo.setBenefitType(entity.getBenefitType());
         vo.setBenefitDesc(entity.getBenefitDesc());
+        vo.setMobileIcon(entity.getMobileIcon());
+        vo.setBenefitValue(entity.getBenefitValue());
+        vo.setFixedFlag(entity.getFixedFlag());
         vo.setDisplayOrder(entity.getDisplayOrder());
         vo.setStatus(entity.getStatus());
         vo.setCreateTime(entity.getCreateTime());

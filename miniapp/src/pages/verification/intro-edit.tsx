@@ -2,10 +2,10 @@ import { Text, Textarea, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
+import { getDemoPageData } from '@/services/lanhuDemo'
 import VerificationShell from './components/VerificationShell'
 
-const DEFAULT_INTRO =
-  '这里是个人的自我介绍，我是一个好人，这里是个人的自我介绍，我是一个好人，这里是个人的自我介绍，我是一个好人，这里是个人的自我介绍，我是一个好人，这里是个人的自我介绍，我是一个好人。'
+const DEFAULT_INTRO = getDemoPageData('verification').introDefaultText
 
 export default function VerificationIntroEditPage() {
   const { userInfo, updateUserInfo } = useLogin()

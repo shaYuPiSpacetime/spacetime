@@ -1,25 +1,22 @@
 export default {
   lazyCodeLoading: 'requiredComponents',
   pages: [
+    'pages/profile/edit',
+    'pages/login/index',
+    'pages/login/phone',
+    'pages/login/gender',
+    'pages/login/age',
+    'pages/login/identity',
+    'pages/login/education',
+    'pages/login/address',
     'pages/profile/index',
     'pages/community/index',
     'pages/chat/index',
     'pages/index/index',
     'pages/recommend/index',
-    'pages/recommend/post',
-    'pages/profile/edit'
+    'pages/recommend/post'
   ],
   subPackages: [
-    {
-      root: 'pages/login',
-      pages: [
-        'index',
-        'gender',
-        'education',
-        'address',
-        'age'
-      ]
-    },
     {
       root: 'pages/verification',
       pages: [
@@ -68,6 +65,16 @@ export default {
       pages: [
         'index'
       ]
+    },
+    {
+      root: 'pages/profile-edit',
+      pages: [
+        'intro',
+        'tags',
+        'about',
+        'songs',
+        'voice'
+      ]
     }
   ],
   window: {
@@ -85,13 +92,13 @@ export default {
     list: [
       {
         pagePath: 'pages/index/index',
-        text: '成家',
+        text: '千寻',
         iconPath: 'assets/icons/tab-home.png',
         selectedIconPath: 'assets/icons/tab-home.png'
       },
       {
         pagePath: 'pages/community/index',
-        text: '立业',
+        text: '心动',
         iconPath: 'assets/icons/tab-work.png',
         selectedIconPath: 'assets/icons/tab-work.png'
       },

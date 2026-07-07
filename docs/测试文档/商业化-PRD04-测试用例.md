@@ -2,6 +2,8 @@
 
 > 日期：2026-05-28
 > 关联技术方案：`docs/技术方案/2026-05-28-PRD-04-商业化-tcdesign.md`
+> 静态 Demo 最新口径补充日期：2026-07-06
+> 最新产品口径：`docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）`
 
 ## 1. 测试层级说明
 
@@ -166,3 +168,71 @@
 3. **VIP 权益数据**：每日额外配额、全量查看、免费悄悄话、高级筛选、隐藏访问
 4. **测试用户**：至少 2 个测试用户，一个有资产记录，一个无
 5. **测试角色**：超管角色（全权限）、普通运营角色（仅有 list 权限）
+
+## 7. 静态 Demo 最新后台闭环补充
+
+> 本节按静态 Demo 04 最新口径补充，后台最终以 5 个独立工作台验收；用户商业化详情挂到现有用户详情内，不单独形成后台菜单页。
+
+### 7.1 后台页面验收口径
+
+| 页面 ID | 页面名称 | 核心验收 |
+|---------|----------|----------|
+| ADM-04-PAGE-commerce-config | 商业化配置 | VIP 权益、VIP 套餐、千寻币套餐、8 个消费场景可同屏查看与保存，保存后生成配置变更日志 |
+| ADM-04-PAGE-commerce-order-list | 商业化订单 | 订单可按类型、状态、金额、时间筛选，支持详情、退款、导出任务创建 |
+| ADM-04-PAGE-asset-flow-list | 资产流水 | 千寻币流水可按用户、类型、业务场景、时间筛选，展示变动前后余额和关联业务 |
+| ADM-04-PAGE-refund-list | 退款记录 | 退款单独立展示退款金额、原因、发起人、资产回退动作、渠道退款预留状态 |
+| ADM-04-PAGE-commerce-reconcile | 轻量对账 | 按日期聚合订单金额、退款金额、净收入、退款率，并可创建导出任务 |
+
+### 7.2 新增与补齐的 L1 接口用例
+
+接口清单：
+
+```text
+GET /admin/commercial/config
+PUT /admin/commercial/config
+GET /admin/commercial/config/logs
+GET /admin/commercial/users/{userId}/asset-detail
+GET /admin/finance/orders/{id}
+POST /admin/finance/orders/{id}/refund
+GET /admin/finance/flows/list
+GET /admin/finance/refunds/list/{id}
+GET /admin/finance/reconcile/daily
+POST /admin/finance/orders/export
+POST /admin/finance/flows/export
+POST /admin/finance/refunds/export
+POST /admin/finance/reconcile/export
+```
+
+| 编号 | 用例 | Method | URL | 预期 |
+|------|------|--------|-----|------|
+| L1-C-01 | 读取商业化配置聚合 | GET | `/admin/commercial/config` | 200，返回 VIP 权益、VIP 套餐、千寻币套餐、消费场景、版本号 |
+| L1-C-02 | 保存商业化配置 | PUT | `/admin/commercial/config` | 200，写入配置表并生成 `app_commercial_config_log` |
+| L1-C-03 | 查询配置变更日志 | GET | `/admin/commercial/config/logs` | 200，按时间倒序返回 |
+| L1-C-04 | 查询用户商业化详情 | GET | `/admin/commercial/users/{userId}/asset-detail` | 200，返回资产、最近订单、最近流水、最近退款 |
+| L1-C-05 | 商业化订单详情 | GET | `/admin/finance/orders/{id}` | 200，返回用户信息、支付预留字段、退款摘要 |
+| L1-C-06 | 发起订单退款 | POST | `/admin/finance/orders/{id}/refund` | 200，生成退款记录并回退币资产 |
+| L1-C-07 | 查询资产流水 | GET | `/admin/finance/flows/list` | 200，返回 `balanceBefore` 与 `balanceAfter` |
+| L1-C-08 | 查询退款记录详情 | GET | `/admin/finance/refunds/list/{id}` | 200，返回退款单、订单和资产回退信息 |
+| L1-C-09 | 查询轻量对账 | GET | `/admin/finance/reconcile/daily` | 200，返回订单金额、退款金额、净收入 |
+| L1-C-10 | 创建订单导出任务 | POST | `/admin/finance/orders/export` | 200，仅返回导出任务记录，不生成真实文件 |
+| L1-C-11 | 创建流水导出任务 | POST | `/admin/finance/flows/export` | 200，仅返回导出任务记录 |
+| L1-C-12 | 创建退款导出任务 | POST | `/admin/finance/refunds/export` | 200，仅返回导出任务记录 |
+| L1-C-13 | 创建对账导出任务 | POST | `/admin/finance/reconcile/export` | 200，仅返回导出任务记录 |
+
+### 7.3 后台闭环 L3 用例
+
+| 编号 | 用例 | 前置条件 | 预期 |
+|------|------|---------|------|
+| L3-C-01 | 保存配置写审计 | 修改权益图标、套餐展示标签、消费场景单价 | 相关配置更新，新增 `app_commercial_config_log` |
+| L3-C-02 | 消费场景数量校验 | 提交少于或多于 8 个场景 | 抛 BusinessException |
+| L3-C-03 | 消费场景单价校验 | 场景单价为负数 | 抛 BusinessException |
+| L3-C-04 | 退款成功闭环 | success 币订单且用户资产存在 | 写 `app_refund_record`，订单 refunded，币余额回退，写 refund 流水 |
+| L3-C-05 | 非成功订单退款失败 | unpaid/closed/failed 订单 | 抛 BusinessException，不写退款单 |
+| L3-C-06 | 对账实时聚合 | 同日存在成功订单、退款订单 | 订单金额、退款金额、净收入、退款率计算正确 |
+| L3-C-07 | 用户商业化详情聚合 | 用户有资产、订单、流水、退款 | 返回同一用户下最近商业化明细 |
+
+### 7.4 非编译静态校验
+
+| 编号 | 用例 | 命令 | 预期 |
+|------|------|------|------|
+| STATIC-04-01 | PRD-04 商业化闭环文件与路由检查 | `node docs/测试文档/商业化-PRD04-static-check.mjs` | 输出“PRD-04 商业化静态闭环校验通过” |

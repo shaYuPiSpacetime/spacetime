@@ -3,15 +3,14 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import LoginProfileShell from './components/LoginProfileShell'
-
-const OPTIONS = ['博士', '硕士', '本科', '大专']
+import './education.scss'
 
 /**
  * 登录-学历 — 1:1 还原蓝湖「登录-学历」设计稿
  */
 export default function LoginEducationPage() {
-  const { setStep, updateUserInfo } = useLogin()
-  const [selected, setSelected] = useState('硕士')
+  const { educationOptions, setStep, updateUserInfo } = useLogin()
+  const [selected, setSelected] = useState(educationOptions[1] ?? educationOptions[0] ?? '')
   const [touched, setTouched] = useState(false)
 
   const handleNext = async () => {
@@ -35,7 +34,7 @@ export default function LoginEducationPage() {
           width: '700rpx',
         }}
       >
-        {OPTIONS.map((opt) => {
+        {educationOptions.map((opt) => {
           const isActive = selected === opt
           return (
             <View

@@ -1,6 +1,10 @@
 import type { FeaturedGuest } from '@/types/featured';
 import type { MembershipPlan, MembershipRecord, MyMembership } from '@/types/membership';
 import type { CoinPackage, CoinTransaction, CoinUsage } from '@/types/coin';
+import { getDemoPageData } from './lanhuDemo';
+
+const membershipDemo = getDemoPageData('membership');
+const coinsDemo = getDemoPageData('coins');
 
 /** 模拟精选嘉宾列表 */
 export const mockFeaturedGuests: FeaturedGuest[] = [
@@ -49,79 +53,27 @@ export const mockFeaturedGuests: FeaturedGuest[] = [
 ];
 
 /** 模拟会员套餐 */
-export const mockMembershipPlans: MembershipPlan[] = [
-  {
-    id: 1,
-    name: '包年',
-    price: 568,
-    originalPrice: 688,
-    duration: 365,
-    durationLabel: '12个月',
-    tag: '专属2.1折',
-    perks: ['无限解锁嘉宾', '查看谁喜欢我', '专属认证标识', '优先推荐'],
-  },
-  {
-    id: 2,
-    name: '包季',
-    price: 418,
-    originalPrice: 418,
-    duration: 90,
-    durationLabel: '3个月',
-    tag: '专属5.2折',
-    perks: ['无限解锁嘉宾', '查看谁喜欢我', '专属认证标识', '优先推荐', '每月成家币礼包'],
-  },
-  {
-    id: 3,
-    name: '包月',
-    price: 268,
-    originalPrice: 268,
-    duration: 30,
-    durationLabel: '1个月',
-    tag: '尝鲜首选',
-    perks: ['无限解锁嘉宾', '查看谁喜欢我', '专属认证标识', '优先推荐', '每月成家币礼包', '专属客服'],
-  },
-];
+export const mockMembershipPlans: MembershipPlan[] = membershipDemo.plans;
 
 /** 模拟我的会员状态 — 蓝湖设计稿「会员未开通」默认验收态 */
 export const mockMyMembership: MyMembership = {
-  status: 'none',
+  ...membershipDemo.myMembership,
 };
 
 /** 模拟成家币套餐 */
-export const mockCoinPackages: CoinPackage[] = [
-  { id: 1, amount: 100, price: 8, label: '解锁2位嘉宾' },
-  { id: 2, amount: 3000, price: 268, label: '60位嘉宾', tag: '热销推荐' },
-  { id: 3, amount: 6000, price: 428, label: '150位嘉宾', tag: '节省最多' },
-  { id: 4, amount: 12000, price: 698, label: '300位嘉宾' },
-];
+export const mockCoinPackages: CoinPackage[] = coinsDemo.packages;
 
 /** 模拟成家币余额 */
-export const mockCoinBalance = 1800;
+export const mockCoinBalance = coinsDemo.balance;
 
 /** 模拟成家币交易明细 */
-export const mockCoinTransactions: CoinTransaction[] = [
-  { id: 1, type: 'income', amount: 100, description: '邀请好友获得', time: '2026.04.29 15:26:56', balance: 1800 },
-  { id: 2, type: 'income', amount: 100, description: '邀请好友获得', time: '2026.04.29 15:26:56', balance: 1700 },
-  { id: 3, type: 'income', amount: 100, description: '邀请好友获得', time: '2026.04.29 15:26:56', balance: 1600 },
-];
+export const mockCoinTransactions: CoinTransaction[] = coinsDemo.transactions;
 
 /** 模拟成家币用途列表 */
-export const mockCoinUsages: CoinUsage[] = [
-  { icon: '', label: '送悄悄话' },
-  { icon: '', label: '心动信号' },
-  { icon: '', label: '解锁理想型' },
-  { icon: '', label: '提升人气' },
-  { icon: '', label: '解锁精选' },
-  { icon: '', label: '更多推荐' },
-  { icon: '', label: '匿名解锁' },
-  { icon: '', label: '限定活动' },
-];
+export const mockCoinUsages: CoinUsage[] = coinsDemo.usages;
 
 /** 模拟会员记录 */
-export const mockMembershipRecords: MembershipRecord[] = [
-  { id: 1, planName: '时空邂逅VIP', amount: 568, startTime: '2026.05.28 15:58', endTime: '2027.05.27 15:58', status: '生效中' },
-  { id: 2, planName: '时空邂逅VIP', amount: 568, startTime: '2026.05.28 15:58', endTime: '2027.05.27 15:58', status: '已退款' },
-];
+export const mockMembershipRecords: MembershipRecord[] = membershipDemo.records;
 
 /** 模拟觅缘推荐用户 */
 export interface MockMatchUser {

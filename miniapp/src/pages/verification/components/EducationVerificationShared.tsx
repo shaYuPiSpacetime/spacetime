@@ -3,12 +3,23 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import uploadCamera from '@/assets/lanhu/verification/slices/upload-camera.webp'
 
-export function VerificationStatusTabs({ active }: { active: 'avatar' | 'realName' | 'education' }) {
+type VerificationStatusKey = 'avatar' | 'realName' | 'education'
+
+export function VerificationStatusTabs({
+  active,
+  completedKeys,
+}: {
+  active: VerificationStatusKey
+  completedKeys?: VerificationStatusKey[]
+}) {
   const tabs = [
     { key: 'avatar', label: '头像' },
     { key: 'realName', label: '实名' },
     { key: 'education', label: '学历' },
   ] as const
+  const autoCompletedKeys: VerificationStatusKey[] =
+    active === 'education' ? ['avatar', 'realName'] : active === 'realName' ? ['avatar'] : []
+  const completedSet = new Set(completedKeys ?? autoCompletedKeys)
 
   return (
     <View
@@ -24,6 +35,7 @@ export function VerificationStatusTabs({ active }: { active: 'avatar' | 'realNam
     >
       {tabs.map((tab) => {
         const isActive = tab.key === active
+        const isLit = isActive || completedSet.has(tab.key)
         return (
           <View
             key={tab.key}
@@ -37,7 +49,7 @@ export function VerificationStatusTabs({ active }: { active: 'avatar' | 'realNam
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: isActive ? '#2876FF' : '#999999', fontSize: '26rpx', lineHeight: '36rpx' }}>
+            <Text style={{ color: isLit ? '#2876FF' : '#999999', fontSize: '26rpx', fontWeight: isLit ? 600 : 400, lineHeight: '36rpx' }}>
               {tab.label}
             </Text>
             <View
@@ -48,7 +60,7 @@ export function VerificationStatusTabs({ active }: { active: 'avatar' | 'realNam
                 width: '48rpx',
                 height: '4rpx',
                 borderRadius: '2rpx',
-                background: isActive ? '#2876FF' : '#9A9A9A',
+                background: isLit ? '#2876FF' : '#9A9A9A',
               }}
             />
           </View>

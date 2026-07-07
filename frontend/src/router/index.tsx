@@ -26,6 +26,7 @@ import FinanceManagement from '@/pages/finance/FinanceManagement';
 import VipBenefitManagement from '@/pages/config/VipBenefitManagement';
 import VipPackageManagement from '@/pages/config/VipPackageManagement';
 import CoinPackageManagement from '@/pages/config/CoinPackageManagement';
+import CommercialManagement from '@/pages/commercial/CommercialManagement';
 
 export default function AppRouter() {
   return (
@@ -98,6 +99,13 @@ export default function AppRouter() {
         <Route path="config/vip-benefits" element={<VipBenefitManagement />} />
         <Route path="config/vip-packages" element={<VipPackageManagement />} />
         <Route path="config/coin-packages" element={<CoinPackageManagement />} />
+
+        {/* Commercial Center */}
+        <Route path="commercial/config" element={<CommercialManagement />} />
+        <Route path="commercial/orders" element={<CommercialManagement />} />
+        <Route path="commercial/flows" element={<CommercialManagement />} />
+        <Route path="commercial/refunds" element={<CommercialManagement />} />
+        <Route path="commercial/reconcile" element={<CommercialManagement />} />
 
         {/* Placeholder routes */}
         <Route path="match" element={<PlaceholderPage title="匹配" />} />
