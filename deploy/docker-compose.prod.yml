@@ -31,7 +31,7 @@ services:
       - spacetime-prod
 
   nginx:
-    image: ${NGINX_IMAGE:-nginx:1.27-alpine}
+    image: ${NGINX_IMAGE:-crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com/bobo2026/bobo2026:spacetime-nginx-prod}
     container_name: spacetime-nginx-prod
     restart: unless-stopped
     ports:

@@ -64,6 +64,8 @@ assertIncludes(adminWorkflow, "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'", '
 assertIncludes(adminWorkflow, 'PROD_SERVER_HOST: 112.124.59.146', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'bash scripts/deploy-prod-local.sh admin', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, 'NGINX_IMAGE_TAG: spacetime-nginx-prod', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, 'docker pull nginx:1.27-alpine', '.github/workflows/deploy-admin-prod.yml');
 
 const backendWorkflow = read('.github/workflows/deploy-backend-prod.yml');
 assertIncludes(backendWorkflow, 'spacetime-backend-prod', '.github/workflows/deploy-backend-prod.yml');
@@ -73,6 +75,8 @@ for (const expected of [
   'PROD_SERVER_HOST: 112.124.59.146',
   'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy',
   'bash scripts/deploy-prod-local.sh backend',
+  'NGINX_IMAGE_TAG: spacetime-nginx-prod',
+  'docker pull nginx:1.27-alpine',
 ]) {
   assertIncludes(backendWorkflow, expected, '.github/workflows/deploy-backend-prod.yml');
 }
@@ -86,6 +90,7 @@ for (const expected of [
   '/mnt/data/spacetime-prod/secrets/prod.env',
   `${acrRegistry}/bobo2026/bobo2026:spacetime-admin-prod`,
   `${acrRegistry}/bobo2026/bobo2026:spacetime-backend-prod`,
+  `${acrRegistry}/bobo2026/bobo2026:spacetime-nginx-prod`,
 ]) {
   assertIncludes(compose, expected, 'deploy/docker-compose.prod.yml');
 }
@@ -112,6 +117,7 @@ for (const expected of [
   'ADMIN_IMAGE_TAG=spacetime-admin-prod',
   'BACKEND_IMAGE_NAME=bobo2026',
   'BACKEND_IMAGE_TAG=spacetime-backend-prod',
+  `NGINX_IMAGE=${acrRegistry}/bobo2026/bobo2026:spacetime-nginx-prod`,
   `ADMIN_IMAGE=${acrRegistry}/bobo2026/bobo2026:spacetime-admin-prod`,
   `BACKEND_IMAGE=${acrRegistry}/bobo2026/bobo2026:spacetime-backend-prod`,
   'DB_HOST=',
