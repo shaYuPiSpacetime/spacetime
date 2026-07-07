@@ -92,13 +92,12 @@ function requestBuffer(url, headers = {}, redirectCount = 0) {
 
 async function fetchJson(url, cookie) {
   const response = await requestBuffer(url, {
-      Accept: 'application/json, text/plain, */*',
-      Cookie: cookie,
-      Referer: 'https://lanhuapp.com/web/',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      'request-from': 'web',
-      'real-path': '/item/project/product',
-    }
+    Accept: 'application/json, text/plain, */*',
+    Cookie: cookie,
+    Referer: 'https://lanhuapp.com/web/',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    'request-from': 'web',
+    'real-path': '/item/project/product',
   })
   if (!response.ok) {
     throw new Error(`蓝湖接口请求失败: ${response.status} ${url}`)
@@ -112,10 +111,9 @@ async function fetchJson(url, cookie) {
 
 async function downloadFile(url, filePath, cookie) {
   const response = await requestBuffer(url, {
-      Cookie: cookie,
-      Referer: 'https://lanhuapp.com/web/',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-    }
+    Cookie: cookie,
+    Referer: 'https://lanhuapp.com/web/',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
   })
   if (!response.ok) {
     throw new Error(`下载失败: ${response.status} ${url}`)
@@ -125,7 +123,7 @@ async function downloadFile(url, filePath, cookie) {
 }
 
 async function main() {
-  const cookie = await fs.readFile(cookiePath, 'utf8')
+  const cookie = (await fs.readFile(cookiePath, 'utf8')).trim()
   await fs.mkdir(imageDir, { recursive: true })
 
   const apiUrl = new URL('/api/project/images', 'https://lanhuapp.com')
