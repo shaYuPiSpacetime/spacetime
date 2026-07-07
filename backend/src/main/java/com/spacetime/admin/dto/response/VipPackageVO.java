@@ -16,6 +16,8 @@ public class VipPackageVO {
     private String packageName;
     /** 套餐类型 */
     private String packageType;
+    /** 订阅类型 */
+    private String subscriptionType;
     /** 售价（元） */
     private BigDecimal price;
     /** 原价（元） */
@@ -26,6 +28,12 @@ public class VipPackageVO {
     private Integer recommendFlag;
     /** 套餐标签 */
     private String packageTag;
+    /** 微信商品 ID */
+    private String wechatProductId;
+    /** 协议配置 */
+    private String agreementConfig;
+    /** 支付渠道预留字段 */
+    private String payChannelReserve;
     /** 排序 */
     private Integer sortOrder;
     /** 状态 @see CommonStatusEnum */

@@ -19,6 +19,12 @@ public class VipBenefitSaveReq {
     private String benefitType;
     /** 权益描述 */
     private String benefitDesc;
+    /** 移动端图标 */
+    private String mobileIcon;
+    /** 权益数值 */
+    private Integer benefitValue;
+    /** 是否固定权益 */
+    private Integer fixedFlag;
     /** 展示排序 */
     private Integer displayOrder;
     /** 状态 */

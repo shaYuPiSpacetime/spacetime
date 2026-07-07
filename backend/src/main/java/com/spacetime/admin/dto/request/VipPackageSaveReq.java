@@ -17,6 +17,8 @@ public class VipPackageSaveReq {
     /** 套餐类型 */
     @NotBlank(message = "套餐类型不能为空")
     private String packageType;
+    /** 订阅类型 */
+    private String subscriptionType;
     /** 售价 */
     @NotNull(message = "售价不能为空")
     private BigDecimal price;
@@ -29,6 +31,12 @@ public class VipPackageSaveReq {
     private Integer recommendFlag;
     /** 套餐标签 */
     private String packageTag;
+    /** 微信商品 ID */
+    private String wechatProductId;
+    /** 协议配置 */
+    private String agreementConfig;
+    /** 支付渠道预留字段 */
+    private String payChannelReserve;
     /** 排序 */
     private Integer sortOrder;
     /** 状态 */

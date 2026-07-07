@@ -17,6 +17,10 @@ public class CoinPackageSaveReq {
     /** 售价 */
     @NotNull(message = "售价不能为空")
     private BigDecimal amount;
+    /** 原价 */
+    private BigDecimal originAmount;
+    /** 优惠价 */
+    private BigDecimal discountAmount;
     /** 成家币数量 */
     @NotNull(message = "成家币数量不能为空")
     private Integer coinCount;
@@ -26,6 +30,8 @@ public class CoinPackageSaveReq {
     private Integer recommendFlag;
     /** 套餐标签 */
     private String packageTag;
+    /** 移动端展示标签 */
+    private String mobileTag;
     /** 套餐描述 */
     private String packageDesc;
     /** 排序 */

@@ -7,6 +7,10 @@ import com.spacetime.admin.dto.request.RefundPageReq;
 import com.spacetime.admin.dto.request.RefundReq;
 import com.spacetime.admin.dto.response.CoinFlowVO;
 import com.spacetime.admin.dto.response.DailyStatsVO;
+import com.spacetime.admin.dto.response.ExportTaskVO;
+import com.spacetime.admin.dto.response.ReconcileDailyVO;
+import com.spacetime.admin.dto.response.RefundDetailVO;
+import com.spacetime.admin.dto.response.RefundRecordVO;
 import com.spacetime.admin.dto.response.TradeOrderDetailVO;
 import com.spacetime.admin.dto.response.TradeOrderVO;
 
@@ -47,7 +51,14 @@ public interface FinanceAdminService {
      * @param req 退款订单分页查询请求
      * @return 退款订单分页数据
      */
-    Page<TradeOrderVO> getRefundList(RefundPageReq req);
+    Page<RefundRecordVO> getRefundList(RefundPageReq req);
+
+    /**
+     * 查询退款详情
+     * @param id 退款记录ID
+     * @return 退款详情
+     */
+    RefundDetailVO getRefundDetail(Long id);
 
     /**
      * 按日统计交易数据
@@ -55,4 +66,18 @@ public interface FinanceAdminService {
      * @return 当日统计数据
      */
     DailyStatsVO getDailyStats(String date);
+
+    /**
+     * 查询轻量日对账
+     * @param date 统计日期（格式 yyyy-MM-dd）
+     * @return 对账日汇总
+     */
+    ReconcileDailyVO getReconcileDaily(String date);
+
+    /**
+     * 创建导出任务记录
+     * @param exportType 导出类型
+     * @return 导出任务
+     */
+    ExportTaskVO createExportTask(String exportType);
 }

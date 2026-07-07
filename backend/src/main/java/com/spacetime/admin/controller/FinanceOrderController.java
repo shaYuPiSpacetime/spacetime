@@ -3,6 +3,7 @@ package com.spacetime.admin.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.OrderPageReq;
 import com.spacetime.admin.dto.request.RefundReq;
+import com.spacetime.admin.dto.response.ExportTaskVO;
 import com.spacetime.admin.dto.response.TradeOrderDetailVO;
 import com.spacetime.admin.dto.response.TradeOrderVO;
 import com.spacetime.admin.service.FinanceAdminService;
@@ -55,5 +56,28 @@ public class FinanceOrderController {
     public R<Void> refund(@PathVariable Long id, @Valid @RequestBody RefundReq req) {
         financeAdminService.processRefund(id, req);
         return R.ok();
+    }
+
+    /**
+     * 处理退款（静态 Demo 最新口径）
+     * @param id 订单ID
+     * @param req 退款请求
+     * @return 空响应
+     */
+    @PostMapping("/{id}/refund")
+    @RequirePermission("finance:refund:process")
+    public R<Void> refundByPost(@PathVariable Long id, @Valid @RequestBody RefundReq req) {
+        financeAdminService.processRefund(id, req);
+        return R.ok();
+    }
+
+    /**
+     * 创建订单导出任务
+     * @return 导出任务
+     */
+    @PostMapping("/export")
+    @RequirePermission("finance:order:list")
+    public R<ExportTaskVO> export() {
+        return R.ok(financeAdminService.createExportTask("commercial_orders"));
     }
 }

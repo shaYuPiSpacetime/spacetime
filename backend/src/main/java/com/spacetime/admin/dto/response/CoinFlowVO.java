@@ -19,6 +19,8 @@ public class CoinFlowVO {
     private String flowType;
     /** 变动金额（正数为增加，负数为减少） */
     private Integer changeAmount;
+    /** 变动前余额 */
+    private Integer balanceBefore;
     /** 变动后余额 */
     private Integer balanceAfter;
     /** 业务场景 @see BizSceneEnum */

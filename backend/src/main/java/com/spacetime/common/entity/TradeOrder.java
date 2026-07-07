@@ -26,6 +26,14 @@ public class TradeOrder extends BaseEntity {
     private String packageName;
     /** 实付金额 */
     private BigDecimal payAmount;
+    /** 支付渠道: mock/wechat/alipay */
+    private String payChannel;
+    /** 渠道交易单号 */
+    private String channelTradeNo;
+    /** 微信预支付交易会话标识 */
+    private String prepayId;
+    /** 支付回调原始摘要 */
+    private String notifySummary;
     /** 订单状态: unpaid/success/closed/failed/refunding/refunded */
     private String orderStatus;
     /** 支付成功时间 */

@@ -104,3 +104,40 @@ PRD-04 商业化模块后端代码全部完成：
 - 模拟支付流程完整可跑通
 - 前端 4 个页面 + 6 条路由
 - 115 个测试全部通过，无回归
+
+## 7. 2026-07-06 管理后台闭环静态校验记录
+
+> 本轮关联口径：`docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）`
+> 本机固定要求：改动落完后不要进行编译等任何操作，因此本轮未执行 `mvn test`、`npm run build`、`tsc` 或 Playwright。
+
+### 7.1 本轮覆盖范围
+
+| 范围 | 结果 |
+|------|------|
+| 5 个后台工作台 | 已新增 `/commercial/config`、`/commercial/orders`、`/commercial/flows`、`/commercial/refunds`、`/commercial/reconcile` 路由 |
+| 商业化聚合接口 | 已新增 `GET/PUT /admin/commercial/config`、日志、用户商业化详情接口 |
+| 财务闭环接口 | 已补 `POST /admin/finance/orders/{id}/refund`、退款详情、流水、轻量对账、导出任务占位 |
+| 数据库闭环 | 已扩展 `schema-commercial.sql`，新增 `migration-prd04-commercial.sql` |
+| 退款闭环 | 已从订单状态升级为独立 `app_refund_record` + 订单状态 + 千寻币退款流水 |
+| 支付策略 | 仍为模拟支付，订单、退款、回调日志仅预留微信支付字段 |
+
+### 7.2 已执行的非编译校验
+
+| 编号 | 命令 | 结果 |
+|------|------|------|
+| STATIC-04-01 | `node docs/测试文档/商业化-PRD04-static-check.mjs` | PASS，48 项静态闭环检查通过 |
+| STATIC-04-02 | `rg "@RequirePermission" ...` | PASS，新增/补齐后台接口均有权限注解 |
+| STATIC-04-03 | `rg "app_coin_scene_config|app_commercial_config_log|app_refund_record|app_payment_notify_log|wechat_product_id|balance_before" backend/docs/sql -n` | PASS，SQL 新表与关键字段存在 |
+| STATIC-04-04 | `rg "https?://|AKIA|SECRET|PRIVATE KEY|merchant|mch_id|api_key|证书|回调域名" ...` | PASS，本轮新增内容未发现密钥或真实支付配置；命中项为既有 OSS URL 工具 |
+
+### 7.3 未执行项
+
+| 项目 | 原因 |
+|------|------|
+| 后端 Maven 测试 | 本机固定要求禁止改动后编译/测试 |
+| 前端 build/TypeScript 编译 | 本机固定要求禁止改动后编译/测试 |
+| 浏览器 E2E | 本轮未启动前后端服务，且不执行构建 |
+
+### 7.4 本轮结论
+
+PRD-04 商业化管理后台闭环已按静态 Demo 最新口径落地到代码结构、接口、数据库脚本、后台页面和测试文档。当前结论基于非编译静态校验；如后续允许编译，应继续执行后端 Maven 测试、前端 build 和后台页面 E2E。
