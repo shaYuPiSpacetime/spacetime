@@ -43,7 +43,8 @@ public class OssUtil {
         } finally {
             oss.shutdown();
         }
-        // 拼接完整访问 URL
-        return "https://" + ossConfig.getBucketName() + "." + ossConfig.getEndpoint() + "/" + key;
+        // 拼接完整访问 URL，endpoint 允许配置为带协议或不带协议。
+        String publicEndpoint = ossConfig.getEndpoint().replaceFirst("^https?://", "");
+        return "https://" + ossConfig.getBucketName() + "." + publicEndpoint + "/" + key;
     }
 }

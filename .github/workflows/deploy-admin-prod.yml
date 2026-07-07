@@ -1,0 +1,67 @@
+name: spacetime-admin-prod
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'frontend/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy-admin-prod.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: spacetime-prod-deploy
+  cancel-in-progress: false
+
+env:
+  ALIYUN_CR_REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  ALIYUN_REGISTRY_USER_NAME: bobo2026
+  DOCKER_NAMESPACE: bobo2026
+  ADMIN_IMAGE_NAME: spacetime-admin-prod
+  ADMIN_IMAGE_TAG: latest
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate ACR password
+        env:
+          HAS_ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD != '' }}
+        run: |
+          if [ "$HAS_ALIYUN_REGISTRY_PASSWORD" != "true" ]; then
+            echo "::error::请在 GitHub Secrets 中配置 ALIYUN_REGISTRY_PASSWORD"
+            exit 1
+          fi
+
+      - name: Login to ACR
+        uses: aliyun/acr-login@v1
+        with:
+          login-server: ${{ env.ALIYUN_CR_REGISTRY }}
+          username: ${{ env.ALIYUN_REGISTRY_USER_NAME }}
+          password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+
+      - name: Build admin image
+        run: |
+          set -e
+          docker build \
+            -f frontend/Dockerfile \
+            -t "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${ADMIN_IMAGE_NAME}:${ADMIN_IMAGE_TAG}" \
+            frontend
+
+      - name: Push admin image
+        run: |
+          set -e
+          docker push "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${ADMIN_IMAGE_NAME}:${ADMIN_IMAGE_TAG}"
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy admin on production server
+        run: bash deploy/scripts/deploy-prod-local.sh admin

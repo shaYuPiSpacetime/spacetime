@@ -19,3 +19,7 @@ frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
 frontend/.playwright-browsers/
+
+# 本地与生产敏感配置
+backend/.env.local
+deploy/nginx-prod/ssl/*.key

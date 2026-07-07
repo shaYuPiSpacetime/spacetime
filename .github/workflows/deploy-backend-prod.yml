@@ -1,0 +1,67 @@
+name: spacetime-backend-prod
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'backend/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy-backend-prod.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: spacetime-prod-deploy
+  cancel-in-progress: false
+
+env:
+  ALIYUN_CR_REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  ALIYUN_REGISTRY_USER_NAME: bobo2026
+  DOCKER_NAMESPACE: bobo2026
+  BACKEND_IMAGE_NAME: spacetime-backend-prod
+  BACKEND_IMAGE_TAG: latest
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate ACR password
+        env:
+          HAS_ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD != '' }}
+        run: |
+          if [ "$HAS_ALIYUN_REGISTRY_PASSWORD" != "true" ]; then
+            echo "::error::请在 GitHub Secrets 中配置 ALIYUN_REGISTRY_PASSWORD"
+            exit 1
+          fi
+
+      - name: Login to ACR
+        uses: aliyun/acr-login@v1
+        with:
+          login-server: ${{ env.ALIYUN_CR_REGISTRY }}
+          username: ${{ env.ALIYUN_REGISTRY_USER_NAME }}
+          password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+
+      - name: Build backend image
+        run: |
+          set -e
+          docker build \
+            -f backend/Dockerfile \
+            -t "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}" \
+            backend
+
+      - name: Push backend image
+        run: |
+          set -e
+          docker push "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}"
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy backend on production server
+        run: bash deploy/scripts/deploy-prod-local.sh backend
