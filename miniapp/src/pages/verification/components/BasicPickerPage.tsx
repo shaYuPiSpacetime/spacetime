@@ -1,11 +1,10 @@
-import { Picker, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
-import VerificationShell, { BottomPicker } from './VerificationShell'
+import VerificationShell from './VerificationShell'
 import BasicInfoCard from './BasicInfoCard'
+import { LanhuDualColumnSheet, LanhuOptionSheet } from './LanhuPickerSheet'
 import { CAREERS, HEIGHTS, HOMETOWNS, INCOMES, WEIGHTS } from '../flow'
-import type { LoginUserInfo } from '@/types/login'
 
 type BasicPickerKind = 'height-weight' | 'hometown' | 'career' | 'income'
 type SinglePickerKind = Exclude<BasicPickerKind, 'height-weight'>
@@ -20,38 +19,43 @@ export default function BasicPickerPage({ kind }: BasicPickerPageProps) {
   const [weightIndex, setWeightIndex] = useState(5)
   const [singleIndex, setSingleIndex] = useState(defaultSingleIndex(kind))
 
-  const handleConfirm = () => {
-    const patch: Partial<LoginUserInfo> = {}
-    if (kind === 'height-weight') {
-      patch.height = HEIGHTS[heightIndex]
-      patch.weight = WEIGHTS[weightIndex]
-    }
-    if (kind === 'hometown') patch.hometown = HOMETOWNS[singleIndex]
-    if (kind === 'career') patch.career = CAREERS[singleIndex]
-    if (kind === 'income') patch.income = INCOMES[singleIndex]
-    updateUserInfo(patch)
-    Taro.navigateBack()
-  }
-
   return (
     <VerificationShell stage="basic" primaryText="继续认证" onPrimary={() => Taro.redirectTo({ url: '/pages/verification/avatar' })} scroll>
       <BasicInfoCard userInfo={userInfo} />
-      <BottomPicker title={pickerTitle(kind)} onConfirm={handleConfirm} onClose={() => Taro.navigateBack()}>
-        {kind === 'height-weight' ? (
-          <View style={{ marginTop: '38rpx' }}>
-            <Picker mode="selector" range={HEIGHTS} value={heightIndex} onChange={(event) => setHeightIndex(Number(event.detail.value))}>
-              <PickerLine label="身高(cm)" value={HEIGHTS[heightIndex].replace('cm', '')} />
-            </Picker>
-            <Picker mode="selector" range={WEIGHTS} value={weightIndex} onChange={(event) => setWeightIndex(Number(event.detail.value))}>
-              <PickerLine label="体重(kg)" value={WEIGHTS[weightIndex].replace('kg', '')} />
-            </Picker>
-          </View>
-        ) : (
-          <Picker mode="selector" range={pickerRange(kind as SinglePickerKind)} value={singleIndex} onChange={(event) => setSingleIndex(Number(event.detail.value))}>
-            <PickerLine label={pickerTitle(kind)} value={pickerRange(kind as SinglePickerKind)[singleIndex]} />
-          </Picker>
-        )}
-      </BottomPicker>
+      {kind === 'height-weight' ? (
+        <LanhuDualColumnSheet
+          title={pickerTitle(kind)}
+          leftLabel="身高(cm)"
+          leftOptions={HEIGHTS}
+          leftValue={HEIGHTS[heightIndex]}
+          rightLabel="体重(kg)"
+          rightOptions={WEIGHTS}
+          rightValue={WEIGHTS[weightIndex]}
+          onConfirm={(nextHeight, nextWeight) => {
+            setHeightIndex(indexOfOrDefault(HEIGHTS, nextHeight, heightIndex))
+            setWeightIndex(indexOfOrDefault(WEIGHTS, nextWeight, weightIndex))
+            updateUserInfo({ height: nextHeight, weight: nextWeight })
+            Taro.navigateBack()
+          }}
+          onClose={() => Taro.navigateBack()}
+        />
+      ) : (
+        <LanhuOptionSheet
+          title={pickerTitle(kind)}
+          options={pickerRange(kind as SinglePickerKind)}
+          value={pickerRange(kind as SinglePickerKind)[singleIndex]}
+          onConfirm={(selected) => {
+            setSingleIndex(indexOfOrDefault(pickerRange(kind as SinglePickerKind), selected, singleIndex))
+            const patch: Partial<LoginUserInfo> = {}
+            if (kind === 'hometown') patch.hometown = selected
+            if (kind === 'career') patch.career = selected
+            if (kind === 'income') patch.income = selected
+            updateUserInfo(patch)
+            Taro.navigateBack()
+          }}
+          onClose={() => Taro.navigateBack()}
+        />
+      )}
     </VerificationShell>
   )
 }
@@ -75,21 +79,7 @@ function pickerRange(kind: SinglePickerKind) {
   return INCOMES
 }
 
-function PickerLine({ label, value }: { label: string; value: string }) {
-  return (
-    <View
-      style={{
-        height: '94rpx',
-        borderBottom: '1rpx solid #EAF0F8',
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}
-    >
-      <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{label}</Text>
-      <View style={{ flex: 1, textAlign: 'right' }}>
-        <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{value}</Text>
-      </View>
-    </View>
-  )
+function indexOfOrDefault(list: string[], value: string, fallback: number) {
+  const index = list.indexOf(value)
+  return index >= 0 ? index : fallback
 }

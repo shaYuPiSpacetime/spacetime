@@ -1,4 +1,4 @@
-import { Input, Picker, Text, View } from '@tarojs/components'
+import { Input, Text, View } from '@tarojs/components'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import {
@@ -14,6 +14,7 @@ import {
   WEIGHTS,
 } from '../flow'
 import { BottomPicker, FieldRow } from './VerificationShell'
+import { LanhuDateSheet, LanhuDualColumnSheet, LanhuOptionSheet } from './LanhuPickerSheet'
 import type { LoginUserInfo } from '@/types/login'
 
 type EditableField =
@@ -31,6 +32,20 @@ type EditableField =
 
 interface BasicInfoCardProps {
   userInfo: LoginUserInfo
+}
+
+const PICKER_HINTS: Record<EditableField, string> = {
+  nickname: '可修改',
+  gender: '已选择',
+  birthday: '含星座',
+  location: '现居地',
+  'height-weight': '必填',
+  hometown: '可选择',
+  identity: '可选择',
+  education: '可选择',
+  career: '可选择',
+  income: '可选择',
+  maritalStatus: '可选择',
 }
 
 export default function BasicInfoCard({ userInfo }: BasicInfoCardProps) {
@@ -55,23 +70,24 @@ export default function BasicInfoCard({ userInfo }: BasicInfoCardProps) {
           top: '558rpx',
           width: '700rpx',
           minHeight: '1068rpx',
-          borderRadius: '18rpx',
+          borderRadius: '24rpx',
           background: '#FFFFFF',
-          padding: '22rpx 26rpx',
+          padding: '18rpx 28rpx',
           boxSizing: 'border-box',
+          boxShadow: '0 12rpx 30rpx rgba(11, 38, 90, 0.06)',
         }}
       >
-        <FieldRow label="昵称" value={userInfo.nickname || '用户8865'} onClick={() => setEditingField('nickname')} />
-        <FieldRow label="性别" value={formatGender(userInfo.gender)} onClick={() => setEditingField('gender')} />
-        <FieldRow label="出生日期" value={`${userInfo.birthday || '1997/03/06'} ${getZodiac(userInfo.birthday || '1997/03/06')}`} onClick={() => setEditingField('birthday')} />
-        <FieldRow label="现居地" value={region} onClick={() => setEditingField('location')} />
-        <FieldRow label="身高/体重" value={`${height}/${weight}`} onClick={() => setEditingField('height-weight')} />
-        <FieldRow label="家乡" value={userInfo.hometown || '河南郑州'} onClick={() => setEditingField('hometown')} />
-        <FieldRow label="身份" value={userInfo.identity || '职场人'} onClick={() => setEditingField('identity')} />
-        <FieldRow label="学历" value={userInfo.education || '本科'} onClick={() => setEditingField('education')} />
-        <FieldRow label="职业" value={userInfo.career || '设计师'} onClick={() => setEditingField('career')} />
-        <FieldRow label="年收入" value={userInfo.income || '15-30W'} onClick={() => setEditingField('income')} />
-        <FieldRow label="婚姻状况" value={userInfo.maritalStatus || '未婚'} onClick={() => setEditingField('maritalStatus')} last />
+        <FieldRow label="昵称" value={renderPickerHint(userInfo.nickname || '用户8865', PICKER_HINTS.nickname)} onClick={() => setEditingField('nickname')} />
+        <FieldRow label="性别" value={renderPickerHint(formatGender(userInfo.gender), PICKER_HINTS.gender)} onClick={() => setEditingField('gender')} />
+        <FieldRow label="出生日期" value={renderPickerHint(`${userInfo.birthday || '1997/03/06'} ${getZodiac(userInfo.birthday || '1997/03/06')}`, PICKER_HINTS.birthday)} onClick={() => setEditingField('birthday')} />
+        <FieldRow label="现居地" value={renderPickerHint(region, PICKER_HINTS.location)} onClick={() => setEditingField('location')} />
+        <FieldRow label="身高/体重" value={renderPickerHint(`${height}/${weight}`, PICKER_HINTS['height-weight'])} onClick={() => setEditingField('height-weight')} />
+        <FieldRow label="家乡" value={renderPickerHint(userInfo.hometown || '河南郑州', PICKER_HINTS.hometown)} onClick={() => setEditingField('hometown')} />
+        <FieldRow label="身份" value={renderPickerHint(userInfo.identity || '职场人', PICKER_HINTS.identity)} onClick={() => setEditingField('identity')} />
+        <FieldRow label="学历" value={renderPickerHint(userInfo.education || '本科', PICKER_HINTS.education)} onClick={() => setEditingField('education')} />
+        <FieldRow label="职业" value={renderPickerHint(userInfo.career || '设计师', PICKER_HINTS.career)} onClick={() => setEditingField('career')} />
+        <FieldRow label="年收入" value={renderPickerHint(userInfo.income || '15-30W', PICKER_HINTS.income)} onClick={() => setEditingField('income')} />
+        <FieldRow label="婚姻状况" value={renderPickerHint(userInfo.maritalStatus || '未婚', PICKER_HINTS.maritalStatus)} onClick={() => setEditingField('maritalStatus')} last />
       </View>
 
       {editingField && (
@@ -83,6 +99,28 @@ export default function BasicInfoCard({ userInfo }: BasicInfoCardProps) {
         />
       )}
     </>
+  )
+}
+
+function renderPickerHint(value: string, hint: string) {
+  return (
+    <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+      <Text style={{ color: '#0C285A', fontSize: '26rpx', fontWeight: 700, lineHeight: '38rpx' }}>{value}</Text>
+      <View
+        style={{
+          height: '42rpx',
+          borderRadius: '24rpx',
+          background: '#F6F9FE',
+          padding: '0 16rpx',
+          marginLeft: '12rpx',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: '#2876FF', fontSize: '22rpx', fontWeight: 600, lineHeight: '31rpx' }}>{hint}</Text>
+      </View>
+    </View>
   )
 }
 
@@ -186,21 +224,13 @@ function BirthdayEditor({
   onConfirm: (patch: Partial<LoginUserInfo>) => void
   onClose: () => void
 }) {
-  const [birthday, setBirthday] = useState(value.replace(/\//g, '-'))
-  const normalizedBirthday = birthday.replace(/-/g, '/')
-
   return (
-    <BottomPicker title="出生日期" onConfirm={() => onConfirm({ birthday: normalizedBirthday })} onClose={onClose}>
-      <Picker
-        mode="date"
-        value={birthday}
-        start="1970-01-01"
-        end="2008-12-31"
-        onChange={(event) => setBirthday(String(event.detail.value))}
-      >
-        <PickerLine label="出生日期" value={`${normalizedBirthday} ${getZodiac(normalizedBirthday)}`} />
-      </Picker>
-    </BottomPicker>
+    <LanhuDateSheet
+      title="出生日期"
+      value={value}
+      onConfirm={(birthday) => onConfirm({ birthday })}
+      onClose={onClose}
+    />
   )
 }
 
@@ -213,24 +243,21 @@ function HeightWeightEditor({
   onConfirm: (patch: Partial<LoginUserInfo>) => void
   onClose: () => void
 }) {
-  const [heightIndex, setHeightIndex] = useState(indexOfOrDefault(HEIGHTS, userInfo.height || '163cm', 13))
-  const [weightIndex, setWeightIndex] = useState(indexOfOrDefault(WEIGHTS, userInfo.weight || '45kg', 5))
+  const height = HEIGHTS[indexOfOrDefault(HEIGHTS, userInfo.height || '163cm', 13)]
+  const weight = WEIGHTS[indexOfOrDefault(WEIGHTS, userInfo.weight || '45kg', 5)]
 
   return (
-    <BottomPicker
+    <LanhuDualColumnSheet
       title="身高/体重"
-      onConfirm={() => onConfirm({ height: HEIGHTS[heightIndex], weight: WEIGHTS[weightIndex] })}
+      leftLabel="身高(cm)"
+      leftOptions={HEIGHTS}
+      leftValue={height}
+      rightLabel="体重(kg)"
+      rightOptions={WEIGHTS}
+      rightValue={weight}
+      onConfirm={(nextHeight, nextWeight) => onConfirm({ height: nextHeight, weight: nextWeight })}
       onClose={onClose}
-    >
-      <View>
-        <Picker mode="selector" range={HEIGHTS} value={heightIndex} onChange={(event) => setHeightIndex(Number(event.detail.value))}>
-          <PickerLine label="身高(cm)" value={HEIGHTS[heightIndex].replace('cm', '')} />
-        </Picker>
-        <Picker mode="selector" range={WEIGHTS} value={weightIndex} onChange={(event) => setWeightIndex(Number(event.detail.value))}>
-          <PickerLine label="体重(kg)" value={WEIGHTS[weightIndex].replace('kg', '')} compact />
-        </Picker>
-      </View>
-    </BottomPicker>
+    />
   )
 }
 
@@ -249,35 +276,14 @@ function SinglePickerEditor({
   onConfirm: (patch: Partial<LoginUserInfo>) => void
   onClose: () => void
 }) {
-  const [index, setIndex] = useState(indexOfOrDefault(range, value, 0))
-  const selected = range[index]
-
   return (
-    <BottomPicker title={title} onConfirm={() => onConfirm(toPatch(field, selected))} onClose={onClose}>
-      <Picker mode="selector" range={range} value={index} onChange={(event) => setIndex(Number(event.detail.value))}>
-        <PickerLine label={title} value={selected} />
-      </Picker>
-    </BottomPicker>
-  )
-}
-
-function PickerLine({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
-  return (
-    <View
-      style={{
-        height: '94rpx',
-        borderBottom: '1rpx solid #EAF0F8',
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: compact ? '0' : '38rpx',
-      }}
-    >
-      <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{label}</Text>
-      <View style={{ flex: 1, textAlign: 'right' }}>
-        <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{value}</Text>
-      </View>
-    </View>
+    <LanhuOptionSheet
+      title={title}
+      options={range}
+      value={value}
+      onConfirm={(selected) => onConfirm(toPatch(field, selected))}
+      onClose={onClose}
+    />
   )
 }
 

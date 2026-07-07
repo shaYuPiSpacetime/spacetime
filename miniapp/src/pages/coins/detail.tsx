@@ -1,5 +1,5 @@
 import { ScrollView, Text, View } from '@tarojs/components'
-import { useLoad } from '@tarojs/taro'
+import { useLoad, useRouter } from '@tarojs/taro'
 import { useState } from 'react'
 import { useCoins } from '@/hooks/useCoins'
 import { LANHU_BLUE, LANHU_NAVY, LanhuNav } from '@/pages/lanhu/LanhuShell'
@@ -8,6 +8,9 @@ import type { CoinTransaction } from '@/types/coin'
 const TABS = ['全部', '获取', '消耗'] as const
 
 export default function CoinsDetailPage() {
+  const router = useRouter()
+  const variant = String(router.params.variant || 'default')
+  const forceEmpty = variant === 'empty'
   const {
     transactions,
     transactionsLoading,
@@ -19,7 +22,7 @@ export default function CoinsDetailPage() {
     fetchTransactions()
   })
 
-  const filtered = transactions.filter((item) => {
+  const filtered = forceEmpty ? [] : transactions.filter((item) => {
     if (active === '获取') return item.type === 'income'
     if (active === '消耗') return item.type === 'expense'
     return true

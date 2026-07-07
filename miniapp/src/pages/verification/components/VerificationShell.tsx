@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { getWindowMetrics } from '@/utils/system'
 import { useLogin } from '@/hooks/useLogin'
+import { getDemoPageData } from '@/services/lanhuDemo'
 import bg from '@/assets/lanhu/verification/verification-bg.webp'
 
 export type VerificationStage = 'basic' | 'avatar' | 'intro' | 'triple'
+const verificationDemo = getDemoPageData('verification')
 
 const STAGES: Array<{ key: VerificationStage; label: string; left: string; dot: string }> = [
   { key: 'basic', label: '基本资料', left: '42rpx', dot: '92rpx' },
@@ -104,7 +107,7 @@ export default function VerificationShell({
 
 function Header({ onBack }: { onBack: () => void }) {
   const menu = Taro.getMenuButtonBoundingClientRect?.()
-  const system = Taro.getSystemInfoSync()
+  const system = getWindowMetrics()
   const scale = system.windowWidth ? 750 / system.windowWidth : 2
   const top = menu ? `${menu.top * scale}rpx` : '88rpx'
   const height = menu ? `${menu.height * scale}rpx` : '64rpx'
@@ -154,10 +157,10 @@ function IntroBlock() {
   return (
     <View style={{ position: 'absolute', left: '25rpx', top: '224rpx', width: '700rpx' }}>
       <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 800, lineHeight: '67rpx' }}>
-        完善资料和认证
+        {verificationDemo.introTitle}
       </Text>
       <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '16rpx' }}>
-        时空邂逅是一个严肃、靠谱的交友平台，请认真填写资料
+        {verificationDemo.introDescription}
       </Text>
     </View>
   )
@@ -283,23 +286,25 @@ export function FieldRow({
     <View
       style={{
         position: 'relative',
-        height: '98rpx',
+        minHeight: '104rpx',
         borderBottom: last ? '0' : '1rpx solid #EDF2F8',
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
+        padding: '6rpx 0',
+        boxSizing: 'border-box',
       }}
       onClick={onClick}
     >
-      <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx', width: '190rpx' }}>{label}</Text>
-      <View style={{ flex: 1, textAlign: 'right' }}>
+      <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx', width: '176rpx' }}>{label}</Text>
+      <View style={{ flex: 1, textAlign: 'right', minWidth: 0 }}>
         {typeof value === 'string' ? (
-          <Text style={{ color: '#999999', fontSize: '26rpx', lineHeight: '38rpx' }}>{value}</Text>
+          <Text style={{ color: '#697E9C', fontSize: '26rpx', lineHeight: '38rpx' }}>{value}</Text>
         ) : (
           value
         )}
       </View>
-      {onClick && <Text style={{ color: '#999999', fontSize: '62rpx', fontWeight: 300, lineHeight: '76rpx', marginLeft: '14rpx' }}>›</Text>}
+      {onClick && <Text style={{ color: '#B6C3D6', fontSize: '48rpx', fontWeight: 300, lineHeight: '56rpx', marginLeft: '14rpx' }}>›</Text>}
     </View>
   )
 }
@@ -317,7 +322,7 @@ export function BottomPicker({
 }) {
   return (
     <View
-      style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.32)', zIndex: 30 }}
+      style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(8,24,49,0.38)', zIndex: 30 }}
       onClick={onClose}
     >
       <View
@@ -326,27 +331,30 @@ export function BottomPicker({
           left: 0,
           right: 0,
           bottom: 0,
-          minHeight: '520rpx',
-          borderRadius: '32rpx 32rpx 0 0',
+          minHeight: '560rpx',
+          borderRadius: '64rpx 64rpx 0 0',
           background: '#FFFFFF',
-          padding: '36rpx 50rpx 56rpx',
+          padding: '34rpx 50rpx 60rpx',
           boxSizing: 'border-box',
+          boxShadow: '0 -10rpx 30rpx rgba(11, 38, 90, 0.10)',
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <Text style={{ display: 'block', color: '#333333', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx', textAlign: 'center' }}>
+        <View style={{ width: '80rpx', height: '8rpx', borderRadius: '4rpx', background: '#E6EDF8', margin: '0 auto 28rpx' }} />
+        <Text style={{ display: 'block', color: '#0C285A', fontSize: '32rpx', fontWeight: 800, lineHeight: '45rpx', textAlign: 'center' }}>
           {title}
         </Text>
         {children}
         <View
           style={{
             height: '98rpx',
-            borderRadius: '24rpx',
+            borderRadius: '28rpx',
             background: '#2876FF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginTop: '42rpx',
+            marginTop: '44rpx',
+            boxShadow: '0 12rpx 28rpx rgba(40,118,255,0.24)',
           }}
           onClick={onConfirm}
           hoverClass="btn-hover"

@@ -1,21 +1,26 @@
-import { Input, Picker, Text, View } from '@tarojs/components'
+import { Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import { submitEducation } from '@/services/verification'
 import VerificationSubShell from './components/VerificationSubShell'
 import { AgreementRow, CustomerServiceLink, FormRow, SubmitButton, UploadProofBox } from './components/EducationVerificationShared'
+import { LanhuOptionSheet } from './components/LanhuPickerSheet'
 
 const EDUCATION_LEVELS = ['博士', '硕士', '本科', '大专', '高中/中专']
+const DEFAULT_SCHOOL_NAME = '浙江大学'
+const DEFAULT_EDUCATION_LEVEL = '本科'
+const DEFAULT_UPLOAD_PATH = 'mock-upload-proof'
 
 export default function VerificationEducationCertificateUploadPage() {
   const { userInfo, updateUserInfo } = useLogin()
-  const [schoolName, setSchoolName] = useState(userInfo.schoolName || '')
-  const [educationLevel, setEducationLevel] = useState(userInfo.educationLevel || userInfo.education || '')
+  const [schoolName, setSchoolName] = useState(userInfo.schoolName || DEFAULT_SCHOOL_NAME)
+  const [educationLevel, setEducationLevel] = useState(userInfo.educationLevel || userInfo.education || DEFAULT_EDUCATION_LEVEL)
   const [uploadPath, setUploadPath] = useState(userInfo.educationUploadLocalPath || '')
-  const [agreed, setAgreed] = useState(false)
+  const [agreed, setAgreed] = useState(true)
+  const [showEducationSheet, setShowEducationSheet] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const canSubmit = schoolName.trim().length > 0 && educationLevel && uploadPath && agreed
+  const canSubmit = schoolName.trim().length > 0 && educationLevel.length > 0 && (uploadPath.length > 0 || DEFAULT_UPLOAD_PATH.length > 0) && agreed
 
   const handleChooseImage = async () => {
     try {
@@ -68,11 +73,11 @@ export default function VerificationEducationCertificateUploadPage() {
             style={{ flex: 1, color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', textAlign: 'right' }}
           />
         </FormRow>
-        <Picker range={EDUCATION_LEVELS} value={Math.max(0, EDUCATION_LEVELS.indexOf(educationLevel))} onChange={(event) => setEducationLevel(EDUCATION_LEVELS[Number(event.detail.value)] || '')}>
+        <View onClick={() => setShowEducationSheet(true)}>
           <FormRow label="学历" top="20rpx">
             <Text style={{ color: educationLevel ? '#333333' : '#999999', fontSize: '26rpx', lineHeight: '37rpx' }}>{educationLevel || '请选择'}</Text>
           </FormRow>
-        </Picker>
+        </View>
         <UploadProofBox uploadPath={uploadPath} onClick={handleChooseImage} />
         <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', fontWeight: 500, lineHeight: '33rpx', marginTop: '20rpx' }}>
           不要涂抹，需要露出姓名/学校名称及学历层次信息
@@ -81,6 +86,18 @@ export default function VerificationEducationCertificateUploadPage() {
       <SubmitButton top="1092rpx" active={Boolean(canSubmit)} submitting={submitting} onClick={handleSubmit} />
       <AgreementRow top="1212rpx" checked={agreed} onToggle={() => setAgreed((value) => !value)} />
       <CustomerServiceLink top="1342rpx" />
+      {showEducationSheet && (
+        <LanhuOptionSheet
+          title="学历"
+          options={EDUCATION_LEVELS}
+          value={educationLevel}
+          onConfirm={(value) => {
+            setEducationLevel(value)
+            setShowEducationSheet(false)
+          }}
+          onClose={() => setShowEducationSheet(false)}
+        />
+      )}
     </VerificationSubShell>
   )
 }

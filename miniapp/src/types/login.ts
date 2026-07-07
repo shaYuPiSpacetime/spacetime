@@ -2,6 +2,8 @@
 export type LoginStep =
   | 'auth'
   | 'gender'
+  | 'identity'
+  | 'goal'
   | 'education'
   | 'address'
   | 'age'
@@ -21,6 +23,7 @@ export interface LoginUserInfo {
   weight?: string;
   hometown?: string;
   identity?: string;
+  datingGoal?: string;
   career?: string;
   income?: string;
   maritalStatus?: string;

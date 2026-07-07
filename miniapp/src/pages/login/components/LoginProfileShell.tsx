@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Image, View } from '@tarojs/components'
+import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import profileBg from '@/assets/login/profile-bg.webp'
 
@@ -93,7 +93,7 @@ export default function LoginProfileShell({
             alignItems: 'center',
           }}
         >
-          <View
+          <Text
             style={{
               color: '#0C285A',
               fontSize: '36rpx',
@@ -102,8 +102,8 @@ export default function LoginProfileShell({
             }}
           >
             请选择
-          </View>
-          <View
+          </Text>
+          <Text
             style={{
               color: '#999999',
               fontSize: '28rpx',
@@ -113,7 +113,7 @@ export default function LoginProfileShell({
             }}
           >
             {description}
-          </View>
+          </Text>
         </View>
 
         {children}

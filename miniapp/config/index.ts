@@ -72,9 +72,11 @@ const config = {
       clean: true
     },
     imageUrlLoaderOption: {
+      limit: 0,
       name: miniAssetName
     },
     mediaUrlLoaderOption: {
+      limit: 0,
       name: miniAssetName
     },
     optimizeMainPackage: {

@@ -1,0 +1,2413 @@
+{
+  "projectName": "时空邂逅0625",
+  "projectUrl": "https://lanhuapp.com/web/#/item/project/stage?pid=d9c9e50f-fee5-47ca-bd6b-ae05c0d5332b&teamId=428e8368-c279-4369-947b-a5828487924d",
+  "totalDesigns": 91,
+  "designs": [
+    {
+      "index": 1,
+      "id": "78269abb-a95f-4872-8d18-9cee0a6a7e1d",
+      "name": "认证-添加头像",
+      "flow": "verification",
+      "route": "/pages/verification/avatar",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp",
+        "src/assets/lanhu/verification/avatar-good.webp",
+        "src/assets/lanhu/verification/avatar-bad.webp"
+      ]
+    },
+    {
+      "index": 2,
+      "id": "1aead629-2824-4e45-920e-b7b108dc19f6",
+      "name": "认证-基本资料-家乡",
+      "flow": "verification",
+      "route": "/pages/verification/hometown",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 3,
+      "id": "f5b32f99-56e9-4000-bf72-d7d2055c2d6a",
+      "name": "认证-基本资料-职业",
+      "flow": "verification",
+      "route": "/pages/verification/career",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 4,
+      "id": "d1db3a27-f561-4582-be94-f738c4570fad",
+      "name": "认证-基本资料-年收入",
+      "flow": "verification",
+      "route": "/pages/verification/income",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 5,
+      "id": "79bcbbe4-8916-42d0-9596-591bde11016f",
+      "name": "三重认证-学历认证在校学生-信息填写即资料上传",
+      "flow": "verification",
+      "route": "/pages/verification/education-certificate-upload",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/slices/upload-camera.webp"
+      ]
+    },
+    {
+      "index": 6,
+      "id": "cfaccc42-22f5-4c85-8080-06a097745e34",
+      "name": "三重认证-顺序提示",
+      "flow": "verification",
+      "route": "/pages/verification/triple",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp",
+        "src/assets/lanhu/verification/slices/cert-avatar.webp",
+        "src/assets/lanhu/verification/slices/cert-realname.webp",
+        "src/assets/lanhu/verification/slices/cert-education.webp"
+      ]
+    },
+    {
+      "index": 7,
+      "id": "4ca59342-02bc-4052-b553-0baca9dbd8c9",
+      "name": "登录-年龄选择",
+      "flow": "login",
+      "route": "/pages/login/age",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 8,
+      "id": "ec9614a2-32d5-4323-866b-b590cd596b1a",
+      "name": "登录-性别选择男",
+      "flow": "login",
+      "route": "/pages/login/gender?variant=male",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/login/gender-male.webp",
+        "src/assets/lanhu/login/gender-female.webp"
+      ]
+    },
+    {
+      "index": 9,
+      "id": "a92e2c52-b7d0-48f9-beac-89a7cd13ad55",
+      "name": "登录-性别选择未选中",
+      "flow": "login",
+      "route": "/pages/login/gender?variant=none",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/login/gender-male.webp",
+        "src/assets/lanhu/login/gender-female.webp"
+      ]
+    },
+    {
+      "index": 10,
+      "id": "fc9354fc-fa31-4632-9985-6a6bdba79dd3",
+      "name": "游客模式-1",
+      "flow": "guest",
+      "route": "/pages/login/index?variant=guest-alt",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 11,
+      "id": "b7688718-bcfa-4ff7-a6fa-d6dd3b61fcf2",
+      "name": "学信网验证编码",
+      "flow": "verification",
+      "route": "/pages/verification/education-chsi-help",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/slices/chsi-step-1.webp",
+        "src/assets/lanhu/verification/slices/chsi-step-2.webp",
+        "src/assets/lanhu/verification/slices/chsi-step-3.webp",
+        "src/assets/lanhu/verification/slices/chsi-step-4.webp",
+        "src/assets/lanhu/verification/slices/upload-camera.webp"
+      ]
+    },
+    {
+      "index": 12,
+      "id": "0c1cce3c-d182-4fe2-a2e0-b781ff579658",
+      "name": "毕业证或者学位证书编号",
+      "flow": "verification",
+      "route": "/pages/verification/education-diploma-no",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/slices/upload-camera.webp"
+      ]
+    },
+    {
+      "index": 13,
+      "id": "d37da331-fe1e-4295-84cb-2ddccaa6ba6a",
+      "name": "三重认证-学历认证中国大陆",
+      "flow": "verification",
+      "route": "/pages/verification/education-mainland",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 14,
+      "id": "f8558e8f-5b2f-4f1f-a80d-8dc3c6a72061",
+      "name": "上传毕业证或学位证书",
+      "flow": "verification",
+      "route": "/pages/verification/education-certificate-upload",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/slices/upload-camera.webp"
+      ]
+    },
+    {
+      "index": 15,
+      "id": "e9299dfa-e4d1-4a00-99a6-42521066fcb9",
+      "name": "三重认证-学历认证在校学生",
+      "flow": "verification",
+      "route": "/pages/verification/education-student",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/slices/upload-camera.webp"
+      ]
+    },
+    {
+      "index": 16,
+      "id": "c1472fbb-3aff-4659-aed7-a3131b81d166",
+      "name": "三重认证-学历认证在校学生",
+      "flow": "verification",
+      "route": "/pages/verification/education-student",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/slices/upload-camera.webp"
+      ]
+    },
+    {
+      "index": 17,
+      "id": "47aa52ac-2016-41f4-b0ce-66b47f5ad5a2",
+      "name": "三重认证-实名认证-身份证点亮",
+      "flow": "verification",
+      "route": "/pages/verification/real-name",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 18,
+      "id": "5841405b-3ebd-4d66-a69e-6d810859e8c9",
+      "name": "认证-添加头像-选择相册",
+      "flow": "verification",
+      "route": "/pages/verification/avatar-album",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp",
+        "src/assets/lanhu/verification/avatar-good.webp",
+        "src/assets/lanhu/verification/avatar-bad.webp"
+      ]
+    },
+    {
+      "index": 19,
+      "id": "1c2c7c65-eb9f-4e26-af3d-ebaebbe7d494",
+      "name": "认证-自我介绍-填写内容",
+      "flow": "verification",
+      "route": "/pages/verification/intro-edit",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 20,
+      "id": "lanhu-index-20",
+      "name": "认证-三重认证",
+      "flow": "verification",
+      "route": "/pages/verification/triple",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp",
+        "src/assets/lanhu/verification/slices/cert-avatar.webp",
+        "src/assets/lanhu/verification/slices/cert-realname.webp",
+        "src/assets/lanhu/verification/slices/cert-education.webp"
+      ]
+    },
+    {
+      "index": 21,
+      "id": "lanhu-index-21",
+      "name": "认证-自我介绍",
+      "flow": "verification",
+      "route": "/pages/verification/intro",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 22,
+      "id": "lanhu-index-22",
+      "name": "认证-添加头像-裁剪照片",
+      "flow": "verification",
+      "route": "/pages/verification/avatar-crop",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp",
+        "src/assets/lanhu/verification/avatar-good.webp",
+        "src/assets/lanhu/verification/avatar-bad.webp"
+      ]
+    },
+    {
+      "index": 23,
+      "id": "lanhu-index-23",
+      "name": "认证-基本资料",
+      "flow": "verification",
+      "route": "/pages/verification/basic",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 24,
+      "id": "lanhu-index-24",
+      "name": "认证-添加头像-头像审核",
+      "flow": "verification",
+      "route": "/pages/verification/avatar-review",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp",
+        "src/assets/lanhu/verification/avatar-good.webp"
+      ]
+    },
+    {
+      "index": 25,
+      "id": "lanhu-index-25",
+      "name": "登录-地址-点亮",
+      "flow": "login",
+      "route": "/pages/login/address?variant=selected",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 26,
+      "id": "lanhu-index-26",
+      "name": "登录-错误提示",
+      "flow": "login",
+      "route": "/pages/login/index?variant=error",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 27,
+      "id": "lanhu-index-27",
+      "name": "登录-地址",
+      "flow": "login",
+      "route": "/pages/login/address?variant=empty",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 28,
+      "id": "lanhu-index-28",
+      "name": "登录-学历",
+      "flow": "login",
+      "route": "/pages/login/education",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 29,
+      "id": "lanhu-index-29",
+      "name": "登录-微信授权登录-授权说明",
+      "flow": "login",
+      "route": "/pages/login/index?variant=auth",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 30,
+      "id": "lanhu-index-30",
+      "name": "登录-性别选择女性选中",
+      "flow": "login",
+      "route": "/pages/login/gender?variant=female",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/login/gender-female.webp",
+        "src/assets/lanhu/login/gender-male.webp"
+      ]
+    },
+    {
+      "index": 31,
+      "id": "lanhu-index-31",
+      "name": "登录-微信授权登录",
+      "flow": "login",
+      "route": "/pages/login/index?variant=wechat-auth",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp",
+        "src/assets/lanhu/login/login-method-wechat.png",
+        "src/assets/lanhu/login/login-method-phone.png"
+      ]
+    },
+    {
+      "index": 32,
+      "id": "lanhu-index-32",
+      "name": "登录",
+      "flow": "login",
+      "route": "/pages/login/index",
+      "status": "implemented",
+      "assetRefs": []
+    },
+    {
+      "index": 33,
+      "id": "lanhu-index-33",
+      "name": "手机号登录-点亮",
+      "flow": "login",
+      "route": "/pages/login/phone?variant=phone-active",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/login/login-method-phone.png"
+      ]
+    },
+    {
+      "index": 34,
+      "id": "lanhu-index-34",
+      "name": "手机号登录",
+      "flow": "login",
+      "route": "/pages/login/phone?variant=phone",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/login/login-method-phone.png"
+      ]
+    },
+    {
+      "index": 35,
+      "id": "lanhu-index-35",
+      "name": "主页预览",
+      "flow": "profile",
+      "route": "/pages/profile/index?variant=preview",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 36,
+      "id": "lanhu-index-36",
+      "name": "编辑资料-语音删除成功提示",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=voice-delete-success",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 37,
+      "id": "lanhu-index-37",
+      "name": "编辑资料",
+      "flow": "profile",
+      "route": "/pages/profile/edit",
+      "status": "implemented",
+      "assetRefs": []
+    },
+    {
+      "index": 38,
+      "id": "lanhu-index-38",
+      "name": "编辑资料-资料填写",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=profile",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 39,
+      "id": "lanhu-index-39",
+      "name": "语音介绍",
+      "flow": "profile",
+      "route": "/pages/verification/intro?variant=voice",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 40,
+      "id": "lanhu-index-40",
+      "name": "语音介绍-录制中",
+      "flow": "profile",
+      "route": "/pages/verification/intro?variant=recording",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 41,
+      "id": "lanhu-index-41",
+      "name": "语音介绍-退出录音",
+      "flow": "profile",
+      "route": "/pages/verification/intro?variant=exit",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 42,
+      "id": "lanhu-index-42",
+      "name": "语音介绍-点击播放",
+      "flow": "profile",
+      "route": "/pages/verification/intro?variant=play",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 43,
+      "id": "lanhu-index-43",
+      "name": "基本资料",
+      "flow": "verification",
+      "route": "/pages/verification/basic",
+      "status": "implemented",
+      "assetRefs": []
+    },
+    {
+      "index": 44,
+      "id": "lanhu-index-44",
+      "name": "爱听的歌曲",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=songs",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 45,
+      "id": "lanhu-index-45",
+      "name": "关于我",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=about",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 46,
+      "id": "lanhu-index-46",
+      "name": "我的认证",
+      "flow": "verification",
+      "route": "/pages/verification/triple",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp",
+        "src/assets/lanhu/verification/slices/cert-avatar.webp",
+        "src/assets/lanhu/verification/slices/cert-realname.webp",
+        "src/assets/lanhu/verification/slices/cert-education.webp"
+      ]
+    },
+    {
+      "index": 47,
+      "id": "lanhu-index-47",
+      "name": "编辑资料-语音介绍删除提醒",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=voice-delete-notice",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 48,
+      "id": "lanhu-index-48",
+      "name": "爱听的歌曲-添加成功",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=songs-added",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 49,
+      "id": "lanhu-index-49",
+      "name": "语音介绍-删除提示",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=voice-delete",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 50,
+      "id": "lanhu-index-50",
+      "name": "感情状态",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=relationship",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 51,
+      "id": "lanhu-index-51",
+      "name": "见面便好（样式复用）",
+      "flow": "profile",
+      "route": "/pages/profile/edit?variant=goal",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 52,
+      "id": "lanhu-index-52",
+      "name": "自我介绍",
+      "flow": "profile",
+      "route": "/pages/verification/intro",
+      "status": "implemented",
+      "assetRefs": []
+    },
+    {
+      "index": 53,
+      "id": "lanhu-index-53",
+      "name": "会员中心-全",
+      "flow": "membership",
+      "route": "/pages/membership/index",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 54,
+      "id": "lanhu-index-54",
+      "name": "会员记录",
+      "flow": "membership",
+      "route": "/pages/membership/records",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 55,
+      "id": "lanhu-index-55",
+      "name": "会员记录-详情（已退款）",
+      "flow": "membership",
+      "route": "/pages/membership/records",
+      "status": "implemented",
+      "assetRefs": []
+    },
+    {
+      "index": 56,
+      "id": "lanhu-index-56",
+      "name": "会员中心-已过期",
+      "flow": "membership",
+      "route": "/pages/membership/index?variant=expired",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 57,
+      "id": "lanhu-index-57",
+      "name": "会员中心-连续包年",
+      "flow": "membership",
+      "route": "/pages/membership/index?variant=annual",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 58,
+      "id": "lanhu-index-58",
+      "name": "会员中心-已开通",
+      "flow": "membership",
+      "route": "/pages/membership/index?variant=active",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 59,
+      "id": "lanhu-index-59",
+      "name": "会员中心-会员未开通，支付按钮固定下方",
+      "flow": "membership",
+      "route": "/pages/membership/index?variant=none",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 60,
+      "id": "lanhu-index-60",
+      "name": "会员中心-支付成功",
+      "flow": "membership",
+      "route": "/pages/membership/index?payState=pay-success",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 61,
+      "id": "lanhu-index-61",
+      "name": "会员中心-微信支付",
+      "flow": "membership",
+      "route": "/pages/membership/index?payState=wechat-pay",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 62,
+      "id": "lanhu-index-62",
+      "name": "千寻币明细",
+      "flow": "coins",
+      "route": "/pages/coins/detail",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 63,
+      "id": "lanhu-index-63",
+      "name": "千寻币明细-暂无数据",
+      "flow": "coins",
+      "route": "/pages/coins/detail?variant=empty",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 64,
+      "id": "lanhu-index-64",
+      "name": "千寻币-支付成功",
+      "flow": "coins",
+      "route": "/pages/coins/index?payState=pay-success",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 65,
+      "id": "lanhu-index-65",
+      "name": "千寻币-取消支付",
+      "flow": "coins",
+      "route": "/pages/coins/index?payState=pay-cancel",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 66,
+      "id": "lanhu-index-66",
+      "name": "千寻币-协议勾选",
+      "flow": "coins",
+      "route": "/pages/coins/index?variant=checked",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 67,
+      "id": "lanhu-index-67",
+      "name": "千寻币-微信支付",
+      "flow": "coins",
+      "route": "/pages/coins/index?payState=wechat-pay",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 68,
+      "id": "lanhu-index-68",
+      "name": "千寻币",
+      "flow": "coins",
+      "route": "/pages/coins/index",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 69,
+      "id": "lanhu-index-69",
+      "name": "千寻币-充值须知",
+      "flow": "coins",
+      "route": "/pages/coins/index?variant=recharge-notice",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 70,
+      "id": "lanhu-index-70",
+      "name": "我的会员已过期状态",
+      "flow": "profile",
+      "route": "/pages/profile/index?variant=expired",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp",
+        "src/assets/profile/boost-button.png",
+        "src/assets/profile/vip-banner.webp",
+        "src/assets/profile/card-coin.webp",
+        "src/assets/profile/card-invite.webp",
+        "src/assets/profile/icon-cert.png",
+        "src/assets/profile/icon-post.png",
+        "src/assets/profile/icon-service.png",
+        "src/assets/profile/icon-settings.png"
+      ]
+    },
+    {
+      "index": 71,
+      "id": "lanhu-index-71",
+      "name": "我的",
+      "flow": "profile",
+      "route": "/pages/profile/index?variant=none",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp",
+        "src/assets/profile/boost-button.png",
+        "src/assets/profile/vip-banner.webp",
+        "src/assets/profile/card-coin.webp",
+        "src/assets/profile/card-invite.webp",
+        "src/assets/profile/icon-cert.png",
+        "src/assets/profile/icon-post.png",
+        "src/assets/profile/icon-service.png",
+        "src/assets/profile/icon-settings.png"
+      ]
+    },
+    {
+      "index": 72,
+      "id": "lanhu-index-72",
+      "name": "我的会员开通状态",
+      "flow": "profile",
+      "route": "/pages/profile/index?variant=active",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp",
+        "src/assets/profile/boost-button.png",
+        "src/assets/profile/vip-banner.webp",
+        "src/assets/profile/card-coin.webp",
+        "src/assets/profile/card-invite.webp",
+        "src/assets/profile/icon-cert.png",
+        "src/assets/profile/icon-post.png",
+        "src/assets/profile/icon-service.png",
+        "src/assets/profile/icon-settings.png"
+      ]
+    },
+    {
+      "index": 73,
+      "id": "0805b5ef-c507-49a1-9862-153e6751166f",
+      "name": "会员中心-取消支付",
+      "flow": "membership",
+      "route": "/pages/membership/index?payState=pay-cancel",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 74,
+      "id": "97cab11f-6a11-4452-8930-7061fe9b5e74",
+      "name": "会员中心-未支付出弹窗",
+      "flow": "membership",
+      "route": "/pages/membership/index?payState=unpaid-sheet",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 75,
+      "id": "0b0f1dfe-8157-41d2-8f2f-38b5c3719177",
+      "name": "会员记录-详情（已支付）",
+      "flow": "membership",
+      "route": "/pages/membership/records",
+      "status": "implemented",
+      "assetRefs": []
+    },
+    {
+      "index": 76,
+      "id": "2a0848f7-51f5-4939-8996-5b6b2e0d4898",
+      "name": "订阅管理",
+      "flow": "membership",
+      "route": "/pages/membership/index?variant=subscription",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/member-vip-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
+    },
+    {
+      "index": 77,
+      "id": "9d6818a7-ab04-4b11-900e-f42684b071bf",
+      "name": "千寻币-点支付未勾选协议",
+      "flow": "coins",
+      "route": "/pages/coins/index?variant=unchecked-error",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/pages/coin-balance-bg.webp"
+      ]
+    },
+    {
+      "index": 78,
+      "id": "633f2e99-e69f-41da-8adc-f17218324339",
+      "name": "语音介绍-录制完成",
+      "flow": "profile",
+      "route": "/pages/verification/intro?variant=complete",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 79,
+      "id": "2dadfc3f-f728-4fb3-a49e-7bed4f92aa16",
+      "name": "选择脱单目标",
+      "flow": "login",
+      "route": "/pages/login/gender?variant=goal",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 80,
+      "id": "d5f980bd-7d0c-4b54-ba38-2684fe0c835b",
+      "name": "我的标签",
+      "flow": "profile",
+      "route": "/pages/profile/edit",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp",
+        "src/assets/profile/boost-button.png",
+        "src/assets/profile/vip-banner.webp",
+        "src/assets/profile/card-coin.webp",
+        "src/assets/profile/card-invite.webp",
+        "src/assets/profile/icon-cert.png",
+        "src/assets/profile/icon-post.png",
+        "src/assets/profile/icon-service.png",
+        "src/assets/profile/icon-settings.png"
+      ]
+    },
+    {
+      "index": 81,
+      "id": "8cf1d30d-de11-4e53-b053-b3ca93d45a92",
+      "name": "三重认证-实名认证-身份证",
+      "flow": "verification",
+      "route": "/pages/verification/real-name",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 82,
+      "id": "e91ce42a-9ca3-4956-a24d-ba5809b0c7cc",
+      "name": "游客模式",
+      "flow": "guest",
+      "route": "/pages/login/index?variant=guest",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 83,
+      "id": "ef8e0d6c-00dc-47e1-8321-700a965695e0",
+      "name": "未认证-填完部分资料",
+      "flow": "verification",
+      "route": "/pages/verification/basic",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 84,
+      "id": "efa9b2db-0833-4573-9508-2b6eed227544",
+      "name": "登录-地址-手动选择",
+      "flow": "login",
+      "route": "/pages/login/address?variant=manual",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 85,
+      "id": "951026cc-5c13-4deb-9fc7-6d3af11a6fcb",
+      "name": "认证-基本资料-身高/体重",
+      "flow": "verification",
+      "route": "/pages/verification/height-weight",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    },
+    {
+      "index": 86,
+      "id": "90564538-2c97-4e7b-b5d6-f8c394b27e80",
+      "name": "登录-身份",
+      "flow": "login",
+      "route": "/pages/login/identity",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 87,
+      "id": "e25ec5f5-8849-463c-8e70-1ff42061da13",
+      "name": "手机号登录-错误提示",
+      "flow": "login",
+      "route": "/pages/login/phone?variant=phone-error",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/login/login-method-phone.png"
+      ]
+    },
+    {
+      "index": 88,
+      "id": "c9d92820-8ceb-4e9a-9a6c-7453a2cbfc29",
+      "name": "登录-拒绝授权",
+      "flow": "login",
+      "route": "/pages/login/index",
+      "status": "implemented",
+      "assetRefs": []
+    },
+    {
+      "index": 89,
+      "id": "1b78b8df-7b91-4795-84cc-9381da119a29",
+      "name": "登录-弹窗",
+      "flow": "login",
+      "route": "/pages/login/index?variant=dialog",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp"
+      ]
+    },
+    {
+      "index": 90,
+      "id": "29c08fbb-cee8-467e-b870-84aacd1bf97c",
+      "name": "登录-选择登录方式",
+      "flow": "login",
+      "route": "/pages/login/index?variant=methods",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/login/login-bg.webp",
+        "src/assets/login/profile-bg.webp",
+        "src/assets/lanhu/login/login-method-wechat.png",
+        "src/assets/lanhu/login/login-method-phone.png"
+      ]
+    },
+    {
+      "index": 91,
+      "id": "20be480a-0c76-4432-a388-549bbeeed592",
+      "name": "未认证",
+      "flow": "verification",
+      "route": "/pages/verification/basic",
+      "status": "implemented",
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
+    }
+  ],
+  "flows": {
+    "main": [
+      {
+        "key": "login-auth",
+        "title": "微信授权登录",
+        "route": "/pages/login/index",
+        "designNames": [
+          "登录",
+          "登录-微信授权登录",
+          "登录-微信授权登录-授权说明"
+        ],
+        "nextRoute": "/pages/login/gender"
+      },
+      {
+        "key": "login-gender",
+        "title": "选择性别",
+        "route": "/pages/login/gender",
+        "designNames": [
+          "登录-性别选择女性选中",
+          "登录-性别选择男"
+        ],
+        "nextRoute": "/pages/login/age",
+        "fallbackRoute": "/pages/login/index"
+      },
+      {
+        "key": "login-age",
+        "title": "选择年龄",
+        "route": "/pages/login/age",
+        "designNames": [
+          "登录-年龄选择"
+        ],
+        "nextRoute": "/pages/login/identity",
+        "fallbackRoute": "/pages/login/gender"
+      },
+      {
+        "key": "login-identity",
+        "title": "选择身份",
+        "route": "/pages/login/identity",
+        "designNames": [
+          "登录-身份"
+        ],
+        "nextRoute": "/pages/login/gender?variant=goal",
+        "fallbackRoute": "/pages/login/age"
+      },
+      {
+        "key": "login-goal",
+        "title": "选择脱单目标",
+        "route": "/pages/login/gender?variant=goal",
+        "designNames": [
+          "选择脱单目标"
+        ],
+        "nextRoute": "/pages/login/education",
+        "fallbackRoute": "/pages/login/identity"
+      },
+      {
+        "key": "login-education",
+        "title": "选择学历",
+        "route": "/pages/login/education",
+        "designNames": [
+          "登录-学历"
+        ],
+        "nextRoute": "/pages/login/address",
+        "fallbackRoute": "/pages/login/age"
+      },
+      {
+        "key": "login-address",
+        "title": "选择居住地",
+        "route": "/pages/login/address",
+        "designNames": [
+          "登录-地址",
+          "登录-地址-点亮",
+          "登录-地址-手动选择"
+        ],
+        "nextRoute": "/pages/verification/basic",
+        "fallbackRoute": "/pages/login/education"
+      },
+      {
+        "key": "verification-basic",
+        "title": "完善基本资料",
+        "route": "/pages/verification/basic",
+        "designNames": [
+          "认证-基本资料",
+          "认证-基本资料-身高/体重",
+          "认证-基本资料-家乡"
+        ],
+        "nextRoute": "/pages/verification/avatar"
+      },
+      {
+        "key": "verification-avatar",
+        "title": "添加头像",
+        "route": "/pages/verification/avatar",
+        "designNames": [
+          "认证-添加头像",
+          "认证-添加头像-选择相册",
+          "认证-添加头像-头像审核"
+        ],
+        "nextRoute": "/pages/verification/intro"
+      },
+      {
+        "key": "verification-intro",
+        "title": "自我介绍",
+        "route": "/pages/verification/intro",
+        "designNames": [
+          "认证-自我介绍",
+          "认证-自我介绍-填写内容"
+        ],
+        "nextRoute": "/pages/verification/triple"
+      },
+      {
+        "key": "verification-triple",
+        "title": "三重认证",
+        "route": "/pages/verification/triple",
+        "designNames": [
+          "认证-三重认证",
+          "三重认证-实名认证-身份证",
+          "三重认证-学历认证在校学生"
+        ],
+        "nextRoute": "/pages/profile/index"
+      },
+      {
+        "key": "profile",
+        "title": "我的",
+        "route": "/pages/profile/index",
+        "designNames": [
+          "我的",
+          "我的会员开通状态",
+          "我的会员已过期状态"
+        ],
+        "nextRoute": "/pages/membership/index"
+      },
+      {
+        "key": "membership",
+        "title": "会员中心",
+        "route": "/pages/membership/index",
+        "designNames": [
+          "会员中心-全",
+          "会员中心-会员未开通，支付按钮固定下方"
+        ],
+        "nextRoute": "/pages/coins/index",
+        "fallbackRoute": "/pages/profile/index"
+      },
+      {
+        "key": "coins",
+        "title": "千寻币",
+        "route": "/pages/coins/index",
+        "designNames": [
+          "千寻币",
+          "千寻币-协议勾选"
+        ],
+        "nextRoute": "/pages/coins/detail",
+        "fallbackRoute": "/pages/profile/index"
+      }
+    ]
+  },
+  "login": {
+    "uiDesigns": [
+      {
+        "key": "age",
+        "designName": "登录-年龄选择",
+        "route": "/pages/login/age",
+        "variant": "default",
+        "description": "出生年月日选择器默认态"
+      },
+      {
+        "key": "identity",
+        "designName": "登录-身份",
+        "route": "/pages/login/identity",
+        "variant": "default",
+        "description": "身份卡片选择页，补齐登录资料链路"
+      },
+      {
+        "key": "gender-male",
+        "designName": "登录-性别选择男",
+        "route": "/pages/login/gender?variant=male",
+        "variant": "male",
+        "description": "男生卡片蓝色选中态"
+      },
+      {
+        "key": "gender-none",
+        "designName": "登录-性别选择未选中",
+        "route": "/pages/login/gender?variant=none",
+        "variant": "none",
+        "description": "性别未选择，下一步不可用"
+      },
+      {
+        "key": "address-selected",
+        "designName": "登录-地址-点亮",
+        "route": "/pages/login/address?variant=selected",
+        "variant": "selected",
+        "description": "居住地已选择，下一步按钮点亮"
+      },
+      {
+        "key": "address-manual",
+        "designName": "登录-地址-手动选择",
+        "route": "/pages/login/address?variant=manual",
+        "variant": "manual",
+        "description": "定位失败后打开底部手动选择地址面板"
+      },
+      {
+        "key": "login-error",
+        "designName": "登录-错误提示",
+        "route": "/pages/login/index?variant=error",
+        "variant": "error",
+        "description": "授权或登录失败提示态"
+      },
+      {
+        "key": "address-empty",
+        "designName": "登录-地址",
+        "route": "/pages/login/address?variant=empty",
+        "variant": "empty",
+        "description": "居住地未选择默认态"
+      },
+      {
+        "key": "education",
+        "designName": "登录-学历",
+        "route": "/pages/login/education",
+        "variant": "default",
+        "description": "学历列表，硕士默认高亮"
+      },
+      {
+        "key": "login-auth",
+        "designName": "登录-微信授权登录-授权说明",
+        "route": "/pages/login/index?variant=auth",
+        "variant": "auth",
+        "description": "隐私协议授权说明弹窗"
+      },
+      {
+        "key": "login-wechat-auth",
+        "designName": "登录-微信授权登录",
+        "route": "/pages/login/index?variant=wechat-auth",
+        "variant": "wechat-auth",
+        "description": "协议已勾选后可触发微信原生授权的登录方式弹层"
+      },
+      {
+        "key": "login-dialog",
+        "designName": "登录-弹窗",
+        "route": "/pages/login/index?variant=dialog",
+        "variant": "dialog",
+        "description": "未勾选协议时展示的居中用户协议和隐私政策弹窗"
+      },
+      {
+        "key": "gender-female",
+        "designName": "登录-性别选择女性选中",
+        "route": "/pages/login/gender?variant=female",
+        "variant": "female",
+        "description": "女生卡片粉色选中态"
+      },
+      {
+        "key": "login-methods",
+        "designName": "登录-选择登录方式",
+        "route": "/pages/login/index?variant=methods",
+        "variant": "methods",
+        "description": "点击立即使用后先选择微信或手机号登录"
+      },
+      {
+        "key": "phone-login",
+        "designName": "手机号登录",
+        "route": "/pages/login/phone?variant=phone",
+        "variant": "phone",
+        "description": "手机号登录输入态"
+      },
+      {
+        "key": "phone-login-active",
+        "designName": "手机号登录-点亮",
+        "route": "/pages/login/phone?variant=phone-active",
+        "variant": "phone-active",
+        "description": "手机号和验证码已输入，登录按钮点亮"
+      },
+      {
+        "key": "guest",
+        "designName": "游客模式",
+        "route": "/pages/login/index?variant=guest",
+        "variant": "guest",
+        "description": "游客模式默认提示卡片，可先浏览资料"
+      },
+      {
+        "key": "guestAlt",
+        "designName": "游客模式-1",
+        "route": "/pages/login/index?variant=guest-alt",
+        "variant": "guest-alt",
+        "description": "游客模式二次提示态，突出登录后解锁权益"
+      },
+      {
+        "key": "phone-login-error",
+        "designName": "手机号登录-错误提示",
+        "route": "/pages/login/phone?variant=phone-error",
+        "variant": "phone-error",
+        "description": "手机号验证码错误提示态"
+      },
+      {
+        "key": "login-goal",
+        "designName": "选择脱单目标",
+        "route": "/pages/login/gender?variant=goal",
+        "variant": "goal",
+        "description": "登录资料链路中的脱单目标选择页，复用资料选择壳和蓝湖大圆角选项。"
+      }
+    ],
+    "educationOptions": [
+      "博士",
+      "硕士",
+      "本科",
+      "大专"
+    ],
+    "identityOptions": [
+      "职场人",
+      "在校学生"
+    ],
+    "ageRange": {
+      "min": 18,
+      "max": 60,
+      "defaultBirthday": "1997/10/01"
+    },
+    "provinceCityMap": {
+      "北京市": [
+        "东城区",
+        "西城区",
+        "朝阳区",
+        "海淀区",
+        "丰台区",
+        "通州区",
+        "大兴区"
+      ],
+      "上海市": [
+        "黄浦区",
+        "徐汇区",
+        "长宁区",
+        "静安区",
+        "浦东新区",
+        "闵行区",
+        "宝山区"
+      ],
+      "广东省": [
+        "广州市",
+        "深圳市",
+        "珠海市",
+        "东莞市",
+        "佛山市",
+        "中山市",
+        "惠州市"
+      ],
+      "浙江省": [
+        "杭州市",
+        "宁波市",
+        "温州市",
+        "嘉兴市",
+        "绍兴市",
+        "金华市",
+        "台州市"
+      ],
+      "江苏省": [
+        "南京市",
+        "苏州市",
+        "无锡市",
+        "常州市",
+        "南通市",
+        "扬州市",
+        "徐州市"
+      ],
+      "四川省": [
+        "成都市",
+        "绵阳市",
+        "德阳市",
+        "宜宾市",
+        "南充市",
+        "泸州市",
+        "乐山市"
+      ],
+      "湖北省": [
+        "武汉市",
+        "宜昌市",
+        "襄阳市",
+        "荆州市",
+        "黄冈市",
+        "十堰市",
+        "孝感市"
+      ],
+      "湖南省": [
+        "长沙市",
+        "株洲市",
+        "湘潭市",
+        "衡阳市",
+        "岳阳市",
+        "常德市",
+        "郴州市"
+      ],
+      "山东省": [
+        "济南市",
+        "青岛市",
+        "烟台市",
+        "潍坊市",
+        "临沂市",
+        "淄博市",
+        "济宁市"
+      ],
+      "福建省": [
+        "福州市",
+        "厦门市",
+        "泉州市",
+        "漳州市",
+        "莆田市",
+        "龙岩市",
+        "三明市"
+      ]
+    },
+    "defaultAddress": {
+      "province": "浙江省",
+      "city": "杭州市"
+    },
+    "defaultUser": {
+      "userId": 1001,
+      "nickname": "筱脑虎",
+      "avatar": "https://img.zcool.cn/community/01460b5e0f0e64a80121985c3f3e1e.png"
+    },
+    "methods": [
+      {
+        "key": "wechat",
+        "title": "使用微信登录",
+        "desc": "微信授权后继续",
+        "buttonText": "使用微信登录"
+      },
+      {
+        "key": "phone",
+        "title": "手机号登录",
+        "desc": "使用手机号和验证码进入",
+        "buttonText": "手机号登录"
+      }
+    ],
+    "guestMode": {
+      "entryText": "游客模式",
+      "variants": {
+        "guest": {
+          "title": "先以游客身份看看",
+          "subtitle": "不用登录也能预览精选资料和功能入口",
+          "primaryText": "进入游客模式",
+          "secondaryText": "继续登录",
+          "tips": [
+            "可浏览主页预览",
+            "可查看基础功能",
+            "登录后解锁互动能力"
+          ]
+        },
+        "guest-alt": {
+          "title": "游客可体验部分内容",
+          "subtitle": "喜欢、聊天、解锁资料需要登录后继续",
+          "primaryText": "继续游客体验",
+          "secondaryText": "返回登录",
+          "tips": [
+            "隐藏敏感联系方式",
+            "保留当前浏览进度",
+            "登录后同步资料"
+          ]
+        }
+      },
+      "previewStats": [
+        {
+          "value": "3",
+          "label": "可看资料"
+        },
+        {
+          "value": "0",
+          "label": "互动次数"
+        },
+        {
+          "value": "登录后",
+          "label": "解锁聊天"
+        }
+      ]
+    },
+    "agreement": {
+      "title": "用户协议和隐私政策",
+      "content": "未成年人请勿注册使用本产品。感谢您信任并使用时空邂逅，在您使用时空邂逅的过程中，我们可能会对您的部分个人信息进行收集和使用。1、未经您的同意，我们不会从第三方获取、共享或对外提供您的个人信息；2、您可以随时访问、更正或删除您的个人信息，也可以通过产品内反馈与我们联系。更多详细信息，您可以点击查看我们的《用户服务协议》和《隐私保护政策》。请您务必仔细阅读并充分理解相关条款，如您同意以上协议和政策，请点击“同意”开始使用我们的产品和服务。",
+      "disagreeText": "不同意",
+      "agreeText": "同意",
+      "errorText": "请先阅读并同意用户服务协议、隐私保护政策"
+    },
+    "phoneLogin": {
+      "defaultPhone": "13800000000",
+      "defaultCode": "123456",
+      "codeButtonText": "获取验证码",
+      "countdownText": "40s重新获取",
+      "submitText": "登录",
+      "errorText": "验证码错误，请重新输入",
+      "errorHint": "输入 123456 可继续 demo"
+    },
+    "goalOptions": [
+      "见面便好",
+      "认真交往",
+      "先从朋友开始",
+      "一年内结婚",
+      "共同成长"
+    ]
+  },
+  "verification": {
+    "introTitle": "完善资料和认证",
+    "introDescription": "时空邂逅是一个严肃、靠谱的交友平台，请认真填写资料",
+    "certItems": [
+      {
+        "title": "头像认证",
+        "desc": "守护每一段真实的社交关系",
+        "buttonText": "审核中",
+        "disabled": true,
+        "route": "/pages/verification/avatar-review"
+      },
+      {
+        "title": "实名认证",
+        "desc": "提供真实可信的交友环境",
+        "buttonText": "去认证",
+        "route": "/pages/verification/real-name"
+      },
+      {
+        "title": "学历认证",
+        "desc": "优秀的学历人群都在这里",
+        "buttonText": "去认证",
+        "route": "/pages/verification/education-student"
+      }
+    ],
+    "completedCertTitles": [
+      "头像认证"
+    ],
+    "realNameActive": {
+      "realName": "筱脑虎",
+      "idCard": "330102199703060021"
+    },
+    "introDefaultText": "杭州互联网大厂程序员，工作稳定。喜欢打篮球、跑步，保持运动习惯。周末喜欢和朋友聚会或者宅家打游戏。性格偏i但熟了之后可e。",
+    "basicInfoLabels": [
+      "身高/体重",
+      "家乡",
+      "职业",
+      "年收入",
+      "感情状态"
+    ],
+    "voiceIntro": {
+      "title": "语音介绍",
+      "subtitle": "用一段声音让对方更快认识你",
+      "recordButtonText": "按住录音",
+      "exitTitle": "退出录音？",
+      "exitContent": "退出后本次录音不会保存",
+      "states": {
+        "voice": {
+          "title": "录一段 15 秒以内的介绍",
+          "desc": "可以聊聊你的性格、兴趣和期待的关系"
+        },
+        "recording": {
+          "title": "录制中",
+          "desc": "松开完成录制",
+          "timer": "00:08"
+        },
+        "exit": {
+          "title": "退出录音",
+          "desc": "当前录音还未保存"
+        },
+        "play": {
+          "title": "点击播放",
+          "desc": "试听后可重新录制",
+          "duration": "00:12"
+        },
+        "complete": {
+          "title": "录制完成",
+          "desc": "语音介绍已保存，可进入下一步",
+          "duration": "00:12"
+        }
+      }
+    },
+    "uiDesigns": [
+      {
+        "key": "basic",
+        "designName": "认证-基本资料",
+        "route": "/pages/verification/basic",
+        "variant": "default",
+        "description": "基础资料确认页，进入头像认证"
+      },
+      {
+        "key": "avatar",
+        "designName": "认证-添加头像",
+        "route": "/pages/verification/avatar",
+        "variant": "default",
+        "description": "头像规范说明和去选照片入口"
+      },
+      {
+        "key": "avatarAlbum",
+        "designName": "认证-添加头像-选择相册",
+        "route": "/pages/verification/avatar-album",
+        "variant": "default",
+        "description": "头像选择相册底部弹层"
+      },
+      {
+        "key": "avatarCrop",
+        "designName": "认证-添加头像-裁剪照片",
+        "route": "/pages/verification/avatar-crop",
+        "variant": "default",
+        "description": "头像裁剪确认页"
+      },
+      {
+        "key": "avatarReview",
+        "designName": "认证-添加头像-头像审核",
+        "route": "/pages/verification/avatar-review",
+        "variant": "default",
+        "description": "头像提交后的审核中状态"
+      },
+      {
+        "key": "intro",
+        "designName": "认证-自我介绍",
+        "route": "/pages/verification/intro",
+        "variant": "default",
+        "description": "自我介绍未填写状态"
+      },
+      {
+        "key": "introEdit",
+        "designName": "认证-自我介绍-填写内容",
+        "route": "/pages/verification/intro-edit",
+        "variant": "default",
+        "description": "自我介绍填写完成状态"
+      },
+      {
+        "key": "voiceIntro",
+        "designName": "语音介绍",
+        "route": "/pages/verification/intro?variant=voice",
+        "variant": "voice",
+        "description": "语音介绍默认录制入口"
+      },
+      {
+        "key": "voiceRecording",
+        "designName": "语音介绍-录制中",
+        "route": "/pages/verification/intro?variant=recording",
+        "variant": "recording",
+        "description": "语音介绍录制中状态"
+      },
+      {
+        "key": "voiceExit",
+        "designName": "语音介绍-退出录音",
+        "route": "/pages/verification/intro?variant=exit",
+        "variant": "exit",
+        "description": "退出录音底部确认弹层"
+      },
+      {
+        "key": "voicePlay",
+        "designName": "语音介绍-点击播放",
+        "route": "/pages/verification/intro?variant=play",
+        "variant": "play",
+        "description": "语音介绍点击播放状态"
+      },
+      {
+        "key": "voiceComplete",
+        "designName": "语音介绍-录制完成",
+        "route": "/pages/verification/intro?variant=complete",
+        "variant": "complete",
+        "description": "语音介绍录制完成并点亮下一步"
+      },
+      {
+        "key": "triple",
+        "designName": "认证-三重认证",
+        "route": "/pages/verification/triple",
+        "variant": "default",
+        "description": "三重认证入口列表"
+      },
+      {
+        "key": "realName",
+        "designName": "三重认证-实名认证-身份证",
+        "route": "/pages/verification/real-name",
+        "variant": "default",
+        "description": "实名认证姓名和证件号表单"
+      },
+      {
+        "key": "educationStudent",
+        "designName": "三重认证-学历认证在校学生",
+        "route": "/pages/verification/education-student",
+        "variant": "default",
+        "description": "在校学生学历认证资料上传"
+      },
+      {
+        "key": "educationMainland",
+        "designName": "三重认证-学历认证中国大陆",
+        "route": "/pages/verification/education-mainland",
+        "variant": "default",
+        "description": "中国大陆学历认证方式选择"
+      },
+      {
+        "key": "educationChsiHelp",
+        "designName": "学信网验证编码",
+        "route": "/pages/verification/education-chsi-help",
+        "variant": "default",
+        "description": "学信网在线验证码步骤说明和提交"
+      },
+      {
+        "key": "educationDiplomaNo",
+        "designName": "毕业证或者学位证书编号",
+        "route": "/pages/verification/education-diploma-no",
+        "variant": "default",
+        "description": "毕业证或学位证书编号表单"
+      },
+      {
+        "key": "educationCertificateUpload",
+        "designName": "上传毕业证或学位证书",
+        "route": "/pages/verification/education-certificate-upload",
+        "variant": "default",
+        "description": "上传毕业证或学位证书图片"
+      }
+    ]
+  },
+  "membership": {
+    "myMembership": {
+      "status": "none"
+    },
+    "activeMembership": {
+      "status": "active",
+      "expireTime": "2027.05.27 15:58",
+      "planName": "时空邂逅VIP"
+    },
+    "plans": [
+      {
+        "id": 1,
+        "name": "连续包年",
+        "price": 568,
+        "originalPrice": 568,
+        "duration": 365,
+        "durationLabel": "12个月",
+        "tag": "专属2.4折",
+        "perks": [
+          "无限解锁嘉宾",
+          "查看谁喜欢我",
+          "专属认证标识",
+          "优先推荐"
+        ]
+      },
+      {
+        "id": 2,
+        "name": "连续包季",
+        "price": 318,
+        "originalPrice": 318,
+        "duration": 90,
+        "durationLabel": "3个月",
+        "tag": "专属5.4折",
+        "perks": [
+          "无限解锁嘉宾",
+          "查看谁喜欢我",
+          "专属认证标识",
+          "优先推荐",
+          "每月成家币礼包"
+        ]
+      },
+      {
+        "id": 3,
+        "name": "连续包月",
+        "price": 198,
+        "originalPrice": 198,
+        "duration": 30,
+        "durationLabel": "1个月",
+        "tag": "尝鲜首选",
+        "perks": [
+          "无限解锁嘉宾",
+          "查看谁喜欢我",
+          "专属认证标识",
+          "专属客服"
+        ]
+      }
+    ],
+    "records": [
+      {
+        "id": 1,
+        "planName": "时空邂逅VIP",
+        "amount": 568,
+        "startTime": "2026.05.28 15:58",
+        "endTime": "2027.05.27 15:58",
+        "status": "生效中"
+      },
+      {
+        "id": 2,
+        "planName": "时空邂逅VIP",
+        "amount": 568,
+        "startTime": "2026.05.28 15:58",
+        "endTime": "2027.05.27 15:58",
+        "status": "已退款"
+      }
+    ],
+    "benefits": [
+      {
+        "icon": "♡",
+        "title": "心动名单一键揭晓：",
+        "value": "123人",
+        "desc": "有人对你心动了！看到喜欢的，立即发起对话"
+      },
+      {
+        "icon": "◎",
+        "title": "谁来看过你：",
+        "value": "340位访客",
+        "desc": "访客全公开，别让在意你的人白等"
+      },
+      {
+        "icon": "yo",
+        "title": "每日专属悄悄话1条",
+        "value": "",
+        "desc": "消息直接弹到对方主页，第一时间抓住ta的目光"
+      },
+      {
+        "icon": "☆",
+        "title": "每日额外浏览10位嘉宾",
+        "value": "",
+        "desc": "比别人多一倍的机会，更快遇见对的人"
+      },
+      {
+        "icon": "▾",
+        "title": "精准筛选功能",
+        "value": "",
+        "desc": "按你的标准定制筛选条件，只看最合心意的人"
+      },
+      {
+        "icon": "♢",
+        "title": "曝光度拉满",
+        "value": "",
+        "desc": "你的资料优先展示给活跃用户和你心仪的对象"
+      },
+      {
+        "icon": "◌",
+        "title": "隐身模式",
+        "value": "",
+        "desc": "只对你选中的人可见，主动权完全在你手上"
+      },
+      {
+        "icon": "↶",
+        "title": "三天回放功能",
+        "value": "",
+        "desc": "最近3天滑过的嘉宾都能找回，手滑也不怕"
+      },
+      {
+        "icon": "☻",
+        "title": "每日多5次心动机会",
+        "value": "",
+        "desc": "每天额外多看5张心动嘉宾，让缘分不被错过"
+      }
+    ],
+    "uiDesigns": [
+      {
+        "key": "notOpen",
+        "designName": "会员中心-会员未开通，支付按钮固定下方",
+        "route": "/pages/membership/index?variant=none",
+        "variant": "none",
+        "description": "未开通会员默认状态，可选套餐并 mock 支付"
+      },
+      {
+        "key": "active",
+        "designName": "会员中心-已开通",
+        "route": "/pages/membership/index?variant=active",
+        "variant": "active",
+        "description": "已开通会员状态，可续费"
+      },
+      {
+        "key": "expired",
+        "designName": "会员中心-已过期",
+        "route": "/pages/membership/index?variant=expired",
+        "variant": "expired",
+        "description": "会员过期状态，可重新开通"
+      },
+      {
+        "key": "annual",
+        "designName": "会员中心-连续包年",
+        "route": "/pages/membership/index?variant=annual",
+        "variant": "annual",
+        "description": "连续包年套餐选中状态"
+      },
+      {
+        "key": "wechatPay",
+        "designName": "会员中心-微信支付",
+        "route": "/pages/membership/index?payState=wechat-pay",
+        "variant": "wechat-pay",
+        "description": "点击开通后展示 mock 微信支付底部面板"
+      },
+      {
+        "key": "paySuccess",
+        "designName": "会员中心-支付成功",
+        "route": "/pages/membership/index?payState=pay-success",
+        "variant": "pay-success",
+        "description": "会员支付成功后的居中结果弹窗"
+      },
+      {
+        "key": "payCancel",
+        "designName": "会员中心-取消支付",
+        "route": "/pages/membership/index?payState=pay-cancel",
+        "variant": "pay-cancel",
+        "description": "会员取消支付后的结果弹窗"
+      },
+      {
+        "key": "unpaidSheet",
+        "designName": "会员中心-未支付出弹窗",
+        "route": "/pages/membership/index?payState=unpaid-sheet",
+        "variant": "unpaid-sheet",
+        "description": "未支付订单挽留底部弹层"
+      },
+      {
+        "key": "subscription",
+        "designName": "订阅管理",
+        "route": "/pages/membership/index?variant=subscription",
+        "variant": "subscription",
+        "description": "会员连续订阅管理状态"
+      },
+      {
+        "key": "records",
+        "designName": "会员记录",
+        "route": "/pages/membership/records",
+        "variant": "default",
+        "description": "会员开通和退款记录列表"
+      }
+    ],
+    "expiredMembership": {
+      "status": "expired",
+      "expireTime": "2026.05.27 15:58",
+      "planName": "时空邂逅VIP"
+    },
+    "annualPlanId": 1
+  },
+  "coins": {
+    "balance": 1800,
+    "packages": [
+      {
+        "id": 1,
+        "amount": 100,
+        "price": 8,
+        "label": "解锁2位嘉宾"
+      },
+      {
+        "id": 2,
+        "amount": 3000,
+        "price": 268,
+        "label": "60位嘉宾",
+        "tag": "热销推荐"
+      },
+      {
+        "id": 3,
+        "amount": 6000,
+        "price": 428,
+        "label": "150位嘉宾",
+        "tag": "节省最多"
+      },
+      {
+        "id": 4,
+        "amount": 12000,
+        "price": 698,
+        "label": "300位嘉宾"
+      }
+    ],
+    "transactions": [
+      {
+        "id": 1,
+        "type": "income",
+        "amount": 100,
+        "description": "邀请好友获得",
+        "time": "2026.04.29 15:26:56",
+        "balance": 1800
+      },
+      {
+        "id": 2,
+        "type": "income",
+        "amount": 100,
+        "description": "邀请好友获得",
+        "time": "2026.04.29 15:26:56",
+        "balance": 1700
+      },
+      {
+        "id": 3,
+        "type": "income",
+        "amount": 100,
+        "description": "邀请好友获得",
+        "time": "2026.04.29 15:26:56",
+        "balance": 1600
+      }
+    ],
+    "usages": [
+      {
+        "icon": "",
+        "label": "送悄悄话"
+      },
+      {
+        "icon": "",
+        "label": "心动信号"
+      },
+      {
+        "icon": "",
+        "label": "解锁理想型"
+      },
+      {
+        "icon": "",
+        "label": "提升人气"
+      },
+      {
+        "icon": "",
+        "label": "解锁精选"
+      },
+      {
+        "icon": "",
+        "label": "更多推荐"
+      },
+      {
+        "icon": "",
+        "label": "匿名解锁"
+      },
+      {
+        "icon": "",
+        "label": "限定活动"
+      }
+    ],
+    "uiDesigns": [
+      {
+        "key": "index",
+        "designName": "千寻币",
+        "route": "/pages/coins/index",
+        "variant": "default",
+        "description": "成家币余额和充值套餐页"
+      },
+      {
+        "key": "checked",
+        "designName": "千寻币-协议勾选",
+        "route": "/pages/coins/index?variant=checked",
+        "variant": "checked",
+        "description": "充值协议已勾选状态，可 mock 支付"
+      },
+      {
+        "key": "uncheckedError",
+        "designName": "千寻币-点支付未勾选协议",
+        "route": "/pages/coins/index?variant=unchecked-error",
+        "variant": "unchecked-error",
+        "description": "未勾选协议点击支付后的提示状态"
+      },
+      {
+        "key": "wechatPay",
+        "designName": "千寻币-微信支付",
+        "route": "/pages/coins/index?payState=wechat-pay",
+        "variant": "wechat-pay",
+        "description": "成家币充值 mock 微信支付底部面板"
+      },
+      {
+        "key": "paySuccess",
+        "designName": "千寻币-支付成功",
+        "route": "/pages/coins/index?payState=pay-success",
+        "variant": "pay-success",
+        "description": "成家币支付成功后的到账弹窗"
+      },
+      {
+        "key": "payCancel",
+        "designName": "千寻币-取消支付",
+        "route": "/pages/coins/index?payState=pay-cancel",
+        "variant": "pay-cancel",
+        "description": "成家币取消支付后的结果弹窗"
+      },
+      {
+        "key": "rechargeNotice",
+        "designName": "千寻币-充值须知",
+        "route": "/pages/coins/index?variant=recharge-notice",
+        "variant": "recharge-notice",
+        "description": "充值须知 32px 圆角弹窗"
+      },
+      {
+        "key": "detail",
+        "designName": "千寻币明细",
+        "route": "/pages/coins/detail",
+        "variant": "default",
+        "description": "成家币明细列表"
+      },
+      {
+        "key": "detailEmpty",
+        "designName": "千寻币明细-暂无数据",
+        "route": "/pages/coins/detail?variant=empty",
+        "variant": "empty",
+        "description": "成家币明细空状态"
+      }
+    ],
+    "agreement": {
+      "defaultChecked": false,
+      "title": "《时空邂逅充值协议》",
+      "uncheckedMessage": "请先阅读并同意充值协议"
+    }
+  },
+  "profile": {
+    "nickname": "筱脑虎",
+    "location": "杭州市",
+    "age": 28,
+    "zodiac": "双鱼座",
+    "isVerified": true,
+    "verifiedLabels": [
+      "实名认证",
+      "学历认证",
+      "工作认证"
+    ],
+    "preview": {
+      "title": "主页预览",
+      "subtitle": "这是其他用户看到你的资料样式",
+      "ctaText": "编辑资料",
+      "chips": [
+        "认真交往",
+        "情绪稳定",
+        "城市漫步"
+      ]
+    },
+    "editProfile": {
+      "title": "编辑资料",
+      "profileTitle": "资料填写",
+      "basicFields": [
+        {
+          "label": "昵称",
+          "value": "筱脑虎"
+        },
+        {
+          "label": "居住地",
+          "value": "浙江省 杭州市"
+        },
+        {
+          "label": "脱单目标",
+          "value": "见面便好"
+        },
+        {
+          "label": "感情状态",
+          "value": "单身"
+        }
+      ],
+      "datingGoal": {
+        "title": "选择脱单目标",
+        "current": "见面便好",
+        "options": [
+          "见面便好",
+          "认真交往",
+          "先从朋友开始",
+          "一年内结婚",
+          "共同成长"
+        ]
+      },
+      "relationshipStatus": {
+        "title": "感情状态",
+        "current": "单身",
+        "options": [
+          "单身",
+          "离异",
+          "短婚未育",
+          "有过恋爱经历"
+        ]
+      },
+      "favoriteSongs": {
+        "title": "爱听的歌曲",
+        "addText": "添加歌曲",
+        "selected": [
+          "晴天",
+          "慢慢喜欢你",
+          "普通朋友"
+        ],
+        "options": [
+          "晴天",
+          "慢慢喜欢你",
+          "普通朋友",
+          "小幸运",
+          "我怀念的",
+          "稻香"
+        ],
+        "successText": "歌曲已添加"
+      },
+      "aboutMe": {
+        "title": "关于我",
+        "placeholder": "写下你的生活方式、兴趣和期待",
+        "value": "杭州互联网从业者，周末喜欢城市漫步、看展和做饭。希望遇到真诚稳定、愿意一起成长的人。",
+        "limitText": "96/200"
+      },
+      "voiceIntro": {
+        "title": "语音介绍",
+        "duration": "00:12",
+        "statusText": "已录制",
+        "deleteText": "删除",
+        "deleteTitle": "删除语音介绍？",
+        "deleteContent": "删除后，主页将不再展示这段语音介绍",
+        "deleteConfirmText": "确认删除",
+        "deleteCancelText": "再想想",
+        "successText": "语音介绍已删除"
+      }
+    },
+    "defaultSelectedTags": [
+      "真诚靠谱",
+      "情绪稳定",
+      "城市漫步",
+      "认真交往"
+    ],
+    "tagGroups": [
+      {
+        "title": "我的性格",
+        "subtitle": "选择最像你的 3 个关键词",
+        "tags": [
+          "真诚靠谱",
+          "情绪稳定",
+          "理性沟通",
+          "热爱生活",
+          "慢热专一",
+          "行动力强"
+        ]
+      },
+      {
+        "title": "兴趣爱好",
+        "subtitle": "让对方更快找到共同话题",
+        "tags": [
+          "城市漫步",
+          "电影",
+          "跑步",
+          "做饭",
+          "旅行",
+          "阅读",
+          "音乐现场",
+          "咖啡"
+        ]
+      },
+      {
+        "title": "期待关系",
+        "subtitle": "清晰表达你的交友期待",
+        "tags": [
+          "认真交往",
+          "长期主义",
+          "共同成长",
+          "互相支持",
+          "稳定见面",
+          "同城优先"
+        ]
+      }
+    ],
+    "stats": {
+      "likedCount": 45,
+      "beLikedCount": 99,
+      "visitorCount": 99
+    },
+    "uiDesigns": [
+      {
+        "key": "default",
+        "designName": "我的",
+        "route": "/pages/profile/index?variant=none",
+        "variant": "none",
+        "description": "我的页未开通会员状态"
+      },
+      {
+        "key": "memberActive",
+        "designName": "我的会员开通状态",
+        "route": "/pages/profile/index?variant=active",
+        "variant": "active",
+        "description": "我的页会员开通状态"
+      },
+      {
+        "key": "memberExpired",
+        "designName": "我的会员已过期状态",
+        "route": "/pages/profile/index?variant=expired",
+        "variant": "expired",
+        "description": "我的页会员过期状态"
+      },
+      {
+        "key": "profilePreview",
+        "designName": "主页预览",
+        "route": "/pages/profile/index?variant=preview",
+        "variant": "preview",
+        "description": "资料主页预览状态，展示用户看到的公开资料"
+      },
+      {
+        "key": "editTags",
+        "designName": "我的标签",
+        "route": "/pages/profile/edit",
+        "variant": "default",
+        "description": "我的编辑资料和标签入口页"
+      },
+      {
+        "key": "editProfile",
+        "designName": "编辑资料-资料填写",
+        "route": "/pages/profile/edit?variant=profile",
+        "variant": "profile",
+        "description": "编辑资料页资料填写卡片"
+      },
+      {
+        "key": "favoriteSongs",
+        "designName": "爱听的歌曲",
+        "route": "/pages/profile/edit?variant=songs",
+        "variant": "songs",
+        "description": "爱听的歌曲胶囊标签选择"
+      },
+      {
+        "key": "favoriteSongsAdded",
+        "designName": "爱听的歌曲-添加成功",
+        "route": "/pages/profile/edit?variant=songs-added",
+        "variant": "songs-added",
+        "description": "爱听的歌曲添加成功提示态"
+      },
+      {
+        "key": "aboutMe",
+        "designName": "关于我",
+        "route": "/pages/profile/edit?variant=about",
+        "variant": "about",
+        "description": "关于我文本块编辑态"
+      },
+      {
+        "key": "relationshipStatus",
+        "designName": "感情状态",
+        "route": "/pages/profile/edit?variant=relationship",
+        "variant": "relationship",
+        "description": "感情状态底部选择弹层"
+      },
+      {
+        "key": "voiceDeleteNotice",
+        "designName": "编辑资料-语音介绍删除提醒",
+        "route": "/pages/profile/edit?variant=voice-delete-notice",
+        "variant": "voice-delete-notice",
+        "description": "语音介绍删除前提醒态"
+      },
+      {
+        "key": "voiceDelete",
+        "designName": "语音介绍-删除提示",
+        "route": "/pages/profile/edit?variant=voice-delete",
+        "variant": "voice-delete",
+        "description": "语音介绍删除确认弹层"
+      },
+      {
+        "key": "voiceDeleteSuccess",
+        "designName": "编辑资料-语音删除成功提示",
+        "route": "/pages/profile/edit?variant=voice-delete-success",
+        "variant": "voice-delete-success",
+        "description": "语音介绍删除成功轻提示"
+      },
+      {
+        "key": "profile-goal-meet",
+        "designName": "见面便好（样式复用）",
+        "route": "/pages/profile/edit?variant=goal",
+        "variant": "goal",
+        "description": "编辑资料中脱单目标底部弹层的见面便好样式复用态。"
+      }
+    ]
+  }
+}

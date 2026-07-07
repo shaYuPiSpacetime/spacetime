@@ -1,34 +1,20 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import VerificationShell from './components/VerificationShell'
+import { getDemoPageData } from '@/services/lanhuDemo'
 import avatarIcon from '@/assets/lanhu/verification/slices/cert-avatar.webp'
 import realNameIcon from '@/assets/lanhu/verification/slices/cert-realname.webp'
 import educationIcon from '@/assets/lanhu/verification/slices/cert-education.webp'
 
-const CERT_ITEMS = [
-  {
-    title: '头像认证',
-    desc: '守护每一段真实的社交关系',
-    icon: avatarIcon,
-    buttonText: '审核中',
-    disabled: true,
-    action: () => Taro.redirectTo({ url: '/pages/verification/avatar-review' }),
-  },
-  {
-    title: '实名认证',
-    desc: '提供真实可信的交友环境',
-    icon: realNameIcon,
-    buttonText: '去认证',
-    action: () => Taro.redirectTo({ url: '/pages/verification/real-name' }),
-  },
-  {
-    title: '学历认证',
-    desc: '优秀的学历人群都在这里',
-    icon: educationIcon,
-    buttonText: '去认证',
-    action: () => Taro.redirectTo({ url: '/pages/verification/education-student' }),
-  },
-]
+const CERT_ICON_MAP: Record<string, string> = {
+  头像认证: avatarIcon,
+  实名认证: realNameIcon,
+  学历认证: educationIcon,
+}
+
+const verificationDemo = getDemoPageData('verification')
+const CERT_ITEMS = verificationDemo.certItems
+const COMPLETED_CERT_TITLES = verificationDemo.completedCertTitles
 
 export default function VerificationTriplePage() {
   return (
@@ -42,10 +28,11 @@ export default function VerificationTriplePage() {
             key={item.title}
             title={item.title}
             desc={item.desc}
-            icon={item.icon}
-            buttonText={item.buttonText}
-            disabled={Boolean(item.disabled)}
-            onClick={item.action}
+            icon={CERT_ICON_MAP[item.title] ?? avatarIcon}
+            buttonText={COMPLETED_CERT_TITLES.includes(item.title) ? '已完成' : item.buttonText}
+            disabled={Boolean(item.disabled) && !COMPLETED_CERT_TITLES.includes(item.title)}
+            completed={COMPLETED_CERT_TITLES.includes(item.title)}
+            onClick={() => Taro.redirectTo({ url: item.route })}
           />
         ))}
         <Text
@@ -71,6 +58,7 @@ function CertEntry({
   icon,
   buttonText,
   disabled,
+  completed,
   onClick,
 }: {
   title: string
@@ -78,6 +66,7 @@ function CertEntry({
   icon: string
   buttonText: string
   disabled: boolean
+  completed: boolean
   onClick: () => void
 }) {
   return (
@@ -86,11 +75,13 @@ function CertEntry({
         position: 'relative',
         width: '700rpx',
         height: '168rpx',
-        borderRadius: '8rpx',
-        background: '#FFFFFF',
+        borderRadius: '24rpx',
+        background: completed ? '#F5F9FF' : '#FFFFFF',
         marginBottom: '20rpx',
         padding: '42rpx 210rpx 41rpx 174rpx',
         boxSizing: 'border-box',
+        border: completed ? '2rpx solid #B9D7FF' : '2rpx solid #FFFFFF',
+        boxShadow: '0 12rpx 30rpx rgba(11, 38, 90, 0.06)',
       }}
       onClick={onClick}
     >
@@ -101,14 +92,16 @@ function CertEntry({
           top: '50rpx',
           width: '148rpx',
           height: '68rpx',
-          borderRadius: '8rpx',
-          background: disabled ? '#C8DAF2' : '#2876FF',
+          borderRadius: '20rpx',
+          background: completed ? '#EAF3FF' : disabled ? '#C8DAF2' : '#2876FF',
+          border: completed ? '2rpx solid #2876FF' : '0',
+          boxSizing: 'border-box',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>{buttonText}</Text>
+        <Text style={{ color: completed ? '#2876FF' : '#FFFFFF', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{buttonText}</Text>
       </View>
       <Image
         src={icon}
@@ -118,9 +111,30 @@ function CertEntry({
           left: '54rpx',
           top: '34rpx',
           width: '100rpx',
+          opacity: disabled ? 0.58 : 1,
         }}
       />
-      <Text style={{ display: 'block', color: '#0C285A', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>
+      {completed && (
+        <View
+          style={{
+            position: 'absolute',
+            left: '126rpx',
+            top: '34rpx',
+            width: '34rpx',
+            height: '34rpx',
+            borderRadius: '17rpx',
+            background: '#2876FF',
+            border: '4rpx solid #FFFFFF',
+            boxSizing: 'border-box',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '22rpx', lineHeight: '28rpx' }}>✓</Text>
+        </View>
+      )}
+      <Text style={{ display: 'block', color: completed ? '#2876FF' : '#0C285A', fontSize: '28rpx', fontWeight: 800, lineHeight: '40rpx' }}>
         {title}
       </Text>
       <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '33rpx', marginTop: '12rpx' }}>

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import bg from '@/assets/lanhu/verification/verification-bg.webp'
+import { getWindowMetrics } from '@/utils/system'
 
 interface VerificationSubShellProps {
   title: string
@@ -49,7 +50,7 @@ export default function VerificationSubShell({
 
 function Header({ title, onBack }: { title: string; onBack: () => void }) {
   const menu = Taro.getMenuButtonBoundingClientRect?.()
-  const system = Taro.getSystemInfoSync()
+  const system = getWindowMetrics()
   const scale = system.windowWidth ? 750 / system.windowWidth : 2
   const top = menu ? `${menu.top * scale}rpx` : '88rpx'
   const height = menu ? `${menu.height * scale}rpx` : '64rpx'

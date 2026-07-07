@@ -1,36 +1,30 @@
 import { create } from 'zustand'
 import Taro from '@tarojs/taro'
 import { useAuthStore } from '@/stores/authStore'
+import { getDemoPageData } from '@/services/lanhuDemo'
 import type { LoginStep, LoginUserInfo } from '@/types/login'
 
 // ==================== Mock 数据 ====================
 
+const loginDemo = getDemoPageData('login')
+
 /** 学历选项列表（Mock） */
-const EDUCATION_OPTIONS: string[] = [
-  '博士',
-  '硕士',
-  '本科',
-  '大专',
-  '高中/中专',
-  '初中及以下',
-]
+const EDUCATION_OPTIONS: string[] = loginDemo.educationOptions
+
+/** 身份选项列表（Mock） */
+const IDENTITY_OPTIONS: string[] = loginDemo.identityOptions
+
+/** 脱单目标选项列表（Mock） */
+const GOAL_OPTIONS: string[] = loginDemo.goalOptions
 
 /** 年龄范围 */
-const AGE_RANGE = { min: 18, max: 60 }
+const AGE_RANGE = {
+  min: loginDemo.ageRange.min,
+  max: loginDemo.ageRange.max,
+}
 
 /** 省份城市映射（Mock 数据） */
-const PROVINCE_CITY_MAP: Record<string, string[]> = {
-  北京市: ['东城区', '西城区', '朝阳区', '海淀区', '丰台区', '通州区', '大兴区'],
-  上海市: ['黄浦区', '徐汇区', '长宁区', '静安区', '浦东新区', '闵行区', '宝山区'],
-  广东省: ['广州市', '深圳市', '珠海市', '东莞市', '佛山市', '中山市', '惠州市'],
-  浙江省: ['杭州市', '宁波市', '温州市', '嘉兴市', '绍兴市', '金华市', '台州市'],
-  江苏省: ['南京市', '苏州市', '无锡市', '常州市', '南通市', '扬州市', '徐州市'],
-  四川省: ['成都市', '绵阳市', '德阳市', '宜宾市', '南充市', '泸州市', '乐山市'],
-  湖北省: ['武汉市', '宜昌市', '襄阳市', '荆州市', '黄冈市', '十堰市', '孝感市'],
-  湖南省: ['长沙市', '株洲市', '湘潭市', '衡阳市', '岳阳市', '常德市', '郴州市'],
-  山东省: ['济南市', '青岛市', '烟台市', '潍坊市', '临沂市', '淄博市', '济宁市'],
-  福建省: ['福州市', '厦门市', '泉州市', '漳州市', '莆田市', '龙岩市', '三明市'],
-}
+const PROVINCE_CITY_MAP: Record<string, string[]> = loginDemo.provinceCityMap
 
 // ==================== 登录流程状态 Store ====================
 
@@ -88,11 +82,11 @@ export function useLogin() {
     try {
       // Mock 登录数据
       const mockToken = 'mock_token_' + Date.now()
-      const mockUserId = 1001
-      const mockNickname = userInfo.nickname || '成家用户'
+      const mockUserId = loginDemo.defaultUser.userId
+      const mockNickname = userInfo.nickname || loginDemo.defaultUser.nickname
       const mockAvatar =
         userInfo.avatar ||
-        'https://img.zcool.cn/community/01460b5e0f0e64a80121985c3f3e1e.png'
+        loginDemo.defaultUser.avatar
 
       // 写入认证状态
       setLogin(mockToken, mockUserId, mockNickname, mockAvatar)
@@ -118,6 +112,10 @@ export function useLogin() {
     userInfo,
     /** 学历选项列表 */
     educationOptions: EDUCATION_OPTIONS,
+    /** 身份选项列表 */
+    identityOptions: IDENTITY_OPTIONS,
+    /** 脱单目标选项列表 */
+    goalOptions: GOAL_OPTIONS,
     /** 年龄范围 { min: 18, max: 60 } */
     ageRange: AGE_RANGE,
     /** 省份名称列表 */
