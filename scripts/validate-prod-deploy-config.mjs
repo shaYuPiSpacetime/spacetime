@@ -171,6 +171,8 @@ for (const expected of [
   'docker pull "$ADMIN_IMAGE"',
   'docker pull "$BACKEND_IMAGE"',
   'docker run -d',
+  '--network-alias backend',
+  '--network-alias admin-web',
   'docker login "$ALIYUN_CR_REGISTRY"',
   '跳过数据库迁移',
 ]) {
