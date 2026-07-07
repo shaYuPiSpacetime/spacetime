@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * 应用配置管理控制器
+ * 应用配置管理控制器 -
  */
 @RestController
 @RequestMapping("/admin/content/app-config")
