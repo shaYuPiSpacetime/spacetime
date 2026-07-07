@@ -14,11 +14,11 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ALIYUN_CR_REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  ALIYUN_CR_REGISTRY: crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com
   ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'
   DOCKER_NAMESPACE: bobo2026
-  BACKEND_IMAGE_NAME: spacetime-backend-prod
-  BACKEND_IMAGE_TAG: latest
+  BACKEND_IMAGE_NAME: bobo2026
+  BACKEND_IMAGE_TAG: spacetime-backend-prod
   PROD_SERVER_HOST: 112.124.59.146
   PROD_SERVER_USER: root
   PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy

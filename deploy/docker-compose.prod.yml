@@ -2,7 +2,7 @@ name: ${PROJECT_NAME:-spacetime-prod}
 
 services:
   backend:
-    image: ${BACKEND_IMAGE:-spacetime-backend-prod:latest}
+    image: ${BACKEND_IMAGE:-crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com/bobo2026/bobo2026:spacetime-backend-prod}
     container_name: spacetime-backend-prod
     restart: unless-stopped
     env_file:
@@ -22,7 +22,7 @@ services:
       - spacetime-prod
 
   admin-web:
-    image: ${ADMIN_IMAGE:-spacetime-admin-prod:latest}
+    image: ${ADMIN_IMAGE:-crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com/bobo2026/bobo2026:spacetime-admin-prod}
     container_name: spacetime-admin-prod
     restart: unless-stopped
     expose:

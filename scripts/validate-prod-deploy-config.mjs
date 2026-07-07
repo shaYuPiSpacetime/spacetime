@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const acrRegistry = 'crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com';
 
 const read = (relativePath) => {
   const absolutePath = path.join(root, relativePath);
@@ -58,7 +59,7 @@ const adminWorkflow = read('.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'spacetime-admin-prod', '.github/workflows/deploy-admin-prod.yml');
 assertNotIncludes(adminWorkflow, 'ADMIN_SSL_CERT_PEM', '.github/workflows/deploy-admin-prod.yml');
 assertNotIncludes(adminWorkflow, 'ADMIN_SSL_CERT_KEY', '.github/workflows/deploy-admin-prod.yml');
-assertIncludes(adminWorkflow, 'registry.cn-hangzhou.aliyuncs.com', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, acrRegistry, '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'", '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'PROD_SERVER_HOST: 112.124.59.146', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy', '.github/workflows/deploy-admin-prod.yml');
@@ -67,7 +68,7 @@ assertIncludes(adminWorkflow, 'bash scripts/deploy-prod-local.sh admin', '.githu
 const backendWorkflow = read('.github/workflows/deploy-backend-prod.yml');
 assertIncludes(backendWorkflow, 'spacetime-backend-prod', '.github/workflows/deploy-backend-prod.yml');
 for (const expected of [
-  'registry.cn-hangzhou.aliyuncs.com',
+  acrRegistry,
   "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'",
   'PROD_SERVER_HOST: 112.124.59.146',
   'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy',
@@ -77,7 +78,15 @@ for (const expected of [
 }
 
 const compose = read('deploy/docker-compose.prod.yml');
-for (const expected of ['nginx', 'admin-web', 'backend', 'spacetime-prod', '/mnt/data/spacetime-prod/secrets/prod.env']) {
+for (const expected of [
+  'nginx',
+  'admin-web',
+  'backend',
+  'spacetime-prod',
+  '/mnt/data/spacetime-prod/secrets/prod.env',
+  `${acrRegistry}/bobo2026/bobo2026:spacetime-admin-prod`,
+  `${acrRegistry}/bobo2026/bobo2026:spacetime-backend-prod`,
+]) {
   assertIncludes(compose, expected, 'deploy/docker-compose.prod.yml');
 }
 
@@ -96,11 +105,15 @@ for (const expected of [
 
 const envExample = read('deploy/server.prod.env.example');
 for (const expected of [
-  'ALIYUN_CR_REGISTRY=registry.cn-hangzhou.aliyuncs.com',
+  `ALIYUN_CR_REGISTRY=${acrRegistry}`,
   'ALIYUN_REGISTRY_USER_NAME=393841724@qq.com',
   'ALIYUN_REGISTRY_PASSWORD=',
-  'ADMIN_IMAGE=registry.cn-hangzhou.aliyuncs.com/bobo2026/spacetime-admin-prod:latest',
-  'BACKEND_IMAGE=registry.cn-hangzhou.aliyuncs.com/bobo2026/spacetime-backend-prod:latest',
+  'ADMIN_IMAGE_NAME=bobo2026',
+  'ADMIN_IMAGE_TAG=spacetime-admin-prod',
+  'BACKEND_IMAGE_NAME=bobo2026',
+  'BACKEND_IMAGE_TAG=spacetime-backend-prod',
+  `ADMIN_IMAGE=${acrRegistry}/bobo2026/bobo2026:spacetime-admin-prod`,
+  `BACKEND_IMAGE=${acrRegistry}/bobo2026/bobo2026:spacetime-backend-prod`,
   'DB_HOST=',
   'DB_NAME=',
   'DB_USER=shikongxiehou',
