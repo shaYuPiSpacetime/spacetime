@@ -422,7 +422,7 @@
       "id": "lanhu-index-36",
       "name": "编辑资料-语音删除成功提示",
       "flow": "profile",
-      "route": "/pages/profile/edit?variant=voice-delete-success",
+      "route": "/pages/profile-edit/voice?variant=delete-success",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -443,7 +443,7 @@
       "id": "lanhu-index-38",
       "name": "编辑资料-资料填写",
       "flow": "profile",
-      "route": "/pages/profile/edit?variant=profile",
+      "route": "/pages/profile/edit",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -455,7 +455,7 @@
       "id": "lanhu-index-39",
       "name": "语音介绍",
       "flow": "profile",
-      "route": "/pages/verification/intro?variant=voice",
+      "route": "/pages/profile-edit/voice?variant=voice",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -466,7 +466,7 @@
       "id": "lanhu-index-40",
       "name": "语音介绍-录制中",
       "flow": "profile",
-      "route": "/pages/verification/intro?variant=recording",
+      "route": "/pages/profile-edit/voice?variant=recording",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -477,7 +477,7 @@
       "id": "lanhu-index-41",
       "name": "语音介绍-退出录音",
       "flow": "profile",
-      "route": "/pages/verification/intro?variant=exit",
+      "route": "/pages/profile-edit/voice?variant=exit",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -488,7 +488,7 @@
       "id": "lanhu-index-42",
       "name": "语音介绍-点击播放",
       "flow": "profile",
-      "route": "/pages/verification/intro?variant=play",
+      "route": "/pages/profile-edit/voice?variant=play",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -508,7 +508,7 @@
       "id": "lanhu-index-44",
       "name": "爱听的歌曲",
       "flow": "profile",
-      "route": "/pages/profile/edit?variant=songs",
+      "route": "/pages/profile-edit/songs",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -520,7 +520,7 @@
       "id": "lanhu-index-45",
       "name": "关于我",
       "flow": "profile",
-      "route": "/pages/profile/edit?variant=about",
+      "route": "/pages/profile-edit/about",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -546,7 +546,7 @@
       "id": "lanhu-index-47",
       "name": "编辑资料-语音介绍删除提醒",
       "flow": "profile",
-      "route": "/pages/profile/edit?variant=voice-delete-notice",
+      "route": "/pages/profile-edit/voice?variant=delete",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -558,7 +558,7 @@
       "id": "lanhu-index-48",
       "name": "爱听的歌曲-添加成功",
       "flow": "profile",
-      "route": "/pages/profile/edit?variant=songs-added",
+      "route": "/pages/profile-edit/songs?variant=added",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -570,7 +570,7 @@
       "id": "lanhu-index-49",
       "name": "语音介绍-删除提示",
       "flow": "profile",
-      "route": "/pages/profile/edit?variant=voice-delete",
+      "route": "/pages/profile-edit/voice?variant=delete",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -594,7 +594,7 @@
       "id": "lanhu-index-51",
       "name": "见面便好（样式复用）",
       "flow": "profile",
-      "route": "/pages/profile/edit?variant=goal",
+      "route": "/pages/profile-edit/about?topic=meet",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -606,7 +606,7 @@
       "id": "lanhu-index-52",
       "name": "自我介绍",
       "flow": "profile",
-      "route": "/pages/verification/intro",
+      "route": "/pages/profile-edit/intro",
       "status": "implemented",
       "assetRefs": []
     },
@@ -924,7 +924,7 @@
       "id": "633f2e99-e69f-41da-8adc-f17218324339",
       "name": "语音介绍-录制完成",
       "flow": "profile",
-      "route": "/pages/verification/intro?variant=complete",
+      "route": "/pages/profile-edit/voice?variant=complete",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -947,7 +947,7 @@
       "id": "d5f980bd-7d0c-4b54-ba38-2684fe0c835b",
       "name": "我的标签",
       "flow": "profile",
-      "route": "/pages/profile/edit",
+      "route": "/pages/profile-edit/tags",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -1705,37 +1705,44 @@
       {
         "key": "voiceIntro",
         "designName": "语音介绍",
-        "route": "/pages/verification/intro?variant=voice",
+        "route": "/pages/profile-edit/voice?variant=voice",
         "variant": "voice",
         "description": "语音介绍默认录制入口"
       },
       {
         "key": "voiceRecording",
         "designName": "语音介绍-录制中",
-        "route": "/pages/verification/intro?variant=recording",
+        "route": "/pages/profile-edit/voice?variant=recording",
         "variant": "recording",
         "description": "语音介绍录制中状态"
       },
       {
         "key": "voiceExit",
         "designName": "语音介绍-退出录音",
-        "route": "/pages/verification/intro?variant=exit",
+        "route": "/pages/profile-edit/voice?variant=exit",
         "variant": "exit",
         "description": "退出录音底部确认弹层"
       },
       {
         "key": "voicePlay",
         "designName": "语音介绍-点击播放",
-        "route": "/pages/verification/intro?variant=play",
+        "route": "/pages/profile-edit/voice?variant=play",
         "variant": "play",
         "description": "语音介绍点击播放状态"
       },
       {
         "key": "voiceComplete",
         "designName": "语音介绍-录制完成",
-        "route": "/pages/verification/intro?variant=complete",
+        "route": "/pages/profile-edit/voice?variant=complete",
         "variant": "complete",
         "description": "语音介绍录制完成并点亮下一步"
+      },
+      {
+        "key": "voiceDelete",
+        "designName": "语音介绍-删除提示",
+        "route": "/pages/profile-edit/voice?variant=delete",
+        "variant": "delete",
+        "description": "语音介绍删除确认弹层"
       },
       {
         "key": "triple",
@@ -2222,6 +2229,12 @@
           "有过恋爱经历"
         ]
       },
+      "intro": {
+        "title": "自我介绍",
+        "placeholder": "简单描述下自己是怎样一个人，性格、习惯、爱好、优点、缺点等，不少于20字",
+        "value": "杭州互联网从业者，周末喜欢城市漫步、看展和做饭。希望遇到真诚稳定、愿意一起成长的人。",
+        "limitText": "96/200"
+      },
       "favoriteSongs": {
         "title": "爱听的歌曲",
         "addText": "添加歌曲",
@@ -2246,8 +2259,29 @@
         "value": "杭州互联网从业者，周末喜欢城市漫步、看展和做饭。希望遇到真诚稳定、愿意一起成长的人。",
         "limitText": "96/200"
       },
+      "aboutTopics": [
+        {
+          "key": "meet",
+          "title": "见面便好",
+          "placeholder": "写下你期待的第一次见面方式",
+          "value": "希望先轻松见面聊聊，散步、咖啡或者看展都可以，舒服自然最重要。"
+        },
+        {
+          "key": "life",
+          "title": "我的生活方式",
+          "placeholder": "聊聊你的日常节奏、生活习惯和喜欢的状态",
+          "value": "平时工作节奏稳定，晚上会运动或看书，周末喜欢把城市里没去过的小地方慢慢走一遍。"
+        },
+        {
+          "key": "relationship",
+          "title": "期待的关系",
+          "placeholder": "写下你期待如何相处",
+          "value": "希望彼此坦诚、稳定沟通，有自己的生活，也愿意一起规划未来。"
+        }
+      ],
       "voiceIntro": {
         "title": "语音介绍",
+        "subtitle": "用一段声音让对方更快认识你",
         "duration": "00:12",
         "statusText": "已录制",
         "deleteText": "删除",
@@ -2255,7 +2289,47 @@
         "deleteContent": "删除后，主页将不再展示这段语音介绍",
         "deleteConfirmText": "确认删除",
         "deleteCancelText": "再想想",
-        "successText": "语音介绍已删除"
+        "successText": "语音介绍已删除",
+        "states": {
+          "voice": {
+            "title": "录一段 15 秒以内的介绍",
+            "desc": "可以聊聊你的性格、兴趣和期待的关系",
+            "buttonText": "开始录音"
+          },
+          "recording": {
+            "title": "录制中",
+            "desc": "正在记录你的声音，松开后完成录制",
+            "buttonText": "完成录制",
+            "timer": "00:08"
+          },
+          "exit": {
+            "title": "退出录音",
+            "desc": "当前录音还未保存，退出后需要重新录制",
+            "buttonText": "继续录制"
+          },
+          "play": {
+            "title": "点击播放",
+            "desc": "试听后可重新录制或保存",
+            "buttonText": "保存语音",
+            "duration": "00:12"
+          },
+          "complete": {
+            "title": "录制完成",
+            "desc": "语音介绍已保存，可在编辑资料中展示",
+            "buttonText": "完成",
+            "duration": "00:12"
+          },
+          "delete": {
+            "title": "删除语音介绍？",
+            "desc": "删除后，主页将不再展示这段语音介绍",
+            "buttonText": "确认删除"
+          },
+          "delete-success": {
+            "title": "语音介绍已删除",
+            "desc": "你可以重新录制一段语音介绍",
+            "buttonText": "完成"
+          }
+        }
       }
     },
     "defaultSelectedTags": [
@@ -2341,37 +2415,44 @@
       {
         "key": "editTags",
         "designName": "我的标签",
-        "route": "/pages/profile/edit",
+        "route": "/pages/profile-edit/tags",
         "variant": "default",
-        "description": "我的编辑资料和标签入口页"
+        "description": "我的标签独立编辑页"
       },
       {
         "key": "editProfile",
         "designName": "编辑资料-资料填写",
-        "route": "/pages/profile/edit?variant=profile",
-        "variant": "profile",
-        "description": "编辑资料页资料填写卡片"
+        "route": "/pages/profile/edit",
+        "variant": "default",
+        "description": "编辑资料入口页资料填写卡片"
+      },
+      {
+        "key": "profileIntro",
+        "designName": "自我介绍",
+        "route": "/pages/profile-edit/intro",
+        "variant": "default",
+        "description": "自我介绍独立编辑页"
       },
       {
         "key": "favoriteSongs",
         "designName": "爱听的歌曲",
-        "route": "/pages/profile/edit?variant=songs",
-        "variant": "songs",
-        "description": "爱听的歌曲胶囊标签选择"
+        "route": "/pages/profile-edit/songs",
+        "variant": "default",
+        "description": "爱听的歌曲独立选择页"
       },
       {
         "key": "favoriteSongsAdded",
         "designName": "爱听的歌曲-添加成功",
-        "route": "/pages/profile/edit?variant=songs-added",
-        "variant": "songs-added",
+        "route": "/pages/profile-edit/songs?variant=added",
+        "variant": "added",
         "description": "爱听的歌曲添加成功提示态"
       },
       {
         "key": "aboutMe",
         "designName": "关于我",
-        "route": "/pages/profile/edit?variant=about",
-        "variant": "about",
-        "description": "关于我文本块编辑态"
+        "route": "/pages/profile-edit/about",
+        "variant": "default",
+        "description": "关于我独立条目列表页"
       },
       {
         "key": "relationshipStatus",
@@ -2383,30 +2464,30 @@
       {
         "key": "voiceDeleteNotice",
         "designName": "编辑资料-语音介绍删除提醒",
-        "route": "/pages/profile/edit?variant=voice-delete-notice",
-        "variant": "voice-delete-notice",
+        "route": "/pages/profile-edit/voice?variant=delete",
+        "variant": "delete",
         "description": "语音介绍删除前提醒态"
       },
       {
         "key": "voiceDelete",
         "designName": "语音介绍-删除提示",
-        "route": "/pages/profile/edit?variant=voice-delete",
-        "variant": "voice-delete",
+        "route": "/pages/profile-edit/voice?variant=delete",
+        "variant": "delete",
         "description": "语音介绍删除确认弹层"
       },
       {
         "key": "voiceDeleteSuccess",
         "designName": "编辑资料-语音删除成功提示",
-        "route": "/pages/profile/edit?variant=voice-delete-success",
-        "variant": "voice-delete-success",
+        "route": "/pages/profile-edit/voice?variant=delete-success",
+        "variant": "delete-success",
         "description": "语音介绍删除成功轻提示"
       },
       {
         "key": "profile-goal-meet",
         "designName": "见面便好（样式复用）",
-        "route": "/pages/profile/edit?variant=goal",
-        "variant": "goal",
-        "description": "编辑资料中脱单目标底部弹层的见面便好样式复用态。"
+        "route": "/pages/profile-edit/about?topic=meet",
+        "variant": "meet",
+        "description": "关于我中见面便好编辑态。"
       }
     ]
   }

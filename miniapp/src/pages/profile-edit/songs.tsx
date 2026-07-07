@@ -78,7 +78,7 @@ export default function ProfileEditSongsPage() {
                   onClick={() => toggleSong(song)}
                   style={{
                     height: '98rpx',
-                    borderRadius: '49rpx',
+                    borderRadius: '98rpx',
                     background: active ? mainBlue : '#FFFFFF',
                     padding: '0 34rpx',
                     marginRight: '18rpx',
@@ -97,7 +97,7 @@ export default function ProfileEditSongsPage() {
           </View>
         </View>
       </ScrollView>
-      <View onClick={handleSave} style={{ position: 'fixed', left: '25rpx', bottom: '48rpx', width: '700rpx', height: '98rpx', borderRadius: '49rpx', background: mainBlue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <View onClick={handleSave} style={{ position: 'fixed', left: '25rpx', bottom: '48rpx', width: '700rpx', height: '98rpx', borderRadius: '98rpx', background: mainBlue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: '#FFFFFF', fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 700 }}>保存</Text>
       </View>
     </View>

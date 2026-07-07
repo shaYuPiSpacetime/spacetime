@@ -10,8 +10,6 @@ const appConfigPath = path.join(rootDir, 'src/app.config.ts')
 
 const REQUIRED_LOGIN_DESIGNS = [
   { name: '选择脱单目标', route: '/pages/login/gender?variant=goal', variant: 'goal' },
-  { name: '游客模式', route: '/pages/login/index?variant=guest', variant: 'guest' },
-  { name: '游客模式-1', route: '/pages/login/index?variant=guest-alt', variant: 'guest-alt' },
   { name: '手机号登录-错误提示', route: '/pages/login/phone?variant=phone-error', variant: 'phone-error' },
 ]
 
@@ -51,19 +49,6 @@ const SOURCE_EVIDENCE = [
       '见面便好',
       "borderRadius: '48rpx'",
       "borderRadius: '98rpx'",
-    ],
-  },
-  {
-    label: '登录游客模式',
-    route: '/pages/login/index',
-    snippets: [
-      'GuestModePanel',
-      "variant === 'guest'",
-      "variant === 'guest-alt'",
-      'loginDemo.guestMode',
-      "borderRadius: '98rpx'",
-      "borderRadius: '58rpx'",
-      "borderRadius: '48rpx'",
     ],
   },
   {
@@ -158,9 +143,6 @@ const SOURCE_EVIDENCE = [
       "variant === 'delete'",
       "borderRadius: '64rpx 64rpx 0 0'",
       "borderRadius: '98rpx'",
-      '录制中',
-      '退出录音',
-      '录制完成',
     ],
   },
 ]
@@ -245,6 +227,10 @@ assertCoverage(data, 'verification', REQUIRED_VOICE_DESIGNS)
 assert.ok(data.login?.guestMode?.variants?.guest, 'login.guestMode.variants.guest 缺失')
 assert.ok(data.login?.guestMode?.variants?.['guest-alt'], 'login.guestMode.variants.guest-alt 缺失')
 assert.ok(data.login?.phoneLogin?.errorText, 'login.phoneLogin.errorText 缺失')
+const loginIndexSource = fs.readFileSync(sourcePathForRoute('/pages/login/index'), 'utf8')
+assert.ok(!loginIndexSource.includes('GuestModePanel'), '登录页禁止恢复游客模式入口组件')
+assert.ok(!loginIndexSource.includes("variant === 'guest'"), '登录页禁止恢复游客模式 variant')
+assert.ok(!loginIndexSource.includes("variant === 'guest-alt'"), '登录页禁止恢复游客模式二次 variant')
 assert.ok(data.profile?.preview?.ctaText, 'profile.preview.ctaText 缺失')
 assert.ok(data.profile?.editProfile?.basicFields?.length > 0, 'profile.editProfile.basicFields 缺失')
 assert.ok(data.profile?.editProfile?.favoriteSongs?.options?.length > 0, 'profile.editProfile.favoriteSongs.options 缺失')
@@ -254,6 +240,9 @@ assert.ok(data.profile?.editProfile?.aboutTopics?.length > 0, 'profile.editProfi
 assert.ok(data.profile?.editProfile?.relationshipStatus?.options?.length > 0, 'profile.editProfile.relationshipStatus.options 缺失')
 assert.ok(data.profile?.editProfile?.voiceIntro?.deleteConfirmText, 'profile.editProfile.voiceIntro.deleteConfirmText 缺失')
 assert.ok(data.profile?.editProfile?.voiceIntro?.states?.complete?.duration, 'profile.editProfile.voiceIntro.states.complete.duration 缺失')
+assert.equal(data.profile?.editProfile?.voiceIntro?.states?.recording?.title, '录制中', '语音录制中状态文案缺失')
+assert.equal(data.profile?.editProfile?.voiceIntro?.states?.exit?.title, '退出录音', '语音退出录音状态文案缺失')
+assert.equal(data.profile?.editProfile?.voiceIntro?.states?.complete?.title, '录制完成', '语音录制完成状态文案缺失')
 
 assertSourceEvidence()
 

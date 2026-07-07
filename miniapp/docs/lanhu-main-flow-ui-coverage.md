@@ -38,7 +38,13 @@
 | 我的 | 我的 | `/pages/profile/index?variant=none` | 资料、统计、VIP 入口、成家币入口、菜单入口。 | 我的背景、VIP 条、功能卡、菜单图标 |
 | 我的 | 我的会员开通状态 | `/pages/profile/index?variant=active` | VIP 条显示生效中；点击进会员已开通态。 | 我的背景、VIP 条、功能卡、菜单图标 |
 | 我的 | 我的会员已过期状态 | `/pages/profile/index?variant=expired` | VIP 条显示已过期；点击进会员过期态。 | 我的背景、VIP 条、功能卡、菜单图标 |
-| 我的 | 我的标签 | `/pages/profile/edit` | 编辑资料页保存后返回我的页。 | 我的页同组 profile 资产 |
+| 我的 | 编辑资料-资料填写 | `/pages/profile/edit` | 启动验收页；只展示入口和摘要，按钮跳真实子页面。 | 我的页同组 profile 资产 |
+| 我的 | 自我介绍 | `/pages/profile-edit/intro` | 独立文字编辑页，保存后返回编辑资料。 | 代码绘制 |
+| 我的 | 我的标签 | `/pages/profile-edit/tags` | 独立标签页，标签分组可点击选择。 | 代码绘制 |
+| 我的 | 关于我 | `/pages/profile-edit/about` | 关于我条目列表；具体条目走 topic 页面。 | 代码绘制 |
+| 我的 | 见面便好（样式复用） | `/pages/profile-edit/about?topic=meet` | 关于我条目的编辑态复用页面。 | 代码绘制 |
+| 我的 | 爱听的歌曲 | `/pages/profile-edit/songs` | 独立歌曲选择页，添加成功态走 `variant=added`。 | 代码绘制 |
+| 我的 | 语音介绍 | `/pages/profile-edit/voice?variant=voice` | 语音介绍状态页承载录制、播放、完成、退出、删除等蓝湖状态。 | 代码绘制 |
 
 执行命令：
 
@@ -53,4 +59,5 @@ node scripts/validate-lanhu-demo-data.mjs
 
 - 主闭环页面只消费 `lanhuDemo` service 或现有 hook，后续对接接口时替换 service/hook 内部实现。
 - 支付相关当前为 mock 成功/提示闭环，不把微信系统支付页作为本轮必须 1:1 页面。
+- 编辑资料关联页必须走 `pages/profile-edit` 分包；不得把自我介绍、我的标签、关于我、爱听歌曲、语音介绍塞回编辑资料页的临时弹窗或聚合 variant。
 - 其余 91 张蓝湖稿仍保留在 `lanhuDemo.json` manifest，后续按模块继续从 `ready/todo` 推进到 `implemented`。

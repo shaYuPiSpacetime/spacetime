@@ -72,6 +72,28 @@ export interface LanhuUiDesignCoverageItem {
   description: string
 }
 
+export interface LanhuVoiceState {
+  title: string
+  desc: string
+  buttonText?: string
+  timer?: string
+  duration?: string
+}
+
+export interface LanhuVoiceIntro {
+  title: string
+  subtitle?: string
+  duration?: string
+  statusText?: string
+  deleteText?: string
+  deleteTitle?: string
+  deleteContent?: string
+  deleteConfirmText?: string
+  deleteCancelText?: string
+  successText?: string
+  states?: Record<string, LanhuVoiceState>
+}
+
 export interface VerificationDemoData {
   uiDesigns: LanhuUiDesignCoverageItem[]
   introTitle: string
@@ -90,6 +112,7 @@ export interface VerificationDemoData {
   }
   introDefaultText: string
   basicInfoLabels: string[]
+  voiceIntro: LanhuVoiceIntro
 }
 
 export interface MembershipDemoData {
@@ -129,6 +152,56 @@ export interface ProfileDemoData {
   zodiac: string
   isVerified: boolean
   verifiedLabels: string[]
+  preview: {
+    title: string
+    subtitle: string
+    ctaText: string
+    chips: string[]
+  }
+  editProfile: {
+    title: string
+    profileTitle: string
+    basicFields: Array<{
+      label: string
+      value: string
+    }>
+    datingGoal: {
+      title: string
+      current: string
+      options: string[]
+    }
+    relationshipStatus: {
+      title: string
+      current: string
+      options: string[]
+    }
+    intro: {
+      title: string
+      placeholder: string
+      value: string
+      limitText: string
+    }
+    favoriteSongs: {
+      title: string
+      addText: string
+      selected: string[]
+      options: string[]
+      successText: string
+    }
+    aboutMe: {
+      title: string
+      placeholder: string
+      value: string
+      limitText: string
+    }
+    aboutTopics: Array<{
+      key: string
+      title: string
+      placeholder: string
+      value: string
+    }>
+    voiceIntro: LanhuVoiceIntro
+  }
   defaultSelectedTags: string[]
   tagGroups: Array<{
     title: string

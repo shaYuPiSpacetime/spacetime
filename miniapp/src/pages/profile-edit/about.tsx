@@ -25,6 +25,7 @@ const pageBackground =
 export default function ProfileEditAboutPage() {
   const router = useRouter()
   const topic = String(router.params.topic || '')
+  const isTopicList = topic === ''
   const topics = profileDemo.editProfile.aboutTopics
   const activeTopic = topics.find((item) => item.key === topic) || topics[0]
   const [value, setValue] = useState(activeTopic?.value || '')
@@ -38,7 +39,7 @@ export default function ProfileEditAboutPage() {
     setTimeout(handleBack, 500)
   }
 
-  if (!topic) {
+  if (isTopicList) {
     return (
       <View style={{ minHeight: '100vh', background: pageBackground }}>
         <ProfileEditSubNav title="关于我" onBack={handleBack} />

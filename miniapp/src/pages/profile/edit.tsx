@@ -210,7 +210,12 @@ export default function ProfileEditPage() {
           <AboutDetailSection
             items={editProfileDemo.aboutTopics || []}
             onAdd={() => handleProfileAction('关于我', '/pages/profile-edit/about')}
-            onFill={(key) => handleProfileAction('关于我', `/pages/profile-edit/about?topic=${key}`)}
+            onFill={(key) =>
+              handleProfileAction(
+                '关于我',
+                key === 'meet' ? '/pages/profile-edit/about?topic=meet' : `/pages/profile-edit/about?topic=${key}`
+              )
+            }
           />
           <SongSection song="告白气球丨周杰伦" onSwitch={() => handleProfileAction('爱听的歌曲', '/pages/profile-edit/songs')} />
           <WechatSection value={wechat} onInput={setWechat} />
