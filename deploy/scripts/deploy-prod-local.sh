@@ -91,23 +91,6 @@ pull_nginx() {
   docker pull "$NGINX_IMAGE"
 }
 
-run_migrations() {
-  log "执行生产数据库迁移"
-  shopt -s nullglob
-  local sql_files=("$ROOT_DIR"/deploy/sql/prod/*.sql)
-  if [ "${#sql_files[@]}" -eq 0 ]; then
-    log "未发现生产 SQL，跳过迁移"
-    return
-  fi
-  for sql_file in "${sql_files[@]}"; do
-    log "执行 $(basename "$sql_file")"
-    docker run --rm -i \
-      -e MYSQL_PWD="$DB_PASSWORD" \
-      mysql:8.4 \
-      mysql -h"$DB_HOST" -P"${DB_PORT:-3306}" -u"$DB_USER" "$DB_NAME" < "$sql_file"
-  done
-}
-
 wait_backend() {
   log "等待后端健康检查"
   for _ in $(seq 1 60); do
@@ -170,7 +153,7 @@ restart_nginx() {
 
 deploy_backend() {
   pull_backend
-  run_migrations
+  log "跳过数据库迁移，生产迁移请手动执行 scripts/migrate-prod-db.sh"
   restart_backend
   pull_nginx
   restart_nginx

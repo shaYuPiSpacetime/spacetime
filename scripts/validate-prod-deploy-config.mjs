@@ -165,12 +165,27 @@ for (const expected of [
   'docker pull "$ADMIN_IMAGE"',
   'docker pull "$BACKEND_IMAGE"',
   'docker run -d',
-  'deploy/sql/prod/*.sql',
   'docker login "$ALIYUN_CR_REGISTRY"',
+  '跳过数据库迁移',
 ]) {
   assertIncludes(deployScript, expected, 'deploy/scripts/deploy-prod-local.sh');
 }
 assertNotIncludes(deployScript, 'secrets.', 'deploy/scripts/deploy-prod-local.sh');
+assertNotIncludes(deployScript, 'mysql:8.4', 'deploy/scripts/deploy-prod-local.sh');
+
+const migrateScript = read('deploy/scripts/migrate-prod-db.sh');
+for (const expected of [
+  'SPACETIME_PROD_ENV_FILE',
+  'mysql_client',
+  'CREATE DATABASE IF NOT EXISTS',
+  'deploy/sql/prod/*.sql',
+  'MYSQL_PWD="$DB_PASSWORD"',
+  '--default-character-set=utf8mb4',
+]) {
+  assertIncludes(migrateScript, expected, 'deploy/scripts/migrate-prod-db.sh');
+}
+assertNotIncludes(migrateScript, 'docker run', 'deploy/scripts/migrate-prod-db.sh');
+assertNotIncludes(migrateScript, 'mysql:8.4', 'deploy/scripts/migrate-prod-db.sh');
 
 read('backend/Dockerfile');
 read('frontend/Dockerfile');
