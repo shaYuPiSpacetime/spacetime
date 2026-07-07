@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>移动端 Demo - 推荐模块</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html"><span class="brand-mark">APP</span><span>移动端推荐模块 Demo</span></a>
+      <div class="top-actions"><a class="btn" href="index.html">总览</a><a class="btn" href="admin.html">管理后台</a></div>
+    </header>
+
+    <main class="layout">
+      <aside class="side-nav" aria-label="移动端页面导航">
+        <h2>成家社区</h2>
+        <a href="#APP-05-PAGE-community-following">关注信息流</a>
+        <a href="#APP-05-PAGE-community-city">同城信息流</a>
+        <a href="#APP-05-PAGE-community-hot">热门信息流</a>
+        <a href="#APP-05-PAGE-topic-list">话题列表</a>
+        <a href="#APP-05-PAGE-topic-detail">话题详情</a>
+        <a href="#APP-05-PAGE-post-publish">发布动态</a>
+        <a href="#APP-05-PAGE-post-detail">动态详情</a>
+        <h3>互动与知音</h3>
+        <a href="#APP-05-PAGE-report-modal">举报弹窗</a>
+        <a href="#APP-05-PAGE-yuemu">悦目</a>
+        <a href="#APP-05-PAGE-sincere-list">诚意贴列表</a>
+        <a href="#APP-05-PAGE-user-posts">个人动态区</a>
+        <a href="#APP-05-PAGE-community-greeting">社区打招呼</a>
+        <a href="#APP-05-PAGE-community-private-entry">社区发私信</a>
+        <a href="#APP-05-PAGE-community-more-actions">更多操作</a>
+      </aside>
+
+      <div class="content">
+        <section class="section-band">
+          <div class="page-head">
+            <h1>移动端社区互动旅程</h1>
+            <p>使用同一组 mock 内容串联信息流、话题、发布、详情、举报、悦目、诚意贴和社区触达入口。</p>
+          </div>
+          <div class="section-body">
+            <div class="summary-row" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+              <div class="metric"><strong>已登录</strong><span>浏览与举报</span></div>
+              <div class="metric"><strong>已认证</strong><span>发布和互动</span></div>
+              <div class="metric"><strong>180</strong><span>千寻币余额</span></div>
+              <div class="metric"><strong>1 次</strong><span>免费悄悄话</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-community-following">
+          <div class="page-head"><h2>APP-05-PAGE-community-following 成家关注信息流页</h2><p>展示已关注用户公开动态，空态引导去热门浏览。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:41</span><span>成家 · 关注</span></div><div class="phone-screen"><div class="mini-tabs"><button class="is-active" data-feed-tab="关注">关注</button><button data-feed-tab="同城">同城</button><button data-feed-tab="热门">热门</button><button data-jump="#APP-05-PAGE-topic-list">话题</button></div><div data-render="feed"></div></div></article>
+            <article class="mini-panel"><h3>页面状态</h3><ul class="check-list"><li><span>无关注内容</span><strong>展示热门入口</strong></li><li><span>取消关注</span><strong>刷新后减少该作者内容</strong></li><li><span>内容下架</span><strong>列表移除</strong></li></ul></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-community-city">
+          <div class="page-head"><h2>APP-05-PAGE-community-city 成家同城信息流页</h2><p>优先使用资料城市或手动选择城市，不依赖 GPS 强授权。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:42</span><span>成家 · 同城</span></div><div class="phone-screen"><div class="notice"><strong>杭州</strong> 可手动切换城市，拒绝定位时保留默认城市。</div><div class="mini-tabs"><button data-feed-tab="关注">关注</button><button class="is-active" data-feed-tab="同城">同城</button><button data-feed-tab="热门">热门</button></div><div data-render="feed"></div></div></article>
+            <article class="mini-panel"><h3>降级口径</h3><p>城市来源缺失时展示默认城市和手动选择入口；城市无内容展示空态。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-community-hot">
+          <div class="page-head"><h2>APP-05-PAGE-community-hot 成家热门信息流页</h2><p>热门页承接 MVP-PAGE-003，并在页内展示 MVP-PAGE-004 家园话题入口区。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:43</span><span>成家 · 热门</span></div><div class="phone-screen"><div data-render="hot-topic-entry"></div><div class="mini-tabs"><button data-feed-tab="关注">关注</button><button data-feed-tab="同城">同城</button><button class="is-active" data-feed-tab="热门">热门</button></div><div data-render="feed"></div></div></article>
+            <article class="mini-panel"><h3>排序与联动</h3><ul class="check-list"><li><span>热度排序</span><strong>服务端返回</strong></li><li><span>点赞成功</span><strong>热度延迟刷新</strong></li><li><span>评论屏蔽</span><strong>刷新后更新评论数</strong></li></ul></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-topic-list">
+          <div class="page-head"><h2>APP-05-PAGE-topic-list 话题列表页</h2><p>独立对应 MVP-PAGE-008，话题来自后台启用字典。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:44</span><span>话题列表</span></div><div class="phone-screen"><input aria-label="搜索话题" data-topic-search placeholder="搜索话题名称"><div data-render="topics"></div></div></article>
+            <article class="mini-panel"><h3>搜索与状态</h3><p>输入防抖 300ms；话题下线后不展示新增入口，历史内容展示历史话题名。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-topic-detail">
+          <div class="page-head"><h2>APP-05-PAGE-topic-detail 话题详情页</h2><p>展示单个话题下动态和诚意贴内容，发布时自动带入当前话题。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:45</span><span>#认真找对象</span></div><div class="phone-screen"><div class="community-card"><h3>认真找对象</h3><p>长期主义、坦诚表达和稳定相处。</p><button class="btn primary full" data-jump="#APP-05-PAGE-post-publish">参与话题</button></div><div class="mini-tabs"><button data-topic-sort="热门">热门</button><button data-topic-sort="最新">最新</button></div><div data-render="topic-detail-posts"></div></div></article>
+            <article class="mini-panel"><h3>话题详情承接</h3><p>话题头保留，内容列表为空时展示“暂无相关内容”。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-post-publish">
+          <div class="page-head"><h2>APP-05-PAGE-post-publish 发布动态页</h2><p>同一发布页承接动态和诚意贴，诚意贴通过 contentType 条件表单展示标题和正文下限。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:46</span><span>发布</span></div><div class="phone-screen">
+              <div class="segmented"><button class="is-active" data-publish-type="community_post">发布动态</button><button data-publish-type="sincere_post">发布诚意贴</button></div>
+              <div class="composer">
+                <input data-sincere-only data-publish-title hidden placeholder="诚意贴标题，1-40 字">
+                <textarea data-publish-content placeholder="分享此刻。诚意贴正文不少于 20 字。">周末想去看展，也想认真认识生活节奏相近的人。</textarea>
+                <div data-render="topic-chips"></div>
+                <div data-render="upload-grid"></div>
+                <button class="btn" data-toast="已打开 @ 用户选择弹窗">选择 @ 用户</button>
+                <button class="btn primary full" data-submit-publish>提交审核</button>
+              </div>
+            </div></article>
+            <article class="mini-panel"><h3>审核口径</h3><ul class="check-list"><li><span>动态</span><strong>机审通过可公开</strong></li><li><span>诚意贴</span><strong>人工通过后公开</strong></li><li><span>联系方式命中</span><strong>阻断或驳回</strong></li></ul></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-post-detail">
+          <div class="page-head"><h2 data-detail-title>APP-05-PAGE-post-detail 动态详情页</h2><p>动态详情同时承接诚意贴视图，评论机审通过后公开。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:47</span><span>详情</span></div><div class="phone-screen"><div data-render="post-detail"></div><div class="mini-panel"><h3>评论</h3><div data-render="comments"></div><div data-render="comment-reply-target"></div><textarea placeholder="写下评论"></textarea><button class="btn primary full" data-toast="评论已提交机审">发表评论</button></div></div></article>
+            <article class="mini-panel"><h3>业务态</h3><ul class="check-list"><li><span>已公开</span><strong>正常展示</strong></li><li><span>已下架/已删除</span><strong>不可见提示</strong></li><li><span>举报入口</span><strong>进入 APP-08</strong></li></ul></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-report-modal">
+          <div class="page-head"><h2>APP-05-PAGE-report-modal 举报弹窗</h2><p>动态详情、评论操作、用户主页更多操作均可打开举报弹窗。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:48</span><span>举报</span></div><div class="phone-screen"><button class="btn danger full" data-open-modal="reportModal">打开举报弹窗</button><div class="notice">举报仅要求已登录且账号未冻结，原因字典来自后台配置。</div></div></article>
+            <article class="mini-panel"><h3>验收</h3><p>未选原因不能提交；重复举报提示已提交；提交后生成待处理举报记录。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-yuemu">
+          <div class="page-head"><h2>APP-05-PAGE-yuemu 悦目页</h2><p>图片优先双列瀑布流，使用图片原始宽高比等宽展示。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:49</span><span>悦目</span></div><div class="phone-screen"><div class="feed-toolbar"><button class="btn" data-yuemu-refresh>刷新</button><button class="btn" data-yuemu-load>加载更多</button></div><div class="yuemu-grid" data-render="yuemu"></div></div></article>
+            <article class="mini-panel"><h3>来源规则</h3><p>取公开动态第一张图片或标记为悦目的公开内容，两路合并后排序去重。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-sincere-list">
+          <div class="page-head"><h2>APP-05-PAGE-sincere-list 诚意贴列表页</h2><p>列表点击进入动态详情页诚意贴视图，发布入口带入 contentType=sincere_post。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:50</span><span>诚意贴</span></div><div class="phone-screen"><button class="btn primary full" data-jump="#APP-05-PAGE-post-publish">发布诚意贴</button><div class="mini-tabs"><button data-sincere-sort="热门">热门</button><button data-sincere-sort="最新">最新</button></div><div data-render="sincere"></div><button class="btn full" data-toast="已加载下一页诚意贴">加载更多</button></div></article>
+            <article class="mini-panel"><h3>字段</h3><p>列表展示话题、标题、摘要、作者头像、作者、点赞数、评论数和发布时间。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-user-posts">
+          <div class="page-head"><h2>APP-05-PAGE-user-posts 个人动态区</h2><p>本人视图展示审核态和删除；他人视图仅展示已公开内容。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:51</span><span>个人动态</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span class="avatar">周</span><div><strong>周予安</strong><div class="helper">18 条动态 · 风险状态正常</div></div></div></div><div class="segmented"><button data-user-post-view="owner">本人</button><button data-user-post-view="other">他人</button></div><div data-render="user-posts"></div></div></article>
+            <article class="mini-panel"><h3>视图区分</h3><ul class="check-list"><li><span>本人</span><strong>可看审核中/驳回</strong></li><li><span>他人</span><strong>仅公开内容</strong></li></ul></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-community-greeting">
+          <div class="page-head"><h2>APP-05-PAGE-community-greeting 社区打招呼页</h2><p>从社区内容或用户卡片发起悄悄话破冰，发送资格引用 PRD-03。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:52</span><span>打招呼</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span class="avatar">周</span><div><strong>给周予安打招呼</strong><div class="helper">来源：动态 P-240701</div></div></div></div><div class="composer"><div data-render="greeting-templates"></div><textarea data-greeting-content></textarea><div data-render="greeting-cost"></div><button class="btn primary full" data-open-modal="greetingConfirmModal">发送悄悄话</button></div></div></article>
+            <article class="mini-panel"><h3>引用规则</h3><p>同一对象已有待回复悄悄话时展示等待态，不重复发送。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-community-private-entry">
+          <div class="page-head"><h2>APP-05-PAGE-community-private-entry 社区发私信页</h2><p>按 PRD-03 普通私信开放规则判断，未匹配成功时提供打招呼入口。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:53</span><span>发私信</span></div><div class="phone-screen"><div class="mini-tabs"><button data-private-state="not_matched">未匹配</button><button data-private-state="can_chat">可聊天</button><button data-private-state="protected">保护期</button><button data-private-state="invalid">失效</button></div><div data-render="private-entry"></div></div></article>
+            <article class="mini-panel"><h3>异常</h3><p>目标用户不可见、会话失效、女性保护等原因由 PRD-03 返回，本页展示原因。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-community-more-actions">
+          <div class="page-head"><h2>APP-05-PAGE-community-more-actions 社区更多操作弹窗</h2><p>统一承接举报、屏蔽当前内容、复制链接、打招呼和发私信。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:54</span><span>更多操作</span></div><div class="phone-screen"><div class="segmented"><button data-more-target-type="post">内容</button><button data-more-target-type="comment">评论</button><button data-more-target-type="user">用户</button></div><button class="btn full" data-open-modal="moreActionsModal">打开更多操作</button><div class="notice">屏蔽成功后 toast 提供 3 秒撤销，当前反馈内闭环。</div><button class="btn" data-undo-hide>撤销最近一次屏蔽</button></div></article>
+            <article class="mini-panel"><h3>对象类型</h3><ul class="check-list"><li><span>post</span><strong>举报/屏蔽/复制</strong></li><li><span>comment</span><strong>举报/复制</strong></li><li><span>user</span><strong>打招呼/发私信/举报</strong></li></ul></article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="reportModal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>举报原因</h2>
+      <div class="filter-pills" data-render="report-reasons"></div>
+      <textarea placeholder="补充说明，0-300 字"></textarea>
+      <div class="notice">重复举报会提示已提交，并合并到原举报记录。</div>
+      <div class="admin-actions"><button class="btn" data-close-surface>取消</button><button class="btn danger" data-submit-report>提交举报</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="moreActionsModal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>更多操作</h2>
+      <div data-render="more-actions"></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="imagePreviewModal" aria-hidden="true">
+    <div class="modal-card preview-card" data-render="image-preview"></div>
+  </div>
+
+  <div class="modal-backdrop" id="greetingConfirmModal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>确认发送悄悄话</h2>
+      <p>将优先使用免费次数；若免费次数不足，则按 PRD-03/PRD-04 规则扣减千寻币。</p>
+      <div class="admin-actions"><button class="btn" data-close-surface>取消</button><button class="btn primary" data-confirm-greeting>确认发送</button></div>
+    </div>
+  </div>
+
+  <script src="../../shared/demo-common.js"></script>
+  <script src="mock/demo-data.js"></script>
+  <script src="assets/demo.js"></script>
+</body>
+</html>

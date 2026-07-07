@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>管理后台 Demo - 内容与动态管理</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="../../shared/admin.css">
+  <link rel="stylesheet" href="assets/demo.css">
+  <link rel="stylesheet" href="../../shared/admin-state.css">
+</head>
+<body class="admin-demo">
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html"><span class="brand-mark">ADM</span><span>内容与动态管理后台</span></a>
+      <div class="top-actions"><a class="btn" href="index.html">总览</a><a class="btn" href="miniapp.html">移动端</a></div>
+    </header>
+
+    <main class="admin-shell">
+      <nav class="admin-nav" aria-label="后台页面导航">
+        <div class="admin-brand-panel"><strong>内容与动态管理</strong><span>管理后台 / ADM-05 / 一期社区治理</span></div>
+        <a href="#ADM-05-PAGE-content-manage">内容与动态管理 / 内容管理</a>
+        <a href="#ADM-05-PAGE-moment-manage">内容与动态管理 / 动态管理</a>
+        <a href="#ADM-05-PAGE-comment-audit">内容与动态管理 / 评论管理</a>
+        <a href="#ADM-05-PAGE-report-handle">内容与动态管理 / 举报管理</a>
+        <a href="#ADM-05-PAGE-topic-manage">内容与动态管理 / 家园话题管理</a>
+        <a href="#ADM-05-PAGE-community-config">内容与动态管理 / 审核规则配置</a>
+        <div class="admin-rule-card"><strong>一期口径</strong><span>本 Demo 仅展示内容管理、动态管理、评论管理、举报管理、家园话题管理和审核规则配置。</span></div>
+      </nav>
+
+      <div class="admin-content content">
+        <section class="section-band admin-page" id="ADM-05-PAGE-content-manage" data-admin-page>
+          <div class="admin-page-inner">
+            <div class="admin-page-header">
+              <div><h1>内容管理</h1><p>统一治理社区内容，覆盖普通动态和诚意贴，重点查看内容类型、所属模块、机审、风险和审核状态。</p></div>
+              <div class="admin-actions"><button class="btn" data-toast="筛选条件已重置">重置</button><button class="btn primary" data-toast="已按当前筛选查询">查询</button></div>
+            </div>
+            <div class="admin-menu-strip" aria-label="内容与动态管理菜单">
+              <button type="button" class="is-active">内容管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-moment-manage">动态管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-comment-audit">评论管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-report-handle">举报管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-topic-manage">家园话题管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-community-config">审核规则配置</button>
+            </div>
+            <div class="admin-summary-grid">
+              <article class="stat-card"><span>待人工复核</span><strong>24</strong></article>
+              <article class="stat-card"><span>机审异常</span><strong>6</strong></article>
+              <article class="stat-card"><span>诚意贴待审</span><strong>9</strong></article>
+              <article class="stat-card"><span>联系方式命中</span><strong>3</strong></article>
+            </div>
+            <div class="query-panel"><h2>筛选区</h2><div class="query-grid"><label class="control-field">关键词<input value="良渚 / 诚意贴"></label><label class="control-field">用户 ID<input value="U10021"></label><label class="control-field">内容类型<select><option>全部</option><option>动态</option><option>诚意贴</option></select></label><label class="control-field">媒体类型<select><option>全部</option><option>图文</option><option>图片</option><option>纯文字</option></select></label><label class="control-field">内容状态<select><option>待人工复核</option><option>已公开</option><option>已驳回</option><option>已下架</option></select></label><label class="control-field">机审结果<select><option>全部</option><option>通过</option><option>不确定</option><option>不通过</option></select></label><label class="control-field">开始日期<input type="date" value="2026-07-01"></label><label class="control-field">结束日期<input type="date" value="2026-07-07"></label></div></div>
+            <div class="table-wrap"><table><thead><tr><th>审核编号</th><th>内容 ID</th><th>内容类型</th><th>所属模块</th><th>标题/摘要</th><th>用户 ID/昵称</th><th>提交时间</th><th>机审/风险</th><th>状态/违规标签</th><th>操作</th></tr></thead><tbody data-render="content-manage"></tbody></table></div>
+            <div class="pagination"><span>默认 20 条/页</span><button class="btn" disabled>上一页</button><button class="btn primary">1</button><button class="btn" data-toast="已切换下一页">下一页</button></div>
+          </div>
+        </section>
+
+        <section class="section-band admin-page" id="ADM-05-PAGE-moment-manage" data-admin-page>
+          <div class="admin-page-inner">
+            <div class="admin-page-header">
+              <div><h1>动态管理</h1><p>只管理普通动态流，重点查看媒体类型、同城/热门/关注分发、互动量和展示状态。</p></div>
+              <div class="admin-actions"><button class="btn" data-toast="动态筛选条件已重置">重置</button><button class="btn primary" data-toast="已按当前筛选查询动态">查询</button></div>
+            </div>
+            <div class="admin-menu-strip" aria-label="内容与动态管理菜单">
+              <button type="button" data-jump="#ADM-05-PAGE-content-manage">内容管理</button>
+              <button type="button" class="is-active">动态管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-comment-audit">评论管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-report-handle">举报管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-topic-manage">家园话题管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-community-config">审核规则配置</button>
+            </div>
+            <div class="admin-summary-grid">
+              <article class="stat-card"><span>今日动态</span><strong>87</strong></article>
+              <article class="stat-card"><span>同城展示</span><strong>42</strong></article>
+              <article class="stat-card"><span>热门入池</span><strong>15</strong></article>
+              <article class="stat-card"><span>被举报动态</span><strong>4</strong></article>
+            </div>
+            <div class="query-panel"><h2>筛选区</h2><div class="query-grid"><label class="control-field">关键词<input value="良渚 / 咖啡"></label><label class="control-field">用户 ID<input value="U10021"></label><label class="control-field">媒体类型<select><option>全部</option><option>图文</option><option>图片</option><option>纯文字</option></select></label><label class="control-field">分发场景<select><option>全部</option><option>关注</option><option>同城</option><option>热门</option></select></label><label class="control-field">展示状态<select><option>已公开</option><option>待人工复核</option><option>已下架</option></select></label><label class="control-field">是否被举报<select><option>全部</option><option>是</option><option>否</option></select></label><label class="control-field">开始日期<input type="date" value="2026-07-01"></label><label class="control-field">结束日期<input type="date" value="2026-07-07"></label></div></div>
+            <div class="table-wrap"><table><thead><tr><th>动态 ID</th><th>分发场景</th><th>媒体类型</th><th>内容预览</th><th>用户 ID/昵称</th><th>发布时间</th><th>阅读/赞/评</th><th>展示状态</th><th>风险</th><th>操作</th></tr></thead><tbody data-render="moment-manage"></tbody></table></div>
+            <div class="pagination"><span>默认 20 条/页</span><button class="btn" disabled>上一页</button><button class="btn primary">1</button><button class="btn" data-toast="已切换下一页">下一页</button></div>
+          </div>
+        </section>
+
+        <section class="section-band admin-page" id="ADM-05-PAGE-comment-audit" data-admin-page>
+          <div class="admin-page-inner">
+            <div class="admin-page-header">
+              <div><h1>评论管理</h1><p>查询评论/回复，外层列表仅进入详情；屏蔽、恢复、复核等处理动作在详情抽屉内完成。</p></div>
+              <button class="btn primary" data-toast="评论管理列表已刷新">刷新</button>
+            </div>
+            <div class="query-panel"><h2>筛选区</h2><div class="query-grid"><label class="control-field">评论内容<input value="咖啡"></label><label class="control-field">评论状态<select><option>全部</option><option>已公开</option><option>已屏蔽</option></select></label><label class="control-field">作者<input value="林浅"></label><label class="control-field">评论时间<input type="date" value="2026-07-06"></label></div></div>
+            <div class="table-wrap"><table><thead><tr><th>评论编号</th><th>归属内容</th><th>用户信息</th><th>评论内容</th><th>发布时间</th><th>点赞/举报</th><th>状态</th><th>操作</th></tr></thead><tbody data-render="comment-audits"></tbody></table></div>
+            <div class="pagination"><span>默认 20 条/页</span><button class="btn primary">1</button><button class="btn" data-toast="已切换下一页">下一页</button></div>
+          </div>
+        </section>
+
+        <section class="section-band admin-page" id="ADM-05-PAGE-report-handle" data-admin-page>
+          <div class="admin-page-inner">
+            <div class="admin-page-header">
+              <div><h1>举报管理</h1><p>处理内容、评论、用户和聊天来源举报，支持处罚动作和结果通知。</p></div>
+              <button class="btn primary" data-toast="举报处理导出任务已创建">导出</button>
+            </div>
+            <div class="admin-summary-grid">
+              <article class="stat-card"><span>待处理</span><strong>18</strong></article>
+              <article class="stat-card"><span>处理中</span><strong>7</strong></article>
+              <article class="stat-card"><span>今日成立</span><strong>5</strong></article>
+              <article class="stat-card"><span>重复合并</span><strong>3</strong></article>
+            </div>
+            <div class="query-panel"><h2>筛选区</h2><div class="query-grid"><label class="control-field">举报编号<input value="RPT-0501"></label><label class="control-field">举报对象<select><option>全部</option><option>动态/诚意贴</option><option>评论</option><option>用户</option><option>聊天</option></select></label><label class="control-field">处理状态<select><option>全部</option><option>待处理</option><option>处理中</option><option>举报成立</option></select></label><label class="control-field">举报原因<select><option>联系方式</option><option>攻击辱骂</option><option>广告引流</option></select></label></div></div>
+            <div class="table-wrap"><table><thead><tr><th>举报编号</th><th>类型/对象</th><th>举报人</th><th>被举报人</th><th>原因</th><th>状态</th><th>回复</th><th>时间</th><th>操作</th></tr></thead><tbody data-render="reports"></tbody></table></div>
+            <div class="pagination"><span>默认 20 条/页</span><button class="btn primary">1</button><button class="btn" data-toast="已切换下一页">下一页</button></div>
+          </div>
+        </section>
+
+        <section class="section-band admin-page" id="ADM-05-PAGE-topic-manage" data-admin-page>
+          <div class="admin-page-inner">
+            <div class="admin-page-header">
+              <div><h1>家园话题管理</h1><p>维护移动端家园话题入口、话题列表和发布页话题选择，支持排序、推荐标记、启停和详情抽屉编辑。</p></div>
+              <div class="admin-actions"><button class="btn" data-toast="家园话题列表已刷新">刷新</button><button class="btn primary" data-open-drawer="topicDrawer">新增话题</button></div>
+            </div>
+            <div class="admin-menu-strip" aria-label="内容与动态管理菜单">
+              <button type="button" data-jump="#ADM-05-PAGE-content-manage">内容管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-moment-manage">动态管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-comment-audit">评论管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-report-handle">举报管理</button>
+              <button type="button" class="is-active">家园话题管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-community-config">审核规则配置</button>
+            </div>
+            <div class="admin-summary-grid">
+              <article class="stat-card"><span>启用话题</span><strong>4</strong></article>
+              <article class="stat-card"><span>推荐入口</span><strong>3</strong></article>
+              <article class="stat-card"><span>关联内容</span><strong>364</strong></article>
+              <article class="stat-card"><span>停用话题</span><strong>1</strong></article>
+            </div>
+            <div class="query-panel"><h2>筛选区</h2><div class="query-grid"><label class="control-field">关键词<input value="周末 / 认真"></label><label class="control-field">状态<select><option>全部</option><option>启用</option><option>停用</option></select></label><label class="control-field">是否推荐<select><option>全部</option><option>是</option><option>否</option></select></label><label class="control-field">更新时间<input type="date" value="2026-07-06"></label></div></div>
+            <div class="table-wrap"><table><thead><tr><th>话题编码</th><th>封面</th><th>名称/简介</th><th>推荐</th><th>内容/热度</th><th>排序</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody data-render="topic-manage"></tbody></table></div>
+            <div class="notice"><strong>页面定位</strong>本页维护家园话题字典和展示配置，承接热门页话题入口、话题列表和发布页话题选择。</div>
+            <div class="pagination"><span>默认 20 条/页</span><button class="btn" disabled>上一页</button><button class="btn primary">1</button><button class="btn" data-toast="已切换下一页">下一页</button></div>
+          </div>
+        </section>
+
+        <section class="section-band admin-page" id="ADM-05-PAGE-community-config" data-admin-page>
+          <div class="admin-page-inner">
+            <div class="admin-page-header">
+              <div><h1>审核规则配置 / 社区配置</h1><p>维护社区 Tab、举报原因、联系方式开关、机审、抽检比例和审核规则；家园话题由独立页面管理。</p></div>
+              <button class="btn primary" data-open-modal="configSaveModal">保存配置</button>
+            </div>
+            <div class="admin-menu-strip" aria-label="内容与动态管理菜单">
+              <button type="button" data-jump="#ADM-05-PAGE-content-manage">内容管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-moment-manage">动态管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-comment-audit">评论管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-report-handle">举报管理</button>
+              <button type="button" data-jump="#ADM-05-PAGE-topic-manage">家园话题管理</button>
+              <button type="button" class="is-active">审核规则配置</button>
+            </div>
+            <div class="page-grid" data-render="config"></div>
+            <div class="query-panel">
+              <h2>配置项</h2>
+              <div class="query-grid">
+                <label class="control-field">动态/诚意贴图片上限<input type="number" value="9"></label>
+                <label class="control-field">诚意贴正文下限<input type="number" value="20"></label>
+                <label class="control-field">联系方式开关<select><option>默认不允许</option><option>允许</option></select></label>
+                <label class="control-field">动态抽检比例<input value="10%"></label>
+              </div>
+              <div class="rule-table">
+                <div class="rule-row rule-head"><span>规则名称</span><span>识别码</span><span>触发条件</span><span>处理动作</span><span>状态</span></div>
+                <div class="rule-row"><span>联系方式识别</span><span>contact_detect</span><span>命中微信/手机号/二维码</span><span>人工审核</span><span>启用</span></div>
+                <div class="rule-row"><span>广告引流检测</span><span>ad_detection</span><span>广告关键词或异常链接</span><span>驳回/下架</span><span>启用</span></div>
+                <div class="rule-row"><span>图片安全抽检</span><span>image_sample</span><span>动态图片抽检 10%</span><span>人工复核</span><span>启用</span></div>
+              </div>
+              <div class="notice"><strong>机审关闭降级</strong>动态、诚意贴和图片提交后进入人工复核；评论提交提示稍后重试。</div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="auditDrawer" aria-hidden="true">
+    <div class="drawer-card">
+      <h2>内容详情</h2>
+      <div class="admin-detail-tabs"><span>内容详情</span><span class="is-active">操作日志</span></div>
+      <div class="detail-grid">
+        <div><span>内容 ID</span><strong>P-240703</strong></div>
+        <div><span>作者</span><strong>U2088 / 沈澈</strong></div>
+        <div><span>所属模块</span><strong>知音 / 诚意贴</strong></div>
+        <div><span>风险等级</span><strong>低风险</strong></div>
+        <div><span>阅读/赞/评</span><strong>804 / 142 / 31</strong></div>
+      </div>
+      <div class="audit-preview">
+        <h3>正文全文</h3>
+        <p>我在上海做产品，平时喜欢做饭、看纪录片和短途旅行。希望关系里能坦诚表达，也能给彼此空间。</p>
+      </div>
+      <div class="audit-preview">
+        <h3>操作日志</h3>
+        <div class="audit-log-timeline">
+          <div class="audit-log-item"><span class="audit-log-main"><strong>管理员admin：</strong>审核通过</span><span class="audit-log-time">2026-02-24 10:25</span></div>
+          <div class="audit-log-item"><span class="audit-log-main"><strong>系统：</strong>自动检测内容无违规</span><span class="audit-log-time">2026-02-24 10:21</span></div>
+          <div class="audit-log-item"><span class="audit-log-main"><strong>系统：</strong>内容提交审核</span><span class="audit-log-time">2026-02-24 10:20</span></div>
+        </div>
+      </div>
+      <div class="audit-preview">
+        <h3>审核操作</h3>
+        <div class="query-grid">
+          <label class="control-field">违规原因<select><option>无违规</option><option>联系方式</option><option>广告引流</option><option>攻击辱骂</option></select></label>
+          <label class="control-field">处理结果<select><option>通过审核</option><option>驳回并删除</option><option>下架内容</option><option>警告用户</option><option>禁言用户</option></select></label>
+          <label class="control-field">通知用户<select><option>是</option><option>否</option></select></label>
+          <label class="control-field">处理说明<input value="人工复核通过"></label>
+        </div>
+      </div>
+      <div class="notice">诚意贴人工通过后公开，动态机审通过后公开并进入人工抽检池。</div>
+      <button class="btn primary" data-toast="审核处理已保存">确认处理</button>
+      <button class="btn" data-close-surface>关闭</button>
+    </div>
+  </div>
+  <div class="drawer-backdrop" id="commentDrawer" aria-hidden="true">
+    <div class="drawer-card">
+      <h2>评论详情</h2>
+      <div class="admin-detail-tabs"><span>评论详情</span><span class="is-active">操作日志</span></div>
+      <div class="detail-grid">
+        <div><span>评论 ID</span><strong>C-8001</strong></div>
+        <div><span>归属内容</span><strong>动态 P-240701</strong></div>
+        <div><span>用户</span><strong>U10021 / 林浅</strong></div>
+        <div><span>点赞/举报</span><strong>12 / 0</strong></div>
+        <div><span>当前状态</span><strong>已公开</strong></div>
+      </div>
+      <div class="audit-preview">
+        <h3>评论内容</h3>
+        <p>良渚路线我也收藏了，展后咖啡可以去瓶窑那家小店。</p>
+      </div>
+      <div data-render="post-detail"></div>
+      <div class="audit-preview">
+        <h3>操作日志</h3>
+        <div class="audit-log-timeline">
+          <div class="audit-log-item"><span class="audit-log-main"><strong>管理员admin：</strong>评论保留公开</span><span class="audit-log-time">2026-02-24 10:25</span></div>
+          <div class="audit-log-item"><span class="audit-log-main"><strong>系统：</strong>自动检测评论无违规</span><span class="audit-log-time">2026-02-24 10:21</span></div>
+          <div class="audit-log-item"><span class="audit-log-main"><strong>系统：</strong>评论提交审核</span><span class="audit-log-time">2026-02-24 10:20</span></div>
+        </div>
+      </div>
+      <div class="audit-preview">
+        <h3>评论处理</h3>
+        <div class="query-grid">
+          <label class="control-field">违规原因<select><option>无违规</option><option>攻击辱骂</option><option>广告引流</option><option>联系方式</option></select></label>
+          <label class="control-field">处理结果<select><option>通过审核</option><option>驳回并删除</option><option>屏蔽评论</option><option>恢复评论</option><option>警告用户</option><option>禁言用户</option></select></label>
+          <label class="control-field">通知用户<select><option>是</option><option>否</option></select></label>
+          <label class="control-field">处理说明<input value="评论内容正常，保留公开"></label>
+        </div>
+      </div>
+      <button class="btn primary" data-toast="评论处理已保存">确认处理</button>
+      <button class="btn" data-close-surface>关闭</button>
+    </div>
+  </div>
+  <div class="drawer-backdrop" id="reportDrawer" aria-hidden="true">
+    <div class="drawer-card">
+      <h2>举报详情</h2>
+      <div class="admin-detail-tabs"><span>举报详情</span><span class="is-active">操作日志</span></div>
+      <p>选择举报是否成立、处罚动作、处理说明，并触发 PRD-03 通知。</p>
+      <div class="detail-grid">
+        <div><span>举报编号</span><strong>RPT-0501</strong></div>
+        <div><span>举报对象</span><strong>动态 P-240701</strong></div>
+        <div><span>举报人</span><strong>U10021 / 林浅</strong></div>
+        <div><span>被举报人</span><strong>U2088 / 周予安</strong></div>
+      </div>
+      <div class="audit-preview">
+        <h3>操作日志</h3>
+        <div class="audit-log-timeline">
+          <div class="audit-log-item"><span class="audit-log-main"><strong>管理员admin：</strong>举报处理保存</span><span class="audit-log-time">2026-02-24 10:35</span></div>
+          <div class="audit-log-item"><span class="audit-log-main"><strong>系统：</strong>举报进入待处理</span><span class="audit-log-time">2026-02-24 10:31</span></div>
+          <div class="audit-log-item"><span class="audit-log-main"><strong>用户：</strong>提交举报</span><span class="audit-log-time">2026-02-24 10:30</span></div>
+        </div>
+      </div>
+      <div class="query-grid">
+        <label class="control-field">处理结论<select><option>举报成立</option><option>举报不成立</option><option>合并重复举报</option></select></label>
+        <label class="control-field">处罚动作<select><option>下架内容</option><option>屏蔽评论</option><option>警告用户</option><option>禁言用户</option></select></label>
+        <label class="control-field">处理说明<textarea>确认后同步通知举报人和被举报人。</textarea></label>
+        <label class="control-field">回复举报人<select><option>发送处理结果</option><option>不发送</option></select></label>
+      </div>
+      <button class="btn primary" data-toast="举报处理结果已保存">保存处理</button>
+      <button class="btn" data-close-surface>关闭</button>
+    </div>
+  </div>
+  <div class="drawer-backdrop" id="topicDrawer" aria-hidden="true">
+    <div class="drawer-card">
+      <h2>家园话题详情</h2>
+      <div class="admin-detail-tabs"><span>话题详情</span><span class="is-active">操作日志</span></div>
+      <div class="detail-grid">
+        <div><span>话题编码</span><strong>T-1001</strong></div>
+        <div><span>话题名称</span><strong>周末去哪里</strong></div>
+        <div><span>当前状态</span><strong>启用</strong></div>
+        <div><span>推荐标记</span><strong>推荐</strong></div>
+        <div><span>内容/热度</span><strong>128 / 982</strong></div>
+        <div><span>展示场景</span><strong>热门入口 / 话题列表 / 发布页</strong></div>
+      </div>
+      <div class="audit-preview">
+        <h3>展示配置</h3>
+        <p>封面用于热门页家园话题入口和话题列表；停用后发布页不再展示，历史内容继续保留原话题名。</p>
+      </div>
+      <div class="audit-preview">
+        <h3>操作日志</h3>
+        <div class="audit-log-timeline">
+          <div class="audit-log-item"><span class="audit-log-main"><strong>运营admin：</strong>更新推荐标记</span><span class="audit-log-time">2026-02-24 10:35</span></div>
+          <div class="audit-log-item"><span class="audit-log-main"><strong>运营admin：</strong>调整排序为 10</span><span class="audit-log-time">2026-02-24 10:28</span></div>
+          <div class="audit-log-item"><span class="audit-log-main"><strong>系统：</strong>话题创建</span><span class="audit-log-time">2026-02-24 10:20</span></div>
+        </div>
+      </div>
+      <div class="audit-preview">
+        <h3>话题编辑</h3>
+        <div class="query-grid">
+          <label class="control-field">话题名称<input value="周末去哪里"></label>
+          <label class="control-field">话题简介<input value="城市周末活动和约会灵感"></label>
+          <label class="control-field">排序<input type="number" value="10"></label>
+          <label class="control-field">状态<select><option>启用</option><option>停用</option></select></label>
+          <label class="control-field">推荐入口<select><option>是</option><option>否</option></select></label>
+          <label class="control-field">展示场景<select><option>全场景</option><option>列表/发布页</option></select></label>
+        </div>
+      </div>
+      <button class="btn primary" data-toast="家园话题已保存，移动端话题缓存将失效">保存话题</button>
+      <button class="btn" data-toast="停用需二次确认，历史内容保留展示">停用话题</button>
+      <button class="btn" data-close-surface>关闭</button>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="configSaveModal" aria-hidden="true"><div class="modal-card"><h2>保存社区配置</h2><p>保存后举报原因、发布规则和机审开关立即生效。</p><div class="admin-actions"><button class="btn" data-close-surface>取消</button><button class="btn primary" data-close-surface data-toast="社区配置已保存，审计日志已写入">确认保存</button></div></div></div>
+
+  <script src="../../shared/demo-common.js"></script>
+  <script src="mock/demo-data.js"></script>
+  <script src="assets/demo.js"></script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>05-推荐模块（朋友、社区与内容互动）静态 Demo</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="返回 PRD-05 Demo 首页">
+        <span class="brand-mark">05</span>
+        <span>推荐模块（朋友、社区与内容互动）</span>
+      </a>
+      <nav class="top-actions" aria-label="静态 Demo 入口">
+        <a class="btn primary" href="miniapp.html">移动端 Demo</a>
+        <a class="btn" href="admin.html">管理后台 Demo</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <aside class="side-nav">
+        <h2>交付物</h2>
+        <a href="#scope">页面范围</a>
+        <a href="#source">需求来源</a>
+        <a href="#flow">关键闭环</a>
+        <a href="#boundary">边界说明</a>
+        <a href="miniapp.html">打开移动端</a>
+        <a href="admin.html">打开管理后台</a>
+      </aside>
+
+      <div class="content">
+        <section class="hero-band" id="scope">
+          <div class="hero-copy">
+            <h1>05-推荐模块静态 Demo</h1>
+            <p>覆盖千寻成家社区信息流、话题、发布、动态详情、举报、悦目、诚意贴、个人动态区、社区打招呼/发私信，以及后台内容管理、动态管理、评论管理、举报管理、家园话题管理和审核规则配置。</p>
+            <div class="metric-strip">
+              <div class="metric"><strong>20</strong><span>页面/承接区</span></div>
+              <div class="metric"><strong>14</strong><span>移动端页面规格</span></div>
+              <div class="metric"><strong>6</strong><span>管理后台页面规格</span></div>
+              <div class="metric"><strong>通过</strong><span>两轮 PRD 核查</span></div>
+            </div>
+          </div>
+          <div class="portal-grid">
+            <a class="portal-card" href="miniapp.html">
+              <div>
+                <h2>移动端 Demo</h2>
+                <p>信息流、话题、发布、详情、悦目、诚意贴、举报、触达入口和个人动态区。</p>
+              </div>
+              <span class="btn primary">进入移动端</span>
+            </a>
+            <a class="portal-card" href="admin.html">
+              <div>
+                <h2>管理后台 Demo</h2>
+                <p>社区互动管理菜单下的内容、动态、评论、举报、家园话题和审核规则配置。</p>
+              </div>
+              <span class="btn">进入后台</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="section-band" id="source">
+          <div class="page-head">
+            <h2>需求来源</h2>
+            <p>Demo 基于 PRD-05 两轮核查通过后的正式版文档生成，范围严格对齐一期上线目标。</p>
+          </div>
+          <div class="section-body">
+            <div class="page-grid">
+              <div class="setting-card">
+                <h3>移动端</h3>
+                <p>成家关注/同城/热门、话题入口和详情、发布、动态详情、举报弹窗、悦目、诚意贴列表、个人动态区、社区打招呼与发私信。</p>
+              </div>
+              <div class="setting-card">
+                <h3>管理后台</h3>
+                <p>内容管理、动态管理、评论管理、举报管理、家园话题管理和审核规则配置为独立后台页面。</p>
+              </div>
+              <div class="setting-card">
+                <h3>核查门禁</h3>
+                <p>第 1 轮和第 2 轮新增问题均已闭环，最终第 2 轮报告结论为通过，可进入静态 Demo、技术方案和测试用例阶段。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-band" id="flow">
+          <div class="page-head">
+            <h2>关键闭环</h2>
+            <p>Demo 优先还原可演示的业务链路，而不是孤立页面截图。</p>
+          </div>
+          <div class="section-body">
+            <ul class="check-list">
+              <li><span>信息流卡片进入动态详情，点赞、评论、举报和更多操作可本地反馈</span><strong>已覆盖</strong></li>
+              <li><span>诚意贴列表进入动态详情诚意贴视图，发布页通过 contentType 条件表单承接</span><strong>已覆盖</strong></li>
+              <li><span>社区打招呼引用 PRD-03 悄悄话规则，社区发私信引用普通私信开放规则</span><strong>已覆盖</strong></li>
+              <li><span>后台审核、举报、配置和用户摘要补充区均含筛选、表格、抽屉、弹窗或分页</span><strong>已覆盖</strong></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="section-band" id="boundary">
+          <div class="page-head">
+            <h2>边界说明</h2>
+            <p>本 Demo 只使用本地 mock 数据，不接真实接口、不写数据库、不代表最终 UI 设计稿。</p>
+          </div>
+          <div class="section-body">
+            <div class="page-grid">
+              <div class="community-card">
+                <h3>诚意贴承接口径</h3>
+                <p>诚意贴列表、发布和详情分别由列表页、发布页条件表单和动态详情页诚意贴视图承接。</p>
+              </div>
+              <div class="community-card">
+                <h3>跨模块规则</h3>
+                <p>认证、匹配、悄悄话、普通私信和千寻币扣费只展示引用口径，具体能力由 PRD-01/02/03/04 承接。</p>
+              </div>
+              <div class="community-card">
+                <h3>设计稿缺口</h3>
+                <p>蓝湖 UI 缺口已登记。Demo 按页面规格和既有静态 Demo 设计系统实现，用于流程验证和技术方案输入。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
