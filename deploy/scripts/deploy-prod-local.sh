@@ -4,6 +4,7 @@ set -euo pipefail
 TARGET="${1:-full}"
 PROJECT_DIR="${SPACETIME_PROJECT_DIR:-/mnt/data/spacetime-prod}"
 PROD_ENV_FILE="${SPACETIME_PROD_ENV_FILE:-${PROJECT_DIR}/secrets/prod.env}"
+RUNTIME_ENV_FILE="${SPACETIME_RUNTIME_ENV_FILE:-${PROJECT_DIR}/secrets/runtime.env}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 log() {
@@ -53,9 +54,26 @@ load_env() {
   for key in DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD REDIS_HOST REDIS_PORT REDIS_USERNAME REDIS_PASSWORD OSS_ENDPOINT OSS_BUCKET_NAME OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET; do
     [ -n "${!key:-}" ] || fail "prod.env 缺少 ${key}"
   done
+  export SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL:-jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}"
 
   require_file "${ADMIN_SSL_DIR}/${ADMIN_DOMAIN}.pem"
   require_file "${ADMIN_SSL_DIR}/${ADMIN_DOMAIN}.key"
+}
+
+write_runtime_env() {
+  mkdir -p "$(dirname "$RUNTIME_ENV_FILE")"
+  umask 077
+  # Docker --env-file 不会像 shell source 一样剥离引号，统一写入规范化后的运行时环境变量。
+  {
+    for key in \
+      PROJECT_NAME \
+      DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
+      REDIS_HOST REDIS_PORT REDIS_DATABASE REDIS_USERNAME REDIS_PASSWORD \
+      OSS_ENDPOINT OSS_BUCKET_NAME OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET \
+      SPRING_DATASOURCE_URL; do
+      printf '%s=%s\n' "$key" "${!key:-}"
+    done
+  } > "$RUNTIME_ENV_FILE"
 }
 
 ensure_runtime() {
@@ -123,7 +141,7 @@ restart_backend() {
     --restart unless-stopped \
     --network spacetime-prod \
     --network-alias backend \
-    --env-file "$PROD_ENV_FILE" \
+    --env-file "$RUNTIME_ENV_FILE" \
     -e SPRING_PROFILES_ACTIVE=prod \
     -e TZ=Asia/Shanghai \
     -p 127.0.0.1:8080:8080 \
@@ -176,6 +194,7 @@ main() {
   ensure_runtime
   docker_login_if_possible
   ensure_network
+  write_runtime_env
 
   case "$TARGET" in
     backend)

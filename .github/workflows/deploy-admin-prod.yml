@@ -5,6 +5,7 @@ on:
     branches: [ master ]
     paths:
       - 'frontend/**'
+      - 'docs/静态Demo/**'
       - 'deploy/**'
       - '.github/workflows/deploy-admin-prod.yml'
   workflow_dispatch:
@@ -48,13 +49,26 @@ jobs:
           username: ${{ env.ALIYUN_REGISTRY_USER_NAME }}
           password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
 
-      - name: Build admin image
+      - name: Validate static demo bundle
         run: |
           set -e
+          test -d 'docs/静态Demo'
+          test -f 'docs/静态Demo/shared/base.css'
+          demo_pages="$(find 'docs/静态Demo' -mindepth 3 -maxdepth 3 -path '*/html/index.html' | wc -l | tr -d ' ')"
+          if [ "$demo_pages" -lt 1 ]; then
+            echo "::error::docs/静态Demo 下没有找到 */html/index.html"
+            exit 1
+          fi
+          echo "Static demo pages: $demo_pages"
+
+      - name: Build admin image with static demos
+        run: |
+          set -e
+          echo "Dockerfile will copy docs/静态Demo/ into /usr/share/nginx/html/demo/"
           docker build \
             -f frontend/Dockerfile \
             -t "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${ADMIN_IMAGE_NAME}:${ADMIN_IMAGE_TAG}" \
-            frontend
+            .
 
       - name: Push nginx runtime image
         run: |

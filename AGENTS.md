@@ -27,6 +27,15 @@ When the user asks to run a generic test suite or investigate test failures:
 1. Read `.claude/skills/test-suite/SKILL.md` if present.
 2. Prefer the repository's documented commands.
 
+当用户要求按蓝湖、蓝湖 MCP、设计稿截图、截图或高保真方式还原小程序/H5/管理后台 UI 时：
+
+1. 先读取 `docs/流程规范/蓝湖MCP高还原闭环流程.md`。
+2. 默认执行“设计基线 -> token/组件映射 -> 一页一闭环实现 -> 截图差异 -> 修复 -> 验收报告”的流程。
+3. 不得一次性铺完多页面后依赖用户肉眼多轮返工；每页必须有截图证据、差异清单和还原度评分。
+4. 蓝湖 MCP 信息不完整时，必须登记素材、字体、尺寸或状态缺口，不得凭经验脑补后宣称高还原。
+5. 在合适场合可自行启用子代理做只读设计审查、差异复核或验收检查；子代理不得修改与主任务冲突的文件。
+6. 如当前环境或本机固定要求不允许编译、启动服务或浏览器截图，必须说明限制，并做可执行的非编译静态核对。
+
 当用户要求编写正式 PRD、继续 PRD 固定流程、运行 ClaudeCode/Claude Code CLI PRD 核查，或执行自动 PRD 核查闭环时：
 
 1. 读取 `.claude/skills/prd-design/SKILL.md`。

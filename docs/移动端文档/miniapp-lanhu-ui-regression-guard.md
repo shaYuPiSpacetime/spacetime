@@ -77,16 +77,24 @@ Taro.navigateBack({
 
 ### 编辑资料关联页面
 
-1. 小程序启动验收页当前固定为 `/pages/profile/edit`，页面只保留入口、摘要展示和可点击按钮，不承载多个临时编辑态。
-2. 编辑资料关联页统一放入 `pages/profile-edit` 分包，注册页面为 `intro`、`tags`、`about`、`songs`、`voice`。
+1. 小程序启动页当前固定为 `/pages/login/index`；编辑资料页只从资料入口进入，页面保留入口、摘要展示和可点击按钮，不承载多个临时编辑态。
+2. 编辑资料关联页统一放入 `pages/profile-edit` 分包，注册页面为 `intro`、`tags`、`about`、`songs`；语音介绍留在编辑资料页内做蓝湖底部弹窗。
 3. 基础资料入口必须跳转 `/pages/verification/basic`，不新建重复基础资料页。
 4. 自我介绍入口必须跳转 `/pages/profile-edit/intro`，页面使用 `profile.editProfile.intro` 结构化数据，不允许把文字编辑塞进旧弹窗。
 5. 我的标签入口必须跳转 `/pages/profile-edit/tags`，页面使用 `profile.tagGroups` 和 `profile.defaultSelectedTags`，不得在编辑资料页恢复临时标签弹层。
-6. 关于我入口必须跳转 `/pages/profile-edit/about`，具体条目使用 `/pages/profile-edit/about?topic=meet` 等 topic 路由；`见面便好（样式复用）` 对应 `topic=meet`。
-7. 爱听的歌曲入口必须跳转 `/pages/profile-edit/songs`，添加成功态使用 `/pages/profile-edit/songs?variant=added`，不得再复用编辑资料页里的选项弹层。
-8. 语音介绍入口必须跳转 `/pages/profile-edit/voice?variant=voice`，六个蓝湖状态统一由 `voice` 页面承载：`voice`、`recording`、`exit`、`play`、`complete`、`delete`。删除成功轻提示使用 `delete-success` 状态。
+6. 关于我入口必须跳转 `/pages/profile-edit/about`，顶部 tab 在当前页内切换；`/pages/profile-edit/about?topic=meet` 只作为初始选中 `见面便好（样式复用）`，页面内不得 `redirectTo` 破坏返回栈。
+7. 爱听的歌曲入口必须跳转 `/pages/profile-edit/songs`，添加成功态使用 `/pages/profile-edit/songs?variant=added`，不得再复用编辑资料页里的选项弹层，保存/成功态不得 `redirectTo`。
+8. 语音介绍入口必须在 `/pages/profile/edit` 内打开蓝湖底部弹窗，覆盖 `voice`、`recording`、`exit`、`play`、`complete`、`delete`、`delete-success` 七个状态；不得从编辑资料页跳转语音独立页。
 9. 旧的 `profile/edit` + `?variant` 聚合方式只允许保留蓝湖明确存在的底部选择态，例如感情状态；歌曲、关于我、语音删除、资料填写不得再塞回该聚合页。
 10. 编辑资料及其关联页禁止整页切图。头像、照片、标签、歌曲、关于我、语音波形、按钮和弹层必须用动态组件绘制，数据统一从 `lanhuDemo` 结构化 mock 读取，后续接后台只替换数据来源。
+11. 编辑资料页“更新认证”必须进入 `/pages/verification/my-certification`；旧 `/pages/verification/triple` 只保留为认证流程入口。
+12. 从编辑资料跳出的独立页面左上角必须使用 `navigateBackOrRedirect`：先检查页面栈并 `Taro.navigateBack`，无法回退时兜底回 `/pages/profile/edit`。
+
+### 蓝湖全量参考库
+
+1. 本轮蓝湖项目总稿数为 93 张，全量整页参考图已下载到 `miniapp/.lanhu-ref/lanhu-full-2026-07-07/`。
+2. 参考库必须包含 `manifest.json`、`download-report.md`、`missing-slices.md` 和 `images/`，用 `node miniapp/scripts/validate-lanhu-full-assets.mjs` 校验。
+3. `.lanhu-ref` 只作视觉对照和缺失切片追踪，运行时代码不得引用其中整页图片。
 
 ### 模块边界
 

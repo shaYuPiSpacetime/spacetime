@@ -1,0 +1,8 @@
+**
+!frontend/
+!frontend/**
+!docs/
+!docs/静态Demo/
+!docs/静态Demo/**
+**/.DS_Store
+**/._*

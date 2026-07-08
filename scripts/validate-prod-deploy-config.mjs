@@ -66,6 +66,14 @@ assertIncludes(adminWorkflow, 'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy'
 assertIncludes(adminWorkflow, 'bash scripts/deploy-prod-local.sh admin', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'NGINX_IMAGE_TAG: spacetime-nginx-prod', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'docker pull nginx:1.27-alpine', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, 'Validate static demo bundle', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, 'Build admin image with static demos', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, 'Static demo pages:', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, "'docs/静态Demo/**'", '.github/workflows/deploy-admin-prod.yml');
+assertNotIncludes(adminWorkflow, "'docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/**'", '.github/workflows/deploy-admin-prod.yml');
+assertNotIncludes(adminWorkflow, "'docs/静态Demo/shared/**'", '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, '-f frontend/Dockerfile', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, '\n            .', '.github/workflows/deploy-admin-prod.yml');
 
 const backendWorkflow = read('.github/workflows/deploy-backend-prod.yml');
 assertIncludes(backendWorkflow, 'spacetime-backend-prod', '.github/workflows/deploy-backend-prod.yml');
@@ -196,7 +204,20 @@ assertNotIncludes(migrateScript, 'docker run', 'deploy/scripts/migrate-prod-db.s
 assertNotIncludes(migrateScript, 'mysql:8.4', 'deploy/scripts/migrate-prod-db.sh');
 
 read('backend/Dockerfile');
-read('frontend/Dockerfile');
+const frontendDockerfile = read('frontend/Dockerfile');
+assertIncludes(frontendDockerfile, 'COPY frontend/package*.json ./', 'frontend/Dockerfile');
+assertIncludes(frontendDockerfile, 'COPY frontend/ ./', 'frontend/Dockerfile');
+assertIncludes(frontendDockerfile, 'COPY docs/静态Demo/ /usr/share/nginx/html/demo/', 'frontend/Dockerfile');
+assertNotIncludes(frontendDockerfile, 'COPY docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html /usr/share/nginx/html/demo', 'frontend/Dockerfile');
+assertNotIncludes(frontendDockerfile, 'COPY docs/静态Demo/shared /usr/share/nginx/html/shared', 'frontend/Dockerfile');
+assertIncludes(frontendDockerfile, 'index=/usr/share/nginx/html/demo/index.html', 'frontend/Dockerfile');
+assertIncludes(frontendDockerfile, "find /usr/share/nginx/html/demo -mindepth 3 -maxdepth 3 -path '*/html/index.html'", 'frontend/Dockerfile');
+
+const dockerignore = read('.dockerignore');
+assertIncludes(dockerignore, '!docs/静态Demo/**', '.dockerignore');
+assertNotIncludes(dockerignore, '!docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/**', '.dockerignore');
+assertIncludes(dockerignore, '**/.DS_Store', '.dockerignore');
+assertIncludes(dockerignore, '**/._*', '.dockerignore');
 
 const healthController = read('backend/src/main/java/com/spacetime/common/controller/HealthController.java');
 assertIncludes(healthController, '@GetMapping("/health")', 'backend/src/main/java/com/spacetime/common/controller/HealthController.java');
