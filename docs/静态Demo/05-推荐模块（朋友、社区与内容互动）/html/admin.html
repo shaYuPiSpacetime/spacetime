@@ -115,8 +115,8 @@
         <section class="section-band admin-page" id="ADM-05-PAGE-topic-manage" data-admin-page>
           <div class="admin-page-inner">
             <div class="admin-page-header">
-              <div><h1>家园话题管理</h1><p>维护移动端家园话题入口、话题列表和发布页话题选择，支持排序、推荐标记、启停和详情抽屉编辑。</p></div>
-              <div class="admin-actions"><button class="btn" data-toast="家园话题列表已刷新">刷新</button><button class="btn primary" data-open-drawer="topicDrawer">新增话题</button></div>
+              <div><h1>家园话题管理</h1><p>维护移动端家园话题入口、话题列表和发布页话题选择；详情查看与新增话题使用独立抽屉。</p></div>
+              <div class="admin-actions"><button class="btn" data-toast="家园话题列表已刷新">刷新</button><button class="btn primary" data-open-drawer="topicCreateDrawer">新增话题</button></div>
             </div>
             <div class="admin-menu-strip" aria-label="内容与动态管理菜单">
               <button type="button" data-jump="#ADM-05-PAGE-content-manage">内容管理</button>
@@ -318,6 +318,33 @@
       <button class="btn primary" data-toast="家园话题已保存，移动端话题缓存将失效">保存话题</button>
       <button class="btn" data-toast="停用需二次确认，历史内容保留展示">停用话题</button>
       <button class="btn" data-close-surface>关闭</button>
+    </div>
+  </div>
+  <div class="drawer-backdrop" id="topicCreateDrawer" aria-hidden="true">
+    <div class="drawer-card">
+      <h2>新增家园话题</h2>
+      <p>新增抽屉只处理话题创建，不复用详情抽屉；保存后刷新话题列表，并同步移动端话题缓存。</p>
+      <div class="audit-preview">
+        <h3>基础信息</h3>
+        <div class="query-grid">
+          <label class="control-field">话题名称<input placeholder="请输入 1-12 字话题名称" value="城市散步"></label>
+          <label class="control-field">话题简介<input placeholder="请输入 1-40 字简介" value="适合同城轻约会的散步路线"></label>
+          <label class="control-field">话题封面<button class="btn" data-toast="已选择待上传封面，保存时进行图片安全校验">上传封面</button></label>
+          <label class="control-field">排序<input type="number" value="50" min="1" max="999"></label>
+        </div>
+      </div>
+      <div class="audit-preview">
+        <h3>展示配置</h3>
+        <div class="query-grid">
+          <label class="control-field">初始状态<select><option>启用</option><option>停用</option></select></label>
+          <label class="control-field">推荐入口<select><option>否</option><option>是</option></select></label>
+          <label class="control-field">展示场景<select><option>话题列表 / 发布页</option><option>热门入口 / 话题列表 / 发布页</option><option>仅话题列表</option></select></label>
+          <label class="control-field">创建说明<textarea>用于本期成家社区话题入口和发布动态话题选择。</textarea></label>
+        </div>
+      </div>
+      <div class="notice"><strong>新增校验</strong>同名启用话题不允许重复；封面保存时进入图片安全校验；创建成功写入操作日志。</div>
+      <button class="btn primary" data-close-surface data-toast="家园话题已新增，列表已刷新，移动端话题缓存将失效">保存新增</button>
+      <button class="btn" data-close-surface>取消</button>
     </div>
   </div>
   <div class="modal-backdrop" id="configSaveModal" aria-hidden="true"><div class="modal-card"><h2>保存社区配置</h2><p>保存后举报原因、发布规则和机审开关立即生效。</p><div class="admin-actions"><button class="btn" data-close-surface>取消</button><button class="btn primary" data-close-surface data-toast="社区配置已保存，审计日志已写入">确认保存</button></div></div></div>
