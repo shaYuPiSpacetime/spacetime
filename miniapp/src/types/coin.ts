@@ -1,13 +1,15 @@
-/** 成家币套餐 */
+/** 千寻币套餐 */
 export interface CoinPackage {
   id: number;
   amount: number;
   price: number;
   label: string;
+  originalPrice?: string;
+  discountLabel?: string;
   tag?: string;
 }
 
-/** 成家币交易明细 */
+/** 千寻币交易明细 */
 export interface CoinTransaction {
   id: number;
   type: 'income' | 'expense';
@@ -17,7 +19,7 @@ export interface CoinTransaction {
   balance: number;
 }
 
-/** 成家币用途项 */
+/** 千寻币用途项 */
 export interface CoinUsage {
   icon: string;
   label: string;

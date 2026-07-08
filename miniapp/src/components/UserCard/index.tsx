@@ -11,7 +11,7 @@ interface UserCardProps {
 
 /**
  * 用户信息卡片组件
- * 对齐蓝湖设计：照片区域 + 认证标签 + 成家币角标 + 底部信息
+ * 对齐蓝湖设计：照片区域 + 认证标签 + 千寻币角标 + 底部信息
  */
 export function UserCard({ user, onClick }: UserCardProps) {
   /** 认证标签文字 */
@@ -34,7 +34,7 @@ export function UserCard({ user, onClick }: UserCardProps) {
         {user.isLocked && (
           <View className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center">
             <Text className="text-white text-xl font-medium mb-3">
-              {user.unlockCost} 成家币解锁
+              {user.unlockCost} 千寻币解锁
             </Text>
             <View className="bg-primary rounded-btn px-6 py-2">
               <Text className="text-white text-sm font-medium">立即解锁</Text>
@@ -45,7 +45,7 @@ export function UserCard({ user, onClick }: UserCardProps) {
         <View className="absolute top-5 left-5 bg-brand-blue/80 rounded-md px-2 py-1">
           <Text className="text-white text-xs">{authLabel}</Text>
         </View>
-        {/* 成家币角标 */}
+        {/* 千寻币角标 */}
         {user.isLocked && (
           <View className="absolute top-5 right-5 bg-primary rounded-full w-12 h-12 flex items-center justify-center border-2 border-white">
             <Text className="text-white text-xs font-medium">{user.unlockCost}</Text>

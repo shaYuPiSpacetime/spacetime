@@ -1,6 +1,8 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
+import CommercePlaceholderIcon from '@/components/CommercePlaceholderIcon'
+import WechatMockPayPanel from '@/components/WechatMockPayPanel'
 import { useMembership, type MembershipPayState } from '@/hooks/useMembership'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import type { MembershipPlan, MemberStatus } from '@/types/membership'
@@ -15,11 +17,11 @@ import vipBg from '@/assets/lanhu/pages/member-vip-bg.webp'
 
 const profileDemo = getDemoPageData('profile')
 const membershipDemo = getDemoPageData('membership')
-type MembershipPageVariant = 'none' | 'active' | 'expired' | 'annual' | 'subscription'
+type MembershipPageVariant = 'default' | 'none' | 'active' | 'expired' | 'annual'
 
 function resolveMembershipVariant(value?: string): MembershipPageVariant {
-  if (value === 'active' || value === 'expired' || value === 'annual' || value === 'subscription') return value
-  return 'none'
+  if (value === 'none' || value === 'active' || value === 'expired' || value === 'annual') return value
+  return 'default'
 }
 
 function resolveMembershipPayState(value?: string): MembershipPayState {
@@ -29,8 +31,9 @@ function resolveMembershipPayState(value?: string): MembershipPayState {
 
 export default function MembershipPage() {
   const router = useRouter()
-  const variant = resolveMembershipVariant(String(router.params.variant || 'none'))
+  const requestedVariant = resolveMembershipVariant(String(router.params.variant || 'default'))
   const routePayState = resolveMembershipPayState(String(router.params.payState || 'idle'))
+  const variant = routePayState === 'idle' ? requestedVariant : 'annual'
   const expiredMembership = membershipDemo.expiredMembership
   const {
     myMembership,
@@ -73,6 +76,7 @@ export default function MembershipPage() {
   }, [routePayState, previewPayState])
 
   const activePlan = plans.find((plan) => plan.id === activePlanId)
+  const paymentPreviewAmount = routePayState === 'wechat-pay' ? membershipDemo.wechatPayPreviewAmount : undefined
 
   const handleSelect = (plan: MembershipPlan) => {
     setActivePlanId(plan.id)
@@ -86,32 +90,34 @@ export default function MembershipPage() {
     }
     await confirmPay()
   }
+  const navTitle = variant === 'expired' ? undefined : '会员中心'
 
   return (
     <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
-      <LanhuNav title="会员中心" tone="dark" showBack />
+      <LanhuNav title={navTitle} tone="dark" showBack />
       <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)', paddingBottom: '220rpx', boxSizing: 'border-box' }} showScrollbar={false}>
         <View style={{ width: '750rpx', padding: '0 25rpx 220rpx', boxSizing: 'border-box' }}>
-          <MemberHero membership={variant === 'expired' ? expiredMembership : myMembership} nickname={profileDemo.nickname} onRecords={goToRecords} />
+          <MemberHero
+            membership={variant === 'expired' ? expiredMembership : myMembership}
+            nickname={profileDemo.nickname}
+            onRecords={goToRecords}
+            onSubscription={() => Taro.navigateTo({ url: '/pages/membership/subscription' })}
+          />
           <PlanRail plans={plans} activePlanId={activePlanId} onSelect={handleSelect} />
-          {variant === 'subscription' && (
-            <SubscriptionPanel plan={activePlan} onManage={showUnpaidSheet} />
-          )}
-          <BenefitTitle />
+          <BenefitTitle title={getBenefitTitle(variant)} />
           {benefits.map((item) => (
             <BenefitCard key={item.title} {...item} />
           ))}
         </View>
       </ScrollView>
-      <PayBar plan={activePlan} loading={payLoading} status={myMembership.status} onPay={handlePay} />
+      <PayBar plan={activePlan} variant={variant} loading={payLoading} onPay={handlePay} />
       <MembershipPaymentLayer
         payState={payState}
         plan={activePlan}
-        loading={payLoading}
+        previewAmount={paymentPreviewAmount}
         onClose={hidePaymentLayer}
         onSuccess={simulatePaySuccess}
         onCancel={simulatePayCancel}
-        onUnpaid={showUnpaidSheet}
       />
     </View>
   )
@@ -121,32 +127,30 @@ function MemberHero({
   membership,
   nickname,
   onRecords,
+  onSubscription,
 }: {
   membership: { status: MemberStatus; expireTime?: string; planName?: string }
   nickname: string
   onRecords: () => void
+  onSubscription: () => void
 }) {
   const { status, expireTime, planName } = membership
-  const desc = status === 'active'
-    ? `${planName || '会员'}权益正在生效中`
-    : status === 'expired'
-      ? '会员已过期，续费继续享权益'
-      : '你还不是会员，开通立享超多特权'
-  const extra = status === 'none' ? '点击查看开通记录' : `有效期至 ${expireTime || '2027.05.27 15:58'}`
+  const desc = '你还不是会员，开通立享超多特权'
+  const bottomText = getHeroBottomText(status, expireTime)
+  const shouldShowRecords = status !== 'none'
 
   return (
     <View
       style={{
         position: 'relative',
         width: '700rpx',
-        height: '240rpx',
+        height: '248rpx',
         borderRadius: '12rpx',
         overflow: 'hidden',
         background: '#2B2928',
       }}
-      onClick={onRecords}
     >
-      <Image src={vipBg} mode="scaleToFill" style={{ width: '700rpx', height: '240rpx', opacity: 0.95 }} />
+      <Image src={vipBg} mode="scaleToFill" style={{ width: '700rpx', height: '248rpx', opacity: 0.95 }} />
       <Image
         src={defaultAvatar}
         mode="aspectFill"
@@ -163,17 +167,63 @@ function MemberHero({
       <Text style={{ position: 'absolute', left: '150rpx', top: '58rpx', color: LANHU_GOLD, fontSize: '28rpx', fontWeight: 700 }}>
         {nickname}
       </Text>
-      <Text style={{ position: 'absolute', left: '150rpx', top: '104rpx', color: LANHU_GOLD, fontSize: '26rpx' }}>
-        {desc}
-      </Text>
-      <Text style={{ position: 'absolute', right: '38rpx', top: '58rpx', color: '#FFFFFF', fontSize: '22rpx', opacity: 0.82 }}>
-        {extra}
-      </Text>
+      {status === 'expired' ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: '150rpx',
+            top: '104rpx',
+            height: '42rpx',
+            borderRadius: '21rpx',
+            background: '#9A9A9A',
+            padding: '0 26rpx',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>已过期</Text>
+        </View>
+      ) : status === 'active' ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: '150rpx',
+            top: '104rpx',
+            height: '42rpx',
+            borderRadius: '21rpx',
+            background: '#3E2F08',
+            padding: '0 22rpx',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          onClick={onSubscription}
+        >
+          <Text style={{ color: LANHU_GOLD, fontSize: '24rpx' }}>{planName || '连续包年'}</Text>
+        </View>
+      ) : (
+        <Text style={{ position: 'absolute', left: '150rpx', top: '104rpx', color: LANHU_GOLD, fontSize: '26rpx' }}>
+          {desc}
+        </Text>
+      )}
+      {shouldShowRecords && (
+        <Text
+          style={{ position: 'absolute', right: '38rpx', top: '58rpx', color: '#FFFFFF', fontSize: '28rpx', opacity: 0.9 }}
+          onClick={onRecords}
+        >
+          查看记录
+        </Text>
+      )}
       <Text style={{ position: 'absolute', left: '38rpx', bottom: '44rpx', color: '#FFFFFF', fontSize: '30rpx', fontWeight: 500 }}>
-        专属9大特权，加速双向奔赴
+        {bottomText}
       </Text>
     </View>
   )
+}
+
+function getHeroBottomText(status: MemberStatus, expireTime?: string) {
+  if (status === 'active') return `有效期： 2026.05.28 15:58 - ${expireTime || '2027.05.27 15:58'}`
+  if (status === 'expired') return '尊贵特权已过期，重启会员，精准匹配、自由畅聊'
+  return '专属9大特权，加速双向奔赴'
 }
 
 function PlanRail({
@@ -188,14 +238,16 @@ function PlanRail({
   const displayPlans = plans.length > 0 ? plans : []
 
   return (
-    <ScrollView scrollX showScrollbar={false} style={{ width: '725rpx', marginTop: '54rpx' }}>
+    <ScrollView scrollX showScrollbar={false} style={{ width: '725rpx', marginTop: '98rpx' }}>
       <View style={{ display: 'flex', flexDirection: 'row', height: '230rpx', paddingLeft: '0' }}>
         {displayPlans.map((plan, index) => {
           const isActive = plan.id === activePlanId
           const label = plan.tag ?? (index === 0 ? '专属优惠' : '限时优惠')
           const months = plan.duration >= 365 ? 12 : plan.duration >= 90 ? 3 : 1
           const pricePerMonth = (plan.price / months).toFixed(2)
+          const pricePerMonthText = plan.monthlyPriceLabel ?? `¥${pricePerMonth}/月`
           const duration = plan.durationLabel
+          const header = getPlanHeader(plan)
 
           return (
             <View
@@ -229,14 +281,14 @@ function PlanRail({
               >
                 <Text style={{ color: '#8B5B19', fontSize: '22rpx', fontWeight: 600 }}>{label}</Text>
               </View>
-              <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx' }}>包{duration === '12个月' ? '年' : duration === '3个月' ? '季' : '月'}</Text>
+              <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx' }}>{header}</Text>
               <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '42rpx', fontWeight: 700, lineHeight: '58rpx', marginTop: '8rpx' }}>
                 {duration}
               </Text>
               <Text style={{ display: 'block', color: LANHU_GOLD, fontSize: '28rpx', fontWeight: 700, marginTop: '8rpx' }}>
-                ¥{pricePerMonth}/月
+                {pricePerMonthText}
               </Text>
-              <Text style={{ display: 'block', color: '#9C9C9C', fontSize: '22rpx', textDecoration: 'line-through', marginTop: '8rpx' }}>
+              <Text style={{ display: 'block', color: '#9C9C9C', fontSize: '22rpx', marginTop: '8rpx' }}>
                 ¥{plan.originalPrice}.00
               </Text>
             </View>
@@ -247,14 +299,19 @@ function PlanRail({
   )
 }
 
-function BenefitTitle() {
+function BenefitTitle({ title }: { title: string }) {
   return (
-    <View style={{ height: '98rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ height: '104rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: LANHU_GOLD, fontSize: '42rpx', marginRight: '20rpx' }}>⌁</Text>
-      <Text style={{ color: LANHU_GOLD, fontSize: '30rpx', fontWeight: 700 }}>VIP特权</Text>
+      <Text style={{ color: LANHU_GOLD, fontSize: '30rpx', fontWeight: 700 }}>{title}</Text>
       <Text style={{ color: LANHU_GOLD, fontSize: '42rpx', marginLeft: '20rpx' }}>⌁</Text>
     </View>
   )
+}
+
+function getBenefitTitle(variant: MembershipPageVariant) {
+  if (variant === 'active' || variant === 'annual') return 'VIP特权'
+  return '时空邂逅会员特权'
 }
 
 function BenefitCard({
@@ -284,9 +341,7 @@ function BenefitCard({
       }}
     >
       <View style={{ width: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '26rpx' }}>
-        <Text style={{ color: '#C4913F', fontSize: icon === 'yo' ? '42rpx' : '58rpx', fontWeight: icon === 'yo' ? 700 : 400 }}>
-          {icon}
-        </Text>
+        <CommercePlaceholderIcon variant="member" kind={icon} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: '#C4913F', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
@@ -305,87 +360,30 @@ function BenefitCard({
   )
 }
 
-function SubscriptionPanel({
-  plan,
-  onManage,
-}: {
-  plan?: MembershipPlan
-  onManage: () => void
-}) {
-  const price = plan?.price.toFixed(2) ?? '568.00'
-  return (
-    <View
-      style={{
-        width: '700rpx',
-        minHeight: '206rpx',
-        borderRadius: '24rpx',
-        background: '#2B2928',
-        marginTop: '28rpx',
-        padding: '30rpx',
-        boxSizing: 'border-box',
-        border: `2rpx solid ${LANHU_GOLD}`,
-      }}
-    >
-      <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View>
-          <Text style={{ color: LANHU_GOLD, fontSize: '32rpx', fontWeight: 700 }}>订阅管理</Text>
-          <Text style={{ display: 'block', color: '#C8A66E', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '12rpx' }}>
-            当前连续订阅将于会员到期前自动续费
-          </Text>
-        </View>
-        <View
-          style={{
-            height: '56rpx',
-            borderRadius: '16rpx',
-            background: LANHU_GOLD,
-            padding: '0 26rpx',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-          onClick={onManage}
-        >
-          <Text style={{ color: '#211D1E', fontSize: '24rpx', fontWeight: 700 }}>管理</Text>
-        </View>
-      </View>
-      <View
-        style={{
-          height: '98rpx',
-          borderRadius: '98rpx',
-          background: '#211D1E',
-          marginTop: '24rpx',
-          padding: '0 32rpx',
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text style={{ color: LANHU_GOLD, fontSize: '28rpx', fontWeight: 700 }}>¥{price}/周期</Text>
-        <Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>微信支付自动扣款</Text>
-      </View>
-    </View>
-  )
-}
-
 function MembershipPaymentLayer({
   payState,
   plan,
-  loading,
+  previewAmount,
   onClose,
   onSuccess,
   onCancel,
-  onUnpaid,
 }: {
   payState: MembershipPayState
   plan?: MembershipPlan
-  loading: boolean
+  previewAmount?: string
   onClose: () => void
   onSuccess: () => void
   onCancel: () => void
-  onUnpaid: () => void
 }) {
   if (payState === 'idle') return null
+
+  if (payState === 'pay-success') {
+    return <PayResultModal title="支付成功" />
+  }
+
+  if (payState === 'pay-cancel') {
+    return <PayResultModal title="用户取消支付" />
+  }
 
   return (
     <View
@@ -395,48 +393,20 @@ function MembershipPaymentLayer({
         right: 0,
         top: 0,
         bottom: 0,
-        background: 'rgba(0, 0, 0, 0.48)',
+        background: 'rgba(0, 0, 0, 0.32)',
         zIndex: 60,
       }}
     >
       {payState === 'wechat-pay' && (
         <WechatPayPanel
-          title="微信支付"
-          subtitle="会员中心-微信支付"
-          amount={plan?.price.toFixed(2) ?? '0.00'}
-          loading={loading}
+          amount={previewAmount ?? plan?.price.toFixed(2) ?? '0.00'}
           onClose={onClose}
           onSuccess={onSuccess}
           onCancel={onCancel}
-          onUnpaid={onUnpaid}
-        />
-      )}
-      {payState === 'pay-success' && (
-        <PayResultModal
-          tone="success"
-          title="支付成功"
-          desc="会员权益已开通，专属特权立即生效"
-          primaryText="查看会员权益"
-          secondaryText="关闭"
-          onPrimary={onClose}
-          onSecondary={onClose}
-        />
-      )}
-      {payState === 'pay-cancel' && (
-        <PayResultModal
-          tone="cancel"
-          title="取消支付"
-          desc="本次订单未完成，可重新选择套餐继续开通"
-          primaryText="继续支付"
-          secondaryText="暂不开通"
-          onPrimary={onUnpaid}
-          onSecondary={onClose}
         />
       )}
       {payState === 'unpaid-sheet' && (
         <UnpaidBottomSheet
-          amount={plan?.price.toFixed(2) ?? '0.00'}
-          onClose={onClose}
           onPay={onSuccess}
         />
       )}
@@ -445,24 +415,43 @@ function MembershipPaymentLayer({
 }
 
 function WechatPayPanel({
-  title,
-  subtitle,
   amount,
-  loading,
   onClose,
   onSuccess,
   onCancel,
-  onUnpaid,
 }: {
-  title: string
-  subtitle: string
   amount: string
-  loading: boolean
   onClose: () => void
   onSuccess: () => void
   onCancel: () => void
-  onUnpaid: () => void
 }) {
+  return <WechatMockPayPanel amount={amount} onClose={onClose} onSuccess={onSuccess} onCancel={onCancel} />
+}
+
+function PayResultModal({ title }: { title: string }) {
+  return (
+    <View
+      style={{
+        position: 'fixed',
+        left: '230rpx',
+        top: '400rpx',
+        width: '290rpx',
+        height: '96rpx',
+        borderRadius: '12rpx',
+        background: 'rgba(255, 255, 255, 0.32)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        zIndex: 80,
+      }}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: '34rpx' }}>{title}</Text>
+    </View>
+  )
+}
+
+function UnpaidBottomSheet({ onPay }: { onPay: () => void }) {
   return (
     <View
       style={{
@@ -470,210 +459,31 @@ function WechatPayPanel({
         left: 0,
         right: 0,
         bottom: 0,
-        minHeight: '516rpx',
-        borderRadius: '24rpx 24rpx 0 0',
+        height: '392rpx',
+        borderRadius: '40rpx 40rpx 0 0',
         background: '#FFFFFF',
-        padding: '34rpx 30rpx calc(32rpx + env(safe-area-inset-bottom))',
+        padding: '46rpx 44rpx 0',
         boxSizing: 'border-box',
       }}
     >
-      <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ color: '#211D1E', fontSize: '34rpx', fontWeight: 700 }}>{title}</Text>
-        <Text style={{ color: '#999999', fontSize: '32rpx' }} onClick={onClose}>×</Text>
-      </View>
-      <View
-        style={{
-          borderRadius: '24rpx',
-          background: '#F8F3EA',
-          padding: '30rpx',
-          marginTop: '28rpx',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text style={{ color: '#8B5B19', fontSize: '24rpx' }}>{subtitle}</Text>
-        <Text style={{ display: 'block', color: '#211D1E', fontSize: '52rpx', fontWeight: 700, marginTop: '18rpx' }}>¥{amount}</Text>
-        <Text style={{ display: 'block', color: '#777777', fontSize: '24rpx', marginTop: '10rpx' }}>微信支付 mock 面板，可演示成功、取消和未支付路径</Text>
+      <Text style={{ display: 'block', color: '#333333', fontSize: '34rpx', fontWeight: 700, textAlign: 'center' }}>确认开通会员</Text>
+      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '64rpx' }}>
+        <Text style={{ color: '#A9A9A9', fontSize: '32rpx' }}>我已阅读并同意</Text>
+        <Text style={{ color: '#211D1E', fontSize: '32rpx', fontWeight: 700 }}>《时空邂逅会员服务协议》</Text>
       </View>
       <View
         style={{
           height: '98rpx',
           borderRadius: '98rpx',
-          background: LANHU_GOLD,
-          marginTop: '32rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: loading ? 0.72 : 1,
-        }}
-        onClick={onSuccess}
-      >
-        <Text style={{ color: '#211D1E', fontSize: '34rpx', fontWeight: 700 }}>{loading ? '支付中...' : '确认支付'}</Text>
-      </View>
-      <View style={{ display: 'flex', flexDirection: 'row', marginTop: '22rpx' }}>
-        <View
-          style={{
-            flex: 1,
-            height: '72rpx',
-            borderRadius: '16rpx',
-            background: '#F3F3F3',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '16rpx',
-          }}
-          onClick={onCancel}
-        >
-          <Text style={{ color: '#666666', fontSize: '26rpx' }}>取消支付</Text>
-        </View>
-        <View
-          style={{
-            flex: 1,
-            height: '72rpx',
-            borderRadius: '16rpx',
-            background: '#211D1E',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={onUnpaid}
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>稍后支付</Text>
-        </View>
-      </View>
-    </View>
-  )
-}
-
-function PayResultModal({
-  tone,
-  title,
-  desc,
-  primaryText,
-  secondaryText,
-  onPrimary,
-  onSecondary,
-}: {
-  tone: 'success' | 'cancel'
-  title: string
-  desc: string
-  primaryText: string
-  secondaryText: string
-  onPrimary: () => void
-  onSecondary: () => void
-}) {
-  const isSuccess = tone === 'success'
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        left: '75rpx',
-        right: '75rpx',
-        top: '318rpx',
-        borderRadius: '24rpx',
-        background: '#FFFFFF',
-        padding: '44rpx 36rpx 34rpx',
-        boxSizing: 'border-box',
-      }}
-    >
-      <View
-        style={{
-          width: '96rpx',
-          height: '96rpx',
-          borderRadius: '48rpx',
-          background: isSuccess ? '#20B56D' : '#F0A43A',
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '50rpx', fontWeight: 700 }}>{isSuccess ? '✓' : '!'}</Text>
-      </View>
-      <Text style={{ display: 'block', color: '#211D1E', fontSize: '36rpx', fontWeight: 700, textAlign: 'center', marginTop: '26rpx' }}>{title}</Text>
-      <Text style={{ display: 'block', color: '#777777', fontSize: '26rpx', lineHeight: '40rpx', textAlign: 'center', marginTop: '16rpx' }}>{desc}</Text>
-      <View
-        style={{
-          height: '98rpx',
-          borderRadius: '98rpx',
-          background: isSuccess ? LANHU_GOLD : '#211D1E',
-          marginTop: '34rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onClick={onPrimary}
-      >
-        <Text style={{ color: isSuccess ? '#211D1E' : '#FFFFFF', fontSize: '32rpx', fontWeight: 700 }}>{primaryText}</Text>
-      </View>
-      <View
-        style={{
-          height: '64rpx',
-          borderRadius: '16rpx',
-          marginTop: '14rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onClick={onSecondary}
-      >
-        <Text style={{ color: '#999999', fontSize: '26rpx' }}>{secondaryText}</Text>
-      </View>
-    </View>
-  )
-}
-
-function UnpaidBottomSheet({
-  amount,
-  onClose,
-  onPay,
-}: {
-  amount: string
-  onClose: () => void
-  onPay: () => void
-}) {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: '64rpx 64rpx 0 0',
-        background: '#FFFFFF',
-        padding: '46rpx 32rpx calc(34rpx + env(safe-area-inset-bottom))',
-        boxSizing: 'border-box',
-      }}
-    >
-      <Text style={{ display: 'block', color: '#211D1E', fontSize: '36rpx', fontWeight: 700, textAlign: 'center' }}>订单尚未支付</Text>
-      <Text style={{ display: 'block', color: '#777777', fontSize: '26rpx', lineHeight: '40rpx', textAlign: 'center', marginTop: '18rpx' }}>
-        VIP 权益正在等你解锁，本次开通金额 ¥{amount}
-      </Text>
-      <View
-        style={{
-          height: '98rpx',
-          borderRadius: '98rpx',
-          background: LANHU_GOLD,
-          marginTop: '36rpx',
+          background: '#211D1E',
+          marginTop: '64rpx',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
         onClick={onPay}
       >
-        <Text style={{ color: '#211D1E', fontSize: '34rpx', fontWeight: 700 }}>继续支付</Text>
-      </View>
-      <View
-        style={{
-          height: '72rpx',
-          borderRadius: '16rpx',
-          marginTop: '14rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onClick={onClose}
-      >
-        <Text style={{ color: '#999999', fontSize: '26rpx' }}>暂不开通</Text>
+        <Text style={{ color: LANHU_GOLD, fontSize: '34rpx', fontWeight: 700 }}>确认并开通</Text>
       </View>
     </View>
   )
@@ -681,18 +491,19 @@ function UnpaidBottomSheet({
 
 function PayBar({
   plan,
+  variant,
   loading,
-  status,
   onPay,
 }: {
   plan?: MembershipPlan
+  variant: MembershipPageVariant
   loading: boolean
-  status: MemberStatus
   onPay: () => void
 }) {
-  const buttonText = status === 'active' ? '立即续费' : '立即开通'
+  const buttonText = '立即开通'
   const price = plan?.price.toFixed(2) ?? '0.00'
-  const billingLabel = getBillingLabel(plan)
+  const billingLabel = getBillingLabel(plan, variant)
+  const agreement = getAgreementText(variant)
 
   return (
     <View
@@ -740,19 +551,52 @@ function PayBar({
           <Text style={{ color: '#211D1E', fontSize: '34rpx', fontWeight: 700 }}>{loading ? '开通中...' : buttonText}</Text>
         </View>
       </View>
-      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '30rpx' }}>
+      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: '26rpx' }}>
         <View style={{ width: '28rpx', height: '28rpx', borderRadius: '14rpx', border: '1rpx solid #C4913F', marginRight: '12rpx' }} />
         <Text style={{ color: '#666666', fontSize: '24rpx' }}>阅读并同意</Text>
         <Text style={{ color: '#C4913F', fontSize: '24rpx' }}>《时空邂逅会员服务协议》</Text>
+        {agreement.showContinuous && (
+          <>
+            <Text style={{ color: '#666666', fontSize: '24rpx' }}>及</Text>
+            <Text style={{ color: '#C4913F', fontSize: '24rpx' }}>《连续订阅会员服务协议》</Text>
+            <Text style={{ color: '#C4913F', fontSize: '24rpx', marginLeft: '40rpx', marginTop: '12rpx' }}>
+              {agreement.discountText}
+            </Text>
+          </>
+        )}
       </View>
     </View>
   )
 }
 
-function getBillingLabel(plan?: MembershipPlan) {
+function getPlanHeader(plan: MembershipPlan) {
+  if (plan.name === '年卡会员') return '年卡'
+  return plan.name
+}
+
+function getBillingLabel(plan?: MembershipPlan, variant?: MembershipPageVariant) {
   if (!plan) return ''
+  if (variant === 'annual' && plan.name === '连续包年') return '连续包年'
+  if (plan.name === '年卡会员') return '年卡'
   if (plan.name.includes('包年')) return '包年'
   if (plan.name.includes('包季')) return '包季'
   if (plan.name.includes('包月')) return '包月'
   return plan.durationLabel
+}
+
+function getAgreementText(variant: MembershipPageVariant) {
+  if (variant !== 'annual') {
+    return { showContinuous: false, discountText: '' }
+  }
+
+  const renewalAmount = formatSubscriptionAmount(membershipDemo.subscription.renewalAmount)
+  const originalAmount = formatSubscriptionAmount(membershipDemo.subscription.originalAmount)
+  return {
+    showContinuous: true,
+    discountText: `享${renewalAmount}订阅优惠价（原价${originalAmount}），可随时取消自动续费`,
+  }
+}
+
+function formatSubscriptionAmount(amount: string) {
+  return amount.replace('¥', '').replace(/\.00$/, '')
 }

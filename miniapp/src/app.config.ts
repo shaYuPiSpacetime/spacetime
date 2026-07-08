@@ -1,7 +1,6 @@
 export default {
   lazyCodeLoading: 'requiredComponents',
   pages: [
-    'pages/profile/edit',
     'pages/login/index',
     'pages/login/phone',
     'pages/login/gender',
@@ -9,6 +8,7 @@ export default {
     'pages/login/identity',
     'pages/login/education',
     'pages/login/address',
+    'pages/profile/edit',
     'pages/profile/index',
     'pages/community/index',
     'pages/chat/index',
@@ -20,6 +20,7 @@ export default {
     {
       root: 'pages/verification',
       pages: [
+        'my-certification',
         'triple',
         'basic',
         'height-weight',
@@ -50,7 +51,9 @@ export default {
       root: 'pages/membership',
       pages: [
         'index',
-        'records'
+        'records',
+        'record-detail',
+        'subscription'
       ]
     },
     {
@@ -72,8 +75,7 @@ export default {
         'intro',
         'tags',
         'about',
-        'songs',
-        'voice'
+        'songs'
       ]
     }
   ],

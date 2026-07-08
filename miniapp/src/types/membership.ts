@@ -9,6 +9,7 @@ export interface MembershipPlan {
   originalPrice: number;
   duration: number;
   durationLabel: string;
+  monthlyPriceLabel?: string;
   tag?: string;
   perks: string[];
 }
@@ -17,10 +18,18 @@ export interface MembershipPlan {
 export interface MembershipRecord {
   id: number;
   planName: string;
+  listTitle?: string;
+  durationLabel?: string;
   amount: number;
   startTime: string;
   endTime: string;
+  validityStart?: string;
+  validityEnd?: string;
   status: string;
+  orderNo?: string;
+  createTime?: string;
+  payTime?: string;
+  payMethod?: string;
 }
 
 /** 我的会员状态 */

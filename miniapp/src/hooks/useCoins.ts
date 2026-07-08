@@ -7,7 +7,7 @@ const coinsDemo = getDemoPageData('coins')
 export type CoinPayState = 'idle' | 'wechat-pay' | 'pay-success' | 'pay-cancel'
 
 /**
- * 成家币模块 hook
+ * 千寻币模块 hook
  * 封装余额查询、套餐选择、支付、交易明细加载等完整逻辑
  *
  * 注意：当前所有数据使用 Mock，后续接入真实 API 只需替换 fetch* 函数。
@@ -29,7 +29,7 @@ export function useCoins() {
   const [payState, setPayState] = useState<CoinPayState>('idle')
 
   /* ---------- 交易明细 ---------- */
-  const [transactions, setTransactions] = useState<CoinTransaction[]>([])
+  const [transactions, setTransactions] = useState<CoinTransaction[]>(coinsDemo.transactions)
   const [transactionsLoading, setTransactionsLoading] = useState(false)
 
   /* ---------- 用途列表 ---------- */
@@ -102,7 +102,6 @@ export function useCoins() {
     try {
       // 后续替换为真实支付 API 调用（wx.requestPayment）
       await new Promise((resolve) => setTimeout(resolve, 360))
-      Taro.showToast({ title: '支付成功', icon: 'success' })
       setBalance((prev) => prev + selectedPackage.amount)
       setPayState('pay-success')
     } catch {

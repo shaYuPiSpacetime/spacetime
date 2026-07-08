@@ -48,9 +48,9 @@ const data = readJson(dataPath)
 const routeSet = readAppRoutes()
 
 assert.equal(data.projectName, '时空邂逅0625', '项目名称应来自蓝湖项目')
-assert.equal(data.totalDesigns, 91, '蓝湖设计稿总数应为 91')
+assert.equal(data.totalDesigns, 93, '蓝湖设计稿总数应为 93')
 assert.ok(Array.isArray(data.designs), 'designs 必须是数组')
-assert.equal(data.designs.length, 91, 'designs 数组必须包含 91 张设计稿')
+assert.equal(data.designs.length, 93, 'designs 数组必须包含 93 张设计稿')
 
 const indexes = new Set()
 for (const design of data.designs) {
@@ -64,11 +64,11 @@ for (const design of data.designs) {
     assertAsset(assetRef)
   }
 }
-assert.equal(indexes.size, 91, '设计稿 index 不应重复')
-assert.ok(indexes.has(1) && indexes.has(91), '设计稿 index 应覆盖 1 到 91')
+assert.equal(indexes.size, 93, '设计稿 index 不应重复')
+assert.ok(indexes.has(1) && indexes.has(93), '设计稿 index 应覆盖 1 到 93')
 
 assert.ok(Array.isArray(data.flows?.main), 'flows.main 必须是数组')
-assert.ok(data.flows.main.length >= 8, '主链路至少覆盖登录、资料、认证、会员/成家币/我的页')
+assert.ok(data.flows.main.length >= 8, '主链路至少覆盖登录、资料、认证、会员/千寻币/我的页')
 for (const step of data.flows.main) {
   assert.equal(typeof step.key, 'string', '流程步骤缺少 key')
   assert.equal(typeof step.title, 'string', `${step.key} 缺少标题`)
@@ -84,8 +84,12 @@ for (const step of data.flows.main) {
 assert.ok(data.login?.educationOptions?.length > 0, '登录学历选项不能为空')
 assert.ok(data.login?.provinceCityMap && Object.keys(data.login.provinceCityMap).length > 0, '登录省市数据不能为空')
 assert.ok(data.verification?.certItems?.length >= 3, '三重认证项至少 3 个')
+assert.ok(
+  data.verification?.uiDesigns?.some((item) => item.designName === '我的认证' && item.route === '/pages/verification/my-certification'),
+  'verification.uiDesigns 必须映射我的认证新页面'
+)
 assert.ok(data.membership?.plans?.length >= 3, '会员套餐至少 3 个')
-assert.ok(data.coins?.packages?.length >= 3, '成家币套餐至少 3 个')
+assert.ok(data.coins?.packages?.length >= 3, '千寻币套餐至少 3 个')
 assert.ok(data.profile?.nickname, '我的页 profile.nickname 不能为空')
 
 console.log('蓝湖 demo 数据校验通过')

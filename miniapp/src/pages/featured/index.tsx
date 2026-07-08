@@ -315,7 +315,7 @@ function UnlockModal({
         </View>
       </View>
       <Text style={{ display: 'block', color: balanceInsufficient ? '#E54D42' : '#666666', fontSize: '26rpx', textAlign: 'center', marginTop: '26rpx' }}>
-        本次消耗 {guest.unlockCost} 成家币，当前余额 {mockCoinBalance}
+        本次消耗 {guest.unlockCost} 千寻币，当前余额 {mockCoinBalance}
       </Text>
       <View style={{ display: 'flex', flexDirection: 'row', gap: '18rpx', marginTop: '30rpx' }}>
         <View style={{ flex: 1, height: '88rpx', borderRadius: '44rpx', border: '1rpx solid #E1E4EA', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
@@ -333,7 +333,7 @@ function CoinModal({ onClose, onBuy }: { onClose: () => void; onBuy: (pkg: CoinP
   return (
     <LanhuBottomModal onClose={onClose}>
       <Text style={{ display: 'block', textAlign: 'center', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 700 }}>
-        充值成家币
+        充值千寻币
       </Text>
       <ScrollView scrollX showScrollbar={false} style={{ marginTop: '28rpx', width: '690rpx' }}>
         <View style={{ display: 'flex', flexDirection: 'row' }}>
@@ -362,7 +362,7 @@ function CoinModal({ onClose, onBuy }: { onClose: () => void; onBuy: (pkg: CoinP
         </View>
       </ScrollView>
       <View style={{ height: '88rpx', borderRadius: '44rpx', background: LANHU_BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '30rpx' }} onClick={() => onBuy(mockCoinPackages[1])}>
-        <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即获取成家币</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即获取千寻币</Text>
       </View>
     </LanhuBottomModal>
   )

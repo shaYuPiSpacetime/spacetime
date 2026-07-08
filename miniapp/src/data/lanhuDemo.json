@@ -1,7 +1,7 @@
 {
   "projectName": "时空邂逅0625",
   "projectUrl": "https://lanhuapp.com/web/#/item/project/stage?pid=d9c9e50f-fee5-47ca-bd6b-ae05c0d5332b&teamId=428e8368-c279-4369-947b-a5828487924d",
-  "totalDesigns": 91,
+  "totalDesigns": 93,
   "designs": [
     {
       "index": 1,
@@ -422,7 +422,7 @@
       "id": "lanhu-index-36",
       "name": "编辑资料-语音删除成功提示",
       "flow": "profile",
-      "route": "/pages/profile-edit/voice?variant=delete-success",
+      "route": "/pages/profile/edit?voice=delete-success",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -455,7 +455,7 @@
       "id": "lanhu-index-39",
       "name": "语音介绍",
       "flow": "profile",
-      "route": "/pages/profile-edit/voice?variant=voice",
+      "route": "/pages/profile/edit?voice=voice",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -466,7 +466,7 @@
       "id": "lanhu-index-40",
       "name": "语音介绍-录制中",
       "flow": "profile",
-      "route": "/pages/profile-edit/voice?variant=recording",
+      "route": "/pages/profile/edit?voice=recording",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -477,7 +477,7 @@
       "id": "lanhu-index-41",
       "name": "语音介绍-退出录音",
       "flow": "profile",
-      "route": "/pages/profile-edit/voice?variant=exit",
+      "route": "/pages/profile/edit?voice=exit",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -488,7 +488,7 @@
       "id": "lanhu-index-42",
       "name": "语音介绍-点击播放",
       "flow": "profile",
-      "route": "/pages/profile-edit/voice?variant=play",
+      "route": "/pages/profile/edit?voice=play",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -532,7 +532,7 @@
       "id": "lanhu-index-46",
       "name": "我的认证",
       "flow": "verification",
-      "route": "/pages/verification/triple",
+      "route": "/pages/verification/my-certification",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp",
@@ -546,7 +546,7 @@
       "id": "lanhu-index-47",
       "name": "编辑资料-语音介绍删除提醒",
       "flow": "profile",
-      "route": "/pages/profile-edit/voice?variant=delete",
+      "route": "/pages/profile/edit?voice=delete",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -570,7 +570,7 @@
       "id": "lanhu-index-49",
       "name": "语音介绍-删除提示",
       "flow": "profile",
-      "route": "/pages/profile-edit/voice?variant=delete",
+      "route": "/pages/profile/edit?voice=delete",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -630,8 +630,7 @@
       "route": "/pages/membership/records",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
-        "src/assets/profile/default-avatar.webp"
+        ".lanhu-ref/lanhu-full-2026-07-07/images/58-会员记录.png"
       ]
     },
     {
@@ -639,9 +638,11 @@
       "id": "lanhu-index-55",
       "name": "会员记录-详情（已退款）",
       "flow": "membership",
-      "route": "/pages/membership/records",
+      "route": "/pages/membership/record-detail?status=refunded",
       "status": "implemented",
-      "assetRefs": []
+      "assetRefs": [
+        ".lanhu-ref/lanhu-full-2026-07-07/images/59-会员记录-详情（已退款）.png"
+      ]
     },
     {
       "index": 56,
@@ -723,7 +724,8 @@
       "route": "/pages/coins/detail",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/66-千寻币明细.png"
       ]
     },
     {
@@ -734,7 +736,8 @@
       "route": "/pages/coins/detail?variant=empty",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/67-千寻币明细-暂无数据.png"
       ]
     },
     {
@@ -745,7 +748,8 @@
       "route": "/pages/coins/index?payState=pay-success",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/68-千寻币-支付成功.png"
       ]
     },
     {
@@ -756,7 +760,8 @@
       "route": "/pages/coins/index?payState=pay-cancel",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/69-千寻币-取消支付.png"
       ]
     },
     {
@@ -767,7 +772,8 @@
       "route": "/pages/coins/index?variant=checked",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/70-千寻币-协议勾选.png"
       ]
     },
     {
@@ -778,7 +784,8 @@
       "route": "/pages/coins/index?payState=wechat-pay",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/71-千寻币-微信支付.png"
       ]
     },
     {
@@ -789,7 +796,8 @@
       "route": "/pages/coins/index",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/09-千寻币.png"
       ]
     },
     {
@@ -800,7 +808,8 @@
       "route": "/pages/coins/index?variant=recharge-notice",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/72-千寻币-充值须知.png"
       ]
     },
     {
@@ -892,20 +901,22 @@
       "id": "0b0f1dfe-8157-41d2-8f2f-38b5c3719177",
       "name": "会员记录-详情（已支付）",
       "flow": "membership",
-      "route": "/pages/membership/records",
+      "route": "/pages/membership/record-detail?status=paid",
       "status": "implemented",
-      "assetRefs": []
+      "assetRefs": [
+        ".lanhu-ref/lanhu-full-2026-07-07/images/77-会员记录-详情（已支付）.png"
+      ]
     },
     {
       "index": 76,
       "id": "2a0848f7-51f5-4939-8996-5b6b2e0d4898",
       "name": "订阅管理",
       "flow": "membership",
-      "route": "/pages/membership/index?variant=subscription",
+      "route": "/pages/membership/subscription",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
-        "src/assets/profile/default-avatar.webp"
+        "src/assets/profile/default-avatar.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/78-订阅管理.png"
       ]
     },
     {
@@ -916,7 +927,8 @@
       "route": "/pages/coins/index?variant=unchecked-error",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/coin-balance-bg.webp"
+        "src/assets/lanhu/pages/coin-balance-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/79-千寻币-点支付未勾选协议.png"
       ]
     },
     {
@@ -924,7 +936,7 @@
       "id": "633f2e99-e69f-41da-8adc-f17218324339",
       "name": "语音介绍-录制完成",
       "flow": "profile",
-      "route": "/pages/profile-edit/voice?variant=complete",
+      "route": "/pages/profile/edit?voice=complete",
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
@@ -1087,6 +1099,24 @@
       "assetRefs": [
         "src/assets/lanhu/verification/verification-bg.webp"
       ]
+    },
+    {
+      "index": 92,
+      "id": "b233fd98-2b5c-4e07-ba32-afdb532d1f71",
+      "name": "切图",
+      "flow": "assets",
+      "route": "/pages/profile/edit",
+      "status": "implemented",
+      "assetRefs": []
+    },
+    {
+      "index": 93,
+      "id": "35cbbbef-696f-4d80-bf36-2a6db73ebade",
+      "name": "切图",
+      "flow": "assets",
+      "route": "/pages/profile/edit",
+      "status": "implemented",
+      "assetRefs": []
     }
   ],
   "flows": {
@@ -1705,44 +1735,51 @@
       {
         "key": "voiceIntro",
         "designName": "语音介绍",
-        "route": "/pages/profile-edit/voice?variant=voice",
+        "route": "/pages/profile/edit?voice=voice",
         "variant": "voice",
         "description": "语音介绍默认录制入口"
       },
       {
         "key": "voiceRecording",
         "designName": "语音介绍-录制中",
-        "route": "/pages/profile-edit/voice?variant=recording",
+        "route": "/pages/profile/edit?voice=recording",
         "variant": "recording",
         "description": "语音介绍录制中状态"
       },
       {
         "key": "voiceExit",
         "designName": "语音介绍-退出录音",
-        "route": "/pages/profile-edit/voice?variant=exit",
+        "route": "/pages/profile/edit?voice=exit",
         "variant": "exit",
         "description": "退出录音底部确认弹层"
       },
       {
         "key": "voicePlay",
         "designName": "语音介绍-点击播放",
-        "route": "/pages/profile-edit/voice?variant=play",
+        "route": "/pages/profile/edit?voice=play",
         "variant": "play",
         "description": "语音介绍点击播放状态"
       },
       {
         "key": "voiceComplete",
         "designName": "语音介绍-录制完成",
-        "route": "/pages/profile-edit/voice?variant=complete",
+        "route": "/pages/profile/edit?voice=complete",
         "variant": "complete",
         "description": "语音介绍录制完成并点亮下一步"
       },
       {
         "key": "voiceDelete",
         "designName": "语音介绍-删除提示",
-        "route": "/pages/profile-edit/voice?variant=delete",
+        "route": "/pages/profile/edit?voice=delete",
         "variant": "delete",
         "description": "语音介绍删除确认弹层"
+      },
+      {
+        "key": "myCertification",
+        "designName": "我的认证",
+        "route": "/pages/verification/my-certification",
+        "variant": "my-certification",
+        "description": "我的认证新 UI，展示头像/实名/学历认证结果"
       },
       {
         "key": "triple",
@@ -1802,8 +1839,80 @@
     "activeMembership": {
       "status": "active",
       "expireTime": "2027.05.27 15:58",
-      "planName": "时空邂逅VIP"
+      "planName": "连续包年"
     },
+    "subscription": {
+      "renewalAmount": "¥568.00",
+      "originalAmount": "¥688.00",
+      "renewalCycle": "每年",
+      "statusLabel": "生效中",
+      "nextRenewTime": "2027.05.27 15:58"
+    },
+    "regularPlans": [
+      {
+        "id": 101,
+        "name": "包年",
+        "price": 568,
+        "originalPrice": 688,
+        "duration": 365,
+        "durationLabel": "12个月",
+        "monthlyPriceLabel": "¥57.33/月",
+        "tag": "专属2.1折",
+        "perks": [
+          "无限解锁嘉宾",
+          "查看谁喜欢我",
+          "专属认证标识",
+          "优先推荐"
+        ]
+      },
+      {
+        "id": 102,
+        "name": "包季",
+        "price": 418,
+        "originalPrice": 418,
+        "duration": 90,
+        "durationLabel": "3个月",
+        "monthlyPriceLabel": "¥139.33/月",
+        "tag": "专属5.2折",
+        "perks": [
+          "无限解锁嘉宾",
+          "查看谁喜欢我",
+          "专属认证标识",
+          "优先推荐"
+        ]
+      },
+      {
+        "id": 103,
+        "name": "包月",
+        "price": 268,
+        "originalPrice": 268,
+        "duration": 30,
+        "durationLabel": "1个月",
+        "monthlyPriceLabel": "¥268.00/月",
+        "tag": "尝鲜首选",
+        "perks": [
+          "无限解锁嘉宾",
+          "查看谁喜欢我",
+          "专属认证标识"
+        ]
+      },
+      {
+        "id": 104,
+        "name": "年卡会员",
+        "price": 688,
+        "originalPrice": 688,
+        "duration": 365,
+        "durationLabel": "12个月",
+        "monthlyPriceLabel": "¥57.33/月",
+        "tag": "专属优惠",
+        "perks": [
+          "无限解锁嘉宾",
+          "查看谁喜欢我",
+          "专属认证标识",
+          "优先推荐"
+        ]
+      }
+    ],
     "plans": [
       {
         "id": 1,
@@ -1833,7 +1942,7 @@
           "查看谁喜欢我",
           "专属认证标识",
           "优先推荐",
-          "每月成家币礼包"
+          "每月千寻币礼包"
         ]
       },
       {
@@ -1850,83 +1959,121 @@
           "专属认证标识",
           "专属客服"
         ]
+      },
+      {
+        "id": 4,
+        "name": "年卡会员",
+        "price": 688,
+        "originalPrice": 688,
+        "duration": 365,
+        "durationLabel": "12个月",
+        "tag": "专属优惠",
+        "perks": [
+          "无限解锁嘉宾",
+          "查看谁喜欢我",
+          "专属认证标识",
+          "优先推荐"
+        ]
       }
     ],
     "records": [
       {
         "id": 1,
-        "planName": "时空邂逅VIP",
+        "planName": "连续包年",
+        "listTitle": "时空邂逅会员连续包年",
+        "durationLabel": "12个月",
         "amount": 568,
-        "startTime": "2026.05.28 15:58",
+        "validityStart": "2026.05.28 15:58",
+        "validityEnd": "2027.05.27 15:58",
+        "startTime": "2027.05.26 15:58",
         "endTime": "2027.05.27 15:58",
-        "status": "生效中"
+        "status": "已支付",
+        "orderNo": "231213121213479483057398",
+        "createTime": "2027.05.26 15:58",
+        "payTime": "2027.05.26 15:58",
+        "payMethod": "微信"
       },
       {
         "id": 2,
-        "planName": "时空邂逅VIP",
+        "planName": "连续包年",
+        "listTitle": "时空邂逅会员包年",
+        "durationLabel": "12个月",
         "amount": 568,
-        "startTime": "2026.05.28 15:58",
+        "validityStart": "2026.05.28 15:58",
+        "validityEnd": "2027.05.27 15:58",
+        "startTime": "2027.05.26 15:58",
         "endTime": "2027.05.27 15:58",
-        "status": "已退款"
+        "status": "已退款",
+        "orderNo": "231213121213479483057398",
+        "createTime": "2027.05.26 15:58",
+        "payTime": "2027.05.26 15:58",
+        "payMethod": "微信"
       }
     ],
     "benefits": [
       {
-        "icon": "♡",
+        "icon": "heart-list",
         "title": "心动名单一键揭晓：",
         "value": "123人",
         "desc": "有人对你心动了！看到喜欢的，立即发起对话"
       },
       {
-        "icon": "◎",
+        "icon": "visitor-eye",
         "title": "谁来看过你：",
         "value": "340位访客",
         "desc": "访客全公开，别让在意你的人白等"
       },
       {
-        "icon": "yo",
+        "icon": "yo-message",
         "title": "每日专属悄悄话1条",
         "value": "",
         "desc": "消息直接弹到对方主页，第一时间抓住ta的目光"
       },
       {
-        "icon": "☆",
+        "icon": "extra-browse",
         "title": "每日额外浏览10位嘉宾",
         "value": "",
         "desc": "比别人多一倍的机会，更快遇见对的人"
       },
       {
-        "icon": "▾",
+        "icon": "filter",
         "title": "精准筛选功能",
         "value": "",
         "desc": "按你的标准定制筛选条件，只看最合心意的人"
       },
       {
-        "icon": "♢",
+        "icon": "exposure",
         "title": "曝光度拉满",
         "value": "",
         "desc": "你的资料优先展示给活跃用户和你心仪的对象"
       },
       {
-        "icon": "◌",
+        "icon": "stealth",
         "title": "隐身模式",
         "value": "",
         "desc": "只对你选中的人可见，主动权完全在你手上"
       },
       {
-        "icon": "↶",
+        "icon": "replay",
         "title": "三天回放功能",
         "value": "",
         "desc": "最近3天滑过的嘉宾都能找回，手滑也不怕"
       },
       {
-        "icon": "☻",
+        "icon": "daily-heart",
         "title": "每日多5次心动机会",
         "value": "",
         "desc": "每天额外多看5张心动嘉宾，让缘分不被错过"
       }
     ],
     "uiDesigns": [
+      {
+        "key": "full",
+        "designName": "会员中心-全",
+        "route": "/pages/membership/index",
+        "variant": "default",
+        "description": "会员中心完整滚动页，覆盖会员卡、套餐和 9 项权益"
+      },
       {
         "key": "notOpen",
         "designName": "会员中心-会员未开通，支付按钮固定下方",
@@ -1986,9 +2133,9 @@
       {
         "key": "subscription",
         "designName": "订阅管理",
-        "route": "/pages/membership/index?variant=subscription",
-        "variant": "subscription",
-        "description": "会员连续订阅管理状态"
+        "route": "/pages/membership/subscription",
+        "variant": "default",
+        "description": "会员连续订阅管理独立页，展示扣费说明和取消续费指引"
       },
       {
         "key": "records",
@@ -1996,6 +2143,20 @@
         "route": "/pages/membership/records",
         "variant": "default",
         "description": "会员开通和退款记录列表"
+      },
+      {
+        "key": "recordPaid",
+        "designName": "会员记录-详情（已支付）",
+        "route": "/pages/membership/record-detail?status=paid",
+        "variant": "paid",
+        "description": "已支付会员订单详情"
+      },
+      {
+        "key": "recordRefunded",
+        "designName": "会员记录-详情（已退款）",
+        "route": "/pages/membership/record-detail?status=refunded",
+        "variant": "refunded",
+        "description": "已退款会员订单详情"
       }
     ],
     "expiredMembership": {
@@ -2003,7 +2164,8 @@
       "expireTime": "2026.05.27 15:58",
       "planName": "时空邂逅VIP"
     },
-    "annualPlanId": 1
+    "annualPlanId": 1,
+    "wechatPayPreviewAmount": "268.00"
   },
   "coins": {
     "balance": 1800,
@@ -2019,6 +2181,8 @@
         "amount": 3000,
         "price": 268,
         "label": "60位嘉宾",
+        "originalPrice": "¥301.12",
+        "discountLabel": "8.9折",
         "tag": "热销推荐"
       },
       {
@@ -2026,6 +2190,8 @@
         "amount": 6000,
         "price": 428,
         "label": "150位嘉宾",
+        "originalPrice": "¥602.82",
+        "discountLabel": "7.1折",
         "tag": "节省最多"
       },
       {
@@ -2055,43 +2221,59 @@
       {
         "id": 3,
         "type": "income",
-        "amount": 100,
-        "description": "邀请好友获得",
+        "amount": 3000,
+        "description": "千寻币充值",
         "time": "2026.04.29 15:26:56",
         "balance": 1600
+      },
+      {
+        "id": 4,
+        "type": "expense",
+        "amount": -8,
+        "description": "解锁喜欢我的单条-(这里是消费场景)",
+        "time": "2026.04.29 15:26:56",
+        "balance": 1592
+      },
+      {
+        "id": 5,
+        "type": "expense",
+        "amount": -3000,
+        "description": "千寻币退款",
+        "time": "2026.04.29 15:26:56",
+        "balance": 0
       }
     ],
     "usages": [
       {
-        "icon": "",
+        "icon": "yo-message",
         "label": "送悄悄话"
       },
       {
-        "icon": "",
+        "icon": "heart-signal",
         "label": "心动信号"
       },
       {
-        "icon": "",
+        "icon": "ideal-profile",
         "label": "解锁理想型"
       },
       {
-        "icon": "",
+        "icon": "popularity-bolt",
         "label": "提升人气"
       },
       {
-        "icon": "",
+        "icon": "featured-wand",
         "label": "解锁精选"
       },
       {
-        "icon": "",
+        "icon": "recommend-star",
         "label": "更多推荐"
       },
       {
-        "icon": "",
+        "icon": "anonymous-lock",
         "label": "匿名解锁"
       },
       {
-        "icon": "",
+        "icon": "limited-gift",
         "label": "限定活动"
       }
     ],
@@ -2101,7 +2283,7 @@
         "designName": "千寻币",
         "route": "/pages/coins/index",
         "variant": "default",
-        "description": "成家币余额和充值套餐页"
+        "description": "千寻币余额和充值套餐页"
       },
       {
         "key": "checked",
@@ -2122,21 +2304,21 @@
         "designName": "千寻币-微信支付",
         "route": "/pages/coins/index?payState=wechat-pay",
         "variant": "wechat-pay",
-        "description": "成家币充值 mock 微信支付底部面板"
+        "description": "千寻币充值 mock 微信支付底部面板"
       },
       {
         "key": "paySuccess",
         "designName": "千寻币-支付成功",
         "route": "/pages/coins/index?payState=pay-success",
         "variant": "pay-success",
-        "description": "成家币支付成功后的到账弹窗"
+        "description": "千寻币支付成功后的到账弹窗"
       },
       {
         "key": "payCancel",
         "designName": "千寻币-取消支付",
         "route": "/pages/coins/index?payState=pay-cancel",
         "variant": "pay-cancel",
-        "description": "成家币取消支付后的结果弹窗"
+        "description": "千寻币取消支付后的结果弹窗"
       },
       {
         "key": "rechargeNotice",
@@ -2150,20 +2332,30 @@
         "designName": "千寻币明细",
         "route": "/pages/coins/detail",
         "variant": "default",
-        "description": "成家币明细列表"
+        "description": "千寻币明细列表"
       },
       {
         "key": "detailEmpty",
         "designName": "千寻币明细-暂无数据",
         "route": "/pages/coins/detail?variant=empty",
         "variant": "empty",
-        "description": "成家币明细空状态"
+        "description": "千寻币明细空状态"
       }
     ],
     "agreement": {
       "defaultChecked": false,
       "title": "《时空邂逅充值协议》",
       "uncheckedMessage": "请先阅读并同意充值协议"
+    },
+    "rechargeNotice": {
+      "title": "充值须知",
+      "faqTitle": "常见问题",
+      "items": [
+        "1.微信支付显示成功后，若千寻币数量没有更新，可以退出该页面再重新进入(有时充值会有延迟，不要着急~~)",
+        "2.若千寻币数量长时未更新，请截取微信支付成功详情页面，联系客服并将截图发送给客服进行反馈，我们会及时帮你处理~"
+      ],
+      "contactText": "联系客服",
+      "confirmText": "好的"
     }
   },
   "profile": {
@@ -2264,24 +2456,24 @@
           "key": "meet",
           "title": "见面便好",
           "placeholder": "写下你期待的第一次见面方式",
-          "value": "希望先轻松见面聊聊，散步、咖啡或者看展都可以，舒服自然最重要。"
+          "value": "你觉得什么时候见面会让你感兴趣？积极见面可以明显提升脱单效率哦"
         },
         {
-          "key": "life",
-          "title": "我的生活方式",
-          "placeholder": "聊聊你的日常节奏、生活习惯和喜欢的状态",
-          "value": "平时工作节奏稳定，晚上会运动或看书，周末喜欢把城市里没去过的小地方慢慢走一遍。"
+          "key": "activity",
+          "title": "喜欢的见面活动",
+          "placeholder": "说说你对另一半见面喜欢的活动吧",
+          "value": "说说你对另一半见面喜欢的活动吧"
         },
         {
-          "key": "relationship",
-          "title": "期待的关系",
-          "placeholder": "写下你期待如何相处",
-          "value": "希望彼此坦诚、稳定沟通，有自己的生活，也愿意一起规划未来。"
+          "key": "housing",
+          "title": "住房情况",
+          "placeholder": "说说你的住房情况",
+          "value": "说说你的住房情况"
         }
       ],
       "voiceIntro": {
         "title": "语音介绍",
-        "subtitle": "用一段声音让对方更快认识你",
+        "subtitle": "更容易获得异性青睐哦\n例如：唱歌、一段深情告白等等",
         "duration": "00:12",
         "statusText": "已录制",
         "deleteText": "删除",
@@ -2464,21 +2656,21 @@
       {
         "key": "voiceDeleteNotice",
         "designName": "编辑资料-语音介绍删除提醒",
-        "route": "/pages/profile-edit/voice?variant=delete",
+        "route": "/pages/profile/edit?voice=delete",
         "variant": "delete",
         "description": "语音介绍删除前提醒态"
       },
       {
         "key": "voiceDelete",
         "designName": "语音介绍-删除提示",
-        "route": "/pages/profile-edit/voice?variant=delete",
+        "route": "/pages/profile/edit?voice=delete",
         "variant": "delete",
         "description": "语音介绍删除确认弹层"
       },
       {
         "key": "voiceDeleteSuccess",
         "designName": "编辑资料-语音删除成功提示",
-        "route": "/pages/profile-edit/voice?variant=delete-success",
+        "route": "/pages/profile/edit?voice=delete-success",
         "variant": "delete-success",
         "description": "语音介绍删除成功轻提示"
       },

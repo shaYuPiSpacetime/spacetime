@@ -60,16 +60,16 @@ export const mockMyMembership: MyMembership = {
   ...membershipDemo.myMembership,
 };
 
-/** 模拟成家币套餐 */
+/** 模拟千寻币套餐 */
 export const mockCoinPackages: CoinPackage[] = coinsDemo.packages;
 
-/** 模拟成家币余额 */
+/** 模拟千寻币余额 */
 export const mockCoinBalance = coinsDemo.balance;
 
-/** 模拟成家币交易明细 */
+/** 模拟千寻币交易明细 */
 export const mockCoinTransactions: CoinTransaction[] = coinsDemo.transactions;
 
-/** 模拟成家币用途列表 */
+/** 模拟千寻币用途列表 */
 export const mockCoinUsages: CoinUsage[] = coinsDemo.usages;
 
 /** 模拟会员记录 */

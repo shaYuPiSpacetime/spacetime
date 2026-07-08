@@ -16,12 +16,12 @@
 | `pages/verification` | 三重认证、基本资料、头像、实名认证、学历认证等认证链路 |
 | `pages/featured` | 精选 |
 | `pages/membership` | 会员中心、会员记录 |
-| `pages/coins` | 成家币、成家币明细 |
+| `pages/coins` | 千寻币、千寻币明细 |
 | `pages/assessment` | 测评 |
 
 **强制约束：**
 
-- `miniapp/config/index.ts` 必须关闭 SourceMap、关闭 Taro prebundle、开启 `optimizeMainPackage`，并通过 `imageUrlLoaderOption.name` 把登录/认证/精选/会员/成家币等分包专用图片输出到对应分包目录。
+- `miniapp/config/index.ts` 必须关闭 SourceMap、关闭 Taro prebundle、开启 `optimizeMainPackage`，并通过 `imageUrlLoaderOption.name` 把登录/认证/精选/会员/千寻币等分包专用图片输出到对应分包目录。
 - `miniapp/src/app.config.ts` 保留 `lazyCodeLoading: 'requiredComponents'` 和微信官方字段 `subPackages`，不要写小写 `subpackages`。
 - `miniapp/project.config.json`、`miniapp/project.private.config.json` 保留 `"lazyCodeLoading": "requiredComponents"`。
 - `miniapp/project.config.json` 的 `packOptions.ignore` 必须忽略 `.lanhu-ref` 和 `.map`，`uploadWithSourceMap` 必须为 `false`。
@@ -89,7 +89,7 @@ export const MOCK_ENABLED = true
 | 实名认证 | 提交即通过（APPROVED） |
 | 学历认证 | 提交即审核中（PENDING） |
 | 头像认证 | 提交即通过 |
-| 会员/成家币 | 使用 `services/mock.ts` 中的 mock 数据 |
+| 会员/千寻币 | 使用 `services/mock.ts` 中的 mock 数据 |
 
 **对接后端时：** 将 `MOCK_ENABLED` 改为 `false` 即可恢复真实请求。
 

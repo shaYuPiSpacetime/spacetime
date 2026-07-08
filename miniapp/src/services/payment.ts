@@ -9,7 +9,7 @@ export interface VipPackageVO {
   benefits: string[]
 }
 
-/** 成家币套餐 */
+/** 千寻币套餐 */
 export interface CoinPackageVO {
   id: number
   amount: number
@@ -22,7 +22,7 @@ export function getVipPackages(): Promise<VipPackageVO[]> {
   return get<VipPackageVO[]>('/miniapp/payment/vip/packages')
 }
 
-/** 获取成家币套餐列表 */
+/** 获取千寻币套餐列表 */
 export function getCoinPackages(): Promise<CoinPackageVO[]> {
   return get<CoinPackageVO[]>('/miniapp/payment/coin/packages')
 }

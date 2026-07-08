@@ -9,7 +9,7 @@ const membershipDemo = getDemoPageData('membership');
 const coinsDemo = getDemoPageData('coins');
 
 /**
- * 成家币余额数据结构（当前阶段 demo 数据为 number，后续接口返回完整对象）
+ * 千寻币余额数据结构（当前阶段 demo 数据为 number，后续接口返回完整对象）
  */
 interface CoinBalance {
   /** 可用余额 */
@@ -38,7 +38,7 @@ interface ProfileData {
   verifiedLabels: string[];
   /** 会员信息 */
   membership: MyMembership | null;
-  /** 成家币余额 */
+  /** 千寻币余额 */
   coinBalance: CoinBalance | null;
   /** 统计数据 — 我喜欢的 */
   likedCount: number;
@@ -70,7 +70,7 @@ interface UseProfileReturn {
   goToEditProfile: () => void;
   /** 跳转 VIP 开通页 */
   goToVip: () => void;
-  /** 跳转成家币明细 */
+  /** 跳转千寻币明细 */
   goToCoin: () => void;
   /** 跳转邀请好友 */
   goToInvite: () => void;
@@ -101,7 +101,7 @@ function buildProfileData(): ProfileData {
     verifiedLabels: profileDemo.verifiedLabels,
     // 会员信息
     membership: membershipDemo.myMembership ?? null,
-    // 成家币余额（当前为 number，包装为对象以兼容后续接口）
+    // 千寻币余额（当前为 number，包装为对象以兼容后续接口）
     coinBalance: { balance: coinsDemo.balance },
     // 统计数据（mock 占位）
     likedCount: profileDemo.stats.likedCount,
@@ -175,7 +175,7 @@ export function useProfile(): UseProfileReturn {
     Taro.navigateTo({ url: '/pages/membership/index' });
   }, []);
 
-  /** 跳转成家币明细页 */
+  /** 跳转千寻币明细页 */
   const goToCoin = useCallback(() => {
     Taro.navigateTo({ url: '/pages/coins/index' });
   }, []);

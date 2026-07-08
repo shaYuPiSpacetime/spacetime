@@ -1,7 +1,9 @@
 import { ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState } from 'react'
+import LanhuSubNav from '@/components/LanhuSubNav'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import { navigateBackOrRedirect } from '@/utils/navigation'
 
 type AboutTopic = {
   key: string
@@ -20,18 +22,35 @@ const profileDemo = getDemoPageData('profile') as ProfileDemo
 const mainBlue = '#2876FF'
 const titleColor = '#0C285A'
 const pageBackground =
-  'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48%, rgba(248,250,239,0.6) 100%)'
+  'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 48%, rgba(248,250,239,0.72) 100%)'
 
 export default function ProfileEditAboutPage() {
   const router = useRouter()
-  const topic = String(router.params.topic || '')
-  const isTopicList = topic === ''
   const topics = profileDemo.editProfile.aboutTopics
-  const activeTopic = topics.find((item) => item.key === topic) || topics[0]
-  const [value, setValue] = useState(activeTopic?.value || '')
+  const initialTopic = String(router.params.topic || 'all')
+  const aboutTabs = [
+    { key: 'all', title: '全部' },
+    { key: 'who', title: '我是谁' },
+    { key: 'daily', title: '我的日常' },
+    { key: 'story', title: '我的故事' },
+    { key: 'love', title: '我热爱的' },
+  ]
+  const [activeTopicKey, setActiveTopicKey] = useState(
+    topics.some((item) => item.key === initialTopic) ? initialTopic : 'all'
+  )
+  const [activeCategoryKey, setActiveCategoryKey] = useState('all')
+  const activeTopic = topics.find((item) => item.key === activeTopicKey) || topics[0]
+  const [draftValues, setDraftValues] = useState<Record<string, string>>(
+    topics.reduce<Record<string, string>>((result, item) => {
+      result[item.key] = item.value
+      return result
+    }, {})
+  )
+  const isAllTopic = activeTopicKey === 'all'
+  const editTopicTitle = activeTopic.title === '见面便好' ? '见面偏好' : activeTopic.title
 
   const handleBack = () => {
-    Taro.navigateBack({ fail: () => Taro.redirectTo({ url: '/pages/profile/edit' }) })
+    navigateBackOrRedirect()
   }
 
   const handleSave = () => {
@@ -39,98 +58,142 @@ export default function ProfileEditAboutPage() {
     setTimeout(handleBack, 500)
   }
 
-  if (isTopicList) {
-    return (
-      <View style={{ minHeight: '100vh', background: pageBackground }}>
-        <ProfileEditSubNav title="关于我" onBack={handleBack} />
-        <ScrollView scrollY style={{ height: 'calc(100vh - 164rpx)', width: '750rpx' }} showScrollbar={false}>
-          <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>
-            {topics.map((item) => (
-              <View
-                key={item.key}
-                onClick={() => Taro.redirectTo({ url: `/pages/profile-edit/about?topic=${item.key}` })}
-                style={{
-                  width: '700rpx',
-                  minHeight: '112rpx',
-                  borderRadius: '8rpx',
-                  background: '#FFFFFF',
-                  marginBottom: '18rpx',
-                  padding: '24rpx 26rpx',
-                  boxSizing: 'border-box',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <View style={{ flex: 1, paddingRight: '24rpx', boxSizing: 'border-box' }}>
-                  <Text style={{ display: 'block', color: titleColor, fontSize: '30rpx', lineHeight: '42rpx', fontWeight: 700 }}>
-                    {item.title}
-                  </Text>
-                  {item.value ? (
-                    <Text numberOfLines={1} style={{ display: 'block', color: '#8A93A5', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>
-                      {item.value}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text style={{ color: '#C0C5D0', fontSize: '38rpx', lineHeight: '38rpx' }}>›</Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      </View>
-    )
-  }
+  const renderTopicCard = (item: AboutTopic, index: number) => (
+    <View
+      key={`${item.key}-${index}`}
+      onClick={() => setActiveTopicKey(item.key)}
+      style={{
+        width: '700rpx',
+        minHeight: '160rpx',
+        borderRadius: '8rpx',
+        background: '#FFFFFF',
+        marginBottom: '24rpx',
+        padding: '34rpx 54rpx 26rpx 28rpx',
+        boxSizing: 'border-box',
+        position: 'relative',
+      }}
+    >
+      <Text style={{ display: 'block', color: titleColor, fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 800 }}>
+        {item.title}
+      </Text>
+      <Text numberOfLines={1} style={{ display: 'block', color: '#999999', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '10rpx' }}>
+        {item.placeholder}
+      </Text>
+      <Text style={{ position: 'absolute', right: '30rpx', top: '51rpx', color: '#999999', fontSize: '58rpx', lineHeight: '58rpx', fontWeight: 300 }}>›</Text>
+    </View>
+  )
 
   return (
     <View style={{ minHeight: '100vh', background: pageBackground }}>
-      <ProfileEditSubNav title={activeTopic?.title || '见面便好'} onBack={handleBack} />
-      <ScrollView scrollY style={{ height: 'calc(100vh - 164rpx)', width: '750rpx' }} showScrollbar={false}>
-        <View style={{ width: '750rpx', padding: '22rpx 25rpx 160rpx', boxSizing: 'border-box' }}>
-          <View
-            style={{
-              width: '700rpx',
-              minHeight: '474rpx',
-              borderRadius: '8rpx',
-              background: '#FFFFFF',
-              padding: '30rpx',
-              boxSizing: 'border-box',
-            }}
-          >
-            <Textarea
-              value={value}
-              placeholder={activeTopic?.placeholder || '写下你的想法'}
-              placeholderStyle="color:#999999;font-size:28rpx;line-height:48rpx"
-              maxlength={120}
-              onInput={(event) => setValue(event.detail.value)}
-              style={{
-                width: '640rpx',
-                minHeight: '366rpx',
-                color: '#333333',
-                fontSize: '28rpx',
-                lineHeight: '48rpx',
-                background: '#FFFFFF',
-              }}
-            />
-            <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx', textAlign: 'right' }}>
-              {`${value.length}/120`}
-            </Text>
+      <LanhuSubNav title={isAllTopic ? '关于我' : ''} onBack={handleBack} />
+      {isAllTopic ? (
+        <ScrollView scrollX style={{ width: '750rpx', height: '96rpx', whiteSpace: 'nowrap' }} showScrollbar={false}>
+          <View style={{ display: 'flex', flexDirection: 'row', paddingLeft: '28rpx', boxSizing: 'border-box', height: '96rpx' }}>
+            {aboutTabs.map((tab) => {
+              const active = tab.key === activeCategoryKey
+              return (
+                <View
+                  key={tab.key}
+                  onClick={() => {
+                    setActiveCategoryKey(tab.key)
+                    setActiveTopicKey('all')
+                  }}
+                  style={{
+                    position: 'relative',
+                    minWidth: tab.key === 'all' ? '108rpx' : '150rpx',
+                    height: '58rpx',
+                    borderRadius: '12rpx',
+                    background: active ? mainBlue : '#E3F1FE',
+                    marginRight: '12rpx',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 24rpx',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <Text style={{ color: active ? '#FFFFFF' : '#7F8494', fontSize: '30rpx', lineHeight: '42rpx', fontWeight: active ? 800 : 500 }}>
+                    {tab.title}
+                  </Text>
+                  {active ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        left: '50%',
+                        bottom: '-14rpx',
+                        width: '0',
+                        height: '0',
+                        marginLeft: '-11rpx',
+                        borderLeft: '11rpx solid transparent',
+                        borderRight: '11rpx solid transparent',
+                        borderTop: `14rpx solid ${mainBlue}`,
+                      }}
+                    />
+                  ) : null}
+                </View>
+              )
+            })}
           </View>
-          <View onClick={handleSave} style={{ width: '700rpx', height: '98rpx', borderRadius: '49rpx', background: mainBlue, marginTop: '42rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 700 }}>保存</Text>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  )
-}
+        </ScrollView>
+      ) : null}
 
-function ProfileEditSubNav({ title, onBack }: { title: string; onBack: () => void }) {
-  return (
-    <View style={{ position: 'relative', width: '750rpx', height: '164rpx' }}>
-      <View onClick={onBack} style={{ position: 'absolute', left: '18rpx', top: '82rpx', width: '86rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: titleColor, fontSize: '54rpx', lineHeight: '60rpx', fontWeight: 300 }}>‹</Text>
-      </View>
-      <Text style={{ position: 'absolute', left: '0', top: '98rpx', width: '750rpx', color: titleColor, fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 500, textAlign: 'center' }}>{title}</Text>
+      {isAllTopic ? (
+        <ScrollView scrollY style={{ height: 'calc(100vh - 260rpx)', width: '750rpx' }} showScrollbar={false}>
+          <View style={{ width: '750rpx', padding: '0 25rpx 172rpx', boxSizing: 'border-box' }}>
+            <>
+              {topics.map(renderTopicCard)}
+              {topics.map((item, index) => renderTopicCard(item, index + topics.length))}
+            </>
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView scrollY style={{ height: 'calc(100vh - 164rpx)', width: '750rpx' }} showScrollbar={false}>
+          <View data-role="about-topic-edit" style={{ width: '750rpx', padding: '68rpx 25rpx 172rpx', boxSizing: 'border-box' }}>
+            <Text style={{ display: 'block', color: titleColor, fontSize: '52rpx', lineHeight: '73rpx', fontWeight: 800, marginLeft: '6rpx' }}>
+              {editTopicTitle}
+            </Text>
+            <View style={{ marginTop: '58rpx' }}>
+              <View
+                style={{
+                  width: '700rpx',
+                  minHeight: '496rpx',
+                  borderRadius: '8rpx',
+                  background: '#FFFFFF',
+                  padding: '40rpx 44rpx 26rpx',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <Textarea
+                  value={draftValues[activeTopic.key] || ''}
+                  placeholder={activeTopic.placeholder || '写下你的想法'}
+                  placeholderStyle="color:#999999;font-size:30rpx;line-height:54rpx"
+                  maxlength={400}
+                  onInput={(event) =>
+                    setDraftValues((current) => ({
+                      ...current,
+                      [activeTopic.key]: event.detail.value,
+                    }))
+                  }
+                  style={{
+                    width: '612rpx',
+                    minHeight: '372rpx',
+                    color: '#333333',
+                    fontSize: '30rpx',
+                    lineHeight: '54rpx',
+                    background: '#FFFFFF',
+                  }}
+                />
+                <Text style={{ display: 'block', color: '#999999', fontSize: '30rpx', lineHeight: '42rpx', textAlign: 'right', marginTop: '16rpx' }}>
+                  {`${(draftValues[activeTopic.key] || '').length}/400`}
+                </Text>
+              </View>
+              <View onClick={handleSave} style={{ width: '700rpx', height: '98rpx', borderRadius: '20rpx', background: mainBlue, marginTop: '172rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: '40rpx', lineHeight: '56rpx', fontWeight: 500 }}>保存</Text>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      )}
     </View>
   )
 }

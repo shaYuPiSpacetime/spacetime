@@ -4,13 +4,18 @@ import type { MembershipPlan, MembershipRecord, MyMembership, MemberStatus } fro
 import { getDemoPageData } from '@/services/lanhuDemo'
 
 const membershipDemo = getDemoPageData('membership')
-type MembershipDemoVariant = 'none' | 'active' | 'expired' | 'annual' | 'subscription'
+type MembershipDemoVariant = 'default' | 'none' | 'active' | 'expired' | 'annual'
 export type MembershipPayState = 'idle' | 'wechat-pay' | 'pay-success' | 'pay-cancel' | 'unpaid-sheet'
 
 function membershipForVariant(variant: MembershipDemoVariant): MyMembership {
-  if (variant === 'active' || variant === 'annual' || variant === 'subscription') return { ...membershipDemo.activeMembership }
+  if (variant === 'active' || variant === 'annual') return { ...membershipDemo.activeMembership }
   if (variant === 'expired') return { ...membershipDemo.expiredMembership }
   return { ...membershipDemo.myMembership }
+}
+
+function plansForVariant(variant: MembershipDemoVariant): MembershipPlan[] {
+  if (variant === 'default') return [...membershipDemo.regularPlans]
+  return [...membershipDemo.plans]
 }
 
 /**
@@ -19,13 +24,13 @@ function membershipForVariant(variant: MembershipDemoVariant): MyMembership {
  *
  * 注意：当前所有数据使用 Mock，后续接入真实 API 只需替换 fetch* 函数。
  */
-export function useMembership(variant: MembershipDemoVariant = 'none') {
+export function useMembership(variant: MembershipDemoVariant = 'default') {
   /* ---------- 会员状态 ---------- */
   const [myMembership, setMyMembership] = useState<MyMembership>(() => membershipForVariant(variant))
   const [statusLoading, setStatusLoading] = useState(false)
 
   /* ---------- 套餐列表 ---------- */
-  const [plans, setPlans] = useState<MembershipPlan[]>(membershipDemo.plans)
+  const [plans, setPlans] = useState<MembershipPlan[]>(() => plansForVariant(variant))
   const [plansLoading, setPlansLoading] = useState(false)
 
   /* ---------- 选中的套餐 ---------- */
@@ -40,7 +45,7 @@ export function useMembership(variant: MembershipDemoVariant = 'none') {
   const [activeStatus, setActiveStatus] = useState<MemberStatus | 'all'>('all')
 
   /* ---------- 会员记录 ---------- */
-  const [records, setRecords] = useState<MembershipRecord[]>([])
+  const [records, setRecords] = useState<MembershipRecord[]>(membershipDemo.records)
   const [recordsLoading, setRecordsLoading] = useState(false)
   const [benefits] = useState(membershipDemo.benefits)
 
@@ -74,11 +79,11 @@ export function useMembership(variant: MembershipDemoVariant = 'none') {
     try {
       // 后续替换为真实 API 调用
       await new Promise((resolve) => setTimeout(resolve, 300))
-      setPlans([...membershipDemo.plans])
+      setPlans(plansForVariant(variant))
     } finally {
       setPlansLoading(false)
     }
-  }, [])
+  }, [variant])
 
   /** 加载会员记录（Mock 实现） */
   const fetchRecords = useCallback(async () => {
@@ -130,7 +135,6 @@ export function useMembership(variant: MembershipDemoVariant = 'none') {
     try {
       // 后续替换为真实支付 API 调用
       await new Promise((resolve) => setTimeout(resolve, 360))
-      Taro.showToast({ title: '支付成功', icon: 'success' })
       setMyMembership({ ...membershipDemo.activeMembership })
       setPayPopupVisible(true)
       setPayState('pay-success')

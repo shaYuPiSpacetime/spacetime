@@ -1,5 +1,5 @@
 import { ScrollView, Text, View } from '@tarojs/components'
-import { useLoad, useRouter } from '@tarojs/taro'
+import Taro, { useLoad, useRouter } from '@tarojs/taro'
 import { useState } from 'react'
 import { useCoins } from '@/hooks/useCoins'
 import { LANHU_BLUE, LANHU_NAVY, LanhuNav } from '@/pages/lanhu/LanhuShell'
@@ -30,7 +30,7 @@ export default function CoinsDetailPage() {
 
   return (
     <View style={{ minHeight: '100vh', background: '#FFFFFF' }}>
-      <LanhuNav title="成家币明细" showBack />
+      <LanhuNav title="千寻币明细" showBack />
       <View
         style={{
           width: '750rpx',
@@ -57,7 +57,7 @@ export default function CoinsDetailPage() {
               }}
               onClick={() => setActive(tab)}
             >
-              <Text style={{ color: isActive ? LANHU_NAVY : '#999999', fontSize: '30rpx', fontWeight: isActive ? 700 : 400 }}>
+              <Text style={{ color: isActive ? LANHU_BLUE : '#999999', fontSize: '30rpx', fontWeight: isActive ? 700 : 400 }}>
                 {tab}
               </Text>
               {isActive && (
@@ -78,14 +78,12 @@ export default function CoinsDetailPage() {
         })}
       </View>
 
-      {transactionsLoading ? (
+      {transactionsLoading && filtered.length === 0 ? (
         <Text style={{ display: 'block', textAlign: 'center', color: '#999999', marginTop: '160rpx' }}>
           加载中...
         </Text>
       ) : filtered.length === 0 ? (
-        <Text style={{ display: 'block', textAlign: 'center', color: '#999999', marginTop: '160rpx' }}>
-          暂无交易记录
-        </Text>
+        <EmptyState />
       ) : (
         <ScrollView scrollY style={{ height: 'calc(100vh - 264rpx)' }} showScrollbar={false}>
           <View style={{ width: '750rpx', padding: '0 25rpx 80rpx', boxSizing: 'border-box' }}>
@@ -99,8 +97,42 @@ export default function CoinsDetailPage() {
   )
 }
 
+function EmptyState() {
+  return (
+    <View style={{ width: '750rpx', paddingTop: '262rpx', boxSizing: 'border-box', display: 'flex', alignItems: 'center', flexDirection: 'column' }}>
+      <View style={{ position: 'relative', width: '298rpx', height: '210rpx' }}>
+        <View style={{ position: 'absolute', left: '78rpx', top: '28rpx', width: '134rpx', height: '154rpx', borderRadius: '18rpx', border: '12rpx solid #D8DEE6' }} />
+        <View style={{ position: 'absolute', left: '44rpx', top: '64rpx', width: '134rpx', height: '130rpx', borderRadius: '18rpx', border: '12rpx solid #D8DEE6', background: '#FFFFFF' }} />
+        <View style={{ position: 'absolute', left: '82rpx', top: '108rpx', width: '66rpx', height: '66rpx', borderRadius: '33rpx', border: '10rpx solid #D8DEE6' }} />
+        <View style={{ position: 'absolute', left: '137rpx', top: '162rpx', width: '58rpx', height: '18rpx', borderRadius: '9rpx', background: '#D8DEE6', transform: 'rotate(45deg)' }} />
+        <View style={{ position: 'absolute', left: '76rpx', top: '84rpx', width: '78rpx', height: '10rpx', borderRadius: '5rpx', background: '#D8DEE6' }} />
+        <View style={{ position: 'absolute', left: '76rpx', top: '118rpx', width: '98rpx', height: '10rpx', borderRadius: '5rpx', background: '#D8DEE6' }} />
+        <Text style={{ position: 'absolute', left: '0', top: '58rpx', color: '#D8DEE6', fontSize: '52rpx', fontWeight: 700 }}>+</Text>
+        <Text style={{ position: 'absolute', right: '0', top: '88rpx', color: '#D8DEE6', fontSize: '42rpx', fontWeight: 700 }}>。</Text>
+      </View>
+      <Text style={{ color: '#9A9A9A', fontSize: '34rpx', lineHeight: '48rpx', marginTop: '28rpx' }}>暂无记录</Text>
+      <View
+        style={{
+          width: '662rpx',
+          height: '98rpx',
+          borderRadius: '14rpx',
+          background: LANHU_BLUE,
+          marginTop: '52rpx',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onClick={() => Taro.navigateTo({ url: '/pages/coins/index' })}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 700 }}>去充值</Text>
+      </View>
+    </View>
+  )
+}
+
 function DetailRow({ item }: { item: CoinTransaction }) {
   const amount = item.amount > 0 ? `+${item.amount}` : `${item.amount}`
+  const amountColor = item.amount > 0 ? LANHU_BLUE : '#F32B61'
 
   return (
     <View
@@ -121,7 +153,7 @@ function DetailRow({ item }: { item: CoinTransaction }) {
           {item.time}
         </Text>
       </View>
-      <Text style={{ color: LANHU_BLUE, fontSize: '34rpx', lineHeight: '48rpx' }}>
+      <Text style={{ color: amountColor, fontSize: '34rpx', lineHeight: '48rpx' }}>
         {amount}
       </Text>
     </View>

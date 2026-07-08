@@ -23,18 +23,22 @@ const REQUIRED_PROFILE_DESIGNS = [
   { name: '关于我', route: '/pages/profile-edit/about', variant: 'default' },
   { name: '感情状态', route: '/pages/profile/edit?variant=relationship', variant: 'relationship' },
   { name: '见面便好（样式复用）', route: '/pages/profile-edit/about?topic=meet', variant: 'meet' },
-  { name: '编辑资料-语音介绍删除提醒', route: '/pages/profile-edit/voice?variant=delete', variant: 'delete' },
-  { name: '语音介绍-删除提示', route: '/pages/profile-edit/voice?variant=delete', variant: 'delete' },
-  { name: '编辑资料-语音删除成功提示', route: '/pages/profile-edit/voice?variant=delete-success', variant: 'delete-success' },
+  { name: '编辑资料-语音介绍删除提醒', route: '/pages/profile/edit?voice=delete', variant: 'delete' },
+  { name: '语音介绍-删除提示', route: '/pages/profile/edit?voice=delete', variant: 'delete' },
+  { name: '编辑资料-语音删除成功提示', route: '/pages/profile/edit?voice=delete-success', variant: 'delete-success' },
 ]
 
 const REQUIRED_VOICE_DESIGNS = [
-  { name: '语音介绍', route: '/pages/profile-edit/voice?variant=voice', variant: 'voice' },
-  { name: '语音介绍-录制中', route: '/pages/profile-edit/voice?variant=recording', variant: 'recording' },
-  { name: '语音介绍-退出录音', route: '/pages/profile-edit/voice?variant=exit', variant: 'exit' },
-  { name: '语音介绍-点击播放', route: '/pages/profile-edit/voice?variant=play', variant: 'play' },
-  { name: '语音介绍-录制完成', route: '/pages/profile-edit/voice?variant=complete', variant: 'complete' },
-  { name: '语音介绍-删除提示', route: '/pages/profile-edit/voice?variant=delete', variant: 'delete' },
+  { name: '语音介绍', route: '/pages/profile/edit?voice=voice', variant: 'voice' },
+  { name: '语音介绍-录制中', route: '/pages/profile/edit?voice=recording', variant: 'recording' },
+  { name: '语音介绍-退出录音', route: '/pages/profile/edit?voice=exit', variant: 'exit' },
+  { name: '语音介绍-点击播放', route: '/pages/profile/edit?voice=play', variant: 'play' },
+  { name: '语音介绍-录制完成', route: '/pages/profile/edit?voice=complete', variant: 'complete' },
+  { name: '语音介绍-删除提示', route: '/pages/profile/edit?voice=delete', variant: 'delete' },
+]
+
+const REQUIRED_VERIFICATION_DESIGNS = [
+  { name: '我的认证', route: '/pages/verification/my-certification', variant: 'my-certification' },
 ]
 
 const SOURCE_EVIDENCE = [
@@ -81,11 +85,14 @@ const SOURCE_EVIDENCE = [
       'profileDemo.editProfile',
       'AboutMeSection',
       'VoiceSection',
+      'VoiceIntroSheet',
+      'voiceSheet',
+      'setVoiceSheet',
       "/pages/profile-edit/intro",
       "/pages/profile-edit/tags",
       "/pages/profile-edit/about?topic=meet",
       "/pages/profile-edit/songs",
-      "/pages/profile-edit/voice?variant=voice",
+      "/pages/verification/my-certification",
       "/pages/verification/basic",
     ],
   },
@@ -94,7 +101,8 @@ const SOURCE_EVIDENCE = [
     snippets: [
       'ProfileEditIntroPage',
       'profileDemo.editProfile.intro',
-      '保存自我介绍',
+      '>保存</Text>',
+      '介绍下自己的性格、习惯、有点、缺点',
       "borderRadius: '8rpx'",
     ],
     route: '/pages/profile-edit/intro',
@@ -106,6 +114,10 @@ const SOURCE_EVIDENCE = [
       'ProfileEditTagsPage',
       'profileDemo.tagGroups',
       'selectedTags',
+      'activeCategory',
+      "width: '206rpx'",
+      '展开⌃',
+      'navigateBackOrRedirect',
       "borderRadius: '12rpx'",
     ],
   },
@@ -115,8 +127,11 @@ const SOURCE_EVIDENCE = [
     snippets: [
       'ProfileEditAboutPage',
       'profileDemo.editProfile.aboutTopics',
-      'topic ===',
+      'aboutTabs',
+      'activeTopicKey',
+      'setActiveTopicKey',
       '见面便好',
+      'navigateBackOrRedirect',
     ],
   },
   {
@@ -126,23 +141,38 @@ const SOURCE_EVIDENCE = [
       'ProfileEditSongsPage',
       'profileDemo.editProfile.favoriteSongs',
       "variant === 'added'",
+      'searchKeyword',
+      'SongRecord',
+      'navigateBackOrRedirect',
       "borderRadius: '98rpx'",
     ],
   },
   {
-    label: '语音介绍录制状态',
-    route: '/pages/profile-edit/voice',
+    label: '语音介绍底部弹窗',
+    route: '/pages/profile/edit',
     snippets: [
-      'ProfileEditVoicePage',
-      'profileDemo.editProfile.voiceIntro',
-      "variant === 'voice'",
-      "variant === 'recording'",
-      "variant === 'exit'",
-      "variant === 'play'",
-      "variant === 'complete'",
-      "variant === 'delete'",
+      'VoiceIntroSheet',
+      'type VoiceSheetVariant',
+      "'recording'",
+      "'exit'",
+      "'play'",
+      "'complete'",
+      "'delete'",
+      "'delete-success'",
       "borderRadius: '64rpx 64rpx 0 0'",
-      "borderRadius: '98rpx'",
+      'VoiceRoundButton',
+      'VoiceActionButton',
+    ],
+  },
+  {
+    label: '我的认证新页面',
+    route: '/pages/verification/my-certification',
+    snippets: [
+      'MyCertificationPage',
+      '为什么要认证',
+      'CertStatusCard',
+      'navigateBackOrRedirect',
+      '更新认证',
     ],
   },
 ]
@@ -223,6 +253,7 @@ for (const item of [...REQUIRED_LOGIN_DESIGNS, ...REQUIRED_PROFILE_DESIGNS, ...R
 assertCoverage(data, 'login', REQUIRED_LOGIN_DESIGNS)
 assertCoverage(data, 'profile', REQUIRED_PROFILE_DESIGNS)
 assertCoverage(data, 'verification', REQUIRED_VOICE_DESIGNS)
+assertCoverage(data, 'verification', REQUIRED_VERIFICATION_DESIGNS)
 
 assert.ok(data.login?.guestMode?.variants?.guest, 'login.guestMode.variants.guest 缺失')
 assert.ok(data.login?.guestMode?.variants?.['guest-alt'], 'login.guestMode.variants.guest-alt 缺失')
@@ -243,6 +274,13 @@ assert.ok(data.profile?.editProfile?.voiceIntro?.states?.complete?.duration, 'pr
 assert.equal(data.profile?.editProfile?.voiceIntro?.states?.recording?.title, '录制中', '语音录制中状态文案缺失')
 assert.equal(data.profile?.editProfile?.voiceIntro?.states?.exit?.title, '退出录音', '语音退出录音状态文案缺失')
 assert.equal(data.profile?.editProfile?.voiceIntro?.states?.complete?.title, '录制完成', '语音录制完成状态文案缺失')
+
+const profileEditSource = fs.readFileSync(sourcePathForRoute('/pages/profile/edit'), 'utf8')
+const forbiddenVoiceRoute = ['/pages/profile-edit', '/voice'].join('')
+assert.ok(!profileEditSource.includes(forbiddenVoiceRoute), '编辑资料页禁止再跳转语音独立页面，语音介绍必须使用蓝湖底部弹窗')
+const forbiddenProfileVariantPrefix = ['profile/edit', '?variant='].join('')
+assert.ok(!profileEditSource.includes(`${forbiddenProfileVariantPrefix}songs`), '爱听歌曲禁止回退到编辑页 variant')
+assert.ok(!profileEditSource.includes(`${forbiddenProfileVariantPrefix}about`), '关于我禁止回退到编辑页 variant')
 
 assertSourceEvidence()
 

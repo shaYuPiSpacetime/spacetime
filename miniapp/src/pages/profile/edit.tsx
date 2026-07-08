@@ -1,9 +1,14 @@
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useRouter } from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import { getWindowMetrics } from '@/utils/system'
 
+import editHeroPhoto from '@/assets/lanhu/profile/edit-hero-photo.jpg'
+import certAvatarIcon from '@/assets/lanhu/verification/slices/cert-avatar.webp'
+import certEducationIcon from '@/assets/lanhu/verification/slices/cert-education.webp'
+import certRealNameIcon from '@/assets/lanhu/verification/slices/cert-realname.webp'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
 type EditOptionGroup = {
@@ -21,6 +26,16 @@ type AboutTopic = {
   key: string
   title: string
   value?: string
+}
+
+type VoiceSheetVariant = 'voice' | 'recording' | 'exit' | 'play' | 'complete' | 'delete' | 'delete-success'
+
+type VoiceState = {
+  title: string
+  desc: string
+  buttonText?: string
+  timer?: string
+  duration?: string
 }
 
 type ProfileDemo = {
@@ -41,6 +56,19 @@ type ProfileDemo = {
       value: string
     }
     aboutTopics: AboutTopic[]
+    voiceIntro: {
+      title: string
+      subtitle?: string
+      duration?: string
+      statusText?: string
+      deleteText?: string
+      deleteTitle?: string
+      deleteContent?: string
+      deleteConfirmText?: string
+      deleteCancelText?: string
+      successText?: string
+      states: Record<VoiceSheetVariant, VoiceState>
+    }
   }
   defaultSelectedTags: string[]
 }
@@ -63,6 +91,7 @@ const mainBlue = '#2876FF'
 const titleColor = '#0C285A'
 const mutedColor = '#7F8494'
 const cardShadow = '0 18rpx 48rpx rgba(25, 54, 98, 0.06)'
+const fontFamily = '"PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif'
 const defaultPhotoSlots: ProfilePhotoSlot[] = [
   { label: '笑起来的样子' },
   { label: '生活中的样子' },
@@ -71,16 +100,40 @@ const defaultPhotoSlots: ProfilePhotoSlot[] = [
   { label: '展示才艺的照片' },
   { label: '宠物小伙伴' },
 ]
+const aboutStoryPrompts = ['购车情况?', '是否想要孩子?', '有无子女?', '宠物?', '作息习惯?']
+
+function resolveVoiceSheetVariant(value?: string): VoiceSheetVariant | null {
+  if (
+    value === 'voice' ||
+    value === 'recording' ||
+    value === 'exit' ||
+    value === 'play' ||
+    value === 'complete' ||
+    value === 'delete' ||
+    value === 'delete-success'
+  ) {
+    return value
+  }
+  return null
+}
+
 export default function ProfileEditPage() {
-  const [heroPhoto, setHeroPhoto] = useState(defaultAvatar)
+  const router = useRouter()
+  const [activeTopTab, setActiveTopTab] = useState<'form' | 'preview'>('form')
+  const [heroPhoto, setHeroPhoto] = useState(editHeroPhoto)
+  const [miniAvatar, setMiniAvatar] = useState(defaultAvatar)
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
-  const [goal, setGoal] = useState(editProfileDemo.datingGoal.current)
+  const [goal, setGoal] = useState('')
   const [relationship, setRelationship] = useState('佛系交友')
   const [mbti, setMbti] = useState('ENFJ 主人公')
   const [wechat, setWechat] = useState('')
   const [sheet, setSheet] = useState<SheetState>(null)
+  const [voiceSheet, setVoiceSheet] = useState<VoiceSheetVariant | null>(() =>
+    resolveVoiceSheetVariant(String(router.params.voice || ''))
+  )
 
   const closeSheet = () => setSheet(null)
+  const closeVoiceSheet = () => setVoiceSheet(null)
 
   const openGoalSheet = () => {
     setSheet({
@@ -147,7 +200,10 @@ export default function ProfileEditPage() {
   }
 
   const onChangePhoto = () => {
-    void chooseProfileImage(setHeroPhoto, '更换照片')
+    void chooseProfileImage((imagePath) => {
+      setHeroPhoto(imagePath)
+      setMiniAvatar(imagePath)
+    }, '更换照片')
   }
 
   const handlePhotoClick = (index: number) => {
@@ -166,7 +222,7 @@ export default function ProfileEditPage() {
   }
 
   return (
-    <View style={{ minHeight: '100vh', background: pageBackground, overflow: 'hidden' }}>
+    <View style={{ minHeight: '100vh', background: pageBackground, overflow: 'hidden', fontFamily }}>
       <ScrollView scrollY style={{ height: '100vh', width: '750rpx' }} showScrollbar={false}>
         <View
           style={{
@@ -177,20 +233,21 @@ export default function ProfileEditPage() {
           }}
         >
           <EditProfileNavBar
-            title={editProfileDemo.title || '编辑资料'}
+            activeTab={activeTopTab}
+            onTabChange={setActiveTopTab}
             onBack={handleBack}
-            onMenu={() => handleProfileAction('更多操作')}
           />
           <ProfileScoreCard onClick={() => handleProfileAction('资料评分')} />
           <TruthNotice />
           <ProfileHeroCard
             nickname={profileDemo.nickname}
             avatar={heroPhoto}
+            miniAvatar={miniAvatar}
             onChangePhoto={onChangePhoto}
           />
           <PhotoUploadGrid photos={profilePhotos} onPhotoClick={handlePhotoClick} />
-          <BasicInfoSection onEdit={() => handleProfileAction('基础资料', '/pages/verification/basic')} />
-          <CertificationSection onUpdate={() => handleProfileAction('更新认证', '/pages/verification/triple')} />
+          <BasicInfoSection onEdit={() => handleProfileAction('基础资料', '/pages/verification/basic?from=profile')} />
+          <CertificationSection onUpdate={() => handleProfileAction('更新认证', '/pages/verification/my-certification')} />
           <ProfileSection title="脱单目标">
             <AddPrompt text={goal || '添加脱单目标，为你推荐目标一致的人'} onClick={openGoalSheet} />
           </ProfileSection>
@@ -199,13 +256,16 @@ export default function ProfileEditPage() {
             value={editProfileDemo.intro?.value || editProfileDemo.aboutMe.value}
             onEdit={() => handleProfileAction('自我介绍', '/pages/profile-edit/intro')}
           />
-          <ProfileSection title="我的标签">
+          <ProfileSection title="我的标签" padding="24rpx 26rpx">
             <AddPrompt
               text={profileDemo.defaultSelectedTags.length ? profileDemo.defaultSelectedTags.join('、') : '添加标签，让TA更了解你'}
+              marginTop="10rpx"
+              minHeight="72rpx"
+              promptPadding="12rpx 20rpx 12rpx 28rpx"
               onClick={() => handleProfileAction('我的标签', '/pages/profile-edit/tags')}
             />
           </ProfileSection>
-          <VoiceSection onRecord={() => handleProfileAction('语音介绍', '/pages/profile-edit/voice?variant=voice')} />
+          <VoiceSection onRecord={() => setVoiceSheet('voice')} />
           <MbtiSection mbti={mbti} onAdd={openMbtiSheet} />
           <AboutDetailSection
             items={editProfileDemo.aboutTopics || []}
@@ -217,7 +277,7 @@ export default function ProfileEditPage() {
               )
             }
           />
-          <SongSection song="告白气球丨周杰伦" onSwitch={() => handleProfileAction('爱听的歌曲', '/pages/profile-edit/songs')} />
+          <SongSection song="告白气球｜周杰伦" onSwitch={() => handleProfileAction('爱听的歌曲', '/pages/profile-edit/songs')} />
           <WechatSection value={wechat} onInput={setWechat} />
           <Text
             style={{
@@ -243,74 +303,128 @@ export default function ProfileEditPage() {
           onConfirm={confirmOption}
         />
       ) : null}
+      {voiceSheet ? (
+        <VoiceIntroSheet
+          variant={voiceSheet}
+          voiceIntro={editProfileDemo.voiceIntro}
+          onClose={closeVoiceSheet}
+          onChange={setVoiceSheet}
+        />
+      ) : null}
     </View>
   )
 }
 
-function EditProfileNavBar({ title, onBack, onMenu }: { title: string; onBack: () => void; onMenu: () => void }) {
+function EditProfileNavBar({
+  activeTab,
+  onTabChange,
+  onBack,
+}: {
+  activeTab: 'form' | 'preview'
+  onTabChange: (tab: 'form' | 'preview') => void
+  onBack: () => void
+}) {
+  const menu = Taro.getMenuButtonBoundingClientRect?.()
+  const system = getWindowMetrics()
+  const scale = system.windowWidth ? 750 / system.windowWidth : 2
+  const menuTop = menu ? menu.top * scale : 82
+  const menuHeight = menu ? menu.height * scale : 64
+  const menuLeft = menu ? menu.left * scale : 552
+  const titleTabsSafeWidth = Math.max(420, menuLeft - 112)
+  const navHeight = Math.max(164, menuTop + menuHeight + 24)
+  const titleTextLineHeight = 37
+  const titleTabsTop = menuTop + (menuHeight - titleTextLineHeight) / 2
+
   return (
-    <View style={{ position: 'relative', width: '750rpx', height: '164rpx' }}>
+    <View style={{ position: 'relative', width: '750rpx', height: `${navHeight}rpx` }}>
       <View
         onClick={onBack}
         style={{
           position: 'absolute',
           left: '18rpx',
-          top: '82rpx',
+          top: `${menuTop}rpx`,
           width: '86rpx',
-          height: '72rpx',
+          height: `${menuHeight}rpx`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: titleColor, fontSize: '54rpx', lineHeight: '60rpx', fontWeight: 300 }}>‹</Text>
-      </View>
-      <Text
-        style={{
-          position: 'absolute',
-          left: '0',
-          top: '98rpx',
-          width: '750rpx',
-          color: titleColor,
-          fontSize: '32rpx',
-          lineHeight: '45rpx',
-          fontWeight: 500,
-          textAlign: 'center',
-        }}
-      >
-        {title}
-      </Text>
-      <View
-        onClick={onMenu}
-        style={{
-          position: 'absolute',
-          right: '24rpx',
-          top: '78rpx',
-          width: '174rpx',
-          height: '64rpx',
-          borderRadius: '36rpx',
-          background: 'rgba(255,255,255,0.86)',
-          border: '1rpx solid rgba(12,40,90,0.08)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-around',
-          padding: '0 22rpx',
-          boxSizing: 'border-box',
-        }}
-      >
-        <View style={{ width: '10rpx', height: '10rpx', borderRadius: '10rpx', background: titleColor }} />
-        <View style={{ width: '10rpx', height: '10rpx', borderRadius: '10rpx', background: titleColor }} />
-        <View style={{ width: '10rpx', height: '10rpx', borderRadius: '10rpx', background: titleColor }} />
         <View
+          data-role="edit-nav-back-arrow"
           style={{
-            width: '34rpx',
-            height: '34rpx',
-            borderRadius: '34rpx',
-            border: `3rpx solid ${titleColor}`,
-            boxSizing: 'border-box',
+            width: '24rpx',
+            height: '24rpx',
+            borderLeft: '4rpx solid #607086',
+            borderBottom: '4rpx solid #607086',
+            transform: 'rotate(45deg)',
           }}
         />
       </View>
+      <View
+        style={{
+          position: 'absolute',
+          left: '112rpx',
+          top: `${titleTabsTop}rpx`,
+          width: `${titleTabsSafeWidth}rpx`,
+          height: '48rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          justifyContent: 'center',
+        }}
+      >
+        <EditProfileTitleTabs activeTab={activeTab} onTabChange={onTabChange} />
+      </View>
+    </View>
+  )
+}
+
+function EditProfileTitleTabs({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: 'form' | 'preview'
+  onTabChange: (tab: 'form' | 'preview') => void
+}) {
+  const tabs: Array<{ key: 'form' | 'preview'; label: string }> = [
+    { key: 'form', label: '编辑资料' },
+    { key: 'preview', label: '主页预览' },
+  ]
+  return (
+    <View style={{ width: '248rpx', height: '48rpx', display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
+      {tabs.map((tab) => {
+        const active = activeTab === tab.key
+        return (
+          <View key={tab.key} onClick={() => onTabChange(tab.key)} style={{ position: 'relative', width: '104rpx', height: '48rpx' }}>
+            <Text
+              style={{
+                display: 'block',
+                color: active ? titleColor : '#8F96A8',
+                fontSize: '26rpx',
+                lineHeight: '37rpx',
+                fontWeight: active ? 800 : 500,
+                textAlign: 'center',
+              }}
+            >
+              {tab.label}
+            </Text>
+            {active ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: '0',
+                  bottom: '0',
+                  width: '100%',
+                  height: '4rpx',
+                  borderRadius: '4rpx',
+                  background: mainBlue,
+                }}
+              />
+            ) : null}
+          </View>
+        )
+      })}
     </View>
   )
 }
@@ -402,10 +516,12 @@ function TruthNotice() {
 function ProfileHeroCard({
   nickname,
   avatar,
+  miniAvatar,
   onChangePhoto,
 }: {
   nickname: string
   avatar: string
+  miniAvatar: string
   onChangePhoto: () => void
 }) {
   return (
@@ -413,42 +529,24 @@ function ProfileHeroCard({
       style={{
         position: 'relative',
         width: '700rpx',
-        height: '714rpx',
+        height: '558rpx',
         margin: '20rpx auto 0',
-        borderRadius: '32rpx',
+        borderRadius: '8rpx',
         overflow: 'hidden',
-        background: 'linear-gradient(90deg, #DCF9DB 0%, #DCF3ED 49%, #E6E8FD 100%)',
+        background: '#EFF6F6',
         boxShadow: cardShadow,
       }}
     >
-      <View
-        onClick={onChangePhoto}
-        style={{
-          position: 'absolute',
-          right: '24rpx',
-          top: '26rpx',
-          height: '58rpx',
-          padding: '0 26rpx',
-          borderRadius: '58rpx',
-          background: 'rgba(255,255,255,0.92)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: mainBlue, fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 600 }}>更换照片</Text>
-      </View>
-
       <View
         data-role="hero-main-photo"
         onClick={onChangePhoto}
         style={{
           position: 'absolute',
-          left: '24rpx',
-          top: '104rpx',
-          width: '652rpx',
-          height: '586rpx',
-          borderRadius: '28rpx',
+          left: '0',
+          top: '0',
+          width: '700rpx',
+          height: '558rpx',
+          borderRadius: '8rpx',
           background: '#EFF6F6',
           overflow: 'hidden',
         }}
@@ -460,8 +558,8 @@ function ProfileHeroCard({
             position: 'absolute',
             left: '0',
             top: '0',
-            width: '652rpx',
-            height: '586rpx',
+            width: '700rpx',
+            height: '558rpx',
           }}
         />
         <View
@@ -470,78 +568,106 @@ function ProfileHeroCard({
             left: '0',
             right: '0',
             bottom: '0',
-            height: '188rpx',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(15,35,72,0.58) 100%)',
+            height: '210rpx',
+            background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(15,27,48,0.64) 100%)',
           }}
         />
         <View
           style={{
             position: 'absolute',
-            left: '22rpx',
-            right: '22rpx',
-            bottom: '22rpx',
-            height: '122rpx',
-            borderRadius: '24rpx',
-            background: 'rgba(255,255,255,0.9)',
+            left: '36rpx',
+            bottom: '34rpx',
+            height: '116rpx',
             display: 'flex',
             alignItems: 'center',
-            padding: '0 22rpx',
-            boxSizing: 'border-box',
           }}
         >
           <Image
             data-role="hero-mini-avatar"
-            src={avatar}
-            mode="aspectFill"
+            src={miniAvatar}
+            mode="aspectFit"
             style={{
-              width: '82rpx',
-              height: '82rpx',
-              borderRadius: '82rpx',
+              width: '104rpx',
+              height: '104rpx',
+              borderRadius: '104rpx',
+              background: '#FFFFFF',
               border: '4rpx solid #FFFFFF',
-              boxShadow: '0 8rpx 20rpx rgba(12,40,90,0.12)',
-              marginRight: '20rpx',
+              boxShadow: '0 8rpx 20rpx rgba(0,0,0,0.18)',
+              marginRight: '18rpx',
+              boxSizing: 'border-box',
             }}
           />
-          <View style={{ flex: 1 }}>
-            <Text style={{ display: 'block', color: titleColor, fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 700 }}>{nickname}</Text>
-            <Text style={{ display: 'block', color: '#7F8494', fontSize: '22rpx', lineHeight: '31rpx', marginTop: '4rpx' }}>
+          <View style={{ minWidth: 0 }}>
+            <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 700, maxWidth: '360rpx' }}>
+                {nickname}
+              </Text>
+              <HeroCertBadge />
+            </View>
+            <Text style={{ display: 'block', color: 'rgba(255,255,255,0.84)', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>
               97年丨杭州丨双鱼座
             </Text>
           </View>
-          <View
-            style={{
-              height: '44rpx',
-              padding: '0 18rpx',
-              borderRadius: '22rpx',
-              background: '#E3F1FE',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ color: mainBlue, fontSize: '22rpx', lineHeight: '31rpx', fontWeight: 600 }}>已认证</Text>
-          </View>
         </View>
         <View
+          onClick={onChangePhoto}
           style={{
             position: 'absolute',
-            right: '22rpx',
-            top: '22rpx',
-            height: '48rpx',
-            padding: '0 18rpx',
-            borderRadius: '24rpx',
-            background: 'rgba(255,255,255,0.88)',
+            right: '28rpx',
+            top: '28rpx',
+            height: '58rpx',
+            padding: '0 22rpx 0 24rpx',
+            borderRadius: '58rpx',
+            background: 'rgba(0,0,0,0.58)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: mainBlue, fontSize: '22rpx', lineHeight: '31rpx', fontWeight: 600 }}>点击更换</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 600 }}>更换照片</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: '38rpx', lineHeight: '38rpx', fontWeight: 300, marginLeft: '12rpx' }}>›</Text>
         </View>
       </View>
+    </View>
+  )
+}
 
-      <View style={{ position: 'absolute', left: '54rpx', top: '84rpx', width: '68rpx', height: '68rpx', borderRadius: '68rpx', background: 'rgba(40,118,255,0.16)' }} />
-      <View style={{ position: 'absolute', right: '94rpx', bottom: '96rpx', width: '92rpx', height: '92rpx', borderRadius: '92rpx', background: 'rgba(255,255,255,0.45)' }} />
+function HeroCertBadge({ compact = false }: { compact?: boolean }) {
+  return (
+    <View
+      data-role="hero-cert-badge"
+      style={{
+        position: 'relative',
+        width: compact ? '26rpx' : '32rpx',
+        height: compact ? '28rpx' : '36rpx',
+        marginLeft: compact ? '0' : '10rpx',
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          left: compact ? '1rpx' : '2rpx',
+          top: '0',
+          width: compact ? '23rpx' : '28rpx',
+          height: compact ? '26rpx' : '32rpx',
+          background: mainBlue,
+          borderRadius: compact ? '6rpx 6rpx 9rpx 9rpx' : '8rpx 8rpx 12rpx 12rpx',
+          transform: 'skewY(-4deg)',
+        }}
+      />
+      <Text
+        style={{
+          position: 'absolute',
+          left: compact ? '6rpx' : '8rpx',
+          top: compact ? '2rpx' : '3rpx',
+          color: '#FFFFFF',
+          fontSize: compact ? '16rpx' : '20rpx',
+          lineHeight: compact ? '22rpx' : '26rpx',
+          fontWeight: 800,
+        }}
+      >
+        ✓
+      </Text>
     </View>
   )
 }
@@ -566,10 +692,13 @@ function PhotoUploadGrid({
         boxShadow: cardShadow,
       }}
     >
-      <Text style={{ display: 'block', color: mutedColor, fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 600 }}>
-        更多照片
-      </Text>
-      <Text style={{ display: 'block', color: '#B5BAC7', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>
+      <View style={{ display: 'flex', alignItems: 'center' }}>
+        <SectionTitleDot />
+        <Text style={{ display: 'block', color: titleColor, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}>
+          更多照片
+        </Text>
+      </View>
+      <Text style={{ display: 'block', color: '#B5BAC7', fontSize: '22rpx', lineHeight: '31rpx', marginTop: '8rpx' }}>
         生活照、兴趣照、旅行照、让TA了解不同的你
       </Text>
       <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', marginTop: '26rpx' }}>
@@ -642,21 +771,26 @@ function UploadCard({
           justifyContent: 'center',
         }}
       >
-        <View
-          style={{
-            position: 'relative',
-            width: '58rpx',
-            height: '58rpx',
-            borderRadius: '58rpx',
-            background: imageUrl ? 'rgba(255,255,255,0.9)' : '#E7EEF9',
-            marginBottom: '18rpx',
-          }}
-        >
-          <View style={{ position: 'absolute', left: '15rpx', top: '27rpx', width: '28rpx', height: '4rpx', borderRadius: '4rpx', background: imageUrl ? mainBlue : '#AEB9CA' }} />
-          <View style={{ position: 'absolute', left: '27rpx', top: '15rpx', width: '4rpx', height: '28rpx', borderRadius: '4rpx', background: imageUrl ? mainBlue : '#AEB9CA' }} />
-        </View>
+        <PhotoUploadPlus active={Boolean(imageUrl)} />
         <Text style={{ color: imageUrl ? '#FFFFFF' : '#9CA5B8', fontSize: '22rpx', lineHeight: '31rpx', textAlign: 'center' }}>{label}</Text>
       </View>
+    </View>
+  )
+}
+
+function PhotoUploadPlus({ active }: { active: boolean }) {
+  const color = active ? '#FFFFFF' : '#8E96A7'
+  return (
+    <View
+      style={{
+        position: 'relative',
+        width: '58rpx',
+        height: '58rpx',
+        marginBottom: '16rpx',
+      }}
+    >
+      <View style={{ position: 'absolute', left: '6rpx', top: '27rpx', width: '46rpx', height: '5rpx', borderRadius: '5rpx', background: color }} />
+      <View style={{ position: 'absolute', left: '27rpx', top: '6rpx', width: '5rpx', height: '46rpx', borderRadius: '5rpx', background: color }} />
     </View>
   )
 }
@@ -665,11 +799,13 @@ function ProfileSection({
   title,
   action,
   onAction,
+  padding = '30rpx 26rpx',
   children,
 }: {
   title: string
   action?: string
   onAction?: () => void
+  padding?: string
   children: ReactNode
 }) {
   return (
@@ -679,13 +815,16 @@ function ProfileSection({
         margin: '20rpx auto 0',
         borderRadius: '32rpx',
         background: '#FFFFFF',
-        padding: '30rpx 26rpx',
+        padding,
         boxSizing: 'border-box',
         boxShadow: cardShadow,
       }}
     >
       <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ color: titleColor, fontSize: '30rpx', lineHeight: '42rpx', fontWeight: 700 }}>{title}</Text>
+        <View style={{ display: 'flex', alignItems: 'center' }}>
+          <SectionTitleDot />
+          <Text style={{ color: titleColor, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}>{title}</Text>
+        </View>
         {action ? (
           <View onClick={onAction} style={{ display: 'flex', alignItems: 'center' }}>
             <Text style={{ color: '#9AA1AF', fontSize: '24rpx', lineHeight: '34rpx' }}>{action}</Text>
@@ -698,27 +837,83 @@ function ProfileSection({
   )
 }
 
+function SectionTitleDot() {
+  return (
+    <View
+      data-role="section-title-dot"
+      style={{
+        width: '10rpx',
+        height: '10rpx',
+        borderRadius: '10rpx',
+        background: mainBlue,
+        marginRight: '12rpx',
+        flexShrink: 0,
+      }}
+    />
+  )
+}
+
 function BasicInfoSection({ onEdit }: { onEdit: () => void }) {
   return (
     <ProfileSection title="基础资料" action="编辑" onAction={onEdit}>
-      <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '28rpx' }}>
-        女丨97年丨163cm/45kg丨双鱼座
-      </Text>
-      <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '18rpx' }}>
-        现居浙江杭州丨河南人
-      </Text>
+      <View style={{ marginTop: '24rpx' }}>
+        <BasicInfoRow type="gender" text="女丨97年丨163cm/45kg丨双鱼座" />
+        <BasicInfoRow type="location" text="现居浙江杭州丨河南人" />
+      </View>
     </ProfileSection>
   )
 }
 
+function BasicInfoRow({ type, text }: { type: 'gender' | 'location'; text: string }) {
+  return (
+    <View style={{ display: 'flex', alignItems: 'center', height: '40rpx', marginBottom: '14rpx' }}>
+      <BasicInfoIcon type={type} />
+      <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 400 }}>{text}</Text>
+    </View>
+  )
+}
+
+function BasicInfoIcon({ type }: { type: 'gender' | 'location' }) {
+  const isGender = type === 'gender'
+  return (
+    <View
+      data-role={`basic-info-icon-${type}`}
+      style={{
+        position: 'relative',
+        width: '30rpx',
+        height: '30rpx',
+        marginRight: '14rpx',
+        flexShrink: 0,
+      }}
+    >
+      {isGender ? (
+        <>
+          <View style={{ position: 'absolute', left: '6rpx', top: '1rpx', width: '16rpx', height: '16rpx', borderRadius: '16rpx', border: '3rpx solid #FF7D9D', boxSizing: 'border-box' }} />
+          <View style={{ position: 'absolute', left: '13rpx', top: '17rpx', width: '3rpx', height: '11rpx', borderRadius: '3rpx', background: '#FF7D9D' }} />
+          <View style={{ position: 'absolute', left: '9rpx', top: '22rpx', width: '11rpx', height: '3rpx', borderRadius: '3rpx', background: '#FF7D9D' }} />
+        </>
+      ) : (
+        <>
+          <View style={{ position: 'absolute', left: '6rpx', top: '2rpx', width: '18rpx', height: '22rpx', borderRadius: '12rpx 12rpx 14rpx 14rpx', border: '3rpx solid #7BC8E8', boxSizing: 'border-box', transform: 'rotate(45deg)' }} />
+          <View style={{ position: 'absolute', left: '11rpx', top: '8rpx', width: '8rpx', height: '8rpx', borderRadius: '8rpx', background: '#7BC8E8' }} />
+        </>
+      )}
+    </View>
+  )
+}
+
 function CertificationSection({ onUpdate }: { onUpdate: () => void }) {
-  const rows = ['头像认证', '实名认证', '学历认证']
+  const rows = [
+    { title: '头像认证', icon: certAvatarIcon },
+    { title: '实名认证', icon: certRealNameIcon },
+    { title: '学历认证', icon: certEducationIcon },
+  ]
   return (
     <ProfileSection title="认证信息" action="更新认证" onAction={onUpdate}>
       <View style={{ marginTop: '16rpx' }}>
         {rows.map((item, index) => (
           <View
-            key={item}
+            key={item.title}
             style={{
               height: '78rpx',
               borderBottom: index === rows.length - 1 ? '0' : '1rpx solid #EFF2F7',
@@ -728,23 +923,13 @@ function CertificationSection({ onUpdate }: { onUpdate: () => void }) {
             }}
           >
             <View style={{ display: 'flex', alignItems: 'center' }}>
-              <View
-                style={{
-                  width: '36rpx',
-                  height: '36rpx',
-                  borderRadius: '36rpx',
-                  background: 'rgba(40,118,255,0.12)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: '18rpx',
-                }}
-              >
-                <Text style={{ color: mainBlue, fontSize: '22rpx', lineHeight: '28rpx', fontWeight: 700 }}>✓</Text>
-              </View>
-              <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>{item}</Text>
+              <CertificationIcon src={item.icon} />
+              <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx' }}>{item.title}</Text>
             </View>
-            <Text style={{ color: mainBlue, fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 600 }}>已认证</Text>
+            <View style={{ display: 'flex', alignItems: 'center' }}>
+              <CertifiedStatusIcon />
+              <Text style={{ color: '#666666', fontSize: '24rpx', lineHeight: '34rpx', marginLeft: '8rpx' }}>已认证</Text>
+            </View>
           </View>
         ))}
       </View>
@@ -752,25 +937,113 @@ function CertificationSection({ onUpdate }: { onUpdate: () => void }) {
   )
 }
 
-function AddPrompt({ text, onClick }: { text: string; onClick: () => void }) {
+function CertificationIcon({ src }: { src: string }) {
+  return (
+    <Image
+      data-role="certification-icon"
+      src={src}
+      mode="aspectFit"
+      style={{
+        width: '38rpx',
+        height: '38rpx',
+        marginRight: '18rpx',
+        flexShrink: 0,
+      }}
+    />
+  )
+}
+
+function CertifiedStatusIcon() {
+  return (
+    <View
+      data-role="certified-status-icon"
+      style={{
+        position: 'relative',
+        width: '34rpx',
+        height: '36rpx',
+        flexShrink: 0,
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          left: '3rpx',
+          top: '1rpx',
+          width: '28rpx',
+          height: '32rpx',
+          borderRadius: '8rpx 8rpx 12rpx 12rpx',
+          background: mainBlue,
+          transform: 'skewY(-4deg)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: '10rpx',
+          top: '12rpx',
+          width: '14rpx',
+          height: '8rpx',
+          borderLeft: '4rpx solid #FFFFFF',
+          borderBottom: '4rpx solid #FFFFFF',
+          transform: 'rotate(-45deg)',
+          boxSizing: 'border-box',
+        }}
+      />
+    </View>
+  )
+}
+
+function AddPrompt({
+  text,
+  onClick,
+  marginTop = '26rpx',
+  minHeight = '88rpx',
+  promptPadding = '18rpx 20rpx 18rpx 28rpx',
+}: {
+  text: string
+  onClick: () => void
+  marginTop?: string
+  minHeight?: string
+  promptPadding?: string
+}) {
   return (
     <View
       onClick={onClick}
       style={{
-        minHeight: '88rpx',
+        minHeight,
         borderRadius: '8rpx',
-        background: '#F5F8FF',
-        marginTop: '26rpx',
+        background: '#FBFDFF',
+        border: '2rpx dashed #D8E8FF',
+        marginTop,
         display: 'flex',
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '18rpx 28rpx',
+        justifyContent: 'space-between',
+        padding: promptPadding,
         boxSizing: 'border-box',
       }}
     >
-      <Text style={{ color: mainBlue, fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 500, textAlign: 'center' }}>
-        ＋ {text}
+      <Text style={{ color: mainBlue, fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 500, flex: 1, paddingRight: '18rpx' }}>
+        {text}
       </Text>
+      <AddPromptPlus />
+    </View>
+  )
+}
+
+function AddPromptPlus() {
+  return (
+    <View
+      data-role="add-prompt-plus"
+      style={{
+        position: 'relative',
+        width: '42rpx',
+        height: '42rpx',
+        flexShrink: 0,
+      }}
+    >
+      <View style={{ position: 'absolute', left: '5rpx', top: '19rpx', width: '32rpx', height: '4rpx', borderRadius: '4rpx', background: mainBlue }} />
+      <View style={{ position: 'absolute', left: '19rpx', top: '5rpx', width: '4rpx', height: '32rpx', borderRadius: '4rpx', background: mainBlue }} />
     </View>
   )
 }
@@ -793,7 +1066,10 @@ function SingleLineSection({ title, value, onClick }: { title: string; value: st
         boxShadow: cardShadow,
       }}
     >
-      <Text style={{ color: titleColor, fontSize: '30rpx', lineHeight: '42rpx', fontWeight: 700 }}>{title}</Text>
+      <View style={{ display: 'flex', alignItems: 'center' }}>
+        <SectionTitleDot />
+        <Text style={{ color: titleColor, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}>{title}</Text>
+      </View>
       <View style={{ display: 'flex', alignItems: 'center' }}>
         <Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '36rpx' }}>{value}</Text>
         <Text style={{ color: '#C0C5D0', fontSize: '34rpx', lineHeight: '34rpx', marginLeft: '12rpx' }}>›</Text>
@@ -846,7 +1122,7 @@ function VoiceSection({ onRecord }: { onRecord: () => void }) {
           使用语音介绍特别的你，更容易获得异性青睐哦。
         </Text>
         <Text style={{ display: 'block', color: '#9AA1AF', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>
-          例如：分享一个你最近很开心的瞬间
+          例如：唱歌、一段深情的告白等等
         </Text>
       </View>
     </ProfileSection>
@@ -856,41 +1132,48 @@ function VoiceSection({ onRecord }: { onRecord: () => void }) {
 function MbtiSection({ mbti, onAdd }: { mbti: string; onAdd: () => void }) {
   return (
     <ProfileSection title="MBTI类型" action="添加" onAction={onAdd}>
+      <MbtiOrbChart mbti={mbti} onClick={onAdd} />
+    </ProfileSection>
+  )
+}
+
+function MbtiOrbChart({ mbti, onClick }: { mbti: string; onClick: () => void }) {
+  return (
+    <View
+      data-role="mbti-orb-chart"
+      onClick={onClick}
+      style={{
+        position: 'relative',
+        height: '430rpx',
+        marginTop: '18rpx',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      }}
+    >
+      <View style={{ position: 'absolute', left: '126rpx', top: '44rpx', width: '92rpx', height: '92rpx', borderRadius: '92rpx', background: 'rgba(217,221,255,0.42)' }} />
+      <View style={{ position: 'absolute', right: '94rpx', top: '68rpx', width: '40rpx', height: '40rpx', borderRadius: '40rpx', background: 'rgba(255,213,170,0.58)' }} />
+      <View style={{ position: 'absolute', left: '72rpx', bottom: '66rpx', width: '136rpx', height: '136rpx', borderRadius: '136rpx', background: 'rgba(179,249,229,0.56)' }} />
+      <View style={{ position: 'absolute', right: '72rpx', bottom: '76rpx', width: '108rpx', height: '108rpx', borderRadius: '108rpx', background: 'rgba(255,215,210,0.62)' }} />
+      <View style={{ position: 'absolute', right: '176rpx', top: '210rpx', width: '16rpx', height: '16rpx', borderRadius: '16rpx', background: 'rgba(40,118,255,0.28)' }} />
       <View
-        onClick={onAdd}
         style={{
-          marginTop: '28rpx',
-          height: '162rpx',
-          borderRadius: '18rpx',
-          background: 'linear-gradient(90deg, #EDF7FF 0%, #F3F6FF 100%)',
-          padding: '24rpx 28rpx',
-          boxSizing: 'border-box',
+          width: '214rpx',
+          height: '214rpx',
+          borderRadius: '214rpx',
+          background: 'linear-gradient(180deg, #D8E7FF 0%, #EAF1FF 100%)',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 16rpx 36rpx rgba(40,118,255,0.08)',
         }}
       >
-        <View
-          style={{
-            width: '98rpx',
-            height: '98rpx',
-            borderRadius: '98rpx',
-            background: '#FFFFFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '24rpx',
-          }}
-        >
-          <Text style={{ color: mainBlue, fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 800 }}>EN</Text>
-        </View>
-        <View>
-          <Text style={{ display: 'block', color: '#7F8494', fontSize: '24rpx', lineHeight: '34rpx' }}>MBTI类型</Text>
-          <Text style={{ display: 'block', color: titleColor, fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 700, marginTop: '8rpx' }}>
-            {mbti}
-          </Text>
-        </View>
+        <Text style={{ color: '#7EA4D8', fontSize: '22rpx', lineHeight: '31rpx' }}>MBTI类型</Text>
+        <Text style={{ color: mainBlue, fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 800, marginTop: '8rpx' }}>{mbti}</Text>
       </View>
-    </ProfileSection>
+    </View>
   )
 }
 
@@ -904,33 +1187,35 @@ function AboutDetailSection({
   onFill: (key: string) => void
 }) {
   return (
-    <ProfileSection title="关于我" action="添加" onAction={onAdd}>
-      <View style={{ marginTop: '18rpx' }}>
+    <ProfileSection title="关于我" action="添加" onAction={onAdd} padding="24rpx 26rpx">
+      <View
+        data-role="about-detail-list"
+        style={{ marginTop: '8rpx' }}
+      >
         {items.map((item, index) => (
           <View
             key={item.title}
             onClick={() => onFill(item.key)}
             style={{
-              minHeight: '84rpx',
-              borderBottom: index === items.length - 1 ? '0' : '1rpx solid #EFF2F7',
+              minHeight: '104rpx',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '12rpx 0',
+              padding: index === 0 ? '2rpx 0 10rpx' : '10rpx 0',
               boxSizing: 'border-box',
             }}
           >
-            <View style={{ flex: 1, paddingRight: '20rpx', boxSizing: 'border-box' }}>
-              <Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', lineHeight: '38rpx' }}>{item.title}</Text>
+            <View style={{ flex: 1, paddingRight: '28rpx', boxSizing: 'border-box' }}>
+              <Text style={{ display: 'block', color: titleColor, fontSize: '28rpx', lineHeight: '38rpx', fontWeight: 700 }}>{item.title}</Text>
               {item.value ? (
                 <Text
-                  numberOfLines={1}
+                  numberOfLines={2}
                   style={{
                     display: 'block',
-                    color: '#9AA1AF',
-                    fontSize: '22rpx',
-                    lineHeight: '31rpx',
-                    marginTop: '4rpx',
+                    color: '#9B9FA8',
+                    fontSize: '25rpx',
+                    lineHeight: '36rpx',
+                    marginTop: '6rpx',
                   }}
                 >
                   {item.value}
@@ -943,77 +1228,479 @@ function AboutDetailSection({
                 onFill(item.key)
               }}
               style={{
-                height: '48rpx',
-                minWidth: '118rpx',
-                padding: '0 22rpx',
-                borderRadius: '24rpx',
-                background: '#F5F8FF',
+                minWidth: '108rpx',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justifyContent: 'flex-end',
                 boxSizing: 'border-box',
               }}
             >
-              <Text style={{ color: mainBlue, fontSize: '23rpx', lineHeight: '32rpx' }}>
-                {item.value ? '去修改' : '去填写'}
+              <Text data-role="about-action-text" style={{ color: mainBlue, fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 700 }}>
+                去填写
               </Text>
             </View>
           </View>
         ))}
       </View>
+      <View style={{ height: '1rpx', background: '#EFF2F7', marginTop: '4rpx' }} />
+      <Text style={{ display: 'block', color: titleColor, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700, marginTop: '20rpx' }}>
+        补充更多关于我的故事
+      </Text>
+      <AboutStoryChips onClick={onAdd} />
       <View
         onClick={onAdd}
         style={{
-          height: '98rpx',
+          height: '86rpx',
           borderRadius: '20rpx',
           background: mainBlue,
-          marginTop: '30rpx',
+          marginTop: '22rpx',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: '30rpx', lineHeight: '42rpx', fontWeight: 700 }}>去添加</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: '46rpx', lineHeight: '46rpx', fontWeight: 300, marginRight: '12rpx' }}>+</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 700 }}>去添加</Text>
       </View>
     </ProfileSection>
+  )
+}
+
+function AboutStoryChips({ onClick }: { onClick: () => void }) {
+  return (
+    <ScrollView scrollX style={{ width: '648rpx', whiteSpace: 'nowrap', marginTop: '22rpx' }} showScrollbar={false}>
+      <View style={{ display: 'flex', flexDirection: 'row' }}>
+        {aboutStoryPrompts.map((item) => (
+          <View
+            key={item}
+            onClick={onClick}
+            style={{
+              height: '54rpx',
+              borderRadius: '28rpx',
+              background: '#FAFAFB',
+              padding: '0 20rpx',
+              marginRight: '14rpx',
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Text style={{ color: '#9B9FA8', fontSize: '24rpx', lineHeight: '34rpx' }}>{item}</Text>
+            <AboutStoryChipPlus />
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  )
+}
+
+function AboutStoryChipPlus() {
+  return (
+    <View
+      data-role="about-story-chip-plus"
+      style={{
+        position: 'relative',
+        width: '24rpx',
+        height: '24rpx',
+        marginLeft: '10rpx',
+        flexShrink: 0,
+      }}
+    >
+      <View style={{ position: 'absolute', left: '2rpx', top: '11rpx', width: '20rpx', height: '3rpx', borderRadius: '3rpx', background: '#8B909B' }} />
+      <View style={{ position: 'absolute', left: '11rpx', top: '2rpx', width: '3rpx', height: '20rpx', borderRadius: '3rpx', background: '#8B909B' }} />
+    </View>
   )
 }
 
 function SongSection({ song, onSwitch }: { song: string; onSwitch: () => void }) {
   return (
     <ProfileSection title="我最爱听的歌曲" action="切换" onAction={onSwitch}>
-      <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginTop: '26rpx' }}>
-        {song}
-      </Text>
-      <Text style={{ display: 'block', color: '#9AA1AF', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '12rpx' }}>
-        分享你的音乐灵魂，遇见相同频率的人
-      </Text>
+      <View style={{ display: 'flex', alignItems: 'center', marginTop: '30rpx' }}>
+        <MusicDiscIcon />
+        <View style={{ minWidth: 0, flex: 1, marginLeft: '24rpx' }}>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}>
+            {song}
+          </Text>
+          <Text style={{ display: 'block', color: '#666666', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '10rpx' }}>
+            分享你的音乐灵魂，遇见相同频率的人
+          </Text>
+        </View>
+      </View>
     </ProfileSection>
+  )
+}
+
+function MusicDiscIcon() {
+  return (
+    <View
+      data-role="music-disc-icon"
+      style={{
+        position: 'relative',
+        width: '82rpx',
+        height: '82rpx',
+        borderRadius: '82rpx',
+        background: 'linear-gradient(135deg, #79A1FF 0%, #2876FF 100%)',
+        flexShrink: 0,
+      }}
+    >
+      <View style={{ position: 'absolute', left: '19rpx', top: '20rpx', width: '30rpx', height: '30rpx', borderRadius: '30rpx', background: '#DBE8FF', border: '3rpx solid rgba(255,255,255,0.75)', boxSizing: 'border-box' }} />
+      <View style={{ position: 'absolute', left: '28rpx', top: '29rpx', width: '12rpx', height: '12rpx', borderRadius: '12rpx', background: '#FFFFFF' }} />
+      <View style={{ position: 'absolute', left: '47rpx', top: '18rpx', width: '4rpx', height: '38rpx', borderRadius: '4rpx', background: '#FFFFFF' }} />
+      <View style={{ position: 'absolute', left: '49rpx', top: '18rpx', width: '18rpx', height: '10rpx', borderTop: '4rpx solid #FFFFFF', borderRight: '4rpx solid #FFFFFF', borderRadius: '0 10rpx 0 0', boxSizing: 'border-box' }} />
+      <View style={{ position: 'absolute', left: '39rpx', top: '52rpx', width: '20rpx', height: '15rpx', borderRadius: '50%', background: '#FFFFFF', transform: 'rotate(-12deg)' }} />
+      <View style={{ position: 'absolute', left: '21rpx', top: '19rpx', width: '5rpx', height: '5rpx', borderRadius: '5rpx', background: '#8CB2FF' }} />
+      <View style={{ position: 'absolute', left: '41rpx', top: '38rpx', width: '5rpx', height: '5rpx', borderRadius: '5rpx', background: '#8CB2FF' }} />
+    </View>
   )
 }
 
 function WechatSection({ value, onInput }: { value: string; onInput: (value: string) => void }) {
   return (
     <ProfileSection title="添加微信">
-      <Input
-        value={value}
-        placeholder="请输入你的微信号"
-        placeholderStyle="color:#B5BAC7;font-size:28rpx;line-height:76rpx"
-        onInput={(event) => onInput(event.detail.value)}
+      <View
+        data-role="wechat-input-box"
         style={{
           width: '648rpx',
-          height: '76rpx',
-          color: '#333333',
-          fontSize: '28rpx',
-          lineHeight: '76rpx',
-          borderBottom: '1rpx solid #EFF2F7',
-          marginTop: '20rpx',
+          height: '90rpx',
+          borderRadius: '6rpx',
+          background: '#F7F8FA',
+          marginTop: '26rpx',
+          padding: '0 28rpx',
+          boxSizing: 'border-box',
+          display: 'flex',
+          alignItems: 'center',
         }}
-      />
-      <Text style={{ display: 'block', color: '#9AA1AF', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '18rpx' }}>
+      >
+        <Input
+          value={value}
+          placeholder="请输入你的微信号"
+          placeholderStyle="color:#9B9FA8;font-size:28rpx;line-height:90rpx"
+          onInput={(event) => onInput(event.detail.value)}
+          style={{
+            width: '592rpx',
+            height: '90rpx',
+            color: '#333333',
+            fontSize: '28rpx',
+            lineHeight: '90rpx',
+          }}
+        />
+      </View>
+      <Text style={{ display: 'block', color: '#9B9FA8', fontSize: '26rpx', lineHeight: '36rpx', marginTop: '34rpx' }}>
         仅作为紧急联系方式，不会暴露给用户。
       </Text>
     </ProfileSection>
+  )
+}
+
+function VoiceIntroSheet({
+  variant,
+  voiceIntro,
+  onClose,
+  onChange,
+}: {
+  variant: VoiceSheetVariant
+  voiceIntro: ProfileDemo['editProfile']['voiceIntro']
+  onClose: () => void
+  onChange: (variant: VoiceSheetVariant) => void
+}) {
+  const showConfirm = variant === 'exit' || variant === 'delete'
+  const baseVariant: VoiceSheetVariant = variant === 'exit' ? 'recording' : variant === 'delete' ? 'complete' : variant
+  const state = voiceIntro.states[baseVariant] || voiceIntro.states.voice
+  const isVoice = baseVariant === 'voice'
+  const isRecording = baseVariant === 'recording'
+  const isPlay = baseVariant === 'play'
+  const isComplete = baseVariant === 'complete' || baseVariant === 'play' || baseVariant === 'delete-success'
+
+  const handleBackdrop = () => {
+    if (isRecording) {
+      onChange('exit')
+      return
+    }
+    onClose()
+  }
+
+  const handleMainAction = () => {
+    if (baseVariant === 'voice') {
+      onChange('recording')
+      return
+    }
+    if (baseVariant === 'recording') {
+      onChange('complete')
+      return
+    }
+    if (baseVariant === 'play') {
+      onChange('complete')
+      return
+    }
+    onClose()
+  }
+
+  return (
+    <View
+      style={{
+        position: 'fixed',
+        left: '0',
+        right: '0',
+        top: '0',
+        bottom: '0',
+        background: 'rgba(0,0,0,0.38)',
+        zIndex: 80,
+      }}
+      onClick={handleBackdrop}
+    >
+      {variant === 'delete-success' ? <VoiceToast text={voiceIntro.successText || '语音介绍已删除'} /> : null}
+      <View
+        style={{
+          position: 'absolute',
+          left: '0',
+          bottom: '0',
+          width: '750rpx',
+          minHeight: isVoice ? '618rpx' : '548rpx',
+          borderRadius: '64rpx 64rpx 0 0',
+          background: '#FFFFFF',
+          padding: '55rpx 30rpx calc(48rpx + env(safe-area-inset-bottom))',
+          boxSizing: 'border-box',
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Text style={{ display: 'block', color: '#333333', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 800, textAlign: 'center' }}>
+          {isVoice ? '使用语音介绍特别的你' : state.title}
+        </Text>
+        <Text style={{ display: 'block', color: '#999999', fontSize: '28rpx', lineHeight: '44rpx', textAlign: 'center', marginTop: isVoice ? '18rpx' : '22rpx' }}>
+          {isVoice ? '更容易获得异性青睐哦\n例如：唱歌、一段深情的告白等等' : state.timer || state.duration || voiceIntro.duration || '1S'}
+        </Text>
+
+        <View
+          style={{
+            position: 'relative',
+            height: isVoice ? '286rpx' : '248rpx',
+            marginTop: isVoice ? '42rpx' : '38rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <VoiceWave active={isRecording || isPlay || isComplete} />
+          <VoiceRoundButton variant={baseVariant} onClick={handleMainAction} />
+        </View>
+
+        {isComplete ? (
+          <View style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '0 64rpx', boxSizing: 'border-box', marginTop: '-2rpx' }}>
+            <VoiceActionButton label={voiceIntro.deleteText || '删除'} tone="muted" symbol="×" onClick={() => onChange('delete')} />
+            <VoiceActionButton label={isPlay ? '暂停' : '点击播放'} tone="primary" symbol={isPlay ? 'Ⅱ' : '▶'} onClick={() => onChange(isPlay ? 'complete' : 'play')} />
+            <VoiceActionButton label="完成" tone="primary" symbol="✓" onClick={onClose} />
+          </View>
+        ) : (
+          <Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 800, textAlign: 'center', marginTop: isVoice ? '0' : '-2rpx' }}>
+            {isRecording ? '点击完成录音' : state.buttonText || '点击录音'}
+          </Text>
+        )}
+      </View>
+
+      {showConfirm ? (
+        <VoiceConfirmDialog
+          title={variant === 'exit' ? '退出提示' : voiceIntro.deleteTitle || '删除提示'}
+          content={variant === 'exit' ? '退出录音后当前录音丢失，确定要关闭吗？' : voiceIntro.deleteContent || '一旦删除不可恢复，确定删除吗？'}
+          leftText={variant === 'exit' ? '删除' : voiceIntro.deleteText || '删除'}
+          rightText="确认"
+          onLeft={() => onChange(variant === 'exit' ? 'voice' : 'delete-success')}
+          onRight={() => onChange(variant === 'exit' ? 'voice' : 'delete-success')}
+        />
+      ) : null}
+    </View>
+  )
+}
+
+function VoiceWave({ active }: { active: boolean }) {
+  const bars = [42, 68, 98, 56, 126, 72, 44, 112, 76, 128, 66, 92, 54, 34]
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '128rpx',
+        right: '128rpx',
+        top: '55rpx',
+        height: '160rpx',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      {bars.map((height, index) => (
+        <View
+          key={`${height}-${index}`}
+          style={{
+            width: '10rpx',
+            height: `${active ? height : Math.max(18, Math.round(height * 0.48))}rpx`,
+            borderRadius: '10rpx',
+            background: active ? '#EEF4FC' : '#F5F7FA',
+          }}
+        />
+      ))}
+    </View>
+  )
+}
+
+function VoiceRoundButton({ variant, onClick }: { variant: VoiceSheetVariant; onClick: () => void }) {
+  const recording = variant === 'recording'
+  const play = variant === 'play'
+  const symbol = recording ? '' : play ? 'Ⅱ' : variant === 'voice' ? '' : '▶'
+  return (
+    <View
+      onClick={onClick}
+      style={{
+        position: 'relative',
+        width: '166rpx',
+        height: '166rpx',
+        borderRadius: '166rpx',
+        background: '#E3F1FE',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: '104rpx',
+          height: '104rpx',
+          borderRadius: '104rpx',
+          background: mainBlue,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 12rpx 32rpx rgba(40,118,255,0.22)',
+        }}
+      >
+        {recording ? <View style={{ width: '42rpx', height: '42rpx', borderRadius: '42rpx', background: mainBlue, border: '28rpx solid #FFFFFF', boxSizing: 'border-box' }} /> : null}
+        {variant === 'voice' ? <MicIcon /> : null}
+        {symbol ? <Text style={{ color: '#FFFFFF', fontSize: '50rpx', lineHeight: '58rpx', fontWeight: 800 }}>{symbol}</Text> : null}
+      </View>
+      {recording ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: '30rpx',
+            top: '30rpx',
+            width: '106rpx',
+            height: '106rpx',
+            borderRadius: '106rpx',
+            border: `5rpx solid ${mainBlue}`,
+            borderLeftColor: 'transparent',
+            boxSizing: 'border-box',
+          }}
+        />
+      ) : null}
+    </View>
+  )
+}
+
+function MicIcon() {
+  return (
+    <View style={{ position: 'relative', width: '46rpx', height: '58rpx' }}>
+      <View style={{ position: 'absolute', left: '12rpx', top: '0', width: '22rpx', height: '36rpx', borderRadius: '14rpx', background: '#FFFFFF' }} />
+      <View style={{ position: 'absolute', left: '5rpx', top: '20rpx', width: '36rpx', height: '24rpx', borderLeft: '5rpx solid #FFFFFF', borderRight: '5rpx solid #FFFFFF', borderBottom: '5rpx solid #FFFFFF', borderRadius: '0 0 22rpx 22rpx', boxSizing: 'border-box' }} />
+      <View style={{ position: 'absolute', left: '20rpx', top: '43rpx', width: '6rpx', height: '12rpx', background: '#FFFFFF', borderRadius: '6rpx' }} />
+      <View style={{ position: 'absolute', left: '10rpx', bottom: '0', width: '26rpx', height: '5rpx', background: '#FFFFFF', borderRadius: '5rpx' }} />
+    </View>
+  )
+}
+
+function VoiceActionButton({
+  label,
+  tone,
+  symbol,
+  onClick,
+}: {
+  label: string
+  tone: 'muted' | 'primary'
+  symbol: string
+  onClick: () => void
+}) {
+  const active = tone === 'primary'
+  return (
+    <View onClick={onClick} style={{ width: '150rpx', display: 'flex', alignItems: 'center', flexDirection: 'column' }}>
+      <View
+        style={{
+          width: '76rpx',
+          height: '76rpx',
+          borderRadius: '76rpx',
+          background: active ? mainBlue : '#B8B8B8',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: '42rpx', lineHeight: '48rpx', fontWeight: 800 }}>{symbol}</Text>
+      </View>
+      <Text style={{ color: '#333333', fontSize: '30rpx', lineHeight: '42rpx', fontWeight: 800, marginTop: '24rpx' }}>{label}</Text>
+    </View>
+  )
+}
+
+function VoiceConfirmDialog({
+  title,
+  content,
+  leftText,
+  rightText,
+  onLeft,
+  onRight,
+}: {
+  title: string
+  content: string
+  leftText: string
+  rightText: string
+  onLeft: () => void
+  onRight: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '65rpx',
+        top: '386rpx',
+        width: '620rpx',
+        minHeight: '312rpx',
+        borderRadius: '32rpx',
+        background: '#FFFFFF',
+        padding: '52rpx 44rpx 34rpx',
+        boxSizing: 'border-box',
+        zIndex: 90,
+      }}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <Text style={{ display: 'block', color: '#333333', fontSize: '36rpx', lineHeight: '50rpx', fontWeight: 800, textAlign: 'center' }}>{title}</Text>
+      <Text style={{ display: 'block', color: '#666666', fontSize: '28rpx', lineHeight: '40rpx', textAlign: 'center', marginTop: '36rpx' }}>{content}</Text>
+      <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '42rpx' }}>
+        <View onClick={onLeft} style={{ width: '258rpx', height: '68rpx', borderRadius: '6rpx', background: '#F7F7F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}>{leftText}</Text>
+        </View>
+        <View onClick={onRight} style={{ width: '258rpx', height: '68rpx', borderRadius: '6rpx', background: mainBlue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}>{rightText}</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function VoiceToast({ text }: { text: string }) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '230rpx',
+        top: '430rpx',
+        width: '290rpx',
+        height: '84rpx',
+        borderRadius: '8rpx',
+        background: 'rgba(0,0,0,0.34)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 92,
+      }}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx' }}>{text}</Text>
+    </View>
   )
 }
 

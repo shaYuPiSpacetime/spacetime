@@ -121,6 +121,15 @@ export interface MembershipDemoData {
   activeMembership: MyMembership
   expiredMembership: MyMembership
   annualPlanId: number
+  wechatPayPreviewAmount: string
+  subscription: {
+    renewalAmount: string
+    originalAmount: string
+    renewalCycle: string
+    statusLabel: string
+    nextRenewTime: string
+  }
+  regularPlans: MembershipPlan[]
   plans: MembershipPlan[]
   records: MembershipRecord[]
   benefits: Array<{
@@ -141,6 +150,13 @@ export interface CoinsDemoData {
     defaultChecked: boolean
     title: string
     uncheckedMessage: string
+  }
+  rechargeNotice: {
+    title: string
+    faqTitle: string
+    items: string[]
+    contactText: string
+    confirmText: string
   }
 }
 

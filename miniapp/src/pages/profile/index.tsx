@@ -550,8 +550,8 @@ function FeatureCards({
     >
       <FeatureCard
         image={cardCoin}
-        title="成家币"
-        subtitle="查看成家币"
+        title="千寻币"
+        subtitle="查看千寻币"
         titleColor="#00469F"
         subtitleColor="#00469F"
         onClick={onCoin}
@@ -559,7 +559,7 @@ function FeatureCards({
       <FeatureCard
         image={cardInvite}
         title="邀请好友"
-        subtitle="免费获得成家币"
+        subtitle="免费获得千寻币"
         titleColor="#6600AF"
         subtitleColor="#A055C3"
         onClick={onInvite}

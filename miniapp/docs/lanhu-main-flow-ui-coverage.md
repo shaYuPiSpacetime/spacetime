@@ -1,6 +1,6 @@
 # 蓝湖主闭环页面对照清单
 
-目标：登录之外的认证、会员、成家币、我的页也进入 demo 闭环；每个页面有可打开路由、蓝湖稿映射、切图引用和轻量脚本校验。
+目标：登录之外的认证、会员、千寻币、我的页也进入 demo 闭环；每个页面有可打开路由、蓝湖稿映射、切图引用和轻量脚本校验。
 
 ## 认证链路
 
@@ -21,7 +21,7 @@
 | 毕业证或者学位证书编号 | `/pages/verification/education-diploma-no` | 证书编号方式表单闭环。 | 上传相机切图 |
 | 上传毕业证或学位证书 | `/pages/verification/education-certificate-upload` | 上传证书图片后可 mock 提交。 | 上传相机切图 |
 
-## 会员/成家币/我的
+## 会员/千寻币/我的
 
 | 模块 | 蓝湖 UI 稿 | 落地入口 | 闭环要点 | 切图追踪 |
 | --- | --- | --- | --- | --- |
@@ -30,21 +30,22 @@
 | 会员 | 会员中心-已过期 | `/pages/membership/index?variant=expired` | 展示过期文案；可重新开通。 | 会员卡背景、默认头像 |
 | 会员 | 会员中心-连续包年 | `/pages/membership/index?variant=annual` | 包年套餐默认选中；底部价格同步。 | 会员卡背景、默认头像 |
 | 会员 | 会员记录 | `/pages/membership/records` | 生效中和已退款记录列表。 | 会员卡背景、默认头像 |
-| 成家币 | 千寻币 | `/pages/coins/index` | 余额、套餐、用途列表；默认协议未勾选。 | 成家币余额背景 |
-| 成家币 | 千寻币-协议勾选 | `/pages/coins/index?variant=checked` | 协议默认勾选；支付走 mock 成功。 | 成家币余额背景 |
-| 成家币 | 千寻币-点支付未勾选协议 | `/pages/coins/index?variant=unchecked-error` | 未勾选支付时停留并提示。 | 成家币余额背景 |
-| 成家币 | 千寻币明细 | `/pages/coins/detail` | 交易明细列表和获取/消耗筛选。 | 成家币余额背景 |
-| 成家币 | 千寻币明细-暂无数据 | `/pages/coins/detail?variant=empty` | 空态文案可直接打开验收。 | 成家币余额背景 |
-| 我的 | 我的 | `/pages/profile/index?variant=none` | 资料、统计、VIP 入口、成家币入口、菜单入口。 | 我的背景、VIP 条、功能卡、菜单图标 |
+| 千寻币 | 千寻币 | `/pages/coins/index` | 余额、套餐、用途列表；默认协议未勾选。 | 千寻币余额背景 |
+| 千寻币 | 千寻币-协议勾选 | `/pages/coins/index?variant=checked` | 协议默认勾选；支付走 mock 成功。 | 千寻币余额背景 |
+| 千寻币 | 千寻币-点支付未勾选协议 | `/pages/coins/index?variant=unchecked-error` | 未勾选支付时停留并提示。 | 千寻币余额背景 |
+| 千寻币 | 千寻币明细 | `/pages/coins/detail` | 交易明细列表和获取/消耗筛选。 | 千寻币余额背景 |
+| 千寻币 | 千寻币明细-暂无数据 | `/pages/coins/detail?variant=empty` | 空态文案可直接打开验收。 | 千寻币余额背景 |
+| 我的 | 我的 | `/pages/profile/index?variant=none` | 资料、统计、VIP 入口、千寻币入口、菜单入口。 | 我的背景、VIP 条、功能卡、菜单图标 |
 | 我的 | 我的会员开通状态 | `/pages/profile/index?variant=active` | VIP 条显示生效中；点击进会员已开通态。 | 我的背景、VIP 条、功能卡、菜单图标 |
 | 我的 | 我的会员已过期状态 | `/pages/profile/index?variant=expired` | VIP 条显示已过期；点击进会员过期态。 | 我的背景、VIP 条、功能卡、菜单图标 |
 | 我的 | 编辑资料-资料填写 | `/pages/profile/edit` | 启动验收页；只展示入口和摘要，按钮跳真实子页面。 | 我的页同组 profile 资产 |
 | 我的 | 自我介绍 | `/pages/profile-edit/intro` | 独立文字编辑页，保存后返回编辑资料。 | 代码绘制 |
-| 我的 | 我的标签 | `/pages/profile-edit/tags` | 独立标签页，标签分组可点击选择。 | 代码绘制 |
-| 我的 | 关于我 | `/pages/profile-edit/about` | 关于我条目列表；具体条目走 topic 页面。 | 代码绘制 |
-| 我的 | 见面便好（样式复用） | `/pages/profile-edit/about?topic=meet` | 关于我条目的编辑态复用页面。 | 代码绘制 |
-| 我的 | 爱听的歌曲 | `/pages/profile-edit/songs` | 独立歌曲选择页，添加成功态走 `variant=added`。 | 代码绘制 |
-| 我的 | 语音介绍 | `/pages/profile-edit/voice?variant=voice` | 语音介绍状态页承载录制、播放、完成、退出、删除等蓝湖状态。 | 代码绘制 |
+| 我的 | 我的标签 | `/pages/profile-edit/tags` | 独立标签页，顶部分类 tab、三列标签墙和底部已添加面板均可点击。 | 代码绘制 |
+| 我的 | 关于我 | `/pages/profile-edit/about` | 关于我顶部 tab 在当前页切换，左上角返回编辑资料。 | 代码绘制 |
+| 我的 | 见面便好（样式复用） | `/pages/profile-edit/about?topic=meet` | 作为关于我页面初始选中 tab，不破坏返回栈。 | 代码绘制 |
+| 我的 | 爱听的歌曲 | `/pages/profile-edit/songs` | 独立歌曲选择页，搜索框、歌曲列表和添加成功态均在当前页处理。 | 代码绘制 |
+| 我的 | 语音介绍 | `/pages/profile/edit?voice=voice` | 编辑资料页内蓝湖底部弹窗承载录制、播放、完成、退出、删除、删除成功等状态。 | 代码绘制 |
+| 认证 | 我的认证 | `/pages/verification/my-certification` | 编辑资料“更新认证”入口；展示头像、实名、学历认证结果。 | 三个认证图标 |
 
 执行命令：
 
@@ -53,11 +54,12 @@ cd miniapp
 node scripts/validate-main-flow-ui-coverage.mjs
 node scripts/validate-login-ui-coverage.mjs
 node scripts/validate-lanhu-demo-data.mjs
+node scripts/validate-lanhu-full-assets.mjs
 ```
 
 当前约束：
 
 - 主闭环页面只消费 `lanhuDemo` service 或现有 hook，后续对接接口时替换 service/hook 内部实现。
 - 支付相关当前为 mock 成功/提示闭环，不把微信系统支付页作为本轮必须 1:1 页面。
-- 编辑资料关联页必须走 `pages/profile-edit` 分包；不得把自我介绍、我的标签、关于我、爱听歌曲、语音介绍塞回编辑资料页的临时弹窗或聚合 variant。
-- 其余 91 张蓝湖稿仍保留在 `lanhuDemo.json` manifest，后续按模块继续从 `ready/todo` 推进到 `implemented`。
+- 编辑资料关联页必须走 `pages/profile-edit` 分包；不得把自我介绍、我的标签、关于我、爱听歌曲塞回编辑资料页的临时弹窗或聚合 variant。语音介绍是蓝湖明确的编辑资料底部弹窗，只能留在编辑资料页内组件化实现。
+- 蓝湖 93 张全量参考图保存在 `miniapp/.lanhu-ref/lanhu-full-2026-07-07/`，仅用于视觉对照，不进入运行包。

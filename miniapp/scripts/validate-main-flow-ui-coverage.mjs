@@ -109,12 +109,12 @@ const SOURCE_EVIDENCE = [
     snippets: ['已退款', 'RecordCard', 'filteredRecords'],
   },
   {
-    label: '成家币协议变体和 mock 支付',
+    label: '千寻币协议变体和 mock 支付',
     route: '/pages/coins/index',
     snippets: ['coin-balance-bg.webp', 'agreementChecked', 'unchecked-error', 'purchase'],
   },
   {
-    label: '成家币明细空态',
+    label: '千寻币明细空态',
     route: '/pages/coins/detail',
     snippets: ['variant ===', 'forceEmpty', '暂无交易记录'],
   },

@@ -32,6 +32,7 @@ type EditableField =
 
 interface BasicInfoCardProps {
   userInfo: LoginUserInfo
+  mode?: 'verification' | 'profileEdit'
 }
 
 const PICKER_HINTS: Record<EditableField, string> = {
@@ -48,17 +49,77 @@ const PICKER_HINTS: Record<EditableField, string> = {
   maritalStatus: '可选择',
 }
 
-export default function BasicInfoCard({ userInfo }: BasicInfoCardProps) {
+export default function BasicInfoCard({ userInfo, mode = 'verification' }: BasicInfoCardProps) {
   const { updateUserInfo } = useLogin()
   const [editingField, setEditingField] = useState<EditableField | null>(null)
 
   const region = formatLocation(userInfo)
   const height = userInfo.height || '163cm'
   const weight = userInfo.weight || '45kg'
+  const birthday = userInfo.birthday || '1997/03/06'
 
   const handleConfirm = (patch: Partial<LoginUserInfo>) => {
     updateUserInfo(patch)
     setEditingField(null)
+  }
+
+  if (mode === 'profileEdit') {
+    return (
+      <>
+        <View
+          style={{
+            position: 'absolute',
+            left: '25rpx',
+            top: '226rpx',
+            width: '700rpx',
+            minHeight: '808rpx',
+            borderRadius: '16rpx',
+            background: '#FFFFFF',
+            padding: '18rpx 25rpx',
+            boxSizing: 'border-box',
+          }}
+        >
+          <FieldRow label="昵称" value={renderPlainValue(userInfo.nickname || '用户8865')} onClick={() => setEditingField('nickname')} />
+          <FieldRow label="性别" value={renderPlainValue(formatGender(userInfo.gender))} onClick={() => setEditingField('gender')} />
+          <FieldRow label="出生日期" value={renderPlainValue(`${birthday} ${getZodiac(birthday)}`)} onClick={() => setEditingField('birthday')} />
+          <FieldRow label="现居地" value={renderPlainValue(region)} onClick={() => setEditingField('location')} />
+          <FieldRow label="身高/体重" value={renderPlainValue(`${height}/${weight}`)} onClick={() => setEditingField('height-weight')} />
+          <FieldRow label="家乡" value={renderPlainValue(userInfo.hometown || '河南郑州')} onClick={() => setEditingField('hometown')} />
+          <FieldRow label="身份" value={renderPlainValue(userInfo.identity || '职场人')} onClick={() => setEditingField('identity')} />
+          <FieldRow label="婚姻状况" value={renderPlainValue(userInfo.maritalStatus || '未婚')} onClick={() => setEditingField('maritalStatus')} last />
+        </View>
+
+        <View
+          style={{
+            position: 'absolute',
+            left: '25rpx',
+            top: '1056rpx',
+            width: '700rpx',
+            minHeight: '604rpx',
+            borderRadius: '16rpx',
+            background: '#FFFFFF',
+            padding: '18rpx 25rpx',
+            boxSizing: 'border-box',
+          }}
+        >
+          <FieldRow label="毕业院校" value={renderPlainValue(userInfo.schoolName || '浙江工商大学')} onClick={() => setEditingField('education')} />
+          <FieldRow label="最高学历" value={renderPlainValue(userInfo.educationLevel || userInfo.education || '本科')} onClick={() => setEditingField('education')} />
+          <FieldRow label="行业" value={renderPlainValue('IT/互联网')} onClick={() => setEditingField('career')} />
+          <FieldRow label="职业" value={renderPlainValue(userInfo.career || '设计师')} onClick={() => setEditingField('career')} />
+          <FieldRow label="公司" value={renderPlainValue('163cm/45kg')} onClick={() => setEditingField('career')} />
+          <FieldRow label="年薪" value={renderPlainValue(userInfo.income || '15-30W')} onClick={() => setEditingField('income')} last />
+        </View>
+
+        {editingField && (
+          <BasicFieldEditor
+            field={editingField}
+            userInfo={userInfo}
+            onConfirm={handleConfirm}
+            onClose={() => setEditingField(null)}
+          />
+        )}
+      </>
+    )
   }
 
   return (
@@ -100,6 +161,10 @@ export default function BasicInfoCard({ userInfo }: BasicInfoCardProps) {
       )}
     </>
   )
+}
+
+function renderPlainValue(value: string) {
+  return <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx' }}>{value}</Text>
 }
 
 function renderPickerHint(value: string, hint: string) {

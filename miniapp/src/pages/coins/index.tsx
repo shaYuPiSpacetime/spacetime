@@ -1,9 +1,11 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
-import Taro, { useRouter } from '@tarojs/taro'
+import { useRouter } from '@tarojs/taro'
+import CommercePlaceholderIcon from '@/components/CommercePlaceholderIcon'
+import WechatMockPayPanel from '@/components/WechatMockPayPanel'
 import { useCoins, type CoinPayState } from '@/hooks/useCoins'
 import { getDemoPageData } from '@/services/lanhuDemo'
-import type { CoinPackage } from '@/types/coin'
+import type { CoinPackage, CoinUsage } from '@/types/coin'
 import {
   LANHU_BLUE,
   LANHU_NAVY,
@@ -24,17 +26,6 @@ function resolveCoinsVariant(value?: string): CoinsPageVariant {
 function resolveCoinPayState(value?: string): CoinPayState {
   if (value === 'wechat-pay' || value === 'pay-success' || value === 'pay-cancel') return value
   return 'idle'
-}
-
-const USAGE_ICONS: Record<string, string> = {
-  '送悄悄话': 'yo',
-  '心动信号': '♡',
-  '解锁理想型': '☻',
-  '提升人气': 'ϟ',
-  '解锁精选': '✦',
-  '更多推荐': '☆',
-  '匿名解锁': '∞',
-  '限定活动': '◇',
 }
 
 export default function CoinsPage() {
@@ -76,9 +67,14 @@ export default function CoinsPage() {
   const handlePay = async () => {
     if (!agreementChecked) {
       setAgreementError(true)
-      Taro.showToast({ title: coinsDemo.agreement.uncheckedMessage, icon: 'none' })
       return
     }
+    setAgreementError(false)
+    await purchase()
+  }
+
+  const handleAgreementConfirm = async () => {
+    setAgreementChecked(true)
     setAgreementError(false)
     await purchase()
   }
@@ -97,12 +93,12 @@ export default function CoinsPage() {
 
   return (
     <View style={{ minHeight: '100vh', background: LANHU_SOFT_BG }}>
-      <LanhuNav title="成家币" showBack />
+      <LanhuNav title="千寻币" showBack />
       <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)' }} showScrollbar={false}>
         <View style={{ width: '750rpx', padding: '6rpx 25rpx 220rpx', boxSizing: 'border-box' }}>
           <BalanceCard balance={balance} onDetail={goToDetail} />
           <RechargeCard packages={packages} selected={selectedPackage} onSelect={selectPackage} onNotice={showRechargeNotice} />
-          <UsageCard usages={usages.map((item) => item.label)} />
+          <UsageCard usages={usages} />
         </View>
       </ScrollView>
       <PayBar
@@ -116,11 +112,16 @@ export default function CoinsPage() {
       <CoinsPaymentLayer
         payState={payState}
         selectedPackage={selectedPackage}
-        loading={payLoading}
         onClose={hidePaymentLayer}
         onSuccess={simulatePaySuccess}
         onCancel={simulatePayCancel}
       />
+      {agreementError && (
+        <AgreementConfirmSheet
+          agreementTitle={coinsDemo.agreement.title}
+          onContinue={handleAgreementConfirm}
+        />
+      )}
       {noticeVisible && (
         <RechargeNoticeModal onClose={() => setNoticeVisible(false)} />
       )}
@@ -141,7 +142,7 @@ function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => v
     >
       <Image src={coinBalanceBg} mode="scaleToFill" style={{ width: '700rpx', height: '190rpx' }} />
       <Text style={{ position: 'absolute', left: '32rpx', top: '48rpx', color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>
-        成家币余额
+        千寻币余额
       </Text>
       <Text style={{ position: 'absolute', left: '32rpx', top: '91rpx', color: '#FFFFFF', fontSize: '48rpx', fontWeight: 700, lineHeight: '67rpx' }}>
         {balance}
@@ -182,7 +183,7 @@ function RechargeCard({
       }}
     >
       <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700 }}>充值成家币</Text>
+        <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700 }}>充值千寻币</Text>
         <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }} onClick={onNotice}>
           <Text style={{ color: '#9D9D9D', fontSize: '26rpx' }}>充值须知</Text>
           <Text style={{ color: '#9D9D9D', fontSize: '38rpx', marginLeft: '6rpx' }}>›</Text>
@@ -226,9 +227,28 @@ function RechargeCard({
                     <Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>{pkg.tag}</Text>
                   </View>
                 )}
-                <Text style={{ color: LANHU_NAVY, fontSize: '30rpx', fontWeight: 700 }}>¥ {pkg.amount}</Text>
-                <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', marginTop: '6rpx' }}>{pkg.label}</Text>
-                <Text style={{ display: 'block', color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '42rpx', fontWeight: 700, marginTop: '14rpx' }}>
+                <CoinAmountLabel amount={pkg.amount} />
+                {pkg.originalPrice && pkg.discountLabel ? (
+                  <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '7rpx' }}>
+                    <Text style={{ color: '#9A9A9A', fontSize: '24rpx', textDecorationLine: 'line-through' }}>{pkg.originalPrice}</Text>
+                    <View
+                      style={{
+                        height: '30rpx',
+                        borderRadius: '6rpx',
+                        background: '#FFD5E2',
+                        padding: '0 12rpx',
+                        marginLeft: '10rpx',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: '#F32B61', fontSize: '20rpx' }}>{pkg.discountLabel}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', marginTop: '6rpx' }}>{pkg.label}</Text>
+                )}
+                <Text style={{ display: 'block', color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '42rpx', fontWeight: 700, marginTop: '12rpx' }}>
                   ¥{pkg.price}.00
                 </Text>
               </View>
@@ -240,12 +260,35 @@ function RechargeCard({
   )
 }
 
-function UsageCard({ usages }: { usages: string[] }) {
+function CoinAmountLabel({ amount }: { amount: number }) {
+  return (
+    <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+      <View
+        style={{
+          width: '28rpx',
+          height: '28rpx',
+          borderRadius: '14rpx',
+          border: `3rpx solid ${LANHU_NAVY}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxSizing: 'border-box',
+          marginRight: '10rpx',
+        }}
+      >
+        <Text style={{ color: LANHU_NAVY, fontSize: '18rpx', fontWeight: 700, lineHeight: '20rpx' }}>¥</Text>
+      </View>
+      <Text style={{ color: LANHU_NAVY, fontSize: '30rpx', fontWeight: 700 }}>{amount}</Text>
+    </View>
+  )
+}
+
+function UsageCard({ usages }: { usages: CoinUsage[] }) {
   return (
     <View
       style={{
         width: '700rpx',
-        minHeight: '520rpx',
+        minHeight: '478rpx',
         borderRadius: '12rpx',
         background: '#FFFFFF',
         marginTop: '20rpx',
@@ -253,36 +296,22 @@ function UsageCard({ usages }: { usages: string[] }) {
         boxSizing: 'border-box',
       }}
     >
-      <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700 }}>成家币用途</Text>
+      <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700 }}>千寻币用途</Text>
       <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', marginTop: '36rpx' }}>
-        {usages.slice(0, 8).map((label) => (
+        {usages.slice(0, 8).map((item) => (
           <View
-            key={label}
+            key={item.label}
             style={{
               width: '25%',
-              height: '176rpx',
+              height: '170rpx',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
             }}
           >
-            <View
-              style={{
-                width: '98rpx',
-                height: '98rpx',
-                borderRadius: '49rpx',
-                background: 'linear-gradient(180deg, #7499FB 0%, #2876FF 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: '#FFFFFF', fontSize: USAGE_ICONS[label] === 'yo' ? '36rpx' : '46rpx', fontWeight: 700 }}>
-                {USAGE_ICONS[label] ?? '○'}
-              </Text>
-            </View>
+            <CommercePlaceholderIcon variant="coin" kind={item.icon} />
             <Text style={{ color: LANHU_NAVY, fontSize: '26rpx', lineHeight: '37rpx', marginTop: '18rpx', textAlign: 'center' }}>
-              {label}
+              {item.label}
             </Text>
           </View>
         ))}
@@ -294,19 +323,25 @@ function UsageCard({ usages }: { usages: string[] }) {
 function CoinsPaymentLayer({
   payState,
   selectedPackage,
-  loading,
   onClose,
   onSuccess,
   onCancel,
 }: {
   payState: CoinPayState
   selectedPackage: CoinPackage | null
-  loading: boolean
   onClose: () => void
   onSuccess: () => void
   onCancel: () => void
 }) {
   if (payState === 'idle') return null
+
+  if (payState === 'pay-success') {
+    return <PayResultModal title="支付成功" />
+  }
+
+  if (payState === 'pay-cancel') {
+    return <PayResultModal title="用户取消支付" />
+  }
 
   return (
     <View
@@ -316,40 +351,16 @@ function CoinsPaymentLayer({
         right: 0,
         top: 0,
         bottom: 0,
-        background: 'rgba(0, 0, 0, 0.48)',
+        background: 'rgba(0, 0, 0, 0.32)',
         zIndex: 60,
       }}
     >
       {payState === 'wechat-pay' && (
         <WechatPayPanel
           amount={selectedPackage?.price.toFixed(2) ?? '0.00'}
-          coins={selectedPackage?.amount ?? 0}
-          loading={loading}
           onClose={onClose}
           onSuccess={onSuccess}
           onCancel={onCancel}
-        />
-      )}
-      {payState === 'pay-success' && (
-        <PayResultModal
-          tone="success"
-          title="支付成功"
-          desc={`成家币已到账，当前套餐 ${selectedPackage?.amount ?? 0} 枚`}
-          primaryText="完成"
-          secondaryText="查看明细"
-          onPrimary={onClose}
-          onSecondary={onClose}
-        />
-      )}
-      {payState === 'pay-cancel' && (
-        <PayResultModal
-          tone="cancel"
-          title="取消支付"
-          desc="本次充值未完成，可重新发起微信支付"
-          primaryText="重新支付"
-          secondaryText="关闭"
-          onPrimary={onSuccess}
-          onSecondary={onClose}
         />
       )}
     </View>
@@ -358,167 +369,43 @@ function CoinsPaymentLayer({
 
 function WechatPayPanel({
   amount,
-  coins,
-  loading,
   onClose,
   onSuccess,
   onCancel,
 }: {
   amount: string
-  coins: number
-  loading: boolean
   onClose: () => void
   onSuccess: () => void
   onCancel: () => void
 }) {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        minHeight: '476rpx',
-        borderRadius: '24rpx 24rpx 0 0',
-        background: '#FFFFFF',
-        padding: '34rpx 30rpx calc(32rpx + env(safe-area-inset-bottom))',
-        boxSizing: 'border-box',
-      }}
-    >
-      <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 700 }}>微信支付</Text>
-        <Text style={{ color: '#999999', fontSize: '32rpx' }} onClick={onClose}>×</Text>
-      </View>
-      <View
-        style={{
-          borderRadius: '24rpx',
-          background: '#F3F8FF',
-          padding: '30rpx',
-          marginTop: '28rpx',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text style={{ color: LANHU_BLUE, fontSize: '24rpx' }}>千寻币-微信支付</Text>
-        <Text style={{ display: 'block', color: LANHU_NAVY, fontSize: '52rpx', fontWeight: 700, marginTop: '18rpx' }}>¥{amount}</Text>
-        <Text style={{ display: 'block', color: '#777777', fontSize: '24rpx', marginTop: '10rpx' }}>充值 {coins} 枚成家币，支付成功后即时到账</Text>
-      </View>
-      <View
-        style={{
-          height: '98rpx',
-          borderRadius: '98rpx',
-          background: LANHU_BLUE,
-          marginTop: '32rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: loading ? 0.72 : 1,
-        }}
-        onClick={onSuccess}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '34rpx', fontWeight: 700 }}>{loading ? '支付中...' : '确认支付'}</Text>
-      </View>
-      <View
-        style={{
-          height: '72rpx',
-          borderRadius: '16rpx',
-          background: '#F3F3F3',
-          marginTop: '18rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onClick={onCancel}
-      >
-        <Text style={{ color: '#666666', fontSize: '26rpx' }}>取消支付</Text>
-      </View>
-    </View>
-  )
+  return <WechatMockPayPanel amount={amount} onClose={onClose} onSuccess={onSuccess} onCancel={onCancel} />
 }
 
-function PayResultModal({
-  tone,
-  title,
-  desc,
-  primaryText,
-  secondaryText,
-  onPrimary,
-  onSecondary,
-}: {
-  tone: 'success' | 'cancel'
-  title: string
-  desc: string
-  primaryText: string
-  secondaryText: string
-  onPrimary: () => void
-  onSecondary: () => void
-}) {
-  const isSuccess = tone === 'success'
+function PayResultModal({ title }: { title: string }) {
   return (
     <View
       style={{
-        position: 'absolute',
-        left: '75rpx',
-        right: '75rpx',
-        top: '330rpx',
-        borderRadius: '24rpx',
-        background: '#FFFFFF',
-        padding: '44rpx 36rpx 34rpx',
+        position: 'fixed',
+        left: '231rpx',
+        top: '393rpx',
+        width: '288rpx',
+        height: '98rpx',
+        borderRadius: '12rpx',
+        background: '#ADADAD',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         boxSizing: 'border-box',
+        zIndex: 80,
       }}
     >
-      <View
-        style={{
-          width: '96rpx',
-          height: '96rpx',
-          borderRadius: '48rpx',
-          background: isSuccess ? LANHU_BLUE : '#F0A43A',
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '50rpx', fontWeight: 700 }}>{isSuccess ? '✓' : '!'}</Text>
-      </View>
-      <Text style={{ display: 'block', color: LANHU_NAVY, fontSize: '36rpx', fontWeight: 700, textAlign: 'center', marginTop: '26rpx' }}>{title}</Text>
-      <Text style={{ display: 'block', color: '#777777', fontSize: '26rpx', lineHeight: '40rpx', textAlign: 'center', marginTop: '16rpx' }}>{desc}</Text>
-      <View
-        style={{
-          height: '98rpx',
-          borderRadius: '98rpx',
-          background: isSuccess ? LANHU_BLUE : LANHU_NAVY,
-          marginTop: '34rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onClick={onPrimary}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700 }}>{primaryText}</Text>
-      </View>
-      <View
-        style={{
-          height: '64rpx',
-          borderRadius: '16rpx',
-          marginTop: '14rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onClick={onSecondary}
-      >
-        <Text style={{ color: '#999999', fontSize: '26rpx' }}>{secondaryText}</Text>
-      </View>
+      <Text style={{ color: '#FFFFFF', fontSize: '34rpx' }}>{title}</Text>
     </View>
   )
 }
 
 function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
-  const notes = [
-    '成家币为平台虚拟道具，充值成功后即时到账。',
-    '成家币可用于解锁嘉宾、发送心动信号等互动场景。',
-    '充值成功后不支持提现，请根据需要选择套餐。',
-  ]
+  const rechargeNotice = coinsDemo.rechargeNotice
 
   return (
     <View
@@ -532,56 +419,57 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
         zIndex: 70,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '0 55rpx',
+        justifyContent: 'flex-start',
+        padding: '386rpx 65rpx 0',
         boxSizing: 'border-box',
       }}
     >
       <View
         style={{
-          width: '640rpx',
+          width: '620rpx',
           borderRadius: '64rpx',
           background: '#FFFFFF',
-          padding: '44rpx 36rpx 34rpx',
+          padding: '54rpx 46rpx 36rpx',
           boxSizing: 'border-box',
         }}
       >
-        <Text style={{ display: 'block', color: LANHU_NAVY, fontSize: '36rpx', fontWeight: 700, textAlign: 'center' }}>充值须知</Text>
-        <View style={{ marginTop: '30rpx' }}>
-          {notes.map((note, index) => (
-            <View key={note} style={{ display: 'flex', flexDirection: 'row', marginBottom: '18rpx' }}>
-              <View
-                style={{
-                  width: '32rpx',
-                  height: '32rpx',
-                  borderRadius: '8rpx',
-                  background: '#E8F4FF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: '14rpx',
-                  flexShrink: 0,
-                }}
-              >
-                <Text style={{ color: LANHU_BLUE, fontSize: '20rpx', fontWeight: 700 }}>{index + 1}</Text>
-              </View>
-              <Text style={{ flex: 1, color: '#666666', fontSize: '26rpx', lineHeight: '39rpx' }}>{note}</Text>
-            </View>
+        <Text style={{ display: 'block', color: '#333333', fontSize: '36rpx', fontWeight: 700, textAlign: 'center' }}>{rechargeNotice.title}</Text>
+        <View style={{ marginTop: '44rpx' }}>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>{rechargeNotice.faqTitle}</Text>
+          {rechargeNotice.items.map((note) => (
+            <Text key={note} style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '42rpx', marginTop: '12rpx' }}>{note}</Text>
           ))}
         </View>
-        <View
-          style={{
-            height: '98rpx',
-            borderRadius: '98rpx',
-            background: LANHU_BLUE,
-            marginTop: '18rpx',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={onClose}
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: '34rpx', fontWeight: 700 }}>我知道了</Text>
+        <View style={{ display: 'flex', flexDirection: 'row', marginTop: '46rpx' }}>
+          <View
+            style={{
+              flex: 1,
+              height: '84rpx',
+              borderRadius: '8rpx',
+              background: '#F7F7F7',
+              marginRight: '22rpx',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onClick={onClose}
+          >
+            <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700 }}>{rechargeNotice.contactText}</Text>
+          </View>
+          <View
+            style={{
+              flex: 1,
+              height: '84rpx',
+              borderRadius: '8rpx',
+              background: LANHU_BLUE,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onClick={onClose}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>{rechargeNotice.confirmText}</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -611,50 +499,15 @@ function PayBar({
         right: 0,
         bottom: 0,
         background: '#FFFFFF',
-        padding: '18rpx 25rpx calc(20rpx + env(safe-area-inset-bottom))',
+        padding: '20rpx 44rpx calc(30rpx + env(safe-area-inset-bottom))',
         boxSizing: 'border-box',
         zIndex: 20,
       }}
     >
       <View
-        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '12rpx', paddingLeft: '8rpx' }}
-        onClick={onToggle}
-      >
-        <View
-          style={{
-            width: '28rpx',
-            height: '28rpx',
-            borderRadius: '14rpx',
-            border: checked ? '0' : `2rpx solid ${error ? '#F32B61' : '#999999'}`,
-            background: checked ? LANHU_BLUE : '#FFFFFF',
-            marginRight: '10rpx',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxSizing: 'border-box',
-          }}
-        >
-          {checked && (
-            <View
-              style={{
-                width: '13rpx',
-                height: '8rpx',
-                borderLeft: '3rpx solid #FFFFFF',
-                borderBottom: '3rpx solid #FFFFFF',
-                transform: 'rotate(-45deg)',
-                marginTop: '-3rpx',
-              }}
-            />
-          )}
-        </View>
-        <Text style={{ color: '#999999', fontSize: '22rpx' }}>阅读并同意</Text>
-        <Text style={{ color: LANHU_BLUE, fontSize: '22rpx' }}>{agreementTitle}</Text>
-        {error && <Text style={{ color: '#F32B61', fontSize: '22rpx', marginLeft: '8rpx' }}>请先勾选</Text>}
-      </View>
-      <View
         style={{
           height: '98rpx',
-          borderRadius: '98rpx',
+          borderRadius: '14rpx',
           background: LANHU_BLUE,
           display: 'flex',
           alignItems: 'center',
@@ -664,6 +517,94 @@ function PayBar({
         onClick={onPay}
       >
         <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 700 }}>{loading ? '支付中...' : '立即支付'}</Text>
+      </View>
+      <View
+        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '24rpx' }}
+        onClick={onToggle}
+      >
+        <View
+          style={{
+            width: '32rpx',
+            height: '32rpx',
+            borderRadius: '16rpx',
+            border: checked ? '0' : `2rpx solid ${error ? '#F32B61' : '#999999'}`,
+            background: checked ? LANHU_BLUE : '#FFFFFF',
+            marginRight: '16rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxSizing: 'border-box',
+          }}
+        >
+          {checked && (
+            <View
+              style={{
+                width: '17rpx',
+                height: '10rpx',
+                borderLeft: '4rpx solid #FFFFFF',
+                borderBottom: '4rpx solid #FFFFFF',
+                transform: 'rotate(-45deg)',
+                marginTop: '-4rpx',
+              }}
+            />
+          )}
+        </View>
+        <Text style={{ color: error ? '#B7B7B7' : '#333333', fontSize: '28rpx' }}>阅读并同意</Text>
+        <Text style={{ color: LANHU_BLUE, fontSize: '28rpx' }}>{agreementTitle}</Text>
+      </View>
+    </View>
+  )
+}
+
+function AgreementConfirmSheet({
+  agreementTitle,
+  onContinue,
+}: {
+  agreementTitle: string
+  onContinue: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.32)',
+        zIndex: 55,
+        display: 'flex',
+        alignItems: 'flex-end',
+      }}
+    >
+      <View
+        style={{
+          width: '750rpx',
+          height: '388rpx',
+          borderRadius: '40rpx 40rpx 0 0',
+          background: '#FFFFFF',
+          padding: '107rpx 44rpx 0',
+          boxSizing: 'border-box',
+        }}
+      >
+        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: '#A9A9A9', fontSize: '32rpx' }}>我已阅读并同意</Text>
+          <Text style={{ color: LANHU_BLUE, fontSize: '32rpx' }}>{agreementTitle}</Text>
+        </View>
+        <View
+          style={{
+            height: '98rpx',
+            borderRadius: '14rpx',
+            background: LANHU_BLUE,
+            marginTop: '62rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={onContinue}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 700 }}>继续支付</Text>
+        </View>
       </View>
     </View>
   )
