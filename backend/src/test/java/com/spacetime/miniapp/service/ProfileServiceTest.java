@@ -9,6 +9,8 @@ import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.GenderEnum;
 import com.spacetime.common.enums.VerificationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AccessDecisionService;
+import com.spacetime.common.service.impl.AccessDecisionServiceImpl;
 import com.spacetime.miniapp.dto.request.ProfileInitSaveReq;
 import com.spacetime.miniapp.dto.request.ProfileUpdateReq;
 import com.spacetime.miniapp.service.impl.ProfileServiceImpl;
@@ -24,11 +26,14 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,6 +48,8 @@ class ProfileServiceTest {
 
     @Spy
     private ProfileScoreConfig profileScoreConfig = new ProfileScoreConfig();
+    @Spy
+    private AccessDecisionService accessDecisionService = new AccessDecisionServiceImpl();
     @InjectMocks
     private ProfileServiceImpl profileService;
 
@@ -119,8 +126,12 @@ class ProfileServiceTest {
         var vo = profileService.getAccessStatus(1L);
         assertThat(vo.getCanBrowseCards()).isFalse();
         assertThat(vo.getCanMatch()).isFalse();
+        assertThat(vo.getCanMessage()).isFalse();
+        assertThat(vo.getCanCommunity()).isFalse();
         assertThat(vo.getCanBeExposed()).isFalse();
         assertThat(vo.getBlockReason()).isNotEmpty();
+        assertThat(vo.getCoreAccessStatus()).isEqualTo("CORE_BLOCKED");
+        assertThat(vo.getBlockReasons()).contains(vo.getBlockReason());
     }
 
     @Test
@@ -137,8 +148,8 @@ class ProfileServiceTest {
     }
 
     @Test
-    @DisplayName("L3-06 准入判定 — 实名通过全能力可用")
-    void shouldAllowFullAccessWhenRealNameVerified() {
+    @DisplayName("L3-06 准入判定 — 仅实名通过不能开放核心能力")
+    void shouldNotAllowFullAccessWhenOnlyRealNameVerified() {
         user.setFirstLoginCompleted(1);
         verification.setRealNameStatus(VerificationStatusEnum.APPROVED.getCode());
         when(appUserDao.selectById(1L)).thenReturn(user);
@@ -146,8 +157,95 @@ class ProfileServiceTest {
 
         var vo = profileService.getAccessStatus(1L);
         assertThat(vo.getCanBrowseCards()).isTrue();
+        assertThat(vo.getCanMatch()).isFalse();
+        assertThat(vo.getCanMessage()).isFalse();
+        assertThat(vo.getCanCommunity()).isTrue();
+        assertThat(vo.getCanBeExposed()).isFalse();
+        assertThat(vo.getCoreAccessStatus()).isEqualTo("NON_CORE_ONLY");
+        assertThat(vo.getBlockReason()).contains("头像", "学历");
+    }
+
+    @Test
+    @DisplayName("L3-06A 准入判定 — 实名头像学历均通过才全能力可用")
+    void shouldAllowFullAccessWhenTripleVerificationApproved() {
+        user.setFirstLoginCompleted(1);
+        verification.setRealNameStatus(VerificationStatusEnum.APPROVED.getCode());
+        verification.setAvatarVerifyStatus(VerificationStatusEnum.APPROVED.getCode());
+        verification.setEducationStatus(VerificationStatusEnum.APPROVED.getCode());
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(verificationDao.selectOne(any())).thenReturn(verification);
+
+        var vo = profileService.getAccessStatus(1L);
+        assertThat(vo.getCanBrowseCards()).isTrue();
         assertThat(vo.getCanMatch()).isTrue();
+        assertThat(vo.getCanMessage()).isTrue();
+        assertThat(vo.getCanCommunity()).isTrue();
         assertThat(vo.getCanBeExposed()).isTrue();
+        assertThat(vo.getCoreAccessStatus()).isEqualTo("CORE_ALLOWED");
+        assertThat(vo.getBlockReasons()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("mobile init-status exposes 5-step progress fields")
+    void shouldExposeFiveStepInitStatus() {
+        user.setFirstLoginCompleted(0);
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(verificationDao.selectOne(any())).thenReturn(verification);
+
+        var vo = profileService.getInitStatus(1L);
+
+        assertThat(vo.getCurrentStep()).isEqualTo(1);
+        assertThat(vo.getNextStep()).isEqualTo(1);
+        assertThat(vo.getCompletedSteps()).isEmpty();
+        assertThat(vo.getNextAction()).isEqualTo("CONTINUE_STEP_1");
+    }
+
+    @Test
+    @DisplayName("mobile init-save marks completed steps and moves to next 5-step action")
+    void shouldSaveFiveStepInitProgress() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        ProfileInitSaveReq req = new ProfileInitSaveReq();
+        req.setStep(4);
+        req.setEducationLevel("BACHELOR");
+
+        var vo = profileService.saveInit(1L, req);
+
+        assertThat(vo.getCurrentStep()).isEqualTo(4);
+        assertThat(vo.getNextStep()).isEqualTo(5);
+        assertThat(vo.getCompletedSteps()).isEqualTo(List.of(1, 2, 3, 4));
+        assertThat(vo.getNextAction()).isEqualTo("CONTINUE_STEP_5");
+    }
+
+    @Test
+    @DisplayName("首版不支持海外/国家入口，首登保存必须拒绝且不写库")
+    void shouldRejectUnsupportedCountryDuringInitSave() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        ProfileInitSaveReq req = new ProfileInitSaveReq();
+        req.setStep(5);
+        req.setLocationProvince("OVERSEAS");
+        req.setLocationCity("OVERSEAS");
+
+        assertThatThrownBy(() -> profileService.saveInit(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("REGION_NOT_SUPPORTED");
+        verify(appUserDao, never()).updateById(any(AppUser.class));
+    }
+
+    @Test
+    @DisplayName("首版不支持海外/国家入口，资料编辑必须拒绝且不写库")
+    void shouldRejectUnsupportedRegionDuringProfileUpdate() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        ProfileUpdateReq req = new ProfileUpdateReq();
+        req.setLocationProvince("OVERSEAS");
+        req.setLocationCity("OVERSEAS");
+
+        assertThatThrownBy(() -> profileService.updateProfile(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("REGION_NOT_SUPPORTED");
+        verify(appUserDao, never()).updateById(any(AppUser.class));
     }
 
     @Test

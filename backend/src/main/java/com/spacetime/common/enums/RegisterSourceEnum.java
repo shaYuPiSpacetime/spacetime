@@ -3,11 +3,12 @@ package com.spacetime.common.enums;
 import lombok.Getter;
 
 /**
- * 注册来源
+ * App 用户注册来源。
  */
 @Getter
 public enum RegisterSourceEnum {
     WECHAT("WECHAT", "微信授权"),
+    PHONE("PHONE", "手机号登录"),
     AGENT_CODE("AGENT_CODE", "代理码");
 
     private final String code;
@@ -20,7 +21,9 @@ public enum RegisterSourceEnum {
 
     public static RegisterSourceEnum getByCode(String code) {
         for (RegisterSourceEnum value : values()) {
-            if (value.code.equals(code)) return value;
+            if (value.code.equals(code)) {
+                return value;
+            }
         }
         return null;
     }

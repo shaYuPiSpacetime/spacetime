@@ -3,21 +3,29 @@ package com.spacetime.admin.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.AppUserPageReq;
+import com.spacetime.admin.dto.response.ExportTaskVO;
+import com.spacetime.admin.dto.response.ImportBatchVO;
 import com.spacetime.admin.dto.response.AppUserListVO;
 import com.spacetime.admin.service.impl.AppUserAdminServiceImpl;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.AppUserImportBatchDao;
+import com.spacetime.common.dao.AppUserImportRowDao;
 import com.spacetime.common.dao.AppUserVerificationDao;
+import com.spacetime.common.dao.ContentOperationLogDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserVerification;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.VerificationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AccessDecisionService;
+import com.spacetime.common.service.impl.AccessDecisionServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -43,6 +51,14 @@ class AppUserAdminServiceTest {
     private AppUserDao appUserDao;
     @Mock
     private AppUserVerificationDao verificationDao;
+    @Mock
+    private AppUserImportBatchDao importBatchDao;
+    @Mock
+    private AppUserImportRowDao importRowDao;
+    @Mock
+    private ContentOperationLogDao contentOperationLogDao;
+    @Spy
+    private AccessDecisionService accessDecisionService = new AccessDecisionServiceImpl();
 
     @InjectMocks
     private AppUserAdminServiceImpl appUserAdminService;
@@ -122,7 +138,7 @@ class AppUserAdminServiceTest {
         assertThat(result.getRecords()).hasSize(1);
         AppUserListVO vo = result.getRecords().get(0);
         assertThat(vo.getRealNameStatus()).isEqualTo("APPROVED");
-        assertThat(vo.getAccessStatus()).isEqualTo("full_access");
+        assertThat(vo.getAccessStatus()).isEqualTo("browse_only");
         verify(verificationDao).selectList(any(LambdaQueryWrapper.class));
     }
 
@@ -156,5 +172,66 @@ class AppUserAdminServiceTest {
         assertThatThrownBy(() -> appUserAdminService.updateUserStatus(1L, "INVALID_STATUS"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("不支持");
+    }
+
+    /**
+     * L3-34 验证 App 用户导入预校验：合法、重复、缺必填行均被统计并写入审计。
+     */
+    @Test
+    @DisplayName("L3-34 用户导入 — 预校验统计成功失败重复")
+    void shouldPreviewImportRowsAndWriteAuditLog() {
+        String csv = """
+                phone,nickname,gender,school,idCard
+                13800138000,王一,FEMALE,浙江大学,330102199901010021
+                13800138000,重复,FEMALE,浙江大学,330102199901010021
+                ,缺手机号,MALE,复旦大学,310101199701010011
+                13900139000,李二,MALE,上海交通大学,310101199801010031
+                """;
+
+        ImportBatchVO result = appUserAdminService.previewImport("app-users.csv", csv);
+
+        assertThat(result.getBatchNo()).startsWith("APP-IMPORT-");
+        assertThat(result.getTotalCount()).isEqualTo(4);
+        assertThat(result.getSuccessCount()).isEqualTo(2);
+        assertThat(result.getFailCount()).isEqualTo(2);
+        assertThat(result.getDuplicateCount()).isEqualTo(1);
+        assertThat(result.getStatus()).isEqualTo("PRECHECKED");
+        assertThat(result.getErrorSummaryJson()).contains("第3行");
+        verify(contentOperationLogDao).insert(any());
+    }
+
+    /**
+     * L3-35 验证 App 用户导出：固定字段无掩码导出必须二次确认。
+     */
+    @Test
+    @DisplayName("L3-35 用户导出 — 未二次确认拒绝固定字段导出")
+    void shouldRejectExportWhenNoMaskConfirmMissing() {
+        AppUserPageReq req = new AppUserPageReq();
+        req.setPage(1);
+        req.setSize(20);
+
+        assertThatThrownBy(() -> appUserAdminService.exportFixedFields(req, false))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("EXPORT_CONFIRM_REQUIRED");
+    }
+
+    /**
+     * L3-36 验证 App 用户导出：确认后创建任务并写入审计。
+     */
+    @Test
+    @DisplayName("L3-36 用户导出 — 确认后创建固定字段导出任务并审计")
+    void shouldCreateExportTaskAfterConfirm() {
+        AppUserPageReq req = new AppUserPageReq();
+        req.setPage(1);
+        req.setSize(20);
+        req.setKeyword("杭州");
+
+        ExportTaskVO task = appUserAdminService.exportFixedFields(req, true);
+
+        assertThat(task.getTaskNo()).startsWith("APP-USER-EXPORT-");
+        assertThat(task.getExportType()).isEqualTo("APP_USER_FIXED_FIELDS");
+        assertThat(task.getStatus()).isEqualTo("CREATED");
+        assertThat(task.getMessage()).contains("固定字段");
+        verify(contentOperationLogDao).insert(any());
     }
 }

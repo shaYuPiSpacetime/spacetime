@@ -5,7 +5,14 @@ export interface VerificationVO {
   userId: number;
   avatar: string;
   nickname: string;
+  phone?: string;
+  realName?: string;
+  idCard?: string;
+  educationIdentity?: string;
+  educationMaterialSummary?: string;
+  avatarUrl?: string;
   status: string;
+  auditSource: string;
   rejectReason: string;
   submitTime: string;
 }
@@ -16,8 +23,14 @@ export interface ModerationVO {
   avatar: string;
   nickname: string;
   contentType: string;
+  imageType?: string;
+  imageCategory?: string;
+  imageUrl?: string;
+  textType?: string;
+  textSummary?: string;
   contentPreview: string;
   status: string;
+  auditSource: string;
   rejectReason: string;
   submitTime: string;
 }
@@ -29,16 +42,30 @@ export interface PageResult<T> {
   current: number;
 }
 
-// Verification APIs
-export function getRealNamePage(params: { page: number; size: number; keyword?: string; status?: string }) {
+// 认证审核接口。
+export interface VerificationPageParams {
+  page: number;
+  size: number;
+  keyword?: string;
+  status?: string;
+  auditSource?: string;
+  submitTime?: string;
+  faceRecognition?: string;
+  coreAccessStatus?: string;
+  educationMethod?: string;
+  imageType?: string;
+  textType?: string;
+}
+
+export function getRealNamePage(params: VerificationPageParams) {
   return request.get('/admin/verify/real-name/list', { params });
 }
 
-export function getEducationPage(params: { page: number; size: number; keyword?: string; status?: string }) {
+export function getEducationPage(params: VerificationPageParams) {
   return request.get('/admin/verify/education/list', { params });
 }
 
-export function getAvatarPage(params: { page: number; size: number; keyword?: string; status?: string }) {
+export function getAvatarPage(params: VerificationPageParams) {
   return request.get('/admin/verify/avatar/list', { params });
 }
 
@@ -54,12 +81,12 @@ export function auditAvatar(id: number, data: { action: string; rejectReason?: s
   return request.post(`/admin/verify/avatar/${id}/audit`, data);
 }
 
-// Moderation APIs
-export function getPhotoModerationPage(params: { page: number; size: number; keyword?: string; status?: string }) {
+// 内容审核接口。
+export function getPhotoModerationPage(params: VerificationPageParams) {
   return request.get('/admin/moderation/photos/list', { params });
 }
 
-export function getTextModerationPage(params: { page: number; size: number; keyword?: string; status?: string }) {
+export function getTextModerationPage(params: VerificationPageParams) {
   return request.get('/admin/moderation/texts/list', { params });
 }
 
@@ -71,7 +98,7 @@ export function auditText(id: number, data: { action: string; rejectReason?: str
   return request.post(`/admin/moderation/texts/${id}/audit`, data);
 }
 
-// Verification Detail APIs
+// 认证与内容审核详情接口。
 export interface FieldEntry {
   label: string;
   value: string;
@@ -88,6 +115,7 @@ export interface VerificationAuditDetailVO {
   resultTime: string;
   rejectReason: string;
   status: string;
+  auditSource: string;
 }
 
 export interface ModerationDetailVO {
@@ -100,6 +128,7 @@ export interface ModerationDetailVO {
   contentField: string;
   submitTime: string;
   status: string;
+  auditSource: string;
   rejectReason: string;
 }
 

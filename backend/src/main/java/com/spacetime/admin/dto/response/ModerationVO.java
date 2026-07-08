@@ -17,10 +17,22 @@ public class ModerationVO {
     private String nickname;
     /** 内容类型: 照片/文字 */
     private String contentType;
+    /** 图片类型：相册/资料背景图 */
+    private String imageType;
+    /** 图片分类：相册/背景图 */
+    private String imageCategory;
+    /** 图片预览 URL */
+    private String imageUrl;
+    /** 文本类型：关于我/希望TA了解/资料问答 */
+    private String textType;
+    /** 文本摘要，列表不展示完整原文 */
+    private String textSummary;
     /** 内容预览（照片JSON或文字前50字） */
     private String contentPreview;
     /** 审核状态 */
     private String status;
+    /** 审核来源：MACHINE/MANUAL */
+    private String auditSource;
     /** 驳回原因 */
     private String rejectReason;
     /** 提交时间 */

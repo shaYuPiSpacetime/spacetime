@@ -28,4 +28,6 @@ public class VerificationAuditDetailVO {
     private String rejectReason;
     /** 当前审核状态（PENDING/APPROVED/REJECTED，用于前端判断是否可操作） */
     private String status;
+    /** 审核来源：MACHINE/MANUAL */
+    private String auditSource;
 }

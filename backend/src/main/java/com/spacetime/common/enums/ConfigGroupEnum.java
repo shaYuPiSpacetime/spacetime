@@ -22,7 +22,15 @@ public enum ConfigGroupEnum {
     /** 设置页 */
     SETTINGS_PAGE("SETTINGS_PAGE", "设置页"),
     /** 安全中心 */
-    SECURITY_CENTER("SECURITY_CENTER", "安全中心");
+    SECURITY_CENTER("SECURITY_CENTER", "安全中心"),
+    /** PRD01 准入配置 */
+    PRD01_ACCESS("PRD01_ACCESS", "PRD01 准入配置"),
+    /** PRD01 资料字段配置 */
+    PRD01_PROFILE_FIELD("PRD01_PROFILE_FIELD", "PRD01 资料字段配置"),
+    /** PRD01 上传配置 */
+    PRD01_UPLOAD("PRD01_UPLOAD", "PRD01 上传配置"),
+    /** PRD01 审核配置 */
+    PRD01_AUDIT("PRD01_AUDIT", "PRD01 审核配置");
 
     /** 分组编码（存入数据库） */
     private final String code;

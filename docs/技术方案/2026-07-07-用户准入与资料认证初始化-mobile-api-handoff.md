@@ -296,8 +296,29 @@
 |----|------|
 | Method | `GET` |
 | Path | `/miniapp/config/prd01` |
-| 响应 | 字段必填规则、上传限制、文案、地区范围、审核策略 |
+| 响应 | `requiredFields, uploadLimits, regionScope, auditPolicy, openTextFields` |
 | 前端建议 | 不要硬编码相册张数、文字长度、字段必填规则 |
+
+响应字段示例：
+
+```json
+{
+  "requiredFields": ["gender", "birthday", "height", "datingGoal", "emotionalStatus", "educationLevel", "locationProvince", "locationCity"],
+  "uploadLimits": {
+    "albumMaxCount": 6,
+    "voiceMinDuration": 10,
+    "voiceMaxDuration": 60
+  },
+  "regionScope": {
+    "supportsOverseas": false
+  },
+  "auditPolicy": {
+    "voiceProvider": "MOCK",
+    "textProvider": "MOCK"
+  },
+  "openTextFields": ["ABOUT_ME", "HOPE_THEY_KNOW", "PROFILE_QA"]
+}
+```
 
 ## 5. 完整度评分清单
 

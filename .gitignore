@@ -21,6 +21,8 @@ frontend/playwright-report/
 frontend/.playwright-browsers/
 
 # 本地与生产敏感配置
+.env
+*.local.env
 backend/.env.local
 deploy/nginx-prod/ssl/*.key
 bobo-todo.md

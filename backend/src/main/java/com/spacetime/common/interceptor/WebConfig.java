@@ -8,7 +8,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * Web MVC 配置
  * 注册 TokenInterceptor 和 PermissionInterceptor
- * TokenInterceptor 拦截 /admin/** 和 /miniapp/**（放行登录接口）
+ * TokenInterceptor 拦截 /admin/** 和 /miniapp/**（放行登录、移动端公开配置等接口）
  * PermissionInterceptor 在 TokenInterceptor 之后运行，校验 @RequirePermission 注解
  */
 @Configuration
@@ -24,12 +24,13 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 1. 登录拦截器：拦截 admin 和 miniapp 所有接口
+        // 1. 登录拦截器：拦截 admin 和 miniapp 受保护接口，放行登录和公开配置
         registry.addInterceptor(tokenInterceptor)
                 .addPathPatterns("/admin/**", "/miniapp/**")
                 .excludePathPatterns(
                         "/admin/login",
                         "/miniapp/auth/**",
+                        "/miniapp/config/**",
                         "/miniapp/login/**",
                         "/miniapp/promotion/invite/rules",
                         "/miniapp/promotion/invite/share-log",

@@ -5,11 +5,11 @@ import lombok.Data;
 
 /**
  * 首登资料保存请求
- * 分3步：step1基础信息 → step2教育/感情 → step3自我介绍
+ * 分5步：基础信息、生日身高、关系目标、学历、地域资料
  */
 @Data
 public class ProfileInitSaveReq {
-    /** 当前步骤号 1/2/3 */
+    /** 当前步骤号 1-5 */
     @NotNull(message = "步骤不能为空")
     private Integer step;
     /** 昵称 */
@@ -20,6 +20,14 @@ public class ProfileInitSaveReq {
     private String birthday;
     /** 身高cm */
     private Integer height;
+    /** 体重 kg */
+    private Integer weight;
+    /** 身份类型：在校生、职场人等 */
+    private String identity;
+    /** 职业 */
+    private String occupation;
+    /** 年收入区间 */
+    private String annualIncome;
     /** 居住省 */
     private String locationProvince;
     /** 居住市 */
@@ -30,6 +38,8 @@ public class ProfileInitSaveReq {
     private String hometownProvince;
     /** 家乡市 */
     private String hometownCity;
+    /** 家乡区县 */
+    private String hometownDistrict;
     /** 学校全称 */
     private String school;
     /** 专业 */
@@ -42,6 +52,10 @@ public class ProfileInitSaveReq {
     private String datingGoal;
     /** 婚姻状态 */
     private String maritalStatus;
+    /** 子女计划 */
+    private String childrenPlan;
+    /** 是否想要孩子 */
+    private String wantChild;
     /** 头像URL */
     private String avatar;
     /** 关于我（20-300字） */

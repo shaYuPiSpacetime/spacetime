@@ -4,11 +4,20 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
- * 微信授权登录请求
+ * 微信登录请求。
  */
 @Data
 public class WechatLoginReq {
-    /** 微信小程序 wx.login() 返回的临时 code */
+    /** wx.login 返回的临时 code。 */
     @NotBlank(message = "微信code不能为空")
     private String code;
+
+    /** 微信加密数据，当前 mock 登录暂不解析，后续接真实微信接口时使用。 */
+    private String encryptedData;
+
+    /** 微信加密数据初始向量，当前 mock 登录暂不解析。 */
+    private String iv;
+
+    /** 是否已勾选登录协议；未勾选时后端拒绝登录。 */
+    private Boolean agreeProtocol;
 }

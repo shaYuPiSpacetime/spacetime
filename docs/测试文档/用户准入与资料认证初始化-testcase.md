@@ -1,0 +1,301 @@
+# 用户准入与资料认证初始化 测试用例
+
+> 日期：2026-07-07
+> 阶段：阶段 4 测试用例
+> 技术方案：`docs/技术方案/2026-07-07-用户准入与资料认证初始化-tcdesign.md`
+> 移动端对接文档：`docs/技术方案/2026-07-07-用户准入与资料认证初始化-mobile-api-handoff.md`
+> PRD 冻结记录：`docs/需求文档/需求冻结记录/用户准入与资料认证初始化-prd-freeze.md`
+> 静态 Demo：`docs/静态Demo/01-用户准入与资料认证初始化/html/admin.html`
+> 移动端 UI 图：从当前需求模块目录自动查找，不写死路径。
+
+本测试用例为本轮重新生成版本。旧版 `用户准入-PRD01-*` 测试用例、脚本、报告只作为仓库现状盘点，不作为本轮正确依据。
+
+## 1. 测试策略
+
+### 1.1 复杂度评估
+
+| 维度 | 结论 | 分值 | 依据 |
+|------|------|------|------|
+| A 接口数量 | 高 | 2 | 管理后台、移动端、审核、配置、导入导出接口超过 15 个 |
+| B 状态数量 | 高 | 2 | 准入、实名、学历、头像、图片、文字、语音均有多状态 |
+| C 业务关键性 | 高 | 2 | 影响核心准入、认证、资料展示和后台运营 |
+| D 数据影响面 | 高 | 2 | 覆盖用户、认证汇总、历史、媒体、文字、语音、Provider、导入批次 |
+| E 代码改动面 | 高 | 2 | 管理后台前后端、移动端后端、公共 Provider 与状态机 |
+| F 权限/安全 | 高 | 2 | 涉及敏感查看、导入、导出、冻结、审核、配置权限 |
+
+结论：执行 L1 + L2 + L3 + L4 + 人工核查。管理后台 1:1 Demo 还原和移动端接口完整度必须按 95% 评分表出证据。
+
+### 1.2 测试层级
+
+| 层级 | 目标 | 本轮要求 |
+|------|------|----------|
+| L1 接口回归 | 验证接口契约、权限、状态、错误码、数据落库 | 生成脚本并执行；无真实账号/环境时在报告中标明跳过原因 |
+| L2 Controller | 验证路由、权限注解、入参校验、返回结构 | 后端实现后补充 MockMvc 或等效测试 |
+| L3 Service | 验证状态机、Provider、导入导出、数据一致性 | 后端实现后补充单元/集成测试 |
+| L4 E2E | 验证管理后台页面 1:1、交互链路、弹窗、反馈 | 使用 Playwright 或人工截图证据，目标达标 95% |
+| 人工核查 | 验证 UI 图、Demo、需求文档一致性 | 输出差异清单和整改结论 |
+
+## 2. 测试数据
+
+| 编号 | 数据 | 用途 | 预期 |
+|------|------|------|------|
+| TD-01 | 新注册未初始化用户 | 首登资料、准入状态 | `NOT_SUBMITTED`，不能进入核心功能 |
+| TD-02 | 资料完整但未认证用户 | 完整度与准入 | 资料可保存，核心准入仍阻断 |
+| TD-03 | 实名/头像/学历全部通过用户 | 核心准入 | `CORE_ALLOWED` |
+| TD-04 | 实名驳回用户 | 认证驳回 | 显示驳回原因，可重新提交 |
+| TD-05 | 学历待审核用户 | 人工审核 | 后台列表可查，移动端显示审核中 |
+| TD-06 | 图片待审核用户 | 资料图片审核 | 后台图片审核列表可查 |
+| TD-07 | 开放性文字待审核用户 | 开放性文字审核 | 只覆盖 `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA` |
+| TD-08 | 语音机审中用户 | 语音介绍 | 不进开放性文字审核；对外隐藏新语音 |
+| TD-09 | 语音已通过用户 | 语音展示 | 用户详情展示播放器、时长、Provider 留痕 |
+| TD-10 | 语音驳回且有旧通过语音用户 | 语音替换保护 | 新语音隐藏，旧通过语音继续展示 |
+| TD-11 | 冻结用户 | 冻结/解冻 | 冻结后核心功能阻断，解冻后按认证状态恢复 |
+| TD-12 | 导入文件含合法/非法行 | 导入校验 | 成功、失败、重复、错误报告均可追踪 |
+| TD-13 | 无导出权限管理员 | 权限 | 导出按钮隐藏或接口 403 |
+| TD-14 | 有导出权限管理员 | 权限与审计 | 可导出固定字段无掩码，并写审计 |
+
+## 3. L1 接口测试用例
+
+### 3.1 通用安全与权限
+
+| 用例 ID | 场景 | 步骤 | 预期 |
+|---------|------|------|------|
+| L1-AUTH-001 | 未登录访问管理后台 API | 不带 token 调用 `/admin/users/app/list` | 返回未认证错误，不返回业务数据 |
+| L1-AUTH-002 | 无权限访问用户详情 | 使用无 `user:app:detail` 的账号调用 `/admin/users/app/{id}` | 返回 403 |
+| L1-AUTH-003 | 无导出权限触发导出 | 使用无 `user:app:export` 的账号调用 `/admin/users/app/export` | 返回 403，不生成导出任务 |
+| L1-AUTH-004 | 无敏感查看权限查看明文 | 使用无 `user:app:sensitive:view` 的账号查详情 | 页面/API 返回脱敏字段 |
+| L1-AUTH-005 | 移动端未登录访问资料接口 | 不带 token 调用 `/miniapp/profile/detail` | 返回 `UNAUTHORIZED` |
+| L1-AUTH-006 | 高危操作审计 | 执行导出、冻结、配置修改、人工审核 | 均生成操作者、时间、对象、结果审计记录 |
+
+### 3.2 管理后台 App 用户管理
+
+| 用例 ID | 场景 | 步骤 | 预期 |
+|---------|------|------|------|
+| L1-ADM-USER-001 | 列表默认查询 | 调用 `/admin/users/app/list` | 返回分页、总数、用户基础字段、认证状态、准入状态 |
+| L1-ADM-USER-002 | 列表组合筛选 | 按手机号、昵称、性别、认证状态、准入状态、时间查询 | 结果与条件一致，分页统计正确 |
+| L1-ADM-USER-003 | 空结果 | 使用不存在手机号查询 | 返回空列表、总数 0，不报错 |
+| L1-ADM-USER-004 | 用户详情基础资料 | 查询 TD-03 详情 | 返回基础资料、扩展资料、认证记录、媒体、开放性文字、语音状态 |
+| L1-ADM-USER-005 | 用户详情语音已通过 | 查询 TD-09 详情 | 展示语音播放器 URL、时长、`VOICE_APPROVED`、Provider 留痕 |
+| L1-ADM-USER-006 | 用户详情语音未通过 | 查询 TD-08/TD-10 详情 | 后台可见语音状态和机审信号；对外资料不展示未通过新语音 |
+| L1-ADM-USER-007 | 语音不进开放性文字审核 | 查询开放性文字审核列表 | 不出现 `语音介绍` 类型 |
+| L1-ADM-USER-008 | 冻结用户 | 调用 `/admin/users/app/{id}/freeze` | 用户冻结成功，移动端核心准入返回阻断原因 |
+| L1-ADM-USER-009 | 解冻用户 | 对冻结用户解除冻结 | 冻结状态移除，准入按认证状态重新计算 |
+| L1-ADM-USER-010 | 导入预校验 | 上传含合法/非法行文件 | 返回批次号、成功/失败/重复统计、失败明细 |
+| L1-ADM-USER-011 | 导入确认入库 | 确认导入 TD-12 合法行 | 仅合法行入库，重复行不重复创建 |
+| L1-ADM-USER-012 | 导出固定字段 | 有权限管理员导出 | 固定字段无掩码输出，记录导出审计 |
+
+### 3.3 管理后台审核列表
+
+| 用例 ID | 场景 | 步骤 | 预期 |
+|---------|------|------|------|
+| L1-ADM-AUDIT-001 | 实名审核列表 | 调用 `/admin/verify/real-name/list` | 支持状态、审核来源、用户、时间筛选 |
+| L1-ADM-AUDIT-002 | 实名详情 | 查询实名审核详情 | 展示实名信息、身份证号、手机号、来源、历史、机审信号 |
+| L1-ADM-AUDIT-003 | 实名通过 | 对待审核记录通过 | 记录状态变为通过，汇总表同步，准入重新计算 |
+| L1-ADM-AUDIT-004 | 实名驳回 | 对待审核记录驳回并填写原因 | 移动端展示驳回原因，可重新提交 |
+| L1-ADM-AUDIT-005 | 审核来源筛选 | 分别筛选 `MACHINE`、`MANUAL` | 只返回对应来源；不允许出现 `MOCK` 来源 |
+| L1-ADM-AUDIT-006 | 头像认证审核 | 列表、详情、通过、驳回 | 状态同步，驳回原因回显 |
+| L1-ADM-AUDIT-007 | 学历认证审核 | 列表、详情、通过、驳回 | 支持 CHSI、在线验证码、毕业证号、材料上传信息 |
+| L1-ADM-AUDIT-008 | 资料图片审核 | 列表、详情、通过、驳回 | 支持头像、相册、背景图，背景图不计入相册张数 |
+| L1-ADM-AUDIT-009 | 开放性文字类型 | 提交三类开放性文字后查询列表 | 仅出现 `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA` |
+| L1-ADM-AUDIT-010 | 开放性文字全文 | 打开全文详情 | 全文、摘要、状态、来源、驳回原因完整 |
+| L1-ADM-AUDIT-011 | 开放性文字审核 | 通过/驳回文字记录 | 状态同步，移动端按通过/驳回展示 |
+
+### 3.4 准入配置
+
+| 用例 ID | 场景 | 步骤 | 预期 |
+|---------|------|------|------|
+| L1-CONFIG-001 | 查询准入配置 | 调用 `/admin/prd01/config?group=PRD01_ACCESS` 等四个配置分组 | 返回实名、头像、学历、资料完整度、上传、审核等配置 |
+| L1-CONFIG-002 | 修改准入配置 | 调用 `POST /admin/prd01/config` 保存配置项 | 配置生效，记录审计 |
+| L1-CONFIG-003 | 非法配置 | 提交非法阈值、空必填、非法枚举 | 返回明确错误，不落库 |
+| L1-CONFIG-004 | 配置影响准入 | 调整准入开关后查询 TD-02/TD-03 | 准入状态按新配置计算 |
+
+### 3.5 移动端登录与资料初始化
+
+| 用例 ID | 场景 | 步骤 | 预期 |
+|---------|------|------|------|
+| L1-MINI-AUTH-001 | 微信登录未同意协议 | 调用 `/miniapp/auth/wechat-login` 且 `agreeProtocol=false` | 返回 `AUTH_PROTOCOL_REQUIRED` |
+| L1-MINI-AUTH-002 | 微信登录成功 | 传合法 code 与协议确认 | 返回 token、用户信息、初始化状态 |
+| L1-MINI-AUTH-003 | 手机号登录短信错误 | 调用 `/miniapp/auth/phone-login` 传错误验证码 | 返回 `AUTH_SMS_INVALID` |
+| L1-MINI-PROFILE-001 | 查询初始化进度 | 调用 `/miniapp/profile/init-status` | 返回当前步骤、已填字段、缺失字段 |
+| L1-MINI-PROFILE-002 | 保存基础资料 | 调用 `/miniapp/profile/init-save` | 保存成功，返回下一步 |
+| L1-MINI-PROFILE-003 | 海外地区不支持 | 传海外/国家字段 | 返回 `REGION_NOT_SUPPORTED` |
+| L1-MINI-PROFILE-004 | 初始化完成缺必填 | 调用 `/miniapp/profile/init-complete` 缺字段 | 返回 `PROFILE_REQUIRED_MISSING` |
+| L1-MINI-PROFILE-005 | 初始化完成 | 提交完整资料 | 返回资料详情，进入认证/准入状态 |
+| L1-MINI-PROFILE-006 | 查询资料详情 | 调用 `/miniapp/profile/detail` | 返回基础资料、扩展资料、媒体、文字、语音字段 |
+| L1-MINI-PROFILE-007 | 增量修改资料 | 调用 `PATCH /miniapp/profile` | 返回最新资料，需审核字段进入审核中 |
+
+### 3.6 移动端媒体、文字、语音
+
+| 用例 ID | 场景 | 步骤 | 预期 |
+|---------|------|------|------|
+| L1-MINI-MEDIA-001 | 上传头像/相册/背景图 | 调用 `/miniapp/profile/media` | 返回媒体 ID、审核状态、来源 |
+| L1-MINI-MEDIA-002 | 相册数量上限 | 超过上限上传 | 返回 `MEDIA_LIMIT_EXCEEDED` |
+| L1-MINI-MEDIA-003 | 删除媒体 | 调用 `DELETE /miniapp/profile/media/{id}` | 删除成功，不影响其他媒体 |
+| L1-MINI-TEXT-001 | 提交关于我 | `fieldName=ABOUT_ME` | 返回文字审核记录，状态审核中/通过/驳回 |
+| L1-MINI-TEXT-002 | 提交希望 TA 了解 | `fieldName=HOPE_THEY_KNOW` | 返回文字审核记录 |
+| L1-MINI-TEXT-003 | 提交资料问答开放回答 | `fieldName=PROFILE_QA` | 返回文字审核记录 |
+| L1-MINI-TEXT-004 | 禁止预留文字类型 | 传 `CUSTOM_OPEN_TEXT` | 返回非法字段错误，不落库 |
+| L1-MINI-VOICE-001 | 提交合法语音 | 调用 `/miniapp/profile/voice-intro`，时长 10-60 秒 | 新增语音记录，触发音频安全机审 |
+| L1-MINI-VOICE-002 | 语音时长非法 | 时长小于 10 或大于 60 | 返回 `VOICE_DURATION_INVALID` |
+| L1-MINI-VOICE-003 | 语音机审通过 | Mock Provider 返回安全 | `VOICE_APPROVED`，资料详情返回播放器 URL 和时长 |
+| L1-MINI-VOICE-004 | 语音机审失败 | Provider 返回风险 | `VOICE_REJECTED`，对外隐藏，本人侧返回失败原因 |
+| L1-MINI-VOICE-005 | Provider 不可用 | Provider 超时或异常 | 状态保持 `VOICE_PENDING`，不对外展示新语音 |
+| L1-MINI-VOICE-006 | 删除语音 | 调用 `DELETE /miniapp/profile/voice-intro` | 当前有效语音清空，资料详情不再展示 |
+
+### 3.7 移动端认证与准入
+
+| 用例 ID | 场景 | 步骤 | 预期 |
+|---------|------|------|------|
+| L1-MINI-VERIFY-001 | 查询认证状态 | 调用 `/miniapp/verify/status` | 返回实名、头像、学历、核心准入状态 |
+| L1-MINI-VERIFY-002 | 提交头像认证 | 调用 `/miniapp/verify/avatar` | 生成头像认证/图片审核记录 |
+| L1-MINI-VERIFY-003 | 提交实名认证 | 调用 `/miniapp/verify/real-name` | 校验姓名、身份证号、手机号、一人一证承诺 |
+| L1-MINI-VERIFY-004 | 身份证号格式错误 | 提交非法身份证号 | 返回 `REALNAME_ID_CARD_INVALID` |
+| L1-MINI-VERIFY-005 | 实名重复校验 | 已存在身份证号再次提交 | 按 hash/明文一致性识别重复并阻断或转人工 |
+| L1-MINI-VERIFY-006 | 提交学历认证 | 调用 `/miniapp/verify/education` | 支持 CHSI、在线验证码、毕业证号、材料上传 |
+| L1-MINI-VERIFY-007 | 查询准入状态 | 调用 `/miniapp/profile/access-status` | 返回是否可进入核心功能、阻断项、行动按钮 |
+| L1-MINI-VERIFY-008 | 三项通过后准入 | TD-03 查询准入 | 返回 `CORE_ALLOWED` |
+
+### 3.8 Provider 与 mock 留痕
+
+| 用例 ID | 场景 | 步骤 | 预期 |
+|---------|------|------|------|
+| L1-PROVIDER-001 | 实名 Provider mock 成功 | 开发环境提交实名 | 业务来源写 `MACHINE`，`external_provider_task.mocked=1` |
+| L1-PROVIDER-002 | 图片 Provider mock 成功 | 提交资料图片 | 图片审核来源写 `MACHINE`，Provider 任务有留痕 |
+| L1-PROVIDER-003 | 文本 Provider mock 成功 | 提交开放性文字 | 文字审核来源写 `MACHINE`，不出现 `MOCK` 来源 |
+| L1-PROVIDER-004 | 语音 Provider mock 成功 | 提交语音介绍 | 语音通过，Provider 任务记录 mock |
+| L1-PROVIDER-005 | 生产未配置实名 Provider | 模拟 Provider 不可用 | 不允许自动实名通过，进入待处理/失败兜底 |
+| L1-PROVIDER-006 | 生产未完成语音机审 | 模拟 Provider 未返回 | 新语音不对外展示 |
+
+## 4. L2 Controller 测试用例
+
+| 用例 ID | Controller | 场景 | 断言 |
+|---------|------------|------|------|
+| L2-ADM-USER-001 | AppUserAdminController | 列表参数校验 | 页码、页大小、时间范围、枚举非法时返回明确错误 |
+| L2-ADM-USER-002 | AppUserAdminController | 权限注解 | list/detail/freeze/import/export/sensitive 权限分别生效 |
+| L2-ADM-USER-003 | AppUserAdminController | 详情返回结构 | 包含基础资料、认证、媒体、开放性文字、语音、审计摘要 |
+| L2-ADM-AUDIT-001 | VerificationAdminController | 审核列表 | type、status、auditSource、时间筛选正确映射 |
+| L2-ADM-AUDIT-002 | VerificationAdminController | 审核动作 | 通过/驳回必填校验、重复审核幂等 |
+| L2-ADM-MOD-001 | ModerationAdminController | 图片/文字列表 | contentType 非法时报错，语音不走 open text contentType |
+| L2-ADM-CONFIG-001 | AccessConfigAdminController | 配置保存 | 非法枚举、阈值、开关组合被拒绝 |
+| L2-MINI-AUTH-001 | MiniAuthController | 登录协议 | 未同意协议统一阻断 |
+| L2-MINI-PROFILE-001 | MiniProfileController | 初始化步骤 | step 非法、必填缺失、海外地区不支持 |
+| L2-MINI-PROFILE-002 | MiniProfileController | 媒体/文字/语音 | 三类内容分别走独立接口和错误码 |
+| L2-MINI-VERIFY-001 | MiniVerifyController | 认证提交 | 实名、头像、学历校验与响应结构正确 |
+
+## 5. L3 Service 测试用例
+
+| 用例 ID | Service | 场景 | 断言 |
+|---------|---------|------|------|
+| L3-ACCESS-001 | AccessDecisionService | 未初始化用户 | 返回缺失资料阻断项 |
+| L3-ACCESS-002 | AccessDecisionService | 三项认证通过 | 返回 `CORE_ALLOWED` |
+| L3-ACCESS-003 | AccessDecisionService | 冻结用户 | 冻结优先级高于认证通过 |
+| L3-PROFILE-001 | ProfileCompletionService | 首登资料保存 | 缺失字段、完成度、下一步计算正确 |
+| L3-PROFILE-002 | ProfileCompletionService | 海外地区 | 首版不支持海外/国家 |
+| L3-VERIFY-001 | VerificationService | 实名提交 | 明文保存、hash 生成、重复校验、历史记录一致 |
+| L3-VERIFY-002 | VerificationService | 审核通过 | 汇总表、历史表、准入状态同步 |
+| L3-VERIFY-003 | VerificationService | 审核驳回 | 驳回原因回写，允许重新提交 |
+| L3-MEDIA-001 | ProfileMediaService | 背景图上传 | 背景图不计入相册数量 |
+| L3-MEDIA-002 | ProfileMediaService | 当前有效媒体 | 通过后 current_effective 切换正确 |
+| L3-TEXT-001 | OpenTextAuditService | 三类开放性文字 | 仅允许 `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA` |
+| L3-TEXT-002 | OpenTextAuditService | 删除预留项 | `CUSTOM_OPEN_TEXT` 被拒绝 |
+| L3-VOICE-001 | VoiceIntroService | 语音提交 | 新增记录为 `VOICE_PENDING` 并触发 Provider |
+| L3-VOICE-002 | VoiceIntroService | 机审通过 | 写入 `app_user.voice_intro_*`，旧有效语音失效 |
+| L3-VOICE-003 | VoiceIntroService | 机审失败 | 不覆盖旧通过语音，对外隐藏新语音 |
+| L3-VOICE-004 | VoiceIntroService | Provider 异常 | 保持 pending，不展示未审语音 |
+| L3-PROVIDER-001 | ProviderTaskService | mock 记录 | 业务来源为 `MACHINE`，mock 信息只存在 `external_provider_task.mocked` |
+| L3-IMPORT-001 | AppUserImportService | 导入校验 | 合法、非法、重复、部分成功统计正确 |
+| L3-EXPORT-001 | AppUserExportService | 导出固定字段 | 权限、二次确认、无掩码字段、审计均满足 |
+
+## 6. L4 管理后台 E2E 与 1:1 Demo 证据
+
+| 用例 ID | 页面 | 场景 | 验收证据 |
+|---------|------|------|----------|
+| L4-ADM-001 | App 用户管理 | 页面首屏还原 | 截图对比 Demo：统计卡、查询区、表格、分页、按钮 |
+| L4-ADM-002 | App 用户管理 | 查询/重置/分页 | 截图 + 接口响应 + 分页总数 |
+| L4-ADM-003 | App 用户管理 | 用户详情抽屉 | 截图覆盖基础资料、扩展资料、认证记录、媒体、语音 |
+| L4-ADM-004 | App 用户管理 | 语音详情 | 截图证明语音在用户详情展示，不在开放性文字列表 |
+| L4-ADM-005 | App 用户管理 | 冻结/解冻弹窗 | 截图覆盖确认弹窗、成功 toast、状态变化 |
+| L4-ADM-006 | 导入弹窗 | 文件选择、校验、确认、失败明细 | 截图 + 导入批次数据 |
+| L4-ADM-007 | 导出弹窗 | 二次确认和导出反馈 | 截图 + 审计记录 |
+| L4-ADM-008 | 头像认证审核 | 列表、详情、通过、驳回 | 截图 + 状态变化 |
+| L4-ADM-009 | 实名认证审核 | 查询条件包含审核来源，列表展示审核来源 | 截图 + API 参数 |
+| L4-ADM-010 | 学历认证审核 | 材料详情和审核弹窗 | 截图 + 状态变化 |
+| L4-ADM-011 | 资料图片审核 | 图片预览、通过、驳回 | 截图 + 状态变化 |
+| L4-ADM-012 | 开放性文字审核 | 列表、全文弹窗、通过、驳回 | 截图证明无 `语音介绍` 类型 |
+| L4-ADM-013 | 准入配置 | Tab、开关、阈值、保存 | 截图 + 配置接口响应 |
+| L4-ADM-014 | 异常态 | 空列表、加载失败、无权限、校验失败 | 截图覆盖异常文案和按钮状态 |
+
+管理后台 1:1 达标时必须在测试报告中附：页面、字段、按钮、弹窗、状态、异常态、控件形态、详情形式、分页统计、反馈提示和交互链路的证据，不允许只写“已完成”。
+
+## 7. 移动端接口完整度证据
+
+| 用例 ID | 场景 | 验收证据 |
+|---------|------|----------|
+| L4-MINI-001 | 登录授权链路 | 请求/响应样例、错误码、协议阻断 |
+| L4-MINI-002 | 首登初始化链路 | init-status、init-save、init-complete 全流程响应 |
+| L4-MINI-003 | 资料详情链路 | 字段覆盖截图或 JSON 样例，包含语音字段 |
+| L4-MINI-004 | 媒体上传删除链路 | 图片/背景图/相册响应与审核状态 |
+| L4-MINI-005 | 开放性文字链路 | 三类 fieldName 响应，拒绝 `CUSTOM_OPEN_TEXT` |
+| L4-MINI-006 | 语音介绍链路 | 提交、pending、approved、rejected、delete、Provider 异常证据 |
+| L4-MINI-007 | 认证链路 | 头像、实名、学历提交与状态查询 |
+| L4-MINI-008 | 核心准入链路 | 阻断项、行动按钮、通过状态 |
+
+移动端不实现前端代码，但接口必须覆盖 UI 图可见流程和 PRD 流程。UI 图与需求不一致时，以需求文档为准，并在测试报告中说明差异。
+
+移动端多轮对齐必须构造多状态数据并留证：未提交、审核中、通过、驳回、失败、资料缺失、权限不足、第三方不可用、Provider 不可用、`CORE_ACCESS_BLOCKED`、`REGION_NOT_SUPPORTED`、`VOICE_PENDING`、`VOICE_APPROVED`、`VOICE_REJECTED`、拒绝 `CUSTOM_OPEN_TEXT`。
+
+## 8. P0/P1 覆盖矩阵
+
+| 需求 | 优先级 | 覆盖用例 |
+|------|--------|----------|
+| FRZ-01 登录授权、手机号登录、协议确认 | P0 | L1-MINI-AUTH-001 至 003，L2-MINI-AUTH-001 |
+| FRZ-02 首登轻量资料 | P0 | L1-MINI-PROFILE-001 至 005，L3-PROFILE-001 |
+| FRZ-03 基本资料、头像、自我介绍、资料图片、扩展资料 | P0 | L1-MINI-PROFILE-006 至 007，L1-MINI-MEDIA，L1-MINI-TEXT，L3-MEDIA，L3-TEXT |
+| FRZ-04 三重认证、核心准入 | P0 | L1-MINI-VERIFY，L3-ACCESS，L3-VERIFY |
+| FRZ-05 状态回显、驳回原因、错误码 | P0 | L1-ADM-AUDIT，L1-MINI-VOICE，L1-MINI-VERIFY |
+| FRZ-06 App 用户管理、导入导出、冻结 | P0 | L1-ADM-USER，L4-ADM-001 至 007 |
+| FRZ-07 实名/头像/学历/图片/文字审核 | P0 | L1-ADM-AUDIT，L4-ADM-008 至 012 |
+| FRZ-08 准入与认证配置 | P0 | L1-CONFIG，L2-ADM-CONFIG-001，L4-ADM-013 |
+| FRZ-09 Provider 抽象 + mock 成功兜底 | P0 | L1-PROVIDER，L3-PROVIDER-001 |
+| FRZ-10 移动端接口对接文档 | P0 | L4-MINI-001 至 008 |
+| FRZ-11 95% 自测和验收证据 | P0 | L4-ADM 全部，移动端接口完整度证据，测试报告评分表 |
+
+## 9. 95% 评分表
+
+| 评分项 | 分值 | 达标标准 |
+|--------|------|----------|
+| 需求闭环 | 15 | P0/P1 需求均有测试用例、实现证据、无未确认阻断项 |
+| 管理后台 1:1 Demo | 20 | 页面、字段、按钮、弹窗、状态、异常态、控件、详情、分页、反馈、交互链路均有截图/接口证据 |
+| 移动端接口完整度 | 20 | 登录、初始化、资料、媒体、文字、语音、认证、准入状态接口全部可联调 |
+| 后端状态机与数据一致性 | 15 | 汇总表、历史表、Provider 任务、审核状态、准入状态一致 |
+| 权限与安全 | 10 | 权限、脱敏、导出、审计、未登录/无权限均通过 |
+| 异常态与错误码 | 10 | 必填、非法枚举、Provider 异常、重复提交、空状态均覆盖 |
+| 自动化与报告证据 | 10 | L1/L2/L3/L4 或跳过原因完整，报告含截图、响应、SQL/日志证据 |
+
+总分低于 95 分时，不得标记验收完成；必须根据扣分项继续修改并复测，直到达标。
+
+## 10. 阶段 Checklist
+
+| 阶段 | 检查项 | 状态 |
+|------|--------|------|
+| 测试用例 | 不复用旧版 `用户准入-PRD01-*` 用例 | 已覆盖 |
+| 测试用例 | 覆盖 P0/P1、接口、状态机、权限、异常态 | 已覆盖 |
+| 测试用例 | 覆盖管理后台 1:1 Demo 证据要求 | 已覆盖 |
+| 测试用例 | 覆盖移动端接口 95% 完整度证据要求 | 已覆盖 |
+| 实现前 | 核对现有代码落点和冲突，不继承错误旧逻辑 | 待执行 |
+| 实现中 | 管理后台前后端按 Demo 1:1 还原 | 待执行 |
+| 实现中 | 移动端只做后端接口和对接文档，不写移动端前端 | 待执行 |
+| 实现后 | 生成 L1 脚本并执行接口回归 | 待执行 |
+| 实现后 | 补充 L2/L3 测试并执行 | 待执行 |
+| 实现后 | 执行 L4 截图核查和 95% 评分 | 待执行 |
+| 验收 | 输出 `docs/测试文档/用户准入与资料认证初始化-testreport.md` | 待执行 |
+
+## 11. 必须重点防回归
+
+1. 语音介绍不进入开放性文字审核，不做语音转文字；后台在用户详情中展示语音状态、播放器和 Provider 留痕。
+2. 开放性文字字段只允许 `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA`，删除 `CUSTOM_OPEN_TEXT` 预留项。
+3. 审核来源只允许 `MACHINE`、`MANUAL`；mock 信息只记录在 `external_provider_task.mocked`。
+4. 数据库实名、身份证、手机号按业务明文字段入库；页面展示、接口返回、导出权限由业务逻辑控制。
+5. 首版不支持海外/国家入口，接口必须拒绝并返回 `REGION_NOT_SUPPORTED`。
+6. 管理后台实现必须 1:1 对齐同步后的 `admin.html`，达不到 95% 必须继续改。
+7. 移动端接口完整度达不到 95% 必须补接口、补字段、补错误码或补证据。

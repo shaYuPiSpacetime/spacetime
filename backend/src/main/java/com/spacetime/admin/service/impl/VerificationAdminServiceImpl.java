@@ -13,6 +13,7 @@ import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserVerification;
+import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.enums.VerificationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +43,9 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     @Override
     public Page<VerificationVO> getRealNamePage(VerificationPageReq req) {
         return queryVerification(req,
+                "REAL_NAME",
                 AppUserVerification::getRealNameStatus,
+                AppUserVerification::getRealNameAuditSource,
                 AppUserVerification::getRealNameSubmitTime,
                 AppUserVerification::getRealNameResultTime,
                 AppUserVerification::getRealNameRejectReason);
@@ -51,7 +54,9 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     @Override
     public Page<VerificationVO> getEducationPage(VerificationPageReq req) {
         return queryVerification(req,
+                "EDUCATION",
                 AppUserVerification::getEducationStatus,
+                AppUserVerification::getEducationAuditSource,
                 AppUserVerification::getEducationSubmitTime,
                 AppUserVerification::getEducationResultTime,
                 AppUserVerification::getEducationRejectReason);
@@ -60,7 +65,9 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     @Override
     public Page<VerificationVO> getAvatarPage(VerificationPageReq req) {
         return queryVerification(req,
+                "AVATAR",
                 AppUserVerification::getAvatarVerifyStatus,
+                AppUserVerification::getAvatarAuditSource,
                 AppUserVerification::getAvatarVerifySubmitTime,
                 AppUserVerification::getAvatarVerifyResultTime,
                 AppUserVerification::getAvatarVerifyRejectReason);
@@ -68,7 +75,9 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
 
     /** 通用认证分页查询：status 筛选在 SQL 层用 LambdaQueryWrapper.eq 完成，解决分页不准问题 */
     private Page<VerificationVO> queryVerification(VerificationPageReq req,
+            String verificationType,
             SFunction<AppUserVerification, String> statusGetter,
+            SFunction<AppUserVerification, String> auditSourceGetter,
             SFunction<AppUserVerification, LocalDateTime> submitTimeGetter,
             SFunction<AppUserVerification, LocalDateTime> resultTimeGetter,
             SFunction<AppUserVerification, String> rejectReasonGetter) {
@@ -82,8 +91,17 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         }
         wrapper.eq(req.getUserId() != null, AppUserVerification::getUserId, req.getUserId())
                .eq(StrUtil.isNotBlank(req.getStatus()), statusGetter, req.getStatus())
+               .eq(StrUtil.isNotBlank(req.getAuditSource()), auditSourceGetter, req.getAuditSource())
+               .eq(StrUtil.isNotBlank(req.getCoreAccessStatus()), AppUserVerification::getCoreAccessStatus, req.getCoreAccessStatus())
+               .eq("EDUCATION".equals(verificationType) && StrUtil.isNotBlank(req.getEducationMethod()),
+                       AppUserVerification::getEducationMethod, req.getEducationMethod())
                .isNotNull(submitTimeGetter)
                .orderByDesc(AppUserVerification::getUpdateTime);
+        applySubmitTimeFilter(wrapper, submitTimeGetter, req.getSubmitTime());
+        // 头像页的人像失败筛选首版按驳回原因存在承接，后续接真实人像识别结果字段后再细化。
+        if ("AVATAR".equals(verificationType) && "FAILED".equals(req.getFaceRecognition())) {
+            wrapper.isNotNull(rejectReasonGetter);
+        }
         Page<AppUserVerification> page = verificationDao.selectPage(
                 new Page<>(req.getPage(), req.getSize()), wrapper);
 
@@ -102,7 +120,9 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
             AppUser user = userMap.get(v.getUserId());
             vo.setAvatar(user != null ? user.getAvatar() : null);
             vo.setNickname(user != null ? user.getNickname() : null);
+            fillListSpecificFields(vo, verificationType, v, user);
             vo.setStatus(statusGetter.apply(v));
+            vo.setAuditSource(auditSourceGetter.apply(v));
             LocalDateTime submitTime = submitTimeGetter.apply(v);
             vo.setSubmitTime(submitTime != null ? submitTime.format(FMT) : null);
             LocalDateTime resultTime = resultTimeGetter.apply(v);
@@ -113,6 +133,44 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         Page<VerificationVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(vos);
         return result;
+    }
+
+    /** 提交时间快捷筛选：对应 Demo 的“今天/近7天”。 */
+    private void applySubmitTimeFilter(LambdaQueryWrapper<AppUserVerification> wrapper,
+            SFunction<AppUserVerification, LocalDateTime> submitTimeGetter,
+            String submitTime) {
+        if ("TODAY".equals(submitTime)) {
+            wrapper.ge(submitTimeGetter, LocalDateTime.now().toLocalDate().atStartOfDay());
+        } else if ("LAST_7_DAYS".equals(submitTime)) {
+            wrapper.ge(submitTimeGetter, LocalDateTime.now().minusDays(7));
+        }
+    }
+
+    /** 按认证类型补齐列表专属列，确保管理后台表头和静态 Demo 对齐。 */
+    private void fillListSpecificFields(VerificationVO vo, String verificationType, AppUserVerification verification, AppUser user) {
+        if ("REAL_NAME".equals(verificationType)) {
+            vo.setPhone(maskPhone(verification.getBoundPhone()));
+            vo.setRealName(maskRealName(verification.getRealName()));
+            vo.setIdCard(maskIdCard(verification.getIdCard()));
+            return;
+        }
+        if ("EDUCATION".equals(verificationType)) {
+            String educationLevel = user == null ? null : user.getEducationLevel();
+            String school = user == null ? null : user.getSchool();
+            vo.setEducationIdentity(StrUtil.blankToDefault(educationLevel, "未填学历"));
+            vo.setEducationMaterialSummary(StrUtil.blankToDefault(verification.getEducationMethod(), "未填方式")
+                    + (StrUtil.isBlank(school) ? "" : " / " + school));
+            return;
+        }
+        if ("AVATAR".equals(verificationType)) {
+            vo.setAvatarUrl(user == null ? null : user.getAvatar());
+        }
+    }
+
+    /** 手机号脱敏：保留前3后4。 */
+    private String maskPhone(String phone) {
+        if (StrUtil.isBlank(phone) || phone.length() < 7) return phone;
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 
     @Override
@@ -131,6 +189,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         vo.setResultTime(v.getRealNameResultTime() != null ? v.getRealNameResultTime().format(FMT) : null);
         vo.setRejectReason(v.getRealNameRejectReason());
         vo.setStatus(v.getRealNameStatus());
+        vo.setAuditSource(v.getRealNameAuditSource());
         return vo;
     }
 
@@ -151,6 +210,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         vo.setResultTime(v.getEducationResultTime() != null ? v.getEducationResultTime().format(FMT) : null);
         vo.setRejectReason(v.getEducationRejectReason());
         vo.setStatus(v.getEducationStatus());
+        vo.setAuditSource(v.getEducationAuditSource());
         return vo;
     }
 
@@ -167,6 +227,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         vo.setResultTime(v.getAvatarVerifyResultTime() != null ? v.getAvatarVerifyResultTime().format(FMT) : null);
         vo.setRejectReason(v.getAvatarVerifyRejectReason());
         vo.setStatus(v.getAvatarVerifyStatus());
+        vo.setAuditSource(v.getAvatarAuditSource());
         return vo;
     }
 
@@ -207,6 +268,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
                         : VerificationStatusEnum.REJECTED.getCode());
         verification.setRealNameResultTime(LocalDateTime.now());
         verification.setRealNameRejectReason(req.getRejectReason());
+        verification.setRealNameAuditSource(AuditSourceEnum.MANUAL.getCode());
         verification.setVerifyLevel(recalcVerifyLevel(verification));
         verificationDao.updateById(verification);
     }
@@ -223,6 +285,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
                         : VerificationStatusEnum.REJECTED.getCode());
         verification.setEducationResultTime(LocalDateTime.now());
         verification.setEducationRejectReason(req.getRejectReason());
+        verification.setEducationAuditSource(AuditSourceEnum.MANUAL.getCode());
         verification.setVerifyLevel(recalcVerifyLevel(verification));
         verificationDao.updateById(verification);
     }
@@ -239,6 +302,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
                         : VerificationStatusEnum.REJECTED.getCode());
         verification.setAvatarVerifyResultTime(LocalDateTime.now());
         verification.setAvatarVerifyRejectReason(req.getRejectReason());
+        verification.setAvatarAuditSource(AuditSourceEnum.MANUAL.getCode());
         verification.setVerifyLevel(recalcVerifyLevel(verification));
         verificationDao.updateById(verification);
     }
@@ -255,7 +319,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
 
     /** 执行审核前预处理（校验已在 validateAuditReq 中完成，预留扩展点） */
     private void applyAudit(AppUserVerification verification, ModerationAuditReq req) {
-        // validation already done in validateAuditReq
+        // 审核请求校验已在 validateAuditReq 完成，这里保留后续审计扩展点。
     }
 
     /** 重新计算认证等级：每通过一类认证 +1，最高3级 */

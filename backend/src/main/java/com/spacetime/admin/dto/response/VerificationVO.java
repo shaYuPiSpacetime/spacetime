@@ -15,8 +15,22 @@ public class VerificationVO {
     private String avatar;
     /** 用户昵称 */
     private String nickname;
+    /** 绑定手机号，列表按脱敏值展示 */
+    private String phone;
+    /** 真实姓名，列表按脱敏值展示 */
+    private String realName;
+    /** 身份证号，列表按脱敏值展示 */
+    private String idCard;
+    /** 学历身份/学校摘要 */
+    private String educationIdentity;
+    /** 学历材料摘要 */
+    private String educationMaterialSummary;
+    /** 头像审核图片 URL */
+    private String avatarUrl;
     /** 认证状态 @see VerificationStatusEnum */
     private String status;
+    /** 审核来源：MACHINE/MANUAL */
+    private String auditSource;
     /** 驳回原因 */
     private String rejectReason;
     /** 提交时间 */

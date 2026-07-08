@@ -18,6 +18,20 @@ public class AppUserPageReq extends PageReq {
     private String school;
     /** 账号状态 @see AccountStatusEnum */
     private String accountStatus;
+    /** 核心准入状态：OPEN/PENDING/BLOCKED */
+    private String coreAccessStatus;
+    /** 认证状态聚合筛选：AVATAR_APPROVED/REAL_NAME_APPROVED/EDUCATION_APPROVED */
+    private String verificationStatus;
+    /** 用户身份：职场人/在校生 */
+    private String identity;
+    /** 城市筛选：按现居城市匹配 */
+    private String city;
+    /** 关系反馈准入：OPEN/CLOSED/ABNORMAL */
+    private String relationshipAccess;
+    /** VIP 状态：ACTIVE/NONE/EXPIRED */
+    private String vipStatus;
+    /** 隐藏访问记录：ON/OFF/UNAVAILABLE */
+    private String hideVisitRecord;
     /** 性别 @see GenderEnum */
     private String gender;
     /** 实名认证状态筛选 @see VerificationStatusEnum */

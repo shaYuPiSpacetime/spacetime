@@ -15,6 +15,60 @@ BACKEND_PID_FILE="$RUNTIME_DIR/backend.pid"
 FRONTEND_PID_FILE="$RUNTIME_DIR/frontend.pid"
 MINIAPP_PID_FILE="$RUNTIME_DIR/miniapp.pid"
 
+load_env_file() {
+  local env_file="$1"
+  if [[ -f "$env_file" ]]; then
+    echo "Loading env: $env_file"
+    set -a
+    # shellcheck disable=SC1090
+    . "$env_file"
+    set +a
+  fi
+}
+
+normalize_backend_env() {
+  export DEV_DB_HOST="${DEV_DB_HOST:-${DB_HOST:-}}"
+  export DEV_DB_PORT="${DEV_DB_PORT:-${DB_PORT:-3306}}"
+  export DEV_DB_NAME="${DEV_DB_NAME:-${DB_NAME:-shikongxiehou}}"
+  export DEV_DB_USER="${DEV_DB_USER:-${DB_USER:-}}"
+  export DEV_DB_PASSWORD="${DEV_DB_PASSWORD:-${DB_PASSWORD:-}}"
+
+  export DEV_REDIS_HOST="${DEV_REDIS_HOST:-${REDIS_HOST:-}}"
+  export DEV_REDIS_PORT="${DEV_REDIS_PORT:-${REDIS_PORT:-6379}}"
+  export DEV_REDIS_USERNAME="${DEV_REDIS_USERNAME:-${REDIS_USERNAME:-}}"
+  export DEV_REDIS_DATABASE="${DEV_REDIS_DATABASE:-${REDIS_DATABASE:-1}}"
+  export DEV_REDIS_PASSWORD="${DEV_REDIS_PASSWORD:-${REDIS_PASSWORD:-}}"
+
+  export DEV_OSS_ENDPOINT="${DEV_OSS_ENDPOINT:-${OSS_ENDPOINT:-}}"
+  export DEV_OSS_ACCESS_KEY_ID="${DEV_OSS_ACCESS_KEY_ID:-${OSS_ACCESS_KEY_ID:-}}"
+  export DEV_OSS_ACCESS_KEY_SECRET="${DEV_OSS_ACCESS_KEY_SECRET:-${OSS_ACCESS_KEY_SECRET:-}}"
+  export DEV_OSS_BUCKET_NAME="${DEV_OSS_BUCKET_NAME:-${OSS_BUCKET_NAME:-}}"
+}
+
+validate_backend_env() {
+  local missing=()
+  for key in DEV_DB_USER DEV_DB_PASSWORD; do
+    if [[ -z "${!key:-}" ]]; then
+      missing+=("$key")
+    fi
+  done
+
+  local redis_host="${DEV_REDIS_HOST:-${REDIS_HOST:-r-bp182i9r17g2ybq30gpd.redis.rds.aliyuncs.com}}"
+  if [[ "$redis_host" != "localhost" && "$redis_host" != "127.0.0.1" && -z "${DEV_REDIS_PASSWORD:-}" ]]; then
+    missing+=("DEV_REDIS_PASSWORD")
+  fi
+
+  if (( ${#missing[@]} > 0 )); then
+    echo "Missing backend env: ${missing[*]}"
+    echo "Create .env or backend/.env.local from .env.example, then restart."
+    exit 1
+  fi
+}
+
+load_env_file "$ROOT_DIR/.env"
+load_env_file "$BACKEND_DIR/.env.local"
+normalize_backend_env
+
 BACKEND_PORT="${BACKEND_PORT:-8080}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 # miniapp target: dev:weapp (微信小程序) | dev:h5 (H5) | dev:swan | dev:alipay | dev:tt
@@ -87,6 +141,8 @@ wait_for_port() {
 require_command lsof
 require_command mvn
 require_command npm
+
+validate_backend_env
 
 if [[ ! -x "$JAVA_HOME/bin/java" ]]; then
   echo "JAVA_HOME is invalid: $JAVA_HOME"

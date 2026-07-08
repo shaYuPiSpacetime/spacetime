@@ -1,7 +1,10 @@
 package com.spacetime.admin.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
+import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.ModerationDetailVO;
+import com.spacetime.admin.dto.response.ModerationVO;
 import com.spacetime.admin.service.impl.ModerationAdminServiceImpl;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserVerificationDao;
@@ -19,8 +22,10 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
@@ -50,7 +55,9 @@ class ModerationAdminServiceTest {
         verification.setUserId(1L);
         verification.setAvatarVerifyStatus(VerificationStatusEnum.APPROVED.getCode());
         verification.setProfilePhotoAuditStatus("PENDING");
+        verification.setProfilePhotoAuditSource("MACHINE");
         verification.setOpenTextAuditStatus("PENDING");
+        verification.setOpenTextAuditSource("MANUAL");
 
         user = new AppUser();
         user.setId(1L);
@@ -120,5 +127,25 @@ class ModerationAdminServiceTest {
         assertThat(vo.getContentFull()).isEqualTo("我是一个热爱生活的人，平时喜欢旅游和摄影，希望能遇到志同道合的人");
         assertThat(vo.getStatus()).isEqualTo("PENDING");
         assertThat(vo.getSubmitTime()).isEqualTo("2026-06-02 15:00:00");
+    }
+
+    @Test
+    @DisplayName("L3-30A 开放性文字审核列表 — 展示审核来源")
+    void shouldReturnAuditSourceInTextModerationPage() {
+        Page<AppUserVerification> page = new Page<>(1, 10, 1);
+        page.setRecords(List.of(verification));
+        when(verificationDao.selectPage(any(Page.class), any())).thenReturn(page);
+        when(appUserDao.selectList(any())).thenReturn(List.of(user));
+
+        VerificationPageReq req = new VerificationPageReq();
+        req.setPage(1);
+        req.setSize(10);
+        req.setAuditSource("MANUAL");
+
+        Page<ModerationVO> result = moderationAdminService.getTextPage(req);
+
+        assertThat(result.getRecords()).hasSize(1);
+        assertThat(result.getRecords().get(0).getAuditSource()).isEqualTo("MANUAL");
+        assertThat(result.getRecords().get(0).getAuditSource()).isNotEqualTo("MOCK");
     }
 }

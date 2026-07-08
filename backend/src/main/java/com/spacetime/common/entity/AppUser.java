@@ -45,6 +45,14 @@ public class AppUser extends BaseEntity {
     private Integer age;
     /** 身高cm */
     private Integer height;
+    /** 体重 kg */
+    private Integer weight;
+    /** 身份类型：在校生、职场人等 */
+    private String identity;
+    /** 职业 */
+    private String occupation;
+    /** 年收入区间 */
+    private String annualIncome;
     /** 居住省 */
     private String locationProvince;
     /** 居住市 */
@@ -55,12 +63,18 @@ public class AppUser extends BaseEntity {
     private String hometownProvince;
     /** 家乡市 */
     private String hometownCity;
+    /** 家乡区县 */
+    private String hometownDistrict;
     /** 脱单目标 */
     private String datingGoal;
     /** 婚姻状态 */
     private String maritalStatus;
     /** 感情状态 */
     private String emotionalStatus;
+    /** 子女计划 */
+    private String childrenPlan;
+    /** 是否想要孩子 */
+    private String wantChild;
     /** 学校全称 */
     private String school;
     /** 专业 */
@@ -76,6 +90,12 @@ public class AppUser extends BaseEntity {
     private String voiceIntroUrl;
     /** 语音时长秒 */
     private Integer voiceIntroDuration;
+    /** 语音介绍审核状态 */
+    private String voiceIntroAuditStatus;
+    /** 当前有效或最新语音介绍记录ID */
+    private Long voiceIntroRecordId;
+    /** 最新语音介绍驳回原因 */
+    private String voiceIntroRejectReason;
     /** 标签列表JSON */
     @TableField(value = "tags")
     private String tags;

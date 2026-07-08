@@ -2,6 +2,7 @@ package com.spacetime.miniapp.controller;
 
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.result.R;
+import com.spacetime.miniapp.dto.request.AvatarVerifyReq;
 import com.spacetime.miniapp.dto.request.EducationSubmitReq;
 import com.spacetime.miniapp.dto.request.RealNameSubmitReq;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
@@ -52,12 +53,13 @@ public class VerificationController {
 
     /**
      * 提交头像认证
-     * 要求用户已上传头像，首版 mock 直接通过
+     * 要求用户已上传头像或传入头像媒体 ID，首版 mock 直接通过
+     * @param req 头像媒体 ID
      * @return 提交后的认证状态
      */
     @PostMapping("/avatar")
-    public R<VerificationStatusVO> verifyAvatar() {
-        return R.ok(verificationService.verifyAvatar(currentUserId()));
+    public R<VerificationStatusVO> verifyAvatar(@RequestBody(required = false) AvatarVerifyReq req) {
+        return R.ok(verificationService.verifyAvatar(currentUserId(), req));
     }
 
     /** 从 Token 上下文中获取当前用户ID */

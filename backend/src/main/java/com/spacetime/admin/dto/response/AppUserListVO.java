@@ -19,6 +19,28 @@ public class AppUserListVO {
     private Integer age;
     /** 学校 */
     private String school;
+    /** 实名绑定手机号，业务层脱敏后返回 */
+    private String phone;
+    /** 现居地展示文本 */
+    private String city;
+    /** 身份类型 */
+    private String identity;
+    /** 职业 */
+    private String occupation;
+    /** 年收入区间 */
+    private String annualIncome;
+    /** 标签JSON */
+    private String tags;
+    /** 相册JSON */
+    private String photos;
+    /** 语音介绍时长 */
+    private Integer voiceIntroDuration;
+    /** 语音介绍审核状态 */
+    private String voiceIntroAuditStatus;
+    /** MBTI类型 */
+    private String mbtiType;
+    /** 星座 */
+    private String zodiac;
     /** 实名认证状态 */
     private String realNameStatus;
     /** 学历认证状态 */

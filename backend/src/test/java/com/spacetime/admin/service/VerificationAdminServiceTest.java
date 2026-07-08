@@ -1,7 +1,10 @@
 package com.spacetime.admin.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
+import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.VerificationAuditDetailVO;
+import com.spacetime.admin.dto.response.VerificationVO;
 import com.spacetime.admin.service.impl.VerificationAdminServiceImpl;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserVerificationDao;
@@ -19,8 +22,10 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
@@ -49,8 +54,11 @@ class VerificationAdminServiceTest {
         verification.setId(1L);
         verification.setUserId(1L);
         verification.setRealNameStatus(VerificationStatusEnum.PENDING.getCode());
+        verification.setRealNameAuditSource("MACHINE");
         verification.setEducationStatus(VerificationStatusEnum.PENDING.getCode());
+        verification.setEducationAuditSource("MANUAL");
         verification.setAvatarVerifyStatus(VerificationStatusEnum.APPROVED.getCode());
+        verification.setAvatarAuditSource("MACHINE");
         verification.setVerifyLevel(1);
 
         user = new AppUser();
@@ -121,6 +129,26 @@ class VerificationAdminServiceTest {
         assertThat(vo.getFields().get(1).getValue()).isEqualTo("3201**********1234");
         assertThat(vo.getFields().get(2).getLabel()).isEqualTo("人脸核身状态");
         assertThat(vo.getSubmitTime()).isEqualTo("2026-06-01 10:00:00");
+    }
+
+    @Test
+    @DisplayName("L3-26A 实名审核列表 — 展示审核来源且不出现 MOCK")
+    void shouldReturnAuditSourceInRealNamePage() {
+        Page<AppUserVerification> page = new Page<>(1, 10, 1);
+        page.setRecords(List.of(verification));
+        when(verificationDao.selectPage(any(Page.class), any())).thenReturn(page);
+        when(appUserDao.selectList(any())).thenReturn(List.of(user));
+
+        VerificationPageReq req = new VerificationPageReq();
+        req.setPage(1);
+        req.setSize(10);
+        req.setAuditSource("MACHINE");
+
+        Page<VerificationVO> result = verificationAdminService.getRealNamePage(req);
+
+        assertThat(result.getRecords()).hasSize(1);
+        assertThat(result.getRecords().get(0).getAuditSource()).isEqualTo("MACHINE");
+        assertThat(result.getRecords().get(0).getAuditSource()).isNotEqualTo("MOCK");
     }
 
     /**

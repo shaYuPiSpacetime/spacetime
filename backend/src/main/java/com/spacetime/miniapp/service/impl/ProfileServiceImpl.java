@@ -6,10 +6,9 @@ import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserVerification;
-import com.spacetime.common.enums.AccountStatusEnum;
-import com.spacetime.common.enums.GenderEnum;
 import com.spacetime.common.enums.VerificationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AccessDecisionService;
 import com.spacetime.miniapp.dto.request.ProfileInitSaveReq;
 import com.spacetime.miniapp.dto.request.ProfileUpdateReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
@@ -21,14 +20,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * 用户资料服务实现
  * 核心设计：
- * - 首登三步入门：step1基础信息 → step2教育/感情信息 → step3自我介绍完成
+ * - 首登五步入门：基础信息、生日身高、关系目标、学历、地域资料逐步保存
  * - 性别提交后锁定不可修改（实名关联字段）
  * - 敏感字段修改（头像/关于我/希望TA了解）触发重新审核
- * - 准入状态由 firstLoginCompleted + 账号状态 + 实名认证状态 共同决定
+ * - 准入状态由 firstLoginCompleted + 账号状态 + 实名、头像、学历三重认证共同决定
  */
 @Service
 @RequiredArgsConstructor
@@ -37,10 +39,11 @@ public class ProfileServiceImpl implements ProfileService {
     private final AppUserDao appUserDao;
     private final AppUserVerificationDao verificationDao;
     private final ProfileScoreConfig scoreConfig;
+    private final AccessDecisionService accessDecisionService;
 
     /**
      * 查询首登初始化状态
-     * 已完成 → currentStep=3, nextStep=null；未完成 → 根据已填字段推断当前步骤
+     * 已完成 → currentStep=5, nextStep=null；未完成 → 根据已填字段推断当前步骤
      * @param userId 用户ID
      * @return 是否已完成 + 当前步骤 + 下一步 + 已保存字段
      */
@@ -50,20 +53,24 @@ public class ProfileServiceImpl implements ProfileService {
         ProfileInitStatusVO vo = new ProfileInitStatusVO();
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1);
         if (vo.getFirstLoginCompleted()) {
-            vo.setCurrentStep(3);
+            vo.setCurrentStep(5);
             vo.setNextStep(null);
+            vo.setCompletedSteps(completedSteps(5));
+            vo.setNextAction("COMPLETED");
         } else {
-            // 根据已填字段推断当前步骤
+            // 根据已填字段推断当前步骤，移动端可据此做断点续填。
             int step = inferStep(user);
             vo.setCurrentStep(step);
-            vo.setNextStep(step < 3 ? step + 1 : null);
+            vo.setNextStep(step);
+            vo.setCompletedSteps(completedSteps(step - 1));
+            vo.setNextAction(nextAction(step));
         }
-        vo.setSavedFields(toDetailVO(user));
+        vo.setSavedFields(toDetailVO(user, false));
         return vo;
     }
 
     /**
-     * 保存第1步或第2步资料
+     * 保存首登五步资料中的任一步
      * 校验性别不可修改、昵称长度2-12字符，更新字段后重新计算资料完整度
      * @param userId 用户ID
      * @param req 步骤号 + 当前步骤字段
@@ -73,6 +80,8 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional
     public ProfileInitStatusVO saveInit(Long userId, ProfileInitSaveReq req) {
         AppUser user = requireUser(userId);
+        validateInitStep(req);
+        validateMainlandRegion(req);
         if (user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1) {
             throw new BusinessException("首登资料已完成，请使用资料编辑接口");
         }
@@ -99,13 +108,15 @@ public class ProfileServiceImpl implements ProfileService {
         ProfileInitStatusVO vo = new ProfileInitStatusVO();
         vo.setFirstLoginCompleted(false);
         vo.setCurrentStep(req.getStep());
-        vo.setNextStep(req.getStep() < 3 ? req.getStep() + 1 : null);
-        vo.setSavedFields(toDetailVO(user));
+        vo.setNextStep(req.getStep() < 5 ? req.getStep() + 1 : null);
+        vo.setCompletedSteps(completedSteps(req.getStep()));
+        vo.setNextAction(nextAction(vo.getNextStep()));
+        vo.setSavedFields(toDetailVO(user, false));
         return vo;
     }
 
     /**
-     * 完成第3步并标记首登完成
+     * 完成首登五步并标记首登完成
      * 校验昵称和性别必填，设置 firstLoginCompleted=1
      * @param userId 用户ID
      * @param req 最后一步字段
@@ -115,6 +126,8 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional
     public ProfileDetailVO completeInit(Long userId, ProfileInitSaveReq req) {
         AppUser user = requireUser(userId);
+        validateInitStep(req);
+        validateMainlandRegion(req);
         if (user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1) {
             throw new BusinessException("首登资料已完成");
         }
@@ -135,7 +148,7 @@ public class ProfileServiceImpl implements ProfileService {
         }
         user.setProfileScore(scoreConfig.calculate(user));
         appUserDao.updateById(user);
-        return toDetailVO(user);
+        return toDetailVO(user, true);
     }
 
     /**
@@ -145,7 +158,7 @@ public class ProfileServiceImpl implements ProfileService {
      */
     @Override
     public ProfileDetailVO getDetail(Long userId) {
-        return toDetailVO(requireUser(userId));
+        return toDetailVO(requireUser(userId), true);
     }
 
     /**
@@ -159,6 +172,7 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional
     public ProfileDetailVO updateProfile(Long userId, ProfileUpdateReq req) {
         AppUser user = requireUser(userId);
+        validateMainlandRegion(req);
         boolean avatarChanged = false;
         boolean textChanged = false;
         // 增量更新：只更新非 null 字段
@@ -178,17 +192,24 @@ public class ProfileServiceImpl implements ProfileService {
             user.setZodiac(scoreConfig.calculateZodiac(user.getBirthday()));
         }
         if (req.getHeight() != null) user.setHeight(req.getHeight());
+        if (req.getWeight() != null) user.setWeight(req.getWeight());
+        if (req.getIdentity() != null) user.setIdentity(req.getIdentity());
+        if (req.getOccupation() != null) user.setOccupation(req.getOccupation());
+        if (req.getAnnualIncome() != null) user.setAnnualIncome(req.getAnnualIncome());
         if (req.getLocationProvince() != null) user.setLocationProvince(req.getLocationProvince());
         if (req.getLocationCity() != null) user.setLocationCity(req.getLocationCity());
         if (req.getLocationDistrict() != null) user.setLocationDistrict(req.getLocationDistrict());
         if (req.getHometownProvince() != null) user.setHometownProvince(req.getHometownProvince());
         if (req.getHometownCity() != null) user.setHometownCity(req.getHometownCity());
+        if (req.getHometownDistrict() != null) user.setHometownDistrict(req.getHometownDistrict());
         if (req.getSchool() != null) user.setSchool(req.getSchool());
         if (req.getMajor() != null) user.setMajor(req.getMajor());
         if (req.getEducationLevel() != null) user.setEducationLevel(req.getEducationLevel());
         if (req.getEmotionalStatus() != null) user.setEmotionalStatus(req.getEmotionalStatus());
         if (req.getDatingGoal() != null) user.setDatingGoal(req.getDatingGoal());
         if (req.getMaritalStatus() != null) user.setMaritalStatus(req.getMaritalStatus());
+        if (req.getChildrenPlan() != null) user.setChildrenPlan(req.getChildrenPlan());
+        if (req.getWantChild() != null) user.setWantChild(req.getWantChild());
         if (req.getAboutMe() != null) {
             if (!req.getAboutMe().equals(user.getAboutMe())) textChanged = true;
             validateAboutMe(req.getAboutMe());
@@ -214,7 +235,7 @@ public class ProfileServiceImpl implements ProfileService {
         if (textChanged) {
             resetTextModeration(userId);
         }
-        return toDetailVO(user);
+        return toDetailVO(user, true);
     }
 
     /**
@@ -228,32 +249,15 @@ public class ProfileServiceImpl implements ProfileService {
         AppUser user = requireUser(userId);
         AppUserVerification verification = requireVerification(userId);
         AccessStatusVO vo = new AccessStatusVO();
-        // 1. 未完成首登资料
-        if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() == 0) {
-            vo.setCanBrowseCards(false);
-            vo.setCanMatch(false);
-            vo.setCanBeExposed(false);
-            vo.setBlockReason("请先完成资料初始化");
-            return vo;
-        }
-        // 2. 账号状态检查
-        if (!AccountStatusEnum.NORMAL.getCode().equals(user.getAccountStatus())) {
-            vo.setCanBrowseCards(false);
-            vo.setCanMatch(false);
-            vo.setCanBeExposed(false);
-            vo.setBlockReason("账号状态异常");
-            return vo;
-        }
-        // 3. 至少可浏览
-        vo.setCanBrowseCards(true);
-        // 4. 实名认证通过 → 开放完整能力
-        boolean realNamePassed = VerificationStatusEnum.APPROVED.getCode()
-                .equals(verification.getRealNameStatus());
-        vo.setCanMatch(realNamePassed);
-        vo.setCanBeExposed(realNamePassed);
-        if (!realNamePassed) {
-            vo.setBlockReason("完成实名认证后，才可曝光和匹配");
-        }
+        var decision = accessDecisionService.decide(user, verification);
+        vo.setCanBrowseCards(decision.getCanBrowseCards());
+        vo.setCanMatch(decision.getCanMatch());
+        vo.setCanMessage("CORE_ALLOWED".equals(decision.getCoreAccessStatus()));
+        vo.setCanCommunity(!"CORE_BLOCKED".equals(decision.getCoreAccessStatus()));
+        vo.setCanBeExposed(decision.getCanBeExposed());
+        vo.setCoreAccessStatus(decision.getCoreAccessStatus());
+        vo.setBlockReason(decision.getBlockReason());
+        vo.setBlockReasons(splitBlockReasons(decision.getBlockReason()));
         return vo;
     }
 
@@ -289,18 +293,91 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
-    /** 根据已填字段推断当前首登步骤 */
+    /** 首版仅支持中国大陆省市区；命中海外、国家、港澳台时直接拒绝且不写库。 */
+    private void validateMainlandRegion(ProfileInitSaveReq req) {
+        if (req == null) {
+            return;
+        }
+        validateRegionValues(req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(),
+                req.getHometownProvince(), req.getHometownCity(), req.getHometownDistrict());
+    }
+
+    /** 首版仅支持中国大陆省市区；命中海外、国家、港澳台时直接拒绝且不写库。 */
+    private void validateMainlandRegion(ProfileUpdateReq req) {
+        if (req == null) {
+            return;
+        }
+        validateRegionValues(req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(),
+                req.getHometownProvince(), req.getHometownCity(), req.getHometownDistrict());
+    }
+
+    /** 按接口文档错误码返回，便于移动端按 REGION_NOT_SUPPORTED 做统一提示。 */
+    private void validateRegionValues(String... values) {
+        for (String value : values) {
+            if (isUnsupportedRegion(value)) {
+                throw new BusinessException("REGION_NOT_SUPPORTED：首版仅支持中国大陆省市区");
+            }
+        }
+    }
+
+    /** 识别 UI 里可能传入的海外、国家、港澳台入口值。 */
+    private boolean isUnsupportedRegion(String value) {
+        if (StrUtil.isBlank(value)) {
+            return false;
+        }
+        String raw = value.trim();
+        String upper = raw.toUpperCase(Locale.ROOT);
+        return upper.contains("OVERSEAS")
+                || upper.contains("FOREIGN")
+                || upper.equals("US")
+                || upper.equals("USA")
+                || upper.equals("UNITED STATES")
+                || raw.contains("海外")
+                || raw.contains("国外")
+                || raw.contains("国家")
+                || raw.contains("港澳台")
+                || raw.contains("香港")
+                || raw.contains("澳门")
+                || raw.contains("台湾");
+    }
+
+    /** 校验首登步骤号，当前移动端固定五步。 */
+    private void validateInitStep(ProfileInitSaveReq req) {
+        if (req == null || req.getStep() == null || req.getStep() < 1 || req.getStep() > 5) {
+            throw new BusinessException("首登步骤必须在1-5之间");
+        }
+    }
+
+    /** 根据已填字段推断当前首登步骤。 */
     private int inferStep(AppUser user) {
-        boolean hasBasic = StrUtil.isNotBlank(user.getNickname())
-                || StrUtil.isNotBlank(user.getGender())
-                || user.getBirthday() != null
-                || user.getHeight() != null;
-        boolean hasSchool = StrUtil.isNotBlank(user.getSchool())
-                || StrUtil.isNotBlank(user.getEducationLevel())
-                || StrUtil.isNotBlank(user.getDatingGoal());
-        if (hasSchool) return 2;
-        if (hasBasic) return 1;
-        return 1;
+        if (StrUtil.isBlank(user.getGender())) return 1;
+        if (user.getBirthday() == null || user.getHeight() == null) return 2;
+        if (StrUtil.isBlank(user.getIdentity()) || StrUtil.isBlank(user.getDatingGoal()) || StrUtil.isBlank(user.getEmotionalStatus())) return 3;
+        if (StrUtil.isBlank(user.getEducationLevel())) return 4;
+        if (StrUtil.isBlank(user.getLocationProvince()) || StrUtil.isBlank(user.getLocationCity())) return 5;
+        return 5;
+    }
+
+    /** 生成已完成步骤列表，移动端用于恢复进度条。 */
+    private List<Integer> completedSteps(int maxStep) {
+        List<Integer> steps = new ArrayList<>();
+        for (int i = 1; i <= Math.min(maxStep, 5); i++) {
+            steps.add(i);
+        }
+        return steps;
+    }
+
+    /** 生成下一步动作编码，完成时返回 COMPLETED。 */
+    private String nextAction(Integer nextStep) {
+        return nextStep == null ? "COMPLETED" : "CONTINUE_STEP_" + nextStep;
+    }
+
+    /** 将中文阻断原因拆成数组，兼容移动端逐项展示。 */
+    private List<String> splitBlockReasons(String blockReason) {
+        if (StrUtil.isBlank(blockReason)) {
+            return List.of();
+        }
+        return List.of(blockReason);
     }
 
     /** 将请求中的非空字段应用到用户实体 */
@@ -309,17 +386,24 @@ public class ProfileServiceImpl implements ProfileService {
         if (StrUtil.isNotBlank(req.getGender())) user.setGender(req.getGender());
         if (StrUtil.isNotBlank(req.getBirthday())) user.setBirthday(LocalDate.parse(req.getBirthday()));
         if (req.getHeight() != null) user.setHeight(req.getHeight());
+        if (req.getWeight() != null) user.setWeight(req.getWeight());
+        if (StrUtil.isNotBlank(req.getIdentity())) user.setIdentity(req.getIdentity());
+        if (StrUtil.isNotBlank(req.getOccupation())) user.setOccupation(req.getOccupation());
+        if (StrUtil.isNotBlank(req.getAnnualIncome())) user.setAnnualIncome(req.getAnnualIncome());
         if (StrUtil.isNotBlank(req.getLocationProvince())) user.setLocationProvince(req.getLocationProvince());
         if (StrUtil.isNotBlank(req.getLocationCity())) user.setLocationCity(req.getLocationCity());
         if (StrUtil.isNotBlank(req.getLocationDistrict())) user.setLocationDistrict(req.getLocationDistrict());
         if (StrUtil.isNotBlank(req.getHometownProvince())) user.setHometownProvince(req.getHometownProvince());
         if (StrUtil.isNotBlank(req.getHometownCity())) user.setHometownCity(req.getHometownCity());
+        if (StrUtil.isNotBlank(req.getHometownDistrict())) user.setHometownDistrict(req.getHometownDistrict());
         if (StrUtil.isNotBlank(req.getSchool())) user.setSchool(req.getSchool());
         if (StrUtil.isNotBlank(req.getMajor())) user.setMajor(req.getMajor());
         if (StrUtil.isNotBlank(req.getEducationLevel())) user.setEducationLevel(req.getEducationLevel());
         if (StrUtil.isNotBlank(req.getEmotionalStatus())) user.setEmotionalStatus(req.getEmotionalStatus());
         if (StrUtil.isNotBlank(req.getDatingGoal())) user.setDatingGoal(req.getDatingGoal());
         if (StrUtil.isNotBlank(req.getMaritalStatus())) user.setMaritalStatus(req.getMaritalStatus());
+        if (StrUtil.isNotBlank(req.getChildrenPlan())) user.setChildrenPlan(req.getChildrenPlan());
+        if (StrUtil.isNotBlank(req.getWantChild())) user.setWantChild(req.getWantChild());
         if (StrUtil.isNotBlank(req.getAvatar())) user.setAvatar(req.getAvatar());
         if (StrUtil.isNotBlank(req.getAboutMe())) {
             validateAboutMe(req.getAboutMe());
@@ -329,7 +413,7 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     /** 将实体转换为资料详情 VO */
-    private ProfileDetailVO toDetailVO(AppUser user) {
+    private ProfileDetailVO toDetailVO(AppUser user, boolean includeAccessStatus) {
         ProfileDetailVO vo = new ProfileDetailVO();
         vo.setUserId(user.getId());
         vo.setAvatar(user.getAvatar());
@@ -338,21 +422,30 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setBirthday(user.getBirthday() != null ? user.getBirthday().toString() : null);
         vo.setAge(user.getAge());
         vo.setHeight(user.getHeight());
+        vo.setWeight(user.getWeight());
+        vo.setIdentity(user.getIdentity());
+        vo.setOccupation(user.getOccupation());
+        vo.setAnnualIncome(user.getAnnualIncome());
         vo.setLocationProvince(user.getLocationProvince());
         vo.setLocationCity(user.getLocationCity());
         vo.setLocationDistrict(user.getLocationDistrict());
         vo.setHometownProvince(user.getHometownProvince());
         vo.setHometownCity(user.getHometownCity());
+        vo.setHometownDistrict(user.getHometownDistrict());
         vo.setSchool(user.getSchool());
         vo.setMajor(user.getMajor());
         vo.setEducationLevel(user.getEducationLevel());
         vo.setEmotionalStatus(user.getEmotionalStatus());
         vo.setDatingGoal(user.getDatingGoal());
         vo.setMaritalStatus(user.getMaritalStatus());
+        vo.setChildrenPlan(user.getChildrenPlan());
+        vo.setWantChild(user.getWantChild());
         vo.setAboutMe(user.getAboutMe());
         vo.setHopeTheyKnow(user.getHopeTheyKnow());
         vo.setVoiceIntroUrl(user.getVoiceIntroUrl());
         vo.setVoiceIntroDuration(user.getVoiceIntroDuration());
+        vo.setVoiceIntroAuditStatus(user.getVoiceIntroAuditStatus());
+        vo.setVoiceIntroRejectReason(user.getVoiceIntroRejectReason());
         vo.setTags(user.getTags());
         vo.setPhotos(user.getPhotos());
         vo.setProfileBgImage(user.getProfileBgImage());
@@ -360,7 +453,9 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setZodiac(user.getZodiac());
         vo.setProfileScore(user.getProfileScore());
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1);
-        vo.setAccessStatus(getAccessStatus(user.getId()));
+        if (includeAccessStatus) {
+            vo.setAccessStatus(getAccessStatus(user.getId()));
+        }
         return vo;
     }
 

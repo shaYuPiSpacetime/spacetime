@@ -5,8 +5,10 @@ import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserVerification;
+import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.enums.VerificationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.miniapp.dto.request.AvatarVerifyReq;
 import com.spacetime.miniapp.dto.request.EducationSubmitReq;
 import com.spacetime.miniapp.dto.request.RealNameSubmitReq;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 用户认证服务实现
@@ -27,6 +30,8 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class VerificationServiceImpl implements VerificationService {
+
+    private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final AppUserDao appUserDao;
     private final AppUserVerificationDao verificationDao;
@@ -52,6 +57,9 @@ public class VerificationServiceImpl implements VerificationService {
     @Transactional
     public VerificationStatusVO submitRealName(Long userId, RealNameSubmitReq req) {
         AppUserVerification verification = requireVerification(userId);
+        if (req == null || !Boolean.TRUE.equals(req.getSinglePromise())) {
+            throw new BusinessException("singlePromise 必须确认");
+        }
         VerificationStatusEnum current = VerificationStatusEnum.getByCode(verification.getRealNameStatus());
         if (current == VerificationStatusEnum.APPROVED) {
             throw new BusinessException("已完成实名认证，无需重复提交");
@@ -60,8 +68,9 @@ public class VerificationServiceImpl implements VerificationService {
         verification.setRealName(req.getRealName());
         verification.setIdCard(req.getIdCard());
         verification.setRealNameSubmitTime(LocalDateTime.now());
-        // Mock: 直接标记通过（后续接入微信人脸核身API）
+        // 当前使用模拟成功结果，后续接入微信人脸核身 API 后替换这里。
         verification.setRealNameStatus(VerificationStatusEnum.APPROVED.getCode());
+        verification.setRealNameAuditSource(AuditSourceEnum.MACHINE.getCode());
         verification.setRealNameResultTime(LocalDateTime.now());
         verification.setRealNameRejectReason(null);
         // 更新认证等级
@@ -81,6 +90,16 @@ public class VerificationServiceImpl implements VerificationService {
     @Transactional
     public VerificationStatusVO submitEducation(Long userId, EducationSubmitReq req) {
         AppUserVerification verification = requireVerification(userId);
+        if (!VerificationStatusEnum.APPROVED.getCode().equals(verification.getRealNameStatus())) {
+            throw new BusinessException("请先完成实名认证");
+        }
+        if (req == null) {
+            throw new BusinessException("学历认证参数不能为空");
+        }
+        if ("MATERIAL_UPLOAD".equals(req.getEducationMethod())
+                && (req.getMaterialIds() == null || req.getMaterialIds().isEmpty())) {
+            throw new BusinessException("学历材料不能为空");
+        }
         VerificationStatusEnum current = VerificationStatusEnum.getByCode(verification.getEducationStatus());
         if (current == VerificationStatusEnum.APPROVED) {
             throw new BusinessException("已完成学历认证，无需重复提交");
@@ -90,8 +109,9 @@ public class VerificationServiceImpl implements VerificationService {
         }
         verification.setEducationMethod(req.getEducationMethod());
         verification.setEducationSubmitTime(LocalDateTime.now());
-        // Mock: 设置为审核中（后续改为 PENDING，由第三方回调更新为 APPROVED/REJECTED）
+        // 当前提交后进入待审核，后续由真实学历 Provider 回调更新终态。
         verification.setEducationStatus(VerificationStatusEnum.PENDING.getCode());
+        verification.setEducationAuditSource(AuditSourceEnum.MACHINE.getCode());
         verification.setEducationRejectReason(null);
         verification.setVerifyLevel(calculateVerifyLevel(verification));
         verificationDao.updateById(verification);
@@ -106,9 +126,10 @@ public class VerificationServiceImpl implements VerificationService {
      */
     @Override
     @Transactional
-    public VerificationStatusVO verifyAvatar(Long userId) {
+    public VerificationStatusVO verifyAvatar(Long userId, AvatarVerifyReq req) {
         AppUser user = appUserDao.selectById(userId);
-        if (user == null || user.getAvatar() == null) {
+        boolean hasAvatarMedia = req != null && req.getMediaId() != null;
+        if (user == null || (user.getAvatar() == null && !hasAvatarMedia)) {
             throw new BusinessException("请先上传头像");
         }
         AppUserVerification verification = requireVerification(userId);
@@ -117,8 +138,9 @@ public class VerificationServiceImpl implements VerificationService {
             throw new BusinessException("头像认证已通过");
         }
         verification.setAvatarVerifySubmitTime(LocalDateTime.now());
-        // Mock: 直接标记通过（后续接入第三方头像核验API）
+        // 当前使用模拟成功结果，后续接入第三方头像核验 API 后替换这里。
         verification.setAvatarVerifyStatus(VerificationStatusEnum.APPROVED.getCode());
+        verification.setAvatarAuditSource(AuditSourceEnum.MACHINE.getCode());
         verification.setAvatarVerifyResultTime(LocalDateTime.now());
         verification.setAvatarVerifyRejectReason(null);
         verification.setVerifyLevel(calculateVerifyLevel(verification));
@@ -140,16 +162,30 @@ public class VerificationServiceImpl implements VerificationService {
         VerificationStatusVO vo = new VerificationStatusVO();
         vo.setRealNameStatus(verification.getRealNameStatus());
         vo.setRealNameRejectReason(verification.getRealNameRejectReason());
+        vo.setRealNameSubmitTime(formatTime(verification.getRealNameSubmitTime()));
         vo.setEducationStatus(verification.getEducationStatus());
         vo.setEducationRejectReason(verification.getEducationRejectReason());
+        vo.setEducationSubmitTime(formatTime(verification.getEducationSubmitTime()));
         vo.setAvatarVerifyStatus(verification.getAvatarVerifyStatus());
         vo.setAvatarVerifyRejectReason(verification.getAvatarVerifyRejectReason());
+        vo.setAvatarVerifySubmitTime(formatTime(verification.getAvatarVerifySubmitTime()));
         vo.setProfilePhotoAuditStatus(verification.getProfilePhotoAuditStatus());
         vo.setOpenTextAuditStatus(verification.getOpenTextAuditStatus());
         vo.setVerifyLevel(verification.getVerifyLevel());
         vo.setUnlockMateRecommend(
                 VerificationStatusEnum.APPROVED.getCode().equals(verification.getRealNameStatus()));
+        vo.setCoreAccessStatus(coreAccessStatus(verification));
         return vo;
+    }
+
+    /** 格式化移动端展示时间，未提交时返回空。 */
+    private String formatTime(LocalDateTime time) {
+        return time == null ? null : DISPLAY_TIME_FORMATTER.format(time);
+    }
+
+    /** 三重认证全部通过才开放核心能力，否则只开放非核心能力。 */
+    private String coreAccessStatus(AppUserVerification verification) {
+        return calculateVerifyLevel(verification) == 3 ? "CORE_ALLOWED" : "NON_CORE_ONLY";
     }
 
     /** 查询用户认证记录，不存在抛异常 */

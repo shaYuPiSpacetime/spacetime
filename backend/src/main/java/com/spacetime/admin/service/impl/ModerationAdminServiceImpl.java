@@ -13,6 +13,7 @@ import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserVerification;
+import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
     public Page<ModerationVO> getPhotoPage(VerificationPageReq req) {
         LambdaQueryWrapper<AppUserVerification> wrapper = buildModerationWrapper(req,
                 AppUserVerification::getProfilePhotoAuditStatus,
+                AppUserVerification::getProfilePhotoAuditSource,
                 AppUserVerification::getProfilePhotoSubmitTime);
         Page<AppUserVerification> page = verificationDao.selectPage(
                 new Page<>(req.getPage(), req.getSize()), wrapper);
@@ -51,6 +53,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
     public Page<ModerationVO> getTextPage(VerificationPageReq req) {
         LambdaQueryWrapper<AppUserVerification> wrapper = buildModerationWrapper(req,
                 AppUserVerification::getOpenTextAuditStatus,
+                AppUserVerification::getOpenTextAuditSource,
                 AppUserVerification::getOpenTextSubmitTime);
         Page<AppUserVerification> page = verificationDao.selectPage(
                 new Page<>(req.getPage(), req.getSize()), wrapper);
@@ -59,6 +62,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
 
     private LambdaQueryWrapper<AppUserVerification> buildModerationWrapper(VerificationPageReq req,
             SFunction<AppUserVerification, String> statusGetter,
+            SFunction<AppUserVerification, String> auditSourceGetter,
             SFunction<AppUserVerification, LocalDateTime> submitTimeGetter) {
         LambdaQueryWrapper<AppUserVerification> wrapper = new LambdaQueryWrapper<>();
         if (StrUtil.isNotBlank(req.getKeyword())) {
@@ -69,9 +73,22 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         }
         wrapper.eq(req.getUserId() != null, AppUserVerification::getUserId, req.getUserId())
                .eq(StrUtil.isNotBlank(req.getStatus()), statusGetter, req.getStatus())
+               .eq(StrUtil.isNotBlank(req.getAuditSource()), auditSourceGetter, req.getAuditSource())
                .isNotNull(submitTimeGetter)
                .orderByDesc(AppUserVerification::getUpdateTime);
+        applySubmitTimeFilter(wrapper, submitTimeGetter, req.getSubmitTime());
         return wrapper;
+    }
+
+    /** 提交时间快捷筛选：对应 Demo 的“今天/近7天”。 */
+    private void applySubmitTimeFilter(LambdaQueryWrapper<AppUserVerification> wrapper,
+            SFunction<AppUserVerification, LocalDateTime> submitTimeGetter,
+            String submitTime) {
+        if ("TODAY".equals(submitTime)) {
+            wrapper.ge(submitTimeGetter, LocalDateTime.now().toLocalDate().atStartOfDay());
+        } else if ("LAST_7_DAYS".equals(submitTime)) {
+            wrapper.ge(submitTimeGetter, LocalDateTime.now().minusDays(7));
+        }
     }
 
     private Page<ModerationVO> toModerationPage(Page<AppUserVerification> page, boolean isPhoto) {
@@ -89,17 +106,29 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
             vo.setAvatar(user != null ? user.getAvatar() : null);
             vo.setNickname(user != null ? user.getNickname() : null);
             if (isPhoto) {
-                vo.setContentType("照片");
-                vo.setContentPreview(user != null && StrUtil.isNotBlank(user.getPhotos()) ? user.getPhotos() : null);
+                String imageUrl = firstImageUrl(user);
+                String imageType = user != null && StrUtil.isNotBlank(user.getProfileBgImage()) ? "背景图" : "相册";
+                vo.setContentType("图片");
+                vo.setImageType(imageType);
+                vo.setImageCategory(imageType);
+                vo.setImageUrl(imageUrl);
+                vo.setContentPreview(imageUrl);
                 vo.setStatus(v.getProfilePhotoAuditStatus());
+                vo.setAuditSource(v.getProfilePhotoAuditSource());
                 vo.setRejectReason(v.getProfilePhotoRejectReason());
                 vo.setSubmitTime(v.getProfilePhotoSubmitTime() != null ? v.getProfilePhotoSubmitTime().format(FMT) : null);
             } else {
                 vo.setContentType("文字");
                 String aboutMe = user != null ? user.getAboutMe() : null;
-                vo.setContentPreview(StrUtil.isNotBlank(aboutMe)
-                        ? StrUtil.maxLength(aboutMe, 50) : null);
+                String hopeTheyKnow = user != null ? user.getHopeTheyKnow() : null;
+                String fullText = StrUtil.isNotBlank(aboutMe) ? aboutMe : hopeTheyKnow;
+                String textType = StrUtil.isNotBlank(aboutMe) ? "关于我" : "希望 TA 了解";
+                String textSummary = StrUtil.isNotBlank(fullText) ? StrUtil.maxLength(fullText, 24) : null;
+                vo.setTextType(textType);
+                vo.setTextSummary(textSummary);
+                vo.setContentPreview(textSummary);
                 vo.setStatus(v.getOpenTextAuditStatus());
+                vo.setAuditSource(v.getOpenTextAuditSource());
                 vo.setRejectReason(v.getOpenTextRejectReason());
                 vo.setSubmitTime(v.getOpenTextSubmitTime() != null ? v.getOpenTextSubmitTime().format(FMT) : null);
             }
@@ -108,6 +137,20 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         Page<ModerationVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(records);
         return result;
+    }
+
+    /** 取列表可预览的第一张图片；相册为空时回退到资料背景图。 */
+    private String firstImageUrl(AppUser user) {
+        if (user == null) return null;
+        if (StrUtil.isNotBlank(user.getPhotos())) {
+            String photos = user.getPhotos().trim();
+            if (photos.startsWith("[") && photos.endsWith("]")) {
+                String first = photos.replace("[", "").replace("]", "").replace("\"", "").split(",", -1)[0].trim();
+                if (StrUtil.isNotBlank(first)) return first;
+            }
+            return photos;
+        }
+        return user.getProfileBgImage();
     }
 
     @Override
@@ -123,6 +166,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         vo.setContentFull(user != null ? user.getPhotos() : null);
         vo.setSubmitTime(v.getProfilePhotoSubmitTime() != null ? v.getProfilePhotoSubmitTime().format(FMT) : null);
         vo.setStatus(v.getProfilePhotoAuditStatus());
+        vo.setAuditSource(v.getProfilePhotoAuditSource());
         vo.setRejectReason(v.getProfilePhotoRejectReason());
         return vo;
     }
@@ -145,6 +189,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
                 : user != null ? user.getHopeTheyKnow() : null);
         vo.setSubmitTime(v.getOpenTextSubmitTime() != null ? v.getOpenTextSubmitTime().format(FMT) : null);
         vo.setStatus(v.getOpenTextAuditStatus());
+        vo.setAuditSource(v.getOpenTextAuditSource());
         vo.setRejectReason(v.getOpenTextRejectReason());
         return vo;
     }
@@ -157,6 +202,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         if (v == null) throw new BusinessException("审核记录不存在");
         v.setProfilePhotoAuditStatus("APPROVE".equals(req.getAction()) ? "APPROVED" : "REJECTED");
         v.setProfilePhotoRejectReason("REJECT".equals(req.getAction()) ? req.getRejectReason() : null);
+        v.setProfilePhotoAuditSource(AuditSourceEnum.MANUAL.getCode());
         verificationDao.updateById(v);
     }
 
@@ -168,6 +214,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         if (v == null) throw new BusinessException("审核记录不存在");
         v.setOpenTextAuditStatus("APPROVE".equals(req.getAction()) ? "APPROVED" : "REJECTED");
         v.setOpenTextRejectReason("REJECT".equals(req.getAction()) ? req.getRejectReason() : null);
+        v.setOpenTextAuditSource(AuditSourceEnum.MANUAL.getCode());
         verificationDao.updateById(v);
     }
 

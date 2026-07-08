@@ -4,6 +4,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import LoginPage from '@/pages/login/LoginPage';
 import DashboardPage from '@/pages/dashboard/DashboardPage';
 import CustomersPage from '@/pages/customers/CustomersPage';
+import AccessConfigPage from '@/pages/access/AccessConfigPage';
 import { PlaceholderPage } from '@/pages/placeholder/PlaceholderPage';
 import UserManagement from '@/pages/admin/UserManagement';
 import RoleManagement from '@/pages/admin/RoleManagement';
@@ -43,7 +44,9 @@ export default function AppRouter() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="users/app" element={<CustomersPage />} />
         <Route path="customers" element={<CustomersPage />} />
+        <Route path="access/config" element={<AccessConfigPage />} />
 
         {/* System Management */}
         <Route path="system/user" element={<UserManagement />} />

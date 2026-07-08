@@ -6,6 +6,7 @@ import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserVerification;
 import com.spacetime.common.enums.VerificationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.miniapp.dto.request.AvatarVerifyReq;
 import com.spacetime.miniapp.dto.request.EducationSubmitReq;
 import com.spacetime.miniapp.dto.request.RealNameSubmitReq;
 import com.spacetime.miniapp.service.impl.VerificationServiceImpl;
@@ -18,6 +19,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,6 +66,7 @@ class VerificationServiceTest {
         RealNameSubmitReq req = new RealNameSubmitReq();
         req.setRealName("张三");
         req.setIdCard("110101200001011234");
+        req.setSinglePromise(true);
 
         verificationService.submitRealName(1L, req);
         assertThat(verification.getRealNameStatus()).isEqualTo(VerificationStatusEnum.APPROVED.getCode());
@@ -84,10 +89,14 @@ class VerificationServiceTest {
     @DisplayName("L3-19 学历认证 — mock PENDING")
     void shouldSetEducationPending() {
         when(verificationDao.selectOne(any())).thenReturn(verification);
+        verification.setRealNameStatus(VerificationStatusEnum.APPROVED.getCode());
 
         EducationSubmitReq req = new EducationSubmitReq();
         req.setEducationMethod("CHSI");
+        req.setSchool("Sun Yat-sen University");
+        req.setStudentStatus("GRADUATED");
         req.setVerificationCode("123456");
+        req.setMaterialIds(List.of(11L, 12L));
 
         verificationService.submitEducation(1L, req);
         assertThat(verification.getEducationStatus()).isEqualTo(VerificationStatusEnum.PENDING.getCode());
@@ -107,5 +116,54 @@ class VerificationServiceTest {
         if (VerificationStatusEnum.APPROVED.getCode().equals(verification.getAvatarVerifyStatus())) level++;
 
         assertThat(level).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("real-name requires single promise confirmation")
+    void shouldRequireSinglePromiseForRealName() {
+        when(verificationDao.selectOne(any())).thenReturn(verification);
+
+        RealNameSubmitReq req = new RealNameSubmitReq();
+        req.setRealName("Zhang San");
+        req.setIdCard("110101200001011234");
+        req.setSinglePromise(false);
+
+        assertThatThrownBy(() -> verificationService.submitRealName(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("singlePromise");
+    }
+
+    @Test
+    @DisplayName("status response exposes submit times and core access status")
+    void shouldExposeStatusSubmitTimesAndCoreAccessStatus() {
+        verification.setRealNameStatus(VerificationStatusEnum.APPROVED.getCode());
+        verification.setEducationStatus(VerificationStatusEnum.PENDING.getCode());
+        verification.setAvatarVerifyStatus(VerificationStatusEnum.NOT_CERTIFIED.getCode());
+        verification.setRealNameSubmitTime(LocalDateTime.of(2026, 7, 7, 10, 0));
+        verification.setEducationSubmitTime(LocalDateTime.of(2026, 7, 7, 11, 0));
+        verification.setAvatarVerifySubmitTime(LocalDateTime.of(2026, 7, 7, 12, 0));
+        when(verificationDao.selectOne(any())).thenReturn(verification);
+
+        var vo = verificationService.getStatus(1L);
+
+        assertThat(vo.getRealNameSubmitTime()).isEqualTo("2026-07-07 10:00:00");
+        assertThat(vo.getEducationSubmitTime()).isEqualTo("2026-07-07 11:00:00");
+        assertThat(vo.getAvatarVerifySubmitTime()).isEqualTo("2026-07-07 12:00:00");
+        assertThat(vo.getCoreAccessStatus()).isEqualTo("NON_CORE_ONLY");
+    }
+
+    @Test
+    @DisplayName("avatar verification accepts mediaId request body")
+    void shouldVerifyAvatarWithMediaIdBody() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(verificationDao.selectOne(any())).thenReturn(verification);
+
+        AvatarVerifyReq req = new AvatarVerifyReq();
+        req.setMediaId(88L);
+
+        var vo = verificationService.verifyAvatar(1L, req);
+
+        assertThat(vo.getAvatarVerifyStatus()).isEqualTo(VerificationStatusEnum.APPROVED.getCode());
+        assertThat(vo.getAvatarVerifySubmitTime()).isNotBlank();
     }
 }

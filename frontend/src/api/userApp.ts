@@ -7,6 +7,17 @@ export interface AppUserListVO {
   gender: string;
   age: number;
   school: string;
+  phone?: string;
+  city?: string;
+  identity?: string;
+  occupation?: string;
+  annualIncome?: string;
+  tags?: string;
+  photos?: string;
+  voiceIntroDuration?: number;
+  voiceIntroAuditStatus?: string;
+  mbtiType?: string;
+  zodiac?: string;
   realNameStatus: string;
   educationStatus: string;
   avatarVerifyStatus: string;
@@ -44,11 +55,16 @@ export interface AppUserDetailVO {
   birthday: string;
   age: number;
   height: number;
+  weight: number;
+  identity: string;
+  occupation: string;
+  annualIncome: string;
   locationProvince: string;
   locationCity: string;
   hometownProvince: string;
   hometownCity: string;
   school: string;
+  phone?: string;
   major: string;
   educationLevel: string;
   emotionalStatus: string;
@@ -58,6 +74,7 @@ export interface AppUserDetailVO {
   hopeTheyKnow: string;
   tags: string;
   photos: string;
+  profileBgImage: string;
   voiceIntroUrl: string;
   voiceIntroDuration: number;
   mbtiType: string;
@@ -83,6 +100,27 @@ export interface PageResult<T> {
   current: number;
 }
 
+export interface ImportBatchVO {
+  batchNo: string;
+  fileName: string;
+  totalCount: number;
+  successCount: number;
+  failCount: number;
+  duplicateCount: number;
+  status: string;
+  errorSummaryJson: string;
+  message: string;
+  createTime: string;
+}
+
+export interface ExportTaskVO {
+  taskNo: string;
+  exportType: string;
+  status: string;
+  message: string;
+  createTime: string;
+}
+
 export function getAppUserList(params: {
   page: number;
   size: number;
@@ -90,6 +128,13 @@ export function getAppUserList(params: {
   nickname?: string;
   school?: string;
   accountStatus?: string;
+  coreAccessStatus?: string;
+  verificationStatus?: string;
+  identity?: string;
+  city?: string;
+  relationshipAccess?: string;
+  vipStatus?: string;
+  hideVisitRecord?: string;
   gender?: string;
   realNameStatus?: string;
   educationStatus?: string;
@@ -108,4 +153,18 @@ export function getAppUserDetail(id: number) {
 
 export function updateAppUserStatus(id: number, status: string) {
   return request.put(`/admin/users/app/${id}/status`, { status });
+}
+
+export function importAppUsers(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return request.post('/admin/users/app/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+}
+
+export function exportAppUsers(params: Record<string, unknown>, confirmNoMask: boolean) {
+  return request.post('/admin/users/app/export', null, {
+    params: { ...params, confirmNoMask },
+  });
 }

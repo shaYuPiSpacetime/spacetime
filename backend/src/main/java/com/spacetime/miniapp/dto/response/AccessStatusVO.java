@@ -2,18 +2,27 @@ package com.spacetime.miniapp.dto.response;
 
 import lombok.Data;
 
+import java.util.List;
+
 /**
- * 核心准入状态响应
- * 控制用户在平台上的三种能力：浏览卡片、匹配、被曝光
+ * 移动端准入能力状态。
  */
 @Data
 public class AccessStatusVO {
-    /** 是否可浏览卡片 */
+    /** 是否可浏览卡片。 */
     private Boolean canBrowseCards;
-    /** 是否可匹配 */
+    /** 是否可发起匹配。 */
     private Boolean canMatch;
-    /** 是否可被他人曝光 */
+    /** 是否可发起私信或匹配会话。 */
+    private Boolean canMessage;
+    /** 是否可进入非核心社区能力。 */
+    private Boolean canCommunity;
+    /** 是否可被其他用户曝光。 */
     private Boolean canBeExposed;
-    /** 阻断原因（可操作时为 null） */
+    /** 核心准入状态：CORE_ALLOWED、CORE_BLOCKED、NON_CORE_ONLY。 */
+    private String coreAccessStatus;
+    /** 单条阻断原因，兼容旧前端展示。 */
     private String blockReason;
+    /** 多条阻断原因，供移动端逐项渲染。 */
+    private List<String> blockReasons;
 }

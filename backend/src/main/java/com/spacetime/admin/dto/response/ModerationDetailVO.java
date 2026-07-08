@@ -26,6 +26,8 @@ public class ModerationDetailVO {
     private String submitTime;
     /** 当前审核状态 */
     private String status;
+    /** 审核来源：MACHINE/MANUAL */
+    private String auditSource;
     /** 驳回原因 */
     private String rejectReason;
 }

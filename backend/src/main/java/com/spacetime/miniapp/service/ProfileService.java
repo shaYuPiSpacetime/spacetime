@@ -18,7 +18,7 @@ public interface ProfileService {
     ProfileInitStatusVO getInitStatus(Long userId);
 
     /**
-     * 保存第1步或第2步资料
+     * 保存首登五步资料中的任一步
      * @param userId 用户ID
      * @param req 步骤号 + 当前步骤字段
      * @return 更新后的步骤状态
@@ -26,7 +26,7 @@ public interface ProfileService {
     ProfileInitStatusVO saveInit(Long userId, ProfileInitSaveReq req);
 
     /**
-     * 完成第3步并标记首登完成
+     * 完成五步资料并标记首登完成
      * @param userId 用户ID
      * @param req 最后一步字段
      * @return 完整资料详情

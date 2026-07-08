@@ -21,6 +21,14 @@ public class AppUserDetailVO {
     private Integer age;
     /** 身高cm */
     private Integer height;
+    /** 体重kg */
+    private Integer weight;
+    /** 身份类型 */
+    private String identity;
+    /** 职业 */
+    private String occupation;
+    /** 年收入区间 */
+    private String annualIncome;
     /** 居住省 */
     private String locationProvince;
     /** 居住市 */
@@ -31,6 +39,8 @@ public class AppUserDetailVO {
     private String hometownCity;
     /** 学校 */
     private String school;
+    /** 实名绑定手机号，业务层脱敏后返回 */
+    private String phone;
     /** 专业 */
     private String major;
     /** 最高学历 */
@@ -49,10 +59,16 @@ public class AppUserDetailVO {
     private String tags;
     /** 相册JSON */
     private String photos;
+    /** 资料页背景图 */
+    private String profileBgImage;
     /** 语音介绍URL */
     private String voiceIntroUrl;
     /** 语音时长秒 */
     private Integer voiceIntroDuration;
+    /** 语音介绍审核状态 */
+    private String voiceIntroAuditStatus;
+    /** 语音介绍驳回原因 */
+    private String voiceIntroRejectReason;
     /** MBTI类型 */
     private String mbtiType;
     /** 星座 */
