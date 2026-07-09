@@ -214,6 +214,56 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    @DisplayName("微信支付确认-查单成功后入账会员")
+    void confirmWechatPay_successQuery_shouldUpdateAssetAndOrder() {
+        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001",
+                        "420000000120260709000001",
+                        "SUCCESS",
+                        "{\"trade_state\":\"SUCCESS\"}"
+                ));
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("success");
+        verify(tradeOrderDao).updateById(argThat(o ->
+                "success".equals(o.getOrderStatus())
+                        && "wechat".equals(o.getPayChannel())
+                        && "420000000120260709000001".equals(o.getChannelTradeNo())
+                        && o.getSuccessTime() != null));
+        verify(userAssetDao).updateById(argThat(a ->
+                "active".equals(a.getVipStatus()) && a.getVipExpireTime() != null));
+        verify(paymentNotifyLogDao).insert(argThat(log ->
+                "payment_confirm".equals(log.getNotifyType())
+                        && "success".equals(log.getProcessStatus())));
+    }
+
+    @Test
+    @DisplayName("微信支付确认-未支付状态不入账")
+    void confirmWechatPay_notPaid_shouldKeepUnpaid() {
+        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001",
+                        "",
+                        "NOTPAY",
+                        "{\"trade_state\":\"NOTPAY\"}"
+                ));
+
+        PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("unpaid");
+        verify(userAssetDao, never()).updateById(any());
+        verify(paymentNotifyLogDao).insert(argThat(log ->
+                "payment_confirm".equals(log.getNotifyType())
+                        && "ignored".equals(log.getProcessStatus())));
+    }
+
+    @Test
     @DisplayName("模拟支付-订单已关闭")
     void mockPay_closedOrder_shouldThrow() {
         unpaidOrder.setOrderStatus("closed");

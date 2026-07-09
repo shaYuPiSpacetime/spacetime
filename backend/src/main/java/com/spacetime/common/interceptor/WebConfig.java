@@ -58,6 +58,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/miniapp/promotion/invite/qr-source",
                         "/miniapp/content/**",
                         "/miniapp/mobile-config/**",
+                        "/miniapp/payment/wechat/notify",
                         "/miniapp/search/hot-words",
                         "/miniapp/search/config"
                 );

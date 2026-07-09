@@ -54,6 +54,19 @@ public class PaymentController {
     }
 
     /**
+     * 微信支付主动确认（前端支付成功后查单补偿）
+     *
+     * @param orderId 订单ID
+     * @return 支付结果
+     */
+    @PostMapping("/wechat/confirm/{orderId}")
+    public R<PayResultVO> confirmWechatPay(@PathVariable Long orderId) {
+        Long userId = currentUserId();
+        log.info("微信支付确认: userId={}, orderId={}", userId, orderId);
+        return R.ok(paymentService.confirmWechatPay(userId, orderId));
+    }
+
+    /**
      * 微信支付结果通知
      *
      * @param body 回调原文

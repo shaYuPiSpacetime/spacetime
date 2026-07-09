@@ -28,6 +28,15 @@ public interface PaymentService {
     PayResultVO mockPay(Long userId, Long orderId);
 
     /**
+     * 微信支付主动确认（支付成功后查单补偿）
+     *
+     * @param userId  用户ID
+     * @param orderId 订单ID
+     * @return 支付结果
+     */
+    PayResultVO confirmWechatPay(Long userId, Long orderId);
+
+    /**
      * 处理微信支付回调
      *
      * @param body 微信支付回调原文

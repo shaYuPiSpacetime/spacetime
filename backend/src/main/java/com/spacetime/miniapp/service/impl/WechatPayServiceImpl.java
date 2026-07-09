@@ -19,6 +19,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -45,6 +46,8 @@ public class WechatPayServiceImpl implements WechatPayService {
 
     private static final String JSAPI_URL = "https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi";
     private static final String JSAPI_PATH = "/v3/pay/transactions/jsapi";
+    private static final String QUERY_ORDER_PATH_PREFIX = "/v3/pay/transactions/out-trade-no/";
+    private static final String WECHAT_PAY_API_HOST = "https://api.mch.weixin.qq.com";
 
     private final WechatPayProperties properties;
     private final ResourceLoader resourceLoader;
@@ -81,6 +84,7 @@ public class WechatPayServiceImpl implements WechatPayService {
                     .timeout(Duration.ofSeconds(12))
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")
+                    .header("User-Agent", "spacetime-payment/1.0")
                     .header("Authorization", authorization)
                     .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                     .build();
@@ -132,6 +136,44 @@ public class WechatPayServiceImpl implements WechatPayService {
         } catch (Exception ex) {
             log.error("微信支付回调解析失败", ex);
             throw new BusinessException("微信支付回调解析失败");
+        }
+    }
+
+    @Override
+    public WechatPayNotifyResult queryOrder(String orderNo) {
+        assertPayConfig();
+        if (orderNo == null || orderNo.isBlank()) {
+            throw new BusinessException("商户订单号不能为空");
+        }
+
+        try {
+            String path = QUERY_ORDER_PATH_PREFIX
+                    + URLEncoder.encode(orderNo, StandardCharsets.UTF_8)
+                    + "?mchid="
+                    + URLEncoder.encode(properties.getMchId(), StandardCharsets.UTF_8);
+            String timestamp = String.valueOf(Instant.now().getEpochSecond());
+            String nonce = nonce();
+            String authorization = buildAuthorization("GET", path, timestamp, nonce, "");
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(WECHAT_PAY_API_HOST + path))
+                    .timeout(Duration.ofSeconds(12))
+                    .header("Accept", "application/json")
+                    .header("User-Agent", "spacetime-payment/1.0")
+                    .header("Authorization", authorization)
+                    .GET()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("微信支付查单失败: orderNo={}, status={}, body={}", orderNo, response.statusCode(), response.body());
+                throw new BusinessException("微信支付查单失败，请稍后重试");
+            }
+            JsonNode root = objectMapper.readTree(response.body());
+            return directNotifyResult(root, response.body());
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("微信支付查单异常: orderNo={}", orderNo, ex);
+            throw new BusinessException("微信支付查单失败，请稍后重试");
         }
     }
 

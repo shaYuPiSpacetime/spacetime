@@ -176,6 +176,58 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
+    public PayResultVO confirmWechatPay(Long userId, Long orderId) {
+        TradeOrder order = tradeOrderDao.selectById(orderId);
+        if (order == null) {
+            throw new BusinessException("订单不存在");
+        }
+        if (!order.getUserId().equals(userId)) {
+            throw new BusinessException("订单与用户不匹配");
+        }
+        if (OrderStatusEnum.SUCCESS.getCode().equals(order.getOrderStatus())) {
+            log.info("微信支付确认幂等返回: userId={}, orderId={}, orderNo={}", userId, orderId, order.getOrderNo());
+            return buildPayResult(order);
+        }
+        if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())) {
+            throw new BusinessException("订单状态不正确，无法确认支付");
+        }
+
+        WechatPayService.WechatPayNotifyResult payResult = wechatPayService.queryOrder(order.getOrderNo());
+        LocalDateTime now = LocalDateTime.now();
+        PaymentNotifyLog confirmLog = new PaymentNotifyLog();
+        confirmLog.setPayChannel("wechat");
+        confirmLog.setOrderNo(payResult.outTradeNo());
+        confirmLog.setChannelTradeNo(payResult.transactionId());
+        confirmLog.setNotifyType("payment_confirm");
+        confirmLog.setNotifyPayload(payResult.rawPayload());
+        confirmLog.setNotifyTime(now);
+
+        if (!"SUCCESS".equalsIgnoreCase(payResult.tradeState())) {
+            order.setPayChannel("wechat");
+            order.setNotifySummary(summary(payResult.rawPayload()));
+            tradeOrderDao.updateById(order);
+            confirmLog.setProcessStatus("ignored");
+            confirmLog.setProcessMessage("微信查单未支付成功: " + payResult.tradeState());
+            paymentNotifyLogDao.insert(confirmLog);
+            log.info("微信支付确认未成功: userId={}, orderId={}, orderNo={}, tradeState={}",
+                    userId, orderId, order.getOrderNo(), payResult.tradeState());
+            return buildPayResult(order);
+        }
+
+        order.setPayChannel("wechat");
+        order.setChannelTradeNo(payResult.transactionId());
+        order.setNotifySummary(summary(payResult.rawPayload()));
+        applySuccessfulPayment(order, now);
+        confirmLog.setProcessStatus("success");
+        confirmLog.setProcessMessage("主动查单确认成功");
+        paymentNotifyLogDao.insert(confirmLog);
+        log.info("微信支付主动确认成功: userId={}, orderId={}, orderNo={}, transactionId={}",
+                userId, orderId, order.getOrderNo(), payResult.transactionId());
+        return buildPayResult(order);
+    }
+
+    @Override
+    @Transactional
     public void handleWechatNotify(String body) {
         WechatPayService.WechatPayNotifyResult notify = wechatPayService.parseNotify(body);
         LocalDateTime now = LocalDateTime.now();

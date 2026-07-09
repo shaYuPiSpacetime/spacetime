@@ -26,6 +26,14 @@ public interface WechatPayService {
     WechatPayNotifyResult parseNotify(String body);
 
     /**
+     * 根据商户订单号主动查询微信支付订单状态。
+     *
+     * @param orderNo 商户订单号
+     * @return 微信支付交易信息
+     */
+    WechatPayNotifyResult queryOrder(String orderNo);
+
+    /**
      * 微信支付回调交易信息
      */
     record WechatPayNotifyResult(
