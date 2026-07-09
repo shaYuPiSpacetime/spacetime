@@ -6,5 +6,6 @@ export async function loginByWechatPhone(data: LoginReq): Promise<LoginVO> {
   return post<LoginVO>('/miniapp/auth/wechat-login', {
     loginCode: data.loginCode,
     phoneCode: data.phoneCode,
+    agreeProtocol: data.agreeProtocol ?? true,
   })
 }

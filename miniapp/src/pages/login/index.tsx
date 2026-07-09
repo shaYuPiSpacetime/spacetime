@@ -5,7 +5,7 @@ import { useLogin } from '@/hooks/useLogin'
 import { useAuthStore } from '@/stores/authStore'
 import { loginByWechatPhone } from '@/services/auth'
 import { getDemoPageData } from '@/services/lanhuDemo'
-import loginBg from '@/assets/login/login-bg.webp'
+import loginSceneBg from '@/assets/login/login-scene-bg.jpg'
 import loginMethodWechatIcon from '@/assets/lanhu/login/login-method-wechat.png'
 import loginMethodPhoneIcon from '@/assets/lanhu/login/login-method-phone.png'
 import './index.scss'
@@ -27,13 +27,23 @@ const baseLoginDemo = getDemoPageData('login')
 const loginDemo = baseLoginDemo as typeof baseLoginDemo & LoginExtras
 
 function getWechatAuthErrorText(error: unknown) {
-  const errMsg =
+  const errMsg = (
     error && typeof error === 'object'
       ? String((error as { errMsg?: string; message?: string }).errMsg || (error as { message?: string }).message || '')
       : String(error || '')
+  ).trim()
+  const lowerErrMsg = errMsg.toLowerCase()
 
-  if (errMsg.toLowerCase().includes('timeout')) {
+  if (lowerErrMsg.includes('timeout')) {
     return '微信授权超时，请重试'
+  }
+
+  if (lowerErrMsg.includes('deny') || lowerErrMsg.includes('cancel')) {
+    return '需要完成微信授权后继续'
+  }
+
+  if (errMsg) {
+    return errMsg.slice(0, 80)
   }
 
   return '需要完成微信授权后继续'
@@ -509,24 +519,31 @@ export default function LoginAuthPage() {
   }
 
   return (
-    <View className="relative w-full h-screen overflow-hidden bg-white">
+    <View className="relative w-full h-screen overflow-hidden" style={{ background: '#061329' }}>
       <Image
-        className="absolute top-0 left-0 w-full"
-        src={loginBg}
-        mode="widthFix"
+        src={loginSceneBg}
+        mode="aspectFill"
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 0,
+        }}
       />
 
       <View
-        data-role="login-primary-hit-area"
         className="absolute flex items-center justify-center"
         style={{
-          left: '115rpx',
-          right: '115rpx',
-          bottom: '168rpx',
+          left: '114rpx',
+          right: '114rpx',
+          bottom: '214rpx',
           height: '98rpx',
           borderRadius: '28rpx',
-          background: 'transparent',
-          opacity: 0,
+          background: '#FFFFFF',
+          boxShadow: '0 18rpx 42rpx rgba(11, 48, 96, 0.16)',
+          zIndex: 10,
         }}
         hoverClass="btn-hover"
         onClick={handleUse}

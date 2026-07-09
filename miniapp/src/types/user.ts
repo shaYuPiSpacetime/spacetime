@@ -12,6 +12,7 @@ export interface AppUserVO {
 export interface LoginReq {
   loginCode: string
   phoneCode: string
+  agreeProtocol?: boolean
 }
 
 /** 登录返回 */

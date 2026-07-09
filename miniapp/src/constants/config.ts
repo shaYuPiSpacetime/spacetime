@@ -1,5 +1,5 @@
 /** API 基础地址 */
-export const API_BASE_URL = process.env.API_BASE_URL || 'https://admin.shikongxiehou.com/api'
+export const API_BASE_URL = 'https://admin.shikongxiehou.com/api'
 
 /** Token 本地存储 key */
 export const TOKEN_KEY = 'token'

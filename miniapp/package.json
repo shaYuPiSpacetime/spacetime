@@ -9,7 +9,9 @@
     "css": "sass"
   },
   "scripts": {
+    "predev:weapp": "node scripts/validate-wechat-phone-login.mjs",
     "dev:weapp": "npm run build:weapp -- --watch",
+    "prebuild:weapp": "node scripts/validate-wechat-phone-login.mjs && node scripts/validate-miniapp-release-startup.mjs",
     "build:weapp": "taro build --type weapp",
     "dev:swan": "npm run build:swan -- --watch",
     "dev:alipay": "npm run build:alipay -- --watch",

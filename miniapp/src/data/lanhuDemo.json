@@ -82,7 +82,7 @@
       "route": "/pages/login/age",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -118,7 +118,7 @@
       "route": "/pages/login/index?variant=guest-alt",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -296,7 +296,7 @@
       "route": "/pages/login/address?variant=selected",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -308,7 +308,7 @@
       "route": "/pages/login/index?variant=error",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -320,7 +320,7 @@
       "route": "/pages/login/address?variant=empty",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -332,7 +332,7 @@
       "route": "/pages/login/education",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -344,7 +344,7 @@
       "route": "/pages/login/index?variant=auth",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -368,7 +368,7 @@
       "route": "/pages/login/index?variant=wechat-auth",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp",
         "src/assets/lanhu/login/login-method-wechat.png",
         "src/assets/lanhu/login/login-method-phone.png"
@@ -963,7 +963,7 @@
       "route": "/pages/login/gender?variant=goal",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -1006,7 +1006,7 @@
       "route": "/pages/login/index?variant=guest",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -1029,7 +1029,7 @@
       "route": "/pages/login/address?variant=manual",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -1052,7 +1052,7 @@
       "route": "/pages/login/identity",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -1084,7 +1084,7 @@
       "route": "/pages/login/index?variant=dialog",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp"
       ]
     },
@@ -1096,7 +1096,7 @@
       "route": "/pages/login/index?variant=methods",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/login/login-bg.webp",
+        "src/assets/login/login-scene-bg.jpg",
         "src/assets/login/profile-bg.webp",
         "src/assets/lanhu/login/login-method-wechat.png",
         "src/assets/lanhu/login/login-method-phone.png"
