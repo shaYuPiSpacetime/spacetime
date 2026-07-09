@@ -136,6 +136,13 @@ for (const expected of [
   'OSS_BUCKET_NAME=',
   'OSS_ACCESS_KEY_ID=',
   'OSS_ACCESS_KEY_SECRET=',
+  'WECHAT_PAY_APP_ID=wx03e8cd2d1380c465',
+  'WECHAT_PAY_MCH_ID=',
+  'WECHAT_PAY_API_V3_KEY=',
+  'WECHAT_PAY_CERT_SERIAL_NO=',
+  'WECHAT_PAY_NOTIFY_URL=https://admin.shikongxiehou.com/api/miniapp/payment/wechat/notify',
+  'WECHAT_MINIAPP_APP_ID=wx03e8cd2d1380c465',
+  'WECHAT_MINIAPP_APP_SECRET=',
 ]) {
   assertIncludes(envExample, expected, 'deploy/server.prod.env.example');
 }
@@ -183,6 +190,8 @@ for (const expected of [
   '--network-alias admin-web',
   'docker login "$ALIYUN_CR_REGISTRY"',
   '跳过数据库迁移',
+  'WECHAT_PAY_APP_ID WECHAT_PAY_MCH_ID WECHAT_PAY_API_V3_KEY WECHAT_PAY_CERT_SERIAL_NO WECHAT_PAY_NOTIFY_URL',
+  'WECHAT_MINIAPP_APP_ID WECHAT_MINIAPP_APP_SECRET',
 ]) {
   assertIncludes(deployScript, expected, 'deploy/scripts/deploy-prod-local.sh');
 }
@@ -230,7 +239,13 @@ const prodSqlFiles = listFiles('deploy/sql/prod').filter((file) => file.endsWith
 assert.ok(prodSqlFiles.length > 0, 'deploy/sql/prod 缺少生产迁移 SQL');
 for (const file of prodSqlFiles) {
   const content = read(file);
-  assert.ok(/CREATE TABLE IF NOT EXISTS/i.test(content) || /INSERT\s+IGNORE/i.test(content) || /ALTER TABLE/i.test(content), `${file} 缺少幂等迁移语句`);
+  assert.ok(
+    /CREATE TABLE IF NOT EXISTS/i.test(content) ||
+      /INSERT\s+IGNORE/i.test(content) ||
+      /ON\s+DUPLICATE\s+KEY\s+UPDATE/i.test(content) ||
+      /ALTER TABLE/i.test(content),
+    `${file} 缺少幂等迁移语句`
+  );
   assert.ok(!/DROP\s+TABLE/i.test(content), `${file} 禁止包含 DROP TABLE`);
 }
 
