@@ -5,9 +5,11 @@ import { getDemoPageData } from '@/services/lanhuDemo'
 import {
   confirmWechatPayment,
   createOrder,
+  getVipOrders,
   getVipPackages,
   getVipStatus,
   requestWechatPayment,
+  type VipOrderVO,
   type VipPackageVO,
   type VipStatusVO,
 } from '@/services/payment'
@@ -59,6 +61,7 @@ function adaptVipPackage(pkg: VipPackageVO): MembershipPlan {
     durationLabel: durationLabel(pkg.durationDays),
     monthlyPriceLabel: monthlyPriceLabel(price, pkg.durationDays),
     tag: pkg.packageTag,
+    subscriptionType: pkg.subscriptionType,
     perks: [],
   }
 }
@@ -67,22 +70,81 @@ function adaptVipStatus(status: VipStatusVO): MyMembership {
   if (status.vipStatus === 'active') {
     return {
       status: 'active',
+      startTime: status.memberStartTime,
       expireTime: status.vipExpireTime,
-      planName: membershipDemo.activeMembership.planName,
+      planName: status.packageName || membershipDemo.activeMembership.planName,
+      orderNo: status.orderNo,
+      packageId: status.packageId,
+      subscriptionType: status.subscriptionType,
+      payChannel: status.payChannel,
     }
   }
   if (status.vipStatus === 'expired') {
     return {
       status: 'expired',
+      startTime: status.memberStartTime,
       expireTime: status.vipExpireTime,
-      planName: membershipDemo.expiredMembership.planName,
+      planName: status.packageName || membershipDemo.expiredMembership.planName,
+      orderNo: status.orderNo,
+      packageId: status.packageId,
+      subscriptionType: status.subscriptionType,
+      payChannel: status.payChannel,
     }
   }
   return { ...membershipDemo.myMembership }
 }
 
+function formatDisplayDate(value?: string) {
+  if (!value) return ''
+  const normalized = value.replace('T', ' ').replace(/\+08:00$/, '')
+  const [date = '', time = ''] = normalized.split(' ')
+  const clock = time.split('.')[0].slice(0, 5)
+  return `${date.replace(/-/g, '.')}${clock ? ` ${clock}` : ''}`
+}
+
+function payChannelName(channel?: string) {
+  if (channel === 'wechat') return '微信'
+  if (channel === 'alipay') return '支付宝'
+  if (channel === 'mock') return '模拟支付'
+  return channel || '微信'
+}
+
+function orderStatusLabel(status?: string) {
+  if (status === 'success') return '已支付'
+  if (status === 'refunding') return '退款中'
+  if (status === 'refunded') return '已退款'
+  if (status === 'closed') return '已关闭'
+  if (status === 'failed') return '支付失败'
+  return '未支付'
+}
+
+function adaptVipOrder(order: VipOrderVO): MembershipRecord {
+  const startTime = formatDisplayDate(order.successTime || order.createTime)
+  const endTime = formatDisplayDate(order.expireTime)
+  return {
+    id: order.id,
+    packageId: order.packageId,
+    planName: order.packageName,
+    listTitle: order.packageName,
+    subscriptionType: order.subscriptionType,
+    durationDays: order.durationDays,
+    durationLabel: durationLabel(order.durationDays),
+    amount: Number(order.payAmount || 0),
+    startTime,
+    endTime,
+    validityStart: startTime,
+    validityEnd: endTime,
+    status: orderStatusLabel(order.orderStatus),
+    statusCode: order.orderStatus,
+    orderNo: order.orderNo,
+    createTime: formatDisplayDate(order.createTime),
+    payTime: formatDisplayDate(order.successTime),
+    payMethod: payChannelName(order.payChannel),
+  }
+}
+
 function isRoutePreviewVariant(variant: MembershipDemoVariant) {
-  return variant === 'active' || variant === 'expired' || variant === 'annual'
+  return variant === 'annual'
 }
 
 function isPaymentCancel(error: unknown) {
@@ -129,7 +191,7 @@ export function useMembership(variant: MembershipDemoVariant = 'default') {
   const [activeStatus, setActiveStatus] = useState<MemberStatus | 'all'>('all')
 
   /* ---------- 会员记录 ---------- */
-  const [records, setRecords] = useState<MembershipRecord[]>(membershipDemo.records)
+  const [records, setRecords] = useState<MembershipRecord[]>([])
   const [recordsLoading, setRecordsLoading] = useState(false)
   const [benefits] = useState(membershipDemo.benefits)
 
@@ -156,7 +218,7 @@ export function useMembership(variant: MembershipDemoVariant = 'default') {
       const nextStatus = await getVipStatus()
       setMyMembership(adaptVipStatus(nextStatus))
     } catch {
-      setMyMembership(membershipForVariant(variant))
+      setMyMembership({ ...membershipDemo.myMembership })
     } finally {
       setStatusLoading(false)
     }
@@ -179,13 +241,14 @@ export function useMembership(variant: MembershipDemoVariant = 'default') {
     }
   }, [variant])
 
-  /** 加载会员记录（Mock 实现） */
+  /** 加载会员记录 */
   const fetchRecords = useCallback(async () => {
     setRecordsLoading(true)
     try {
-      // 后续替换为真实 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setRecords([...membershipDemo.records])
+      const page = await getVipOrders(1, 50)
+      setRecords((page.records || []).map(adaptVipOrder))
+    } catch {
+      setRecords([])
     } finally {
       setRecordsLoading(false)
     }

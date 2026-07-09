@@ -11,6 +11,7 @@ export interface MembershipPlan {
   durationLabel: string;
   monthlyPriceLabel?: string;
   tag?: string;
+  subscriptionType?: string;
   perks: string[];
 }
 
@@ -18,6 +19,9 @@ export interface MembershipPlan {
 export interface MembershipRecord {
   id: number;
   planName: string;
+  packageId?: number;
+  subscriptionType?: string;
+  durationDays?: number;
   listTitle?: string;
   durationLabel?: string;
   amount: number;
@@ -26,6 +30,7 @@ export interface MembershipRecord {
   validityStart?: string;
   validityEnd?: string;
   status: string;
+  statusCode?: string;
   orderNo?: string;
   createTime?: string;
   payTime?: string;
@@ -35,6 +40,11 @@ export interface MembershipRecord {
 /** 我的会员状态 */
 export interface MyMembership {
   status: MemberStatus;
+  startTime?: string;
   expireTime?: string;
   planName?: string;
+  orderNo?: string;
+  packageId?: number;
+  subscriptionType?: string;
+  payChannel?: string;
 }

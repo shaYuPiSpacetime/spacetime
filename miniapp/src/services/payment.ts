@@ -1,11 +1,13 @@
 import Taro from '@tarojs/taro'
 import { get, post } from './request'
+import type { PageVO } from '@/types/api'
 
 /** VIP 套餐 */
 export interface VipPackageVO {
   id: number
   packageName: string
   packageType?: string
+  subscriptionType?: string
   price: number
   originPrice?: number
   durationDays: number
@@ -29,6 +31,29 @@ export interface CoinPackageVO {
 export interface VipStatusVO {
   vipStatus?: string
   vipExpireTime?: string
+  orderNo?: string
+  packageId?: number
+  packageName?: string
+  subscriptionType?: string
+  memberStartTime?: string
+  payChannel?: string
+}
+
+/** VIP 订单记录 */
+export interface VipOrderVO {
+  id: number
+  orderNo: string
+  packageId?: number
+  packageName: string
+  subscriptionType?: string
+  durationDays?: number
+  payAmount: number
+  payChannel?: string
+  orderStatus: string
+  createTime?: string
+  successTime?: string
+  expireTime?: string
+  refundTime?: string
 }
 
 /** 支付结果 */
@@ -72,6 +97,11 @@ export function getCoinPackages(): Promise<CoinPackageVO[]> {
 /** 获取当前 VIP 状态 */
 export function getVipStatus(): Promise<VipStatusVO> {
   return get<VipStatusVO>('/miniapp/vip/status')
+}
+
+/** 获取当前用户 VIP 订单记录 */
+export function getVipOrders(page = 1, size = 50): Promise<PageVO<VipOrderVO>> {
+  return get<PageVO<VipOrderVO>>('/miniapp/vip/orders', { page, size })
 }
 
 /** 创建充值订单 */

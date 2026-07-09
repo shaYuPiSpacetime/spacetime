@@ -37,7 +37,7 @@ export default function RecordsPage() {
                 duration={record.durationLabel || '12个月'}
                 startTime={record.validityStart || record.startTime}
                 endTime={record.validityEnd || record.endTime}
-                refunded={record.status === '已退款'}
+                statusCode={record.statusCode || record.status}
                 index={index}
               />
             ))
@@ -54,7 +54,7 @@ function RecordCard({
   duration,
   startTime,
   endTime,
-  refunded,
+  statusCode,
   index,
 }: {
   id: number
@@ -62,12 +62,13 @@ function RecordCard({
   duration: string
   startTime: string
   endTime: string
-  refunded: boolean
+  statusCode: string
   index: number
 }) {
+  const refunded = statusCode === 'refunded' || statusCode === '已退款'
   const mainColor = refunded ? '#A1A1A1' : '#FFFFFF'
   const accent = refunded ? '#9A9A9A' : LANHU_GOLD
-  const detailStatus = refunded ? 'refunded' : 'paid'
+  const detailStatus = refunded ? 'refunded' : statusCode
 
   return (
     <View

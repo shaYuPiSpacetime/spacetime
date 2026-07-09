@@ -133,7 +133,7 @@ export default function ProfilePage() {
                   goToVip()
                   return
                 }
-                Taro.navigateTo({ url: `/pages/membership/index?variant=${membershipVariant}` })
+                Taro.navigateTo({ url: '/pages/membership/index' })
               }}
             />
             <FeatureCards onCoin={goToCoin} onInvite={goToInvite} />

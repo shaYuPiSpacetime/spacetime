@@ -4,7 +4,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import WechatMockPayPanel from '@/components/WechatMockPayPanel'
 import { useMembership, type MembershipPayState } from '@/hooks/useMembership'
 import { getDemoPageData } from '@/services/lanhuDemo'
-import type { MembershipPlan, MemberStatus } from '@/types/membership'
+import type { MembershipPlan, MemberStatus, MyMembership } from '@/types/membership'
 import {
   LANHU_DARK,
   LANHU_GOLD,
@@ -57,7 +57,6 @@ export default function MembershipPage() {
   const requestedVariant = resolveMembershipVariant(String(router.params.variant || 'default'))
   const routePayState = resolveMembershipPayState(String(router.params.payState || 'idle'))
   const variant = routePayState === 'idle' ? requestedVariant : 'annual'
-  const expiredMembership = membershipDemo.expiredMembership
   const {
     myMembership,
     plans,
@@ -103,7 +102,7 @@ export default function MembershipPage() {
   }, [routePayState, previewPayState])
 
   const activePlan = plans.find((plan) => plan.id === activePlanId)
-  const currentMembership = variant === 'expired' ? expiredMembership : myMembership
+  const currentMembership = myMembership
   const paymentPreviewAmount = routePayState === 'wechat-pay' ? membershipDemo.wechatPayPreviewAmount : undefined
 
   const handleSelect = (plan: MembershipPlan) => {
@@ -193,14 +192,14 @@ function MemberHero({
   onRecords,
   onSubscription,
 }: {
-  membership: { status: MemberStatus; expireTime?: string; planName?: string }
+  membership: MyMembership
   nickname: string
   onRecords: () => void
   onSubscription: () => void
 }) {
-  const { status, expireTime, planName } = membership
+  const { status, startTime, expireTime, planName } = membership
   const desc = '你还不是会员，开通立享超多特权'
-  const bottomText = getHeroBottomText(status, expireTime)
+  const bottomText = getHeroBottomText(status, startTime, expireTime)
   const shouldShowRecords = status !== 'none'
 
   return (
@@ -262,7 +261,7 @@ function MemberHero({
           }}
           onClick={onSubscription}
         >
-          <Text style={{ color: LANHU_GOLD, fontSize: '24rpx' }}>{planName || '连续包年'}</Text>
+          <Text style={{ color: LANHU_GOLD, fontSize: '24rpx' }}>{planName || '会员权益'}</Text>
         </View>
       ) : (
         <Text style={{ position: 'absolute', left: '150rpx', top: '104rpx', color: LANHU_GOLD, fontSize: '26rpx' }}>
@@ -366,10 +365,22 @@ function MemberHeroPattern() {
   )
 }
 
-function getHeroBottomText(status: MemberStatus, expireTime?: string) {
-  if (status === 'active') return `有效期： 2026.05.28 15:58 - ${expireTime || '2027.05.27 15:58'}`
+function getHeroBottomText(status: MemberStatus, startTime?: string, expireTime?: string) {
+  if (status === 'active') {
+    const start = formatMembershipDate(startTime)
+    const end = formatMembershipDate(expireTime)
+    return start && end ? `有效期： ${start} - ${end}` : '会员权益生效中'
+  }
   if (status === 'expired') return '尊贵特权已过期，重启会员，精准匹配、自由畅聊'
   return '专属9大特权，加速双向奔赴'
+}
+
+function formatMembershipDate(value?: string) {
+  if (!value) return ''
+  const normalized = value.replace('T', ' ').replace(/\+08:00$/, '')
+  const [date = '', time = ''] = normalized.split(' ')
+  const clock = time.split('.')[0].slice(0, 5)
+  return `${date.replace(/-/g, '.')}${clock ? ` ${clock}` : ''}`
 }
 
 function PlanRail({
@@ -435,7 +446,7 @@ function PlanRail({
                 {pricePerMonthText}
               </Text>
               <Text style={{ display: 'block', color: '#9C9C9C', fontSize: '22rpx', marginTop: '8rpx' }}>
-                ¥{plan.originalPrice}.00
+                ¥{plan.originalPrice.toFixed(2)}
               </Text>
             </View>
           )
@@ -665,7 +676,7 @@ function PayBar({
   const buttonText = getPayButtonText(memberStatus)
   const price = plan?.price.toFixed(2) ?? '0.00'
   const billingLabel = getBillingLabel(plan, variant)
-  const agreement = getAgreementText(variant)
+  const agreement = getAgreementText(plan, variant)
   const pricePrefix = memberStatus === 'active' ? '续费价 ' : memberStatus === 'expired' ? '重启价 ' : ''
   const loadingText = memberStatus === 'active' ? '续费中...' : memberStatus === 'expired' ? '开通中...' : '开通中...'
 
@@ -779,8 +790,9 @@ function getBillingLabel(plan?: MembershipPlan, variant?: MembershipPageVariant)
   return plan.durationLabel
 }
 
-function getAgreementText(variant: MembershipPageVariant) {
-  if (variant !== 'annual') {
+function getAgreementText(plan?: MembershipPlan, variant?: MembershipPageVariant) {
+  const isContinuous = Boolean(plan?.name.includes('连续')) || variant === 'annual'
+  if (!isContinuous) {
     return { showContinuous: false, discountText: '' }
   }
 

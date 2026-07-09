@@ -91,13 +91,25 @@ function adaptProfileMembership(status?: VipStatusVO): MyMembership {
   if (status?.vipStatus === 'active') {
     return {
       ...membershipDemo.activeMembership,
+      startTime: status.memberStartTime,
       expireTime: status.vipExpireTime || membershipDemo.activeMembership.expireTime,
+      planName: status.packageName || membershipDemo.activeMembership.planName,
+      orderNo: status.orderNo,
+      packageId: status.packageId,
+      subscriptionType: status.subscriptionType,
+      payChannel: status.payChannel,
     };
   }
   if (status?.vipStatus === 'expired') {
     return {
       ...membershipDemo.expiredMembership,
+      startTime: status.memberStartTime,
       expireTime: status.vipExpireTime || membershipDemo.expiredMembership.expireTime,
+      planName: status.packageName || membershipDemo.expiredMembership.planName,
+      orderNo: status.orderNo,
+      packageId: status.packageId,
+      subscriptionType: status.subscriptionType,
+      payChannel: status.payChannel,
     };
   }
   return membershipDemo.myMembership;

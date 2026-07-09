@@ -1,39 +1,55 @@
 import { Text, View } from '@tarojs/components'
 import { useRouter } from '@tarojs/taro'
-import { getDemoPageData } from '@/services/lanhuDemo'
+import { useEffect, useState } from 'react'
+import { getVipOrders, type VipOrderVO } from '@/services/payment'
 import { LANHU_DARK, LANHU_GOLD, LanhuNav } from '@/pages/lanhu/LanhuShell'
-import type { MembershipRecord } from '@/types/membership'
-
-const membershipDemo = getDemoPageData('membership')
 
 export default function MembershipRecordDetailPage() {
   const router = useRouter()
-  const status = String(router.params.status || 'paid')
   const recordId = Number(router.params.id || 0)
-  const refunded = status === 'refunded'
-  const record = resolveRecord(refunded, recordId)
+  const [record, setRecord] = useState<VipOrderVO | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let disposed = false
+    setLoading(true)
+    getVipOrders(1, 100)
+      .then((page) => {
+        if (disposed) return
+        setRecord((page.records || []).find((item) => item.id === recordId) || null)
+      })
+      .catch(() => {
+        if (!disposed) setRecord(null)
+      })
+      .finally(() => {
+        if (!disposed) setLoading(false)
+      })
+    return () => {
+      disposed = true
+    }
+  }, [recordId])
 
   return (
     <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
       <LanhuNav title="会员详情" tone="dark" showBack />
       <View style={{ width: '750rpx', padding: '8rpx 25rpx 0', boxSizing: 'border-box' }}>
-        <SummaryCard record={record} refunded={refunded} />
-        <InfoCard record={record} />
+        {loading ? (
+          <Text style={{ display: 'block', color: '#777777', textAlign: 'center', marginTop: '220rpx' }}>加载中...</Text>
+        ) : record ? (
+          <>
+            <SummaryCard record={record} />
+            <InfoCard record={record} />
+          </>
+        ) : (
+          <Text style={{ display: 'block', color: '#777777', textAlign: 'center', marginTop: '220rpx' }}>记录不存在</Text>
+        )}
       </View>
     </View>
   )
 }
 
-function resolveRecord(refunded: boolean, recordId: number): MembershipRecord {
-  const expectedStatus = refunded ? '已退款' : '已支付'
-  const recordById = membershipDemo.records.find((record) => record.id === recordId && record.status === expectedStatus)
-  if (recordById) return recordById
-
-  return membershipDemo.records.find((item) => item.status === expectedStatus)
-    || membershipDemo.records[refunded ? 1 : 0]
-}
-
-function SummaryCard({ record, refunded }: { record: MembershipRecord; refunded: boolean }) {
+function SummaryCard({ record }: { record: VipOrderVO }) {
+  const statusLabel = orderStatusLabel(record.orderStatus)
   return (
     <View
       style={{
@@ -46,7 +62,7 @@ function SummaryCard({ record, refunded }: { record: MembershipRecord; refunded:
         boxSizing: 'border-box',
       }}
     >
-      <Text style={{ color: '#FFFFFF', fontSize: '34rpx', lineHeight: '48rpx' }}>{record.planName}</Text>
+      <Text style={{ color: '#FFFFFF', fontSize: '34rpx', lineHeight: '48rpx' }}>{record.packageName}</Text>
       <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '34rpx', lineHeight: '48rpx', marginTop: '20rpx' }}>订单金额</Text>
       <View
         style={{
@@ -61,23 +77,23 @@ function SummaryCard({ record, refunded }: { record: MembershipRecord; refunded:
           alignItems: 'center',
         }}
       >
-        <Text style={{ color: '#211D1E', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{refunded ? '已退款' : '已支付'}</Text>
+        <Text style={{ color: '#211D1E', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{statusLabel}</Text>
       </View>
       <Text style={{ position: 'absolute', right: '30rpx', bottom: '28rpx', color: LANHU_GOLD, fontSize: '34rpx', fontWeight: 700 }}>
-        ¥{record.amount.toFixed(2)}
+        ¥{Number(record.payAmount || 0).toFixed(2)}
       </Text>
     </View>
   )
 }
 
-function InfoCard({ record }: { record: MembershipRecord }) {
+function InfoCard({ record }: { record: VipOrderVO }) {
   const rows = [
-    ['订单号', record.orderNo || '231213121213479483057398'],
-    ['创建时间', record.createTime || record.startTime],
-    ['付款时间', record.payTime || record.startTime],
-    ['付款方式', record.payMethod || '微信'],
-    ['会员生效日', record.startTime],
-    ['会员到期日', record.endTime],
+    ['订单号', record.orderNo],
+    ['创建时间', formatDisplayDate(record.createTime)],
+    ['付款时间', formatDisplayDate(record.successTime)],
+    ['付款方式', payChannelName(record.payChannel)],
+    ['会员生效日', formatDisplayDate(record.successTime)],
+    ['会员到期日', formatDisplayDate(record.expireTime)],
   ]
 
   return (
@@ -109,4 +125,28 @@ function InfoCard({ record }: { record: MembershipRecord }) {
       ))}
     </View>
   )
+}
+
+function formatDisplayDate(value?: string) {
+  if (!value) return '-'
+  const normalized = value.replace('T', ' ').replace(/\+08:00$/, '')
+  const [date = '', time = ''] = normalized.split(' ')
+  const clock = time.split('.')[0].slice(0, 5)
+  return `${date.replace(/-/g, '.')}${clock ? ` ${clock}` : ''}`
+}
+
+function payChannelName(channel?: string) {
+  if (channel === 'wechat') return '微信'
+  if (channel === 'alipay') return '支付宝'
+  if (channel === 'mock') return '模拟支付'
+  return channel || '微信'
+}
+
+function orderStatusLabel(status?: string) {
+  if (status === 'success') return '已支付'
+  if (status === 'refunding') return '退款中'
+  if (status === 'refunded') return '已退款'
+  if (status === 'closed') return '已关闭'
+  if (status === 'failed') return '支付失败'
+  return '未支付'
 }
