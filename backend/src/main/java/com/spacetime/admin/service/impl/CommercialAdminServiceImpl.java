@@ -52,7 +52,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -97,7 +96,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         vo.setVipBenefits(listBenefits().stream().map(this::toBenefitVO).toList());
         vo.setVipPackages(listVipPackages().stream().map(this::toVipPackageVO).toList());
         vo.setCoinPackages(listCoinPackages().stream().map(this::toCoinPackageVO).toList());
-        vo.setCoinScenes(resolveSceneConfigs().stream().map(this::toSceneVO).toList());
+        vo.setCoinScenes(listSceneConfigs().stream().map(this::toSceneVO).toList());
         vo.setLatestLogs(getConfigLogs(1, 5).getRecords());
         vo.setConfigVersion(vo.getLatestLogs().isEmpty() ? "COMM-INIT" : vo.getLatestLogs().get(0).getConfigVersion());
         return vo;
@@ -273,14 +272,6 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         Page<CoinSceneConfig> page = coinSceneConfigDao.selectPage(new Page<>(1, 1000),
                 new LambdaQueryWrapper<CoinSceneConfig>().orderByAsc(CoinSceneConfig::getSortOrder));
         return page.getRecords();
-    }
-
-    private List<CoinSceneConfig> resolveSceneConfigs() {
-        List<CoinSceneConfig> dbList = listSceneConfigs();
-        if (!dbList.isEmpty()) {
-            return dbList;
-        }
-        return defaultScenes();
     }
 
     private List<TradeOrderVO> recentOrders(Long userId) {
@@ -516,34 +507,5 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         } catch (Exception e) {
             return "{}";
         }
-    }
-
-    private List<CoinSceneConfig> defaultScenes() {
-        return List.of(
-                defaultScene("like_me_unlock", "喜欢我的", "heart", "查看喜欢我的用户", 10, 0, 1),
-                defaultScene("visit_me_unlock", "看过我的", "eye", "查看最近访客", 8, 0, 2),
-                defaultScene("ideal_match_unlock", "理想型解锁", "sparkles", "解锁理想型候选人", 12, 90, 3),
-                defaultScene("featured_profile_unlock", "精选主页", "star", "解锁精选主页曝光", 15, 3, 4),
-                defaultScene("whisper_message", "悄悄话", "message-circle", "发送额外悄悄话", 5, 0, 5),
-                defaultScene("advanced_filter", "高级筛选", "sliders-horizontal", "开启一次高级筛选", 6, 1, 6),
-                defaultScene("priority_exposure", "优先曝光", "zap", "获得短期优先曝光", 20, 1, 7),
-                defaultScene("profile_boost", "主页加速", "rocket", "提升资料推荐权重", 18, 1, 8)
-        ).stream()
-                .sorted(Comparator.comparing(CoinSceneConfig::getSortOrder, Comparator.nullsLast(Integer::compareTo)))
-                .toList();
-    }
-
-    private CoinSceneConfig defaultScene(String code, String name, String icon, String desc, Integer unitPrice,
-                                         Integer retentionDays, Integer sortOrder) {
-        CoinSceneConfig entity = new CoinSceneConfig();
-        entity.setSceneCode(code);
-        entity.setMobileName(name);
-        entity.setMobileIcon(icon);
-        entity.setSceneDesc(desc);
-        entity.setUnitPrice(unitPrice);
-        entity.setRetentionDays(retentionDays);
-        entity.setSortOrder(sortOrder);
-        entity.setStatus(CommonStatusEnum.ENABLED.getCode());
-        return entity;
     }
 }

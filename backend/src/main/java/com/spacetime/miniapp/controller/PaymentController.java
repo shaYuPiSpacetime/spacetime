@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 /**
  * 小程序支付控制器
  */
@@ -49,6 +51,18 @@ public class PaymentController {
         Long userId = currentUserId();
         log.info("模拟支付: userId={}, orderId={}", userId, orderId);
         return R.ok(paymentService.mockPay(userId, orderId));
+    }
+
+    /**
+     * 微信支付结果通知
+     *
+     * @param body 回调原文
+     * @return 微信支付通知响应
+     */
+    @PostMapping("/wechat/notify")
+    public Map<String, String> wechatNotify(@RequestBody String body) {
+        paymentService.handleWechatNotify(body);
+        return Map.of("code", "SUCCESS", "message", "成功");
     }
 
     private Long currentUserId() {

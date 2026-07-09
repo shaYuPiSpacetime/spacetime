@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 public class FlowPageReq extends PageReq {
     /** 用户 ID */
     private Long userId;
+    /** 资产类型: coin=千寻币, vip=会员权益 */
+    private String assetType;
     /** 流水类型 */
     private String flowType;
     /** 业务场景 */

@@ -1,6 +1,7 @@
 package com.spacetime.miniapp.service.impl;
 
 import com.spacetime.common.dao.AppUserSecurityAuditLogDao;
+import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserSecurityAuditLog;
 import com.spacetime.common.entity.SysUser;
 
@@ -21,6 +22,13 @@ abstract class UserSecurityBaseSupport {
             return "用户" + fallbackId;
         }
         return user.getNickname() != null && !user.getNickname().isBlank() ? user.getNickname() : user.getUsername();
+    }
+
+    protected String displayName(AppUser user, Long fallbackId) {
+        if (user == null) {
+            return "用户" + fallbackId;
+        }
+        return user.getNickname() != null && !user.getNickname().isBlank() ? user.getNickname() : "用户" + fallbackId;
     }
 
     protected void writeAudit(AppUserSecurityAuditLogDao dao, Long userId, Long operatorId, String bizType,

@@ -15,6 +15,8 @@ public class CoinFlowVO {
     private String flowNo;
     /** 用户ID */
     private Long userId;
+    /** 资产类型 */
+    private String assetType;
     /** 流水类型 @see FlowTypeEnum */
     private String flowType;
     /** 变动金额（正数为增加，负数为减少） */

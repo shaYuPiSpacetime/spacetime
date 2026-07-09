@@ -268,7 +268,7 @@ CREATE TABLE IF NOT EXISTS promotion_rule (
     rule_name VARCHAR(100) NOT NULL COMMENT '规则名称',
     rule_type VARCHAR(30) NOT NULL COMMENT '规则类型: user_invite/agent_bonus/risk_control',
     event_type VARCHAR(50) NOT NULL COMMENT '奖励事件',
-    reward_amount DECIMAL(16,4) DEFAULT 0 COMMENT '奖励成家币或奖金金额',
+    reward_amount DECIMAL(16,4) DEFAULT 0 COMMENT '奖励千寻币或奖金金额',
     reward_unit VARCHAR(20) DEFAULT 'coin' COMMENT 'coin/cash',
     daily_limit DECIMAL(16,4) DEFAULT NULL COMMENT '单日上限',
     effective_time DATETIME DEFAULT NULL COMMENT '生效时间',
@@ -290,7 +290,7 @@ CREATE TABLE IF NOT EXISTS promotion_rule_tier (
     rule_id BIGINT NOT NULL COMMENT 'promotion_rule.id',
     min_count INT NOT NULL COMMENT '阶梯最小成功邀请数',
     max_count INT NOT NULL COMMENT '阶梯最大成功邀请数',
-    reward_amount DECIMAL(16,4) NOT NULL COMMENT '单人成家币奖励',
+    reward_amount DECIMAL(16,4) NOT NULL COMMENT '单人千寻币奖励',
     status VARCHAR(20) DEFAULT 'ENABLED',
     remark VARCHAR(500) DEFAULT NULL,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -365,7 +365,7 @@ CREATE TABLE IF NOT EXISTS promotion_reward_log (
     inviter_id BIGINT NOT NULL COMMENT '邀请人ID',
     invitee_id BIGINT NOT NULL COMMENT '被邀请人ID',
     event_type VARCHAR(50) NOT NULL COMMENT '奖励事件类型',
-    reward_coin DECIMAL(16,4) NOT NULL COMMENT '奖励成家币',
+    reward_coin DECIMAL(16,4) NOT NULL COMMENT '奖励千寻币',
     status VARCHAR(20) DEFAULT 'pending' COMMENT 'pending/success/frozen/invalid',
     risk_reason VARCHAR(500) DEFAULT NULL,
     coin_log_id BIGINT DEFAULT NULL COMMENT 'app_user_coin_log.id',
@@ -415,7 +415,7 @@ CREATE TABLE IF NOT EXISTS promo_agent_stat (
     verify_cnt INT DEFAULT 0 COMMENT '累计认证完成数',
     success_cnt INT DEFAULT 0 COMMENT '累计成功邀请数',
     first_vip_cnt INT DEFAULT 0 COMMENT '累计首次会员数',
-    first_coin_recharge_cnt INT DEFAULT 0 COMMENT '累计首次充值成家币人数',
+    first_coin_recharge_cnt INT DEFAULT 0 COMMENT '累计首次充值千寻币人数',
     bonus_due_amount DECIMAL(16,4) DEFAULT 0 COMMENT '累计应发奖金',
     bonus_pending_amount DECIMAL(16,4) DEFAULT 0 COMMENT '累计待结算奖金',
     bonus_confirmed_amount DECIMAL(16,4) DEFAULT 0 COMMENT '累计已确认待发奖金',
@@ -581,8 +581,8 @@ CREATE TABLE IF NOT EXISTS app_coin_package (
     amount DECIMAL(10,2) DEFAULT 0 COMMENT '售价',
     origin_amount DECIMAL(10,2) DEFAULT 0 COMMENT '原价',
     discount_amount DECIMAL(10,2) DEFAULT NULL COMMENT '优惠价',
-    coin_count INT DEFAULT 0 COMMENT '成家币数量',
-    bonus_coin_count INT DEFAULT 0 COMMENT '赠送成家币数量',
+    coin_count INT DEFAULT 0 COMMENT '千寻币数量',
+    bonus_coin_count INT DEFAULT 0 COMMENT '赠送千寻币数量',
     recommend_flag TINYINT DEFAULT 0 COMMENT '是否推荐: 0=否, 1=是',
     package_tag VARCHAR(50) DEFAULT NULL COMMENT '套餐标签',
     mobile_tag VARCHAR(50) DEFAULT NULL COMMENT '移动端展示标签',
@@ -595,14 +595,14 @@ CREATE TABLE IF NOT EXISTS app_coin_package (
     updated_by BIGINT DEFAULT NULL,
     deleted TINYINT DEFAULT 0,
     INDEX idx_status_sort (status, sort_order)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成家币套餐配置表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千寻币套餐配置表';
 
 CREATE TABLE IF NOT EXISTS app_user_asset (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL COMMENT '用户ID',
     vip_status VARCHAR(20) DEFAULT 'inactive' COMMENT 'VIP状态: inactive/active/expired',
     vip_expire_time DATETIME DEFAULT NULL COMMENT 'VIP到期时间',
-    coin_balance INT DEFAULT 0 COMMENT '成家币余额',
+    coin_balance INT DEFAULT 0 COMMENT '千寻币余额',
     today_free_whisper_remain INT DEFAULT 0 COMMENT '今日剩余免费悄悄话次数',
     total_recharge DECIMAL(10,2) DEFAULT 0 COMMENT '累计充值金额',
     last_consume_time DATETIME DEFAULT NULL COMMENT '最后消费时间',
@@ -665,7 +665,7 @@ CREATE TABLE IF NOT EXISTS app_user_coin_log (
     INDEX idx_user_time (user_id, create_time),
     INDEX idx_ref (ref_id, ref_type),
     INDEX idx_scene_time (biz_scene, create_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成家币流水表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千寻币流水表';
 
 CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -673,7 +673,7 @@ CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     mobile_name VARCHAR(100) NOT NULL COMMENT '移动端名称',
     mobile_icon VARCHAR(100) DEFAULT NULL COMMENT '移动端图标',
     scene_desc VARCHAR(500) DEFAULT NULL COMMENT '场景说明',
-    unit_price INT DEFAULT 0 COMMENT '单价，单位：成家币',
+    unit_price INT DEFAULT 0 COMMENT '单价，单位：千寻币',
     retention_days INT DEFAULT 0 COMMENT '保留期天数，0表示永久',
     sort_order INT DEFAULT 0 COMMENT '排序号',
     status VARCHAR(20) DEFAULT 'ENABLED' COMMENT '状态: ENABLED/DISABLED',
@@ -684,7 +684,7 @@ CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     deleted TINYINT DEFAULT 0,
     UNIQUE KEY uk_scene_code (scene_code),
     INDEX idx_status_sort (status, sort_order)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成家币消费场景配置表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千寻币消费场景配置表';
 
 CREATE TABLE IF NOT EXISTS app_commercial_config_log (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -756,7 +756,7 @@ CREATE TABLE IF NOT EXISTS app_user_unlock_record (
     target_user_id BIGINT NOT NULL COMMENT '被解锁目标用户ID',
     unlock_scene VARCHAR(50) DEFAULT NULL COMMENT '解锁场景',
     unlock_method VARCHAR(20) DEFAULT NULL COMMENT '解锁方式',
-    coin_cost INT DEFAULT 0 COMMENT '消耗成家币数量',
+    coin_cost INT DEFAULT 0 COMMENT '消耗千寻币数量',
     effective_time DATETIME DEFAULT NULL COMMENT '生效时间',
     expire_time DATETIME DEFAULT NULL COMMENT '过期时间',
     status VARCHAR(20) DEFAULT 'active' COMMENT '状态: active/expired',

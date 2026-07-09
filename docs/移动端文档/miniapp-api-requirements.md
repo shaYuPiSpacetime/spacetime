@@ -1,6 +1,6 @@
 # 小程序蓝湖流程与接口闭环需求文档
 
-> 更新日期：2026-06-09
+> 更新日期：2026-07-09
 > 文档目标：从“接口差异清单”改为“蓝湖页面流程 + 当前前端实现 + 后端接口对齐 + 缺口优先级”的闭环文档。
 > 静态核对范围：`miniapp/src/pages/`、`miniapp/src/hooks/`、`miniapp/src/services/`、`miniapp/src/app.config.ts`、`backend/src/main/java/com/spacetime/miniapp/controller/`、`miniapp/.lanhu-ref/`。
 
@@ -38,7 +38,7 @@
 
 | 优先级 | 结论 | 当前影响 | 建议处理 |
 | --- | --- | --- | --- |
-| P0 | 登录真实接口路径不一致 | `useAuth -> loginByCode` 调 `POST /miniapp/login`，后端实际是 `POST /miniapp/auth/wechat-login`；关闭 Mock 后登录换 token 会失败 | 前端改 `services/auth.ts` 路径，或后端补兼容别名；优先改前端 |
+| DONE | 微信授权手机号登录已打通 | `open-type=getPhoneNumber` + `Taro.login` 调 `POST /miniapp/auth/wechat-login`，后端换取 `openid` 和手机号并发放 token | 继续依赖真实微信 AppSecret 环境变量 |
 | P0 | 我的页数据纯 Mock，且多处导航旧路径 | 蓝湖“我的”页面能展示，但编辑资料、VIP、成家币、邀请、动态、帮助、设置多处跳到不存在路由 | 先修 `useProfile` 路由，再接 `GET /miniapp/profile/home` |
 | P0 | VIP/成家币/支付路径不一致 | 蓝湖商业化页能展示 Mock，但真实支付链路会断 | 前端服务路径改到 `/miniapp/vip/*`、`/miniapp/coin/*`、`/miniapp/payment/create-order` |
 | P1 | 推荐朋友/社区路径不一致 | 推荐页视觉已按蓝湖搭建，社区服务函数与后端 `/posts` 不一致 | 前端改 `community.ts`，明确 `postType/topicId/imageUrls` |
@@ -50,8 +50,8 @@
 
 | 链路 | 状态 | 证据 |
 | --- | --- | --- |
-| 登录蓝湖资料页：授权 -> 性别 -> 年龄 -> 学历 -> 地址 | Mock 可通 | `pages/login/*` 路由存在；`useLogin.submit` 写入 mock token 后 `switchTab('/pages/index/index')` |
-| 微信真实登录换 token | 接口阻断 | 前端 `POST /miniapp/login`；后端 `POST /miniapp/auth/wechat-login` |
+| 登录蓝湖资料页：授权 -> 性别 -> 年龄 -> 学历 -> 地址 | 可通 | `pages/login/*` 路由存在；微信授权手机号后写入真实 token；`useLogin.submit` 调 `POST /miniapp/profile/init-complete` |
+| 微信真实登录换 token | 可通 | 前端 `POST /miniapp/auth/wechat-login` 传 `loginCode/phoneCode`；后端换取 `openid/phone` 并写 `app_user` |
 | 认证中心：状态、实名、学历、头像 | 接口可对齐 | 前端 `services/verification.ts` 与后端 `VerificationController` 路径一致；服务内仍有 Mock 兜底逻辑 |
 | 成家 Tab/觅缘主页面 | Mock 可通 | `pages/index/index` 使用 `useMatch` 和 `mockMatchUsers` |
 | 立业 Tab/社区页面 | Mock 可通 | `pages/community/index` 页面内 `MOCK_POSTS`，没有调用 `services/community.ts` |
@@ -62,7 +62,7 @@
 
 ### 0.3 第一批必须修复
 
-1. `miniapp/src/services/auth.ts`：`POST /miniapp/login` 改为 `POST /miniapp/auth/wechat-login`。
+1. DONE：`miniapp/src/services/auth.ts` 已改为 `POST /miniapp/auth/wechat-login`，并传 `loginCode/phoneCode`。
 2. `miniapp/src/hooks/useProfile.ts`：修正旧路由，至少把 VIP 和成家币改到真实页面。
 3. `miniapp/src/hooks/useProfile.ts`：把我的页数据源从纯 Mock 改为优先 `GET /miniapp/profile/home`，失败时再 Mock 兜底。
 4. `miniapp/src/services/payment.ts`：拆分 VIP、成家币、支付路径，避免商业化链路真实环境全断。
@@ -128,18 +128,18 @@ flowchart TD
 
 | 步骤 | 蓝湖页面 | 当前路由/代码 | 前端行为 | 接口状态 | 闭环状态 |
 | --- | --- | --- | --- | --- | --- |
-| 授权 | 登录、登录-授权 | `pages/login/index` | 协议弹窗，同意后进入性别 | 未调真实登录 | Mock 可通 |
+| 授权 | 登录、登录-授权 | `pages/login/index` | 协议弹窗，同意后点击微信行授权手机号，成功后进入资料流程 | `POST /miniapp/auth/wechat-login` | 可通 |
 | 性别 | 登录-性别选择 | `pages/login/gender` | 写入 `useLogin` store，跳年龄 | 无接口 | Mock 可通 |
 | 年龄 | 登录-年龄选择 | `pages/login/age` | 写入年龄，跳学历 | 无接口 | Mock 可通 |
 | 学历 | 登录-学历 | `pages/login/education` | 写入学历，跳地址 | 无接口 | Mock 可通 |
 | 地址 | 登录-地址 | `pages/login/address` | 跳 `pages/verification/basic` | 无接口 | Mock 可通 |
-| 提交登录资料 | 当前未形成真实提交 | `useLogin.submit` | 写 mock token，`switchTab('/pages/index/index')` | 未接 `profile/init-*` | Mock 可通 |
+| 提交登录资料 | 地址页最终提交 | `useLogin.submit` | 调 `POST /miniapp/profile/init-complete`，成功后 `switchTab('/pages/index/index')` | 已接 `profile/init-complete` | 可通 |
 
 需要对齐的后端能力：
 
 | 后端接口 | 当前用途判断 | 对接建议 |
 | --- | --- | --- |
-| `POST /miniapp/auth/wechat-login` | 微信 code 换 token | 替换前端 `/miniapp/login` |
+| `POST /miniapp/auth/wechat-login` | `wx.login` code + `getPhoneNumber` code 换 `openid/phone/token` | 已接入 |
 | `GET /miniapp/profile/init-status` | 查询资料初始化进度 | 登录后决定是否进入资料页/认证页 |
 | `POST /miniapp/profile/init-save` | 分步保存资料 | 性别、年龄、学历、地址每步可保存 |
 | `POST /miniapp/profile/init-complete` | 完成资料初始化 | 地址页完成后调用，再跳认证或首页 |
@@ -148,10 +148,10 @@ flowchart TD
 
 | 项目 | 当前前端 | 当前后端 | 结论 |
 | --- | --- | --- | --- |
-| 登录服务 | `miniapp/src/services/auth.ts` | `AuthMiniappController` | 路径不一致 |
-| 请求路径 | `POST /miniapp/login` | `POST /miniapp/auth/wechat-login` | 前端需改 |
-| 调用者 | `useAuth.login -> Taro.login -> loginByCode` | Controller 已实现 | 可快速修复 |
-| 页面登录流程 | `pages/login/*` 目前没有调用 `useAuth.login` | 后端不感知资料步骤 | 需要补资料保存编排 |
+| 登录服务 | `miniapp/src/services/auth.ts` | `AuthMiniappController` | 已对齐 |
+| 请求路径 | `POST /miniapp/auth/wechat-login` | `POST /miniapp/auth/wechat-login` | 已对齐 |
+| 调用者 | 登录页 `getPhoneNumber -> Taro.login -> loginByWechatPhone` | `AuthMiniappServiceImpl` | 已换取 `openid/phone/token` |
+| 页面登录流程 | `pages/login/*` 授权成功后进入资料步骤，地址页提交 `init-complete` | 后端落 `app_user` 并标记首登完成 | 已接入最终提交 |
 
 ### 2.3 认证链路
 
@@ -333,11 +333,11 @@ flowchart TD
 | 行为 | 当前前端 | 后端真实接口 | 当前状态 | 修复建议 |
 | --- | --- | --- | --- | --- |
 | 我的页进入会员中心 | `/pages/vip/index` | 页面是 `/pages/membership/index` | 路由阻断 | 改路由 |
-| 会员状态 | `useMembership` Mock | `GET /miniapp/vip/status` | 前端未接 | 替换 hook 数据源 |
-| 套餐列表 | `GET /miniapp/payment/vip/packages` | `GET /miniapp/vip/packages` | 路径不一致 | 改 service |
+| 会员状态 | `useMembership` 优先调用真实接口，失败回落蓝湖 demo | `GET /miniapp/vip/status` | 已接入 | 后续继续补记录页 |
+| 套餐列表 | `GET /miniapp/vip/packages` | `GET /miniapp/vip/packages` | 已对齐 | 保持后端套餐 ID |
 | 权益列表 | 无真实调用 | `GET /miniapp/vip/benefits` | 后端已有 | 新增 service |
 | 会员记录 | `useMembership` Mock | `GET /miniapp/vip/orders` | 前端未接 | 记录页接真实接口 |
-| 支付 | `useMembership.confirmPay` Mock toast | `POST /miniapp/payment/create-order` | 前端未接 | 接创建订单 + 微信支付 |
+| 支付 | `createOrder -> wx.requestPayment` | `POST /miniapp/payment/create-order` | 已接入真实微信支付 | 真机补支付截图 |
 
 ### 4.2 成家币
 
@@ -347,9 +347,9 @@ flowchart TD
 | --- | --- | --- | --- | --- |
 | 我的页进入成家币 | `/pages/coin/index` | 页面是 `/pages/coins/index` | 路由阻断 | 改路由 |
 | 成家币余额 | `useCoins` Mock | `GET /miniapp/coin/balance` | 前端未接 | 替换 hook 数据源 |
-| 套餐列表 | `GET /miniapp/payment/coin/packages` | `GET /miniapp/coin/packages` | 路径不一致 | 改 service |
+| 套餐列表 | `GET /miniapp/coin/packages` | `GET /miniapp/coin/packages` | 已对齐 | 保持后端套餐 ID |
 | 明细流水 | `useCoins` Mock | `GET /miniapp/coin/flows` | 前端未接 | 明细页接真实接口 |
-| 充值支付 | `useCoins.purchase` Mock | `POST /miniapp/payment/create-order` | 前端未接 | 接支付链路 |
+| 充值支付 | `createOrder -> wx.requestPayment` | `POST /miniapp/payment/create-order` | 已接入真实微信支付 | 真机补支付截图 |
 
 字段适配：
 
@@ -366,9 +366,9 @@ flowchart TD
 
 | 行为 | 当前前端 | 后端真实接口 | 闭环状态 |
 | --- | --- | --- | --- |
-| 创建订单 | `POST /miniapp/payment/order`，入参 `{ packageId, type }` | `POST /miniapp/payment/create-order`，入参 `{ orderType, packageId }` | 路径/入参不一致 |
+| 创建订单 | `POST /miniapp/payment/create-order`，入参 `{ orderType, packageId }` | `POST /miniapp/payment/create-order`，入参 `{ orderType, packageId }` | 已对齐 |
 | 模拟支付 | 前端未调 | `POST /miniapp/payment/mock-pay/{orderId}` | 后端已有，前端未接 |
-| 微信支付参数 | 前端期望 `payParams` | 后端返回结构需以 Controller/VO 为准 | 待字段确认 |
+| 微信支付参数 | 前端消费 `payParams` | 后端返回 `timeStamp/nonceStr/package/signType/paySign` | 已对齐 |
 
 支付闭环要求：
 
@@ -387,7 +387,7 @@ sequenceDiagram
   B-->>M: 刷新会员状态/余额
 ```
 
-当前缺口：后端有创建订单与 mock-pay，但前端 hook 仍是本地成功 toast，未形成真实“订单 -> 支付 -> 状态刷新”闭环。
+当前口径：会员和千寻币真实点击链路已形成“订单 -> 微信支付 -> 回调入账”闭环；`mock-pay` 仅保留开发调试。
 
 ### 4.4 解锁
 
@@ -489,12 +489,12 @@ sequenceDiagram
 
 | 序号 | 模块 | 当前前端调用 | 后端真实接口 | 问题 | 优先级 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 登录 | `POST /miniapp/login` | `POST /miniapp/auth/wechat-login` | 路径不一致 | P0 |
+| 1 | 登录 | `POST /miniapp/auth/wechat-login` | `POST /miniapp/auth/wechat-login` | 已对齐，入参为 `loginCode/phoneCode` | DONE |
 | 2 | 我的资料 | `GET /miniapp/user/info` | `GET /miniapp/profile/home` 或 `GET /miniapp/profile/detail` | 路径/出参不同 | P0 |
 | 3 | 推荐用户 | `GET /miniapp/match/recommend` | 无 | 后端缺 | P1 |
-| 4 | VIP 套餐 | `GET /miniapp/payment/vip/packages` | `GET /miniapp/vip/packages` | 路径不一致 | P0 |
-| 5 | 成家币套餐 | `GET /miniapp/payment/coin/packages` | `GET /miniapp/coin/packages` | 路径/字段不一致 | P0 |
-| 6 | 创建订单 | `POST /miniapp/payment/order` | `POST /miniapp/payment/create-order` | 路径/入参不一致 | P0 |
+| 4 | VIP 套餐 | `GET /miniapp/vip/packages` | `GET /miniapp/vip/packages` | 已对齐 | DONE |
+| 5 | 成家币套餐 | `GET /miniapp/coin/packages` | `GET /miniapp/coin/packages` | 已对齐 | DONE |
+| 6 | 创建订单 | `POST /miniapp/payment/create-order` | `POST /miniapp/payment/create-order` | 已对齐 | DONE |
 | 7 | 邀请记录 | `GET /miniapp/promotion/invites` | `GET /miniapp/promotion/invite/records` | 路径不一致 | P1 |
 | 8 | 邀请码 | `GET /miniapp/promotion/invite-code` | `GET /miniapp/promotion/invite/qr-code` | 路径/出参不同 | P1 |
 | 9 | 使用邀请码 | `POST /miniapp/promotion/use-code` | `POST /miniapp/promotion/invite/bind` | 路径/入参不同 | P1 |
@@ -623,17 +623,18 @@ sequenceDiagram
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | 已实现，前端需改路径 |
+| 状态 | 已实现并已接入前端 |
 | Method | `POST` |
 | Path | `/miniapp/auth/wechat-login` |
 | Auth | 公开 |
-| 当前前端 | `POST /miniapp/login` |
+| 当前前端 | `POST /miniapp/auth/wechat-login` |
 
 请求 `WechatLoginReq`：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `code` | string | 是 | `Taro.login()` / `wx.login()` 返回的临时 code |
+| `loginCode` | string | 是 | `Taro.login()` / `wx.login()` 返回的临时 code |
+| `phoneCode` | string | 是 | `Button open-type=getPhoneNumber` 返回的手机号授权 code |
 
 响应 `WechatLoginVO`：
 
@@ -641,9 +642,14 @@ sequenceDiagram
 | --- | --- | --- |
 | `token` | string | 小程序登录凭证，后续放入 `X-Auth-Token` |
 | `userId` | number | 当前用户 ID |
+| `openid` | string | 微信小程序 openid，支付 JSAPI 使用 |
+| `phone` | string | 微信授权手机号 |
+| `maskedPhone` | string | 脱敏手机号 |
+| `nickname` | string | 已有用户昵称，新用户可能为空 |
+| `avatar` | string | 已有用户头像，新用户可能为空 |
 | `firstLoginCompleted` | boolean | 是否已完成首登资料初始化 |
 
-前端适配：当前 `LoginVO` 还期望 `nickname/avatar`，但后端登录响应没有这两个字段；应登录成功后再调 `GET /miniapp/profile/home` 或 `GET /miniapp/profile/detail` 获取资料。
+前端适配：新用户若 `nickname/avatar` 为空，登录页使用蓝湖默认头像/昵称继续资料流程；老用户已完成首登时直接进首页。
 
 #### 9.2.2 查询首登资料状态
 

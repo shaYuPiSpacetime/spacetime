@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS app_user (
     -- 账户字段
     openid VARCHAR(128) DEFAULT NULL COMMENT '小程序openid',
     unionid VARCHAR(128) DEFAULT NULL COMMENT '微信unionid',
+    phone VARCHAR(30) DEFAULT NULL COMMENT '微信授权手机号',
+    phone_hash VARCHAR(64) DEFAULT NULL COMMENT '手机号 SHA-256 哈希',
     register_source VARCHAR(30) DEFAULT 'WECHAT' COMMENT '注册来源 @see RegisterSourceEnum',
     register_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
     last_login_time DATETIME DEFAULT NULL COMMENT '最近登录时间',
@@ -51,6 +53,7 @@ CREATE TABLE IF NOT EXISTS app_user (
     updated_by BIGINT DEFAULT NULL,
     deleted TINYINT DEFAULT 0,
     UNIQUE KEY uk_openid (openid),
+    UNIQUE KEY uk_app_user_phone_hash_deleted (phone_hash, deleted),
     INDEX idx_account_status (account_status),
     INDEX idx_first_login (first_login_completed),
     INDEX idx_gender (gender),

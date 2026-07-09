@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     mobile_name VARCHAR(100) NOT NULL COMMENT '移动端名称',
     mobile_icon VARCHAR(100) DEFAULT NULL COMMENT '移动端图标',
     scene_desc VARCHAR(500) DEFAULT NULL COMMENT '场景说明',
-    unit_price INT DEFAULT 0 COMMENT '单价，单位：成家币',
+    unit_price INT DEFAULT 0 COMMENT '单价，单位：千寻币',
     retention_days INT DEFAULT 0 COMMENT '保留期天数，0表示永久',
     sort_order INT DEFAULT 0 COMMENT '排序号',
     status VARCHAR(20) DEFAULT 'ENABLED' COMMENT '状态: ENABLED/DISABLED',
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     deleted TINYINT DEFAULT 0,
     UNIQUE KEY uk_scene_code (scene_code),
     INDEX idx_status_sort (status, sort_order)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成家币消费场景配置表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千寻币消费场景配置表';
 
 CREATE TABLE IF NOT EXISTS app_commercial_config_log (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -113,14 +113,14 @@ CREATE TABLE IF NOT EXISTS app_payment_notify_log (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支付回调日志预留表';
 
 INSERT INTO app_coin_scene_config (scene_code, mobile_name, mobile_icon, scene_desc, unit_price, retention_days, sort_order, status) VALUES
-('like_me_unlock', '喜欢我的', 'heart', '查看喜欢我的用户', 10, 0, 1, 'ENABLED'),
-('visit_me_unlock', '看过我的', 'eye', '查看最近访客', 8, 0, 2, 'ENABLED'),
-('ideal_match_unlock', '理想型解锁', 'sparkles', '解锁理想型候选人', 12, 90, 3, 'ENABLED'),
-('featured_profile_unlock', '精选主页', 'star', '解锁精选主页曝光', 15, 3, 4, 'ENABLED'),
-('whisper_message', '悄悄话', 'message-circle', '发送额外悄悄话', 5, 0, 5, 'ENABLED'),
-('advanced_filter', '高级筛选', 'sliders-horizontal', '开启一次高级筛选', 6, 1, 6, 'ENABLED'),
-('priority_exposure', '优先曝光', 'zap', '获得短期优先曝光', 20, 1, 7, 'ENABLED'),
-('profile_boost', '主页加速', 'rocket', '提升资料推荐权重', 18, 1, 8, 'ENABLED')
+('whisper', '发送悄悄话（单次）', 'icon-whisper', '单次发送悄悄话', 12, 0, 1, 'ENABLED'),
+('likes_unlock_one', '查看谁喜欢我（单次）', 'icon-heart-unlock', '查看单条喜欢我的清晰信息', 8, 0, 2, 'ENABLED'),
+('viewers_unlock_one', '查看谁看过我（单次）', 'icon-eye-unlock', '查看单条访客清晰信息', 8, 0, 3, 'ENABLED'),
+('ideal_user_unlock', '解锁理想型用户（单个）', 'icon-target-user', '单个理想型用户解锁', 18, 90, 4, 'ENABLED'),
+('ideal_batch_unlock', '批量解锁理想型用户', 'icon-target-batch', '多个理想型用户批量解锁', 15, 90, 5, 'ENABLED'),
+('compatible_person_unlock_one', '合拍的人（单个）', 'icon-compatible-person', '由测评结果推荐的人', 20, 90, 6, 'ENABLED'),
+('soulmate_mizhiyin_unlock_one', '解锁知音-觅知音（单个）', 'icon-soulmate', '单个解锁知音对象', 28, 90, 7, 'ENABLED'),
+('career_recommend_unlock_one', '立业-职业推荐', 'icon-career-recommend', '根据职业测评结果推荐职业，单次解锁；重新完成测评时才需再次解锁', 26, 0, 8, 'ENABLED')
 ON DUPLICATE KEY UPDATE
     mobile_name = VALUES(mobile_name),
     mobile_icon = VALUES(mobile_icon),

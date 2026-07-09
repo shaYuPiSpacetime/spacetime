@@ -35,3 +35,21 @@ oss:
   access-key-id: ${DEV_OSS_ACCESS_KEY_ID:}
   access-key-secret: ${DEV_OSS_ACCESS_KEY_SECRET:}
   bucket-name: ${DEV_OSS_BUCKET_NAME:spacetime}
+  cdn-domain: ${DEV_OSS_CDN_DOMAIN:}
+  url-expire-seconds: 300
+
+wechat-pay:
+  app-id: ${DEV_WECHAT_PAY_APP_ID:wx6b7a86e4c1bdb012}
+  mch-id: ${DEV_WECHAT_PAY_MCH_ID:}
+  api-v3-key: ${DEV_WECHAT_PAY_API_V3_KEY:}
+  cert-serial-no: ${DEV_WECHAT_PAY_CERT_SERIAL_NO:}
+  private-key-path: ${DEV_WECHAT_PAY_PRIVATE_KEY_PATH:cert/apiclient_key.pem}
+  merchant-cert-path: ${DEV_WECHAT_PAY_MERCHANT_CERT_PATH:cert/apiclient_cert.pem}
+  notify-url: ${DEV_WECHAT_PAY_NOTIFY_URL:https://admin.shikongxiehou.com/api/miniapp/payment/wechat/notify}
+  force-test-amount: ${DEV_WECHAT_PAY_FORCE_TEST_AMOUNT:true}
+  test-pay-amount: ${DEV_WECHAT_PAY_TEST_PAY_AMOUNT:0.01}
+  description-prefix: ${DEV_WECHAT_PAY_DESCRIPTION_PREFIX:时空邂逅}
+
+wechat-miniapp:
+  app-id: ${DEV_WECHAT_MINIAPP_APP_ID:${DEV_WECHAT_PAY_APP_ID:wx6b7a86e4c1bdb012}}
+  app-secret: ${DEV_WECHAT_MINIAPP_APP_SECRET:}

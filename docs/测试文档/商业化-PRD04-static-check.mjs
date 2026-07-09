@@ -23,6 +23,16 @@ function includes(path, snippets) {
   });
 }
 
+function excludes(path, snippets) {
+  const text = file(path);
+  snippets.forEach((snippet) => {
+    checks.push(`${path} 不包含 ${snippet}`);
+    if (text.includes(snippet)) {
+      throw new Error(`${path} 不应包含: ${snippet}`);
+    }
+  });
+}
+
 [
   'backend/src/main/java/com/spacetime/admin/controller/CommercialConfigController.java',
   'backend/src/main/java/com/spacetime/admin/service/CommercialAdminService.java',
@@ -33,6 +43,10 @@ function includes(path, snippets) {
   'backend/src/main/java/com/spacetime/common/entity/PaymentNotifyLog.java',
   'frontend/src/api/commercial.ts',
   'frontend/src/pages/commercial/CommercialManagement.tsx',
+  'backend/src/main/java/com/spacetime/admin/dto/request/FlowPageReq.java',
+  'backend/src/main/java/com/spacetime/admin/dto/response/CoinFlowVO.java',
+  'backend/src/main/java/com/spacetime/admin/service/impl/FinanceAdminServiceImpl.java',
+  'docs/测试文档/商业化-PRD04-query-regression.mjs',
 ].forEach((path) => {
   checks.push(`存在文件 ${path}`);
   file(path);
@@ -49,6 +63,36 @@ includes('backend/docs/sql/schema-commercial.sql', [
   'app_refund_record',
   'app_payment_notify_log',
   'balance_before',
+]);
+
+includes('deploy/sql/prod/031_commercial_demo_menu_alignment.sql', [
+  '移动端配置',
+  '财务中心',
+  '商业化配置',
+  '商业化订单',
+  '资产流水',
+  '退款记录',
+  '轻量对账',
+  'id = 820',
+  'visible = 0',
+]);
+
+includes('deploy/sql/prod/032_commercial_config_data_alignment.sql', [
+  'app_coin_scene_config',
+  '发送悄悄话（单次）',
+  '查看谁喜欢我（单次）',
+  '千寻币',
+  'CONCAT(\'成\', \'家币\')',
+]);
+
+includes('deploy/sql/prod/033_commercial_runtime_data_seed.sql', [
+  'app_trade_order',
+  'app_user_coin_log',
+  'app_refund_record',
+  'app_commercial_config_log',
+  'CURRENT_DATE',
+  'ADM04-ORDER',
+  'ADM04-RF',
 ]);
 
 includes('backend/src/main/java/com/spacetime/admin/controller/CommercialConfigController.java', [
@@ -87,11 +131,108 @@ includes('frontend/src/router/index.tsx', [
 ]);
 
 includes('frontend/src/pages/commercial/CommercialManagement.tsx', [
+  'ADM-04-PAGE-commerce-config',
+  'ADM-04-PAGE-commerce-order-list',
+  'ADM-04-PAGE-asset-flow-list',
+  'ADM-04-PAGE-refund-list',
+  'ADM-04-PAGE-commerce-reconcile',
   '商业化配置',
+  '移动端配置管理 / 商业化配置',
+  '会员权益',
+  '会员套餐',
+  '千寻币套餐',
+  '千寻币消费场景',
+  '解锁保留期',
+  '社交与订单参数',
+  '曝光包预留',
   '商业化订单',
+  '商业化订单管理',
   '资产流水',
+  '资产流水管理',
   '退款记录',
+  '退款记录管理',
   '轻量对账',
+  'commerce-tabs',
+  'config-workbench',
+  'query-panel',
+  'table-wrap',
+  'drawer-backdrop',
+  'modal-backdrop',
+  'configLogDrawer',
+  'orderDrawer',
+  'flowDrawer',
+  'refundDrawer',
+  'configSaveModal',
+  'refundApplyModal',
+  'exportModal',
+  'handleConfigTabChange',
+  'void handleConfigTabChange(tab.key)',
+  'await load();',
+  'EmptyTableRow',
+  'dateRange',
+  'orderNo: filters.orderNo',
+  'userId: filters.userId ? Number(filters.userId) : undefined',
+  'assetType: filters.assetType',
+  '<option value="coin">千寻币</option>',
+  '<option value="vip">会员权益</option>',
+]);
+
+includes('frontend/src/api/commercial.ts', [
+  'assetType?: string;',
+]);
+
+includes('backend/src/main/java/com/spacetime/admin/dto/request/FlowPageReq.java', [
+  'private String assetType;',
+]);
+
+includes('backend/src/main/java/com/spacetime/admin/dto/response/CoinFlowVO.java', [
+  'private String assetType;',
+]);
+
+includes('backend/src/main/java/com/spacetime/admin/service/impl/FinanceAdminServiceImpl.java', [
+  'isCoinAssetType(req.getAssetType())',
+  'emptyCoinFlowPage(req)',
+  'vo.setAssetType("coin")',
+]);
+
+includes('docs/测试文档/商业化-PRD04-query-regression.mjs', [
+  'assetType=vip',
+  'assetType=coin',
+  "orderNo: 'ADM04-ORDER-COIN-TODAY-001'",
+  'userId: 100281',
+]);
+
+const bannedSnippets = [
+  '商业化' + '中心',
+  '成' + '家币',
+  'S' + 'VIP',
+  '高端' + '服务',
+  '积分' + '管理',
+  '订阅状态' + '同步',
+  '代用户取消' + '续费',
+  '退款状态' + '筛选',
+];
+
+excludes('frontend/src/pages/commercial/CommercialManagement.tsx', bannedSnippets);
+
+excludes('frontend/src/pages/commercial/CommercialManagement.tsx', [
+  'FALLBACK_',
+  'FIXED_BENEFITS',
+  'FIXED_SCENES',
+  'ORD-20260630',
+  '18,420',
+  '2026-06-30',
+  'rows.length ? rows :',
+  'setOrders(FALLBACK',
+  'setFlows(FALLBACK',
+  'setRefunds(FALLBACK',
+  'return FALLBACK',
+  '订单/用户搜索',
+]);
+
+excludes('backend/src/main/java/com/spacetime/admin/service/impl/CommercialAdminServiceImpl.java', [
+  'defaultScenes',
+  'defaultScene(',
 ]);
 
 includes('docs/测试文档/商业化-PRD04-测试用例.md', [

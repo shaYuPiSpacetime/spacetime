@@ -1,6 +1,7 @@
 package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.*;
+import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
@@ -34,12 +35,18 @@ class PaymentServiceImplTest {
     @Mock private TradeOrderDao tradeOrderDao;
     @Mock private UserAssetDao userAssetDao;
     @Mock private UserCoinLogDao userCoinLogDao;
+    @Mock private AppUserDao appUserDao;
+    @Mock private PaymentNotifyLogDao paymentNotifyLogDao;
+    @Mock private WechatPayService wechatPayService;
+    @Mock private WechatPayProperties wechatPayProperties;
     @InjectMocks private PaymentServiceImpl paymentService;
 
     private VipPackage vipPackage;
     private CoinPackage coinPackage;
     private TradeOrder unpaidOrder;
     private UserAsset userAsset;
+    private AppUser appUser;
+    private WechatPayParamsVO payParams;
 
     @BeforeEach
     void setUp() {
@@ -75,6 +82,18 @@ class PaymentServiceImplTest {
         userAsset.setVipStatus("inactive");
         userAsset.setCoinBalance(100);
         userAsset.setTotalRecharge(BigDecimal.ZERO);
+
+        appUser = new AppUser();
+        appUser.setId(1L);
+        appUser.setOpenid("openid_1");
+
+        payParams = new WechatPayParamsVO();
+        payParams.setTimeStamp("1770000000");
+        payParams.setNonceStr("nonce");
+        payParams.setPackageValue("prepay_id=wx_pre_1");
+        payParams.setSignType("RSA");
+        payParams.setPaySign("sign");
+        payParams.setPrepayId("wx_pre_1");
     }
 
     @Test
@@ -85,11 +104,35 @@ class PaymentServiceImplTest {
         req.setPackageId(1L);
 
         when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"))).thenReturn(payParams);
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
 
         assertThat(result.getOrderNo()).isNotNull();
+        assertThat(result.getPayChannel()).isEqualTo("wechat");
+        assertThat(result.getPayParams()).isEqualTo(payParams);
         verify(tradeOrderDao).insert(argThat(o -> "unpaid".equals(o.getOrderStatus())));
+        verify(tradeOrderDao).updateById(argThat(o -> "wx_pre_1".equals(o.getPrepayId())));
+    }
+
+    @Test
+    @DisplayName("创建VIP订单-dev测试金额0.01")
+    void createVipOrder_devTestAmount_shouldUseOneCent() {
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(1L);
+
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatPayProperties.isForceTestAmount()).thenReturn(true);
+        when(wechatPayProperties.getTestPayAmount()).thenReturn(new BigDecimal("0.01"));
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"))).thenReturn(payParams);
+
+        CreateOrderVO result = paymentService.createOrder(1L, req);
+
+        assertThat(result.getPayAmount()).isEqualByComparingTo("0.01");
+        verify(tradeOrderDao).insert(argThat(o -> new BigDecimal("0.01").compareTo(o.getPayAmount()) == 0));
     }
 
     @Test

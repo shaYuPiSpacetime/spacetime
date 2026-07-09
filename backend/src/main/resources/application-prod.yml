@@ -25,3 +25,21 @@ oss:
   access-key-id: ${OSS_ACCESS_KEY_ID}
   access-key-secret: ${OSS_ACCESS_KEY_SECRET}
   bucket-name: ${OSS_BUCKET_NAME}
+  cdn-domain: ${OSS_CDN_DOMAIN:}
+  url-expire-seconds: ${OSS_URL_EXPIRE_SECONDS:300}
+
+wechat-pay:
+  app-id: ${WECHAT_PAY_APP_ID:wx6b7a86e4c1bdb012}
+  mch-id: ${WECHAT_PAY_MCH_ID}
+  api-v3-key: ${WECHAT_PAY_API_V3_KEY}
+  cert-serial-no: ${WECHAT_PAY_CERT_SERIAL_NO}
+  private-key-path: ${WECHAT_PAY_PRIVATE_KEY_PATH:cert/apiclient_key.pem}
+  merchant-cert-path: ${WECHAT_PAY_MERCHANT_CERT_PATH:cert/apiclient_cert.pem}
+  notify-url: ${WECHAT_PAY_NOTIFY_URL}
+  force-test-amount: ${WECHAT_PAY_FORCE_TEST_AMOUNT:false}
+  test-pay-amount: ${WECHAT_PAY_TEST_PAY_AMOUNT:0.01}
+  description-prefix: ${WECHAT_PAY_DESCRIPTION_PREFIX:时空邂逅}
+
+wechat-miniapp:
+  app-id: ${WECHAT_MINIAPP_APP_ID:${WECHAT_PAY_APP_ID:wx6b7a86e4c1bdb012}}
+  app-secret: ${WECHAT_MINIAPP_APP_SECRET}

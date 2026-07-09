@@ -26,4 +26,11 @@ public interface PaymentService {
      * @return 支付结果（订单编号、状态、资产变更）
      */
     PayResultVO mockPay(Long userId, Long orderId);
+
+    /**
+     * 处理微信支付回调
+     *
+     * @param body 微信支付回调原文
+     */
+    void handleWechatNotify(String body);
 }

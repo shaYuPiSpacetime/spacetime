@@ -24,9 +24,10 @@
 ## 1. 总体架构
 
 ```
-┌─────────────────────────────────────────────┐
-│                  Nginx / CDN                  │
-└────────────────┬────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│                Nginx / CDN / OSS                   │
+│  CDN 短链（人像图） / OSS 签名链（身份照）           │
+└────────────────┬─────────────────────────────────┘
                  │
     ┌────────────┴────────────┐
     │                         │
@@ -61,6 +62,34 @@
 - `admin/` 和 `miniapp/` 两个模块只能依赖 `common/`，互相不可调用
 - 前端通过 Vite proxy 转发 `/api` 到后端 `8080` 端口
 
+### OSS 文件访问策略
+
+文件按敏感度分两类处理，前端只存 OSS Key，不存完整 URL：
+
+| 分类 | 场景 | 访问路径 | 后端处理 | 有效期 |
+|------|------|---------|---------|--------|
+| 公有文件 | 头像、相册、人像照片 | `/miniapp/file/public/{key}` | 302 → CDN 短链 | **永久** |
+| 凭证文件 | 身份证、学历证、学位证 | `/miniapp/file/credential/{key}` | 302 → OSS 签名 URL | **5 分钟** |
+
+**调用方：** `FileController` + `OssUtil`
+
+```java
+// 人像照片 → CDN 永久短链
+ossUtil.uploadWithCdnUrl(inputStream, "avatar.jpg");
+// → https://static.shikongxiehou.com/2025/07/08/uuid.jpg
+
+// 身份照 → OSS 签名临时 URL（上传完即返回签名链）
+ossUtil.uploadWithSignedUrl(inputStream, "idcard.jpg");
+```
+
+**配置项（`application-{profile}.yml`）：**
+
+```yaml
+oss:
+  cdn-domain: ${OSS_CDN_DOMAIN:}         # CDN 加速域名，留空则退回 bucket 公网域名
+  url-expire-seconds: 300               # 签名 URL 有效期（秒），默认 5 分钟
+```
+
 ---
 
 ## 2. 后端技术栈
@@ -75,7 +104,7 @@
 | Hutool | 5.8.32 | 工具库 |
 | Knife4j | 4.5.0 | API 文档（Swagger） |
 | Lombok | 1.18.38 | 代码简化 |
-| Ali OSS | 3.18.1 | 对象存储（可选） |
+| Ali OSS | 3.18.1 | 对象存储 + CDN 加速（人像图走 CDN 永久短链，身份照走 OSS 签名临时链） |
 
 ### Maven 依赖（pom.xml 骨架）
 

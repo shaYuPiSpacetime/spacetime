@@ -2,12 +2,17 @@ package com.spacetime.miniapp.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.spacetime.common.config.WechatPayProperties;
+import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.CoinPackageDao;
+import com.spacetime.common.dao.PaymentNotifyLogDao;
 import com.spacetime.common.dao.TradeOrderDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserCoinLogDao;
 import com.spacetime.common.dao.VipPackageDao;
+import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.CoinPackage;
+import com.spacetime.common.entity.PaymentNotifyLog;
 import com.spacetime.common.entity.TradeOrder;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
@@ -22,7 +27,9 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
 import com.spacetime.miniapp.dto.response.CreateOrderVO;
 import com.spacetime.miniapp.dto.response.PayResultVO;
+import com.spacetime.miniapp.dto.response.WechatPayParamsVO;
 import com.spacetime.miniapp.service.PaymentService;
+import com.spacetime.miniapp.service.WechatPayService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -49,6 +56,14 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserAssetDao userAssetDao;
     /** 成家币流水数据访问 */
     private final UserCoinLogDao userCoinLogDao;
+    /** 小程序用户数据访问 */
+    private final AppUserDao appUserDao;
+    /** 支付回调日志数据访问 */
+    private final PaymentNotifyLogDao paymentNotifyLogDao;
+    /** 微信支付服务 */
+    private final WechatPayService wechatPayService;
+    /** 微信支付配置 */
+    private final WechatPayProperties wechatPayProperties;
 
     /**
      * 创建支付订单（VIP套餐或成家币套餐购买）
@@ -84,6 +99,12 @@ public class PaymentServiceImpl implements PaymentService {
         } else {
             throw new BusinessException("不支持的订单类型");
         }
+        payAmount = resolveEffectivePayAmount(payAmount);
+
+        AppUser user = appUserDao.selectById(userId);
+        if (user == null || user.getOpenid() == null || user.getOpenid().isBlank()) {
+            throw new BusinessException("当前用户缺少微信 openid，无法发起支付");
+        }
 
         // 2. 生成订单编号并写入订单
         String orderNo = "TO" + IdUtil.getSnowflakeNextIdStr();
@@ -94,13 +115,23 @@ public class PaymentServiceImpl implements PaymentService {
         order.setPackageId(packageId);
         order.setPackageName(packageName);
         order.setPayAmount(payAmount);
+        order.setPayChannel("wechat");
         order.setOrderStatus(OrderStatusEnum.UNPAID.getCode());
+        order.setExpireTime(LocalDateTime.now().plusMinutes(30));
         tradeOrderDao.insert(order);
 
-        // 3. 返回创建结果
+        // 3. 调用微信 JSAPI 预支付并落库 prepayId
+        WechatPayParamsVO payParams = wechatPayService.createJsapiPayParams(order, user.getOpenid());
+        order.setPrepayId(payParams.getPrepayId());
+        tradeOrderDao.updateById(order);
+
+        // 4. 返回创建结果
         CreateOrderVO vo = new CreateOrderVO();
         vo.setOrderId(order.getId());
         vo.setOrderNo(orderNo);
+        vo.setPayAmount(payAmount);
+        vo.setPayChannel(order.getPayChannel());
+        vo.setPayParams(payParams);
         return vo;
     }
 
@@ -135,6 +166,69 @@ public class PaymentServiceImpl implements PaymentService {
         LocalDateTime now = LocalDateTime.now();
 
         // 3. 根据订单类型处理支付
+        order.setPayChannel(order.getPayChannel() == null ? "mock" : order.getPayChannel());
+        applySuccessfulPayment(order, now);
+
+        log.info("模拟支付成功: userId={}, orderId={}, orderType={}, amount={}",
+                userId, orderId, order.getOrderType(), order.getPayAmount());
+        return buildPayResult(order);
+    }
+
+    @Override
+    @Transactional
+    public void handleWechatNotify(String body) {
+        WechatPayService.WechatPayNotifyResult notify = wechatPayService.parseNotify(body);
+        LocalDateTime now = LocalDateTime.now();
+        PaymentNotifyLog notifyLog = new PaymentNotifyLog();
+        notifyLog.setPayChannel("wechat");
+        notifyLog.setOrderNo(notify.outTradeNo());
+        notifyLog.setChannelTradeNo(notify.transactionId());
+        notifyLog.setNotifyType("payment");
+        notifyLog.setNotifyPayload(notify.rawPayload());
+        notifyLog.setNotifyTime(now);
+
+        try {
+            if (!"SUCCESS".equalsIgnoreCase(notify.tradeState())) {
+                notifyLog.setProcessStatus("ignored");
+                notifyLog.setProcessMessage("非成功支付状态: " + notify.tradeState());
+                paymentNotifyLogDao.insert(notifyLog);
+                return;
+            }
+
+            TradeOrder order = tradeOrderDao.selectByOrderNo(notify.outTradeNo());
+            if (order == null) {
+                throw new BusinessException("支付回调订单不存在");
+            }
+            if (OrderStatusEnum.SUCCESS.getCode().equals(order.getOrderStatus())) {
+                notifyLog.setProcessStatus("ignored");
+                notifyLog.setProcessMessage("订单已支付，幂等忽略");
+                paymentNotifyLogDao.insert(notifyLog);
+                return;
+            }
+            if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())) {
+                throw new BusinessException("订单状态不正确，无法支付");
+            }
+
+            order.setPayChannel("wechat");
+            order.setChannelTradeNo(notify.transactionId());
+            order.setNotifySummary(summary(notify.rawPayload()));
+            applySuccessfulPayment(order, now);
+            notifyLog.setProcessStatus("success");
+            notifyLog.setProcessMessage("处理成功");
+            paymentNotifyLogDao.insert(notifyLog);
+            log.info("微信支付回调处理成功: orderNo={}, transactionId={}", notify.outTradeNo(), notify.transactionId());
+        } catch (BusinessException ex) {
+            notifyLog.setProcessStatus("failed");
+            notifyLog.setProcessMessage(ex.getMessage());
+            paymentNotifyLogDao.insert(notifyLog);
+            throw ex;
+        }
+    }
+
+    /**
+     * 按订单类型处理成功支付
+     */
+    private void applySuccessfulPayment(TradeOrder order, LocalDateTime now) {
         if (OrderTypeEnum.VIP.getCode().equals(order.getOrderType())) {
             processVipPayment(order, now);
         } else if (OrderTypeEnum.COIN.getCode().equals(order.getOrderType())) {
@@ -142,10 +236,6 @@ public class PaymentServiceImpl implements PaymentService {
         } else {
             throw new BusinessException("不支持的订单类型");
         }
-
-        log.info("模拟支付成功: userId={}, orderId={}, orderType={}, amount={}",
-                userId, orderId, order.getOrderType(), order.getPayAmount());
-        return buildPayResult(order);
     }
 
     /**
@@ -252,6 +342,30 @@ public class PaymentServiceImpl implements PaymentService {
         coinLog.setRefId(order.getId());
         coinLog.setRefType("trade_order");
         userCoinLogDao.insert(coinLog);
+    }
+
+    /**
+     * 解析实际支付金额。dev 环境默认走 0.01 测试金额，prod 默认使用套餐原价。
+     */
+    private BigDecimal resolveEffectivePayAmount(BigDecimal payAmount) {
+        if (wechatPayProperties.isForceTestAmount()) {
+            BigDecimal testPayAmount = wechatPayProperties.getTestPayAmount();
+            if (testPayAmount == null || testPayAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("微信支付测试金额配置不正确");
+            }
+            return testPayAmount;
+        }
+        return payAmount;
+    }
+
+    /**
+     * 截断回调摘要，避免订单表保存过长内容。
+     */
+    private String summary(String payload) {
+        if (payload == null) {
+            return null;
+        }
+        return payload.length() <= 512 ? payload : payload.substring(0, 512);
     }
 
     /**

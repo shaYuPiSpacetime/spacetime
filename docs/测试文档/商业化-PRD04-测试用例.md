@@ -236,3 +236,26 @@ POST /admin/finance/reconcile/export
 | 编号 | 用例 | 命令 | 预期 |
 |------|------|------|------|
 | STATIC-04-01 | PRD-04 商业化闭环文件与路由检查 | `node docs/测试文档/商业化-PRD04-static-check.mjs` | 输出“PRD-04 商业化静态闭环校验通过” |
+
+### 7.5 查询条件回归补充
+
+> 关联脚本：`docs/测试文档/商业化-PRD04-query-regression.mjs`
+
+| 编号 | 用例 | 覆盖页面/接口 | 预期 |
+|------|------|---------------|------|
+| L1-Q-01 | 订单号筛选 | `/admin/finance/orders/list?orderNo=ADM04-ORDER-COIN-TODAY-001` | 只返回目标订单 |
+| L1-Q-02 | 用户 ID 筛选 | `/admin/finance/orders/list?userId=100281` | 返回记录均为用户 100281 |
+| L1-Q-03 | 订单类型筛选 | `/admin/finance/orders/list?orderType=coin` | 返回记录均为千寻币充值订单 |
+| L1-Q-04 | 订单状态筛选 | `/admin/finance/orders/list?orderStatus=refunded` | 返回记录均为已退款订单 |
+| L1-Q-05 | 日期范围筛选 | `/admin/finance/orders/list?startTime=...&endTime=...` | 返回当天维护的商业化订单 |
+| L1-Q-06 | 资产类型筛选-会员权益 | `/admin/finance/flows/list?assetType=vip` | 当前无会员权益流水表，返回空分页 |
+| L1-Q-07 | 资产类型筛选-千寻币 | `/admin/finance/flows/list?assetType=coin` | 返回记录均标记 `assetType=coin` |
+| L1-Q-08 | 流水用户筛选 | `/admin/finance/flows/list?userId=100281` | 返回记录均为用户 100281 |
+| L1-Q-09 | 流水类型筛选 | `/admin/finance/flows/list?flowType=refund` | 返回记录均为退款退回流水 |
+| L1-Q-10 | 业务场景筛选 | `/admin/finance/flows/list?bizScene=订单退款` | 返回记录均为订单退款场景 |
+| L1-Q-11 | 退款订单号筛选 | `/admin/finance/refunds/list?orderNo=ADM04-ORDER-COIN-TODAY-001` | 只返回目标退款单 |
+| L1-Q-12 | 退款用户筛选 | `/admin/finance/refunds/list?userId=100281` | 返回记录均为用户 100281 |
+| L1-Q-13 | 退款日期筛选 | `/admin/finance/refunds/list?startTime=...&endTime=...` | 返回当天退款记录 |
+| L1-Q-14 | 对账日期筛选 | `/admin/finance/reconcile/daily?date=当天` | 返回当天订单金额、退款金额、净收入 |
+| L4-Q-01 | 资产类型下拉发参 | `/commercial/flows` | 选择会员权益发出 `assetType=vip` 并展示空态；选择千寻币发出 `assetType=coin` 并展示数据 |
+| L4-Q-02 | 订单用户 ID 输入发参 | `/commercial/orders` | 输入 `100281` 查询时请求包含 `userId=100281` |

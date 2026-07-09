@@ -22,6 +22,10 @@ public class AppUser extends BaseEntity {
     private String openid;
     /** 微信unionid */
     private String unionid;
+    /** 授权手机号 */
+    private String phone;
+    /** 授权手机号 SHA-256 哈希，用于唯一绑定和风控 */
+    private String phoneHash;
     /** 注册来源 @see RegisterSourceEnum */
     private String registerSource;
     /** 注册时间 */

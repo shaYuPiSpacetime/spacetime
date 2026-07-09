@@ -1,24 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Banknote,
-  Clock3,
-  Download,
-  Eye,
-  FileClock,
-  RefreshCcw,
-  RotateCcw,
-  Save,
-  Search,
-  Settings2,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useLocation } from 'react-router-dom';
 import { showToast } from '@/components/ui/toast';
 import {
   exportCommercialFlows,
@@ -26,6 +7,7 @@ import {
   exportCommercialReconcile,
   exportCommercialRefunds,
   getCommercialConfig,
+  getCommercialConfigLogs,
   getCommercialFlowList,
   getCommercialOrderDetail,
   getCommercialOrderList,
@@ -35,121 +17,424 @@ import {
   refundCommercialOrder,
   saveCommercialConfig,
   type CoinFlow,
+  type CoinPackageConfig,
   type CoinSceneConfig,
   type CommercialConfig,
+  type CommercialConfigLog,
   type ReconcileDaily,
   type RefundRecord,
   type TradeOrder,
+  type VipBenefitConfig,
+  type VipPackageConfig,
 } from '@/api/commercial';
 import { cn } from '@/lib/utils';
 
 type WorkspaceKey = 'config' | 'orders' | 'flows' | 'refunds' | 'reconcile';
+type ConfigTabKey = 'benefits' | 'vipPackages' | 'coinPackages' | 'scenePrices' | 'retention' | 'social' | 'exposure';
 
-const WORKSPACES: { key: WorkspaceKey; title: string; path: string }[] = [
-  { key: 'config', title: '商业化配置', path: '/commercial/config' },
-  { key: 'orders', title: '商业化订单', path: '/commercial/orders' },
-  { key: 'flows', title: '资产流水', path: '/commercial/flows' },
-  { key: 'refunds', title: '退款记录', path: '/commercial/refunds' },
-  { key: 'reconcile', title: '轻量对账', path: '/commercial/reconcile' },
+interface BenefitRow {
+  code: string;
+  name: string;
+  type: string;
+  desc: string;
+  mobileIcon: string;
+  configType: '开关' | '次数' | '分数';
+  configValue?: number;
+  enabled: boolean;
+}
+
+interface VipPackageRow {
+  id: string;
+  name: string;
+  type: 'normal' | 'subscription';
+  originalPrice: number;
+  price: number;
+  duration: string;
+  tag: string;
+  status: 'on' | 'off';
+  wxProductReady?: boolean;
+}
+
+interface CoinPackageRow {
+  id: string;
+  name: string;
+  originalPrice: number;
+  payAmount: number;
+  coinCount: number;
+  bonusCoin: number;
+  tag: string;
+  recommended: boolean;
+  status: 'on' | 'off';
+}
+
+interface ScenePriceRow {
+  scene: string;
+  code: string;
+  mobileDisplayName: string;
+  mobileIcon: string;
+  desc: string;
+  price: number;
+  retentionDays: number;
+  enabled: boolean;
+}
+
+interface OrderRow {
+  id?: number;
+  orderNo: string;
+  user: string;
+  type: string;
+  packageName: string;
+  amount: string;
+  status: string;
+  createTime: string;
+  payTime: string;
+  channelNo: string;
+  source: string;
+}
+
+interface FlowRow {
+  id?: number;
+  flowNo: string;
+  user: string;
+  assetType: string;
+  flowType: string;
+  amount: string;
+  scene: string;
+  orderNo: string;
+  time: string;
+  before?: number | string;
+  after?: number | string;
+  idempotencyKey?: string;
+  remark?: string;
+}
+
+interface RefundRow {
+  id?: number;
+  refundNo: string;
+  orderNo: string;
+  user: string;
+  amount: string;
+  status: string;
+  initiator: string;
+  reason: string;
+  reversal: string;
+  remark: string;
+  createdTime: string;
+  finishedTime: string;
+}
+
+interface ReconcileRow {
+  date: string;
+  successCount: number;
+  vipCount: number;
+  coinCount: number;
+  refundCount: number;
+  orderAmount: string;
+  refundAmount: string;
+  netAmount: string;
+  refundRate: string;
+}
+
+const WORKSPACE_META: Record<WorkspaceKey, { id: string; title: string; desc: string }> = {
+  config: {
+    id: 'ADM-04-PAGE-commerce-config',
+    title: '商业化配置',
+    desc: '移动端配置管理 / 商业化配置。7 个 Tab 覆盖会员、千寻币、消费场景、保留期、社交与订单参数和曝光包预留。',
+  },
+  orders: {
+    id: 'ADM-04-PAGE-commerce-order-list',
+    title: '商业化订单管理',
+    desc: '查询会员订单和千寻币充值订单；支付成功订单可在详情抽屉内发起退款。',
+  },
+  flows: {
+    id: 'ADM-04-PAGE-asset-flow-list',
+    title: '资产流水管理',
+    desc: '查询充值、消费、赠送、奖励、退款退回和会员权益流水。',
+  },
+  refunds: {
+    id: 'ADM-04-PAGE-refund-list',
+    title: '退款记录管理',
+    desc: '展示商业化订单详情内发起的退款台账；本期申请即默认已退款，不做审批流。',
+  },
+  reconcile: {
+    id: 'ADM-04-PAGE-commerce-reconcile',
+    title: '轻量对账',
+    desc: '按日查看会员订单、千寻币订单、退款订单数量与金额，不做渠道级自动差错追账。',
+  },
+};
+
+const CONFIG_TABS: { key: ConfigTabKey; label: string }[] = [
+  { key: 'benefits', label: '会员权益' },
+  { key: 'vipPackages', label: '会员套餐' },
+  { key: 'coinPackages', label: '千寻币套餐' },
+  { key: 'scenePrices', label: '千寻币消费场景' },
+  { key: 'retention', label: '解锁保留期' },
+  { key: 'social', label: '社交与订单参数' },
+  { key: 'exposure', label: '曝光包预留' },
 ];
 
-const ORDER_TYPE_OPTIONS = [
-  { value: '', label: '全部类型' },
-  { value: 'vip', label: 'VIP' },
-  { value: 'coin', label: '千寻币' },
-];
-
-const ORDER_STATUS_OPTIONS = [
-  { value: '', label: '全部状态' },
-  { value: 'unpaid', label: '待支付' },
-  { value: 'success', label: '已支付' },
-  { value: 'refunded', label: '已退款' },
-  { value: 'closed', label: '已关闭' },
-  { value: 'failed', label: '支付失败' },
-];
-
-const FLOW_TYPE_OPTIONS = [
-  { value: '', label: '全部流水' },
-  { value: 'recharge', label: '充值' },
-  { value: 'consume', label: '消费' },
-  { value: 'gift', label: '赠送' },
-  { value: 'refund', label: '退款' },
-];
-
-const ORDER_TYPE_LABELS: Record<string, string> = {
-  vip: 'VIP',
-  coin: '千寻币',
+const ICON_GLYPHS: Record<string, string> = {
+  'icon-heart-list': '♥',
+  'icon-visitor': '👁',
+  'icon-whisper': '✉',
+  'icon-browse-plus': '+',
+  'icon-filter': '⌕',
+  'icon-exposure': '★',
+  'icon-privacy': '◌',
+  'icon-replay-3d': '↺',
+  'icon-heart-chance': '♡',
+  'icon-heart-unlock': '♥',
+  'icon-eye-unlock': '👁',
+  'icon-target-user': '◎',
+  'icon-target-batch': '◎+',
+  'icon-compatible-person': '≋',
+  'icon-soulmate': '知',
+  'icon-career-recommend': '业',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   unpaid: '待支付',
-  success: '已支付',
+  success: '支付成功',
   refunded: '已退款',
   refunding: '退款中',
   closed: '已关闭',
   failed: '支付失败',
   processing: '处理中',
+  ENABLED: '上架',
+  DISABLED: '下架',
 };
 
 function currentWorkspace(pathname: string): WorkspaceKey {
-  return WORKSPACES.find((item) => pathname.startsWith(item.path))?.key ?? 'config';
+  if (pathname.startsWith('/commercial/orders')) return 'orders';
+  if (pathname.startsWith('/commercial/flows')) return 'flows';
+  if (pathname.startsWith('/commercial/refunds')) return 'refunds';
+  if (pathname.startsWith('/commercial/reconcile')) return 'reconcile';
+  return 'config';
 }
 
 function pageRecords<T>(res: unknown): T[] {
-  return ((res as any).data?.records ?? []) as T[];
+  return ((res as any)?.data?.records ?? []) as T[];
 }
 
 function pageTotal(res: unknown): number {
-  return Number((res as any).data?.total ?? 0);
+  return Number((res as any)?.data?.total ?? 0);
 }
 
 function responseData<T>(res: unknown, fallback: T): T {
-  return ((res as any).data ?? fallback) as T;
+  return ((res as any)?.data ?? fallback) as T;
 }
 
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function money(value?: number) {
-  return `¥${Number(value ?? 0).toFixed(2)}`;
+function money(value?: number | string) {
+  const text = typeof value === 'number' ? value.toFixed(2) : value || '0.00';
+  return `¥${text}`;
 }
 
-function statusBadge(status?: string) {
-  if (!status) return <span>-</span>;
-  const variant =
-    status === 'success' || status === 'ENABLED'
-      ? 'success'
-      : status === 'unpaid' || status === 'processing' || status === 'refunding'
-        ? 'warning'
-        : status === 'failed' || status === 'closed' || status === 'DISABLED'
-          ? 'destructive'
-          : 'secondary';
-  return <Badge variant={variant as any}>{STATUS_LABELS[status] ?? status}</Badge>;
+function statusClass(text?: string) {
+  if (!text) return 'brand';
+  if (['支付成功', '已退款', '上架', '启用', '推荐档'].includes(text)) return 'success';
+  if (['待支付', '退款中', '处理中', '协议待补'].includes(text)) return 'warning';
+  if (['下架', '已关闭', '支付失败', '停用'].includes(text)) return 'danger';
+  return 'brand';
+}
+
+function statusText(status?: string) {
+  return status ? STATUS_LABELS[status] ?? status : '-';
+}
+
+function amountClass(value: string) {
+  return value.includes('-') ? 'amount-minus' : 'amount-plus';
+}
+
+function configFromApi(config: CommercialConfig | null): {
+  benefits: BenefitRow[];
+  vipPackages: VipPackageRow[];
+  coinPackages: CoinPackageRow[];
+  scenes: ScenePriceRow[];
+  version: string;
+} {
+  return {
+    benefits: (config?.vipBenefits ?? []).map(toBenefitRow),
+    vipPackages: (config?.vipPackages ?? []).map((item, index) => toVipPackageRow(item, index)),
+    coinPackages: (config?.coinPackages ?? []).map((item, index) => toCoinPackageRow(item, index)),
+    scenes: (config?.coinScenes ?? []).map(toScenePriceRow),
+    version: config?.configVersion || '-',
+  };
+}
+
+function toBenefitRow(item: VipBenefitConfig): BenefitRow {
+  return {
+    code: item.benefitCode || String(item.id ?? '-'),
+    name: item.benefitName || '-',
+    type: item.benefitType || '-',
+    desc: item.benefitDesc || '-',
+    mobileIcon: item.mobileIcon || '',
+    configType: benefitConfigType(item),
+    configValue: item.benefitValue,
+    enabled: (item.status ?? 'ENABLED') !== 'DISABLED',
+  };
+}
+
+function benefitConfigType(item: VipBenefitConfig): BenefitRow['configType'] {
+  if (item.benefitCode?.includes('exposure') || item.benefitType?.includes('曝光')) return '分数';
+  if (item.benefitValue != null && item.fixedFlag !== 1) return '次数';
+  return '开关';
+}
+
+function toVipPackageRow(item: VipPackageConfig, index: number): VipPackageRow {
+  const subscription = item.subscriptionType && item.subscriptionType !== 'once';
+  return {
+    id: `${subscription ? 'SUB' : 'VIP'}-${String(item.id ?? index + 1).padStart(2, '0')}`,
+    name: item.packageName,
+    type: subscription ? 'subscription' : 'normal',
+    originalPrice: Number(item.originPrice ?? item.price),
+    price: Number(item.price ?? 0),
+    duration: subscription ? subscriptionDuration(item.subscriptionType) : `${item.durationDays || 31} 天`,
+    tag: item.packageTag || (subscription ? '连续订阅' : '后台配置'),
+    status: item.status === 'DISABLED' ? 'off' : 'on',
+    wxProductReady: Boolean(item.wechatProductId || !subscription),
+  };
+}
+
+function subscriptionDuration(type?: string) {
+  if (type === 'quarter') return '每季自动续费';
+  if (type === 'year') return '每年自动续费';
+  return '每月自动续费';
+}
+
+function toCoinPackageRow(item: CoinPackageConfig, index: number): CoinPackageRow {
+  return {
+    id: `COIN-${item.coinCount || index + 1}`,
+    name: item.packageName,
+    originalPrice: Number(item.originAmount ?? item.amount),
+    payAmount: Number(item.discountAmount ?? item.amount),
+    coinCount: Number(item.coinCount ?? 0),
+    bonusCoin: Number(item.bonusCoinCount ?? 0),
+    tag: item.mobileTag || item.packageTag || '-',
+    recommended: item.recommendFlag === 1,
+    status: item.status === 'DISABLED' ? 'off' : 'on',
+  };
+}
+
+function toScenePriceRow(item: CoinSceneConfig): ScenePriceRow {
+  return {
+    scene: item.mobileName || item.sceneCode || '-',
+    code: item.sceneCode || '-',
+    mobileDisplayName: item.mobileName || '-',
+    mobileIcon: item.mobileIcon || '',
+    desc: item.sceneDesc || '-',
+    price: Number(item.unitPrice ?? 0),
+    retentionDays: Number(item.retentionDays ?? 0),
+    enabled: (item.status ?? 'ENABLED') !== 'DISABLED',
+  };
+}
+
+function toOrderRow(item: TradeOrder): OrderRow {
+  return {
+    id: item.id,
+    orderNo: item.orderNo,
+    user: `U${item.userId} 用户 ${item.userId}`,
+    type: item.orderType === 'coin' ? '千寻币充值订单' : '会员订单',
+    packageName: item.packageName || '-',
+    amount: Number(item.payAmount ?? 0).toFixed(2),
+    status: statusText(item.orderStatus),
+    createTime: item.createTime || '-',
+    payTime: item.successTime || '-',
+    channelNo: item.channelTradeNo || '-',
+    source: item.orderType === 'coin' ? '余额不足弹窗' : '会员中心',
+  };
+}
+
+function toFlowRow(item: CoinFlow): FlowRow {
+  return {
+    id: item.id,
+    flowNo: item.flowNo,
+    user: `U${item.userId} 用户 ${item.userId}`,
+    assetType: assetTypeLabel(item.assetType),
+    flowType: flowTypeLabel(item.flowType),
+    amount: `${Number(item.changeAmount ?? 0) >= 0 ? '+' : ''}${item.changeAmount ?? 0}`,
+    scene: item.bizDesc || item.bizScene || '-',
+    orderNo: item.refType === 'order' ? String(item.refId ?? '-') : '-',
+    time: item.createTime || '-',
+    before: item.balanceBefore ?? '-',
+    after: item.balanceAfter ?? '-',
+    idempotencyKey: item.refType ? `${item.refType}:${item.refId ?? '-'}` : '-',
+    remark: item.bizDesc || '-',
+  };
+}
+
+function assetTypeLabel(type?: string) {
+  const labels: Record<string, string> = { coin: '千寻币', vip: '会员权益' };
+  return type ? labels[type] ?? type : '千寻币';
+}
+
+function flowTypeLabel(type?: string) {
+  const labels: Record<string, string> = { recharge: '充值', consume: '消费', gift: '奖励', refund: '退款退回' };
+  return type ? labels[type] ?? type : '-';
+}
+
+function toRefundRow(item: RefundRecord): RefundRow {
+  return {
+    id: item.id,
+    refundNo: item.refundNo,
+    orderNo: item.orderNo,
+    user: `U${item.userId} 用户 ${item.userId}`,
+    amount: Number(item.refundAmount ?? 0).toFixed(2),
+    status: statusText(item.refundStatus),
+    initiator: '运营后台',
+    reason: item.refundReason || '-',
+    reversal: item.assetRollbackAction || '按订单资产回退',
+    remark: item.channelRefundStatus || '退款记录已写入审计',
+    createdTime: item.createTime || '-',
+    finishedTime: item.refundTime || '-',
+  };
+}
+
+function toReconcileRow(item: ReconcileDaily): ReconcileRow {
+  return {
+    date: item.date,
+    successCount: Number(item.successOrderCount ?? 0),
+    vipCount: Number(item.vipOrderCount ?? 0),
+    coinCount: Number(item.coinOrderCount ?? 0),
+    refundCount: Number(item.refundOrderCount ?? 0),
+    orderAmount: Number(item.orderAmount ?? 0).toFixed(2),
+    refundAmount: Number(item.refundAmount ?? 0).toFixed(2),
+    netAmount: Number(item.netAmount ?? 0).toFixed(2),
+    refundRate: `${(Number(item.refundRate ?? 0) * 100).toFixed(2)}%`,
+  };
+}
+
+function dateRange(startDate: string, endDate: string) {
+  const start = startDate || endDate || today();
+  const end = endDate || startDate || today();
+  const startTime = new Date(`${start}T00:00:00`);
+  const endTime = new Date(`${end}T00:00:00`);
+  if (!Number.isFinite(startTime.getTime()) || !Number.isFinite(endTime.getTime())) return [today()];
+  const from = startTime.getTime() <= endTime.getTime() ? startTime : endTime;
+  const to = startTime.getTime() <= endTime.getTime() ? endTime : startTime;
+  const days: string[] = [];
+  for (const cursor = new Date(from); cursor <= to && days.length < 31; cursor.setDate(cursor.getDate() + 1)) {
+    days.push(formatInputDate(cursor));
+  }
+  return days;
+}
+
+function formatInputDate(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 export default function CommercialManagement() {
   const location = useLocation();
-  const navigate = useNavigate();
   const active = currentWorkspace(location.pathname);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted p-1 w-fit">
-        {WORKSPACES.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => navigate(item.path)}
-            className={cn(
-              'rounded-md px-4 py-2 text-sm font-medium transition-colors',
-              active === item.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {item.title}
-          </button>
-        ))}
-      </div>
-
+    <div className="commerce-demo-page" data-commercial-demo="ADM-04">
+      <style>{commerceStyles}</style>
       {active === 'config' && <ConfigWorkspace />}
       {active === 'orders' && <OrderWorkspace />}
       {active === 'flows' && <FlowWorkspace />}
@@ -159,18 +444,49 @@ export default function CommercialManagement() {
   );
 }
 
+function PageFrame({
+  workspace,
+  action,
+  children,
+}: {
+  workspace: WorkspaceKey;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const meta = WORKSPACE_META[workspace];
+  return (
+    <section className="section-band admin-page" id={meta.id} data-admin-page>
+      <div className="admin-page-inner">
+        <div className="admin-page-header">
+          <div>
+            <h1>{meta.title}</h1>
+            <p>{meta.desc}</p>
+          </div>
+          {action && <div className="admin-actions">{action}</div>}
+        </div>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function ConfigWorkspace() {
   const [config, setConfig] = useState<CommercialConfig | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<ConfigTabKey>('benefits');
+  const [configLogOpen, setConfigLogOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [vipEditOpen, setVipEditOpen] = useState(false);
+  const [coinEditOpen, setCoinEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveReason, setSaveReason] = useState('');
+  const [logs, setLogs] = useState<Array<{ id: string; operator: string; item: string; before: string; after: string; time: string }>>([]);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await getCommercialConfig();
-      setConfig(responseData<CommercialConfig>(res, null as any));
-    } finally {
-      setLoading(false);
+      setConfig(responseData<CommercialConfig | null>(res, null));
+    } catch {
+      setConfig(null);
     }
   }, []);
 
@@ -178,558 +494,953 @@ function ConfigWorkspace() {
     load();
   }, [load]);
 
-  function updateScene(index: number, patch: Partial<CoinSceneConfig>) {
-    if (!config) return;
-    const next = [...config.coinScenes];
-    next[index] = { ...next[index], ...patch };
-    setConfig({ ...config, coinScenes: next });
-  }
+  const data = useMemo(() => configFromApi(config), [config]);
+  const configSummary = useMemo<[string, ReactNode][]>(() => [
+    ['配置版本', data.version],
+    ['会员权益', `${data.benefits.length} 项`],
+    ['套餐配置', `${data.vipPackages.length + data.coinPackages.length} 项`],
+    ['消费场景', `${data.scenes.length} 项`],
+  ], [data]);
 
-  async function save() {
-    if (!config) return;
+  const handleConfigTabChange = async (tab: ConfigTabKey) => {
+    setActiveTab(tab);
+    await load();
+  };
+
+  const openLogs = async () => {
+    try {
+      const res = await getCommercialConfigLogs({ page: 1, size: 10 });
+      const rows = pageRecords<CommercialConfigLog>(res);
+      if (rows.length) {
+        setLogs(rows.map((row) => ({
+          id: row.configVersion,
+          operator: row.operatorName || '运营后台',
+          item: row.changeModule || 'commercial',
+          before: '-',
+          after: row.changeSummary || '-',
+          time: row.createTime || '-',
+        })));
+      }
+    } catch {
+      setLogs([]);
+    }
+    setConfigLogOpen(true);
+  };
+
+  const save = async () => {
     setSaving(true);
     try {
-      const res = await saveCommercialConfig({ ...config, changeSummary: '后台商业化工作台保存' });
-      setConfig(responseData<CommercialConfig>(res, config));
+      const payload = config ?? {
+        configVersion: data.version,
+        vipBenefits: [],
+        vipPackages: [],
+        coinPackages: [],
+        coinScenes: [],
+        latestLogs: [],
+      };
+      const res = await saveCommercialConfig({ ...payload, changeSummary: saveReason });
+      setConfig(responseData<CommercialConfig>(res, payload));
       showToast('商业化配置已保存', 'success');
+      setSaveOpen(false);
     } finally {
       setSaving(false);
     }
-  }
-
-  const stats = useMemo(() => {
-    if (!config) return { benefits: 0, vipPackages: 0, coinPackages: 0, scenes: 0 };
-    return {
-      benefits: config.vipBenefits.length,
-      vipPackages: config.vipPackages.length,
-      coinPackages: config.coinPackages.length,
-      scenes: config.coinScenes.length,
-    };
-  }, [config]);
-
-  if (loading && !config) {
-    return <Card><CardContent className="p-6 text-sm text-muted-foreground">加载中...</CardContent></Card>;
-  }
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-4">
-        <Metric title="权益" value={stats.benefits} icon={<Settings2 className="h-4 w-4" />} />
-        <Metric title="VIP 套餐" value={stats.vipPackages} icon={<Banknote className="h-4 w-4" />} />
-        <Metric title="千寻币套餐" value={stats.coinPackages} icon={<Banknote className="h-4 w-4" />} />
-        <Metric title="消费场景" value={stats.scenes} icon={<Clock3 className="h-4 w-4" />} />
+    <PageFrame
+      workspace="config"
+      action={
+        <>
+          <button className="btn" type="button" onClick={openLogs}>查看变更日志</button>
+          <button className="btn primary" type="button" onClick={() => setSaveOpen(true)}>保存当前配置</button>
+        </>
+      }
+    >
+      <SummaryGrid items={configSummary} />
+
+      <div className="config-workbench">
+        <nav className="commerce-tabs" aria-label="商业化配置 Tab">
+          {CONFIG_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={cn('commerce-tab', activeTab === tab.key && 'is-active')}
+              data-config-tab={tab.key}
+              onClick={() => void handleConfigTabChange(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
+        <ConfigPanel active={activeTab === 'benefits'} name="benefits">
+          <TableWrap minWidth={1120}>
+            <thead>
+              <tr><th>权益编码</th><th>名称</th><th>类型</th><th>移动端图标配置</th><th>说明</th><th>启停</th><th>次数/分数配置</th></tr>
+            </thead>
+            <tbody data-render="admin-benefits">
+              {data.benefits.map((item) => (
+                <tr key={item.code}>
+                  <td>{item.code}</td>
+                  <td>{item.name}</td>
+                  <td>{item.type}</td>
+                  <td><IconConfigInput value={item.mobileIcon} /></td>
+                  <td>{item.desc}</td>
+                  <td><MiniSwitch on={item.enabled} /></td>
+                  <td>{renderBenefitConfig(item)}</td>
+                </tr>
+              ))}
+              {!data.benefits.length && <EmptyTableRow colSpan={7} />}
+            </tbody>
+          </TableWrap>
+          <Notice title="配置边界">会员权益固定 9 项；心动名单、访客、高级筛选、隐私权益、三天回放仅支持启停；免费悄悄话、额外浏览、每日心动机会配置每日次数；曝光配置分数；每项可配置移动端图标；名称、类型、说明不可编辑，不提供新增、删除、排序。</Notice>
+        </ConfigPanel>
+
+        <ConfigPanel active={activeTab === 'vipPackages'} name="vipPackages">
+          <Toolbar title="普通套餐 / 连续订阅套餐">
+            <button className="btn primary" type="button" onClick={() => setVipEditOpen(true)}>新增套餐</button>
+          </Toolbar>
+          <TableWrap minWidth={1120}>
+            <thead><tr><th>套餐编号</th><th>套餐名称</th><th>类型</th><th>原价</th><th>优惠价</th><th>时长/周期</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody data-render="admin-vip-packages">
+              {data.vipPackages.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.id}</td>
+                  <td>{item.name}</td>
+                  <td>{item.type === 'subscription' ? '连续订阅套餐' : '普通套餐'}</td>
+                  <td>{money(item.originalPrice)}</td>
+                  <td>{money(item.price)}</td>
+                  <td>{item.duration}</td>
+                  <td><Tag>{item.tag}</Tag></td>
+                  <td><Tag tone={item.status === 'on' ? 'success' : 'danger'}>{item.status === 'on' ? '上架' : '下架'}</Tag></td>
+                  <td><button className="btn" type="button" onClick={() => setVipEditOpen(true)}>编辑</button> <button className="btn danger" type="button" onClick={() => showToast('套餐已下架，历史订单保留', 'info')}>下架</button></td>
+                </tr>
+              ))}
+              {!data.vipPackages.length && <EmptyTableRow colSpan={9} />}
+            </tbody>
+          </TableWrap>
+          <Notice title="连续订阅校验">上架前必须绑定微信连续订阅商品、周期和协议；缺失时保存阻断。</Notice>
+        </ConfigPanel>
+
+        <ConfigPanel active={activeTab === 'coinPackages'} name="coinPackages">
+          <Toolbar title="千寻币套餐">
+            <button className="btn primary" type="button" onClick={() => setCoinEditOpen(true)}>新增币包</button>
+          </Toolbar>
+          <TableWrap minWidth={1120}>
+            <thead><tr><th>套餐编号</th><th>名称</th><th>原价</th><th>优惠价</th><th>到账币数</th><th>赠送币</th><th>标签</th><th>推荐</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody data-render="admin-coin-packages">
+              {data.coinPackages.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.id}</td>
+                  <td>{item.name}</td>
+                  <td>{money(item.originalPrice)}</td>
+                  <td>{money(item.payAmount)}</td>
+                  <td>{item.coinCount}</td>
+                  <td>{item.bonusCoin}</td>
+                  <td><Tag>{item.tag}</Tag></td>
+                  <td>{item.recommended ? <Tag tone="success">推荐档</Tag> : '-'}</td>
+                  <td><Tag tone={item.status === 'on' ? 'success' : 'danger'}>{item.status === 'on' ? '上架' : '下架'}</Tag></td>
+                  <td><button className="btn" type="button" onClick={() => setCoinEditOpen(true)}>编辑</button></td>
+                </tr>
+              ))}
+              {!data.coinPackages.length && <EmptyTableRow colSpan={10} />}
+            </tbody>
+          </TableWrap>
+        </ConfigPanel>
+
+        <ConfigPanel active={activeTab === 'scenePrices'} name="scenePrices">
+          <Notice title="千寻币消费场景">仅展示 8 个消费场景；支持移动端展示名称、说明、单价、启停和移动端图标配置；邀请奖励场景不进入消费配置。</Notice>
+          <TableWrap minWidth={1120}>
+            <thead><tr><th>消费场景</th><th>场景 code</th><th>移动端展示名称</th><th>移动端图标配置</th><th>说明</th><th>单价</th><th>启停</th></tr></thead>
+            <tbody data-render="admin-scene-prices">
+              {data.scenes.map((item) => (
+                <tr key={item.code}>
+                  <td>{item.scene}</td>
+                  <td>{item.code}</td>
+                  <td><input className="icon-config-input" defaultValue={item.mobileDisplayName} aria-label="移动端展示名称" /></td>
+                  <td><IconConfigInput value={item.mobileIcon} /></td>
+                  <td>{item.desc}</td>
+                  <td><input className="number-input" type="number" defaultValue={item.price} /> 千寻币</td>
+                  <td><MiniSwitch on={item.enabled} /></td>
+                </tr>
+              ))}
+              {!data.scenes.length && <EmptyTableRow colSpan={7} />}
+            </tbody>
+          </TableWrap>
+        </ConfigPanel>
+
+        <ConfigPanel active={activeTab === 'retention'} name="retention">
+          <TableWrap minWidth={960}>
+            <thead><tr><th>场景 code</th><th>移动端展示名称</th><th>后端保留天数</th><th>状态</th></tr></thead>
+            <tbody data-render="admin-retention">
+              {data.scenes.map((item) => (
+                <tr key={item.code}>
+                  <td>{item.code}</td>
+                  <td>{item.mobileDisplayName}</td>
+                  <td><input className="number-input" type="number" defaultValue={item.retentionDays} /> 天</td>
+                  <td><MiniSwitch on={item.enabled} /></td>
+                </tr>
+              ))}
+              {!data.scenes.length && <EmptyTableRow colSpan={4} />}
+            </tbody>
+          </TableWrap>
+        </ConfigPanel>
+
+        <ConfigPanel active={activeTab === 'social'} name="social">
+          <EmptyState text="后台接口暂未返回社交与订单参数配置" />
+        </ConfigPanel>
+
+        <ConfigPanel active={activeTab === 'exposure'} name="exposure">
+          <EmptyState text="后台接口暂未返回曝光包预留配置" />
+        </ConfigPanel>
       </div>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>商业化配置</CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">{config?.configVersion ?? 'COMM-INIT'}</Badge>
-            <Button variant="outline" onClick={load}>
-              <RefreshCcw className="mr-1 h-4 w-4" />
-              刷新
-            </Button>
-            <Button onClick={save} disabled={saving || !config}>
-              <Save className="mr-1 h-4 w-4" />
-              保存
-            </Button>
+      <Drawer id="configLogDrawer" title="配置变更日志" open={configLogOpen} onClose={() => setConfigLogOpen(false)}>
+        {logs.map((row) => (
+          <div className="drawer-section" key={row.id}>
+            <h3>{row.id}</h3>
+            <DrawerKV label="操作人">{row.operator}</DrawerKV>
+            <DrawerKV label="配置项">{row.item}</DrawerKV>
+            <DrawerKV label="变更前">{row.before}</DrawerKV>
+            <DrawerKV label="变更后">{row.after}</DrawerKV>
+            <DrawerKV label="时间">{row.time}</DrawerKV>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <ConfigTable
-            title="VIP 权益"
-            columns={['权益', '图标', '数值', '固定权益', '状态']}
-            rows={(config?.vipBenefits ?? []).map((item) => [
-              item.benefitName,
-              item.mobileIcon || '-',
-              item.benefitValue ?? '-',
-              item.fixedFlag ? '是' : '否',
-              statusBadge(item.status),
-            ])}
-          />
-          <ConfigTable
-            title="VIP 套餐"
-            columns={['套餐', '订阅', '售价', '微信商品', '状态']}
-            rows={(config?.vipPackages ?? []).map((item) => [
-              item.packageName,
-              item.subscriptionType || item.packageType,
-              money(item.price),
-              item.wechatProductId || '预留',
-              statusBadge(item.status),
-            ])}
-          />
-          <ConfigTable
-            title="千寻币套餐"
-            columns={['套餐', '币数', '售价', '移动标签', '状态']}
-            rows={(config?.coinPackages ?? []).map((item) => [
-              item.packageName,
-              `${item.coinCount}+${item.bonusCoinCount ?? 0}`,
-              money(item.amount),
-              item.mobileTag || item.packageTag || '-',
-              statusBadge(item.status),
-            ])}
-          />
-          <div className="space-y-2">
-            <div className="text-sm font-medium">千寻币消费场景</div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>场景</TableHead>
-                  <TableHead>图标</TableHead>
-                  <TableHead>说明</TableHead>
-                  <TableHead>单价</TableHead>
-                  <TableHead>保留期</TableHead>
-                  <TableHead>状态</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(config?.coinScenes ?? []).map((scene, index) => (
-                  <TableRow key={scene.sceneCode}>
-                    <TableCell className="font-medium">{scene.mobileName}</TableCell>
-                    <TableCell>{scene.mobileIcon || '-'}</TableCell>
-                    <TableCell className="max-w-[280px] truncate text-muted-foreground">{scene.sceneDesc}</TableCell>
-                    <TableCell>
-                      <Input
-                        className="w-20"
-                        value={String(scene.unitPrice ?? 0)}
-                        onChange={(e) => updateScene(index, { unitPrice: Number(e.target.value || 0) })}
-                      />
-                    </TableCell>
-                    <TableCell>{scene.retentionDays ? `${scene.retentionDays} 天` : '永久'}</TableCell>
-                    <TableCell>{statusBadge(scene.status)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <ConfigTable
-            title="配置变更日志"
-            columns={['版本', '摘要', '操作人', '时间']}
-            rows={(config?.latestLogs ?? []).map((item) => [
-              item.configVersion,
-              item.changeSummary,
-              item.operatorName || '-',
-              item.createTime || '-',
-            ])}
-          />
-        </CardContent>
-      </Card>
-    </div>
+        ))}
+        {!logs.length && <EmptyState text="暂无后台返回的变更日志" />}
+      </Drawer>
+
+      <Modal id="configSaveModal" title="保存配置确认" open={saveOpen} onClose={() => setSaveOpen(false)}>
+        <p>本次变更将立即影响移动端套餐、单价或权益展示，并写入审计日志。</p>
+        <label className="field">变更原因<textarea value={saveReason} onChange={(event) => setSaveReason(event.target.value)} /></label>
+        <div className="modal-actions"><button className="btn" type="button" onClick={() => setSaveOpen(false)}>取消</button><button className="btn primary" type="button" disabled={saving} onClick={save}>确认保存</button></div>
+      </Modal>
+
+      <VipPackageModal open={vipEditOpen} onClose={() => setVipEditOpen(false)} />
+      <CoinPackageModal open={coinEditOpen} onClose={() => setCoinEditOpen(false)} />
+    </PageFrame>
   );
 }
 
+function renderBenefitConfig(item: BenefitRow) {
+  if (item.configType === '次数') return <><input className="number-input" type="number" defaultValue={item.configValue ?? 0} /> 次/日</>;
+  if (item.configType === '分数') return <><input className="number-input" type="number" defaultValue={item.configValue ?? 0} /> 分</>;
+  return <span className="helper">仅开关</span>;
+}
+
 function OrderWorkspace() {
-  const [orders, setOrders] = useState<TradeOrder[]>([]);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState({ orderNo: '', orderType: '', orderStatus: '' });
-  const [selected, setSelected] = useState<TradeOrder | null>(null);
-  const [refundReason, setRefundReason] = useState('运营后台人工退款');
+  const [filters, setFilters] = useState({ orderNo: '', userId: '', orderType: '', orderStatus: '', payDate: '' });
+  const [selected, setSelected] = useState<OrderRow | null>(null);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [refundForm, setRefundForm] = useState({ amount: '', reason: '', reversal: '回收会员权益' });
 
   const load = useCallback(async () => {
-    const res = await getCommercialOrderList({ page: 1, size: 20, ...filters });
-    setOrders(pageRecords<TradeOrder>(res));
-    setTotal(pageTotal(res));
+    try {
+      const res = await getCommercialOrderList({
+        page: 1,
+        size: 10,
+        orderNo: filters.orderNo,
+        userId: filters.userId ? Number(filters.userId) : undefined,
+        orderType: filters.orderType,
+        orderStatus: filters.orderStatus,
+        ...dateFilterParams(filters.payDate),
+      });
+      const rows = pageRecords<TradeOrder>(res).map(toOrderRow);
+      setOrders(rows);
+      setTotal(pageTotal(res));
+    } catch {
+      setOrders([]);
+      setTotal(0);
+    }
   }, [filters]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function openDetail(row: TradeOrder) {
-    const res = await getCommercialOrderDetail(row.id);
-    setSelected(responseData<TradeOrder>(res, row));
-  }
+  const openDetail = async (row: OrderRow) => {
+    if (row.id) {
+      try {
+        const res = await getCommercialOrderDetail(row.id);
+        setSelected(toOrderRow(responseData<TradeOrder>(res, {} as TradeOrder)));
+      } catch {
+        setSelected(row);
+      }
+    } else {
+      setSelected(row);
+    }
+  };
 
-  async function refund(row: TradeOrder) {
-    await refundCommercialOrder(row.id, { reason: refundReason, refundAmount: row.payAmount });
-    showToast('退款已提交并完成模拟回退', 'success');
+  const openRefund = () => {
+    if (!selected || selected.status !== '支付成功') {
+      showToast('当前订单不可发起退款', 'info');
+      return;
+    }
+    setRefundForm({ amount: selected.amount, reason: '', reversal: selected.type.includes('会员') ? '回收会员权益' : '扣回到账千寻币' });
+    setRefundOpen(true);
+  };
+
+  const submitRefund = async () => {
+    if (!selected) return;
+    if (!refundForm.amount || !refundForm.reason.trim()) {
+      showToast('请填写退款金额和退款原因', 'info');
+      return;
+    }
+    if (selected.id) {
+      await refundCommercialOrder(selected.id, { reason: refundForm.reason, refundAmount: Number(refundForm.amount) });
+    }
+    await load();
     setSelected(null);
-    load();
-  }
+    setRefundOpen(false);
+    showToast('退款已提交，订单状态已重新拉取', 'success');
+  };
 
-  async function exportData() {
+  const exportData = async () => {
     const res = await exportCommercialOrders();
     showToast(responseData<any>(res, {}).message || '订单导出任务已创建', 'success');
-  }
+    setExportOpen(false);
+  };
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>商业化订单</CardTitle>
-        <Button variant="outline" onClick={exportData}>
-          <Download className="mr-1 h-4 w-4" />
-          导出
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-[1fr_160px_160px_auto]">
-          <Input placeholder="订单编号" value={filters.orderNo} onChange={(e) => setFilters({ ...filters, orderNo: e.target.value })} />
-          <Select options={ORDER_TYPE_OPTIONS} value={filters.orderType} onChange={(value) => setFilters({ ...filters, orderType: value })} />
-          <Select options={ORDER_STATUS_OPTIONS} value={filters.orderStatus} onChange={(value) => setFilters({ ...filters, orderStatus: value })} />
-          <Button onClick={load}>
-            <Search className="mr-1 h-4 w-4" />
-            查询
-          </Button>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>订单号</TableHead>
-              <TableHead>用户</TableHead>
-              <TableHead>类型</TableHead>
-              <TableHead>套餐</TableHead>
-              <TableHead>金额</TableHead>
-              <TableHead>支付渠道</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell className="font-mono text-xs">{row.orderNo}</TableCell>
-                <TableCell>{row.userId}</TableCell>
-                <TableCell>{ORDER_TYPE_LABELS[row.orderType] ?? row.orderType}</TableCell>
-                <TableCell>{row.packageName || '-'}</TableCell>
-                <TableCell>{money(row.payAmount)}</TableCell>
-                <TableCell>{row.payChannel || 'mock'}</TableCell>
-                <TableCell>{statusBadge(row.orderStatus)}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" onClick={() => openDetail(row)}>
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <div className="text-sm text-muted-foreground">共 {total} 条订单</div>
-      </CardContent>
+    <PageFrame workspace="orders" action={<button className="btn primary" type="button" onClick={() => setExportOpen(true)}>导出订单</button>}>
+      <SummaryGrid items={orderSummary(orders, total)} />
+      <QueryPanel title="查询条件" actions={<><button className="btn primary" type="button" onClick={load}>查询</button><button className="btn" type="button" onClick={() => setFilters({ orderNo: '', userId: '', orderType: '', orderStatus: '', payDate: '' })}>重置</button></>}>
+        <ControlField label="订单号"><input value={filters.orderNo} onChange={(event) => setFilters({ ...filters, orderNo: event.target.value })} /></ControlField>
+        <ControlField label="用户 ID"><input inputMode="numeric" value={filters.userId} onChange={(event) => setFilters({ ...filters, userId: event.target.value.replace(/\D/g, '') })} /></ControlField>
+        <ControlField label="订单类型"><select value={filters.orderType} onChange={(event) => setFilters({ ...filters, orderType: event.target.value })}><option value="">全部</option><option value="vip">会员订单</option><option value="coin">千寻币充值订单</option></select></ControlField>
+        <ControlField label="订单状态"><select value={filters.orderStatus} onChange={(event) => setFilters({ ...filters, orderStatus: event.target.value })}><option value="">全部</option><option value="success">支付成功</option><option value="unpaid">待支付</option><option value="refunded">已退款</option></select></ControlField>
+        <ControlField label="支付时间"><input type="date" value={filters.payDate} onChange={(event) => setFilters({ ...filters, payDate: event.target.value })} /></ControlField>
+      </QueryPanel>
+      <TableWrap minWidth={1120}>
+        <thead><tr><th>订单号</th><th>用户</th><th>类型</th><th>套餐</th><th>金额</th><th>状态</th><th>创建时间</th><th>支付时间</th><th>操作</th></tr></thead>
+        <tbody data-render="orders">
+          {orders.map((row) => (
+            <tr key={row.orderNo}>
+              <td>{row.orderNo}</td><td>{row.user}</td><td>{row.type}</td><td>{row.packageName}</td><td>{money(row.amount)}</td><td><Tag tone={statusClass(row.status)}>{row.status}</Tag></td><td>{row.createTime}</td><td>{row.payTime}</td>
+              <td><button className="btn" type="button" onClick={() => openDetail(row)}>详情</button></td>
+            </tr>
+          ))}
+          {!orders.length && <EmptyTableRow colSpan={9} />}
+        </tbody>
+      </TableWrap>
+      <Pagination text={`共 ${total} 条，默认 10 条/页`} />
 
-      <Dialog open={!!selected} onClose={() => setSelected(null)}>
+      <Drawer id="orderDrawer" title="订单详情" open={!!selected} onClose={() => setSelected(null)} actions={<><button className="btn" type="button" onClick={() => setSelected(null)}>关闭</button><button className="btn danger" type="button" disabled={selected?.status !== '支付成功'} onClick={openRefund}>{selected?.status === '支付成功' ? '发起退款' : '已退款/不可退款'}</button></>}>
         {selected && (
-          <div className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>订单详情</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-3 text-sm md:grid-cols-2">
-              <Info label="订单号" value={selected.orderNo} />
-              <Info label="用户 ID" value={selected.userId} />
-              <Info label="订单类型" value={ORDER_TYPE_LABELS[selected.orderType] ?? selected.orderType} />
-              <Info label="支付金额" value={money(selected.payAmount)} />
-              <Info label="支付渠道" value={selected.payChannel || 'mock'} />
-              <Info label="渠道单号" value={selected.channelTradeNo || '真实支付预留'} />
+          <>
+            <div className="drawer-section">
+              <DrawerKV label="订单号">{selected.orderNo}</DrawerKV>
+              <DrawerKV label="用户">{selected.user}</DrawerKV>
+              <DrawerKV label="订单类型">{selected.type}</DrawerKV>
+              <DrawerKV label="套餐名称">{selected.packageName}</DrawerKV>
+              <DrawerKV label="支付金额">{selected.amount}</DrawerKV>
+              <DrawerKV label="订单状态">{selected.status}</DrawerKV>
+              <DrawerKV label="渠道流水">{selected.channelNo}</DrawerKV>
+              <DrawerKV label="来源场景">{selected.source}</DrawerKV>
             </div>
-            <Input value={refundReason} onChange={(e) => setRefundReason(e.target.value)} />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setSelected(null)}>关闭</Button>
-              <Button disabled={selected.orderStatus !== 'success'} onClick={() => refund(selected)}>
-                <RotateCcw className="mr-1 h-4 w-4" />
-                退款
-              </Button>
-            </div>
-          </div>
+            <Notice title="退款入口">支付成功且未退款订单可在详情抽屉内发起退款；提交后默认生成已退款记录。</Notice>
+          </>
         )}
-      </Dialog>
-    </Card>
+      </Drawer>
+
+      <RefundApplyModal open={refundOpen} form={refundForm} onChange={setRefundForm} selected={selected} onClose={() => setRefundOpen(false)} onSubmit={submitRefund} />
+      <ExportModal type="订单" open={exportOpen} onClose={() => setExportOpen(false)} onConfirm={exportData} />
+    </PageFrame>
   );
 }
 
 function FlowWorkspace() {
-  const [flows, setFlows] = useState<CoinFlow[]>([]);
+  const [flows, setFlows] = useState<FlowRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState({ userId: '', flowType: '', bizScene: '' });
+  const [selected, setSelected] = useState<FlowRow | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [filters, setFilters] = useState({ user: '', assetType: '', flowType: '', scene: '' });
 
   const load = useCallback(async () => {
-    const res = await getCommercialFlowList({
-      page: 1,
-      size: 20,
-      userId: filters.userId || undefined,
-      flowType: filters.flowType,
-      bizScene: filters.bizScene,
-    });
-    setFlows(pageRecords<CoinFlow>(res));
-    setTotal(pageTotal(res));
+    try {
+      const res = await getCommercialFlowList({ page: 1, size: 10, userId: filters.user.replace(/\D/g, '') || undefined, assetType: filters.assetType, flowType: filters.flowType, bizScene: filters.scene });
+      const rows = pageRecords<CoinFlow>(res).map(toFlowRow);
+      setFlows(rows);
+      setTotal(pageTotal(res));
+    } catch {
+      setFlows([]);
+      setTotal(0);
+    }
   }, [filters]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function exportData() {
+  const exportData = async () => {
     const res = await exportCommercialFlows();
     showToast(responseData<any>(res, {}).message || '流水导出任务已创建', 'success');
-  }
+    setExportOpen(false);
+  };
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>资产流水</CardTitle>
-        <Button variant="outline" onClick={exportData}>
-          <Download className="mr-1 h-4 w-4" />
-          导出
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-[180px_160px_1fr_auto]">
-          <Input placeholder="用户 ID" value={filters.userId} onChange={(e) => setFilters({ ...filters, userId: e.target.value })} />
-          <Select options={FLOW_TYPE_OPTIONS} value={filters.flowType} onChange={(value) => setFilters({ ...filters, flowType: value })} />
-          <Input placeholder="业务场景" value={filters.bizScene} onChange={(e) => setFilters({ ...filters, bizScene: e.target.value })} />
-          <Button onClick={load}>
-            <Search className="mr-1 h-4 w-4" />
-            查询
-          </Button>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>流水号</TableHead>
-              <TableHead>用户</TableHead>
-              <TableHead>类型</TableHead>
-              <TableHead>变动</TableHead>
-              <TableHead>变动前</TableHead>
-              <TableHead>变动后</TableHead>
-              <TableHead>场景</TableHead>
-              <TableHead>关联业务</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {flows.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell className="font-mono text-xs">{row.flowNo}</TableCell>
-                <TableCell>{row.userId}</TableCell>
-                <TableCell>{statusBadge(row.flowType)}</TableCell>
-                <TableCell className={row.changeAmount >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{row.changeAmount}</TableCell>
-                <TableCell>{row.balanceBefore ?? '-'}</TableCell>
-                <TableCell>{row.balanceAfter}</TableCell>
-                <TableCell>{row.bizScene || '-'}</TableCell>
-                <TableCell>{row.refType || '-'} #{row.refId ?? '-'}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <div className="text-sm text-muted-foreground">共 {total} 条流水</div>
-      </CardContent>
-    </Card>
+    <PageFrame workspace="flows" action={<button className="btn primary" type="button" onClick={() => setExportOpen(true)}>导出流水</button>}>
+      <SummaryGrid items={flowSummary(flows, total)} />
+      <QueryPanel title="查询条件" actions={<><button className="btn primary" type="button" onClick={load}>查询</button><button className="btn" type="button" onClick={() => setFilters({ user: '', assetType: '', flowType: '', scene: '' })}>重置</button></>}>
+        <ControlField label="用户 ID"><input inputMode="numeric" value={filters.user} onChange={(event) => setFilters({ ...filters, user: event.target.value.replace(/\D/g, '') })} /></ControlField>
+        <ControlField label="资产类型"><select value={filters.assetType} onChange={(event) => setFilters({ ...filters, assetType: event.target.value })}><option value="">全部</option><option value="coin">千寻币</option><option value="vip">会员权益</option></select></ControlField>
+        <ControlField label="流水类型"><select value={filters.flowType} onChange={(event) => setFilters({ ...filters, flowType: event.target.value })}><option value="">全部</option><option value="recharge">充值</option><option value="consume">消费</option><option value="gift">奖励</option><option value="refund">退款退回</option></select></ControlField>
+        <ControlField label="业务场景"><input value={filters.scene} onChange={(event) => setFilters({ ...filters, scene: event.target.value })} /></ControlField>
+      </QueryPanel>
+      <TableWrap minWidth={1120}>
+        <thead><tr><th>流水号</th><th>用户</th><th>资产类型</th><th>流水类型</th><th>变动</th><th>业务场景</th><th>关联订单</th><th>发生时间</th><th>操作</th></tr></thead>
+        <tbody data-render="asset-flows">
+          {flows.map((row) => (
+            <tr key={row.flowNo}>
+              <td>{row.flowNo}</td><td>{row.user}</td><td>{row.assetType}</td><td>{row.flowType}</td><td className={amountClass(row.amount)}>{row.amount}</td><td>{row.scene}</td><td>{row.orderNo}</td><td>{row.time}</td>
+              <td><button className="btn" type="button" onClick={() => setSelected(row)}>详情</button></td>
+            </tr>
+          ))}
+          {!flows.length && <EmptyTableRow colSpan={9} />}
+        </tbody>
+      </TableWrap>
+      <Pagination text={`共 ${total} 条，默认 10 条/页`} compact />
+
+      <Drawer id="flowDrawer" title="流水详情" open={!!selected} onClose={() => setSelected(null)}>
+        {selected && (
+          <div className="drawer-section">
+            <DrawerKV label="流水号">{selected.flowNo}</DrawerKV>
+            <DrawerKV label="用户">{selected.user}</DrawerKV>
+            <DrawerKV label="资产类型">{selected.assetType}</DrawerKV>
+            <DrawerKV label="流水类型">{selected.flowType}</DrawerKV>
+            <DrawerKV label="变动数量">{selected.amount}</DrawerKV>
+            <DrawerKV label="业务场景">{selected.scene}</DrawerKV>
+            <DrawerKV label="变动前余额">{selected.before}</DrawerKV>
+            <DrawerKV label="变动后余额">{selected.after}</DrawerKV>
+            <DrawerKV label="幂等键">{selected.idempotencyKey}</DrawerKV>
+            <DrawerKV label="备注">{selected.remark}</DrawerKV>
+          </div>
+        )}
+      </Drawer>
+      <ExportModal type="资产流水" open={exportOpen} onClose={() => setExportOpen(false)} onConfirm={exportData} />
+    </PageFrame>
   );
 }
 
 function RefundWorkspace() {
-  const [refunds, setRefunds] = useState<RefundRecord[]>([]);
+  const [refunds, setRefunds] = useState<RefundRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [orderNo, setOrderNo] = useState('');
-  const [detail, setDetail] = useState<any>(null);
+  const [selected, setSelected] = useState<RefundRow | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [filters, setFilters] = useState({ orderNo: '', userId: '', refundDate: '' });
 
   const load = useCallback(async () => {
-    const res = await getCommercialRefundList({ page: 1, size: 20, orderNo });
-    setRefunds(pageRecords<RefundRecord>(res));
-    setTotal(pageTotal(res));
-  }, [orderNo]);
+    try {
+      const res = await getCommercialRefundList({
+        page: 1,
+        size: 10,
+        orderNo: filters.orderNo,
+        userId: filters.userId ? Number(filters.userId) : undefined,
+        ...dateFilterParams(filters.refundDate),
+      });
+      const rows = pageRecords<RefundRecord>(res).map(toRefundRow);
+      setRefunds(rows);
+      setTotal(pageTotal(res));
+    } catch {
+      setRefunds([]);
+      setTotal(0);
+    }
+  }, [filters]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function openDetail(row: RefundRecord) {
-    const res = await getCommercialRefundDetail(row.id);
-    setDetail(responseData<any>(res, { refund: row }));
-  }
+  const openDetail = async (row: RefundRow) => {
+    if (row.id) {
+      try {
+        const res = await getCommercialRefundDetail(row.id);
+        const detail = responseData<any>(res, null);
+        setSelected(detail?.refund ? toRefundRow(detail.refund) : row);
+      } catch {
+        setSelected(row);
+      }
+    } else {
+      setSelected(row);
+    }
+  };
 
-  async function exportData() {
+  const exportData = async () => {
     const res = await exportCommercialRefunds();
     showToast(responseData<any>(res, {}).message || '退款导出任务已创建', 'success');
-  }
+    setExportOpen(false);
+  };
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>退款记录</CardTitle>
-        <Button variant="outline" onClick={exportData}>
-          <Download className="mr-1 h-4 w-4" />
-          导出
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <Input placeholder="订单编号" value={orderNo} onChange={(e) => setOrderNo(e.target.value)} />
-          <Button onClick={load}>
-            <Search className="mr-1 h-4 w-4" />
-            查询
-          </Button>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>退款单</TableHead>
-              <TableHead>订单号</TableHead>
-              <TableHead>用户</TableHead>
-              <TableHead>金额</TableHead>
-              <TableHead>原因</TableHead>
-              <TableHead>资产回退</TableHead>
-              <TableHead>渠道状态</TableHead>
-              <TableHead>操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {refunds.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell className="font-mono text-xs">{row.refundNo}</TableCell>
-                <TableCell className="font-mono text-xs">{row.orderNo}</TableCell>
-                <TableCell>{row.userId}</TableCell>
-                <TableCell>{money(row.refundAmount)}</TableCell>
-                <TableCell className="max-w-[180px] truncate">{row.refundReason || '-'}</TableCell>
-                <TableCell>{row.assetRollbackAction || '-'}</TableCell>
-                <TableCell>{statusBadge(row.channelRefundStatus || row.refundStatus)}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" onClick={() => openDetail(row)}>
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <div className="text-sm text-muted-foreground">共 {total} 条退款</div>
-      </CardContent>
-      <Dialog open={!!detail} onClose={() => setDetail(null)}>
-        {detail && (
-          <div className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>退款详情</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-3 text-sm md:grid-cols-2">
-              <Info label="退款单" value={detail.refund?.refundNo} />
-              <Info label="订单号" value={detail.refund?.orderNo} />
-              <Info label="退款金额" value={money(detail.refund?.refundAmount)} />
-              <Info label="退款状态" value={detail.refund?.refundStatus} />
-              <Info label="资产回退" value={detail.assetRollbackDesc || '-'} />
-              <Info label="渠道状态" value={detail.refund?.channelRefundStatus || 'mock_success'} />
+    <PageFrame workspace="refunds" action={<button className="btn primary" type="button" onClick={() => setExportOpen(true)}>导出退款</button>}>
+      <SummaryGrid items={refundSummary(refunds, total)} />
+      <QueryPanel title="查询条件" actions={<><button className="btn primary" type="button" onClick={load}>查询</button><button className="btn" type="button" onClick={() => setFilters({ orderNo: '', userId: '', refundDate: '' })}>重置</button></>}>
+        <ControlField label="订单号"><input value={filters.orderNo} onChange={(event) => setFilters({ ...filters, orderNo: event.target.value })} /></ControlField>
+        <ControlField label="用户 ID"><input value={filters.userId} onChange={(event) => setFilters({ ...filters, userId: event.target.value.replace(/\D/g, '') })} /></ControlField>
+        <ControlField label="退款时间"><input type="date" value={filters.refundDate} onChange={(event) => setFilters({ ...filters, refundDate: event.target.value })} /></ControlField>
+      </QueryPanel>
+      <TableWrap minWidth={1220}>
+        <thead><tr><th>退款单号</th><th>订单号</th><th>用户</th><th>金额</th><th>状态</th><th>发起人</th><th>原因</th><th>资产回退</th><th>发起时间</th><th>完成时间</th><th>操作</th></tr></thead>
+        <tbody data-render="refunds">
+          {refunds.map((row) => (
+            <tr key={row.refundNo}>
+              <td>{row.refundNo}</td><td>{row.orderNo}</td><td>{row.user}</td><td>{money(row.amount)}</td><td><Tag tone={statusClass(row.status)}>{row.status}</Tag></td><td>{row.initiator}</td><td>{row.reason}</td><td>{row.reversal}</td><td>{row.createdTime}</td><td>{row.finishedTime}</td>
+              <td><button className="btn" type="button" onClick={() => openDetail(row)}>详情</button></td>
+            </tr>
+          ))}
+          {!refunds.length && <EmptyTableRow colSpan={11} />}
+        </tbody>
+      </TableWrap>
+      <Pagination text={`共 ${total} 条，默认 10 条/页`} compact />
+
+      <Drawer id="refundDrawer" title="退款详情" open={!!selected} onClose={() => setSelected(null)}>
+        {selected && (
+          <>
+            <div className="drawer-section">
+              <DrawerKV label="退款单号">{selected.refundNo}</DrawerKV>
+              <DrawerKV label="关联订单">{selected.orderNo}</DrawerKV>
+              <DrawerKV label="用户">{selected.user}</DrawerKV>
+              <DrawerKV label="退款金额">{selected.amount}</DrawerKV>
+              <DrawerKV label="退款状态">{selected.status}</DrawerKV>
+              <DrawerKV label="发起人">{selected.initiator}</DrawerKV>
+              <DrawerKV label="退款原因">{selected.reason}</DrawerKV>
+              <DrawerKV label="资产回退">{selected.reversal}</DrawerKV>
+              <DrawerKV label="处理备注">{selected.remark}</DrawerKV>
+              <DrawerKV label="发起时间">{selected.createdTime}</DrawerKV>
+              <DrawerKV label="完成时间">{selected.finishedTime}</DrawerKV>
             </div>
-          </div>
+            <Notice title="只读边界">退款记录由订单详情发起后生成，本期申请即默认已退款；退款记录页不提供状态筛选和人工改状态按钮。</Notice>
+          </>
         )}
-      </Dialog>
-    </Card>
+      </Drawer>
+      <ExportModal type="退款记录" open={exportOpen} onClose={() => setExportOpen(false)} onConfirm={exportData} />
+    </PageFrame>
   );
 }
 
 function ReconcileWorkspace() {
-  const [date, setDate] = useState(today());
-  const [data, setData] = useState<ReconcileDaily | null>(null);
+  const [filters, setFilters] = useState({ startDate: today(), endDate: today() });
+  const [rows, setRows] = useState<ReconcileRow[]>([]);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const summary = useMemo(() => ({
+    orderAmount: rows.reduce((sum, row) => sum + parseAmount(row.orderAmount), 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    refundAmount: rows.reduce((sum, row) => sum + parseAmount(row.refundAmount), 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    netAmount: rows.reduce((sum, row) => sum + parseAmount(row.netAmount), 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    days: rows.length,
+  }), [rows]);
 
   const load = useCallback(async () => {
-    const res = await getCommercialReconcileDaily(date);
-    setData(responseData<ReconcileDaily>(res, null as any));
-  }, [date]);
+    try {
+      const responses = await Promise.all(dateRange(filters.startDate, filters.endDate).map(async (date) => {
+        const res = await getCommercialReconcileDaily(date);
+        return responseData<ReconcileDaily | null>(res, null);
+      }));
+      setRows(responses.filter(Boolean).map((item) => toReconcileRow(item as ReconcileDaily)));
+    } catch {
+      setRows([]);
+    }
+  }, [filters.endDate, filters.startDate]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function exportData() {
+  const exportData = async () => {
     const res = await exportCommercialReconcile();
     showToast(responseData<any>(res, {}).message || '对账导出任务已创建', 'success');
-  }
+    setExportOpen(false);
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-4">
-        <Metric title="成功订单" value={data?.successOrderCount ?? 0} icon={<FileClock className="h-4 w-4" />} />
-        <Metric title="订单金额" value={money(data?.orderAmount)} icon={<Banknote className="h-4 w-4" />} />
-        <Metric title="退款金额" value={money(data?.refundAmount)} icon={<RotateCcw className="h-4 w-4" />} />
-        <Metric title="净收入" value={money(data?.netAmount)} icon={<Banknote className="h-4 w-4" />} />
-      </div>
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>轻量对账</CardTitle>
-          <div className="flex items-center gap-2">
-            <Input className="w-44" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            <Button onClick={load}>查询</Button>
-            <Button variant="outline" onClick={exportData}>
-              <Download className="mr-1 h-4 w-4" />
-              导出
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>日期</TableHead>
-                <TableHead>VIP 订单</TableHead>
-                <TableHead>千寻币订单</TableHead>
-                <TableHead>退款订单</TableHead>
-                <TableHead>订单金额</TableHead>
-                <TableHead>退款金额</TableHead>
-                <TableHead>净收入</TableHead>
-                <TableHead>退款率</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data && (
-                <TableRow>
-                  <TableCell>{data.date}</TableCell>
-                  <TableCell>{data.vipOrderCount}</TableCell>
-                  <TableCell>{data.coinOrderCount}</TableCell>
-                  <TableCell>{data.refundOrderCount}</TableCell>
-                  <TableCell>{money(data.orderAmount)}</TableCell>
-                  <TableCell>{money(data.refundAmount)}</TableCell>
-                  <TableCell>{money(data.netAmount)}</TableCell>
-                  <TableCell>{`${Number((data.refundRate ?? 0) * 100).toFixed(2)}%`}</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function Metric({ title, value, icon }: { title: string; value: string | number; icon: ReactNode }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-4">
-        <div>
-          <div className="text-sm text-muted-foreground">{title}</div>
-          <div className="mt-1 text-xl font-semibold">{value}</div>
-        </div>
-        <div className="rounded-md bg-primary/10 p-2 text-primary">{icon}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ConfigTable({ title, columns, rows }: { title: string; columns: string[]; rows: ReactNode[][] }) {
-  return (
-    <div className="space-y-2">
-      <div className="text-sm font-medium">{title}</div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((column) => (
-              <TableHead key={column}>{column}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row, index) => (
-            <TableRow key={`${title}-${index}`}>
-              {row.map((cell, cellIndex) => (
-                <TableCell key={cellIndex}>{cell}</TableCell>
-              ))}
-            </TableRow>
+    <PageFrame workspace="reconcile" action={<button className="btn primary" type="button" onClick={() => setExportOpen(true)}>导出对账</button>}>
+      <QueryPanel title="日期筛选" actions={<><button className="btn primary" type="button" onClick={load}>查询</button><button className="btn" type="button" onClick={() => setFilters({ startDate: '', endDate: '' })}>重置</button></>}>
+        <ControlField label="开始日期"><input type="date" value={filters.startDate} onChange={(event) => setFilters({ ...filters, startDate: event.target.value })} /></ControlField>
+        <ControlField label="结束日期"><input type="date" value={filters.endDate} onChange={(event) => setFilters({ ...filters, endDate: event.target.value })} /></ControlField>
+      </QueryPanel>
+      <SummaryGrid items={[['查询天数', summary.days], ['订单支付金额', summary.orderAmount], ['退款金额', summary.refundAmount], ['净收入', summary.netAmount]]} />
+      <Notice title="统计延迟">轻量对账可接受分钟级延迟，页面展示数据更新时间。</Notice>
+      <TableWrap minWidth={1120}>
+        <thead><tr><th>日期</th><th>成功订单数</th><th>会员订单数</th><th>千寻币订单数</th><th>订单支付金额</th><th>退款订单数</th><th>退款金额</th><th>净收入</th><th>退款率</th></tr></thead>
+        <tbody data-render="reconcile-rows">
+          {rows.map((row) => (
+            <tr key={row.date}><td>{row.date}</td><td>{row.successCount}</td><td>{row.vipCount}</td><td>{row.coinCount}</td><td>{money(row.orderAmount)}</td><td>{row.refundCount}</td><td>{money(row.refundAmount)}</td><td>{money(row.netAmount)}</td><td>{row.refundRate}</td></tr>
           ))}
-        </TableBody>
-      </Table>
+          {!rows.length && <EmptyTableRow colSpan={9} />}
+        </tbody>
+      </TableWrap>
+      <ExportModal type="轻量对账" open={exportOpen} onClose={() => setExportOpen(false)} onConfirm={exportData} />
+    </PageFrame>
+  );
+}
+
+function parseAmount(value: string) {
+  return Number(value.replace(/,/g, '')) || 0;
+}
+
+function dateFilterParams(date: string) {
+  if (!date) return {};
+  return {
+    startTime: `${date}T00:00:00`,
+    endTime: `${date}T23:59:59`,
+  };
+}
+
+function orderSummary(rows: OrderRow[], total: number): [string, ReactNode][] {
+  const successAmount = rows
+    .filter((row) => row.status === '支付成功')
+    .reduce((sum, row) => sum + parseAmount(row.amount), 0)
+    .toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return [
+    ['订单总数', String(total)],
+    ['当前页支付成功金额', successAmount],
+    ['当前页已退款', rows.filter((row) => row.status === '已退款').length],
+    ['当前页订单', rows.length],
+  ];
+}
+
+function flowSummary(rows: FlowRow[], total: number): [string, ReactNode][] {
+  const income = rows.filter((row) => !row.amount.includes('-')).reduce((sum, row) => sum + parseAmount(row.amount.replace('+', '')), 0);
+  const expense = rows.filter((row) => row.amount.includes('-')).reduce((sum, row) => sum + Math.abs(parseAmount(row.amount)), 0);
+  return [
+    ['流水总数', String(total)],
+    ['当前页收入', `+${income}`],
+    ['当前页支出', `-${expense}`],
+    ['当前页退款退回', rows.filter((row) => row.flowType === '退款退回').length],
+  ];
+}
+
+function refundSummary(rows: RefundRow[], total: number): [string, ReactNode][] {
+  const amount = rows.reduce((sum, row) => sum + parseAmount(row.amount), 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return [
+    ['退款总数', String(total)],
+    ['当前页已退款', rows.filter((row) => row.status === '已退款').length],
+    ['当前页退款金额', amount],
+    ['当前页记录', rows.length],
+  ];
+}
+
+function SummaryGrid({ items }: { items: [string, ReactNode][] }) {
+  return (
+    <div className="admin-summary-grid">
+      {items.map(([label, value]) => (
+        <article className="stat-card" key={label}><span>{label}</span><strong>{value}</strong></article>
+      ))}
     </div>
   );
 }
 
-function Info({ label, value }: { label: string; value?: ReactNode }) {
+function EmptyTableRow({ colSpan, text = '暂无后台返回数据' }: { colSpan: number; text?: string }) {
+  return <tr><td className="empty-cell" colSpan={colSpan}>{text}</td></tr>;
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="empty-state">{text}</div>;
+}
+
+function Toolbar({ title, children }: { title: string; children: ReactNode }) {
+  return <div className="toolbar"><strong>{title}</strong>{children}</div>;
+}
+
+function TableWrap({ children, minWidth = 1120 }: { children: ReactNode; minWidth?: number }) {
+  return <div className="table-wrap"><table style={{ minWidth }}>{children}</table></div>;
+}
+
+function QueryPanel({ title, children, actions }: { title: string; children: ReactNode; actions: ReactNode }) {
   return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 break-all font-medium">{value ?? '-'}</div>
+    <div className="query-panel">
+      <h2>{title}</h2>
+      <div className="query-grid">{children}</div>
+      <div className="admin-actions">{actions}</div>
     </div>
   );
 }
+
+function ControlField({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="control-field">{label}{children}</label>;
+}
+
+function ConfigPanel({ active, name, children }: { active: boolean; name: string; children: ReactNode }) {
+  return <div className={cn('config-panel', active && 'is-active')} data-config-panel={name}>{children}</div>;
+}
+
+function Tag({ children, tone }: { children: ReactNode; tone?: string }) {
+  return <span className={cn('tag', tone || statusClass(String(children)))}>{children}</span>;
+}
+
+function MiniSwitch({ on, label }: { on: boolean; label?: string }) {
+  return <span className={cn('mini-switch', !on && 'off')}>{label || (on ? '启用' : '停用')}</span>;
+}
+
+function MobileIcon({ icon }: { icon?: string }) {
+  const code = icon || 'icon-default';
+  return <span className="mobile-icon" title={code}>{ICON_GLYPHS[code] || '•'}</span>;
+}
+
+function IconConfigInput({ value }: { value?: string }) {
+  return (
+    <span className="icon-config-cell">
+      <MobileIcon icon={value} />
+      <input className="icon-config-input" defaultValue={value || ''} aria-label="移动端图标配置" />
+    </span>
+  );
+}
+
+function Notice({ title, children }: { title: string; children: ReactNode }) {
+  return <div className="notice"><strong>{title}</strong>{children}</div>;
+}
+
+function Drawer({
+  id,
+  title,
+  open,
+  onClose,
+  children,
+  actions,
+}: {
+  id: string;
+  title: string;
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className={cn('drawer-backdrop', open && 'is-open')} id={id} aria-hidden={!open} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <aside className="drawer">
+        <h2>{title}</h2>
+        <div className="drawer-body">{children}</div>
+        <div className="drawer-actions">{actions || <button className="btn" type="button" onClick={onClose}>关闭</button>}</div>
+      </aside>
+    </div>
+  );
+}
+
+function Modal({ id, title, open, onClose, children }: { id: string; title: string; open: boolean; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className={cn('modal-backdrop', open && 'is-open')} id={id} aria-hidden={!open} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="modal">
+        <h2>{title}</h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DrawerKV({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="drawer-kv"><span>{label}</span><strong>{children ?? '-'}</strong></div>;
+}
+
+function Pagination({ text, compact = false }: { text: string; compact?: boolean }) {
+  return (
+    <div className="pagination">
+      <span>{text}</span>
+      <button className="btn" type="button" disabled={compact}>上一页</button>
+      <button className="btn primary" type="button">1</button>
+      {!compact && <button className="btn" type="button" onClick={() => showToast('已切换第 2 页', 'success')}>2</button>}
+      <button className="btn" type="button" onClick={() => showToast('已切换下一页', 'success')}>下一页</button>
+    </div>
+  );
+}
+
+function VipPackageModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Modal id="vipPackageEditModal" title="会员套餐新增/编辑" open={open} onClose={onClose}>
+      <div className="form-stack">
+        <label className="field">套餐名称<input /></label>
+        <label className="field">套餐类型<select><option>普通套餐</option><option>连续订阅套餐</option></select></label>
+        <label className="field">原价<input /></label>
+        <label className="field">优惠价<input /></label>
+        <label className="field">时长/周期<input /></label>
+        <label className="field">标签<input /></label>
+        <label className="field">微信连续订阅商品<input /></label>
+      </div>
+      <Notice title="校验">连续订阅套餐上架前必须绑定微信连续订阅商品、周期和协议。</Notice>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" onClick={onClose}>确认</button></div>
+    </Modal>
+  );
+}
+
+function CoinPackageModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Modal id="coinPackageEditModal" title="千寻币套餐新增/编辑" open={open} onClose={onClose}>
+      <div className="form-stack">
+        <label className="field">套餐类型<select disabled><option>千寻币套餐</option></select></label>
+        <label className="field">套餐名称<input /></label>
+        <label className="field">原价<input /></label>
+        <label className="field">优惠价<input /></label>
+        <label className="field">到账币数<input type="number" /></label>
+        <label className="field">赠送币数<input type="number" /></label>
+        <label className="field">标签<input /></label>
+        <label className="field">是否推荐<select><option>推荐档</option><option>普通档</option></select></label>
+      </div>
+      <Notice title="推荐规则">同一时间最多 1 个推荐档，保存后移动端充值页刷新。</Notice>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" onClick={onClose}>确认</button></div>
+    </Modal>
+  );
+}
+
+function RefundApplyModal({
+  open,
+  form,
+  selected,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  form: { amount: string; reason: string; reversal: string };
+  selected: OrderRow | null;
+  onChange: (form: { amount: string; reason: string; reversal: string }) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <Modal id="refundApplyModal" title="发起退款二次确认" open={open} onClose={onClose}>
+      <p>提交后将生成退款记录，状态默认已退款，并按资产回退处理写入审计。</p>
+      <div className="form-stack">
+        <label className="field">订单号<input value={selected?.orderNo || ''} readOnly /></label>
+        <label className="field">退款金额<input value={form.amount} onChange={(event) => onChange({ ...form, amount: event.target.value })} /></label>
+        <label className="field">资产回退处理<select value={form.reversal} onChange={(event) => onChange({ ...form, reversal: event.target.value })}><option>回收会员权益</option><option>扣回到账千寻币</option><option>无需回退</option><option>线下处理备注</option></select></label>
+        <label className="field">退款原因<textarea value={form.reason} onChange={(event) => onChange({ ...form, reason: event.target.value })} /></label>
+      </div>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn danger" type="button" onClick={onSubmit}>确认退款</button></div>
+    </Modal>
+  );
+}
+
+function ExportModal({ type, open, onClose, onConfirm }: { type: string; open: boolean; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <Modal id="exportModal" title={`${type}确认`} open={open} onClose={onClose}>
+      <p>导出当前筛选条件下的数据，手机号、幂等键、退款原因等敏感字段按权限控制，并写入导出审计。</p>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" onClick={onConfirm}>确认导出</button></div>
+    </Modal>
+  );
+}
+
+const commerceStyles = `
+.commerce-demo-page {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --line: #d9e2ec;
+  --line-strong: #b8c4d4;
+  --text: #172033;
+  --muted: #667085;
+  --brand: #2563eb;
+  --brand-soft: #dbeafe;
+  --mint: #059669;
+  --mint-soft: #d1fae5;
+  --amber: #d97706;
+  --amber-soft: #fef3c7;
+  --rose: #e11d48;
+  --rose-soft: #ffe4e6;
+  --shadow: 0 18px 42px rgba(23, 32, 51, 0.12);
+  --radius: 8px;
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+  color: var(--text);
+  font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  letter-spacing: 0;
+}
+.commerce-demo-page * { box-sizing: border-box; }
+.commerce-demo-page button,
+.commerce-demo-page input,
+.commerce-demo-page select,
+.commerce-demo-page textarea { font: inherit; }
+.commerce-demo-page .section-band {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgba(23, 32, 51, 0.06);
+}
+.commerce-demo-page .admin-page-inner { display: grid; gap: 16px; padding: 22px; background: #eef3fa; }
+.commerce-demo-page .admin-page-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.commerce-demo-page .admin-page-header h1 { margin: 0; font-size: 24px; line-height: 1.25; font-weight: 800; }
+.commerce-demo-page .admin-page-header p { margin: 6px 0 0; color: var(--muted); }
+.commerce-demo-page .admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.commerce-demo-page .admin-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.commerce-demo-page .stat-card { padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.commerce-demo-page .stat-card strong { display: block; font-size: 20px; line-height: 1.35; font-weight: 800; }
+.commerce-demo-page .stat-card span { color: var(--muted); font-size: 12px; }
+.commerce-demo-page .config-workbench,
+.commerce-demo-page .admin-panel { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.commerce-demo-page .commerce-tabs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.commerce-demo-page .commerce-tab { min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: #344054; font-size: 13px; font-weight: 800; }
+.commerce-demo-page .commerce-tab.is-active { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
+.commerce-demo-page .config-panel { display: none; margin-top: 14px; }
+.commerce-demo-page .config-panel.is-active { display: block; }
+.commerce-demo-page .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.commerce-demo-page .config-item { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
+.commerce-demo-page .switch-line { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.commerce-demo-page .mini-switch { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 24px; padding: 0 10px; border-radius: 99px; background: var(--mint-soft); color: var(--mint); font-size: 12px; font-weight: 800; }
+.commerce-demo-page .mini-switch.off { background: #e5e7eb; color: #64748b; }
+.commerce-demo-page .toolbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.commerce-demo-page .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.commerce-demo-page table { width: 100%; border-collapse: collapse; }
+.commerce-demo-page th,
+.commerce-demo-page td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.commerce-demo-page th { background: var(--surface-soft); color: #344054; font-size: 12px; font-weight: 800; }
+.commerce-demo-page tr:last-child td { border-bottom: 0; }
+.commerce-demo-page .query-panel { display: grid; gap: 12px; margin-bottom: 0; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
+.commerce-demo-page .query-panel h2 { margin: 0; font-size: 15px; font-weight: 800; }
+.commerce-demo-page .query-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.commerce-demo-page .control-field,
+.commerce-demo-page .field { display: grid; gap: 5px; color: #344054; font-size: 12px; font-weight: 700; }
+.commerce-demo-page .control-field input,
+.commerce-demo-page .control-field select,
+.commerce-demo-page .field input,
+.commerce-demo-page .field select,
+.commerce-demo-page .field textarea,
+.commerce-demo-page table input,
+.commerce-demo-page table select,
+.commerce-demo-page table textarea { min-height: 34px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; color: var(--text); }
+.commerce-demo-page .field textarea { min-height: 84px; resize: vertical; }
+.commerce-demo-page .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 8px 13px; border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; color: #344054; font-weight: 700; white-space: nowrap; }
+.commerce-demo-page .btn.primary { border-color: var(--brand); background: var(--brand); color: #fff; }
+.commerce-demo-page .btn.danger { border-color: var(--rose); background: var(--rose); color: #fff; }
+.commerce-demo-page .btn:disabled { cursor: not-allowed; opacity: .52; }
+.commerce-demo-page .tag { display: inline-flex; align-items: center; min-height: 26px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #344054; font-size: 12px; font-weight: 700; }
+.commerce-demo-page .tag.success { border-color: #a7f3d0; background: var(--mint-soft); color: var(--mint); }
+.commerce-demo-page .tag.warning { border-color: #fde68a; background: var(--amber-soft); color: var(--amber); }
+.commerce-demo-page .tag.danger { border-color: #fecdd3; background: var(--rose-soft); color: var(--rose); }
+.commerce-demo-page .tag.brand { border-color: #bfdbfe; background: var(--brand-soft); color: var(--brand); }
+.commerce-demo-page .empty-cell { padding: 28px 16px; text-align: center; color: var(--muted); background: #fff; }
+.commerce-demo-page .empty-state { border: 1px dashed var(--line-strong); border-radius: var(--radius); padding: 28px 16px; text-align: center; color: var(--muted); background: #fff; }
+.commerce-demo-page .notice { display: block; margin: 12px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); color: #344054; }
+.commerce-demo-page .notice strong { display: block; margin-bottom: 4px; color: #172033; }
+.commerce-demo-page .mobile-icon { display: inline-grid; width: 30px; height: 30px; place-items: center; border: 1px solid #c7ddff; border-radius: 9px; background: #eff6ff; color: var(--brand); font-size: 16px; font-weight: 900; line-height: 1; }
+.commerce-demo-page .icon-config-cell { display: inline-flex; gap: 8px; align-items: center; }
+.commerce-demo-page .icon-config-input { width: 150px; min-height: 32px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; color: var(--text); font-size: 12px; }
+.commerce-demo-page .number-input { width: 88px; }
+.commerce-demo-page .helper { color: var(--muted); font-size: 12px; }
+.commerce-demo-page .amount-plus { color: var(--mint); font-weight: 800; }
+.commerce-demo-page .amount-minus { color: var(--rose); font-weight: 800; }
+.commerce-demo-page .pagination { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); color: var(--muted); font-size: 13px; }
+.commerce-demo-page .modal-backdrop,
+.commerce-demo-page .drawer-backdrop { position: fixed; inset: 0; z-index: 60; display: none; background: rgba(15, 23, 42, 0.42); }
+.commerce-demo-page .modal-backdrop.is-open,
+.commerce-demo-page .drawer-backdrop.is-open { display: block; }
+.commerce-demo-page .modal { width: min(560px, calc(100% - 28px)); margin: 8vh auto 0; padding: 18px; border-radius: var(--radius); background: #fff; box-shadow: var(--shadow); }
+.commerce-demo-page .modal h2,
+.commerce-demo-page .drawer h2 { margin: 0 0 10px; font-size: 18px; font-weight: 800; }
+.commerce-demo-page .drawer { position: absolute; top: 0; right: 0; width: min(680px, 100%); min-height: 100%; padding: 20px; background: #fff; box-shadow: var(--shadow); }
+.commerce-demo-page .drawer-body { display: grid; gap: 14px; }
+.commerce-demo-page .modal-actions,
+.commerce-demo-page .drawer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.commerce-demo-page .drawer-section { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
+.commerce-demo-page .drawer-section h3 { margin: 0; font-weight: 800; }
+.commerce-demo-page .drawer-kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; font-size: 13px; }
+.commerce-demo-page .drawer-kv span { color: var(--muted); }
+.commerce-demo-page .form-stack { display: grid; gap: 12px; }
+@media (max-width: 980px) {
+  .commerce-demo-page .admin-summary-grid { grid-template-columns: 1fr; }
+  .commerce-demo-page .admin-page-header { display: grid; }
+}
+`;

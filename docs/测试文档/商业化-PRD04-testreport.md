@@ -141,3 +141,115 @@ PRD-04 商业化模块后端代码全部完成：
 ### 7.4 本轮结论
 
 PRD-04 商业化管理后台闭环已按静态 Demo 最新口径落地到代码结构、接口、数据库脚本、后台页面和测试文档。当前结论基于非编译静态校验；如后续允许编译，应继续执行后端 Maven 测试、前端 build 和后台页面 E2E。
+
+## 8. 2026-07-08 配置接口数据与 Tab 刷新回归
+
+### 8.1 问题与根因
+
+| 问题 | 根因 |
+|------|------|
+| `/api/admin/commercial/config` 返回消费场景中文异常 | 当前库 `app_coin_scene_config` 残留早期错误编码数据；后端仅原样读取数据库 |
+| 商业化配置页切换 Tab 不刷新数据 | `ConfigWorkspace` 的 Tab 点击只切换 `activeTab`，未重新调用 `getCommercialConfig()` |
+| `127.0.0.1:5173` 与 `localhost:5173` 表现不一致 | 本机 5173 同时存在两个 Vite 进程：`127.0.0.1:5173` 为旧项目，`localhost/[::1]:5173` 为本项目 |
+
+### 8.2 修复内容
+
+| 文件 | 结果 |
+|------|------|
+| `deploy/sql/prod/032_commercial_config_data_alignment.sql` | 新增商业化配置数据清洗脚本，统一 8 个 Demo 消费场景，并清理旧币名 |
+| `CommercialAdminServiceImpl` | 空表兜底场景同步为 Demo 8 项 |
+| `schema-commercial.sql`、`migration-prd04-commercial.sql` | 初始化/迁移种子同步为 Demo 8 项 |
+| `CommercialManagement.tsx` | 新增 `handleConfigTabChange`，切换配置 Tab 时重新请求配置接口 |
+| `商业化-PRD04-static-check.mjs` | 增加数据清洗 SQL 与 Tab 刷新门禁 |
+
+### 8.3 已执行验证
+
+| 编号 | 命令/方式 | 结果 |
+|------|-----------|------|
+| REG-04-01 | `node docs/测试文档/商业化-PRD04-static-check.mjs` | PASS，102 项 |
+| REG-04-02 | 执行 `deploy/sql/prod/032_commercial_config_data_alignment.sql` 到当前库 | PASS，消费场景 8 条，异常编码命中 0，旧币名命中 0 |
+| REG-04-03 | `GET http://127.0.0.1:8080/admin/commercial/config` | PASS，`scene_count=8`，首项 `发送悄悄话（单次）`，无异常编码标记 |
+| REG-04-04 | `GET http://localhost:5173/api/admin/commercial/config` | PASS，`scene_count=8`，首项 `发送悄悄话（单次）`，无异常编码标记 |
+| REG-04-05 | Playwright 点击 `data-config-tab="coinPackages"` | PASS，请求计数 `2 -> 3`，当前 Tab 为 `千寻币套餐` |
+| REG-04-06 | `cd frontend && npx tsc --noEmit --pretty false` | PASS |
+| REG-04-07 | `git diff --check -- ...` | PASS |
+
+### 8.4 注意事项
+
+本机 `127.0.0.1:5173` 仍被另一个旧 Vite 项目占用；验收商业化后台时使用 `http://localhost:5173` 或 `http://[::1]:5173`，不要用 `127.0.0.1:5173`。
+
+## 9. 2026-07-08 商业化 5 菜单数据库数据维护回归
+
+### 9.1 问题与根因
+
+| 问题 | 根因 |
+|------|------|
+| 前端在接口为空或失败时仍展示 Demo 行 | 商业化页面存在 `FALLBACK_*` 兜底数据和固定统计值 |
+| 数据库缺退款、配置日志和当天对账数据 | 当前库 `app_refund_record`、`app_commercial_config_log` 为 0，且当天订单为 0 |
+| 配置接口空表时仍能返回消费场景 | 后端 `CommercialAdminServiceImpl` 存在 `defaultScenes()` 兜底 |
+
+### 9.2 修复内容
+
+| 文件 | 结果 |
+|------|------|
+| `CommercialManagement.tsx` | 移除所有 `FALLBACK_*` 前端业务数据；配置、订单、流水、退款、对账全部只渲染接口返回；无数据显示空态 |
+| `CommercialAdminServiceImpl` | 移除消费场景空表兜底，接口只返回数据库查询结果 |
+| `deploy/sql/prod/033_commercial_runtime_data_seed.sql` | 新增数据库运行数据维护脚本，写入当天订单、资产流水、退款记录和配置日志 |
+| `商业化-PRD04-static-check.mjs` | 增加禁止前端兜底数据、禁止后端 `defaultScenes()`、要求 `033` SQL 的门禁 |
+
+### 9.3 数据库执行结果
+
+| 项目 | 结果 |
+|------|------|
+| 执行 SQL | `deploy/sql/prod/033_commercial_runtime_data_seed.sql` 已执行到当前库 |
+| 今天订单 | 4 条 |
+| 资产流水 | 新增/维护 `ADM04-FLOW%` 4 条 |
+| 退款记录 | 新增/维护 `ADM04-RF%` 1 条 |
+| 配置日志 | 新增/维护 1 条 |
+
+### 9.4 运行时验证
+
+| 页面 | 页面行数 | 后端接口数据 | 结果 |
+|------|----------|--------------|------|
+| 商业化配置-会员权益 | 8 | 8 | PASS |
+| 商业化配置-会员套餐 | 7 | 7 | PASS |
+| 商业化配置-千寻币套餐 | 7 | 7 | PASS |
+| 商业化配置-消费场景 | 8 | 8 | PASS |
+| 商业化订单 | 10 | records 10 / total 20 | PASS |
+| 资产流水 | 10 | records 10 / total 19 | PASS |
+| 退款记录 | 1 | records 1 / total 1 | PASS |
+| 轻量对账 | 1 | 当天订单金额 97.90、退款 18.00、净收入 79.90 | PASS |
+
+## 10. 2026-07-08 商业化查询条件全量回归
+
+### 10.1 问题与根因
+
+| 问题 | 根因 |
+|------|------|
+| `/commercial/flows` 资产类型筛选不生效 | 前端下拉值未按 `assetType` 传给接口，后端 `FlowPageReq` 与 `getFlowList` 也未接收资产类型 |
+| 订单页用户搜索口径不一致 | 页面显示“订单/用户搜索”，实际只传 `orderNo`，未传 `userId` |
+| 页面回归初次命中旧后台 | 本机 5173 曾被另一个项目占用 IPv4，当前项目仅监听 `localhost/[::1]`；已重启当前项目 Vite 服务 |
+
+### 10.2 修复内容
+
+| 文件 | 结果 |
+|------|------|
+| `FlowPageReq` / `CoinFlowVO` | 新增 `assetType` 字段 |
+| `FinanceAdminServiceImpl` | `assetType` 为空或 `coin` 时查 `app_user_coin_log`；`vip` 等非币资产返回空分页，不再误返回全部流水 |
+| `CommercialManagement.tsx` | 订单筛选拆为订单号和用户 ID；资产流水请求补传 `assetType`；下拉值改为 `coin/vip` |
+| `commercial.ts` | `CoinFlow` 增加 `assetType` 类型字段 |
+| `商业化-PRD04-query-regression.mjs` | 新增 17 项接口与页面查询回归 |
+| `商业化-PRD04-static-check.mjs` | 新增资产类型链路、订单用户查询、回归脚本门禁 |
+
+### 10.3 已执行验证
+
+| 编号 | 命令/方式 | 结果 |
+|------|-----------|------|
+| REG-04-Q-01 | `node docs/测试文档/商业化-PRD04-query-regression.mjs` | PASS，17/17 |
+| REG-04-Q-02 | `node docs/测试文档/商业化-PRD04-static-check.mjs` | PASS，144 项 |
+| REG-04-Q-03 | `cd frontend && npx tsc --noEmit --pretty false` | PASS |
+| REG-04-Q-04 | `cd backend && JAVA_HOME=/Users/bobo/Library/Java/JavaVirtualMachines/azul-21.0.5/Contents/Home mvn -q -DskipTests compile` | PASS |
+
+### 10.4 覆盖结论
+
+本轮已覆盖商业化 5 个菜单中的所有查询条件：商业化配置 Tab 刷新、商业化订单筛选、资产流水筛选、退款记录筛选、轻量对账日期筛选。`assetType=vip` 已按真实数据库能力返回空分页，`assetType=coin` 返回千寻币流水并在响应中携带 `assetType=coin`。

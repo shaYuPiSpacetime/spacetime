@@ -118,6 +118,9 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
      */
     @Override
     public Page<CoinFlowVO> getFlowList(FlowPageReq req) {
+        if (!isCoinAssetType(req.getAssetType())) {
+            return emptyCoinFlowPage(req);
+        }
         LambdaQueryWrapper<UserCoinLog> wrapper = new LambdaQueryWrapper<UserCoinLog>()
                 .eq(req.getUserId() != null, UserCoinLog::getUserId, req.getUserId())
                 .eq(StrUtil.isNotBlank(req.getFlowType()), UserCoinLog::getFlowType, req.getFlowType())
@@ -129,6 +132,14 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         Page<CoinFlowVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(page.getRecords().stream().map(this::toFlowVO).toList());
         return result;
+    }
+
+    private boolean isCoinAssetType(String assetType) {
+        return StrUtil.isBlank(assetType) || "coin".equalsIgnoreCase(assetType) || "千寻币".equals(assetType);
+    }
+
+    private Page<CoinFlowVO> emptyCoinFlowPage(FlowPageReq req) {
+        return new Page<>(req.getPage(), req.getSize(), 0);
     }
 
     /**
@@ -401,6 +412,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         vo.setId(entity.getId());
         vo.setFlowNo(entity.getFlowNo());
         vo.setUserId(entity.getUserId());
+        vo.setAssetType("coin");
         vo.setFlowType(entity.getFlowType());
         vo.setChangeAmount(entity.getChangeAmount());
         vo.setBalanceBefore(entity.getBalanceBefore());

@@ -33,12 +33,12 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
     private final AppUserKeywordBlockDao keywordBlockDao;
     private final AppUserSecurityAuditLogDao auditLogDao;
     private final AppConfigDao appConfigDao;
-    private final UserDao userDao;
+    private final AppUserDao appUserDao;
     private final MiniappMobileConfigService mobileConfigService;
 
     @Override
     public MiniappSettingsHomeVO home(Long userId) {
-        SysUser user = userDao.selectById(userId);
+        AppUser user = appUserDao.selectById(userId);
         MiniappSettingsHomeVO vo = new MiniappSettingsHomeVO();
         vo.setPhoneBindStatus(user != null && StringUtils.hasText(user.getPhone()) ? "BOUND" : "UNBOUND");
         vo.setMaskedPhone(user != null ? maskPhone(user.getPhone()) : null);
@@ -284,7 +284,7 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
     }
 
     private MiniappBlockedUserVO toBlockedVO(AppUserRelationBlock e) {
-        SysUser target = userDao.selectById(e.getTargetUserId());
+        AppUser target = appUserDao.selectById(e.getTargetUserId());
         MiniappBlockedUserVO vo = new MiniappBlockedUserVO();
         vo.setId(e.getId());
         vo.setTargetUserId(e.getTargetUserId());

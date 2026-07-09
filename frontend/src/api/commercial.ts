@@ -96,6 +96,7 @@ export interface CoinFlow {
   id: number;
   flowNo: string;
   userId: number;
+  assetType?: string;
   flowType: string;
   changeAmount: number;
   balanceBefore?: number;

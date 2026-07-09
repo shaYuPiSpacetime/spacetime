@@ -1,6 +1,6 @@
 -- ======================================================
 -- 商业化模块 DDL
--- 包含：VIP权益、VIP套餐、成家币套餐、用户资产、交易订单、成家币流水、解锁记录
+-- 包含：VIP权益、VIP套餐、千寻币套餐、用户资产、交易订单、千寻币流水、解锁记录
 -- ======================================================
 
 CREATE TABLE IF NOT EXISTS app_vip_benefit (
@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS app_coin_package (
     amount DECIMAL(10,2) DEFAULT 0 COMMENT '售价',
     origin_amount DECIMAL(10,2) DEFAULT 0 COMMENT '原价',
     discount_amount DECIMAL(10,2) DEFAULT NULL COMMENT '优惠价',
-    coin_count INT DEFAULT 0 COMMENT '成家币数量',
-    bonus_coin_count INT DEFAULT 0 COMMENT '赠送成家币数量',
+    coin_count INT DEFAULT 0 COMMENT '千寻币数量',
+    bonus_coin_count INT DEFAULT 0 COMMENT '赠送千寻币数量',
     recommend_flag TINYINT DEFAULT 0 COMMENT '是否推荐: 0=否, 1=是',
     package_tag VARCHAR(50) DEFAULT NULL COMMENT '套餐标签',
     mobile_tag VARCHAR(50) DEFAULT NULL COMMENT '移动端展示标签',
@@ -65,14 +65,14 @@ CREATE TABLE IF NOT EXISTS app_coin_package (
     updated_by BIGINT DEFAULT NULL,
     deleted TINYINT DEFAULT 0,
     INDEX idx_status_sort (status, sort_order)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成家币套餐配置表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千寻币套餐配置表';
 
 CREATE TABLE IF NOT EXISTS app_user_asset (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL COMMENT '用户ID',
     vip_status VARCHAR(20) DEFAULT 'inactive' COMMENT 'VIP状态: inactive/active/expired',
     vip_expire_time DATETIME DEFAULT NULL COMMENT 'VIP到期时间',
-    coin_balance INT DEFAULT 0 COMMENT '成家币余额',
+    coin_balance INT DEFAULT 0 COMMENT '千寻币余额',
     today_free_whisper_remain INT DEFAULT 0 COMMENT '今日剩余免费悄悄话次数',
     total_recharge DECIMAL(10,2) DEFAULT 0 COMMENT '累计充值金额',
     last_consume_time DATETIME DEFAULT NULL COMMENT '最后消费时间',
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS app_user_coin_log (
     INDEX idx_user_time (user_id, create_time),
     INDEX idx_ref (ref_id, ref_type),
     INDEX idx_scene_time (biz_scene, create_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成家币流水表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千寻币流水表';
 
 CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     mobile_name VARCHAR(100) NOT NULL COMMENT '移动端名称',
     mobile_icon VARCHAR(100) DEFAULT NULL COMMENT '移动端图标',
     scene_desc VARCHAR(500) DEFAULT NULL COMMENT '场景说明',
-    unit_price INT DEFAULT 0 COMMENT '单价，单位：成家币',
+    unit_price INT DEFAULT 0 COMMENT '单价，单位：千寻币',
     retention_days INT DEFAULT 0 COMMENT '保留期天数，0表示永久',
     sort_order INT DEFAULT 0 COMMENT '排序号',
     status VARCHAR(20) DEFAULT 'ENABLED' COMMENT '状态: ENABLED/DISABLED',
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     deleted TINYINT DEFAULT 0,
     UNIQUE KEY uk_scene_code (scene_code),
     INDEX idx_status_sort (status, sort_order)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成家币消费场景配置表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='千寻币消费场景配置表';
 
 CREATE TABLE IF NOT EXISTS app_commercial_config_log (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS app_user_unlock_record (
     target_user_id BIGINT NOT NULL COMMENT '被解锁目标用户ID',
     unlock_scene VARCHAR(50) DEFAULT NULL COMMENT '解锁场景',
     unlock_method VARCHAR(20) DEFAULT NULL COMMENT '解锁方式',
-    coin_cost INT DEFAULT 0 COMMENT '消耗成家币数量',
+    coin_cost INT DEFAULT 0 COMMENT '消耗千寻币数量',
     effective_time DATETIME DEFAULT NULL COMMENT '生效时间',
     expire_time DATETIME DEFAULT NULL COMMENT '过期时间',
     status VARCHAR(20) DEFAULT 'active' COMMENT '状态: active/expired',
@@ -242,14 +242,14 @@ CREATE TABLE IF NOT EXISTS app_user_unlock_record (
 
 -- 默认 8 个千寻币消费场景
 INSERT INTO app_coin_scene_config (scene_code, mobile_name, mobile_icon, scene_desc, unit_price, retention_days, sort_order, status) VALUES
-('like_me_unlock', '喜欢我的', 'heart', '查看喜欢我的用户', 10, 0, 1, 'ENABLED'),
-('visit_me_unlock', '看过我的', 'eye', '查看最近访客', 8, 0, 2, 'ENABLED'),
-('ideal_match_unlock', '理想型解锁', 'sparkles', '解锁理想型候选人', 12, 90, 3, 'ENABLED'),
-('featured_profile_unlock', '精选主页', 'star', '解锁精选主页曝光', 15, 3, 4, 'ENABLED'),
-('whisper_message', '悄悄话', 'message-circle', '发送额外悄悄话', 5, 0, 5, 'ENABLED'),
-('advanced_filter', '高级筛选', 'sliders-horizontal', '开启一次高级筛选', 6, 1, 6, 'ENABLED'),
-('priority_exposure', '优先曝光', 'zap', '获得短期优先曝光', 20, 1, 7, 'ENABLED'),
-('profile_boost', '主页加速', 'rocket', '提升资料推荐权重', 18, 1, 8, 'ENABLED')
+('whisper', '发送悄悄话（单次）', 'icon-whisper', '单次发送悄悄话', 12, 0, 1, 'ENABLED'),
+('likes_unlock_one', '查看谁喜欢我（单次）', 'icon-heart-unlock', '查看单条喜欢我的清晰信息', 8, 0, 2, 'ENABLED'),
+('viewers_unlock_one', '查看谁看过我（单次）', 'icon-eye-unlock', '查看单条访客清晰信息', 8, 0, 3, 'ENABLED'),
+('ideal_user_unlock', '解锁理想型用户（单个）', 'icon-target-user', '单个理想型用户解锁', 18, 90, 4, 'ENABLED'),
+('ideal_batch_unlock', '批量解锁理想型用户', 'icon-target-batch', '多个理想型用户批量解锁', 15, 90, 5, 'ENABLED'),
+('compatible_person_unlock_one', '合拍的人（单个）', 'icon-compatible-person', '由测评结果推荐的人', 20, 90, 6, 'ENABLED'),
+('soulmate_mizhiyin_unlock_one', '解锁知音-觅知音（单个）', 'icon-soulmate', '单个解锁知音对象', 28, 90, 7, 'ENABLED'),
+('career_recommend_unlock_one', '立业-职业推荐', 'icon-career-recommend', '根据职业测评结果推荐职业，单次解锁；重新完成测评时才需再次解锁', 26, 0, 8, 'ENABLED')
 ON DUPLICATE KEY UPDATE
     mobile_name = VALUES(mobile_name),
     mobile_icon = VALUES(mobile_icon),
@@ -265,36 +265,34 @@ ON DUPLICATE KEY UPDATE
 -- ======================================================
 
 INSERT INTO sys_menu (id, parent_id, menu_name, menu_type, path, component, icon, perms, menu_sort, visible) VALUES
--- 旧财务中心菜单保留但隐藏
-(800, 0, '财务中心', 'M', NULL, NULL, 'DollarSign', NULL, 80, 0),
+-- Demo 对齐菜单：移动端配置 / 商业化配置，财务中心 / 订单、流水、退款、对账
+(800, 0, '财务中心', 'M', NULL, NULL, 'DollarSign', NULL, 80, 1),
 (801, 800, '订单管理', 'C', '/finance/orders', 'finance/FinanceManagement', NULL, 'finance:order:list', 1, 0),
 (802, 800, '流水管理', 'C', '/finance/flows', 'finance/FinanceManagement', NULL, 'finance:flow:list', 2, 0),
 (803, 800, '退款管理', 'C', '/finance/refunds', 'finance/FinanceManagement', NULL, 'finance:refund:list', 3, 0),
 (804, 803, '处理退款', 'F', NULL, NULL, NULL, 'finance:refund:process', 1, 0),
 (805, 800, '财务统计', 'F', NULL, NULL, NULL, 'finance:stats:view', 4, 0),
 
--- 旧移动端配置菜单保留但隐藏
-(810, 0, '移动端配置管理', 'M', NULL, NULL, 'Settings', NULL, 81, 0),
+(810, 0, '移动端配置', 'M', NULL, NULL, 'Settings', NULL, 81, 1),
 (811, 810, 'VIP权益配置', 'C', '/config/vip-benefits', 'config/VipBenefitManagement', NULL, 'vip:benefit:list', 1, 0),
 (812, 811, '新增权益', 'F', NULL, NULL, NULL, 'vip:benefit:add', 1, 0),
 (813, 811, '编辑权益', 'F', NULL, NULL, NULL, 'vip:benefit:edit', 2, 0),
 (814, 810, 'VIP套餐配置', 'C', '/config/vip-packages', 'config/VipPackageManagement', NULL, 'vip:package:list', 2, 0),
 (815, 814, '新增套餐', 'F', NULL, NULL, NULL, 'vip:package:add', 1, 0),
 (816, 814, '编辑套餐', 'F', NULL, NULL, NULL, 'vip:package:edit', 2, 0),
-(817, 810, '成家币套餐配置', 'C', '/config/coin-packages', 'config/CoinPackageManagement', NULL, 'coin:package:list', 3, 0),
+(817, 810, '千寻币套餐配置', 'C', '/config/coin-packages', 'config/CoinPackageManagement', NULL, 'coin:package:list', 3, 0),
 (818, 817, '新增套餐', 'F', NULL, NULL, NULL, 'coin:package:add', 1, 0),
 (819, 817, '编辑套餐', 'F', NULL, NULL, NULL, 'coin:package:edit', 2, 0),
 
--- 新商业化中心，按静态 Demo 5 个后台工作台展示
-(820, 0, '商业化中心', 'M', NULL, NULL, 'BadgeDollarSign', NULL, 82, 1),
-(821, 820, '商业化配置', 'C', '/commercial/config', 'commercial/CommercialManagement', NULL, 'commercial:config:view', 1, 1),
+(829, 0, '旧独立入口', 'M', NULL, NULL, 'BadgeDollarSign', NULL, 82, 0),
+(821, 810, '商业化配置', 'C', '/commercial/config', 'commercial/CommercialManagement', NULL, 'commercial:config:view', 1, 1),
 (822, 821, '保存商业化配置', 'F', NULL, NULL, NULL, 'commercial:config:edit', 1, 0),
-(823, 820, '商业化订单', 'C', '/commercial/orders', 'commercial/CommercialManagement', NULL, 'finance:order:list', 2, 1),
-(824, 820, '资产流水', 'C', '/commercial/flows', 'commercial/CommercialManagement', NULL, 'finance:flow:list', 3, 1),
-(825, 820, '退款记录', 'C', '/commercial/refunds', 'commercial/CommercialManagement', NULL, 'finance:refund:list', 4, 1),
-(826, 820, '轻量对账', 'C', '/commercial/reconcile', 'commercial/CommercialManagement', NULL, 'finance:stats:view', 5, 1),
-(827, 820, '用户商业化详情', 'F', NULL, NULL, NULL, 'commercial:user:view', 6, 0),
-(828, 820, '发起退款', 'F', NULL, NULL, NULL, 'finance:refund:process', 7, 0)
+(823, 800, '商业化订单', 'C', '/commercial/orders', 'commercial/CommercialManagement', NULL, 'finance:order:list', 1, 1),
+(824, 800, '资产流水', 'C', '/commercial/flows', 'commercial/CommercialManagement', NULL, 'finance:flow:list', 2, 1),
+(825, 800, '退款记录', 'C', '/commercial/refunds', 'commercial/CommercialManagement', NULL, 'finance:refund:list', 3, 1),
+(826, 800, '轻量对账', 'C', '/commercial/reconcile', 'commercial/CommercialManagement', NULL, 'finance:stats:view', 4, 1),
+(827, 821, '用户商业化详情', 'F', NULL, NULL, NULL, 'commercial:user:view', 6, 0),
+(828, 823, '发起退款', 'F', NULL, NULL, NULL, 'finance:refund:process', 7, 0)
 ON DUPLICATE KEY UPDATE
     menu_name = VALUES(menu_name),
     parent_id = VALUES(parent_id),

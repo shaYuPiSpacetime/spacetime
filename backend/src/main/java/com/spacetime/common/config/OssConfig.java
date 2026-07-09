@@ -20,4 +20,8 @@ public class OssConfig {
     private String accessKeySecret;
     /** Bucket 名称 */
     private String bucketName;
+    /** CDN 加速域名（人像照片等公开资源），如 https://static.shikongxiehou.com。留空则退回 bucket 域名 */
+    private String cdnDomain;
+    /** 签名 URL 默认有效期（秒），默认 300（5分钟），用于身份照等敏感文件 */
+    private int urlExpireSeconds = 300;
 }
