@@ -18,6 +18,8 @@ public class ModerationDetailVO {
     private String avatar;
     /** 内容类型：照片/文字 */
     private String contentType;
+    /** 图片类型：相册/背景图；文字审核为空。 */
+    private String imageType;
     /** 内容完整值（照片原图URL 或 文本全文） */
     private String contentFull;
     /** 文本字段类型（关于我 / 希望TA了解） */

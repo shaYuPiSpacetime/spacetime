@@ -1,17 +1,18 @@
 package com.spacetime.miniapp.service.impl;
 
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.spacetime.common.dao.AppUserDao;
-import com.spacetime.common.dao.AppUserVoiceIntroRecordDao;
 import com.spacetime.common.dao.ExternalProviderTaskDao;
 import com.spacetime.common.entity.AppUser;
-import com.spacetime.common.entity.AppUserVoiceIntroRecord;
+import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.ExternalProviderTask;
-import com.spacetime.common.enums.VoiceIntroStatusEnum;
+import com.spacetime.common.enums.AppUserAuditStatusEnum;
+import com.spacetime.common.enums.AppUserAuditTypeEnum;
+import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.provider.AudioSafetyProvider;
 import com.spacetime.common.provider.ProviderCheckResult;
+import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.miniapp.dto.request.VoiceIntroSubmitReq;
 import com.spacetime.miniapp.dto.response.VoiceIntroVO;
 import com.spacetime.miniapp.service.VoiceIntroService;
@@ -19,99 +20,67 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-
 /**
  * 移动端语音介绍服务实现。
- *
- * 语音介绍只走音频安全 Provider，不做语音转文字，也不进入开放性文字审核；
- * 只有音频安全通过后的记录才会同步到用户详情并对外展示。
+ * 语音介绍只走音频安全 Provider，统一写入 app_user_audit_record，不再使用语音分表。
  */
 @Service
 @RequiredArgsConstructor
 public class VoiceIntroServiceImpl implements VoiceIntroService {
 
     private final AppUserDao appUserDao;
-    private final AppUserVoiceIntroRecordDao voiceIntroRecordDao;
     private final ExternalProviderTaskDao externalProviderTaskDao;
     private final AudioSafetyProvider audioSafetyProvider;
+    private final AppUserAuditService auditService;
 
-    /** 提交语音介绍，完成音频安全审核并同步当前有效语音状态。 */
+    /** 提交语音介绍；机审通过前旧语音继续生效，新语音不对外展示。 */
     @Override
     @Transactional
     public VoiceIntroVO submitVoiceIntro(Long userId, VoiceIntroSubmitReq req) {
-        AppUser user = requireUser(userId);
+        requireUser(userId);
         validateRequest(req);
 
-        AppUserVoiceIntroRecord record = baseRecord(userId, req);
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setUserId(userId);
+        record.setAuditType(AppUserAuditTypeEnum.VOICE_INTRO.getCode());
+        record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
+        record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
+        record.setMediaUrl(req.getVoiceUrl());
+        record.setDuration(req.getDuration());
+        record.setSubmitPayloadJson("{\"voiceUrl\":\"" + json(req.getVoiceUrl()) + "\",\"duration\":" + req.getDuration() + "}");
+        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
+        auditService.submit(record);
+
         try {
             ProviderCheckResult result = audioSafetyProvider.check(req.getVoiceUrl(), req.getDuration());
             ExternalProviderTask task = providerTask(userId, "AUDIO_SAFETY", result);
             externalProviderTaskDao.insert(task);
-            record.setProviderTaskId(task.getId());
-            record.setMachineSignalJson(result.getRawResponseJson());
-            record.setAuditTime(LocalDateTime.now());
-
             if (Boolean.TRUE.equals(result.getSafe())) {
-                // 机审通过后立即成为当前有效语音，用户详情才会展示播放入口。
-                record.setAuditStatus(VoiceIntroStatusEnum.VOICE_APPROVED.getCode());
-                record.setCurrentEffective(true);
-                voiceIntroRecordDao.insert(record);
-                user.setVoiceIntroUrl(req.getVoiceUrl());
-                user.setVoiceIntroDuration(req.getDuration());
-                user.setVoiceIntroAuditStatus(VoiceIntroStatusEnum.VOICE_APPROVED.getCode());
-                user.setVoiceIntroRecordId(record.getId());
-                user.setVoiceIntroRejectReason(null);
-                appUserDao.updateById(user);
-                return toVo(record, true);
+                auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
+                AppUserAuditRecord approved = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+                return toVo(approved, true);
             }
-
-            // 机审拒绝只记录审核结果，不替换当前有效语音。
-            record.setAuditStatus(VoiceIntroStatusEnum.VOICE_REJECTED.getCode());
-            record.setRejectReason(StrUtil.blankToDefault(result.getRejectReason(), "音频内容安全未通过"));
-            record.setCurrentEffective(false);
-            voiceIntroRecordDao.insert(record);
-            user.setVoiceIntroAuditStatus(VoiceIntroStatusEnum.VOICE_REJECTED.getCode());
-            user.setVoiceIntroRecordId(record.getId());
-            user.setVoiceIntroRejectReason(record.getRejectReason());
-            appUserDao.updateById(user);
-            return toVo(record, false);
+            String reason = StrUtil.blankToDefault(result.getRejectReason(), "音频内容安全未通过");
+            auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(), reason);
+            return toVo(auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO), false);
         } catch (Exception ex) {
-            // Provider 异常时进入待审核，避免三方波动导致用户提交链路失败。
-            record.setAuditStatus(VoiceIntroStatusEnum.VOICE_PENDING.getCode());
-            record.setRejectReason(null);
-            record.setCurrentEffective(false);
-            voiceIntroRecordDao.insert(record);
-            user.setVoiceIntroAuditStatus(VoiceIntroStatusEnum.VOICE_PENDING.getCode());
-            user.setVoiceIntroRecordId(record.getId());
-            user.setVoiceIntroRejectReason(null);
-            appUserDao.updateById(user);
+            // Provider 异常时保留 PENDING，后台和后续任务可继续处理；不替换旧有效语音。
             return toVo(record, false);
         }
     }
 
-    /** 删除当前有效语音介绍，同时清空用户详情里的播放字段。 */
+    /** 删除当前有效语音介绍，当前记录失效后不自动回退旧语音。 */
     @Override
     @Transactional
     public void deleteVoiceIntro(Long userId) {
-        AppUser user = requireUser(userId);
-        AppUserVoiceIntroRecord current = voiceIntroRecordDao.selectOne(new LambdaQueryWrapper<AppUserVoiceIntroRecord>()
-                .eq(AppUserVoiceIntroRecord::getUserId, userId)
-                .eq(AppUserVoiceIntroRecord::getCurrentEffective, true));
+        requireUser(userId);
+        AppUserAuditRecord current = auditService.latestEffectiveRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
         if (current == null) {
             throw new BusinessException("语音介绍不存在");
         }
-        current.setCurrentEffective(false);
-        voiceIntroRecordDao.updateById(current);
-        user.setVoiceIntroUrl(null);
-        user.setVoiceIntroDuration(null);
-        user.setVoiceIntroAuditStatus(VoiceIntroStatusEnum.NOT_SUBMITTED.getCode());
-        user.setVoiceIntroRecordId(null);
-        user.setVoiceIntroRejectReason(null);
-        appUserDao.updateById(user);
+        auditService.systemExpire(current.getId(), "用户删除语音介绍");
     }
 
-    /** 查询用户，不存在时直接阻断后续提交。 */
     private AppUser requireUser(Long userId) {
         AppUser user = appUserDao.selectById(userId);
         if (user == null) {
@@ -120,7 +89,6 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         return user;
     }
 
-    /** 校验语音 URL 和时长，时长口径与移动端对接文档保持一致。 */
     private void validateRequest(VoiceIntroSubmitReq req) {
         if (req == null || StrUtil.isBlank(req.getVoiceUrl())) {
             throw new BusinessException("语音介绍缺少音频 URL");
@@ -130,19 +98,6 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         }
     }
 
-    /** 构造待审核语音记录，审核结果由 Provider 返回后再落状态。 */
-    private AppUserVoiceIntroRecord baseRecord(Long userId, VoiceIntroSubmitReq req) {
-        AppUserVoiceIntroRecord record = new AppUserVoiceIntroRecord();
-        record.setUserId(userId);
-        record.setVoiceUrl(req.getVoiceUrl());
-        record.setDuration(req.getDuration());
-        record.setAuditStatus(VoiceIntroStatusEnum.VOICE_PENDING.getCode());
-        record.setSubmitTime(LocalDateTime.now());
-        record.setCurrentEffective(false);
-        return record;
-    }
-
-    /** 记录 Provider 调用结果，供后台审计和三方问题排查。 */
     private ExternalProviderTask providerTask(Long userId, String providerType, ProviderCheckResult result) {
         ExternalProviderTask task = new ExternalProviderTask();
         task.setProviderType(providerType);
@@ -155,14 +110,18 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         return task;
     }
 
-    /** 转换为移动端响应，未通过审核时不返回可播放地址。 */
-    private VoiceIntroVO toVo(AppUserVoiceIntroRecord record, boolean exposeVoiceUrl) {
+    private VoiceIntroVO toVo(AppUserAuditRecord record, boolean exposeVoiceUrl) {
         VoiceIntroVO vo = new VoiceIntroVO();
-        vo.setVoiceIntroUrl(exposeVoiceUrl ? record.getVoiceUrl() : null);
+        vo.setVoiceIntroUrl(exposeVoiceUrl ? record.getMediaUrl() : null);
         vo.setVoiceIntroDuration(record.getDuration());
-        vo.setVoiceIntroAuditStatus(record.getAuditStatus());
+        vo.setVoiceIntroAuditStatus(record.getStatus());
         vo.setVoiceIntroRejectReason(record.getRejectReason());
         vo.setVisibleToPublic(exposeVoiceUrl);
         return vo;
+    }
+
+    private String json(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

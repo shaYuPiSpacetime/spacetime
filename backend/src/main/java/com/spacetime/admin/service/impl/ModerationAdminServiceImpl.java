@@ -2,234 +2,243 @@ package com.spacetime.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.ModerationDetailVO;
 import com.spacetime.admin.dto.response.ModerationVO;
 import com.spacetime.admin.service.ModerationAdminService;
+import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.AppUserDao;
-import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
-import com.spacetime.common.entity.AppUserVerification;
-import com.spacetime.common.enums.AuditSourceEnum;
+import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.interceptor.UserContextHolder;
+import com.spacetime.common.service.AppUserAuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 管理后台 — 内容审核服务实现
- * 含照片审核与文字审核的分页列表/详情/审核操作，使用 FieldEntry 泛化承载审核内容差异
+ * 管理后台内容审核服务实现。
+ * 资料图片与开放文字统一读取 app_user_audit_record，避免旧汇总字段和分表状态不一致。
  */
 @Service
 @RequiredArgsConstructor
 public class ModerationAdminServiceImpl implements ModerationAdminService {
 
-    /** 时间格式化器 */
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private final AppUserVerificationDao verificationDao;
+    private final AppUserAuditRecordDao auditRecordDao;
+    private final AppUserAuditService auditService;
     private final AppUserDao appUserDao;
 
     @Override
     public Page<ModerationVO> getPhotoPage(VerificationPageReq req) {
-        LambdaQueryWrapper<AppUserVerification> wrapper = buildModerationWrapper(req,
-                AppUserVerification::getProfilePhotoAuditStatus,
-                AppUserVerification::getProfilePhotoAuditSource,
-                AppUserVerification::getProfilePhotoSubmitTime);
-        Page<AppUserVerification> page = verificationDao.selectPage(
-                new Page<>(req.getPage(), req.getSize()), wrapper);
-        return toModerationPage(page, true);
+        List<String> types = photoTypes(req.getImageType());
+        Page<AppUserAuditRecord> page = queryPage(req, types);
+        return toPage(page, true);
     }
 
     @Override
     public Page<ModerationVO> getTextPage(VerificationPageReq req) {
-        LambdaQueryWrapper<AppUserVerification> wrapper = buildModerationWrapper(req,
-                AppUserVerification::getOpenTextAuditStatus,
-                AppUserVerification::getOpenTextAuditSource,
-                AppUserVerification::getOpenTextSubmitTime);
-        Page<AppUserVerification> page = verificationDao.selectPage(
-                new Page<>(req.getPage(), req.getSize()), wrapper);
-        return toModerationPage(page, false);
+        List<String> types = textTypes(req.getTextType());
+        Page<AppUserAuditRecord> page = queryPage(req, types);
+        return toPage(page, false);
     }
 
-    private LambdaQueryWrapper<AppUserVerification> buildModerationWrapper(VerificationPageReq req,
-            SFunction<AppUserVerification, String> statusGetter,
-            SFunction<AppUserVerification, String> auditSourceGetter,
-            SFunction<AppUserVerification, LocalDateTime> submitTimeGetter) {
-        LambdaQueryWrapper<AppUserVerification> wrapper = new LambdaQueryWrapper<>();
-        if (StrUtil.isNotBlank(req.getKeyword())) {
-            List<Long> userIds = appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
-                    .like(AppUser::getNickname, req.getKeyword()))
-                    .stream().map(AppUser::getId).toList();
-            wrapper.in(!userIds.isEmpty(), AppUserVerification::getUserId, userIds.isEmpty() ? null : userIds);
+    private Page<AppUserAuditRecord> queryPage(VerificationPageReq req, List<String> types) {
+        LambdaQueryWrapper<AppUserAuditRecord> wrapper = new LambdaQueryWrapper<AppUserAuditRecord>()
+                .in(AppUserAuditRecord::getAuditType, types)
+                .eq(req.getUserId() != null, AppUserAuditRecord::getUserId, req.getUserId())
+                .eq(StrUtil.isNotBlank(req.getStatus()), AppUserAuditRecord::getStatus, req.getStatus())
+                .eq(StrUtil.isNotBlank(req.getAuditSource()), AppUserAuditRecord::getAuditSource, req.getAuditSource())
+                .orderByDesc(AppUserAuditRecord::getSubmitTime)
+                .orderByDesc(AppUserAuditRecord::getId);
+        applyKeyword(req, wrapper);
+        applySubmitTimeFilter(wrapper, req.getSubmitTime());
+        return auditRecordDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
+    }
+
+    private void applyKeyword(VerificationPageReq req, LambdaQueryWrapper<AppUserAuditRecord> wrapper) {
+        if (StrUtil.isBlank(req.getKeyword())) {
+            return;
         }
-        wrapper.eq(req.getUserId() != null, AppUserVerification::getUserId, req.getUserId())
-               .eq(StrUtil.isNotBlank(req.getStatus()), statusGetter, req.getStatus())
-               .eq(StrUtil.isNotBlank(req.getAuditSource()), auditSourceGetter, req.getAuditSource())
-               .isNotNull(submitTimeGetter)
-               .orderByDesc(AppUserVerification::getUpdateTime);
-        applySubmitTimeFilter(wrapper, submitTimeGetter, req.getSubmitTime());
-        return wrapper;
+        List<Long> userIds = appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
+                .like(AppUser::getNickname, req.getKeyword()))
+                .stream().map(AppUser::getId).toList();
+        if (userIds.isEmpty()) {
+            wrapper.eq(AppUserAuditRecord::getUserId, -1L);
+        } else {
+            wrapper.in(AppUserAuditRecord::getUserId, userIds);
+        }
     }
 
-    /** 提交时间快捷筛选：对应 Demo 的“今天/近7天”。 */
-    private void applySubmitTimeFilter(LambdaQueryWrapper<AppUserVerification> wrapper,
-            SFunction<AppUserVerification, LocalDateTime> submitTimeGetter,
-            String submitTime) {
+    private void applySubmitTimeFilter(LambdaQueryWrapper<AppUserAuditRecord> wrapper, String submitTime) {
         if ("TODAY".equals(submitTime)) {
-            wrapper.ge(submitTimeGetter, LocalDateTime.now().toLocalDate().atStartOfDay());
+            wrapper.ge(AppUserAuditRecord::getSubmitTime, LocalDateTime.now().toLocalDate().atStartOfDay());
         } else if ("LAST_7_DAYS".equals(submitTime)) {
-            wrapper.ge(submitTimeGetter, LocalDateTime.now().minusDays(7));
+            wrapper.ge(AppUserAuditRecord::getSubmitTime, LocalDateTime.now().minusDays(7));
         }
     }
 
-    private Page<ModerationVO> toModerationPage(Page<AppUserVerification> page, boolean isPhoto) {
-        List<AppUserVerification> verificationList = page.getRecords();
-        Map<Long, AppUser> userMap = verificationList.isEmpty() ? Map.of() : appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
-                .in(AppUser::getId, verificationList.stream().map(AppUserVerification::getUserId).toList()))
+    private Page<ModerationVO> toPage(Page<AppUserAuditRecord> page, boolean photo) {
+        List<AppUserAuditRecord> records = page.getRecords();
+        Map<Long, AppUser> userMap = records.isEmpty() ? Map.of() : appUserDao.selectList(
+                new LambdaQueryWrapper<AppUser>().in(AppUser::getId,
+                        records.stream().map(AppUserAuditRecord::getUserId).toList()))
                 .stream().collect(Collectors.toMap(AppUser::getId, u -> u, (a, b) -> a));
-
-        List<ModerationVO> records = new ArrayList<>();
-        for (AppUserVerification v : page.getRecords()) {
-            ModerationVO vo = new ModerationVO();
-            vo.setId(v.getId());
-            vo.setUserId(v.getUserId());
-            AppUser user = userMap.get(v.getUserId());
-            vo.setAvatar(user != null ? user.getAvatar() : null);
-            vo.setNickname(user != null ? user.getNickname() : null);
-            if (isPhoto) {
-                String imageUrl = firstImageUrl(user);
-                String imageType = user != null && StrUtil.isNotBlank(user.getProfileBgImage()) ? "背景图" : "相册";
+        List<ModerationVO> vos = new ArrayList<>();
+        for (AppUserAuditRecord record : records) {
+            AppUser user = userMap.get(record.getUserId());
+            ModerationVO vo = baseRow(record, user);
+            if (photo) {
                 vo.setContentType("图片");
-                vo.setImageType(imageType);
-                vo.setImageCategory(imageType);
-                vo.setImageUrl(imageUrl);
-                vo.setContentPreview(imageUrl);
-                vo.setStatus(v.getProfilePhotoAuditStatus());
-                vo.setAuditSource(v.getProfilePhotoAuditSource());
-                vo.setRejectReason(v.getProfilePhotoRejectReason());
-                vo.setSubmitTime(v.getProfilePhotoSubmitTime() != null ? v.getProfilePhotoSubmitTime().format(FMT) : null);
+                vo.setImageType(AppUserAuditTypeEnum.PROFILE_BG.getCode().equals(record.getAuditType()) ? "背景图" : "相册");
+                vo.setImageCategory(vo.getImageType());
+                vo.setImageUrl(record.getMediaUrl());
+                vo.setContentPreview(record.getMediaUrl());
             } else {
                 vo.setContentType("文字");
-                String aboutMe = user != null ? user.getAboutMe() : null;
-                String hopeTheyKnow = user != null ? user.getHopeTheyKnow() : null;
-                String fullText = StrUtil.isNotBlank(aboutMe) ? aboutMe : hopeTheyKnow;
-                String textType = StrUtil.isNotBlank(aboutMe) ? "关于我" : "希望 TA 了解";
-                String textSummary = StrUtil.isNotBlank(fullText) ? StrUtil.maxLength(fullText, 24) : null;
-                vo.setTextType(textType);
-                vo.setTextSummary(textSummary);
-                vo.setContentPreview(textSummary);
-                vo.setStatus(v.getOpenTextAuditStatus());
-                vo.setAuditSource(v.getOpenTextAuditSource());
-                vo.setRejectReason(v.getOpenTextRejectReason());
-                vo.setSubmitTime(v.getOpenTextSubmitTime() != null ? v.getOpenTextSubmitTime().format(FMT) : null);
+                vo.setTextType(textTypeLabel(record.getAuditType()));
+                vo.setTextSummary(StrUtil.isBlank(record.getContentText()) ? null : StrUtil.maxLength(record.getContentText(), 24));
+                vo.setContentPreview(vo.getTextSummary());
             }
-            records.add(vo);
+            vos.add(vo);
         }
         Page<ModerationVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(records);
+        result.setRecords(vos);
         return result;
     }
 
-    /** 取列表可预览的第一张图片；相册为空时回退到资料背景图。 */
-    private String firstImageUrl(AppUser user) {
-        if (user == null) return null;
-        if (StrUtil.isNotBlank(user.getPhotos())) {
-            String photos = user.getPhotos().trim();
-            if (photos.startsWith("[") && photos.endsWith("]")) {
-                String first = photos.replace("[", "").replace("]", "").replace("\"", "").split(",", -1)[0].trim();
-                if (StrUtil.isNotBlank(first)) return first;
-            }
-            return photos;
-        }
-        return user.getProfileBgImage();
+    private ModerationVO baseRow(AppUserAuditRecord record, AppUser user) {
+        ModerationVO vo = new ModerationVO();
+        vo.setId(record.getId());
+        vo.setUserId(record.getUserId());
+        vo.setAvatar(user == null ? null : user.getAvatar());
+        vo.setNickname(user == null ? null : user.getNickname());
+        vo.setStatus(record.getStatus());
+        vo.setAuditSource(record.getAuditSource());
+        vo.setRejectReason(reason(record));
+        vo.setSubmitTime(format(record.getSubmitTime()));
+        return vo;
     }
 
     @Override
     public ModerationDetailVO getPhotoDetail(Long id) {
-        AppUserVerification v = requireVerification(id);
-        AppUser user = appUserDao.selectById(v.getUserId());
-        ModerationDetailVO vo = new ModerationDetailVO();
-        vo.setId(v.getId());
-        vo.setUserId(v.getUserId());
-        vo.setNickname(user != null ? user.getNickname() : null);
-        vo.setAvatar(user != null ? user.getAvatar() : null);
+        AppUserAuditRecord record = requireRecord(id, photoTypes(null));
+        AppUser user = appUserDao.selectById(record.getUserId());
+        ModerationDetailVO vo = baseDetail(record, user);
         vo.setContentType("照片");
-        vo.setContentFull(user != null ? user.getPhotos() : null);
-        vo.setSubmitTime(v.getProfilePhotoSubmitTime() != null ? v.getProfilePhotoSubmitTime().format(FMT) : null);
-        vo.setStatus(v.getProfilePhotoAuditStatus());
-        vo.setAuditSource(v.getProfilePhotoAuditSource());
-        vo.setRejectReason(v.getProfilePhotoRejectReason());
+        vo.setImageType(AppUserAuditTypeEnum.PROFILE_BG.getCode().equals(record.getAuditType()) ? "背景图" : "相册");
+        vo.setContentFull(record.getMediaUrl());
         return vo;
     }
 
     @Override
     public ModerationDetailVO getTextDetail(Long id) {
-        AppUserVerification v = requireVerification(id);
-        AppUser user = appUserDao.selectById(v.getUserId());
-        ModerationDetailVO vo = new ModerationDetailVO();
-        vo.setId(v.getId());
-        vo.setUserId(v.getUserId());
-        vo.setNickname(user != null ? user.getNickname() : null);
-        vo.setAvatar(user != null ? user.getAvatar() : null);
+        AppUserAuditRecord record = requireRecord(id, textTypes(null));
+        AppUser user = appUserDao.selectById(record.getUserId());
+        ModerationDetailVO vo = baseDetail(record, user);
         vo.setContentType("文字");
-        vo.setContentField(user != null
-                ? (StrUtil.isNotBlank(user.getAboutMe()) ? "关于我" : StrUtil.isNotBlank(user.getHopeTheyKnow()) ? "希望TA了解" : "其他")
-                : null);
-        vo.setContentFull(user != null && StrUtil.isNotBlank(user.getAboutMe())
-                ? user.getAboutMe()
-                : user != null ? user.getHopeTheyKnow() : null);
-        vo.setSubmitTime(v.getOpenTextSubmitTime() != null ? v.getOpenTextSubmitTime().format(FMT) : null);
-        vo.setStatus(v.getOpenTextAuditStatus());
-        vo.setAuditSource(v.getOpenTextAuditSource());
-        vo.setRejectReason(v.getOpenTextRejectReason());
+        vo.setContentField(textTypeLabel(record.getAuditType()));
+        vo.setContentFull(record.getContentText());
+        return vo;
+    }
+
+    private ModerationDetailVO baseDetail(AppUserAuditRecord record, AppUser user) {
+        ModerationDetailVO vo = new ModerationDetailVO();
+        vo.setId(record.getId());
+        vo.setUserId(record.getUserId());
+        vo.setNickname(user == null ? null : user.getNickname());
+        vo.setAvatar(user == null ? null : user.getAvatar());
+        vo.setSubmitTime(format(record.getSubmitTime()));
+        vo.setStatus(record.getStatus());
+        vo.setAuditSource(record.getAuditSource());
+        vo.setRejectReason(reason(record));
         return vo;
     }
 
     @Override
     @Transactional
     public void auditPhoto(Long id, ModerationAuditReq req) {
-        validateAuditReq(req);
-        AppUserVerification v = verificationDao.selectById(id);
-        if (v == null) throw new BusinessException("审核记录不存在");
-        v.setProfilePhotoAuditStatus("APPROVE".equals(req.getAction()) ? "APPROVED" : "REJECTED");
-        v.setProfilePhotoRejectReason("REJECT".equals(req.getAction()) ? req.getRejectReason() : null);
-        v.setProfilePhotoAuditSource(AuditSourceEnum.MANUAL.getCode());
-        verificationDao.updateById(v);
+        requireRecord(id, photoTypes(null));
+        audit(id, req);
     }
 
     @Override
     @Transactional
     public void auditText(Long id, ModerationAuditReq req) {
+        requireRecord(id, textTypes(null));
+        audit(id, req);
+    }
+
+    private void audit(Long id, ModerationAuditReq req) {
         validateAuditReq(req);
-        AppUserVerification v = verificationDao.selectById(id);
-        if (v == null) throw new BusinessException("审核记录不存在");
-        v.setOpenTextAuditStatus("APPROVE".equals(req.getAction()) ? "APPROVED" : "REJECTED");
-        v.setOpenTextRejectReason("REJECT".equals(req.getAction()) ? req.getRejectReason() : null);
-        v.setOpenTextAuditSource(AuditSourceEnum.MANUAL.getCode());
-        verificationDao.updateById(v);
+        UserContext ctx = UserContextHolder.get();
+        auditService.manualAudit(id, req.getAction(), req.getRejectReason(),
+                ctx == null ? null : ctx.getId(), ctx == null ? "管理员" : ctx.getNickname());
     }
 
     private void validateAuditReq(ModerationAuditReq req) {
-        if (!"APPROVE".equals(req.getAction()) && !"REJECT".equals(req.getAction())) {
+        if (!"APPROVE".equals(req.getAction()) && !"REJECT".equals(req.getAction()) && !"EXPIRE".equals(req.getAction())) {
             throw new BusinessException("不支持的审核动作");
         }
-        if ("REJECT".equals(req.getAction()) && !req.isRejectReasonValid()) {
-            throw new BusinessException("驳回时必须填写驳回原因");
+        if (!req.isRejectReasonValid()) {
+            throw new BusinessException("驳回或失效时必须填写原因");
         }
     }
 
-    private AppUserVerification requireVerification(Long id) {
-        AppUserVerification v = verificationDao.selectById(id);
-        if (v == null) throw new BusinessException("审核记录不存在");
-        return v;
+    private AppUserAuditRecord requireRecord(Long id, List<String> types) {
+        AppUserAuditRecord record = auditRecordDao.selectById(id);
+        if (record == null || !types.contains(record.getAuditType())) {
+            throw new BusinessException("审核记录不存在");
+        }
+        return record;
+    }
+
+    private List<String> photoTypes(String imageType) {
+        if ("BACKGROUND".equals(imageType) || "PROFILE_BG".equals(imageType)) {
+            return List.of(AppUserAuditTypeEnum.PROFILE_BG.getCode());
+        }
+        if ("ALBUM".equals(imageType) || "ALBUM_PHOTO".equals(imageType)) {
+            return List.of(AppUserAuditTypeEnum.ALBUM_PHOTO.getCode());
+        }
+        return List.of(AppUserAuditTypeEnum.ALBUM_PHOTO.getCode(), AppUserAuditTypeEnum.PROFILE_BG.getCode());
+    }
+
+    private List<String> textTypes(String textType) {
+        if (StrUtil.isNotBlank(textType)) {
+            AppUserAuditTypeEnum type = AppUserAuditTypeEnum.getByCode(textType);
+            if (type != null && List.of(AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditTypeEnum.HOPE_THEY_KNOW,
+                    AppUserAuditTypeEnum.PROFILE_QA).contains(type)) {
+                return List.of(type.getCode());
+            }
+        }
+        return List.of(AppUserAuditTypeEnum.ABOUT_ME.getCode(),
+                AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode(),
+                AppUserAuditTypeEnum.PROFILE_QA.getCode());
+    }
+
+    private String textTypeLabel(String type) {
+        AppUserAuditTypeEnum auditType = AppUserAuditTypeEnum.getByCode(type);
+        return auditType == null ? type : auditType.getDesc();
+    }
+
+    private String reason(AppUserAuditRecord record) {
+        return record.getRejectReason() != null ? record.getRejectReason() : record.getExpiredReason();
+    }
+
+    private String format(LocalDateTime time) {
+        return time == null ? null : time.format(FMT);
     }
 }

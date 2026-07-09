@@ -22,12 +22,13 @@
 
 | 枚举 | 值 | 说明 |
 |------|----|------|
-| `VerificationStatus` | `NOT_CERTIFIED`、`PENDING`、`APPROVED`、`REJECTED`、`EXPIRED` | 实名/学历/头像认证 |
-| `ModerationStatus` | `NOT_SUBMITTED`、`PENDING`、`APPROVED`、`REJECTED` | 资料图片/开放性文字审核 |
+| `AuditStatus` | `PENDING`、`REVIEWING`、`APPROVED`、`REJECTED`、`EXPIRED` | 实名、头像、学历、资料图片、开放性文字、语音介绍统一审核状态；无记录由业务派生为未认证/未提交/不展示 |
+| `VerificationStatus` | 同 `AuditStatus`，另支持无记录派生 `NOT_CERTIFIED` | 实名/学历/头像认证接口展示口径 |
+| `ModerationStatus` | 同 `AuditStatus` | 资料图片/开放性文字审核接口展示口径 |
 | `AccountStatus` | `NORMAL`、`FROZEN`、`CANCELLING`、`CANCELLED` | 账号状态 |
 | `CoreAccessStatus` | `CORE_ALLOWED`、`CORE_BLOCKED`、`NON_CORE_ONLY` | 核心准入 |
 | `MediaType` | `AVATAR`、`ALBUM`、`PROFILE_BG`、`EDUCATION_CERT` | 资料媒体类型 |
-| `VoiceIntroStatus` | `NOT_SUBMITTED`、`VOICE_PENDING`、`VOICE_APPROVED`、`VOICE_REJECTED` | 语音介绍审核状态 |
+| `VoiceIntroStatus` | 同 `AuditStatus`；无记录不返回审核记录 | 语音介绍审核状态 |
 | `OpenTextField` | `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA` | 开放性文字字段，仅指关于我、希望 TA 了解、资料问答等自由输入文本；标签字典和语音介绍不进入开放性文字审核 |
 | `EducationMethod` | `CHSI`、`ONLINE_CODE`、`DIPLOMA_NO`、`MATERIAL_UPLOAD` | 学历认证方式 |
 
@@ -209,16 +210,16 @@
 {
   "voiceIntroUrl": null,
   "voiceIntroDuration": 32,
-  "voiceIntroAuditStatus": "VOICE_PENDING",
+  "voiceIntroAuditStatus": "REVIEWING",
   "voiceIntroRejectReason": null,
   "visibleToPublic": false
 }
 ```
 
 状态展示规则：
-- `VOICE_PENDING`：本人侧显示“处理中”，对外隐藏新语音；如果已有旧的 `VOICE_APPROVED` 语音，则对外继续展示旧语音。
-- `VOICE_APPROVED`：对外展示语音播放器、`voiceIntroUrl` 和 `voiceIntroDuration`。
-- `VOICE_REJECTED`：对外隐藏，展示 `voiceIntroRejectReason`，允许重新录制/上传。
+- `PENDING` / `REVIEWING`：本人侧显示“审核中”，对外隐藏新语音；如果已有旧的 `APPROVED` 语音，则对外继续展示旧语音。
+- `APPROVED`：对外展示语音播放器、`voiceIntroUrl` 和 `voiceIntroDuration`。
+- `REJECTED` / `EXPIRED`：对外隐藏新语音，展示 `voiceIntroRejectReason` 或失效原因，允许重新录制/上传。
 - 本期不接语音转文字能力，不返回、不展示语音转写文本。
 
 ### 4.10.2 删除语音介绍

@@ -3,12 +3,14 @@ package com.spacetime.miniapp.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.spacetime.common.config.ProfileScoreConfig;
 import com.spacetime.common.dao.AppUserDao;
-import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
-import com.spacetime.common.entity.AppUserVerification;
-import com.spacetime.common.enums.VerificationStatusEnum;
+import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.enums.AccountStatusEnum;
+import com.spacetime.common.enums.AppUserAuditStatusEnum;
+import com.spacetime.common.enums.AppUserAuditTypeEnum;
+import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.exception.BusinessException;
-import com.spacetime.common.service.AccessDecisionService;
+import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.miniapp.dto.request.ProfileInitSaveReq;
 import com.spacetime.miniapp.dto.request.ProfileUpdateReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
@@ -37,9 +39,8 @@ import java.util.Locale;
 public class ProfileServiceImpl implements ProfileService {
 
     private final AppUserDao appUserDao;
-    private final AppUserVerificationDao verificationDao;
     private final ProfileScoreConfig scoreConfig;
-    private final AccessDecisionService accessDecisionService;
+    private final AppUserAuditService auditService;
 
     /**
      * 查询首登初始化状态
@@ -229,11 +230,11 @@ public class ProfileServiceImpl implements ProfileService {
 
         // 头像变更 → 重新触发头像认证
         if (avatarChanged) {
-            resetAvatarVerification(userId);
+            resetAvatarVerification(user);
         }
         // 开放性文字变更 → 重新触发文字审核
         if (textChanged) {
-            resetTextModeration(userId);
+            resetTextModeration(user, req);
         }
         return toDetailVO(user, true);
     }
@@ -247,36 +248,73 @@ public class ProfileServiceImpl implements ProfileService {
     @Override
     public AccessStatusVO getAccessStatus(Long userId) {
         AppUser user = requireUser(userId);
-        AppUserVerification verification = requireVerification(userId);
         AccessStatusVO vo = new AccessStatusVO();
-        var decision = accessDecisionService.decide(user, verification);
-        vo.setCanBrowseCards(decision.getCanBrowseCards());
-        vo.setCanMatch(decision.getCanMatch());
-        vo.setCanMessage("CORE_ALLOWED".equals(decision.getCoreAccessStatus()));
-        vo.setCanCommunity(!"CORE_BLOCKED".equals(decision.getCoreAccessStatus()));
-        vo.setCanBeExposed(decision.getCanBeExposed());
-        vo.setCoreAccessStatus(decision.getCoreAccessStatus());
-        vo.setBlockReason(decision.getBlockReason());
-        vo.setBlockReasons(splitBlockReasons(decision.getBlockReason()));
+        if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() != 1) {
+            applyBlocked(vo, false, "请先完成资料初始化");
+            return vo;
+        }
+        if (AccountStatusEnum.FROZEN.getCode().equals(user.getAccountStatus())
+                || AccountStatusEnum.CANCELLED.getCode().equals(user.getAccountStatus())) {
+            applyBlocked(vo, false, "账号状态异常");
+            return vo;
+        }
+        boolean tripleApproved = auditService.certificationApprovedCount(userId) == 3;
+        vo.setCanBrowseCards(true);
+        vo.setCanCommunity(true);
+        vo.setCanMatch(tripleApproved);
+        vo.setCanMessage(tripleApproved);
+        vo.setCanBeExposed(tripleApproved);
+        vo.setCoreAccessStatus(tripleApproved ? "CORE_ALLOWED" : "NON_CORE_ONLY");
+        vo.setBlockReason(tripleApproved ? null : "三重认证未全部通过");
+        vo.setBlockReasons(tripleApproved ? List.of() : splitBlockReasons(vo.getBlockReason()));
         return vo;
     }
 
-    /** 头像变更后重置头像认证为 PENDING */
-    private void resetAvatarVerification(Long userId) {
-        AppUserVerification verification = requireVerification(userId);
-        verification.setAvatarVerifyStatus(VerificationStatusEnum.PENDING.getCode());
-        verification.setAvatarVerifySubmitTime(java.time.LocalDateTime.now());
-        verification.setAvatarVerifyRejectReason(null);
-        verificationDao.updateById(verification);
+    /** 头像变更后新增一条头像待审核记录。 */
+    private void resetAvatarVerification(AppUser user) {
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setUserId(user.getId());
+        record.setAuditType(AppUserAuditTypeEnum.AVATAR.getCode());
+        record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
+        record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
+        record.setMediaUrl(user.getAvatar());
+        record.setSubmitPayloadJson("{\"avatar\":\"" + json(user.getAvatar()) + "\"}");
+        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
+        auditService.submit(record);
     }
 
-    /** 文字变更后重置文字审核为 PENDING */
-    private void resetTextModeration(Long userId) {
-        AppUserVerification verification = requireVerification(userId);
-        verification.setOpenTextAuditStatus("PENDING");
-        verification.setOpenTextSubmitTime(java.time.LocalDateTime.now());
-        verification.setOpenTextRejectReason(null);
-        verificationDao.updateById(verification);
+    /** 开放文字变更后新增对应字段待审核记录。 */
+    private void resetTextModeration(AppUser user, ProfileUpdateReq req) {
+        if (req.getAboutMe() != null) {
+            submitTextAudit(user.getId(), AppUserAuditTypeEnum.ABOUT_ME, req.getAboutMe());
+        }
+        if (req.getHopeTheyKnow() != null) {
+            submitTextAudit(user.getId(), AppUserAuditTypeEnum.HOPE_THEY_KNOW, req.getHopeTheyKnow());
+        }
+    }
+
+    private void submitTextAudit(Long userId, AppUserAuditTypeEnum type, String content) {
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setUserId(userId);
+        record.setAuditType(type.getCode());
+        record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
+        record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
+        record.setObjectKey(type.getCode());
+        record.setContentText(content);
+        record.setSubmitPayloadJson("{\"fieldName\":\"" + type.getCode() + "\",\"contentText\":\"" + json(content) + "\"}");
+        record.setMaskedPayloadJson("{\"fieldName\":\"" + type.getCode() + "\",\"contentText\":\"" + json(StrUtil.maxLength(content, 24)) + "\"}");
+        auditService.submit(record);
+    }
+
+    private void applyBlocked(AccessStatusVO vo, boolean canBrowse, String reason) {
+        vo.setCanBrowseCards(canBrowse);
+        vo.setCanCommunity(canBrowse);
+        vo.setCanMatch(false);
+        vo.setCanMessage(false);
+        vo.setCanBeExposed(false);
+        vo.setCoreAccessStatus("CORE_BLOCKED");
+        vo.setBlockReason(reason);
+        vo.setBlockReasons(List.of(reason));
     }
 
     /** 校验昵称长度 2-12 字符 */
@@ -468,14 +506,8 @@ public class ProfileServiceImpl implements ProfileService {
         return user;
     }
 
-    /** 查询用户认证记录，不存在抛异常 */
-    private AppUserVerification requireVerification(Long userId) {
-        AppUserVerification verification = verificationDao.selectOne(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AppUserVerification>()
-                        .eq(AppUserVerification::getUserId, userId));
-        if (verification == null) {
-            throw new BusinessException("用户认证记录不存在");
-        }
-        return verification;
+    private String json(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

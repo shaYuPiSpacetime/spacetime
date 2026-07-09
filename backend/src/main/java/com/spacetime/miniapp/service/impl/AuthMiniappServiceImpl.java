@@ -5,14 +5,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.constant.AuthConstant;
 import com.spacetime.common.dao.AppUserDao;
-import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
-import com.spacetime.common.entity.AppUserVerification;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.RegisterSourceEnum;
-import com.spacetime.common.enums.VerificationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.WechatLoginReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
@@ -51,7 +49,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private static final Set<String> MOCK_VALID_SMS_CODES = Set.of("000000", "123456");
 
     private final AppUserDao appUserDao;
-    private final AppUserVerificationDao verificationDao;
+    private final AppUserAuditService auditService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final WechatMiniappClient wechatMiniappClient;
@@ -69,7 +67,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         WechatMiniappClient.PhoneInfo phoneInfo = wechatMiniappClient.getPhoneNumber(req.getPhoneCode());
         String phone = normalizePhone(phoneInfo);
         LoginTarget target = loginByOpenId(session.openid(), RegisterSourceEnum.WECHAT.getCode(), phone, session.unionid());
-        return buildLoginVO(target.user(), target.verification(), target.isNew());
+        return buildLoginVO(target.user(), target.isNew());
     }
 
     /** 手机号验证码登录。 */
@@ -82,23 +80,20 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         }
         String openId = "phone_" + req.getPhone();
         LoginTarget target = loginByOpenId(openId, RegisterSourceEnum.PHONE.getCode(), req.getPhone(), null);
-        return buildLoginVO(target.user(), target.verification(), target.isNew());
+        return buildLoginVO(target.user(), target.isNew());
     }
 
     /**
      * 按 openId 登录或创建用户。
      *
-     * 手机号登录复用 openId 字段保存 phone_手机号，避免在本期新增账号主表字段；
-     * 真正手机号明文写入认证表 boundPhone，供实名前置校验和后台排查使用。
+     * 手机号登录复用 openId 字段保存 phone_手机号；本期不在登录时生成认证审核记录。
      */
     private LoginTarget loginByOpenId(String openId, String registerSource, String boundPhone, String unionid) {
         AppUser user = appUserDao.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getOpenid, openId));
         boolean isNew = user == null;
-        AppUserVerification verification;
         if (isNew) {
             LoginTarget created = createNewUser(openId, registerSource, boundPhone, unionid);
             user = created.user();
-            verification = created.verification();
         } else {
             checkAccountStatus(user);
             if (StrUtil.isNotBlank(unionid)) {
@@ -110,12 +105,11 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             }
             user.setLastLoginTime(LocalDateTime.now());
             appUserDao.updateById(user);
-            verification = ensureVerification(user.getId(), boundPhone);
         }
-        return new LoginTarget(user, verification, isNew);
+        return new LoginTarget(user, isNew);
     }
 
-    /** 创建用户时同步初始化一条认证记录，避免后续资料/认证接口断链。 */
+    /** 创建用户；认证记录按用户后续真实提交生成，不在登录时默认落库。 */
     private LoginTarget createNewUser(String openId, String registerSource, String boundPhone, String unionid) {
         AppUser user = new AppUser();
         user.setOpenid(openId);
@@ -131,37 +125,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         user.setFirstLoginCompleted(0);
         user.setProfileScore(0);
         appUserDao.insert(user);
-
-        AppUserVerification verification = new AppUserVerification();
-        verification.setUserId(user.getId());
-        verification.setBoundPhone(boundPhone);
-        verification.setVerifyLevel(0);
-        verificationDao.insert(verification);
-        return new LoginTarget(user, verification, true);
-    }
-
-    /**
-     * 兜底保证认证记录存在。
-     *
-     * 老数据可能缺少认证记录或手机号绑定信息，这里在登录入口补齐，避免移动端
-     * 进入认证中心后因为缺少 app_user_verification 记录直接报错。
-     */
-    private AppUserVerification ensureVerification(Long userId, String boundPhone) {
-        AppUserVerification verification = verificationDao.selectOne(
-                new LambdaQueryWrapper<AppUserVerification>().eq(AppUserVerification::getUserId, userId));
-        if (verification == null) {
-            verification = new AppUserVerification();
-            verification.setUserId(userId);
-            verification.setBoundPhone(boundPhone);
-            verification.setVerifyLevel(0);
-            verificationDao.insert(verification);
-            return verification;
-        }
-        if (StrUtil.isNotBlank(boundPhone) && StrUtil.isBlank(verification.getBoundPhone())) {
-            verification.setBoundPhone(boundPhone);
-            verificationDao.updateById(verification);
-        }
-        return verification;
+        return new LoginTarget(user, true);
     }
 
     /** 冻结或注销账号不允许登录。 */
@@ -182,7 +146,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     }
 
     /** 组装移动端登录响应。 */
-    private WechatLoginVO buildLoginVO(AppUser user, AppUserVerification verification, boolean isNew) {
+    private WechatLoginVO buildLoginVO(AppUser user, boolean isNew) {
         WechatLoginVO vo = new WechatLoginVO();
         vo.setToken(generateToken(user));
         vo.setUserId(user.getId());
@@ -195,25 +159,23 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         boolean completed = user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1;
         vo.setFirstLoginCompleted(completed);
         vo.setNextStep(completed ? null : 1);
-        vo.setAccessStatus(buildAccessStatus(user, verification));
+        vo.setAccessStatus(buildAccessStatus(user));
         return vo;
     }
 
     /**
      * 登录态下的快速准入判断。
      *
-     * 完整准入仍以 ProfileService/AccessDecisionService 为准；这里返回同口径字段，
+     * 完整准入仍以 ProfileService 为准；这里返回同口径字段，
      * 让移动端登录后即可决定进入首登、普通浏览或核心能力拦截页。
      */
-    private AccessStatusVO buildAccessStatus(AppUser user, AppUserVerification verification) {
+    private AccessStatusVO buildAccessStatus(AppUser user) {
         AccessStatusVO vo = new AccessStatusVO();
         if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() != 1) {
             applyBlocked(vo, false, "请先完成资料初始化");
             return vo;
         }
-        boolean tripleApproved = isApproved(verification == null ? null : verification.getRealNameStatus())
-                && isApproved(verification == null ? null : verification.getAvatarVerifyStatus())
-                && isApproved(verification == null ? null : verification.getEducationStatus());
+        boolean tripleApproved = auditService.certificationApprovedCount(user.getId()) == 3;
         vo.setCanBrowseCards(true);
         vo.setCanCommunity(true);
         vo.setCanMatch(tripleApproved);
@@ -235,10 +197,6 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         vo.setCoreAccessStatus("CORE_BLOCKED");
         vo.setBlockReason(reason);
         vo.setBlockReasons(List.of(reason));
-    }
-
-    private boolean isApproved(String status) {
-        return VerificationStatusEnum.APPROVED.getCode().equals(status);
     }
 
     /** 生成小程序 token 并写入 Redis。 */
@@ -292,6 +250,6 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     }
 
     /** 登录过程中的用户、认证记录和是否新用户。 */
-    private record LoginTarget(AppUser user, AppUserVerification verification, boolean isNew) {
+    private record LoginTarget(AppUser user, boolean isNew) {
     }
 }

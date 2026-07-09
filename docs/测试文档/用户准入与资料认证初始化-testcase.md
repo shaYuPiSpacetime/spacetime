@@ -19,7 +19,7 @@
 | A 接口数量 | 高 | 2 | 管理后台、移动端、审核、配置、导入导出接口超过 15 个 |
 | B 状态数量 | 高 | 2 | 准入、实名、学历、头像、图片、文字、语音均有多状态 |
 | C 业务关键性 | 高 | 2 | 影响核心准入、认证、资料展示和后台运营 |
-| D 数据影响面 | 高 | 2 | 覆盖用户、认证汇总、历史、媒体、文字、语音、Provider、导入批次 |
+| D 数据影响面 | 高 | 2 | 覆盖用户、统一审核记录、审核历史、媒体、文字、语音、Provider、导入批次 |
 | E 代码改动面 | 高 | 2 | 管理后台前后端、移动端后端、公共 Provider 与状态机 |
 | F 权限/安全 | 高 | 2 | 涉及敏感查看、导入、导出、冻结、审核、配置权限 |
 
@@ -75,7 +75,7 @@
 | L1-ADM-USER-002 | 列表组合筛选 | 按手机号、昵称、性别、认证状态、准入状态、时间查询 | 结果与条件一致，分页统计正确 |
 | L1-ADM-USER-003 | 空结果 | 使用不存在手机号查询 | 返回空列表、总数 0，不报错 |
 | L1-ADM-USER-004 | 用户详情基础资料 | 查询 TD-03 详情 | 返回基础资料、扩展资料、认证记录、媒体、开放性文字、语音状态 |
-| L1-ADM-USER-005 | 用户详情语音已通过 | 查询 TD-09 详情 | 展示语音播放器 URL、时长、`VOICE_APPROVED`、Provider 留痕 |
+| L1-ADM-USER-005 | 用户详情语音已通过 | 查询 TD-09 详情 | 展示语音播放器 URL、时长、`APPROVED（已通过）`、Provider 留痕 |
 | L1-ADM-USER-006 | 用户详情语音未通过 | 查询 TD-08/TD-10 详情 | 后台可见语音状态和机审信号；对外资料不展示未通过新语音 |
 | L1-ADM-USER-007 | 语音不进开放性文字审核 | 查询开放性文字审核列表 | 不出现 `语音介绍` 类型 |
 | L1-ADM-USER-008 | 冻结用户 | 调用 `/admin/users/app/{id}/freeze` | 用户冻结成功，移动端核心准入返回阻断原因 |
@@ -90,7 +90,7 @@
 |---------|------|------|------|
 | L1-ADM-AUDIT-001 | 实名审核列表 | 调用 `/admin/verify/real-name/list` | 支持状态、审核来源、用户、时间筛选 |
 | L1-ADM-AUDIT-002 | 实名详情 | 查询实名审核详情 | 展示实名信息、身份证号、手机号、来源、历史、机审信号 |
-| L1-ADM-AUDIT-003 | 实名通过 | 对待审核记录通过 | 记录状态变为通过，汇总表同步，准入重新计算 |
+| L1-ADM-AUDIT-003 | 实名通过 | 对待审核记录通过 | 审核记录状态变为通过，写审核历史，准入实时重新派生 |
 | L1-ADM-AUDIT-004 | 实名驳回 | 对待审核记录驳回并填写原因 | 移动端展示驳回原因，可重新提交 |
 | L1-ADM-AUDIT-005 | 审核来源筛选 | 分别筛选 `MACHINE`、`MANUAL` | 只返回对应来源；不允许出现 `MOCK` 来源 |
 | L1-ADM-AUDIT-006 | 头像认证审核 | 列表、详情、通过、驳回 | 状态同步，驳回原因回显 |
@@ -137,9 +137,9 @@
 | L1-MINI-TEXT-004 | 禁止预留文字类型 | 传 `CUSTOM_OPEN_TEXT` | 返回非法字段错误，不落库 |
 | L1-MINI-VOICE-001 | 提交合法语音 | 调用 `/miniapp/profile/voice-intro`，时长 10-60 秒 | 新增语音记录，触发音频安全机审 |
 | L1-MINI-VOICE-002 | 语音时长非法 | 时长小于 10 或大于 60 | 返回 `VOICE_DURATION_INVALID` |
-| L1-MINI-VOICE-003 | 语音机审通过 | Mock Provider 返回安全 | `VOICE_APPROVED`，资料详情返回播放器 URL 和时长 |
-| L1-MINI-VOICE-004 | 语音机审失败 | Provider 返回风险 | `VOICE_REJECTED`，对外隐藏，本人侧返回失败原因 |
-| L1-MINI-VOICE-005 | Provider 不可用 | Provider 超时或异常 | 状态保持 `VOICE_PENDING`，不对外展示新语音 |
+| L1-MINI-VOICE-003 | 语音机审通过 | Mock Provider 返回安全 | 审核状态为 `APPROVED（已通过）`，资料详情返回播放器 URL 和时长 |
+| L1-MINI-VOICE-004 | 语音机审失败 | Provider 返回风险 | 审核状态为 `REJECTED（已驳回）`，对外隐藏，本人侧返回失败原因 |
+| L1-MINI-VOICE-005 | Provider 不可用 | Provider 超时或异常 | 审核状态保持 `PENDING（待审核）` 或 `REVIEWING（审核中）`，不对外展示新语音 |
 | L1-MINI-VOICE-006 | 删除语音 | 调用 `DELETE /miniapp/profile/voice-intro` | 当前有效语音清空，资料详情不再展示 |
 
 ### 3.7 移动端认证与准入
@@ -186,20 +186,20 @@
 
 | 用例 ID | Service | 场景 | 断言 |
 |---------|---------|------|------|
-| L3-ACCESS-001 | AccessDecisionService | 未初始化用户 | 返回缺失资料阻断项 |
-| L3-ACCESS-002 | AccessDecisionService | 三项认证通过 | 返回 `CORE_ALLOWED` |
-| L3-ACCESS-003 | AccessDecisionService | 冻结用户 | 冻结优先级高于认证通过 |
+| L3-ACCESS-001 | ProfileService + AppUserAuditService | 未初始化用户 | 按用户主档和审核记录实时派生缺失资料阻断项 |
+| L3-ACCESS-002 | ProfileService + AppUserAuditService | 三项认证通过 | 实名、头像、学历均满足规则后派生 `CORE_ALLOWED` |
+| L3-ACCESS-003 | ProfileService + AppUserAuditService | 冻结用户 | 冻结优先级高于认证通过 |
 | L3-PROFILE-001 | ProfileCompletionService | 首登资料保存 | 缺失字段、完成度、下一步计算正确 |
 | L3-PROFILE-002 | ProfileCompletionService | 海外地区 | 首版不支持海外/国家 |
 | L3-VERIFY-001 | VerificationService | 实名提交 | 明文保存、hash 生成、重复校验、历史记录一致 |
-| L3-VERIFY-002 | VerificationService | 审核通过 | 汇总表、历史表、准入状态同步 |
+| L3-VERIFY-002 | VerificationService | 审核通过 | `app_user_audit_record.current_effective`、审核历史和准入状态派生一致 |
 | L3-VERIFY-003 | VerificationService | 审核驳回 | 驳回原因回写，允许重新提交 |
 | L3-MEDIA-001 | ProfileMediaService | 背景图上传 | 背景图不计入相册数量 |
 | L3-MEDIA-002 | ProfileMediaService | 当前有效媒体 | 通过后 current_effective 切换正确 |
 | L3-TEXT-001 | OpenTextAuditService | 三类开放性文字 | 仅允许 `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA` |
 | L3-TEXT-002 | OpenTextAuditService | 删除预留项 | `CUSTOM_OPEN_TEXT` 被拒绝 |
-| L3-VOICE-001 | VoiceIntroService | 语音提交 | 新增记录为 `VOICE_PENDING` 并触发 Provider |
-| L3-VOICE-002 | VoiceIntroService | 机审通过 | 写入 `app_user.voice_intro_*`，旧有效语音失效 |
+| L3-VOICE-001 | VoiceIntroService | 语音提交 | 新增 `VOICE_INTRO` 审核记录为 `PENDING` 并触发 Provider |
+| L3-VOICE-002 | VoiceIntroService | 机审通过 | 审核记录变为 `APPROVED` 并切换 `current_effective`，旧有效语音失效 |
 | L3-VOICE-003 | VoiceIntroService | 机审失败 | 不覆盖旧通过语音，对外隐藏新语音 |
 | L3-VOICE-004 | VoiceIntroService | Provider 异常 | 保持 pending，不展示未审语音 |
 | L3-PROVIDER-001 | ProviderTaskService | mock 记录 | 业务来源为 `MACHINE`，mock 信息只存在 `external_provider_task.mocked` |
@@ -242,7 +242,7 @@
 
 移动端不实现前端代码，但接口必须覆盖 UI 图可见流程和 PRD 流程。UI 图与需求不一致时，以需求文档为准，并在测试报告中说明差异。
 
-移动端多轮对齐必须构造多状态数据并留证：未提交、审核中、通过、驳回、失败、资料缺失、权限不足、第三方不可用、Provider 不可用、`CORE_ACCESS_BLOCKED`、`REGION_NOT_SUPPORTED`、`VOICE_PENDING`、`VOICE_APPROVED`、`VOICE_REJECTED`、拒绝 `CUSTOM_OPEN_TEXT`。
+移动端多轮对齐必须构造多状态数据并留证：无记录、待审核、审核中、已通过、已驳回、已失效、资料缺失、权限不足、第三方不可用、Provider 不可用、`CORE_ACCESS_BLOCKED`、`REGION_NOT_SUPPORTED`、拒绝 `CUSTOM_OPEN_TEXT`。
 
 ## 8. P0/P1 覆盖矩阵
 
@@ -267,7 +267,7 @@
 | 需求闭环 | 15 | P0/P1 需求均有测试用例、实现证据、无未确认阻断项 |
 | 管理后台 1:1 Demo | 20 | 页面、字段、按钮、弹窗、状态、异常态、控件、详情、分页、反馈、交互链路均有截图/接口证据 |
 | 移动端接口完整度 | 20 | 登录、初始化、资料、媒体、文字、语音、认证、准入状态接口全部可联调 |
-| 后端状态机与数据一致性 | 15 | 汇总表、历史表、Provider 任务、审核状态、准入状态一致 |
+| 后端状态机与数据一致性 | 15 | 审核记录、审核历史、Provider 任务、审核状态、准入状态派生一致 |
 | 权限与安全 | 10 | 权限、脱敏、导出、审计、未登录/无权限均通过 |
 | 异常态与错误码 | 10 | 必填、非法枚举、Provider 异常、重复提交、空状态均覆盖 |
 | 自动化与报告证据 | 10 | L1/L2/L3/L4 或跳过原因完整，报告含截图、响应、SQL/日志证据 |

@@ -1,92 +1,101 @@
-# 用户准入与资料认证初始化 自测报告
+# 用户准入与资料认证初始化 - 测试报告
 
-> 执行时间：2026-07-08 14:33（本机 Asia/Shanghai）
-> 测试用例：`docs/测试文档/用户准入与资料认证初始化-testcase.md`
-> 技术方案：`docs/技术方案/2026-07-07-用户准入与资料认证初始化-tcdesign.md`
-> 移动端对接文档：`docs/技术方案/2026-07-07-用户准入与资料认证初始化-mobile-api-handoff.md`
+> 关联文档：
+> - 测试用例：`docs/测试文档/用户准入与资料认证初始化-testcase.md`
+> - 技术方案：`docs/技术方案/2026-07-07-用户准入与资料认证初始化-tcdesign.md`
+> - 移动端对接文档：`docs/技术方案/2026-07-07-用户准入与资料认证初始化-mobile-api-handoff.md`
 
-## 1. 结论
+## 1. 测试概况
 
-整体结论：**通过**。
+| 项目 | 信息 |
+|------|------|
+| 功能名称 | 用户准入与资料认证初始化 |
+| 测试环境 | `http://127.0.0.1:8080` |
+| 执行日期 | `2026-07-09 19:56` |
+| 执行人 | Codex |
+| 后端版本 | 当前工作区变更，Java 21 |
+| 测试策略 | L1 接口回归 + L3 Service 单元/全量 Maven 测试 |
+| 测试模式 | 增量模式：统一审核表改造后重新回归 |
 
-真实账号 `peter` 已登录真实后端；管理后台列表/详情/审核/配置保存、移动端登录/资料/文字/语音/认证/准入、冻结后恢复写流程均已跑通并写入真实数据库。已补齐 `access:config:list/edit` RBAC 权限和 PRD01 默认配置种子，重新登录后完整 L1 复测通过。
+## 2. 测试结果汇总
 
-| 范围 | 结论 | 证据 |
-|------|------|------|
-| 真实 L1 接口 | 通过 | `docs/test-artifacts/prd01-l1-real-results.json`，30 条：30 通过、0 失败、0 跳过 |
-| 管理后台视觉/Demo 对齐 | 通过 | Demo 40 张、实现 40 张、成对矩阵 40 组 |
-| 移动端接口契约对齐 | 通过 | 移动端接口矩阵 + L1 正常/异常链路 |
-| 后端 L2/L3 目标测试 | 通过 | 53 tests，0 failures，0 errors |
-| 前端构建 | 通过 | `npm.cmd run build` 成功，仅 Vite chunk size warning |
+| 层级 | 总数 | 通过 | 失败 | 跳过 | 通过率 |
+|------|------|------|------|------|--------|
+| L1 接口测试 | 95 | 95 | 0 | 0 | 100% |
+| L2/L3 Maven 测试 | 152 | 151 | 0 | 1 | 99.3% |
+| 合计 | 247 | 246 | 0 | 1 | 99.6% |
 
-评分：管理后台视觉还原度 `96/100`，移动端接口契约完整度 `97/100`。配置查询与保存接口已接入真实 RBAC 和真实配置数据。
+判定结果：通过。
 
-## 2. 真实 L1 结果
+判定依据：本轮没有失败用例；唯一跳过项是既有 `PromotionInviteSeedDataTest`，与本需求无关。
+
+## 3. L1 接口测试
+
+```text
+执行命令: powershell.exe -NoProfile -ExecutionPolicy Bypass -File "docs/测试文档/用户准入与资料认证初始化-unified-audit-l1.ps1"
+结果文件: docs/test-artifacts/prd01-unified-audit-l1-results.json
+汇总: total=95 pass=95 fail=0 skip=0
+```
+
+| 覆盖范围 | 结果证据 |
+|----------|----------|
+| 后端启动 | `GET /health` 返回 `code=200`、`data=ok` |
+| 后台登录 | `peter` 登录成功，获取 token，权限数 91 |
+| 移动端登录与首登 | 手机号登录创建测试用户 `56`，首登 4 步和完成接口通过 |
+| 实名认证 | 机审通过，后台实名列表可查 |
+| 头像认证 | 上传头像生成待审核记录，同媒体 ID 认证后机审通过 |
+| 学历认证 | 构造通过、驳回、失效、待审核多状态 |
+| 资料图片 | 构造相册通过、待审核、驳回、失效；背景图通过 |
+| 开放性文字 | `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA` 通过；`CUSTOM_OPEN_TEXT` 拒绝 |
+| 语音介绍 | 合法语音机审通过；非法时长返回错误 |
+| 后台筛选 | 状态筛选、审核来源筛选、`REVIEWING` 记录筛选均通过 |
+| 后台详情 | 实名、头像、学历、资料图片、开放文字详情均返回成功 |
+| 移动端状态 | `/miniapp/verify/status`、`/miniapp/profile/access-status` 通过 |
+| 用户管理 | App 用户列表和详情实时派生审核状态通过 |
+| 数据库校验 | 新审核记录、审核历史、状态/来源分布、旧表不存在均通过 |
+
+### 3.1 数据库状态覆盖
 
 | 项 | 结果 |
 |----|------|
-| API 地址 | `http://127.0.0.1:8080` |
-| 后台账号 | `peter`，密码不记录 |
-| 执行脚本 | `docs/测试文档/用户准入与资料认证初始化-test-l1.ps1` |
-| 结果文件 | `docs/test-artifacts/prd01-l1-real-results.json` |
-| 汇总 | total 30 / pass 30 / fail 0 / skip 0 |
-| 写入数据 | 手机号登录创建移动端测试用户；PRD01 配置原样保存；专用用户 `51` 完成冻结后恢复 `NORMAL` |
+| 测试用户 | `userId=56` |
+| 手工种子审核中记录 | `auditRecordId=80` |
+| 状态覆盖 | `PENDING=2`、`REVIEWING=1`、`APPROVED=8`、`REJECTED=3`、`EXPIRED=2` |
+| 审核来源覆盖 | `MACHINE=7`、`MANUAL=9` |
+| 审核历史覆盖 | 总数 `30`，机审 `21`，管理员操作 `9` |
+| 旧表校验 | `app_user_verification`、`app_user_verification_record`、`app_user_profile_media`、`app_user_open_text_audit`、`app_user_voice_intro_record` 均不存在 |
 
-失败项：无。
+## 4. L2/L3 Maven 测试
 
-已通过重点链路：
+```text
+执行命令: cd backend; mvn.cmd "clean" "test" "-Denforcer.skip=true"
+JDK: C:\Users\50449\.jdks\ms-21.0.11
+汇总: Tests run: 152, Failures: 0, Errors: 0, Skipped: 1
+```
 
-- 管理后台用户列表、分页、空查询、详情。
-- 实名/学历/头像/资料图片/开放性文字审核列表。
-- PRD01 四组配置查询、配置原样保存、非法配置分组拒绝。
-- 移动端公开配置、手机号登录、首登资料保存、海外地区拒绝、资料详情。
-- `CUSTOM_OPEN_TEXT` 删除预留项后的拒绝。
-- 语音时长非法返回 `VOICE_DURATION_INVALID`。
-- 认证状态与准入状态查询。
-- 冻结账号写流程：测试用户 `51` 冻结后恢复 `NORMAL`。
+本轮新增 `AppUserAuditServiceTest`，覆盖：
 
-## 3. 页面与矩阵
+| 测试点 | 结果 |
+|--------|------|
+| 提交审核默认状态与历史 | 通过 |
+| 人工审核通过并切换当前有效记录 | 通过 |
+| 系统失效写历史 | 通过 |
+| 三重认证通过数实时派生 | 通过 |
 
-| 证据 | 文件 |
-|------|------|
-| 管理后台实现 40 张截图矩阵 | `docs/测试文档/验收截图/full/prd01-admin-full-screenshot-matrix.md` |
-| 管理后台 Demo 40 张截图矩阵 | `docs/测试文档/验收截图/demo-full/prd01-admin-demo-full-screenshot-matrix.md` |
-| Demo vs 实现成对矩阵 | `docs/测试文档/验收截图/full/prd01-admin-demo-implementation-pair-matrix.md` |
-| 移动端接口矩阵 | `docs/测试文档/验收截图/full/prd01-mobile-interface-alignment-matrix.md` |
+## 5. 失败用例明细
 
-说明：截图矩阵覆盖列表、查询条件、卡片字段、表格列、详情、弹窗、二次确认、分页统计、反馈提示和状态守卫；配置页真实查询/保存接口已通过。
+无。
 
-## 4. 命令记录
+## 6. 跳过用例明细
 
-| 命令 | 结果 |
-|------|------|
-| `docs/测试文档/用户准入与资料认证初始化-test-l1.ps1 -ApiUrl http://127.0.0.1:8080 -AdminAccount peter`（`ALLOW_WRITE=1`，`ADMIN_WRITE_USER_ID=51`） | 30 条：30 pass / 0 fail / 0 skip |
-| `mvn.cmd "-Dtest=AppUserAdminServiceTest,VerificationAdminServiceTest,ModerationAdminServiceTest,AccessDecisionServiceTest,ProfileServiceTest,VerificationServiceTest,AuthMiniappServiceContractTest,MiniappPrd01ConfigServiceTest,OpenTextAuditServiceTest,ProfileMediaServiceTest,VoiceIntroServiceTest" test` | 通过，53 tests |
-| `npm.cmd run build` | 通过，存在 chunk size warning |
-| `node scripts/prd01_admin_demo_full_screenshot.mjs` | 通过，生成 Demo 40 张截图 |
-| `node scripts/prd01_admin_full_screenshot.mjs` | 通过，生成实现 40 张截图 |
+| 用例 | 层级 | 场景 | 跳过原因 | 是否需要补测 |
+|------|------|------|----------|--------------|
+| `PromotionInviteSeedDataTest` | L3 | 推广邀请种子数据 | 既有测试跳过，非本模块 | 否 |
 
-后端测试使用：`JAVA_HOME=C:\Users\50449\.jdks\ms-21.0.11`。
+## 7. 本轮未纳入重新执行的证据
 
-## 5. 后端测试结果
+管理后台 1:1 页面截图矩阵、Demo vs 实现截图矩阵、前端构建在上一轮已产出。本次改造聚焦统一审核表、后端接口和真实数据库链路，没有重新跑前端截图矩阵；如继续进入前端验收，应按 `Codex需求到验收标准流程.md` 重新执行全量页面截图对齐。
 
-| 测试范围 | 数量 | 结果 |
-|------|------|------|
-| 管理后台用户/审核服务 | 16 | 通过 |
-| 准入判定 | 3 | 通过 |
-| 移动端登录/配置/资料/认证/媒体/文字/语音 | 34 | 通过 |
-| 合计 | 53 | 0 failures，0 errors，0 skipped |
+## 8. 结论
 
-## 6. 已处理事项
-
-| 事项 | 处理 | 复测结果 |
-|------|------|----------|
-| `peter` 缺 `access:config:list/edit` | 通过后台 RBAC 补齐准入配置菜单和保存权限，并新增部署 SQL `013_prd01_access_config_permission_seed.sql` | 重新登录后配置查询/保存 L1 通过 |
-| PRD01 配置分组为空 | 通过后台保存接口写入 4 组共 16 条默认配置，并新增部署 SQL `014_prd01_app_config_seed.sql` | 四组查询均返回 4 条，保存接口 200 |
-| Vite dev server 在中文路径下偶发解析乱码 | 本次以生产构建和截图矩阵作为证据 | `npm.cmd run build` 通过 |
-
-## 7. 遗留风险
-
-| 风险 | 等级 | 处理 |
-|------|------|------|
-| 前端构建 chunk warning | P3 | 不影响构建，后续可拆包优化 |
+统一审核表改造后的管理后台接口、移动端接口、审核状态机、审核历史、真实数据库写入和旧表删除校验已通过本轮测试。当前后端服务已重启为最新代码，最终接口回归结果来自 PID 22548 的最新进程。

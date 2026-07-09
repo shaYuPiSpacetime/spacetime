@@ -307,7 +307,7 @@
           <div class="avatar-page-body">
             <div class="avatar-stat-row" aria-label="头部数据统计">
               <article><span>待审核</span><strong>318</strong><em>优先</em></article>
-              <article><span>人像失败</span><strong>27</strong><em>复核</em></article>
+              <article><span>审核中</span><strong>27</strong><em>处理中</em></article>
               <article><span>今日通过</span><strong>1,204</strong><em>刷新</em></article>
               <article><span>今日驳回</span><strong>96</strong><em>通知</em></article>
             </div>
@@ -315,9 +315,9 @@
             <div class="avatar-query-panel" aria-label="查询条件">
               <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
               <label><span>提交时间</span><select><option>今天</option><option>最近 7 天</option></select></label>
-              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>审核中</option><option>已通过</option><option>已驳回</option><option>已失效</option></select></label>
               <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
-              <label><span>人像识别</span><select><option>全部</option><option>是人像</option><option>人像失败</option></select></label>
+              <label><span>人像识别</span><select><option>全部</option><option>是人像</option><option>非人像/不可用</option></select></label>
               <div class="avatar-query-actions">
                 <button class="avatar-primary-btn" data-toast="头像审核查询条件已应用">搜索</button>
                 <button class="avatar-plain-btn" data-toast="头像审核查询条件已重置">重置</button>
@@ -348,7 +348,7 @@
               <button>下一页</button>
               <input value="1" aria-label="页码">
             </div>
-            <div hidden>头像审核 查看大图 审核通过 审核失败 二次确认弹窗 审核通过确认 审核失败确认</div>
+            <div hidden>头像审核 详情 审核通过 审核驳回 标记失效 二次确认弹窗 审核通过确认 审核驳回确认 失效确认</div>
           </div>
         </section>
 
@@ -363,14 +363,14 @@
           <div class="avatar-page-body">
             <div class="avatar-stat-row" aria-label="实名审核头部数据统计">
               <article><span>待审核</span><strong>142</strong><em>三要素</em></article>
-              <article><span>冲突记录</span><strong>9</strong><em>复核</em></article>
+              <article><span>审核中</span><strong>9</strong><em>处理中</em></article>
               <article><span>今日通过</span><strong>526</strong><em>站内信</em></article>
               <article><span>今日驳回</span><strong>31</strong><em>通知</em></article>
             </div>
             <div class="avatar-query-panel audit-query-panel" aria-label="实名认证查询条件">
               <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
               <label><span>提交时间</span><select><option>近7天</option><option>今天</option></select></label>
-              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>审核中</option><option>已通过</option><option>已驳回</option><option>已失效</option></select></label>
               <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <label><span>核心准入</span><select><option>全部</option><option>已开放</option><option>未开放</option></select></label>
               <div class="avatar-query-actions">
@@ -415,7 +415,7 @@
               <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
               <label><span>认证方式</span><select><option>全部</option><option>学信网验证码</option><option>学生证材料</option></select></label>
               <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
-              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>审核中</option><option>已通过</option><option>已驳回</option><option>已失效</option></select></label>
               <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <div class="avatar-query-actions">
                 <button class="avatar-primary-btn" data-toast="学历审核查询条件已应用">搜索</button>
@@ -459,7 +459,7 @@
               <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
               <label><span>图片类型</span><select><option>相册/背景图</option><option>相册</option><option>背景图</option></select></label>
               <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
-              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>审核中</option><option>已通过</option><option>已驳回</option><option>已失效</option></select></label>
               <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <div class="avatar-query-actions">
                 <button class="avatar-primary-btn" data-toast="资料图片审核查询条件已应用">搜索</button>
@@ -495,7 +495,7 @@
           <div class="avatar-page-body">
             <div class="avatar-stat-row" aria-label="开放性文字审核头部数据统计">
               <article><span>待审核</span><strong>188</strong><em>内容审核</em></article>
-              <article><span>敏感命中</span><strong>24</strong><em>复核</em></article>
+              <article><span>审核中</span><strong>24</strong><em>处理中</em></article>
               <article><span>今日通过</span><strong>603</strong><em>刷新</em></article>
               <article><span>今日驳回</span><strong>58</strong><em>通知</em></article>
             </div>
@@ -503,7 +503,7 @@
               <label><span>用户搜索</span><input value="姓名/昵称/手机号/身份证/标签" aria-label="用户搜索"></label>
               <label><span>文本类型</span><select><option>全部文本</option><option>关于我</option><option>希望 TA 了解</option><option>资料问答</option></select></label>
               <label><span>提交时间</span><select><option>今天</option><option>近7天</option></select></label>
-              <label><span>审核状态</span><select><option>待审核</option><option>已通过</option><option>已驳回</option></select></label>
+              <label><span>审核状态</span><select><option>待审核</option><option>审核中</option><option>已通过</option><option>已驳回</option><option>已失效</option></select></label>
               <label><span>审核来源</span><select><option>全部来源</option><option>机审</option><option>人工审核</option></select></label>
               <div class="avatar-query-actions">
                 <button class="avatar-primary-btn" data-toast="开放性文字审核查询条件已应用">搜索</button>
@@ -586,7 +586,7 @@
 
   <div class="modal-backdrop avatar-confirm-backdrop" id="avatarFailModal" aria-hidden="true">
     <section class="avatar-confirm-card" role="dialog" aria-modal="true" aria-labelledby="avatarFailTitle">
-      <h2 id="avatarFailTitle">审核失败确认</h2>
+      <h2 id="avatarFailTitle">审核驳回确认</h2>
       <span>二次确认弹窗</span>
       <div class="avatar-confirm-message">
         <p>驳回原因必填，确认后触发通知用户。</p>
@@ -594,7 +594,7 @@
       </div>
       <div class="avatar-confirm-actions">
         <button data-close>取消</button>
-        <button class="primary" data-toast="头像认证审核已失败" data-close>确认</button>
+        <button class="primary" data-toast="头像认证审核已驳回" data-close>确认</button>
       </div>
     </section>
   </div>
@@ -644,6 +644,21 @@
     </section>
   </div>
 
+  <div class="modal-backdrop avatar-confirm-backdrop audit-confirm-backdrop" id="auditExpireModal" aria-hidden="true">
+    <section class="avatar-confirm-card audit-confirm-card" role="dialog" aria-modal="true" aria-labelledby="auditExpireTitle">
+      <h2 id="auditExpireTitle" data-audit-confirm-title>失效确认</h2>
+      <span>二次确认弹窗</span>
+      <div class="avatar-confirm-message">
+        <p data-audit-confirm-message>失效原因必填，确认后发送站内信并重新计算展示状态。</p>
+        <strong data-audit-confirm-log>确认后写入审计日志</strong>
+      </div>
+      <div class="avatar-confirm-actions">
+        <button data-close>取消</button>
+        <button class="primary" data-audit-confirm-action data-toast="审核已标记失效" data-close>确认</button>
+      </div>
+    </section>
+  </div>
+
   <div class="drawer-backdrop admin-board-backdrop" id="configLogDrawer" aria-hidden="true">
     <aside class="config-log-drawer" role="dialog" aria-modal="true" aria-labelledby="configLogTitle">
       <h2 id="configLogTitle">变更日志抽屉页</h2>
@@ -653,7 +668,7 @@
       <div class="config-log-list">
         <p><strong>2026-06-25 14:20</strong> 王敏 · 准入门槛<br>年龄范围：18-60 -> 20-58；原因：运营策略调整</p>
         <p><strong>2026-06-24 18:05</strong> 李安 · 字段配置<br>学历认证：可选 -> 必填；原因：提升资料完整度</p>
-        <p><strong>2026-06-22 11:32</strong> 周青 · 审核SLA<br>头像人工复核 SLA：24h -> 12h；原因：压缩审核等待时间</p>
+        <p><strong>2026-06-22 11:32</strong> 周青 · 审核SLA<br>头像审核 SLA：24h -> 12h；原因：压缩审核等待时间</p>
       </div>
       <button class="access-save-btn" data-close>关闭抽屉</button>
     </aside>

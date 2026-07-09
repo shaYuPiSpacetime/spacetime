@@ -13,16 +13,17 @@ import com.spacetime.admin.service.AppUserAdminService;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserImportBatchDao;
 import com.spacetime.common.dao.AppUserImportRowDao;
-import com.spacetime.common.dao.AppUserVerificationDao;
+import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.ContentOperationLogDao;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.AppUserImportBatch;
 import com.spacetime.common.entity.AppUserImportRow;
-import com.spacetime.common.entity.AppUserVerification;
 import com.spacetime.common.entity.ContentOperationLog;
 import com.spacetime.common.enums.AccountStatusEnum;
+import com.spacetime.common.enums.AppUserAuditStatusEnum;
+import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.exception.BusinessException;
-import com.spacetime.common.service.AccessDecisionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,8 +50,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final AppUserDao appUserDao;
-    private final AppUserVerificationDao verificationDao;
-    private final AccessDecisionService accessDecisionService;
+    private final AppUserAuditRecordDao auditRecordDao;
     private final AppUserImportBatchDao importBatchDao;
     private final AppUserImportRowDao importRowDao;
     private final ContentOperationLogDao contentOperationLogDao;
@@ -63,10 +63,12 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                         .like(AppUser::getNickname, req.getKeyword())
                         .or().like(AppUser::getSchool, req.getKeyword())
                         .or().like(AppUser::getTags, req.getKeyword())
-                        .or().exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id"
-                                + " AND (v.real_name LIKE '%" + safeKeyword + "%'"
-                                + " OR v.bound_phone LIKE '%" + safeKeyword + "%'"
-                                + " OR v.id_card LIKE '%" + safeKeyword + "%')"))
+                        .or().like(AppUser::getOpenid, safeKeyword)
+                        .or().exists("SELECT 1 FROM app_user_audit_record ar WHERE ar.user_id = app_user.id"
+                                + " AND ar.deleted = 0"
+                                + " AND (ar.real_name LIKE '%" + safeKeyword + "%'"
+                                + " OR ar.bound_phone LIKE '%" + safeKeyword + "%'"
+                                + " OR ar.id_card LIKE '%" + safeKeyword + "%')"))
                 .like(StrUtil.isNotBlank(req.getNickname()), AppUser::getNickname, req.getNickname())
                 .like(StrUtil.isNotBlank(req.getSchool()), AppUser::getSchool, req.getSchool())
                 .eq(StrUtil.isNotBlank(req.getAccountStatus()), AppUser::getAccountStatus, req.getAccountStatus())
@@ -78,40 +80,38 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                 .le(StrUtil.isNotBlank(req.getRegisterTimeEnd()), AppUser::getRegisterTime, req.getRegisterTimeEnd() + " 23:59:59")
                 .orderByDesc(AppUser::getCreateTime);
 
-        // 认证状态筛选：用 EXISTS 子查询在 SQL 层完成，保证分页准确
+        // 认证状态筛选：按统一审核记录的“最新提交记录”判断，避免历史旧状态误命中。
         if (StrUtil.isNotBlank(req.getRealNameStatus())) {
-            wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.real_name_status = '" + req.getRealNameStatus() + "'");
+            wrapper.exists(latestStatusExistsSql(AppUserAuditTypeEnum.REAL_NAME, req.getRealNameStatus()));
         }
         if (StrUtil.isNotBlank(req.getEducationStatus())) {
-            wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.education_status = '" + req.getEducationStatus() + "'");
+            wrapper.exists(latestStatusExistsSql(AppUserAuditTypeEnum.EDUCATION, req.getEducationStatus()));
         }
         if (StrUtil.isNotBlank(req.getAvatarVerifyStatus())) {
-            wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.avatar_verify_status = '" + req.getAvatarVerifyStatus() + "'");
+            wrapper.exists(latestStatusExistsSql(AppUserAuditTypeEnum.AVATAR, req.getAvatarVerifyStatus()));
         }
         if (StrUtil.isNotBlank(req.getCoreAccessStatus())) {
-            wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.core_access_status = '" + req.getCoreAccessStatus() + "'");
+            applyCoreAccessFilter(wrapper, req.getCoreAccessStatus());
         }
         // Demo 的「认证状态」是聚合筛选，落到三类认证状态字段。
         if (StrUtil.isNotBlank(req.getVerificationStatus())) {
             if ("REAL_NAME_APPROVED".equals(req.getVerificationStatus())) {
-                wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.real_name_status = 'APPROVED'");
+                wrapper.exists(effectiveExistsSql(AppUserAuditTypeEnum.REAL_NAME));
             } else if ("EDUCATION_APPROVED".equals(req.getVerificationStatus())) {
-                wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.education_status = 'APPROVED'");
+                wrapper.exists(effectiveExistsSql(AppUserAuditTypeEnum.EDUCATION));
             } else if ("AVATAR_APPROVED".equals(req.getVerificationStatus())) {
-                wrapper.exists("SELECT 1 FROM app_user_verification v WHERE v.user_id = app_user.id AND v.avatar_verify_status = 'APPROVED'");
+                wrapper.exists(latestStatusExistsSql(AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED.getCode()));
             }
         }
         Page<AppUser> page = appUserDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
 
-        // 批量加载所有用户的认证状态（避免 N+1）
+        // 批量加载所有用户的最新审核记录（避免 N+1），用户卡片状态全部实时派生。
         List<Long> userIds = page.getRecords().stream().map(AppUser::getId).toList();
-        Map<Long, AppUserVerification> verifyMap = userIds.isEmpty() ? Map.of() : verificationDao.selectList(
-                new LambdaQueryWrapper<AppUserVerification>().in(AppUserVerification::getUserId, userIds))
-                .stream().collect(Collectors.toMap(AppUserVerification::getUserId, v -> v, (a, b) -> a));
+        Map<Long, Map<String, AppUserAuditRecord>> auditMap = loadLatestAuditMap(userIds);
 
         Page<AppUserListVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(page.getRecords().stream()
-                .map(user -> toListVO(user, verifyMap.get(user.getId())))
+                .map(user -> toListVO(user, auditMap.get(user.getId())))
                 .toList());
         return result;
     }
@@ -120,9 +120,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     public AppUserDetailVO getUserDetail(Long id) {
         AppUser user = appUserDao.selectById(id);
         if (user == null) throw new BusinessException("用户不存在");
-        AppUserVerification verification = verificationDao.selectOne(
-                new LambdaQueryWrapper<AppUserVerification>().eq(AppUserVerification::getUserId, id));
-        return toDetailVO(user, verification);
+        return toDetailVO(user, loadLatestAuditMap(List.of(id)).get(id));
     }
 
     @Override
@@ -214,15 +212,18 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return vo;
     }
 
-    private AppUserListVO toListVO(AppUser user, AppUserVerification v) {
+    private AppUserListVO toListVO(AppUser user, Map<String, AppUserAuditRecord> audits) {
         AppUserListVO vo = new AppUserListVO();
+        AppUserAuditRecord realName = audit(audits, AppUserAuditTypeEnum.REAL_NAME);
+        AppUserAuditRecord education = audit(audits, AppUserAuditTypeEnum.EDUCATION);
+        AppUserAuditRecord avatar = audit(audits, AppUserAuditTypeEnum.AVATAR);
         vo.setId(user.getId());
         vo.setAvatar(user.getAvatar());
         vo.setNickname(user.getNickname());
         vo.setGender(user.getGender());
         vo.setAge(user.getAge());
         vo.setSchool(user.getSchool());
-        vo.setPhone(v == null ? null : maskPhone(v.getBoundPhone()));
+        vo.setPhone(maskPhone(firstNotBlank(realName == null ? null : realName.getBoundPhone(), phoneFromOpenid(user.getOpenid()))));
         vo.setCity(joinLocation(user.getLocationProvince(), user.getLocationCity()));
         vo.setIdentity(user.getIdentity());
         vo.setOccupation(user.getOccupation());
@@ -238,12 +239,10 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setAccountStatus(user.getAccountStatus());
         vo.setRegisterTime(user.getRegisterTime() != null ? user.getRegisterTime().format(FMT) : null);
         vo.setLastLoginTime(user.getLastLoginTime() != null ? user.getLastLoginTime().format(FMT) : null);
-        if (v != null) {
-            vo.setRealNameStatus(v.getRealNameStatus());
-            vo.setEducationStatus(v.getEducationStatus());
-            vo.setAvatarVerifyStatus(v.getAvatarVerifyStatus());
-        }
-        vo.setAccessStatus(computeAccessStatusLabel(user, v));
+        vo.setRealNameStatus(statusOf(realName));
+        vo.setEducationStatus(statusOf(education));
+        vo.setAvatarVerifyStatus(statusOf(avatar));
+        vo.setAccessStatus(computeAccessStatusLabel(user, audits));
         return vo;
     }
 
@@ -332,16 +331,18 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     private record ImportRowResult(int rowNo, String rawJson, String status, String errorMsg) {
     }
 
-    /** 计算准入状态标签：账号/首登阻断→blocked，三重认证未全通过→browse_only，全通过→full_access */
-    private String computeAccessStatusLabel(AppUser user, AppUserVerification v) {
-        var decision = accessDecisionService.decide(user, v);
-        if (Boolean.TRUE.equals(decision.getCanMatch()) && Boolean.TRUE.equals(decision.getCanBeExposed())) {
-            return "full_access";
-        }
-        return Boolean.TRUE.equals(decision.getCanBrowseCards()) ? "browse_only" : "blocked";
+    /** 计算准入状态标签：账号/首登阻断→blocked，三重认证未全通过→browse_only，全通过→full_access。 */
+    private String computeAccessStatusLabel(AppUser user, Map<String, AppUserAuditRecord> audits) {
+        return canBrowse(user) ? (tripleApproved(audits) ? "full_access" : "browse_only") : "blocked";
     }
 
-    private AppUserDetailVO toDetailVO(AppUser user, AppUserVerification v) {
+    private AppUserDetailVO toDetailVO(AppUser user, Map<String, AppUserAuditRecord> audits) {
+        AppUserAuditRecord realName = audit(audits, AppUserAuditTypeEnum.REAL_NAME);
+        AppUserAuditRecord education = audit(audits, AppUserAuditTypeEnum.EDUCATION);
+        AppUserAuditRecord avatar = audit(audits, AppUserAuditTypeEnum.AVATAR);
+        AppUserAuditRecord media = latestOf(audits, AppUserAuditTypeEnum.ALBUM_PHOTO, AppUserAuditTypeEnum.PROFILE_BG);
+        AppUserAuditRecord text = latestOf(audits, AppUserAuditTypeEnum.ABOUT_ME,
+                AppUserAuditTypeEnum.HOPE_THEY_KNOW, AppUserAuditTypeEnum.PROFILE_QA);
         AppUserDetailVO vo = new AppUserDetailVO();
         vo.setId(user.getId());
         vo.setNickname(user.getNickname());
@@ -359,7 +360,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setHometownProvince(user.getHometownProvince());
         vo.setHometownCity(user.getHometownCity());
         vo.setSchool(user.getSchool());
-        vo.setPhone(v == null ? null : maskPhone(v.getBoundPhone()));
+        vo.setPhone(maskPhone(firstNotBlank(realName == null ? null : realName.getBoundPhone(), phoneFromOpenid(user.getOpenid()))));
         vo.setMajor(user.getMajor());
         vo.setEducationLevel(user.getEducationLevel());
         vo.setEmotionalStatus(user.getEmotionalStatus());
@@ -381,32 +382,173 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setRegisterTime(user.getRegisterTime() != null ? user.getRegisterTime().format(FMT) : null);
         vo.setLastLoginTime(user.getLastLoginTime() != null ? user.getLastLoginTime().format(FMT) : null);
         vo.setAccountStatus(user.getAccountStatus());
-        var decision = accessDecisionService.decide(user, v);
-        vo.setCanBrowseCards(decision.getCanBrowseCards());
-        vo.setCanMatch(decision.getCanMatch());
-        vo.setCanBeExposed(decision.getCanBeExposed());
-        vo.setBlockReason(decision.getBlockReason());
+        boolean canBrowse = canBrowse(user);
+        boolean tripleApproved = tripleApproved(audits);
+        vo.setCanBrowseCards(canBrowse);
+        vo.setCanMatch(canBrowse && tripleApproved);
+        vo.setCanBeExposed(canBrowse && tripleApproved);
+        vo.setBlockReason(canBrowse ? (tripleApproved ? null : "三重认证未全部通过") : blockedReason(user));
         vo.setViolationCount(0);
         vo.setFeedbackCount(0);
-        if (v != null) {
-            VerificationDetailVO vd = new VerificationDetailVO();
-            vd.setRealNameStatus(v.getRealNameStatus());
-            vd.setRealNameRejectReason(v.getRealNameRejectReason());
-            vd.setRealNameSubmitTime(v.getRealNameSubmitTime() != null ? v.getRealNameSubmitTime().format(FMT) : null);
-            vd.setEducationStatus(v.getEducationStatus());
-            vd.setEducationMethod(v.getEducationMethod());
-            vd.setEducationRejectReason(v.getEducationRejectReason());
-            vd.setEducationSubmitTime(v.getEducationSubmitTime() != null ? v.getEducationSubmitTime().format(FMT) : null);
-            vd.setAvatarVerifyStatus(v.getAvatarVerifyStatus());
-            vd.setAvatarVerifyRejectReason(v.getAvatarVerifyRejectReason());
-            vd.setAvatarVerifySubmitTime(v.getAvatarVerifySubmitTime() != null ? v.getAvatarVerifySubmitTime().format(FMT) : null);
-            vd.setProfilePhotoAuditStatus(v.getProfilePhotoAuditStatus());
-            vd.setProfilePhotoRejectReason(v.getProfilePhotoRejectReason());
-            vd.setOpenTextAuditStatus(v.getOpenTextAuditStatus());
-            vd.setOpenTextRejectReason(v.getOpenTextRejectReason());
-            vd.setVerifyLevel(v.getVerifyLevel());
-            vo.setVerification(vd);
-        }
+        VerificationDetailVO vd = new VerificationDetailVO();
+        vd.setRealNameStatus(statusOf(realName));
+        vd.setRealNameRejectReason(reason(realName));
+        vd.setRealNameSubmitTime(formatSubmitTime(realName));
+        vd.setEducationStatus(statusOf(education));
+        vd.setEducationMethod(education == null ? null : education.getEducationMethod());
+        vd.setEducationRejectReason(reason(education));
+        vd.setEducationSubmitTime(formatSubmitTime(education));
+        vd.setAvatarVerifyStatus(statusOf(avatar));
+        vd.setAvatarVerifyRejectReason(reason(avatar));
+        vd.setAvatarVerifySubmitTime(formatSubmitTime(avatar));
+        vd.setProfilePhotoAuditStatus(statusOf(media));
+        vd.setProfilePhotoRejectReason(reason(media));
+        vd.setOpenTextAuditStatus(statusOf(text));
+        vd.setOpenTextRejectReason(reason(text));
+        vd.setVerifyLevel(verifyLevel(audits));
+        vo.setVerification(vd);
         return vo;
+    }
+
+    private Map<Long, Map<String, AppUserAuditRecord>> loadLatestAuditMap(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<String> types = List.of(
+                AppUserAuditTypeEnum.REAL_NAME.getCode(),
+                AppUserAuditTypeEnum.EDUCATION.getCode(),
+                AppUserAuditTypeEnum.AVATAR.getCode(),
+                AppUserAuditTypeEnum.ALBUM_PHOTO.getCode(),
+                AppUserAuditTypeEnum.PROFILE_BG.getCode(),
+                AppUserAuditTypeEnum.ABOUT_ME.getCode(),
+                AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode(),
+                AppUserAuditTypeEnum.PROFILE_QA.getCode(),
+                AppUserAuditTypeEnum.VOICE_INTRO.getCode());
+        List<AppUserAuditRecord> records = auditRecordDao.selectList(new LambdaQueryWrapper<AppUserAuditRecord>()
+                .in(AppUserAuditRecord::getUserId, userIds)
+                .in(AppUserAuditRecord::getAuditType, types)
+                .orderByAsc(AppUserAuditRecord::getUserId)
+                .orderByDesc(AppUserAuditRecord::getSubmitTime)
+                .orderByDesc(AppUserAuditRecord::getId));
+        Map<Long, Map<String, AppUserAuditRecord>> result = new java.util.HashMap<>();
+        for (AppUserAuditRecord record : records) {
+            result.computeIfAbsent(record.getUserId(), k -> new java.util.HashMap<>())
+                    .putIfAbsent(record.getAuditType(), record);
+        }
+        return result;
+    }
+
+    private void applyCoreAccessFilter(LambdaQueryWrapper<AppUser> wrapper, String coreAccessStatus) {
+        if ("OPEN".equals(coreAccessStatus) || "FULL_ACCESS".equals(coreAccessStatus) || "full_access".equals(coreAccessStatus)) {
+            wrapper.exists(effectiveExistsSql(AppUserAuditTypeEnum.REAL_NAME))
+                    .exists(latestStatusExistsSql(AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED.getCode()))
+                    .exists(effectiveExistsSql(AppUserAuditTypeEnum.EDUCATION));
+        } else if ("BLOCKED".equals(coreAccessStatus) || "blocked".equals(coreAccessStatus)) {
+            wrapper.and(w -> w.ne(AppUser::getFirstLoginCompleted, 1)
+                    .or().in(AppUser::getAccountStatus, AccountStatusEnum.FROZEN.getCode(), AccountStatusEnum.CANCELLED.getCode()));
+        } else if ("PENDING".equals(coreAccessStatus) || "NON_CORE_ONLY".equals(coreAccessStatus) || "browse_only".equals(coreAccessStatus)) {
+            wrapper.eq(AppUser::getFirstLoginCompleted, 1)
+                    .notIn(AppUser::getAccountStatus, AccountStatusEnum.FROZEN.getCode(), AccountStatusEnum.CANCELLED.getCode())
+                    .and(w -> w.notExists(effectiveExistsSql(AppUserAuditTypeEnum.REAL_NAME))
+                            .or().notExists(latestStatusExistsSql(AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED.getCode()))
+                            .or().notExists(effectiveExistsSql(AppUserAuditTypeEnum.EDUCATION)));
+        }
+    }
+
+    private String latestStatusExistsSql(AppUserAuditTypeEnum type, String status) {
+        String auditType = escapeSql(type.getCode());
+        String safeStatus = escapeSql(status);
+        return "SELECT 1 FROM app_user_audit_record ar WHERE ar.user_id = app_user.id"
+                + " AND ar.deleted = 0 AND ar.audit_type = '" + auditType + "' AND ar.status = '" + safeStatus + "'"
+                + " AND ar.id = (SELECT ar2.id FROM app_user_audit_record ar2"
+                + " WHERE ar2.user_id = app_user.id AND ar2.deleted = 0 AND ar2.audit_type = '" + auditType + "'"
+                + " ORDER BY ar2.submit_time DESC, ar2.id DESC LIMIT 1)";
+    }
+
+    private String effectiveExistsSql(AppUserAuditTypeEnum type) {
+        return "SELECT 1 FROM app_user_audit_record ar WHERE ar.user_id = app_user.id"
+                + " AND ar.deleted = 0 AND ar.audit_type = '" + escapeSql(type.getCode()) + "'"
+                + " AND ar.status = 'APPROVED' AND ar.current_effective = 1";
+    }
+
+    private AppUserAuditRecord audit(Map<String, AppUserAuditRecord> audits, AppUserAuditTypeEnum type) {
+        return audits == null ? null : audits.get(type.getCode());
+    }
+
+    private AppUserAuditRecord latestOf(Map<String, AppUserAuditRecord> audits, AppUserAuditTypeEnum... types) {
+        AppUserAuditRecord latest = null;
+        for (AppUserAuditTypeEnum type : types) {
+            AppUserAuditRecord record = audit(audits, type);
+            if (record != null && (latest == null
+                    || record.getSubmitTime().isAfter(latest.getSubmitTime())
+                    || (record.getSubmitTime().isEqual(latest.getSubmitTime()) && record.getId() > latest.getId()))) {
+                latest = record;
+            }
+        }
+        return latest;
+    }
+
+    private boolean tripleApproved(Map<String, AppUserAuditRecord> audits) {
+        return effectiveApproved(audit(audits, AppUserAuditTypeEnum.REAL_NAME))
+                && latestApproved(audit(audits, AppUserAuditTypeEnum.AVATAR))
+                && effectiveApproved(audit(audits, AppUserAuditTypeEnum.EDUCATION));
+    }
+
+    private int verifyLevel(Map<String, AppUserAuditRecord> audits) {
+        int level = 0;
+        if (effectiveApproved(audit(audits, AppUserAuditTypeEnum.REAL_NAME))) level++;
+        if (latestApproved(audit(audits, AppUserAuditTypeEnum.AVATAR))) level++;
+        if (effectiveApproved(audit(audits, AppUserAuditTypeEnum.EDUCATION))) level++;
+        return level;
+    }
+
+    private boolean effectiveApproved(AppUserAuditRecord record) {
+        return record != null
+                && AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus())
+                && Integer.valueOf(1).equals(record.getCurrentEffective());
+    }
+
+    private boolean latestApproved(AppUserAuditRecord record) {
+        return record != null && AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus());
+    }
+
+    private String statusOf(AppUserAuditRecord record) {
+        return record == null ? "NOT_SUBMITTED" : record.getStatus();
+    }
+
+    private String reason(AppUserAuditRecord record) {
+        if (record == null) {
+            return null;
+        }
+        return StrUtil.blankToDefault(record.getRejectReason(), record.getExpiredReason());
+    }
+
+    private String formatSubmitTime(AppUserAuditRecord record) {
+        return record == null || record.getSubmitTime() == null ? null : record.getSubmitTime().format(FMT);
+    }
+
+    private boolean canBrowse(AppUser user) {
+        return user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1
+                && !AccountStatusEnum.FROZEN.getCode().equals(user.getAccountStatus())
+                && !AccountStatusEnum.CANCELLED.getCode().equals(user.getAccountStatus());
+    }
+
+    private String blockedReason(AppUser user) {
+        if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() != 1) {
+            return "请先完成资料初始化";
+        }
+        return "账号状态异常";
+    }
+
+    private String phoneFromOpenid(String openid) {
+        return StrUtil.isNotBlank(openid) && openid.startsWith("phone_") ? openid.substring("phone_".length()) : null;
+    }
+
+    private String firstNotBlank(String first, String second) {
+        return StrUtil.isNotBlank(first) ? first : second;
+    }
+
+    private String escapeSql(String value) {
+        return value == null ? "" : value.replace("'", "''");
     }
 }

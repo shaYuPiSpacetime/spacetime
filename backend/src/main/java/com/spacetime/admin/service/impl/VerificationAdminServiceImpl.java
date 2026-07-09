@@ -2,132 +2,126 @@ package com.spacetime.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
+import com.spacetime.admin.dto.response.FieldEntry;
 import com.spacetime.admin.dto.response.VerificationAuditDetailVO;
 import com.spacetime.admin.dto.response.VerificationVO;
 import com.spacetime.admin.service.VerificationAdminService;
+import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.AppUserDao;
-import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
-import com.spacetime.common.entity.AppUserVerification;
-import com.spacetime.common.enums.AuditSourceEnum;
-import com.spacetime.common.enums.VerificationStatusEnum;
+import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.interceptor.UserContextHolder;
+import com.spacetime.common.service.AppUserAuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 管理后台 — 用户认证审核服务实现
- * 含实名/学历/头像三类认证的分页列表/详情/审核操作
- * 详情使用 FieldEntry 列表泛化承载三类认证内容差异，敏感字段（姓名/身份证）做脱敏处理
+ * 管理后台认证审核服务实现。
+ * 列表、详情和审核操作统一读取 app_user_audit_record，不再以认证汇总快照表作为事实来源。
  */
 @Service
 @RequiredArgsConstructor
 public class VerificationAdminServiceImpl implements VerificationAdminService {
 
-    /** 时间格式化器 */
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private final AppUserVerificationDao verificationDao;
+    private final AppUserAuditRecordDao auditRecordDao;
+    private final AppUserAuditService auditService;
     private final AppUserDao appUserDao;
 
     @Override
     public Page<VerificationVO> getRealNamePage(VerificationPageReq req) {
-        return queryVerification(req,
-                "REAL_NAME",
-                AppUserVerification::getRealNameStatus,
-                AppUserVerification::getRealNameAuditSource,
-                AppUserVerification::getRealNameSubmitTime,
-                AppUserVerification::getRealNameResultTime,
-                AppUserVerification::getRealNameRejectReason);
+        return queryPage(req, AppUserAuditTypeEnum.REAL_NAME);
     }
 
     @Override
     public Page<VerificationVO> getEducationPage(VerificationPageReq req) {
-        return queryVerification(req,
-                "EDUCATION",
-                AppUserVerification::getEducationStatus,
-                AppUserVerification::getEducationAuditSource,
-                AppUserVerification::getEducationSubmitTime,
-                AppUserVerification::getEducationResultTime,
-                AppUserVerification::getEducationRejectReason);
+        return queryPage(req, AppUserAuditTypeEnum.EDUCATION);
     }
 
     @Override
     public Page<VerificationVO> getAvatarPage(VerificationPageReq req) {
-        return queryVerification(req,
-                "AVATAR",
-                AppUserVerification::getAvatarVerifyStatus,
-                AppUserVerification::getAvatarAuditSource,
-                AppUserVerification::getAvatarVerifySubmitTime,
-                AppUserVerification::getAvatarVerifyResultTime,
-                AppUserVerification::getAvatarVerifyRejectReason);
+        return queryPage(req, AppUserAuditTypeEnum.AVATAR);
     }
 
-    /** 通用认证分页查询：status 筛选在 SQL 层用 LambdaQueryWrapper.eq 完成，解决分页不准问题 */
-    private Page<VerificationVO> queryVerification(VerificationPageReq req,
-            String verificationType,
-            SFunction<AppUserVerification, String> statusGetter,
-            SFunction<AppUserVerification, String> auditSourceGetter,
-            SFunction<AppUserVerification, LocalDateTime> submitTimeGetter,
-            SFunction<AppUserVerification, LocalDateTime> resultTimeGetter,
-            SFunction<AppUserVerification, String> rejectReasonGetter) {
-        LambdaQueryWrapper<AppUserVerification> wrapper = new LambdaQueryWrapper<>();
-        // 关键字搜索：按昵称模糊匹配，先查 app_user 取 ID 列表
-        if (StrUtil.isNotBlank(req.getKeyword())) {
-            List<Long> userIds = appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
-                    .like(AppUser::getNickname, req.getKeyword()))
-                    .stream().map(AppUser::getId).toList();
-            wrapper.in(!userIds.isEmpty(), AppUserVerification::getUserId, userIds.isEmpty() ? null : userIds);
+    private Page<VerificationVO> queryPage(VerificationPageReq req, AppUserAuditTypeEnum type) {
+        LambdaQueryWrapper<AppUserAuditRecord> wrapper = new LambdaQueryWrapper<AppUserAuditRecord>()
+                .eq(AppUserAuditRecord::getAuditType, type.getCode())
+                .eq(req.getUserId() != null, AppUserAuditRecord::getUserId, req.getUserId())
+                .eq(StrUtil.isNotBlank(req.getStatus()), AppUserAuditRecord::getStatus, req.getStatus())
+                .eq(StrUtil.isNotBlank(req.getAuditSource()), AppUserAuditRecord::getAuditSource, req.getAuditSource())
+                .eq(type == AppUserAuditTypeEnum.EDUCATION && StrUtil.isNotBlank(req.getEducationMethod()),
+                        AppUserAuditRecord::getEducationMethod, req.getEducationMethod())
+                .orderByDesc(AppUserAuditRecord::getSubmitTime)
+                .orderByDesc(AppUserAuditRecord::getId);
+        applyKeyword(req, wrapper);
+        applySubmitTimeFilter(wrapper, req.getSubmitTime());
+        if (type == AppUserAuditTypeEnum.AVATAR && "FAILED".equals(req.getFaceRecognition())) {
+            wrapper.isNotNull(AppUserAuditRecord::getRejectReason);
         }
-        wrapper.eq(req.getUserId() != null, AppUserVerification::getUserId, req.getUserId())
-               .eq(StrUtil.isNotBlank(req.getStatus()), statusGetter, req.getStatus())
-               .eq(StrUtil.isNotBlank(req.getAuditSource()), auditSourceGetter, req.getAuditSource())
-               .eq(StrUtil.isNotBlank(req.getCoreAccessStatus()), AppUserVerification::getCoreAccessStatus, req.getCoreAccessStatus())
-               .eq("EDUCATION".equals(verificationType) && StrUtil.isNotBlank(req.getEducationMethod()),
-                       AppUserVerification::getEducationMethod, req.getEducationMethod())
-               .isNotNull(submitTimeGetter)
-               .orderByDesc(AppUserVerification::getUpdateTime);
-        applySubmitTimeFilter(wrapper, submitTimeGetter, req.getSubmitTime());
-        // 头像页的人像失败筛选首版按驳回原因存在承接，后续接真实人像识别结果字段后再细化。
-        if ("AVATAR".equals(verificationType) && "FAILED".equals(req.getFaceRecognition())) {
-            wrapper.isNotNull(rejectReasonGetter);
-        }
-        Page<AppUserVerification> page = verificationDao.selectPage(
-                new Page<>(req.getPage(), req.getSize()), wrapper);
+        Page<AppUserAuditRecord> page = auditRecordDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
+        return toPage(page, type);
+    }
 
-        // 批量查询用户信息
-        List<AppUserVerification> records = page.getRecords();
+    private void applyKeyword(VerificationPageReq req, LambdaQueryWrapper<AppUserAuditRecord> wrapper) {
+        if (StrUtil.isBlank(req.getKeyword())) {
+            return;
+        }
+        List<Long> userIds = appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
+                .like(AppUser::getNickname, req.getKeyword()))
+                .stream().map(AppUser::getId).toList();
+        if (userIds.isEmpty()) {
+            wrapper.eq(AppUserAuditRecord::getUserId, -1L);
+        } else {
+            wrapper.in(AppUserAuditRecord::getUserId, userIds);
+        }
+    }
+
+    private void applySubmitTimeFilter(LambdaQueryWrapper<AppUserAuditRecord> wrapper, String submitTime) {
+        if ("TODAY".equals(submitTime)) {
+            wrapper.ge(AppUserAuditRecord::getSubmitTime, LocalDateTime.now().toLocalDate().atStartOfDay());
+        } else if ("LAST_7_DAYS".equals(submitTime)) {
+            wrapper.ge(AppUserAuditRecord::getSubmitTime, LocalDateTime.now().minusDays(7));
+        }
+    }
+
+    private Page<VerificationVO> toPage(Page<AppUserAuditRecord> page, AppUserAuditTypeEnum type) {
+        List<AppUserAuditRecord> records = page.getRecords();
         Map<Long, AppUser> userMap = records.isEmpty() ? Map.of() : appUserDao.selectList(
                 new LambdaQueryWrapper<AppUser>().in(AppUser::getId,
-                        records.stream().map(AppUserVerification::getUserId).toList()))
+                        records.stream().map(AppUserAuditRecord::getUserId).toList()))
                 .stream().collect(Collectors.toMap(AppUser::getId, u -> u, (a, b) -> a));
 
         List<VerificationVO> vos = new ArrayList<>();
-        for (AppUserVerification v : records) {
-            VerificationVO vo = new VerificationVO();
-            vo.setId(v.getId());
-            vo.setUserId(v.getUserId());
-            AppUser user = userMap.get(v.getUserId());
-            vo.setAvatar(user != null ? user.getAvatar() : null);
-            vo.setNickname(user != null ? user.getNickname() : null);
-            fillListSpecificFields(vo, verificationType, v, user);
-            vo.setStatus(statusGetter.apply(v));
-            vo.setAuditSource(auditSourceGetter.apply(v));
-            LocalDateTime submitTime = submitTimeGetter.apply(v);
-            vo.setSubmitTime(submitTime != null ? submitTime.format(FMT) : null);
-            LocalDateTime resultTime = resultTimeGetter.apply(v);
-            vo.setResultTime(resultTime != null ? resultTime.format(FMT) : null);
-            vo.setRejectReason(rejectReasonGetter.apply(v));
+        for (AppUserAuditRecord record : records) {
+            AppUser user = userMap.get(record.getUserId());
+            VerificationVO vo = baseRow(record, user);
+            if (type == AppUserAuditTypeEnum.REAL_NAME) {
+                vo.setPhone(maskPhone(record.getBoundPhone()));
+                vo.setRealName(maskRealName(record.getRealName()));
+                vo.setIdCard(maskIdCard(record.getIdCard()));
+            } else if (type == AppUserAuditTypeEnum.EDUCATION) {
+                vo.setEducationIdentity(StrUtil.blankToDefault(record.getEducationLevel(),
+                        user == null ? null : user.getEducationLevel()));
+                vo.setEducationMaterialSummary(StrUtil.blankToDefault(record.getEducationMethod(), "未填方式")
+                        + (StrUtil.isBlank(record.getSchoolName()) ? "" : " / " + record.getSchoolName()));
+            } else if (type == AppUserAuditTypeEnum.AVATAR) {
+                vo.setAvatarUrl(StrUtil.blankToDefault(record.getMediaUrl(), user == null ? null : user.getAvatar()));
+            }
             vos.add(vo);
         }
         Page<VerificationVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
@@ -135,206 +129,139 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         return result;
     }
 
-    /** 提交时间快捷筛选：对应 Demo 的“今天/近7天”。 */
-    private void applySubmitTimeFilter(LambdaQueryWrapper<AppUserVerification> wrapper,
-            SFunction<AppUserVerification, LocalDateTime> submitTimeGetter,
-            String submitTime) {
-        if ("TODAY".equals(submitTime)) {
-            wrapper.ge(submitTimeGetter, LocalDateTime.now().toLocalDate().atStartOfDay());
-        } else if ("LAST_7_DAYS".equals(submitTime)) {
-            wrapper.ge(submitTimeGetter, LocalDateTime.now().minusDays(7));
-        }
-    }
-
-    /** 按认证类型补齐列表专属列，确保管理后台表头和静态 Demo 对齐。 */
-    private void fillListSpecificFields(VerificationVO vo, String verificationType, AppUserVerification verification, AppUser user) {
-        if ("REAL_NAME".equals(verificationType)) {
-            vo.setPhone(maskPhone(verification.getBoundPhone()));
-            vo.setRealName(maskRealName(verification.getRealName()));
-            vo.setIdCard(maskIdCard(verification.getIdCard()));
-            return;
-        }
-        if ("EDUCATION".equals(verificationType)) {
-            String educationLevel = user == null ? null : user.getEducationLevel();
-            String school = user == null ? null : user.getSchool();
-            vo.setEducationIdentity(StrUtil.blankToDefault(educationLevel, "未填学历"));
-            vo.setEducationMaterialSummary(StrUtil.blankToDefault(verification.getEducationMethod(), "未填方式")
-                    + (StrUtil.isBlank(school) ? "" : " / " + school));
-            return;
-        }
-        if ("AVATAR".equals(verificationType)) {
-            vo.setAvatarUrl(user == null ? null : user.getAvatar());
-        }
-    }
-
-    /** 手机号脱敏：保留前3后4。 */
-    private String maskPhone(String phone) {
-        if (StrUtil.isBlank(phone) || phone.length() < 7) return phone;
-        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    private VerificationVO baseRow(AppUserAuditRecord record, AppUser user) {
+        VerificationVO vo = new VerificationVO();
+        vo.setId(record.getId());
+        vo.setUserId(record.getUserId());
+        vo.setAvatar(user == null ? null : user.getAvatar());
+        vo.setNickname(user == null ? null : user.getNickname());
+        vo.setStatus(record.getStatus());
+        vo.setAuditSource(record.getAuditSource());
+        vo.setRejectReason(reason(record));
+        vo.setSubmitTime(format(record.getSubmitTime()));
+        vo.setResultTime(format(record.getAuditTime()));
+        return vo;
     }
 
     @Override
     public VerificationAuditDetailVO getRealNameDetail(Long id) {
-        // 1. 获取认证记录与用户信息
-        AppUserVerification v = requireVerification(id);
-        AppUser user = appUserDao.selectById(v.getUserId());
-        // 2. 组装详情（姓名/身份证号做脱敏处理）
-        VerificationAuditDetailVO vo = baseDetail(v, user);
-        vo.setFields(java.util.List.of(
-                new com.spacetime.admin.dto.response.FieldEntry("真实姓名", maskRealName(v.getRealName())),
-                new com.spacetime.admin.dto.response.FieldEntry("身份证号", maskIdCard(v.getIdCard())),
-                new com.spacetime.admin.dto.response.FieldEntry("人脸核身状态", v.getRealNameStatus())
+        AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.REAL_NAME);
+        AppUser user = appUserDao.selectById(record.getUserId());
+        VerificationAuditDetailVO vo = baseDetail(record, user);
+        vo.setFields(List.of(
+                new FieldEntry("真实姓名", maskRealName(record.getRealName())),
+                new FieldEntry("身份证号", maskIdCard(record.getIdCard())),
+                new FieldEntry("实名提交手机号", maskPhone(record.getBoundPhone()))
         ));
-        vo.setSubmitTime(v.getRealNameSubmitTime() != null ? v.getRealNameSubmitTime().format(FMT) : null);
-        vo.setResultTime(v.getRealNameResultTime() != null ? v.getRealNameResultTime().format(FMT) : null);
-        vo.setRejectReason(v.getRealNameRejectReason());
-        vo.setStatus(v.getRealNameStatus());
-        vo.setAuditSource(v.getRealNameAuditSource());
         return vo;
     }
 
     @Override
     public VerificationAuditDetailVO getEducationDetail(Long id) {
-        AppUserVerification v = requireVerification(id);
-        AppUser user = appUserDao.selectById(v.getUserId());
-        VerificationAuditDetailVO vo = baseDetail(v, user);
-        // 动态构建FieldEntry列表（驳回时有额外字段）
-        java.util.List<com.spacetime.admin.dto.response.FieldEntry> fields = new java.util.ArrayList<>();
-        fields.add(new com.spacetime.admin.dto.response.FieldEntry("学校", user != null ? user.getSchool() : null));
-        fields.add(new com.spacetime.admin.dto.response.FieldEntry("认证方式", v.getEducationMethod()));
-        if (StrUtil.isNotBlank(v.getEducationRejectReason())) {
-            fields.add(new com.spacetime.admin.dto.response.FieldEntry("驳回原因", v.getEducationRejectReason()));
-        }
-        vo.setFields(fields);
-        vo.setSubmitTime(v.getEducationSubmitTime() != null ? v.getEducationSubmitTime().format(FMT) : null);
-        vo.setResultTime(v.getEducationResultTime() != null ? v.getEducationResultTime().format(FMT) : null);
-        vo.setRejectReason(v.getEducationRejectReason());
-        vo.setStatus(v.getEducationStatus());
-        vo.setAuditSource(v.getEducationAuditSource());
+        AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.EDUCATION);
+        AppUser user = appUserDao.selectById(record.getUserId());
+        VerificationAuditDetailVO vo = baseDetail(record, user);
+        vo.setFields(List.of(
+                new FieldEntry("学校", StrUtil.blankToDefault(record.getSchoolName(), user == null ? null : user.getSchool())),
+                new FieldEntry("学历", StrUtil.blankToDefault(record.getEducationLevel(), user == null ? null : user.getEducationLevel())),
+                new FieldEntry("认证方式", record.getEducationMethod()),
+                new FieldEntry("材料", record.getMaterialJson())
+        ));
         return vo;
     }
 
     @Override
     public VerificationAuditDetailVO getAvatarDetail(Long id) {
-        AppUserVerification v = requireVerification(id);
-        AppUser user = appUserDao.selectById(v.getUserId());
-        VerificationAuditDetailVO vo = baseDetail(v, user);
-        vo.setFields(java.util.List.of(
-                new com.spacetime.admin.dto.response.FieldEntry("当前主头像", user != null ? user.getAvatar() : null),
-                new com.spacetime.admin.dto.response.FieldEntry("认证状态", v.getAvatarVerifyStatus())
+        AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.AVATAR);
+        AppUser user = appUserDao.selectById(record.getUserId());
+        VerificationAuditDetailVO vo = baseDetail(record, user);
+        vo.setFields(List.of(
+                new FieldEntry("头像图片", StrUtil.blankToDefault(record.getMediaUrl(), user == null ? null : user.getAvatar())),
+                new FieldEntry("媒体ID", record.getObjectId() == null ? null : String.valueOf(record.getObjectId()))
         ));
-        vo.setSubmitTime(v.getAvatarVerifySubmitTime() != null ? v.getAvatarVerifySubmitTime().format(FMT) : null);
-        vo.setResultTime(v.getAvatarVerifyResultTime() != null ? v.getAvatarVerifyResultTime().format(FMT) : null);
-        vo.setRejectReason(v.getAvatarVerifyRejectReason());
-        vo.setStatus(v.getAvatarVerifyStatus());
-        vo.setAuditSource(v.getAvatarAuditSource());
         return vo;
     }
 
-    /** 姓名脱敏：保留首字，其余替换为* */
-    private String maskRealName(String name) {
-        if (StrUtil.isBlank(name) || name.length() <= 1) return name;
-        StringBuilder sb = new StringBuilder(name);
-        for (int i = 1; i < name.length(); i++) sb.setCharAt(i, '*');
-        return sb.toString();
-    }
-
-    /** 身份证号脱敏：前4位 + 10个* + 后4位 */
-    private String maskIdCard(String idCard) {
-        if (StrUtil.isBlank(idCard) || idCard.length() < 8) return idCard;
-        return idCard.substring(0, 4) + "**********" + idCard.substring(idCard.length() - 4);
-    }
-
-    /** 构建详情基座（用户基本信息 + 认证等级） */
-    private VerificationAuditDetailVO baseDetail(AppUserVerification v, AppUser user) {
+    private VerificationAuditDetailVO baseDetail(AppUserAuditRecord record, AppUser user) {
         VerificationAuditDetailVO vo = new VerificationAuditDetailVO();
-        vo.setId(v.getId());
-        vo.setUserId(v.getUserId());
-        vo.setNickname(user != null ? user.getNickname() : null);
-        vo.setAvatar(user != null ? user.getAvatar() : null);
-        vo.setVerifyLevel(v.getVerifyLevel());
+        vo.setId(record.getId());
+        vo.setUserId(record.getUserId());
+        vo.setNickname(user == null ? null : user.getNickname());
+        vo.setAvatar(user == null ? null : user.getAvatar());
+        vo.setVerifyLevel(auditService.certificationApprovedCount(record.getUserId()));
+        vo.setSubmitTime(format(record.getSubmitTime()));
+        vo.setResultTime(format(record.getAuditTime()));
+        vo.setRejectReason(reason(record));
+        vo.setStatus(record.getStatus());
+        vo.setAuditSource(record.getAuditSource());
         return vo;
     }
 
     @Override
     @Transactional
     public void auditRealName(Long id, ModerationAuditReq req) {
-        validateAuditReq(req);
-        AppUserVerification verification = requireVerification(id);
-        applyAudit(verification, req);
-        verification.setRealNameStatus(
-                "APPROVE".equals(req.getAction())
-                        ? VerificationStatusEnum.APPROVED.getCode()
-                        : VerificationStatusEnum.REJECTED.getCode());
-        verification.setRealNameResultTime(LocalDateTime.now());
-        verification.setRealNameRejectReason(req.getRejectReason());
-        verification.setRealNameAuditSource(AuditSourceEnum.MANUAL.getCode());
-        verification.setVerifyLevel(recalcVerifyLevel(verification));
-        verificationDao.updateById(verification);
+        requireRecord(id, AppUserAuditTypeEnum.REAL_NAME);
+        audit(id, req);
     }
 
     @Override
     @Transactional
     public void auditEducation(Long id, ModerationAuditReq req) {
-        validateAuditReq(req);
-        AppUserVerification verification = requireVerification(id);
-        applyAudit(verification, req);
-        verification.setEducationStatus(
-                "APPROVE".equals(req.getAction())
-                        ? VerificationStatusEnum.APPROVED.getCode()
-                        : VerificationStatusEnum.REJECTED.getCode());
-        verification.setEducationResultTime(LocalDateTime.now());
-        verification.setEducationRejectReason(req.getRejectReason());
-        verification.setEducationAuditSource(AuditSourceEnum.MANUAL.getCode());
-        verification.setVerifyLevel(recalcVerifyLevel(verification));
-        verificationDao.updateById(verification);
+        requireRecord(id, AppUserAuditTypeEnum.EDUCATION);
+        audit(id, req);
     }
 
     @Override
     @Transactional
     public void auditAvatar(Long id, ModerationAuditReq req) {
-        validateAuditReq(req);
-        AppUserVerification verification = requireVerification(id);
-        applyAudit(verification, req);
-        verification.setAvatarVerifyStatus(
-                "APPROVE".equals(req.getAction())
-                        ? VerificationStatusEnum.APPROVED.getCode()
-                        : VerificationStatusEnum.REJECTED.getCode());
-        verification.setAvatarVerifyResultTime(LocalDateTime.now());
-        verification.setAvatarVerifyRejectReason(req.getRejectReason());
-        verification.setAvatarAuditSource(AuditSourceEnum.MANUAL.getCode());
-        verification.setVerifyLevel(recalcVerifyLevel(verification));
-        verificationDao.updateById(verification);
+        requireRecord(id, AppUserAuditTypeEnum.AVATAR);
+        audit(id, req);
     }
 
-    /** 校验审核请求的合法性（action 必须为 APPROVE/REJECT，驳回必须有原因） */
+    private void audit(Long id, ModerationAuditReq req) {
+        validateAuditReq(req);
+        UserContext ctx = UserContextHolder.get();
+        auditService.manualAudit(id, req.getAction(), req.getRejectReason(),
+                ctx == null ? null : ctx.getId(), ctx == null ? "管理员" : ctx.getNickname());
+    }
+
     private void validateAuditReq(ModerationAuditReq req) {
-        if (!"APPROVE".equals(req.getAction()) && !"REJECT".equals(req.getAction())) {
+        if (!"APPROVE".equals(req.getAction()) && !"REJECT".equals(req.getAction()) && !"EXPIRE".equals(req.getAction())) {
             throw new BusinessException("不支持的审核动作");
         }
-        if ("REJECT".equals(req.getAction()) && !req.isRejectReasonValid()) {
-            throw new BusinessException("驳回时必须填写驳回原因");
+        if (!req.isRejectReasonValid()) {
+            throw new BusinessException("驳回或失效时必须填写原因");
         }
     }
 
-    /** 执行审核前预处理（校验已在 validateAuditReq 中完成，预留扩展点） */
-    private void applyAudit(AppUserVerification verification, ModerationAuditReq req) {
-        // 审核请求校验已在 validateAuditReq 完成，这里保留后续审计扩展点。
+    private AppUserAuditRecord requireRecord(Long id, AppUserAuditTypeEnum type) {
+        AppUserAuditRecord record = auditRecordDao.selectById(id);
+        if (record == null || !type.getCode().equals(record.getAuditType())) {
+            throw new BusinessException("审核记录不存在");
+        }
+        return record;
     }
 
-    /** 重新计算认证等级：每通过一类认证 +1，最高3级 */
-    private int recalcVerifyLevel(AppUserVerification verification) {
-        int level = 0;
-        if (VerificationStatusEnum.APPROVED.getCode().equals(verification.getRealNameStatus())) level++;
-        if (VerificationStatusEnum.APPROVED.getCode().equals(verification.getEducationStatus())) level++;
-        if (VerificationStatusEnum.APPROVED.getCode().equals(verification.getAvatarVerifyStatus())) level++;
-        return level;
+    private String reason(AppUserAuditRecord record) {
+        return record.getRejectReason() != null ? record.getRejectReason() : record.getExpiredReason();
     }
 
-    /** 获取认证记录，不存在则抛业务异常 */
-    private AppUserVerification requireVerification(Long id) {
-        AppUserVerification v = verificationDao.selectById(id);
-        if (v == null) throw new BusinessException("认证记录不存在");
-        return v;
+    private String format(LocalDateTime time) {
+        return time == null ? null : time.format(FMT);
+    }
+
+    private String maskPhone(String phone) {
+        if (StrUtil.isBlank(phone) || phone.length() < 7) return phone;
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
+
+    private String maskRealName(String name) {
+        if (StrUtil.isBlank(name) || name.length() <= 1) return name;
+        return name.charAt(0) + "*".repeat(name.length() - 1);
+    }
+
+    private String maskIdCard(String idCard) {
+        if (StrUtil.isBlank(idCard) || idCard.length() < 8) return idCard;
+        return idCard.substring(0, 4) + "**********" + idCard.substring(idCard.length() - 4);
     }
 }

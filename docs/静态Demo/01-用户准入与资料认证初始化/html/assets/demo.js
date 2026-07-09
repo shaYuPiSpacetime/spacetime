@@ -563,9 +563,18 @@
 
     if (modalId === 'auditRejectConfirmModal') {
       return {
-        title: kind === 'avatar' ? '审核失败确认' : '驳回确认',
+        title: kind === 'avatar' ? '审核驳回确认' : '驳回确认',
         message: `${subject} 驳回原因必填，确认后发送站内信。`,
         toast: `审核已驳回：${row?.id || ''}`,
+        danger: true,
+      };
+    }
+
+    if (modalId === 'auditExpireModal') {
+      return {
+        title: '失效确认',
+        message: `${subject} 失效原因必填，确认后发送站内信并重新计算展示状态。`,
+        toast: `审核已标记失效：${row?.id || ''}`,
         danger: true,
       };
     }
@@ -607,6 +616,7 @@
       <div class="avatar-review-actions audit-review-actions">
         ${sensitiveLabel ? `<button class="plain" data-open-modal="auditSensitiveModal" data-row-id="${id}">${escapeHtml(sensitiveLabel)}</button>` : ''}
         <button class="fail" data-open-modal="auditRejectConfirmModal" data-row-id="${id}">驳回</button>
+        <button class="plain" data-open-modal="auditExpireModal" data-row-id="${id}">失效</button>
         <button class="pass" data-open-modal="auditApproveModal" data-row-id="${id}">通过</button>
       </div>
     `;
@@ -630,10 +640,7 @@
           <span>驳回原因</span>
           <input value="${escapeHtml(row.reason && row.reason !== '-' ? row.reason : '非人像/遮挡/严重裁剪可选')}">
         </label>
-        <div class="avatar-review-actions">
-          <button class="fail" data-open-modal="avatarFailModal" data-row-id="${escapeHtml(row.id || '')}">审核失败</button>
-          <button class="pass" data-open-modal="avatarPassModal" data-row-id="${escapeHtml(row.id || '')}">审核通过</button>
-        </div>
+        ${renderAuditActionButtons(row, { sensitiveLabel: '下载原图' })}
       `;
       return;
     }
@@ -750,9 +757,9 @@
         </article>
       </div>
       <div class="admin-board-actions audit-actions">
-        <button class="admin-primary-btn" data-toast="审核单 ${escapeHtml(row.id || '')} 已通过" data-close>通过</button>
-        <button class="admin-danger-btn" data-open-modal="rejectModal" data-row-id="${escapeHtml(row.id || '')}">驳回</button>
-        <button class="admin-plain-btn" data-toast="审核单 ${escapeHtml(row.id || '')} 已转人工复核" data-close>人工复核</button>
+        <button class="admin-primary-btn" data-open-modal="auditApproveModal" data-row-id="${escapeHtml(row.id || '')}">通过</button>
+        <button class="admin-danger-btn" data-open-modal="auditRejectConfirmModal" data-row-id="${escapeHtml(row.id || '')}">驳回</button>
+        <button class="admin-plain-btn" data-open-modal="auditExpireModal" data-row-id="${escapeHtml(row.id || '')}">失效</button>
       </div>
     `;
   }
@@ -763,8 +770,7 @@
       const rows = (data.auditQueues && data.auditQueues[queueName]) || [];
 
       if (queueName === 'avatar') {
-        tbody.innerHTML = rows.slice(0, 4).map((row) => {
-          const actionLabel = row.actionLabel || (row.status === '人像失败' ? '复核' : row.status === '已通过' ? '历史' : '查看大图');
+        tbody.innerHTML = rows.slice(0, 5).map((row) => {
           return `
             <tr>
               <td>${escapeHtml(row.user)}</td>
@@ -773,7 +779,7 @@
               <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
               <td>${escapeHtml(row.source || '-')}</td>
               <td>${escapeHtml(row.reason || '-')}</td>
-              <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(actionLabel)}</button></td>
+              <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">详情</button></td>
             </tr>
           `;
         }).join('');
@@ -781,7 +787,7 @@
       }
 
       if (queueName === 'realName') {
-        tbody.innerHTML = rows.slice(0, 4).map((row) => `
+        tbody.innerHTML = rows.slice(0, 5).map((row) => `
           <tr>
             <td>${escapeHtml(row.user)}</td>
             <td>${escapeHtml(row.phone || '-')}</td>
@@ -789,14 +795,14 @@
             <td>${escapeHtml(row.idNo || '-')}</td>
             <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
             <td>${escapeHtml(row.source || '-')}</td>
-            <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(row.actionLabel || '查看详情')}</button></td>
+            <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">详情</button></td>
           </tr>
         `).join('');
         return;
       }
 
       if (queueName === 'education') {
-        tbody.innerHTML = rows.slice(0, 4).map((row) => `
+        tbody.innerHTML = rows.slice(0, 5).map((row) => `
           <tr>
             <td>${escapeHtml(row.user)}</td>
             <td>${escapeHtml(row.identity || '-')}</td>
@@ -804,14 +810,14 @@
             <td>${escapeHtml(row.submittedAt)}</td>
             <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
             <td>${escapeHtml(row.source || '-')}</td>
-            <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(row.actionLabel || '查看')}</button></td>
+            <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">详情</button></td>
           </tr>
         `).join('');
         return;
       }
 
       if (queueName === 'photo') {
-        tbody.innerHTML = rows.slice(0, 4).map((row) => `
+        tbody.innerHTML = rows.slice(0, 5).map((row) => `
           <tr>
             <td>${escapeHtml(row.user)}</td>
             <td>${escapeHtml(row.type || row.object || '-')}</td>
@@ -820,14 +826,14 @@
             <td>${escapeHtml(row.submittedAt)}</td>
             <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
             <td>${escapeHtml(row.source || '-')}</td>
-            <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(row.actionLabel || '查看大图')}</button></td>
+            <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">详情</button></td>
           </tr>
         `).join('');
         return;
       }
 
       if (queueName === 'text') {
-        tbody.innerHTML = rows.slice(0, 4).map((row) => `
+        tbody.innerHTML = rows.slice(0, 5).map((row) => `
           <tr>
             <td>${escapeHtml(row.user)}</td>
             <td>${escapeHtml(row.object || '-')}</td>
@@ -835,7 +841,7 @@
             <td>${escapeHtml(row.submittedAt)}</td>
             <td><span class="avatar-status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
             <td>${escapeHtml(row.source || '-')}</td>
-            <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">${escapeHtml(row.actionLabel || '查看')}</button></td>
+            <td><button class="avatar-link-btn" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">详情</button></td>
           </tr>
         `).join('');
         return;
@@ -854,9 +860,9 @@
           <td>
             <div class="action-row">
               <button class="btn primary" data-open-drawer="auditDrawer" data-audit-id="${escapeHtml(row.id)}">查看详情</button>
-              <button class="btn success" data-audit-action="approve" data-row-id="${escapeHtml(row.id)}">通过</button>
-              <button class="btn danger" data-open-modal="rejectModal" data-row-id="${escapeHtml(row.id)}">驳回</button>
-              <button class="btn" data-toast="已进入人工复核：${escapeHtml(row.id)}">人工复核</button>
+              <button class="btn success" data-open-modal="auditApproveModal" data-row-id="${escapeHtml(row.id)}">通过</button>
+              <button class="btn danger" data-open-modal="auditRejectConfirmModal" data-row-id="${escapeHtml(row.id)}">驳回</button>
+              <button class="btn" data-open-modal="auditExpireModal" data-row-id="${escapeHtml(row.id)}">失效</button>
             </div>
           </td>
         </tr>

@@ -1,13 +1,13 @@
 package com.spacetime.miniapp.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.spacetime.common.dao.AppUserDao;
-import com.spacetime.common.dao.AppUserVerificationDao;
 import com.spacetime.common.entity.AppUser;
-import com.spacetime.common.entity.AppUserVerification;
+import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.enums.AppUserAuditStatusEnum;
+import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
-import com.spacetime.common.enums.VerificationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.miniapp.dto.request.AvatarVerifyReq;
 import com.spacetime.miniapp.dto.request.EducationSubmitReq;
 import com.spacetime.miniapp.dto.request.RealNameSubmitReq;
@@ -17,113 +17,88 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * 用户认证服务实现
- * 首版 mock 第三方 API：
- * - 实名认证 → 提交即通过（后续接入微信人脸核身API）
- * - 学历认证 → 设为审核中（后续由学信网回调更新状态）
- * - 头像认证 → 提交即通过（后续接入第三方头像核验API）
+ * 移动端认证服务实现。
+ * 当前以 app_user_audit_record 为事实来源，不再依赖认证汇总快照表。
  */
 @Service
 @RequiredArgsConstructor
 public class VerificationServiceImpl implements VerificationService {
 
     private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String NOT_SUBMITTED = "NOT_SUBMITTED";
 
     private final AppUserDao appUserDao;
-    private final AppUserVerificationDao verificationDao;
+    private final AppUserAuditService auditService;
 
-    /**
-     * 查询当前用户的认证状态
-     * @param userId 用户ID
-     * @return 各认证项的状态、驳回原因、认证等级
-     */
+    /** 查询当前用户三重认证状态，移动端本人看到的是该类型最新提交记录状态。 */
     @Override
     public VerificationStatusVO getStatus(Long userId) {
-        return toStatusVO(requireVerification(userId));
+        return toStatusVO(userId);
     }
 
-    /**
-     * 提交实名认证
-     * 校验身份证格式，mock 直接标记通过
-     * @param userId 用户ID
-     * @param req 真实姓名 + 身份证号
-     * @return 提交后的认证状态
-     */
+    /** 提交实名认证；当前 Provider mock 成功，写入提交历史和机审通过历史。 */
     @Override
     @Transactional
     public VerificationStatusVO submitRealName(Long userId, RealNameSubmitReq req) {
-        AppUserVerification verification = requireVerification(userId);
         if (req == null || !Boolean.TRUE.equals(req.getSinglePromise())) {
             throw new BusinessException("singlePromise 必须确认");
         }
-        VerificationStatusEnum current = VerificationStatusEnum.getByCode(verification.getRealNameStatus());
-        if (current == VerificationStatusEnum.APPROVED) {
+        if (auditService.hasEffective(userId, AppUserAuditTypeEnum.REAL_NAME)) {
             throw new BusinessException("已完成实名认证，无需重复提交");
         }
-        // 保存信息
-        verification.setRealName(req.getRealName());
-        verification.setIdCard(req.getIdCard());
-        verification.setRealNameSubmitTime(LocalDateTime.now());
-        // 当前使用模拟成功结果，后续接入微信人脸核身 API 后替换这里。
-        verification.setRealNameStatus(VerificationStatusEnum.APPROVED.getCode());
-        verification.setRealNameAuditSource(AuditSourceEnum.MACHINE.getCode());
-        verification.setRealNameResultTime(LocalDateTime.now());
-        verification.setRealNameRejectReason(null);
-        // 更新认证等级
-        verification.setVerifyLevel(calculateVerifyLevel(verification));
-        verificationDao.updateById(verification);
-        return toStatusVO(verification);
+
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setUserId(userId);
+        record.setAuditType(AppUserAuditTypeEnum.REAL_NAME.getCode());
+        record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
+        record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
+        record.setRealName(req.getRealName());
+        record.setRealNameHash(sha256(normalize(req.getRealName())));
+        record.setIdCard(req.getIdCard());
+        record.setIdCardHash(sha256(normalize(req.getIdCard())));
+        record.setSubmitPayloadJson("{\"realName\":\"" + json(req.getRealName()) + "\",\"idCard\":\"" + json(req.getIdCard()) + "\"}");
+        record.setMaskedPayloadJson("{\"realName\":\"" + json(maskRealName(req.getRealName())) + "\",\"idCard\":\"" + json(maskIdCard(req.getIdCard())) + "\"}");
+        auditService.submit(record);
+        auditService.machineApprove(record.getId(), null, "{\"mocked\":true,\"result\":\"pass\"}");
+        return toStatusVO(userId);
     }
 
-    /**
-     * 提交学历认证
-     * 已通过或审核中拒绝重复提交；mock 设为 PENDING
-     * @param userId 用户ID
-     * @param req 认证方式（CHSI等）
-     * @return 提交后的认证状态
-     */
+    /** 提交学历认证；当前进入待审核，由后台人工或后续 Provider 更新终态。 */
     @Override
     @Transactional
     public VerificationStatusVO submitEducation(Long userId, EducationSubmitReq req) {
-        AppUserVerification verification = requireVerification(userId);
-        if (!VerificationStatusEnum.APPROVED.getCode().equals(verification.getRealNameStatus())) {
+        if (!auditService.hasEffective(userId, AppUserAuditTypeEnum.REAL_NAME)) {
             throw new BusinessException("请先完成实名认证");
         }
         if (req == null) {
             throw new BusinessException("学历认证参数不能为空");
         }
-        if ("MATERIAL_UPLOAD".equals(req.getEducationMethod())
-                && (req.getMaterialIds() == null || req.getMaterialIds().isEmpty())) {
-            throw new BusinessException("学历材料不能为空");
-        }
-        VerificationStatusEnum current = VerificationStatusEnum.getByCode(verification.getEducationStatus());
-        if (current == VerificationStatusEnum.APPROVED) {
-            throw new BusinessException("已完成学历认证，无需重复提交");
-        }
-        if (current == VerificationStatusEnum.PENDING) {
+        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.EDUCATION);
+        if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
             throw new BusinessException("学历认证审核中，请耐心等待");
         }
-        verification.setEducationMethod(req.getEducationMethod());
-        verification.setEducationSubmitTime(LocalDateTime.now());
-        // 当前提交后进入待审核，后续由真实学历 Provider 回调更新终态。
-        verification.setEducationStatus(VerificationStatusEnum.PENDING.getCode());
-        verification.setEducationAuditSource(AuditSourceEnum.MACHINE.getCode());
-        verification.setEducationRejectReason(null);
-        verification.setVerifyLevel(calculateVerifyLevel(verification));
-        verificationDao.updateById(verification);
-        return toStatusVO(verification);
+
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setUserId(userId);
+        record.setAuditType(AppUserAuditTypeEnum.EDUCATION.getCode());
+        record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
+        record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
+        record.setEducationMethod(req.getEducationMethod());
+        record.setSchoolName(req.getSchool());
+        record.setSubmitPayloadJson("{\"educationMethod\":\"" + json(req.getEducationMethod())
+                + "\",\"school\":\"" + json(req.getSchool()) + "\"}");
+        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
+        auditService.submit(record);
+        return toStatusVO(userId);
     }
 
-    /**
-     * 提交头像认证
-     * 要求用户已上传头像，mock 直接标记通过
-     * @param userId 用户ID
-     * @return 提交后的认证状态
-     */
+    /** 提交头像认证；当前头像安全 Provider mock 成功，头像业务只看最新头像记录。 */
     @Override
     @Transactional
     public VerificationStatusVO verifyAvatar(Long userId, AvatarVerifyReq req) {
@@ -132,70 +107,112 @@ public class VerificationServiceImpl implements VerificationService {
         if (user == null || (user.getAvatar() == null && !hasAvatarMedia)) {
             throw new BusinessException("请先上传头像");
         }
-        AppUserVerification verification = requireVerification(userId);
-        VerificationStatusEnum current = VerificationStatusEnum.getByCode(verification.getAvatarVerifyStatus());
-        if (current == VerificationStatusEnum.APPROVED) {
-            throw new BusinessException("头像认证已通过");
+        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.AVATAR);
+        if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
+            if (hasAvatarMedia && req.getMediaId().equals(latest.getId())) {
+                auditService.machineApprove(latest.getId(), null, "{\"mocked\":true,\"result\":\"pass\"}");
+                return toStatusVO(userId);
+            }
+            throw new BusinessException("头像认证审核中，请耐心等待");
         }
-        verification.setAvatarVerifySubmitTime(LocalDateTime.now());
-        // 当前使用模拟成功结果，后续接入第三方头像核验 API 后替换这里。
-        verification.setAvatarVerifyStatus(VerificationStatusEnum.APPROVED.getCode());
-        verification.setAvatarAuditSource(AuditSourceEnum.MACHINE.getCode());
-        verification.setAvatarVerifyResultTime(LocalDateTime.now());
-        verification.setAvatarVerifyRejectReason(null);
-        verification.setVerifyLevel(calculateVerifyLevel(verification));
-        verificationDao.updateById(verification);
-        return toStatusVO(verification);
+
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setUserId(userId);
+        record.setAuditType(AppUserAuditTypeEnum.AVATAR.getCode());
+        record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
+        record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
+        record.setObjectId(req == null ? null : req.getMediaId());
+        record.setMediaUrl(user.getAvatar());
+        record.setSubmitPayloadJson("{\"mediaId\":" + (req == null ? "null" : req.getMediaId()) + "}");
+        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
+        auditService.submit(record);
+        auditService.machineApprove(record.getId(), null, "{\"mocked\":true,\"result\":\"pass\"}");
+        return toStatusVO(userId);
     }
 
-    /** 根据三个认证项的通过数量计算认证等级 0-3 */
-    private int calculateVerifyLevel(AppUserVerification verification) {
-        int level = 0;
-        if (VerificationStatusEnum.APPROVED.getCode().equals(verification.getRealNameStatus())) level++;
-        if (VerificationStatusEnum.APPROVED.getCode().equals(verification.getEducationStatus())) level++;
-        if (VerificationStatusEnum.APPROVED.getCode().equals(verification.getAvatarVerifyStatus())) level++;
-        return level;
-    }
-
-    /** 将认证记录转换为前端展示 VO */
-    private VerificationStatusVO toStatusVO(AppUserVerification verification) {
+    private VerificationStatusVO toStatusVO(Long userId) {
+        AppUserAuditRecord realName = auditService.latestRecord(userId, AppUserAuditTypeEnum.REAL_NAME);
+        AppUserAuditRecord education = auditService.latestRecord(userId, AppUserAuditTypeEnum.EDUCATION);
+        AppUserAuditRecord avatar = auditService.latestRecord(userId, AppUserAuditTypeEnum.AVATAR);
         VerificationStatusVO vo = new VerificationStatusVO();
-        vo.setRealNameStatus(verification.getRealNameStatus());
-        vo.setRealNameRejectReason(verification.getRealNameRejectReason());
-        vo.setRealNameSubmitTime(formatTime(verification.getRealNameSubmitTime()));
-        vo.setEducationStatus(verification.getEducationStatus());
-        vo.setEducationRejectReason(verification.getEducationRejectReason());
-        vo.setEducationSubmitTime(formatTime(verification.getEducationSubmitTime()));
-        vo.setAvatarVerifyStatus(verification.getAvatarVerifyStatus());
-        vo.setAvatarVerifyRejectReason(verification.getAvatarVerifyRejectReason());
-        vo.setAvatarVerifySubmitTime(formatTime(verification.getAvatarVerifySubmitTime()));
-        vo.setProfilePhotoAuditStatus(verification.getProfilePhotoAuditStatus());
-        vo.setOpenTextAuditStatus(verification.getOpenTextAuditStatus());
-        vo.setVerifyLevel(verification.getVerifyLevel());
-        vo.setUnlockMateRecommend(
-                VerificationStatusEnum.APPROVED.getCode().equals(verification.getRealNameStatus()));
-        vo.setCoreAccessStatus(coreAccessStatus(verification));
+        vo.setRealNameStatus(status(realName));
+        vo.setRealNameRejectReason(reason(realName));
+        vo.setRealNameSubmitTime(formatTime(realName == null ? null : realName.getSubmitTime()));
+        vo.setEducationStatus(status(education));
+        vo.setEducationRejectReason(reason(education));
+        vo.setEducationSubmitTime(formatTime(education == null ? null : education.getSubmitTime()));
+        vo.setAvatarVerifyStatus(status(avatar));
+        vo.setAvatarVerifyRejectReason(reason(avatar));
+        vo.setAvatarVerifySubmitTime(formatTime(avatar == null ? null : avatar.getSubmitTime()));
+        vo.setProfilePhotoAuditStatus(status(latestOf(userId, AppUserAuditTypeEnum.ALBUM_PHOTO, AppUserAuditTypeEnum.PROFILE_BG)));
+        vo.setOpenTextAuditStatus(status(latestOf(userId, AppUserAuditTypeEnum.ABOUT_ME,
+                AppUserAuditTypeEnum.HOPE_THEY_KNOW, AppUserAuditTypeEnum.PROFILE_QA)));
+        int verifyLevel = auditService.certificationApprovedCount(userId);
+        vo.setVerifyLevel(verifyLevel);
+        vo.setUnlockMateRecommend(auditService.hasEffective(userId, AppUserAuditTypeEnum.REAL_NAME));
+        vo.setCoreAccessStatus(verifyLevel == 3 ? "CORE_ALLOWED" : "NON_CORE_ONLY");
         return vo;
     }
 
-    /** 格式化移动端展示时间，未提交时返回空。 */
+    private AppUserAuditRecord latestOf(Long userId, AppUserAuditTypeEnum... types) {
+        AppUserAuditRecord latest = null;
+        for (AppUserAuditTypeEnum type : types) {
+            AppUserAuditRecord candidate = auditService.latestRecord(userId, type);
+            if (candidate != null && (latest == null || after(candidate.getSubmitTime(), latest.getSubmitTime()))) {
+                latest = candidate;
+            }
+        }
+        return latest;
+    }
+
+    private boolean after(LocalDateTime left, LocalDateTime right) {
+        if (left == null) return false;
+        return right == null || left.isAfter(right);
+    }
+
+    private String status(AppUserAuditRecord record) {
+        return record == null ? NOT_SUBMITTED : record.getStatus();
+    }
+
+    private String reason(AppUserAuditRecord record) {
+        if (record == null) return null;
+        return record.getRejectReason() != null ? record.getRejectReason() : record.getExpiredReason();
+    }
+
     private String formatTime(LocalDateTime time) {
         return time == null ? null : DISPLAY_TIME_FORMATTER.format(time);
     }
 
-    /** 三重认证全部通过才开放核心能力，否则只开放非核心能力。 */
-    private String coreAccessStatus(AppUserVerification verification) {
-        return calculateVerifyLevel(verification) == 3 ? "CORE_ALLOWED" : "NON_CORE_ONLY";
+    private String normalize(String value) {
+        return value == null ? "" : value.trim().toUpperCase();
     }
 
-    /** 查询用户认证记录，不存在抛异常 */
-    private AppUserVerification requireVerification(Long userId) {
-        AppUserVerification verification = verificationDao.selectOne(
-                new LambdaQueryWrapper<AppUserVerification>()
-                        .eq(AppUserVerification::getUserId, userId));
-        if (verification == null) {
-            throw new BusinessException("用户认证记录不存在");
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder result = new StringBuilder();
+            for (byte b : bytes) {
+                result.append(String.format("%02x", b));
+            }
+            return result.toString();
+        } catch (Exception e) {
+            throw new BusinessException("生成哈希失败");
         }
-        return verification;
+    }
+
+    private String json(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private String maskRealName(String name) {
+        if (name == null || name.length() <= 1) return name;
+        return name.charAt(0) + "*".repeat(name.length() - 1);
+    }
+
+    private String maskIdCard(String idCard) {
+        if (idCard == null || idCard.length() < 8) return idCard;
+        return idCard.substring(0, 4) + "**********" + idCard.substring(idCard.length() - 4);
     }
 }

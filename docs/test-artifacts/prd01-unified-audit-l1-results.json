@@ -1,0 +1,867 @@
+﻿{
+    "apiUrl":  "http://127.0.0.1:8080",
+    "executedAt":  "2026-07-09 19:57:34",
+    "testUserId":  56,
+    "seededReviewingId":  80,
+    "total":  95,
+    "pass":  95,
+    "fail":  0,
+    "skip":  0,
+    "results":  [
+                    {
+                        "id":  "L1-SVC-001",
+                        "layer":  "backend",
+                        "scene":  "health",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADMIN-LOGIN",
+                        "layer":  "admin",
+                        "scene":  "peter-login",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "token obtained; permissions=91"
+                    },
+                    {
+                        "id":  "L1-MINI-LOGIN",
+                        "layer":  "miniapp",
+                        "scene":  "phone-login-create-user",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "userId=56 token obtained"
+                    },
+                    {
+                        "id":  "L1-PROFILE-001",
+                        "layer":  "miniapp",
+                        "scene":  "init step1",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-PROFILE-002",
+                        "layer":  "miniapp",
+                        "scene":  "init step2",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-PROFILE-003",
+                        "layer":  "miniapp",
+                        "scene":  "init step3",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-PROFILE-004",
+                        "layer":  "miniapp",
+                        "scene":  "init step4",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-PROFILE-005",
+                        "layer":  "miniapp",
+                        "scene":  "init complete",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-VERIFY-REAL-001",
+                        "layer":  "miniapp",
+                        "scene":  "submit real-name machine approved",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST--1559393678",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/real-name/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-REAL-001",
+                        "layer":  "admin",
+                        "scene":  "real-name list approved",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "real-name approved record visible"
+                    },
+                    {
+                        "id":  "L1-MEDIA-AVATAR-001",
+                        "layer":  "miniapp",
+                        "scene":  "upload avatar pending",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST--77998425",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/avatar/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-AVATAR-001",
+                        "layer":  "admin",
+                        "scene":  "avatar pending visible",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "avatar pending id=66"
+                    },
+                    {
+                        "id":  "L1-VERIFY-AVATAR-001",
+                        "layer":  "miniapp",
+                        "scene":  "verify same avatar media machine approved",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-VERIFY-EDU-SUBMIT-A",
+                        "layer":  "miniapp",
+                        "scene":  "submit education A",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-1683087752",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-EDU-PENDING-A",
+                        "layer":  "admin",
+                        "scene":  "education pending A",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "education pending id=67"
+                    },
+                    {
+                        "id":  "L1-AUDIT-APPROVE-67",
+                        "layer":  "admin",
+                        "scene":  "/admin/verify/education audit APPROVE",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-VERIFY-EDU-SUBMIT-B",
+                        "layer":  "miniapp",
+                        "scene":  "submit education B",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-1683087752",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-EDU-PENDING-B",
+                        "layer":  "admin",
+                        "scene":  "education pending B",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "education pending id=68"
+                    },
+                    {
+                        "id":  "L1-AUDIT-REJECT-68",
+                        "layer":  "admin",
+                        "scene":  "/admin/verify/education audit REJECT",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-VERIFY-EDU-SUBMIT-C",
+                        "layer":  "miniapp",
+                        "scene":  "submit education C",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-1683087752",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-EDU-PENDING-C",
+                        "layer":  "admin",
+                        "scene":  "education pending C",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "education pending id=69"
+                    },
+                    {
+                        "id":  "L1-AUDIT-EXPIRE-69",
+                        "layer":  "admin",
+                        "scene":  "/admin/verify/education audit EXPIRE",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-VERIFY-EDU-SUBMIT-D",
+                        "layer":  "miniapp",
+                        "scene":  "submit education D",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-1683087752",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-EDU-PENDING-D",
+                        "layer":  "admin",
+                        "scene":  "education pending D",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "education pending id=70"
+                    },
+                    {
+                        "id":  "L1-MEDIA-ALBUM-SUBMIT-A",
+                        "layer":  "miniapp",
+                        "scene":  "submit album A",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-2029094558",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/photos/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-PHOTO-PENDING-A",
+                        "layer":  "admin",
+                        "scene":  "photo pending A",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "photo pending id=71"
+                    },
+                    {
+                        "id":  "L1-AUDIT-APPROVE-71",
+                        "layer":  "admin",
+                        "scene":  "/admin/moderation/photos audit APPROVE",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-MEDIA-ALBUM-SUBMIT-B",
+                        "layer":  "miniapp",
+                        "scene":  "submit album B",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-2029094558",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/photos/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-PHOTO-PENDING-B",
+                        "layer":  "admin",
+                        "scene":  "photo pending B",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "photo pending id=72"
+                    },
+                    {
+                        "id":  "L1-MEDIA-ALBUM-SUBMIT-C",
+                        "layer":  "miniapp",
+                        "scene":  "submit album C",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-2029094558",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/photos/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-PHOTO-PENDING-C",
+                        "layer":  "admin",
+                        "scene":  "photo pending C",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "photo pending id=73"
+                    },
+                    {
+                        "id":  "L1-AUDIT-REJECT-73",
+                        "layer":  "admin",
+                        "scene":  "/admin/moderation/photos audit REJECT",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-MEDIA-ALBUM-SUBMIT-D",
+                        "layer":  "miniapp",
+                        "scene":  "submit album D",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-2029094558",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/photos/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-PHOTO-PENDING-D",
+                        "layer":  "admin",
+                        "scene":  "photo pending D",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "photo pending id=74"
+                    },
+                    {
+                        "id":  "L1-AUDIT-EXPIRE-74",
+                        "layer":  "admin",
+                        "scene":  "/admin/moderation/photos audit EXPIRE",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-MEDIA-BG-001",
+                        "layer":  "miniapp",
+                        "scene":  "submit profile background",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-2029094558",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/photos/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-AUDIT-APPROVE-75",
+                        "layer":  "admin",
+                        "scene":  "/admin/moderation/photos audit APPROVE",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-TEXT-001",
+                        "layer":  "miniapp",
+                        "scene":  "about me machine approved",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-TEXT-002",
+                        "layer":  "miniapp",
+                        "scene":  "hope they know machine approved",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-TEXT-003",
+                        "layer":  "miniapp",
+                        "scene":  "profile qa machine approved",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST--914801797",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/texts/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-AUDIT-REJECT-78",
+                        "layer":  "admin",
+                        "scene":  "/admin/moderation/texts audit REJECT",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-TEXT-004",
+                        "layer":  "miniapp",
+                        "scene":  "custom open text rejected",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  5001,
+                        "detail":  "code=5001"
+                    },
+                    {
+                        "id":  "L1-VOICE-001",
+                        "layer":  "miniapp",
+                        "scene":  "voice intro machine approved",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-VOICE-002",
+                        "layer":  "miniapp",
+                        "scene":  "voice duration rejected",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "invalid duration rejected"
+                    },
+                    {
+                        "id":  "L1-DB-SEED-001",
+                        "layer":  "db",
+                        "scene":  "seed reviewing record",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "reviewingId=80"
+                    },
+                    {
+                        "id":  "L1-LIST-774996893",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list?status=PENDING by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-STATUS-PENDING",
+                        "layer":  "admin",
+                        "scene":  "status/source filter /admin/verify/education/list?status=PENDING",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "records=1"
+                    },
+                    {
+                        "id":  "L1-LIST-113566793",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list?status=APPROVED by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-STATUS-APPROVED",
+                        "layer":  "admin",
+                        "scene":  "status/source filter /admin/verify/education/list?status=APPROVED",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "records=1"
+                    },
+                    {
+                        "id":  "L1-LIST-2136113228",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list?status=REJECTED by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-STATUS-REJECTED",
+                        "layer":  "admin",
+                        "scene":  "status/source filter /admin/verify/education/list?status=REJECTED",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "records=1"
+                    },
+                    {
+                        "id":  "L1-LIST-244140365",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list?status=EXPIRED by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-STATUS-EXPIRED",
+                        "layer":  "admin",
+                        "scene":  "status/source filter /admin/verify/education/list?status=EXPIRED",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "records=1"
+                    },
+                    {
+                        "id":  "L1-LIST-1442196673",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/real-name/list?auditSource=MACHINE by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-SOURCE-MACHINE",
+                        "layer":  "admin",
+                        "scene":  "status/source filter /admin/verify/real-name/list?auditSource=MACHINE",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "records=1"
+                    },
+                    {
+                        "id":  "L1-LIST-68842498",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list?auditSource=MANUAL by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-SOURCE-MANUAL",
+                        "layer":  "admin",
+                        "scene":  "status/source filter /admin/verify/education/list?auditSource=MANUAL",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "records=3"
+                    },
+                    {
+                        "id":  "L1-LIST-1203259515",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/texts/list?status=REVIEWING by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-TEXT-REVIEWING",
+                        "layer":  "admin",
+                        "scene":  "status/source filter /admin/moderation/texts/list?status=REVIEWING",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "records=1"
+                    },
+                    {
+                        "id":  "L1-LIST--77998425",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/avatar/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-1683087752",
+                        "layer":  "admin",
+                        "scene":  "list /admin/verify/education/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST-2029094558",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/photos/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-LIST--914801797",
+                        "layer":  "admin",
+                        "scene":  "list /admin/moderation/texts/list by userId",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-DETAIL-REAL",
+                        "layer":  "admin",
+                        "scene":  "detail /admin/verify/real-name",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-DETAIL-AVATAR",
+                        "layer":  "admin",
+                        "scene":  "detail /admin/verify/avatar",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-DETAIL-EDU",
+                        "layer":  "admin",
+                        "scene":  "detail /admin/verify/education",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-DETAIL-PHOTO",
+                        "layer":  "admin",
+                        "scene":  "detail /admin/moderation/photos",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-DETAIL-TEXT",
+                        "layer":  "admin",
+                        "scene":  "detail /admin/moderation/texts",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-MINI-STATUS-001",
+                        "layer":  "miniapp",
+                        "scene":  "verify status after flows",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-MINI-ACCESS-001",
+                        "layer":  "miniapp",
+                        "scene":  "access status after flows",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-USER-001",
+                        "layer":  "admin",
+                        "scene":  "app user list real-time audit statuses",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-ADM-USER-002",
+                        "layer":  "admin",
+                        "scene":  "app user detail real-time audit statuses",
+                        "result":  "PASS",
+                        "httpStatus":  200,
+                        "code":  200,
+                        "detail":  "code=200"
+                    },
+                    {
+                        "id":  "L1-DB-STATUS-PENDING",
+                        "layer":  "db",
+                        "scene":  "db summary STATUS:PENDING=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "STATUS:PENDING=2"
+                    },
+                    {
+                        "id":  "L1-DB-STATUS-REVIEWING",
+                        "layer":  "db",
+                        "scene":  "db summary STATUS:REVIEWING=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "STATUS:REVIEWING=1"
+                    },
+                    {
+                        "id":  "L1-DB-STATUS-APPROVED",
+                        "layer":  "db",
+                        "scene":  "db summary STATUS:APPROVED=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "STATUS:APPROVED=8"
+                    },
+                    {
+                        "id":  "L1-DB-STATUS-REJECTED",
+                        "layer":  "db",
+                        "scene":  "db summary STATUS:REJECTED=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "STATUS:REJECTED=3"
+                    },
+                    {
+                        "id":  "L1-DB-STATUS-EXPIRED",
+                        "layer":  "db",
+                        "scene":  "db summary STATUS:EXPIRED=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "STATUS:EXPIRED=2"
+                    },
+                    {
+                        "id":  "L1-DB-SOURCE-MACHINE",
+                        "layer":  "db",
+                        "scene":  "db summary SOURCE:MACHINE=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "SOURCE:MACHINE=7"
+                    },
+                    {
+                        "id":  "L1-DB-SOURCE-MANUAL",
+                        "layer":  "db",
+                        "scene":  "db summary SOURCE:MANUAL=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "SOURCE:MANUAL=9"
+                    },
+                    {
+                        "id":  "L1-DB-HISTORY_TOTAL",
+                        "layer":  "db",
+                        "scene":  "db summary HISTORY_TOTAL=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "HISTORY_TOTAL=30"
+                    },
+                    {
+                        "id":  "L1-DB-HISTORY_MACHINE",
+                        "layer":  "db",
+                        "scene":  "db summary HISTORY_MACHINE=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "HISTORY_MACHINE=21"
+                    },
+                    {
+                        "id":  "L1-DB-HISTORY_ADMIN",
+                        "layer":  "db",
+                        "scene":  "db summary HISTORY_ADMIN=",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "HISTORY_ADMIN=9"
+                    },
+                    {
+                        "id":  "L1-DB-OLD-TABLES",
+                        "layer":  "db",
+                        "scene":  "legacy audit tables dropped",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "all legacy audit tables missing"
+                    }
+                ]
+}
