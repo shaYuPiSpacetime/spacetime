@@ -26,6 +26,7 @@ type CertStatusCardProps = {
 const verificationDemo = getDemoPageData('verification') as VerificationDemo
 const mainBlue = '#2876FF'
 const titleColor = '#0C285A'
+const designVariant = 'my-certification'
 const pageBackground =
   'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 50%, rgba(248,250,239,0.72) 100%)'
 
@@ -35,7 +36,7 @@ export default function MyCertificationPage() {
   }
 
   return (
-    <View style={{ minHeight: '100vh', background: pageBackground }}>
+    <View data-variant={designVariant} style={{ minHeight: '100vh', background: pageBackground }}>
       <LanhuSubNav title="我的认证" onBack={handleBack} />
       <ScrollView scrollY style={{ height: 'calc(100vh - 164rpx)', width: '750rpx' }} showScrollbar={false}>
         <View style={{ width: '750rpx', padding: '52rpx 25rpx 170rpx', boxSizing: 'border-box' }}>

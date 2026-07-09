@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import Taro from '@tarojs/taro'
-import { useAuthStore } from '@/stores/authStore'
+import { post } from '@/services/request'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import type { LoginStep, LoginUserInfo } from '@/types/login'
 
@@ -63,7 +63,6 @@ const useLoginFlowStore = create<LoginFlowState>((set) => ({
  */
 export function useLogin() {
   const { step, userInfo, setStep, updateUserInfo, reset } = useLoginFlowStore()
-  const { setLogin } = useAuthStore()
 
   /**
    * 获取指定省份的城市列表
@@ -75,21 +74,12 @@ export function useLogin() {
   }
 
   /**
-   * 提交登录（Mock）
-   * 模拟后端登录 → 写入 authStore → 跳转首页
+   * 提交首登资料
+   * 依赖微信授权手机号登录后写入的真实 token，将轻量资料落库后进入首页。
    */
   const submit = async (): Promise<void> => {
     try {
-      // Mock 登录数据
-      const mockToken = 'mock_token_' + Date.now()
-      const mockUserId = loginDemo.defaultUser.userId
-      const mockNickname = userInfo.nickname || loginDemo.defaultUser.nickname
-      const mockAvatar =
-        userInfo.avatar ||
-        loginDemo.defaultUser.avatar
-
-      // 写入认证状态
-      setLogin(mockToken, mockUserId, mockNickname, mockAvatar)
+      await post('/miniapp/profile/init-complete', buildProfileInitPayload(userInfo))
 
       // 重置登录流程状态
       reset()
@@ -131,4 +121,28 @@ export function useLogin() {
     /** 重置登录流程状态 */
     reset,
   }
+}
+
+function buildProfileInitPayload(userInfo: LoginUserInfo): Record<string, unknown> {
+  return {
+    step: 3,
+    nickname: userInfo.nickname || loginDemo.defaultUser.nickname,
+    avatar: userInfo.avatar || loginDemo.defaultUser.avatar,
+    gender: normalizeGender(userInfo.gender),
+    birthday: normalizeBirthday(userInfo.birthday),
+    locationProvince: userInfo.province,
+    locationCity: userInfo.city,
+    educationLevel: userInfo.education || userInfo.educationLevel,
+    datingGoal: userInfo.datingGoal,
+  }
+}
+
+function normalizeGender(gender?: LoginUserInfo['gender']) {
+  if (gender === 'male') return 'MALE'
+  if (gender === 'female') return 'FEMALE'
+  return undefined
+}
+
+function normalizeBirthday(birthday?: string) {
+  return birthday ? birthday.replace(/\//g, '-') : undefined
 }

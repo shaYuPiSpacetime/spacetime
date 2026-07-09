@@ -107,13 +107,13 @@ function EmptyState() {
         <View style={{ position: 'absolute', left: '137rpx', top: '162rpx', width: '58rpx', height: '18rpx', borderRadius: '9rpx', background: '#D8DEE6', transform: 'rotate(45deg)' }} />
         <View style={{ position: 'absolute', left: '76rpx', top: '84rpx', width: '78rpx', height: '10rpx', borderRadius: '5rpx', background: '#D8DEE6' }} />
         <View style={{ position: 'absolute', left: '76rpx', top: '118rpx', width: '98rpx', height: '10rpx', borderRadius: '5rpx', background: '#D8DEE6' }} />
-        <Text style={{ position: 'absolute', left: '0', top: '58rpx', color: '#D8DEE6', fontSize: '52rpx', fontWeight: 700 }}>+</Text>
-        <Text style={{ position: 'absolute', right: '0', top: '88rpx', color: '#D8DEE6', fontSize: '42rpx', fontWeight: 700 }}>。</Text>
+        <EmptyPlusMark left="0" top="65rpx" size="34rpx" />
+        <EmptyRingMark right="0" top="90rpx" size="40rpx" />
       </View>
       <Text style={{ color: '#9A9A9A', fontSize: '34rpx', lineHeight: '48rpx', marginTop: '28rpx' }}>暂无记录</Text>
       <View
         style={{
-          width: '662rpx',
+          width: '664rpx',
           height: '98rpx',
           borderRadius: '14rpx',
           background: LANHU_BLUE,
@@ -130,6 +130,48 @@ function EmptyState() {
   )
 }
 
+function EmptyPlusMark({
+  left,
+  top,
+  size,
+}: {
+  left: string
+  top: string
+  size: string
+}) {
+  return (
+    <View style={{ position: 'absolute', left, top, width: size, height: size }}>
+      <View style={{ position: 'absolute', left: '0', top: '50%', width: size, height: '8rpx', borderRadius: '4rpx', background: '#D8DEE6', transform: 'translateY(-50%)' }} />
+      <View style={{ position: 'absolute', left: '50%', top: '0', width: '8rpx', height: size, borderRadius: '4rpx', background: '#D8DEE6', transform: 'translateX(-50%)' }} />
+    </View>
+  )
+}
+
+function EmptyRingMark({
+  right,
+  top,
+  size,
+}: {
+  right: string
+  top: string
+  size: string
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        right,
+        top,
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        border: '10rpx solid #D8DEE6',
+        boxSizing: 'border-box',
+      }}
+    />
+  )
+}
+
 function DetailRow({ item }: { item: CoinTransaction }) {
   const amount = item.amount > 0 ? `+${item.amount}` : `${item.amount}`
   const amountColor = item.amount > 0 ? LANHU_BLUE : '#F32B61'
@@ -138,7 +180,7 @@ function DetailRow({ item }: { item: CoinTransaction }) {
     <View
       style={{
         position: 'relative',
-        height: '152rpx',
+        height: '148rpx',
         borderBottom: '1rpx solid #D9D9D9',
         display: 'flex',
         flexDirection: 'row',

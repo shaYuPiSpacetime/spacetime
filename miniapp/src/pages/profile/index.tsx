@@ -463,16 +463,40 @@ function VipBanner({
   expireTime?: string
   onClick: () => void
 }) {
+  if (status === 'none') {
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          left: '25rpx',
+          top: '512rpx',
+          width: '700rpx',
+          height: '128rpx',
+          borderRadius: '12rpx',
+          overflow: 'hidden',
+        }}
+        onClick={onClick}
+        hoverClass="btn-hover"
+      >
+        <Image
+          src={vipBanner}
+          mode="scaleToFill"
+          style={{
+            width: '700rpx',
+            height: '128rpx',
+          }}
+        />
+      </View>
+    )
+  }
+
   const title = status === 'active'
     ? '会员权益生效中'
-    : status === 'expired'
-      ? '会员已过期'
-      : '开通会员享特权'
+    : '会员已过期'
   const subtitle = status === 'active'
     ? `有效期至 ${expireTime || '2027.05.27 15:58'}`
-    : status === 'expired'
-      ? '续费后继续查看心动名单'
-      : '查看谁喜欢我、访客和更多推荐'
+    : '续费后继续查看心动名单'
+  const ctaText = status === 'active' ? '立即续费' : '重新开通'
 
   return (
     <View
@@ -484,27 +508,30 @@ function VipBanner({
         height: '128rpx',
         borderRadius: '12rpx',
         overflow: 'hidden',
+        background: 'linear-gradient(105deg, #1F1D1D 0%, #2E2A25 54%, #454035 100%)',
       }}
       onClick={onClick}
       hoverClass="btn-hover"
     >
-      <Image
-        src={vipBanner}
-        mode="scaleToFill"
+      <View
         style={{
           position: 'absolute',
-          left: '0',
-          top: '0',
-          width: '700rpx',
-          height: '128rpx',
+          left: '28rpx',
+          top: '38rpx',
+          width: '52rpx',
+          height: '52rpx',
+          transform: 'rotate(45deg)',
+          border: '4rpx solid #F7C968',
+          borderRadius: '8rpx',
+          boxSizing: 'border-box',
         }}
       />
       <Text
         style={{
           position: 'absolute',
-          left: '34rpx',
-          top: '28rpx',
-          color: '#5C3610',
+          left: '102rpx',
+          top: '24rpx',
+          color: '#F7C968',
           fontSize: '28rpx',
           fontWeight: 700,
           lineHeight: '40rpx',
@@ -515,15 +542,31 @@ function VipBanner({
       <Text
         style={{
           position: 'absolute',
-          left: '34rpx',
+          left: '102rpx',
           top: '72rpx',
-          color: '#7D552B',
+          color: '#D8B35B',
           fontSize: '22rpx',
           lineHeight: '31rpx',
         }}
       >
         {subtitle}
       </Text>
+      <View
+        style={{
+          position: 'absolute',
+          right: '28rpx',
+          top: '36rpx',
+          width: '160rpx',
+          height: '58rpx',
+          borderRadius: '58rpx',
+          background: '#F7C968',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: '#211D1E', fontSize: '26rpx', fontWeight: 700, lineHeight: '36rpx' }}>{ctaText}</Text>
+      </View>
     </View>
   )
 }

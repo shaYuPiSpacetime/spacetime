@@ -1,10 +1,7 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 
-import certAvatarIcon from '@/assets/lanhu/verification/slices/cert-avatar.webp'
-import certRealNameIcon from '@/assets/lanhu/verification/slices/cert-realname.webp'
-import certEducationIcon from '@/assets/lanhu/verification/slices/cert-education.webp'
-import verifyNoteIcon from '@/assets/lanhu/recommend/slices/verify-note.webp'
+import qianxunCenterImage from '@/assets/lanhu/pages/qianxun-center.png'
 
 const NAVY = '#0C285A'
 const BLUE = '#2876FF'
@@ -189,85 +186,17 @@ function CertificationArtwork() {
         height: '390rpx',
       }}
     >
-      <View
+      <Image
+        src={qianxunCenterImage}
+        mode="aspectFit"
         style={{
           position: 'absolute',
-          left: '171rpx',
-          top: '369rpx',
-          width: '391rpx',
-          height: '175rpx',
-          borderRadius: '50%',
-          background: 'rgba(40,118,255,0.4)',
-          transform: 'translateY(-175rpx)',
-        }}
-      />
-      <ProfileCompletionArtwork />
-      <View
-        style={{
-          position: 'absolute',
-          left: '158rpx',
-          top: '0',
-          width: '152rpx',
-          height: '152rpx',
-          borderRadius: '50%',
-          background: 'rgba(255,255,255,0.8)',
-          boxShadow: '0 8rpx 18rpx rgba(40,118,255,0.15)',
+          left: '90rpx',
+          top: '-44rpx',
+          width: '570rpx',
+          height: '640rpx',
         }}
       />
     </View>
-  )
-}
-
-function ProfileCompletionArtwork() {
-  const cards = [
-    { icon: certAvatarIcon, label: '头像', left: '142rpx', top: '24rpx' },
-    { icon: certRealNameIcon, label: '实名', left: '305rpx', top: '86rpx' },
-    { icon: certEducationIcon, label: '学历', left: '468rpx', top: '24rpx' },
-  ]
-
-  return (
-    <>
-      <View
-        style={{
-          position: 'absolute',
-          left: '246rpx',
-          top: '70rpx',
-          width: '258rpx',
-          height: '274rpx',
-          borderRadius: '36rpx',
-          background: '#FFFFFF',
-          boxShadow: '0 18rpx 40rpx rgba(40,118,255,0.20)',
-          border: '2rpx solid rgba(255,255,255,0.9)',
-        }}
-      >
-        <View style={{ position: 'absolute', left: '78rpx', top: '34rpx', width: '102rpx', height: '102rpx', borderRadius: '51rpx', background: '#E3F1FE' }}>
-          <Image src={verifyNoteIcon} mode="aspectFit" style={{ width: '102rpx', height: '102rpx' }} />
-        </View>
-        <View style={{ position: 'absolute', left: '48rpx', top: '166rpx', width: '162rpx', height: '20rpx', borderRadius: '10rpx', background: '#DDEBFF' }} />
-        <View style={{ position: 'absolute', left: '66rpx', top: '204rpx', width: '126rpx', height: '18rpx', borderRadius: '9rpx', background: '#EEF5FF' }} />
-      </View>
-      {cards.map((card) => (
-        <View
-          key={card.label}
-          style={{
-            position: 'absolute',
-            left: card.left,
-            top: card.top,
-            width: '138rpx',
-            height: '138rpx',
-            borderRadius: '28rpx',
-            background: '#FFFFFF',
-            boxShadow: '0 10rpx 26rpx rgba(11,38,90,0.12)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Image src={card.icon} mode="aspectFit" style={{ width: '72rpx', height: '72rpx' }} />
-          <Text style={{ color: NAVY, fontSize: '22rpx', fontWeight: 600, lineHeight: '31rpx', marginTop: '8rpx' }}>{card.label}</Text>
-        </View>
-      ))}
-    </>
   )
 }

@@ -2,12 +2,12 @@ export default {
   lazyCodeLoading: 'requiredComponents',
   pages: [
     'pages/login/index',
+    'pages/login/address',
     'pages/login/phone',
     'pages/login/gender',
     'pages/login/age',
     'pages/login/identity',
     'pages/login/education',
-    'pages/login/address',
     'pages/profile/edit',
     'pages/profile/index',
     'pages/community/index',

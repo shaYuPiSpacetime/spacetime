@@ -1,5 +1,5 @@
 import { View, Text, Input, Image } from '@tarojs/components'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { getDemoPageData } from '@/services/lanhuDemo'
@@ -24,6 +24,7 @@ interface PhoneLoginDemo {
 
 const baseLoginDemo = getDemoPageData('login')
 const loginDemo = baseLoginDemo as typeof baseLoginDemo & PhoneLoginDemo
+const CODE_COUNTDOWN_SECONDS = 60
 
 function PhoneIcon() {
   return (
@@ -45,12 +46,51 @@ function PhoneIcon() {
   )
 }
 
+function SmsCodeIcon() {
+  return (
+    <View
+      style={{
+        width: '44rpx',
+        height: '44rpx',
+        borderRadius: '8rpx',
+        background: '#DDEEFF',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {[0, 1, 2].map((item) => (
+        <View
+          key={item}
+          style={{
+            width: '6rpx',
+            height: item === 1 ? '28rpx' : '24rpx',
+            borderRadius: '4rpx',
+            background: '#64A4FF',
+            marginLeft: item === 0 ? '0' : '6rpx',
+          }}
+        />
+      ))}
+    </View>
+  )
+}
+
 export default function PhoneLoginPage() {
   const { updateUserInfo, setStep } = useLogin()
   const [phoneNumber, setPhoneNumber] = useState('')
   const [verificationCode, setVerificationCode] = useState('')
   const [phoneLoginErrorVisible, setPhoneLoginErrorVisible] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [codeCountdown, setCodeCountdown] = useState(0)
+
+  useEffect(() => {
+    if (codeCountdown <= 0) return undefined
+    const timer = setInterval(() => {
+      setCodeCountdown((value) => Math.max(0, value - 1))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [codeCountdown])
 
   useLoad((options) => {
     const variant = options?.variant
@@ -59,18 +99,21 @@ export default function PhoneLoginPage() {
       setPhoneNumber('')
       setVerificationCode('')
       setPhoneLoginErrorVisible(false)
+      setCodeCountdown(0)
     }
 
     if (variant === 'phone-active') {
       setPhoneNumber(loginDemo.phoneLogin.defaultPhone)
       setVerificationCode(loginDemo.phoneLogin.defaultCode)
       setPhoneLoginErrorVisible(false)
+      setCodeCountdown(40)
     }
 
     if (variant === 'phone-error') {
       setPhoneNumber(loginDemo.phoneLogin.defaultPhone)
       setVerificationCode('000000')
       setPhoneLoginErrorVisible(true)
+      setCodeCountdown(0)
     }
   })
 
@@ -79,11 +122,13 @@ export default function PhoneLoginPage() {
   }
 
   const handleGetCode = () => {
+    if (codeCountdown > 0) return
     if (!phoneNumber.trim()) {
       setPhoneNumber(loginDemo.phoneLogin.defaultPhone)
     }
     setVerificationCode(loginDemo.phoneLogin.defaultCode)
     setPhoneLoginErrorVisible(false)
+    setCodeCountdown(CODE_COUNTDOWN_SECONDS)
   }
 
   const enterProfileFlow = async () => {
@@ -232,18 +277,8 @@ export default function PhoneLoginPage() {
           boxSizing: 'border-box',
         }}
       >
-        <View
-          style={{
-            width: '72rpx',
-            height: '72rpx',
-            borderRadius: '16rpx',
-            background: '#DDEEFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#2876FF', fontSize: '22rpx', fontWeight: 900, lineHeight: '31rpx' }}>码</Text>
+        <View style={{ width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SmsCodeIcon />
         </View>
         <Input
           type="number"
@@ -257,10 +292,10 @@ export default function PhoneLoginPage() {
           style={{ flex: 1, height: '124rpx', color: '#333333', fontSize: '38rpx', lineHeight: '124rpx', marginLeft: '38rpx' }}
         />
         <Text
-          style={{ color: '#999999', fontSize: '32rpx', fontWeight: 400, lineHeight: '45rpx' }}
+          style={{ color: codeCountdown > 0 ? '#999999' : '#2876FF', fontSize: '32rpx', fontWeight: 400, lineHeight: '45rpx' }}
           onClick={handleGetCode}
         >
-          {loginDemo.phoneLogin.countdownText}
+          {codeCountdown > 0 ? `${codeCountdown}s重新获取` : loginDemo.phoneLogin.codeButtonText}
         </Text>
       </View>
 

@@ -2,9 +2,27 @@ import { useState, useCallback } from 'react'
 import Taro from '@tarojs/taro'
 import type { CoinPackage, CoinTransaction, CoinUsage } from '@/types/coin'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import { createOrder, getCoinPackages, requestWechatPayment, type CoinPackageVO } from '@/services/payment'
 
 const coinsDemo = getDemoPageData('coins')
 export type CoinPayState = 'idle' | 'wechat-pay' | 'pay-success' | 'pay-cancel'
+
+function adaptCoinPackage(pkg: CoinPackageVO): CoinPackage {
+  const coinCount = Number(pkg.coinCount || 0)
+  const bonusCount = Number(pkg.bonusCoinCount || 0)
+  return {
+    id: pkg.id,
+    amount: coinCount + bonusCount,
+    price: Number(pkg.amount || 0),
+    label: pkg.packageDesc || pkg.packageName,
+    tag: pkg.packageTag,
+  }
+}
+
+function isPaymentCancel(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as { errMsg?: string })?.errMsg || error || '')
+  return message.includes('cancel') || message.includes('取消')
+}
 
 /**
  * 千寻币模块 hook
@@ -49,12 +67,15 @@ export function useCoins() {
     }
   }, [])
 
-  /** 加载套餐列表（Mock 实现） */
+  /** 加载套餐列表 */
   const fetchPackages = useCallback(async () => {
     setPackagesLoading(true)
     try {
-      // 后续替换为真实 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      const serverPackages = await getCoinPackages()
+      const nextPackages = serverPackages.length > 0 ? serverPackages.map(adaptCoinPackage) : [...coinsDemo.packages]
+      setPackages(nextPackages)
+      setSelectedPackage((current) => current ?? nextPackages[0] ?? null)
+    } catch {
       setPackages([...coinsDemo.packages])
     } finally {
       setPackagesLoading(false)
@@ -121,10 +142,33 @@ export function useCoins() {
     setPayState('idle')
   }, [])
 
-  /** 确认支付（Mock 实现） */
+  /** 确认支付 */
   const purchase = useCallback(async () => {
-    openWechatPay()
-  }, [openWechatPay])
+    if (!selectedPackage) {
+      Taro.showToast({ title: '请选择充值套餐', icon: 'none' })
+      return
+    }
+    setPayLoading(true)
+    try {
+      const order = await createOrder(selectedPackage.id, 'coin')
+      if (!order.payParams) {
+        openWechatPay()
+        return
+      }
+      await requestWechatPayment(order.payParams)
+      setBalance((prev) => prev + selectedPackage.amount)
+      setPayState('pay-success')
+    } catch (error) {
+      if (isPaymentCancel(error)) {
+        setPayState('pay-cancel')
+      } else {
+        setPayState('idle')
+        Taro.showToast({ title: error instanceof Error ? error.message : '支付失败，请重试', icon: 'none' })
+      }
+    } finally {
+      setPayLoading(false)
+    }
+  }, [openWechatPay, selectedPackage])
 
   /** 跳转到交易明细页 */
   const goToDetail = useCallback(() => {

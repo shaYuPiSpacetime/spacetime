@@ -43,9 +43,7 @@ const config = {
 
   defineConstants: {
     'process.env.API_BASE_URL': JSON.stringify(
-      process.env.NODE_ENV === 'development'
-        ? 'http://localhost:8080'
-        : 'https://api.chengjialiye.com'
+      process.env.API_BASE_URL || 'https://admin.shikongxiehou.com/api'
     )
   },
 
@@ -58,7 +56,7 @@ const config = {
     options: {}
   },
 
-  framework: 'react',
+  framework: 'react' as const,
   compiler: {
     type: 'webpack5' as const,
     prebundle: {
@@ -105,7 +103,7 @@ const config = {
     publicPath: '/',
     staticDirectory: 'static',
     router: {
-      mode: 'hash'
+      mode: 'hash' as const
     },
     postcss: {
       pxtransform: {

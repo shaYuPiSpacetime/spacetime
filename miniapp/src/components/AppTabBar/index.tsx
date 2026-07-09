@@ -1,30 +1,30 @@
-import { View, Text } from '@tarojs/components'
+import { Image, View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
+import tabHomeIcon from '@/assets/icons/tab-home.png'
+import tabWorkIcon from '@/assets/icons/tab-work.png'
+import tabRecommendIcon from '@/assets/icons/tab-recommend.png'
+import tabMessageIcon from '@/assets/icons/tab-message.png'
+import tabProfileIcon from '@/assets/icons/tab-profile-active.png'
 
 export type TabKey = 'index' | 'community' | 'recommend' | 'chat' | 'profile'
-type TabIconType = 'home' | 'heart' | 'star' | 'message' | 'profile'
 
 interface Tab {
   key: TabKey
   label: string
   path: string
-  icon: TabIconType
+  iconPath: string
+  iconWidth: number
+  iconHeight: number
 }
 
 const TABS: Tab[] = [
-  { key: 'index', label: '千寻', path: '/pages/index/index', icon: 'home' },
-  { key: 'community', label: '心动', path: '/pages/community/index', icon: 'heart' },
-  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', icon: 'star' },
-  { key: 'chat', label: '消息', path: '/pages/chat/index', icon: 'message' },
-  { key: 'profile', label: '我的', path: '/pages/profile/index', icon: 'profile' },
+  { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, iconWidth: 40, iconHeight: 35 },
+  { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, iconWidth: 40, iconHeight: 35 },
+  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, iconWidth: 48, iconHeight: 46 },
+  { key: 'chat', label: '消息', path: '/pages/chat/index', iconPath: tabMessageIcon, iconWidth: 40, iconHeight: 36 },
+  { key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, iconWidth: 38, iconHeight: 36 },
 ]
-
-const TAB_ICON_COLORS = {
-  active: '#333333',
-  inactive: '#999999',
-  center: '#FFFFFF',
-}
 
 interface Props {
   active: TabKey
@@ -104,7 +104,11 @@ export default function AppTabBar({ active }: Props) {
                   justifyContent: 'center',
                 }}
               >
-                <TabIcon type="star" color={TAB_ICON_COLORS.center} size={48} active />
+                <Image
+                  src={tab.iconPath}
+                  mode="aspectFit"
+                  style={{ width: `${tab.iconWidth}rpx`, height: `${tab.iconHeight}rpx` }}
+                />
                 <Text style={{ color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx' }}>推荐</Text>
               </View>
             </View>
@@ -112,7 +116,6 @@ export default function AppTabBar({ active }: Props) {
         }
 
         const isOn = tab.key === active
-        const iconColor = isOn ? TAB_ICON_COLORS.active : TAB_ICON_COLORS.inactive
 
         return (
           <View
@@ -132,6 +135,7 @@ export default function AppTabBar({ active }: Props) {
           >
             <View
               style={{
+                position: 'relative',
                 width: '40rpx',
                 height: '36rpx',
                 marginBottom: '6rpx',
@@ -140,7 +144,24 @@ export default function AppTabBar({ active }: Props) {
                 justifyContent: 'center',
               }}
             >
-              <TabIcon type={tab.icon} color={iconColor} size={40} active={isOn} />
+              <Image
+                src={tab.iconPath}
+                mode="aspectFit"
+                style={{ width: `${tab.iconWidth}rpx`, height: `${tab.iconHeight}rpx` }}
+              />
+              {isOn ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    right: '-3rpx',
+                    top: '-3rpx',
+                    width: '18rpx',
+                    height: '18rpx',
+                    borderRadius: '9rpx',
+                    background: '#2876FF',
+                  }}
+                />
+              ) : null}
             </View>
             <Text
               style={{
@@ -157,55 +178,6 @@ export default function AppTabBar({ active }: Props) {
       })}
       <HitAreas onPress={handlePress} />
     </TabBarShell>
-  )
-}
-
-function TabIcon({ type, color, size, active }: { type: TabIconType; color: string; size: number; active: boolean }) {
-  if (type === 'home') {
-    return (
-      <View style={{ position: 'relative', width: `${size}rpx`, height: `${size - 4}rpx` }}>
-        <View style={{ position: 'absolute', left: '4rpx', top: '14rpx', width: `${size - 8}rpx`, height: `${size - 16}rpx`, border: `4rpx solid ${color}`, borderTop: '0', borderRadius: '4rpx' }} />
-        <View style={{ position: 'absolute', left: '6rpx', top: '4rpx', width: `${size - 12}rpx`, height: `${size - 12}rpx`, borderLeft: `4rpx solid ${color}`, borderTop: `4rpx solid ${color}`, transform: 'rotate(45deg)', borderRadius: '3rpx' }} />
-        {active && <View style={{ position: 'absolute', left: '17rpx', bottom: '0', width: '8rpx', height: '14rpx', background: color, borderRadius: '4rpx 4rpx 0 0' }} />}
-      </View>
-    )
-  }
-
-  if (type === 'heart') {
-    return (
-      <View style={{ position: 'relative', width: `${size}rpx`, height: `${size - 4}rpx`, transform: 'rotate(-45deg)' }}>
-        <View style={{ position: 'absolute', left: '10rpx', top: '12rpx', width: '24rpx', height: '24rpx', background: color, borderRadius: active ? '6rpx' : '5rpx' }} />
-        <View style={{ position: 'absolute', left: '10rpx', top: '2rpx', width: '24rpx', height: '24rpx', background: color, borderRadius: '50%' }} />
-        <View style={{ position: 'absolute', left: '20rpx', top: '12rpx', width: '24rpx', height: '24rpx', background: color, borderRadius: '50%' }} />
-      </View>
-    )
-  }
-
-  if (type === 'message') {
-    return (
-      <View style={{ position: 'relative', width: `${size}rpx`, height: `${size - 4}rpx` }}>
-        <View style={{ position: 'absolute', left: '1rpx', top: '2rpx', width: `${size - 4}rpx`, height: `${size - 12}rpx`, border: `4rpx solid ${color}`, borderRadius: '10rpx' }} />
-        <View style={{ position: 'absolute', left: '25rpx', bottom: '0', width: '12rpx', height: '12rpx', borderRight: `4rpx solid ${color}`, borderBottom: `4rpx solid ${color}`, transform: 'skew(-28deg)' }} />
-        <View style={{ position: 'absolute', left: '11rpx', top: '15rpx', width: '5rpx', height: '5rpx', borderRadius: '50%', background: color }} />
-        <View style={{ position: 'absolute', left: '21rpx', top: '15rpx', width: '5rpx', height: '5rpx', borderRadius: '50%', background: color }} />
-      </View>
-    )
-  }
-
-  if (type === 'profile') {
-    return (
-      <View style={{ position: 'relative', width: `${size}rpx`, height: `${size - 4}rpx` }}>
-        <View style={{ position: 'absolute', left: '12rpx', top: '1rpx', width: '16rpx', height: '16rpx', border: `4rpx solid ${color}`, borderRadius: '50%' }} />
-        <View style={{ position: 'absolute', left: '3rpx', top: '23rpx', width: '34rpx', height: '18rpx', border: `4rpx solid ${color}`, borderBottom: '0', borderRadius: '20rpx 20rpx 0 0' }} />
-        {active && <View style={{ position: 'absolute', right: '0', bottom: '0', width: '14rpx', height: '14rpx', borderRadius: '50%', border: '3rpx solid #FFFFFF', background: '#2876FF' }} />}
-      </View>
-    )
-  }
-
-  return (
-    <View style={{ position: 'relative', width: `${size}rpx`, height: `${size - 2}rpx` }}>
-      <Text style={{ color, fontSize: `${size + 8}rpx`, fontWeight: 700, lineHeight: `${size}rpx` }}>☆</Text>
-    </View>
   )
 }
 

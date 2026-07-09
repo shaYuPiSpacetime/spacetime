@@ -32,7 +32,15 @@ const REQUIRED_SOURCE_EVIDENCE = [
   {
     label: '登录首页真实按钮和授权/错误状态',
     route: '/pages/login/index',
-    snippets: ["variant === 'auth'", "variant === 'error'", "bottom: '214rpx'", "left: '115rpx'", "立即使用"],
+    snippets: [
+      "variant === 'auth'",
+      "variant === 'error'",
+      'data-role="login-primary-hit-area"',
+      "background: 'transparent'",
+      'opacity: 0',
+      "left: '115rpx'",
+      "立即使用",
+    ],
   },
   {
     label: '登录方式选择先于协议',
@@ -63,7 +71,10 @@ const REQUIRED_SOURCE_EVIDENCE = [
       '你的手机号是',
       '请输入你要登录的手机号',
       '你输入的手机号有误',
-      'loginDemo.phoneLogin.countdownText',
+      'SmsCodeIcon',
+      'CODE_COUNTDOWN_SECONDS = 60',
+      'codeCountdown',
+      'loginDemo.phoneLogin.codeButtonText',
       "bottom: '164rpx'",
       "Taro.redirectTo({ url: '/pages/login/gender' })",
     ],
@@ -76,13 +87,15 @@ const REQUIRED_SOURCE_EVIDENCE = [
     ],
   },
   {
-    label: '微信授权必须调用原生授权并处理超时失败',
+    label: '微信授权必须调用手机号授权并处理失败',
     route: '/pages/login/index',
     snippets: [
-      'handleWechatProfile',
-      'Taro.getUserProfile',
+      'handleWechatPhoneLogin',
+      'openType="getPhoneNumber"',
+      'onGetPhoneNumber',
       'login-wechat-custom-button',
-      'desc:',
+      'loginByWechatPhone',
+      'Taro.login',
       'setWechatAuthPending',
       '微信授权超时，请重试',
     ],
@@ -135,6 +148,16 @@ const REQUIRED_SOURCE_EVIDENCE = [
       'showManualSheet',
       'handleLocationFail',
       "borderRadius: '64rpx 64rpx 0 0'",
+      "height: '756rpx'",
+      "margin: '80rpx auto 0'",
+      "width: '656rpx'",
+      "marginTop: '43rpx'",
+      'getWindowMetrics',
+      'getAddressScrollTop',
+      'handleProvinceScroll',
+      'handleCityScroll',
+      'scrollWithAnimation',
+      "justifyContent: 'center'",
       'defaultAddress',
       'locationColor',
       'nextActive={Boolean(selected)}',
@@ -200,6 +223,15 @@ function assertSourceEvidence() {
   }
 }
 
+function assertAddressSheetScrollIsNotLocked() {
+  const source = fs.readFileSync(sourcePathForRoute('/pages/login/address'), 'utf8')
+  assert.ok(source.includes('releaseControlledAddressScroll'), '地址选择弹窗点击定位后必须释放 scrollTop 控制权，避免滚动被拉回')
+  assert.ok(!source.includes('setProvinceScrollTop(scrollTop)'), '省份列滚动时不能把实时 scrollTop 写回受控属性')
+  assert.ok(!source.includes('setCityScrollTop(scrollTop)'), '城市列滚动时不能把实时 scrollTop 写回受控属性')
+  assert.ok(!source.includes('onTouchEnd={snapProvinceScroll}'), '省份列不能在松手时强制吸附回旧选中项')
+  assert.ok(!source.includes('onTouchEnd={snapCityScroll}'), '城市列不能在松手时强制吸附回旧选中项')
+}
+
 const data = readJson(dataPath)
 const routeSet = readAppRoutes()
 const loginUiDesigns = data.login?.uiDesigns
@@ -223,6 +255,9 @@ assert.ok(data.login?.phoneLogin?.defaultPhone, 'login.phoneLogin 缺少手机�
 
 const routeKeys = new Set()
 for (const item of loginUiDesigns) {
+  if (item.variant === 'guest' || item.variant === 'guest-alt') {
+    continue
+  }
   assert.equal(typeof item.key, 'string', `${item.designName} 缺少 key`)
   assert.equal(typeof item.variant, 'string', `${item.designName} 缺少 variant`)
   assertRoute(routeSet, item.route, item.designName)
@@ -234,7 +269,8 @@ for (const item of loginUiDesigns) {
   assertVariantImplemented(item.route, item.variant, item.designName)
 }
 
-assert.equal(routeKeys.size, loginUiDesigns.length, '登录 UI 稿必须有独立可打开 route')
+assert.ok(!fs.readFileSync(sourcePathForRoute('/pages/login/index'), 'utf8').includes("variant === 'guest'"), '登录页禁止恢复游客模式 variant')
 assertSourceEvidence()
+assertAddressSheetScrollIsNotLocked()
 
 console.log('登录 UI 覆盖校验通过')

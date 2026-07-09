@@ -1,7 +1,9 @@
-import { View, Text, Image } from '@tarojs/components'
+import { Button, View, Text, Image } from '@tarojs/components'
 import { useState } from 'react'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
+import { useAuthStore } from '@/stores/authStore'
+import { loginByWechatPhone } from '@/services/auth'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import loginBg from '@/assets/login/login-bg.webp'
 import loginMethodWechatIcon from '@/assets/lanhu/login/login-method-wechat.png'
@@ -179,20 +181,21 @@ interface LoginMethodSheetProps {
   loading: boolean
   onToggleAgreement: () => void
   onSelectMethod: (method: LoginMethod) => void | Promise<void>
+  onWechatPhoneLogin: (event: { detail?: { code?: string; errMsg?: string } }) => void | Promise<void>
   onClose: () => void
 }
 
 function MethodIcon({ type }: { type: LoginMethod }) {
   const isWechat = type === 'wechat'
   const iconSize = isWechat
-    ? { width: '96rpx', height: '96rpx' }
+    ? { width: '48rpx', height: '48rpx' }
     : { width: '44rpx', height: '54rpx' }
 
   return (
     <View
       style={{
-        width: isWechat ? '116rpx' : '92rpx',
-        height: '96rpx',
+        width: '96rpx',
+        height: '72rpx',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -212,11 +215,13 @@ function LoginMethodRow({
   agreementAccepted,
   loading,
   onSelectMethod,
+  onWechatPhoneLogin,
 }: {
   method: { key: LoginMethod; title: string }
   agreementAccepted: boolean
   loading: boolean
   onSelectMethod: (method: LoginMethod) => void | Promise<void>
+  onWechatPhoneLogin: (event: { detail?: { code?: string; errMsg?: string } }) => void | Promise<void>
 }) {
   const content = (
     <View
@@ -240,17 +245,26 @@ function LoginMethodRow({
 
   if (method.key === 'wechat' && agreementAccepted) {
     return (
-      <View
+      <Button
         className="login-wechat-custom-button"
-        onClick={() => {
-          if (!loading) {
-            onSelectMethod(method.key)
-          }
+        openType="getPhoneNumber"
+        onGetPhoneNumber={onWechatPhoneLogin}
+        disabled={loading}
+        style={{
+          display: 'block',
+          width: '100%',
+          margin: 0,
+          padding: 0,
+          background: 'transparent',
+          border: 0,
+          borderRadius: 0,
+          lineHeight: 'normal',
+          textAlign: 'left',
         }}
         hoverClass="btn-hover"
       >
         {content}
-      </View>
+      </Button>
     )
   }
 
@@ -266,6 +280,7 @@ function LoginMethodSheet({
   loading,
   onToggleAgreement,
   onSelectMethod,
+  onWechatPhoneLogin,
   onClose,
 }: LoginMethodSheetProps) {
   return (
@@ -299,6 +314,7 @@ function LoginMethodSheet({
                 agreementAccepted={agreementAccepted}
                 loading={loading}
                 onSelectMethod={onSelectMethod}
+                onWechatPhoneLogin={onWechatPhoneLogin}
               />
             </View>
           ))}
@@ -353,6 +369,7 @@ function LoginMethodSheet({
  */
 export default function LoginAuthPage() {
   const { updateUserInfo, setStep } = useLogin()
+  const { setLogin } = useAuthStore()
   const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [showMethodSheet, setShowMethodSheet] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
@@ -384,21 +401,6 @@ export default function LoginAuthPage() {
 
   })
 
-  const enterProfileFlow = async (nickname: string, avatar = '') => {
-    if (loading) return
-    setLoading(true)
-    try {
-      updateUserInfo({ avatar, nickname })
-      setStep('gender')
-      await Taro.redirectTo({ url: '/pages/login/gender' })
-    } catch {
-      setErrorText('页面跳转失败，请重试')
-      setShowError(true)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleUse = () => {
     setShowMethodSheet(true)
     setShowDialog(false)
@@ -412,7 +414,7 @@ export default function LoginAuthPage() {
     setShowDialog(false)
     setShowError(false)
     if (method === 'wechat') {
-      await handleWechatProfile()
+      setShowMethodSheet(true)
       return
     }
     await Taro.redirectTo({ url: '/pages/login/phone' })
@@ -435,18 +437,44 @@ export default function LoginAuthPage() {
     setShowError(false)
   }
 
-  const handleWechatProfile = async () => {
+  const handleWechatPhoneLogin = async (event: { detail?: { code?: string; errMsg?: string } }) => {
     if (wechatAuthPending || loading) return
+    const phoneCode = event.detail?.code
+    if (!phoneCode) {
+      const nextErrorText = getWechatAuthErrorText({ errMsg: event.detail?.errMsg })
+      setErrorText(nextErrorText)
+      setShowError(true)
+      Taro.showToast({ title: nextErrorText, icon: 'none' })
+      return
+    }
+
     setWechatAuthPending(true)
+    setLoading(true)
     setShowError(false)
 
     try {
-      const profile = await Taro.getUserProfile({
-        desc: '用于完善时空邂逅交友资料',
+      const { code: loginCode } = await Taro.login()
+      if (!loginCode) {
+        throw new Error('微信登录code获取失败')
+      }
+      const loginData = await loginByWechatPhone({ loginCode, phoneCode })
+      const nickname = loginData.nickname || loginDemo.defaultUser.nickname
+      const avatar = loginData.avatar || loginDemo.defaultUser.avatar
+
+      setLogin(loginData.token, loginData.userId, nickname, avatar, {
+        openid: loginData.openid,
+        phone: loginData.phone,
+        maskedPhone: loginData.maskedPhone,
       })
-      const nickname = profile.userInfo?.nickName || loginDemo.defaultUser.nickname
-      const avatar = profile.userInfo?.avatarUrl || loginDemo.defaultUser.avatar
-      await enterProfileFlow(nickname, avatar)
+      updateUserInfo({ avatar, nickname })
+
+      if (loginData.firstLoginCompleted) {
+        await Taro.switchTab({ url: '/pages/index/index' })
+        return
+      }
+
+      setStep('gender')
+      await Taro.redirectTo({ url: '/pages/login/gender' })
     } catch (error) {
       const nextErrorText = getWechatAuthErrorText(error)
       setErrorText(nextErrorText)
@@ -454,6 +482,7 @@ export default function LoginAuthPage() {
       Taro.showToast({ title: nextErrorText, icon: 'none' })
     } finally {
       setWechatAuthPending(false)
+      setLoading(false)
     }
   }
 
@@ -463,6 +492,10 @@ export default function LoginAuthPage() {
     setShowError(false)
     setErrorText(loginDemo.agreement.errorText)
     if (selectedMethod) {
+      if (selectedMethod === 'wechat') {
+        setShowMethodSheet(true)
+        return
+      }
       await proceedWithMethod(selectedMethod)
     } else {
       setShowMethodSheet(true)
@@ -484,6 +517,7 @@ export default function LoginAuthPage() {
       />
 
       <View
+        data-role="login-primary-hit-area"
         className="absolute flex items-center justify-center"
         style={{
           left: '115rpx',
@@ -491,7 +525,8 @@ export default function LoginAuthPage() {
           bottom: '168rpx',
           height: '98rpx',
           borderRadius: '28rpx',
-          background: showDialog || showMethodSheet ? '#C9C9C9' : '#FFFFFF',
+          background: 'transparent',
+          opacity: 0,
         }}
         hoverClass="btn-hover"
         onClick={handleUse}
@@ -507,6 +542,7 @@ export default function LoginAuthPage() {
           loading={wechatAuthPending}
           onToggleAgreement={handleToggleAgreement}
           onSelectMethod={handleSelectMethod}
+          onWechatPhoneLogin={handleWechatPhoneLogin}
           onClose={() => setShowMethodSheet(false)}
         />
       )}

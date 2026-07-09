@@ -7,24 +7,13 @@ interface WechatMockPayPanelProps {
   onCancel: () => void
 }
 
-const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']
-
+// 微信支付键盘为微信原生系统面板；生产链路通过 wx.requestPayment 唤起，此组件只用于蓝湖 demo 预览和无真实支付参数时的闭环模拟。
 export default function WechatMockPayPanel({
   amount,
   onClose,
   onSuccess,
   onCancel,
 }: WechatMockPayPanelProps) {
-  const handleKey = (key: string) => {
-    if (key === '⌫') {
-      onCancel()
-      return
-    }
-    if (key) {
-      onSuccess()
-    }
-  }
-
   return (
     <View
       style={{
@@ -32,25 +21,30 @@ export default function WechatMockPayPanel({
         left: 0,
         right: 0,
         bottom: 0,
-        minHeight: '1046rpx',
+        minHeight: '620rpx',
         background: '#FFFFFF',
+        borderRadius: '32rpx 32rpx 0 0',
         boxSizing: 'border-box',
+        padding: '0 44rpx 56rpx',
       }}
     >
-      <View
-        style={{ height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
-        onClick={onClose}
-      >
+      <View style={{ height: '96rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <Text style={{ color: '#1F1F1F', fontSize: '32rpx', fontWeight: 500 }}>时空邂逅</Text>
+        <Text
+          style={{ position: 'absolute', right: 0, top: '30rpx', color: '#999999', fontSize: '28rpx' }}
+          onClick={onClose}
+        >
+          关闭
+        </Text>
       </View>
-      <Text style={{ display: 'block', color: '#111111', fontSize: '92rpx', fontWeight: 600, lineHeight: '116rpx', textAlign: 'center', marginTop: '24rpx' }}>
+      <Text style={{ display: 'block', color: '#111111', fontSize: '92rpx', fontWeight: 600, lineHeight: '116rpx', textAlign: 'center', marginTop: '8rpx' }}>
         ¥{amount}
       </Text>
-      <View style={{ width: '672rpx', height: '1rpx', background: '#EEEEEE', margin: '0 auto 0' }} />
+      <View style={{ width: '662rpx', height: '1rpx', background: '#EEEEEE', margin: '28rpx auto 0' }} />
       <View
         style={{
-          width: '672rpx',
-          height: '80rpx',
+          width: '662rpx',
+          height: '96rpx',
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'row',
@@ -59,14 +53,15 @@ export default function WechatMockPayPanel({
         }}
       >
         <Text style={{ color: '#8C8C8C', fontSize: '30rpx' }}>付款方式</Text>
-        <Text style={{ color: '#999999', fontSize: '30rpx' }}>更改⌄</Text>
+        <Text style={{ color: '#111111', fontSize: '30rpx' }}>微信支付</Text>
       </View>
       <View
         style={{
-          width: '672rpx',
-          height: '106rpx',
+          width: '662rpx',
+          height: '112rpx',
           margin: '0 auto',
-          background: '#FFFBEA',
+          background: '#F7F7F7',
+          borderRadius: '12rpx',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
@@ -88,117 +83,50 @@ export default function WechatMockPayPanel({
         >
           <Text style={{ color: '#E0A500', fontSize: '24rpx', fontWeight: 700 }}>¥</Text>
         </View>
-        <Text style={{ color: '#858585', fontSize: '30rpx', flex: 1 }}>零钱</Text>
-        <Text style={{ color: '#21C36A', fontSize: '48rpx', fontWeight: 500 }}>✓</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ display: 'block', color: '#111111', fontSize: '30rpx', fontWeight: 600 }}>微信支付</Text>
+          <Text style={{ display: 'block', color: '#8C8C8C', fontSize: '24rpx', marginTop: '8rpx' }}>当前付款方式</Text>
+        </View>
       </View>
-      <View style={{ width: '552rpx', height: '90rpx', margin: '50rpx auto 0', display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-        {Array.from({ length: 6 }).map((_, index) => (
-          <View
-            key={index}
-            style={{
-              width: '80rpx',
-              height: '80rpx',
-              borderRadius: '10rpx',
-              background: '#F3F3F3',
-            }}
-          />
-        ))}
-      </View>
+      {/* 微信数字支付键盘是原生系统 UI，demo fallback 不渲染微信数字键盘，只保留支付结果动作。 */}
       <View
         style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: '456rpx',
-          background: '#F7F7F7',
           display: 'flex',
           flexDirection: 'row',
-          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: '56rpx',
         }}
       >
-        {KEYS.map((key, index) => {
-          const keyContent = key === '⌫' ? <DeleteKeyIcon /> : key
-
-          return (
-            <View
-              key={`${key}-${index}`}
-              style={{
-                width: '250rpx',
-                height: '114rpx',
-                background: key ? '#FFFFFF' : '#F0F0F0',
-                borderRight: index % 3 === 2 ? '0' : '1rpx solid #E5E5E5',
-                borderBottom: index >= 9 ? '0' : '1rpx solid #E5E5E5',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxSizing: 'border-box',
-              }}
-              onClick={() => handleKey(key)}
-            >
-              {typeof keyContent === 'string' ? (
-                <Text style={{ color: '#111111', fontSize: '50rpx', fontWeight: 500 }}>
-                  {keyContent}
-                </Text>
-              ) : keyContent}
-            </View>
-          )
-        })}
+        <View
+          style={{
+            width: '300rpx',
+            height: '88rpx',
+            borderRadius: '44rpx',
+            border: '1rpx solid #D8D8D8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={onCancel}
+        >
+          <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 600 }}>取消支付</Text>
+        </View>
+        <View
+          style={{
+            width: '300rpx',
+            height: '88rpx',
+            borderRadius: '44rpx',
+            background: '#07C160',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={onSuccess}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>支付成功</Text>
+        </View>
       </View>
-    </View>
-  )
-}
-
-function DeleteKeyIcon() {
-  return (
-    <View style={{ position: 'relative', width: '58rpx', height: '38rpx' }}>
-      <View
-        style={{
-          position: 'absolute',
-          left: '11rpx',
-          top: '1rpx',
-          width: '45rpx',
-          height: '36rpx',
-          borderRadius: '7rpx',
-          background: '#111111',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '1rpx',
-          top: '8rpx',
-          width: '22rpx',
-          height: '22rpx',
-          borderRadius: '4rpx',
-          background: '#111111',
-          transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '28rpx',
-          top: '18rpx',
-          width: '20rpx',
-          height: '3rpx',
-          borderRadius: '2rpx',
-          background: '#FFFFFF',
-          transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '28rpx',
-          top: '18rpx',
-          width: '20rpx',
-          height: '3rpx',
-          borderRadius: '2rpx',
-          background: '#FFFFFF',
-          transform: 'rotate(-45deg)',
-        }}
-      />
     </View>
   )
 }

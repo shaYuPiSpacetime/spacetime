@@ -1,12 +1,16 @@
 import { ScrollView, View, Text } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import { getWindowMetrics } from '@/utils/system'
 import LoginProfileShell from './components/LoginProfileShell'
 import './address.scss'
 
 const loginDemo = getDemoPageData('login')
+const ADDRESS_ROW_HEIGHT_RPX = 78
+const ADDRESS_PROVINCE_TOP_SPACER_RPX = 78
+const ADDRESS_WHEEL_BOTTOM_SPACER_RPX = 144
 
 /**
  * 登录-地址 — 1:1 还原蓝湖「登录-地址」设计稿
@@ -236,13 +240,63 @@ function ManualAddressSheet({
   onConfirm: (province: string, city: string) => void
   onClose: () => void
 }) {
-  const [provinceIndex, setProvinceIndex] = useState(cityValue[0] || 0)
-  const [cityIndex, setCityIndex] = useState(cityValue[1] || 0)
+  const initialProvinceIndex = clampAddressIndex(cityValue[0] || 0, provinces.length)
+  const initialProvince = provinces[initialProvinceIndex] || provinces[0]
+  const initialCityIndex = clampAddressIndex(cityValue[1] || 0, getCities(initialProvince).length)
+  const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
+  const [cityIndex, setCityIndex] = useState(initialCityIndex)
+  const [provinceScrollTop, setProvinceScrollTop] = useState<number | undefined>(() => getAddressScrollTop(initialProvinceIndex))
+  const [cityScrollTop, setCityScrollTop] = useState<number | undefined>(() => getAddressScrollTop(initialCityIndex))
+  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const province = provinces[provinceIndex] || provinces[0]
   const cities = getCities(province)
-  const city = cities[cityIndex] || cities[0] || ''
-  const provinceScrollTop = Math.max(0, provinceIndex * 59 - 78)
-  const cityScrollTop = Math.max(0, cityIndex * 59)
+  const city = cities[clampAddressIndex(cityIndex, cities.length)] || cities[0] || ''
+
+  const releaseControlledAddressScroll = () => {
+    if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
+    releaseTimerRef.current = setTimeout(() => {
+      setProvinceScrollTop(undefined)
+      setCityScrollTop(undefined)
+    }, 240)
+  }
+
+  useEffect(() => {
+    releaseControlledAddressScroll()
+    return () => {
+      if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
+    }
+  }, [])
+
+  const selectProvince = (nextIndex: number) => {
+    const nextProvinceIndex = clampAddressIndex(nextIndex, provinces.length)
+    setProvinceIndex(nextProvinceIndex)
+    setCityIndex(0)
+    setProvinceScrollTop(getAddressScrollTop(nextProvinceIndex))
+    setCityScrollTop(getAddressScrollTop(0))
+    releaseControlledAddressScroll()
+  }
+
+  const selectCity = (nextIndex: number) => {
+    const nextCityIndex = clampAddressIndex(nextIndex, cities.length)
+    setCityIndex(nextCityIndex)
+    setCityScrollTop(getAddressScrollTop(nextCityIndex))
+    releaseControlledAddressScroll()
+  }
+
+  const handleProvinceScroll = (event: { detail: { scrollTop: number } }) => {
+    const nextProvinceIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, provinces.length)
+    if (nextProvinceIndex === provinceIndex) return
+    setProvinceIndex(nextProvinceIndex)
+    setCityIndex(0)
+    setCityScrollTop(getAddressScrollTop(0))
+    releaseControlledAddressScroll()
+  }
+
+  const handleCityScroll = (event: { detail: { scrollTop: number } }) => {
+    const nextCityIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, cities.length)
+    if (nextCityIndex === cityIndex) return
+    setCityIndex(nextCityIndex)
+  }
 
   return (
     <View
@@ -271,43 +325,53 @@ function ManualAddressSheet({
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', textAlign: 'center' }}>
-          地址
-        </Text>
+        <View style={{ width: '100%', height: '40rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', textAlign: 'center' }}>
+            地址
+          </Text>
+        </View>
 
         <View
           style={{
-            width: '418rpx',
-            margin: '65rpx 94rpx 0 152rpx',
+            width: '512rpx',
+            margin: '65rpx auto 0',
             display: 'flex',
             flexDirection: 'row',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
             alignItems: 'flex-start',
           }}
         >
-          <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>
-            中国
-          </Text>
-          <Text style={{ color: '#999999', fontSize: '26rpx', fontWeight: 400, lineHeight: '37rpx', marginTop: '2rpx' }}>
-            海外地区国家
-          </Text>
+          <View style={{ width: '256rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', textAlign: 'center' }}>
+              中国
+            </Text>
+          </View>
+          <View style={{ width: '256rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#999999', fontSize: '26rpx', fontWeight: 400, lineHeight: '37rpx', marginTop: '2rpx', textAlign: 'center' }}>
+              海外地区国家
+            </Text>
+          </View>
         </View>
-        <View
-          style={{
-            width: '51rpx',
-            height: '6rpx',
-            borderRadius: '9rpx',
-            background: '#2876FF',
-            margin: '0 0 0 155rpx',
-          }}
-        />
+        <View style={{ width: '512rpx', margin: '0 auto', display: 'flex', flexDirection: 'row' }}>
+          <View style={{ width: '256rpx', display: 'flex', justifyContent: 'center' }}>
+            <View
+              style={{
+                width: '51rpx',
+                height: '6rpx',
+                borderRadius: '9rpx',
+                background: '#2876FF',
+              }}
+            />
+          </View>
+          <View style={{ width: '256rpx' }} />
+        </View>
 
         <View
           style={{
             position: 'relative',
-            width: '657rpx',
+            width: '656rpx',
             height: '300rpx',
-            margin: '37rpx 0 0 7rpx',
+            margin: '80rpx auto 0',
             overflow: 'hidden',
           }}
         >
@@ -316,28 +380,33 @@ function ManualAddressSheet({
               position: 'absolute',
               left: 0,
               top: '78rpx',
-              width: '657rpx',
+              width: '656rpx',
               height: '78rpx',
               borderRadius: '24rpx',
               background: '#E3F1FE',
             }}
           />
-          <ScrollView scrollY scrollTop={provinceScrollTop} style={{ position: 'absolute', left: '100rpx', top: 0, width: '160rpx', height: '246rpx' }} showScrollbar={false}>
+          <ScrollView
+            scrollY
+            scrollTop={provinceScrollTop}
+            scrollWithAnimation
+            onScroll={handleProvinceScroll}
+            style={{ position: 'absolute', left: '78rpx', top: 0, width: '220rpx', height: '300rpx' }}
+            showScrollbar={false}
+          >
+            <View style={{ height: `${ADDRESS_PROVINCE_TOP_SPACER_RPX}rpx` }} />
             {provinces.map((item, index) => {
               const isActive = index === provinceIndex
               return (
                 <View
                   key={item}
                   style={{
-                    height: isActive ? '78rpx' : '59rpx',
+                    height: '78rpx',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'flex-start',
+                    justifyContent: 'center',
                   }}
-                  onClick={() => {
-                    setProvinceIndex(index)
-                    setCityIndex(0)
-                  }}
+                  onClick={() => selectProvince(index)}
                   hoverClass="btn-hover"
                 >
                   <Text
@@ -346,6 +415,7 @@ function ManualAddressSheet({
                       fontSize: '28rpx',
                       fontWeight: 500,
                       lineHeight: '40rpx',
+                      textAlign: 'center',
                     }}
                   >
                     {item.replace(/[省市区]$/u, '')}
@@ -353,19 +423,28 @@ function ManualAddressSheet({
                 </View>
               )
             })}
+            <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
           </ScrollView>
-          <ScrollView scrollY scrollTop={cityScrollTop} style={{ position: 'absolute', left: '356rpx', top: '78rpx', width: '160rpx', height: '168rpx' }} showScrollbar={false}>
+          <ScrollView
+            scrollY
+            scrollTop={cityScrollTop}
+            scrollWithAnimation
+            onScroll={handleCityScroll}
+            style={{ position: 'absolute', left: '358rpx', top: '78rpx', width: '220rpx', height: '222rpx' }}
+            showScrollbar={false}
+          >
             {cities.map((item, index) => {
               const isActive = index === cityIndex
               return (
                 <View
                   key={item}
                   style={{
-                    height: isActive ? '78rpx' : '59rpx',
+                    height: '78rpx',
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                   }}
-                  onClick={() => setCityIndex(index)}
+                  onClick={() => selectCity(index)}
                   hoverClass="btn-hover"
                 >
                   <Text
@@ -374,6 +453,7 @@ function ManualAddressSheet({
                       fontSize: '28rpx',
                       fontWeight: 500,
                       lineHeight: '40rpx',
+                      textAlign: 'center',
                     }}
                   >
                     {item.replace(/[市区县]$/u, '')}
@@ -381,6 +461,7 @@ function ManualAddressSheet({
                 </View>
               )
             })}
+            <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
           </ScrollView>
         </View>
 
@@ -389,7 +470,7 @@ function ManualAddressSheet({
             height: '98rpx',
             borderRadius: '40rpx',
             background: '#2876FF',
-            marginTop: '73rpx',
+            marginTop: '43rpx',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -406,6 +487,25 @@ function ManualAddressSheet({
       </View>
     </View>
   )
+}
+
+function getAddressScrollTop(index: number) {
+  return Math.max(0, rpxToPx(index * ADDRESS_ROW_HEIGHT_RPX))
+}
+
+function getAddressIndexFromScrollTop(scrollTop: number, length: number) {
+  if (length <= 0) return 0
+  const rowHeight = rpxToPx(ADDRESS_ROW_HEIGHT_RPX)
+  return clampAddressIndex(Math.round(scrollTop / rowHeight), length)
+}
+
+function clampAddressIndex(index: number, length: number) {
+  if (length <= 0) return 0
+  return Math.min(Math.max(0, index), length - 1)
+}
+
+function rpxToPx(value: number) {
+  return (value * getWindowMetrics().windowWidth) / 750
 }
 
 function LocationConfirmSheet({

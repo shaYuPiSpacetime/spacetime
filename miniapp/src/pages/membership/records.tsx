@@ -92,7 +92,7 @@ function RecordCard({
         {duration}
       </Text>
       <Text style={{ position: 'absolute', left: '28rpx', top: '114rpx', color: mainColor, fontSize: '28rpx', lineHeight: '40rpx' }}>
-        有效期： {startTime} – {endTime}
+        有效期： {startTime} - {endTime}
       </Text>
       {refunded && <RefundStamp />}
     </View>
@@ -104,39 +104,53 @@ function MemberRecordDiamond({ tone }: { tone: string }) {
     <View
       style={{
         position: 'absolute',
-        left: '30rpx',
-        top: '54rpx',
-        width: '52rpx',
-        height: '52rpx',
+        left: '20rpx',
+        top: '41rpx',
+        width: '58rpx',
+        height: '58rpx',
       }}
     >
-      <View
-        style={{
-          position: 'absolute',
-          left: '6rpx',
-          top: '6rpx',
-          width: '38rpx',
-          height: '38rpx',
-          borderRadius: '8rpx',
-          border: `5rpx solid ${tone}`,
-          transform: 'rotate(45deg)',
-          boxSizing: 'border-box',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '19rpx',
-          top: '18rpx',
-          width: '16rpx',
-          height: '16rpx',
-          borderRight: `5rpx solid ${tone}`,
-          borderBottom: `5rpx solid ${tone}`,
-          transform: 'rotate(45deg)',
-          boxSizing: 'border-box',
-        }}
-      />
+      <MemberRecordGemLine tone={tone} left="12rpx" top="10rpx" width="34rpx" rotate="0deg" />
+      <MemberRecordGemLine tone={tone} left="7rpx" top="17rpx" width="23rpx" rotate="45deg" />
+      <MemberRecordGemLine tone={tone} left="27rpx" top="17rpx" width="23rpx" rotate="-45deg" />
+      <MemberRecordGemLine tone={tone} left="13rpx" top="31rpx" width="24rpx" rotate="45deg" />
+      <MemberRecordGemLine tone={tone} left="23rpx" top="31rpx" width="24rpx" rotate="-45deg" />
+      <MemberRecordGemLine tone={tone} left="18rpx" top="18rpx" width="16rpx" rotate="62deg" opacity={0.72} />
+      <MemberRecordGemLine tone={tone} left="24rpx" top="18rpx" width="16rpx" rotate="-62deg" opacity={0.72} />
     </View>
+  )
+}
+
+function MemberRecordGemLine({
+  tone,
+  left,
+  top,
+  width,
+  rotate,
+  opacity = 1,
+}: {
+  tone: string
+  left: string
+  top: string
+  width: string
+  rotate: string
+  opacity?: number
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left,
+        top,
+        width,
+        height: '5rpx',
+        borderRadius: '3rpx',
+        background: tone,
+        opacity,
+        transform: `rotate(${rotate})`,
+        transformOrigin: 'center center',
+      }}
+    />
   )
 }
 
@@ -145,24 +159,19 @@ function RefundStamp() {
     <View
       style={{
         position: 'absolute',
-        left: '322rpx',
-        top: '14rpx',
+        left: '280rpx',
+        top: '24rpx',
         width: '232rpx',
         height: '164rpx',
         transform: 'rotate(-24deg)',
       }}
     >
-      <View
-        style={{
-          position: 'absolute',
-          left: '40rpx',
-          top: '2rpx',
-          width: '142rpx',
-          height: '142rpx',
-          borderRadius: '82rpx',
-          border: '10rpx solid rgba(150,150,150,0.34)',
-        }}
-      />
+      <RefundStampArc left="42rpx" top="2rpx" width="142rpx" height="142rpx" rotate="-18deg" />
+      <RefundStampArc left="42rpx" top="2rpx" width="142rpx" height="142rpx" rotate="162deg" />
+      <RefundStampStar left="86rpx" top="17rpx" size="22rpx" />
+      <RefundStampStar left="122rpx" top="7rpx" size="24rpx" />
+      <RefundStampStar left="78rpx" top="128rpx" size="22rpx" />
+      <RefundStampStar left="124rpx" top="120rpx" size="23rpx" />
       <View
         style={{
           position: 'absolute',
@@ -182,6 +191,58 @@ function RefundStamp() {
           已退款
         </Text>
       </View>
+    </View>
+  )
+}
+
+function RefundStampArc({
+  left,
+  top,
+  width,
+  height,
+  rotate,
+}: {
+  left: string
+  top: string
+  width: string
+  height: string
+  rotate: string
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left,
+        top,
+        width,
+        height,
+        borderRadius: '90rpx',
+        borderTop: '10rpx solid rgba(150,150,150,0.34)',
+        borderLeft: '10rpx solid rgba(150,150,150,0.34)',
+        borderRight: '10rpx solid transparent',
+        borderBottom: '10rpx solid transparent',
+        transform: `rotate(${rotate})`,
+        boxSizing: 'border-box',
+      }}
+    />
+  )
+}
+
+function RefundStampStar({
+  left,
+  top,
+  size,
+}: {
+  left: string
+  top: string
+  size: string
+}) {
+  return (
+    <View style={{ position: 'absolute', left, top, width: size, height: size }}>
+      <View style={{ position: 'absolute', left: '50%', top: '0', width: '5rpx', height: size, borderRadius: '3rpx', background: 'rgba(150,150,150,0.5)', transform: 'translateX(-50%)' }} />
+      <View style={{ position: 'absolute', left: '0', top: '50%', width: size, height: '5rpx', borderRadius: '3rpx', background: 'rgba(150,150,150,0.5)', transform: 'translateY(-50%)' }} />
+      <View style={{ position: 'absolute', left: '50%', top: '0', width: '4rpx', height: size, borderRadius: '2rpx', background: 'rgba(150,150,150,0.38)', transform: 'translateX(-50%) rotate(45deg)' }} />
+      <View style={{ position: 'absolute', left: '50%', top: '0', width: '4rpx', height: size, borderRadius: '2rpx', background: 'rgba(150,150,150,0.38)', transform: 'translateX(-50%) rotate(-45deg)' }} />
     </View>
   )
 }

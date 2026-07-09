@@ -618,8 +618,19 @@
       "route": "/pages/membership/index",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
-        "src/assets/profile/default-avatar.webp"
+        ".lanhu-ref/lanhu-full-2026-07-07/images/08-会员中心-全.png",
+        "src/assets/profile/default-avatar.webp",
+        "src/assets/lanhu/pages/member-benefits/member-slice-match.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-eye-open.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-greeting-a.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-recommend.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-filter.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-exposure.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-stealth.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-greeting-b.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-my-2.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-group-5-a.png",
+        "src/assets/lanhu/pages/member-benefits/member-slice-group-5-b.png"
       ]
     },
     {
@@ -652,7 +663,7 @@
       "route": "/pages/membership/index?variant=expired",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/60-会员中心-已过期.png",
         "src/assets/profile/default-avatar.webp"
       ]
     },
@@ -664,7 +675,7 @@
       "route": "/pages/membership/index?variant=annual",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/61-会员中心-连续包年.png",
         "src/assets/profile/default-avatar.webp"
       ]
     },
@@ -676,7 +687,7 @@
       "route": "/pages/membership/index?variant=active",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/62-会员中心-已开通.png",
         "src/assets/profile/default-avatar.webp"
       ]
     },
@@ -688,7 +699,7 @@
       "route": "/pages/membership/index?variant=none",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/63-会员中心-会员未开通，支付按钮固定下方.png",
         "src/assets/profile/default-avatar.webp"
       ]
     },
@@ -700,7 +711,7 @@
       "route": "/pages/membership/index?payState=pay-success",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/64-会员中心-支付成功.png",
         "src/assets/profile/default-avatar.webp"
       ]
     },
@@ -712,7 +723,7 @@
       "route": "/pages/membership/index?payState=wechat-pay",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/65-会员中心-微信支付.png",
         "src/assets/profile/default-avatar.webp"
       ]
     },
@@ -797,6 +808,8 @@
       "status": "implemented",
       "assetRefs": [
         "src/assets/lanhu/pages/coin-balance-bg.webp",
+        "src/assets/lanhu/pages/coin-gold.png",
+        "src/assets/lanhu/pages/coin-usage-slice.png",
         ".lanhu-ref/lanhu-full-2026-07-07/images/09-千寻币.png"
       ]
     },
@@ -880,7 +893,7 @@
       "route": "/pages/membership/index?payState=pay-cancel",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/75-会员中心-取消支付.png",
         "src/assets/profile/default-avatar.webp"
       ]
     },
@@ -892,7 +905,7 @@
       "route": "/pages/membership/index?payState=unpaid-sheet",
       "status": "implemented",
       "assetRefs": [
-        "src/assets/lanhu/pages/member-vip-bg.webp",
+        ".lanhu-ref/lanhu-full-2026-07-07/images/76-会员中心-未支付出弹窗.png",
         "src/assets/profile/default-avatar.webp"
       ]
     },

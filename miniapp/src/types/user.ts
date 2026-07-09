@@ -10,15 +10,20 @@ export interface AppUserVO {
 
 /** 登录请求 */
 export interface LoginReq {
-  code: string
+  loginCode: string
+  phoneCode: string
 }
 
 /** 登录返回 */
 export interface LoginVO {
   token: string
   userId: number
-  nickname: string
-  avatar: string
+  openid?: string
+  phone?: string
+  maskedPhone?: string
+  nickname?: string
+  avatar?: string
+  firstLoginCompleted?: boolean
 }
 
 /** 匹配用户卡片 */

@@ -1,11 +1,10 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
 import { useRouter } from '@tarojs/taro'
-import CommercePlaceholderIcon from '@/components/CommercePlaceholderIcon'
 import WechatMockPayPanel from '@/components/WechatMockPayPanel'
 import { useCoins, type CoinPayState } from '@/hooks/useCoins'
 import { getDemoPageData } from '@/services/lanhuDemo'
-import type { CoinPackage, CoinUsage } from '@/types/coin'
+import type { CoinPackage } from '@/types/coin'
 import {
   LANHU_BLUE,
   LANHU_NAVY,
@@ -14,6 +13,8 @@ import {
 } from '@/pages/lanhu/LanhuShell'
 
 import coinBalanceBg from '@/assets/lanhu/pages/coin-balance-bg.webp'
+import coinGold from '@/assets/lanhu/pages/coin-gold.png'
+import coinUsageSlice from '@/assets/lanhu/pages/coin-usage-slice.png'
 
 const coinsDemo = getDemoPageData('coins')
 type CoinsPageVariant = 'default' | 'checked' | 'unchecked-error' | 'recharge-notice'
@@ -32,7 +33,7 @@ export default function CoinsPage() {
   const router = useRouter()
   const variant = resolveCoinsVariant(String(router.params.variant || 'default'))
   const routePayState = resolveCoinPayState(String(router.params.payState || 'idle'))
-  const [agreementChecked, setAgreementChecked] = useState(variant === 'checked')
+  const [agreementChecked, setAgreementChecked] = useState(variant === 'checked' || routePayState !== 'idle')
   const [agreementError, setAgreementError] = useState(variant === 'unchecked-error')
   const [noticeVisible, setNoticeVisible] = useState(variant === 'recharge-notice')
   const {
@@ -41,7 +42,6 @@ export default function CoinsPage() {
     selectedPackage,
     payLoading,
     payState,
-    usages,
     fetchBalance,
     fetchPackages,
     selectPackage,
@@ -98,7 +98,7 @@ export default function CoinsPage() {
         <View style={{ width: '750rpx', padding: '6rpx 25rpx 220rpx', boxSizing: 'border-box' }}>
           <BalanceCard balance={balance} onDetail={goToDetail} />
           <RechargeCard packages={packages} selected={selectedPackage} onSelect={selectPackage} onNotice={showRechargeNotice} />
-          <UsageCard usages={usages} />
+          <UsageCard />
         </View>
       </ScrollView>
       <PayBar
@@ -152,7 +152,7 @@ function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => v
         onClick={onDetail}
       >
         <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>明细</Text>
-        <Text style={{ color: '#FFFFFF', fontSize: '40rpx', lineHeight: '40rpx', marginLeft: '4rpx' }}>›</Text>
+        <CoinChevronIcon color="#FFFFFF" size="20rpx" marginLeft="6rpx" />
       </View>
     </View>
   )
@@ -186,10 +186,10 @@ function RechargeCard({
         <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700 }}>充值千寻币</Text>
         <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }} onClick={onNotice}>
           <Text style={{ color: '#9D9D9D', fontSize: '26rpx' }}>充值须知</Text>
-          <Text style={{ color: '#9D9D9D', fontSize: '38rpx', marginLeft: '6rpx' }}>›</Text>
+          <CoinChevronIcon color="#9D9D9D" size="18rpx" marginLeft="8rpx" />
         </View>
       </View>
-      <ScrollView scrollX showScrollbar={false} style={{ width: '668rpx', marginTop: '31rpx', marginLeft: '-68rpx' }}>
+      <ScrollView scrollX showScrollbar={false} style={{ width: '668rpx', marginTop: '31rpx', marginLeft: '-97rpx' }}>
         <View style={{ display: 'flex', flexDirection: 'row', paddingLeft: '0' }}>
           {packages.map((pkg) => {
             const isSelected = selected?.id === pkg.id
@@ -260,63 +260,50 @@ function RechargeCard({
   )
 }
 
+function CoinChevronIcon({
+  color,
+  size,
+  marginLeft,
+}: {
+  color: string
+  size: string
+  marginLeft: string
+}) {
+  return (
+    <View style={{ position: 'relative', width: size, height: size, marginLeft }}>
+      <View
+        style={{
+          position: 'absolute',
+          right: '2rpx',
+          top: '3rpx',
+          width: `calc(${size} - 6rpx)`,
+          height: `calc(${size} - 6rpx)`,
+          borderTop: `4rpx solid ${color}`,
+          borderRight: `4rpx solid ${color}`,
+          transform: 'rotate(45deg)',
+          boxSizing: 'border-box',
+        }}
+      />
+    </View>
+  )
+}
+
 function CoinAmountLabel({ amount }: { amount: number }) {
   return (
     <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-      <View
-        style={{
-          width: '28rpx',
-          height: '28rpx',
-          borderRadius: '14rpx',
-          border: `3rpx solid ${LANHU_NAVY}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxSizing: 'border-box',
-          marginRight: '10rpx',
-        }}
-      >
-        <Text style={{ color: LANHU_NAVY, fontSize: '18rpx', fontWeight: 700, lineHeight: '20rpx' }}>¥</Text>
-      </View>
+      <Image src={coinGold} mode="scaleToFill" style={{ width: '22rpx', height: '23rpx', marginRight: '10rpx' }} />
       <Text style={{ color: LANHU_NAVY, fontSize: '30rpx', fontWeight: 700 }}>{amount}</Text>
     </View>
   )
 }
 
-function UsageCard({ usages }: { usages: CoinUsage[] }) {
+function UsageCard() {
   return (
-    <View
-      style={{
-        width: '700rpx',
-        minHeight: '478rpx',
-        borderRadius: '12rpx',
-        background: '#FFFFFF',
-        marginTop: '20rpx',
-        padding: '32rpx 31rpx 40rpx',
-        boxSizing: 'border-box',
-      }}
-    >
-      <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700 }}>千寻币用途</Text>
-      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', marginTop: '36rpx' }}>
-        {usages.slice(0, 8).map((item) => (
-          <View
-            key={item.label}
-            style={{
-              width: '25%',
-              height: '170rpx',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <CommercePlaceholderIcon variant="coin" kind={item.icon} />
-            <Text style={{ color: LANHU_NAVY, fontSize: '26rpx', lineHeight: '37rpx', marginTop: '18rpx', textAlign: 'center' }}>
-              {item.label}
-            </Text>
-          </View>
-        ))}
-      </View>
-    </View>
+    <Image
+      src={coinUsageSlice}
+      mode="scaleToFill"
+      style={{ display: 'block', width: '700rpx', height: '478rpx', borderRadius: '12rpx', marginTop: '20rpx' }}
+    />
   )
 }
 
@@ -356,7 +343,7 @@ function CoinsPaymentLayer({
       }}
     >
       {payState === 'wechat-pay' && (
-        <WechatPayPanel
+        <WechatPayDemoFallback
           amount={selectedPackage?.price.toFixed(2) ?? '0.00'}
           onClose={onClose}
           onSuccess={onSuccess}
@@ -367,7 +354,8 @@ function CoinsPaymentLayer({
   )
 }
 
-function WechatPayPanel({
+// 微信原生支付面板由 wx.requestPayment 唤起；这里仅用于蓝湖 demo fallback。
+function WechatPayDemoFallback({
   amount,
   onClose,
   onSuccess,
@@ -427,6 +415,7 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
       <View
         style={{
           width: '620rpx',
+          height: '538rpx',
           borderRadius: '64rpx',
           background: '#FFFFFF',
           padding: '54rpx 46rpx 36rpx',

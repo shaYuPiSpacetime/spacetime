@@ -78,12 +78,20 @@ assert.ok(educationStudentSource.includes('DEFAULT_UPLOAD_PATH'), '学历认证�
 assert.ok(educationStudentSource.includes('LanhuOptionSheet'), '学历认证页需要使用自定义蓝湖弹窗')
 
 const appTabSource = read('src/components/AppTabBar/index.tsx')
-assert.ok(appTabSource.includes('TAB_ICON_COLORS'), '底部 icon 需要按蓝湖状态重绘/着色')
-assert.ok(appTabSource.includes('TabIcon'), '底部 icon 需要使用统一图标组件')
+assert.ok(appTabSource.includes("import tabHomeIcon from '@/assets/icons/tab-home.png'"), '底部千寻 icon 必须使用蓝湖切图')
+assert.ok(appTabSource.includes("import tabWorkIcon from '@/assets/icons/tab-work.png'"), '底部心动 icon 必须使用蓝湖切图')
+assert.ok(appTabSource.includes("import tabRecommendIcon from '@/assets/icons/tab-recommend.png'"), '底部推荐 icon 必须使用蓝湖切图')
+assert.ok(appTabSource.includes("import tabMessageIcon from '@/assets/icons/tab-message.png'"), '底部消息 icon 必须使用蓝湖切图')
+assert.ok(appTabSource.includes("import tabProfileIcon from '@/assets/icons/tab-profile-active.png'"), '底部我的 icon 必须使用蓝湖切图')
+assert.ok(appTabSource.includes('<Image'), '底部 icon 必须渲染切图 Image')
+assert.ok(appTabSource.includes('mode="aspectFit"'), '底部 icon 切图必须完整展示')
+assert.ok(!appTabSource.includes('function TabIcon'), '底部 icon 禁止继续使用手绘 TabIcon')
+assert.ok(!appTabSource.includes('TAB_ICON_COLORS'), '底部 icon 禁止继续用颜色重绘替代切图')
 
 const indexSource = read('src/pages/index/index.tsx')
 assert.ok(indexSource.includes('CertificationArtwork'), '未认证首页需要使用专门认证插画组件')
-assert.ok(indexSource.includes('ProfileCompletionArtwork'), '完善资料切图需要独立组件')
+assert.ok(indexSource.includes('qianxunCenterImage'), '千寻首页中心图必须使用用户提供的新切图')
+assert.ok(indexSource.includes('qianxun-center.png'), '千寻首页中心图必须从 lanhu/pages/qianxun-center.png 引入')
 
 const profileEditSource = read('src/pages/profile/edit.tsx')
 const appConfigSource = read('src/app.config.ts')

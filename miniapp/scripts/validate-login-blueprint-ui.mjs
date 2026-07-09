@@ -55,9 +55,23 @@ assertIncludes(source, '协议居中弹窗', [
   "borderRadius: '64rpx'",
 ])
 
-assertIncludes(source, '微信自定义授权按钮', [
-  'Taro.getUserProfile',
+assertIncludes(source, '微信自定义手机号授权按钮', [
+  'openType="getPhoneNumber"',
+  'onGetPhoneNumber',
+  'handleWechatPhoneLogin',
+  'loginByWechatPhone',
+  'Taro.login',
   'login-wechat-custom-button',
+])
+assertIncludes(source, '登录页立即使用透明热区', [
+  'data-role="login-primary-hit-area"',
+  "background: 'transparent'",
+  'opacity: 0',
+  '立即使用',
+])
+assertIncludes(source, '微信登录切图按 @2x 尺寸展示', [
+  "width: '48rpx'",
+  "height: '48rpx'",
 ])
 
 assertIncludes(source, '手机号登录跳转独立页面', [
@@ -72,6 +86,11 @@ assertIncludes(phoneSource, '手机号登录独立页面态', [
   '你的手机号是',
   '请输入你要登录的手机号',
   '你输入的手机号有误',
+  'SmsCodeIcon',
+  'CODE_COUNTDOWN_SECONDS = 60',
+  'codeCountdown',
+  'handleGetCode',
+  'loginDemo.phoneLogin.codeButtonText',
   "borderRadius: '63rpx'",
   "borderRadius: '4rpx'",
   "bottom: '164rpx'",

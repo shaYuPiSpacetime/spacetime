@@ -25,13 +25,13 @@
 
 | 模块 | 蓝湖 UI 稿 | 落地入口 | 闭环要点 | 切图追踪 |
 | --- | --- | --- | --- | --- |
-| 会员 | 会员中心-会员未开通，支付按钮固定下方 | `/pages/membership/index?variant=none` | 默认未开通；可选套餐并触发 mock 支付。 | 会员卡背景、默认头像 |
+| 会员 | 会员中心-会员未开通，支付按钮固定下方 | `/pages/membership/index?variant=none` | 默认未开通；可选套餐并触发真实微信支付，蓝湖 `payState` 只保留预览态。 | 会员卡背景、默认头像 |
 | 会员 | 会员中心-已开通 | `/pages/membership/index?variant=active` | 展示生效中和有效期；按钮为续费。 | 会员卡背景、默认头像 |
 | 会员 | 会员中心-已过期 | `/pages/membership/index?variant=expired` | 展示过期文案；可重新开通。 | 会员卡背景、默认头像 |
 | 会员 | 会员中心-连续包年 | `/pages/membership/index?variant=annual` | 包年套餐默认选中；底部价格同步。 | 会员卡背景、默认头像 |
 | 会员 | 会员记录 | `/pages/membership/records` | 生效中和已退款记录列表。 | 会员卡背景、默认头像 |
 | 千寻币 | 千寻币 | `/pages/coins/index` | 余额、套餐、用途列表；默认协议未勾选。 | 千寻币余额背景 |
-| 千寻币 | 千寻币-协议勾选 | `/pages/coins/index?variant=checked` | 协议默认勾选；支付走 mock 成功。 | 千寻币余额背景 |
+| 千寻币 | 千寻币-协议勾选 | `/pages/coins/index?variant=checked` | 协议默认勾选；支付走真实微信支付，异常时保留蓝湖预览闭环。 | 千寻币余额背景 |
 | 千寻币 | 千寻币-点支付未勾选协议 | `/pages/coins/index?variant=unchecked-error` | 未勾选支付时停留并提示。 | 千寻币余额背景 |
 | 千寻币 | 千寻币明细 | `/pages/coins/detail` | 交易明细列表和获取/消耗筛选。 | 千寻币余额背景 |
 | 千寻币 | 千寻币明细-暂无数据 | `/pages/coins/detail?variant=empty` | 空态文案可直接打开验收。 | 千寻币余额背景 |
@@ -53,6 +53,7 @@
 cd miniapp
 node scripts/validate-main-flow-ui-coverage.mjs
 node scripts/validate-login-ui-coverage.mjs
+node scripts/validate-membership-payment-ui.mjs
 node scripts/validate-lanhu-demo-data.mjs
 node scripts/validate-lanhu-full-assets.mjs
 ```
@@ -60,6 +61,6 @@ node scripts/validate-lanhu-full-assets.mjs
 当前约束：
 
 - 主闭环页面只消费 `lanhuDemo` service 或现有 hook，后续对接接口时替换 service/hook 内部实现。
-- 支付相关当前为 mock 成功/提示闭环，不把微信系统支付页作为本轮必须 1:1 页面。
+- 支付相关真实点击链路为 `createOrder -> wx.requestPayment -> 微信回调入账`；微信系统支付页不手写，蓝湖 `payState=wechat-pay` 仅用于设计预览态。
 - 编辑资料关联页必须走 `pages/profile-edit` 分包；不得把自我介绍、我的标签、关于我、爱听歌曲塞回编辑资料页的临时弹窗或聚合 variant。语音介绍是蓝湖明确的编辑资料底部弹窗，只能留在编辑资料页内组件化实现。
 - 蓝湖 93 张全量参考图保存在 `miniapp/.lanhu-ref/lanhu-full-2026-07-07/`，仅用于视觉对照，不进入运行包。

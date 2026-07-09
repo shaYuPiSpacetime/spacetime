@@ -1,5 +1,6 @@
 import { PropsWithChildren } from 'react'
-import Taro, { useLaunch } from '@tarojs/taro'
+import { useRef } from 'react'
+import Taro, { useDidShow, useLaunch } from '@tarojs/taro'
 import { useAuthStore } from './stores/authStore'
 import { MOCK_ENABLED, TOKEN_KEY } from './constants/config'
 
@@ -7,23 +8,32 @@ import './app.scss'
 
 function App({ children }: PropsWithChildren<object>) {
   const { checkLogin } = useAuthStore()
+  const loginRedirectingRef = useRef(false)
 
   useLaunch(() => {
-    if (MOCK_ENABLED) {
-      // Mock 阶段不做启动未登录拦截，便于直接验收登录/认证流程页。
+    checkLogin()
+  })
+
+  useDidShow(() => {
+    if (MOCK_ENABLED) return
+    const token = Taro.getStorageSync(TOKEN_KEY)
+    if (token) {
+      loginRedirectingRef.current = false
       checkLogin()
       return
     }
 
-    // 小程序启动时检查本地登录态
-    const token = Taro.getStorageSync(TOKEN_KEY)
-    if (!token) {
-      // 未登录 → 跳转登录页
-      Taro.reLaunch({ url: '/pages/login/index' })
-    } else {
-      // 已登录 → 恢复登录态到 store
-      checkLogin()
-    }
+    const pages = Taro.getCurrentPages()
+    const currentRoute = pages[pages.length - 1]?.route || ''
+    if (currentRoute.startsWith('pages/login/')) return
+    if (loginRedirectingRef.current) return
+
+    loginRedirectingRef.current = true
+    setTimeout(() => {
+      Taro.reLaunch({ url: '/pages/login/index' }).catch(() => {
+        loginRedirectingRef.current = false
+      })
+    }, 0)
   })
 
   return children

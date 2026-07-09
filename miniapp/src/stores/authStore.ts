@@ -7,9 +7,18 @@ interface AuthState {
   userId: number | null
   nickname: string
   avatar: string
+  openid: string
+  phone: string
+  maskedPhone: string
   isLoggedIn: boolean
 
-  setLogin: (token: string, userId: number, nickname: string, avatar: string) => void
+  setLogin: (
+    token: string,
+    userId: number,
+    nickname: string,
+    avatar: string,
+    extra?: { openid?: string; phone?: string; maskedPhone?: string }
+  ) => void
   logout: () => void
   checkLogin: () => void
 }
@@ -19,20 +28,31 @@ export const useAuthStore = create<AuthState>((set) => ({
   userId: null,
   nickname: '',
   avatar: '',
+  openid: '',
+  phone: '',
+  maskedPhone: '',
   isLoggedIn: false,
 
   /** 保存登录信息 */
-  setLogin: (token, userId, nickname, avatar) => {
+  setLogin: (token, userId, nickname, avatar, extra = {}) => {
+    const userInfo = {
+      userId,
+      nickname,
+      avatar,
+      openid: extra.openid || '',
+      phone: extra.phone || '',
+      maskedPhone: extra.maskedPhone || '',
+    }
     Taro.setStorageSync(TOKEN_KEY, token)
-    Taro.setStorageSync(USER_INFO_KEY, { userId, nickname, avatar })
-    set({ token, userId, nickname, avatar, isLoggedIn: true })
+    Taro.setStorageSync(USER_INFO_KEY, userInfo)
+    set({ token, ...userInfo, isLoggedIn: true })
   },
 
   /** 退出登录 */
   logout: () => {
     Taro.removeStorageSync(TOKEN_KEY)
     Taro.removeStorageSync(USER_INFO_KEY)
-    set({ token: '', userId: null, nickname: '', avatar: '', isLoggedIn: false })
+    set({ token: '', userId: null, nickname: '', avatar: '', openid: '', phone: '', maskedPhone: '', isLoggedIn: false })
   },
 
   /** 检查本地登录态 */

@@ -9,8 +9,9 @@ const membershipDemo = getDemoPageData('membership')
 export default function MembershipRecordDetailPage() {
   const router = useRouter()
   const status = String(router.params.status || 'paid')
+  const recordId = Number(router.params.id || 0)
   const refunded = status === 'refunded'
-  const record = resolveRecord(refunded)
+  const record = resolveRecord(refunded, recordId)
 
   return (
     <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
@@ -23,8 +24,11 @@ export default function MembershipRecordDetailPage() {
   )
 }
 
-function resolveRecord(refunded: boolean): MembershipRecord {
+function resolveRecord(refunded: boolean, recordId: number): MembershipRecord {
   const expectedStatus = refunded ? '已退款' : '已支付'
+  const recordById = membershipDemo.records.find((record) => record.id === recordId && record.status === expectedStatus)
+  if (recordById) return recordById
+
   return membershipDemo.records.find((item) => item.status === expectedStatus)
     || membershipDemo.records[refunded ? 1 : 0]
 }
@@ -38,7 +42,7 @@ function SummaryCard({ record, refunded }: { record: MembershipRecord; refunded:
         height: '168rpx',
         borderRadius: '12rpx',
         background: '#211F1F',
-        padding: '34rpx 38rpx',
+        padding: '34rpx 30rpx',
         boxSizing: 'border-box',
       }}
     >
@@ -47,19 +51,19 @@ function SummaryCard({ record, refunded }: { record: MembershipRecord; refunded:
       <View
         style={{
           position: 'absolute',
-          right: '38rpx',
-          top: '40rpx',
-          height: '52rpx',
-          borderRadius: '0 18rpx 0 18rpx',
+          right: '30rpx',
+          top: '32rpx',
+          height: '40rpx',
+          borderRadius: '0 16rpx 0 16rpx',
           background: LANHU_GOLD,
           padding: '0 24rpx',
           display: 'flex',
           alignItems: 'center',
         }}
       >
-        <Text style={{ color: '#211D1E', fontSize: '28rpx', fontWeight: 700 }}>{refunded ? '已退款' : '已支付'}</Text>
+        <Text style={{ color: '#211D1E', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{refunded ? '已退款' : '已支付'}</Text>
       </View>
-      <Text style={{ position: 'absolute', right: '38rpx', bottom: '28rpx', color: LANHU_GOLD, fontSize: '34rpx', fontWeight: 700 }}>
+      <Text style={{ position: 'absolute', right: '30rpx', bottom: '28rpx', color: LANHU_GOLD, fontSize: '34rpx', fontWeight: 700 }}>
         ¥{record.amount.toFixed(2)}
       </Text>
     </View>
@@ -80,11 +84,11 @@ function InfoCard({ record }: { record: MembershipRecord }) {
     <View
       style={{
         width: '700rpx',
-        minHeight: '528rpx',
+        height: '528rpx',
         background: '#211F1F',
         borderRadius: '8rpx',
         marginTop: '20rpx',
-        padding: '26rpx 38rpx',
+        padding: '0 30rpx',
         boxSizing: 'border-box',
       }}
     >
