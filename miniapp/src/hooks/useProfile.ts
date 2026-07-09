@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '@/stores/authStore';
 import { getDemoPageData } from '@/services/lanhuDemo';
+import { getVipStatus, type VipStatusVO } from '@/services/payment';
 import type { MyMembership } from '@/types/membership';
 
 const profileDemo = getDemoPageData('profile');
@@ -63,9 +64,9 @@ interface UseProfileReturn {
   /** 数据为空（未登录） */
   empty: boolean;
   /** 拉取数据（首次加载用） */
-  fetch: () => void;
+  fetch: () => Promise<void>;
   /** 下拉刷新 */
-  refresh: () => void;
+  refresh: () => Promise<void>;
   /** 跳转编辑资料 */
   goToEditProfile: () => void;
   /** 跳转 VIP 开通页 */
@@ -86,7 +87,23 @@ interface UseProfileReturn {
  * 构建页面数据：聚合 authStore + mock 数据
  * 当前阶段所有数据均为同步 mock，后续替换为真实接口时只需修改此函数内部实现。
  */
-function buildProfileData(): ProfileData {
+function adaptProfileMembership(status?: VipStatusVO): MyMembership {
+  if (status?.vipStatus === 'active') {
+    return {
+      ...membershipDemo.activeMembership,
+      expireTime: status.vipExpireTime || membershipDemo.activeMembership.expireTime,
+    };
+  }
+  if (status?.vipStatus === 'expired') {
+    return {
+      ...membershipDemo.expiredMembership,
+      expireTime: status.vipExpireTime || membershipDemo.expiredMembership.expireTime,
+    };
+  }
+  return membershipDemo.myMembership;
+}
+
+function buildProfileData(membership: MyMembership | null = membershipDemo.myMembership): ProfileData {
   const auth = useAuthStore.getState();
 
   return {
@@ -100,7 +117,7 @@ function buildProfileData(): ProfileData {
     isVerified: profileDemo.isVerified,
     verifiedLabels: profileDemo.verifiedLabels,
     // 会员信息
-    membership: membershipDemo.myMembership ?? null,
+    membership,
     // 千寻币余额（当前为 number，包装为对象以兼容后续接口）
     coinBalance: { balance: coinsDemo.balance },
     // 统计数据（mock 占位）
@@ -135,7 +152,7 @@ export function useProfile(): UseProfileReturn {
    * 当前阶段数据均为同步，仅模拟异步加载过程以便后续对接真实接口。
    * @param isRefresh 是否为下拉刷新
    */
-  const loadData = useCallback((isRefresh = false) => {
+  const loadData = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -144,8 +161,16 @@ export function useProfile(): UseProfileReturn {
       }
       setError(null);
 
-      // 数据重建（当前为同步操作，后续改为 await 异步接口）
-      const freshData = buildProfileData();
+      const auth = useAuthStore.getState();
+      let membership = membershipDemo.myMembership;
+      if (auth.isLoggedIn) {
+        try {
+          membership = adaptProfileMembership(await getVipStatus());
+        } catch {
+          membership = membershipDemo.myMembership;
+        }
+      }
+      const freshData = buildProfileData(membership);
       setData(freshData);
     } catch (err: unknown) {
       const message =

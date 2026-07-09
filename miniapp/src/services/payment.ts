@@ -31,6 +31,14 @@ export interface VipStatusVO {
   vipExpireTime?: string
 }
 
+/** 支付结果 */
+export interface PayResultVO {
+  orderNo: string
+  orderStatus: string
+  coinBalance?: number
+  vipExpireTime?: string
+}
+
 /** 微信 JSAPI 支付参数 */
 export interface WechatPayParams {
   timeStamp: string
@@ -69,6 +77,11 @@ export function getVipStatus(): Promise<VipStatusVO> {
 /** 创建充值订单 */
 export function createOrder(packageId: number, type: PaymentOrderType): Promise<CreateOrderResult> {
   return post<CreateOrderResult>('/miniapp/payment/create-order', { packageId, orderType: type })
+}
+
+/** 微信支付成功后主动确认订单，补偿回调延迟或丢失 */
+export function confirmWechatPayment(orderId: number): Promise<PayResultVO> {
+  return post<PayResultVO>(`/miniapp/payment/wechat/confirm/${orderId}`)
 }
 
 /** 唤起微信小程序原生支付面板 */

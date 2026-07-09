@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import type { MembershipPlan, MembershipRecord, MyMembership, MemberStatus } from '@/types/membership'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import {
+  confirmWechatPayment,
   createOrder,
   getVipPackages,
   getVipStatus,
@@ -87,6 +88,20 @@ function isRoutePreviewVariant(variant: MembershipDemoVariant) {
 function isPaymentCancel(error: unknown) {
   const message = error instanceof Error ? error.message : String((error as { errMsg?: string })?.errMsg || error || '')
   return message.includes('cancel') || message.includes('取消')
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function confirmPaidOrder(orderId: number) {
+  let lastResult: Awaited<ReturnType<typeof confirmWechatPayment>> | null = null
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    lastResult = await confirmWechatPayment(orderId)
+    if (lastResult.orderStatus === 'success') return lastResult
+    if (attempt < 2) await wait(800)
+  }
+  return lastResult
 }
 
 /**
@@ -249,16 +264,41 @@ export function useMembership(variant: MembershipDemoVariant = 'default') {
       return
     }
     setPayLoading(true)
+    let paymentPanelSucceeded = false
     try {
       const order = await createOrder(selectedPlan.id, 'vip')
       if (!order.payParams) {
         throw new Error('微信支付参数缺失')
       }
       await requestWechatPayment(order.payParams)
-      setMyMembership({ ...membershipDemo.activeMembership })
-      setPayPopupVisible(true)
-      setPayState('pay-success')
+      paymentPanelSucceeded = true
+      const payResult = await confirmPaidOrder(order.orderId)
+      if (payResult?.orderStatus !== 'success') {
+        setPayPopupVisible(false)
+        setPayState('idle')
+        Taro.showToast({ title: '支付确认中，请稍后刷新', icon: 'none' })
+        await Taro.switchTab({ url: '/pages/profile/index' })
+        return
+      }
+
+      try {
+        const nextStatus = await getVipStatus()
+        setMyMembership(adaptVipStatus(nextStatus))
+      } catch {
+        setMyMembership({ ...membershipDemo.activeMembership })
+      }
+      setPayPopupVisible(false)
+      setPayState('idle')
+      Taro.showToast({ title: '支付成功', icon: 'success' })
+      await Taro.switchTab({ url: '/pages/profile/index' })
     } catch (error) {
+      if (paymentPanelSucceeded) {
+        setPayPopupVisible(false)
+        setPayState('idle')
+        Taro.showToast({ title: '支付已完成，正在确认会员状态', icon: 'none' })
+        await Taro.switchTab({ url: '/pages/profile/index' })
+        return
+      }
       setPayPopupVisible(true)
       if (isPaymentCancel(error)) {
         setPayState('pay-cancel')

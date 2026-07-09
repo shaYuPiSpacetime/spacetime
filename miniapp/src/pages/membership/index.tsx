@@ -27,6 +27,9 @@ import memberBenefitDailyHeart from '@/assets/lanhu/pages/member-benefits/member
 const profileDemo = getDemoPageData('profile')
 const membershipDemo = getDemoPageData('membership')
 type MembershipPageVariant = 'default' | 'none' | 'active' | 'expired' | 'annual'
+const MEMBERSHIP_NAV_HEIGHT_RPX = 176
+const MEMBERSHIP_PAY_BAR_RESERVED_RPX = 328
+const MEMBERSHIP_CONTENT_BOTTOM_SPACE_RPX = 48
 const MEMBER_BENEFIT_ICONS: Record<string, { src: string; width: string; height: string }> = {
   'heart-list': { src: memberBenefitMatch, width: '78rpx', height: '62rpx' },
   'visitor-eye': { src: memberBenefitEyeOpen, width: '78rpx', height: '52rpx' },
@@ -140,8 +143,15 @@ export default function MembershipPage() {
   return (
     <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
       <LanhuNav title={navTitle} tone="dark" showBack />
-      <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)', paddingBottom: '320rpx', boxSizing: 'border-box' }} showScrollbar={false}>
-        <View style={{ width: '750rpx', padding: '6rpx 25rpx 320rpx', boxSizing: 'border-box' }}>
+      <ScrollView
+        scrollY
+        style={{
+          height: `calc(100vh - ${MEMBERSHIP_NAV_HEIGHT_RPX + MEMBERSHIP_PAY_BAR_RESERVED_RPX}rpx)`,
+          boxSizing: 'border-box',
+        }}
+        showScrollbar={false}
+      >
+        <View style={{ width: '750rpx', padding: `6rpx 25rpx ${MEMBERSHIP_CONTENT_BOTTOM_SPACE_RPX}rpx`, boxSizing: 'border-box' }}>
           <MemberHero
             membership={currentMembership}
             nickname={profileDemo.nickname}

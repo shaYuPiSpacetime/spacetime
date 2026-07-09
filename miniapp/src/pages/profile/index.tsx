@@ -1,5 +1,5 @@
 import { Image, Text, View } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { useProfile } from '@/hooks/useProfile'
 import { getDemoPageData } from '@/services/lanhuDemo'
@@ -61,6 +61,10 @@ export default function ProfilePage() {
   useEffect(() => {
     fetch()
   }, [fetch])
+
+  useDidShow(() => {
+    fetch()
+  })
 
   const nickname = data.nickname || '时空用户'
   const sourceAvatar = data.avatarUrl?.trim() || defaultAvatar
