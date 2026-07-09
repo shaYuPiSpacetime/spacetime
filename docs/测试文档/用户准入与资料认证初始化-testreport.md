@@ -11,7 +11,7 @@
 |------|------|
 | 功能名称 | 用户准入与资料认证初始化 |
 | 测试环境 | `http://127.0.0.1:8080` |
-| 执行日期 | `2026-07-09 19:56` |
+| 执行日期 | `2026-07-09 20:50` |
 | 执行人 | Codex |
 | 后端版本 | 当前工作区变更，Java 21 |
 | 测试策略 | L1 接口回归 + L3 Service 单元/全量 Maven 测试 |
@@ -21,9 +21,9 @@
 
 | 层级 | 总数 | 通过 | 失败 | 跳过 | 通过率 |
 |------|------|------|------|------|--------|
-| L1 接口测试 | 95 | 95 | 0 | 0 | 100% |
+| L1 接口测试 | 96 | 96 | 0 | 0 | 100% |
 | L2/L3 Maven 测试 | 152 | 151 | 0 | 1 | 99.3% |
-| 合计 | 247 | 246 | 0 | 1 | 99.6% |
+| 合计 | 248 | 247 | 0 | 1 | 99.6% |
 
 判定结果：通过。
 
@@ -34,14 +34,14 @@
 ```text
 执行命令: powershell.exe -NoProfile -ExecutionPolicy Bypass -File "docs/测试文档/用户准入与资料认证初始化-unified-audit-l1.ps1"
 结果文件: docs/test-artifacts/prd01-unified-audit-l1-results.json
-汇总: total=95 pass=95 fail=0 skip=0
+汇总: total=96 pass=96 fail=0 skip=0
 ```
 
 | 覆盖范围 | 结果证据 |
 |----------|----------|
 | 后端启动 | `GET /health` 返回 `code=200`、`data=ok` |
 | 后台登录 | `peter` 登录成功，获取 token，权限数 91 |
-| 移动端登录与首登 | 手机号登录创建测试用户 `56`，首登 4 步和完成接口通过 |
+| 移动端登录与首登 | 手机号登录创建测试用户 `58`，首登 4 步和完成接口通过 |
 | 实名认证 | 机审通过，后台实名列表可查 |
 | 头像认证 | 上传头像生成待审核记录，同媒体 ID 认证后机审通过 |
 | 学历认证 | 构造通过、驳回、失效、待审核多状态 |
@@ -58,17 +58,18 @@
 
 | 项 | 结果 |
 |----|------|
-| 测试用户 | `userId=56` |
-| 手工种子审核中记录 | `auditRecordId=80` |
+| 测试用户 | `userId=58` |
+| 手工种子审核中记录 | `auditRecordId=112` |
 | 状态覆盖 | `PENDING=2`、`REVIEWING=1`、`APPROVED=8`、`REJECTED=3`、`EXPIRED=2` |
 | 审核来源覆盖 | `MACHINE=7`、`MANUAL=9` |
 | 审核历史覆盖 | 总数 `30`，机审 `21`，管理员操作 `9` |
 | 旧表校验 | `app_user_verification`、`app_user_verification_record`、`app_user_profile_media`、`app_user_open_text_audit`、`app_user_voice_intro_record` 均不存在 |
+| 旧字段校验 | `app_user.voice_intro_url`、`app_user.voice_intro_duration`、`app_user.voice_intro_audit_status`、`app_user.voice_intro_record_id`、`app_user.voice_intro_reject_reason`、`app_user.profile_bg_media_id` 均不存在 |
 
 ## 4. L2/L3 Maven 测试
 
 ```text
-执行命令: cd backend; mvn.cmd "clean" "test" "-Denforcer.skip=true"
+执行命令: cd backend; mvn.cmd "test" "-Denforcer.skip=true"
 JDK: C:\Users\50449\.jdks\ms-21.0.11
 汇总: Tests run: 152, Failures: 0, Errors: 0, Skipped: 1
 ```
@@ -98,4 +99,4 @@ JDK: C:\Users\50449\.jdks\ms-21.0.11
 
 ## 8. 结论
 
-统一审核表改造后的管理后台接口、移动端接口、审核状态机、审核历史、真实数据库写入和旧表删除校验已通过本轮测试。当前后端服务已重启为最新代码，最终接口回归结果来自 PID 22548 的最新进程。
+统一审核表改造后的管理后台接口、移动端接口、审核状态机、审核历史、真实数据库写入、旧表删除和旧字段删除校验已通过本轮测试。当前后端服务已重启为最新代码，最终接口回归结果来自 PID 4128 的最新进程。

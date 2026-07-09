@@ -90,16 +90,6 @@ public class AppUser extends BaseEntity {
     private String aboutMe;
     /** 希望TA了解 */
     private String hopeTheyKnow;
-    /** 语音介绍URL */
-    private String voiceIntroUrl;
-    /** 语音时长秒 */
-    private Integer voiceIntroDuration;
-    /** 语音介绍审核状态 */
-    private String voiceIntroAuditStatus;
-    /** 当前有效或最新语音介绍记录ID */
-    private Long voiceIntroRecordId;
-    /** 最新语音介绍驳回原因 */
-    private String voiceIntroRejectReason;
     /** 标签列表JSON */
     @TableField(value = "tags")
     private String tags;

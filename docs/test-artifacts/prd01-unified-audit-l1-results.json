@@ -1,10 +1,10 @@
 ﻿{
     "apiUrl":  "http://127.0.0.1:8080",
-    "executedAt":  "2026-07-09 19:57:34",
-    "testUserId":  56,
-    "seededReviewingId":  80,
-    "total":  95,
-    "pass":  95,
+    "executedAt":  "2026-07-09 20:49:23",
+    "testUserId":  58,
+    "seededReviewingId":  112,
+    "total":  96,
+    "pass":  96,
     "fail":  0,
     "skip":  0,
     "results":  [
@@ -33,7 +33,7 @@
                         "result":  "PASS",
                         "httpStatus":  200,
                         "code":  200,
-                        "detail":  "userId=56 token obtained"
+                        "detail":  "userId=58 token obtained"
                     },
                     {
                         "id":  "L1-PROFILE-001",
@@ -132,7 +132,7 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "avatar pending id=66"
+                        "detail":  "avatar pending id=98"
                     },
                     {
                         "id":  "L1-VERIFY-AVATAR-001",
@@ -168,10 +168,10 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "education pending id=67"
+                        "detail":  "education pending id=99"
                     },
                     {
-                        "id":  "L1-AUDIT-APPROVE-67",
+                        "id":  "L1-AUDIT-APPROVE-99",
                         "layer":  "admin",
                         "scene":  "/admin/verify/education audit APPROVE",
                         "result":  "PASS",
@@ -204,10 +204,10 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "education pending id=68"
+                        "detail":  "education pending id=100"
                     },
                     {
-                        "id":  "L1-AUDIT-REJECT-68",
+                        "id":  "L1-AUDIT-REJECT-100",
                         "layer":  "admin",
                         "scene":  "/admin/verify/education audit REJECT",
                         "result":  "PASS",
@@ -240,10 +240,10 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "education pending id=69"
+                        "detail":  "education pending id=101"
                     },
                     {
-                        "id":  "L1-AUDIT-EXPIRE-69",
+                        "id":  "L1-AUDIT-EXPIRE-101",
                         "layer":  "admin",
                         "scene":  "/admin/verify/education audit EXPIRE",
                         "result":  "PASS",
@@ -276,7 +276,7 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "education pending id=70"
+                        "detail":  "education pending id=102"
                     },
                     {
                         "id":  "L1-MEDIA-ALBUM-SUBMIT-A",
@@ -303,10 +303,10 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "photo pending id=71"
+                        "detail":  "photo pending id=103"
                     },
                     {
-                        "id":  "L1-AUDIT-APPROVE-71",
+                        "id":  "L1-AUDIT-APPROVE-103",
                         "layer":  "admin",
                         "scene":  "/admin/moderation/photos audit APPROVE",
                         "result":  "PASS",
@@ -339,7 +339,7 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "photo pending id=72"
+                        "detail":  "photo pending id=104"
                     },
                     {
                         "id":  "L1-MEDIA-ALBUM-SUBMIT-C",
@@ -366,10 +366,10 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "photo pending id=73"
+                        "detail":  "photo pending id=105"
                     },
                     {
-                        "id":  "L1-AUDIT-REJECT-73",
+                        "id":  "L1-AUDIT-REJECT-105",
                         "layer":  "admin",
                         "scene":  "/admin/moderation/photos audit REJECT",
                         "result":  "PASS",
@@ -402,10 +402,10 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "photo pending id=74"
+                        "detail":  "photo pending id=106"
                     },
                     {
-                        "id":  "L1-AUDIT-EXPIRE-74",
+                        "id":  "L1-AUDIT-EXPIRE-106",
                         "layer":  "admin",
                         "scene":  "/admin/moderation/photos audit EXPIRE",
                         "result":  "PASS",
@@ -432,7 +432,7 @@
                         "detail":  "code=200"
                     },
                     {
-                        "id":  "L1-AUDIT-APPROVE-75",
+                        "id":  "L1-AUDIT-APPROVE-107",
                         "layer":  "admin",
                         "scene":  "/admin/moderation/photos audit APPROVE",
                         "result":  "PASS",
@@ -477,7 +477,7 @@
                         "detail":  "code=200"
                     },
                     {
-                        "id":  "L1-AUDIT-REJECT-78",
+                        "id":  "L1-AUDIT-REJECT-110",
                         "layer":  "admin",
                         "scene":  "/admin/moderation/texts audit REJECT",
                         "result":  "PASS",
@@ -519,7 +519,7 @@
                         "result":  "PASS",
                         "httpStatus":  0,
                         "code":  null,
-                        "detail":  "reviewingId=80"
+                        "detail":  "reviewingId=112"
                     },
                     {
                         "id":  "L1-LIST-774996893",
@@ -862,6 +862,15 @@
                         "httpStatus":  0,
                         "code":  null,
                         "detail":  "all legacy audit tables missing"
+                    },
+                    {
+                        "id":  "L1-DB-OLD-COLUMNS",
+                        "layer":  "db",
+                        "scene":  "legacy audit columns dropped",
+                        "result":  "PASS",
+                        "httpStatus":  0,
+                        "code":  null,
+                        "detail":  "all legacy audit columns missing"
                     }
                 ]
 }

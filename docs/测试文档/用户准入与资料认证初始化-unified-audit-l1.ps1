@@ -206,10 +206,17 @@ try (Connection conn = DriverManager.getConnection(url, user, password)) {
     }
     if ("summary".equals(mode)) {
         String[] oldTables = {"app_user_verification","app_user_verification_record","app_user_profile_media","app_user_open_text_audit","app_user_voice_intro_record"};
+        String[] oldColumns = {"voice_intro_url","voice_intro_duration","voice_intro_audit_status","voice_intro_record_id","voice_intro_reject_reason","profile_bg_media_id"};
         try (Statement st = conn.createStatement()) {
             for (String name : oldTables) {
                 try (ResultSet rs = st.executeQuery("SHOW TABLES LIKE '" + name + "'")) {
                     System.out.println("OLD_TABLE:" + name + "=" + (rs.next() ? "EXISTS" : "MISSING"));
+                }
+            }
+            for (String name : oldColumns) {
+                try (ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='app_user' AND COLUMN_NAME='" + name + "'")) {
+                    rs.next();
+                    System.out.println("OLD_COLUMN:app_user." + name + "=" + (rs.getLong(1) > 0 ? "EXISTS" : "MISSING"));
                 }
             }
             try (ResultSet rs = st.executeQuery("SELECT status, COUNT(*) c FROM app_user_audit_record WHERE user_id=" + appUserId + " AND deleted=0 GROUP BY status")) {
@@ -399,6 +406,8 @@ if ($script:AdminToken -and $script:MiniToken) {
     }
     $oldHits = @($dbOutput | Where-Object { $_ -like "OLD_TABLE:*EXISTS*" })
     Expect-True "L1-DB-OLD-TABLES" "db" "legacy audit tables dropped" ($oldHits.Count -eq 0) "all legacy audit tables missing" "legacy tables still exist: $($oldHits -join '; ')"
+    $oldColumnHits = @($dbOutput | Where-Object { $_ -like "OLD_COLUMN:*EXISTS*" })
+    Expect-True "L1-DB-OLD-COLUMNS" "db" "legacy audit columns dropped" ($oldColumnHits.Count -eq 0) "all legacy audit columns missing" "legacy columns still exist: $($oldColumnHits -join '; ')"
 }
 
 $summary = [pscustomobject]@{

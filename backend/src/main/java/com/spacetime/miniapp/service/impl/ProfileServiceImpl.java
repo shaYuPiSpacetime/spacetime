@@ -220,8 +220,6 @@ public class ProfileServiceImpl implements ProfileService {
             if (!req.getHopeTheyKnow().equals(user.getHopeTheyKnow())) textChanged = true;
             user.setHopeTheyKnow(req.getHopeTheyKnow());
         }
-        if (req.getVoiceIntroUrl() != null) user.setVoiceIntroUrl(req.getVoiceIntroUrl());
-        if (req.getVoiceIntroDuration() != null) user.setVoiceIntroDuration(req.getVoiceIntroDuration());
         if (req.getMbtiType() != null) user.setMbtiType(req.getMbtiType());
         if (req.getProfileBgImage() != null) user.setProfileBgImage(req.getProfileBgImage());
 
@@ -480,10 +478,7 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setWantChild(user.getWantChild());
         vo.setAboutMe(user.getAboutMe());
         vo.setHopeTheyKnow(user.getHopeTheyKnow());
-        vo.setVoiceIntroUrl(user.getVoiceIntroUrl());
-        vo.setVoiceIntroDuration(user.getVoiceIntroDuration());
-        vo.setVoiceIntroAuditStatus(user.getVoiceIntroAuditStatus());
-        vo.setVoiceIntroRejectReason(user.getVoiceIntroRejectReason());
+        applyVoiceIntro(vo, user.getId());
         vo.setTags(user.getTags());
         vo.setPhotos(user.getPhotos());
         vo.setProfileBgImage(user.getProfileBgImage());
@@ -495,6 +490,24 @@ public class ProfileServiceImpl implements ProfileService {
             vo.setAccessStatus(getAccessStatus(user.getId()));
         }
         return vo;
+    }
+
+    /** 语音介绍从统一审核记录实时派生，app_user 不保存语音审核快照。 */
+    private void applyVoiceIntro(ProfileDetailVO vo, Long userId) {
+        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+        AppUserAuditRecord effective = auditService.latestEffectiveRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+        AppUserAuditRecord display = latest != null ? latest : effective;
+        if (display == null) {
+            vo.setVoiceIntroUrl(null);
+            vo.setVoiceIntroDuration(null);
+            vo.setVoiceIntroAuditStatus("NOT_SUBMITTED");
+            vo.setVoiceIntroRejectReason(null);
+            return;
+        }
+        vo.setVoiceIntroUrl(effective != null ? effective.getMediaUrl() : null);
+        vo.setVoiceIntroDuration(display.getDuration());
+        vo.setVoiceIntroAuditStatus(display.getStatus());
+        vo.setVoiceIntroRejectReason(StrUtil.blankToDefault(display.getRejectReason(), display.getExpiredReason()));
     }
 
     /** 查询用户，不存在抛异常 */

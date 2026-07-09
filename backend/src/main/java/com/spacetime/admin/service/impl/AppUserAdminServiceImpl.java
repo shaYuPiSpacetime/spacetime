@@ -217,6 +217,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         AppUserAuditRecord realName = audit(audits, AppUserAuditTypeEnum.REAL_NAME);
         AppUserAuditRecord education = audit(audits, AppUserAuditTypeEnum.EDUCATION);
         AppUserAuditRecord avatar = audit(audits, AppUserAuditTypeEnum.AVATAR);
+        AppUserAuditRecord voice = audit(audits, AppUserAuditTypeEnum.VOICE_INTRO);
         vo.setId(user.getId());
         vo.setAvatar(user.getAvatar());
         vo.setNickname(user.getNickname());
@@ -230,8 +231,8 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setAnnualIncome(user.getAnnualIncome());
         vo.setTags(user.getTags());
         vo.setPhotos(user.getPhotos());
-        vo.setVoiceIntroDuration(user.getVoiceIntroDuration());
-        vo.setVoiceIntroAuditStatus(user.getVoiceIntroAuditStatus());
+        vo.setVoiceIntroDuration(voice == null ? null : voice.getDuration());
+        vo.setVoiceIntroAuditStatus(statusOf(voice));
         vo.setMbtiType(user.getMbtiType());
         vo.setZodiac(user.getZodiac());
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted());
@@ -343,6 +344,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         AppUserAuditRecord media = latestOf(audits, AppUserAuditTypeEnum.ALBUM_PHOTO, AppUserAuditTypeEnum.PROFILE_BG);
         AppUserAuditRecord text = latestOf(audits, AppUserAuditTypeEnum.ABOUT_ME,
                 AppUserAuditTypeEnum.HOPE_THEY_KNOW, AppUserAuditTypeEnum.PROFILE_QA);
+        AppUserAuditRecord voice = audit(audits, AppUserAuditTypeEnum.VOICE_INTRO);
         AppUserDetailVO vo = new AppUserDetailVO();
         vo.setId(user.getId());
         vo.setNickname(user.getNickname());
@@ -371,10 +373,10 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setTags(user.getTags());
         vo.setPhotos(user.getPhotos());
         vo.setProfileBgImage(user.getProfileBgImage());
-        vo.setVoiceIntroUrl(user.getVoiceIntroUrl());
-        vo.setVoiceIntroDuration(user.getVoiceIntroDuration());
-        vo.setVoiceIntroAuditStatus(user.getVoiceIntroAuditStatus());
-        vo.setVoiceIntroRejectReason(user.getVoiceIntroRejectReason());
+        vo.setVoiceIntroUrl(voice != null && latestApproved(voice) ? voice.getMediaUrl() : null);
+        vo.setVoiceIntroDuration(voice == null ? null : voice.getDuration());
+        vo.setVoiceIntroAuditStatus(statusOf(voice));
+        vo.setVoiceIntroRejectReason(reason(voice));
         vo.setMbtiType(user.getMbtiType());
         vo.setZodiac(user.getZodiac());
         vo.setProfileScore(user.getProfileScore());
