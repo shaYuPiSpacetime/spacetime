@@ -15,6 +15,8 @@ public class VipPackageVO {
     private String packageName;
     /** 套餐类型 */
     private String packageType;
+    /** 订阅类型 */
+    private String subscriptionType;
     /** 售价 */
     private BigDecimal price;
     /** 原价 */

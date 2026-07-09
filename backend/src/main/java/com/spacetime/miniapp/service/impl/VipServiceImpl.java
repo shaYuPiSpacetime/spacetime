@@ -12,6 +12,7 @@ import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.VipBenefit;
 import com.spacetime.common.entity.VipPackage;
 import com.spacetime.common.enums.CommonStatusEnum;
+import com.spacetime.common.enums.OrderStatusEnum;
 import com.spacetime.common.enums.OrderTypeEnum;
 import com.spacetime.miniapp.dto.response.VipBenefitVO;
 import com.spacetime.miniapp.dto.response.VipOrderVO;
@@ -60,6 +61,7 @@ public class VipServiceImpl implements VipService {
             vo.setId(pkg.getId());
             vo.setPackageName(pkg.getPackageName());
             vo.setPackageType(pkg.getPackageType());
+            vo.setSubscriptionType(pkg.getSubscriptionType());
             vo.setPrice(pkg.getPrice());
             vo.setOriginPrice(pkg.getOriginPrice());
             vo.setDurationDays(pkg.getDurationDays());
@@ -110,6 +112,21 @@ public class VipServiceImpl implements VipService {
             vo.setVipStatus(asset.getVipStatus());
             vo.setVipExpireTime(asset.getVipExpireTime());
         }
+        TradeOrder currentOrder = latestPaidVipOrder(userId);
+        if (currentOrder != null) {
+            vo.setOrderNo(currentOrder.getOrderNo());
+            vo.setPackageId(currentOrder.getPackageId());
+            vo.setPackageName(currentOrder.getPackageName());
+            vo.setMemberStartTime(currentOrder.getSuccessTime());
+            vo.setPayChannel(currentOrder.getPayChannel());
+            VipPackage vipPackage = vipPackageDao.selectById(currentOrder.getPackageId());
+            if (vipPackage != null) {
+                vo.setSubscriptionType(vipPackage.getSubscriptionType());
+                if (vo.getPackageName() == null || vo.getPackageName().isBlank()) {
+                    vo.setPackageName(vipPackage.getPackageName());
+                }
+            }
+        }
         return vo;
     }
 
@@ -127,22 +144,57 @@ public class VipServiceImpl implements VipService {
         LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(TradeOrder::getUserId, userId)
                 .eq(TradeOrder::getOrderType, OrderTypeEnum.VIP.getCode())
+                .in(TradeOrder::getOrderStatus,
+                        OrderStatusEnum.SUCCESS.getCode(),
+                        OrderStatusEnum.REFUNDING.getCode(),
+                        OrderStatusEnum.REFUNDED.getCode())
                 .orderByDesc(TradeOrder::getCreateTime);
         Page<TradeOrder> orderPage = tradeOrderDao.selectPage(
                 new Page<>(req.getPage(), req.getSize()), wrapper);
         // 2. 转换为 VO 分页
         Page<VipOrderVO> resultPage = new Page<>(orderPage.getCurrent(), orderPage.getSize(), orderPage.getTotal());
         resultPage.setRecords(orderPage.getRecords().stream().map(order -> {
-            VipOrderVO vo = new VipOrderVO();
-            vo.setId(order.getId());
-            vo.setOrderNo(order.getOrderNo());
-            vo.setPackageName(order.getPackageName());
-            vo.setPayAmount(order.getPayAmount());
-            vo.setOrderStatus(order.getOrderStatus());
-            vo.setSuccessTime(order.getSuccessTime());
-            vo.setExpireTime(order.getExpireTime());
-            return vo;
+            return toVipOrderVO(order);
         }).collect(Collectors.toList()));
         return resultPage;
+    }
+
+    private TradeOrder latestPaidVipOrder(Long userId) {
+        LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TradeOrder::getUserId, userId)
+                .eq(TradeOrder::getOrderType, OrderTypeEnum.VIP.getCode())
+                .eq(TradeOrder::getOrderStatus, OrderStatusEnum.SUCCESS.getCode())
+                .orderByDesc(TradeOrder::getSuccessTime)
+                .orderByDesc(TradeOrder::getCreateTime);
+        Page<TradeOrder> page = tradeOrderDao.selectPage(new Page<>(1, 1), wrapper);
+        if (page.getRecords() == null || page.getRecords().isEmpty()) {
+            return null;
+        }
+        return page.getRecords().get(0);
+    }
+
+    private VipOrderVO toVipOrderVO(TradeOrder order) {
+        VipOrderVO vo = new VipOrderVO();
+        vo.setId(order.getId());
+        vo.setOrderNo(order.getOrderNo());
+        vo.setPackageId(order.getPackageId());
+        vo.setPackageName(order.getPackageName());
+        vo.setPayAmount(order.getPayAmount());
+        vo.setPayChannel(order.getPayChannel());
+        vo.setOrderStatus(order.getOrderStatus());
+        vo.setCreateTime(order.getCreateTime());
+        vo.setSuccessTime(order.getSuccessTime());
+        vo.setExpireTime(order.getExpireTime());
+        vo.setRefundTime(order.getRefundTime());
+
+        VipPackage vipPackage = vipPackageDao.selectById(order.getPackageId());
+        if (vipPackage != null) {
+            vo.setSubscriptionType(vipPackage.getSubscriptionType());
+            vo.setDurationDays(vipPackage.getDurationDays());
+            if (vo.getPackageName() == null || vo.getPackageName().isBlank()) {
+                vo.setPackageName(vipPackage.getPackageName());
+            }
+        }
+        return vo;
     }
 }
