@@ -39,7 +39,7 @@ oss:
   url-expire-seconds: 300
 
 wechat-pay:
-  app-id: ${DEV_WECHAT_PAY_APP_ID:wx6b7a86e4c1bdb012}
+  app-id: ${DEV_WECHAT_PAY_APP_ID:wx03e8cd2d1380c465}
   mch-id: ${DEV_WECHAT_PAY_MCH_ID:}
   api-v3-key: ${DEV_WECHAT_PAY_API_V3_KEY:}
   cert-serial-no: ${DEV_WECHAT_PAY_CERT_SERIAL_NO:}
@@ -51,5 +51,5 @@ wechat-pay:
   description-prefix: ${DEV_WECHAT_PAY_DESCRIPTION_PREFIX:时空邂逅}
 
 wechat-miniapp:
-  app-id: ${DEV_WECHAT_MINIAPP_APP_ID:${DEV_WECHAT_PAY_APP_ID:wx6b7a86e4c1bdb012}}
+  app-id: ${DEV_WECHAT_MINIAPP_APP_ID:${DEV_WECHAT_PAY_APP_ID:wx03e8cd2d1380c465}}
   app-secret: ${DEV_WECHAT_MINIAPP_APP_SECRET:}
