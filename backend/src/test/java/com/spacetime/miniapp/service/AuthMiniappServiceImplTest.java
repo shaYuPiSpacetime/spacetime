@@ -54,6 +54,7 @@ class AuthMiniappServiceImplTest {
         WechatLoginReq req = new WechatLoginReq();
         req.setLoginCode("wx-login-code");
         req.setPhoneCode("wx-phone-code");
+        req.setAgreeProtocol(true);
 
         when(wechatMiniappClient.code2Session("wx-login-code"))
                 .thenReturn(new WechatMiniappClient.SessionInfo("openid_real_001", "unionid_real_001"));
@@ -93,6 +94,7 @@ class AuthMiniappServiceImplTest {
         WechatLoginReq req = new WechatLoginReq();
         req.setLoginCode("wx-login-code");
         req.setPhoneCode("wx-phone-code");
+        req.setAgreeProtocol(true);
 
         AppUser existing = new AppUser();
         existing.setId(7L);

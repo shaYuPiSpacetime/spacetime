@@ -2,6 +2,7 @@ package com.spacetime.common.interceptor;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -17,6 +18,26 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final TokenInterceptor tokenInterceptor;
     private final PermissionInterceptor permissionInterceptor;
+
+    /**
+     * 允许管理后台、本地联调和微信开发者工具访问 API。
+     */
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOriginPatterns(
+                        "https://admin.shikongxiehou.com",
+                        "http://localhost:*",
+                        "http://127.0.0.1:*",
+                        "https://servicewechat.com",
+                        "https://*.servicewechat.com"
+                )
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders("Authorization")
+                .allowCredentials(true)
+                .maxAge(3600);
+    }
 
     /**
      * 注册拦截器链

@@ -18,15 +18,19 @@ import com.spacetime.miniapp.dto.request.WechatLoginReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.WechatLoginVO;
 import com.spacetime.miniapp.service.AuthMiniappService;
+import com.spacetime.miniapp.service.WechatMiniappClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -35,8 +39,8 @@ import java.util.UUID;
  * 小程序登录服务实现。
  *
  * 微信登录和手机号登录共用同一响应结构，移动端可以统一处理首登续填、
- * 核心准入拦截和后续跳转。当前微信 code2Session 与短信验证码均为 mock，
- * 后续替换真实三方时只替换 Provider/校验逻辑，不改变接口契约。
+ * 核心准入拦截和后续跳转。短信验证码当前仍为 mock；微信登录已接入
+ * code2Session 与 getuserphonenumber。
  */
 @Slf4j
 @Service
@@ -50,17 +54,21 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private final AppUserVerificationDao verificationDao;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final WechatMiniappClient wechatMiniappClient;
 
-    /** 微信授权登录。 */
+    /** 微信授权手机号登录。 */
     @Override
     @Transactional
     public WechatLoginVO wechatLogin(WechatLoginReq req) {
         requireProtocolAgreement(req.getAgreeProtocol());
-        String openId = mockCode2Session(req.getCode());
-        if (openId == null) {
+        String loginCode = normalizeLoginCode(req);
+        WechatMiniappClient.SessionInfo session = wechatMiniappClient.code2Session(loginCode);
+        if (session == null || StrUtil.isBlank(session.openid())) {
             throw new BusinessException("微信登录失败，请重试");
         }
-        LoginTarget target = loginByOpenId(openId, RegisterSourceEnum.WECHAT.getCode(), null);
+        WechatMiniappClient.PhoneInfo phoneInfo = wechatMiniappClient.getPhoneNumber(req.getPhoneCode());
+        String phone = normalizePhone(phoneInfo);
+        LoginTarget target = loginByOpenId(session.openid(), RegisterSourceEnum.WECHAT.getCode(), phone, session.unionid());
         return buildLoginVO(target.user(), target.verification(), target.isNew());
     }
 
@@ -73,7 +81,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             throw new BusinessException("AUTH_SMS_INVALID: 验证码错误或已过期");
         }
         String openId = "phone_" + req.getPhone();
-        LoginTarget target = loginByOpenId(openId, RegisterSourceEnum.PHONE.getCode(), req.getPhone());
+        LoginTarget target = loginByOpenId(openId, RegisterSourceEnum.PHONE.getCode(), req.getPhone(), null);
         return buildLoginVO(target.user(), target.verification(), target.isNew());
     }
 
@@ -83,16 +91,23 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
      * 手机号登录复用 openId 字段保存 phone_手机号，避免在本期新增账号主表字段；
      * 真正手机号明文写入认证表 boundPhone，供实名前置校验和后台排查使用。
      */
-    private LoginTarget loginByOpenId(String openId, String registerSource, String boundPhone) {
+    private LoginTarget loginByOpenId(String openId, String registerSource, String boundPhone, String unionid) {
         AppUser user = appUserDao.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getOpenid, openId));
         boolean isNew = user == null;
         AppUserVerification verification;
         if (isNew) {
-            LoginTarget created = createNewUser(openId, registerSource, boundPhone);
+            LoginTarget created = createNewUser(openId, registerSource, boundPhone, unionid);
             user = created.user();
             verification = created.verification();
         } else {
             checkAccountStatus(user);
+            if (StrUtil.isNotBlank(unionid)) {
+                user.setUnionid(unionid);
+            }
+            if (StrUtil.isNotBlank(boundPhone)) {
+                user.setPhone(boundPhone);
+                user.setPhoneHash(hashPhone(boundPhone));
+            }
             user.setLastLoginTime(LocalDateTime.now());
             appUserDao.updateById(user);
             verification = ensureVerification(user.getId(), boundPhone);
@@ -101,9 +116,14 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     }
 
     /** 创建用户时同步初始化一条认证记录，避免后续资料/认证接口断链。 */
-    private LoginTarget createNewUser(String openId, String registerSource, String boundPhone) {
+    private LoginTarget createNewUser(String openId, String registerSource, String boundPhone, String unionid) {
         AppUser user = new AppUser();
         user.setOpenid(openId);
+        user.setUnionid(unionid);
+        user.setPhone(boundPhone);
+        if (StrUtil.isNotBlank(boundPhone)) {
+            user.setPhoneHash(hashPhone(boundPhone));
+        }
         user.setRegisterSource(registerSource);
         user.setRegisterTime(LocalDateTime.now());
         user.setLastLoginTime(LocalDateTime.now());
@@ -166,6 +186,11 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         WechatLoginVO vo = new WechatLoginVO();
         vo.setToken(generateToken(user));
         vo.setUserId(user.getId());
+        vo.setOpenid(user.getOpenid());
+        vo.setPhone(user.getPhone());
+        vo.setMaskedPhone(maskPhone(user.getPhone()));
+        vo.setNickname(user.getNickname());
+        vo.setAvatar(user.getAvatar());
         vo.setIsNewUser(isNew);
         boolean completed = user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1;
         vo.setFirstLoginCompleted(completed);
@@ -233,18 +258,37 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         return token;
     }
 
-    /** mock 微信 code2Session，后续接真实微信接口时替换这里。 */
-    private String mockCode2Session(String code) {
-        if ("mock_new_user_code".equals(code)) {
-            return "mock_openid_new_" + System.currentTimeMillis();
+    private String normalizeLoginCode(WechatLoginReq req) {
+        if (StrUtil.isNotBlank(req.getLoginCode())) {
+            return req.getLoginCode();
         }
-        if ("mock_existing_user_code".equals(code)) {
-            return "mock_openid_existing";
+        if (StrUtil.isNotBlank(req.getCode())) {
+            return req.getCode();
         }
-        if ("mock_frozen_user_code".equals(code)) {
-            return "mock_openid_frozen";
+        throw new BusinessException("微信登录code不能为空");
+    }
+
+    private String normalizePhone(WechatMiniappClient.PhoneInfo phoneInfo) {
+        if (phoneInfo == null || StrUtil.isBlank(phoneInfo.phoneNumber())) {
+            throw new BusinessException("微信手机号授权失败，请重试");
         }
-        return "wx_" + code.hashCode();
+        return phoneInfo.phoneNumber().trim();
+    }
+
+    private String hashPhone(String phone) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(phone.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new BusinessException("手机号安全摘要生成失败");
+        }
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) {
+            return phone;
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 
     /** 登录过程中的用户、认证记录和是否新用户。 */

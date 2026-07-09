@@ -39,6 +39,8 @@ class AuthMiniappServiceContractTest {
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
+    @Mock
+    private WechatMiniappClient wechatMiniappClient;
 
     private AuthMiniappService authService;
 
@@ -48,7 +50,8 @@ class AuthMiniappServiceContractTest {
                 appUserDao,
                 verificationDao,
                 redisTemplate,
-                new ObjectMapper());
+                new ObjectMapper(),
+                wechatMiniappClient);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().doAnswer(invocation -> {
             AppUser user = invocation.getArgument(0);
@@ -63,10 +66,15 @@ class AuthMiniappServiceContractTest {
         when(appUserDao.selectOne(any())).thenReturn(null);
 
         WechatLoginReq req = new WechatLoginReq();
-        req.setCode("mock_new_user_code");
+        req.setLoginCode("wx-login-code");
+        req.setPhoneCode("wx-phone-code");
         req.setEncryptedData("encrypted");
         req.setIv("iv");
         req.setAgreeProtocol(true);
+        when(wechatMiniappClient.code2Session("wx-login-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo("openid_real_contract", "unionid_real_contract"));
+        when(wechatMiniappClient.getPhoneNumber("wx-phone-code"))
+                .thenReturn(new WechatMiniappClient.PhoneInfo("13800138000", "13800138000", "86"));
 
         var vo = authService.wechatLogin(req);
 
@@ -83,7 +91,8 @@ class AuthMiniappServiceContractTest {
     @DisplayName("wechat-login rejects unchecked protocol")
     void wechatLoginShouldRequireProtocolAgreement() {
         WechatLoginReq req = new WechatLoginReq();
-        req.setCode("mock_new_user_code");
+        req.setLoginCode("wx-login-code");
+        req.setPhoneCode("wx-phone-code");
         req.setAgreeProtocol(false);
 
         assertThatThrownBy(() -> authService.wechatLogin(req))

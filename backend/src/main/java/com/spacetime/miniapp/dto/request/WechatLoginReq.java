@@ -8,9 +8,15 @@ import lombok.Data;
  */
 @Data
 public class WechatLoginReq {
-    /** wx.login 返回的临时 code。 */
-    @NotBlank(message = "微信code不能为空")
+    /** 兼容旧字段：wx.login 返回的临时 code。 */
     private String code;
+
+    /** wx.login 返回的临时 code。 */
+    private String loginCode;
+
+    /** Button open-type=getPhoneNumber 返回的手机号授权 code。 */
+    @NotBlank(message = "微信手机号授权code不能为空")
+    private String phoneCode;
 
     /** 微信加密数据，当前 mock 登录暂不解析，后续接真实微信接口时使用。 */
     private String encryptedData;

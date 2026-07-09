@@ -13,6 +13,21 @@ public class WechatLoginVO {
     /** App 用户 ID。 */
     private Long userId;
 
+    /** 微信小程序 openid。 */
+    private String openid;
+
+    /** 微信授权手机号。 */
+    private String phone;
+
+    /** 脱敏手机号。 */
+    private String maskedPhone;
+
+    /** 昵称。 */
+    private String nickname;
+
+    /** 头像。 */
+    private String avatar;
+
     /** 本次登录是否创建了新用户。 */
     private Boolean isNewUser;
 
