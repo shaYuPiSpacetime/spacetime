@@ -85,6 +85,14 @@ export default {
     navigationBarTitleText: '成家立业',
     navigationBarTextStyle: 'black'
   },
+  permission: {
+    'scope.userLocation': {
+      desc: '用于自动定位你的居住城市，帮助推荐更合适的人'
+    }
+  },
+  requiredPrivateInfos: [
+    'getLocation'
+  ],
   tabBar: {
     custom: true,
     color: '#999999',
