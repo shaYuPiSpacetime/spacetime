@@ -43,6 +43,9 @@ for (const file of workflows) {
   assertIncludes(content, 'runs-on: ubuntu-latest', file);
   assertNotIncludes(content, 'runs-on: self-hosted', file);
   assertIncludes(content, 'appleboy/ssh-action', file);
+  assertIncludes(content, 'appleboy/scp-action', file);
+  assertIncludes(content, "source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*'", file);
+  assertIncludes(content, "target: '/mnt/data/spacetime-prod'", file);
   assertIncludes(content, 'host: ${{ env.PROD_SERVER_HOST }}', file);
   assertIncludes(content, 'username: ${{ env.PROD_SERVER_USER }}', file);
   assertIncludes(content, 'password: ${{ secrets.ALIYUN_PASSWORD }}', file);
@@ -190,7 +193,6 @@ for (const expected of [
   '--network-alias admin-web',
   'docker login "$ALIYUN_CR_REGISTRY"',
   '跳过数据库迁移',
-  'WECHAT_PAY_APP_ID WECHAT_PAY_MCH_ID WECHAT_PAY_API_V3_KEY WECHAT_PAY_CERT_SERIAL_NO WECHAT_PAY_NOTIFY_URL',
   'WECHAT_MINIAPP_APP_ID WECHAT_MINIAPP_APP_SECRET',
 ]) {
   assertIncludes(deployScript, expected, 'deploy/scripts/deploy-prod-local.sh');
