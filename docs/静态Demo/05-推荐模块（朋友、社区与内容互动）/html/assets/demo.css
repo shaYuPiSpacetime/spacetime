@@ -462,6 +462,8 @@
 }
 
 .hot-topic-card {
+  position: relative;
+  overflow: hidden;
   display: grid;
   width: 170px;
   min-height: 116px;
@@ -473,8 +475,17 @@
   border-radius: 10px;
   color: #fff;
   font: inherit;
+  background-position: center;
+  background-size: cover;
   text-align: left;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.hot-topic-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.54));
 }
 
 .hot-topic-card span,
@@ -596,6 +607,21 @@
 .avatar.soft {
   background: linear-gradient(140deg, #fee2e2, #dbeafe);
   color: #334155;
+}
+
+.avatar-img {
+  display: block;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.avatar-default::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 19px 0 7px rgba(255, 255, 255, 0.75);
 }
 
 .post-text {
@@ -761,21 +787,30 @@
 .tag.violet { background: var(--violet-soft); color: var(--violet); }
 .tag.neutral { background: #eef2f7; color: #667085; }
 
+.topic-thumb,
 .topic-cover {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
   width: 72px;
-  min-height: 42px;
-  padding: 6px;
+  height: 42px;
   border: 1px solid #cfe1ff;
   border-radius: 8px;
-  background: #f3f8ff;
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.25;
-  text-align: center;
+  background-color: #f3f8ff;
+  background-position: center;
+  background-size: cover;
+}
+
+.topic-thumb {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+}
+
+.topic-thumb-default,
+.topic-cover.topic-thumb-default {
+  background:
+    radial-gradient(circle at 72% 28%, #bfdbfe 0 16%, transparent 17%),
+    linear-gradient(140deg, #e0f2fe, #dcfce7);
 }
 
 .notice {

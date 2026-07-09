@@ -1,3 +1,6 @@
+const PRD05_AVATAR = (skin, bgStart, bgEnd, hair) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${bgStart}"/><stop offset="1" stop-color="${bgEnd}"/></linearGradient></defs><rect width="120" height="120" rx="60" fill="url(#bg)"/><circle cx="60" cy="52" r="24" fill="${skin}"/><path d="M28 106c7-24 23-37 32-37s25 13 32 37" fill="${skin}"/><path d="M35 45c8-26 44-34 56-4-11-7-24-9-36-5-9 3-15 7-20 9z" fill="${hair}"/></svg>`)}`;
+const PRD05_TOPIC_COVER = (bgStart, bgEnd, accent) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 136"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${bgStart}"/><stop offset="1" stop-color="${bgEnd}"/></linearGradient></defs><rect width="240" height="136" rx="18" fill="url(#bg)"/><circle cx="190" cy="36" r="24" fill="${accent}" opacity=".72"/><path d="M0 102c38-26 70-30 108-8 45 27 83 19 132-15v57H0z" fill="#fff" opacity=".33"/><path d="M18 92c35-26 73-28 110-7 38 22 71 19 94-2" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".62"/></svg>`)}`;
+
 window.PRD05_DEMO_DATA = {
   currentUser: {
     name: '林浅',
@@ -8,18 +11,18 @@ window.PRD05_DEMO_DATA = {
   },
   tabs: ['关注', '同城', '热门', '话题'],
   topics: [
-    { id: 'T-1001', name: '周末去哪里', desc: '城市周末活动和约会灵感', cover: '城市周末', hot: 982, count: 128, status: '启用', recommended: true, sort: 10, updatedBy: '运营admin', updatedTime: '2026-07-06 10:20', scenes: ['热门入口', '话题列表', '发布页'] },
-    { id: 'T-1002', name: '认真找对象', desc: '真诚关系和长期主义', cover: '认真关系', hot: 875, count: 96, status: '启用', recommended: true, sort: 20, updatedBy: '运营admin', updatedTime: '2026-07-06 10:12', scenes: ['热门入口', '话题列表', '发布页'] },
-    { id: 'T-1003', name: '下班后的生活', desc: '生活方式、运动、读书和小店', cover: '下班生活', hot: 621, count: 77, status: '启用', recommended: true, sort: 30, updatedBy: '运营admin', updatedTime: '2026-07-05 18:32', scenes: ['话题列表', '发布页'] },
-    { id: 'T-1004', name: '同城饭搭子', desc: '饭搭子、展览、徒步和咖啡', cover: '同城饭搭子', hot: 512, count: 51, status: '启用', recommended: false, sort: 40, updatedBy: '运营admin', updatedTime: '2026-07-05 16:08', scenes: ['话题列表', '发布页'] },
-    { id: 'T-1005', name: '树洞慢聊', desc: '轻量表达情绪和生活片段', cover: '树洞慢聊', hot: 92, count: 12, status: '停用', recommended: false, sort: 90, updatedBy: '运营admin', updatedTime: '2026-07-04 11:40', scenes: ['话题列表'] }
+    { id: 'T-1001', name: '周末去哪里', desc: '城市周末活动和约会灵感', cover: PRD05_TOPIC_COVER('#60a5fa', '#0f766e', '#facc15'), hot: 982, count: 128, status: '启用', recommended: true, sort: 10, updatedBy: '运营admin', updatedTime: '2026-07-06 10:20', scenes: ['热门入口', '话题列表', '发布页'] },
+    { id: 'T-1002', name: '认真找对象', desc: '真诚关系和长期主义', cover: PRD05_TOPIC_COVER('#fb7185', '#7c3aed', '#fde68a'), hot: 875, count: 96, status: '启用', recommended: true, sort: 20, updatedBy: '运营admin', updatedTime: '2026-07-06 10:12', scenes: ['热门入口', '话题列表', '发布页'] },
+    { id: 'T-1003', name: '下班后的生活', desc: '生活方式、运动、读书和小店', cover: PRD05_TOPIC_COVER('#22c55e', '#0369a1', '#bbf7d0'), hot: 621, count: 77, status: '启用', recommended: true, sort: 30, updatedBy: '运营admin', updatedTime: '2026-07-05 18:32', scenes: ['话题列表', '发布页'] },
+    { id: 'T-1004', name: '同城饭搭子', desc: '饭搭子、展览、徒步和咖啡', cover: PRD05_TOPIC_COVER('#f97316', '#be123c', '#fef3c7'), hot: 512, count: 51, status: '启用', recommended: false, sort: 40, updatedBy: '运营admin', updatedTime: '2026-07-05 16:08', scenes: ['话题列表', '发布页'] },
+    { id: 'T-1005', name: '树洞慢聊', desc: '轻量表达情绪和生活片段', cover: PRD05_TOPIC_COVER('#64748b', '#312e81', '#c4b5fd'), hot: 92, count: 12, status: '停用', recommended: false, sort: 90, updatedBy: '运营admin', updatedTime: '2026-07-04 11:40', scenes: ['话题列表'] }
   ],
   posts: [
     {
       id: 'P-240701',
       type: 'community_post',
       author: '周予安',
-      avatar: '周',
+      avatar: PRD05_AVATAR('#f7c6a7', '#1f2937', '#64748b', '#111827'),
       gender: '♀',
       city: '杭州',
       topic: '周末去哪里',
@@ -41,7 +44,7 @@ window.PRD05_DEMO_DATA = {
       id: 'P-240702',
       type: 'community_post',
       author: '许知意',
-      avatar: '许',
+      avatar: PRD05_AVATAR('#f2b8a2', '#0f766e', '#67e8f9', '#3f2a24'),
       gender: '♀',
       city: '杭州',
       topic: '下班后的生活',
@@ -63,7 +66,7 @@ window.PRD05_DEMO_DATA = {
       id: 'P-240703',
       type: 'sincere_post',
       author: '沈澈',
-      avatar: '沈',
+      avatar: PRD05_AVATAR('#d9a47f', '#2563eb', '#8b5cf6', '#1e293b'),
       gender: '♂',
       city: '上海',
       topic: '认真找对象',
@@ -85,7 +88,7 @@ window.PRD05_DEMO_DATA = {
       id: 'P-240704',
       type: 'community_post',
       author: '孟夏',
-      avatar: '孟',
+      avatar: PRD05_AVATAR('#f1b79d', '#f97316', '#fb7185', '#4a2c22'),
       gender: '♀',
       city: '杭州',
       topic: '同城饭搭子',
@@ -107,7 +110,7 @@ window.PRD05_DEMO_DATA = {
       id: 'P-240705',
       type: 'community_post',
       author: '顾清和',
-      avatar: '顾',
+      avatar: PRD05_AVATAR('#c88b6a', '#334155', '#0ea5e9', '#0f172a'),
       gender: '♂',
       city: '杭州',
       topic: '周末去哪里',
@@ -129,7 +132,7 @@ window.PRD05_DEMO_DATA = {
       id: 'P-240706',
       type: 'sincere_post',
       author: '陆景明',
-      avatar: '陆',
+      avatar: PRD05_AVATAR('#d6a27f', '#7c3aed', '#db2777', '#1f2937'),
       gender: '♂',
       city: '杭州',
       topic: '认真找对象',
@@ -226,7 +229,10 @@ window.PRD05_DEMO_DATA = {
     maxImages: 9,
     sincereMinText: 20,
     machineAudit: '启用',
-    sampleRate: '10%'
+    sampleRate: '10%',
+    mutePeriods: ['1 天', '3 天', '7 天', '30 天'],
+    ipBlock: '启用',
+    ipBlockPeriods: ['1 小时', '24 小时', '72 小时', '7 天']
   },
   uploadSamples: ['展馆门口', '咖啡窗边', '散步路线', '晚餐照片', '书店角落', '城市夜景', '手写便签', '周末计划', '展览海报'],
   greetingTemplates: [

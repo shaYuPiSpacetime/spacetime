@@ -4,6 +4,7 @@
 |------|------|--------|----------|
 | 版本01 | 2026-07-06 | Codex | 创建页面规格 |
 | 版本02 | 2026-07-06 | Codex | 补充内容下架和评论数刷新联动 |
+| 版本03 | 2026-07-09 | Codex | 按甲方帖子审核意见明确作者头像使用用户上传头像 |
 
 - **页面 ID**：`APP-05-PAGE-community-following`
 - **所属模块 PRD**：`模块PRD_APP-05_推荐模块（朋友、社区与内容互动）`
@@ -82,7 +83,7 @@
 
 | 字段 ID | 显示名 | 类型 | 必填 | 取值范围 | 校验规则 | 默认值 | 可编辑 | 敏感级别 | 数据来源 |
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
-| `APP-05-PAGE-community-following-FIELD-author-avatar` | 作者头像 | image | 是 | 私有图片 URL | 加载失败显示默认头像 | 默认头像 | 否 | 普通 | PRD-01 用户资料 |
+| `APP-05-PAGE-community-following-FIELD-author-avatar` | 作者头像 | image | 是 | 私有图片 URL | 加载失败显示平台默认头像图片；不得用姓名、姓氏首字或昵称文字替代 | 默认头像图片 | 否 | 普通 | PRD-01 用户资料，引用 `M05-RULE-author-avatar` |
 | `APP-05-PAGE-community-following-FIELD-author-name` | 作者昵称 | string | 是 | 1-20 字 | 敏感词已审核 | 平台用户 | 否 | 普通 | PRD-01 用户资料 |
 | `APP-05-PAGE-community-following-FIELD-topic` | 话题 | enum | 否 | `M05-CFG-topic-dict` | 下线话题展示历史名 | 无 | 否 | 普通 | 后台配置 |
 | `APP-05-PAGE-community-following-FIELD-content-summary` | 正文摘要 | string | 否 | 0-120 字展示 | 超出省略 | 无 | 否 | 普通 | 社区内容 |
@@ -175,6 +176,7 @@ Then  页面按发布时间倒序展示内容卡片，并展示头像、昵称�
 |----------|---------|------|
 | 依赖的模块规则 | `M05-RULE-browse-gate` | 浏览准入 |
 | 依赖的模块规则 | `M05-RULE-interaction-gate` | 互动准入 |
+| 依赖的模块规则 | `M05-RULE-author-avatar` | 作者头像展示 |
 | 依赖的模块配置项 | `M05-CFG-community-tabs` | Tab 配置 |
 | 依赖的其他页面 | `APP-05-PAGE-post-detail` | 内容详情 |
 | 依赖的其他页面 | `APP-05-PAGE-report-modal` | 举报 |

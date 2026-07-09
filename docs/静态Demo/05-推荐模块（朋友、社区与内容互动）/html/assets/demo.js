@@ -53,8 +53,23 @@
     return 'success';
   }
 
-  function avatar(text, soft = false) {
-    return `<span class="avatar ${soft ? 'soft' : ''}">${escapeHtml(String(text || '').slice(0, 1))}</span>`;
+  function isImageSource(value) {
+    return /^(data:image|https?:|\.{0,2}\/|\/)/.test(String(value || ''));
+  }
+
+  function avatar(source, soft = false, alt = '用户上传头像') {
+    if (isImageSource(source)) {
+      return `<img class="avatar avatar-img ${soft ? 'soft' : ''}" src="${escapeHtml(source)}" alt="${escapeHtml(alt)}">`;
+    }
+    return `<span class="avatar avatar-default ${soft ? 'soft' : ''}" role="img" aria-label="${escapeHtml(alt)}"></span>`;
+  }
+
+  function topicCover(topic, className = 'topic-thumb') {
+    const src = topic?.cover;
+    if (isImageSource(src)) {
+      return `<span class="${className}" style="background-image:url('${escapeHtml(src)}')" role="img" aria-label="${escapeHtml(topic.name)}封面"></span>`;
+    }
+    return `<span class="${className} topic-thumb-default" role="img" aria-label="${escapeHtml(topic?.name || '话题')}默认封面"></span>`;
   }
 
   function imageTile(item, index = 0, options = {}) {
@@ -115,7 +130,7 @@
           <div class="following-users">
             ${users.map((user) => `
               <button type="button" class="following-user ${state.followingAuthor === user.author ? 'is-active' : ''}" data-focus-author="${escapeHtml(user.author)}">
-                ${avatar(user.avatar, true)}
+                ${avatar(user.avatar, true, `${user.author}上传头像`)}
                 <span>
                   <strong>${escapeHtml(user.author)}</strong>
                   <em>${escapeHtml(user.activeText || user.time)}</em>
@@ -140,7 +155,7 @@
     return `
       <article class="${isSincere ? 'sincere-card' : 'feed-card'}" data-post-card="${escapeHtml(post.id)}">
         <div class="author-row feed-author-row">
-          ${avatar(post.avatar, isSincere)}
+          ${avatar(post.avatar, isSincere, `${post.author}上传头像`)}
           <div>
             <strong>${escapeHtml(post.author)} ${post.gender ? `<span class="gender-dot">${escapeHtml(post.gender)}</span>` : ''}</strong>
             <div class="helper">${escapeHtml(post.profile || `97年 · ${post.city} · ${post.topic}`)}</div>
@@ -204,7 +219,7 @@
           </div>
           <div class="hot-topic-rail">
             ${topics.map((topic, index) => `
-              <button type="button" class="hot-topic-card hot-topic-card-${index + 1}" data-jump="#APP-05-PAGE-topic-list">
+              <button type="button" class="hot-topic-card hot-topic-card-${index + 1}" style="background-image:url('${escapeHtml(topic.cover)}')" data-jump="#APP-05-PAGE-topic-list">
                 <span># ${escapeHtml(topic.name)}</span>
                 <strong>${escapeHtml(topic.desc)}</strong>
                 <em>${escapeHtml(topic.count)} 条内容 · 热度 ${escapeHtml(topic.hot)}</em>
@@ -228,7 +243,7 @@
       const topicCard = (topic) => `
         <article class="topic-card">
           <div class="author-row">
-            ${avatar('#', true)}
+            ${topicCover(topic)}
             <div>
               <strong>${escapeHtml(topic.name)}</strong>
               <div class="helper">${escapeHtml(topic.desc)}</div>
@@ -267,7 +282,7 @@
       target.innerHTML = (data.comments || []).map((item) => `
         <div class="comment-row">
           <div class="author-row">
-            ${avatar(item.author, true)}
+            ${avatar(item.avatar, true, `${item.author}上传头像`)}
             <div><strong>${escapeHtml(item.author)}</strong><div class="helper">${escapeHtml(item.time)} · ${escapeHtml(commentStatusLabel(item.status))}</div></div>
             <button class="more-dot" type="button" data-open-modal="moreActionsModal" data-target-type="comment" aria-label="评论更多">⋮</button>
           </div>
@@ -308,7 +323,7 @@
               })}
             </div>
             <div class="yuemu-meta">
-              <div class="author-row">${avatar(post.avatar, true)}<strong>${escapeHtml(post.author)}</strong></div>
+              <div class="author-row">${avatar(post.avatar, true, `${post.author}上传头像`)}<strong>${escapeHtml(post.author)}</strong></div>
               <span class="helper">${escapeHtml(post.width)} x ${escapeHtml(post.height)} · 原比例展示</span>
               <div class="yuemu-actions">
                 <button class="btn ${liked ? 'primary' : ''}" data-yuemu-like="${escapeHtml(post.id)}">${liked ? '已赞' : '点赞'} ${escapeHtml(post.likeCount + (liked ? 1 : 0))}</button>
@@ -469,7 +484,7 @@
           : 'data-toast="已打开目标用户主页"';
       target.innerHTML = `
         <div class="community-card private-state-card">
-          <div class="author-row">${avatar('周', true)}<div><strong>周予安</strong><div class="helper">来源：动态 P-240701</div></div></div>
+          <div class="author-row">${avatar(data.posts?.[0]?.avatar, true, '周予安上传头像')}<div><strong>周予安</strong><div class="helper">来源：动态 P-240701</div></div></div>
           <h3>${escapeHtml(current?.title)}</h3>
           <p>${escapeHtml(current?.desc)}</p>
           <button class="btn primary full" ${primaryAction}>${escapeHtml(current?.primary)}</button>
@@ -555,6 +570,7 @@
         <div class="community-card"><h3>举报原因</h3><p>${data.config?.reportReasons?.join('、')}</p></div>
         <div class="community-card"><h3>敏感词库</h3><p>联系方式、广告引流、攻击辱骂；高危词命中进入人工复核。</p></div>
         <div class="community-card"><h3>发布规则</h3><p>最多 ${data.config?.maxImages} 图；诚意贴正文不少于 ${data.config?.sincereMinText} 字；机审 ${data.config?.machineAudit}。</p></div>
+        <div class="community-card"><h3>治理策略</h3><p>禁言周期 ${data.config?.mutePeriods?.join(' / ')}；IP 封禁 ${data.config?.ipBlock}，周期 ${data.config?.ipBlockPeriods?.join(' / ')}。</p></div>
         <div class="community-card"><h3>审计要求</h3><p>规则启停、联系方式开关、处罚处理均写入操作日志。</p></div>
       `;
     });
@@ -626,7 +642,7 @@
     qsa('[data-render="topic-manage"]').forEach((target) => {
       target.innerHTML = tableRows(data.topics || [], [
         (r) => escapeHtml(r.id),
-        (r) => `<span class="topic-cover">${escapeHtml(r.cover || r.name)}</span>`,
+        (r) => topicCover(r, 'topic-cover'),
         (r) => `<strong>${escapeHtml(r.name)}</strong><div class="helper">${escapeHtml(r.desc)}</div>`,
         (r) => tag(r.recommended ? '推荐' : '普通', r.recommended ? 'success' : 'neutral'),
         (r) => `${escapeHtml(r.count)} / ${escapeHtml(r.hot)}<div class="helper">${(r.scenes || []).map(escapeHtml).join(' / ')}</div>`,
@@ -640,6 +656,11 @@
   }
 
   function decoratePhones() {
+    qsa('[data-static-avatar]').forEach((node) => {
+      const post = (data.posts || []).find((item) => item.id === node.dataset.staticAvatar) || data.posts?.[0];
+      node.outerHTML = avatar(post?.avatar, true, `${post?.author || '用户'}上传头像`);
+    });
+
     qsa('.phone-screen').forEach((screen) => {
       if (!screen.querySelector('.qianxun-scenes')) {
         const active = screen.closest('#APP-05-PAGE-yuemu, #APP-05-PAGE-sincere-list') ? '知音' : '成家';

@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本03 | 2026-07-09 | Codex | 按产品确认调整取消喜欢展示：对方取消喜欢后默认列表隐藏，不展示取消喜欢原因 |
 | 版本02 | 2026-07-02 | Codex | 明确列表页点击模糊卡片只打开单条解锁场景弹窗，扣币确认在弹窗内复用 PRD-04 |
 | 版本01 | 2026-07-01 | Codex | 正式版初稿 |
 
@@ -60,7 +61,7 @@
 | `APP-02-likes-me-01` | 喜欢我的-模糊列表态 | 普通用户未解锁列表、底部解锁全部按钮 | 缺设计稿时需补 |
 | `APP-02-likes-me-02` | 喜欢我的-清晰列表态 | 会员/单条已解锁卡片 | |
 | `APP-02-likes-me-03` | 喜欢我的-空态 | 无人喜欢时的引导 | |
-| `APP-02-likes-me-04` | 喜欢我的-失效态 | 卡片置灰并展示失效原因 | 对应已确认失效展示口径 |
+| `APP-02-likes-me-04` | 喜欢我的-历史失效态 | 账号异常、拉黑等历史入口展示通用失效提示 | 对方取消喜欢不进入默认列表 |
 
 ---
 
@@ -85,7 +86,7 @@
 | `APP-02-PAGE-likes-me-FIELD-weak-tags` | 弱识别标签 | string[] | 否 | 同城/同乡/校友/同专业/985或211/兴趣标签 | 不得组合出可唯一识别身份的信息 | 空数组 | 否 | 普通 | 系统计算 |
 | `APP-02-PAGE-likes-me-FIELD-liked-time` | 喜欢时间 | datetime/string | 是 | datetime 或相对时间 | 可展示相对时间，如 1 小时前 | 无 | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-likes-me-FIELD-is-mutual` | 是否相互喜欢 | bool | 是 | true/false | true 时展示相互喜欢标识 | false | 否 | 普通 | PRD-02 |
-| `APP-02-PAGE-likes-me-FIELD-invalid-reason` | 失效原因 | enum | 条件必填 | `M02-ENUM-invalid-reason` | `displayStatus=invalid` 时必填 | 无 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-likes-me-FIELD-invalid-reason` | 失效原因 | enum | 条件必填 | `M02-ENUM-invalid-reason` | 历史入口或已曝光回显返回 `displayStatus=invalid` 时必填；`like_cancelled` 不进入默认列表 | 无 | 否 | 普通 | PRD-02 |
 
 ---
 
@@ -104,7 +105,7 @@
 |---------|--------|----------|----------|----------|--------|--------|------|
 | `APP-02-PAGE-likes-me-ACT-card-click` | 点击卡片 | `displayStatus=clear` | 已登录且核心准入开放 | 否 | 跳婚恋用户主页 | 关系失效时展示失效原因 | 可能为对方生成访客记录 |
 | `APP-02-PAGE-likes-me-ACT-unlock-one` | 单条解锁 | `displayStatus=blur` | 已登录且核心准入开放 | 否，列表页只打开单条解锁场景弹窗；弹窗内由 PRD-04 确认扣币 | 打开 `APP-02-PAGE-single-unlock-modal`；用户在弹窗内确认扣币成功后卡片清晰 | 余额不足/关系失效 | 写 PRD-04 解锁记录 |
-| `APP-02-PAGE-likes-me-ACT-invalid-view` | 查看失效原因 | `displayStatus=invalid` | 已登录 | 否 | 展示失效原因说明 | 无 | 无 |
+| `APP-02-PAGE-likes-me-ACT-invalid-view` | 查看失效提示 | `displayStatus=invalid` 且来自历史入口或已曝光回显 | 已登录 | 否 | 展示通用“关系已失效”提示 | 无 | 无 |
 
 ---
 
@@ -114,7 +115,8 @@
 |----------|----------|----------|----------|------|
 | 会员状态 | 生效 | 列表展示状态 | 当前有效记录全量清晰 | `M04-ENUM-vip-benefit-type=heart_list` |
 | 单条解锁状态 | 支付成功 | 当前卡片 | 当前记录永久清晰 | `M02-RULE-unlock-visibility` |
-| 关系状态 | 失效 | 卡片操作 | 卡片置灰，隐藏主页/解锁入口，展示失效原因 | `M02-RULE-relation-invalid` |
+| 关系状态 | `like_cancelled` | 默认列表 | 默认列表移除该记录，不展示“对方取消喜欢/不喜欢了” | `M02-RULE-like-cancel` |
+| 关系状态 | 非取消喜欢失效 | 卡片操作 | 默认列表隐藏不可互动对象；历史入口或已曝光回显隐藏主页/解锁入口，展示通用失效提示 | `M02-RULE-relation-invalid` |
 | 是否相互喜欢 | true | 卡片标识/操作 | 展示相互喜欢标识，可优先进入聊天或主页 | 聊天由 PRD-03 判定 |
 
 ---
@@ -127,7 +129,7 @@
 | 空态 | 无喜欢记录 | 空态文案 + 去完善资料/去看看推荐 | 跳资料或推荐 | `M02-TXT-likes-empty` |
 | 模糊态 | 普通未解锁 | 模糊头像 + 弱识别标签 | 单条解锁/解锁全部 | `M02-RULE-blur-display` |
 | 清晰态 | 会员或单条解锁 | 头像、昵称、年龄等清晰字段 | 进入主页 | `M02-RULE-unlock-visibility` |
-| 失效态 | 关系失效 | 卡片置灰 + 失效原因 | 查看原因 | `M02-RULE-relation-invalid` |
+| 失效态 | 关系失效，且来自历史入口或已曝光回显 | 卡片置灰 + 通用失效提示 | 查看提示 | `M02-RULE-relation-invalid`、`M02-RULE-like-cancel` |
 | 无权限态 | 未登录/未核心准入 | 登录或认证引导 | 登录/认证 | `M02-RULE-core-access` |
 | 错误态 | 网络失败 | toast + 重试 | 重试 | 移动端全局态 |
 
@@ -139,6 +141,7 @@
 - **分页方式**：移动端加载更多，默认每页 20 条。
 - **批量选择**：不支持。
 - **实时刷新**：不轮询，下拉刷新。
+- **取消喜欢处理**：默认列表不返回 `likeStatus=cancelled` 的记录；后台仍保留 `like_cancelled` 用于客诉排查。
 
 ---
 
@@ -155,10 +158,15 @@ Given 用户千寻币余额充足且点击未解锁喜欢记录
 When  在 PRD-04 弹窗确认扣币成功
 Then  当前记录变为清晰态，后续再次进入仍清晰
 
-AC-ID: APP-02-AC-likes-invalid
-Given 某条喜欢记录因对方注销或取消喜欢失效
+AC-ID: APP-02-AC-likes-cancel-hidden
+Given 某条喜欢记录因对方取消喜欢失效
 When  用户进入喜欢我的列表
-Then  该卡片置为失效态并展示失效原因，不提供解锁或主页跳转
+Then  默认列表不展示该卡片，不展示“对方取消喜欢/不喜欢了”
+
+AC-ID: APP-02-AC-likes-invalid-history
+Given 某条喜欢记录因对方注销、冻结、封禁、拉黑或认证失效不可继续互动
+When  用户从已曝光卡片或历史入口回流查看该记录
+Then  展示通用“关系已失效”提示，不提供解锁或主页跳转
 ```
 
 ---
@@ -167,6 +175,6 @@ Then  该卡片置为失效态并展示失效原因，不提供解锁或主页�
 
 | 关联类型 | 引用 ID | 说明 |
 |----------|---------|------|
-| 依赖规则 | `M02-RULE-core-access` / `M02-RULE-blur-display` / `M02-RULE-relation-invalid` | |
+| 依赖规则 | `M02-RULE-core-access` / `M02-RULE-blur-display` / `M02-RULE-relation-invalid` / `M02-RULE-like-cancel` | |
 | 依赖商业化 | `APP-04-PAGE-paywall-modal` / `M04-RULE-like-viewer-unlock` | |
 | 依赖后台 | `ADM-02-PAGE-user-relation-section` | 后台查看记录 |

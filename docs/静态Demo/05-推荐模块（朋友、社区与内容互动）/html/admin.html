@@ -51,7 +51,7 @@
               <article class="stat-card"><span>联系方式命中</span><strong>3</strong></article>
             </div>
             <div class="query-panel"><h2>筛选区</h2><div class="query-grid"><label class="control-field">关键词<input value="良渚 / 诚意贴"></label><label class="control-field">用户 ID<input value="U10021"></label><label class="control-field">内容类型<select><option>全部</option><option>动态</option><option>诚意贴</option></select></label><label class="control-field">媒体类型<select><option>全部</option><option>图文</option><option>图片</option><option>纯文字</option></select></label><label class="control-field">内容状态<select><option>待人工复核</option><option>已公开</option><option>已驳回</option><option>已下架</option></select></label><label class="control-field">机审结果<select><option>全部</option><option>通过</option><option>不确定</option><option>不通过</option></select></label><label class="control-field">开始日期<input type="date" value="2026-07-01"></label><label class="control-field">结束日期<input type="date" value="2026-07-07"></label></div></div>
-            <div class="table-wrap"><table><thead><tr><th>审核编号</th><th>内容 ID</th><th>内容类型</th><th>所属模块</th><th>标题/摘要</th><th>用户 ID/昵称</th><th>提交时间</th><th>机审/风险</th><th>状态/违规标签</th><th>操作</th></tr></thead><tbody data-render="content-manage"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>审核编号</th><th>内容 ID</th><th>内容类型</th><th>来源场景</th><th>标题/摘要</th><th>用户 ID/昵称</th><th>提交时间</th><th>机审/风险</th><th>状态/违规标签</th><th>操作</th></tr></thead><tbody data-render="content-manage"></tbody></table></div>
             <div class="pagination"><span>默认 20 条/页</span><button class="btn" disabled>上一页</button><button class="btn primary">1</button><button class="btn" data-toast="已切换下一页">下一页</button></div>
           </div>
         </section>
@@ -104,7 +104,7 @@
               <article class="stat-card"><span>待处理</span><strong>18</strong></article>
               <article class="stat-card"><span>处理中</span><strong>7</strong></article>
               <article class="stat-card"><span>今日成立</span><strong>5</strong></article>
-              <article class="stat-card"><span>重复合并</span><strong>3</strong></article>
+              <article class="stat-card"><span>IP 封禁</span><strong>2</strong></article>
             </div>
             <div class="query-panel"><h2>筛选区</h2><div class="query-grid"><label class="control-field">举报编号<input value="RPT-0501"></label><label class="control-field">举报对象<select><option>全部</option><option>动态/诚意贴</option><option>评论</option><option>用户</option><option>聊天</option></select></label><label class="control-field">处理状态<select><option>全部</option><option>待处理</option><option>处理中</option><option>举报成立</option></select></label><label class="control-field">举报原因<select><option>联系方式</option><option>攻击辱骂</option><option>广告引流</option></select></label></div></div>
             <div class="table-wrap"><table><thead><tr><th>举报编号</th><th>类型/对象</th><th>举报人</th><th>被举报人</th><th>原因</th><th>状态</th><th>回复</th><th>时间</th><th>操作</th></tr></thead><tbody data-render="reports"></tbody></table></div>
@@ -142,7 +142,7 @@
         <section class="section-band admin-page" id="ADM-05-PAGE-community-config" data-admin-page>
           <div class="admin-page-inner">
             <div class="admin-page-header">
-              <div><h1>审核规则配置 / 社区配置</h1><p>维护社区 Tab、举报原因、联系方式开关、机审、抽检比例和审核规则；家园话题由独立页面管理。</p></div>
+              <div><h1>审核规则配置 / 社区配置</h1><p>维护社区 Tab、举报原因、联系方式开关、机审、抽检比例、禁言周期、IP 封禁和审核规则；家园话题由独立页面管理。</p></div>
               <button class="btn primary" data-open-modal="configSaveModal">保存配置</button>
             </div>
             <div class="admin-menu-strip" aria-label="内容与动态管理菜单">
@@ -161,12 +161,17 @@
                 <label class="control-field">诚意贴正文下限<input type="number" value="20"></label>
                 <label class="control-field">联系方式开关<select><option>默认不允许</option><option>允许</option></select></label>
                 <label class="control-field">动态抽检比例<input value="10%"></label>
+                <label class="control-field">禁言周期<select><option>1 天 / 3 天 / 7 天 / 30 天</option><option>支持自定义结束时间</option></select></label>
+                <label class="control-field">IP 封禁开关<select><option>启用</option><option>停用</option></select></label>
+                <label class="control-field">IP 封禁周期<select><option>1 小时 / 24 小时 / 72 小时 / 7 天</option><option>支持自定义结束时间</option></select></label>
+                <label class="control-field">封禁写操作范围<select><option>发布动态 / 发布诚意贴 / 评论 / 举报</option><option>仅发布和评论</option></select></label>
               </div>
               <div class="rule-table">
                 <div class="rule-row rule-head"><span>规则名称</span><span>识别码</span><span>触发条件</span><span>处理动作</span><span>状态</span></div>
                 <div class="rule-row"><span>联系方式识别</span><span>contact_detect</span><span>命中微信/手机号/二维码</span><span>人工审核</span><span>启用</span></div>
                 <div class="rule-row"><span>广告引流检测</span><span>ad_detection</span><span>广告关键词或异常链接</span><span>驳回/下架</span><span>启用</span></div>
                 <div class="rule-row"><span>图片安全抽检</span><span>image_sample</span><span>动态图片抽检 10%</span><span>人工复核</span><span>启用</span></div>
+                <div class="rule-row"><span>刷帖 IP 识别</span><span>spam_ip_block</span><span>高频发帖/评论/举报</span><span>IP 封禁</span><span>启用</span></div>
               </div>
               <div class="notice"><strong>机审关闭降级</strong>动态、诚意贴和图片提交后进入人工复核；评论提交提示稍后重试。</div>
             </div>
@@ -205,6 +210,7 @@
         <div class="query-grid">
           <label class="control-field">违规原因<select><option>无违规</option><option>联系方式</option><option>广告引流</option><option>攻击辱骂</option></select></label>
           <label class="control-field">处理结果<select><option>通过审核</option><option>驳回并删除</option><option>下架内容</option><option>警告用户</option><option>禁言用户</option></select></label>
+          <label class="control-field">禁言周期<select><option>不禁言</option><option>1 天</option><option>3 天</option><option>7 天</option><option>30 天</option></select></label>
           <label class="control-field">通知用户<select><option>是</option><option>否</option></select></label>
           <label class="control-field">处理说明<input value="人工复核通过"></label>
         </div>
@@ -243,6 +249,7 @@
         <div class="query-grid">
           <label class="control-field">违规原因<select><option>无违规</option><option>攻击辱骂</option><option>广告引流</option><option>联系方式</option></select></label>
           <label class="control-field">处理结果<select><option>通过审核</option><option>驳回并删除</option><option>屏蔽评论</option><option>恢复评论</option><option>警告用户</option><option>禁言用户</option></select></label>
+          <label class="control-field">禁言周期<select><option>不禁言</option><option>1 天</option><option>3 天</option><option>7 天</option><option>30 天</option></select></label>
           <label class="control-field">通知用户<select><option>是</option><option>否</option></select></label>
           <label class="control-field">处理说明<input value="评论内容正常，保留公开"></label>
         </div>
@@ -272,7 +279,11 @@
       </div>
       <div class="query-grid">
         <label class="control-field">处理结论<select><option>举报成立</option><option>举报不成立</option><option>合并重复举报</option></select></label>
-        <label class="control-field">处罚动作<select><option>下架内容</option><option>屏蔽评论</option><option>警告用户</option><option>禁言用户</option></select></label>
+        <label class="control-field">处罚动作<select><option>下架内容</option><option>屏蔽评论</option><option>警告用户</option><option>禁言用户</option><option>IP 封禁</option></select></label>
+        <label class="control-field">禁言周期<select><option>不禁言</option><option>1 天</option><option>3 天</option><option>7 天</option><option>30 天</option></select></label>
+        <label class="control-field">风险 IP<input value="192.168.**.36"></label>
+        <label class="control-field">IP 封禁周期<select><option>24 小时</option><option>1 小时</option><option>72 小时</option><option>7 天</option></select></label>
+        <label class="control-field">封禁范围<select><option>发布动态 / 发布诚意贴 / 评论 / 举报</option><option>仅发布和评论</option></select></label>
         <label class="control-field">处理说明<textarea>确认后同步通知举报人和被举报人。</textarea></label>
         <label class="control-field">回复举报人<select><option>发送处理结果</option><option>不发送</option></select></label>
       </div>

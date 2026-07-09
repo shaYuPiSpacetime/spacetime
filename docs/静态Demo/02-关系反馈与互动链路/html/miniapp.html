@@ -57,7 +57,7 @@
         <section class="section-band" id="APP-02-PAGE-likes-me">
           <div class="page-head">
             <h2>APP-02-PAGE-likes-me 喜欢我的列表页</h2>
-            <p>普通用户看到模糊态；会员或单条解锁后清晰；关系失效时前台展示失效原因。</p>
+            <p>普通用户看到模糊态；会员或单条解锁后清晰；取消喜欢后默认列表隐藏，历史或异常入口仅展示通用失效提示。</p>
           </div>
           <div class="section-body phone-stage">
             <article class="phone relation-phone">
@@ -119,9 +119,9 @@
                         <strong>该关系已失效</strong>
                         <span class="tag danger">已失效</span>
                       </div>
-                      <p>失效原因：对方取消喜欢。不可解锁，不可进入主页。</p>
+                      <p>该关系已失效，不可解锁，不可进入主页。真实原因由后台保留。</p>
                     </div>
-                    <button class="btn full" type="button" data-open-relation-modal="invalidReasonModal">查看原因</button>
+                    <button class="btn full" type="button" data-open-relation-modal="invalidReasonModal">查看提示</button>
                   </article>
                 </div>
                 <div class="fixed-paybar">
@@ -135,7 +135,7 @@
               <ul class="check-list">
                 <li><span>模糊态不展示强识别字段</span><strong>M02-RULE-blur-display</strong></li>
                 <li><span>单条清晰权益永久有效</span><strong>M02-RULE-unlock-visibility</strong></li>
-                <li><span>失效态展示原因</span><strong>M02-RULE-relation-invalid</strong></li>
+                <li><span>取消喜欢默认隐藏，历史/异常失效仅通用提示</span><strong>M02-RULE-like-cancel</strong></li>
               </ul>
             </article>
           </div>
@@ -205,7 +205,7 @@
                       </div>
                       <p>失效原因：对方账号已注销。历史解锁可在 PRD-04 资产中心追溯。</p>
                     </div>
-                    <button class="btn full" type="button" data-open-relation-modal="invalidReasonModal">查看原因</button>
+                    <button class="btn full" type="button" data-open-relation-modal="invalidReasonModal">查看提示</button>
                   </article>
                 </div>
                 <div class="fixed-paybar">
@@ -228,7 +228,7 @@
         <section class="section-band" id="APP-02-PAGE-mutual-matches">
           <div class="page-head">
             <h2>APP-02-PAGE-mutual-matches 相互喜欢列表页</h2>
-            <p>有效匹配展示聊天和主页入口；失效匹配置灰并展示失效原因。</p>
+            <p>默认只展示有效匹配；取消喜欢后的匹配不再出现在列表，历史或异常入口仅提示关系已失效。</p>
           </div>
           <div class="section-body phone-stage">
             <article class="phone relation-phone">
@@ -275,24 +275,17 @@
                       <button class="btn full" type="button" data-toast="进入对方主页">看主页</button>
                     </div>
                   </article>
-                  <article class="relation-card match-card is-invalid">
-                    <div class="avatar portrait-i is-disabled" aria-label="失效头像"></div>
-                    <div class="relation-info">
-                      <div class="card-line">
-                        <strong>匹配已失效</strong>
-                        <span class="tag danger">invalid</span>
-                      </div>
-                      <p>失效原因：我取消喜欢。聊天入口已关闭。</p>
-                    </div>
-                    <button class="btn full" type="button" data-open-relation-modal="invalidReasonModal">查看原因</button>
-                  </article>
+                  <div class="notice">
+                    <strong>取消喜欢后的处理</strong>
+                    <span>取消喜欢产生的失效匹配不会进入默认相互喜欢列表；历史会话或通知回流时只提示关系已失效。</span>
+                  </div>
                 </div>
               </div>
             </article>
             <article class="mini-panel">
               <h3>页面还原点</h3>
               <ul class="check-list">
-                <li><span>有效匹配优先，失效记录置后</span><strong>查询与列表</strong></li>
+                <li><span>默认仅展示有效匹配</span><strong>查询与列表</strong></li>
                 <li><span>悄悄话回复可生成匹配</span><strong>M02-RULE-whisper-match</strong></li>
                 <li><span>主页按钮联动输出给 PRD-05</span><strong>M02-RULE-profile-action-after-match</strong></li>
               </ul>
@@ -421,7 +414,7 @@
   <div class="modal-backdrop" id="invalidReasonModal" aria-hidden="true">
     <div class="modal relation-modal" role="dialog" aria-modal="true" aria-labelledby="invalidReasonTitle">
       <h2 id="invalidReasonTitle">关系已失效</h2>
-      <p>该关系已失效：对方取消喜欢、拉黑、账号注销、冻结、封禁或认证失效。前台展示原因，后台保留记录可查。</p>
+      <p>该关系已失效，暂不能继续聊天或查看主页。取消喜欢导致的失效不会出现在默认列表；后台保留真实原因用于客服排查。</p>
       <div class="modal-actions">
         <button class="btn primary" type="button" data-close-modal>知道了</button>
       </div>

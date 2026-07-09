@@ -12,12 +12,13 @@
 | 版本04 | 2026-07-07 | Codex | 按确认口径移除详情网络来源字段，详情统一保留操作日志时间线 |
 | 版本05 | 2026-07-07 | Codex | 按确认口径新增家园话题管理独立页面，承接话题字典和展示配置 |
 | 版本06 | 2026-07-07 | Codex | 按确认口径收敛 ADM-05 后台页面范围为 6 页 |
+| 版本07 | 2026-07-09 | Codex | 按甲方帖子审核意见补充禁言周期、IP 封禁、话题图片封面和多来源帖子治理兼容口径 |
 
 ---
 
 ## 1. 模块目标
 
-后台 PRD-05 负责社区内容与互动治理：参考后台菜单可称为“内容与动态管理”，一期实际承接动态和诚意贴内容审核、评论复核、举报处理、家园话题管理、审核规则/社区配置。模块目标是在一期上线时形成可运营、可审核、可追踪的治理闭环，支撑移动端社区内容安全上线。
+后台 PRD-05 负责社区内容与互动治理：参考后台菜单可称为“内容与动态管理”，一期实际承接动态和诚意贴内容审核、评论复核、举报处理、家园话题管理、审核规则/社区配置。模块目标是在一期上线时形成可运营、可审核、可追踪的治理闭环，支撑移动端社区内容安全上线；治理字段需兼容知音诚意贴和后续立业帖子，处罚需支持带周期禁言和 IP 封禁。
 
 **用户故事：** 作为运营、审核员、客服或风控人员，我想查询和处理社区内容、评论和举报，并维护话题、举报原因与发布规则，以便保证移动端社区互动安全、稳定上线。
 
@@ -77,8 +78,8 @@
   1. 审核员/风控按举报状态、来源、原因、对象类型筛选
   2. 查看举报对象、上下文、历史举报和被举报人摘要
   3. 选择举报成立或不成立
-  4. 举报成立时选择处罚动作和说明
-  5. 系统执行内容下架、评论屏蔽、警告、禁言或账号冻结联动
+  4. 举报成立时选择处罚动作、说明；禁言必须选择禁言周期，IP 封禁必须填写风险 IP、封禁周期和写操作范围
+  5. 系统执行内容下架、评论屏蔽、警告、带周期禁言、IP 封禁或账号冻结联动
   6. 系统触发举报结果通知事件
 异常：
   - 举报对象已处理：合并结果并提示
@@ -91,7 +92,7 @@
 入口：社区互动管理 -> 家园话题管理
 正常路径：
   1. 运营按话题名称、状态、是否推荐筛选话题
-  2. 新增或编辑话题名称、简介、封面、排序、状态和推荐标记
+  2. 新增或编辑话题名称、简介、图片封面、排序、状态和推荐标记
   3. 保存成功后写配置版本和审计日志
   4. 移动端家园话题入口、话题列表、发布页话题 chips 按启用话题展示
 异常：
@@ -104,7 +105,7 @@
 ```
 入口：社区互动管理 -> 社区配置（参考菜单：内容与动态管理 -> 审核规则配置）
 正常路径：
-  1. 运营维护社区 Tab、举报原因、发布规则、审核规则和敏感词项
+  1. 运营维护社区 Tab、举报原因、发布规则、审核规则、敏感词项、禁言周期和 IP 封禁策略
   2. 高风险开关保存时二次确认
   3. 保存成功后写配置版本和审计日志
   4. 移动端配置缓存失效并按新配置展示
@@ -120,10 +121,11 @@
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
-| 社区内容 | `community_post` | 动态、诚意贴与悦目来源内容 | 05 | contentId, authorId, contentType, status |
+| 社区内容 | `community_post` | 动态、诚意贴与悦目来源内容；预留后续立业帖子来源场景字段 | 05 | contentId, authorId, contentType, contentSourceScene, status |
 | 评论 | `community_comment` | 评论和回复 | 05 | commentId, contentId, authorId, status |
 | 举报 | `community_report` | 举报记录 | 05 | reportId, targetType, targetId, status |
 | 审核记录 | `community_audit_record` | 内容和评论审核轨迹 | 05 | auditId, targetType, targetId, result |
+| IP 封禁记录 | `community_ip_block` | 防机器人刷帖、批量广告等场景的风险 IP 封禁记录 | 05/风控 | blockId, ipHash, scope, expiresAt, reason |
 | 社区配置 | `app_config` / `community_config` | Tab、规则、联系方式开关、抽检比例 | 05/系统配置 | configKey, configValue, version |
 | 家园话题 | `community_topic` 或社区字典扩展表 | 话题名称、简介、封面、排序、状态、推荐标记、内容统计 | 05/系统字典 | topicId, topicName, coverUrl, sort, status |
 | 举报原因 | `sys_dict_data` 或社区字典 | 举报原因 | 系统字典 | dictType, dictCode, dictLabel, status |
@@ -158,9 +160,9 @@
 | `ADM-05-RULE-content-manage` | 内容管理列表、详情抽屉、详情内通过、驳回、下架、恢复 | P0 | `ADM-05-PAGE-content-manage` | 覆盖动态、诚意贴等社区内容 |
 | `ADM-05-RULE-moment-manage` | 动态管理列表、详情抽屉、详情内展示处理 | P0 | `ADM-05-PAGE-moment-manage` | 独立管理普通动态流的媒体、分发、互动和展示状态 |
 | `ADM-05-RULE-comment-audit` | 评论管理列表、详情、屏蔽、恢复、复核 | P0 | `ADM-05-PAGE-comment-audit` | 覆盖评论和回复 |
-| `ADM-05-RULE-report-handle` | 举报管理列表、详情、处理、处罚联动 | P0 | `ADM-05-PAGE-report-handle` | 统一承接多来源举报 |
+| `ADM-05-RULE-report-handle` | 举报管理列表、详情、处理、处罚联动、禁言周期和 IP 封禁 | P0 | `ADM-05-PAGE-report-handle` | 统一承接多来源举报 |
 | `ADM-05-RULE-topic-manage` | 家园话题列表、详情、新增、编辑、启停、推荐标记、排序 | P0 | `ADM-05-PAGE-topic-manage` | 承接移动端话题入口、话题列表、发布页话题选择 |
-| `ADM-05-RULE-community-config` | 社区 Tab、举报原因、发布规则、审核规则、联系方式开关、抽检比例 | P0 | `ADM-05-PAGE-community-config` | 高风险保存二次确认 |
+| `ADM-05-RULE-community-config` | 社区 Tab、举报原因、发布规则、审核规则、联系方式开关、抽检比例、禁言周期、IP 封禁策略 | P0 | `ADM-05-PAGE-community-config` | 高风险保存二次确认 |
 | `ADM-05-RULE-audit-log` | 敏感操作审计 | P0 | 多页 | 下架、恢复、处罚、配置保存、导出 |
 
 ---
@@ -208,6 +210,7 @@
 | 举报补充说明 | 否 | 仅授权角色查看 | >= 1 年 | 匿名化举报人 | 按权限 |
 | 审核驳回原因 | 否 | 后台可见，前台仅展示可理解文案 | >= 1 年 | 保留治理记录 | 是 |
 | 图片内容 URL | 私有存储 | 授权预览 URL | 按内容治理策略 | 删除或匿名化 | 按权限 |
+| 风险 IP | 是，存储 IP 哈希和必要明文索引 | 默认脱敏展示，完整值仅风控/超管按权限查看 | >= 1 年 | 保留治理记录，按法务口径匿名化 | 否 |
 | 操作日志 | 否 | 操作人按后台账号展示 | >= 1 年 | 保留审计 | 是 |
 
 ### 9.3 性能
@@ -236,6 +239,7 @@
 | `adm_community_moment_manage` | 动态管理详情内处理 | contentId, scene, result, operatorId |
 | `adm_community_comment_audit` | 评论审核操作 | commentId, result, operatorId |
 | `adm_community_report_handle` | 举报处理操作 | reportId, result, punishAction |
+| `adm_community_ip_block` | IP 封禁、解除或周期调整 | blockId, scope, expiresAt, operatorId |
 | `adm_community_topic_manage` | 新增、编辑、启停或推荐话题 | topicId, action, operatorId |
 | `adm_community_config_save` | 社区配置保存 | configGroup, version, operatorId |
 | `adm_community_export` | 导出任务创建 | pageId, filterHash, operatorId |

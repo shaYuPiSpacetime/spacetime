@@ -4,6 +4,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本02 | 2026-07-09 | Codex | 按取消喜欢展示口径调整失效记录扣费拦截：前台仅展示通用失效提示 |
 | 版本01 | 2026-07-02 | Codex | 正式版初稿，补齐原 PRD-02 第 10.5 节单条解锁弹窗场景要求 |
 
 - **页面 ID**：`APP-02-PAGE-single-unlock-modal`
@@ -76,7 +77,7 @@
 | 解锁场景 | `likes_unlock_one` | 副标题 | 使用 `M02-TXT-like-unlock-subtitle` | |
 | 解锁场景 | `viewers_unlock_one` | 副标题 | 使用 `M02-TXT-viewer-unlock-subtitle` | |
 | 当前余额 | 小于所需千寻币 | 主按钮/充值入口 | 切换到 PRD-04 余额不足态，展示快捷充值 | `M04-ERR-balance-insufficient` |
-| 目标记录状态 | 已失效 | 弹窗展示 | 不允许扣币，展示失效原因 | `M02-RULE-relation-invalid` |
+| 目标记录状态 | 已失效 | 弹窗展示 | 不允许扣币，展示通用“关系已失效”提示；后台保留真实原因 | `M02-RULE-relation-invalid`、`M02-RULE-like-cancel` |
 
 ---
 
@@ -87,7 +88,7 @@
 | 加载态 | 查询单价/余额 | 按钮 loading | 无 | PRD-04 |
 | 默认态 | 余额充足且记录有效 | 展示标题、副标题、模糊头像、按钮组 | 只看 ta/解锁全部 | `M02-RULE-single-unlock-modal-content` |
 | 余额不足态 | balance < cost | 展示快捷充值 | 充值/更多套餐 | `APP-04-PAGE-paywall-modal` |
-| 失效态 | 记录已失效 | 展示失效原因，不展示扣币按钮 | 关闭 | `M02-RULE-relation-invalid` |
+| 失效态 | 记录已失效 | 展示通用“关系已失效”提示，不展示扣币按钮 | 关闭 | `M02-RULE-relation-invalid`、`M02-RULE-like-cancel` |
 | 无权限态 | 未登录或核心准入未开放 | 登录/认证引导 | 登录/认证 | `M02-RULE-core-access` |
 | 错误态 | 单价或扣币失败 | toast + 重试 | 重试/关闭 | PRD-04 |
 
@@ -109,7 +110,7 @@ Then  标题为“查看对方资料”，副标题为“揭秘是谁来看过�
 AC-ID: APP-02-AC-single-unlock-no-charge-invalid
 Given 目标喜欢/访客记录已经失效
 When  用户打开单条解锁弹窗
-Then  页面展示失效原因，不允许扣千寻币
+Then  页面展示通用“关系已失效”提示，不允许扣千寻币；若原因为取消喜欢，前台不得展示“取消喜欢/不喜欢了”
 ```
 
 ---
