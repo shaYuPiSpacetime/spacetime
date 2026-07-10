@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "oss")
 public class OssConfig {
-    /** OSS endpoint，如 oss-cn-hangzhou.aliyuncs.com */
+    /** OSS endpoint，华东 2（上海）为 oss-cn-shanghai.aliyuncs.com */
     private String endpoint;
     /** AccessKey ID */
     private String accessKeyId;

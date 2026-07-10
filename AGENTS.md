@@ -100,3 +100,11 @@ cd frontend && npm run build
 ## Security Note
 
 Do not add or expose secrets. If `.claude/settings*.json` or local config files contain API keys or tokens, do not quote them in responses and recommend rotating/moving them to private environment variables.
+
+## 小程序图标与 OSS 规则
+
+- 小程序底部 Tab 图标继续作为包内资源；其他静态图标必须使用 OSS 公网 URL，不得把同一图标以本地包内资源和远程资源混用。
+- 新增或替换非底部静态图标时，先以无损 PNG/WebP 源文件落盘，再执行 `cd miniapp && npm run assets:upload-icons`；上传脚本仅从 `backend/.env.local` 读取 `DEV_OSS_*`，不得把任何 AccessKey、Secret 或带签名 URL 写进源码、文档或日志。
+- 禁止在图标上传链路中使用图片压缩、格式转换、缩放、裁切后再压缩或 CDN 图片处理参数。上传后客户端仅引用脚本生成的 `miniapp/src/constants/ossIcons.ts`。
+- 图标切图必须保留至少 2x 像素密度，运行时用独立 `Image` 与真实文本布局；禁止将标题、文案和多个图标烘焙进整块图片后缩放显示。
+- 若 OSS 返回 bucket ACL、`AccessDenied` 或缺少 `oss:PutObject`，必须停止替换为远程 URL，先修复 bucket 写权限或使用具备最小权限的上传凭证，再继续页面改造。

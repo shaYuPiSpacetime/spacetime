@@ -34,7 +34,7 @@ oss:
   endpoint: ${DEV_OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}
   access-key-id: ${DEV_OSS_ACCESS_KEY_ID:}
   access-key-secret: ${DEV_OSS_ACCESS_KEY_SECRET:}
-  bucket-name: ${DEV_OSS_BUCKET_NAME:spacetime}
+  bucket-name: ${DEV_OSS_BUCKET_NAME:shikongxiehou}
   cdn-domain: ${DEV_OSS_CDN_DOMAIN:}
   url-expire-seconds: 300
 

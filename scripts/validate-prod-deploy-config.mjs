@@ -135,8 +135,8 @@ for (const expected of [
   'DB_NAME=',
   'DB_USER=shikongxiehou',
   'REDIS_USERNAME=r-bp182i9r17g2ybq30g',
-  'OSS_ENDPOINT=',
-  'OSS_BUCKET_NAME=',
+  'OSS_ENDPOINT=https://oss-cn-shanghai.aliyuncs.com',
+  'OSS_BUCKET_NAME=shikongxiehou',
   'OSS_ACCESS_KEY_ID=',
   'OSS_ACCESS_KEY_SECRET=',
   'WECHAT_PAY_APP_ID=wx03e8cd2d1380c465',
@@ -156,7 +156,9 @@ for (const expected of [
   '${REDIS_USERNAME}',
   '${OSS_ACCESS_KEY_ID}',
   '${OSS_ACCESS_KEY_SECRET}',
-  '${OSS_BUCKET_NAME}',
+  '${OSS_BUCKET_NAME:shikongxiehou}',
+  'endpoint: ${OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}',
+  'bucket-name: ${OSS_BUCKET_NAME:shikongxiehou}',
 ]) {
   assertIncludes(prodConfig, expected, 'backend/src/main/resources/application-prod.yml');
 }
@@ -169,6 +171,8 @@ for (const expected of [
   'r-bp182i9r17g2ybq30gpd.redis.rds.aliyuncs.com',
   '${DEV_REDIS_USERNAME',
   '${DEV_REDIS_PASSWORD',
+  '${DEV_OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}',
+  '${DEV_OSS_BUCKET_NAME:shikongxiehou}',
   '${DEV_OSS_ACCESS_KEY_ID',
   '${DEV_OSS_ACCESS_KEY_SECRET',
 ]) {
