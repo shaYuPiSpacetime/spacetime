@@ -11,6 +11,7 @@ const loginDemo = getDemoPageData('login')
 const ADDRESS_ROW_HEIGHT_RPX = 78
 const ADDRESS_PROVINCE_TOP_SPACER_RPX = 78
 const ADDRESS_WHEEL_BOTTOM_SPACER_RPX = 144
+const USER_LOCATION_SCOPE = 'scope.userLocation'
 
 /**
  * 登录-地址 — 1:1 还原蓝湖「登录-地址」设计稿
@@ -21,6 +22,7 @@ export default function LoginAddressPage() {
   const [cityValue, setCityValue] = useState([0, 0])
   const [showManualSheet, setShowManualSheet] = useState(false)
   const [showLocationSheet, setShowLocationSheet] = useState(false)
+  const [locationLoading, setLocationLoading] = useState(false)
 
   const locationColor = selected ? '#2876FF' : '#A6A6A6'
 
@@ -54,21 +56,34 @@ export default function LoginAddressPage() {
     await submit()
   }
 
-  const handleLocationFail = () => {
+  const handleLocationFail = (message = '定位失败，请手动选择') => {
     setShowLocationSheet(false)
     setShowManualSheet(true)
-    Taro.showToast({ title: '定位失败，请手动选择', icon: 'none' })
+    Taro.showToast({ title: message, icon: 'none' })
   }
 
   const handleLocation = async () => {
+    if (locationLoading) return
+    setLocationLoading(true)
     try {
-      await Taro.getLocation({ type: 'gcj02' })
+      const authorized = await ensureUserLocationAuthorized()
+      if (!authorized) {
+        handleLocationFail('未授权定位，请手动选择')
+        return
+      }
+
+      const location = await Taro.getLocation({ type: 'gcj02' })
+      if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+        throw new Error('INVALID_LOCATION')
+      }
       setSelected('当前位置')
       setShowManualSheet(false)
       setShowLocationSheet(false)
       updateUserInfo({ city: '当前位置' })
     } catch {
       handleLocationFail()
+    } finally {
+      setLocationLoading(false)
     }
   }
 
@@ -210,6 +225,7 @@ export default function LoginAddressPage() {
       {showLocationSheet && (
         <LocationConfirmSheet
           onConfirm={handleLocation}
+          loading={locationLoading}
           onManual={() => {
             setShowLocationSheet(false)
             setShowManualSheet(true)
@@ -508,12 +524,43 @@ function rpxToPx(value: number) {
   return (value * getWindowMetrics().windowWidth) / 750
 }
 
+async function ensureUserLocationAuthorized() {
+  const setting = await Taro.getSetting()
+  const authSetting = (setting.authSetting || {}) as Record<string, boolean | undefined>
+  const current = authSetting[USER_LOCATION_SCOPE]
+
+  if (current === true) return true
+
+  if (current === false) {
+    const modal = await Taro.showModal({
+      title: '需要定位权限',
+      content: '请在设置中允许定位，用于自动完善居住地。',
+      confirmText: '去设置',
+      cancelText: '手动选择',
+    })
+    if (!modal.confirm) return false
+
+    const nextSetting = await Taro.openSetting()
+    const nextAuthSetting = (nextSetting.authSetting || {}) as Record<string, boolean | undefined>
+    return nextAuthSetting[USER_LOCATION_SCOPE] === true
+  }
+
+  try {
+    await Taro.authorize({ scope: USER_LOCATION_SCOPE })
+    return true
+  } catch {
+    return false
+  }
+}
+
 function LocationConfirmSheet({
   onConfirm,
+  loading,
   onManual,
   onClose,
 }: {
   onConfirm: () => void | Promise<void>
+  loading: boolean
   onManual: () => void
   onClose: () => void
 }) {
@@ -560,11 +607,13 @@ function LocationConfirmSheet({
             alignItems: 'center',
             justifyContent: 'center',
           }}
-          onClick={onConfirm}
+          onClick={() => {
+            if (!loading) onConfirm()
+          }}
           hoverClass="btn-hover"
         >
           <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>
-            允许并获取定位
+            {loading ? '定位中...' : '允许并获取定位'}
           </Text>
         </View>
         <View

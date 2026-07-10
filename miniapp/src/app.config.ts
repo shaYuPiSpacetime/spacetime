@@ -1,6 +1,7 @@
 export default {
   lazyCodeLoading: 'requiredComponents',
   pages: [
+    'pages/profile/index',
     'pages/login/index',
     'pages/login/address',
     'pages/login/phone',
@@ -9,7 +10,6 @@ export default {
     'pages/login/identity',
     'pages/login/education',
     'pages/profile/edit',
-    'pages/profile/index',
     'pages/community/index',
     'pages/chat/index',
     'pages/index/index',
