@@ -276,8 +276,6 @@ public class ProfileServiceImpl implements ProfileService {
         record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
         record.setMediaUrl(user.getAvatar());
-        record.setSubmitPayloadJson("{\"avatar\":\"" + json(user.getAvatar()) + "\"}");
-        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
         auditService.submit(record);
     }
 
@@ -297,10 +295,7 @@ public class ProfileServiceImpl implements ProfileService {
         record.setAuditType(type.getCode());
         record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
-        record.setObjectKey(type.getCode());
         record.setContentText(content);
-        record.setSubmitPayloadJson("{\"fieldName\":\"" + type.getCode() + "\",\"contentText\":\"" + json(content) + "\"}");
-        record.setMaskedPayloadJson("{\"fieldName\":\"" + type.getCode() + "\",\"contentText\":\"" + json(StrUtil.maxLength(content, 24)) + "\"}");
         auditService.submit(record);
     }
 
@@ -517,10 +512,5 @@ public class ProfileServiceImpl implements ProfileService {
             throw new BusinessException("用户不存在");
         }
         return user;
-    }
-
-    private String json(String value) {
-        if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

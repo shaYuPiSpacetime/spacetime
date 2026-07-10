@@ -192,14 +192,14 @@
 | L3-PROFILE-001 | ProfileCompletionService | 首登资料保存 | 缺失字段、完成度、下一步计算正确 |
 | L3-PROFILE-002 | ProfileCompletionService | 海外地区 | 首版不支持海外/国家 |
 | L3-VERIFY-001 | VerificationService | 实名提交 | 明文保存、hash 生成、重复校验、历史记录一致 |
-| L3-VERIFY-002 | VerificationService | 审核通过 | `app_user_audit_record.current_effective`、审核历史和准入状态派生一致 |
+| L3-VERIFY-002 | VerificationService | 审核通过 | 审核记录状态、审核历史和准入状态派生一致 |
 | L3-VERIFY-003 | VerificationService | 审核驳回 | 驳回原因回写，允许重新提交 |
 | L3-MEDIA-001 | ProfileMediaService | 背景图上传 | 背景图不计入相册数量 |
-| L3-MEDIA-002 | ProfileMediaService | 当前有效媒体 | 通过后 current_effective 切换正确 |
+| L3-MEDIA-002 | ProfileMediaService | 当前有效媒体 | 通过后按 `APPROVED + submit_time/id` 可查询展示记录 |
 | L3-TEXT-001 | OpenTextAuditService | 三类开放性文字 | 仅允许 `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA` |
 | L3-TEXT-002 | OpenTextAuditService | 删除预留项 | `CUSTOM_OPEN_TEXT` 被拒绝 |
 | L3-VOICE-001 | VoiceIntroService | 语音提交 | 新增 `VOICE_INTRO` 审核记录为 `PENDING` 并触发 Provider |
-| L3-VOICE-002 | VoiceIntroService | 机审通过 | 审核记录变为 `APPROVED` 并切换 `current_effective`，旧有效语音失效 |
+| L3-VOICE-002 | VoiceIntroService | 机审通过 | 审核记录变为 `APPROVED`，资料接口按最近已通过语音展示 |
 | L3-VOICE-003 | VoiceIntroService | 机审失败 | 不覆盖旧通过语音，对外隐藏新语音 |
 | L3-VOICE-004 | VoiceIntroService | Provider 异常 | 保持 pending，不展示未审语音 |
 | L3-PROVIDER-001 | ProviderTaskService | mock 记录 | 业务来源为 `MACHINE`，mock 信息只存在 `external_provider_task.mocked` |

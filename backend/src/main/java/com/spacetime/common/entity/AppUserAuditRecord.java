@@ -17,11 +17,8 @@ public class AppUserAuditRecord extends BaseEntity {
     private Long userId;
     private String auditGroup;
     private String auditType;
-    private Long objectId;
-    private String objectKey;
     private String status;
     private String auditSource;
-    private Integer currentEffective;
     private Long providerTaskId;
 
     private String mediaUrl;
@@ -37,10 +34,7 @@ public class AppUserAuditRecord extends BaseEntity {
     private String boundPhone;
     private String educationMethod;
     private String schoolName;
-    private String educationLevel;
 
-    private String submitPayloadJson;
-    private String maskedPayloadJson;
     private String materialJson;
     private String machineSignalJson;
     private String rejectReason;

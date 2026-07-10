@@ -1,6 +1,7 @@
 package com.spacetime.common.dao.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.entity.AppUserAuditRecord;
@@ -29,6 +30,11 @@ public class AppUserAuditRecordDaoImpl implements AppUserAuditRecordDao {
     }
 
     @Override
+    public Long count(LambdaQueryWrapper<AppUserAuditRecord> wrapper) {
+        return mapper.selectCount(wrapper);
+    }
+
+    @Override
     public Page<AppUserAuditRecord> selectPage(Page<AppUserAuditRecord> page, LambdaQueryWrapper<AppUserAuditRecord> wrapper) {
         return mapper.selectPage(page, wrapper);
     }
@@ -46,5 +52,19 @@ public class AppUserAuditRecordDaoImpl implements AppUserAuditRecordDao {
     @Override
     public void updateById(AppUserAuditRecord entity) {
         mapper.updateById(entity);
+    }
+
+    @Override
+    public void updateAuditResult(AppUserAuditRecord entity) {
+        mapper.update(null, new LambdaUpdateWrapper<AppUserAuditRecord>()
+                .eq(AppUserAuditRecord::getId, entity.getId())
+                .set(AppUserAuditRecord::getStatus, entity.getStatus())
+                .set(AppUserAuditRecord::getAuditSource, entity.getAuditSource())
+                .set(AppUserAuditRecord::getProviderTaskId, entity.getProviderTaskId())
+                .set(AppUserAuditRecord::getMachineSignalJson, entity.getMachineSignalJson())
+                .set(AppUserAuditRecord::getRejectReason, entity.getRejectReason())
+                .set(AppUserAuditRecord::getExpiredReason, entity.getExpiredReason())
+                .set(AppUserAuditRecord::getAuditTime, entity.getAuditTime())
+                .set(AppUserAuditRecord::getAuditorId, entity.getAuditorId()));
     }
 }

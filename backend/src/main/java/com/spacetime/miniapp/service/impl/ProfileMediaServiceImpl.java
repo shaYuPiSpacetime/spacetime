@@ -47,12 +47,8 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
         record.setMediaUrl(req.getMediaUrl());
         record.setThumbUrl(req.getThumbUrl());
-        record.setObjectKey(req.getMediaType());
         record.setMaterialJson("{\"mediaType\":\"" + json(req.getMediaType()) + "\",\"sortOrder\":"
                 + (req.getSortOrder() == null ? 0 : req.getSortOrder()) + "}");
-        record.setSubmitPayloadJson("{\"mediaUrl\":\"" + json(req.getMediaUrl()) + "\",\"thumbUrl\":\""
-                + json(req.getThumbUrl()) + "\"}");
-        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
         auditService.submit(record);
 
         if ("AVATAR".equals(req.getMediaType())) {
@@ -117,7 +113,6 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
         vo.setAuditStatus(record.getStatus());
         vo.setAuditSource(record.getAuditSource());
         vo.setRejectReason(record.getRejectReason());
-        vo.setCurrentEffective(record.getCurrentEffective() != null && record.getCurrentEffective() == 1);
         return vo;
     }
 

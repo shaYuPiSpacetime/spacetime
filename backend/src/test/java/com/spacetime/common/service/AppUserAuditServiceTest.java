@@ -16,17 +16,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * App 用户统一审核服务单元测试。
- * 覆盖统一审核表上线后的状态流转、当前有效标记和审核历史写入。
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AppUserAuditService L3 测试")
@@ -42,7 +38,7 @@ class AppUserAuditServiceTest {
     private AppUserAuditServiceImpl auditService;
 
     @Test
-    @DisplayName("提交审核记录时补齐分组、默认状态、默认来源并写入提交历史")
+    @DisplayName("提交审核记录时补齐默认值并写入提交历史")
     void shouldFillDefaultsAndAppendSubmitHistory() {
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setId(1L);
@@ -54,7 +50,6 @@ class AppUserAuditServiceTest {
         assertThat(record.getAuditGroup()).isEqualTo("TEXT");
         assertThat(record.getStatus()).isEqualTo(AppUserAuditStatusEnum.PENDING.getCode());
         assertThat(record.getAuditSource()).isEqualTo(AuditSourceEnum.MACHINE.getCode());
-        assertThat(record.getCurrentEffective()).isZero();
         assertThat(record.getSubmitTime()).isNotNull();
         verify(recordDao).insert(record);
 
@@ -70,22 +65,17 @@ class AppUserAuditServiceTest {
     }
 
     @Test
-    @DisplayName("人工通过非相册审核时同类型旧生效记录下线，新记录生效并写历史")
-    void shouldApproveAndReplacePreviousEffectiveRecord() {
-        AppUserAuditRecord current = record(2L, 10L, AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.PENDING, 0);
-        AppUserAuditRecord oldEffective = record(1L, 10L, AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.APPROVED, 1);
+    @DisplayName("人工通过审核时更新状态并写历史")
+    void shouldApproveAndAppendHistory() {
+        AppUserAuditRecord current = record(2L, 10L, AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.PENDING);
         when(recordDao.selectById(2L)).thenReturn(current);
-        when(recordDao.selectList(any())).thenReturn(List.of(oldEffective));
 
         auditService.manualAudit(2L, "APPROVE", null, 99L, "admin");
 
-        assertThat(oldEffective.getCurrentEffective()).isZero();
         assertThat(current.getStatus()).isEqualTo(AppUserAuditStatusEnum.APPROVED.getCode());
         assertThat(current.getAuditSource()).isEqualTo(AuditSourceEnum.MANUAL.getCode());
-        assertThat(current.getCurrentEffective()).isEqualTo(1);
         assertThat(current.getAuditorId()).isEqualTo(99L);
-        verify(recordDao, atLeastOnce()).updateById(oldEffective);
-        verify(recordDao, atLeastOnce()).updateById(current);
+        verify(recordDao).updateAuditResult(current);
 
         ArgumentCaptor<AppUserAuditHistory> historyCaptor = ArgumentCaptor.forClass(AppUserAuditHistory.class);
         verify(historyDao).insert(historyCaptor.capture());
@@ -94,17 +84,16 @@ class AppUserAuditServiceTest {
     }
 
     @Test
-    @DisplayName("系统失效会清除当前有效标记并写入 SYSTEM_EXPIRE 历史")
+    @DisplayName("系统失效会更新状态并写入 SYSTEM_EXPIRE 历史")
     void shouldExpireCurrentRecordBySystem() {
-        AppUserAuditRecord current = record(3L, 10L, AppUserAuditTypeEnum.VOICE_INTRO, AppUserAuditStatusEnum.APPROVED, 1);
+        AppUserAuditRecord current = record(3L, 10L, AppUserAuditTypeEnum.VOICE_INTRO, AppUserAuditStatusEnum.APPROVED);
         when(recordDao.selectById(3L)).thenReturn(current);
 
         auditService.systemExpire(3L, "user deleted voice");
 
         assertThat(current.getStatus()).isEqualTo(AppUserAuditStatusEnum.EXPIRED.getCode());
-        assertThat(current.getCurrentEffective()).isZero();
         assertThat(current.getExpiredReason()).isEqualTo("user deleted voice");
-        verify(recordDao).updateById(current);
+        verify(recordDao).updateAuditResult(current);
 
         ArgumentCaptor<AppUserAuditHistory> historyCaptor = ArgumentCaptor.forClass(AppUserAuditHistory.class);
         verify(historyDao).insert(historyCaptor.capture());
@@ -115,11 +104,32 @@ class AppUserAuditServiceTest {
     }
 
     @Test
+    @DisplayName("人工驳回和失效会清理另一类原因，避免详情展示旧原因")
+    void shouldClearOppositeReasonWhenManualRejectOrExpire() {
+        AppUserAuditRecord current = record(4L, 10L, AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.REJECTED);
+        current.setRejectReason("old reject");
+        when(recordDao.selectById(4L)).thenReturn(current);
+
+        auditService.manualAudit(4L, "EXPIRE", "expired reason", 99L, "admin");
+
+        assertThat(current.getStatus()).isEqualTo(AppUserAuditStatusEnum.EXPIRED.getCode());
+        assertThat(current.getRejectReason()).isNull();
+        assertThat(current.getExpiredReason()).isEqualTo("expired reason");
+
+        current.setExpiredReason("old expired");
+        auditService.manualAudit(4L, "REJECT", "reject reason", 99L, "admin");
+
+        assertThat(current.getStatus()).isEqualTo(AppUserAuditStatusEnum.REJECTED.getCode());
+        assertThat(current.getRejectReason()).isEqualTo("reject reason");
+        assertThat(current.getExpiredReason()).isNull();
+    }
+
+    @Test
     @DisplayName("三重认证等级按实名生效、头像最新通过、学历生效计算")
     void shouldCountTripleCertificationWithUnifiedAuditRules() {
-        AppUserAuditRecord realName = record(1L, 10L, AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED, 1);
-        AppUserAuditRecord avatar = record(2L, 10L, AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED, 0);
-        AppUserAuditRecord education = record(3L, 10L, AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.APPROVED, 1);
+        AppUserAuditRecord realName = record(1L, 10L, AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED);
+        AppUserAuditRecord avatar = record(2L, 10L, AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED);
+        AppUserAuditRecord education = record(3L, 10L, AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.APPROVED);
         when(recordDao.selectOne(any())).thenReturn(realName, avatar, education);
 
         int count = auditService.certificationApprovedCount(10L);
@@ -128,7 +138,7 @@ class AppUserAuditServiceTest {
     }
 
     private AppUserAuditRecord record(Long id, Long userId, AppUserAuditTypeEnum type,
-            AppUserAuditStatusEnum status, Integer currentEffective) {
+            AppUserAuditStatusEnum status) {
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setId(id);
         record.setUserId(userId);
@@ -136,7 +146,6 @@ class AppUserAuditServiceTest {
         record.setAuditType(type.getCode());
         record.setStatus(status.getCode());
         record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
-        record.setCurrentEffective(currentEffective);
         return record;
     }
 }

@@ -14,6 +14,9 @@ import {
   getRealNamePage,
   getEducationPage,
   getAvatarPage,
+  getRealNameStats,
+  getEducationStats,
+  getAvatarStats,
   getRealNameDetail,
   getEducationDetail,
   getAvatarDetail,
@@ -25,72 +28,38 @@ import {
   type PageResult,
   type FieldEntry,
   type VerificationPageParams,
+  type VerificationStatsVO,
 } from '@/api/verification';
 
+type DetailParams = { historyPage?: number; historySize?: number };
+
 type TabConfig = {
-  key: string;
+  key: 'real-name' | 'education' | 'avatar';
   title: string;
+  listTitle: string;
   fetchFn: (params: VerificationPageParams) => Promise<any>;
-  detailFn: (id: number) => Promise<any>;
+  statsFn: () => Promise<any>;
+  detailFn: (id: number, params?: DetailParams) => Promise<any>;
   auditFn: (id: number, data: { action: string; rejectReason?: string }) => Promise<any>;
-  statusOptions: { value: string; label: string }[];
   detailTitle: string;
 };
 
-type StatItem = { label: string; value: string; note: string };
+type StatItem = { label: string; value: string };
 
-const TABS: Record<string, TabConfig> = {
-  '/verify/real-name': {
-    key: 'real-name',
-    title: '实名认证审核',
-    fetchFn: getRealNamePage,
-    detailFn: getRealNameDetail,
-    auditFn: auditRealName,
-    statusOptions: [
-      { value: '', label: '全部状态' },
-      { value: 'PENDING', label: '待审核' },
-      { value: 'APPROVED', label: '已通过' },
-      { value: 'REJECTED', label: '已驳回' },
-    ],
-    detailTitle: '实名认证详情',
-  },
-  '/verify/education': {
-    key: 'education',
-    title: '学历认证审核',
-    fetchFn: getEducationPage,
-    detailFn: getEducationDetail,
-    auditFn: auditEducation,
-    statusOptions: [
-      { value: '', label: '全部状态' },
-      { value: 'PENDING', label: '待审核' },
-      { value: 'APPROVED', label: '已通过' },
-      { value: 'REJECTED', label: '已驳回' },
-    ],
-    detailTitle: '学历认证详情',
-  },
-  '/verify/avatar': {
-    key: 'avatar',
-    title: '头像认证审核',
-    fetchFn: getAvatarPage,
-    detailFn: getAvatarDetail,
-    auditFn: auditAvatar,
-    statusOptions: [
-      { value: '', label: '全部状态' },
-      { value: 'PENDING', label: '待审核' },
-      { value: 'APPROVED', label: '已通过' },
-      { value: 'REJECTED', label: '已驳回' },
-    ],
-    detailTitle: '头像认证详情',
-  },
-};
+const STATUS_OPTIONS = [
+  { value: '', label: '全部状态' },
+  { value: 'PENDING', label: '待审核' },
+  { value: 'REVIEWING', label: '审核中' },
+  { value: 'APPROVED', label: '已通过' },
+  { value: 'REJECTED', label: '已驳回' },
+  { value: 'EXPIRED', label: '已失效' },
+];
 
 const STATUS_MAP: Record<string, { label: string; variant: 'success' | 'destructive' | 'warning' | 'secondary' }> = {
   PENDING: { label: '待审核', variant: 'warning' },
+  REVIEWING: { label: '审核中', variant: 'warning' },
   APPROVED: { label: '已通过', variant: 'success' },
   REJECTED: { label: '已驳回', variant: 'destructive' },
-  FACE_FAILED: { label: '人像失败', variant: 'warning' },
-  CONFLICT: { label: '冲突', variant: 'warning' },
-  NOT_CERTIFIED: { label: '未认证', variant: 'secondary' },
   EXPIRED: { label: '已失效', variant: 'secondary' },
 };
 
@@ -105,89 +74,62 @@ const AUDIT_SOURCE_MAP: Record<string, string> = {
   MANUAL: '人工审核',
 };
 
+const AUDIT_ACTION_MAP: Record<string, string> = {
+  SUBMIT: '提交审核',
+  MACHINE_START: '机审开始',
+  MACHINE_PASS: '机审通过',
+  MACHINE_REJECT: '机审驳回',
+  MANUAL_APPROVE: '人工通过',
+  MANUAL_REJECT: '人工驳回',
+  MANUAL_EXPIRE: '人工失效',
+  SYSTEM_EXPIRE: '系统失效',
+};
+
 const SUBMIT_TIME_OPTIONS = [
   { value: '', label: '全部时间' },
   { value: 'TODAY', label: '今天' },
   { value: 'LAST_7_DAYS', label: '近7天' },
 ];
 
-const FACE_RECOGNITION_OPTIONS = [
-  { value: '', label: '全部' },
-  { value: 'PORTRAIT', label: '是人像' },
-  { value: 'FAILED', label: '人像失败' },
-];
-
-const CORE_ACCESS_OPTIONS = [
-  { value: '', label: '全部' },
-  { value: 'CORE_ALLOWED', label: '已开放' },
-  { value: 'CORE_PENDING', label: '未开放' },
-];
-
 const EDUCATION_METHOD_OPTIONS = [
-  { value: '', label: '全部' },
+  { value: '', label: '全部认证方式' },
   { value: 'CHSI', label: '学信网验证码' },
-  { value: 'STUDENT_CARD', label: '学生证材料' },
+  { value: 'MATERIAL_UPLOAD', label: '证书材料' },
+  { value: 'DIPLOMA_NO', label: '证书编号' },
 ];
 
-const MODULE_STATS: Record<string, { label: string; value: string; note: string }[]> = {
-  avatar: [
-    { label: '待审核', value: '318', note: '优先' },
-    { label: '人像失败', value: '27', note: '复核' },
-    { label: '今日通过', value: '1,204', note: '刷新' },
-    { label: '今日驳回', value: '96', note: '通知' },
-  ],
-  'real-name': [
-    { label: '待审核', value: '142', note: '三要素' },
-    { label: '冲突记录', value: '9', note: '复核' },
-    { label: '今日通过', value: '526', note: '站内信' },
-    { label: '今日驳回', value: '31', note: '通知' },
-  ],
-  education: [
-    { label: '待审核', value: '96', note: '材料' },
-    { label: '临近 SLA', value: '18', note: '提醒' },
-    { label: '今日通过', value: '402', note: '刷新' },
-    { label: '今日驳回', value: '22', note: '通知' },
-  ],
+const TABS: Record<string, TabConfig> = {
+  '/verify/real-name': {
+    key: 'real-name',
+    title: '实名认证审核',
+    listTitle: '实名认证审核列表',
+    fetchFn: getRealNamePage,
+    statsFn: getRealNameStats,
+    detailFn: getRealNameDetail,
+    auditFn: auditRealName,
+    detailTitle: '实名认证审核详情',
+  },
+  '/verify/education': {
+    key: 'education',
+    title: '学历认证审核',
+    listTitle: '学历认证审核列表',
+    fetchFn: getEducationPage,
+    statsFn: getEducationStats,
+    detailFn: getEducationDetail,
+    auditFn: auditEducation,
+    detailTitle: '学历认证审核详情',
+  },
+  '/verify/avatar': {
+    key: 'avatar',
+    title: '头像认证审核',
+    listTitle: '头像认证审核列表',
+    fetchFn: getAvatarPage,
+    statsFn: getAvatarStats,
+    detailFn: getAvatarDetail,
+    auditFn: auditAvatar,
+    detailTitle: '头像认证审核详情',
+  },
 };
-
-const EDUCATION_METHOD_MAP: Record<string, string> = {
-  CHSI: '学信网',
-  ONLINE_CODE: '在线验证码',
-  DIPLOMA_NO: '学历证书编号',
-};
-
-function formatFieldValue(label: string, value: string): string {
-  if (!value) return '-';
-  if (label === '认证方式') return EDUCATION_METHOD_MAP[value] || value;
-  if (label === '人脸核身状态' || label === '认证状态') return STATUS_MAP[value]?.label || value;
-  return value;
-}
-
-function auditListActionLabel(moduleKey: string, record: VerificationVO): string {
-  if (moduleKey === 'avatar') {
-    if (record.status === 'PENDING') return '查看大图';
-    if (record.status === 'FACE_FAILED') return '复核';
-    if (record.status === 'APPROVED') return '历史';
-    return '查看';
-  }
-  if (moduleKey === 'real-name') {
-    if (record.status === 'PENDING') return '查看详情';
-    if (record.status === 'CONFLICT' || record.status === 'REJECTED') return '复审';
-    if (record.status === 'APPROVED') return '详情';
-    return '查看';
-  }
-  if (record.status === 'PENDING') return '查看';
-  if (record.status === 'APPROVED') return '详情';
-  if (record.status === 'REJECTED') return '查看';
-  return '复核';
-}
-
-function canAuditAction(moduleKey: string, status?: string): boolean {
-  if (status === 'PENDING') return true;
-  if (moduleKey === 'avatar' && status === 'FACE_FAILED') return true;
-  if (moduleKey === 'real-name' && (status === 'CONFLICT' || status === 'REJECTED')) return true;
-  return false;
-}
 
 function QueryField({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -198,47 +140,94 @@ function QueryField({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+function buildStats(stats: VerificationStatsVO): StatItem[] {
+  return [
+    { label: '待审核', value: String(stats.pendingCount ?? 0) },
+    { label: '审核中', value: String(stats.reviewingCount ?? 0) },
+    { label: '今日通过', value: String(stats.approvedTodayCount ?? 0) },
+    { label: '今日驳回', value: String(stats.rejectedTodayCount ?? 0) },
+  ];
+}
+
+function badgeOf(status?: string) {
+  return STATUS_MAP[status || ''] || { label: status || '-', variant: 'secondary' as const };
+}
+
+function formatFieldValue(label: string, value?: string): string {
+  if (!value) return '-';
+  if (label.includes('状态')) return STATUS_MAP[value]?.label || value;
+  return value;
+}
+
+function renderMaybeLinks(value?: string) {
+  if (!value) return '-';
+  const parts = value.split('、').filter(Boolean);
+  if (parts.length > 0 && parts.every((part) => /^https?:\/\//i.test(part))) {
+    return (
+      <div className="flex flex-col gap-1">
+        {parts.map((url, index) => (
+          <a key={url} className="text-primary hover:underline" href={url} target="_blank" rel="noreferrer">
+            材料链接{parts.length > 1 ? index + 1 : ''}
+          </a>
+        ))}
+      </div>
+    );
+  }
+  return value;
+}
+
 export default function VerificationManagementPage() {
   const location = useLocation();
-  const currentPath = Object.keys(TABS).find((p) => location.pathname.startsWith(p)) || '/verify/real-name';
+  const currentPath = Object.keys(TABS).find((path) => location.pathname.startsWith(path)) || '/verify/real-name';
   const tab = TABS[currentPath];
 
   const [list, setList] = useState<VerificationVO[]>([]);
   const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState<StatItem[]>([]);
+  const [stats, setStats] = useState<StatItem[]>(buildStats({ pendingCount: 0, reviewingCount: 0, approvedTodayCount: 0, rejectedTodayCount: 0, expiredCount: 0 }));
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
   const [auditSource, setAuditSource] = useState('');
   const [submitTime, setSubmitTime] = useState('');
-  const [faceRecognition, setFaceRecognition] = useState('');
-  const [coreAccessStatus, setCoreAccessStatus] = useState('');
   const [educationMethod, setEducationMethod] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [auditOpen, setAuditOpen] = useState(false);
-  const [auditTarget, setAuditTarget] = useState<VerificationVO | null>(null);
-  const [auditAction, setAuditAction] = useState<'APPROVE' | 'REJECT'>('APPROVE');
-  const [rejectReason, setRejectReason] = useState('');
-  const [auditing, setAuditing] = useState(false);
-
-  // 详情弹窗状态。
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<VerificationAuditDetailVO | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditAction, setAuditAction] = useState<'APPROVE' | 'REJECT' | 'EXPIRE'>('APPROVE');
+  const [rejectReason, setRejectReason] = useState('');
+  const [auditing, setAuditing] = useState(false);
+
+  const [sensitiveConfirmOpen, setSensitiveConfirmOpen] = useState(false);
+  const [sensitiveOpen, setSensitiveOpen] = useState(false);
+
+  useEffect(() => {
+    setPage(1);
+    setPageSize(10);
+    setKeyword('');
+    setStatus('');
+    setAuditSource('');
+    setSubmitTime('');
+    setEducationMethod('');
+    setDetailOpen(false);
+  }, [tab.key]);
 
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
       const res = await tab.fetchFn({
         page,
-        size: 10,
+        size: pageSize,
         keyword: keyword || undefined,
         status: status || undefined,
         auditSource: auditSource || undefined,
         submitTime: submitTime || undefined,
-        faceRecognition: tab.key === 'avatar' ? faceRecognition || undefined : undefined,
-        coreAccessStatus: tab.key === 'real-name' ? coreAccessStatus || undefined : undefined,
         educationMethod: tab.key === 'education' ? educationMethod || undefined : undefined,
       });
       const data = res.data as PageResult<VerificationVO>;
@@ -247,58 +236,11 @@ export default function VerificationManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [auditSource, coreAccessStatus, educationMethod, faceRecognition, keyword, page, status, submitTime, tab]);
+  }, [auditSource, educationMethod, keyword, page, pageSize, status, submitTime, tab]);
 
   const fetchStats = useCallback(async () => {
-    const totalOf = async (params: Partial<VerificationPageParams>) => {
-      const res = await tab.fetchFn({ page: 1, size: 1, ...params });
-      const data = res.data as PageResult<VerificationVO>;
-      return data.total ?? 0;
-    };
-    try {
-      if (tab.key === 'avatar') {
-        const [pending, faceFailed, approvedToday, rejectedToday] = await Promise.all([
-          totalOf({ status: 'PENDING' }),
-          totalOf({ status: 'FACE_FAILED' }),
-          totalOf({ status: 'APPROVED', submitTime: 'TODAY' }),
-          totalOf({ status: 'REJECTED', submitTime: 'TODAY' }),
-        ]);
-        setStats([
-          { label: '待审核', value: String(pending), note: '实时' },
-          { label: '人像失败', value: String(faceFailed), note: '复核' },
-          { label: '今日通过', value: String(approvedToday), note: '接口统计' },
-          { label: '今日驳回', value: String(rejectedToday), note: '接口统计' },
-        ]);
-      } else if (tab.key === 'real-name') {
-        const [pending, conflict, approvedToday, rejectedToday] = await Promise.all([
-          totalOf({ status: 'PENDING' }),
-          totalOf({ status: 'CONFLICT' }),
-          totalOf({ status: 'APPROVED', submitTime: 'TODAY' }),
-          totalOf({ status: 'REJECTED', submitTime: 'TODAY' }),
-        ]);
-        setStats([
-          { label: '待审核', value: String(pending), note: '三要素' },
-          { label: '冲突记录', value: String(conflict), note: '复核' },
-          { label: '今日通过', value: String(approvedToday), note: '接口统计' },
-          { label: '今日驳回', value: String(rejectedToday), note: '接口统计' },
-        ]);
-      } else {
-        const [pending, last7Days, approvedToday, rejectedToday] = await Promise.all([
-          totalOf({ status: 'PENDING' }),
-          totalOf({ submitTime: 'LAST_7_DAYS' }),
-          totalOf({ status: 'APPROVED', submitTime: 'TODAY' }),
-          totalOf({ status: 'REJECTED', submitTime: 'TODAY' }),
-        ]);
-        setStats([
-          { label: '待审核', value: String(pending), note: '材料' },
-          { label: '近7天提交', value: String(last7Days), note: '接口统计' },
-          { label: '今日通过', value: String(approvedToday), note: '接口统计' },
-          { label: '今日驳回', value: String(rejectedToday), note: '接口统计' },
-        ]);
-      }
-    } catch {
-      setStats(MODULE_STATS[tab.key].map((item) => ({ ...item, value: '0' })));
-    }
+    const res = await tab.statsFn();
+    setStats(buildStats(res.data as VerificationStatsVO));
   }, [tab]);
 
   useEffect(() => {
@@ -309,34 +251,47 @@ export default function VerificationManagementPage() {
     fetchStats();
   }, [fetchStats]);
 
-  async function handleAudit() {
-    if (!auditTarget) return;
-    if (auditAction === 'REJECT' && !rejectReason.trim()) return;
-    setAuditing(true);
-    try {
-      await tab.auditFn(auditTarget.id, {
-        action: auditAction,
-        rejectReason: auditAction === 'REJECT' ? rejectReason.trim() : undefined,
-      });
-      setAuditOpen(false);
-      setDetailOpen(false);
-      fetchList();
-      fetchStats();
-    } finally {
-      setAuditing(false);
-    }
-  }
-
-  async function openDetail(record: VerificationVO) {
-    setDetailLoading(true);
+  async function loadDetail(id: number, nextHistoryPage = 1) {
     setDetailOpen(true);
+    setDetailLoading(true);
+    setHistoryPage(nextHistoryPage);
     try {
-      const res = await tab.detailFn(record.id);
+      const res = await tab.detailFn(id, { historyPage: nextHistoryPage, historySize: 5 });
       setDetail(res.data as VerificationAuditDetailVO);
     } finally {
       setDetailLoading(false);
     }
   }
+
+  async function handleAudit() {
+    if (!detail) return;
+    if ((auditAction === 'REJECT' || auditAction === 'EXPIRE') && !rejectReason.trim()) return;
+    setAuditing(true);
+    try {
+      await tab.auditFn(detail.id, {
+        action: auditAction,
+        rejectReason: auditAction === 'REJECT' || auditAction === 'EXPIRE' ? rejectReason.trim() : undefined,
+      });
+      setAuditOpen(false);
+      await loadDetail(detail.id, historyPage);
+      await fetchList();
+      await fetchStats();
+    } finally {
+      setAuditing(false);
+    }
+  }
+
+  function openAudit(action: 'APPROVE' | 'REJECT' | 'EXPIRE') {
+    setAuditAction(action);
+    setRejectReason('');
+    setAuditOpen(true);
+  }
+
+  const bottomTip = tab.key === 'education'
+    ? '学信网验证码、证书材料、证书编号分开审核，海外学历暂不支持'
+    : tab.key === 'avatar'
+      ? '头像认证仅针对单张头像，不影响资料相册内容状态'
+      : '';
 
   return (
     <div className="space-y-4">
@@ -346,8 +301,6 @@ export default function VerificationManagementPage() {
             <CardTitle>{tab.title}</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">用户管理 / {tab.title}</p>
           </div>
-          {tab.key === 'real-name' && <Button variant="outline" size="sm">高敏审计</Button>}
-          {tab.key === 'education' && <Button variant="outline" size="sm">学历规则</Button>}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-4">
@@ -355,7 +308,6 @@ export default function VerificationManagementPage() {
               <div key={item.label} className="rounded-md border border-[#E6EDF7] bg-[#F7FAFE] p-4">
                 <div className="text-xs text-muted-foreground">{item.label}</div>
                 <div className="mt-1 text-xl font-semibold text-[#1F2433]">{item.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{item.note}</div>
               </div>
             ))}
           </div>
@@ -365,62 +317,28 @@ export default function VerificationManagementPage() {
               <Input
                 placeholder="姓名/昵称/手机号/身份证/标签"
                 value={keyword}
-                onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
+                onChange={(event) => { setKeyword(event.target.value); setPage(1); }}
               />
             </QueryField>
             <QueryField label="提交时间">
-              <Select
-                options={SUBMIT_TIME_OPTIONS}
-                value={submitTime}
-                onChange={(v) => { setSubmitTime(v); setPage(1); }}
-              />
+              <Select options={SUBMIT_TIME_OPTIONS} value={submitTime} onChange={(value) => { setSubmitTime(value); setPage(1); }} />
             </QueryField>
             <QueryField label="审核状态">
-              <Select
-                options={tab.statusOptions}
-                value={status}
-                onChange={(v) => { setStatus(v); setPage(1); }}
-              />
+              <Select options={STATUS_OPTIONS} value={status} onChange={(value) => { setStatus(value); setPage(1); }} />
             </QueryField>
             <QueryField label="审核来源">
-              <Select
-                options={AUDIT_SOURCE_OPTIONS}
-                value={auditSource}
-                onChange={(v) => { setAuditSource(v); setPage(1); }}
-              />
+              <Select options={AUDIT_SOURCE_OPTIONS} value={auditSource} onChange={(value) => { setAuditSource(value); setPage(1); }} />
             </QueryField>
-            {tab.key === 'avatar' && (
-              <QueryField label="人像识别">
-                <Select
-                  options={FACE_RECOGNITION_OPTIONS}
-                  value={faceRecognition}
-                  onChange={(v) => { setFaceRecognition(v); setPage(1); }}
-                />
-              </QueryField>
-            )}
-            {tab.key === 'real-name' && (
-              <QueryField label="核心准入">
-                <Select
-                  options={CORE_ACCESS_OPTIONS}
-                  value={coreAccessStatus}
-                  onChange={(v) => { setCoreAccessStatus(v); setPage(1); }}
-                />
-              </QueryField>
-            )}
             {tab.key === 'education' && (
               <QueryField label="认证方式">
-                <Select
-                  options={EDUCATION_METHOD_OPTIONS}
-                  value={educationMethod}
-                  onChange={(v) => { setEducationMethod(v); setPage(1); }}
-                />
+                <Select options={EDUCATION_METHOD_OPTIONS} value={educationMethod} onChange={(value) => { setEducationMethod(value); setPage(1); }} />
               </QueryField>
             )}
           </div>
 
           <div className="flex items-center gap-3">
             <Button variant="primary" size="sm" onClick={fetchList}>
-              <Search className="h-4 w-4 mr-1" /> 搜索
+              <Search className="mr-1 h-4 w-4" /> 搜索
             </Button>
             <Button
               variant="outline"
@@ -430,26 +348,15 @@ export default function VerificationManagementPage() {
                 setStatus('');
                 setAuditSource('');
                 setSubmitTime('');
-                setFaceRecognition('');
-                setCoreAccessStatus('');
                 setEducationMethod('');
                 setPage(1);
               }}
             >
-              <RotateCcw className="h-4 w-4 mr-1" /> 重置
+              <RotateCcw className="mr-1 h-4 w-4" /> 重置
             </Button>
           </div>
 
-          <div>
-            <h2 className="text-base font-semibold text-[#1F2433]">
-              {tab.key === 'avatar' ? '头像审核列表' : tab.key === 'real-name' ? '实名审核列表' : '学历审核列表'}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {tab.key === 'avatar' && '主列表展示列表和公共分页，不展开图片详情'}
-              {tab.key === 'real-name' && '姓名、身份证号、手机号默认脱敏'}
-              {tab.key === 'education' && '学信网验证码与学生证材料分开审核，海外学历暂不支持。'}
-            </p>
-          </div>
+          <h2 className="text-base font-semibold text-[#1F2433]">{tab.listTitle}</h2>
 
           <Table>
             <TableHeader>
@@ -457,9 +364,9 @@ export default function VerificationManagementPage() {
                 <TableHead>用户</TableHead>
                 {tab.key === 'real-name' && (
                   <>
-                    <TableHead>手机号</TableHead>
-                    <TableHead>真实姓名</TableHead>
+                    <TableHead>姓名</TableHead>
                     <TableHead>身份证号</TableHead>
+                    <TableHead>手机号</TableHead>
                   </>
                 )}
                 {tab.key === 'education' && (
@@ -473,57 +380,59 @@ export default function VerificationManagementPage() {
                   <>
                     <TableHead>头像</TableHead>
                     <TableHead>提交时间</TableHead>
-                    <TableHead>驳回原因</TableHead>
                   </>
                 )}
                 <TableHead>状态</TableHead>
+                <TableHead>驳回/失效原因</TableHead>
                 <TableHead>审核来源</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">加载中…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">加载中...</TableCell></TableRow>
               ) : list.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow>
-              ) : list.map((v) => {
-                const st = STATUS_MAP[v.status] || { label: v.status, variant: 'secondary' as const };
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow>
+              ) : list.map((row) => {
+                const statusBadge = badgeOf(row.status);
                 return (
-                  <TableRow key={v.id}>
+                  <TableRow key={row.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9" src={v.avatar || undefined} fallback={v.nickname?.[0] || 'U'} />
-                        <span className="text-sm font-medium">{v.nickname || '-'}</span>
+                        <Avatar className="h-9 w-9" src={row.avatar || undefined} fallback={row.nickname?.[0] || 'U'} />
+                        <span className="text-sm font-medium">{row.nickname || '-'}</span>
                       </div>
                     </TableCell>
                     {tab.key === 'real-name' && (
                       <>
-                        <TableCell className="text-muted-foreground">{v.phone || '-'}</TableCell>
-                        <TableCell>{v.realName || '-'}</TableCell>
-                        <TableCell className="text-muted-foreground">{v.idCard || '-'}</TableCell>
+                        <TableCell>{row.realName || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{row.idCard || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{row.phone || '-'}</TableCell>
                       </>
                     )}
                     {tab.key === 'education' && (
                       <>
-                        <TableCell>{v.educationIdentity || '-'}</TableCell>
-                        <TableCell className="max-w-[220px] truncate text-muted-foreground">{v.educationMaterialSummary || '-'}</TableCell>
-                        <TableCell className="text-muted-foreground">{v.submitTime || '-'}</TableCell>
+                        <TableCell>{row.educationIdentity || '-'}</TableCell>
+                        <TableCell className="max-w-[260px] text-muted-foreground">{renderMaybeLinks(row.educationMaterialSummary)}</TableCell>
+                        <TableCell className="text-muted-foreground">{row.submitTime || '-'}</TableCell>
                       </>
                     )}
                     {tab.key === 'avatar' && (
                       <>
                         <TableCell>
-                          <Avatar className="h-10 w-10 rounded-md" src={v.avatarUrl || v.avatar || undefined} fallback={v.nickname?.[0] || 'U'} />
+                          <button type="button" onClick={() => setPreviewUrl(row.avatarUrl || row.avatar || null)}>
+                            <Avatar className="h-10 w-10 rounded-md" src={row.avatarUrl || row.avatar || undefined} fallback={row.nickname?.[0] || 'U'} />
+                          </button>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{v.submitTime || '-'}</TableCell>
-                        <TableCell className="max-w-[200px] truncate text-muted-foreground">{v.rejectReason || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{row.submitTime || '-'}</TableCell>
                       </>
                     )}
-                    <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
-                    <TableCell className="text-muted-foreground">{AUDIT_SOURCE_MAP[v.auditSource] || v.auditSource || '-'}</TableCell>
+                    <TableCell><Badge variant={statusBadge.variant}>{statusBadge.label}</Badge></TableCell>
+                    <TableCell className="max-w-[220px] truncate text-muted-foreground">{row.rejectReason || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">{AUDIT_SOURCE_MAP[row.auditSource] || row.auditSource || '-'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => openDetail(v)}>
-                        <Eye className="h-4 w-4 mr-1" /> {auditListActionLabel(tab.key, v)}
+                      <Button variant="ghost" size="sm" onClick={() => loadDetail(row.id, 1)}>
+                        <Eye className="mr-1 h-4 w-4" /> 详情
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -532,122 +441,221 @@ export default function VerificationManagementPage() {
             </TableBody>
           </Table>
 
-          <p className="text-sm text-muted-foreground">
-            {tab.key === 'avatar' && '头像审核仅针对单张头像，不影响资料相册内容状态。'}
-            {tab.key === 'real-name' && '后台不展示人脸核身；单条承诺仅校验三要素，不作为准入认证。查看高敏二次确认后确认后写入审计日志。'}
-            {tab.key === 'education' && '学历通过后仅更新学历认证状态，不自动覆盖用户基础资料字段。'}
-          </p>
+          {bottomTip && <p className="text-sm text-muted-foreground">{bottomTip}</p>}
 
-          <Pagination current={page} total={total} onChange={setPage} />
+          <Pagination
+            current={page}
+            total={total}
+            pageSize={pageSize}
+            onChange={setPage}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 
-      {/* 详情弹窗 */}
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} className="max-w-xl">
+      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} className="!w-[calc(100vw-96px)] !max-w-[1280px] h-[92vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{tab.detailTitle}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 mt-4">
+        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 pb-28">
           {detailLoading ? (
-            <p className="text-center text-muted-foreground py-4">加载中…</p>
+            <p className="py-4 text-center text-muted-foreground">加载中...</p>
           ) : detail ? (
             <>
-              {/* 用户信息 */}
-              <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-md">
-                <Avatar className="h-10 w-10" src={detail.avatar || undefined} fallback={detail.nickname?.[0] || 'U'} />
-                <div>
-                  <p className="font-medium">{detail.nickname}</p>
-                  <p className="text-xs text-muted-foreground">用户ID: {detail.userId} · 认证等级: Lv.{detail.verifyLevel ?? 0}</p>
+              <div className="flex items-center justify-between gap-3 rounded-md bg-muted/40 p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-11 w-11" src={detail.avatar || undefined} fallback={detail.nickname?.[0] || 'U'} />
+                  <div>
+                    <p className="font-medium">{detail.nickname}</p>
+                    <p className="text-xs text-muted-foreground">用户ID: {detail.userId} · 认证等级: Lv.{detail.verifyLevel ?? 0}</p>
+                  </div>
                 </div>
+                <Badge variant={badgeOf(detail.status).variant}>{badgeOf(detail.status).label}</Badge>
               </div>
 
-              {/* 认证内容 */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">认证内容</h4>
-                {detail.fields && detail.fields.length > 0 ? (
-                  detail.fields.map((f: FieldEntry, i: number) => (
-                    <div key={i} className="flex gap-2 text-sm">
-                      <span className="text-muted-foreground min-w-[90px]">{f.label}:</span>
-                      <span className="font-medium">{formatFieldValue(f.label, f.value)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">暂无认证内容</p>
-                )}
-              </div>
-
-              {/* 审核信息 */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">审核信息</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-muted-foreground">提交时间:</span> {detail.submitTime || '-'}</div>
-                  <div><span className="text-muted-foreground">审核时间:</span> {detail.resultTime || '-'}</div>
-                  <div><span className="text-muted-foreground">审核来源:</span> {AUDIT_SOURCE_MAP[detail.auditSource] || detail.auditSource || '-'}</div>
-                </div>
-                {detail.rejectReason && (
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">驳回原因:</span> <span className="text-red-600">{detail.rejectReason}</span>
+              <div className={tab.key === 'avatar' ? 'grid items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]' : 'space-y-4'}>
+                {tab.key === 'avatar' && (detail.mediaUrl || detail.avatar) && (
+                  <div className="rounded-md border border-[#E6EDF7] bg-white p-4">
+                    <h4 className="mb-3 text-sm font-medium">头像预览</h4>
+                    <button
+                      type="button"
+                      className="flex h-[260px] w-full items-center justify-center overflow-hidden rounded-md bg-[#F7FAFE]"
+                      onClick={() => setPreviewUrl(detail.mediaUrl || detail.avatar)}
+                    >
+                      <img src={detail.mediaUrl || detail.avatar} alt="头像预览" className="h-full w-full object-contain" />
+                    </button>
                   </div>
                 )}
-              </div>
 
-              {/* 只有可审核状态才展示通过/驳回，列表页只负责进入详情。 */}
-              {canAuditAction(tab.key, detail.status) && (
-                <div className="space-y-3 border-t pt-4">
-                  {auditTarget == null ? (
-                    <div className="space-y-3">
-                      {tab.key === 'real-name' && (
-                        <Button variant="outline" size="sm">查看高敏二次确认</Button>
-                      )}
-                      {tab.key === 'avatar' && (
-                        <Button variant="outline" size="sm">下载原图确认</Button>
-                      )}
-                      <div>
-                        <label className="text-sm font-medium">审核操作</label>
-                        <div className="flex gap-2 mt-1">
-                          <Button size="sm" onClick={() => { setAuditTarget({ id: detail.id } as VerificationVO); setAuditAction('APPROVE'); setRejectReason(''); setAuditOpen(true); }}>
-                            <CheckCircle className="h-4 w-4 mr-1" /> 通过
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => { setAuditTarget({ id: detail.id } as VerificationVO); setAuditAction('REJECT'); setRejectReason(''); setAuditOpen(true); }}>
-                            <XCircle className="h-4 w-4 mr-1" /> 驳回
-                          </Button>
-                        </div>
+                <div className={tab.key !== 'avatar' ? 'grid items-start gap-4 lg:grid-cols-2' : 'space-y-4'}>
+                  {tab.key !== 'avatar' && (
+                    <div className="rounded-md border border-[#E6EDF7] bg-white p-4">
+                      <h4 className="text-sm font-medium">基础信息</h4>
+                      <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+                        {(detail.fields || []).filter((field) => field.value).map((field: FieldEntry) => (
+                          <div key={field.label} className="rounded bg-[#F7FAFE] px-3 py-2">
+                            <span className="text-muted-foreground">{field.label}:</span>{' '}
+                            <span className="font-medium">{renderMaybeLinks(formatFieldValue(field.label, field.value))}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ) : null}
+                  )}
+
+                  <div className="rounded-md border border-[#E6EDF7] bg-white p-4">
+                    <h4 className="text-sm font-medium">审核信息</h4>
+                    <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+                      <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">提交时间:</span> {detail.submitTime || '-'}</div>
+                      <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">审核时间:</span> {detail.resultTime || '-'}</div>
+                      <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">审核来源:</span> {AUDIT_SOURCE_MAP[detail.auditSource] || detail.auditSource || '-'}</div>
+                      <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">当前状态:</span> {badgeOf(detail.status).label}</div>
+                    </div>
+                    {detail.rejectReason && (
+                      <div className="mt-3 rounded bg-[#FFF5F5] px-3 py-2 text-sm">
+                        <span className="text-muted-foreground">驳回/失效原因:</span> <span className="text-red-600">{detail.rejectReason}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {detail.historyPage && (
+                <div className="rounded-md border border-[#E6EDF7] bg-white p-4">
+                  <h4 className="text-sm font-medium">审核历史记录</h4>
+                  <Table className="mt-2 min-w-[920px] table-fixed">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[150px]">时间</TableHead>
+                        <TableHead className="w-[150px]">动作</TableHead>
+                        <TableHead className="w-[170px]">状态变化</TableHead>
+                        <TableHead className="w-[110px]">来源</TableHead>
+                        <TableHead className="w-[110px]">操作人</TableHead>
+                        <TableHead>原因</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(detail.historyPage.records || []).length === 0 ? (
+                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">暂无历史</TableCell></TableRow>
+                      ) : detail.historyPage.records.map((history) => (
+                        <TableRow key={history.id}>
+                          <TableCell className="text-muted-foreground">{history.createTime || '-'}</TableCell>
+                          <TableCell>{AUDIT_ACTION_MAP[history.action] || history.action || '-'}</TableCell>
+                          <TableCell>
+                            {(STATUS_MAP[history.fromStatus]?.label || history.fromStatus || '-') + ' -> ' + (STATUS_MAP[history.toStatus]?.label || history.toStatus || '-')}
+                          </TableCell>
+                          <TableCell>{AUDIT_SOURCE_MAP[history.auditSource] || history.auditSource || '-'}</TableCell>
+                          <TableCell>{history.operatorName || '-'}</TableCell>
+                          <TableCell className="truncate">{history.reason || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <Pagination
+                    current={historyPage}
+                    total={detail.historyPage.total || 0}
+                    pageSize={5}
+                    onChange={(nextPage) => loadDetail(detail.id, nextPage)}
+                    showPageSizeSelector={false}
+                  />
                 </div>
               )}
             </>
           ) : (
-            <p className="text-center text-muted-foreground py-4">加载详情失败</p>
+            <p className="py-4 text-center text-muted-foreground">加载详情失败</p>
           )}
+        </div>
+
+        {!detailLoading && detail && (
+          <div className="absolute bottom-0 left-0 right-0 border-t border-[#E6EDF7] bg-card px-6 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+            <div className="flex items-center justify-end gap-2">
+              {tab.key === 'real-name' && (
+                <Button variant="outline" size="sm" onClick={() => setSensitiveConfirmOpen(true)}>
+                  查看高敏
+                </Button>
+              )}
+              <Button size="sm" onClick={() => openAudit('APPROVE')}>
+                <CheckCircle className="mr-1 h-4 w-4" /> 通过
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => openAudit('REJECT')}>
+                <XCircle className="mr-1 h-4 w-4" /> 驳回
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => openAudit('EXPIRE')}>
+                失效
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog open={!!previewUrl} onClose={() => setPreviewUrl(null)} className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>图片预览</DialogTitle>
+        </DialogHeader>
+        {previewUrl && (
+          <div className="mt-4 overflow-hidden rounded-md border border-[#E6EDF7] bg-[#F7FAFE]">
+            <img src={previewUrl} alt="图片预览" className="max-h-[70vh] w-full object-contain" />
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog open={sensitiveConfirmOpen} onClose={() => setSensitiveConfirmOpen(false)}>
+        <DialogHeader>
+          <DialogTitle>查看高敏确认</DialogTitle>
+        </DialogHeader>
+        <div className="mt-4 space-y-4">
+          <div className="rounded-md bg-[#FFF7E8] p-3 text-sm text-[#8A5A00]">
+            确认后展示手机号、真实姓名、身份证号明文，请仅在审核必要场景查看。
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setSensitiveConfirmOpen(false)}>取消</Button>
+            <Button onClick={() => { setSensitiveConfirmOpen(false); setSensitiveOpen(true); }}>确认查看</Button>
+          </div>
         </div>
       </Dialog>
 
-      {/* 审核二次确认弹窗 */}
+      <Dialog open={sensitiveOpen} onClose={() => setSensitiveOpen(false)}>
+        <DialogHeader>
+          <DialogTitle>高敏信息</DialogTitle>
+        </DialogHeader>
+        <div className="mt-4 space-y-2">
+          {(detail?.sensitiveFields || []).map((field) => (
+            <div key={field.label} className="flex gap-3 rounded bg-[#F7FAFE] px-3 py-2 text-sm">
+              <span className="w-24 text-muted-foreground">{field.label}</span>
+              <span className="font-medium">{field.value || '-'}</span>
+            </div>
+          ))}
+        </div>
+      </Dialog>
+
       <Dialog open={auditOpen} onClose={() => setAuditOpen(false)}>
         <DialogHeader>
-          <DialogTitle>{auditAction === 'APPROVE' ? '通过确认' : '驳回确认'}</DialogTitle>
+          <DialogTitle>{auditAction === 'APPROVE' ? '通过确认' : auditAction === 'REJECT' ? '驳回确认' : '失效确认'}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 mt-4">
+        <div className="mt-4 space-y-4">
           <div className="rounded-md bg-[#FFF7E8] p-3 text-sm text-[#8A5A00]">
-            {auditAction === 'APPROVE' ? '通过后发送站内信，并重算核心准入状态。' : '驳回原因必填，确认后发送站内信。'}
-            <strong className="ml-1">确认后写入审计日志</strong>
+            {auditAction === 'APPROVE'
+              ? '确认通过后会写入审核结果和审核历史。'
+              : auditAction === 'REJECT'
+                ? '驳回原因必填，确认后会写入审核历史。'
+                : '失效原因必填，确认后会把该审核记录标记为已失效。'}
           </div>
-          {auditAction === 'REJECT' && (
+          {(auditAction === 'REJECT' || auditAction === 'EXPIRE') && (
             <div>
-              <label className="text-sm font-medium">驳回原因</label>
+              <label className="text-sm font-medium">{auditAction === 'REJECT' ? '驳回原因' : '失效原因'}</label>
               <Input
                 value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="请输入驳回原因"
+                onChange={(event) => setRejectReason(event.target.value)}
+                placeholder={auditAction === 'REJECT' ? '请输入驳回原因' : '请输入失效原因'}
               />
             </div>
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setAuditOpen(false)}>取消</Button>
-            <Button onClick={handleAudit} disabled={auditing}>
-              {auditing ? '处理中…' : '确认'}
+            <Button onClick={handleAudit} disabled={auditing || ((auditAction === 'REJECT' || auditAction === 'EXPIRE') && !rejectReason.trim())}>
+              {auditing ? '处理中...' : '确认'}
             </Button>
           </div>
         </div>

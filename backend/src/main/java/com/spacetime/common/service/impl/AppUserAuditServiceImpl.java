@@ -22,7 +22,7 @@ import java.util.List;
 
 /**
  * App 用户统一审核服务实现。
- * 这里集中维护记录状态、当前有效标记和审核历史，避免移动端/后台各自散落状态逻辑。
+ * 这里集中维护记录状态和审核历史，避免移动端/后台各自散落状态逻辑。
  */
 @Service
 @RequiredArgsConstructor
@@ -42,8 +42,9 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     @Override
     public AppUserAuditRecord latestEffectiveRecord(Long userId, AppUserAuditTypeEnum type) {
         return recordDao.selectOne(baseUserTypeWrapper(userId, type)
-                .eq(AppUserAuditRecord::getCurrentEffective, 1)
+                .eq(AppUserAuditRecord::getStatus, AppUserAuditStatusEnum.APPROVED.getCode())
                 .orderByDesc(AppUserAuditRecord::getAuditTime)
+                .orderByDesc(AppUserAuditRecord::getSubmitTime)
                 .orderByDesc(AppUserAuditRecord::getId)
                 .last("LIMIT 1"));
     }
@@ -51,8 +52,9 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     @Override
     public List<AppUserAuditRecord> effectiveRecords(Long userId, AppUserAuditTypeEnum type) {
         return recordDao.selectList(baseUserTypeWrapper(userId, type)
-                .eq(AppUserAuditRecord::getCurrentEffective, 1)
+                .eq(AppUserAuditRecord::getStatus, AppUserAuditStatusEnum.APPROVED.getCode())
                 .orderByDesc(AppUserAuditRecord::getAuditTime)
+                .orderByDesc(AppUserAuditRecord::getSubmitTime)
                 .orderByDesc(AppUserAuditRecord::getId));
     }
 
@@ -86,9 +88,6 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         if (record.getAuditSource() == null) {
             record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
         }
-        if (record.getCurrentEffective() == null) {
-            record.setCurrentEffective(0);
-        }
         if (record.getSubmitTime() == null) {
             record.setSubmitTime(LocalDateTime.now());
         }
@@ -103,14 +102,13 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     public void machineApprove(Long recordId, Long providerTaskId, String machineSignalJson) {
         AppUserAuditRecord record = requireRecord(recordId);
         String fromStatus = record.getStatus();
-        markEffectiveForApproved(record);
         record.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
         record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
         record.setProviderTaskId(providerTaskId);
         record.setMachineSignalJson(machineSignalJson);
         record.setRejectReason(null);
         record.setAuditTime(LocalDateTime.now());
-        recordDao.updateById(record);
+        recordDao.updateAuditResult(record);
         appendHistory(record, fromStatus, record.getStatus(), AppUserAuditActionEnum.MACHINE_PASS,
                 null, AuditOperatorTypeEnum.PROVIDER, providerTaskId, "Provider");
     }
@@ -125,9 +123,8 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         record.setProviderTaskId(providerTaskId);
         record.setMachineSignalJson(machineSignalJson);
         record.setRejectReason(reason);
-        record.setCurrentEffective(0);
         record.setAuditTime(LocalDateTime.now());
-        recordDao.updateById(record);
+        recordDao.updateAuditResult(record);
         appendHistory(record, fromStatus, record.getStatus(), AppUserAuditActionEnum.MACHINE_REJECT,
                 reason, AuditOperatorTypeEnum.PROVIDER, providerTaskId, "Provider");
     }
@@ -142,19 +139,18 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         if ("APPROVE".equals(action)) {
             targetStatus = AppUserAuditStatusEnum.APPROVED.getCode();
             historyAction = AppUserAuditActionEnum.MANUAL_APPROVE;
-            markEffectiveForApproved(record);
             record.setRejectReason(null);
             record.setExpiredReason(null);
         } else if ("REJECT".equals(action)) {
             targetStatus = AppUserAuditStatusEnum.REJECTED.getCode();
             historyAction = AppUserAuditActionEnum.MANUAL_REJECT;
             record.setRejectReason(reason);
-            record.setCurrentEffective(0);
+            record.setExpiredReason(null);
         } else if ("EXPIRE".equals(action)) {
             targetStatus = AppUserAuditStatusEnum.EXPIRED.getCode();
             historyAction = AppUserAuditActionEnum.MANUAL_EXPIRE;
+            record.setRejectReason(null);
             record.setExpiredReason(reason);
-            record.setCurrentEffective(0);
         } else {
             throw new BusinessException("不支持的审核动作");
         }
@@ -162,7 +158,7 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         record.setAuditSource(AuditSourceEnum.MANUAL.getCode());
         record.setAuditorId(auditorId);
         record.setAuditTime(LocalDateTime.now());
-        recordDao.updateById(record);
+        recordDao.updateAuditResult(record);
         appendHistory(record, fromStatus, targetStatus, historyAction, reason,
                 AuditOperatorTypeEnum.ADMIN, auditorId, auditorName);
     }
@@ -174,9 +170,8 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         String fromStatus = record.getStatus();
         record.setStatus(AppUserAuditStatusEnum.EXPIRED.getCode());
         record.setExpiredReason(reason);
-        record.setCurrentEffective(0);
         record.setAuditTime(LocalDateTime.now());
-        recordDao.updateById(record);
+        recordDao.updateAuditResult(record);
         appendHistory(record, fromStatus, record.getStatus(), AppUserAuditActionEnum.SYSTEM_EXPIRE,
                 reason, AuditOperatorTypeEnum.SYSTEM, null, "系统");
     }
@@ -199,20 +194,6 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         if (latestApproved(userId, AppUserAuditTypeEnum.AVATAR)) count++;
         if (hasEffective(userId, AppUserAuditTypeEnum.EDUCATION)) count++;
         return count;
-    }
-
-    /** 通过时按类型维护 current_effective；相册允许多张并存，其他类型同类只保留一条生效。 */
-    private void markEffectiveForApproved(AppUserAuditRecord record) {
-        AppUserAuditTypeEnum type = AppUserAuditTypeEnum.getByCode(record.getAuditType());
-        if (type != AppUserAuditTypeEnum.ALBUM_PHOTO) {
-            for (AppUserAuditRecord effective : effectiveRecords(record.getUserId(), type)) {
-                if (!effective.getId().equals(record.getId())) {
-                    effective.setCurrentEffective(0);
-                    recordDao.updateById(effective);
-                }
-            }
-        }
-        record.setCurrentEffective(1);
     }
 
     private LambdaQueryWrapper<AppUserAuditRecord> baseUserTypeWrapper(Long userId, AppUserAuditTypeEnum type) {
@@ -245,7 +226,79 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         history.setOperatorId(operatorId);
         history.setOperatorName(operatorName);
         history.setProviderTaskId(record.getProviderTaskId());
-        history.setSnapshotJson(record.getMaskedPayloadJson());
+        history.setSnapshotJson(snapshotJson(record));
         historyDao.insert(history);
+    }
+
+    /** 审核历史只保存必要脱敏快照，不依赖审核记录表冗余 JSON 字段。 */
+    private String snapshotJson(AppUserAuditRecord record) {
+        StringBuilder json = new StringBuilder("{");
+        appendJson(json, "auditType", record.getAuditType());
+        appendJson(json, "status", record.getStatus());
+        appendJson(json, "mediaUrl", record.getMediaUrl());
+        appendJson(json, "thumbUrl", record.getThumbUrl());
+        appendJson(json, "duration", record.getDuration());
+        appendJson(json, "contentText", record.getContentText() == null ? null : truncate(record.getContentText(), 24));
+        appendJson(json, "realName", maskRealName(record.getRealName()));
+        appendJson(json, "idCard", maskIdCard(record.getIdCard()));
+        appendJson(json, "boundPhone", maskPhone(record.getBoundPhone()));
+        appendJson(json, "educationMethod", record.getEducationMethod());
+        appendJson(json, "schoolName", record.getSchoolName());
+        appendRawJson(json, "material", record.getMaterialJson());
+        appendRawJson(json, "machineSignal", record.getMachineSignalJson());
+        if (json.charAt(json.length() - 1) == ',') {
+            json.deleteCharAt(json.length() - 1);
+        }
+        json.append('}');
+        return json.toString();
+    }
+
+    private void appendJson(StringBuilder json, String key, Object value) {
+        if (value == null) {
+            return;
+        }
+        json.append('"').append(key).append("\":");
+        if (value instanceof Number) {
+            json.append(value);
+        } else {
+            json.append('"').append(escapeJson(String.valueOf(value))).append('"');
+        }
+        json.append(',');
+    }
+
+    private void appendRawJson(StringBuilder json, String key, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        json.append('"').append(key).append("\":").append(value).append(',');
+    }
+
+    private String truncate(String value, int maxLength) {
+        return value.length() <= maxLength ? value : value.substring(0, maxLength);
+    }
+
+    private String maskRealName(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        return value.charAt(0) + "*";
+    }
+
+    private String maskIdCard(String value) {
+        if (value == null || value.length() < 8) {
+            return value;
+        }
+        return value.substring(0, 3) + "***********" + value.substring(value.length() - 4);
+    }
+
+    private String maskPhone(String value) {
+        if (value == null || value.length() < 7) {
+            return value;
+        }
+        return value.substring(0, 3) + "****" + value.substring(value.length() - 4);
+    }
+
+    private String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

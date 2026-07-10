@@ -47,8 +47,6 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
         record.setMediaUrl(req.getVoiceUrl());
         record.setDuration(req.getDuration());
-        record.setSubmitPayloadJson("{\"voiceUrl\":\"" + json(req.getVoiceUrl()) + "\",\"duration\":" + req.getDuration() + "}");
-        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
         auditService.submit(record);
 
         try {
@@ -120,8 +118,4 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         return vo;
     }
 
-    private String json(String value) {
-        if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

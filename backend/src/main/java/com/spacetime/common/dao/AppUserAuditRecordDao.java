@@ -12,8 +12,10 @@ import java.util.List;
 public interface AppUserAuditRecordDao {
     AppUserAuditRecord selectById(Long id);
     AppUserAuditRecord selectOne(LambdaQueryWrapper<AppUserAuditRecord> wrapper);
+    Long count(LambdaQueryWrapper<AppUserAuditRecord> wrapper);
     Page<AppUserAuditRecord> selectPage(Page<AppUserAuditRecord> page, LambdaQueryWrapper<AppUserAuditRecord> wrapper);
     List<AppUserAuditRecord> selectList(LambdaQueryWrapper<AppUserAuditRecord> wrapper);
     void insert(AppUserAuditRecord entity);
     void updateById(AppUserAuditRecord entity);
+    void updateAuditResult(AppUserAuditRecord entity);
 }

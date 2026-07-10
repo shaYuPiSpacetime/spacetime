@@ -64,5 +64,14 @@ CALL spacetime_drop_column_if_exists('app_user', 'voice_intro_record_id');
 CALL spacetime_drop_column_if_exists('app_user', 'voice_intro_reject_reason');
 CALL spacetime_drop_column_if_exists('app_user', 'profile_bg_media_id');
 
+CALL spacetime_drop_index_if_exists('app_user_audit_record', 'idx_audit_effective');
+CALL spacetime_drop_index_if_exists('app_user_audit_record', 'idx_audit_object');
+CALL spacetime_drop_column_if_exists('app_user_audit_record', 'object_id');
+CALL spacetime_drop_column_if_exists('app_user_audit_record', 'object_key');
+CALL spacetime_drop_column_if_exists('app_user_audit_record', 'current_effective');
+CALL spacetime_drop_column_if_exists('app_user_audit_record', 'education_level');
+CALL spacetime_drop_column_if_exists('app_user_audit_record', 'submit_payload_json');
+CALL spacetime_drop_column_if_exists('app_user_audit_record', 'masked_payload_json');
+
 DROP PROCEDURE IF EXISTS spacetime_drop_index_if_exists;
 DROP PROCEDURE IF EXISTS spacetime_drop_column_if_exists;

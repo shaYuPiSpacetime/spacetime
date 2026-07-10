@@ -62,8 +62,6 @@ public class VerificationServiceImpl implements VerificationService {
         record.setRealNameHash(sha256(normalize(req.getRealName())));
         record.setIdCard(req.getIdCard());
         record.setIdCardHash(sha256(normalize(req.getIdCard())));
-        record.setSubmitPayloadJson("{\"realName\":\"" + json(req.getRealName()) + "\",\"idCard\":\"" + json(req.getIdCard()) + "\"}");
-        record.setMaskedPayloadJson("{\"realName\":\"" + json(maskRealName(req.getRealName())) + "\",\"idCard\":\"" + json(maskIdCard(req.getIdCard())) + "\"}");
         auditService.submit(record);
         auditService.machineApprove(record.getId(), null, "{\"mocked\":true,\"result\":\"pass\"}");
         return toStatusVO(userId);
@@ -91,9 +89,7 @@ public class VerificationServiceImpl implements VerificationService {
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
         record.setEducationMethod(req.getEducationMethod());
         record.setSchoolName(req.getSchool());
-        record.setSubmitPayloadJson("{\"educationMethod\":\"" + json(req.getEducationMethod())
-                + "\",\"school\":\"" + json(req.getSchool()) + "\"}");
-        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
+        record.setMaterialJson(educationMaterialJson(req));
         auditService.submit(record);
         return toStatusVO(userId);
     }
@@ -121,10 +117,8 @@ public class VerificationServiceImpl implements VerificationService {
         record.setAuditType(AppUserAuditTypeEnum.AVATAR.getCode());
         record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
-        record.setObjectId(req == null ? null : req.getMediaId());
         record.setMediaUrl(user.getAvatar());
-        record.setSubmitPayloadJson("{\"mediaId\":" + (req == null ? "null" : req.getMediaId()) + "}");
-        record.setMaskedPayloadJson(record.getSubmitPayloadJson());
+        record.setMaterialJson("{\"mediaId\":" + (req == null ? "null" : req.getMediaId()) + "}");
         auditService.submit(record);
         auditService.machineApprove(record.getId(), null, "{\"mocked\":true,\"result\":\"pass\"}");
         return toStatusVO(userId);
@@ -204,6 +198,13 @@ public class VerificationServiceImpl implements VerificationService {
     private String json(String value) {
         if (value == null) return "";
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private String educationMaterialJson(EducationSubmitReq req) {
+        return "{\"studentStatus\":\"" + json(req.getStudentStatus())
+                + "\",\"verificationCode\":\"" + json(req.getVerificationCode())
+                + "\",\"diplomaNo\":\"" + json(req.getDiplomaNo())
+                + "\",\"materialIds\":" + (req.getMaterialIds() == null ? "[]" : req.getMaterialIds()) + "}";
     }
 
     private String maskRealName(String name) {

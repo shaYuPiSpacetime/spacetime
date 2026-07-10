@@ -11,7 +11,7 @@
 |------|------|
 | 功能名称 | 用户准入与资料认证初始化 |
 | 测试环境 | `http://127.0.0.1:8080` |
-| 执行日期 | `2026-07-09 20:50` |
+| 执行日期 | `2026-07-09 21:44` |
 | 执行人 | Codex |
 | 后端版本 | 当前工作区变更，Java 21 |
 | 测试策略 | L1 接口回归 + L3 Service 单元/全量 Maven 测试 |
@@ -41,7 +41,7 @@
 |----------|----------|
 | 后端启动 | `GET /health` 返回 `code=200`、`data=ok` |
 | 后台登录 | `peter` 登录成功，获取 token，权限数 91 |
-| 移动端登录与首登 | 手机号登录创建测试用户 `58`，首登 4 步和完成接口通过 |
+| 移动端登录与首登 | 手机号登录创建测试用户 `59`，首登 4 步和完成接口通过 |
 | 实名认证 | 机审通过，后台实名列表可查 |
 | 头像认证 | 上传头像生成待审核记录，同媒体 ID 认证后机审通过 |
 | 学历认证 | 构造通过、驳回、失效、待审核多状态 |
@@ -58,13 +58,13 @@
 
 | 项 | 结果 |
 |----|------|
-| 测试用户 | `userId=58` |
-| 手工种子审核中记录 | `auditRecordId=112` |
+| 测试用户 | `userId=59` |
+| 手工种子审核中记录 | `auditRecordId=128` |
 | 状态覆盖 | `PENDING=2`、`REVIEWING=1`、`APPROVED=8`、`REJECTED=3`、`EXPIRED=2` |
 | 审核来源覆盖 | `MACHINE=7`、`MANUAL=9` |
 | 审核历史覆盖 | 总数 `30`，机审 `21`，管理员操作 `9` |
 | 旧表校验 | `app_user_verification`、`app_user_verification_record`、`app_user_profile_media`、`app_user_open_text_audit`、`app_user_voice_intro_record` 均不存在 |
-| 旧字段校验 | `app_user.voice_intro_url`、`app_user.voice_intro_duration`、`app_user.voice_intro_audit_status`、`app_user.voice_intro_record_id`、`app_user.voice_intro_reject_reason`、`app_user.profile_bg_media_id` 均不存在 |
+| 旧字段校验 | `app_user.voice_intro_url`、`app_user.voice_intro_duration`、`app_user.voice_intro_audit_status`、`app_user.voice_intro_record_id`、`app_user.voice_intro_reject_reason`、`app_user.profile_bg_media_id`、`app_user_audit_record.object_id`、`app_user_audit_record.object_key`、`app_user_audit_record.current_effective`、`app_user_audit_record.education_level`、`app_user_audit_record.submit_payload_json`、`app_user_audit_record.masked_payload_json` 均不存在 |
 
 ## 4. L2/L3 Maven 测试
 
@@ -99,4 +99,4 @@ JDK: C:\Users\50449\.jdks\ms-21.0.11
 
 ## 8. 结论
 
-统一审核表改造后的管理后台接口、移动端接口、审核状态机、审核历史、真实数据库写入、旧表删除和旧字段删除校验已通过本轮测试。当前后端服务已重启为最新代码，最终接口回归结果来自 PID 4128 的最新进程。
+统一审核表改造后的管理后台接口、移动端接口、审核状态机、审核历史、真实数据库写入、旧表删除和旧字段删除校验已通过本轮测试。当前后端服务已重启为最新代码，最终接口回归结果来自 PID 29592 的最新进程。

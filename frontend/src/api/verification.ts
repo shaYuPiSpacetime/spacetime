@@ -15,6 +15,7 @@ export interface VerificationVO {
   auditSource: string;
   rejectReason: string;
   submitTime: string;
+  resultTime?: string;
 }
 
 export interface ModerationVO {
@@ -42,7 +43,14 @@ export interface PageResult<T> {
   current: number;
 }
 
-// 认证审核接口。
+export interface VerificationStatsVO {
+  pendingCount: number;
+  reviewingCount: number;
+  approvedTodayCount: number;
+  rejectedTodayCount: number;
+  expiredCount: number;
+}
+
 export interface VerificationPageParams {
   page: number;
   size: number;
@@ -50,11 +58,62 @@ export interface VerificationPageParams {
   status?: string;
   auditSource?: string;
   submitTime?: string;
-  faceRecognition?: string;
-  coreAccessStatus?: string;
   educationMethod?: string;
   imageType?: string;
   textType?: string;
+}
+
+export interface FieldEntry {
+  label: string;
+  value: string;
+}
+
+export interface AuditHistoryVO {
+  id: number;
+  auditRecordId: number;
+  fromStatus: string;
+  toStatus: string;
+  auditSource: string;
+  action: string;
+  reason?: string;
+  operatorType: string;
+  operatorName: string;
+  providerTaskId?: number;
+  createTime: string;
+}
+
+export interface VerificationAuditDetailVO {
+  id: number;
+  userId: number;
+  nickname: string;
+  avatar: string;
+  verifyLevel: number;
+  fields: FieldEntry[];
+  sensitiveFields?: FieldEntry[];
+  submitTime: string;
+  resultTime: string;
+  rejectReason: string;
+  status: string;
+  auditSource: string;
+  mediaUrl?: string;
+  thumbUrl?: string;
+  historyPage?: PageResult<AuditHistoryVO>;
+}
+
+export interface ModerationDetailVO {
+  id: number;
+  userId: number;
+  nickname: string;
+  avatar: string;
+  contentType: string;
+  imageType?: string;
+  contentFull: string;
+  contentField?: string;
+  submitTime: string;
+  status: string;
+  auditSource: string;
+  rejectReason: string;
+  historyPage?: PageResult<AuditHistoryVO>;
 }
 
 export function getRealNamePage(params: VerificationPageParams) {
@@ -69,6 +128,18 @@ export function getAvatarPage(params: VerificationPageParams) {
   return request.get('/admin/verify/avatar/list', { params });
 }
 
+export function getRealNameStats() {
+  return request.get('/admin/verify/real-name/stats');
+}
+
+export function getEducationStats() {
+  return request.get('/admin/verify/education/stats');
+}
+
+export function getAvatarStats() {
+  return request.get('/admin/verify/avatar/stats');
+}
+
 export function auditRealName(id: number, data: { action: string; rejectReason?: string }) {
   return request.post(`/admin/verify/real-name/${id}/audit`, data);
 }
@@ -81,13 +152,20 @@ export function auditAvatar(id: number, data: { action: string; rejectReason?: s
   return request.post(`/admin/verify/avatar/${id}/audit`, data);
 }
 
-// 内容审核接口。
 export function getPhotoModerationPage(params: VerificationPageParams) {
   return request.get('/admin/moderation/photos/list', { params });
 }
 
 export function getTextModerationPage(params: VerificationPageParams) {
   return request.get('/admin/moderation/texts/list', { params });
+}
+
+export function getPhotoModerationStats() {
+  return request.get('/admin/moderation/photos/stats');
+}
+
+export function getTextModerationStats() {
+  return request.get('/admin/moderation/texts/stats');
 }
 
 export function auditPhoto(id: number, data: { action: string; rejectReason?: string }) {
@@ -98,56 +176,22 @@ export function auditText(id: number, data: { action: string; rejectReason?: str
   return request.post(`/admin/moderation/texts/${id}/audit`, data);
 }
 
-// 认证与内容审核详情接口。
-export interface FieldEntry {
-  label: string;
-  value: string;
+export function getRealNameDetail(id: number, params?: { historyPage?: number; historySize?: number }) {
+  return request.get(`/admin/verify/real-name/${id}`, { params });
 }
 
-export interface VerificationAuditDetailVO {
-  id: number;
-  userId: number;
-  nickname: string;
-  avatar: string;
-  verifyLevel: number;
-  fields: FieldEntry[];
-  submitTime: string;
-  resultTime: string;
-  rejectReason: string;
-  status: string;
-  auditSource: string;
+export function getEducationDetail(id: number, params?: { historyPage?: number; historySize?: number }) {
+  return request.get(`/admin/verify/education/${id}`, { params });
 }
 
-export interface ModerationDetailVO {
-  id: number;
-  userId: number;
-  nickname: string;
-  avatar: string;
-  contentType: string;
-  contentFull: string;
-  contentField: string;
-  submitTime: string;
-  status: string;
-  auditSource: string;
-  rejectReason: string;
+export function getAvatarDetail(id: number, params?: { historyPage?: number; historySize?: number }) {
+  return request.get(`/admin/verify/avatar/${id}`, { params });
 }
 
-export function getRealNameDetail(id: number) {
-  return request.get(`/admin/verify/real-name/${id}`);
+export function getPhotoModerationDetail(id: number, params?: { historyPage?: number; historySize?: number }) {
+  return request.get(`/admin/moderation/photos/${id}`, { params });
 }
 
-export function getEducationDetail(id: number) {
-  return request.get(`/admin/verify/education/${id}`);
-}
-
-export function getAvatarDetail(id: number) {
-  return request.get(`/admin/verify/avatar/${id}`);
-}
-
-export function getPhotoModerationDetail(id: number) {
-  return request.get(`/admin/moderation/photos/${id}`);
-}
-
-export function getTextModerationDetail(id: number) {
-  return request.get(`/admin/moderation/texts/${id}`);
+export function getTextModerationDetail(id: number, params?: { historyPage?: number; historySize?: number }) {
+  return request.get(`/admin/moderation/texts/${id}`, { params });
 }

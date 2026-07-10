@@ -5,6 +5,7 @@ import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.ModerationDetailVO;
 import com.spacetime.admin.dto.response.ModerationVO;
+import com.spacetime.admin.dto.response.VerificationStatsVO;
 import com.spacetime.admin.service.ModerationAdminService;
 import com.spacetime.common.annotation.RequirePermission;
 import com.spacetime.common.result.R;
@@ -37,18 +38,36 @@ public class ModerationAdminController {
         return R.ok(moderationAdminService.getTextPage(req));
     }
 
+    /** 资料图片审核头部统计，独立于列表查询条件。 */
+    @GetMapping("/photos/stats")
+    @RequirePermission("moderation:photo:list")
+    public R<VerificationStatsVO> photoStats() {
+        return R.ok(moderationAdminService.getPhotoStats());
+    }
+
+    /** 开放性文字审核头部统计，独立于列表查询条件。 */
+    @GetMapping("/texts/stats")
+    @RequirePermission("moderation:text:list")
+    public R<VerificationStatsVO> textStats() {
+        return R.ok(moderationAdminService.getTextStats());
+    }
+
     /** 照片审核详情（含原图全尺寸URL） */
     @GetMapping("/photos/{id}")
     @RequirePermission("moderation:photo:list")
-    public R<ModerationDetailVO> photoDetail(@PathVariable Long id) {
-        return R.ok(moderationAdminService.getPhotoDetail(id));
+    public R<ModerationDetailVO> photoDetail(@PathVariable Long id,
+            @RequestParam(defaultValue = "1") int historyPage,
+            @RequestParam(defaultValue = "5") int historySize) {
+        return R.ok(moderationAdminService.getPhotoDetail(id, historyPage, historySize));
     }
 
     /** 文字审核详情（含文本全文不截断） */
     @GetMapping("/texts/{id}")
     @RequirePermission("moderation:text:list")
-    public R<ModerationDetailVO> textDetail(@PathVariable Long id) {
-        return R.ok(moderationAdminService.getTextDetail(id));
+    public R<ModerationDetailVO> textDetail(@PathVariable Long id,
+            @RequestParam(defaultValue = "1") int historyPage,
+            @RequestParam(defaultValue = "5") int historySize) {
+        return R.ok(moderationAdminService.getTextDetail(id, historyPage, historySize));
     }
 
     /** 照片审核操作（通过/驳回） */

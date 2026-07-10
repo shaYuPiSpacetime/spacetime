@@ -23,6 +23,4 @@ public class ProfileMediaVO {
     private String auditSource;
     /** 驳回原因。 */
     private String rejectReason;
-    /** 是否当前有效。 */
-    private Boolean currentEffective;
 }

@@ -80,11 +80,49 @@ interface AdminUserCardItem extends AppUserListVO {
 
 const STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
   PENDING: { label: '待审核', variant: 'warning' },
+  REVIEWING: { label: '审核中', variant: 'warning' },
   APPROVED: { label: '已通过', variant: 'success' },
   REJECTED: { label: '已驳回', variant: 'destructive' },
+  NOT_SUBMITTED: { label: '未认证', variant: 'secondary' },
   NOT_CERTIFIED: { label: '未认证', variant: 'secondary' },
   EXPIRED: { label: '已失效', variant: 'secondary' },
 };
+
+type VerificationBadgeType = 'avatar' | 'realName' | 'education';
+
+const VERIFICATION_BADGE_TEXT: Record<VerificationBadgeType, Record<string, string>> = {
+  avatar: {
+    APPROVED: '头像通过',
+    PENDING: '头像待审',
+    REVIEWING: '头像审核中',
+    REJECTED: '头像驳回',
+    EXPIRED: '头像失效',
+    NOT_SUBMITTED: '头像未认证',
+    NOT_CERTIFIED: '头像未认证',
+  },
+  realName: {
+    APPROVED: '实名通过',
+    PENDING: '实名待审',
+    REVIEWING: '实名审核中',
+    REJECTED: '实名驳回',
+    EXPIRED: '实名失效',
+    NOT_SUBMITTED: '实名未认证',
+    NOT_CERTIFIED: '实名未认证',
+  },
+  education: {
+    APPROVED: '学历通过',
+    PENDING: '学历待审',
+    REVIEWING: '学历审核中',
+    REJECTED: '学历驳回',
+    EXPIRED: '学历失效',
+    NOT_SUBMITTED: '学历未认证',
+    NOT_CERTIFIED: '学历未认证',
+  },
+};
+
+function verificationBadgeText(type: VerificationBadgeType, status?: string) {
+  return VERIFICATION_BADGE_TEXT[type][status || ''] || `${type === 'avatar' ? '头像' : type === 'realName' ? '实名' : '学历'}未知`;
+}
 
 const ACCOUNT_STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
   NORMAL: { label: '正常', variant: 'success' },
@@ -1049,9 +1087,9 @@ function CustomerCard({
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
-          <Badge variant={STATUS_MAP[user.avatarVerifyStatus]?.variant ?? 'secondary'}>{STATUS_MAP[user.avatarVerifyStatus]?.label === '已通过' ? '头像通过' : STATUS_MAP[user.avatarVerifyStatus]?.label === '已驳回' ? '头像驳回' : '头像待审'}</Badge>
-          <Badge variant={STATUS_MAP[user.realNameStatus]?.variant ?? 'secondary'}>{STATUS_MAP[user.realNameStatus]?.label === '已通过' ? '实名通过' : STATUS_MAP[user.realNameStatus]?.label === '已驳回' ? '实名驳回' : '实名审核'}</Badge>
-          <Badge variant={STATUS_MAP[user.educationStatus]?.variant ?? 'secondary'}>{STATUS_MAP[user.educationStatus]?.label === '已通过' ? '学历通过' : STATUS_MAP[user.educationStatus]?.label === '已驳回' ? '学历驳回' : '学历待审'}</Badge>
+          <Badge variant={STATUS_MAP[user.avatarVerifyStatus]?.variant ?? 'secondary'}>{verificationBadgeText('avatar', user.avatarVerifyStatus)}</Badge>
+          <Badge variant={STATUS_MAP[user.realNameStatus]?.variant ?? 'secondary'}>{verificationBadgeText('realName', user.realNameStatus)}</Badge>
+          <Badge variant={STATUS_MAP[user.educationStatus]?.variant ?? 'secondary'}>{verificationBadgeText('education', user.educationStatus)}</Badge>
         </div>
 
         <div className="mt-4 grid grid-cols-[1fr_1fr_88px] gap-2 text-sm font-semibold">

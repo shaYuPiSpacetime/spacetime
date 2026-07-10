@@ -5,14 +5,19 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
+import com.spacetime.admin.dto.response.AuditHistoryVO;
 import com.spacetime.admin.dto.response.FieldEntry;
 import com.spacetime.admin.dto.response.VerificationAuditDetailVO;
+import com.spacetime.admin.dto.response.VerificationStatsVO;
 import com.spacetime.admin.dto.response.VerificationVO;
 import com.spacetime.admin.service.VerificationAdminService;
+import com.spacetime.common.dao.AppUserAuditHistoryDao;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserAuditHistory;
 import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
@@ -25,13 +30,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * 管理后台认证审核服务实现。
- * 列表、详情和审核操作统一读取 app_user_audit_record，不再以认证汇总快照表作为事实来源。
+ * 实名、学历、头像统一读取 app_user_audit_record，详情统一带审核历史分页。
  */
 @Service
 @RequiredArgsConstructor
@@ -40,6 +47,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final AppUserAuditRecordDao auditRecordDao;
+    private final AppUserAuditHistoryDao historyDao;
     private final AppUserAuditService auditService;
     private final AppUserDao appUserDao;
 
@@ -58,32 +66,93 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         return queryPage(req, AppUserAuditTypeEnum.AVATAR);
     }
 
+    @Override
+    public VerificationStatsVO getAvatarStats() {
+        return statsOf(AppUserAuditTypeEnum.AVATAR);
+    }
+
+    @Override
+    public VerificationStatsVO getRealNameStats() {
+        return statsOf(AppUserAuditTypeEnum.REAL_NAME);
+    }
+
+    @Override
+    public VerificationStatsVO getEducationStats() {
+        return statsOf(AppUserAuditTypeEnum.EDUCATION);
+    }
+
+    private VerificationStatsVO statsOf(AppUserAuditTypeEnum type) {
+        VerificationStatsVO vo = new VerificationStatsVO();
+        vo.setPendingCount(countByStatus(type, AppUserAuditStatusEnum.PENDING.getCode(), null));
+        vo.setReviewingCount(countByStatus(type, AppUserAuditStatusEnum.REVIEWING.getCode(), null));
+        vo.setApprovedTodayCount(countByStatus(type, AppUserAuditStatusEnum.APPROVED.getCode(), "TODAY"));
+        vo.setRejectedTodayCount(countByStatus(type, AppUserAuditStatusEnum.REJECTED.getCode(), "TODAY"));
+        vo.setExpiredCount(countByStatus(type, AppUserAuditStatusEnum.EXPIRED.getCode(), null));
+        return vo;
+    }
+
+    private Long countByStatus(AppUserAuditTypeEnum type, String status, String submitTime) {
+        LambdaQueryWrapper<AppUserAuditRecord> wrapper = new LambdaQueryWrapper<AppUserAuditRecord>()
+                .eq(AppUserAuditRecord::getAuditType, type.getCode())
+                .eq(AppUserAuditRecord::getStatus, status);
+        if ("TODAY".equals(submitTime)) {
+            wrapper.ge(AppUserAuditRecord::getAuditTime, LocalDateTime.now().toLocalDate().atStartOfDay());
+        }
+        return auditRecordDao.count(wrapper);
+    }
+
     private Page<VerificationVO> queryPage(VerificationPageReq req, AppUserAuditTypeEnum type) {
         LambdaQueryWrapper<AppUserAuditRecord> wrapper = new LambdaQueryWrapper<AppUserAuditRecord>()
                 .eq(AppUserAuditRecord::getAuditType, type.getCode())
                 .eq(req.getUserId() != null, AppUserAuditRecord::getUserId, req.getUserId())
                 .eq(StrUtil.isNotBlank(req.getStatus()), AppUserAuditRecord::getStatus, req.getStatus())
                 .eq(StrUtil.isNotBlank(req.getAuditSource()), AppUserAuditRecord::getAuditSource, req.getAuditSource())
-                .eq(type == AppUserAuditTypeEnum.EDUCATION && StrUtil.isNotBlank(req.getEducationMethod()),
-                        AppUserAuditRecord::getEducationMethod, req.getEducationMethod())
                 .orderByDesc(AppUserAuditRecord::getSubmitTime)
                 .orderByDesc(AppUserAuditRecord::getId);
+        applyEducationMethodFilter(wrapper, type, req.getEducationMethod());
         applyKeyword(req, wrapper);
         applySubmitTimeFilter(wrapper, req.getSubmitTime());
-        if (type == AppUserAuditTypeEnum.AVATAR && "FAILED".equals(req.getFaceRecognition())) {
-            wrapper.isNotNull(AppUserAuditRecord::getRejectReason);
-        }
         Page<AppUserAuditRecord> page = auditRecordDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         return toPage(page, type);
     }
 
+    private void applyEducationMethodFilter(LambdaQueryWrapper<AppUserAuditRecord> wrapper,
+            AppUserAuditTypeEnum type, String educationMethod) {
+        if (type != AppUserAuditTypeEnum.EDUCATION || StrUtil.isBlank(educationMethod)) {
+            return;
+        }
+        if ("MATERIAL_UPLOAD".equals(educationMethod)) {
+            wrapper.in(AppUserAuditRecord::getEducationMethod, List.of("MATERIAL_UPLOAD", "STUDENT_CARD"));
+        } else {
+            wrapper.eq(AppUserAuditRecord::getEducationMethod, educationMethod);
+        }
+    }
+
+    /**
+     * 用户搜索需要覆盖昵称、手机号、标签、实名、身份证和用户ID。
+     */
     private void applyKeyword(VerificationPageReq req, LambdaQueryWrapper<AppUserAuditRecord> wrapper) {
         if (StrUtil.isBlank(req.getKeyword())) {
             return;
         }
-        List<Long> userIds = appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
-                .like(AppUser::getNickname, req.getKeyword()))
-                .stream().map(AppUser::getId).toList();
+        String keyword = req.getKeyword().trim();
+        Set<Long> userIds = new LinkedHashSet<>();
+        if (keyword.matches("\\d+")) {
+            userIds.add(Long.parseLong(keyword));
+        }
+        userIds.addAll(appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
+                        .like(AppUser::getNickname, keyword)
+                        .or()
+                        .like(AppUser::getPhone, keyword)
+                        .or()
+                        .like(AppUser::getTags, keyword))
+                .stream().map(AppUser::getId).toList());
+        userIds.addAll(auditRecordDao.selectList(new LambdaQueryWrapper<AppUserAuditRecord>()
+                        .eq(AppUserAuditRecord::getAuditType, AppUserAuditTypeEnum.REAL_NAME.getCode())
+                        .and(q -> q.like(AppUserAuditRecord::getRealName, keyword)
+                                .or()
+                                .like(AppUserAuditRecord::getIdCard, keyword)))
+                .stream().map(AppUserAuditRecord::getUserId).toList());
         if (userIds.isEmpty()) {
             wrapper.eq(AppUserAuditRecord::getUserId, -1L);
         } else {
@@ -102,8 +171,8 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     private Page<VerificationVO> toPage(Page<AppUserAuditRecord> page, AppUserAuditTypeEnum type) {
         List<AppUserAuditRecord> records = page.getRecords();
         Map<Long, AppUser> userMap = records.isEmpty() ? Map.of() : appUserDao.selectList(
-                new LambdaQueryWrapper<AppUser>().in(AppUser::getId,
-                        records.stream().map(AppUserAuditRecord::getUserId).toList()))
+                        new LambdaQueryWrapper<AppUser>().in(AppUser::getId,
+                                records.stream().map(AppUserAuditRecord::getUserId).toList()))
                 .stream().collect(Collectors.toMap(AppUser::getId, u -> u, (a, b) -> a));
 
         List<VerificationVO> vos = new ArrayList<>();
@@ -115,10 +184,8 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
                 vo.setRealName(maskRealName(record.getRealName()));
                 vo.setIdCard(maskIdCard(record.getIdCard()));
             } else if (type == AppUserAuditTypeEnum.EDUCATION) {
-                vo.setEducationIdentity(StrUtil.blankToDefault(record.getEducationLevel(),
-                        user == null ? null : user.getEducationLevel()));
-                vo.setEducationMaterialSummary(StrUtil.blankToDefault(record.getEducationMethod(), "未填方式")
-                        + (StrUtil.isBlank(record.getSchoolName()) ? "" : " / " + record.getSchoolName()));
+                vo.setEducationIdentity(identityLabel(user == null ? null : user.getIdentity()));
+                vo.setEducationMaterialSummary(educationMaterialSummary(record));
             } else if (type == AppUserAuditTypeEnum.AVATAR) {
                 vo.setAvatarUrl(StrUtil.blankToDefault(record.getMediaUrl(), user == null ? null : user.getAvatar()));
             }
@@ -145,40 +212,70 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
 
     @Override
     public VerificationAuditDetailVO getRealNameDetail(Long id) {
+        return getRealNameDetail(id, 1, 5);
+    }
+
+    @Override
+    public VerificationAuditDetailVO getRealNameDetail(Long id, int historyPage, int historySize) {
         AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.REAL_NAME);
         AppUser user = appUserDao.selectById(record.getUserId());
         VerificationAuditDetailVO vo = baseDetail(record, user);
         vo.setFields(List.of(
                 new FieldEntry("真实姓名", maskRealName(record.getRealName())),
-                new FieldEntry("身份证号", maskIdCard(record.getIdCard())),
-                new FieldEntry("实名提交手机号", maskPhone(record.getBoundPhone()))
+                new FieldEntry("手机号", maskPhone(record.getBoundPhone())),
+                new FieldEntry("身份证号", maskIdCard(record.getIdCard()))
         ));
+        vo.setSensitiveFields(List.of(
+                new FieldEntry("真实姓名", record.getRealName()),
+                new FieldEntry("手机号", record.getBoundPhone()),
+                new FieldEntry("身份证号", record.getIdCard())
+        ));
+        vo.setHistoryPage(historyPage(record.getId(), historyPage, historySize));
         return vo;
     }
 
     @Override
     public VerificationAuditDetailVO getEducationDetail(Long id) {
+        return getEducationDetail(id, 1, 5);
+    }
+
+    @Override
+    public VerificationAuditDetailVO getEducationDetail(Long id, int historyPage, int historySize) {
         AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.EDUCATION);
         AppUser user = appUserDao.selectById(record.getUserId());
         VerificationAuditDetailVO vo = baseDetail(record, user);
         vo.setFields(List.of(
-                new FieldEntry("学校", StrUtil.blankToDefault(record.getSchoolName(), user == null ? null : user.getSchool())),
-                new FieldEntry("学历", StrUtil.blankToDefault(record.getEducationLevel(), user == null ? null : user.getEducationLevel())),
-                new FieldEntry("认证方式", record.getEducationMethod()),
-                new FieldEntry("材料", record.getMaterialJson())
+                new FieldEntry("学习名称", StrUtil.blankToDefault(record.getSchoolName(), user == null ? null : user.getSchool())),
+                new FieldEntry("身份", identityLabel(user == null ? null : user.getIdentity())),
+                new FieldEntry("学历", user == null ? null : user.getEducationLevel()),
+                new FieldEntry("认证方式", educationMethodLabel(record.getEducationMethod())),
+                new FieldEntry("姓名", record.getRealName()),
+                new FieldEntry("学信网验证码", "CHSI".equals(record.getEducationMethod()) ? educationMaterialSummary(record) : null),
+                new FieldEntry("证书编号", "DIPLOMA_NO".equals(record.getEducationMethod()) ? educationMaterialSummary(record) : null),
+                new FieldEntry("证书材料", ("MATERIAL_UPLOAD".equals(record.getEducationMethod()) || "STUDENT_CARD".equals(record.getEducationMethod()))
+                        ? educationMaterialSummary(record) : null)
         ));
+        vo.setHistoryPage(historyPage(record.getId(), historyPage, historySize));
         return vo;
     }
 
     @Override
     public VerificationAuditDetailVO getAvatarDetail(Long id) {
+        return getAvatarDetail(id, 1, 5);
+    }
+
+    @Override
+    public VerificationAuditDetailVO getAvatarDetail(Long id, int historyPage, int historySize) {
         AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.AVATAR);
         AppUser user = appUserDao.selectById(record.getUserId());
         VerificationAuditDetailVO vo = baseDetail(record, user);
+        vo.setMediaUrl(StrUtil.blankToDefault(record.getMediaUrl(), user == null ? null : user.getAvatar()));
+        vo.setThumbUrl(record.getThumbUrl());
         vo.setFields(List.of(
                 new FieldEntry("头像图片", StrUtil.blankToDefault(record.getMediaUrl(), user == null ? null : user.getAvatar())),
-                new FieldEntry("媒体ID", record.getObjectId() == null ? null : String.valueOf(record.getObjectId()))
+                new FieldEntry("媒体ID", String.valueOf(record.getId()))
         ));
+        vo.setHistoryPage(historyPage(record.getId(), historyPage, historySize));
         return vo;
     }
 
@@ -194,6 +291,35 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         vo.setRejectReason(reason(record));
         vo.setStatus(record.getStatus());
         vo.setAuditSource(record.getAuditSource());
+        return vo;
+    }
+
+    private Page<AuditHistoryVO> historyPage(Long recordId, int page, int size) {
+        int safePage = Math.max(1, page);
+        int safeSize = Math.min(Math.max(1, size), 50);
+        Page<AppUserAuditHistory> raw = historyDao.selectPage(new Page<>(safePage, safeSize),
+                new LambdaQueryWrapper<AppUserAuditHistory>()
+                        .eq(AppUserAuditHistory::getAuditRecordId, recordId)
+                        .orderByDesc(AppUserAuditHistory::getCreateTime)
+                        .orderByDesc(AppUserAuditHistory::getId));
+        Page<AuditHistoryVO> result = new Page<>(raw.getCurrent(), raw.getSize(), raw.getTotal());
+        result.setRecords(raw.getRecords().stream().map(this::toHistoryVO).toList());
+        return result;
+    }
+
+    private AuditHistoryVO toHistoryVO(AppUserAuditHistory history) {
+        AuditHistoryVO vo = new AuditHistoryVO();
+        vo.setId(history.getId());
+        vo.setAuditRecordId(history.getAuditRecordId());
+        vo.setFromStatus(history.getFromStatus());
+        vo.setToStatus(history.getToStatus());
+        vo.setAuditSource(history.getAuditSource());
+        vo.setAction(history.getAction());
+        vo.setReason(history.getReason());
+        vo.setOperatorType(history.getOperatorType());
+        vo.setOperatorName(history.getOperatorName());
+        vo.setProviderTaskId(history.getProviderTaskId());
+        vo.setCreateTime(format(history.getCreateTime()));
         return vo;
     }
 
@@ -240,6 +366,96 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
             throw new BusinessException("审核记录不存在");
         }
         return record;
+    }
+
+    private String identityLabel(String identity) {
+        if (StrUtil.isBlank(identity)) {
+            return "-";
+        }
+        if ("STUDENT".equals(identity) || "在校生".equals(identity)) {
+            return "在校生";
+        }
+        if ("WORKER".equals(identity) || "PROFESSIONAL".equals(identity) || "职场人".equals(identity)) {
+            return "职场人";
+        }
+        return identity;
+    }
+
+    private String educationMaterialSummary(AppUserAuditRecord record) {
+        String method = record.getEducationMethod();
+        if ("CHSI".equals(method)) {
+            return firstJsonValue(record.getMaterialJson(), "verificationCode", "chsiCode", "code");
+        }
+        if ("DIPLOMA_NO".equals(method)) {
+            return firstJsonValue(record.getMaterialJson(), "diplomaNo", "certificateNo", "certNo");
+        }
+        if ("MATERIAL_UPLOAD".equals(method) || "STUDENT_CARD".equals(method)) {
+            String links = materialLinks(record.getMaterialJson());
+            return StrUtil.blankToDefault(links, "材料链接");
+        }
+        return StrUtil.blankToDefault(record.getMaterialJson(), StrUtil.blankToDefault(method, "-"));
+    }
+
+    private String educationMethodLabel(String method) {
+        if ("CHSI".equals(method)) {
+            return "学信网验证码";
+        }
+        if ("DIPLOMA_NO".equals(method)) {
+            return "证书编号";
+        }
+        if ("MATERIAL_UPLOAD".equals(method) || "STUDENT_CARD".equals(method)) {
+            return "证书材料";
+        }
+        return StrUtil.blankToDefault(method, "-");
+    }
+
+    private String firstJsonValue(String json, String... keys) {
+        if (StrUtil.isBlank(json)) {
+            return "-";
+        }
+        for (String key : keys) {
+            String marker = "\"" + key + "\"";
+            int keyIndex = json.indexOf(marker);
+            if (keyIndex < 0) {
+                continue;
+            }
+            int colon = json.indexOf(':', keyIndex + marker.length());
+            if (colon < 0) {
+                continue;
+            }
+            int start = colon + 1;
+            while (start < json.length() && Character.isWhitespace(json.charAt(start))) {
+                start++;
+            }
+            if (start < json.length() && json.charAt(start) == '"') {
+                int end = json.indexOf('"', start + 1);
+                if (end > start) {
+                    return json.substring(start + 1, end);
+                }
+            }
+        }
+        return json;
+    }
+
+    private String materialLinks(String json) {
+        if (StrUtil.isBlank(json)) {
+            return "";
+        }
+        List<String> links = new ArrayList<>();
+        int index = 0;
+        while (index < json.length()) {
+            int start = json.indexOf("http", index);
+            if (start < 0) {
+                break;
+            }
+            int end = start;
+            while (end < json.length() && "\"'\\] },\r\n\t".indexOf(json.charAt(end)) < 0) {
+                end++;
+            }
+            links.add(json.substring(start, end));
+            index = end;
+        }
+        return String.join("、", links);
     }
 
     private String reason(AppUserAuditRecord record) {

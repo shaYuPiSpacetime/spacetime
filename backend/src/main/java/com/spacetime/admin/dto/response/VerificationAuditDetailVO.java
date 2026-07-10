@@ -1,5 +1,6 @@
 package com.spacetime.admin.dto.response;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.Data;
 
 /**
@@ -20,6 +21,8 @@ public class VerificationAuditDetailVO {
     private Integer verifyLevel;
     /** 认证内容字段列表（标签-值对），泛化承载三类认证内容差异 */
     private java.util.List<FieldEntry> fields;
+    /** 高敏明文字段，仅详情二次确认弹窗使用 */
+    private java.util.List<FieldEntry> sensitiveFields;
     /** 提交时间 */
     private String submitTime;
     /** 审核结果时间 */
@@ -30,4 +33,10 @@ public class VerificationAuditDetailVO {
     private String status;
     /** 审核来源：MACHINE/MANUAL */
     private String auditSource;
+    /** 媒体原图 URL，头像详情用于直接预览 */
+    private String mediaUrl;
+    /** 媒体缩略图 URL */
+    private String thumbUrl;
+    /** 审核历史分页 */
+    private Page<AuditHistoryVO> historyPage;
 }

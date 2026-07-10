@@ -45,13 +45,8 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
         record.setAuditType(field.getCode());
         record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
-        record.setObjectKey(field.getCode());
         record.setContentText(req.getContentText());
         record.setContentHash(sha256(req.getContentText()));
-        record.setSubmitPayloadJson("{\"fieldName\":\"" + json(field.getCode()) + "\",\"contentText\":\""
-                + json(req.getContentText()) + "\"}");
-        record.setMaskedPayloadJson("{\"fieldName\":\"" + json(field.getCode()) + "\",\"contentText\":\""
-                + json(StrUtil.maxLength(req.getContentText(), 24)) + "\"}");
         auditService.submit(record);
 
         try {
@@ -114,10 +109,5 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("当前运行环境不支持 SHA-256", e);
         }
-    }
-
-    private String json(String value) {
-        if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

@@ -1,8 +1,10 @@
 package com.spacetime.common.interceptor;
 
 import com.spacetime.common.annotation.RequirePermission;
+import com.spacetime.common.dao.MenuDao;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
@@ -17,7 +19,10 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class PermissionInterceptor implements HandlerInterceptor {
+
+    private final MenuDao menuDao;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -38,6 +43,12 @@ public class PermissionInterceptor implements HandlerInterceptor {
         }
         List<String> permissions = ctx.getPermissions();
         if (permissions == null || !permissions.contains(requiredPerm)) {
+            List<String> currentPermissions = menuDao.selectPermsByUserId(ctx.getId());
+            if (currentPermissions != null && currentPermissions.contains(requiredPerm)) {
+                log.info("permission snapshot refreshed by current role permissions: userId={}, required={}",
+                        ctx.getId(), requiredPerm);
+                return true;
+            }
             log.warn("permission denied: userId={}, required={}, userPermissions={}",
                     ctx.getId(), requiredPerm, permissions);
             response.setStatus(403);

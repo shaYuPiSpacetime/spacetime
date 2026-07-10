@@ -1,5 +1,6 @@
 package com.spacetime.admin.dto.response;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.Data;
 
 /**
@@ -32,4 +33,6 @@ public class ModerationDetailVO {
     private String auditSource;
     /** 驳回原因 */
     private String rejectReason;
+    /** 审核历史分页 */
+    private Page<AuditHistoryVO> historyPage;
 }

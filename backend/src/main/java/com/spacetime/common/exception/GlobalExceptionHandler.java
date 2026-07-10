@@ -8,6 +8,8 @@ import org.slf4j.MDC;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -39,7 +41,14 @@ public class GlobalExceptionHandler {
         return R.fail(ResultCodeEnum.PARAM_ERROR.getCode(), message);
     }
 
-    /** 未知异常：生成 requestId 并打印完整堆栈，方便排查 */
+    /** 资源不存在：接口路径或静态资源路径错误时返回 404，不按系统异常处理。 */
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    public R<Void> handleNotFound(Exception e) {
+        log.warn("resource not found: {}", e.getMessage());
+        return R.fail(ResultCodeEnum.NOT_FOUND);
+    }
+
+    /** 未知异常：生成 requestId 并打印完整堆栈，方便排查。 */
     @ExceptionHandler(Exception.class)
     public R<Void> handleException(Exception e) {
         String requestId = IdUtil.simpleUUID();

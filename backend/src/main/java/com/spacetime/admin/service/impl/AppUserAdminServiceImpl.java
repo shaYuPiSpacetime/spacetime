@@ -470,7 +470,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     private String effectiveExistsSql(AppUserAuditTypeEnum type) {
         return "SELECT 1 FROM app_user_audit_record ar WHERE ar.user_id = app_user.id"
                 + " AND ar.deleted = 0 AND ar.audit_type = '" + escapeSql(type.getCode()) + "'"
-                + " AND ar.status = 'APPROVED' AND ar.current_effective = 1";
+                + " AND ar.status = 'APPROVED'";
     }
 
     private AppUserAuditRecord audit(Map<String, AppUserAuditRecord> audits, AppUserAuditTypeEnum type) {
@@ -506,8 +506,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
 
     private boolean effectiveApproved(AppUserAuditRecord record) {
         return record != null
-                && AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus())
-                && Integer.valueOf(1).equals(record.getCurrentEffective());
+                && AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus());
     }
 
     private boolean latestApproved(AppUserAuditRecord record) {

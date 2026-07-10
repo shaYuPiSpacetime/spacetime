@@ -169,18 +169,14 @@ String url = "jdbc:mysql://" + host + ":" + port + "/" + db + "?useUnicode=true&
 Class.forName("com.mysql.cj.jdbc.Driver");
 try (Connection conn = DriverManager.getConnection(url, user, password)) {
     if ("seedReviewing".equals(mode)) {
-        String insert = "INSERT INTO app_user_audit_record (user_id,audit_group,audit_type,object_key,status,audit_source,current_effective,content_text,submit_payload_json,masked_payload_json,submit_time,create_time,update_time,deleted) VALUES (?,?,?,?,?,?,?,?,?,?,NOW(),NOW(),NOW(),0)";
+        String insert = "INSERT INTO app_user_audit_record (user_id,audit_group,audit_type,status,audit_source,content_text,submit_time,create_time,update_time,deleted) VALUES (?,?,?,?,?,?,NOW(),NOW(),NOW(),0)";
         try (PreparedStatement ps = conn.prepareStatement(insert, Statement.RETURN_GENERATED_KEYS)) {
             ps.setLong(1, appUserId);
             ps.setString(2, "TEXT");
             ps.setString(3, "PROFILE_QA");
-            ps.setString(4, "PROFILE_QA");
-            ps.setString(5, "REVIEWING");
-            ps.setString(6, "MANUAL");
-            ps.setInt(7, 0);
-            ps.setString(8, "L1 reviewing seed text");
-            ps.setString(9, "{\"fieldName\":\"PROFILE_QA\",\"contentText\":\"L1 reviewing seed text\"}");
-            ps.setString(10, "{\"fieldName\":\"PROFILE_QA\",\"contentText\":\"L1 reviewing seed text\"}");
+            ps.setString(4, "REVIEWING");
+            ps.setString(5, "MANUAL");
+            ps.setString(6, "L1 reviewing seed text");
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 rs.next();
@@ -207,6 +203,7 @@ try (Connection conn = DriverManager.getConnection(url, user, password)) {
     if ("summary".equals(mode)) {
         String[] oldTables = {"app_user_verification","app_user_verification_record","app_user_profile_media","app_user_open_text_audit","app_user_voice_intro_record"};
         String[] oldColumns = {"voice_intro_url","voice_intro_duration","voice_intro_audit_status","voice_intro_record_id","voice_intro_reject_reason","profile_bg_media_id"};
+        String[] removedAuditColumns = {"object_id","object_key","current_effective","education_level","submit_payload_json","masked_payload_json"};
         try (Statement st = conn.createStatement()) {
             for (String name : oldTables) {
                 try (ResultSet rs = st.executeQuery("SHOW TABLES LIKE '" + name + "'")) {
@@ -217,6 +214,12 @@ try (Connection conn = DriverManager.getConnection(url, user, password)) {
                 try (ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='app_user' AND COLUMN_NAME='" + name + "'")) {
                     rs.next();
                     System.out.println("OLD_COLUMN:app_user." + name + "=" + (rs.getLong(1) > 0 ? "EXISTS" : "MISSING"));
+                }
+            }
+            for (String name : removedAuditColumns) {
+                try (ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='app_user_audit_record' AND COLUMN_NAME='" + name + "'")) {
+                    rs.next();
+                    System.out.println("OLD_COLUMN:app_user_audit_record." + name + "=" + (rs.getLong(1) > 0 ? "EXISTS" : "MISSING"));
                 }
             }
             try (ResultSet rs = st.executeQuery("SELECT status, COUNT(*) c FROM app_user_audit_record WHERE user_id=" + appUserId + " AND deleted=0 GROUP BY status")) {

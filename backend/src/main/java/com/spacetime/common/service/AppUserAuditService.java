@@ -28,7 +28,7 @@ public interface AppUserAuditService {
     /** 用户提交一条审核记录，并写入提交历史。 */
     AppUserAuditRecord submit(AppUserAuditRecord record);
 
-    /** 机审通过，并按审核类型更新 current_effective。 */
+    /** 机审通过，并写入机审信号。 */
     void machineApprove(Long recordId, Long providerTaskId, String machineSignalJson);
 
     /** 机审驳回，并写入驳回原因。 */

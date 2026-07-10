@@ -8,10 +8,12 @@ interface PaginationProps {
   total: number;
   pageSize?: number;
   onChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  showPageSizeSelector?: boolean;
   className?: string;
 }
 
-function Pagination({ current, total, pageSize = 10, onChange, className }: PaginationProps) {
+function Pagination({ current, total, pageSize = 10, onChange, onPageSizeChange, showPageSizeSelector = true, className }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safeCurrent = Math.min(Math.max(current, 1), totalPages);
 
@@ -70,21 +72,23 @@ function Pagination({ current, total, pageSize = 10, onChange, className }: Pagi
         <ChevronsRight className="h-3 w-3" />
       </Button>
 
-      <span className="ml-4 text-xs">
-        <select
-          className="mx-1 bg-transparent text-xs outline-none"
-          value={pageSize}
-          onChange={(e) => {
-            const newSize = Number(e.target.value);
-            const newTotalPages = Math.ceil(total / newSize);
-            onChange(Math.min(safeCurrent, Math.max(1, newTotalPages)));
-          }}
-        >
-          <option value={10}>10条/页</option>
-          <option value={20}>20条/页</option>
-          <option value={50}>50条/页</option>
-        </select>
-      </span>
+      {showPageSizeSelector && (
+        <span className="ml-4 text-xs">
+          <select
+            className="mx-1 bg-transparent text-xs outline-none"
+            value={pageSize}
+            onChange={(e) => {
+              const newSize = Number(e.target.value);
+              onPageSizeChange?.(newSize);
+              onChange(1);
+            }}
+          >
+            <option value={10}>10条/页</option>
+            <option value={20}>20条/页</option>
+            <option value={50}>50条/页</option>
+          </select>
+        </span>
+      )}
     </div>
   );
 }
