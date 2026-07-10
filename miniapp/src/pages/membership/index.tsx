@@ -1,10 +1,8 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
-import Taro, { useRouter } from '@tarojs/taro'
-import WechatMockPayPanel from '@/components/WechatMockPayPanel'
+import Taro from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useMembership, type MembershipPayState } from '@/hooks/useMembership'
-import { getDemoPageData } from '@/services/lanhuDemo'
 import { useAuthStore } from '@/stores/authStore'
 import type { MembershipPlan, MemberStatus, MyMembership } from '@/types/membership'
 import {
@@ -15,9 +13,7 @@ import {
 
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
-const profileDemo = getDemoPageData('profile')
-const membershipDemo = getDemoPageData('membership')
-type MembershipPageVariant = 'default' | 'none' | 'active' | 'expired' | 'annual'
+type MembershipPageVariant = 'default'
 const MEMBER_PLAN_CARD_WIDTH_RPX = 220
 const MEMBER_PLAN_CARD_GAP_RPX = 8
 const MEMBER_PLAN_SELECTED_LEFT_RPX = 20
@@ -33,21 +29,8 @@ const MEMBER_BENEFIT_ICONS: Record<string, { src: string; width: string; height:
   'daily-heart': { src: miniappOssIcons.memberBenefitDailyHeart, width: '64rpx', height: '78rpx' },
 }
 
-function resolveMembershipVariant(value?: string): MembershipPageVariant {
-  if (value === 'none' || value === 'active' || value === 'expired' || value === 'annual') return value
-  return 'default'
-}
-
-function resolveMembershipPayState(value?: string): MembershipPayState {
-  if (value === 'wechat-pay' || value === 'pay-success' || value === 'pay-cancel' || value === 'unpaid-sheet') return value
-  return 'idle'
-}
-
 export default function MembershipPage() {
-  const router = useRouter()
-  const requestedVariant = resolveMembershipVariant(String(router.params.variant || 'default'))
-  const routePayState = resolveMembershipPayState(String(router.params.payState || 'idle'))
-  const variant = routePayState === 'idle' ? requestedVariant : 'annual'
+  const variant: MembershipPageVariant = 'default'
   const authNickname = useAuthStore(state => state.nickname)
   const authAvatar = useAuthStore(state => state.avatar)
   const {
@@ -56,48 +39,37 @@ export default function MembershipPage() {
     benefits,
     fetchMyMembership,
     fetchPlans,
+    fetchBenefits,
     selectPlan,
     confirmPay,
     payLoading,
     payState,
-    simulatePaySuccess,
-    simulatePayCancel,
     showUnpaidSheet,
     hidePaymentLayer,
-    previewPayState,
     goToRecords,
-  } = useMembership(variant)
-  const initialActivePlan = variant === 'annual'
-    ? plans.find((plan) => plan.id === membershipDemo.annualPlanId) ?? plans[0] ?? null
-    : plans[0] ?? null
+  } = useMembership()
+  const initialActivePlan = plans[0] ?? null
   const [activePlanId, setActivePlanId] = useState<number | null>(initialActivePlan?.id ?? null)
   const [agreementChecked, setAgreementChecked] = useState(false)
 
   useEffect(() => {
     fetchMyMembership()
     fetchPlans()
-  }, [fetchMyMembership, fetchPlans])
+    fetchBenefits()
+  }, [fetchBenefits, fetchMyMembership, fetchPlans])
 
   useEffect(() => {
     if (plans.length === 0 || plans.some(plan => plan.id === activePlanId)) return
-    const defaultPlan = variant === 'annual'
-      ? plans.find((plan) => plan.id === membershipDemo.annualPlanId) ?? plans[0]
-      : plans[0]
+    const defaultPlan = plans[0]
+    if (!defaultPlan) return
     setActivePlanId(defaultPlan.id)
     selectPlan(defaultPlan)
   }, [plans, activePlanId, selectPlan, variant])
 
-  useEffect(() => {
-    if (routePayState !== 'idle') {
-      previewPayState(routePayState)
-    }
-  }, [routePayState, previewPayState])
-
   const activePlan = plans.find((plan) => plan.id === activePlanId)
   const currentMembership = myMembership
-  const heroNickname = authNickname.trim() || profileDemo.nickname
+  const heroNickname = authNickname.trim() || '时空用户'
   const heroAvatar = authAvatar.trim() || defaultAvatar
-  const paymentPreviewAmount = routePayState === 'wechat-pay' ? membershipDemo.wechatPayPreviewAmount : undefined
 
   const handleSelect = (plan: MembershipPlan) => {
     setActivePlanId(plan.id)
@@ -121,17 +93,7 @@ export default function MembershipPage() {
     await confirmPay()
   }
 
-  const handlePaySuccess = async () => {
-    setAgreementChecked(false)
-    await simulatePaySuccess()
-  }
-
-  const handlePayCancel = () => {
-    setAgreementChecked(false)
-    simulatePayCancel()
-  }
-
-  const navTitle = variant === 'expired' ? undefined : '会员中心'
+  const navTitle = '会员中心'
 
   return (
     <View
@@ -180,11 +142,7 @@ export default function MembershipPage() {
       />
       <MembershipPaymentLayer
         payState={payState}
-        plan={activePlan}
-        previewAmount={paymentPreviewAmount}
         onClose={hidePaymentLayer}
-        onSuccess={handlePaySuccess}
-        onCancel={handlePayCancel}
         onConfirmAgreement={handleConfirmAgreement}
       />
     </View>
@@ -538,37 +496,28 @@ function BenefitCard({
 }
 
 function MemberBenefitIcon({ icon }: { icon: string }) {
-  // 商业化校验保证当前权益 icon 都映射到 MCP 切片，缺切图必须先登记，不能静默画泛用占位。
-  const iconAsset = MEMBER_BENEFIT_ICONS[icon]
+  const iconAsset = MEMBER_BENEFIT_ICONS[icon] ?? MEMBER_BENEFIT_ICONS['heart-list']
 
   return <Image src={iconAsset.src} mode="scaleToFill" style={{ width: iconAsset.width, height: iconAsset.height }} />
 }
 
 function MembershipPaymentLayer({
   payState,
-  plan,
-  previewAmount,
   onClose,
-  onSuccess,
-  onCancel,
   onConfirmAgreement,
 }: {
   payState: MembershipPayState
-  plan?: MembershipPlan
-  previewAmount?: string
   onClose: () => void
-  onSuccess: () => void
-  onCancel: () => void
   onConfirmAgreement: () => void
 }) {
   if (payState === 'idle') return null
 
   if (payState === 'pay-success') {
-    return <PayResultModal title="支付成功" />
+    return <PayResultModal title="支付成功" onClose={onClose} />
   }
 
   if (payState === 'pay-cancel') {
-    return <PayResultModal title="用户取消支付" />
+    return <PayResultModal title="用户取消支付" onClose={onClose} />
   }
 
   return (
@@ -583,13 +532,15 @@ function MembershipPaymentLayer({
         zIndex: 60,
       }}
     >
-      {payState === 'wechat-pay' && (
-        <WechatPayDemoFallback
-          amount={previewAmount ?? plan?.price.toFixed(2) ?? '0.00'}
-          onClose={onClose}
-          onSuccess={onSuccess}
-          onCancel={onCancel}
-        />
+      {payState === 'paying' && (
+        <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}>
+          <Text style={{ color: LANHU_DARK, fontSize: '28rpx' }}>正在打开微信支付并确认会员状态...</Text>
+        </View>
+      )}
+      {payState === 'pay-failed' && (
+        <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }} onClick={onClose}>
+          <Text style={{ color: LANHU_DARK, fontSize: '28rpx' }}>支付结果确认中，请稍后查看订单</Text>
+        </View>
       )}
       {payState === 'unpaid-sheet' && (
         <UnpaidBottomSheet
@@ -600,22 +551,7 @@ function MembershipPaymentLayer({
   )
 }
 
-// 微信原生支付面板由 wx.requestPayment 唤起；这里仅用于蓝湖 demo fallback。
-function WechatPayDemoFallback({
-  amount,
-  onClose,
-  onSuccess,
-  onCancel,
-}: {
-  amount: string
-  onClose: () => void
-  onSuccess: () => void
-  onCancel: () => void
-}) {
-  return <WechatMockPayPanel amount={amount} onClose={onClose} onSuccess={onSuccess} onCancel={onCancel} />
-}
-
-function PayResultModal({ title }: { title: string }) {
+function PayResultModal({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <View
       style={{
@@ -632,6 +568,7 @@ function PayResultModal({ title }: { title: string }) {
         boxSizing: 'border-box',
         zIndex: 80,
       }}
+      onClick={onClose}
     >
       <Text style={{ color: '#FFFFFF', fontSize: '34rpx' }}>{title}</Text>
     </View>
@@ -812,8 +749,8 @@ function getAgreementText(plan?: MembershipPlan, variant?: MembershipPageVariant
     return { showContinuous: false, discountText: '' }
   }
 
-  const renewalAmount = formatSubscriptionAmount(membershipDemo.subscription.renewalAmount)
-  const originalAmount = formatSubscriptionAmount(membershipDemo.subscription.originalAmount)
+  const renewalAmount = formatSubscriptionAmount(`¥${(plan?.price ?? 0).toFixed(2)}`)
+  const originalAmount = formatSubscriptionAmount(`¥${(plan?.originalPrice ?? plan?.price ?? 0).toFixed(2)}`)
   return {
     showContinuous: true,
     discountText: `享${renewalAmount}订阅优惠价（原价${originalAmount}），可随时取消自动续费`,

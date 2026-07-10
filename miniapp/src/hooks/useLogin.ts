@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import Taro from '@tarojs/taro'
 import { post } from '@/services/request'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import { normalizeAvatarUrl } from '@/utils/avatar'
 import type { LoginStep, LoginUserInfo } from '@/types/login'
+import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
 // ==================== Mock 数据 ====================
 
@@ -127,7 +129,7 @@ function buildProfileInitPayload(userInfo: LoginUserInfo): Record<string, unknow
   return {
     step: 3,
     nickname: userInfo.nickname || loginDemo.defaultUser.nickname,
-    avatar: userInfo.avatar || loginDemo.defaultUser.avatar,
+    avatar: normalizeAvatarUrl(userInfo.avatar || loginDemo.defaultUser.avatar, defaultAvatar),
     gender: normalizeGender(userInfo.gender),
     birthday: normalizeBirthday(userInfo.birthday),
     locationProvince: userInfo.province,

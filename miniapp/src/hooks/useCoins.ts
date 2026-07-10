@@ -1,21 +1,83 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import Taro from '@tarojs/taro'
+import { miniappOssIcons, type MiniappOssIconKey } from '@/constants/ossIcons'
 import type { CoinPackage, CoinTransaction, CoinUsage } from '@/types/coin'
-import { getDemoPageData } from '@/services/lanhuDemo'
-import { createOrder, getCoinPackages, requestWechatPayment, type CoinPackageVO } from '@/services/payment'
+import {
+  confirmWechatPayment,
+  createOrder,
+  getCoinBalance,
+  getCoinFlows,
+  getCoinPackages,
+  getCoinScenes,
+  requestWechatPayment,
+  type CoinFlowVO,
+  type CoinPackageVO,
+  type CoinSceneVO,
+} from '@/services/payment'
 
-const coinsDemo = getDemoPageData('coins')
-export type CoinPayState = 'idle' | 'wechat-pay' | 'pay-success' | 'pay-cancel'
+export type CoinPayState = 'idle' | 'paying' | 'pay-success' | 'pay-cancel' | 'pay-failed'
 
 function adaptCoinPackage(pkg: CoinPackageVO): CoinPackage {
   const coinCount = Number(pkg.coinCount || 0)
   const bonusCount = Number(pkg.bonusCoinCount || 0)
+  const originAmount = Number(pkg.originAmount || 0)
   return {
     id: pkg.id,
     amount: coinCount + bonusCount,
     price: Number(pkg.amount || 0),
-    label: pkg.packageDesc || pkg.packageName,
+    label: pkg.packageName,
     tag: pkg.packageTag,
+    originalPrice: originAmount > 0 ? `¥${originAmount.toFixed(2)}` : undefined,
+    discountLabel: pkg.mobileTag,
+    recommended: pkg.recommendFlag === 1,
+  }
+}
+
+const COIN_USAGE_ICON_KEYS: Record<string, MiniappOssIconKey> = {
+  coinUsageWhisper: 'coinUsageWhisper',
+  coinUsageHeartbeat: 'coinUsageHeartbeat',
+  coinUsageIdealUnlock: 'coinUsageIdealUnlock',
+  coinUsageBoost: 'coinUsageBoost',
+  coinUsageCuratedUnlock: 'coinUsageCuratedUnlock',
+  coinUsageRecommend: 'coinUsageRecommend',
+  coinUsageAnonymousUnlock: 'coinUsageAnonymousUnlock',
+  coinUsageLimitedActivity: 'coinUsageLimitedActivity',
+  'icon-whisper': 'coinUsageWhisper',
+  'icon-heart-unlock': 'coinUsageHeartbeat',
+  'icon-eye-unlock': 'coinUsageIdealUnlock',
+  'icon-target-user': 'coinUsageBoost',
+  'icon-target-batch': 'coinUsageCuratedUnlock',
+  'icon-compatible-person': 'coinUsageRecommend',
+  'icon-soulmate': 'coinUsageAnonymousUnlock',
+  'icon-career-recommend': 'coinUsageLimitedActivity',
+}
+
+function resolveCoinUsageIcon(icon?: string): string {
+  if (!icon) return ''
+  if (/^https:\/\//.test(icon)) return icon
+  const key = COIN_USAGE_ICON_KEYS[icon]
+  return key ? miniappOssIcons[key] : ''
+}
+
+function adaptCoinFlow(flow: CoinFlowVO): CoinTransaction {
+  const amount = Number(flow.changeAmount || 0)
+  return {
+    id: flow.id,
+    type: amount >= 0 ? 'income' : 'expense',
+    amount,
+    description: flow.bizDesc || flow.bizScene || '千寻币资产变动',
+    time: flow.createTime || '-',
+    balance: Number(flow.balanceAfter || 0),
+  }
+}
+
+function adaptCoinScene(scene: CoinSceneVO): CoinUsage {
+  return {
+    code: scene.sceneCode,
+    icon: resolveCoinUsageIcon(scene.mobileIcon),
+    label: scene.mobileDisplayName,
+    price: Number(scene.unitPrice || 0),
+    description: scene.sceneDesc || '',
   }
 }
 
@@ -24,159 +86,122 @@ function isPaymentCancel(error: unknown) {
   return message.includes('cancel') || message.includes('取消')
 }
 
+async function confirmPayment(orderId: number) {
+  let result = await confirmWechatPayment(orderId)
+  for (let attempt = 0; attempt < 2 && result.orderStatus === 'unpaid'; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    result = await confirmWechatPayment(orderId)
+  }
+  return result
+}
+
 /**
- * 千寻币模块 hook
- * 封装余额查询、套餐选择、支付、交易明细加载等完整逻辑
- *
- * 注意：当前所有数据使用 Mock，后续接入真实 API 只需替换 fetch* 函数。
+ * 千寻币模块 hook。
+ * 所有余额、套餐、场景、流水和入账结果均来自后端接口。
  */
 export function useCoins() {
-  /* ---------- 余额 ---------- */
-  const [balance, setBalance] = useState<number>(coinsDemo.balance)
+  const [balance, setBalance] = useState(0)
   const [balanceLoading, setBalanceLoading] = useState(false)
-
-  /* ---------- 套餐列表 ---------- */
-  const [packages, setPackages] = useState<CoinPackage[]>(coinsDemo.packages)
+  const [packages, setPackages] = useState<CoinPackage[]>([])
   const [packagesLoading, setPackagesLoading] = useState(false)
-
-  /* ---------- 选中的套餐 ---------- */
-  const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(coinsDemo.packages[1] ?? null)
-
-  /* ---------- 支付状态 ---------- */
+  const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [payState, setPayState] = useState<CoinPayState>('idle')
-
-  /* ---------- 交易明细 ---------- */
-  const [transactions, setTransactions] = useState<CoinTransaction[]>(coinsDemo.transactions)
+  const [transactions, setTransactions] = useState<CoinTransaction[]>([])
   const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [usages, setUsages] = useState<CoinUsage[]>([])
 
-  /* ---------- 用途列表 ---------- */
-  const [usages] = useState<CoinUsage[]>(coinsDemo.usages)
-
-  /* ---------- 操作方法 ---------- */
-
-  /** 刷新余额（Mock 实现） */
   const fetchBalance = useCallback(async () => {
     setBalanceLoading(true)
     try {
-      // 后续替换为真实 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setBalance(coinsDemo.balance)
+      const result = await getCoinBalance()
+      setBalance(Number(result.coinBalance || 0))
     } finally {
       setBalanceLoading(false)
     }
   }, [])
 
-  /** 加载套餐列表 */
   const fetchPackages = useCallback(async () => {
     setPackagesLoading(true)
     try {
-      const serverPackages = await getCoinPackages()
-      const nextPackages = serverPackages.length > 0 ? serverPackages.map(adaptCoinPackage) : [...coinsDemo.packages]
-      setPackages(nextPackages)
-      setSelectedPackage((current) => current ?? nextPackages[0] ?? null)
-    } catch {
-      setPackages([...coinsDemo.packages])
+      const serverPackages = (await getCoinPackages()).map(adaptCoinPackage)
+      setPackages(serverPackages)
+      setSelectedPackage((current) => {
+        const currentPackage = current && serverPackages.find((pkg) => pkg.id === current.id)
+        return currentPackage || serverPackages.find((pkg) => pkg.recommended) || serverPackages[0] || null
+      })
     } finally {
       setPackagesLoading(false)
     }
   }, [])
 
-  /** 加载交易明细（Mock 实现） */
-  const fetchTransactions = useCallback(async () => {
+  const fetchScenes = useCallback(async () => {
+    setUsages((await getCoinScenes()).map(adaptCoinScene))
+  }, [])
+
+  const fetchTransactions = useCallback(async (flowType?: string) => {
     setTransactionsLoading(true)
     try {
-      // 后续替换为真实 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setTransactions([...coinsDemo.transactions])
+      const page = await getCoinFlows(1, 20, flowType)
+      setTransactions((page.records || []).map(adaptCoinFlow))
     } finally {
       setTransactionsLoading(false)
     }
   }, [])
 
-  /** 选中套餐 */
   const selectPackage = useCallback((pkg: CoinPackage) => {
     setSelectedPackage(pkg)
   }, [])
 
-  /** 预览指定支付状态，供蓝湖 demo query 直达 */
-  const previewPayState = useCallback((nextState: CoinPayState) => {
-    setPayState(nextState)
-  }, [])
-
-  /** 打开 mock 微信支付面板 */
-  const openWechatPay = useCallback(() => {
+  const purchase = useCallback(async (sourcePage = 'coins') => {
     if (!selectedPackage) {
-      Taro.showToast({ title: '请选择充值套餐', icon: 'none' })
+      Taro.showToast({ title: '暂无可购买套餐', icon: 'none' })
       return
     }
-    setPayState('wechat-pay')
-  }, [selectedPackage])
-
-  /** 模拟支付成功 */
-  const simulatePaySuccess = useCallback(async () => {
-    if (!selectedPackage) {
-      Taro.showToast({ title: '请选择充值套餐', icon: 'none' })
-      return
-    }
+    let orderId: number | null = null
     setPayLoading(true)
+    setPayState('paying')
     try {
-      // 后续替换为真实支付 API 调用（wx.requestPayment）
-      await new Promise((resolve) => setTimeout(resolve, 360))
-      setBalance((prev) => prev + selectedPackage.amount)
+      const order = await createOrder(selectedPackage.id, 'coin')
+      orderId = order.orderId
+      if (!order.payParams) {
+        throw new Error('支付参数缺失，请稍后重试')
+      }
+      await requestWechatPayment(order.payParams)
+      const result = await confirmPayment(order.orderId)
+      if (result.orderStatus !== 'success') {
+        setPayState('pay-failed')
+        Taro.showToast({ title: '支付结果确认中，请稍后查看订单', icon: 'none' })
+        Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=coin&sourcePage=${sourcePage}&result=processing` })
+        return
+      }
+      if (result.coinBalance != null) setBalance(Number(result.coinBalance))
+      await fetchTransactions()
       setPayState('pay-success')
-    } catch {
-      Taro.showToast({ title: '支付失败，请重试', icon: 'none' })
+      Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=coin&sourcePage=${sourcePage}&result=success` })
+    } catch (error) {
+      if (isPaymentCancel(error)) {
+        setPayState('pay-cancel')
+        if (orderId) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=cancel` })
+      } else {
+        setPayState('pay-failed')
+        Taro.showToast({ title: error instanceof Error ? error.message : '支付失败，请重试', icon: 'none' })
+        if (orderId) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=failed` })
+      }
     } finally {
       setPayLoading(false)
     }
-  }, [selectedPackage])
+  }, [fetchTransactions, selectedPackage])
 
-  /** 模拟取消支付 */
-  const simulatePayCancel = useCallback(() => {
-    setPayState('pay-cancel')
-  }, [])
-
-  /** 隐藏支付状态层 */
   const hidePaymentLayer = useCallback(() => {
     setPayState('idle')
   }, [])
 
-  /** 确认支付 */
-  const purchase = useCallback(async () => {
-    if (!selectedPackage) {
-      Taro.showToast({ title: '请选择充值套餐', icon: 'none' })
-      return
-    }
-    setPayLoading(true)
-    try {
-      const order = await createOrder(selectedPackage.id, 'coin')
-      if (!order.payParams) {
-        openWechatPay()
-        return
-      }
-      await requestWechatPayment(order.payParams)
-      setBalance((prev) => prev + selectedPackage.amount)
-      setPayState('pay-success')
-    } catch (error) {
-      if (isPaymentCancel(error)) {
-        setPayState('pay-cancel')
-      } else {
-        setPayState('idle')
-        Taro.showToast({ title: error instanceof Error ? error.message : '支付失败，请重试', icon: 'none' })
-      }
-    } finally {
-      setPayLoading(false)
-    }
-  }, [openWechatPay, selectedPackage])
-
-  /** 跳转到交易明细页 */
   const goToDetail = useCallback(() => {
     Taro.navigateTo({ url: '/pages/coins/detail' })
   }, [])
 
   return {
-    /* 状态 */
     balance,
     balanceLoading,
     packages,
@@ -187,17 +212,13 @@ export function useCoins() {
     transactions,
     transactionsLoading,
     usages,
-    /* 方法 */
     fetchBalance,
     fetchPackages,
+    fetchScenes,
     fetchTransactions,
     selectPackage,
     purchase,
-    openWechatPay,
-    simulatePaySuccess,
-    simulatePayCancel,
     hidePaymentLayer,
-    previewPayState,
     goToDetail,
   }
 }

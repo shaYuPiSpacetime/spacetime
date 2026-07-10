@@ -2,15 +2,13 @@ import { useState, useCallback } from 'react';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '@/stores/authStore';
 import { getDemoPageData } from '@/services/lanhuDemo';
-import { getVipStatus, type VipStatusVO } from '@/services/payment';
+import { getCoinBalance, getVipStatus, type VipStatusVO } from '@/services/payment';
 import type { MyMembership } from '@/types/membership';
 
 const profileDemo = getDemoPageData('profile');
-const membershipDemo = getDemoPageData('membership');
-const coinsDemo = getDemoPageData('coins');
 
 /**
- * 千寻币余额数据结构（当前阶段 demo 数据为 number，后续接口返回完整对象）
+ * 千寻币余额数据结构。
  */
 interface CoinBalance {
   /** 可用余额 */
@@ -90,10 +88,10 @@ interface UseProfileReturn {
 function adaptProfileMembership(status?: VipStatusVO): MyMembership {
   if (status?.vipStatus === 'active') {
     return {
-      ...membershipDemo.activeMembership,
+      status: 'active',
       startTime: status.memberStartTime,
-      expireTime: status.vipExpireTime || membershipDemo.activeMembership.expireTime,
-      planName: status.packageName || membershipDemo.activeMembership.planName,
+      expireTime: status.vipExpireTime,
+      planName: status.packageName,
       orderNo: status.orderNo,
       packageId: status.packageId,
       subscriptionType: status.subscriptionType,
@@ -102,20 +100,20 @@ function adaptProfileMembership(status?: VipStatusVO): MyMembership {
   }
   if (status?.vipStatus === 'expired') {
     return {
-      ...membershipDemo.expiredMembership,
+      status: 'expired',
       startTime: status.memberStartTime,
-      expireTime: status.vipExpireTime || membershipDemo.expiredMembership.expireTime,
-      planName: status.packageName || membershipDemo.expiredMembership.planName,
+      expireTime: status.vipExpireTime,
+      planName: status.packageName,
       orderNo: status.orderNo,
       packageId: status.packageId,
       subscriptionType: status.subscriptionType,
       payChannel: status.payChannel,
     };
   }
-  return membershipDemo.myMembership;
+  return { status: 'none' };
 }
 
-function buildProfileData(membership: MyMembership | null = membershipDemo.myMembership): ProfileData {
+function buildProfileData(membership: MyMembership | null = null, coinBalance: CoinBalance | null = null): ProfileData {
   const auth = useAuthStore.getState();
 
   return {
@@ -130,8 +128,7 @@ function buildProfileData(membership: MyMembership | null = membershipDemo.myMem
     verifiedLabels: profileDemo.verifiedLabels,
     // 会员信息
     membership,
-    // 千寻币余额（当前为 number，包装为对象以兼容后续接口）
-    coinBalance: { balance: coinsDemo.balance },
+    coinBalance,
     // 统计数据（mock 占位）
     likedCount: profileDemo.stats.likedCount,
     beLikedCount: profileDemo.stats.beLikedCount,
@@ -174,15 +171,14 @@ export function useProfile(): UseProfileReturn {
       setError(null);
 
       const auth = useAuthStore.getState();
-      let membership = membershipDemo.myMembership;
+      let membership: MyMembership | null = null;
+      let coinBalance: CoinBalance | null = null;
       if (auth.isLoggedIn) {
-        try {
-          membership = adaptProfileMembership(await getVipStatus());
-        } catch {
-          membership = membershipDemo.myMembership;
-        }
+        const [status, balance] = await Promise.all([getVipStatus(), getCoinBalance()]);
+        membership = adaptProfileMembership(status);
+        coinBalance = { balance: Number(balance.coinBalance || 0) };
       }
-      const freshData = buildProfileData(membership);
+      const freshData = buildProfileData(membership, coinBalance);
       setData(freshData);
     } catch (err: unknown) {
       const message =

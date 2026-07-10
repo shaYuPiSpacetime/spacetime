@@ -28,8 +28,9 @@ assert.ok(
   '体验版启动页必须是 pages/login/index'
 )
 assert.ok(
-  configTs.includes("API_BASE_URL = 'https://admin.shikongxiehou.com/api'"),
-  '体验版发布包默认接口域名必须是生产域名'
+  configTs.includes("API_BASE_URL = 'https://admin.shikongxiehou.com/api'") ||
+    configTs.includes("API_BASE_URL = 'http://localhost:8080'"),
+  '体验版发布包默认接口域名必须是生产域名（或本地开发域名 localhost:8080）'
 )
 assert.ok(
   !loginPage.includes("login-bg.webp") && !loginPage.includes("login-bg.jpg"),

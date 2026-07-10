@@ -1,8 +1,8 @@
 export default {
   lazyCodeLoading: 'requiredComponents',
   pages: [
-    'pages/profile/index',
     'pages/login/index',
+    'pages/profile/index',
     'pages/login/address',
     'pages/login/phone',
     'pages/login/gender',
@@ -14,7 +14,8 @@ export default {
     'pages/chat/index',
     'pages/index/index',
     'pages/recommend/index',
-    'pages/recommend/post'
+    'pages/recommend/post',
+    'pages/commerce/payment-result'
   ],
   subPackages: [
     {

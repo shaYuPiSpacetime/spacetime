@@ -15,16 +15,60 @@ export interface VipPackageVO {
   packageTag?: string
 }
 
+/** VIP 权益 */
+export interface VipBenefitVO {
+  id: number
+  benefitCode: string
+  benefitName: string
+  benefitType?: string
+  benefitDesc?: string
+  mobileIcon?: string
+  benefitValue?: number
+  displayOrder?: number
+}
+
 /** 千寻币套餐 */
 export interface CoinPackageVO {
   id: number
   packageName: string
   amount: number
+  originAmount?: number
+  discountAmount?: number
   coinCount: number
   bonusCoinCount?: number
   recommendFlag?: number
   packageTag?: string
+  mobileTag?: string
   packageDesc?: string
+}
+
+/** 千寻币余额 */
+export interface CoinBalanceVO {
+  coinBalance: number
+}
+
+/** 千寻币流水 */
+export interface CoinFlowVO {
+  id: number
+  flowNo: string
+  flowType: string
+  changeAmount: number
+  balanceBefore?: number
+  balanceAfter: number
+  bizScene?: string
+  bizDesc?: string
+  createTime?: string
+}
+
+/** 千寻币消费场景 */
+export interface CoinSceneVO {
+  id: number
+  sceneCode: string
+  mobileDisplayName: string
+  mobileIcon?: string
+  sceneDesc?: string
+  unitPrice: number
+  retentionDays?: number
 }
 
 /** VIP 状态 */
@@ -58,10 +102,18 @@ export interface VipOrderVO {
 
 /** 支付结果 */
 export interface PayResultVO {
+  orderId: number
   orderNo: string
+  orderType: PaymentOrderType
+  packageName?: string
+  payAmount?: number
+  createTime?: string
   orderStatus: string
   coinBalance?: number
+  coinAmount?: number
   vipExpireTime?: string
+  expireTime?: string
+  successTime?: string
 }
 
 /** 微信 JSAPI 支付参数 */
@@ -89,9 +141,29 @@ export function getVipPackages(): Promise<VipPackageVO[]> {
   return get<VipPackageVO[]>('/miniapp/vip/packages')
 }
 
+/** 获取已启用 VIP 权益 */
+export function getVipBenefits(): Promise<VipBenefitVO[]> {
+  return get<VipBenefitVO[]>('/miniapp/vip/benefits')
+}
+
 /** 获取千寻币套餐列表 */
 export function getCoinPackages(): Promise<CoinPackageVO[]> {
   return get<CoinPackageVO[]>('/miniapp/coin/packages')
+}
+
+/** 获取当前用户千寻币余额 */
+export function getCoinBalance(): Promise<CoinBalanceVO> {
+  return get<CoinBalanceVO>('/miniapp/coin/balance')
+}
+
+/** 获取千寻币消费场景配置 */
+export function getCoinScenes(): Promise<CoinSceneVO[]> {
+  return get<CoinSceneVO[]>('/miniapp/coin/scenes')
+}
+
+/** 获取当前用户千寻币流水 */
+export function getCoinFlows(page = 1, size = 20, flowType?: string): Promise<PageVO<CoinFlowVO>> {
+  return get<PageVO<CoinFlowVO>>('/miniapp/coin/flows', { page, size, flowType })
 }
 
 /** 获取当前 VIP 状态 */
@@ -107,6 +179,11 @@ export function getVipOrders(page = 1, size = 50): Promise<PageVO<VipOrderVO>> {
 /** 创建充值订单 */
 export function createOrder(packageId: number, type: PaymentOrderType): Promise<CreateOrderResult> {
   return post<CreateOrderResult>('/miniapp/payment/create-order', { packageId, orderType: type })
+}
+
+/** 查询当前用户支付订单结果 */
+export function getPaymentOrder(orderId: number): Promise<PayResultVO> {
+  return get<PayResultVO>(`/miniapp/payment/orders/${orderId}`)
 }
 
 /** 微信支付成功后主动确认订单，补偿回调延迟或丢失 */

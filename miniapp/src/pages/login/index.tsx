@@ -6,7 +6,9 @@ import { useAuthStore } from '@/stores/authStore'
 import { loginByWechatPhone } from '@/services/auth'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { normalizeAvatarUrl } from '@/utils/avatar'
 import loginSceneBg from '@/assets/login/login-scene-bg.jpg'
+import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import './index.scss'
 
 type LoginMethod = 'wechat' | 'phone'
@@ -468,7 +470,7 @@ export default function LoginAuthPage() {
       }
       const loginData = await loginByWechatPhone({ loginCode, phoneCode })
       const nickname = loginData.nickname || loginDemo.defaultUser.nickname
-      const avatar = loginData.avatar || loginDemo.defaultUser.avatar
+      const avatar = normalizeAvatarUrl(loginData.avatar || loginDemo.defaultUser.avatar, defaultAvatar)
 
       setLogin(loginData.token, loginData.userId, nickname, avatar, {
         openid: loginData.openid,

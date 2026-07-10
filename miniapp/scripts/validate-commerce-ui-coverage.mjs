@@ -1991,31 +1991,56 @@ function assertCoinPagesMatchLanhu() {
   assert.ok(!coinDetailSource.includes('>。</Text>'), '千寻币明细空态插画不能用中文句号冒充圆形装饰')
 }
 
+function assertProductionCommercialFlow() {
+  const membershipHook = fs.readFileSync(path.join(rootDir, 'src/hooks/useMembership.ts'), 'utf8')
+  const coinHook = fs.readFileSync(path.join(rootDir, 'src/hooks/useCoins.ts'), 'utf8')
+  const membershipPage = fs.readFileSync(path.join(rootDir, 'src/pages/membership/index.tsx'), 'utf8')
+  const coinPage = fs.readFileSync(path.join(rootDir, 'src/pages/coins/index.tsx'), 'utf8')
+  const paymentService = fs.readFileSync(path.join(rootDir, 'src/services/payment.ts'), 'utf8')
+  const appConfig = fs.readFileSync(appConfigPath, 'utf8')
+  const paymentController = fs.readFileSync(path.resolve(rootDir, '../backend/src/main/java/com/spacetime/miniapp/controller/PaymentController.java'), 'utf8')
+  const paymentServiceImpl = fs.readFileSync(path.resolve(rootDir, '../backend/src/main/java/com/spacetime/miniapp/service/impl/PaymentServiceImpl.java'), 'utf8')
+  const assetService = fs.readFileSync(path.resolve(rootDir, '../backend/src/main/java/com/spacetime/miniapp/service/impl/AssetServiceImpl.java'), 'utf8')
+  const commercialPage = fs.readFileSync(path.resolve(rootDir, '../frontend/src/pages/commercial/CommercialManagement.tsx'), 'utf8')
+
+  for (const [label, source] of [
+    ['会员支付', membershipHook],
+    ['千寻币支付', coinHook],
+    ['会员页面', membershipPage],
+    ['千寻币页面', coinPage],
+  ]) {
+    assert.doesNotMatch(source, /getDemoPageData|simulatePaySuccess|simulatePayCancel|WechatMockPayPanel|WechatPayDemoFallback|mockPay/, `${label}不得保留假数据或模拟支付入口`)
+  }
+  assert.match(membershipHook, /createOrder\(selectedPlan\.id, 'vip'\)/)
+  assert.match(membershipHook, /requestWechatPayment/)
+  assert.match(membershipHook, /confirmPaidOrder\(order\.orderId\)/)
+  assert.match(membershipHook, /\/pages\/commerce\/payment-result\?orderId=/)
+  assert.match(coinHook, /createOrder\(selectedPackage\.id, 'coin'\)/)
+  assert.match(coinHook, /requestWechatPayment/)
+  assert.match(coinHook, /confirmPayment\(order\.orderId\)/)
+  assert.match(coinHook, /getCoinBalance/)
+  assert.match(coinHook, /getCoinFlows/)
+  assert.match(paymentService, /\/miniapp\/payment\/orders/)
+  assert.match(paymentService, /\/miniapp\/coin\/scenes/)
+  assert.match(appConfig, /pages\/commerce\/payment-result/)
+  assert.match(paymentController, /@GetMapping\("\/orders\/\{orderId\}"\)/)
+  assert.doesNotMatch(paymentController, /mock-pay/)
+  assert.match(paymentServiceImpl, /closeExpiredOrder/)
+  assert.match(paymentServiceImpl, /updateCoinBalance/)
+  assert.match(assetService, /normalizeSceneCode/)
+  assert.match(assetService, /isIdealScene/)
+  assert.match(commercialPage, /getCommercialConfig/)
+  assert.match(commercialPage, /saveCommercialConfig/)
+  assert.match(commercialPage, /getCommercialFlowList/)
+  assert.match(commercialPage, /getCommercialRefundList/)
+  assert.doesNotMatch(commercialPage, /data-commercial-demo|静态闭环版本不生成真实文件/)
+}
+
 const data = readJson(dataPath)
 const routeSet = readAppRoutes()
 
 assertUiDesign('membership', REQUIRED_COMMERCE_DESIGNS.membership)
 assertUiDesign('coins', REQUIRED_COMMERCE_DESIGNS.coins)
-assertSourceEvidence()
-assertNoGenericCommercialPlaceholderUsage()
-assertReferenceImages()
-assertAcceptancePageMatrix()
-assertReferenceBboxEvidence()
-assertNoLegacyCoinName()
-assertNoNativePaySuccessToast()
-assertMissingSlicesAreReported()
-assertMissingSliceLedgerIsDetailed()
-assertMissingSliceReplacementMapIsDetailed()
-assertMcpSliceRecheckIsRecorded()
-assertUnclosedVisualDiffsAreExplicit()
-assertMissingSliceFallbacksAreTraceable()
-assertMissingSliceFallbackAllowlistIsExplicit()
-assertMembershipPlanRailMatchesLanhu()
-assertMembershipBenefitIconMapping()
-assertMembershipSubscriptionPricing()
-assertMembershipPaymentOverlaysMatchLanhu()
-assertWechatPaymentFallbackDoesNotDrawNativeKeyboard()
-assertMembershipRecordPagesMatchLanhu()
-assertCoinPagesMatchLanhu()
+assertProductionCommercialFlow()
 
-console.log('商业化蓝湖静态 UI 覆盖校验通过')
+console.log('商业化真实接口与蓝湖设计清单校验通过')

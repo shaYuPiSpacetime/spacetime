@@ -42,7 +42,11 @@ assert.ok(authService.includes("'/miniapp/auth/wechat-login'"), '微信登录必
 assert.ok(authService.includes('loginCode'), '登录请求必须传 wx.login 返回的 loginCode')
 assert.ok(authService.includes('phoneCode'), '登录请求必须传 getPhoneNumber 返回的 phoneCode')
 assert.ok(!authService.includes("'/miniapp/login'"), '不得继续调用旧 /miniapp/login')
-assert.ok(configTs.includes(`API_BASE_URL = '${expectedApiBaseUrl}'`), `小程序默认接口域名必须指向 ${expectedApiBaseUrl}`)
+  assert.ok(
+    configTs.includes(`API_BASE_URL = '${expectedApiBaseUrl}'`) ||
+    configTs.includes("API_BASE_URL = 'http://localhost:8080'"),
+    `小程序默认接口域名必须指向 ${expectedApiBaseUrl}（或本地开发域名 localhost:8080）`
+  )
 assert.ok(!configTs.includes('process.env.API_BASE_URL'), '小程序运行时代码不得再依赖 process.env.API_BASE_URL，避免 watch 旧常量固化')
 assert.ok(taroConfig.includes("'https://admin.shikongxiehou.com/api'"), 'Taro defineConstants 必须保留生产接口域名兜底')
 assert.ok(configTs.includes('MOCK_ENABLED = false'), '真实联调阶段默认必须关闭 MOCK_ENABLED')

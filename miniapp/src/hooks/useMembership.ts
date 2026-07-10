@@ -1,40 +1,28 @@
 import { useState, useCallback, useMemo } from 'react'
 import Taro from '@tarojs/taro'
 import type { MembershipPlan, MembershipRecord, MyMembership, MemberStatus } from '@/types/membership'
-import { getDemoPageData } from '@/services/lanhuDemo'
 import {
   confirmWechatPayment,
   createOrder,
+  getVipBenefits,
   getVipOrders,
   getVipPackages,
   getVipStatus,
   requestWechatPayment,
+  type VipBenefitVO,
   type VipOrderVO,
   type VipPackageVO,
   type VipStatusVO,
 } from '@/services/payment'
 
-const membershipDemo = getDemoPageData('membership')
-type MembershipDemoVariant = 'default' | 'none' | 'active' | 'expired' | 'annual'
-export type MembershipPayState = 'idle' | 'wechat-pay' | 'pay-success' | 'pay-cancel' | 'unpaid-sheet'
-
-function membershipForVariant(variant: MembershipDemoVariant): MyMembership {
-  if (variant === 'active' || variant === 'annual') return { ...membershipDemo.activeMembership }
-  if (variant === 'expired') return { ...membershipDemo.expiredMembership }
-  return { ...membershipDemo.myMembership }
+export interface MembershipBenefit {
+  icon: string
+  title: string
+  value: string
+  desc: string
 }
 
-function plansForVariant(variant: MembershipDemoVariant): MembershipPlan[] {
-  if (variant === 'default') return [...membershipDemo.regularPlans]
-  return [...membershipDemo.plans]
-}
-
-function defaultPlanForVariant(variant: MembershipDemoVariant, plans = plansForVariant(variant)): MembershipPlan | null {
-  if (variant === 'annual') {
-    return plans.find((plan) => plan.id === membershipDemo.annualPlanId) ?? plans[0] ?? null
-  }
-  return plans[0] ?? null
-}
+export type MembershipPayState = 'idle' | 'paying' | 'pay-success' | 'pay-cancel' | 'pay-failed' | 'unpaid-sheet'
 
 function durationLabel(days?: number) {
   if (!days) return '1个月'
@@ -66,32 +54,30 @@ function adaptVipPackage(pkg: VipPackageVO): MembershipPlan {
   }
 }
 
+function adaptVipBenefit(benefit: VipBenefitVO): MembershipBenefit {
+  const rawIcon = benefit.mobileIcon || benefit.benefitCode || ''
+  return {
+    icon: rawIcon.replace(/^icon-/, ''),
+    title: benefit.benefitName || benefit.benefitCode || '会员权益',
+    value: benefit.benefitValue == null ? '' : String(benefit.benefitValue),
+    desc: benefit.benefitDesc || '',
+  }
+}
+
 function adaptVipStatus(status: VipStatusVO): MyMembership {
-  if (status.vipStatus === 'active') {
+  if (status.vipStatus === 'active' || status.vipStatus === 'expired') {
     return {
-      status: 'active',
+      status: status.vipStatus,
       startTime: status.memberStartTime,
       expireTime: status.vipExpireTime,
-      planName: status.packageName || membershipDemo.activeMembership.planName,
+      planName: status.packageName,
       orderNo: status.orderNo,
       packageId: status.packageId,
       subscriptionType: status.subscriptionType,
       payChannel: status.payChannel,
     }
   }
-  if (status.vipStatus === 'expired') {
-    return {
-      status: 'expired',
-      startTime: status.memberStartTime,
-      expireTime: status.vipExpireTime,
-      planName: status.packageName || membershipDemo.expiredMembership.planName,
-      orderNo: status.orderNo,
-      packageId: status.packageId,
-      subscriptionType: status.subscriptionType,
-      payChannel: status.payChannel,
-    }
-  }
-  return { ...membershipDemo.myMembership }
+  return { status: 'none' }
 }
 
 function formatDisplayDate(value?: string) {
@@ -105,7 +91,6 @@ function formatDisplayDate(value?: string) {
 function payChannelName(channel?: string) {
   if (channel === 'wechat') return '微信'
   if (channel === 'alipay') return '支付宝'
-  if (channel === 'mock') return '模拟支付'
   return channel || '微信'
 }
 
@@ -143,17 +128,9 @@ function adaptVipOrder(order: VipOrderVO): MembershipRecord {
   }
 }
 
-function isRoutePreviewVariant(variant: MembershipDemoVariant) {
-  return variant === 'annual'
-}
-
 function isPaymentCancel(error: unknown) {
   const message = error instanceof Error ? error.message : String((error as { errMsg?: string })?.errMsg || error || '')
   return message.includes('cancel') || message.includes('取消')
-}
-
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 async function confirmPaidOrder(orderId: number) {
@@ -161,231 +138,132 @@ async function confirmPaidOrder(orderId: number) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     lastResult = await confirmWechatPayment(orderId)
     if (lastResult.orderStatus === 'success') return lastResult
-    if (attempt < 2) await wait(800)
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 800))
   }
   return lastResult
 }
 
 /**
- * 会员模块 hook
- * 封装会员状态查询、套餐选择、支付结果、记录加载等完整逻辑。
+ * 会员模块 hook，生产路径只消费会员状态、权益、套餐、订单和微信支付接口。
  */
-export function useMembership(variant: MembershipDemoVariant = 'default') {
-  /* ---------- 会员状态 ---------- */
-  const [myMembership, setMyMembership] = useState<MyMembership>(() => membershipForVariant(variant))
+export function useMembership() {
+  const [myMembership, setMyMembership] = useState<MyMembership>({ status: 'none' })
   const [statusLoading, setStatusLoading] = useState(false)
-
-  /* ---------- 套餐列表 ---------- */
-  const [plans, setPlans] = useState<MembershipPlan[]>(() => plansForVariant(variant))
+  const [plans, setPlans] = useState<MembershipPlan[]>([])
   const [plansLoading, setPlansLoading] = useState(false)
-
-  /* ---------- 选中的套餐 ---------- */
-  const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(() => defaultPlanForVariant(variant))
-
-  /* ---------- 支付弹窗 ---------- */
+  const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(null)
   const [payPopupVisible, setPayPopupVisible] = useState(false)
   const [payLoading, setPayLoading] = useState(false)
   const [payState, setPayState] = useState<MembershipPayState>('idle')
-
-  /* ---------- 状态筛选 Tab ---------- */
   const [activeStatus, setActiveStatus] = useState<MemberStatus | 'all'>('all')
-
-  /* ---------- 会员记录 ---------- */
   const [records, setRecords] = useState<MembershipRecord[]>([])
   const [recordsLoading, setRecordsLoading] = useState(false)
-  const [benefits] = useState(membershipDemo.benefits)
+  const [benefits, setBenefits] = useState<MembershipBenefit[]>([])
 
-  /** 筛选后的记录列表 */
   const filteredRecords = useMemo(() => {
     if (activeStatus === 'all') return records
-    return records.filter((r) => {
-      if (activeStatus === 'active') return r.status === '已开通' || r.status === '生效中'
-      if (activeStatus === 'expired') return r.status === '已过期' || r.status === '即将过期'
+    return records.filter((record) => {
+      if (activeStatus === 'active') return record.status === '已开通' || record.status === '生效中' || record.status === '已支付'
+      if (activeStatus === 'expired') return record.status === '已过期' || record.status === '即将过期' || record.status === '已退款'
       return false
     })
   }, [records, activeStatus])
 
-  /* ---------- 操作方法 ---------- */
-
-  /** 刷新会员状态 */
   const fetchMyMembership = useCallback(async () => {
     setStatusLoading(true)
     try {
-      if (isRoutePreviewVariant(variant)) {
-        setMyMembership(membershipForVariant(variant))
-        return
-      }
-      const nextStatus = await getVipStatus()
-      setMyMembership(adaptVipStatus(nextStatus))
+      setMyMembership(adaptVipStatus(await getVipStatus()))
     } catch {
-      setMyMembership({ ...membershipDemo.myMembership })
+      setMyMembership({ status: 'none' })
     } finally {
       setStatusLoading(false)
     }
-  }, [variant])
+  }, [])
 
-  /** 加载套餐列表 */
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true)
     try {
-      const serverPlans = await getVipPackages()
-      const nextPlans = serverPlans.length > 0 ? serverPlans.map(adaptVipPackage) : plansForVariant(variant)
+      const nextPlans = (await getVipPackages()).map(adaptVipPackage)
       setPlans(nextPlans)
-      setSelectedPlan((currentPlan) => currentPlan ?? defaultPlanForVariant(variant, nextPlans))
-    } catch {
-      const nextPlans = plansForVariant(variant)
-      setPlans(nextPlans)
-      setSelectedPlan((currentPlan) => currentPlan ?? defaultPlanForVariant(variant, nextPlans))
+      setSelectedPlan((currentPlan) => {
+        const current = currentPlan && nextPlans.find((plan) => plan.id === currentPlan.id)
+        return current || nextPlans.find((plan) => plan.tag) || nextPlans[0] || null
+      })
     } finally {
       setPlansLoading(false)
     }
-  }, [variant])
+  }, [])
 
-  /** 加载会员记录 */
+  const fetchBenefits = useCallback(async () => {
+    setBenefits((await getVipBenefits()).map(adaptVipBenefit))
+  }, [])
+
   const fetchRecords = useCallback(async () => {
     setRecordsLoading(true)
     try {
       const page = await getVipOrders(1, 50)
       setRecords((page.records || []).map(adaptVipOrder))
-    } catch {
-      setRecords([])
     } finally {
       setRecordsLoading(false)
     }
   }, [])
 
-  /** 选中套餐 */
-  const selectPlan = useCallback((plan: MembershipPlan) => {
-    setSelectedPlan(plan)
-  }, [])
+  const selectPlan = useCallback((plan: MembershipPlan) => setSelectedPlan(plan), [])
 
-  /** 关闭支付弹窗 */
   const closePayPopup = useCallback(() => {
     setPayPopupVisible(false)
     setPayState('idle')
-    setSelectedPlan(null)
   }, [])
 
-  /** 预览指定支付状态，供蓝湖 demo query 直达 */
-  const previewPayState = useCallback((nextState: MembershipPayState) => {
-    setPayState(nextState)
-    setPayPopupVisible(nextState !== 'idle')
-  }, [])
-
-  /** 打开蓝湖微信支付预览面板 */
-  const openWechatPay = useCallback(() => {
-    if (!selectedPlan) {
-      Taro.showToast({ title: '请选择套餐', icon: 'none' })
-      return
-    }
-    setPayPopupVisible(true)
-    setPayState('wechat-pay')
-  }, [selectedPlan])
-
-  /** 模拟支付成功 */
-  const simulatePaySuccess = useCallback(async () => {
-    if (!selectedPlan) {
-      Taro.showToast({ title: '请选择套餐', icon: 'none' })
-      return
-    }
-    setPayLoading(true)
-    try {
-      // 后续替换为真实支付 API 调用
-      await new Promise((resolve) => setTimeout(resolve, 360))
-      setMyMembership({ ...membershipDemo.activeMembership })
-      setPayPopupVisible(true)
-      setPayState('pay-success')
-    } catch {
-      Taro.showToast({ title: '支付失败，请重试', icon: 'none' })
-    } finally {
-      setPayLoading(false)
-    }
-  }, [selectedPlan])
-
-  /** 模拟取消支付 */
-  const simulatePayCancel = useCallback(() => {
-    setPayPopupVisible(true)
-    setPayState('pay-cancel')
-  }, [])
-
-  /** 展示未支付挽留底部弹层 */
   const showUnpaidSheet = useCallback(() => {
     setPayPopupVisible(true)
     setPayState('unpaid-sheet')
   }, [])
 
-  /** 隐藏支付状态层 */
   const hidePaymentLayer = useCallback(() => {
     setPayPopupVisible(false)
     setPayState('idle')
   }, [])
 
-  /** 确认支付 */
-  const confirmPay = useCallback(async () => {
+  const confirmPay = useCallback(async (sourcePage = 'membership') => {
     if (!selectedPlan) {
-      Taro.showToast({ title: '请选择套餐', icon: 'none' })
+      Taro.showToast({ title: '暂无可购买套餐', icon: 'none' })
       return
     }
+    let orderId: number | null = null
     setPayLoading(true)
-    let paymentPanelSucceeded = false
+    setPayPopupVisible(true)
+    setPayState('paying')
     try {
       const order = await createOrder(selectedPlan.id, 'vip')
-      if (!order.payParams) {
-        throw new Error('微信支付参数缺失')
-      }
+      orderId = order.orderId
+      if (!order.payParams) throw new Error('微信支付参数缺失')
       await requestWechatPayment(order.payParams)
-      paymentPanelSucceeded = true
       const payResult = await confirmPaidOrder(order.orderId)
       if (payResult?.orderStatus !== 'success') {
-        setPayPopupVisible(false)
-        setPayState('idle')
+        setPayState('pay-failed')
         Taro.showToast({ title: '支付确认中，请稍后刷新', icon: 'none' })
-        await Taro.switchTab({ url: '/pages/profile/index' })
+        Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=vip&sourcePage=${sourcePage}&result=processing` })
         return
       }
-
-      try {
-        const nextStatus = await getVipStatus()
-        setMyMembership(adaptVipStatus(nextStatus))
-      } catch {
-        setMyMembership({ ...membershipDemo.activeMembership })
-      }
-      setPayPopupVisible(false)
-      setPayState('idle')
-      Taro.showToast({ title: '支付成功', icon: 'success' })
-      await Taro.switchTab({ url: '/pages/profile/index' })
+      setMyMembership(adaptVipStatus(await getVipStatus()))
+      await fetchRecords()
+      setPayState('pay-success')
+      Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=vip&sourcePage=${sourcePage}&result=success` })
     } catch (error) {
-      if (paymentPanelSucceeded) {
-        setPayPopupVisible(false)
-        setPayState('idle')
-        Taro.showToast({ title: '支付已完成，正在确认会员状态', icon: 'none' })
-        await Taro.switchTab({ url: '/pages/profile/index' })
-        return
-      }
-      setPayPopupVisible(true)
-      if (isPaymentCancel(error)) {
-        setPayState('pay-cancel')
-      } else {
-        setPayState('idle')
-        Taro.showToast({ title: error instanceof Error ? error.message : '支付失败，请重试', icon: 'none' })
-      }
+      const cancelled = isPaymentCancel(error)
+      setPayState(cancelled ? 'pay-cancel' : 'pay-failed')
+      if (!cancelled) Taro.showToast({ title: error instanceof Error ? error.message : '支付失败，请重试', icon: 'none' })
+      if (orderId) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=vip&sourcePage=${sourcePage}&result=${cancelled ? 'cancel' : 'failed'}` })
     } finally {
       setPayLoading(false)
     }
-  }, [selectedPlan])
+  }, [fetchRecords, selectedPlan])
 
-  /** 跳转到会员记录页 */
-  const goToRecords = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/membership/records' })
-  }, [])
-
-  /** 切换状态筛选 */
-  const changeStatus = useCallback((status: MemberStatus | 'all') => {
-    setActiveStatus(status)
-  }, [])
+  const goToRecords = useCallback(() => Taro.navigateTo({ url: '/pages/membership/records' }), [])
+  const changeStatus = useCallback((status: MemberStatus | 'all') => setActiveStatus(status), [])
 
   return {
-    /* 状态 */
     myMembership,
     statusLoading,
     plans,
@@ -399,19 +277,15 @@ export function useMembership(variant: MembershipDemoVariant = 'default') {
     recordsLoading,
     filteredRecords,
     benefits,
-    /* 方法 */
     fetchMyMembership,
     fetchPlans,
+    fetchBenefits,
     fetchRecords,
     selectPlan,
     closePayPopup,
     confirmPay,
-    openWechatPay,
-    simulatePaySuccess,
-    simulatePayCancel,
     showUnpaidSheet,
     hidePaymentLayer,
-    previewPayState,
     goToRecords,
     changeStatus,
   }

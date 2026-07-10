@@ -7,6 +7,7 @@ export interface CoinPackage {
   originalPrice?: string;
   discountLabel?: string;
   tag?: string;
+  recommended: boolean;
 }
 
 /** 千寻币交易明细 */
@@ -21,6 +22,9 @@ export interface CoinTransaction {
 
 /** 千寻币用途项 */
 export interface CoinUsage {
+  code: string;
   icon: string;
   label: string;
+  price: number;
+  description: string;
 }

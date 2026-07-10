@@ -1,33 +1,52 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
-import { getDemoPageData } from '@/services/lanhuDemo'
+import { useEffect, useState } from 'react'
+import { getVipPackages, getVipStatus, type VipPackageVO, type VipStatusVO } from '@/services/payment'
 import { useAuthStore } from '@/stores/authStore'
 import { LANHU_DARK, LANHU_GOLD, LanhuNav } from '@/pages/lanhu/LanhuShell'
 
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
-const profileDemo = getDemoPageData('profile')
-const membershipDemo = getDemoPageData('membership')
-
 export default function SubscriptionPage() {
-  const plan = membershipDemo.plans[0]
-  const subscription = membershipDemo.subscription
+  const [status, setStatus] = useState<VipStatusVO | null>(null)
+  const [plan, setPlan] = useState<VipPackageVO | null>(null)
+  const [loading, setLoading] = useState(true)
   const authNickname = useAuthStore(state => state.nickname)
   const authAvatar = useAuthStore(state => state.avatar)
-  const nickname = authNickname.trim() || profileDemo.nickname
+  const nickname = authNickname.trim() || '时空用户'
   const avatar = authAvatar.trim() || defaultAvatar
+
+  useEffect(() => {
+    Promise.all([getVipStatus(), getVipPackages()])
+      .then(([nextStatus, packages]) => {
+        setStatus(nextStatus)
+        setPlan(packages.find((item) => item.id === nextStatus.packageId) || packages.find((item) => item.subscriptionType && item.subscriptionType !== 'once') || null)
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return <View style={{ minHeight: '100vh', background: LANHU_DARK }}><LanhuNav title="订阅管理" tone="dark" showBack /><Text style={{ display: 'block', color: '#777777', textAlign: 'center', marginTop: '260rpx' }}>加载中...</Text></View>
+  }
+
+  if (!status || status.vipStatus !== 'active' || !plan) {
+    return <View style={{ minHeight: '100vh', background: LANHU_DARK }}><LanhuNav title="订阅管理" tone="dark" showBack /><Text style={{ display: 'block', color: '#777777', textAlign: 'center', marginTop: '260rpx' }}>当前没有可管理的连续订阅</Text></View>
+  }
+
+  const renewalAmount = `¥${Number(plan.price || 0).toFixed(2)}`
+  const renewalCycle = plan.subscriptionType === 'year' ? '每年自动续费' : plan.subscriptionType === 'quarter' ? '每季自动续费' : '每月自动续费'
 
   return (
     <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
       <LanhuNav title="订阅管理" tone="dark" showBack />
       <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)' }} showScrollbar={false}>
         <View style={{ width: '750rpx', padding: '6rpx 25rpx 60rpx', boxSizing: 'border-box' }}>
-          <SubscriptionHero avatar={avatar} nickname={nickname} expireTime={subscription.nextRenewTime} />
+          <SubscriptionHero avatar={avatar} nickname={nickname} expireTime={status.vipExpireTime || '-'} />
           <SectionTitle title="套餐与扣费说明" />
-          <InfoRow label="续费金额" value={subscription.renewalAmount || `¥${plan.price.toFixed(2)}`} first />
-          <InfoRow label="续费周期" value={subscription.renewalCycle} />
-          <InfoRow label="会员状态" value={subscription.statusLabel} />
+          <InfoRow label="续费金额" value={renewalAmount} first />
+          <InfoRow label="续费周期" value={renewalCycle} />
+          <InfoRow label="会员状态" value="已开通" />
           <SectionTitle title="取消续费指引" />
           <CancelGuide />
           <View

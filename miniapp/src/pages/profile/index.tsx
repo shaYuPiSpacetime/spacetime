@@ -1,42 +1,20 @@
 import { Image, Text, View } from '@tarojs/components'
-import Taro, { useDidShow, useRouter } from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
-import ProfilePreviewPage from '@/pages/profile/components/ProfilePreviewPage'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useProfile } from '@/hooks/useProfile'
-import { getDemoPageData } from '@/services/lanhuDemo'
+import { normalizeAvatarUrl } from '@/utils/avatar'
 import type { MyMembership } from '@/types/membership'
-import { navigateBackOrRedirect } from '@/utils/navigation'
 
 import profileBg from '@/assets/profile/profile-bg.webp'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import cardCoin from '@/assets/profile/card-coin.webp'
 import cardInvite from '@/assets/profile/card-invite.webp'
 
-const membershipDemo = getDemoPageData('membership')
-type ProfileMembershipVariant = 'none' | 'active' | 'expired'
-
-function resolveProfileMembershipVariant(value?: string): ProfileMembershipVariant {
-  if (value === 'active' || value === 'expired') return value
-  return 'none'
-}
-
-function membershipForProfileVariant(
-  variant: ProfileMembershipVariant,
-  fallback: MyMembership | null
-): MyMembership {
-  if (variant === 'active') return membershipDemo.activeMembership
-  if (variant === 'expired') return membershipDemo.expiredMembership
-  return fallback || membershipDemo.myMembership
-}
-
 /**
- * 我的 — 蓝湖「我的」未开通状态自绘还原。
+ * 我的页面。
  */
 export default function ProfilePage() {
-  const router = useRouter()
-  const isPreview = router.params.variant === 'preview'
-  const variant = resolveProfileMembershipVariant(String(router.params.variant || 'none'))
   const {
     data,
     fetch,
@@ -58,13 +36,13 @@ export default function ProfilePage() {
   })
 
   const nickname = data.nickname || '时空用户'
-  const sourceAvatar = data.avatarUrl?.trim() || defaultAvatar
+  const sourceAvatar = normalizeAvatarUrl(data.avatarUrl, defaultAvatar)
   const [avatar, setAvatar] = useState(defaultAvatar)
   const location = data.location || '杭州市'
   const ageText = data.age != null ? `${data.age}岁` : '28岁'
   const zodiac = data.zodiac || '双鱼座'
   const subInfo = `${location}丨${ageText}丨${zodiac}`
-  const membership = membershipForProfileVariant(variant, data.membership)
+  const membership: MyMembership = data.membership || { status: 'none' }
   const membershipVariant = membership.status
   const stats = [
     { value: data.likedCount, label: '我喜欢的' },
@@ -75,16 +53,6 @@ export default function ProfilePage() {
   useEffect(() => {
     setAvatar(sourceAvatar)
   }, [sourceAvatar])
-
-  if (isPreview) {
-    return (
-      <ProfilePreviewPage
-        nickname={nickname}
-        onBack={() => navigateBackOrRedirect()}
-        onEdit={() => navigateBackOrRedirect()}
-      />
-    )
-  }
 
   return (
     <View

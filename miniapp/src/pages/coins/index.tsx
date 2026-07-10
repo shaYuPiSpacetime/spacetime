@@ -1,10 +1,8 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
-import WechatMockPayPanel from '@/components/WechatMockPayPanel'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useCoins, type CoinPayState } from '@/hooks/useCoins'
-import { getDemoPageData } from '@/services/lanhuDemo'
 import type { CoinPackage } from '@/types/coin'
 import {
   LANHU_BLUE,
@@ -14,39 +12,24 @@ import {
 } from '@/pages/lanhu/LanhuShell'
 
 
-const coinsDemo = getDemoPageData('coins')
-type CoinsPageVariant = 'default' | 'checked' | 'unchecked-error' | 'recharge-notice'
 const COIN_PLAN_CARD_WIDTH_RPX = 242
 const COIN_PLAN_CARD_GAP_RPX = 6
 const COIN_PLAN_SELECTED_LEFT_RPX = 150
-const COIN_USAGE_ITEMS = [
-  { label: '送悄悄话', icon: miniappOssIcons.coinUsageWhisper },
-  { label: '心动信号', icon: miniappOssIcons.coinUsageHeartbeat },
-  { label: '解锁理想型', icon: miniappOssIcons.coinUsageIdealUnlock },
-  { label: '提升人气', icon: miniappOssIcons.coinUsageBoost },
-  { label: '解锁精选', icon: miniappOssIcons.coinUsageCuratedUnlock },
-  { label: '更多推荐', icon: miniappOssIcons.coinUsageRecommend },
-  { label: '匿名解锁', icon: miniappOssIcons.coinUsageAnonymousUnlock },
-  { label: '限定活动', icon: miniappOssIcons.coinUsageLimitedActivity },
-] as const
-
-function resolveCoinsVariant(value?: string): CoinsPageVariant {
-  if (value === 'checked' || value === 'unchecked-error' || value === 'recharge-notice') return value
-  return 'default'
-}
-
-function resolveCoinPayState(value?: string): CoinPayState {
-  if (value === 'wechat-pay' || value === 'pay-success' || value === 'pay-cancel') return value
-  return 'idle'
+const COIN_AGREEMENT_TITLE = '《千寻币充值协议》'
+const RECHARGE_NOTICE = {
+  title: '充值须知',
+  faqTitle: '充值后千寻币多久到账？',
+  items: ['支付成功后通常会立即到账。', '如遇到账延迟，请先查看千寻币流水和订单状态。', '千寻币仅限当前账号使用，不支持转赠或提现。'],
+  contactText: '联系客服',
+  confirmText: '我知道了',
 }
 
 export default function CoinsPage() {
   const router = useRouter()
-  const variant = resolveCoinsVariant(String(router.params.variant || 'default'))
-  const routePayState = resolveCoinPayState(String(router.params.payState || 'idle'))
-  const [agreementChecked, setAgreementChecked] = useState(variant === 'checked' || routePayState !== 'idle')
-  const [agreementError, setAgreementError] = useState(variant === 'unchecked-error')
-  const [noticeVisible, setNoticeVisible] = useState(variant === 'recharge-notice')
+  const sourceScene = String(router.params.sourceScene || '')
+  const [agreementChecked, setAgreementChecked] = useState(false)
+  const [agreementError, setAgreementError] = useState(false)
+  const [noticeVisible, setNoticeVisible] = useState(false)
   const {
     balance,
     packages,
@@ -55,25 +38,19 @@ export default function CoinsPage() {
     payState,
     fetchBalance,
     fetchPackages,
+    fetchScenes,
     selectPackage,
     purchase,
-    simulatePaySuccess,
-    simulatePayCancel,
     hidePaymentLayer,
-    previewPayState,
     goToDetail,
+    usages,
   } = useCoins()
 
   useEffect(() => {
     fetchBalance()
     fetchPackages()
-  }, [fetchBalance, fetchPackages])
-
-  useEffect(() => {
-    if (routePayState !== 'idle') {
-      previewPayState(routePayState)
-    }
-  }, [routePayState, previewPayState])
+    fetchScenes()
+  }, [fetchBalance, fetchPackages, fetchScenes])
 
   const handlePay = async () => {
     if (!agreementChecked) {
@@ -81,13 +58,13 @@ export default function CoinsPage() {
       return
     }
     setAgreementError(false)
-    await purchase()
+    await purchase('coins')
   }
 
   const handleAgreementConfirm = async () => {
     setAgreementChecked(true)
     setAgreementError(false)
-    await purchase()
+    await purchase('coins')
   }
 
   const handleToggleAgreement = () => {
@@ -126,27 +103,28 @@ export default function CoinsPage() {
         <View style={{ width: '750rpx', padding: '6rpx 25rpx 48rpx', boxSizing: 'border-box' }}>
           <BalanceCard balance={balance} onDetail={goToDetail} />
           <RechargeCard packages={packages} selected={selectedPackage} onSelect={selectPackage} onNotice={showRechargeNotice} />
-          <UsageCard />
+          <UsageCard usages={usages} />
         </View>
       </ScrollView>
       <PayBar
         checked={agreementChecked}
         error={agreementError}
         loading={payLoading}
-        agreementTitle={coinsDemo.agreement.title}
+        agreementTitle={COIN_AGREEMENT_TITLE}
         onToggle={handleToggleAgreement}
         onPay={handlePay}
       />
       <CoinsPaymentLayer
         payState={payState}
-        selectedPackage={selectedPackage}
-        onClose={hidePaymentLayer}
-        onSuccess={simulatePaySuccess}
-        onCancel={simulatePayCancel}
+        onClose={() => {
+          const wasSuccess = payState === 'pay-success'
+          hidePaymentLayer()
+          if (wasSuccess && sourceScene) Taro.navigateBack({ delta: 1 })
+        }}
       />
       {agreementError && (
         <AgreementConfirmSheet
-          agreementTitle={coinsDemo.agreement.title}
+          agreementTitle={COIN_AGREEMENT_TITLE}
           onContinue={handleAgreementConfirm}
         />
       )}
@@ -372,7 +350,7 @@ function CoinAmountLabel({ amount }: { amount: number }) {
   )
 }
 
-function UsageCard() {
+function UsageCard({ usages }: { usages: Array<{ code: string; icon: string; label: string; price: number }> }) {
   return (
     <View
       style={{
@@ -399,9 +377,9 @@ function UsageCard() {
           flexWrap: 'wrap',
         }}
       >
-        {COIN_USAGE_ITEMS.map((usage) => (
+        {usages.map((usage) => (
           <View
-            key={usage.label}
+            key={usage.code}
             style={{
               width: '180rpx',
               height: '178rpx',
@@ -410,7 +388,11 @@ function UsageCard() {
               alignItems: 'center',
             }}
           >
-            <Image src={usage.icon} mode="scaleToFill" style={{ width: '99rpx', height: '99rpx' }} />
+            {usage.icon ? (
+              <Image src={usage.icon} mode="scaleToFill" style={{ width: '99rpx', height: '99rpx' }} />
+            ) : (
+              <View style={{ width: '99rpx', height: '99rpx', borderRadius: '50%', background: '#E8F4FF' }} />
+            )}
             <Text style={{ color: LANHU_NAVY, fontSize: '24rpx', lineHeight: '34rpx', marginTop: '16rpx', whiteSpace: 'nowrap' }}>
               {usage.label}
             </Text>
@@ -423,25 +405,19 @@ function UsageCard() {
 
 function CoinsPaymentLayer({
   payState,
-  selectedPackage,
   onClose,
-  onSuccess,
-  onCancel,
 }: {
   payState: CoinPayState
-  selectedPackage: CoinPackage | null
   onClose: () => void
-  onSuccess: () => void
-  onCancel: () => void
 }) {
   if (payState === 'idle') return null
 
   if (payState === 'pay-success') {
-    return <PayResultModal title="支付成功" />
+    return <PayResultModal title="支付成功" onClose={onClose} />
   }
 
   if (payState === 'pay-cancel') {
-    return <PayResultModal title="用户取消支付" />
+    return <PayResultModal title="用户取消支付" onClose={onClose} />
   }
 
   return (
@@ -456,34 +432,21 @@ function CoinsPaymentLayer({
         zIndex: 60,
       }}
     >
-      {payState === 'wechat-pay' && (
-        <WechatPayDemoFallback
-          amount={selectedPackage?.price.toFixed(2) ?? '0.00'}
-          onClose={onClose}
-          onSuccess={onSuccess}
-          onCancel={onCancel}
-        />
-      )}
+      <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}>
+        <Text style={{ color: LANHU_NAVY, fontSize: '28rpx' }}>
+          {payState === 'paying' ? '正在打开微信支付并确认到账...' : '支付未完成，请稍后重试'}
+        </Text>
+        {payState !== 'paying' && (
+          <View onClick={onClose} style={{ marginTop: '24rpx', padding: '12rpx 36rpx', borderRadius: '10rpx', background: LANHU_BLUE }}>
+            <Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>知道了</Text>
+          </View>
+        )}
+      </View>
     </View>
   )
 }
 
-// 微信原生支付面板由 wx.requestPayment 唤起；这里仅用于蓝湖 demo fallback。
-function WechatPayDemoFallback({
-  amount,
-  onClose,
-  onSuccess,
-  onCancel,
-}: {
-  amount: string
-  onClose: () => void
-  onSuccess: () => void
-  onCancel: () => void
-}) {
-  return <WechatMockPayPanel amount={amount} onClose={onClose} onSuccess={onSuccess} onCancel={onCancel} />
-}
-
-function PayResultModal({ title }: { title: string }) {
+function PayResultModal({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <View
       style={{
@@ -500,6 +463,7 @@ function PayResultModal({ title }: { title: string }) {
         boxSizing: 'border-box',
         zIndex: 80,
       }}
+      onClick={onClose}
     >
       <Text style={{ color: '#FFFFFF', fontSize: '34rpx' }}>{title}</Text>
     </View>
@@ -507,7 +471,7 @@ function PayResultModal({ title }: { title: string }) {
 }
 
 function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
-  const rechargeNotice = coinsDemo.rechargeNotice
+  const rechargeNotice = RECHARGE_NOTICE
 
   return (
     <View

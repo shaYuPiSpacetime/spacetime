@@ -4,6 +4,8 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { normalizeAvatarUrl } from '@/utils/avatar'
+import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import './phone.scss'
 
 interface PhoneLoginDemo {
@@ -136,7 +138,7 @@ export default function PhoneLoginPage() {
     setLoading(true)
     try {
       updateUserInfo({
-        avatar: loginDemo.defaultUser.avatar,
+        avatar: normalizeAvatarUrl(loginDemo.defaultUser.avatar, defaultAvatar),
         nickname: loginDemo.defaultUser.nickname,
       })
       setStep('gender')
