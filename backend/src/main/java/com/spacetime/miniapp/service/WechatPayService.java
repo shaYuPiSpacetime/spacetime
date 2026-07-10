@@ -3,6 +3,8 @@ package com.spacetime.miniapp.service;
 import com.spacetime.common.entity.TradeOrder;
 import com.spacetime.miniapp.dto.response.WechatPayParamsVO;
 
+import java.math.BigDecimal;
+
 /**
  * 微信支付服务
  */
@@ -11,11 +13,12 @@ public interface WechatPayService {
     /**
      * 创建 JSAPI 支付参数
      *
-     * @param order  交易订单
-     * @param openid 小程序用户 openid
+     * @param order         交易订单，保留业务真实金额
+     * @param openid        小程序用户 openid
+     * @param paymentAmount 本次提交微信支付网关的实际扣款金额
      * @return 小程序 wx.requestPayment 所需参数
      */
-    WechatPayParamsVO createJsapiPayParams(TradeOrder order, String openid);
+    WechatPayParamsVO createJsapiPayParams(TradeOrder order, String openid, BigDecimal paymentAmount);
 
     /**
      * 解密并解析微信支付回调

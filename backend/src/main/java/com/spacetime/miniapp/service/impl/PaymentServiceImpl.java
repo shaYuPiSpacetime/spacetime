@@ -99,7 +99,7 @@ public class PaymentServiceImpl implements PaymentService {
         } else {
             throw new BusinessException("不支持的订单类型");
         }
-        payAmount = resolveEffectivePayAmount(payAmount);
+        BigDecimal wechatPaymentAmount = resolveWechatPaymentAmount(payAmount);
 
         AppUser user = appUserDao.selectById(userId);
         if (user == null || user.getOpenid() == null || user.getOpenid().isBlank()) {
@@ -121,7 +121,7 @@ public class PaymentServiceImpl implements PaymentService {
         tradeOrderDao.insert(order);
 
         // 3. 调用微信 JSAPI 预支付并落库 prepayId
-        WechatPayParamsVO payParams = wechatPayService.createJsapiPayParams(order, user.getOpenid());
+        WechatPayParamsVO payParams = wechatPayService.createJsapiPayParams(order, user.getOpenid(), wechatPaymentAmount);
         order.setPrepayId(payParams.getPrepayId());
         tradeOrderDao.updateById(order);
 
@@ -397,9 +397,9 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     /**
-     * 解析实际支付金额。dev 环境默认走 0.01 测试金额，prod 默认使用套餐原价。
+     * 解析提交微信支付网关的扣款金额。订单和业务流水始终保存套餐真实金额。
      */
-    private BigDecimal resolveEffectivePayAmount(BigDecimal payAmount) {
+    private BigDecimal resolveWechatPaymentAmount(BigDecimal payAmount) {
         if (wechatPayProperties.isForceTestAmount()) {
             BigDecimal testPayAmount = wechatPayProperties.getTestPayAmount();
             if (testPayAmount == null || testPayAmount.compareTo(BigDecimal.ZERO) <= 0) {

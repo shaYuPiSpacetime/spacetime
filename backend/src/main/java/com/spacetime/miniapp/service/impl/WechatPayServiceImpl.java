@@ -57,10 +57,13 @@ public class WechatPayServiceImpl implements WechatPayService {
             .build();
 
     @Override
-    public WechatPayParamsVO createJsapiPayParams(TradeOrder order, String openid) {
+    public WechatPayParamsVO createJsapiPayParams(TradeOrder order, String openid, BigDecimal paymentAmount) {
         assertPayConfig();
         if (openid == null || openid.isBlank()) {
             throw new BusinessException("当前用户缺少微信 openid，无法发起支付");
+        }
+        if (paymentAmount == null || paymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("微信支付金额必须大于 0");
         }
 
         try {
@@ -71,7 +74,7 @@ public class WechatPayServiceImpl implements WechatPayService {
                     "out_trade_no", order.getOrderNo(),
                     "notify_url", properties.getNotifyUrl(),
                     "amount", Map.of(
-                            "total", toCents(order.getPayAmount()),
+                            "total", toCents(paymentAmount),
                             "currency", "CNY"
                     ),
                     "payer", Map.of("openid", openid)

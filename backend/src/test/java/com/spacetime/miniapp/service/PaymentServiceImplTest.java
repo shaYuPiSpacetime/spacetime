@@ -105,7 +105,7 @@ class PaymentServiceImplTest {
 
         when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
         when(appUserDao.selectById(1L)).thenReturn(appUser);
-        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"))).thenReturn(payParams);
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("19.90")))).thenReturn(payParams);
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
 
@@ -117,8 +117,8 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    @DisplayName("创建VIP订单-dev测试金额0.01")
-    void createVipOrder_devTestAmount_shouldUseOneCent() {
+    @DisplayName("创建VIP订单-dev测试金额只影响微信下单")
+    void createVipOrder_devTestAmount_shouldOnlyAffectWechatPayRequest() {
         CreateOrderReq req = new CreateOrderReq();
         req.setOrderType("vip");
         req.setPackageId(1L);
@@ -127,12 +127,17 @@ class PaymentServiceImplTest {
         when(appUserDao.selectById(1L)).thenReturn(appUser);
         when(wechatPayProperties.isForceTestAmount()).thenReturn(true);
         when(wechatPayProperties.getTestPayAmount()).thenReturn(new BigDecimal("0.01"));
-        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"))).thenReturn(payParams);
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("0.01")))).thenReturn(payParams);
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
 
-        assertThat(result.getPayAmount()).isEqualByComparingTo("0.01");
-        verify(tradeOrderDao).insert(argThat(o -> new BigDecimal("0.01").compareTo(o.getPayAmount()) == 0));
+        assertThat(result.getPayAmount()).isEqualByComparingTo("19.90");
+        verify(tradeOrderDao).insert(argThat(o -> new BigDecimal("19.90").compareTo(o.getPayAmount()) == 0));
+        verify(wechatPayService).createJsapiPayParams(
+                argThat((TradeOrder o) -> new BigDecimal("19.90").compareTo(o.getPayAmount()) == 0),
+                eq("openid_1"),
+                eq(new BigDecimal("0.01"))
+        );
     }
 
     @Test
