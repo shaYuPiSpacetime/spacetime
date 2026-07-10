@@ -2,13 +2,14 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本03 | 2026-07-10 | Codex | 按蓝湖 UI 与产品确认调整：移除前台失效态，明确会员到期回退模糊、单条解锁永久清晰 |
 | 版本02 | 2026-07-02 | Codex | 明确列表页点击模糊卡片只打开单条解锁场景弹窗，扣币确认在弹窗内复用 PRD-04 |
 | 版本01 | 2026-07-01 | Codex | 正式版初稿 |
 
 - **页面 ID**：`APP-02-PAGE-recent-viewers`
 - **所属模块 PRD**：`../模块PRD文档/模块PRD_APP-02_关系反馈与互动链路.md`
 - **页面路由**：小程序路径待技术方案确定，建议 `/pages/relation/recent-viewers`
-- **入口来源**：荐/婚恋反馈入口、消息快捷入口、资产中心权益入口
+- **入口来源**：底部 TabBar“心动”、消息快捷入口、资产中心权益入口
 - **对应后台**：`ADM-02-PAGE-user-relation-section`
 
 ---
@@ -30,7 +31,7 @@
 │ 统计区：总浏览量/今日访客/今日浏览量 │
 ├────────────────────────────┤
 │ 分组列表：今日/昨日/近 7 天 │
-│ - 模糊态/清晰态/失效态       │
+│ - 模糊态/清晰态              │
 ├────────────────────────────┤
 │ 底部固定按钮：解锁全部访客   │
 └────────────────────────────┘
@@ -41,7 +42,6 @@
 | `APP-02-viewers-01` | 最近看过我的-模糊列表态 | 普通用户访客列表、统计区、分组 | 缺设计稿时需补 |
 | `APP-02-viewers-02` | 最近看过我的-清晰列表态 | 会员/单条已解锁卡片 | |
 | `APP-02-viewers-03` | 最近看过我的-空态 | 最近 7 天无人访问 | |
-| `APP-02-viewers-04` | 最近看过我的-失效态 | 卡片置灰并展示失效原因 | |
 
 ---
 
@@ -59,14 +59,13 @@
 | `APP-02-PAGE-recent-viewers-FIELD-today-uv` | 今日访客 | int | 是 | >=0 | 同一用户当天多次访问计 1 UV | 0 | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-recent-viewers-FIELD-today-pv` | 今日浏览量 | int | 是 | >=0 | 今日 PV | 0 | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-recent-viewers-FIELD-visit-no` | 访客记录编号 | string | 是 | 业务编号 | 前台不展示，仅追踪 | 无 | 否 | 普通 | PRD-02 |
-| `APP-02-PAGE-recent-viewers-FIELD-display-status` | 展示状态 | enum | 是 | `M02-ENUM-display-status` | 状态必须可映射中文 | `blur` | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-recent-viewers-FIELD-display-status` | 展示状态 | enum | 是 | `blur` / `clear` | APP 默认列表只返回模糊或清晰状态 | `blur` | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-recent-viewers-FIELD-group-key` | 分组 | enum/string | 是 | 今日/昨日/近 7 天 | 按自然日切分 | 今日 | 否 | 普通 | 系统计算 |
 | `APP-02-PAGE-recent-viewers-FIELD-avatar` | 头像 | image | 是 | URL/模糊占位 | `blur` 时展示模糊或占位 | 模糊头像 | 否 | 普通 | PRD-01 |
 | `APP-02-PAGE-recent-viewers-FIELD-nickname` | 昵称 | string | 条件必填 | 1-20 字 | `clear` 时展示；`blur` 时不展示 | 无 | 否 | 普通 | PRD-01 |
 | `APP-02-PAGE-recent-viewers-FIELD-visit-count` | 访问次数 | int | 是 | >=1 | 展示如“访问了你 2 次” | 1 | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-recent-viewers-FIELD-weak-tags` | 弱识别标签 | string[] | 否 | 同城/同乡/校友/星座/专业/985或211 | 不得组合出可唯一识别身份的信息 | 空数组 | 否 | 普通 | 系统计算 |
 | `APP-02-PAGE-recent-viewers-FIELD-relation-badges` | 关系标识 | string[] | 否 | NEW/对方送过悄悄话/我送过悄悄话/已相互喜欢 | 展示图标需有无障碍文案 | 空数组 | 否 | 普通 | PRD-02/03 |
-| `APP-02-PAGE-recent-viewers-FIELD-invalid-reason` | 失效原因 | enum | 条件必填 | `M02-ENUM-invalid-reason` | `displayStatus=invalid` 时必填 | 无 | 否 | 普通 | PRD-02 |
 
 ---
 
@@ -75,8 +74,8 @@
 | 操作 ID | 操作名 | 位置/触发条件 | 前置权限 | 二次确认 | 成功态 | 失败态 |
 |---------|--------|---------------|----------|----------|--------|--------|
 | `APP-02-PAGE-recent-viewers-ACT-unlock-all` | 解锁全部访客 | 底部固定按钮，普通用户非会员 | 已登录且核心准入开放 | 否 | 打开 PRD-04 会员引导 | PRD-04 不可用时置灰 |
-| `APP-02-PAGE-recent-viewers-ACT-unlock-one` | 单条解锁 | 点击 `displayStatus=blur` 卡片 | 已登录且核心准入开放 | 否，列表页只打开单条解锁场景弹窗；弹窗内由 PRD-04 确认扣币 | 打开 `APP-02-PAGE-single-unlock-modal`；用户在弹窗内确认扣币成功后当前记录清晰 | 余额不足/记录失效 |
-| `APP-02-PAGE-recent-viewers-ACT-card-click` | 进入主页 | 点击 `displayStatus=clear` 卡片 | 已登录且核心准入开放 | 否 | 跳婚恋用户主页 | 失效时展示原因 |
+| `APP-02-PAGE-recent-viewers-ACT-unlock-one` | 单条解锁 | 点击 `displayStatus=blur` 卡片 | 已登录且核心准入开放 | 否，列表页只打开单条解锁场景弹窗；弹窗内由 PRD-04 确认扣币 | 打开 `APP-02-PAGE-single-unlock-modal`；用户在弹窗内确认扣币成功后当前记录清晰 | 余额不足/记录不可解锁 |
+| `APP-02-PAGE-recent-viewers-ACT-card-click` | 进入主页 | 点击 `displayStatus=clear` 卡片 | 已登录且核心准入开放 | 否 | 跳婚恋用户主页 | 目标不可访问时 toast 并刷新列表 |
 | `APP-02-PAGE-recent-viewers-ACT-refresh` | 下拉刷新 | 页面顶部 | 已登录且核心准入开放 | 否 | 刷新统计和列表 | 网络失败 toast |
 
 ---
@@ -87,8 +86,11 @@
 |----------|----------|----------|----------|------|
 | 当前日期 | 页面查询 | 列表范围 | 只返回最近 `M02-PARAM-visitor-visible-days=7` 天记录 | 固定参数，代码实现 |
 | 会员状态 | 生效 | 展示状态 | 有效窗口内访客全量清晰 | `M04-ENUM-vip-benefit-type=visitor_list` |
+| 会员状态 | 到期 | 展示状态 | 未单条解锁记录回退为普通模糊态；已单条解锁记录继续清晰 | `M02-RULE-vip-expiry-display` |
+| 单条解锁状态 | 支付成功 | 当前卡片 | 当前记录永久清晰；但是否出现在列表仍受最近 7 天窗口限制 | `M02-RULE-unlock-visibility` |
 | 隐藏访问记录 | 访问者开启 | 目标用户列表 | 不进入对方访客列表 | `M02-RULE-hidden-visit` |
 | 访客记录 | 超过 7 天 | 前台列表 | 不展示；解锁历史由 PRD-04 追溯 | `M02-RULE-visitor-window` |
+| 关系状态 | 账号异常/拉黑/封禁等 | 默认列表 | 默认列表隐藏不可互动对象，不展示前台失效态 | `M02-RULE-relation-invalid` |
 
 ---
 
@@ -100,7 +102,7 @@
 | 空态 | 最近 7 天无访客 | 空态文案 | 去完善资料/去推荐 | `M02-TXT-viewers-empty` |
 | 模糊态 | 普通未解锁 | 模糊头像 + 访问次数/标签 | 单条解锁/解锁全部 | `M02-RULE-blur-display` |
 | 清晰态 | 会员或单条解锁 | 清晰用户资料 | 进入主页 | |
-| 失效态 | 关系失效 | 卡片置灰 + 原因 | 查看原因 | `M02-RULE-relation-invalid` |
+| 业务隐藏 | 关系不可互动 | 默认列表不返回该记录 | 无 | `M02-RULE-relation-invalid` |
 | 错误态 | 网络失败 | toast + 重试 | 重试 | 移动端全局态 |
 
 ---
@@ -127,10 +129,15 @@ Given 访问者会员隐私权益有效且开启隐藏访问记录
 When  访问目标用户婚恋主页
 Then  目标用户最近看过我的列表不出现该访问者
 
-AC-ID: APP-02-AC-viewers-invalid
+AC-ID: APP-02-AC-viewers-invalid-hidden
 Given 某访客关系因对方封禁失效
 When  用户查看最近看过我的列表
-Then  该记录置为失效态并展示失效原因
+Then  默认列表不展示该记录，不展示失效态或关系失效弹窗，后台保留真实失效原因
+
+AC-ID: APP-02-AC-viewers-vip-expired-reblur
+Given 用户曾因会员权益全量清晰查看访客列表，且未单条解锁某条访客记录
+When  会员到期后再次进入最近看过我的列表
+Then  该记录回退为模糊态；已单条解锁记录仍保持清晰
 ```
 
 ---
