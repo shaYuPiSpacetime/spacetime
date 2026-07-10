@@ -21,6 +21,8 @@
     "build:alipay": "taro build --type alipay",
     "build:tt": "taro build --type tt",
     "build:h5": "taro build --type h5",
+    "assets:upload-icons": "node scripts/upload-miniapp-oss-icons.mjs",
+    "assets:verify-icons": "node scripts/verify-miniapp-oss-icons.mjs",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write src"
   },

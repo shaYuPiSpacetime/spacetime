@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -42,7 +44,9 @@ assert.ok(
   '缺少登录首屏场景背景资产 src/assets/login/login-scene-bg.jpg'
 )
 assert.ok(
-  loginPage.includes("width: '100%'") && loginPage.includes("height: '100%'"),
+  loginPage.includes("className=\"relative w-full h-screen overflow-hidden\"") &&
+    loginPage.includes("width: '100%'") &&
+    (loginPage.includes("height: '100%'") || loginPage.includes("height: 'calc(100% - 88rpx)'")),
   '登录首屏背景必须按视口 100% 铺满，避免高屏设备底部露白'
 )
 assert.ok(

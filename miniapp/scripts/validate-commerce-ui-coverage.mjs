@@ -716,7 +716,7 @@ const SOURCE_EVIDENCE = [
       'function getBenefitTitle',
       "if (variant === 'annual') return 'VIP特权'",
       'VIP特权',
-      'getAgreementText(variant',
+      'getAgreementText(plan, variant)',
       'formatSubscriptionAmount',
       "replace(/\\.00$/, '')",
       '连续订阅会员服务协议',
@@ -768,14 +768,16 @@ const SOURCE_EVIDENCE = [
     ],
   },
   {
-    label: '千寻币用途 MCP 整卡切图',
+    label: '千寻币用途 OSS 独立图标',
     file: 'src/pages/coins/index.tsx',
     snippets: [
-      'coinUsageSlice',
-      'coin-usage-slice.png',
-      'src={coinUsageSlice}',
-      "width: '700rpx'",
-      "height: '478rpx'",
+      'COIN_USAGE_ITEMS',
+      'miniappOssIcons.coinUsageWhisper',
+      'miniappOssIcons.coinUsageLimitedActivity',
+      'function UsageCard',
+      'usage.icon',
+      "width: '99rpx'",
+      "height: '99rpx'",
     ],
   },
   {
@@ -881,7 +883,6 @@ const FORBIDDEN_NATIVE_PAY_TOAST_FILES = [
 ]
 
 const REQUIRED_MISSING_SLICE_NOTES = [
-  '千寻币用途已使用 MCP 整卡切片，未获得 8 个独立 icon 切片',
   '千寻币明细暂无记录插画 MCP slices 为 0',
   '会员权益已使用 08 MCP 图标切片',
   '会员状态页 60/61/62/63 MCP slices 均为 0',
@@ -914,7 +915,7 @@ const REQUIRED_MCP_SLICE_RECHECK_NOTES = [
 const REQUIRED_MISSING_SLICE_LEDGER_NOTES = [
   '## 商业化页面缺失切图复查',
   '禁止从整页参考图热区硬裁为运行切图',
-  '千寻币用途：已使用 MCP 整卡切片，未获得 8 个独立 icon 切片',
+  '千寻币用途：已从整卡切图拆为 8 个独立 2x PNG，并已原样上传 OSS',
   '千寻币明细-暂无数据：totalSlices=0，缺空态插画独立切图',
   '会员记录：totalSlices=0，缺会员菱形图标和退款章切图',
   '会员记录详情：仅返回纯色矩形 shape，不接入业务切图',
@@ -928,7 +929,7 @@ const REQUIRED_MISSING_SLICE_LEDGER_NOTES = [
 const REQUIRED_MISSING_SLICE_REPLACEMENT_MAP_NOTES = [
   '## 缺失切图替换映射',
   '| 缺口 | 页面/状态 | 源码占位 | 替换目标 | 不可硬裁说明 |',
-  '| 千寻币用途 8 个独立 icon | 09-千寻币 | `coin-usage-slice.png` 整卡 | 8 个独立用途 icon 切片 | 不从 09 整页图热区硬裁 |',
+  '| 千寻币用途 8 个独立 icon | 09-千寻币 | `coin-usage/` 8 个独立 PNG | OSS 原样 URL + 真实文字组件 | 不再引用整卡切图 |',
   '| 千寻币明细空态插画 | 67-千寻币明细-暂无数据 | `EmptyState` / `EmptyPlusMark` / `EmptyRingMark` | 空态插画独立 PNG/WebP | 不从 67 整页图热区硬裁 |',
   '| 会员中心无文案会员卡背景 | 60/61/62/63 会员状态页、78-订阅管理 | `MemberHeroPattern` / `SubscriptionHeroPattern` | 无文案会员卡背景切图 | 不复用含旧文案的 `member-vip-bg.webp` |',
   '| 会员记录图标与退款章 | 58-会员记录 | `MemberRecordDiamond` / `RefundStamp` | 会员菱形图标、退款章独立切图 | 不从 58 整页图热区硬裁 |',
@@ -946,11 +947,6 @@ const REQUIRED_UNCLOSED_VISUAL_DIFF_NOTES = [
 
 const REQUIRED_MISSING_SLICE_FALLBACKS = [
   {
-    note: '千寻币用途已使用 MCP 整卡切片，未获得 8 个独立 icon 切片',
-    file: 'src/pages/coins/index.tsx',
-    snippets: ['coinUsageSlice', 'coin-usage-slice.png', "height: '478rpx'"],
-  },
-  {
     note: '千寻币明细暂无记录插画 MCP slices 为 0',
     file: 'src/pages/coins/detail.tsx',
     snippets: ['function EmptyState', "width: '298rpx'", "paddingTop: '262rpx'"],
@@ -958,7 +954,7 @@ const REQUIRED_MISSING_SLICE_FALLBACKS = [
   {
     note: '会员权益已使用 08 MCP 图标切片',
     file: 'src/pages/membership/index.tsx',
-    snippets: ['MEMBER_BENEFIT_ICONS', 'MemberBenefitIcon', 'member-slice-match.png'],
+    snippets: ['MEMBER_BENEFIT_ICONS', 'MemberBenefitIcon', 'miniappOssIcons.memberBenefitMatch'],
   },
   {
     note: '会员状态页 60/61/62/63 MCP slices 均为 0',
@@ -1381,7 +1377,9 @@ function assertMembershipPlanRailMatchesLanhu() {
     "type MembershipPageVariant = 'default' | 'none' | 'active' | 'expired' | 'annual'",
     "return 'default'",
     'monthlyPriceLabel',
-    "padding: '6rpx 25rpx 320rpx'",
+    "height: '100vh'",
+    "flex: 1,\n          height: '0',\n          minHeight: '0'",
+    "padding: '6rpx 25rpx 48rpx'",
     "height: '268rpx'",
     "height: '248rpx'",
     "marginRight: '8rpx'",
@@ -1389,7 +1387,15 @@ function assertMembershipPlanRailMatchesLanhu() {
     "width: '92rpx'",
     "height: '92rpx'",
     "borderRadius: '46rpx'",
-    "marginTop: '54rpx'",
+    "marginTop: '39rpx'",
+    "paddingTop: '16rpx'",
+    "top: '-16rpx'",
+    "height: '36rpx'",
+    "fontSize: '16rpx'",
+    'splitDurationLabel',
+    "fontSize: '42rpx'",
+    "fontSize: '26rpx'",
+    "fontSize: '18rpx'",
     "height: '104rpx'",
     "marginTop: '26rpx'",
     "right: '38rpx'",
@@ -1398,6 +1404,12 @@ function assertMembershipPlanRailMatchesLanhu() {
   ]) {
     assert.ok(membershipSource.includes(snippet), `会员中心默认态缺少 08 独立普通套餐证据: ${snippet}`)
   }
+  assert.ok(!membershipSource.includes('MEMBERSHIP_PAY_BAR_RESERVED_RPX'), '会员中心不能继续用固定 328rpx 猜测支付栏高度')
+  assert.ok(!membershipSource.includes("position: 'fixed',\n        left: '0',\n        right: '0',\n        bottom: '0',\n        minHeight: variant"), '会员中心支付栏必须参与根容器 flex 布局')
+  assert.ok(
+    membershipSource.includes("padding: '40rpx 25rpx max(30rpx, env(safe-area-inset-bottom))'"),
+    '会员中心支付栏安全区必须在基础留白和设备安全区之间取较大值，不能重复累加',
+  )
   assert.ok(membershipSource.includes('function MemberHeroPattern'), '会员中心会员卡缺少无文案几何纹理背景')
   assert.ok(!membershipSource.includes('member-vip-bg'), '会员中心不能复用带文案的 member-vip-bg.webp')
   const report = fs.readFileSync(acceptanceReportPath, 'utf8')
@@ -1840,7 +1852,8 @@ function assertCoinPagesMatchLanhu() {
   const coinHomeDesign = data.designs.find((item) => item.name === '千寻币')
   for (const assetRef of [
     'src/assets/lanhu/pages/coin-gold.png',
-    'src/assets/lanhu/pages/coin-usage-slice.png',
+    'src/assets/lanhu/pages/coin-usage/whisper.png',
+    'src/assets/lanhu/pages/coin-usage/limited-activity.png',
   ]) {
     assert.ok(
       coinHomeDesign?.assetRefs?.includes(assetRef),
@@ -1860,15 +1873,27 @@ function assertCoinPagesMatchLanhu() {
     "const [agreementChecked, setAgreementChecked] = useState(variant === 'checked' || routePayState !== 'idle')",
     "textDecorationLine: 'line-through'",
     'coinGold',
-    'coin-gold.png',
+    'miniappOssIcons.coinGold',
     'CoinAmountLabel',
     'function CoinAmountLabel',
     'function CoinChevronIcon',
-    "padding: '6rpx 25rpx 220rpx'",
+    'COIN_USAGE_ITEMS',
+    'miniappOssIcons.coinUsageWhisper',
+    'miniappOssIcons.coinUsageLimitedActivity',
+    "height: '100vh'",
+    "flex: 1,\n          height: '0',\n          minHeight: '0'",
+    "padding: '6rpx 25rpx 48rpx'",
     "height: '190rpx'",
-    "marginLeft: '-97rpx'",
-    "width: '238rpx'",
-    "height: '178rpx'",
+    'scrollLeft={railScrollLeft}',
+    "width: '640rpx'",
+    "paddingTop: '15rpx'",
+    "width: '242rpx'",
+    "height: '183rpx'",
+    "fontSize: '26rpx'",
+    "fontSize: '18rpx'",
+    "fontSize: '12rpx'",
+    "fontSize: '16rpx'",
+    "fontSize: '38rpx'",
     "left: '231rpx'",
     "top: '393rpx'",
     "width: '288rpx'",
@@ -1883,7 +1908,7 @@ function assertCoinPagesMatchLanhu() {
     "width: '620rpx'",
     "height: '538rpx'",
     "height: '478rpx'",
-    "padding: '20rpx 44rpx calc(30rpx + env(safe-area-inset-bottom))'",
+    "padding: '20rpx 44rpx max(30rpx, env(safe-area-inset-bottom))'",
     "marginTop: '24rpx'",
     "width: '32rpx',\n            height: '32rpx',\n            borderRadius: '16rpx'",
     "width: '17rpx'",
@@ -1891,6 +1916,36 @@ function assertCoinPagesMatchLanhu() {
     "borderLeft: '4rpx solid #FFFFFF'",
   ]) {
     assert.ok(coinsSource.includes(snippet), `千寻币首页缺少蓝湖结构证据: ${snippet}`)
+  }
+  assert.ok(!coinsSource.includes("marginLeft: '-97rpx'"), '千寻币套餐轨道不能继续用负边距制造双侧裁切')
+  assert.ok(!coinsSource.includes('coinBalanceBg'), '余额卡不得再叠加带文案的背景切图')
+  assert.ok(coinsSource.includes("linear-gradient(135deg, #78A4FF 0%, #2E75F6 100%)"), '余额卡需要使用无文字的蓝色背景层')
+  assert.ok(!coinsSource.includes('coinUsageSlice'), '千寻币用途不得继续使用整卡切图，避免文字和图标重影')
+  assert.ok(!coinsSource.includes('coin-usage-slice.png'), '千寻币用途不得继续引用整卡 PNG')
+
+  const ossIconSource = fs.readFileSync(path.join(rootDir, 'src/constants/ossIcons.ts'), 'utf8')
+  for (const snippet of [
+    'coinUsageWhisper',
+    'coinUsageLimitedActivity',
+    'coinGold',
+    'memberBenefitMatch',
+    'Object.freeze',
+  ]) {
+    assert.ok(ossIconSource.includes(snippet), `非底部图标 OSS 清单缺少: ${snippet}`)
+  }
+
+  const uploadScript = fs.readFileSync(path.join(rootDir, 'scripts/upload-miniapp-oss-icons.mjs'), 'utf8')
+  for (const snippet of [
+    "'backend', '.env.local'",
+    'DEV_OSS_ACCESS_KEY_ID',
+    'DEV_OSS_ACCESS_KEY_SECRET',
+    'createHmac',
+    'createHash',
+    'Content-Length',
+    'Buffer.from',
+    '不会转换、缩放或压缩图像',
+  ]) {
+    assert.ok(uploadScript.includes(snippet), `OSS 图标上传脚本缺少无损保障: ${snippet}`)
   }
   const coinDarkMaskMatches = coinsSource.match(/background: 'rgba\(0, 0, 0, 0\.48\)'/g) ?? []
   assert.equal(

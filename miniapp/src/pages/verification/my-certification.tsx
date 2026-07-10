@@ -1,11 +1,9 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import LanhuSubNav from '@/components/LanhuSubNav'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import { navigateBackOrRedirect } from '@/utils/navigation'
-import avatarIcon from '@/assets/lanhu/verification/slices/cert-avatar.webp'
-import educationIcon from '@/assets/lanhu/verification/slices/cert-education.webp'
-import realNameIcon from '@/assets/lanhu/verification/slices/cert-realname.webp'
 
 type VerificationDemo = {
   realNameActive: {
@@ -48,9 +46,9 @@ export default function MyCertificationPage() {
           </Text>
 
           <View style={{ marginTop: '64rpx' }}>
-            <CertStatusCard icon={avatarIcon} title="头像认证" desc="真人真照，大胆心动" />
+            <CertStatusCard icon={miniappOssIcons.verificationCertAvatar} title="头像认证" desc="真人真照，大胆心动" />
             <CertStatusCard
-              icon={realNameIcon}
+              icon={miniappOssIcons.verificationCertRealName}
               title="实名认证"
               desc="真实身份，放心交友"
               detail={[
@@ -59,7 +57,7 @@ export default function MyCertificationPage() {
               ]}
             />
             <CertStatusCard
-              icon={educationIcon}
+              icon={miniappOssIcons.verificationCertEducation}
               title="学历认证"
               desc="真实学历，同频社交"
               detail={[

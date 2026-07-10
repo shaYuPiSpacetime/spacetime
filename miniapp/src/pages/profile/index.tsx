@@ -1,31 +1,19 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
+import ProfilePreviewPage from '@/pages/profile/components/ProfilePreviewPage'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { useProfile } from '@/hooks/useProfile'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import type { MyMembership } from '@/types/membership'
+import { navigateBackOrRedirect } from '@/utils/navigation'
 
 import profileBg from '@/assets/profile/profile-bg.webp'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import cardCoin from '@/assets/profile/card-coin.webp'
 import cardInvite from '@/assets/profile/card-invite.webp'
-import boostButton from '@/assets/profile/boost-button.png'
-import vipBanner from '@/assets/profile/vip-banner.webp'
-import iconPost from '@/assets/profile/icon-post.png'
-import iconService from '@/assets/profile/icon-service.png'
-import iconSettings from '@/assets/profile/icon-settings.png'
-import iconCert from '@/assets/profile/icon-cert.png'
 
 const membershipDemo = getDemoPageData('membership')
-const profileBaseDemo = getDemoPageData('profile')
-const profileDemo = profileBaseDemo as typeof profileBaseDemo & {
-  preview: {
-    title: string
-    subtitle: string
-    ctaText: string
-    chips: string[]
-  }
-}
 type ProfileMembershipVariant = 'none' | 'active' | 'expired'
 
 function resolveProfileMembershipVariant(value?: string): ProfileMembershipVariant {
@@ -33,7 +21,10 @@ function resolveProfileMembershipVariant(value?: string): ProfileMembershipVaria
   return 'none'
 }
 
-function membershipForProfileVariant(variant: ProfileMembershipVariant, fallback: MyMembership | null): MyMembership {
+function membershipForProfileVariant(
+  variant: ProfileMembershipVariant,
+  fallback: MyMembership | null
+): MyMembership {
   if (variant === 'active') return membershipDemo.activeMembership
   if (variant === 'expired') return membershipDemo.expiredMembership
   return fallback || membershipDemo.myMembership
@@ -85,6 +76,16 @@ export default function ProfilePage() {
     setAvatar(sourceAvatar)
   }, [sourceAvatar])
 
+  if (isPreview) {
+    return (
+      <ProfilePreviewPage
+        nickname={nickname}
+        onBack={() => navigateBackOrRedirect()}
+        onEdit={() => navigateBackOrRedirect()}
+      />
+    )
+  }
+
   return (
     <View
       style={{
@@ -116,117 +117,27 @@ export default function ProfilePage() {
           avatar={avatar}
           nickname={nickname}
           subInfo={subInfo}
+          membershipStatus={membershipVariant}
           showCert={data.isVerified}
           onEdit={goToEditProfile}
           onAvatarError={() => setAvatar(defaultAvatar)}
         />
-        {isPreview ? (
-          <PreviewProfileCard onEdit={goToEditProfile} />
-        ) : (
-          <>
-            <StatsCard stats={stats} />
-            <VipBanner
-              status={membershipVariant}
-              expireTime={membership.expireTime}
-              onClick={() => {
-                if (membershipVariant === 'none') {
-                  goToVip()
-                  return
-                }
-                Taro.navigateTo({ url: '/pages/membership/index' })
-              }}
-            />
-            <FeatureCards onCoin={goToCoin} onInvite={goToInvite} />
-            <MenuCard
-              onPost={goToMyPosts}
-              onHelp={goToHelp}
-              onSettings={goToSettings}
-            />
-          </>
-        )}
-      </View>
-    </View>
-  )
-}
-
-function PreviewProfileCard({ onEdit }: { onEdit: () => void }) {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        left: '25rpx',
-        top: '330rpx',
-        width: '700rpx',
-        minHeight: '470rpx',
-        borderRadius: '64rpx',
-        background: '#FFFFFF',
-        padding: '42rpx 34rpx 34rpx',
-        boxSizing: 'border-box',
-        boxShadow: '0 18rpx 42rpx rgba(11, 38, 90, 0.08)',
-      }}
-    >
-      <Text style={{ display: 'block', color: '#0C285A', fontSize: '40rpx', fontWeight: 800, lineHeight: '56rpx' }}>
-        {profileDemo.preview.title}
-      </Text>
-      <Text style={{ display: 'block', color: '#697E9C', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '12rpx' }}>
-        {profileDemo.preview.subtitle}
-      </Text>
-
-      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', marginTop: '30rpx' }}>
-        {profileDemo.preview.chips.map((chip) => (
-          <View
-            key={chip}
-            style={{
-              height: '58rpx',
-              borderRadius: '98rpx',
-              background: '#EEF6FF',
-              padding: '0 26rpx',
-              marginRight: '16rpx',
-              marginBottom: '16rpx',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+        <>
+          <StatsCard stats={stats} />
+          <VipBanner
+            status={membershipVariant}
+            expireTime={membership.expireTime}
+            onClick={() => {
+              if (membershipVariant === 'none') {
+                goToVip()
+                return
+              }
+              Taro.navigateTo({ url: '/pages/membership/index' })
             }}
-          >
-            <Text style={{ color: '#2876FF', fontSize: '24rpx', fontWeight: 700, lineHeight: '34rpx' }}>{chip}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View
-        style={{
-          height: '176rpx',
-          borderRadius: '32rpx',
-          background: '#F7FAFF',
-          marginTop: '18rpx',
-          padding: '26rpx 28rpx',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text style={{ display: 'block', color: '#333333', fontSize: '30rpx', fontWeight: 800, lineHeight: '42rpx' }}>
-          关于我
-        </Text>
-        <Text style={{ display: 'block', color: '#697E9C', fontSize: '24rpx', lineHeight: '38rpx', marginTop: '12rpx' }}>
-          真诚靠谱，喜欢稳定沟通，也期待一起探索城市生活。
-        </Text>
-      </View>
-
-      <View
-        style={{
-          height: '98rpx',
-          borderRadius: '98rpx',
-          background: '#2876FF',
-          marginTop: '30rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onClick={onEdit}
-        hoverClass="btn-hover"
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 800, lineHeight: '45rpx' }}>
-          {profileDemo.preview.ctaText}
-        </Text>
+          />
+          <FeatureCards onCoin={goToCoin} onInvite={goToInvite} />
+          <MenuCard onPost={goToMyPosts} onHelp={goToHelp} onSettings={goToSettings} />
+        </>
       </View>
     </View>
   )
@@ -236,6 +147,7 @@ function HeaderBlock({
   avatar,
   nickname,
   subInfo,
+  membershipStatus,
   showCert,
   onEdit,
   onAvatarError,
@@ -243,6 +155,7 @@ function HeaderBlock({
   avatar: string
   nickname: string
   subInfo: string
+  membershipStatus: MyMembership['status']
   showCert: boolean
   onEdit: () => void
   onAvatarError: () => void
@@ -257,18 +170,10 @@ function HeaderBlock({
         height: '105rpx',
       }}
     >
-      <Image
-        src={avatar}
-        mode="aspectFill"
+      <ProfileAvatarFrame
+        avatar={avatar}
+        showProfileProgress={membershipStatus !== 'none'}
         onError={onAvatarError}
-        style={{
-          position: 'absolute',
-          left: '0',
-          top: '0',
-          width: '111rpx',
-          height: '111rpx',
-          borderRadius: '56rpx',
-        }}
       />
       <View
         style={{
@@ -317,9 +222,7 @@ function HeaderBlock({
         onClick={onEdit}
         hoverClass="btn-hover"
       >
-        <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '34rpx' }}>
-          编辑资料
-        </Text>
+        <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '34rpx' }}>编辑资料</Text>
         <View
           style={{
             width: '14rpx',
@@ -347,6 +250,67 @@ function HeaderBlock({
   )
 }
 
+function ProfileAvatarFrame({
+  avatar,
+  showProfileProgress,
+  onError,
+}: {
+  avatar: string
+  showProfileProgress: boolean
+  onError: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '0',
+        top: '0',
+        width: '124rpx',
+        height: '124rpx',
+        borderRadius: '62rpx',
+        background: showProfileProgress ? '#E3F1FE' : '#FFFFFF',
+        padding: '6rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Image
+        src={avatar}
+        mode="aspectFill"
+        onError={onError}
+        style={{ width: '112rpx', height: '112rpx', borderRadius: '56rpx' }}
+      />
+      {showProfileProgress && (
+        <View
+          style={{
+            position: 'absolute',
+            left: '10rpx',
+            bottom: '-4rpx',
+            width: '90rpx',
+            height: '30rpx',
+            borderRadius: '18rpx',
+            background: '#D9EBFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: '14rpx',
+              height: '5rpx',
+              borderRadius: '4rpx',
+              background: '#2876FF',
+              transform: 'rotate(-45deg)',
+              marginRight: '8rpx',
+            }}
+          />
+          <Text style={{ color: '#2876FF', fontSize: '18rpx', fontWeight: 600, lineHeight: '25rpx' }}>50%</Text>
+        </View>
+      )}
+    </View>
+  )
+}
+
 function CertBadge() {
   return (
     <View
@@ -363,7 +327,7 @@ function CertBadge() {
       }}
     >
       <Image
-        src={iconCert}
+        src={miniappOssIcons.profileCertification}
         mode="aspectFit"
         style={{
           width: '28rpx',
@@ -371,9 +335,7 @@ function CertBadge() {
           marginRight: '6rpx',
         }}
       />
-      <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx' }}>
-        三重认证
-      </Text>
+      <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx' }}>三重认证</Text>
     </View>
   )
 }
@@ -403,7 +365,7 @@ function StatsCard({ stats }: { stats: Array<{ value: number; label: string }> }
           justifyContent: 'space-around',
         }}
       >
-        {stats.map((item) => (
+        {stats.map(item => (
           <View
             key={item.label}
             style={{
@@ -446,7 +408,7 @@ function StatsCard({ stats }: { stats: Array<{ value: number; label: string }> }
         hoverClass="btn-hover"
       >
         <Image
-          src={boostButton}
+          src={miniappOssIcons.profileBoostButton}
           mode="scaleToFill"
           style={{
             width: '172rpx',
@@ -467,40 +429,14 @@ function VipBanner({
   expireTime?: string
   onClick: () => void
 }) {
-  if (status === 'none') {
-    return (
-      <View
-        style={{
-          position: 'absolute',
-          left: '25rpx',
-          top: '512rpx',
-          width: '700rpx',
-          height: '128rpx',
-          borderRadius: '12rpx',
-          overflow: 'hidden',
-        }}
-        onClick={onClick}
-        hoverClass="btn-hover"
-      >
-        <Image
-          src={vipBanner}
-          mode="scaleToFill"
-          style={{
-            width: '700rpx',
-            height: '128rpx',
-          }}
-        />
-      </View>
-    )
-  }
-
-  const title = status === 'active'
-    ? '会员权益生效中'
-    : '会员已过期'
-  const subtitle = status === 'active'
-    ? `有效期至 ${expireTime || '2027.05.27 15:58'}`
-    : '续费后继续查看心动名单'
-  const ctaText = status === 'active' ? '立即续费' : '重新开通'
+  const isActive = status === 'active'
+  const title = isActive
+    ? '时空邂逅会员已开通，享尊享特权'
+    : status === 'expired'
+      ? '时空邂逅会员已过期'
+      : '开通时空邂逅会员，享尊享特权'
+  const ctaText = isActive ? '立即续费' : '立即开通'
+  const expiry = formatVipBannerExpiry(expireTime)
 
   return (
     <View
@@ -512,76 +448,168 @@ function VipBanner({
         height: '128rpx',
         borderRadius: '12rpx',
         overflow: 'hidden',
-        background: 'linear-gradient(105deg, #1F1D1D 0%, #2E2A25 54%, #454035 100%)',
+        background: 'linear-gradient(105deg, #1B1B1B 0%, #292725 58%, #45423D 100%)',
       }}
       onClick={onClick}
       hoverClass="btn-hover"
     >
-      <View
-        style={{
-          position: 'absolute',
-          left: '28rpx',
-          top: '38rpx',
-          width: '52rpx',
-          height: '52rpx',
-          transform: 'rotate(45deg)',
-          border: '4rpx solid #F7C968',
-          borderRadius: '8rpx',
-          boxSizing: 'border-box',
-        }}
-      />
+      <VipBannerPattern />
+      <VipBannerMark />
       <Text
         style={{
           position: 'absolute',
           left: '102rpx',
-          top: '24rpx',
+          top: isActive ? '38rpx' : '43rpx',
+          maxWidth: '400rpx',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
           color: '#F7C968',
-          fontSize: '28rpx',
+          fontSize: '26rpx',
           fontWeight: 700,
           lineHeight: '40rpx',
         }}
       >
         {title}
       </Text>
-      <Text
-        style={{
-          position: 'absolute',
-          left: '102rpx',
-          top: '72rpx',
-          color: '#D8B35B',
-          fontSize: '22rpx',
-          lineHeight: '31rpx',
-        }}
-      >
-        {subtitle}
-      </Text>
-      <View
-        style={{
-          position: 'absolute',
-          right: '28rpx',
-          top: '36rpx',
-          width: '160rpx',
-          height: '58rpx',
-          borderRadius: '58rpx',
-          background: '#F7C968',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: '#211D1E', fontSize: '26rpx', fontWeight: 700, lineHeight: '36rpx' }}>{ctaText}</Text>
-      </View>
+      {isActive ? (
+        <>
+          <View
+            style={{
+              position: 'absolute',
+              right: '26rpx',
+              top: '35rpx',
+              height: '40rpx',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#F7C968', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{ctaText}</Text>
+            <VipBannerChevron color="#F7C968" />
+          </View>
+          <Text
+            style={{
+              position: 'absolute',
+              right: '28rpx',
+              bottom: '24rpx',
+              color: '#FFFFFF',
+              fontSize: '22rpx',
+              lineHeight: '31rpx',
+            }}
+          >
+            {expiry ? `${expiry} 到期` : ''}
+          </Text>
+        </>
+      ) : (
+        <View
+          style={{
+            position: 'absolute',
+            right: '20rpx',
+            top: '35rpx',
+            width: '160rpx',
+            height: '58rpx',
+            borderRadius: '58rpx',
+            background: '#F7C968',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#211D1E', fontSize: '26rpx', fontWeight: 700, lineHeight: '36rpx' }}>
+            {ctaText}
+          </Text>
+        </View>
+      )}
     </View>
   )
 }
 
-function FeatureCards({
-  onCoin,
-  onInvite,
-}: {
-  onCoin: () => void
-  onInvite: () => void
-}) {
+function VipBannerPattern() {
+  const border = '10rpx solid rgba(184,166,123,0.24)'
+  return (
+    <View style={{ position: 'absolute', right: '-10rpx', top: '-56rpx', width: '220rpx', height: '240rpx', overflow: 'hidden' }}>
+      <View
+        style={{
+          position: 'absolute',
+          right: '-24rpx',
+          top: '-18rpx',
+          width: '128rpx',
+          height: '128rpx',
+          borderRadius: '18rpx',
+          border,
+          transform: 'rotate(45deg)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          right: '34rpx',
+          top: '72rpx',
+          width: '118rpx',
+          height: '118rpx',
+          borderRadius: '18rpx',
+          border,
+          transform: 'rotate(45deg)',
+        }}
+      />
+    </View>
+  )
+}
+
+function VipBannerMark() {
+  return (
+    <View style={{ position: 'absolute', left: '28rpx', top: '38rpx', width: '54rpx', height: '54rpx' }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: '7rpx',
+          top: '7rpx',
+          width: '40rpx',
+          height: '40rpx',
+          borderRadius: '8rpx',
+          border: '4rpx solid #F7C968',
+          boxSizing: 'border-box',
+          transform: 'rotate(45deg)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: '17rpx',
+          top: '19rpx',
+          width: '20rpx',
+          height: '10rpx',
+          borderLeft: '4rpx solid #F7C968',
+          borderBottom: '4rpx solid #F7C968',
+          transform: 'rotate(-45deg)',
+          boxSizing: 'border-box',
+        }}
+      />
+    </View>
+  )
+}
+
+function VipBannerChevron({ color }: { color: string }) {
+  return (
+    <View style={{ width: '22rpx', height: '32rpx', marginLeft: '8rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: '12rpx',
+          height: '12rpx',
+          borderTop: `3rpx solid ${color}`,
+          borderRight: `3rpx solid ${color}`,
+          transform: 'rotate(45deg)',
+          boxSizing: 'border-box',
+        }}
+      />
+    </View>
+  )
+}
+
+function formatVipBannerExpiry(value?: string) {
+  return value?.replace('T', ' ').split(' ')[0].replace(/-/g, '.') || ''
+}
+
+function FeatureCards({ onCoin, onInvite }: { onCoin: () => void; onInvite: () => void }) {
   return (
     <View
       style={{
@@ -692,9 +720,9 @@ function MenuCard({
   onSettings: () => void
 }) {
   const items = [
-    { label: '我的动态', icon: iconPost, onClick: onPost },
-    { label: '帮助与客服', icon: iconService, onClick: onHelp },
-    { label: '设置', icon: iconSettings, onClick: onSettings },
+    { label: '我的动态', icon: miniappOssIcons.profilePost, onClick: onPost },
+    { label: '帮助与客服', icon: miniappOssIcons.profileService, onClick: onHelp },
+    { label: '设置', icon: miniappOssIcons.profileSettings, onClick: onSettings },
   ]
 
   return (
@@ -756,9 +784,7 @@ function MenuCard({
                 {item.label}
               </Text>
             </View>
-            <Text style={{ color: '#999999', fontSize: '58rpx', lineHeight: '40rpx' }}>
-              ›
-            </Text>
+            <Text style={{ color: '#999999', fontSize: '58rpx', lineHeight: '40rpx' }}>›</Text>
           </View>
           {index < items.length - 1 && (
             <View

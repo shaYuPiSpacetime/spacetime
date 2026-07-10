@@ -3,8 +3,7 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import LoginProfileShell from './components/LoginProfileShell'
-import genderFemale from '@/assets/lanhu/login/gender-female.webp'
-import genderMale from '@/assets/lanhu/login/gender-male.webp'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import './gender.scss'
 
 /**
@@ -96,7 +95,7 @@ interface GenderCardProps {
 function GenderCard({ active, gender, label, top, onClick }: GenderCardProps) {
   const isFemale = gender === 'female'
   const activeBorder = isFemale ? '#FF7F8C' : '#2876FF'
-  const icon = isFemale ? genderFemale : genderMale
+  const icon = isFemale ? miniappOssIcons.genderFemale : miniappOssIcons.genderMale
 
   return (
     <View

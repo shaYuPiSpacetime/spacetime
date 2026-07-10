@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const miniappRoot = path.resolve(__dirname, '..')
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(miniappRoot, relativePath), 'utf8')
+}
+
+const membershipPage = read('src/pages/membership/index.tsx')
+const recordsPage = read('src/pages/membership/records.tsx')
+const recordDetailPage = read('src/pages/membership/record-detail.tsx')
+const subscriptionPage = read('src/pages/membership/subscription.tsx')
+const profilePage = read('src/pages/profile/index.tsx')
+const demoData = JSON.parse(read('src/data/lanhuDemo.json'))
+const expectedBenefits = [
+  ['heart-list', '心动名单一键揭晓：', '123人'],
+  ['visitor-eye', '谁来看过你：', '340位访客'],
+  ['yo-message', '每日专属悄悄话1条', ''],
+  ['extra-browse', '每日额外浏览10位嘉宾', ''],
+  ['filter', '精准筛选功能', ''],
+  ['exposure', '曝光度拉满', ''],
+  ['stealth', '隐身模式', ''],
+  ['replay', '三天回放功能', ''],
+  ['daily-heart', '每日多5次心动机会', ''],
+]
+
+assert.deepEqual(
+  demoData.membership.benefits.map(({ icon, title, value }) => [icon, title, value]),
+  expectedBenefits,
+  '会员 9 项权益必须和蓝湖完整页的顺序、文案和值一致',
+)
+assert.equal(new Set(demoData.membership.benefits.map(item => item.icon)).size, 9, '9 项权益图标不能重复')
+assert.ok(membershipPage.includes('scrollLeft={railScrollLeft}'), '会员套餐轨道必须像千寻币一样跟随选中卡片滚动')
+assert.ok(membershipPage.includes('scrollWithAnimation'), '会员套餐切换必须平滑滚动到完整金额卡')
+assert.ok(membershipPage.includes("height: '270rpx'"), '会员套餐轨道必须预留标签高度，不能裁切折扣标签')
+assert.ok(membershipPage.includes('index={index + 1}'), '9 项权益卡必须有可核查的顺序标识')
+assert.ok(membershipPage.includes('data-benefit-index={index}'), '权益卡必须将顺序标识输出到真实组件')
+assert.ok(!membershipPage.includes('member-vip-bg.webp'), '动态会员卡不能使用带头像和文案的背景整图')
+assert.ok(membershipPage.includes('plans.some(plan => plan.id === activePlanId)'), '接口套餐替换后必须重新选择有效套餐')
+assert.ok(membershipPage.includes('useAuthStore'), '会员中心必须读取当前登录用户的头像和昵称')
+assert.ok(subscriptionPage.includes("background: '#2B2B2B'"), '订阅管理会员卡必须复用会员中心的背景底色')
+assert.ok(subscriptionPage.includes("right: '89rpx'"), '订阅管理会员卡纹理必须与会员中心对齐')
+assert.ok(recordDetailPage.includes('<ScrollView scrollY'), '会员详情必须在小屏设备可纵向滚动')
+assert.ok(recordDetailPage.includes("height: 'calc(100vh - 176rpx)'"), '会员详情滚动区必须避开导航栏')
+assert.ok(recordDetailPage.includes('resolvePreviewRecord'), '蓝湖会员详情直达态必须能按支付状态加载预览订单')
+assert.ok(recordDetailPage.includes('if (!recordId)'), '未携带订单 ID 的蓝湖预览路由不能误显示记录不存在')
+assert.ok(recordDetailPage.includes('getDemoPageData'), '会员详情预览态必须使用已登记的会员订单数据')
+assert.ok(recordsPage.includes("maxWidth: '400rpx'"), '会员记录套餐名必须为右侧周期保留空间')
+assert.ok(recordsPage.includes("textOverflow: 'ellipsis'"), '会员记录超长套餐名必须截断，不能覆盖周期')
+assert.ok(profilePage.includes('ProfileAvatarFrame'), '我的页面头像必须包含蓝湖的浅蓝头像底座与进度标识')
+assert.ok(profilePage.includes('showProfileProgress={membershipStatus !== \'none\'}'), '资料进度徽标只能出现在已开通或已过期会员状态')
+assert.ok(profilePage.includes("background: showProfileProgress ? '#E3F1FE' : '#FFFFFF'"), '头像底座必须按会员状态切换蓝湖的浅蓝或白色样式')
+assert.ok(!profilePage.includes('profileVipBanner'), '我的会员横幅不能把带按钮和文案的整图当成交互组件')
+assert.ok(profilePage.includes('时空邂逅会员已开通，享尊享特权'), '已开通会员横幅文案必须与蓝湖一致')
+assert.ok(profilePage.includes('时空邂逅会员已过期'), '过期会员横幅文案必须与蓝湖一致')
+
+console.log('会员权益页面闭环门禁通过')

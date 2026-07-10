@@ -1,7 +1,8 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
-import { useRouter } from '@tarojs/taro'
+import Taro, { useRouter } from '@tarojs/taro'
 import WechatMockPayPanel from '@/components/WechatMockPayPanel'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { useCoins, type CoinPayState } from '@/hooks/useCoins'
 import { getDemoPageData } from '@/services/lanhuDemo'
 import type { CoinPackage } from '@/types/coin'
@@ -12,12 +13,22 @@ import {
   LanhuNav,
 } from '@/pages/lanhu/LanhuShell'
 
-import coinBalanceBg from '@/assets/lanhu/pages/coin-balance-bg.webp'
-import coinGold from '@/assets/lanhu/pages/coin-gold.png'
-import coinUsageSlice from '@/assets/lanhu/pages/coin-usage-slice.png'
 
 const coinsDemo = getDemoPageData('coins')
 type CoinsPageVariant = 'default' | 'checked' | 'unchecked-error' | 'recharge-notice'
+const COIN_PLAN_CARD_WIDTH_RPX = 242
+const COIN_PLAN_CARD_GAP_RPX = 6
+const COIN_PLAN_SELECTED_LEFT_RPX = 150
+const COIN_USAGE_ITEMS = [
+  { label: '送悄悄话', icon: miniappOssIcons.coinUsageWhisper },
+  { label: '心动信号', icon: miniappOssIcons.coinUsageHeartbeat },
+  { label: '解锁理想型', icon: miniappOssIcons.coinUsageIdealUnlock },
+  { label: '提升人气', icon: miniappOssIcons.coinUsageBoost },
+  { label: '解锁精选', icon: miniappOssIcons.coinUsageCuratedUnlock },
+  { label: '更多推荐', icon: miniappOssIcons.coinUsageRecommend },
+  { label: '匿名解锁', icon: miniappOssIcons.coinUsageAnonymousUnlock },
+  { label: '限定活动', icon: miniappOssIcons.coinUsageLimitedActivity },
+] as const
 
 function resolveCoinsVariant(value?: string): CoinsPageVariant {
   if (value === 'checked' || value === 'unchecked-error' || value === 'recharge-notice') return value
@@ -92,10 +103,27 @@ export default function CoinsPage() {
   }
 
   return (
-    <View style={{ minHeight: '100vh', background: LANHU_SOFT_BG }}>
+    <View
+      style={{
+        height: '100vh',
+        background: LANHU_SOFT_BG,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <LanhuNav title="千寻币" showBack />
-      <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)' }} showScrollbar={false}>
-        <View style={{ width: '750rpx', padding: '6rpx 25rpx 220rpx', boxSizing: 'border-box' }}>
+      <ScrollView
+        scrollY
+        enableFlex
+        style={{
+          flex: 1,
+          height: '0',
+          minHeight: '0',
+        }}
+        showScrollbar={false}
+      >
+        <View style={{ width: '750rpx', padding: '6rpx 25rpx 48rpx', boxSizing: 'border-box' }}>
           <BalanceCard balance={balance} onDetail={goToDetail} />
           <RechargeCard packages={packages} selected={selectedPackage} onSelect={selectPackage} onNotice={showRechargeNotice} />
           <UsageCard />
@@ -137,10 +165,32 @@ function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => v
         width: '700rpx',
         height: '190rpx',
         borderRadius: '12rpx',
+        background: 'linear-gradient(135deg, #78A4FF 0%, #2E75F6 100%)',
         overflow: 'hidden',
       }}
     >
-      <Image src={coinBalanceBg} mode="scaleToFill" style={{ width: '700rpx', height: '190rpx' }} />
+      <View
+        style={{
+          position: 'absolute',
+          right: '46rpx',
+          top: '-72rpx',
+          width: '154rpx',
+          height: '154rpx',
+          borderRadius: '76rpx',
+          background: 'rgba(255, 255, 255, 0.08)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          right: '-22rpx',
+          bottom: '-86rpx',
+          width: '246rpx',
+          height: '246rpx',
+          borderRadius: '123rpx',
+          background: 'rgba(255, 255, 255, 0.06)',
+        }}
+      />
       <Text style={{ position: 'absolute', left: '32rpx', top: '48rpx', color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>
         千寻币余额
       </Text>
@@ -169,6 +219,13 @@ function RechargeCard({
   onSelect: (pkg: CoinPackage) => void
   onNotice: () => void
 }) {
+  const selectedIndex = Math.max(0, packages.findIndex((pkg) => pkg.id === selected?.id))
+  const viewportWidth = Taro.getWindowInfo().windowWidth || 375
+  const railScrollLeft = Math.max(
+    0,
+    selectedIndex * (COIN_PLAN_CARD_WIDTH_RPX + COIN_PLAN_CARD_GAP_RPX) - COIN_PLAN_SELECTED_LEFT_RPX,
+  ) * viewportWidth / 750
+
   return (
     <View
       style={{
@@ -177,20 +234,35 @@ function RechargeCard({
         borderRadius: '12rpx',
         background: '#FFFFFF',
         marginTop: '20rpx',
-        padding: '32rpx 31rpx',
+        padding: '27rpx 30rpx 0',
         boxSizing: 'border-box',
         overflow: 'hidden',
       }}
     >
       <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700 }}>充值千寻币</Text>
+        <Text style={{ color: LANHU_NAVY, fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>充值千寻币</Text>
         <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }} onClick={onNotice}>
-          <Text style={{ color: '#9D9D9D', fontSize: '26rpx' }}>充值须知</Text>
+          <Text style={{ color: '#9D9D9D', fontSize: '24rpx', lineHeight: '33rpx' }}>充值须知</Text>
           <CoinChevronIcon color="#9D9D9D" size="18rpx" marginLeft="8rpx" />
         </View>
       </View>
-      <ScrollView scrollX showScrollbar={false} style={{ width: '668rpx', marginTop: '31rpx', marginLeft: '-97rpx' }}>
-        <View style={{ display: 'flex', flexDirection: 'row', paddingLeft: '0' }}>
+      <ScrollView
+        scrollX
+        scrollLeft={railScrollLeft}
+        scrollWithAnimation
+        showScrollbar={false}
+        style={{ width: '640rpx', marginTop: '25rpx' }}
+      >
+        <View
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            width: `${Math.max(640, packages.length * (COIN_PLAN_CARD_WIDTH_RPX + COIN_PLAN_CARD_GAP_RPX) - COIN_PLAN_CARD_GAP_RPX)}rpx`,
+            height: '198rpx',
+            paddingTop: '15rpx',
+            boxSizing: 'border-box',
+          }}
+        >
           {packages.map((pkg) => {
             const isSelected = selected?.id === pkg.id
             return (
@@ -199,13 +271,13 @@ function RechargeCard({
                 style={{
                   position: 'relative',
                   flexShrink: 0,
-                  width: '238rpx',
-                  height: '178rpx',
+                  width: '242rpx',
+                  height: '183rpx',
                   borderRadius: '12rpx',
                   border: isSelected ? `4rpx solid ${LANHU_BLUE}` : '2rpx solid #CED4DF',
                   background: isSelected ? '#E8F4FF' : '#F8FAFE',
-                  marginRight: '12rpx',
-                  padding: '36rpx 24rpx 18rpx',
+                  marginRight: '6rpx',
+                  padding: '33rpx 26rpx 29rpx',
                   boxSizing: 'border-box',
                 }}
                 onClick={() => onSelect(pkg)}
@@ -214,43 +286,46 @@ function RechargeCard({
                   <View
                     style={{
                       position: 'absolute',
-                      left: '18rpx',
-                      top: '-18rpx',
+                      left: '20rpx',
+                      top: '-15rpx',
                       height: '36rpx',
                       borderRadius: '8rpx',
                       background: '#F32B61',
-                      padding: '0 18rpx',
+                      padding: '0 13rpx',
                       display: 'flex',
                       alignItems: 'center',
+                      boxSizing: 'border-box',
                     }}
                   >
-                    <Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>{pkg.tag}</Text>
+                    <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '22rpx' }}>{pkg.tag}</Text>
                   </View>
                 )}
                 <CoinAmountLabel amount={pkg.amount} />
                 {pkg.originalPrice && pkg.discountLabel ? (
-                  <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '7rpx' }}>
-                    <Text style={{ color: '#9A9A9A', fontSize: '24rpx', textDecorationLine: 'line-through' }}>{pkg.originalPrice}</Text>
+                  <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '2rpx' }}>
+                    <Text style={{ color: '#9A9A9A', fontSize: '18rpx', lineHeight: '25rpx', textDecorationLine: 'line-through' }}>{pkg.originalPrice}</Text>
                     <View
                       style={{
-                        height: '30rpx',
-                        borderRadius: '6rpx',
+                        borderRadius: '4rpx',
                         background: '#FFD5E2',
-                        padding: '0 12rpx',
-                        marginLeft: '10rpx',
+                        padding: '2rpx 9rpx 1rpx',
+                        marginLeft: '8rpx',
                         display: 'flex',
                         alignItems: 'center',
                       }}
                     >
-                      <Text style={{ color: '#F32B61', fontSize: '20rpx' }}>{pkg.discountLabel}</Text>
+                      <Text style={{ color: '#F32B61', fontSize: '12rpx', lineHeight: '17rpx' }}>{pkg.discountLabel}</Text>
                     </View>
                   </View>
                 ) : (
-                  <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', marginTop: '6rpx' }}>{pkg.label}</Text>
+                  <Text style={{ display: 'block', color: '#999999', fontSize: '18rpx', lineHeight: '25rpx', marginTop: '2rpx' }}>{pkg.label}</Text>
                 )}
-                <Text style={{ display: 'block', color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '42rpx', fontWeight: 700, marginTop: '12rpx' }}>
-                  ¥{pkg.price}.00
-                </Text>
+                <View style={{ display: 'flex', flexDirection: 'row', width: '142rpx', height: '53rpx' }}>
+                  <Text style={{ color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>¥</Text>
+                  <Text style={{ color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '38rpx', fontWeight: 600, lineHeight: '40rpx' }}>
+                    {Number(pkg.price).toFixed(2)}
+                  </Text>
+                </View>
               </View>
             )
           })}
@@ -291,19 +366,58 @@ function CoinChevronIcon({
 function CoinAmountLabel({ amount }: { amount: number }) {
   return (
     <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-      <Image src={coinGold} mode="scaleToFill" style={{ width: '22rpx', height: '23rpx', marginRight: '10rpx' }} />
-      <Text style={{ color: LANHU_NAVY, fontSize: '30rpx', fontWeight: 700 }}>{amount}</Text>
+      <Image src={miniappOssIcons.coinGold} mode="scaleToFill" style={{ width: '19rpx', height: '19rpx', marginRight: '10rpx' }} />
+      <Text style={{ color: LANHU_NAVY, fontSize: '26rpx', fontWeight: 600, lineHeight: '37rpx' }}>{amount}</Text>
     </View>
   )
 }
 
 function UsageCard() {
   return (
-    <Image
-      src={coinUsageSlice}
-      mode="scaleToFill"
-      style={{ display: 'block', width: '700rpx', height: '478rpx', borderRadius: '12rpx', marginTop: '20rpx' }}
-    />
+    <View
+      style={{
+        width: '700rpx',
+        height: '478rpx',
+        borderRadius: '12rpx',
+        background: '#FFFFFF',
+        marginTop: '20rpx',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+        paddingTop: '30rpx',
+      }}
+    >
+      <Text style={{ display: 'block', marginLeft: '31rpx', color: LANHU_NAVY, fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>
+        千寻币用途
+      </Text>
+      <View
+        style={{
+          width: '720rpx',
+          marginLeft: '-10rpx',
+          marginTop: '25rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+        }}
+      >
+        {COIN_USAGE_ITEMS.map((usage) => (
+          <View
+            key={usage.label}
+            style={{
+              width: '180rpx',
+              height: '178rpx',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <Image src={usage.icon} mode="scaleToFill" style={{ width: '99rpx', height: '99rpx' }} />
+            <Text style={{ color: LANHU_NAVY, fontSize: '24rpx', lineHeight: '34rpx', marginTop: '16rpx', whiteSpace: 'nowrap' }}>
+              {usage.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
   )
 }
 
@@ -483,12 +597,10 @@ function PayBar({
   return (
     <View
       style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
+        width: '750rpx',
+        flexShrink: 0,
         background: '#FFFFFF',
-        padding: '20rpx 44rpx calc(30rpx + env(safe-area-inset-bottom))',
+        padding: '20rpx 44rpx max(30rpx, env(safe-area-inset-bottom))',
         boxSizing: 'border-box',
         zIndex: 20,
       }}

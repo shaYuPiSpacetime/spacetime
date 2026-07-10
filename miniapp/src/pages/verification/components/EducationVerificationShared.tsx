@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import uploadCamera from '@/assets/lanhu/verification/slices/upload-camera.webp'
+import { miniappOssIcons } from '@/constants/ossIcons'
 
 type VerificationStatusKey = 'avatar' | 'realName' | 'education'
 
@@ -291,7 +291,7 @@ export function UploadProofBox({
         <Image src={uploadPath} mode="aspectFill" style={{ width: '100%', height: '100%' }} />
       ) : (
         <View style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Image src={uploadCamera} mode="widthFix" style={{ width: '64rpx' }} />
+          <Image src={miniappOssIcons.verificationUploadCamera} mode="widthFix" style={{ width: '64rpx' }} />
           <Text style={{ color: '#999999', fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx', marginTop: '22rpx' }}>
             {text}
           </Text>

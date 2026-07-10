@@ -86,7 +86,21 @@ function RecordCard({
       onClick={() => Taro.navigateTo({ url: `/pages/membership/record-detail?status=${detailStatus}&id=${id}` })}
     >
       <MemberRecordDiamond tone={accent} />
-      <Text style={{ position: 'absolute', left: '102rpx', top: '47rpx', color: mainColor, fontSize: '36rpx', fontWeight: 700, lineHeight: '50rpx' }}>
+      <Text
+        style={{
+          position: 'absolute',
+          left: '102rpx',
+          top: '47rpx',
+          maxWidth: '400rpx',
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          textOverflow: 'ellipsis',
+          color: mainColor,
+          fontSize: '36rpx',
+          fontWeight: 700,
+          lineHeight: '50rpx',
+        }}
+      >
         {title}
       </Text>
       <Text style={{ position: 'absolute', right: '35rpx', top: '47rpx', color: mainColor, fontSize: '36rpx', fontWeight: 700, lineHeight: '50rpx' }}>

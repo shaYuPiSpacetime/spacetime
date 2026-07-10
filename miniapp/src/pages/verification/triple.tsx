@@ -1,15 +1,13 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import VerificationShell from './components/VerificationShell'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { getDemoPageData } from '@/services/lanhuDemo'
-import avatarIcon from '@/assets/lanhu/verification/slices/cert-avatar.webp'
-import realNameIcon from '@/assets/lanhu/verification/slices/cert-realname.webp'
-import educationIcon from '@/assets/lanhu/verification/slices/cert-education.webp'
 
 const CERT_ICON_MAP: Record<string, string> = {
-  头像认证: avatarIcon,
-  实名认证: realNameIcon,
-  学历认证: educationIcon,
+  头像认证: miniappOssIcons.verificationCertAvatar,
+  实名认证: miniappOssIcons.verificationCertRealName,
+  学历认证: miniappOssIcons.verificationCertEducation,
 }
 
 const verificationDemo = getDemoPageData('verification')
@@ -28,7 +26,7 @@ export default function VerificationTriplePage() {
             key={item.title}
             title={item.title}
             desc={item.desc}
-            icon={CERT_ICON_MAP[item.title] ?? avatarIcon}
+            icon={CERT_ICON_MAP[item.title] ?? miniappOssIcons.verificationCertAvatar}
             buttonText={COMPLETED_CERT_TITLES.includes(item.title) ? '已完成' : item.buttonText}
             disabled={Boolean(item.disabled) && !COMPLETED_CERT_TITLES.includes(item.title)}
             completed={COMPLETED_CERT_TITLES.includes(item.title)}

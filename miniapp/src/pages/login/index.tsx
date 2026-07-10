@@ -5,9 +5,8 @@ import { useLogin } from '@/hooks/useLogin'
 import { useAuthStore } from '@/stores/authStore'
 import { loginByWechatPhone } from '@/services/auth'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import loginSceneBg from '@/assets/login/login-scene-bg.jpg'
-import loginMethodWechatIcon from '@/assets/lanhu/login/login-method-wechat.png'
-import loginMethodPhoneIcon from '@/assets/lanhu/login/login-method-phone.png'
 import './index.scss'
 
 type LoginMethod = 'wechat' | 'phone'
@@ -212,7 +211,7 @@ function MethodIcon({ type }: { type: LoginMethod }) {
       }}
     >
       <Image
-        src={isWechat ? loginMethodWechatIcon : loginMethodPhoneIcon}
+        src={isWechat ? miniappOssIcons.loginMethodWechat : miniappOssIcons.loginMethodPhone}
         mode="aspectFit"
         style={iconSize}
       />
@@ -520,18 +519,29 @@ export default function LoginAuthPage() {
 
   return (
     <View className="relative w-full h-screen overflow-hidden" style={{ background: '#061329' }}>
-      <Image
-        src={loginSceneBg}
-        mode="aspectFill"
+      <View
         style={{
           position: 'absolute',
           left: 0,
-          top: 0,
+          top: '88rpx',
           width: '100%',
-          height: '100%',
+          height: 'calc(100% - 88rpx)',
+          overflow: 'hidden',
           zIndex: 0,
         }}
-      />
+      >
+        {/* 原图含参考状态栏；只做运行时裁切，不修改或重新编码源文件。 */}
+        <Image
+          src={loginSceneBg}
+          mode="widthFix"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: '-88rpx',
+            width: '100%',
+          }}
+        />
+      </View>
 
       <View
         className="absolute flex items-center justify-center"

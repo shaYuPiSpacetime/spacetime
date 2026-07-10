@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { getDemoPageData } from '@/services/lanhuDemo'
-import loginMethodPhoneIcon from '@/assets/lanhu/login/login-method-phone.png'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import './phone.scss'
 
 interface PhoneLoginDemo {
@@ -38,7 +38,7 @@ function PhoneIcon() {
       }}
     >
       <Image
-        src={loginMethodPhoneIcon}
+        src={miniappOssIcons.loginMethodPhone}
         mode="aspectFit"
         style={{ width: '44rpx', height: '54rpx' }}
       />

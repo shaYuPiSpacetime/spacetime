@@ -2,8 +2,10 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
 import WechatMockPayPanel from '@/components/WechatMockPayPanel'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { useMembership, type MembershipPayState } from '@/hooks/useMembership'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import { useAuthStore } from '@/stores/authStore'
 import type { MembershipPlan, MemberStatus, MyMembership } from '@/types/membership'
 import {
   LANHU_DARK,
@@ -12,34 +14,23 @@ import {
 } from '@/pages/lanhu/LanhuShell'
 
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
-import memberDividerLeft from '@/assets/lanhu/pages/member-benefits/member-slice-group-5-a.png'
-import memberDividerRight from '@/assets/lanhu/pages/member-benefits/member-slice-group-5-b.png'
-import memberBenefitMatch from '@/assets/lanhu/pages/member-benefits/member-slice-match.png'
-import memberBenefitEyeOpen from '@/assets/lanhu/pages/member-benefits/member-slice-eye-open.png'
-import memberBenefitGreeting from '@/assets/lanhu/pages/member-benefits/member-slice-greeting-a.png'
-import memberBenefitRecommend from '@/assets/lanhu/pages/member-benefits/member-slice-recommend.png'
-import memberBenefitFilter from '@/assets/lanhu/pages/member-benefits/member-slice-filter.png'
-import memberBenefitExposure from '@/assets/lanhu/pages/member-benefits/member-slice-exposure.png'
-import memberBenefitStealth from '@/assets/lanhu/pages/member-benefits/member-slice-stealth.png'
-import memberBenefitReplay from '@/assets/lanhu/pages/member-benefits/member-slice-greeting-b.png'
-import memberBenefitDailyHeart from '@/assets/lanhu/pages/member-benefits/member-slice-my-2.png'
 
 const profileDemo = getDemoPageData('profile')
 const membershipDemo = getDemoPageData('membership')
 type MembershipPageVariant = 'default' | 'none' | 'active' | 'expired' | 'annual'
-const MEMBERSHIP_NAV_HEIGHT_RPX = 176
-const MEMBERSHIP_PAY_BAR_RESERVED_RPX = 328
-const MEMBERSHIP_CONTENT_BOTTOM_SPACE_RPX = 48
+const MEMBER_PLAN_CARD_WIDTH_RPX = 220
+const MEMBER_PLAN_CARD_GAP_RPX = 8
+const MEMBER_PLAN_SELECTED_LEFT_RPX = 20
 const MEMBER_BENEFIT_ICONS: Record<string, { src: string; width: string; height: string }> = {
-  'heart-list': { src: memberBenefitMatch, width: '78rpx', height: '62rpx' },
-  'visitor-eye': { src: memberBenefitEyeOpen, width: '78rpx', height: '52rpx' },
-  'yo-message': { src: memberBenefitGreeting, width: '78rpx', height: '78rpx' },
-  'extra-browse': { src: memberBenefitRecommend, width: '78rpx', height: '76rpx' },
-  filter: { src: memberBenefitFilter, width: '68rpx', height: '78rpx' },
-  exposure: { src: memberBenefitExposure, width: '72rpx', height: '78rpx' },
-  stealth: { src: memberBenefitStealth, width: '78rpx', height: '60rpx' },
-  replay: { src: memberBenefitReplay, width: '78rpx', height: '78rpx' },
-  'daily-heart': { src: memberBenefitDailyHeart, width: '64rpx', height: '78rpx' },
+  'heart-list': { src: miniappOssIcons.memberBenefitMatch, width: '78rpx', height: '62rpx' },
+  'visitor-eye': { src: miniappOssIcons.memberBenefitEyeOpen, width: '78rpx', height: '52rpx' },
+  'yo-message': { src: miniappOssIcons.memberBenefitGreeting, width: '78rpx', height: '78rpx' },
+  'extra-browse': { src: miniappOssIcons.memberBenefitRecommend, width: '78rpx', height: '76rpx' },
+  filter: { src: miniappOssIcons.memberBenefitFilter, width: '68rpx', height: '78rpx' },
+  exposure: { src: miniappOssIcons.memberBenefitExposure, width: '72rpx', height: '78rpx' },
+  stealth: { src: miniappOssIcons.memberBenefitStealth, width: '78rpx', height: '60rpx' },
+  replay: { src: miniappOssIcons.memberBenefitReplay, width: '78rpx', height: '78rpx' },
+  'daily-heart': { src: miniappOssIcons.memberBenefitDailyHeart, width: '64rpx', height: '78rpx' },
 }
 
 function resolveMembershipVariant(value?: string): MembershipPageVariant {
@@ -57,6 +48,8 @@ export default function MembershipPage() {
   const requestedVariant = resolveMembershipVariant(String(router.params.variant || 'default'))
   const routePayState = resolveMembershipPayState(String(router.params.payState || 'idle'))
   const variant = routePayState === 'idle' ? requestedVariant : 'annual'
+  const authNickname = useAuthStore(state => state.nickname)
+  const authAvatar = useAuthStore(state => state.avatar)
   const {
     myMembership,
     plans,
@@ -86,13 +79,12 @@ export default function MembershipPage() {
   }, [fetchMyMembership, fetchPlans])
 
   useEffect(() => {
-    if (plans.length > 0 && activePlanId === null) {
-      const defaultPlan = variant === 'annual'
-        ? plans.find((plan) => plan.id === membershipDemo.annualPlanId) ?? plans[0]
-        : plans[0]
-      setActivePlanId(defaultPlan.id)
-      selectPlan(defaultPlan)
-    }
+    if (plans.length === 0 || plans.some(plan => plan.id === activePlanId)) return
+    const defaultPlan = variant === 'annual'
+      ? plans.find((plan) => plan.id === membershipDemo.annualPlanId) ?? plans[0]
+      : plans[0]
+    setActivePlanId(defaultPlan.id)
+    selectPlan(defaultPlan)
   }, [plans, activePlanId, selectPlan, variant])
 
   useEffect(() => {
@@ -103,6 +95,8 @@ export default function MembershipPage() {
 
   const activePlan = plans.find((plan) => plan.id === activePlanId)
   const currentMembership = myMembership
+  const heroNickname = authNickname.trim() || profileDemo.nickname
+  const heroAvatar = authAvatar.trim() || defaultAvatar
   const paymentPreviewAmount = routePayState === 'wechat-pay' ? membershipDemo.wechatPayPreviewAmount : undefined
 
   const handleSelect = (plan: MembershipPlan) => {
@@ -140,27 +134,38 @@ export default function MembershipPage() {
   const navTitle = variant === 'expired' ? undefined : '会员中心'
 
   return (
-    <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
+    <View
+      style={{
+        height: '100vh',
+        background: LANHU_DARK,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <LanhuNav title={navTitle} tone="dark" showBack />
       <ScrollView
         scrollY
+        enableFlex
         style={{
-          height: `calc(100vh - ${MEMBERSHIP_NAV_HEIGHT_RPX + MEMBERSHIP_PAY_BAR_RESERVED_RPX}rpx)`,
-          boxSizing: 'border-box',
+          flex: 1,
+          height: '0',
+          minHeight: '0',
         }}
         showScrollbar={false}
       >
-        <View style={{ width: '750rpx', padding: `6rpx 25rpx ${MEMBERSHIP_CONTENT_BOTTOM_SPACE_RPX}rpx`, boxSizing: 'border-box' }}>
+        <View style={{ width: '750rpx', padding: '6rpx 25rpx 48rpx', boxSizing: 'border-box' }}>
           <MemberHero
             membership={currentMembership}
-            nickname={profileDemo.nickname}
+            avatar={heroAvatar}
+            nickname={heroNickname}
             onRecords={goToRecords}
             onSubscription={() => Taro.navigateTo({ url: '/pages/membership/subscription' })}
           />
           <PlanRail plans={plans} activePlanId={activePlanId} onSelect={handleSelect} />
           <BenefitTitle title={getBenefitTitle(variant)} />
-          {benefits.map((item) => (
-            <BenefitCard key={item.title} {...item} />
+          {benefits.map((item, index) => (
+            <BenefitCard key={item.title} {...item} index={index + 1} />
           ))}
         </View>
       </ScrollView>
@@ -188,11 +193,13 @@ export default function MembershipPage() {
 
 function MemberHero({
   membership,
+  avatar,
   nickname,
   onRecords,
   onSubscription,
 }: {
   membership: MyMembership
+  avatar: string
   nickname: string
   onRecords: () => void
   onSubscription: () => void
@@ -210,12 +217,12 @@ function MemberHero({
         height: '268rpx',
         borderRadius: '12rpx',
         overflow: 'hidden',
-        background: '#2B2928',
+        background: '#2B2B2B',
       }}
     >
       <MemberHeroPattern />
       <Image
-        src={defaultAvatar}
+        src={avatar}
         mode="aspectFill"
         style={{
           position: 'absolute',
@@ -301,7 +308,7 @@ function MemberRecordEntry({ onRecords }: { onRecords: () => void }) {
 function MemberHeroPattern() {
   const border = '12rpx solid rgba(134,126,103,0.22)'
   return (
-    <View style={{ position: 'absolute', left: 0, top: 0, width: '700rpx', height: '268rpx', overflow: 'hidden', background: '#2B2928' }}>
+    <View style={{ position: 'absolute', left: 0, top: 0, width: '700rpx', height: '268rpx', overflow: 'hidden', background: '#2B2B2B' }}>
       <View
         style={{
           position: 'absolute',
@@ -341,24 +348,13 @@ function MemberHeroPattern() {
       <View
         style={{
           position: 'absolute',
-          right: '256rpx',
+          right: '89rpx',
           top: '-92rpx',
           width: '178rpx',
           height: '178rpx',
           borderRadius: '18rpx',
           border,
           transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '-76rpx',
-          bottom: '-34rpx',
-          width: '236rpx',
-          height: '70rpx',
-          borderRadius: '36rpx',
-          background: 'rgba(214,180,95,0.05)',
         }}
       />
     </View>
@@ -393,10 +389,31 @@ function PlanRail({
   onSelect: (plan: MembershipPlan) => void
 }) {
   const displayPlans = plans.length > 0 ? plans : []
+  const selectedIndex = Math.max(0, displayPlans.findIndex(plan => plan.id === activePlanId))
+  const viewportWidth = Taro.getWindowInfo().windowWidth || 375
+  const railScrollLeft = Math.max(
+    0,
+    selectedIndex * (MEMBER_PLAN_CARD_WIDTH_RPX + MEMBER_PLAN_CARD_GAP_RPX) - MEMBER_PLAN_SELECTED_LEFT_RPX,
+  ) * viewportWidth / 750
 
   return (
-    <ScrollView scrollX showScrollbar={false} style={{ width: '725rpx', marginTop: '54rpx' }}>
-      <View style={{ display: 'flex', flexDirection: 'row', height: '248rpx', paddingLeft: '0' }}>
+    <ScrollView
+      scrollX
+      scrollLeft={railScrollLeft}
+      scrollWithAnimation
+      showScrollbar={false}
+      style={{ width: '700rpx', height: '270rpx', marginTop: '32rpx' }}
+    >
+      <View
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          width: `${Math.max(700, displayPlans.length * (MEMBER_PLAN_CARD_WIDTH_RPX + MEMBER_PLAN_CARD_GAP_RPX) - MEMBER_PLAN_CARD_GAP_RPX)}rpx`,
+          height: '270rpx',
+          paddingTop: '22rpx',
+          boxSizing: 'border-box',
+        }}
+      >
         {displayPlans.map((plan, index) => {
           const isActive = plan.id === activePlanId
           const label = plan.tag ?? (index === 0 ? '专属优惠' : '限时优惠')
@@ -412,12 +429,12 @@ function PlanRail({
               style={{
                 position: 'relative',
                 flexShrink: 0,
-                width: '220rpx',
+                width: `${MEMBER_PLAN_CARD_WIDTH_RPX}rpx`,
                 height: '248rpx',
                 borderRadius: '12rpx',
                 border: isActive ? `4rpx solid ${LANHU_GOLD}` : '0',
                 background: '#252323',
-                marginRight: '8rpx',
+                marginRight: `${MEMBER_PLAN_CARD_GAP_RPX}rpx`,
                 padding: '48rpx 24rpx 20rpx',
                 boxSizing: 'border-box',
               }}
@@ -459,9 +476,9 @@ function PlanRail({
 function BenefitTitle({ title }: { title: string }) {
   return (
     <View style={{ height: '104rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-      <Image src={memberDividerLeft} mode="scaleToFill" style={{ width: '39rpx', height: '20rpx', marginRight: '20rpx' }} />
+      <Image src={miniappOssIcons.memberDividerLeft} mode="scaleToFill" style={{ width: '39rpx', height: '20rpx', marginRight: '20rpx' }} />
       <Text style={{ color: LANHU_GOLD, fontSize: '30rpx', fontWeight: 700 }}>{title}</Text>
-      <Image src={memberDividerRight} mode="scaleToFill" style={{ width: '39rpx', height: '20rpx', marginLeft: '20rpx' }} />
+      <Image src={miniappOssIcons.memberDividerRight} mode="scaleToFill" style={{ width: '39rpx', height: '20rpx', marginLeft: '20rpx' }} />
     </View>
   )
 }
@@ -476,11 +493,13 @@ function BenefitCard({
   title,
   value,
   desc,
+  index,
 }: {
   icon: string
   title: string
   value: string
   desc: string
+  index: number
 }) {
   return (
     <View
@@ -496,6 +515,7 @@ function BenefitCard({
         padding: '0 36rpx',
         boxSizing: 'border-box',
       }}
+      data-benefit-index={index}
     >
       <View style={{ width: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '26rpx' }}>
         <MemberBenefitIcon icon={icon} />
@@ -683,16 +703,12 @@ function PayBar({
   return (
     <View
       style={{
-        position: 'fixed',
-        left: '0',
-        right: '0',
-        bottom: '0',
         minHeight: variant === 'annual' ? '262rpx' : '236rpx',
+        flexShrink: 0,
         borderRadius: '12rpx 12rpx 0 0',
         background: '#FFFFFF',
-        padding: '40rpx 25rpx calc(30rpx + env(safe-area-inset-bottom))',
+        padding: '40rpx 25rpx max(30rpx, env(safe-area-inset-bottom))',
         boxSizing: 'border-box',
-        zIndex: 20,
       }}
     >
       <View

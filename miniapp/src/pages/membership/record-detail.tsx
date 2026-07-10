@@ -1,18 +1,29 @@
-import { Text, View } from '@tarojs/components'
+import { ScrollView, Text, View } from '@tarojs/components'
 import { useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { getVipOrders, type VipOrderVO } from '@/services/payment'
 import { LANHU_DARK, LANHU_GOLD, LanhuNav } from '@/pages/lanhu/LanhuShell'
+import { getDemoPageData } from '@/services/lanhuDemo'
+
+const membershipDemo = getDemoPageData('membership')
 
 export default function MembershipRecordDetailPage() {
   const router = useRouter()
   const recordId = Number(router.params.id || 0)
+  const previewStatus = String(router.params.status || '')
   const [record, setRecord] = useState<VipOrderVO | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let disposed = false
     setLoading(true)
+    if (!recordId) {
+      setRecord(resolvePreviewRecord(previewStatus))
+      setLoading(false)
+      return () => {
+        disposed = true
+      }
+    }
     getVipOrders(1, 100)
       .then((page) => {
         if (disposed) return
@@ -27,25 +38,44 @@ export default function MembershipRecordDetailPage() {
     return () => {
       disposed = true
     }
-  }, [recordId])
+  }, [recordId, previewStatus])
 
   return (
     <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
       <LanhuNav title="会员详情" tone="dark" showBack />
-      <View style={{ width: '750rpx', padding: '8rpx 25rpx 0', boxSizing: 'border-box' }}>
-        {loading ? (
-          <Text style={{ display: 'block', color: '#777777', textAlign: 'center', marginTop: '220rpx' }}>加载中...</Text>
-        ) : record ? (
-          <>
-            <SummaryCard record={record} />
-            <InfoCard record={record} />
-          </>
-        ) : (
-          <Text style={{ display: 'block', color: '#777777', textAlign: 'center', marginTop: '220rpx' }}>记录不存在</Text>
-        )}
-      </View>
+      <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)' }} showScrollbar={false}>
+        <View style={{ width: '750rpx', padding: '8rpx 25rpx 60rpx', boxSizing: 'border-box' }}>
+          {loading ? (
+            <Text style={{ display: 'block', color: '#777777', textAlign: 'center', marginTop: '220rpx' }}>加载中...</Text>
+          ) : record ? (
+            <>
+              <SummaryCard record={record} />
+              <InfoCard record={record} />
+            </>
+          ) : (
+            <Text style={{ display: 'block', color: '#777777', textAlign: 'center', marginTop: '220rpx' }}>记录不存在</Text>
+          )}
+        </View>
+      </ScrollView>
     </View>
   )
+}
+
+function resolvePreviewRecord(status: string): VipOrderVO | null {
+  const previewStatus = status === 'refunded' ? '已退款' : '已支付'
+  const record = membershipDemo.records.find(item => item.status === previewStatus)
+  if (!record) return null
+  return {
+    id: record.id,
+    orderNo: record.orderNo || '',
+    packageName: record.listTitle || record.planName,
+    payAmount: record.amount,
+    payChannel: record.payMethod === '微信' ? 'wechat' : record.payMethod,
+    orderStatus: previewStatus === '已退款' ? 'refunded' : 'success',
+    createTime: record.createTime,
+    successTime: record.payTime,
+    expireTime: record.validityEnd || record.endTime,
+  }
 }
 
 function SummaryCard({ record }: { record: VipOrderVO }) {

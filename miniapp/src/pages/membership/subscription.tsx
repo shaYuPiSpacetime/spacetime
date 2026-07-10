@@ -2,6 +2,7 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import { useAuthStore } from '@/stores/authStore'
 import { LANHU_DARK, LANHU_GOLD, LanhuNav } from '@/pages/lanhu/LanhuShell'
 
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -12,13 +13,17 @@ const membershipDemo = getDemoPageData('membership')
 export default function SubscriptionPage() {
   const plan = membershipDemo.plans[0]
   const subscription = membershipDemo.subscription
+  const authNickname = useAuthStore(state => state.nickname)
+  const authAvatar = useAuthStore(state => state.avatar)
+  const nickname = authNickname.trim() || profileDemo.nickname
+  const avatar = authAvatar.trim() || defaultAvatar
 
   return (
     <View style={{ minHeight: '100vh', background: LANHU_DARK }}>
       <LanhuNav title="订阅管理" tone="dark" showBack />
       <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)' }} showScrollbar={false}>
         <View style={{ width: '750rpx', padding: '6rpx 25rpx 60rpx', boxSizing: 'border-box' }}>
-          <SubscriptionHero expireTime={subscription.nextRenewTime} />
+          <SubscriptionHero avatar={avatar} nickname={nickname} expireTime={subscription.nextRenewTime} />
           <SectionTitle title="套餐与扣费说明" />
           <InfoRow label="续费金额" value={subscription.renewalAmount || `¥${plan.price.toFixed(2)}`} first />
           <InfoRow label="续费周期" value={subscription.renewalCycle} />
@@ -45,7 +50,15 @@ export default function SubscriptionPage() {
   )
 }
 
-function SubscriptionHero({ expireTime }: { expireTime: string }) {
+function SubscriptionHero({
+  avatar,
+  nickname,
+  expireTime,
+}: {
+  avatar: string
+  nickname: string
+  expireTime: string
+}) {
   return (
     <View
       style={{
@@ -54,12 +67,12 @@ function SubscriptionHero({ expireTime }: { expireTime: string }) {
         height: '268rpx',
         borderRadius: '12rpx',
         overflow: 'hidden',
-        background: '#2B2928',
+        background: '#2B2B2B',
       }}
     >
       <SubscriptionHeroPattern />
       <Image
-        src={defaultAvatar}
+        src={avatar}
         mode="aspectFill"
         style={{
           position: 'absolute',
@@ -72,7 +85,7 @@ function SubscriptionHero({ expireTime }: { expireTime: string }) {
         }}
       />
       <Text style={{ position: 'absolute', left: '150rpx', top: '58rpx', color: LANHU_GOLD, fontSize: '28rpx', fontWeight: 700 }}>
-        {profileDemo.nickname}
+        {nickname}
       </Text>
       <View
         style={{
@@ -105,7 +118,7 @@ function SubscriptionHero({ expireTime }: { expireTime: string }) {
 function SubscriptionHeroPattern() {
   const border = '12rpx solid rgba(133,125,102,0.22)'
   return (
-    <View style={{ position: 'absolute', left: 0, top: 0, width: '700rpx', height: '268rpx', overflow: 'hidden' }}>
+    <View style={{ position: 'absolute', left: 0, top: 0, width: '700rpx', height: '268rpx', overflow: 'hidden', background: '#2B2B2B' }}>
       <View
         style={{
           position: 'absolute',
@@ -114,6 +127,18 @@ function SubscriptionHeroPattern() {
           width: '238rpx',
           height: '238rpx',
           borderRadius: '20rpx',
+          border,
+          transform: 'rotate(45deg)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          right: '89rpx',
+          top: '-92rpx',
+          width: '178rpx',
+          height: '178rpx',
+          borderRadius: '18rpx',
           border,
           transform: 'rotate(45deg)',
         }}

@@ -108,7 +108,6 @@ export default function FeaturedPage() {
 }
 
 function FeaturedCard({
-  guest,
   index,
   locked,
   onClick,
@@ -151,7 +150,8 @@ function FeaturedCard({
           right: 0,
           bottom: 0,
           height: '260rpx',
-          background: 'linear-gradient(0deg, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.18) 62%, rgba(0,0,0,0) 100%)',
+          // 原人物切图底部带有旧文案和心形按钮，底部不透明遮罩负责清理旧图层，下面再绘制真实组件。
+          background: 'linear-gradient(180deg, rgba(13,25,37,0) 0%, rgba(13,25,37,0.6) 30%, #15212A 58%, #15212A 100%)',
         }}
       />
       <View style={{ position: 'absolute', left: '31rpx', bottom: '31rpx' }}>

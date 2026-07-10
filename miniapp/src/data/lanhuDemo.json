@@ -809,7 +809,14 @@
       "assetRefs": [
         "src/assets/lanhu/pages/coin-balance-bg.webp",
         "src/assets/lanhu/pages/coin-gold.png",
-        "src/assets/lanhu/pages/coin-usage-slice.png",
+        "src/assets/lanhu/pages/coin-usage/whisper.png",
+        "src/assets/lanhu/pages/coin-usage/heartbeat.png",
+        "src/assets/lanhu/pages/coin-usage/ideal-unlock.png",
+        "src/assets/lanhu/pages/coin-usage/boost.png",
+        "src/assets/lanhu/pages/coin-usage/curated-unlock.png",
+        "src/assets/lanhu/pages/coin-usage/recommend.png",
+        "src/assets/lanhu/pages/coin-usage/anonymous-unlock.png",
+        "src/assets/lanhu/pages/coin-usage/limited-activity.png",
         ".lanhu-ref/lanhu-full-2026-07-07/images/09-千寻币.png"
       ]
     },
@@ -2387,9 +2394,10 @@
       "subtitle": "这是其他用户看到你的资料样式",
       "ctaText": "编辑资料",
       "chips": [
-        "认真交往",
-        "情绪稳定",
-        "城市漫步"
+        "IT女神",
+        "户外发烧友",
+        "热爱旅行",
+        "电子竞技"
       ]
     },
     "editProfile": {
