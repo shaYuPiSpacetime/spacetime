@@ -30,7 +30,9 @@ public enum ConfigGroupEnum {
     /** PRD01 上传配置 */
     PRD01_UPLOAD("PRD01_UPLOAD", "PRD01 上传配置"),
     /** PRD01 审核配置 */
-    PRD01_AUDIT("PRD01_AUDIT", "PRD01 审核配置");
+    PRD01_AUDIT("PRD01_AUDIT", "PRD01 审核配置"),
+    /** 商业化配置 */
+    COMMERCIAL("COMMERCIAL", "商业化配置");
 
     /** 分组编码（存入数据库） */
     private final String code;

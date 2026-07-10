@@ -19,13 +19,13 @@ public interface PaymentService {
     CreateOrderVO createOrder(Long userId, CreateOrderReq req);
 
     /**
-     * mock 模拟支付（开发调试用，模拟支付回调）
+     * 查询当前用户的支付订单结果，过期未支付订单在此处关闭。
      *
-     * @param userId  用户ID
+     * @param userId 用户ID
      * @param orderId 订单ID
-     * @return 支付结果（订单编号、状态、资产变更）
+     * @return 订单结果和资产摘要
      */
-    PayResultVO mockPay(Long userId, Long orderId);
+    PayResultVO getOrderResult(Long userId, Long orderId);
 
     /**
      * 微信支付主动确认（支付成功后查单补偿）

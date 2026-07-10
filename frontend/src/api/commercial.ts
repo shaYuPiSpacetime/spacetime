@@ -67,12 +67,24 @@ export interface CommercialConfigLog {
   createTime?: string;
 }
 
+export interface CommercialSettings {
+  idealBatchMax: number;
+  idealRetentionDays: number;
+  normalViewQuota: number;
+  vipViewQuota: number;
+  vipExpireRemindDays: number;
+  refundDisplay: boolean;
+  exposureReserveEnabled: boolean;
+  exposureReserveDescription?: string;
+}
+
 export interface CommercialConfig {
   configVersion: string;
   vipBenefits: VipBenefitConfig[];
   vipPackages: VipPackageConfig[];
   coinPackages: CoinPackageConfig[];
   coinScenes: CoinSceneConfig[];
+  settings: CommercialSettings;
   latestLogs: CommercialConfigLog[];
 }
 
@@ -147,6 +159,20 @@ export interface ExportTask {
   createTime?: string;
 }
 
+export interface UserCommercialAssetDetail {
+  userId: number;
+  nickname?: string;
+  avatar?: string;
+  vipStatus?: string;
+  vipExpireTime?: string;
+  coinBalance?: number;
+  todayFreeWhisperRemain?: number;
+  totalRecharge?: number;
+  recentOrders?: TradeOrder[];
+  recentFlows?: CoinFlow[];
+  recentRefunds?: RefundRecord[];
+}
+
 export interface PageResult<T> {
   records: T[];
   total: number;
@@ -156,6 +182,10 @@ export interface PageResult<T> {
 
 export function getCommercialConfig() {
   return request.get<CommercialConfig>('/admin/commercial/config');
+}
+
+export function getCommercialUserAssetDetail(userId: number) {
+  return request.get<UserCommercialAssetDetail>(`/admin/commercial/users/${userId}/asset-detail`);
 }
 
 export function saveCommercialConfig(data: Partial<CommercialConfig> & { changeSummary?: string }) {

@@ -2,7 +2,6 @@ package com.spacetime.miniapp.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.CoinPackageDao;
 import com.spacetime.common.dao.PaymentNotifyLogDao;
@@ -48,7 +47,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     /** VIP套餐数据访问 */
     private final VipPackageDao vipPackageDao;
-    /** 成家币套餐数据访问 */
+    /** 千寻币套餐数据访问 */
     private final CoinPackageDao coinPackageDao;
     /** 交易订单数据访问 */
     private final TradeOrderDao tradeOrderDao;
@@ -62,8 +61,6 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentNotifyLogDao paymentNotifyLogDao;
     /** 微信支付服务 */
     private final WechatPayService wechatPayService;
-    /** 微信支付配置 */
-    private final WechatPayProperties wechatPayProperties;
 
     /**
      * 创建支付订单（VIP套餐或成家币套餐购买）
@@ -92,15 +89,13 @@ public class PaymentServiceImpl implements PaymentService {
         } else if (OrderTypeEnum.COIN.getCode().equals(orderType)) {
             CoinPackage coinPkg = coinPackageDao.selectById(packageId);
             if (coinPkg == null || !CommonStatusEnum.ENABLED.getCode().equals(coinPkg.getStatus())) {
-                throw new BusinessException("成家币套餐不存在或已下架");
+                throw new BusinessException("千寻币套餐不存在或已下架");
             }
             payAmount = coinPkg.getAmount();
             packageName = coinPkg.getPackageName();
         } else {
             throw new BusinessException("不支持的订单类型");
         }
-        BigDecimal wechatPaymentAmount = resolveWechatPaymentAmount(payAmount);
-
         AppUser user = appUserDao.selectById(userId);
         if (user == null || user.getOpenid() == null || user.getOpenid().isBlank()) {
             throw new BusinessException("当前用户缺少微信 openid，无法发起支付");
@@ -121,7 +116,7 @@ public class PaymentServiceImpl implements PaymentService {
         tradeOrderDao.insert(order);
 
         // 3. 调用微信 JSAPI 预支付并落库 prepayId
-        WechatPayParamsVO payParams = wechatPayService.createJsapiPayParams(order, user.getOpenid(), wechatPaymentAmount);
+        WechatPayParamsVO payParams = wechatPayService.createJsapiPayParams(order, user.getOpenid(), payAmount);
         order.setPrepayId(payParams.getPrepayId());
         tradeOrderDao.updateById(order);
 
@@ -135,17 +130,9 @@ public class PaymentServiceImpl implements PaymentService {
         return vo;
     }
 
-    /**
-     * mock 模拟支付（开发调试用，模拟支付回调）
-     *
-     * @param userId  用户ID
-     * @param orderId 订单ID
-     * @return 支付结果（订单编号、状态、资产变更）
-     */
     @Override
     @Transactional
-    public PayResultVO mockPay(Long userId, Long orderId) {
-        // 1. 查询订单并校验归属
+    public PayResultVO getOrderResult(Long userId, Long orderId) {
         TradeOrder order = tradeOrderDao.selectById(orderId);
         if (order == null) {
             throw new BusinessException("订单不存在");
@@ -153,24 +140,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (!order.getUserId().equals(userId)) {
             throw new BusinessException("订单与用户不匹配");
         }
-
-        // 2. 幂等处理：已支付直接返回当前状态
-        if (OrderStatusEnum.SUCCESS.getCode().equals(order.getOrderStatus())) {
-            log.info("订单已支付幂等返回: userId={}, orderId={}, orderNo={}", userId, orderId, order.getOrderNo());
-            return buildPayResult(order);
-        }
-        if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())) {
-            throw new BusinessException("订单状态不正确，无法支付");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-
-        // 3. 根据订单类型处理支付
-        order.setPayChannel(order.getPayChannel() == null ? "mock" : order.getPayChannel());
-        applySuccessfulPayment(order, now);
-
-        log.info("模拟支付成功: userId={}, orderId={}, orderType={}, amount={}",
-                userId, orderId, order.getOrderType(), order.getPayAmount());
+        closeExpiredOrder(order, LocalDateTime.now());
         return buildPayResult(order);
     }
 
@@ -183,6 +153,9 @@ public class PaymentServiceImpl implements PaymentService {
         }
         if (!order.getUserId().equals(userId)) {
             throw new BusinessException("订单与用户不匹配");
+        }
+        if (closeExpiredOrder(order, LocalDateTime.now())) {
+            return buildPayResult(order);
         }
         if (OrderStatusEnum.SUCCESS.getCode().equals(order.getOrderStatus())) {
             log.info("微信支付确认幂等返回: userId={}, orderId={}, orderNo={}", userId, orderId, order.getOrderNo());
@@ -349,7 +322,7 @@ public class PaymentServiceImpl implements PaymentService {
         // 1. 查询套餐信息
         CoinPackage coinPkg = coinPackageDao.selectById(order.getPackageId());
         if (coinPkg == null) {
-            throw new BusinessException("成家币套餐不存在");
+            throw new BusinessException("千寻币套餐不存在");
         }
 
         // 2. 更新订单状态
@@ -374,12 +347,15 @@ public class PaymentServiceImpl implements PaymentService {
                 + (coinPkg.getBonusCoinCount() != null ? coinPkg.getBonusCoinCount() : 0);
         int newBalance = (asset.getCoinBalance() != null ? asset.getCoinBalance() : 0) + totalCoins;
 
-        // 5. 原子更新余额并更新资产
-        userAssetDao.updateCoinBalance(order.getUserId(), totalCoins);
-        asset.setCoinBalance(newBalance);
-        asset.setTotalRecharge(asset.getTotalRecharge().add(order.getPayAmount()));
-        asset.setLastPurchaseTime(now);
-        userAssetDao.updateById(asset);
+        // 5. 原子更新余额，再单独更新充值统计，避免覆盖并发消费产生的新余额
+        int updated = userAssetDao.updateCoinBalance(order.getUserId(), totalCoins);
+        if (updated != 1) {
+            throw new BusinessException("千寻币资产不存在，充值未入账");
+        }
+        UserAsset updatedAsset = userAssetDao.selectByUserId(order.getUserId());
+        int balanceAfter = updatedAsset != null && updatedAsset.getCoinBalance() != null
+                ? updatedAsset.getCoinBalance() : newBalance;
+        userAssetDao.updateRechargeStats(order.getUserId(), order.getPayAmount(), now);
 
         // 6. 生成流水编号并写成家币流水
         String flowNo = "CF" + IdUtil.getSnowflakeNextIdStr();
@@ -388,26 +364,13 @@ public class PaymentServiceImpl implements PaymentService {
         coinLog.setUserId(order.getUserId());
         coinLog.setFlowType(FlowTypeEnum.RECHARGE.getCode());
         coinLog.setChangeAmount(totalCoins);
-        coinLog.setBalanceAfter(newBalance);
+        coinLog.setBalanceBefore(balanceAfter - totalCoins);
+        coinLog.setBalanceAfter(balanceAfter);
         coinLog.setBizScene(BizSceneEnum.COIN_RECHARGE.getCode());
-        coinLog.setBizDesc("购买成家币套餐：" + coinPkg.getPackageName());
+        coinLog.setBizDesc("购买千寻币套餐：" + coinPkg.getPackageName());
         coinLog.setRefId(order.getId());
         coinLog.setRefType("trade_order");
         userCoinLogDao.insert(coinLog);
-    }
-
-    /**
-     * 解析提交微信支付网关的扣款金额。订单和业务流水始终保存套餐真实金额。
-     */
-    private BigDecimal resolveWechatPaymentAmount(BigDecimal payAmount) {
-        if (wechatPayProperties.isForceTestAmount()) {
-            BigDecimal testPayAmount = wechatPayProperties.getTestPayAmount();
-            if (testPayAmount == null || testPayAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException("微信支付测试金额配置不正确");
-            }
-            return testPayAmount;
-        }
-        return payAmount;
     }
 
     /**
@@ -428,8 +391,23 @@ public class PaymentServiceImpl implements PaymentService {
      */
     private PayResultVO buildPayResult(TradeOrder order) {
         PayResultVO vo = new PayResultVO();
+        vo.setOrderId(order.getId());
         vo.setOrderNo(order.getOrderNo());
+        vo.setOrderType(order.getOrderType());
+        vo.setPackageName(order.getPackageName());
+        vo.setPayAmount(order.getPayAmount());
+        vo.setCreateTime(order.getCreateTime());
         vo.setOrderStatus(order.getOrderStatus());
+        vo.setExpireTime(order.getExpireTime());
+        vo.setSuccessTime(order.getSuccessTime());
+
+        if (OrderTypeEnum.COIN.getCode().equals(order.getOrderType())) {
+            CoinPackage coinPkg = coinPackageDao.selectById(order.getPackageId());
+            if (coinPkg != null) {
+                vo.setCoinAmount((coinPkg.getCoinCount() == null ? 0 : coinPkg.getCoinCount())
+                        + (coinPkg.getBonusCoinCount() == null ? 0 : coinPkg.getBonusCoinCount()));
+            }
+        }
 
         // 补充当前资产信息
         UserAsset asset = userAssetDao.selectByUserId(order.getUserId());
@@ -438,5 +416,17 @@ public class PaymentServiceImpl implements PaymentService {
             vo.setVipExpireTime(asset.getVipExpireTime());
         }
         return vo;
+    }
+
+    /** 关闭已经超过 30 分钟仍未支付的订单，避免结果页一直停留在待支付。 */
+    private boolean closeExpiredOrder(TradeOrder order, LocalDateTime now) {
+        if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())
+                || order.getExpireTime() == null
+                || order.getExpireTime().isAfter(now)) {
+            return false;
+        }
+        order.setOrderStatus(OrderStatusEnum.CLOSED.getCode());
+        tradeOrderDao.updateById(order);
+        return true;
     }
 }

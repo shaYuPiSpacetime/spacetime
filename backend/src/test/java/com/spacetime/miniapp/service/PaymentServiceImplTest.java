@@ -1,7 +1,6 @@
 package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.*;
-import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
@@ -9,6 +8,7 @@ import com.spacetime.miniapp.dto.request.UnlockReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.impl.AssetServiceImpl;
 import com.spacetime.miniapp.service.impl.PaymentServiceImpl;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,7 +38,6 @@ class PaymentServiceImplTest {
     @Mock private AppUserDao appUserDao;
     @Mock private PaymentNotifyLogDao paymentNotifyLogDao;
     @Mock private WechatPayService wechatPayService;
-    @Mock private WechatPayProperties wechatPayProperties;
     @InjectMocks private PaymentServiceImpl paymentService;
 
     private VipPackage vipPackage;
@@ -117,30 +116,6 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    @DisplayName("创建VIP订单-dev测试金额只影响微信下单")
-    void createVipOrder_devTestAmount_shouldOnlyAffectWechatPayRequest() {
-        CreateOrderReq req = new CreateOrderReq();
-        req.setOrderType("vip");
-        req.setPackageId(1L);
-
-        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
-        when(appUserDao.selectById(1L)).thenReturn(appUser);
-        when(wechatPayProperties.isForceTestAmount()).thenReturn(true);
-        when(wechatPayProperties.getTestPayAmount()).thenReturn(new BigDecimal("0.01"));
-        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("0.01")))).thenReturn(payParams);
-
-        CreateOrderVO result = paymentService.createOrder(1L, req);
-
-        assertThat(result.getPayAmount()).isEqualByComparingTo("19.90");
-        verify(tradeOrderDao).insert(argThat(o -> new BigDecimal("19.90").compareTo(o.getPayAmount()) == 0));
-        verify(wechatPayService).createJsapiPayParams(
-                argThat((TradeOrder o) -> new BigDecimal("19.90").compareTo(o.getPayAmount()) == 0),
-                eq("openid_1"),
-                eq(new BigDecimal("0.01"))
-        );
-    }
-
-    @Test
     @DisplayName("创建订单-套餐不存在")
     void createOrder_packageNotFound_shouldThrow() {
         CreateOrderReq req = new CreateOrderReq();
@@ -170,52 +145,46 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    @DisplayName("模拟支付VIP-正常流程")
-    void mockPayVip_shouldUpdateAssetAndOrder() {
+    @DisplayName("查询支付结果-超过30分钟未支付自动关闭")
+    void getOrderResult_expiredUnpaid_shouldCloseWithoutWechatQuery() {
+        unpaidOrder.setExpireTime(LocalDateTime.now().minusMinutes(1));
         when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
-        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
 
-        PayResultVO result = paymentService.mockPay(1L, 100L);
+        PayResultVO result = paymentService.getOrderResult(1L, 100L);
 
-        assertThat(result.getOrderStatus()).isEqualTo("success");
-        verify(tradeOrderDao).updateById(argThat(o ->
-                "success".equals(o.getOrderStatus()) && o.getSuccessTime() != null));
-        verify(userAssetDao).updateById(argThat(a ->
-                "active".equals(a.getVipStatus()) && a.getVipExpireTime() != null));
+        assertThat(result.getOrderStatus()).isEqualTo("closed");
+        verify(tradeOrderDao).updateById(argThat(order -> "closed".equals(order.getOrderStatus())));
+        verifyNoInteractions(wechatPayService);
+        verify(userAssetDao, never()).updateById(any());
     }
 
     @Test
-    @DisplayName("模拟支付成家币-含赠送币")
-    void mockPayCoin_shouldAddCoinWithBonus() {
+    @DisplayName("微信支付确认千寻币-含赠送币")
+    void confirmWechatPayCoin_shouldAddCoinWithBonus() {
         unpaidOrder.setOrderType("coin");
         unpaidOrder.setPackageId(2L);
         unpaidOrder.setPayAmount(new BigDecimal("6.00"));
 
         when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001",
+                        "420000000120260709000001",
+                        "SUCCESS",
+                        "{\"trade_state\":\"SUCCESS\"}"
+                ));
         when(coinPackageDao.selectById(2L)).thenReturn(coinPackage);
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        when(userAssetDao.updateCoinBalance(1L, 70)).thenReturn(1);
 
-        PayResultVO result = paymentService.mockPay(1L, 100L);
+        PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
 
         assertThat(result.getOrderStatus()).isEqualTo("success");
         assertThat(result.getCoinBalance()).isNotNull();
-        // 验证写入了流水（充值70币=60+10赠送）
+        // 验证真实支付确认后写入充值流水（充值70币=60+10赠送）
         verify(userCoinLogDao).insert(argThat(log ->
                 "recharge".equals(log.getFlowType()) && log.getChangeAmount() == 70));
-    }
-
-    @Test
-    @DisplayName("模拟支付-幂等处理")
-    void mockPay_alreadySuccess_shouldReturnDirectly() {
-        unpaidOrder.setOrderStatus("success");
-        unpaidOrder.setSuccessTime(LocalDateTime.now());
-        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
-
-        PayResultVO result = paymentService.mockPay(1L, 100L);
-
-        assertThat(result.getOrderStatus()).isEqualTo("success");
-        verify(tradeOrderDao, never()).updateById(any());
     }
 
     @Test
@@ -268,16 +237,6 @@ class PaymentServiceImplTest {
                         && "ignored".equals(log.getProcessStatus())));
     }
 
-    @Test
-    @DisplayName("模拟支付-订单已关闭")
-    void mockPay_closedOrder_shouldThrow() {
-        unpaidOrder.setOrderStatus("closed");
-        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
-
-        assertThatThrownBy(() -> paymentService.mockPay(1L, 100L))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("无法支付");
-    }
 }
 
 @ExtendWith(MockitoExtension.class)
@@ -287,9 +246,11 @@ class AssetServiceImplTest {
     @Mock private UserAssetDao userAssetDao;
     @Mock private UserCoinLogDao userCoinLogDao;
     @Mock private UserUnlockRecordDao userUnlockRecordDao;
+    @Mock private CoinSceneConfigDao coinSceneConfigDao;
     @InjectMocks private AssetServiceImpl assetService;
 
     private UserAsset userAsset;
+    private CoinSceneConfig sceneConfig;
 
     @BeforeEach
     void setUp() {
@@ -300,6 +261,11 @@ class AssetServiceImplTest {
         userAsset.setCoinBalance(100);
         userAsset.setTodayFreeWhisperRemain(1);
         userAsset.setTotalRecharge(BigDecimal.ZERO);
+        sceneConfig = new CoinSceneConfig();
+        sceneConfig.setSceneCode("ideal_user");
+        sceneConfig.setUnitPrice(10);
+        sceneConfig.setRetentionDays(90);
+        sceneConfig.setStatus("ENABLED");
     }
 
     @Test
@@ -322,6 +288,8 @@ class AssetServiceImplTest {
         req.setTargetUserIds(List.of(101L));
 
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        stubEnabledScene();
+        stubSuccessfulBalanceUpdate();
 
         UnlockVO result = assetService.unlock(1L, req);
 
@@ -339,6 +307,8 @@ class AssetServiceImplTest {
         req.setTargetUserIds(List.of(101L, 102L, 103L, 104L, 105L));
 
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        stubEnabledScene();
+        stubSuccessfulBalanceUpdate();
 
         UnlockVO result = assetService.unlock(1L, req);
 
@@ -351,6 +321,7 @@ class AssetServiceImplTest {
         UnlockReq req = new UnlockReq();
         req.setUnlockScene("ideal_user");
         req.setTargetUserIds(List.of(101L, 102L, 103L, 104L, 105L, 106L));
+        stubEnabledScene();
 
         assertThatThrownBy(() -> assetService.unlock(1L, req))
                 .isInstanceOf(BusinessException.class)
@@ -366,10 +337,25 @@ class AssetServiceImplTest {
         req.setTargetUserIds(List.of(101L));
 
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        stubEnabledScene();
 
         assertThatThrownBy(() -> assetService.unlock(1L, req))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("余额不足");
         verify(userUnlockRecordDao, never()).insert(any());
+    }
+
+    private void stubEnabledScene() {
+        when(coinSceneConfigDao.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
+            Page<CoinSceneConfig> page = invocation.getArgument(0);
+            page.setRecords(List.of(sceneConfig));
+            page.setTotal(1);
+            return page;
+        });
+    }
+
+    private void stubSuccessfulBalanceUpdate() {
+        when(userAssetDao.updateCoinBalance(anyLong(), anyInt())).thenReturn(1);
+        when(userAssetDao.updateLastConsumeTime(anyLong(), any(LocalDateTime.class))).thenReturn(1);
     }
 }

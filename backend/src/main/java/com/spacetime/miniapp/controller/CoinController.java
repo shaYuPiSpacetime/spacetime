@@ -9,6 +9,7 @@ import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.response.CoinBalanceVO;
 import com.spacetime.miniapp.dto.response.CoinFlowVO;
 import com.spacetime.miniapp.dto.response.CoinPackageVO;
+import com.spacetime.miniapp.dto.response.CoinSceneVO;
 import com.spacetime.miniapp.service.CoinService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -37,6 +38,16 @@ public class CoinController {
     }
 
     /**
+     * 查询已启用的千寻币消费场景。
+     *
+     * @return 消费场景列表
+     */
+    @GetMapping("/scenes")
+    public R<List<CoinSceneVO>> getScenes() {
+        return R.ok(coinService.getScenes());
+    }
+
+    /**
      * 查询当前用户成家币余额
      *
      * @return 成家币余额信息
@@ -55,11 +66,12 @@ public class CoinController {
      */
     @GetMapping("/flows")
     public R<Page<CoinFlowVO>> getFlows(@RequestParam(defaultValue = "1") int page,
-                                         @RequestParam(defaultValue = "10") int size) {
+                                         @RequestParam(defaultValue = "20") int size,
+                                         @RequestParam(required = false) String flowType) {
         PageReq req = new PageReq();
         req.setPage(page);
         req.setSize(size);
-        return R.ok(coinService.getFlows(currentUserId(), req));
+        return R.ok(coinService.getFlows(currentUserId(), req, flowType));
     }
 
     private Long currentUserId() {

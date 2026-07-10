@@ -8,6 +8,8 @@ import lombok.Data;
  */
 @Data
 public class VipBenefitSaveReq {
+    /** 权益 ID，固定权益初始化时为空 */
+    private Long id;
     /** 权益编码 */
     @NotBlank(message = "权益编码不能为空")
     private String benefitCode;

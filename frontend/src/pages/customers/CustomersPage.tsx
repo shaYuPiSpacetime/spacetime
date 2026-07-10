@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
   Download,
-  Eye,
   Heart,
   LinkIcon,
   RotateCcw,
@@ -32,6 +31,7 @@ import {
   type PageResult,
 } from '@/api/userApp';
 import { showToast } from '@/components/ui/toast';
+import { getCommercialUserAssetDetail, type UserCommercialAssetDetail } from '@/api/commercial';
 
 type BadgeVariant = 'success' | 'destructive' | 'warning' | 'secondary';
 type TagTone = 'orange' | 'purple' | 'blue' | 'green';
@@ -52,8 +52,6 @@ interface CoinRecord {
 interface UserStats {
   total: number;
   coreAllowed: number;
-  relationAccess: number;
-  visitUv7d: number;
 }
 
 interface AdminUserCardItem extends AppUserListVO {
@@ -640,13 +638,12 @@ const DEMO_USERS: AdminUserCardItem[] = [
   },
 ];
 
-function toCardItem(user: AppUserListVO, index: number): AdminUserCardItem {
-  const fallback = DEMO_USERS[index % DEMO_USERS.length];
+function toCardItem(user: AppUserListVO): AdminUserCardItem {
   const tags = toTagPills(user.tags);
   return {
     id: user.id,
     avatar: user.avatar || '',
-    nickname: user.nickname || `U${user.id}`,
+    nickname: user.nickname || '-',
     gender: user.gender || '',
     age: user.age ?? 0,
     school: user.school || '-',
@@ -667,22 +664,22 @@ function toCardItem(user: AppUserListVO, index: number): AdminUserCardItem {
     company: '-',
     educationText: user.school || '-',
     mateRequirement: '-',
-    coins: fallback.coins,
-    vipAmount: fallback.vipAmount,
-    vipLabel: fallback.vipLabel,
-    vipRange: fallback.vipRange,
-    memberLevel: fallback.memberLevel,
-    followStatus: fallback.followStatus,
-    avatarAccent: fallback.avatarAccent,
+    coins: 0,
+    vipAmount: 0,
+    vipLabel: '-',
+    vipRange: '-',
+    memberLevel: '-',
+    followStatus: '-',
+    avatarAccent: '#E6EDF7',
     avatarReviewStatus: STATUS_MAP[user.avatarVerifyStatus || '']?.label || '-',
     medal: user.accessStatus === 'full_access',
     characterTags: tags.length > 0 ? tags : [],
-    coinRecords: fallback.coinRecords,
+    coinRecords: [],
   };
 }
 
 function toDetailCardItem(detail: AppUserDetailVO, current?: AdminUserCardItem | null): AdminUserCardItem {
-  const base = current ?? DEMO_USERS[0];
+  const base = current as AdminUserCardItem;
   const verification = detail.verification;
   const city = [detail.locationProvince, detail.locationCity].filter(Boolean).join('') || '-';
   const tags = toTagPills(detail.tags);
@@ -691,7 +688,7 @@ function toDetailCardItem(detail: AppUserDetailVO, current?: AdminUserCardItem |
     ...base,
     id: detail.id,
     avatar: detail.avatar || '',
-    nickname: detail.nickname || `U${detail.id}`,
+    nickname: detail.nickname || '-',
     gender: detail.gender || '',
     age: detail.age ?? 0,
     school: detail.school || '-',
@@ -732,17 +729,6 @@ function toTagPills(raw?: string): DemoTag[] {
   return values.slice(0, 6).map((label, index) => ({ label, tone: tones[index % tones.length] }));
 }
 
-function createDemoImportFile() {
-  const csv = [
-    'phone,nickname,gender,school,idCard',
-    '13800138000,王一,FEMALE,浙江大学,330102199901010021',
-    '13800138000,重复,FEMALE,浙江大学,330102199901010021',
-    ',缺手机号,MALE,复旦大学,310101199701010011',
-    '13900139000,李二,MALE,上海交通大学,310101199801010031',
-  ].join('\n');
-  return new File([csv], 'app-users-template.csv', { type: 'text/csv' });
-}
-
 export default function CustomersPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
@@ -757,7 +743,7 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1);
   const [users, setUsers] = useState<AdminUserCardItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState<UserStats>({ total: 0, coreAllowed: 0, relationAccess: 794, visitUv7d: 1846 });
+  const [stats, setStats] = useState<UserStats>({ total: 0, coreAllowed: 0 });
   const [loading, setLoading] = useState(false);
   const [drawerUser, setDrawerUser] = useState<AdminUserCardItem | null>(null);
   const [avatarUser, setAvatarUser] = useState<AdminUserCardItem | null>(null);
@@ -860,7 +846,11 @@ export default function CustomersPage() {
     setWorkflowProcessing(true);
     try {
       if (type === 'import') {
-        const res = await importAppUsers(file ?? createDemoImportFile());
+        if (!file) {
+          showToast('请选择要导入的文件', 'info');
+          return;
+        }
+        const res = await importAppUsers(file);
         const data = responseData<ImportBatchVO>(res, null as any);
         setWorkflowResult(data);
         showToast(data?.message || '导入预校验完成', 'success');
@@ -904,8 +894,6 @@ export default function CustomersPage() {
           <div className="grid gap-4 lg:grid-cols-4">
             <StatCard icon={<ShieldCheck className="h-8 w-8" />} label="当前用户" value={stats.total} tone="blue" />
             <StatCard icon={<BadgeCheck className="h-8 w-8" />} label="核心准入开放" value={stats.coreAllowed} tone="green" />
-            <StatCard icon={<Heart className="h-8 w-8" />} label="关系反馈开放" value={stats.relationAccess} tone="orange" />
-            <StatCard icon={<Eye className="h-8 w-8" />} label="7天访客 UV" value={stats.visitUv7d} tone="purple" />
           </div>
         </CardContent>
       </Card>
@@ -1290,6 +1278,8 @@ function ModuleSupplementDialog({ user, onClose }: { user: AdminUserCardItem | n
 function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onClose: () => void }) {
   const [freezeConfirmOpen, setFreezeConfirmOpen] = useState(false);
   const [freezeProcessing, setFreezeProcessing] = useState(false);
+  const [commercial, setCommercial] = useState<UserCommercialAssetDetail | null>(null);
+  const [commercialLoading, setCommercialLoading] = useState(false);
   const genderLabel = user?.gender === 'MALE' ? '男' : '女';
   const score = Math.max(0, Math.min(user?.profileScore ?? 0, 100));
   const educationLevel = user?.educationText.split('|')[0]?.trim() || '-';
@@ -1321,6 +1311,26 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
 
   useEffect(() => {
     if (!user) setFreezeConfirmOpen(false);
+  }, [user]);
+
+  useEffect(() => {
+    let disposed = false;
+    if (!user) {
+      setCommercial(null);
+      return undefined;
+    }
+    setCommercialLoading(true);
+    getCommercialUserAssetDetail(user.id)
+      .then((res) => {
+        if (!disposed) setCommercial((res as any)?.data ?? null);
+      })
+      .catch(() => {
+        if (!disposed) setCommercial(null);
+      })
+      .finally(() => {
+        if (!disposed) setCommercialLoading(false);
+      });
+    return () => { disposed = true; };
   }, [user]);
 
   const confirmFreeze = async () => {
@@ -1365,8 +1375,8 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
                   <p className="mt-2 text-sm text-[#4D5A6D]">手机号 {user.phone} <span className="ml-4">注册 {user.registerTime}</span></p>
                 </div>
                 <div className="flex h-[68px] w-[188px] shrink-0 flex-col justify-center rounded-lg bg-[#343431] px-6 text-[#F7DFA6]">
-                  <span className="text-sm font-semibold">{user.vipLabel}</span>
-                  <span className="mt-1 text-xs">{user.vipRange}</span>
+                  <span className="text-sm font-semibold">{commercial?.vipStatus === 'active' ? 'VIP会员' : commercial?.vipStatus === 'expired' ? '会员已过期' : '非会员'}</span>
+                  <span className="mt-1 text-xs">{commercial?.vipExpireTime || '-'}</span>
                 </div>
               </div>
               </ProfileConfirmSection>
@@ -1418,12 +1428,13 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
               </ProfileConfirmSection>
 
               <ProfileConfirmSection title="千寻币/VIP">
-                <ProfileLogList
-                  rows={[
-                    ...user.coinRecords.map((item) => [item.time, `${item.type} ${item.amount}`, `余额${item.balance}`, item.usage]),
-                    [`${user.vipLabel}：${user.vipRange}`, '', '', ''],
-                  ]}
-                />
+                {commercialLoading ? <p className="p-5 text-sm text-[#667085]">商业化资产加载中...</p> : commercial ? (
+                  <ProfileLogList rows={[
+                    [`当前余额`, String(commercial.coinBalance ?? 0), `累计充值 ¥${Number(commercial.totalRecharge ?? 0).toFixed(2)}`, '千寻币'],
+                    ...(commercial.recentFlows || []).map((item) => [item.createTime || '-', `${item.flowType} ${item.changeAmount}`, `余额${item.balanceAfter}`, item.bizDesc || item.bizScene || '-']),
+                    ...(commercial.recentOrders || []).map((item) => [item.createTime || '-', item.orderType === 'coin' ? '千寻币订单' : '会员订单', item.orderStatus, item.packageName || '-']),
+                  ]} />
+                ) : <p className="p-5 text-sm text-[#667085]">暂无商业化资产记录</p>}
               </ProfileConfirmSection>
 
               <ProfileConfirmSection title="客服/风控处理记录">

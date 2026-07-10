@@ -178,8 +178,8 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         LocalDateTime now = LocalDateTime.now();
         refundRecord.setRefundStatus("success");
         refundRecord.setAssetRollbackAction(assetRollbackAction);
-        refundRecord.setChannelRefundStatus("mock_success");
-        refundRecord.setChannelResponseSummary("模拟退款成功，真实微信退款字段预留");
+        refundRecord.setChannelRefundStatus("manual_recorded");
+        refundRecord.setChannelResponseSummary("后台特批退款已登记，渠道退款凭证由财务留存");
         refundRecord.setRefundTime(now);
         refundRecordDao.updateById(refundRecord);
 
@@ -204,9 +204,13 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
 
         // 更新用户资产余额
         int balanceBefore = asset.getCoinBalance() == null ? 0 : asset.getCoinBalance();
-        int newBalance = balanceBefore + refundCoinCount;
-        asset.setCoinBalance(newBalance);
-        userAssetDao.updateById(asset);
+        int updated = userAssetDao.updateCoinBalance(order.getUserId(), refundCoinCount);
+        if (updated != 1) {
+            throw new BusinessException("用户千寻币资产更新失败");
+        }
+        UserAsset updatedAsset = userAssetDao.selectByUserId(order.getUserId());
+        int newBalance = updatedAsset != null && updatedAsset.getCoinBalance() != null
+                ? updatedAsset.getCoinBalance() : balanceBefore + refundCoinCount;
 
         // 生成流水号并写入成家币流水
         String flowNo = "REF" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
@@ -219,7 +223,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         coinLog.setBalanceBefore(balanceBefore);
         coinLog.setBalanceAfter(newBalance);
         coinLog.setBizScene("订单退款");
-        coinLog.setBizDesc("订单 " + order.getOrderNo() + " 退款退回成家币");
+        coinLog.setBizDesc("订单 " + order.getOrderNo() + " 退款退回千寻币");
         coinLog.setRefId(refundRecordId);
         coinLog.setRefType("refund_record");
         userCoinLogDao.insert(coinLog);
@@ -367,7 +371,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
                 + UUID.randomUUID().toString().substring(0, 6));
         vo.setExportType(exportType);
         vo.setStatus("created");
-        vo.setMessage("导出任务已创建，静态闭环版本不生成真实文件");
+        vo.setMessage("导出任务已创建，请在下载中心查看生成结果");
         vo.setCreateTime(LocalDateTime.now());
         return vo;
     }

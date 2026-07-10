@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -91,6 +92,8 @@ public class VipServiceImpl implements VipService {
             vo.setBenefitName(benefit.getBenefitName());
             vo.setBenefitType(benefit.getBenefitType());
             vo.setBenefitDesc(benefit.getBenefitDesc());
+            vo.setMobileIcon(benefit.getMobileIcon());
+            vo.setBenefitValue(benefit.getBenefitValue());
             vo.setDisplayOrder(benefit.getDisplayOrder());
             return vo;
         }).collect(Collectors.toList());
@@ -104,6 +107,8 @@ public class VipServiceImpl implements VipService {
      */
     @Override
     public VipStatusVO getStatus(Long userId) {
+        // 定时任务按分钟扫描；查询时再兜底一次，避免任务间隔内仍展示 active。
+        userAssetDao.expireVipMembership(userId, LocalDateTime.now());
         // 1. 查询用户资产
         UserAsset asset = userAssetDao.selectByUserId(userId);
         // 2. 构造返回对象

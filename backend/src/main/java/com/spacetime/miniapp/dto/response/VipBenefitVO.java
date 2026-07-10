@@ -17,6 +17,10 @@ public class VipBenefitVO {
     private String benefitType;
     /** 权益描述 */
     private String benefitDesc;
+    /** 移动端图标 */
+    private String mobileIcon;
+    /** 次数/分数配置值 */
+    private Integer benefitValue;
     /** 展示顺序 */
     private Integer displayOrder;
 }

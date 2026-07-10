@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS app_trade_order (
     package_id BIGINT DEFAULT NULL COMMENT '套餐ID',
     package_name VARCHAR(100) DEFAULT NULL COMMENT '套餐名称',
     pay_amount DECIMAL(10,2) DEFAULT 0 COMMENT '实付金额',
-    pay_channel VARCHAR(30) DEFAULT 'mock' COMMENT '支付渠道: mock/wechat/alipay',
+    pay_channel VARCHAR(30) DEFAULT 'wechat' COMMENT '支付渠道: wechat/alipay',
     channel_trade_no VARCHAR(100) DEFAULT NULL COMMENT '渠道交易单号',
     prepay_id VARCHAR(100) DEFAULT NULL COMMENT '微信预支付交易会话标识',
     notify_summary VARCHAR(1000) DEFAULT NULL COMMENT '支付回调原始摘要',
@@ -222,6 +222,7 @@ CREATE TABLE IF NOT EXISTS app_payment_notify_log (
 
 CREATE TABLE IF NOT EXISTS app_user_unlock_record (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    request_id VARCHAR(64) DEFAULT NULL COMMENT '客户端请求幂等键',
     user_id BIGINT NOT NULL COMMENT '用户ID（发起解锁者）',
     target_user_id BIGINT NOT NULL COMMENT '被解锁目标用户ID',
     unlock_scene VARCHAR(50) DEFAULT NULL COMMENT '解锁场景',
@@ -237,6 +238,7 @@ CREATE TABLE IF NOT EXISTS app_user_unlock_record (
     deleted TINYINT DEFAULT 0,
     INDEX idx_user_scene (user_id, unlock_scene, status),
     INDEX idx_target (target_user_id),
+    UNIQUE KEY uk_user_request_target (user_id, request_id, target_user_id),
     INDEX idx_expire (expire_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户解锁记录表';
 

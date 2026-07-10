@@ -11,6 +11,8 @@ import java.util.List;
  */
 @Data
 public class UnlockReq {
+    /** 客户端请求幂等键 */
+    private String requestId;
     /** 解锁场景 @see com.spacetime.common.enums.UnlockSceneEnum */
     @NotBlank(message = "解锁场景不能为空")
     private String unlockScene;

@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.entity.CoinPackage;
 
 /**
- * 成家币套餐数据访问接口
+ * 千寻币套餐数据访问接口
  */
 public interface CoinPackageDao {
     CoinPackage selectById(Long id);

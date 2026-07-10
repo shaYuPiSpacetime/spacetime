@@ -24,9 +24,6 @@ import ModerationPage from '@/pages/moderation/ModerationPage';
 import FeedbackPage from '@/pages/user-security/FeedbackPage';
 import CancelRequestPage from '@/pages/user-security/CancelRequestPage';
 import FinanceManagement from '@/pages/finance/FinanceManagement';
-import VipBenefitManagement from '@/pages/config/VipBenefitManagement';
-import VipPackageManagement from '@/pages/config/VipPackageManagement';
-import CoinPackageManagement from '@/pages/config/CoinPackageManagement';
 import CommercialManagement from '@/pages/commercial/CommercialManagement';
 
 export default function AppRouter() {
@@ -99,9 +96,9 @@ export default function AppRouter() {
         <Route path="finance/refunds" element={<FinanceManagement />} />
 
         {/* Commercial Config */}
-        <Route path="config/vip-benefits" element={<VipBenefitManagement />} />
-        <Route path="config/vip-packages" element={<VipPackageManagement />} />
-        <Route path="config/coin-packages" element={<CoinPackageManagement />} />
+        <Route path="config/vip-benefits" element={<Navigate to="/commercial/config?tab=benefits" replace />} />
+        <Route path="config/vip-packages" element={<Navigate to="/commercial/config?tab=vipPackages" replace />} />
+        <Route path="config/coin-packages" element={<Navigate to="/commercial/config?tab=coinPackages" replace />} />
 
         {/* Commercial Center */}
         <Route path="commercial/config" element={<CommercialManagement />} />

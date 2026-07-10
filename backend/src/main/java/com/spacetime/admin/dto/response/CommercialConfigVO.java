@@ -19,6 +19,8 @@ public class CommercialConfigVO {
     private List<CoinPackageVO> coinPackages;
     /** 千寻币消费场景 */
     private List<CoinSceneConfigVO> coinScenes;
+    /** 解锁、社交、订单与曝光预留配置 */
+    private CommercialSettingsVO settings;
     /** 最近变更日志 */
     private List<CommercialConfigLogVO> latestLogs;
 }

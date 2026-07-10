@@ -40,8 +40,11 @@ public class CoinLogServiceImpl implements CoinLogService {
             userAssetDao.insert(asset);
         }
 
-        // 2. 原子更新成家币余额（行级锁，coin_balance = coin_balance + amount）
-        userAssetDao.updateCoinBalance(userId, amount);
+        // 2. 原子更新千寻币余额，扣减失败时不允许写入流水
+        int updated = userAssetDao.updateCoinBalance(userId, amount);
+        if (updated != 1) {
+            throw new com.spacetime.common.exception.BusinessException("千寻币余额不足或资产不存在");
+        }
 
         // 3. 重新查询获取更新后的余额
         asset = userAssetDao.selectByUserId(userId);
@@ -56,7 +59,9 @@ public class CoinLogServiceImpl implements CoinLogService {
         coinLog.setUserId(userId);
         coinLog.setFlowType(FlowTypeEnum.RECHARGE.getCode());
         coinLog.setChangeAmount(amount);
-        coinLog.setBalanceAfter(asset.getCoinBalance());
+        int balanceAfter = asset.getCoinBalance() == null ? amount : asset.getCoinBalance();
+        coinLog.setBalanceBefore(balanceAfter - amount);
+        coinLog.setBalanceAfter(balanceAfter);
         coinLog.setBizScene(bizScene);
         coinLog.setBizDesc(bizScene);
         coinLog.setRefId(refId);

@@ -41,16 +41,14 @@ public class PaymentController {
     }
 
     /**
-     * mock 模拟支付（开发调试用，模拟支付回调）
+     * 查询当前用户支付订单结果。
      *
      * @param orderId 订单ID
-     * @return 支付结果（订单编号、状态、资产变更）
+     * @return 订单状态和到账资产
      */
-    @PostMapping("/mock-pay/{orderId}")
-    public R<PayResultVO> mockPay(@PathVariable Long orderId) {
-        Long userId = currentUserId();
-        log.info("模拟支付: userId={}, orderId={}", userId, orderId);
-        return R.ok(paymentService.mockPay(userId, orderId));
+    @GetMapping("/orders/{orderId}")
+    public R<PayResultVO> getOrderResult(@PathVariable Long orderId) {
+        return R.ok(paymentService.getOrderResult(currentUserId(), orderId));
     }
 
     /**

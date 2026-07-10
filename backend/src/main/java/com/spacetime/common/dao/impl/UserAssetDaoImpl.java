@@ -45,8 +45,28 @@ public class UserAssetDaoImpl implements UserAssetDao {
     }
 
     @Override
-    public void updateCoinBalance(Long userId, Integer delta) {
-        mapper.updateCoinBalance(userId, delta);
+    public int updateCoinBalance(Long userId, Integer delta) {
+        return mapper.updateCoinBalance(userId, delta);
+    }
+
+    @Override
+    public int updateRechargeStats(Long userId, java.math.BigDecimal amount, java.time.LocalDateTime purchaseTime) {
+        return mapper.updateRechargeStats(userId, amount, purchaseTime);
+    }
+
+    @Override
+    public int updateLastConsumeTime(Long userId, java.time.LocalDateTime consumeTime) {
+        return mapper.updateLastConsumeTime(userId, consumeTime);
+    }
+
+    @Override
+    public int expireVipMemberships(java.time.LocalDateTime expireBefore) {
+        return mapper.expireVipMemberships(expireBefore);
+    }
+
+    @Override
+    public int expireVipMembership(Long userId, java.time.LocalDateTime expireBefore) {
+        return mapper.expireVipMembership(userId, expireBefore);
     }
 
     @Override

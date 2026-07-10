@@ -7,10 +7,12 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 /**
- * 成家币套餐保存请求
+ * 千寻币套餐保存请求
  */
 @Data
 public class CoinPackageSaveReq {
+    /** 套餐 ID，新增时为空 */
+    private Long id;
     /** 套餐名称 */
     @NotBlank(message = "套餐名称不能为空")
     private String packageName;
@@ -21,10 +23,10 @@ public class CoinPackageSaveReq {
     private BigDecimal originAmount;
     /** 优惠价 */
     private BigDecimal discountAmount;
-    /** 成家币数量 */
+    /** 千寻币数量 */
     @NotNull(message = "成家币数量不能为空")
     private Integer coinCount;
-    /** 赠送成家币数量 */
+    /** 赠送千寻币数量 */
     private Integer bonusCoinCount;
     /** 是否推荐 */
     private Integer recommendFlag;

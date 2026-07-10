@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = true)
 @TableName("app_user_unlock_record")
 public class UserUnlockRecord extends BaseEntity {
+    /** 客户端请求幂等键 */
+    private String requestId;
     /** 用户ID（发起解锁者） */
     private Long userId;
     /** 被解锁目标用户ID */

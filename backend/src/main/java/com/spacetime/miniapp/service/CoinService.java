@@ -5,6 +5,7 @@ import com.spacetime.common.dto.PageReq;
 import com.spacetime.miniapp.dto.response.CoinBalanceVO;
 import com.spacetime.miniapp.dto.response.CoinFlowVO;
 import com.spacetime.miniapp.dto.response.CoinPackageVO;
+import com.spacetime.miniapp.dto.response.CoinSceneVO;
 
 import java.util.List;
 
@@ -21,6 +22,13 @@ public interface CoinService {
     List<CoinPackageVO> getPackages();
 
     /**
+     * 查询已启用的千寻币消费场景。
+     *
+     * @return 消费场景配置
+     */
+    List<CoinSceneVO> getScenes();
+
+    /**
      * 查询用户成家币余额
      *
      * @param userId 用户ID
@@ -35,5 +43,5 @@ public interface CoinService {
      * @param req    分页请求参数
      * @return 成家币流水分页列表
      */
-    Page<CoinFlowVO> getFlows(Long userId, PageReq req);
+    Page<CoinFlowVO> getFlows(Long userId, PageReq req, String flowType);
 }

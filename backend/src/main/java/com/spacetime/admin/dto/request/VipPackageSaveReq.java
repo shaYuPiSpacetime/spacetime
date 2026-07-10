@@ -11,6 +11,8 @@ import java.math.BigDecimal;
  */
 @Data
 public class VipPackageSaveReq {
+    /** 套餐 ID，新增时为空 */
+    private Long id;
     /** 套餐名称 */
     @NotBlank(message = "套餐名称不能为空")
     private String packageName;

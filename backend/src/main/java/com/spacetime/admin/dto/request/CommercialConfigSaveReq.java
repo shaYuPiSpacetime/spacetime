@@ -22,6 +22,9 @@ public class CommercialConfigSaveReq {
     /** 千寻币消费场景配置 */
     @Valid
     private List<CoinSceneConfigReq> coinScenes;
+    /** 解锁、社交、订单与曝光预留配置 */
+    @Valid
+    private CommercialSettingsReq settings;
     /** 变更摘要 */
     private String changeSummary;
 }

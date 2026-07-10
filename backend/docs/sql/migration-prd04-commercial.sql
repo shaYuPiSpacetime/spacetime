@@ -21,13 +21,43 @@ ALTER TABLE app_coin_package
     ADD COLUMN IF NOT EXISTS mobile_tag VARCHAR(50) DEFAULT NULL COMMENT '移动端展示标签';
 
 ALTER TABLE app_trade_order
-    ADD COLUMN IF NOT EXISTS pay_channel VARCHAR(30) DEFAULT 'mock' COMMENT '支付渠道: mock/wechat/alipay',
+    ADD COLUMN IF NOT EXISTS pay_channel VARCHAR(30) DEFAULT 'wechat' COMMENT '支付渠道: wechat/alipay',
     ADD COLUMN IF NOT EXISTS channel_trade_no VARCHAR(100) DEFAULT NULL COMMENT '渠道交易单号',
     ADD COLUMN IF NOT EXISTS prepay_id VARCHAR(100) DEFAULT NULL COMMENT '微信预支付交易会话标识',
     ADD COLUMN IF NOT EXISTS notify_summary VARCHAR(1000) DEFAULT NULL COMMENT '支付回调原始摘要';
 
 ALTER TABLE app_user_coin_log
     ADD COLUMN IF NOT EXISTS balance_before INT DEFAULT 0 COMMENT '变动前余额';
+
+ALTER TABLE app_user_unlock_record
+    ADD COLUMN IF NOT EXISTS request_id VARCHAR(64) DEFAULT NULL COMMENT '客户端请求幂等键';
+
+-- 兼容已经执行过旧版迁移的数据库：旧索引会阻断同一批请求的多个目标用户。
+SET @drop_old_unlock_request_index = (
+    SELECT IF(COUNT(*) > 0,
+        'ALTER TABLE app_user_unlock_record DROP INDEX uk_user_request',
+        'SELECT 1')
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'app_user_unlock_record'
+      AND index_name = 'uk_user_request'
+);
+PREPARE drop_old_unlock_request_index_stmt FROM @drop_old_unlock_request_index;
+EXECUTE drop_old_unlock_request_index_stmt;
+DEALLOCATE PREPARE drop_old_unlock_request_index_stmt;
+
+SET @add_unlock_request_index = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE app_user_unlock_record ADD UNIQUE KEY uk_user_request_target (user_id, request_id, target_user_id)',
+        'SELECT 1')
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'app_user_unlock_record'
+      AND index_name = 'uk_user_request_target'
+);
+PREPARE add_unlock_request_index_stmt FROM @add_unlock_request_index;
+EXECUTE add_unlock_request_index_stmt;
+DEALLOCATE PREPARE add_unlock_request_index_stmt;
 
 CREATE TABLE IF NOT EXISTS app_coin_scene_config (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
