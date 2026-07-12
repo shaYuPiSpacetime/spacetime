@@ -1,0 +1,27 @@
+[2m14:26:46[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_ACCESS[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m14:26:46[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_ACCESS[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m14:26:46[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_ACCESS[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m14:26:48[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_PROFILE_FIELD[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m14:26:48[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_PROFILE_FIELD[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m14:26:48[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_PROFILE_FIELD[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m14:27:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_PROFILE_FIELD[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m14:27:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_PROFILE_FIELD[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m14:27:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /admin/prd01/config?group=PRD01_PROFILE_FIELD[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
