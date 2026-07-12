@@ -1,8 +1,12 @@
 package com.spacetime.admin.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.AppConfigBatchReq;
+import com.spacetime.admin.dto.request.ContentOperationLogPageReq;
 import com.spacetime.admin.dto.response.AppConfigVO;
+import com.spacetime.admin.dto.response.ContentOperationLogVO;
 import com.spacetime.admin.service.AppConfigAdminService;
+import com.spacetime.admin.service.ContentOperationLogAdminService;
 import com.spacetime.common.annotation.RequirePermission;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.result.R;
@@ -28,6 +32,7 @@ public class Prd01ConfigController {
     );
 
     private final AppConfigAdminService appConfigAdminService;
+    private final ContentOperationLogAdminService contentOperationLogAdminService;
 
     /**
      * 查询 PRD01 配置分组。
@@ -53,6 +58,20 @@ public class Prd01ConfigController {
         req.getItems().forEach(item -> validateGroup(item.getConfigGroup()));
         appConfigAdminService.batchSave(req);
         return R.ok();
+    }
+
+    /**
+     * 分页查询准入配置变更日志，固定每页 5 条。
+     *
+     * @param req 分页参数
+     * @return 变更日志分页
+     */
+    @GetMapping("/logs")
+    @RequirePermission("access:config:list")
+    public R<Page<ContentOperationLogVO>> logs(ContentOperationLogPageReq req) {
+        req.setBizType("APP_CONFIG");
+        req.setSize(5);
+        return R.ok(contentOperationLogAdminService.list(req));
     }
 
     private void validateGroup(String group) {

@@ -19,6 +19,18 @@ public class AppConfigBatchReq {
     @Valid
     private List<AppConfigItem> items;
 
+    /** 配置页签名称，用于变更日志摘要展示 */
+    private String tabName;
+
+    /** 保存时填写的变更原因 */
+    private String changeReason;
+
+    /** 变更摘要，列表页优先展示 */
+    private String summary;
+
+    /** 复杂配置变更明细 JSON，保存字段配置/完整度等多字段配置时使用 */
+    private String changeDetailsJson;
+
     /**
      * 单个配置项
      */

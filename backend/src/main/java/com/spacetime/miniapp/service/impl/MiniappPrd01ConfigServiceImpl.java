@@ -20,6 +20,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService {
 
+    private static final String EDUCATION_SLA_HOURS_KEY = "prd01.audit.education.sla_hours";
+
     private final AppConfigDao appConfigDao;
 
     /** 获取 PRD01 移动端初始化配置。 */
@@ -77,12 +79,26 @@ public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService 
     /** 审核策略，当前语音 Provider 先走 MOCK，后续可由配置切换真实三方。 */
     private Map<String, Object> auditPolicy(Map<String, String> config) {
         Map<String, Object> policy = new HashMap<>();
+        int educationSlaHours = parsePositiveInt(config.get(EDUCATION_SLA_HOURS_KEY), 24);
+        policy.put("educationSlaHours", educationSlaHours);
+        policy.put("educationSlaText", "学历材料审核预计 " + educationSlaHours + " 小时内完成");
         policy.put("voiceProvider", config.getOrDefault("prd01.audit.voice.provider", "MOCK"));
         policy.put("textProvider", config.getOrDefault("prd01.audit.text.provider", "MOCK"));
         return policy;
     }
 
-    /** 容错解析整数配置，避免运营配置错误导致接口失败。 */
+    /** 审核时限只能使用大于 0 的整数；配置异常时回退默认 24 小时。 */
+    private int parsePositiveInt(String value, int defaultValue) {
+        if (value == null || !value.trim().matches("[1-9]\\d*")) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException ex) {
+            return defaultValue;
+        }
+    }
+
     private int parseInt(String value, int defaultValue) {
         if (value == null) {
             return defaultValue;

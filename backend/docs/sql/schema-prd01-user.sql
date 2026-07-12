@@ -211,10 +211,8 @@ SELECT 1, id FROM sys_menu WHERE perms IN (
 
 INSERT INTO app_config (config_key, config_value, config_group, config_type, public_visible, status, remark)
 VALUES
-('prd01.access.requireRealName', 'true', 'PRD01_ACCESS', 'BOOLEAN', 0, 'ENABLED', '必须实名通过'),
-('prd01.access.requireAvatar', 'true', 'PRD01_ACCESS', 'BOOLEAN', 0, 'ENABLED', '必须头像通过'),
-('prd01.access.requireEducation', 'true', 'PRD01_ACCESS', 'BOOLEAN', 0, 'ENABLED', '必须学历通过'),
-('prd01.access.minProfileScore', '80', 'PRD01_ACCESS', 'NUMBER', 0, 'ENABLED', '资料完整度最低分'),
+('prd01.access.minAge', '18', 'PRD01_ACCESS', 'NUMBER', 0, 'ENABLED', '最小年龄'),
+('prd01.access.maxAge', '60', 'PRD01_ACCESS', 'NUMBER', 0, 'ENABLED', '最大年龄'),
 ('prd01.profile.requireAboutMe', 'true', 'PRD01_PROFILE_FIELD', 'BOOLEAN', 0, 'ENABLED', '关于我必填'),
 ('prd01.profile.requireHopeTheyKnow', 'true', 'PRD01_PROFILE_FIELD', 'BOOLEAN', 0, 'ENABLED', '希望 TA 了解必填'),
 ('prd01.profile.requireQaCount', '3', 'PRD01_PROFILE_FIELD', 'NUMBER', 0, 'ENABLED', '资料问答最少条数'),
