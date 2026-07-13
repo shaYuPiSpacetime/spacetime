@@ -2,7 +2,7 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import ProfilePreviewTopNav from '@/components/ProfilePreviewTopNav'
-import editHeroPhoto from '@/assets/lanhu/profile/edit-hero-photo.jpg'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { getDemoPageData } from '@/services/lanhuDemo'
 
 type ProfilePreviewPageProps = {
@@ -11,22 +11,35 @@ type ProfilePreviewPageProps = {
   onEdit: () => void
 }
 
+type ProfilePreviewCardProps = {
+  title: string
+  titleBubbleLeft?: string
+  height: string
+  padding: string
+  children: ReactNode
+}
+
 const pageBackground =
   'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48%, rgba(248,250,239,0.6) 100%)'
 const fontFamily =
   '"PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif'
 const mainBlue = '#2876FF'
-const cardShadow = '0 18rpx 48rpx rgba(25, 54, 98, 0.06)'
 const profileDemo = getDemoPageData('profile') as {
   preview: {
     chips: string[]
   }
 }
-const previewTagColors = [
-  { color: '#63B783', background: '#ECF8F0' },
-  { color: '#5F94D9', background: '#EAF3FF' },
-  { color: '#D99D52', background: '#FFF4E6' },
-  { color: '#B86FC0', background: '#F9EDFB' },
+const previewTagStyles = [
+  { color: '#4CAF51', background: '#EBF5EA', padding: '8rpx 24rpx 7rpx 26rpx' },
+  { color: '#3D9FF5', background: '#E7F2FE', padding: '8rpx 27rpx 7rpx 26rpx' },
+  { color: '#FF9A0F', background: '#FFF3E6', padding: '8rpx 29rpx 7rpx 25rpx' },
+  { color: '#9F2CB2', background: '#F4E6F6', padding: '8rpx 28rpx 7rpx 26rpx' },
+]
+const previewTagWidths = ['122rpx', '176rpx', '151rpx', '151rpx']
+const certificationItems = [
+  { label: '头像', icon: miniappOssIcons.profilePreviewCertAvatar },
+  { label: '实名', icon: miniappOssIcons.profilePreviewCertRealname },
+  { label: '学历', icon: miniappOssIcons.profilePreviewCertEducation },
 ]
 
 export default function ProfilePreviewPage({ nickname, onBack, onEdit }: ProfilePreviewPageProps) {
@@ -43,7 +56,6 @@ export default function ProfilePreviewPage({ nickname, onBack, onEdit }: Profile
           style={{
             width: '750rpx',
             minHeight: '6803rpx',
-            paddingBottom: '96rpx',
             boxSizing: 'border-box',
           }}
         >
@@ -59,12 +71,13 @@ export default function ProfilePreviewPage({ nickname, onBack, onEdit }: Profile
             <ProfilePreviewBasicInfo />
             <ProfilePreviewTagSection />
             <ProfilePreviewIntroduction />
-            <ProfilePreviewPhoto label="生活中的样子" />
+            <ProfilePreviewPhoto />
             <ProfilePreviewCertification />
-            <ProfilePreviewPhoto label="旅行中的样子" />
+            <ProfilePreviewPhoto />
             <ProfilePreviewSong />
-            <ProfilePreviewPhoto label="更多精彩瞬间" />
+            <ProfilePreviewPhoto />
             <ProfilePreviewMbti />
+            <ProfilePreviewPhoto />
           </View>
         </View>
       </ScrollView>
@@ -74,164 +87,114 @@ export default function ProfilePreviewPage({ nickname, onBack, onEdit }: Profile
 
 function ProfilePreviewHero({ nickname, onShare }: { nickname: string; onShare: () => void }) {
   return (
-    <View
-      style={{
-        position: 'relative',
-        width: '700rpx',
-        height: '920rpx',
-        overflow: 'hidden',
-        borderRadius: '24rpx',
-        background: '#D8E7E6',
-        boxShadow: cardShadow,
-      }}
-    >
-      <Image src={editHeroPhoto} mode="aspectFill" style={{ width: '700rpx', height: '920rpx' }} />
+    <View style={{ position: 'relative', width: '700rpx', height: '828rpx' }}>
       <View
         style={{
           position: 'absolute',
-          left: '0',
-          right: '0',
-          bottom: '0',
-          height: '336rpx',
-          background: 'linear-gradient(180deg, rgba(10,24,44,0) 0%, rgba(10,24,44,0.7) 100%)',
-        }}
-      />
-      <View
-        onClick={onShare}
-        style={{
-          position: 'absolute',
-          right: '20rpx',
-          top: '20rpx',
-          width: '72rpx',
-          height: '72rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <View
-          style={{
-            position: 'relative',
-            width: '54rpx',
-            height: '54rpx',
-            borderRadius: '54rpx',
-            background: 'rgba(10, 24, 44, 0.64)',
-          }}
-        >
-          <View
-            style={{
-              position: 'absolute',
-              left: '17rpx',
-              top: '16rpx',
-              width: '19rpx',
-              height: '19rpx',
-              borderTop: '5rpx solid #FFFFFF',
-              borderRight: '5rpx solid #FFFFFF',
-              transform: 'rotate(45deg)',
-              boxSizing: 'border-box',
-            }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              left: '17rpx',
-              top: '29rpx',
-              width: '24rpx',
-              height: '5rpx',
-              borderRadius: '5rpx',
-              background: '#FFFFFF',
-              transform: 'rotate(-45deg)',
-            }}
-          />
-        </View>
-      </View>
-      <View
-        style={{
-          position: 'absolute',
-          left: '32rpx',
-          bottom: '54rpx',
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'flex-end',
+          inset: '0',
+          overflow: 'hidden',
+          borderRadius: '32rpx',
+          background: '#D8E7E6',
         }}
       >
         <Image
-          src={editHeroPhoto}
-          mode="aspectFill"
-          style={{
-            width: '148rpx',
-            height: '148rpx',
-            borderRadius: '148rpx',
-            border: '8rpx solid #FFFFFF',
-            background: '#FFFFFF',
-            boxSizing: 'border-box',
-            marginRight: '22rpx',
-          }}
+          src={miniappOssIcons.profilePreviewHero}
+          mode="scaleToFill"
+          style={{ width: '700rpx', height: '828rpx' }}
         />
-        <View style={{ paddingBottom: '8rpx' }}>
-          <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-            <Text
-              style={{ color: '#FFFFFF', fontSize: '36rpx', lineHeight: '50rpx', fontWeight: 700 }}
-            >
-              {nickname}
-            </Text>
-            <View
-              style={{
-                height: '46rpx',
-                borderRadius: '46rpx',
-                background: 'rgba(238, 246, 255, 0.94)',
-                padding: '0 18rpx',
-                marginLeft: '14rpx',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <View
-                style={{
-                  width: '18rpx',
-                  height: '18rpx',
-                  borderRadius: '18rpx',
-                  background: mainBlue,
-                  marginRight: '8rpx',
-                }}
-              />
-              <Text
-                style={{
-                  color: '#5D89DD',
-                  fontSize: '20rpx',
-                  lineHeight: '28rpx',
-                  fontWeight: 600,
-                }}
-              >
-                三重认证
-              </Text>
-            </View>
-          </View>
-          <View
+      </View>
+
+      <Image
+        src={miniappOssIcons.profilePreviewShare}
+        mode="scaleToFill"
+        onClick={onShare}
+        style={{
+          position: 'absolute',
+          right: '30rpx',
+          top: '28rpx',
+          width: '48rpx',
+          height: '48rpx',
+          borderRadius: '24rpx',
+        }}
+      />
+
+      <Image
+        src={miniappOssIcons.profilePreviewAvatar}
+        mode="scaleToFill"
+        style={{
+          position: 'absolute',
+          zIndex: 3,
+          left: '30rpx',
+          bottom: '57rpx',
+          width: '188rpx',
+          height: '188rpx',
+          borderRadius: '94rpx',
+          background: '#FFFFFF',
+        }}
+      />
+
+      <View
+        style={{
+          position: 'absolute',
+          zIndex: 2,
+          left: '208rpx',
+          bottom: '101rpx',
+          width: '380rpx',
+        }}
+      >
+        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <Text
             style={{
-              height: '48rpx',
-              borderRadius: '98rpx',
-              background: 'rgba(29, 43, 59, 0.48)',
-              padding: '0 20rpx',
-              marginTop: '12rpx',
-              display: 'flex',
-              alignItems: 'center',
-              alignSelf: 'flex-start',
+              color: '#FFFFFF',
+              fontSize: '38rpx',
+              lineHeight: '53rpx',
+              fontWeight: 500,
+              textShadow: '0 3rpx 4rpx rgba(0,0,0,0.5)',
+              whiteSpace: 'nowrap',
             }}
           >
-            <View
-              style={{
-                width: '14rpx',
-                height: '14rpx',
-                borderRadius: '14rpx',
-                background: '#FF97A2',
-                marginRight: '10rpx',
-              }}
+            {nickname}
+          </Text>
+          <View
+            style={{
+              width: '168rpx',
+              height: '48rpx',
+              borderRadius: '24rpx',
+              background: '#E3F1FE',
+              marginLeft: '10rpx',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxSizing: 'border-box',
+            }}
+          >
+            <Image
+              src={miniappOssIcons.profileCertification}
+              mode="aspectFit"
+              style={{ width: '30rpx', height: '30rpx', marginRight: '8rpx' }}
             />
-            <Text style={{ color: '#FFFFFF', fontSize: '22rpx', lineHeight: '31rpx' }}>
-              佛系交友
+            <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx', fontWeight: 500 }}>
+              三重认证
             </Text>
           </View>
+        </View>
+        <View
+          style={{
+            width: '148rpx',
+            height: '48rpx',
+            borderRadius: '24rpx',
+            background: 'rgba(0,0,0,0.2)',
+            marginTop: '10rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxSizing: 'border-box',
+          }}
+        >
+          <Text style={{ color: '#FE918E', fontSize: '27rpx', lineHeight: '28rpx', marginRight: '10rpx' }}>♥</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx', fontWeight: 500 }}>
+            佛系交友
+          </Text>
         </View>
       </View>
     </View>
@@ -245,57 +208,58 @@ function ProfilePreviewBasicInfo() {
         position: 'relative',
         zIndex: 1,
         width: '700rpx',
-        minHeight: '248rpx',
-        marginTop: '-48rpx',
-        borderRadius: '28rpx',
+        height: '198rpx',
+        marginTop: '-105rpx',
+        borderRadius: '32rpx',
         background: '#FFFFFF',
-        padding: '48rpx 30rpx 32rpx',
+        padding: '60rpx 30rpx 41rpx 27rpx',
         boxSizing: 'border-box',
-        boxShadow: cardShadow,
       }}
     >
       <ProfilePreviewInfoLine
-        marker="♀"
-        markerColor="#FF8B94"
-        text="女丨97年丨163cm/45kg丨双鱼座"
+        icon={miniappOssIcons.profilePreviewGender}
+        iconWidth="24rpx"
+        iconHeight="34rpx"
+        text="女丨97年丨163cm丨双鱼座"
       />
       <ProfilePreviewInfoLine
-        marker="⌾"
-        markerColor="#72B3F9"
+        icon={miniappOssIcons.profilePreviewLocation}
+        iconWidth="34rpx"
+        iconHeight="34rpx"
         text="现居浙江杭州丨河南人"
-        marginTop="26rpx"
+        marginTop="23rpx"
       />
     </View>
   )
 }
 
 function ProfilePreviewInfoLine({
-  marker,
-  markerColor,
+  icon,
+  iconWidth,
+  iconHeight,
   text,
   marginTop = '0',
 }: {
-  marker: string
-  markerColor: string
+  icon: string
+  iconWidth: string
+  iconHeight: string
   text: string
   marginTop?: string
 }) {
   return (
-    <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop }}>
-      <Text
+    <View style={{ height: '37rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop }}>
+      <View
         style={{
-          width: '38rpx',
-          color: markerColor,
-          fontSize: '34rpx',
-          lineHeight: '40rpx',
-          fontWeight: 600,
+          width: '48rpx',
+          height: '37rpx',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        {marker}
-      </Text>
-      <Text
-        style={{ color: '#333333', fontSize: '30rpx', lineHeight: '42rpx', marginLeft: '12rpx' }}
-      >
+        <Image src={icon} mode="scaleToFill" style={{ width: iconWidth, height: iconHeight }} />
+      </View>
+      <Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 400 }}>
         {text}
       </Text>
     </View>
@@ -304,32 +268,27 @@ function ProfilePreviewInfoLine({
 
 function ProfilePreviewTagSection() {
   return (
-    <ProfilePreviewCard title="我的标签" marginTop="22rpx" padding="30rpx 28rpx 26rpx">
-      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', marginTop: '24rpx' }}>
+    <ProfilePreviewCard title="我的标签" height="182rpx" padding="30rpx 40rpx 40rpx 29rpx">
+      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '20rpx' }}>
         {profileDemo.preview.chips.map((label, index) => {
-          const tag = previewTagColors[index % previewTagColors.length]
+          const tag = previewTagStyles[index % previewTagStyles.length]
           return (
             <View
               key={label}
               style={{
-                height: '52rpx',
-                borderRadius: '52rpx',
+                height: '48rpx',
+                width: previewTagWidths[index],
+                borderRadius: '29rpx',
                 background: tag.background,
-                padding: '0 20rpx',
-                marginRight: '12rpx',
+                padding: tag.padding,
+                marginLeft: index === 0 ? '0' : index === 1 ? '10rpx' : index === 2 ? '11rpx' : '9rpx',
+                boxSizing: 'border-box',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Text
-                style={{
-                  color: tag.color,
-                  fontSize: '22rpx',
-                  lineHeight: '31rpx',
-                  fontWeight: 600,
-                }}
-              >
+              <Text style={{ color: tag.color, fontSize: '24rpx', lineHeight: '33rpx', fontWeight: 400 }}>
                 {label}
               </Text>
             </View>
@@ -342,163 +301,166 @@ function ProfilePreviewTagSection() {
 
 function ProfilePreviewIntroduction() {
   return (
-    <ProfilePreviewCard title="自我介绍" marginTop="22rpx" padding="34rpx 30rpx 38rpx">
+    <ProfilePreviewCard title="自我介绍" height="238rpx" padding="30rpx 38rpx 40rpx 30rpx">
       <Text
         style={{
           display: 'block',
+          width: '620rpx',
+          height: '104rpx',
           color: '#333333',
-          fontSize: '30rpx',
+          fontSize: '26rpx',
           lineHeight: '52rpx',
-          marginTop: '26rpx',
+          fontWeight: 400,
+          textAlign: 'justify',
+          textIndent: '54rpx',
+          marginTop: '20rpx',
+          marginLeft: '12rpx',
         }}
       >
-        白天是程序员，晚上是“深夜电台”主播（自封的～）你也爱分享书影音，或者想交换歌单随时戳我！
+        {'白天是程序员，晚上是‘深夜电台’主播（自封的\n～）你也爱分享书影音，或者想交换歌单随时戳我！'}
       </Text>
     </ProfilePreviewCard>
   )
 }
 
-function ProfilePreviewPhoto({ label }: { label: string }) {
+function ProfilePreviewPhoto() {
   return (
     <View
       style={{
         width: '700rpx',
-        height: '700rpx',
-        marginTop: '22rpx',
-        borderRadius: '24rpx',
-        background: '#D8E7E6',
+        height: '880rpx',
+        marginTop: '20rpx',
+        borderRadius: '32rpx',
         overflow: 'hidden',
-        boxShadow: cardShadow,
+        background: '#F4F4F2',
       }}
     >
-      <Image src={editHeroPhoto} mode="aspectFill" style={{ width: '700rpx', height: '700rpx' }} />
-      <Text
-        style={{
-          position: 'absolute',
-          left: '26rpx',
-          bottom: '22rpx',
-          color: 'rgba(255,255,255,0.9)',
-          fontSize: '22rpx',
-          lineHeight: '31rpx',
-        }}
-      >
-        {label}
-      </Text>
+      <Image
+        src={miniappOssIcons.profilePreviewPhoto}
+        mode="aspectFill"
+        style={{ display: 'block', width: '700rpx', height: '896rpx', marginBottom: '-16rpx' }}
+      />
     </View>
   )
 }
 
 function ProfilePreviewCertification() {
-  const items = ['头像', '实名', '学历']
   return (
-    <ProfilePreviewCard title="我的认证" marginTop="22rpx" padding="32rpx 28rpx">
-      <View
-        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '26rpx' }}
-      >
-        <View style={{ display: 'flex', flexDirection: 'row', flex: 1 }}>
-          {items.map(item => (
-            <View
-              key={item}
-              style={{
-                height: '54rpx',
-                borderRadius: '54rpx',
-                background: mainBlue,
-                padding: '0 18rpx',
-                marginRight: '10rpx',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <View
-                style={{
-                  width: '18rpx',
-                  height: '18rpx',
-                  borderRadius: '18rpx',
-                  background: '#DCEBFF',
-                  marginRight: '8rpx',
-                }}
-              />
-              <Text
-                style={{
-                  color: '#FFFFFF',
-                  fontSize: '22rpx',
-                  lineHeight: '31rpx',
-                  fontWeight: 600,
-                }}
-              >
-                {item}
-              </Text>
-            </View>
-          ))}
-        </View>
-        <View
-          style={{
-            width: '116rpx',
-            height: '108rpx',
-            borderRadius: '18rpx',
-            background: '#EEF5FF',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#7895BB', fontSize: '18rpx', lineHeight: '26rpx' }}>可信度</Text>
-          <Text
+    <View
+      style={{
+        position: 'relative',
+        width: '700rpx',
+        height: '220rpx',
+        marginTop: '20rpx',
+        borderRadius: '32rpx',
+        background: '#FFFFFF',
+        padding: '30rpx 0 0 28rpx',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      <ProfilePreviewTitle title="我的认证" bubbleLeft="94rpx" />
+      <View style={{ display: 'flex', flexDirection: 'row', marginTop: '26rpx' }}>
+        {certificationItems.map((item, index) => (
+          <View
+            key={item.label}
             style={{
-              color: mainBlue,
-              fontSize: '42rpx',
-              lineHeight: '50rpx',
-              fontWeight: 800,
-              marginTop: '4rpx',
+              width: '148rpx',
+              height: '58rpx',
+              borderRadius: '31rpx',
+              background: 'linear-gradient(135deg, #6D96FB 0%, #387DFE 100%)',
+              marginLeft: index === 0 ? '0' : '10rpx',
+              padding: '0 17rpx 0 8rpx',
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            92%
+            <Image src={item.icon} mode="aspectFit" style={{ width: '42rpx', height: '42rpx' }} />
+            <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 400 }}>
+              {item.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+      <View
+        style={{
+          position: 'absolute',
+          right: '0',
+          top: '0',
+          width: '185rpx',
+          height: '198rpx',
+          background: 'linear-gradient(180deg, rgba(40,118,255,0.10) 0%, rgba(255,255,255,0.3) 100%)',
+          clipPath: 'polygon(50% 0, 65% 12%, 100% 16%, 100% 55%, 86% 78%, 50% 100%, 14% 78%, 0 55%, 0 16%, 35% 12%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '39rpx' }}>
+          <View
+            style={{
+              width: '22rpx',
+              height: '22rpx',
+              borderRadius: '11rpx',
+              border: '2rpx solid #999999',
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#999999', fontSize: '16rpx', lineHeight: '18rpx' }}>?</Text>
+          </View>
+          <Text style={{ color: mainBlue, fontSize: '22rpx', lineHeight: '30rpx', marginLeft: '8rpx' }}>
+            可信度
           </Text>
         </View>
+        <Text style={{ color: mainBlue, fontSize: '48rpx', lineHeight: '67rpx', fontWeight: 600, marginTop: '-3rpx' }}>
+          92%
+        </Text>
       </View>
-    </ProfilePreviewCard>
+    </View>
   )
 }
 
 function ProfilePreviewSong() {
   return (
-    <ProfilePreviewCard title="我最爱听的歌曲" marginTop="22rpx" padding="32rpx 28rpx">
+    <ProfilePreviewCard
+      title="我最爱听的歌曲"
+      titleBubbleLeft="181rpx"
+      height="248rpx"
+      padding="30rpx 28rpx 56rpx"
+    >
       <View
-        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '26rpx' }}
+        style={{
+          width: '560rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: '30rpx',
+          marginLeft: '13rpx',
+        }}
       >
-        <View
-          style={{
-            width: '84rpx',
-            height: '84rpx',
-            borderRadius: '84rpx',
-            background: mainBlue,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: '42rpx', lineHeight: '46rpx' }}>♪</Text>
-        </View>
-        <View style={{ marginLeft: '22rpx' }}>
-          <Text
-            style={{
-              display: 'block',
-              color: '#333333',
-              fontSize: '30rpx',
-              lineHeight: '42rpx',
-              fontWeight: 600,
-            }}
-          >
+        <Image
+          src={miniappOssIcons.profilePreviewSong}
+          mode="scaleToFill"
+          style={{ width: '98rpx', height: '98rpx', borderRadius: '49rpx' }}
+        />
+        <View style={{ marginLeft: '24rpx' }}>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>
             告白气球丨周杰伦
           </Text>
           <Text
             style={{
               display: 'block',
-              color: '#697E9C',
+              color: '#333333',
               fontSize: '22rpx',
-              lineHeight: '31rpx',
-              marginTop: '8rpx',
+              lineHeight: '30rpx',
+              fontWeight: 400,
+              marginTop: '10rpx',
+              whiteSpace: 'nowrap',
             }}
           >
             分享你的音乐灵魂，遇见相同频率的人
@@ -511,124 +473,129 @@ function ProfilePreviewSong() {
 
 function ProfilePreviewMbti() {
   return (
-    <ProfilePreviewCard title="MBTI类型" marginTop="22rpx" padding="32rpx 28rpx 40rpx">
-      <View style={{ position: 'relative', height: '470rpx', marginTop: '12rpx' }}>
-        <View
-          style={{
-            position: 'absolute',
-            left: '82rpx',
-            top: '62rpx',
-            width: '86rpx',
-            height: '86rpx',
-            borderRadius: '86rpx',
-            background: '#EEF0FF',
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            right: '74rpx',
-            top: '88rpx',
-            width: '62rpx',
-            height: '62rpx',
-            borderRadius: '62rpx',
-            background: '#FFF0DD',
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            left: '74rpx',
-            bottom: '38rpx',
-            width: '132rpx',
-            height: '132rpx',
-            borderRadius: '132rpx',
-            background: '#DCF8F2',
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            right: '74rpx',
-            bottom: '42rpx',
-            width: '116rpx',
-            height: '116rpx',
-            borderRadius: '116rpx',
-            background: '#FFF0EE',
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '58rpx',
-            width: '280rpx',
-            height: '280rpx',
-            marginLeft: '-140rpx',
-            borderRadius: '280rpx',
-            background: '#DDEAFF',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#5F94D9', fontSize: '26rpx', lineHeight: '37rpx' }}>MBTI类型</Text>
-          <Text
-            style={{
-              color: mainBlue,
-              fontSize: '34rpx',
-              lineHeight: '48rpx',
-              fontWeight: 700,
-              marginTop: '16rpx',
-            }}
-          >
-            ENFJ 主人公
-          </Text>
-        </View>
+    <View
+      style={{
+        position: 'relative',
+        width: '700rpx',
+        height: '635rpx',
+        marginTop: '20rpx',
+        borderRadius: '32rpx',
+        background: '#FFFFFF',
+        overflow: 'hidden',
+      }}
+    >
+      <View style={{ position: 'absolute', left: '29rpx', top: '30rpx' }}>
+        <ProfilePreviewTitle title="MBTI类型" bubbleLeft="107rpx" />
       </View>
-    </ProfilePreviewCard>
+      <View
+        style={{
+          position: 'absolute',
+          right: '26rpx',
+          top: '38rpx',
+          height: '33rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <Text style={{ color: '#999999', fontSize: '24rpx', lineHeight: '33rpx' }}>添加</Text>
+        <View
+          style={{
+            width: '16rpx',
+            height: '16rpx',
+            borderTop: '3rpx solid #999999',
+            borderRight: '3rpx solid #999999',
+            transform: 'rotate(45deg)',
+            marginLeft: '8rpx',
+          }}
+        />
+      </View>
+
+      <View style={{ position: 'absolute', left: '132rpx', top: '168rpx', width: '98rpx', height: '98rpx', borderRadius: '49rpx', background: 'linear-gradient(230deg, #ECEFFF 0%, #F1F3FF 100%)' }} />
+      <View style={{ position: 'absolute', right: '132rpx', top: '217rpx', width: '58rpx', height: '58rpx', borderRadius: '29rpx', background: 'linear-gradient(230deg, #FFE9D5 0%, #FEF4EA 100%)' }} />
+      <View style={{ position: 'absolute', left: '135rpx', top: '382rpx', width: '16rpx', height: '16rpx', borderRadius: '8rpx', background: 'linear-gradient(138deg, #FFEAE5 0%, #FFF5F3 100%)' }} />
+      <View style={{ position: 'absolute', right: '152rpx', top: '398rpx', width: '20rpx', height: '20rpx', borderRadius: '10rpx', background: 'linear-gradient(138deg, #D0E1FF 0%, #F3F8FF 100%)' }} />
+      <View style={{ position: 'absolute', left: '90rpx', top: '436rpx', width: '140rpx', height: '140rpx', borderRadius: '70rpx', background: 'linear-gradient(138deg, #CEF6ED 0%, #F1FAF7 100%)' }} />
+      <View style={{ position: 'absolute', right: '84rpx', top: '461rpx', width: '112rpx', height: '112rpx', borderRadius: '56rpx', background: 'linear-gradient(138deg, #FFEAE5 0%, #FFF5F3 100%)' }} />
+
+      <View
+        style={{
+          position: 'absolute',
+          left: '217rpx',
+          top: '211rpx',
+          width: '266rpx',
+          height: '266rpx',
+          borderRadius: '133rpx',
+          background: 'linear-gradient(180deg, #CBDEFF 0%, #F6FAFF 100%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: '#488AFE', fontSize: '24rpx', lineHeight: '33rpx', fontWeight: 400 }}>
+          MBTI类型
+        </Text>
+        <Text style={{ color: mainBlue, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginTop: '12rpx' }}>
+          ENFJ 主人公
+        </Text>
+      </View>
+    </View>
   )
 }
 
 function ProfilePreviewCard({
   title,
-  marginTop,
+  titleBubbleLeft = '94rpx',
+  height,
   padding,
   children,
-}: {
-  title: string
-  marginTop: string
-  padding: string
-  children: ReactNode
-}) {
+}: ProfilePreviewCardProps) {
   return (
     <View
       style={{
         width: '700rpx',
-        marginTop,
-        borderRadius: '24rpx',
+        height,
+        marginTop: '20rpx',
+        borderRadius: '32rpx',
         background: '#FFFFFF',
         padding,
         boxSizing: 'border-box',
-        boxShadow: cardShadow,
       }}
     >
-      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ color: '#333333', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 700 }}>
-          {title}
-        </Text>
-        <View
-          style={{
-            width: '14rpx',
-            height: '14rpx',
-            borderRadius: '14rpx',
-            background: '#E4F2FF',
-            marginLeft: '6rpx',
-          }}
-        />
-      </View>
+      <ProfilePreviewTitle title={title} bubbleLeft={titleBubbleLeft} />
       {children}
+    </View>
+  )
+}
+
+function ProfilePreviewTitle({ title, bubbleLeft }: { title: string; bubbleLeft: string }) {
+  return (
+    <View style={{ position: 'relative', height: '44rpx' }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: bubbleLeft,
+          top: '0',
+          width: '30rpx',
+          height: '30rpx',
+          borderRadius: '15rpx',
+          background: '#E3F1FE',
+        }}
+      />
+      <Text
+        style={{
+          position: 'relative',
+          top: '4rpx',
+          color: '#333333',
+          fontSize: '28rpx',
+          lineHeight: '40rpx',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {title}
+      </Text>
     </View>
   )
 }

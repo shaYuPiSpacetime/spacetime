@@ -13,6 +13,12 @@ interface RequestOptions {
   header?: Record<string, string>
 }
 
+function compactRequestData(data: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== ''),
+  )
+}
+
 /**
  * 统一请求封装
  * 自动注入 token、统一错误处理
@@ -51,7 +57,7 @@ export async function request<T>(options: RequestOptions): Promise<T> {
 
 /** GET 请求 */
 export function get<T>(url: string, data?: Record<string, unknown>): Promise<T> {
-  return request<T>({ url, method: 'GET', data })
+  return request<T>({ url, method: 'GET', data: data ? compactRequestData(data) : undefined })
 }
 
 /** POST 请求 */

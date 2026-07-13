@@ -8,7 +8,7 @@ import BasicInfoCard from './components/BasicInfoCard'
 
 export default function VerificationBasicPage() {
   const router = useRouter()
-  const { userInfo, submit } = useLogin()
+  const { userInfo, enterHome } = useLogin()
   const fromProfile = router.params.from === 'profile'
 
   const handleBack = () => {
@@ -22,7 +22,7 @@ export default function VerificationBasicPage() {
       confirmText: '进入首页',
       cancelText: '继续认证',
       success: (res) => {
-        if (res.confirm) submit()
+        if (res.confirm) void enterHome()
       },
     })
   }

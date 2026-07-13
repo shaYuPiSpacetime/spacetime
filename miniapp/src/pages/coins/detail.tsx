@@ -1,8 +1,8 @@
 import { ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useLoad } from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import { useCoins } from '@/hooks/useCoins'
-import { LANHU_BLUE, LANHU_NAVY, LanhuNav } from '@/pages/lanhu/LanhuShell'
+import { LANHU_BLUE, LanhuNav } from '@/pages/lanhu/LanhuShell'
 import type { CoinTransaction } from '@/types/coin'
 
 const TABS = ['全部', '获取', '消耗'] as const
@@ -15,8 +15,8 @@ export default function CoinsDetailPage() {
   } = useCoins()
   const [active, setActive] = useState<(typeof TABS)[number]>('全部')
 
-  useLoad(() => {
-    fetchTransactions()
+  useDidShow(() => {
+    void fetchTransactions().catch(() => undefined)
   })
 
   const filtered = transactions.filter((item) => {

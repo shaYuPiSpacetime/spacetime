@@ -44,6 +44,9 @@ const config = {
   defineConstants: {
     'process.env.API_BASE_URL': JSON.stringify(
       process.env.API_BASE_URL || 'https://admin.shikongxiehou.com/api'
+    ),
+    'process.env.MINIAPP_DEV_FIXED_LOGIN': JSON.stringify(
+      process.env.MINIAPP_DEV_FIXED_LOGIN || 'false'
     )
   },
 

@@ -18,10 +18,13 @@ const COIN_PLAN_SELECTED_LEFT_RPX = 150
 const COIN_AGREEMENT_TITLE = '《千寻币充值协议》'
 const RECHARGE_NOTICE = {
   title: '充值须知',
-  faqTitle: '充值后千寻币多久到账？',
-  items: ['支付成功后通常会立即到账。', '如遇到账延迟，请先查看千寻币流水和订单状态。', '千寻币仅限当前账号使用，不支持转赠或提现。'],
+  faqTitle: '常见问题',
+  items: [
+    '1.微信支付显示成功后，若千寻币数量没有更新，可以退出该页面再重新进入(有时充值会有延迟，不要着急~~)',
+    '2.若千寻币数量长时未更新，请截取微信支付成功详情页面，联系客服并将截图发送给客服进行反馈，我们会及时帮你处理~',
+  ],
   contactText: '联系客服',
-  confirmText: '我知道了',
+  confirmText: '好的',
 }
 
 export default function CoinsPage() {
@@ -29,7 +32,7 @@ export default function CoinsPage() {
   const sourceScene = String(router.params.sourceScene || '')
   const [agreementChecked, setAgreementChecked] = useState(false)
   const [agreementError, setAgreementError] = useState(false)
-  const [noticeVisible, setNoticeVisible] = useState(false)
+  const [noticeVisible, setNoticeVisible] = useState(router.params.variant === 'recharge-notice')
   const {
     balance,
     packages,
@@ -481,12 +484,12 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
         right: 0,
         top: 0,
         bottom: 0,
-        background: 'rgba(0, 0, 0, 0.48)',
+        background: 'rgba(51, 51, 51, 0.4)',
         zIndex: 70,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: '386rpx 65rpx 0',
+        padding: '386rpx 64rpx 0 65rpx',
         boxSizing: 'border-box',
       }}
     >
@@ -494,39 +497,48 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
         style={{
           width: '620rpx',
           height: '538rpx',
-          borderRadius: '64rpx',
+          borderRadius: '32rpx',
           background: '#FFFFFF',
-          padding: '54rpx 46rpx 36rpx',
+          padding: '51rpx 45rpx 28rpx',
           boxSizing: 'border-box',
         }}
       >
-        <Text style={{ display: 'block', color: '#333333', fontSize: '36rpx', fontWeight: 700, textAlign: 'center' }}>{rechargeNotice.title}</Text>
-        <View style={{ marginTop: '44rpx' }}>
-          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>{rechargeNotice.faqTitle}</Text>
-          {rechargeNotice.items.map((note) => (
-            <Text key={note} style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '42rpx', marginTop: '12rpx' }}>{note}</Text>
-          ))}
-        </View>
-        <View style={{ display: 'flex', flexDirection: 'row', marginTop: '46rpx' }}>
+        <Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', fontWeight: 500, lineHeight: '45rpx', textAlign: 'center' }}>{rechargeNotice.title}</Text>
+        <Text
+          style={{
+            display: 'block',
+            width: '530rpx',
+            height: '282rpx',
+            color: '#333333',
+            fontSize: '24rpx',
+            lineHeight: '40rpx',
+            marginTop: '30rpx',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word',
+          }}
+        >
+          {`${rechargeNotice.faqTitle}\n${rechargeNotice.items.join('\n')}`}
+        </Text>
+        <View style={{ display: 'flex', flexDirection: 'row', width: '530rpx', marginTop: '34rpx' }}>
           <View
             style={{
-              flex: 1,
-              height: '84rpx',
+              width: '253rpx',
+              height: '68rpx',
               borderRadius: '8rpx',
-              background: '#F7F7F7',
-              marginRight: '22rpx',
+              background: '#F9F9FA',
+              marginRight: '24rpx',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
             onClick={onClose}
           >
-            <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700 }}>{rechargeNotice.contactText}</Text>
+            <Text style={{ color: '#333333', fontSize: '24rpx', fontWeight: 500, lineHeight: '33rpx' }}>{rechargeNotice.contactText}</Text>
           </View>
           <View
             style={{
-              flex: 1,
-              height: '84rpx',
+              width: '253rpx',
+              height: '68rpx',
               borderRadius: '8rpx',
               background: LANHU_BLUE,
               display: 'flex',
@@ -535,7 +547,7 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
             }}
             onClick={onClose}
           >
-            <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>{rechargeNotice.confirmText}</Text>
+            <Text style={{ color: '#FAFBFC', fontSize: '24rpx', fontWeight: 500, lineHeight: '33rpx' }}>{rechargeNotice.confirmText}</Text>
           </View>
         </View>
       </View>

@@ -163,7 +163,7 @@ export function getCoinScenes(): Promise<CoinSceneVO[]> {
 
 /** 获取当前用户千寻币流水 */
 export function getCoinFlows(page = 1, size = 20, flowType?: string): Promise<PageVO<CoinFlowVO>> {
-  return get<PageVO<CoinFlowVO>>('/miniapp/coin/flows', { page, size, flowType })
+  return get<PageVO<CoinFlowVO>>('/miniapp/coin/flows', flowType ? { page, size, flowType } : { page, size })
 }
 
 /** 获取当前 VIP 状态 */

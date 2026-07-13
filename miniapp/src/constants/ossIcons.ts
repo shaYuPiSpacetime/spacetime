@@ -34,6 +34,16 @@ export const miniappOssIcons = Object.freeze({
   profileCertification: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/9c33a27875169664/icon-cert.png',
   profileBoostButton: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/10654d7bbfcc207b/boost-button.png',
   profileVipBanner: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/03c32b0a289c32d3/vip-banner.webp',
+  profilePreviewShare: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/20193213e48117c2/profile-preview-share.png',
+  profilePreviewHero: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d8e28e1a0499cecd/profile-preview-hero.png',
+  profilePreviewAvatar: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ce9c1a32157cb601/profile-preview-avatar.png',
+  profilePreviewCertAvatar: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/32277ba0cdcd367c/profile-preview-cert-avatar.png',
+  profilePreviewCertRealname: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/b72cb633f19dfc32/profile-preview-cert-realname.png',
+  profilePreviewCertEducation: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/f476bb51539fd9e8/profile-preview-cert-education.png',
+  profilePreviewGender: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/3f77559f33210532/profile-preview-gender.png',
+  profilePreviewLocation: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c2a19c1cc73bca86/profile-preview-location.png',
+  profilePreviewSong: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/4b96fc0f299fe7b1/profile-preview-song.png',
+  profilePreviewPhoto: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ca739294d53c7870/profile-preview-photo.png',
 } as const)
 
 export type MiniappOssIconKey = keyof typeof miniappOssIcons

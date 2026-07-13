@@ -66,6 +66,11 @@ const useLoginFlowStore = create<LoginFlowState>((set) => ({
 export function useLogin() {
   const { step, userInfo, setStep, updateUserInfo, reset } = useLoginFlowStore()
 
+  const enterHome = async (): Promise<void> => {
+    reset()
+    await Taro.switchTab({ url: '/pages/index/index' })
+  }
+
   /**
    * 获取指定省份的城市列表
    * @param province 省份名称
@@ -90,7 +95,7 @@ export function useLogin() {
 
       // 延迟跳转首页
       setTimeout(() => {
-        Taro.switchTab({ url: '/pages/index/index' })
+        void enterHome()
       }, 1500)
     } catch {
       Taro.showToast({ title: '登录失败，请重试', icon: 'none' })
@@ -118,6 +123,8 @@ export function useLogin() {
     updateUserInfo,
     /** 提交登录（Mock，成功后跳转首页） */
     submit,
+    /** 已登录用户直接进入首页，不重复提交首登资料 */
+    enterHome,
     /** 设置当前步骤 */
     setStep,
     /** 重置登录流程状态 */

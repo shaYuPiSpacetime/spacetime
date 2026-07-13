@@ -1,159 +1,306 @@
-import { useState } from 'react'
-import { View, Text } from '@tarojs/components'
-import CustomNavBar from '@/components/CustomNavBar'
+import { Image, ScrollView, Text, View } from '@tarojs/components'
+import Taro, { useRouter } from '@tarojs/taro'
+import HeartMessageHeader from '@/components/HeartMessageHeader'
+import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
+import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
 
-/** 消息会话 Mock 数据 */
-interface ChatItem {
-  id: number
-  nickname: string
-  avatar: string
-  lastMessage: string
+type MessageRow = {
+  id: string
+  kind: 'likes' | 'assistant' | 'official' | 'person'
+  title: string
+  preview: string
   time: string
-  unreadCount: number
-  isOnline: boolean
+  unread?: number
 }
 
-const MOCK_CHATS: ChatItem[] = [
-  {
-    id: 1,
-    nickname: '小甜心',
-    avatar: '😊',
-    lastMessage: '好的呀，周末一起去那家甜品店吧！',
-    time: '刚刚',
-    unreadCount: 3,
-    isOnline: true,
-  },
-  {
-    id: 2,
-    nickname: '阳光男孩',
-    avatar: '🌞',
-    lastMessage: '今天的落日好美，发你一张照片',
-    time: '5分钟前',
-    unreadCount: 0,
-    isOnline: true,
-  },
-  {
-    id: 3,
-    nickname: '文艺青年',
-    avatar: '📖',
-    lastMessage: '推荐你读一下那本书，真的很不错',
-    time: '28分钟前',
-    unreadCount: 1,
-    isOnline: false,
-  },
-  {
-    id: 4,
-    nickname: '运动达人',
-    avatar: '🏃',
-    lastMessage: '明天早上6点操场见，不要迟到哦',
-    time: '1小时前',
-    unreadCount: 0,
-    isOnline: false,
-  },
-  {
-    id: 5,
-    nickname: '音乐精灵',
-    avatar: '🎵',
-    lastMessage: '[分享了一首歌] 晴天 - 周杰伦',
-    time: '2小时前',
-    unreadCount: 5,
-    isOnline: true,
-  },
-  {
-    id: 6,
-    nickname: '摄影爱好者',
-    avatar: '📷',
-    lastMessage: '这张构图怎么样？求指点～',
-    time: '昨天',
-    unreadCount: 0,
-    isOnline: false,
-  },
+const background =
+  'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%)'
+
+const verifiedRows: MessageRow[] = [
+  { id: 'likes', kind: 'likes', title: '喜欢我的人(119人)', preview: '解锁喜欢你的人，即刻匹配', time: '10:23' },
+  { id: 'helper', kind: 'assistant', title: '官方小助手', preview: '你的学历认证已通过，资料可信度已更新。', time: '昨天 11:42' },
+  { id: 'official', kind: 'official', title: '官方账号消息', preview: '你们已成功匹配', time: '昨天 10:55' },
+  { id: 'xiaoming', kind: 'person', title: '小明', preview: '周末有空一起吃饭吗？', time: '03月31日', unread: 1 },
+  { id: 'qingqing', kind: 'person', title: '卿卿', preview: '周末有空一起吃饭吗？', time: '03月31日' },
 ]
 
-/**
- * 消息列表页面
- * 展示会话列表，每项包含头像、昵称、最后消息预览、时间和未读角标
- */
-export default function ChatPage() {
-  // 1. 状态管理
-  const [chats] = useState<ChatItem[]>(MOCK_CHATS)
+const unverifiedRows = verifiedRows.slice(0, 3)
 
-  // 2. 空状态
-  if (chats.length === 0) {
-    return (
-      <View className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
-        <CustomNavBar bgColor="transparent" />
-        <Text className="text-4xl mb-4">💬</Text>
-        <Text className="text-sm text-gray-400">暂无消息</Text>
-        <Text className="text-xs text-gray-300 mt-1">
-          去社区认识新朋友吧
+export default function ChatPage() {
+  const router = useRouter()
+  const certified = router.params.variant !== 'unverified'
+  const rows = certified ? verifiedRows : unverifiedRows
+
+  return (
+    <View style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
+      <ScrollView scrollY style={{ width: '750rpx', height: '100vh' }} showScrollbar={false}>
+        <View style={{ minHeight: '1624rpx', paddingBottom: '190rpx', boxSizing: 'border-box' }}>
+          <HeartMessageHeader title="消息" underline rightIcon="clean" />
+          {!certified ? <CertificationBanner /> : null}
+          <MessageActions />
+          <View
+            style={{
+              width: '700rpx',
+              minHeight: certified ? '930rpx' : '730rpx',
+              margin: '20rpx auto 0',
+              padding: '0 20rpx 80rpx',
+              borderRadius: '8rpx',
+              background: '#FFFFFF',
+              boxSizing: 'border-box',
+            }}
+          >
+            {rows.map((row) => <MessageListRow key={row.id} row={row} />)}
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  )
+}
+
+function CertificationBanner() {
+  return (
+    <View
+      style={{
+        width: '700rpx',
+        height: '88rpx',
+        margin: '-4rpx auto 14rpx',
+        padding: '0 18rpx',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: '8rpx',
+        background: 'rgba(255,255,255,0.92)',
+        boxSizing: 'border-box',
+      }}
+    >
+      <View
+        style={{
+          width: '32rpx',
+          height: '36rpx',
+          marginRight: '14rpx',
+          borderRadius: '16rpx 16rpx 20rpx 20rpx',
+          background: '#6F9AF5',
+          color: '#FFFFFF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: '20rpx', lineHeight: '24rpx' }}>✓</Text>
+      </View>
+      <Text style={{ flex: 1, color: '#7F8494', fontSize: '24rpx', lineHeight: '34rpx' }}>
+        通过认证，才可以聊天哦！
+      </Text>
+      <View
+        onClick={() => Taro.navigateTo({ url: '/pages/verification/triple' })}
+        style={{
+          width: '116rpx',
+          height: '58rpx',
+          borderRadius: '8rpx',
+          background: '#2876FF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx' }}>去认证</Text>
+      </View>
+    </View>
+  )
+}
+
+function MessageActions() {
+  return (
+    <View style={{ width: '700rpx', height: '158rpx', margin: '0 auto', display: 'flex', flexDirection: 'row', gap: '40rpx' }}>
+      <View
+        onClick={() => Taro.navigateTo({ url: '/pages/heart/mutual' })}
+        style={{
+          position: 'relative',
+          width: '330rpx',
+          height: '158rpx',
+          padding: '28rpx 20rpx',
+          overflow: 'hidden',
+          borderRadius: '12rpx',
+          background: '#E3F1FE',
+          boxSizing: 'border-box',
+        }}
+      >
+        <Text style={{ position: 'relative', zIndex: 2, color: '#00469F', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>
+          查看全部申请
         </Text>
+        <View style={{ position: 'absolute', left: '20rpx', bottom: '23rpx', display: 'flex', flexDirection: 'row' }}>
+          {[0, 1, 2].map((item) => (
+            <Image
+              key={item}
+              src={blurredPersonImage}
+              mode="aspectFill"
+              style={{
+                width: '54rpx',
+                height: '54rpx',
+                marginLeft: item ? '-8rpx' : '0',
+                border: '3rpx solid #FFFFFF',
+                borderRadius: '50%',
+              }}
+            />
+          ))}
+        </View>
+        <View style={{ position: 'absolute', right: '-20rpx', top: '18rpx', width: '183rpx', height: '183rpx', borderRadius: '50%', background: 'linear-gradient(145deg,#7BBAFE,rgba(255,255,255,0))' }} />
+        <View
+          style={{
+            position: 'absolute',
+            right: '-7rpx',
+            bottom: '-20rpx',
+            width: '116rpx',
+            height: '116rpx',
+            borderRadius: '50%',
+            background: 'linear-gradient(180deg,rgba(128,174,255,0.75),rgba(40,118,255,0.75))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '50rpx', fontFamily: 'cursive', fontStyle: 'italic', lineHeight: '60rpx' }}>yo</Text>
+        </View>
+      </View>
+
+      <View
+        style={{
+          position: 'relative',
+          width: '330rpx',
+          height: '158rpx',
+          padding: '28rpx 22rpx',
+          overflow: 'hidden',
+          borderRadius: '12rpx',
+          background: '#FDEAD9',
+          boxSizing: 'border-box',
+        }}
+      >
+        <Text style={{ position: 'relative', zIndex: 2, display: 'block', color: '#9C5C05', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>
+          悄悄话
+        </Text>
+        <Text style={{ position: 'relative', zIndex: 2, display: 'block', marginTop: '10rpx', color: '#9C5C05', fontSize: '22rpx', fontWeight: 500, lineHeight: '30rpx' }}>
+          有个小秘密只告诉你
+        </Text>
+        <View style={{ position: 'absolute', right: '-20rpx', top: '18rpx', width: '183rpx', height: '183rpx', borderRadius: '50%', background: 'linear-gradient(145deg,#FFC288,rgba(255,255,255,0))' }} />
+        <View
+          style={{
+            position: 'absolute',
+            right: '-6rpx',
+            bottom: '-20rpx',
+            width: '116rpx',
+            height: '116rpx',
+            borderRadius: '50%',
+            background: 'linear-gradient(180deg,rgba(255,151,43,0.75),rgba(255,154,57,0.75))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View style={{ width: '56rpx', height: '46rpx', border: '5rpx solid #FFFFFF', borderRadius: '50%', boxSizing: 'border-box' }} />
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function MessageListRow({ row }: { row: MessageRow }) {
+  const open = () => {
+    if (row.kind === 'likes') {
+      void Taro.switchTab({ url: '/pages/community/index' })
+      return
+    }
+    if (row.kind === 'person') {
+      void Taro.navigateTo({ url: '/pages/heart/user' })
+    }
+  }
+
+  return (
+    <View
+      onClick={open}
+      style={{
+        width: '660rpx',
+        height: '160rpx',
+        borderTop: '1rpx solid #EFF4FC',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        boxSizing: 'border-box',
+      }}
+    >
+      <MessageAvatar kind={row.kind} unread={row.unread} />
+      <View style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
+        <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', whiteSpace: 'nowrap' }}>
+          {row.title}
+        </Text>
+        <Text style={{ display: 'block', marginTop: '10rpx', color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {row.preview}
+        </Text>
+      </View>
+      <Text style={{ marginLeft: '12rpx', color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', whiteSpace: 'nowrap' }}>
+        {row.time}
+      </Text>
+    </View>
+  )
+}
+
+function MessageAvatar({ kind, unread }: { kind: MessageRow['kind']; unread?: number }) {
+  if (kind === 'likes' || kind === 'person') {
+    return (
+      <View style={{ position: 'relative', width: '100rpx', height: '100rpx', flexShrink: 0 }}>
+        <Image
+          src={kind === 'likes' ? blurredPersonImage : personImage}
+          mode="aspectFill"
+          style={{ width: '100rpx', height: '100rpx', borderRadius: '50%' }}
+        />
+        {kind === 'likes' || unread ? (
+          <View
+            style={{
+              position: 'absolute',
+              right: '-1rpx',
+              top: '-1rpx',
+              minWidth: '20rpx',
+              height: '20rpx',
+              padding: unread ? '0 4rpx' : '0',
+              borderRadius: '13rpx',
+              background: '#EE2525',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxSizing: 'border-box',
+            }}
+          >
+            {unread ? <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '20rpx' }}>{unread}</Text> : null}
+          </View>
+        ) : null}
       </View>
     )
   }
 
-  // 3. 计算总未读数
-  const totalUnread = chats.reduce((sum, chat) => sum + chat.unreadCount, 0)
-
+  const green = kind === 'assistant'
   return (
-    <View className="min-h-screen bg-gray-50">
-      <CustomNavBar bgColor="transparent" />
-      {/* 消息列表 */}
-      <View className="pt-2 pb-4">
-        {chats.map((chat) => (
-          <View
-            key={chat.id}
-            className="mx-3 mt-3 bg-white rounded-card px-4 py-4"
-          >
-            <View className="flex items-center">
-              {/* 头像区域 */}
-              <View className="relative flex-shrink-0">
-                <View className="w-12 h-12 bg-brand-blue-bg rounded-full flex items-center justify-center">
-                  <Text className="text-xl">{chat.avatar}</Text>
-                </View>
-                {/* 在线状态指示点 */}
-                {chat.isOnline && (
-                  <View className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
-                )}
-              </View>
-
-              {/* 中间信息 */}
-              <View className="ml-3 flex-1 min-w-0">
-                {/* 昵称 + 时间 */}
-                <View className="flex items-center justify-between">
-                  <Text className="text-sm font-medium text-text-dark">
-                    {chat.nickname}
-                  </Text>
-                  <Text className="text-xs text-gray-300 flex-shrink-0 ml-2">
-                    {chat.time}
-                  </Text>
-                </View>
-
-                {/* 最后消息预览 */}
-                <View className="mt-1.5 flex items-center justify-between">
-                  <Text className="text-xs text-gray-400 truncate block flex-1 pr-2">
-                    {chat.lastMessage}
-                  </Text>
-
-                  {/* 未读角标 */}
-                  {chat.unreadCount > 0 && (
-                    <View className="bg-primary rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center flex-shrink-0">
-                      <Text className="text-xs text-white leading-none">
-                        {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-          </View>
-        ))}
-
-        {/* 底部提示 */}
-        <View className="flex items-center justify-center py-6">
-          <Text className="text-xs text-gray-300">共 {totalUnread} 条未读消息</Text>
+    <View
+      style={{
+        position: 'relative',
+        width: '100rpx',
+        height: '100rpx',
+        flexShrink: 0,
+        borderRadius: '50%',
+        background: green ? 'linear-gradient(180deg,#73C599,#00BD58)' : 'linear-gradient(180deg,#7499FB,#2876FF)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {green ? (
+        <View style={{ width: '48rpx', height: '48rpx', border: '4rpx solid #FFFFFF', borderRadius: '8rpx', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '25rpx', lineHeight: '28rpx' }}>⌣</Text>
         </View>
-      </View>
+      ) : (
+        <View style={{ position: 'relative', width: '50rpx', height: '38rpx', border: '4rpx solid #FFFFFF', borderRadius: '7rpx', boxSizing: 'border-box' }}>
+          <View style={{ position: 'absolute', left: '15rpx', top: '-13rpx', width: '16rpx', height: '12rpx', border: '4rpx solid #FFFFFF', borderBottom: 0, borderRadius: '7rpx 7rpx 0 0', boxSizing: 'border-box' }} />
+          <View style={{ position: 'absolute', left: '11rpx', top: '14rpx', width: '20rpx', height: '4rpx', borderRadius: '2rpx', background: '#FFFFFF' }} />
+        </View>
+      )}
     </View>
   )
 }

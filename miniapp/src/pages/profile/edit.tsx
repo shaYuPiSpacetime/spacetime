@@ -5,6 +5,7 @@ import { useState } from 'react'
 import ProfilePreviewTopNav from '@/components/ProfilePreviewTopNav'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { getDemoPageData } from '@/services/lanhuDemo'
+import ProfilePreviewPage from './components/ProfilePreviewPage'
 
 import editHeroPhoto from '@/assets/lanhu/profile/edit-hero-photo.jpg'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -122,6 +123,7 @@ function resolveVoiceSheetVariant(value?: string): VoiceSheetVariant | null {
 
 export default function ProfileEditPage() {
   const router = useRouter()
+  const [showPreview, setShowPreview] = useState(false)
   const [heroPhoto, setHeroPhoto] = useState(editHeroPhoto)
   const [miniAvatar, setMiniAvatar] = useState(defaultAvatar)
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
@@ -228,13 +230,13 @@ export default function ProfileEditPage() {
     }
   }
 
-  const openPreview = () => {
-    void Taro.navigateTo({ url: '/pages/profile/index?variant=preview' }).catch(() => {
-      Taro.showToast({ title: '打开主页预览失败', icon: 'none' })
-    })
-  }
-
-  return (
+  return showPreview ? (
+    <ProfilePreviewPage
+      nickname={profileDemo.nickname}
+      onBack={handleBack}
+      onEdit={() => setShowPreview(false)}
+    />
+  ) : (
     <View
       style={{ minHeight: '100vh', background: pageBackground, overflow: 'hidden', fontFamily }}
     >
@@ -251,7 +253,7 @@ export default function ProfileEditPage() {
             activeTab="form"
             onBack={handleBack}
             onTabChange={tab => {
-              if (tab === 'preview') openPreview()
+              if (tab === 'preview') setShowPreview(true)
             }}
           />
           <ProfileScoreCard onClick={() => handleProfileAction('资料评分')} />

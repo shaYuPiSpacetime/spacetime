@@ -1,0 +1,66 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const rootDir = path.resolve(__dirname, '..')
+const repoDir = path.resolve(rootDir, '..')
+const read = relativePath => fs.readFileSync(path.join(rootDir, relativePath), 'utf8')
+
+const chat = read('src/pages/chat/index.tsx')
+const heart = read('src/pages/community/index.tsx')
+const mutual = read('src/pages/heart/mutual.tsx')
+const user = read('src/pages/heart/user.tsx')
+const heartHeader = read('src/components/HeartMessageHeader.tsx')
+const membershipHook = read('src/hooks/useMembership.ts')
+const membershipPage = read('src/pages/membership/index.tsx')
+const appConfig = read('src/app.config.ts')
+const runtime = `${chat}\n${heart}\n${mutual}\n${user}`
+
+for (const asset of ['heart-person.webp', 'heart-person-blur.webp', 'heart-avatar.webp']) {
+  const file = path.join(rootDir, 'src/assets/lanhu/heart-message', asset)
+  assert.equal(fs.existsSync(file), true, `心动/消息切图 ${asset} 必须存在`)
+  assert.ok(fs.statSync(file).size < 200 * 1024, `心动/消息切图 ${asset} 必须小于 200KB`)
+}
+
+assert.match(chat, /variant !== 'unverified'/, '消息页必须覆盖已认证和未认证两种蓝湖状态')
+assert.match(chat, /查看全部申请/, '消息页申请入口文案必须与蓝湖一致')
+assert.match(chat, /喜欢我的人\(119人\)/, '消息列表人数文案必须与蓝湖一致')
+assert.match(chat, /你的学历认证已通过，资料可信度已更新。/, '官方小助手文案必须与蓝湖一致')
+assert.match(chat, /周末有空一起吃饭吗？/, '消息预览文案必须与蓝湖一致')
+
+assert.match(heart, /router\.params\.member/, '心动页必须覆盖会员和非会员状态')
+assert.match(heart, /router\.params\.tab === 'visitors'/, '心动页必须覆盖对我心动和访客 Tab')
+assert.match(heart, /router\.params\.unlock === 'confirm'/, '心动页必须覆盖单人解锁弹层')
+assert.match(heart, /router\.params\.unlock === 'success'/, '心动页必须覆盖解锁成功弹层')
+assert.match(heart, /解锁全部访客/, '心动页解锁按钮文案必须与蓝湖一致')
+assert.match(heart, /只看ta\(100/, '单人解锁按钮文案和币值必须与蓝湖一致')
+assert.match(heart, /\/pages\/heart\/mutual/, '胶囊左侧图标必须跳转相互喜欢页')
+assert.match(heart, /\/pages\/coins\/index\?sourceScene=likes_unlock_one/, '单人解锁“只看ta”必须进入千寻币充值页')
+assert.doesNotMatch(heart, /onUnlock=\{\(\) => setUnlockStage\('success'\)\}/, '单人解锁不能在未扣币时伪造解锁成功')
+assert.match(heartHeader, /onRightIconClick/, '头部右侧图标必须暴露真实点击事件')
+assert.match(heartHeader, /miniappOssIcons\.heartMutualLikes/, '相互喜欢入口必须使用蓝湖无损 OSS 图标')
+assert.match(mutual, /相互喜欢\(4人\)/, '相互喜欢页标题必须与蓝湖一致')
+assert.match(user, /女丨97年丨163cm丨双鱼座/, '用户主页基础资料文案必须与蓝湖一致')
+assert.match(user, /免费开聊/, '用户主页底部主按钮必须与蓝湖一致')
+
+assert.match(appConfig, /root: 'pages\/heart'/, '相互喜欢和用户主页必须注册心动分包')
+assert.match(appConfig, /'mutual'/, '相互喜欢页面必须注册')
+assert.match(appConfig, /'user'/, '用户主页必须注册')
+assert.match(membershipHook, /DEFAULT_MEMBERSHIP_PLANS/, '会员套餐接口空白时必须保留蓝湖基线展示数据')
+assert.match(membershipHook, /DEFAULT_MEMBERSHIP_BENEFITS/, '会员权益接口空白时必须保留蓝湖基线展示数据')
+assert.match(membershipHook, /setPlans\(DEFAULT_MEMBERSHIP_PLANS\)/, '会员套餐请求失败或返回空数组时不得静默清空中部')
+assert.match(membershipHook, /setBenefits\(DEFAULT_MEMBERSHIP_BENEFITS\)/, '会员权益请求失败或返回空数组时不得静默清空中部')
+assert.match(membershipPage, /plan\.id <= 0/, '蓝湖兜底套餐不得使用占位 ID 创建真实支付订单')
+assert.doesNotMatch(runtime, /lanhuapp\.com|alipic\.lanhuapp|\.lanhu-ref/, '运行代码禁止引用蓝湖 CDN 或参考图目录')
+assert.doesNotMatch(runtime, /letterSpacing:\s*['"]-/, '蓝湖还原禁止负字距')
+
+const contract = path.join(repoDir, 'docs/技术方案/2026-07-10-心动消息10稿-蓝湖还原与接口闭环-tcdesign.md')
+assert.equal(fs.existsSync(contract), true, '第二阶段必须引用的心动/消息接口闭环文档必须存在')
+const contractContent = fs.readFileSync(contract, 'utf8')
+assert.match(contractContent, /\/miniapp\/heart\/home/, '接口闭环文档必须定义心动聚合接口')
+assert.match(contractContent, /\/miniapp\/messages\/home/, '接口闭环文档必须定义消息聚合接口')
+assert.match(contractContent, /"unlockScene": "likes"/, '接口闭环文档必须保留资产解锁场景语义')
+
+console.log('心动/消息 10 稿蓝湖视觉与流程门禁通过')

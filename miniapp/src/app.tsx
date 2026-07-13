@@ -1,38 +1,51 @@
-import { PropsWithChildren } from 'react'
-import { useLaunch } from '@tarojs/taro'
+import { PropsWithChildren, useRef } from 'react'
+import Taro, { useDidShow, useLaunch } from '@tarojs/taro'
 import { useAuthStore } from './stores/authStore'
+import { DEV_FIXED_LOGIN, MOCK_ENABLED, TOKEN_KEY } from './constants/config'
 
 import './app.scss'
 
 function App({ children }: PropsWithChildren<object>) {
-  const { checkLogin } = useAuthStore()
+  const { setLogin, checkLogin } = useAuthStore()
+  const loginRedirectingRef = useRef(false)
 
   useLaunch(() => {
+    // 本地开发：注入固定登录态，跳过微信授权
+    if (DEV_FIXED_LOGIN.enabled) {
+      setLogin(
+        DEV_FIXED_LOGIN.token,
+        DEV_FIXED_LOGIN.userId,
+        '',
+        '',
+        { phone: DEV_FIXED_LOGIN.phone, maskedPhone: DEV_FIXED_LOGIN.maskedPhone },
+      )
+      return
+    }
+
     checkLogin()
   })
 
-  // TODO: 未登录跳登录页逻辑暂时注释，启动页改为我的页面后待重新设计
-  // useDidShow(() => {
-  //   if (MOCK_ENABLED) return
-  //   const token = Taro.getStorageSync(TOKEN_KEY)
-  //   if (token) {
-  //     loginRedirectingRef.current = false
-  //     checkLogin()
-  //     return
-  //   }
-  //
-  //   const pages = Taro.getCurrentPages()
-  //   const currentRoute = pages[pages.length - 1]?.route || ''
-  //   if (currentRoute.startsWith('pages/login/')) return
-  //   if (loginRedirectingRef.current) return
-  //
-  //   loginRedirectingRef.current = true
-  //   setTimeout(() => {
-  //     Taro.reLaunch({ url: '/pages/login/index' }).catch(() => {
-  //       loginRedirectingRef.current = false
-  //     })
-  //   }, 0)
-  // })
+  useDidShow(() => {
+    if (MOCK_ENABLED) return
+    const token = Taro.getStorageSync(TOKEN_KEY)
+    if (token) {
+      loginRedirectingRef.current = false
+      checkLogin()
+      return
+    }
+
+    const pages = Taro.getCurrentPages()
+    const currentRoute = pages[pages.length - 1]?.route || ''
+    if (currentRoute.startsWith('pages/login/')) return
+    if (loginRedirectingRef.current) return
+
+    loginRedirectingRef.current = true
+    setTimeout(() => {
+      Taro.reLaunch({ url: '/pages/login/index' }).catch(() => {
+        loginRedirectingRef.current = false
+      })
+    }, 0)
+  })
 
   return children
 }

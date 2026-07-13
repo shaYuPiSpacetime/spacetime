@@ -35,7 +35,7 @@ export default function VerificationShell({
   onBack,
   scroll = false,
 }: VerificationShellProps) {
-  const { submit } = useLogin()
+  const { enterHome } = useLogin()
   const contentHeight = scroll && stage === 'basic' ? '1830rpx' : '1678rpx'
 
   const handleBack = () => {
@@ -54,7 +54,7 @@ export default function VerificationShell({
       confirmText: '进入首页',
       cancelText: '继续认证',
       success: (res) => {
-        if (res.confirm) submit()
+        if (res.confirm) void enterHome()
       },
     })
   }

@@ -1,22 +1,27 @@
+const MAIN_PAGES = [
+  'pages/login/index',
+  'pages/profile/index',
+  'pages/login/address',
+  'pages/login/phone',
+  'pages/login/gender',
+  'pages/login/age',
+  'pages/login/identity',
+  'pages/login/education',
+  'pages/profile/edit',
+  'pages/community/index',
+  'pages/chat/index',
+  'pages/index/index',
+  'pages/recommend/index',
+  'pages/recommend/post',
+  'pages/commerce/payment-result',
+]
+
+const useDevFixedStartup = process.env.MINIAPP_DEV_FIXED_LOGIN === 'true'
+const startPage = useDevFixedStartup ? 'pages/index/index' : 'pages/login/index'
+
 export default {
   lazyCodeLoading: 'requiredComponents',
-  pages: [
-    'pages/login/index',
-    'pages/profile/index',
-    'pages/login/address',
-    'pages/login/phone',
-    'pages/login/gender',
-    'pages/login/age',
-    'pages/login/identity',
-    'pages/login/education',
-    'pages/profile/edit',
-    'pages/community/index',
-    'pages/chat/index',
-    'pages/index/index',
-    'pages/recommend/index',
-    'pages/recommend/post',
-    'pages/commerce/payment-result'
-  ],
+  pages: [startPage, ...MAIN_PAGES.filter((page) => page !== startPage)],
   subPackages: [
     {
       root: 'pages/verification',
@@ -77,6 +82,13 @@ export default {
         'tags',
         'about',
         'songs'
+      ]
+    },
+    {
+      root: 'pages/heart',
+      pages: [
+        'mutual',
+        'user'
       ]
     }
   ],
