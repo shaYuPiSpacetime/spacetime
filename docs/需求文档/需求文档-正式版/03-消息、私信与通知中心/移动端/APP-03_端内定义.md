@@ -25,12 +25,14 @@
 | 页面 ID | 页面名 | 一期编号 | demo 原编号 | 页面规格路径 | 入口 |
 |---------|--------|----------|-------------|--------------|------|
 | `APP-03-PAGE-message-list` | 消息列表页 | MVP-PAGE-033 | APP-PAGE-049 | `页面规格/APP-01_消息列表页.md` | 底部 Tab `消息` |
+| `APP-03-PAGE-private-list` | 私信列表页 | 蓝湖补充 | - | `页面规格/APP-09_私信列表页.md` | 消息首页顶部“私信”入口 |
 | `APP-03-PAGE-private-chat` | 私信对话页 | MVP-PAGE-034 | APP-PAGE-050 | `页面规格/APP-02_私信对话页.md` | 消息列表主入口、匹配成功回流、社区/用户主页已匹配态 |
 | `APP-03-PAGE-official-assistant` | 官方助手聊天页 | MVP-PAGE-035 | APP-PAGE-051 | `页面规格/APP-03_官方助手聊天页.md` | 消息列表官方助手入口、首次功能说明、公众号关注引导 |
-| `APP-03-PAGE-whisper-message` | 悄悄话消息页 | MVP-PAGE-037 | APP-PAGE-053 | `页面规格/APP-05_悄悄话消息页.md` | 推荐页付费发起、社区未匹配态、消息列表/通知回流 |
+| `APP-03-PAGE-whisper-message` | 悄悄话列表页 | MVP-PAGE-037 | APP-PAGE-053 | `页面规格/APP-05_悄悄话消息页.md` | 消息首页顶部“悄悄话”入口 |
+| `APP-03-PAGE-whisper-detail` | 悄悄话详情页 | 蓝湖补充 | - | `页面规格/APP-10_悄悄话详情页.md` | 悄悄话列表记录、推荐页/社区付费发起回流 |
 | `APP-03-PAGE-notification-center` | 通知中心页 | MVP-PAGE-038 | APP-PAGE-054 | `页面规格/APP-06_通知中心页.md` | 消息列表右上角通知、官方消息卡片 |
-| `APP-03-PAGE-notification-detail` | 通知详情页 | MVP-PAGE-039 | APP-PAGE-055 | `页面规格/APP-07_通知详情页.md` | 通知中心列表 |
-| `APP-03-PAGE-invite-response` | 邀请响应页 | MVP-PAGE-040 | APP-PAGE-056 | `页面规格/APP-08_邀请响应页.md` | 邀请通知、PRD-07 邀请入口 |
+| `APP-03-PAGE-notification-detail` | 通知详情页（已废弃） | MVP-PAGE-039 | APP-PAGE-055 | `页面规格/APP-07_通知详情页.md` | ID 保留，不提供入口 |
+| `APP-03-PAGE-invite-response` | 邀请响应页（移交 PRD-07） | MVP-PAGE-040 | APP-PAGE-056 | `页面规格/APP-08_邀请响应页.md` | ID 保留，不提供入口 |
 
 ### 1.1 本期明确不展示页面
 
@@ -61,9 +63,9 @@
 | `APP-03-STATE-auth-guide` | 消息列表、私信对话、悄悄话 | 未完成三重认证 | 私信区空态 + 认证引导按钮 | `M03-RULE-message-tab-scope` |
 | `APP-03-STATE-no-conversation` | 消息列表 | 无私信会话 | 空态文案 + 去成家看看入口 | `M03-TXT-no-conversation-empty` |
 | `APP-03-STATE-protected` | 私信对话 | 命中女性保护机制 | 男性侧输入框置灰 + 保护提示 | `M03-RULE-female-protection` |
-| `APP-03-STATE-whisper-pending` | 悄悄话消息页 | 悄悄话待回复 | 展示卡片、等待回复或回复/忽略操作 | `M03-SM-whisper` |
+| `APP-03-STATE-whisper-pending` | 悄悄话详情页 | 悄悄话待回复 | 接收方展示回复；发送方仅展示等待，不提供拒绝操作 | `M03-SM-whisper` |
 | `APP-03-STATE-conversation-invalid` | 私信对话、悄悄话 | 会话失效 | 历史可看，输入区置灰，展示失效原因 | `M03-RULE-conversation-invalid` |
-| `APP-03-STATE-notice-empty` | 通知中心 | 无通知 | 空态文案，无筛选结果可清除筛选 | `M03-RULE-notification-scope` |
+| `APP-03-STATE-notice-empty` | 系统消息全文页 | 无系统消息 | 展示“暂无系统消息”并可返回 | `M03-RULE-notification-scope` |
 
 ---
 
@@ -75,8 +77,8 @@
 | `APP-03-TXT-official-card-title` | 官方消息卡片 | 官方消息 | 是，引用 `M03-CFG-notification-template-list` |
 | `APP-03-TXT-notification-entry` | 通知入口 | 通知 | 否 |
 | `APP-03-TXT-chat-input-placeholder` | 私信输入框 | 说点什么吧 | 否 |
-| `APP-03-TXT-chat-report` | 更多菜单举报 | 举报 | 否 |
-| `APP-03-TXT-chat-block` | 更多菜单拉黑 | 拉黑 | 否 |
+| `APP-03-TXT-chat-report` | 个人主页举报 | 举报 | 否 |
+| `APP-03-TXT-chat-block` | 个人主页拉黑 | 拉黑 | 否 |
 
 ---
 
@@ -90,8 +92,6 @@
 | `msg_private_send` | 私信发送成功 | conversationNo, messageType |
 | `msg_private_send_fail` | 私信发送失败 | errorCode, conversationStatus |
 | `msg_whisper_reply_click` | 点击回复悄悄话 | whisperNo |
-| `msg_whisper_ignore_click` | 点击忽略悄悄话 | whisperNo |
+| `msg_whisper_expired_show` | 到期申请在列表或详情曝光 | whisperNo, cooldownExpireTime |
 | `msg_protect_block_show` | 女性保护拦截展示 | conversationNo, protectExpireTime |
-| `notify_center_show` | 进入通知中心 | unreadCount |
-| `notify_item_click` | 点击通知 | noticeType, bizType |
-| `notify_read_all_click` | 点击全部已读 | unreadCount |
+| `system_message_open` | 打开系统消息全文流 | unreadCount |

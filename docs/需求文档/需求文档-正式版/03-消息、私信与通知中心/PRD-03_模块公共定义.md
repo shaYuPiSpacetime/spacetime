@@ -6,6 +6,8 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本07 | 2026-07-13 | Codex | 取消前台暂不回应；pending 到期自动结束并进入 7 天冷却；拆分私信会话、悄悄话申请和官方/系统消息 |
+| 版本06 | 2026-07-13 | Codex | 移动端对齐蓝湖：通知改官方/系统全文消息流，移除全部已读、独立详情与邀请响应入口 |
 | 版本04 | 2026-07-13 | Codex | 官方助手收口为操作引导，正式业务结果统一归档通知中心 |
 | 版本03 | 2026-07-13 | Codex | 明确推荐页、社区与消息中心的悄悄话/私信入口分流 |
 | 版本02 | 2026-07-02 | Codex | 按评审意见新增后台记录类型枚举与未读展示口径 |
@@ -36,10 +38,10 @@
 | 产出 ID | 产出项 | 说明 | 主要承接页面/规则 |
 |---------|--------|------|------------------|
 | `M03-OUT-conversation` | 会话与消息记录 | 私信会话、悄悄话消息、系统提示消息 | `APP-03-PAGE-message-list`、`APP-03-PAGE-private-chat`、`M03-SM-conversation` |
-| `M03-OUT-whisper` | 悄悄话破冰链路 | 发送、待回复、回复、忽略、冷却期和匹配成功事件 | `APP-03-PAGE-whisper-message`、`M03-SM-whisper` |
-| `M03-OUT-notification` | 站内通知中心 | 正式业务结果列表、通知详情、已读/未读与跳转；原官方消息详情仅作兼容路由 | `APP-03-PAGE-notification-center`、`APP-03-PAGE-notification-detail` |
+| `M03-OUT-whisper` | 悄悄话破冰链路 | 发送、待回复、回复、自动到期、冷却期和匹配成功事件 | `APP-03-PAGE-whisper-message`、`APP-03-PAGE-whisper-detail`、`M03-SM-whisper` |
+| `M03-OUT-notification` | 系统消息全文流 | 社区热点、精选、活动、公告直接全文展示；不提供移动端筛选、全部已读和独立详情 | `APP-03-PAGE-notification-center` |
 | `M03-OUT-official-assistant` | 官方助手 | 低频功能介绍、安全规则、服务号/公众号关注引导 | `APP-03-PAGE-official-assistant`、`M03-RULE-assistant-scope` |
-| `M03-OUT-invite-response` | 邀请响应 | 邀请消息在消息 Tab 内的查看与响应入口；邀请关系归 PRD-07 | `APP-03-PAGE-invite-response` |
+| `M03-OUT-invite-response` | 邀请响应（已移交） | PRD-03 不提供移动端入口；邀请关系与页面归 PRD-07 | `[已废弃]` |
 | `M03-OUT-admin-query` | 后台排查能力 | 模块补充弹窗消息互动 Tab、消息通知记录查询和举报上下文 | `ADM-03-PAGE-user-message-section`、`ADM-03-PAGE-message-record-query` |
 
 ---
@@ -51,7 +53,7 @@
 | `M03-TERM-conversation` | 会话 | 聊天房间、IM 房间 | 两名用户或用户与官方助手之间承载消息记录、未读数、发送权限和状态的业务对象 | 否 |
 | `M03-TERM-private-message` | 普通私信 | 私聊、聊天消息 | 匹配成功后双方可发送的文本消息 | 否 |
 | `M03-TERM-whisper` | 悄悄话 | 小纸条、留言 | 匹配成功前用于破冰的特殊消息，回复后触发匹配成功 | 否 |
-| `M03-TERM-official-message` | 官方消息 | 系统消息入口 | `[兼容术语]` 历史名称；一期正式结果统一称“通知”，旧入口跳转通知中心或通知详情 | 是，统一改称通知 |
+| `M03-TERM-official-message` | 系统消息 | 通知中心 | 社区运营全文消息流；与“官方小助手”并列为固定会话入口 | 是，统一改称系统消息 |
 | `M03-TERM-official-assistant` | 官方助手 | 客服助手、系统助手 | 仅提供下一步操作引导与帮助，不承担正式业务结果归档；首版不支持用户回复 | 否 |
 | `M03-TERM-notification` | 站内通知 | 通知、消息通知 | 业务事件生成的站内可追溯通知记录 | 否 |
 | `M03-TERM-female-protection` | 女性保护机制 | 女生保护、保护期 | 匹配成功后限定时间内保护女方先发权的发送约束 | 否 |
@@ -114,11 +116,10 @@
 
 | 值（code） | 显示名 | 说明 | 排序 | 是否默认 | 状态 |
 |------------|--------|------|------|----------|------|
-| `pending` | 等待回应 | 已发送并有效送达，接收方尚未回复或暂不回应 | 1 | 是 | 启用 |
+| `pending` | 等待回应 | 已发送并有效送达，接收方尚未回复 | 1 | 是 | 启用 |
 | `replied` | 已回复 | 接收方回复，触发匹配成功 | 2 | 否 | 启用 |
-| `not_responded` | 暂不回应 | 接收方主动结束本次悄悄话；发送方只看到“暂未回应” | 3 | 否 | 启用 |
-| `expired` | 已超时 | 发送后 7 天内未处理，系统自动结束 | 4 | 否 | 启用 |
-| `invalid` | 已失效 | 账号异常、拉黑、处罚、认证失效或业务关闭导致不可处理 | 5 | 否 | 启用 |
+| `expired` | 已超时 | 发送后 7 天内未回复，系统自动结束并进入冷却 | 3 | 否 | 启用 |
+| `invalid` | 已失效 | 账号异常、拉黑、处罚、认证失效或业务关闭导致不可处理 | 4 | 否 | 启用 |
 
 ### 3.6 `M03-ENUM-whisper-payment-status` 悄悄话支付状态
 
@@ -163,7 +164,7 @@
 | 值（code） | 显示名 | 说明 | 排序 | 是否默认 | 状态 |
 |------------|--------|------|------|----------|------|
 | `unread` | 未读 | 用户尚未进入会话或通知详情 | 1 | 是 | 启用 |
-| `read` | 已读 | 用户进入详情或点击全部已读 | 2 | 否 | 启用 |
+| `read` | 已读 | 用户进入对应官方/系统消息流 | 2 | 否 | 启用 |
 
 ### 3.11 `M03-ENUM-admin-record-type` 后台记录类型
 
@@ -198,8 +199,7 @@
 |----------|-----------|----------|----------|--------|
 | 无 | 支付成功且消息有效送达 | `pending` | 发送资格、内容安全、免费次数/千寻币校验通过 | 写消息、通知接收方；同对象禁止重复发送 |
 | `pending` | 接收方回复 | `replied` | 会话未失效且回复内容安全通过 | 原子执行回复落库、匹配成功、普通私信会话创建；本次回复视为女方真实消息 |
-| `pending` | 接收方暂不回应 | `not_responded` | 二次确认完成且会话未失效 | 不匹配、不退款；从处理时间起进入 7 天冷却，发送方不感知明确拒绝 |
-| `pending` | 发送满 7 天仍未处理 | `expired` | 未发生回复或暂不回应 | 不匹配、不退款；发送方可重新发起，不额外叠加冷却 |
+| `pending` | 到期任务检测发送满 7 天仍未回复 | `expired` | 未发生回复；按 whisperNo 幂等执行 | 不匹配、不退款；从到期时间起进入 7 天冷却，移动端弱化为“申请已结束” |
 | `pending` | 任一方账号异常/拉黑/处罚/认证失效 | `invalid` | 异常事件生效 | 会话不可处理，保留记录；是否退款按有效送达判定 |
 
 ### 4.3 `M03-SM-whisper-payment` 悄悄话支付状态机
@@ -218,7 +218,7 @@
 |----------|-----------|----------|----------|--------|
 | 无 | 业务事件生成通知 | `unread` | 命中 `M03-RULE-notification-scope` | 计入站内未读和消息 Tab 红点 |
 | `unread` | 用户进入通知详情 | `read` | 通知属于当前用户 | 当前通知未读数减 1 |
-| `unread` | 用户点击全部已读 | `read` | 当前通知列表存在未读 | 批量更新未读数，消息 Tab 红点刷新 |
+| `unread` | 用户进入对应消息流 | `read` | 消息属于当前用户 | 当前固定会话未读数刷新 |
 | `read` | 再次进入详情 | `read` | 已读通知 | 幂等返回，不重复计数 |
 
 ---
@@ -229,22 +229,21 @@
 |---------|----------|-------------|----------|------|
 | `M03-RULE-message-tab-scope` | 消息 Tab 可见与分层展示 | APP | 已登录用户可进入消息 Tab；未完成三重认证只展示系统通知入口和认证引导，不展示用户私信列表 | 继承一期上线目标 |
 | `M03-RULE-private-chat-open` | 普通私信开放 | APP/ADM | 双方均满足 `M01-RULE-core-access`、账号正常、未拉黑、`M02-SM-mutual-match=matched`，才可发送普通文本消息 | 废止互关私信旧口径 |
-| `M03-RULE-whisper-send` | 悄悄话发送资格 | APP/ADM | 发送方完成三重认证；双方未匹配、账号正常、未拉黑、未受聊天处罚；无同对象 `pending`；不在暂不回应冷却期；免费次数或千寻币可用 | 扣费引用 PRD-04 |
+| `M03-RULE-whisper-send` | 悄悄话发送资格 | APP/ADM | 发送方完成三重认证；双方未匹配、账号正常、未拉黑、未受聊天处罚；无同对象 `pending`；不在到期冷却期；免费次数或千寻币可用 | 扣费引用 PRD-04 |
 | `M03-RULE-whisper-repeat-limit` | 悄悄话重复发送限制 | APP | 同一发送方对同一接收方存在 `pending` 悄悄话时，不允许再次发送 | 防骚扰 |
-| `M03-RULE-whisper-ignore-cooldown` | 暂不回应冷却 | APP | 接收方主动选择“暂不回应”后，从处理时间起 7 天内发送方不可再次发送；发送方不展示明确拒绝及操作时间 | 默认固定参数 |
-| `M03-RULE-whisper-expire` | 悄悄话有效期 | APP/ADM | `pending` 满 7 天自动转 `expired`；超时后可重新发送，不额外叠加 7 天冷却 | 有效期默认固定 7 天 |
+| `M03-RULE-whisper-expire` | 悄悄话有效期与冷却 | APP/ADM | `pending` 满 7 天由定时任务或延迟队列幂等转 `expired`；从到期时间起 7 天内原发送方不可再次向同一对象发送 | 有效期与冷却期默认各 7 天 |
 | `M03-RULE-whisper-read-privacy` | 已读与拒绝隐私 | APP | 服务端可记录接收方已读，但发送方始终只见“等待回应”；不得展示已读、明确拒绝、拉黑原因和具体处理时间 | 降低催促与骚扰 |
-| `M03-RULE-whisper-payment-refund` | 悄悄话扣费与退款 | APP/ADM | 打开弹窗、编辑、资格失败、内容安全失败均不扣费；发送成功后暂不回应或超时不退款；已扣费但消息创建失败、未有效送达或平台发送后主动下架时原路补回 | 与 PRD-04 资产流水联动 |
+| `M03-RULE-whisper-payment-refund` | 悄悄话扣费与退款 | APP/ADM | 打开弹窗、编辑、资格失败、内容安全失败均不扣费；发送成功后到期未回复不退款；已扣费但消息创建失败、未有效送达或平台发送后主动下架时原路补回 | 与 PRD-04 资产流水联动 |
 | `M03-RULE-female-protection` | 女性保护机制 | APP/ADM | 匹配成功后连续 3 天内，男方在女方未发送真实用户消息前不可发送普通私信；悄悄话回复视为接收方真实用户消息，不再额外阻断该会话 | 后台可配置开关和天数 |
 | `M03-RULE-message-type-scope` | 首版消息类型范围 | APP/ADM | 只支持 `text`、`whisper`、`whisper_reply`、`system_tip`、`official`；图片、语音、撤回、通话、输入中隐藏入口 | 本期不做清单同步 |
 | `M03-RULE-conversation-invalid` | 会话失效规则 | APP/ADM | 任一方拉黑、冻结、停用、封禁、注销中、已注销或核心准入失效后，会话不可发送但历史保留 | 与举报处罚联动 |
-| `M03-RULE-unread` | 未读与红点规则 | APP | 消息 Tab 红点 = 私信/悄悄话未读 + 系统通知未读；超过 99 展示 `99+`；进入会话或通知详情后置已读 | 一期无官方助手未读 |
+| `M03-RULE-unread` | 未读与红点规则 | APP | 消息 Tab 红点 = 私信/悄悄话未读 + 官方小助手/系统消息未读；超过 99 展示 `99+`；进入对应消息流后置已读 | 不提供全部已读 |
 | `M03-RULE-review-result-in-flow` | 审核结果原流程承接 | APP/ADM | 实名、头像、学历等快速审核通过时直接进入下一步，不生成助手或系统通知；未通过时返回原认证页面，展示失败项、原因和重新提交入口；审核超时仍在原页面提示 | C 端对快速审核无额外消息感知 |
-| `M03-RULE-notification-scope` | 系统通知一期范围 | APP/ADM | 仅推社区热点话题、精选内容、社区活动、聚合召回和重要公告；不推审核结果、普通私信、悄悄话已读/暂不回应、逐条点赞或无价值营销广告 | 目标是促进社区参与和回访 |
+| `M03-RULE-notification-scope` | 系统通知一期范围 | APP/ADM | 仅推社区热点话题、精选内容、社区活动、聚合召回和重要公告；不推审核结果、普通私信、悄悄话已读/到期、逐条点赞或无价值营销广告 | 目标是促进社区参与和回访 |
 | `M03-RULE-assistant-scope` | 官方助手一期范围 | APP/ADM | 仅在首次功能使用时介绍悄悄话、私信、匹配和女性保护规则，推送安全提示、帮助入口，以及需要关注服务号/公众号时的关注引导；同一说明只推一次，不推审核结果和社区热点 | 低频、不可回复 |
 | `M03-RULE-result-single-source` | 消息归属原则 | APP/ADM | 审核结果归原认证流程；用户沟通归私信/悄悄话会话；功能说明归官方助手；社区运营内容归系统通知 | 四类内容不交叉重复 |
 | `M03-RULE-notification-setting-scope` | 通知设置范围收敛 | APP/ADM | 一期不做用户侧通知管理页，不做后台完整通知偏好中心；通知模板和订阅消息申请作为前置/后台模板能力 | 与一期目标一致 |
-| `M03-RULE-notification-subscribe` | 微信订阅消息授权 | APP/ADM | 业务节点触发订阅授权；未授权只影响微信外部提醒，不影响站内消息落库、已读、红点和通知详情 | 上线前置风险 |
+| `M03-RULE-notification-subscribe` | 微信订阅消息授权 | APP/ADM | 业务节点触发订阅授权；未授权只影响微信外部提醒，不影响站内消息落库、已读、红点和全文消息流 | 上线前置风险 |
 | `M03-RULE-report-handoff` | 聊天举报承接 | APP/ADM | 聊天页、悄悄话卡片举报统一生成举报工单，后台举报处理按来源展示上下文、处罚联动会话失效 | 不新建聊天举报中心 |
 | `M03-RULE-contact-entry-routing` | 沟通入口分流 | APP | 推荐卡片/推荐详情是悄悄话主入口；社区动态、评论、用户主页是辅助入口。未匹配时仅展示“悄悄话”并进入付费确认，禁止创建普通私信；已匹配时展示“发私信”并进入既有普通私信会话。消息中心统一承接待回复悄悄话和已匹配私信 | 发现入口不复制会话页 |
 | `ADM-03-RULE-admin-scope` | 后台承接范围 | ADM | 首版不建独立 IM 工作台；在 ADM-01 App 用户管理卡片“模块补充”弹窗、消息通知记录查询、文案模板、规则配置、举报处理、操作日志中承接 | 控制报价边界 |
@@ -257,7 +256,7 @@
 |---------|--------|--------|------|----------|-------------------|---------------------|
 | `M03-CFG-female-protection-enabled` | 女性保护机制开关 | true | bool | 移动端配置管理 -> 社交权限与消息配置 | 是 | 是 |
 | `M03-CFG-female-protection-days` | 女性保护期天数 | 3 | int | 移动端配置管理 -> 社交权限与消息配置 | 是，新会话即时按新值计算；历史会话按创建时快照 | 是 |
-| `M03-CFG-whisper-ignore-cooldown-days` | 悄悄话忽略后冷却天数 | 7 | int | 移动端配置管理 -> 社交权限与消息配置 | 是 | 是 |
+| `M03-CFG-whisper-expire-cooldown-days` | 悄悄话到期后冷却天数 | 7 | int | 移动端配置管理 -> 社交权限与消息配置 | 是 | 是 |
 | `M03-CFG-vip-free-whisper-daily` | 会员每日免费悄悄话次数 | 1 | int | 复用 PRD-04 商业化配置 | 是 | 是 |
 | `M03-CFG-unread-max-display` | 未读数最大展示 | 99+ | string | 代码固定/前端展示基线 | 是 | 否 |
 | `M03-CFG-message-page-size` | 会话历史分页条数 | 20 | int | 代码固定 | 是 | 否 |
@@ -274,7 +273,6 @@
 | `M03-EVT-message-sent` | 事件 | 普通文本消息发送成功 | 内部事件 | conversationId, senderUserId, receiverUserId, messageId | 否 |
 | `M03-EVT-whisper-sent` | 事件 | 悄悄话发送成功 | 内部事件/站内通知 | senderUserId, receiverUserId, whisperId, payType | 否 |
 | `M03-EVT-whisper-replied` | 事件 | 接收方回复悄悄话 | 内部事件 | whisperId, senderUserId, receiverUserId; 触发 PRD-02 匹配成功 | 否 |
-| `M03-EVT-whisper-not-responded` | 事件 | 接收方选择暂不回应 | 内部事件 | whisperId, senderUserId, receiverUserId, cooldownExpireTime | 否 |
 | `M03-EVT-whisper-expired` | 事件 | 悄悄话满 7 天未处理 | 内部事件 | whisperId, senderUserId, receiverUserId, expiredTime | 否 |
 | `M03-EVT-conversation-invalidated` | 事件 | 会话因拉黑/处罚/账号异常失效 | 内部事件 | conversationId, invalidReason, operatorType | 否 |
 | `M03-NTF-match-success` | 通知 | 匹配成功 | 站内通知/订阅消息 | 你们已成功匹配，快开始聊天吧 | 是 |
@@ -287,8 +285,7 @@
 | `M03-TXT-no-conversation-empty` | 文案 | 消息列表无私信会话 | APP | 还没有新的聊天，去成家看看谁和你更有缘 | 是 |
 | `M03-TXT-female-protection-block` | 文案 | 男性保护期内禁发 | APP | 已开启女生保护机制，待对方回复后即可继续聊天 | 是 |
 | `M03-TXT-whisper-waiting` | 文案 | 悄悄话发送方等待回复 | APP | 你已发送悄悄话，等待对方回复 | 是 |
-| `M03-TXT-whisper-ignored` | 文案 | 对方暂不回应或悄悄话超时 | APP | 对方暂未回应，本次悄悄话已结束 | 是 |
-| `M03-TXT-whisper-not-respond-confirm` | 文案 | 接收方暂不回应二次确认 | APP | 暂不回应后，本次悄悄话将结束；对方不会看到你做出了拒绝 | 是 |
+| `M03-TXT-whisper-expired` | 文案 | 悄悄话到期 | APP | 申请已结束 | 是 |
 | `M03-TXT-conversation-invalid` | 文案 | 会话失效 | APP | 当前会话暂不可继续聊天 | 是 |
 
 ---
@@ -326,12 +323,11 @@
 | APP | POST | `/api/app/message/messages/read` | 标记会话消息已读 | `M03-RULE-unread` |
 | APP | POST | `/api/app/message/whispers` | 发送悄悄话 | `M03-RULE-whisper-send` |
 | APP | POST | `/api/app/message/whispers/{whisperId}/reply` | 回复悄悄话 | `M03-SM-whisper` |
-| APP | POST | `/api/app/message/whispers/{whisperId}/ignore` | 忽略悄悄话 | `M03-RULE-whisper-ignore-cooldown` |
-| APP | GET | `/api/app/message/notifications` | 查询通知中心列表 | `M03-RULE-notification-scope` |
-| APP | GET | `/api/app/message/notifications/{noticeId}` | 查询通知详情 | `M03-SM-notification-read` |
-| APP | POST | `/api/app/message/notifications/read-all` | 通知中心全部已读 | `M03-RULE-unread` |
+| APP | GET | `/api/app/message/system-messages` | 查询系统消息全文流 | `M03-RULE-notification-scope` |
 | APP | POST | `/api/app/message/report` | 聊天页/悄悄话举报 | `M03-RULE-report-handoff` |
-| APP | GET | `/api/app/message/invite-response` | 查询邀请响应消息 | `M03-OUT-invite-response` |
+| APP | GET | `/api/app/message/notifications/{noticeId}` | `[已废弃]` 历史通知详情接口 | 不新增调用 |
+| APP | POST | `/api/app/message/notifications/read-all` | `[已废弃]` 历史全部已读接口 | 不新增调用 |
+| APP | GET | `/api/app/message/invite-response` | `[已废弃]` 邀请响应接口由 PRD-07 承接 | `M03-OUT-invite-response` |
 | ADM | GET | `/api/admin/users/{userId}/messages/summary` | 查询用户消息互动摘要 | `ADM-03-PAGE-user-message-section` |
 | ADM | GET | `/api/admin/users/{userId}/messages/conversations` | 查询用户详情私信会话 Tab | `M03-SM-conversation` |
 | ADM | GET | `/api/admin/users/{userId}/messages/whispers` | 查询用户详情悄悄话记录 Tab | `M03-SM-whisper` |
@@ -348,9 +344,11 @@
   "unreadSummary": {
     "privateUnreadCount": 3,
     "officialUnreadCount": 2,
-    "notificationUnreadCount": 4,
-    "totalUnreadCount": 9,
-    "displayText": "9"
+    "whisperUnreadCount": 1,
+    "assistantUnreadCount": 2,
+    "systemUnreadCount": 4,
+    "totalUnreadCount": 10,
+    "displayText": "10"
   },
   "officialMessage": {
     "title": "官方消息",
@@ -433,7 +431,7 @@
 | 未匹配成功尝试普通私信 | 拦截发送，提示相互喜欢后才能聊天 | `M03-RULE-private-chat-open` |
 | 悄悄话发送成功但长期未回复 | 保持 `pending_whisper`，不自动转普通私信 | `M03-SM-whisper` |
 | 同一对象上一条悄悄话未处理 | 不允许重复发送新的悄悄话 | `M03-RULE-whisper-repeat-limit` |
-| 悄悄话被忽略 | 本次关闭，发送方 7 天内不可再次发送 | `M03-RULE-whisper-ignore-cooldown` |
+| 悄悄话到期未回复 | 后台自动结束，从到期时间起进入 7 天冷却 | `M03-RULE-whisper-expire` |
 | 悄悄话回复成功 | 立即触发 PRD-02 匹配成功并切换为普通私信态 | `M03-EVT-whisper-replied` |
 | 男性保护期内先发消息 | 输入框置灰，展示女性保护提示 | `M03-RULE-female-protection` |
 | 女性保护期内女方发送真实消息 | 男性侧立即恢复发送能力 | `M03-RULE-female-protection` |
@@ -452,11 +450,11 @@
 | M03-DEV-P0-01 | 消息列表与未读红点 | 底部消息 Tab、官方消息卡片、私信列表、未读汇总 |
 | M03-DEV-P0-02 | 私信对话页 | 文本消息、历史分页、已读、发送失败重试 |
 | M03-DEV-P0-03 | 悄悄话回复态 | 待回复、回复、忽略、冷却期、匹配事件 |
-| M03-DEV-P0-04 | 通知中心与通知详情 | 列表、筛选、单条已读、全部已读、跳转 |
+| M03-DEV-P0-04 | 官方小助手与系统消息全文流 | 固定入口、全文卡片、单会话已读、行动跳转 |
 | M03-DEV-P0-05 | 官方助手与官方消息详情 | 官方消息入口、官方助手聊天页、不可回复说明 |
 | M03-DEV-P0-06 | 女性保护机制 | 男性侧禁发、女方回复解锁、后台配置快照 |
 | M03-DEV-P0-07 | 举报与拉黑承接 | 聊天页更多菜单、举报工单、拉黑会话失效 |
-| M03-DEV-P0-08 | 邀请响应页 | 邀请消息查看与跳转 PRD-07 承接 |
+| M03-DEV-P0-08 | 邀请响应页 | `[已移交 PRD-07]`，PRD-03 不实现 |
 
 ### 11.2 可延后
 

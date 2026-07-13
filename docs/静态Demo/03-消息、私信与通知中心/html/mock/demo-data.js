@@ -42,6 +42,21 @@ window.DEMO_DATA = {
     { type: 'text', title: '安全交流提示', text: '请勿泄露验证码、银行卡等敏感信息，遇到异常可在会话内举报。', time: '09:20' },
     { type: 'card', title: '关注服务号', text: '如需在小程序外接收重要提醒，可按需关注平台服务号。', action: '去关注', time: '09:30' }
   ],
+  whisperApplications: {
+    received: [
+      { id: 'W01', name: '一只筱脑虎', status: '未处理', action: '回复' },
+      { id: 'W02', name: '愉快', status: '未处理', action: '回复' },
+      { id: 'W03', name: '其他', status: '未处理', action: '回复' },
+      { id: 'W04', name: '极品ID', status: '已处理', action: '已回复匹配成功' },
+      { id: 'W05', name: '山里', status: '已处理', action: '申请已结束', expired: true },
+      { id: 'W06', name: '城居', status: '已处理', action: '对方取消申请' }
+    ],
+    sent: [
+      { id: 'S01', name: '一只筱脑虎', status: '等待回复', action: '' },
+      { id: 'S02', name: '愉快', status: '等待回复', action: '' },
+      { id: 'S03', name: '其他', status: '申请已结束', action: '', expired: true }
+    ]
+  },
   notifications: [
     {
       id: 'NTF202607020001',
@@ -76,7 +91,7 @@ window.DEMO_DATA = {
       summary: '发布你的周末路线，参与社区话题互动',
       time: '1 小时前',
       read: true,
-      jumpType: 'notification_detail',
+      jumpType: 'community',
       target: 'community-activity'
     },
     {
@@ -88,8 +103,8 @@ window.DEMO_DATA = {
       summary: '今晚 23:00 至 23:30 社区发布功能短暂维护',
       time: '昨天',
       read: true,
-      jumpType: 'notification_detail',
-      target: 'notification-detail'
+      jumpType: 'none',
+      target: ''
     }
   ],
   whisper: {
@@ -139,7 +154,7 @@ window.DEMO_DATA = {
   ],
   configLogs: [
     { time: '2026-07-02 10:31', user: '运营主管', action: '修改女性保护期天数', detail: '3 天 -> 3 天，确认无变更' },
-    { time: '2026-07-01 18:42', user: '风控', action: '调整悄悄话暂不回应冷却', detail: '7 天；待回应有效期另为 7 天' }
+    { time: '2026-07-01 18:42', user: '风控', action: '调整悄悄话到期后冷却', detail: '有效期 7 天；到期后冷却 7 天' }
   ],
   reportRows: [
     {

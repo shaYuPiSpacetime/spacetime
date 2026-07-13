@@ -105,23 +105,18 @@
                   <strong>消息</strong>
                   <button class="nav-icon" type="button" data-toast="进入通知中心">铃</button>
                 </div>
-                <div class="state-controls">
-                  <button class="tab-btn is-active" type="button" data-set-message-mode data-value="default">主态</button>
-                  <button class="tab-btn" type="button" data-set-message-mode data-value="auth">未认证</button>
-                  <button class="tab-btn" type="button" data-set-message-mode data-value="empty">无会话</button>
-                </div>
-
                 <div class="state-screen is-active" data-message-state="default">
-                  <article class="message-hero-card">
-                    <span>系统通知 · 2 条未读</span>
-                    <h2>你的学历认证已通过</h2>
-                    <p>认证、治理、资产和活动结果统一在通知中心查看。</p>
-                    <button class="btn primary full" type="button" data-toast="进入系统通知中心">查看系统通知</button>
-                  </article>
+                  <div class="message-entry-grid">
+                    <button class="message-entry application" type="button" data-scroll-target="APP-03-PAGE-whisper-message"><strong>悄悄话</strong><span>3 条待回复</span></button>
+                    <button class="message-entry private" type="button" data-scroll-target="APP-03-PAGE-private-list"><strong>私信</strong><span>有个小秘密只告诉你</span></button>
+                  </div>
+                  <article class="message-row"><div class="avatar">♥</div><div class="row-main"><strong>喜欢我的人（119人）</strong><span>解锁喜欢你的人，即刻匹配</span></div><span>10:23</span></article>
+                  <article class="message-row" data-toast="进入官方小助手全文页"><div class="avatar official">官</div><div class="row-main"><strong>官方小助手</strong><span>第一次使用悄悄话：了解申请与匹配规则</span></div><span>昨天</span></article>
+                  <article class="message-row" data-toast="进入系统消息全文页"><div class="avatar official">铃</div><div class="row-main"><strong>系统消息</strong><span>本周社区热点话题等你参与</span></div><span>昨天</span></article>
                   <div class="message-list" data-render="conversations"></div>
                 </div>
 
-                <div class="state-screen" data-message-state="auth">
+                <div class="state-screen demo-reference-state" data-message-state="auth">
                   <article class="message-hero-card">
                     <span>系统通知保留</span>
                     <h2>完成认证后开启真实聊天</h2>
@@ -133,7 +128,7 @@
                   </div>
                 </div>
 
-                <div class="state-screen" data-message-state="empty">
+                <div class="state-screen demo-reference-state" data-message-state="empty">
                   <article class="message-hero-card">
                     <span>系统通知</span>
                     <h2>暂无新的系统通知</h2>
@@ -159,6 +154,14 @@
           </div>
         </section>
 
+        <section class="section-band" id="APP-03-PAGE-private-list">
+          <div class="page-head"><h2>APP-03-PAGE-private-list 私信列表页</h2><p>独立承接匹配成功后的普通私信会话，不混入悄悄话、官方助手或系统消息。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:44</span><span>私信</span></div><div class="phone-screen"><div class="app-nav"><span class="nav-icon">‹</span><strong>私信</strong><span class="nav-icon"></span></div><div class="message-list" data-render="private-conversations"></div></div></article>
+            <article class="mini-panel"><h3>还原点</h3><ul class="check-list"><li><span>仅展示已匹配会话</span><strong>独立列表</strong></li><li><span>点击会话进入普通私信</span><strong>APP-03-PAGE-private-chat</strong></li><li><span>顶部无筛选、清理图标</span><strong>按确认结论</strong></li></ul></article>
+          </div>
+        </section>
+
         <section class="section-band" id="APP-03-PAGE-private-chat">
           <div class="page-head">
             <h2>APP-03-PAGE-private-chat 私信对话页</h2>
@@ -171,15 +174,10 @@
                 <div class="app-nav">
                   <span class="nav-icon">‹</span>
                   <strong>林同学</strong>
-                  <button class="nav-icon" type="button" data-open-modal="chatMoreModal">···</button>
+                  <span class="nav-icon"></span>
                 </div>
-                <div class="state-controls">
-                  <button class="tab-btn is-active" type="button" data-set-chat-mode data-value="active">可发送</button>
-                  <button class="tab-btn" type="button" data-set-chat-mode data-value="protected">女性保护</button>
-                  <button class="tab-btn" type="button" data-set-chat-mode data-value="invalid">失效</button>
-                </div>
-
                 <div class="state-screen is-active" data-chat-state="active">
+                  <article class="match-success-card"><strong>配对成功开启聊天</strong><h3>聊天小贴士</h3><p>建议相互信任后再交换联系方式；警惕金钱往来；遇到骚扰请进入对方主页举报或拉黑。</p></article>
                   <div class="chat-surface" data-render="chat-messages"></div>
                   <div class="input-bar">
                     <input value="周末一起去看展吗？" aria-label="输入消息">
@@ -187,7 +185,7 @@
                   </div>
                 </div>
 
-                <div class="state-screen" data-chat-state="protected">
+                <div class="state-screen demo-reference-state" data-chat-state="protected">
                   <div class="chat-surface">
                     <div class="bubble system">你们已成功匹配，当前命中女生保护机制。</div>
                     <div class="bubble left"><strong>系统提示</strong><span>待对方先回复后即可继续聊天。</span></div>
@@ -195,7 +193,7 @@
                   <div class="input-bar is-disabled">已开启女生保护机制，待对方回复后即可继续聊天</div>
                 </div>
 
-                <div class="state-screen" data-chat-state="invalid">
+                <div class="state-screen demo-reference-state" data-chat-state="invalid">
                   <div class="chat-surface">
                     <div class="bubble system">当前会话暂不可继续聊天，历史消息保留。</div>
                     <div class="bubble left"><strong>失效原因</strong><span>对方账号异常或已拉黑。</span></div>
@@ -210,7 +208,8 @@
                 <li><span>未匹配不能发普通私信</span><strong>M03-RULE-private-chat-open</strong></li>
                 <li><span>女性保护期男方禁发</span><strong>M03-RULE-female-protection</strong></li>
                 <li><span>拉黑/封禁后会话失效</span><strong>M03-RULE-conversation-invalid</strong></li>
-                <li><span>举报和拉黑由更多菜单承接</span><strong>聊天举报</strong></li>
+                <li><span>点击头像进入个人主页</span><strong>举报/拉黑在主页</strong></li>
+                <li><span>悄悄话回复后进入私信</span><strong>不再触发女性保护</strong></li>
               </ul>
             </article>
           </div>
@@ -227,7 +226,7 @@
               <div class="phone-screen">
                 <div class="app-nav"><span class="nav-icon">‹</span><strong>官方助手</strong><span class="nav-icon">官</span></div>
                 <div class="message-list" data-render="assistant-messages"></div>
-                <div class="input-bar is-disabled">官方助手仅提供使用指引，暂不支持回复</div>
+                <div class="message-footer"><button class="btn" data-toast="联系客服">联系客服</button><button class="btn" data-toast="查看社区规则">社区规则</button></div>
               </div>
             </article>
             <article class="mini-panel">
@@ -245,7 +244,7 @@
         <section class="section-band" id="APP-03-PAGE-whisper-message">
           <div class="page-head">
             <h2>APP-03-PAGE-whisper-message 悄悄话消息页</h2>
-            <p>展示匹配前完整链路：付费发送、等待回应、回复匹配、暂不回应、超时、失效和退款。</p>
+            <p>对齐蓝湖展示申请我的/我申请的列表、付费申请、回复匹配和过期反向申请。</p>
           </div>
           <div class="section-body phone-stage">
             <article class="phone">
@@ -254,27 +253,26 @@
                 <div class="app-nav">
                   <span class="nav-icon">‹</span>
                   <strong>悄悄话</strong>
-                  <button class="nav-icon" type="button" data-toast="打开更多菜单">···</button>
+                  <span class="nav-icon"></span>
                 </div>
                 <div class="state-controls">
-                  <button class="tab-btn is-active" type="button" data-set-whisper-mode data-value="receiver">接收方</button>
-                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="sender">发送方</button>
-                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="replied">已回复</button>
-                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="not_responded">暂不回应</button>
-                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="expired">已超时</button>
-                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="invalid">失效</button>
-                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="refunded">已退款</button>
+                  <button class="tab-btn is-active" type="button" data-set-whisper-mode data-value="received">申请我的</button>
+                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="sent">我申请的</button>
                 </div>
-                <div data-render="whisper-card"></div>
+                <div class="whisper-application-list" data-render="whisper-applications"></div>
               </div>
+            </article>
+            <article class="phone">
+              <div class="phone-bar"><span>10:04</span><span>悄悄话详情</span></div>
+              <div class="phone-screen"><div class="app-nav"><span class="nav-icon">‹</span><strong>悄悄话详情</strong><span class="nav-icon"></span></div><div class="whisper-detail" data-render="whisper-detail"></div></div>
             </article>
             <article class="mini-panel">
               <h3>还原点</h3>
               <ul class="check-list">
                 <li><span>同一对象 pending 时不可重复发送</span><strong>M03-ERR-whisper-duplicate-pending</strong></li>
                 <li><span>接收方回复触发匹配成功</span><strong>M03-EVT-whisper-replied</strong></li>
-                <li><span>暂不回应匿名结束并进入 7 天冷却</span><strong>M03-RULE-whisper-read-privacy</strong></li>
-                <li><span>7 天未处理自动超时，可重新发起</span><strong>M03-RULE-whisper-expire</strong></li>
+                <li><span>后台结束/失效状态</span><strong>移动端弱化展示</strong></li>
+                <li><span>7 天未处理自动超时</span><strong>原接收方可反向申请</strong></li>
                 <li><span>扣费和免费次数归 PRD-04</span><strong>跨模块</strong></li>
               </ul>
             </article>
@@ -283,27 +281,20 @@
 
         <section class="section-band" id="APP-03-PAGE-notification-center">
           <div class="page-head">
-            <h2>APP-03-PAGE-notification-center 系统通知</h2>
-            <p>只推社区热点、精选内容、社区活动和重要公告，用于促进用户参与和回访。</p>
+            <h2>APP-03-PAGE-notification-center 系统消息全文页</h2>
+            <p>点击系统消息后直接阅读全文消息流，不经过筛选列表或独立详情。</p>
           </div>
           <div class="section-body phone-stage">
             <article class="phone">
-              <div class="phone-bar"><span>10:08</span><span>通知中心</span></div>
+              <div class="phone-bar"><span>10:08</span><span>系统消息</span></div>
               <div class="phone-screen">
                 <div class="app-nav">
                   <span class="nav-icon">‹</span>
-                  <strong>通知中心</strong>
-                  <button class="btn" type="button" data-toast="当前用户通知全部置已读">全部已读</button>
+                  <strong>系统消息</strong>
+                  <span class="nav-icon"></span>
                 </div>
-                <div class="state-controls">
-                  <button class="tab-btn is-active" type="button" data-set-notification-filter data-value="全部">全部</button>
-                  <button class="tab-btn" type="button" data-set-notification-filter data-value="热点">热点</button>
-                  <button class="tab-btn" type="button" data-set-notification-filter data-value="精选">精选</button>
-                  <button class="tab-btn" type="button" data-set-notification-filter data-value="活动">活动</button>
-                  <button class="tab-btn" type="button" data-set-notification-filter data-value="公告">公告</button>
-                </div>
-                <div class="notification-list" data-render="notifications"></div>
-                <div class="notice-panel" data-render="notification-detail"></div>
+                <div class="system-message-flow" data-render="system-message-flow"></div>
+                <div class="message-footer"><button class="btn" data-toast="联系客服">联系客服</button><button class="btn" data-toast="查看社区规则">社区规则</button></div>
               </div>
             </article>
             <article class="mini-panel">
@@ -312,7 +303,7 @@
                 <li><span>审核通过/失败</span><strong>回原认证流程</strong></li>
                 <li><span>私信/悄悄话</span><strong>留在会话内</strong></li>
                 <li><span>热点、精选、活动、公告</span><strong>系统通知</strong></li>
-                <li><span>点击详情或目标页时单条置已读</span><strong>M03-SM-notification-read</strong></li>
+                <li><span>消息正文直接完整展示</span><strong>无独立通知详情</strong></li>
                 <li><span>微信订阅未授权不影响站内通知</span><strong>M03-RULE-notification-subscribe</strong></li>
                 <li><span>不做用户通知设置入口</span><strong>一期不做</strong></li>
               </ul>
@@ -323,25 +314,13 @@
     </main>
   </div>
 
-  <div class="modal-backdrop" id="chatMoreModal" aria-hidden="true">
+  <div class="modal-backdrop" id="deleteWhisperModal" aria-hidden="true">
     <div class="modal">
-      <h2>更多操作</h2>
-      <div class="form-stack">
-        <button class="btn" type="button" data-toast="进入对方主页">查看主页</button>
-        <button class="btn" type="button" data-toast="进入举报流程">举报</button>
-        <button class="btn danger" type="button" data-toast="拉黑后会话变为 blocked">拉黑</button>
-      </div>
-      <div class="modal-actions"><button class="btn" onclick="DemoCommon.closeModal(this)">关闭</button></div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="ignoreWhisperModal" aria-hidden="true">
-    <div class="modal">
-      <h2>暂不回应</h2>
-      <p>暂不回应后，本次悄悄话将结束；对方不会看到你做出了拒绝。对方 7 天内不能再次发送。</p>
+      <h2>删除申请记录</h2>
+      <p>仅删除当前用户列表中的记录，不影响对方侧记录和关系状态。</p>
       <div class="modal-actions">
         <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
-        <button class="btn primary" type="button" data-confirm-ignore>确认暂不回应</button>
+        <button class="btn danger" type="button" data-delete-all-whispers>全部删除</button>
       </div>
     </div>
   </div>
@@ -351,12 +330,12 @@
       <h2>发送悄悄话</h2>
       <p>支付成功后才能发送。对方回复后，双方匹配成功并转为普通私信。</p>
       <div class="form-stack">
-        <label>悄悄话内容<textarea rows="3">你好，看到你也喜欢看展，想认识一下。</textarea></label>
-        <div class="notice-panel">本次消耗：会员免费次数 1 次或按 PRD-04 扣除千寻币</div>
+        <label>悄悄话内容<textarea rows="3" maxlength="60">你好，看到你也喜欢看展，想认识一下。</textarea></label>
+        <div class="notice-panel">0/60 · 本次消耗 100 千寻币；会员每天免费申请一次</div>
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
-        <button class="btn primary" type="button" data-confirm-whisper-pay>确认支付并发送</button>
+        <button class="btn primary" type="button" data-confirm-whisper-pay>立即申请</button>
       </div>
     </div>
   </div>
