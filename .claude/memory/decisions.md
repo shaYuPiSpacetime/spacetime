@@ -74,3 +74,26 @@ PRD-03 需要普通私信、悄悄话、官方消息、历史消息、未读、�
 - Positive: 不自建 IM 基础设施，现有小程序视觉和 PRD 状态可以继续由 Taro 组件实现。
 - Negative: 需要自行实现气泡、消息列表、失败重试、悄悄话卡片和状态降级；需要维护腾讯云回调和本地消息副本。
 - Migration: 先完成 Taro + 无 UI SDK POC，再添加 IM 账号、UserSig、回调、业务表和消息页面；任何 SecretKey 只通过后端私有环境变量提供。
+
+## 2026-07-13: 聊天客户端 SDK 锁定 LiteChat V4 标准版
+
+### Context
+
+上一条决策确定采用腾讯云 IM 无 UI SDK，但未锁定具体 npm 包、功能档位和发送边界。PRD-03 需要会话列表、历史消息、未读和已读能力，基础版 LiteChat 不满足；专业版增加的好友、关注和黑名单能力与本项目已有业务模型重叠。普通文本若同时调用后端发送接口和客户端 SDK，会形成双发送链路和状态不一致。
+
+### Options Considered
+
+1. **`@tencentcloud/lite-chat/basic`** — 包体积较小，但缺少会话、历史和已读能力。
+2. **`@tencentcloud/lite-chat` 标准版** — 覆盖会话、历史、未读、已读和自定义消息，能力边界与当前需求匹配。
+3. **`@tencentcloud/lite-chat/professional`** — 功能更多，但社交关系能力重复且增加包体积。
+4. **V3 `@tencentcloud/chat` 或 TUIKit** — V3 不是后续能力主线；TUIKit 不满足当前 Taro 高还原自绘要求。
+
+### Decision
+
+选择 **LiteChat V4 标准版默认入口 `@tencentcloud/lite-chat`**，POC 固定版本为 `4.4.1`。小程序不接入 TUIKit，UI 由 Taro 自绘。普通文本只通过 LiteChat 直发并由单聊消息前回调最终裁决；悄悄话和官方消息由后端事务、Outbox 和 IM REST API 编排。
+
+### Consequences
+
+- Positive: 会话、历史、未读和已读能力一次覆盖，避免自建实时通信和双发送链路。
+- Negative: 标准版会增加小程序包体，且 Taro 构建、真机生命周期和 SDK 升级都必须经过 POC 门禁。
+- Migration: 先以 4.4.1 完成 POC 并固定锁文件，再实现客户端适配层、版本化消息协议、统一回调入口和 Outbox；后续升级不得自动跟随 `latest`。
