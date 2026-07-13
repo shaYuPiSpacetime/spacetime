@@ -9,6 +9,7 @@ import com.spacetime.common.dao.TradeOrderDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserCoinLogDao;
 import com.spacetime.common.dao.VipPackageDao;
+import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.CoinPackage;
 import com.spacetime.common.entity.PaymentNotifyLog;
@@ -61,6 +62,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentNotifyLogDao paymentNotifyLogDao;
     /** 微信支付服务 */
     private final WechatPayService wechatPayService;
+    /** 微信支付配置，用于测试环境覆盖网关扣款金额 */
+    private final WechatPayProperties wechatPayProperties;
 
     /**
      * 创建支付订单（VIP套餐或成家币套餐购买）
@@ -116,7 +119,11 @@ public class PaymentServiceImpl implements PaymentService {
         tradeOrderDao.insert(order);
 
         // 3. 调用微信 JSAPI 预支付并落库 prepayId
-        WechatPayParamsVO payParams = wechatPayService.createJsapiPayParams(order, user.getOpenid(), payAmount);
+        WechatPayParamsVO payParams = wechatPayService.createJsapiPayParams(
+                order,
+                user.getOpenid(),
+                resolveWechatPaymentAmount(payAmount)
+        );
         order.setPrepayId(payParams.getPrepayId());
         tradeOrderDao.updateById(order);
 
@@ -128,6 +135,14 @@ public class PaymentServiceImpl implements PaymentService {
         vo.setPayChannel(order.getPayChannel());
         vo.setPayParams(payParams);
         return vo;
+    }
+
+    /**
+     * 仅覆盖微信网关实际扣款金额，订单和页面继续保留套餐原价。
+     */
+    private BigDecimal resolveWechatPaymentAmount(BigDecimal packageAmount) {
+        BigDecimal testAmount = wechatPayProperties == null ? null : wechatPayProperties.getTestAmount();
+        return testAmount != null && testAmount.compareTo(BigDecimal.ZERO) > 0 ? testAmount : packageAmount;
     }
 
     @Override

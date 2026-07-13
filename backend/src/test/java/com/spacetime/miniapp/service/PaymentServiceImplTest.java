@@ -1,6 +1,7 @@
 package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.*;
+import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
@@ -38,7 +39,8 @@ class PaymentServiceImplTest {
     @Mock private AppUserDao appUserDao;
     @Mock private PaymentNotifyLogDao paymentNotifyLogDao;
     @Mock private WechatPayService wechatPayService;
-    @InjectMocks private PaymentServiceImpl paymentService;
+    private final WechatPayProperties wechatPayProperties = new WechatPayProperties();
+    private PaymentServiceImpl paymentService;
 
     private VipPackage vipPackage;
     private CoinPackage coinPackage;
@@ -49,6 +51,18 @@ class PaymentServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        wechatPayProperties.setTestAmount(null);
+        paymentService = new PaymentServiceImpl(
+                vipPackageDao,
+                coinPackageDao,
+                tradeOrderDao,
+                userAssetDao,
+                userCoinLogDao,
+                appUserDao,
+                paymentNotifyLogDao,
+                wechatPayService,
+                wechatPayProperties
+        );
         vipPackage = new VipPackage();
         vipPackage.setId(1L);
         vipPackage.setPackageName("月卡");
@@ -113,6 +127,46 @@ class PaymentServiceImplTest {
         assertThat(result.getPayParams()).isEqualTo(payParams);
         verify(tradeOrderDao).insert(argThat(o -> "unpaid".equals(o.getOrderStatus())));
         verify(tradeOrderDao).updateById(argThat(o -> "wx_pre_1".equals(o.getPrepayId())));
+    }
+
+    @Test
+    @DisplayName("测试环境创建VIP订单-仅微信扣款金额为0.01元，订单展示金额保持原价")
+    void createVipOrder_testAmountShouldOnlyApplyToWechatPayment() {
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(1L);
+
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        wechatPayProperties.setTestAmount(new BigDecimal("0.01"));
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), any(BigDecimal.class)))
+                .thenReturn(payParams);
+
+        CreateOrderVO result = paymentService.createOrder(1L, req);
+
+        assertThat(result.getPayAmount()).isEqualByComparingTo("19.90");
+        verify(tradeOrderDao).insert(argThat(order -> order.getPayAmount().compareTo(new BigDecimal("19.90")) == 0));
+        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("0.01")));
+    }
+
+    @Test
+    @DisplayName("测试环境创建千寻币订单-仅微信扣款金额为0.01元，订单展示金额保持原价")
+    void createCoinOrder_testAmountShouldOnlyApplyToWechatPayment() {
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("coin");
+        req.setPackageId(2L);
+
+        when(coinPackageDao.selectById(2L)).thenReturn(coinPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        wechatPayProperties.setTestAmount(new BigDecimal("0.01"));
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), any(BigDecimal.class)))
+                .thenReturn(payParams);
+
+        CreateOrderVO result = paymentService.createOrder(1L, req);
+
+        assertThat(result.getPayAmount()).isEqualByComparingTo("6.00");
+        verify(tradeOrderDao).insert(argThat(order -> order.getPayAmount().compareTo(new BigDecimal("6.00")) == 0));
+        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("0.01")));
     }
 
     @Test

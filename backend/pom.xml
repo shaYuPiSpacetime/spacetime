@@ -110,8 +110,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[21,23)</version>
-                                    <message>JDK 21 or 22 is required. Current: ${java.version}</message>
+                                    <version>[21,)</version>
+                                    <message>JDK 21 or newer is required. Current: ${java.version}</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>

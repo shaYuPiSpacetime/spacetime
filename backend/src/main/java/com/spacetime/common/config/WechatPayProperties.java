@@ -4,6 +4,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 
 /**
  * 微信支付配置
@@ -28,4 +29,6 @@ public class WechatPayProperties {
     private String notifyUrl;
     /** 商品描述前缀 */
     private String descriptionPrefix = "时空邂逅";
+    /** 测试环境传给微信的覆盖金额；为空时使用套餐真实金额 */
+    private BigDecimal testAmount;
 }
