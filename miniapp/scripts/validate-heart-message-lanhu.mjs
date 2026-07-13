@@ -7,16 +7,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
 const repoDir = path.resolve(rootDir, '..')
 const read = relativePath => fs.readFileSync(path.join(rootDir, relativePath), 'utf8')
+const readOptional = relativePath => {
+  const file = path.join(rootDir, relativePath)
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
+}
 
 const chat = read('src/pages/chat/index.tsx')
 const heart = read('src/pages/community/index.tsx')
 const mutual = read('src/pages/heart/mutual.tsx')
 const user = read('src/pages/heart/user.tsx')
 const heartHeader = read('src/components/HeartMessageHeader.tsx')
-const membershipHook = read('src/hooks/useMembership.ts')
-const membershipPage = read('src/pages/membership/index.tsx')
+const heartMembership = readOptional('src/pages/heart/membership-unlock.tsx')
 const appConfig = read('src/app.config.ts')
-const runtime = `${chat}\n${heart}\n${mutual}\n${user}`
+const runtime = `${chat}\n${heart}\n${mutual}\n${user}\n${heartMembership}`
 
 for (const asset of ['heart-person.webp', 'heart-person-blur.webp', 'heart-avatar.webp']) {
   const file = path.join(rootDir, 'src/assets/lanhu/heart-message', asset)
@@ -38,6 +41,7 @@ assert.match(heart, /解锁全部访客/, '心动页解锁按钮文案必须与�
 assert.match(heart, /只看ta\(100/, '单人解锁按钮文案和币值必须与蓝湖一致')
 assert.match(heart, /\/pages\/heart\/mutual/, '胶囊左侧图标必须跳转相互喜欢页')
 assert.match(heart, /\/pages\/coins\/index\?sourceScene=likes_unlock_one/, '单人解锁“只看ta”必须进入千寻币充值页')
+assert.match(heart, /\/pages\/heart\/membership-unlock/, '“解锁全部访客”必须进入独立会员页')
 assert.doesNotMatch(heart, /onUnlock=\{\(\) => setUnlockStage\('success'\)\}/, '单人解锁不能在未扣币时伪造解锁成功')
 assert.match(heartHeader, /onRightIconClick/, '头部右侧图标必须暴露真实点击事件')
 assert.match(heartHeader, /miniappOssIcons\.heartMutualLikes/, '相互喜欢入口必须使用蓝湖无损 OSS 图标')
@@ -48,11 +52,18 @@ assert.match(user, /免费开聊/, '用户主页底部主按钮必须与蓝湖�
 assert.match(appConfig, /root: 'pages\/heart'/, '相互喜欢和用户主页必须注册心动分包')
 assert.match(appConfig, /'mutual'/, '相互喜欢页面必须注册')
 assert.match(appConfig, /'user'/, '用户主页必须注册')
-assert.match(membershipHook, /DEFAULT_MEMBERSHIP_PLANS/, '会员套餐接口空白时必须保留蓝湖基线展示数据')
-assert.match(membershipHook, /DEFAULT_MEMBERSHIP_BENEFITS/, '会员权益接口空白时必须保留蓝湖基线展示数据')
-assert.match(membershipHook, /setPlans\(DEFAULT_MEMBERSHIP_PLANS\)/, '会员套餐请求失败或返回空数组时不得静默清空中部')
-assert.match(membershipHook, /setBenefits\(DEFAULT_MEMBERSHIP_BENEFITS\)/, '会员权益请求失败或返回空数组时不得静默清空中部')
-assert.match(membershipPage, /plan\.id <= 0/, '蓝湖兜底套餐不得使用占位 ID 创建真实支付订单')
+assert.match(appConfig, /'membership-unlock'/, '访客解锁会员独立页必须注册')
+assert.match(heartMembership, /时空邂逅会员/, '独立会员页标题必须与蓝湖一致')
+assert.match(heartMembership, /免费解锁全部对你心动的人/, '独立会员页主标题必须与蓝湖一致')
+assert.match(heartMembership, /心动名单一键揭晓/, '独立会员页必须还原心动名单权益卡')
+assert.match(heartMembership, /谁来看过你/, '独立会员页必须还原访客权益卡')
+assert.match(heartMembership, /plan\.id <= 0/, '蓝湖展示套餐不得使用占位 ID 创建真实支付订单')
+assert.doesNotMatch(heartMembership, /pages\/membership\/index|MembershipHero|MembershipPaymentBar/, '访客解锁会员页不得复用“我的-开通会员”视觉组件')
+assert.equal(
+  fs.existsSync(path.join(rootDir, 'src/assets/lanhu/heart-message/heart-mutual-likes.png')),
+  true,
+  '相互喜欢入口的蓝湖 2x 无损图标源文件必须存在',
+)
 assert.doesNotMatch(runtime, /lanhuapp\.com|alipic\.lanhuapp|\.lanhu-ref/, '运行代码禁止引用蓝湖 CDN 或参考图目录')
 assert.doesNotMatch(runtime, /letterSpacing:\s*['"]-/, '蓝湖还原禁止负字距')
 
