@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本05 | 2026-07-13 | Codex | 审核结果回原流程；官方助手只做低频引导；系统通知只做社区运营内容 |
 | 版本02 | 2026-07-13 | Codex | 明确推荐页、社区与消息中心的沟通入口分流，补齐付费破冰转匹配私信闭环 |
 | 版本01 | 2026-07-02 | Codex | 正式版初稿，按一期上线目标收口消息列表、私信、官方助手、官方消息、悄悄话、通知中心、通知详情与邀请响应 |
 
@@ -78,10 +79,10 @@
 出口：回复后进入普通私信；暂不回应/超时/失效后本次结束；退款可查看资产明细
 ```
 
-### 3.3 通知中心流程
+### 3.3 系统通知中心流程
 
 ```text
-入口：消息列表右上角通知图标、官方消息卡片、业务节点回流
+入口：消息列表系统通知卡片、社区内容运营触达
 正常路径：
   1. 业务事件生成 `M03-ENUM-notification-type` 通知
   2. 通知进入通知中心并计入未读
@@ -113,8 +114,8 @@
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
-| 会话 | `message_conversation` | 用户间私信、悄悄话和官方助手会话 | 03 | conversationNo, conversationType, userAId, userBId, status, lastMessageTime |
-| 消息记录 | `message_record` | 文本、悄悄话、官方消息、系统提示 | 03 | messageNo, conversationNo, senderUserId, receiverUserId, messageType, sendStatus |
+| 会话 | `message_conversation` | 用户间私信和悄悄话会话 | 03 | conversationNo, conversationType, userAId, userBId, status, lastMessageTime |
+| 消息记录 | `message_record` | 文本、悄悄话和系统提示 | 03 | messageNo, conversationNo, senderUserId, receiverUserId, messageType, sendStatus |
 | 悄悄话记录 | `message_whisper` | 悄悄话发送、回复、忽略和冷却 | 03/04 | whisperNo, senderUserId, receiverUserId, status, payType |
 | 通知记录 | `message_notification` | 站内通知中心记录 | 03 | noticeNo, userId, noticeType, bizType, readStatus, jumpType |
 | 未读汇总 | `message_unread_summary` | 消息 Tab 红点和分组未读 | 03 | userId, privateUnreadCount, officialUnreadCount, notificationUnreadCount |
@@ -146,10 +147,9 @@ PRD-07 邀请关系 1──N 邀请响应通知
 
 | 需求 ID | 能力 | 优先级 | 关联页面 ID | 备注 |
 |---------|------|--------|-------------|------|
-| `APP-03-RULE-message-list` | 消息列表、官方消息卡片、私信会话列表、未读红点 | P0 | `APP-03-PAGE-message-list` | 一期保留 |
+| `APP-03-RULE-message-list` | 消息列表、系统通知入口、私信/悄悄话会话和未读红点 | P0 | `APP-03-PAGE-message-list` | 一期保留 |
+| `APP-03-RULE-official-assistant` | 首次功能介绍、安全提示、帮助与服务号/公众号关注引导 | P0 | `APP-03-PAGE-official-assistant` | 低频、不可回复、不推审核结果 |
 | `APP-03-RULE-private-chat` | 匹配成功后文本私信、已读、历史分页、发送失败 | P0 | `APP-03-PAGE-private-chat` | 普通私信只在匹配后开放 |
-| `APP-03-RULE-official-assistant` | 官方助手聊天页、平台提示与客服引导 | P0 | `APP-03-PAGE-official-assistant` | 不等同人工客服 IM |
-| `APP-03-RULE-official-message-detail` | 官方消息详情 | P0 | `APP-03-PAGE-official-message-detail` | 官方消息不可回复 |
 | `APP-03-RULE-whisper` | 悄悄话消息、回复、忽略、冷却与匹配事件 | P0 | `APP-03-PAGE-whisper-message` | 扣费引用 PRD-04 |
 | `APP-03-RULE-notification-center` | 通知中心列表、筛选、已读、全部已读 | P0 | `APP-03-PAGE-notification-center` | 不做通知设置页 |
 | `APP-03-RULE-notification-detail` | 通知详情与跳转 | P0 | `APP-03-PAGE-notification-detail` | |
@@ -192,7 +192,6 @@ PRD-07 邀请关系 1──N 邀请响应通知
 | `APP-03-PAGE-message-list` | 消息列表页 | `../页面规格/APP-01_消息列表页.md` | MVP-PAGE-033 | P0 |
 | `APP-03-PAGE-private-chat` | 私信对话页 | `../页面规格/APP-02_私信对话页.md` | MVP-PAGE-034 | P0 |
 | `APP-03-PAGE-official-assistant` | 官方助手聊天页 | `../页面规格/APP-03_官方助手聊天页.md` | MVP-PAGE-035 | P0 |
-| `APP-03-PAGE-official-message-detail` | 官方消息详情页 | `../页面规格/APP-04_官方消息详情页.md` | MVP-PAGE-036 | P0 |
 | `APP-03-PAGE-whisper-message` | 悄悄话消息页 | `../页面规格/APP-05_悄悄话消息页.md` | MVP-PAGE-037 | P0 |
 | `APP-03-PAGE-notification-center` | 通知中心页 | `../页面规格/APP-06_通知中心页.md` | MVP-PAGE-038 | P0 |
 | `APP-03-PAGE-notification-detail` | 通知详情页 | `../页面规格/APP-07_通知详情页.md` | MVP-PAGE-039 | P0 |

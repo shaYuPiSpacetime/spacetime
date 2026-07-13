@@ -38,60 +38,57 @@ window.DEMO_DATA = {
     { side: 'right failed', name: '我', text: '这条消息发送失败，可重试。', time: '10:22' }
   ],
   assistantMessages: [
-    { type: 'text', title: '认证结果通知', text: '你的学历认证已通过，资料可信度已更新。', time: '09:12' },
-    { type: 'card', title: '女生保护机制说明', text: '匹配成功后，保护期内男方需要等待女方先发送真实消息。', action: '查看规则', time: '09:20' },
-    { type: 'text', title: '客服引导', text: '官方助手暂不支持直接回复，如需反馈请从对应页面进入举报或客服入口。', time: '09:30' }
+    { type: 'card', title: '第一次使用悄悄话', text: '付费发送后等待对方回应；对方回复即匹配成功并转为普通私信。', action: '了解规则', time: '09:12' },
+    { type: 'text', title: '安全交流提示', text: '请勿泄露验证码、银行卡等敏感信息，遇到异常可在会话内举报。', time: '09:20' },
+    { type: 'card', title: '关注服务号', text: '如需在小程序外接收重要提醒，可按需关注平台服务号。', action: '去关注', time: '09:30' }
   ],
-  officialDetail: {
-    title: '学历认证已通过',
-    source: '官方消息',
-    time: '2026-07-02 09:12',
-    content: '你的学历认证已通过，已获得学历认证标识。完成实名、头像、学历认证后，可继续使用真实聊天、悄悄话和通知中心能力。',
-    jumpType: 'auth_center'
-  },
   notifications: [
     {
       id: 'NTF202607020001',
-      type: '互动通知',
-      bizType: 'match_success',
-      title: '你们已成功匹配',
-      summary: '快开始一段真实聊天吧',
+      type: '系统通知',
+      category: '热点',
+      bizType: 'community_hot_topic',
+      title: '同城年轻人最近都在聊什么？',
+      summary: '本周同城热议话题正在升温，来分享你的看法',
       time: '5 分钟前',
       read: false,
-      jumpType: 'chat',
-      target: 'private-chat'
+      jumpType: 'h5',
+      target: 'community-topic'
     },
     {
       id: 'NTF202607020002',
-      type: '互动通知',
-      bizType: 'invite_response',
-      title: '你的邀请有新的响应',
-      summary: '好友已完成邀请绑定，奖励处理中',
+      type: '系统通知',
+      category: '精选',
+      bizType: 'featured_content',
+      title: '本周精选：如何建立舒服的关系边界',
+      summary: '社区高质量讨论精选，已有 326 人参与',
       time: '18 分钟前',
       read: false,
-      jumpType: 'invite_response',
-      target: 'invite-response'
+      jumpType: 'h5',
+      target: 'community-content'
     },
     {
       id: 'NTF202607020003',
       type: '系统通知',
-      bizType: 'auth_result',
-      title: '头像审核已通过',
-      summary: '你的资料展示已更新',
+      category: '活动',
+      bizType: 'community_activity',
+      title: '城市漫步话题活动开始了',
+      summary: '发布你的周末路线，参与社区话题互动',
       time: '1 小时前',
       read: true,
       jumpType: 'notification_detail',
-      target: 'notification-detail'
+      target: 'community-activity'
     },
     {
       id: 'NTF202607020004',
-      type: '资产通知',
-      bizType: 'coin_changed',
-      title: '千寻币余额变动',
-      summary: '悄悄话消费 6 千寻币',
+      type: '系统通知',
+      category: '公告',
+      bizType: 'platform_announcement',
+      title: '社区服务维护公告',
+      summary: '今晚 23:00 至 23:30 社区发布功能短暂维护',
       time: '昨天',
       read: true,
-      jumpType: 'asset',
+      jumpType: 'notification_detail',
       target: 'notification-detail'
     }
   ],
@@ -130,16 +127,6 @@ window.DEMO_DATA = {
       time: '2026-07-02 08:40:00'
     },
     {
-      recordNo: 'OFF202607020003',
-      recordType: 'official_message',
-      userNo: 'U100281',
-      targetUserNo: '-',
-      preview: '你的学历认证已通过',
-      title: '学历认证已通过',
-      status: '已读',
-      time: '2026-07-02 09:12:00'
-    },
-    {
       recordNo: 'NTF202607020002',
       recordType: 'notification',
       userNo: 'U100281',
@@ -152,7 +139,6 @@ window.DEMO_DATA = {
   ],
   configLogs: [
     { time: '2026-07-02 10:31', user: '运营主管', action: '修改女性保护期天数', detail: '3 天 -> 3 天，确认无变更' },
-    { time: '2026-07-02 10:12', user: '超级管理员', action: '开启官方助手入口', detail: '入口开关保持开启' },
     { time: '2026-07-01 18:42', user: '风控', action: '调整悄悄话暂不回应冷却', detail: '7 天；待回应有效期另为 7 天' }
   ],
   reportRows: [

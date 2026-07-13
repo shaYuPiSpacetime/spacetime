@@ -17,7 +17,7 @@
 ## 1. 页面定位
 
 - **目标用户**：已登录用户
-- **核心任务**：查看互动、系统、资产、活动和邀请响应等站内通知
+- **核心任务**：查看社区热点、精选内容、社区活动、聚合召回和重要公告
 - **页面类型**：列表页
 
 ---
@@ -41,7 +41,7 @@
 | 区块 | 位置 | 内容 | 是否可折叠 | 是否记住展开状态 |
 |------|------|------|------------|------------------|
 | 顶部栏 | 顶部 | 返回、标题、全部已读 | 否 | 否 |
-| 类型筛选 | 顶部下方 | 全部、互动、系统、资产、活动 | 否 | 本次页面内保留 |
+| 类型筛选 | 顶部下方 | 全部、热点、精选、活动、公告 | 否 | 本次页面内保留 |
 | 通知列表 | 主体 | 标题、摘要、时间、未读点 | 否 | 否 |
 
 ### 2.3 弹层 / 抽屉 / 模态
@@ -76,7 +76,7 @@
 | 筛选 ID | 筛选名 | 类型 | 选项来源 | 是否多选 | 默认值 | 是否可清除 |
 |---------|--------|------|----------|----------|--------|------------|
 | `APP-03-PAGE-notification-center-FILTER-type` | 通知类型 | 分段控件 | `M03-ENUM-notification-type` | 否 | 全部 | 是 |
-| `APP-03-PAGE-notification-center-FILTER-biz-type` | 业务类型 | 二级筛选标签 | `M03-ENUM-notification-biz-type`；一级选择互动时显式展示邀请响应 | 否 | 全部 | 是 |
+| `APP-03-PAGE-notification-center-FILTER-biz-type` | 业务类型 | 分段控件 | `M03-ENUM-notification-biz-type` | 否 | 全部 | 是 |
 
 ### 3.3 筛选交互
 
@@ -141,8 +141,7 @@
 | 触发字段 | 触发事件 | 影响字段 | 联动行为 | 备注 |
 |----------|----------|----------|----------|------|
 | 类型筛选 | 切换 | 列表 | 按一级通知类型查询第一页 | `M03-ENUM-notification-type` |
-| 业务类型筛选 | 选择 `invite_response` | 列表 | 查询邀请响应通知，一级类型固定归属互动通知 | `M03-ENUM-notification-biz-type` |
-| `jumpType` | `invite_response` | 页面跳转 | 跳转 `APP-03-PAGE-invite-response`，携带 `noticeNo`、`responseNo`/`jumpValue` | `M03-ENUM-jump-type` |
+| 业务类型筛选 | 选择热点/精选/活动/公告 | 列表 | 按社区运营业务类型查询 | `M03-ENUM-notification-biz-type` |
 | 打开详情 | 成功 | 已读状态 | 单条置已读 | `M03-SM-notification-read` |
 | 全部已读 | 确认 | 未读汇总 | 清零通知未读 | `M03-RULE-unread` |
 
@@ -181,7 +180,7 @@
 | `APP-03-AC-notification-center-filter` | 按通知类型筛选 | 正常 | P0 |
 | `APP-03-AC-notification-read-all` | 全部已读 | 正常 | P0 |
 | `APP-03-AC-notification-no-setting` | 无通知设置入口 | 正常 | P0 |
-| `APP-03-AC-notification-invite-response-jump` | 邀请响应通知跳转邀请响应页 | 正常 | P0 |
+| `APP-03-AC-notification-community-only` | 通知中心只展示社区运营内容 | 正常 | P0 |
 
 ```text
 AC-ID: APP-03-AC-notification-read-all
@@ -191,10 +190,10 @@ Then  当前用户通知记录状态变为 `read`，消息 Tab 通知未读数�
 ```
 
 ```text
-AC-ID: APP-03-AC-notification-invite-response-jump
-Given 通知中心存在一条 `bizType=invite_response` 且 `jumpType=invite_response` 的未读通知
-When  用户点击该通知
-Then  系统将通知置为 `read`，并携带 `noticeNo` 与 `jumpValue` 进入 `APP-03-PAGE-invite-response`
+AC-ID: APP-03-AC-notification-community-only
+Given 实名或头像审核完成，且社区存在新的热点话题
+When  系统生成用户触达
+Then  审核结果不生成通知；通知中心仅新增热点话题通知，点击进入对应社区内容
 ```
 
 ---

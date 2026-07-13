@@ -87,24 +87,23 @@
             <div class="admin-summary-grid">
               <article class="stat-card"><span>今日私信</span><strong>1,248</strong></article>
               <article class="stat-card"><span>等待回应悄悄话</span><strong>86</strong></article>
-              <article class="stat-card"><span>官方消息</span><strong>312</strong></article>
+              <article class="stat-card"><span>系统通知</span><strong>312</strong></article>
               <article class="stat-card"><span>站内通知</span><strong>4,902</strong></article>
             </div>
             <div class="query-panel">
               <h2>查询条件</h2>
               <div class="query-grid">
                 <label class="control-field">用户/编号搜索<input value="U100281"></label>
-                <label class="control-field">记录类型<select data-record-type-filter><option value="全部">全部</option><option value="private_message">私信记录</option><option value="whisper_message">悄悄话记录</option><option value="official_message">官方消息记录</option><option value="notification">站内通知记录</option></select></label>
-                <label class="control-field">消息类型<select><option>全部</option><option>text</option><option>whisper</option><option>official</option></select></label>
-                <label class="control-field">通知类型<select><option>全部</option><option>interaction</option><option>system</option><option>asset</option></select></label>
+                <label class="control-field">记录类型<select data-record-type-filter><option value="全部">全部</option><option value="private_message">私信记录</option><option value="whisper_message">悄悄话记录</option><option value="notification">系统通知记录</option></select></label>
+                <label class="control-field">消息类型<select><option>全部</option><option>text</option><option>whisper</option></select></label>
+                <label class="control-field">通知内容<select><option>全部</option><option>community_hot_topic</option><option>featured_content</option><option>community_activity</option><option>platform_announcement</option></select></label>
                 <label class="control-field">状态<select><option>全部</option><option>已发送</option><option>未读</option><option>已读</option><option>失败</option></select></label>
                 <label class="control-field">时间范围<input type="date" value="2026-07-02"></label>
               </div>
               <div class="record-type-help">
                 <div><strong>private_message</strong><span>普通私信记录</span></div>
                 <div><strong>whisper_message</strong><span>悄悄话记录</span></div>
-                <div><strong>official_message</strong><span>官方消息记录</span></div>
-                <div><strong>notification</strong><span>站内通知记录</span></div>
+                <div><strong>notification</strong><span>系统通知记录</span></div>
               </div>
             </div>
             <div class="table-wrap">
@@ -123,7 +122,7 @@
             <div class="admin-page-header">
               <div>
                 <h1>社交权限与消息配置</h1>
-                <p>移动端配置管理独立页面。首版只配置女性保护、悄悄话冷却、官方助手和通知模板说明，不做完整通知偏好中心。</p>
+                <p>移动端配置管理独立页面。首版只配置女性保护、悄悄话冷却和系统通知模板，不做完整通知偏好中心。</p>
               </div>
               <div class="admin-actions">
                 <button class="btn" type="button" data-open-drawer="configLogDrawer">查看变更日志</button>
@@ -135,13 +134,15 @@
               <article class="stat-card"><span>保护期</span><strong>3 天</strong></article>
               <article class="stat-card"><span>暂不回应冷却</span><strong>7 天</strong></article>
               <article class="stat-card"><span>待回应有效期</span><strong>7 天</strong></article>
-              <article class="stat-card"><span>官方助手</span><strong>开启</strong></article>
+              <article class="stat-card"><span>系统通知模板</span><strong>已启用</strong></article>
+              <article class="stat-card"><span>官方助手</span><strong>低频引导</strong></article>
             </div>
             <div class="config-grid">
               <div class="config-item"><div class="switch-line"><strong>女性保护机制</strong><span class="mini-switch">开</span></div><span>匹配成功后 3 天内，男方等待女方先发送真实用户消息。</span></div>
               <label class="config-item"><strong>女性保护期天数</strong><input type="number" value="3"><span>高风险配置，保存需二次确认。</span></label>
               <label class="config-item"><strong>悄悄话暂不回应冷却天数</strong><input type="number" value="7"><span>接收方选择暂不回应后，同一发送方 7 天内不可再次发送；发送方不感知明确拒绝。</span></label>
-              <div class="config-item"><div class="switch-line"><strong>官方助手入口</strong><span class="mini-switch">开</span></div><span>仅平台提示、规则说明和客服引导，不接人工客服 IM。</span></div>
+              <div class="config-item"><div class="switch-line"><strong>官方助手内容范围</strong><span class="mini-switch">开</span></div><span>只允许首次功能介绍、安全提示、帮助入口和服务号/公众号关注引导；禁止配置审核结果。</span></div>
+              <div class="config-item"><div class="switch-line"><strong>系统通知内容范围</strong><span class="mini-switch">开</span></div><span>只允许社区热点、精选内容、社区活动、聚合召回和重要公告。</span></div>
               <div class="config-item"><div class="switch-line"><strong>用户通知设置页</strong><span class="mini-switch off">不做</span></div><span>一期目标明确不做用户侧通知设置页。</span></div>
               <div class="config-item"><div class="switch-line"><strong>后台通知偏好中心</strong><span class="mini-switch off">不做</span></div><span>只保留通知模板与订阅消息前置准备。</span></div>
             </div>

@@ -27,7 +27,7 @@
         <a href="#contact-entry-routing">入口分流</a>
         <a href="#APP-03-PAGE-message-list">消息列表</a>
         <a href="#APP-03-PAGE-private-chat">私信对话</a>
-        <a href="#APP-03-PAGE-official-assistant">官方助手/详情</a>
+        <a href="#APP-03-PAGE-official-assistant">官方助手</a>
         <a href="#APP-03-PAGE-whisper-message">悄悄话</a>
         <a href="#APP-03-PAGE-notification-center">通知/邀请响应</a>
       </aside>
@@ -36,7 +36,7 @@
         <section class="hero-band message-hero">
           <div class="hero-copy">
             <h1>移动端消息链路</h1>
-            <p>覆盖消息 Tab、匹配后私信、女性保护、官方助手、悄悄话破冰、通知中心、通知详情和邀请响应跳转。</p>
+            <p>覆盖消息 Tab、匹配后私信、女性保护、悄悄话破冰、系统通知中心、通知详情和邀请响应跳转。</p>
             <div class="metric-strip">
               <div class="metric"><strong>8</strong><span>页面规格</span></div>
               <div class="metric"><strong>99+</strong><span>红点规则</span></div>
@@ -49,7 +49,7 @@
             <ul class="check-list">
               <li><span>普通私信</span><strong>匹配后开放</strong></li>
               <li><span>通知设置页</span><strong>不做</strong></li>
-              <li><span>官方助手</span><strong>不可回复</strong></li>
+              <li><span>官方助手</span><strong>低频使用引导</strong></li>
               <li><span>邀请响应</span><strong>PRD-03 承接展示</strong></li>
             </ul>
           </div>
@@ -112,17 +112,17 @@
 
                 <div class="state-screen is-active" data-message-state="default">
                   <article class="message-hero-card">
-                    <span>官方消息 · 2 条未读</span>
+                    <span>系统通知 · 2 条未读</span>
                     <h2>你的学历认证已通过</h2>
-                    <p>点击进入官方消息或通知中心查看详情。</p>
-                    <button class="btn primary full" type="button" data-toast="进入官方消息详情">查看官方消息</button>
+                    <p>认证、治理、资产和活动结果统一在通知中心查看。</p>
+                    <button class="btn primary full" type="button" data-toast="进入系统通知中心">查看系统通知</button>
                   </article>
                   <div class="message-list" data-render="conversations"></div>
                 </div>
 
                 <div class="state-screen" data-message-state="auth">
                   <article class="message-hero-card">
-                    <span>官方消息保留</span>
+                    <span>系统通知保留</span>
                     <h2>完成认证后开启真实聊天</h2>
                     <p>未完成三重认证时，不展示用户私信会话。</p>
                   </article>
@@ -134,8 +134,8 @@
 
                 <div class="state-screen" data-message-state="empty">
                   <article class="message-hero-card">
-                    <span>官方消息</span>
-                    <h2>暂无新的官方消息</h2>
+                    <span>系统通知</span>
+                    <h2>暂无新的系统通知</h2>
                     <p>系统消息和通知中心仍可进入。</p>
                   </article>
                   <div class="empty-panel">
@@ -150,7 +150,7 @@
               <h3>还原点</h3>
               <ul class="check-list">
                 <li><span>消息 Tab 对已登录用户可见</span><strong>M03-RULE-message-tab-scope</strong></li>
-                <li><span>未认证只展示官方消息和通知入口</span><strong>认证引导</strong></li>
+                <li><span>未认证只展示系统通知入口</span><strong>认证引导</strong></li>
                 <li><span>未读数超过 99 展示 99+</span><strong>M03-RULE-unread</strong></li>
                 <li><span>不展示通知设置入口</span><strong>一期不做</strong></li>
               </ul>
@@ -217,29 +217,25 @@
 
         <section class="section-band" id="APP-03-PAGE-official-assistant">
           <div class="page-head">
-            <h2>APP-03-PAGE-official-assistant / official-message-detail 官方助手与官方消息详情</h2>
-            <p>官方助手不支持用户输入；引导卡片可以打开官方消息详情。</p>
+            <h2>APP-03-PAGE-official-assistant 官方助手</h2>
+            <p>只介绍平台功能、安全规则和服务号/公众号关注方式；不展示实名、头像、学历等审核结果。</p>
           </div>
           <div class="section-body phone-stage">
             <article class="phone">
               <div class="phone-bar"><span>9:52</span><span>官方助手</span></div>
               <div class="phone-screen">
-                <div class="app-nav">
-                  <span class="nav-icon">‹</span>
-                  <strong>官方助手</strong>
-                  <span class="nav-icon">官</span>
-                </div>
+                <div class="app-nav"><span class="nav-icon">‹</span><strong>官方助手</strong><span class="nav-icon">官</span></div>
                 <div class="message-list" data-render="assistant-messages"></div>
-                <div class="input-bar is-disabled">官方助手暂不支持直接回复</div>
-                <div class="notice-panel" data-render="official-detail"></div>
+                <div class="input-bar is-disabled">官方助手仅提供使用指引，暂不支持回复</div>
               </div>
             </article>
             <article class="mini-panel">
-              <h3>还原点</h3>
+              <h3>一期范围</h3>
               <ul class="check-list">
-                <li><span>官方助手不是人工客服 IM</span><strong>不可回复</strong></li>
-                <li><span>进入官方助手后未读置已读</span><strong>M03-RULE-unread</strong></li>
-                <li><span>跳转类型由卡片按钮承接</span><strong>M03-ENUM-jump-type</strong></li>
+                <li><span>悄悄话/私信首次使用介绍</span><strong>同类只推一次</strong></li>
+                <li><span>文明交流与防诈骗提示</span><strong>安全引导</strong></li>
+                <li><span>服务号/公众号关注引导</span><strong>按需触发</strong></li>
+                <li><span>认证审核结果</span><strong>不进入消息</strong></li>
               </ul>
             </article>
           </div>
@@ -286,8 +282,8 @@
 
         <section class="section-band" id="APP-03-PAGE-notification-center">
           <div class="page-head">
-            <h2>APP-03-PAGE-notification-center / notification-detail / invite-response 通知与邀请响应</h2>
-            <p>通知中心支持一级类型和邀请响应二级筛选；`jumpType=invite_response` 直接进入邀请响应页并置已读。</p>
+            <h2>APP-03-PAGE-notification-center 系统通知</h2>
+            <p>只推社区热点、精选内容、社区活动和重要公告，用于促进用户参与和回访。</p>
           </div>
           <div class="section-body phone-stage">
             <article class="phone">
@@ -300,20 +296,21 @@
                 </div>
                 <div class="state-controls">
                   <button class="tab-btn is-active" type="button" data-set-notification-filter data-value="全部">全部</button>
-                  <button class="tab-btn" type="button" data-set-notification-filter data-value="互动通知">互动</button>
-                  <button class="tab-btn" type="button" data-set-notification-filter data-value="邀请响应">邀请响应</button>
-                  <button class="tab-btn" type="button" data-set-notification-filter data-value="系统通知">系统</button>
-                  <button class="tab-btn" type="button" data-set-notification-filter data-value="资产通知">资产</button>
+                  <button class="tab-btn" type="button" data-set-notification-filter data-value="热点">热点</button>
+                  <button class="tab-btn" type="button" data-set-notification-filter data-value="精选">精选</button>
+                  <button class="tab-btn" type="button" data-set-notification-filter data-value="活动">活动</button>
+                  <button class="tab-btn" type="button" data-set-notification-filter data-value="公告">公告</button>
                 </div>
                 <div class="notification-list" data-render="notifications"></div>
                 <div class="notice-panel" data-render="notification-detail"></div>
-                <div data-render="invite-response"></div>
               </div>
             </article>
             <article class="mini-panel">
               <h3>还原点</h3>
               <ul class="check-list">
-                <li><span>邀请响应归属互动通知</span><strong>M03-ENUM-notification-biz-type</strong></li>
+                <li><span>审核通过/失败</span><strong>回原认证流程</strong></li>
+                <li><span>私信/悄悄话</span><strong>留在会话内</strong></li>
+                <li><span>热点、精选、活动、公告</span><strong>系统通知</strong></li>
                 <li><span>点击详情或目标页时单条置已读</span><strong>M03-SM-notification-read</strong></li>
                 <li><span>微信订阅未授权不影响站内通知</span><strong>M03-RULE-notification-subscribe</strong></li>
                 <li><span>不做用户通知设置入口</span><strong>一期不做</strong></li>

@@ -37,7 +37,7 @@
         <section class="hero-band message-hero" id="scope">
           <div class="hero-copy">
             <h1>03-消息、私信与通知中心静态 Demo</h1>
-            <p>覆盖消息列表、普通私信、官方助手、官方消息详情、悄悄话、通知中心、通知详情、邀请响应和后台查询/配置/举报承接。页面为纯静态 HTML，数据全部来自 mock。</p>
+            <p>覆盖消息列表、普通私信、悄悄话、低频官方助手、社区系统通知、通知详情和后台查询/配置/举报承接。</p>
             <div class="metric-strip">
               <div class="metric"><strong>8</strong><span>移动端页面</span></div>
               <div class="metric"><strong>2</strong><span>后台独立页</span></div>
@@ -49,7 +49,7 @@
             <a class="portal-card" href="miniapp.html">
               <div>
                 <h2>移动端 Demo</h2>
-                <p>消息 Tab、私信会话、官方助手，以及悄悄话从付费发送、等待回应、回复匹配到暂不回应、超时和退款的完整闭环。</p>
+                <p>消息 Tab、私信会话、低频官方助手、社区系统通知，以及悄悄话从付费发送到匹配或结束的完整闭环。</p>
               </div>
               <span class="btn primary">进入移动端</span>
             </a>
@@ -72,7 +72,7 @@
             <div class="page-grid">
               <article class="setting-card">
                 <h3>移动端正式 PRD</h3>
-                <p>消息列表、普通私信、官方助手、官方消息详情、悄悄话、通知中心、通知详情、邀请响应。</p>
+                <p>消息列表、普通私信、悄悄话、系统通知中心、通知详情、邀请响应。</p>
               </article>
               <article class="setting-card">
                 <h3>后台正式 PRD</h3>
@@ -128,12 +128,12 @@
           </div>
           <div class="section-body">
             <ul class="check-list">
-              <li><span>未完成三重认证用户进入消息 Tab，只看官方消息、通知和认证引导</span><strong>移动端</strong></li>
+              <li><span>未完成三重认证用户进入消息 Tab，只看系统通知入口和认证引导</span><strong>移动端</strong></li>
               <li><span>匹配成功后进入普通私信；女性保护期内男性侧禁发</span><strong>移动端</strong></li>
               <li><span>悄悄话支付成功后发送；回复即匹配，暂不回应匿名结束，7 天未处理自动超时</span><strong>移动端</strong></li>
               <li><span>已扣费但未有效送达时原路退款；发送方不可见已读、明确拒绝和拉黑原因</span><strong>移动端</strong></li>
               <li><span>通知中心点击 `invite_response` 通知，直接进入邀请响应页并置已读</span><strong>移动端</strong></li>
-              <li><span>后台按 `M03-ENUM-admin-record-type` 查询私信、悄悄话、官方消息和通知</span><strong>后台</strong></li>
+              <li><span>后台按 `M03-ENUM-admin-record-type` 查询私信、悄悄话和系统通知</span><strong>后台</strong></li>
               <li><span>聊天举报在举报处理原页面展示上下文，处罚联动会话失效和站内通知</span><strong>后台合并</strong></li>
             </ul>
           </div>

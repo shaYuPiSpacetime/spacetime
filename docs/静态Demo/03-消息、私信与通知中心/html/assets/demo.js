@@ -106,8 +106,7 @@
   function visibleNotifications() {
     const rows = data.notifications || [];
     if (state.notificationFilter === '全部') return rows;
-    if (state.notificationFilter === '邀请响应') return rows.filter((item) => item.bizType === 'invite_response');
-    return rows.filter((item) => item.type === state.notificationFilter);
+    return rows.filter((item) => item.category === state.notificationFilter);
   }
 
   function renderNotifications() {
