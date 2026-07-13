@@ -1,8 +1,10 @@
 package com.spacetime.miniapp.service;
 
-import com.spacetime.miniapp.dto.request.ProfileInitSaveReq;
+import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
+import com.spacetime.miniapp.dto.request.ProfileInitStepReq;
 import com.spacetime.miniapp.dto.request.ProfileUpdateReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
+import com.spacetime.miniapp.dto.response.BasicProfileVO;
 import com.spacetime.miniapp.dto.response.ProfileDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileInitStatusVO;
 
@@ -23,15 +25,7 @@ public interface ProfileService {
      * @param req 步骤号 + 当前步骤字段
      * @return 更新后的步骤状态
      */
-    ProfileInitStatusVO saveInit(Long userId, ProfileInitSaveReq req);
-
-    /**
-     * 完成五步资料并标记首登完成
-     * @param userId 用户ID
-     * @param req 最后一步字段
-     * @return 完整资料详情
-     */
-    ProfileDetailVO completeInit(Long userId, ProfileInitSaveReq req);
+    ProfileInitStatusVO saveInitStep(Long userId, ProfileInitStepReq req);
 
     /**
      * 查看资料详情
@@ -39,6 +33,12 @@ public interface ProfileService {
      * @return 完整资料 + 准入状态
      */
     ProfileDetailVO getDetail(Long userId);
+
+    /** 查询基础资料页反显值与动态字段配置。 */
+    BasicProfileVO getBasicProfile(Long userId);
+
+    /** 保存基础资料页全部已展示字段。 */
+    BasicProfileVO saveBasicProfile(Long userId, BasicProfileSaveReq req);
 
     /**
      * 增量更新资料（null 字段不更新）

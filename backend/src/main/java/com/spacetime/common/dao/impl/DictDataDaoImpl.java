@@ -34,6 +34,21 @@ public class DictDataDaoImpl implements DictDataDao {
     }
 
     @Override
+    public List<SysDictData> selectChildren(String dictType, Long parentId, boolean enabledOnly) {
+        return dictDataMapper.selectChildren(dictType, parentId, enabledOnly);
+    }
+
+    @Override
+    public SysDictData selectEnabledByTypeAndValue(String dictType, String dictValue) {
+        return dictDataMapper.selectOne(
+                new LambdaQueryWrapper<SysDictData>()
+                        .eq(SysDictData::getDictType, dictType)
+                        .eq(SysDictData::getDictValue, dictValue)
+                        .eq(SysDictData::getStatus, CommonStatusEnum.ENABLED.getCode())
+                        .last("LIMIT 1"));
+    }
+
+    @Override
     public List<SysDictData> selectList(LambdaQueryWrapper<SysDictData> wrapper) {
         return dictDataMapper.selectList(wrapper);
     }

@@ -123,11 +123,7 @@ const DEFAULT_CONFIGS: Record<Prd01ConfigGroup, AppConfigVO[]> = {
     config(EDUCATION_SLA_HOURS_KEY, '24', 'NUMBER', '学历审核承诺时间（小时）'),
     config(COPY_CONFIG_KEY, JSON.stringify({ rows: [] }), 'JSON', '准入/认证文案配置'),
     config(TEXT_LENGTH_CONFIG_KEY, JSON.stringify({ rows: [] }), 'JSON', '开放文本长度文案配置'),
-    config(SMS_SECURITY_CONFIG_KEY, JSON.stringify({ items: [] }), 'JSON', '短信验证码安全策略'),
-    config('prd01.audit.voice.provider', 'MOCK', 'TEXT', '语音 Provider 首版 mock 成功'),
-    config('prd01.audit.text.provider', 'MOCK', 'TEXT', '文字 Provider 首版 mock 成功'),
-    config('prd01.audit.openText.types', 'ABOUT_ME,HOPE_THEY_KNOW,PROFILE_QA', 'TEXT', '开放性文字审核类型'),
-    config('prd01.audit.showSource', 'true', 'BOOLEAN', '审核来源筛选与列表展示'),
+    config(SMS_SECURITY_CONFIG_KEY, JSON.stringify({ rows: [] }), 'JSON', '短信验证码安全策略'),
   ],
 };
 
@@ -163,8 +159,8 @@ const FIELD_CONFIG_ROWS: FieldConfigRow[] = [
   fieldRow('账号流程', '登录协议/隐私协议同意', 'agreementAccepted', '登录授权页', 'fixed', 'fixed', 'none', true, true, '0', '0'),
 
   fieldRow('轻量资料', '性别', 'gender', '性别选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '3', '3'),
-  fieldRow('轻量资料', '出生日期', 'birthday', '基本资料页', 'configurable', 'configurable', 'configurable', true, true, '3', '3'),
-  fieldRow('轻量资料', '身份', 'identityType', '身份选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '2', '2'),
+  fieldRow('轻量资料', '年龄', 'birthday', '年龄选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '3', '3'),
+  fieldRow('轻量资料', '身份', 'identity', '身份选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '2', '2'),
   fieldRow('轻量资料', '最高学历', 'educationLevel', '学历选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '4', '4'),
   fieldRow('轻量资料', '现居省份', 'locationProvince', '现居地选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '2', '2'),
   fieldRow('轻量资料', '现居城市', 'locationCity', '现居地选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '2', '2'),

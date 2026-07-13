@@ -2321,8 +2321,9 @@ Controller 统一返回 `R<T>`：
     "realNameRejectReason": null,
     "educationStatus": "PENDING",
     "educationRejectReason": null,
-    "avatarVerifyStatus": "NONE",
+    "avatarVerifyStatus": "NOT_SUBMITTED",
     "avatarVerifyRejectReason": null,
+    "avatarCanSubmit": true,
     "profilePhotoAuditStatus": null,
     "openTextAuditStatus": null,
     "verifyLevel": 1,
@@ -2332,7 +2333,7 @@ Controller 统一返回 `R<T>`：
 ```
 
 说明：
-- `realNameStatus` / `educationStatus` / `avatarVerifyStatus` 取值：`NONE`（未提交）/ `PENDING`（审核中）/ `APPROVED`（已通过）/ `REJECTED`（已驳回）
+- `realNameStatus` / `educationStatus` / `avatarVerifyStatus` 取值：`NOT_SUBMITTED`（未提交）/ `PENDING`（待审核）/ `REVIEWING`（审核中）/ `APPROVED`（已通过）/ `REJECTED`（已驳回）/ `EXPIRED`（已失效）
 - `verifyLevel` 为已通过认证项数量（0-3）
 - `unlockMateRecommend` 实名认证通过后为 `true`
 
@@ -2350,20 +2351,20 @@ Controller 统一返回 `R<T>`：
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `realName` | String | 是 | 真实姓名 |
-| `idCard` | String | 是 | 18 位身份证号 |
+| `idCardNo` | String | 是 | 18 位身份证号 |
+| `singleCommitmentChecked` | Boolean | 是 | 单身承诺和认证协议确认，必须为 `true` |
 
 请求示例：
 
 ```json
 {
   "realName": "张三",
-  "idCard": "110101199003076633"
+  "idCardNo": "110101199003076633",
+  "singleCommitmentChecked": true
 }
 ```
 
 响应字段同 15.1 认证状态查询。
-
-Mock 模式下（`MOCK_ENABLED=true`）：直接返回 `realNameStatus: "APPROVED"`，不请求后端。
 
 ### 15.3 提交学历认证
 
@@ -2378,41 +2379,54 @@ Mock 模式下（`MOCK_ENABLED=true`）：直接返回 `realNameStatus: "APPROVE
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `educationMethod` | String | 是 | 认证方式：`CHSI`（学信网）/ `ONLINE_CODE`（在线验证码）/ `DIPLOMA_NO`（证书编号） |
-| `verificationCode` | String | 否 | 在线验证码（`ONLINE_CODE` 时必填） |
-| `diplomaNo` | String | 否 | 证书编号（`DIPLOMA_NO` 时必填） |
+| `educationUserType` | String | 是 | `STUDENT`（在校生）或 `MAINLAND_GRADUATE`（中国大陆毕业生） |
+| `educationMethod` | String | 是 | `STUDENT_CARD`、`CHSI`、`DIPLOMA_NO`、`MATERIAL_UPLOAD` |
+| `schoolName` | String | 是 | 学校名称 |
+| `educationLevel` | String | 是 | 学历字典 code |
+| `chsiCode` | String | 条件必填 | 学信网在线验证码 |
+| `diplomaNo` | String | 条件必填 | 毕业证或学位证书编号 |
+| `certificateName` | String | 条件必填 | 与证书一致的姓名 |
+| `materialUrls` | String[] | 条件必填 | 学历材料公网 URL，最多 4 张 |
+| `educationAgreementChecked` | Boolean | 是 | 学历认证协议确认，必须为 `true` |
 
 请求示例：
 
 ```json
 {
+  "educationUserType": "MAINLAND_GRADUATE",
   "educationMethod": "CHSI",
-  "verificationCode": ""
+  "schoolName": "浙江大学",
+  "educationLevel": "BACHELOR",
+  "chsiCode": "123456789012",
+  "educationAgreementChecked": true
 }
 ```
 
 响应字段同 15.1 认证状态查询。
 
-Mock 模式下：返回 `educationStatus: "PENDING"`（审核中）。
-
-### 15.4 提交头像认证
+### 15.4 添加头像并提交审核
 
 | 项目   | 说明                         |
 | ------ | ---------------------------- |
-| Path   | `/miniapp/verify/avatar`     |
+| Path   | `/miniapp/profile/avatar`    |
 | Method | `POST`                       |
 | Auth   | 登录态                       |
-| Body   | 无                           |
+| Body   | `AvatarSubmitReq`            |
 
-说明：提交前需已上传头像，首版 mock 直接标记通过。
+请求字段：
 
-响应字段同 15.1 认证状态查询。
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `avatarSource` | String | 是 | `CAMERA`（拍照）或 `ALBUM`（相册） |
+| `avatarUrl` | String | 是 | 客户端裁剪并上传后的公网 URL |
+| `thumbUrl` | String | 否 | 缩略图公网 URL |
 
-### 15.5 Mock 模式说明
+响应为 `AvatarSubmitVO`，包含 `auditRecordId、auditStatus、auditSource`。提交成功后调用 `GET /miniapp/profile/detail` 刷新本人头像，调用 `GET /miniapp/verify/status` 刷新审核状态。
 
-小程序在 `src/constants/config.ts` 中提供全局 Mock 开关 `MOCK_ENABLED`：
+### 15.5 当前接口基线
 
-- `true`（默认）：认证接口直接返回 Mock 数据，不请求后端，前端可独立完成全部认证流程
-- `false`：正常请求后端接口
+认证接口以 `docs/技术方案/2026-07-07-用户准入与资料认证初始化-mobile-api-handoff.md` 为唯一完整契约，不提供历史接口或字段别名。
 
-对接后端时只需将开关改为 `false`，无需修改 service 代码。
+### 15.6 联调 Provider 状态
+
+当前短信、实名、学历、头像/资料图片、开放文字、语音安全均已接入 Provider 抽象，开发环境使用 Mock 实现。移动端接口契约在后续替换真实三方时保持不变；Mock 清单和真实三方待办见技术方案“Provider 当前实现与待接入清单”。

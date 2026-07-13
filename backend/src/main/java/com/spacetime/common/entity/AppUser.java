@@ -36,9 +36,9 @@ public class AppUser extends BaseEntity {
     private String accountStatus;
     /** 是否完成首登资料初始化 */
     private Integer firstLoginCompleted;
+    /** 首登下一待填写步骤；完成后为空，选填空值步骤也依靠该字段记录进度。 */
+    private Integer firstLoginNextStep;
 
-    /** 主头像URL */
-    private String avatar;
     /** 昵称 */
     private String nickname;
     /** 性别 @see GenderEnum */
@@ -51,11 +51,15 @@ public class AppUser extends BaseEntity {
     private Integer height;
     /** 体重 kg */
     private Integer weight;
-    /** 身份类型：在校生、职场人等 */
+    /** 身份字典 code */
     private String identity;
-    /** 职业 */
+    /** 行业字典 code */
+    private String industry;
+    /** 职业字典 code */
     private String occupation;
-    /** 年收入区间 */
+    /** 公司名称 */
+    private String company;
+    /** 年收入字典 code */
     private String annualIncome;
     /** 居住省 */
     private String locationProvince;
@@ -83,21 +87,12 @@ public class AppUser extends BaseEntity {
     private String school;
     /** 专业 */
     private String major;
-    /** 最高学历 */
+    /** 学历字典 code */
     private String educationLevel;
 
-    /** 关于我 */
-    private String aboutMe;
-    /** 希望TA了解 */
-    private String hopeTheyKnow;
     /** 标签列表JSON */
     @TableField(value = "tags")
     private String tags;
-    /** 相册JSON */
-    @TableField(value = "photos")
-    private String photos;
-    /** 资料页背景图 */
-    private String profileBgImage;
     /** MBTI类型 */
     private String mbtiType;
     /** 星座（系统计算） */

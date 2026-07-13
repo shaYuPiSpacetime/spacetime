@@ -3,7 +3,7 @@ package com.spacetime.common.enums;
 import lombok.Getter;
 
 /**
- * 性别，提交后不可修改
+ * 性别编码。
  */
 @Getter
 public enum GenderEnum {

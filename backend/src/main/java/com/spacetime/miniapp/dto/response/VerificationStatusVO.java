@@ -13,6 +13,8 @@ public class VerificationStatusVO {
     private String realNameRejectReason;
     /** 实名认证提交时间，格式 yyyy-MM-dd HH:mm:ss。 */
     private String realNameSubmitTime;
+    /** 实名是否允许提交或驳回后重提。 */
+    private Boolean realNameCanSubmit;
 
     /** 学历认证状态。 */
     private String educationStatus;
@@ -20,6 +22,10 @@ public class VerificationStatusVO {
     private String educationRejectReason;
     /** 学历认证提交时间，格式 yyyy-MM-dd HH:mm:ss。 */
     private String educationSubmitTime;
+    /** 学历当前是否满足实名前置且允许提交。 */
+    private Boolean educationCanSubmit;
+    /** 学历不可提交时的顺序或审核阻断原因。 */
+    private String educationBlockedReason;
 
     /** 头像认证状态。 */
     private String avatarVerifyStatus;
@@ -27,6 +33,8 @@ public class VerificationStatusVO {
     private String avatarVerifyRejectReason;
     /** 头像认证提交时间，格式 yyyy-MM-dd HH:mm:ss。 */
     private String avatarVerifySubmitTime;
+    /** 头像是否允许提交或更换。 */
+    private Boolean avatarCanSubmit;
 
     /** 资料图片审核状态。 */
     private String profilePhotoAuditStatus;

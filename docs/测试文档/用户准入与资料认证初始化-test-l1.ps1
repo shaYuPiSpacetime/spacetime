@@ -258,16 +258,20 @@ if ($script:AdminToken) {
 }
 
 Test-Code "L1-MINI-CONFIG-001" "miniapp" "miniapp-prd01-public-config" (Invoke-L1Request "GET" "/miniapp/config/prd01") 200
+Test-Code "L1-MINI-CONFIG-002" "miniapp" "miniapp-region-provinces" (Invoke-L1Request "GET" "/miniapp/dict/locations") 200
+Test-Code "L1-MINI-CONFIG-003" "miniapp" "miniapp-region-cities" (Invoke-L1Request "GET" "/miniapp/dict/locations?parentCode=110000") 200
+Test-Code "L1-MINI-CONFIG-004" "miniapp" "miniapp-region-districts" (Invoke-L1Request "GET" "/miniapp/dict/locations?parentCode=110100") 200
 Test-Code "L1-MINI-AUTH-001" "miniapp" "wechat-login-without-protocol" (Invoke-L1Request "POST" "/miniapp/auth/wechat-login" @{ code = "mock_new_user_code"; agreeProtocol = $false }) 5001
 
 if ($AllowWrite) {
     $phone = "13" + (Get-Random -Minimum 100000000 -Maximum 999999999).ToString()
+    $smsResp = Invoke-L1Request "POST" "/miniapp/auth/sms-code" @{ phone = $phone }
     $miniLogin = Invoke-L1Request "POST" "/miniapp/auth/phone-login" @{ phone = $phone; smsCode = "000000"; agreeProtocol = $true }
-    if ($miniLogin.code -eq 200 -and $miniLogin.data -and $miniLogin.data.token) {
+    if ($smsResp.code -eq 200 -and $miniLogin.code -eq 200 -and $miniLogin.data -and $miniLogin.data.token) {
         $script:MiniToken = [string]$miniLogin.data.token
         Add-L1Result "L1-MINI-AUTH-002" "miniapp" "phone-login-create-test-user" "PASS" "miniapp token obtained; test phone is not persisted in report" $miniLogin.status $miniLogin.code
     } else {
-        Add-L1Result "L1-MINI-AUTH-002" "miniapp" "phone-login-create-test-user" "FAIL" "Login failed: HTTP $($miniLogin.status), code=$($miniLogin.code), msg=$($miniLogin.msg)" $miniLogin.status $miniLogin.code
+        Add-L1Result "L1-MINI-AUTH-002" "miniapp" "phone-login-create-test-user" "FAIL" "SMS code=$($smsResp.code), login HTTP $($miniLogin.status), code=$($miniLogin.code), msg=$($miniLogin.msg)" $miniLogin.status $miniLogin.code
     }
 } else {
     Skip-L1 "L1-MINI-AUTH-002" "miniapp" "phone-login-create-test-user" "Set ALLOW_WRITE=1 to create a mobile test user"
@@ -275,8 +279,8 @@ if ($AllowWrite) {
 
 if ($script:MiniToken) {
     Test-Code "L1-MINI-PROFILE-001" "miniapp" "init-status" (Invoke-L1Request "GET" "/miniapp/profile/init-status" $null $script:MiniToken) 200
-    Test-Code "L1-MINI-PROFILE-002" "miniapp" "init-save-basic" (Invoke-L1Request "POST" "/miniapp/profile/init-save" @{ step = 1; nickname = "L1TestUser"; gender = "MALE"; birthday = "1998-01-01" } $script:MiniToken) 200
-    $regionResp = Invoke-L1Request "POST" "/miniapp/profile/init-save" @{ step = 5; locationProvince = "OVERSEAS"; locationCity = "OVERSEAS"; locationDistrict = "OVERSEAS" } $script:MiniToken
+    Test-Code "L1-MINI-PROFILE-002" "miniapp" "init-step-gender" (Invoke-L1Request "POST" "/miniapp/profile/init-step" @{ step = 1; gender = "MALE" } $script:MiniToken) 200
+    $regionResp = Invoke-L1Request "POST" "/miniapp/profile/init-step" @{ step = 5; locationProvince = "OVERSEAS"; locationCity = "OVERSEAS"; locationDistrict = "OVERSEAS" } $script:MiniToken
     if ($regionResp.code -ne 200 -and $regionResp.msg -like "*REGION_NOT_SUPPORTED*") {
         Add-L1Result "L1-MINI-PROFILE-003" "miniapp" "overseas-region-not-supported" "PASS" $regionResp.msg $regionResp.status $regionResp.code
     } else {

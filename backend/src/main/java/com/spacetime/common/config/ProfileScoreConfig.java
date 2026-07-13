@@ -25,7 +25,6 @@ public class ProfileScoreConfig {
     public int calculate(AppUser user) {
         int score = 0;
         if (StrUtil.isNotBlank(user.getNickname())) score += 5;
-        if (StrUtil.isNotBlank(user.getAvatar())) score += 10;
         if (StrUtil.isNotBlank(user.getGender())) score += 5;
         if (user.getBirthday() != null) score += 5;
         if (user.getHeight() != null) score += 5;
@@ -36,8 +35,6 @@ public class ProfileScoreConfig {
         if (StrUtil.isNotBlank(user.getMaritalStatus())) score += 5;
         if (StrUtil.isNotBlank(user.getSchool())) score += 10;
         if (StrUtil.isNotBlank(user.getEducationLevel())) score += 5;
-        if (StrUtil.isNotBlank(user.getAboutMe()) && user.getAboutMe().length() >= 20) score += 10;
-        if (StrUtil.isNotBlank(user.getHopeTheyKnow())) score += 5;
         return Math.min(score, 100);
     }
 

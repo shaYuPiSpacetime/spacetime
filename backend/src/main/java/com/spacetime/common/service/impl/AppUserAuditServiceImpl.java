@@ -230,6 +230,9 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         historyDao.insert(history);
     }
 
+    /**
+     * 仅在审核通过后更新对外资料投影，待审或驳回内容不会提前覆盖旧的有效内容。
+     */
     /** 审核历史只保存必要脱敏快照，不依赖审核记录表冗余 JSON 字段。 */
     private String snapshotJson(AppUserAuditRecord record) {
         StringBuilder json = new StringBuilder("{");

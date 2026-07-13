@@ -17,15 +17,17 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("DictDataController L2 测试")
+@DisplayName("字典数据接口测试")
 class DictDataControllerTest {
 
     @Mock
@@ -44,22 +46,27 @@ class DictDataControllerTest {
     }
 
     @Test
-    @DisplayName("L2-D2-01 树查询路由绑定")
-    void shouldReturnDictDataTree() throws Exception {
-        DictDataVO vo = new DictDataVO();
-        vo.setId(1L);
-        vo.setDictLabel("男");
-        vo.setDictValue("male");
-        when(dictDataService.tree(eq("gender"))).thenReturn(List.of(vo));
+    @DisplayName("L2-D2-01 子节点懒加载路由绑定")
+    void shouldReturnDictDataChildren() throws Exception {
+        DictDataVO province = new DictDataVO();
+        province.setId(1L);
+        province.setDictLabel("河南省");
+        province.setDictValue("410000");
+        province.setHasChildren(true);
+        when(dictDataService.children("china_region", 0L)).thenReturn(List.of(province));
 
-        mockMvc.perform(get("/admin/dict-data/tree?dictType=gender"))
+        mockMvc.perform(get("/admin/dict-data/children")
+                        .param("dictType", "china_region")
+                        .param("parentId", "0"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data[0].dictLabel").value("男"));
+                .andExpect(jsonPath("$.data[0].dictLabel").value("河南省"))
+                .andExpect(jsonPath("$.data[0].hasChildren").value(true))
+                .andExpect(jsonPath("$.data[0].children").doesNotExist());
     }
 
     @Test
-    @DisplayName("L2-D2-02 创建路由+校验")
+    @DisplayName("L2-D2-02 创建路由与校验")
     void shouldCreateDictData() throws Exception {
         when(dictDataService.create(any())).thenReturn(1L);
 
@@ -72,7 +79,7 @@ class DictDataControllerTest {
     }
 
     @Test
-    @DisplayName("L2-D2-04 更新路由绑定")
+    @DisplayName("L2-D2-03 更新路由绑定")
     void shouldUpdateDictData() throws Exception {
         doNothing().when(dictDataService).update(any());
 
@@ -84,7 +91,7 @@ class DictDataControllerTest {
     }
 
     @Test
-    @DisplayName("L2-D2-05 删除路由绑定")
+    @DisplayName("L2-D2-04 删除路由绑定")
     void shouldDeleteDictData() throws Exception {
         doNothing().when(dictDataService).delete(1L);
 

@@ -1,5 +1,6 @@
 package com.spacetime.common.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -25,4 +26,8 @@ public class SysDictData extends BaseEntity {
     private String status;
     /** 备注 */
     private String remark;
+
+    /** 是否存在直接子节点，仅用于分级查询结果，不写入数据库。 */
+    @TableField(exist = false)
+    private Boolean hasChildren;
 }

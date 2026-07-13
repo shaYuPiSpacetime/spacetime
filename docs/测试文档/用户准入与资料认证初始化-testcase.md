@@ -8,7 +8,7 @@
 > 静态 Demo：`docs/静态Demo/01-用户准入与资料认证初始化/html/admin.html`
 > 移动端 UI 图：从当前需求模块目录自动查找，不写死路径。
 
-本测试用例为本轮重新生成版本。旧版 `用户准入-PRD01-*` 测试用例、脚本、报告只作为仓库现状盘点，不作为本轮正确依据。
+本测试用例是当前唯一有效版本，所有步骤只调用正式接口。
 
 ## 1. 测试策略
 
@@ -115,12 +115,16 @@
 |---------|------|------|------|
 | L1-MINI-AUTH-001 | 微信登录未同意协议 | 调用 `/miniapp/auth/wechat-login` 且 `agreeProtocol=false` | 返回 `AUTH_PROTOCOL_REQUIRED` |
 | L1-MINI-AUTH-002 | 微信登录成功 | 传合法 code 与协议确认 | 返回 token、用户信息、初始化状态 |
-| L1-MINI-AUTH-003 | 手机号登录短信错误 | 调用 `/miniapp/auth/phone-login` 传错误验证码 | 返回 `AUTH_SMS_INVALID` |
+| L1-MINI-AUTH-003 | 发送手机号验证码 | 调用 `/miniapp/auth/sms-code` 传手机号 | 返回倒计时、有效期、每日上限、剩余次数、Provider；Redis 写入验证码 |
+| L1-MINI-AUTH-004 | 手机号登录成功 | 先调用 `/miniapp/auth/sms-code`，再调用 `/miniapp/auth/phone-login` 传验证码 | 返回 token、用户信息；验证码被消费 |
+| L1-MINI-AUTH-005 | 手机号登录短信错误 | 调用 `/miniapp/auth/phone-login` 传错误验证码 | 返回 `AUTH_SMS_INVALID` |
+| L1-MINI-CONFIG-001 | 查询 PRD01 移动端配置 | 调用 `/miniapp/config/prd01` | 返回 `initFields` 5 类首登基础字段、`requiredFields`、上传限制、短信频控、地区配置；`regionScope.locationDictPath=/miniapp/dict/locations` |
+| L1-MINI-CONFIG-002 | 分级查询中国大陆地区字典 | 依次调用 `/miniapp/dict/locations`、`?parentCode=110000`、`?parentCode=110100` | 三次分别只返回省、市、区县当前一级；不嵌套完整树，不包含海外、国家、港澳台入口 |
 | L1-MINI-PROFILE-001 | 查询初始化进度 | 调用 `/miniapp/profile/init-status` | 返回当前步骤、已填字段、缺失字段 |
-| L1-MINI-PROFILE-002 | 保存基础资料 | 调用 `/miniapp/profile/init-save` | 保存成功，返回下一步 |
+| L1-MINI-PROFILE-002 | 保存首登当前步骤 | 调用 `/miniapp/profile/init-step`，每次只提交当前步骤字段 | 保存成功，返回下一步 |
 | L1-MINI-PROFILE-003 | 海外地区不支持 | 传海外/国家字段 | 返回 `REGION_NOT_SUPPORTED` |
-| L1-MINI-PROFILE-004 | 初始化完成缺必填 | 调用 `/miniapp/profile/init-complete` 缺字段 | 返回 `PROFILE_REQUIRED_MISSING` |
-| L1-MINI-PROFILE-005 | 初始化完成 | 提交完整资料 | 返回资料详情，进入认证/准入状态 |
+| L1-MINI-PROFILE-004 | 最后一步缺少前置必填 | 未完成前置必填步骤时调用 `/miniapp/profile/init-step` 提交最后一步 | 返回 `PROFILE_REQUIRED_MISSING` 或步骤冲突业务错误 |
+| L1-MINI-PROFILE-005 | 初始化完成 | 依次提交 5 个可见步骤 | 最后一步返回完成状态，进入认证/准入流程 |
 | L1-MINI-PROFILE-006 | 查询资料详情 | 调用 `/miniapp/profile/detail` | 返回基础资料、扩展资料、媒体、文字、语音字段 |
 | L1-MINI-PROFILE-007 | 增量修改资料 | 调用 `PATCH /miniapp/profile` | 返回最新资料，需审核字段进入审核中 |
 
@@ -128,13 +132,15 @@
 
 | 用例 ID | 场景 | 步骤 | 预期 |
 |---------|------|------|------|
-| L1-MINI-MEDIA-001 | 上传头像/相册/背景图 | 调用 `/miniapp/profile/media` | 返回媒体 ID、审核状态、来源 |
+| L1-MINI-MEDIA-001 | 上传相册/背景图 | 调用 `/miniapp/profile/media` | 返回媒体 ID、审核状态、来源；学历材料不在此生成独立审核记录 |
 | L1-MINI-MEDIA-002 | 相册数量上限 | 超过上限上传 | 返回 `MEDIA_LIMIT_EXCEEDED` |
 | L1-MINI-MEDIA-003 | 删除媒体 | 调用 `DELETE /miniapp/profile/media/{id}` | 删除成功，不影响其他媒体 |
-| L1-MINI-TEXT-001 | 提交关于我 | `fieldName=ABOUT_ME` | 返回文字审核记录，状态审核中/通过/驳回 |
+| L1-MINI-TEXT-001 | 提交自我介绍 | 调用 `/miniapp/profile/introduction`，`aboutMe` 20-300 字 | 固定生成 `ABOUT_ME` 审核记录；通过后才更新对外资料 |
 | L1-MINI-TEXT-002 | 提交希望 TA 了解 | `fieldName=HOPE_THEY_KNOW` | 返回文字审核记录 |
 | L1-MINI-TEXT-003 | 提交资料问答开放回答 | `fieldName=PROFILE_QA` | 返回文字审核记录 |
 | L1-MINI-TEXT-004 | 禁止预留文字类型 | 传 `CUSTOM_OPEN_TEXT` | 返回非法字段错误，不落库 |
+| L1-MINI-TEXT-005 | 自我介绍字数不足 | `aboutMe` 少于 20 字 | 拒绝提交，不生成审核记录 |
+| L1-MINI-TEXT-006 | 自我介绍重复提审 | 最新记录为待审核/审核中再次提交 | 拒绝重复提交，旧通过内容继续生效 |
 | L1-MINI-VOICE-001 | 提交合法语音 | 调用 `/miniapp/profile/voice-intro`，时长 10-60 秒 | 新增语音记录，触发音频安全机审 |
 | L1-MINI-VOICE-002 | 语音时长非法 | 时长小于 10 或大于 60 | 返回 `VOICE_DURATION_INVALID` |
 | L1-MINI-VOICE-003 | 语音机审通过 | Mock Provider 返回安全 | 审核状态为 `APPROVED（已通过）`，资料详情返回播放器 URL 和时长 |
@@ -146,14 +152,17 @@
 
 | 用例 ID | 场景 | 步骤 | 预期 |
 |---------|------|------|------|
-| L1-MINI-VERIFY-001 | 查询认证状态 | 调用 `/miniapp/verify/status` | 返回实名、头像、学历、核心准入状态 |
-| L1-MINI-VERIFY-002 | 提交头像认证 | 调用 `/miniapp/verify/avatar` | 生成头像认证/图片审核记录 |
-| L1-MINI-VERIFY-003 | 提交实名认证 | 调用 `/miniapp/verify/real-name` | 校验姓名、身份证号、手机号、一人一证承诺 |
+| L1-MINI-VERIFY-001 | 查询认证状态 | 调用 `/miniapp/verify/status` | 返回实名、头像、学历、提交权限、学历阻断原因和核心准入状态 |
+| L1-MINI-VERIFY-002 | 提交头像认证 | 调用 `/miniapp/profile/avatar` | 更新本人侧头像，生成一条头像待审核记录和提交历史 |
+| L1-MINI-VERIFY-003 | 提交实名认证 | 提交 `realName,idCardNo,singleCommitmentChecked` | 后端读取绑定手机号执行三要素 Provider 核验并写 Provider 任务/审核历史 |
 | L1-MINI-VERIFY-004 | 身份证号格式错误 | 提交非法身份证号 | 返回 `REALNAME_ID_CARD_INVALID` |
 | L1-MINI-VERIFY-005 | 实名重复校验 | 已存在身份证号再次提交 | 按 hash/明文一致性识别重复并阻断或转人工 |
-| L1-MINI-VERIFY-006 | 提交学历认证 | 调用 `/miniapp/verify/education` | 支持 CHSI、在线验证码、毕业证号、材料上传 |
+| L1-MINI-VERIFY-006 | 提交学历认证 | 调用 `/miniapp/verify/education` | 支持在校证明、学信网验证码、证书编号、上传证书四类；一次提交只生成一条审核记录 |
 | L1-MINI-VERIFY-007 | 查询准入状态 | 调用 `/miniapp/profile/access-status` | 返回是否可进入核心功能、阻断项、行动按钮 |
 | L1-MINI-VERIFY-008 | 三项通过后准入 | TD-03 查询准入 | 返回 `CORE_ALLOWED` |
+| L1-MINI-VERIFY-009 | 学历实名前置 | 实名无记录/驳回/失效时提交学历 | 拒绝提交并返回“请先提交实名认证” |
+| L1-MINI-VERIFY-010 | 学历材料上限 | 在校证明或证书材料超过 4 张 | 拒绝提交且不落库 |
+| L1-MINI-VERIFY-011 | 学历重复提审 | 最新学历为待审核/审核中再次提交 | 拒绝重复提交 |
 
 ### 3.8 Provider 与 mock 留痕
 
@@ -180,7 +189,7 @@
 | L2-MINI-AUTH-001 | MiniAuthController | 登录协议 | 未同意协议统一阻断 |
 | L2-MINI-PROFILE-001 | MiniProfileController | 初始化步骤 | step 非法、必填缺失、海外地区不支持 |
 | L2-MINI-PROFILE-002 | MiniProfileController | 媒体/文字/语音 | 三类内容分别走独立接口和错误码 |
-| L2-MINI-VERIFY-001 | MiniVerifyController | 认证提交 | 实名、头像、学历校验与响应结构正确 |
+| L2-MINI-VERIFY-001 | MiniVerifyController | 认证提交 | 实名正式字段、学历四种方式和状态提交守卫响应结构正确 |
 
 ## 5. L3 Service 测试用例
 
@@ -232,7 +241,7 @@
 | 用例 ID | 场景 | 验收证据 |
 |---------|------|----------|
 | L4-MINI-001 | 登录授权链路 | 请求/响应样例、错误码、协议阻断 |
-| L4-MINI-002 | 首登初始化链路 | init-status、init-save、init-complete 全流程响应 |
+| L4-MINI-002 | 首登初始化链路 | `init-status`、5 步 `init-step` 与最后一步完成响应 |
 | L4-MINI-003 | 资料详情链路 | 字段覆盖截图或 JSON 样例，包含语音字段 |
 | L4-MINI-004 | 媒体上传删除链路 | 图片/背景图/相册响应与审核状态 |
 | L4-MINI-005 | 开放性文字链路 | 三类 fieldName 响应，拒绝 `CUSTOM_OPEN_TEXT` |
@@ -278,11 +287,11 @@
 
 | 阶段 | 检查项 | 状态 |
 |------|--------|------|
-| 测试用例 | 不复用旧版 `用户准入-PRD01-*` 用例 | 已覆盖 |
+| 测试用例 | 只保留并执行当前正式接口用例 | 已覆盖 |
 | 测试用例 | 覆盖 P0/P1、接口、状态机、权限、异常态 | 已覆盖 |
 | 测试用例 | 覆盖管理后台 1:1 Demo 证据要求 | 已覆盖 |
 | 测试用例 | 覆盖移动端接口 95% 完整度证据要求 | 已覆盖 |
-| 实现前 | 核对现有代码落点和冲突，不继承错误旧逻辑 | 待执行 |
+| 实现前 | 核对现有代码落点和接口契约 | 待执行 |
 | 实现中 | 管理后台前后端按 Demo 1:1 还原 | 待执行 |
 | 实现中 | 移动端只做后端接口和对接文档，不写移动端前端 | 待执行 |
 | 实现后 | 生成 L1 脚本并执行接口回归 | 待执行 |

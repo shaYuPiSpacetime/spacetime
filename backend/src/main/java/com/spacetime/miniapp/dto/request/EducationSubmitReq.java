@@ -10,22 +10,34 @@ import java.util.List;
  */
 @Data
 public class EducationSubmitReq {
-    /** 认证方式：CHSI、ONLINE_CODE、DIPLOMA_NO、MATERIAL_UPLOAD。 */
+    /** 学历人群：STUDENT（在校生）、MAINLAND_GRADUATE（中国大陆毕业生）。 */
+    @NotBlank(message = "学历人群不能为空")
+    private String educationUserType;
+
+    /** 认证方式：STUDENT_CARD、CHSI、DIPLOMA_NO、MATERIAL_UPLOAD。 */
     @NotBlank(message = "认证方式不能为空")
     private String educationMethod;
 
-    /** 学校名称，用于学历认证表单回显和后续人工核验。 */
-    private String school;
+    /** 学校名称。 */
+    @NotBlank(message = "学校名称不能为空")
+    private String schoolName;
 
-    /** 学籍状态，例如在校、已毕业等产品约定值。 */
-    private String studentStatus;
+    /** 学历字典 code，必须命中 app_education_level。 */
+    @NotBlank(message = "学历不能为空")
+    private String educationLevel;
 
-    /** 学信网在线验证码。 */
-    private String verificationCode;
+    /** 学信网在线验证码，CHSI 方式必填，长度 12-18 位。 */
+    private String chsiCode;
 
-    /** 毕业证书编号。 */
+    /** 毕业证或学位证书编号，DIPLOMA_NO 方式必填。 */
     private String diplomaNo;
 
-    /** 学历材料上传后的媒体 ID 列表。 */
-    private List<Long> materialIds;
+    /** 证书姓名，证书编号或上传证书方式必填。 */
+    private String certificateName;
+
+    /** 学生证、在读证明、毕业证或学位证的公网 URL，最多 4 张。 */
+    private List<String> materialUrls;
+
+    /** 学历认证协议勾选，必须为 true。 */
+    private Boolean educationAgreementChecked;
 }

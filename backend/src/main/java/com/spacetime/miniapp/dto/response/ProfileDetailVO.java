@@ -23,11 +23,15 @@ public class ProfileDetailVO {
     private Integer height;
     /** 体重 kg */
     private Integer weight;
-    /** 身份类型：在校生、职场人等 */
+    /** 身份字典 code */
     private String identity;
-    /** 职业 */
+    /** 行业字典 code */
+    private String industry;
+    /** 职业字典 code */
     private String occupation;
-    /** 年收入区间 */
+    /** 公司名称 */
+    private String company;
+    /** 年收入字典 code */
     private String annualIncome;
     /** 居住省 */
     private String locationProvince;
@@ -45,7 +49,7 @@ public class ProfileDetailVO {
     private String school;
     /** 专业 */
     private String major;
-    /** 最高学历 */
+    /** 学历字典 code */
     private String educationLevel;
     /** 感情状态 */
     private String emotionalStatus;

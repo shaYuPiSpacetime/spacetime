@@ -1,5 +1,6 @@
 package com.spacetime.miniapp.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.*;
 import com.spacetime.common.entity.*;
@@ -14,12 +15,16 @@ import com.spacetime.miniapp.dto.request.MiniappRelationBlockReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.MiniappMobileConfigService;
 import com.spacetime.miniapp.service.MiniappSettingService;
+import com.spacetime.common.service.AppUserAuditContentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +40,7 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
     private final AppConfigDao appConfigDao;
     private final AppUserDao appUserDao;
     private final MiniappMobileConfigService mobileConfigService;
+    private final AppUserAuditContentService auditContentService;
 
     @Override
     public MiniappSettingsHomeVO home(Long userId) {
@@ -98,8 +104,19 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
     @Override
     public Page<MiniappBlockedUserVO> listBlocks(Long userId, String blockType, int page, int size) {
         Page<AppUserRelationBlock> result = relationBlockDao.selectPageByUserId(new Page<>(page, size), userId, blockType);
+        List<Long> targetUserIds = result.getRecords().stream()
+                .map(AppUserRelationBlock::getTargetUserId)
+                .distinct()
+                .toList();
+        Map<Long, AppUser> targetUsers = targetUserIds.isEmpty() ? Map.of() : appUserDao.selectList(
+                        new LambdaQueryWrapper<AppUser>().in(AppUser::getId, targetUserIds))
+                .stream()
+                .collect(Collectors.toMap(AppUser::getId, Function.identity(), (left, right) -> left));
+        Map<Long, String> avatars = auditContentService.publicAvatars(targetUserIds);
         Page<MiniappBlockedUserVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
-        voPage.setRecords(result.getRecords().stream().map(this::toBlockedVO).toList());
+        voPage.setRecords(result.getRecords().stream()
+                .map(record -> toBlockedVO(record, targetUsers.get(record.getTargetUserId()), avatars))
+                .toList());
         return voPage;
     }
 
@@ -283,13 +300,13 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
         return vo;
     }
 
-    private MiniappBlockedUserVO toBlockedVO(AppUserRelationBlock e) {
-        AppUser target = appUserDao.selectById(e.getTargetUserId());
+    private MiniappBlockedUserVO toBlockedVO(AppUserRelationBlock e, AppUser target,
+            Map<Long, String> avatars) {
         MiniappBlockedUserVO vo = new MiniappBlockedUserVO();
         vo.setId(e.getId());
         vo.setTargetUserId(e.getTargetUserId());
         vo.setTargetNickname(displayName(target, e.getTargetUserId()));
-        vo.setTargetAvatar(target != null ? target.getAvatar() : null);
+        vo.setTargetAvatar(avatars.get(e.getTargetUserId()));
         vo.setBlockType(e.getBlockType());
         vo.setSourceScene(e.getSourceScene());
         vo.setCreateTime(e.getCreateTime() != null ? e.getCreateTime().format(FMT) : null);

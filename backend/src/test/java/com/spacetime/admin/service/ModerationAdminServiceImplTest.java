@@ -16,6 +16,7 @@ import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.common.service.AppUserAuditContentService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +51,8 @@ class ModerationAdminServiceImplTest {
 
     @Mock
     private AppUserDao appUserDao;
+    @Mock
+    private AppUserAuditContentService auditContentService;
 
     @InjectMocks
     private ModerationAdminServiceImpl service;
@@ -82,11 +85,13 @@ class ModerationAdminServiceImplTest {
         record.setMediaUrl("https://oss.example.com/album-a.jpg");
         when(auditRecordDao.selectById(31L)).thenReturn(record);
         when(appUserDao.selectById(41L)).thenReturn(appUser(41L));
+        when(auditContentService.publicAvatar(41L)).thenReturn("https://oss.example.com/avatar-approved.jpg");
         when(historyDao.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(historyPage(31L));
 
         ModerationDetailVO detail = service.getPhotoDetail(31L, 1, 5);
 
         assertThat(detail.getContentFull()).isEqualTo("https://oss.example.com/album-a.jpg");
+        assertThat(detail.getAvatar()).isEqualTo("https://oss.example.com/avatar-approved.jpg");
         assertThat(detail.getHistoryPage().getRecords()).hasSize(1);
     }
 
@@ -120,7 +125,6 @@ class ModerationAdminServiceImplTest {
         AppUser user = new AppUser();
         user.setId(userId);
         user.setNickname("内容审核用户" + userId);
-        user.setAvatar("https://oss.example.com/avatar.jpg");
         return user;
     }
 

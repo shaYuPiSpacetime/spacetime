@@ -22,7 +22,8 @@ export interface DictDataVO {
   status: string;
   remark: string;
   createTime: string;
-  children: DictDataVO[];
+  hasChildren: boolean;
+  children?: DictDataVO[];
 }
 
 // ============ 字典类型 API ============
@@ -49,8 +50,8 @@ export function deleteDictType(id: number) {
 
 // ============ 字典数据 API ============
 
-export function getDictDataTree(dictType: string) {
-  return request.get('/admin/dict-data/tree', { params: { dictType } });
+export function getDictDataChildren(dictType: string, parentId: number = 0) {
+  return request.get('/admin/dict-data/children', { params: { dictType, parentId } });
 }
 
 export function createDictData(data: { dictType: string; parentId?: number; dictLabel: string; dictValue: string; dictSort?: number; status?: string; remark?: string }) {

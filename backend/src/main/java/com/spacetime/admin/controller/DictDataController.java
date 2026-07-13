@@ -23,10 +23,11 @@ public class DictDataController {
     private final DictDataService dictDataService;
 
     /** 按字典类型编码查询树形结构 */
-    @GetMapping("/tree")
+    @GetMapping("/children")
     @RequirePermission("system:dict:list")
-    public R<List<DictDataVO>> tree(@RequestParam String dictType) {
-        return R.ok(dictDataService.tree(dictType));
+    public R<List<DictDataVO>> children(@RequestParam String dictType,
+                                        @RequestParam(defaultValue = "0") Long parentId) {
+        return R.ok(dictDataService.children(dictType, parentId));
     }
 
     /** 创建字典数据 */

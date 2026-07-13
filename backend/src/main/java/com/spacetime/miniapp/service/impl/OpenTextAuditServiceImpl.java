@@ -13,6 +13,7 @@ import com.spacetime.common.provider.ProviderCheckResult;
 import com.spacetime.common.provider.TextSafetyProvider;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.miniapp.dto.request.OpenTextSubmitReq;
+import com.spacetime.miniapp.dto.request.IntroductionSubmitReq;
 import com.spacetime.miniapp.dto.response.OpenTextAuditVO;
 import com.spacetime.miniapp.service.OpenTextAuditService;
 import lombok.RequiredArgsConstructor;
@@ -35,11 +36,30 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
     private final TextSafetyProvider textSafetyProvider;
     private final AppUserAuditService auditService;
 
+    /** 强引导自我介绍只允许提交 ABOUT_ME，避免客户端传错开放文本类型。 */
+    @Override
+    @Transactional
+    public OpenTextAuditVO submitIntroduction(Long userId, IntroductionSubmitReq req) {
+        if (req == null || StrUtil.isBlank(req.getAboutMe())
+                || req.getAboutMe().length() < 20 || req.getAboutMe().length() > 300) {
+            throw new BusinessException("自我介绍需20-300个字");
+        }
+        OpenTextSubmitReq openTextReq = new OpenTextSubmitReq();
+        openTextReq.setFieldName(OpenTextFieldEnum.ABOUT_ME.getCode());
+        openTextReq.setContentText(req.getAboutMe());
+        return submitOpenText(userId, openTextReq);
+    }
+
     /** 提交开放性文字并执行文本安全机审。 */
     @Override
     @Transactional
     public OpenTextAuditVO submitOpenText(Long userId, OpenTextSubmitReq req) {
         OpenTextFieldEnum field = validate(req);
+        AppUserAuditTypeEnum auditType = AppUserAuditTypeEnum.getByCode(field.getCode());
+        AppUserAuditRecord latest = auditService.latestRecord(userId, auditType);
+        if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
+            throw new BusinessException(field.getDesc() + "审核中，请勿重复提交");
+        }
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setUserId(userId);
         record.setAuditType(field.getCode());
@@ -62,15 +82,19 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
         } catch (Exception ignored) {
             // Provider 异常时保留 PENDING，后台可继续人工处理。
         }
-        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.getByCode(field.getCode()));
-        return toVo(latest);
+        AppUserAuditRecord result = auditService.latestRecord(userId, auditType);
+        return toVo(result);
     }
 
     private OpenTextFieldEnum validate(OpenTextSubmitReq req) {
         if (req == null || OpenTextFieldEnum.getByCode(req.getFieldName()) == null) {
             throw new BusinessException("不支持的开放性文字字段");
         }
-        if (StrUtil.isBlank(req.getContentText()) || req.getContentText().length() < 2 || req.getContentText().length() > 500) {
+        int minLength = OpenTextFieldEnum.ABOUT_ME.getCode().equals(req.getFieldName()) ? 20 : 2;
+        int maxLength = OpenTextFieldEnum.ABOUT_ME.getCode().equals(req.getFieldName()) ? 300 : 500;
+        if (StrUtil.isBlank(req.getContentText())
+                || req.getContentText().length() < minLength
+                || req.getContentText().length() > maxLength) {
             throw new BusinessException("开放性文字长度不符合要求");
         }
         return OpenTextFieldEnum.getByCode(req.getFieldName());

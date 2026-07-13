@@ -48,6 +48,7 @@ import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.ConfigGroupEnum;
 import com.spacetime.common.enums.ConfigTypeEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import lombok.RequiredArgsConstructor;
@@ -124,6 +125,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
     private final RefundRecordDao refundRecordDao;
     /** JSON 序列化器 */
     private final ObjectMapper objectMapper;
+    private final AppUserAuditContentService auditContentService;
 
     @Override
     public CommercialConfigVO getConfig() {
@@ -393,7 +395,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         UserCommercialAssetDetailVO vo = new UserCommercialAssetDetailVO();
         vo.setUserId(userId);
         vo.setNickname(user.getNickname());
-        vo.setAvatar(user.getAvatar());
+        vo.setAvatar(auditContentService.publicAvatar(userId));
         if (asset != null) {
             vo.setVipStatus(asset.getVipStatus());
             vo.setVipExpireTime(asset.getVipExpireTime());

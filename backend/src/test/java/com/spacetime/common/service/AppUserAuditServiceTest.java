@@ -84,6 +84,20 @@ class AppUserAuditServiceTest {
     }
 
     @Test
+    @DisplayName("开放文字审核通过只更新审核记录，不回写用户主表")
+    void shouldApproveIntroductionWithoutUserSnapshot() {
+        AppUserAuditRecord current = record(5L, 10L, AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditStatusEnum.PENDING);
+        current.setContentText("审核内容始终保存在统一审核记录中");
+        when(recordDao.selectById(5L)).thenReturn(current);
+
+        auditService.manualAudit(5L, "APPROVE", null, 99L, "admin");
+
+        assertThat(current.getStatus()).isEqualTo(AppUserAuditStatusEnum.APPROVED.getCode());
+        assertThat(current.getContentText()).isEqualTo("审核内容始终保存在统一审核记录中");
+        verify(recordDao).updateAuditResult(current);
+    }
+
+    @Test
     @DisplayName("系统失效会更新状态并写入 SYSTEM_EXPIRE 历史")
     void shouldExpireCurrentRecordBySystem() {
         AppUserAuditRecord current = record(3L, 10L, AppUserAuditTypeEnum.VOICE_INTRO, AppUserAuditStatusEnum.APPROVED);

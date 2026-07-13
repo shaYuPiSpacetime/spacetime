@@ -50,7 +50,7 @@
 
 | 链路 | 状态 | 证据 |
 | --- | --- | --- |
-| 登录蓝湖资料页：授权 -> 性别 -> 年龄 -> 学历 -> 地址 | 可通 | `pages/login/*` 路由存在；微信授权手机号后写入真实 token；`useLogin.submit` 调 `POST /miniapp/profile/init-complete` |
+| 登录蓝湖资料页：授权 -> 性别 -> 年龄 -> 身份 -> 学历 -> 地址 | 后端可联调 | 后端正式接口为 `GET /miniapp/profile/init-status` 和逐步 `POST /miniapp/profile/init-step`；小程序前端对接另行处理 |
 | 微信真实登录换 token | 可通 | 前端 `POST /miniapp/auth/wechat-login` 传 `loginCode/phoneCode`；后端换取 `openid/phone` 并写 `app_user` |
 | 认证中心：状态、实名、学历、头像 | 接口可对齐 | 前端 `services/verification.ts` 与后端 `VerificationController` 路径一致；服务内仍有 Mock 兜底逻辑 |
 | 成家 Tab/觅缘主页面 | Mock 可通 | `pages/index/index` 使用 `useMatch` 和 `mockMatchUsers` |
@@ -133,7 +133,7 @@ flowchart TD
 | 年龄 | 登录-年龄选择 | `pages/login/age` | 写入年龄，跳学历 | 无接口 | Mock 可通 |
 | 学历 | 登录-学历 | `pages/login/education` | 写入学历，跳地址 | 无接口 | Mock 可通 |
 | 地址 | 登录-地址 | `pages/login/address` | 跳 `pages/verification/basic` | 无接口 | Mock 可通 |
-| 提交登录资料 | 地址页最终提交 | `useLogin.submit` | 调 `POST /miniapp/profile/init-complete`，成功后 `switchTab('/pages/index/index')` | 已接 `profile/init-complete` | 可通 |
+| 提交登录资料 | 每个首登步骤 | 小程序前端待对接 | 每一步调用 `POST /miniapp/profile/init-step`，最后一个可见步骤由后端自动完成 | 后端已提供正式接口 | 后端可联调 |
 
 需要对齐的后端能力：
 
@@ -141,8 +141,7 @@ flowchart TD
 | --- | --- | --- |
 | `POST /miniapp/auth/wechat-login` | `wx.login` code + `getPhoneNumber` code 换 `openid/phone/token` | 已接入 |
 | `GET /miniapp/profile/init-status` | 查询资料初始化进度 | 登录后决定是否进入资料页/认证页 |
-| `POST /miniapp/profile/init-save` | 分步保存资料 | 性别、年龄、学历、地址每步可保存 |
-| `POST /miniapp/profile/init-complete` | 完成资料初始化 | 地址页完成后调用，再跳认证或首页 |
+| `POST /miniapp/profile/init-step` | 分步保存并推进首登流程 | 性别、年龄、身份、学历、地址每步只提交当前字段；最后一步自动完成 |
 
 ### 2.2 真实微信登录差异
 
@@ -151,7 +150,7 @@ flowchart TD
 | 登录服务 | `miniapp/src/services/auth.ts` | `AuthMiniappController` | 已对齐 |
 | 请求路径 | `POST /miniapp/auth/wechat-login` | `POST /miniapp/auth/wechat-login` | 已对齐 |
 | 调用者 | 登录页 `getPhoneNumber -> Taro.login -> loginByWechatPhone` | `AuthMiniappServiceImpl` | 已换取 `openid/phone/token` |
-| 页面登录流程 | `pages/login/*` 授权成功后进入资料步骤，地址页提交 `init-complete` | 后端落 `app_user` 并标记首登完成 | 已接入最终提交 |
+| 页面登录流程 | `pages/login/*` 授权成功后进入资料步骤 | 后端按 `init-step` 逐步落库，最后一步标记首登完成 | 小程序前端待按正式接口对接 |
 
 ### 2.3 认证链路
 
@@ -162,7 +161,7 @@ flowchart TD
 | 学历认证-在校学生 | `pages/verification/education-student` | `submitEducationVerification` | `POST /miniapp/verify/education` | 接口可对齐 |
 | 学历认证-中国大陆 | `pages/verification/education-mainland` | `submitEducationVerification` | `POST /miniapp/verify/education` | 接口可对齐 |
 | 学信网编码/毕业证编号/上传证书 | 多个 `education-*` 路由 | `submitEducationVerification` | `POST /miniapp/verify/education` | 需要字段适配 |
-| 头像链路 | `avatar -> avatar-crop -> avatar-review` | `submitAvatarVerification` | `POST /miniapp/verify/avatar` | 服务存在，页面链路仍偏本地流程 |
+| 头像链路 | `avatar -> avatar-crop -> avatar-review` | 小程序前端待对接 | `POST /miniapp/profile/avatar`，提交后查询 `GET /miniapp/verify/status` | 后端正式接口已完成 |
 | 状态查询 | 认证中心进入/刷新 | `getVerificationStatus` | `GET /miniapp/verify/status` | 接口可对齐 |
 
 当前注意点：
@@ -508,7 +507,7 @@ sequenceDiagram
 
 | 模块 | 后端接口 | 当前前端状态 | 对接价值 |
 | --- | --- | --- | --- |
-| 资料初始化 | `/miniapp/profile/init-status`、`init-save`、`init-complete` | 登录资料页未接 | 让登录资料真实落库 |
+| 资料初始化 | `/miniapp/profile/init-status`、`/miniapp/profile/init-step` | 登录资料页待按正式接口对接 | 让登录资料逐步真实落库 |
 | 资料详情/编辑 | `GET /miniapp/profile/detail`、`PATCH /miniapp/profile` | 编辑页未接 | 让编辑资料闭环 |
 | 资料访问状态 | `GET /miniapp/profile/access-status` | 未接 | 可用于查看/解锁规则 |
 | 认证聚合 | `GET /miniapp/profile/certification-center` | 未接 | 三重认证中心状态 |
@@ -552,10 +551,10 @@ sequenceDiagram
 ```text
 第一批：保障登录、我的、认证能闭环
 1. 登录路径改为 /miniapp/auth/wechat-login。
-2. 登录资料页接 /miniapp/profile/init-status、init-save、init-complete。
+2. 登录资料页接 `/miniapp/profile/init-status` 和逐步 `/miniapp/profile/init-step`。
 3. 我的页路由修正：profile/edit、membership、coins。
 4. 我的页接 /miniapp/profile/home，认证状态接 verify/status 或 certification-center。
-5. 认证三件套保持 /miniapp/verify/*，补齐页面字段映射。
+5. 头像使用 `/miniapp/profile/avatar`，实名和学历使用 `/miniapp/verify/*`，状态统一读取 `/miniapp/verify/status`。
 
 第二批：保障商业化能闭环
 1. VIP 接 /miniapp/vip/status、packages、benefits、orders。
@@ -666,55 +665,39 @@ sequenceDiagram
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `firstLoginCompleted` | boolean | 是否已完成首登 |
-| `currentStep` | number | 当前步骤，后端定义为 `1/2/3` |
+| `currentStep` | number | 当前步骤，范围 `1-5` |
 | `nextStep` | number/null | 下一步，已完成时为 null |
 | `savedFields` | `ProfileDetailVO` | 已保存资料字段 |
 
-#### 9.2.3 保存首登资料
+#### 9.2.3 保存首登当前步骤
 
 | 项目 | 内容 |
 | --- | --- |
 | 状态 | 已实现，前端未接 |
 | Method | `POST` |
-| Path | `/miniapp/profile/init-save` |
+| Path | `/miniapp/profile/init-step` |
 | Auth | 登录态 |
 
-请求 `ProfileInitSaveReq`：
+请求 `ProfileInitStepReq`：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `step` | number | 是 | 当前步骤号 |
-| `nickname` | string | 否 | 昵称 |
-| `gender` | string | 否 | 性别 |
-| `birthday` | string | 否 | 出生日期，建议 `yyyy-MM-dd` |
-| `height` | number | 否 | 身高 cm |
-| `locationProvince` | string | 否 | 居住省 |
-| `locationCity` | string | 否 | 居住市 |
-| `locationDistrict` | string | 否 | 居住区县 |
-| `hometownProvince` | string | 否 | 家乡省 |
-| `hometownCity` | string | 否 | 家乡市 |
-| `school` | string | 否 | 学校 |
-| `major` | string | 否 | 专业 |
-| `educationLevel` | string | 否 | 最高学历 |
-| `emotionalStatus` | string | 否 | 感情状态 |
-| `datingGoal` | string | 否 | 脱单目标 |
-| `maritalStatus` | string | 否 | 婚姻状态 |
-| `avatar` | string | 否 | 头像 URL |
-| `aboutMe` | string | 否 | 关于我 |
-| `hopeTheyKnow` | string | 否 | 希望 TA 了解 |
+| `step` | number | 是 | 当前步骤号，范围 `1-5` |
+| `gender` | string | 第 1 步 | `MALE/FEMALE` |
+| `birthday` | string | 第 2 步 | 出生日期 `yyyy-MM-dd`，服务端计算年龄 |
+| `identity` | string | 第 3 步 | 身份字典 code |
+| `educationLevel` | string | 第 4 步 | 学历字典 code |
+| `locationProvince` | string | 第 5 步 | 现居省级地区 code |
+| `locationCity` | string | 第 5 步 | 现居市级地区 code |
+| `locationDistrict` | string | 第 5 步 | 现居区县地区 code，可按配置为空 |
 
 响应：`ProfileInitStatusVO`。
 
-#### 9.2.4 完成首登资料
+#### 9.2.4 首登完成规则
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | 已实现，前端未接 |
-| Method | `POST` |
-| Path | `/miniapp/profile/init-complete` |
-| Auth | 登录态 |
-| Body | 同 `ProfileInitSaveReq`，用于最后一步提交 |
-| Response | `ProfileDetailVO` |
+最后一个可见步骤调用 `/miniapp/profile/init-step` 成功后由后端自动完成，响应中 `firstLoginCompleted=true`、`nextStep=null`、`nextAction=COMPLETED`，不需要额外完成接口。
 
 ### 9.3 资料、我的页与认证接口
 
@@ -819,7 +802,7 @@ sequenceDiagram
 | `canBrowseCards` | boolean | 是否可浏览卡片 |
 | `canMatch` | boolean | 是否可匹配 |
 | `canBeExposed` | boolean | 是否可被曝光 |
-| `blockReason` | string/null | 阻断原因 |
+| `blockReasons` | string[] | 阻断原因列表 |
 
 #### 9.3.5 认证状态
 
@@ -859,7 +842,8 @@ sequenceDiagram
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `realName` | string | 是 | 真实姓名 |
-| `idCard` | string | 是 | 18 位身份证号，后端有正则校验 |
+| `idCardNo` | string | 是 | 18 位身份证号，后端有正则校验 |
+| `singleCommitmentChecked` | boolean | 是 | 单身承诺和认证协议确认，必须为 `true` |
 
 响应：`VerificationStatusVO`。
 
@@ -876,22 +860,30 @@ sequenceDiagram
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `educationMethod` | string | 是 | 认证方式，如 `CHSI`、`ONLINE_CODE`、`DIPLOMA_NO` |
-| `verificationCode` | string | 条件必填 | 学信网在线验证码 |
+| `educationUserType` | string | 是 | `STUDENT` 或 `MAINLAND_GRADUATE` |
+| `educationMethod` | string | 是 | `STUDENT_CARD`、`CHSI`、`DIPLOMA_NO`、`MATERIAL_UPLOAD` |
+| `schoolName` | string | 是 | 学校名称 |
+| `educationLevel` | string | 是 | 学历字典 code |
+| `chsiCode` | string | 条件必填 | 学信网在线验证码 |
 | `diplomaNo` | string | 条件必填 | 毕业证/学位证书编号 |
+| `certificateName` | string | 条件必填 | 与证书一致的姓名 |
+| `materialUrls` | string[] | 条件必填 | 学历材料公网 URL，最多 4 张 |
+| `educationAgreementChecked` | boolean | 是 | 学历认证协议确认，必须为 `true` |
 
 响应：`VerificationStatusVO`。
 
-#### 9.3.8 提交头像认证
+#### 9.3.8 添加头像并提交审核
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | 已实现，前端服务存在但页面链路偏本地 |
+| 状态 | 后端正式接口已实现，小程序前端待对接 |
 | Method | `POST` |
-| Path | `/miniapp/verify/avatar` |
+| Path | `/miniapp/profile/avatar` |
 | Auth | 登录态 |
-| Body | 无 |
-| Response | `VerificationStatusVO` |
+| Body | `avatarSource, avatarUrl, thumbUrl` |
+| Response | `AvatarSubmitVO` |
+
+页面初始化调用 `GET /miniapp/profile/detail` 展示本人当前头像，并调用 `GET /miniapp/verify/status` 获取最新头像审核状态；提交成功后重新查询这两个接口。
 
 #### 9.3.9 认证中心聚合
 

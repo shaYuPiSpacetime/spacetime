@@ -1,19 +1,21 @@
 # PRD01 移动端接口全量对齐矩阵
 
-生成时间：2026-07-07T17:34:00.652Z
+生成时间：2026-07-13T12:01:21.543Z
 
 | 对齐范围 | 检查来源 | 覆盖项数 | 禁用旧口径数 | 结论 |
 |----------|----------|----------|--------------|------|
-| 移动端接口对接文档-接口清单 | handoff | 17 | 0 | 通过 |
-| 移动端后端 Controller-路由覆盖 | allControllers | 22 | 0 | 通过 |
-| 登录接口入参/出参契约 | authContract | 12 | 0 | 通过 |
+| 移动端接口对接文档-接口清单 | handoff | 20 | 0 | 通过 |
+| 移动端后端 Controller-路由覆盖 | allControllers | 27 | 0 | 通过 |
+| 登录接口入参/出参契约 | authContract | 11 | 0 | 通过 |
 | 首登资料接口入参契约 | initReq | 8 | 0 | 通过 |
 | 资料详情/更新出入参契约 | profileContract | 35 | 0 | 通过 |
-| 资料媒体接口契约 | mediaContract | 9 | 0 | 通过 |
-| 开放性文字接口契约 | openTextContract | 9 | 1 | 通过 |
+| 添加头像接口契约 | avatarSubmitContract | 11 | 0 | 通过 |
+| 资料媒体接口契约 | mediaContract | 8 | 0 | 通过 |
+| 开放性文字接口契约 | openTextContract | 10 | 1 | 通过 |
 | 语音介绍接口契约 | voiceContract | 12 | 0 | 通过 |
-| 三重认证接口契约 | verifyContract | 14 | 0 | 通过 |
+| 三重认证接口契约 | verifyContract | 24 | 0 | 通过 |
 | 准入状态/配置接口契约 | accessContract | 17 | 0 | 通过 |
+| 地区字典接口契约 | regionContract | 11 | 0 | 通过 |
 | 移动端多状态与异常证据 | testcase | 14 | 0 | 通过 |
 
 ## 覆盖接口与场景

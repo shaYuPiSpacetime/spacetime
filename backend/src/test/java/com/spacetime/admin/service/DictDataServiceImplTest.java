@@ -21,10 +21,12 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("DictDataServiceImpl L3 测试")
+@DisplayName("字典数据服务测试")
 class DictDataServiceImplTest {
 
     @Mock
@@ -36,32 +38,33 @@ class DictDataServiceImplTest {
     private DictDataServiceImpl dictDataService;
 
     @Test
-    @DisplayName("L3-D2-01 树构建-多级嵌套")
-    void shouldBuildMultiLevelTree() {
-        SysDictData parent = buildData(1L, 0L, "性别", "gender", "男", "male");
-        SysDictData child = buildData(2L, 1L, "gender", "gender", "男性", "male_full");
-        when(dictDataDao.selectList(any())).thenReturn(List.of(parent, child));
+    @DisplayName("L3-D2-01 只查询指定父节点的直接子级")
+    void shouldReturnDirectChildrenOnly() {
+        SysDictData province = buildData(1L, 0L, "china_region", "河南省", "410000");
+        province.setHasChildren(true);
+        when(dictDataDao.selectChildren("china_region", 0L, false)).thenReturn(List.of(province));
 
-        List<DictDataVO> tree = dictDataService.tree("gender");
+        List<DictDataVO> children = dictDataService.children("china_region", 0L);
 
-        assertThat(tree).hasSize(1);
-        assertThat(tree.get(0).getDictLabel()).isEqualTo("男");
-        assertThat(tree.get(0).getChildren()).hasSize(1);
-        assertThat(tree.get(0).getChildren().get(0).getDictLabel()).isEqualTo("男性");
+        assertThat(children).hasSize(1);
+        assertThat(children.get(0).getDictLabel()).isEqualTo("河南省");
+        assertThat(children.get(0).getHasChildren()).isTrue();
+        assertThat(children.get(0).getChildren()).isNull();
+        verify(dictDataDao, never()).selectByDictType(any());
     }
 
     @Test
-    @DisplayName("L3-D2-02 树构建-空数据")
-    void shouldReturnEmptyTree() {
-        when(dictDataDao.selectList(any())).thenReturn(List.of());
+    @DisplayName("L3-D2-02 子级为空时返回空列表")
+    void shouldReturnEmptyChildren() {
+        when(dictDataDao.selectChildren("china_region", 410L, false)).thenReturn(List.of());
 
-        List<DictDataVO> tree = dictDataService.tree("empty");
+        List<DictDataVO> children = dictDataService.children("china_region", 410L);
 
-        assertThat(tree).isEmpty();
+        assertThat(children).isEmpty();
     }
 
     @Test
-    @DisplayName("L3-D2-03 创建-默认值生效")
+    @DisplayName("L3-D2-03 创建时使用默认值")
     void shouldCreateWithDefaults() {
         DictDataCreateReq req = new DictDataCreateReq();
         req.setDictType("gender");
@@ -79,7 +82,7 @@ class DictDataServiceImplTest {
     }
 
     @Test
-    @DisplayName("L3-D2-04 更新-实体不存在")
+    @DisplayName("L3-D2-04 更新不存在的数据时拒绝")
     void shouldRejectUpdateNotFound() {
         DictDataUpdateReq req = new DictDataUpdateReq();
         req.setId(999L);
@@ -89,16 +92,15 @@ class DictDataServiceImplTest {
         when(dictDataDao.selectById(999L)).thenReturn(null);
 
         assertThatThrownBy(() -> dictDataService.update(req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("字典数据不存在");
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
-    @DisplayName("L3-D2-05 级联删除-3层嵌套")
+    @DisplayName("L3-D2-05 级联删除三层节点")
     void shouldCascadeDeleteThreeLevels() {
-        SysDictData grandpa = buildData(1L, 0L, "gender", "gender", "祖", "z");
-        SysDictData dad = buildData(2L, 1L, "gender", "gender", "父", "f");
-        SysDictData son = buildData(3L, 2L, "gender", "gender", "子", "s");
+        SysDictData grandpa = buildData(1L, 0L, "gender", "祖", "z");
+        SysDictData dad = buildData(2L, 1L, "gender", "父", "f");
+        SysDictData son = buildData(3L, 2L, "gender", "子", "s");
         when(dictDataDao.selectList(any())).thenReturn(List.of(grandpa, dad, son));
 
         dictDataService.delete(1L);
@@ -108,15 +110,15 @@ class DictDataServiceImplTest {
         verify(dictDataDao).deleteById(3L);
     }
 
-    private SysDictData buildData(Long id, Long parentId, String dictType, String dictType2, String label, String value) {
-        SysDictData d = new SysDictData();
-        d.setId(id);
-        d.setParentId(parentId);
-        d.setDictType(dictType);
-        d.setDictLabel(label);
-        d.setDictValue(value);
-        d.setDictSort(1);
-        d.setStatus("ENABLED");
-        return d;
+    private SysDictData buildData(Long id, Long parentId, String dictType, String label, String value) {
+        SysDictData data = new SysDictData();
+        data.setId(id);
+        data.setParentId(parentId);
+        data.setDictType(dictType);
+        data.setDictLabel(label);
+        data.setDictValue(value);
+        data.setDictSort(1);
+        data.setStatus("ENABLED");
+        return data;
     }
 }

@@ -2,12 +2,17 @@ package com.spacetime.miniapp.controller;
 
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.result.R;
+import com.spacetime.miniapp.dto.request.AvatarSubmitReq;
+import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
+import com.spacetime.miniapp.dto.request.IntroductionSubmitReq;
 import com.spacetime.miniapp.dto.request.OpenTextSubmitReq;
 import com.spacetime.miniapp.dto.request.ProfileMediaSubmitReq;
-import com.spacetime.miniapp.dto.request.ProfileInitSaveReq;
+import com.spacetime.miniapp.dto.request.ProfileInitStepReq;
 import com.spacetime.miniapp.dto.request.ProfileUpdateReq;
 import com.spacetime.miniapp.dto.request.VoiceIntroSubmitReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
+import com.spacetime.miniapp.dto.response.AvatarSubmitVO;
+import com.spacetime.miniapp.dto.response.BasicProfileVO;
 import com.spacetime.miniapp.dto.response.OpenTextAuditVO;
 import com.spacetime.miniapp.dto.response.ProfileDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileInitStatusVO;
@@ -49,20 +54,9 @@ public class ProfileController {
      * @param req 步骤号 + 当前步骤填写的字段
      * @return 更新后的步骤状态
      */
-    @PostMapping("/init-save")
-    public R<ProfileInitStatusVO> initSave(@Valid @RequestBody ProfileInitSaveReq req) {
-        return R.ok(profileService.saveInit(currentUserId(), req));
-    }
-
-    /**
-     * 完成首登资料初始化（第5步后）
-     * 校验必填字段，标记 firstLoginCompleted=1，计算资料完整度
-     * @param req 最后一步的字段
-     * @return 完整资料详情
-     */
-    @PostMapping("/init-complete")
-    public R<ProfileDetailVO> initComplete(@Valid @RequestBody ProfileInitSaveReq req) {
-        return R.ok(profileService.completeInit(currentUserId(), req));
+    @PostMapping("/init-step")
+    public R<ProfileInitStatusVO> initStep(@Valid @RequestBody ProfileInitStepReq req) {
+        return R.ok(profileService.saveInitStep(currentUserId(), req));
     }
 
     /**
@@ -72,6 +66,39 @@ public class ProfileController {
     @GetMapping("/detail")
     public R<ProfileDetailVO> detail() {
         return R.ok(profileService.getDetail(currentUserId()));
+    }
+
+    /** 查询基础资料页反显值、缺失必填项和后台字段配置。 */
+    @GetMapping("/basic")
+    public R<BasicProfileVO> basicProfile() {
+        return R.ok(profileService.getBasicProfile(currentUserId()));
+    }
+
+    /**
+     * 保存基础资料页。
+     * 性别允许修改；隐藏字段不更新；展示且必填的字段缺失时整次保存失败。
+     */
+    @PutMapping("/basic")
+    public R<BasicProfileVO> saveBasicProfile(@RequestBody BasicProfileSaveReq req) {
+        return R.ok(profileService.saveBasicProfile(currentUserId(), req));
+    }
+
+    /**
+     * 添加裁剪后的主头像。
+     * 提交成功后立即生成头像待审核记录和提交历史，移动端展示“审核中”。
+     */
+    @PostMapping("/avatar")
+    public R<AvatarSubmitVO> submitAvatar(@Valid @RequestBody AvatarSubmitReq req) {
+        return R.ok(profileMediaService.submitAvatar(currentUserId(), req));
+    }
+
+    /**
+     * 提交强引导第 3 步自我介绍。
+     * 内容审核通过前保留旧的已通过内容，不提前对外展示新内容。
+     */
+    @PostMapping("/introduction")
+    public R<OpenTextAuditVO> submitIntroduction(@Valid @RequestBody IntroductionSubmitReq req) {
+        return R.ok(openTextAuditService.submitIntroduction(currentUserId(), req));
     }
 
     /**
@@ -85,7 +112,7 @@ public class ProfileController {
         return R.ok(profileService.updateProfile(currentUserId(), req));
     }
 
-    /** 提交头像、相册、背景图或学历材料，进入资料媒体审核 */
+    /** 提交相册、背景图或学历材料，进入资料媒体审核 */
     @PostMapping("/media")
     public R<ProfileMediaVO> submitMedia(@RequestBody ProfileMediaSubmitReq req) {
         return R.ok(profileMediaService.submitMedia(currentUserId(), req));

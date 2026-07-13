@@ -28,6 +28,8 @@ public class DictDataVO {
     private String remark;
     /** 创建时间 */
     private LocalDateTime createTime;
+    /** 是否存在直接子节点，前端据此决定是否展示展开按钮。 */
+    private Boolean hasChildren;
     /** 子级列表（树结构） */
     private List<DictDataVO> children;
 }

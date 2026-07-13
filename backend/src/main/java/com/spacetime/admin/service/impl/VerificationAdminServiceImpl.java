@@ -14,6 +14,7 @@ import com.spacetime.admin.service.VerificationAdminService;
 import com.spacetime.common.dao.AppUserAuditHistoryDao;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditHistory;
 import com.spacetime.common.entity.AppUserAuditRecord;
@@ -23,6 +24,8 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.ProfileDictionaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,7 +52,9 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     private final AppUserAuditRecordDao auditRecordDao;
     private final AppUserAuditHistoryDao historyDao;
     private final AppUserAuditService auditService;
+    private final ProfileDictionaryService profileDictionaryService;
     private final AppUserDao appUserDao;
+    private final AppUserAuditContentService auditContentService;
 
     @Override
     public Page<VerificationVO> getRealNamePage(VerificationPageReq req) {
@@ -174,20 +179,26 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
                         new LambdaQueryWrapper<AppUser>().in(AppUser::getId,
                                 records.stream().map(AppUserAuditRecord::getUserId).toList()))
                 .stream().collect(Collectors.toMap(AppUser::getId, u -> u, (a, b) -> a));
+        Map<Long, String> avatarMap = auditContentService.publicAvatars(
+                records.stream().map(AppUserAuditRecord::getUserId).distinct().toList());
 
         List<VerificationVO> vos = new ArrayList<>();
+        Map<String, String> identityLabels = type == AppUserAuditTypeEnum.EDUCATION
+                ? profileDictionaryService.labels(ProfileDictType.IDENTITY)
+                : Map.of();
         for (AppUserAuditRecord record : records) {
             AppUser user = userMap.get(record.getUserId());
-            VerificationVO vo = baseRow(record, user);
+            VerificationVO vo = baseRow(record, user, avatarMap.get(record.getUserId()));
             if (type == AppUserAuditTypeEnum.REAL_NAME) {
                 vo.setPhone(maskPhone(record.getBoundPhone()));
                 vo.setRealName(maskRealName(record.getRealName()));
                 vo.setIdCard(maskIdCard(record.getIdCard()));
             } else if (type == AppUserAuditTypeEnum.EDUCATION) {
-                vo.setEducationIdentity(identityLabel(user == null ? null : user.getIdentity()));
+                vo.setEducationIdentity(profileDictionaryService.label(
+                        identityLabels, user == null ? null : user.getIdentity()));
                 vo.setEducationMaterialSummary(educationMaterialSummary(record));
             } else if (type == AppUserAuditTypeEnum.AVATAR) {
-                vo.setAvatarUrl(StrUtil.blankToDefault(record.getMediaUrl(), user == null ? null : user.getAvatar()));
+                vo.setAvatarUrl(record.getMediaUrl());
             }
             vos.add(vo);
         }
@@ -196,11 +207,11 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         return result;
     }
 
-    private VerificationVO baseRow(AppUserAuditRecord record, AppUser user) {
+    private VerificationVO baseRow(AppUserAuditRecord record, AppUser user, String avatarUrl) {
         VerificationVO vo = new VerificationVO();
         vo.setId(record.getId());
         vo.setUserId(record.getUserId());
-        vo.setAvatar(user == null ? null : user.getAvatar());
+        vo.setAvatar(avatarUrl);
         vo.setNickname(user == null ? null : user.getNickname());
         vo.setStatus(record.getStatus());
         vo.setAuditSource(record.getAuditSource());
@@ -243,11 +254,17 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     public VerificationAuditDetailVO getEducationDetail(Long id, int historyPage, int historySize) {
         AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.EDUCATION);
         AppUser user = appUserDao.selectById(record.getUserId());
+        String identityCode = StrUtil.blankToDefault(optionalJsonValue(record.getMaterialJson(), "identity"),
+                user == null ? null : user.getIdentity());
+        String educationLevelCode = StrUtil.blankToDefault(optionalJsonValue(record.getMaterialJson(), "educationLevel"),
+                user == null ? null : user.getEducationLevel());
         VerificationAuditDetailVO vo = baseDetail(record, user);
         vo.setFields(List.of(
                 new FieldEntry("学习名称", StrUtil.blankToDefault(record.getSchoolName(), user == null ? null : user.getSchool())),
-                new FieldEntry("身份", identityLabel(user == null ? null : user.getIdentity())),
-                new FieldEntry("学历", user == null ? null : user.getEducationLevel()),
+                new FieldEntry("身份", identityLabel(identityCode)),
+                new FieldEntry("学历", profileDictionaryService.label(ProfileDictType.EDUCATION_LEVEL, educationLevelCode)),
+                new FieldEntry("学历人群", educationUserTypeLabel(
+                        optionalJsonValue(record.getMaterialJson(), "educationUserType"))),
                 new FieldEntry("认证方式", educationMethodLabel(record.getEducationMethod())),
                 new FieldEntry("姓名", record.getRealName()),
                 new FieldEntry("学信网验证码", "CHSI".equals(record.getEducationMethod()) ? educationMaterialSummary(record) : null),
@@ -269,10 +286,10 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.AVATAR);
         AppUser user = appUserDao.selectById(record.getUserId());
         VerificationAuditDetailVO vo = baseDetail(record, user);
-        vo.setMediaUrl(StrUtil.blankToDefault(record.getMediaUrl(), user == null ? null : user.getAvatar()));
+        vo.setMediaUrl(record.getMediaUrl());
         vo.setThumbUrl(record.getThumbUrl());
         vo.setFields(List.of(
-                new FieldEntry("头像图片", StrUtil.blankToDefault(record.getMediaUrl(), user == null ? null : user.getAvatar())),
+                new FieldEntry("头像图片", record.getMediaUrl()),
                 new FieldEntry("媒体ID", String.valueOf(record.getId()))
         ));
         vo.setHistoryPage(historyPage(record.getId(), historyPage, historySize));
@@ -284,7 +301,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         vo.setId(record.getId());
         vo.setUserId(record.getUserId());
         vo.setNickname(user == null ? null : user.getNickname());
-        vo.setAvatar(user == null ? null : user.getAvatar());
+        vo.setAvatar(auditContentService.publicAvatar(record.getUserId()));
         vo.setVerifyLevel(auditService.certificationApprovedCount(record.getUserId()));
         vo.setSubmitTime(format(record.getSubmitTime()));
         vo.setResultTime(format(record.getAuditTime()));
@@ -369,16 +386,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     }
 
     private String identityLabel(String identity) {
-        if (StrUtil.isBlank(identity)) {
-            return "-";
-        }
-        if ("STUDENT".equals(identity) || "在校生".equals(identity)) {
-            return "在校生";
-        }
-        if ("WORKER".equals(identity) || "PROFESSIONAL".equals(identity) || "职场人".equals(identity)) {
-            return "职场人";
-        }
-        return identity;
+        return profileDictionaryService.label(ProfileDictType.IDENTITY, identity);
     }
 
     private String educationMaterialSummary(AppUserAuditRecord record) {
@@ -409,9 +417,25 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         return StrUtil.blankToDefault(method, "-");
     }
 
+    private String educationUserTypeLabel(String value) {
+        if ("STUDENT".equals(value)) {
+            return "在校生";
+        }
+        if ("MAINLAND_GRADUATE".equals(value)) {
+            return "中国大陆毕业生";
+        }
+        return StrUtil.blankToDefault(value, "-");
+    }
+
     private String firstJsonValue(String json, String... keys) {
+        String value = optionalJsonValue(json, keys);
+        return value == null ? json : value;
+    }
+
+    /** 读取可选快照字段；旧记录不存在该字段时返回 null，由调用方回退用户资料。 */
+    private String optionalJsonValue(String json, String... keys) {
         if (StrUtil.isBlank(json)) {
-            return "-";
+            return null;
         }
         for (String key : keys) {
             String marker = "\"" + key + "\"";
@@ -434,7 +458,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
                 }
             }
         }
-        return json;
+        return null;
     }
 
     private String materialLinks(String json) {

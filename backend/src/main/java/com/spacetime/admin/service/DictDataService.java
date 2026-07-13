@@ -11,7 +11,7 @@ import java.util.List;
  */
 public interface DictDataService {
     /** 按字典类型编码查询树形结构 */
-    List<DictDataVO> tree(String dictType);
+    List<DictDataVO> children(String dictType, Long parentId);
     /** 创建字典数据，返回主键 ID */
     Long create(DictDataCreateReq req);
     /** 更新字典数据 */

@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 /**
- * 手机号登录请求，首版使用 mock 短信验证码。
+ * 手机号登录请求。
  */
 @Data
 public class PhoneLoginReq {
@@ -15,7 +15,7 @@ public class PhoneLoginReq {
     @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确")
     private String phone;
 
-    /** 短信验证码；当前仅支持 mock 验证码。 */
+    /** 短信验证码；必须先调用 /miniapp/auth/sms-code 获取。 */
     @NotBlank(message = "验证码不能为空")
     private String smsCode;
 

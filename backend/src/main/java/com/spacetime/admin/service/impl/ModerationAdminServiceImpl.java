@@ -22,6 +22,7 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.common.service.AppUserAuditContentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +50,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
     private final AppUserAuditHistoryDao historyDao;
     private final AppUserAuditService auditService;
     private final AppUserDao appUserDao;
+    private final AppUserAuditContentService auditContentService;
 
     @Override
     public Page<ModerationVO> getPhotoPage(VerificationPageReq req) {
@@ -149,11 +151,13 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
                         new LambdaQueryWrapper<AppUser>().in(AppUser::getId,
                                 records.stream().map(AppUserAuditRecord::getUserId).toList()))
                 .stream().collect(Collectors.toMap(AppUser::getId, u -> u, (a, b) -> a));
+        Map<Long, String> avatarMap = auditContentService.publicAvatars(
+                records.stream().map(AppUserAuditRecord::getUserId).distinct().toList());
 
         List<ModerationVO> vos = new ArrayList<>();
         for (AppUserAuditRecord record : records) {
             AppUser user = userMap.get(record.getUserId());
-            ModerationVO vo = baseRow(record, user);
+            ModerationVO vo = baseRow(record, user, avatarMap.get(record.getUserId()));
             if (photo) {
                 vo.setContentType("照片");
                 vo.setImageType(photoTypeLabel(record.getAuditType()));
@@ -172,11 +176,11 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         return result;
     }
 
-    private ModerationVO baseRow(AppUserAuditRecord record, AppUser user) {
+    private ModerationVO baseRow(AppUserAuditRecord record, AppUser user, String avatarUrl) {
         ModerationVO vo = new ModerationVO();
         vo.setId(record.getId());
         vo.setUserId(record.getUserId());
-        vo.setAvatar(user == null ? null : user.getAvatar());
+        vo.setAvatar(avatarUrl);
         vo.setNickname(user == null ? null : user.getNickname());
         vo.setStatus(record.getStatus());
         vo.setAuditSource(record.getAuditSource());
@@ -222,7 +226,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         vo.setId(record.getId());
         vo.setUserId(record.getUserId());
         vo.setNickname(user == null ? null : user.getNickname());
-        vo.setAvatar(user == null ? null : user.getAvatar());
+        vo.setAvatar(auditContentService.publicAvatar(record.getUserId()));
         vo.setSubmitTime(format(record.getSubmitTime()));
         vo.setStatus(record.getStatus());
         vo.setAuditSource(record.getAuditSource());

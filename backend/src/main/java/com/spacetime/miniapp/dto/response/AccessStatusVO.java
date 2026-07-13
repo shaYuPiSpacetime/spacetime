@@ -21,8 +21,6 @@ public class AccessStatusVO {
     private Boolean canBeExposed;
     /** 核心准入状态：CORE_ALLOWED、CORE_BLOCKED、NON_CORE_ONLY。 */
     private String coreAccessStatus;
-    /** 单条阻断原因，兼容旧前端展示。 */
-    private String blockReason;
     /** 多条阻断原因，供移动端逐项渲染。 */
     private List<String> blockReasons;
 }

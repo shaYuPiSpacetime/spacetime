@@ -17,6 +17,9 @@ import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.constant.ProfileDictType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +54,11 @@ class VerificationAdminServiceImplTest {
 
     @Mock
     private AppUserDao appUserDao;
+
+    @Mock
+    private ProfileDictionaryService profileDictionaryService;
+    @Mock
+    private AppUserAuditContentService auditContentService;
 
     @InjectMocks
     private VerificationAdminServiceImpl service;
@@ -103,12 +111,14 @@ class VerificationAdminServiceImplTest {
 
         AppUser user = appUser(20L);
         when(appUserDao.selectById(20L)).thenReturn(user);
+        when(auditContentService.publicAvatar(20L)).thenReturn("https://oss.example.com/avatar-approved.jpg");
         when(auditService.certificationApprovedCount(20L)).thenReturn(2);
         when(historyDao.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(historyPage(10L));
 
         VerificationAuditDetailVO detail = service.getAvatarDetail(10L, 1, 2);
 
         assertThat(detail.getMediaUrl()).isEqualTo("https://oss.example.com/avatar-a.jpg");
+        assertThat(detail.getAvatar()).isEqualTo("https://oss.example.com/avatar-approved.jpg");
         assertThat(detail.getThumbUrl()).isEqualTo("https://oss.example.com/avatar-a-thumb.jpg");
         assertThat(detail.getRejectReason()).isEqualTo("图片不清晰");
         assertThat(detail.getHistoryPage().getTotal()).isEqualTo(1);
@@ -152,8 +162,10 @@ class VerificationAdminServiceImplTest {
         AppUser user = appUser(22L);
         user.setIdentity("STUDENT");
         user.setSchool("旧学校");
-        user.setEducationLevel("本科");
+        user.setEducationLevel("BACHELOR");
         when(appUserDao.selectById(22L)).thenReturn(user);
+        when(profileDictionaryService.label(ProfileDictType.IDENTITY, "STUDENT")).thenReturn("在校生");
+        when(profileDictionaryService.label(ProfileDictType.EDUCATION_LEVEL, "BACHELOR")).thenReturn("本科");
         when(auditService.certificationApprovedCount(22L)).thenReturn(1);
         when(historyDao.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(historyPage(12L));
 
@@ -168,6 +180,11 @@ class VerificationAdminServiceImplTest {
                 .anySatisfy(field -> {
                     assertThat(field.getLabel()).isEqualTo("身份");
                     assertThat(field.getValue()).isEqualTo("在校生");
+                });
+        assertThat(detail.getFields())
+                .anySatisfy(field -> {
+                    assertThat(field.getLabel()).isEqualTo("学历");
+                    assertThat(field.getValue()).isEqualTo("本科");
                 });
         assertThat(detail.getHistoryPage().getRecords()).hasSize(1);
     }
@@ -187,7 +204,6 @@ class VerificationAdminServiceImplTest {
         AppUser user = new AppUser();
         user.setId(userId);
         user.setNickname("审核用户" + userId);
-        user.setAvatar("https://oss.example.com/avatar.jpg");
         return user;
     }
 

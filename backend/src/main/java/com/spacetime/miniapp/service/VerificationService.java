@@ -2,7 +2,6 @@ package com.spacetime.miniapp.service;
 
 import com.spacetime.miniapp.dto.request.EducationSubmitReq;
 import com.spacetime.miniapp.dto.request.RealNameSubmitReq;
-import com.spacetime.miniapp.dto.request.AvatarVerifyReq;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
 
 /**
@@ -32,11 +31,4 @@ public interface VerificationService {
      */
     VerificationStatusVO submitEducation(Long userId, EducationSubmitReq req);
 
-    /**
-     * 提交头像认证
-     * @param userId 用户ID
-     * @param req 头像媒体 ID
-     * @return 提交后的认证状态
-     */
-    VerificationStatusVO verifyAvatar(Long userId, AvatarVerifyReq req);
 }

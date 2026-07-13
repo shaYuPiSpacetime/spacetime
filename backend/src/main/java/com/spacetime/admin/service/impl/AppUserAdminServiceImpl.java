@@ -15,6 +15,7 @@ import com.spacetime.common.dao.AppUserImportBatchDao;
 import com.spacetime.common.dao.AppUserImportRowDao;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.ContentOperationLogDao;
+import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.AppUserImportBatch;
@@ -24,6 +25,8 @@ import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.service.AppUserAuditContentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +57,8 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     private final AppUserImportBatchDao importBatchDao;
     private final AppUserImportRowDao importRowDao;
     private final ContentOperationLogDao contentOperationLogDao;
+    private final ProfileDictionaryService profileDictionaryService;
+    private final AppUserAuditContentService auditContentService;
 
     @Override
     public Page<AppUserListVO> getUserPage(AppUserPageReq req) {
@@ -108,10 +113,14 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         // 批量加载所有用户的最新审核记录（避免 N+1），用户卡片状态全部实时派生。
         List<Long> userIds = page.getRecords().stream().map(AppUser::getId).toList();
         Map<Long, Map<String, AppUserAuditRecord>> auditMap = loadLatestAuditMap(userIds);
+        Map<Long, String> avatars = auditContentService.publicAvatars(userIds);
+        Map<Long, List<String>> albumPhotos = auditContentService.ownerAlbumPhotos(userIds);
+        ProfileLabels profileLabels = loadProfileLabels();
 
         Page<AppUserListVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(page.getRecords().stream()
-                .map(user -> toListVO(user, auditMap.get(user.getId())))
+                .map(user -> toListVO(user, auditMap.get(user.getId()), profileLabels,
+                        avatars.get(user.getId()), albumPhotos.getOrDefault(user.getId(), List.of())))
                 .toList());
         return result;
     }
@@ -120,7 +129,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     public AppUserDetailVO getUserDetail(Long id) {
         AppUser user = appUserDao.selectById(id);
         if (user == null) throw new BusinessException("用户不存在");
-        return toDetailVO(user, loadLatestAuditMap(List.of(id)).get(id));
+        return toDetailVO(user, loadLatestAuditMap(List.of(id)).get(id), loadProfileLabels());
     }
 
     @Override
@@ -212,25 +221,26 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return vo;
     }
 
-    private AppUserListVO toListVO(AppUser user, Map<String, AppUserAuditRecord> audits) {
+    private AppUserListVO toListVO(AppUser user, Map<String, AppUserAuditRecord> audits, ProfileLabels labels,
+            String avatarUrl, List<String> albumPhotos) {
         AppUserListVO vo = new AppUserListVO();
         AppUserAuditRecord realName = audit(audits, AppUserAuditTypeEnum.REAL_NAME);
         AppUserAuditRecord education = audit(audits, AppUserAuditTypeEnum.EDUCATION);
         AppUserAuditRecord avatar = audit(audits, AppUserAuditTypeEnum.AVATAR);
         AppUserAuditRecord voice = audit(audits, AppUserAuditTypeEnum.VOICE_INTRO);
         vo.setId(user.getId());
-        vo.setAvatar(user.getAvatar());
+        vo.setAvatar(avatarUrl);
         vo.setNickname(user.getNickname());
         vo.setGender(user.getGender());
         vo.setAge(user.getAge());
         vo.setSchool(user.getSchool());
         vo.setPhone(maskPhone(firstNotBlank(realName == null ? null : realName.getBoundPhone(), phoneFromOpenid(user.getOpenid()))));
         vo.setCity(joinLocation(user.getLocationProvince(), user.getLocationCity()));
-        vo.setIdentity(user.getIdentity());
-        vo.setOccupation(user.getOccupation());
-        vo.setAnnualIncome(user.getAnnualIncome());
+        vo.setIdentity(profileDictionaryService.label(labels.identity(), user.getIdentity()));
+        vo.setOccupation(profileDictionaryService.label(labels.occupation(), user.getOccupation()));
+        vo.setAnnualIncome(profileDictionaryService.label(labels.annualIncome(), user.getAnnualIncome()));
         vo.setTags(user.getTags());
-        vo.setPhotos(user.getPhotos());
+        vo.setPhotos(toJsonArray(albumPhotos));
         vo.setVoiceIntroDuration(voice == null ? null : voice.getDuration());
         vo.setVoiceIntroAuditStatus(statusOf(voice));
         vo.setMbtiType(user.getMbtiType());
@@ -337,7 +347,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return canBrowse(user) ? (tripleApproved(audits) ? "full_access" : "browse_only") : "blocked";
     }
 
-    private AppUserDetailVO toDetailVO(AppUser user, Map<String, AppUserAuditRecord> audits) {
+    private AppUserDetailVO toDetailVO(AppUser user, Map<String, AppUserAuditRecord> audits, ProfileLabels labels) {
         AppUserAuditRecord realName = audit(audits, AppUserAuditTypeEnum.REAL_NAME);
         AppUserAuditRecord education = audit(audits, AppUserAuditTypeEnum.EDUCATION);
         AppUserAuditRecord avatar = audit(audits, AppUserAuditTypeEnum.AVATAR);
@@ -348,15 +358,15 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         AppUserDetailVO vo = new AppUserDetailVO();
         vo.setId(user.getId());
         vo.setNickname(user.getNickname());
-        vo.setAvatar(user.getAvatar());
+        vo.setAvatar(auditContentService.publicAvatar(user.getId()));
         vo.setGender(user.getGender());
         vo.setBirthday(user.getBirthday() != null ? user.getBirthday().toString() : null);
         vo.setAge(user.getAge());
         vo.setHeight(user.getHeight());
         vo.setWeight(user.getWeight());
-        vo.setIdentity(user.getIdentity());
-        vo.setOccupation(user.getOccupation());
-        vo.setAnnualIncome(user.getAnnualIncome());
+        vo.setIdentity(profileDictionaryService.label(labels.identity(), user.getIdentity()));
+        vo.setOccupation(profileDictionaryService.label(labels.occupation(), user.getOccupation()));
+        vo.setAnnualIncome(profileDictionaryService.label(labels.annualIncome(), user.getAnnualIncome()));
         vo.setLocationProvince(user.getLocationProvince());
         vo.setLocationCity(user.getLocationCity());
         vo.setHometownProvince(user.getHometownProvince());
@@ -364,15 +374,15 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setSchool(user.getSchool());
         vo.setPhone(maskPhone(firstNotBlank(realName == null ? null : realName.getBoundPhone(), phoneFromOpenid(user.getOpenid()))));
         vo.setMajor(user.getMajor());
-        vo.setEducationLevel(user.getEducationLevel());
+        vo.setEducationLevel(profileDictionaryService.label(labels.educationLevel(), user.getEducationLevel()));
         vo.setEmotionalStatus(user.getEmotionalStatus());
         vo.setDatingGoal(user.getDatingGoal());
         vo.setMaritalStatus(user.getMaritalStatus());
-        vo.setAboutMe(user.getAboutMe());
-        vo.setHopeTheyKnow(user.getHopeTheyKnow());
+        vo.setAboutMe(auditContentService.ownerText(user.getId(), AppUserAuditTypeEnum.ABOUT_ME));
+        vo.setHopeTheyKnow(auditContentService.ownerText(user.getId(), AppUserAuditTypeEnum.HOPE_THEY_KNOW));
         vo.setTags(user.getTags());
-        vo.setPhotos(user.getPhotos());
-        vo.setProfileBgImage(user.getProfileBgImage());
+        vo.setPhotos(toJsonArray(auditContentService.ownerAlbumPhotos(user.getId())));
+        vo.setProfileBgImage(auditContentService.ownerProfileBackground(user.getId()));
         vo.setVoiceIntroUrl(voice != null && latestApproved(voice) ? voice.getMediaUrl() : null);
         vo.setVoiceIntroDuration(voice == null ? null : voice.getDuration());
         vo.setVoiceIntroAuditStatus(statusOf(voice));
@@ -549,7 +559,23 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return StrUtil.isNotBlank(first) ? first : second;
     }
 
+    /** 每个列表/详情请求只读取一次四类字典，避免按用户逐字段查询。 */
+    private ProfileLabels loadProfileLabels() {
+        return new ProfileLabels(
+                profileDictionaryService.labels(ProfileDictType.IDENTITY),
+                profileDictionaryService.labels(ProfileDictType.EDUCATION_LEVEL),
+                profileDictionaryService.labels(ProfileDictType.OCCUPATION),
+                profileDictionaryService.labels(ProfileDictType.ANNUAL_INCOME));
+    }
+
     private String escapeSql(String value) {
         return value == null ? "" : value.replace("'", "''");
+    }
+
+    private record ProfileLabels(
+            Map<String, String> identity,
+            Map<String, String> educationLevel,
+            Map<String, String> occupation,
+            Map<String, String> annualIncome) {
     }
 }

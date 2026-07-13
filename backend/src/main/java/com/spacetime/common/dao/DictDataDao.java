@@ -13,6 +13,10 @@ public interface DictDataDao {
     SysDictData selectById(Long id);
     /** 按字典类型编码查询全部数据 */
     List<SysDictData> selectByDictType(String dictType);
+    /** 按字典类型和父节点查询直接子级，可选择仅返回启用数据。 */
+    List<SysDictData> selectChildren(String dictType, Long parentId, boolean enabledOnly);
+    /** 按类型和值查询一条启用的字典数据。 */
+    SysDictData selectEnabledByTypeAndValue(String dictType, String dictValue);
     /** 按条件查询列表 */
     List<SysDictData> selectList(LambdaQueryWrapper<SysDictData> wrapper);
     /** 新增 */

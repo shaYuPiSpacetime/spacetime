@@ -1,5 +1,7 @@
 package com.spacetime.miniapp.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.enums.ConfigGroupEnum;
@@ -7,6 +9,7 @@ import com.spacetime.miniapp.service.MiniappPrd01ConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,8 +24,12 @@ import java.util.Map;
 public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService {
 
     private static final String EDUCATION_SLA_HOURS_KEY = "prd01.audit.education.sla_hours";
+    private static final String UPLOAD_RULES_KEY = "prd01.upload.rules";
+    private static final String SMS_RULES_KEY = "prd01.security.sms.rules";
 
     private final AppConfigDao appConfigDao;
+    private final ObjectMapper objectMapper;
+    private final Prd01FieldConfigResolver fieldConfigResolver;
 
     /** 获取 PRD01 移动端初始化配置。 */
     @Override
@@ -31,18 +38,12 @@ public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService 
         Map<String, String> auditConfig = loadGroup(ConfigGroupEnum.PRD01_AUDIT.getCode());
 
         Map<String, Object> result = new HashMap<>();
-        result.put("requiredFields", List.of(
-                "gender",
-                "birthday",
-                "height",
-                "datingGoal",
-                "emotionalStatus",
-                "educationLevel",
-                "locationProvince",
-                "locationCity"));
+        result.put("initFields", fieldConfigResolver.initFieldsForMobile());
+        result.put("requiredFields", fieldConfigResolver.requiredFields());
         result.put("uploadLimits", uploadLimits(uploadConfig));
         result.put("regionScope", regionScope());
         result.put("auditPolicy", auditPolicy(auditConfig));
+        result.put("smsSecurity", smsSecurity(auditConfig));
         result.put("openTextFields", List.of("ABOUT_ME", "HOPE_THEY_KNOW", "PROFILE_QA"));
         return result;
     }
@@ -60,12 +61,19 @@ public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService 
         return values;
     }
 
-    /** 上传限制，移动端用于控制相册数量和语音时长。 */
+    /** 上传限制，移动端用于控制三类图片上传；语音时长固定 10-60 秒。 */
     private Map<String, Object> uploadLimits(Map<String, String> config) {
         Map<String, Object> limits = new HashMap<>();
-        limits.put("albumMaxCount", parseInt(config.get("prd01.upload.album.max_count"), 6));
-        limits.put("voiceMinDuration", parseInt(config.get("prd01.upload.voice.min_duration"), 10));
-        limits.put("voiceMaxDuration", parseInt(config.get("prd01.upload.voice.max_duration"), 60));
+        List<JsonNode> rules = readRows(config.get(UPLOAD_RULES_KEY));
+        limits.put("educationMaterialMaxCount", uploadRuleInt(rules, "education", "maxCount", 4));
+        limits.put("educationMaterialMaxMb", uploadRuleInt(rules, "education", "maxMb", 10));
+        limits.put("albumMaxCount", uploadRuleInt(rules, "album", "maxCount", 9));
+        limits.put("albumMaxMb", uploadRuleInt(rules, "album", "maxMb", 10));
+        limits.put("profileBgMaxCount", uploadRuleInt(rules, "profileBg", "maxCount", 1));
+        limits.put("profileBgMaxMb", uploadRuleInt(rules, "profileBg", "maxMb", 10));
+        limits.put("imageFormats", List.of("jpg", "jpeg", "png"));
+        limits.put("voiceMinDuration", 10);
+        limits.put("voiceMaxDuration", 60);
         return limits;
     }
 
@@ -73,18 +81,29 @@ public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService 
     private Map<String, Object> regionScope() {
         Map<String, Object> scope = new HashMap<>();
         scope.put("supportsOverseas", false);
+        scope.put("supportsLocation", true);
+        scope.put("locationDictPath", "/miniapp/dict/locations");
         return scope;
     }
 
-    /** 审核策略，当前语音 Provider 先走 MOCK，后续可由配置切换真实三方。 */
+    /** 审核策略，当前只向移动端暴露学历审核承诺时间。 */
     private Map<String, Object> auditPolicy(Map<String, String> config) {
         Map<String, Object> policy = new HashMap<>();
         int educationSlaHours = parsePositiveInt(config.get(EDUCATION_SLA_HOURS_KEY), 24);
         policy.put("educationSlaHours", educationSlaHours);
         policy.put("educationSlaText", "学历材料审核预计 " + educationSlaHours + " 小时内完成");
-        policy.put("voiceProvider", config.getOrDefault("prd01.audit.voice.provider", "MOCK"));
-        policy.put("textProvider", config.getOrDefault("prd01.audit.text.provider", "MOCK"));
         return policy;
+    }
+
+    /** 短信验证码频控配置，移动端用于倒计时、有效期和每日次数展示。 */
+    private Map<String, Object> smsSecurity(Map<String, String> config) {
+        Map<String, Object> security = new HashMap<>();
+        List<JsonNode> rows = readRows(config.get(SMS_RULES_KEY));
+        security.put("sendCountdownSeconds", securityRuleInt(rows, "sendCountdownSeconds", 60));
+        security.put("validMinutes", securityRuleInt(rows, "validMinutes", 5));
+        security.put("dailySendLimit", securityRuleInt(rows, "dailySendLimit", 10));
+        security.put("providerCode", "MOCK");
+        return security;
     }
 
     /** 审核时限只能使用大于 0 的整数；配置异常时回退默认 24 小时。 */
@@ -108,5 +127,41 @@ public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService 
         } catch (NumberFormatException ex) {
             return defaultValue;
         }
+    }
+
+    private List<JsonNode> readRows(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode rows = root.isArray() ? root : root.get("rows");
+            if (rows == null || !rows.isArray()) {
+                return List.of();
+            }
+            List<JsonNode> result = new ArrayList<>();
+            rows.forEach(result::add);
+            return result;
+        } catch (Exception ex) {
+            return List.of();
+        }
+    }
+
+    private int uploadRuleInt(List<JsonNode> rows, String key, String field, int defaultValue) {
+        for (JsonNode row : rows) {
+            if (key.equals(row.path("key").asText())) {
+                return parsePositiveInt(row.path(field).asText(), defaultValue);
+            }
+        }
+        return defaultValue;
+    }
+
+    private int securityRuleInt(List<JsonNode> rows, String key, int defaultValue) {
+        for (JsonNode row : rows) {
+            if (key.equals(row.path("key").asText())) {
+                return parsePositiveInt(row.path("value").asText(), defaultValue);
+            }
+        }
+        return defaultValue;
     }
 }

@@ -31,12 +31,12 @@ public class DictDataServiceImpl implements DictDataService {
     private final DictTypeDao dictTypeDao;
 
     @Override
-    public List<DictDataVO> tree(String dictType) {
-        List<SysDictData> all = dictDataDao.selectList(
-                new LambdaQueryWrapper<SysDictData>()
-                        .eq(SysDictData::getDictType, dictType)
-                        .orderByAsc(SysDictData::getDictSort));
-        return buildTree(all, 0L);
+    public List<DictDataVO> children(String dictType, Long parentId) {
+        Long normalizedParentId = parentId == null ? 0L : parentId;
+        return dictDataDao.selectChildren(dictType, normalizedParentId, false)
+                .stream()
+                .map(this::toVO)
+                .toList();
     }
 
     @Override
@@ -88,18 +88,6 @@ public class DictDataServiceImpl implements DictDataService {
     }
 
     /** 构建树形结构 */
-    private List<DictDataVO> buildTree(List<SysDictData> all, Long parentId) {
-        List<DictDataVO> tree = new ArrayList<>();
-        for (SysDictData entity : all) {
-            if (entity.getParentId().equals(parentId)) {
-                DictDataVO vo = toVO(entity);
-                vo.setChildren(buildTree(all, entity.getId()));
-                tree.add(vo);
-            }
-        }
-        return tree;
-    }
-
     /** 递归收集子孙节点 ID（含自身） */
     private void collectChildIds(List<SysDictData> all, Long parentId, List<Long> result) {
         for (SysDictData entity : all) {
@@ -121,6 +109,7 @@ public class DictDataServiceImpl implements DictDataService {
         vo.setStatus(entity.getStatus());
         vo.setRemark(entity.getRemark());
         vo.setCreateTime(entity.getCreateTime());
+        vo.setHasChildren(Boolean.TRUE.equals(entity.getHasChildren()));
         return vo;
     }
 }

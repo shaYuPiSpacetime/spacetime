@@ -294,36 +294,35 @@ if ($adminLogin.code -eq 200 -and $adminLogin.data.token) {
 }
 
 $phone = "139" + (Get-Random -Minimum 10000000 -Maximum 99999999).ToString()
+$smsResp = Invoke-Api "POST" "/miniapp/auth/sms-code" @{ phone = $phone }
 $miniLogin = Invoke-Api "POST" "/miniapp/auth/phone-login" @{ phone = $phone; smsCode = "000000"; agreeProtocol = $true }
-if ($miniLogin.code -eq 200 -and $miniLogin.data.token -and $miniLogin.data.userId) {
+if ($smsResp.code -eq 200 -and $miniLogin.code -eq 200 -and $miniLogin.data.token -and $miniLogin.data.userId) {
     $script:MiniToken = [string]$miniLogin.data.token
     $script:MiniUserId = [long]$miniLogin.data.userId
     Add-Result "L1-MINI-LOGIN" "miniapp" "phone-login-create-user" "PASS" "userId=$script:MiniUserId token obtained" $miniLogin.status $miniLogin.code
 } else {
-    Add-Result "L1-MINI-LOGIN" "miniapp" "phone-login-create-user" "FAIL" "login failed http=$($miniLogin.status) code=$($miniLogin.code) msg=$($miniLogin.msg)" $miniLogin.status $miniLogin.code
+    Add-Result "L1-MINI-LOGIN" "miniapp" "phone-login-create-user" "FAIL" "sms code=$($smsResp.code); login http=$($miniLogin.status) code=$($miniLogin.code) msg=$($miniLogin.msg)" $miniLogin.status $miniLogin.code
 }
 
 if ($script:AdminToken -and $script:MiniToken) {
-    Expect-Code "L1-PROFILE-001" "miniapp" "init step1" (Invoke-Api "POST" "/miniapp/profile/init-save" @{ step = 1; nickname = "AuditL1User"; gender = "MALE"; birthday = "1998-01-01" } $script:MiniToken) 200
-    Expect-Code "L1-PROFILE-002" "miniapp" "init step2" (Invoke-Api "POST" "/miniapp/profile/init-save" @{ step = 2; height = 178; weight = 70 } $script:MiniToken) 200
-    Expect-Code "L1-PROFILE-003" "miniapp" "init step3" (Invoke-Api "POST" "/miniapp/profile/init-save" @{ step = 3; identity = "WORKER"; datingGoal = "SERIOUS_RELATIONSHIP"; emotionalStatus = "SINGLE" } $script:MiniToken) 200
-    Expect-Code "L1-PROFILE-004" "miniapp" "init step4" (Invoke-Api "POST" "/miniapp/profile/init-save" @{ step = 4; educationLevel = "BACHELOR"; school = "StarRiverUniversity"; major = "ComputerScience" } $script:MiniToken) 200
-    Expect-Code "L1-PROFILE-005" "miniapp" "init complete" (Invoke-Api "POST" "/miniapp/profile/init-complete" @{ step = 5; locationProvince = "Shanghai"; locationCity = "Shanghai"; locationDistrict = "Pudong"; hometownProvince = "Jiangsu"; hometownCity = "Nanjing"; hometownDistrict = "Gulou" } $script:MiniToken) 200
+    Expect-Code "L1-PROFILE-001" "miniapp" "init step1" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 1; gender = "MALE" } $script:MiniToken) 200
+    Expect-Code "L1-PROFILE-002" "miniapp" "init step2" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 2; birthday = "1998-01-01" } $script:MiniToken) 200
+    Expect-Code "L1-PROFILE-003" "miniapp" "init step3" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 3; identity = "EMPLOYEE" } $script:MiniToken) 200
+    Expect-Code "L1-PROFILE-004" "miniapp" "init step4" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 4; educationLevel = "BACHELOR" } $script:MiniToken) 200
+    Expect-Code "L1-PROFILE-005" "miniapp" "init step5 complete" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 5; locationProvince = "310000"; locationCity = "310100"; locationDistrict = "310115" } $script:MiniToken) 200
 
     $idTail = (Get-Random -Minimum 1000 -Maximum 9999).ToString()
-    Expect-Code "L1-VERIFY-REAL-001" "miniapp" "submit real-name machine approved" (Invoke-Api "POST" "/miniapp/verify/real-name" @{ realName = "AuditUser"; idCard = "11010119900101$idTail"; singlePromise = $true } $script:MiniToken) 200
+    Expect-Code "L1-VERIFY-REAL-001" "miniapp" "submit real-name machine approved" (Invoke-Api "POST" "/miniapp/verify/real-name" @{ realName = "AuditUser"; idCardNo = "11010119900101$idTail"; singleCommitmentChecked = $true } $script:MiniToken) 200
     $realName = Latest-Record "/admin/verify/real-name/list" "APPROVED"
     Expect-True "L1-ADM-REAL-001" "admin" "real-name list approved" ($null -ne $realName) "real-name approved record visible" "real-name approved record not found"
 
-    Expect-Code "L1-MEDIA-AVATAR-001" "miniapp" "upload avatar pending" (Invoke-Api "POST" "/miniapp/profile/media" @{ mediaType = "AVATAR"; mediaUrl = "https://example.test/prd01/avatar-a.jpg"; thumbUrl = "https://example.test/prd01/avatar-a-thumb.jpg"; sortOrder = 1 } $script:MiniToken) 200
+    Expect-Code "L1-MEDIA-AVATAR-001" "miniapp" "submit avatar pending" (Invoke-Api "POST" "/miniapp/profile/avatar" @{ avatarSource = "ALBUM"; avatarUrl = "https://example.test/prd01/avatar-a.jpg"; thumbUrl = "https://example.test/prd01/avatar-a-thumb.jpg" } $script:MiniToken) 200
     $avatarPending = Latest-Record "/admin/verify/avatar/list" "PENDING"
     Expect-True "L1-ADM-AVATAR-001" "admin" "avatar pending visible" ($null -ne $avatarPending) "avatar pending id=$($avatarPending.id)" "avatar pending not found"
-    if ($avatarPending) {
-        Expect-Code "L1-VERIFY-AVATAR-001" "miniapp" "verify same avatar media machine approved" (Invoke-Api "POST" "/miniapp/verify/avatar" @{ mediaId = [long]$avatarPending.id } $script:MiniToken) 200
-    }
+    Expect-Code "L1-VERIFY-AVATAR-001" "miniapp" "query avatar audit status" (Invoke-Api "GET" "/miniapp/verify/status" $null $script:MiniToken) 200
 
     foreach ($schoolSuffix in @("A","B","C","D")) {
-        Expect-Code "L1-VERIFY-EDU-SUBMIT-$schoolSuffix" "miniapp" "submit education $schoolSuffix" (Invoke-Api "POST" "/miniapp/verify/education" @{ educationMethod = "CHSI"; school = "StarRiverUniversity$schoolSuffix"; studentStatus = "GRADUATED"; verificationCode = "VCODE$schoolSuffix" } $script:MiniToken) 200
+        Expect-Code "L1-VERIFY-EDU-SUBMIT-$schoolSuffix" "miniapp" "submit education $schoolSuffix" (Invoke-Api "POST" "/miniapp/verify/education" @{ educationUserType = "MAINLAND_GRADUATE"; educationMethod = "CHSI"; schoolName = "StarRiverUniversity$schoolSuffix"; educationLevel = "BACHELOR"; chsiCode = "12345678901$schoolSuffix"; educationAgreementChecked = $true } $script:MiniToken) 200
         $eduPending = Latest-Record "/admin/verify/education/list" "PENDING"
         Expect-True "L1-ADM-EDU-PENDING-$schoolSuffix" "admin" "education pending $schoolSuffix" ($null -ne $eduPending) "education pending id=$($eduPending.id)" "education pending missing"
         if ($eduPending) {

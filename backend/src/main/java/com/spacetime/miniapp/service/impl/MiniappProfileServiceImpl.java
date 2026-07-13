@@ -3,6 +3,7 @@ package com.spacetime.miniapp.service.impl;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.enums.MobilePageCodeEnum;
+import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.miniapp.dto.response.MiniappCertificationCenterVO;
 import com.spacetime.miniapp.dto.response.MiniappProfileHomeVO;
 import com.spacetime.miniapp.service.MiniappMobileConfigService;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 public class MiniappProfileServiceImpl extends UserSecurityBaseSupport implements MiniappProfileService {
     private final AppUserDao appUserDao;
     private final MiniappMobileConfigService mobileConfigService;
+    private final AppUserAuditContentService auditContentService;
 
     @Override
     public MiniappProfileHomeVO home(Long userId) {
@@ -27,7 +29,7 @@ public class MiniappProfileServiceImpl extends UserSecurityBaseSupport implement
         MiniappProfileHomeVO vo = new MiniappProfileHomeVO();
         vo.setUserId(userId);
         vo.setNickname(displayName(user, userId));
-        vo.setAvatar(user != null ? user.getAvatar() : null);
+        vo.setAvatar(user == null ? null : auditContentService.ownerAvatar(userId));
         vo.setGender(user != null ? user.getGender() : null);
         vo.setAge(user != null ? user.getAge() : null);
         vo.setSchool(user != null ? user.getSchool() : null);
