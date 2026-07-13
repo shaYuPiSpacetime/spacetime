@@ -41,6 +41,29 @@ body {
   letter-spacing: 0;
 }
 
+.demo-home-link {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(23, 32, 51, 0.94);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 12px 28px rgba(23, 32, 51, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.demo-home-link:hover {
+  background: var(--brand);
+}
+
 a {
   color: inherit;
   text-decoration: none;
