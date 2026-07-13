@@ -180,8 +180,8 @@
     const map = {
       receiver: {
         title: '收到一条悄悄话',
-        desc: '接收方可回复或忽略；回复后触发匹配成功并开放普通私信。',
-        actions: '<button class="btn primary" type="button" data-whisper-reply>回复</button><button class="btn" type="button" data-open-modal="ignoreWhisperModal">忽略</button>'
+        desc: '接收方可回复或暂不回应；回复即同意匹配并开放普通私信。',
+        actions: '<button class="btn primary" type="button" data-whisper-reply>回复并匹配</button><button class="btn" type="button" data-open-modal="ignoreWhisperModal">暂不回应</button>'
       },
       sender: {
         title: '等待对方回复',
@@ -190,18 +190,28 @@
       },
       replied: {
         title: '对方已回复',
-        desc: '悄悄话状态变为 replied，触发匹配成功事件。',
+        desc: '回复、匹配成功和普通私信会话已一次完成；本次回复视为真实用户消息。',
         actions: '<button class="btn primary" type="button" data-toast="进入普通私信">去聊天</button>'
       },
-      ignored: {
-        title: '对方已忽略',
-        desc: `发送方进入冷却期，${escapeHtml(item.cooldown)} 后可再次发送。`,
+      not_responded: {
+        title: '本次悄悄话已结束',
+        desc: `发送方只看到“对方暂未回应”，不展示明确拒绝、已读或处理时间；${escapeHtml(item.cooldown)} 后可再次发送。`,
         actions: '<button class="btn" type="button" data-toast="返回消息列表">返回</button>'
       },
       expired: {
+        title: '本次悄悄话已超时',
+        desc: '发送满 7 天未处理，双方不匹配且费用不退；发送方可重新发起，不叠加冷却。',
+        actions: '<button class="btn primary" type="button" data-open-modal="whisperPayModal">重新发起</button>'
+      },
+      invalid: {
         title: '悄悄话已失效',
-        desc: '账号异常、拉黑或认证失效导致不可处理，历史记录保留。',
+        desc: '账号异常、拉黑、处罚或认证失效导致不可处理；不向发送方披露具体原因。',
         actions: '<button class="btn" type="button" data-toast="查看历史记录">查看历史</button>'
+      },
+      refunded: {
+        title: '本次消耗已退回',
+        desc: '消息未有效送达，免费次数或千寻币已原路补回；重复补偿不会再次入账。',
+        actions: '<button class="btn" type="button" data-toast="进入资产明细">查看资产明细</button>'
       }
     };
     const current = map[state.whisperMode] || map.receiver;
@@ -399,10 +409,16 @@
         showToast('悄悄话已回复，触发匹配成功');
       }
 
-      if (event.target.closest('[data-confirm-ignore]')) {
-        setWhisperMode('ignored');
+      if (event.target.closest('[data-confirm-whisper-pay]')) {
         common.closeModal?.(event.target);
-        showToast('已忽略悄悄话，写入 7 天冷却');
+        setWhisperMode('sender');
+        showToast('支付成功，悄悄话已发送；等待对方回复后匹配');
+      }
+
+      if (event.target.closest('[data-confirm-ignore]')) {
+        setWhisperMode('not_responded');
+        common.closeModal?.(event.target);
+        showToast('已暂不回应；对方仅看到本次已结束，写入 7 天冷却');
       }
 
       if (event.target.closest('[data-retry-message]')) {

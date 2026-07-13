@@ -4,6 +4,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本02 | 2026-07-13 | Codex | 明确推荐、社区与消息中心的沟通入口分流 |
 | 版本01 | 2026-07-02 | Codex | 按一期上线目标建立移动端消息页面树，移除用户自助通知管理页 |
 
 ---
@@ -25,10 +26,10 @@
 | 页面 ID | 页面名 | 一期编号 | demo 原编号 | 页面规格路径 | 入口 |
 |---------|--------|----------|-------------|--------------|------|
 | `APP-03-PAGE-message-list` | 消息列表页 | MVP-PAGE-033 | APP-PAGE-049 | `页面规格/APP-01_消息列表页.md` | 底部 Tab `消息` |
-| `APP-03-PAGE-private-chat` | 私信对话页 | MVP-PAGE-034 | APP-PAGE-050 | `页面规格/APP-02_私信对话页.md` | 消息列表、匹配成功弹窗、相互喜欢、用户主页 |
+| `APP-03-PAGE-private-chat` | 私信对话页 | MVP-PAGE-034 | APP-PAGE-050 | `页面规格/APP-02_私信对话页.md` | 消息列表主入口、匹配成功回流、社区/用户主页已匹配态 |
 | `APP-03-PAGE-official-assistant` | 官方助手聊天页 | MVP-PAGE-035 | APP-PAGE-051 | `页面规格/APP-03_官方助手聊天页.md` | 消息列表官方助手入口、系统引导 |
 | `APP-03-PAGE-official-message-detail` | 官方消息详情页 | MVP-PAGE-036 | APP-PAGE-052 | `页面规格/APP-04_官方消息详情页.md` | 官方消息卡片、通知中心 |
-| `APP-03-PAGE-whisper-message` | 悄悄话消息页 | MVP-PAGE-037 | APP-PAGE-053 | `页面规格/APP-05_悄悄话消息页.md` | 消息列表悄悄话会话、收到悄悄话通知 |
+| `APP-03-PAGE-whisper-message` | 悄悄话消息页 | MVP-PAGE-037 | APP-PAGE-053 | `页面规格/APP-05_悄悄话消息页.md` | 推荐页付费发起、社区未匹配态、消息列表/通知回流 |
 | `APP-03-PAGE-notification-center` | 通知中心页 | MVP-PAGE-038 | APP-PAGE-054 | `页面规格/APP-06_通知中心页.md` | 消息列表右上角通知、官方消息卡片 |
 | `APP-03-PAGE-notification-detail` | 通知详情页 | MVP-PAGE-039 | APP-PAGE-055 | `页面规格/APP-07_通知详情页.md` | 通知中心列表 |
 | `APP-03-PAGE-invite-response` | 邀请响应页 | MVP-PAGE-040 | APP-PAGE-056 | `页面规格/APP-08_邀请响应页.md` | 邀请通知、PRD-07 邀请入口 |
@@ -95,4 +96,3 @@
 | `notify_center_show` | 进入通知中心 | unreadCount |
 | `notify_item_click` | 点击通知 | noticeType, bizType |
 | `notify_read_all_click` | 点击全部已读 | unreadCount |
-

@@ -126,7 +126,7 @@ window.DEMO_DATA = {
       targetUserNo: 'U100281',
       preview: '看到你也喜欢纪录片，想问你最近看过哪一部？',
       title: '-',
-      status: '待回复',
+      status: '等待回应',
       time: '2026-07-02 08:40:00'
     },
     {
@@ -153,7 +153,7 @@ window.DEMO_DATA = {
   configLogs: [
     { time: '2026-07-02 10:31', user: '运营主管', action: '修改女性保护期天数', detail: '3 天 -> 3 天，确认无变更' },
     { time: '2026-07-02 10:12', user: '超级管理员', action: '开启官方助手入口', detail: '入口开关保持开启' },
-    { time: '2026-07-01 18:42', user: '风控', action: '调整悄悄话冷却', detail: '7 天，首版固定参数' }
+    { time: '2026-07-01 18:42', user: '风控', action: '调整悄悄话暂不回应冷却', detail: '7 天；待回应有效期另为 7 天' }
   ],
   reportRows: [
     {

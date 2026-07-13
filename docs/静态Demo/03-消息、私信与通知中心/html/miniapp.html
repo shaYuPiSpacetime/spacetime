@@ -24,6 +24,7 @@
     <main class="layout">
       <aside class="side-nav" aria-label="移动端页面导航">
         <h2>移动端页面</h2>
+        <a href="#contact-entry-routing">入口分流</a>
         <a href="#APP-03-PAGE-message-list">消息列表</a>
         <a href="#APP-03-PAGE-private-chat">私信对话</a>
         <a href="#APP-03-PAGE-official-assistant">官方助手/详情</a>
@@ -51,6 +52,41 @@
               <li><span>官方助手</span><strong>不可回复</strong></li>
               <li><span>邀请响应</span><strong>PRD-03 承接展示</strong></li>
             </ul>
+          </div>
+        </section>
+
+        <section class="section-band" id="contact-entry-routing">
+          <div class="page-head">
+            <h2>悄悄话与私信入口分流</h2>
+            <p>推荐页负责主要发现与付费破冰，社区提供辅助发现入口，消息中心统一承接后续会话。</p>
+          </div>
+          <div class="section-body phone-stage">
+            <article class="phone">
+              <div class="phone-bar"><span>9:43</span><span>推荐</span></div>
+              <div class="phone-screen">
+                <div class="app-nav"><span class="nav-icon">‹</span><strong>推荐详情</strong><span class="nav-icon">荐</span></div>
+                <article class="message-hero-card">
+                  <span>推荐页 · 悄悄话主入口</span>
+                  <h2>林同学，与你有 86% 合拍度</h2>
+                  <p>未匹配时不能直接发私信，可付费发送一条悄悄话破冰。</p>
+                  <button class="btn primary full" type="button" data-open-modal="whisperPayModal">发悄悄话</button>
+                </article>
+                <article class="message-row">
+                  <div class="avatar alt">社</div>
+                  <div class="row-main"><strong>社区辅助入口</strong><span>未匹配显示“悄悄话”；匹配成功后改为“发私信”。</span></div>
+                  <button class="btn" type="button" data-toast="已匹配：进入普通私信">发私信</button>
+                </article>
+              </div>
+            </article>
+            <article class="mini-panel">
+              <h3>入口规则</h3>
+              <ul class="check-list">
+                <li><span>推荐卡片/详情</span><strong>悄悄话主入口</strong></li>
+                <li><span>社区动态/评论/主页</span><strong>关系状态分流</strong></li>
+                <li><span>未匹配</span><strong>付费后发悄悄话</strong></li>
+                <li><span>已匹配</span><strong>消息中心普通私信</strong></li>
+              </ul>
+            </article>
           </div>
         </section>
 
@@ -212,7 +248,7 @@
         <section class="section-band" id="APP-03-PAGE-whisper-message">
           <div class="page-head">
             <h2>APP-03-PAGE-whisper-message 悄悄话消息页</h2>
-            <p>展示破冰链路核心状态：接收方处理、发送方等待、已回复、已忽略和失效。</p>
+            <p>展示匹配前完整链路：付费发送、等待回应、回复匹配、暂不回应、超时、失效和退款。</p>
           </div>
           <div class="section-body phone-stage">
             <article class="phone">
@@ -227,8 +263,10 @@
                   <button class="tab-btn is-active" type="button" data-set-whisper-mode data-value="receiver">接收方</button>
                   <button class="tab-btn" type="button" data-set-whisper-mode data-value="sender">发送方</button>
                   <button class="tab-btn" type="button" data-set-whisper-mode data-value="replied">已回复</button>
-                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="ignored">已忽略</button>
-                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="expired">失效</button>
+                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="not_responded">暂不回应</button>
+                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="expired">已超时</button>
+                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="invalid">失效</button>
+                  <button class="tab-btn" type="button" data-set-whisper-mode data-value="refunded">已退款</button>
                 </div>
                 <div data-render="whisper-card"></div>
               </div>
@@ -238,7 +276,8 @@
               <ul class="check-list">
                 <li><span>同一对象 pending 时不可重复发送</span><strong>M03-ERR-whisper-duplicate-pending</strong></li>
                 <li><span>接收方回复触发匹配成功</span><strong>M03-EVT-whisper-replied</strong></li>
-                <li><span>忽略后进入 7 天冷却</span><strong>M03-CFG-whisper-ignore-cooldown-days</strong></li>
+                <li><span>暂不回应匿名结束并进入 7 天冷却</span><strong>M03-RULE-whisper-read-privacy</strong></li>
+                <li><span>7 天未处理自动超时，可重新发起</span><strong>M03-RULE-whisper-expire</strong></li>
                 <li><span>扣费和免费次数归 PRD-04</span><strong>跨模块</strong></li>
               </ul>
             </article>
@@ -300,11 +339,26 @@
 
   <div class="modal-backdrop" id="ignoreWhisperModal" aria-hidden="true">
     <div class="modal">
-      <h2>忽略悄悄话</h2>
-      <p>忽略后，发送方 7 天内不可再次向你发送悄悄话。</p>
+      <h2>暂不回应</h2>
+      <p>暂不回应后，本次悄悄话将结束；对方不会看到你做出了拒绝。对方 7 天内不能再次发送。</p>
       <div class="modal-actions">
         <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
-        <button class="btn primary" type="button" data-confirm-ignore>确认忽略</button>
+        <button class="btn primary" type="button" data-confirm-ignore>确认暂不回应</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="whisperPayModal" aria-hidden="true">
+    <div class="modal">
+      <h2>发送悄悄话</h2>
+      <p>支付成功后才能发送。对方回复后，双方匹配成功并转为普通私信。</p>
+      <div class="form-stack">
+        <label>悄悄话内容<textarea rows="3">你好，看到你也喜欢看展，想认识一下。</textarea></label>
+        <div class="notice-panel">本次消耗：会员免费次数 1 次或按 PRD-04 扣除千寻币</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
+        <button class="btn primary" type="button" data-confirm-whisper-pay>确认支付并发送</button>
       </div>
     </div>
   </div>
