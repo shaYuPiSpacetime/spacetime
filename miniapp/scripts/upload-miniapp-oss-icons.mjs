@@ -22,6 +22,7 @@ class OssUploadError extends Error {
 
 // 不包含底部 Tab 图标；这些资源必须按源文件字节上传，不会转换、缩放或压缩图像。
 const ICON_ASSETS = Object.freeze({
+  heartMutualLikes: 'src/assets/lanhu/heart-message/heart-mutual-likes.png',
   coinGold: 'src/assets/lanhu/pages/coin-gold.png',
   coinUsageWhisper: 'src/assets/lanhu/pages/coin-usage/whisper.png',
   coinUsageHeartbeat: 'src/assets/lanhu/pages/coin-usage/heartbeat.png',

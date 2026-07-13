@@ -35,7 +35,7 @@ export default function CommunityPage() {
 
       {!isMember ? (
         <View
-          onClick={() => Taro.navigateTo({ url: '/pages/membership/index' })}
+          onClick={() => Taro.navigateTo({ url: '/pages/heart/membership-unlock' })}
           style={{
             position: 'fixed',
             left: '25rpx',
@@ -60,7 +60,6 @@ export default function CommunityPage() {
         <UnlockSheet
           stage={unlockStage}
           onClose={() => setUnlockStage('closed')}
-          onUnlock={() => setUnlockStage('success')}
         />
       ) : null}
     </View>
@@ -72,7 +71,10 @@ function HeartTabsHeader({ active, onChange }: { active: HeartTab; onChange: (ta
   const top = menuTop + (menuHeight - 45) / 2
 
   return (
-    <HeartMessageHeader rightIcon="folder">
+    <HeartMessageHeader
+      rightIcon="folder"
+      onRightIconClick={() => Taro.navigateTo({ url: '/pages/heart/mutual' })}
+    >
       <View style={{ position: 'absolute', left: '24rpx', top: `${top}rpx`, height: '56rpx', display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
         <HeartTabButton label="对我心动" count={55} active={active === 'likes'} onClick={() => onChange('likes')} />
         <View style={{ width: '36rpx' }} />
@@ -198,7 +200,7 @@ function HeartPersonCard({ index, kind, isMember, onClick }: { index: number; ki
   )
 }
 
-function UnlockSheet({ stage, onClose, onUnlock }: { stage: Exclude<UnlockStage, 'closed'>; onClose: () => void; onUnlock: () => void }) {
+function UnlockSheet({ stage, onClose }: { stage: Exclude<UnlockStage, 'closed'>; onClose: () => void }) {
   const success = stage === 'success'
   return (
     <View onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.42)' }}>
@@ -236,14 +238,14 @@ function UnlockSheet({ stage, onClose, onUnlock }: { stage: Exclude<UnlockStage,
           </View>
         ) : (
           <View style={{ margin: '18rpx 28rpx 28rpx', display: 'flex', flexDirection: 'row', gap: '20rpx' }}>
-            <View onClick={onUnlock} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <View onClick={() => Taro.navigateTo({ url: '/pages/coins/unlock-recharge?sourceScene=likes_unlock_one' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>只看ta(100</Text>
               <View style={{ width: '30rpx', height: '30rpx', margin: '0 5rpx', borderRadius: '50%', background: '#F4B331', border: '3rpx solid #FFE08A', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '20rpx' }}>Q</Text>
               </View>
               <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>)</Text>
             </View>
-            <View onClick={() => Taro.navigateTo({ url: '/pages/membership/index' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <View onClick={() => Taro.navigateTo({ url: '/pages/heart/membership-unlock' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#EAD8B6', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>解锁全部</Text>
             </View>
           </View>

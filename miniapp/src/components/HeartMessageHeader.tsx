@@ -1,6 +1,7 @@
-import { Text, View } from '@tarojs/components'
+import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { getWindowMetrics } from '@/utils/system'
 
 type HeaderProps = {
@@ -10,6 +11,7 @@ type HeaderProps = {
   showBack?: boolean
   onBack?: () => void
   rightIcon?: 'clean' | 'folder'
+  onRightIconClick?: () => void
   children?: ReactNode
 }
 
@@ -33,6 +35,7 @@ export default function HeartMessageHeader({
   showBack = false,
   onBack,
   rightIcon,
+  onRightIconClick,
   children,
 }: HeaderProps) {
   const { menuTop, menuHeight } = getLanhuNavigationMetrics()
@@ -123,7 +126,7 @@ export default function HeartMessageHeader({
       ) : null}
 
       {rightIcon === 'clean' ? <CleanIcon top={titleTop - 2} /> : null}
-      {rightIcon === 'folder' ? <HeartFolderIcon top={titleTop + 3} /> : null}
+      {rightIcon === 'folder' ? <HeartFolderIcon top={titleTop - 11} onClick={onRightIconClick} /> : null}
       {children}
     </View>
   )
@@ -170,54 +173,19 @@ function CleanIcon({ top }: { top: number }) {
   )
 }
 
-function HeartFolderIcon({ top }: { top: number }) {
+function HeartFolderIcon({ top, onClick }: { top: number; onClick?: () => void }) {
   return (
-    <View
+    <Image
+      onClick={onClick}
+      src={miniappOssIcons.heartMutualLikes}
+      mode="aspectFit"
       style={{
         position: 'absolute',
-        left: '512rpx',
+        left: '506rpx',
         top: `${top}rpx`,
-        width: '48rpx',
-        height: '42rpx',
+        width: '64rpx',
+        height: '64rpx',
       }}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: '4rpx',
-          top: '7rpx',
-          width: '38rpx',
-          height: '29rpx',
-          border: '3rpx solid #607086',
-          borderRadius: '5rpx',
-          boxSizing: 'border-box',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '8rpx',
-          top: '2rpx',
-          width: '17rpx',
-          height: '10rpx',
-          borderLeft: '3rpx solid #607086',
-          borderTop: '3rpx solid #607086',
-          borderRadius: '4rpx 0 0 0',
-          boxSizing: 'border-box',
-        }}
-      />
-      <Text
-        style={{
-          position: 'absolute',
-          right: '-1rpx',
-          bottom: '-3rpx',
-          color: '#607086',
-          fontSize: '20rpx',
-          lineHeight: '22rpx',
-        }}
-      >
-        ♥
-      </Text>
-    </View>
+    />
   )
 }

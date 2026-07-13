@@ -1,5 +1,6 @@
 /** 由 scripts/upload-miniapp-oss-icons.mjs 生成；禁止手写密钥或本地回退路径。 */
 export const miniappOssIcons = Object.freeze({
+  heartMutualLikes: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d3b065ad7b9c79cb/heart-mutual-likes.png',
   coinGold: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c29d6952d277b580/coin-gold.png',
   coinUsageWhisper: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/2ae61de168714990/whisper.png',
   coinUsageHeartbeat: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/95503a52fa573620/heartbeat.png',

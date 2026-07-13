@@ -66,7 +66,8 @@ export default {
       root: 'pages/coins',
       pages: [
         'index',
-        'detail'
+        'detail',
+        'unlock-recharge'
       ]
     },
     {
@@ -88,7 +89,8 @@ export default {
       root: 'pages/heart',
       pages: [
         'mutual',
-        'user'
+        'user',
+        'membership-unlock'
       ]
     }
   ],

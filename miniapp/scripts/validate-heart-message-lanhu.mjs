@@ -18,8 +18,9 @@ const mutual = read('src/pages/heart/mutual.tsx')
 const user = read('src/pages/heart/user.tsx')
 const heartHeader = read('src/components/HeartMessageHeader.tsx')
 const heartMembership = readOptional('src/pages/heart/membership-unlock.tsx')
+const heartCoinRecharge = readOptional('src/pages/coins/unlock-recharge.tsx')
 const appConfig = read('src/app.config.ts')
-const runtime = `${chat}\n${heart}\n${mutual}\n${user}\n${heartMembership}`
+const runtime = `${chat}\n${heart}\n${mutual}\n${user}\n${heartMembership}\n${heartCoinRecharge}`
 
 for (const asset of ['heart-person.webp', 'heart-person-blur.webp', 'heart-avatar.webp']) {
   const file = path.join(rootDir, 'src/assets/lanhu/heart-message', asset)
@@ -40,7 +41,8 @@ assert.match(heart, /router\.params\.unlock === 'success'/, '心动页必须覆�
 assert.match(heart, /解锁全部访客/, '心动页解锁按钮文案必须与蓝湖一致')
 assert.match(heart, /只看ta\(100/, '单人解锁按钮文案和币值必须与蓝湖一致')
 assert.match(heart, /\/pages\/heart\/mutual/, '胶囊左侧图标必须跳转相互喜欢页')
-assert.match(heart, /\/pages\/coins\/index\?sourceScene=likes_unlock_one/, '单人解锁“只看ta”必须进入千寻币充值页')
+assert.match(heart, /\/pages\/coins\/unlock-recharge\?sourceScene=likes_unlock_one/, '单人解锁“只看ta”必须进入心动专属充值页')
+assert.doesNotMatch(heart, /\/pages\/coins\/index\?sourceScene=likes_unlock_one/, '单人解锁场景不得复用“我的-千寻币”通用页面')
 assert.match(heart, /\/pages\/heart\/membership-unlock/, '“解锁全部访客”必须进入独立会员页')
 assert.doesNotMatch(heart, /onUnlock=\{\(\) => setUnlockStage\('success'\)\}/, '单人解锁不能在未扣币时伪造解锁成功')
 assert.match(heartHeader, /onRightIconClick/, '头部右侧图标必须暴露真实点击事件')
@@ -53,12 +55,20 @@ assert.match(appConfig, /root: 'pages\/heart'/, '相互喜欢和用户主页必�
 assert.match(appConfig, /'mutual'/, '相互喜欢页面必须注册')
 assert.match(appConfig, /'user'/, '用户主页必须注册')
 assert.match(appConfig, /'membership-unlock'/, '访客解锁会员独立页必须注册')
+assert.match(appConfig, /'unlock-recharge'/, '单人解锁专属充值页必须注册')
 assert.match(heartMembership, /时空邂逅会员/, '独立会员页标题必须与蓝湖一致')
 assert.match(heartMembership, /免费解锁全部对你心动的人/, '独立会员页主标题必须与蓝湖一致')
 assert.match(heartMembership, /心动名单一键揭晓/, '独立会员页必须还原心动名单权益卡')
 assert.match(heartMembership, /谁来看过你/, '独立会员页必须还原访客权益卡')
-assert.match(heartMembership, /plan\.id <= 0/, '蓝湖展示套餐不得使用占位 ID 创建真实支付订单')
+assert.match(heartMembership, /activePlan\.id <= 0/, '蓝湖展示套餐不得使用占位 ID 创建真实支付订单')
 assert.doesNotMatch(heartMembership, /pages\/membership\/index|MembershipHero|MembershipPaymentBar/, '访客解锁会员页不得复用“我的-开通会员”视觉组件')
+assert.match(heartCoinRecharge, /Ta也喜欢了你!/, '专属充值页必须还原关系情境标题')
+assert.match(heartCoinRecharge, /解锁后立即和ta配对聊天/, '专属充值页必须还原解锁结果文案')
+assert.match(heartCoinRecharge, /本次消耗/, '专属充值页必须展示本次消耗')
+assert.match(heartCoinRecharge, /充值千寻币/, '专属充值页必须展示独立充值卡')
+assert.match(heartCoinRecharge, /《时空邂逅充值协议》/, '专属充值页协议名称必须与蓝湖一致')
+assert.match(heartCoinRecharge, /activePackage\.id <= 0/, '蓝湖兜底千寻币套餐不得创建真实支付订单')
+assert.doesNotMatch(heartCoinRecharge, /BalanceCard|UsageCard|pages\/coins\/index/, '专属充值页不得复用通用资产页视觉结构')
 assert.equal(
   fs.existsSync(path.join(rootDir, 'src/assets/lanhu/heart-message/heart-mutual-likes.png')),
   true,
