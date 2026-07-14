@@ -3,7 +3,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useProfile } from '@/hooks/useProfile'
-import { usePrd01Store } from '@/stores/prd01Store'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import type { MyMembership } from '@/types/membership'
 
@@ -27,8 +26,6 @@ export default function ProfilePage() {
     goToHelp,
     goToSettings,
   } = useProfile()
-  const copy = usePrd01Store(state => state.copy)
-
   useEffect(() => {
     fetch()
   }, [fetch])
@@ -37,17 +34,17 @@ export default function ProfilePage() {
     fetch()
   })
 
-  const nickname = data.nickname || copy('profile_default_nickname')
+  const nickname = data.nickname || '待完善昵称'
   const sourceAvatar = normalizeAvatarUrl(data.avatarUrl, defaultAvatar)
   const [avatar, setAvatar] = useState(defaultAvatar)
-  const ageText = data.age != null ? `${data.age}${copy('profile_age_suffix')}` : ''
+  const ageText = data.age != null ? `${data.age}岁` : ''
   const subInfo = [data.location, ageText, data.zodiac].filter(Boolean).join('丨')
   const membership: MyMembership = data.membership || { status: 'none' }
   const membershipVariant = membership.status
   const stats = [
-    { value: data.likedCount, label: copy('profile_stats_liked') },
-    { value: data.beLikedCount, label: copy('profile_stats_be_liked') },
-    { value: data.visitorCount, label: copy('profile_stats_visitors') },
+    { value: data.likedCount, label: '我喜欢的' },
+    { value: data.beLikedCount, label: '喜欢我的' },
+    { value: data.visitorCount, label: '最近来访' },
   ]
 
   useEffect(() => {
@@ -87,13 +84,13 @@ export default function ProfilePage() {
           subInfo={subInfo}
           showCert={data.isVerified}
           profileScore={data.profileScore}
-          editText={copy('profile_edit_title')}
-          certText={copy('verification_center_heading')}
+          editText="编辑资料"
+          certText="三重认证"
           onEdit={goToEditProfile}
           onAvatarError={() => setAvatar(defaultAvatar)}
         />
         <>
-          <StatsCard stats={stats} boostText={copy('profile_boost_action')} />
+          <StatsCard stats={stats} boostText="提升人气" />
           <VipBanner
             status={membershipVariant}
             expireTime={membership.expireTime}

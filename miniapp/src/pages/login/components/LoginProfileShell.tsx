@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { usePrd01Store } from '@/stores/prd01Store'
 import profileBg from '@/assets/login/profile-bg.webp'
 
 interface LoginProfileShellProps {
@@ -36,8 +35,6 @@ export default function LoginProfileShell({
   nextActive = false,
   onNext,
 }: LoginProfileShellProps) {
-  const copy = usePrd01Store(state => state.copy)
-
   return (
     <View style={pageStyle}>
       <Image
@@ -104,7 +101,7 @@ export default function LoginProfileShell({
               lineHeight: '50rpx',
             }}
           >
-            {copy('init_select_title')}
+            请选择
           </Text>
           <Text
             style={{

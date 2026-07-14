@@ -198,7 +198,7 @@ export function useProfile(): UseProfileReturn {
       const freshData = buildProfileData(home, membership, coinBalance, location);
       setData(freshData);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : usePrd01Store.getState().copy('error_provider_unavailable');
+      const message = err instanceof Error ? err.message : '资料加载失败，请稍后重试';
       setError(message);
     } finally {
       setLoading(false);
@@ -231,22 +231,22 @@ export function useProfile(): UseProfileReturn {
 
   /** 跳转邀请好友页 */
   const goToInvite = useCallback(() => {
-    Taro.showToast({ title: usePrd01Store.getState().copy('feature_invite_pending'), icon: 'none' });
+    Taro.showToast({ title: '邀请好友功能即将开放', icon: 'none' });
   }, []);
 
   /** 跳转我的动态页 */
   const goToMyPosts = useCallback(() => {
-    Taro.showToast({ title: usePrd01Store.getState().copy('feature_posts_pending'), icon: 'none' });
+    Taro.showToast({ title: '我的动态功能即将开放', icon: 'none' });
   }, []);
 
   /** 跳转帮助与客服页 */
   const goToHelp = useCallback(() => {
-    Taro.showToast({ title: usePrd01Store.getState().copy('feature_help_pending'), icon: 'none' });
+    Taro.showToast({ title: '帮助与客服功能即将开放', icon: 'none' });
   }, []);
 
   /** 跳转设置页 */
   const goToSettings = useCallback(() => {
-    Taro.showToast({ title: usePrd01Store.getState().copy('feature_settings_pending'), icon: 'none' });
+    Taro.showToast({ title: '设置功能即将开放', icon: 'none' });
   }, []);
 
   return {

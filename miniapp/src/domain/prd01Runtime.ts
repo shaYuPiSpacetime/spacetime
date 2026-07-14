@@ -40,6 +40,12 @@ export function readCopy(
   return item.content?.trim() || ''
 }
 
+export function createCopyReader(
+  copywriting?: Record<string, CopywritingItem>
+): (copyKey: string) => string {
+  return copyKey => readCopy(copywriting, copyKey)
+}
+
 export function resolveInitStepRoute(nextStep?: number): string {
   return nextStep ? INIT_STEP_ROUTES[nextStep] || '' : ''
 }

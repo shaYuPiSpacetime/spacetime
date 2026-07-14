@@ -6,7 +6,7 @@ import LoginProfileShell from './components/LoginProfileShell'
 import './identity.scss'
 
 export default function LoginIdentityPage() {
-  const { identityOptions, userInfo, initField, copy, bootstrap, saveInitStep } = useLogin()
+  const { identityOptions, userInfo, initField, bootstrap, saveInitStep } = useLogin()
   const [selectedCode, setSelectedCode] = useState(userInfo.identity || '')
   const field = initField(3)
 
@@ -14,7 +14,7 @@ export default function LoginIdentityPage() {
 
   const handleNext = async () => {
     if (field?.required && !selectedCode) {
-      await Taro.showToast({ title: copy('init_identity_required'), icon: 'none' })
+      await Taro.showToast({ title: '请选择身份', icon: 'none' })
       return
     }
     try {
@@ -26,7 +26,7 @@ export default function LoginIdentityPage() {
 
   return (
     <View className="login-identity-page">
-      <LoginProfileShell description={copy('init_identity_notice')} nextActive={Boolean(selectedCode) || field?.required === false} onNext={handleNext}>
+      <LoginProfileShell description="你的身份" nextActive={Boolean(selectedCode) || field?.required === false} onNext={handleNext}>
         <View style={{ position: 'absolute', left: '25rpx', top: '442rpx', width: '700rpx' }}>
           {identityOptions.map(option => {
             const isActive = selectedCode === option.code

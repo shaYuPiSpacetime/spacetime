@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createPrd01Loader, readCopy } from '@/domain/prd01Runtime'
+import { createCopyReader, createPrd01Loader } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
 import type {
   DictOption,
@@ -27,6 +27,7 @@ interface Prd01State {
 
 export const usePrd01Store = create<Prd01State>((set, get) => ({
   loading: false,
+  copy: createCopyReader(),
 
   bootstrap: async (force = false) => {
     set({ loading: true, error: undefined })
@@ -35,6 +36,7 @@ export const usePrd01Store = create<Prd01State>((set, get) => ({
       set({
         config: snapshot.config,
         profileOptions: snapshot.profileOptions,
+        copy: createCopyReader(snapshot.config.copywriting),
         loading: false,
       })
     } catch (error) {
@@ -47,8 +49,6 @@ export const usePrd01Store = create<Prd01State>((set, get) => ({
   },
 
   retry: () => get().bootstrap(true),
-
-  copy: copyKey => readCopy(get().config?.copywriting, copyKey),
 
   options: key => {
     const rows = get().profileOptions?.[key]
@@ -64,6 +64,12 @@ export const usePrd01Store = create<Prd01State>((set, get) => ({
 
   clear: () => {
     loader.clear()
-    set({ config: undefined, profileOptions: undefined, loading: false, error: undefined })
+    set({
+      config: undefined,
+      profileOptions: undefined,
+      copy: createCopyReader(),
+      loading: false,
+      error: undefined,
+    })
   },
 }))

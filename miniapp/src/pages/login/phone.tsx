@@ -44,7 +44,7 @@ function SmsCodeIcon() {
 
 export default function PhoneLoginPage() {
   const router = useRouter()
-  const { copy, bootstrap, resumeInit } = useLogin()
+  const { bootstrap, resumeInit } = useLogin()
   const smsSecurity = usePrd01Store(state => state.config?.smsSecurity)
   const setLogin = useAuthStore(state => state.setLogin)
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -68,8 +68,8 @@ export default function PhoneLoginPage() {
     return () => clearInterval(timer)
   }, [codeCountdown])
 
-  const showDynamicError = (copyKey: string, error?: unknown) => {
-    const message = error instanceof Error ? error.message : copy(copyKey)
+  const showError = (fallback: string, error?: unknown) => {
+    const message = error instanceof Error ? error.message : fallback
     setErrorText(message)
     if (message) void Taro.showToast({ title: message, icon: 'none' })
   }
@@ -77,7 +77,7 @@ export default function PhoneLoginPage() {
   const handleGetCode = async () => {
     if (codeCountdown > 0 || loading) return
     if (!phoneNumber.trim()) {
-      showDynamicError('phone_login_required')
+      showError('请输入手机号')
       return
     }
     setLoading(true)
@@ -86,7 +86,7 @@ export default function PhoneLoginPage() {
       setErrorText('')
       setCodeCountdown(resolveSmsCountdown(result, smsSecurity))
     } catch (error) {
-      showDynamicError('error_provider_unavailable', error)
+      showError('验证码发送失败，请稍后重试', error)
     } finally {
       setLoading(false)
     }
@@ -94,11 +94,11 @@ export default function PhoneLoginPage() {
 
   const handlePhoneLogin = async () => {
     if (!phoneNumber.trim() || !verificationCode.trim()) {
-      showDynamicError('phone_login_required')
+      showError('请填写手机号和验证码')
       return
     }
     if (!agreed) {
-      showDynamicError('login_agreement_notice')
+      showError('请阅读并同意用户协议与隐私政策后继续使用')
       await Taro.redirectTo({ url: '/pages/login/index?variant=dialog' })
       return
     }
@@ -134,7 +134,7 @@ export default function PhoneLoginPage() {
         await resumeInit()
       }
     } catch (error) {
-      showDynamicError('error_provider_unavailable', error)
+      showError('登录失败，请稍后重试', error)
     } finally {
       setLoading(false)
     }
@@ -153,8 +153,8 @@ export default function PhoneLoginPage() {
       </View>
 
       <View className="phone-login-heading">
-        <Text className="phone-login-title">{copy('phone_login_title')}</Text>
-        <Text className="phone-login-notice">{copy('phone_login_notice')}</Text>
+        <Text className="phone-login-title">你的手机号是</Text>
+        <Text className="phone-login-notice">-请输入你要登录的手机号-</Text>
       </View>
 
       {errorText ? (
@@ -168,7 +168,7 @@ export default function PhoneLoginPage() {
         <Input
           type="number"
           value={phoneNumber}
-          placeholder={copy('phone_login_placeholder')}
+          placeholder="请输入手机号"
           placeholderStyle="color:#A8B2C4;font-size:36rpx"
           onInput={event => {
             setPhoneNumber(event.detail.value)
@@ -185,7 +185,7 @@ export default function PhoneLoginPage() {
         <Input
           type="number"
           value={verificationCode}
-          placeholder={copy('phone_sms_placeholder')}
+          placeholder="请输入验证码"
           placeholderStyle="color:#A8B2C4;font-size:36rpx"
           onInput={event => {
             setVerificationCode(event.detail.value)
@@ -197,7 +197,7 @@ export default function PhoneLoginPage() {
           className={codeCountdown > 0 ? 'phone-login-code phone-login-code--counting' : 'phone-login-code'}
           onClick={() => void handleGetCode()}
         >
-          {codeCountdown > 0 ? `${codeCountdown}s` : copy('phone_sms_send_action')}
+          {codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码'}
         </Text>
       </View>
 

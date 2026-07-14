@@ -8,7 +8,7 @@ import LoginProfileShell from './components/LoginProfileShell'
 import './gender.scss'
 
 export default function LoginGenderPage() {
-  const { genderOptions, userInfo, initField, copy, bootstrap, saveInitStep } = useLogin()
+  const { genderOptions, userInfo, initField, bootstrap, saveInitStep } = useLogin()
   const [selectedCode, setSelectedCode] = useState(userInfo.gender || '')
   const field = initField(1)
 
@@ -18,7 +18,7 @@ export default function LoginGenderPage() {
 
   const handleNext = async () => {
     if (field?.required && !selectedCode) {
-      await Taro.showToast({ title: copy('init_gender_required'), icon: 'none' })
+      await Taro.showToast({ title: '请选择性别', icon: 'none' })
       return
     }
     try {
@@ -30,7 +30,7 @@ export default function LoginGenderPage() {
 
   return (
     <LoginProfileShell
-      description={copy('init_gender_notice')}
+      description="你的性别"
       nextActive={Boolean(selectedCode) || field?.required === false}
       onNext={handleNext}
     >
