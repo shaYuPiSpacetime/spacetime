@@ -5,6 +5,7 @@ import com.spacetime.common.entity.SysDictData;
 import com.spacetime.miniapp.dto.response.DictOptionVO;
 import com.spacetime.miniapp.dto.response.ProfileTagGroupVO;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
+import com.spacetime.miniapp.dto.response.RegionTreeVO;
 import com.spacetime.miniapp.service.impl.MiniappDictServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,28 @@ class MiniappDictServiceImplTest {
         List<RegionOptionVO> options = service.locations("999999");
 
         assertThat(options).isEmpty();
+    }
+
+    @Test
+    @DisplayName("一次返回省市两级地区树且不包含区县")
+    void shouldReturnTwoLevelLocationsWithoutDistricts() {
+        when(dictDataDao.selectByDictType("china_region")).thenReturn(List.of(
+                region(1L, 0L, "河南省", "410000", true),
+                region(2L, 1L, "郑州市", "410100", true),
+                region(3L, 2L, "金水区", "410105", false),
+                region(4L, 0L, "浙江省", "330000", true),
+                region(5L, 4L, "杭州市", "330100", true)
+        ));
+        MiniappDictService service = new MiniappDictServiceImpl(dictDataDao);
+
+        List<RegionTreeVO> result = service.twoLevelLocations();
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(RegionTreeVO::getCode)
+                .containsExactly("410000", "330000");
+        assertThat(result.get(0).getChildren()).extracting(RegionTreeVO::getCode)
+                .containsExactly("410100");
+        assertThat(result.get(0).getChildren().get(0).getChildren()).isEmpty();
     }
 
     @Test

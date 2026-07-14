@@ -6,6 +6,7 @@ import com.spacetime.common.entity.SysDictData;
 import com.spacetime.miniapp.dto.response.DictOptionVO;
 import com.spacetime.miniapp.dto.response.ProfileTagGroupVO;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
+import com.spacetime.miniapp.dto.response.RegionTreeVO;
 import com.spacetime.miniapp.service.MiniappDictService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -61,6 +62,25 @@ public class MiniappDictServiceImpl implements MiniappDictService {
                 .stream()
                 .map(item -> toOption(item, resultLevel))
                 .toList();
+    }
+
+    /** 一次性返回省市两级，供小程序省市选择器使用；区县仍走懒加载接口。 */
+    @Override
+    public List<RegionTreeVO> twoLevelLocations() {
+        List<SysDictData> regions = dictDataDao.selectByDictType(CHINA_REGION_DICT_TYPE);
+        Map<Long, RegionTreeVO> provincesById = new LinkedHashMap<>();
+        for (SysDictData item : regions) {
+            if (Objects.equals(item.getParentId(), 0L)) {
+                provincesById.put(item.getId(), toTreeNode(item, "PROVINCE"));
+            }
+        }
+        for (SysDictData item : regions) {
+            RegionTreeVO province = provincesById.get(item.getParentId());
+            if (province != null) {
+                province.getChildren().add(toTreeNode(item, "CITY"));
+            }
+        }
+        return List.copyOf(provincesById.values());
     }
 
     /** 基础资料字典选项数量较小，一次返回可减少首登和资料编辑页请求次数。 */
@@ -165,6 +185,14 @@ public class MiniappDictServiceImpl implements MiniappDictService {
         option.setLevel(level);
         option.setHasChildren(Boolean.TRUE.equals(item.getHasChildren()));
         return option;
+    }
+
+    private RegionTreeVO toTreeNode(SysDictData item, String level) {
+        RegionTreeVO node = new RegionTreeVO();
+        node.setCode(item.getDictValue());
+        node.setName(item.getDictLabel());
+        node.setLevel(level);
+        return node;
     }
 
     private record TagCategory(String code, String label) {

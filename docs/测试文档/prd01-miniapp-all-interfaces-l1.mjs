@@ -84,6 +84,28 @@ async function locationCodes(token) {
   return { province: province.code, city: city.code, district: district?.code || '' };
 }
 
+async function twoLevelLocationTree(token) {
+  const tree = await http('GET', '/miniapp/dict/locations/two-level', undefined, token);
+  if (!Array.isArray(tree) || tree.length === 0) {
+    throw new Error('missing two-level region tree');
+  }
+  const province = tree.find((item) => Array.isArray(item.children) && item.children.length > 0) || tree[0];
+  if (province.level !== 'PROVINCE') {
+    throw new Error(`first level must be PROVINCE, got ${province.level}`);
+  }
+  const city = (province.children || [])[0];
+  if (!city) {
+    throw new Error(`province ${province.code} requires city children`);
+  }
+  if (city.level !== 'CITY') {
+    throw new Error(`second level must be CITY, got ${city.level}`);
+  }
+  if (Array.isArray(city.children) && city.children.length > 0) {
+    throw new Error('two-level region tree must not include district children');
+  }
+  return { sample: { provinces: tree.length, firstProvince: province.code, firstCity: city.code } };
+}
+
 async function main() {
   console.log(`API=${API}`);
   console.log(`TEST_PHONE=${phone}`);
@@ -115,6 +137,7 @@ async function main() {
     throw new Error('profileTag option requires categoryCode/categoryLabel');
   }
   const loc = await step('GET /miniapp/dict/locations lazy levels', () => locationCodes(token));
+  await step('GET /miniapp/dict/locations/two-level', () => twoLevelLocationTree(token));
 
   const identity = firstCode(dict, 'identity', ['WORKER', 'STUDENT']);
   const educationLevel = firstCode(dict, 'educationLevel', ['BACHELOR', 'MASTER']);

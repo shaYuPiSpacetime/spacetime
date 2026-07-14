@@ -120,6 +120,7 @@
 | L1-MINI-AUTH-005 | 手机号登录短信错误 | 调用 `/miniapp/auth/phone-login` 传错误验证码 | 返回 `AUTH_SMS_INVALID` |
 | L1-MINI-CONFIG-001 | 查询 PRD01 移动端配置 | 调用 `/miniapp/config/prd01` | 返回 `initFields` 5 类首登基础字段、`requiredFields`、上传限制、短信频控、地区配置；`regionScope.locationDictPath=/miniapp/dict/locations` |
 | L1-MINI-CONFIG-002 | 分级查询中国大陆地区字典 | 依次调用 `/miniapp/dict/locations`、`?parentCode=110000`、`?parentCode=110100` | 三次分别只返回省、市、区县当前一级；不嵌套完整树，不包含海外、国家、港澳台入口 |
+| L1-MINI-CONFIG-003 | 查询小程序省市两级地区树 | 调用 `/miniapp/dict/locations/two-level` | 一次返回省级数组和市级 `children`；城市节点 `children=[]`，不返回区县 |
 | L1-MINI-PROFILE-001 | 查询初始化进度 | 调用 `/miniapp/profile/init-status` | 返回当前步骤、已填字段、缺失字段 |
 | L1-MINI-PROFILE-002 | 保存首登当前步骤 | 调用 `/miniapp/profile/init-step`，每次只提交当前步骤字段 | 保存成功，返回下一步 |
 | L1-MINI-PROFILE-003 | 海外地区不支持 | 传海外/国家字段 | 返回 `REGION_NOT_SUPPORTED` |

@@ -3,6 +3,7 @@ package com.spacetime.miniapp.controller;
 import com.spacetime.common.exception.GlobalExceptionHandler;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
 import com.spacetime.miniapp.dto.response.DictOptionVO;
+import com.spacetime.miniapp.dto.response.RegionTreeVO;
 import com.spacetime.miniapp.service.MiniappDictService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,6 +55,31 @@ class MiniappDictControllerTest {
                 .andExpect(jsonPath("$.data[0].level").value("CITY"))
                 .andExpect(jsonPath("$.data[0].hasChildren").value(true))
                 .andExpect(jsonPath("$.data[0].children").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("返回小程序省市两级地区树")
+    void shouldReturnTwoLevelLocationTree() throws Exception {
+        RegionTreeVO city = new RegionTreeVO();
+        city.setCode("410100");
+        city.setName("郑州市");
+        city.setLevel("CITY");
+        city.setChildren(List.of());
+        RegionTreeVO province = new RegionTreeVO();
+        province.setCode("410000");
+        province.setName("河南省");
+        province.setLevel("PROVINCE");
+        province.setChildren(List.of(city));
+        when(miniappDictService.twoLevelLocations()).thenReturn(List.of(province));
+
+        mockMvc.perform(get("/miniapp/dict/locations/two-level"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].code").value("410000"))
+                .andExpect(jsonPath("$.data[0].level").value("PROVINCE"))
+                .andExpect(jsonPath("$.data[0].children[0].code").value("410100"))
+                .andExpect(jsonPath("$.data[0].children[0].level").value("CITY"))
+                .andExpect(jsonPath("$.data[0].children[0].children").isArray());
     }
 
     @Test

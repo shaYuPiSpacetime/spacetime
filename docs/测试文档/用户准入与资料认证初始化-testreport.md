@@ -231,3 +231,13 @@ JDK: C:\Users\50449\.jdks\ms-21.0.11
 | 单元测试 | `MiniappDictServiceImplTest`、`MiniappDictControllerTest` 共 6 条通过 |
 | 真实接口回归 | `node docs/测试文档/prd01-miniapp-all-interfaces-l1.mjs` 通过，`60/60`，新用户 `userId=74`；脚本已校验 `profileTagGroups` 包含 6 个分类且标签项带 `categoryCode/categoryLabel` |
 | 父子结构核验 | `app_profile_tag` 根节点为 `MBTI/PERSONALITY/HOBBY/SPORT/FOOTPRINT`，子标签数量分别为 `16/4/6/5/5` |
+
+## 17. 小程序省市两级地区接口回归（2026-07-14）
+
+| 检查项 | 结果 |
+|--------|------|
+| 新增接口 | `GET /miniapp/dict/locations/two-level`，一次返回中国大陆省级数组和市级 `children`，城市节点 `children=[]`，不返回区县 |
+| 接口用途 | 给小程序省市选择器一次性加载；需要区县时继续调用 `/miniapp/dict/locations?parentCode={cityCode}` 懒加载 |
+| 单元测试 | `MiniappDictServiceImplTest`、`MiniappDictControllerTest` 共 8 条通过 |
+| 真实接口抽查 | 本地后端 `http://127.0.0.1:8080` 返回 `code=200`、省级 31 条，首个可用省市为 `110000/110100` |
+| L1 全链路 | `node docs/测试文档/prd01-miniapp-all-interfaces-l1.mjs` 通过，`61/61`，新用户 `userId=75`、手机号 `19042387223`；新增步骤已校验两级树不包含区县 |

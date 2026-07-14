@@ -96,8 +96,49 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `code` | String | 地区 code，提交时使用 |
-| `label` | String | 地区名称 |
-| `leaf` | Boolean | 是否叶子节点 |
+| `name` | String | 地区名称 |
+| `level` | String | `PROVINCE` 省、`CITY` 市、`DISTRICT` 区县 |
+| `hasChildren` | Boolean | 是否还有下一级 |
+
+### 2.4 地区字典两级树（小程序省市选择器）
+
+| 项 | 内容 |
+| --- | --- |
+| Method | `GET` |
+| Path | `/miniapp/dict/locations/two-level` |
+| 鉴权 | 不需要 |
+| 用途 | 小程序需要一次性拿省市两级数据做省市选择器时使用 |
+
+返回 `data` 为省级数组，每个省节点下只有市级 `children`，不返回区县。需要区县时继续使用 `GET /miniapp/dict/locations?parentCode={cityCode}` 懒加载。
+
+节点字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `code` | String | 地区 code，提交业务接口时使用 |
+| `name` | String | 地区名称 |
+| `level` | String | `PROVINCE` 省、`CITY` 市 |
+| `children` | Array | 下级地区；城市节点固定为空数组 |
+
+示例：
+
+```json
+[
+  {
+    "code": "410000",
+    "name": "河南省",
+    "level": "PROVINCE",
+    "children": [
+      {
+        "code": "410100",
+        "name": "郑州市",
+        "level": "CITY",
+        "children": []
+      }
+    ]
+  }
+]
+```
 
 ## 3. 登录流程
 
@@ -735,7 +776,7 @@
 
 1. `GET /miniapp/config/prd01`
 2. `GET /miniapp/dict/profile-options`
-3. 地址选择时按需懒加载 `GET /miniapp/dict/locations`
+3. 地址只选省市时调用 `GET /miniapp/dict/locations/two-level`；需要区县时按需懒加载 `GET /miniapp/dict/locations`
 4. `GET /miniapp/profile/init-status`
 5. 每步 `POST /miniapp/profile/init-step`
 

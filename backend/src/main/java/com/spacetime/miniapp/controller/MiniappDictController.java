@@ -2,6 +2,7 @@ package com.spacetime.miniapp.controller;
 
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
+import com.spacetime.miniapp.dto.response.RegionTreeVO;
 import com.spacetime.miniapp.service.MiniappDictService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +28,12 @@ public class MiniappDictController {
     public R<List<RegionOptionVO>> locations(
             @RequestParam(required = false) String parentCode) {
         return R.ok(miniappDictService.locations(parentCode));
+    }
+
+    /** 获取中国大陆省市两级地区树，供小程序省市选择器一次性加载。 */
+    @GetMapping("/locations/two-level")
+    public R<List<RegionTreeVO>> twoLevelLocations() {
+        return R.ok(miniappDictService.twoLevelLocations());
     }
 
     /** 获取基础资料页字典选项；code 用于提交，label 用于展示。 */
