@@ -60,6 +60,69 @@ test('禁用、缺失或空白文案不返回前端硬编码兜底', () => {
   )
 })
 
+test('运行时文案快照更新后发布新的读取器并触发页面重绘', () => {
+  const { createCopyReader } = requireRuntime()
+  const emptyReader = createCopyReader()
+  const configuredReader = createCopyReader({
+    login_use_action: { enabled: true, content: '立即使用' },
+  })
+
+  assert.notEqual(emptyReader, configuredReader)
+  assert.equal(emptyReader('login_use_action'), '')
+  assert.equal(configuredReader('login_use_action'), '立即使用')
+
+  const storeSource = fs.readFileSync(
+    path.join(miniappRoot, 'src/stores/prd01Store.ts'),
+    'utf8'
+  )
+  assert.match(storeSource, /copy:\s*createCopyReader\(snapshot\.config\.copywriting\)/)
+})
+
+test('千寻准入页保留蓝湖顶部页签与固定文案结构', () => {
+  const source = fs.readFileSync(
+    path.join(miniappRoot, 'src/pages/index/index.tsx'),
+    'utf8'
+  )
+
+  assert.match(source, /<TopTabs\b/)
+  assert.match(source, /function TopTabs/)
+  assert.match(source, /hoverClass="btn-hover"/)
+  assert.match(source, />\s*成家\s*</)
+  assert.match(source, />\s*知音\s*</)
+  assert.match(source, />\s*立业\s*</)
+  assert.match(source, />\s*完善资料和认证\s*</)
+  assert.match(source, />\s*解锁更多专属权益\s*</)
+})
+
+test('非认证页面按蓝湖固定文案渲染，不消费认证文案配置', () => {
+  const files = [
+    'src/pages/login/index.tsx',
+    'src/pages/login/phone.tsx',
+    'src/pages/login/components/LoginProfileShell.tsx',
+    'src/pages/login/gender.tsx',
+    'src/pages/login/age.tsx',
+    'src/pages/login/identity.tsx',
+    'src/pages/login/education.tsx',
+    'src/pages/login/address.tsx',
+    'src/pages/index/index.tsx',
+    'src/pages/profile/index.tsx',
+    'src/pages/profile/edit.tsx',
+    'src/pages/profile-edit/about.tsx',
+    'src/pages/profile-edit/albums.tsx',
+    'src/pages/profile-edit/background.tsx',
+    'src/pages/profile-edit/intro.tsx',
+    'src/pages/profile-edit/songs.tsx',
+    'src/pages/profile-edit/tags.tsx',
+    'src/hooks/useAuth.ts',
+    'src/hooks/useProfile.ts',
+  ]
+
+  files.forEach(file => {
+    const source = fs.readFileSync(path.join(miniappRoot, file), 'utf8')
+    assert.equal(source.includes("copy('"), false, `${file} 不应消费认证流程 copyKey`)
+  })
+})
+
 test('登录后按后端首登状态和 nextStep 决定页面', () => {
   const { resolvePostLoginRoute } = requireRuntime()
   assert.equal(resolvePostLoginRoute({ firstLoginCompleted: true }), '/pages/index/index')
@@ -284,11 +347,13 @@ test('头像认证从头像来源字典选择，并按上传 URL 提交审核', 
 
 test('资料编辑页按后端字段配置渲染，并使用字典 code 保存', () => {
   const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/profile/edit.tsx'), 'utf8')
+  const basicEditor = fs.readFileSync(path.join(miniappRoot, 'src/pages/verification/basic.tsx'), 'utf8')
   assert.equal(source.includes('getDemoPageData'), false)
   assert.match(source, /prd01Api\.getBasicProfile/)
   assert.match(source, /fieldSettings/)
   assert.match(source, /option\.code/)
-  assert.match(source, /prd01Api\.saveBasicProfile/)
+  assert.match(source, /pages\/verification\/basic\?from=profile/)
+  assert.match(basicEditor, /prd01Api\.saveBasicProfile/)
   assert.match(source, /prd01Api\.saveDatingGoal/)
   assert.match(source, /prd01Api\.saveEmotionalStatus/)
 })
@@ -343,7 +408,7 @@ test('相册、背景图和语音介绍使用真实查询、直传、保存与�
   const files = {
     albums: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile-edit/albums.tsx'), 'utf8'),
     background: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile-edit/background.tsx'), 'utf8'),
-    voice: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile-edit/voice.tsx'), 'utf8'),
+    voice: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile/edit.tsx'), 'utf8'),
   }
   assert.match(files.albums, /prd01Api\.getAlbums/)
   assert.match(files.albums, /prd01Api\.uploadAlbum/)
@@ -366,7 +431,8 @@ test('首登完成页根据资料与认证接口决定下一步，不再进入�
   assert.match(source, /prd01Api\.getVerificationStatus/)
   assert.match(source, /basicProfileCompleted/)
   assert.equal(source.includes('/pages/verification/basic'), false)
-  assert.match(source, /copy\('home_completion_heading_line1'\)/)
+  assert.match(source, />\s*完善资料和认证\s*</)
+  assert.match(source, />\s*立即完善\s*</)
 })
 
 test('个人中心使用主页统一详情，不再读取蓝湖演示资料', () => {

@@ -6,7 +6,7 @@ import LoginProfileShell from './components/LoginProfileShell'
 import './education.scss'
 
 export default function LoginEducationPage() {
-  const { educationOptions, userInfo, initField, copy, bootstrap, saveInitStep } = useLogin()
+  const { educationOptions, userInfo, initField, bootstrap, saveInitStep } = useLogin()
   const [selectedCode, setSelectedCode] = useState(userInfo.educationLevel || '')
   const field = initField(4)
 
@@ -14,7 +14,7 @@ export default function LoginEducationPage() {
 
   const handleNext = async () => {
     if (field?.required && !selectedCode) {
-      await Taro.showToast({ title: copy('init_education_required'), icon: 'none' })
+      await Taro.showToast({ title: '请选择学历', icon: 'none' })
       return
     }
     try {
@@ -25,7 +25,7 @@ export default function LoginEducationPage() {
   }
 
   return (
-    <LoginProfileShell description={copy('init_education_notice')} nextActive={Boolean(selectedCode) || field?.required === false} onNext={handleNext}>
+    <LoginProfileShell description="你的最高学历" nextActive={Boolean(selectedCode) || field?.required === false} onNext={handleNext}>
       <View style={{ position: 'absolute', left: '25rpx', top: '442rpx', width: '700rpx' }}>
         {educationOptions.map(option => {
           const isActive = selectedCode === option.code

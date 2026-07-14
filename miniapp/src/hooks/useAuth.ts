@@ -1,7 +1,6 @@
 import Taro from '@tarojs/taro'
 import { useAuthStore } from '@/stores/authStore'
 import { loginByWechatPhone } from '@/services/auth'
-import { usePrd01Store } from '@/stores/prd01Store'
 
 /**
  * 微信登录 hook
@@ -9,8 +8,6 @@ import { usePrd01Store } from '@/stores/prd01Store'
  */
 export function useAuth() {
   const { isLoggedIn, setLogin, logout } = useAuthStore()
-  const copy = usePrd01Store(state => state.copy)
-
   /** 执行微信授权手机号登录 */
   const login = async (phoneCode: string, agreeProtocol: boolean): Promise<void> => {
     try {
@@ -29,7 +26,7 @@ export function useAuth() {
         }
       )
     } catch (error) {
-      const title = error instanceof Error ? error.message : copy('error_provider_unavailable')
+      const title = error instanceof Error ? error.message : '登录失败，请稍后重试'
       if (title) Taro.showToast({ title, icon: 'none' })
     }
   }

@@ -65,7 +65,7 @@ export default {
     },
     {
       root: 'pages/profile-edit',
-      pages: ['intro', 'tags', 'about', 'songs', 'albums', 'background', 'voice'],
+      pages: ['intro', 'tags', 'about', 'songs', 'albums', 'background'],
     },
     {
       root: 'pages/heart',

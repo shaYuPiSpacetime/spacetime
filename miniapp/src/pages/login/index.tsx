@@ -6,7 +6,6 @@ import { useAuthStore } from '@/stores/authStore'
 import { loginByWechatPhone } from '@/services/auth'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { resolvePostLoginRoute } from '@/domain/prd01Runtime'
-import { usePrd01Store } from '@/stores/prd01Store'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import loginSceneBg from '@/assets/login/login-scene-bg.jpg'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -16,7 +15,7 @@ type LoginMethod = 'wechat' | 'phone'
 
 const LOGIN_METHODS: LoginMethod[] = ['wechat', 'phone']
 
-function getWechatAuthErrorText(error: unknown, copy: (copyKey: string) => string) {
+function getWechatAuthErrorText(error: unknown) {
   const errMsg = (
     error && typeof error === 'object'
       ? String((error as { errMsg?: string; message?: string }).errMsg || (error as { message?: string }).message || '')
@@ -25,18 +24,18 @@ function getWechatAuthErrorText(error: unknown, copy: (copyKey: string) => strin
   const lowerErrMsg = errMsg.toLowerCase()
 
   if (lowerErrMsg.includes('timeout')) {
-    return copy('login_wechat_timeout')
+    return '微信授权超时，请重试'
   }
 
   if (lowerErrMsg.includes('deny') || lowerErrMsg.includes('cancel')) {
-    return copy('login_wechat_cancelled')
+    return '需要完成微信授权后继续'
   }
 
   if (errMsg) {
     return errMsg.slice(0, 80)
   }
 
-  return copy('login_wechat_cancelled')
+  return '需要完成微信授权后继续'
 }
 
 interface AgreementSheetProps {
@@ -47,10 +46,9 @@ interface AgreementSheetProps {
 }
 
 function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: AgreementSheetProps) {
-  const copy = usePrd01Store(state => state.copy)
   const agreeText = selectedMethod === 'wechat' && loading
-    ? copy('login_authorizing_action')
-    : copy('login_agree_action')
+    ? '授权中...'
+    : '同意'
 
   return (
     <View
@@ -82,7 +80,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             textAlign: 'center',
           }}
         >
-          {copy('login_agreement_title')}
+          用户协议与隐私政策
         </Text>
 
         <Text
@@ -94,7 +92,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             marginTop: '42rpx',
           }}
         >
-          {copy('login_agreement_notice')}
+          未成年人请勿注册使用本产品。感谢您信任并使用时空邂逅，在您使用时空邂逅的过程中，我们可能会对您的部分个人信息进行收集和使用。
         </Text>
 
         <Text
@@ -106,7 +104,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             marginTop: '18rpx',
           }}
         >
-          {copy('agreement_user')}
+          1、未经您的同意，我们不会从第三方获取、共享或对外提供您的个人信息；
         </Text>
 
         <Text
@@ -118,7 +116,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             marginTop: '12rpx',
           }}
         >
-          {copy('agreement_privacy')}
+          2、您可以随时访问、更正或删除您的个人信息，也可以通过产品内反馈与我们联系。
         </Text>
 
         <Text
@@ -130,7 +128,11 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             marginTop: '12rpx',
           }}
         >
-          {copy('login_agreement_detail')}
+          更多详细信息，您可以点击查看我们的
+          <Text style={{ color: '#2876FF', textDecoration: 'underline' }}>《用户服务协议》</Text>
+          和
+          <Text style={{ color: '#2876FF', textDecoration: 'underline' }}>《隐私保护政策》</Text>
+          。请您务必仔细阅读并充分理解相关条款，如您同意以上协议和政策，请点击“同意”开始使用我们的产品和服务。
         </Text>
 
         <View style={{ display: 'flex', flexDirection: 'row', marginTop: '36rpx' }}>
@@ -148,7 +150,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             hoverClass="btn-hover"
           >
             <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
-              {copy('login_disagree_action')}
+              暂不同意
             </Text>
           </View>
           <View
@@ -282,7 +284,6 @@ function LoginMethodSheet({
   onWechatPhoneLogin,
   onClose,
 }: LoginMethodSheetProps) {
-  const copy = usePrd01Store(state => state.copy)
   return (
     <View
       className="absolute inset-0 z-50"
@@ -304,7 +305,7 @@ function LoginMethodSheet({
         onClick={(event) => event.stopPropagation()}
       >
         <Text style={{ display: 'block', color: '#333333', fontSize: '34rpx', fontWeight: 800, lineHeight: '48rpx', textAlign: 'center' }}>
-          {copy('login_method_title')}
+          选择登录方式
         </Text>
         <View style={{ marginTop: '64rpx' }}>
           {LOGIN_METHODS.map((methodKey, index) => (
@@ -312,7 +313,7 @@ function LoginMethodSheet({
               <LoginMethodRow
                 method={{
                   key: methodKey,
-                  title: copy(methodKey === 'wechat' ? 'login_wechat_action' : 'login_phone_action'),
+                  title: methodKey === 'wechat' ? '微信登录' : '手机号登录',
                 }}
                 agreementAccepted={agreementAccepted}
                 loading={loading}
@@ -350,16 +351,16 @@ function LoginMethodSheet({
             {agreementAccepted && <Text style={{ color: '#FFFFFF', fontSize: '24rpx', fontWeight: 900 }}>✓</Text>}
           </View>
           <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '22rpx' }}>
-            {copy('login_agreement_check_prefix')}
+            阅读并同意
           </Text>
           <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
-            {copy('agreement_user')}
+            用户服务协议
           </Text>
           <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
-            {copy('login_agreement_joiner')}
+            和
           </Text>
           <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
-            {copy('agreement_privacy')}
+            隐私保护政策
           </Text>
         </View>
       </View>
@@ -371,7 +372,7 @@ function LoginMethodSheet({
  * 登录入口页：先选择登录方式，再确认协议，最后进入对应登录方式。
  */
 export default function LoginAuthPage() {
-  const { copy, bootstrap, resumeInit } = useLogin()
+  const { bootstrap, resumeInit } = useLogin()
   const { setLogin } = useAuthStore()
   const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [showMethodSheet, setShowMethodSheet] = useState(false)
@@ -448,7 +449,7 @@ export default function LoginAuthPage() {
     if (wechatAuthPending || loading) return
     const phoneCode = event.detail?.code
     if (!phoneCode) {
-      const nextErrorText = getWechatAuthErrorText({ errMsg: event.detail?.errMsg }, copy)
+      const nextErrorText = getWechatAuthErrorText({ errMsg: event.detail?.errMsg })
       setErrorText(nextErrorText)
       setShowError(true)
       Taro.showToast({ title: nextErrorText, icon: 'none' })
@@ -462,7 +463,7 @@ export default function LoginAuthPage() {
     try {
       const { code: loginCode } = await Taro.login()
       if (!loginCode) {
-        throw new Error(copy('login_wechat_code_failed'))
+        throw new Error('微信登录凭证获取失败，请重试')
       }
       const loginData = await loginByWechatPhone({ loginCode, phoneCode, agreeProtocol: agreementAccepted })
       const nickname = loginData.nickname || ''
@@ -482,7 +483,7 @@ export default function LoginAuthPage() {
       else if (route) await Taro.redirectTo({ url: route })
       else await resumeInit()
     } catch (error) {
-      const nextErrorText = getWechatAuthErrorText(error, copy)
+      const nextErrorText = getWechatAuthErrorText(error)
       setErrorText(nextErrorText)
       setShowError(true)
       Taro.showToast({ title: nextErrorText, icon: 'none' })
@@ -511,7 +512,7 @@ export default function LoginAuthPage() {
   const handleDisagree = () => {
     setShowDialog(false)
     setShowError(true)
-    setErrorText(copy('login_agreement_notice'))
+    setErrorText('请阅读并同意用户协议与隐私政策后继续使用')
   }
 
   return (
@@ -556,7 +557,7 @@ export default function LoginAuthPage() {
         onClick={handleUse}
       >
         <Text style={{ color: '#2876FF', fontSize: '34rpx', fontWeight: 600, lineHeight: '48rpx' }}>
-          {copy('login_use_action')}
+          立即使用
         </Text>
       </View>
 
