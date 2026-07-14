@@ -370,7 +370,7 @@ function ProfilePreviewCertification() {
               borderRadius: '31rpx',
               background: 'linear-gradient(135deg, #6D96FB 0%, #387DFE 100%)',
               marginLeft: index === 0 ? '0' : '10rpx',
-              padding: '0 17rpx 0 8rpx',
+              padding: '0 25rpx 0 8rpx',
               boxSizing: 'border-box',
               display: 'flex',
               alignItems: 'center',
@@ -448,7 +448,7 @@ function ProfilePreviewSong() {
           mode="scaleToFill"
           style={{ width: '98rpx', height: '98rpx', borderRadius: '49rpx' }}
         />
-        <View style={{ marginLeft: '24rpx' }}>
+        <View style={{ marginLeft: '11rpx' }}>
           <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>
             告白气球丨周杰伦
           </Text>
