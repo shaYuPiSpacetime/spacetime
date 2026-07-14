@@ -42,14 +42,12 @@ export async function request<T>(options: RequestOptions): Promise<T> {
   // 401: token 过期或无效
   if (code === 401) {
     Taro.removeStorageSync(TOKEN_KEY)
-    Taro.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
-    return Promise.reject(new Error('UNAUTHORIZED'))
+    return Promise.reject(new Error(msg || String(code)))
   }
 
   // 非 200: 业务错误
   if (code !== 200) {
-    Taro.showToast({ title: msg || '请求失败', icon: 'none' })
-    return Promise.reject(new Error(msg))
+    return Promise.reject(new Error(msg || String(code)))
   }
 
   return data

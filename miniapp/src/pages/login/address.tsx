@@ -1,637 +1,98 @@
-import { ScrollView, View, Text } from '@tarojs/components'
-import Taro, { useLoad } from '@tarojs/taro'
-import { useEffect, useRef, useState } from 'react'
+import { Picker, Text, View } from '@tarojs/components'
+import Taro from '@tarojs/taro'
+import { useEffect, useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
-import { getDemoPageData } from '@/services/lanhuDemo'
-import { getWindowMetrics } from '@/utils/system'
+import type { RegionOption } from '@/types/prd01'
 import LoginProfileShell from './components/LoginProfileShell'
 import './address.scss'
 
-const loginDemo = getDemoPageData('login')
-const ADDRESS_ROW_HEIGHT_RPX = 78
-const ADDRESS_PROVINCE_TOP_SPACER_RPX = 78
-const ADDRESS_WHEEL_BOTTOM_SPACER_RPX = 144
-const USER_LOCATION_SCOPE = 'scope.userLocation'
-
-/**
- * 登录-地址 — 1:1 还原蓝湖「登录-地址」设计稿
- */
 export default function LoginAddressPage() {
-  const { provinces, getCities, updateUserInfo, submit } = useLogin()
-  const [selected, setSelected] = useState<string>('')
-  const [cityValue, setCityValue] = useState([0, 0])
-  const [showManualSheet, setShowManualSheet] = useState(false)
-  const [showLocationSheet, setShowLocationSheet] = useState(false)
-  const [locationLoading, setLocationLoading] = useState(false)
+  const { userInfo, initField, copy, bootstrap, loadLocations, saveInitStep } = useLogin()
+  const [provinces, setProvinces] = useState<RegionOption[]>([])
+  const [cities, setCities] = useState<RegionOption[]>([])
+  const [districts, setDistricts] = useState<RegionOption[]>([])
+  const [province, setProvince] = useState<RegionOption>()
+  const [city, setCity] = useState<RegionOption>()
+  const [district, setDistrict] = useState<RegionOption>()
+  const field = initField(5)
 
-  const locationColor = selected ? '#2876FF' : '#A6A6A6'
+  useEffect(() => {
+    void (async () => {
+      try {
+        await bootstrap()
+        const root = await loadLocations()
+        setProvinces(root)
+        if (userInfo.locationProvince) {
+          const savedProvince = root.find(item => item.code === userInfo.locationProvince)
+          if (savedProvince) await selectProvince(savedProvince, userInfo.locationCity, userInfo.locationDistrict)
+        }
+      } catch (error) {
+        await showError(error)
+      }
+    })()
+  }, [])
 
-  useLoad((options) => {
-    const variant = options?.variant ?? 'empty'
-    if (variant === 'empty') {
-      setSelected('')
-      setShowManualSheet(false)
-      setShowLocationSheet(false)
-      return
-    }
+  const selectProvince = async (next: RegionOption, savedCityCode?: string, savedDistrictCode?: string) => {
+    setProvince(next)
+    setCity(undefined)
+    setDistrict(undefined)
+    setDistricts([])
+    const nextCities = next.leaf ? [] : await loadLocations(next.code)
+    setCities(nextCities)
+    const savedCity = nextCities.find(item => item.code === savedCityCode)
+    if (savedCity) await selectCity(savedCity, savedDistrictCode)
+  }
 
-    if (variant === 'manual') {
-      setShowManualSheet(true)
-      return
-    }
-
-    if (variant !== 'selected') return
-
-    const provinceIndex = Math.max(0, provinces.indexOf(loginDemo.defaultAddress.province))
-    const cityIndex = Math.max(0, getCities(loginDemo.defaultAddress.province).indexOf(loginDemo.defaultAddress.city))
-    setCityValue([provinceIndex, cityIndex])
-    setSelected(formatAddressLabel(loginDemo.defaultAddress.province, loginDemo.defaultAddress.city))
-    setShowManualSheet(false)
-    setShowLocationSheet(false)
-    updateUserInfo(loginDemo.defaultAddress)
-  })
+  const selectCity = async (next: RegionOption, savedDistrictCode?: string) => {
+    setCity(next)
+    setDistrict(undefined)
+    const nextDistricts = next.leaf ? [] : await loadLocations(next.code)
+    setDistricts(nextDistricts)
+    const savedDistrict = nextDistricts.find(item => item.code === savedDistrictCode)
+    if (savedDistrict) setDistrict(savedDistrict)
+  }
 
   const handleNext = async () => {
-    if (!selected) return Taro.showToast({ title: '请选择居住地', icon: 'none' })
-    await submit()
-  }
-
-  const handleLocationFail = (message = '定位失败，请手动选择') => {
-    setShowLocationSheet(false)
-    setShowManualSheet(true)
-    Taro.showToast({ title: message, icon: 'none' })
-  }
-
-  const handleLocation = async () => {
-    if (locationLoading) return
-    setLocationLoading(true)
-    try {
-      const authorized = await ensureUserLocationAuthorized()
-      if (!authorized) {
-        handleLocationFail('未授权定位，请手动选择')
-        return
-      }
-
-      const location = await Taro.getLocation({ type: 'gcj02' })
-      if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
-        throw new Error('INVALID_LOCATION')
-      }
-      setSelected('当前位置')
-      setShowManualSheet(false)
-      setShowLocationSheet(false)
-      updateUserInfo({ city: '当前位置' })
-    } catch {
-      handleLocationFail()
-    } finally {
-      setLocationLoading(false)
+    if (field?.required && !city) {
+      await Taro.showToast({ title: copy('init_location_required'), icon: 'none' })
+      return
     }
-  }
-
-  const handleManualConfirm = (province: string, city: string) => {
-    const provinceIndex = Math.max(0, provinces.indexOf(province))
-    const cityIndex = Math.max(0, getCities(province).indexOf(city))
-    setCityValue([provinceIndex, cityIndex])
-    setSelected(formatAddressLabel(province, city))
-    setShowManualSheet(false)
-    setShowLocationSheet(false)
-    updateUserInfo({ province, city })
+    try {
+      await saveInitStep(5, {
+        locationProvince: province?.code,
+        locationCity: city?.code,
+        locationDistrict: district?.code,
+      })
+    } catch (error) {
+      await showError(error)
+    }
   }
 
   return (
-    <LoginProfileShell
-      description="—你的居住地（为你推荐匹配的异性）—"
-      nextActive={Boolean(selected)}
-      onNext={handleNext}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: '25rpx',
-          top: '518rpx',
-          width: '700rpx',
-          height: '98rpx',
-          borderRadius: '8rpx',
-          background: '#FFFFFF',
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <View
-          style={{ flex: 1, height: '98rpx' }}
-          onClick={() => setShowManualSheet(true)}
-          hoverClass="btn-hover"
-        >
-          <View
-            style={{
-              height: '98rpx',
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-            hoverClass="btn-hover"
-          >
-            <View
-              style={{
-                position: 'relative',
-                width: '40rpx',
-                height: '48rpx',
-                marginLeft: '30rpx',
-                marginRight: '20rpx',
-              }}
-            >
-              <View
-                style={{
-                  position: 'absolute',
-                  left: '4rpx',
-                  top: '0',
-                  width: '32rpx',
-                  height: '32rpx',
-                  borderRadius: '18rpx',
-                  border: `6rpx solid ${locationColor}`,
-                }}
-              />
-              <View
-                style={{
-                  position: 'absolute',
-                  left: '15rpx',
-                  top: '13rpx',
-                  width: '10rpx',
-                  height: '10rpx',
-                  borderRadius: '5rpx',
-                  background: locationColor,
-                }}
-              />
-              <View
-                style={{
-                  position: 'absolute',
-                  left: '15rpx',
-                  top: '30rpx',
-                  width: '16rpx',
-                  height: '16rpx',
-                  borderRight: `6rpx solid ${locationColor}`,
-                  borderBottom: `6rpx solid ${locationColor}`,
-                  transform: 'rotate(45deg)',
-                }}
-              />
-            </View>
-            <Text
-              style={{
-                color: selected ? '#333333' : '#999999',
-                fontSize: '28rpx',
-                fontWeight: 500,
-                lineHeight: '40rpx',
-              }}
-            >
-              {selected || '选择城市'}
-            </Text>
-          </View>
-        </View>
-        <View
-          style={{
-            width: '170rpx',
-            height: '98rpx',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={() => setShowLocationSheet(true)}
-          hoverClass="btn-hover"
-        >
-          <Text
-            style={{
-              color: '#4E8FFE',
-              fontSize: '28rpx',
-              fontWeight: 500,
-              lineHeight: '40rpx',
-            }}
-          >
-            获取定位
-          </Text>
-        </View>
+    <LoginProfileShell description={copy('init_location_notice')} nextActive={Boolean(city) || field?.required === false} onNext={handleNext}>
+      <View style={{ position: 'absolute', left: '25rpx', top: '440rpx', width: '700rpx' }}>
+        <RegionPicker label={copy('init_location_province_placeholder')} options={provinces} selected={province} onSelect={next => void selectProvince(next)} />
+        <RegionPicker label={copy('init_location_city_placeholder')} options={cities} selected={city} disabled={!province} onSelect={next => void selectCity(next)} />
+        <RegionPicker label={copy('init_location_district_placeholder')} options={districts} selected={district} disabled={!city || city.leaf} onSelect={setDistrict} />
       </View>
-
-      {showManualSheet && (
-        <ManualAddressSheet
-          provinces={provinces}
-          cityValue={cityValue}
-          selected={selected}
-          getCities={getCities}
-          onConfirm={handleManualConfirm}
-          onClose={() => setShowManualSheet(false)}
-        />
-      )}
-
-      {showLocationSheet && (
-        <LocationConfirmSheet
-          onConfirm={handleLocation}
-          loading={locationLoading}
-          onManual={() => {
-            setShowLocationSheet(false)
-            setShowManualSheet(true)
-          }}
-          onClose={() => setShowLocationSheet(false)}
-        />
-      )}
     </LoginProfileShell>
   )
 }
 
-function formatAddressLabel(province: string, city: string) {
-  return `${province.replace(/[省市区]$/u, '')}${city.replace(/[市区县]$/u, '')}`
-}
-
-function ManualAddressSheet({
-  provinces,
-  cityValue,
-  selected,
-  getCities,
-  onConfirm,
-  onClose,
-}: {
-  provinces: string[]
-  cityValue: number[]
-  selected: string
-  getCities: (province: string) => string[]
-  onConfirm: (province: string, city: string) => void
-  onClose: () => void
-}) {
-  const initialProvinceIndex = clampAddressIndex(cityValue[0] || 0, provinces.length)
-  const initialProvince = provinces[initialProvinceIndex] || provinces[0]
-  const initialCityIndex = clampAddressIndex(cityValue[1] || 0, getCities(initialProvince).length)
-  const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
-  const [cityIndex, setCityIndex] = useState(initialCityIndex)
-  const [provinceScrollTop, setProvinceScrollTop] = useState<number | undefined>(() => getAddressScrollTop(initialProvinceIndex))
-  const [cityScrollTop, setCityScrollTop] = useState<number | undefined>(() => getAddressScrollTop(initialCityIndex))
-  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const province = provinces[provinceIndex] || provinces[0]
-  const cities = getCities(province)
-  const city = cities[clampAddressIndex(cityIndex, cities.length)] || cities[0] || ''
-
-  const releaseControlledAddressScroll = () => {
-    if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
-    releaseTimerRef.current = setTimeout(() => {
-      setProvinceScrollTop(undefined)
-      setCityScrollTop(undefined)
-    }, 240)
-  }
-
-  useEffect(() => {
-    releaseControlledAddressScroll()
-    return () => {
-      if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
-    }
-  }, [])
-
-  const selectProvince = (nextIndex: number) => {
-    const nextProvinceIndex = clampAddressIndex(nextIndex, provinces.length)
-    setProvinceIndex(nextProvinceIndex)
-    setCityIndex(0)
-    setProvinceScrollTop(getAddressScrollTop(nextProvinceIndex))
-    setCityScrollTop(getAddressScrollTop(0))
-    releaseControlledAddressScroll()
-  }
-
-  const selectCity = (nextIndex: number) => {
-    const nextCityIndex = clampAddressIndex(nextIndex, cities.length)
-    setCityIndex(nextCityIndex)
-    setCityScrollTop(getAddressScrollTop(nextCityIndex))
-    releaseControlledAddressScroll()
-  }
-
-  const handleProvinceScroll = (event: { detail: { scrollTop: number } }) => {
-    const nextProvinceIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, provinces.length)
-    if (nextProvinceIndex === provinceIndex) return
-    setProvinceIndex(nextProvinceIndex)
-    setCityIndex(0)
-    setCityScrollTop(getAddressScrollTop(0))
-    releaseControlledAddressScroll()
-  }
-
-  const handleCityScroll = (event: { detail: { scrollTop: number } }) => {
-    const nextCityIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, cities.length)
-    if (nextCityIndex === cityIndex) return
-    setCityIndex(nextCityIndex)
-  }
-
+function RegionPicker({ label, options, selected, disabled = false, onSelect }: { label: string; options: RegionOption[]; selected?: RegionOption; disabled?: boolean; onSelect: (option: RegionOption) => void }) {
   return (
-    <View
-      style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0,
-        background: 'rgba(51,51,51,0.30)',
-        zIndex: 80,
-      }}
-      onClick={onClose}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: '756rpx',
-          borderRadius: '64rpx 64rpx 0 0',
-          background: '#FFFFFF',
-          padding: '42rpx 42rpx calc(36rpx + env(safe-area-inset-bottom)) 44rpx',
-          boxSizing: 'border-box',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <View style={{ width: '100%', height: '40rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', textAlign: 'center' }}>
-            地址
-          </Text>
-        </View>
-
-        <View
-          style={{
-            width: '512rpx',
-            margin: '65rpx auto 0',
-            display: 'flex',
-            flexDirection: 'row',
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-          }}
-        >
-          <View style={{ width: '256rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', textAlign: 'center' }}>
-              中国
-            </Text>
-          </View>
-          <View style={{ width: '256rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#999999', fontSize: '26rpx', fontWeight: 400, lineHeight: '37rpx', marginTop: '2rpx', textAlign: 'center' }}>
-              海外地区国家
-            </Text>
-          </View>
-        </View>
-        <View style={{ width: '512rpx', margin: '0 auto', display: 'flex', flexDirection: 'row' }}>
-          <View style={{ width: '256rpx', display: 'flex', justifyContent: 'center' }}>
-            <View
-              style={{
-                width: '51rpx',
-                height: '6rpx',
-                borderRadius: '9rpx',
-                background: '#2876FF',
-              }}
-            />
-          </View>
-          <View style={{ width: '256rpx' }} />
-        </View>
-
-        <View
-          style={{
-            position: 'relative',
-            width: '656rpx',
-            height: '300rpx',
-            margin: '80rpx auto 0',
-            overflow: 'hidden',
-          }}
-        >
-          <View
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: '78rpx',
-              width: '656rpx',
-              height: '78rpx',
-              borderRadius: '24rpx',
-              background: '#E3F1FE',
-            }}
-          />
-          <ScrollView
-            scrollY
-            scrollTop={provinceScrollTop}
-            scrollWithAnimation
-            onScroll={handleProvinceScroll}
-            style={{ position: 'absolute', left: '78rpx', top: 0, width: '220rpx', height: '300rpx' }}
-            showScrollbar={false}
-          >
-            <View style={{ height: `${ADDRESS_PROVINCE_TOP_SPACER_RPX}rpx` }} />
-            {provinces.map((item, index) => {
-              const isActive = index === provinceIndex
-              return (
-                <View
-                  key={item}
-                  style={{
-                    height: '78rpx',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onClick={() => selectProvince(index)}
-                  hoverClass="btn-hover"
-                >
-                  <Text
-                    style={{
-                      color: isActive ? '#0C285A' : index < provinceIndex ? '#D7D7D7' : '#999999',
-                      fontSize: '28rpx',
-                      fontWeight: 500,
-                      lineHeight: '40rpx',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {item.replace(/[省市区]$/u, '')}
-                  </Text>
-                </View>
-              )
-            })}
-            <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
-          </ScrollView>
-          <ScrollView
-            scrollY
-            scrollTop={cityScrollTop}
-            scrollWithAnimation
-            onScroll={handleCityScroll}
-            style={{ position: 'absolute', left: '358rpx', top: '78rpx', width: '220rpx', height: '222rpx' }}
-            showScrollbar={false}
-          >
-            {cities.map((item, index) => {
-              const isActive = index === cityIndex
-              return (
-                <View
-                  key={item}
-                  style={{
-                    height: '78rpx',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onClick={() => selectCity(index)}
-                  hoverClass="btn-hover"
-                >
-                  <Text
-                    style={{
-                      color: isActive ? '#0C285A' : index < cityIndex ? '#D7D7D7' : '#999999',
-                      fontSize: '28rpx',
-                      fontWeight: 500,
-                      lineHeight: '40rpx',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {item.replace(/[市区县]$/u, '')}
-                  </Text>
-                </View>
-              )
-            })}
-            <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
-          </ScrollView>
-        </View>
-
-        <View
-          style={{
-            height: '98rpx',
-            borderRadius: '40rpx',
-            background: '#2876FF',
-            marginTop: '43rpx',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={() => {
-            if (city) onConfirm(province, city)
-          }}
-          hoverClass="btn-hover"
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}>
-            确定
-          </Text>
-        </View>
+    <Picker mode="selector" disabled={disabled || options.length === 0} range={options.map(item => item.label)} onChange={event => {
+      const option = options[Number(event.detail.value)]
+      if (option) onSelect(option)
+    }}>
+      <View style={{ width: '700rpx', height: '112rpx', borderRadius: '20rpx', background: '#FFFFFF', marginBottom: '24rpx', padding: '0 36rpx', boxSizing: 'border-box', display: 'flex', alignItems: 'center', opacity: disabled ? 0.55 : 1 }}>
+        <Text style={{ color: selected ? '#333333' : '#999999', fontSize: '32rpx' }}>{selected?.label || label}</Text>
       </View>
-    </View>
+    </Picker>
   )
 }
 
-function getAddressScrollTop(index: number) {
-  return Math.max(0, rpxToPx(index * ADDRESS_ROW_HEIGHT_RPX))
-}
-
-function getAddressIndexFromScrollTop(scrollTop: number, length: number) {
-  if (length <= 0) return 0
-  const rowHeight = rpxToPx(ADDRESS_ROW_HEIGHT_RPX)
-  return clampAddressIndex(Math.round(scrollTop / rowHeight), length)
-}
-
-function clampAddressIndex(index: number, length: number) {
-  if (length <= 0) return 0
-  return Math.min(Math.max(0, index), length - 1)
-}
-
-function rpxToPx(value: number) {
-  return (value * getWindowMetrics().windowWidth) / 750
-}
-
-async function ensureUserLocationAuthorized() {
-  const setting = await Taro.getSetting()
-  const authSetting = (setting.authSetting || {}) as Record<string, boolean | undefined>
-  const current = authSetting[USER_LOCATION_SCOPE]
-
-  if (current === true) return true
-
-  if (current === false) {
-    const modal = await Taro.showModal({
-      title: '需要定位权限',
-      content: '请在设置中允许定位，用于自动完善居住地。',
-      confirmText: '去设置',
-      cancelText: '手动选择',
-    })
-    if (!modal.confirm) return false
-
-    const nextSetting = await Taro.openSetting()
-    const nextAuthSetting = (nextSetting.authSetting || {}) as Record<string, boolean | undefined>
-    return nextAuthSetting[USER_LOCATION_SCOPE] === true
-  }
-
-  try {
-    await Taro.authorize({ scope: USER_LOCATION_SCOPE })
-    return true
-  } catch {
-    return false
-  }
-}
-
-function LocationConfirmSheet({
-  onConfirm,
-  loading,
-  onManual,
-  onClose,
-}: {
-  onConfirm: () => void | Promise<void>
-  loading: boolean
-  onManual: () => void
-  onClose: () => void
-}) {
-  return (
-    <View
-      style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.42)',
-        zIndex: 80,
-      }}
-      onClick={onClose}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          minHeight: '438rpx',
-          borderRadius: '64rpx 64rpx 0 0',
-          background: '#FFFFFF',
-          padding: '48rpx 50rpx calc(58rpx + env(safe-area-inset-bottom))',
-          boxSizing: 'border-box',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <Text style={{ display: 'block', color: '#0C285A', fontSize: '36rpx', fontWeight: 700, lineHeight: '50rpx', textAlign: 'center' }}>
-          获取当前位置
-        </Text>
-        <Text style={{ display: 'block', color: '#6E7890', fontSize: '26rpx', lineHeight: '40rpx', textAlign: 'center', marginTop: '22rpx' }}>
-          我们将仅用于完善居住地资料，帮助推荐更合适的人。
-        </Text>
-        <View
-          style={{
-            height: '96rpx',
-            borderRadius: '24rpx',
-            background: '#2876FF',
-            marginTop: '48rpx',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={() => {
-            if (!loading) onConfirm()
-          }}
-          hoverClass="btn-hover"
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>
-            {loading ? '定位中...' : '允许并获取定位'}
-          </Text>
-        </View>
-        <View
-          style={{
-            height: '76rpx',
-            marginTop: '16rpx',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={onManual}
-          hoverClass="btn-hover"
-        >
-          <Text style={{ color: '#8792A6', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>
-            手动选择城市
-          </Text>
-        </View>
-      </View>
-    </View>
-  )
+async function showError(error: unknown) {
+  const title = error instanceof Error ? error.message : String(error)
+  if (title) await Taro.showToast({ title, icon: 'none' })
 }

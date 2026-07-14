@@ -9,9 +9,9 @@
     "css": "sass"
   },
   "scripts": {
-    "predev:weapp": "node scripts/validate-wechat-phone-login.mjs && node scripts/validate-avatar-fallback.mjs && node scripts/validate-heart-message-lanhu.mjs && node scripts/validate-verification-enter-home.mjs && node scripts/validate-dev-fixed-login.mjs && node scripts/validate-profile-preview-navigation.mjs && node scripts/validate-profile-preview-lanhu.mjs",
+    "predev:weapp": "node scripts/validate-wechat-phone-login.mjs && node scripts/validate-avatar-fallback.mjs && node scripts/validate-heart-message-lanhu.mjs && node scripts/validate-message-18-lanhu.mjs && node scripts/validate-verification-enter-home.mjs && node scripts/validate-dev-fixed-login.mjs && node scripts/validate-profile-preview-navigation.mjs && node scripts/validate-profile-preview-lanhu.mjs",
     "dev:weapp": "MINIAPP_DEV_FIXED_LOGIN=true npm run build:weapp -- --watch",
-    "prebuild:weapp": "node scripts/validate-wechat-phone-login.mjs && node scripts/validate-avatar-fallback.mjs && node scripts/validate-heart-message-lanhu.mjs && node scripts/validate-verification-enter-home.mjs && node scripts/validate-dev-fixed-login.mjs && node scripts/validate-profile-preview-navigation.mjs && node scripts/validate-profile-preview-lanhu.mjs && node scripts/validate-miniapp-release-startup.mjs",
+    "prebuild:weapp": "node scripts/validate-wechat-phone-login.mjs && node scripts/validate-avatar-fallback.mjs && node scripts/validate-heart-message-lanhu.mjs && node scripts/validate-message-18-lanhu.mjs && node scripts/validate-verification-enter-home.mjs && node scripts/validate-dev-fixed-login.mjs && node scripts/validate-profile-preview-navigation.mjs && node scripts/validate-profile-preview-lanhu.mjs && node scripts/validate-miniapp-release-startup.mjs",
     "build:weapp": "taro build --type weapp",
     "dev:swan": "npm run build:swan -- --watch",
     "dev:alipay": "npm run build:alipay -- --watch",
@@ -24,6 +24,8 @@
     "assets:upload-icons": "node scripts/upload-miniapp-oss-icons.mjs",
     "assets:verify-icons": "node scripts/verify-miniapp-oss-icons.mjs",
     "validate:heart-message": "node scripts/validate-heart-message-lanhu.mjs",
+    "validate:message-15": "node scripts/validate-message-15-lanhu.mjs",
+    "validate:message-18": "node scripts/validate-message-18-lanhu.mjs",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write src"
   },

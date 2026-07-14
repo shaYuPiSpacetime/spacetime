@@ -1,73 +1,38 @@
-import { View, Text } from '@tarojs/components'
+import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import LoginProfileShell from './components/LoginProfileShell'
 import './identity.scss'
 
-/**
- * 登录-身份：补齐蓝湖登录资料主链路中的身份选择页。
- */
 export default function LoginIdentityPage() {
-  const { identityOptions, setStep, updateUserInfo } = useLogin()
-  const [selected, setSelected] = useState(identityOptions[0] ?? '')
-  const [touched, setTouched] = useState(false)
+  const { identityOptions, userInfo, initField, copy, bootstrap, saveInitStep } = useLogin()
+  const [selectedCode, setSelectedCode] = useState(userInfo.identity || '')
+  const field = initField(3)
+
+  useEffect(() => { void bootstrap().catch(showError) }, [])
 
   const handleNext = async () => {
-    if (!selected) return Taro.showToast({ title: '请选择身份', icon: 'none' })
-    updateUserInfo({ identity: selected })
-    setStep('education')
-    await Taro.redirectTo({ url: '/pages/login/education' })
+    if (field?.required && !selectedCode) {
+      await Taro.showToast({ title: copy('init_identity_required'), icon: 'none' })
+      return
+    }
+    try {
+      await saveInitStep(3, { identity: selectedCode || undefined })
+    } catch (error) {
+      await showError(error)
+    }
   }
 
   return (
     <View className="login-identity-page">
-      <LoginProfileShell
-        description="—你的身份（为你推荐更契合的人）—"
-        nextActive={touched}
-        onNext={handleNext}
-      >
-        <View
-          style={{
-            position: 'absolute',
-            left: '25rpx',
-            top: '442rpx',
-            width: '700rpx',
-          }}
-        >
-          {identityOptions.map((option) => {
-            const isActive = selected === option
+      <LoginProfileShell description={copy('init_identity_notice')} nextActive={Boolean(selectedCode) || field?.required === false} onNext={handleNext}>
+        <View style={{ position: 'absolute', left: '25rpx', top: '442rpx', width: '700rpx' }}>
+          {identityOptions.map(option => {
+            const isActive = selectedCode === option.code
             return (
-              <View
-                key={option}
-                style={{
-                  width: '700rpx',
-                  height: '128rpx',
-                  borderRadius: '48rpx',
-                  background: isActive ? '#E3F1FE' : '#FFFFFF',
-                  border: isActive ? '2rpx solid #2876FF' : '2rpx solid rgba(255,255,255,0)',
-                  marginBottom: '29rpx',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: isActive ? '0 12rpx 28rpx rgba(40,118,255,0.10)' : 'none',
-                }}
-                onClick={() => {
-                  setSelected(option)
-                  setTouched(true)
-                }}
-                hoverClass="btn-hover"
-              >
-                <Text
-                  style={{
-                    color: isActive ? '#2876FF' : '#333333',
-                    fontSize: '38rpx',
-                    fontWeight: 500,
-                    lineHeight: '53rpx',
-                  }}
-                >
-                  {option}
-                </Text>
+              <View key={option.code} style={{ width: '700rpx', height: '128rpx', borderRadius: '48rpx', background: isActive ? '#E3F1FE' : '#FFFFFF', border: isActive ? '2rpx solid #2876FF' : '2rpx solid transparent', marginBottom: '29rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectedCode(option.code)} hoverClass="btn-hover">
+                <Text style={{ color: isActive ? '#2876FF' : '#333333', fontSize: '38rpx', fontWeight: 500 }}>{option.label}</Text>
               </View>
             )
           })}
@@ -75,4 +40,9 @@ export default function LoginIdentityPage() {
       </LoginProfileShell>
     </View>
   )
+}
+
+async function showError(error: unknown) {
+  const title = error instanceof Error ? error.message : String(error)
+  if (title) await Taro.showToast({ title, icon: 'none' })
 }

@@ -21,7 +21,7 @@ const startPage = useDevFixedStartup ? 'pages/index/index' : 'pages/login/index'
 
 export default {
   lazyCodeLoading: 'requiredComponents',
-  pages: [startPage, ...MAIN_PAGES.filter((page) => page !== startPage)],
+  pages: [startPage, ...MAIN_PAGES.filter(page => page !== startPage)],
   subPackages: [
     {
       root: 'pages/verification',
@@ -44,70 +44,44 @@ export default {
         'education-mainland',
         'education-chsi-help',
         'education-diploma-no',
-        'education-certificate-upload'
-      ]
+        'education-certificate-upload',
+      ],
     },
     {
       root: 'pages/featured',
-      pages: [
-        'index'
-      ]
+      pages: ['index'],
     },
     {
       root: 'pages/membership',
-      pages: [
-        'index',
-        'records',
-        'record-detail',
-        'subscription'
-      ]
+      pages: ['index', 'records', 'record-detail', 'subscription'],
     },
     {
       root: 'pages/coins',
-      pages: [
-        'index',
-        'detail',
-        'unlock-recharge'
-      ]
+      pages: ['index', 'detail', 'unlock-recharge'],
     },
     {
       root: 'pages/assessment',
-      pages: [
-        'index'
-      ]
+      pages: ['index'],
     },
     {
       root: 'pages/profile-edit',
-      pages: [
-        'intro',
-        'tags',
-        'about',
-        'songs'
-      ]
+      pages: ['intro', 'tags', 'about', 'songs', 'albums', 'background', 'voice'],
     },
     {
       root: 'pages/heart',
-      pages: [
-        'mutual',
-        'user',
-        'membership-unlock'
-      ]
-    }
+      pages: ['mutual', 'user', 'membership-unlock'],
+    },
+    {
+      root: 'pages/message',
+      pages: ['whisper-list', 'whisper-detail', 'private-list', 'private-chat', 'channel', 'report'],
+    },
   ],
   window: {
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#ffffff',
     navigationBarTitleText: '成家立业',
-    navigationBarTextStyle: 'black'
+    navigationBarTextStyle: 'black',
   },
-  permission: {
-    'scope.userLocation': {
-      desc: '用于自动定位你的居住城市，帮助推荐更合适的人'
-    }
-  },
-  requiredPrivateInfos: [
-    'getLocation'
-  ],
   tabBar: {
     custom: true,
     color: '#999999',
@@ -119,32 +93,32 @@ export default {
         pagePath: 'pages/index/index',
         text: '千寻',
         iconPath: 'assets/icons/tab-home.png',
-        selectedIconPath: 'assets/icons/tab-home.png'
+        selectedIconPath: 'assets/icons/tab-home.png',
       },
       {
         pagePath: 'pages/community/index',
         text: '心动',
         iconPath: 'assets/icons/tab-work.png',
-        selectedIconPath: 'assets/icons/tab-work.png'
+        selectedIconPath: 'assets/icons/tab-work.png',
       },
       {
         pagePath: 'pages/recommend/index',
         text: '推荐',
         iconPath: 'assets/icons/tab-recommend.png',
-        selectedIconPath: 'assets/icons/tab-recommend.png'
+        selectedIconPath: 'assets/icons/tab-recommend.png',
       },
       {
         pagePath: 'pages/chat/index',
         text: '消息',
         iconPath: 'assets/icons/tab-message.png',
-        selectedIconPath: 'assets/icons/tab-message.png'
+        selectedIconPath: 'assets/icons/tab-message.png',
       },
       {
         pagePath: 'pages/profile/index',
         text: '我的',
         iconPath: 'assets/icons/tab-profile-active.png',
-        selectedIconPath: 'assets/icons/tab-profile-active.png'
-      }
-    ]
-  }
+        selectedIconPath: 'assets/icons/tab-profile-active.png',
+      },
+    ],
+  },
 }

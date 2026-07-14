@@ -1,143 +1,81 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import VerificationShell from './components/VerificationShell'
+import { useEffect, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { getDemoPageData } from '@/services/lanhuDemo'
+import { prd01Api } from '@/services/prd01'
+import { usePrd01Store } from '@/stores/prd01Store'
+import type { VerificationStatus } from '@/types/prd01'
+import VerificationSubShell from './components/VerificationSubShell'
 
-const CERT_ICON_MAP: Record<string, string> = {
-  头像认证: miniappOssIcons.verificationCertAvatar,
-  实名认证: miniappOssIcons.verificationCertRealName,
-  学历认证: miniappOssIcons.verificationCertEducation,
-}
-
-const verificationDemo = getDemoPageData('verification')
-const CERT_ITEMS = verificationDemo.certItems
-const COMPLETED_CERT_TITLES = verificationDemo.completedCertTitles
+const CERT_ITEMS = [
+  { key: 'avatar', icon: miniappOssIcons.verificationCertAvatar, titleKey: 'verification_avatar_title', descKey: 'verification_avatar_desc', statusKey: 'avatarVerifyStatus', reasonKey: 'avatarVerifyRejectReason', canSubmitKey: 'avatarCanSubmit', route: '/pages/verification/avatar' },
+  { key: 'realName', icon: miniappOssIcons.verificationCertRealName, titleKey: 'verification_real_name_title', descKey: 'verification_real_name_desc', statusKey: 'realNameStatus', reasonKey: 'realNameRejectReason', canSubmitKey: 'realNameCanSubmit', route: '/pages/verification/real-name' },
+  { key: 'education', icon: miniappOssIcons.verificationCertEducation, titleKey: 'verification_education_title', descKey: 'verification_education_desc', statusKey: 'educationStatus', reasonKey: 'educationRejectReason', canSubmitKey: 'educationCanSubmit', route: '/pages/verification/education-mainland' },
+] as const
 
 export default function VerificationTriplePage() {
+  const bootstrap = usePrd01Store(state => state.bootstrap)
+  const copy = usePrd01Store(state => state.copy)
+  const optionLabel = usePrd01Store(state => state.optionLabel)
+  const [status, setStatus] = useState<VerificationStatus>()
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        await bootstrap()
+        setStatus(await prd01Api.getVerificationStatus())
+      } catch (error) {
+        await showError(error)
+      }
+    })()
+  }, [])
+
+  const enterCertification = async (item: (typeof CERT_ITEMS)[number]) => {
+    if (item.key !== 'education') {
+      await Taro.redirectTo({ url: item.route })
+      return
+    }
+    try {
+      const detail = await prd01Api.getEducation()
+      const route = detail.educationUserType === 'STUDENT'
+        ? '/pages/verification/education-student'
+        : item.route
+      await Taro.redirectTo({ url: route })
+    } catch (error) {
+      await showError(error)
+    }
+  }
+
   return (
-    <VerificationShell
-      stage="triple"
-      onBack={() => Taro.redirectTo({ url: '/pages/verification/intro-edit' })}
-    >
-      <View style={{ position: 'absolute', left: '25rpx', top: '558rpx', width: '700rpx' }}>
-        {CERT_ITEMS.map((item) => (
-          <CertEntry
-            key={item.title}
-            title={item.title}
-            desc={item.desc}
-            icon={CERT_ICON_MAP[item.title] ?? miniappOssIcons.verificationCertAvatar}
-            buttonText={COMPLETED_CERT_TITLES.includes(item.title) ? '已完成' : item.buttonText}
-            disabled={Boolean(item.disabled) && !COMPLETED_CERT_TITLES.includes(item.title)}
-            completed={COMPLETED_CERT_TITLES.includes(item.title)}
-            onClick={() => Taro.redirectTo({ url: item.route })}
-          />
-        ))}
-        <Text
-          style={{
-            display: 'block',
-            width: '700rpx',
-            color: '#999999',
-            fontSize: '24rpx',
-            lineHeight: '40rpx',
-            marginTop: '31rpx',
-          }}
-        >
-          确保信息真实才可在平台交友，与官方数据联网比对，承诺保障信息安全
-        </Text>
+    <VerificationSubShell title={copy('verification_center_title')}>
+      <View style={{ position: 'absolute', left: '25rpx', top: '226rpx', width: '700rpx' }}>
+        <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 700 }}>{copy('verification_center_heading')}</Text>
+        <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '40rpx', marginTop: '14rpx' }}>{copy('verification_center_notice')}</Text>
       </View>
-    </VerificationShell>
+      <View style={{ position: 'absolute', left: '25rpx', top: '400rpx', width: '700rpx' }}>
+        {CERT_ITEMS.map(item => {
+          const auditStatus = status?.[item.statusKey]
+          const canSubmit = status?.[item.canSubmitKey] !== false
+          const reason = status?.[item.reasonKey]
+          return (
+            <View key={item.key} style={{ position: 'relative', width: '700rpx', minHeight: reason ? '206rpx' : '168rpx', borderRadius: '24rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '36rpx 190rpx 30rpx 150rpx', boxSizing: 'border-box' }} onClick={() => void enterCertification(item)}>
+              <Image src={item.icon} mode="aspectFit" style={{ position: 'absolute', left: '38rpx', top: '34rpx', width: '84rpx', height: '84rpx' }} />
+              <Text style={{ display: 'block', color: '#0C285A', fontSize: '30rpx', fontWeight: 800 }}>{copy(item.titleKey)}</Text>
+              <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', marginTop: '10rpx' }}>{copy(item.descKey)}</Text>
+              {reason ? <Text style={{ display: 'block', color: '#E36A6A', fontSize: '22rpx', lineHeight: '32rpx', marginTop: '10rpx' }}>{reason}</Text> : null}
+              <View style={{ position: 'absolute', right: '24rpx', top: '48rpx', minWidth: '138rpx', height: '64rpx', borderRadius: '18rpx', background: canSubmit ? '#2876FF' : '#EAF3FF', padding: '0 18rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                <Text style={{ color: canSubmit ? '#FFFFFF' : '#2876FF', fontSize: '24rpx', fontWeight: 700 }}>{optionLabel('auditStatus', auditStatus) || copy('verification_enter_action')}</Text>
+              </View>
+            </View>
+          )
+        })}
+        {status?.educationEstimatedCompleteTime ? <Text style={{ display: 'block', color: '#697E9C', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '14rpx' }}>{status.educationSlaText} {status.educationEstimatedCompleteTime}</Text> : null}
+      </View>
+    </VerificationSubShell>
   )
 }
 
-function CertEntry({
-  title,
-  desc,
-  icon,
-  buttonText,
-  disabled,
-  completed,
-  onClick,
-}: {
-  title: string
-  desc: string
-  icon: string
-  buttonText: string
-  disabled: boolean
-  completed: boolean
-  onClick: () => void
-}) {
-  return (
-    <View
-      style={{
-        position: 'relative',
-        width: '700rpx',
-        height: '168rpx',
-        borderRadius: '24rpx',
-        background: completed ? '#F5F9FF' : '#FFFFFF',
-        marginBottom: '20rpx',
-        padding: '42rpx 210rpx 41rpx 174rpx',
-        boxSizing: 'border-box',
-        border: completed ? '2rpx solid #B9D7FF' : '2rpx solid #FFFFFF',
-        boxShadow: '0 12rpx 30rpx rgba(11, 38, 90, 0.06)',
-      }}
-      onClick={onClick}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          right: '29rpx',
-          top: '50rpx',
-          width: '148rpx',
-          height: '68rpx',
-          borderRadius: '20rpx',
-          background: completed ? '#EAF3FF' : disabled ? '#C8DAF2' : '#2876FF',
-          border: completed ? '2rpx solid #2876FF' : '0',
-          boxSizing: 'border-box',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: completed ? '#2876FF' : '#FFFFFF', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{buttonText}</Text>
-      </View>
-      <Image
-        src={icon}
-        mode="widthFix"
-        style={{
-          position: 'absolute',
-          left: '54rpx',
-          top: '34rpx',
-          width: '100rpx',
-          opacity: disabled ? 0.58 : 1,
-        }}
-      />
-      {completed && (
-        <View
-          style={{
-            position: 'absolute',
-            left: '126rpx',
-            top: '34rpx',
-            width: '34rpx',
-            height: '34rpx',
-            borderRadius: '17rpx',
-            background: '#2876FF',
-            border: '4rpx solid #FFFFFF',
-            boxSizing: 'border-box',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: '22rpx', lineHeight: '28rpx' }}>✓</Text>
-        </View>
-      )}
-      <Text style={{ display: 'block', color: completed ? '#2876FF' : '#0C285A', fontSize: '28rpx', fontWeight: 800, lineHeight: '40rpx' }}>
-        {title}
-      </Text>
-      <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '33rpx', marginTop: '12rpx' }}>
-        {desc}
-      </Text>
-    </View>
-  )
+async function showError(error: unknown) {
+  const title = error instanceof Error ? error.message : String(error)
+  if (title) await Taro.showToast({ title, icon: 'none' })
 }

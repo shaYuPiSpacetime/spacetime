@@ -17,6 +17,8 @@ function exists(relativePath) {
 }
 
 const authService = read('miniapp/src/services/auth.ts')
+const prd01Service = read('miniapp/src/services/prd01.ts')
+const prd01Paths = read('miniapp/src/constants/prd01ApiPaths.ts')
 const configTs = read('miniapp/src/constants/config.ts')
 const taroConfig = read('miniapp/config/index.ts')
 const appTsx = read('miniapp/src/app.tsx')
@@ -29,7 +31,9 @@ const appUser = read('backend/src/main/java/com/spacetime/common/entity/AppUser.
 const authImpl = read('backend/src/main/java/com/spacetime/miniapp/service/impl/AuthMiniappServiceImpl.java')
 const loginReq = read('backend/src/main/java/com/spacetime/miniapp/dto/request/WechatLoginReq.java')
 const loginVO = read('backend/src/main/java/com/spacetime/miniapp/dto/response/WechatLoginVO.java')
-const devYml = read('backend/src/main/resources/application-dev.yml')
+const devYml = read(exists('backend/src/main/resources/application-dev.yml')
+  ? 'backend/src/main/resources/application-dev.yml'
+  : 'backend/src/main/resources/application-dev.yml.example')
 const prodYml = read('backend/src/main/resources/application-prod.yml')
 const appUserSql = read('deploy/sql/prod/010_app_user_schema.sql')
 const prodEnvExample = read('deploy/server.prod.env.example')
@@ -38,10 +42,11 @@ const deployConfigCheck = read('scripts/validate-prod-deploy-config.mjs')
 const webConfig = read('backend/src/main/java/com/spacetime/common/interceptor/WebConfig.java')
 const expectedApiBaseUrl = process.env.EXPECTED_API_BASE_URL || 'https://admin.shikongxiehou.com/api'
 
-assert.ok(authService.includes("'/miniapp/auth/wechat-login'"), '微信登录必须调用后端真实 /miniapp/auth/wechat-login')
-assert.ok(authService.includes('loginCode'), '登录请求必须传 wx.login 返回的 loginCode')
-assert.ok(authService.includes('phoneCode'), '登录请求必须传 getPhoneNumber 返回的 phoneCode')
-assert.ok(!authService.includes("'/miniapp/login'"), '不得继续调用旧 /miniapp/login')
+assert.ok(authService.includes('prd01Api.wechatLogin'), '微信登录必须调用 PRD01 真实登录服务')
+assert.ok(prd01Paths.includes("wechatLogin: '/miniapp/auth/wechat-login'"), '微信登录路径必须为 /miniapp/auth/wechat-login')
+assert.ok(prd01Service.includes('loginCode'), '登录请求必须传 wx.login 返回的 loginCode')
+assert.ok(prd01Service.includes('phoneCode'), '登录请求必须传 getPhoneNumber 返回的 phoneCode')
+assert.ok(!authService.includes("'/miniapp/login'") && !prd01Paths.includes("'/miniapp/login'"), '不得继续调用旧 /miniapp/login')
   assert.ok(
     configTs.includes(`API_BASE_URL = '${expectedApiBaseUrl}'`) ||
     configTs.includes("API_BASE_URL = 'http://localhost:8080'"),
@@ -66,7 +71,8 @@ assert.ok(loginPage.includes("lowerErrMsg.includes('deny')"), '用户拒绝授�
 assert.ok(useAuth.includes('loginByWechatPhone'), 'useAuth 必须改用手机号授权登录服务')
 assert.ok(userTypes.includes('phoneCode'), 'LoginReq 类型必须包含 phoneCode')
 assert.ok(userTypes.includes('openid'), 'LoginVO 类型必须包含 openid')
-assert.ok(useLogin.includes("'/miniapp/profile/init-complete'"), '首登资料完成必须提交后端 /miniapp/profile/init-complete')
+assert.ok(useLogin.includes('prd01Api.saveInitStep'), '首登资料每一步必须提交后端 /miniapp/profile/init-step')
+assert.ok(useLogin.includes('status.firstLoginCompleted'), '首登完成状态必须以后端返回值为准')
 assert.ok(!useLogin.includes('mock_token_'), '首登资料提交不能再写 mock token')
 
 assert.ok(exists('backend/src/main/java/com/spacetime/miniapp/service/WechatMiniappClient.java'), '缺少微信小程序接口客户端抽象')

@@ -15,12 +15,14 @@ type HeaderProps = {
   children?: ReactNode
 }
 
+const designRpx = (value: number) =>
+  Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? `${value}rpx` : `${value / 2}px`
+
 export function getLanhuNavigationMetrics() {
   const system = getWindowMetrics()
   const scale = system.windowWidth ? 750 / system.windowWidth : 2
-  const menu = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
-    ? Taro.getMenuButtonBoundingClientRect()
-    : undefined
+  const menu =
+    Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? Taro.getMenuButtonBoundingClientRect() : undefined
 
   return {
     menuTop: menu ? menu.top * scale : 96,
@@ -54,16 +56,23 @@ export default function HeartMessageHeader({
   }
 
   return (
-    <View style={{ position: 'relative', width: '750rpx', height: '176rpx', flexShrink: 0 }}>
+    <View
+      style={{
+        position: 'relative',
+        width: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? '750rpx' : '100%',
+        height: designRpx(176),
+        flexShrink: 0,
+      }}
+    >
       {showBack ? (
         <View
           onClick={handleBack}
           style={{
             position: 'absolute',
-            left: '24rpx',
-            top: `${menuTop}rpx`,
-            width: '54rpx',
-            height: `${menuHeight}rpx`,
+            left: designRpx(24),
+            top: designRpx(menuTop),
+            width: designRpx(54),
+            height: designRpx(menuHeight),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-start',
@@ -72,10 +81,10 @@ export default function HeartMessageHeader({
         >
           <View
             style={{
-              width: '22rpx',
-              height: '22rpx',
-              borderLeft: '4rpx solid #607086',
-              borderBottom: '4rpx solid #607086',
+              width: designRpx(22),
+              height: designRpx(22),
+              borderLeft: `${designRpx(4)} solid #607086`,
+              borderBottom: `${designRpx(4)} solid #607086`,
               transform: 'rotate(45deg)',
               boxSizing: 'border-box',
             }}
@@ -87,10 +96,10 @@ export default function HeartMessageHeader({
         <View
           style={{
             position: 'absolute',
-            left: align === 'left' ? '25rpx' : '160rpx',
-            top: `${titleTop}rpx`,
-            width: align === 'left' ? '210rpx' : '430rpx',
-            height: '54rpx',
+            left: designRpx(align === 'left' ? 25 : 160),
+            top: designRpx(titleTop),
+            width: designRpx(align === 'left' ? 210 : 430),
+            height: designRpx(54),
             display: 'flex',
             justifyContent: align === 'left' ? 'flex-start' : 'center',
           }}
@@ -100,10 +109,10 @@ export default function HeartMessageHeader({
               style={{
                 position: 'absolute',
                 left: '0',
-                top: '37rpx',
-                width: `${Math.max(64, title.length * 32)}rpx`,
-                height: '8rpx',
-                borderRadius: '6rpx',
+                top: designRpx(37),
+                width: designRpx(Math.max(64, title.length * 32)),
+                height: designRpx(8),
+                borderRadius: designRpx(6),
                 background: 'rgba(40,118,255,0.8)',
               }}
             />
@@ -114,9 +123,9 @@ export default function HeartMessageHeader({
               zIndex: 1,
               color: '#0C285A',
               fontFamily: 'PingFangSC-Medium, PingFang SC, sans-serif',
-              fontSize: '32rpx',
+              fontSize: designRpx(32),
               fontWeight: 500,
-              lineHeight: '45rpx',
+              lineHeight: designRpx(45),
               whiteSpace: 'nowrap',
             }}
           >
@@ -126,7 +135,9 @@ export default function HeartMessageHeader({
       ) : null}
 
       {rightIcon === 'clean' ? <CleanIcon top={titleTop - 2} /> : null}
-      {rightIcon === 'folder' ? <HeartFolderIcon top={titleTop - 11} onClick={onRightIconClick} /> : null}
+      {rightIcon === 'folder' ? (
+        <HeartFolderIcon top={titleTop - 11} onClick={onRightIconClick} />
+      ) : null}
       {children}
     </View>
   )
@@ -137,35 +148,35 @@ function CleanIcon({ top }: { top: number }) {
     <View
       style={{
         position: 'absolute',
-        left: '516rpx',
-        top: `${top}rpx`,
-        width: '52rpx',
-        height: '48rpx',
+        left: designRpx(516),
+        top: designRpx(top),
+        width: designRpx(52),
+        height: designRpx(48),
         transform: 'rotate(18deg)',
       }}
     >
       <View
         style={{
           position: 'absolute',
-          left: '29rpx',
+          left: designRpx(29),
           top: '0',
-          width: '7rpx',
-          height: '30rpx',
-          borderRadius: '4rpx',
+          width: designRpx(7),
+          height: designRpx(30),
+          borderRadius: designRpx(4),
           background: '#999999',
         }}
       />
       <View
         style={{
           position: 'absolute',
-          left: '8rpx',
-          top: '24rpx',
-          width: '36rpx',
-          height: '19rpx',
-          borderLeft: '7rpx solid #999999',
-          borderRight: '7rpx solid #999999',
-          borderBottom: '7rpx solid #999999',
-          borderRadius: '0 0 24rpx 24rpx',
+          left: designRpx(8),
+          top: designRpx(24),
+          width: designRpx(36),
+          height: designRpx(19),
+          borderLeft: `${designRpx(7)} solid #999999`,
+          borderRight: `${designRpx(7)} solid #999999`,
+          borderBottom: `${designRpx(7)} solid #999999`,
+          borderRadius: `0 0 ${designRpx(24)} ${designRpx(24)}`,
           boxSizing: 'border-box',
         }}
       />
@@ -181,10 +192,10 @@ function HeartFolderIcon({ top, onClick }: { top: number; onClick?: () => void }
       mode="aspectFit"
       style={{
         position: 'absolute',
-        left: '506rpx',
-        top: `${top}rpx`,
-        width: '64rpx',
-        height: '64rpx',
+        left: designRpx(506),
+        top: designRpx(top),
+        width: designRpx(64),
+        height: designRpx(64),
       }}
     />
   )

@@ -1,75 +1,46 @@
-import { View, Text } from '@tarojs/components'
+import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import LoginProfileShell from './components/LoginProfileShell'
 import './education.scss'
 
-/**
- * 登录-学历 — 1:1 还原蓝湖「登录-学历」设计稿
- */
 export default function LoginEducationPage() {
-  const { educationOptions, setStep, updateUserInfo } = useLogin()
-  const [selected, setSelected] = useState(educationOptions[1] ?? educationOptions[0] ?? '')
-  const [touched, setTouched] = useState(false)
+  const { educationOptions, userInfo, initField, copy, bootstrap, saveInitStep } = useLogin()
+  const [selectedCode, setSelectedCode] = useState(userInfo.educationLevel || '')
+  const field = initField(4)
+
+  useEffect(() => { void bootstrap().catch(showError) }, [])
 
   const handleNext = async () => {
-    if (!selected) return Taro.showToast({ title: '请选择学历', icon: 'none' })
-    updateUserInfo({ education: selected })
-    setStep('address')
-    await Taro.redirectTo({ url: '/pages/login/address' })
+    if (field?.required && !selectedCode) {
+      await Taro.showToast({ title: copy('init_education_required'), icon: 'none' })
+      return
+    }
+    try {
+      await saveInitStep(4, { educationLevel: selectedCode || undefined })
+    } catch (error) {
+      await showError(error)
+    }
   }
 
   return (
-    <LoginProfileShell
-      description="—你的最高学历（为你推荐匹配的异性）—"
-      nextActive={touched}
-      onNext={handleNext}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: '25rpx',
-          top: '442rpx',
-          width: '700rpx',
-        }}
-      >
-        {educationOptions.map((opt) => {
-          const isActive = selected === opt
+    <LoginProfileShell description={copy('init_education_notice')} nextActive={Boolean(selectedCode) || field?.required === false} onNext={handleNext}>
+      <View style={{ position: 'absolute', left: '25rpx', top: '442rpx', width: '700rpx' }}>
+        {educationOptions.map(option => {
+          const isActive = selectedCode === option.code
           return (
-            <View
-              key={opt}
-              style={{
-                width: '700rpx',
-                height: '128rpx',
-                borderRadius: '24rpx',
-                background: isActive ? '#E3F1FE' : '#FFFFFF',
-                border: isActive ? '2rpx solid #2876FF' : '2rpx solid #FFFFFF',
-                marginBottom: '29rpx',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={() => {
-                setSelected(opt)
-                setTouched(true)
-              }}
-              hoverClass="btn-hover"
-            >
-              <Text
-                style={{
-                  color: isActive ? '#2876FF' : '#333333',
-                  fontSize: '38rpx',
-                  fontWeight: 500,
-                  lineHeight: '53rpx',
-                }}
-              >
-                {opt}
-              </Text>
+            <View key={option.code} style={{ width: '700rpx', height: '128rpx', borderRadius: '24rpx', background: isActive ? '#E3F1FE' : '#FFFFFF', border: isActive ? '2rpx solid #2876FF' : '2rpx solid #FFFFFF', marginBottom: '29rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectedCode(option.code)} hoverClass="btn-hover">
+              <Text style={{ color: isActive ? '#2876FF' : '#333333', fontSize: '38rpx', fontWeight: 500 }}>{option.label}</Text>
             </View>
           )
         })}
       </View>
     </LoginProfileShell>
   )
+}
+
+async function showError(error: unknown) {
+  const title = error instanceof Error ? error.message : String(error)
+  if (title) await Taro.showToast({ title, icon: 'none' })
 }

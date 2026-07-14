@@ -1,15 +1,20 @@
 import { PropsWithChildren, useRef } from 'react'
 import Taro, { useDidShow, useLaunch } from '@tarojs/taro'
 import { useAuthStore } from './stores/authStore'
+import { usePrd01Store } from './stores/prd01Store'
 import { DEV_FIXED_LOGIN, MOCK_ENABLED, TOKEN_KEY } from './constants/config'
 
 import './app.scss'
 
 function App({ children }: PropsWithChildren<object>) {
   const { setLogin, checkLogin } = useAuthStore()
+  const bootstrapPrd01 = usePrd01Store(state => state.bootstrap)
   const loginRedirectingRef = useRef(false)
 
   useLaunch(() => {
+    void bootstrapPrd01().catch(() => {
+      // 登录页和资料页会展示动态配置加载失败状态并提供重试。
+    })
     // 本地开发：注入固定登录态，跳过微信授权
     if (DEV_FIXED_LOGIN.enabled) {
       setLogin(

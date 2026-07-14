@@ -28,11 +28,12 @@ for (const asset of ['heart-person.webp', 'heart-person-blur.webp', 'heart-avata
   assert.ok(fs.statSync(file).size < 200 * 1024, `心动/消息切图 ${asset} 必须小于 200KB`)
 }
 
-assert.match(chat, /variant !== 'unverified'/, '消息页必须覆盖已认证和未认证两种蓝湖状态')
-assert.match(chat, /查看全部申请/, '消息页申请入口文案必须与蓝湖一致')
-assert.match(chat, /喜欢我的人\(119人\)/, '消息列表人数文案必须与蓝湖一致')
-assert.match(chat, /你的学历认证已通过，资料可信度已更新。/, '官方小助手文案必须与蓝湖一致')
-assert.match(chat, /周末有空一起吃饭吗？/, '消息预览文案必须与蓝湖一致')
+assert.match(chat, /variant !== 'unverified'/, '消息页必须保留未认证兼容状态')
+assert.match(chat, /悄悄话/, '新版消息首页必须提供悄悄话入口')
+assert.match(chat, /私信/, '新版消息首页必须提供私信入口')
+assert.match(chat, /喜欢我的人\(119人\)/, '消息列表人数文案必须与新版蓝湖一致')
+assert.match(chat, /官方小助手/, '新版消息首页必须提供官方小助手入口')
+assert.match(chat, /系统消息/, '新版消息首页必须提供系统消息入口')
 
 assert.match(heart, /router\.params\.member/, '心动页必须覆盖会员和非会员状态')
 assert.match(heart, /router\.params\.tab === 'visitors'/, '心动页必须覆盖对我心动和访客 Tab')
@@ -41,12 +42,28 @@ assert.match(heart, /router\.params\.unlock === 'success'/, '心动页必须覆�
 assert.match(heart, /解锁全部访客/, '心动页解锁按钮文案必须与蓝湖一致')
 assert.match(heart, /只看ta\(100/, '单人解锁按钮文案和币值必须与蓝湖一致')
 assert.match(heart, /\/pages\/heart\/mutual/, '胶囊左侧图标必须跳转相互喜欢页')
-assert.match(heart, /\/pages\/coins\/unlock-recharge\?sourceScene=likes_unlock_one/, '单人解锁“只看ta”必须进入心动专属充值页')
-assert.doesNotMatch(heart, /\/pages\/coins\/index\?sourceScene=likes_unlock_one/, '单人解锁场景不得复用“我的-千寻币”通用页面')
+assert.match(
+  heart,
+  /\/pages\/coins\/unlock-recharge\?sourceScene=likes_unlock_one/,
+  '单人解锁“只看ta”必须进入心动专属充值页'
+)
+assert.doesNotMatch(
+  heart,
+  /\/pages\/coins\/index\?sourceScene=likes_unlock_one/,
+  '单人解锁场景不得复用“我的-千寻币”通用页面'
+)
 assert.match(heart, /\/pages\/heart\/membership-unlock/, '“解锁全部访客”必须进入独立会员页')
-assert.doesNotMatch(heart, /onUnlock=\{\(\) => setUnlockStage\('success'\)\}/, '单人解锁不能在未扣币时伪造解锁成功')
+assert.doesNotMatch(
+  heart,
+  /onUnlock=\{\(\) => setUnlockStage\('success'\)\}/,
+  '单人解锁不能在未扣币时伪造解锁成功'
+)
 assert.match(heartHeader, /onRightIconClick/, '头部右侧图标必须暴露真实点击事件')
-assert.match(heartHeader, /miniappOssIcons\.heartMutualLikes/, '相互喜欢入口必须使用蓝湖无损 OSS 图标')
+assert.match(
+  heartHeader,
+  /miniappOssIcons\.heartMutualLikes/,
+  '相互喜欢入口必须使用蓝湖无损 OSS 图标'
+)
 assert.match(mutual, /相互喜欢\(4人\)/, '相互喜欢页标题必须与蓝湖一致')
 assert.match(user, /女丨97年丨163cm丨双鱼座/, '用户主页基础资料文案必须与蓝湖一致')
 assert.match(user, /免费开聊/, '用户主页底部主按钮必须与蓝湖一致')
@@ -61,23 +78,38 @@ assert.match(heartMembership, /免费解锁全部对你心动的人/, '独立会
 assert.match(heartMembership, /心动名单一键揭晓/, '独立会员页必须还原心动名单权益卡')
 assert.match(heartMembership, /谁来看过你/, '独立会员页必须还原访客权益卡')
 assert.match(heartMembership, /activePlan\.id <= 0/, '蓝湖展示套餐不得使用占位 ID 创建真实支付订单')
-assert.doesNotMatch(heartMembership, /pages\/membership\/index|MembershipHero|MembershipPaymentBar/, '访客解锁会员页不得复用“我的-开通会员”视觉组件')
+assert.doesNotMatch(
+  heartMembership,
+  /pages\/membership\/index|MembershipHero|MembershipPaymentBar/,
+  '访客解锁会员页不得复用“我的-开通会员”视觉组件'
+)
 assert.match(heartCoinRecharge, /Ta也喜欢了你!/, '专属充值页必须还原关系情境标题')
 assert.match(heartCoinRecharge, /解锁后立即和ta配对聊天/, '专属充值页必须还原解锁结果文案')
 assert.match(heartCoinRecharge, /本次消耗/, '专属充值页必须展示本次消耗')
 assert.match(heartCoinRecharge, /充值千寻币/, '专属充值页必须展示独立充值卡')
 assert.match(heartCoinRecharge, /《时空邂逅充值协议》/, '专属充值页协议名称必须与蓝湖一致')
 assert.match(heartCoinRecharge, /activePackage\.id <= 0/, '蓝湖兜底千寻币套餐不得创建真实支付订单')
-assert.doesNotMatch(heartCoinRecharge, /BalanceCard|UsageCard|pages\/coins\/index/, '专属充值页不得复用通用资产页视觉结构')
+assert.doesNotMatch(
+  heartCoinRecharge,
+  /BalanceCard|UsageCard|pages\/coins\/index/,
+  '专属充值页不得复用通用资产页视觉结构'
+)
 assert.equal(
   fs.existsSync(path.join(rootDir, 'src/assets/lanhu/heart-message/heart-mutual-likes.png')),
   true,
-  '相互喜欢入口的蓝湖 2x 无损图标源文件必须存在',
+  '相互喜欢入口的蓝湖 2x 无损图标源文件必须存在'
 )
-assert.doesNotMatch(runtime, /lanhuapp\.com|alipic\.lanhuapp|\.lanhu-ref/, '运行代码禁止引用蓝湖 CDN 或参考图目录')
+assert.doesNotMatch(
+  runtime,
+  /lanhuapp\.com|alipic\.lanhuapp|\.lanhu-ref/,
+  '运行代码禁止引用蓝湖 CDN 或参考图目录'
+)
 assert.doesNotMatch(runtime, /letterSpacing:\s*['"]-/, '蓝湖还原禁止负字距')
 
-const contract = path.join(repoDir, 'docs/技术方案/2026-07-10-心动消息10稿-蓝湖还原与接口闭环-tcdesign.md')
+const contract = path.join(
+  repoDir,
+  'docs/技术方案/2026-07-10-心动消息10稿-蓝湖还原与接口闭环-tcdesign.md'
+)
 assert.equal(fs.existsSync(contract), true, '第二阶段必须引用的心动/消息接口闭环文档必须存在')
 const contractContent = fs.readFileSync(contract, 'utf8')
 assert.match(contractContent, /\/miniapp\/heart\/home/, '接口闭环文档必须定义心动聚合接口')

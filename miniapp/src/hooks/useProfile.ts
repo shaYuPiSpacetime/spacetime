@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '@/stores/authStore';
-import { getDemoPageData } from '@/services/lanhuDemo';
 import { getCoinBalance, getVipStatus, type VipStatusVO } from '@/services/payment';
+import { prd01Api } from '@/services/prd01';
+import { usePrd01Store } from '@/stores/prd01Store';
+import type { ProfileHomeDetail } from '@/types/prd01';
 import type { MyMembership } from '@/types/membership';
-
-const profileDemo = getDemoPageData('profile');
 
 /**
  * 千寻币余额数据结构。
@@ -25,16 +25,17 @@ interface ProfileData {
   nickname: string;
   /** 用户头像 */
   avatarUrl: string;
-  /** 位置（mock 占位，后续从接口获取） */
+  /** 地区接口返回的城市名称 */
   location: string;
-  /** 年龄（mock 占位） */
+  /** 后端根据生日计算的年龄 */
   age: number | null;
-  /** 星座（mock 占位） */
+  /** 当前接口未提供时为空 */
   zodiac: string;
   /** 是否已认证 */
   isVerified: boolean;
-  /** 认证标签列表（mock 占位） */
+  /** 认证标签列表 */
   verifiedLabels: string[];
+  profileScore: number;
   /** 会员信息 */
   membership: MyMembership | null;
   /** 千寻币余额 */
@@ -82,8 +83,7 @@ interface UseProfileReturn {
 }
 
 /**
- * 构建页面数据：聚合 authStore + mock 数据
- * 当前阶段所有数据均为同步 mock，后续替换为真实接口时只需修改此函数内部实现。
+ * 构建页面数据：聚合主页统一详情、会员和余额接口。
  */
 function adaptProfileMembership(status?: VipStatusVO): MyMembership {
   if (status?.vipStatus === 'active') {
@@ -113,27 +113,39 @@ function adaptProfileMembership(status?: VipStatusVO): MyMembership {
   return { status: 'none' };
 }
 
-function buildProfileData(membership: MyMembership | null = null, coinBalance: CoinBalance | null = null): ProfileData {
+function buildProfileData(home?: ProfileHomeDetail, membership: MyMembership | null = null, coinBalance: CoinBalance | null = null, location = ''): ProfileData {
   const auth = useAuthStore.getState();
+  const profile = home?.profile || {};
+  const verified = Boolean(home?.accessStatus?.canBrowseCards);
 
   return {
     isLoggedIn: auth.isLoggedIn,
-    // mock 文案对齐蓝湖设计稿
-    nickname: auth.nickname || profileDemo.nickname,
-    avatarUrl: auth.avatar || '',
-    location: profileDemo.location,
-    age: profileDemo.age,
-    zodiac: profileDemo.zodiac,
-    isVerified: profileDemo.isVerified,
-    verifiedLabels: profileDemo.verifiedLabels,
-    // 会员信息
+    nickname: String(profile.nickname || auth.nickname || ''),
+    avatarUrl: String(profile.avatar || auth.avatar || ''),
+    location,
+    age: typeof profile.age === 'number' ? profile.age : null,
+    zodiac: '',
+    isVerified: verified,
+    verifiedLabels: [],
+    profileScore: Number(profile.profileScore || 0),
     membership,
     coinBalance,
-    // 统计数据（mock 占位）
-    likedCount: profileDemo.stats.likedCount,
-    beLikedCount: profileDemo.stats.beLikedCount,
-    visitorCount: profileDemo.stats.visitorCount,
+    likedCount: Number(profile.likedCount || 0),
+    beLikedCount: Number(profile.beLikedCount || 0),
+    visitorCount: Number(profile.visitorCount || 0),
   };
+}
+
+async function loadLocationLabel(home: ProfileHomeDetail) {
+  const provinceCode = String(home.profile.locationProvince || '');
+  const cityCode = String(home.profile.locationCity || '');
+  if (!provinceCode) return '';
+  const store = usePrd01Store.getState();
+  const provinces = await store.locations();
+  const province = provinces.find(item => item.code === provinceCode);
+  if (!cityCode) return province?.label || '';
+  const cities = await store.locations(provinceCode);
+  return cities.find(item => item.code === cityCode)?.label || province?.label || '';
 }
 
 /**
@@ -148,7 +160,7 @@ function buildProfileData(membership: MyMembership | null = null, coinBalance: C
  * 后续对接真实接口时只需修改 buildProfileData 为异步即可，页面组件无需改动。
  */
 export function useProfile(): UseProfileReturn {
-  const [data, setData] = useState<ProfileData>(buildProfileData);
+  const [data, setData] = useState<ProfileData>(() => buildProfileData());
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,16 +185,20 @@ export function useProfile(): UseProfileReturn {
       const auth = useAuthStore.getState();
       let membership: MyMembership | null = null;
       let coinBalance: CoinBalance | null = null;
+      let home: ProfileHomeDetail | undefined;
+      let location = '';
       if (auth.isLoggedIn) {
-        const [status, balance] = await Promise.all([getVipStatus(), getCoinBalance()]);
+        await usePrd01Store.getState().bootstrap();
+        const [status, balance, homeResult] = await Promise.all([getVipStatus(), getCoinBalance(), prd01Api.getHomeDetail()]);
         membership = adaptProfileMembership(status);
         coinBalance = { balance: Number(balance.coinBalance || 0) };
+        home = homeResult;
+        location = await loadLocationLabel(homeResult);
       }
-      const freshData = buildProfileData(membership, coinBalance);
+      const freshData = buildProfileData(home, membership, coinBalance, location);
       setData(freshData);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : '加载失败，请稍后重试';
+      const message = err instanceof Error ? err.message : usePrd01Store.getState().copy('error_provider_unavailable');
       setError(message);
     } finally {
       setLoading(false);
@@ -215,22 +231,22 @@ export function useProfile(): UseProfileReturn {
 
   /** 跳转邀请好友页 */
   const goToInvite = useCallback(() => {
-    Taro.showToast({ title: '邀请好友演示待补充', icon: 'none' });
+    Taro.showToast({ title: usePrd01Store.getState().copy('feature_invite_pending'), icon: 'none' });
   }, []);
 
   /** 跳转我的动态页 */
   const goToMyPosts = useCallback(() => {
-    Taro.showToast({ title: '我的动态演示待补充', icon: 'none' });
+    Taro.showToast({ title: usePrd01Store.getState().copy('feature_posts_pending'), icon: 'none' });
   }, []);
 
   /** 跳转帮助与客服页 */
   const goToHelp = useCallback(() => {
-    Taro.showToast({ title: '帮助与客服演示待补充', icon: 'none' });
+    Taro.showToast({ title: usePrd01Store.getState().copy('feature_help_pending'), icon: 'none' });
   }, []);
 
   /** 跳转设置页 */
   const goToSettings = useCallback(() => {
-    Taro.showToast({ title: '设置演示待补充', icon: 'none' });
+    Taro.showToast({ title: usePrd01Store.getState().copy('feature_settings_pending'), icon: 'none' });
   }, []);
 
   return {

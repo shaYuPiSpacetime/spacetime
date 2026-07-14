@@ -10,9 +10,9 @@ export interface AppUserVO {
 
 /** 登录请求 */
 export interface LoginReq {
-  loginCode: string
+  loginCode?: string
   phoneCode: string
-  agreeProtocol?: boolean
+  agreeProtocol: boolean
 }
 
 /** 登录返回 */
@@ -25,6 +25,9 @@ export interface LoginVO {
   nickname?: string
   avatar?: string
   firstLoginCompleted?: boolean
+  isNewUser?: boolean
+  nextStep?: number
+  accessStatus?: AccessStatus
 }
 
 /** 匹配用户卡片 */
@@ -37,3 +40,4 @@ export interface MatchUserCard {
   tags: string[]
   distance?: string
 }
+import type { AccessStatus } from './prd01'

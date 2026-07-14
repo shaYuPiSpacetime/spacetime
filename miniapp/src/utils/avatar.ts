@@ -21,11 +21,11 @@ export function normalizeAvatarUrl(avatar: string | undefined | null, fallbackAv
   return nextAvatar
 }
 
-export async function chooseAndCropAvatar() {
+export async function chooseAndCropAvatar(source: string) {
   const res = await Taro.chooseImage({
     count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
+    sizeType: ['original'],
+    sourceType: source === 'CAMERA' ? ['camera'] : ['album'],
   })
   const sourcePath = res.tempFilePaths[0]
   if (!sourcePath) return ''
