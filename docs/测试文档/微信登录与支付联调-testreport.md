@@ -11,7 +11,7 @@
 | 用例 | 结果 | 证据 |
 | --- | --- | --- |
 | TC-01 运行字段完整性 | 通过 | 对 `app_user`、`app_user_verification`、`app_vip_package`、`app_coin_package`、`app_user_asset`、`app_trade_order`、`app_user_coin_log` 做字段核对，缺失字段数量 `0` |
-| TC-02 手机号 mock 登录 | 通过 | `POST /miniapp/auth/phone-login` 返回 `code=200`，包含 token、userId、openid、手机号和准入状态 |
+| TC-02 手机号 mock 登录 | 通过 | 先 `POST /miniapp/auth/sms-code`，再 `POST /miniapp/auth/phone-login` 返回 `code=200`，包含 token、userId、openid、手机号和准入状态 |
 | TC-03 微信登录 fake code | 通过 | fake code 返回 `code=5001`；后端日志为微信 `40029 invalid code`，不是系统异常或密钥未读取 |
 | TC-04 VIP 套餐读取 | 通过 | 带 token 请求 `GET /miniapp/vip/packages` 返回 `code=200`，数据库返回 5 条启用套餐 |
 | TC-05 千寻币套餐读取 | 通过 | 带 token 请求 `GET /miniapp/coin/packages` 返回 `code=200`，数据库返回启用套餐 |

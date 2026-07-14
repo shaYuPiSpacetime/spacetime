@@ -14,12 +14,10 @@ import com.spacetime.common.enums.RegisterSourceEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.provider.SmsCodeProvider;
-import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.request.WechatLoginReq;
-import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.PhoneSmsCodeVO;
 import com.spacetime.miniapp.dto.response.WechatLoginVO;
 import com.spacetime.miniapp.service.AuthMiniappService;
@@ -37,7 +35,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -58,7 +55,6 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private static final String SMS_DAILY_PREFIX = "miniapp:auth:sms:daily:";
 
     private final AppUserDao appUserDao;
-    private final AppUserAuditService auditService;
     private final AppUserAuditContentService auditContentService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -66,6 +62,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private final AppConfigDao appConfigDao;
     private final SmsCodeProvider smsCodeProvider;
     private final Prd01FieldConfigResolver fieldConfigResolver;
+    private final Prd01AccessEvaluator accessEvaluator;
 
     /** 微信授权手机号登录。 */
     @Override
@@ -178,7 +175,6 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         user.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
         user.setFirstLoginCompleted(0);
         user.setFirstLoginNextStep(fieldConfigResolver.nextVisibleStep(1));
-        user.setProfileScore(0);
         appUserDao.insert(user);
         return new LoginTarget(user, true);
     }
@@ -217,42 +213,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
                 ? fieldConfigResolver.nextVisibleStep(user.getFirstLoginNextStep())
                 : fieldConfigResolver.nextVisibleStep(1);
         vo.setNextStep(completed ? null : nextStep);
-        vo.setAccessStatus(buildAccessStatus(user));
+        vo.setAccessStatus(accessEvaluator.evaluate(user));
         return vo;
-    }
-
-    /**
-     * 登录态下的快速准入判断。
-     *
-     * 完整准入仍以 ProfileService 为准；这里返回同口径字段，
-     * 让移动端登录后即可决定进入首登、普通浏览或核心能力拦截页。
-     */
-    private AccessStatusVO buildAccessStatus(AppUser user) {
-        AccessStatusVO vo = new AccessStatusVO();
-        if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() != 1) {
-            applyBlocked(vo, false, "请先完成资料初始化");
-            return vo;
-        }
-        boolean tripleApproved = auditService.certificationApprovedCount(user.getId()) == 3;
-        vo.setCanBrowseCards(true);
-        vo.setCanCommunity(true);
-        vo.setCanMatch(tripleApproved);
-        vo.setCanMessage(tripleApproved);
-        vo.setCanBeExposed(tripleApproved);
-        vo.setCoreAccessStatus(tripleApproved ? "CORE_ALLOWED" : "NON_CORE_ONLY");
-        vo.setBlockReasons(tripleApproved ? List.of() : List.of("三重认证未全部通过"));
-        return vo;
-    }
-
-    /** 设置完全阻断状态。 */
-    private void applyBlocked(AccessStatusVO vo, boolean canBrowse, String reason) {
-        vo.setCanBrowseCards(canBrowse);
-        vo.setCanCommunity(canBrowse);
-        vo.setCanMatch(false);
-        vo.setCanMessage(false);
-        vo.setCanBeExposed(false);
-        vo.setCoreAccessStatus("CORE_BLOCKED");
-        vo.setBlockReasons(List.of(reason));
     }
 
     /** 生成小程序 token 并写入 Redis。 */

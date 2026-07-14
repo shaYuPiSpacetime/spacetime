@@ -100,6 +100,11 @@ export interface PageResult<T> {
   current: number;
 }
 
+export interface AppUserStatsVO {
+  currentUserCount: number;
+  coreAccessAllowedCount: number;
+}
+
 export interface ImportBatchVO {
   batchNo: string;
   fileName: string;
@@ -145,6 +150,10 @@ export function getAppUserList(params: {
   registerTimeEnd?: string;
 }) {
   return request.get('/admin/users/app/list', { params });
+}
+
+export function getAppUserStats() {
+  return request.get('/admin/users/app/stats');
 }
 
 export function getAppUserDetail(id: number) {

@@ -2,7 +2,6 @@ package com.spacetime.miniapp.controller;
 
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
-import com.spacetime.miniapp.dto.response.DictOptionVO;
 import com.spacetime.miniapp.service.MiniappDictService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,7 +31,7 @@ public class MiniappDictController {
 
     /** 获取基础资料页字典选项；code 用于提交，label 用于展示。 */
     @GetMapping("/profile-options")
-    public R<Map<String, List<DictOptionVO>>> profileOptions() {
+    public R<Map<String, Object>> profileOptions() {
         return R.ok(miniappDictService.profileOptions());
     }
 }

@@ -27,6 +27,7 @@ test.describe('PRD-01 User Entry E2E', () => {
     // Use .first() to avoid strict mode violation (text in sidebar + breadcrumb + heading)
     await expect(page.getByText('实名认证审核').first()).toBeVisible({ timeout: 10000 });
     await expect(page.locator('table')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '提交时间' })).toBeVisible();
   });
 
   test('L4-04 verify tab navigation', async ({ page }) => {

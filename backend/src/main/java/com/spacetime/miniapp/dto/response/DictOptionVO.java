@@ -9,4 +9,8 @@ public class DictOptionVO {
     private String code;
     /** 页面展示的中文名称。 */
     private String label;
+    /** 所属分类 code；普通字典为空，个人标签字典用于前端分 Tab。 */
+    private String categoryCode;
+    /** 所属分类中文；普通字典为空，个人标签字典用于前端分 Tab。 */
+    private String categoryLabel;
 }

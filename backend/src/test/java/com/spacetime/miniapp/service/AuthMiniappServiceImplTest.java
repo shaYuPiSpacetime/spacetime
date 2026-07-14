@@ -7,13 +7,14 @@ import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.provider.SmsCodeProvider;
-import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.response.PhoneSmsCodeVO;
+import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.WechatLoginVO;
 import com.spacetime.miniapp.service.impl.AuthMiniappServiceImpl;
+import com.spacetime.miniapp.service.impl.Prd01AccessEvaluator;
 import com.spacetime.miniapp.service.impl.Prd01FieldConfigResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,8 +45,6 @@ class AuthMiniappServiceImplTest {
     @Mock
     private AppUserDao appUserDao;
     @Mock
-    private AppUserAuditService auditService;
-    @Mock
     private AppUserAuditContentService auditContentService;
     @Mock
     private StringRedisTemplate redisTemplate;
@@ -58,6 +57,8 @@ class AuthMiniappServiceImplTest {
     private AppConfigDao appConfigDao;
     @Mock
     private SmsCodeProvider smsCodeProvider;
+    @Mock
+    private Prd01AccessEvaluator accessEvaluator;
 
     private AuthMiniappServiceImpl authService;
 
@@ -66,18 +67,19 @@ class AuthMiniappServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
         when(smsCodeProvider.providerCode()).thenReturn("MOCK");
         when(smsCodeProvider.generateCode()).thenReturn("000000");
+        when(accessEvaluator.evaluate(any(AppUser.class))).thenReturn(new AccessStatusVO());
         when(appConfigDao.selectByKey("prd01.security.sms.rules")).thenReturn(config(
                 "{\"rows\":[{\"key\":\"sendCountdownSeconds\",\"value\":\"45\"},{\"key\":\"validMinutes\",\"value\":\"3\"},{\"key\":\"dailySendLimit\",\"value\":\"8\"}]}"));
         authService = new AuthMiniappServiceImpl(
                 appUserDao,
-                auditService,
                 auditContentService,
                 redisTemplate,
                 objectMapper,
                 wechatMiniappClient,
                 appConfigDao,
                 smsCodeProvider,
-                new Prd01FieldConfigResolver(appConfigDao, objectMapper));
+                new Prd01FieldConfigResolver(appConfigDao, objectMapper),
+                accessEvaluator);
     }
 
     @Test

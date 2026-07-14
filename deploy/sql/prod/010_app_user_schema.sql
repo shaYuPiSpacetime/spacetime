@@ -39,7 +39,6 @@ CREATE TABLE IF NOT EXISTS app_user (
     profile_bg_image VARCHAR(500) DEFAULT NULL COMMENT '资料页背景图',
     mbti_type VARCHAR(10) DEFAULT NULL COMMENT 'MBTI 类型',
     zodiac VARCHAR(10) DEFAULT NULL COMMENT '星座',
-    profile_score INT DEFAULT 0 COMMENT '资料完整度分',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     created_by BIGINT DEFAULT NULL,
@@ -51,7 +50,6 @@ CREATE TABLE IF NOT EXISTS app_user (
     INDEX idx_app_user_first_login (first_login_completed),
     INDEX idx_app_user_gender (gender),
     INDEX idx_app_user_school (school),
-    INDEX idx_app_user_profile_score (profile_score),
     INDEX idx_app_user_register_time (register_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='小程序用户主表';
 

@@ -64,7 +64,7 @@
 | L1-AUTH-002 | 无权限访问用户详情 | 使用无 `user:app:detail` 的账号调用 `/admin/users/app/{id}` | 返回 403 |
 | L1-AUTH-003 | 无导出权限触发导出 | 使用无 `user:app:export` 的账号调用 `/admin/users/app/export` | 返回 403，不生成导出任务 |
 | L1-AUTH-004 | 无敏感查看权限查看明文 | 使用无 `user:app:sensitive:view` 的账号查详情 | 页面/API 返回脱敏字段 |
-| L1-AUTH-005 | 移动端未登录访问资料接口 | 不带 token 调用 `/miniapp/profile/detail` | 返回 `UNAUTHORIZED` |
+| L1-AUTH-005 | 移动端未登录访问资料接口 | 不带 token 调用 `/miniapp/profile/home-detail` | 返回 `UNAUTHORIZED` |
 | L1-AUTH-006 | 高危操作审计 | 执行导出、冻结、配置修改、人工审核 | 均生成操作者、时间、对象、结果审计记录 |
 
 ### 3.2 管理后台 App 用户管理
@@ -125,20 +125,23 @@
 | L1-MINI-PROFILE-003 | 海外地区不支持 | 传海外/国家字段 | 返回 `REGION_NOT_SUPPORTED` |
 | L1-MINI-PROFILE-004 | 最后一步缺少前置必填 | 未完成前置必填步骤时调用 `/miniapp/profile/init-step` 提交最后一步 | 返回 `PROFILE_REQUIRED_MISSING` 或步骤冲突业务错误 |
 | L1-MINI-PROFILE-005 | 初始化完成 | 依次提交 5 个可见步骤 | 最后一步返回完成状态，进入认证/准入流程 |
-| L1-MINI-PROFILE-006 | 查询资料详情 | 调用 `/miniapp/profile/detail` | 返回基础资料、扩展资料、媒体、文字、语音字段 |
-| L1-MINI-PROFILE-007 | 增量修改资料 | 调用 `PATCH /miniapp/profile` | 返回最新资料，需审核字段进入审核中 |
+| L1-MINI-PROFILE-006 | 查询主页统一详情 | 调用 `/miniapp/profile/home-detail` | 返回主页字段值、字段展示/必填配置、认证状态、准入状态、当前配置摘要 |
+| L1-MINI-PROFILE-008 | 保存基础资料 | 调用 `PUT /miniapp/profile/basic` | 按字段展示/必填、年龄、字典、地区配置校验后保存 |
+| L1-MINI-PROFILE-009 | 保存独立非审核字段 | 分别调用脱单目标、感情状态、标签、歌曲、微信号独立接口 | 字典 code 校验通过后写入用户主表，不生成审核记录 |
 
 ### 3.6 移动端媒体、文字、语音
 
 | 用例 ID | 场景 | 步骤 | 预期 |
 |---------|------|------|------|
-| L1-MINI-MEDIA-001 | 上传相册/背景图 | 调用 `/miniapp/profile/media` | 返回媒体 ID、审核状态、来源；学历材料不在此生成独立审核记录 |
-| L1-MINI-MEDIA-002 | 相册数量上限 | 超过上限上传 | 返回 `MEDIA_LIMIT_EXCEEDED` |
-| L1-MINI-MEDIA-003 | 删除媒体 | 调用 `DELETE /miniapp/profile/media/{id}` | 删除成功，不影响其他媒体 |
+| L1-MINI-MEDIA-001 | 新增相册照片 | 调用 `POST /miniapp/profile/albums` | 生成 `ALBUM_PHOTO` 审核记录，返回媒体 ID、审核状态、来源 |
+| L1-MINI-MEDIA-002 | 相册数量上限 | 超过 `uploadLimits.album.maxCount` 上传 | 返回上传数量超限错误，不落库 |
+| L1-MINI-MEDIA-003 | 替换相册照片 | 调用 `PUT /miniapp/profile/albums/{mediaId}` | 旧记录置 `EXPIRED`，新图片生成新审核记录 |
+| L1-MINI-MEDIA-004 | 删除相册照片 | 调用 `DELETE /miniapp/profile/albums/{mediaId}` | 审核记录置 `EXPIRED` 并写用户操作原因，不物理删除 |
+| L1-MINI-MEDIA-005 | 查询/替换/删除资料背景图 | 调用 `GET/PUT/DELETE /miniapp/profile/background` | 背景图使用 `PROFILE_BG` 审核记录；新背景图通过前旧图继续对外展示 |
 | L1-MINI-TEXT-001 | 提交自我介绍 | 调用 `/miniapp/profile/introduction`，`aboutMe` 20-300 字 | 固定生成 `ABOUT_ME` 审核记录；通过后才更新对外资料 |
-| L1-MINI-TEXT-002 | 提交希望 TA 了解 | `fieldName=HOPE_THEY_KNOW` | 返回文字审核记录 |
-| L1-MINI-TEXT-003 | 提交资料问答开放回答 | `fieldName=PROFILE_QA` | 返回文字审核记录 |
-| L1-MINI-TEXT-004 | 禁止预留文字类型 | 传 `CUSTOM_OPEN_TEXT` | 返回非法字段错误，不落库 |
+| L1-MINI-TEXT-002 | 查询关于我题目 | 调用 `GET /miniapp/profile/about-me` | 返回固定题目、最新提交内容、生效内容、审核状态 |
+| L1-MINI-TEXT-003 | 提交关于我回答 | 调用 `POST /miniapp/profile/about-me`，传 `questionKey,contentText` | 固定生成 `PROFILE_QA` 审核记录；同题审核中不可重复提交 |
+| L1-MINI-TEXT-004 | 禁止旧开放文字接口新接入 | 文档和脚本均不再使用 `/miniapp/profile/open-text` | 小程序新流程只使用自我介绍和关于我独立接口 |
 | L1-MINI-TEXT-005 | 自我介绍字数不足 | `aboutMe` 少于 20 字 | 拒绝提交，不生成审核记录 |
 | L1-MINI-TEXT-006 | 自我介绍重复提审 | 最新记录为待审核/审核中再次提交 | 拒绝重复提交，旧通过内容继续生效 |
 | L1-MINI-VOICE-001 | 提交合法语音 | 调用 `/miniapp/profile/voice-intro`，时长 10-60 秒 | 新增语音记录，触发音频安全机审 |
@@ -205,8 +208,9 @@
 | L3-VERIFY-003 | VerificationService | 审核驳回 | 驳回原因回写，允许重新提交 |
 | L3-MEDIA-001 | ProfileMediaService | 背景图上传 | 背景图不计入相册数量 |
 | L3-MEDIA-002 | ProfileMediaService | 当前有效媒体 | 通过后按 `APPROVED + submit_time/id` 可查询展示记录 |
-| L3-TEXT-001 | OpenTextAuditService | 三类开放性文字 | 仅允许 `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA` |
-| L3-TEXT-002 | OpenTextAuditService | 删除预留项 | `CUSTOM_OPEN_TEXT` 被拒绝 |
+| L3-TEXT-001 | OpenTextAuditService | 自我介绍 | `POST /miniapp/profile/introduction` 固定生成 `ABOUT_ME` 审核记录 |
+| L3-TEXT-002 | OpenTextAuditService | 关于我固定题目 | `POST /miniapp/profile/about-me` 固定生成 `PROFILE_QA` 审核记录，题目 key 必须合法 |
+| L3-TEXT-003 | OpenTextAuditService | 旧开放文字接口清理 | 小程序 Controller 不再暴露 `/miniapp/profile/open-text` |
 | L3-VOICE-001 | VoiceIntroService | 语音提交 | 新增 `VOICE_INTRO` 审核记录为 `PENDING` 并触发 Provider |
 | L3-VOICE-002 | VoiceIntroService | 机审通过 | 审核记录变为 `APPROVED`，资料接口按最近已通过语音展示 |
 | L3-VOICE-003 | VoiceIntroService | 机审失败 | 不覆盖旧通过语音，对外隐藏新语音 |
@@ -243,15 +247,15 @@
 | L4-MINI-001 | 登录授权链路 | 请求/响应样例、错误码、协议阻断 |
 | L4-MINI-002 | 首登初始化链路 | `init-status`、5 步 `init-step` 与最后一步完成响应 |
 | L4-MINI-003 | 资料详情链路 | 字段覆盖截图或 JSON 样例，包含语音字段 |
-| L4-MINI-004 | 媒体上传删除链路 | 图片/背景图/相册响应与审核状态 |
-| L4-MINI-005 | 开放性文字链路 | 三类 fieldName 响应，拒绝 `CUSTOM_OPEN_TEXT` |
+| L4-MINI-004 | 媒体上传删除链路 | 头像、相册、背景图独立接口响应与审核状态 |
+| L4-MINI-005 | 开放性文字链路 | 自我介绍、关于我独立接口响应与审核状态 |
 | L4-MINI-006 | 语音介绍链路 | 提交、pending、approved、rejected、delete、Provider 异常证据 |
 | L4-MINI-007 | 认证链路 | 头像、实名、学历提交与状态查询 |
 | L4-MINI-008 | 核心准入链路 | 阻断项、行动按钮、通过状态 |
 
 移动端不实现前端代码，但接口必须覆盖 UI 图可见流程和 PRD 流程。UI 图与需求不一致时，以需求文档为准，并在测试报告中说明差异。
 
-移动端多轮对齐必须构造多状态数据并留证：无记录、待审核、审核中、已通过、已驳回、已失效、资料缺失、权限不足、第三方不可用、Provider 不可用、`CORE_ACCESS_BLOCKED`、`REGION_NOT_SUPPORTED`、拒绝 `CUSTOM_OPEN_TEXT`。
+移动端多轮对齐必须构造多状态数据并留证：无记录、待审核、审核中、已通过、已驳回、已失效、资料缺失、权限不足、第三方不可用、Provider 不可用、`CORE_ACCESS_BLOCKED`、`REGION_NOT_SUPPORTED`、旧兼容接口不在新小程序对接链路中。
 
 ## 8. P0/P1 覆盖矩阵
 
@@ -302,7 +306,7 @@
 ## 11. 必须重点防回归
 
 1. 语音介绍不进入开放性文字审核，不做语音转文字；后台在用户详情中展示语音状态、播放器和 Provider 留痕。
-2. 开放性文字字段只允许 `ABOUT_ME`、`HOPE_THEY_KNOW`、`PROFILE_QA`，删除 `CUSTOM_OPEN_TEXT` 预留项。
+2. 开放性文字新小程序只接 `POST /miniapp/profile/introduction` 和 `POST /miniapp/profile/about-me`，不再使用通用 `open-text` 接口。
 3. 审核来源只允许 `MACHINE`、`MANUAL`；mock 信息只记录在 `external_provider_task.mocked`。
 4. 数据库实名、身份证、手机号按业务明文字段入库；页面展示、接口返回、导出权限由业务逻辑控制。
 5. 首版不支持海外/国家入口，接口必须拒绝并返回 `REGION_NOT_SUPPORTED`。

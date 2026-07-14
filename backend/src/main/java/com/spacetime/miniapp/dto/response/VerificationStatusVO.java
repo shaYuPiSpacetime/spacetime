@@ -26,6 +26,12 @@ public class VerificationStatusVO {
     private Boolean educationCanSubmit;
     /** 学历不可提交时的顺序或审核阻断原因。 */
     private String educationBlockedReason;
+    /** 学历审核承诺时长，读取准入与认证配置。 */
+    private Integer educationSlaHours;
+    /** 学历审核时长展示文案。 */
+    private String educationSlaText;
+    /** 待审核/审核中记录的预计完成时间，格式 yyyy-MM-dd HH:mm:ss。 */
+    private String educationEstimatedCompleteTime;
 
     /** 头像认证状态。 */
     private String avatarVerifyStatus;
@@ -46,4 +52,6 @@ public class VerificationStatusVO {
     private Boolean unlockMateRecommend;
     /** 核心准入状态：CORE_ALLOWED、CORE_BLOCKED、NON_CORE_ONLY。 */
     private String coreAccessStatus;
+    /** 准入能力详情，与登录和资料详情接口同口径。 */
+    private AccessStatusVO accessStatus;
 }

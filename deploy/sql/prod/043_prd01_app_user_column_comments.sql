@@ -1,0 +1,52 @@
+-- ======================================================
+-- PRD-01 app_user 字段备注补齐
+-- 仅补充表备注和字段 COMMENT，不变更业务数据。
+-- ======================================================
+
+ALTER TABLE app_user COMMENT = '小程序用户主表';
+
+ALTER TABLE app_user
+    MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+    MODIFY COLUMN openid VARCHAR(64) NULL COMMENT '小程序 openid',
+    MODIFY COLUMN unionid VARCHAR(64) NULL COMMENT '微信 unionid',
+    MODIFY COLUMN register_source VARCHAR(32) NULL COMMENT '注册来源',
+    MODIFY COLUMN register_time DATETIME NULL COMMENT '注册时间',
+    MODIFY COLUMN last_login_time DATETIME NULL COMMENT '最近登录时间',
+    MODIFY COLUMN account_status VARCHAR(32) NULL DEFAULT 'ACTIVE' COMMENT '账号状态',
+    MODIFY COLUMN first_login_completed TINYINT NULL DEFAULT 0 COMMENT '是否完成首登资料初始化：0=未完成，1=已完成',
+    MODIFY COLUMN first_login_next_step TINYINT NULL DEFAULT 1 COMMENT '首登下一待填写步骤，完成后为空',
+    MODIFY COLUMN nickname VARCHAR(64) NULL COMMENT '昵称',
+    MODIFY COLUMN gender VARCHAR(8) NULL COMMENT '性别：MALE/FEMALE',
+    MODIFY COLUMN birthday DATE NULL COMMENT '出生日期',
+    MODIFY COLUMN age INT NULL COMMENT '年龄（系统计算）',
+    MODIFY COLUMN height INT NULL COMMENT '身高 cm',
+    MODIFY COLUMN location_province VARCHAR(64) NULL COMMENT '现居省份/直辖市 code',
+    MODIFY COLUMN location_city VARCHAR(64) NULL COMMENT '现居城市 code',
+    MODIFY COLUMN location_district VARCHAR(64) NULL COMMENT '现居区县 code',
+    MODIFY COLUMN hometown_province VARCHAR(64) NULL COMMENT '家乡省份/直辖市 code',
+    MODIFY COLUMN hometown_city VARCHAR(64) NULL COMMENT '家乡城市 code',
+    MODIFY COLUMN dating_goal VARCHAR(64) NULL COMMENT '脱单目标',
+    MODIFY COLUMN marital_status VARCHAR(32) NULL COMMENT '婚姻状况字典 code：app_marital_status',
+    MODIFY COLUMN emotional_status VARCHAR(32) NULL COMMENT '感情状态',
+    MODIFY COLUMN school VARCHAR(128) NULL COMMENT '学校全称',
+    MODIFY COLUMN major VARCHAR(128) NULL COMMENT '专业',
+    MODIFY COLUMN education_level VARCHAR(32) NULL COMMENT '学历字典 code：app_education_level',
+    MODIFY COLUMN tags TEXT NULL COMMENT '标签列表 JSON',
+    MODIFY COLUMN mbti_type VARCHAR(16) NULL COMMENT 'MBTI 类型',
+    MODIFY COLUMN zodiac VARCHAR(16) NULL COMMENT '星座（系统计算）',
+    MODIFY COLUMN create_time DATETIME NULL COMMENT '创建时间',
+    MODIFY COLUMN update_time DATETIME NULL COMMENT '更新时间',
+    MODIFY COLUMN created_by BIGINT NULL COMMENT '创建人 ID',
+    MODIFY COLUMN updated_by BIGINT NULL COMMENT '更新人 ID',
+    MODIFY COLUMN deleted INT NULL DEFAULT 0 COMMENT '逻辑删除：0=正常，1=已删除',
+    MODIFY COLUMN phone VARCHAR(30) NULL COMMENT '微信授权手机号',
+    MODIFY COLUMN phone_hash VARCHAR(64) NULL COMMENT '手机号 SHA-256 哈希',
+    MODIFY COLUMN weight INT NULL COMMENT '体重 kg',
+    MODIFY COLUMN identity VARCHAR(30) NULL COMMENT '身份字典 code：app_identity',
+    MODIFY COLUMN industry VARCHAR(50) NULL COMMENT '行业字典 code：app_industry',
+    MODIFY COLUMN occupation VARCHAR(100) NULL COMMENT '职业字典 code：app_occupation',
+    MODIFY COLUMN company VARCHAR(100) NULL COMMENT '公司名称',
+    MODIFY COLUMN annual_income VARCHAR(50) NULL COMMENT '年收入字典 code：app_annual_income',
+    MODIFY COLUMN hometown_district VARCHAR(50) NULL COMMENT '家乡区县 code',
+    MODIFY COLUMN children_plan VARCHAR(50) NULL COMMENT '生育计划',
+    MODIFY COLUMN want_child VARCHAR(50) NULL COMMENT '是否想要孩子';

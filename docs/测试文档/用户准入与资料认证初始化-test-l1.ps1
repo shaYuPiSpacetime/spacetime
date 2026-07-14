@@ -168,7 +168,7 @@ function Skip-L1 {
 Write-Host "PRD01 L1 real environment check: API=$ApiUrl ALLOW_WRITE=$AllowWrite"
 
 Test-HttpStatus "L1-AUTH-001" "admin" "admin-list-without-token" (Invoke-L1Request "GET" "/admin/users/app/list?pageNum=1&pageSize=10") 401
-Test-HttpStatus "L1-AUTH-005" "miniapp" "miniapp-profile-without-token" (Invoke-L1Request "GET" "/miniapp/profile/detail") 401
+Test-HttpStatus "L1-AUTH-005" "miniapp" "miniapp-profile-without-token" (Invoke-L1Request "GET" "/miniapp/profile/home-detail") 401
 
 if ([string]::IsNullOrWhiteSpace($AdminAccount) -or [string]::IsNullOrWhiteSpace($AdminPassword)) {
     Skip-L1 "L1-LOGIN-001" "admin" "admin-real-login" "ADMIN_ACCOUNT or ADMIN_PASSWORD is missing"
@@ -286,13 +286,16 @@ if ($script:MiniToken) {
     } else {
         Add-L1Result "L1-MINI-PROFILE-003" "miniapp" "overseas-region-not-supported" "FAIL" "Expected REGION_NOT_SUPPORTED, actual code=$($regionResp.code), msg=$($regionResp.msg)" $regionResp.status $regionResp.code
     }
-    Test-Code "L1-MINI-PROFILE-006" "miniapp" "profile-detail" (Invoke-L1Request "GET" "/miniapp/profile/detail" $null $script:MiniToken) 200
+    Test-Code "L1-MINI-PROFILE-006" "miniapp" "profile-home-detail" (Invoke-L1Request "GET" "/miniapp/profile/home-detail" $null $script:MiniToken) 200
+    Test-Code "L1-MINI-MEDIA-001" "miniapp" "album-list" (Invoke-L1Request "GET" "/miniapp/profile/albums" $null $script:MiniToken) 200
+    Test-Code "L1-MINI-MEDIA-005" "miniapp" "profile-background-detail" (Invoke-L1Request "GET" "/miniapp/profile/background" $null $script:MiniToken) 200
 
-    $customText = Invoke-L1Request "POST" "/miniapp/profile/open-text" @{ fieldName = "CUSTOM_OPEN_TEXT"; contentText = "Disallowed custom open text" } $script:MiniToken
-    if ($customText.code -ne 200) {
-        Add-L1Result "L1-MINI-TEXT-004" "miniapp" "custom-open-text-rejected" "PASS" "Rejected: code=$($customText.code), msg=$($customText.msg)" $customText.status $customText.code
+    Test-Code "L1-MINI-TEXT-002" "miniapp" "about-me-detail" (Invoke-L1Request "GET" "/miniapp/profile/about-me" $null $script:MiniToken) 200
+    $aboutMe = Invoke-L1Request "POST" "/miniapp/profile/about-me" @{ questionKey = "interests"; contentText = "平时喜欢阅读、徒步、看展，也愿意认真分享生活里的小事。" } $script:MiniToken
+    if ($aboutMe.code -eq 200) {
+        Add-L1Result "L1-MINI-TEXT-003" "miniapp" "about-me-submit" "PASS" "about-me answer submitted" $aboutMe.status $aboutMe.code
     } else {
-        Add-L1Result "L1-MINI-TEXT-004" "miniapp" "custom-open-text-rejected" "FAIL" "CUSTOM_OPEN_TEXT was accepted" $customText.status $customText.code
+        Add-L1Result "L1-MINI-TEXT-003" "miniapp" "about-me-submit" "FAIL" "code=$($aboutMe.code), msg=$($aboutMe.msg)" $aboutMe.status $aboutMe.code
     }
 
     $voiceShort = Invoke-L1Request "POST" "/miniapp/profile/voice-intro" @{ voiceUrl = "https://example.com/l1-short.mp3"; duration = 3 } $script:MiniToken
@@ -306,7 +309,8 @@ if ($script:MiniToken) {
 } else {
     foreach ($id in @(
         "L1-MINI-PROFILE-001","L1-MINI-PROFILE-002","L1-MINI-PROFILE-003","L1-MINI-PROFILE-006",
-        "L1-MINI-TEXT-004","L1-MINI-VOICE-002","L1-MINI-VERIFY-001","L1-MINI-VERIFY-007"
+        "L1-MINI-MEDIA-001","L1-MINI-MEDIA-005",
+        "L1-MINI-TEXT-002","L1-MINI-TEXT-003","L1-MINI-VOICE-002","L1-MINI-VERIFY-001","L1-MINI-VERIFY-007"
     )) {
         Skip-L1 $id "miniapp" "miniapp-token-dependent-case" "Miniapp login failed or write mode disabled"
     }

@@ -66,8 +66,13 @@ test.describe('用户列表 CustomersPage', () => {
           { id: 1, nickname: '林女士', avatar: '', gender: 'FEMALE', age: 28, school: '北京大学', realNameStatus: 'APPROVED', educationStatus: 'APPROVED', avatarVerifyStatus: 'APPROVED', firstLoginCompleted: 1, profileScore: 85, accountStatus: 'NORMAL', accessStatus: 'full_access', registerTime: '2026-05-01 10:00:00', lastLoginTime: '2026-06-03 08:00:00' },
           { id: 2, nickname: '张先生', avatar: '', gender: 'MALE', age: 25, school: '清华大学', realNameStatus: 'NOT_CERTIFIED', educationStatus: 'NOT_CERTIFIED', avatarVerifyStatus: 'NOT_CERTIFIED', firstLoginCompleted: 0, profileScore: 30, accountStatus: 'FROZEN', accessStatus: 'blocked', registerTime: '2026-05-15 14:00:00', lastLoginTime: '2026-05-30 12:00:00' },
         ],
-        total: 2, size: 10, current: 1,
+        total: 2, size: 9, current: 1,
       },
+    });
+
+    await mockApi(page, '**/api/admin/users/app/stats', {
+      code: 200,
+      data: { currentUserCount: 59, coreAccessAllowedCount: 41 },
     });
 
     await mockApi(page, '**/api/admin/users/app/1', {
@@ -118,6 +123,36 @@ test.describe('用户列表 CustomersPage', () => {
     await page.goto('/customers');
     await expect(page.getByText('林女士')).toBeVisible({ timeout: 5000 });
     await expect(page.getByText(/共\s*2\s*条/)).toBeVisible();
+  });
+
+  test('L4-05A 用户列表 — 独立统计、9条分页与显式搜索', async ({ page }) => {
+    const listUrls: string[] = [];
+    const statsUrls: string[] = [];
+    page.on('request', (request) => {
+      const url = request.url();
+      if (url.includes('/api/admin/users/app/list')) listUrls.push(url);
+      if (url.includes('/api/admin/users/app/stats')) statsUrls.push(url);
+    });
+
+    await page.goto('/customers');
+    await expect(page.getByText('林女士')).toBeVisible({ timeout: 5000 });
+    await expect.poll(() => listUrls.length).toBeGreaterThan(0);
+    await page.waitForTimeout(200);
+
+    expect(listUrls.every((url) => new URL(url).searchParams.get('size') === '9')).toBeTruthy();
+    expect(statsUrls.length).toBeGreaterThan(0);
+    await expect(page.getByText(/9条\/页/)).toBeVisible();
+
+    const beforeTyping = listUrls.length;
+    await page.getByPlaceholder('姓名/昵称/手机号/身份证/标签').fill('张');
+    await page.waitForTimeout(300);
+    expect(listUrls).toHaveLength(beforeTyping);
+
+    await page.getByRole('button', { name: '搜索' }).click();
+    await expect.poll(() => listUrls.length).toBeGreaterThan(beforeTyping);
+    const latest = new URL(listUrls[listUrls.length - 1]);
+    expect(latest.searchParams.get('keyword')).toBe('张');
+    expect(latest.searchParams.get('size')).toBe('9');
   });
 
   test('L4-06 用户管理 — 冻结/解冻操作', async ({ page }) => {

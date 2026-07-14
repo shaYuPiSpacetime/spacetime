@@ -93,10 +93,18 @@ public class AppUser extends BaseEntity {
     /** 标签列表JSON */
     @TableField(value = "tags")
     private String tags;
+    /** 微信号，仅本人资料页可见 */
+    private String wechatId;
+    /** 爱听歌曲三方 ID */
+    private String favoriteSongId;
+    /** 爱听歌曲名称 */
+    private String favoriteSongName;
+    /** 爱听歌曲歌手 */
+    private String favoriteSongArtist;
+    /** 爱听歌曲封面 */
+    private String favoriteSongCoverUrl;
     /** MBTI类型 */
     private String mbtiType;
     /** 星座（系统计算） */
     private String zodiac;
-    /** 资料完整度分（系统计算） */
-    private Integer profileScore;
 }

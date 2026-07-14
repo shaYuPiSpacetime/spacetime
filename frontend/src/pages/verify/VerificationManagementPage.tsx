@@ -367,6 +367,7 @@ export default function VerificationManagementPage() {
                     <TableHead>姓名</TableHead>
                     <TableHead>身份证号</TableHead>
                     <TableHead>手机号</TableHead>
+                    <TableHead>提交时间</TableHead>
                   </>
                 )}
                 {tab.key === 'education' && (
@@ -408,6 +409,7 @@ export default function VerificationManagementPage() {
                         <TableCell>{row.realName || '-'}</TableCell>
                         <TableCell className="text-muted-foreground">{row.idCard || '-'}</TableCell>
                         <TableCell className="text-muted-foreground">{row.phone || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{row.submitTime || '-'}</TableCell>
                       </>
                     )}
                     {tab.key === 'education' && (

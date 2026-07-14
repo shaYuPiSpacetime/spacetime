@@ -5,6 +5,7 @@ import com.spacetime.admin.dto.request.AppUserPageReq;
 import com.spacetime.admin.dto.request.UpdateStatusReq;
 import com.spacetime.admin.dto.response.AppUserDetailVO;
 import com.spacetime.admin.dto.response.AppUserListVO;
+import com.spacetime.admin.dto.response.AppUserStatsVO;
 import com.spacetime.admin.dto.response.ExportTaskVO;
 import com.spacetime.admin.dto.response.ImportBatchVO;
 import com.spacetime.admin.service.AppUserAdminService;
@@ -39,6 +40,13 @@ public class AppUserController {
     @RequirePermission("user:app:list")
     public R<Page<AppUserListVO>> list(@Valid AppUserPageReq req) {
         return R.ok(appUserAdminService.getUserPage(req));
+    }
+
+    /** APP 用户管理页头部统计。 */
+    @GetMapping("/stats")
+    @RequirePermission("user:app:list")
+    public R<AppUserStatsVO> stats() {
+        return R.ok(appUserAdminService.getUserStats());
     }
 
     /**

@@ -30,6 +30,11 @@ public class AppUserDaoImpl implements AppUserDao {
     }
 
     @Override
+    public Long count(LambdaQueryWrapper<AppUser> wrapper) {
+        return mapper.selectCount(wrapper);
+    }
+
+    @Override
     public Page<AppUser> selectPage(Page<AppUser> page, LambdaQueryWrapper<AppUser> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

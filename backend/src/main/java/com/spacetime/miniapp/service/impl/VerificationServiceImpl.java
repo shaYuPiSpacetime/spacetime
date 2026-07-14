@@ -16,8 +16,14 @@ import com.spacetime.common.provider.ProviderCheckResult;
 import com.spacetime.common.provider.RealNameVerificationProvider;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.service.Prd01RuntimeConfigResolver;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.miniapp.dto.request.EducationSubmitReq;
 import com.spacetime.miniapp.dto.request.RealNameSubmitReq;
+import com.spacetime.miniapp.dto.response.AccessStatusVO;
+import com.spacetime.miniapp.dto.response.EducationVerifyDetailVO;
+import com.spacetime.miniapp.dto.response.RealNameVerifyDetailVO;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
 import com.spacetime.miniapp.service.VerificationService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -49,6 +56,8 @@ public class VerificationServiceImpl implements VerificationService {
     private static final String CHSI = "CHSI";
     private static final String DIPLOMA_NO = "DIPLOMA_NO";
     private static final String MATERIAL_UPLOAD = "MATERIAL_UPLOAD";
+    private static final String WORKER = "WORKER";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final AppUserAuditService auditService;
     private final AppUserDao appUserDao;
@@ -56,11 +65,54 @@ public class VerificationServiceImpl implements VerificationService {
     private final RealNameVerificationProvider realNameVerificationProvider;
     private final EducationVerificationProvider educationVerificationProvider;
     private final ProfileDictionaryService profileDictionaryService;
+    private final Prd01RuntimeConfigResolver runtimeConfigResolver;
+    private final Prd01AccessEvaluator accessEvaluator;
 
     /** 查询三重认证状态和页面提交守卫。 */
     @Override
     public VerificationStatusVO getStatus(Long userId) {
         return toStatusVO(userId);
+    }
+
+    /** 查询实名认证页回显信息；敏感字段只返回脱敏值。 */
+    @Override
+    public RealNameVerifyDetailVO getRealNameDetail(Long userId) {
+        requireUser(userId);
+        AppUserAuditRecord record = auditService.latestRecord(userId, AppUserAuditTypeEnum.REAL_NAME);
+        RealNameVerifyDetailVO vo = new RealNameVerifyDetailVO();
+        vo.setAuditStatus(status(record));
+        vo.setAuditSource(record == null ? null : record.getAuditSource());
+        vo.setRejectReason(reason(record));
+        vo.setSubmitTime(formatTime(record == null ? null : record.getSubmitTime()));
+        vo.setCanSubmit(canSubmitRealName(record));
+        vo.setRealName(record == null ? null : maskRealName(record.getRealName()));
+        vo.setIdCardNo(record == null ? null : maskIdCard(record.getIdCard()));
+        return vo;
+    }
+
+    /** 查询学历认证页回显信息；学历提交材料直接来自最近一次审核记录快照。 */
+    @Override
+    public EducationVerifyDetailVO getEducationDetail(Long userId) {
+        requireUser(userId);
+        AppUserAuditRecord realName = auditService.latestRecord(userId, AppUserAuditTypeEnum.REAL_NAME);
+        AppUserAuditRecord education = auditService.latestRecord(userId, AppUserAuditTypeEnum.EDUCATION);
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot = runtimeConfigResolver.snapshot();
+        Prd01RuntimeConfigResolver.AuditPolicy auditPolicy = runtimeConfigResolver.auditPolicy(configSnapshot);
+        boolean realNameReady = realNameAllowsEducation(realName);
+        EducationVerifyDetailVO vo = new EducationVerifyDetailVO();
+        vo.setAuditStatus(status(education));
+        vo.setAuditSource(education == null ? null : education.getAuditSource());
+        vo.setRejectReason(reason(education));
+        vo.setSubmitTime(formatTime(education == null ? null : education.getSubmitTime()));
+        vo.setCanSubmit(realNameReady && !pendingLike(education));
+        vo.setBlockedReason(!realNameReady ? "请先提交实名认证"
+                : pendingLike(education) ? "学历认证审核中" : null);
+        vo.setEducationSlaHours(auditPolicy.educationSlaHours());
+        vo.setEducationSlaText(auditPolicy.educationSlaText());
+        vo.setEducationEstimatedCompleteTime(educationEstimatedCompleteTime(
+                education, auditPolicy.educationSlaHours()));
+        fillEducationSnapshot(vo, education);
+        return vo;
     }
 
     /** 使用姓名、身份证号和账号绑定手机号提交实名认证。 */
@@ -112,7 +164,10 @@ public class VerificationServiceImpl implements VerificationService {
         if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
             throw new BusinessException("学历认证审核中，请耐心等待");
         }
-        EducationSubmission submission = validateEducation(req);
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot = runtimeConfigResolver.snapshot();
+        Prd01RuntimeConfigResolver.UploadRule educationUploadRule =
+                runtimeConfigResolver.uploadRule(configSnapshot, "education", 4, 10);
+        EducationSubmission submission = validateEducation(req, educationUploadRule.maxCount());
         AppUser user = requireUser(userId);
 
         AppUserAuditRecord record = new AppUserAuditRecord();
@@ -199,7 +254,7 @@ public class VerificationServiceImpl implements VerificationService {
         return task;
     }
 
-    private EducationSubmission validateEducation(EducationSubmitReq req) {
+    private EducationSubmission validateEducation(EducationSubmitReq req, int materialMaxCount) {
         if (req == null || !Boolean.TRUE.equals(req.getEducationAgreementChecked())) {
             throw new BusinessException("请先勾选学历认证协议");
         }
@@ -215,8 +270,8 @@ public class VerificationServiceImpl implements VerificationService {
         String educationLevel = profileDictionaryService.requireCode(
                 ProfileDictType.EDUCATION_LEVEL, req.getEducationLevel(), "学历");
         List<String> materials = req.getMaterialUrls() == null ? List.of() : req.getMaterialUrls();
-        if (materials.size() > 4) {
-            throw new BusinessException("学历证明材料最多4张");
+        if (materials.size() > materialMaxCount) {
+            throw new BusinessException("学历证明材料最多" + materialMaxCount + "张");
         }
         if (materials.stream().anyMatch(url -> StrUtil.isBlank(url)
                 || (!url.startsWith("http://") && !url.startsWith("https://")))) {
@@ -267,6 +322,9 @@ public class VerificationServiceImpl implements VerificationService {
     }
 
     private VerificationStatusVO toStatusVO(Long userId) {
+        AppUser user = requireUser(userId);
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot = runtimeConfigResolver.snapshot();
+        Prd01RuntimeConfigResolver.AuditPolicy auditPolicy = runtimeConfigResolver.auditPolicy(configSnapshot);
         AppUserAuditRecord realName = auditService.latestRecord(userId, AppUserAuditTypeEnum.REAL_NAME);
         AppUserAuditRecord education = auditService.latestRecord(userId, AppUserAuditTypeEnum.EDUCATION);
         AppUserAuditRecord avatar = auditService.latestRecord(userId, AppUserAuditTypeEnum.AVATAR);
@@ -282,6 +340,9 @@ public class VerificationServiceImpl implements VerificationService {
         vo.setEducationCanSubmit(realNameReady && !pendingLike(education));
         vo.setEducationBlockedReason(!realNameReady ? "请先提交实名认证"
                 : pendingLike(education) ? "学历认证审核中" : null);
+        vo.setEducationSlaHours(auditPolicy.educationSlaHours());
+        vo.setEducationSlaText(auditPolicy.educationSlaText());
+        vo.setEducationEstimatedCompleteTime(educationEstimatedCompleteTime(education, auditPolicy.educationSlaHours()));
         vo.setAvatarVerifyStatus(status(avatar));
         vo.setAvatarVerifyRejectReason(reason(avatar));
         vo.setAvatarVerifySubmitTime(formatTime(avatar == null ? null : avatar.getSubmitTime()));
@@ -294,8 +355,18 @@ public class VerificationServiceImpl implements VerificationService {
         int verifyLevel = auditService.certificationApprovedCount(userId);
         vo.setVerifyLevel(verifyLevel);
         vo.setUnlockMateRecommend(auditService.hasEffective(userId, AppUserAuditTypeEnum.REAL_NAME));
-        vo.setCoreAccessStatus(verifyLevel == 3 ? "CORE_ALLOWED" : "NON_CORE_ONLY");
+        AccessStatusVO accessStatus = accessEvaluator.evaluate(user);
+        vo.setCoreAccessStatus(accessStatus.getCoreAccessStatus());
+        vo.setAccessStatus(accessStatus);
         return vo;
+    }
+
+    /** 只有待审核和审核中的学历记录需要向移动端展示预计完成时间。 */
+    private String educationEstimatedCompleteTime(AppUserAuditRecord education, int slaHours) {
+        if (!pendingLike(education) || education.getSubmitTime() == null) {
+            return null;
+        }
+        return education.getSubmitTime().plusHours(slaHours).format(DISPLAY_TIME_FORMATTER);
     }
 
     private boolean canSubmitRealName(AppUserAuditRecord record) {
@@ -334,11 +405,107 @@ public class VerificationServiceImpl implements VerificationService {
     private String educationMaterialJson(EducationSubmitReq req, EducationSubmission submission, AppUser user) {
         return "{\"educationUserType\":\"" + json(submission.userType())
                 + "\",\"educationLevel\":\"" + json(submission.educationLevel())
-                + "\",\"identity\":\"" + json(user.getIdentity())
+                + "\",\"identity\":\"" + json(identityCodeForEducationUserType(submission.userType(), user.getIdentity()))
                 + "\",\"chsiCode\":\"" + json(req.getChsiCode())
                 + "\",\"diplomaNo\":\"" + json(req.getDiplomaNo())
                 + "\",\"certificateName\":\"" + json(req.getCertificateName())
                 + "\",\"materialUrls\":" + jsonArray(submission.materialUrls()) + "}";
+    }
+
+    /** 将学历提交快照转成页面可直接回显的字段。 */
+    private void fillEducationSnapshot(EducationVerifyDetailVO vo, AppUserAuditRecord record) {
+        if (record == null) {
+            vo.setMaterialUrls(List.of());
+            return;
+        }
+        JsonNode material = materialNode(record.getMaterialJson());
+        String userType = jsonText(material, "educationUserType");
+        String identityCode = identityCodeForEducationUserType(userType, jsonText(material, "identity"));
+        String educationLevel = jsonText(material, "educationLevel");
+        vo.setEducationUserType(userType);
+        vo.setEducationUserTypeLabel(educationUserTypeLabel(userType));
+        vo.setIdentityCode(identityCode);
+        vo.setIdentityLabel(profileDictionaryService.label(ProfileDictType.IDENTITY, identityCode));
+        vo.setEducationMethod(record.getEducationMethod());
+        vo.setEducationMethodLabel(educationMethodLabel(record.getEducationMethod()));
+        vo.setSchoolName(record.getSchoolName());
+        vo.setEducationLevel(educationLevel);
+        vo.setEducationLevelLabel(profileDictionaryService.label(ProfileDictType.EDUCATION_LEVEL, educationLevel));
+        vo.setChsiCode(jsonText(material, "chsiCode"));
+        vo.setDiplomaNo(jsonText(material, "diplomaNo"));
+        vo.setCertificateName(jsonText(material, "certificateName"));
+        vo.setMaterialUrls(jsonTextArray(material, "materialUrls"));
+    }
+
+    /** 在线学生映射为在校生；中国大陆毕业生映射为职场人，和基础资料身份共用同一字典。 */
+    private String identityCodeForEducationUserType(String userType, String fallbackIdentity) {
+        if (STUDENT.equals(userType)) {
+            return STUDENT;
+        }
+        if (MAINLAND_GRADUATE.equals(userType)) {
+            return WORKER;
+        }
+        return fallbackIdentity;
+    }
+
+    private String educationUserTypeLabel(String userType) {
+        if (STUDENT.equals(userType)) {
+            return "在校生";
+        }
+        if (MAINLAND_GRADUATE.equals(userType)) {
+            return "中国大陆毕业生";
+        }
+        return userType;
+    }
+
+    private String educationMethodLabel(String method) {
+        if (STUDENT_CARD.equals(method)) {
+            return "学生证/在读证明";
+        }
+        if (CHSI.equals(method)) {
+            return "学信网验证码";
+        }
+        if (DIPLOMA_NO.equals(method)) {
+            return "证书编号";
+        }
+        if (MATERIAL_UPLOAD.equals(method)) {
+            return "证书材料";
+        }
+        return method;
+    }
+
+    private JsonNode materialNode(String materialJson) {
+        if (StrUtil.isBlank(materialJson)) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+        try {
+            return OBJECT_MAPPER.readTree(materialJson);
+        } catch (Exception ignored) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+    }
+
+    private String jsonText(JsonNode node, String fieldName) {
+        JsonNode value = node == null ? null : node.get(fieldName);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        String text = value.asText();
+        return StrUtil.isBlank(text) ? null : text;
+    }
+
+    private List<String> jsonTextArray(JsonNode node, String fieldName) {
+        JsonNode value = node == null ? null : node.get(fieldName);
+        if (value == null || !value.isArray()) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        value.forEach(item -> {
+            if (item != null && !item.isNull() && StrUtil.isNotBlank(item.asText())) {
+                result.add(item.asText());
+            }
+        });
+        return result;
     }
 
     private String jsonArray(List<String> values) {

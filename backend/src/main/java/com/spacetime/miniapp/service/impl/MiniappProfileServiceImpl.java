@@ -4,6 +4,7 @@ import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.enums.MobilePageCodeEnum;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import com.spacetime.miniapp.dto.response.MiniappCertificationCenterVO;
 import com.spacetime.miniapp.dto.response.MiniappProfileHomeVO;
 import com.spacetime.miniapp.service.MiniappMobileConfigService;
@@ -22,6 +23,7 @@ public class MiniappProfileServiceImpl extends UserSecurityBaseSupport implement
     private final AppUserDao appUserDao;
     private final MiniappMobileConfigService mobileConfigService;
     private final AppUserAuditContentService auditContentService;
+    private final Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
 
     @Override
     public MiniappProfileHomeVO home(Long userId) {
@@ -34,7 +36,7 @@ public class MiniappProfileServiceImpl extends UserSecurityBaseSupport implement
         vo.setAge(user != null ? user.getAge() : null);
         vo.setSchool(user != null ? user.getSchool() : null);
         vo.setCity(user != null ? user.getLocationCity() : null);
-        vo.setProfileCompletion(user != null && user.getProfileScore() != null ? user.getProfileScore() : 0);
+        vo.setProfileCompletion(user != null ? profileCompletenessCalculator.calculate(user) : 0);
         vo.setRealNameStatus("NOT_CERTIFIED");
         vo.setAvatarStatus("NOT_CERTIFIED");
         vo.setEducationStatus("NOT_CERTIFIED");

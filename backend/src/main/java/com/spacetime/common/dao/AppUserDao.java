@@ -12,6 +12,7 @@ import java.util.List;
 public interface AppUserDao {
     AppUser selectById(Long id);
     AppUser selectOne(LambdaQueryWrapper<AppUser> wrapper);
+    Long count(LambdaQueryWrapper<AppUser> wrapper);
     Page<AppUser> selectPage(Page<AppUser> page, LambdaQueryWrapper<AppUser> wrapper);
     List<AppUser> selectList(LambdaQueryWrapper<AppUser> wrapper);
     void insert(AppUser entity);

@@ -4,6 +4,7 @@ import com.spacetime.common.exception.GlobalExceptionHandler;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.miniapp.dto.response.AvatarSubmitVO;
+import com.spacetime.miniapp.dto.response.IntroductionDetailVO;
 import com.spacetime.miniapp.dto.response.OpenTextAuditVO;
 import com.spacetime.miniapp.service.OpenTextAuditService;
 import com.spacetime.miniapp.service.ProfileMediaService;
@@ -26,6 +27,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -112,5 +114,23 @@ class ProfileControllerAvatarTest {
                 .andExpect(jsonPath("$.data.auditStatus").value("PENDING"));
 
         verify(openTextAuditService).submitIntroduction(eq(7L), argThat(req -> req.getAboutMe().length() >= 20));
+    }
+
+    @Test
+    @DisplayName("查询自我介绍详情回显最新提交和生效内容")
+    void shouldGetIntroductionDetail() throws Exception {
+        IntroductionDetailVO vo = new IntroductionDetailVO();
+        vo.setLatestContent("这是本人最新提交的自我介绍内容，正在审核中。");
+        vo.setEffectiveContent("这是当前对外展示的旧版自我介绍内容。");
+        vo.setAuditStatus("PENDING");
+        vo.setCanSubmit(false);
+        when(openTextAuditService.getIntroductionDetail(7L)).thenReturn(vo);
+
+        mockMvc.perform(get("/miniapp/profile/introduction"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.latestContent").value("这是本人最新提交的自我介绍内容，正在审核中。"))
+                .andExpect(jsonPath("$.data.effectiveContent").value("这是当前对外展示的旧版自我介绍内容。"))
+                .andExpect(jsonPath("$.data.auditStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data.canSubmit").value(false));
     }
 }

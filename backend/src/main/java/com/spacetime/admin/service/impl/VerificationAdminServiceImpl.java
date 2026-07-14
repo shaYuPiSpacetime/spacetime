@@ -195,7 +195,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
                 vo.setIdCard(maskIdCard(record.getIdCard()));
             } else if (type == AppUserAuditTypeEnum.EDUCATION) {
                 vo.setEducationIdentity(profileDictionaryService.label(
-                        identityLabels, user == null ? null : user.getIdentity()));
+                        identityLabels, educationIdentityCode(record, user)));
                 vo.setEducationMaterialSummary(educationMaterialSummary(record));
             } else if (type == AppUserAuditTypeEnum.AVATAR) {
                 vo.setAvatarUrl(record.getMediaUrl());
@@ -254,8 +254,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     public VerificationAuditDetailVO getEducationDetail(Long id, int historyPage, int historySize) {
         AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.EDUCATION);
         AppUser user = appUserDao.selectById(record.getUserId());
-        String identityCode = StrUtil.blankToDefault(optionalJsonValue(record.getMaterialJson(), "identity"),
-                user == null ? null : user.getIdentity());
+        String identityCode = educationIdentityCode(record, user);
         String educationLevelCode = StrUtil.blankToDefault(optionalJsonValue(record.getMaterialJson(), "educationLevel"),
                 user == null ? null : user.getEducationLevel());
         VerificationAuditDetailVO vo = baseDetail(record, user);
@@ -387,6 +386,19 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
 
     private String identityLabel(String identity) {
         return profileDictionaryService.label(ProfileDictType.IDENTITY, identity);
+    }
+
+    /** 学历认证身份按认证路径派生，避免依赖用户主表身份是否已填写。 */
+    private String educationIdentityCode(AppUserAuditRecord record, AppUser user) {
+        String userType = optionalJsonValue(record.getMaterialJson(), "educationUserType");
+        if ("STUDENT".equals(userType)) {
+            return "STUDENT";
+        }
+        if ("MAINLAND_GRADUATE".equals(userType)) {
+            return "WORKER";
+        }
+        return StrUtil.blankToDefault(optionalJsonValue(record.getMaterialJson(), "identity"),
+                user == null ? null : user.getIdentity());
     }
 
     private String educationMaterialSummary(AppUserAuditRecord record) {

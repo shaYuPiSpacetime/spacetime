@@ -16,13 +16,17 @@ import com.spacetime.miniapp.dto.request.AvatarSubmitReq;
 import com.spacetime.miniapp.dto.request.ProfileMediaSubmitReq;
 import com.spacetime.miniapp.dto.response.AvatarSubmitVO;
 import com.spacetime.miniapp.service.impl.ProfileMediaServiceImpl;
+import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,9 +52,27 @@ class ProfileMediaServiceImplTest {
     private ExternalProviderTaskDao externalProviderTaskDao;
     @Mock
     private ImageSafetyProvider imageSafetyProvider;
+    @Mock
+    private Prd01RuntimeConfigResolver runtimeConfigResolver;
 
     @InjectMocks
     private ProfileMediaServiceImpl profileMediaService;
+
+    private Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot;
+
+    @BeforeEach
+    void setUpRuntimeConfig() {
+        configSnapshot = new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(java.util.Map.of());
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.snapshot()).thenReturn(configSnapshot);
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.copyText(
+                        configSnapshot, "safety_image_failed", "图片安全审核未通过"))
+                .thenReturn("图片安全审核未通过");
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.uploadRule(configSnapshot, "album", 9, 10))
+                .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(9, 10, List.of("jpg", "jpeg", "png")));
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.uploadRule(configSnapshot, "profileBg", 1, 10))
+                .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(1, 10, List.of("jpg", "jpeg", "png")));
+        org.mockito.Mockito.lenient().when(auditRecordDao.count(any())).thenReturn(0L);
+    }
 
     @Test
     @DisplayName("提交裁剪头像后更新当前头像并生成待审核记录")
@@ -139,6 +161,71 @@ class ProfileMediaServiceImplTest {
     }
 
     @Test
+    @DisplayName("背景图独立提交时固定生成资料背景图审核记录")
+    void shouldSubmitProfileBackgroundWithDedicatedAuditType() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0);
+            record.setId(202L);
+            return record;
+        });
+        when(imageSafetyProvider.check(any(), any(), any()))
+                .thenReturn(ProviderCheckResult.safe(
+                        "mock-image-safety", "{\"mocked\":true,\"result\":\"safe\"}", true));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ExternalProviderTask task = invocation.getArgument(0);
+            task.setId(402L);
+            return null;
+        }).when(externalProviderTaskDao).insert(any());
+
+        ProfileMediaSubmitReq background = mediaReq(null, "https://static.example.com/bg.jpg");
+
+        profileMediaService.submitProfileBackground(7L, background);
+
+        ArgumentCaptor<AppUserAuditRecord> recordCaptor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditService).submit(recordCaptor.capture());
+        assertThat(recordCaptor.getValue().getAuditType()).isEqualTo(AppUserAuditTypeEnum.PROFILE_BG.getCode());
+        verify(imageSafetyProvider).check(
+                "PROFILE_BG", background.getMediaUrl(), background.getThumbUrl());
+    }
+
+    @Test
+    @DisplayName("相册达到后台配置张数上限时拒绝新增")
+    void shouldRejectAlbumWhenUploadCountReached() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditRecordDao.count(any())).thenReturn(9L);
+
+        ProfileMediaSubmitReq album = mediaReq("ALBUM", "https://static.example.com/album-limit.jpg");
+
+        assertThatThrownBy(() -> profileMediaService.submitMedia(7L, album))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("上传数量不能超过 9 张");
+        verify(auditService, never()).submit(any());
+        verify(imageSafetyProvider, never()).check(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("删除背景图时将当前生效记录置为失效")
+    void shouldExpireEffectiveProfileBackgroundWhenDeleted() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord effective = new AppUserAuditRecord();
+        effective.setId(88L);
+        effective.setAuditType(AppUserAuditTypeEnum.PROFILE_BG.getCode());
+        effective.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
+        when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.PROFILE_BG)).thenReturn(effective);
+
+        profileMediaService.deleteProfileBackground(7L);
+
+        verify(auditService).systemExpire(88L, "用户删除资料背景图");
+    }
+
+    @Test
     @DisplayName("最新头像仍在审核时不允许重复提交")
     void shouldRejectDuplicateSubmissionWhileReviewing() {
         AppUser user = new AppUser();
@@ -174,6 +261,37 @@ class ProfileMediaServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("头像来源");
         verify(auditService, never()).submit(any());
+    }
+
+    @Test
+    @DisplayName("头像机审拒绝使用后台配置的图片安全提示")
+    void shouldUseConfiguredImageSafetyMessage() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.AVATAR)).thenReturn(null);
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0);
+            record.setId(101L);
+            return record;
+        });
+        when(imageSafetyProvider.check(any(), any(), any()))
+                .thenReturn(ProviderCheckResult.unsafe("mock-image-safety", "{}", true, null));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ExternalProviderTask task = invocation.getArgument(0);
+            task.setId(301L);
+            return null;
+        }).when(externalProviderTaskDao).insert(any());
+        when(runtimeConfigResolver.copyText(configSnapshot, "safety_image_failed", "图片安全审核未通过"))
+                .thenReturn("当前图片未通过安全审核，请重新上传");
+
+        AvatarSubmitReq req = new AvatarSubmitReq();
+        req.setAvatarSource("ALBUM");
+        req.setAvatarUrl("https://static.example.com/avatar/cropped.jpg");
+
+        profileMediaService.submitAvatar(7L, req);
+
+        verify(auditService).machineReject(101L, 301L, "{}", "当前图片未通过安全审核，请重新上传");
     }
 
     private ProfileMediaSubmitReq mediaReq(String mediaType, String mediaUrl) {

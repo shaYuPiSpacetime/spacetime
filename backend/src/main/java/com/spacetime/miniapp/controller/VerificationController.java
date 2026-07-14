@@ -4,6 +4,8 @@ import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.request.EducationSubmitReq;
 import com.spacetime.miniapp.dto.request.RealNameSubmitReq;
+import com.spacetime.miniapp.dto.response.EducationVerifyDetailVO;
+import com.spacetime.miniapp.dto.response.RealNameVerifyDetailVO;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
 import com.spacetime.miniapp.service.VerificationService;
 import jakarta.validation.Valid;
@@ -28,6 +30,18 @@ public class VerificationController {
     @GetMapping("/status")
     public R<VerificationStatusVO> status() {
         return R.ok(verificationService.getStatus(currentUserId()));
+    }
+
+    /** 查询实名认证页回显信息，供移动端再次进入页面时展示最新提交状态。 */
+    @GetMapping("/real-name")
+    public R<RealNameVerifyDetailVO> realNameDetail() {
+        return R.ok(verificationService.getRealNameDetail(currentUserId()));
+    }
+
+    /** 查询学历认证页回显信息，供移动端再次进入页面时展示最新提交材料。 */
+    @GetMapping("/education")
+    public R<EducationVerifyDetailVO> educationDetail() {
+        return R.ok(verificationService.getEducationDetail(currentUserId()));
     }
 
     /**

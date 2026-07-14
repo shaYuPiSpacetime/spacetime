@@ -8,6 +8,7 @@ import com.spacetime.admin.dto.response.ExportTaskVO;
 import com.spacetime.admin.dto.response.AppUserDetailVO;
 import com.spacetime.admin.dto.response.ImportBatchVO;
 import com.spacetime.admin.dto.response.AppUserListVO;
+import com.spacetime.admin.dto.response.AppUserStatsVO;
 import com.spacetime.admin.dto.response.VerificationDetailVO;
 import com.spacetime.admin.service.AppUserAdminService;
 import com.spacetime.common.dao.AppUserDao;
@@ -27,6 +28,7 @@ import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,8 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,6 +57,16 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
 
     /** 时间格式化器 */
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final List<String> LIST_AUDIT_TYPES = List.of(
+            AppUserAuditTypeEnum.REAL_NAME.getCode(),
+            AppUserAuditTypeEnum.EDUCATION.getCode(),
+            AppUserAuditTypeEnum.AVATAR.getCode(),
+            AppUserAuditTypeEnum.ALBUM_PHOTO.getCode(),
+            AppUserAuditTypeEnum.PROFILE_BG.getCode(),
+            AppUserAuditTypeEnum.ABOUT_ME.getCode(),
+            AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode(),
+            AppUserAuditTypeEnum.PROFILE_QA.getCode(),
+            AppUserAuditTypeEnum.VOICE_INTRO.getCode());
 
     private final AppUserDao appUserDao;
     private final AppUserAuditRecordDao auditRecordDao;
@@ -59,6 +75,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     private final ContentOperationLogDao contentOperationLogDao;
     private final ProfileDictionaryService profileDictionaryService;
     private final AppUserAuditContentService auditContentService;
+    private final Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
 
     @Override
     public Page<AppUserListVO> getUserPage(AppUserPageReq req) {
@@ -110,19 +127,39 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         }
         Page<AppUser> page = appUserDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
 
-        // 批量加载所有用户的最新审核记录（避免 N+1），用户卡片状态全部实时派生。
+        Page<AppUserListVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         List<Long> userIds = page.getRecords().stream().map(AppUser::getId).toList();
-        Map<Long, Map<String, AppUserAuditRecord>> auditMap = loadLatestAuditMap(userIds);
-        Map<Long, String> avatars = auditContentService.publicAvatars(userIds);
-        Map<Long, List<String>> albumPhotos = auditContentService.ownerAlbumPhotos(userIds);
+        if (userIds.isEmpty()) {
+            result.setRecords(List.of());
+            return result;
+        }
+
+        // 当前页所有审核事实只查询一次；头像、相册、状态和完整度均从同一批结果派生。
+        AuditPageData auditPageData = loadAuditPageData(userIds);
+        Prd01ProfileCompletenessCalculator.ProfileCompletenessRules completenessRules =
+                profileCompletenessCalculator.loadRules();
         ProfileLabels profileLabels = loadProfileLabels();
 
-        Page<AppUserListVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(page.getRecords().stream()
-                .map(user -> toListVO(user, auditMap.get(user.getId()), profileLabels,
-                        avatars.get(user.getId()), albumPhotos.getOrDefault(user.getId(), List.of())))
+                .map(user -> {
+                    UserAuditFacts facts = auditPageData.factsFor(user.getId());
+                    return toListVO(user, facts.latestAudits(), profileLabels,
+                            facts.publicAvatar(), facts.ownerAlbumPhotos(), completenessRules,
+                            facts.effectiveAuditTypes());
+                })
                 .toList());
         return result;
+    }
+
+    @Override
+    public AppUserStatsVO getUserStats() {
+        AppUserStatsVO stats = new AppUserStatsVO();
+        stats.setCurrentUserCount(countOrZero(appUserDao.count(new LambdaQueryWrapper<>())));
+
+        LambdaQueryWrapper<AppUser> coreAllowed = new LambdaQueryWrapper<>();
+        applyCoreAccessFilter(coreAllowed, "CORE_ALLOWED");
+        stats.setCoreAccessAllowedCount(countOrZero(appUserDao.count(coreAllowed)));
+        return stats;
     }
 
     @Override
@@ -222,7 +259,9 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     }
 
     private AppUserListVO toListVO(AppUser user, Map<String, AppUserAuditRecord> audits, ProfileLabels labels,
-            String avatarUrl, List<String> albumPhotos) {
+            String avatarUrl, List<String> albumPhotos,
+            Prd01ProfileCompletenessCalculator.ProfileCompletenessRules completenessRules,
+            Set<String> effectiveAuditTypes) {
         AppUserListVO vo = new AppUserListVO();
         AppUserAuditRecord realName = audit(audits, AppUserAuditTypeEnum.REAL_NAME);
         AppUserAuditRecord education = audit(audits, AppUserAuditTypeEnum.EDUCATION);
@@ -246,14 +285,15 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setMbtiType(user.getMbtiType());
         vo.setZodiac(user.getZodiac());
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted());
-        vo.setProfileScore(user.getProfileScore());
+        vo.setProfileScore(profileCompletenessCalculator.calculate(
+                user, completenessRules, audits, effectiveAuditTypes));
         vo.setAccountStatus(user.getAccountStatus());
         vo.setRegisterTime(user.getRegisterTime() != null ? user.getRegisterTime().format(FMT) : null);
         vo.setLastLoginTime(user.getLastLoginTime() != null ? user.getLastLoginTime().format(FMT) : null);
         vo.setRealNameStatus(statusOf(realName));
         vo.setEducationStatus(statusOf(education));
         vo.setAvatarVerifyStatus(statusOf(avatar));
-        vo.setAccessStatus(computeAccessStatusLabel(user, audits));
+        vo.setAccessStatus(computeAccessStatusLabel(user, audits, effectiveAuditTypes));
         return vo;
     }
 
@@ -347,6 +387,13 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return canBrowse(user) ? (tripleApproved(audits) ? "full_access" : "browse_only") : "blocked";
     }
 
+    private String computeAccessStatusLabel(AppUser user, Map<String, AppUserAuditRecord> audits,
+            Set<String> effectiveAuditTypes) {
+        return canBrowse(user)
+                ? (tripleApproved(audits, effectiveAuditTypes) ? "full_access" : "browse_only")
+                : "blocked";
+    }
+
     private AppUserDetailVO toDetailVO(AppUser user, Map<String, AppUserAuditRecord> audits, ProfileLabels labels) {
         AppUserAuditRecord realName = audit(audits, AppUserAuditTypeEnum.REAL_NAME);
         AppUserAuditRecord education = audit(audits, AppUserAuditTypeEnum.EDUCATION);
@@ -389,7 +436,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setVoiceIntroRejectReason(reason(voice));
         vo.setMbtiType(user.getMbtiType());
         vo.setZodiac(user.getZodiac());
-        vo.setProfileScore(user.getProfileScore());
+        vo.setProfileScore(profileCompletenessCalculator.calculate(user));
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted());
         vo.setRegisterTime(user.getRegisterTime() != null ? user.getRegisterTime().format(FMT) : null);
         vo.setLastLoginTime(user.getLastLoginTime() != null ? user.getLastLoginTime().format(FMT) : null);
@@ -423,42 +470,37 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     }
 
     private Map<Long, Map<String, AppUserAuditRecord>> loadLatestAuditMap(List<Long> userIds) {
+        return loadAuditPageData(userIds).latestByUser();
+    }
+
+    private AuditPageData loadAuditPageData(List<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
-            return Map.of();
+            return AuditPageData.empty();
         }
-        List<String> types = List.of(
-                AppUserAuditTypeEnum.REAL_NAME.getCode(),
-                AppUserAuditTypeEnum.EDUCATION.getCode(),
-                AppUserAuditTypeEnum.AVATAR.getCode(),
-                AppUserAuditTypeEnum.ALBUM_PHOTO.getCode(),
-                AppUserAuditTypeEnum.PROFILE_BG.getCode(),
-                AppUserAuditTypeEnum.ABOUT_ME.getCode(),
-                AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode(),
-                AppUserAuditTypeEnum.PROFILE_QA.getCode(),
-                AppUserAuditTypeEnum.VOICE_INTRO.getCode());
         List<AppUserAuditRecord> records = auditRecordDao.selectList(new LambdaQueryWrapper<AppUserAuditRecord>()
                 .in(AppUserAuditRecord::getUserId, userIds)
-                .in(AppUserAuditRecord::getAuditType, types)
+                .in(AppUserAuditRecord::getAuditType, LIST_AUDIT_TYPES)
                 .orderByAsc(AppUserAuditRecord::getUserId)
                 .orderByDesc(AppUserAuditRecord::getSubmitTime)
                 .orderByDesc(AppUserAuditRecord::getId));
-        Map<Long, Map<String, AppUserAuditRecord>> result = new java.util.HashMap<>();
-        for (AppUserAuditRecord record : records) {
-            result.computeIfAbsent(record.getUserId(), k -> new java.util.HashMap<>())
-                    .putIfAbsent(record.getAuditType(), record);
-        }
-        return result;
+        return AuditPageData.from(records);
     }
 
     private void applyCoreAccessFilter(LambdaQueryWrapper<AppUser> wrapper, String coreAccessStatus) {
-        if ("OPEN".equals(coreAccessStatus) || "FULL_ACCESS".equals(coreAccessStatus) || "full_access".equals(coreAccessStatus)) {
-            wrapper.exists(effectiveExistsSql(AppUserAuditTypeEnum.REAL_NAME))
+        String normalized = StrUtil.blankToDefault(coreAccessStatus, "").trim().toUpperCase(Locale.ROOT);
+        if ("OPEN".equals(normalized) || "FULL_ACCESS".equals(normalized) || "CORE_ALLOWED".equals(normalized)) {
+            wrapper.eq(AppUser::getFirstLoginCompleted, 1)
+                    .notIn(AppUser::getAccountStatus,
+                            AccountStatusEnum.FROZEN.getCode(), AccountStatusEnum.CANCELLED.getCode())
+                    .exists(effectiveExistsSql(AppUserAuditTypeEnum.REAL_NAME))
                     .exists(latestStatusExistsSql(AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED.getCode()))
                     .exists(effectiveExistsSql(AppUserAuditTypeEnum.EDUCATION));
-        } else if ("BLOCKED".equals(coreAccessStatus) || "blocked".equals(coreAccessStatus)) {
-            wrapper.and(w -> w.ne(AppUser::getFirstLoginCompleted, 1)
+        } else if ("BLOCKED".equals(normalized)) {
+            wrapper.and(w -> w.isNull(AppUser::getFirstLoginCompleted)
+                    .or().ne(AppUser::getFirstLoginCompleted, 1)
                     .or().in(AppUser::getAccountStatus, AccountStatusEnum.FROZEN.getCode(), AccountStatusEnum.CANCELLED.getCode()));
-        } else if ("PENDING".equals(coreAccessStatus) || "NON_CORE_ONLY".equals(coreAccessStatus) || "browse_only".equals(coreAccessStatus)) {
+        } else if ("PENDING".equals(normalized) || "NON_CORE_ONLY".equals(normalized)
+                || "BROWSE_ONLY".equals(normalized) || "CORE_PENDING".equals(normalized)) {
             wrapper.eq(AppUser::getFirstLoginCompleted, 1)
                     .notIn(AppUser::getAccountStatus, AccountStatusEnum.FROZEN.getCode(), AccountStatusEnum.CANCELLED.getCode())
                     .and(w -> w.notExists(effectiveExistsSql(AppUserAuditTypeEnum.REAL_NAME))
@@ -504,6 +546,12 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return effectiveApproved(audit(audits, AppUserAuditTypeEnum.REAL_NAME))
                 && latestApproved(audit(audits, AppUserAuditTypeEnum.AVATAR))
                 && effectiveApproved(audit(audits, AppUserAuditTypeEnum.EDUCATION));
+    }
+
+    private boolean tripleApproved(Map<String, AppUserAuditRecord> audits, Set<String> effectiveAuditTypes) {
+        return effectiveAuditTypes.contains(AppUserAuditTypeEnum.REAL_NAME.getCode())
+                && latestApproved(audit(audits, AppUserAuditTypeEnum.AVATAR))
+                && effectiveAuditTypes.contains(AppUserAuditTypeEnum.EDUCATION.getCode());
     }
 
     private int verifyLevel(Map<String, AppUserAuditRecord> audits) {
@@ -559,6 +607,10 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return StrUtil.isNotBlank(first) ? first : second;
     }
 
+    private long countOrZero(Long value) {
+        return value == null ? 0L : value;
+    }
+
     /** 每个列表/详情请求只读取一次四类字典，避免按用户逐字段查询。 */
     private ProfileLabels loadProfileLabels() {
         return new ProfileLabels(
@@ -577,5 +629,86 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             Map<String, String> educationLevel,
             Map<String, String> occupation,
             Map<String, String> annualIncome) {
+    }
+
+    private record UserAuditFacts(
+            Map<String, AppUserAuditRecord> latestAudits,
+            Set<String> effectiveAuditTypes,
+            List<String> ownerAlbumPhotos) {
+
+        private static UserAuditFacts empty() {
+            return new UserAuditFacts(Map.of(), Set.of(), List.of());
+        }
+
+        private String publicAvatar() {
+            AppUserAuditRecord avatar = latestAudits.get(AppUserAuditTypeEnum.AVATAR.getCode());
+            if (avatar == null
+                    || !AppUserAuditStatusEnum.APPROVED.getCode().equals(avatar.getStatus())
+                    || StrUtil.isBlank(avatar.getMediaUrl())) {
+                return null;
+            }
+            return avatar.getMediaUrl();
+        }
+    }
+
+    private record AuditPageData(Map<Long, UserAuditFacts> byUser) {
+
+        private static AuditPageData empty() {
+            return new AuditPageData(Map.of());
+        }
+
+        private static AuditPageData from(List<AppUserAuditRecord> records) {
+            Map<Long, MutableAuditFacts> mutable = new LinkedHashMap<>();
+            for (AppUserAuditRecord record : records) {
+                if (record.getUserId() == null || StrUtil.isBlank(record.getAuditType())) {
+                    continue;
+                }
+                MutableAuditFacts facts = mutable.computeIfAbsent(record.getUserId(), ignored -> new MutableAuditFacts());
+                facts.latestAudits.putIfAbsent(record.getAuditType(), record);
+                if (AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus())) {
+                    facts.effectiveAuditTypes.add(record.getAuditType());
+                }
+                if (AppUserAuditTypeEnum.ALBUM_PHOTO.getCode().equals(record.getAuditType())
+                        && record.getStatus() != null
+                        && !AppUserAuditStatusEnum.EXPIRED.getCode().equals(record.getStatus())
+                        && StrUtil.isNotBlank(record.getMediaUrl())) {
+                    facts.albumRecords.add(record);
+                }
+            }
+
+            Comparator<AppUserAuditRecord> albumOrder = Comparator
+                    .comparing(AppUserAuditRecord::getSubmitTime,
+                            Comparator.nullsFirst(Comparator.naturalOrder()))
+                    .thenComparing(AppUserAuditRecord::getId,
+                            Comparator.nullsFirst(Comparator.naturalOrder()));
+            Map<Long, UserAuditFacts> result = new LinkedHashMap<>();
+            mutable.forEach((userId, facts) -> {
+                facts.albumRecords.sort(albumOrder);
+                List<String> albumPhotos = facts.albumRecords.stream()
+                        .map(AppUserAuditRecord::getMediaUrl)
+                        .toList();
+                result.put(userId, new UserAuditFacts(
+                        Map.copyOf(facts.latestAudits),
+                        Set.copyOf(facts.effectiveAuditTypes),
+                        List.copyOf(albumPhotos)));
+            });
+            return new AuditPageData(Map.copyOf(result));
+        }
+
+        private UserAuditFacts factsFor(Long userId) {
+            return byUser.getOrDefault(userId, UserAuditFacts.empty());
+        }
+
+        private Map<Long, Map<String, AppUserAuditRecord>> latestByUser() {
+            Map<Long, Map<String, AppUserAuditRecord>> result = new HashMap<>();
+            byUser.forEach((userId, facts) -> result.put(userId, facts.latestAudits()));
+            return result;
+        }
+    }
+
+    private static final class MutableAuditFacts {
+        private final Map<String, AppUserAuditRecord> latestAudits = new HashMap<>();
+        private final Set<String> effectiveAuditTypes = new HashSet<>();
+        private final List<AppUserAuditRecord> albumRecords = new ArrayList<>();
     }
 }

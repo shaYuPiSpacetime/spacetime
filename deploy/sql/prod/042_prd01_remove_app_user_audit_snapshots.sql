@@ -26,12 +26,36 @@ BEGIN
     END IF;
 END $$
 
+DROP PROCEDURE IF EXISTS spacetime_drop_index_if_exists $$
+CREATE PROCEDURE spacetime_drop_index_if_exists(
+    IN p_table_name VARCHAR(64),
+    IN p_index_name VARCHAR(64)
+)
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = p_table_name
+          AND INDEX_NAME = p_index_name
+    ) THEN
+        SET @sql_text = CONCAT('ALTER TABLE `', p_table_name, '` DROP INDEX `', p_index_name, '`');
+        PREPARE stmt FROM @sql_text;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END $$
+
 DELIMITER ;
 
+CALL spacetime_drop_index_if_exists('app_user', 'idx_app_user_profile_score');
+CALL spacetime_drop_index_if_exists('app_user', 'idx_profile_score');
 CALL spacetime_drop_column_if_exists('app_user', 'avatar');
 CALL spacetime_drop_column_if_exists('app_user', 'photos');
 CALL spacetime_drop_column_if_exists('app_user', 'profile_bg_image');
 CALL spacetime_drop_column_if_exists('app_user', 'about_me');
 CALL spacetime_drop_column_if_exists('app_user', 'hope_they_know');
+CALL spacetime_drop_column_if_exists('app_user', 'profile_score');
 
+DROP PROCEDURE IF EXISTS spacetime_drop_index_if_exists;
 DROP PROCEDURE IF EXISTS spacetime_drop_column_if_exists;

@@ -157,3 +157,77 @@ JDK: C:\Users\50449\.jdks\ms-21.0.11
 | 全量 Maven 测试 | 231 条通过，0 失败，1 条非本模块种子测试跳过 |
 | 真实接口 | `peter` 登录、App 用户列表、用户详情、头像审核列表和头像审核详情均返回 `code=200`；列表共 63 用户、头像审核共 17 条 |
 | 运行状态 | 最新后端已连接真实 MySQL 并监听 `8080`，进程 PID `21624`；启动和接口日志无 `Unknown column` 或 SQL 异常 |
+
+## 12. 状态轻量与模块详情接口回归（2026-07-14）
+
+| 检查项 | 结果 |
+|--------|------|
+| 三重认证状态接口 | `GET /miniapp/verify/status` 保持轻量，只返回状态、原因、提交权限、SLA、核心准入，不承载模块提交明细 |
+| 自我介绍详情接口 | 新增 `GET /miniapp/profile/introduction`，返回 `latestContent/effectiveContent/auditStatus/canSubmit`，覆盖本人最新提交与对外生效内容分离 |
+| 实名详情接口 | 新增 `GET /miniapp/verify/real-name`，返回脱敏 `realName/idCardNo`、状态、原因、提交权限；不返回手机号明文 |
+| 学历详情接口 | 新增 `GET /miniapp/verify/education`，返回最近一次提交快照、认证方式、材料、SLA、提交权限和原因 |
+| 学历身份映射 | `STUDENT` 派生 `identityCode=STUDENT（在校生）`；`MAINLAND_GRADUATE` 派生 `identityCode=WORKER（职场人）`，后台学历列表和详情同口径展示 |
+| 测试库场景数据 | 已执行 `deploy/sql/prod/044_prd01_education_audit_demo_seed.sql`，生成 5 条学历审核记录：`PENDING/REVIEWING/APPROVED/REJECTED/EXPIRED` 各 1 条 |
+| 学历认证方式覆盖 | 测试数据覆盖 `STUDENT_CARD`、`CHSI`、`DIPLOMA_NO`、`MATERIAL_UPLOAD`，并覆盖 `MACHINE/MANUAL` 审核来源 |
+| 目标测试 | `VerificationServiceImplTest`、`OpenTextAuditServiceImplTest`、`VerificationControllerTest`、`ProfileControllerAvatarTest` 共 21 条通过 |
+| 全量后端测试 | `mvn "-Denforcer.skip=true" test`：244 条执行，0 失败，1 条既有跳过 |
+
+结论：移动端“状态接口轻量、详情接口按模块拆开”的对接方式已落到后端接口、接口文档和测试覆盖；后台学历审核列表不再因用户主表身份为空而显示 `-`。
+
+## 13. 小程序独立接口与旧接口清理回归（2026-07-14）
+
+| 检查项 | 结果 |
+|--------|------|
+| 新对接口径 | 小程序新流程统一使用 `home-detail/basic/avatar/albums/background/introduction/about-me/voice-intro` 及独立非审核字段接口 |
+| 旧接口清理 | 小程序 Controller 已移除 `GET /miniapp/profile/detail`、`PATCH /miniapp/profile`、`POST /miniapp/profile/media`、`DELETE /miniapp/profile/media/{id}`、`POST /miniapp/profile/open-text` |
+| 对接文档 | `mobile-api-handoff.md` 已作为唯一新接口口径，旧接口只保留在“不要新接入”替代表中 |
+| 背景图接口 | 新增 `GET/PUT/DELETE /miniapp/profile/background`，替换时新图审核通过前旧图继续对外展示，删除时审核记录置失效 |
+| 相册接口 | `POST/PUT/DELETE /miniapp/profile/albums` 按配置校验数量、大小、格式；替换/删除均保留审核历史 |
+| 关于我接口 | `GET/POST /miniapp/profile/about-me` 覆盖固定题目、最新内容、生效内容、审核状态和提交权限 |
+| 字典接口 | `GET /miniapp/dict/profile-options` 覆盖身份、学历、行业、职业、年收入、婚姻、脱单目标、感情状态、我的标签 9 类字典 |
+| 静态对齐脚本 | `node scripts/prd01_mobile_alignment_check.mjs` 执行通过，并生成 `docs/测试文档/验收截图/full/prd01-mobile-interface-alignment-matrix.md` |
+| 针对性单测 | `mvn '-Dtest=ProfileMediaServiceImplTest,ProfileControllerAvatarTest' test '-Denforcer.skip=true'`：11 条通过，0 失败 |
+| 全量后端测试 | `mvn test '-Denforcer.skip=true'`：250 条执行，0 失败，1 条既有 `PromotionInviteSeedDataTest` 跳过 |
+
+结论：小程序接口文档、Controller 路由、测试用例、L1 脚本和自动对齐矩阵已统一到独立接口方案；没有用的旧接口不再作为新小程序对接入口。
+
+## 14. 小程序旧契约瘦身复核（2026-07-14）
+
+| 检查项 | 结果 |
+|--------|------|
+| 旧请求对象 | `ProfileUpdateReq`、`OpenTextSubmitReq` 已删除，后端不再保留旧 `PATCH /miniapp/profile` 和通用开放文字提交契约 |
+| 旧 service 方法 | `ProfileService.updateProfile`、`OpenTextAuditService.submitOpenText` 已删除；开放文字仅保留自我介绍、关于我两个清晰入口 |
+| 旧路由扫描 | `rg` 扫描 `backend/src/main/java`、`backend/src/test/java`、对齐脚本，未命中旧路由、旧 DTO、旧方法 |
+| 接口对接文档 | `mobile-api-handoff.md` 作为唯一新接口口径；旧接口仅在“不要新接入的旧接口”表说明替代关系 |
+| 静态对齐脚本 | `node scripts/prd01_mobile_alignment_check.mjs` 通过 |
+| 全量后端测试 | `mvn test '-Denforcer.skip=true'`：250 条执行，0 失败，0 错误，1 条既有种子数据测试跳过 |
+
+## 15. 小程序资料与认证接口真实数据回归（2026-07-14）
+
+执行脚本：`node docs/测试文档/prd01-miniapp-all-interfaces-l1.mjs`
+
+| 检查项 | 结果 |
+|--------|------|
+| 测试方式 | 真实调用本地后端 `http://127.0.0.1:8080`，先走手机号验证码登录，再逐个调用小程序接口，最后用 `peter/000000` 登录后台按 `userId` 回查列表和详情 |
+| 测试用户 | `userId=71`，手机号 `19003710608`，本轮唯一标识 `20260714043510` |
+| 执行结果 | 60 个接口/回查步骤全部通过，0 失败 |
+| 覆盖接口 | 短信验证码、手机号登录、运行配置、资料字典、地区懒加载、首登五步、基础资料查询/保存、主页详情、头像查询/提交、实名认证查询/提交、学历查询/四种方式提交、相册查询/新增/替换/删除、背景图查询/提交/删除/再提交、自我介绍查询/提交、关于我查询/提交、脱单目标、感情状态、标签、歌曲搜索/保存、微信号查询/保存、语音查询/提交/删除、准入状态、认证状态 |
+| 后台实名回查 | `admin real-name list/detail by userId` 返回 1 条，提交时间 `2026-07-14 12:35:16`，状态 `APPROVED` |
+| 后台学历回查 | `admin education list/detail by userId` 返回 4 条，覆盖 `STUDENT_CARD`、`CHSI`、`DIPLOMA_NO`、`MATERIAL_UPLOAD`，提交时间 `2026-07-14 12:35:16` 至 `2026-07-14 12:35:18`，状态均 `APPROVED` |
+| 后台头像回查 | `admin avatar list/detail by userId` 返回 1 条，提交时间 `2026-07-14 12:35:15`，状态 `APPROVED` |
+| 后台资料图片回查 | `admin moderation photos list/detail by userId` 返回 5 条：资料背景图 `APPROVED/EXPIRED`、相册图片 `APPROVED/EXPIRED/EXPIRED`，提交时间 `2026-07-14 12:35:18` 至 `2026-07-14 12:35:20` |
+| 后台文字内容回查 | `admin moderation texts list/detail by userId` 返回 2 条：`关于我`、`资料问答`，提交时间 `2026-07-14 12:35:20`，状态均 `APPROVED` |
+| 结论 | 这次不是旧 seed 或旧截图数据；相册、背景图、关于我、资料问答均通过移动端真实接口生成审核记录，并能在后台对应列表和详情按本轮用户查到 |
+
+## 16. 我的标签分类接口回归（2026-07-14）
+
+| 检查项 | 结果 |
+|--------|------|
+| 分类来源 | 按移动端需求/UI 标签页返回 `全部 / MBTI / 性格 / 爱好 / 运动 / 足迹` |
+| 字典存储 | `app_profile_tag` 根节点存标签分类，子节点存具体标签；通过 `sys_dict_data.parent_id` 归属分类，`remark` 仅作说明文字；`app_user.tags` 仍只存标签 code 数组 |
+| 接口变化 | `GET /miniapp/dict/profile-options` 保留 `profileTag` 扁平列表，新增 `profileTagGroups` 分组列表 |
+| 保存接口 | `PUT /miniapp/profile/tags` 不变，仍提交 `tagCodes`，后端按 `app_profile_tag` 字典校验 |
+| 测试库数据 | 已补齐测试库标签分类；`node scripts/seed_prd01_profile_tag_categories.mjs` 可重复执行，会创建/更新分类父节点并把标签挂到对应父节点 |
+| 单元测试 | `MiniappDictServiceImplTest`、`MiniappDictControllerTest` 共 6 条通过 |
+| 真实接口回归 | `node docs/测试文档/prd01-miniapp-all-interfaces-l1.mjs` 通过，`60/60`，新用户 `userId=74`；脚本已校验 `profileTagGroups` 包含 6 个分类且标签项带 `categoryCode/categoryLabel` |
+| 父子结构核验 | `app_profile_tag` 根节点为 `MBTI/PERSONALITY/HOBBY/SPORT/FOOTPRINT`，子标签数量分别为 `16/4/6/5/5` |

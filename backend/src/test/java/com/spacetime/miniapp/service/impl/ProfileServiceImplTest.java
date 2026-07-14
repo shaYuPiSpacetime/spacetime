@@ -6,16 +6,25 @@ import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.enums.AccountStatusEnum;
+import com.spacetime.common.enums.AppUserAuditStatusEnum;
+import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.provider.SongSearchProvider;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
+import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.miniapp.dto.request.ProfileInitStepReq;
 import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
+import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.BasicProfileVO;
+import com.spacetime.miniapp.dto.response.ProfileDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileInitStatusVO;
+import com.spacetime.miniapp.service.VerificationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +54,10 @@ class ProfileServiceImplTest {
     private AppUserAuditContentService auditContentService;
     @Mock
     private ProfileDictionaryService profileDictionaryService;
+    @Mock
+    private VerificationService verificationService;
+    @Mock
+    private SongSearchProvider songSearchProvider;
 
     @Test
     @DisplayName("选填步骤允许空值提交并推进进度")
@@ -310,10 +323,72 @@ class ProfileServiceImplTest {
         verify(appUserDao, never()).updateById(user);
     }
 
+    @Test
+    @DisplayName("准入状态按后台年龄门槛拦截超龄用户")
+    void shouldBlockAccessWhenBirthdayOutsideConfiguredAgeRange() {
+        org.mockito.Mockito.lenient().when(appConfigDao.selectByKeys(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(List.of(
+                        config("prd01.access.minAge", "25", "PRD01_ACCESS"),
+                        config("prd01.access.maxAge", "30", "PRD01_ACCESS"),
+                        config("prd01.copy.rules",
+                                "{\"rows\":[{\"copyKey\":\"error_age_not_allowed\",\"enabled\":true,\"content\":\"年龄不符合准入要求\"}]}",
+                                "PRD01_COPY")
+                ));
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setBirthday(LocalDate.of(1980, 1, 1));
+        when(appUserDao.selectById(7L)).thenReturn(user);
+
+        AccessStatusVO result = newService().getAccessStatus(7L);
+
+        assertThat(result.getCoreAccessStatus()).isEqualTo("CORE_BLOCKED");
+        assertThat(result.getCanBrowseCards()).isFalse();
+        assertThat(result.getBlockReasons()).contains("年龄不符合准入要求");
+    }
+
+    @Test
+    @DisplayName("资料完整度按后台计分配置和审核记录实时计算")
+    void shouldCalculateProfileScoreFromRuntimeConfigAndAuditRecords() {
+        org.mockito.Mockito.lenient().when(appConfigDao.selectByKeys(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(List.of(
+                        config("prd01.profile.fieldSettings",
+                                "{\"rows\":["
+                                        + "{\"fieldId\":\"avatarImage\",\"visible\":true,\"scoreEnabled\":true},"
+                                        + "{\"fieldId\":\"aboutMe\",\"visible\":true,\"scoreEnabled\":true}"
+                                        + "]}",
+                                "PRD01_PROFILE_FIELD"),
+                        config("prd01.profile.scoreWeights",
+                                "{\"rows\":["
+                                        + "{\"fieldId\":\"avatarImage\",\"label\":\"头像\",\"studentScore\":4,\"workerScore\":4},"
+                                        + "{\"fieldId\":\"aboutMe\",\"label\":\"关于我\",\"studentScore\":5,\"workerScore\":5}"
+                                        + "]}",
+                                "PRD01_PROFILE_SCORE")
+                ));
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setIdentity("WORKER");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        org.mockito.Mockito.lenient().when(auditService.latestRecord(7L, AppUserAuditTypeEnum.AVATAR))
+                .thenReturn(record(AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED));
+        org.mockito.Mockito.lenient().when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.ABOUT_ME))
+                .thenReturn(record(AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditStatusEnum.APPROVED));
+
+        ProfileDetailVO result = newService().getDetail(7L);
+
+        assertThat(result.getProfileScore()).isEqualTo(9);
+    }
+
     private ProfileServiceImpl newService() {
-        Prd01FieldConfigResolver resolver = new Prd01FieldConfigResolver(appConfigDao, new ObjectMapper());
-        return new ProfileServiceImpl(appUserDao, new ProfileScoreConfig(), auditService, auditContentService,
-                resolver, profileDictionaryService, new ObjectMapper());
+        ObjectMapper mapper = new ObjectMapper();
+        Prd01FieldConfigResolver resolver = new Prd01FieldConfigResolver(appConfigDao, mapper);
+        ProfileScoreConfig scoreConfig = new ProfileScoreConfig();
+        Prd01RuntimeConfigResolver runtimeConfigResolver = new Prd01RuntimeConfigResolver(appConfigDao, mapper);
+        Prd01AccessEvaluator accessEvaluator = new Prd01AccessEvaluator(scoreConfig, auditService, runtimeConfigResolver);
+        Prd01ProfileCompletenessCalculator completenessCalculator =
+                new Prd01ProfileCompletenessCalculator(runtimeConfigResolver, auditService);
+        return new ProfileServiceImpl(appUserDao, scoreConfig, auditService, auditContentService,
+                resolver, profileDictionaryService, mapper, accessEvaluator, completenessCalculator,
+                runtimeConfigResolver, verificationService, songSearchProvider);
     }
 
     private AppUser baseUser(Integer nextStep) {
@@ -340,6 +415,21 @@ class ProfileServiceImplTest {
         config.setConfigValue(value);
         config.setConfigGroup("PRD01_PROFILE_FIELD");
         return config;
+    }
+
+    private AppConfig config(String key, String value, String group) {
+        AppConfig config = new AppConfig();
+        config.setConfigKey(key);
+        config.setConfigValue(value);
+        config.setConfigGroup(group);
+        return config;
+    }
+
+    private AppUserAuditRecord record(AppUserAuditTypeEnum type, AppUserAuditStatusEnum status) {
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setAuditType(type.getCode());
+        record.setStatus(status.getCode());
+        return record;
     }
 
     private String optionalBirthday() {

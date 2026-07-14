@@ -43,9 +43,13 @@ CREATE TABLE IF NOT EXISTS app_user (
     education_level VARCHAR(30) DEFAULT NULL COMMENT '学历字典code：app_education_level',
     -- 扩展资料字段
     tags JSON DEFAULT NULL COMMENT '标签列表 JSON',
+    wechat_id VARCHAR(64) DEFAULT NULL COMMENT '微信号，仅本人资料页可见',
+    favorite_song_id VARCHAR(128) DEFAULT NULL COMMENT '爱听歌曲三方ID',
+    favorite_song_name VARCHAR(128) DEFAULT NULL COMMENT '爱听歌曲名称',
+    favorite_song_artist VARCHAR(128) DEFAULT NULL COMMENT '爱听歌曲歌手',
+    favorite_song_cover_url VARCHAR(255) DEFAULT NULL COMMENT '爱听歌曲封面URL',
     mbti_type VARCHAR(10) DEFAULT NULL COMMENT 'MBTI类型',
     zodiac VARCHAR(10) DEFAULT NULL COMMENT '星座（系统计算）',
-    profile_score INT DEFAULT 0 COMMENT '资料完整度分（系统计算）',
     -- 通用字段
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -58,7 +62,6 @@ CREATE TABLE IF NOT EXISTS app_user (
     INDEX idx_first_login (first_login_completed),
     INDEX idx_gender (gender),
     INDEX idx_school (school),
-    INDEX idx_profile_score (profile_score),
     INDEX idx_register_time (register_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='小程序用户主表';
 

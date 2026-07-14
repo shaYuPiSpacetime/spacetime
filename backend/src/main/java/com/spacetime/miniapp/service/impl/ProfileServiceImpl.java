@@ -8,31 +8,42 @@ import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
-import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.enums.GenderEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.provider.SongSearchProvider;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
+import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
+import com.spacetime.miniapp.dto.request.FavoriteSongSaveReq;
+import com.spacetime.miniapp.dto.request.ProfileCodeSaveReq;
 import com.spacetime.miniapp.dto.request.ProfileInitStepReq;
-import com.spacetime.miniapp.dto.request.ProfileUpdateReq;
+import com.spacetime.miniapp.dto.request.ProfileTagsSaveReq;
+import com.spacetime.miniapp.dto.request.WechatIdSaveReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.BasicProfileFieldVO;
 import com.spacetime.miniapp.dto.response.BasicProfileVO;
 import com.spacetime.miniapp.dto.response.ProfileDetailVO;
+import com.spacetime.miniapp.dto.response.ProfileHomeDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileInitStatusVO;
+import com.spacetime.miniapp.dto.response.SongOptionVO;
+import com.spacetime.miniapp.dto.response.VerificationStatusVO;
 import com.spacetime.miniapp.service.ProfileService;
+import com.spacetime.miniapp.service.VerificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 用户资料服务实现
@@ -53,6 +64,11 @@ public class ProfileServiceImpl implements ProfileService {
     private final Prd01FieldConfigResolver fieldConfigResolver;
     private final ProfileDictionaryService profileDictionaryService;
     private final ObjectMapper objectMapper;
+    private final Prd01AccessEvaluator accessEvaluator;
+    private final Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
+    private final Prd01RuntimeConfigResolver runtimeConfigResolver;
+    private final VerificationService verificationService;
+    private final SongSearchProvider songSearchProvider;
 
     /**
      * 查询首登初始化状态
@@ -130,8 +146,6 @@ public class ProfileServiceImpl implements ProfileService {
             user.setAge(scoreConfig.calculateAge(user.getBirthday()));
             user.setZodiac(scoreConfig.calculateZodiac(user.getBirthday()));
         }
-        // 计算资料完整度
-        user.setProfileScore(scoreConfig.calculate(user));
         appUserDao.updateById(user);
 
         ProfileInitStatusVO vo = new ProfileInitStatusVO();
@@ -152,6 +166,31 @@ public class ProfileServiceImpl implements ProfileService {
     @Override
     public ProfileDetailVO getDetail(Long userId) {
         return toDetailVO(requireUser(userId), true);
+    }
+
+    @Override
+    public ProfileHomeDetailVO getHomeDetail(Long userId) {
+        AppUser user = requireUser(userId);
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot = runtimeConfigResolver.snapshot();
+        Map<String, Object> runtime = new LinkedHashMap<>();
+        runtime.put("accessPolicy", runtimeConfigResolver.accessPolicy(snapshot));
+        runtime.put("fieldSettings", runtimeConfigResolver.fieldSettings(snapshot));
+        runtime.put("profileCompleteness", runtimeConfigResolver.profileCompleteness(snapshot));
+        runtime.put("uploadLimits", runtimeConfigResolver.uploadLimits(snapshot));
+        runtime.put("copywriting", runtimeConfigResolver.copywriting(snapshot));
+        runtime.put("auditPolicy", runtimeConfigResolver.auditPolicy(snapshot).toMap());
+        runtime.put("configUpdatedAt", runtimeConfigResolver.configUpdatedAt(snapshot));
+
+        VerificationStatusVO verificationStatus = verificationService.getStatus(userId);
+        ProfileHomeDetailVO vo = new ProfileHomeDetailVO();
+        vo.setProfile(toDetailVO(user, true));
+        vo.setFieldSettings(fieldConfigResolver.basicFieldsForMobile());
+        vo.setVerificationStatus(verificationStatus);
+        vo.setAccessStatus(verificationStatus.getAccessStatus());
+        vo.setProfileOptionsPath("/miniapp/dict/profile-options");
+        vo.setLocationOptionsPath("/miniapp/dict/locations?parentCode={parentCode}");
+        vo.setRuntimeConfig(runtime);
+        return vo;
     }
 
     /** 查询基础资料页反显值、年龄范围、缺失必填项和字段配置。 */
@@ -178,72 +217,80 @@ public class ProfileServiceImpl implements ProfileService {
         applyBasicProfileFields(user, req, settings);
         fieldConfigResolver.validateRequiredBasicFields(user, settings);
 
-        user.setProfileScore(scoreConfig.calculate(user));
         appUserDao.updateById(user);
         return toBasicProfileVO(user, settings);
     }
 
-    /**
-     * 增量更新资料（PATCH 语义）
-     * null 字段不更新；头像变更重置头像认证，文字变更重置文字审核
-     * @param userId 用户ID
-     * @param req 需要更新的字段
-     * @return 更新后的完整资料
-     */
     @Override
     @Transactional
-    public ProfileDetailVO updateProfile(Long userId, ProfileUpdateReq req) {
+    public ProfileDetailVO saveDatingGoal(Long userId, ProfileCodeSaveReq req) {
         AppUser user = requireUser(userId);
-        validateMainlandRegion(req);
-        // 增量更新：只更新非 null 字段
-        if (StrUtil.isNotBlank(req.getNickname())) {
-            validateNickname(req.getNickname());
-            user.setNickname(req.getNickname());
-        }
-        if (req.getBirthday() != null) {
-            user.setBirthday(LocalDate.parse(req.getBirthday()));
-            user.setAge(scoreConfig.calculateAge(user.getBirthday()));
-            user.setZodiac(scoreConfig.calculateZodiac(user.getBirthday()));
-        }
-        if (req.getHeight() != null) user.setHeight(req.getHeight());
-        if (req.getWeight() != null) user.setWeight(req.getWeight());
-        if (req.getIdentity() != null) {
-            user.setIdentity(profileDictionaryService.requireCode(
-                    ProfileDictType.IDENTITY, req.getIdentity(), "身份"));
-        }
-        if (req.getOccupation() != null) {
-            user.setOccupation(profileDictionaryService.requireCode(
-                    ProfileDictType.OCCUPATION, req.getOccupation(), "职业"));
-        }
-        if (req.getAnnualIncome() != null) {
-            user.setAnnualIncome(profileDictionaryService.requireCode(
-                    ProfileDictType.ANNUAL_INCOME, req.getAnnualIncome(), "年收入"));
-        }
-        if (req.getLocationProvince() != null) user.setLocationProvince(req.getLocationProvince());
-        if (req.getLocationCity() != null) user.setLocationCity(req.getLocationCity());
-        if (req.getLocationDistrict() != null) user.setLocationDistrict(req.getLocationDistrict());
-        if (req.getHometownProvince() != null) user.setHometownProvince(req.getHometownProvince());
-        if (req.getHometownCity() != null) user.setHometownCity(req.getHometownCity());
-        if (req.getHometownDistrict() != null) user.setHometownDistrict(req.getHometownDistrict());
-        if (req.getSchool() != null) user.setSchool(req.getSchool());
-        if (req.getMajor() != null) user.setMajor(req.getMajor());
-        if (req.getEducationLevel() != null) {
-            user.setEducationLevel(profileDictionaryService.requireCode(
-                    ProfileDictType.EDUCATION_LEVEL, req.getEducationLevel(), "学历"));
-        }
-        if (req.getEmotionalStatus() != null) user.setEmotionalStatus(req.getEmotionalStatus());
-        if (req.getDatingGoal() != null) user.setDatingGoal(req.getDatingGoal());
-        if (req.getMaritalStatus() != null) {
-            user.setMaritalStatus(profileDictionaryService.requireCode(
-                    ProfileDictType.MARITAL_STATUS, req.getMaritalStatus(), "婚姻状况"));
-        }
-        if (req.getChildrenPlan() != null) user.setChildrenPlan(req.getChildrenPlan());
-        if (req.getWantChild() != null) user.setWantChild(req.getWantChild());
-        if (req.getMbtiType() != null) user.setMbtiType(req.getMbtiType());
-
-        user.setProfileScore(scoreConfig.calculate(user));
+        String code = profileDictionaryService.requireCode(
+                ProfileDictType.DATING_GOAL, req == null ? null : req.getCode(), "脱单目标");
+        user.setDatingGoal(code);
         appUserDao.updateById(user);
+        return toDetailVO(user, true);
+    }
 
+    @Override
+    @Transactional
+    public ProfileDetailVO saveEmotionalStatus(Long userId, ProfileCodeSaveReq req) {
+        AppUser user = requireUser(userId);
+        String code = profileDictionaryService.requireCode(
+                ProfileDictType.EMOTIONAL_STATUS, req == null ? null : req.getCode(), "感情状态");
+        user.setEmotionalStatus(code);
+        appUserDao.updateById(user);
+        return toDetailVO(user, true);
+    }
+
+    @Override
+    @Transactional
+    public ProfileDetailVO saveTags(Long userId, ProfileTagsSaveReq req) {
+        AppUser user = requireUser(userId);
+        List<String> codes = req == null || req.getTagCodes() == null ? List.of() : req.getTagCodes();
+        if (codes.size() > 16) {
+            throw new BusinessException("标签最多选择16个");
+        }
+        List<String> normalized = codes.stream()
+                .map(code -> profileDictionaryService.requireCode(ProfileDictType.PROFILE_TAG, code, "标签"))
+                .distinct()
+                .toList();
+        user.setTags(toJson(normalized));
+        appUserDao.updateById(user);
+        return toDetailVO(user, true);
+    }
+
+    @Override
+    public List<SongOptionVO> searchSongs(String keyword, Integer limit) {
+        int safeLimit = limit == null ? 10 : Math.max(1, Math.min(limit, 20));
+        return songSearchProvider.search(keyword, safeLimit);
+    }
+
+    @Override
+    @Transactional
+    public ProfileDetailVO saveFavoriteSong(Long userId, FavoriteSongSaveReq req) {
+        AppUser user = requireUser(userId);
+        if (req == null || StrUtil.isBlank(req.getSongId()) || StrUtil.isBlank(req.getSongName())) {
+            throw new BusinessException("请选择歌曲");
+        }
+        user.setFavoriteSongId(req.getSongId().trim());
+        user.setFavoriteSongName(req.getSongName().trim());
+        user.setFavoriteSongArtist(trimToNull(req.getArtistName()));
+        user.setFavoriteSongCoverUrl(trimToNull(req.getCoverUrl()));
+        appUserDao.updateById(user);
+        return toDetailVO(user, true);
+    }
+
+    @Override
+    @Transactional
+    public ProfileDetailVO saveWechatId(Long userId, WechatIdSaveReq req) {
+        AppUser user = requireUser(userId);
+        String wechatId = trimToNull(req == null ? null : req.getWechatId());
+        if (wechatId == null || !wechatId.matches("[A-Za-z][A-Za-z0-9_-]{5,19}")) {
+            throw new BusinessException("微信号格式不正确");
+        }
+        user.setWechatId(wechatId);
+        appUserDao.updateById(user);
         return toDetailVO(user, true);
     }
 
@@ -255,49 +302,13 @@ public class ProfileServiceImpl implements ProfileService {
      */
     @Override
     public AccessStatusVO getAccessStatus(Long userId) {
-        AppUser user = requireUser(userId);
-        AccessStatusVO vo = new AccessStatusVO();
-        if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() != 1) {
-            applyBlocked(vo, false, "请先完成资料初始化");
-            return vo;
-        }
-        if (AccountStatusEnum.FROZEN.getCode().equals(user.getAccountStatus())
-                || AccountStatusEnum.CANCELLED.getCode().equals(user.getAccountStatus())) {
-            applyBlocked(vo, false, "账号状态异常");
-            return vo;
-        }
-        boolean tripleApproved = auditService.certificationApprovedCount(userId) == 3;
-        vo.setCanBrowseCards(true);
-        vo.setCanCommunity(true);
-        vo.setCanMatch(tripleApproved);
-        vo.setCanMessage(tripleApproved);
-        vo.setCanBeExposed(tripleApproved);
-        vo.setCoreAccessStatus(tripleApproved ? "CORE_ALLOWED" : "NON_CORE_ONLY");
-        vo.setBlockReasons(tripleApproved ? List.of() : List.of("三重认证未全部通过"));
-        return vo;
-    }
-
-    private void applyBlocked(AccessStatusVO vo, boolean canBrowse, String reason) {
-        vo.setCanBrowseCards(canBrowse);
-        vo.setCanCommunity(canBrowse);
-        vo.setCanMatch(false);
-        vo.setCanMessage(false);
-        vo.setCanBeExposed(false);
-        vo.setCoreAccessStatus("CORE_BLOCKED");
-        vo.setBlockReasons(List.of(reason));
+        return accessEvaluator.evaluate(requireUser(userId));
     }
 
     /** 校验昵称长度 2-12 字符 */
     private void validateNickname(String nickname) {
         if (nickname.length() < 2 || nickname.length() > 12) {
             throw new BusinessException("昵称需2-12个字符");
-        }
-    }
-
-    /** 校验关于我长度 20-300 字 */
-    private void validateAboutMe(String aboutMe) {
-        if (StrUtil.isNotBlank(aboutMe) && (aboutMe.length() < 20 || aboutMe.length() > 300)) {
-            throw new BusinessException("关于我需20-300个字");
         }
     }
 
@@ -308,15 +319,6 @@ public class ProfileServiceImpl implements ProfileService {
         }
         validateRegionValues(req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(),
                 null, null, null);
-    }
-
-    /** 首版仅支持中国大陆省市区；命中海外、国家、港澳台时直接拒绝且不写库。 */
-    private void validateMainlandRegion(ProfileUpdateReq req) {
-        if (req == null) {
-            return;
-        }
-        validateRegionValues(req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(),
-                req.getHometownProvince(), req.getHometownCity(), req.getHometownDistrict());
     }
 
     /** 基础资料页的现居地和家乡都只允许中国大陆地区。 */
@@ -544,11 +546,9 @@ public class ProfileServiceImpl implements ProfileService {
             }
             case 2 -> {
                 if (StrUtil.isNotBlank(req.getBirthday())) {
-                    try {
-                        user.setBirthday(LocalDate.parse(req.getBirthday()));
-                    } catch (Exception ex) {
-                        throw new BusinessException("出生日期格式必须为yyyy-MM-dd");
-                    }
+                    LocalDate birthday = parseBirthday(req.getBirthday());
+                    validateAllowedAge(birthday);
+                    user.setBirthday(birthday);
                 }
             }
             case 3 -> {
@@ -606,11 +606,16 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setHopeTheyKnow(auditContentService.ownerText(user.getId(), AppUserAuditTypeEnum.HOPE_THEY_KNOW));
         applyVoiceIntro(vo, user.getId());
         vo.setTags(user.getTags());
+        vo.setWechatId(user.getWechatId());
+        vo.setFavoriteSongId(user.getFavoriteSongId());
+        vo.setFavoriteSongName(user.getFavoriteSongName());
+        vo.setFavoriteSongArtist(user.getFavoriteSongArtist());
+        vo.setFavoriteSongCoverUrl(user.getFavoriteSongCoverUrl());
         vo.setPhotos(toJson(auditContentService.ownerAlbumPhotos(user.getId())));
         vo.setProfileBgImage(auditContentService.ownerProfileBackground(user.getId()));
         vo.setMbtiType(user.getMbtiType());
         vo.setZodiac(user.getZodiac());
-        vo.setProfileScore(user.getProfileScore());
+        vo.setProfileScore(profileCompletenessCalculator.calculate(user));
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1);
         if (includeAccessStatus) {
             vo.setAccessStatus(getAccessStatus(user.getId()));
@@ -646,7 +651,7 @@ public class ProfileServiceImpl implements ProfileService {
         Prd01FieldConfigResolver.AgeRange ageRange = fieldConfigResolver.ageRange();
         vo.setMinAge(ageRange.minAge());
         vo.setMaxAge(ageRange.maxAge());
-        vo.setProfileScore(user.getProfileScore());
+        vo.setProfileScore(profileCompletenessCalculator.calculate(user));
         List<String> missing = fieldConfigResolver.missingRequiredBasicFields(user, settings);
         vo.setMissingRequiredFields(missing);
         vo.setBasicProfileCompleted(missing.isEmpty());

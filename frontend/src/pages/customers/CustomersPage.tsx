@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
@@ -22,9 +22,11 @@ import {
   exportAppUsers,
   getAppUserDetail,
   getAppUserList,
+  getAppUserStats,
   importAppUsers,
   updateAppUserStatus,
   type AppUserListVO,
+  type AppUserStatsVO,
   type AppUserDetailVO,
   type ExportTaskVO,
   type ImportBatchVO,
@@ -52,6 +54,17 @@ interface CoinRecord {
 interface UserStats {
   total: number;
   coreAllowed: number;
+}
+
+interface AppUserFilters extends Record<string, string | undefined> {
+  keyword?: string;
+  coreAccessStatus?: string;
+  verificationStatus?: string;
+  identity?: string;
+  city?: string;
+  relationshipAccess?: string;
+  vipStatus?: string;
+  hideVisitRecord?: string;
 }
 
 interface AdminUserCardItem extends AppUserListVO {
@@ -189,7 +202,7 @@ const HIDE_VISIT_RECORD_OPTIONS = [
   { value: 'UNAVAILABLE', label: '权益不可用' },
 ];
 
-const PAGE_SIZE = 10;
+const APP_USER_PAGE_SIZE = 9;
 
 function responseData<T>(res: unknown, fallback: T): T {
   return (res as any)?.data ?? fallback;
@@ -739,6 +752,7 @@ export default function CustomersPage() {
   const [memberLevel, setMemberLevel] = useState('');
   const [followStatus, setFollowStatus] = useState('');
   const [hideVisitRecord, setHideVisitRecord] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<AppUserFilters>({});
   const [listView, setListView] = useState<'card' | 'table'>('card');
   const [page, setPage] = useState(1);
   const [users, setUsers] = useState<AdminUserCardItem[]>([]);
@@ -751,45 +765,40 @@ export default function CustomersPage() {
   const [workflowDialog, setWorkflowDialog] = useState<'import' | 'export' | null>(null);
   const [workflowResult, setWorkflowResult] = useState<ImportBatchVO | ExportTaskVO | null>(null);
   const [workflowProcessing, setWorkflowProcessing] = useState(false);
+  const listRequestSequence = useRef(0);
 
   const fetchUsers = useCallback(async () => {
+    const requestSequence = ++listRequestSequence.current;
     setLoading(true);
     try {
       const res = await getAppUserList({
         page,
-        size: PAGE_SIZE,
-        keyword: keyword.trim() || undefined,
-        coreAccessStatus: coreAccessStatus || undefined,
-        verificationStatus: verificationStatus || undefined,
-        identity: identity || undefined,
-        city: city || undefined,
-        relationshipAccess: followStatus || undefined,
-        vipStatus: memberLevel || undefined,
-        hideVisitRecord: hideVisitRecord || undefined,
+        size: APP_USER_PAGE_SIZE,
+        ...appliedFilters,
       });
-      const data = responseData<PageResult<AppUserListVO>>(res, { records: [], total: 0, size: PAGE_SIZE, current: page });
+      if (requestSequence !== listRequestSequence.current) return;
+      const data = responseData<PageResult<AppUserListVO>>(res, {
+        records: [], total: 0, size: APP_USER_PAGE_SIZE, current: page,
+      });
       setUsers((data.records || []).map(toCardItem));
       setTotal(data.total ?? data.records?.length ?? 0);
     } catch {
+      if (requestSequence !== listRequestSequence.current) return;
       setUsers([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (requestSequence === listRequestSequence.current) setLoading(false);
     }
-  }, [city, coreAccessStatus, followStatus, hideVisitRecord, identity, keyword, memberLevel, page, verificationStatus]);
+  }, [appliedFilters, page]);
 
   const fetchStats = useCallback(async () => {
     try {
-      const [all, coreAllowed] = await Promise.all([
-        getAppUserList({ page: 1, size: 1 }),
-        getAppUserList({ page: 1, size: 1, coreAccessStatus: 'CORE_ALLOWED' }),
-      ]);
-      const allData = responseData<PageResult<AppUserListVO>>(all, { records: [], total: 0, size: 1, current: 1 });
-      const coreData = responseData<PageResult<AppUserListVO>>(coreAllowed, { records: [], total: 0, size: 1, current: 1 });
+      const res = await getAppUserStats();
+      const data = responseData<AppUserStatsVO>(res, { currentUserCount: 0, coreAccessAllowedCount: 0 });
       setStats((prev) => ({
         ...prev,
-        total: allData.total ?? 0,
-        coreAllowed: coreData.total ?? 0,
+        total: data.currentUserCount ?? 0,
+        coreAllowed: data.coreAccessAllowedCount ?? 0,
       }));
     } catch {
       setStats((prev) => ({ ...prev, total: 0, coreAllowed: 0 }));
@@ -807,11 +816,17 @@ export default function CustomersPage() {
   const pageUsers = users;
   const paginationTotal = total;
   function handleSearch() {
-    if (page === 1) {
-      fetchUsers();
-    } else {
-      setPage(1);
-    }
+    setAppliedFilters({
+      keyword: keyword.trim() || undefined,
+      coreAccessStatus: coreAccessStatus || undefined,
+      verificationStatus: verificationStatus || undefined,
+      identity: identity || undefined,
+      city: city || undefined,
+      relationshipAccess: followStatus || undefined,
+      vipStatus: memberLevel || undefined,
+      hideVisitRecord: hideVisitRecord || undefined,
+    });
+    setPage(1);
   }
 
   function handleReset() {
@@ -823,6 +838,7 @@ export default function CustomersPage() {
     setMemberLevel('');
     setFollowStatus('');
     setHideVisitRecord('');
+    setAppliedFilters({});
     setPage(1);
   }
 
@@ -855,7 +871,7 @@ export default function CustomersPage() {
         setWorkflowResult(data);
         showToast(data?.message || '导入预校验完成', 'success');
       } else {
-        const res = await exportAppUsers({ page, size: PAGE_SIZE, keyword: keyword.trim() || undefined }, true);
+        const res = await exportAppUsers(appliedFilters, true);
         const data = responseData<ExportTaskVO>(res, null as any);
         setWorkflowResult(data);
         showToast(data?.message || '导出任务已创建', 'success');
@@ -984,8 +1000,8 @@ export default function CustomersPage() {
           )}
 
           <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <span className="text-sm text-muted-foreground">共 {paginationTotal} 条 · 10条/页</span>
-            <Pagination current={page} total={paginationTotal} pageSize={PAGE_SIZE} onChange={setPage} />
+            <span className="text-sm text-muted-foreground">共 {paginationTotal} 条 · {APP_USER_PAGE_SIZE}条/页</span>
+            <Pagination current={page} total={paginationTotal} pageSize={APP_USER_PAGE_SIZE} onChange={setPage} />
           </div>
         </CardContent>
       </Card>

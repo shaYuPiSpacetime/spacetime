@@ -3,6 +3,8 @@ package com.spacetime.miniapp.controller;
 import com.spacetime.common.exception.GlobalExceptionHandler;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
+import com.spacetime.miniapp.dto.response.EducationVerifyDetailVO;
+import com.spacetime.miniapp.dto.response.RealNameVerifyDetailVO;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
 import com.spacetime.miniapp.service.VerificationService;
 import org.junit.jupiter.api.AfterEach;
@@ -22,6 +24,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -100,6 +103,45 @@ class VerificationControllerTest {
         verify(verificationService).submitEducation(eq(7L), argThat(req ->
                 "STUDENT_CARD".equals(req.getEducationMethod())
                         && req.getMaterialUrls().size() == 1));
+    }
+
+    @Test
+    @DisplayName("实名认证详情接口返回脱敏回显字段")
+    void shouldGetRealNameDetail() throws Exception {
+        RealNameVerifyDetailVO vo = new RealNameVerifyDetailVO();
+        vo.setAuditStatus("PENDING");
+        vo.setRealName("王**");
+        vo.setIdCardNo("1101**********1234");
+        vo.setCanSubmit(false);
+        when(verificationService.getRealNameDetail(7L)).thenReturn(vo);
+
+        mockMvc.perform(get("/miniapp/verify/real-name"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.auditStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data.realName").value("王**"))
+                .andExpect(jsonPath("$.data.idCardNo").value("1101**********1234"))
+                .andExpect(jsonPath("$.data.canSubmit").value(false));
+    }
+
+    @Test
+    @DisplayName("学历认证详情接口返回提交快照")
+    void shouldGetEducationDetail() throws Exception {
+        EducationVerifyDetailVO vo = new EducationVerifyDetailVO();
+        vo.setAuditStatus("REJECTED");
+        vo.setEducationUserType("STUDENT");
+        vo.setIdentityCode("STUDENT");
+        vo.setIdentityLabel("在校生");
+        vo.setEducationMethod("STUDENT_CARD");
+        vo.setMaterialUrls(List.of("https://example.test/student-card.jpg"));
+        vo.setCanSubmit(true);
+        when(verificationService.getEducationDetail(7L)).thenReturn(vo);
+
+        mockMvc.perform(get("/miniapp/verify/education"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.auditStatus").value("REJECTED"))
+                .andExpect(jsonPath("$.data.identityLabel").value("在校生"))
+                .andExpect(jsonPath("$.data.materialUrls[0]").value("https://example.test/student-card.jpg"))
+                .andExpect(jsonPath("$.data.canSubmit").value(true));
     }
 
     @Test

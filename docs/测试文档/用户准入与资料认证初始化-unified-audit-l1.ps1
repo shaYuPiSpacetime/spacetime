@@ -333,7 +333,7 @@ if ($script:AdminToken -and $script:MiniToken) {
     }
 
     foreach ($albumSuffix in @("A","B","C","D")) {
-        Expect-Code "L1-MEDIA-ALBUM-SUBMIT-$albumSuffix" "miniapp" "submit album $albumSuffix" (Invoke-Api "POST" "/miniapp/profile/media" @{ mediaType = "ALBUM"; mediaUrl = "https://example.test/prd01/album-$albumSuffix.jpg"; thumbUrl = "https://example.test/prd01/album-$albumSuffix-thumb.jpg"; sortOrder = 1 } $script:MiniToken) 200
+        Expect-Code "L1-MEDIA-ALBUM-SUBMIT-$albumSuffix" "miniapp" "submit album $albumSuffix" (Invoke-Api "POST" "/miniapp/profile/albums" @{ mediaUrl = "https://example.test/prd01/album-$albumSuffix.jpg"; thumbUrl = "https://example.test/prd01/album-$albumSuffix-thumb.jpg"; sortOrder = 1; fileSizeBytes = 102400 } $script:MiniToken) 200
         $photoPending = Latest-Record "/admin/moderation/photos/list" "PENDING"
         Expect-True "L1-ADM-PHOTO-PENDING-$albumSuffix" "admin" "photo pending $albumSuffix" ($null -ne $photoPending) "photo pending id=$($photoPending.id)" "photo pending missing"
         if ($photoPending) {
@@ -343,17 +343,18 @@ if ($script:AdminToken -and $script:MiniToken) {
         }
     }
 
-    Expect-Code "L1-MEDIA-BG-001" "miniapp" "submit profile background" (Invoke-Api "POST" "/miniapp/profile/media" @{ mediaType = "PROFILE_BG"; mediaUrl = "https://example.test/prd01/bg-a.jpg"; thumbUrl = "https://example.test/prd01/bg-a-thumb.jpg"; sortOrder = 1 } $script:MiniToken) 200
+    Expect-Code "L1-MEDIA-BG-001" "miniapp" "submit profile background" (Invoke-Api "PUT" "/miniapp/profile/background" @{ mediaUrl = "https://example.test/prd01/bg-a.jpg"; thumbUrl = "https://example.test/prd01/bg-a-thumb.jpg"; fileSizeBytes = 102400 } $script:MiniToken) 200
     $bgPending = Latest-Record "/admin/moderation/photos/list" "PENDING"
     if ($bgPending) { Audit-Record "/admin/moderation/photos" ([long]$bgPending.id) "APPROVE" }
 
-    Expect-Code "L1-TEXT-001" "miniapp" "about me machine approved" (Invoke-Api "POST" "/miniapp/profile/open-text" @{ fieldName = "ABOUT_ME"; contentText = "I value a stable and sincere relationship and enjoy sports and exhibitions on weekends." } $script:MiniToken) 200
-    Expect-Code "L1-TEXT-002" "miniapp" "hope they know machine approved" (Invoke-Api "POST" "/miniapp/profile/open-text" @{ fieldName = "HOPE_THEY_KNOW"; contentText = "I care about boundaries and hope we can plan the future together." } $script:MiniToken) 200
-    Expect-Code "L1-TEXT-003" "miniapp" "profile qa machine approved" (Invoke-Api "POST" "/miniapp/profile/open-text" @{ fieldName = "PROFILE_QA"; contentText = "This is a profile QA open answer used by the unified audit L1 flow." } $script:MiniToken) 200
+    Expect-Code "L1-TEXT-001" "miniapp" "introduction machine approved" (Invoke-Api "POST" "/miniapp/profile/introduction" @{ aboutMe = "I value a stable and sincere relationship and enjoy sports and exhibitions on weekends." } $script:MiniToken) 200
+    Expect-Code "L1-TEXT-002" "miniapp" "about-me detail" (Invoke-Api "GET" "/miniapp/profile/about-me" $null $script:MiniToken) 200
+    Expect-Code "L1-TEXT-003" "miniapp" "about-me answer machine approved" (Invoke-Api "POST" "/miniapp/profile/about-me" @{ questionKey = "interests"; contentText = "This is a profile QA open answer used by the unified audit L1 flow." } $script:MiniToken) 200
     $textApproved = Latest-Record "/admin/moderation/texts/list" "APPROVED"
     if ($textApproved) { Audit-Record "/admin/moderation/texts" ([long]$textApproved.id) "REJECT" "L1 text rejected" }
 
-    Expect-Code "L1-TEXT-004" "miniapp" "custom open text rejected" (Invoke-Api "POST" "/miniapp/profile/open-text" @{ fieldName = "CUSTOM_OPEN_TEXT"; contentText = "unsupported reserved field" } $script:MiniToken) 5001
+    $oldOpenText = Invoke-Api "POST" "/miniapp/profile/open-text" @{ fieldName = "CUSTOM_OPEN_TEXT"; contentText = "unsupported reserved field" } $script:MiniToken
+    Expect-True "L1-TEXT-004" "miniapp" "old open-text route not exposed" ($oldOpenText.status -eq 404 -or $oldOpenText.code -ne 200) "old open-text route rejected" "old open-text route still accepted"
     Expect-Code "L1-VOICE-001" "miniapp" "voice intro machine approved" (Invoke-Api "POST" "/miniapp/profile/voice-intro" @{ voiceUrl = "https://example.test/prd01/voice-a.mp3"; duration = 18 } $script:MiniToken) 200
     $voiceShort = Invoke-Api "POST" "/miniapp/profile/voice-intro" @{ voiceUrl = "https://example.test/prd01/voice-short.mp3"; duration = 3 } $script:MiniToken
     Expect-True "L1-VOICE-002" "miniapp" "voice duration rejected" ($voiceShort.code -ne 200 -and $voiceShort.msg -like "*VOICE_DURATION_INVALID*") "invalid duration rejected" "invalid duration accepted or wrong msg: code=$($voiceShort.code) msg=$($voiceShort.msg)"

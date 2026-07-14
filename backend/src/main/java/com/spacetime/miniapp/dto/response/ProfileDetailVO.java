@@ -75,6 +75,16 @@ public class ProfileDetailVO {
     private String voiceIntroRejectReason;
     /** 个人标签JSON */
     private String tags;
+    /** 微信号，仅本人资料页返回。 */
+    private String wechatId;
+    /** 爱听歌曲三方 ID。 */
+    private String favoriteSongId;
+    /** 爱听歌曲名称。 */
+    private String favoriteSongName;
+    /** 爱听歌曲歌手。 */
+    private String favoriteSongArtist;
+    /** 爱听歌曲封面。 */
+    private String favoriteSongCoverUrl;
     /** 相册JSON */
     private String photos;
     /** 资料页背景图URL */

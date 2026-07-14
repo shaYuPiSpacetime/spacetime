@@ -1,12 +1,19 @@
 package com.spacetime.miniapp.service;
 
 import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
+import com.spacetime.miniapp.dto.request.FavoriteSongSaveReq;
+import com.spacetime.miniapp.dto.request.ProfileCodeSaveReq;
 import com.spacetime.miniapp.dto.request.ProfileInitStepReq;
-import com.spacetime.miniapp.dto.request.ProfileUpdateReq;
+import com.spacetime.miniapp.dto.request.ProfileTagsSaveReq;
+import com.spacetime.miniapp.dto.request.WechatIdSaveReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.BasicProfileVO;
 import com.spacetime.miniapp.dto.response.ProfileDetailVO;
+import com.spacetime.miniapp.dto.response.ProfileHomeDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileInitStatusVO;
+import com.spacetime.miniapp.dto.response.SongOptionVO;
+
+import java.util.List;
 
 /**
  * 用户资料服务
@@ -34,19 +41,32 @@ public interface ProfileService {
      */
     ProfileDetailVO getDetail(Long userId);
 
+    /** 查询我的主页/编辑资料统一详情。 */
+    ProfileHomeDetailVO getHomeDetail(Long userId);
+
     /** 查询基础资料页反显值与动态字段配置。 */
     BasicProfileVO getBasicProfile(Long userId);
 
     /** 保存基础资料页全部已展示字段。 */
     BasicProfileVO saveBasicProfile(Long userId, BasicProfileSaveReq req);
 
-    /**
-     * 增量更新资料（null 字段不更新）
-     * @param userId 用户ID
-     * @param req 需要更新的字段
-     * @return 更新后的完整资料
-     */
-    ProfileDetailVO updateProfile(Long userId, ProfileUpdateReq req);
+    /** 保存脱单目标。 */
+    ProfileDetailVO saveDatingGoal(Long userId, ProfileCodeSaveReq req);
+
+    /** 保存感情状态。 */
+    ProfileDetailVO saveEmotionalStatus(Long userId, ProfileCodeSaveReq req);
+
+    /** 保存我的标签。 */
+    ProfileDetailVO saveTags(Long userId, ProfileTagsSaveReq req);
+
+    /** 搜索爱听歌曲。 */
+    List<SongOptionVO> searchSongs(String keyword, Integer limit);
+
+    /** 保存爱听歌曲。 */
+    ProfileDetailVO saveFavoriteSong(Long userId, FavoriteSongSaveReq req);
+
+    /** 保存微信号。 */
+    ProfileDetailVO saveWechatId(Long userId, WechatIdSaveReq req);
 
     /**
      * 查询准入状态

@@ -6,6 +6,7 @@ import com.spacetime.admin.dto.response.ExportTaskVO;
 import com.spacetime.admin.dto.response.ImportBatchVO;
 import com.spacetime.admin.dto.response.AppUserDetailVO;
 import com.spacetime.admin.dto.response.AppUserListVO;
+import com.spacetime.admin.dto.response.AppUserStatsVO;
 
 /**
  * 管理后台 — 小程序用户管理服务
@@ -17,6 +18,9 @@ public interface AppUserAdminService {
      * @return 分页结果
      */
     Page<AppUserListVO> getUserPage(AppUserPageReq req);
+
+    /** 查询 APP 用户管理页头部统计，不加载列表明细。 */
+    AppUserStatsVO getUserStats();
 
     /**
      * 用户详情查询（含认证信息）

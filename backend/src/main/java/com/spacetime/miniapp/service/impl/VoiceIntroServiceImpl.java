@@ -13,6 +13,7 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.provider.AudioSafetyProvider;
 import com.spacetime.common.provider.ProviderCheckResult;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.miniapp.dto.request.VoiceIntroSubmitReq;
 import com.spacetime.miniapp.dto.response.VoiceIntroVO;
 import com.spacetime.miniapp.service.VoiceIntroService;
@@ -32,6 +33,22 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
     private final ExternalProviderTaskDao externalProviderTaskDao;
     private final AudioSafetyProvider audioSafetyProvider;
     private final AppUserAuditService auditService;
+    private final Prd01RuntimeConfigResolver runtimeConfigResolver;
+
+    @Override
+    public VoiceIntroVO getVoiceIntro(Long userId) {
+        requireUser(userId);
+        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+        AppUserAuditRecord effective = auditService.latestEffectiveRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+        AppUserAuditRecord display = latest != null ? latest : effective;
+        if (display == null) {
+            VoiceIntroVO vo = new VoiceIntroVO();
+            vo.setVoiceIntroAuditStatus("NOT_SUBMITTED");
+            vo.setVisibleToPublic(false);
+            return vo;
+        }
+        return toVo(display, effective != null && display.getId().equals(effective.getId()));
+    }
 
     /** 提交语音介绍；机审通过前旧语音继续生效，新语音不对外展示。 */
     @Override
@@ -39,6 +56,14 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
     public VoiceIntroVO submitVoiceIntro(Long userId, VoiceIntroSubmitReq req) {
         requireUser(userId);
         validateRequest(req);
+        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+        if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
+            throw new BusinessException("语音介绍审核中，请勿重复提交");
+        }
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot = runtimeConfigResolver.snapshot();
+        if (!runtimeConfigResolver.fieldVisible(snapshot, "voiceIntro", true)) {
+            throw new BusinessException("语音介绍当前未启用");
+        }
 
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setUserId(userId);
@@ -113,7 +138,7 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         vo.setVoiceIntroUrl(exposeVoiceUrl ? record.getMediaUrl() : null);
         vo.setVoiceIntroDuration(record.getDuration());
         vo.setVoiceIntroAuditStatus(record.getStatus());
-        vo.setVoiceIntroRejectReason(record.getRejectReason());
+        vo.setVoiceIntroRejectReason(StrUtil.blankToDefault(record.getRejectReason(), record.getExpiredReason()));
         vo.setVisibleToPublic(exposeVoiceUrl);
         return vo;
     }

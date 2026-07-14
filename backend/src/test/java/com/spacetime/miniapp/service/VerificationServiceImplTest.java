@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.ExternalProviderTaskDao;
+import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.ExternalProviderTask;
@@ -15,9 +16,15 @@ import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.miniapp.dto.request.EducationSubmitReq;
 import com.spacetime.miniapp.dto.request.RealNameSubmitReq;
+import com.spacetime.miniapp.dto.response.AccessStatusVO;
+import com.spacetime.miniapp.dto.response.EducationVerifyDetailVO;
+import com.spacetime.miniapp.dto.response.RealNameVerifyDetailVO;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
+import com.spacetime.miniapp.service.impl.Prd01AccessEvaluator;
 import com.spacetime.miniapp.service.impl.VerificationServiceImpl;
+import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +33,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,9 +60,31 @@ class VerificationServiceImplTest {
     private EducationVerificationProvider educationVerificationProvider;
     @Mock
     private ProfileDictionaryService profileDictionaryService;
+    @Mock
+    private Prd01RuntimeConfigResolver runtimeConfigResolver;
+    @Mock
+    private Prd01AccessEvaluator accessEvaluator;
 
     @InjectMocks
     private VerificationServiceImpl service;
+
+    private Prd01RuntimeConfigResolver.RuntimeConfigSnapshot defaultConfigSnapshot;
+
+    @BeforeEach
+    void setUpRuntimeConfig() {
+        defaultConfigSnapshot = new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(java.util.Map.of());
+        AppUser defaultUser = new AppUser();
+        defaultUser.setId(7L);
+        org.mockito.Mockito.lenient().when(appUserDao.selectById(7L)).thenReturn(defaultUser);
+        AccessStatusVO accessStatus = new AccessStatusVO();
+        accessStatus.setCoreAccessStatus("NON_CORE_ONLY");
+        org.mockito.Mockito.lenient().when(accessEvaluator.evaluate(any())).thenReturn(accessStatus);
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.snapshot()).thenReturn(defaultConfigSnapshot);
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.auditPolicy(defaultConfigSnapshot))
+                .thenReturn(new Prd01RuntimeConfigResolver.AuditPolicy(24, "学历认证预计24小时内完成"));
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.uploadRule(defaultConfigSnapshot, "education", 4, 10))
+                .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(4, 10, List.of("jpg", "jpeg", "png")));
+    }
 
     @Test
     @DisplayName("实名认证使用账号绑定手机号执行三要素机审")
@@ -140,6 +170,7 @@ class VerificationServiceImplTest {
         assertThat(record.getSchoolName()).isEqualTo("浙江工业大学");
         assertThat(record.getMaterialJson()).contains("\"educationUserType\":\"MAINLAND_GRADUATE\"")
                 .contains("\"educationLevel\":\"BACHELOR\"")
+                .contains("\"identity\":\"WORKER\"")
                 .contains("\"chsiCode\":\"123456789012\"");
         verify(educationVerificationProvider).check(
                 "CHSI", record.getSchoolName(), record.getMaterialJson());
@@ -168,6 +199,30 @@ class VerificationServiceImplTest {
     }
 
     @Test
+    @DisplayName("学历材料数量使用后台上传限制配置")
+    void shouldRejectMaterialsAboveConfiguredLimit() {
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot =
+                new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(java.util.Map.of());
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.snapshot()).thenReturn(snapshot);
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.uploadRule(snapshot, "education", 4, 10))
+                .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(2, 10, List.of("jpg", "jpeg", "png")));
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.REVIEWING));
+
+        EducationSubmitReq req = new EducationSubmitReq();
+        req.setEducationUserType("STUDENT");
+        req.setEducationMethod("STUDENT_CARD");
+        req.setSchoolName("浙江大学");
+        req.setEducationLevel("BACHELOR");
+        req.setMaterialUrls(List.of("https://a/1.jpg", "https://a/2.jpg", "https://a/3.jpg"));
+        req.setEducationAgreementChecked(true);
+
+        assertThatThrownBy(() -> service.submitEducation(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("最多2张");
+    }
+
+    @Test
     @DisplayName("三重认证状态返回学历顺序限制和各项提交权限")
     void shouldReturnSubmissionGuards() {
         when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(null);
@@ -181,6 +236,78 @@ class VerificationServiceImplTest {
         assertThat(result.getAvatarCanSubmit()).isTrue();
         assertThat(result.getEducationCanSubmit()).isFalse();
         assertThat(result.getEducationBlockedReason()).isEqualTo("请先提交实名认证");
+    }
+
+    @Test
+    @DisplayName("三重认证状态返回学历审核SLA和预计完成时间")
+    void shouldReturnEducationSlaFromConfiguration() {
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot =
+                new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(java.util.Map.of());
+        when(runtimeConfigResolver.snapshot()).thenReturn(snapshot);
+        when(runtimeConfigResolver.auditPolicy(snapshot))
+                .thenReturn(new Prd01RuntimeConfigResolver.AuditPolicy(36, "学历认证预计36小时内完成"));
+        AppUserAuditRecord education = record(AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.PENDING);
+        education.setSubmitTime(LocalDateTime.of(2026, 7, 13, 10, 0));
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(null);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(education);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.AVATAR)).thenReturn(null);
+
+        VerificationStatusVO result = service.getStatus(7L);
+
+        assertThat(result).extracting(
+                        "educationSlaHours", "educationSlaText", "educationEstimatedCompleteTime")
+                .containsExactly(36, "学历认证预计36小时内完成", "2026-07-14 22:00:00");
+    }
+
+    @Test
+    @DisplayName("学历详情回显最新提交内容并按学历人群派生身份字典")
+    void shouldReturnEducationDetailWithMappedIdentity() {
+        AppUserAuditRecord education = record(AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.REJECTED);
+        education.setAuditSource("MANUAL");
+        education.setEducationMethod("STUDENT_CARD");
+        education.setSchoolName("浙江大学");
+        education.setRealName("林晓雨");
+        education.setRejectReason("学生证照片不清晰");
+        education.setSubmitTime(LocalDateTime.of(2026, 7, 13, 18, 4, 16));
+        education.setMaterialJson("""
+                {"educationUserType":"STUDENT","educationLevel":"BACHELOR","identity":"STUDENT","materialUrls":["https://example.test/student-a.jpg","https://example.test/student-b.jpg"]}
+                """);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED));
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(education);
+        when(profileDictionaryService.label(ProfileDictType.IDENTITY, "STUDENT")).thenReturn("在校生");
+        when(profileDictionaryService.label(ProfileDictType.EDUCATION_LEVEL, "BACHELOR")).thenReturn("本科");
+
+        EducationVerifyDetailVO result = service.getEducationDetail(7L);
+
+        assertThat(result.getAuditStatus()).isEqualTo("REJECTED");
+        assertThat(result.getRejectReason()).isEqualTo("学生证照片不清晰");
+        assertThat(result.getEducationUserType()).isEqualTo("STUDENT");
+        assertThat(result.getIdentityCode()).isEqualTo("STUDENT");
+        assertThat(result.getIdentityLabel()).isEqualTo("在校生");
+        assertThat(result.getEducationLevelLabel()).isEqualTo("本科");
+        assertThat(result.getMaterialUrls()).containsExactly(
+                "https://example.test/student-a.jpg", "https://example.test/student-b.jpg");
+        assertThat(result.getCanSubmit()).isTrue();
+    }
+
+    @Test
+    @DisplayName("实名详情只回显脱敏姓名和身份证号")
+    void shouldReturnMaskedRealNameDetail() {
+        AppUserAuditRecord realName = record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.PENDING);
+        realName.setAuditSource("MACHINE");
+        realName.setRealName("王小明");
+        realName.setIdCard("110101199001011234");
+        realName.setBoundPhone("13800138000");
+        realName.setSubmitTime(LocalDateTime.of(2026, 7, 13, 18, 4, 16));
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(realName);
+
+        RealNameVerifyDetailVO result = service.getRealNameDetail(7L);
+
+        assertThat(result.getAuditStatus()).isEqualTo("PENDING");
+        assertThat(result.getRealName()).isEqualTo("王**");
+        assertThat(result.getIdCardNo()).isEqualTo("1101**********1234");
+        assertThat(result.getCanSubmit()).isFalse();
     }
 
     private AppUserAuditRecord record(AppUserAuditTypeEnum type, AppUserAuditStatusEnum status) {

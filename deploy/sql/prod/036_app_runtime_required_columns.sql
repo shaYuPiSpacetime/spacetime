@@ -48,7 +48,6 @@ CREATE TABLE IF NOT EXISTS app_user (
     profile_bg_image VARCHAR(500) DEFAULT NULL COMMENT '资料页背景图',
     mbti_type VARCHAR(10) DEFAULT NULL COMMENT 'MBTI 类型',
     zodiac VARCHAR(10) DEFAULT NULL COMMENT '星座',
-    profile_score INT DEFAULT 0 COMMENT '资料完整度分',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     created_by BIGINT DEFAULT NULL,
@@ -318,7 +317,6 @@ CALL spacetime_add_column_if_missing('app_user', 'photos', 'photos JSON DEFAULT 
 CALL spacetime_add_column_if_missing('app_user', 'profile_bg_image', 'profile_bg_image VARCHAR(500) DEFAULT NULL COMMENT ''资料页背景图''');
 CALL spacetime_add_column_if_missing('app_user', 'mbti_type', 'mbti_type VARCHAR(10) DEFAULT NULL COMMENT ''MBTI 类型''');
 CALL spacetime_add_column_if_missing('app_user', 'zodiac', 'zodiac VARCHAR(10) DEFAULT NULL COMMENT ''星座''');
-CALL spacetime_add_column_if_missing('app_user', 'profile_score', 'profile_score INT DEFAULT 0 COMMENT ''资料完整度分''');
 CALL spacetime_add_column_if_missing('app_user', 'create_time', 'create_time DATETIME DEFAULT CURRENT_TIMESTAMP');
 CALL spacetime_add_column_if_missing('app_user', 'update_time', 'update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 CALL spacetime_add_column_if_missing('app_user', 'created_by', 'created_by BIGINT DEFAULT NULL');
