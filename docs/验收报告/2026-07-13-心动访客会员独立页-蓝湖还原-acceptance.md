@@ -32,7 +32,7 @@
 | 操作 | 期望路由 | 微信运行态结果 |
 | --- | --- | --- |
 | 点击顶部相互喜欢图标 | `pages/heart/mutual` | 通过 |
-| 点击“只看ta(100 Q)” | `pages/coins/index`，参数 `sourceScene=likes_unlock_one` | 通过 |
+| 点击“只看ta(100 Q)” | `pages/coins/unlock-recharge`，参数 `sourceScene=likes_unlock_one` | 通过，已改为独立场景充值页 |
 | 点击“解锁全部访客” | `pages/heart/membership-unlock` | 通过 |
 | 点击弹窗“解锁全部” | `pages/heart/membership-unlock` | 静态门禁通过 |
 | 占位套餐点击开通 | 不创建真实订单 | 通过，提示稍后重试 |
