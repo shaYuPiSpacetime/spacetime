@@ -56,7 +56,6 @@ window.PRD06_DATA = {
     ]
   },
   search: {
-    hotwords: ["旅行搭子", "上海交友", "95后", "摄影", "读书", "音乐"],
     history: ["滑雪", "咖啡", "猫咪"],
     users: [
       ["阳光考拉", "26岁 · 杭州 · 成家号 8801", "关注"],
@@ -72,62 +71,22 @@ window.PRD06_DATA = {
       ["周末一起去", "看展、徒步、咖啡"]
     ]
   },
-  feedback: [
-    ["1283", "举报用户", "涉嫌发布不良信息", "待处理", "2026-07-08 14:21"],
-    ["1282", "内容投诉", "低俗内容", "处理中", "2026-07-08 11:02"],
-    ["1281", "功能建议", "希望增加更多筛选条件", "已回复", "2026-07-07 18:33"]
-  ],
   cancellations: [
-    ["86", "筱脑虎", "暂时不想使用", "待处理", "2026-07-08 13:20"],
-    ["85", "旅行者", "隐私顾虑", "后悔期", "2026-07-07 10:11"],
-    ["84", "风的退迟", "不想被推荐", "已撤销", "2026-07-06 21:45"]
-  ],
-  appConfigs: [
-    ["user_agreement_url", "https://m.example.com/agreement/user", "文本", "公开", "启用", "用户协议 H5"],
-    ["privacy_policy_url", "https://m.example.com/agreement/privacy", "文本", "公开", "启用", "隐私政策 H5"],
-    ["third_party_list_url", "https://m.example.com/privacy/third-party", "文本", "公开", "启用", "第三方信息共享清单"],
-    ["personal_info_list_url", "https://m.example.com/privacy/personal-info", "文本", "公开", "启用", "个人信息收集清单"]
-  ],
-  mobileEntries: [
-    ["我的页", "我的动态", "my_posts", "页面跳转", "/pages/profile/posts", "10", "启用"],
-    ["我的页", "帮助与客服", "help_service", "页面跳转", "/pages/help/index", "20", "启用"],
-    ["我的页", "设置", "settings", "页面跳转", "/pages/settings/index", "30", "启用"],
-    ["设置页", "隐私设置", "privacy_settings", "页面跳转", "/pages/settings/privacy", "10", "启用"],
-    ["设置页", "关于我们", "about_us", "页面跳转", "/pages/about/index", "20", "启用"],
-    ["帮助客服", "反馈箱", "feedback_box", "页面跳转", "/pages/help/feedback", "10", "启用"]
+    { requestNo: "CAN-000086", user: "筱脑虎 U100281", phone: "138****6128", reason: "暂时不想使用", status: "后悔期内", requestedAt: "2026-07-08 13:20", coolingEnd: "2026-08-07 13:20", remaining: "24 天", vip: "VIP 至 2026-07-31", coin: "2580", refund: "无未完成退款", dispute: "无付费争议", penalty: "账号正常", risks: "未到期会员、未消耗千寻币（用户已确认）", execution: "等待定时任务；到期重新校验", remarks: "客服已确认用户知悉后悔期" },
+    { requestNo: "CAN-000085", user: "旅行者 U100193", phone: "159****2308", reason: "隐私顾虑", status: "已恢复", requestedAt: "2026-07-07 10:11", coolingEnd: "2026-08-06 10:11", remaining: "已撤销", vip: "非会员", coin: "0", refund: "无未完成退款", dispute: "无付费争议", penalty: "账号正常", risks: "无", execution: "用户于 2026-07-09 主动撤销", remarks: "-" },
+    { requestNo: "CAN-000084", user: "风的退迟 U100279", phone: "186****7710", reason: "不想被推荐", status: "已注销", requestedAt: "2026-06-06 21:45", coolingEnd: "2026-07-06 21:45", remaining: "已完成", vip: "非会员", coin: "0", refund: "无未完成退款", dispute: "无付费争议", penalty: "账号正常", risks: "无", execution: "定时任务于 2026-07-06 21:47 执行成功", remarks: "合规记录按规则留存" }
   ],
   compliance: [
-    ["协议", "用户协议", "v1.3", "启用", "2026-07-08 09:00"],
-    ["隐私", "隐私政策", "v1.2", "启用", "2026-07-08 09:00"],
-    ["清单", "第三方信息共享清单", "v1.0", "启用", "2026-07-08 09:00"],
-    ["公告", "平台功能更新公告", "v1.0", "停用", "2026-07-07 18:00"]
-  ],
-  contentArticles: [
-    ["谨防诈骗，保护财产安全", "安全内容", "H5", "1", "启用"],
-    ["帮助中心常见问题", "帮助文档", "原生", "2", "启用"],
-    ["关于时空邂逅", "关于我们", "原生", "3", "启用"],
-    ["平台信息管理规范", "规则", "H5", "4", "启用"]
-  ],
-  searchConfig: [
-    ["全局", "用户", "启用", "没找到相关用户", "综合相关度"],
-    ["全局", "动态", "启用", "没找到相关动态", "综合相关度"],
-    ["全局", "话题", "启用", "没找到相关话题", "综合相关度"],
-    ["社区", "用户", "停用", "社区内不展示用户 Tab", "综合相关度"]
-  ],
-  hotwords: [
-    ["旅行搭子", "全局", "1", "启用"],
-    ["上海交友", "全局", "2", "启用"],
-    ["95后", "全局", "3", "启用"],
-    ["摄影", "社区", "4", "停用"]
+    { type: "协议", title: "用户协议", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/agreement/user" },
+    { type: "隐私", title: "隐私政策", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/agreement/privacy" },
+    { type: "清单", title: "第三方信息共享清单", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/privacy/third-party" },
+    { type: "清单", title: "个人信息收集清单", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/privacy/personal-info" },
+    { type: "规范", title: "平台信息管理规范", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/rules/platform" },
+    { type: "公告", title: "平台功能更新公告", version: "v1.0", status: "停用", effectiveAt: "2026-07-07 18:00", url: "https://m.example.com/notice/update" }
   ],
   blockWords: [
     ["约炮", "搜索词违规", "精确匹配", "启用"],
     ["联系方式", "搜索结果屏蔽", "包含匹配", "启用"],
     ["加微信", "搜索词违规", "包含匹配", "启用"]
-  ],
-  safety: [
-    ["谨防诈骗，保护财产安全", "反诈安全提示", "启用", "2026-07-08"],
-    ["线下见面，注意人身安全", "安全提示", "启用", "2026-07-07"],
-    ["尊重他人，文明交友", "平台规范", "启用", "2026-07-06"]
   ]
 };

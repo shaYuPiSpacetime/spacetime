@@ -407,6 +407,13 @@
     const riskLogs = detail.riskLogs || [
       ['陈依怡', '2026.02.15 14:30', '风控', '账号风险复核完成并记录审计'],
     ];
+    const settingsSecurity = user.settingsSecurity || {
+      cancellationStatus: '未申请',
+      cancellationRisk: '无阻断原因',
+      searchCount30d: '0 次',
+      lastSearchTime: '-',
+      lastSearchScene: '-',
+    };
     const renderFields = (fields) => fields.map(([label, value]) => `
       <div class="profile-confirm-field">
         <span>${escapeHtml(label)}</span>
@@ -493,6 +500,17 @@
               <span>${escapeHtml(log[3])}</span>
             </p>
           `).join('')}
+        </section>
+
+        ${renderSectionTitle('设置与安全（PRD-06）')}
+        <section class="profile-confirm-grid">
+          ${renderFields([
+            ['注销状态', settingsSecurity.cancellationStatus],
+            ['注销阻断摘要', settingsSecurity.cancellationRisk],
+            ['最近 30 天搜索次数', settingsSecurity.searchCount30d],
+            ['最近搜索时间', settingsSecurity.lastSearchTime],
+            ['最近搜索场景', settingsSecurity.lastSearchScene],
+          ])}
         </section>
 
         <div class="profile-confirm-actions">

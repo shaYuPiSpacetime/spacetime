@@ -86,7 +86,6 @@
     if (searchHome) {
       searchHome.innerHTML = `
         <label class="search-box" for="mini-search-input"><input id="mini-search-input" name="keyword" data-search-input value="旅行" aria-label="搜索关键词"><button data-run-search>搜索</button></label>
-        <h3>热门搜索</h3><div class="chip-row">${data.search.hotwords.map((w) => `<button data-hotword="${w}">${w}</button>`).join("")}</div>
         <h3>搜索历史</h3><div class="chip-row">${data.search.history.map((w) => `<span>${w}</span>`).join("")}</div>
         <div class="tabs"><button class="active" data-result-tab="users">用户</button><button data-result-tab="posts">动态</button><button data-result-tab="topics">话题</button></div>
         <div data-search-results></div>`;
@@ -118,26 +117,30 @@
   }
 
   function renderAdmin() {
-    const appConfigs = $('[data-table="appConfigs"]');
-    if (appConfigs) appConfigs.innerHTML = plainRows(data.appConfigs);
-    const mobileEntries = $('[data-table="mobileEntries"]');
-    if (mobileEntries) mobileEntries.innerHTML = tableRows(data.mobileEntries, "编辑");
     const compliance = $('[data-table="compliance"]');
-    if (compliance) compliance.innerHTML = tableRows(data.compliance, "预览");
-    const contentArticles = $('[data-table="contentArticles"]');
-    if (contentArticles) contentArticles.innerHTML = tableRows(data.contentArticles, "编辑");
-    const searchConfig = $('[data-table="searchConfig"]');
-    if (searchConfig) searchConfig.innerHTML = plainRows(data.searchConfig);
-    const feedback = $('[data-table="feedback"]');
-    if (feedback) feedback.innerHTML = tableRows(data.feedback);
+    if (compliance) compliance.innerHTML = data.compliance.map((item, index) => `<tr><td>${item.type}</td><td>${item.title}</td><td>${item.version}</td><td>${badge(item.status)}</td><td>${item.effectiveAt}</td><td><button class="link-btn" data-preview-compliance="${index}">预览</button><button class="link-btn" data-edit-compliance="${index}">编辑</button></td></tr>`).join("");
     const cancellations = $('[data-table="cancellations"]');
-    if (cancellations) cancellations.innerHTML = tableRows(data.cancellations);
-    const hotwords = $('[data-table="hotwords"]');
-    if (hotwords) hotwords.innerHTML = tableRows(data.hotwords, "编辑");
+    if (cancellations) cancellations.innerHTML = data.cancellations.map((item, index) => `<tr><td>${item.requestNo}</td><td>${item.user}</td><td>${item.reason}</td><td>${badge(item.status)}</td><td>${item.requestedAt}</td><td><button class="link-btn" data-view-cancellation="${index}">查看详情</button></td></tr>`).join("");
     const blockWords = $('[data-table="blockWords"]');
-    if (blockWords) blockWords.innerHTML = tableRows(data.blockWords, "编辑");
-    const safety = $('[data-table="safety"]');
-    if (safety) safety.innerHTML = tableRows(data.safety, "编辑");
+    if (blockWords) blockWords.innerHTML = data.blockWords.map((row, index) => `<tr>${row.map((cell) => `<td>${["启用", "停用"].includes(cell) ? badge(cell) : cell}</td>`).join("")}<td><button class="link-btn" data-edit-blockword="${index}">编辑</button></td></tr>`).join("");
+  }
+
+  function openDialog(id) {
+    const dialog = $("#" + id);
+    if (dialog) { dialog.classList.add("open"); dialog.setAttribute("aria-hidden", "false"); }
+  }
+
+  function closeDialog(node) {
+    const dialog = node.closest(".admin-dialog-backdrop");
+    if (dialog) { dialog.classList.remove("open"); dialog.setAttribute("aria-hidden", "true"); }
+  }
+
+  function nextVersion(version) {
+    const match = /^v(\d+)\.(\d+)$/.exec(version) || [null, "1", "0"];
+    let major = Number(match[1]);
+    let minor = Number(match[2]) + 1;
+    if (minor >= 10) { major += 1; minor = 0; }
+    return `v${major}.${minor}`;
   }
 
   function toast(text) {
@@ -156,13 +159,6 @@
   document.addEventListener("click", (event) => {
     const tab = event.target.closest("[data-result-tab]");
     if (tab) renderSearch(tab.dataset.resultTab);
-    const hotword = event.target.closest("[data-hotword]");
-    if (hotword) {
-      const input = $("[data-search-input]");
-      if (input) input.value = hotword.dataset.hotword;
-      renderSearch("users");
-      toast("已按热词搜索");
-    }
     if (event.target.closest("[data-run-search]")) {
       const keyword = ($("[data-search-input]") || {}).value || "";
       if (keyword.includes("加微信")) toast("搜索内容不支持展示");
@@ -180,10 +176,57 @@
       event.target.closest(".modal").classList.remove("open");
     }
     if (event.target.closest(".link-btn")) {
-      toast("已打开操作面板");
+      const button = event.target.closest(".link-btn");
+      if (button.dataset.editCompliance !== undefined) {
+        const item = data.compliance[Number(button.dataset.editCompliance)];
+        const form = $("[data-compliance-form]");
+        form.elements.rowIndex.value = button.dataset.editCompliance;
+        ["type", "title", "version", "status", "url"].forEach((key) => { form.elements[key].value = item[key]; });
+        form.dataset.originalUrl = item.url;
+        openDialog("complianceEditModal");
+      } else if (button.dataset.previewCompliance !== undefined) {
+        const item = data.compliance[Number(button.dataset.previewCompliance)];
+        $("[data-preview-url]").textContent = item.url;
+        $("[data-preview-frame]").src = item.url;
+        openDialog("compliancePreviewModal");
+      } else if (button.dataset.editBlockword !== undefined) {
+        const row = data.blockWords[Number(button.dataset.editBlockword)];
+        const form = $("[data-blockword-form]");
+        form.elements.rowIndex.value = button.dataset.editBlockword;
+        form.elements.word.value = row[0]; form.elements.type.value = row[1]; form.elements.match.value = row[2]; form.elements.status.value = row[3];
+        $("#blockwordTitle").textContent = "编辑屏蔽词";
+        openDialog("blockwordModal");
+      } else if (button.dataset.viewCancellation !== undefined) {
+        const item = data.cancellations[Number(button.dataset.viewCancellation)];
+        $("[data-cancellation-detail]").innerHTML = Object.entries({"申请编号":item.requestNo,"用户":item.user,"脱敏手机号":item.phone,"申请原因":item.reason,"当前状态":item.status,"申请时间":item.requestedAt,"后悔期截止":item.coolingEnd,"剩余时间":item.remaining,"会员状态":item.vip,"千寻币余额":item.coin,"退款状态":item.refund,"付费争议":item.dispute,"处罚状态":item.penalty,"风险与确认":item.risks,"系统执行记录":item.execution,"历史备注":item.remarks}).map(([label, value]) => `<p><span>${label}</span><strong>${value}</strong></p>`).join("");
+        openDialog("cancellationDetailModal");
+      }
     }
+    const addBlockword = event.target.closest("[data-open-blockword]");
+    if (addBlockword) {
+      const form = $("[data-blockword-form]"); form.reset(); form.elements.rowIndex.value = ""; $("#blockwordTitle").textContent = "新增屏蔽词"; openDialog("blockwordModal");
+    }
+    if (event.target.closest("[data-close-dialog]")) closeDialog(event.target);
+    if (event.target.closest("[data-save-remark]")) { const input = $("[name='remark']"); if (input && input.value.trim()) { toast("内部备注已追加"); input.value = ""; } else toast("请填写内部备注"); }
     const action = event.target.closest("[data-toast]");
     if (action) toast(action.dataset.toast);
+  });
+
+  const complianceForm = $("[data-compliance-form]");
+  if (complianceForm) complianceForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = event.currentTarget; const index = Number(form.elements.rowIndex.value); const item = data.compliance[index];
+    const changedUrl = form.elements.url.value !== form.dataset.originalUrl;
+    item.title = form.elements.title.value; item.status = form.elements.status.value; item.url = form.elements.url.value;
+    if (changedUrl) item.version = nextVersion(item.version);
+    renderAdmin(); closeDialog(form); toast(changedUrl ? `保存成功，版本升级为 ${item.version}` : "保存成功，版本不变");
+  });
+
+  const blockwordForm = $("[data-blockword-form]");
+  if (blockwordForm) blockwordForm.addEventListener("submit", (event) => {
+    event.preventDefault(); const form = event.currentTarget; const row = [form.elements.word.value, form.elements.type.value, form.elements.match.value, form.elements.status.value];
+    if (form.elements.rowIndex.value === "") data.blockWords.push(row); else data.blockWords[Number(form.elements.rowIndex.value)] = row;
+    renderAdmin(); closeDialog(form); toast("屏蔽词已保存");
   });
 
   renderMini();

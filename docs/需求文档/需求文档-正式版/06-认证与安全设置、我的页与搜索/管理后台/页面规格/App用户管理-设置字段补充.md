@@ -9,7 +9,7 @@
 - **页面路由**：复用 PRD-01 `/admin/app-users`
 - **入口来源**：用户准入 -> App 用户管理
 - **对应设计稿**：当前未绑定蓝湖画板；设计画板按第 2.4 节输出
-- **对应移动端 / 技术方案**：APP-06 我的页、设置页、反馈箱、注销
+- **对应移动端 / 技术方案**：APP-06 我的页、设置页、搜索、注销
 
 ## 1. 页面定位
 
@@ -23,7 +23,7 @@
 
 ```text
 继承 PRD-01 App 用户管理
-筛选区：新增注销状态/反馈状态/搜索活跃筛选
+筛选区：新增注销状态/搜索活跃筛选
 卡片区：保留原卡片，不直铺大段设置字段
 操作区：模块补充 -> 设置与安全 Tab
 ```
@@ -32,8 +32,8 @@
 
 | 区块 | 位置 | 内容 | 是否可折叠 | 是否记住展开状态 |
 |------|------|------|------------|------------------|
-| 筛选补充 | 原筛选区 | 注销状态、是否有反馈、最近搜索活跃 | 否 | 否 |
-| 卡片摘要 | 原卡片 | 注销状态小标签、反馈待处理数 | 否 | 否 |
+| 筛选补充 | 原筛选区 | 注销状态、最近搜索活跃 | 否 | 否 |
+| 卡片摘要 | 原卡片 | 注销状态小标签、最近搜索时间 | 否 | 否 |
 | 模块补充入口 | 卡片操作区 | 打开设置与安全 Tab | 否 | 否 |
 
 ### 2.3 弹层 / 抽屉 / 模态
@@ -69,7 +69,6 @@
 | 筛选 ID | 筛选名 | 类型 | 选项来源 | 是否多选 | 默认值 | 是否可清除 |
 |---------|--------|------|----------|----------|--------|------------|
 | `ADM-06-PAGE-app-user-settings-fields-FILTER-cancellation-status` | 注销状态 | 下拉 | `M06-ENUM-cancellation-status` | 否 | 全部 | 是 |
-| `ADM-06-PAGE-app-user-settings-fields-FILTER-feedback-status` | 反馈状态 | 下拉 | `M06-ENUM-feedback-status` | 否 | 全部 | 是 |
 | `ADM-06-PAGE-app-user-settings-fields-FILTER-search-active` | 最近有搜索 | 开关 | 是/否 | 否 | 全部 | 是 |
 
 ### 3.3 筛选交互
@@ -84,7 +83,6 @@
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
 | `ADM-06-PAGE-app-user-settings-fields-FIELD-user-code` | 成家号 | string | 是 | 业务编号 | 不展示内部主键 | 无 | 否 | 普通 | PRD-01/系统 |
 | `ADM-06-PAGE-app-user-settings-fields-FIELD-cancellation-status` | 注销状态 | enum | 是 | `M06-ENUM-cancellation-status` | 仅展示中文状态 | none | 否 | 敏感（账号状态） | PRD-06 |
-| `ADM-06-PAGE-app-user-settings-fields-FIELD-feedback-pending-count` | 待处理反馈 | int | 是 | >=0 | 系统计算 | 0 | 否 | 普通 | PRD-06 |
 | `ADM-06-PAGE-app-user-settings-fields-FIELD-last-search-time` | 最近搜索时间 | datetime | 否 | yyyy-MM-dd HH:mm:ss | 无搜索显示 `-` | `-` | 否 | 敏感（行为摘要） | `searchLogSummary.lastSearchTime` |
 
 #### 列表字段附加属性
@@ -120,7 +118,6 @@
 | 触发字段 | 触发事件 | 影响字段 | 联动行为 | 备注 |
 |----------|----------|----------|----------|------|
 | 注销状态 | 选择 cooling_off/cancelled | 列表 | 仅展示对应状态用户 | `M06-SM-account-cancellation` |
-| 待处理反馈 | 大于 0 | 卡片标签 | 展示待处理徽标 | `M06-SM-feedback` |
 | 搜索日志摘要 | 异步聚合完成 | 最近搜索时间 | 展示最近 30 天最后一次有效搜索时间；聚合未完成或服务不可用显示 `-` | `searchLogSummary` |
 
 ## 7. 状态与异常
@@ -170,4 +167,4 @@ Then  页面只提供查询和查看入口，不提供代用户修改隐私设�
 |----------|---------|------|
 | 依赖的模块端内定义 | `ADM-06_端内定义.md` | 权限矩阵 |
 | 依赖的原页面 | `ADM-01-PAGE-app-user-management` | App 用户管理 |
-| 依赖的状态机 | `M06-SM-feedback`、`M06-SM-account-cancellation` | 反馈与注销 |
+| 依赖的状态机 | `M06-SM-account-cancellation` | 注销状态 |

@@ -1221,6 +1221,32 @@ th {
   font-size: 11px;
 }
 
+.admin-dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; padding: 24px; background: rgba(15, 32, 58, .42); }
+.admin-dialog-backdrop.open { display: grid; }
+.admin-dialog { position: relative; width: min(560px, 100%); max-height: 88vh; overflow: auto; padding: 28px; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px rgba(21, 50, 92, .25); }
+.admin-dialog-wide { width: min(820px, 100%); }
+.admin-dialog h2 { margin: 0 0 8px; font-size: 22px; color: #17233d; }
+.admin-dialog-tip { margin: 0 0 20px; color: #6b7890; }
+.admin-dialog-close { position: absolute; top: 16px; right: 18px; width: 34px; height: 34px; border: 0; border-radius: 8px; background: #f1f5fb; color: #53627a; font-size: 22px; cursor: pointer; }
+.admin-dialog form { display: grid; gap: 16px; }
+.admin-dialog form label, .cancel-remark { display: grid; gap: 7px; color: #42516a; font-size: 14px; }
+.admin-dialog form input, .admin-dialog form select, .cancel-remark textarea { width: 100%; padding: 10px 12px; border: 1px solid #d9e2f1; border-radius: 8px; background: #fff; color: #17233d; font: inherit; }
+.admin-dialog form input[readonly] { background: #f5f7fb; color: #738098; }
+.admin-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.h5-preview { margin-top: 18px; min-height: 360px; overflow: hidden; border: 1px solid #dbe4f2; border-radius: 12px; background: #f7f9fc; }
+.h5-preview-bar { padding: 11px 16px; border-bottom: 1px solid #dbe4f2; background: #fff; color: #6c7890; font-size: 13px; }
+.h5-preview iframe { display: block; width: 100%; min-height: 420px; border: 0; background: #fff; }
+.cancel-flow { display: grid; gap: 8px; margin-bottom: 16px; }
+.cancel-flow span { color: #2258c7; font-weight: 700; }
+.cancel-flow small { color: #6c7890; line-height: 1.7; }
+.cancel-detail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 20px 0; overflow: hidden; border: 1px solid #e1e8f3; border-radius: 10px; background: #e1e8f3; }
+.cancel-detail p { display: grid; grid-template-columns: 120px 1fr; gap: 12px; margin: 0; padding: 13px 15px; background: #fff; }
+.cancel-detail span { color: #7a869b; }
+.cancel-detail strong { color: #26344c; font-weight: 500; }
+.cancel-remark textarea { min-height: 88px; resize: vertical; }
+.link-btn + .link-btn { margin-left: 10px; }
+@media (max-width: 760px) { .cancel-detail { grid-template-columns: 1fr; } .admin-dialog { padding: 22px; } }
+
 .adm-header {
   position: fixed;
   top: 0;

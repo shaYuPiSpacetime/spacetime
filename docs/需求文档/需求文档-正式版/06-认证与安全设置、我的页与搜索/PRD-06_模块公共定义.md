@@ -1,12 +1,12 @@
 # PRD-06 模块公共定义 - 认证与安全设置、我的页与搜索
 
 > 本文件登记 PRD-06 在移动端与管理后台共用的术语、枚举、状态机、规则、配置、事件、错误码与接口草案。
-> 页面规格引用本文 `M06-*` ID，禁止在页面内另起一套搜索、设置、注销、反馈和入口配置口径。
+> 页面规格引用本文 `M06-*` ID，禁止在页面内另起一套搜索、设置、注销和入口口径。
 > 正式版范围以 `docs/需求文档/一期上线目标.md` 为准；原 PRD 中超出一期目标的安全中心、通知设置、黑名单列表、关键词自助管理等能力统一进入本期不做或跨模块场景内承接。
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
-| 版本01 | 2026-07-08 | Codex | 从移动端/后台 PRD-06、一期上线目标和 PRD 找茬清单恢复版转写正式版，影响 APP-06/ADM-06 全部页面 |
+| 正式版 | 2026-07-14 | Codex | 确认一期最终范围、后台独立页面、合规版本递增和注销自动执行规则 |
 
 ---
 
@@ -30,9 +30,9 @@
 | M06-14 | 找茬、PRD-01 | 手机号强制绑定引用 PRD-01；设置页展示脱敏手机号。微信号首版只展示绑定状态，不开放换绑。 | `M01-RULE-login-phone`、APP-06 设置页 |
 | M06-15 | 找茬、一期目标 | 软件更新、去给好评不列为一期设置页功能；小程序更新由微信环境承接。 | `M06-RULE-settings-scope` |
 | M06-16 | 找茬、一期目标 | 黑名单列表、不看 TA 动态、个人关键词屏蔽不做独立管理页；举报/拉黑/屏蔽能力在社区、会话、用户主页等场景内承接。 | `M06-RULE-scene-safety-handoff` |
-| A06-01 | 找茬、一期目标 | 不建设独立客服工单系统；移动端反馈箱提交，后台反馈箱查看、跟进、备注。 | `M06-SM-feedback` |
+| A06-01 | 找茬、一期目标、2026-07-14 用户决策 | 一期不建设反馈提交与后台反馈箱；帮助与客服仅保留联系客服。用户/内容举报由 PRD-05 统一承接，聊天举报由 PRD-03 生成并交 PRD-05 处理。 | `M06-RULE-settings-scope`、PRD-03/05 |
 | A06-02 | 找茬 | 熟人屏蔽后台不提供入口。 | 本期不做清单 |
-| A06-03 | 找茬、一期目标 | 搜索热词和搜索屏蔽词为独立后台轻运营能力；排序仅支持综合相关度 + 后台置顶/权重，不做算法运营平台。 | `M06-RULE-search-ranking` |
+| A06-03 | 找茬、一期目标、2026-07-14 用户决策 | 搜索热词一期删除；仅保留搜索屏蔽词后台能力。搜索结果类型、Tab、空态及排序口径均由代码固定，不做搜索展示配置或算法运营平台。 | `M06-RULE-search-ranking`、`M06-RULE-search-block` |
 | A06-06 | 找茬 | 客服首版只查看用户设置摘要，不代用户修改隐私、关键词、搜索历史等敏感设置。 | ADM-06 端内定义 |
 
 ---
@@ -42,9 +42,8 @@
 | 术语 ID | 统一术语 | 禁用旧称/别名 | 定义 | 是否需提升全局 |
 |---------|----------|----------------|------|----------------|
 | `M06-TERM-my-page` | 我的页 | 更多页 | 移动端用户个人服务中心，承接资料、会员、千寻币、签到、推荐给好友、帮助客服、设置和认证入口 | 否 |
-| `M06-TERM-entry-config` | 移动端入口配置 | 菜单配置、宫格配置 | 后台维护我的页、设置页、帮助客服等入口的排序、启停、角标和跳转目标 | 否 |
+| `M06-TERM-entry-config` | 移动端入口固定清单 | 菜单配置、宫格配置 | 一期入口由客户端代码固定，不建设后台配置能力 | 否 |
 | `M06-TERM-scoped-search` | 入口限定搜索 | 全站搜索 | 同一搜索页框架按来源入口限定可搜索对象，不承诺全站所有业务对象混搜 | 否 |
-| `M06-TERM-feedback-box` | 反馈箱 | 客服工单 | 用户提交问题反馈后由后台查看和跟进的轻量闭环，不包含 SLA、分单和客服回复工作流 | 否 |
 | `M06-TERM-account-cancellation` | 账号注销 | 注销账号、销户 | 用户发起账号删除申请，经阻断校验和后悔期后执行注销的数据生命周期流程 | 否 |
 | `M06-TERM-user-code` | 成家号 | 用户 ID、客户 ID | 前台可展示、客服可搜索的用户业务编号；不等同数据库内部主键 | 否 |
 | `M06-TERM-compliance-content` | 合规内容 | 协议页、清单页 | 用户协议、隐私政策、隐私摘要、第三方信息共享清单、个人信息收集清单、平台规范和公告 | 否 |
@@ -61,7 +60,7 @@
 | `asset` | 会员与资产 | 时空邂逅会员、千寻币、签到 | 2 | 否 | 启用 |
 | `interaction` | 互动记录 | 我喜欢的、喜欢我的、最近来访、我的动态 | 3 | 否 | 启用 |
 | `growth` | 推广裂变 | 推荐给好友、活动规则 | 4 | 否 | 启用 |
-| `service` | 服务与帮助 | 帮助客服、反馈箱、关于我们、协议清单 | 5 | 否 | 启用 |
+| `service` | 服务与帮助 | 联系客服、关于我们、协议清单 | 5 | 否 | 启用 |
 | `settings` | 设置 | 设置页入口 | 6 | 否 | 启用 |
 
 ### 3.2 `M06-ENUM-entry-status` 入口状态
@@ -81,16 +80,7 @@
 | `mini_program` | 小程序路径 | 跳转小程序内部路径 | 3 | 否 | 启用 |
 | `external_service` | 微信客服 | 调起微信客服或官方能力 | 4 | 否 | 启用 |
 
-### 3.4 `M06-ENUM-feedback-status` 反馈状态
-
-| 值（code） | 显示名 | 说明 | 排序 | 是否默认 | 状态 |
-|------------|--------|------|------|----------|------|
-| `submitted` | 已提交 | 用户提交成功，后台未查看 | 1 | 是 | 启用 |
-| `processing` | 处理中 | 后台已跟进 | 2 | 否 | 启用 |
-| `resolved` | 已处理 | 已完成处理或答复 | 3 | 否 | 启用 |
-| `closed` | 已关闭 | 无需继续跟进 | 4 | 否 | 启用 |
-
-### 3.5 `M06-ENUM-cancellation-status` 注销状态
+### 3.4 `M06-ENUM-cancellation-status` 注销状态
 
 | 值（code） | 显示名 | 说明 | 排序 | 是否默认 | 状态 |
 |------------|--------|------|------|----------|------|
@@ -101,7 +91,7 @@
 | `restored` | 已恢复 | 后悔期内撤销注销 | 5 | 否 | 启用 |
 | `cancelled` | 已注销 | 后悔期结束并执行注销 | 6 | 否 | 启用 |
 
-### 3.6 `M06-ENUM-search-result-type` 搜索结果类型
+### 3.5 `M06-ENUM-search-result-type` 搜索结果类型
 
 | 值（code） | 显示名 | 说明 | 排序 | 是否默认 | 状态 |
 |------------|--------|------|------|----------|------|
@@ -109,7 +99,7 @@
 | `post` | 动态 | 搜索已公开且未下架的动态/诚意贴内容 | 2 | 否 | 启用 |
 | `topic` | 话题 | 搜索后台启用的话题 | 3 | 否 | 启用 |
 
-### 3.7 `M06-ENUM-search-block-reason` 搜索屏蔽原因
+### 3.6 `M06-ENUM-search-block-reason` 搜索屏蔽原因
 
 | 值（code） | 显示名 | 说明 | 排序 | 是否默认 | 状态 |
 |------------|--------|------|------|----------|------|
@@ -122,16 +112,7 @@
 
 ## 4. 模块状态机
 
-### 4.1 `M06-SM-feedback` 反馈状态机
-
-| 起始状态 | 事件/触发 | 目标状态 | 前置条件 | 副作用 |
-|----------|-----------|----------|----------|--------|
-| 无 | 用户提交反馈 | `submitted` | 描述不为空，附件校验通过 | 生成反馈编号，触发 `M06-EVT-feedback-submitted` |
-| `submitted` | 后台标记跟进 | `processing` | 具备反馈处理权限 | 记录处理人和处理备注 |
-| `processing` | 后台处理完成 | `resolved` | 处理说明不为空 | 记录处理时间 |
-| `submitted`/`processing` | 后台关闭 | `closed` | 填写关闭原因 | 保留历史记录 |
-
-### 4.2 `M06-SM-account-cancellation` 账号注销状态机
+### 4.1 `M06-SM-account-cancellation` 账号注销状态机
 
 | 起始状态 | 事件/触发 | 目标状态 | 前置条件 | 副作用 |
 |----------|-----------|----------|----------|--------|
@@ -140,6 +121,7 @@
 | `requested` | 系统写入后悔期 | `cooling_off` | 注销申请创建成功 | 计算预计执行时间 |
 | `cooling_off` | 用户撤销注销 | `restored` | 后悔期未结束 | 恢复账号可用状态 |
 | `cooling_off` | 后悔期到期批处理 | `cancelled` | 未撤销且无新增硬阻断 | 执行账号注销、保留合规必需记录 |
+| `cooling_off` | 到期批处理重新校验失败 | `cooling_off` | 出现新的硬阻断 | 标记执行暂停，更新阻断原因与下次重试时间；后台不可人工通过 |
 | `blocked` | 用户重新进入注销弹窗并重新校验 | `blocked` | 硬阻断仍存在 | 刷新阻断原因和客服入口，仍不创建申请 |
 | `blocked` | 阻断原因解除后重新校验并确认 | `requested` | 无硬阻断且用户重新勾选确认 | 创建新的有效注销申请 |
 
@@ -183,13 +165,15 @@
 | `M06-RULE-privacy-settings-scope` | 隐私设置范围 | APP-06-PAGE-privacy | 一期隐私设置只承接账号注销入口和隐私说明；黑名单、动态屏蔽、关键词屏蔽、算法授权开关不作为独立设置项 | 场景内安全动作引用 PRD-03/05 |
 | `M06-RULE-notification-settings-scope` | 通知设置范围 | APP/ADM | 一期不做用户自助通知设置页，通知中心、订阅消息授权、红点和站内通知引用 `M03-RULE-notification-setting-scope` 与 `M03-RULE-notification-subscribe` | 避免与 PRD-03 冲突 |
 | `M06-RULE-scene-safety-handoff` | 场景内安全闭环 | APP/ADM | 用户主页、社区详情、会话页、推荐卡等场景可提供举报、拉黑、屏蔽或不再推荐；具体入口与处罚由 PRD-03、PRD-05、PRD-08 承接，PRD-06 不提供集中管理列表 | 满足一期最小安全闭环 |
-| `M06-RULE-safety-content-scope` | 安全提示内容范围 | APP/ADM | 移动端不开放安全中心独立页；后台可维护安全提示、反诈指南、平台规范等内容链接，用于帮助客服、关于我们或场景提示引用 | 不做治理公示统计 |
+| `M06-RULE-safety-content-scope` | 安全提示内容范围 | APP/ADM | 移动端不开放安全中心独立页；一期安全提示、反诈提醒和平台规范入口及文案由代码固定，不建设独立后台配置页 | 不做治理公示统计；内容变更随版本发布 |
 | `M06-RULE-search-scope` | 入口限定搜索范围 | APP-06-PAGE-search-home、APP-06-PAGE-search-result | 搜索页根据 `sourceScene` 限定结果 Tab。默认全局入口支持用户/动态/话题；社区入口支持动态/话题；推荐/理想型的身高、年龄、城市等条件搜索由 PRD-08 或 PRD-02 承接 | 学校、职业、测评报告不纳入 PRD-06 |
 | `M06-RULE-search-history` | 搜索历史 | APP-06-PAGE-search-home | 历史词按账号维度本地保存最近 10 条；清空只清本地历史，不删除后台搜索日志 | 后续如需云端同步另立需求 |
 | `M06-RULE-search-block` | 搜索违规词过滤 | APP/ADM | 输入词命中搜索屏蔽词时不发起搜索并展示违规提示；结果对象命中下架、账号不可见、隐私限制时不展示或降级展示 | 与个人关键词屏蔽分离 |
-| `M06-RULE-search-ranking` | 搜索排序 | APP/ADM | 一期只支持综合相关度、后台热词/置顶权重和对象状态过滤；不做推荐算法排序解释和搜索运营平台 | 后续由 PRD-08 扩展 |
+| `M06-RULE-search-ranking` | 搜索排序 | APP/ADM | 一期固定使用综合相关度和对象状态过滤；不展示搜索热词，不提供后台 Tab、空态文案、提示文案或排序模式配置 | 后续由 PRD-08 扩展 |
 | `M06-RULE-account-cancellation-check` | 注销前校验 | APP/ADM | 打开注销弹窗先预校验。硬阻断：封禁处罚中、未完成退款、进行中付费争议，只展示原因和客服入口，不创建申请。可确认风险：未到期会员、未消耗千寻币、未完成邀请奖励，用户勾选确认后进入后悔期。`blocked` 用户再次进入弹窗时必须重新校验，阻断解除后才能提交 | 退款与资产状态引用 PRD-04 |
 | `M06-RULE-compliance-content` | 合规内容承接 | APP/ADM | 协议、隐私政策、隐私摘要、第三方信息共享清单、个人信息收集清单、平台信息管理规范、公告优先 H5 配置，关键合规页可原生兜底 | 内容由甲方提供并确认 |
+| `M06-RULE-compliance-version` | 合规内容版本递增 | ADM | 所有合规配置项预初始化为 `v1.0`，不允许新增或删除；仅替换 H5 地址时版本尾号加 1，`v1.9` 后变为 `v2.0`；仅修改标题或状态不升级版本 | 版本由服务端计算，后台不可手填 |
+| `M06-RULE-cancellation-auto-execute` | 注销自动执行 | APP/ADM | 申请创建后系统立即进入后悔期；用户可在后悔期撤销；到期由定时任务重新校验，校验通过执行注销，出现新硬阻断则暂停并按计划重试 | 后台只读详情并可追加备注，不提供批准、拒绝或立即注销 |
 
 ---
 
@@ -197,15 +181,11 @@
 
 | 配置 ID | 配置项 | 默认值 | 类型 | 配置路径 | 修改后是否立即生效 | 高风险 |
 |---------|--------|--------|------|----------|-------------------|--------|
-| `M06-CFG-my-entry-list` | 我的页入口列表 | 按 APP-06 端内定义 | json[] | 移动端配置管理 -> 我的页面配置 | 是，刷新缓存后生效 | 否 |
-| `M06-CFG-settings-entry-list` | 设置页可配置入口列表 | 合规清单、关于我们等可配置链接 | json[] | 移动端配置管理 -> 设置页面配置 | 是 | 否 |
 | `M06-CFG-compliance-links` | 合规内容链接 | 空 | json[] | 移动端配置管理 -> 公告与协议配置 | 是 | 是 |
-| `M06-CFG-search-hotwords` | 搜索热词 | 空数组 | json[] | 运营中心 -> 搜索热词 | 是 | 否 |
 | `M06-CFG-search-block-words` | 搜索屏蔽词 | 空数组 | json[] | 运营中心 -> 搜索屏蔽词 | 是 | 是 |
-| `M06-CFG-search-tabs` | 搜索结果 Tab 启停 | 用户/动态/话题启用 | json | 移动端配置管理 -> 搜索配置 | 是 | 否 |
-| `M06-CFG-feedback-types` | 反馈问题类型 | 功能异常/账号认证/支付资产/举报安全/其他 | json[] | 运营中心 -> 内容文章/反馈箱配置 | 是 | 否 |
 | `M06-CFG-cancellation-cooling-days` | 注销后悔期天数 | 30 | int | 用户安全设置 -> 注销申请配置 | 是，仅新申请生效 | 是 |
-| `M06-CFG-safety-content-links` | 安全提示内容链接 | 空 | json[] | 移动端配置管理 -> 安全提示内容配置 | 是 | 否 |
+
+以下历史配置 ID 自版本02起废弃且不得实现后台接口：`M06-CFG-my-entry-list`、`M06-CFG-settings-entry-list`、`M06-CFG-search-hotwords`、`M06-CFG-search-tabs`、`M06-CFG-feedback-types`、`M06-CFG-safety-content-links`。对应入口、搜索展示、反馈分类和安全提示由代码固定，其中搜索热词能力整体删除。
 
 ---
 
@@ -213,13 +193,11 @@
 
 | ID | 类型 | 触发时机 / 场景 | 渠道 | 内容/变量/默认文案 | 是否后台可配 |
 |----|------|-----------------|------|-------------------|--------------|
-| `M06-EVT-feedback-submitted` | 事件 | 用户提交反馈成功 | 内部事件 | feedbackId, userId, type | 否 |
 | `M06-EVT-cancellation-requested` | 事件 | 用户提交注销申请 | 内部事件/审计 | userId, requestId, expectedCancelTime | 否 |
 | `M06-EVT-cancellation-restored` | 事件 | 用户撤销注销 | 内部事件/审计 | userId, requestId | 否 |
 | `M06-TXT-cert-center-guide` | 文案 | 认证中心说明 | APP | 完成三重认证后，即可使用核心互动能力 | 是 |
 | `M06-TXT-cancellation-risk` | 文案 | 注销确认 | APP | 注销后账号资料将按规则处理，后悔期内可撤销 | 是 |
 | `M06-TXT-search-blocked` | 文案 | 搜索词违规 | APP | 搜索内容不支持展示 | 是 |
-| `M06-TXT-feedback-success` | 文案 | 反馈提交成功 | APP | 已收到你的反馈 | 是 |
 
 ---
 
@@ -230,7 +208,6 @@
 | `M06-ERR-entry-disabled` | 404 | 60001 | 入口已停用或不存在 | 功能暂不可用 | 是 |
 | `M06-ERR-search-word-blocked` | 400 | 60002 | 搜索词命中屏蔽词 | 搜索内容不支持展示 | 否 |
 | `M06-ERR-search-empty-keyword` | 400 | 60003 | 搜索词为空 | 请输入搜索内容 | 否 |
-| `M06-ERR-feedback-attachment-invalid` | 400 | 60004 | 反馈附件格式或大小不合法 | 图片上传失败，请重新选择 | 是 |
 | `M06-ERR-cancellation-blocked` | 409 | 60005 | 注销命中硬阻断 | 当前账号暂不可注销，请查看原因 | 是 |
 | `M06-ERR-cancellation-not-found` | 404 | 60006 | 注销申请不存在 | 注销申请不存在 | 否 |
 | `M06-ERR-content-link-missing` | 500 | 60007 | 合规内容链接缺失 | 内容暂不可查看 | 是 |
@@ -241,27 +218,21 @@
 
 | 端 | 方法 | 路径 | 说明 | 关联规则/状态 |
 |----|------|------|------|---------------|
-| APP | GET | `/api/app/profile/my-page` | 查询我的页用户摘要和入口配置 | `M06-RULE-my-entry-scope` |
+| APP | GET | `/api/app/profile/my-page` | 查询我的页用户摘要；入口由客户端固定 | `M06-RULE-my-entry-scope` |
 | APP | GET | `/api/app/profile/cert-center` | 查询认证中心三重认证状态 | `M06-RULE-cert-center` |
-| APP | GET | `/api/app/settings` | 查询设置页账号状态和入口配置 | `M06-RULE-settings-scope` |
+| APP | GET | `/api/app/settings` | 查询设置页账号状态；入口由客户端固定 | `M06-RULE-settings-scope` |
 | APP | POST | `/api/app/session/logout` | 退出登录 | APP-06 设置页 |
-| APP | POST | `/api/app/feedback` | 提交反馈 | `M06-SM-feedback` |
-| APP | GET | `/api/app/search/home` | 查询搜索首页热词和历史词 | `M06-RULE-search-history` |
+| APP | GET | `/api/app/search/home` | 查询搜索首页基础状态；搜索历史由本地维护，不返回热词 | `M06-RULE-search-history` |
 | APP | GET | `/api/app/search` | 查询入口限定搜索结果 | `M06-RULE-search-scope` |
 | APP | POST | `/api/app/search/history/clear` | 清空本地或账号维度搜索历史同步标记 | `M06-RULE-search-history` |
 | APP | POST | `/api/app/account/cancellation` | 提交注销申请 | `M06-SM-account-cancellation` |
 | APP | POST | `/api/app/account/cancellation/cancel` | 撤销注销申请 | `M06-SM-account-cancellation` |
-| ADM | GET | `/api/admin/app-entry-config` | 查询移动端入口配置 | `M06-CFG-my-entry-list` |
-| ADM | POST | `/api/admin/app-entry-config` | 保存移动端入口配置 | ADM-06 权限矩阵 |
-| ADM | GET | `/api/admin/search/hotwords` | 搜索热词列表 | `M06-CFG-search-hotwords` |
-| ADM | POST | `/api/admin/search/hotwords` | 新增/编辑/启停热词 | `M06-RULE-search-ranking` |
 | ADM | GET | `/api/admin/search/block-words` | 搜索屏蔽词列表 | `M06-CFG-search-block-words` |
 | ADM | POST | `/api/admin/search/block-words` | 新增/编辑/启停屏蔽词 | `M06-RULE-search-block` |
-| ADM | GET | `/api/admin/feedback` | 反馈箱列表 | `M06-SM-feedback` |
-| ADM | POST | `/api/admin/feedback/{feedbackId}/status` | 更新反馈处理状态 | `M06-SM-feedback` |
 | ADM | GET | `/api/admin/account-cancellations` | 注销申请列表 | `M06-SM-account-cancellation` |
 | ADM | POST | `/api/admin/account-cancellations/{requestId}/remark` | 更新注销处理备注 | `M06-SM-account-cancellation` |
 | ADM | GET/POST | `/api/admin/compliance-content` | 公告、帮助、协议、清单配置 | `M06-RULE-compliance-content` |
+| ADM | GET/POST | `/api/admin/system-params/cancellation-cooling-days` | 查询或修改注销后悔期天数；仅影响新申请 | `M06-CFG-cancellation-cooling-days` |
 
 ---
 
@@ -274,5 +245,7 @@
 | 黑名单列表、不看 TA 动态、关键词屏蔽管理页 | 一期隐私设置只保留注销入口 | 隐藏页面；场景内拉黑/屏蔽/举报引用 PRD-03/05 | 二期隐私中心 |
 | 熟人屏蔽和通讯录读取 | 微信小程序权限与授权率风险高 | 隐藏入口，不预留通讯录读取 | 二期单独评估 |
 | AI 个性化推送、配对聊天提示、智能灵感回复开关 | 推荐算法和 AI 辅助策略未定 | 隐藏入口 | PRD-08/09 或 AI 能力 PRD |
-| 搜索运营平台、搜索算法排序解释 | 一期只做轻搜索和屏蔽词 | 仅后台轻配置 | PRD-08 后续扩展 |
-| 客服工单系统 | 一期只做反馈箱查看跟进 | 不做 SLA、分单、用户端进度查询 | 二期客服系统 |
+| 搜索热词、搜索展示配置、搜索运营平台和算法排序解释 | 一期只做固定搜索展示和动态屏蔽词 | 删除热词；Tab、空态文案、违规提示、排序写死；后台仅保留屏蔽词 | PRD-08 后续扩展 |
+| 移动端入口配置 | 一期入口结构稳定，动态配置增加版本、缓存和异常兜底成本 | 我的页、设置页、帮助客服入口由代码固定 | 二期确有运营调整需求时重评 |
+| 独立安全提示内容配置 | 一期安全中心不展开，提示内容数量固定 | 安全提示文案和入口由代码固定 | 二期安全中心统一承接 |
+| 反馈提交与客服工单系统 | 一期仅保留联系客服，减少独立反馈闭环成本 | 删除移动端反馈箱及后台反馈箱；举报统一引用 PRD-03/05 | 二期客服系统统一评估 |

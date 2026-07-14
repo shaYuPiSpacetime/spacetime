@@ -75,7 +75,7 @@
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
 | `APP-06-PAGE-settings-FIELD-phone` | 手机号 | string | 是 | 脱敏手机号 | 展示 138****1234 | 无 | 否；换绑引用 PRD-01 | 敏感（脱敏） | PRD-01 |
 | `APP-06-PAGE-settings-FIELD-wechat-bound` | 微信绑定状态 | bool | 是 | true/false | 不展示 openId | true | 否 | 敏感（不展示标识） | 微信授权 |
-| `APP-06-PAGE-settings-FIELD-entry-list` | 设置可配置入口 | json[] | 是 | `M06-CFG-settings-entry-list`；固定字段结构见第 6 节 `/api/app/settings` | 仅展示启用的合规清单、关于我们等可配置入口；手机号、微信、隐私设置、退出登录为固定结构 | 默认配置 | 否 | 普通 | 后台配置 |
+| `APP-06-PAGE-settings-FIELD-entry-list` | 设置固定入口 | json[] | 是 | `M06-RULE-settings-scope` | 固定展示合规清单、关于我们等一期入口；手机号、微信、隐私设置、退出登录为固定结构 | 固定清单 | 否 | 普通 | 客户端代码 |
 | `APP-06-PAGE-settings-FIELD-account-status` | 账号状态 | enum | 是 | 正常/冻结/注销中 | 异常时展示提示 | 正常 | 否 | 普通 | 用户账号 |
 
 #### 列表字段附加属性
@@ -110,7 +110,6 @@
 
 | 触发字段 | 触发事件 | 影响字段 | 联动行为 | 备注 |
 |----------|----------|----------|----------|------|
-| 设置入口配置 | 后台停用 | 入口列表 | 前台隐藏 | `M06-CFG-settings-entry-list` |
 | 注销状态 | 进入后悔期 | 隐私设置入口 | 展示红点/提示 | `M06-SM-account-cancellation` |
 
 `/api/app/settings` 返回固定账号字段和可配置入口集合：`phoneMasked`、`wechatBound`、`accountStatus`、`entries.privacy`、`entries.thirdPartyList`、`entries.personalInfoList`、`entries.about`。前端不得把通知设置、软件更新、去给好评作为远程可配置入口透出。
@@ -120,7 +119,7 @@
 | 状态类型 | 触发场景 | 页面表现 | 用户可做的操作 | 引用 |
 |----------|----------|----------|----------------|------|
 | 加载态 | 首次进入 | 设置列表骨架 | 无 | — |
-| 空态（无数据） | 设置入口为空 | 展示账号区和退出登录 | 退出登录 | `M06-CFG-settings-entry-list` |
+| 空态（无数据） | 账号摘要为空 | 仍展示固定入口和退出登录 | 进入固定入口/退出登录 | `M06-RULE-settings-scope` |
 | 空态（搜索无结果） | 本页不适用 | 本节不适用 | 无 | — |
 | 错误态（网络） | 查询失败 | toast + 重试 | 重试 | `M06-ERR-entry-disabled` |
 | 无权限态 | 未登录 | 登录引导 | 去登录 | `GLB-ROLE-app-user` |
@@ -170,5 +169,4 @@ Then  系统清空本地登录态并返回登录前页或首页；退出失败�
 | 关联类型 | 引用 ID | 说明 |
 |----------|---------|------|
 | 依赖的模块规则 | `M06-RULE-settings-scope` | 设置范围 |
-| 依赖的模块配置项 | `M06-CFG-settings-entry-list` | 设置入口 |
 | 依赖的其他模块 | `M01-RULE-login-phone`、`M03-RULE-notification-setting-scope` | 手机绑定、通知设置收敛 |

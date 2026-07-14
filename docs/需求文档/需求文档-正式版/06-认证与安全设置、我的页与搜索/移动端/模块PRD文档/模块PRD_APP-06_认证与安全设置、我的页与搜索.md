@@ -2,13 +2,13 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
-| 版本01 | 2026-07-08 | Codex | 创建移动端正式版模块 PRD |
+| 正式版 | 2026-07-14 | Codex | 确认一期最终移动端范围，帮助与客服仅保留联系客服 |
 
 ---
 
 ## 1. 模块目标
 
-PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设置”体系内，让用户能查看认证状态、进入资料和资产服务、提交反馈、查看合规内容、执行退出登录与账号注销，并通过入口限定搜索快速找到一期允许搜索的对象。
+PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设置”体系内，让用户能查看认证状态、进入资料和资产服务、联系客服、查看合规内容、执行退出登录与账号注销，并通过入口限定搜索快速找到一期允许搜索的对象。
 
 **用户故事：** 作为已登录 App 用户，我想在我的页集中管理账号、认证、资产、帮助与搜索入口，以便不依赖客服也能完成基础自助服务。
 
@@ -19,7 +19,7 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 | 角色 | 在本模块中做什么 | 引用全局角色 |
 |------|------------------|--------------|
 | 未登录访客 | 查看公开帮助、协议、搜索入口，点击个人能力时登录 | `GLB-ROLE-visitor` |
-| App 用户 | 查看我的页、设置、认证中心、反馈、注销、搜索 | `GLB-ROLE-app-user` |
+| App 用户 | 查看我的页、设置、认证中心、联系客服、注销、搜索 | `GLB-ROLE-app-user` |
 
 ---
 
@@ -29,11 +29,11 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 
 ```text
 用户进入我的页
--> 系统读取用户摘要、认证状态、入口配置
+-> 系统读取用户摘要、认证状态；页面入口由客户端固定
 -> 未登录：展示登录引导和公开服务入口
 -> 已登录：展示资料卡、入口宫格、服务帮助、设置
 -> 点击跨模块入口：按对应模块准入规则跳转或展示引导
--> 入口停用/未配置：隐藏或进入施工中兜底页
+-> 跨模块能力未上线：按固定降级规则隐藏或进入施工中兜底页
 ```
 
 ### 3.2 账号注销流程
@@ -53,8 +53,8 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 
 ```text
 用户从全局或业务入口进入搜索首页
--> 系统按 sourceScene 返回可搜索类型、热词和历史词
--> 用户输入关键词或点击热词
+-> 客户端按 sourceScene 使用固定的结果类型；读取本地历史词
+-> 用户输入关键词或点击历史词
 -> 命中屏蔽词：提示违规，不进入结果页
 -> 未命中：进入结果页
 -> 结果页按入口限定展示用户/动态/话题 Tab
@@ -67,10 +67,7 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|--------------|------|----------|----------|
-| 移动端入口配置 | `app_entry_config` | 我的页、设置页、帮助入口配置 | PRD-06 | entryCode, group, title, icon, linkType, linkTarget, status, sort |
-| 反馈记录 | `user_feedback` | 用户提交反馈 | PRD-06 | feedbackNo, userId, type, content, attachments, contact, status |
 | 账号注销申请 | `account_cancellation_request` | 注销申请与后悔期 | PRD-06 | requestNo, userId, status, blockReasons(JSON 数组，引用公共定义 4.3.1), requestedAt, coolingEndAt |
-| 搜索热词 | `search_hotword` | 后台配置热词 | PRD-06 | word, sourceScene, sort, status |
 | 搜索屏蔽词 | `search_block_word` | 搜索违规词 | PRD-06 | word, reason, matchType, status |
 | 合规内容配置 | `compliance_content_config` | 协议、清单、公告、帮助链接 | PRD-06 | contentType, title, linkType, url, version, status |
 | 搜索日志摘要 | `search_log_summary` | 搜索行为聚合摘要 | PRD-06/搜索服务 | userId, lastSearchTime, searchCount30d, lastSourceScene, hasBlockedSearch30d |
@@ -94,7 +91,7 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 |---------|------|--------|-------------|------|
 | `APP-06-RULE-my-page` | 我的页入口聚合 | P0 | `APP-06-PAGE-my` | 聚合，不复述跨模块规则 |
 | `APP-06-RULE-cert-center` | 认证中心状态查看 | P0 | `APP-06-PAGE-cert-center` | 认证流程引用 PRD-01 |
-| `APP-06-RULE-help-feedback` | 帮助客服和反馈箱 | P0 | `APP-06-PAGE-help-service`、`APP-06-PAGE-feedback` | 不做工单系统 |
+| `APP-06-RULE-help-service` | 帮助与客服 | P0 | `APP-06-PAGE-help-service` | 仅保留联系客服，不提交反馈 |
 | `APP-06-RULE-settings` | 设置页、退出登录、绑定状态展示 | P0 | `APP-06-PAGE-settings` | 隐藏通知设置 |
 | `APP-06-RULE-privacy-cancellation` | 隐私设置与账号注销 | P0 | `APP-06-PAGE-privacy`、`APP-06-PAGE-cancellation-modal` | 仅保留注销 |
 | `APP-06-RULE-compliance` | 合规清单、关于我们、协议政策内容、公告 | P0 | `APP-06-PAGE-third-party-list`、`APP-06-PAGE-personal-info-list`、`APP-06-PAGE-about`、`APP-06-PAGE-policy-content`、`APP-06-PAGE-announcement` | H5 优先，原生兜底 |
@@ -112,6 +109,8 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 | 熟人屏蔽 | 小程序通讯录权限风险 | 隐藏入口 | 二期评估 |
 | AI 个性化开关 | 推荐/AI 策略未定 | 隐藏入口 | PRD-08/09 后续 |
 | 学校、职业、测评报告全站搜索 | 一期搜索按入口限定 | 不展示相关 Tab | 后续搜索扩展 |
+| 搜索热词 | 降低一期运营配置和接口成本 | 搜索首页不展示热词区 | 后续有明确运营需求时重评 |
+| 动态入口、搜索展示、反馈类型、安全提示 | 一期结构稳定 | 客户端代码固定，不请求后台配置 | 二期有运营需求时重评 |
 
 ---
 
@@ -149,7 +148,7 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 
 ### 10.1 权限
 
-移动端个人数据接口必须校验登录态和本人身份；反馈提交、注销申请、搜索历史均只允许当前用户操作。
+移动端个人数据接口必须校验登录态和本人身份；注销申请、搜索历史均只允许当前用户操作。
 
 ### 10.2 安全与合规
 
@@ -157,7 +156,6 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 |------|----------|----------|----------|------------|------------|
 | 手机号 | 是 | 138****1234 | 按账号合规周期 | 合规留存后匿名化 | 后台授权导出 |
 | 微信 openId/unionId | 是 | 不前台展示 | 按账号合规周期 | 合规留存后解绑或匿名化 | 否 |
-| 反馈联系方式 | 是 | 按联系方式类型脱敏 | 1 年或合规要求 | 匿名化 | 后台授权导出 |
 | 搜索历史 | 否，本地为主 | 不后台明文展示给客服 | 本地最近 10 条 | 清除本地 | 否 |
 
 ### 10.3 性能
@@ -170,7 +168,6 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 
 | 操作 | 并发场景 | 幂等方案 |
 |------|----------|----------|
-| 提交反馈 | 弱网重复点击 | 客户端禁用按钮 + 服务端按 userId+contentHash+分钟级窗口去重 |
 | 提交注销申请 | 重复提交 | 同一用户仅允许一个有效申请 |
 | 撤销注销 | 重复点击 | 状态已恢复时幂等返回成功 |
 | 清空搜索历史 | 多端操作 | 本地清除幂等，云端同步标记按版本号覆盖 |
@@ -182,7 +179,6 @@ PRD-06 移动端负责把用户自助服务入口收敛到“我的”和“设�
 | `my_page_show` | 我的页展示 | userStatus, coreAccessStatus |
 | `cert_center_show` | 认证中心展示 | realNameStatus, avatarStatus, educationStatus |
 | `settings_show` | 设置页展示 | accountStatus |
-| `feedback_submit` | 反馈提交 | type, hasAttachment |
 | `account_cancel_submit` | 提交注销申请 | blockReasonCount, hasVipRisk |
 | `search_start` | 发起搜索 | sourceScene, keywordLength |
 | `search_result_show` | 搜索结果展示 | sourceScene, tab, resultCount |

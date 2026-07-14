@@ -66,6 +66,13 @@ window.DEMO_DATA = {
       verifyBadges: ['头像通过', '实名通过', '学历通过'],
       statuses: { avatar: '头像通过', realName: '实名通过', education: '学历通过', core: '已开放' },
       accountStatus: '正常',
+      settingsSecurity: {
+        cancellationStatus: '未申请',
+        cancellationRisk: '无阻断原因',
+        searchCount30d: '18 次',
+        lastSearchTime: '2026-07-08 10:26',
+        lastSearchScene: '全局搜索',
+      },
       profileDetail: {
         profileNo: 'U100281',
         phone: '138****6128',
