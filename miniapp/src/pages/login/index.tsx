@@ -4,8 +4,9 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { useAuthStore } from '@/stores/authStore'
 import { loginByWechatPhone } from '@/services/auth'
-import { getDemoPageData } from '@/services/lanhuDemo'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { resolvePostLoginRoute } from '@/domain/prd01Runtime'
+import { usePrd01Store } from '@/stores/prd01Store'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import loginSceneBg from '@/assets/login/login-scene-bg.jpg'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -13,21 +14,9 @@ import './index.scss'
 
 type LoginMethod = 'wechat' | 'phone'
 
-interface LoginExtras {
-  phoneLogin: {
-    defaultPhone: string
-    defaultCode: string
-    codeButtonText: string
-    submitText: string
-    errorText: string
-    errorHint: string
-  }
-}
+const LOGIN_METHODS: LoginMethod[] = ['wechat', 'phone']
 
-const baseLoginDemo = getDemoPageData('login')
-const loginDemo = baseLoginDemo as typeof baseLoginDemo & LoginExtras
-
-function getWechatAuthErrorText(error: unknown) {
+function getWechatAuthErrorText(error: unknown, copy: (copyKey: string) => string) {
   const errMsg = (
     error && typeof error === 'object'
       ? String((error as { errMsg?: string; message?: string }).errMsg || (error as { message?: string }).message || '')
@@ -36,18 +25,18 @@ function getWechatAuthErrorText(error: unknown) {
   const lowerErrMsg = errMsg.toLowerCase()
 
   if (lowerErrMsg.includes('timeout')) {
-    return '微信授权超时，请重试'
+    return copy('login_wechat_timeout')
   }
 
   if (lowerErrMsg.includes('deny') || lowerErrMsg.includes('cancel')) {
-    return '需要完成微信授权后继续'
+    return copy('login_wechat_cancelled')
   }
 
   if (errMsg) {
     return errMsg.slice(0, 80)
   }
 
-  return '需要完成微信授权后继续'
+  return copy('login_wechat_cancelled')
 }
 
 interface AgreementSheetProps {
@@ -58,7 +47,10 @@ interface AgreementSheetProps {
 }
 
 function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: AgreementSheetProps) {
-  const agreeText = selectedMethod === 'wechat' && loading ? '授权中...' : loginDemo.agreement.agreeText
+  const copy = usePrd01Store(state => state.copy)
+  const agreeText = selectedMethod === 'wechat' && loading
+    ? copy('login_authorizing_action')
+    : copy('login_agree_action')
 
   return (
     <View
@@ -90,7 +82,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             textAlign: 'center',
           }}
         >
-          {loginDemo.agreement.title}
+          {copy('login_agreement_title')}
         </Text>
 
         <Text
@@ -102,7 +94,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             marginTop: '42rpx',
           }}
         >
-          未成年人请勿注册使用本产品。感谢您信任并使用时空邂逅，在您使用时空邂逅的过程中，我们可能会对您的部分个人信息进行收集和使用。
+          {copy('login_agreement_notice')}
         </Text>
 
         <Text
@@ -114,7 +106,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             marginTop: '18rpx',
           }}
         >
-          1、未经您的同意，我们不会从第三方获取、共享或对外提供您的个人信息；
+          {copy('agreement_user')}
         </Text>
 
         <Text
@@ -126,7 +118,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             marginTop: '12rpx',
           }}
         >
-          2、您可以随时访问、更正或删除您的个人信息，也可以通过产品内反馈与我们联系。
+          {copy('agreement_privacy')}
         </Text>
 
         <Text
@@ -138,11 +130,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             marginTop: '12rpx',
           }}
         >
-          更多详细信息，您可以点击查看我们的
-          <Text style={{ color: '#2876FF', textDecoration: 'underline' }}>《用户服务协议》</Text>
-          和
-          <Text style={{ color: '#2876FF', textDecoration: 'underline' }}>《隐私保护政策》</Text>
-          。请您务必仔细阅读并充分理解相关条款，如您同意以上协议和政策，请点击“同意”开始使用我们的产品和服务。
+          {copy('login_agreement_detail')}
         </Text>
 
         <View style={{ display: 'flex', flexDirection: 'row', marginTop: '36rpx' }}>
@@ -160,7 +148,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             hoverClass="btn-hover"
           >
             <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
-              {loginDemo.agreement.disagreeText}
+              {copy('login_disagree_action')}
             </Text>
           </View>
           <View
@@ -294,6 +282,7 @@ function LoginMethodSheet({
   onWechatPhoneLogin,
   onClose,
 }: LoginMethodSheetProps) {
+  const copy = usePrd01Store(state => state.copy)
   return (
     <View
       className="absolute inset-0 z-50"
@@ -315,13 +304,16 @@ function LoginMethodSheet({
         onClick={(event) => event.stopPropagation()}
       >
         <Text style={{ display: 'block', color: '#333333', fontSize: '34rpx', fontWeight: 800, lineHeight: '48rpx', textAlign: 'center' }}>
-          选择登录方式
+          {copy('login_method_title')}
         </Text>
         <View style={{ marginTop: '64rpx' }}>
-          {loginDemo.methods.map((method, index) => (
-            <View key={method.key} style={{ marginTop: index === 0 ? '0' : '36rpx' }}>
+          {LOGIN_METHODS.map((methodKey, index) => (
+            <View key={methodKey} style={{ marginTop: index === 0 ? '0' : '36rpx' }}>
               <LoginMethodRow
-                method={method}
+                method={{
+                  key: methodKey,
+                  title: copy(methodKey === 'wechat' ? 'login_wechat_action' : 'login_phone_action'),
+                }}
                 agreementAccepted={agreementAccepted}
                 loading={loading}
                 onSelectMethod={onSelectMethod}
@@ -358,16 +350,16 @@ function LoginMethodSheet({
             {agreementAccepted && <Text style={{ color: '#FFFFFF', fontSize: '24rpx', fontWeight: 900 }}>✓</Text>}
           </View>
           <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '22rpx' }}>
-            阅读并同意
+            {copy('login_agreement_check_prefix')}
           </Text>
           <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
-            用户服务协议
+            {copy('agreement_user')}
           </Text>
           <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
-            和
+            {copy('login_agreement_joiner')}
           </Text>
           <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
-            隐私保护政策
+            {copy('agreement_privacy')}
           </Text>
         </View>
       </View>
@@ -379,18 +371,22 @@ function LoginMethodSheet({
  * 登录入口页：先选择登录方式，再确认协议，最后进入对应登录方式。
  */
 export default function LoginAuthPage() {
-  const { updateUserInfo, setStep } = useLogin()
+  const { copy, bootstrap, resumeInit } = useLogin()
   const { setLogin } = useAuthStore()
   const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [showMethodSheet, setShowMethodSheet] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
   const [showError, setShowError] = useState(false)
-  const [errorText, setErrorText] = useState(loginDemo.agreement.errorText)
+  const [errorText, setErrorText] = useState('')
   const [loading, setLoading] = useState(false)
   const [wechatAuthPending, setWechatAuthPending] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState<LoginMethod | null>(null)
 
   useLoad((options) => {
+    void bootstrap().catch(error => {
+      setErrorText(error instanceof Error ? error.message : String(error))
+      setShowError(true)
+    })
     const variant = options?.variant
     const isPhoneLoginVariant = variant === 'phone' || variant === 'phone-active' || variant === 'phone-error'
     const isDialogVariant = variant === 'auth' || variant === 'dialog'
@@ -416,7 +412,7 @@ export default function LoginAuthPage() {
     setShowMethodSheet(true)
     setShowDialog(false)
     setShowError(false)
-    setErrorText(loginDemo.agreement.errorText)
+    setErrorText('')
   }
 
   const proceedWithMethod = async (method: LoginMethod) => {
@@ -428,13 +424,13 @@ export default function LoginAuthPage() {
       setShowMethodSheet(true)
       return
     }
-    await Taro.redirectTo({ url: '/pages/login/phone' })
+    await Taro.redirectTo({ url: '/pages/login/phone?agreed=1' })
   }
 
   const handleSelectMethod = async (method: LoginMethod) => {
     setSelectedMethod(method)
     setShowError(false)
-    setErrorText(loginDemo.agreement.errorText)
+    setErrorText('')
     if (!agreementAccepted) {
       setShowMethodSheet(false)
       setShowDialog(true)
@@ -452,7 +448,7 @@ export default function LoginAuthPage() {
     if (wechatAuthPending || loading) return
     const phoneCode = event.detail?.code
     if (!phoneCode) {
-      const nextErrorText = getWechatAuthErrorText({ errMsg: event.detail?.errMsg })
+      const nextErrorText = getWechatAuthErrorText({ errMsg: event.detail?.errMsg }, copy)
       setErrorText(nextErrorText)
       setShowError(true)
       Taro.showToast({ title: nextErrorText, icon: 'none' })
@@ -466,28 +462,27 @@ export default function LoginAuthPage() {
     try {
       const { code: loginCode } = await Taro.login()
       if (!loginCode) {
-        throw new Error('微信登录code获取失败')
+        throw new Error(copy('login_wechat_code_failed'))
       }
-      const loginData = await loginByWechatPhone({ loginCode, phoneCode })
-      const nickname = loginData.nickname || loginDemo.defaultUser.nickname
-      const avatar = normalizeAvatarUrl(loginData.avatar || loginDemo.defaultUser.avatar, defaultAvatar)
+      const loginData = await loginByWechatPhone({ loginCode, phoneCode, agreeProtocol: agreementAccepted })
+      const nickname = loginData.nickname || ''
+      const avatar = normalizeAvatarUrl(loginData.avatar, defaultAvatar)
 
       setLogin(loginData.token, loginData.userId, nickname, avatar, {
         openid: loginData.openid,
         phone: loginData.phone,
         maskedPhone: loginData.maskedPhone,
+        accessStatus: loginData.accessStatus,
       })
-      updateUserInfo({ avatar, nickname })
-
-      if (loginData.firstLoginCompleted) {
-        await Taro.switchTab({ url: '/pages/index/index' })
-        return
-      }
-
-      setStep('gender')
-      await Taro.redirectTo({ url: '/pages/login/gender' })
+      const route = resolvePostLoginRoute({
+        firstLoginCompleted: Boolean(loginData.firstLoginCompleted),
+        nextStep: loginData.nextStep,
+      })
+      if (loginData.firstLoginCompleted) await Taro.switchTab({ url: route })
+      else if (route) await Taro.redirectTo({ url: route })
+      else await resumeInit()
     } catch (error) {
-      const nextErrorText = getWechatAuthErrorText(error)
+      const nextErrorText = getWechatAuthErrorText(error, copy)
       setErrorText(nextErrorText)
       setShowError(true)
       Taro.showToast({ title: nextErrorText, icon: 'none' })
@@ -501,7 +496,7 @@ export default function LoginAuthPage() {
     setAgreementAccepted(true)
     setShowDialog(false)
     setShowError(false)
-    setErrorText(loginDemo.agreement.errorText)
+    setErrorText('')
     if (selectedMethod) {
       if (selectedMethod === 'wechat') {
         setShowMethodSheet(true)
@@ -516,7 +511,7 @@ export default function LoginAuthPage() {
   const handleDisagree = () => {
     setShowDialog(false)
     setShowError(true)
-    setErrorText(loginDemo.agreement.errorText)
+    setErrorText(copy('login_agreement_notice'))
   }
 
   return (
@@ -561,7 +556,7 @@ export default function LoginAuthPage() {
         onClick={handleUse}
       >
         <Text style={{ color: '#2876FF', fontSize: '34rpx', fontWeight: 600, lineHeight: '48rpx' }}>
-          立即使用
+          {copy('login_use_action')}
         </Text>
       </View>
 

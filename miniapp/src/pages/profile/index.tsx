@@ -3,6 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useProfile } from '@/hooks/useProfile'
+import { usePrd01Store } from '@/stores/prd01Store'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import type { MyMembership } from '@/types/membership'
 
@@ -26,6 +27,7 @@ export default function ProfilePage() {
     goToHelp,
     goToSettings,
   } = useProfile()
+  const copy = usePrd01Store(state => state.copy)
 
   useEffect(() => {
     fetch()
@@ -35,19 +37,17 @@ export default function ProfilePage() {
     fetch()
   })
 
-  const nickname = data.nickname || '时空用户'
+  const nickname = data.nickname || copy('profile_default_nickname')
   const sourceAvatar = normalizeAvatarUrl(data.avatarUrl, defaultAvatar)
   const [avatar, setAvatar] = useState(defaultAvatar)
-  const location = data.location || '杭州市'
-  const ageText = data.age != null ? `${data.age}岁` : '28岁'
-  const zodiac = data.zodiac || '双鱼座'
-  const subInfo = `${location}丨${ageText}丨${zodiac}`
+  const ageText = data.age != null ? `${data.age}${copy('profile_age_suffix')}` : ''
+  const subInfo = [data.location, ageText, data.zodiac].filter(Boolean).join('丨')
   const membership: MyMembership = data.membership || { status: 'none' }
   const membershipVariant = membership.status
   const stats = [
-    { value: data.likedCount, label: '我喜欢的' },
-    { value: data.beLikedCount, label: '喜欢我的' },
-    { value: data.visitorCount, label: '最近来访' },
+    { value: data.likedCount, label: copy('profile_stats_liked') },
+    { value: data.beLikedCount, label: copy('profile_stats_be_liked') },
+    { value: data.visitorCount, label: copy('profile_stats_visitors') },
   ]
 
   useEffect(() => {
@@ -85,13 +85,15 @@ export default function ProfilePage() {
           avatar={avatar}
           nickname={nickname}
           subInfo={subInfo}
-          membershipStatus={membershipVariant}
           showCert={data.isVerified}
+          profileScore={data.profileScore}
+          editText={copy('profile_edit_title')}
+          certText={copy('verification_center_heading')}
           onEdit={goToEditProfile}
           onAvatarError={() => setAvatar(defaultAvatar)}
         />
         <>
-          <StatsCard stats={stats} />
+          <StatsCard stats={stats} boostText={copy('profile_boost_action')} />
           <VipBanner
             status={membershipVariant}
             expireTime={membership.expireTime}
@@ -115,16 +117,20 @@ function HeaderBlock({
   avatar,
   nickname,
   subInfo,
-  membershipStatus,
   showCert,
+  profileScore,
+  editText,
+  certText,
   onEdit,
   onAvatarError,
 }: {
   avatar: string
   nickname: string
   subInfo: string
-  membershipStatus: MyMembership['status']
   showCert: boolean
+  profileScore: number
+  editText: string
+  certText: string
   onEdit: () => void
   onAvatarError: () => void
 }) {
@@ -140,7 +146,7 @@ function HeaderBlock({
     >
       <ProfileAvatarFrame
         avatar={avatar}
-        showProfileProgress={membershipStatus !== 'none'}
+        profileScore={profileScore}
         onError={onAvatarError}
       />
       <View
@@ -163,7 +169,7 @@ function HeaderBlock({
         >
           {nickname}
         </Text>
-        {showCert && <CertBadge />}
+        {showCert && <CertBadge text={certText} />}
       </View>
       <Text
         style={{
@@ -190,7 +196,7 @@ function HeaderBlock({
         onClick={onEdit}
         hoverClass="btn-hover"
       >
-        <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '34rpx' }}>编辑资料</Text>
+        <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '34rpx' }}>{editText}</Text>
         <View
           style={{
             width: '14rpx',
@@ -220,11 +226,11 @@ function HeaderBlock({
 
 function ProfileAvatarFrame({
   avatar,
-  showProfileProgress,
+  profileScore,
   onError,
 }: {
   avatar: string
-  showProfileProgress: boolean
+  profileScore: number
   onError: () => void
 }) {
   return (
@@ -236,7 +242,7 @@ function ProfileAvatarFrame({
         width: '124rpx',
         height: '124rpx',
         borderRadius: '62rpx',
-        background: showProfileProgress ? '#E3F1FE' : '#FFFFFF',
+        background: profileScore > 0 ? '#E3F1FE' : '#FFFFFF',
         padding: '6rpx',
         boxSizing: 'border-box',
       }}
@@ -247,7 +253,7 @@ function ProfileAvatarFrame({
         onError={onError}
         style={{ width: '112rpx', height: '112rpx', borderRadius: '56rpx' }}
       />
-      {showProfileProgress && (
+      {profileScore > 0 && (
         <View
           style={{
             position: 'absolute',
@@ -272,14 +278,14 @@ function ProfileAvatarFrame({
               marginRight: '8rpx',
             }}
           />
-          <Text style={{ color: '#2876FF', fontSize: '18rpx', fontWeight: 600, lineHeight: '25rpx' }}>50%</Text>
+          <Text style={{ color: '#2876FF', fontSize: '18rpx', fontWeight: 600, lineHeight: '25rpx' }}>{profileScore}%</Text>
         </View>
       )}
     </View>
   )
 }
 
-function CertBadge() {
+function CertBadge({ text }: { text: string }) {
   return (
     <View
       style={{
@@ -303,12 +309,12 @@ function CertBadge() {
           marginRight: '6rpx',
         }}
       />
-      <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx' }}>三重认证</Text>
+      <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx' }}>{text}</Text>
     </View>
   )
 }
 
-function StatsCard({ stats }: { stats: Array<{ value: number; label: string }> }) {
+function StatsCard({ stats, boostText }: { stats: Array<{ value: number; label: string }>; boostText: string }) {
   return (
     <View
       style={{
@@ -372,7 +378,7 @@ function StatsCard({ stats }: { stats: Array<{ value: number; label: string }> }
           borderRadius: '100rpx 0 0 100rpx',
           overflow: 'hidden',
         }}
-        onClick={() => Taro.showToast({ title: '提升人气', icon: 'none' })}
+        onClick={() => boostText && Taro.showToast({ title: boostText, icon: 'none' })}
         hoverClass="btn-hover"
       >
         <Image

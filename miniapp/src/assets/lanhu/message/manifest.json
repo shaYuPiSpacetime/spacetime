@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "projectId": "d9c9e50f-fee5-47ca-bd6b-ae05c0d5332b",
+    "pixelWidth": 1500,
+    "pixelHeight": 3248,
+    "format": "png",
+    "cropPolicy": "仅做像素裁切，不缩放、不转换格式、不压缩"
+  },
+  "assets": [
+    {
+      "file": "avatar-xiaoming.png",
+      "purpose": "Mock 用户头像",
+      "sourceDesignId": "4eefc2dd-05c7-4a0c-b095-f252741f3781",
+      "sourceFile": "4eefc2dd-YO悄悄话-申请我的.png",
+      "crop": { "x": 88, "y": 608, "width": 200, "height": 200 },
+      "sha256": "977c346557f18ebdf9b8bc9505b4659d22e8a48fec05744959b463a35a5c7aea"
+    },
+    {
+      "file": "avatar-liked-blurred.png",
+      "purpose": "喜欢我的人模糊头像",
+      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
+      "sourceFile": "626cd513-消息.png",
+      "crop": { "x": 88, "y": 780, "width": 200, "height": 200 },
+      "sha256": "7607b8cd85521572767cd7b177ffed2f7b00d968488b318ed7b50be6aa985004"
+    },
+    {
+      "file": "avatar-whisper-group.png",
+      "purpose": "首页悄悄话头像组",
+      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
+      "sourceFile": "626cd513-消息.png",
+      "crop": { "x": 88, "y": 516, "width": 228, "height": 110 },
+      "sha256": "fdb5608cd860aca33d04ceabf2a59fabd63af8b3c4338dc985796cf10fd616b3"
+    },
+    {
+      "file": "home-yo-art.png",
+      "purpose": "首页悄悄话 YO 标识",
+      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
+      "sourceFile": "626cd513-消息.png",
+      "crop": { "x": 430, "y": 400, "width": 300, "height": 280 },
+      "sha256": "87043feb823adcc5ae1678ee806a611ebcedc86ccbd1870698d266bc645ae8a7"
+    },
+    {
+      "file": "home-private-bubble-art.png",
+      "purpose": "首页私信气泡标识",
+      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
+      "sourceFile": "626cd513-消息.png",
+      "crop": { "x": 1228, "y": 400, "width": 222, "height": 280 },
+      "sha256": "cfc0ccfe751d9cfe36f56c6fac76707930a06ee5bc1ab937af8b441bc2a042aa"
+    },
+    {
+      "file": "icon-assistant.png",
+      "purpose": "官方小助手喇叭",
+      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
+      "sourceFile": "626cd513-消息.png",
+      "crop": { "x": 82, "y": 1098, "width": 200, "height": 200 },
+      "sha256": "ca6d84c0f7933d2b11f6eab741befb970501428537770dcdca60d48977b9ceca"
+    },
+    {
+      "file": "icon-system.png",
+      "purpose": "系统消息铃铛",
+      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
+      "sourceFile": "626cd513-消息.png",
+      "crop": { "x": 90, "y": 1426, "width": 200, "height": 200 },
+      "sha256": "8fbc6e3f45c03735eeb5eb2f4b83665341fd3053dc167b3d0000d35e410c6cfb"
+    },
+    {
+      "file": "timeline-expired.png",
+      "purpose": "悄悄话时间线过期标识",
+      "sourceDesignId": "797ff271-e45a-4262-bd99-9ddb58bfad56",
+      "sourceFile": "797ff271-YO悄悄话-详情-过期.png",
+      "crop": { "x": 48, "y": 1278, "width": 80, "height": 80 },
+      "sha256": "2c8f0f62ddbb0bf6f79c4c24555a1b953c96842e5fa685c92d5dc5e8572e1baf"
+    },
+    {
+      "file": "timeline-yo.png",
+      "purpose": "悄悄话时间线 YO 标识",
+      "sourceDesignId": "797ff271-e45a-4262-bd99-9ddb58bfad56",
+      "sourceFile": "797ff271-YO悄悄话-详情-过期.png",
+      "crop": { "x": 48, "y": 1520, "width": 80, "height": 80 },
+      "sha256": "432a9fefb7ac5787001b2cc1a27bcd8bab96b945036b23f0c7211ce6f5e820c9"
+    },
+    {
+      "file": "timeline-matched.png",
+      "purpose": "悄悄话时间线匹配成功勾选标识",
+      "sourceDesignId": "60f5f2a4-ed1b-4a73-8291-ce65dca97a21",
+      "sourceFile": "60f5f2a4-YO悄悄话-详情-匹配.png",
+      "crop": { "x": 48, "y": 1278, "width": 80, "height": 80 },
+      "sha256": "3dd5dbf53a93b57260883f1c54630bff084cc744337b49dae6e83adad7f47be4"
+    },
+    {
+      "file": "timeline-view.png",
+      "purpose": "悄悄话时间线查看申请眼睛标识",
+      "sourceDesignId": "60f5f2a4-ed1b-4a73-8291-ce65dca97a21",
+      "sourceFile": "60f5f2a4-YO悄悄话-详情-匹配.png",
+      "crop": { "x": 48, "y": 1520, "width": 80, "height": 80 },
+      "sha256": "545f85035843e774fe033f416c5f7704f24d2fa665e1d9cf7e49d70f67b564ec"
+    },
+    {
+      "file": "chat-safety-deco-left.png",
+      "purpose": "私信匹配成功安全提示条左装饰",
+      "sourceDesignId": "e3ab4fcf-8f3a-44da-b997-e86d13a295fc",
+      "sourceFile": "e3ab4fcf-私信-消息.png",
+      "crop": { "x": 440, "y": 520, "width": 72, "height": 72 },
+      "sha256": "0df8acd5870fe7a1ef330382ed9d8943470c70087109140ee97234ae17a28aa4"
+    },
+    {
+      "file": "chat-safety-deco-right.png",
+      "purpose": "私信匹配成功安全提示条右装饰",
+      "sourceDesignId": "e3ab4fcf-8f3a-44da-b997-e86d13a295fc",
+      "sourceFile": "e3ab4fcf-私信-消息.png",
+      "crop": { "x": 988, "y": 520, "width": 72, "height": 72 },
+      "sha256": "0d23a834f5645fbd60357b66ae523410022e9382fe6e8f920f1d6a3b8c3d6b18"
+    },
+    {
+      "file": "icon-qianxun-coin.png",
+      "purpose": "悄悄话申请支付行千寻币标识",
+      "sourceDesignId": "da4cd120-0250-4b6c-9d10-7704106317a2",
+      "sourceFile": "da4cd120-YO悄悄话-详情-申请.png",
+      "crop": { "x": 112, "y": 2768, "width": 48, "height": 48 },
+      "sha256": "7f942e7385290496c0ec3791362b3d744ddee2e7d9f74f5679390d3355ce46b9"
+    },
+    {
+      "file": "icon-report.png",
+      "purpose": "悄悄话详情举报圆形提示标识",
+      "sourceDesignId": "797ff271-e45a-4262-bd99-9ddb58bfad56",
+      "equivalentSourceDesignIds": [
+        "60f5f2a4-ed1b-4a73-8291-ce65dca97a21",
+        "0a48d19f-b05f-40d0-8f14-f34bd131a50d"
+      ],
+      "sourceFile": "797ff271-YO悄悄话-详情-过期.png",
+      "crop": { "x": 1236, "y": 1040, "width": 48, "height": 48 },
+      "sha256": "8ecf27108c745bbef1b82304557f9a03f9786a9ee956946d96201f95d4a4e889"
+    },
+    {
+      "file": "badge-member.png",
+      "purpose": "时空邂逅会员标识",
+      "sourceDesignId": "da4cd120-0250-4b6c-9d10-7704106317a2",
+      "sourceFile": "da4cd120-YO悄悄话-详情-申请.png",
+      "crop": { "x": 224, "y": 3056, "width": 136, "height": 80 },
+      "sha256": "6658513980c8631e14f4fbdbef985126dbdf2dc30d0d75c9377ffb75d3097dd7"
+    }
+  ],
+  "tabAssets": [
+    {
+      "file": "src/assets/icons/tab-work.png",
+      "purpose": "底部 Tab 心动心电爱心线框",
+      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
+      "sourceFile": "626cd513-消息.png",
+      "crop": { "x": 396, "y": 3054, "width": 80, "height": 70 },
+      "pixelDensity": "4x（高于至少 2x 门槛）",
+      "ossUpload": false,
+      "sha256": "bce28afa486e1d92c70a199c398ef8e5df4b6094baa792b474f3426bc98699cd"
+    }
+  ]
+}

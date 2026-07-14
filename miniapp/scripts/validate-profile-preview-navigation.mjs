@@ -12,15 +12,8 @@ assert.doesNotMatch(
   /Taro\.navigateTo\(\{\s*url:\s*['"]\/pages\/profile\/index\?variant=preview['"]/,
   '主页预览禁止通过 navigateTo 打开底部 Tab 页面'
 )
-assert.match(
-  profileEdit,
-  /import ProfilePreviewPage from ['"]\.\/components\/ProfilePreviewPage['"]/,
-  '编辑资料页必须复用主页预览组件'
-)
-assert.match(
-  profileEdit,
-  /showPreview\s*\?\s*\(/,
-  '编辑资料和主页预览必须在当前页面内切换'
-)
+assert.match(profileEdit, /prd01Api\.getHomeDetail/, '编辑资料页必须读取主页统一详情接口')
+assert.match(profileEdit, /prd01Api\.getBasicProfile/, '编辑资料页必须读取基础资料接口')
+assert.doesNotMatch(profileEdit, /getDemoPageData/, '编辑资料页禁止继续读取蓝湖演示数据')
 
 console.log('编辑资料主页预览导航门禁通过')

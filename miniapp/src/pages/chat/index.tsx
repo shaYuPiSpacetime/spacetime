@@ -1,55 +1,127 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
+import { useEffect, useState } from 'react'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
-import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
-import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
-
-type MessageRow = {
-  id: string
-  kind: 'likes' | 'assistant' | 'official' | 'person'
-  title: string
-  preview: string
-  time: string
-  unread?: number
-}
+import { miniappOssIcons } from '@/constants/ossIcons'
+import { messageService } from '@/services/message'
+import type { MessageHome, MessageHomeRow } from '@/types/message'
+import { useAccessStatus } from '@/hooks/useAccessStatus'
+import AccessBlockedPage from '@/components/AccessBlockedPage'
 
 const background =
   'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%)'
+const designRpx = (value: number) =>
+  Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? `${value}rpx` : `${value / 2}px`
 
-const verifiedRows: MessageRow[] = [
-  { id: 'likes', kind: 'likes', title: '喜欢我的人(119人)', preview: '解锁喜欢你的人，即刻匹配', time: '10:23' },
-  { id: 'helper', kind: 'assistant', title: '官方小助手', preview: '你的学历认证已通过，资料可信度已更新。', time: '昨天 11:42' },
-  { id: 'official', kind: 'official', title: '官方账号消息', preview: '你们已成功匹配', time: '昨天 10:55' },
-  { id: 'xiaoming', kind: 'person', title: '小明', preview: '周末有空一起吃饭吗？', time: '03月31日', unread: 1 },
-  { id: 'qingqing', kind: 'person', title: '卿卿', preview: '周末有空一起吃饭吗？', time: '03月31日' },
+const designRows: MessageHomeRow[] = [
+  {
+    id: 'liked-me',
+    type: 'liked',
+    title: '喜欢我的人(119人)',
+    preview: '解锁喜欢你的人，即刻匹配',
+    timeText: '10:23',
+    unreadCount: 1,
+    avatarUrl: miniappOssIcons.messageAvatarLikedBlurred,
+  },
+  {
+    id: 'assistant',
+    type: 'assistant',
+    title: '官方小助手',
+    preview: '你的学历认证已通过，资料可信度已更新。',
+    timeText: '昨天 11:42',
+    unreadCount: 0,
+  },
+  {
+    id: 'system',
+    type: 'system',
+    title: '系统消息',
+    preview: '你们已成功匹配',
+    timeText: '昨天 10:55',
+    unreadCount: 0,
+  },
+  {
+    id: 'xiaoming',
+    type: 'conversation',
+    title: '小明',
+    preview: '周末有空一起吃饭吗？',
+    timeText: '03月31日',
+    unreadCount: 1,
+    avatarUrl: miniappOssIcons.messageAvatarXiaoming,
+    conversationNo: 'conversation-lin',
+  },
+  {
+    id: 'qingqing',
+    type: 'conversation',
+    title: '卿卿',
+    preview: '周末有空一起吃饭吗？',
+    timeText: '03月31日',
+    unreadCount: 0,
+    avatarUrl: miniappOssIcons.messageAvatarXiaoming,
+    conversationNo: 'conversation-lin',
+  },
 ]
-
-const unverifiedRows = verifiedRows.slice(0, 3)
 
 export default function ChatPage() {
   const router = useRouter()
   const certified = router.params.variant !== 'unverified'
-  const rows = certified ? verifiedRows : unverifiedRows
+  const [home, setHome] = useState<MessageHome>()
+  const access = useAccessStatus('canMessage')
+  useEffect(() => {
+    if (access.allowed === true) void messageService.getHome().then(setHome)
+  }, [access.allowed])
+
+  if (access.allowed !== true) return <AccessBlockedPage {...access} />
+
+  const rows = certified
+    ? designRows.map((row, index) => ({
+        ...row,
+        unreadCount: router.params.mockScene
+          ? row.unreadCount
+          : (home?.rows[index]?.unreadCount ?? row.unreadCount),
+      }))
+    : designRows.slice(0, 3)
 
   return (
-    <View style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
-      <ScrollView scrollY style={{ width: '750rpx', height: '100vh' }} showScrollbar={false}>
-        <View style={{ minHeight: '1624rpx', paddingBottom: '190rpx', boxSizing: 'border-box' }}>
-          <HeartMessageHeader title="消息" underline rightIcon="clean" />
+    <View
+      style={{
+        height: '100vh',
+        overflow: 'hidden',
+        background,
+        fontFamily: 'PingFang SC, sans-serif',
+      }}
+    >
+      <ScrollView
+        scrollY
+        style={{
+          width: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? '750rpx' : '100%',
+          height: '100vh',
+        }}
+        showScrollbar={false}
+      >
+        <View
+          style={{
+            minHeight: designRpx(1624),
+            paddingBottom: designRpx(190),
+            boxSizing: 'border-box',
+          }}
+        >
+          <HeartMessageHeader title="消息" underline />
           {!certified ? <CertificationBanner /> : null}
-          <MessageActions />
+          <MessageEntrances />
           <View
             style={{
-              width: '700rpx',
-              minHeight: certified ? '930rpx' : '730rpx',
-              margin: '20rpx auto 0',
-              padding: '0 20rpx 80rpx',
-              borderRadius: '8rpx',
+              width: designRpx(700),
+              minHeight: designRpx(certified ? 1264 : 760),
+              margin: `${designRpx(24)} auto 0`,
+              padding: `0 ${designRpx(17)}`,
+              borderRadius: designRpx(8),
               background: '#FFFFFF',
               boxSizing: 'border-box',
             }}
           >
-            {rows.map((row) => <MessageListRow key={row.id} row={row} />)}
+            {rows.map(row => (
+              <MessageListRow key={row.id} row={row} />
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -61,246 +133,262 @@ function CertificationBanner() {
   return (
     <View
       style={{
-        width: '700rpx',
-        height: '88rpx',
-        margin: '-4rpx auto 14rpx',
-        padding: '0 18rpx',
+        width: designRpx(700),
+        height: designRpx(88),
+        margin: `${designRpx(-4)} auto ${designRpx(14)}`,
+        padding: `0 ${designRpx(18)}`,
         display: 'flex',
-        flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: '8rpx',
-        background: 'rgba(255,255,255,0.92)',
+        borderRadius: designRpx(8),
+        background: '#FFFFFF',
         boxSizing: 'border-box',
       }}
     >
-      <View
-        style={{
-          width: '32rpx',
-          height: '36rpx',
-          marginRight: '14rpx',
-          borderRadius: '16rpx 16rpx 20rpx 20rpx',
-          background: '#6F9AF5',
-          color: '#FFFFFF',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontSize: '20rpx', lineHeight: '24rpx' }}>✓</Text>
-      </View>
-      <Text style={{ flex: 1, color: '#7F8494', fontSize: '24rpx', lineHeight: '34rpx' }}>
+      <Text style={{ flex: 1, color: '#7F8494', fontSize: designRpx(24) }}>
         通过认证，才可以聊天哦！
       </Text>
       <View
         onClick={() => Taro.navigateTo({ url: '/pages/verification/triple' })}
         style={{
-          width: '116rpx',
-          height: '58rpx',
-          borderRadius: '8rpx',
+          width: designRpx(116),
+          height: designRpx(58),
+          borderRadius: designRpx(8),
           background: '#2876FF',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx' }}>去认证</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: designRpx(24) }}>去认证</Text>
       </View>
     </View>
   )
 }
 
-function MessageActions() {
+function MessageEntrances() {
   return (
-    <View style={{ width: '700rpx', height: '158rpx', margin: '0 auto', display: 'flex', flexDirection: 'row', gap: '40rpx' }}>
+    <View
+      style={{
+        width: designRpx(700),
+        height: designRpx(158),
+        margin: `${designRpx(14)} auto 0`,
+        display: 'flex',
+        gap: designRpx(20),
+      }}
+    >
       <View
-        onClick={() => Taro.navigateTo({ url: '/pages/heart/mutual' })}
+        onClick={() =>
+          Taro.navigateTo({ url: '/pages/message/whisper-list?mockScene=whisper-received' })
+        }
         style={{
           position: 'relative',
-          width: '330rpx',
-          height: '158rpx',
-          padding: '28rpx 20rpx',
+          width: designRpx(340),
+          height: designRpx(158),
           overflow: 'hidden',
-          borderRadius: '12rpx',
+          borderRadius: designRpx(12),
           background: '#E3F1FE',
-          boxSizing: 'border-box',
         }}
       >
-        <Text style={{ position: 'relative', zIndex: 2, color: '#00469F', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>
-          查看全部申请
-        </Text>
-        <View style={{ position: 'absolute', left: '20rpx', bottom: '23rpx', display: 'flex', flexDirection: 'row' }}>
-          {[0, 1, 2].map((item) => (
-            <Image
-              key={item}
-              src={blurredPersonImage}
-              mode="aspectFill"
-              style={{
-                width: '54rpx',
-                height: '54rpx',
-                marginLeft: item ? '-8rpx' : '0',
-                border: '3rpx solid #FFFFFF',
-                borderRadius: '50%',
-              }}
-            />
-          ))}
-        </View>
-        <View style={{ position: 'absolute', right: '-20rpx', top: '18rpx', width: '183rpx', height: '183rpx', borderRadius: '50%', background: 'linear-gradient(145deg,#7BBAFE,rgba(255,255,255,0))' }} />
-        <View
+        <Text
           style={{
             position: 'absolute',
-            right: '-7rpx',
-            bottom: '-20rpx',
-            width: '116rpx',
-            height: '116rpx',
-            borderRadius: '50%',
-            background: 'linear-gradient(180deg,rgba(128,174,255,0.75),rgba(40,118,255,0.75))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            zIndex: 2,
+            left: designRpx(22),
+            top: designRpx(29),
+            color: '#00469F',
+            fontSize: designRpx(28),
+            fontWeight: 500,
+            lineHeight: designRpx(40),
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: '50rpx', fontFamily: 'cursive', fontStyle: 'italic', lineHeight: '60rpx' }}>yo</Text>
-        </View>
-      </View>
-
-      <View
-        style={{
-          position: 'relative',
-          width: '330rpx',
-          height: '158rpx',
-          padding: '28rpx 22rpx',
-          overflow: 'hidden',
-          borderRadius: '12rpx',
-          background: '#FDEAD9',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text style={{ position: 'relative', zIndex: 2, display: 'block', color: '#9C5C05', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>
           悄悄话
         </Text>
-        <Text style={{ position: 'relative', zIndex: 2, display: 'block', marginTop: '10rpx', color: '#9C5C05', fontSize: '22rpx', fontWeight: 500, lineHeight: '30rpx' }}>
-          有个小秘密只告诉你
-        </Text>
-        <View style={{ position: 'absolute', right: '-20rpx', top: '18rpx', width: '183rpx', height: '183rpx', borderRadius: '50%', background: 'linear-gradient(145deg,#FFC288,rgba(255,255,255,0))' }} />
-        <View
+        <Image
+          src={miniappOssIcons.messageAvatarWhisperGroup}
+          mode="widthFix"
           style={{
             position: 'absolute',
-            right: '-6rpx',
-            bottom: '-20rpx',
-            width: '116rpx',
-            height: '116rpx',
-            borderRadius: '50%',
-            background: 'linear-gradient(180deg,rgba(255,151,43,0.75),rgba(255,154,57,0.75))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            zIndex: 2,
+            left: designRpx(22),
+            top: designRpx(79),
+            width: designRpx(114),
+            height: designRpx(55),
+          }}
+        />
+        <Image
+          src={miniappOssIcons.messageHomeYoArt}
+          mode="scaleToFill"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: designRpx(150),
+            height: designRpx(140),
+          }}
+        />
+      </View>
+      <View
+        onClick={() =>
+          Taro.navigateTo({ url: '/pages/message/private-list?mockScene=private-list' })
+        }
+        style={{
+          position: 'relative',
+          width: designRpx(340),
+          height: designRpx(158),
+          overflow: 'hidden',
+          borderRadius: designRpx(12),
+          background: '#FDEAD9',
+        }}
+      >
+        <Text
+          style={{
+            position: 'absolute',
+            zIndex: 2,
+            left: designRpx(22),
+            top: designRpx(29),
+            color: '#9C5C05',
+            fontSize: designRpx(28),
+            fontWeight: 500,
+            lineHeight: designRpx(40),
           }}
         >
-          <View style={{ width: '56rpx', height: '46rpx', border: '5rpx solid #FFFFFF', borderRadius: '50%', boxSizing: 'border-box' }} />
-        </View>
+          私信
+        </Text>
+        <Text
+          style={{
+            position: 'absolute',
+            zIndex: 2,
+            left: designRpx(22),
+            top: designRpx(79),
+            color: '#9C5C05',
+            fontSize: designRpx(22),
+            fontWeight: 500,
+            lineHeight: designRpx(30),
+          }}
+        >
+          有个小秘密只告诉你
+        </Text>
+        <Image
+          src={miniappOssIcons.messageHomePrivateBubbleArt}
+          mode="scaleToFill"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: designRpx(111),
+            height: designRpx(140),
+          }}
+        />
       </View>
     </View>
   )
 }
 
-function MessageListRow({ row }: { row: MessageRow }) {
+function MessageListRow({ row }: { row: MessageHomeRow }) {
   const open = () => {
-    if (row.kind === 'likes') {
-      void Taro.switchTab({ url: '/pages/community/index' })
-      return
+    if (row.type === 'liked') return void Taro.switchTab({ url: '/pages/community/index' })
+    if (row.type === 'assistant' || row.type === 'system') {
+      return void Taro.navigateTo({ url: `/pages/message/channel?mockScene=channel-${row.type}` })
     }
-    if (row.kind === 'person') {
-      void Taro.navigateTo({ url: '/pages/heart/user' })
-    }
+    return void Taro.navigateTo({
+      url: `/pages/message/private-chat?mockScene=private-chat-default&conversationNo=${row.conversationNo || 'conversation-lin'}`,
+    })
   }
-
   return (
     <View
       onClick={open}
       style={{
-        width: '660rpx',
-        height: '160rpx',
-        borderTop: '1rpx solid #EFF4FC',
+        width: designRpx(666),
+        height: designRpx(160),
+        borderBottom: `${designRpx(1)} solid #EFF4FC`,
         display: 'flex',
-        flexDirection: 'row',
         alignItems: 'center',
         boxSizing: 'border-box',
       }}
     >
-      <MessageAvatar kind={row.kind} unread={row.unread} />
-      <View style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
-        <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', whiteSpace: 'nowrap' }}>
+      <HomeRowAvatar row={row} />
+      <View style={{ flex: 1, minWidth: 0, marginLeft: designRpx(20) }}>
+        <Text
+          style={{
+            display: 'block',
+            color: '#333333',
+            fontSize: designRpx(28),
+            fontWeight: 500,
+            lineHeight: designRpx(40),
+            whiteSpace: 'nowrap',
+          }}
+        >
           {row.title}
         </Text>
-        <Text style={{ display: 'block', marginTop: '10rpx', color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Text
+          style={{
+            display: 'block',
+            marginTop: designRpx(6),
+            overflow: 'hidden',
+            color: '#999999',
+            fontSize: designRpx(26),
+            lineHeight: designRpx(37),
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+          }}
+        >
           {row.preview}
         </Text>
       </View>
-      <Text style={{ marginLeft: '12rpx', color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', whiteSpace: 'nowrap' }}>
-        {row.time}
+      <Text
+        style={{
+          alignSelf: 'flex-start',
+          marginTop: designRpx(46),
+          color: '#999999',
+          fontSize: designRpx(20),
+          lineHeight: designRpx(28),
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {row.timeText}
       </Text>
     </View>
   )
 }
 
-function MessageAvatar({ kind, unread }: { kind: MessageRow['kind']; unread?: number }) {
-  if (kind === 'likes' || kind === 'person') {
-    return (
-      <View style={{ position: 'relative', width: '100rpx', height: '100rpx', flexShrink: 0 }}>
-        <Image
-          src={kind === 'likes' ? blurredPersonImage : personImage}
-          mode="aspectFill"
-          style={{ width: '100rpx', height: '100rpx', borderRadius: '50%' }}
-        />
-        {kind === 'likes' || unread ? (
-          <View
-            style={{
-              position: 'absolute',
-              right: '-1rpx',
-              top: '-1rpx',
-              minWidth: '20rpx',
-              height: '20rpx',
-              padding: unread ? '0 4rpx' : '0',
-              borderRadius: '13rpx',
-              background: '#EE2525',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxSizing: 'border-box',
-            }}
-          >
-            {unread ? <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '20rpx' }}>{unread}</Text> : null}
-          </View>
-        ) : null}
-      </View>
-    )
-  }
-
-  const green = kind === 'assistant'
+function HomeRowAvatar({ row }: { row: MessageHomeRow }) {
+  const source =
+    row.type === 'assistant'
+      ? miniappOssIcons.messageAssistant
+      : row.type === 'system'
+        ? miniappOssIcons.messageSystem
+        : row.avatarUrl || miniappOssIcons.messageAvatarXiaoming
   return (
     <View
-      style={{
-        position: 'relative',
-        width: '100rpx',
-        height: '100rpx',
-        flexShrink: 0,
-        borderRadius: '50%',
-        background: green ? 'linear-gradient(180deg,#73C599,#00BD58)' : 'linear-gradient(180deg,#7499FB,#2876FF)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={{ position: 'relative', width: designRpx(100), height: designRpx(100), flexShrink: 0 }}
     >
-      {green ? (
-        <View style={{ width: '48rpx', height: '48rpx', border: '4rpx solid #FFFFFF', borderRadius: '8rpx', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#FFFFFF', fontSize: '25rpx', lineHeight: '28rpx' }}>⌣</Text>
-        </View>
-      ) : (
-        <View style={{ position: 'relative', width: '50rpx', height: '38rpx', border: '4rpx solid #FFFFFF', borderRadius: '7rpx', boxSizing: 'border-box' }}>
-          <View style={{ position: 'absolute', left: '15rpx', top: '-13rpx', width: '16rpx', height: '12rpx', border: '4rpx solid #FFFFFF', borderBottom: 0, borderRadius: '7rpx 7rpx 0 0', boxSizing: 'border-box' }} />
-          <View style={{ position: 'absolute', left: '11rpx', top: '14rpx', width: '20rpx', height: '4rpx', borderRadius: '2rpx', background: '#FFFFFF' }} />
-        </View>
-      )}
+      <Image
+        src={source}
+        mode="aspectFill"
+        style={{ width: designRpx(100), height: designRpx(100), borderRadius: '50%' }}
+      />
+      {row.unreadCount ? (
+        <Text
+          style={{
+            position: 'absolute',
+            right: designRpx(-1),
+            top: designRpx(-1),
+            minWidth: designRpx(20),
+            height: designRpx(20),
+            padding: `0 ${designRpx(4)}`,
+            border: `${designRpx(2)} solid #FFFFFF`,
+            borderRadius: designRpx(13),
+            background: '#EE2525',
+            color: '#FFFFFF',
+            fontSize: designRpx(16),
+            lineHeight: designRpx(20),
+            textAlign: 'center',
+            boxSizing: 'border-box',
+          }}
+        >
+          {row.type === 'liked' ? '' : row.unreadCount}
+        </Text>
+      ) : null}
     </View>
   )
 }

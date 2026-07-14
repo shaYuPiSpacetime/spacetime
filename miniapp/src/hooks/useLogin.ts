@@ -1,157 +1,130 @@
 import { create } from 'zustand'
 import Taro from '@tarojs/taro'
-import { post } from '@/services/request'
-import { getDemoPageData } from '@/services/lanhuDemo'
-import { normalizeAvatarUrl } from '@/utils/avatar'
+import { buildInitStepPayload, resolveInitStepRoute } from '@/domain/prd01Runtime'
+import { prd01Api } from '@/services/prd01'
+import { usePrd01Store } from '@/stores/prd01Store'
 import type { LoginStep, LoginUserInfo } from '@/types/login'
-import defaultAvatar from '@/assets/profile/default-avatar.webp'
-
-// ==================== Mock 数据 ====================
-
-const loginDemo = getDemoPageData('login')
-
-/** 学历选项列表（Mock） */
-const EDUCATION_OPTIONS: string[] = loginDemo.educationOptions
-
-/** 身份选项列表（Mock） */
-const IDENTITY_OPTIONS: string[] = loginDemo.identityOptions
-
-/** 脱单目标选项列表（Mock） */
-const GOAL_OPTIONS: string[] = loginDemo.goalOptions
-
-/** 年龄范围 */
-const AGE_RANGE = {
-  min: loginDemo.ageRange.min,
-  max: loginDemo.ageRange.max,
-}
-
-/** 省份城市映射（Mock 数据） */
-const PROVINCE_CITY_MAP: Record<string, string[]> = loginDemo.provinceCityMap
-
-// ==================== 登录流程状态 Store ====================
+import type {
+  ProfileInitStatus,
+  ProfileInitValues,
+  ProfileOptionKey,
+  RegionOption,
+} from '@/types/prd01'
 
 interface LoginFlowState {
-  /** 当前步骤 */
   step: LoginStep
-  /** 用户填写的信息 */
   userInfo: LoginUserInfo
-  /** 设置当前步骤 */
   setStep: (step: LoginStep) => void
-  /** 更新用户信息（合并） */
   updateUserInfo: (info: Partial<LoginUserInfo>) => void
-  /** 重置登录流程 */
   reset: () => void
 }
 
-/**
- * 登录流程共享状态 Store
- * 跨页面共享，各步骤页面通过 useLogin hook 读写
- */
-const useLoginFlowStore = create<LoginFlowState>((set) => ({
+const useLoginFlowStore = create<LoginFlowState>(set => ({
   step: 'auth',
   userInfo: {},
-  setStep: (step) => set({ step }),
-  updateUserInfo: (info) =>
-    set((state) => ({ userInfo: { ...state.userInfo, ...info } })),
+  setStep: step => set({ step }),
+  updateUserInfo: info => set(state => ({ userInfo: { ...state.userInfo, ...info } })),
   reset: () => set({ step: 'auth', userInfo: {} }),
 }))
 
+function loginStepFromNumber(step?: number): LoginStep {
+  if (step === 1) return 'gender'
+  if (step === 2) return 'age'
+  if (step === 3) return 'identity'
+  if (step === 4) return 'education'
+  if (step === 5) return 'address'
+  return 'verification'
+}
 
-// ==================== Hook ====================
+async function navigateByInitStatus(status: ProfileInitStatus) {
+  if (status.firstLoginCompleted) {
+    await Taro.switchTab({ url: '/pages/index/index' })
+    return
+  }
+  const route = resolveInitStepRoute(status.nextStep)
+  if (!route) throw new Error(`后端未返回有效的首登 nextStep：${String(status.nextStep)}`)
+  useLoginFlowStore.getState().setStep(loginStepFromNumber(status.nextStep))
+  await Taro.redirectTo({ url: route })
+}
 
-/**
- * 登录流程 Hook
- * 提供跨页面的登录状态管理、步骤导航、选项数据、Mock 提交
- */
 export function useLogin() {
   const { step, userInfo, setStep, updateUserInfo, reset } = useLoginFlowStore()
+  const config = usePrd01Store(state => state.config)
+  const profileOptions = usePrd01Store(state => state.profileOptions)
+  const bootstrap = usePrd01Store(state => state.bootstrap)
+  const copy = usePrd01Store(state => state.copy)
+  const loadLocations = usePrd01Store(state => state.locations)
 
-  const enterHome = async (): Promise<void> => {
+  const options = (key: ProfileOptionKey) => {
+    const rows = profileOptions?.[key]
+    return Array.isArray(rows) ? rows : []
+  }
+
+  const ensureRuntime = async () => {
+    if (!usePrd01Store.getState().config || !usePrd01Store.getState().profileOptions) {
+      await bootstrap()
+    }
+  }
+
+  const enterHome = async () => {
     reset()
     await Taro.switchTab({ url: '/pages/index/index' })
   }
 
-  /**
-   * 获取指定省份的城市列表
-   * @param province 省份名称
-   * @returns 城市名称数组
-   */
-  const getCities = (province: string): string[] => {
-    return PROVINCE_CITY_MAP[province] || []
+  const resumeInit = async () => {
+    await ensureRuntime()
+    const status = await prd01Api.getInitStatus()
+    updateUserInfo(status.savedFields as Partial<LoginUserInfo>)
+    await navigateByInitStatus(status)
+    return status
   }
 
-  /**
-   * 提交首登资料
-   * 依赖微信授权手机号登录后写入的真实 token，将轻量资料落库后进入首页。
-   */
-  const submit = async (): Promise<void> => {
-    try {
-      await post('/miniapp/profile/init-complete', buildProfileInitPayload(userInfo))
-
-      // 重置登录流程状态
-      reset()
-
-      Taro.showToast({ title: '登录成功', icon: 'success', duration: 1500 })
-
-      // 延迟跳转首页
-      setTimeout(() => {
-        void enterHome()
-      }, 1500)
-    } catch {
-      Taro.showToast({ title: '登录失败，请重试', icon: 'none' })
-    }
+  const saveInitStep = async (stepNumber: number, values: ProfileInitValues) => {
+    await ensureRuntime()
+    const payload = buildInitStepPayload(
+      stepNumber,
+      values,
+      usePrd01Store.getState().profileOptions
+    )
+    const status = await prd01Api.saveInitStep(payload)
+    updateUserInfo(values)
+    await navigateByInitStatus(status)
+    return status
   }
+
+  const submit = async () =>
+    saveInitStep(5, {
+      locationProvince: userInfo.locationProvince,
+      locationCity: userInfo.locationCity,
+      locationDistrict: userInfo.locationDistrict,
+    })
+
+  const initField = (stepNumber: number) =>
+    config?.initFields?.find(item => item.step === stepNumber)
 
   return {
-    /** 当前步骤 */
     step,
-    /** 用户已填写的信息 */
     userInfo,
-    /** 学历选项列表 */
-    educationOptions: EDUCATION_OPTIONS,
-    /** 身份选项列表 */
-    identityOptions: IDENTITY_OPTIONS,
-    /** 脱单目标选项列表 */
-    goalOptions: GOAL_OPTIONS,
-    /** 年龄范围 { min: 18, max: 60 } */
-    ageRange: AGE_RANGE,
-    /** 省份名称列表 */
-    provinces: Object.keys(PROVINCE_CITY_MAP),
-    /** 根据省份获取城市列表 */
-    getCities,
-    /** 更新用户信息（合并写入） */
+    config,
+    profileOptions,
+    genderOptions: options('gender'),
+    educationOptions: options('educationLevel'),
+    identityOptions: options('identity'),
+    goalOptions: options('datingGoal'),
+    ageRange: {
+      min: config?.accessPolicy?.minAge,
+      max: config?.accessPolicy?.maxAge,
+    },
+    initField,
+    copy,
+    bootstrap: ensureRuntime,
+    loadLocations: (parentCode?: string): Promise<RegionOption[]> => loadLocations(parentCode),
     updateUserInfo,
-    /** 提交登录（Mock，成功后跳转首页） */
+    saveInitStep,
+    resumeInit,
     submit,
-    /** 已登录用户直接进入首页，不重复提交首登资料 */
     enterHome,
-    /** 设置当前步骤 */
     setStep,
-    /** 重置登录流程状态 */
     reset,
   }
-}
-
-function buildProfileInitPayload(userInfo: LoginUserInfo): Record<string, unknown> {
-  return {
-    step: 3,
-    nickname: userInfo.nickname || loginDemo.defaultUser.nickname,
-    avatar: normalizeAvatarUrl(userInfo.avatar || loginDemo.defaultUser.avatar, defaultAvatar),
-    gender: normalizeGender(userInfo.gender),
-    birthday: normalizeBirthday(userInfo.birthday),
-    locationProvince: userInfo.province,
-    locationCity: userInfo.city,
-    educationLevel: userInfo.education || userInfo.educationLevel,
-    datingGoal: userInfo.datingGoal,
-  }
-}
-
-function normalizeGender(gender?: LoginUserInfo['gender']) {
-  if (gender === 'male') return 'MALE'
-  if (gender === 'female') return 'FEMALE'
-  return undefined
-}
-
-function normalizeBirthday(birthday?: string) {
-  return birthday ? birthday.replace(/\//g, '-') : undefined
 }

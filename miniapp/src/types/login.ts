@@ -11,8 +11,15 @@ export type LoginStep =
 
 /** 登录用户信息 */
 export interface LoginUserInfo {
-  gender?: 'male' | 'female';
+  gender?: string;
   education?: string;
+  educationLevel?: string;
+  locationProvince?: string;
+  locationCity?: string;
+  locationDistrict?: string;
+  locationProvinceLabel?: string;
+  locationCityLabel?: string;
+  locationDistrictLabel?: string;
   province?: string;
   city?: string;
   age?: number;
@@ -33,7 +40,6 @@ export interface LoginUserInfo {
   realName?: string;
   idCard?: string;
   schoolName?: string;
-  educationLevel?: string;
   educationUploadLocalPath?: string;
   diplomaNo?: string;
   verificationCode?: string;

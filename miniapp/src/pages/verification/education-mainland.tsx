@@ -1,87 +1,45 @@
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { useEffect } from 'react'
+import { usePrd01Store } from '@/stores/prd01Store'
 import VerificationSubShell from './components/VerificationSubShell'
-import { EducationHero, EducationTabs, VerificationStatusTabs } from './components/EducationVerificationShared'
 
-const METHODS = [
-  { title: '学信网在线验证码', desc: '学信网在线验证报告验证码', tag: '推荐', route: '/pages/verification/education-chsi-help', active: true },
-  { title: '毕业证或者学位证书编号', desc: '填写证书编号和证书姓名', tag: '较慢', route: '/pages/verification/education-diploma-no' },
-  { title: '上传毕业证或学位证书', desc: '上传清晰证书照片等待审核', tag: '较慢', route: '/pages/verification/education-certificate-upload' },
-]
+const METHOD_ROUTES: Record<string, string> = {
+  CHSI: '/pages/verification/education-chsi-help',
+  DIPLOMA_NO: '/pages/verification/education-diploma-no',
+  MATERIAL_UPLOAD: '/pages/verification/education-certificate-upload',
+}
 
 export default function VerificationEducationMainlandPage() {
+  const bootstrap = usePrd01Store(state => state.bootstrap)
+  const options = usePrd01Store(state => state.profileOptions?.educationMethod || [])
+  const copy = usePrd01Store(state => state.copy)
+
+  useEffect(() => { void bootstrap().catch(showError) }, [])
+
   return (
-    <VerificationSubShell title="认证">
-      <VerificationStatusTabs active="education" />
-      <EducationHero />
-      <EducationTabs active="mainland" />
-      <View
-        style={{
-          position: 'absolute',
-          left: '25rpx',
-          top: '568rpx',
-          width: '700rpx',
-          height: '912rpx',
-          borderRadius: '0 0 18rpx 18rpx',
-          background: '#FFFFFF',
-          padding: '30rpx',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text style={{ display: 'block', color: '#0C285A', fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>
-          选择认证方式
-        </Text>
-        {METHODS.map((item) => (
-          <View
-            key={item.title}
-            style={{
-              position: 'relative',
-              width: '640rpx',
-              height: '168rpx',
-              borderRadius: '12rpx',
-              background: '#FCFCFC',
-              marginTop: '20rpx',
-              padding: '34rpx 86rpx 34rpx 30rpx',
-              boxSizing: 'border-box',
-            }}
-            onClick={() => Taro.redirectTo({ url: item.route })}
-          >
-            <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>
-                {item.title}
-              </Text>
-              <View
-                style={{
-                  height: '28rpx',
-                  borderRadius: '14rpx',
-                  background: item.active ? '#2876FF' : '#F3F3F3',
-                  padding: '0 10rpx',
-                  marginLeft: '10rpx',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ color: item.active ? '#FFFFFF' : '#999999', fontSize: '20rpx', lineHeight: '28rpx' }}>{item.tag}</Text>
-              </View>
-            </View>
-            <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '12rpx' }}>
-              {item.desc}
-            </Text>
-            <View
-              style={{
-                position: 'absolute',
-                right: '30rpx',
-                top: '70rpx',
-                width: '26rpx',
-                height: '26rpx',
-                borderTop: '4rpx solid #999999',
-                borderRight: '4rpx solid #999999',
-                transform: 'rotate(45deg)',
-              }}
-            />
+    <VerificationSubShell title={copy('verification_nav_title')}>
+      <View style={{ position: 'absolute', left: '25rpx', top: '226rpx', width: '700rpx' }}>
+        <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 700 }}>{copy('education_method_select_title')}</Text>
+        <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '14rpx' }}>{copy('education_notice')}</Text>
+      </View>
+      <View style={{ position: 'absolute', left: '25rpx', top: '390rpx', width: '700rpx', borderRadius: '24rpx', background: '#FFFFFF', padding: '30rpx', boxSizing: 'border-box' }}>
+        {options.filter(option => option.code !== 'STUDENT_CARD').map(option => (
+          <View key={option.code} style={{ position: 'relative', width: '640rpx', minHeight: '132rpx', borderRadius: '16rpx', background: '#F7F9FC', marginBottom: '20rpx', padding: '30rpx 80rpx 30rpx 30rpx', boxSizing: 'border-box' }} onClick={async () => {
+            const route = METHOD_ROUTES[option.code]
+            if (route) await Taro.redirectTo({ url: route })
+            else await Taro.showToast({ title: copy('education_method_unavailable'), icon: 'none' })
+          }}>
+            <Text style={{ display: 'block', color: '#0C285A', fontSize: '28rpx', fontWeight: 700 }}>{option.label}</Text>
+            <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '10rpx' }}>{copy(`education_method_${option.code.toLowerCase()}_desc`)}</Text>
           </View>
         ))}
       </View>
     </VerificationSubShell>
   )
+}
+
+async function showError(error: unknown) {
+  const title = error instanceof Error ? error.message : String(error)
+  if (title) await Taro.showToast({ title, icon: 'none' })
 }

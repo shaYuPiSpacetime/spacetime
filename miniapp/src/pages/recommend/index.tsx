@@ -7,6 +7,8 @@ import avatarImage from '@/assets/lanhu/recommend/slices/avatar-xiaolaohu.webp'
 import cityNight from '@/assets/lanhu/recommend/slices/city-night.webp'
 import cityTower from '@/assets/lanhu/recommend/slices/city-tower.webp'
 import verifyNote from '@/assets/lanhu/recommend/slices/verify-note.webp'
+import { useAccessStatus } from '@/hooks/useAccessStatus'
+import AccessBlockedPage from '@/components/AccessBlockedPage'
 
 type FriendMode = '觅知音' | '悦目' | '诚意贴'
 
@@ -36,6 +38,9 @@ export default function RecommendFriendsPage() {
   const [mode, setMode] = useState<FriendMode>('悦目')
   const [actionOpen, setActionOpen] = useState(false)
   const [verifyOpen, setVerifyOpen] = useState(false)
+  const access = useAccessStatus('canBrowseCards')
+
+  if (access.allowed !== true) return <AccessBlockedPage {...access} />
 
   return (
     <View style={{ minHeight: '100vh', background: '#F7FBFF', overflow: 'hidden', position: 'relative' }}>
@@ -541,7 +546,7 @@ function ActionSheet({ onClose }: { onClose: () => void }) {
 
 function VerifyPrompt({ onClose }: { onClose: () => void }) {
   const handleVerify = () => {
-    Taro.navigateTo({ url: '/pages/verification/basic' })
+    Taro.navigateTo({ url: '/pages/verification/my-certification' })
   }
 
   return (

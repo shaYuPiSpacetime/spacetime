@@ -4,6 +4,8 @@ import { useState } from 'react'
 import HeartMessageHeader, { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
 import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
 import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
+import { useAccessStatus } from '@/hooks/useAccessStatus'
+import AccessBlockedPage from '@/components/AccessBlockedPage'
 
 type HeartTab = 'likes' | 'visitors'
 type UnlockStage = 'closed' | 'confirm' | 'success'
@@ -21,6 +23,9 @@ export default function CommunityPage() {
       : 'closed'
   const [unlockStage, setUnlockStage] = useState<UnlockStage>(initialUnlockStage)
   const isMember = router.params.member === '1' || router.params.member === 'true'
+  const access = useAccessStatus('canCommunity')
+
+  if (access.allowed !== true) return <AccessBlockedPage {...access} />
 
   return (
     <View style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
@@ -238,7 +243,7 @@ function UnlockSheet({ stage, onClose }: { stage: Exclude<UnlockStage, 'closed'>
           </View>
         ) : (
           <View style={{ margin: '18rpx 28rpx 28rpx', display: 'flex', flexDirection: 'row', gap: '20rpx' }}>
-            <View onClick={() => Taro.navigateTo({ url: '/pages/coins/unlock-recharge?sourceScene=likes_unlock_one' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <View id="unlock-one-button" onClick={() => Taro.navigateTo({ url: '/pages/coins/unlock-recharge?sourceScene=likes_unlock_one' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>只看ta(100</Text>
               <View style={{ width: '30rpx', height: '30rpx', margin: '0 5rpx', borderRadius: '50%', background: '#F4B331', border: '3rpx solid #FFE08A', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '20rpx' }}>Q</Text>

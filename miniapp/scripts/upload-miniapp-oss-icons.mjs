@@ -23,6 +23,22 @@ class OssUploadError extends Error {
 // 不包含底部 Tab 图标；这些资源必须按源文件字节上传，不会转换、缩放或压缩图像。
 const ICON_ASSETS = Object.freeze({
   heartMutualLikes: 'src/assets/lanhu/heart-message/heart-mutual-likes.png',
+  messageAvatarXiaoming: 'src/assets/lanhu/message/avatar-xiaoming.png',
+  messageAvatarLikedBlurred: 'src/assets/lanhu/message/avatar-liked-blurred.png',
+  messageAvatarWhisperGroup: 'src/assets/lanhu/message/avatar-whisper-group.png',
+  messageHomeYoArt: 'src/assets/lanhu/message/home-yo-art.png',
+  messageHomePrivateBubbleArt: 'src/assets/lanhu/message/home-private-bubble-art.png',
+  messageAssistant: 'src/assets/lanhu/message/icon-assistant.png',
+  messageSystem: 'src/assets/lanhu/message/icon-system.png',
+  messageTimelineExpired: 'src/assets/lanhu/message/timeline-expired.png',
+  messageTimelineYo: 'src/assets/lanhu/message/timeline-yo.png',
+  messageTimelineMatched: 'src/assets/lanhu/message/timeline-matched.png',
+  messageTimelineView: 'src/assets/lanhu/message/timeline-view.png',
+  messageChatSafetyDecoLeft: 'src/assets/lanhu/message/chat-safety-deco-left.png',
+  messageChatSafetyDecoRight: 'src/assets/lanhu/message/chat-safety-deco-right.png',
+  messageQianxunCoin: 'src/assets/lanhu/message/icon-qianxun-coin.png',
+  messageReport: 'src/assets/lanhu/message/icon-report.png',
+  messageMemberBadge: 'src/assets/lanhu/message/badge-member.png',
   coinGold: 'src/assets/lanhu/pages/coin-gold.png',
   coinUsageWhisper: 'src/assets/lanhu/pages/coin-usage/whisper.png',
   coinUsageHeartbeat: 'src/assets/lanhu/pages/coin-usage/heartbeat.png',
@@ -104,7 +120,15 @@ function publicUrl(cdnDomain, bucketName, endpoint, objectKey) {
   return `https://${host}/${objectKey}`
 }
 
-function uploadOriginalBytes({ endpoint, bucketName, accessKeyId, accessKeySecret, objectKey, body, mimeType }) {
+function uploadOriginalBytes({
+  endpoint,
+  bucketName,
+  accessKeyId,
+  accessKeySecret,
+  objectKey,
+  body,
+  mimeType,
+}) {
   const endpointHost = endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '')
   const host = `${bucketName}.${endpointHost}`
   const date = new Date().toUTCString()
@@ -113,36 +137,39 @@ function uploadOriginalBytes({ endpoint, bucketName, accessKeyId, accessKeySecre
   const signature = createHmac('sha1', accessKeySecret).update(stringToSign).digest('base64')
 
   return new Promise((resolve, reject) => {
-    const request = https.request({
-      hostname: host,
-      method: 'PUT',
-      path: `/${objectKey.split('/').map(encodeURIComponent).join('/')}`,
-      headers: {
-        Authorization: `OSS ${accessKeyId}:${signature}`,
-        Date: date,
-        'Content-Type': mimeType,
-        'Content-Length': body.length,
-        'Cache-Control': 'public, max-age=31536000, immutable',
+    const request = https.request(
+      {
+        hostname: host,
+        method: 'PUT',
+        path: `/${objectKey.split('/').map(encodeURIComponent).join('/')}`,
+        headers: {
+          Authorization: `OSS ${accessKeyId}:${signature}`,
+          Date: date,
+          'Content-Type': mimeType,
+          'Content-Length': body.length,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
       },
-    }, (response) => {
-      const chunks = []
-      response.on('data', (chunk) => chunks.push(chunk))
-      response.on('end', () => {
-        if (response.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
-          resolve()
-          return
-        }
-        const bodyText = Buffer.concat(chunks).toString('utf8')
-        const errorCode = bodyText.match(/<Code>([^<]+)<\/Code>/)?.[1]
-        const endpointHeader = response.headers['x-oss-endpoint']
-        const bucketLocation = response.headers['x-oss-bucket-location']
-        const suggestedEndpoint = (
-          typeof endpointHeader === 'string' ? endpointHeader : undefined
-        ) ?? bodyText.match(/<Endpoint>([^<]+)<\/Endpoint>/)?.[1]
-          ?? (typeof bucketLocation === 'string' ? `oss-${bucketLocation}.aliyuncs.com` : undefined)
-        reject(new OssUploadError(response.statusCode, errorCode, suggestedEndpoint))
-      })
-    })
+      response => {
+        const chunks = []
+        response.on('data', chunk => chunks.push(chunk))
+        response.on('end', () => {
+          if (response.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
+            resolve()
+            return
+          }
+          const bodyText = Buffer.concat(chunks).toString('utf8')
+          const errorCode = bodyText.match(/<Code>([^<]+)<\/Code>/)?.[1]
+          const endpointHeader = response.headers['x-oss-endpoint']
+          const bucketLocation = response.headers['x-oss-bucket-location']
+          const suggestedEndpoint =
+            (typeof endpointHeader === 'string' ? endpointHeader : undefined) ??
+            bodyText.match(/<Endpoint>([^<]+)<\/Endpoint>/)?.[1] ??
+            (typeof bucketLocation === 'string' ? `oss-${bucketLocation}.aliyuncs.com` : undefined)
+          reject(new OssUploadError(response.statusCode, errorCode, suggestedEndpoint))
+        })
+      }
+    )
     request.on('error', reject)
     request.end(body)
   })
@@ -154,9 +181,9 @@ async function uploadWithEndpointRetry(options) {
     return options.endpoint
   } catch (error) {
     if (
-      error instanceof OssUploadError
-      && error.suggestedEndpoint
-      && error.suggestedEndpoint !== options.endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '')
+      error instanceof OssUploadError &&
+      error.suggestedEndpoint &&
+      error.suggestedEndpoint !== options.endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '')
     ) {
       const endpoint = `https://${error.suggestedEndpoint}`
       await uploadOriginalBytes({ ...options, endpoint })
@@ -171,7 +198,7 @@ function writeClientManifest(entries) {
     '/** 由 scripts/upload-miniapp-oss-icons.mjs 生成；禁止手写密钥或本地回退路径。 */',
     'export const miniappOssIcons = Object.freeze({',
     ...entries.map(({ key, url }) => `  ${key}: '${url}',`),
-    "} as const)",
+    '} as const)',
     '',
     'export type MiniappOssIconKey = keyof typeof miniappOssIcons',
     '',
@@ -201,16 +228,28 @@ async function main() {
 
     if (!dryRun) {
       // 当本地 endpoint 与 bucket 地域不一致时，按 OSS 响应自动识别并重试一次。
-      endpoint = await uploadWithEndpointRetry({ endpoint, bucketName, accessKeyId, accessKeySecret, objectKey, body, mimeType })
+      endpoint = await uploadWithEndpointRetry({
+        endpoint,
+        bucketName,
+        accessKeyId,
+        accessKeySecret,
+        objectKey,
+        body,
+        mimeType,
+      })
     }
     entries.push({ key, url: publicUrl(cdnDomain, bucketName, endpoint, objectKey) })
   }
 
   if (!dryRun) writeClientManifest(entries)
-  console.log(dryRun ? `已校验 ${entries.length} 个非底部图标源文件。` : `已原样上传 ${entries.length} 个非底部图标并更新客户端清单。`)
+  console.log(
+    dryRun
+      ? `已校验 ${entries.length} 个非底部图标源文件。`
+      : `已原样上传 ${entries.length} 个非底部图标并更新客户端清单。`
+  )
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error(error instanceof Error ? error.message : String(error))
   process.exitCode = 1
 })

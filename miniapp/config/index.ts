@@ -35,7 +35,7 @@ const config = {
     640: 2.34 / 2,
     750: 1,
     375: 2,
-    828: 1.81 / 2
+    828: 1.81 / 2,
   },
   sourceRoot: 'src',
   outputRoot: 'dist',
@@ -47,41 +47,44 @@ const config = {
     ),
     'process.env.MINIAPP_DEV_FIXED_LOGIN': JSON.stringify(
       process.env.MINIAPP_DEV_FIXED_LOGIN || 'false'
-    )
+    ),
+    'process.env.MINIAPP_MESSAGE_PROVIDER': JSON.stringify(
+      process.env.MINIAPP_MESSAGE_PROVIDER || 'mock'
+    ),
   },
 
   alias: {
-    '@': path.resolve(__dirname, '..', 'src')
+    '@': path.resolve(__dirname, '..', 'src'),
   },
 
   copy: {
     patterns: [],
-    options: {}
+    options: {},
   },
 
   framework: 'react' as const,
   compiler: {
     type: 'webpack5' as const,
     prebundle: {
-      enable: false
-    }
+      enable: false,
+    },
   },
 
   mini: {
     enableSourceMap: false,
     output: {
-      clean: true
+      clean: true,
     },
     imageUrlLoaderOption: {
       limit: 0,
-      name: miniAssetName
+      name: miniAssetName,
     },
     mediaUrlLoaderOption: {
       limit: 0,
-      name: miniAssetName
+      name: miniAssetName,
     },
     optimizeMainPackage: {
-      enable: true
+      enable: true,
     },
     webpackChain(chain) {
       // weapp-tailwindcss 插件
@@ -90,23 +93,23 @@ const config = {
     postcss: {
       pxtransform: {
         enable: true,
-        config: {}
+        config: {},
       },
       cssModules: {
         enable: false,
         config: {
           namingPattern: 'module',
-          generateScopedName: '[name]__[local]___[hash:base64:5]'
-        }
-      }
-    }
+          generateScopedName: '[name]__[local]___[hash:base64:5]',
+        },
+      },
+    },
   },
 
   h5: {
     publicPath: '/',
     staticDirectory: 'static',
     router: {
-      mode: 'hash' as const
+      mode: 'hash' as const,
     },
     postcss: {
       pxtransform: {
@@ -116,18 +119,18 @@ const config = {
           // 所以 baseFontSize 也设为 50，保证 px→rem 转换与根字号对齐
           // 用法: 打开 http://localhost:10087，Chrome DevTools 切到 375×812
           baseFontSize: 50,
-        }
+        },
       },
       autoprefixer: { enable: true, config: {} },
       cssModules: {
         enable: true,
         config: {
           namingPattern: 'module',
-          generateScopedName: '[name]__[local]___[hash:base64:5]'
-        }
-      }
-    }
-  }
+          generateScopedName: '[name]__[local]___[hash:base64:5]',
+        },
+      },
+    },
+  },
 }
 
 export default defineConfig(config)
