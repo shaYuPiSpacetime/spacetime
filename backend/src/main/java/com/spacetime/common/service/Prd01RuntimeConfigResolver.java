@@ -133,15 +133,18 @@ public class Prd01RuntimeConfigResolver {
         return result;
     }
 
-    /** 三类上传限制，同时保留旧版扁平字段，避免破坏已经接入的客户端。 */
+    /** 上传限制，同时保留旧版扁平字段，避免破坏已经接入的客户端。 */
     public Map<String, Object> uploadLimits(RuntimeConfigSnapshot snapshot) {
         UploadRule education = uploadRule(snapshot, "education", 4, 10);
         UploadRule album = uploadRule(snapshot, "album", 9, 10);
         UploadRule profileBg = uploadRule(snapshot, "profileBg", 1, 10);
+        UploadRule voice = uploadRule(snapshot, "voice", 1, 20);
+        DurationRange voiceDuration = voiceDurationRange(snapshot);
         Map<String, Object> limits = new LinkedHashMap<>();
         limits.put("education", education.toMap());
         limits.put("album", album.toMap());
         limits.put("profileBg", profileBg.toMap());
+        limits.put("voice", voice.toMap());
         limits.put("educationMaterialMaxCount", education.maxCount());
         limits.put("educationMaterialMaxMb", education.maxMb());
         limits.put("albumMaxCount", album.maxCount());
@@ -149,9 +152,22 @@ public class Prd01RuntimeConfigResolver {
         limits.put("profileBgMaxCount", profileBg.maxCount());
         limits.put("profileBgMaxMb", profileBg.maxMb());
         limits.put("imageFormats", education.formats());
-        limits.put("voiceMinDuration", 10);
-        limits.put("voiceMaxDuration", 60);
+        limits.put("voiceMinDuration", voiceDuration.min());
+        limits.put("voiceMaxDuration", voiceDuration.max());
         return limits;
+    }
+
+    /** 语音时长与语音上传规则使用同一配置行，保证客户端提示和服务端校验一致。 */
+    public DurationRange voiceDurationRange(RuntimeConfigSnapshot snapshot) {
+        for (JsonNode row : rows(snapshot.value(UPLOAD_RULES_KEY))) {
+            if (!"voice".equals(row.path("key").asText())) {
+                continue;
+            }
+            int min = positiveInt(row.path("minDuration").asText(), 10);
+            int max = positiveInt(row.path("maxDuration").asText(), 60);
+            return max >= min ? new DurationRange(min, max) : new DurationRange(10, 60);
+        }
+        return new DurationRange(10, 60);
     }
 
     public UploadRule uploadRule(RuntimeConfigSnapshot snapshot, String key, int defaultCount, int defaultMb) {
@@ -319,6 +335,8 @@ public class Prd01RuntimeConfigResolver {
             return result;
         }
     }
+
+    public record DurationRange(int min, int max) {}
 
     public record AuditPolicy(int educationSlaHours, String educationSlaText) {
         public Map<String, Object> toMap() {

@@ -59,6 +59,8 @@ class MiniappDictServiceImplTest {
 
         assertThat(options).hasSize(1);
         assertThat(options.get(0).getName()).isEqualTo("郑州市");
+        assertThat(options.get(0).getLabel()).isEqualTo("郑州市");
+        assertThat(options.get(0).getLeaf()).isFalse();
         assertThat(options.get(0).getLevel()).isEqualTo("CITY");
     }
 
@@ -84,7 +86,21 @@ class MiniappDictServiceImplTest {
         when(dictDataDao.selectByDictType("app_marital_status")).thenReturn(List.of(dict("app_marital_status", "SINGLE", "未婚")));
         when(dictDataDao.selectByDictType("app_dating_goal")).thenReturn(List.of(dict("app_dating_goal", "TIMING_MATURE", "时机成熟就结婚")));
         when(dictDataDao.selectByDictType("app_emotional_status")).thenReturn(List.of(dict("app_emotional_status", "SEARCHING", "正在寻觅")));
+        when(dictDataDao.selectByDictType("app_gender")).thenReturn(List.of(
+                dict("app_gender", "FEMALE", "女"),
+                dict("app_gender", "MALE", "男")));
+        when(dictDataDao.selectByDictType("app_education_user_type")).thenReturn(List.of(
+                dict("app_education_user_type", "STUDENT", "在校生"),
+                dict("app_education_user_type", "MAINLAND_GRADUATE", "中国大陆毕业生")));
+        when(dictDataDao.selectByDictType("app_education_method")).thenReturn(List.of(
+                dict("app_education_method", "STUDENT_CARD", "学生证或在读证明"),
+                dict("app_education_method", "CHSI", "学信网在线验证码")));
+        when(dictDataDao.selectByDictType("app_audit_status")).thenReturn(List.of(dict("app_audit_status", "PENDING", "待审核")));
+        when(dictDataDao.selectByDictType("app_audit_source")).thenReturn(List.of(dict("app_audit_source", "MACHINE", "机审")));
+        when(dictDataDao.selectByDictType("app_core_access_status")).thenReturn(List.of(dict("app_core_access_status", "CORE_ALLOWED", "核心能力可用")));
+        when(dictDataDao.selectByDictType("app_avatar_source")).thenReturn(List.of(dict("app_avatar_source", "CAMERA", "拍照")));
         when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+                dict(99L, 0L, "app_profile_tag", "ALL", "全部"),
                 dict(100L, 0L, "app_profile_tag", "MBTI", "MBTI"),
                 dict(101L, 0L, "app_profile_tag", "SPORT", "运动"),
                 dict(102L, 0L, "app_profile_tag", "FOOTPRINT", "足迹"),
@@ -98,13 +114,20 @@ class MiniappDictServiceImplTest {
 
         assertThat(result).containsOnlyKeys(
                 "identity", "educationLevel", "industry", "occupation", "annualIncome", "maritalStatus",
-                "datingGoal", "emotionalStatus", "profileTag", "profileTagGroups");
+                "datingGoal", "emotionalStatus", "gender", "educationUserType", "educationMethod",
+                "auditStatus", "auditSource", "coreAccessStatus", "avatarSource", "profileTag", "profileTagGroups");
         assertThat(options(result, "identity").get(0).getCode()).isEqualTo("WORKER");
         assertThat(options(result, "educationLevel").get(0).getLabel()).isEqualTo("本科");
         assertThat(options(result, "industry").get(0).getLabel()).isEqualTo("IT/互联网");
         assertThat(options(result, "maritalStatus").get(0).getLabel()).isEqualTo("未婚");
         assertThat(options(result, "datingGoal").get(0).getCode()).isEqualTo("TIMING_MATURE");
         assertThat(options(result, "emotionalStatus").get(0).getLabel()).isEqualTo("正在寻觅");
+        assertThat(options(result, "gender")).extracting(DictOptionVO::getCode)
+                .containsExactly("FEMALE", "MALE");
+        assertThat(options(result, "educationMethod")).extracting(DictOptionVO::getCode)
+                .containsExactly("STUDENT_CARD", "CHSI");
+        assertThat(options(result, "auditStatus").get(0).getLabel()).isEqualTo("待审核");
+        assertThat(options(result, "avatarSource").get(0).getSort()).isEqualTo(1);
         assertThat(options(result, "profileTag")).extracting(DictOptionVO::getCode)
                 .containsExactly("INFJ", "OUTDOOR_LOVER", "LOVE_TRAVEL");
         assertThat(options(result, "profileTag").get(0).getCategoryLabel()).isEqualTo("MBTI");

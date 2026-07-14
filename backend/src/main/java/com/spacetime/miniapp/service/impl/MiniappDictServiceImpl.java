@@ -16,8 +16,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /** 移动端公开字典服务实现。 */
 @Service
@@ -26,16 +24,6 @@ public class MiniappDictServiceImpl implements MiniappDictService {
 
     /** 中国大陆省市区字典类型编码。 */
     private static final String CHINA_REGION_DICT_TYPE = "china_region";
-
-    /** 我的标签固定分类；分类本身也是 app_profile_tag 的根节点，具体标签通过 parent_id 归属分类。 */
-    private static final List<TagCategory> TAG_CATEGORIES = List.of(
-            new TagCategory("ALL", "全部"),
-            new TagCategory("MBTI", "MBTI"),
-            new TagCategory("PERSONALITY", "性格"),
-            new TagCategory("HOBBY", "爱好"),
-            new TagCategory("SPORT", "运动"),
-            new TagCategory("FOOTPRINT", "足迹")
-    );
 
     private final DictDataDao dictDataDao;
 
@@ -67,6 +55,7 @@ public class MiniappDictServiceImpl implements MiniappDictService {
     @Override
     public Map<String, Object> profileOptions() {
         Map<String, Object> result = new LinkedHashMap<>();
+        result.put("gender", options(ProfileDictType.GENDER));
         result.put("identity", options(ProfileDictType.IDENTITY));
         result.put("educationLevel", options(ProfileDictType.EDUCATION_LEVEL));
         result.put("industry", options(ProfileDictType.INDUSTRY));
@@ -75,9 +64,17 @@ public class MiniappDictServiceImpl implements MiniappDictService {
         result.put("maritalStatus", options(ProfileDictType.MARITAL_STATUS));
         result.put("datingGoal", options(ProfileDictType.DATING_GOAL));
         result.put("emotionalStatus", options(ProfileDictType.EMOTIONAL_STATUS));
-        List<DictOptionVO> profileTags = profileTagOptions();
+        result.put("educationUserType", options(ProfileDictType.EDUCATION_USER_TYPE));
+        result.put("educationMethod", options(ProfileDictType.EDUCATION_METHOD));
+        result.put("auditStatus", options(ProfileDictType.AUDIT_STATUS));
+        result.put("auditSource", options(ProfileDictType.AUDIT_SOURCE));
+        result.put("coreAccessStatus", options(ProfileDictType.CORE_ACCESS_STATUS));
+        result.put("avatarSource", options(ProfileDictType.AVATAR_SOURCE));
+        List<SysDictData> tagItems = dictDataDao.selectByDictType(ProfileDictType.PROFILE_TAG);
+        List<TagCategory> tagCategories = tagCategories(tagItems);
+        List<DictOptionVO> profileTags = profileTagOptions(tagItems, tagCategories);
         result.put("profileTag", profileTags);
-        result.put("profileTagGroups", profileTagGroups(profileTags));
+        result.put("profileTagGroups", profileTagGroups(profileTags, tagCategories));
         return result;
     }
 
@@ -86,31 +83,34 @@ public class MiniappDictServiceImpl implements MiniappDictService {
             DictOptionVO option = new DictOptionVO();
             option.setCode(item.getDictValue());
             option.setLabel(item.getDictLabel());
+            option.setSort(item.getDictSort());
             return option;
         }).toList();
     }
 
-    private List<DictOptionVO> profileTagOptions() {
-        List<SysDictData> items = dictDataDao.selectByDictType(ProfileDictType.PROFILE_TAG);
-        Map<Long, TagCategory> categoriesById = tagCategoriesById(items);
+    private List<DictOptionVO> profileTagOptions(List<SysDictData> items, List<TagCategory> categories) {
+        Map<Long, TagCategory> categoriesById = categories.stream()
+                .collect(java.util.stream.Collectors.toMap(TagCategory::id, item -> item));
         return items.stream()
                 .filter(item -> !isTagCategoryNode(item))
                 .map(item -> {
                     DictOptionVO option = new DictOptionVO();
                     option.setCode(item.getDictValue());
                     option.setLabel(item.getDictLabel());
-                    TagCategory category = categoriesById.getOrDefault(
-                            item.getParentId(), fallbackTagCategory(item.getDictValue()));
-                    option.setCategoryCode(category.code());
-                    option.setCategoryLabel(category.label());
+                    option.setSort(item.getDictSort());
+                    TagCategory category = categoriesById.get(item.getParentId());
+                    if (category != null) {
+                        option.setCategoryCode(category.code());
+                        option.setCategoryLabel(category.label());
+                    }
                     return option;
                 }).toList();
     }
 
-    private List<ProfileTagGroupVO> profileTagGroups(List<DictOptionVO> tags) {
-        return TAG_CATEGORIES.stream()
+    private List<ProfileTagGroupVO> profileTagGroups(List<DictOptionVO> tags, List<TagCategory> categories) {
+        return categories.stream()
                 .map(category -> tagGroup(category, tags))
-                .filter(group -> "ALL".equals(group.getCategoryCode()) || !group.getOptions().isEmpty())
+                .filter(group -> !group.getOptions().isEmpty() || "ALL".equals(group.getCategoryCode()))
                 .toList();
     }
 
@@ -126,47 +126,29 @@ public class MiniappDictServiceImpl implements MiniappDictService {
         return group;
     }
 
-    private Map<Long, TagCategory> tagCategoriesById(List<SysDictData> items) {
-        Map<String, TagCategory> categoriesByCode = TAG_CATEGORIES.stream()
-                .filter(category -> !"ALL".equals(category.code()))
-                .collect(Collectors.toMap(TagCategory::code, Function.identity()));
+    private List<TagCategory> tagCategories(List<SysDictData> items) {
         return items.stream()
                 .filter(this::isTagCategoryNode)
-                .collect(Collectors.toMap(SysDictData::getId,
-                        item -> categoriesByCode.get(item.getDictValue()),
-                        (left, right) -> left,
-                        LinkedHashMap::new));
+                .map(item -> new TagCategory(item.getId(), item.getDictValue(), item.getDictLabel()))
+                .toList();
     }
 
     private boolean isTagCategoryNode(SysDictData item) {
         return item.getParentId() != null
-                && item.getParentId() == 0L
-                && TAG_CATEGORIES.stream().anyMatch(category ->
-                        !"ALL".equals(category.code()) && category.code().equals(item.getDictValue()));
-    }
-
-    /** 兼容旧数据未完成 parent_id 迁移时的分类展示；新数据以 parent_id 为准。 */
-    private TagCategory fallbackTagCategory(String code) {
-        if (code != null && code.length() == 4 && code.matches("[EINTFSJP]{4}")) {
-            return new TagCategory("MBTI", "MBTI");
-        }
-        return switch (code == null ? "" : code) {
-            case "OUTDOOR_LOVER" -> new TagCategory("SPORT", "运动");
-            case "LOVE_TRAVEL" -> new TagCategory("FOOTPRINT", "足迹");
-            case "ESPORTS", "IT_GIRL" -> new TagCategory("HOBBY", "爱好");
-            default -> new TagCategory("PERSONALITY", "性格");
-        };
+                && item.getParentId() == 0L;
     }
 
     private RegionOptionVO toOption(SysDictData item, String level) {
         RegionOptionVO option = new RegionOptionVO();
         option.setCode(item.getDictValue());
+        option.setLabel(item.getDictLabel());
+        option.setLeaf(!Boolean.TRUE.equals(item.getHasChildren()));
         option.setName(item.getDictLabel());
         option.setLevel(level);
         option.setHasChildren(Boolean.TRUE.equals(item.getHasChildren()));
         return option;
     }
 
-    private record TagCategory(String code, String label) {
+    private record TagCategory(Long id, String code, String label) {
     }
 }

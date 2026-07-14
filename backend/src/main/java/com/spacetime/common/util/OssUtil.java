@@ -12,8 +12,15 @@ import org.springframework.stereotype.Component;
 import java.io.InputStream;
 import java.net.URL;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 阿里云 OSS 文件上传工具
@@ -81,6 +88,29 @@ public class OssUtil {
         return toSignedUrl(key);
     }
 
+    /** 上传敏感文件并返回可持久化的对象 Key。 */
+    public String uploadWithKey(InputStream inputStream, String originalFilename) {
+        return doUpload(inputStream, originalFilename);
+    }
+
+    /** 为小程序签发 5 分钟有效、限定对象 Key 和文件大小的 OSS 表单直传凭证。 */
+    public DirectUploadPolicy createDirectUploadPolicy(String originalFilename, long maxBytes) {
+        String key = newObjectKey(originalFilename);
+        long expiresAt = Instant.now().plusSeconds(300).getEpochSecond();
+        String expiration = Instant.ofEpochSecond(expiresAt).toString();
+        String policyJson = "{\"expiration\":\"" + expiration + "\",\"conditions\":[[\"eq\",\"$key\",\""
+                + key + "\"],[\"content-length-range\",1," + maxBytes + "]]}";
+        String policy = Base64.getEncoder().encodeToString(policyJson.getBytes(StandardCharsets.UTF_8));
+        String signature = hmacSha1(policy, ossConfig.getAccessKeySecret());
+        Map<String, String> formData = new LinkedHashMap<>();
+        formData.put("key", key);
+        formData.put("policy", policy);
+        formData.put("OSSAccessKeyId", ossConfig.getAccessKeyId());
+        formData.put("Signature", signature);
+        formData.put("success_action_status", "200");
+        return new DirectUploadPolicy(ossHost(), key, formData, expiresAt);
+    }
+
     /**
      * 获取指定 Key 的签名临时 URL。
      *
@@ -120,10 +150,7 @@ public class OssUtil {
      * 执行文件上传，返回 OSS Key。
      */
     private String doUpload(InputStream inputStream, String originalFilename) {
-        String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-        String ext = StrUtil.blankToDefault(
-                originalFilename.substring(originalFilename.lastIndexOf(".")), ".jpg");
-        String key = datePath + "/" + IdUtil.simpleUUID() + ext;
+        String key = newObjectKey(originalFilename);
         OSS oss = new OSSClientBuilder().build(
                 ossConfig.getEndpoint(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
         try {
@@ -133,4 +160,29 @@ public class OssUtil {
         }
         return key;
     }
+
+    private String newObjectKey(String originalFilename) {
+        String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+        String filename = StrUtil.blankToDefault(originalFilename, "file.jpg");
+        int dot = filename.lastIndexOf(".");
+        String ext = dot >= 0 ? filename.substring(dot).toLowerCase() : ".jpg";
+        return datePath + "/" + IdUtil.simpleUUID() + ext;
+    }
+
+    private String ossHost() {
+        String endpoint = ossConfig.getEndpoint().replaceFirst("^https?://", "").replaceFirst("/$", "");
+        return "https://" + ossConfig.getBucketName() + "." + endpoint;
+    }
+
+    private String hmacSha1(String data, String secret) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA1");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
+            return Base64.getEncoder().encodeToString(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("OSS直传凭证签名失败", e);
+        }
+    }
+
+    public record DirectUploadPolicy(String uploadUrl, String key, Map<String, String> formData, long expiresAt) {}
 }
