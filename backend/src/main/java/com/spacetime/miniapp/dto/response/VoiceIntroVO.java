@@ -17,4 +17,6 @@ public class VoiceIntroVO {
     private String voiceIntroRejectReason;
     /** 是否允许移动端公开资料页展示播放器。 */
     private Boolean visibleToPublic;
+    /** 当前状态是否允许再次提交，前端不得自行枚举审核状态推断。 */
+    private Boolean canSubmit;
 }

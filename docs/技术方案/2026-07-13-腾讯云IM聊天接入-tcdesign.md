@@ -1,5 +1,7 @@
 # 腾讯云 IM 聊天接入技术方案
 
+> **消息业务接口契约更新（2026-07-14）**：消息首页、会话、悄悄话、官方频道、举报、IM 凭证与腾讯回调的字段级定义，以 `docs/技术方案/2026-07-14-消息15稿后端接口契约.md` 为唯一实施口径。本文件继续负责 LiteChat、回调、Outbox 与数据权威边界；若两份文档存在接口差异，以 2026-07-14 新契约为准。
+
 ## 1. 结论
 
 本项目采用方案一，并将技术选型锁定为：**腾讯云即时通信 IM SDK V4 `@tencentcloud/lite-chat` 标准版 + Taro 自绘聊天 UI + 本项目后端业务控制层**。
@@ -336,21 +338,33 @@ Provider 发送接口必须接收项目幂等键、`traceId` 和协议化 payloa
 
 ### 6.4 业务接口
 
-沿用 PRD-03 的业务语义，按当前项目路由风格落地为 `/miniapp/message/*`：
+沿用 PRD-03 的业务语义，统一落地为单数前缀 `/miniapp/message/*`。完整请求、`R<T>` 响应、分页、枚举、状态机、幂等、错误码、权限、Mock fixture 与 LiteChat 来源映射见 `docs/技术方案/2026-07-14-消息15稿后端接口契约.md`，本节只保留能力总览：
 
 | 方法 | 路径 | 责任 |
 |---|---|---|
 | GET | `/miniapp/im/credentials` | 获取 IM UserID 和 UserSig |
+| GET | `/miniapp/message/home` | 查询消息首页聚合结果 |
 | GET | `/miniapp/message/conversations` | 查询消息列表聚合结果 |
 | GET | `/miniapp/message/unread-summary` | 查询消息 Tab 未读汇总 |
 | GET | `/miniapp/message/conversations/{conversationNo}/state` | 查询会话双方、业务状态、发送权限和失效原因，不返回历史正文 |
 | POST | `/miniapp/message/messages/read` | 本地已读状态同步 |
+| GET | `/miniapp/message/whispers` | 查询申请我的/我申请的悄悄话列表 |
+| GET | `/miniapp/message/whispers/{whisperNo}` | 查询悄悄话详情与时间线 |
+| POST | `/miniapp/message/whispers/precheck` | 查询创建资格、60 字上限、价格和余额 |
 | POST | `/miniapp/message/whispers` | 创建并发送悄悄话 |
-| POST | `/miniapp/message/whispers/{whisperId}/reply` | 回复悄悄话并触发匹配 |
-| POST | `/miniapp/message/whispers/{whisperId}/ignore` | 暂不回应并启动冷却 |
+| POST | `/miniapp/message/whispers/{whisperNo}/reply` | 回复悄悄话并触发匹配 |
+| POST | `/miniapp/message/whispers/{whisperNo}/ignore` | 暂不回应并启动冷却 |
+| POST | `/miniapp/message/whispers/{whisperNo}/cancel` | 发送方撤销仍待处理的申请 |
+| DELETE | `/miniapp/message/whispers/{whisperNo}/visibility` | 仅隐藏当前用户列表投影 |
+| POST | `/miniapp/message/whispers/visibility/batch-hide` | 批量隐藏当前用户列表投影 |
+| GET | `/miniapp/message/channels/{channel}/messages` | 查询官方小助手或系统消息，`channel=assistant/system` |
+| POST | `/miniapp/message/channels/{channel}/read` | 更新官方频道读取进度，`channel=assistant/system` |
 | POST | `/miniapp/message/report` | 聊天或悄悄话举报 |
+| POST | `/internal/tencent-im/callback/{callbackPathToken}` | 腾讯云 IM 统一回调入口 |
 
 普通文本由 LiteChat 唯一发送，不提供 `/send-text`。会话状态接口只用于页面预检和提示，消息前回调才是最终安全边界。埋点由客户端事件和消息后回调分别记录，不通过一个看似“发送”但不真正发送消息的接口实现。
+
+删除语义固定为“当前用户列表隐藏”，不等于拒绝、撤销、退款或物理删除审计记录。悄悄话正文上限当前按新蓝湖契约返回 `contentMaxLength=60`；旧 PRD 的 200/500 字口径继续登记为待产品确认差异，在确认前不得混用。
 
 ### 6.5 本地数据
 

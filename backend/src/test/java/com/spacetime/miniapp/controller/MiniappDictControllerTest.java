@@ -44,14 +44,18 @@ class MiniappDictControllerTest {
         RegionOptionVO city = new RegionOptionVO();
         city.setCode("410100");
         city.setName("郑州市");
+        city.setLabel("郑州市");
         city.setLevel("CITY");
         city.setHasChildren(true);
+        city.setLeaf(false);
         when(miniappDictService.locations("410000")).thenReturn(List.of(city));
 
         mockMvc.perform(get("/miniapp/dict/locations").param("parentCode", "410000"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data[0].code").value("410100"))
+                .andExpect(jsonPath("$.data[0].label").value("郑州市"))
+                .andExpect(jsonPath("$.data[0].leaf").value(false))
                 .andExpect(jsonPath("$.data[0].level").value("CITY"))
                 .andExpect(jsonPath("$.data[0].hasChildren").value(true))
                 .andExpect(jsonPath("$.data[0].children").doesNotExist());
@@ -88,7 +92,9 @@ class MiniappDictControllerTest {
         DictOptionVO worker = new DictOptionVO();
         worker.setCode("WORKER");
         worker.setLabel("职场人");
+        worker.setSort(1);
         when(miniappDictService.profileOptions()).thenReturn(Map.of(
+                "gender", List.of(),
                 "identity", List.of(worker),
                 "educationLevel", List.of(),
                 "industry", List.of(),
@@ -100,6 +106,7 @@ class MiniappDictControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.identity[0].code").value("WORKER"))
-                .andExpect(jsonPath("$.data.identity[0].label").value("职场人"));
+                .andExpect(jsonPath("$.data.identity[0].label").value("职场人"))
+                .andExpect(jsonPath("$.data.identity[0].sort").value(1));
     }
 }

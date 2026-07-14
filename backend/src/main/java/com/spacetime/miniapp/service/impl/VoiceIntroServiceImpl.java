@@ -45,6 +45,7 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
             VoiceIntroVO vo = new VoiceIntroVO();
             vo.setVoiceIntroAuditStatus("NOT_SUBMITTED");
             vo.setVisibleToPublic(false);
+            vo.setCanSubmit(true);
             return vo;
         }
         return toVo(display, effective != null && display.getId().equals(effective.getId()));
@@ -55,12 +56,12 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
     @Transactional
     public VoiceIntroVO submitVoiceIntro(Long userId, VoiceIntroSubmitReq req) {
         requireUser(userId);
-        validateRequest(req);
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot = runtimeConfigResolver.snapshot();
+        validateRequest(req, snapshot);
         AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
         if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
             throw new BusinessException("语音介绍审核中，请勿重复提交");
         }
-        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot = runtimeConfigResolver.snapshot();
         if (!runtimeConfigResolver.fieldVisible(snapshot, "voiceIntro", true)) {
             throw new BusinessException("语音介绍当前未启用");
         }
@@ -112,12 +113,13 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         return user;
     }
 
-    private void validateRequest(VoiceIntroSubmitReq req) {
+    private void validateRequest(VoiceIntroSubmitReq req, Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot) {
         if (req == null || StrUtil.isBlank(req.getVoiceUrl())) {
             throw new BusinessException("语音介绍缺少音频 URL");
         }
-        if (req.getDuration() == null || req.getDuration() < 10 || req.getDuration() > 60) {
-            throw new BusinessException("VOICE_DURATION_INVALID：语音时长必须在10-60秒");
+        Prd01RuntimeConfigResolver.DurationRange range = runtimeConfigResolver.voiceDurationRange(snapshot);
+        if (req.getDuration() == null || req.getDuration() < range.min() || req.getDuration() > range.max()) {
+            throw new BusinessException("VOICE_DURATION_INVALID：语音时长必须在" + range.min() + "-" + range.max() + "秒");
         }
     }
 
@@ -140,6 +142,7 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         vo.setVoiceIntroAuditStatus(record.getStatus());
         vo.setVoiceIntroRejectReason(StrUtil.blankToDefault(record.getRejectReason(), record.getExpiredReason()));
         vo.setVisibleToPublic(exposeVoiceUrl);
+        vo.setCanSubmit(!AppUserAuditStatusEnum.isPendingLike(record.getStatus()));
         return vo;
     }
 

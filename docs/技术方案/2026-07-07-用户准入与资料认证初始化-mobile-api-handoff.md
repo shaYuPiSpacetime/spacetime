@@ -37,7 +37,7 @@
 | `fieldSettings` | Array | 我的主页/基础资料字段展示、必填、计分配置 |
 | `profileCompleteness` | Object | 资料完整度计分项和总分，分数由后端实时计算 |
 | `copywriting` | Object | 文案配置，`enabled=false` 时前端不展示该文案 |
-| `uploadLimits.education/album/profileBg` | Object | 上传数量、大小、格式限制 |
+| `uploadLimits.education/album/profileBg/voice` | Object | 上传数量、大小、格式限制 |
 | `uploadLimits.voiceMinDuration/voiceMaxDuration` | Number | 语音介绍时长限制，当前 10-60 秒 |
 | `auditPolicy.educationSlaHours` | Number | 学历审核承诺小时数 |
 | `auditPolicy.educationSlaText` | String | 学历审核展示文案 |
@@ -139,6 +139,33 @@
   }
 ]
 ```
+
+### 2.4 资料文件上传
+
+交接稿原有业务提交接口只接收 URL，但未提供临时文件转 OSS URL 的入口。为保证真机链路可用，小程序采用 OSS 直传：先向后端申请 5 分钟短时表单凭证，再由小程序直接调用 `Taro.uploadFile` 上传到凭证中的 `uploadUrl`。长期 AccessKey Secret 只保留在后端，禁止下发或写入小程序源码。
+
+| 场景 | Method | 凭证 Path | 上传后 URL 用途 |
+| --- | --- | --- | --- |
+| 头像 | `POST` | `/miniapp/file/upload-ticket/avatar` | 公有 CDN URL |
+| 学历材料 | `POST` | `/miniapp/file/upload-ticket/education` | 登录态凭证代理 URL |
+| 相册 | `POST` | `/miniapp/file/upload-ticket/album` | 公有 CDN URL |
+| 资料背景 | `POST` | `/miniapp/file/upload-ticket/background` | 公有 CDN URL |
+| 语音介绍 | `POST` | `/miniapp/file/upload-ticket/voice` | 公有 CDN URL |
+
+凭证请求：`{"fileName":"avatar.jpg","fileSizeBytes":102400}`。后端按对应 `uploadLimits` 校验扩展名和大小，并在 OSS policy 中再次限制唯一对象 Key 与最大字节数。
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `uploadUrl` | String | OSS Bucket 表单上传地址 |
+| `key` | String | 本次凭证唯一允许写入的 OSS 对象 Key |
+| `formData` | Object | 直传表单字段，原样传给 `Taro.uploadFile` |
+| `expiresAt` | Number | 凭证过期 Unix 时间戳（秒） |
+| `fileUrl` | String | 上传成功后提交给业务接口的稳定地址 |
+| `protectedFile` | Boolean | 是否必须通过登录态凭证代理访问 |
+
+小程序拿到凭证后，直接上传 `uploadUrl`，字段名为 `file`，`formData` 原样携带；OSS 返回 200/204 后，才把 `fileUrl` 提交给头像、学历、相册、背景图或语音介绍业务接口。前端不得把小程序本地临时路径提交给业务接口。微信公众平台必须把响应中的 OSS Bucket Host 加入 `uploadFile` 合法域名；不同环境使用各自 Bucket Host，不在客户端写死域名。
 
 ## 3. 登录流程
 
@@ -640,6 +667,8 @@
 | --- | --- | --- |
 | `voiceUrl` | String | 音频 URL |
 | `duration` | Number | 时长秒，取配置 `voiceMinDuration/voiceMaxDuration`，当前 10-60 |
+
+录音格式、单文件大小和数量读取 `uploadLimits.voice.formats/maxMb/maxCount`；小程序先调用 `/miniapp/file/upload-ticket/voice` 直传 OSS，再提交返回的稳定 `fileUrl`。
 
 常见错误码：
 
