@@ -1,6 +1,7 @@
 package com.spacetime.admin.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.admin.dto.request.AppConfigBatchReq;
 import com.spacetime.admin.dto.response.AppConfigVO;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 应用配置管理服务实现
@@ -41,6 +43,16 @@ public class AppConfigAdminServiceImpl implements AppConfigAdminService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String EDUCATION_SLA_HOURS_KEY = "prd01.audit.education.sla_hours";
+    private static final String PROFILE_FIELD_SETTINGS_KEY = "prd01.profile.fieldSettings";
+    private static final Set<String> FIXED_VISIBLE_PROFILE_FIELDS = Set.of(
+            "gender", "birthday", "identityType", "identity", "educationLevel",
+            "locationProvince", "locationCity", "locationDistrict",
+            "height", "weight", "hometownProvince", "hometownCity", "hometownDistrict"
+    );
+    private static final Set<String> FIXED_REQUIRED_PROFILE_FIELDS = Set.of(
+            "gender", "birthday", "identityType", "identity", "educationLevel",
+            "locationProvince", "locationCity"
+    );
 
     @Override
     public List<AppConfigVO> list(String group) {
@@ -135,7 +147,10 @@ public class AppConfigAdminServiceImpl implements AppConfigAdminService {
         }
         if (ConfigTypeEnum.JSON.equals(configType)) {
             try {
-                objectMapper.readTree(item.getConfigValue());
+                JsonNode value = objectMapper.readTree(item.getConfigValue());
+                if (PROFILE_FIELD_SETTINGS_KEY.equals(item.getConfigKey())) {
+                    validateProfileFieldSettings(value);
+                }
             } catch (JsonProcessingException e) {
                 throw new BusinessException("配置键 " + item.getConfigKey() + " 的值必须是合法 JSON");
             }
@@ -156,6 +171,29 @@ public class AppConfigAdminServiceImpl implements AppConfigAdminService {
                 && !"true".equalsIgnoreCase(item.getConfigValue().trim())
                 && !"false".equalsIgnoreCase(item.getConfigValue().trim())) {
             throw new BusinessException("配置键 " + item.getConfigKey() + " 的值必须是 true 或 false");
+        }
+    }
+
+    /** 校验字段配置固定矩阵，防止绕过管理后台页面关闭固定属性。 */
+    private void validateProfileFieldSettings(JsonNode value) {
+        JsonNode rows = value.isArray() ? value : value.path("rows");
+        if (!rows.isArray()) {
+            throw new BusinessException("字段配置必须包含 rows 数组");
+        }
+        for (JsonNode row : rows) {
+            String fieldId = row.path("fieldId").asText("");
+            if (!StringUtils.hasText(fieldId)) {
+                continue;
+            }
+            if (FIXED_VISIBLE_PROFILE_FIELDS.contains(fieldId) && !row.path("visible").asBoolean(false)) {
+                throw new BusinessException("字段 " + fieldId + " 为固定展示，不允许关闭");
+            }
+            if (FIXED_REQUIRED_PROFILE_FIELDS.contains(fieldId) && !row.path("required").asBoolean(false)) {
+                throw new BusinessException("字段 " + fieldId + " 为固定必填，不允许改为选填");
+            }
+            if ("locationDistrict".equals(fieldId) && !row.path("required").asBoolean(false)) {
+                throw new BusinessException("字段 locationDistrict 为条件必填，不允许人工关闭");
+            }
         }
     }
 

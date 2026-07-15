@@ -5,6 +5,7 @@
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
 | 版本01 | 2026-06-25 | Codex | 确定版 |
+| 版本02 | 2026-07-15 | Codex | 同步全局字段固定矩阵，明确固定展示与必填配置边界 |
 
 - **页面 ID**：`APP-01-PAGE-profile-basic-edit`
 - **所属模块 PRD**：`../模块PRD文档/模块PRD_APP-01_用户准入与资料认证初始化.md`
@@ -20,7 +21,7 @@
 - **目标用户**：已登录用户
 - **核心任务**：编辑和保存基础展示资料
 - **页面类型**：表单编辑页
-- **字段事实源**：字段 ID、显示名、页面承载、必填与计分控制以 `M01-DATA-user-input-fields` 为准；后台未启用字段不展示、不校验、不计分。
+- **字段事实源**：字段 ID、显示名、页面承载、展示、必填与计分控制以 `M01-DATA-user-input-fields` 为准；轻量资料及身高、体重、家乡按固定矩阵展示，其他后台未启用字段不展示、不校验、不计分。
 
 ---
 
@@ -29,15 +30,15 @@
 | 字段 ID | 显示名 | 类型 | 必填规则 | 可编辑 | 说明 |
 |---------|--------|------|----------|--------|------|
 | `nickname` | 昵称 | string | 后台配置 | 是 | 长度按配置 |
-| `gender` | 性别 | enum | 后台配置 | 否 | 提交后用户端锁定 |
-| `birthday` | 出生日期 | date | 后台配置 | 是 | 年龄需满足配置 |
-| `locationProvince` / `locationCity` / `locationDistrict` | 现居地 | dict | 后台配置 | 是 | 支持定位/手动选择 |
-| `height` | 身高 | int | 后台配置 | 是 | cm |
-| `weight` | 体重 | int | 后台配置 | 是 | kg |
-| `hometownProvince` / `hometownCity` / `hometownDistrict` | 家乡 | dict | 后台配置 | 是 | 中国大陆地区；不展示海外地区/国家入口 |
+| `gender` | 性别 | enum | 固定必填 | 否 | 固定展示；提交后用户端锁定 |
+| `birthday` | 出生日期 | date | 固定必填 | 是 | 固定展示；年龄需满足配置 |
+| `locationProvince` / `locationCity` / `locationDistrict` | 现居地 | dict | 省市固定必填；区县按地区层级条件必填 | 是 | 固定展示；支持定位/手动选择 |
+| `height` | 身高 | int | 后台配置 | 是 | 固定展示；cm |
+| `weight` | 体重 | int | 后台配置 | 是 | 固定展示；kg |
+| `hometownProvince` / `hometownCity` / `hometownDistrict` | 家乡 | dict | 后台配置 | 是 | 固定展示；中国大陆地区；不展示海外地区/国家入口 |
 | `residence` | 户口所在地 | dict/string | 后台配置 | 是 | 可与家乡并存，由配置决定是否启用 |
-| `identityType` | 身份 | enum | 后台配置 | 是 | 在校生/职场人 |
-| `educationLevel` | 最高学历 | dict | 后台配置 | 是 | 系统字典 |
+| `identityType` | 身份 | enum | 固定必填 | 是 | 固定展示；在校生/职场人 |
+| `educationLevel` | 最高学历 | dict | 固定必填 | 是 | 固定展示；系统字典 |
 | `industry` | 行业 | dict/string | 后台配置 | 是 | 可与职业字段联动 |
 | `occupation` | 职业 | dict/string | 后台配置 | 是 | 支持手动填写 |
 | `company` | 公司 | string | 后台配置 | 是 | 支持公司搜索或手动填写 |

@@ -41,14 +41,14 @@
 | 字段 ID | 显示名 | 类型 | 必填 | 校验规则 | 可编辑 | 数据来源 |
 |---------|--------|------|------|----------|--------|----------|
 | `nickname` | 昵称 | string | 后台配置 | 长度按配置 | 是 | 用户填写/默认昵称 |
-| `gender` | 性别 | enum | 后台配置 | 已提交后锁定 | 否 | 轻量引导 |
-| `birthday` | 出生日期 | date | 后台配置 | 年龄符合配置 | 是 | 轻量引导/用户选择 |
-| `locationProvince` / `locationCity` / `locationDistrict` | 现居地 | dict | 后台配置 | 中国大陆地区 | 是 | 轻量引导/定位/手动 |
+| `gender` | 性别 | enum | 固定必填 | 已提交后锁定 | 否 | 轻量引导 |
+| `birthday` | 出生日期 | date | 固定必填 | 年龄符合配置 | 是 | 轻量引导/用户选择 |
+| `locationProvince` / `locationCity` / `locationDistrict` | 现居地 | dict | 省市固定必填；区县按地区层级条件必填 | 中国大陆地区 | 是 | 轻量引导/定位/手动 |
 | `height` | 身高 | int | 后台配置 | cm，范围按配置 | 是 | 身高体重选择器 |
 | `weight` | 体重 | int | 后台配置 | kg，范围按配置 | 是 | 身高体重选择器 |
 | `hometownProvince` / `hometownCity` / `hometownDistrict` | 家乡 | dict | 后台配置 | 中国大陆地区 | 是 | 家乡选择器；不展示海外地区/国家入口 |
-| `identityType` | 身份 | enum | 后台配置 | 在校生/职场人 | 是 | 轻量引导/用户选择 |
-| `educationLevel` | 最高学历 | dict | 后台配置 | 学历字典启用项 | 是 | 轻量引导/用户选择 |
+| `identityType` | 身份 | enum | 固定必填 | 在校生/职场人 | 是 | 轻量引导/用户选择 |
+| `educationLevel` | 最高学历 | dict | 固定必填 | 学历字典启用项 | 是 | 轻量引导/用户选择 |
 | `occupation` | 职业 | dict/string | 后台配置 | 字典选择或手动填写 | 是 | 职业字典 |
 | `company` | 公司 | string | 后台配置 | 2-50 字，支持手动输入 | 是 | 用户填写/历史输入建议 |
 | `annualIncomeRange` | 年收入 | dict | 后台配置 | 年收入字典启用项 | 是 | 年收入字典 |

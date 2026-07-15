@@ -152,11 +152,11 @@ App 用户 Excel 批量导入模板以本文件 `ADM-01-DATA-user-import-fields`
 | 账号与实名 | 身份证号 | `idCardNo` | 是 | 中国大陆居民身份证号格式；与手机号共同做重复校验 |
 | 轻量资料 | 性别 | `gender` | 是 | 使用系统枚举中文值；导入后按性别锁定规则处理 |
 | 轻量资料 | 出生日期 | `birthday` | 是 | `YYYY-MM-DD`；用于年龄准入与星座计算 |
-| 轻量资料 | 身份 | `identityType` | 按配置 | 在校生/职场人；必填性跟随 `M01-CFG-required-fields` |
-| 轻量资料 | 最高学历 | `educationLevel` | 按配置 | 使用学历字典中文值；必填性跟随 `M01-CFG-required-fields` |
-| 轻量资料 | 现居省份 | `locationProvince` | 按配置 | 使用地区字典中文值；必填性跟随 `M01-CFG-required-fields` |
-| 轻量资料 | 现居城市 | `locationCity` | 按配置 | 使用地区字典中文值；必填性跟随 `M01-CFG-required-fields` |
-| 轻量资料 | 现居区县 | `locationDistrict` | 否 | 有区县时填写 |
+| 轻量资料 | 身份 | `identityType` | 是 | 在校生/职场人；固定必填 |
+| 轻量资料 | 最高学历 | `educationLevel` | 是 | 使用学历字典中文值；固定必填 |
+| 轻量资料 | 现居省份 | `locationProvince` | 是 | 使用地区字典中文值；固定必填 |
+| 轻量资料 | 现居城市 | `locationCity` | 是 | 使用地区字典中文值；固定必填 |
+| 轻量资料 | 现居区县 | `locationDistrict` | 条件必填 | 所选省市存在区县层级时填写 |
 | 基础资料 | 昵称 | `nickname` | 否 | 缺失时导入为空，不自动用真实姓名填充 |
 | 基础资料 | 身高 | `height` | 否 | cm，按字段校验规则 |
 | 基础资料 | 体重 | `weight` | 否 | kg，按字段校验规则 |

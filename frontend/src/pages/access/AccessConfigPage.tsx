@@ -18,7 +18,7 @@ import {
 } from '@/api/prd01Config';
 
 type AccessConfigTab = Prd01ConfigGroup | 'SCORE' | 'SLA' | 'COPY' | 'SECURITY';
-type ControlMode = 'configurable' | 'fixed' | 'masked' | 'system' | 'none';
+type ControlMode = 'configurable' | 'fixed' | 'conditional' | 'masked' | 'system' | 'none';
 
 interface FieldConfigRow {
   group: string;
@@ -158,22 +158,22 @@ const FIELD_CONFIG_ROWS: FieldConfigRow[] = [
   fieldRow('账号流程', '微信授权信息', 'wechatAuth', '登录授权页', 'fixed', 'fixed', 'none', true, true, '0', '0'),
   fieldRow('账号流程', '登录协议/隐私协议同意', 'agreementAccepted', '登录授权页', 'fixed', 'fixed', 'none', true, true, '0', '0'),
 
-  fieldRow('轻量资料', '性别', 'gender', '性别选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '3', '3'),
-  fieldRow('轻量资料', '年龄', 'birthday', '年龄选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '3', '3'),
-  fieldRow('轻量资料', '身份', 'identity', '身份选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '2', '2'),
-  fieldRow('轻量资料', '最高学历', 'educationLevel', '学历选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '4', '4'),
-  fieldRow('轻量资料', '现居省份', 'locationProvince', '现居地选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '2', '2'),
-  fieldRow('轻量资料', '现居城市', 'locationCity', '现居地选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, true, '2', '2'),
-  fieldRow('轻量资料', '现居区县', 'locationDistrict', '现居地选择页、基本资料页', 'configurable', 'configurable', 'configurable', true, false, '1', '1'),
+  fieldRow('轻量资料', '性别', 'gender', '性别选择页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '3', '3'),
+  fieldRow('轻量资料', '出生日期', 'birthday', '出生日期页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '3', '3'),
+  fieldRow('轻量资料', '身份', 'identityType', '身份选择页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '2', '2'),
+  fieldRow('轻量资料', '最高学历', 'educationLevel', '学历选择页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '4', '4'),
+  fieldRow('轻量资料', '现居省份', 'locationProvince', '现居地选择页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '2', '2'),
+  fieldRow('轻量资料', '现居城市', 'locationCity', '现居地选择页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '2', '2'),
+  fieldRow('轻量资料', '现居区县', 'locationDistrict', '现居地选择页、基本资料页', 'fixed', 'conditional', 'configurable', true, true, '1', '1'),
   fieldRow('轻量资料', '经度', 'longitude', '定位能力', 'fixed', 'none', 'none', true, false, '0', '0'),
   fieldRow('轻量资料', '纬度', 'latitude', '定位能力', 'fixed', 'none', 'none', true, false, '0', '0'),
 
   fieldRow('基础资料', '昵称', 'nickname', '基本资料页、基础资料编辑页', 'configurable', 'configurable', 'configurable', true, true, '3', '3'),
-  fieldRow('基础资料', '身高', 'height', '基本资料页、基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
-  fieldRow('基础资料', '体重', 'weight', '基本资料页、基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '1', '1'),
-  fieldRow('基础资料', '家乡省份', 'hometownProvince', '家乡选择页、基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '1', '1'),
-  fieldRow('基础资料', '家乡城市', 'hometownCity', '家乡选择页、基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
-  fieldRow('基础资料', '家乡区县', 'hometownDistrict', '家乡选择页、基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '1', '1'),
+  fieldRow('基础资料', '身高', 'height', '基本资料页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '2', '2'),
+  fieldRow('基础资料', '体重', 'weight', '基本资料页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '1', '1'),
+  fieldRow('基础资料', '家乡省份', 'hometownProvince', '家乡选择页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '1', '1'),
+  fieldRow('基础资料', '家乡城市', 'hometownCity', '家乡选择页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '2', '2'),
+  fieldRow('基础资料', '家乡区县', 'hometownDistrict', '家乡选择页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '1', '1'),
   fieldRow('基础资料', '户口所在地', 'residence', '基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '1', '1'),
   fieldRow('基础资料', '行业', 'industry', '基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('基础资料', '职业', 'occupation', '基本资料页、基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '3', '4'),
@@ -729,7 +729,7 @@ function FieldConfigPanel() {
     <Card className="border-0 shadow-sm">
       <CardHeader>
         <CardTitle>字段配置</CardTitle>
-        <p className="text-sm text-muted-foreground">配置用户资料字段的展示、必填和计分规则；认证和系统字段按默认规则展示。</p>
+        <p className="text-sm text-muted-foreground">同一字段全端共用一份配置；展示、必填、计分三个属性分别按字段规则锁定或开放编辑。</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="max-h-[620px] overflow-auto rounded-md border border-[#E6EDF7]">
@@ -762,7 +762,7 @@ function FieldConfigPanel() {
           </table>
         </div>
         <div className="rounded-md bg-[#F7FAFE] p-3 text-sm text-[#4D5A6D]">
-          字段配置切换后实时保存；关闭计分前，必须先到资料完整度把该字段分值清 0 并分配给其他字段。
+          灰色状态表示固定规则：登录关键字段固定展示且固定必填，身高、体重、家乡仅固定展示；关闭计分前，必须先到资料完整度把该字段分值清 0 并分配给其他字段。
         </div>
       </CardContent>
     </Card>
@@ -1726,7 +1726,8 @@ function renderFieldSwitch(
   const mode = field === 'visible' ? row.displayMode : field === 'required' ? row.requiredMode : row.scoreMode;
   const labels = fieldControlLabels(field);
   if (mode !== 'configurable') {
-    return <FixedBadge active={Boolean(row[field])} labels={labels} />;
+    const fixedLabels = mode === 'conditional' ? { active: '条件必填', inactive: '条件选填' } : labels;
+    return <FixedBadge active={Boolean(row[field])} labels={fixedLabels} reason={fixedControlReason(row, field, mode)} />;
   }
   return (
     <ToggleButton
@@ -1780,14 +1781,24 @@ function ToggleButton({
   );
 }
 
-function FixedBadge({ active, labels }: { active: boolean; labels: { active: string; inactive: string } }) {
+function fixedControlReason(row: FieldConfigRow, field: 'visible' | 'required' | 'scoreEnabled', mode: ControlMode) {
+  if (mode === 'conditional') return '所选省市存在区县层级时必填，不提供人工开关';
+  if (field === 'visible' && ['height', 'weight', 'hometownProvince', 'hometownCity', 'hometownDistrict'].includes(row.fieldId)) {
+    return '编辑资料基础信息固定展示，必填和计分仍可单独配置';
+  }
+  if (field === 'visible') return '登录或认证流程字段固定展示，不允许关闭';
+  if (field === 'required') return '登录或认证流程字段固定必填，不允许改为选填';
+  return '该属性由系统流程固定，不提供人工配置';
+}
+
+function FixedBadge({ active, labels, reason }: { active: boolean; labels: { active: string; inactive: string }; reason: string }) {
   return (
     <span
       className={cn(
         'inline-flex h-7 min-w-[46px] cursor-not-allowed items-center justify-center rounded-full px-3 text-xs font-semibold',
         active ? 'bg-[#EEF3F9] text-[#98A6B8]' : 'bg-[#F6F8FB] text-[#B6C0CC]',
       )}
-      title="该字段按流程规则不可编辑"
+      title={reason}
     >
       {active ? labels.active : labels.inactive}
     </span>
