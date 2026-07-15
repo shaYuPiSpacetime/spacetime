@@ -25,6 +25,10 @@ public class ModerationDetailVO {
     private String contentFull;
     /** 文本字段类型（关于我 / 希望TA了解） */
     private String contentField;
+    /** 文本场景标题：资料问答题目标题，如见面偏好、住房情况 */
+    private String contentTitle;
+    /** 资料问答题目 key */
+    private String questionKey;
     /** 提交时间 */
     private String submitTime;
     /** 当前审核状态 */

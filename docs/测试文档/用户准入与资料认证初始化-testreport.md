@@ -241,3 +241,17 @@ JDK: C:\Users\50449\.jdks\ms-21.0.11
 | 单元测试 | `MiniappDictServiceImplTest`、`MiniappDictControllerTest` 共 8 条通过 |
 | 真实接口抽查 | 本地后端 `http://127.0.0.1:8080` 返回 `code=200`、省级 31 条，首个可用省市为 `110000/110100` |
 | L1 全链路 | `node docs/测试文档/prd01-miniapp-all-interfaces-l1.mjs` 通过，`61/61`，新用户 `userId=75`、手机号 `19042387223`；新增步骤已校验两级树不包含区县 |
+## 18. 关于我真实数据回归（2026-07-15）
+
+| 检查项 | 结果 |
+|--------|------|
+| 测试方式 | 真实调用本地后端 `http://127.0.0.1:8080`，新手机号登录后提交关于我，再用 `peter/000000` 登录后台回查文字审核 |
+| 测试用户 | `userId=77`，手机号 `19116260381` |
+| 查询题目 | `GET /miniapp/profile/about-me` 返回 11 个固定题目，首个题目为 `meetingPreference` |
+| 提交题目 | `meetingPreference`、`housingStatus`、`pets` 三个题目均通过 `POST /miniapp/profile/about-me` 提交 |
+| 小程序回显 | 再次查询 `/miniapp/profile/about-me`，三题均回显 `APPROVED`，`latestContent/effectiveContent` 均有值 |
+| 后台审核列表 | `GET /admin/moderation/texts/list?userId=77&textType=PROFILE_QA` 返回 3 条记录 |
+| 后台列表标题 | 三条记录分别展示 `见面偏好`、`住房情况`、`宠物态度`，类型统一为 `资料问答` |
+| 后台详情 | `GET /admin/moderation/texts/{id}` 返回 `contentField=资料问答`、`contentTitle=宠物态度`、`questionKey=pets` |
+| 修复项 | 真实数据首次验证时发现关于我回显未按 `materialJson.questionKey` 匹配审核记录，已改为 JSON 解析匹配并补回归单测 |
+| 单测结果 | `OpenTextAuditServiceImplTest`、`ModerationAdminServiceImplTest` 共 12 条通过，0 失败 |

@@ -2,6 +2,8 @@ package com.spacetime.miniapp.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.ExternalProviderTaskDao;
 import com.spacetime.common.entity.AppUserAuditRecord;
@@ -43,13 +45,19 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
 
     private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String NOT_SUBMITTED = "NOT_SUBMITTED";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final List<AboutQuestion> ABOUT_QUESTIONS = List.of(
-            new AboutQuestion("interests", "兴趣爱好", "聊聊你的日常吧"),
-            new AboutQuestion("idealWeekend", "理想的另一半", "说出你对另一半的期待"),
-            new AboutQuestion("loveView", "爱情观", "你期待什么样的爱情"),
-            new AboutQuestion("dailyLife", "喜欢的见面活动", "说说你想和另一半见面做的活动"),
-            new AboutQuestion("lifeSituation", "住房情况", "说说你的住房情况"),
-            new AboutQuestion("moreStory", "补充更多关于我的故事", "补充你的经历、性格或生活片段")
+            new AboutQuestion("meetingPreference", "见面偏好", "说说你喜欢怎样见面和相处"),
+            new AboutQuestion("preferredActivities", "喜欢的见面活动", "说说你想和对方一起做什么"),
+            new AboutQuestion("housingStatus", "住房情况", "说说你的住房情况"),
+            new AboutQuestion("carStatus", "购车情况", "说说你的购车情况"),
+            new AboutQuestion("childrenPlan", "是否想要孩子", "说说你对孩子的规划"),
+            new AboutQuestion("hasChild", "有无子女", "说说你当前的子女情况"),
+            new AboutQuestion("marriagePlan", "结婚计划", "说说你期待的结婚节奏"),
+            new AboutQuestion("religion", "宗教信仰", "说说你的宗教信仰情况"),
+            new AboutQuestion("smoking", "吸烟情况", "说说你的吸烟情况"),
+            new AboutQuestion("drinking", "饮酒情况", "说说你的饮酒情况"),
+            new AboutQuestion("pets", "宠物态度", "说说你对养宠物的态度")
     );
 
     private final AppUserAuditRecordDao auditRecordDao;
@@ -250,8 +258,21 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
     }
 
     private boolean sameQuestion(AppUserAuditRecord record, String questionKey) {
-        return record != null && record.getMaterialJson() != null
-                && record.getMaterialJson().contains("\"questionKey\":\"" + json(questionKey) + "\"");
+        return record != null && questionKey.equals(materialQuestionKey(record.getMaterialJson()));
+    }
+
+    private String materialQuestionKey(String materialJson) {
+        if (StrUtil.isBlank(materialJson)) {
+            return null;
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(materialJson);
+            JsonNode value = node.get("questionKey");
+            return value == null || value.isNull() ? null : value.asText();
+        } catch (Exception ignored) {
+            // 历史异常 JSON 不阻断页面回显，只按未匹配处理。
+            return null;
+        }
     }
 
     private AboutQuestion requireQuestion(String key) {

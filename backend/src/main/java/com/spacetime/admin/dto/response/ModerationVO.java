@@ -25,6 +25,10 @@ public class ModerationVO {
     private String imageUrl;
     /** 文本类型：关于我/希望TA了解/资料问答 */
     private String textType;
+    /** 文本场景标题：资料问答题目标题，如见面偏好、住房情况 */
+    private String contentTitle;
+    /** 资料问答题目 key，用于排查具体提交场景 */
+    private String questionKey;
     /** 文本摘要，列表不展示完整原文 */
     private String textSummary;
     /** 内容预览（照片JSON或文字前50字） */

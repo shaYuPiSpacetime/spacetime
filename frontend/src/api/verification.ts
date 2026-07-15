@@ -28,6 +28,8 @@ export interface ModerationVO {
   imageCategory?: string;
   imageUrl?: string;
   textType?: string;
+  contentTitle?: string;
+  questionKey?: string;
   textSummary?: string;
   contentPreview: string;
   status: string;
@@ -109,6 +111,8 @@ export interface ModerationDetailVO {
   imageType?: string;
   contentFull: string;
   contentField?: string;
+  contentTitle?: string;
+  questionKey?: string;
   submitTime: string;
   status: string;
   auditSource: string;

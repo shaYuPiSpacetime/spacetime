@@ -285,7 +285,7 @@ async function main() {
 
   await step('GET /miniapp/profile/about-me', () => http('GET', '/miniapp/profile/about-me', undefined, token));
   await step('POST /miniapp/profile/about-me', () => http('POST', '/miniapp/profile/about-me', {
-    questionKey: 'interests',
+    questionKey: 'meetingPreference',
     contentText: `本轮接口测试${stamp}：周末喜欢徒步、做饭和听音乐。`,
   }, token));
 

@@ -110,6 +110,23 @@ class ModerationAdminServiceImplTest {
         assertThat(detail.getHistoryPage().getRecords()).hasSize(1);
     }
 
+    @Test
+    @DisplayName("资料问答详情展示所属分类和具体题目标题")
+    void shouldReturnProfileQaTitleInTextDetail() {
+        AppUserAuditRecord record = auditRecord(33L, 43L, AppUserAuditTypeEnum.PROFILE_QA);
+        record.setContentText("喜欢轻松自然的见面方式，也愿意一起参加看展和散步。");
+        record.setMaterialJson("{\"questionKey\":\"preferredActivities\",\"questionTitle\":\"喜欢的见面活动\"}");
+        when(auditRecordDao.selectById(33L)).thenReturn(record);
+        when(appUserDao.selectById(43L)).thenReturn(appUser(43L));
+        when(historyDao.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(historyPage(33L));
+
+        ModerationDetailVO detail = service.getTextDetail(33L, 1, 5);
+
+        assertThat(detail.getContentField()).isEqualTo("资料问答");
+        assertThat(detail.getContentTitle()).isEqualTo("喜欢的见面活动");
+        assertThat(detail.getQuestionKey()).isEqualTo("preferredActivities");
+    }
+
     private AppUserAuditRecord auditRecord(Long id, Long userId, AppUserAuditTypeEnum type) {
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setId(id);

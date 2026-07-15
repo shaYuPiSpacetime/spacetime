@@ -347,6 +347,7 @@ export default function ModerationPage() {
                 ) : (
                   <>
                     <TableHead>类型</TableHead>
+                    <TableHead>标题</TableHead>
                     <TableHead>文本摘要</TableHead>
                   </>
                 )}
@@ -359,9 +360,9 @@ export default function ModerationPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={tab.key === 'texts' ? 9 : 8} className="text-center text-muted-foreground">加载中...</TableCell></TableRow>
               ) : list.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={tab.key === 'texts' ? 9 : 8} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : list.map((row) => {
                 const statusBadge = badgeOf(row.status);
                 const imageUrl = row.imageUrl || row.contentPreview;
@@ -387,6 +388,7 @@ export default function ModerationPage() {
                     ) : (
                       <>
                         <TableCell>{row.textType || '-'}</TableCell>
+                        <TableCell>{row.contentTitle || '-'}</TableCell>
                         <TableCell className="max-w-[260px] truncate text-muted-foreground">
                           {row.textSummary || row.contentPreview || '-'}
                         </TableCell>
@@ -453,6 +455,7 @@ export default function ModerationPage() {
                   ) : (
                     <div className="rounded-md bg-[#F7FAFE] p-3 text-sm leading-6 whitespace-pre-wrap">
                       <p className="mb-2 text-xs text-muted-foreground">字段：{detail.contentField || '-'}</p>
+                      <p className="mb-2 text-xs text-muted-foreground">标题：{detail.contentTitle || '-'}</p>
                       {detail.contentFull || '-'}
                     </div>
                   )}
@@ -465,6 +468,9 @@ export default function ModerationPage() {
                     <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">当前状态:</span> {badgeOf(detail.status).label}</div>
                     <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">审核来源:</span> {AUDIT_SOURCE_MAP[detail.auditSource] || detail.auditSource || '-'}</div>
                     <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">内容类型:</span> {tab.key === 'photos' ? detail.imageType || '-' : detail.contentField || '-'}</div>
+                    {tab.key === 'texts' && (
+                      <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">场景标题:</span> {detail.contentTitle || '-'}</div>
+                    )}
                   </div>
                   {detail.rejectReason && (
                     <div className="mt-3 rounded bg-[#FFF5F5] px-3 py-2 text-sm">

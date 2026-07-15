@@ -48,6 +48,68 @@
 | `regionScope.locationDictPath` | String | 地区懒加载接口路径 |
 | `configUpdatedAt` | String | 配置最后更新时间，可用于本地缓存刷新 |
 
+#### 2.1.1 字段配置清单
+
+以下只列后台可配置“展示/隐藏”的字段。固定展示字段不放入本表，前端按接口返回的 `fieldSettings.visible` 决定是否渲染，按 `fieldSettings.required` 决定是否必填。
+
+| 分组 | 字段及中文 | 展示配置 | 必填配置 |
+| --- | --- | --- | --- |
+| 基础资料 | `nickname` 昵称、`residence` 户口所在地、`industry` 行业、`occupation` 职业、`company` 公司、`annualIncomeRange` 年收入、`school` 学校、`major` 专业、`maritalStatus` 婚姻状况 | 可配 | 可配 |
+| 扩展资料 | `datingGoal` 脱单目标、`emotionalStatus` 感情状态、`aboutMe` 关于我/自我描述、`tags` 个人标签、`photos` 相册/附加照片、`profileBgImage` 资料背景图、`voiceIntroUrl` 语音介绍文件、`voiceIntroDuration` 语音介绍时长、`favoriteSong` 爱听的歌曲 | 可配 | 可配 |
+| 扩展资料 | `meetingPreference` 见面偏好、`preferredActivities` 喜欢的见面活动、`housingStatus` 住房情况、`carStatus` 购车情况、`childrenPlan` 是否想要孩子、`hasChild` 有无子女、`marriagePlan` 结婚计划、`religion` 宗教信仰、`smoking` 吸烟情况、`drinking` 饮酒情况、`pets` 宠物态度 | 可配 | 可配 |
+| 联系方式 | `wechatId` 微信号 | 可配 | 可配 |
+
+#### 2.1.2 字段长度、大小、范围校验
+
+本表只列长度、大小、数量、格式、范围等校验；是否必填以上方 `fieldSettings.required` 为准。
+
+| 字段/配置 | 校验规则 |
+| --- | --- |
+| 年龄/出生日期 | 按 `accessPolicy.minAge/maxAge` 校验，配置值必须为正整数，最大年龄不能小于最小年龄 |
+| `nickname` 昵称 | 2-12 个字符 |
+| `height` 身高 | 140-220 cm |
+| `weight` 体重 | 30-200 kg |
+| `company` 公司 | 2-50 个字符 |
+| `school` 基础资料学校 | 2-50 个字符 |
+| `major` 专业 | 最长 100 个字符 |
+| 地区字段 | 现居地、家乡只允许中国大陆省/市/区县 code，校验父子层级 |
+| 字典类字段 | 性别、身份、学历、行业、职业、年收入、婚姻状况、脱单目标、感情状态、标签等必须是启用的字典 code |
+| `wechatId` 微信号 | 字母开头，6-20 位，允许字母/数字/下划线/横线 |
+| 标签 | 最多选择 16 个 |
+| 实名身份证号 | 中国大陆二代身份证格式 |
+| 学历认证学校 `schoolName` | 2-100 个字符 |
+| 学信网验证码 `chsiCode` | 12-18 位字母或数字 |
+| 证书编号 `diplomaNo` | 最长 64 个字符 |
+| 证书姓名 `certificateName` | 最长 50 个字符 |
+| 学历材料 | 数量、单张大小、格式取 `uploadLimits.education`；URL 必须是公网 URL 或受保护凭证路径 |
+| 相册图片 | 数量、单张大小、格式取 `uploadLimits.album` |
+| 资料背景图 | 固定最多 1 张；大小、格式取 `uploadLimits.profileBg` |
+| 语音介绍 | 提交审核时校验时长，取 `uploadLimits.voiceMinDuration/voiceMaxDuration`；上传凭证接口校验大小、格式，取 `uploadLimits.voice.maxMb/formats` |
+| 自我介绍 `aboutMe` | 当前后端硬校验 20-300 字 |
+| 关于我资料问答 | 当前后端硬校验 2-500 字 |
+| 短信验证码 | 倒计时、有效期、每日次数取 `smsSecurity`，均为正整数 |
+
+#### 2.1.3 小程序展示文案配置
+
+文案来自 `copywriting`，由后台配置 `prd01.copy.rules` 和 `prd01.text.length.rules` 下发。小程序按 `copyKey` 读取；`enabled=false` 时不展示该文案。
+
+| 分组 | 可配置文案 |
+| --- | --- |
+| 准入拦截文案 | 未完成资料、三重认证未通过、账号异常 |
+| 认证通用文案 | 认证页标题、认证中心标题/说明、进入认证、头像/实名/学历标题和说明、提交、上传中、加载中、加载失败、重试、确认、取消、返回认证中心 |
+| 认证强引导 | 主标题、说明、基本资料/添加头像/自我介绍/三重认证步骤名、下一步 |
+| 认证拦截页 | 初始态标题/说明、部分完成态说明、基本资料/头像简介/三重认证卡片标题和说明、主按钮、稍后再说 |
+| 头像认证 | 页面标题、页面说明、头像规则、不可通过示例、选择照片按钮、裁剪说明、来源异常提示 |
+| 实名认证 | 页面标题、页面说明、姓名标签/占位、身份证标签/占位、承诺必选提示 |
+| 学历认证 | 页面说明、上传说明、认证人群、学校/学历/验证码/证书编号/证书姓名标签和占位、上传操作、上传数量已满、认证方式说明、协议必选 |
+| 自我介绍认证 | 区域标题、输入提示、最少字数提示 |
+| 三重认证 | 安全说明 |
+| 协议文案 | 用户协议、隐私政策、单身承诺函、学历认证协议 |
+| 驳回模板 | 头像驳回、实名驳回、学历驳回、资料图片驳回、开放文字驳回 |
+| 异常文案 | 年龄不符、定位失败、上传失败、第三方不可用 |
+| 内容安全文案 | 文本安全不通过、图片安全不通过、语音安全不通过 |
+| 开放文本长度提示 | 关于我、希望 TA 了解、资料问答长度提示 |
+
 ### 2.2 资料字典
 
 | 项 | 内容 |
@@ -644,14 +706,19 @@
 
 | key | 标题 |
 | --- | --- |
-| `interests` | 兴趣爱好 |
-| `idealWeekend` | 理想的另一半 |
-| `loveView` | 爱情观 |
-| `dailyLife` | 喜欢的见面活动 |
-| `lifeSituation` | 住房情况 |
-| `moreStory` | 补充更多关于我的故事 |
+| `meetingPreference` | 见面偏好 |
+| `preferredActivities` | 喜欢的见面活动 |
+| `housingStatus` | 住房情况 |
+| `carStatus` | 购车情况 |
+| `childrenPlan` | 是否想要孩子 |
+| `hasChild` | 有无子女 |
+| `marriagePlan` | 结婚计划 |
+| `religion` | 宗教信仰 |
+| `smoking` | 吸烟情况 |
+| `drinking` | 饮酒情况 |
+| `pets` | 宠物态度 |
 
-提交后生成 `PROFILE_QA` 审核记录；同一题审核中不可重复提交。
+提交后生成 `PROFILE_QA` 审核记录；同一题审核中不可重复提交。审核记录 `materialJson` 写入 `questionKey` 和 `questionTitle`，后台文字内容审核列表/详情统一分类展示为“资料问答”，并额外展示具体标题，便于区分见面偏好、住房情况等场景。
 
 ### 7.5 语音介绍
 
@@ -850,14 +917,1681 @@
 
 ## 12. 不要新接入的旧接口
 
-以下接口只为历史兼容保留，不用于本轮小程序前端对接：
+旧版聚合资料、聚合媒体和聚合开放文本接口不再作为小程序对接范围，本文不再展开旧接口出入参。前端联调只按本文第 2-11 节流程和第 13 节接口明细实现。
 
-| 旧接口 | 替代接口 |
+## 13. 接口出入参明细与示例
+
+本节是前端对接时的字段字典。所有响应外层统一为 `{"code":200,"msg":"success","data":...}`，下方示例均保留外层结构。
+
+### 13.1 通用枚举中文
+
+| 枚举字段 | 英文值 | 中文含义 |
+| --- | --- | --- |
+| 审核状态 | `NOT_SUBMITTED` | 无记录/未提交 |
+| 审核状态 | `PENDING` | 待审核 |
+| 审核状态 | `REVIEWING` | 审核中 |
+| 审核状态 | `APPROVED` | 已通过 |
+| 审核状态 | `REJECTED` | 已驳回 |
+| 审核状态 | `EXPIRED` | 已失效 |
+| 审核来源 | `MACHINE` | 机审 |
+| 审核来源 | `MANUAL` | 人工审核 |
+| 性别 | `MALE` | 男 |
+| 性别 | `FEMALE` | 女 |
+| 头像来源 | `CAMERA` | 拍照 |
+| 头像来源 | `ALBUM` | 从相册选择 |
+| 学历人群 | `STUDENT` | 在校生 |
+| 学历人群 | `MAINLAND_GRADUATE` | 中国大陆毕业生 |
+| 学历认证方式 | `STUDENT_CARD` | 学生证或在读证明 |
+| 学历认证方式 | `CHSI` | 学信网在线验证码 |
+| 学历认证方式 | `DIPLOMA_NO` | 毕业证或学位证书编号 |
+| 学历认证方式 | `MATERIAL_UPLOAD` | 上传毕业证或学位证书 |
+| 地区层级 | `PROVINCE` | 省 |
+| 地区层级 | `CITY` | 市 |
+| 地区层级 | `DISTRICT` | 区县 |
+| 核心准入状态 | `CORE_ALLOWED` | 核心能力可用 |
+| 核心准入状态 | `CORE_BLOCKED` | 核心能力受限 |
+| 核心准入状态 | `NON_CORE_ONLY` | 仅非核心能力可用 |
+| 首登动作 | `CONTINUE_STEP_{n}` | 继续第 n 步 |
+| 首登动作 | `COMPLETED` | 首登已完成 |
+
+字典类字段如身份、学历、行业、职业、年收入、婚姻状况、脱单目标、感情状态、标签，均使用 `/miniapp/dict/profile-options` 返回的 `code/label`，业务接口只传 `code`。
+
+### 13.2 全局配置与字典接口
+
+#### GET `/miniapp/config/prd01`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `accessPolicy` | Object | 准入门槛，包含年龄范围和三重认证要求 |
+| `initFields` | Array | 首登 5 步展示、必填、可跳过配置 |
+| `requiredFields` | Array<String> | 当前必填字段 ID |
+| `fieldSettings` | Array | 字段展示、必填、计分配置 |
+| `profileCompleteness` | Object | 资料完整度计分项和总分 |
+| `copywriting` | Object | 小程序展示文案配置 |
+| `uploadLimits` | Object | 学历材料、相册、背景图、语音上传限制 |
+| `auditPolicy` | Object | 审核 SLA 展示配置 |
+| `smsSecurity` | Object | 短信倒计时、有效期、每日次数 |
+| `regionScope` | Object | 地区接口路径 |
+| `configUpdatedAt` | String | 配置最后更新时间 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "accessPolicy": {
+      "minAge": 18,
+      "maxAge": 60,
+      "tripleCertificationRequired": true,
+      "requiredCertifications": ["REAL_NAME", "AVATAR", "EDUCATION"]
+    },
+    "smsSecurity": {
+      "sendCountdownSeconds": 60,
+      "validMinutes": 5,
+      "dailySendLimit": 10,
+      "providerCode": "MOCK"
+    },
+    "uploadLimits": {
+      "album": {"maxCount": 9, "maxMb": 10, "formats": ["jpg", "jpeg", "png"]},
+      "voice": {"maxCount": 1, "maxMb": 20, "formats": ["mp3"]},
+      "voiceMinDuration": 10,
+      "voiceMaxDuration": 60
+    },
+    "fieldSettings": [
+      {"fieldId": "nickname", "label": "昵称", "visible": true, "required": true, "scoreEnabled": true}
+    ],
+    "copywriting": {
+      "avatar_notice": {"group": "头像认证", "scene": "页面说明", "enabled": true, "content": "请上传本人清晰头像"}
+    },
+    "configUpdatedAt": "2026-07-15 10:00:00"
+  }
+}
+```
+
+#### GET `/miniapp/dict/profile-options`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `identity` | Array | 身份字典，如在校生、职场人 |
+| `educationLevel` | Array | 最高学历字典 |
+| `industry` | Array | 行业字典 |
+| `occupation` | Array | 职业字典 |
+| `annualIncome` | Array | 年收入字典 |
+| `maritalStatus` | Array | 婚姻状况字典 |
+| `datingGoal` | Array | 脱单目标字典 |
+| `emotionalStatus` | Array | 感情状态字典 |
+| `profileTag` | Array | 标签扁平列表 |
+| `profileTagGroups` | Array | 标签分组列表 |
+| `educationUserType` | Array | 学历认证人群 |
+| `educationMethod` | Array | 学历认证方式 |
+| `avatarSource` | Array | 头像来源 |
+
+字典项字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `code` | String | 提交给业务接口的值 |
+| `label` | String | 页面展示中文 |
+| `sort` | Number | 排序 |
+| `categoryCode/categoryLabel` | String | 标签所属分类，仅标签项有 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "identity": [{"code": "STUDENT", "label": "在校生", "sort": 1}],
+    "educationLevel": [{"code": "BACHELOR", "label": "本科", "sort": 3}],
+    "profileTagGroups": [
+      {
+        "categoryCode": "MBTI",
+        "categoryLabel": "MBTI",
+        "options": [{"code": "INFJ", "label": "INFJ提倡者", "sort": 1}]
+      }
+    ]
+  }
+}
+```
+
+#### GET `/miniapp/dict/locations`
+
+入参：
+
+| 参数 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `parentCode` | String | 否 | 父级地区 code；空值查省，传省查市，传市查区县 |
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `code` | String | 地区 code |
+| `name` | String | 地区名称 |
+| `level` | String | 地区层级，`PROVINCE` 省、`CITY` 市、`DISTRICT` 区县 |
+| `hasChildren` | Boolean | 是否还有下一级 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {"code": "410100", "name": "郑州市", "level": "CITY", "hasChildren": true}
+  ]
+}
+```
+
+#### GET `/miniapp/dict/locations/two-level`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `code` | String | 省/市 code |
+| `name` | String | 省/市名称 |
+| `level` | String | `PROVINCE` 省、`CITY` 市 |
+| `children` | Array | 省下面的市级列表；城市节点固定空数组 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "code": "410000",
+      "name": "河南省",
+      "level": "PROVINCE",
+      "children": [
+        {"code": "410100", "name": "郑州市", "level": "CITY", "children": []}
+      ]
+    }
+  ]
+}
+```
+
+### 13.3 OSS 上传凭证接口
+
+以下 5 个接口入参和出参一致，仅校验规则不同。
+
+| 场景 | Path | 校验配置 | 上传后提交给业务接口的字段 |
+| --- | --- | --- | --- |
+| 头像 | `POST /miniapp/file/upload-ticket/avatar` | 默认按图片大小和格式校验 | `avatarUrl` |
+| 学历材料 | `POST /miniapp/file/upload-ticket/education` | `uploadLimits.education` | `materialUrls[]` |
+| 相册 | `POST /miniapp/file/upload-ticket/album` | `uploadLimits.album` | `mediaUrl` |
+| 资料背景图 | `POST /miniapp/file/upload-ticket/background` | `uploadLimits.profileBg` | `mediaUrl` |
+| 语音介绍 | `POST /miniapp/file/upload-ticket/voice` | `uploadLimits.voice` | `voiceUrl` |
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `fileName` | String | 是 | 文件名，后端从后缀判断格式 |
+| `fileSizeBytes` | Number | 是 | 文件大小，单位字节 |
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `uploadUrl` | String | OSS 表单上传地址 |
+| `key` | String | 本次上传唯一对象 Key |
+| `formData` | Object | 直传 OSS 的表单字段 |
+| `expiresAt` | Number | 凭证过期时间戳，秒 |
+| `fileUrl` | String | 上传成功后提交给业务接口的稳定 URL |
+| `protectedFile` | Boolean | 是否为受保护凭证文件 |
+
+头像上传凭证示例：
+
+```json
+{
+  "fileName": "avatar.jpg",
+  "fileSizeBytes": 204800
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "uploadUrl": "https://oss.example.com",
+    "key": "miniapp/2026/07/avatar.jpg",
+    "formData": {"policy": "xxx", "signature": "xxx"},
+    "expiresAt": 1784090400,
+    "fileUrl": "https://cdn.example.com/miniapp/2026/07/avatar.jpg",
+    "protectedFile": false
+  }
+}
+```
+
+学历材料上传凭证示例：
+
+```json
+{
+  "fileName": "education-card.png",
+  "fileSizeBytes": 512000
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "uploadUrl": "https://oss.example.com",
+    "key": "miniapp/credential/education-card.png",
+    "formData": {"policy": "xxx", "signature": "xxx"},
+    "expiresAt": 1784090400,
+    "fileUrl": "/miniapp/file/credential/miniapp/credential/education-card.png",
+    "protectedFile": true
+  }
+}
+```
+
+相册上传凭证示例：
+
+```json
+{
+  "fileName": "album-1.jpg",
+  "fileSizeBytes": 204800
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "uploadUrl": "https://oss.example.com",
+    "key": "miniapp/2026/07/album-1.jpg",
+    "formData": {"policy": "xxx", "signature": "xxx"},
+    "expiresAt": 1784090400,
+    "fileUrl": "https://cdn.example.com/miniapp/2026/07/album-1.jpg",
+    "protectedFile": false
+  }
+}
+```
+
+资料背景图上传凭证示例：
+
+```json
+{
+  "fileName": "profile-bg.jpg",
+  "fileSizeBytes": 307200
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "uploadUrl": "https://oss.example.com",
+    "key": "miniapp/2026/07/profile-bg.jpg",
+    "formData": {"policy": "xxx", "signature": "xxx"},
+    "expiresAt": 1784090400,
+    "fileUrl": "https://cdn.example.com/miniapp/2026/07/profile-bg.jpg",
+    "protectedFile": false
+  }
+}
+```
+
+语音介绍上传凭证示例：
+
+```json
+{
+  "fileName": "voice-intro.mp3",
+  "fileSizeBytes": 1048576
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "uploadUrl": "https://oss.example.com",
+    "key": "miniapp/2026/07/voice-intro.mp3",
+    "formData": {"policy": "xxx", "signature": "xxx"},
+    "expiresAt": 1784090400,
+    "fileUrl": "https://cdn.example.com/miniapp/2026/07/voice-intro.mp3",
+    "protectedFile": false
+  }
+}
+```
+
+### 13.4 登录接口
+
+#### POST `/miniapp/auth/sms-code`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `phone` | String | 是 | 中国大陆手机号 |
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `countdownSeconds` | Number | 再次获取验证码倒计时秒数 |
+| `validMinutes` | Number | 验证码有效分钟数 |
+| `dailyLimit` | Number | 每日发送上限 |
+| `dailyRemaining` | Number | 今日剩余发送次数 |
+| `providerCode` | String | 短信通道，当前 `MOCK` 表示 mock 通道 |
+
+示例：
+
+```json
+{"phone": "13800138000"}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "countdownSeconds": 60,
+    "validMinutes": 5,
+    "dailyLimit": 10,
+    "dailyRemaining": 9,
+    "providerCode": "MOCK"
+  }
+}
+```
+
+#### POST `/miniapp/auth/phone-login`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `phone` | String | 是 | 中国大陆手机号 |
+| `smsCode` | String | 是 | 短信验证码 |
+| `agreeProtocol` | Boolean | 是 | 是否勾选用户协议和隐私协议 |
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `token` | String | 登录态 token，后续放入 `X-Auth-Token` |
+| `userId` | Number | 当前用户 ID |
+| `phone` | String | 明文手机号，仅本人登录响应返回 |
+| `maskedPhone` | String | 脱敏手机号 |
+| `nickname` | String | 昵称 |
+| `avatar` | String | 本人头像预览 |
+| `isNewUser` | Boolean | 是否新注册用户 |
+| `firstLoginCompleted` | Boolean | 是否完成首次基础资料 |
+| `nextStep` | Number | 下一步首登步骤，完成后为空 |
+| `accessStatus` | Object | 准入能力状态 |
+
+示例：
+
+```json
+{
+  "phone": "13800138000",
+  "smsCode": "123456",
+  "agreeProtocol": true
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "token": "miniapp-token",
+    "userId": 59,
+    "maskedPhone": "138****8000",
+    "isNewUser": false,
+    "firstLoginCompleted": false,
+    "nextStep": 1,
+    "accessStatus": {"coreAccessStatus": "CORE_BLOCKED"}
+  }
+}
+```
+
+#### POST `/miniapp/auth/wechat-login`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `loginCode` | String | 否 | `wx.login` 返回的临时 code |
+| `phoneCode` | String | 是 | 微信 `getPhoneNumber` 返回的手机号授权 code |
+| `agreeProtocol` | Boolean | 是 | 是否勾选用户协议和隐私协议 |
+
+出参：同 `POST /miniapp/auth/phone-login`。
+
+示例：
+
+```json
+{
+  "loginCode": "wx-login-code",
+  "phoneCode": "wx-phone-code",
+  "agreeProtocol": true
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "token": "miniapp-token",
+    "userId": 60,
+    "maskedPhone": "139****9000",
+    "isNewUser": true,
+    "firstLoginCompleted": false,
+    "nextStep": 1,
+    "accessStatus": {"coreAccessStatus": "CORE_BLOCKED"}
+  }
+}
+```
+
+### 13.5 首登基础信息接口
+
+#### GET `/miniapp/profile/init-status`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `firstLoginCompleted` | Boolean | 是否完成首登基础信息 |
+| `currentStep` | Number | 当前步骤 |
+| `nextStep` | Number | 下一步步骤；完成后为空 |
+| `completedSteps` | Array<Number> | 已完成步骤 |
+| `nextAction` | String | `CONTINUE_STEP_{n}` 继续第 n 步，`COMPLETED` 已完成 |
+| `savedFields` | Object | 已保存字段值 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "firstLoginCompleted": false,
+    "currentStep": 2,
+    "nextStep": 2,
+    "completedSteps": [1],
+    "nextAction": "CONTINUE_STEP_2",
+    "savedFields": {"gender": "FEMALE"}
+  }
+}
+```
+
+#### POST `/miniapp/profile/init-step`
+
+公共出参同 `GET /miniapp/profile/init-status`。
+
+入参字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `step` | Number | 是 | 当前步骤，1-5 |
+| `gender` | String | step=1 时按配置 | 性别，`MALE` 男、`FEMALE` 女 |
+| `birthday` | String | step=2 时按配置 | 出生日期，格式 `yyyy-MM-dd` |
+| `identity` | String | step=3 时按配置 | 身份字典 code |
+| `educationLevel` | String | step=4 时按配置 | 学历字典 code |
+| `locationProvince` | String | step=5 时按配置 | 现居省份 code |
+| `locationCity` | String | step=5 时按配置 | 现居城市 code |
+| `locationDistrict` | String | step=5 时按配置 | 现居区县 code |
+
+示例 1 - 性别：
+
+```json
+{"step": 1, "gender": "FEMALE"}
+```
+
+示例 2 - 出生日期：
+
+```json
+{"step": 2, "birthday": "1997-03-06"}
+```
+
+示例 3 - 身份：
+
+```json
+{"step": 3, "identity": "WORKER"}
+```
+
+示例 4 - 学历：
+
+```json
+{"step": 4, "educationLevel": "BACHELOR"}
+```
+
+示例 5 - 现居地：
+
+```json
+{
+  "step": 5,
+  "locationProvince": "410000",
+  "locationCity": "410100",
+  "locationDistrict": "410102"
+}
+```
+
+响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "firstLoginCompleted": true,
+    "currentStep": 5,
+    "nextStep": null,
+    "completedSteps": [1, 2, 3, 4, 5],
+    "nextAction": "COMPLETED",
+    "savedFields": {
+      "gender": "FEMALE",
+      "birthday": "1997-03-06",
+      "identity": "WORKER",
+      "educationLevel": "BACHELOR",
+      "locationProvince": "410000",
+      "locationCity": "410100",
+      "locationDistrict": "410102"
+    }
+  }
+}
+```
+
+### 13.6 主页与基础资料接口
+
+#### GET `/miniapp/profile/home-detail`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `profile` | Object | 当前用户主页和编辑资料字段值 |
+| `fieldSettings` | Array | 字段是否展示、是否必填、是否可编辑 |
+| `verificationStatus` | Object | 认证状态总览 |
+| `accessStatus` | Object | 准入状态 |
+| `profileOptionsPath` | String | 资料字典接口路径 |
+| `locationOptionsPath` | String | 地区字典接口路径 |
+| `runtimeConfig` | Object | 运行时配置摘要 |
+
+`profile` 主要字段中文说明：
+
+| 字段 | 中文说明 |
 | --- | --- |
-| `GET /miniapp/profile/detail` | `GET /miniapp/profile/home-detail` |
-| `PATCH /miniapp/profile` | `PUT /miniapp/profile/basic` 和各独立保存接口 |
-| `POST /miniapp/profile/media` | 相册用 `/miniapp/profile/albums`；背景图用 `/miniapp/profile/background`；头像用 `/miniapp/profile/avatar`；学历材料随 `/miniapp/verify/education` 提交 |
-| `DELETE /miniapp/profile/media/{id}` | 相册删除用 `DELETE /miniapp/profile/albums/{mediaId}`；背景图删除用 `DELETE /miniapp/profile/background`；语音删除用 `DELETE /miniapp/profile/voice-intro` |
-| `POST /miniapp/profile/open-text` | 自我介绍用 `/miniapp/profile/introduction`；关于我用 `/miniapp/profile/about-me` |
+| `avatar` | 本人头像预览 |
+| `nickname` | 昵称 |
+| `gender` | 性别 code |
+| `birthday/age` | 出生日期/年龄 |
+| `height/weight` | 身高/体重 |
+| `identity/educationLevel/industry/occupation/annualIncome/maritalStatus` | 字典 code |
+| `locationProvince/locationCity/locationDistrict` | 现居地 code |
+| `hometownProvince/hometownCity/hometownDistrict` | 家乡 code |
+| `datingGoal/emotionalStatus` | 脱单目标/感情状态 code |
+| `tags` | 标签 code 数组 JSON 字符串 |
+| `aboutMe` | 自我介绍本人回显 |
+| `photos/profileBgImage` | 相册/背景图 |
+| `voiceIntroUrl/voiceIntroDuration/voiceIntroAuditStatus` | 语音介绍 |
+| `favoriteSongId/favoriteSongName/favoriteSongArtist/favoriteSongCoverUrl` | 爱听歌曲 |
+| `wechatId` | 微信号，仅本人页展示 |
+| `profileScore` | 资料完整度分数 |
 
-前端联调时只按本文第 2-11 节接口实现。
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "profile": {
+      "nickname": "彼脑虎",
+      "gender": "FEMALE",
+      "age": 29,
+      "height": 163,
+      "weight": 45,
+      "locationCity": "410100",
+      "tags": "[\"IT_GIRL\"]",
+      "profileScore": 92
+    },
+    "fieldSettings": [
+      {"fieldId": "nickname", "label": "昵称", "visible": true, "required": true, "editable": true}
+    ],
+    "verificationStatus": {"realNameStatus": "APPROVED", "educationStatus": "APPROVED", "avatarVerifyStatus": "APPROVED"}
+  }
+}
+```
+
+#### GET `/miniapp/profile/basic`
+
+入参：无。
+
+出参：基础资料当前值，字段中文同 `PUT /miniapp/profile/basic`；额外返回 `minAge/maxAge`、`profileScore`、`basicProfileCompleted`、`missingRequiredFields`、`fieldSettings`。
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "nickname": "彼脑虎",
+    "gender": "FEMALE",
+    "birthday": "1997-03-06",
+    "identity": "WORKER",
+    "educationLevel": "BACHELOR",
+    "locationProvince": "410000",
+    "locationCity": "410100",
+    "minAge": 18,
+    "maxAge": 60,
+    "missingRequiredFields": []
+  }
+}
+```
+
+#### PUT `/miniapp/profile/basic`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `nickname` | String | 按配置 | 昵称，2-12 字 |
+| `gender` | String | 按配置 | 性别，`MALE` 男、`FEMALE` 女 |
+| `birthday` | String | 按配置 | 出生日期，按年龄范围校验 |
+| `height` | Number | 按配置 | 身高 cm，140-220 |
+| `weight` | Number | 按配置 | 体重 kg，30-200 |
+| `identity` | String | 按配置 | 身份字典 code |
+| `educationLevel` | String | 按配置 | 学历字典 code |
+| `industry` | String | 按配置 | 行业字典 code |
+| `occupation` | String | 按配置 | 职业字典 code |
+| `annualIncome` | String | 按配置 | 年收入字典 code |
+| `maritalStatus` | String | 按配置 | 婚姻状况字典 code |
+| `locationProvince/locationCity/locationDistrict` | String | 按配置 | 现居地 code |
+| `hometownProvince/hometownCity/hometownDistrict` | String | 按配置 | 家乡 code |
+| `company` | String | 按配置 | 公司名称，2-50 字 |
+| `school` | String | 按配置 | 学校，2-50 字 |
+| `major` | String | 按配置 | 专业，最长 100 字 |
+
+出参：同 `GET /miniapp/profile/basic`。
+
+示例：
+
+```json
+{
+  "nickname": "彼脑虎",
+  "gender": "FEMALE",
+  "birthday": "1997-03-06",
+  "height": 163,
+  "weight": 45,
+  "identity": "WORKER",
+  "educationLevel": "BACHELOR",
+  "industry": "IT",
+  "occupation": "DESIGNER",
+  "annualIncome": "15_30W",
+  "locationProvince": "410000",
+  "locationCity": "410100",
+  "locationDistrict": "410102"
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "nickname": "彼脑虎",
+    "gender": "FEMALE",
+    "birthday": "1997-03-06",
+    "height": 163,
+    "weight": 45,
+    "identity": "WORKER",
+    "educationLevel": "BACHELOR",
+    "industry": "IT",
+    "occupation": "DESIGNER",
+    "annualIncome": "15_30W",
+    "locationProvince": "410000",
+    "locationCity": "410100",
+    "locationDistrict": "410102",
+    "profileScore": 86,
+    "missingRequiredFields": []
+  }
+}
+```
+
+### 13.7 认证中心接口
+
+#### GET `/miniapp/verify/status`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `realNameStatus` | String | 实名认证最新状态 |
+| `realNameRejectReason` | String | 实名驳回或失效原因 |
+| `realNameSubmitTime` | String | 实名最近提交时间 |
+| `realNameCanSubmit` | Boolean | 实名是否可重新提交 |
+| `educationStatus` | String | 学历认证最新状态 |
+| `educationRejectReason` | String | 学历驳回或失效原因 |
+| `educationSubmitTime` | String | 学历最近提交时间 |
+| `educationCanSubmit` | Boolean | 学历是否可提交 |
+| `educationBlockedReason` | String | 学历不可提交原因 |
+| `educationSlaHours` | Number | 学历审核承诺小时数 |
+| `educationSlaText` | String | 学历审核时长展示文案 |
+| `educationEstimatedCompleteTime` | String | 学历预计完成时间 |
+| `avatarVerifyStatus` | String | 头像认证最新状态 |
+| `avatarVerifyRejectReason` | String | 头像驳回或失效原因 |
+| `avatarVerifySubmitTime` | String | 头像最近提交时间 |
+| `avatarCanSubmit` | Boolean | 头像是否可提交 |
+| `profilePhotoAuditStatus` | String | 相册/背景图最新审核状态 |
+| `openTextAuditStatus` | String | 自我介绍/关于我最新审核状态 |
+| `verifyLevel` | Number | 三重认证已通过数量，0-3 |
+| `unlockMateRecommend` | Boolean | 是否解锁匹配推荐 |
+| `coreAccessStatus` | String | 核心准入状态 |
+| `accessStatus` | Object | 详细准入能力 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "realNameStatus": "APPROVED",
+    "educationStatus": "PENDING",
+    "educationSlaHours": 24,
+    "educationEstimatedCompleteTime": "2026-07-16 10:00:00",
+    "avatarVerifyStatus": "APPROVED",
+    "verifyLevel": 2,
+    "coreAccessStatus": "CORE_BLOCKED"
+  }
+}
+```
+
+#### GET `/miniapp/profile/avatar`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `avatarUrl` | String | 本人最新提交头像或当前生效头像 |
+| `thumbUrl` | String | 头像缩略图 |
+| `avatarSource` | String | 头像来源，`CAMERA` 拍照、`ALBUM` 相册 |
+| `auditStatus` | String | 头像审核状态 |
+| `auditSource` | String | 机审/人工审核 |
+| `rejectReason` | String | 驳回或失效原因 |
+| `submitTime` | String | 提交时间 |
+| `canSubmit` | Boolean | 是否可重新提交 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "avatarUrl": "https://cdn.example.com/avatar.jpg",
+    "avatarSource": "ALBUM",
+    "auditStatus": "REJECTED",
+    "rejectReason": "头像不符合展示规范",
+    "canSubmit": true
+  }
+}
+```
+
+#### POST `/miniapp/profile/avatar`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `avatarSource` | String | 是 | `CAMERA` 拍照、`ALBUM` 从相册选择 |
+| `avatarUrl` | String | 是 | 裁剪后的头像公网 URL |
+| `thumbUrl` | String | 否 | 缩略图 URL |
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `auditRecordId` | Number | 头像审核记录 ID |
+| `auditStatus` | String | 提交后的审核状态 |
+| `canSubmit` | Boolean | 是否可继续提交 |
+| `avatarUrl` | String | 本次提交头像 |
+
+示例：
+
+```json
+{
+  "avatarSource": "ALBUM",
+  "avatarUrl": "https://cdn.example.com/avatar.jpg",
+  "thumbUrl": "https://cdn.example.com/avatar-thumb.jpg"
+}
+```
+
+#### GET `/miniapp/verify/real-name`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `auditStatus` | String | 实名认证最新状态 |
+| `auditSource` | String | 审核来源 |
+| `rejectReason` | String | 驳回或失效原因 |
+| `submitTime` | String | 提交时间 |
+| `canSubmit` | Boolean | 是否可提交；已通过后为 `false` |
+| `realName` | String | 脱敏姓名 |
+| `idCardNo` | String | 脱敏身份证号 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "auditStatus": "APPROVED",
+    "auditSource": "MACHINE",
+    "canSubmit": false,
+    "realName": "张*",
+    "idCardNo": "4101**********0588"
+  }
+}
+```
+
+#### POST `/miniapp/verify/real-name`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `realName` | String | 是 | 真实姓名 |
+| `idCardNo` | String | 是 | 中国大陆二代身份证号 |
+| `singleCommitmentChecked` | Boolean | 是 | 是否勾选单身承诺/认证协议 |
+
+出参：同 `GET /miniapp/verify/status`。
+
+示例：
+
+```json
+{
+  "realName": "张三",
+  "idCardNo": "410100199703060588",
+  "singleCommitmentChecked": true
+}
+```
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "realName": {"auditStatus": "PENDING", "canSubmit": false},
+    "avatar": {"auditStatus": "APPROVED", "canSubmit": true},
+    "education": {"auditStatus": "NOT_SUBMITTED", "canSubmit": true},
+    "educationSlaHours": 24,
+    "educationSlaText": "预计 24 小时内完成审核"
+  }
+}
+```
+
+#### GET `/miniapp/verify/education`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `auditStatus` | String | 学历认证最新状态 |
+| `auditSource` | String | 审核来源 |
+| `rejectReason` | String | 驳回或失效原因 |
+| `submitTime` | String | 提交时间 |
+| `canSubmit` | Boolean | 是否可提交 |
+| `blockedReason` | String | 不可提交原因 |
+| `educationSlaHours` | Number | 审核承诺小时数 |
+| `educationSlaText` | String | 审核时长文案 |
+| `educationEstimatedCompleteTime` | String | 预计完成时间 |
+| `educationUserType` | String | 学历人群 code |
+| `educationUserTypeLabel` | String | 学历人群中文 |
+| `identityCode/identityLabel` | String | 映射后的身份 code/中文 |
+| `educationMethod` | String | 认证方式 code |
+| `educationMethodLabel` | String | 认证方式中文 |
+| `schoolName` | String | 学校名称 |
+| `educationLevel/educationLevelLabel` | String | 学历 code/中文 |
+| `chsiCode` | String | 学信网验证码 |
+| `diplomaNo` | String | 证书编号 |
+| `certificateName` | String | 证书姓名 |
+| `materialUrls` | Array<String> | 材料 URL |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "auditStatus": "PENDING",
+    "educationUserType": "MAINLAND_GRADUATE",
+    "educationUserTypeLabel": "中国大陆毕业生",
+    "identityCode": "WORKER",
+    "identityLabel": "职场人",
+    "educationMethod": "CHSI",
+    "educationMethodLabel": "学信网验证码",
+    "schoolName": "浙江工商大学",
+    "educationLevel": "BACHELOR",
+    "educationLevelLabel": "本科",
+    "chsiCode": "ABCD12345678"
+  }
+}
+```
+
+#### POST `/miniapp/verify/education`
+
+公共入参字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `educationUserType` | String | 是 | `STUDENT` 在校生、`MAINLAND_GRADUATE` 中国大陆毕业生 |
+| `educationMethod` | String | 是 | `STUDENT_CARD` 学生证/在读证明、`CHSI` 学信网验证码、`DIPLOMA_NO` 证书编号、`MATERIAL_UPLOAD` 上传证书 |
+| `schoolName` | String | 是 | 学校名称，2-100 字 |
+| `educationLevel` | String | 是 | 学历字典 code |
+| `chsiCode` | String | 按方式 | 学信网在线验证码，12-18 位 |
+| `diplomaNo` | String | 按方式 | 毕业证或学位证书编号，最长 64 字 |
+| `certificateName` | String | 按方式 | 证书姓名，最长 50 字 |
+| `materialUrls` | Array<String> | 按方式 | 学生证/在读证明/毕业证/学位证材料 URL |
+| `educationAgreementChecked` | Boolean | 是 | 是否勾选学历认证协议 |
+
+出参：同 `GET /miniapp/verify/status`。
+
+示例 1 - 在校生材料：
+
+```json
+{
+  "educationUserType": "STUDENT",
+  "educationMethod": "STUDENT_CARD",
+  "schoolName": "浙江工商大学",
+  "educationLevel": "BACHELOR",
+  "materialUrls": ["/miniapp/file/credential/edu/student-card-1.jpg"],
+  "educationAgreementChecked": true
+}
+```
+
+示例 2 - 中国大陆毕业生学信网验证码：
+
+```json
+{
+  "educationUserType": "MAINLAND_GRADUATE",
+  "educationMethod": "CHSI",
+  "schoolName": "浙江工商大学",
+  "educationLevel": "BACHELOR",
+  "chsiCode": "ABCD12345678",
+  "educationAgreementChecked": true
+}
+```
+
+示例 3 - 中国大陆毕业生证书编号：
+
+```json
+{
+  "educationUserType": "MAINLAND_GRADUATE",
+  "educationMethod": "DIPLOMA_NO",
+  "schoolName": "浙江工商大学",
+  "educationLevel": "BACHELOR",
+  "diplomaNo": "202601010001",
+  "certificateName": "张三",
+  "educationAgreementChecked": true
+}
+```
+
+示例 4 - 中国大陆毕业生上传证书：
+
+```json
+{
+  "educationUserType": "MAINLAND_GRADUATE",
+  "educationMethod": "MATERIAL_UPLOAD",
+  "schoolName": "浙江工商大学",
+  "educationLevel": "BACHELOR",
+  "certificateName": "张三",
+  "materialUrls": ["/miniapp/file/credential/edu/diploma-1.jpg"],
+  "educationAgreementChecked": true
+}
+```
+
+响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "realName": {"auditStatus": "APPROVED", "canSubmit": false},
+    "avatar": {"auditStatus": "APPROVED", "canSubmit": true},
+    "education": {
+      "auditStatus": "PENDING",
+      "canSubmit": false,
+      "rejectReason": null,
+      "educationMethod": "MATERIAL_UPLOAD",
+      "educationMethodLabel": "上传证书"
+    },
+    "educationSlaHours": 24,
+    "educationSlaText": "预计 24 小时内完成审核"
+  }
+}
+```
+
+### 13.8 审核型资料接口
+
+#### GET `/miniapp/profile/albums`
+
+入参：无。
+
+出参 `data[]`：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `mediaId` | Number | 媒体/审核记录 ID，替换和删除时使用 |
+| `mediaType` | String | 固定 `ALBUM`，相册图片 |
+| `mediaUrl` | String | 图片 URL |
+| `thumbUrl` | String | 缩略图 URL |
+| `sortOrder` | Number | 排序 |
+| `auditStatus` | String | 审核状态 |
+| `rejectReason` | String | 驳回或失效原因 |
+| `visibleToPublic` | Boolean | 是否对外展示 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {"mediaId": 101, "mediaType": "ALBUM", "mediaUrl": "https://cdn.example.com/a.jpg", "auditStatus": "APPROVED", "visibleToPublic": true}
+  ]
+}
+```
+
+#### POST `/miniapp/profile/albums`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `mediaUrl` | String | 是 | 图片公网 URL |
+| `thumbUrl` | String | 否 | 缩略图 URL |
+| `fileSizeBytes` | Number | 是 | 文件大小，按相册上传限制校验 |
+| `sortOrder` | Number | 否 | 排序 |
+
+出参：单条 `ProfileMediaVO`，字段同 `GET /miniapp/profile/albums`。
+
+示例：
+
+```json
+{
+  "mediaUrl": "https://cdn.example.com/album-b.jpg",
+  "thumbUrl": "https://cdn.example.com/album-b-thumb.jpg",
+  "fileSizeBytes": 204800,
+  "sortOrder": 2
+}
+```
+
+#### PUT `/miniapp/profile/albums/{mediaId}`
+
+路径参数：
+
+| 参数 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `mediaId` | Number | 是 | 要替换的相册图片 ID |
+
+Body 同新增相册。出参同新增相册。
+
+示例：
+
+```json
+{
+  "mediaUrl": "https://cdn.example.com/album-new.jpg",
+  "fileSizeBytes": 204800,
+  "sortOrder": 2
+}
+```
+
+#### DELETE `/miniapp/profile/albums/{mediaId}`
+
+路径参数：
+
+| 参数 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `mediaId` | Number | 是 | 要删除的相册图片 ID |
+
+出参：`data=null`。删除不物理删除，后端把审核记录置为 `EXPIRED`。
+
+示例：
+
+```json
+{"code": 200, "msg": "success", "data": null}
+```
+
+#### GET `/miniapp/profile/background`
+
+入参：无。
+
+出参：单条 `ProfileMediaVO`，字段同相册；无背景图时 `data=null`。
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {"mediaId": 201, "mediaType": "PROFILE_BG", "mediaUrl": "https://cdn.example.com/bg.jpg", "auditStatus": "APPROVED"}
+}
+```
+
+#### PUT `/miniapp/profile/background`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `mediaUrl` | String | 是 | 背景图公网 URL |
+| `thumbUrl` | String | 否 | 缩略图 URL |
+| `fileSizeBytes` | Number | 是 | 文件大小，按背景图上传限制校验 |
+
+出参：单条 `ProfileMediaVO`。
+
+示例：
+
+```json
+{
+  "mediaUrl": "https://cdn.example.com/profile-bg.jpg",
+  "thumbUrl": "https://cdn.example.com/profile-bg-thumb.jpg",
+  "fileSizeBytes": 409600
+}
+```
+
+#### DELETE `/miniapp/profile/background`
+
+入参：无。出参：`data=null`。删除当前生效背景图并置为 `EXPIRED`。
+
+示例：
+
+```json
+{"code": 200, "msg": "success", "data": null}
+```
+
+#### GET `/miniapp/profile/introduction`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `latestContent` | String | 本人最新提交内容 |
+| `effectiveContent` | String | 当前对外生效内容 |
+| `auditStatus` | String | 最新审核状态 |
+| `auditSource` | String | 审核来源 |
+| `rejectReason` | String | 驳回或失效原因 |
+| `submitTime` | String | 提交时间 |
+| `canSubmit` | Boolean | 是否可提交 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "latestContent": "我是一个认真生活的人，喜欢运动和阅读。",
+    "effectiveContent": "我是一个认真生活的人，喜欢运动和阅读。",
+    "auditStatus": "APPROVED",
+    "canSubmit": true
+  }
+}
+```
+
+#### POST `/miniapp/profile/introduction`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `aboutMe` | String | 是 | 自我介绍，20-300 字 |
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `fieldName` | String | 审核字段，`ABOUT_ME` 表示自我介绍 |
+| `auditStatus` | String | 审核状态 |
+| `auditSource` | String | 审核来源 |
+| `rejectReason` | String | 驳回原因 |
+
+示例：
+
+```json
+{
+  "aboutMe": "我是一个认真生活的人，平时喜欢运动、阅读，也喜欢和朋友一起探索城市。"
+}
+```
+
+#### GET `/miniapp/profile/about-me`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `questions` | Array | 关于我固定题目列表 |
+
+`questions[]` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `questionKey` | String | 题目 key |
+| `title` | String | 题目标题 |
+| `placeholder` | String | 输入提示 |
+| `latestContent` | String | 本人最新提交内容 |
+| `effectiveContent` | String | 当前对外生效内容 |
+| `auditStatus` | String | 最新审核状态 |
+| `rejectReason` | String | 驳回或失效原因 |
+| `canSubmit` | Boolean | 是否可提交 |
+
+题目枚举：
+
+| questionKey | 中文标题 |
+| --- | --- |
+| `meetingPreference` | 见面偏好 |
+| `preferredActivities` | 喜欢的见面活动 |
+| `housingStatus` | 住房情况 |
+| `carStatus` | 购车情况 |
+| `childrenPlan` | 是否想要孩子 |
+| `hasChild` | 有无子女 |
+| `marriagePlan` | 结婚计划 |
+| `religion` | 宗教信仰 |
+| `smoking` | 吸烟情况 |
+| `drinking` | 饮酒情况 |
+| `pets` | 宠物态度 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "questions": [
+      {"questionKey": "housingStatus", "title": "住房情况", "auditStatus": "NOT_SUBMITTED", "canSubmit": true}
+    ]
+  }
+}
+```
+
+#### POST `/miniapp/profile/about-me`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `questionKey` | String | 是 | 固定题目 key |
+| `contentText` | String | 是 | 回答内容，2-500 字 |
+
+出参：同 `POST /miniapp/profile/introduction`，`fieldName=PROFILE_QA` 表示资料问答。
+
+示例 1 - 住房情况：
+
+```json
+{
+  "questionKey": "housingStatus",
+  "contentText": "目前在杭州稳定居住，通勤方便，生活节奏比较规律。"
+}
+```
+
+示例 2 - 见面偏好：
+
+```json
+{
+  "questionKey": "meetingPreference",
+  "contentText": "更喜欢轻松自然的见面方式，比如咖啡、散步或一起看展。"
+}
+```
+
+响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "fieldName": "PROFILE_QA",
+    "auditStatus": "PENDING",
+    "auditSource": "MACHINE",
+    "rejectReason": null
+  }
+}
+```
+
+#### GET `/miniapp/profile/voice-intro`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `voiceIntroUrl` | String | 当前可播放语音 URL；未通过审核时可能为空 |
+| `voiceIntroDuration` | Number | 语音时长秒 |
+| `voiceIntroAuditStatus` | String | 语音审核状态 |
+| `voiceIntroRejectReason` | String | 驳回或失效原因 |
+| `visibleToPublic` | Boolean | 是否对其他用户展示 |
+| `canSubmit` | Boolean | 是否可提交 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "voiceIntroUrl": "https://cdn.example.com/voice.mp3",
+    "voiceIntroDuration": 18,
+    "voiceIntroAuditStatus": "APPROVED",
+    "visibleToPublic": true,
+    "canSubmit": true
+  }
+}
+```
+
+#### POST `/miniapp/profile/voice-intro`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `voiceUrl` | String | 是 | 语音 URL，来自 `/miniapp/file/upload-ticket/voice` 上传后的 `fileUrl` |
+| `duration` | Number | 是 | 语音时长秒，取 `voiceMinDuration/voiceMaxDuration` |
+
+出参：同 `GET /miniapp/profile/voice-intro`。
+
+示例：
+
+```json
+{
+  "voiceUrl": "https://cdn.example.com/voice.mp3",
+  "duration": 18
+}
+```
+
+#### DELETE `/miniapp/profile/voice-intro`
+
+入参：无。出参：`data=null`。删除当前有效语音并置为 `EXPIRED`。
+
+示例：
+
+```json
+{"code": 200, "msg": "success", "data": null}
+```
+
+### 13.9 非审核型资料接口
+
+以下接口不生成审核记录，保存成功后直接写 `app_user`。
+
+#### PUT `/miniapp/profile/dating-goal`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `code` | String | 是 | 脱单目标字典 code |
+
+出参：`ProfileDetailVO`，即用户资料详情。
+
+示例：
+
+```json
+{"code": "MARRIAGE_1_2_YEARS"}
+```
+
+#### PUT `/miniapp/profile/emotional-status`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `code` | String | 是 | 感情状态字典 code |
+
+出参：`ProfileDetailVO`。
+
+示例：
+
+```json
+{"code": "SEARCHING"}
+```
+
+#### GET `/miniapp/profile/tags`
+
+入参：无。
+
+出参：`data` 为标签 code 的 JSON 字符串数组。
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": "[\"INFJ\",\"OUTDOOR_LOVER\"]"
+}
+```
+
+#### PUT `/miniapp/profile/tags`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `tagCodes` | Array<String> | 是 | 标签 code 数组，最多 16 个 |
+
+出参：`ProfileDetailVO`。
+
+示例：
+
+```json
+{
+  "tagCodes": ["INFJ", "OUTDOOR_LOVER"]
+}
+```
+
+#### GET `/miniapp/profile/songs/search`
+
+入参：
+
+| 参数 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `keyword` | String | 否 | 歌曲关键词 |
+| `limit` | Number | 否 | 返回数量，默认 10，最大 20 |
+
+出参 `data[]`：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `songId` | String | 三方歌曲 ID |
+| `songName` | String | 歌曲名 |
+| `artistName` | String | 歌手 |
+| `coverUrl` | String | 封面图 URL |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {"songId": "mock-001", "songName": "告白气球", "artistName": "周杰伦", "coverUrl": "https://cdn.example.com/song.jpg"}
+  ]
+}
+```
+
+#### PUT `/miniapp/profile/favorite-song`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `songId` | String | 是 | 三方歌曲 ID |
+| `songName` | String | 是 | 歌曲名 |
+| `artistName` | String | 否 | 歌手 |
+| `coverUrl` | String | 否 | 封面图 URL，用于主页展示 |
+
+出参：`ProfileDetailVO`。
+
+示例：
+
+```json
+{
+  "songId": "mock-001",
+  "songName": "告白气球",
+  "artistName": "周杰伦",
+  "coverUrl": "https://cdn.example.com/song.jpg"
+}
+```
+
+#### GET `/miniapp/profile/wechat-id`
+
+入参：无。
+
+出参：`data` 为当前微信号字符串；未填写时为空。
+
+示例：
+
+```json
+{"code": 200, "msg": "success", "data": "wx_abc123"}
+```
+
+#### PUT `/miniapp/profile/wechat-id`
+
+入参：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `wechatId` | String | 是 | 微信号，字母开头，6-20 位 |
+
+出参：`ProfileDetailVO`。
+
+示例：
+
+```json
+{"wechatId": "wx_abc123"}
+```
+
+### 13.10 准入状态接口
+
+#### GET `/miniapp/profile/access-status`
+
+入参：无。
+
+出参：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `canBrowseCards` | Boolean | 是否可浏览用户卡片 |
+| `canMatch` | Boolean | 是否可发起匹配 |
+| `canMessage` | Boolean | 是否可私信/会话 |
+| `canCommunity` | Boolean | 是否可使用社区等非核心能力 |
+| `canBeExposed` | Boolean | 是否可被其他用户看到 |
+| `coreAccessStatus` | String | 核心准入状态 |
+| `blockReasons` | Array | 阻断原因列表 |
+
+`blockReasons[]` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `code` | String | 阻断原因 code |
+| `message` | String | 给小程序展示的中文提示 |
+
+示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "canBrowseCards": true,
+    "canMatch": false,
+    "canMessage": false,
+    "canCommunity": true,
+    "canBeExposed": false,
+    "coreAccessStatus": "CORE_BLOCKED",
+    "blockReasons": [
+      {"code": "core_access_triple_not_passed", "message": "请完成实名、头像、学历三重认证后继续使用"}
+    ]
+  }
+}
+```
+
+### 13.11 常用返回对象说明
+
+#### `ProfileDetailVO`
+
+多个保存接口返回该对象，字段含义如下：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `nickname` | String | 昵称 |
+| `gender` | String | 性别 code |
+| `birthday/age` | String/Number | 出生日期/年龄 |
+| `height/weight` | Number | 身高/体重 |
+| `identity/educationLevel/industry/occupation/annualIncome/maritalStatus` | String | 字典 code |
+| `locationProvince/locationCity/locationDistrict` | String | 现居地 code |
+| `hometownProvince/hometownCity/hometownDistrict` | String | 家乡 code |
+| `datingGoal/emotionalStatus` | String | 脱单目标/感情状态 code |
+| `tags` | String | 标签 code 数组 JSON |
+| `photos/profileBgImage` | String | 相册/背景图 JSON 或 URL |
+| `favoriteSongId/favoriteSongName/favoriteSongArtist/favoriteSongCoverUrl` | String | 爱听歌曲信息 |
+| `wechatId` | String | 微信号 |
+| `profileScore` | Number | 资料完整度分数 |
+
+#### `ProfileMediaVO`
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `mediaId` | Number | 媒体/审核记录 ID |
+| `mediaType` | String | `ALBUM` 相册、`PROFILE_BG` 背景图 |
+| `mediaUrl` | String | 原图 URL |
+| `thumbUrl` | String | 缩略图 URL |
+| `sortOrder` | Number | 排序 |
+| `auditStatus` | String | 审核状态 |
+| `rejectReason` | String | 驳回或失效原因 |
+| `visibleToPublic` | Boolean | 是否对外展示 |
+
+#### `OpenTextAuditVO`
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `fieldName` | String | `ABOUT_ME` 自我介绍、`PROFILE_QA` 资料问答 |
+| `auditStatus` | String | 审核状态 |
+| `auditSource` | String | 审核来源 |
+| `rejectReason` | String | 驳回原因 |

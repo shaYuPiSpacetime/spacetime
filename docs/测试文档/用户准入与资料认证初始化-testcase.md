@@ -140,8 +140,8 @@
 | L1-MINI-MEDIA-004 | 删除相册照片 | 调用 `DELETE /miniapp/profile/albums/{mediaId}` | 审核记录置 `EXPIRED` 并写用户操作原因，不物理删除 |
 | L1-MINI-MEDIA-005 | 查询/替换/删除资料背景图 | 调用 `GET/PUT/DELETE /miniapp/profile/background` | 背景图使用 `PROFILE_BG` 审核记录；新背景图通过前旧图继续对外展示 |
 | L1-MINI-TEXT-001 | 提交自我介绍 | 调用 `/miniapp/profile/introduction`，`aboutMe` 20-300 字 | 固定生成 `ABOUT_ME` 审核记录；通过后才更新对外资料 |
-| L1-MINI-TEXT-002 | 查询关于我题目 | 调用 `GET /miniapp/profile/about-me` | 返回固定题目、最新提交内容、生效内容、审核状态 |
-| L1-MINI-TEXT-003 | 提交关于我回答 | 调用 `POST /miniapp/profile/about-me`，传 `questionKey,contentText` | 固定生成 `PROFILE_QA` 审核记录；同题审核中不可重复提交 |
+| L1-MINI-TEXT-002 | 查询关于我题目 | 调用 `GET /miniapp/profile/about-me` | 返回 `meetingPreference`、`preferredActivities`、`housingStatus`、`carStatus`、`childrenPlan`、`hasChild`、`marriagePlan`、`religion`、`smoking`、`drinking`、`pets` 固定题目，以及最新提交内容、生效内容、审核状态 |
+| L1-MINI-TEXT-003 | 提交关于我回答 | 调用 `POST /miniapp/profile/about-me`，传 `questionKey,contentText` | 固定生成 `PROFILE_QA` 审核记录；`materialJson` 写入题目 key/title；后台文字内容审核分类为资料问答并展示具体标题；同题审核中不可重复提交 |
 | L1-MINI-TEXT-004 | 禁止旧开放文字接口新接入 | 文档和脚本均不再使用 `/miniapp/profile/open-text` | 小程序新流程只使用自我介绍和关于我独立接口 |
 | L1-MINI-TEXT-005 | 自我介绍字数不足 | `aboutMe` 少于 20 字 | 拒绝提交，不生成审核记录 |
 | L1-MINI-TEXT-006 | 自我介绍重复提审 | 最新记录为待审核/审核中再次提交 | 拒绝重复提交，旧通过内容继续生效 |

@@ -349,7 +349,7 @@ if ($script:AdminToken -and $script:MiniToken) {
 
     Expect-Code "L1-TEXT-001" "miniapp" "introduction machine approved" (Invoke-Api "POST" "/miniapp/profile/introduction" @{ aboutMe = "I value a stable and sincere relationship and enjoy sports and exhibitions on weekends." } $script:MiniToken) 200
     Expect-Code "L1-TEXT-002" "miniapp" "about-me detail" (Invoke-Api "GET" "/miniapp/profile/about-me" $null $script:MiniToken) 200
-    Expect-Code "L1-TEXT-003" "miniapp" "about-me answer machine approved" (Invoke-Api "POST" "/miniapp/profile/about-me" @{ questionKey = "interests"; contentText = "This is a profile QA open answer used by the unified audit L1 flow." } $script:MiniToken) 200
+    Expect-Code "L1-TEXT-003" "miniapp" "about-me answer machine approved" (Invoke-Api "POST" "/miniapp/profile/about-me" @{ questionKey = "meetingPreference"; contentText = "This is a profile QA open answer used by the unified audit L1 flow." } $script:MiniToken) 200
     $textApproved = Latest-Record "/admin/moderation/texts/list" "APPROVED"
     if ($textApproved) { Audit-Record "/admin/moderation/texts" ([long]$textApproved.id) "REJECT" "L1 text rejected" }
 

@@ -291,7 +291,7 @@ if ($script:MiniToken) {
     Test-Code "L1-MINI-MEDIA-005" "miniapp" "profile-background-detail" (Invoke-L1Request "GET" "/miniapp/profile/background" $null $script:MiniToken) 200
 
     Test-Code "L1-MINI-TEXT-002" "miniapp" "about-me-detail" (Invoke-L1Request "GET" "/miniapp/profile/about-me" $null $script:MiniToken) 200
-    $aboutMe = Invoke-L1Request "POST" "/miniapp/profile/about-me" @{ questionKey = "interests"; contentText = "平时喜欢阅读、徒步、看展，也愿意认真分享生活里的小事。" } $script:MiniToken
+    $aboutMe = Invoke-L1Request "POST" "/miniapp/profile/about-me" @{ questionKey = "meetingPreference"; contentText = "平时喜欢轻松自然的见面节奏，也愿意一起看展、散步和认真分享生活里的小事。" } $script:MiniToken
     if ($aboutMe.code -eq 200) {
         Add-L1Result "L1-MINI-TEXT-003" "miniapp" "about-me-submit" "PASS" "about-me answer submitted" $aboutMe.status $aboutMe.code
     } else {

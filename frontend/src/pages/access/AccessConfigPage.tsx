@@ -104,6 +104,11 @@ const COPY_CONFIG_KEY = 'prd01.copy.rules';
 const TEXT_LENGTH_CONFIG_KEY = 'prd01.text.length.rules';
 const SMS_SECURITY_CONFIG_KEY = 'prd01.security.sms.rules';
 const LOG_PAGE_SIZE = 5;
+const REMOVED_SCORE_MIGRATIONS = [
+  { fieldId: 'hopeTheyKnow', targetFieldId: 'aboutMe', studentScore: 5, workerScore: 5 },
+  { fieldId: 'mbtiType', targetFieldId: 'tags', studentScore: 2, workerScore: 2 },
+  { fieldId: 'qaList', targetFieldId: 'aboutMe', studentScore: 5, workerScore: 5 },
+];
 
 const DEFAULT_CONFIGS: Record<Prd01ConfigGroup, AppConfigVO[]> = {
   PRD01_ACCESS: [
@@ -186,17 +191,14 @@ const FIELD_CONFIG_ROWS: FieldConfigRow[] = [
   fieldRow('扩展资料', '脱单目标', 'datingGoal', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('扩展资料', '感情状态', 'emotionalStatus', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('扩展资料', '关于我/自我描述', 'aboutMe', '自我介绍页、编辑资料页', 'configurable', 'configurable', 'configurable', true, true, '5', '5'),
-  fieldRow('扩展资料', '希望 TA 了解', 'hopeTheyKnow', '希望 TA 了解页、编辑资料页', 'configurable', 'configurable', 'configurable', true, true, '5', '5'),
   fieldRow('扩展资料', '个人标签', 'tags', '标签页、编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '3', '3'),
   fieldRow('扩展资料', '相册/附加照片', 'photos', '相册页、编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '4', '4'),
   fieldRow('扩展资料', '资料背景图', 'profileBgImage', '资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('扩展资料', '语音介绍文件', 'voiceIntroUrl', '资料编辑页、用户详情页', 'configurable', 'configurable', 'configurable', true, false, '3', '3'),
   fieldRow('扩展资料', '语音介绍时长', 'voiceIntroDuration', '资料编辑页、用户详情页', 'configurable', 'configurable', 'configurable', true, false, '1', '1'),
-  fieldRow('扩展资料', 'MBTI 类型', 'mbtiType', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('扩展资料', '爱听的歌曲', 'favoriteSong', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('扩展资料', '见面偏好', 'meetingPreference', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('扩展资料', '喜欢的见面活动', 'preferredActivities', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
-  fieldRow('扩展资料', '资料问答', 'qaList', '资料问答页、编辑资料页', 'configurable', 'configurable', 'configurable', true, true, '5', '5'),
   fieldRow('扩展资料', '住房情况', 'housingStatus', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '1', '1'),
   fieldRow('扩展资料', '购车情况', 'carStatus', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('扩展资料', '是否想要孩子', 'childrenPlan', '编辑资料页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
@@ -1724,9 +1726,13 @@ function renderFieldSwitch(
   disabled = false,
 ) {
   const mode = field === 'visible' ? row.displayMode : field === 'required' ? row.requiredMode : row.scoreMode;
-  const labels = fieldControlLabels(field);
+  const labels = field === 'required'
+    ? { active: '选填', inactive: '选填' }
+    : fieldControlLabels(field);
   if (mode !== 'configurable') {
-    const fixedLabels = mode === 'conditional' ? { active: '条件必填', inactive: '条件选填' } : labels;
+    const fixedLabels = mode === 'conditional' && field !== 'required'
+      ? { active: '条件必填', inactive: '条件选填' }
+      : labels;
     return <FixedBadge active={Boolean(row[field])} labels={fixedLabels} reason={fixedControlReason(row, field, mode)} />;
   }
   return (
@@ -1875,30 +1881,42 @@ function mergeSavedFieldRows(saved: string) {
 function mergeSavedScoreRows(saved: string, baseRows: FieldConfigRow[] = FIELD_CONFIG_ROWS) {
   const scoreRows = baseRows.filter((row) => row.scoreMode === 'configurable');
   const savedRows = parseSavedRows(saved);
-  if (savedRows.length === 0) return scoreRows;
   return scoreRows.map((row) => {
-    const match = savedRows.find((item: any) => item.fieldId === row.fieldId);
-    if (!match) return row;
+    const scores = mergeSavedScoreValues(row, savedRows);
     return {
       ...row,
-      studentScore: String(match.studentScore ?? row.studentScore),
-      workerScore: String(match.workerScore ?? row.workerScore),
+      ...scores,
     };
   });
 }
 
 function mergeScoresIntoRows(rows: FieldConfigRow[], saved: string) {
   const savedRows = parseSavedRows(saved);
-  if (savedRows.length === 0) return rows;
   return rows.map((row) => {
-    const match = savedRows.find((item: any) => item.fieldId === row.fieldId);
-    if (!match) return row;
+    const scores = mergeSavedScoreValues(row, savedRows);
     return {
       ...row,
-      studentScore: String(match.studentScore ?? row.studentScore),
-      workerScore: String(match.workerScore ?? row.workerScore),
+      ...scores,
     };
   });
+}
+
+function mergeSavedScoreValues(row: FieldConfigRow, savedRows: any[]) {
+  const match = savedRows.find((item: any) => item.fieldId === row.fieldId);
+  let studentScore = Number(match?.studentScore ?? row.studentScore) || 0;
+  let workerScore = Number(match?.workerScore ?? row.workerScore) || 0;
+
+  for (const migration of REMOVED_SCORE_MIGRATIONS) {
+    if (migration.targetFieldId !== row.fieldId) continue;
+    const legacy = savedRows.length === 0
+      ? migration
+      : savedRows.find((item: any) => item.fieldId === migration.fieldId);
+    if (!legacy) continue;
+    studentScore += Number(legacy.studentScore ?? migration.studentScore) || 0;
+    workerScore += Number(legacy.workerScore ?? migration.workerScore) || 0;
+  }
+
+  return { studentScore: String(studentScore), workerScore: String(workerScore) };
 }
 
 function mergeSavedUploadRules<T extends { key: string; maxCount: string; maxMb: string; format: string }>(defaults: T[], saved: string): T[] {

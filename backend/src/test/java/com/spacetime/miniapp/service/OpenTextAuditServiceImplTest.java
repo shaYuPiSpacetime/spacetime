@@ -1,6 +1,7 @@
 package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.ExternalProviderTaskDao;
+import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.ExternalProviderTask;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
@@ -9,7 +10,9 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.provider.ProviderCheckResult;
 import com.spacetime.common.provider.TextSafetyProvider;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.miniapp.dto.request.AboutMeAnswerSubmitReq;
 import com.spacetime.miniapp.dto.request.IntroductionSubmitReq;
+import com.spacetime.miniapp.dto.response.AboutMeDetailVO;
 import com.spacetime.miniapp.dto.response.IntroductionDetailVO;
 import com.spacetime.miniapp.dto.response.OpenTextAuditVO;
 import com.spacetime.miniapp.service.impl.OpenTextAuditServiceImpl;
@@ -22,6 +25,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +42,8 @@ import static org.mockito.Mockito.when;
 @DisplayName("移动端自我介绍审核服务")
 class OpenTextAuditServiceImplTest {
 
+    @Mock
+    private AppUserAuditRecordDao auditRecordDao;
     @Mock
     private ExternalProviderTaskDao externalProviderTaskDao;
     @Mock
@@ -57,6 +64,62 @@ class OpenTextAuditServiceImplTest {
         org.mockito.Mockito.lenient().when(runtimeConfigResolver.snapshot()).thenReturn(configSnapshot);
         org.mockito.Mockito.lenient().when(runtimeConfigResolver.fieldVisible(configSnapshot, "aboutMe", true))
                 .thenReturn(true);
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.fieldVisible(configSnapshot, "qaList", true))
+                .thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("关于我题目按页面分类返回固定 key 和标题")
+    void shouldReturnAboutMeQuestionsFromPageCategories() {
+        when(auditRecordDao.selectList(any())).thenReturn(List.of());
+
+        AboutMeDetailVO result = service.getAboutMeDetail(7L);
+
+        assertThat(result.getQuestions())
+                .extracting("questionKey", "title")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("meetingPreference", "见面偏好"),
+                        org.assertj.core.groups.Tuple.tuple("preferredActivities", "喜欢的见面活动"),
+                        org.assertj.core.groups.Tuple.tuple("housingStatus", "住房情况"),
+                        org.assertj.core.groups.Tuple.tuple("carStatus", "购车情况"),
+                        org.assertj.core.groups.Tuple.tuple("childrenPlan", "是否想要孩子"),
+                        org.assertj.core.groups.Tuple.tuple("hasChild", "有无子女"),
+                        org.assertj.core.groups.Tuple.tuple("marriagePlan", "结婚计划"),
+                        org.assertj.core.groups.Tuple.tuple("religion", "宗教信仰"),
+                        org.assertj.core.groups.Tuple.tuple("smoking", "吸烟情况"),
+                        org.assertj.core.groups.Tuple.tuple("drinking", "饮酒情况"),
+                        org.assertj.core.groups.Tuple.tuple("pets", "宠物态度"));
+    }
+
+    @Test
+    @DisplayName("提交关于我回答时写入资料问答标题，方便后台文字审核区分场景")
+    void shouldSubmitAboutMeAnswerWithQuestionTitle() {
+        AboutMeAnswerSubmitReq req = new AboutMeAnswerSubmitReq();
+        req.setQuestionKey("pets");
+        req.setContentText("喜欢小动物，也能接受一起照顾宠物，希望生活里有温柔和责任感。");
+        when(auditRecordDao.selectList(any())).thenReturn(List.of());
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0);
+            record.setId(102L);
+            return record;
+        });
+        when(textSafetyProvider.check("PROFILE_QA", req.getContentText()))
+                .thenReturn(ProviderCheckResult.safe("mock-text", "{\"result\":\"safe\"}", true));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ExternalProviderTask task = invocation.getArgument(0);
+            task.setId(202L);
+            return null;
+        }).when(externalProviderTaskDao).insert(any());
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.PROFILE_QA)).thenReturn(profileQaRecord(req.getContentText()));
+
+        service.submitAboutMeAnswer(7L, req);
+
+        ArgumentCaptor<AppUserAuditRecord> recordCaptor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditService).submit(recordCaptor.capture());
+        assertThat(recordCaptor.getValue().getAuditType()).isEqualTo("PROFILE_QA");
+        assertThat(recordCaptor.getValue().getMaterialJson())
+                .contains("\"questionKey\":\"pets\"")
+                .contains("\"questionTitle\":\"宠物态度\"");
     }
 
     @Test
@@ -150,9 +213,37 @@ class OpenTextAuditServiceImplTest {
         assertThat(result.getCanSubmit()).isFalse();
     }
 
+    @Test
+    @DisplayName("关于我回显按 materialJson.questionKey 匹配审核记录")
+    void shouldReturnAboutMeQuestionStatusFromAuditRecordMaterialJson() {
+        AppUserAuditRecord record = profileQaRecord("喜欢小动物，也愿意一起照顾宠物。");
+        record.setMaterialJson("{ \"questionKey\" : \"pets\", \"questionTitle\" : \"宠物态度\" }");
+        when(auditRecordDao.selectList(any())).thenReturn(List.of(record));
+
+        AboutMeDetailVO result = service.getAboutMeDetail(7L);
+
+        assertThat(result.getQuestions())
+                .filteredOn(question -> "pets".equals(question.getQuestionKey()))
+                .singleElement()
+                .satisfies(question -> {
+                    assertThat(question.getAuditStatus()).isEqualTo("APPROVED");
+                    assertThat(question.getLatestContent()).isEqualTo("喜欢小动物，也愿意一起照顾宠物。");
+                    assertThat(question.getEffectiveContent()).isEqualTo("喜欢小动物，也愿意一起照顾宠物。");
+                    assertThat(question.getCanSubmit()).isTrue();
+                });
+    }
+
     private AppUserAuditRecord approvedRecord(String content) {
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setAuditType(AppUserAuditTypeEnum.ABOUT_ME.getCode());
+        record.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
+        record.setContentText(content);
+        return record;
+    }
+
+    private AppUserAuditRecord profileQaRecord(String content) {
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setAuditType(AppUserAuditTypeEnum.PROFILE_QA.getCode());
         record.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
         record.setContentText(content);
         return record;

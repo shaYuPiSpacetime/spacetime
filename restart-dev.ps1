@@ -156,6 +156,18 @@ function Find-JavaHome21 {
     throw "JAVA_HOME is not JDK21. Set JAVA_HOME to a JDK21 path."
 }
 
+function Normalize-ProcessPath {
+    # Windows 上同一进程里偶发同时存在 Path/PATH，Start-Process 会因此抛重复键异常。
+    $pathValue = [Environment]::GetEnvironmentVariable("Path", "Process")
+    if ([string]::IsNullOrWhiteSpace($pathValue)) {
+        $pathValue = [Environment]::GetEnvironmentVariable("PATH", "Process")
+    }
+
+    [Environment]::SetEnvironmentVariable("Path", $null, "Process")
+    [Environment]::SetEnvironmentVariable("PATH", $null, "Process")
+    [Environment]::SetEnvironmentVariable("Path", $pathValue, "Process")
+}
+
 function Stop-Port {
     param([int]$Port)
     $connections = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
@@ -227,6 +239,7 @@ Assert-BackendEnv
 $javaHome = Find-JavaHome21
 [Environment]::SetEnvironmentVariable("JAVA_HOME", $javaHome, "Process")
 $env:Path = (Join-Path $javaHome "bin") + ";$env:Path"
+Normalize-ProcessPath
 
 Write-Host "Cleaning previous dev processes..."
 Stop-Port $BackendPort

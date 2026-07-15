@@ -3,6 +3,8 @@ package com.spacetime.admin.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.AuditHistoryVO;
@@ -45,6 +47,7 @@ import java.util.stream.Collectors;
 public class ModerationAdminServiceImpl implements ModerationAdminService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final AppUserAuditRecordDao auditRecordDao;
     private final AppUserAuditHistoryDao historyDao;
@@ -166,6 +169,8 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
             } else {
                 vo.setContentType("文字");
                 vo.setTextType(textTypeLabel(record.getAuditType()));
+                vo.setContentTitle(textContentTitle(record));
+                vo.setQuestionKey(textQuestionKey(record));
                 vo.setTextSummary(StrUtil.isBlank(record.getContentText()) ? null : StrUtil.maxLength(record.getContentText(), 24));
                 vo.setContentPreview(vo.getTextSummary());
             }
@@ -217,6 +222,8 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         ModerationDetailVO vo = baseDetail(record, user, historyPage, historySize);
         vo.setContentType("文字");
         vo.setContentField(textTypeLabel(record.getAuditType()));
+        vo.setContentTitle(textContentTitle(record));
+        vo.setQuestionKey(textQuestionKey(record));
         vo.setContentFull(record.getContentText());
         return vo;
     }
@@ -346,6 +353,43 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
             return "资料问答";
         }
         return type;
+    }
+
+    private String textContentTitle(AppUserAuditRecord record) {
+        if (record == null) {
+            return null;
+        }
+        if (AppUserAuditTypeEnum.ABOUT_ME.getCode().equals(record.getAuditType())) {
+            return "自我介绍";
+        }
+        if (AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode().equals(record.getAuditType())) {
+            return "希望 TA 了解";
+        }
+        if (AppUserAuditTypeEnum.PROFILE_QA.getCode().equals(record.getAuditType())) {
+            return materialText(record.getMaterialJson(), "questionTitle");
+        }
+        return null;
+    }
+
+    private String textQuestionKey(AppUserAuditRecord record) {
+        if (record == null || !AppUserAuditTypeEnum.PROFILE_QA.getCode().equals(record.getAuditType())) {
+            return null;
+        }
+        return materialText(record.getMaterialJson(), "questionKey");
+    }
+
+    private String materialText(String materialJson, String field) {
+        if (StrUtil.isBlank(materialJson)) {
+            return null;
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(materialJson);
+            JsonNode value = node.get(field);
+            return value == null || value.isNull() ? null : value.asText();
+        } catch (Exception ignored) {
+            // 历史脏数据不阻断列表和详情展示。
+            return null;
+        }
     }
 
     private String reason(AppUserAuditRecord record) {
