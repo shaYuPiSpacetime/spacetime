@@ -1,5 +1,5 @@
 import { ScrollView, Text, View } from '@tarojs/components'
-import { useRouter } from '@tarojs/taro'
+import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import LanhuSubNav from '@/components/LanhuSubNav'
 import { prd01Api } from '@/services/prd01'

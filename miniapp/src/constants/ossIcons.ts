@@ -1,127 +1,67 @@
 /** 由 scripts/upload-miniapp-oss-icons.mjs 生成；禁止手写密钥或本地回退路径。 */
 export const miniappOssIcons = Object.freeze({
-  heartMutualLikes:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d3b065ad7b9c79cb/heart-mutual-likes.png',
-  messageAvatarXiaoming:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/977c346557f18ebd/avatar-xiaoming.png',
-  messageAvatarLikedBlurred:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/7607b8cd85521572/avatar-liked-blurred.png',
-  messageAvatarWhisperGroup:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/fdb5608cd860aca3/avatar-whisper-group.png',
-  messageHomeYoArt:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/87043feb823adcc5/home-yo-art.png',
-  messageHomePrivateBubbleArt:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/cfc0ccfe751d9cfe/home-private-bubble-art.png',
-  messageAssistant:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ca6d84c0f7933d2b/icon-assistant.png',
-  messageSystem:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8fbc6e3f45c03735/icon-system.png',
-  messageTimelineExpired:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/2c8f0f62ddbb0bf6/timeline-expired.png',
-  messageTimelineYo:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/432a9fefb7ac5787/timeline-yo.png',
-  messageTimelineMatched:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/3dd5dbf53a93b572/timeline-matched.png',
-  messageTimelineView:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/545f85035843e774/timeline-view.png',
-  messageChatSafetyDecoLeft:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/0df8acd5870fe7a1/chat-safety-deco-left.png',
-  messageChatSafetyDecoRight:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/0d23a834f5645fbd/chat-safety-deco-right.png',
-  messageQianxunCoin:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/7f942e7385290496/icon-qianxun-coin.png',
-  messageReport:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8ecf27108c745bbe/icon-report.png',
-  messageMemberBadge:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/6658513980c8631e/badge-member.png',
-  coinGold:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c29d6952d277b580/coin-gold.png',
-  coinUsageWhisper:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/2ae61de168714990/whisper.png',
-  coinUsageHeartbeat:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/95503a52fa573620/heartbeat.png',
-  coinUsageIdealUnlock:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d0a25f0413bb55e3/ideal-unlock.png',
-  coinUsageBoost:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/da18ab0e92a514c7/boost.png',
-  coinUsageCuratedUnlock:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/80e8c7a908cd3fc6/curated-unlock.png',
-  coinUsageRecommend:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/eca07077a103124a/recommend.png',
-  coinUsageAnonymousUnlock:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d7ba5c587ae5d330/anonymous-unlock.png',
-  coinUsageLimitedActivity:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/934d99749921ab80/limited-activity.png',
-  memberDividerLeft:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c32873f2d5bbb029/member-slice-group-5-a.png',
-  memberDividerRight:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/947063ce7ca559c0/member-slice-group-5-b.png',
-  memberBenefitMatch:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/bb0db47013381ae6/member-slice-match.png',
-  memberBenefitEyeOpen:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d824d6dd6bda86ab/member-slice-eye-open.png',
-  memberBenefitGreeting:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/53c1e311f480a67c/member-slice-greeting-a.png',
-  memberBenefitRecommend:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/fa562f4c8017b839/member-slice-recommend.png',
-  memberBenefitFilter:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/1b1e3c374cb79ffe/member-slice-filter.png',
-  memberBenefitExposure:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8d1d9fe1c8dc4107/member-slice-exposure.png',
-  memberBenefitStealth:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/1b0f82bf277d1e54/member-slice-stealth.png',
-  memberBenefitReplay:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/9e38d370761e9630/member-slice-greeting-b.png',
-  memberBenefitDailyHeart:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/a8924076b9c96dbd/member-slice-my-2.png',
-  loginMethodWechat:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/a41e7b9dc62e3815/login-method-wechat.png',
-  loginMethodPhone:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/571ffa17f16884a1/login-method-phone.png',
-  genderFemale:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/64f6756070a9536d/gender-female.webp',
-  genderMale:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/e6487f6f994c4bfa/gender-male.webp',
-  verificationCertAvatar:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/680e99e6dde9c976/cert-avatar.webp',
-  verificationCertRealName:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/5c6ee64e62002345/cert-realname.webp',
-  verificationCertEducation:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ddbb8cb619a8f586/cert-education.webp',
-  verificationUploadCamera:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/914b3b279600d7ce/upload-camera.webp',
-  profilePost:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/cf6df36ac1818aa0/icon-post.png',
-  profileService:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/7fe214ee94d6edf9/icon-service.png',
-  profileSettings:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/cb15fc215e87e972/icon-settings.png',
-  profileCertification:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/9c33a27875169664/icon-cert.png',
-  profileBoostButton:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/10654d7bbfcc207b/boost-button.png',
-  profileVipBanner:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/03c32b0a289c32d3/vip-banner.webp',
-  profilePreviewShare:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/20193213e48117c2/profile-preview-share.png',
-  profilePreviewHero:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d8e28e1a0499cecd/profile-preview-hero.png',
-  profilePreviewAvatar:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ce9c1a32157cb601/profile-preview-avatar.png',
-  profilePreviewCertAvatar:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/32277ba0cdcd367c/profile-preview-cert-avatar.png',
-  profilePreviewCertRealname:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/b72cb633f19dfc32/profile-preview-cert-realname.png',
-  profilePreviewCertEducation:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/f476bb51539fd9e8/profile-preview-cert-education.png',
-  profilePreviewGender:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/3f77559f33210532/profile-preview-gender.png',
-  profilePreviewLocation:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c2a19c1cc73bca86/profile-preview-location.png',
-  profilePreviewSong:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/4b96fc0f299fe7b1/profile-preview-song.png',
-  profilePreviewPhoto:
-    'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ca739294d53c7870/profile-preview-photo.png',
+  heartMutualLikes: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d3b065ad7b9c79cb/heart-mutual-likes.png',
+  messageAvatarXiaoming: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/977c346557f18ebd/avatar-xiaoming.png',
+  messageAvatarLikedBlurred: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/7607b8cd85521572/avatar-liked-blurred.png',
+  messageAvatarWhisperGroup: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/fdb5608cd860aca3/avatar-whisper-group.png',
+  messageHomeYoArt: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/87043feb823adcc5/home-yo-art.png',
+  messageHomePrivateBubbleArt: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/cfc0ccfe751d9cfe/home-private-bubble-art.png',
+  messageAssistant: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ca6d84c0f7933d2b/icon-assistant.png',
+  messageSystem: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8fbc6e3f45c03735/icon-system.png',
+  messageTimelineExpired: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/2c8f0f62ddbb0bf6/timeline-expired.png',
+  messageTimelineYo: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/432a9fefb7ac5787/timeline-yo.png',
+  messageTimelineMatched: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/3dd5dbf53a93b572/timeline-matched.png',
+  messageTimelineView: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/545f85035843e774/timeline-view.png',
+  messageChatSafetyDecoLeft: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/0df8acd5870fe7a1/chat-safety-deco-left.png',
+  messageChatSafetyDecoRight: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/0d23a834f5645fbd/chat-safety-deco-right.png',
+  messageQianxunCoin: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/7f942e7385290496/icon-qianxun-coin.png',
+  messageReport: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8ecf27108c745bbe/icon-report.png',
+  messageMemberBadge: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/6658513980c8631e/badge-member.png',
+  coinGold: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c29d6952d277b580/coin-gold.png',
+  coinUsageWhisper: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/2ae61de168714990/whisper.png',
+  coinUsageHeartbeat: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/95503a52fa573620/heartbeat.png',
+  coinUsageIdealUnlock: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d0a25f0413bb55e3/ideal-unlock.png',
+  coinUsageBoost: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/da18ab0e92a514c7/boost.png',
+  coinUsageCuratedUnlock: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/80e8c7a908cd3fc6/curated-unlock.png',
+  coinUsageRecommend: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/eca07077a103124a/recommend.png',
+  coinUsageAnonymousUnlock: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d7ba5c587ae5d330/anonymous-unlock.png',
+  coinUsageLimitedActivity: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/934d99749921ab80/limited-activity.png',
+  memberDividerLeft: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c32873f2d5bbb029/member-slice-group-5-a.png',
+  memberDividerRight: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/947063ce7ca559c0/member-slice-group-5-b.png',
+  memberBenefitMatch: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/bb0db47013381ae6/member-slice-match.png',
+  memberBenefitEyeOpen: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d824d6dd6bda86ab/member-slice-eye-open.png',
+  memberBenefitGreeting: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/53c1e311f480a67c/member-slice-greeting-a.png',
+  memberBenefitRecommend: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/fa562f4c8017b839/member-slice-recommend.png',
+  memberBenefitFilter: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/1b1e3c374cb79ffe/member-slice-filter.png',
+  memberBenefitExposure: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8d1d9fe1c8dc4107/member-slice-exposure.png',
+  memberBenefitStealth: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/1b0f82bf277d1e54/member-slice-stealth.png',
+  memberBenefitReplay: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/9e38d370761e9630/member-slice-greeting-b.png',
+  memberBenefitDailyHeart: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/a8924076b9c96dbd/member-slice-my-2.png',
+  loginMethodWechat: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/a41e7b9dc62e3815/login-method-wechat.png',
+  loginMethodPhone: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/571ffa17f16884a1/login-method-phone.png',
+  genderFemale: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/64f6756070a9536d/gender-female.webp',
+  genderMale: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/e6487f6f994c4bfa/gender-male.webp',
+  verificationCertAvatar: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/680e99e6dde9c976/cert-avatar.webp',
+  verificationCertRealName: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/5c6ee64e62002345/cert-realname.webp',
+  verificationCertEducation: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ddbb8cb619a8f586/cert-education.webp',
+  verificationUploadCamera: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/914b3b279600d7ce/upload-camera.webp',
+  profilePost: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/cf6df36ac1818aa0/icon-post.png',
+  profileService: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/7fe214ee94d6edf9/icon-service.png',
+  profileSettings: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/cb15fc215e87e972/icon-settings.png',
+  profileCertification: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/9c33a27875169664/icon-cert.png',
+  profileBoostButton: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/10654d7bbfcc207b/boost-button.png',
+  profileVipBanner: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/03c32b0a289c32d3/vip-banner.webp',
+  profilePreviewShare: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/20193213e48117c2/profile-preview-share.png',
+  profilePreviewHero: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d8e28e1a0499cecd/profile-preview-hero.png',
+  profilePreviewAvatar: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ce9c1a32157cb601/profile-preview-avatar.png',
+  profilePreviewCertAvatar: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/32277ba0cdcd367c/profile-preview-cert-avatar.png',
+  profilePreviewCertRealname: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/b72cb633f19dfc32/profile-preview-cert-realname.png',
+  profilePreviewCertEducation: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/f476bb51539fd9e8/profile-preview-cert-education.png',
+  profilePreviewGender: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/3f77559f33210532/profile-preview-gender.png',
+  profilePreviewLocation: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c2a19c1cc73bca86/profile-preview-location.png',
+  profilePreviewSong: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/4b96fc0f299fe7b1/profile-preview-song.png',
+  profilePreviewPhoto: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ca739294d53c7870/profile-preview-photo.png',
+  settingsAboutLogo: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/97aa2887b36f19e4/about-logo.png',
 } as const)
 
 export type MiniappOssIconKey = keyof typeof miniappOssIcons

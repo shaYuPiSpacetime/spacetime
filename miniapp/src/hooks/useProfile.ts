@@ -246,7 +246,7 @@ export function useProfile(): UseProfileReturn {
 
   /** 跳转设置页 */
   const goToSettings = useCallback(() => {
-    Taro.showToast({ title: '设置功能即将开放', icon: 'none' });
+    Taro.navigateTo({ url: '/pages/settings/index' });
   }, []);
 
   return {

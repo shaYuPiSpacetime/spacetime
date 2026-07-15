@@ -83,6 +83,7 @@ const ICON_ASSETS = Object.freeze({
   profilePreviewLocation: 'src/assets/lanhu/profile/profile-preview-location.png',
   profilePreviewSong: 'src/assets/lanhu/profile/profile-preview-song.png',
   profilePreviewPhoto: 'src/assets/lanhu/profile/profile-preview-photo.png',
+  settingsAboutLogo: 'src/assets/lanhu/settings/about-logo.png',
 })
 
 function readEnvFile(filePath) {

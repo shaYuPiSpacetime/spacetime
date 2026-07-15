@@ -59,7 +59,7 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
   return (
     <VerificationRuntimeBoundary loadData={async () => setStatus(await prd01Api.getVerificationStatus())}>
       {onboarding ? (
-        <VerificationShell stage="triple" onBack={() => Taro.redirectTo({ url: '/pages/verification/intro' })}>
+        <VerificationShell stage="triple" onBack={() => navigateBackOrRedirect('/pages/index/index')}>
           {content}
         </VerificationShell>
       ) : (

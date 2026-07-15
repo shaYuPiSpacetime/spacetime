@@ -8,6 +8,7 @@ import cityTower from '@/assets/lanhu/recommend/slices/city-tower.webp'
 import goodAvatar from '@/assets/lanhu/verification/avatar-good.webp'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { chooseAndCropAvatar } from '@/utils/avatar'
+import { navigateBackOrRedirect } from '@/utils/navigation'
 import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import VerificationShell from './components/VerificationShell'
 
@@ -41,7 +42,7 @@ export default function VerificationAvatarPage() {
         stage="avatar"
         primaryText={choosing ? copy('avatar_choosing_action') : copy('avatar_choose_action')}
         onPrimary={() => setSourceSheetVisible(true)}
-        onBack={() => Taro.redirectTo({ url: '/pages/verification/basic' })}
+        onBack={() => navigateBackOrRedirect('/pages/index/index')}
       >
         <AvatarGuide copy={copy} />
         {sourceSheetVisible ? (

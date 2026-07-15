@@ -8,6 +8,7 @@ import {
   resolveCertificationChecklist,
   resolveVerificationOnboardingRoute,
 } from '@/domain/verificationOnboardingFlow'
+import { validateVerificationRuntime } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
 import { useMessageStore } from '@/stores/messageStore'
 import { usePrd01Store } from '@/stores/prd01Store'
@@ -21,12 +22,16 @@ export default function IndexPage() {
   const [verification, setVerification] = useState<VerificationStatus>()
   const [introduction, setIntroduction] = useState<OpenTextDetail>()
   const [loading, setLoading] = useState(true)
+  const [ready, setReady] = useState(false)
 
   useDidShow(() => {
     void (async () => {
       setLoading(true)
       try {
         await bootstrap()
+        const runtime = usePrd01Store.getState()
+        if (!runtime.config || !runtime.profileOptions) throw new Error()
+        validateVerificationRuntime(runtime.config, runtime.profileOptions)
         const [basicResult, verificationResult, introductionResult] = await Promise.all([
           prd01Api.getBasicProfile(),
           prd01Api.getVerificationStatus(),
@@ -35,6 +40,7 @@ export default function IndexPage() {
         setBasic(basicResult)
         setVerification(verificationResult)
         setIntroduction(introductionResult)
+        setReady(true)
       } catch (error) {
         await showError(error)
       } finally {
@@ -82,6 +88,8 @@ export default function IndexPage() {
     if (reason) await Taro.showToast({ title: reason, icon: 'none' })
   }
 
+  if (!ready) return <IndexLoadingSkeleton unreadCount={unreadCount} />
+
   return <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48%, rgba(248,250,239,0.6) 100%)', position: 'relative', overflow: 'hidden' }}>
     <TopTabs unreadCount={unreadCount} />
     {hasPartialProfile ? (
@@ -96,6 +104,17 @@ export default function IndexPage() {
       <Text style={{ color: '#999999', fontSize: '30rpx', fontWeight: 500, lineHeight: '42rpx' }}>{copy('verification_home_later_action')}</Text>
     </View>
   </View>
+}
+
+function IndexLoadingSkeleton({ unreadCount }: { unreadCount: number }) {
+  return (
+    <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48%, rgba(248,250,239,0.6) 100%)', position: 'relative', overflow: 'hidden' }}>
+      <TopTabs unreadCount={unreadCount} />
+      <View style={{ position: 'absolute', left: '25rpx', top: '246rpx', width: '700rpx', height: '168rpx', borderRadius: '24rpx', background: 'rgba(255,255,255,0.72)' }} />
+      <View style={{ position: 'absolute', left: '25rpx', top: '434rpx', width: '700rpx', height: '168rpx', borderRadius: '24rpx', background: 'rgba(255,255,255,0.56)' }} />
+      <View style={{ position: 'absolute', left: '25rpx', top: '622rpx', width: '700rpx', height: '168rpx', borderRadius: '24rpx', background: 'rgba(255,255,255,0.42)' }} />
+    </View>
+  )
 }
 
 function InitialCertificationPanel({ copy }: { copy: (key: string) => string }) {

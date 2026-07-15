@@ -100,6 +100,10 @@ test('所有消费认证文案的页面都由统一运行态边界托管', () =>
     'common_load_failed_message',
     'common_retry_action',
   ].forEach(copyKey => assert.match(boundary, new RegExp(`copy\\('${copyKey}'\\)`)))
+
+  const index = source('src/pages/index/index.tsx')
+  assert.match(index, /validateVerificationRuntime/, '千寻准入页必须先校验认证运行态')
+  assert.match(index, /if \(!ready\) return <IndexLoadingSkeleton/, '千寻准入页运行态未就绪时禁止渲染空文案控件')
 })
 
 test('学历受保护材料通过带 token 的 downloadFile 生成临时预览地址', () => {
@@ -125,12 +129,12 @@ test('手机号和微信登录后统一重新查询 init-status 再导航', () =
   })
 })
 
-test('页面入口门禁精确读取 app.config 的 58 个路由并递归扫描依赖', () => {
+test('页面入口门禁精确读取 app.config 的 63 个路由并递归扫描依赖', () => {
   const gate = source('scripts/validate-page-entry-isolation.mjs')
   assert.match(gate, /app\.config\.ts/)
   assert.match(gate, /transpileModule/)
   assert.match(gate, /visit|traverse|walkImports/)
-  assert.match(gate, /58/)
+  assert.match(gate, /63/)
 })
 
 test('构建注册门禁从 dist app.json 校验 Page、App 唯一注册', () => {

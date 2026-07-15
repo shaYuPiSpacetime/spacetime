@@ -75,6 +75,10 @@ export default {
       root: 'pages/message',
       pages: ['whisper-list', 'whisper-detail', 'private-list', 'private-chat', 'channel', 'report'],
     },
+    {
+      root: 'pages/settings',
+      pages: ['index', 'account-cancel', 'about', 'content', 'announcements'],
+    },
   ],
   window: {
     backgroundTextStyle: 'light',

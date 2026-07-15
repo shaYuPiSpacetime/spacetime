@@ -94,6 +94,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   assert.match(avatar, /VerificationShell/)
   assert.match(avatar, /stage="avatar"/)
   assert.match(avatar, /AvatarGuide/)
+  assert.match(avatar, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
   assert.doesNotMatch(avatar, /VerificationSubShell/)
 
   assert.match(avatarReview, /pages\/verification\/intro/)
@@ -104,6 +105,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   assert.match(intro, /getIntroduction\(\)/)
   assert.match(intro, /submitIntroduction/)
   assert.match(intro, /pages\/verification\/triple/)
+  assert.match(intro, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
   assert.doesNotMatch(intro, /pages\/profile-edit\/intro/)
 
   assert.match(triple, /VerificationCenterPage onboarding/)
@@ -112,6 +114,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   const verificationCenter = read('src/pages/verification/components/VerificationCenterPage.tsx')
   assert.match(verificationCenter, /VerificationShell stage="triple"/)
   assert.match(verificationCenter, /onboarding/)
+  assert.match(verificationCenter, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
 })
 
 test('蓝湖关键几何尺寸和构建门禁不可回退', () => {
