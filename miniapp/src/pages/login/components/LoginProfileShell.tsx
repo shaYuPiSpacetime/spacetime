@@ -7,6 +7,9 @@ interface LoginProfileShellProps {
   description: string
   children: ReactNode
   nextActive?: boolean
+  loading?: boolean
+  error?: string
+  onRetry?: () => void | Promise<void>
   onNext: () => void | Promise<void>
 }
 
@@ -33,8 +36,20 @@ export default function LoginProfileShell({
   description,
   children,
   nextActive = false,
+  loading = false,
+  error,
+  onRetry,
   onNext,
 }: LoginProfileShellProps) {
+  const canContinue = nextActive && !loading && !error
+  const handleRetry = async () => {
+    try {
+      await onRetry?.()
+    } catch {
+      // 错误信息由运行时 Store 更新并在当前页面展示。
+    }
+  }
+
   return (
     <View style={pageStyle}>
       <Image
@@ -116,7 +131,73 @@ export default function LoginProfileShell({
           </Text>
         </View>
 
-        {children}
+        {error ? (
+          <View
+            style={{
+              position: 'absolute',
+              left: '75rpx',
+              top: '448rpx',
+              width: '600rpx',
+              minHeight: '260rpx',
+              borderRadius: '32rpx',
+              background: 'rgba(255,255,255,0.84)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '42rpx',
+              boxSizing: 'border-box',
+            }}
+          >
+            <Text style={{ color: '#0C285A', fontSize: '32rpx', fontWeight: 600 }}>
+              加载失败
+            </Text>
+            <Text
+              style={{
+                color: '#8A93A5',
+                fontSize: '26rpx',
+                lineHeight: '40rpx',
+                textAlign: 'center',
+                marginTop: '20rpx',
+              }}
+            >
+              {error}
+            </Text>
+            <View
+              style={{
+                minWidth: '216rpx',
+                height: '76rpx',
+                borderRadius: '38rpx',
+                background: '#2876FF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: '32rpx',
+                padding: '0 36rpx',
+                boxSizing: 'border-box',
+              }}
+              onClick={() => void handleRetry()}
+              hoverClass="btn-hover"
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>
+                重新加载
+              </Text>
+            </View>
+          </View>
+        ) : loading ? (
+          <View
+            style={{
+              position: 'absolute',
+              left: '0',
+              top: '500rpx',
+              width: '750rpx',
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#8A93A5', fontSize: '28rpx' }}>正在加载...</Text>
+          </View>
+        ) : children}
 
         <View
           style={{
@@ -126,13 +207,15 @@ export default function LoginProfileShell({
             width: '126rpx',
             height: '126rpx',
             borderRadius: '63rpx',
-            background: nextActive ? '#2876FF' : '#E3F1FE',
+            background: canContinue ? '#2876FF' : '#E3F1FE',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
-          onClick={onNext}
-          hoverClass="btn-hover"
+          onClick={() => {
+            if (canContinue) void onNext()
+          }}
+          hoverClass={canContinue ? 'btn-hover' : 'none'}
         >
           <View
             style={{

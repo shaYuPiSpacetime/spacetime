@@ -8,6 +8,7 @@ import type {
   ProfileOptions,
   RegionOption,
 } from '@/types/prd01'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 const loader = createPrd01Loader(prd01Api)
 
@@ -42,7 +43,7 @@ export const usePrd01Store = create<Prd01State>((set, get) => ({
     } catch (error) {
       set({
         loading: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error, '运行时配置加载失败，请稍后重试'),
       })
       throw error
     }

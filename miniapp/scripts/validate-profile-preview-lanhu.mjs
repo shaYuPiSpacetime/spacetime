@@ -39,23 +39,24 @@ assert.match(preview, /height: '828rpx'/, '首屏主图高度必须为 828rpx')
 assert.doesNotMatch(preview, /editHeroPhoto/, '主页预览禁止复用缺少竖向像素的编辑页横图')
 assert.match(
   preview,
-  /src=\{miniappOssIcons\.profilePreviewHero\}\s+mode="scaleToFill"/,
-  '首屏主图必须使用蓝湖 OSS 2x 专用切图'
+  /src=\{model\.heroImageUrl \|\| miniappOssIcons\.profilePreviewHero\}\s+mode="scaleToFill"/,
+  '首屏主图必须优先使用真实背景并保留蓝湖 OSS 2x 缺省切图'
 )
 assert.match(
   preview,
-  /src=\{miniappOssIcons\.profilePreviewAvatar\}\s+mode="scaleToFill"/,
-  '首屏头像必须使用蓝湖 OSS 2x 专用切图'
+  /src=\{model\.avatarUrl \|\| miniappOssIcons\.profilePreviewAvatar\}\s+mode="scaleToFill"/,
+  '首屏头像必须优先使用真实头像并保留蓝湖 OSS 2x 缺省切图'
 )
 assert.match(preview, /height: '896rpx'/, '相册图片高度必须为 896rpx')
 assert.doesNotMatch(preview, /height: '920rpx'/, '禁止保留错误的 920rpx 主图高度')
 assert.doesNotMatch(preview, /height: '700rpx'/, '禁止保留错误的 700rpx 相册图片高度')
 assert.match(preview, /borderRadius: '32rpx'/, '蓝湖卡片和图片圆角必须为 32rpx')
-assert.match(preview, /text="女丨97年丨163cm丨双鱼座"/, '基础资料文案必须与蓝湖一致')
-assert.doesNotMatch(preview, /163cm\/45kg/, '主页预览不得展示蓝湖中不存在的体重')
+assert.match(preview, /text=\{model\.genderAgeHeight/, '基础资料必须由真实资料模型驱动')
+assert.match(preview, /text=\{model\.location/, '地区资料必须由真实资料模型驱动')
+assert.doesNotMatch(preview, /女丨97年|浙江杭州|河南人/, '主页预览不得保留蓝湖演示用户文案')
 assert.match(preview, /const previewTagWidths = \['122rpx', '176rpx', '151rpx', '151rpx'\]/, '四个标签宽度总和必须匹配蓝湖 631rpx 内容区')
-assert.match(preview, /textIndent: '54rpx'/, '自我介绍首行必须按蓝湖缩进 54rpx')
-assert.match(preview, /晚上是‘深夜电台’主播（自封的\\n～）/, '自我介绍引号和换行位置必须与蓝湖一致')
+assert.match(preview, /textIndent: introduction \? '54rpx' : '0'/, '有内容时自我介绍首行必须按蓝湖缩进 54rpx')
+assert.match(preview, /introduction=\{model\.introduction\}/, '自我介绍必须由真实资料模型驱动')
 assert.match(preview, /height: '44rpx'/, '卡片标题占位高度必须为 44rpx')
 assert.match(preview, /top: '4rpx'/, '卡片标题文字必须下移 4rpx 对齐蓝湖基线')
 assert.match(preview, /left: '217rpx',[\s\S]*width: '266rpx',[\s\S]*height: '266rpx'/, 'MBTI 中心圆必须匹配蓝湖 266rpx 实测边界')
@@ -65,11 +66,10 @@ assert.match(preview, /right: '152rpx', top: '398rpx'/, 'MBTI 右侧蓝色小圆
 assert.match(preview, /right: '84rpx', top: '461rpx'/, 'MBTI 右下粉色圆位置必须匹配蓝湖')
 assert.match(preview, /padding: '0 25rpx 0 8rpx'/, '认证按钮文字间距必须匹配蓝湖右内边距')
 assert.match(preview, /src=\{miniappOssIcons\.profilePreviewSong\}[\s\S]*marginLeft: '11rpx'/, '歌曲文案与图标间距必须为蓝湖 11rpx')
-assert.match(preview, /src=\{miniappOssIcons\.profilePreviewPhoto\}/, '四张相册图必须使用蓝湖 OSS 无损切图')
 assert.equal(
-  (preview.match(/<ProfilePreviewPhoto \/>/g) || []).length,
+  (preview.match(/<ProfilePreviewPhoto url=\{model\.photos\[\d\]\} \/>/g) || []).length,
   4,
-  '蓝湖主页预览必须展示四张相册大图'
+  '蓝湖主页预览必须保留四个大图卡位并展示真实相册'
 )
 assert.doesNotMatch(preview, /function ProfilePreviewPhoto\(\{ label \}/, '蓝湖相册图片没有叠加标签文案')
 assert.match(preview, /miniappOssIcons\.profilePreviewCertAvatar/, '头像认证必须使用主页预览蓝湖切图')

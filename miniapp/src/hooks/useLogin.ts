@@ -52,6 +52,9 @@ export function useLogin() {
   const config = usePrd01Store(state => state.config)
   const profileOptions = usePrd01Store(state => state.profileOptions)
   const bootstrap = usePrd01Store(state => state.bootstrap)
+  const runtimeLoading = usePrd01Store(state => state.loading)
+  const runtimeError = usePrd01Store(state => state.error)
+  const retryRuntime = usePrd01Store(state => state.retry)
   const copy = usePrd01Store(state => state.copy)
   const loadLocations = usePrd01Store(state => state.locations)
 
@@ -117,8 +120,12 @@ export function useLogin() {
     },
     initField,
     copy,
+    runtimeLoading,
+    runtimeError,
+    retryRuntime,
     bootstrap: ensureRuntime,
-    loadLocations: (parentCode?: string): Promise<RegionOption[]> => loadLocations(parentCode),
+    loadLocations: (parentCode?: string, force = false): Promise<RegionOption[]> =>
+      loadLocations(parentCode, force),
     updateUserInfo,
     saveInitStep,
     resumeInit,

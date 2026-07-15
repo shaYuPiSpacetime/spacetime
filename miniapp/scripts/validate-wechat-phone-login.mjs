@@ -41,6 +41,9 @@ const deployScript = read('deploy/scripts/deploy-prod-local.sh')
 const deployConfigCheck = read('scripts/validate-prod-deploy-config.mjs')
 const webConfig = read('backend/src/main/java/com/spacetime/common/interceptor/WebConfig.java')
 const expectedApiBaseUrl = process.env.EXPECTED_API_BASE_URL || 'https://admin.shikongxiehou.com/api'
+const loginBackgroundStart = loginPage.indexOf("<View className=\"relative w-full h-screen overflow-hidden\"")
+const loginPrimaryActionStart = loginPage.indexOf('hoverClass="btn-hover"', loginBackgroundStart)
+const loginBackgroundBlock = loginPage.slice(loginBackgroundStart, loginPrimaryActionStart)
 
 assert.ok(authService.includes('prd01Api.wechatLogin'), '微信登录必须调用 PRD01 真实登录服务')
 assert.ok(prd01Paths.includes("wechatLogin: '/miniapp/auth/wechat-login'"), '微信登录路径必须为 /miniapp/auth/wechat-login')
@@ -67,6 +70,12 @@ assert.ok(loginPage.includes('setLogin('), '真实登录成功后必须写入 au
 assert.ok(!loginPage.includes('Taro.getUserProfile'), '微信登录不得再依赖 getUserProfile 作为登录授权')
 assert.ok(loginPage.includes('return errMsg.slice(0, 80)'), '微信登录失败时不能吞掉后端真实错误，必须透传业务错误便于定位线上问题')
 assert.ok(loginPage.includes("lowerErrMsg.includes('deny')"), '用户拒绝授权时仍应展示授权引导文案')
+assert.ok(loginBackgroundStart >= 0 && loginPrimaryActionStart > loginBackgroundStart, '必须能定位登录页背景区域')
+assert.ok(loginBackgroundBlock.includes('src={loginSceneBg}'), '登录页必须使用蓝湖登录背景图')
+assert.ok(loginBackgroundBlock.includes('mode="aspectFill"'), '登录背景图必须按全屏比例铺满')
+assert.ok(loginBackgroundBlock.includes('top: 0'), '登录背景图必须从页面顶部开始铺设')
+assert.ok(loginBackgroundBlock.includes("height: '100%'"), '登录背景图必须覆盖完整视口高度')
+assert.ok(!loginBackgroundBlock.includes("top: '88rpx'") && !loginBackgroundBlock.includes("top: '-88rpx'"), '登录背景不得使用会产生顶部空隙的 88rpx 裁剪组合')
 
 assert.ok(useAuth.includes('loginByWechatPhone'), 'useAuth 必须改用手机号授权登录服务')
 assert.ok(userTypes.includes('phoneCode'), 'LoginReq 类型必须包含 phoneCode')

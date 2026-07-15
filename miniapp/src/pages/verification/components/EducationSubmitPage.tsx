@@ -1,15 +1,16 @@
-import { Image, Input, Picker, Text, View } from '@tarojs/components'
+import { Image, Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect, useState } from 'react'
-import { API_BASE_URL } from '@/constants/config'
+import { useState } from 'react'
 import { buildEducationRequest } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
+import { resolveProtectedFilePreview, resolveProtectedFilePreviews } from '@/services/protectedFile'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { EducationDetail, EducationMethod } from '@/types/prd01'
+import VerificationRuntimeBoundary from './VerificationRuntimeBoundary'
 import VerificationSubShell from './VerificationSubShell'
+import { LanhuOptionSheet } from './LanhuPickerSheet'
 
 export default function EducationSubmitPage({ methodCode, userTypeCode }: { methodCode: EducationMethod; userTypeCode: string }) {
-  const bootstrap = usePrd01Store(state => state.bootstrap)
   const profileOptions = usePrd01Store(state => state.profileOptions)
   const config = usePrd01Store(state => state.config)
   const copy = usePrd01Store(state => state.copy)
@@ -21,27 +22,24 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
   const [diplomaNo, setDiplomaNo] = useState('')
   const [certificateName, setCertificateName] = useState('')
   const [materialUrls, setMaterialUrls] = useState<string[]>([])
+  const [materialPreviewUrls, setMaterialPreviewUrls] = useState<string[]>([])
   const [agreed, setAgreed] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [educationPickerVisible, setEducationPickerVisible] = useState(false)
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        await bootstrap()
-        const value = await prd01Api.getEducation()
-        setDetail(value)
-        setSchoolName(value.schoolName || '')
-        setEducationLevel(value.educationLevel || '')
-        setChsiCode(value.chsiCode || '')
-        setDiplomaNo(value.diplomaNo || '')
-        setCertificateName(value.certificateName || '')
-        setMaterialUrls(value.materialUrls || [])
-      } catch (error) {
-        await showError(error)
-      }
-    })()
-  }, [])
+  const loadDetail = async () => {
+    const value = await prd01Api.getEducation()
+    const urls = value.materialUrls || []
+    setDetail(value)
+    setSchoolName(value.schoolName || '')
+    setEducationLevel(value.educationLevel || '')
+    setChsiCode(value.chsiCode || '')
+    setDiplomaNo(value.diplomaNo || '')
+    setCertificateName(value.certificateName || '')
+    setMaterialUrls(urls)
+    setMaterialPreviewUrls(await resolveProtectedFilePreviews(urls))
+  }
 
   const methodOption = profileOptions?.educationMethod?.find(option => option.code === methodCode)
   const userTypeOption = profileOptions?.educationUserType?.find(option => option.code === userTypeCode)
@@ -70,11 +68,14 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
     try {
       const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album', 'camera'] })
       const uploaded: string[] = []
+      const uploadedPreviews: string[] = []
       for (const filePath of result.tempFilePaths) {
         const item = await prd01Api.uploadEducation(filePath)
         uploaded.push(item.url)
+        uploadedPreviews.push(await resolveProtectedFilePreview(item.url))
       }
       setMaterialUrls(current => [...current, ...uploaded])
+      setMaterialPreviewUrls(current => [...current, ...uploadedPreviews])
     } catch (error) {
       await showError(error)
     } finally {
@@ -114,7 +115,8 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
   }
 
   return (
-    <VerificationSubShell title={copy('verification_nav_title')} contentHeight="1750rpx" scroll>
+    <VerificationRuntimeBoundary loadData={loadDetail}>
+      <VerificationSubShell title={copy('verification_nav_title')} contentHeight="1750rpx" scroll>
       <View style={{ position: 'absolute', left: '25rpx', top: '210rpx', width: '700rpx' }}>
         <Text style={{ display: 'block', color: '#0C285A', fontSize: '44rpx', fontWeight: 700 }}>{methodOption?.label || ''}</Text>
         <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '12rpx' }}>{copy('education_notice')}</Text>
@@ -126,19 +128,16 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
       <View style={{ position: 'absolute', left: '25rpx', top: '410rpx', width: '700rpx', borderRadius: '24rpx', background: '#FFFFFF', padding: '30rpx', boxSizing: 'border-box' }}>
         <ReadOnlyRow label={copy('education_user_type_label')} value={userTypeOption?.label || ''} />
         <InputRow label={copy('education_school_label')} value={schoolName} placeholder={copy('education_school_placeholder')} onInput={setSchoolName} />
-        <Picker mode="selector" range={educationOptions.map(option => option.label)} onChange={event => {
-          const option = educationOptions[Number(event.detail.value)]
-          if (option) setEducationLevel(option.code)
-        }}>
+        <View onClick={() => setEducationPickerVisible(true)}>
           <ReadOnlyRow label={copy('education_level_label')} value={optionLabel('educationLevel', educationLevel) || copy('common_select_placeholder')} />
-        </Picker>
+        </View>
         {needsChsi ? <InputRow label={copy('education_chsi_label')} value={chsiCode} placeholder={copy('education_chsi_placeholder')} onInput={setChsiCode} /> : null}
         {needsDiploma ? <InputRow label={copy('education_diploma_label')} value={diplomaNo} placeholder={copy('education_diploma_placeholder')} onInput={setDiplomaNo} /> : null}
         {needsCertificateName ? <InputRow label={copy('education_certificate_name_label')} value={certificateName} placeholder={copy('education_certificate_name_placeholder')} onInput={setCertificateName} /> : null}
         {needsMaterial ? (
           <View>
             <View style={{ minHeight: '104rpx', borderRadius: '16rpx', background: '#F6F9FE', marginTop: '20rpx', padding: '20rpx', display: 'flex', flexWrap: 'wrap', gap: '16rpx', boxSizing: 'border-box' }} onClick={() => void handleUpload()}>
-              {materialUrls.map(url => <Image key={url} src={url.startsWith('/') ? API_BASE_URL + url : url} mode="aspectFill" style={{ width: '92rpx', height: '92rpx', borderRadius: '12rpx' }} />)}
+              {materialUrls.map((url, index) => <Image key={url} src={materialPreviewUrls[index] || ''} mode="aspectFill" style={{ width: '92rpx', height: '92rpx', borderRadius: '12rpx' }} />)}
               <Text style={{ color: '#2876FF', fontSize: '26rpx', alignSelf: 'center' }}>{copy(uploading ? 'common_uploading_action' : 'education_upload_action')}</Text>
             </View>
             <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '12rpx' }}>{copy('education_upload_notice')}</Text>
@@ -155,7 +154,21 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
           <Text style={{ color: '#FFFFFF', fontSize: '36rpx' }}>{copy(submitting ? 'common_submitting_action' : 'common_submit_action')}</Text>
         </View>
       ) : null}
-    </VerificationSubShell>
+      {educationPickerVisible ? (
+        <LanhuOptionSheet
+          title={copy('education_level_label')}
+          options={educationOptions.map(option => option.label)}
+          value={optionLabel('educationLevel', educationLevel)}
+          onConfirm={label => {
+            const option = educationOptions.find(item => item.label === label)
+            if (option) setEducationLevel(option.code)
+            setEducationPickerVisible(false)
+          }}
+          onClose={() => setEducationPickerVisible(false)}
+        />
+      ) : null}
+      </VerificationSubShell>
+    </VerificationRuntimeBoundary>
   )
 }
 

@@ -17,7 +17,10 @@ const ROWS = [
 
 /** 登录出生日期选择：蓝湖三列滚轮外观，年龄范围由接口配置。 */
 export default function LoginAgePage() {
-  const { userInfo, ageRange, initField, bootstrap, saveInitStep } = useLogin()
+  const {
+    userInfo, ageRange, initField, bootstrap, saveInitStep,
+    runtimeLoading, runtimeError, retryRuntime,
+  } = useLogin()
   const field = initField(2)
   const years = useMemo(() => buildYears(ageRange.min, ageRange.max), [ageRange.min, ageRange.max])
   const initial = useMemo(() => resolveInitialValue(userInfo.birthday, years), [userInfo.birthday, years])
@@ -58,6 +61,9 @@ export default function LoginAgePage() {
     <LoginProfileShell
       description="—你是哪一年出生（为你推荐匹配的异性）—"
       nextActive={touched || field?.required === false}
+      loading={runtimeLoading || (!runtimeError && years.length === 0)}
+      error={runtimeError}
+      onRetry={retryRuntime}
       onNext={handleNext}
     >
       <View style={{ position: 'absolute', left: '25rpx', top: '493rpx', width: '700rpx', height: '410rpx' }}>
@@ -75,10 +81,14 @@ export default function LoginAgePage() {
 }
 
 function buildYears(minAge?: number, maxAge?: number) {
+  if (!Number.isFinite(minAge) || !Number.isFinite(maxAge) || !minAge || !maxAge || maxAge < minAge) {
+    return []
+  }
   const currentYear = new Date().getFullYear()
-  const safeMin = minAge ?? 18
-  const safeMax = Math.max(maxAge ?? 80, safeMin)
-  return Array.from({ length: safeMax - safeMin + 1 }, (_, index) => `${currentYear - safeMax + index}年`)
+  return Array.from(
+    { length: maxAge - minAge + 1 },
+    (_, index) => `${currentYear - maxAge + index}年`
+  )
 }
 
 function resolveInitialValue(birthday: string | undefined, years: string[]) {

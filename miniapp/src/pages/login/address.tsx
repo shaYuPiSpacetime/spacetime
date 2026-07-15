@@ -10,7 +10,10 @@ type RegionStage = 'province' | 'city' | 'district' | null
 
 /** 登录居住地：保留蓝湖入口与底部弹层，提交值始终为行政区 code。 */
 export default function LoginAddressPage() {
-  const { userInfo, initField, bootstrap, loadLocations, saveInitStep } = useLogin()
+  const {
+    userInfo, initField, bootstrap, loadLocations, saveInitStep,
+    runtimeLoading, runtimeError, retryRuntime,
+  } = useLogin()
   const [provinces, setProvinces] = useState<RegionOption[]>([])
   const [cities, setCities] = useState<RegionOption[]>([])
   const [districts, setDistricts] = useState<RegionOption[]>([])
@@ -18,29 +21,38 @@ export default function LoginAddressPage() {
   const [city, setCity] = useState<RegionOption>()
   const [district, setDistrict] = useState<RegionOption>()
   const [stage, setStage] = useState<RegionStage>(null)
+  const [pageLoading, setPageLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string>()
   const field = initField(5)
 
+  const loadPageData = async (force = false) => {
+    setPageLoading(true)
+    setLoadError(undefined)
+    try {
+      if (force) await retryRuntime()
+      else await bootstrap()
+      const root = await loadLocations(undefined, force)
+      setProvinces(root)
+      const savedProvince = root.find(item => item.code === userInfo.locationProvince)
+      if (!savedProvince) return
+      setProvince(savedProvince)
+      const nextCities = savedProvince.leaf ? [] : await loadLocations(savedProvince.code, force)
+      setCities(nextCities)
+      const savedCity = nextCities.find(item => item.code === userInfo.locationCity)
+      if (!savedCity) return
+      setCity(savedCity)
+      const nextDistricts = savedCity.leaf ? [] : await loadLocations(savedCity.code, force)
+      setDistricts(nextDistricts)
+      setDistrict(nextDistricts.find(item => item.code === userInfo.locationDistrict))
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPageLoading(false)
+    }
+  }
+
   useEffect(() => {
-    void (async () => {
-      try {
-        await bootstrap()
-        const root = await loadLocations()
-        setProvinces(root)
-        const savedProvince = root.find(item => item.code === userInfo.locationProvince)
-        if (!savedProvince) return
-        setProvince(savedProvince)
-        const nextCities = savedProvince.leaf ? [] : await loadLocations(savedProvince.code)
-        setCities(nextCities)
-        const savedCity = nextCities.find(item => item.code === userInfo.locationCity)
-        if (!savedCity) return
-        setCity(savedCity)
-        const nextDistricts = savedCity.leaf ? [] : await loadLocations(savedCity.code)
-        setDistricts(nextDistricts)
-        setDistrict(nextDistricts.find(item => item.code === userInfo.locationDistrict))
-      } catch (error) {
-        await showError(error)
-      }
-    })()
+    void loadPageData()
   }, [])
 
   const selectProvince = async (label: string) => {
@@ -50,9 +62,13 @@ export default function LoginAddressPage() {
     setCity(undefined)
     setDistrict(undefined)
     setDistricts([])
-    const nextCities = selected.leaf ? [] : await loadLocations(selected.code)
-    setCities(nextCities)
-    setStage(nextCities.length ? 'city' : null)
+    try {
+      const nextCities = selected.leaf ? [] : await loadLocations(selected.code)
+      setCities(nextCities)
+      setStage(nextCities.length ? 'city' : null)
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : String(error))
+    }
   }
 
   const selectCity = async (label: string) => {
@@ -60,9 +76,13 @@ export default function LoginAddressPage() {
     if (!selected) return
     setCity(selected)
     setDistrict(undefined)
-    const nextDistricts = selected.leaf ? [] : await loadLocations(selected.code)
-    setDistricts(nextDistricts)
-    setStage(nextDistricts.length ? 'district' : null)
+    try {
+      const nextDistricts = selected.leaf ? [] : await loadLocations(selected.code)
+      setDistricts(nextDistricts)
+      setStage(nextDistricts.length ? 'district' : null)
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : String(error))
+    }
   }
 
   const selectDistrict = (label: string) => {
@@ -96,6 +116,9 @@ export default function LoginAddressPage() {
     <LoginProfileShell
       description="—你的居住地（为你推荐匹配的异性）—"
       nextActive={Boolean(city) || field?.required === false}
+      loading={pageLoading || runtimeLoading || (!runtimeError && !loadError && provinces.length === 0)}
+      error={runtimeError || loadError}
+      onRetry={() => loadPageData(true)}
       onNext={handleNext}
     >
       <View style={{ position: 'absolute', left: '25rpx', top: '518rpx', width: '700rpx', height: '98rpx', borderRadius: '8rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>

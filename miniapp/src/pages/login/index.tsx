@@ -5,7 +5,6 @@ import { useLogin } from '@/hooks/useLogin'
 import { useAuthStore } from '@/stores/authStore'
 import { loginByWechatPhone } from '@/services/auth'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { resolvePostLoginRoute } from '@/domain/prd01Runtime'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import loginSceneBg from '@/assets/login/login-scene-bg.jpg'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -475,13 +474,7 @@ export default function LoginAuthPage() {
         maskedPhone: loginData.maskedPhone,
         accessStatus: loginData.accessStatus,
       })
-      const route = resolvePostLoginRoute({
-        firstLoginCompleted: Boolean(loginData.firstLoginCompleted),
-        nextStep: loginData.nextStep,
-      })
-      if (loginData.firstLoginCompleted) await Taro.switchTab({ url: route })
-      else if (route) await Taro.redirectTo({ url: route })
-      else await resumeInit()
+      await resumeInit()
     } catch (error) {
       const nextErrorText = getWechatAuthErrorText(error)
       setErrorText(nextErrorText)
@@ -517,29 +510,18 @@ export default function LoginAuthPage() {
 
   return (
     <View className="relative w-full h-screen overflow-hidden" style={{ background: '#061329' }}>
-      <View
+      <Image
+        src={loginSceneBg}
+        mode="aspectFill"
         style={{
           position: 'absolute',
           left: 0,
-          top: '88rpx',
+          top: 0,
           width: '100%',
-          height: 'calc(100% - 88rpx)',
-          overflow: 'hidden',
+          height: '100%',
           zIndex: 0,
         }}
-      >
-        {/* 原图含参考状态栏；只做运行时裁切，不修改或重新编码源文件。 */}
-        <Image
-          src={loginSceneBg}
-          mode="widthFix"
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: '-88rpx',
-            width: '100%',
-          }}
-        />
-      </View>
+      />
 
       <View
         className="absolute flex items-center justify-center"

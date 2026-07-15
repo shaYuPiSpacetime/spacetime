@@ -68,14 +68,18 @@ assert.ok(tabsSource.includes('completedKeys'), '认证状态 Tabs 需要支持�
 assert.ok(tabsSource.includes("active === 'realName'") && tabsSource.includes("active === 'education'"), '认证状态 Tabs 缺少实名/学历前序点亮逻辑')
 
 const realNameSource = read('src/pages/verification/real-name.tsx')
-assert.ok(realNameSource.includes('DEFAULT_REAL_NAME'), '实名认证页需要默认测试姓名')
-assert.ok(realNameSource.includes('DEFAULT_ID_CARD'), '实名认证页需要默认测试身份证号')
-assert.ok(realNameSource.includes('useState(true)'), '实名认证协议需要默认勾选')
+assert.ok(realNameSource.includes('getRealName'), '实名认证页必须从接口回显姓名和状态')
+assert.ok(realNameSource.includes("useState('')"), '实名认证页禁止内置测试身份信息')
+assert.ok(realNameSource.includes("copy('real_name_name_placeholder')"), '实名认证姓名提示必须读取运行时文案')
+assert.ok(realNameSource.includes("copy('real_name_id_placeholder')"), '实名认证证件提示必须读取运行时文案')
+assert.ok(realNameSource.includes('useState(false)'), '实名认证协议不得替用户默认勾选')
 
 const educationStudentSource = read('src/pages/verification/education-student.tsx')
-assert.ok(educationStudentSource.includes('DEFAULT_SCHOOL_NAME'), '学历认证页需要默认测试学校')
-assert.ok(educationStudentSource.includes('DEFAULT_UPLOAD_PATH'), '学历认证页需要默认上传占位')
-assert.ok(educationStudentSource.includes('LanhuOptionSheet'), '学历认证页需要使用自定义蓝湖弹窗')
+const educationSubmitSource = read('src/pages/verification/components/EducationSubmitPage.tsx')
+assert.ok(educationStudentSource.includes('EducationSubmitPage'), '学历认证学生页必须复用接口驱动提交页')
+assert.ok(educationSubmitSource.includes('getEducation'), '学历认证页必须从接口回显表单和审核状态')
+assert.ok(educationSubmitSource.includes('profileOptions?.educationLevel'), '学历枚举必须读取接口字典')
+assert.ok(educationSubmitSource.includes('LanhuOptionSheet'), '学历认证页需要使用自定义蓝湖弹窗')
 
 const appTabSource = read('src/components/AppTabBar/index.tsx')
 assert.ok(appTabSource.includes("import tabHomeIcon from '@/assets/icons/tab-home.png'"), '底部千寻 icon 必须使用蓝湖切图')
@@ -133,7 +137,6 @@ assert.ok(profileEditSource.includes("/pages/verification/my-certification"), '�
 assert.ok(profileEditSource.includes('data-role="hero-main-photo"'), '头像区需要还原主照片结构')
 assert.ok(profileEditSource.includes('data-role="hero-mini-avatar"'), '头像区需要还原小头像结构')
 for (const componentName of [
-  'EditProfileNavBar',
   'ProfileScoreCard',
   'ProfileHeroCard',
   'PhotoUploadGrid',
@@ -150,14 +153,15 @@ assert.ok(appConfigSource.indexOf("'pages/login/index'") < appConfigSource.index
 assert.ok(appConfigSource.includes("'my-certification'"), '我的认证页面必须注册到 verification 分包')
 assert.ok(!appConfigSource.includes("'voice'"), '语音介绍独立页不应再作为 profile-edit 可达页面注册')
 
-assert.ok(myCertificationSource.includes('MyCertificationPage'), '我的认证页面缺少页面组件')
-assert.ok(myCertificationSource.includes('CertStatusCard'), '我的认证页面缺少认证卡片组件')
+const verificationCenterSource = read('src/pages/verification/components/VerificationCenterPage.tsx')
+assert.ok(myCertificationSource.includes('VerificationCenterPage'), '我的认证页面缺少共享认证中心组件')
+assert.ok(verificationCenterSource.includes('CERT_ITEMS'), '我的认证页面缺少认证卡片配置')
 assert.ok(navigationSource.includes('navigateBackOrRedirect'), '缺少统一返回工具')
 assert.ok(navigationSource.includes('Taro.getCurrentPages()'), '统一返回工具必须先检查页面栈')
 assert.ok(navigationSource.includes('Taro.navigateBack'), '统一返回工具必须优先 navigateBack')
 assert.ok(navigationSource.includes('Taro.redirectTo'), '统一返回工具必须提供编辑资料兜底')
 assert.ok(navigationSource.includes('Promise.resolve(backResult)'), '统一返回工具必须兼容 navigateBack 非 Promise 返回值')
-assert.ok(myCertificationSource.includes('navigateBackOrRedirect'), '我的认证页面左上角必须使用统一返回工具')
+assert.ok(verificationCenterSource.includes('navigateBackOrRedirect'), '我的认证页面左上角必须使用统一返回工具')
 assert.ok(subNavSource.includes('getMenuButtonBoundingClientRect'), '二级页导航必须按微信胶囊位置垂直对齐')
 assert.ok(subNavSource.includes('getWindowMetrics'), '二级页导航必须使用窗口宽度换算 rpx')
 assert.ok(subNavSource.includes('menuLeft'), '二级页标题必须按胶囊左侧预留安全区')
@@ -168,11 +172,11 @@ assert.ok(subNavSource.includes("width: '24rpx'"), '二级页返回箭头需要�
 assert.ok(subNavSource.includes("height: '24rpx'"), '二级页返回箭头高度需要按蓝湖尺寸缩小')
 const forbiddenCapsuleDots = ['•', '•', '•'].join('')
 assert.ok(!myCertificationSource.includes(forbiddenCapsuleDots), '我的认证页面禁止自绘右上胶囊')
-assert.ok(myCertificationSource.includes('LanhuSubNav'), '我的认证页面必须使用共享二级导航')
+assert.ok(verificationCenterSource.includes('VerificationSubShell'), '我的认证页面必须使用共享二级导航外壳')
 assert.ok(basicSource.includes("router.params.from === 'profile'"), '基本资料页需要识别编辑资料入口')
 assert.ok(basicSource.includes('<LanhuSubNav title="基本资料"'), '基本资料编辑态需要共享二级导航')
-assert.ok(basicSource.includes('mode="profileEdit"'), '基本资料编辑态需要复用 BasicInfoCard 编辑布局')
-assert.ok(basicSource.includes('>保存</Text>'), '基本资料编辑态底部按钮文案必须是保存')
+assert.ok(basicSource.includes("mode={fromProfile ? 'profileEdit' : 'verification'}"), '基本资料编辑态需要复用 BasicInfoCard 编辑布局')
+assert.ok(basicSource.includes(": '保存'"), '基本资料编辑态底部按钮文案必须是保存')
 
 for (const relativePath of profileEditPages) {
   const source = read(relativePath)
@@ -184,9 +188,9 @@ for (const relativePath of profileEditPages) {
 }
 
 const introSource = read('src/pages/profile-edit/intro.tsx')
-assert.ok(introSource.includes('介绍下自己的性格、习惯、有点、缺点'), '自我介绍页面缺少蓝湖标题描述')
-assert.ok(introSource.includes('最少20字'), '自我介绍页面缺少蓝湖字数提示')
-assert.ok(introSource.includes('>保存</Text>'), '自我介绍页面按钮文案必须是保存')
+assert.ok(introSource.includes('认真介绍自己，让 TA 更快了解你'), '自我介绍页面缺少蓝湖标题描述')
+assert.ok(introSource.includes('写下你的自我介绍'), '自我介绍页面缺少输入提示')
+assert.ok(introSource.includes(": '保存'"), '自我介绍页面按钮文案必须是保存')
 const forbiddenIntroButtonText = ['保存自我', '介绍'].join('')
 assert.ok(!introSource.includes(forbiddenIntroButtonText), '自我介绍页面禁止使用旧按钮文案')
 

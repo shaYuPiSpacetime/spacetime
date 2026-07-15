@@ -6,7 +6,7 @@ import { loginByPhone, sendPhoneSmsCode } from '@/services/auth'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
-import { resolvePostLoginRoute, resolveSmsCountdown } from '@/domain/prd01Runtime'
+import { resolveSmsCountdown } from '@/domain/prd01Runtime'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import './phone.scss'
@@ -122,17 +122,7 @@ export default function PhoneLoginPage() {
           accessStatus: loginData.accessStatus,
         }
       )
-      const route = resolvePostLoginRoute({
-        firstLoginCompleted: Boolean(loginData.firstLoginCompleted),
-        nextStep: loginData.nextStep,
-      })
-      if (loginData.firstLoginCompleted) {
-        await Taro.switchTab({ url: route })
-      } else if (route) {
-        await Taro.redirectTo({ url: route })
-      } else {
-        await resumeInit()
-      }
+      await resumeInit()
     } catch (error) {
       showError('登录失败，请稍后重试', error)
     } finally {

@@ -7,7 +7,7 @@ import { miniappOssIcons } from '@/constants/ossIcons'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, ProfileFieldSetting, ProfileMedia, VerificationStatus, VoiceIntro } from '@/types/prd01'
-import ProfilePreviewPage from './components/ProfilePreviewPage'
+import ProfilePreviewPage, { type ProfilePreviewModel } from './components/ProfilePreviewPage'
 
 import editHeroPhoto from '@/assets/lanhu/profile/edit-hero-photo.jpg'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -160,19 +160,21 @@ export default function ProfileEditPage() {
   const profileOptions = usePrd01Store(state => state.profileOptions)
   const [heroPhoto, setHeroPhoto] = useState(editHeroPhoto)
   const [miniAvatar, setMiniAvatar] = useState(defaultAvatar)
+  const [profileAvatar, setProfileAvatar] = useState('')
+  const [profileBackground, setProfileBackground] = useState('')
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
-  const [nickname, setNickname] = useState('待完善昵称')
+  const [nickname, setNickname] = useState('')
   const [profileScore, setProfileScore] = useState(0)
   const [basic, setBasic] = useState<BasicProfile>({})
   const [fieldSettings, setFieldSettings] = useState<ProfileFieldSetting[]>([])
   const [verification, setVerification] = useState<VerificationStatus>({})
-  const [intro, setIntro] = useState('添加自我介绍，让TA更了解你')
+  const [intro, setIntro] = useState('')
   const [aboutTopics, setAboutTopics] = useState<AboutTopic[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [favoriteSong, setFavoriteSong] = useState('还没有添加喜欢的歌曲')
+  const [favoriteSong, setFavoriteSong] = useState('')
   const [goal, setGoal] = useState('')
-  const [relationship, setRelationship] = useState('佛系交友')
-  const [mbti, setMbti] = useState('ENFJ 主人公')
+  const [relationship, setRelationship] = useState('')
+  const [selectedTagCodes, setSelectedTagCodes] = useState<string[]>([])
   const [wechat, setWechat] = useState('')
   const [sheet, setSheet] = useState<SheetState>(null)
   const [voiceSheet, setVoiceSheet] = useState<VoiceSheetVariant | null>(() =>
@@ -199,9 +201,10 @@ export default function ProfileEditPage() {
         const options = usePrd01Store.getState().profileOptions
         const profile = home.profile
         const avatar = String(profile.avatar || '')
+        setProfileBackground(String(profile.profileBgImage || ''))
         const nextGoalCode = String(profile.datingGoal || '')
         const nextRelationshipCode = String(profile.emotionalStatus || '')
-        setNickname(String(profile.nickname || basicResult.nickname || '待完善昵称'))
+        setNickname(String(profile.nickname || basicResult.nickname || ''))
         setProfileScore(Number(profile.profileScore || basicResult.profileScore || 0))
         setBasic(basicResult)
         setFieldSettings(home.fieldSettings || basicResult.fieldSettings || [])
@@ -209,18 +212,21 @@ export default function ProfileEditPage() {
         if (avatar) {
           setHeroPhoto(avatar)
           setMiniAvatar(avatar)
+          setProfileAvatar(avatar)
         }
         setProfilePhotos(mergeAlbumSlots(albums))
         setGoal(options?.datingGoal.find(option => option.code === nextGoalCode)?.label || '')
         setRelationship(options?.emotionalStatus.find(option => option.code === nextRelationshipCode)?.label || '')
         setWechat(wechatId || '')
-        setIntro(introDetail.effectiveContent || introDetail.latestContent || '添加自我介绍，让TA更了解你')
+        setIntro(introDetail.effectiveContent || introDetail.latestContent || '')
         setAboutTopics(aboutDetail.questions.map(question => ({
           key: question.questionKey,
           title: question.title,
           value: question.effectiveContent || question.latestContent,
         })))
-        setSelectedTags(parseTagCodes(tags).map(code => options?.profileTag.find(option => option.code === code)?.label || code))
+        const tagCodes = parseTagCodes(tags)
+        setSelectedTagCodes(tagCodes)
+        setSelectedTags(tagCodes.map(code => options?.profileTag.find(option => option.code === code)?.label || code))
         const songName = String(profile.favoriteSongName || '')
         const artistName = String(profile.favoriteSongArtist || '')
         if (songName) setFavoriteSong(artistName ? `${songName}｜${artistName}` : songName)
@@ -320,12 +326,16 @@ export default function ProfileEditPage() {
     })
   }
 
+  const mbtiOptions = profileOptions?.profileTagGroups
+    .find(group => group.categoryCode.toUpperCase() === 'MBTI')?.options || []
+  const mbti = mbtiOptions.find(option => selectedTagCodes.includes(option.code))?.label || ''
+
   const openMbtiSheet = () => {
     setSheet({
       key: 'mbti',
       title: 'MBTI类型',
       value: mbti,
-      options: ['ENFJ 主人公', 'INFJ 提倡者', 'ENFP 竞选者', 'INTJ 建筑师', 'ISFJ 守卫者'],
+      options: mbtiOptions.map(option => option.label),
     })
   }
 
@@ -344,7 +354,15 @@ export default function ProfileEditPage() {
         await prd01Api.saveEmotionalStatus(option.code)
         setRelationship(option.label)
       }
-      if (sheet.key === 'mbti') setMbti(value)
+      if (sheet.key === 'mbti') {
+        const option = mbtiOptions.find(item => item.label === value)
+        if (!option) return
+        const mbtiCodes = new Set(mbtiOptions.map(item => item.code))
+        const nextCodes = [...selectedTagCodes.filter(code => !mbtiCodes.has(code)), option.code]
+        await prd01Api.saveTags(nextCodes)
+        setSelectedTagCodes(nextCodes)
+        setSelectedTags(nextCodes.map(code => profileOptions?.profileTag.find(item => item.code === code)?.label || code))
+      }
     } catch (error) {
       await showError(error)
       return
@@ -389,6 +407,7 @@ export default function ProfileEditPage() {
       await prd01Api.submitAvatar({ avatarSource: source.code, avatarUrl: uploaded.url })
       setHeroPhoto(uploaded.url)
       setMiniAvatar(uploaded.url)
+      setProfileAvatar(uploaded.url)
     }, '更换照片')
   }
 
@@ -397,8 +416,16 @@ export default function ProfileEditPage() {
       const uploaded = await prd01Api.uploadAlbum(imagePath)
       const current = profilePhotos[index]
       const saved = current?.mediaId
-        ? await prd01Api.replaceAlbum(current.mediaId, { mediaUrl: uploaded.url, sortOrder: index })
-        : await prd01Api.addAlbum({ mediaUrl: uploaded.url, sortOrder: index })
+        ? await prd01Api.replaceAlbum(current.mediaId, {
+            mediaUrl: uploaded.url,
+            fileSizeBytes: uploaded.fileSizeBytes,
+            sortOrder: index,
+          })
+        : await prd01Api.addAlbum({
+            mediaUrl: uploaded.url,
+            fileSizeBytes: uploaded.fileSizeBytes,
+            sortOrder: index,
+          })
       setProfilePhotos(items => items.map((item, photoIndex) => photoIndex === index ? { ...item, mediaId: saved.mediaId, imageUrl: saved.mediaUrl } : item))
     }, profilePhotos[index]?.label || '添加照片')
   }
@@ -410,9 +437,50 @@ export default function ProfileEditPage() {
     }
   }
 
+  const optionLabel = usePrd01Store.getState().optionLabel
+  const gender = optionLabel('gender', String(basic.gender || ''))
+  const genderAgeHeight = [
+    gender,
+    basic.age ? `${basic.age}岁` : '',
+    basic.height ? `${basic.height}cm` : '',
+  ].filter(Boolean).join('丨')
+  const currentLocation = String(basic.locationCityLabel || basic.locationCityName || basic.locationCity || '')
+  const hometown = String(basic.hometownProvinceLabel || basic.hometownProvinceName || basic.hometownProvince || '')
+  const photos = profilePhotos.flatMap(item => item.imageUrl ? [item.imageUrl] : [])
+  const certificationRows = [
+    { key: 'avatar' as const, label: '头像', status: verification.avatarVerifyStatus },
+    { key: 'realName' as const, label: '实名', status: verification.realNameStatus },
+    { key: 'education' as const, label: '学历', status: verification.educationStatus },
+  ]
+  const previewModel: ProfilePreviewModel = {
+    avatarUrl: profileAvatar,
+    heroImageUrl: profileBackground || photos[0] || profileAvatar,
+    nickname,
+    genderAgeHeight,
+    location: [currentLocation ? `现居${currentLocation}` : '', hometown ? `${hometown}人` : ''].filter(Boolean).join('丨'),
+    tags: selectedTags,
+    introduction: intro,
+    photos,
+    certifications: certificationRows.map(item => ({
+      ...item,
+      passed: isCertificationPassed(item.status),
+      statusLabel: optionLabel('auditStatus', String(item.status || '')),
+    })),
+    voice: {
+      url: voiceDetail?.voiceIntroUrl || '',
+      duration: voiceDetail?.voiceIntroDuration,
+      statusLabel: optionLabel('auditStatus', String(voiceDetail?.voiceIntroAuditStatus || '')),
+    },
+    datingGoal: goal,
+    relationshipStatus: relationship,
+    favoriteSong,
+    mbti,
+    aboutMe: aboutTopics.flatMap(item => item.value ? [{ title: item.title, value: item.value }] : []),
+  }
+
   // 主页预览等价路由：/pages/profile/index?variant=preview；底部 Tab 页面不使用 navigateTo。
   return showPreview ? (
-    <ProfilePreviewPage nickname={nickname} onBack={handleBack} onEdit={() => setShowPreview(false)} />
+    <ProfilePreviewPage model={previewModel} onBack={handleBack} onEdit={() => setShowPreview(false)} />
   ) : (
     <View
       style={{ minHeight: '100vh', background: pageBackground, overflow: 'hidden', fontFamily }}

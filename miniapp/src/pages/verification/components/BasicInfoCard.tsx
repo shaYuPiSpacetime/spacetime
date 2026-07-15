@@ -8,6 +8,7 @@ import type {
   ProfileOptions,
   RegionOption,
 } from '@/types/prd01'
+import { usePrd01Store } from '@/stores/prd01Store'
 import { BottomPicker, FieldRow } from './VerificationShell'
 import { LanhuDateSheet, LanhuOptionSheet } from './LanhuPickerSheet'
 
@@ -46,7 +47,7 @@ const REGION_FIELD_IDS = new Set([
 
 /**
  * 基本资料卡片：字段显隐、标签、范围和枚举均来自运行时接口。
- * 固定的仅是蓝湖布局与“待完善/取消/确定”等交互文案。
+ * 固定的仅是蓝湖布局；字段、枚举和交互文案均由运行时接口提供。
  */
 export default function BasicInfoCard({
   userInfo,
@@ -56,6 +57,7 @@ export default function BasicInfoCard({
   mode = 'verification',
   onChange,
 }: BasicInfoCardProps) {
+  const copy = usePrd01Store(state => state.copy)
   const [editor, setEditor] = useState<EditorState>(null)
   const visibleSettings = useMemo(
     () => fieldSettings.filter(setting => setting.visible && setting.editable !== false),
@@ -77,7 +79,10 @@ export default function BasicInfoCard({
     <FieldRow
       key={setting.fieldId}
       label={setting.label || setting.fieldId}
-      value={renderValue(resolveValueLabel(setting, userInfo[setting.fieldId], profileOptions, regionOptions))}
+      value={renderValue(
+        resolveValueLabel(setting, userInfo[setting.fieldId], profileOptions, regionOptions, copy('common_select_placeholder')),
+        copy('common_select_placeholder')
+      )}
       onClick={() => openEditor(setting)}
       last={index === settings.length - 1}
     />
@@ -107,6 +112,7 @@ export default function BasicInfoCard({
           setting={editor.setting}
           value={userInfo[editor.setting.fieldId]}
           options={editor.options}
+          placeholder={copy('common_select_placeholder')}
           onConfirm={async value => {
             await onChange(editor.setting.fieldId, value)
             setEditor(null)
@@ -122,12 +128,14 @@ function RuntimeFieldEditor({
   setting,
   value,
   options,
+  placeholder,
   onConfirm,
   onClose,
 }: {
   setting: ProfileFieldSetting
   value: unknown
   options: Array<{ code: string; label: string }>
+  placeholder: string
   onConfirm: (value: unknown) => void | Promise<void>
   onClose: () => void
 }) {
@@ -166,6 +174,7 @@ function RuntimeFieldEditor({
       value={value == null ? '' : String(value)}
       maxlength={setting.maxLength}
       number={setting.fieldType === 'number'}
+      placeholder={placeholder}
       onConfirm={next => void onConfirm(setting.fieldType === 'number' && next ? Number(next) : next)}
       onClose={onClose}
     />
@@ -177,6 +186,7 @@ function TextFieldEditor({
   value,
   maxlength,
   number,
+  placeholder,
   onConfirm,
   onClose,
 }: {
@@ -184,6 +194,7 @@ function TextFieldEditor({
   value: string
   maxlength?: number
   number: boolean
+  placeholder: string
   onConfirm: (value: string) => void
   onClose: () => void
 }) {
@@ -196,7 +207,7 @@ function TextFieldEditor({
           type={number ? 'number' : 'text'}
           value={draft}
           maxlength={maxlength || 100}
-          placeholder="请输入"
+          placeholder={placeholder}
           placeholderStyle="color:#A8B2C4;font-size:28rpx"
           onInput={event => {
             setDraft(event.detail.value)
@@ -213,9 +224,10 @@ function resolveValueLabel(
   setting: ProfileFieldSetting,
   value: unknown,
   profileOptions?: ProfileOptions,
-  regionOptions: Record<string, RegionOption[]> = {}
+  regionOptions: Record<string, RegionOption[]> = {},
+  placeholder = ''
 ) {
-  if (value == null || value === '') return '待完善'
+  if (value == null || value === '') return placeholder
   const code = String(value)
   const optionKey = FIELD_OPTION_KEYS[setting.fieldId]
   if (optionKey) {
@@ -237,8 +249,8 @@ function buildNumericOptions(setting: ProfileFieldSetting) {
   })
 }
 
-function renderValue(value: string) {
-  return <Text style={{ color: value === '待完善' ? '#B5BAC7' : '#999999', fontSize: '28rpx', lineHeight: '40rpx' }}>{value}</Text>
+function renderValue(value: string, placeholder: string) {
+  return <Text style={{ color: value === placeholder ? '#B5BAC7' : '#999999', fontSize: '28rpx', lineHeight: '40rpx' }}>{value}</Text>
 }
 
 function profileCardStyle(top: string, rowCount: number) {

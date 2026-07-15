@@ -1,68 +1,22 @@
-import { Text, Textarea, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useState } from 'react'
-import { useLogin } from '@/hooks/useLogin'
-import { getDemoPageData } from '@/services/lanhuDemo'
-import VerificationShell from './components/VerificationShell'
+import Taro, { useRouter } from '@tarojs/taro'
+import { useEffect } from 'react'
 
-const DEFAULT_INTRO = getDemoPageData('verification').introDefaultText
+export default function VerificationIntroEditLegacyPage() {
+  const router = useRouter()
 
-export default function VerificationIntroEditPage() {
-  const { userInfo, updateUserInfo } = useLogin()
-  const [intro, setIntro] = useState(userInfo.introduction || DEFAULT_INTRO)
-  const canSubmit = intro.trim().length >= 20
+  useEffect(() => {
+    void Taro.redirectTo({ url: appendQuery('/pages/profile-edit/intro', router.params) }).catch(() => {
+      void Taro.showToast({ title: '页面跳转失败，请重试', icon: 'none' })
+    })
+  }, [])
 
-  const handleSubmit = () => {
-    if (!canSubmit) return
-    updateUserInfo({ introduction: intro.trim() })
-    Taro.redirectTo({ url: '/pages/verification/triple' })
-  }
+  return null
+}
 
-  return (
-    <VerificationShell
-      stage="intro"
-      primaryText="下一步"
-      primaryActive={canSubmit}
-      onPrimary={handleSubmit}
-      onBack={() => Taro.redirectTo({ url: '/pages/verification/intro' })}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: '25rpx',
-          top: '558rpx',
-          width: '700rpx',
-          height: '974rpx',
-          borderRadius: '18rpx',
-          background: '#FFFFFF',
-          padding: '52rpx 30rpx',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text style={{ display: 'block', color: '#0C285A', fontSize: '30rpx', fontWeight: 800, lineHeight: '42rpx' }}>
-          自我描述
-        </Text>
-        <View
-          style={{
-            width: '640rpx',
-            minHeight: '408rpx',
-            borderRadius: '12rpx',
-            border: '4rpx solid #2876FF',
-            marginTop: '44rpx',
-            padding: '28rpx',
-            boxSizing: 'border-box',
-          }}
-        >
-          <Textarea
-            value={intro}
-            maxlength={240}
-            autoHeight
-            onInput={(event) => setIntro(event.detail.value)}
-            style={{ width: '584rpx', minHeight: '300rpx', color: '#333333', fontSize: '28rpx', lineHeight: '48rpx' }}
-          />
-          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx', textAlign: 'right' }}>最少20字</Text>
-        </View>
-      </View>
-    </VerificationShell>
-  )
+function appendQuery(path: string, params: Record<string, string | undefined>) {
+  const query = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&')
+  return query ? `${path}?${query}` : path
 }

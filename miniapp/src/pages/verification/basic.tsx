@@ -1,21 +1,21 @@
 import { ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import { useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import LanhuSubNav from '@/components/LanhuSubNav'
-import { useLogin } from '@/hooks/useLogin'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, ProfileFieldSetting, RegionOption } from '@/types/prd01'
 import { navigateBackOrRedirect } from '@/utils/navigation'
 import VerificationShell from './components/VerificationShell'
+import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import BasicInfoCard from './components/BasicInfoCard'
 
 type RegionOptions = Record<string, RegionOption[]>
 
 export default function VerificationBasicPage() {
   const router = useRouter()
-  const { enterHome } = useLogin()
   const bootstrap = usePrd01Store(state => state.bootstrap)
+  const copy = usePrd01Store(state => state.copy)
   const profileOptions = usePrd01Store(state => state.profileOptions)
   const loadLocations = usePrd01Store(state => state.locations)
   const [basic, setBasic] = useState<BasicProfile>({})
@@ -43,15 +43,7 @@ export default function VerificationBasicPage() {
       void navigateBackOrRedirect()
       return
     }
-    void Taro.showModal({
-      title: '暂不认证',
-      content: '可以稍后再完善认证资料，是否先进入首页？',
-      confirmText: '进入首页',
-      cancelText: '继续认证',
-      success: (res) => {
-        if (res.confirm) void enterHome()
-      },
-    })
+    void navigateBackOrRedirect('/pages/index/index')
   }
 
   const updateField = async (fieldId: string, value: unknown) => {
@@ -81,7 +73,7 @@ export default function VerificationBasicPage() {
       const payload = Object.fromEntries(fieldSettings.map(setting => [setting.fieldId, basic[setting.fieldId]]))
       const result = await prd01Api.saveBasicProfile(payload)
       setBasic(result)
-      await Taro.showToast({ title: '保存成功', icon: 'success' })
+      if (fromProfile) await Taro.showToast({ title: '保存成功', icon: 'success' })
       if (continueVerification) {
         await Taro.redirectTo({ url: '/pages/verification/avatar' })
       } else {
@@ -126,15 +118,17 @@ export default function VerificationBasicPage() {
   }
 
   return (
-    <VerificationShell
-      stage="basic"
-      primaryText={saving ? '保存中...' : '继续认证'}
-      onPrimary={() => save(true)}
-      onBack={handleBack}
-      scroll
-    >
-      {card}
-    </VerificationShell>
+    <VerificationRuntimeBoundary>
+      <VerificationShell
+        stage="basic"
+        primaryText={saving ? copy('common_submitting_action') : copy('verification_next_action')}
+        onPrimary={() => save(true)}
+        onBack={handleBack}
+        scroll
+      >
+        {card}
+      </VerificationShell>
+    </VerificationRuntimeBoundary>
   )
 }
 

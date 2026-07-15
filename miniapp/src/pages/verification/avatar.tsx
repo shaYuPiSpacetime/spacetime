@@ -1,66 +1,134 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect, useState } from 'react'
-import { chooseAndCropAvatar } from '@/utils/avatar'
-import { prd01Api } from '@/services/prd01'
-import { usePrd01Store } from '@/stores/prd01Store'
-import type { AvatarDetail } from '@/types/prd01'
-import VerificationSubShell from './components/VerificationSubShell'
+import { useState } from 'react'
+import blurredAvatar from '@/assets/lanhu/message/avatar-liked-blurred.png'
+import profileLocationPhoto from '@/assets/lanhu/profile/profile-preview-location.png'
+import cityNight from '@/assets/lanhu/recommend/slices/city-night.webp'
+import cityTower from '@/assets/lanhu/recommend/slices/city-tower.webp'
 import goodAvatar from '@/assets/lanhu/verification/avatar-good.webp'
+import { usePrd01Store } from '@/stores/prd01Store'
+import { chooseAndCropAvatar } from '@/utils/avatar'
+import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
+import VerificationShell from './components/VerificationShell'
 
 export default function VerificationAvatarPage() {
-  const bootstrap = usePrd01Store(state => state.bootstrap)
-  const profileOptions = usePrd01Store(state => state.profileOptions)
   const copy = usePrd01Store(state => state.copy)
-  const optionLabel = usePrd01Store(state => state.optionLabel)
-  const [detail, setDetail] = useState<AvatarDetail>()
+  const profileOptions = usePrd01Store(state => state.profileOptions)
+  const [sourceSheetVisible, setSourceSheetVisible] = useState(false)
   const [choosing, setChoosing] = useState(false)
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        await bootstrap()
-        setDetail(await prd01Api.getAvatar())
-      } catch (error) {
-        await showError(error)
-      }
-    })()
-  }, [])
-
-  const handleChoose = async (source: string) => {
-    const option = profileOptions?.avatarSource?.find(item => item.code === source)
-    if (!option || choosing || detail?.canSubmit === false) return
+  const chooseSource = async (source: string) => {
+    const sourceOption = profileOptions?.avatarSource?.find(option => option.code === source)
+    if (!sourceOption || choosing) return
     setChoosing(true)
     try {
-      const avatarPath = await chooseAndCropAvatar(option.code)
+      const avatarPath = await chooseAndCropAvatar(sourceOption.code)
       if (!avatarPath) return
-      await Taro.redirectTo({ url: `/pages/verification/avatar-crop?source=${encodeURIComponent(option.code)}&path=${encodeURIComponent(avatarPath)}` })
+      await Taro.redirectTo({
+        url: `/pages/verification/avatar-crop?source=${encodeURIComponent(sourceOption.code)}&path=${encodeURIComponent(avatarPath)}`,
+      })
     } catch (error) {
       await showError(error)
     } finally {
       setChoosing(false)
+      setSourceSheetVisible(false)
     }
   }
 
   return (
-    <VerificationSubShell title={copy('verification_nav_title')}>
-      <View style={{ position: 'absolute', left: '25rpx', top: '226rpx', width: '700rpx' }}>
-        <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 700 }}>{copy('avatar_title')}</Text>
-        <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '38rpx', marginTop: '12rpx' }}>{copy('avatar_notice')}</Text>
+    <VerificationRuntimeBoundary>
+      <VerificationShell
+        stage="avatar"
+        primaryText={choosing ? copy('avatar_choosing_action') : copy('avatar_choose_action')}
+        onPrimary={() => setSourceSheetVisible(true)}
+        onBack={() => Taro.redirectTo({ url: '/pages/verification/basic' })}
+      >
+        <AvatarGuide copy={copy} />
+        {sourceSheetVisible ? (
+          <AvatarSourceSheet
+            options={profileOptions?.avatarSource || []}
+            cancelText={copy('common_cancel_action')}
+            onSelect={option => void chooseSource(option.code)}
+            onCancel={() => setSourceSheetVisible(false)}
+          />
+        ) : null}
+      </VerificationShell>
+    </VerificationRuntimeBoundary>
+  )
+}
+
+function AvatarGuide({ copy }: { copy: (key: string) => string }) {
+  const invalidExamples = [
+    { label: copy('avatar_invalid_non_person'), image: cityNight },
+    { label: copy('avatar_invalid_landscape'), image: cityTower },
+    { label: copy('avatar_invalid_blurred'), image: blurredAvatar },
+    { label: copy('avatar_invalid_no_face'), image: profileLocationPhoto },
+  ]
+
+  return (
+    <View style={{ position: 'absolute', left: '25rpx', top: '558rpx', width: '700rpx', height: '838rpx', borderRadius: '18rpx', background: '#FFFFFF', padding: '52rpx 30rpx', boxSizing: 'border-box' }}>
+      <Text style={{ display: 'block', color: '#0C285A', fontSize: '29rpx', fontWeight: 800, lineHeight: '42rpx' }}>{copy('avatar_guide_title')}</Text>
+      <AvatarExampleCard copy={copy} />
+      <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '72rpx' }}>{copy('avatar_invalid_title')}</Text>
+      <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', marginTop: '22rpx' }}>
+        {invalidExamples.map(item => (
+          <View key={item.label} style={{ width: '140rpx' }}>
+            <Image src={item.image} mode="aspectFill" style={{ width: '140rpx', height: '140rpx', borderRadius: '10rpx' }} />
+            <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', textAlign: 'center', marginTop: '20rpx' }}>{item.label}</Text>
+          </View>
+        ))}
       </View>
-      <Image src={detail?.latestAvatarUrl || goodAvatar} mode="aspectFill" style={{ position: 'absolute', left: '175rpx', top: '430rpx', width: '400rpx', height: '400rpx', borderRadius: '28rpx' }} />
-      {detail?.auditStatus ? <Text style={{ position: 'absolute', left: '25rpx', top: '860rpx', width: '700rpx', color: '#2876FF', fontSize: '28rpx', textAlign: 'center' }}>{optionLabel('auditStatus', detail.auditStatus)}</Text> : null}
-      {detail?.rejectReason ? <Text style={{ position: 'absolute', left: '50rpx', top: '920rpx', width: '650rpx', color: '#E36A6A', fontSize: '24rpx', lineHeight: '36rpx', textAlign: 'center' }}>{detail.rejectReason}</Text> : null}
-      {detail?.canSubmit !== false ? (
-        <View style={{ position: 'absolute', left: '25rpx', top: '1030rpx', width: '700rpx' }}>
-          {(profileOptions?.avatarSource || []).map(option => (
-            <View key={option.code} style={{ height: '92rpx', borderRadius: '24rpx', background: '#2876FF', marginBottom: '20rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => void handleChoose(option.code)}>
-              <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700 }}>{choosing ? copy('avatar_choosing_action') : option.label}</Text>
-            </View>
-          ))}
+    </View>
+  )
+}
+
+function AvatarExampleCard({ copy }: { copy: (key: string) => string }) {
+  const rules = [
+    { icon: '😉', text: copy('avatar_rule_self'), left: '346rpx', top: '90rpx' },
+    { icon: '😁', text: copy('avatar_rule_clear'), left: '441rpx', top: '185rpx' },
+    { icon: '😊', text: copy('avatar_rule_best'), left: '389rpx', top: '280rpx' },
+  ]
+  return (
+    <View style={{ position: 'relative', marginTop: '54rpx', height: '336rpx' }}>
+      <Image src={goodAvatar} mode="aspectFill" style={{ width: '326rpx', height: '336rpx', borderRadius: '12rpx' }} />
+      <View style={{ position: 'absolute', left: '238rpx', bottom: '-18rpx', width: '114rpx', height: '114rpx', borderRadius: '57rpx', background: '#2876FF', border: '8rpx solid #FFFFFF', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: '48rpx', height: '28rpx', borderLeft: '10rpx solid #FFFFFF', borderBottom: '10rpx solid #FFFFFF', transform: 'rotate(-45deg)', marginTop: '-10rpx' }} />
+      </View>
+      {rules.map(rule => (
+        <View key={rule.text} style={{ position: 'absolute', left: rule.left, top: rule.top, height: '68rpx', borderRadius: '34rpx', background: '#E3F1FE', padding: '0 22rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', zIndex: 3, whiteSpace: 'nowrap' }}>
+          <Text style={{ fontSize: '28rpx', lineHeight: '34rpx', marginRight: '12rpx' }}>{rule.icon}</Text>
+          <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap' }}>{rule.text}</Text>
         </View>
-      ) : null}
-    </VerificationSubShell>
+      ))}
+    </View>
+  )
+}
+
+function AvatarSourceSheet({
+  options,
+  cancelText,
+  onSelect,
+  onCancel,
+}: {
+  options: Array<{ code: string; label: string }>
+  cancelText: string
+  onSelect: (option: { code: string; label: string }) => void
+  onCancel: () => void
+}) {
+  return (
+    <View style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.32)', zIndex: 20 }} onClick={onCancel}>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden', paddingBottom: 'env(safe-area-inset-bottom)' }} onClick={event => event.stopPropagation()}>
+        {options.map(option => (
+          <View key={option.code} style={{ height: '100rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1rpx solid #EDF2F8' }} onClick={() => onSelect(option)} hoverClass="btn-hover">
+            <Text style={{ color: '#333333', fontSize: '30rpx', lineHeight: '42rpx' }}>{option.label}</Text>
+          </View>
+        ))}
+        <View style={{ height: '16rpx', background: '#F0F4FA' }} />
+        <View style={{ height: '100rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onCancel} hoverClass="btn-hover">
+          <Text style={{ color: '#999999', fontSize: '30rpx', lineHeight: '42rpx' }}>{cancelText}</Text>
+        </View>
+      </View>
+    </View>
   )
 }
 

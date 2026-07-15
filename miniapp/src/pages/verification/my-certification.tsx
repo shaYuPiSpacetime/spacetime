@@ -1,1 +1,3 @@
-export { default } from './triple'
+import VerificationCenterPage from './components/VerificationCenterPage'
+
+export default VerificationCenterPage

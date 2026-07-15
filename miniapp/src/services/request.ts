@@ -1,6 +1,7 @@
 import Taro from '@tarojs/taro'
 import { API_BASE_URL, TOKEN_HEADER, TOKEN_KEY } from '@/constants/config'
 import type { R } from '@/types/api'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 /** 请求方法 */
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
@@ -26,16 +27,21 @@ function compactRequestData(data: Record<string, unknown>): Record<string, unkno
 export async function request<T>(options: RequestOptions): Promise<T> {
   const token = Taro.getStorageSync(TOKEN_KEY) || ''
 
-  const res = await Taro.request<R<T>>({
-    url: API_BASE_URL + options.url,
-    method: options.method || 'GET',
-    data: options.data,
-    header: {
-      [TOKEN_HEADER]: token,
-      'Content-Type': 'application/json',
-      ...options.header
-    }
-  })
+  let res
+  try {
+    res = await Taro.request<R<T>>({
+      url: API_BASE_URL + options.url,
+      method: options.method || 'GET',
+      data: options.data,
+      header: {
+        [TOKEN_HEADER]: token,
+        'Content-Type': 'application/json',
+        ...options.header
+      }
+    })
+  } catch (error) {
+    throw new Error(getErrorMessage(error, '网络连接失败，请稍后重试'))
+  }
 
   const { code, msg, data } = res.data
 

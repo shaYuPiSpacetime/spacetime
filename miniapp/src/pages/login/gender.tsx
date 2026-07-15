@@ -8,7 +8,10 @@ import LoginProfileShell from './components/LoginProfileShell'
 import './gender.scss'
 
 export default function LoginGenderPage() {
-  const { genderOptions, userInfo, initField, bootstrap, saveInitStep } = useLogin()
+  const {
+    genderOptions, userInfo, initField, bootstrap, saveInitStep,
+    runtimeLoading, runtimeError, retryRuntime,
+  } = useLogin()
   const [selectedCode, setSelectedCode] = useState(userInfo.gender || '')
   const field = initField(1)
 
@@ -32,6 +35,9 @@ export default function LoginGenderPage() {
     <LoginProfileShell
       description="你的性别"
       nextActive={Boolean(selectedCode) || field?.required === false}
+      loading={runtimeLoading || (!runtimeError && genderOptions.length === 0)}
+      error={runtimeError}
+      onRetry={retryRuntime}
       onNext={handleNext}
     >
       {genderOptions.map((option, index) => (

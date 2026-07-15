@@ -1,7 +1,7 @@
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect } from 'react'
 import { usePrd01Store } from '@/stores/prd01Store'
+import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import VerificationSubShell from './components/VerificationSubShell'
 
 const METHOD_ROUTES: Record<string, string> = {
@@ -11,14 +11,12 @@ const METHOD_ROUTES: Record<string, string> = {
 }
 
 export default function VerificationEducationMainlandPage() {
-  const bootstrap = usePrd01Store(state => state.bootstrap)
   const options = usePrd01Store(state => state.profileOptions?.educationMethod || [])
   const copy = usePrd01Store(state => state.copy)
 
-  useEffect(() => { void bootstrap().catch(showError) }, [])
-
   return (
-    <VerificationSubShell title={copy('verification_nav_title')}>
+    <VerificationRuntimeBoundary>
+      <VerificationSubShell title={copy('verification_nav_title')}>
       <View style={{ position: 'absolute', left: '25rpx', top: '226rpx', width: '700rpx' }}>
         <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 700 }}>{copy('education_method_select_title')}</Text>
         <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '14rpx' }}>{copy('education_notice')}</Text>
@@ -35,11 +33,7 @@ export default function VerificationEducationMainlandPage() {
           </View>
         ))}
       </View>
-    </VerificationSubShell>
+      </VerificationSubShell>
+    </VerificationRuntimeBoundary>
   )
-}
-
-async function showError(error: unknown) {
-  const title = error instanceof Error ? error.message : String(error)
-  if (title) await Taro.showToast({ title, icon: 'none' })
 }

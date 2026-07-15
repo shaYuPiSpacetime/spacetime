@@ -2,18 +2,16 @@ import type { ReactNode } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { getWindowMetrics } from '@/utils/system'
-import { useLogin } from '@/hooks/useLogin'
-import { getDemoPageData } from '@/services/lanhuDemo'
+import { usePrd01Store } from '@/stores/prd01Store'
 import bg from '@/assets/lanhu/verification/verification-bg.webp'
 
 export type VerificationStage = 'basic' | 'avatar' | 'intro' | 'triple'
-const verificationDemo = getDemoPageData('verification')
 
-const STAGES: Array<{ key: VerificationStage; label: string; left: string; dot: string }> = [
-  { key: 'basic', label: '基本资料', left: '42rpx', dot: '92rpx' },
-  { key: 'avatar', label: '添加头像', left: '212rpx', dot: '262rpx' },
-  { key: 'intro', label: '自我介绍', left: '382rpx', dot: '432rpx' },
-  { key: 'triple', label: '三重认证', left: '552rpx', dot: '602rpx' },
+const STAGES: Array<{ key: VerificationStage; labelKey: string; left: string; dot: string }> = [
+  { key: 'basic', labelKey: 'verification_step_basic', left: '42rpx', dot: '92rpx' },
+  { key: 'avatar', labelKey: 'verification_step_avatar', left: '212rpx', dot: '262rpx' },
+  { key: 'intro', labelKey: 'verification_step_intro', left: '382rpx', dot: '432rpx' },
+  { key: 'triple', labelKey: 'verification_step_triple', left: '552rpx', dot: '602rpx' },
 ]
 
 interface VerificationShellProps {
@@ -29,14 +27,15 @@ interface VerificationShellProps {
 export default function VerificationShell({
   stage,
   children,
-  primaryText = '下一步',
+  primaryText,
   primaryActive = true,
   onPrimary,
   onBack,
   scroll = false,
 }: VerificationShellProps) {
-  const { enterHome } = useLogin()
+  const copy = usePrd01Store(state => state.copy)
   const contentHeight = scroll && stage === 'basic' ? '1830rpx' : '1678rpx'
+  const resolvedPrimaryText = primaryText || copy('verification_next_action')
 
   const handleBack = () => {
     if (onBack) {
@@ -48,22 +47,14 @@ export default function VerificationShell({
       Taro.navigateBack()
       return
     }
-    Taro.showModal({
-      title: '暂不认证',
-      content: '可以稍后再完善认证资料，是否先进入首页？',
-      confirmText: '进入首页',
-      cancelText: '继续认证',
-      success: (res) => {
-        if (res.confirm) void enterHome()
-      },
-    })
+    void Taro.redirectTo({ url: '/pages/index/index' })
   }
 
   const content = (
     <View style={{ position: 'relative', width: '750rpx', minHeight: contentHeight, paddingBottom: onPrimary ? '180rpx' : '0', boxSizing: 'border-box' }}>
-      <Header onBack={handleBack} />
-      <IntroBlock />
-      <Progress stage={stage} />
+      <Header onBack={handleBack} title={copy('verification_nav_title')} />
+      <IntroBlock copy={copy} />
+      <Progress stage={stage} copy={copy} />
       {children}
       {onPrimary && (
         <View
@@ -84,7 +75,7 @@ export default function VerificationShell({
           hoverClass="btn-hover"
         >
           <Text style={{ color: primaryActive ? '#FFFFFF' : '#8CA7D0', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>
-            {primaryText}
+            {resolvedPrimaryText}
           </Text>
         </View>
       )}
@@ -105,7 +96,7 @@ export default function VerificationShell({
   )
 }
 
-function Header({ onBack }: { onBack: () => void }) {
+function Header({ onBack, title }: { onBack: () => void; title: string }) {
   const menu = Taro.getMenuButtonBoundingClientRect?.()
   const system = getWindowMetrics()
   const scale = system.windowWidth ? 750 / system.windowWidth : 2
@@ -147,26 +138,26 @@ function Header({ onBack }: { onBack: () => void }) {
           textAlign: 'center',
         }}
       >
-        认证
+        {title}
       </Text>
     </View>
   )
 }
 
-function IntroBlock() {
+function IntroBlock({ copy }: { copy: (key: string) => string }) {
   return (
     <View style={{ position: 'absolute', left: '25rpx', top: '224rpx', width: '700rpx' }}>
       <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 800, lineHeight: '67rpx' }}>
-        {verificationDemo.introTitle}
+        {copy('verification_onboarding_heading')}
       </Text>
       <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '16rpx' }}>
-        {verificationDemo.introDescription}
+        {copy('verification_onboarding_notice')}
       </Text>
     </View>
   )
 }
 
-function Progress({ stage }: { stage: VerificationStage }) {
+function Progress({ stage, copy }: { stage: VerificationStage; copy: (key: string) => string }) {
   const activeIndex = STAGES.findIndex((item) => item.key === stage)
   const progressWidth = `${activeIndex * 170 + 62}rpx`
 
@@ -199,7 +190,7 @@ function Progress({ stage }: { stage: VerificationStage }) {
               }}
             >
               <Text style={{ color: isActive ? '#FFFFFF' : '#999999', fontSize: '25rpx', lineHeight: '36rpx', whiteSpace: 'nowrap' }}>
-                {item.label}
+                {copy(item.labelKey)}
               </Text>
             </View>
             {isActive && (
@@ -320,6 +311,7 @@ export function BottomPicker({
   onConfirm: () => void
   onClose: () => void
 }) {
+  const copy = usePrd01Store(state => state.copy)
   return (
     <View
       style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(8,24,49,0.38)', zIndex: 30 }}
@@ -359,7 +351,7 @@ export function BottomPicker({
           onClick={onConfirm}
           hoverClass="btn-hover"
         >
-          <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>确定</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>{copy('common_confirm_action')}</Text>
         </View>
       </View>
     </View>

@@ -6,7 +6,10 @@ import LoginProfileShell from './components/LoginProfileShell'
 import './education.scss'
 
 export default function LoginEducationPage() {
-  const { educationOptions, userInfo, initField, bootstrap, saveInitStep } = useLogin()
+  const {
+    educationOptions, userInfo, initField, bootstrap, saveInitStep,
+    runtimeLoading, runtimeError, retryRuntime,
+  } = useLogin()
   const [selectedCode, setSelectedCode] = useState(userInfo.educationLevel || '')
   const field = initField(4)
 
@@ -25,7 +28,14 @@ export default function LoginEducationPage() {
   }
 
   return (
-    <LoginProfileShell description="你的最高学历" nextActive={Boolean(selectedCode) || field?.required === false} onNext={handleNext}>
+    <LoginProfileShell
+      description="你的最高学历"
+      nextActive={Boolean(selectedCode) || field?.required === false}
+      loading={runtimeLoading || (!runtimeError && educationOptions.length === 0)}
+      error={runtimeError}
+      onRetry={retryRuntime}
+      onNext={handleNext}
+    >
       <View style={{ position: 'absolute', left: '25rpx', top: '442rpx', width: '700rpx' }}>
         {educationOptions.map(option => {
           const isActive = selectedCode === option.code

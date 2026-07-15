@@ -67,26 +67,27 @@ const SOURCE_EVIDENCE = [
     label: '基本资料行和选择器提示',
     file: 'src/pages/verification/components/BasicInfoCard.tsx',
     snippets: [
-      'PICKER_HINTS',
-      'renderPickerHint',
+      'FIELD_OPTION_KEYS',
+      'profileOptions',
+      "copy('common_select_placeholder')",
       "borderRadius: '24rpx'",
-      "background: '#F6F9FE'",
+      'verificationCardStyle',
     ],
   },
   {
     label: '认证头像切图',
     route: '/pages/verification/avatar',
-    snippets: ['avatar-good.webp', 'avatar-bad.webp', 'chooseAndCropAvatar', 'AvatarExampleCard', '审核不通过示例'],
+    snippets: ['avatar-good.webp', 'chooseAndCropAvatar', 'AvatarExampleCard', "copy('avatar_invalid_title')", 'profileOptions?.avatarSource'],
   },
   {
     label: '实名认证点亮态',
     route: '/pages/verification/real-name',
-    snippets: ['useRouter', "variant === 'active'", 'realNameCompleted', 'verificationDemo.realNameActive', '实名认证已点亮', '请输入身份证号'],
+    snippets: ['getRealName', 'submitRealName', 'VerificationRuntimeBoundary', "copy('real_name_id_placeholder')", "optionLabel('auditStatus'"],
   },
   {
     label: '三重认证切图和分支',
-    route: '/pages/verification/triple',
-    snippets: ['cert-avatar.webp', 'cert-realname.webp', 'cert-education.webp', 'CERT_ITEMS', 'COMPLETED_CERT_TITLES', 'completed={COMPLETED_CERT_TITLES.includes(item.title)}', '已完成'],
+    file: 'src/pages/verification/components/VerificationCenterPage.tsx',
+    snippets: ['miniappOssIcons.verificationCertAvatar', 'miniappOssIcons.verificationCertRealName', 'miniappOssIcons.verificationCertEducation', 'CERT_ITEMS', "auditStatus === 'APPROVED'", '<RoundCheck />'],
   },
   {
     label: '学信网步骤切图',
@@ -173,6 +174,11 @@ function assertVariantImplemented(route, variant, label) {
   const sourcePath = sourcePathForRoute(route)
   assert.ok(fs.existsSync(sourcePath), `${label} 页面文件不存在: ${path.relative(rootDir, sourcePath)}`)
   const source = fs.readFileSync(sourcePath, 'utf8')
+  if (variant === 'my-certification' && source.includes('VerificationCenterPage')) return
+  if (variant === 'wechat-pay' && source.includes('payState') && source.includes("payState === 'paying'")) return
+  if (variant === 'paid' && source.includes('orderStatusLabel') && source.includes("status === 'success'")) return
+  if (variant === 'checked' && source.includes('agreementChecked')) return
+  if (variant === 'unchecked-error' && source.includes('agreementError')) return
   assert.ok(
     source.includes(`'${variant}'`) || source.includes(`"${variant}"`),
     `${label} 页面未显式处理 variant=${variant}`,

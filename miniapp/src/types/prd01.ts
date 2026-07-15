@@ -302,7 +302,7 @@ export interface ProfileMedia {
 export interface ProfileMediaSubmitInput {
   mediaUrl: string
   thumbUrl?: string
-  fileSizeBytes?: number
+  fileSizeBytes: number
   sortOrder?: number
 }
 

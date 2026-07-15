@@ -1,13 +1,13 @@
 import { Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { RealNameDetail } from '@/types/prd01'
+import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import VerificationSubShell from './components/VerificationSubShell'
 
 export default function VerificationRealNamePage() {
-  const bootstrap = usePrd01Store(state => state.bootstrap)
   const copy = usePrd01Store(state => state.copy)
   const optionLabel = usePrd01Store(state => state.optionLabel)
   const [detail, setDetail] = useState<RealNameDetail>()
@@ -16,19 +16,12 @@ export default function VerificationRealNamePage() {
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        await bootstrap()
-        const value = await prd01Api.getRealName()
-        setDetail(value)
-        setRealName(value.realName || '')
-        setIdCardNo(value.idCardNo || '')
-      } catch (error) {
-        await showError(error)
-      }
-    })()
-  }, [])
+  const loadDetail = async () => {
+    const value = await prd01Api.getRealName()
+    setDetail(value)
+    setRealName(value.realName || '')
+    setIdCardNo(value.idCardNo || '')
+  }
 
   const canSubmit = detail?.canSubmit !== false && realName.trim() && idCardNo.trim() && agreed
 
@@ -56,7 +49,8 @@ export default function VerificationRealNamePage() {
   const statusLabel = optionLabel('auditStatus', detail?.auditStatus)
 
   return (
-    <VerificationSubShell title={copy('verification_nav_title')}>
+    <VerificationRuntimeBoundary loadData={loadDetail}>
+      <VerificationSubShell title={copy('verification_nav_title')}>
       <View style={{ position: 'absolute', left: '25rpx', top: '226rpx', width: '700rpx' }}>
         <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 600 }}>{copy('real_name_title')}</Text>
         <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '40rpx', marginTop: '12rpx' }}>{copy('real_name_notice')}</Text>
@@ -84,7 +78,8 @@ export default function VerificationRealNamePage() {
           <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 500 }}>{copy(submitting ? 'common_submitting_action' : 'common_submit_action')}</Text>
         </View>
       ) : null}
-    </VerificationSubShell>
+      </VerificationSubShell>
+    </VerificationRuntimeBoundary>
   )
 }
 
