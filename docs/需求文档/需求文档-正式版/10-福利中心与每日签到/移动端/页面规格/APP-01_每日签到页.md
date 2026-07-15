@@ -3,6 +3,8 @@
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
 | 版本01 | 2026-07-14 | Codex | 创建页面规格 |
+| 版本02 | 2026-07-15 | Codex | 修正动态周期字段，补齐操作失败码、状态和验收场景 |
+| 版本03 | 2026-07-15 | Codex | 将签到规则改为可配置 H5，复用统一 web-view 容器并保留原生兜底 |
 
 - **路由**：`/pages/welfare/signin/index`
 - **入口**：我的 -> 福利中心
@@ -38,7 +40,7 @@
 | 字段 ID | 显示名 | 类型 | 必填 | 取值范围 | 校验规则 | 默认值 | 可编辑 | 敏感级别 | 来源 |
 |---------|--------|------|------|----------|----------|--------|--------|----------|------|
 | `APP-10-PAGE-daily-signin-FIELD-status` | 今日状态 | enum | 是 | `M10-ENUM-sign-status` | 服务端返回 | `disabled` | 否 | 普通 | 签到服务 |
-| `APP-10-PAGE-daily-signin-FIELD-streak` | 连续签到 | int | 是 | 0-7 | 非负整数 | 0 | 否 | 普通 | 签到服务 |
+| `APP-10-PAGE-daily-signin-FIELD-streak` | 连续签到 | int | 是 | 0-31 | 不得大于当前配置周期 | 0 | 否 | 普通 | 签到服务 |
 | `APP-10-PAGE-daily-signin-FIELD-cycle` | 周期阶梯 | json[] | 是 | 1-31 项 | 项数等于 `cycleDays`；每项含 day/base/extra/status | 空数组 | 否 | 普通 | 配置+签到记录 |
 | `APP-10-PAGE-daily-signin-FIELD-today-reward` | 今日可得 | int | 是 | 0-20000 | 基础+额外 | 0 | 否 | 普通 | 服务端计算 |
 | `APP-10-PAGE-daily-signin-FIELD-reward-status` | 到账状态 | enum | 否 | `M10-ENUM-reward-status` | 已签到时返回 | 无 | 否 | 普通 | PRD-04 |
@@ -48,9 +50,10 @@
 
 | 操作 ID | 操作 | 触发条件 | 权限 | 二次确认 | 成功态 | 失败态 | 影响 |
 |---------|------|----------|------|----------|--------|--------|------|
-| `APP-10-PAGE-daily-signin-ACT-sign` | 立即签到 | `available` | 登录且完成核心准入 | 否 | 弹成功结果并刷新 | 活动关闭提示；奖励异常显示处理中 | `M10-EVT-signed` |
-| `APP-10-PAGE-daily-signin-ACT-rule` | 查看规则 | 任意 | 登录 | 否 | 展开规则说明 | 内容缺失显示固定规则 | 无 |
+| `APP-10-PAGE-daily-signin-ACT-sign` | 立即签到 | `available` | 登录且完成核心准入 | 否 | 弹成功结果并刷新 | `M10-ERR-disabled` 提示“签到活动暂未开放”；`M10-ERR-reward-pending` 提示奖励处理中 | `M10-EVT-signed` |
+| `APP-10-PAGE-daily-signin-ACT-rule` | 查看规则 | 任意 | 登录 | 否 | 按 `GLB-RULE-h5-content-container` 打开当前已发布签到规则 H5 | URL 缺失、未发布或加载失败时进入原生兜底规则页，提示“当前展示基础规则” | 不改变签到状态；引用 `M10-RULE-rule-content` |
 | `APP-10-PAGE-daily-signin-ACT-retry` | 重试 | 网络/服务错误 | 登录 | 否 | 恢复页面 | 保留错误态 | 重新查询，不重复签到 |
+| `APP-10-PAGE-daily-signin-ACT-view-assets` | 查看资产流水 | 已签到且奖励为 `success`/`pending`/`failed` | 登录且完成核心准入 | 否 | 跳转 PRD-04 成家币明细并按 `daily_signin` 定位 | 目标页不可用时提示“暂时无法查看，请稍后重试” | 不改变签到或奖励状态 |
 
 ## 6. 联动规则
 
@@ -71,7 +74,9 @@
 | 可签到 | `available` | 高亮今日 | 立即签到 |
 | 已签到 | `signed` | 展示奖励和明日预告 | 查看记录 |
 | 奖励失败 | `failed` | 展示奖励处理中，不暴露内部原因 | 查看资产流水 |
+| 活动关闭 | `disabled` | 保留历史记录；主按钮禁用并显示“签到活动暂未开放” | 返回上一页 |
 | 降级 | 配置异常 | 禁止签到并提示暂不可用 | 稍后重试 |
+| 降级-H5 | 签到规则 H5 缺失、未发布、超时或加载失败 | 展示客户端内置基础规则，顶部提示“当前展示基础规则” | 返回签到页 | `GLB-RULE-h5-content-container`、`M10-RULE-rule-content` |
 
 ## 8. 查询与列表
 
@@ -85,13 +90,38 @@
 | `APP-10-AC-streak` | 连续与中断计算正确 | 正常 | P0 |
 | `APP-10-AC-no-makeup` | 历史日期无补签入口 | 正常 | P0 |
 | `APP-10-AC-reward-pending` | 资产异常不允许重复签到 | 异常 | P0 |
+| `APP-10-AC-rule-h5` | 签到规则打开已发布 H5，失败时展示原生兜底 | 正常/异常 | P0 |
 
 ```gherkin
 Given 用户今日尚未签到且活动启用
 When 用户连续两次点击立即签到
 Then 服务端仅存在一条当日签到记录和一笔千寻币奖励流水，两次响应返回相同签到结果
+
+Given 用户昨日已签到且当前配置周期为 31 天
+When 用户今日完成签到
+Then 连续天数与周期日按 M10-RULE-streak 增加，页面自动定位今日且不截断为 7 天
+
+Given 活动已由运营关闭
+When 用户进入页面或提交旧页面中的签到请求
+Then 页面进入 disabled 业务态，接口返回 M10-ERR-disabled，且不创建签到或资产流水
+
+Given 签到记录已创建但 PRD-04 入账暂时失败
+When 页面收到 M10-ERR-reward-pending
+Then 今日状态保持 signed、禁止再次签到，并展示“奖励发放中，请稍后查看资产流水”
+
+Given 用户存在历史漏签日期
+When 用户查看周期阶梯和最近记录
+Then 漏签日仅显示未签到，不出现补签入口或补签请求
+
+Given 运营已发布有效 HTTPS 签到规则 H5
+When 用户点击“签到规则”
+Then 客户端按 GLB-RULE-h5-content-container 打开对应版本，且 H5 不展示由签到接口实时计算的周期和奖励数值
+
+Given 签到规则 H5 缺失、未发布或加载失败
+When 用户点击“签到规则”
+Then 客户端展示 M10-RULE-rule-content 定义的原生基础规则，并提示“当前展示基础规则”
 ```
 
 ## 10. 关联
 
-引用 `PRD-10_模块公共定义.md`、`APP-10_端内定义.md`、PRD-04 千寻币流水和 PRD-06 我的页入口。
+引用 `PRD-10_模块公共定义.md`、`APP-10_端内定义.md`、`GLB-RULE-h5-content-container`、PRD-04 千寻币流水和 PRD-06 我的页入口。

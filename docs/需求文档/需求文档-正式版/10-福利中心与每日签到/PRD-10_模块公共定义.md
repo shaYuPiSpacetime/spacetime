@@ -3,6 +3,8 @@
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
 | 版本01 | 2026-07-14 | Codex | 根据一期目标和用户确认口径创建 |
+| 版本02 | 2026-07-15 | Codex | 补齐配置并发、发奖重试、埋点、兼容与回滚口径；修正动态周期规则 |
+| 版本03 | 2026-07-15 | Codex | 增加签到规则 H5 配置，复用项目统一 H5 容器并保留原生兜底 |
 
 ## 1. 已确认决策
 
@@ -38,6 +40,8 @@
 | `success` | 已发放 | 千寻币已到账并产生资产流水 |
 | `failed` | 发放失败 | 奖励未到账，等待系统重试 |
 
+奖励状态为固定系统枚举，不支持后台增删。历史状态永久按原中文名展示；后续新增状态必须保持旧 code 可解析。
+
 ## 3. 状态机
 
 ### 3.1 `M10-SM-sign`
@@ -56,6 +60,7 @@
 | `pending` | PRD-04 资产入账成功 | `success` | 记录资产流水号和到账时间 |
 | `pending` | 入账失败 | `failed` | 记录失败原因并进入系统重试 |
 | `failed` | 自动重试成功 | `success` | 不重复创建签到记录，只补发原奖励 |
+| `failed` | 达到重试告警阈值 | `failed` | 保留失败态并告警；运营只读查看，补偿由 PRD-04 资产调整流程承接 |
 
 ## 4. 核心规则
 
@@ -69,6 +74,9 @@
 | `M10-RULE-config-change` | 配置变更 | 奖励金额变更只影响发布后的新签到；周期长度变更只影响发布后开始的新周期，进行中的周期继续使用原配置版本；历史签到和奖励不追溯、不补差 |
 | `M10-RULE-disabled` | 活动关闭 | 关闭期间不可签到且连续天数中断；重新开启后从第 1 天开始 |
 | `M10-RULE-asset` | 资产闭环 | 奖励通过 PRD-04 千寻币入账能力发放，流水来源固定为 `daily_signin` |
+| `M10-RULE-config-concurrency` | 配置并发 | 发布请求必须携带当前版本；版本已变化时拒绝覆盖并返回 `M10-ERR-config-conflict`，要求刷新后重新编辑 |
+| `M10-RULE-retry` | 发奖重试 | 失败后按 1、5、30 分钟退避重试，共 3 次；仍失败则保留失败态并触发告警，不自动创建第二笔资产流水 |
+| `M10-RULE-rule-content` | 签到规则内容 | 运营在 PRD-10 签到规则配置页维护标题、HTTPS H5 URL、内容版本和发布状态；移动端引用 `GLB-RULE-h5-content-container` 打开已发布版本。H5 只写稳定说明，不复制当前周期、逐日奖励、连续天数或到账状态；动态值始终由签到接口和页面组件展示。H5 缺失、未发布或加载失败时展示客户端内置默认规则。 |
 
 ## 5. 配置项
 
@@ -78,6 +86,7 @@
 | `M10-CFG-base-reward` | 每日基础千寻币 | 0 | int，0-10000 | 同上 | 发布后新签到 | 是 |
 | `M10-CFG-streak-rewards` | 连续签到额外奖励 | 空数组 | json[]，天数 1-`cycleDays`、奖励 0-10000 | 同上 | 发布后新签到 | 是 |
 | `M10-CFG-cycle-days` | 阶梯周期 | 7 | int，1-31 | 同上 | 发布后新周期 | 是 |
+| `M10-CFG-rule-content` | 签到规则 H5 | `{title:"签到规则",url:"",version:"v1.0",published:false}` | json | 同上 | 独立发布后立即 | 是 |
 
 配置发布校验：活动开启时，`cycleDays` 对应的每一天都必须有明确奖励结果；允许某天额外奖励为 0，但不得缺日、重复或超出周期。修改周期只影响发布后开始的新周期；正在进行的用户继续使用其签到记录保存的原配置版本直至当前周期结束。
 
@@ -87,10 +96,12 @@
 |----|------|------|
 | `M10-EVT-signed` | 事件 | `userId, signDate, streakDay, rewardAmount, configVersion` |
 | `M10-EVT-reward-failed` | 事件 | `signRecordId, userId, rewardAmount, failureReason` |
+| `M10-EVT-config-published` | 事件 | `operatorId, oldVersion, newVersion, enabled, cycleDays, publishedAt` |
 | `M10-ERR-already-signed` | 409 | 今日已签到；接口返回首次结果 |
 | `M10-ERR-disabled` | 409 | 签到活动暂未开放 |
 | `M10-ERR-reward-pending` | 202 | 签到成功，奖励发放处理中 |
 | `M10-ERR-config-invalid` | 400 | 阶梯配置重复、越界或无效 |
+| `M10-ERR-config-conflict` | 409 | 配置已被其他人更新，请刷新后重试 |
 
 | 端 | 方法 | 路径 | 说明 |
 |----|------|------|------|
@@ -99,6 +110,8 @@
 | ADM | GET | `/api/admin/welfare/signin/config` | 查询当前配置和版本 |
 | ADM | PUT | `/api/admin/welfare/signin/config` | 校验并发布配置 |
 | ADM | GET | `/api/admin/welfare/signin/records` | 查询签到及奖励记录 |
+| ADM | GET | `/api/admin/welfare/signin/change-logs` | 分页查询配置变更日志 |
+| ADM | PUT | `/api/admin/welfare/signin/rule-content` | 校验并发布签到规则 H5 配置 |
 
 ## 7. 非功能要求
 
@@ -106,3 +119,6 @@
 - 签到记录、奖励金额、配置版本和资产流水号永久可追溯；用户注销后按全局规则匿名化 userId。
 - 配置发布、活动启停、奖励补发重试必须写入 PRD-10 自身变更日志；后台在签到规则配置页内提供“查看变更日志”入口，不建设跨模块公共日志页面。
 - 不提供后台人工补签或人工修改连续天数。
+- 配置发布使用版本号乐观锁；接口与日志中的操作人只保存业务编号，页面不展示内部主键。
+- 关键埋点：`signin_page_view`、`signin_click`、`signin_success`、`signin_reward_pending`、`signin_failed`，公共参数为 `configVersion、cycleDay、rewardAmount`。
+- 首次上线无存量签到数据迁移；默认活动关闭。老版本客户端入口不可见时不受影响；回滚前先关闭活动，已产生的签到记录和资产流水不得删除或回退。
