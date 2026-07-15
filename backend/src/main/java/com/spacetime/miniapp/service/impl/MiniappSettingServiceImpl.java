@@ -48,11 +48,21 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
         MiniappSettingsHomeVO vo = new MiniappSettingsHomeVO();
         vo.setPhoneBindStatus(user != null && StringUtils.hasText(user.getPhone()) ? "BOUND" : "UNBOUND");
         vo.setMaskedPhone(user != null ? maskPhone(user.getPhone()) : null);
-        vo.setWechatBindStatus("UNBOUND");
+        vo.setWechatBindStatus(isWechatBound(user) ? "BOUND" : "UNBOUND");
         vo.setEntries(mobileConfigService.getEntries(MobilePageCodeEnum.SETTINGS_PAGE.getCode()));
         AppConfig version = appConfigDao.selectByKey("miniapp.current_version");
+        if (version == null || !StringUtils.hasText(version.getConfigValue())) {
+            version = appConfigDao.selectByKey("about.app_version");
+        }
         vo.setCurrentVersion(version != null ? version.getConfigValue() : null);
         return vo;
+    }
+
+    /** 手机号登录以 phone_ 前缀占用 openid 字段，不应误判为已绑定微信。 */
+    private boolean isWechatBound(AppUser user) {
+        return user != null
+                && StringUtils.hasText(user.getOpenid())
+                && !user.getOpenid().startsWith("phone_");
     }
 
     @Override
