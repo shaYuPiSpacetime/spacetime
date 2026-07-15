@@ -57,6 +57,7 @@ public class VerificationServiceImpl implements VerificationService {
     private static final String DIPLOMA_NO = "DIPLOMA_NO";
     private static final String MATERIAL_UPLOAD = "MATERIAL_UPLOAD";
     private static final String WORKER = "WORKER";
+    private static final String PROTECTED_CREDENTIAL_PREFIX = "/miniapp/file/credential/";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final AppUserAuditService auditService;
@@ -258,8 +259,10 @@ public class VerificationServiceImpl implements VerificationService {
         if (req == null || !Boolean.TRUE.equals(req.getEducationAgreementChecked())) {
             throw new BusinessException("请先勾选学历认证协议");
         }
-        String userType = upper(req.getEducationUserType());
-        String method = upper(req.getEducationMethod());
+        String userType = profileDictionaryService.requireCode(
+                ProfileDictType.EDUCATION_USER_TYPE, upper(req.getEducationUserType()), "学历人群");
+        String method = profileDictionaryService.requireCode(
+                ProfileDictType.EDUCATION_METHOD, upper(req.getEducationMethod()), "学历认证方式");
         if (!STUDENT.equals(userType) && !MAINLAND_GRADUATE.equals(userType)) {
             throw new BusinessException("首版仅支持在校生和中国大陆毕业生学历认证");
         }
@@ -269,13 +272,14 @@ public class VerificationServiceImpl implements VerificationService {
         }
         String educationLevel = profileDictionaryService.requireCode(
                 ProfileDictType.EDUCATION_LEVEL, req.getEducationLevel(), "学历");
-        List<String> materials = req.getMaterialUrls() == null ? List.of() : req.getMaterialUrls();
+        List<String> materials = req.getMaterialUrls() == null
+                ? List.of()
+                : req.getMaterialUrls().stream().map(StrUtil::trim).toList();
         if (materials.size() > materialMaxCount) {
             throw new BusinessException("学历证明材料最多" + materialMaxCount + "张");
         }
-        if (materials.stream().anyMatch(url -> StrUtil.isBlank(url)
-                || (!url.startsWith("http://") && !url.startsWith("https://")))) {
-            throw new BusinessException("学历证明材料必须是有效的公网地址");
+        if (materials.stream().anyMatch(url -> !isEducationMaterialUrl(url))) {
+            throw new BusinessException("学历证明材料地址无效");
         }
 
         if (STUDENT.equals(userType)) {
@@ -289,6 +293,24 @@ public class VerificationServiceImpl implements VerificationService {
             validateGraduateMethod(req, method, materials);
         }
         return new EducationSubmission(userType, method, educationLevel, materials);
+    }
+
+    /** 学历材料既支持历史公网 URL，也支持 OSS 直传后返回的受保护相对路径。 */
+    private boolean isEducationMaterialUrl(String value) {
+        if (StrUtil.isBlank(value)) {
+            return false;
+        }
+        if (value.startsWith("https://") || value.startsWith("http://")) {
+            return true;
+        }
+        if (!value.startsWith(PROTECTED_CREDENTIAL_PREFIX)) {
+            return false;
+        }
+        String objectKey = value.substring(PROTECTED_CREDENTIAL_PREFIX.length());
+        return StrUtil.isNotBlank(objectKey)
+                && !objectKey.startsWith("/")
+                && !objectKey.contains("..")
+                && objectKey.matches("[A-Za-z0-9._/-]+");
     }
 
     private void validateGraduateMethod(EducationSubmitReq req, String method, List<String> materials) {

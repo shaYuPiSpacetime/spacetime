@@ -171,16 +171,21 @@ public class Prd01RuntimeConfigResolver {
     }
 
     public UploadRule uploadRule(RuntimeConfigSnapshot snapshot, String key, int defaultCount, int defaultMb) {
+        List<String> defaultFormats = defaultUploadFormats(key);
         for (JsonNode row : rows(snapshot.value(UPLOAD_RULES_KEY))) {
             if (!key.equals(row.path("key").asText())) {
                 continue;
             }
+            int maxCount = positiveInt(row.path("maxCount").asText(), defaultCount);
+            if ("profileBg".equals(key)) {
+                maxCount = 1;
+            }
             return new UploadRule(
-                    positiveInt(row.path("maxCount").asText(), defaultCount),
+                    maxCount,
                     positiveInt(row.path("maxMb").asText(), defaultMb),
-                    formats(row.path("format").asText("jpg / jpeg / png")));
+                    formats(row.path("format").asText(), defaultFormats));
         }
-        return new UploadRule(defaultCount, defaultMb, List.of("jpg", "jpeg", "png"));
+        return new UploadRule("profileBg".equals(key) ? 1 : defaultCount, defaultMb, defaultFormats);
     }
 
     public AuditPolicy auditPolicy(RuntimeConfigSnapshot snapshot) {
@@ -276,16 +281,21 @@ public class Prd01RuntimeConfigResolver {
         }
     }
 
-    private List<String> formats(String value) {
+    private List<String> defaultUploadFormats(String key) {
+        return "voice".equals(key) ? List.of("mp3") : List.of("jpg", "jpeg", "png");
+    }
+
+    private List<String> formats(String value, List<String> fallback) {
         if (StrUtil.isBlank(value)) {
-            return List.of("jpg", "jpeg", "png");
+            return fallback;
         }
-        return List.of(value.split("/|,|\\|" )).stream()
+        List<String> parsed = List.of(value.split("/|,|\\|" )).stream()
                 .map(String::trim)
                 .filter(StrUtil::isNotBlank)
                 .map(item -> item.toLowerCase(Locale.ROOT))
                 .distinct()
                 .toList();
+        return parsed.isEmpty() ? fallback : parsed;
     }
 
     private String text(JsonNode row, String field) {

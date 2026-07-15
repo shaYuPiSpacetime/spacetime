@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 用户资料业务字典服务。
@@ -19,6 +20,8 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class ProfileDictionaryService {
+
+    private static final String CHINA_REGION_DICT_TYPE = "china_region";
 
     private final DictDataDao dictDataDao;
 
@@ -44,6 +47,54 @@ public class ProfileDictionaryService {
             throw new BusinessException(fieldLabel + "编码不存在或已停用");
         }
         return normalized;
+    }
+
+    /**
+     * 校验中国大陆省市区 code 及父子层级。
+     * 允许只保存省或省市；一旦提交下级 code，就必须同时提交并匹配其父级。
+     */
+    public void requireChinaRegionPath(
+            String provinceCode,
+            String cityCode,
+            String districtCode,
+            String fieldLabel) {
+        String provinceValue = StrUtil.trim(provinceCode);
+        String cityValue = StrUtil.trim(cityCode);
+        String districtValue = StrUtil.trim(districtCode);
+        if (StrUtil.isAllBlank(provinceValue, cityValue, districtValue)) {
+            return;
+        }
+        SysDictData province = enabledRegion(provinceValue);
+        if (province == null || !Long.valueOf(0L).equals(province.getParentId())) {
+            throw unsupportedRegion(fieldLabel);
+        }
+        if (StrUtil.isBlank(cityValue)) {
+            if (StrUtil.isNotBlank(districtValue)) {
+                throw unsupportedRegion(fieldLabel);
+            }
+            return;
+        }
+        SysDictData city = enabledRegion(cityValue);
+        if (city == null || !Objects.equals(province.getId(), city.getParentId())) {
+            throw unsupportedRegion(fieldLabel);
+        }
+        if (StrUtil.isBlank(districtValue)) {
+            return;
+        }
+        SysDictData district = enabledRegion(districtValue);
+        if (district == null || !Objects.equals(city.getId(), district.getParentId())) {
+            throw unsupportedRegion(fieldLabel);
+        }
+    }
+
+    private SysDictData enabledRegion(String code) {
+        return StrUtil.isBlank(code)
+                ? null
+                : dictDataDao.selectEnabledByTypeAndValue(CHINA_REGION_DICT_TYPE, code);
+    }
+
+    private BusinessException unsupportedRegion(String fieldLabel) {
+        return new BusinessException("REGION_NOT_SUPPORTED：" + fieldLabel + "必须使用有效的中国大陆省市区编码");
     }
 
     /** 将业务表中的 code 转换为中文标签；历史异常值暂按原值返回，便于排查。 */

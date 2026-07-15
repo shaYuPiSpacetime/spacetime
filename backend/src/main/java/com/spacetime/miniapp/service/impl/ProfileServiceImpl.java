@@ -11,7 +11,6 @@ import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
-import com.spacetime.common.enums.GenderEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.provider.SongSearchProvider;
 import com.spacetime.common.service.AppUserAuditService;
@@ -42,7 +41,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -312,49 +310,21 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
-    /** 首版仅支持中国大陆省市区；命中海外、国家、港澳台时直接拒绝且不写库。 */
+    /** 首版仅支持中国大陆省市区 code，并校验真实字典节点及父子层级。 */
     private void validateMainlandRegion(ProfileInitStepReq req) {
         if (req == null) {
             return;
         }
-        validateRegionValues(req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(),
-                null, null, null);
+        profileDictionaryService.requireChinaRegionPath(
+                req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
     }
 
     /** 基础资料页的现居地和家乡都只允许中国大陆地区。 */
     private void validateMainlandRegion(BasicProfileSaveReq req) {
-        validateRegionValues(req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(),
-                req.getHometownProvince(), req.getHometownCity(), req.getHometownDistrict());
-    }
-
-    /** 按接口文档错误码返回，便于移动端按 REGION_NOT_SUPPORTED 做统一提示。 */
-    private void validateRegionValues(String... values) {
-        for (String value : values) {
-            if (isUnsupportedRegion(value)) {
-                throw new BusinessException("REGION_NOT_SUPPORTED：首版仅支持中国大陆省市区");
-            }
-        }
-    }
-
-    /** 识别 UI 里可能传入的海外、国家、港澳台入口值。 */
-    private boolean isUnsupportedRegion(String value) {
-        if (StrUtil.isBlank(value)) {
-            return false;
-        }
-        String raw = value.trim();
-        String upper = raw.toUpperCase(Locale.ROOT);
-        return upper.contains("OVERSEAS")
-                || upper.contains("FOREIGN")
-                || upper.equals("US")
-                || upper.equals("USA")
-                || upper.equals("UNITED STATES")
-                || raw.contains("海外")
-                || raw.contains("国外")
-                || raw.contains("国家")
-                || raw.contains("港澳台")
-                || raw.contains("香港")
-                || raw.contains("澳门")
-                || raw.contains("台湾");
+        profileDictionaryService.requireChinaRegionPath(
+                req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
+        profileDictionaryService.requireChinaRegionPath(
+                req.getHometownProvince(), req.getHometownCity(), req.getHometownDistrict(), "家乡");
     }
 
     /** 按当前字段展示配置应用完整表单值。 */
@@ -432,17 +402,13 @@ public class ProfileServiceImpl implements ProfileService {
         return normalized == null ? null : profileDictionaryService.requireCode(dictType, normalized, label);
     }
 
-    /** 性别支持大小写输入，但业务表统一保存枚举大写 code。 */
+    /** 性别由运行中字典校验，业务表只保存标准 code。 */
     private String genderCodeOrNull(String code) {
         String normalized = trimToNull(code);
         if (normalized == null) {
             return null;
         }
-        GenderEnum gender = GenderEnum.getByCode(normalized.toUpperCase(Locale.ROOT));
-        if (gender == null) {
-            throw new BusinessException("性别只能为MALE或FEMALE");
-        }
-        return gender.getCode();
+        return profileDictionaryService.requireCode(ProfileDictType.GENDER, normalized, "性别");
     }
 
     private String validatedText(String value, int minLength, int maxLength, String message) {
@@ -542,7 +508,7 @@ public class ProfileServiceImpl implements ProfileService {
     private void applyStepFields(AppUser user, ProfileInitStepReq req) {
         switch (req.getStep()) {
             case 1 -> {
-                if (StrUtil.isNotBlank(req.getGender())) user.setGender(req.getGender());
+                if (StrUtil.isNotBlank(req.getGender())) user.setGender(genderCodeOrNull(req.getGender()));
             }
             case 2 -> {
                 if (StrUtil.isNotBlank(req.getBirthday())) {
@@ -564,9 +530,9 @@ public class ProfileServiceImpl implements ProfileService {
                 }
             }
             case 5 -> {
-                if (StrUtil.isNotBlank(req.getLocationProvince())) user.setLocationProvince(req.getLocationProvince());
-                if (StrUtil.isNotBlank(req.getLocationCity())) user.setLocationCity(req.getLocationCity());
-                if (StrUtil.isNotBlank(req.getLocationDistrict())) user.setLocationDistrict(req.getLocationDistrict());
+                if (StrUtil.isNotBlank(req.getLocationProvince())) user.setLocationProvince(req.getLocationProvince().trim());
+                if (StrUtil.isNotBlank(req.getLocationCity())) user.setLocationCity(req.getLocationCity().trim());
+                if (StrUtil.isNotBlank(req.getLocationDistrict())) user.setLocationDistrict(req.getLocationDistrict().trim());
             }
             default -> throw new BusinessException("首登步骤必须在1-5之间");
         }

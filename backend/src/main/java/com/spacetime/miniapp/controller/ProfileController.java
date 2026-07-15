@@ -169,7 +169,7 @@ public class ProfileController {
 
     /** 新增相册照片。 */
     @PostMapping("/albums")
-    public R<ProfileMediaVO> submitAlbum(@RequestBody ProfileMediaSubmitReq req) {
+    public R<ProfileMediaVO> submitAlbum(@Valid @RequestBody ProfileMediaSubmitReq req) {
         if (req == null) {
             req = new ProfileMediaSubmitReq();
         }
@@ -179,7 +179,7 @@ public class ProfileController {
 
     /** 替换相册照片。 */
     @PutMapping("/albums/{id}")
-    public R<ProfileMediaVO> replaceAlbum(@PathVariable Long id, @RequestBody ProfileMediaSubmitReq req) {
+    public R<ProfileMediaVO> replaceAlbum(@PathVariable Long id, @Valid @RequestBody ProfileMediaSubmitReq req) {
         return R.ok(profileMediaService.replaceAlbum(currentUserId(), id, req));
     }
 
@@ -198,7 +198,7 @@ public class ProfileController {
 
     /** 提交或替换资料背景图。 */
     @PutMapping("/background")
-    public R<ProfileMediaVO> saveProfileBackground(@RequestBody ProfileMediaSubmitReq req) {
+    public R<ProfileMediaVO> saveProfileBackground(@Valid @RequestBody ProfileMediaSubmitReq req) {
         return R.ok(profileMediaService.submitProfileBackground(currentUserId(), req));
     }
 

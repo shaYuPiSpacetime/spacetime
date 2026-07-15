@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.config.ProfileScoreConfig;
 import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
@@ -26,6 +27,7 @@ import com.spacetime.miniapp.dto.response.ProfileDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileInitStatusVO;
 import com.spacetime.miniapp.service.VerificationService;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -58,6 +60,17 @@ class ProfileServiceImplTest {
     private VerificationService verificationService;
     @Mock
     private SongSearchProvider songSearchProvider;
+    @Mock
+    private DictDataDao dictDataDao;
+
+    @BeforeEach
+    void setUpDictionaryDefaults() {
+        org.mockito.Mockito.lenient().when(profileDictionaryService.requireCode(
+                        org.mockito.ArgumentMatchers.eq(ProfileDictType.GENDER),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq("性别")))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+    }
 
     @Test
     @DisplayName("选填步骤允许空值提交并推进进度")
@@ -316,10 +329,47 @@ class ProfileServiceImplTest {
 
         BasicProfileSaveReq req = validBasicProfileReq();
         req.setGender("UNKNOWN");
+        when(profileDictionaryService.requireCode(ProfileDictType.GENDER, "UNKNOWN", "性别"))
+                .thenThrow(new BusinessException("性别编码不存在或已停用"));
 
         assertThatThrownBy(() -> newService().saveBasicProfile(7L, req))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("性别只能为MALE或FEMALE");
+                .hasMessageContaining("性别编码不存在或已停用");
+        verify(appUserDao, never()).updateById(user);
+    }
+
+    @Test
+    @DisplayName("首登性别code被字典停用后拒绝写入")
+    void shouldRejectInitGenderDisabledByDictionary() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD")).thenReturn(List.of(config(allFieldsRequired())));
+        AppUser user = baseUser(1);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(profileDictionaryService.requireCode(ProfileDictType.GENDER, "FEMALE", "性别"))
+                .thenThrow(new BusinessException("性别编码不存在或已停用"));
+        ProfileInitStepReq req = new ProfileInitStepReq();
+        req.setStep(1);
+        req.setGender("FEMALE");
+
+        assertThatThrownBy(() -> newService().saveInitStep(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("性别编码不存在或已停用");
+        verify(appUserDao, never()).updateById(user);
+    }
+
+    @Test
+    @DisplayName("首登现居地code不存在时拒绝完成流程")
+    void shouldRejectUnknownMainlandRegionCode() {
+        AppUser user = completedUntilStepFive();
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        ProfileInitStepReq req = new ProfileInitStepReq();
+        req.setStep(5);
+        req.setLocationProvince("999999");
+        req.setLocationCity("999900");
+
+        ProfileDictionaryService realDictionaryService = new ProfileDictionaryService(dictDataDao);
+        assertThatThrownBy(() -> newService(realDictionaryService).saveInitStep(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("REGION_NOT_SUPPORTED");
         verify(appUserDao, never()).updateById(user);
     }
 
@@ -379,6 +429,10 @@ class ProfileServiceImplTest {
     }
 
     private ProfileServiceImpl newService() {
+        return newService(profileDictionaryService);
+    }
+
+    private ProfileServiceImpl newService(ProfileDictionaryService dictionaryService) {
         ObjectMapper mapper = new ObjectMapper();
         Prd01FieldConfigResolver resolver = new Prd01FieldConfigResolver(appConfigDao, mapper);
         ProfileScoreConfig scoreConfig = new ProfileScoreConfig();
@@ -387,7 +441,7 @@ class ProfileServiceImplTest {
         Prd01ProfileCompletenessCalculator completenessCalculator =
                 new Prd01ProfileCompletenessCalculator(runtimeConfigResolver, auditService);
         return new ProfileServiceImpl(appUserDao, scoreConfig, auditService, auditContentService,
-                resolver, profileDictionaryService, mapper, accessEvaluator, completenessCalculator,
+                resolver, dictionaryService, mapper, accessEvaluator, completenessCalculator,
                 runtimeConfigResolver, verificationService, songSearchProvider);
     }
 

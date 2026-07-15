@@ -30,9 +30,9 @@ cd "$PROJECT_DIR"
 
 if [[ "${1:-}" == "--background" ]]; then
   echo "🚀 后台启动 Spring Boot (dev profile)..."
-  mvn spring-boot:run -Dspring-boot.run.profiles=dev > target/dev.log 2>&1 &
+  nohup mvn spring-boot:run -Dspring-boot.run.profiles=dev > target/dev.log 2>&1 < /dev/null &
   PID=$!
-  echo "✅ 进程 PID: $PID，日志文件: target/dev.log"
+  echo "✅ 进程 PID: ${PID}，日志文件: target/dev.log"
   echo "   查看日志: tail -f target/dev.log"
 else
   echo "🚀 启动 Spring Boot (dev profile)..."

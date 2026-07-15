@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.ExternalProviderTaskDao;
+import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.ExternalProviderTask;
@@ -16,6 +17,7 @@ import com.spacetime.common.provider.ImageSafetyProvider;
 import com.spacetime.common.provider.ProviderCheckResult;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
+import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.miniapp.dto.request.AvatarSubmitReq;
 import com.spacetime.miniapp.dto.request.ProfileMediaSubmitReq;
 import com.spacetime.miniapp.dto.response.AvatarSubmitVO;
@@ -44,7 +46,6 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
 
     private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Set<String> ALLOWED_TYPES = Set.of("ALBUM", "PROFILE_BG");
-    private static final Set<String> AVATAR_SOURCES = Set.of("CAMERA", "ALBUM");
 
     private final AppUserDao appUserDao;
     private final AppUserAuditRecordDao auditRecordDao;
@@ -52,6 +53,7 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
     private final ExternalProviderTaskDao externalProviderTaskDao;
     private final ImageSafetyProvider imageSafetyProvider;
     private final Prd01RuntimeConfigResolver runtimeConfigResolver;
+    private final ProfileDictionaryService profileDictionaryService;
 
     @Override
     public AvatarVerifyDetailVO getAvatarDetail(Long userId) {
@@ -274,9 +276,12 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
     }
 
     private void validateAvatar(AvatarSubmitReq req) {
-        if (req == null || !AVATAR_SOURCES.contains(req.getAvatarSource())) {
-            throw new BusinessException("头像来源只支持 CAMERA 或 ALBUM");
+        if (req == null) {
+            throw new BusinessException("头像来源不能为空");
         }
+        String avatarSource = profileDictionaryService.requireCode(
+                ProfileDictType.AVATAR_SOURCE, req.getAvatarSource(), "头像来源");
+        req.setAvatarSource(avatarSource);
         if (StrUtil.isBlank(req.getAvatarUrl()) || !isHttpUrl(req.getAvatarUrl())) {
             throw new BusinessException("头像 URL 格式不正确");
         }
@@ -300,7 +305,7 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
 
     private void validateSize(Long fileSizeBytes, Prd01RuntimeConfigResolver.UploadRule rule) {
         if (fileSizeBytes == null) {
-            return;
+            throw new BusinessException("文件大小不能为空");
         }
         long maxBytes = rule.maxMb() * 1024L * 1024L;
         if (fileSizeBytes <= 0 || fileSizeBytes > maxBytes) {
@@ -322,9 +327,10 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
                     AppUserAuditStatusEnum.REVIEWING.getCode(),
                     AppUserAuditStatusEnum.APPROVED.getCode());
         }
+        int maxCount = AppUserAuditTypeEnum.PROFILE_BG.equals(auditType) ? 1 : rule.maxCount();
         Long count = auditRecordDao.count(wrapper);
-        if (count != null && count >= rule.maxCount()) {
-            throw new BusinessException("上传数量不能超过 " + rule.maxCount() + " 张");
+        if (count != null && count >= maxCount) {
+            throw new BusinessException("上传数量不能超过 " + maxCount + " 张");
         }
     }
 

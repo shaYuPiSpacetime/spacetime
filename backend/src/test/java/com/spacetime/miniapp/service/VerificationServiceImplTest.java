@@ -36,6 +36,7 @@ import java.util.List;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -84,6 +85,11 @@ class VerificationServiceImplTest {
                 .thenReturn(new Prd01RuntimeConfigResolver.AuditPolicy(24, "学历认证预计24小时内完成"));
         org.mockito.Mockito.lenient().when(runtimeConfigResolver.uploadRule(defaultConfigSnapshot, "education", 4, 10))
                 .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(4, 10, List.of("jpg", "jpeg", "png")));
+        org.mockito.Mockito.lenient().when(profileDictionaryService.requireCode(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
     }
 
     @Test
@@ -223,6 +229,81 @@ class VerificationServiceImplTest {
     }
 
     @Test
+    @DisplayName("学历材料接受前端直传后返回的受保护凭证相对路径")
+    void shouldAcceptProtectedEducationCredentialPath() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        user.setIdentity("STUDENT");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord realName = record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(realName, realName);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(null, null);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.AVATAR)).thenReturn(null);
+        when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
+                .thenReturn("BACHELOR");
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0);
+            record.setId(501L);
+            return record;
+        });
+        when(educationVerificationProvider.check(any(), any(), any()))
+                .thenReturn(ProviderCheckResult.safe("mock-education", "{}", true));
+
+        EducationSubmitReq req = studentEducationReq(
+                "/miniapp/file/credential/user-7/20260714/education-proof.jpg");
+
+        assertThatCode(() -> service.submitEducation(7L, req)).doesNotThrowAnyException();
+
+        ArgumentCaptor<AppUserAuditRecord> captor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditService).submit(captor.capture());
+        assertThat(captor.getValue().getMaterialJson())
+                .contains("/miniapp/file/credential/user-7/20260714/education-proof.jpg");
+    }
+
+    @Test
+    @DisplayName("学历人群字典停用时拒绝提交")
+    void shouldRejectEducationUserTypeDisabledByDictionary() {
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED));
+        when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_USER_TYPE, "STUDENT", "学历人群"))
+                .thenThrow(new BusinessException("学历人群编码不存在或已停用"));
+        EducationSubmitReq req = studentEducationReq("https://static.example.com/student-card.jpg");
+
+        assertThatThrownBy(() -> service.submitEducation(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("学历人群编码不存在或已停用");
+        verify(auditService, org.mockito.Mockito.never()).submit(any());
+    }
+
+    @Test
+    @DisplayName("学历认证方式字典停用时拒绝提交")
+    void shouldRejectEducationMethodDisabledByDictionary() {
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED));
+        when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_METHOD, "STUDENT_CARD", "学历认证方式"))
+                .thenThrow(new BusinessException("学历认证方式编码不存在或已停用"));
+        EducationSubmitReq req = studentEducationReq("https://static.example.com/student-card.jpg");
+
+        assertThatThrownBy(() -> service.submitEducation(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("学历认证方式编码不存在或已停用");
+        verify(auditService, org.mockito.Mockito.never()).submit(any());
+    }
+
+    @Test
+    @DisplayName("学历材料拒绝非凭证接口的相对路径")
+    void shouldRejectNonCredentialRelativeEducationPath() {
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED));
+        EducationSubmitReq req = studentEducationReq("/miniapp/file/public/2026/07/14/proof.jpg");
+
+        assertThatThrownBy(() -> service.submitEducation(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("材料地址无效");
+        verify(auditService, org.mockito.Mockito.never()).submit(any());
+    }
+
+    @Test
     @DisplayName("三重认证状态返回学历顺序限制和各项提交权限")
     void shouldReturnSubmissionGuards() {
         when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(null);
@@ -315,5 +396,16 @@ class VerificationServiceImplTest {
         record.setAuditType(type.getCode());
         record.setStatus(status.getCode());
         return record;
+    }
+
+    private EducationSubmitReq studentEducationReq(String materialUrl) {
+        EducationSubmitReq req = new EducationSubmitReq();
+        req.setEducationUserType("STUDENT");
+        req.setEducationMethod("STUDENT_CARD");
+        req.setSchoolName("浙江大学");
+        req.setEducationLevel("BACHELOR");
+        req.setMaterialUrls(List.of(materialUrl));
+        req.setEducationAgreementChecked(true);
+        return req;
     }
 }

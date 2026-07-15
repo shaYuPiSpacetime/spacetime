@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.entity.SysDictData;
+import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.response.DictOptionVO;
 import com.spacetime.miniapp.dto.response.ProfileTagGroupVO;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -160,6 +162,46 @@ class MiniappDictServiceImplTest {
                 .containsExactly("ALL", "MBTI", "SPORT", "FOOTPRINT");
         assertThat(groups.get(0).getOptions()).hasSize(3);
         assertThat(groups.get(1).getOptions()).extracting(DictOptionVO::getCode).containsExactly("INFJ");
+    }
+
+    @Test
+    @DisplayName("首登必需字典为空时明确报错而不是返回空数组")
+    void shouldRejectEmptyRequiredProfileDictionary() {
+        when(dictDataDao.selectByDictType("app_gender")).thenReturn(List.of());
+        MiniappDictService service = new MiniappDictServiceImpl(dictDataDao);
+
+        assertThatThrownBy(service::profileOptions)
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("性别字典");
+    }
+
+    @Test
+    @DisplayName("标签字典未配置全部分组时仍合成首个全部分组")
+    void shouldSynthesizeAllTagGroupWhenDatabaseDoesNotContainIt() {
+        org.mockito.Mockito.lenient().when(dictDataDao.selectByDictType(any()))
+                .thenReturn(List.of());
+        when(dictDataDao.selectByDictType("app_gender"))
+                .thenReturn(List.of(dict("app_gender", "FEMALE", "女")));
+        when(dictDataDao.selectByDictType("app_identity"))
+                .thenReturn(List.of(dict("app_identity", "WORKER", "职场人")));
+        when(dictDataDao.selectByDictType("app_education_level"))
+                .thenReturn(List.of(dict("app_education_level", "BACHELOR", "本科")));
+        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+                dict(100L, 0L, "app_profile_tag", "MBTI", "MBTI"),
+                dict(101L, 0L, "app_profile_tag", "SPORT", "运动"),
+                dict(1L, 100L, "app_profile_tag", "INFJ", "INFJ提倡者"),
+                dict(3L, 100L, "app_profile_tag", "INFJ", "INFJ提倡者重复数据"),
+                dict(2L, 101L, "app_profile_tag", "RUNNING", "跑步")
+        ));
+        MiniappDictService service = new MiniappDictServiceImpl(dictDataDao);
+
+        List<ProfileTagGroupVO> groups = tagGroups(service.profileOptions());
+
+        assertThat(groups).extracting(ProfileTagGroupVO::getCategoryCode)
+                .containsExactly("ALL", "MBTI", "SPORT");
+        assertThat(groups.get(0).getCategoryLabel()).isEqualTo("全部");
+        assertThat(groups.get(0).getOptions()).extracting(DictOptionVO::getCode)
+                .containsExactly("INFJ", "RUNNING");
     }
 
     private SysDictData region(Long id, Long parentId, String label, String value, boolean hasChildren) {

@@ -13,7 +13,6 @@ public class AvatarSubmitReq {
 
     /** 头像来源：CAMERA（拍照）、ALBUM（相册）。 */
     @NotBlank(message = "头像来源不能为空")
-    @Pattern(regexp = "CAMERA|ALBUM", message = "头像来源只支持 CAMERA 或 ALBUM")
     private String avatarSource;
 
     /** 裁剪后的头像公网 URL。 */

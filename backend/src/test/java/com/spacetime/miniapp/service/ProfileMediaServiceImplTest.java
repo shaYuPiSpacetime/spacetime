@@ -12,6 +12,7 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.provider.ImageSafetyProvider;
 import com.spacetime.common.provider.ProviderCheckResult;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.miniapp.dto.request.AvatarSubmitReq;
 import com.spacetime.miniapp.dto.request.ProfileMediaSubmitReq;
 import com.spacetime.miniapp.dto.response.AvatarSubmitVO;
@@ -54,6 +55,8 @@ class ProfileMediaServiceImplTest {
     private ImageSafetyProvider imageSafetyProvider;
     @Mock
     private Prd01RuntimeConfigResolver runtimeConfigResolver;
+    @Mock
+    private ProfileDictionaryService profileDictionaryService;
 
     @InjectMocks
     private ProfileMediaServiceImpl profileMediaService;
@@ -72,6 +75,11 @@ class ProfileMediaServiceImplTest {
         org.mockito.Mockito.lenient().when(runtimeConfigResolver.uploadRule(configSnapshot, "profileBg", 1, 10))
                 .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(1, 10, List.of("jpg", "jpeg", "png")));
         org.mockito.Mockito.lenient().when(auditRecordDao.count(any())).thenReturn(0L);
+        org.mockito.Mockito.lenient().when(profileDictionaryService.requireCode(
+                        org.mockito.ArgumentMatchers.eq("app_avatar_source"),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq("头像来源")))
+                .thenAnswer(invocation -> invocation.getArgument(1));
     }
 
     @Test
@@ -256,6 +264,8 @@ class ProfileMediaServiceImplTest {
         AvatarSubmitReq req = new AvatarSubmitReq();
         req.setAvatarSource("UNKNOWN");
         req.setAvatarUrl("https://static.example.com/avatar/cropped.jpg");
+        when(profileDictionaryService.requireCode("app_avatar_source", "UNKNOWN", "头像来源"))
+                .thenThrow(new BusinessException("头像来源编码不存在或已停用"));
 
         assertThatThrownBy(() -> profileMediaService.submitAvatar(7L, req))
                 .isInstanceOf(BusinessException.class)
@@ -294,11 +304,63 @@ class ProfileMediaServiceImplTest {
         verify(auditService).machineReject(101L, 301L, "{}", "当前图片未通过安全审核，请重新上传");
     }
 
+    @Test
+    @DisplayName("头像来源字典停用后即使是历史合法code也拒绝提交")
+    void shouldRejectAvatarSourceDisabledByDictionary() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(profileDictionaryService.requireCode("app_avatar_source", "ALBUM", "头像来源"))
+                .thenThrow(new BusinessException("头像来源编码不存在或已停用"));
+
+        AvatarSubmitReq req = new AvatarSubmitReq();
+        req.setAvatarSource("ALBUM");
+        req.setAvatarUrl("https://static.example.com/avatar/cropped.jpg");
+
+        assertThatThrownBy(() -> profileMediaService.submitAvatar(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("头像来源编码不存在或已停用");
+        verify(auditService, never()).submit(any());
+    }
+
+    @Test
+    @DisplayName("媒体提交缺少文件大小时拒绝进入审核")
+    void shouldRejectMediaWithoutFileSize() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        ProfileMediaSubmitReq album = mediaReq("ALBUM", "https://static.example.com/album.jpg");
+        album.setFileSizeBytes(null);
+
+        assertThatThrownBy(() -> profileMediaService.submitMedia(7L, album))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("文件大小不能为空");
+        verify(auditService, never()).submit(any());
+    }
+
+    @Test
+    @DisplayName("背景图即使运行配置错误放大上限也只允许一张待审核记录")
+    void shouldEnforceSinglePendingProfileBackground() {
+        when(runtimeConfigResolver.uploadRule(configSnapshot, "profileBg", 1, 10))
+                .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(4, 10, List.of("jpg", "jpeg", "png")));
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditRecordDao.count(any())).thenReturn(1L);
+        ProfileMediaSubmitReq background = mediaReq("PROFILE_BG", "https://static.example.com/bg.jpg");
+
+        assertThatThrownBy(() -> profileMediaService.submitMedia(7L, background))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("上传数量不能超过 1 张");
+        verify(auditService, never()).submit(any());
+    }
+
     private ProfileMediaSubmitReq mediaReq(String mediaType, String mediaUrl) {
         ProfileMediaSubmitReq req = new ProfileMediaSubmitReq();
         req.setMediaType(mediaType);
         req.setMediaUrl(mediaUrl);
         req.setThumbUrl(mediaUrl.replace(".jpg", "-thumb.jpg"));
+        req.setFileSizeBytes(1024L);
         req.setSortOrder(1);
         return req;
     }

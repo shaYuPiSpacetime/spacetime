@@ -34,4 +34,38 @@ class Prd01RuntimeConfigResolverTest {
                 "maxMb", 18,
                 "formats", List.of("aac", "wav")));
     }
+
+    @Test
+    void 语音配置缺失时默认格式只能是mp3() {
+        AppConfigDao appConfigDao = mock(AppConfigDao.class);
+        when(appConfigDao.selectByKeys(anyList())).thenReturn(List.of());
+        Prd01RuntimeConfigResolver resolver = new Prd01RuntimeConfigResolver(appConfigDao, new ObjectMapper());
+
+        Prd01RuntimeConfigResolver.UploadRule rule = resolver.uploadRule(resolver.snapshot(), "voice", 1, 20);
+
+        assertThat(rule.formats()).containsExactly("mp3");
+    }
+
+    @Test
+    void 语音配置行格式为空时回退mp3且背景图张数钳制为一张() {
+        AppConfigDao appConfigDao = mock(AppConfigDao.class);
+        AppConfig config = new AppConfig();
+        config.setConfigKey("prd01.upload.rules");
+        config.setConfigValue("""
+                {"rows":[
+                  {"key":"voice","maxCount":"1","maxMb":"20","format":" / "},
+                  {"key":"profileBg","maxCount":"4","maxMb":"10","format":"jpg / png"}
+                ]}
+                """);
+        when(appConfigDao.selectByKeys(anyList())).thenReturn(List.of(config));
+        Prd01RuntimeConfigResolver resolver = new Prd01RuntimeConfigResolver(appConfigDao, new ObjectMapper());
+
+        Map<String, Object> limits = resolver.uploadLimits(resolver.snapshot());
+
+        assertThat(limits.get("voice")).isEqualTo(Map.of(
+                "maxCount", 1, "maxMb", 20, "formats", List.of("mp3")));
+        assertThat(limits.get("profileBg")).isEqualTo(Map.of(
+                "maxCount", 1, "maxMb", 10, "formats", List.of("jpg", "png")));
+        assertThat(limits).containsEntry("profileBgMaxCount", 1);
+    }
 }

@@ -3,6 +3,7 @@ package com.spacetime.miniapp.service.impl;
 import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.entity.SysDictData;
+import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.response.DictOptionVO;
 import com.spacetime.miniapp.dto.response.ProfileTagGroupVO;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,9 +77,9 @@ public class MiniappDictServiceImpl implements MiniappDictService {
     @Override
     public Map<String, Object> profileOptions() {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("gender", options(ProfileDictType.GENDER));
-        result.put("identity", options(ProfileDictType.IDENTITY));
-        result.put("educationLevel", options(ProfileDictType.EDUCATION_LEVEL));
+        result.put("gender", requiredOptions(ProfileDictType.GENDER, "性别"));
+        result.put("identity", requiredOptions(ProfileDictType.IDENTITY, "身份"));
+        result.put("educationLevel", requiredOptions(ProfileDictType.EDUCATION_LEVEL, "学历"));
         result.put("industry", options(ProfileDictType.INDUSTRY));
         result.put("occupation", options(ProfileDictType.OCCUPATION));
         result.put("annualIncome", options(ProfileDictType.ANNUAL_INCOME));
@@ -108,10 +110,19 @@ public class MiniappDictServiceImpl implements MiniappDictService {
         }).toList();
     }
 
+    /** 首登必填字典缺失属于服务配置异常，不能伪装成可用的空列表。 */
+    private List<DictOptionVO> requiredOptions(String dictType, String fieldLabel) {
+        List<DictOptionVO> result = options(dictType);
+        if (result.isEmpty()) {
+            throw new BusinessException(fieldLabel + "字典配置为空，请联系管理员");
+        }
+        return result;
+    }
+
     private List<DictOptionVO> profileTagOptions(List<SysDictData> items, List<TagCategory> categories) {
         Map<Long, TagCategory> categoriesById = categories.stream()
                 .collect(java.util.stream.Collectors.toMap(TagCategory::id, item -> item));
-        return items.stream()
+        Map<String, DictOptionVO> uniqueOptions = items.stream()
                 .filter(item -> !isTagCategoryNode(item))
                 .map(item -> {
                     DictOptionVO option = new DictOptionVO();
@@ -124,14 +135,29 @@ public class MiniappDictServiceImpl implements MiniappDictService {
                         option.setCategoryLabel(category.label());
                     }
                     return option;
-                }).toList();
+                })
+                .collect(java.util.stream.Collectors.toMap(
+                        DictOptionVO::getCode,
+                        item -> item,
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
+        return List.copyOf(uniqueOptions.values());
     }
 
     private List<ProfileTagGroupVO> profileTagGroups(List<DictOptionVO> tags, List<TagCategory> categories) {
-        return categories.stream()
+        List<ProfileTagGroupVO> groups = new ArrayList<>();
+        groups.add(tagGroup(new TagCategory(null, "ALL", "全部"), tags));
+        Map<String, TagCategory> uniqueCategories = new LinkedHashMap<>();
+        for (TagCategory category : categories) {
+            if (!"ALL".equals(category.code())) {
+                uniqueCategories.putIfAbsent(category.code(), category);
+            }
+        }
+        uniqueCategories.values().stream()
                 .map(category -> tagGroup(category, tags))
-                .filter(group -> !group.getOptions().isEmpty() || "ALL".equals(group.getCategoryCode()))
-                .toList();
+                .filter(group -> !group.getOptions().isEmpty())
+                .forEach(groups::add);
+        return List.copyOf(groups);
     }
 
     private ProfileTagGroupVO tagGroup(TagCategory category, List<DictOptionVO> tags) {
