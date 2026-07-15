@@ -4,6 +4,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本04 | 2026-07-15 | Codex | 隐藏访问一期完全不开发，删除筛选项和展示字段 |
 | 版本02 | 2026-07-02 | Codex | 按确认口径改为用户卡片模块补充按钮 + 弹窗关系反馈 Tab，不在列表卡片或画像详情直铺 |
 | 版本01 | 2026-07-02 | Codex | 正式版初稿，补齐原后台 PRD-02 第 4.1.1 对用户列表的关系反馈字段要求 |
 
@@ -32,7 +33,7 @@
 
 | 画板 ID | 画板名称 | 设计内容 | 备注 |
 |---------|----------|----------|------|
-| `ADM-02-user-list-relation-01` | App 用户管理-关系反馈筛选字段 | 筛选区新增关系反馈准入、VIP、隐藏访问记录 | 可在 ADM-01 主列表画板上增量标注 |
+| `ADM-02-user-list-relation-01` | App 用户管理-关系反馈筛选字段 | 筛选区新增关系反馈准入、VIP | 可在 ADM-01 主列表画板上增量标注 |
 | `ADM-02-user-list-relation-02` | App 用户管理-模块补充入口 | 用户卡片新增“模块补充”按钮，与详情、头像审核同一行 | 不新增独立页面 |
 | `ADM-02-user-list-relation-03` | 模块补充弹窗-关系反馈 Tab | 弹窗内展示关系反馈摘要、喜欢记录、访客记录、相互喜欢、解锁记录 | 与 PRD-03 消息互动 Tab 共用同一个弹窗 |
 
@@ -46,12 +47,11 @@
 |---------|--------|------|----------|----------|--------|------------|
 | `ADM-02-PAGE-user-list-relation-fields-FILTER-core-access-status` | 关系反馈准入状态 | 下拉 | `M01-ENUM-core-access-status` | 是 | 全部 | 是 |
 | `ADM-02-PAGE-user-list-relation-fields-FILTER-vip-status` | VIP 状态 | 下拉 | `M04-ENUM-vip-status` | 是 | 全部 | 是 |
-| `ADM-02-PAGE-user-list-relation-fields-FILTER-hidden-visit-enabled` | 是否开启隐藏访问记录 | 下拉 | 全部/是/否 | 否 | 全部 | 是 |
 
 ### 3.3 筛选交互
 
 - 筛选项变化后：沿用 App 用户管理页查询触发方式。
-- 重置后：清空关系反馈准入状态、VIP 状态、是否开启隐藏访问记录筛选。
+- 重置后：清空关系反馈准入状态和 VIP 状态筛选。
 - 权限不足时：VIP 状态可按 PRD-04 权限隐藏；关系反馈准入状态仍可展示。
 
 ---
@@ -64,7 +64,6 @@
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-relation-access-status` | 关系反馈准入状态 | enum | 是 | `M01-ENUM-core-access-status` | 只展示中文状态；用于判断用户能否进入关系反馈链路 | 无 | 否 | 普通 | PRD-01/02 |
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-vip-status` | VIP 状态 | enum | 是 | `M04-ENUM-vip-status` | 只展示中文状态；无 PRD-04 权限时隐藏 | `inactive` | 否 | 普通 | PRD-04 |
-| `ADM-02-PAGE-user-list-relation-fields-FIELD-hidden-visit-enabled` | 隐藏访问记录 | bool | 是 | true/false | 需结合会员隐私权益是否有效；无权益时展示否 | false | 否 | 普通 | PRD-02/04 |
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-visitor-uv-7d` | 最近 7 天被访问人数 | int | 是 | >=0 | 统计最近 7 天访问当前用户婚恋主页的去重访客数 | 0 | 否 | 普通 | PRD-02 |
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-active-liked-count` | 当前有效被喜欢数 | int | 是 | >=0 | 只统计 `M02-SM-like-record=active` 且当前用户为接收方 | 0 | 否 | 普通 | PRD-02 |
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-active-mutual-count` | 当前有效相互喜欢数 | int | 是 | >=0 | 只统计 `M02-SM-mutual-match=matched` | 0 | 否 | 普通 | PRD-02 |
@@ -75,7 +74,6 @@
 |---------|----------|------------|----------|----------|
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-relation-access-status` | 关系反馈 Tab 摘要区 | 否 | 是 | 状态标签 |
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-vip-status` | 关系反馈 Tab 摘要区 | 否 | 是 | 状态标签 |
-| `ADM-02-PAGE-user-list-relation-fields-FIELD-hidden-visit-enabled` | 关系反馈 Tab 摘要区 | 否 | 是 | 是/否 |
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-visitor-uv-7d` | 关系反馈 Tab 摘要区 | 否 | 是 | 数字 |
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-active-liked-count` | 关系反馈 Tab 摘要区 | 否 | 是 | 数字 |
 | `ADM-02-PAGE-user-list-relation-fields-FIELD-active-mutual-count` | 关系反馈 Tab 摘要区 | 否 | 是 | 数字 |
@@ -96,7 +94,6 @@
 | 触发字段 | 触发事件 | 影响字段 | 联动行为 | 备注 |
 |----------|----------|----------|----------|------|
 | 关系反馈准入状态 | 选择 | 用户列表 | 只返回对应核心准入状态用户 | 引用 PRD-01 |
-| VIP 状态 | 选择 | 隐藏访问记录字段 | VIP 未生效用户通常隐藏访问记录为否 | 引用 PRD-04 |
 | 最近 7 天被访问人数 | 点击模块补充 | 关系反馈 Tab | 弹窗中可查看访客记录明细 | |
 
 ---
@@ -129,7 +126,7 @@
 AC-ID: ADM-02-AC-user-list-relation-filters
 Given 运营打开 App 用户管理页
 When  查看筛选区
-Then  可看到关系反馈准入状态、VIP 状态、是否开启隐藏访问记录筛选项
+Then  可看到关系反馈准入状态和 VIP 状态筛选项，不展示隐藏访问筛选
 
 AC-ID: ADM-02-AC-user-card-module-supplement
 Given 用户存在关系反馈数据
@@ -150,4 +147,4 @@ Then  不出现独立“全局关系列表”菜单，关系字段只在 App 用
 |----------|---------|------|
 | 承载页面 | `ADM-01-PAGE-app-user-management` | 既有 App 用户管理页 |
 | 依赖规则 | `M02-RULE-admin-scope` | 不新增独立关系列表 |
-| 依赖商业化 | `M04-ENUM-vip-status` / `M04-ENUM-vip-benefit-type=privacy` | VIP 与隐藏访问记录 |
+| 依赖商业化 | `M04-ENUM-vip-status` | VIP 状态；隐藏访问一期不开发 |

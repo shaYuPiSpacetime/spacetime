@@ -64,7 +64,6 @@ interface AppUserFilters extends Record<string, string | undefined> {
   city?: string;
   relationshipAccess?: string;
   vipStatus?: string;
-  hideVisitRecord?: string;
 }
 
 interface AdminUserCardItem extends AppUserListVO {
@@ -193,13 +192,6 @@ const ACCESS_OPTIONS = [
   { value: 'full_access', label: '完全准入' },
   { value: 'browse_only', label: '仅浏览' },
   { value: 'blocked', label: '已阻止' },
-];
-
-const HIDE_VISIT_RECORD_OPTIONS = [
-  { value: '', label: '全部' },
-  { value: 'ON', label: '已开启' },
-  { value: 'OFF', label: '未开启' },
-  { value: 'UNAVAILABLE', label: '权益不可用' },
 ];
 
 const APP_USER_PAGE_SIZE = 9;
@@ -751,7 +743,6 @@ export default function CustomersPage() {
   const [city, setCity] = useState('');
   const [memberLevel, setMemberLevel] = useState('');
   const [followStatus, setFollowStatus] = useState('');
-  const [hideVisitRecord, setHideVisitRecord] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<AppUserFilters>({});
   const [listView, setListView] = useState<'card' | 'table'>('card');
   const [page, setPage] = useState(1);
@@ -824,7 +815,6 @@ export default function CustomersPage() {
       city: city || undefined,
       relationshipAccess: followStatus || undefined,
       vipStatus: memberLevel || undefined,
-      hideVisitRecord: hideVisitRecord || undefined,
     });
     setPage(1);
   }
@@ -837,7 +827,6 @@ export default function CustomersPage() {
     setCity('');
     setMemberLevel('');
     setFollowStatus('');
-    setHideVisitRecord('');
     setAppliedFilters({});
     setPage(1);
   }
@@ -948,9 +937,6 @@ export default function CustomersPage() {
             </QueryField>
             <QueryField label="VIP 状态">
               <Select options={MEMBER_LEVEL_OPTIONS} value={memberLevel} onChange={setMemberLevel} />
-            </QueryField>
-            <QueryField label="隐藏访问记录">
-              <Select options={HIDE_VISIT_RECORD_OPTIONS} value={hideVisitRecord} onChange={setHideVisitRecord} />
             </QueryField>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -1207,10 +1193,29 @@ function AppUserTable({
 
 function ModuleSupplementDialog({ user, onClose }: { user: AdminUserCardItem | null; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<'relation' | 'message'>('relation');
+  const [relationTab, setRelationTab] = useState<'likes' | 'visitors' | 'matches' | 'unlocks'>('likes');
+  const [relationPage, setRelationPage] = useState(1);
+  const [relationPageSize, setRelationPageSize] = useState(10);
 
   useEffect(() => {
-    if (user) setActiveTab('relation');
+    if (user) {
+      setActiveTab('relation');
+      setRelationTab('likes');
+      setRelationPage(1);
+      setRelationPageSize(10);
+    }
   }, [user?.id]);
+
+  const relationLabels = { likes: '喜欢记录', visitors: '访客记录', matches: '相互喜欢', unlocks: '解锁记录' };
+  const relationPrefixes = { likes: 'LIK', visitors: 'VIS', matches: 'MAT', unlocks: 'ULK' };
+  const relationTotal = relationTab === 'visitors' ? 26 : relationTab === 'likes' ? 23 : relationTab === 'matches' ? 14 : 12;
+  const relationRows = Array.from({ length: relationTotal }, (_, index) => [
+    `${relationPrefixes[relationTab]}-${user?.id ?? 0}-${String(index + 1).padStart(3, '0')}`,
+    index === relationTotal - 1 ? '匿名用户 ANON-0048' : `关系用户 U${100300 + index}`,
+    relationTab === 'matches' ? '匹配有效' : relationTab === 'unlocks' ? '永久有效' : '生效中',
+    `2026-07-${String(Math.max(1, 15 - (index % 14))).padStart(2, '0')} 13:21`,
+  ]);
+  const pageRows = relationRows.slice((relationPage - 1) * relationPageSize, relationPage * relationPageSize);
 
   return (
     <Dialog open={Boolean(user)} onClose={onClose} className="max-w-[920px]">
@@ -1240,10 +1245,9 @@ function ModuleSupplementDialog({ user, onClose }: { user: AdminUserCardItem | n
           {/* 跨模块信息按 Demo 分 Tab 展示，避免重新铺回用户画像详情。 */}
           {activeTab === 'relation' && (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-3">
                 <MetricTile label="关系反馈准入" value={user.followStatus} />
                 <MetricTile label="VIP 状态" value={user.vipRange === '未开通' ? '未开通' : '生效中'} />
-                <MetricTile label="隐藏访问记录" value={user.vipRange === '未开通' ? '权益不可用' : '未开启'} />
                 <MetricTile label="7天访客 UV/PV" value={`${42 + (user.id % 10)} / ${128 + (user.id % 40)}`} />
                 <MetricTile label="当前被喜欢" value={`${3 + (user.id % 5)}`} />
                 <MetricTile label="当前相互喜欢" value={`${1 + (user.id % 3)}`} />
@@ -1253,15 +1257,31 @@ function ModuleSupplementDialog({ user, onClose }: { user: AdminUserCardItem | n
                 </div>
               </div>
               <div className="rounded-md border border-[#E6EDF7] p-4">
-              <h3 className="font-semibold text-[#1F2433]">关系记录</h3>
+              <div className="mb-4 flex flex-wrap gap-2">
+                {(Object.keys(relationLabels) as Array<keyof typeof relationLabels>).map(tab => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => { setRelationTab(tab); setRelationPage(1); }}
+                    className={`rounded-md px-3 py-1.5 text-sm ${relationTab === tab ? 'bg-[#EAF2FF] font-semibold text-[#2876FF]' : 'bg-[#F6F8FB] text-[#526173]'}`}
+                  >
+                    {relationLabels[tab]}
+                  </button>
+                ))}
+              </div>
               <DemoTable
                 headers={['记录编号', '对方用户', '状态', '发生时间']}
-                rows={[
-                  [`LIK-${user.id}-001`, '周语桐 U100352', '生效中', '2026-07-02 13:21'],
-                  [`VIS-${user.id}-036`, '陆清和 U100516', '已解锁', '2026-07-02 12:32'],
-                  [`REL-${user.id}-008`, '陈一鸣 U100193', user.followStatus === '开放' ? '相互喜欢' : '未解锁', '2026-07-01 20:41'],
-                ]}
+                rows={pageRows}
               />
+              <div className="mt-4 flex justify-end border-t border-[#E6EDF7] pt-4">
+                <Pagination
+                  current={relationPage}
+                  total={relationTotal}
+                  pageSize={relationPageSize}
+                  onChange={setRelationPage}
+                  onPageSizeChange={size => { setRelationPageSize(size); setRelationPage(1); }}
+                />
+              </div>
               </div>
             </div>
           )}

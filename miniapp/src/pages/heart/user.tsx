@@ -1,5 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { useState } from 'react'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
 import { miniappOssIcons } from '@/constants/ossIcons'
 
@@ -20,6 +21,28 @@ const tagStyles = [
 ]
 
 export default function HeartUserPage() {
+  const [liked, setLiked] = useState(false)
+  const [matched] = useState(true)
+
+  const toggleLike = () => {
+    if (liked) {
+      Taro.showModal({
+        title: '取消喜欢',
+        content: '取消后仅撤销爱心来源；若仍有其他匹配来源，聊天关系继续有效。',
+        success: result => result.confirm && setLiked(false),
+      })
+      return
+    }
+    setLiked(true)
+    Taro.showToast({ title: '已喜欢', icon: 'success' })
+  }
+
+  const openSafetyActions = () => {
+    Taro.showActionSheet({
+      itemList: ['举报该用户', '拉黑该用户'],
+      success: result => Taro.showToast({ title: result.tapIndex === 0 ? '已进入举报流程' : '拉黑需再次确认', icon: 'none' }),
+    })
+  }
   return (
     <View style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
       <ScrollView scrollY style={{ width: '750rpx', height: '100vh' }} showScrollbar={false}>
@@ -34,6 +57,9 @@ export default function HeartUserPage() {
                 onClick={() => Taro.showShareMenu({ withShareTicket: true })}
                 style={{ position: 'absolute', right: '30rpx', top: '28rpx', width: '48rpx', height: '48rpx', borderRadius: '50%' }}
               />
+              <View onClick={openSafetyActions} style={{ position: 'absolute', left: '30rpx', top: '28rpx', zIndex: 4, padding: '10rpx 18rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.28)' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>举报 · 拉黑</Text>
+              </View>
               <Image src={miniappOssIcons.profilePreviewAvatar} mode="scaleToFill" style={{ position: 'absolute', left: '30rpx', bottom: '57rpx', zIndex: 3, width: '188rpx', height: '188rpx', borderRadius: '50%', background: '#FFFFFF' }} />
               <View style={{ position: 'absolute', left: '208rpx', bottom: '101rpx', zIndex: 3 }}>
                 <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
@@ -81,14 +107,21 @@ export default function HeartUserPage() {
               <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>自我介绍</Text>
               <Text style={{ display: 'block', marginTop: '20rpx', color: '#7F8494', fontSize: '24rpx', lineHeight: '38rpx' }}>喜欢旅行和摄影，也享受安静的周末。希望遇见认真、真诚且有趣的你。</Text>
             </View>
+            <View style={{ width: '700rpx', marginTop: '20rpx', padding: '32rpx', borderRadius: '32rpx', background: '#FFFFFF', boxSizing: 'border-box' }}>
+              <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>个人动态</Text>
+              <Text style={{ display: 'block', marginTop: '20rpx', color: '#596273', fontSize: '24rpx', lineHeight: '38rpx' }}>周末去西湖边拍了晚霞，也开始学习做一道新的家常菜。</Text>
+              <Text style={{ display: 'block', marginTop: '12rpx', color: '#A0A6B2', fontSize: '20rpx' }}>2 小时前 · 公开动态</Text>
+            </View>
           </View>
         </View>
       </ScrollView>
-      <View
-        onClick={() => Taro.showToast({ title: '已发送开聊邀请', icon: 'none' })}
-        style={{ position: 'fixed', left: '245rpx', bottom: '30rpx', zIndex: 50, width: '260rpx', height: '98rpx', borderRadius: '49rpx', background: '#FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8rpx 22rpx rgba(255,94,110,0.25)' }}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>免费开聊</Text>
+      <View style={{ position: 'fixed', left: '55rpx', right: '55rpx', bottom: '30rpx', zIndex: 50, display: 'flex', flexDirection: 'row', gap: '20rpx' }}>
+        <View onClick={toggleLike} style={{ width: '210rpx', height: '98rpx', borderRadius: '49rpx', background: liked ? '#FFF0F2' : '#FFFFFF', border: '2rpx solid #FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#FF5E6E', fontSize: '28rpx', fontWeight: 500 }}>{liked ? '取消喜欢' : '喜欢'}</Text>
+        </View>
+        <View onClick={() => Taro.showToast({ title: matched ? '正在打开聊天' : '匹配后才能聊天', icon: 'none' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8rpx 22rpx rgba(255,94,110,0.25)' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{matched ? '聊天' : '打招呼'}</Text>
+        </View>
       </View>
     </View>
   )

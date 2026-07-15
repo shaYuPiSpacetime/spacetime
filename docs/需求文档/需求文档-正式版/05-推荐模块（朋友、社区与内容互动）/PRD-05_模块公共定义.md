@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本08 | 2026-07-15 | Codex | 新增统一婚恋用户主页，承接 PRD-02 访客、喜欢、匹配聊天及用户安全动作，影响 APP-05-PAGE-user-profile、APP-05-PAGE-user-posts |
 | 版本01 | 2026-07-06 | Codex | 按一期上线目标创建 PRD-05 正式版模块公共定义，影响 APP-05/ADM-05 全部页面 |
 | 版本02 | 2026-07-06 | Codex | 按第 1 轮核查收敛诚意贴详情为动态详情页视图，补充跨模块接口依赖与编号说明，影响 APP-05-PAGE-post-detail、APP-05-PAGE-sincere-list、APP-05-PAGE-user-posts、ADM-05-PAGE-comment-audit |
 | 版本03 | 2026-07-06 | Codex | 按评审意见补充机审配置关闭后的人工复核路径，影响 APP-05-PAGE-post-publish、ADM-05-PAGE-community-config |
@@ -39,6 +40,7 @@
 | M05-19 | 家园话题封面必须使用图片资源，后台新增/编辑话题时上传封面并做图片安全校验；移动端话题入口、话题列表和话题详情不得用纯文字块替代封面图 | `M05-RULE-topic-cover-image` |
 | M05-20 | 后台内容治理按内容来源场景兼容多来源帖子：一期接入成家动态、知音诚意贴；立业帖子仅预留来源枚举和字段，不在一期移动端开放 | `M05-RULE-content-source-compatible`、`M05-ENUM-content-source-scene` |
 | M05-21 | 举报成立后的禁言动作必须选择禁言周期；防机器人刷帖等高风险场景支持 IP 封禁，并记录周期、范围、原因和审计日志 | `M05-RULE-mute-period`、`M05-RULE-ip-block` |
+| M05-22 | 婚恋用户主页由 PRD-05 统一承接；`APP-05-PAGE-user-posts` 仅作为主页个人动态区块，不等同完整主页 | `M05-RULE-user-profile-handoff`、`APP-05-PAGE-user-profile` |
 
 ---
 
@@ -218,6 +220,7 @@
 | `M05-RULE-content-source-compatible` | 多来源帖子治理兼容规则 | ADM 内容管理/评论管理/举报管理 | 治理对象以 `targetType=post/comment/user/chat` 和 `contentSourceScene` 组合区分来源；一期接入成家动态、知音诚意贴，后续立业帖子接入时复用同一审核、举报、处罚和日志链路 | 立业帖子一期不进入移动端范围 |
 | `M05-RULE-mute-period` | 禁言周期规则 | ADM 举报管理/内容管理/评论管理 | 选择 `mute_user` 时必须选择禁言周期，默认候选 1 天、3 天、7 天、30 天，支持具备权限角色填写自定义结束时间；禁言生效后禁止发布动态、诚意贴和评论 | 永久封禁不在 PRD-05 直接执行，需走账号冻结 |
 | `M05-RULE-ip-block` | IP 封禁规则 | ADM 举报管理/社区配置 | 防机器人刷帖、批量广告、异常高频举报等场景可选择 `ip_block`；必须填写封禁周期、风险 IP、封禁范围和原因；默认只限制写操作，不影响已登录正常浏览；风险 IP 展示需脱敏并按权限查看 | IP 地址为安全敏感数据，解除和误伤申诉需写审计 |
+| `M05-RULE-user-profile-handoff` | 婚恋用户主页承接 | APP 婚恋用户主页 | 主页展示 PRD-01 已审核资料与认证信息，个人动态区引用 `APP-05-PAGE-user-posts`；进入主页通知 PRD-02 写访客，喜欢/取消喜欢和匹配状态引用 PRD-02，聊天引用 PRD-03，举报/拉黑由 PRD-05 安全动作承接 | 主页不得自行复制关系状态机 |
 
 ---
 
@@ -302,6 +305,7 @@
 | APP | POST | `/miniapp/community/likes/toggle` | 点赞/取消点赞 | `M05-RULE-interaction-gate` |
 | APP | POST | `/miniapp/community/follows/toggle` | 关注/取消关注 | `M05-RULE-follow-isolation` |
 | APP | GET | `/miniapp/community/contact-entry` | 查询社区打招呼/发私信入口状态 | `M05-RULE-community-greeting-entry`、`M05-RULE-community-private-entry` |
+| APP | GET | `/miniapp/community/users/{userId}/profile` | 查询统一婚恋用户主页聚合数据，资料取 PRD-01、关系取 PRD-02、动态取 PRD-05 | `M05-RULE-user-profile-handoff` |
 | APP | GET | `/miniapp/community/yuemu` | 悦目内容流 | `M05-RULE-yuemu-source` |
 | APP | GET | `/miniapp/community/sincere-posts` | 诚意贴列表 | `M05-RULE-sincere-post` |
 | APP | POST | `/miniapp/community/reports` | 提交举报 | `M05-RULE-report-gate` |

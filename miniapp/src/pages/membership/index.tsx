@@ -24,7 +24,6 @@ const MEMBER_BENEFIT_ICONS: Record<string, { src: string; width: string; height:
   'extra-browse': { src: miniappOssIcons.memberBenefitRecommend, width: '78rpx', height: '76rpx' },
   filter: { src: miniappOssIcons.memberBenefitFilter, width: '68rpx', height: '78rpx' },
   exposure: { src: miniappOssIcons.memberBenefitExposure, width: '72rpx', height: '78rpx' },
-  stealth: { src: miniappOssIcons.memberBenefitStealth, width: '78rpx', height: '60rpx' },
   replay: { src: miniappOssIcons.memberBenefitReplay, width: '78rpx', height: '78rpx' },
   'daily-heart': { src: miniappOssIcons.memberBenefitDailyHeart, width: '64rpx', height: '78rpx' },
 }
@@ -70,6 +69,8 @@ export default function MembershipPage() {
   const currentMembership = myMembership
   const heroNickname = authNickname.trim() || '时空用户'
   const heroAvatar = authAvatar.trim() || defaultAvatar
+  // 隐身/隐藏访问为后续预留权益，一期 Demo 不展示也不可启用。
+  const visibleBenefits = benefits.filter(item => item.icon !== 'stealth')
 
   const handleSelect = (plan: MembershipPlan) => {
     setActivePlanId(plan.id)
@@ -126,7 +127,7 @@ export default function MembershipPage() {
           />
           <PlanRail plans={plans} activePlanId={activePlanId} onSelect={handleSelect} />
           <BenefitTitle title={getBenefitTitle(variant)} />
-          {benefits.map((item, index) => (
+          {visibleBenefits.map((item, index) => (
             <BenefitCard key={item.title} {...item} index={index + 1} />
           ))}
         </View>
@@ -326,7 +327,7 @@ function getHeroBottomText(status: MemberStatus, startTime?: string, expireTime?
     return start && end ? `有效期： ${start} - ${end}` : '会员权益生效中'
   }
   if (status === 'expired') return '尊贵特权已过期，重启会员，精准匹配、自由畅聊'
-  return '专属9大特权，加速双向奔赴'
+  return '专属权益，加速双向奔赴'
 }
 
 function formatMembershipDate(value?: string) {

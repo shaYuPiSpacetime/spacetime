@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本05 | 2026-07-15 | Codex | 新增婚恋用户主页，个人动态区调整为主页内区块，影响 APP-05-PAGE-user-profile、APP-05-PAGE-user-posts |
 | 版本01 | 2026-07-06 | Codex | 按一期上线目标创建 APP-05 端内定义，影响 APP-05 全部页面 |
 | 版本02 | 2026-07-06 | Codex | 按一期上线目标由 APP-05-PAGE-post-detail 以诚意贴视图承接列表点击 |
 | 版本03 | 2026-07-07 | Codex | 按移动端 Demo 审查补充发布图片、悦目原比例、更多操作对象类型和触达多状态 UI 口径，影响 APP-05-PAGE-post-publish、APP-05-PAGE-yuemu、APP-05-PAGE-community-more-actions、APP-05-PAGE-community-greeting、APP-05-PAGE-community-private-entry |
@@ -29,7 +30,8 @@
 | 千寻 -> 成家 | 社区发私信页 | `APP-05-PAGE-community-private-entry` | 判断普通私信资格并跳转 PRD-03 私信对话 | P0 |
 | 千寻 -> 知音 | 悦目页 | `APP-05-PAGE-yuemu` | 图片优先浏览公开内容，并进入动态详情 | P0 |
 | 千寻 -> 知音 | 诚意贴列表页 | `APP-05-PAGE-sincere-list` | 浏览长文社交内容列表，点击后进入动态详情页诚意贴视图 | P0 |
-| 我的 -> 我的动态 / 用户主页 | 个人动态区 | `APP-05-PAGE-user-posts` | 展示本人或他人的公开内容；本人可查看审核态和删除 | P1 |
+| 推荐/喜欢/访客/相互喜欢/社区作者 | 婚恋用户主页 | `APP-05-PAGE-user-profile` | 聚合婚恋资料、认证、个人动态、喜欢/取消、匹配聊天、举报和拉黑 | P0 |
+| 我的 -> 我的动态 / 婚恋用户主页 | 个人动态区 | `APP-05-PAGE-user-posts` | 作为主页区块展示本人或他人的公开内容；本人可查看审核态和删除 | P1 |
 
 ---
 

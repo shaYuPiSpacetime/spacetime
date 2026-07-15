@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本05 | 2026-07-15 | Codex | 隐藏访问一期完全不开发；明确展示记录 30 分钟去重但 PV 累计 |
 | 版本03 | 2026-07-10 | Codex | 按蓝湖 UI 与产品确认调整：移除前台失效态，明确会员到期回退模糊、单条解锁永久清晰 |
 | 版本02 | 2026-07-02 | Codex | 明确列表页点击模糊卡片只打开单条解锁场景弹窗，扣币确认在弹窗内复用 PRD-04 |
 | 版本01 | 2026-07-01 | Codex | 正式版初稿 |
@@ -88,7 +89,7 @@
 | 会员状态 | 生效 | 展示状态 | 有效窗口内访客全量清晰 | `M04-ENUM-vip-benefit-type=visitor_list` |
 | 会员状态 | 到期 | 展示状态 | 未单条解锁记录回退为普通模糊态；已单条解锁记录继续清晰 | `M02-RULE-vip-expiry-display` |
 | 单条解锁状态 | 支付成功 | 当前卡片 | 当前记录永久清晰；但是否出现在列表仍受最近 7 天窗口限制 | `M02-RULE-unlock-visibility` |
-| 隐藏访问记录 | 访问者开启 | 目标用户列表 | 不进入对方访客列表 | `M02-RULE-hidden-visit` |
+| 隐藏访问记录 | 一期不提供 | 页面与接口 | 不展示入口、不判断权益、不生成隐藏状态 | `M02-RULE-hidden-visit-reserve` |
 | 访客记录 | 超过 7 天 | 前台列表 | 不展示；解锁历史由 PRD-04 追溯 | `M02-RULE-visitor-window` |
 | 关系状态 | 账号异常/拉黑/封禁等 | 默认列表 | 默认列表隐藏不可互动对象，不展示前台失效态 | `M02-RULE-relation-invalid` |
 
@@ -124,10 +125,10 @@ Given 用户存在 8 天前访客记录
 When  打开最近看过我的列表
 Then  列表只展示最近 7 天访客，不展示 8 天前记录
 
-AC-ID: APP-02-AC-viewers-hidden
-Given 访问者会员隐私权益有效且开启隐藏访问记录
-When  访问目标用户婚恋主页
-Then  目标用户最近看过我的列表不出现该访问者
+AC-ID: APP-02-AC-viewers-visit-dedup
+Given 同一用户在 30 分钟内多次访问目标用户婚恋主页
+When  服务端记录访问
+Then  只生成或更新一条访客展示记录，PV 按实际访问次数累计；一期不判断隐藏访问权益
 
 AC-ID: APP-02-AC-viewers-invalid-hidden
 Given 某访客关系因对方封禁失效
@@ -146,5 +147,5 @@ Then  该记录回退为模糊态；已单条解锁记录仍保持清晰
 
 | 关联类型 | 引用 ID | 说明 |
 |----------|---------|------|
-| 依赖规则 | `M02-RULE-visit-generate` / `M02-RULE-visitor-window` / `M02-RULE-hidden-visit` | |
+| 依赖规则 | `M02-RULE-visit-generate` / `M02-RULE-visitor-window` / `M02-RULE-hidden-visit-reserve` | |
 | 依赖商业化 | `APP-04-PAGE-paywall-modal` | 单条/全量解锁 |

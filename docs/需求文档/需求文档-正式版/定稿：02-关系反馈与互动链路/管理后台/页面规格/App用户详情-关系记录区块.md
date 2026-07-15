@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本04 | 2026-07-15 | Codex | 删除隐藏访问字段；关系分页改为默认 10 条并支持 10/20/50；补充注销匿名化 |
 | 版本03 | 2026-07-02 | Codex | 按确认口径从画像详情移出，改由 App 用户卡片模块补充弹窗的关系反馈 Tab 承接 |
 | 版本02 | 2026-07-02 | Codex | 补齐明细 Tab 表格列属性，明确列宽、排序、固定列和溢出处理 |
 | 版本01 | 2026-07-01 | Codex | 正式版初稿 |
@@ -55,7 +56,7 @@ App 用户管理卡片
 |---------|----------|----------|------|
 | `ADM-02-user-relation-01` | 模块补充弹窗-关系反馈摘要 | 摘要卡 + Tab | 缺设计稿时需补 |
 | `ADM-02-user-relation-02` | 模块补充弹窗-喜欢记录 Tab | 表格、筛选、状态 | |
-| `ADM-02-user-relation-03` | 模块补充弹窗-访客记录 Tab | 表格、筛选、隐藏访问标识 | |
+| `ADM-02-user-relation-03` | 模块补充弹窗-访客记录 Tab | 表格、筛选、访问时间与次数 | |
 | `ADM-02-user-relation-04` | 模块补充弹窗-相互喜欢 Tab | 来源、状态、失效原因 | |
 | `ADM-02-user-relation-05` | 模块补充弹窗-解锁记录 Tab | 解锁记录与 PRD-04 跳转 | |
 
@@ -89,7 +90,6 @@ App 用户管理卡片
 | `ADM-02-PAGE-user-relation-section-FIELD-visitor-uv-7d` | 最近 7 天访客 UV | int | 是 | >=0 | 同一访客 7 天内计 1 UV | 0 | 否 | 普通 | PRD-02 |
 | `ADM-02-PAGE-user-relation-section-FIELD-visitor-pv-7d` | 最近 7 天访客 PV | int | 是 | >=0 | 按 PV 统计 | 0 | 否 | 普通 | PRD-02 |
 | `ADM-02-PAGE-user-relation-section-FIELD-mutual-count` | 当前有效相互喜欢数 | int | 是 | >=0 | 只统计 matched | 0 | 否 | 普通 | PRD-02 |
-| `ADM-02-PAGE-user-relation-section-FIELD-hidden-visit` | 是否开启隐藏访问记录 | bool | 是 | true/false | 需结合会员权益是否有效 | false | 否 | 普通 | PRD-02/04 |
 | `ADM-02-PAGE-user-relation-section-FIELD-last-match-time` | 最近匹配时间 | datetime | 否 | datetime | 无记录展示 `-` | 无 | 否 | 普通 | PRD-02 |
 
 ### 4.2 明细字段
@@ -165,7 +165,7 @@ App 用户管理卡片
 ## 8. 查询与列表
 
 - **默认排序**：各 Tab 按创建/访问/匹配时间倒序。
-- **分页**：喜欢记录、访客记录、相互喜欢、解锁记录均展示分页组件，默认每页 5 条。
+- **分页**：喜欢记录、访客记录、相互喜欢、解锁记录均展示分页组件，默认每页 10 条，支持切换 10/20/50；切换 Tab 或每页条数后回到第 1 页。
 - **批量选择**：不支持。
 - **导出**：首版默认不开放。
 
