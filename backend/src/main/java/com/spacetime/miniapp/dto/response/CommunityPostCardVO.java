@@ -18,6 +18,16 @@ public class CommunityPostCardVO {
     private String authorName;
     /** 作者头像 */
     private String authorAvatar;
+    /** 作者性别字典 code */
+    private String authorGender;
+    /** 作者年龄 */
+    private Integer authorAge;
+    /** 作者所在城市 code */
+    private String authorCity;
+    /** 作者星座 */
+    private String authorZodiac;
+    /** 作者年收入字典 code */
+    private String authorAnnualIncome;
     /** 内容类型 */
     private String postType;
     /** 标题 */

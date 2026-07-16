@@ -8,6 +8,7 @@ import lombok.Getter;
 @Getter
 public enum CommunityPostTypeEnum {
     COMMUNITY("community", "社区动态"),
+    NORMAL_POST("normal_post", "普通动态"),
     SINCERE_POST("sincere_post", "诚意贴");
 
     /** 枚举编码 */

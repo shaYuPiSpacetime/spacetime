@@ -39,9 +39,10 @@ public class CommunityController {
     @GetMapping("/posts")
     public R<Page<CommunityPostCardVO>> posts(@RequestParam(required = false) String postType,
                                               @RequestParam(required = false) Long topicId,
+                                              @RequestParam(required = false) String scene,
                                               @RequestParam(defaultValue = "1") int page,
                                               @RequestParam(defaultValue = "10") int size) {
-        return R.ok(communityService.getPosts(optionalCurrentUserId(), postType, topicId, page, size));
+        return R.ok(communityService.getPosts(optionalCurrentUserId(), postType, topicId, scene, page, size));
     }
 
     /**
@@ -148,6 +149,11 @@ public class CommunityController {
         Long userId = currentUserId();
         log.info("关注切换: userId={}, targetUserId={}", userId, targetUserId);
         return R.ok(communityService.toggleFollow(userId, targetUserId));
+    }
+
+    @GetMapping("/following/count")
+    public R<Long> followingCount() {
+        return R.ok(communityService.countFollowing(currentUserId()));
     }
 
     /**

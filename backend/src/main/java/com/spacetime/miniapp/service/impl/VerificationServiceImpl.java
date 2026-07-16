@@ -94,7 +94,7 @@ public class VerificationServiceImpl implements VerificationService {
     /** 查询学历认证页回显信息；学历提交材料直接来自最近一次审核记录快照。 */
     @Override
     public EducationVerifyDetailVO getEducationDetail(Long userId) {
-        requireUser(userId);
+        AppUser user = requireUser(userId);
         AppUserAuditRecord realName = auditService.latestRecord(userId, AppUserAuditTypeEnum.REAL_NAME);
         AppUserAuditRecord education = auditService.latestRecord(userId, AppUserAuditTypeEnum.EDUCATION);
         Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot = runtimeConfigResolver.snapshot();
@@ -113,6 +113,21 @@ public class VerificationServiceImpl implements VerificationService {
         vo.setEducationEstimatedCompleteTime(educationEstimatedCompleteTime(
                 education, auditPolicy.educationSlaHours()));
         fillEducationSnapshot(vo, education);
+        if (education == null) {
+            String identityCode = user.getIdentity();
+            String userType = STUDENT.equalsIgnoreCase(identityCode) ? STUDENT : MAINLAND_GRADUATE;
+            vo.setIdentityCode(identityCode);
+            vo.setIdentityLabel(profileDictionaryService.label(ProfileDictType.IDENTITY, identityCode));
+            vo.setEducationUserType(userType);
+            vo.setEducationUserTypeLabel(educationUserTypeLabel(userType));
+            vo.setSchoolName(user.getSchool());
+            vo.setEducationLevel(user.getEducationLevel());
+            vo.setEducationLevelLabel(profileDictionaryService.label(
+                    ProfileDictType.EDUCATION_LEVEL, user.getEducationLevel()));
+            vo.setEducationMethod(STUDENT.equals(userType) ? STUDENT_CARD : null);
+            vo.setEducationMethodLabel(STUDENT.equals(userType)
+                    ? educationMethodLabel(STUDENT_CARD) : null);
+        }
         return vo;
     }
 
@@ -328,7 +343,6 @@ public class VerificationServiceImpl implements VerificationService {
             return;
         }
         if (MATERIAL_UPLOAD.equals(method)) {
-            requireCertificateName(req.getCertificateName());
             if (materials.isEmpty()) {
                 throw new BusinessException("请上传毕业证或学位证书材料");
             }

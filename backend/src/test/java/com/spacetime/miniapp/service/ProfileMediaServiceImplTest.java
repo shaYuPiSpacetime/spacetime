@@ -16,6 +16,7 @@ import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.miniapp.dto.request.AvatarSubmitReq;
 import com.spacetime.miniapp.dto.request.ProfileMediaSubmitReq;
 import com.spacetime.miniapp.dto.response.AvatarSubmitVO;
+import com.spacetime.miniapp.dto.response.ProfileMediaVO;
 import com.spacetime.miniapp.service.impl.ProfileMediaServiceImpl;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import org.junit.jupiter.api.DisplayName;
@@ -124,7 +125,7 @@ class ProfileMediaServiceImplTest {
         verify(appUserDao, never()).updateById(any());
         verify(imageSafetyProvider).check(
                 "AVATAR", req.getAvatarUrl(), req.getThumbUrl());
-        verify(auditService).machineApprove(
+        verify(auditService, never()).machineApprove(
                 101L, 301L, "{\"mocked\":true,\"result\":\"safe\"}");
 
         assertThat(result.getAuditRecordId()).isEqualTo(101L);
@@ -133,7 +134,7 @@ class ProfileMediaServiceImplTest {
     }
 
     @Test
-    @DisplayName("相册和背景图提交后都执行图片安全机审")
+    @DisplayName("相册和背景图提交后都执行图片安全检查且 Mock Provider 保留待审核")
     void shouldReviewAlbumAndProfileBackgroundByImageProvider() {
         AppUser user = new AppUser();
         user.setId(7L);
@@ -162,10 +163,34 @@ class ProfileMediaServiceImplTest {
                 "ALBUM_PHOTO", album.getMediaUrl(), album.getThumbUrl());
         verify(imageSafetyProvider).check(
                 "PROFILE_BG", background.getMediaUrl(), background.getThumbUrl());
-        verify(auditService).machineApprove(
-                201L, 401L, "{\"mocked\":true,\"result\":\"safe\"}");
-        verify(auditService).machineApprove(
-                202L, 401L, "{\"mocked\":true,\"result\":\"safe\"}");
+        verify(auditService, never()).machineApprove(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("相册列表从审核材料中回显原始槽位顺序")
+    void shouldRestoreAlbumSortOrderFromMaterialJson() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+
+        AppUserAuditRecord first = new AppUserAuditRecord();
+        first.setId(201L);
+        first.setMediaUrl("https://static.example.com/album-4.jpg");
+        first.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
+        first.setMaterialJson("{\"mediaType\":\"ALBUM\",\"sortOrder\":4}");
+
+        AppUserAuditRecord second = new AppUserAuditRecord();
+        second.setId(202L);
+        second.setMediaUrl("https://static.example.com/album-1.jpg");
+        second.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
+        second.setMaterialJson("{\"mediaType\":\"ALBUM\",\"sortOrder\":1}");
+
+        when(auditRecordDao.selectList(any())).thenReturn(List.of(first, second));
+
+        List<ProfileMediaVO> result = profileMediaService.listAlbums(7L);
+
+        assertThat(result).extracting(ProfileMediaVO::getSortOrder).containsExactly(1, 4);
+        assertThat(result).extracting(ProfileMediaVO::getMediaId).containsExactly(202L, 201L);
     }
 
     @Test

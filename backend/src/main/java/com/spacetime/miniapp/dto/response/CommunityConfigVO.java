@@ -26,4 +26,8 @@ public class CommunityConfigVO {
     private Boolean reportEntryEnabled;
     /** 首页Tab列表 */
     private List<MiniappEntryConfigVO> homeTabs;
+    /** 社区话题字典 */
+    private List<DictOptionVO> topics;
+    /** 举报原因字典 */
+    private List<DictOptionVO> reportReasons;
 }

@@ -13,6 +13,7 @@ import com.spacetime.miniapp.dto.request.CommunityPostCreateReq;
 import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.CommunityService;
+import com.spacetime.common.service.AppUserAuditContentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -49,8 +50,12 @@ public class CommunityServiceImpl implements CommunityService {
     private final MobileEntryConfigDao mobileEntryConfigDao;
     /** 字典数据访问 */
     private final DictDataDao dictDataDao;
-    /** 系统用户数据访问 */
-    private final UserDao userDao;
+    /** 小程序用户数据访问 */
+    private final AppUserDao appUserDao;
+    /** 用户审核内容统一查询 */
+    private final AppUserAuditContentService auditContentService;
+    /** PRD01 准入状态计算 */
+    private final Prd01AccessEvaluator accessEvaluator;
 
     /**
      * 分页查询社区内容列表
@@ -63,14 +68,54 @@ public class CommunityServiceImpl implements CommunityService {
      * @return 内容卡片分页列表
      */
     @Override
-    public Page<CommunityPostCardVO> getPosts(Long userId, String postType, Long topicId, int page, int size) {
+    public Page<CommunityPostCardVO> getPosts(Long userId, String postType, Long topicId, String scene, int page, int size) {
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
                 .eq(StrUtil.isNotBlank(postType), CommunityPost::getPostType, postType)
                 .eq(topicId != null, CommunityPost::getTopicId, topicId)
-                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
-                .orderByDesc(CommunityPost::getCreateTime);
-        Page<CommunityPost> result = communityPostDao.selectPage(new Page<>(page, Math.min(size, 100)), wrapper);
+                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode());
+        String normalizedScene = StrUtil.blankToDefault(scene, "").trim().toUpperCase(Locale.ROOT);
+        if ("FOLLOWING".equals(normalizedScene)) {
+            requireLoginForScene(userId);
+            List<Long> authorIds = communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
+                            .eq(CommunityFollow::getFollowerId, userId)
+                            .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode()))
+                    .stream().map(CommunityFollow::getTargetUserId).filter(Objects::nonNull).distinct().toList();
+            if (authorIds.isEmpty()) return emptyPostPage(safePage, safeSize);
+            wrapper.in(CommunityPost::getAuthorId, authorIds);
+        } else if ("CITY".equals(normalizedScene)) {
+            requireLoginForScene(userId);
+            AppUser currentUser = requireUser(userId);
+            if (StrUtil.isBlank(currentUser.getLocationCity())) return emptyPostPage(safePage, safeSize);
+            List<Long> authorIds = appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
+                            .eq(AppUser::getLocationCity, currentUser.getLocationCity())
+                            .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode()))
+                    .stream().map(AppUser::getId).filter(Objects::nonNull).toList();
+            if (authorIds.isEmpty()) return emptyPostPage(safePage, safeSize);
+            wrapper.in(CommunityPost::getAuthorId, authorIds);
+        } else if (!normalizedScene.isEmpty() && !"HOT".equals(normalizedScene)) {
+            throw new BusinessException("不支持的信息流场景");
+        }
+        if ("HOT".equals(normalizedScene)) {
+            wrapper.orderByDesc(CommunityPost::getLikeCount)
+                    .orderByDesc(CommunityPost::getCommentCount)
+                    .orderByDesc(CommunityPost::getCreateTime);
+        } else {
+            wrapper.orderByDesc(CommunityPost::getCreateTime);
+        }
+        Page<CommunityPost> result = communityPostDao.selectPage(new Page<>(safePage, safeSize), wrapper);
         return toPostCardPage(userId, result);
+    }
+
+    private void requireLoginForScene(Long userId) {
+        if (userId == null) throw new BusinessException(401, "未登录或登录已过期");
+    }
+
+    private Page<CommunityPostCardVO> emptyPostPage(int page, int size) {
+        Page<CommunityPostCardVO> result = new Page<>(page, size, 0);
+        result.setRecords(List.of());
+        return result;
     }
 
     /**
@@ -342,6 +387,14 @@ public class CommunityServiceImpl implements CommunityService {
         return vo;
     }
 
+    @Override
+    public long countFollowing(Long userId) {
+        requireUser(userId);
+        return communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
+                .eq(CommunityFollow::getFollowerId, userId)
+                .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())).size();
+    }
+
     /**
      * 提交举报
      *
@@ -402,7 +455,39 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setReportEntryEnabled(configBool(configMap, CommunityConfigKeys.REPORT_ENTRY_ENABLED, true));
         vo.setHomeTabs(mobileEntryConfigDao.selectEnabledByPageCode(MobilePageCodeEnum.COMMUNITY_HOME_TAB.getCode())
                 .stream().map(this::toMiniappEntry).toList());
+        vo.setTopics(toTopicOptions(dictDataDao.selectByDictType("community_topic")));
+        vo.setReportReasons(toDictOptions(dictDataDao.selectByDictType("community_report_reason")));
         return vo;
+    }
+
+    private List<DictOptionVO> toDictOptions(List<SysDictData> items) {
+        if (items == null) return List.of();
+        Map<String, SysDictData> unique = items.stream()
+                .filter(item -> CommonStatusEnum.ENABLED.getCode().equals(item.getStatus()))
+                .sorted(Comparator.comparing(item -> Optional.ofNullable(item.getDictSort()).orElse(Integer.MAX_VALUE)))
+                .collect(Collectors.toMap(SysDictData::getDictValue, item -> item, (first, ignored) -> first, LinkedHashMap::new));
+        return unique.values().stream().map(item -> {
+                    DictOptionVO option = new DictOptionVO();
+                    option.setCode(item.getDictValue());
+                    option.setLabel(item.getDictLabel());
+                    option.setSort(item.getDictSort());
+                    return option;
+                }).toList();
+    }
+
+    private List<DictOptionVO> toTopicOptions(List<SysDictData> items) {
+        if (items == null) return List.of();
+        Map<String, SysDictData> unique = items.stream()
+                .filter(item -> CommonStatusEnum.ENABLED.getCode().equals(item.getStatus()))
+                .sorted(Comparator.comparing(item -> Optional.ofNullable(item.getDictSort()).orElse(Integer.MAX_VALUE)))
+                .collect(Collectors.toMap(SysDictData::getDictValue, item -> item, (first, ignored) -> first, LinkedHashMap::new));
+        return unique.values().stream().map(item -> {
+                    DictOptionVO option = new DictOptionVO();
+                    option.setCode(String.valueOf(item.getId()));
+                    option.setLabel(item.getDictLabel());
+                    option.setSort(item.getDictSort());
+                    return option;
+                }).toList();
     }
 
     /**
@@ -415,7 +500,10 @@ public class CommunityServiceImpl implements CommunityService {
         AppConfig config = appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE);
         String mode = config != null ? config.getConfigValue() : CommunityGateModeEnum.LOGIN_ONLY.getCode();
         if (CommunityGateModeEnum.FULL_CERT.getCode().equals(mode)) {
-            throw new BusinessException("当前环境尚未接入三项认证状态，请先切换为仅登录准入");
+            String accessStatus = accessEvaluator.evaluate(requireUser(userId)).getCoreAccessStatus();
+            if (!"CORE_ALLOWED".equals(accessStatus)) {
+                throw new BusinessException("完成三重认证后可进行社区互动");
+            }
         }
     }
 
@@ -489,8 +577,8 @@ public class CommunityServiceImpl implements CommunityService {
      * @param userId 用户ID
      * @return 系统用户实体
      */
-    private SysUser requireUser(Long userId) {
-        SysUser user = userDao.selectById(userId);
+    private AppUser requireUser(Long userId) {
+        AppUser user = appUserDao.selectById(userId);
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
@@ -566,11 +654,18 @@ public class CommunityServiceImpl implements CommunityService {
      */
     private CommunityPostCardVO toPostCard(Long userId, CommunityPost post) {
         CommunityPostCardVO vo = new CommunityPostCardVO();
-        SysUser author = userDao.selectById(post.getAuthorId());
+        AppUser author = appUserDao.selectById(post.getAuthorId());
         vo.setId(post.getId());
         vo.setAuthorId(post.getAuthorId());
         vo.setAuthorName(author != null ? author.getNickname() : null);
-        vo.setAuthorAvatar(author != null ? author.getAvatar() : null);
+        vo.setAuthorAvatar(auditContentService.publicAvatar(post.getAuthorId()));
+        if (author != null) {
+            vo.setAuthorGender(author.getGender());
+            vo.setAuthorAge(author.getAge());
+            vo.setAuthorCity(author.getLocationCity());
+            vo.setAuthorZodiac(author.getZodiac());
+            vo.setAuthorAnnualIncome(author.getAnnualIncome());
+        }
         vo.setPostType(post.getPostType());
         vo.setTitle(post.getTitle());
         vo.setContent(post.getContent());
@@ -596,11 +691,11 @@ public class CommunityServiceImpl implements CommunityService {
      * @param post   内容实体
      */
     private void fillPostDetail(CommunityPostDetailVO vo, Long userId, CommunityPost post) {
-        SysUser author = userDao.selectById(post.getAuthorId());
+        AppUser author = appUserDao.selectById(post.getAuthorId());
         vo.setId(post.getId());
         vo.setAuthorId(post.getAuthorId());
         vo.setAuthorName(author != null ? author.getNickname() : null);
-        vo.setAuthorAvatar(author != null ? author.getAvatar() : null);
+        vo.setAuthorAvatar(auditContentService.publicAvatar(post.getAuthorId()));
         vo.setPostType(post.getPostType());
         vo.setTitle(post.getTitle());
         vo.setContent(post.getContent());
@@ -640,13 +735,13 @@ public class CommunityServiceImpl implements CommunityService {
      */
     private CommunityCommentVO toCommentVO(CommunityComment comment) {
         CommunityCommentVO vo = new CommunityCommentVO();
-        SysUser author = userDao.selectById(comment.getAuthorId());
-        SysUser replyUser = comment.getReplyUserId() != null ? userDao.selectById(comment.getReplyUserId()) : null;
+        AppUser author = appUserDao.selectById(comment.getAuthorId());
+        AppUser replyUser = comment.getReplyUserId() != null ? appUserDao.selectById(comment.getReplyUserId()) : null;
         vo.setId(comment.getId());
         vo.setPostId(comment.getPostId());
         vo.setAuthorId(comment.getAuthorId());
         vo.setAuthorName(author != null ? author.getNickname() : null);
-        vo.setAuthorAvatar(author != null ? author.getAvatar() : null);
+        vo.setAuthorAvatar(auditContentService.publicAvatar(comment.getAuthorId()));
         vo.setParentCommentId(comment.getParentCommentId());
         vo.setReplyUserId(comment.getReplyUserId());
         vo.setReplyUserName(replyUser != null ? replyUser.getNickname() : null);

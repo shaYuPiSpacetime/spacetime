@@ -21,7 +21,7 @@ public interface CommunityService {
      * @param size     每页条数
      * @return 内容卡片分页列表
      */
-    Page<CommunityPostCardVO> getPosts(Long userId, String postType, Long topicId, int page, int size);
+    Page<CommunityPostCardVO> getPosts(Long userId, String postType, Long topicId, String scene, int page, int size);
 
     /**
      * 查询内容详情
@@ -94,6 +94,9 @@ public interface CommunityService {
      * @return 关注切换结果（是否已关注）
      */
     CommunityFollowToggleVO toggleFollow(Long userId, Long targetUserId);
+
+    /** 当前用户有效关注人数。 */
+    long countFollowing(Long userId);
 
     /**
      * 提交举报

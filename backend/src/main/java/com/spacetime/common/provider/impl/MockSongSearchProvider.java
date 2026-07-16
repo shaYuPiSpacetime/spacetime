@@ -13,7 +13,7 @@ public class MockSongSearchProvider implements SongSearchProvider {
 
     @Override
     public List<SongOptionVO> search(String keyword, int limit) {
-        String key = StrUtil.blankToDefault(keyword, "告白气球").trim();
+        String key = StrUtil.blankToDefault(keyword, "").trim();
         List<SongOptionVO> all = List.of(
                 song("mock-song-001", "告白气球", "周杰伦", "周杰伦的床边故事"),
                 song("mock-song-002", "夜空中最亮的星", "逃跑计划", "世界"),
@@ -21,7 +21,8 @@ public class MockSongSearchProvider implements SongSearchProvider {
                 song("mock-song-004", "晴天", "周杰伦", "叶惠美")
         );
         return all.stream()
-                .filter(item -> item.getSongName().contains(key)
+                .filter(item -> key.isEmpty()
+                        || item.getSongName().contains(key)
                         || item.getArtistName().contains(key)
                         || key.length() <= 1)
                 .limit(Math.max(1, limit))

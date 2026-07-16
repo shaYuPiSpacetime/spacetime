@@ -11,6 +11,7 @@ import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.CommunityFollowToggleVO;
 import com.spacetime.miniapp.dto.response.CommunityLikeToggleVO;
 import com.spacetime.miniapp.service.impl.CommunityServiceImpl;
+import com.spacetime.common.service.AppUserAuditContentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,22 +41,23 @@ class CommunityServiceImplTest {
     @Mock private AppConfigDao appConfigDao;
     @Mock private MobileEntryConfigDao mobileEntryConfigDao;
     @Mock private DictDataDao dictDataDao;
-    @Mock private UserDao userDao;
+    @Mock private AppUserDao appUserDao;
+    @Mock private AppUserAuditContentService auditContentService;
+    @Mock private com.spacetime.miniapp.service.impl.Prd01AccessEvaluator accessEvaluator;
 
     @InjectMocks private CommunityServiceImpl communityService;
 
-    private SysUser user;
+    private AppUser user;
     private CommunityPost post;
     private SysDictData topic;
     private AppConfig loginOnlyConfig;
 
     @BeforeEach
     void setUp() {
-        user = new SysUser();
+        user = new AppUser();
         user.setId(1L);
         user.setNickname("tester");
-        user.setPhone("13812345678");
-        user.setAvatar("avatar");
+        user.setLocationCity("330100");
 
         post = new CommunityPost();
         post.setId(100L);
@@ -91,7 +93,7 @@ class CommunityServiceImplTest {
         req.setImageUrls(List.of("a.png"));
         req.setMentionUserIds(List.of(2L));
 
-        when(userDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(1L)).thenReturn(user);
         when(dictDataDao.selectById(10L)).thenReturn(topic);
         when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         when(appConfigDao.selectByKey(CommunityConfigKeys.POST_MAX_IMAGES)).thenReturn(null);
@@ -116,7 +118,7 @@ class CommunityServiceImplTest {
         req.setContent("太短");
         req.setTopicId(10L);
 
-        when(userDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(1L)).thenReturn(user);
         when(dictDataDao.selectById(10L)).thenReturn(topic);
         when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         AppConfig minConfig = new AppConfig();
@@ -134,7 +136,7 @@ class CommunityServiceImplTest {
     @Test
     @DisplayName("点赞动态-首次点击")
     void toggleLike_firstTime_shouldLike() {
-        when(userDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(1L)).thenReturn(user);
         when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         when(communityPostDao.selectById(100L)).thenReturn(post);
         when(communityLikeDao.selectOne(any())).thenReturn(null);
@@ -155,8 +157,8 @@ class CommunityServiceImplTest {
         follow.setTargetUserId(2L);
         follow.setStatus("FOLLOW");
 
-        when(userDao.selectById(1L)).thenReturn(user);
-        when(userDao.selectById(2L)).thenReturn(new SysUser());
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(2L)).thenReturn(new AppUser());
         when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         when(communityFollowDao.selectOne(any())).thenReturn(follow);
 
@@ -173,7 +175,7 @@ class CommunityServiceImplTest {
         req.setPostId(100L);
         req.setContent("nice");
 
-        when(userDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(1L)).thenReturn(user);
         when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         when(communityPostDao.selectById(100L)).thenReturn(post);
 
@@ -203,5 +205,33 @@ class CommunityServiceImplTest {
         assertThat(result).isNull();
         verify(communityReportDao).insert(any());
         verify(communityPostDao).updateById(argThat(item -> item.getReportCount() == 1));
+    }
+
+    @Test
+    @DisplayName("关注信息流-没有关注关系返回空页")
+    void getPosts_followingWithoutRelations_shouldReturnEmptyPage() {
+        when(communityFollowDao.selectList(any())).thenReturn(List.of());
+
+        var result = communityService.getPosts(1L, null, null, "FOLLOWING", 1, 10);
+
+        assertThat(result.getTotal()).isZero();
+        assertThat(result.getRecords()).isEmpty();
+        verifyNoInteractions(communityPostDao);
+    }
+
+    @Test
+    @DisplayName("同城信息流-使用当前用户资料城市筛选作者")
+    void getPosts_city_shouldResolveAuthorsFromAppUser() {
+        AppUser sameCity = new AppUser();
+        sameCity.setId(2L);
+        sameCity.setLocationCity("330100");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectList(any())).thenReturn(List.of(sameCity));
+        when(communityPostDao.selectPage(any(), any())).thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10, 0));
+
+        communityService.getPosts(1L, null, null, "CITY", 1, 10);
+
+        verify(appUserDao).selectList(any());
+        verify(communityPostDao).selectPage(any(), any());
     }
 }

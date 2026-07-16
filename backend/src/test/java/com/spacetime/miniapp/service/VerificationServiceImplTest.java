@@ -373,6 +373,31 @@ class VerificationServiceImplTest {
     }
 
     @Test
+    @DisplayName("首次进入学历认证时按用户身份和基础资料预填在校学生链路")
+    void shouldPrefillStudentEducationEntryFromProfile() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        user.setIdentity("STUDENT");
+        user.setSchool("浙江大学");
+        user.setEducationLevel("BACHELOR");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.PENDING));
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(null);
+        when(profileDictionaryService.label(ProfileDictType.IDENTITY, "STUDENT")).thenReturn("在校生");
+        when(profileDictionaryService.label(ProfileDictType.EDUCATION_LEVEL, "BACHELOR")).thenReturn("本科");
+
+        EducationVerifyDetailVO result = service.getEducationDetail(7L);
+
+        assertThat(result.getIdentityCode()).isEqualTo("STUDENT");
+        assertThat(result.getEducationUserType()).isEqualTo("STUDENT");
+        assertThat(result.getEducationMethod()).isEqualTo("STUDENT_CARD");
+        assertThat(result.getSchoolName()).isEqualTo("浙江大学");
+        assertThat(result.getEducationLevel()).isEqualTo("BACHELOR");
+        assertThat(result.getCanSubmit()).isTrue();
+    }
+
+    @Test
     @DisplayName("实名详情只回显脱敏姓名和身份证号")
     void shouldReturnMaskedRealNameDetail() {
         AppUserAuditRecord realName = record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.PENDING);

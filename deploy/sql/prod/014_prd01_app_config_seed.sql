@@ -33,7 +33,7 @@ VALUES
 ('prd01.access.maxAge', '60', 'PRD01_ACCESS', 'NUMBER', 0, 'ENABLED', '最大年龄'),
 ('prd01.profile.fieldSettings', '{"rows":[]}', 'PRD01_PROFILE_FIELD', 'JSON', 0, 'ENABLED', '字段展示、必填、计分配置'),
 ('prd01.profile.scoreWeights', '{"rows":[]}', 'PRD01_PROFILE_FIELD', 'JSON', 0, 'ENABLED', '资料完整度分值配置'),
-('prd01.upload.rules', '{"rows":[{"key":"education","title":"学历材料","maxCount":"4","maxMb":"10","format":"jpg / jpeg / png"},{"key":"album","title":"相册照片","maxCount":"9","maxMb":"10","format":"jpg / jpeg / png"},{"key":"profileBg","title":"资料背景图","maxCount":"1","maxMb":"10","format":"jpg / jpeg / png"}]}', 'PRD01_UPLOAD', 'JSON', 0, 'ENABLED', '上传限制配置'),
+('prd01.upload.rules', '{"rows":[{"key":"education","title":"学历材料","maxCount":"4","maxMb":"10","format":"jpg / jpeg / png"},{"key":"album","title":"相册照片","maxCount":"6","maxMb":"10","format":"jpg / jpeg / png"},{"key":"profileBg","title":"资料背景图","maxCount":"1","maxMb":"10","format":"jpg / jpeg / png"}]}', 'PRD01_UPLOAD', 'JSON', 0, 'ENABLED', '上传限制配置'),
 ('prd01.audit.education.sla_hours', '24', 'PRD01_AUDIT', 'NUMBER', 0, 'ENABLED', '学历审核承诺时间（小时）'),
 ('prd01.copy.rules', '{"rows":[]}', 'PRD01_AUDIT', 'JSON', 0, 'ENABLED', '准入/认证文案配置'),
 ('prd01.text.length.rules', '{"rows":[]}', 'PRD01_AUDIT', 'JSON', 0, 'ENABLED', '开放文本长度文案配置'),
