@@ -12,9 +12,6 @@ function App({ children }: PropsWithChildren<object>) {
   const loginRedirectingRef = useRef(false)
 
   useLaunch(() => {
-    void bootstrapPrd01().catch(() => {
-      // 登录页和资料页会展示动态配置加载失败状态并提供重试。
-    })
     // 本地开发：注入固定登录态，跳过微信授权
     if (DEV_FIXED_LOGIN.enabled) {
       setLogin(
@@ -24,10 +21,13 @@ function App({ children }: PropsWithChildren<object>) {
         '',
         { phone: DEV_FIXED_LOGIN.phone, maskedPhone: DEV_FIXED_LOGIN.maskedPhone },
       )
-      return
+    } else {
+      checkLogin()
     }
 
-    checkLogin()
+    void bootstrapPrd01().catch(() => {
+      // 登录页和资料页会展示动态配置加载失败状态并提供重试。
+    })
   })
 
   useDidShow(() => {

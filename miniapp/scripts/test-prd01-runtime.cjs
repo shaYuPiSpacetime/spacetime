@@ -585,7 +585,7 @@ test('核心页面准入只消费 access-status，不在前端自行拼认证规
     assert.match(source, /useAccessStatus/)
     assert.match(source, /AccessBlockedPage/)
   })
-  const recommend = fs.readFileSync(path.join(miniappRoot, 'src/pages/recommend/index.tsx'), 'utf8')
+  const recommend = fs.readFileSync(path.join(miniappRoot, 'src/features/qianxun/QianxunFamilyPage.tsx'), 'utf8')
   assert.match(recommend, /useAccessStatus/)
   assert.match(recommend, /access\.status\?\.coreAccessStatus === 'CORE_ALLOWED'/)
   assert.match(recommend, /UncertifiedSheet/, '千寻按最新蓝湖稿使用页内未认证弹层')

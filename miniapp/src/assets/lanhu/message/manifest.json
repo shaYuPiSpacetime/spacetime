@@ -143,6 +143,16 @@
   ],
   "tabAssets": [
     {
+      "file": "src/assets/icons/tab-work-active.png",
+      "purpose": "底部 Tab 心动点亮态心电爱心与蓝色高光",
+      "sourceDesignId": "d8b96542-0e30-42e8-9a6a-d3f331928673",
+      "sourceFile": "d8b96542-心动-对我心动未开通会员.png",
+      "crop": { "x": 396, "y": 3054, "width": 80, "height": 70 },
+      "pixelDensity": "4x（高于至少 2x 门槛）",
+      "ossUpload": false,
+      "sha256": "d9c8c24e2aed2d40f9314b314e366f997eb26754b4f6764ae96d8b4f7c9825a5"
+    },
+    {
       "file": "src/assets/icons/tab-work.png",
       "purpose": "底部 Tab 心动心电爱心线框",
       "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",

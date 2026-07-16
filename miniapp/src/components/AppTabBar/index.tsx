@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import tabHomeIcon from '@/assets/icons/tab-home.png'
 import tabHomeActiveIcon from '@/assets/icons/tab-home-active.svg'
 import tabWorkIcon from '@/assets/icons/tab-work.png'
-import tabWorkActiveIcon from '@/assets/icons/tab-work-active.svg'
+import tabWorkActiveIcon from '@/assets/icons/tab-work-active.png'
 import tabRecommendIcon from '@/assets/icons/tab-recommend.png'
 import tabMessageIcon from '@/assets/icons/tab-message.png'
 import tabMessageActiveIcon from '@/assets/icons/tab-message-active.svg'
@@ -21,27 +21,44 @@ interface Tab {
   activeIconPath: string
   iconWidth: number
   iconHeight: number
+  showActiveDot?: boolean
 }
 
 const TABS: Tab[] = [
   { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, activeIconPath: tabHomeActiveIcon, iconWidth: 40, iconHeight: 35 },
-  { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon, iconWidth: 40, iconHeight: 35 },
+  { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon, iconWidth: 40, iconHeight: 35, showActiveDot: false },
   { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendIcon, iconWidth: 48, iconHeight: 46 },
   { key: 'chat', label: '消息', path: '/pages/chat/index', iconPath: tabMessageIcon, activeIconPath: tabMessageActiveIcon, iconWidth: 40, iconHeight: 36 },
   { key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, activeIconPath: tabProfileActiveIcon, iconWidth: 38, iconHeight: 36 },
 ]
 
+let tabSwitchInFlight = false
+
+export function releaseTabSwitch() {
+  tabSwitchInFlight = false
+}
+
 interface Props {
   active: TabKey
+  onActiveChange?: (key: TabKey) => void
 }
 
 /**
  * 底部 TabBar — 对齐蓝湖「我的」底部栏 750×166 坐标。
  */
-export default function AppTabBar({ active }: Props) {
+export default function AppTabBar({ active, onActiveChange }: Props) {
   const handlePress = (tab: Tab) => {
-    if (tab.key === active) return
-    Taro.switchTab({ url: tab.path })
+    if (tab.key === active || tabSwitchInFlight) return
+    tabSwitchInFlight = true
+    onActiveChange?.(tab.key)
+    Taro.switchTab({
+      url: tab.path,
+      success: releaseTabSwitch,
+      fail: () => {
+        onActiveChange?.(active)
+        releaseTabSwitch()
+      },
+    })
   }
 
   return (
@@ -85,6 +102,7 @@ export default function AppTabBar({ active }: Props) {
           return (
             <View
               key={tab.key}
+              id={`app-tab-${tab.key}`}
               style={{
                 position: 'absolute',
                 left: '300rpx',
@@ -124,6 +142,7 @@ export default function AppTabBar({ active }: Props) {
         return (
           <View
             key={tab.key}
+            id={`app-tab-${tab.key}`}
             style={{
               position: 'absolute',
               left: `${index * 150}rpx`,
@@ -149,11 +168,26 @@ export default function AppTabBar({ active }: Props) {
               }}
             >
               <Image
-                src={isOn ? tab.activeIconPath : tab.iconPath}
+                src={tab.iconPath}
                 mode="aspectFit"
-                style={{ width: `${tab.iconWidth}rpx`, height: `${tab.iconHeight}rpx` }}
+                style={{
+                  position: 'absolute',
+                  width: `${tab.iconWidth}rpx`,
+                  height: `${tab.iconHeight}rpx`,
+                  opacity: isOn ? 0 : 1,
+                }}
               />
-              {isOn ? (
+              <Image
+                src={tab.activeIconPath}
+                mode="aspectFit"
+                style={{
+                  position: 'absolute',
+                  width: `${tab.iconWidth}rpx`,
+                  height: `${tab.iconHeight}rpx`,
+                  opacity: isOn ? 1 : 0,
+                }}
+              />
+              {isOn && tab.showActiveDot !== false ? (
                 <View
                   style={{
                     position: 'absolute',

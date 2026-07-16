@@ -3,6 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import qianxunCenterImage from '@/assets/lanhu/pages/qianxun-center.png'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import QianxunFamilyPage from '@/features/qianxun/QianxunFamilyPage'
 import {
   hasPartialBasicProfile,
   isVerificationStepSubmitted,
@@ -24,6 +25,7 @@ export default function IndexPage() {
   const [introduction, setIntroduction] = useState<OpenTextDetail>()
   const [loading, setLoading] = useState(true)
   const [ready, setReady] = useState(false)
+  const [coreAllowed, setCoreAllowed] = useState(false)
 
   useDidShow(() => {
     void (async () => {
@@ -39,9 +41,11 @@ export default function IndexPage() {
           prd01Api.getIntroduction(),
         ])
         if (verificationResult.accessStatus?.coreAccessStatus === 'CORE_ALLOWED') {
-          await Taro.switchTab({ url: '/pages/recommend/index' })
+          setCoreAllowed(true)
+          setReady(true)
           return
         }
+        setCoreAllowed(false)
         setBasic(basicResult)
         setVerification(verificationResult)
         setIntroduction(introductionResult)
@@ -94,6 +98,7 @@ export default function IndexPage() {
   }
 
   if (!ready) return <IndexLoadingSkeleton unreadCount={unreadCount} />
+  if (coreAllowed) return <QianxunFamilyPage />
 
   return <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48%, rgba(248,250,239,0.6) 100%)', position: 'relative', overflow: 'hidden' }}>
     <TopTabs unreadCount={unreadCount} />

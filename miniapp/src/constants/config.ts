@@ -13,7 +13,7 @@ export const TOKEN_HEADER = 'X-Auth-Token'
 /** 本地预览固定登录；与 app.config 启动页共用同一个构建环境变量。 */
 export const DEV_FIXED_LOGIN = {
   enabled: process.env.MINIAPP_DEV_FIXED_LOGIN === 'true',
-  token: 'dev-fixed-token-17366629764',
+  token: process.env.MINIAPP_DEV_FIXED_TOKEN || '',
   userId: 50,
   phone: '17366629764',
   maskedPhone: '173****9764',

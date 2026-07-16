@@ -82,11 +82,24 @@ assert.ok(educationSubmitSource.includes('profileOptions?.educationLevel'), '学
 assert.ok(educationSubmitSource.includes('LanhuOptionSheet'), '学历认证页需要使用自定义蓝湖弹窗')
 
 const appTabSource = read('src/components/AppTabBar/index.tsx')
+const appConfigSource = read('src/app.config.ts')
 assert.ok(appTabSource.includes("import tabHomeIcon from '@/assets/icons/tab-home.png'"), '底部千寻 icon 必须使用蓝湖切图')
 assert.ok(appTabSource.includes("import tabWorkIcon from '@/assets/icons/tab-work.png'"), '底部心动 icon 必须使用蓝湖切图')
+assert.ok(appTabSource.includes("import tabWorkActiveIcon from '@/assets/icons/tab-work-active.png'"), '底部心动点亮态必须使用蓝湖心电爱心切图，禁止误用公文包 SVG')
 assert.ok(appTabSource.includes("import tabRecommendIcon from '@/assets/icons/tab-recommend.png'"), '底部推荐 icon 必须使用蓝湖切图')
 assert.ok(appTabSource.includes("import tabMessageIcon from '@/assets/icons/tab-message.png'"), '底部消息 icon 必须使用蓝湖切图')
-assert.ok(appTabSource.includes("import tabProfileIcon from '@/assets/icons/tab-profile-active.png'"), '底部我的 icon 必须使用蓝湖切图')
+assert.ok(appTabSource.includes("import tabProfileIcon from '@/assets/icons/tab-profile.svg'"), '底部我的普通态 icon 必须使用独立切图')
+assert.ok(appTabSource.includes("import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'"), '底部我的点亮态 icon 必须使用蓝湖切图')
+assert.ok(
+  appTabSource.includes("key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon"),
+  '底部心动必须按普通态/点亮态映射两套蓝湖切图',
+)
+assert.match(appTabSource, /key: 'community'[\s\S]{0,220}showActiveDot: false/, '心动点亮切图已自带蓝色高光，禁止再叠加通用蓝点')
+assert.match(appConfigSource, /pagePath: 'pages\/community\/index'[\s\S]{0,180}selectedIconPath: 'assets\/icons\/tab-work-active\.png'/, '原生 Tab 配置的心动点亮态也必须指向蓝湖切图')
+assert.ok(
+  appTabSource.includes("key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, activeIconPath: tabProfileActiveIcon"),
+  '底部我的 icon 必须按普通态/点亮态映射蓝湖切图',
+)
 assert.ok(appTabSource.includes('<Image'), '底部 icon 必须渲染切图 Image')
 assert.ok(appTabSource.includes('mode="aspectFit"'), '底部 icon 切图必须完整展示')
 assert.ok(!appTabSource.includes('function TabIcon'), '底部 icon 禁止继续使用手绘 TabIcon')
@@ -98,7 +111,6 @@ assert.ok(indexSource.includes('qianxunCenterImage'), '千寻首页中心图必�
 assert.ok(indexSource.includes('qianxun-center.png'), '千寻首页中心图必须从 lanhu/pages/qianxun-center.png 引入')
 
 const profileEditSource = read('src/pages/profile/edit.tsx')
-const appConfigSource = read('src/app.config.ts')
 const myCertificationSource = read('src/pages/verification/my-certification.tsx')
 const navigationSource = read('src/utils/navigation.ts')
 const subNavSource = read('src/components/LanhuSubNav.tsx')
@@ -271,8 +283,9 @@ assert.ok(profileEditSource.includes('AboutStoryChips'), '关于我下方必须�
 assert.ok(profileEditSource.includes('data-role="about-detail-list"'), '关于我首个内容列表需要独立容器控制标题下方间距')
 assert.match(profileEditSource, /data-role="about-detail-list"[\s\S]{0,80}marginTop: '8rpx'/, '关于我标题到首个内容的距离必须按蓝湖收紧')
 assert.ok(profileEditSource.includes("padding=\"24rpx 26rpx\""), '我的标签/关于我模块需要使用紧凑卡片内边距，避免整体高度过高')
-assert.ok(profileEditSource.includes("minHeight=\"72rpx\""), '我的标签虚线框高度必须按蓝湖收紧，不能继续使用 88rpx 通用高度')
-assert.ok(profileEditSource.includes("promptPadding=\"12rpx 20rpx 12rpx 28rpx\""), '我的标签虚线框上下 padding 必须压缩，避免模块过高')
+assert.match(profileEditSource, /data-role="profile-tag-list"[\s\S]{0,220}minHeight: '72rpx'/, '我的标签容器高度必须按蓝湖收紧，不能继续使用 88rpx 通用高度')
+assert.match(profileEditSource, /data-role="profile-tag-list"[\s\S]{0,260}padding: '12rpx 20rpx'/, '我的标签容器上下 padding 必须压缩，避免模块过高')
+assert.match(profileEditSource, /data-role="profile-tag-list"[\s\S]{0,320}flexWrap: 'wrap'/, '我的标签必须按完整色块换行')
 assert.ok(profileEditSource.includes("minHeight: '104rpx'"), '关于我列表行高必须按蓝湖收紧，不能继续使用 122rpx')
 assert.ok(!profileEditSource.includes("minHeight: '122rpx'"), '关于我列表行禁止保留过高的 122rpx')
 assert.ok(profileEditSource.includes("lineHeight: '36rpx'"), '关于我描述行高需要收紧，避免列表整体过高')
@@ -281,8 +294,7 @@ assert.ok(!profileEditSource.includes("height: '98rpx'"), '关于我去添加按
 assert.ok(profileEditSource.includes('AboutStoryChipPlus'), '关于我故事 chips 的加号必须用独立图形居中，不能用文字字符')
 assert.ok(profileEditSource.includes('data-role="about-story-chip-plus"'), '关于我故事 chips 加号必须有独立可校验图形节点')
 assert.ok(profileEditSource.includes('data-role="about-action-text"'), '关于我列表右侧去填写必须是蓝湖文字操作，不是旧胶囊按钮')
-assert.ok(profileEditSource.includes('marginTop?: string'), '我的标签入口需要支持局部收紧标题到下方框的间距')
-assert.ok(profileEditSource.includes('marginTop="10rpx"'), '我的标签标题到虚线框的距离必须按蓝湖继续收紧')
+assert.match(profileEditSource, /data-role="profile-tag-list"[\s\S]{0,220}marginTop: '10rpx'/, '我的标签标题到标签容器的距离必须按蓝湖继续收紧')
 assert.ok(!profileEditSource.includes('去修改'), '编辑资料关于我主屏默认态右侧必须按蓝湖显示“去填写”')
 assert.ok(!profileEditSource.includes("background: '#F5F8FF'"), '关于我列表右侧操作禁止旧胶囊底色')
 assert.ok(profileEditSource.includes('MusicDiscIcon'), '最新听的歌必须包含蓝湖蓝色唱片/音符切图组件')

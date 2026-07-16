@@ -568,6 +568,7 @@ export default function ProfileEditPage() {
           />
           <ProfileSection title="我的标签" padding="24rpx 26rpx">
             <View
+              data-role="profile-tag-list"
               onClick={() => handleProfileAction('我的标签', '/pages/profile-edit/tags')}
               style={{ minHeight: '72rpx', marginTop: '10rpx', borderRadius: '16rpx', background: '#F8FAFD', padding: '12rpx 20rpx', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10rpx', boxSizing: 'border-box' }}
             >

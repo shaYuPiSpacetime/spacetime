@@ -103,7 +103,7 @@ export default {
         pagePath: 'pages/community/index',
         text: '心动',
         iconPath: 'assets/icons/tab-work.png',
-        selectedIconPath: 'assets/icons/tab-work.png',
+        selectedIconPath: 'assets/icons/tab-work-active.png',
       },
       {
         pagePath: 'pages/recommend/index',

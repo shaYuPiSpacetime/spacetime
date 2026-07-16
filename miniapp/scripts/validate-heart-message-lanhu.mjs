@@ -66,7 +66,8 @@ assert.match(
 )
 assert.match(mutual, /相互喜欢\(4人\)/, '相互喜欢页标题必须与蓝湖一致')
 assert.match(user, /女丨97年丨163cm丨双鱼座/, '用户主页基础资料文案必须与蓝湖一致')
-assert.match(user, /免费开聊/, '用户主页底部主按钮必须与蓝湖一致')
+assert.match(user, /liked \? '取消喜欢' : '喜欢'/, '用户主页必须按最新关系状态展示喜欢/取消喜欢')
+assert.match(user, /matched \? '聊天' : '打招呼'/, '用户主页主按钮必须按匹配状态展示聊天/打招呼')
 
 assert.match(appConfig, /root: 'pages\/heart'/, '相互喜欢和用户主页必须注册心动分包')
 assert.match(appConfig, /'mutual'/, '相互喜欢页面必须注册')

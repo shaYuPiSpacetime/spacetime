@@ -2,6 +2,11 @@ import path from 'node:path'
 import { defineConfig } from '@tarojs/cli'
 import { UnifiedWebpackPluginV5 } from 'weapp-tailwindcss/webpack'
 
+const devFixedLoginEnabled = process.env.MINIAPP_DEV_FIXED_LOGIN === 'true'
+const devFixedLoginToken = devFixedLoginEnabled
+  ? process.env.DEV_FIXED_LOGIN_TOKEN || 'dev-fixed-token-17366629764'
+  : ''
+
 function miniAssetName(moduleId: string) {
   const normalized = moduleId.replace(/\\/g, '/')
   const relativePath = normalized.includes('/src/')
@@ -48,6 +53,7 @@ const config = {
     'process.env.MINIAPP_DEV_FIXED_LOGIN': JSON.stringify(
       process.env.MINIAPP_DEV_FIXED_LOGIN || 'false'
     ),
+    'process.env.MINIAPP_DEV_FIXED_TOKEN': JSON.stringify(devFixedLoginToken),
     'process.env.MINIAPP_MESSAGE_PROVIDER': JSON.stringify(
       process.env.MINIAPP_MESSAGE_PROVIDER || 'mock'
     ),
