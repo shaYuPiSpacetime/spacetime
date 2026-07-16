@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="PRD-08 管理端配置归属与建设边界说明。">
+  <title>PRD-08 管理端边界</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="../../shared/admin.css">
+  <link rel="stylesheet" href="assets/demo.css">
+  <link rel="stylesheet" href="assets/demo-shell.css">
+</head>
+<body class="admin-demo">
+  <a class="demo-home-link" href="../../index.html">返回静态 Demo 总入口</a>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html"><span class="brand-mark">08</span><span>推荐与理想型 · 管理端边界</span></a>
+    </header>
+
+    <main class="admin-shell">
+      <aside class="admin-nav" aria-label="后台菜单示意">
+        <div class="admin-brand-panel"><strong>时空邂逅</strong><span>Spacetime Admin</span></div>
+        <h2>系统管理</h2>
+        <a href="#">工作台</a>
+        <a href="#">用户与认证</a>
+        <a href="#">系统字典</a>
+        <h2>商业化管理</h2>
+        <a href="#">会员权益</a>
+        <a href="#">千寻币与订单</a>
+        <h2>范围说明</h2>
+        <a class="is-active" href="#ADM-08-PAGE-boundary">推荐与理想型</a>
+        <div class="admin-rule-card"><strong>PRD-08 不新增菜单</strong><span>当前入口仅用于静态 Demo 的配置归属与研发边界说明。</span></div>
+      </aside>
+
+      <section class="admin-content content">
+        <section class="section-band admin-page" id="ADM-08-PAGE-boundary">
+          <div class="admin-page-inner">
+            <header class="admin-page-header">
+              <div><span class="shell-kicker">一期配置边界</span><h1>推荐与理想型 · 配置归属</h1><p>本页只用于研发与产品对齐，不是生产后台页面规格。</p></div>
+              <nav class="admin-header-links"><a class="btn" href="index.html">模块总览</a><a class="btn primary" href="miniapp.html">查看移动端</a></nav>
+            </header>
+
+            <div class="admin-summary-grid" aria-label="范围统计">
+              <article class="stat-card"><span>独立后台菜单</span><strong>0</strong><small>不新增一级或二级菜单</small></article>
+              <article class="stat-card"><span>理想型条件</span><strong>17</strong><small>固定规则由代码解释</small></article>
+              <article class="stat-card"><span>承接模块</span><strong>2</strong><small>系统字典 + 商业化</small></article>
+              <article class="stat-card"><span>PRD-08 配置操作</span><strong>0</strong><small>无新增、编辑、删除、发布</small></article>
+            </div>
+
+            <section class="admin-panel boundary-status-panel">
+              <div><span class="status-dot"></span><strong>一期无独立算法配置后台</strong></div>
+              <p>固定条件由代码与稳定字典解释；VIP、千寻币价格和订单流水继续由 PRD-04 承接。</p>
+            </section>
+
+            <div class="owner-grid">
+              <article class="owner-card"><span class="owner-code">01</span><h2>系统字典承接</h2><p>地区、城市邻接、学校层级、学历、专业、个人标签和脱单目标。</p><ul><li>修改审计沿用原模块</li><li>停用 code 保留历史展示</li><li>缺失字段按不匹配处理</li></ul></article>
+              <article class="owner-card"><span class="owner-code">04</span><h2>商业化模块承接</h2><p>VIP 高级筛选、三天回看、千寻币余额、解锁价格与订单流水。</p><ul><li>会员不免理想型解锁</li><li>价格不在 PRD-08 写死</li><li>扣币失败不产生假成功</li></ul></article>
+              <article class="owner-card"><span class="owner-code">08</span><h2>本模块固定规则</h2><p>基础/VIP 条件、17 条理想型条件、AND/OR、周边城市和结果隐私。</p><ul><li>推荐可主动扩展周边城市</li><li>理想型不自动放宽</li><li>不返回匹配分或解释</li></ul></article>
+            </div>
+
+            <section class="admin-panel">
+              <header class="admin-panel-head"><div><h2>配置归属清单</h2><p>只读映射，不提供新增、编辑、删除或发布按钮。</p></div><span class="tag">PRD-08-RULE-admin-boundary</span></header>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>能力</th><th>一期来源</th><th>PRD-08 行为</th><th>异常兜底</th></tr></thead>
+                  <tbody>
+                    <tr><td>城市与周边城市</td><td>地区基础数据</td><td>读取稳定 code 与邻接表</td><td>关闭周边扩展</td></tr>
+                    <tr><td>学校层级与专业</td><td>PRD-01 / 系统字典</td><td>精确 code 匹配</td><td>条件禁用或不命中</td></tr>
+                    <tr><td>理想型标签</td><td>PRD-01 标签字典</td><td>读取稳定标签 code</td><td>停用项不自动替换</td></tr>
+                    <tr><td>高级筛选与三天回看</td><td>PRD-04 权益</td><td>实时校验权益</td><td>按普通用户处理</td></tr>
+                    <tr><td>理想型解锁</td><td>PRD-04 千寻币与订单</td><td>传递场景和批量人数</td><td>失败保留勾选</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="admin-panel excluded-panel">
+              <header class="admin-panel-head"><div><h2>明确不建设</h2><p>以下能力不属于 PRD-08 一期范围。</p></div></header>
+              <div class="excluded-tags"><span>模型训练</span><span>权重与评分</span><span>算法版本</span><span>推荐解释</span><span>测评特征</span><span>独立运营看板</span><span>PRD-08 CRUD</span></div>
+            </section>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

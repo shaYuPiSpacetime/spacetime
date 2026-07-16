@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="PRD-08 推荐与理想型条件筛选静态 Demo 总览。">
+  <title>PRD-08 推荐与理想型 Demo</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="assets/demo.css">
+  <link rel="stylesheet" href="assets/demo-shell.css">
+</head>
+<body>
+  <a class="demo-home-link" href="../../index.html">返回静态 Demo 总入口</a>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html"><span class="brand-mark">08</span><span>推荐与理想型条件筛选</span></a>
+      <nav class="top-actions" aria-label="Demo 入口">
+        <a class="btn primary" href="miniapp.html">移动端 Demo</a>
+        <a class="btn" href="admin.html">管理后台 Demo</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <aside class="side-nav" aria-label="模块目录">
+        <h2>交付物</h2>
+        <a class="is-active" href="#overview">模块总览</a>
+        <a href="#entries">页面入口</a>
+        <a href="#source">需求来源</a>
+        <a href="#flow">关键闭环</a>
+        <a href="#boundary">边界说明</a>
+      </aside>
+
+      <section class="content">
+        <section class="hero-band" id="overview">
+          <div class="hero-copy">
+            <span class="shell-kicker">PRD-08 静态 Demo</span>
+            <h1>推荐与理想型条件筛选</h1>
+            <p>推荐负责日常发现，理想型负责主动筛选与千寻币解锁；一期使用可解释的固定条件，不引入测评、评分或独立算法后台。</p>
+            <div class="metric-strip" aria-label="交付统计">
+              <article class="metric"><strong>9</strong><span>移动端页面状态</span></article>
+              <article class="metric"><strong>17</strong><span>理想型固定条件</span></article>
+              <article class="metric"><strong>2</strong><span>首页核心 Tab</span></article>
+              <article class="metric"><strong>0</strong><span>独立后台 CRUD</span></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-band" id="entries">
+          <header class="shell-section-head">
+            <div><h2>页面入口</h2><p>移动端提供完整交互；管理端仅说明配置归属和建设边界。</p></div>
+          </header>
+          <div class="section-body">
+            <div class="portal-grid">
+              <article class="portal-card">
+                <div><span class="tag brand">移动端</span><h3>推荐与理想型完整交互</h3><p>覆盖双 Tab、基础与 VIP 筛选、三天回看、筛选记录、模糊结果和批量解锁。</p></div>
+                <a class="btn primary full" href="miniapp.html">进入移动端</a>
+              </article>
+              <article class="portal-card">
+                <div><span class="tag">管理端边界</span><h3>配置归属只读说明</h3><p>系统字典和商业化能力由既有模块承接，PRD-08 不新增独立菜单和配置操作。</p></div>
+                <a class="btn full" href="admin.html">进入后台</a>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-band" id="source">
+          <header class="shell-section-head">
+            <div><h2>需求来源</h2><p>按正式版 PRD 的页面、规则和跨模块依赖收敛演示范围。</p></div>
+          </header>
+          <div class="section-body">
+            <div class="page-grid">
+              <article class="info-card"><span class="card-index">01</span><h3>移动端体验</h3><p>推荐卡片、偏好筛选、见面偏好、三天回看和候选详情。</p></article>
+              <article class="info-card"><span class="card-index">02</span><h3>理想型闭环</h3><p>17 个条件按 AND 组合，结果匿名展示，支持单次最多 5 人解锁。</p></article>
+              <article class="info-card"><span class="card-index">03</span><h3>模块承接</h3><p>字典依赖 PRD-01，VIP、千寻币、价格和订单依赖 PRD-04。</p></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-band" id="flow">
+          <header class="shell-section-head">
+            <div><h2>关键闭环</h2><p>Demo 优先串联用户能直接感知的业务链路。</p></div>
+          </header>
+          <div class="section-body">
+            <ol class="flow-list">
+              <li><b>推荐发现</b><span>调整位置、年龄和 VIP 条件，浏览、跳过或喜欢候选。</span></li>
+              <li><b>主动筛选</b><span>选择理想型条件，严格按已选条件生成匿名结果。</span></li>
+              <li><b>付费解锁</b><span>校验批量上限、动态单价和千寻币余额，成功后展示公开资料。</span></li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="section-band" id="boundary">
+          <header class="shell-section-head">
+            <div><h2>边界说明</h2><p>本 Demo 使用本地 mock 数据，不连接真实接口、数据库或支付链路。</p></div>
+          </header>
+          <div class="section-body boundary-grid">
+            <div><b>明确包含</b><p>推荐、理想型、基础/VIP 筛选、三天回看、记录、匿名结果和解锁状态。</p></div>
+            <div><b>明确排除</b><p>认证状态筛选、测评特征、匹配分、模型训练、算法权重和独立运营看板。</p></div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
