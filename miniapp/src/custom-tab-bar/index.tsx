@@ -25,7 +25,7 @@ function getCurrentRoute() {
  */
 export default function CustomTabBar() {
   const initialRoute = getCurrentRoute()
-  const [activeKey, setActiveKey] = useState<TabKey>(PATH_TO_TAB[initialRoute] ?? 'profile')
+  const [activeKey, setActiveKey] = useState<TabKey | undefined>(PATH_TO_TAB[initialRoute])
 
   /** 根据当前页面路径推导激活 Tab */
   const updateActiveTab = () => {
@@ -46,5 +46,6 @@ export default function CustomTabBar() {
     updateActiveTab()
   })
 
+  if (!activeKey) return null
   return <AppTabBar active={activeKey} />
 }

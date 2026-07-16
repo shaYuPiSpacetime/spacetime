@@ -40,10 +40,10 @@ function source(file) {
   return fs.readFileSync(path.join(miniappRoot, file), 'utf8')
 }
 
-test('认证运行态完整校验 88 个文案 key 与全部认证字典', () => {
+test('认证运行态完整校验 138 个文案 key 与全部认证字典', () => {
   const runtime = require(path.join(miniappRoot, 'src/domain/prd01Runtime.ts'))
-  assert.equal(runtime.VERIFICATION_COPY_KEYS.length, 88)
-  assert.equal(new Set(runtime.VERIFICATION_COPY_KEYS).size, 88)
+  assert.equal(runtime.VERIFICATION_COPY_KEYS.length, 138)
+  assert.equal(new Set(runtime.VERIFICATION_COPY_KEYS).size, 138)
 
   const config = {
     copywriting: Object.fromEntries(
@@ -75,9 +75,40 @@ test('认证运行态完整校验 88 个文案 key 与全部认证字典', () =>
   )
 })
 
+test('认证页面文案与枚举全部由运行态配置驱动，底部操作适配安全区', () => {
+  const basic = source('src/pages/verification/basic.tsx')
+  ;[
+    'profile_basic_nav_title',
+    'profile_basic_heading',
+    'profile_basic_notice',
+    'common_save_action',
+    'common_saving_action',
+    'common_save_success',
+  ].forEach(copyKey => assert.match(basic, new RegExp(`copy\\('${copyKey}'\\)`)))
+  assert.match(basic, /VerificationBottomAction/)
+
+  const shell = source('src/pages/verification/components/VerificationShell.tsx')
+  assert.match(shell, /env\(safe-area-inset-bottom\)/)
+
+  assert.equal(fs.existsSync(path.join(miniappRoot, 'src/pages/verification/flow.ts')), false,
+    '认证目录禁止保留本地枚举文件')
+
+  const checkedFiles = [
+    'src/pages/verification/basic.tsx',
+    'src/pages/verification/avatar-album.tsx',
+    'src/pages/verification/intro-edit.tsx',
+    'src/pages/verification/components/BasicPickerPage.tsx',
+  ]
+  const hardcodedCopy = /(['"`])[^'"`\n]*[\u4e00-\u9fff][^'"`\n]*\1/g
+  checkedFiles.forEach(file => {
+    assert.deepEqual(source(file).match(hardcodedCopy) || [], [], `${file} 禁止硬编码中文文案`)
+  })
+})
+
 test('所有消费认证文案的页面都由统一运行态边界托管', () => {
   const files = [
     'src/pages/verification/components/VerificationCenterPage.tsx',
+    'src/pages/verification/my-certification.tsx',
     'src/pages/verification/avatar.tsx',
     'src/pages/verification/avatar-review.tsx',
     'src/pages/verification/avatar-crop.tsx',

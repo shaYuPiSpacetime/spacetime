@@ -1,12 +1,15 @@
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect } from 'react'
+import { usePrd01Store } from '@/stores/prd01Store'
 
 export default function VerificationIntroEditLegacyPage() {
   const router = useRouter()
+  const copy = usePrd01Store(state => state.copy)
 
   useEffect(() => {
     void Taro.redirectTo({ url: appendQuery('/pages/profile-edit/intro', router.params) }).catch(() => {
-      void Taro.showToast({ title: '页面跳转失败，请重试', icon: 'none' })
+      const message = copy('common_load_failed_message')
+      if (message) void Taro.showToast({ title: message, icon: 'none' })
     })
   }, [])
 

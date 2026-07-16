@@ -32,6 +32,20 @@ function App({ children }: PropsWithChildren<object>) {
 
   useDidShow(() => {
     if (MOCK_ENABLED) return
+    if (DEV_FIXED_LOGIN.enabled) {
+      const token = Taro.getStorageSync(TOKEN_KEY)
+      if (token !== DEV_FIXED_LOGIN.token) {
+        setLogin(
+          DEV_FIXED_LOGIN.token,
+          DEV_FIXED_LOGIN.userId,
+          '',
+          '',
+          { phone: DEV_FIXED_LOGIN.phone, maskedPhone: DEV_FIXED_LOGIN.maskedPhone },
+        )
+      }
+      loginRedirectingRef.current = false
+      return
+    }
     const token = Taro.getStorageSync(TOKEN_KEY)
     if (token) {
       loginRedirectingRef.current = false

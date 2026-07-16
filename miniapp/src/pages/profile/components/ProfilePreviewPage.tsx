@@ -2,7 +2,9 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import ProfilePreviewTopNav from '@/components/ProfilePreviewTopNav'
+import ProfileTagChip from '@/components/ProfileTagChip'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import type { ProfileTagItem } from '@/utils/profileTags'
 
 export type ProfilePreviewModel = {
   avatarUrl: string
@@ -10,7 +12,7 @@ export type ProfilePreviewModel = {
   nickname: string
   genderAgeHeight: string
   location: string
-  tags: string[]
+  tags: ProfileTagItem[]
   introduction: string
   photos: string[]
   certifications: Array<{
@@ -28,7 +30,6 @@ export type ProfilePreviewModel = {
   datingGoal: string
   relationshipStatus: string
   favoriteSong: string
-  mbti: string
   aboutMe: Array<{ title: string; value: string }>
 }
 
@@ -51,13 +52,6 @@ const pageBackground =
 const fontFamily =
   '"PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif'
 const mainBlue = '#2876FF'
-const previewTagStyles = [
-  { color: '#4CAF51', background: '#EBF5EA', padding: '8rpx 24rpx 7rpx 26rpx' },
-  { color: '#3D9FF5', background: '#E7F2FE', padding: '8rpx 27rpx 7rpx 26rpx' },
-  { color: '#FF9A0F', background: '#FFF3E6', padding: '8rpx 29rpx 7rpx 25rpx' },
-  { color: '#9F2CB2', background: '#F4E6F6', padding: '8rpx 28rpx 7rpx 26rpx' },
-]
-const previewTagWidths = ['122rpx', '176rpx', '151rpx', '151rpx']
 const certificationIcons = {
   avatar: miniappOssIcons.profilePreviewCertAvatar,
   realName: miniappOssIcons.profilePreviewCertRealname,
@@ -77,7 +71,7 @@ export default function ProfilePreviewPage({ model, onBack, onEdit }: ProfilePre
         <View
           style={{
             width: '750rpx',
-            minHeight: '6803rpx',
+            minHeight: '5900rpx',
             boxSizing: 'border-box',
           }}
         >
@@ -98,7 +92,6 @@ export default function ProfilePreviewPage({ model, onBack, onEdit }: ProfilePre
             <ProfilePreviewPhoto url={model.photos[1]} />
             <ProfilePreviewSong favoriteSong={model.favoriteSong} />
             <ProfilePreviewPhoto url={model.photos[2]} />
-            <ProfilePreviewMbti mbti={model.mbti} />
             <ProfilePreviewPhoto url={model.photos[3]} />
           </View>
         </View>
@@ -242,36 +235,21 @@ function ProfilePreviewInfoLine({
   )
 }
 
-function ProfilePreviewTagSection({ tags }: { tags: string[] }) {
-  const visibleTags = tags.slice(0, 4)
+function ProfilePreviewTagSection({ tags }: { tags: ProfileTagItem[] }) {
+  const visibleTags = tags.slice(0, 8)
   return (
     <ProfilePreviewCard title="我的标签" height="182rpx" padding="30rpx 40rpx 40rpx 29rpx">
       {visibleTags.length ? (
-        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '20rpx' }}>
-          {visibleTags.map((label, index) => {
-            const tag = previewTagStyles[index % previewTagStyles.length]
-            return (
-              <View
-                key={`${label}-${index}`}
-                style={{
-                  height: '48rpx',
-                  width: previewTagWidths[index],
-                  borderRadius: '29rpx',
-                  background: tag.background,
-                  padding: tag.padding,
-                  marginLeft: index === 0 ? '0' : index === 1 ? '10rpx' : index === 2 ? '11rpx' : '9rpx',
-                  boxSizing: 'border-box',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ color: tag.color, fontSize: '24rpx', lineHeight: '33rpx' }}>{label}</Text>
+        <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: '10rpx', marginTop: '20rpx' }}>
+          {visibleTags.map(item => (
+              <View key={item.code} style={{ flexShrink: 0 }}>
+                <ProfileTagChip item={item} />
               </View>
-            )
-          })}
+          ))}
         </View>
-      ) : <EmptyText text="暂未添加标签" />}
+      ) : (
+        <Text style={{ display: 'block', color: '#9AA1AF', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '20rpx' }}>暂未添加标签</Text>
+      )}
     </ProfilePreviewCard>
   )
 }
@@ -386,30 +364,6 @@ function ProfilePreviewSong({ favoriteSong }: { favoriteSong: string }) {
         </View>
       </View>
     </ProfilePreviewCard>
-  )
-}
-
-function ProfilePreviewMbti({ mbti }: { mbti: string }) {
-  return (
-    <View style={{ position: 'relative', width: '700rpx', height: '635rpx', marginTop: '20rpx', borderRadius: '32rpx', background: '#FFFFFF', overflow: 'hidden' }}>
-      <View style={{ position: 'absolute', left: '29rpx', top: '30rpx' }}>
-        <ProfilePreviewTitle title="MBTI类型" bubbleLeft="107rpx" />
-      </View>
-      <View style={{ position: 'absolute', right: '26rpx', top: '38rpx', height: '33rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ color: '#999999', fontSize: '24rpx', lineHeight: '33rpx' }}>{mbti ? '已添加' : '待添加'}</Text>
-        <View style={{ width: '16rpx', height: '16rpx', borderTop: '3rpx solid #999999', borderRight: '3rpx solid #999999', transform: 'rotate(45deg)', marginLeft: '8rpx' }} />
-      </View>
-      <View style={{ position: 'absolute', left: '132rpx', top: '168rpx', width: '98rpx', height: '98rpx', borderRadius: '49rpx', background: 'linear-gradient(230deg, #ECEFFF 0%, #F1F3FF 100%)' }} />
-      <View style={{ position: 'absolute', right: '132rpx', top: '217rpx', width: '58rpx', height: '58rpx', borderRadius: '29rpx', background: 'linear-gradient(230deg, #FFE9D5 0%, #FEF4EA 100%)' }} />
-      <View style={{ position: 'absolute', left: '135rpx', top: '382rpx', width: '16rpx', height: '16rpx', borderRadius: '8rpx', background: 'linear-gradient(138deg, #FFEAE5 0%, #FFF5F3 100%)' }} />
-      <View style={{ position: 'absolute', right: '152rpx', top: '398rpx', width: '20rpx', height: '20rpx', borderRadius: '10rpx', background: 'linear-gradient(138deg, #D0E1FF 0%, #F3F8FF 100%)' }} />
-      <View style={{ position: 'absolute', left: '90rpx', top: '436rpx', width: '140rpx', height: '140rpx', borderRadius: '70rpx', background: 'linear-gradient(138deg, #CEF6ED 0%, #F1FAF7 100%)' }} />
-      <View style={{ position: 'absolute', right: '84rpx', top: '461rpx', width: '112rpx', height: '112rpx', borderRadius: '56rpx', background: 'linear-gradient(138deg, #FFEAE5 0%, #FFF5F3 100%)' }} />
-      <View style={{ position: 'absolute', left: '217rpx', top: '211rpx', width: '266rpx', height: '266rpx', borderRadius: '133rpx', background: 'linear-gradient(180deg, #CBDEFF 0%, #F6FAFF 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#488AFE', fontSize: '24rpx', lineHeight: '33rpx', fontWeight: 400 }}>MBTI类型</Text>
-        <Text style={{ color: mainBlue, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginTop: '12rpx' }}>{mbti || '待完善'}</Text>
-      </View>
-    </View>
   )
 }
 

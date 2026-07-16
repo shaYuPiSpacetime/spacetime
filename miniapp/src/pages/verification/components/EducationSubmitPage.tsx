@@ -1,6 +1,7 @@
 import { Image, Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { buildEducationRequest } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
 import { resolveProtectedFilePreview, resolveProtectedFilePreviews } from '@/services/protectedFile'
@@ -9,6 +10,29 @@ import type { EducationDetail, EducationMethod } from '@/types/prd01'
 import VerificationRuntimeBoundary from './VerificationRuntimeBoundary'
 import VerificationSubShell from './VerificationSubShell'
 import { LanhuOptionSheet } from './LanhuPickerSheet'
+import {
+  AgreementRow,
+  CustomerServiceLink,
+  EducationHero,
+  EducationTabs,
+  SubmitButton,
+  UploadProofBox,
+  VerificationStatusTabs,
+} from './EducationVerificationShared'
+
+const CONTENT_HEIGHT: Record<EducationMethod, string> = {
+  STUDENT_CARD: '1780rpx',
+  CHSI: '2940rpx',
+  DIPLOMA_NO: '1500rpx',
+  MATERIAL_UPLOAD: '1620rpx',
+}
+
+const AGREEMENT_TOP: Record<EducationMethod, string> = {
+  STUDENT_CARD: '1420rpx',
+  CHSI: '2530rpx',
+  DIPLOMA_NO: '1120rpx',
+  MATERIAL_UPLOAD: '1200rpx',
+}
 
 export default function EducationSubmitPage({ methodCode, userTypeCode }: { methodCode: EducationMethod; userTypeCode: string }) {
   const profileOptions = usePrd01Store(state => state.profileOptions)
@@ -45,21 +69,18 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
   const userTypeOption = profileOptions?.educationUserType?.find(option => option.code === userTypeCode)
   const educationOptions = profileOptions?.educationLevel || []
   const needsMaterial = methodCode === 'STUDENT_CARD' || methodCode === 'MATERIAL_UPLOAD'
-  const needsChsi = methodCode === 'CHSI'
-  const needsDiploma = methodCode === 'DIPLOMA_NO'
-  const needsCertificateName = needsDiploma || methodCode === 'MATERIAL_UPLOAD'
   const methodFieldsReady = needsMaterial
     ? materialUrls.length > 0
-    : needsChsi
+    : methodCode === 'CHSI'
       ? chsiCode.trim().length >= 12 && chsiCode.trim().length <= 18
       : diplomaNo.trim().length > 0 && certificateName.trim().length > 0
   const canSubmit = detail?.canSubmit !== false
     && Boolean(methodOption && userTypeOption && schoolName.trim() && educationLevel && agreed && methodFieldsReady)
+  const maxMaterialCount = config?.uploadLimits.education.maxCount || 0
 
   const handleUpload = async () => {
     if (uploading) return
-    const maxCount = config?.uploadLimits.education.maxCount || 0
-    const remaining = Math.max(0, maxCount - materialUrls.length)
+    const remaining = Math.max(0, maxMaterialCount - materialUrls.length)
     if (remaining <= 0) {
       await Taro.showToast({ title: copy('education_upload_limit_reached'), icon: 'none' })
       return
@@ -95,7 +116,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
     if (!canSubmit || submitting) return
     setSubmitting(true)
     try {
-      const request = buildEducationRequest(methodCode, {
+      await prd01Api.submitEducation(buildEducationRequest(methodCode, {
         educationUserType: userTypeOption.code,
         schoolName,
         educationLevel,
@@ -104,8 +125,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
         certificateName,
         materialUrls,
         educationAgreementChecked: agreed,
-      })
-      await prd01Api.submitEducation(request)
+      }))
       await Taro.redirectTo({ url: '/pages/verification/triple' })
     } catch (error) {
       await showError(error)
@@ -116,68 +136,197 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
 
   return (
     <VerificationRuntimeBoundary loadData={loadDetail}>
-      <VerificationSubShell title={copy('verification_nav_title')} contentHeight="1750rpx" scroll>
-      <View style={{ position: 'absolute', left: '25rpx', top: '210rpx', width: '700rpx' }}>
-        <Text style={{ display: 'block', color: '#0C285A', fontSize: '44rpx', fontWeight: 700 }}>{methodOption?.label || ''}</Text>
-        <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '12rpx' }}>{copy('education_notice')}</Text>
-        {detail?.blockedReason ? <Text style={{ display: 'block', color: '#E36A6A', fontSize: '24rpx', marginTop: '14rpx' }}>{detail.blockedReason}</Text> : null}
-        {detail?.rejectReason ? <Text style={{ display: 'block', color: '#E36A6A', fontSize: '24rpx', marginTop: '14rpx' }}>{detail.rejectReason}</Text> : null}
-        {detail?.educationSlaText ? <Text style={{ display: 'block', color: '#697E9C', fontSize: '24rpx', marginTop: '12rpx' }}>{detail.educationSlaText}</Text> : null}
-      </View>
-
-      <View style={{ position: 'absolute', left: '25rpx', top: '410rpx', width: '700rpx', borderRadius: '24rpx', background: '#FFFFFF', padding: '30rpx', boxSizing: 'border-box' }}>
-        <ReadOnlyRow label={copy('education_user_type_label')} value={userTypeOption?.label || ''} />
-        <InputRow label={copy('education_school_label')} value={schoolName} placeholder={copy('education_school_placeholder')} onInput={setSchoolName} />
-        <View onClick={() => setEducationPickerVisible(true)}>
-          <ReadOnlyRow label={copy('education_level_label')} value={optionLabel('educationLevel', educationLevel) || copy('common_select_placeholder')} />
-        </View>
-        {needsChsi ? <InputRow label={copy('education_chsi_label')} value={chsiCode} placeholder={copy('education_chsi_placeholder')} onInput={setChsiCode} /> : null}
-        {needsDiploma ? <InputRow label={copy('education_diploma_label')} value={diplomaNo} placeholder={copy('education_diploma_placeholder')} onInput={setDiplomaNo} /> : null}
-        {needsCertificateName ? <InputRow label={copy('education_certificate_name_label')} value={certificateName} placeholder={copy('education_certificate_name_placeholder')} onInput={setCertificateName} /> : null}
-        {needsMaterial ? (
-          <View>
-            <View style={{ minHeight: '104rpx', borderRadius: '16rpx', background: '#F6F9FE', marginTop: '20rpx', padding: '20rpx', display: 'flex', flexWrap: 'wrap', gap: '16rpx', boxSizing: 'border-box' }} onClick={() => void handleUpload()}>
-              {materialUrls.map((url, index) => <Image key={url} src={materialPreviewUrls[index] || ''} mode="aspectFill" style={{ width: '92rpx', height: '92rpx', borderRadius: '12rpx' }} />)}
-              <Text style={{ color: '#2876FF', fontSize: '26rpx', alignSelf: 'center' }}>{copy(uploading ? 'common_uploading_action' : 'education_upload_action')}</Text>
-            </View>
-            <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '12rpx' }}>{copy('education_upload_notice')}</Text>
-          </View>
+      <VerificationSubShell title={methodCode === 'STUDENT_CARD' ? copy('verification_nav_title') : (methodOption?.label || '')} contentHeight={CONTENT_HEIGHT[methodCode]} scroll>
+        {methodCode === 'STUDENT_CARD' ? (
+          <>
+            <EducationHero copy={copy} />
+            <VerificationStatusTabs active="education" copy={copy} />
+            <EducationTabs active="student" copy={copy} />
+          </>
+        ) : methodCode !== 'CHSI' ? (
+          <Text style={{ position: 'absolute', left: '25rpx', top: '226rpx', width: '700rpx', color: '#0C285A', fontSize: '48rpx', fontWeight: 600, lineHeight: '67rpx' }}>{methodOption?.label || ''}</Text>
         ) : null}
-      </View>
 
-      <View style={{ position: 'absolute', left: '32rpx', top: '1320rpx', width: '686rpx', display: 'flex', alignItems: 'flex-start' }} onClick={() => setAgreed(value => !value)}>
-        <View style={{ width: '32rpx', height: '32rpx', borderRadius: '16rpx', border: '2rpx solid #2876FF', background: agreed ? '#2876FF' : 'transparent', boxSizing: 'border-box', marginRight: '16rpx', flexShrink: 0 }} />
-        <Text style={{ color: '#697E9C', fontSize: '26rpx', lineHeight: '40rpx' }}>{copy('agreement_education')}</Text>
-      </View>
-      {detail?.canSubmit !== false ? (
-        <View style={{ position: 'absolute', left: '25rpx', top: '1450rpx', width: '700rpx', height: '98rpx', borderRadius: '24rpx', background: canSubmit ? '#2876FF' : '#CEE0F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => void handleSubmit()}>
-          <Text style={{ color: '#FFFFFF', fontSize: '36rpx' }}>{copy(submitting ? 'common_submitting_action' : 'common_submit_action')}</Text>
-        </View>
-      ) : null}
-      {educationPickerVisible ? (
-        <LanhuOptionSheet
-          title={copy('education_level_label')}
-          options={educationOptions.map(option => option.label)}
-          value={optionLabel('educationLevel', educationLevel)}
-          onConfirm={label => {
-            const option = educationOptions.find(item => item.label === label)
-            if (option) setEducationLevel(option.code)
-            setEducationPickerVisible(false)
-          }}
-          onClose={() => setEducationPickerVisible(false)}
+        {methodCode === 'CHSI' ? (
+          <ChsiForm copy={copy} chsiCode={chsiCode} onChsiCode={setChsiCode} />
+        ) : (
+          <StandardForm
+            methodCode={methodCode}
+            copy={copy}
+            methodLabel={methodOption?.label || ''}
+            top={methodCode === 'STUDENT_CARD' ? '500rpx' : '335rpx'}
+            schoolName={schoolName}
+            educationLevel={educationLevel}
+            certificateName={certificateName}
+            diplomaNo={diplomaNo}
+            materialUrls={materialUrls}
+            materialPreviewUrls={materialPreviewUrls}
+            maxMaterialCount={maxMaterialCount}
+            uploading={uploading}
+            optionLabel={optionLabel}
+            onSchoolName={setSchoolName}
+            onEducationPicker={() => setEducationPickerVisible(true)}
+            onCertificateName={setCertificateName}
+            onDiplomaNo={setDiplomaNo}
+            onUpload={() => void handleUpload()}
+          />
+        )}
+
+        {detail?.blockedReason ? <Text style={{ position: 'absolute', left: '50rpx', top: '1260rpx', width: '650rpx', color: '#E36A6A', fontSize: '24rpx', textAlign: 'center' }}>{detail.blockedReason}</Text> : null}
+        {detail?.rejectReason ? <Text style={{ position: 'absolute', left: '50rpx', top: '1310rpx', width: '650rpx', color: '#E36A6A', fontSize: '24rpx', textAlign: 'center' }}>{detail.rejectReason}</Text> : null}
+
+        <AgreementRow
+          top={AGREEMENT_TOP[methodCode]}
+          checked={agreed}
+          onToggle={() => detail?.canSubmit !== false && setAgreed(value => !value)}
+          prefix={copy('agreement_read_prefix')}
+          agreementName={copy('agreement_education_name')}
         />
-      ) : null}
+        <CustomerServiceLink top={`calc(${AGREEMENT_TOP[methodCode]} + 84rpx)`} text={copy('common_customer_service')} />
+
+        {detail?.canSubmit !== false ? (
+          <SubmitButton
+            active={canSubmit}
+            submitting={submitting}
+            text={copy('common_submit_action')}
+            submittingText={copy('common_submitting_action')}
+            onClick={() => void handleSubmit()}
+          />
+        ) : null}
+
+        {educationPickerVisible ? (
+          <LanhuOptionSheet
+            title={copy('education_level_label')}
+            options={educationOptions.map(option => option.label)}
+            value={optionLabel('educationLevel', educationLevel)}
+            onConfirm={label => {
+              const option = educationOptions.find(item => item.label === label)
+              if (option) setEducationLevel(option.code)
+              setEducationPickerVisible(false)
+            }}
+            onClose={() => setEducationPickerVisible(false)}
+          />
+        ) : null}
       </VerificationSubShell>
     </VerificationRuntimeBoundary>
   )
 }
 
-function ReadOnlyRow({ label, value }: { label: string; value: string }) {
-  return <View style={{ minHeight: '88rpx', borderRadius: '12rpx', background: '#FCFCFC', marginTop: '20rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box' }}><Text style={{ color: '#0C285A', fontSize: '26rpx', fontWeight: 600 }}>{label}</Text><Text style={{ color: value ? '#333333' : '#999999', fontSize: '26rpx' }}>{value}</Text></View>
+function StandardForm({ methodCode, copy, methodLabel, top, schoolName, educationLevel, certificateName, diplomaNo, materialUrls, materialPreviewUrls, maxMaterialCount, uploading, optionLabel, onSchoolName, onEducationPicker, onCertificateName, onDiplomaNo, onUpload }: {
+  methodCode: EducationMethod
+  copy: (key: string) => string
+  methodLabel: string
+  top: string
+  schoolName: string
+  educationLevel: string
+  certificateName: string
+  diplomaNo: string
+  materialUrls: string[]
+  materialPreviewUrls: string[]
+  maxMaterialCount: number
+  uploading: boolean
+  optionLabel: (key: 'educationLevel', code?: string) => string
+  onSchoolName: (value: string) => void
+  onEducationPicker: () => void
+  onCertificateName: (value: string) => void
+  onDiplomaNo: (value: string) => void
+  onUpload: () => void
+}) {
+  const isStudent = methodCode === 'STUDENT_CARD'
+  const isDiploma = methodCode === 'DIPLOMA_NO'
+  return (
+    <View style={{ position: 'absolute', left: '25rpx', top, width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', padding: '34rpx 30rpx 38rpx', boxSizing: 'border-box' }}>
+      <Text style={{ display: 'block', color: '#0C285A', fontSize: '29rpx', fontWeight: 600, lineHeight: '42rpx', marginBottom: '18rpx' }}>{isStudent ? copy('education_student_form_title') : methodLabel}</Text>
+      <InputRow label={copy('education_school_label')} value={schoolName} placeholder={copy('education_school_placeholder')} onInput={onSchoolName} />
+      <PickerRow label={copy('education_level_label')} value={optionLabel('educationLevel', educationLevel)} placeholder={copy('common_select_placeholder')} onClick={onEducationPicker} />
+      {isDiploma ? <InputRow label={copy('education_diploma_label')} value={diplomaNo} placeholder={copy('education_diploma_placeholder')} onInput={onDiplomaNo} /> : null}
+      {isDiploma ? <InputRow label={copy('education_certificate_name_label')} value={certificateName} placeholder={copy('education_certificate_name_placeholder')} onInput={onCertificateName} /> : null}
+      {isStudent ? (
+        <>
+          <View style={{ display: 'flex', flexWrap: 'wrap', gap: '12rpx', marginTop: '20rpx' }}>
+            {materialPreviewUrls.map((url, index) => (
+              <Image key={`${url}-${index}`} src={url} mode="aspectFill" style={{ width: '148rpx', height: '148rpx', borderRadius: '12rpx' }} />
+            ))}
+            {materialUrls.length < maxMaterialCount ? (
+              <View style={{ width: '148rpx', height: '148rpx', border: '2rpx dashed #D9D9D9', borderRadius: '12rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }} onClick={onUpload}>
+                <Image src={miniappOssIcons.verificationUploadCamera} mode="widthFix" style={{ width: '52rpx' }} />
+                <Text style={{ color: '#999999', fontSize: '22rpx', marginTop: '10rpx' }}>{copy('education_upload_action')}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '18rpx' }}>{copy('education_student_upload_notice')}</Text>
+        </>
+      ) : methodCode === 'MATERIAL_UPLOAD' ? (
+        <>
+          <UploadProofBox
+            uploadPath={materialPreviewUrls[0]}
+            onClick={onUpload}
+            text={uploading
+              ? copy('common_uploading_action')
+              : formatCopy(copy('education_upload_count_template'), { count: materialUrls.length, max: maxMaterialCount })}
+          />
+          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '18rpx' }}>{copy('education_upload_notice')}</Text>
+        </>
+      ) : null}
+      {isDiploma ? (
+        <View style={{ marginTop: '26rpx', borderRadius: '14rpx', background: '#F7F9FC', padding: '22rpx 24rpx' }}>
+          <Text style={{ display: 'block', color: '#0C285A', fontSize: '24rpx', fontWeight: 600 }}>{copy('education_diploma_rules_title')}</Text>
+          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '12rpx' }}>{copy('education_diploma_rule_one')}</Text>
+          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>{copy('education_diploma_rule_two')}</Text>
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+function ChsiForm({ copy, chsiCode, onChsiCode }: {
+  copy: (key: string) => string
+  chsiCode: string
+  onChsiCode: (value: string) => void
+}) {
+  const steps = [
+    { image: miniappOssIcons.verificationChsiStep1, title: 'education_chsi_step_one_title', desc: 'education_chsi_step_one_desc' },
+    { image: miniappOssIcons.verificationChsiStep2, title: 'education_chsi_step_two_title', desc: 'education_chsi_step_two_desc' },
+    { image: miniappOssIcons.verificationChsiStep3, title: 'education_chsi_step_three_title', desc: 'education_chsi_step_three_desc' },
+    { image: miniappOssIcons.verificationChsiStep4, title: 'education_chsi_step_four_title', desc: 'education_chsi_step_four_desc' },
+  ]
+  return (
+    <View style={{ position: 'absolute', left: '25rpx', top: '156rpx', width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', padding: '34rpx 30rpx 42rpx', boxSizing: 'border-box' }}>
+      <Text style={{ display: 'block', color: '#0C285A', fontSize: '29rpx', fontWeight: 600 }}>{copy('education_chsi_guide_title')}</Text>
+      <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '10rpx' }}>{copy('education_chsi_guide_notice')}</Text>
+      {steps.map((step, index) => (
+        <View key={step.title} style={{ marginTop: '28rpx' }}>
+          <Text style={{ display: 'block', color: '#0C285A', fontSize: '24rpx', fontWeight: 600 }}>{copy(step.title)}</Text>
+          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '33rpx', marginTop: '6rpx' }}>{copy(step.desc)}</Text>
+          <Image src={step.image} mode="widthFix" style={{ width: '640rpx', marginTop: '14rpx', borderRadius: '10rpx' }} />
+          {index === 0 ? <View style={{ height: '68rpx', borderRadius: '34rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '14rpx' }}><Text style={{ color: '#FFFFFF', fontSize: '25rpx' }}>{copy('education_chsi_open_action')}</Text></View> : null}
+        </View>
+      ))}
+      <InputRow label={copy('education_chsi_label')} value={chsiCode} placeholder={copy('education_chsi_placeholder')} onInput={onChsiCode} />
+    </View>
+  )
 }
 
 function InputRow({ label, value, placeholder, onInput }: { label: string; value: string; placeholder: string; onInput: (value: string) => void }) {
-  return <View style={{ minHeight: '88rpx', borderRadius: '12rpx', background: '#FCFCFC', marginTop: '20rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#0C285A', fontSize: '26rpx', fontWeight: 600, width: '220rpx' }}>{label}</Text><Input value={value} placeholder={placeholder} placeholderStyle="color:#999999;font-size:26rpx;text-align:right" onInput={event => { onInput(event.detail.value); return event.detail.value }} style={{ flex: 1, color: '#333333', fontSize: '26rpx', textAlign: 'right' }} /></View>
+  return (
+    <View style={{ minHeight: '88rpx', borderRadius: '12rpx', background: '#FCFCFC', marginTop: '20rpx', padding: '0 26rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+      <Text style={{ color: '#0C285A', fontSize: '25rpx', fontWeight: 600, width: '220rpx' }}>{label}</Text>
+      <Input value={value} placeholder={placeholder} placeholderStyle="color:#999999;font-size:24rpx;text-align:right" onInput={event => { onInput(event.detail.value); return event.detail.value }} style={{ flex: 1, color: '#333333', fontSize: '25rpx', textAlign: 'right' }} />
+    </View>
+  )
+}
+
+function PickerRow({ label, value, placeholder, onClick }: { label: string; value: string; placeholder: string; onClick: () => void }) {
+  return (
+    <View style={{ minHeight: '88rpx', borderRadius: '12rpx', background: '#FCFCFC', marginTop: '20rpx', padding: '0 26rpx', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box' }} onClick={onClick}>
+      <Text style={{ color: '#0C285A', fontSize: '25rpx', fontWeight: 600 }}>{label}</Text>
+      <Text style={{ color: value ? '#333333' : '#999999', fontSize: '25rpx' }}>{value || placeholder}</Text>
+    </View>
+  )
+}
+
+function formatCopy(template: string, values: Record<string, string | number>) {
+  return Object.entries(values).reduce((result, [key, value]) => result.replace(`{${key}}`, String(value)), template)
 }
 
 async function showError(error: unknown) {

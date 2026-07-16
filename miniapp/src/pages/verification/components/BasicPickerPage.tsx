@@ -1,4 +1,4 @@
-import { Text, View } from '@tarojs/components'
+import { View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect } from 'react'
 
@@ -17,9 +17,5 @@ export default function BasicPickerPage({ kind }: BasicPickerPageProps) {
     void Taro.redirectTo({ url: `/pages/verification/basic?field=${kind}` })
   }, [kind])
 
-  return (
-    <View style={{ minHeight: '100vh', background: '#F3F5FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#999999', fontSize: '28rpx' }}>正在加载基本资料...</Text>
-    </View>
-  )
+  return <View style={{ minHeight: '100vh', background: '#F3F5FB' }} />
 }

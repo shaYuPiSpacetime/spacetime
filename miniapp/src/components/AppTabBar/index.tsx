@@ -2,10 +2,14 @@ import { Image, View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import tabHomeIcon from '@/assets/icons/tab-home.png'
+import tabHomeActiveIcon from '@/assets/icons/tab-home-active.svg'
 import tabWorkIcon from '@/assets/icons/tab-work.png'
+import tabWorkActiveIcon from '@/assets/icons/tab-work-active.svg'
 import tabRecommendIcon from '@/assets/icons/tab-recommend.png'
 import tabMessageIcon from '@/assets/icons/tab-message.png'
-import tabProfileIcon from '@/assets/icons/tab-profile-active.png'
+import tabMessageActiveIcon from '@/assets/icons/tab-message-active.svg'
+import tabProfileIcon from '@/assets/icons/tab-profile.svg'
+import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'
 
 export type TabKey = 'index' | 'community' | 'recommend' | 'chat' | 'profile'
 
@@ -14,16 +18,17 @@ interface Tab {
   label: string
   path: string
   iconPath: string
+  activeIconPath: string
   iconWidth: number
   iconHeight: number
 }
 
 const TABS: Tab[] = [
-  { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, iconWidth: 40, iconHeight: 35 },
-  { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, iconWidth: 40, iconHeight: 35 },
-  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, iconWidth: 48, iconHeight: 46 },
-  { key: 'chat', label: '消息', path: '/pages/chat/index', iconPath: tabMessageIcon, iconWidth: 40, iconHeight: 36 },
-  { key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, iconWidth: 38, iconHeight: 36 },
+  { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, activeIconPath: tabHomeActiveIcon, iconWidth: 40, iconHeight: 35 },
+  { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon, iconWidth: 40, iconHeight: 35 },
+  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendIcon, iconWidth: 48, iconHeight: 46 },
+  { key: 'chat', label: '消息', path: '/pages/chat/index', iconPath: tabMessageIcon, activeIconPath: tabMessageActiveIcon, iconWidth: 40, iconHeight: 36 },
+  { key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, activeIconPath: tabProfileActiveIcon, iconWidth: 38, iconHeight: 36 },
 ]
 
 interface Props {
@@ -75,6 +80,7 @@ export default function AppTabBar({ active }: Props) {
         }}
       />
       {TABS.map((tab, index) => {
+        const isOn = tab.key === active
         if (tab.key === 'recommend') {
           return (
             <View
@@ -115,8 +121,6 @@ export default function AppTabBar({ active }: Props) {
           )
         }
 
-        const isOn = tab.key === active
-
         return (
           <View
             key={tab.key}
@@ -145,7 +149,7 @@ export default function AppTabBar({ active }: Props) {
               }}
             >
               <Image
-                src={tab.iconPath}
+                src={isOn ? tab.activeIconPath : tab.iconPath}
                 mode="aspectFit"
                 style={{ width: `${tab.iconWidth}rpx`, height: `${tab.iconHeight}rpx` }}
               />
@@ -176,7 +180,6 @@ export default function AppTabBar({ active }: Props) {
           </View>
         )
       })}
-      <HitAreas onPress={handlePress} />
     </TabBarShell>
   )
 }
@@ -196,33 +199,6 @@ function TabBarShell({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </View>
-  )
-}
-
-function HitAreas({ onPress }: { onPress: (tab: Tab) => void }) {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        left: '0',
-        right: '0',
-        top: '0',
-        height: '150rpx',
-        display: 'flex',
-        flexDirection: 'row',
-      }}
-    >
-      {TABS.map((tab) => (
-        <View
-          key={tab.key}
-          style={{
-            flex: 1,
-            height: '150rpx',
-          }}
-          onClick={() => onPress(tab)}
-        />
-      ))}
     </View>
   )
 }

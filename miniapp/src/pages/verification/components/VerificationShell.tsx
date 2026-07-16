@@ -36,6 +36,7 @@ export default function VerificationShell({
   const copy = usePrd01Store(state => state.copy)
   const contentHeight = scroll && stage === 'basic' ? '1830rpx' : '1678rpx'
   const resolvedPrimaryText = primaryText || copy('verification_next_action')
+  const shouldScroll = scroll || Boolean(onPrimary)
 
   const handleBack = () => {
     if (onBack) {
@@ -51,47 +52,64 @@ export default function VerificationShell({
   }
 
   const content = (
-    <View style={{ position: 'relative', width: '750rpx', minHeight: contentHeight, paddingBottom: onPrimary ? '180rpx' : '0', boxSizing: 'border-box' }}>
+    <View style={{ position: 'relative', width: '750rpx', minHeight: contentHeight, paddingBottom: onPrimary ? '220rpx' : '0', boxSizing: 'border-box' }}>
       <Header onBack={handleBack} title={copy('verification_nav_title')} />
       <IntroBlock copy={copy} />
       <Progress stage={stage} copy={copy} />
       {children}
-      {onPrimary && (
-        <View
-          style={{
-            position: 'absolute',
-            left: '25rpx',
-            bottom: '24rpx',
-            width: '700rpx',
-            height: '98rpx',
-            borderRadius: '24rpx',
-            background: primaryActive ? '#2876FF' : '#E3F1FE',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: primaryActive ? '0 12rpx 28rpx rgba(40,118,255,0.25)' : 'none',
-          }}
-          onClick={onPrimary}
-          hoverClass="btn-hover"
-        >
-          <Text style={{ color: primaryActive ? '#FFFFFF' : '#8CA7D0', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>
-            {resolvedPrimaryText}
-          </Text>
-        </View>
-      )}
     </View>
   )
 
   return (
     <View style={{ minHeight: '100vh', background: '#F3F7FB', position: 'relative', overflow: 'hidden' }}>
       <Image src={bg} mode="widthFix" style={{ position: 'fixed', left: '0', top: '0', width: '750rpx' }} />
-      {scroll ? (
+      {shouldScroll ? (
         <ScrollView scrollY style={{ height: '100vh', position: 'relative', zIndex: 1 }} showScrollbar={false}>
           {content}
         </ScrollView>
       ) : (
         <View style={{ position: 'relative', zIndex: 1 }}>{content}</View>
       )}
+      {onPrimary ? (
+        <VerificationBottomAction
+          text={resolvedPrimaryText}
+          active={primaryActive}
+          onClick={onPrimary}
+        />
+      ) : null}
+    </View>
+  )
+}
+
+export function VerificationBottomAction({
+  text,
+  active = true,
+  onClick,
+}: {
+  text: string
+  active?: boolean
+  onClick: () => void | Promise<void>
+}) {
+  return (
+    <View
+      style={{
+        position: 'fixed',
+        left: '25rpx',
+        right: '25rpx',
+        bottom: 'calc(24rpx + env(safe-area-inset-bottom))',
+        height: '98rpx',
+        borderRadius: '24rpx',
+        background: active ? '#2876FF' : '#C9DDF7',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: active ? '0 12rpx 28rpx rgba(40,118,255,0.25)' : 'none',
+        zIndex: 20,
+      }}
+      onClick={active ? onClick : undefined}
+      hoverClass={active ? 'btn-hover' : undefined}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>{text}</Text>
     </View>
   )
 }
@@ -326,7 +344,7 @@ export function BottomPicker({
           minHeight: '560rpx',
           borderRadius: '64rpx 64rpx 0 0',
           background: '#FFFFFF',
-          padding: '34rpx 50rpx 60rpx',
+          padding: '34rpx 50rpx calc(60rpx + env(safe-area-inset-bottom))',
           boxSizing: 'border-box',
           boxShadow: '0 -10rpx 30rpx rgba(11, 38, 90, 0.10)',
         }}

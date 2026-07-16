@@ -28,12 +28,5 @@ export async function chooseAndCropAvatar(source: string) {
     sourceType: source === 'CAMERA' ? ['camera'] : ['album'],
   })
   const sourcePath = res.tempFilePaths[0]
-  if (!sourcePath) return ''
-
-  try {
-    const cropRes = await Taro.cropImage({ src: sourcePath, cropScale: '1:1' })
-    return cropRes.tempFilePath || sourcePath
-  } catch {
-    return sourcePath
-  }
+  return sourcePath || ''
 }

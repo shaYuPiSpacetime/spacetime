@@ -91,18 +91,25 @@ const SOURCE_EVIDENCE = [
   },
   {
     label: '学信网步骤切图',
-    route: '/pages/verification/education-chsi-help',
-    snippets: ['chsi-step-1.webp', 'chsi-step-2.webp', 'chsi-step-3.webp', 'chsi-step-4.webp'],
+    file: 'src/pages/verification/components/EducationSubmitPage.tsx',
+    snippets: ['verificationChsiStep1', 'verificationChsiStep2', 'verificationChsiStep3', 'verificationChsiStep4'],
   },
   {
     label: '上传证书切图入口',
-    route: '/pages/verification/education-certificate-upload',
-    snippets: ['UploadProofBox', 'educationUploadLocalPath'],
+    file: 'src/pages/verification/components/EducationSubmitPage.tsx',
+    snippets: ['UploadProofBox', 'materialPreviewUrls', 'verificationUploadCamera', 'prd01Api.uploadEducation'],
   },
   {
-    label: '会员中心状态变体和 mock 支付',
+    label: '会员中心状态和支付闭环',
     route: '/pages/membership/index',
-    snippets: ['member-vip-bg.webp', 'variant ===', 'expiredMembership', 'confirmPay', '立即续费'],
+    snippets: [
+      'miniappOssIcons.memberBenefitMatch',
+      'useMembership',
+      "status === 'expired'",
+      'confirmPay',
+      "payState === 'paying'",
+      'agreementChecked',
+    ],
   },
   {
     label: '会员记录列表和退款态',
@@ -110,24 +117,36 @@ const SOURCE_EVIDENCE = [
     snippets: ['已退款', 'RecordCard', 'filteredRecords'],
   },
   {
-    label: '千寻币协议变体和 mock 支付',
+    label: '千寻币协议和支付闭环',
     route: '/pages/coins/index',
-    snippets: ['coin-balance-bg.webp', 'agreementChecked', 'unchecked-error', 'purchase'],
+    snippets: [
+      'miniappOssIcons.coinGold',
+      'agreementChecked',
+      'agreementError',
+      "purchase('coins')",
+      "payState === 'paying'",
+    ],
   },
   {
     label: '千寻币明细空态',
     route: '/pages/coins/detail',
-    snippets: ['variant ===', 'forceEmpty', '暂无交易记录'],
+    snippets: ['transactions', 'filtered.length === 0', '<EmptyState />', '暂无千寻币流水'],
   },
   {
     label: '我的页切图和会员状态',
     route: '/pages/profile/index',
-    snippets: ['profile-bg.webp', 'vip-banner.webp', 'variant ===', 'membershipVariant'],
+    snippets: [
+      'miniappOssIcons.profileCertification',
+      'miniappOssIcons.profileBoostButton',
+      'membershipVariant',
+      "membershipVariant === 'none'",
+      "status === 'expired'",
+    ],
   },
   {
     label: '我的编辑资料闭环',
     route: '/pages/profile/edit',
-    snippets: ['ProfileEditPage', 'submitProfile', 'navigateBack', 'MY_TAG_GROUPS', 'profileDemo.tagGroups', 'profileDemo.defaultSelectedTags', 'selectedTags', 'toggleTag', '保存标签'],
+    snippets: ['ProfilePreviewTopNav', 'prd01Api.getHomeDetail', 'mergeAlbumSlots', 'PROFILE_UPDATED_EVENT', 'selectedTags', 'handlePhotoClick', '/pages/profile-edit/tags', 'ProfilePreviewPage'],
   },
 ]
 
@@ -174,11 +193,26 @@ function assertVariantImplemented(route, variant, label) {
   const sourcePath = sourcePathForRoute(route)
   assert.ok(fs.existsSync(sourcePath), `${label} 页面文件不存在: ${path.relative(rootDir, sourcePath)}`)
   const source = fs.readFileSync(sourcePath, 'utf8')
-  if (variant === 'my-certification' && source.includes('VerificationCenterPage')) return
+  if (variant === 'my-certification') {
+    const requiredSnippets = [
+      'VerificationRuntimeBoundary',
+      "copy('verification_detail_heading')",
+      'data-role="certification-detail-card"',
+      'prd01Api.getVerificationStatus()',
+    ]
+    for (const snippet of requiredSnippets) {
+      assert.ok(source.includes(snippet), `${label} 独立页面缺少源码证据: ${snippet}`)
+    }
+    return
+  }
   if (variant === 'wechat-pay' && source.includes('payState') && source.includes("payState === 'paying'")) return
   if (variant === 'paid' && source.includes('orderStatusLabel') && source.includes("status === 'success'")) return
   if (variant === 'checked' && source.includes('agreementChecked')) return
   if (variant === 'unchecked-error' && source.includes('agreementError')) return
+  if (variant === 'empty' && source.includes('filtered.length === 0') && source.includes('<EmptyState />')) return
+  if (variant === 'preview' && source.includes('setShowPreview(true)') && source.includes('<ProfilePreviewPage')) return
+  if (variant === 'added' && source.includes('saveFavoriteSong') && source.includes("title: '保存成功'")) return
+  if (cleanRoute(route) === '/pages/profile-edit/about' && source.includes('router.params.topic') && source.includes('activeTopicKey')) return
   assert.ok(
     source.includes(`'${variant}'`) || source.includes(`"${variant}"`),
     `${label} 页面未显式处理 variant=${variant}`,

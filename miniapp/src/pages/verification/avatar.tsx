@@ -1,11 +1,8 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import blurredAvatar from '@/assets/lanhu/message/avatar-liked-blurred.png'
-import profileLocationPhoto from '@/assets/lanhu/profile/profile-preview-location.png'
-import cityNight from '@/assets/lanhu/recommend/slices/city-night.webp'
-import cityTower from '@/assets/lanhu/recommend/slices/city-tower.webp'
 import goodAvatar from '@/assets/lanhu/verification/avatar-good.webp'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { chooseAndCropAvatar } from '@/utils/avatar'
 import { navigateBackOrRedirect } from '@/utils/navigation'
@@ -41,7 +38,7 @@ export default function VerificationAvatarPage() {
       <VerificationShell
         stage="avatar"
         primaryText={choosing ? copy('avatar_choosing_action') : copy('avatar_choose_action')}
-        onPrimary={() => setSourceSheetVisible(true)}
+        onPrimary={sourceSheetVisible ? undefined : () => setSourceSheetVisible(true)}
         onBack={() => navigateBackOrRedirect('/pages/index/index')}
       >
         <AvatarGuide copy={copy} />
@@ -60,10 +57,10 @@ export default function VerificationAvatarPage() {
 
 function AvatarGuide({ copy }: { copy: (key: string) => string }) {
   const invalidExamples = [
-    { label: copy('avatar_invalid_non_person'), image: cityNight },
-    { label: copy('avatar_invalid_landscape'), image: cityTower },
-    { label: copy('avatar_invalid_blurred'), image: blurredAvatar },
-    { label: copy('avatar_invalid_no_face'), image: profileLocationPhoto },
+    { label: copy('avatar_invalid_non_person'), image: miniappOssIcons.verificationAvatarInvalidNonPerson },
+    { label: copy('avatar_invalid_landscape'), image: miniappOssIcons.verificationAvatarInvalidLandscape },
+    { label: copy('avatar_invalid_blurred'), image: miniappOssIcons.verificationAvatarInvalidBlurred },
+    { label: copy('avatar_invalid_no_face'), image: miniappOssIcons.verificationAvatarInvalidNoFace },
   ]
 
   return (
@@ -117,7 +114,7 @@ function AvatarSourceSheet({
   onCancel: () => void
 }) {
   return (
-    <View style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.32)', zIndex: 20 }} onClick={onCancel}>
+    <View style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.32)', zIndex: 40 }} onClick={onCancel}>
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden', paddingBottom: 'env(safe-area-inset-bottom)' }} onClick={event => event.stopPropagation()}>
         {options.map(option => (
           <View key={option.code} style={{ height: '100rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1rpx solid #EDF2F8' }} onClick={() => onSelect(option)} hoverClass="btn-hover">

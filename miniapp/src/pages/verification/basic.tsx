@@ -6,7 +6,8 @@ import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, ProfileFieldSetting, RegionOption } from '@/types/prd01'
 import { navigateBackOrRedirect } from '@/utils/navigation'
-import VerificationShell from './components/VerificationShell'
+import { emitProfileUpdated } from '@/utils/profileEditEvents'
+import VerificationShell, { VerificationBottomAction } from './components/VerificationShell'
 import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import BasicInfoCard from './components/BasicInfoCard'
 
@@ -73,7 +74,8 @@ export default function VerificationBasicPage() {
       const payload = Object.fromEntries(fieldSettings.map(setting => [setting.fieldId, basic[setting.fieldId]]))
       const result = await prd01Api.saveBasicProfile(payload)
       setBasic(result)
-      if (fromProfile) await Taro.showToast({ title: '保存成功', icon: 'success' })
+      if (fromProfile) emitProfileUpdated({ type: 'basic', basic: result })
+      if (fromProfile) await Taro.showToast({ title: copy('common_save_success'), icon: 'success' })
       if (continueVerification) {
         await Taro.redirectTo({ url: '/pages/verification/avatar' })
       } else {
@@ -99,21 +101,25 @@ export default function VerificationBasicPage() {
 
   if (fromProfile) {
     return (
-      <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 50%, rgba(248,250,239,0.72) 100%)' }}>
-        <LanhuSubNav title="基本资料" onBack={handleBack} />
-        <ScrollView scrollY style={{ height: 'calc(100vh - 164rpx)', width: '750rpx' }} showScrollbar={false}>
-          <View style={{ position: 'relative', width: '750rpx', minHeight: '1848rpx', paddingBottom: '180rpx', boxSizing: 'border-box' }}>
-            <View style={{ position: 'absolute', left: '25rpx', top: '62rpx', width: '700rpx' }}>
-              <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', lineHeight: '67rpx', fontWeight: 800 }}>完善资料</Text>
-              <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '18rpx' }}>时空邂逅是一个严肃、靠谱的交友平台，请认真填写资料</Text>
+      <VerificationRuntimeBoundary>
+        <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 50%, rgba(248,250,239,0.72) 100%)' }}>
+          <LanhuSubNav title={copy('profile_basic_nav_title')} onBack={handleBack} />
+          <ScrollView scrollY style={{ height: 'calc(100vh - 164rpx)', width: '750rpx' }} showScrollbar={false}>
+            <View style={{ position: 'relative', width: '750rpx', minHeight: '1848rpx', paddingBottom: '220rpx', boxSizing: 'border-box' }}>
+              <View style={{ position: 'absolute', left: '25rpx', top: '62rpx', width: '700rpx' }}>
+                <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', lineHeight: '67rpx', fontWeight: 800 }}>{copy('profile_basic_heading')}</Text>
+                <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '18rpx' }}>{copy('profile_basic_notice')}</Text>
+              </View>
+              {card}
             </View>
-            {card}
-          </View>
-        </ScrollView>
-        <View onClick={() => void save(false)} hoverClass="btn-hover" style={{ position: 'fixed', left: '25rpx', bottom: '48rpx', width: '700rpx', height: '98rpx', borderRadius: '20rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 12rpx 28rpx rgba(40,118,255,0.24)' }}>
-          <Text style={{ color: '#FFFFFF', fontSize: '36rpx', lineHeight: '50rpx', fontWeight: 500 }}>{saving ? '保存中...' : '保存'}</Text>
+          </ScrollView>
+          <VerificationBottomAction
+            text={saving ? copy('common_saving_action') : copy('common_save_action')}
+            active={!saving}
+            onClick={() => save(false)}
+          />
         </View>
-      </View>
+      </VerificationRuntimeBoundary>
     )
   }
 
@@ -122,6 +128,7 @@ export default function VerificationBasicPage() {
       <VerificationShell
         stage="basic"
         primaryText={saving ? copy('common_submitting_action') : copy('verification_next_action')}
+        primaryActive={!saving}
         onPrimary={() => save(true)}
         onBack={handleBack}
         scroll

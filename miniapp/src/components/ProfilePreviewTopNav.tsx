@@ -33,16 +33,22 @@ export default function ProfilePreviewTopNav({
   return (
     <View style={{ position: 'relative', width: '750rpx', height: '182rpx' }}>
       <View
+        className="profile-edit-back"
+        data-role="profile-edit-back"
         onClick={onBack}
+        hoverClass="btn-hover"
         style={{
           position: 'absolute',
-          left: '24rpx',
-          top: `${menuTop}rpx`,
-          width: '48rpx',
-          height: `${menuHeight}rpx`,
+          left: '0',
+          top: `${Math.max(0, menuTop - 20)}rpx`,
+          width: '112rpx',
+          height: `${menuHeight + 40}rpx`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-start',
+          paddingLeft: '24rpx',
+          boxSizing: 'border-box',
+          zIndex: 10,
         }}
       >
         <View

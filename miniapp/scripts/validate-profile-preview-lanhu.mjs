@@ -34,7 +34,7 @@ for (const certIcon of ['avatar', 'realname', 'education']) {
     `主页预览认证图标 ${certIcon} 必须存在蓝湖 2x 切图`
   )
 }
-assert.match(preview, /minHeight: '6803rpx'/, '页面高度必须与蓝湖 6803px 画布一致')
+assert.match(preview, /minHeight: '5900rpx'/, '隐藏 MBTI 后页面高度必须同步收口')
 assert.match(preview, /height: '828rpx'/, '首屏主图高度必须为 828rpx')
 assert.doesNotMatch(preview, /editHeroPhoto/, '主页预览禁止复用缺少竖向像素的编辑页横图')
 assert.match(
@@ -54,16 +54,15 @@ assert.match(preview, /borderRadius: '32rpx'/, '蓝湖卡片和图片圆角必�
 assert.match(preview, /text=\{model\.genderAgeHeight/, '基础资料必须由真实资料模型驱动')
 assert.match(preview, /text=\{model\.location/, '地区资料必须由真实资料模型驱动')
 assert.doesNotMatch(preview, /女丨97年|浙江杭州|河南人/, '主页预览不得保留蓝湖演示用户文案')
-assert.match(preview, /const previewTagWidths = \['122rpx', '176rpx', '151rpx', '151rpx'\]/, '四个标签宽度总和必须匹配蓝湖 631rpx 内容区')
+assert.match(preview, /flexWrap: 'wrap'/, '真实标签长度变化时必须按完整色块换行')
+assert.doesNotMatch(preview, /previewTagWidths/, '禁止按演示标签序号写死宽度导致文案块内换行')
+assert.match(read('src/components/ProfileTagChip.tsx'), /whiteSpace: 'nowrap'/, '标签色块内部文字禁止换行')
 assert.match(preview, /textIndent: introduction \? '54rpx' : '0'/, '有内容时自我介绍首行必须按蓝湖缩进 54rpx')
 assert.match(preview, /introduction=\{model\.introduction\}/, '自我介绍必须由真实资料模型驱动')
 assert.match(preview, /height: '44rpx'/, '卡片标题占位高度必须为 44rpx')
 assert.match(preview, /top: '4rpx'/, '卡片标题文字必须下移 4rpx 对齐蓝湖基线')
-assert.match(preview, /left: '217rpx',[\s\S]*width: '266rpx',[\s\S]*height: '266rpx'/, 'MBTI 中心圆必须匹配蓝湖 266rpx 实测边界')
-assert.match(preview, /right: '132rpx', top: '217rpx'/, 'MBTI 右上橙色圆位置必须匹配蓝湖')
-assert.match(preview, /left: '135rpx', top: '382rpx'/, 'MBTI 左侧粉色小圆位置必须匹配蓝湖')
-assert.match(preview, /right: '152rpx', top: '398rpx'/, 'MBTI 右侧蓝色小圆位置必须匹配蓝湖')
-assert.match(preview, /right: '84rpx', top: '461rpx'/, 'MBTI 右下粉色圆位置必须匹配蓝湖')
+assert.doesNotMatch(preview, /ProfilePreviewMbti|MBTI类型/, '产品要求隐藏主页预览 MBTI 模块')
+assert.doesNotMatch(preview, /<EmptyText\b/, '主页预览禁止引用未定义组件')
 assert.match(preview, /padding: '0 25rpx 0 8rpx'/, '认证按钮文字间距必须匹配蓝湖右内边距')
 assert.match(preview, /src=\{miniappOssIcons\.profilePreviewSong\}[\s\S]*marginLeft: '11rpx'/, '歌曲文案与图标间距必须为蓝湖 11rpx')
 assert.equal(

@@ -381,7 +381,9 @@
       "flow": "login",
       "route": "/pages/login/index",
       "status": "implemented",
-      "assetRefs": []
+      "assetRefs": [
+        "src/assets/lanhu/login/login-method-phone.png"
+      ]
     },
     {
       "index": 33,
@@ -410,7 +412,7 @@
       "id": "lanhu-index-35",
       "name": "主页预览",
       "flow": "profile",
-      "route": "/pages/profile/index?variant=preview",
+      "route": "/pages/profile/edit",
       "status": "implemented",
       "assetRefs": [
         "src/assets/profile/profile-bg.webp",
@@ -436,7 +438,10 @@
       "flow": "profile",
       "route": "/pages/profile/edit",
       "status": "implemented",
-      "assetRefs": []
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp",
+        "src/assets/profile/default-avatar.webp"
+      ]
     },
     {
       "index": 38,
@@ -501,7 +506,9 @@
       "flow": "verification",
       "route": "/pages/verification/basic",
       "status": "implemented",
-      "assetRefs": []
+      "assetRefs": [
+        "src/assets/lanhu/verification/verification-bg.webp"
+      ]
     },
     {
       "index": 44,
@@ -608,7 +615,9 @@
       "flow": "profile",
       "route": "/pages/profile-edit/intro",
       "status": "implemented",
-      "assetRefs": []
+      "assetRefs": [
+        "src/assets/profile/profile-bg.webp"
+      ]
     },
     {
       "index": 53,
@@ -1081,7 +1090,9 @@
       "flow": "login",
       "route": "/pages/login/index",
       "status": "implemented",
-      "assetRefs": []
+      "assetRefs": [
+        "src/assets/lanhu/login/login-method-phone.png"
+      ]
     },
     {
       "index": 89,
@@ -2621,9 +2632,9 @@
       {
         "key": "profilePreview",
         "designName": "主页预览",
-        "route": "/pages/profile/index?variant=preview",
+        "route": "/pages/profile/edit",
         "variant": "preview",
-        "description": "资料主页预览状态，展示用户看到的公开资料"
+        "description": "在编辑资料页点击主页预览 Tab，展示用户看到的公开资料"
       },
       {
         "key": "editTags",

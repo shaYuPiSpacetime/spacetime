@@ -8,14 +8,16 @@ type VerificationStatusKey = 'avatar' | 'realName' | 'education'
 export function VerificationStatusTabs({
   active,
   completedKeys,
+  copy,
 }: {
   active: VerificationStatusKey
   completedKeys?: VerificationStatusKey[]
+  copy: (key: string) => string
 }) {
   const tabs = [
-    { key: 'avatar', label: '头像' },
-    { key: 'realName', label: '实名' },
-    { key: 'education', label: '学历' },
+    { key: 'avatar', label: copy('verification_status_avatar') },
+    { key: 'realName', label: copy('verification_status_real_name') },
+    { key: 'education', label: copy('verification_status_education') },
   ] as const
   const autoCompletedKeys: VerificationStatusKey[] =
     active === 'education' ? ['avatar', 'realName'] : active === 'realName' ? ['avatar'] : []
@@ -70,24 +72,24 @@ export function VerificationStatusTabs({
   )
 }
 
-export function EducationHero() {
+export function EducationHero({ copy }: { copy: (key: string) => string }) {
   return (
     <View style={{ position: 'absolute', left: '25rpx', top: '226rpx', width: '700rpx' }}>
-      <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 600, lineHeight: '67rpx' }}>学历认证</Text>
+      <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 600, lineHeight: '67rpx' }}>{copy('education_title')}</Text>
       <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '33rpx', marginTop: '14rpx' }}>
-        完成学历认证，和我们一起打造真实靠谱高质量交友社区
+        {copy('education_notice')}
       </Text>
     </View>
   )
 }
 
-export function EducationTabs({ active }: { active: 'student' | 'mainland' }) {
+export function EducationTabs({ active, copy }: { active: 'student' | 'mainland'; copy: (key: string) => string }) {
   return (
     <View
       style={{
         position: 'absolute',
         left: '25rpx',
-        top: '424rpx',
+        top: '382rpx',
         width: '700rpx',
         height: '144rpx',
         borderRadius: '18rpx 18rpx 0 0',
@@ -96,8 +98,8 @@ export function EducationTabs({ active }: { active: 'student' | 'mainland' }) {
         boxSizing: 'border-box',
       }}
     >
-      <TabText left="68rpx" text="在校学生" active={active === 'student'} onClick={() => Taro.redirectTo({ url: '/pages/verification/education-student' })} />
-      <TabText left="302rpx" text="中国大陆" active={active === 'mainland'} onClick={() => Taro.redirectTo({ url: '/pages/verification/education-mainland' })} />
+      <TabText left="68rpx" text={copy('education_tab_student')} active={active === 'student'} onClick={() => Taro.redirectTo({ url: '/pages/verification/education-student' })} />
+      <TabText left="302rpx" text={copy('education_tab_mainland')} active={active === 'mainland'} onClick={() => Taro.redirectTo({ url: '/pages/verification/education-mainland' })} />
     </View>
   )
 }
@@ -135,14 +137,14 @@ export function FormRow({ label, children, top = '0' }: { label: string; childre
   )
 }
 
-export function SubmitButton({ top, active, submitting, onClick }: { top: string; active: boolean; submitting?: boolean; onClick: () => void }) {
+export function SubmitButton({ active, submitting, text, submittingText, onClick }: { active: boolean; submitting?: boolean; text: string; submittingText: string; onClick: () => void }) {
   return (
     <View
       style={{
-        position: 'absolute',
+        position: 'fixed',
         left: '25rpx',
-        top,
-        width: '700rpx',
+        right: '25rpx',
+        bottom: 'calc(24rpx + env(safe-area-inset-bottom))',
         height: '98rpx',
         borderRadius: '20rpx',
         background: active ? '#2876FF' : '#CEE0F8',
@@ -152,7 +154,7 @@ export function SubmitButton({ top, active, submitting, onClick }: { top: string
       }}
       onClick={onClick}
     >
-      <Text style={{ color: '#FAFBFC', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}>{submitting ? '提交中' : '提交'}</Text>
+      <Text style={{ color: '#FAFBFC', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}>{submitting ? submittingText : text}</Text>
     </View>
   )
 }
@@ -161,12 +163,14 @@ export function AgreementRow({
   top,
   checked,
   onToggle,
-  agreementName = '学历信息认证服务协议',
+  prefix,
+  agreementName,
 }: {
   top: string
   checked: boolean
   onToggle: () => void
-  agreementName?: string
+  prefix: string
+  agreementName: string
 }) {
   return (
     <View
@@ -209,13 +213,13 @@ export function AgreementRow({
           />
         )}
       </View>
-      <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>我已查看并同意 </Text>
+      <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>{prefix}</Text>
       <Text style={{ color: '#2876FF', fontSize: '28rpx', lineHeight: '40rpx' }}>《{agreementName}》</Text>
     </View>
   )
 }
 
-export function CustomerServiceLink({ top }: { top: string }) {
+export function CustomerServiceLink({ top, text }: { top: string; text: string }) {
   return (
     <View
       style={{
@@ -229,33 +233,10 @@ export function CustomerServiceLink({ top }: { top: string }) {
         alignItems: 'center',
         justifyContent: 'center',
       }}
-      onClick={() => Taro.showToast({ title: '联系客服', icon: 'none' })}
+      onClick={() => Taro.showToast({ title: text, icon: 'none' })}
     >
-      <View
-        style={{
-          width: '26rpx',
-          height: '26rpx',
-          borderRadius: '13rpx',
-          border: '3rpx solid #2876FF',
-          boxSizing: 'border-box',
-          marginRight: '12rpx',
-          position: 'relative',
-        }}
-      >
-        <View
-          style={{
-            position: 'absolute',
-            left: '17rpx',
-            top: '20rpx',
-            width: '10rpx',
-            height: '6rpx',
-            borderLeft: '3rpx solid #2876FF',
-            borderBottom: '3rpx solid #2876FF',
-            transform: 'rotate(-25deg)',
-          }}
-        />
-      </View>
-      <Text style={{ color: '#2876FF', fontSize: '28rpx', lineHeight: '40rpx' }}>联系客服</Text>
+      <Image src={miniappOssIcons.verificationCustomerService} mode="widthFix" style={{ width: '30rpx', marginRight: '12rpx' }} />
+      <Text style={{ color: '#2876FF', fontSize: '28rpx', lineHeight: '40rpx' }}>{text}</Text>
     </View>
   )
 }
@@ -264,12 +245,12 @@ export function UploadProofBox({
   uploadPath,
   onClick,
   height = '306rpx',
-  text = '上传证明材料(0/4)',
+  text,
 }: {
   uploadPath?: string
   onClick: () => void
   height?: string
-  text?: string
+  text: string
 }) {
   return (
     <View

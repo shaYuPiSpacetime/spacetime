@@ -2,6 +2,7 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import qianxunCenterImage from '@/assets/lanhu/pages/qianxun-center.png'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   hasPartialBasicProfile,
   isVerificationStepSubmitted,
@@ -37,6 +38,10 @@ export default function IndexPage() {
           prd01Api.getVerificationStatus(),
           prd01Api.getIntroduction(),
         ])
+        if (verificationResult.accessStatus?.coreAccessStatus === 'CORE_ALLOWED') {
+          await Taro.switchTab({ url: '/pages/recommend/index' })
+          return
+        }
         setBasic(basicResult)
         setVerification(verificationResult)
         setIntroduction(introductionResult)
@@ -138,9 +143,9 @@ function PartialCertificationPanel({
   checklist: { basic: boolean; avatarIntro: boolean; triple: boolean }
 }) {
   const items = [
-    { key: 'basic', title: copy('verification_home_basic_title'), desc: copy('verification_home_basic_desc'), completed: checklist.basic },
-    { key: 'avatarIntro', title: copy('verification_home_avatar_intro_title'), desc: copy('verification_home_avatar_intro_desc'), completed: checklist.avatarIntro },
-    { key: 'triple', title: copy('verification_home_triple_title'), desc: copy('verification_home_triple_desc'), completed: checklist.triple },
+    { key: 'basic', icon: miniappOssIcons.verificationProfileBasic, title: copy('verification_home_basic_title'), desc: copy('verification_home_basic_desc'), completed: checklist.basic },
+    { key: 'avatarIntro', icon: miniappOssIcons.verificationProfileAvatarIntro, title: copy('verification_home_avatar_intro_title'), desc: copy('verification_home_avatar_intro_desc'), completed: checklist.avatarIntro },
+    { key: 'triple', icon: miniappOssIcons.verificationProfileTriple, title: copy('verification_home_triple_title'), desc: copy('verification_home_triple_desc'), completed: checklist.triple },
   ] as const
 
   return (
@@ -152,47 +157,14 @@ function PartialCertificationPanel({
       <View style={{ position: 'absolute', left: '25rpx', top: '458rpx', width: '700rpx' }}>
         {items.map((item, index) => (
           <View key={item.key} style={{ position: 'relative', width: '700rpx', height: '168rpx', borderRadius: '16rpx', background: '#FFFFFF', marginBottom: index === items.length - 1 ? '0' : '20rpx' }}>
-            <ChecklistIcon type={item.key} />
+            <Image src={item.icon} mode="aspectFit" style={{ position: 'absolute', left: '40rpx', top: '34rpx', width: '72rpx', height: '84rpx' }} />
             <Text style={{ position: 'absolute', left: '140rpx', top: '42rpx', color: '#0C285A', fontSize: '30rpx', fontWeight: 600, lineHeight: '42rpx' }}>{item.title}</Text>
             <Text style={{ position: 'absolute', left: '140rpx', top: '96rpx', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx' }}>{item.desc}</Text>
-            {item.completed ? <RoundCheck /> : null}
+            {item.completed ? <Image src={miniappOssIcons.verificationRoundCheck} mode="aspectFit" style={{ position: 'absolute', right: '38rpx', top: '60rpx', width: '48rpx', height: '48rpx' }} /> : null}
           </View>
         ))}
       </View>
     </>
-  )
-}
-
-function ChecklistIcon({ type }: { type: 'basic' | 'avatarIntro' | 'triple' }) {
-  if (type === 'avatarIntro') {
-    return (
-      <View style={{ position: 'absolute', left: '42rpx', top: '48rpx', width: '56rpx', height: '56rpx', borderRadius: '28rpx', border: '4rpx solid #0C285A', boxSizing: 'border-box' }}>
-        <View style={{ position: 'absolute', left: '13rpx', top: '15rpx', width: '5rpx', height: '5rpx', borderRadius: '3rpx', background: '#0C285A' }} />
-        <View style={{ position: 'absolute', right: '13rpx', top: '15rpx', width: '5rpx', height: '5rpx', borderRadius: '3rpx', background: '#0C285A' }} />
-        <View style={{ position: 'absolute', left: '13rpx', top: '28rpx', width: '24rpx', height: '12rpx', borderBottom: '4rpx solid #0C285A', borderRadius: '0 0 18rpx 18rpx' }} />
-      </View>
-    )
-  }
-  if (type === 'triple') {
-    return (
-      <View style={{ position: 'absolute', left: '42rpx', top: '42rpx', width: '58rpx', height: '66rpx', border: '4rpx solid #0C285A', borderRadius: '28rpx 28rpx 32rpx 32rpx', boxSizing: 'border-box' }}>
-        <View style={{ position: 'absolute', left: '16rpx', top: '20rpx', width: '20rpx', height: '12rpx', borderLeft: '4rpx solid #0C285A', borderBottom: '4rpx solid #0C285A', transform: 'rotate(-45deg)' }} />
-      </View>
-    )
-  }
-  return (
-    <View style={{ position: 'absolute', left: '42rpx', top: '40rpx', width: '62rpx', height: '72rpx' }}>
-      <View style={{ position: 'absolute', left: '19rpx', top: 0, width: '24rpx', height: '24rpx', borderRadius: '12rpx', border: '4rpx solid #0C285A', boxSizing: 'border-box' }} />
-      <View style={{ position: 'absolute', left: '5rpx', top: '30rpx', width: '52rpx', height: '38rpx', border: '4rpx solid #0C285A', borderBottom: 0, borderRadius: '30rpx 30rpx 0 0', boxSizing: 'border-box' }} />
-    </View>
-  )
-}
-
-function RoundCheck() {
-  return (
-    <View style={{ position: 'absolute', right: '38rpx', top: '60rpx', width: '48rpx', height: '48rpx', borderRadius: '24rpx', background: '#2876FF' }}>
-      <View style={{ position: 'absolute', left: '13rpx', top: '12rpx', width: '22rpx', height: '13rpx', borderLeft: '5rpx solid #FFFFFF', borderBottom: '5rpx solid #FFFFFF', transform: 'rotate(-45deg)' }} />
-    </View>
   )
 }
 

@@ -3,10 +3,13 @@ import Taro, { useRouter } from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import ProfilePreviewTopNav from '@/components/ProfilePreviewTopNav'
+import ProfileTagChip from '@/components/ProfileTagChip'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, ProfileFieldSetting, ProfileMedia, VerificationStatus, VoiceIntro } from '@/types/prd01'
+import { PROFILE_UPDATED_EVENT, type ProfileEditUpdate } from '@/utils/profileEditEvents'
+import type { ProfileTagItem } from '@/utils/profileTags'
 import ProfilePreviewPage, { type ProfilePreviewModel } from './components/ProfilePreviewPage'
 
 import editHeroPhoto from '@/assets/lanhu/profile/edit-hero-photo.jpg'
@@ -83,7 +86,7 @@ type ProfileDemo = {
 }
 
 type SheetState = {
-  key: 'goal' | 'relationship' | 'mbti'
+  key: 'goal' | 'relationship'
   title: string
   value: string
   options: string[]
@@ -170,17 +173,18 @@ export default function ProfileEditPage() {
   const [verification, setVerification] = useState<VerificationStatus>({})
   const [intro, setIntro] = useState('')
   const [aboutTopics, setAboutTopics] = useState<AboutTopic[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [selectedTags, setSelectedTags] = useState<ProfileTagItem[]>([])
   const [favoriteSong, setFavoriteSong] = useState('')
   const [goal, setGoal] = useState('')
   const [relationship, setRelationship] = useState('')
-  const [selectedTagCodes, setSelectedTagCodes] = useState<string[]>([])
   const [wechat, setWechat] = useState('')
   const [sheet, setSheet] = useState<SheetState>(null)
   const [voiceSheet, setVoiceSheet] = useState<VoiceSheetVariant | null>(() =>
     resolveVoiceSheetVariant(String(router.params.voice || ''))
   )
   const [voiceDetail, setVoiceDetail] = useState<VoiceIntro>()
+  const [restoredScrollTop, setRestoredScrollTop] = useState(0)
+  const scrollTopRef = useRef(0)
   const recorder = useRef(Taro.getRecorderManager())
   const discardVoice = useRef(false)
 
@@ -225,8 +229,10 @@ export default function ProfileEditPage() {
           value: question.effectiveContent || question.latestContent,
         })))
         const tagCodes = parseTagCodes(tags)
-        setSelectedTagCodes(tagCodes)
-        setSelectedTags(tagCodes.map(code => options?.profileTag.find(option => option.code === code)?.label || code))
+        setSelectedTags(tagCodes.map(code => ({
+          code,
+          label: options?.profileTag.find(option => option.code === code)?.label || code,
+        })))
         const songName = String(profile.favoriteSongName || '')
         const artistName = String(profile.favoriteSongArtist || '')
         if (songName) setFavoriteSong(artistName ? `${songName}｜${artistName}` : songName)
@@ -258,7 +264,16 @@ export default function ProfileEditPage() {
     }
   }, [])
 
-  const closeSheet = () => setSheet(null)
+  const restoreScrollPosition = () => {
+    const target = scrollTopRef.current
+    setRestoredScrollTop(Math.max(0, target - 0.5))
+    Taro.nextTick(() => setRestoredScrollTop(target))
+  }
+
+  const closeSheet = () => {
+    setSheet(null)
+    restoreScrollPosition()
+  }
   const closeVoiceSheet = () => setVoiceSheet(null)
 
   const saveVoiceRecording = async (filePath: string, duration: number) => {
@@ -326,19 +341,6 @@ export default function ProfileEditPage() {
     })
   }
 
-  const mbtiOptions = profileOptions?.profileTagGroups
-    .find(group => group.categoryCode.toUpperCase() === 'MBTI')?.options || []
-  const mbti = mbtiOptions.find(option => selectedTagCodes.includes(option.code))?.label || ''
-
-  const openMbtiSheet = () => {
-    setSheet({
-      key: 'mbti',
-      title: 'MBTI类型',
-      value: mbti,
-      options: mbtiOptions.map(option => option.label),
-    })
-  }
-
   const confirmOption = async (value: string) => {
     if (!sheet) return
     try {
@@ -354,15 +356,6 @@ export default function ProfileEditPage() {
         await prd01Api.saveEmotionalStatus(option.code)
         setRelationship(option.label)
       }
-      if (sheet.key === 'mbti') {
-        const option = mbtiOptions.find(item => item.label === value)
-        if (!option) return
-        const mbtiCodes = new Set(mbtiOptions.map(item => item.code))
-        const nextCodes = [...selectedTagCodes.filter(code => !mbtiCodes.has(code)), option.code]
-        await prd01Api.saveTags(nextCodes)
-        setSelectedTagCodes(nextCodes)
-        setSelectedTags(nextCodes.map(code => profileOptions?.profileTag.find(item => item.code === code)?.label || code))
-      }
     } catch (error) {
       await showError(error)
       return
@@ -370,9 +363,32 @@ export default function ProfileEditPage() {
     closeSheet()
   }
 
+  const applyProfileUpdate = (update: ProfileEditUpdate) => {
+    if (update.type === 'basic') setBasic(update.basic)
+    if (update.type === 'intro') setIntro(update.value)
+    if (update.type === 'tags') {
+      setSelectedTags(update.items)
+    }
+    if (update.type === 'about') {
+      setAboutTopics(update.questions.map(question => ({
+        key: question.questionKey,
+        title: question.title,
+        value: question.effectiveContent || question.latestContent,
+      })))
+    }
+    if (update.type === 'song') setFavoriteSong(update.display)
+    if (update.type === 'verification') setVerification(update.status)
+    restoreScrollPosition()
+  }
+
   const handleProfileAction = (title: string, url?: string) => {
     if (url) {
-      void Taro.navigateTo({ url }).catch(() => {
+      void Taro.navigateTo({
+        url,
+        events: {
+          [PROFILE_UPDATED_EVENT]: (update: ProfileEditUpdate) => applyProfileUpdate(update),
+        },
+      }).catch(() => {
         Taro.showToast({ title, icon: 'none' })
       })
       return
@@ -394,8 +410,9 @@ export default function ProfileEditPage() {
       }
       await onChoose(imagePath)
       Taro.showToast({ title: '已选择照片', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: fallbackTitle, icon: 'none' })
+    } catch (error) {
+      if (isChooseImageCancelled(error)) return
+      await showError(error)
     }
   }
 
@@ -431,10 +448,22 @@ export default function ProfileEditPage() {
   }
 
   const handleBack = () => {
+    const fallbackToProfile = () => {
+      const switchResult = Taro.switchTab({ url: '/pages/profile/index' })
+      void Promise.resolve(switchResult).catch(() => {
+        void Taro.reLaunch({ url: '/pages/profile/index' })
+      })
+    }
     const pages = Taro.getCurrentPages()
     if (pages.length > 1) {
-      Taro.navigateBack()
+      const backResult = Taro.navigateBack({
+        delta: 1,
+        fail: fallbackToProfile,
+      })
+      void Promise.resolve(backResult).catch(fallbackToProfile)
+      return
     }
+    fallbackToProfile()
   }
 
   const optionLabel = usePrd01Store.getState().optionLabel
@@ -474,7 +503,6 @@ export default function ProfileEditPage() {
     datingGoal: goal,
     relationshipStatus: relationship,
     favoriteSong,
-    mbti,
     aboutMe: aboutTopics.flatMap(item => item.value ? [{ title: item.title, value: item.value }] : []),
   }
 
@@ -485,7 +513,14 @@ export default function ProfileEditPage() {
     <View
       style={{ minHeight: '100vh', background: pageBackground, overflow: 'hidden', fontFamily }}
     >
-      <ScrollView scrollY style={{ height: '100vh', width: '750rpx' }} showScrollbar={false}>
+      <ScrollView
+        scrollY
+        scrollTop={restoredScrollTop}
+        scrollWithAnimation={false}
+        onScroll={event => { scrollTopRef.current = event.detail.scrollTop }}
+        style={{ height: '100vh', width: '750rpx' }}
+        showScrollbar={false}
+      >
         <View
           style={{
             width: '750rpx',
@@ -532,20 +567,16 @@ export default function ProfileEditPage() {
             onEdit={() => handleProfileAction('自我介绍', '/pages/profile-edit/intro')}
           />
           <ProfileSection title="我的标签" padding="24rpx 26rpx">
-            <AddPrompt
-              text={
-                selectedTags.length
-                  ? selectedTags.join('、')
-                  : '添加标签，让TA更了解你'
-              }
-              marginTop="10rpx"
-              minHeight="72rpx"
-              promptPadding="12rpx 20rpx 12rpx 28rpx"
+            <View
               onClick={() => handleProfileAction('我的标签', '/pages/profile-edit/tags')}
-            />
+              style={{ minHeight: '72rpx', marginTop: '10rpx', borderRadius: '16rpx', background: '#F8FAFD', padding: '12rpx 20rpx', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10rpx', boxSizing: 'border-box' }}
+            >
+              {selectedTags.length
+                ? selectedTags.map(item => <ProfileTagChip key={item.code} item={item} compact />)
+                : <Text style={{ color: '#9AA1AF', fontSize: '26rpx', lineHeight: '38rpx' }}>添加标签，让TA更了解你</Text>}
+            </View>
           </ProfileSection>
           <VoiceSection onRecord={() => setVoiceSheet('voice')} />
-          <MbtiSection mbti={mbti} onAdd={openMbtiSheet} />
           <AboutDetailSection
             items={aboutTopics}
             onAdd={() => handleProfileAction('关于我', '/pages/profile-edit/about')}
@@ -1529,114 +1560,6 @@ function VoiceSection({ onRecord }: { onRecord: () => void }) {
   )
 }
 
-function MbtiSection({ mbti, onAdd }: { mbti: string; onAdd: () => void }) {
-  return (
-    <ProfileSection title="MBTI类型" action="添加" onAction={onAdd}>
-      <MbtiOrbChart mbti={mbti} onClick={onAdd} />
-    </ProfileSection>
-  )
-}
-
-function MbtiOrbChart({ mbti, onClick }: { mbti: string; onClick: () => void }) {
-  return (
-    <View
-      data-role="mbti-orb-chart"
-      onClick={onClick}
-      style={{
-        position: 'relative',
-        height: '430rpx',
-        marginTop: '18rpx',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-      }}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: '126rpx',
-          top: '44rpx',
-          width: '92rpx',
-          height: '92rpx',
-          borderRadius: '92rpx',
-          background: 'rgba(217,221,255,0.42)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '94rpx',
-          top: '68rpx',
-          width: '40rpx',
-          height: '40rpx',
-          borderRadius: '40rpx',
-          background: 'rgba(255,213,170,0.58)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '72rpx',
-          bottom: '66rpx',
-          width: '136rpx',
-          height: '136rpx',
-          borderRadius: '136rpx',
-          background: 'rgba(179,249,229,0.56)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '72rpx',
-          bottom: '76rpx',
-          width: '108rpx',
-          height: '108rpx',
-          borderRadius: '108rpx',
-          background: 'rgba(255,215,210,0.62)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '176rpx',
-          top: '210rpx',
-          width: '16rpx',
-          height: '16rpx',
-          borderRadius: '16rpx',
-          background: 'rgba(40,118,255,0.28)',
-        }}
-      />
-      <View
-        style={{
-          width: '214rpx',
-          height: '214rpx',
-          borderRadius: '214rpx',
-          background: 'linear-gradient(180deg, #D8E7FF 0%, #EAF1FF 100%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 16rpx 36rpx rgba(40,118,255,0.08)',
-        }}
-      >
-        <Text style={{ color: '#7EA4D8', fontSize: '22rpx', lineHeight: '31rpx' }}>MBTI类型</Text>
-        <Text
-          style={{
-            color: mainBlue,
-            fontSize: '26rpx',
-            lineHeight: '36rpx',
-            fontWeight: 800,
-            marginTop: '8rpx',
-          }}
-        >
-          {mbti}
-        </Text>
-      </View>
-    </View>
-  )
-}
-
 function AboutDetailSection({
   items,
   onAdd,
@@ -2613,10 +2536,28 @@ function OptionSheet({
 }
 
 function mergeAlbumSlots(albums: ProfileMedia[]) {
-  return defaultPhotoSlots.map((slot, index) => {
-    const media = [...albums].sort((left, right) => (left.sortOrder || 0) - (right.sortOrder || 0))[index]
-    return media ? { ...slot, mediaId: media.mediaId, imageUrl: media.mediaUrl } : slot
+  const slots = defaultPhotoSlots.map(slot => ({ ...slot }))
+  albums.forEach((media, fallbackIndex) => {
+    const preferredIndex = normalizeAlbumSlot(media.sortOrder, fallbackIndex, slots.length)
+    const slotIndex = preferredIndex >= 0 && !slots[preferredIndex].mediaId
+      ? preferredIndex
+      : slots.findIndex(slot => !slot.mediaId)
+    if (slotIndex < 0) return
+    slots[slotIndex] = { ...slots[slotIndex], mediaId: media.mediaId, imageUrl: media.mediaUrl }
   })
+  return slots
+}
+
+function normalizeAlbumSlot(sortOrder: number | undefined, fallbackIndex: number, slotCount: number) {
+  const candidate = Number.isInteger(sortOrder) ? Number(sortOrder) : fallbackIndex
+  return candidate >= 0 && candidate < slotCount ? candidate : -1
+}
+
+function isChooseImageCancelled(error: unknown) {
+  const message = error instanceof Error
+    ? error.message
+    : String((error as { errMsg?: string } | null)?.errMsg || error || '')
+  return /cancel/i.test(message)
 }
 
 function parseTagCodes(value: string) {

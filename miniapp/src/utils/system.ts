@@ -2,6 +2,7 @@ import Taro from '@tarojs/taro'
 
 interface WindowMetrics {
   windowWidth: number
+  windowHeight: number
   statusBarHeight: number
 }
 
@@ -16,6 +17,7 @@ export function getWindowMetrics(): WindowMetrics {
     if (windowInfo?.windowWidth) {
       return {
         windowWidth: windowInfo.windowWidth,
+        windowHeight: windowInfo.windowHeight ?? 667,
         statusBarHeight: windowInfo.statusBarHeight ?? 20,
       }
     }
@@ -25,6 +27,7 @@ export function getWindowMetrics(): WindowMetrics {
 
   return {
     windowWidth: 375,
+    windowHeight: 667,
     statusBarHeight: 20,
   }
 }

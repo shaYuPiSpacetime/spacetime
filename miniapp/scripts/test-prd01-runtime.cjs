@@ -416,7 +416,9 @@ test('认证页面入口相互隔离，避免构建产物重复注册 Page', () 
     path.join(miniappRoot, 'src/pages/verification/components/VerificationRuntimeBoundary.tsx'),
     'utf8'
   )
-  assert.match(myCertification, /VerificationCenterPage/)
+  assert.doesNotMatch(myCertification, /VerificationCenterPage/)
+  assert.match(myCertification, /CertificationDetailCard/)
+  assert.match(myCertification, /VerificationRuntimeBoundary/)
   assert.match(triple, /VerificationCenterPage/)
   assert.match(center, /VerificationRuntimeBoundary/)
   assert.match(boundary, /validateVerificationRuntime/)
@@ -578,11 +580,16 @@ test('核心页面准入只消费 access-status，不在前端自行拼认证规
   assert.match(hook, /prd01Api\.getAccessStatus/)
   assert.match(hook, /status\?\.\[capability\]/)
   assert.match(hook, /blockReasons/)
-  ;['chat/index.tsx', 'community/index.tsx', 'recommend/index.tsx'].forEach(file => {
+  ;['chat/index.tsx', 'community/index.tsx'].forEach(file => {
     const source = fs.readFileSync(path.join(miniappRoot, 'src/pages', file), 'utf8')
     assert.match(source, /useAccessStatus/)
     assert.match(source, /AccessBlockedPage/)
   })
+  const recommend = fs.readFileSync(path.join(miniappRoot, 'src/pages/recommend/index.tsx'), 'utf8')
+  assert.match(recommend, /useAccessStatus/)
+  assert.match(recommend, /access\.status\?\.coreAccessStatus === 'CORE_ALLOWED'/)
+  assert.match(recommend, /UncertifiedSheet/, '千寻按最新蓝湖稿使用页内未认证弹层')
+  assert.doesNotMatch(recommend, /realNameStatus|educationStatus/, '千寻不得自行拼三项认证规则')
 })
 
 test('文件上传由小程序拿短时凭证后直传 OSS', () => {

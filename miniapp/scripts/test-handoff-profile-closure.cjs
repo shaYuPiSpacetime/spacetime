@@ -24,36 +24,30 @@ for (const field of [
   'certifications',
   'voice',
   'datingGoal',
-  'mbti',
 ]) {
   assert.match(preview, new RegExp(`\\b${field}\\??:`), `真实资料模型缺少 ${field}`)
 }
 assert.doesNotMatch(preview, /getDemoPageData|profileDemo/, '主页预览不得读取蓝湖演示业务数据')
 assert.doesNotMatch(preview, /女丨97年|浙江杭州|河南人|深夜电台|告白气球|ENFJ 主人公|92%/, '主页预览不得保留演示用户资料')
 for (const geometry of [
-  /minHeight: '6803rpx'/,
+  /minHeight: '5900rpx'/,
   /height: '828rpx'/,
   /height: '896rpx'/,
-  /const previewTagWidths = \['122rpx', '176rpx', '151rpx', '151rpx'\]/,
+  /flexWrap: 'wrap'/,
+  /<ProfileTagChip item=\{item\}/,
   /textIndent: introduction \? '54rpx' : '0'/,
-  /left: '217rpx', top: '211rpx', width: '266rpx', height: '266rpx'/,
-  /right: '132rpx', top: '217rpx'/,
-  /left: '135rpx', top: '382rpx'/,
-  /right: '152rpx', top: '398rpx'/,
-  /right: '84rpx', top: '461rpx'/,
   /padding: '0 25rpx 0 8rpx'/,
   /height: '44rpx'/,
   /top: '4rpx'/,
 ]) {
   assert.match(preview, geometry, `主页预览蓝湖几何基线缺失：${geometry}`)
 }
+assert.doesNotMatch(preview, /previewTagWidths/, '标签宽度不得按演示数据写死')
 assert.equal((preview.match(/<ProfilePreviewPhoto url=\{/g) || []).length, 4, '相册必须保留四个蓝湖大图卡位')
 assert.match(edit, /<ProfilePreviewPage\s+model=\{previewModel\}/, '编辑页必须将完整真实资料模型传给预览页')
 assert.match(edit, /profile\.profileBgImage/, '主页预览背景必须读取 home-detail 的 profileBgImage')
 assert.match(edit, /heroImageUrl:\s*profileBackground/, '主页预览必须优先展示真实资料背景图')
-assert.doesNotMatch(edit, /\['ENFJ 主人公',\s*'INFJ 提倡者'/, 'MBTI 选项不得在前端硬编码')
-assert.match(edit, /profileTagGroups[\s\S]*categoryCode[\s\S]*MBTI/, 'MBTI 选项必须来自 profileTagGroups 字典')
-assert.match(edit, /prd01Api\.saveTags/, 'MBTI 修改必须通过标签接口持久化')
+assert.doesNotMatch(edit + preview, /MbtiSection|ProfilePreviewMbti|MBTI类型/, '产品要求隐藏编辑资料与预览 MBTI 模块')
 assert.match(edit, /prd01Api\.replaceAlbum[\s\S]*fileSizeBytes:\s*uploaded\.fileSizeBytes/, '替换相册必须透传 OSS 返回的文件大小')
 assert.match(edit, /prd01Api\.addAlbum[\s\S]*fileSizeBytes:\s*uploaded\.fileSizeBytes/, '新增相册必须透传 OSS 返回的文件大小')
 

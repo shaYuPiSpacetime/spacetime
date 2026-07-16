@@ -66,6 +66,8 @@ export default function BasicInfoCard({
   const splitIndex = Math.min(8, visibleSettings.length)
   const primary = visibleSettings.slice(0, splitIndex)
   const secondary = visibleSettings.slice(splitIndex)
+  const selectPlaceholder = copy('common_select_placeholder')
+  const inputPlaceholder = copy('common_input_placeholder')
 
   const openEditor = (setting: ProfileFieldSetting) => {
     const optionKey = FIELD_OPTION_KEYS[setting.fieldId]
@@ -80,8 +82,14 @@ export default function BasicInfoCard({
       key={setting.fieldId}
       label={setting.label || setting.fieldId}
       value={renderValue(
-        resolveValueLabel(setting, userInfo[setting.fieldId], profileOptions, regionOptions, copy('common_select_placeholder')),
-        copy('common_select_placeholder')
+        resolveValueLabel(
+          setting,
+          userInfo[setting.fieldId],
+          profileOptions,
+          regionOptions,
+          resolveFieldPlaceholder(setting, selectPlaceholder, inputPlaceholder)
+        ),
+        resolveFieldPlaceholder(setting, selectPlaceholder, inputPlaceholder)
       )}
       onClick={() => openEditor(setting)}
       last={index === settings.length - 1}
@@ -112,7 +120,7 @@ export default function BasicInfoCard({
           setting={editor.setting}
           value={userInfo[editor.setting.fieldId]}
           options={editor.options}
-          placeholder={copy('common_select_placeholder')}
+          placeholder={resolveFieldPlaceholder(editor.setting, selectPlaceholder, inputPlaceholder)}
           onConfirm={async value => {
             await onChange(editor.setting.fieldId, value)
             setEditor(null)
@@ -247,6 +255,19 @@ function buildNumericOptions(setting: ProfileFieldSetting) {
     const value = String((setting.minValue || 0) + index)
     return { code: value, label: value }
   })
+}
+
+function resolveFieldPlaceholder(
+  setting: ProfileFieldSetting,
+  selectPlaceholder: string,
+  inputPlaceholder: string
+) {
+  const isSelection = Boolean(FIELD_OPTION_KEYS[setting.fieldId])
+    || REGION_FIELD_IDS.has(setting.fieldId)
+    || setting.fieldType === 'date'
+    || setting.fieldType === 'dict'
+    || setting.fieldType === 'select'
+  return isSelection ? selectPlaceholder : inputPlaceholder
 }
 
 function renderValue(value: string, placeholder: string) {

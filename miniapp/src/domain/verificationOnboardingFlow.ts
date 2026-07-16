@@ -15,6 +15,16 @@ export function resolveVerificationOnboardingRoute({
   return '/pages/verification/triple'
 }
 
+/**
+ * 实名提交后按接口返回的身份/学历人群续接下一页，禁止固定跳回三重认证首页。
+ */
+export function resolveEducationEntryRoute({ identityCode, educationUserType } = {}) {
+  const resolvedType = String(educationUserType || identityCode || '').toUpperCase()
+  return resolvedType === 'STUDENT'
+    ? '/pages/verification/education-student'
+    : '/pages/verification/education-mainland'
+}
+
 export function hasPartialBasicProfile(basic, fieldSettings, initFields) {
   const initFieldIds = new Set(
     (initFields || []).flatMap(item => Array.isArray(item.submitFields) ? item.submitFields : []),

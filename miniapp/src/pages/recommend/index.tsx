@@ -1,602 +1,386 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useState } from 'react'
-import AppTabBar from '@/components/AppTabBar'
-import bg from '@/assets/lanhu/recommend/recommend-bg.webp'
-import avatarImage from '@/assets/lanhu/recommend/slices/avatar-xiaolaohu.webp'
-import cityNight from '@/assets/lanhu/recommend/slices/city-night.webp'
-import cityTower from '@/assets/lanhu/recommend/slices/city-tower.webp'
-import verifyNote from '@/assets/lanhu/recommend/slices/verify-note.webp'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
-import AccessBlockedPage from '@/components/AccessBlockedPage'
-
-type FriendMode = '觅知音' | '悦目' | '诚意贴'
+import {
+  getCommunityConfig,
+  getCommunityPosts,
+  getFollowingCount,
+  reportCommunityPost,
+  toggleCommunityFollow,
+  toggleCommunityLike,
+  type CommunityConfig,
+  type CommunityPostVO,
+  type CommunityScene,
+} from '@/services/community'
+import { usePrd01Store } from '@/stores/prd01Store'
+import { prd01Api } from '@/services/prd01'
+import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboardingFlow'
+import { useMessageStore } from '@/stores/messageStore'
+import { normalizeAvatarUrl } from '@/utils/avatar'
+import { getWindowMetrics } from '@/utils/system'
+import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
-const MODES: FriendMode[] = ['觅知音', '悦目', '诚意贴']
+const HIDDEN_POSTS_KEY = 'qianxun_hidden_post_ids'
+const COMMUNITY_CONFIG_CACHE_KEY = 'qianxun_community_config'
+const sceneByEntryKey: Record<string, CommunityScene> = { follow: 'FOLLOWING', following: 'FOLLOWING', same_city: 'CITY', city: 'CITY', discover: 'HOT', hot: 'HOT' }
+const emptySceneState: Partial<Record<CommunityScene, CommunityPostVO[]>> = {}
 
-const PROFILE = {
-  name: '筱老虎',
-  meta: '26岁·杭州·年薪50W+·985硕士',
+function readCachedCommunityConfig() {
+  const cached = Taro.getStorageSync(COMMUNITY_CONFIG_CACHE_KEY) as CommunityConfig | undefined
+  return cached?.homeTabs?.length ? cached : undefined
 }
 
-const QUESTION_TITLE = '如何在30岁前实现事业与生活的平衡？'
-const QUESTION_BODY =
-  '这个问题困扰着许多的年轻人。实际上，平衡并不是简单的50:50分配时间啊，而是找到适合自己的节奏和生活重心……'
-const SINCERITY_BODY =
-  '杭州互联网大厂程序员，工作稳定。喜欢打篮球、跑步，保持运动习惯。周末喜欢和朋友聚会或者宅家打游戏。性格偏i但熟了之后可e'
-
-const SINCERITY_ITEMS = [
-  { id: 1, imageCount: 2, followed: false },
-  { id: 2, imageCount: 1, followed: false },
-  { id: 3, imageCount: 3, followed: false },
-  { id: 4, imageCount: 4, followed: false },
-]
-
-export default function RecommendFriendsPage() {
-  const [mode, setMode] = useState<FriendMode>('悦目')
-  const [actionOpen, setActionOpen] = useState(false)
-  const [verifyOpen, setVerifyOpen] = useState(false)
+export default function RecommendFamilyPage() {
+  const unreadCount = useMessageStore(state => state.unread.totalCount)
+  const [activeTab, setActiveTab] = useState<CommunityScene>('FOLLOWING')
+  const [postsByScene, setPostsByScene] = useState<Partial<Record<CommunityScene, CommunityPostVO[]>>>(emptySceneState)
+  const [loadingByScene, setLoadingByScene] = useState<Partial<Record<CommunityScene, boolean>>>({ FOLLOWING: true })
+  const [followingCount, setFollowingCount] = useState(0)
+  const [config, setConfig] = useState<CommunityConfig | undefined>(readCachedCommunityConfig)
+  const [ownerAvatar, setOwnerAvatar] = useState(defaultAvatar)
+  const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
+  const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | null>(null)
+  const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, HOT: 0 })
   const access = useAccessStatus('canBrowseCards')
+  const optionLabel = usePrd01Store(state => state.optionLabel)
 
-  if (access.allowed !== true) return <AccessBlockedPage {...access} />
+  const tabs = useMemo(() => (config?.homeTabs || []).map(item => ({ label: item.entryName, scene: sceneByEntryKey[item.entryKey] })).filter((item): item is { label: string; scene: CommunityScene } => Boolean(item.scene)), [config?.homeTabs])
+  const visiblePosts = postsByScene[activeTab] || []
+  const initialLoading = Boolean(loadingByScene[activeTab] && postsByScene[activeTab] === undefined)
+
+  const loadScene = async (targetScene: CommunityScene) => {
+    const sequence = requestSequenceRef.current[targetScene] + 1
+    requestSequenceRef.current[targetScene] = sequence
+    setLoadingByScene(state => ({ ...state, [targetScene]: true }))
+    try {
+      const page = await getCommunityPosts(targetScene)
+      if (requestSequenceRef.current[targetScene] !== sequence) return
+      const hiddenIds = (Taro.getStorageSync(HIDDEN_POSTS_KEY) || []) as number[]
+      const records = (page.records || []).filter(item => !hiddenIds.includes(item.id))
+      setPostsByScene(state => ({ ...state, [targetScene]: records }))
+      setSelectedPost(current => current || records[0])
+    } catch (error) {
+      await showError(error)
+    } finally {
+      if (requestSequenceRef.current[targetScene] === sequence) {
+        setLoadingByScene(state => ({ ...state, [targetScene]: false }))
+      }
+    }
+  }
+
+  const loadContext = async () => {
+    try {
+      const [runtime, count, home] = await Promise.all([
+        getCommunityConfig(),
+        getFollowingCount(),
+        prd01Api.getHomeDetail(),
+      ])
+      setConfig(runtime)
+      Taro.setStorageSync(COMMUNITY_CONFIG_CACHE_KEY, runtime)
+      setFollowingCount(Number(count || 0))
+      setOwnerAvatar(normalizeAvatarUrl(String(home.profile.avatar || ''), defaultAvatar))
+    } catch (error) {
+      await showError(error)
+    }
+  }
+
+  useDidShow(() => {
+    void loadContext()
+    void loadScene(activeTab)
+  })
+
+  const changeTab = (tab: CommunityScene) => {
+    if (tab === activeTab) return
+    setActiveTab(tab)
+    void loadScene(tab)
+  }
+
+  const requireCoreAccess = () => {
+    if (access.status?.coreAccessStatus === 'CORE_ALLOWED') return true
+    setSheet('uncertified')
+    return false
+  }
+
+  const toggleFollow = async (post: CommunityPostVO) => {
+    if (!requireCoreAccess()) return
+    try {
+      const result = await toggleCommunityFollow(post.authorId)
+      setPostsByScene(state => mapPostsByScene(state, item => item.authorId === post.authorId ? { ...item, followingAuthor: result.following } : item))
+      setFollowingCount(value => Math.max(0, value + (result.following ? 1 : -1)))
+      setSheet(null)
+    } catch (error) {
+      await showError(error)
+    }
+  }
+
+  const toggleLike = async (post: CommunityPostVO) => {
+    if (!requireCoreAccess()) return
+    try {
+      const result = await toggleCommunityLike(post.id)
+      setPostsByScene(state => mapPostsByScene(state, item => item.id === post.id ? { ...item, liked: result.liked, likeCount: result.likeCount } : item))
+    } catch (error) {
+      await showError(error)
+    }
+  }
+
+  const openActions = (post: CommunityPostVO) => {
+    setSelectedPost(post)
+    setSheet('actions')
+  }
+
+  const hideSelectedPost = () => {
+    if (selectedPost) {
+      const hiddenIds = (Taro.getStorageSync(HIDDEN_POSTS_KEY) || []) as number[]
+      Taro.setStorageSync(HIDDEN_POSTS_KEY, Array.from(new Set([...hiddenIds, selectedPost.id])))
+      setPostsByScene(state => filterPostsByScene(state, item => item.id !== selectedPost.id))
+    }
+    setSheet(null)
+  }
+
+  const report = async (reasonCode: string) => {
+    if (!selectedPost || !requireCoreAccess()) return
+    try {
+      await reportCommunityPost(selectedPost.id, reasonCode)
+      setSheet(null)
+      await Taro.showToast({ title: '举报已提交', icon: 'success' })
+    } catch (error) {
+      await showError(error)
+    }
+  }
+
+  const goVerify = async () => {
+    try {
+      const [basic, verification, introduction] = await Promise.all([
+        prd01Api.getBasicProfile(),
+        prd01Api.getVerificationStatus(),
+        prd01Api.getIntroduction(),
+      ])
+      const route = resolveVerificationOnboardingRoute({
+        basicCompleted: basic.basicProfileCompleted,
+        avatarStatus: verification.avatarVerifyStatus,
+        introductionStatus: introduction.auditStatus,
+      })
+      setSheet(null)
+      await Taro.navigateTo({ url: route })
+    } catch (error) {
+      await showError(error)
+    }
+  }
+
+  const headerMetrics = getFamilyHeaderMetrics()
 
   return (
-    <View style={{ minHeight: '100vh', background: '#F7FBFF', overflow: 'hidden', position: 'relative' }}>
-      <Image src={bg} mode="aspectFill" style={{ position: 'fixed', left: '0', top: '0', width: '750rpx', height: '1624rpx' }} />
-      <ScrollView scrollY style={{ height: '100vh', position: 'relative', zIndex: 1 }} showScrollbar={false}>
-        <FriendTopBar />
-        <SegmentTabs active={mode} onChange={setMode} />
-        <View style={{ width: '750rpx', padding: '20rpx 25rpx 210rpx', boxSizing: 'border-box' }}>
-          {mode === '觅知音' && <KnowledgeFriends />}
-          {mode === '悦目' && <JoyFeed onAction={() => setActionOpen(true)} />}
-          {mode === '诚意贴' && <SincerityFeed onAction={() => setActionOpen(true)} onVerify={() => setVerifyOpen(true)} />}
+    <View style={{ minHeight: '100vh', background: 'linear-gradient(100deg, #F1FEFC 0%, #F2F5FF 52%, #FCFDF3 100%)', overflow: 'hidden', position: 'relative' }}>
+      <FamilyHeader avatar={ownerAvatar} unreadCount={unreadCount} metrics={headerMetrics} />
+      <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
+      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
+        <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>
+          {initialLoading ? <LoadingCards /> : visiblePosts.length ? visiblePosts.map(post => (
+            <CommunityCard
+              key={post.id}
+              post={post}
+              optionLabel={optionLabel}
+              onMore={() => openActions(post)}
+              onFollow={() => void toggleFollow(post)}
+              onLike={() => void toggleLike(post)}
+            />
+          )) : (
+            <FeedEmptyState
+              tab={activeTab}
+              hasFollowing={followingCount > 0}
+              onGoCity={() => changeTab('CITY')}
+            />
+          )}
         </View>
       </ScrollView>
 
-      {mode === '悦目' && <FloatingPublishButton />}
-      {actionOpen && <ActionSheet onClose={() => setActionOpen(false)} />}
-      {verifyOpen && <VerifyPrompt onClose={() => setVerifyOpen(false)} />}
-      <AppTabBar active="recommend" />
-    </View>
-  )
-}
+      <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/recommend/post' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
+        <Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text>
+      </View>
 
-function FriendTopBar() {
-  const handleCommunity = () => {
-    Taro.switchTab({ url: '/pages/community/index' })
-  }
-
-  return (
-    <View
-      style={{
-        width: '750rpx',
-        height: '166rpx',
-        padding: '86rpx 160rpx 0 25rpx',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-      }}
-    >
-      <View style={{ position: 'relative', height: '58rpx', marginRight: '30rpx' }}>
-        <Text style={{ color: NAVY, fontSize: '34rpx', fontWeight: 800, lineHeight: '46rpx' }}>朋友</Text>
-        <View
-          style={{
-            position: 'absolute',
-            left: '0',
-            bottom: '2rpx',
-            width: '62rpx',
-            height: '6rpx',
-            borderRadius: '3rpx',
-            background: BLUE,
-            boxShadow: '0 8rpx 18rpx rgba(40,118,255,0.28)',
-          }}
+      {sheet === 'actions' && selectedPost ? (
+        <PostActionSheet
+          post={selectedPost}
+          onClose={() => setSheet(null)}
+          onFollow={() => void toggleFollow(selectedPost)}
+          onHide={hideSelectedPost}
+          onReport={config?.reportEntryEnabled === false ? undefined : () => setSheet('report')}
         />
+      ) : null}
+      {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void report(reason)} /> : null}
+      {sheet === 'uncertified' ? <UncertifiedSheet onClose={() => setSheet(null)} onVerify={() => void goVerify()} /> : null}
+    </View>
+  )
+}
+
+interface FamilyHeaderMetrics {
+  primaryTop: number
+  avatarRight: number
+  secondaryTop: number
+  contentTop: number
+}
+
+function getFamilyHeaderMetrics(): FamilyHeaderMetrics {
+  const system = getWindowMetrics()
+  const scale = system.windowWidth ? 750 / system.windowWidth : 2
+  const menu = Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? Taro.getMenuButtonBoundingClientRect() : undefined
+  const primaryTop = menu ? menu.top * scale + (menu.height * scale - 45) / 2 : 82
+  const avatarRight = menu ? (system.windowWidth - menu.left) * scale + 18 : 190
+  const secondaryTop = Math.max(176, primaryTop + 91)
+  return { primaryTop, avatarRight, secondaryTop, contentTop: secondaryTop + 82 }
+}
+
+function FamilyHeader({ avatar, unreadCount, metrics }: { avatar: string; unreadCount: number; metrics: FamilyHeaderMetrics }) {
+  return <View style={{ position: 'relative', width: '750rpx', height: `${metrics.contentTop}rpx` }}>
+    <View style={{ position: 'absolute', left: '32rpx', top: `${metrics.primaryTop}rpx`, width: '270rpx', height: '56rpx' }}>
+      <Text style={{ position: 'absolute', left: 0, top: 0, color: NAVY, fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 500 }}>成家</Text>
+      <View style={{ position: 'absolute', left: 0, top: '45rpx', width: '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} />
+      {unreadCount > 0 ? <View style={{ position: 'absolute', left: '44rpx', top: '-10rpx', minWidth: '28rpx', height: '28rpx', borderRadius: '14rpx', border: '2rpx solid #FFFFFF', background: '#EE2525', padding: '0 4rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#FFFFFF', fontSize: '18rpx', lineHeight: '25rpx' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
+      <Text style={{ position: 'absolute', left: '91rpx', top: '9rpx', color: '#7F8494', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>知音</Text>
+      <Text style={{ position: 'absolute', left: '167rpx', top: '9rpx', color: '#7F8494', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>立业</Text>
+    </View>
+    <Image src={avatar} mode="aspectFill" style={{ position: 'absolute', right: `${metrics.avatarRight}rpx`, top: `${metrics.primaryTop - 1}rpx`, width: '58rpx', height: '58rpx', borderRadius: '29rpx', background: '#EEF3F8' }} />
+  </View>
+}
+
+function FamilyTabs({ active, tabs, top, onChange }: { active: CommunityScene; tabs: Array<{ label: string; scene: CommunityScene }>; top: number; onChange: (tab: CommunityScene) => void }) {
+  return <View style={{ position: 'absolute', left: '29rpx', top: `${top}rpx`, width: '344rpx', height: '62rpx', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
+    {tabs.map(item => {
+      const selected = active === item.scene
+      return <View key={item.scene} id={`qianxun-scene-${item.scene}`} data-scene={item.scene} onClick={() => onChange(item.scene)} style={{ position: 'relative', width: '108rpx', height: '62rpx', borderRadius: '12rpx', background: selected ? 'linear-gradient(180deg, #51AEFF 0%, #2876FF 100%)' : '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: selected ? '#FFFFFF' : '#8B96A8', fontSize: selected ? '28rpx' : '26rpx', lineHeight: selected ? '40rpx' : '37rpx', fontWeight: selected ? 600 : 400 }}>{item.label}</Text>
+        {selected ? <View style={{ position: 'absolute', left: '50%', bottom: '-10rpx', width: 0, height: 0, borderLeft: '10rpx solid transparent', borderRight: '10rpx solid transparent', borderTop: `12rpx solid ${BLUE}`, transform: 'translateX(-50%)' }} /> : null}
       </View>
-      <View style={{ height: '58rpx' }} onClick={handleCommunity} hoverClass="btn-hover">
-        <Text style={{ color: '#7F8494', fontSize: '30rpx', fontWeight: 600, lineHeight: '46rpx' }}>社区</Text>
+    })}
+  </View>
+}
+
+function CommunityCard({ post, optionLabel, onMore, onFollow, onLike }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; onMore: () => void; onFollow: () => void; onLike: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const canExpand = post.content.length > 78
+  const meta = [
+    post.authorBirthYear ? `${String(post.authorBirthYear).slice(-2)}年` : post.authorAge ? `${post.authorAge}岁` : '',
+    post.authorCity ? optionLabel('location', post.authorCity) || post.authorCity : '',
+    post.authorProfession || post.authorZodiac || (post.authorAnnualIncome ? optionLabel('annualIncome', post.authorAnnualIncome) : ''),
+  ].filter(Boolean).join('·')
+  const gender = post.authorGender === 'FEMALE' ? { symbol: '♀', color: '#FF7078' } : post.authorGender === 'MALE' ? { symbol: '♂', color: BLUE } : undefined
+  const contactText = post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'
+  return <View style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '33rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <View style={{ display: 'flex', alignItems: 'center' }}>
+      <Image src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} />
+      <View style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
+        <View style={{ display: 'flex', alignItems: 'center', height: '38rpx' }}><Text style={{ maxWidth: '260rpx', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.authorName || '用户'}</Text>{gender ? <Text style={{ color: gender.color, fontSize: '30rpx', lineHeight: '37rpx', marginLeft: '14rpx' }}>{gender.symbol}</Text> : null}</View>
+        <Text style={{ display: 'block', maxWidth: '390rpx', color: BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '9rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text>
       </View>
+      <View onClick={onFollow} style={{ width: post.followingAuthor ? '128rpx' : '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: post.followingAuthor ? '#999999' : BLUE, fontSize: '24rpx', lineHeight: '33rpx', fontWeight: post.followingAuthor ? 400 : 500 }}>{post.followingAuthor ? '已关注' : '关注'}</Text></View>
+      <View onClick={onMore} style={{ width: '36rpx', height: '52rpx', marginLeft: '4rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '38rpx', lineHeight: '44rpx' }}>⋮</Text></View>
     </View>
-  )
-}
-
-function SegmentTabs({ active, onChange }: { active: FriendMode; onChange: (mode: FriendMode) => void }) {
-  return (
-    <View
-      style={{
-        width: '700rpx',
-        height: '88rpx',
-        marginLeft: '25rpx',
-        borderRadius: '8rpx',
-        background: '#FFFFFF',
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        boxShadow: '0 8rpx 24rpx rgba(210,224,246,0.34)',
-      }}
-    >
-      {MODES.map((item) => {
-        const isActive = active === item
-        return (
-          <View
-            key={item}
-            style={{
-              position: 'relative',
-              width: '233.33rpx',
-              height: '88rpx',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onClick={() => onChange(item)}
-            hoverClass="btn-hover"
-          >
-            <Text
-              style={{
-                color: isActive ? NAVY : '#7F8494',
-                fontSize: isActive ? '30rpx' : '28rpx',
-                fontWeight: isActive ? 600 : 400,
-                lineHeight: isActive ? '42rpx' : '40rpx',
-                textShadow: isActive ? '0 10rpx 16rpx rgba(40,118,255,0.36)' : 'none',
-              }}
-            >
-              {item}
-            </Text>
-            {isActive && (
-              <View
-                style={{
-                  position: 'absolute',
-                  left: '68rpx',
-                  bottom: '23rpx',
-                  width: '96rpx',
-                  height: '6rpx',
-                  borderRadius: '3rpx',
-                  background: BLUE,
-                  boxShadow: '0 10rpx 18rpx rgba(40,118,255,0.35)',
-                }}
-              />
-            )}
-          </View>
-        )
-      })}
+    {post.title ? <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginTop: '29rpx' }}>{post.title}</Text> : null}
+    <View style={{ position: 'relative', marginTop: post.title ? '12rpx' : '27rpx' }}>
+      <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '48rpx', maxHeight: !expanded && canExpand ? '192rpx' : 'none', overflow: 'hidden' }}>{post.content}</Text>
+      {!expanded && canExpand ? <View onClick={() => setExpanded(true)} style={{ position: 'absolute', right: 0, bottom: 0, height: '48rpx', paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '26rpx', lineHeight: '48rpx' }}>查看全部</Text></View> : null}
     </View>
-  )
-}
-
-function KnowledgeFriends() {
-  return (
-    <View>
-      <View
-        style={{
-          width: '700rpx',
-          height: '188rpx',
-          borderRadius: '16rpx',
-          background: 'linear-gradient(180deg, #CEE8FF 0%, #2876FF 100%)',
-          padding: '45rpx 0 0 55rpx',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600, lineHeight: '42rpx' }}>
-          占位、待待修改
-        </Text>
-        <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '24rpx', fontWeight: 600, lineHeight: '33rpx', marginTop: '23rpx' }}>
-          寻找你的知音好友
-        </Text>
-      </View>
-      <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '33rpx', marginTop: '30rpx' }}>
-        发现志同道合的朋友，即刻交流
-      </Text>
-    </View>
-  )
-}
-
-function JoyFeed({ onAction }: { onAction: () => void }) {
-  return (
-    <View>
-      <DynamicCard followed={false} liked={false} body={QUESTION_BODY} title={QUESTION_TITLE} onAction={onAction} />
-      <DynamicCard followed liked body={QUESTION_BODY} title={QUESTION_TITLE} onAction={onAction} />
-    </View>
-  )
-}
-
-function SincerityFeed({ onAction, onVerify }: { onAction: () => void; onVerify: () => void }) {
-  return (
-    <View>
-      {SINCERITY_ITEMS.map((item) => (
-        <DynamicCard
-          key={item.id}
-          followed={item.followed}
-          liked={false}
-          body={SINCERITY_BODY}
-          imageCount={item.imageCount}
-          onAction={onAction}
-        />
-      ))}
-      <View
-        style={{
-          width: '700rpx',
-          height: '92rpx',
-          borderRadius: '46rpx',
-          background: BLUE,
-          marginTop: '2rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 10rpx 24rpx rgba(40,118,255,0.26)',
-        }}
-        onClick={onVerify}
-        hoverClass="btn-hover"
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即认证</Text>
-      </View>
-    </View>
-  )
-}
-
-function DynamicCard({
-  followed,
-  liked,
-  body,
-  title,
-  imageCount = 0,
-  onAction,
-}: {
-  followed: boolean
-  liked: boolean
-  body: string
-  title?: string
-  imageCount?: number
-  onAction: () => void
-}) {
-  const hasImages = imageCount > 0
-
-  return (
-    <View
-      style={{
-        width: '700rpx',
-        borderRadius: '18rpx',
-        background: '#FFFFFF',
-        padding: '33rpx 26rpx 0',
-        boxSizing: 'border-box',
-        marginBottom: '20rpx',
-        overflow: 'hidden',
-      }}
-    >
-      <ProfileHeader followed={followed} onAction={onAction} />
-      {title && (
-        <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx', marginTop: '29rpx' }}>
-          {title}
-        </Text>
-      )}
-      <Text
-        style={{
-          display: 'block',
-          color: '#333333',
-          fontSize: '26rpx',
-          lineHeight: '48rpx',
-          marginTop: title ? '12rpx' : '27rpx',
-        }}
-      >
-        {body}
-      </Text>
-      {hasImages && <ImageGrid count={imageCount} />}
-      {hasImages && (
-        <>
-          <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '28rpx', marginLeft: '7rpx' }}>
-            2小时前活跃
-          </Text>
-          <View
-            style={{
-              width: '168rpx',
-              height: '48rpx',
-              borderRadius: '24rpx',
-              background: '#EFF4FC',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: '23rpx',
-              marginLeft: '7rpx',
-            }}
-          >
-            <Text style={{ color: '#666666', fontSize: '26rpx', lineHeight: '37rpx' }}>#程序员</Text>
-          </View>
-        </>
-      )}
-      <View style={{ height: '2rpx', background: '#EFF4FC', marginTop: hasImages ? '30rpx' : '32rpx' }} />
-      <CardActions liked={liked} />
-    </View>
-  )
-}
-
-function ProfileHeader({ followed, onAction }: { followed: boolean; onAction: () => void }) {
-  return (
-    <View style={{ position: 'relative', height: '80rpx', paddingLeft: '100rpx', boxSizing: 'border-box' }}>
-      <Image
-        src={avatarImage}
-        mode="aspectFill"
-        style={{ position: 'absolute', left: '0', top: '0', width: '80rpx', height: '80rpx', borderRadius: '40rpx' }}
-      />
-      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '38rpx' }}>
-        <Text style={{ color: '#333333', fontSize: '26rpx', fontWeight: 500, lineHeight: '37rpx' }}>{PROFILE.name}</Text>
-        <Text style={{ color: '#FF7078', fontSize: '30rpx', lineHeight: '37rpx', marginLeft: '14rpx' }}>♀</Text>
-      </View>
-      <Text style={{ display: 'block', color: BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '9rpx' }}>{PROFILE.meta}</Text>
-      <View
-        style={{
-          position: 'absolute',
-          right: '26rpx',
-          top: '0',
-          width: followed ? '128rpx' : '118rpx',
-          height: '48rpx',
-          borderRadius: '24rpx',
-          border: followed ? '1rpx solid #999999' : `1rpx solid ${BLUE}`,
-          boxSizing: 'border-box',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: followed ? '#999999' : BLUE, fontSize: '24rpx', fontWeight: followed ? 400 : 500, lineHeight: '33rpx' }}>
-          {followed ? '已关注' : '关注'}
-        </Text>
-      </View>
-      <DotMenu onClick={onAction} />
-    </View>
-  )
-}
-
-function DotMenu({ onClick }: { onClick: () => void }) {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        right: '-10rpx',
-        top: '0',
-        width: '30rpx',
-        height: '52rpx',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '8rpx 0',
-        boxSizing: 'border-box',
-      }}
-      onClick={onClick}
-      hoverClass="btn-hover"
-    >
-      {[1, 2, 3].map((dot) => (
-        <View key={dot} style={{ width: '6rpx', height: '6rpx', borderRadius: '3rpx', background: '#999999' }} />
-      ))}
-    </View>
-  )
-}
-
-function ImageGrid({ count }: { count: number }) {
-  const images = Array.from({ length: count }, (_, index) => (index % 2 === 0 ? cityTower : cityNight))
-  const useTwoColumn = count <= 2 || count === 4
-  const imageWidth = useTwoColumn ? '318rpx' : '206rpx'
-  const imageHeight = useTwoColumn ? '348rpx' : '226rpx'
-  const imageSpace = useTwoColumn ? '12rpx' : '10rpx'
-
-  return (
-    <View
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginTop: '28rpx',
-      }}
-    >
-      {images.map((item, index) => (
-        <Image
-          key={`${count}-${index}`}
-          src={item}
-          mode="aspectFill"
-          style={{
-            width: imageWidth,
-            height: imageHeight,
-            borderRadius: '8rpx',
-            background: '#EDF2FA',
-            marginRight: (index + 1) % (useTwoColumn ? 2 : 3) === 0 ? '0' : imageSpace,
-            marginBottom: index >= images.length - (useTwoColumn ? 2 : 3) ? '0' : imageSpace,
-          }}
-        />
-      ))}
-    </View>
-  )
-}
-
-function CardActions({ liked }: { liked: boolean }) {
-  return (
-    <View style={{ height: '92rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-      <View
-        style={{
-          width: '52rpx',
-          height: '52rpx',
-          borderRadius: '26rpx',
-          background: '#E3F1FE',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: '10rpx',
-        }}
-      >
-        <View
-          style={{
-            width: '36rpx',
-            height: '36rpx',
-            borderRadius: '18rpx',
-            background: '#4E8EFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: '22rpx', lineHeight: '30rpx' }}>✉</Text>
-        </View>
-      </View>
-      <Text style={{ color: '#4E8EFF', fontSize: '26rpx', fontWeight: 500, lineHeight: '37rpx' }}>私信</Text>
+    <PostImageGrid images={post.imageUrls || []} />
+    <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '28rpx', marginLeft: '7rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
+    {post.topicName ? <View style={{ width: 'auto', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#EFF4FC', padding: '0 18rpx', marginTop: '23rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#666666', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: '#229AF8' }}># </Text>{post.topicName}</Text></View> : null}
+    <View style={{ height: '92rpx', borderTop: '2rpx solid #EFF4FC', marginTop: post.topicName ? '30rpx' : '32rpx', display: 'flex', alignItems: 'center' }}>
+      <ActionStat kind="contact" text={contactText} />
       <View style={{ flex: 1 }} />
-      <Text style={{ color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginRight: '68rpx' }}>○ 10</Text>
-      <Text style={{ color: liked ? '#D95D68' : '#999999', fontSize: '26rpx', lineHeight: '37rpx' }}>♡ {liked ? 11 : 10}</Text>
+      <ActionStat kind="comment" text={String(post.commentCount || 0)} />
+      <View onClick={onLike}><ActionStat kind="like" text={String(post.likeCount || 0)} active={post.liked} /></View>
     </View>
-  )
+  </View>
 }
 
-function FloatingPublishButton() {
-  return (
-    <View
-      style={{
-        position: 'fixed',
-        right: '30rpx',
-        bottom: '174rpx',
-        width: '128rpx',
-        height: '128rpx',
-        borderRadius: '64rpx',
-        background: BLUE,
-        boxShadow: '0 12rpx 26rpx rgba(40,118,255,0.34)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 8,
-      }}
-      onClick={() => Taro.navigateTo({ url: '/pages/recommend/post' })}
-      hoverClass="btn-hover"
-    >
-      <View style={{ width: '56rpx', height: '8rpx', borderRadius: '4rpx', background: '#FFFFFF' }} />
-      <View style={{ position: 'absolute', width: '8rpx', height: '56rpx', borderRadius: '4rpx', background: '#FFFFFF' }} />
-    </View>
-  )
+function PostImageGrid({ images }: { images: string[] }) {
+  const visible = images.slice(0, 9)
+  if (!visible.length) return null
+  const useTwoColumn = visible.length <= 2 || visible.length === 4
+  const width = useTwoColumn ? '318rpx' : '206rpx'
+  const height = useTwoColumn ? '348rpx' : '226rpx'
+  const columns = useTwoColumn ? 2 : 3
+  const gap = useTwoColumn ? 12 : 10
+  return <View style={{ display: 'flex', flexWrap: 'wrap', marginTop: '28rpx' }}>{visible.map((url, index) => <Image key={`${url}-${index}`} src={url} mode="aspectFill" style={{ width, height, borderRadius: '8rpx', background: '#EEF2F7', marginRight: (index + 1) % columns === 0 ? 0 : `${gap}rpx`, marginBottom: index >= visible.length - columns ? 0 : `${gap}rpx` }} />)}</View>
 }
 
-function ActionSheet({ onClose }: { onClose: () => void }) {
-  const items = ['关注', '不看ta动态', '举报']
-
-  return (
-    <View
-      style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.28)', zIndex: 20 }}
-      onClick={onClose}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: '32rpx 32rpx 0 0',
-          background: '#FFFFFF',
-          overflow: 'hidden',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <View
-          style={{
-            height: '98rpx',
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderBottom: '2rpx solid #EFF4FC',
-          }}
-          onClick={onClose}
-          hoverClass="btn-hover"
-        >
-          <View
-            style={{
-              width: '48rpx',
-              height: '48rpx',
-              borderRadius: '24rpx',
-              background: '#25C44A',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: '28rpx',
-            }}
-          >
-            <Text style={{ color: '#FFFFFF', fontSize: '24rpx', fontWeight: 700, lineHeight: '32rpx' }}>微</Text>
-          </View>
-          <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>分享</Text>
-        </View>
-        {items.map((item, index) => (
-          <View
-            key={item}
-            style={{
-              height: '96rpx',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderBottom: index === items.length - 1 ? '16rpx solid #F0F4FA' : '2rpx solid #EFF4FC',
-              boxSizing: 'border-box',
-            }}
-            onClick={onClose}
-            hoverClass="btn-hover"
-          >
-            <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>{item}</Text>
-          </View>
-        ))}
-        <View style={{ height: '96rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} hoverClass="btn-hover">
-          <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx' }}>取消</Text>
-        </View>
-      </View>
-    </View>
-  )
+function ActionStat({ kind, text, active = false }: { kind: 'contact' | 'comment' | 'like'; text: string; active?: boolean }) {
+  if (kind === 'contact') return <View style={{ display: 'flex', alignItems: 'center' }}><View style={{ width: '52rpx', height: '52rpx', borderRadius: '26rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10rpx' }}><View style={{ width: '36rpx', height: '36rpx', borderRadius: '18rpx', background: 'linear-gradient(180deg, #76B7FF 0%, #2876FF 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '24rpx' }}>YO</Text></View></View><Text style={{ color: '#4E8EFF', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{text}</Text></View>
+  const icon = kind === 'comment' ? '◯' : active ? '♥' : '♡'
+  return <View style={{ minWidth: '92rpx', marginLeft: '24rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: active ? '#D95D68' : '#999999', fontSize: '28rpx', marginRight: '8rpx' }}>{icon}</Text><Text style={{ color: active ? '#D95D68' : '#999999', fontSize: '26rpx', lineHeight: '37rpx' }}>{text}</Text></View>
 }
 
-function VerifyPrompt({ onClose }: { onClose: () => void }) {
-  const handleVerify = () => {
-    Taro.navigateTo({ url: '/pages/verification/my-certification' })
-  }
+function FeedEmptyState({ tab, hasFollowing, onGoCity }: { tab: CommunityScene; hasFollowing: boolean; onGoCity: () => void }) {
+  const following = tab === 'FOLLOWING'
+  const title = following ? (hasFollowing ? '关注的人暂时还没有发布动态' : '暂无关注的人') : '暂时还没有同城动态'
+  const desc = following ? '去「千寻同城」看看，发现精彩动态' : '稍后再来看看，发现同城精彩动态'
+  return <View style={{ width: '700rpx', paddingTop: '128rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <Image src={miniappOssIcons.qianxunEmptyFollowing} mode="aspectFit" style={{ width: '334rpx', height: '254rpx' }} />
+    <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 400, marginTop: '30rpx' }}>{title}</Text>
+    <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '20rpx' }}>{desc}</Text>
+    {following ? <View onClick={onGoCity} style={{ width: '468rpx', height: '98rpx', borderRadius: '12rpx', background: BLUE, marginTop: '50rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>去千寻同城看看</Text></View> : null}
+  </View>
+}
 
-  return (
-    <View
-      style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.28)', zIndex: 20 }}
-      onClick={onClose}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: '488rpx',
-          borderRadius: '32rpx 32rpx 0 0',
-          background: 'linear-gradient(180deg, #D9E8FF 0%, #FFFFFF 100%)',
-          padding: '86rpx 42rpx 0 44rpx',
-          boxSizing: 'border-box',
-          overflow: 'hidden',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <Image
-          src={verifyNote}
-          mode="aspectFit"
-          style={{ position: 'absolute', right: '84rpx', top: '-56rpx', width: '190rpx', height: '190rpx' }}
-        />
-        <Text style={{ display: 'block', color: NAVY, fontSize: '38rpx', fontWeight: 600, lineHeight: '53rpx' }}>你还未认证</Text>
-        <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '48rpx', marginTop: '20rpx' }}>
-          完成认证即可给感兴趣的用户评论，发布个人动态
-        </Text>
-        <View
-          style={{
-            position: 'absolute',
-            left: '44rpx',
-            right: '42rpx',
-            bottom: '96rpx',
-            height: '98rpx',
-            borderRadius: '20rpx',
-            background: BLUE,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={handleVerify}
-          hoverClass="btn-hover"
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}>立即认证</Text>
-        </View>
-      </View>
-    </View>
-  )
+function LoadingCards() {
+  return <View>{[0, 1].map(index => <View key={index} style={{ width: '700rpx', height: '330rpx', borderRadius: '18rpx', background: 'rgba(255,255,255,0.7)', marginBottom: '20rpx' }} />)}</View>
+}
+
+function mapPostsByScene(state: Partial<Record<CommunityScene, CommunityPostVO[]>>, mapper: (post: CommunityPostVO) => CommunityPostVO) {
+  return Object.fromEntries(Object.entries(state).map(([scene, posts]) => [scene, posts?.map(mapper)])) as Partial<Record<CommunityScene, CommunityPostVO[]>>
+}
+
+function filterPostsByScene(state: Partial<Record<CommunityScene, CommunityPostVO[]>>, predicate: (post: CommunityPostVO) => boolean) {
+  return Object.fromEntries(Object.entries(state).map(([scene, posts]) => [scene, posts?.filter(predicate)])) as Partial<Record<CommunityScene, CommunityPostVO[]>>
+}
+
+function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000 }}>{children}</View>
+}
+
+function PostActionSheet({ post, onClose, onFollow, onHide, onReport }: { post: CommunityPostVO; onClose: () => void; onFollow: () => void; onHide: () => void; onReport?: () => void }) {
+  const actions = [
+    { label: '分享', share: true, onClick: () => void Taro.showShareMenu({ withShareTicket: true }) },
+    { label: post.followingAuthor ? '取消关注' : '关注', onClick: onFollow },
+    { label: '不看ta动态', onClick: onHide },
+    ...(onReport ? [{ label: '举报', onClick: onReport }] : []),
+  ]
+  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '24rpx 24rpx calc(28rpx + env(safe-area-inset-bottom))' }}>
+    {actions.map(action => <View key={action.label} onClick={action.onClick} style={{ position: 'relative', height: '94rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{action.share ? <View style={{ width: '42rpx', height: '42rpx', borderRadius: '10rpx', background: '#14C76A', marginRight: '18rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>微</Text></View> : null}<Text style={{ color: '#333333', fontSize: '28rpx' }}>{action.label}</Text></View>)}
+    <View onClick={onClose} style={{ height: '86rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View>
+  </View></Overlay>
+}
+
+function ReportSheet({ reasons, onClose, onReport }: { reasons: Array<{ code: string; label: string }>; onClose: () => void; onReport: (code: string) => void }) {
+  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1190rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+    <ScrollView scrollY style={{ maxHeight: '920rpx' }}>{reasons.map(reason => <View key={reason.code} onClick={() => onReport(reason.code)} style={{ height: '82rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx', textAlign: 'center' }}>{reason.label}</Text></View>)}</ScrollView>
+    <View style={{ height: '14rpx', background: '#F4F5F7', margin: '0 -30rpx' }} /><View onClick={onClose} style={{ height: '78rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View>
+  </View></Overlay>
+}
+
+function UncertifiedSheet({ onClose, onVerify }: { onClose: () => void; onVerify: () => void }) {
+  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '488rpx', borderRadius: '40rpx 40rpx 0 0', background: 'linear-gradient(180deg, #D8ECFF 0%, #FFFFFF 72%)', padding: '58rpx 46rpx calc(38rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+    <Image src={miniappOssIcons.qianxunVerifyNote} mode="aspectFit" style={{ position: 'absolute', right: '44rpx', top: '-104rpx', width: '250rpx', height: '250rpx' }} />
+    <Text style={{ display: 'block', color: NAVY, fontSize: '38rpx', lineHeight: '54rpx', fontWeight: 800 }}>你还未认证</Text>
+    <Text style={{ display: 'block', width: '500rpx', color: '#68778E', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '22rpx' }}>完成认证即可给感兴趣的用户评论，发布个人动态</Text>
+    <View onClick={onVerify} style={{ width: '658rpx', height: '86rpx', borderRadius: '43rpx', background: BLUE, margin: '62rpx auto 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即认证</Text></View>
+  </View></Overlay>
+}
+
+function relativeTime(value: string) {
+  if (!value) return ''
+  const time = new Date(value.replace(' ', 'T')).getTime()
+  if (!Number.isFinite(time)) return value
+  const minutes = Math.max(1, Math.floor((Date.now() - time) / 60000))
+  if (minutes < 60) return `${minutes}分钟前`
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}小时前`
+  return `${Math.floor(minutes / 1440)}天前`
+}
+
+async function showError(error: unknown) {
+  const title = error instanceof Error ? error.message : String(error)
+  if (title) await Taro.showToast({ title, icon: 'none' })
 }
