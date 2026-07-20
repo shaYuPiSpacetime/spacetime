@@ -2,6 +2,7 @@
   const data = window.PRD06_DATA;
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  let activeContentTab = "policies";
 
   function badge(text) {
     const tone = text.includes("启用") || text.includes("已") || text.includes("通过") ? "success" : text.includes("待") || text.includes("中") ? "warning" : "muted";
@@ -116,9 +117,27 @@
     return rows.map((row) => `<tr>${row.map((cell) => `<td>${statusWords.includes(cell) ? badge(cell) : cell}</td>`).join("")}</tr>`).join("");
   }
 
+  function filterComplianceByTab(tab = activeContentTab) {
+    activeContentTab = tab;
+    $$('[data-content-tab]').forEach((button) => {
+      const active = button.dataset.contentTab === tab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    const notice = $('[data-business-rule-notice]');
+    if (notice) notice.hidden = tab !== "business-rules";
+    return data.compliance.filter((item) => item.group === tab);
+  }
+
   function renderAdmin() {
     const compliance = $('[data-table="compliance"]');
-    if (compliance) compliance.innerHTML = data.compliance.map((item, index) => `<tr><td>${item.type}</td><td>${item.title}</td><td>${item.version}</td><td>${badge(item.status)}</td><td>${item.effectiveAt}</td><td><button class="link-btn" data-preview-compliance="${index}">预览</button><button class="link-btn" data-edit-compliance="${index}">编辑</button></td></tr>`).join("");
+    if (compliance) {
+      const rows = filterComplianceByTab();
+      compliance.innerHTML = rows.map((item) => {
+        const index = data.compliance.indexOf(item);
+        return `<tr data-content-key="${item.key}"><td>${item.type}</td><td><b>${item.title}</b></td><td>${item.sourceModule}</td><td>${item.version}</td><td>${badge(item.status)}</td><td>${item.effectiveAt}</td><td><button class="link-btn" data-preview-compliance="${index}">预览</button><button class="link-btn" data-edit-compliance="${index}">编辑</button></td></tr>`;
+      }).join("");
+    }
     const cancellations = $('[data-table="cancellations"]');
     if (cancellations) cancellations.innerHTML = data.cancellations.map((item, index) => `<tr><td>${item.requestNo}</td><td>${item.user}</td><td>${item.reason}</td><td>${badge(item.status)}</td><td>${item.requestedAt}</td><td><button class="link-btn" data-view-cancellation="${index}">查看详情</button></td></tr>`).join("");
     const blockWords = $('[data-table="blockWords"]');
@@ -157,6 +176,11 @@
   }
 
   document.addEventListener("click", (event) => {
+    const contentTab = event.target.closest("[data-content-tab]");
+    if (contentTab) {
+      activeContentTab = contentTab.dataset.contentTab;
+      renderAdmin();
+    }
     const tab = event.target.closest("[data-result-tab]");
     if (tab) renderSearch(tab.dataset.resultTab);
     if (event.target.closest("[data-run-search]")) {
@@ -181,13 +205,20 @@
         const item = data.compliance[Number(button.dataset.editCompliance)];
         const form = $("[data-compliance-form]");
         form.elements.rowIndex.value = button.dataset.editCompliance;
-        ["type", "title", "version", "status", "url"].forEach((key) => { form.elements[key].value = item[key]; });
+        ["type", "sourceModule", "title", "version", "status", "url"].forEach((key) => { form.elements[key].value = item[key]; });
         form.dataset.originalUrl = item.url;
+        const boundaryNote = $('[data-dialog-boundary-note]');
+        if (boundaryNote) boundaryNote.hidden = item.key !== "invite_rules";
         openDialog("complianceEditModal");
       } else if (button.dataset.previewCompliance !== undefined) {
         const item = data.compliance[Number(button.dataset.previewCompliance)];
+        $("#compliancePreviewTitle").textContent = item.title;
+        $("[data-preview-meta]").textContent = `${item.type} · ${item.sourceModule}`;
+        $("[data-preview-version]").textContent = item.version;
         $("[data-preview-url]").textContent = item.url;
-        $("[data-preview-frame]").src = item.url;
+        const frame = $("[data-preview-frame]");
+        frame.removeAttribute("src");
+        frame.srcdoc = item.previewHtml || `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;padding:32px;color:#25324a}h1{font-size:24px}p{color:#6b7890;line-height:1.8}.url{margin-top:22px;padding:12px;border-radius:8px;background:#f4f7fb;font-size:12px}</style><h1>${item.title}</h1><p>此处模拟移动端 H5 内容预览。正式环境将加载已配置并通过业务域名校验的页面。</p><div class="url">${item.url}</div></html>`;
         openDialog("compliancePreviewModal");
       } else if (button.dataset.editBlockword !== undefined) {
         const row = data.blockWords[Number(button.dataset.editBlockword)];
@@ -216,6 +247,10 @@
   if (complianceForm) complianceForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const form = event.currentTarget; const index = Number(form.elements.rowIndex.value); const item = data.compliance[index];
+    if (item.key === "invite_rules" && form.elements.status.value === "停用") {
+      toast("邀请入口启用中，请先关闭入口后再停用");
+      return;
+    }
     const changedUrl = form.elements.url.value !== form.dataset.originalUrl;
     item.title = form.elements.title.value; item.status = form.elements.status.value; item.url = form.elements.url.value;
     if (changedUrl) item.version = nextVersion(item.version);

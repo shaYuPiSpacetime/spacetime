@@ -231,7 +231,7 @@
 | 支付回调 | 支付渠道重复通知 | orderNo + channelTradeNo 唯一 |
 | 退款回调 | 渠道重复通知/人工重复处理 | refundNo 唯一 |
 | 千寻币扣减 | 重复点击解锁/弱网重试 | userId + scene + targetId + requestId 唯一 |
-| 邀请奖励入账 | PRD-07 事件重放 | relationId + eventType 唯一 |
+| 邀请奖励入账 | PRD-07 事件重放 | 基础奖励使用 relationId + eventType；阶梯奖励使用 rewardObjectId + thresholdSnapshot 唯一 |
 
 ### 9.5 埋点
 

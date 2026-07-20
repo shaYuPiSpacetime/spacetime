@@ -14,8 +14,11 @@
     detailPostId: data.posts?.[0]?.id,
     publishType: 'community_post',
     selectedTopic: data.topics?.[0]?.name || '',
-    publishImages: (data.uploadSamples || []).slice(0, 2),
+    publishImages: (data.uploadSamples || []).slice(0, 2).map((label) => ({ label, uploadStatus: 'success' })),
+    draft: data.publishDraft || null,
     hiddenPostId: null,
+    hiddenAuthor: null,
+    favoritePostIds: new Set((data.posts || []).filter((post) => post.favoritedByMe).map((post) => post.id)),
     followingAuthor: null,
     topicKeyword: '',
     topicSort: '热门',
@@ -29,7 +32,10 @@
     reportReasons: ['联系方式'],
     previewImage: null,
     yuemuLimit: 2,
-    yuemuLiked: new Set()
+    yuemuLiked: new Set(),
+    historyType: 'commented',
+    relationType: 'following',
+    interactorType: 'liked'
   };
 
   function tag(text, tone = '') {
@@ -152,6 +158,8 @@
       postId: post.id
     })).join('');
     const imageClass = imageItems.length > 1 ? 'image-strip image-strip-grid' : 'image-strip image-strip-single';
+    const favorited = state.favoritePostIds.has(post.id);
+    const commentPreview = (post.commentPreview || []).slice(0, 2);
     return `
       <article class="${isSincere ? 'sincere-card' : 'feed-card'}" data-post-card="${escapeHtml(post.id)}">
         <div class="author-row feed-author-row">
@@ -171,10 +179,12 @@
           <button type="button" data-jump="#APP-05-PAGE-topic-detail"># ${escapeHtml(post.topic)} ›</button>
         </div>
         <div class="community-actions">
-          <button class="action-link yo-link" data-jump="#APP-05-PAGE-community-private-entry">yo 私信</button>
+          <button class="action-link yo-link" data-jump="#APP-05-PAGE-community-greeting">申请认识</button>
           <button class="action-link" data-open-detail="${escapeHtml(post.id)}">评论 ${escapeHtml(post.commentCount)}</button>
           <button class="action-link" data-like="${escapeHtml(post.id)}">赞 ${escapeHtml(post.likeCount)}</button>
+          <button class="action-link ${favorited ? 'is-active' : ''}" data-toggle-favorite="${escapeHtml(post.id)}">${favorited ? '已收藏' : '收藏'} ${escapeHtml((post.favoriteCount || 0) + (favorited && !post.favoritedByMe ? 1 : 0))}</button>
         </div>
+        ${commentPreview.length ? `<div class="comment-preview">${commentPreview.map((item) => `<p>${escapeHtml(item)}</p>`).join('')}<button type="button" data-open-detail="${escapeHtml(post.id)}">查看全部 ${escapeHtml(post.commentCount)} 条评论</button></div>` : ''}
       </article>
     `;
   }
@@ -183,6 +193,7 @@
     qsa('[data-render="feed"]').forEach((target) => {
       const rows = (data.posts || []).filter((post) => {
         if (post.id === state.hiddenPostId) return false;
+        if (post.author === state.hiddenAuthor) return false;
         if (state.feedTab === '关注') {
           if (!post.followed) return false;
           return state.followingAuthor ? post.author === state.followingAuthor : true;
@@ -223,6 +234,7 @@
                 <span># ${escapeHtml(topic.name)}</span>
                 <strong>${escapeHtml(topic.desc)}</strong>
                 <em>${escapeHtml(topic.count)} 条内容 · 热度 ${escapeHtml(topic.hot)}</em>
+                <em>${escapeHtml(topic.latestPost || '暂无最新动态')}</em>
               </button>
             `).join('')}
           </div>
@@ -254,6 +266,11 @@
             <button class="btn" data-jump="#APP-05-PAGE-topic-detail">查看话题</button>
             <button class="btn" data-jump="#APP-05-PAGE-post-publish">参与发布</button>
           </div>
+          <div class="topic-social-proof">
+            <div class="participant-avatars">${(topic.participantAvatars || []).slice(0, 3).map((item, index) => avatar(item, true, `参与者${index + 1}`)).join('')}</div>
+            <span>${escapeHtml(topic.participantCount || 0)} 人参与 · ${escapeHtml(topic.viewCount || 0)} 次浏览</span>
+          </div>
+          <p class="topic-latest">最新：${escapeHtml(topic.latestPost || '暂无公开动态')}</p>
         </article>
       `;
       target.innerHTML = rows.length ? `
@@ -398,8 +415,10 @@
         </div>
         <div class="upload-grid">
           ${state.publishImages.map((item, index) => `
-            <div class="upload-item">
+            <div class="upload-item is-${escapeHtml(item.uploadStatus || 'success')}">
               ${imageTile(item, index, { preview: true })}
+              <span class="upload-status">${escapeHtml({ queued: '等待上传', uploading: '上传中 68%', success: '上传成功', failed: '上传失败' }[item.uploadStatus] || '上传成功')}</span>
+              ${item.uploadStatus === 'failed' ? `<button type="button" class="retry-image" data-retry-image="${index}">重试</button>` : ''}
               <button type="button" class="remove-image" data-remove-image="${index}" aria-label="删除图片">×</button>
             </div>
           `).join('')}
@@ -413,6 +432,42 @@
     });
     qsa('[data-sincere-only]').forEach((node) => {
       node.hidden = state.publishType !== 'sincere_post';
+    });
+    const hasIncompleteUpload = state.publishImages.some((item) => item.uploadStatus !== 'success');
+    qsa('[data-submit-publish]').forEach((button) => {
+      button.disabled = hasIncompleteUpload;
+      button.title = hasIncompleteUpload ? '图片尚未上传完成，请处理后再发布' : '';
+    });
+  }
+
+  function renderInteractionCenter() {
+    qsa('[data-history-type]').forEach((button) => button.classList.toggle('is-active', button.dataset.historyType === state.historyType));
+    qsa('[data-render="received-like-stats"]').forEach((target) => {
+      const stats = data.receivedLikeStats || {};
+      target.innerHTML = `<button class="stats-card" type="button" data-toast="动态获赞 ${escapeHtml(stats.posts || 0)}，评论获赞 ${escapeHtml(stats.comments || 0)}"><span>累计获赞</span><strong>${escapeHtml(stats.total || 0)}</strong><em>动态 ${escapeHtml(stats.posts || 0)} · 评论 ${escapeHtml(stats.comments || 0)}</em></button>`;
+    });
+    qsa('[data-render="interaction-history"]').forEach((target) => {
+      const rows = data.interactionHistory?.[state.historyType] || [];
+      target.innerHTML = rows.map((item) => `<article class="history-card"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.summary)}</p><span>${escapeHtml(item.time)}</span></article>`).join('') || '<div class="notice">暂无相关互动记录。</div>';
+    });
+    qsa('[data-clear-history]').forEach((button) => {
+      button.hidden = state.historyType !== 'viewed';
+    });
+  }
+
+  function renderFollowRelations() {
+    qsa('[data-relation-type]').forEach((button) => button.classList.toggle('is-active', button.dataset.relationType === state.relationType));
+    qsa('[data-render="follow-relations"]').forEach((target) => {
+      const rows = data.followRelations?.[state.relationType] || [];
+      target.innerHTML = rows.map((user) => `<article class="relation-card"><div class="author-row">${avatar(user.avatar, true, `${user.name}上传头像`)}<div><strong>${escapeHtml(user.name)}</strong><div class="helper">${escapeHtml(user.profile)} · ${escapeHtml(user.activeText)}</div></div><button class="follow-btn" type="button" data-toggle-relation="${escapeHtml(user.name)}">${user.followed ? '已关注' : state.relationType === 'followers' ? '回关' : '关注'}</button></div></article>`).join('') || `<div class="notice">${state.relationType === 'following' ? '还没有关注任何人，去热门看看。' : '还没有粉丝。'}</div>`;
+    });
+  }
+
+  function renderPostInteractors() {
+    qsa('[data-interactor-type]').forEach((button) => button.classList.toggle('is-active', button.dataset.interactorType === state.interactorType));
+    qsa('[data-render="post-interactors"]').forEach((target) => {
+      const rows = data.postInteractors?.[state.interactorType] || [];
+      target.innerHTML = rows.map((user) => `<article class="relation-card"><div><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml(user.detail)}</p></div><button class="btn" data-toast="已打开${escapeHtml(user.name)}的婚恋用户主页">查看主页</button></article>`).join('') || '<div class="notice">当前类型暂无互动用户。</div>';
     });
   }
 
@@ -504,7 +559,8 @@
   function moreActions() {
     if (state.moreTargetType === 'user') {
       return [
-        { label: '打招呼', action: '进入', attrs: 'data-close-surface data-jump="#APP-05-PAGE-community-greeting"' },
+        { label: '申请认识', action: '进入', attrs: 'data-close-surface data-jump="#APP-05-PAGE-community-greeting"' },
+        { label: state.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', action: state.hiddenAuthor ? '取消' : '设置', attrs: `data-close-surface data-author-preference="${state.hiddenAuthor ? 'unhide_author_posts' : 'hide_author_posts'}"` },
         { label: '发私信', action: '判断资格', attrs: 'data-close-surface data-jump="#APP-05-PAGE-community-private-entry"' },
         { label: '举报用户', action: '举报', danger: true, attrs: 'data-close-surface data-open-modal="reportModal"' }
       ];
@@ -517,7 +573,8 @@
     }
     return [
       { label: '举报内容', action: '举报', danger: true, attrs: 'data-close-surface data-open-modal="reportModal"' },
-      { label: '屏蔽当前内容', action: '屏蔽', attrs: 'data-close-surface data-hide-post' },
+      { label: '屏蔽当前内容', action: '屏蔽', attrs: 'data-close-surface data-preference-action="hide_post" data-hide-post' },
+      { label: state.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', action: state.hiddenAuthor ? '取消' : '设置', attrs: `data-close-surface data-author-preference="${state.hiddenAuthor ? 'unhide_author_posts' : 'hide_author_posts'}"` },
       { label: '复制内容链接', action: '复制', attrs: 'data-close-surface data-toast="链接已复制"' }
     ];
   }
@@ -690,6 +747,9 @@
     renderSincere();
     renderPublishControls();
     renderUserPosts();
+    renderInteractionCenter();
+    renderFollowRelations();
+    renderPostInteractors();
     renderGreeting();
     renderPrivateEntry();
     renderReportModal();
@@ -774,6 +834,15 @@
         showToast('点赞成功，通知事件由 PRD-03 承接');
       }
 
+      const favorite = event.target.closest('[data-toggle-favorite]');
+      if (favorite) {
+        const id = favorite.dataset.toggleFavorite;
+        if (state.favoritePostIds.has(id)) state.favoritePostIds.delete(id);
+        else state.favoritePostIds.add(id);
+        renderAll();
+        showToast(state.favoritePostIds.has(id) ? '收藏成功' : '已取消收藏');
+      }
+
       const yuemuLike = event.target.closest('[data-yuemu-like]');
       if (yuemuLike) {
         const id = yuemuLike.dataset.yuemuLike;
@@ -825,8 +894,56 @@
           showToast(`最多上传 ${max} 张图片`, 'warning');
         } else {
           const next = (data.uploadSamples || [])[state.publishImages.length % (data.uploadSamples || []).length] || `图片 ${state.publishImages.length + 1}`;
-          state.publishImages.push(next);
+          state.publishImages.push({ label: next, uploadStatus: 'uploading' });
           renderPublishControls();
+          showToast('图片开始上传；上传成功不代表动态已发布');
+        }
+      }
+
+      const retryImage = event.target.closest('[data-retry-image]');
+      if (retryImage) {
+        const item = state.publishImages[Number(retryImage.dataset.retryImage)];
+        if (item) item.uploadStatus = 'success';
+        renderPublishControls();
+        showToast('图片重新上传成功，可继续提交');
+      }
+
+      const cycleUpload = event.target.closest('[data-cycle-upload]');
+      if (cycleUpload && state.publishImages[0]) {
+        const statuses = ['success', 'uploading', 'failed'];
+        const current = statuses.indexOf(state.publishImages[0].uploadStatus);
+        state.publishImages[0].uploadStatus = statuses[(current + 1) % statuses.length];
+        renderPublishControls();
+        showToast(`首图状态：${state.publishImages[0].uploadStatus}`);
+      }
+
+      const saveDraft = event.target.closest('[data-save-draft]');
+      if (saveDraft) {
+        state.draft = {
+          contentType: state.publishType,
+          content: qs('[data-publish-content]')?.value || '',
+          title: qs('[data-publish-title]')?.value || '',
+          topic: state.selectedTopic,
+          images: state.publishImages.filter((item) => item.uploadStatus === 'success').map((item) => ({ ...item })),
+          updatedAt: '刚刚'
+        };
+        showToast('草稿已保存；每种内容类型保留最近 1 份');
+      }
+
+      const restoreDraft = event.target.closest('[data-restore-draft]');
+      if (restoreDraft) {
+        if (!state.draft) {
+          showToast('暂无可恢复草稿', 'warning');
+        } else {
+          state.publishType = state.draft.contentType || 'community_post';
+          state.selectedTopic = state.draft.topic || '';
+          state.publishImages = (state.draft.images || []).map((item) => ({ ...item, uploadStatus: 'success' }));
+          const contentNode = qs('[data-publish-content]');
+          const titleNode = qs('[data-publish-title]');
+          if (contentNode) contentNode.value = state.draft.content || '';
+          if (titleNode) titleNode.value = state.draft.title || '';
+          renderPublishControls();
+          showToast(`已恢复 ${state.draft.updatedAt || ''} 的草稿，尚未发布`);
         }
       }
 
@@ -853,7 +970,47 @@
           showToast('请补充正文，诚意贴正文不少于 20 字', 'warning');
           return;
         }
+        if (state.publishImages.some((item) => item.uploadStatus !== 'success')) {
+          showToast('图片尚未上传完成，请处理后再发布', 'warning');
+          return;
+        }
+        state.draft = null;
         showToast(state.publishType === 'sincere_post' ? '诚意贴已提交，进入人工审核' : `动态已提交，等待机审；图片 ${state.publishImages.length}/9`);
+      }
+
+      const historyType = event.target.closest('[data-history-type]');
+      if (historyType) {
+        state.historyType = historyType.dataset.historyType;
+        renderInteractionCenter();
+      }
+
+      const clearHistory = event.target.closest('[data-clear-history]');
+      if (clearHistory) {
+        if (state.historyType !== 'viewed') return;
+        data.interactionHistory.viewed = [];
+        renderInteractionCenter();
+        showToast('浏览记录已清空，不影响其他互动历史');
+      }
+
+      const relationType = event.target.closest('[data-relation-type]');
+      if (relationType) {
+        state.relationType = relationType.dataset.relationType;
+        renderFollowRelations();
+      }
+
+      const toggleRelation = event.target.closest('[data-toggle-relation]');
+      if (toggleRelation) {
+        const rows = data.followRelations?.[state.relationType] || [];
+        const user = rows.find((item) => item.name === toggleRelation.dataset.toggleRelation);
+        if (user) user.followed = !user.followed;
+        renderFollowRelations();
+        showToast(user?.followed ? '关注成功，不改变匹配或私信资格' : '已取消关注');
+      }
+
+      const interactorType = event.target.closest('[data-interactor-type]');
+      if (interactorType) {
+        state.interactorType = interactorType.dataset.interactorType;
+        renderPostInteractors();
       }
 
       const topicSort = event.target.closest('[data-topic-sort]');
@@ -961,6 +1118,15 @@
         state.hiddenPostId = post?.id;
         renderFeed();
         showToast('已屏蔽当前内容，3 秒内可撤销');
+      }
+
+      const authorPreference = event.target.closest('[data-author-preference]');
+      if (authorPreference) {
+        const post = (data.posts || []).find((item) => item.id === state.moreTargetPostId) || currentDetailPost();
+        const action = authorPreference.dataset.authorPreference;
+        state.hiddenAuthor = action === 'hide_author_posts' ? post?.author : null;
+        renderAll();
+        showToast(action === 'hide_author_posts' ? '已设置不看 TA 动态；关注和私信关系不变' : '已取消不看 TA 动态');
       }
 
       const undoHide = event.target.closest('[data-undo-hide]');

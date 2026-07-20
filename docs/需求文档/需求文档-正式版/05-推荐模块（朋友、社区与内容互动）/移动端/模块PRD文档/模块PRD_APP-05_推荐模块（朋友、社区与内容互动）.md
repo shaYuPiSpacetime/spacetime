@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本07 | 2026-07-20 | Codex | 补齐蓝湖反向缺口：互动历史、关注粉丝、互动用户、收藏、草稿、上传状态、申请认识别名和两级屏蔽 |
 | 版本06 | 2026-07-15 | Codex | 新增统一婚恋用户主页，承接关系反馈与个人动态区 |
 | 版本01 | 2026-07-06 | Codex | 按一期上线目标创建移动端 PRD-05 正式版模块入口 |
 | 版本02 | 2026-07-06 | Codex | 修复流程代码块，明确诚意贴列表由动态详情页诚意贴视图承接，并补充个人动态区归属说明 |
@@ -134,7 +135,11 @@
 | 社区内容 | `community_post` | 动态、诚意贴、悦目内容来源 | 05 | contentId, authorId, contentType, status, topicId |
 | 评论 | `community_comment` | 动态/诚意贴评论和回复 | 05 | commentId, contentId, authorId, parentCommentId, status |
 | 点赞 | `community_like` | 用户对内容的点赞关系 | 05 | contentId, userId, status |
+| 收藏 | `community_favorite` | 用户对动态的私密收藏关系 | 05 | contentId, userId, status |
 | 关注 | `community_follow` | 用户之间的社区关注关系 | 05 | followerId, targetUserId, status |
+| 浏览记录 | `community_view_history` | 本人最近浏览内容 | 05 | userId, contentId, viewedAt |
+| 内容偏好 | `community_content_preference` | 屏蔽当前内容或不看作者动态 | 05 | userId, actionType, targetId, status |
+| 发布草稿 | `community_post_draft` | 最近一份动态/诚意贴草稿 | 05 | userId, contentType, payload, updatedAt |
 | 话题 | `community_topic` 或字典 | 内容聚合维度 | 05/系统字典 | topicId, topicName, status, sort |
 | 举报 | `community_report` | 举报记录 | 05 | reportId, reporterId, targetType, targetId, status |
 | 审核记录 | `community_audit_record` | 内容/评论审核历史 | 05 | auditId, targetType, targetId, result, operatorId |
@@ -145,7 +150,9 @@
 用户 1──N 社区内容
 社区内容 1──N 评论
 社区内容 1──N 点赞
+社区内容 1──N 收藏
 用户 1──N 关注
+用户 1──N 浏览记录/内容偏好/发布草稿
 话题 1──N 社区内容
 举报 N──1 内容/评论/用户
 ```
@@ -176,6 +183,12 @@
 | `APP-05-RULE-report` | 举报弹窗与举报提交 | P0 | `APP-05-PAGE-report-modal` | 已登录可提交 |
 | `APP-05-RULE-community-contact` | 社区打招呼与发私信入口 | P0 | `APP-05-PAGE-community-greeting`、`APP-05-PAGE-community-private-entry` | 发送与会话规则引用 PRD-03 |
 | `APP-05-RULE-user-posts` | 个人动态区 | P1 | `APP-05-PAGE-user-posts` | 本人可看审核态，他人仅看公开内容 |
+| `APP-05-RULE-interaction-center` | 评论过、点赞过、解锁过、浏览记录与获赞统计 | P1 | `APP-05-PAGE-interaction-center` | 解锁历史只读引用 PRD-04 |
+| `APP-05-RULE-follow-relations` | 关注、粉丝列表与统计 | P1 | `APP-05-PAGE-follow-relations` | 不改变匹配和私信资格 |
+| `APP-05-RULE-post-interactors` | 动态点赞、收藏、评论用户列表 | P1 | `APP-05-PAGE-post-interactors` | 收藏用户明细仅作者可见 |
+| `APP-05-RULE-content-favorite` | 动态收藏/取消收藏 | P1 | `APP-05-PAGE-post-detail` | 幂等返回最终收藏态 |
+| `APP-05-RULE-publish-draft-upload` | 草稿保存恢复和图片上传状态 | P0 | `APP-05-PAGE-post-publish` | 上传成功不等于动态发布成功 |
+| `APP-05-RULE-content-preference` | 屏蔽当前内容、不看 TA 动态及取消 | P0 | `APP-05-PAGE-community-more-actions` | 一期不新增独立管理页 |
 
 ---
 
@@ -251,7 +264,10 @@
 | 需幂等的操作 | 并发场景 | 幂等方案建议 |
 |-------------|----------|-------------|
 | 点赞/取消点赞 | 连续点击 | 用户 + 内容唯一键，返回最终状态 |
+| 收藏/取消收藏 | 连续点击 | 用户 + 内容唯一键，返回最终状态 |
 | 关注/取消关注 | 连续点击 | followerId + targetUserId 唯一键 |
+| 草稿保存 | 自动保存与手动保存并发 | userId + contentType 唯一草稿，按 updatedAt 覆盖 |
+| 屏蔽偏好切换 | 连续点击 | userId + actionType + targetId 唯一键，返回最终状态 |
 | 社区打招呼提交 | 连续点击 | 引用 `M03-RULE-whisper-repeat-limit`，同一对象待回复时阻断 |
 | 发布提交 | 弱网重提 | 客户端提交 token 或内容 hash 去重 |
 | 举报提交 | 重复举报 | reporterId + targetType + targetId 有效期内去重 |
@@ -266,7 +282,11 @@
 | `community_publish_submit` | 提交发布 | contentType, topicId, imageCount |
 | `community_comment_submit` | 提交评论 | contentId, hasParent |
 | `community_like_click` | 点赞/取消点赞 | contentId, action |
+| `community_favorite_click` | 收藏/取消收藏 | contentId, action, source |
 | `community_follow_click` | 关注/取消关注 | targetUserId, action |
+| `community_interaction_history_show` | 互动历史曝光 | historyType, resultCount |
+| `community_draft_action` | 保存、恢复或删除草稿 | contentType, action |
+| `community_upload_state_change` | 单图上传状态变化 | imageIndex, fromStatus, toStatus |
 | `community_report_submit` | 提交举报 | targetType, reasonCode |
 | `community_more_action_click` | 点击社区更多操作 | action, targetType, sourcePage |
 | `community_greeting_submit` | 社区打招呼提交 | targetUserId, sourceType, sourceId |
@@ -292,6 +312,9 @@
 | `APP-05-PAGE-yuemu` | 悦目页 | `../页面规格/APP-09_悦目页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-014 | P0 |
 | `APP-05-PAGE-sincere-list` | 诚意贴列表页 | `../页面规格/APP-10_诚意贴列表页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-015 | P0 |
 | `APP-05-PAGE-user-posts` | 个人动态区（本人/他人视图） | `../页面规格/APP-12_个人动态区.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-057/058（通过查看对象区分） | P1 |
+| `APP-05-PAGE-interaction-center` | 千寻互动中心页 | `../页面规格/APP-11_千寻互动中心页.md` | 蓝湖“千寻互动”页面组 | 蓝湖反向补充 | P1 |
+| `APP-05-PAGE-follow-relations` | 关注粉丝列表页 | `../页面规格/APP-17_关注粉丝列表页.md` | 蓝湖关注/粉丝画板 | 蓝湖反向补充 | P1 |
+| `APP-05-PAGE-post-interactors` | 动态互动用户列表页 | `../页面规格/APP-18_动态互动用户列表页.md` | 蓝湖动态互动用户画板 | 蓝湖反向补充 | P1 |
 
 ---
 

@@ -214,3 +214,12 @@ Then  进入 `APP-05-PAGE-post-detail`，按 `contentType=sincere_post` 展示�
 | 依赖的模块状态机 | `M05-SM-comment-audit` | 评论状态 |
 | 依赖的模块规则 | `M05-RULE-report-gate` | 举报准入 |
 | 依赖的其他页面 | `APP-05-PAGE-report-modal` | 举报弹窗 |
+
+## 11. 蓝湖反向缺口补充
+
+- 新增 `favoriteCount`、`favoritedByMe`，操作 `favorite/unfavorite` 引用 `M05-RULE-content-favorite`，连续点击返回服务端最终态。
+- 点赞数、收藏数、评论人数可进入 `APP-05-PAGE-post-interactors`；收藏用户明细仅作者本人可见。
+- 作者摘要补充出生年、城市、职业、活跃描述；“申请认识”是 `greeting` 的 UI 别名，进入 `APP-05-PAGE-community-greeting`。
+- 更多操作必须同时定义 `hide_post` 和 `hide_author_posts/unhide_author_posts`；后者不等于拉黑。
+
+验收：收藏切换后数量与状态同步；非作者不能获得收藏用户明细；屏蔽当前内容不隐藏同作者其他动态。

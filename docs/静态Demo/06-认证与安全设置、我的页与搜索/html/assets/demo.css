@@ -1236,6 +1236,114 @@ th {
 .h5-preview { margin-top: 18px; min-height: 360px; overflow: hidden; border: 1px solid #dbe4f2; border-radius: 12px; background: #f7f9fc; }
 .h5-preview-bar { padding: 11px 16px; border-bottom: 1px solid #dbe4f2; background: #fff; color: #6c7890; font-size: 13px; }
 .h5-preview iframe { display: block; width: 100%; min-height: 420px; border: 0; background: #fff; }
+
+.h5-config-card {
+  padding-top: 0;
+}
+
+.content-tabs {
+  display: flex;
+  gap: 28px;
+  padding: 0 20px;
+  border-bottom: 1px solid #e3e9f2;
+  background: #fff;
+}
+
+.content-tabs button {
+  position: relative;
+  min-height: 54px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: #6b7890;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.content-tabs button.is-active {
+  color: #1677ff;
+}
+
+.content-tabs button.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: #1677ff;
+  content: "";
+}
+
+.business-rule-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 18px 20px 4px;
+  padding: 14px 16px;
+  border: 1px solid #c9dcff;
+  border-radius: 8px;
+  background: #f3f7ff;
+  color: #355071;
+}
+
+.business-rule-notice[hidden] {
+  display: none;
+}
+
+.business-rule-notice p {
+  margin: 4px 0 0;
+  color: #66758c;
+  font-size: 13px;
+}
+
+.business-rule-notice > span {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #e5efff;
+  color: #3569bd;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dialog-boundary-note {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-left: 3px solid #1677ff;
+  border-radius: 6px;
+  background: #f3f7ff;
+  color: #536783;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.dialog-boundary-note[hidden] {
+  display: none;
+}
+
+.preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 44px;
+}
+
+.preview-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.preview-heading span:first-child {
+  color: #7b8799;
+  font-size: 12px;
+}
+
+.preview-heading h2 {
+  margin: 0;
+}
 .cancel-flow { display: grid; gap: 8px; margin-bottom: 16px; }
 .cancel-flow span { color: #2258c7; font-weight: 700; }
 .cancel-flow small { color: #6c7890; line-height: 1.7; }

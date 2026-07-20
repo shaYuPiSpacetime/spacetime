@@ -3,12 +3,13 @@
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
 | 正式版 | 2026-07-14 | Codex | 确认公告协议、搜索屏蔽词、注销申请三个独立后台页面及自动流转口径 |
+| 正式版02 | 2026-07-20 | Codex | H5 内容配置新增 PRD-07 邀请规则预置项，明确跨模块内容与业务逻辑边界 |
 
 ---
 
 ## 1. 模块目标
 
-PRD-06 后台侧不新增独立一级系统，仅承接注销申请、搜索屏蔽词和公告协议；三个菜单分别对应独立页面。注销后悔期作为单个系统参数维护，入口、搜索展示和安全提示均由代码固定。
+PRD-06 后台侧不新增独立一级系统，仅承接注销申请、搜索屏蔽词和 H5 内容配置；三个菜单分别对应独立页面。H5 内容配置除公告、协议与合规清单外，预置承接 PRD-07 邀请规则的标题、URL、版本、状态和预览；邀请资格、奖励金额及阶梯计算不在 PRD-06 配置。注销后悔期作为单个系统参数维护，入口、搜索展示和安全提示均由代码固定。
 
 **用户故事：** 作为运营、客服或风控人员，我想维护合规内容、搜索屏蔽词并查看注销申请，以最小后台范围支撑一期上线。
 
@@ -55,6 +56,7 @@ PRD-06 后台侧不新增独立一级系统，仅承接注销申请、搜索屏�
 | 注销申请 | `account_cancellation_request` | 账号注销后悔期与阻断 | PRD-06 | requestNo, userId, status, blockReasons, coolingEndAt |
 | 搜索屏蔽词 | `search_block_word` | 屏蔽词配置 | PRD-06 | word, reason, matchType, status |
 | 内容链接 | `compliance_content_config` | 公告、帮助、协议和合规清单 | PRD-06 | contentType, title, linkType, url, version |
+| 业务 H5 链接 | `h5_content_config` | PRD-07 邀请规则 H5 配置 | PRD-06 | contentKey, sourceModule, title, url, version, status |
 | 系统参数 | 复用现有系统参数表 | 注销后悔期天数 | 公共后台 | paramKey, paramValue, updatedBy |
 
 ---
@@ -66,7 +68,7 @@ PRD-06 后台侧不新增独立一级系统，仅承接注销申请、搜索屏�
 | `ADM-06-RULE-user-supplement` | App 用户管理字段和详情补充 | P0 | `ADM-06-PAGE-app-user-settings-fields`、`ADM-06-PAGE-app-user-settings-section` | 并入 PRD-01 现有用户管理及用户详情，不新增页面 |
 | `ADM-06-RULE-cancellation` | 注销申请 | P0 | `ADM-06-PAGE-cancellation-list` | 不做审批流 |
 | `ADM-06-RULE-search-block` | 搜索屏蔽词 | P0 | `ADM-06-PAGE-search-block-words` | 风控配置 |
-| `ADM-06-RULE-compliance` | 公告与协议配置 | P0 | `ADM-06-PAGE-compliance-config` | H5 优先 |
+| `ADM-06-RULE-compliance` | H5 内容配置 | P0 | `ADM-06-PAGE-compliance-config` | 合规、公告、帮助及邀请规则 H5；不复制 PRD-07 业务配置 |
 | `ADM-06-RULE-cancellation-param` | 注销后悔期单参数 | P0 | 复用现有系统参数页 | 默认 30 天，仅影响新申请，不新建配置页面 |
 
 ---
@@ -94,6 +96,7 @@ PRD-06 后台侧不新增独立一级系统，仅承接注销申请、搜索屏�
 | 会员与资产 | PRD-04 | 会员到期、退款、付费争议、千寻币余额 | 注销风险展示未知 | 非阻塞，但上线需联调 |
 | 社区内容 | PRD-05 | 动态搜索与下架状态 | 搜索动态 Tab 隐藏 | 非阻塞 |
 | 消息通知 | PRD-03 | 通知记录与订阅模板 | 不展示通知偏好后台 | 非阻塞 |
+| 邀请规则 | PRD-07 | 邀请资格、事件、金额、阶梯及生效规则 | H5 配置不可用时移动端使用最近成功缓存；无缓存显示不可用态 | 阻塞邀请规则正式发布 |
 
 ---
 
@@ -104,7 +107,7 @@ PRD-06 后台侧不新增独立一级系统，仅承接注销申请、搜索屏�
 | PRD-01 App 用户管理 Demo | 原页面补充需合并到 01 原 Demo | 是 | 前端/Demo |
 | 运营中心菜单 | 仅增加搜索屏蔽词；不增加搜索热词 | 是 | 后台 |
 | 用户安全设置菜单 | 仅增加注销申请 | 是 | 后台 |
-| 移动端配置管理 | 仅保留公告与协议配置 | 是 | 后台 |
+| 移动端配置管理 | 公告与协议配置扩展为 H5 内容配置，新增邀请规则预置项 | 是 | 后台 |
 
 ---
 

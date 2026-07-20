@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本09 | 2026-07-20 | Codex | 补齐蓝湖反向缺口：互动历史、关注粉丝、动态收藏、草稿上传状态、申请认识别名及两级屏蔽，影响 APP-05-PAGE-interaction-center、follow-relations、post-interactors、post-publish、post-detail、community-greeting、community-more-actions、user-profile |
 | 版本08 | 2026-07-15 | Codex | 新增统一婚恋用户主页，承接 PRD-02 访客、喜欢、匹配聊天及用户安全动作，影响 APP-05-PAGE-user-profile、APP-05-PAGE-user-posts |
 | 版本01 | 2026-07-06 | Codex | 按一期上线目标创建 PRD-05 正式版模块公共定义，影响 APP-05/ADM-05 全部页面 |
 | 版本02 | 2026-07-06 | Codex | 按第 1 轮核查收敛诚意贴详情为动态详情页视图，补充跨模块接口依赖与编号说明，影响 APP-05-PAGE-post-detail、APP-05-PAGE-sincere-list、APP-05-PAGE-user-posts、ADM-05-PAGE-comment-audit |
@@ -370,3 +371,63 @@
 | A05-08 | P1 | 处罚由举报处理触发，账号冻结引用用户管理 | `ADM-05_端内定义.md` |
 | A05-09 | P1 | 家园话题进入独立话题管理；联系方式开关、举报原因、抽检比例进入社区配置 | `M05-CFG-*` |
 | CLIENT-POST-AUDIT-20260709 | P1 | 甲方帖子审核意见已处理：禁言提供周期、增加 IP 封禁、话题封面使用图片、内容治理兼容知音诚意贴与后续立业帖子、移动端头像使用用户上传头像 | 第 1、3、5、6 节及 ADM/APP 页面规格 |
+
+---
+
+## 12. 蓝湖反向缺口补充定义
+
+### 12.1 业务规则
+
+| 规则 ID | 规则名称 | 正式口径 | 范围说明 |
+|---------|----------|----------|----------|
+| `M05-RULE-interaction-history` | 千寻互动历史 | 本人可按 `commented/liked/unlocked/viewed` 查看行为历史；评论、点赞、浏览来自 PRD-05，解锁结果只读引用 PRD-04；对象失效时保留行为时间但不展示已失效正文 | 由 `APP-05-PAGE-interaction-center` 承接，不替代通知中心 |
+| `M05-RULE-received-like-stats` | 获赞统计 | 统计分为动态获赞、评论获赞、累计获赞；取消点赞或内容下架后按最终有效关系重算 | 统计数不得以通知条数代替 |
+| `M05-RULE-follow-relations` | 关注粉丝列表 | 关注数与粉丝数来自同一关注关系表；关注/取消关注只影响社区弱关系，不影响喜欢、匹配、普通私信 | 由 `APP-05-PAGE-follow-relations` 承接 |
+| `M05-RULE-content-favorite` | 动态收藏 | 满足互动准入的用户可收藏/取消收藏公开动态；以 userId + postId 唯一键保证幂等；详情返回本人收藏态和收藏数 | 收藏是私密行为，收藏用户明细默认仅作者本人可见 |
+| `M05-RULE-post-interactors` | 动态互动用户列表 | 点赞、收藏、评论三类列表分别查询；评论用户按用户去重并保留最近互动时间；统计与详情页同源 | 收藏列表按 `M05-RULE-content-favorite` 做权限过滤 |
+| `M05-RULE-publish-upload-state` | 图片上传状态 | 单图状态为 `queued/uploading/success/failed`；上传成功仅表示文件上传完成，不代表动态提交或审核成功；存在 uploading/failed 时禁止提交 | 失败图片可重试或删除，成功图片才计入提交 payload |
+| `M05-RULE-publish-draft` | 发布草稿 | 正文、标题、图片上传结果、话题、@用户按当前用户和内容类型保存；退出有内容时提示保存；发布成功后删除对应草稿 | 一期每种内容类型保留最近 1 份本地/服务端草稿 |
+| `M05-RULE-apply-acquaintance-alias` | 申请认识别名 | 蓝湖“申请认识”是社区打招呼/发送悄悄话的入口文案别名，统一进入 `APP-05-PAGE-community-greeting`，不得新建第三套关系或会话状态机 | 埋点需同时记录展示文案和标准动作 `greeting` |
+| `M05-RULE-hide-post` | 屏蔽当前内容 | `hide_post` 只隐藏当前动态；允许 3 秒撤销；不影响该作者其他动态 | 用户级内容偏好记录 |
+| `M05-RULE-hide-author-posts` | 不看 TA 动态 | `hide_author_posts` 隐藏目标作者后续社区动态；`unhide_author_posts` 解除；不等于拉黑，不影响关注、喜欢、匹配或私信 | 一期只提供内容/用户更多操作中的动作，不新增“不看 TA 动态”管理页 |
+
+### 12.2 补充实体与字段
+
+| 实体 | 表名（建议） | 关键字段 | 说明 |
+|------|-------------|----------|------|
+| 动态收藏 | `community_favorite` | postId, userId, status, createdAt | 用户与动态唯一 |
+| 内容浏览记录 | `community_view_history` | userId, postId, viewedAt | 仅用于本人历史，支持清空 |
+| 内容屏蔽偏好 | `community_content_preference` | userId, targetType, targetId, actionType, status | 区分 `hide_post` 与 `hide_author_posts` |
+| 发布草稿 | `community_post_draft` | userId, contentType, content, images, topicId, mentions, updatedAt | 每用户每内容类型最近一份 |
+
+社区内容聚合返回字段补充：`favoriteCount`、`favoritedByMe`、`commentPreview`；话题聚合返回 `latestPost`、`participantAvatars`、`participantCount`、`viewCount`；作者摘要返回 `birthYear`、`cityName`、`occupation`、`activeText`。
+
+### 12.3 补充事件、错误码与接口
+
+| ID | 类型 | 触发/含义 | 载荷或提示 |
+|----|------|-----------|------------|
+| `M05-EVT-favorite-changed` | 事件 | 收藏最终状态变化 | postId, userId, favorited |
+| `M05-EVT-content-preference-changed` | 事件 | 屏蔽当前内容或不看作者动态变化 | actionType, targetId, enabled |
+| `M05-EVT-draft-saved` | 事件 | 草稿保存成功 | draftId, contentType, updatedAt |
+| `M05-ERR-upload-incomplete` | 错误码 | 存在上传中或失败图片时提交 | 图片尚未上传完成，请处理后再发布 |
+| `M05-ERR-favorite-forbidden` | 错误码 | 无收藏资格或内容不可见 | 当前内容暂不可收藏 |
+
+| 端 | 方法 | 路径 | 说明 |
+|----|------|------|------|
+| APP | POST | `/miniapp/community/favorites/toggle` | 收藏/取消收藏，返回最终状态与收藏数 |
+| APP | GET | `/miniapp/community/interactions/history` | 查询评论过、点赞过、解锁过、浏览记录 |
+| APP | DELETE | `/miniapp/community/interactions/view-history` | 清空本人浏览记录 |
+| APP | GET | `/miniapp/community/interactions/received-like-stats` | 查询动态/评论/累计获赞 |
+| APP | GET | `/miniapp/community/follows` | 查询关注或粉丝列表 |
+| APP | GET | `/miniapp/community/posts/{postId}/interactors` | 查询点赞/收藏/评论用户列表 |
+| APP | PUT | `/miniapp/community/posts/draft` | 保存或覆盖最近草稿 |
+| APP | GET | `/miniapp/community/posts/draft` | 按内容类型读取最近草稿 |
+| APP | DELETE | `/miniapp/community/posts/draft/{draftId}` | 发布成功或用户主动删除草稿 |
+| APP | POST | `/miniapp/community/preferences/toggle` | 设置/取消 `hide_post` 或 `hide_author_posts` |
+
+### 12.4 一期范围约束
+
+- 蓝湖已出现的“申请认识”按入口别名纳入一期，不新增独立页面或关系状态。
+- 动态收藏、草稿、图片上传状态与两级屏蔽动作纳入 PRD-05；其中“不看 TA 动态”只在内容/用户更多操作中提供切换。
+- `APP-PAGE-087 不看 TA 动态页` 及独立黑名单/不看列表管理仍不在一期范围，避免与 `docs/需求文档/一期上线目标.md` 冲突。
+- 关注/粉丝、互动历史和互动用户列表按蓝湖现有画板补为 P1 页面；若一期排期需裁剪，可隐藏入口，但数据口径不得用通知中心或匹配关系统计替代。

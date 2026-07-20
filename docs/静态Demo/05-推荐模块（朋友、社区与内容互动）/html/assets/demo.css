@@ -4,6 +4,128 @@
   padding: 34px;
 }
 
+/* 蓝湖反向缺口：互动历史、关系统计、草稿和上传状态 */
+.comment-preview {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+}
+
+.comment-preview p {
+  margin: 0 0 5px;
+}
+
+.comment-preview button,
+.topic-latest {
+  color: #7c3aed;
+  font-size: 12px;
+}
+
+.topic-social-proof,
+.draft-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.participant-avatars {
+  display: flex;
+  padding-left: 8px;
+}
+
+.participant-avatars .avatar {
+  width: 26px;
+  height: 26px;
+  margin-left: -8px;
+  border: 2px solid #fff;
+}
+
+.upload-item {
+  position: relative;
+}
+
+.upload-status {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  padding: 3px 4px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, .76);
+  color: #fff;
+  font-size: 10px;
+  text-align: center;
+}
+
+.upload-item.is-failed {
+  outline: 2px solid #ef4444;
+  border-radius: 12px;
+}
+
+.retry-image {
+  position: absolute;
+  inset: 32% 18%;
+  z-index: 2;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.stats-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  padding: 15px;
+  margin-bottom: 12px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ede9fe, #fff1f2);
+  color: #4c1d95;
+  text-align: left;
+}
+
+.stats-card strong {
+  grid-row: span 2;
+  font-size: 28px;
+}
+
+.stats-card em,
+.history-card span {
+  color: #64748b;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.history-card,
+.relation-card {
+  margin-bottom: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.history-card p,
+.relation-card p,
+.topic-latest {
+  margin: 5px 0;
+}
+
+.relation-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .hero-copy h1,
 .page-head h1,
 .page-head h2,

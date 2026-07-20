@@ -186,3 +186,13 @@ Then  系统携带 targetUserId、sourceType、sourceId 进入对应 APP-05 触�
 | 依赖的其他页面 | `APP-05-PAGE-report-modal` | 举报弹窗 |
 | 依赖的其他页面 | `APP-05-PAGE-community-greeting` | 社区打招呼页 |
 | 依赖的其他页面 | `APP-05-PAGE-community-private-entry` | 社区发私信页 |
+
+## 11. 两级内容偏好动作
+
+| actionCode | 展示文案 | 作用域 | 撤销方式 |
+|------------|----------|--------|----------|
+| `hide_post` | 屏蔽当前内容 | 仅当前 postId | 3 秒 toast 撤销 |
+| `hide_author_posts` | 不看 TA 动态 | 当前 authorId 后续社区动态 | 原入口切换为“取消不看 TA 动态” |
+| `unhide_author_posts` | 取消不看 TA 动态 | 解除当前 authorId 偏好 | 操作成功 toast |
+
+用户对象动作可将“打招呼”展示为“申请认识”，但 actionCode 固定为 `greeting`。`hide_author_posts` 不取消关注、不撤销喜欢或匹配、不关闭私信，也不进入黑名单；一期不提供独立管理页。

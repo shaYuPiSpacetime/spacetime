@@ -180,3 +180,12 @@ Then  页面按发布时间倒序展示内容卡片，并展示头像、昵称�
 | 依赖的模块配置项 | `M05-CFG-community-tabs` | Tab 配置 |
 | 依赖的其他页面 | `APP-05-PAGE-post-detail` | 内容详情 |
 | 依赖的其他页面 | `APP-05-PAGE-report-modal` | 举报 |
+
+## 11. 蓝湖反向缺口补充
+
+- 关注空态必须拆分：`NO_FOLLOWING`（未关注任何人，展示“去热门”）与 `FOLLOWING_NO_POSTS`（已关注但对方暂无公开动态，展示刷新）。
+- 内容卡补充作者 `birthYear/cityName/occupation/activeText`；最多预览 2 条 `commentPreview`，有评论时显示“查看全部 N 条评论”。
+- 作者区可展示“申请认识”，但标准动作固定为 `greeting`，引用 `M05-RULE-apply-acquaintance-alias`。
+- 更多操作同时提供 `hide_post` 与 `hide_author_posts/unhide_author_posts`，两者作用域不得混用。
+
+验收：两种关注空态文案与引导不同；作者资料缺失时逐项隐藏；评论数与“查看全部”数量一致。

@@ -8,6 +8,7 @@
 |------|------|--------|----------|
 | 正式版 | 2026-07-14 | Codex | 确认一期最终范围、后台独立页面、合规版本递增和注销自动执行规则 |
 | 正式版02 | 2026-07-15 | Codex | 明确 H5 容器提升到共享层，业务模块内容仍归各自模块配置 |
+| 正式版03 | 2026-07-20 | Codex | H5 配置页新增 PRD-07“邀请规则”预置内容；配置与版本归 PRD-06，邀请奖励业务规则仍归 PRD-07（影响 `ADM-06-PAGE-compliance-config`、`APP-07-PAGE-invite-rules`） |
 
 ---
 
@@ -36,6 +37,7 @@
 | A06-03 | 找茬、一期目标、2026-07-14 用户决策 | 搜索热词一期删除；仅保留搜索屏蔽词后台能力。搜索结果类型、Tab、空态及排序口径均由代码固定，不做搜索展示配置或算法运营平台。 | `M06-RULE-search-ranking`、`M06-RULE-search-block` |
 | A06-06 | 找茬 | 客服首版只查看用户设置摘要，不代用户修改隐私、关键词、搜索历史等敏感设置。 | ADM-06 端内定义 |
 | A06-08 | 一期目标、2026-07-14 用户决策 | 单身承诺函作为预置协议内容纳入公告与协议配置，生成 H5 链接供实名认证页查看；实名认证提交记录用户同意的协议版本和时间。 | `M06-RULE-single-commitment-content`、PRD-01 实名认证页 |
+| M06-17 | 2026-07-20 用户决策 | PRD-07 移动端邀请规则使用 H5；`invite_rules` 作为 PRD-06 H5 内容配置页的预置业务规则项，PRD-06 只管理标题、URL、版本、状态和预览，内容语义及奖励计算仍以 PRD-07 为准。 | `M06-RULE-business-h5-content`、`APP-07-PAGE-invite-rules` |
 
 ---
 
@@ -49,6 +51,7 @@
 | `M06-TERM-account-cancellation` | 账号注销 | 注销账号、销户 | 用户发起账号删除申请，经阻断校验和后悔期后执行注销的数据生命周期流程 | 否 |
 | `M06-TERM-user-code` | 成家号 | 用户 ID、客户 ID | 前台可展示、客服可搜索的用户业务编号；不等同数据库内部主键 | 否 |
 | `M06-TERM-compliance-content` | 合规内容 | 协议页、清单页 | 用户协议、隐私政策、隐私摘要、单身承诺函、第三方信息共享清单、个人信息收集清单、平台规范和公告 | 否 |
+| `M06-TERM-managed-h5-content` | H5 配置内容 | H5 页面、富文本页 | 由 PRD-06 后台统一维护标题、H5 URL、版本、状态与预览的预置内容；业务规则正文的产品语义仍归来源模块 | 否 |
 
 ---
 
@@ -109,6 +112,20 @@
 | `content_offline` | 内容下架 | 内容被删除、下架或审核未通过 | 2 | 否 | 启用 |
 | `account_unavailable` | 账号不可见 | 用户冻结、注销中、已注销或不可展示 | 3 | 否 | 启用 |
 | `privacy_limited` | 隐私限制 | 资料因隐私或关系限制降级展示 | 4 | 否 | 启用 |
+
+### 3.7 `M06-ENUM-h5-content-key` H5 内容键
+
+| 值（code） | 显示名 | 内容分组 | 来源模块 | 是否允许新增/删除 | 状态 |
+|------------|--------|----------|----------|------------------|------|
+| `user_agreement` | 用户协议 | 协议政策 | PRD-06 | 否 | 启用 |
+| `privacy_policy` | 隐私政策 | 协议政策 | PRD-06 | 否 | 启用 |
+| `privacy_summary` | 隐私政策摘要 | 协议政策 | PRD-06 | 否 | 启用 |
+| `single_commitment` | 单身承诺函 | 协议政策 | PRD-01/06 | 否 | 启用 |
+| `third_party_list` | 第三方信息共享清单 | 协议政策 | PRD-06 | 否 | 启用 |
+| `personal_info_list` | 个人信息收集清单 | 协议政策 | PRD-06 | 否 | 启用 |
+| `platform_rules` | 平台信息管理规范 | 协议政策 | PRD-06 | 否 | 启用 |
+| `announcement` | 平台公告 | 公告 | PRD-06 | 否 | 启用 |
+| `invite_rules` | 邀请规则 | 业务规则 | PRD-07 | 否 | 启用 |
 
 ---
 
@@ -173,7 +190,8 @@
 | `M06-RULE-search-block` | 搜索违规词过滤 | APP/ADM | 输入词命中搜索屏蔽词时不发起搜索并展示违规提示；结果对象命中下架、账号不可见、隐私限制时不展示或降级展示 | 与个人关键词屏蔽分离 |
 | `M06-RULE-search-ranking` | 搜索排序 | APP/ADM | 一期固定使用综合相关度和对象状态过滤；不展示搜索热词，不提供后台 Tab、空态文案、提示文案或排序模式配置 | 推荐算法与筛选策略由其他负责人另行确定 |
 | `M06-RULE-account-cancellation-check` | 注销前校验 | APP/ADM | 打开注销弹窗先预校验。硬阻断：封禁处罚中、未完成退款、进行中付费争议，只展示原因和客服入口，不创建申请。可确认风险：未到期会员、未消耗千寻币、未完成邀请奖励，用户勾选确认后进入后悔期。`blocked` 用户再次进入弹窗时必须重新校验，阻断解除后才能提交 | 退款与资产状态引用 PRD-04 |
-| `M06-RULE-compliance-content` | 合规内容承接 | APP/ADM | 协议、隐私政策、隐私摘要、单身承诺函、第三方信息共享清单、个人信息收集清单、平台信息管理规范、公告优先 H5 配置，关键合规页可原生兜底；移动端容器引用 `GLB-RULE-h5-content-container` | 内容由甲方提供并确认；PRD-10 签到规则等业务内容不进入 `M06-CFG-compliance-links`，由来源模块自行配置 |
+| `M06-RULE-compliance-content` | 合规内容承接 | APP/ADM | 协议、隐私政策、隐私摘要、单身承诺函、第三方信息共享清单、个人信息收集清单、平台信息管理规范、公告优先 H5 配置，关键合规页可原生兜底；移动端容器引用 `GLB-RULE-h5-content-container` | 内容由甲方提供并确认；合规内容继续使用 `M06-CFG-compliance-links` |
+| `M06-RULE-business-h5-content` | 跨模块业务 H5 内容承接 | `ADM-06-PAGE-compliance-config`、`APP-07-PAGE-invite-rules` | 一期仅预置 `invite_rules`：PRD-06 管理标题、H5 URL、版本、状态和预览；PRD-07 管理邀请资格、奖励事件、金额、阶梯与业务文案。H5 正文不得改变 `M07-*` 规则；发布前由运营核对规则版本。邀请入口启用时不得停用 `invite_rules`。移动端加载失败先使用最近成功缓存，无缓存时展示不可用态与重试。 | 本规则是用户确认的 PRD-07 特例；PRD-10 签到规则仍由 PRD-10 自行配置，只复用共享 H5 容器 |
 | `M06-RULE-single-commitment-content` | 单身承诺函 H5 承接 | APP/ADM | 后台预置“单身承诺函”协议类型并维护标题、H5 地址、版本和状态；实名认证页只能打开当前启用版本，提交时同时记录 `singleCommitmentVersion`、`singleCommitmentAgreedAt` 和勾选状态，历史同意记录不随链接替换而覆盖 | 单身承诺不是第四认证；认证规则引用 `M01-RULE-single-commitment` |
 | `M06-RULE-compliance-version` | 合规内容版本递增 | ADM | 所有合规配置项预初始化为 `v1.0`，不允许新增或删除；仅替换 H5 地址时版本尾号加 1，`v1.9` 后变为 `v2.0`；仅修改标题或状态不升级版本 | 版本由服务端计算，后台不可手填 |
 | `M06-RULE-cancellation-auto-execute` | 注销自动执行 | APP/ADM | 申请创建后系统立即进入后悔期；用户可在后悔期撤销；到期由定时任务重新校验，校验通过执行注销，出现新硬阻断则暂停并按计划重试 | 后台只读详情并可追加备注，不提供批准、拒绝或立即注销 |
@@ -185,6 +203,7 @@
 | 配置 ID | 配置项 | 默认值 | 类型 | 配置路径 | 修改后是否立即生效 | 高风险 |
 |---------|--------|--------|------|----------|-------------------|--------|
 | `M06-CFG-compliance-links` | 合规内容链接 | 空 | json[] | 移动端配置管理 -> 公告与协议配置 | 是 | 是 |
+| `M06-CFG-business-h5-links` | 业务 H5 内容链接 | 预置 `invite_rules`，URL 空 | json[] | 移动端配置管理 -> H5 内容配置 -> 业务规则 | 是 | 是 |
 | `M06-CFG-search-block-words` | 搜索屏蔽词 | 空数组 | json[] | 运营中心 -> 搜索屏蔽词 | 是 | 是 |
 | `M06-CFG-cancellation-cooling-days` | 注销后悔期天数 | 30 | int | 用户安全设置 -> 注销申请配置 | 是，仅新申请生效 | 是 |
 
@@ -201,6 +220,7 @@
 | `M06-TXT-cert-center-guide` | 文案 | 认证中心说明 | APP | 完成三重认证后，即可使用核心互动能力 | 是 |
 | `M06-TXT-cancellation-risk` | 文案 | 注销确认 | APP | 注销后账号资料将按规则处理，后悔期内可撤销 | 是 |
 | `M06-TXT-search-blocked` | 文案 | 搜索词违规 | APP | 搜索内容不支持展示 | 是 |
+| `M06-EVT-h5-content-published` | 事件 | H5 URL 变更并发布 | 内部事件/审计 | contentKey, sourceModule, oldVersion, newVersion, operatorId | 否 |
 
 ---
 
@@ -214,6 +234,8 @@
 | `M06-ERR-cancellation-blocked` | 409 | 60005 | 注销命中硬阻断 | 当前账号暂不可注销，请查看原因 | 是 |
 | `M06-ERR-cancellation-not-found` | 404 | 60006 | 注销申请不存在 | 注销申请不存在 | 否 |
 | `M06-ERR-content-link-missing` | 500 | 60007 | 合规内容链接缺失 | 内容暂不可查看 | 是 |
+| `M06-ERR-h5-cache-missing` | 503 | 60008 | 当前 H5 不可用且客户端无最近成功缓存 | 内容暂不可查看，请稍后重试 | 是 |
+| `M06-ERR-business-content-disable-blocked` | 409 | 60009 | 来源业务入口启用时尝试停用必备 H5 内容 | 请先关闭对应业务入口后再停用 | 否 |
 
 ---
 
@@ -230,11 +252,13 @@
 | APP | POST | `/api/app/search/history/clear` | 清空本地或账号维度搜索历史同步标记 | `M06-RULE-search-history` |
 | APP | POST | `/api/app/account/cancellation` | 提交注销申请 | `M06-SM-account-cancellation` |
 | APP | POST | `/api/app/account/cancellation/cancel` | 撤销注销申请 | `M06-SM-account-cancellation` |
+| APP | GET | `/api/app/h5-content/{contentKey}` | 获取当前启用 H5 的标题、URL、版本、更新时间和缓存标识；`invite_rules` 供 PRD-07 使用 | `M06-RULE-business-h5-content` |
 | ADM | GET | `/api/admin/search/block-words` | 搜索屏蔽词列表 | `M06-CFG-search-block-words` |
 | ADM | POST | `/api/admin/search/block-words` | 新增/编辑/启停屏蔽词 | `M06-RULE-search-block` |
 | ADM | GET | `/api/admin/account-cancellations` | 注销申请列表 | `M06-SM-account-cancellation` |
 | ADM | POST | `/api/admin/account-cancellations/{requestId}/remark` | 更新注销处理备注 | `M06-SM-account-cancellation` |
 | ADM | GET/POST | `/api/admin/compliance-content` | 公告、帮助、协议、清单配置 | `M06-RULE-compliance-content` |
+| ADM | GET/POST | `/api/admin/h5-content` | 查询/保存预置 H5 内容；包含 `invite_rules`，不提供新增或删除 | `M06-RULE-business-h5-content` |
 | ADM | GET/POST | `/api/admin/system-params/cancellation-cooling-days` | 查询或修改注销后悔期天数；仅影响新申请 | `M06-CFG-cancellation-cooling-days` |
 
 ---

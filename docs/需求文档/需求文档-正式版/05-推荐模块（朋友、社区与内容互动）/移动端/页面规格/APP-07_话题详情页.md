@@ -180,3 +180,7 @@ Then  跳转发布动态页并自动选中当前话题
 | 依赖的模块规则 | `M05-RULE-topic-cover-image` | 话题封面图片规则 |
 | 依赖的其他页面 | `APP-05-PAGE-post-publish` | 发布 |
 | 依赖的其他页面 | `APP-05-PAGE-post-detail` | 内容详情 |
+
+## 11. 蓝湖反向缺口补充
+
+话题头补充 `participantAvatars`（最多 3 个）、`participantCount` 和 `viewCount`；内容卡补充作者资料摘要、评论预览和“查看全部 N 条评论”。参与人数按在该话题发布过公开内容的用户去重，浏览量是累计 PV，二者不得互换。

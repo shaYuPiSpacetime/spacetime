@@ -31,6 +31,9 @@
         <a href="#APP-05-PAGE-yuemu">悦目</a>
         <a href="#APP-05-PAGE-sincere-list">诚意贴列表</a>
         <a href="#APP-05-PAGE-user-posts">个人动态区</a>
+        <a href="#APP-05-PAGE-interaction-center">千寻互动中心</a>
+        <a href="#APP-05-PAGE-follow-relations">关注与粉丝</a>
+        <a href="#APP-05-PAGE-post-interactors">动态互动用户</a>
         <a href="#APP-05-PAGE-community-greeting">社区打招呼</a>
         <a href="#APP-05-PAGE-community-private-entry">社区发私信</a>
         <a href="#APP-05-PAGE-community-more-actions">更多操作</a>
@@ -103,6 +106,7 @@
                 <div data-render="topic-chips"></div>
                 <div data-render="upload-grid"></div>
                 <button class="btn" data-toast="已打开 @ 用户选择弹窗">选择 @ 用户</button>
+                <div class="draft-actions"><button class="btn" data-save-draft>保存草稿</button><button class="btn" data-restore-draft>恢复草稿</button><button class="btn" data-cycle-upload>演示上传状态</button></div>
                 <button class="btn primary full" data-submit-publish>提交审核</button>
               </div>
             </div></article>
@@ -150,10 +154,34 @@
           </div>
         </section>
 
-        <section class="section-band" id="APP-05-PAGE-community-greeting">
-          <div class="page-head"><h2>APP-05-PAGE-community-greeting 社区打招呼页</h2><p>从社区内容或用户卡片发起悄悄话破冰，发送资格引用 PRD-03。</p></div>
+        <section class="section-band" id="APP-05-PAGE-interaction-center">
+          <div class="page-head"><h2>APP-05-PAGE-interaction-center 千寻互动中心页</h2><p>按评论过、点赞过、解锁过、浏览记录查看本人历史，获赞统计与通知中心分离。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:52</span><span>打招呼</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span data-static-avatar="P-240701"></span><div><strong>给周予安打招呼</strong><div class="helper">来源：动态 P-240701</div></div></div></div><div class="composer"><div data-render="greeting-templates"></div><textarea data-greeting-content></textarea><div data-render="greeting-cost"></div><button class="btn primary full" data-open-modal="greetingConfirmModal">发送悄悄话</button></div></div></article>
+            <article class="phone"><div class="phone-bar"><span>9:51</span><span>千寻互动</span></div><div class="phone-screen"><div data-render="received-like-stats"></div><div class="mini-tabs"><button data-history-type="commented">评论过</button><button data-history-type="liked">点赞过</button><button data-history-type="unlocked">解锁过</button><button data-history-type="viewed">浏览记录</button></div><div data-render="interaction-history"></div><button class="btn full" data-clear-history>清空当前浏览记录</button></div></article>
+            <article class="mini-panel"><h3>边界</h3><p>解锁结果只读引用 PRD-04；清空浏览记录不影响点赞、评论或解锁记录。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-follow-relations">
+          <div class="page-head"><h2>APP-05-PAGE-follow-relations 关注粉丝列表页</h2><p>社区关注是弱关系，关注/取消关注不改变匹配或普通私信资格。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:52</span><span>关注与粉丝</span></div><div class="phone-screen"><div class="mini-tabs"><button data-relation-type="following">关注 18</button><button data-relation-type="followers">粉丝 26</button></div><div data-render="follow-relations"></div></div></article>
+            <article class="mini-panel"><h3>统计口径</h3><p>列表总数与主页统计同源；关注空态和粉丝空态分别定义。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-post-interactors">
+          <div class="page-head"><h2>APP-05-PAGE-post-interactors 动态互动用户列表页</h2><p>点赞、收藏、评论用户独立查询；收藏用户明细仅作者本人可见。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:53</span><span>互动用户</span></div><div class="phone-screen"><div class="mini-tabs"><button data-interactor-type="liked">点赞</button><button data-interactor-type="favorited">收藏</button><button data-interactor-type="commented">评论</button></div><div data-render="post-interactors"></div></div></article>
+            <article class="mini-panel"><h3>隐私</h3><p>非作者只能看到本人收藏态和允许公开的收藏数，不返回收藏用户明细。</p></article>
+          </div>
+        </section>
+
+        <section class="section-band" id="APP-05-PAGE-community-greeting">
+          <div class="page-head"><h2>APP-05-PAGE-community-greeting 社区打招呼页</h2><p>“申请认识”是打招呼/悄悄话入口别名，发送资格引用 PRD-03。</p></div>
+          <div class="section-body phone-stage">
+            <article class="phone"><div class="phone-bar"><span>9:54</span><span>申请认识</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span data-static-avatar="P-240701"></span><div><strong>申请认识周予安</strong><div class="helper">标准动作：greeting · 来源：动态 P-240701</div></div></div></div><div class="composer"><div data-render="greeting-templates"></div><textarea data-greeting-content></textarea><div data-render="greeting-cost"></div><button class="btn primary full" data-open-modal="greetingConfirmModal">发送悄悄话</button></div></div></article>
             <article class="mini-panel"><h3>引用规则</h3><p>同一对象已有待回复悄悄话时展示等待态，不重复发送。</p></article>
           </div>
         </section>
@@ -167,7 +195,7 @@
         </section>
 
         <section class="section-band" id="APP-05-PAGE-community-more-actions">
-          <div class="page-head"><h2>APP-05-PAGE-community-more-actions 社区更多操作弹窗</h2><p>统一承接举报、屏蔽当前内容、复制链接、打招呼和发私信。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-community-more-actions 社区更多操作弹窗</h2><p>区分屏蔽当前内容与不看 TA 动态，并支持取消不看。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:54</span><span>更多操作</span></div><div class="phone-screen"><div class="segmented"><button data-more-target-type="post">内容</button><button data-more-target-type="comment">评论</button><button data-more-target-type="user">用户</button></div><button class="btn full" data-open-modal="moreActionsModal">打开更多操作</button><div class="notice">屏蔽成功后 toast 提供 3 秒撤销，当前反馈内闭环。</div><button class="btn" data-undo-hide>撤销最近一次屏蔽</button></div></article>
             <article class="mini-panel"><h3>对象类型</h3><ul class="check-list"><li><span>post</span><strong>举报/屏蔽/复制</strong></li><li><span>comment</span><strong>举报/复制</strong></li><li><span>user</span><strong>打招呼/发私信/举报</strong></li></ul></article>

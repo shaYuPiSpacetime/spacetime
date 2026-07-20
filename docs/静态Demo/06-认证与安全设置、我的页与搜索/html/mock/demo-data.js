@@ -77,12 +77,24 @@ window.PRD06_DATA = {
     { requestNo: "CAN-000084", user: "风的退迟 U100279", phone: "186****7710", reason: "不想被推荐", status: "已注销", requestedAt: "2026-06-06 21:45", coolingEnd: "2026-07-06 21:45", remaining: "已完成", vip: "非会员", coin: "0", refund: "无未完成退款", dispute: "无付费争议", penalty: "账号正常", risks: "无", execution: "定时任务于 2026-07-06 21:47 执行成功", remarks: "合规记录按规则留存" }
   ],
   compliance: [
-    { type: "协议", title: "用户协议", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/agreement/user" },
-    { type: "隐私", title: "隐私政策", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/agreement/privacy" },
-    { type: "清单", title: "第三方信息共享清单", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/privacy/third-party" },
-    { type: "清单", title: "个人信息收集清单", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/privacy/personal-info" },
-    { type: "规范", title: "平台信息管理规范", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/rules/platform" },
-    { type: "公告", title: "平台功能更新公告", version: "v1.0", status: "停用", effectiveAt: "2026-07-07 18:00", url: "https://m.example.com/notice/update" }
+    { key: "user_agreement", group: "policies", type: "协议", title: "用户协议", sourceModule: "PRD-06", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/agreement/user" },
+    { key: "privacy_policy", group: "policies", type: "隐私", title: "隐私政策", sourceModule: "PRD-06", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/agreement/privacy" },
+    { key: "third_party_list", group: "policies", type: "清单", title: "第三方信息共享清单", sourceModule: "PRD-06", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/privacy/third-party" },
+    { key: "personal_info_list", group: "policies", type: "清单", title: "个人信息收集清单", sourceModule: "PRD-06", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/privacy/personal-info" },
+    { key: "platform_rules", group: "policies", type: "规范", title: "平台信息管理规范", sourceModule: "PRD-06", version: "v1.0", status: "启用", effectiveAt: "2026-07-08 09:00", url: "https://m.example.com/rules/platform" },
+    { key: "announcement", group: "announcements", type: "公告", title: "平台功能更新公告", sourceModule: "PRD-06", version: "v1.0", status: "停用", effectiveAt: "2026-07-07 18:00", url: "https://m.example.com/notice/update" },
+    {
+      key: "invite_rules",
+      group: "business-rules",
+      type: "业务规则",
+      title: "邀请规则",
+      sourceModule: "PRD-07",
+      version: "v4.1",
+      status: "启用",
+      effectiveAt: "2026-07-20 15:30",
+      url: "https://m.example.com/promotion/invite-rules-v4-1",
+      previewHtml: `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>body{margin:0;background:#f8f6ff;color:#272238;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}.hero{padding:30px 22px;background:linear-gradient(145deg,#4f35cf,#8659e8);color:#fff}.hero small{opacity:.8}.hero h1{margin:10px 0 6px;font-size:25px;line-height:1.3}.hero p{margin:0;font-size:12px;opacity:.78}.meta{display:flex;gap:7px;padding:13px 15px;background:#eee9ff;color:#5e49c6;font-size:11px}.card{display:grid;grid-template-columns:34px 1fr;gap:10px;margin:12px 14px;padding:15px;border:1px solid #ebe7f6;border-radius:14px;background:#fff}.card i{display:grid;width:30px;height:30px;place-items:center;border-radius:9px;background:#eee9ff;color:#654cd7;font-style:normal;font-weight:800}.card h3{margin:1px 0 6px;font-size:14px}.card p{margin:0;color:#6f687c;font-size:11px;line-height:1.75}.foot{padding:16px;text-align:center;color:#8a8298;font-size:10px}</style><body><section class="hero"><small>邀请规则 · V4.1</small><h1>每一次真诚分享<br>都有清晰回报</h1><p>更新时间：2026-07-20</p></section><div class="meta"><span>内容配置：PRD-06</span><span>业务规则：PRD-07</span></div><section class="card"><i>01</i><div><h3>完成注册即邀请成功</h3><p>好友通过你的专属入口，以新用户身份完成注册后立即计入成功人数，邀请关系永久有效。</p></div></section><section class="card"><i>02</i><div><h3>奖励事件</h3><p>完成注册、完善资料、认证完成、首次会员、首次充值可分别触发奖励，金额以当前规则为准。</p></div></section><section class="card"><i>03</i><div><h3>阶梯是当次额外奖励</h3><p>完成注册奖励20千寻币时，第5位好友产生20+50两笔奖励；第8位好友只产生20千寻币基础奖励。</p></div></section><section class="card"><i>04</i><div><h3>参与资格</h3><p>仅新用户可建立关系；不可邀请自己，已有邀请关系的好友不会重复绑定。</p></div></section><div class="foot">具体奖励金额以系统实际发放记录为准</div></body></html>`
+    }
   ],
   blockWords: [
     ["约炮", "搜索词违规", "精确匹配", "启用"],

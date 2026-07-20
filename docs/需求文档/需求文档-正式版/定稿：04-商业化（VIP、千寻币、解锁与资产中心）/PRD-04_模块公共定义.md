@@ -182,6 +182,7 @@
 | `invite_verify_reward` | 邀请认证完成奖励 | PRD-07 认证完成奖励 | 11 | 否 | 启用 |
 | `invite_first_vip_reward` | 邀请首次会员奖励 | PRD-07 首次会员奖励 | 12 | 否 | 启用 |
 | `invite_first_coin_reward` | 邀请首次充值奖励 | PRD-07 首次充值千寻币奖励 | 13 | 否 | 启用 |
+| `invite_ladder_reward` | 邀请阶梯额外奖励 | PRD-07 命中累计成功人数档位时的一次性额外奖励 | 14 | 否 | 启用 |
 
 ### 3.10 `M04-ENUM-unlock-status` 解锁状态
 
@@ -266,7 +267,7 @@
 | `M04-RULE-coin-consume-price-scope` | 千寻币消费场景范围 | APP/ADM | `M04-CFG-coin-scene-price` 只配置 `whisper`、`likes_unlock_one`、`viewers_unlock_one`、`ideal_user_unlock`、`ideal_batch_unlock`、`compatible_person_unlock_one`、`soulmate_mizhiyin_unlock_one`、`career_recommend_unlock_one` 8 个消费场景的移动端展示名称、单价、启停和移动端图标；`invite_*` 仅作为 PRD-07 奖励入账场景，不进入千寻币消费场景配置 | 避免奖励场景被误配为消费扣费；移动端充值页消费场景列表取该配置 |
 | `M04-RULE-paid-coin-scope` | 唯一付费虚拟币口径 | APP/ADM | 千寻币是 PRD-04 唯一付费虚拟币；demo 中“积分管理”不纳入首版，不建设积分公式、积分规则、积分记录，也不与千寻币做双资产并行展示 | 如后续需要积分体系，应另立 PRD，不复用千寻币字段 |
 | `M04-RULE-exposure-pack-reserve` | 曝光包预留 | APP/ADM | 首版只在文案和配置层保留场景占位，不允许上架售卖 | 待推荐规则补齐后另写 PRD |
-| `M04-RULE-invite-reward-flow` | 邀请奖励入账 | PRD-07/PRD-04 | PRD-07 奖励成功后写 PRD-04 千寻币流水，`flowType=reward`，`bizScene` 使用 `invite_*` | 触发与风控归 PRD-07 |
+| `M04-RULE-invite-reward-flow` | 邀请奖励入账 | PRD-07/PRD-04 | PRD-07 奖励成功后写 PRD-04 千寻币流水，`flowType=reward`，基础事件使用既有 `invite_*`，阶梯独立流水使用 `invite_ladder_reward` | 触发、规则快照与幂等归 PRD-07 |
 | `M04-RULE-order-idempotency` | 订单与流水幂等 | APP/ADM | 支付回调、退款回调、解锁扣币、邀请奖励入账均需用业务幂等键避免重复发放/扣减 | 技术方案需落唯一键 |
 | `M04-RULE-asset-retention` | 资产记录留存 | APP/ADM | 资产流水、订单、退款记录长期保留；用户注销后按合规策略匿名化或受控留存 | 不删除财务台账 |
 | `M04-RULE-admin-subscription-scope` | 后台连续订阅边界 | ADM | 后台首版只配置连续订阅套餐/微信商品/协议，并查看会员状态与订单结果；不提供微信连续订阅状态主动查询、同步、取消续费、代用户取消等后台操作 | 用户订阅状态查询、刷新和取消续费入口由 `APP-04-PAGE-subscription-manage` 承接 |

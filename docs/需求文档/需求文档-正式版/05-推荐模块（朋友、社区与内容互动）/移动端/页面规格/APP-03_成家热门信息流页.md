@@ -184,3 +184,9 @@ Then  页面展示热门序号、内容摘要、图片、热度、点赞数和�
 | 依赖的其他页面 | `APP-05-PAGE-topic-list` | 话题列表 |
 | 依赖的其他页面 | `APP-05-PAGE-post-detail` | 内容详情 |
 | 依赖的其他页面 | `APP-05-PAGE-report-modal` | 举报 |
+
+## 11. 蓝湖反向缺口补充
+
+- 热门内容卡补充作者出生年、城市、职业、活跃描述、评论预览与“查看全部”入口。
+- 家园话题入口卡补充 `latestPost`、最多 3 个 `participantAvatars`、`participantCount` 和 `viewCount`；缺少最新动态时仍保留话题基本信息。
+- 作者区“申请认识”统一进入社区打招呼页；内容与作者屏蔽严格区分作用域。

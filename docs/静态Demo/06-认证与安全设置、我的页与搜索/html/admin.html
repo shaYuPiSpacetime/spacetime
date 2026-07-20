@@ -1,12 +1,73 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>公告与协议配置 - PRD-06</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../../shared/base.css"><link rel="stylesheet" href="assets/demo.css"></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>H5 内容配置 - PRD-06</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../shared/base.css">
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
 <body class="admin-demo-page" data-admin-page="compliance">
-  <a class="demo-home-link" href="../../index.html">返回静态 Demo 总入口</a>
-  <aside class="adm-sidebar"><a class="adm-brand" href="index.html">时空邂逅</a><nav class="adm-nav" aria-label="管理后台菜单"><section><button class="adm-section-title">内容管理配置</button><a class="is-active" href="admin.html"><span>公告与协议</span></a><a href="admin-blockwords.html"><span>搜索屏蔽词</span></a></section><section><button class="adm-section-title">用户安全设置</button><a href="admin-cancellations.html"><span>注销申请</span></a></section></nav><div class="adm-version">Spacetime Admin v1.0</div></aside>
-  <header class="adm-header"><div class="adm-top-tabs"><strong>公告与协议配置</strong></div><div class="adm-header-actions"><a class="btn ghost" href="index.html">总览</a><a class="btn ghost" href="miniapp.html">移动端</a><span class="adm-avatar">管</span><span>系统管理员</span><button class="adm-logout" data-toast="静态 Demo 不执行退出">退出</button></div></header>
-  <main class="adm-main"><section class="adm-page-head"><div><h1>公告与协议配置</h1><p>所有配置项预先初始化，只允许编辑和预览，不允许新增或删除。</p></div><button class="btn" data-toast="已刷新配置">刷新</button></section><section class="adm-card"><div class="adm-table-wrap"><table><thead><tr><th>内容类型</th><th>标题</th><th>版本</th><th>状态</th><th>生效时间</th><th>操作</th></tr></thead><tbody data-table="compliance"></tbody></table></div></section></main>
-  <div class="admin-dialog-backdrop" id="complianceEditModal" aria-hidden="true"><section class="admin-dialog" role="dialog" aria-modal="true" aria-labelledby="complianceEditTitle"><button class="admin-dialog-close" data-close-dialog aria-label="关闭">×</button><h2 id="complianceEditTitle">编辑公告与协议</h2><p class="admin-dialog-tip">替换 H5 地址后版本自动递增；仅修改标题或状态不升级版本。</p><form data-compliance-form><input type="hidden" name="rowIndex"><label><span>内容类型</span><input name="type" readonly></label><label><span>标题</span><input name="title" maxlength="40" required></label><label><span>当前版本</span><input name="version" readonly></label><label><span>状态</span><select name="status"><option>启用</option><option>停用</option></select></label><label><span>H5 链接</span><input name="url" type="url" required></label><div class="admin-dialog-actions"><button type="button" class="btn" data-close-dialog>取消</button><button type="submit" class="btn primary">保存</button></div></form></section></div>
-  <div class="admin-dialog-backdrop" id="compliancePreviewModal" aria-hidden="true"><section class="admin-dialog admin-dialog-wide" role="dialog" aria-modal="true" aria-labelledby="compliancePreviewTitle"><button class="admin-dialog-close" data-close-dialog aria-label="关闭">×</button><h2 id="compliancePreviewTitle">H5 内容预览</h2><p data-preview-url></p><div class="h5-preview"><div class="h5-preview-bar">目标链接实际内容</div><iframe data-preview-frame title="H5 内容预览" sandbox="allow-same-origin allow-scripts"></iframe></div></section></div>
-  <script src="mock/demo-data.js"></script><script src="assets/demo.js"></script>
-</body></html>
+  <div class="adm-shell">
+    <aside class="adm-sidebar">
+      <a class="adm-brand" href="index.html">时空邂逅</a>
+      <nav class="adm-nav" aria-label="管理后台菜单">
+        <section><button class="adm-section-title">移动端配置管理</button><a class="is-active" href="admin.html"><span>H5 内容配置</span></a><a href="admin-blockwords.html"><span>搜索屏蔽词</span></a></section>
+        <section><button class="adm-section-title">用户安全设置</button><a href="admin-cancellations.html"><span>注销申请</span></a></section>
+      </nav>
+      <div class="adm-version">Spacetime Admin v1.0</div>
+    </aside>
+    <header class="adm-header">
+      <div class="adm-top-tabs"><strong>H5 内容配置</strong></div>
+      <div class="adm-header-actions"><a class="btn ghost" href="index.html">总览</a><a class="btn ghost" href="miniapp.html">移动端</a><span class="adm-avatar">管</span><span>系统管理员</span><button class="adm-logout" data-toast="静态 Demo 不执行退出">退出</button></div>
+    </header>
+    <main class="adm-main">
+      <section class="adm-page-head"><div><h1>H5 内容配置</h1><p>统一维护预置 H5 的标题、地址、版本与状态，不允许新增或删除内容类型。</p></div><button class="btn" data-toast="已刷新配置">刷新</button></section>
+      <section class="adm-card h5-config-card">
+        <div class="content-tabs" role="tablist" aria-label="H5 内容分组">
+          <button class="is-active" role="tab" aria-selected="true" data-content-tab="policies">协议政策</button>
+          <button role="tab" aria-selected="false" data-content-tab="announcements">公告与帮助</button>
+          <button role="tab" aria-selected="false" data-content-tab="business-rules">业务规则</button>
+        </div>
+        <div class="business-rule-notice" data-business-rule-notice hidden>
+          <div><b>配置归属说明</b><p>邀请规则内容由 PRD-07 定义，本页只维护 H5 标题、地址、版本、状态和预览，不配置奖励金额或阶梯档位。</p></div>
+          <span>内容配置：PRD-06 · 业务规则：PRD-07</span>
+        </div>
+        <div class="adm-table-wrap"><table><thead><tr><th>内容类型</th><th>标题</th><th>来源模块</th><th>版本</th><th>状态</th><th>生效时间</th><th>操作</th></tr></thead><tbody data-table="compliance"></tbody></table></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="admin-dialog-backdrop" id="complianceEditModal" aria-hidden="true">
+    <section class="admin-dialog" role="dialog" aria-modal="true" aria-labelledby="complianceEditTitle">
+      <button class="admin-dialog-close" data-close-dialog aria-label="关闭">×</button>
+      <h2 id="complianceEditTitle">编辑 H5 内容</h2>
+      <p class="admin-dialog-tip">替换 H5 地址后版本自动递增；仅修改标题或状态不升级版本。</p>
+      <div class="dialog-boundary-note" data-dialog-boundary-note hidden>邀请规则的资格、事件、金额与阶梯算法以 PRD-07 为准，本弹窗不修改业务计算。</div>
+      <form data-compliance-form>
+        <input type="hidden" name="rowIndex">
+        <label><span>内容类型</span><input name="type" readonly></label>
+        <label><span>来源模块</span><input name="sourceModule" readonly></label>
+        <label><span>标题</span><input name="title" maxlength="40" required></label>
+        <label><span>当前版本</span><input name="version" readonly></label>
+        <label><span>状态</span><select name="status"><option>启用</option><option>停用</option></select></label>
+        <label><span>H5 链接</span><input name="url" type="url" required></label>
+        <div class="admin-dialog-actions"><button type="button" class="btn" data-close-dialog>取消</button><button type="submit" class="btn primary">保存</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="admin-dialog-backdrop" id="compliancePreviewModal" aria-hidden="true">
+    <section class="admin-dialog admin-dialog-wide" role="dialog" aria-modal="true" aria-labelledby="compliancePreviewTitle">
+      <button class="admin-dialog-close" data-close-dialog aria-label="关闭">×</button>
+      <div class="preview-heading"><div><span data-preview-meta>H5 内容</span><h2 id="compliancePreviewTitle">H5 内容预览</h2></div><span class="tag success" data-preview-version>v1.0</span></div>
+      <p data-preview-url></p>
+      <div class="h5-preview"><div class="h5-preview-bar">移动端 H5 预览</div><iframe data-preview-frame title="H5 内容预览" sandbox="allow-same-origin"></iframe></div>
+    </section>
+  </div>
+
+  <script src="mock/demo-data.js"></script>
+  <script src="assets/demo.js"></script>
+</body>
+</html>

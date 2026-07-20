@@ -11,8 +11,8 @@ window.PRD05_DEMO_DATA = {
   },
   tabs: ['关注', '同城', '热门', '话题'],
   topics: [
-    { id: 'T-1001', name: '周末去哪里', desc: '城市周末活动和约会灵感', cover: PRD05_TOPIC_COVER('#60a5fa', '#0f766e', '#facc15'), hot: 982, count: 128, status: '启用', recommended: true, sort: 10, updatedBy: '运营admin', updatedTime: '2026-07-06 10:20', scenes: ['热门入口', '话题列表', '发布页'] },
-    { id: 'T-1002', name: '认真找对象', desc: '真诚关系和长期主义', cover: PRD05_TOPIC_COVER('#fb7185', '#7c3aed', '#fde68a'), hot: 875, count: 96, status: '启用', recommended: true, sort: 20, updatedBy: '运营admin', updatedTime: '2026-07-06 10:12', scenes: ['热门入口', '话题列表', '发布页'] },
+    { id: 'T-1001', name: '周末去哪里', desc: '城市周末活动和约会灵感', cover: PRD05_TOPIC_COVER('#60a5fa', '#0f766e', '#facc15'), hot: 982, count: 128, status: '启用', recommended: true, sort: 10, latestPost: '周六良渚看展，想找同频搭子', participantCount: 86, viewCount: 3260, participantAvatars: [PRD05_AVATAR('#f7c6a7', '#1f2937', '#64748b', '#111827'), PRD05_AVATAR('#f2b8a2', '#0f766e', '#67e8f9', '#3f2a24')], updatedBy: '运营admin', updatedTime: '2026-07-06 10:20', scenes: ['热门入口', '话题列表', '发布页'] },
+    { id: 'T-1002', name: '认真找对象', desc: '真诚关系和长期主义', cover: PRD05_TOPIC_COVER('#fb7185', '#7c3aed', '#fde68a'), hot: 875, count: 96, status: '启用', recommended: true, sort: 20, latestPost: '希望关系里有稳定回应，也有各自热爱', participantCount: 64, viewCount: 2880, participantAvatars: [PRD05_AVATAR('#d9a47f', '#2563eb', '#8b5cf6', '#1e293b'), PRD05_AVATAR('#d6a27f', '#7c3aed', '#db2777', '#1f2937')], updatedBy: '运营admin', updatedTime: '2026-07-06 10:12', scenes: ['热门入口', '话题列表', '发布页'] },
     { id: 'T-1003', name: '下班后的生活', desc: '生活方式、运动、读书和小店', cover: PRD05_TOPIC_COVER('#22c55e', '#0369a1', '#bbf7d0'), hot: 621, count: 77, status: '启用', recommended: true, sort: 30, updatedBy: '运营admin', updatedTime: '2026-07-05 18:32', scenes: ['话题列表', '发布页'] },
     { id: 'T-1004', name: '同城饭搭子', desc: '饭搭子、展览、徒步和咖啡', cover: PRD05_TOPIC_COVER('#f97316', '#be123c', '#fef3c7'), hot: 512, count: 51, status: '启用', recommended: false, sort: 40, updatedBy: '运营admin', updatedTime: '2026-07-05 16:08', scenes: ['话题列表', '发布页'] },
     { id: 'T-1005', name: '树洞慢聊', desc: '轻量表达情绪和生活片段', cover: PRD05_TOPIC_COVER('#64748b', '#312e81', '#c4b5fd'), hot: 92, count: 12, status: '停用', recommended: false, sort: 90, updatedBy: '运营admin', updatedTime: '2026-07-04 11:40', scenes: ['话题列表'] }
@@ -31,7 +31,10 @@ window.PRD05_DEMO_DATA = {
       text: '周六想去良渚看展，结束后找一家安静的咖啡店坐坐。喜欢慢一点的安排，也欢迎推荐小众路线。',
       images: ['良渚展览', '手冲咖啡'],
       likeCount: 86,
+      favoriteCount: 23,
+      favoritedByMe: true,
       commentCount: 12,
+      commentPreview: ['林浅：良渚路线我也收藏了。', '周予安：收到，谢谢推荐。'],
       status: 'published',
       time: '18 分钟前',
       activeText: '刚刚活跃',
@@ -53,7 +56,10 @@ window.PRD05_DEMO_DATA = {
       text: '最近开始固定夜跑，发现规律生活比一时兴起更难，但也更让人安心。',
       images: ['夜跑路线'],
       likeCount: 64,
+      favoriteCount: 16,
+      favoritedByMe: false,
       commentCount: 9,
+      commentPreview: ['孟夏：夜跑路线很舒服。'],
       status: 'published',
       time: '42 分钟前',
       activeText: '2 小时前活跃',
@@ -75,7 +81,10 @@ window.PRD05_DEMO_DATA = {
       text: '我在上海做产品，平时喜欢做饭、看纪录片和短途旅行。希望关系里能坦诚表达，也能给彼此空间。比起热闹，我更在意稳定的相处节奏。',
       images: ['厨房晚餐', '江边散步'],
       likeCount: 142,
+      favoriteCount: 48,
+      favoritedByMe: false,
       commentCount: 31,
+      commentPreview: ['许知意：稳定回应真的很重要。'],
       status: 'published',
       time: '今天 09:20',
       activeText: '今天 09:20',
@@ -235,6 +244,45 @@ window.PRD05_DEMO_DATA = {
     ipBlockPeriods: ['1 小时', '24 小时', '72 小时', '7 天']
   },
   uploadSamples: ['展馆门口', '咖啡窗边', '散步路线', '晚餐照片', '书店角落', '城市夜景', '手写便签', '周末计划', '展览海报'],
+  publishDraft: {
+    contentType: 'community_post',
+    content: '下班后想去运河边散步，顺便找一家安静的小店。',
+    topic: '下班后的生活',
+    images: [{ label: '运河晚风', uploadStatus: 'success' }],
+    updatedAt: '今天 09:18'
+  },
+  interactionHistory: {
+    commented: [
+      { id: 'H-C-01', title: '周六良渚看展', summary: '你评论：良渚路线我也收藏了。', time: '12 分钟前' },
+      { id: 'H-C-02', title: '夜跑后的生活', summary: '你评论：这条路线很适合慢跑。', time: '昨天 21:10' }
+    ],
+    liked: [
+      { id: 'H-L-01', title: '希望关系里有稳定回应', summary: '已点赞 · 142 赞', time: '今天 09:26' }
+    ],
+    unlocked: [
+      { id: 'H-U-01', title: '解锁诚意资料', summary: '解锁仍有效，资产结果由 PRD-04 提供', time: '7 月 18 日' }
+    ],
+    viewed: [
+      { id: 'H-V-01', title: '运河夜色', summary: '浏览动态 P-240705', time: '3 分钟前' },
+      { id: 'H-V-02', title: '同城饭搭子', summary: '浏览话题和动态', time: '35 分钟前' }
+    ]
+  },
+  receivedLikeStats: { posts: 286, comments: 42, total: 328 },
+  followRelations: {
+    following: [
+      { name: '周予安', profile: '97年 · 杭州 · 设计行业', activeText: '刚刚活跃', followed: true, avatar: PRD05_AVATAR('#f7c6a7', '#1f2937', '#64748b', '#111827') },
+      { name: '孟夏', profile: '96年 · 杭州 · 金融行业', activeText: '昨天活跃', followed: true, avatar: PRD05_AVATAR('#f1b79d', '#f97316', '#fb7185', '#4a2c22') }
+    ],
+    followers: [
+      { name: '许知意', profile: '95年 · 杭州 · 内容运营', activeText: '2 小时前活跃', followed: false, avatar: PRD05_AVATAR('#f2b8a2', '#0f766e', '#67e8f9', '#3f2a24') },
+      { name: '顾清和', profile: '94年 · 杭州 · 建筑设计', activeText: '今天活跃', followed: true, avatar: PRD05_AVATAR('#c88b6a', '#334155', '#0ea5e9', '#0f172a') }
+    ]
+  },
+  postInteractors: {
+    liked: [{ name: '许知意', detail: '18 分钟前点赞', followed: false }, { name: '孟夏', detail: '24 分钟前点赞', followed: true }],
+    favorited: [{ name: '林浅', detail: '12 分钟前收藏', followed: true }],
+    commented: [{ name: '林浅', detail: '最近评论：良渚路线我也收藏了', followed: true }, { name: '周予安', detail: '最近回复：收到，谢谢推荐', followed: true }]
+  },
   greetingTemplates: [
     '看到你也喜欢看展，想认识一下。',
     '你的分享很真诚，想和你聊聊近况。',

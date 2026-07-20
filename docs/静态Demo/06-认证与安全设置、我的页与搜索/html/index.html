@@ -31,7 +31,7 @@
           <div class="hero-copy">
             <div>
               <h1>PRD-06 静态 Demo</h1>
-              <p>覆盖移动端我的页、认证中心、帮助客服、设置、隐私设置、注销、合规清单、关于我们、公告、搜索首页与搜索结果，以及后台注销申请、搜索屏蔽词和公告协议。</p>
+              <p>覆盖移动端我的页、认证中心、帮助客服、设置、隐私设置、注销、合规清单、关于我们、公告、搜索首页与搜索结果，以及后台注销申请、搜索屏蔽词和 H5 内容配置。</p>
               <div class="metric-strip">
                 <div class="metric"><strong>13</strong><span>移动端页面</span></div>
                 <div class="metric"><strong>3</strong><span>后台页面</span></div>
@@ -41,10 +41,10 @@
           </div>
           <div class="section-body portal-grid">
             <a class="portal-card" href="miniapp.html"><div><h2>移动端 Demo</h2><p>手机框内展示我的、设置、搜索、注销弹窗和联系客服，可切换搜索 Tab 与触发违规提示。</p></div><span class="btn primary">进入移动端</span></a>
-            <a class="portal-card" href="admin.html"><div><h2>管理后台 Demo</h2><p>三个菜单对应三个独立页面：公告协议、搜索屏蔽词、注销申请。</p></div><span class="btn">进入后台</span></a>
+            <a class="portal-card" href="admin.html"><div><h2>管理后台 Demo</h2><p>三个菜单对应三个独立页面：H5 内容配置、搜索屏蔽词、注销申请；邀请规则 H5 在业务规则 Tab 承接。</p></div><span class="btn">进入后台</span></a>
           </div>
         </section>
-        <section class="section-band" id="source"><div class="page-head"><h2>需求来源</h2><p>基于正式版 PRD、一期上线目标及 2026-07-14 配置减负决策实现。</p></div><div class="section-body page-grid"><div class="info-card"><h3>范围收敛</h3><p>反馈箱和搜索热词删除；入口、搜索展示、安全提示写死。</p></div><div class="info-card"><h3>后台承接</h3><p>仅保留公告协议、搜索屏蔽词和注销申请，逐菜单独立页面。</p></div><div class="info-card"><h3>原页面合并</h3><p>设置与安全区块并入 PRD-01 现有用户详情，06 Demo 不重复实现。</p></div></div></section>
+        <section class="section-band" id="source"><div class="page-head"><h2>需求来源</h2><p>基于正式版 PRD、一期上线目标及 2026-07-20 邀请规则 H5 归属决策实现。</p></div><div class="section-body page-grid"><div class="info-card"><h3>范围收敛</h3><p>反馈箱和搜索热词删除；入口、搜索展示、安全提示写死。</p></div><div class="info-card"><h3>H5 统一承接</h3><p>H5 内容配置新增业务规则 Tab；邀请规则配置归 06，业务算法归 07。</p></div><div class="info-card"><h3>原页面合并</h3><p>设置与安全区块并入 PRD-01 现有用户详情，06 Demo 不重复实现。</p></div></div></section>
         <section class="section-band" id="flow"><div class="page-head"><h2>关键闭环</h2><p>Demo 优先串联用户可感知的链路，而不是散装页面。</p></div><div class="section-body page-grid"><div class="info-card"><h3>注销校验</h3><p>硬阻断不创建申请；风险项可确认后进入后悔期；阻断解除后必须重新校验。</p></div><div class="info-card"><h3>搜索范围</h3><p>按 sourceScene 限定用户、动态、话题结果，不搜索学校、职业、测评报告和身高筛选。</p></div><div class="info-card"><h3>合规内容</h3><p>协议、隐私政策、第三方清单、个人信息收集清单和公告均由后台配置承接。</p></div></div></section>
         <section class="section-band" id="boundary"><div class="page-head"><h2>边界说明</h2><p>本 Demo 使用本地 mock 数据，不接真实接口、不写数据库，不代表最终蓝湖设计稿。</p></div><div class="section-body"><p>合规文档、客服链接和首批搜索屏蔽词仍为上线前准备项；搜索热词不再需要准备。</p></div></section>
       </div>
