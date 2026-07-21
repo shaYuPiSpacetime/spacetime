@@ -38,12 +38,12 @@ public class SearchBlockWordDaoImpl implements SearchBlockWordDao {
     }
 
     @Override
-    public SearchBlockWord selectByTypeAndWord(String blockType, String word) {
+    public SearchBlockWord selectByWordAndMatchType(String word, String matchType) {
         return searchBlockWordMapper.selectOne(
                 new LambdaQueryWrapper<SearchBlockWord>()
-                        .eq(SearchBlockWord::getBlockType, blockType)
                         .eq(SearchBlockWord::getWord, word)
-                        .eq(SearchBlockWord::getStatus, CommonStatusEnum.ENABLED.getCode()));
+                        .eq(SearchBlockWord::getMatchType, matchType)
+                        .last("LIMIT 1"));
     }
 
     @Override

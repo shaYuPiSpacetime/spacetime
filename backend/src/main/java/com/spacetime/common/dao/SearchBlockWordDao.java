@@ -16,8 +16,8 @@ public interface SearchBlockWordDao {
     SearchBlockWord selectById(Long id);
     /** 查询全部已启用屏蔽词 */
     List<SearchBlockWord> selectEnabledList();
-    /** 按 blockType + word 查询启用的 */
-    SearchBlockWord selectByTypeAndWord(String blockType, String word);
+    /** 按词条和匹配方式查询，不区分启停状态。 */
+    SearchBlockWord selectByWordAndMatchType(String word, String matchType);
     /** 新增 */
     void insert(SearchBlockWord entity);
     /** 更新 */

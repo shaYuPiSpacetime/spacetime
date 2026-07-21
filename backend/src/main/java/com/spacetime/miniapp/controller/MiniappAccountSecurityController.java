@@ -4,6 +4,7 @@ import com.spacetime.common.constant.AuthConstant;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.request.MiniappAccountCancelReq;
+import com.spacetime.miniapp.dto.response.MiniappAccountCancelCheckVO;
 import com.spacetime.miniapp.dto.response.MiniappAccountCancelStatusVO;
 import com.spacetime.miniapp.service.MiniappAccountSecurityService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,11 @@ public class MiniappAccountSecurityController {
     @GetMapping("/account/cancel-status")
     public R<MiniappAccountCancelStatusVO> cancelStatus() {
         return R.ok(accountSecurityService.cancelStatus(UserContextHolder.get().getId()));
+    }
+
+    @GetMapping("/account/cancel-check")
+    public R<MiniappAccountCancelCheckVO> cancelCheck() {
+        return R.ok(accountSecurityService.cancelCheck(UserContextHolder.get().getId()));
     }
 
     @PostMapping("/account/cancel")

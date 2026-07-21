@@ -17,6 +17,7 @@ import AppConfigPage from '@/pages/content/AppConfigPage';
 import MobileEntryConfigPage from '@/pages/content/MobileEntryConfigPage';
 import SearchHotWordPage from '@/pages/content/SearchHotWordPage';
 import SearchBlockWordPage from '@/pages/content/SearchBlockWordPage';
+import ComplianceContentPage from '@/pages/content/ComplianceContentPage';
 import ContentOperationLogPage from '@/pages/content/ContentOperationLogPage';
 import CommunityManagementPage from '@/pages/community/CommunityManagementPage';
 import VerificationManagementPage from '@/pages/verify/VerificationManagementPage';
@@ -68,7 +69,9 @@ export default function AppRouter() {
         <Route path="content/app-config" element={<AppConfigPage />} />
         <Route path="content/mobile-entries" element={<MobileEntryConfigPage />} />
         <Route path="content/search-hot-words" element={<SearchHotWordPage />} />
-        <Route path="content/search-block-words" element={<SearchBlockWordPage />} />
+        <Route path="mobile-config/compliance" element={<ComplianceContentPage />} />
+        <Route path="operation/search-block-words" element={<SearchBlockWordPage />} />
+        <Route path="content/search-block-words" element={<Navigate to="/operation/search-block-words" replace />} />
         <Route path="content/operation-logs" element={<ContentOperationLogPage />} />
 
         {/* Community Management */}
@@ -88,7 +91,8 @@ export default function AppRouter() {
 
         {/* User Security */}
         <Route path="user-security/feedback" element={<FeedbackPage />} />
-        <Route path="user-security/cancel-requests" element={<CancelRequestPage />} />
+        <Route path="user-safety/cancellations" element={<CancelRequestPage />} />
+        <Route path="user-security/cancel-requests" element={<Navigate to="/user-safety/cancellations" replace />} />
 
         {/* Finance Center */}
         <Route path="finance/orders" element={<FinanceManagement />} />

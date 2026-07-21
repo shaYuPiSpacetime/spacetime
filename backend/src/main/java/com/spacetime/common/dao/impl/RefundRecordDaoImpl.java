@@ -36,6 +36,11 @@ public class RefundRecordDaoImpl implements RefundRecordDao {
     }
 
     @Override
+    public Long count(LambdaQueryWrapper<RefundRecord> wrapper) {
+        return mapper.selectCount(wrapper);
+    }
+
+    @Override
     public void insert(RefundRecord entity) {
         mapper.insert(entity);
     }

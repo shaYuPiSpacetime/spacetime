@@ -5,6 +5,7 @@ import lombok.Data;
 @Data
 public class MiniappAccountCancelStatusVO {
     private Long id;
+    private String requestNo;
     private String status;
     private String reason;
     private String blockReason;

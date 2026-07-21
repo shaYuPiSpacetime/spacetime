@@ -31,6 +31,14 @@ public class ContentArticleDaoImpl implements ContentArticleDao {
     }
 
     @Override
+    public ContentArticle selectByContentCode(String contentCode) {
+        return contentArticleMapper.selectOne(
+                new LambdaQueryWrapper<ContentArticle>()
+                        .eq(ContentArticle::getContentCode, contentCode)
+                        .last("LIMIT 1"));
+    }
+
+    @Override
     public Page<ContentArticle> selectEnabledPage(Page<ContentArticle> page, String type, String category) {
         LocalDateTime now = LocalDateTime.now();
         LambdaQueryWrapper<ContentArticle> wrapper = new LambdaQueryWrapper<ContentArticle>()

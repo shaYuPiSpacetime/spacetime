@@ -8,6 +8,7 @@ import java.util.List;
 public class MiniappSearchResultPageVO {
     private String keyword;
     private String type;
+    private String sourceScene;
     private List<String> tabs;
     private List<MiniappSearchResultItemVO> items;
     private Boolean hasMore;

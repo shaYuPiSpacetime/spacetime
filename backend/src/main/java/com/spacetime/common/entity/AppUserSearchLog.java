@@ -18,6 +18,8 @@ public class AppUserSearchLog extends BaseEntity {
     private String keyword;
     /** 搜索类型 all/user/post/topic */
     private String searchType;
+    /** 搜索来源场景 global/community/recommend */
+    private String sourceScene;
     /** 返回结果数 */
     private Integer resultCount;
     /** 是否命中违规词 1=是 0=否 */

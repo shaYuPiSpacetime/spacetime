@@ -11,7 +11,7 @@ import lombok.Data;
 public class SearchBlockWordSaveReq {
     /** 屏蔽词内容 */
     @NotBlank(message = "屏蔽词不能为空")
-    @Size(max = 50, message = "屏蔽词长度不能超过50个字符")
+    @Size(max = 30, message = "屏蔽词长度不能超过30个字符")
     private String word;
     /** 屏蔽类型 */
     @NotBlank(message = "屏蔽类型不能为空")
@@ -20,6 +20,7 @@ public class SearchBlockWordSaveReq {
     @NotBlank(message = "匹配类型不能为空")
     private String matchType;
     /** 屏蔽原因字典值 */
+    @NotBlank(message = "屏蔽原因不能为空")
     private String reasonCode;
     /** 命中提示文案 */
     private String hitMessage;

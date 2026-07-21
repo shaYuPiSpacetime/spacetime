@@ -90,8 +90,6 @@ public class MiniappSearchConfigServiceImpl implements MiniappSearchConfigServic
             return keyword.equals(word);
         } else if (MatchTypeEnum.FUZZY.getCode().equals(matchType)) {
             return keyword.contains(word);
-        } else if (MatchTypeEnum.PREFIX.getCode().equals(matchType)) {
-            return keyword.startsWith(word);
         }
         return false;
     }

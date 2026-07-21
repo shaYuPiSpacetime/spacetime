@@ -9,6 +9,9 @@ import com.spacetime.common.mapper.AppUserCancelRequestMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Repository
 @RequiredArgsConstructor
 public class AppUserCancelRequestDaoImpl implements AppUserCancelRequestDao {
@@ -33,6 +36,18 @@ public class AppUserCancelRequestDaoImpl implements AppUserCancelRequestDao {
                 .eq(AppUserCancelRequest::getUserId, userId)
                 .eq(AppUserCancelRequest::getStatus, CancelRequestStatusEnum.COOLING_OFF.getCode())
                 .last("LIMIT 1"));
+    }
+
+    @Override
+    public List<AppUserCancelRequest> selectDueCoolingOff(LocalDateTime now, int limit) {
+        return mapper.selectList(new LambdaQueryWrapper<AppUserCancelRequest>()
+                .eq(AppUserCancelRequest::getStatus, CancelRequestStatusEnum.COOLING_OFF.getCode())
+                .le(AppUserCancelRequest::getCoolingEndTime, now)
+                .and(wrapper -> wrapper.isNull(AppUserCancelRequest::getNextRetryTime)
+                        .or()
+                        .le(AppUserCancelRequest::getNextRetryTime, now))
+                .orderByAsc(AppUserCancelRequest::getCoolingEndTime)
+                .last("LIMIT " + Math.max(1, Math.min(limit, 500))));
     }
 
     @Override

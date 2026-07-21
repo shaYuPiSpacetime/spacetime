@@ -60,17 +60,41 @@ public class MiniappContentServiceImpl implements MiniappContentService {
         if (article == null || !CommonStatusEnum.ENABLED.getCode().equals(article.getStatus()) || !isActive(article)) {
             throw new BusinessException("文章不存在或已下架");
         }
+        return toDetailVO(article);
+    }
+
+    @Override
+    public MiniappArticleDetailVO getCompliance(String contentCode) {
+        if (contentCode == null || contentCode.isBlank()) {
+            throw new BusinessException("内容编码不能为空");
+        }
+        ContentArticle article = contentArticleDao.selectByContentCode(contentCode.trim());
+        if (article == null
+                || !Integer.valueOf(1).equals(article.getPreinitialized())
+                || !CommonStatusEnum.ENABLED.getCode().equals(article.getStatus())
+                || !isActive(article)) {
+            throw new BusinessException("内容暂不可查看");
+        }
+        return toDetailVO(article);
+    }
+
+    private MiniappArticleDetailVO toDetailVO(ContentArticle article) {
         MiniappArticleDetailVO vo = new MiniappArticleDetailVO();
         vo.setId(article.getId());
+        vo.setContentCode(article.getContentCode());
+        vo.setVersion(article.getVersion());
         vo.setType(article.getType());
         vo.setCategory(article.getCategory());
         vo.setTitle(article.getTitle());
         vo.setSummary(article.getSummary());
         vo.setCoverUrl(article.getCoverUrl());
         vo.setContentType(article.getContentType());
+        vo.setLinkType(article.getContentType());
         vo.setContentUrl(article.getContentUrl());
         vo.setSort(article.getSort());
         vo.setCreateTime(article.getCreateTime() != null ? article.getCreateTime().format(FMT) : null);
+        vo.setEffectiveTime(article.getEffectiveTime() != null ? article.getEffectiveTime().format(FMT) : null);
+        vo.setUpdateTime(article.getUpdateTime() != null ? article.getUpdateTime().format(FMT) : null);
         vo.setContentBody(article.getContentBody());
         return vo;
     }
@@ -102,15 +126,20 @@ public class MiniappContentServiceImpl implements MiniappContentService {
     private MiniappArticleVO toVO(ContentArticle entity) {
         MiniappArticleVO vo = new MiniappArticleVO();
         vo.setId(entity.getId());
+        vo.setContentCode(entity.getContentCode());
+        vo.setVersion(entity.getVersion());
         vo.setType(entity.getType());
         vo.setCategory(entity.getCategory());
         vo.setTitle(entity.getTitle());
         vo.setSummary(entity.getSummary());
         vo.setCoverUrl(entity.getCoverUrl());
         vo.setContentType(entity.getContentType());
+        vo.setLinkType(entity.getContentType());
         vo.setContentUrl(entity.getContentUrl());
         vo.setSort(entity.getSort());
         vo.setCreateTime(entity.getCreateTime() != null ? entity.getCreateTime().format(FMT) : null);
+        vo.setEffectiveTime(entity.getEffectiveTime() != null ? entity.getEffectiveTime().format(FMT) : null);
+        vo.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);
         return vo;
     }
 }

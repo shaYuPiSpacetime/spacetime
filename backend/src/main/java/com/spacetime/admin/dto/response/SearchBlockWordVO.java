@@ -25,4 +25,8 @@ public class SearchBlockWordVO {
     private String remark;
     /** 创建时间 */
     private String createTime;
+    /** 最近修改时间 */
+    private String updateTime;
+    /** 最近修改人 ID */
+    private Long updatedBy;
 }

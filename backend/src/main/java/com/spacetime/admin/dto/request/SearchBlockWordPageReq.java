@@ -14,6 +14,10 @@ public class SearchBlockWordPageReq extends PageReq {
     private String word;
     /** 屏蔽类型 */
     private String blockType;
+    /** 匹配方式 */
+    private String matchType;
+    /** 屏蔽原因 */
+    private String reasonCode;
     /** 状态 */
     private String status;
 }

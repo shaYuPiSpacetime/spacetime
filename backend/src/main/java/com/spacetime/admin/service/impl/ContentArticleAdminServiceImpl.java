@@ -84,6 +84,7 @@ public class ContentArticleAdminServiceImpl implements ContentArticleAdminServic
         if (entity == null) {
             throw new BusinessException("文章不存在");
         }
+        rejectPreinitializedMutation(entity);
         validateContent(req);
         String beforeTitle = entity.getTitle();
         fillEntity(entity, req);
@@ -99,6 +100,7 @@ public class ContentArticleAdminServiceImpl implements ContentArticleAdminServic
         if (entity == null) {
             throw new BusinessException("文章不存在");
         }
+        rejectPreinitializedMutation(entity);
         if (!isEnabledOrDisabled(req.getStatus())) {
             throw new BusinessException("不支持的文章状态: " + req.getStatus());
         }
@@ -116,6 +118,7 @@ public class ContentArticleAdminServiceImpl implements ContentArticleAdminServic
         if (entity == null) {
             throw new BusinessException("文章不存在");
         }
+        rejectPreinitializedMutation(entity);
         contentArticleDao.deleteById(id);
         writeLog("ARTICLE", id, "DELETE", entity.getTitle(), null);
         log.info("content article deleted: id={}", id);
@@ -190,6 +193,12 @@ public class ContentArticleAdminServiceImpl implements ContentArticleAdminServic
                     && StringUtils.hasText(uri.getHost());
         } catch (IllegalArgumentException e) {
             return false;
+        }
+    }
+
+    private void rejectPreinitializedMutation(ContentArticle entity) {
+        if (Integer.valueOf(1).equals(entity.getPreinitialized())) {
+            throw new BusinessException("预置合规内容只能在公告与协议配置中受控编辑");
         }
     }
 

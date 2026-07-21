@@ -75,6 +75,17 @@ public class MiniappContentController {
     }
 
     /**
+     * 按固定内容编码查询当前启用的合规内容。
+     *
+     * @param contentCode 预置内容编码
+     * @return 合规内容详情
+     */
+    @GetMapping("/compliance/{contentCode}")
+    public R<MiniappArticleDetailVO> compliance(@PathVariable String contentCode) {
+        return R.ok(miniappContentService.getCompliance(contentCode));
+    }
+
+    /**
      * 查询公开配置项
      *
      * @param keys 配置键（逗号分隔）

@@ -16,8 +16,10 @@ public class MiniappSearchResultController {
     @GetMapping("/results")
     public R<MiniappSearchResultPageVO> results(@RequestParam String keyword,
                                                 @RequestParam(defaultValue = "all") String type,
+                                                @RequestParam(defaultValue = "global") String sourceScene,
                                                 @RequestParam(defaultValue = "1") int page,
                                                 @RequestParam(defaultValue = "20") int size) {
-        return R.ok(searchResultService.search(UserContextHolder.get().getId(), keyword, type, page, size));
+        return R.ok(searchResultService.search(
+                UserContextHolder.get().getId(), keyword, type, sourceScene, page, size));
     }
 }

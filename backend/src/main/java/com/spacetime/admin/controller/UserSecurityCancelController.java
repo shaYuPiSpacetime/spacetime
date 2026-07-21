@@ -18,19 +18,19 @@ public class UserSecurityCancelController {
     private final UserSecurityCancelAdminService cancelAdminService;
 
     @GetMapping("/list")
-    @RequirePermission("user:cancel:list")
+    @RequirePermission("userSecurity:cancel:list")
     public R<Page<AdminCancelRequestVO>> list(CancelRequestPageReq req) {
         return R.ok(cancelAdminService.list(req));
     }
 
     @GetMapping("/{id}")
-    @RequirePermission("user:cancel:list")
+    @RequirePermission("userSecurity:cancel:view")
     public R<AdminCancelRequestVO> detail(@PathVariable Long id) {
         return R.ok(cancelAdminService.detail(id));
     }
 
     @PutMapping("/{id}/remark")
-    @RequirePermission("user:cancel:handle")
+    @RequirePermission("userSecurity:cancel:remark")
     public R<Void> remark(@PathVariable Long id, @Valid @RequestBody CancelRequestRemarkReq req) {
         cancelAdminService.remark(id, req);
         return R.ok();

@@ -9,6 +9,10 @@ import lombok.Data;
 public class MiniappArticleVO {
     /** 文章 ID */
     private Long id;
+    /** 预置内容唯一编码 */
+    private String contentCode;
+    /** 当前内容版本 */
+    private String version;
     /** 文章类型 */
     private String type;
     /** 子分类 */
@@ -21,10 +25,16 @@ public class MiniappArticleVO {
     private String coverUrl;
     /** 内容类型 */
     private String contentType;
+    /** 跳转类型，合规内容一期固定为 H5。 */
+    private String linkType;
     /** H5 跳转地址 */
     private String contentUrl;
     /** 排序号 */
     private Integer sort;
     /** 创建时间 */
     private String createTime;
+    /** 生效时间 */
+    private String effectiveTime;
+    /** 最近更新时间 */
+    private String updateTime;
 }

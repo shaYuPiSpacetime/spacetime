@@ -14,6 +14,8 @@ public interface ContentArticleDao {
     Page<ContentArticle> selectPage(Page<ContentArticle> page, LambdaQueryWrapper<ContentArticle> wrapper);
     /** 按 ID 查询 */
     ContentArticle selectById(Long id);
+    /** 按预置内容编码查询 */
+    ContentArticle selectByContentCode(String contentCode);
     /** 查询已启用且已生效的文章（小程序用） */
     Page<ContentArticle> selectEnabledPage(Page<ContentArticle> page, String type, String category);
     /** 新增 */

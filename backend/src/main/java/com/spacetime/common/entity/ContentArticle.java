@@ -15,6 +15,12 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = true)
 @TableName("content_article")
 public class ContentArticle extends BaseEntity {
+    /** 预置内容唯一编码，供移动端按固定入口查询。 */
+    private String contentCode;
+    /** 服务端维护的内容版本，格式为 v{major}.{minor}。 */
+    private String version;
+    /** 是否为系统预初始化配置：1=是，0=否。 */
+    private Integer preinitialized;
     /** 文章类型 @see com.spacetime.common.enums.ArticleTypeEnum */
     private String type;
     /** 子分类 */

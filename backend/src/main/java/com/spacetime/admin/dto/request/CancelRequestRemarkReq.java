@@ -1,22 +1,16 @@
 package com.spacetime.admin.dto.request;
 
-import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
-import org.springframework.util.StringUtils;
 
 /**
- * 注销申请备注/阻断请求
+ * 注销申请追加备注请求。
  */
 @Data
 public class CancelRequestRemarkReq {
-    /** 后台备注 */
+    /** 后台备注，只允许追加。 */
+    @NotBlank(message = "备注不能为空")
+    @Size(max = 500, message = "备注不能超过500个字符")
     private String remark;
-    /** 阻断原因（填写后将阻断注销） */
-    private String blockReason;
-
-    /** 备注和阻断原因不能同时为空 */
-    @AssertTrue(message = "备注和阻断原因不能同时为空")
-    public boolean isValid() {
-        return StringUtils.hasText(remark) || StringUtils.hasText(blockReason);
-    }
 }

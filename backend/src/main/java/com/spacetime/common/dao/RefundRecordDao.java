@@ -11,6 +11,7 @@ public interface RefundRecordDao {
     RefundRecord selectById(Long id);
     RefundRecord selectByOrderId(Long orderId);
     Page<RefundRecord> selectPage(Page<RefundRecord> page, LambdaQueryWrapper<RefundRecord> wrapper);
+    Long count(LambdaQueryWrapper<RefundRecord> wrapper);
     void insert(RefundRecord entity);
     void updateById(RefundRecord entity);
 }

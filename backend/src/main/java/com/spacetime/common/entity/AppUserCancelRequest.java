@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = true)
 @TableName("app_user_cancel_request")
 public class AppUserCancelRequest extends BaseEntity {
+    /** 注销申请编号 */
+    private String requestNo;
     /** 用户ID */
     private Long userId;
     /** 注销状态 @see com.spacetime.common.enums.CancelRequestStatusEnum */
@@ -25,6 +27,32 @@ public class AppUserCancelRequest extends BaseEntity {
     /** 阻断原因 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String blockReason;
+    /** 硬阻断快照 JSON */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String hardBlockSnapshot;
+    /** 可确认风险快照 JSON */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String riskSnapshot;
+    /** 会员权益快照 JSON */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String vipSnapshot;
+    /** 申请时千寻币余额 */
+    private Integer coinBalance;
+    /** 退款快照 JSON */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String refundSnapshot;
+    /** 争议快照 JSON */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String disputeSnapshot;
+    /** 处罚快照 JSON */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String penaltySnapshot;
+    /** 定时任务执行日志 JSON */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String executionLog;
+    /** 失败后的下次重试时间 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private LocalDateTime nextRetryTime;
     /** 后台备注 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String remark;
