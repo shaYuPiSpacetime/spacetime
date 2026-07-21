@@ -42,7 +42,7 @@ public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService 
         result.put("regionScope", regionScope());
         result.put("auditPolicy", auditPolicyData);
         result.put("smsSecurity", runtimeConfigResolver.smsSecurity(snapshot));
-        result.put("openTextFields", List.of("ABOUT_ME", "HOPE_THEY_KNOW", "PROFILE_QA"));
+        result.put("openTextFields", List.of("ABOUT_ME", "PROFILE_QA"));
         result.put("configUpdatedAt", runtimeConfigResolver.configUpdatedAt(snapshot));
         return result;
     }

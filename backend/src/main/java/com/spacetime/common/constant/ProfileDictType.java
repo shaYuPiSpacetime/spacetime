@@ -18,6 +18,7 @@ public final class ProfileDictType {
     public static final String AUDIT_SOURCE = "app_audit_source";
     public static final String CORE_ACCESS_STATUS = "app_core_access_status";
     public static final String AVATAR_SOURCE = "app_avatar_source";
+    public static final String CHINA_REGION = "china_region";
 
     private ProfileDictType() {
     }

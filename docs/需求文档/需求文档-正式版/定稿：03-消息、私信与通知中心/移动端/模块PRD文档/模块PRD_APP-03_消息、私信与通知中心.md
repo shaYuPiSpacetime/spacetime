@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本08 | 2026-07-16 | Codex | 对齐 PRD-02：有效关系允许进入会话，女性保护仅通过 canSend/protectStatus 限制发送 |
 | 版本07 | 2026-07-13 | Codex | 修正匹配前实体关系；补私信列表与悄悄话详情独立页；未回复到期自动进入 7 天冷却，移除前台暂不回应 |
 | 版本06 | 2026-07-13 | Codex | 对齐蓝湖移动端结构：补申请/私信列表，官方助手与系统消息改全文消息流，移除通知详情和邀请响应独立页 |
 | 版本05 | 2026-07-13 | Codex | 审核结果回原流程；官方助手只做低频引导；系统通知只做社区运营内容 |
@@ -46,10 +47,10 @@
   2. 后端校验双方均满足 `M01-RULE-core-access`、账号正常、未拉黑、`M02-SM-mutual-match=matched`
   3. 创建或打开 `M03-SM-conversation=active` 会话
   4. 用户进入 `APP-03-PAGE-private-chat`
-  5. 若未命中女性保护机制，底部输入框可发送文本消息
+  5. PRD-03 返回 `canSend`、`protectStatus`；若未命中女性保护机制，底部输入框可发送文本消息
 异常：
   - 未匹配成功：提示相互喜欢后才能聊天
-  - 男方命中女性保护：输入框置灰，等待女方先发送真实消息
+  - 男方命中女性保护：仍进入会话，输入框置灰，等待女方先发送真实消息
   - 任一方账号异常/拉黑：历史可看，会话不可发送
 出口：继续聊天、查看主页、举报或拉黑
 ```
@@ -235,7 +236,7 @@ Then  页面展示官方消息与通知入口，不展示用户私信会话，�
 AC-ID: APP-03-AC-private-chat-open
 Given 双方三重认证通过、账号正常、未拉黑且 `M02-SM-mutual-match=matched`
 When  任一方点击聊天入口
-Then  系统打开 `M03-SM-conversation=active` 会话，输入框可发送文本消息
+Then  PRD-02 返回 canEnterConversation=true，系统打开会话；输入框是否可发送由 PRD-03 的 canSend、protectStatus 决定
 
 AC-ID: APP-03-AC-female-protection
 Given 男方和女方刚匹配成功且处于 `M03-CFG-female-protection-days` 保护期内，女方未发送真实用户消息

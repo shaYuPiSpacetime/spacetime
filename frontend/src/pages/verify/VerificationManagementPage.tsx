@@ -180,13 +180,14 @@ export default function VerificationManagementPage() {
   const location = useLocation();
   const currentPath = Object.keys(TABS).find((path) => location.pathname.startsWith(path)) || '/verify/real-name';
   const tab = TABS[currentPath];
+  const routeKeyword = new URLSearchParams(location.search).get('keyword') || '';
 
   const [list, setList] = useState<VerificationVO[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<StatItem[]>(buildStats({ pendingCount: 0, reviewingCount: 0, approvedTodayCount: 0, rejectedTodayCount: 0, expiredCount: 0 }));
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [keyword, setKeyword] = useState('');
+  const [keyword, setKeyword] = useState(routeKeyword);
   const [status, setStatus] = useState('');
   const [auditSource, setAuditSource] = useState('');
   const [submitTime, setSubmitTime] = useState('');
@@ -210,13 +211,13 @@ export default function VerificationManagementPage() {
   useEffect(() => {
     setPage(1);
     setPageSize(10);
-    setKeyword('');
+    setKeyword(routeKeyword);
     setStatus('');
     setAuditSource('');
     setSubmitTime('');
     setEducationMethod('');
     setDetailOpen(false);
-  }, [tab.key]);
+  }, [routeKeyword, tab.key]);
 
   const fetchList = useCallback(async () => {
     setLoading(true);

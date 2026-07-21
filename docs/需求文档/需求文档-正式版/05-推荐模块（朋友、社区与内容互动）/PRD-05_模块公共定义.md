@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本13 | 2026-07-21 | Codex | 在页面收敛后补充他人主页聊天权限拆分口径：PRD-02 `canEnterConversation`，PRD-03 `canSend/protectStatus`，影响 APP-05-PAGE-user-posts |
 | 版本12 | 2026-07-21 | Codex | 按最终 UI 口径删除 @Ta、社区私信中转页和单条内容屏蔽，合并婚恋用户主页，收敛话题快照与社区触达路由，影响 APP-05-PAGE-post-publish、topic-list、topic-detail、community-greeting、community-more-actions、user-posts |
 | 版本11 | 2026-07-20 | Codex | 按蓝湖最终确认口径删除收藏，明确举报幂等、发布审核态、话题字段和模块 08 资产弹窗边界，影响 APP-05-PAGE-community-hot、topic-list、post-publish、post-detail、report-modal、community-greeting、follow-relations、post-interactors |
 | 版本10 | 2026-07-20 | Codex | 同城页收敛为已审核资料城市只读范围，补充资料缺失与当前城市无内容空态，影响 APP-05-PAGE-community-city、APP-05-PAGE-post-publish |
@@ -227,7 +228,7 @@
 | `M05-RULE-content-source-compatible` | 多来源帖子治理兼容规则 | ADM 内容管理/评论管理/举报管理 | 治理对象以 `targetType=post/comment/user/chat` 和 `contentSourceScene` 组合区分来源；一期接入成家动态、知音诚意贴，后续立业帖子接入时复用同一审核、举报、处罚和日志链路 | 立业帖子一期不进入移动端范围 |
 | `M05-RULE-mute-period` | 禁言周期规则 | ADM 举报管理/内容管理/评论管理 | 选择 `mute_user` 时必须选择禁言周期，默认候选 1 天、3 天、7 天、30 天，支持具备权限角色填写自定义结束时间；禁言生效后禁止发布动态、诚意贴和评论 | 永久封禁不在 PRD-05 直接执行，需走账号冻结 |
 | `M05-RULE-ip-block` | IP 封禁规则 | ADM 举报管理/社区配置 | 防机器人刷帖、批量广告、异常高频举报等场景可选择 `ip_block`；必须填写封禁周期、风险 IP、封禁范围和原因；默认只限制写操作，不影响已登录正常浏览；风险 IP 展示需脱敏并按权限查看 | IP 地址为安全敏感数据，解除和误伤申诉需写审计 |
-| `M05-RULE-user-profile-handoff` | 他人主页承接 | APP 个人动态区-他人主页 | `APP-05-PAGE-user-posts` 同页展示 PRD-01 已审核资料与认证信息及 PRD-05 公开动态；进入主页通知 PRD-02 写访客，喜欢/取消喜欢和关系状态引用 PRD-02，聊天引用 PRD-03，举报由 PRD-05 承接 | 不另设婚恋用户主页，不复制关系状态机 |
+| `M05-RULE-user-profile-handoff` | 他人主页承接 | APP 个人动态区-他人主页 | `APP-05-PAGE-user-posts` 同页展示 PRD-01 已审核资料与认证信息及 PRD-05 公开动态；进入主页通知 PRD-02 写访客，喜欢/取消喜欢、匹配状态和 `canEnterConversation` 引用 PRD-02；`canEnterConversation` 仅在关系或账号失效时为 `false`，女性保护不得阻断进入；进入会话后的 `canSend`、`protectStatus` 引用 PRD-03；举报由 PRD-05 承接 | 不另设婚恋用户主页或社区私信中转页，不复制关系或消息状态机 |
 
 ---
 

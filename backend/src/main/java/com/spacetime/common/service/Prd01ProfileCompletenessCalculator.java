@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * PRD01 资料完整度实时计算器。
@@ -23,6 +25,19 @@ import java.util.function.Predicate;
 public class Prd01ProfileCompletenessCalculator {
 
     private static final String STUDENT = "STUDENT";
+    private static final Pattern QUESTION_KEY_PATTERN = Pattern.compile("\"questionKey\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Set<String> PROFILE_QA_FIELD_IDS = Set.of(
+            "meetingPreference",
+            "preferredActivities",
+            "housingStatus",
+            "carStatus",
+            "childrenPlan",
+            "hasChild",
+            "marriagePlan",
+            "religion",
+            "smoking",
+            "drinking",
+            "pets");
 
     private final Prd01RuntimeConfigResolver runtimeConfigResolver;
     private final AppUserAuditService auditService;
@@ -43,12 +58,20 @@ public class Prd01ProfileCompletenessCalculator {
     /** 使用列表已批量加载的审核事实计算，不在逐用户组装阶段访问 DAO。 */
     public int calculate(AppUser user, ProfileCompletenessRules rules,
             Map<String, AppUserAuditRecord> latestAudits, Set<String> effectiveAuditTypes) {
+        return calculate(user, rules, latestAudits, effectiveAuditTypes, Set.of());
+    }
+
+    /** 使用批量预加载的审核事实和资料问答题目计算，不在列表组装阶段访问 DAO。 */
+    public int calculate(AppUser user, ProfileCompletenessRules rules,
+            Map<String, AppUserAuditRecord> latestAudits, Set<String> effectiveAuditTypes,
+            Set<String> effectiveProfileQaQuestionKeys) {
         if (user == null || user.getId() == null || rules == null) {
             return 0;
         }
         Map<String, AppUserAuditRecord> safeLatest = latestAudits == null ? Map.of() : latestAudits;
         Set<String> safeEffective = effectiveAuditTypes == null ? Set.of() : effectiveAuditTypes;
-        return calculateScore(user, rules, fieldId -> filledFromFacts(user, fieldId, safeLatest, safeEffective));
+        Set<String> safeQuestionKeys = effectiveProfileQaQuestionKeys == null ? Set.of() : effectiveProfileQaQuestionKeys;
+        return calculateScore(user, rules, fieldId -> filledFromFacts(user, fieldId, safeLatest, safeEffective, safeQuestionKeys));
     }
 
     private int calculateScore(AppUser user, ProfileCompletenessRules rules, Predicate<String> filled) {
@@ -79,27 +102,49 @@ public class Prd01ProfileCompletenessCalculator {
             case "photos", "albumPhotos" -> hasEffectiveRecords(user.getId(), AppUserAuditTypeEnum.ALBUM_PHOTO);
             case "profileBgImage", "profileBg" -> auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.PROFILE_BG) != null;
             case "aboutMe" -> auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.ABOUT_ME) != null;
-            case "hopeTheyKnow" -> auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.HOPE_THEY_KNOW) != null;
             case "qaList", "profileQa" -> auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.PROFILE_QA) != null;
             case "voiceIntro", "voiceIntroUrl", "voiceIntroDuration" ->
                     auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.VOICE_INTRO) != null;
-            default -> filledScalar(user, fieldId);
+            default -> PROFILE_QA_FIELD_IDS.contains(fieldId)
+                    ? effectiveProfileQaQuestionKeys(user.getId()).contains(fieldId)
+                    : filledScalar(user, fieldId);
         };
     }
 
     private boolean filledFromFacts(AppUser user, String fieldId,
-            Map<String, AppUserAuditRecord> latestAudits, Set<String> effectiveAuditTypes) {
+            Map<String, AppUserAuditRecord> latestAudits, Set<String> effectiveAuditTypes,
+            Set<String> effectiveProfileQaQuestionKeys) {
         return switch (fieldId) {
             case "avatarImage", "avatar" -> approved(latestAudits.get(AppUserAuditTypeEnum.AVATAR.getCode()));
             case "photos", "albumPhotos" -> effectiveAuditTypes.contains(AppUserAuditTypeEnum.ALBUM_PHOTO.getCode());
             case "profileBgImage", "profileBg" -> effectiveAuditTypes.contains(AppUserAuditTypeEnum.PROFILE_BG.getCode());
             case "aboutMe" -> effectiveAuditTypes.contains(AppUserAuditTypeEnum.ABOUT_ME.getCode());
-            case "hopeTheyKnow" -> effectiveAuditTypes.contains(AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode());
             case "qaList", "profileQa" -> effectiveAuditTypes.contains(AppUserAuditTypeEnum.PROFILE_QA.getCode());
             case "voiceIntro", "voiceIntroUrl", "voiceIntroDuration" ->
                     effectiveAuditTypes.contains(AppUserAuditTypeEnum.VOICE_INTRO.getCode());
-            default -> filledScalar(user, fieldId);
+            default -> PROFILE_QA_FIELD_IDS.contains(fieldId)
+                    ? effectiveProfileQaQuestionKeys.contains(fieldId)
+                    : filledScalar(user, fieldId);
         };
+    }
+
+    private Set<String> effectiveProfileQaQuestionKeys(Long userId) {
+        List<AppUserAuditRecord> records = auditService.effectiveRecords(userId, AppUserAuditTypeEnum.PROFILE_QA);
+        if (records == null || records.isEmpty()) {
+            return Set.of();
+        }
+        return records.stream()
+                .map(record -> questionKey(record.getMaterialJson()))
+                .filter(StrUtil::isNotBlank)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    public static String questionKey(String materialJson) {
+        if (StrUtil.isBlank(materialJson)) {
+            return null;
+        }
+        Matcher matcher = QUESTION_KEY_PATTERN.matcher(materialJson);
+        return matcher.find() ? matcher.group(1) : null;
     }
 
     private boolean filledScalar(AppUser user, String fieldId) {
@@ -128,7 +173,9 @@ public class Prd01ProfileCompletenessCalculator {
             case "emotionalStatus" -> StrUtil.isNotBlank(user.getEmotionalStatus());
             case "datingGoal" -> StrUtil.isNotBlank(user.getDatingGoal());
             case "childrenPlan" -> StrUtil.isNotBlank(user.getChildrenPlan());
-            case "wantChild" -> StrUtil.isNotBlank(user.getWantChild());
+            case "hasChild", "wantChild" -> StrUtil.isNotBlank(user.getWantChild());
+            case "favoriteSong" -> StrUtil.isNotBlank(user.getFavoriteSongId())
+                    || StrUtil.isNotBlank(user.getFavoriteSongName());
             case "mbtiType" -> StrUtil.isNotBlank(user.getMbtiType());
             case "tags" -> StrUtil.isNotBlank(user.getTags());
             default -> false;

@@ -34,6 +34,8 @@ public class AppUser extends BaseEntity {
     private LocalDateTime lastLoginTime;
     /** 账号状态 @see AccountStatusEnum */
     private String accountStatus;
+    /** 注销关系匿名编号，注销后以 ANON- 前缀编号替代原身份。 */
+    private String anonymousNo;
     /** 是否完成首登资料初始化 */
     private Integer firstLoginCompleted;
     /** 首登下一待填写步骤；完成后为空，选填空值步骤也依靠该字段记录进度。 */

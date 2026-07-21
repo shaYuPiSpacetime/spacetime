@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -66,5 +67,64 @@ class Prd01ProfileCompletenessCalculatorTest {
         verify(runtimeConfigResolver).snapshot();
         verify(runtimeConfigResolver).profileCompleteness(snapshot);
         verifyNoInteractions(auditService);
+    }
+
+    @Test
+    @DisplayName("关于我资料问答字段按具体题目通过记录参与完整度计分")
+    void shouldCountProfileQaQuestionFieldWhenEffectiveQuestionExists() {
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot =
+                new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(Map.of());
+        Map<String, Object> completeness = Map.of(
+                "studentTotalScore", 100,
+                "workerTotalScore", 100,
+                "items", List.of(
+                        Map.of("fieldId", "meetingPreference", "studentScore", 20, "workerScore", 20),
+                        Map.of("fieldId", "hasChild", "studentScore", 20, "workerScore", 20),
+                        Map.of("fieldId", "pets", "studentScore", 20, "workerScore", 20)));
+        when(runtimeConfigResolver.snapshot()).thenReturn(snapshot);
+        when(runtimeConfigResolver.profileCompleteness(snapshot)).thenReturn(completeness);
+
+        AppUser user = new AppUser();
+        user.setId(9L);
+        user.setIdentity("WORKER");
+        AppUserAuditRecord qa = new AppUserAuditRecord();
+        qa.setAuditType(AppUserAuditTypeEnum.PROFILE_QA.getCode());
+        qa.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
+        qa.setMaterialJson("{\"questionKey\":\"meetingPreference\"}");
+        AppUserAuditRecord hasChild = new AppUserAuditRecord();
+        hasChild.setAuditType(AppUserAuditTypeEnum.PROFILE_QA.getCode());
+        hasChild.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
+        hasChild.setMaterialJson("{\"questionKey\":\"hasChild\"}");
+        lenient().when(auditService.effectiveRecords(9L, AppUserAuditTypeEnum.PROFILE_QA))
+                .thenReturn(List.of(qa, hasChild));
+
+        int score = calculator.calculate(user);
+
+        assertThat(score).isEqualTo(40);
+    }
+
+    @Test
+    @DisplayName("歌曲与子女字段按现有用户表字段参与完整度计分")
+    void shouldCountFavoriteSongAndHasChildAliases() {
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot =
+                new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(Map.of());
+        Map<String, Object> completeness = Map.of(
+                "studentTotalScore", 100,
+                "workerTotalScore", 100,
+                "items", List.of(
+                        Map.of("fieldId", "favoriteSong", "studentScore", 10, "workerScore", 10),
+                        Map.of("fieldId", "wantChild", "studentScore", 10, "workerScore", 10)));
+        when(runtimeConfigResolver.snapshot()).thenReturn(snapshot);
+        when(runtimeConfigResolver.profileCompleteness(snapshot)).thenReturn(completeness);
+
+        AppUser user = new AppUser();
+        user.setId(9L);
+        user.setIdentity("WORKER");
+        user.setFavoriteSongName("Song A");
+        user.setWantChild("NO_CHILD");
+
+        int score = calculator.calculate(user);
+
+        assertThat(score).isEqualTo(20);
     }
 }

@@ -1,16 +1,21 @@
 package com.spacetime.common.service;
 
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.entity.SysDictData;
+import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 用户资料业务字典服务。
@@ -34,6 +39,33 @@ public class ProfileDictionaryService {
     public Map<String, String> labels(String dictType) {
         Map<String, String> result = new LinkedHashMap<>();
         for (SysDictData item : options(dictType)) {
+            result.put(item.getDictValue(), item.getDictLabel());
+        }
+        return result;
+    }
+
+    /** 按当前业务页实际出现的 code 批量取中文标签，避免地区等大字典被列表页全量加载。 */
+    public Map<String, String> labels(String dictType, Collection<String> codes) {
+        Set<String> normalizedCodes = new LinkedHashSet<>();
+        if (codes != null) {
+            for (String code : codes) {
+                String normalized = StrUtil.trim(code);
+                if (StrUtil.isNotBlank(normalized)) {
+                    normalizedCodes.add(normalized);
+                }
+            }
+        }
+        if (StrUtil.isBlank(dictType) || normalizedCodes.isEmpty()) {
+            return Map.of();
+        }
+        LambdaQueryWrapper<SysDictData> wrapper = new LambdaQueryWrapper<SysDictData>()
+                .eq(SysDictData::getDictType, dictType)
+                .eq(SysDictData::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .in(SysDictData::getDictValue, normalizedCodes)
+                .orderByAsc(SysDictData::getDictSort)
+                .orderByAsc(SysDictData::getId);
+        Map<String, String> result = new LinkedHashMap<>();
+        for (SysDictData item : dictDataDao.selectList(wrapper)) {
             result.put(item.getDictValue(), item.getDictLabel());
         }
         return result;

@@ -9,7 +9,8 @@ import lombok.Getter;
 public enum RegisterSourceEnum {
     WECHAT("WECHAT", "微信授权"),
     PHONE("PHONE", "手机号登录"),
-    AGENT_CODE("AGENT_CODE", "代理码");
+    AGENT_CODE("AGENT_CODE", "代理码"),
+    ADMIN_IMPORT("ADMIN_IMPORT", "后台导入");
 
     private final String code;
     private final String desc;

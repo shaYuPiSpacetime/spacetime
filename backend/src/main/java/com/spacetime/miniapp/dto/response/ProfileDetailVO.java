@@ -63,8 +63,6 @@ public class ProfileDetailVO {
     private String wantChild;
     /** 关于我 */
     private String aboutMe;
-    /** 希望TA了解 */
-    private String hopeTheyKnow;
     /** 语音介绍URL */
     private String voiceIntroUrl;
     /** 语音时长秒 */

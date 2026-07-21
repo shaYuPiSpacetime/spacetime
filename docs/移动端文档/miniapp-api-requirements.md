@@ -761,7 +761,6 @@ sequenceDiagram
 | `datingGoal` | string | 脱单目标 |
 | `maritalStatus` | string | 婚姻状态 |
 | `aboutMe` | string | 关于我 |
-| `hopeTheyKnow` | string | 希望 TA 了解 |
 | `voiceIntroUrl` | string | 语音介绍 URL |
 | `voiceIntroDuration` | number | 语音时长秒 |
 | `tags` | string | 标签 JSON |
@@ -782,7 +781,7 @@ sequenceDiagram
 | Path | `/miniapp/profile` |
 | Auth | 登录态 |
 
-请求 `ProfileUpdateReq`：字段与 `ProfileDetailVO` 中可编辑字段一致，null 不更新；包括 `nickname/avatar/birthday/height/location*/hometown*/school/major/educationLevel/emotionalStatus/datingGoal/maritalStatus/aboutMe/hopeTheyKnow/voiceIntroUrl/voiceIntroDuration/mbtiType/profileBgImage`。
+请求 `ProfileUpdateReq`：字段与 `ProfileDetailVO` 中可编辑字段一致，null 不更新；包括 `nickname/avatar/birthday/height/location*/hometown*/school/major/educationLevel/emotionalStatus/datingGoal/maritalStatus/aboutMe/voiceIntroUrl/voiceIntroDuration/mbtiType/profileBgImage`。
 
 响应：`ProfileDetailVO`。
 

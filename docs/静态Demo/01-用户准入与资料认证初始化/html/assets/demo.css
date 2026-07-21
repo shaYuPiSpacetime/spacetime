@@ -2140,6 +2140,54 @@
   display: block;
 }
 
+.relation-toolbar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(112px, 1fr)) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 760px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.relation-toolbar label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.relation-toolbar label > span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+}
+
+.relation-toolbar select,
+.relation-toolbar input {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 11px;
+}
+
+.relation-refresh-button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #2563eb;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .profile-message-latest {
   display: grid;
   gap: 8px;
@@ -2273,6 +2321,33 @@
   white-space: nowrap;
 }
 
+.module-page-numbers {
+  display: flex;
+  gap: 6px;
+}
+
+.module-page-size {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.module-page-size > span {
+  margin: 0;
+  font-weight: 400;
+}
+
+.module-page-size select {
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid #d7e0ec;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 11px;
+}
+
 .module-pagination button {
   height: 26px;
   min-width: 26px;
@@ -2298,7 +2373,7 @@
 
 .profile-relation-table {
   width: 100%;
-  min-width: 620px;
+  min-width: 1120px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -2326,6 +2401,28 @@
   place-items: center;
   color: #64748b;
   font-size: 12px;
+}
+
+.profile-relation-empty[hidden] {
+  display: none;
+}
+
+.relation-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.relation-row-actions button {
+  min-height: 26px;
+  padding: 0 7px;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .profile-drawer-card {

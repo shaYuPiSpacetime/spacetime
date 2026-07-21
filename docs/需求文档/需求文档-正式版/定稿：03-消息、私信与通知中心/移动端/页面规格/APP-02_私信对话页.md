@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本05 | 2026-07-16 | Codex | 明确女性保护只限制发送：会话入口由 PRD-02 canEnterConversation 判断，页面使用 canSend/protectStatus |
 | 版本04 | 2026-07-13 | Codex | 对齐蓝湖匹配横幅与安全卡；头像跳主页承接举报拉黑；悄悄话回复匹配豁免女性保护 |
 | 版本03 | 2026-07-13 | Codex | 收口消息中心主入口，明确社区仅在已匹配态直达私信 |
 | 版本02 | 2026-07-02 | Codex | 按评审意见整改移动端消息流展示附加属性 |
@@ -94,6 +95,7 @@
 | `APP-03-PAGE-private-chat-FIELD-created-time` | 发送时间 | datetime | 是 | datetime | 按本地展示相对或完整时间 | 无 | 不可编辑 | 普通 | 消息记录 |
 | `APP-03-PAGE-private-chat-FIELD-can-send` | 是否可发送 | bool | 是 | true/false | 服务端返回为准 | false | 系统计算 | 普通 | `M03-RULE-private-chat-open` |
 | `APP-03-PAGE-private-chat-FIELD-protect-status` | 保护状态 | json | 否 | `M03-RULE-female-protection` | 男性侧禁发需返回过期时间 | 无 | 系统计算 | 普通 | 会话规则 |
+| `APP-03-PAGE-private-chat-FIELD-can-enter-conversation` | 可进入会话 | bool | 是 | true/false | 由 PRD-02 关系/账号有效性返回；页面已打开时应为 true | true | 系统计算 | 普通 | PRD-02 |
 
 #### 列表字段附加属性
 
@@ -187,6 +189,11 @@ AC-ID: APP-03-AC-whisper-reply-no-protection
 Given 匹配来源为 `whisper_reply` 且接收方回复已成功落库
 When 双方进入普通私信
 Then 回复被视为真实用户消息，双方输入框均可发送，不再命中女性保护禁发
+
+AC-ID: APP-03-AC-protection-does-not-block-entry
+Given 双方关系有效且男性处于女性保护等待期
+When 男性从匹配弹窗、相互喜欢列表或婚恋用户主页进入聊天
+Then canEnterConversation=true 并正常打开会话，页面以 canSend=false 和 protectStatus 置灰输入区
 ```
 
 ---
@@ -196,6 +203,6 @@ Then 回复被视为真实用户消息，双方输入框均可发送，不再命
 | 关联类型 | 引用 ID | 说明 |
 |----------|---------|------|
 | 依赖的模块状态机 | `M03-SM-conversation` | 会话状态 |
-| 依赖的模块规则 | `M03-RULE-private-chat-open` | 私信开放 |
+| 依赖的模块规则 | `M03-RULE-private-chat-open` / `M03-RULE-send-permission` | 会话开放与发送权限拆分 |
 | 依赖的模块规则 | `M03-RULE-female-protection` | 女性保护 |
 | 依赖的页面 | `APP-03-PAGE-message-list` | 返回消息列表 |

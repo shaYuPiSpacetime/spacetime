@@ -28,6 +28,6 @@ public class VerificationPageReq extends PageReq {
     private String educationMethod;
     /** 资料图片类型筛选：ALBUM/BACKGROUND */
     private String imageType;
-    /** 开放文本类型筛选：ABOUT_ME/HOPE_THEY_KNOW/PROFILE_QA */
+    /** 开放文本类型筛选：ABOUT_ME/PROFILE_QA */
     private String textType;
 }

@@ -431,24 +431,6 @@
         badges: []
       },
       {
-        visitNo: 'VIS-20260713-0010',
-        userId: 'U100911',
-        status: 'hidden_by_visitor',
-        groupKey: 'today',
-        nickname: '隐藏访问记录',
-        age: 27,
-        city: '上海',
-        avatar: 'assets/images/heart-person.webp',
-        photo: 'assets/images/heart-person.webp',
-        blurAvatar: 'assets/images/heart-person-blur.webp',
-        blurPhoto: 'assets/images/heart-person-blur.webp',
-        visitCount: 1,
-        onlineText: '',
-        summary: '',
-        weakTags: [],
-        badges: []
-      },
-      {
         visitNo: 'VIS-20260712-0011',
         userId: 'U100912',
         status: 'invalid',

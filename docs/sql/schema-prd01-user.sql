@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS app_user_profile_media (
 CREATE TABLE IF NOT EXISTS app_user_open_text_audit (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL COMMENT '用户 ID',
-    field_name VARCHAR(50) NOT NULL COMMENT 'ABOUT_ME/HOPE_THEY_KNOW/PROFILE_QA',
+    field_name VARCHAR(50) NOT NULL COMMENT 'ABOUT_ME/PROFILE_QA',
     content_text VARCHAR(1000) NOT NULL COMMENT '开放性文字明文',
     content_hash CHAR(64) DEFAULT NULL COMMENT '内容 SHA-256',
     audit_status VARCHAR(30) NOT NULL DEFAULT 'PENDING' COMMENT '审核状态',
@@ -315,7 +315,6 @@ VALUES
 ('prd01.access.requireEducation', 'true', 'PRD01_ACCESS', 'BOOLEAN', 0, 'ENABLED', '必须学历通过'),
 ('prd01.access.minProfileScore', '80', 'PRD01_ACCESS', 'NUMBER', 0, 'ENABLED', '资料完整度最低分'),
 ('prd01.profile.requireAboutMe', 'true', 'PRD01_PROFILE_FIELD', 'BOOLEAN', 0, 'ENABLED', '关于我必填'),
-('prd01.profile.requireHopeTheyKnow', 'true', 'PRD01_PROFILE_FIELD', 'BOOLEAN', 0, 'ENABLED', '希望 TA 了解必填'),
 ('prd01.profile.requireQaCount', '3', 'PRD01_PROFILE_FIELD', 'NUMBER', 0, 'ENABLED', '资料问答最少条数'),
 ('prd01.profile.allowOverseasRegion', 'false', 'PRD01_PROFILE_FIELD', 'BOOLEAN', 0, 'ENABLED', '现居地/家乡不支持海外国家'),
 ('prd01.upload.avatar.max_mb', '5', 'PRD01_UPLOAD', 'NUMBER', 0, 'ENABLED', '头像最大 MB'),
@@ -324,7 +323,7 @@ VALUES
 ('prd01.upload.voice.max_duration', '60', 'PRD01_UPLOAD', 'NUMBER', 0, 'ENABLED', '语音介绍最长秒数'),
 ('prd01.audit.voice.provider', 'MOCK', 'PRD01_AUDIT', 'TEXT', 0, 'ENABLED', '语音 Provider 首版 mock 成功'),
 ('prd01.audit.text.provider', 'MOCK', 'PRD01_AUDIT', 'TEXT', 0, 'ENABLED', '文字 Provider 首版 mock 成功'),
-('prd01.audit.open_text.types', 'ABOUT_ME,HOPE_THEY_KNOW,PROFILE_QA', 'PRD01_AUDIT', 'TEXT', 0, 'ENABLED', '开放性文字审核类型'),
+('prd01.audit.open_text.types', 'ABOUT_ME,PROFILE_QA', 'PRD01_AUDIT', 'TEXT', 0, 'ENABLED', '开放性文字审核类型'),
 ('prd01.audit.show_source', 'true', 'PRD01_AUDIT', 'BOOLEAN', 0, 'ENABLED', '审核来源筛选与列表展示')
 ON DUPLICATE KEY UPDATE
     config_value = VALUES(config_value),

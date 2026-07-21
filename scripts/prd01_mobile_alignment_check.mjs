@@ -184,7 +184,6 @@ const checks = [
       'hometownCity',
       'hometownDistrict',
       'aboutMe',
-      'hopeTheyKnow',
       'voiceIntroUrl',
       'voiceIntroDuration',
       'voiceIntroAuditStatus',

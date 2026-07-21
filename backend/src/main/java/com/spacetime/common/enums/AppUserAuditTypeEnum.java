@@ -13,7 +13,6 @@ public enum AppUserAuditTypeEnum {
     ALBUM_PHOTO("ALBUM_PHOTO", AppUserAuditGroupEnum.MEDIA.getCode(), "相册照片"),
     PROFILE_BG("PROFILE_BG", AppUserAuditGroupEnum.MEDIA.getCode(), "资料背景图"),
     ABOUT_ME("ABOUT_ME", AppUserAuditGroupEnum.TEXT.getCode(), "关于我"),
-    HOPE_THEY_KNOW("HOPE_THEY_KNOW", AppUserAuditGroupEnum.TEXT.getCode(), "希望 TA 了解"),
     PROFILE_QA("PROFILE_QA", AppUserAuditGroupEnum.TEXT.getCode(), "资料问答开放回答"),
     VOICE_INTRO("VOICE_INTRO", AppUserAuditGroupEnum.VOICE.getCode(), "语音介绍");
 

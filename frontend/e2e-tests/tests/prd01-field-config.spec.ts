@@ -32,7 +32,6 @@ test.beforeEach(async ({ page }) => {
         configValue: JSON.stringify({
           rows: [
             { fieldId: 'aboutMe', studentScore: 5, workerScore: 5 },
-            { fieldId: 'hopeTheyKnow', studentScore: 5, workerScore: 5 },
             { fieldId: 'tags', studentScore: 3, workerScore: 3 },
             { fieldId: 'mbtiType', studentScore: 2, workerScore: 2 },
             { fieldId: 'qaList', studentScore: 5, workerScore: 5 },
@@ -60,13 +59,13 @@ test('字段配置隐藏废弃字段并将必填状态统一展示为选填', as
   await expect(heightRow.getByRole('button', { name: '选填' })).toBeEnabled();
   await expect(heightRow.getByRole('button', { name: '展示' })).toHaveCount(0);
 
-  for (const fieldId of ['hopeTheyKnow', 'mbtiType', 'qaList']) {
+  for (const fieldId of ['mbtiType', 'qaList']) {
     await expect(page.getByRole('row').filter({ hasText: fieldId })).toHaveCount(0);
   }
 
   await page.getByRole('button', { name: '资料完整度' }).click();
   await expect(page.getByText('在校生当前总分 100，职场人当前总分 100')).toBeVisible();
-  for (const fieldId of ['hopeTheyKnow', 'mbtiType', 'qaList']) {
+  for (const fieldId of ['mbtiType', 'qaList']) {
     await expect(page.getByRole('row').filter({ hasText: fieldId })).toHaveCount(0);
   }
 

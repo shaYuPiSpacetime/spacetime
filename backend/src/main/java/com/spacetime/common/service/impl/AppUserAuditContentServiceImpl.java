@@ -132,7 +132,6 @@ public class AppUserAuditContentServiceImpl implements AppUserAuditContentServic
 
     private void requireTextType(AppUserAuditTypeEnum type) {
         if (type != AppUserAuditTypeEnum.ABOUT_ME
-                && type != AppUserAuditTypeEnum.HOPE_THEY_KNOW
                 && type != AppUserAuditTypeEnum.PROFILE_QA) {
             throw new IllegalArgumentException("仅支持开放文字审核类型");
         }

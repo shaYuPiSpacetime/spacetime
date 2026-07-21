@@ -234,7 +234,6 @@ window.DEMO_DATA = {
     U10001: {
       relationAccessStatus: '开放',
       vipStatus: '生效中',
-      hiddenVisitStatus: '已开启',
       visitorUv7d: 42,
       visitorPv7d: 68,
       activeLikedCount: 18,
@@ -242,29 +241,28 @@ window.DEMO_DATA = {
       lastMatchTime: '2026-07-02 13:42:18',
       records: {
         likes: [
-          { id: 'LIK-20260702-0001', oppositeUser: '周语桐 U100352', status: '生效中', unlockStatus: '已解锁', happenedAt: '2026-07-02 13:21', invalidReason: '-' },
-          { id: 'LIK-20260701-0028', oppositeUser: '沈嘉禾 U100418', status: '已失效', unlockStatus: '未解锁', happenedAt: '2026-07-01 19:04', invalidReason: '对方账号已冻结' },
-          { id: 'LIK-20260630-0015', oppositeUser: '陆清和 U100516', status: '生效中', unlockStatus: '全量可见', happenedAt: '2026-06-30 22:16', invalidReason: '-' },
+          { id: 'LIK-20260702-0001', oppositeUser: '周语桐 U100352', direction: '我接收', source: '婚恋用户主页', status: '生效中', unlockStatus: '已解锁', unlockNo: 'UNL-20260702-0018', happenedAt: '2026-07-02 13:21', invalidReason: '-' },
+          { id: 'LIK-20260701-0028', oppositeUser: '沈嘉禾 U100418', direction: '我发起', source: '精选推荐', status: '已失效', unlockStatus: '未解锁', unlockNo: '-', happenedAt: '2026-07-01 19:04', invalidReason: '对方账号已冻结' },
+          { id: 'LIK-20260630-0015', oppositeUser: '陆清和 U100516', direction: '我接收', source: '婚恋用户主页', status: '生效中', unlockStatus: '全量可见', unlockNo: 'UNL-20260630-0009', happenedAt: '2026-06-30 22:16', invalidReason: '-' },
         ],
         visits: [
-          { id: 'VIS-20260702-0036', oppositeUser: '陆清和 U100516', visitCount: '7天 5 次', lastVisitAt: '2026-07-02 12:32', unlockStatus: '已解锁', hiddenStatus: '正常展示' },
-          { id: 'VIS-20260701-0091', oppositeUser: '陈一鸣 U100193', visitCount: '7天 2 次', lastVisitAt: '2026-07-01 20:41', unlockStatus: '未解锁', hiddenStatus: '模糊展示' },
-          { id: 'VIS-20260629-0042', oppositeUser: '许安然 U100279', visitCount: '7天 1 次', lastVisitAt: '2026-06-29 09:18', unlockStatus: '未解锁', hiddenStatus: '对方已隐藏访问' },
+          { id: 'VIS-20260702-0036', oppositeUser: '陆清和 U100516', direction: '我被访问', source: '婚恋用户主页', status: '有效', visitCount: '7天 5 次', lastVisitAt: '2026-07-02 12:32', unlockStatus: '已解锁', unlockNo: 'UNL-20260702-0016', invalidReason: '-' },
+          { id: 'VIS-20260701-0091', oppositeUser: '陈一鸣 U100193', direction: '我被访问', source: '婚恋用户主页', status: '有效', visitCount: '7天 2 次', lastVisitAt: '2026-07-01 20:41', unlockStatus: '未解锁', unlockNo: '-', invalidReason: '-' },
+          { id: 'VIS-20260629-0042', oppositeUser: '许安然 U100279', direction: '我访问', source: '婚恋用户主页', status: '已失效', visitCount: '7天 1 次', lastVisitAt: '2026-06-29 09:18', unlockStatus: '未解锁', unlockNo: '-', invalidReason: '对方账号已注销' },
         ],
         matches: [
-          { id: 'MAT-20260702-0008', oppositeUser: '陆清和 U100516', status: '相互喜欢', matchedAt: '2026-07-02 13:42', profileAction: '主页 Yo 已切换聊天' },
-          { id: 'MAT-20260628-0012', oppositeUser: '周语桐 U100352', status: '相互喜欢', matchedAt: '2026-06-28 18:20', profileAction: '主页 Yo 已切换聊天' },
+          { id: 'MAT-20260702-0008', oppositeUser: '陆清和 U100516', source: '双方互送爱心', status: '相互喜欢', invalidReason: '-', matchedAt: '2026-07-02 13:42', profileAction: '主页 Yo 已切换聊天' },
+          { id: 'MAT-20260628-0012', oppositeUser: '周语桐 U100352', source: '悄悄话回复', status: '相互喜欢', invalidReason: '-', matchedAt: '2026-06-28 18:20', profileAction: '主页 Yo 已切换聊天' },
         ],
         unlocks: [
-          { id: 'UNL-20260702-0016', relationType: '访客记录', targetRecord: 'VIS-20260702-0036', payType: '千寻币', displayStatus: '生效中', createdAt: '2026-07-02 12:35' },
-          { id: 'UNL-20260630-0009', relationType: '喜欢记录', targetRecord: 'LIK-20260630-0015', payType: 'VIP 全量', displayStatus: '生效中', createdAt: '2026-06-30 22:18' },
+          { id: 'UNL-20260702-0016', oppositeUser: '陆清和 U100516', relationType: '访客记录', targetRecord: 'VIS-20260702-0036', payType: '千寻币', status: '生效中', createdAt: '2026-07-02 12:35' },
+          { id: 'UNL-20260630-0009', oppositeUser: '陆清和 U100516', relationType: '喜欢记录', targetRecord: 'LIK-20260630-0015', payType: 'VIP 全量', status: '生效中', createdAt: '2026-06-30 22:18' },
         ],
       },
     },
     U10002: {
       relationAccessStatus: '开放',
       vipStatus: '未开通',
-      hiddenVisitStatus: '权益不可用',
       visitorUv7d: 6,
       visitorPv7d: 9,
       activeLikedCount: 3,
@@ -275,7 +273,7 @@ window.DEMO_DATA = {
           { id: 'LIK-20260701-0017', oppositeUser: '林晓雨 U100281', status: '生效中', unlockStatus: '未解锁', happenedAt: '2026-07-01 20:41', invalidReason: '-' },
         ],
         visits: [
-          { id: 'VIS-20260702-0011', oppositeUser: '林晓雨 U100281', visitCount: '7天 2 次', lastVisitAt: '2026-07-02 10:14', unlockStatus: '未解锁', hiddenStatus: '模糊展示' },
+          { id: 'VIS-20260702-0011', oppositeUser: '林晓雨 U100281', visitCount: '7天 2 次', lastVisitAt: '2026-07-02 10:14', unlockStatus: '未解锁' },
         ],
         matches: [],
         unlocks: [],
@@ -284,7 +282,6 @@ window.DEMO_DATA = {
     U10003: {
       relationAccessStatus: '未开放',
       vipStatus: '未开通',
-      hiddenVisitStatus: '权益不可用',
       visitorUv7d: 0,
       visitorPv7d: 0,
       activeLikedCount: 0,
@@ -300,7 +297,6 @@ window.DEMO_DATA = {
     U10004: {
       relationAccessStatus: '开放',
       vipStatus: '已过期',
-      hiddenVisitStatus: '未开启',
       visitorUv7d: 17,
       visitorPv7d: 24,
       activeLikedCount: 9,
@@ -311,7 +307,7 @@ window.DEMO_DATA = {
           { id: 'LIK-20260630-0047', oppositeUser: '林晓雨 U100281', status: '生效中', unlockStatus: '已解锁', happenedAt: '2026-06-30 21:42', invalidReason: '-' },
         ],
         visits: [
-          { id: 'VIS-20260701-0033', oppositeUser: '陆清和 U100516', visitCount: '7天 3 次', lastVisitAt: '2026-07-01 16:22', unlockStatus: '已解锁', hiddenStatus: '正常展示' },
+          { id: 'VIS-20260701-0033', oppositeUser: '陆清和 U100516', visitCount: '7天 3 次', lastVisitAt: '2026-07-01 16:22', unlockStatus: '已解锁' },
         ],
         matches: [
           { id: 'MAT-20260628-0012', oppositeUser: '林晓雨 U100281', status: '相互喜欢', matchedAt: '2026-06-28 18:20', profileAction: '主页 Yo 已切换聊天' },
@@ -324,7 +320,6 @@ window.DEMO_DATA = {
     U10005: {
       relationAccessStatus: '未开放',
       vipStatus: '未开通',
-      hiddenVisitStatus: '权益不可用',
       visitorUv7d: 3,
       visitorPv7d: 4,
       activeLikedCount: 4,
@@ -344,7 +339,6 @@ window.DEMO_DATA = {
     U10006: {
       relationAccessStatus: '开放',
       vipStatus: '生效中',
-      hiddenVisitStatus: '已开启',
       visitorUv7d: 31,
       visitorPv7d: 52,
       activeLikedCount: 12,
@@ -355,7 +349,7 @@ window.DEMO_DATA = {
           { id: 'LIK-20260630-0015', oppositeUser: '林晓雨 U100281', status: '生效中', unlockStatus: '全量可见', happenedAt: '2026-06-30 22:16', invalidReason: '-' },
         ],
         visits: [
-          { id: 'VIS-20260702-0036', oppositeUser: '林晓雨 U100281', visitCount: '7天 5 次', lastVisitAt: '2026-07-02 12:32', unlockStatus: '已解锁', hiddenStatus: '正常展示' },
+          { id: 'VIS-20260702-0036', oppositeUser: '林晓雨 U100281', visitCount: '7天 5 次', lastVisitAt: '2026-07-02 12:32', unlockStatus: '已解锁' },
         ],
         matches: [
           { id: 'MAT-20260702-0008', oppositeUser: '林晓雨 U100281', status: '相互喜欢', matchedAt: '2026-07-02 13:42', profileAction: '主页 Yo 已切换聊天' },
@@ -521,7 +515,7 @@ window.DEMO_DATA = {
     ],
     text: [
       { id: 'T-5001', user: '林晓雨', object: '关于我', summary: '喜欢稳定真诚的关系，周末看展运动...', fullText: '喜欢稳定真诚的关系，周末看展运动，希望能慢慢了解彼此。', submittedAt: '06-24 10:12', status: '待审核', source: '机审', display: '待审核-机审', reason: '-', signal: '微信文本安全通过', confirmSubject: '开放性文字' },
-      { id: 'T-5002', user: '陈一鸣', object: '希望 TA 了解', summary: '可线下约咖啡，联系方式已隐藏...', fullText: '可线下约咖啡，联系方式已隐藏，建议先站内沟通。', submittedAt: '06-24 09:44', status: '审核中', source: '机审', display: '审核中-机审', reason: '-', signal: '联系方式风险处理中', confirmSubject: '开放性文字' },
+      { id: 'T-5002', user: '陈一鸣', object: '资料问答', summary: '可线下约咖啡，联系方式已隐藏...', fullText: '可线下约咖啡，联系方式已隐藏，建议先站内沟通。', submittedAt: '06-24 09:44', status: '审核中', source: '机审', display: '审核中-机审', reason: '-', signal: '联系方式风险处理中', confirmSubject: '开放性文字' },
       { id: 'T-5003', user: '周语桐', object: '问答内容', summary: '生活方式：不吸烟、少饮酒、可接受宠物', fullText: '生活方式：不吸烟、少饮酒、可接受宠物。', submittedAt: '昨天18:01', status: '已通过', source: '人工审核', display: '审核通过-人工审核', reason: '-', signal: '文本 38 字', confirmSubject: '开放性文字' },
       { id: 'T-5004', user: '王启航', object: '资料问答', summary: '见面偏好中存在营销导流表述...', fullText: '见面偏好中存在营销导流表述，需用户修改后重新提交。', submittedAt: '昨天16:30', status: '已驳回', source: '人工审核', display: '审核驳回-人工审核', reason: '营销导流', signal: '微信文本安全命中敏感词', confirmSubject: '开放性文字' },
       { id: 'T-5005', user: '许安然', object: '关于我', summary: '旧文本已下线，等待用户重新提交...', fullText: '旧文本已下线，等待用户重新提交。', submittedAt: '昨天14:30', status: '已失效', source: '人工审核', display: '已失效-人工审核', reason: '内容被投诉后下线', signal: '人工标记失效', confirmSubject: '开放性文字' },

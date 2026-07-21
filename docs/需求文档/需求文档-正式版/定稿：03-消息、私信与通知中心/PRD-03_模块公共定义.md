@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本08 | 2026-07-16 | Codex | 与 PRD-02 对齐聊天权限：关系侧返回 canEnterConversation，消息侧返回 canSend/protectStatus；女性保护只限制发送 |
 | 版本07 | 2026-07-13 | Codex | 取消前台暂不回应；pending 到期自动结束并进入 7 天冷却；拆分私信会话、悄悄话申请和官方/系统消息 |
 | 版本06 | 2026-07-13 | Codex | 移动端对齐蓝湖：通知改官方/系统全文消息流，移除全部已读、独立详情与邀请响应入口 |
 | 版本04 | 2026-07-13 | Codex | 官方助手收口为操作引导，正式业务结果统一归档通知中心 |
@@ -30,6 +31,7 @@
 | M03-09 | 悄悄话扣费统一引用 PRD-04：普通用户可用千寻币发送，时空邂逅会员每日默认 1 次免费悄悄话，用完后继续走千寻币 | `M04-RULE-whisper-pay`、`M03-CFG-vip-free-whisper-daily` |
 | M03-10 | 推荐页是悄悄话主发起入口，社区是辅助发现入口；未匹配仅可付费发悄悄话，已匹配可直接发私信 | `M03-RULE-contact-entry-routing` |
 | M03-11 | 消息中心是普通私信主入口，同时承接已发/已收悄悄话；发现入口不另建聊天记录 | `M03-RULE-contact-entry-routing`、`M03-RULE-private-chat-open` |
+| M03-12 | 聊天入口与发送权限拆分：PRD-02 判断 `canEnterConversation`；进入会话后 PRD-03 计算 `canSend`、`protectStatus`。女性保护不得阻止进入有效会话 | `M03-RULE-private-chat-open`、`M03-RULE-send-permission` |
 | M03-10 | 管理后台不新增独立 IM 会话运营工作台；首版通过 ADM-01 App 用户管理卡片“模块补充”弹窗的消息互动 Tab、消息通知记录查询、文案模板、规则配置、举报处理和操作日志承接 | `ADM-03-RULE-admin-scope` |
 | M03-11 | 通知开关关闭的旧口径被一期目标收敛：本期无用户侧通知开关；如业务节点未授权微信订阅消息，只影响外部提醒，不影响站内消息落库和通知中心可查 | `M03-RULE-notification-subscribe` |
 
@@ -228,13 +230,14 @@
 | 规则 ID | 规则描述 | 涉及端/页面 | 判定逻辑 | 备注 |
 |---------|----------|-------------|----------|------|
 | `M03-RULE-message-tab-scope` | 消息 Tab 可见与分层展示 | APP | 已登录用户可进入消息 Tab；未完成三重认证只展示系统通知入口和认证引导，不展示用户私信列表 | 继承一期上线目标 |
-| `M03-RULE-private-chat-open` | 普通私信开放 | APP/ADM | 双方均满足 `M01-RULE-core-access`、账号正常、未拉黑、`M02-SM-mutual-match=matched`，才可发送普通文本消息 | 废止互关私信旧口径 |
+| `M03-RULE-private-chat-open` | 普通私信会话开放 | APP/ADM | 双方均满足 `M01-RULE-core-access`、账号正常、未拉黑且 `M02-SM-mutual-match=matched` 时，PRD-02 返回 `canEnterConversation=true`，允许创建或打开会话；女性保护不影响进入 | 废止互关私信旧口径 |
+| `M03-RULE-send-permission` | 会话发送权限 | APP/ADM | 进入有效会话后由 PRD-03 返回 `canSend`、`protectStatus`；账号/关系失效、禁言或女性保护可使 `canSend=false`，但女性保护不改变 `canEnterConversation` | 发送接口必须再次服务端校验 |
 | `M03-RULE-whisper-send` | 悄悄话发送资格 | APP/ADM | 发送方完成三重认证；双方未匹配、账号正常、未拉黑、未受聊天处罚；无同对象 `pending`；不在到期冷却期；免费次数或千寻币可用 | 扣费引用 PRD-04 |
 | `M03-RULE-whisper-repeat-limit` | 悄悄话重复发送限制 | APP | 同一发送方对同一接收方存在 `pending` 悄悄话时，不允许再次发送 | 防骚扰 |
 | `M03-RULE-whisper-expire` | 悄悄话有效期与冷却 | APP/ADM | `pending` 满 7 天由定时任务或延迟队列幂等转 `expired`；从到期时间起 7 天内原发送方不可再次向同一对象发送 | 有效期与冷却期默认各 7 天 |
 | `M03-RULE-whisper-read-privacy` | 已读与拒绝隐私 | APP | 服务端可记录接收方已读，但发送方始终只见“等待回应”；不得展示已读、明确拒绝、拉黑原因和具体处理时间 | 降低催促与骚扰 |
 | `M03-RULE-whisper-payment-refund` | 悄悄话扣费与退款 | APP/ADM | 打开弹窗、编辑、资格失败、内容安全失败均不扣费；发送成功后到期未回复不退款；已扣费但消息创建失败、未有效送达或平台发送后主动下架时原路补回 | 与 PRD-04 资产流水联动 |
-| `M03-RULE-female-protection` | 女性保护机制 | APP/ADM | 匹配成功后连续 3 天内，男方在女方未发送真实用户消息前不可发送普通私信；悄悄话回复视为接收方真实用户消息，不再额外阻断该会话 | 后台可配置开关和天数 |
+| `M03-RULE-female-protection` | 女性保护机制 | APP/ADM | 匹配成功后连续 3 天内，男方在女方未发送真实用户消息前不可发送普通私信，但仍可进入会话查看历史和保护提示；悄悄话回复视为接收方真实用户消息，不再额外阻断该会话 | 后台可配置开关和天数；返回 `canSend`、`protectStatus` |
 | `M03-RULE-message-type-scope` | 首版消息类型范围 | APP/ADM | 只支持 `text`、`whisper`、`whisper_reply`、`system_tip`、`official`；图片、语音、撤回、通话、输入中隐藏入口 | 本期不做清单同步 |
 | `M03-RULE-conversation-invalid` | 会话失效规则 | APP/ADM | 任一方拉黑、冻结、停用、封禁、注销中、已注销或核心准入失效后，会话不可发送但历史保留 | 与举报处罚联动 |
 | `M03-RULE-unread` | 未读与红点规则 | APP | 消息 Tab 红点 = 私信/悄悄话未读 + 官方小助手/系统消息未读；超过 99 展示 `99+`；进入对应消息流后置已读 | 不提供全部已读 |

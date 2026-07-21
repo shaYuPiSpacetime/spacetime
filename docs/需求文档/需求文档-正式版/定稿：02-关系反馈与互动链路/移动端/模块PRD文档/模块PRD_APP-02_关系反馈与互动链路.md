@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本05 | 2026-07-16 | Codex | 同步最终确认：匹配弹窗按用户记录已读；单条解锁两步确认；女性保护仅限制发送；移动端接口本轮延期 |
 | 版本04 | 2026-07-10 | Codex | 按蓝湖 UI 与产品确认收口：取消匹配成功弹窗、前台失效态、海量曝光/10倍曝光入口，调整相互喜欢与单条解锁范围 |
 | 版本03 | 2026-07-09 | Codex | 按产品确认调整关系失效前台展示：取消喜欢后默认列表隐藏，不提示“取消喜欢/不喜欢了” |
 | 版本02 | 2026-07-02 | Codex | 补齐单条解锁弹窗场景规格、主页按钮联动、研发必做/可延后分级和集中研发边界 |
@@ -45,7 +46,7 @@
   3. 写入 `M02-SM-like-record=active`
   4. 用户 B 的喜欢我的列表出现记录
   5. 若 B 已喜欢 A，生成 `M02-SM-mutual-match=matched`
-  6. 本期不展示匹配成功弹窗；用户可在心动-相互喜欢列表看到该关系
+  6. 按 `matchNo + userId` 为双方分别生成待展示状态；用户成功看到弹窗并主动关闭或导航后标记本人已读
 异常：
   - 未完成三重认证：不写关系，展示认证引导
   - 重复喜欢：幂等返回已喜欢
@@ -61,7 +62,7 @@
   1. 判断当前页面是否为婚恋用户主页；社区动态详情、职业主页不计入
   2. 校验访问方/被访问方账号状态正常
   3. 一期不判断隐藏访问权益；按 30 分钟展示记录去重并累计 PV
-  4. 若未隐藏，按 30 分钟去重窗口生成或更新访客记录
+  4. 按 30 分钟去重窗口生成或更新访客记录
   5. 被访问方在最近看过我的列表看到最近 7 天记录
 异常：
   - 访问者未完成核心准入：不生成真实访客记录
@@ -75,12 +76,14 @@
 正常路径：
   1. 普通用户看到模糊列表
   2. 点击单条模糊卡片，先打开 `APP-02-PAGE-single-unlock-modal` 场景弹窗
-  3. 用户点击“只看ta”后复用 `APP-04-PAGE-paywall-modal` 千寻币确认；扣币成功后当前记录永久清晰
-  4. 点击解锁全部，唤起 `APP-04-PAGE-paywall-modal` 会员引导
-  5. 会员有效期内对应列表全量清晰
-  6. 会员到期后全量清晰权益回退为普通模糊态，已单条解锁记录继续清晰
+  3. 第一步场景弹窗不扣币；用户点击“只看ta”后进入 `APP-04-PAGE-paywall-modal` 第二步千寻币确认
+  4. 第二步提交前重新校验对象与记录状态，并按用户、场景、目标记录幂等；确认成功后才扣币
+  5. 点击解锁全部，唤起 `APP-04-PAGE-paywall-modal` 会员引导
+  6. 会员有效期内对应列表全量清晰
+  7. 会员到期后全量清晰权益回退为普通模糊态；已单条解锁记录在对象与关系可展示时继续清晰
 异常：
   - 余额不足：由 PRD-04 余额不足弹窗承接
+  - 任一步取消：关闭当前弹窗，不扣币、不写解锁记录
   - 目标不可互动或记录异常：默认列表不返回；不扣币；后台保留原因
   - 最近访客超过 7 天：不在最近看过我的前台列表展示，资产/解锁记录可追溯
 ```
@@ -94,7 +97,8 @@
   2. 接收方回复悄悄话成功
   3. PRD-03 发出内部事件
   4. PRD-02 生成 `matchSource=whisper_reply` 的匹配成功记录
-  5. 双方进入相互喜欢列表，后续普通聊天遵守 PRD-03 女性保护规则
+  5. 为双方分别生成匹配弹窗待展示状态，双方进入相互喜欢列表
+  6. PRD-02 返回 `canEnterConversation`；进入会话后由 PRD-03 的 `canSend`、`protectStatus` 执行女性保护发送限制
 ```
 
 ---
@@ -108,6 +112,8 @@
 | 喜欢记录 | `relation_like_record` | 用户喜欢关系 | 02 | likeNo, fromUserId, toUserId, sourceScene, likeStatus, invalidReason |
 | 访客记录 | `relation_visit_record` | 婚恋用户主页访问反馈 | 02 | visitNo, visitorUserId, targetUserId, sourceScene, visitTime, visitStatus |
 | 匹配成功记录 | `relation_mutual_match` | 相互喜欢/匹配成功关系 | 02 | matchNo, userAId, userBId, matchSource, matchStatus, invalidReason |
+| 匹配来源明细 | `relation_match_source` | 同一匹配生命周期内的来源事件 | 02 | matchNo, sourceType, sourceEventNo, sourceStatus |
+| 匹配弹窗用户状态 | `relation_match_popup_state` | 双方各自的待展示/已读状态 | 02 | matchNo, userId, popupStatus, shownAt, readAt |
 | 解锁关系映射 | `relation_unlock_ref` | PRD-02 业务对象与 PRD-04 解锁记录关联 | 02/04 | relationType, relationId, unlockNo, displayStatus |
 
 ### 4.2 实体关系
@@ -118,6 +124,8 @@
 用户 1──N 访客记录（visitorUserId）
 用户 1──N 访客记录（targetUserId）
 用户 1──N 匹配成功记录（userAId/userBId）
+匹配成功记录 1──N 匹配来源明细
+匹配成功记录 1──2 匹配弹窗用户状态
 PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 ```
 
@@ -140,6 +148,7 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 | `APP-02-RULE-likes-me` | 喜欢我的列表、模糊/清晰展示、单条解锁、会员全量查看 | P0 | `APP-02-PAGE-likes-me` | |
 | `APP-02-RULE-recent-viewers` | 最近看过我的列表、7 天窗口、访客 UV/PV 与展示记录去重 | P0 | `APP-02-PAGE-recent-viewers` | 隐藏访问一期不开发 |
 | `APP-02-RULE-mutual-matches` | 相互喜欢默认列表、有效匹配、查看主页入口；聊天由主页/消息链路承接 | P0 | `APP-02-PAGE-mutual-matches` | 取消喜欢或异常导致的失效记录不进入默认列表 |
+| `APP-02-RULE-match-success-modal` | 新匹配生命周期为双方各生成一次匹配成功弹窗状态，并按用户主动动作记录已读 | P0 | `APP-02-PAGE-match-success-modal` | 当前缺蓝湖 UI；移动端实现按 `C02-12` 延期 |
 | `APP-02-RULE-like-action` | 喜欢、取消喜欢、双向喜欢生成匹配 | P0 | 用户主页/推荐卡片 | 页面主体由其他 PRD 承接 |
 | `APP-02-RULE-visit-action` | 进入婚恋用户主页生成访客记录 | P0 | 用户主页 | |
 | `APP-02-RULE-single-unlock-modal` | 喜欢/访客单条解锁场景内容：标题、副标题、模糊头像、按钮组合 | P0 | `APP-02-PAGE-single-unlock-modal` | 扣费和余额不足复用 PRD-04 |
@@ -157,7 +166,6 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 | 支付/充值页面 | 已由 PRD-04 统一承接 | 仅引用 `APP-04-PAGE-paywall-modal` | 无 |
 | 私信会话与女性保护细节 | 归 PRD-03 | 仅引用 | 无 |
 | 社区关注/点赞/评论关系 | 归 PRD-05 | 不纳入关系反馈 | 无 |
-| 匹配成功弹窗 | 蓝湖无对应 UI，产品确认本期不做 | 不展示弹窗；匹配成功仅写相互喜欢记录 | 如后续补 UI 再单独评估 |
 | 前台关系失效态/关系失效弹窗 | 蓝湖无对应 UI，且默认列表应隐藏不可互动对象 | 不画失效卡片、失效弹窗或切换按钮；后台保留原因 | 无 |
 | 海量曝光/10倍曝光入口 | PRD-02 与一期范围不包含该运营入口 | 心动页不展示；如蓝湖旧稿仍有需删除 | 曝光包后续由 PRD-04 另立 |
 | 喜欢我的筛选胶囊 | 产品确认删除 | 不展示“资产殷实/身高180/有房有车”等筛选胶囊 | 无 |
@@ -183,10 +191,11 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 | `APP-02-PAGE-likes-me` | 喜欢我的列表页 | `../页面规格/APP-01_喜欢我的列表页.md` | P0 |
 | `APP-02-PAGE-recent-viewers` | 最近看过我的列表页 | `../页面规格/APP-02_最近看过我的列表页.md` | P0 |
 | `APP-02-PAGE-mutual-matches` | 相互喜欢列表页 | `../页面规格/APP-03_相互喜欢列表页.md` | P0 |
+| `APP-02-PAGE-match-success-modal` | 匹配成功弹窗 | `../页面规格/APP-04_匹配成功弹窗.md` | P0 |
 | `APP-02-PAGE-single-unlock-modal` | 单条解锁弹窗场景规格 | `../页面规格/APP-05_单条解锁弹窗场景规格.md` | P0 |
 | `APP-04-PAGE-paywall-modal` | 业务场景付费引导弹窗 | `../../../04-商业化（VIP、千寻币、解锁与资产中心）/移动端/页面规格/APP-08_业务场景付费引导弹窗.md` | P0 |
 
-> `../页面规格/APP-04_匹配成功弹窗.md` 保留为废弃留档，本期不纳入页面清单、静态 Demo 或验收范围。
+> 按 `C02-12`，本轮不实现移动端页面/API，不做联调和验收；上述页面与接口草案作为后续开发的冻结输入保留。
 
 ---
 
@@ -215,6 +224,7 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 | 取消喜欢 | 重复取消返回成功态，不重复触发事件 |
 | 访客记录 | 同一 visitorUserId + targetUserId 在 30 分钟窗口内不新增多条展示记录 |
 | 匹配成功 | 同一用户对同一来源在有效状态下不重复生成多条 active 匹配 |
+| 匹配弹窗 | 同一 `matchNo + userId` 仅一条状态；已读重复提交幂等成功，新生命周期使用新 `matchNo` |
 | 单条解锁 | 同一用户同一记录重复解锁不重复扣币 |
 
 ### 9.4 埋点建议
@@ -230,6 +240,8 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 | `recent_viewers_unlock_one_click` | 点击访客单条解锁 |
 | `mutual_likes_page_show` | 相互喜欢列表曝光 |
 | `mutual_like_profile_click` | 点击相互喜欢卡片查看主页 |
+| `match_success_popup_show` | 匹配成功弹窗实际展示成功 |
+| `match_success_popup_action` | 用户关闭、稍后处理、去主页或去聊天 |
 
 ---
 
@@ -251,10 +263,15 @@ Given 关系记录因拉黑、注销、冻结、封禁或认证失效不可继�
 When  用户进入喜欢我的、最近看过我的或相互喜欢默认列表
 Then  前台默认列表不展示该对象，不展示失效卡片或关系失效弹窗，后台保留真实失效原因
 
-AC-ID: APP-02-AC-no-match-popup
-Given 用户 A 与用户 B 首次形成匹配成功
-When  接口返回匹配成功结果
-Then  不展示匹配成功弹窗，双方可在相互喜欢列表看到该关系
+AC-ID: APP-02-AC-match-popup-per-user
+Given 用户 A 与用户 B 形成新的匹配生命周期
+When  任一用户下一次满足弹窗展示条件
+Then  该用户展示一次匹配成功弹窗；主动关闭或导航后按 matchNo + userId 标记已读，加载失败或应用异常退出不标记已读
+
+AC-ID: APP-02-AC-female-protection-entry
+Given 双方匹配有效且会话处于女性保护发送限制
+When  用户点击去聊天
+Then  PRD-02 返回 canEnterConversation=true 并允许进入会话，PRD-03 通过 canSend=false 和 protectStatus 限制发送
 ```
 
 ---
@@ -271,6 +288,7 @@ Then  不展示匹配成功弹窗，双方可在相互喜欢列表看到该关�
 | `APP-02-MUST-04` | 单条解锁弹窗场景内容 | `APP-02-PAGE-single-unlock-modal` |
 | `APP-02-MUST-05` | 会员/千寻币引导承接 | `APP-04-PAGE-paywall-modal` |
 | `APP-02-MUST-06` | 三重认证前准入拦截 | `M02-RULE-core-access` |
+| `APP-02-MUST-07` | 匹配成功弹窗需求与按用户已读状态 | `APP-02-PAGE-match-success-modal` |
 
 ### 11.2 可延后
 
@@ -278,5 +296,7 @@ Then  不展示匹配成功弹窗，双方可在相互喜欢列表看到该关�
 |------|----------|--------------|
 | `APP-02-LATER-01` | 更复杂的访客分组样式 | 本期只按今日/昨日/近 7 天分组 |
 | `APP-02-LATER-02` | 更细粒度的访客统计图表 | 本期只展示总浏览量、今日访客、今日浏览量 |
-| `APP-02-LATER-03` | 匹配成功弹窗及动效 | 本期不做，匹配成功由相互喜欢列表承接 |
+| `APP-02-LATER-03` | 匹配成功弹窗动效细节 | 业务规则已冻结；动效以待补蓝湖 UI 为准 |
 | `APP-02-LATER-04` | 更多个性化提示语 | 本期文案后台可配，个性化策略延后 |
+
+> 交付边界 `C02-12`：本轮移动端接口、页面编码、联调和验收整体延期；“必做”表示后续移动端开发范围，不表示本轮立即实现。

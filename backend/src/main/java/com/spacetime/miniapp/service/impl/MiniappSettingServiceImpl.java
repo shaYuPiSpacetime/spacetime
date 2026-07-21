@@ -7,6 +7,7 @@ import com.spacetime.common.entity.*;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.MobilePageCodeEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
+import com.spacetime.common.enums.RelationInvalidReasonEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.MiniappKeywordBlockReq;
 import com.spacetime.miniapp.dto.request.MiniappNotificationSettingReq;
@@ -16,6 +17,7 @@ import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.MiniappMobileConfigService;
 import com.spacetime.miniapp.service.MiniappSettingService;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.RelationLifecycleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -41,6 +44,7 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
     private final AppUserDao appUserDao;
     private final MiniappMobileConfigService mobileConfigService;
     private final AppUserAuditContentService auditContentService;
+    private final RelationLifecycleService relationLifecycleService;
 
     @Override
     public MiniappSettingsHomeVO home(Long userId) {
@@ -150,6 +154,10 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
         entity.setSourceScene(req.getSourceScene());
         entity.setStatus(CommonStatusEnum.ENABLED.getCode());
         relationBlockDao.insert(entity);
+        if (RelationBlockTypeEnum.BLACKLIST.getCode().equals(blockType)) {
+            relationLifecycleService.invalidateByPair(userId, req.getTargetUserId(),
+                    RelationInvalidReasonEnum.BLOCKED, LocalDateTime.now());
+        }
         writeAudit(auditLogDao, userId, userId, "RELATION_BLOCK", entity.getId(), "CREATE", null, blockType + ":" + req.getTargetUserId());
         return entity.getId();
     }

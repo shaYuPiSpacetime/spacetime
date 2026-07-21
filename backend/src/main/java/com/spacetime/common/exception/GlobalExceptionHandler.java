@@ -8,6 +8,8 @@ import org.slf4j.MDC;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -46,6 +48,14 @@ public class GlobalExceptionHandler {
     public R<Void> handleNotFound(Exception e) {
         log.warn("resource not found: {}", e.getMessage());
         return R.fail(ResultCodeEnum.NOT_FOUND);
+    }
+
+    /** 已登录但无权限：同时返回 HTTP 403 和统一业务体。 */
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<R<Void>> handleForbiddenException(ForbiddenException e) {
+        log.warn("forbidden: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(R.fail(ResultCodeEnum.FORBIDDEN.getCode(), e.getMessage()));
     }
 
     /** 未知异常：生成 requestId 并打印完整堆栈，方便排查。 */

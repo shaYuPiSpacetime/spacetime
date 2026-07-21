@@ -15,6 +15,7 @@ public class AppUserDetailVO {
     private String avatar;
     /** 性别 */
     private String gender;
+    private String genderLabel;
     /** 出生日期 */
     private String birthday;
     /** 年龄 */
@@ -25,18 +26,35 @@ public class AppUserDetailVO {
     private Integer weight;
     /** 身份类型 */
     private String identity;
+    private String identityCode;
+    private String identityLabel;
+    private String industryCode;
+    private String industryLabel;
     /** 职业 */
     private String occupation;
+    private String occupationCode;
+    private String occupationLabel;
+    private String company;
     /** 年收入区间 */
     private String annualIncome;
+    private String annualIncomeCode;
+    private String annualIncomeLabel;
     /** 居住省 */
     private String locationProvince;
     /** 居住市 */
     private String locationCity;
+    private String locationDistrict;
+    private String locationProvinceLabel;
+    private String locationCityLabel;
+    private String locationDistrictLabel;
     /** 家乡省 */
     private String hometownProvince;
     /** 家乡市 */
     private String hometownCity;
+    private String hometownDistrict;
+    private String hometownProvinceLabel;
+    private String hometownCityLabel;
+    private String hometownDistrictLabel;
     /** 学校 */
     private String school;
     /** 实名绑定手机号，业务层脱敏后返回 */
@@ -45,18 +63,32 @@ public class AppUserDetailVO {
     private String major;
     /** 最高学历 */
     private String educationLevel;
+    private String educationLevelCode;
+    private String educationLevelLabel;
     /** 感情状态 */
     private String emotionalStatus;
+    private String emotionalStatusCode;
+    private String emotionalStatusLabel;
     /** 脱单目标 */
     private String datingGoal;
+    private String datingGoalCode;
+    private String datingGoalLabel;
     /** 婚姻状态 */
     private String maritalStatus;
+    private String maritalStatusCode;
+    private String maritalStatusLabel;
     /** 关于我 */
     private String aboutMe;
-    /** 希望TA了解 */
-    private String hopeTheyKnow;
     /** 标签JSON */
     private String tags;
+    private String wechatId;
+    private String favoriteSongId;
+    private String favoriteSongName;
+    private String favoriteSongArtist;
+    private String favoriteSongCoverUrl;
+    private Integer coinBalance;
+    private String vipStatus;
+    private String vipExpireTime;
     /** 相册JSON */
     private String photos;
     /** 资料页背景图 */
@@ -85,6 +117,11 @@ public class AppUserDetailVO {
     private String accountStatus;
     /** 认证详情 */
     private VerificationDetailVO verification;
+    private Long avatarAuditRecordId;
+    private String avatarAuditMediaUrl;
+    private String avatarAuditThumbUrl;
+    private String avatarAuditRejectReason;
+    private String avatarAuditSubmitTime;
     /** 是否可浏览觅缘卡片 */
     private Boolean canBrowseCards;
     /** 是否可匹配操作 */

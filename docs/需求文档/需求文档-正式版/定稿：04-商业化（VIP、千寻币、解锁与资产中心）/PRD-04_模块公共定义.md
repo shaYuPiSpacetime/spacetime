@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本14 | 2026-07-16 | Codex | 对齐 PRD-02 单条解锁：两步确认、扣币前复验与幂等；对象失效前台移除且不自动退款，影响 APP-04-PAGE-paywall-modal |
 | 版本13 | 2026-07-15 | Codex | 隐藏访问/隐身权益调整为后续预留，一期不开发且后台不可启用，影响 APP-04-PAGE-vip-center、ADM-04-PAGE-commerce-config |
 | 版本12 | 2026-07-02 | Codex | 千寻币消费场景新增立业-职业推荐，消费场景扩展为 8 项，影响 `APP-04-PAGE-coin-recharge`、`APP-04-PAGE-paywall-modal`、`ADM-04-PAGE-commerce-config` |
 | 版本11 | 2026-07-02 | Codex | 千寻币消费场景新增移动端展示名称配置，消费场景调整为 7 项：删除觅缘回看单条，新增合拍的人与解锁知音-觅知音，影响 `APP-04-PAGE-coin-recharge`、`APP-04-PAGE-paywall-modal`、`ADM-04-PAGE-commerce-config` |
@@ -29,7 +30,7 @@
 | M04-01 | 正式虚拟币名称统一为“千寻币”，旧称“成家币”不再作为前台展示名 | `GLB-TERM-cheng-coin`、`M04-TERM-coin` |
 | M04-02 | 商业化模块对已登录用户可见；未完成三重认证可购买时空邂逅会员/千寻币，但社交权益实际使用仍受 `M01-RULE-core-access` 限制 | `M04-RULE-core-access-gate` |
 | M04-03 | `喜欢我的`、`最近看过我的`：单条解锁走千寻币，解锁全部走时空邂逅会员，不做“千寻币解锁全部” | `M04-RULE-like-viewer-unlock` |
-| M04-04 | 时空邂逅会员到期后会员权益即时回退；已单条购买记录继续保持清晰 | `M04-RULE-vip-expire`、`M04-SM-vip-status` |
+| M04-04 | 时空邂逅会员到期后会员权益即时回退；已单条购买记录在对象与关系可展示时继续保持清晰 | `M04-RULE-vip-expire`、`M04-SM-vip-status` |
 | M04-05 | 悄悄话普通用户可用千寻币发送；会员默认每日 1 次免费悄悄话，次数后台可配，用完后继续走千寻币 | `M04-RULE-whisper-pay`、`M04-CFG-vip-free-whisper-daily` |
 | M04-06 | 千寻币用户侧只展示一个总余额；充值币、赠送币、退款退回、邀请奖励等来源在后台流水区分；千寻币不过期 | `M04-RULE-coin-balance` |
 | M04-07 | 前台不开放主动退款申请；后台在商业化订单详情中发起特批退款，填写退款原因、资产回退处理和退款金额；本期提交即默认生成 `refunded` 退款记录，不做审批流 | `M04-RULE-refund-display`、`M04-SM-trade-order` |
@@ -240,7 +241,7 @@
 | （无） | 千寻币扣减成功 | `active` | 余额充足、单价有效、对象可解锁、幂等通过 | 写消费流水，目标对象变清晰 |
 | `active` | 保留期到期 | `expired` | 场景为理想型、合拍的人、知音-觅知音、立业-职业推荐等有保留期或结果版本绑定对象 | 目标对象或新测评结果需重新解锁 |
 | `active` | 特批退款完成 | `refunded` | 后台判定需回退 | 目标对象恢复未解锁或按场景处理 |
-| `active` | 对象不可用/风控作废 | `invalid` | 用户注销、对象删除、风控判定 | 前台展示失效或隐藏 |
+| `active` | 对象不可用/风控作废 | `invalid` | 用户注销、对象删除、关系不可展示、风控判定 | 关系类对象前台直接移除，不展示失效卡片，不自动退款；后台保留记录与真实原因 |
 
 ---
 
@@ -248,13 +249,13 @@
 
 | 规则 ID | 规则描述 | 涉及端/页面 | 判定逻辑 | 备注 |
 |---------|----------|-------------|----------|------|
-| `M04-RULE-core-access-gate` | 购买与使用分离 | APP-04 全部购买页 | 已登录用户可购买时空邂逅会员/千寻币；涉及真实曝光、喜欢、私信、社区的权益使用必须满足 `M01-RULE-core-access`；核心准入从通过回退为未通过时，心动名单、访客、高级筛选、私信、曝光类权益即时暂停，恢复准入后自动恢复；已生效的单条解锁记录保持 | 未完成三重认证时购买前后均提示 |
+| `M04-RULE-core-access-gate` | 购买与使用分离 | APP-04 全部购买页 | 已登录用户可购买时空邂逅会员/千寻币；涉及真实曝光、喜欢、私信、社区的权益使用必须满足 `M01-RULE-core-access`；核心准入从通过回退为未通过时，心动名单、访客、高级筛选、私信、曝光类权益即时暂停，恢复准入后自动恢复；已生效的单条解锁记录保留，但对象不可展示时前台不得继续展示 | 未完成三重认证时购买前后均提示 |
 | `M04-RULE-vip-benefit` | 会员权益统一配置 | `APP-04-PAGE-vip-center` / `ADM-04-PAGE-commerce-config` | 会员权益为系统内置固定集合，权益名称、类型、说明不可编辑，不提供新增、删除、排序；后台按权益配置开关、移动端图标，并按权益类型补充次数或分数字段 | 固定展示顺序：心动名单、访客、免费悄悄话、额外浏览、高级筛选、曝光、隐私权益、三天回放、每日心动机会 |
 | `M04-RULE-vip-benefit-config-fields` | 会员权益配置字段边界 | `ADM-04-PAGE-commerce-config` | 心动名单、访客、高级筛选、三天回放配置开关+移动端图标；免费悄悄话、额外浏览、曝光、每日心动机会按原字段配置。`privacy` 隐私权益一期仅保留预留编码，不展示配置控件且不可启用 | 后续立项隐藏访问时再开放配置与移动端展示 |
 | `M04-RULE-member-tier-scope` | 单会员层级 | APP/ADM | 首版仅提供“时空邂逅会员”一个会员层级；套餐类型只允许普通套餐和连续订阅套餐；不提供 SVIP、高端服务、人工高端会员商品或对应后台配置 | demo 或历史文档中出现的 SVIP/高端服务均不纳入首版 |
 | `M04-RULE-vip-expire` | 会员到期回退 | APP/ADM | 到期后心动名单、访客、免费悄悄话、额外浏览、高级筛选、曝光、隐私权益、三天回放、每日心动机会即时失效；单条购买记录不受影响 | |
 | `M04-RULE-coin-balance` | 千寻币余额规则 | APP/ADM | 用户侧只展示总余额；千寻币不过期；后台流水区分充值、赠送、奖励、退款退回等来源 | 不做双余额池 |
-| `M04-RULE-like-viewer-unlock` | 喜欢/访客解锁 | APP 关系链路 | 单条解锁走千寻币；解锁全部走时空邂逅会员；单条购买永久可见；两个模块解锁状态相互独立 | 不做千寻币解锁全部；`likes_unlock_one` 与 `viewers_unlock_one` 单价独立可配，也允许运营设为相同价格 |
+| `M04-RULE-like-viewer-unlock` | 喜欢/访客解锁 | APP 关系链路 | 单条解锁走千寻币，解锁全部走时空邂逅会员。单条解锁采用两步确认：PRD-02 场景弹窗不扣币，“只看ta”进入本模块千寻币确认；提交前复验对象/记录并按用户+场景+目标记录幂等，只有确认成功才扣币。单条购买在对象与关系可展示时永久清晰 | 任一步取消不扣币；对象取消喜欢、拉黑、冻结、注销、封禁或认证失效后前台移除且不自动退款；特批退款完成后解锁记录变 `refunded` 并失效 |
 | `M04-RULE-whisper-pay` | 悄悄话支付 | APP 消息链路 | 普通用户直接扣千寻币；会员优先扣每日免费次数，用完后扣千寻币；同一目标未回复/未失效前不可重复发送 | 与 PRD-03 消息状态联动 |
 | `M04-RULE-ideal-unlock` | 理想型解锁 | APP 推荐链路 | 单个/批量均走千寻币；单次最多勾选数取 `M04-CFG-ideal-batch-max`；会员不免单；保留期取 `M04-CFG-ideal-unlock-retention-days` | 默认 5 个/90 天 |
 | `M04-RULE-compatible-person-unlock` | 合拍的人解锁 | APP 测评推荐链路 | 合拍的人按单个对象走千寻币按次扣减；场景说明为“由测评结果推荐的人”；会员不免单；保留期复用 `M04-CFG-ideal-unlock-retention-days` | 默认 90 天 |
@@ -307,7 +308,7 @@
 | `extra_browse` | 每日额外浏览 | 额外浏览 | 开关 + 每日次数 | `icon-browse-plus` | `M04-CFG-vip-benefit-list`、`M04-CFG-vip-extra-browse-daily` | 次数由后台配置 |
 | `advanced_filter` | 精准筛选功能 | 高级筛选 | 开关 | `icon-filter` | `M04-CFG-vip-benefit-list` | 前台名称按 UI 展示，后台能力名保持高级筛选 |
 | `exposure_score` | 曝光度拉满 | 曝光 | 开关 + 分数 | `icon-exposure` | `M04-CFG-vip-benefit-list`、`M04-CFG-vip-exposure-score` | 会员权益曝光分数，不等同曝光包预留 |
-| `privacy` | 隐身模式 | 隐私权益 | 开关 | `icon-privacy` | `M04-CFG-vip-benefit-list` | 前台名称按 UI 展示，后台能力名保持隐私权益 |
+| `privacy` | 隐身模式（后续预留） | 隐私权益 | 不展示/不可编辑 | 无 | 仅保留枚举编码 | 一期前后台均不展示且不可启用；后续立项后重新定义图标和配置字段 |
 | `three_day_replay` | 三天回放功能 | 三天回放 | 开关 | `icon-replay-3d` | `M04-CFG-vip-benefit-list` | 只控制是否启用 |
 | `daily_heart_chance` | 每日心动机会 | 每日心动机会 | 开关 + 每日次数 | `icon-heart-chance` | `M04-CFG-vip-benefit-list`、`M04-CFG-vip-daily-heart-chance` | 次数由后台配置 |
 
@@ -316,7 +317,7 @@
 | 场景 code | 后台显示名 | 移动端展示名称 | 配置字段 | 移动端图标配置 | 引用配置 | 说明 |
 |-----------|------------|----------------|----------|----------------|----------|------|
 | `whisper` | 发送悄悄话 | 发送悄悄话（单次） | 移动端展示名称 + 单价 + 启停 | `icon-whisper` | `M04-CFG-coin-scene-price` | 会员免费次数用完后继续走千寻币 |
-| `likes_unlock_one` | 解锁喜欢我的单条 | 解锁喜欢我的单条 | 移动端展示名称 + 单价 + 启停 | `icon-heart-unlock` | `M04-CFG-coin-scene-price` | 单条购买永久可见 |
+| `likes_unlock_one` | 解锁喜欢我的单条 | 解锁喜欢我的单条 | 移动端展示名称 + 单价 + 启停 | `icon-heart-unlock` | `M04-CFG-coin-scene-price` | 对象与关系可展示时永久清晰 |
 | `viewers_unlock_one` | 解锁最近看过我的单条 | 解锁最近看过我的单条 | 移动端展示名称 + 单价 + 启停 | `icon-eye-unlock` | `M04-CFG-coin-scene-price` | 与喜欢单条单价独立可配 |
 | `ideal_user_unlock` | 解锁理想型用户 | 解锁理想型用户（单个） | 移动端展示名称 + 单价 + 启停 | `icon-target-user` | `M04-CFG-coin-scene-price` | 单个理想型解锁 |
 | `ideal_batch_unlock` | 批量解锁理想型用户 | 批量解锁理想型用户 | 移动端展示名称 + 单价 + 启停 | `icon-target-batch` | `M04-CFG-coin-scene-price` | 单次最大勾选数另取 `M04-CFG-ideal-batch-max` |

@@ -45,7 +45,7 @@
 | `profileBasic` | 基础资料 | `M01-DATA-user-input-fields` 中轻量资料/基础资料字段组 | 是 | — |
 | `profileCertification` | 三重认证 | 头像认证、实名认证、学历认证字段组 | 是 | 认证审核 |
 | `profileGoal` | 脱单目标/感情状态 | `datingGoal`、`emotionalStatus` | 按配置 | 开放文字如有 |
-| `profileText` | 介绍文本 | `aboutMe`、`hopeTheyKnow`、`qaList` | 按配置 | 开放性文字审核 |
+| `profileText` | 介绍文本 | `aboutMe`、`qaList` | 按配置 | 开放性文字审核 |
 | `profileTags` | 标签 | `tags` | 按配置 | 字典/内容审核 |
 | `profilePhotos` | 相册 | `photos` | 按配置 | 资料图片审核 |
 | `profileBgImage` | 资料背景图 | `profileBgImage` | 按配置 | 图片内容安全/资料图片审核 |

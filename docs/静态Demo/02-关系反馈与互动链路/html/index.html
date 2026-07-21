@@ -78,7 +78,7 @@
 
         <div class="scope-note">
           <strong>范围边界</strong>
-          <p>本轮仅覆盖 3 个关系页、单条解锁与付费引导。旧匹配提示及前台失效记录已移除。</p>
+          <p>本页仅用于静态交互说明，移动端接口本轮不实现。旧匹配提示及前台失效记录已移除。</p>
         </div>
       </aside>
 
@@ -147,7 +147,7 @@
         <ul>
           <li><span>01</span><p><strong>隐私素材隔离</strong>模糊卡片只读取独立模糊图，不从清晰图实时处理。</p></li>
           <li><span>02</span><p><strong>价格动态读取</strong>单人价格由 Mock 返回，HTML 不写死金额。</p></li>
-          <li><span>03</span><p><strong>状态先过滤</strong>取消、失效、窗口外和隐藏访问记录不进入前台 DOM。</p></li>
+          <li><span>03</span><p><strong>状态先过滤</strong>取消、失效和窗口外记录不进入前台 DOM；一期不生成隐藏访问记录。</p></li>
           <li><span>04</span><p><strong>扣币可恢复</strong>失败不改余额、不解锁卡片，可原位重试。</p></li>
         </ul>
         <button class="refresh-button" type="button" data-action="refresh">

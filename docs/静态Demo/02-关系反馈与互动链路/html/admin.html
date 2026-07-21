@@ -14,23 +14,29 @@
     section { margin: 24px 0; padding: 18px; border-left: 4px solid #2876ff; background: #f3f7ff; }
     section strong { display: block; margin-bottom: 8px; color: #26344d; }
     ul { margin: 0; padding-left: 20px; color: #68748a; line-height: 1.9; }
-    a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 20px; border-radius: 5px; color: #fff; background: #2876ff; font-weight: 800; text-decoration: none; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+    a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 20px; border: 1px solid #2876ff; border-radius: 5px; color: #fff; background: #2876ff; font-weight: 800; text-decoration: none; }
+    a.secondary { color: #2876ff; background: #fff; }
   </style>
 </head>
 <body>
   <main>
     <span>PRD-02 / ADMIN BOUNDARY</span>
     <h1>管理后台范围说明</h1>
-    <p>依据最新《甲方前置准备清单》和《蓝湖 UI 缺少页面清单》，管理后台业务界面本轮不纳入静态 Demo。</p>
+    <p>PRD-02 管理后台能力合并承接在 ADM-01 App 用户管理页，不新增独立菜单或关系工作台。</p>
     <section>
-      <strong>后台能力 PRD 保留</strong>
+      <strong>本轮交付边界</strong>
       <ul>
-        <li>关系反馈查询能力仍由正式 PRD 定义。</li>
-        <li>现有 App 用户管理的模块补充入口负责后续承接。</li>
-        <li>本页不虚构独立配置页、权限按钮或接口数据。</li>
+        <li>点击 App 用户卡片“模块补充”，在“关系反馈”Tab 查看摘要和四类明细。</li>
+        <li>一期不开发隐藏访问，不展示相关入口、筛选、统计或配置。</li>
+        <li>关系明细默认每页 10 条，支持 10、20、50 条切换。</li>
+        <li>移动端接口本轮先不实现；移动端页面仅保留静态交互说明。</li>
       </ul>
     </section>
-    <a href="index.html#likes">返回移动端 Demo</a>
+    <div class="actions">
+      <a href="../../01-用户准入与资料认证初始化/html/admin.html#ADM-01-PAGE-app-user-management">打开合并后台 Demo</a>
+      <a class="secondary" href="index.html#likes">查看移动端静态说明</a>
+    </div>
   </main>
 </body>
 </html>

@@ -5,7 +5,6 @@ import lombok.Getter;
 @Getter
 public enum OpenTextFieldEnum {
     ABOUT_ME("ABOUT_ME", "关于我"),
-    HOPE_THEY_KNOW("HOPE_THEY_KNOW", "希望TA了解"),
     PROFILE_QA("PROFILE_QA", "资料问答开放回答");
 
     private final String code;

@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS app_user (
     major VARCHAR(100) DEFAULT NULL COMMENT '专业',
     education_level VARCHAR(30) DEFAULT NULL COMMENT '最高学历',
     about_me VARCHAR(500) DEFAULT NULL COMMENT '关于我',
-    hope_they_know VARCHAR(500) DEFAULT NULL COMMENT '希望对方了解',
     voice_intro_url VARCHAR(500) DEFAULT NULL COMMENT '语音介绍 URL',
     voice_intro_duration INT DEFAULT NULL COMMENT '语音时长秒',
     tags JSON DEFAULT NULL COMMENT '标签列表 JSON',
