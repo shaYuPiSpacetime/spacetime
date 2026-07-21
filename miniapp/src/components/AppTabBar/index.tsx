@@ -2,13 +2,13 @@ import { Image, View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import tabHomeIcon from '@/assets/icons/tab-home.png'
-import tabHomeActiveIcon from '@/assets/icons/tab-home-active.svg'
+import tabHomeActiveIcon from '@/assets/icons/tab-home-active.png'
 import tabWorkIcon from '@/assets/icons/tab-work.png'
 import tabWorkActiveIcon from '@/assets/icons/tab-work-active.png'
 import tabRecommendIcon from '@/assets/icons/tab-recommend.png'
 import tabMessageIcon from '@/assets/icons/tab-message.png'
-import tabMessageActiveIcon from '@/assets/icons/tab-message-active.svg'
-import tabProfileIcon from '@/assets/icons/tab-profile.svg'
+import tabMessageActiveIcon from '@/assets/icons/tab-message-active.png'
+import tabProfileIcon from '@/assets/icons/tab-profile.png'
 import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'
 
 export type TabKey = 'index' | 'community' | 'recommend' | 'chat' | 'profile'
@@ -21,21 +21,27 @@ interface Tab {
   activeIconPath: string
   iconWidth: number
   iconHeight: number
-  showActiveDot?: boolean
 }
 
 const TABS: Tab[] = [
-  { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, activeIconPath: tabHomeActiveIcon, iconWidth: 40, iconHeight: 35 },
-  { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon, iconWidth: 40, iconHeight: 35, showActiveDot: false },
-  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendIcon, iconWidth: 48, iconHeight: 46 },
-  { key: 'chat', label: '消息', path: '/pages/chat/index', iconPath: tabMessageIcon, activeIconPath: tabMessageActiveIcon, iconWidth: 40, iconHeight: 36 },
-  { key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, activeIconPath: tabProfileActiveIcon, iconWidth: 38, iconHeight: 36 },
+  { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, activeIconPath: tabHomeActiveIcon, iconWidth: 40, iconHeight: 40 },
+  { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon, iconWidth: 40, iconHeight: 40 },
+  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendIcon, iconWidth: 134, iconHeight: 134 },
+  { key: 'chat', label: '消息', path: '/pages/chat/index', iconPath: tabMessageIcon, activeIconPath: tabMessageActiveIcon, iconWidth: 40, iconHeight: 40 },
+  { key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, activeIconPath: tabProfileActiveIcon, iconWidth: 40, iconHeight: 40 },
 ]
 
 let tabSwitchInFlight = false
+let tabSwitchSourceRoute = ''
 
 export function releaseTabSwitch() {
   tabSwitchInFlight = false
+  tabSwitchSourceRoute = ''
+}
+
+function getCurrentRoute() {
+  const pages = Taro.getCurrentPages()
+  return pages.length > 0 ? pages[pages.length - 1]?.route ?? '' : ''
 }
 
 interface Props {
@@ -48,14 +54,24 @@ interface Props {
  */
 export default function AppTabBar({ active, onActiveChange }: Props) {
   const handlePress = (tab: Tab) => {
-    if (tab.key === active || tabSwitchInFlight) return
+    const currentRoute = getCurrentRoute()
+    const sourceTab = TABS.find(item => item.path.slice(1) === currentRoute)
+    if (tabSwitchInFlight) {
+      // 同一路由内的并发点击属于一次导航事务；路由已变化则说明上次切换已落地，
+      // 即使微信 success 回调尚未送达，也不能吞掉用户在新页面上的下一次点击。
+      if (!currentRoute || currentRoute === tabSwitchSourceRoute) return
+      releaseTabSwitch()
+    }
+    // 是否重复点击只认微信真实路由，不能依赖可能滞后一帧的点亮状态。
+    if (tab.path.slice(1) === currentRoute) return
     tabSwitchInFlight = true
+    tabSwitchSourceRoute = currentRoute
     onActiveChange?.(tab.key)
     Taro.switchTab({
       url: tab.path,
       success: releaseTabSwitch,
       fail: () => {
-        onActiveChange?.(active)
+        onActiveChange?.(sourceTab?.key ?? active)
         releaseTabSwitch()
       },
     })
@@ -115,26 +131,31 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
               }}
               onClick={() => handlePress(tab)}
             >
-              <View
+              <Image
+                src={tab.iconPath}
+                mode="aspectFit"
                 style={{
-                  width: '126rpx',
-                  height: '126rpx',
-                  borderRadius: '63rpx',
-                  background: '#2876FF',
-                  boxShadow: '0 4rpx 8rpx rgba(61,139,239,0.5)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  position: 'absolute',
+                  left: '8rpx',
+                  top: '0',
+                  width: `${tab.iconWidth}rpx`,
+                  height: `${tab.iconHeight}rpx`,
+                }}
+              />
+              <Text
+                style={{
+                  position: 'absolute',
+                  left: '0',
+                  right: '0',
+                  top: '94rpx',
+                  color: '#FFFFFF',
+                  fontSize: '20rpx',
+                  lineHeight: '28rpx',
+                  textAlign: 'center',
                 }}
               >
-                <Image
-                  src={tab.iconPath}
-                  mode="aspectFit"
-                  style={{ width: `${tab.iconWidth}rpx`, height: `${tab.iconHeight}rpx` }}
-                />
-                <Text style={{ color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx' }}>推荐</Text>
-              </View>
+                推荐
+              </Text>
             </View>
           )
         }
@@ -160,8 +181,8 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
               style={{
                 position: 'relative',
                 width: '40rpx',
-                height: '36rpx',
-                marginBottom: '6rpx',
+                height: '40rpx',
+                marginBottom: '2rpx',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -187,19 +208,6 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
                   opacity: isOn ? 1 : 0,
                 }}
               />
-              {isOn && tab.showActiveDot !== false ? (
-                <View
-                  style={{
-                    position: 'absolute',
-                    right: '-3rpx',
-                    top: '-3rpx',
-                    width: '18rpx',
-                    height: '18rpx',
-                    borderRadius: '9rpx',
-                    background: '#2876FF',
-                  }}
-                />
-              ) : null}
             </View>
             <Text
               style={{

@@ -1,6 +1,6 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { settingsApi } from '@/services/settings'
 import type { SettingsHome } from '@/types/settings'
@@ -24,29 +24,19 @@ export default function SettingsAboutPage() {
       try {
         const [homeResult, configResult] = await Promise.all([
           settingsApi.home(),
-          settingsApi.publicConfig(['agreement.user_agreement', 'agreement.privacy_policy', 'about.icp_number']),
+          settingsApi.publicConfig(['about.icp_number', 'about.load_failed_text']),
         ])
         setHome(homeResult)
         setConfig(configResult || {})
       } catch (error) {
-        await showError(error)
+        await showError(error, config['about.load_failed_text'])
       }
     })()
   }, [])
 
-  const entryMap = useMemo(
-    () => new Map((home?.entries || []).map(entry => [entry.entryKey, entry])),
-    [home?.entries],
-  )
-  const privacyUrl = entryMap.get('privacy_policy')?.jumpTarget || config['agreement.privacy_policy']
-
-  function openContent(title: string, url?: string) {
-    if (!url) {
-      void Taro.showToast({ title: '内容暂未配置', icon: 'none' })
-      return
-    }
+  function openContent(title: string, contentCode: string) {
     void Taro.navigateTo({
-      url: `/pages/settings/content?title=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`,
+      url: `/pages/settings/content?title=${encodeURIComponent(title)}&contentCode=${encodeURIComponent(contentCode)}`,
     })
   }
 
@@ -58,15 +48,17 @@ export default function SettingsAboutPage() {
         <Text className="about-brand__version">V{home?.currentVersion || '—'}</Text>
       </View>
       <View className="about-card">
-        <AboutRow label="用户协议" onClick={() => openContent('用户协议', config['agreement.user_agreement'])} />
-        <AboutRow label="隐私政策" onClick={() => openContent('隐私政策', privacyUrl)} />
+        <AboutRow label="用户协议" onClick={() => openContent('用户协议', 'user_agreement')} />
+        <AboutRow label="隐私政策" onClick={() => openContent('隐私政策', 'privacy_policy')} />
+        <AboutRow label="平台信息管理规范" onClick={() => openContent('平台信息管理规范', 'platform_rule')} />
         <AboutRow label="公告栏" divider={false} onClick={() => void Taro.navigateTo({ url: '/pages/settings/announcements' })} />
       </View>
-      <Text className="about-icp">{config['about.icp_number'] || 'ICP备案号'}</Text>
+      {config['about.icp_number'] ? <Text className="about-icp">{config['about.icp_number']}</Text> : null}
     </SettingsShell>
   )
 }
 
-async function showError(error: unknown) {
-  await Taro.showToast({ title: error instanceof Error ? error.message : '加载失败，请稍后重试', icon: 'none' })
+async function showError(error: unknown, fallback = '') {
+  const title = error instanceof Error ? error.message : fallback
+  if (title) await Taro.showToast({ title, icon: 'none' })
 }

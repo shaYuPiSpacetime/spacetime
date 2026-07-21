@@ -84,17 +84,19 @@ assert.ok(educationSubmitSource.includes('LanhuOptionSheet'), '学历认证页�
 const appTabSource = read('src/components/AppTabBar/index.tsx')
 const appConfigSource = read('src/app.config.ts')
 assert.ok(appTabSource.includes("import tabHomeIcon from '@/assets/icons/tab-home.png'"), '底部千寻 icon 必须使用蓝湖切图')
+assert.ok(appTabSource.includes("import tabHomeActiveIcon from '@/assets/icons/tab-home-active.png'"), '底部千寻点亮态必须使用蓝湖切图')
 assert.ok(appTabSource.includes("import tabWorkIcon from '@/assets/icons/tab-work.png'"), '底部心动 icon 必须使用蓝湖切图')
 assert.ok(appTabSource.includes("import tabWorkActiveIcon from '@/assets/icons/tab-work-active.png'"), '底部心动点亮态必须使用蓝湖心电爱心切图，禁止误用公文包 SVG')
 assert.ok(appTabSource.includes("import tabRecommendIcon from '@/assets/icons/tab-recommend.png'"), '底部推荐 icon 必须使用蓝湖切图')
 assert.ok(appTabSource.includes("import tabMessageIcon from '@/assets/icons/tab-message.png'"), '底部消息 icon 必须使用蓝湖切图')
-assert.ok(appTabSource.includes("import tabProfileIcon from '@/assets/icons/tab-profile.svg'"), '底部我的普通态 icon 必须使用独立切图')
+assert.ok(appTabSource.includes("import tabMessageActiveIcon from '@/assets/icons/tab-message-active.png'"), '底部消息点亮态必须使用蓝湖切图')
+assert.ok(appTabSource.includes("import tabProfileIcon from '@/assets/icons/tab-profile.png'"), '底部我的普通态 icon 必须使用蓝湖切图')
 assert.ok(appTabSource.includes("import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'"), '底部我的点亮态 icon 必须使用蓝湖切图')
 assert.ok(
   appTabSource.includes("key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon"),
   '底部心动必须按普通态/点亮态映射两套蓝湖切图',
 )
-assert.match(appTabSource, /key: 'community'[\s\S]{0,220}showActiveDot: false/, '心动点亮切图已自带蓝色高光，禁止再叠加通用蓝点')
+assert.doesNotMatch(appTabSource, /showActiveDot|width: '18rpx'[\s\S]{0,100}background: '#2876FF'/, '点亮切图已自带蓝色高光，禁止再叠加通用蓝点')
 assert.match(appConfigSource, /pagePath: 'pages\/community\/index'[\s\S]{0,180}selectedIconPath: 'assets\/icons\/tab-work-active\.png'/, '原生 Tab 配置的心动点亮态也必须指向蓝湖切图')
 assert.ok(
   appTabSource.includes("key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, activeIconPath: tabProfileActiveIcon"),

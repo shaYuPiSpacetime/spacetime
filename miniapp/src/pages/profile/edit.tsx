@@ -10,6 +10,11 @@ import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, ProfileFieldSetting, ProfileMedia, VerificationStatus, VoiceIntro } from '@/types/prd01'
 import { PROFILE_UPDATED_EVENT, type ProfileEditUpdate } from '@/utils/profileEditEvents'
 import type { ProfileTagItem } from '@/utils/profileTags'
+import {
+  formatVoiceDuration,
+  getVoiceRecordingSeconds,
+  resolveVoiceDuration,
+} from '@/utils/voiceRecording'
 import ProfilePreviewPage, { type ProfilePreviewModel } from './components/ProfilePreviewPage'
 
 import editHeroPhoto from '@/assets/lanhu/profile/edit-hero-photo.jpg'
@@ -141,6 +146,35 @@ const defaultPhotoSlots: ProfilePhotoSlot[] = [
 ]
 const aboutStoryPrompts = ['购车情况?', '是否想要孩子?', '有无子女?', '宠物?', '作息习惯?']
 
+type VoiceRecorderSession = {
+  onStart: () => void
+  onStop: (result: Taro.RecorderManager.OnStopCallbackResult) => void
+  onError: (error: Taro.RecorderManager.OnErrorCallbackResult) => void
+  onPause: () => void
+  onResume: () => void
+  onInterruptionEnd: () => void
+}
+
+let sharedVoiceRecorderManager: ReturnType<typeof Taro.getRecorderManager> | undefined
+let voiceRecorderEventsBound = false
+let activeVoiceRecorderSession: VoiceRecorderSession | undefined
+
+function getSharedVoiceRecorderManager() {
+  if (!sharedVoiceRecorderManager) sharedVoiceRecorderManager = Taro.getRecorderManager()
+  const manager = sharedVoiceRecorderManager
+  if (!voiceRecorderEventsBound) {
+    voiceRecorderEventsBound = true
+    manager.onStart(() => activeVoiceRecorderSession?.onStart())
+    manager.onStop(result => activeVoiceRecorderSession?.onStop(result))
+    manager.onError(error => activeVoiceRecorderSession?.onError(error))
+    manager.onPause(() => activeVoiceRecorderSession?.onPause())
+    manager.onResume(() => activeVoiceRecorderSession?.onResume())
+    manager.onInterruptionBegin(() => activeVoiceRecorderSession?.onPause())
+    manager.onInterruptionEnd(() => activeVoiceRecorderSession?.onInterruptionEnd())
+  }
+  return manager
+}
+
 function resolveVoiceSheetVariant(value?: string): VoiceSheetVariant | null {
   if (
     value === 'voice' ||
@@ -183,10 +217,21 @@ export default function ProfileEditPage() {
     resolveVoiceSheetVariant(String(router.params.voice || ''))
   )
   const [voiceDetail, setVoiceDetail] = useState<VoiceIntro>()
+  const voiceDetailRef = useRef<VoiceIntro>()
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
+  const [voiceTempPath, setVoiceTempPath] = useState('')
+  const [voiceTempDuration, setVoiceTempDuration] = useState(0)
+  const [voiceSaving, setVoiceSaving] = useState(false)
   const [restoredScrollTop, setRestoredScrollTop] = useState(0)
   const scrollTopRef = useRef(0)
-  const recorder = useRef(Taro.getRecorderManager())
+  const recorder = useRef(getSharedVoiceRecorderManager())
   const discardVoice = useRef(false)
+  const recorderActive = useRef(false)
+  const recorderStarting = useRef(false)
+  const recordingStartedAt = useRef(0)
+  const recordingSecondsRef = useRef(0)
+  const recordingTimer = useRef<ReturnType<typeof setInterval>>()
+  const voiceAudio = useRef<ReturnType<typeof Taro.createInnerAudioContext>>()
 
   useEffect(() => {
     void (async () => {
@@ -244,23 +289,120 @@ export default function ProfileEditPage() {
   }, [])
 
   useEffect(() => {
-    const manager = recorder.current
-    const handleStop = (result: Taro.RecorderManager.OnStopCallbackResult) => {
-      if (discardVoice.current) {
-        discardVoice.current = false
-        return
-      }
-      void saveVoiceRecording(result.tempFilePath, Math.round(result.duration / 1000))
-    }
-    const handleError = (error: Taro.RecorderManager.OnErrorCallbackResult) => {
-      setVoiceSheet('voice')
+    voiceDetailRef.current = voiceDetail
+  }, [voiceDetail])
+
+  const setRecordingElapsed = (seconds: number) => {
+    recordingSecondsRef.current = seconds
+    setRecordingSeconds(seconds)
+  }
+
+  const clearVoiceTimer = () => {
+    if (recordingTimer.current) clearInterval(recordingTimer.current)
+    recordingTimer.current = undefined
+  }
+
+  const startVoiceTimer = (initialSeconds = 0) => {
+    clearVoiceTimer()
+    const maxDuration = usePrd01Store.getState().config?.uploadLimits.voiceMaxDuration || 60
+    recordingStartedAt.current = Date.now() - initialSeconds * 1000
+    setRecordingElapsed(initialSeconds)
+    recordingTimer.current = setInterval(() => {
+      setRecordingElapsed(getVoiceRecordingSeconds(recordingStartedAt.current, Date.now(), maxDuration))
+    }, 250)
+  }
+
+  const resetVoiceDraft = () => {
+    setVoiceTempPath('')
+    setVoiceTempDuration(0)
+    setRecordingElapsed(0)
+  }
+
+  const stopVoicePlayback = () => {
+    const audio = voiceAudio.current
+    if (audio && !audio.paused) audio.stop()
+  }
+
+  const ensureVoiceAudio = () => {
+    if (voiceAudio.current) return voiceAudio.current
+    const audio = Taro.createInnerAudioContext()
+    audio.autoplay = false
+    audio.onPlay(() => setVoiceSheet('play'))
+    audio.onPause(() => setVoiceSheet(current => current === 'play' ? 'complete' : current))
+    audio.onStop(() => setVoiceSheet(current => current === 'play' ? 'complete' : current))
+    audio.onEnded(() => setVoiceSheet(current => current === 'play' ? 'complete' : current))
+    audio.onError(error => {
+      setVoiceSheet('complete')
       void showError(error)
+    })
+    voiceAudio.current = audio
+    return audio
+  }
+
+  useEffect(() => {
+    const manager = recorder.current
+    const session: VoiceRecorderSession = {
+      onStart: () => {
+        recorderStarting.current = false
+        recorderActive.current = true
+        startVoiceTimer()
+        setVoiceSheet('recording')
+      },
+      onStop: result => {
+        clearVoiceTimer()
+        recorderStarting.current = false
+        recorderActive.current = false
+        if (discardVoice.current) {
+          discardVoice.current = false
+          resetVoiceDraft()
+          return
+        }
+        const config = usePrd01Store.getState().config
+        const maxDuration = config?.uploadLimits.voiceMaxDuration || 60
+        const duration = resolveVoiceDuration(result.duration, recordingSecondsRef.current, maxDuration)
+        setRecordingElapsed(duration)
+        if (!result.tempFilePath || !config || duration < config.uploadLimits.voiceMinDuration) {
+          resetVoiceDraft()
+          setVoiceSheet(voiceDetailRef.current?.voiceIntroUrl ? 'complete' : 'voice')
+          if (config) {
+            void Taro.showToast({ title: `录音至少需要${config.uploadLimits.voiceMinDuration}秒`, icon: 'none' })
+          }
+          return
+        }
+        setVoiceTempPath(result.tempFilePath)
+        setVoiceTempDuration(duration)
+        setVoiceSheet('complete')
+      },
+      onError: error => {
+        clearVoiceTimer()
+        recorderStarting.current = false
+        recorderActive.current = false
+        discardVoice.current = false
+        resetVoiceDraft()
+        setVoiceSheet(voiceDetailRef.current?.voiceIntroUrl ? 'complete' : 'voice')
+        void showError(error)
+      },
+      onPause: clearVoiceTimer,
+      onResume: () => {
+        if (recorderActive.current) startVoiceTimer(recordingSecondsRef.current)
+      },
+      onInterruptionEnd: () => {
+        if (recorderActive.current) manager.resume()
+      },
     }
-    manager.onStop(handleStop)
-    manager.onError(handleError)
+    activeVoiceRecorderSession = session
     return () => {
-      discardVoice.current = true
-      manager.stop()
+      if (activeVoiceRecorderSession === session) activeVoiceRecorderSession = undefined
+      clearVoiceTimer()
+      const audio = voiceAudio.current
+      audio?.destroy()
+      voiceAudio.current = undefined
+      if (recorderActive.current || recorderStarting.current) {
+        discardVoice.current = true
+        recorderActive.current = false
+        recorderStarting.current = false
+        manager.stop()
+      }
     }
   }, [])
 
@@ -274,35 +416,105 @@ export default function ProfileEditPage() {
     setSheet(null)
     restoreScrollPosition()
   }
-  const closeVoiceSheet = () => setVoiceSheet(null)
-
-  const saveVoiceRecording = async (filePath: string, duration: number) => {
-    const config = usePrd01Store.getState().config
-    if (!config) return
-    if (duration < config.uploadLimits.voiceMinDuration) {
-      setVoiceSheet('voice')
-      await Taro.showToast({ title: '录音时长太短，请重新录制', icon: 'none' })
+  const closeVoiceSheet = () => {
+    if (recorderActive.current || recorderStarting.current) {
+      setVoiceSheet('exit')
       return
     }
+    stopVoicePlayback()
+    if (voiceTempPath) resetVoiceDraft()
+    setVoiceSheet(null)
+  }
+
+  const playVoiceRecording = () => {
+    const source = voiceTempPath || voiceDetail?.voiceIntroUrl || ''
+    if (!source) {
+      void Taro.showToast({ title: '暂无可播放的录音', icon: 'none' })
+      return
+    }
+    const audio = ensureVoiceAudio()
+    if (audio.src !== source) audio.src = source
+    audio.play()
+    setVoiceSheet('play')
+  }
+
+  const pauseVoiceRecording = () => {
+    const audio = voiceAudio.current
+    if (audio && !audio.paused) audio.pause()
+    setVoiceSheet('complete')
+  }
+
+  const confirmVoiceRecording = async () => {
+    if (voiceSaving) return
+    if (!voiceTempPath) {
+      closeVoiceSheet()
+      return
+    }
+    setVoiceSaving(true)
     try {
-      const uploaded = await prd01Api.uploadVoice(filePath)
-      const saved = await prd01Api.submitVoiceIntro(uploaded.url, duration)
+      const uploaded = await prd01Api.uploadVoice(voiceTempPath)
+      const saved = await prd01Api.submitVoiceIntro(uploaded.url, voiceTempDuration)
       setVoiceDetail(saved)
-      setVoiceSheet('complete')
+      resetVoiceDraft()
+      setVoiceSheet(null)
     } catch (error) {
-      setVoiceSheet('voice')
+      setVoiceSheet('complete')
       await showError(error)
+    } finally {
+      setVoiceSaving(false)
     }
   }
 
+  const cancelVoiceConfirm = () => {
+    setVoiceSheet(current => current === 'exit' ? 'recording' : 'complete')
+  }
+
+  const confirmDiscardRecording = () => {
+    discardVoice.current = true
+    clearVoiceTimer()
+    if (recorderActive.current || recorderStarting.current) recorder.current.stop()
+    recorderActive.current = false
+    recorderStarting.current = false
+    resetVoiceDraft()
+    setVoiceSheet(null)
+  }
+
+  const confirmDeleteVoice = () => {
+    stopVoicePlayback()
+    if (voiceTempPath) {
+      resetVoiceDraft()
+      setVoiceSheet(voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')
+      return
+    }
+    if (!voiceDetail?.voiceIntroUrl || voiceSaving) {
+      setVoiceSheet('voice')
+      return
+    }
+    setVoiceSaving(true)
+    void prd01Api.deleteVoiceIntro().then(() => {
+      setVoiceDetail(undefined)
+      setVoiceSheet('delete-success')
+    }).catch(showError).finally(() => setVoiceSaving(false))
+  }
+
   const handleVoiceSheetChange = (variant: VoiceSheetVariant) => {
+    if (voiceSaving) return
     if (variant === 'recording') {
       const config = usePrd01Store.getState().config
       const format = config?.uploadLimits.voice.formats[0]
-      if (!config || !format) return
+      if (!config || !format || recorderStarting.current || recorderActive.current) return
+      stopVoicePlayback()
+      resetVoiceDraft()
       discardVoice.current = false
-      recorder.current.start({ duration: config.uploadLimits.voiceMaxDuration * 1000, format: format as keyof Taro.RecorderManager.Format })
+      recorderStarting.current = true
       setVoiceSheet('recording')
+      try {
+        recorder.current.start({ duration: config.uploadLimits.voiceMaxDuration * 1000, format: format as keyof Taro.RecorderManager.Format })
+      } catch (error) {
+        recorderStarting.current = false
+        setVoiceSheet(voiceDetailRef.current?.voiceIntroUrl ? 'complete' : 'voice')
+        void showError(error)
+      }
       return
     }
     if (voiceSheet === 'recording' && variant === 'complete') {
@@ -310,14 +522,15 @@ export default function ProfileEditPage() {
       return
     }
     if (voiceSheet === 'recording' && variant === 'exit') {
-      discardVoice.current = true
-      recorder.current.stop()
+      setVoiceSheet('exit')
+      return
     }
-    if (variant === 'delete-success') {
-      void prd01Api.deleteVoiceIntro().then(() => {
-        setVoiceDetail(undefined)
-        setVoiceSheet('delete-success')
-      }).catch(showError)
+    if (variant === 'play') {
+      playVoiceRecording()
+      return
+    }
+    if (voiceSheet === 'play' && variant === 'complete') {
+      pauseVoiceRecording()
       return
     }
     setVoiceSheet(variant)
@@ -577,7 +790,7 @@ export default function ProfileEditPage() {
                 : <Text style={{ color: '#9AA1AF', fontSize: '26rpx', lineHeight: '38rpx' }}>添加标签，让TA更了解你</Text>}
             </View>
           </ProfileSection>
-          <VoiceSection onRecord={() => setVoiceSheet('voice')} />
+          <VoiceSection onRecord={() => setVoiceSheet(voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')} />
           <AboutDetailSection
             items={aboutTopics}
             onAdd={() => handleProfileAction('关于我', '/pages/profile-edit/about')}
@@ -623,8 +836,15 @@ export default function ProfileEditPage() {
         <VoiceIntroSheet
           variant={voiceSheet}
           voiceIntro={{ ...editProfileDemo.voiceIntro, duration: voiceDetail?.voiceIntroDuration ? `${voiceDetail.voiceIntroDuration}s` : editProfileDemo.voiceIntro.duration }}
+          durationText={formatVoiceDuration(recordingSeconds)}
+          recordedDurationText={formatVoiceDuration(voiceTempDuration || voiceDetail?.voiceIntroDuration || 0)}
+          saving={voiceSaving}
           onClose={closeVoiceSheet}
           onChange={handleVoiceSheetChange}
+          onComplete={() => void confirmVoiceRecording()}
+          onCancelConfirm={cancelVoiceConfirm}
+          onConfirmExit={confirmDiscardRecording}
+          onConfirmDelete={confirmDeleteVoice}
         />
       ) : null}
     </View>
@@ -1934,23 +2154,42 @@ function WechatSection({ value, onInput, onSave }: { value: string; onInput: (va
 function VoiceIntroSheet({
   variant,
   voiceIntro,
+  durationText,
+  recordedDurationText,
+  saving,
   onClose,
   onChange,
+  onComplete,
+  onCancelConfirm,
+  onConfirmExit,
+  onConfirmDelete,
 }: {
   variant: VoiceSheetVariant
   voiceIntro: ProfileDemo['editProfile']['voiceIntro']
+  durationText: string
+  recordedDurationText: string
+  saving: boolean
   onClose: () => void
   onChange: (variant: VoiceSheetVariant) => void
+  onComplete: () => void
+  onCancelConfirm: () => void
+  onConfirmExit: () => void
+  onConfirmDelete: () => void
 }) {
   const showConfirm = variant === 'exit' || variant === 'delete'
   const baseVariant: VoiceSheetVariant =
-    variant === 'exit' ? 'recording' : variant === 'delete' ? 'complete' : variant
+    variant === 'exit'
+      ? 'recording'
+      : variant === 'delete'
+        ? 'complete'
+        : variant === 'delete-success'
+          ? 'voice'
+          : variant
   const state = voiceIntro.states[baseVariant] || voiceIntro.states.voice
   const isVoice = baseVariant === 'voice'
   const isRecording = baseVariant === 'recording'
   const isPlay = baseVariant === 'play'
-  const isComplete =
-    baseVariant === 'complete' || baseVariant === 'play' || baseVariant === 'delete-success'
+  const isComplete = baseVariant === 'complete' || baseVariant === 'play'
 
   const handleBackdrop = () => {
     if (isRecording) {
@@ -1973,7 +2212,7 @@ function VoiceIntroSheet({
       onChange('complete')
       return
     }
-    onClose()
+    if (baseVariant === 'complete') onChange('play')
   }
 
   return (
@@ -2019,6 +2258,8 @@ function VoiceIntroSheet({
           {isVoice ? '使用语音介绍特别的你' : state.title}
         </Text>
         <Text
+          id="voice-duration"
+          data-role="voice-duration"
           style={{
             display: 'block',
             color: '#999999',
@@ -2030,7 +2271,9 @@ function VoiceIntroSheet({
         >
           {isVoice
             ? '更容易获得异性青睐哦\n例如：唱歌、一段深情的告白等等'
-            : state.timer || state.duration || voiceIntro.duration || '1S'}
+            : isRecording
+              ? durationText
+              : recordedDurationText}
         </Text>
 
         <View
@@ -2044,7 +2287,7 @@ function VoiceIntroSheet({
           }}
         >
           <VoiceWave active={isRecording || isPlay || isComplete} />
-          <VoiceRoundButton variant={baseVariant} onClick={handleMainAction} />
+          <VoiceRoundButton variant={baseVariant} onClick={handleMainAction} disabled={saving} />
         </View>
 
         {isComplete ? (
@@ -2063,14 +2306,22 @@ function VoiceIntroSheet({
               tone="muted"
               symbol="×"
               onClick={() => onChange('delete')}
+              disabled={saving}
             />
             <VoiceActionButton
               label={isPlay ? '暂停' : '点击播放'}
               tone="primary"
               symbol={isPlay ? 'Ⅱ' : '▶'}
               onClick={() => onChange(isPlay ? 'complete' : 'play')}
+              disabled={saving}
             />
-            <VoiceActionButton label="完成" tone="primary" symbol="✓" onClick={onClose} />
+            <VoiceActionButton
+              label={saving ? '保存中' : '完成'}
+              tone="primary"
+              symbol="✓"
+              onClick={onComplete}
+              disabled={saving}
+            />
           </View>
         ) : (
           <Text
@@ -2097,10 +2348,10 @@ function VoiceIntroSheet({
               ? '退出录音后当前录音丢失，确定要关闭吗？'
               : voiceIntro.deleteContent || '一旦删除不可恢复，确定删除吗？'
           }
-          leftText={variant === 'exit' ? '删除' : voiceIntro.deleteText || '删除'}
-          rightText="确认"
-          onLeft={() => onChange(variant === 'exit' ? 'voice' : 'delete-success')}
-          onRight={() => onChange(variant === 'exit' ? 'voice' : 'delete-success')}
+          leftText={voiceIntro.deleteCancelText || '取消'}
+          rightText={variant === 'exit' ? '退出' : voiceIntro.deleteConfirmText || '删除'}
+          onLeft={onCancelConfirm}
+          onRight={variant === 'exit' ? onConfirmExit : onConfirmDelete}
         />
       ) : null}
     </View>
@@ -2140,16 +2391,20 @@ function VoiceWave({ active }: { active: boolean }) {
 function VoiceRoundButton({
   variant,
   onClick,
+  disabled = false,
 }: {
   variant: VoiceSheetVariant
   onClick: () => void
+  disabled?: boolean
 }) {
   const recording = variant === 'recording'
   const play = variant === 'play'
   const symbol = recording ? '' : play ? 'Ⅱ' : variant === 'voice' ? '' : '▶'
   return (
     <View
-      onClick={onClick}
+      id="voice-round-button"
+      data-role="voice-round-button"
+      onClick={disabled ? undefined : onClick}
       style={{
         position: 'relative',
         width: '166rpx',
@@ -2159,6 +2414,7 @@ function VoiceRoundButton({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        opacity: disabled ? 0.6 : 1,
       }}
     >
       <View
@@ -2272,17 +2528,25 @@ function VoiceActionButton({
   tone,
   symbol,
   onClick,
+  disabled = false,
 }: {
   label: string
   tone: 'muted' | 'primary'
   symbol: string
   onClick: () => void
+  disabled?: boolean
 }) {
   const active = tone === 'primary'
   return (
     <View
-      onClick={onClick}
-      style={{ width: '150rpx', display: 'flex', alignItems: 'center', flexDirection: 'column' }}
+      onClick={disabled ? undefined : onClick}
+      style={{
+        width: '150rpx',
+        display: 'flex',
+        alignItems: 'center',
+        flexDirection: 'column',
+        opacity: disabled ? 0.6 : 1,
+      }}
     >
       <View
         style={{
@@ -2378,6 +2642,7 @@ function VoiceConfirmDialog({
         }}
       >
         <View
+          id="voice-confirm-left"
           onClick={onLeft}
           style={{
             width: '258rpx',
@@ -2396,6 +2661,7 @@ function VoiceConfirmDialog({
           </Text>
         </View>
         <View
+          id="voice-confirm-right"
           onClick={onRight}
           style={{
             width: '258rpx',

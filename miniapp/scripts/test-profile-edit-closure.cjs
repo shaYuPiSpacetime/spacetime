@@ -2,9 +2,23 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const test = require('node:test')
+const ts = require('typescript')
 
 const root = path.resolve(__dirname, '..')
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf8')
+
+function loadTypeScriptModule(relativePath) {
+  const source = read(relativePath)
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+    },
+  }).outputText
+  const loaded = { exports: {} }
+  Function('module', 'exports', 'require', output)(loaded, loaded.exports, require)
+  return loaded.exports
+}
 
 test('主页预览无未定义组件且隐藏 MBTI 模块', () => {
   const edit = read('src/pages/profile/edit.tsx')
@@ -98,4 +112,51 @@ test('标签在编辑页、选择页和主页预览按完整色块换行', () =>
   assert.match(chip, /whiteSpace: 'nowrap'/, '标签文字禁止在色块内部换行')
   assert.match(chip, /flexShrink: 0/, '标签块必须整体换行')
   assert.match(tagDomain, /stableTagHash\(item\.code\)/, '颜色必须按标签 code 稳定映射')
+})
+
+test('语音录制时长按真实开始时间递增并受接口最大时长限制', () => {
+  const utilityPath = 'src/utils/voiceRecording.ts'
+  assert.ok(fs.existsSync(path.join(root, utilityPath)), '缺少可独立验证的录音计时领域函数')
+  const {
+    formatVoiceDuration,
+    getVoiceRecordingSeconds,
+    resolveVoiceDuration,
+  } = loadTypeScriptModule(utilityPath)
+
+  assert.equal(formatVoiceDuration(0), '00:00')
+  assert.equal(formatVoiceDuration(9), '00:09')
+  assert.equal(formatVoiceDuration(65), '01:05')
+  assert.equal(getVoiceRecordingSeconds(1_000, 3_499, 60), 2)
+  assert.equal(getVoiceRecordingSeconds(1_000, 90_000, 60), 60)
+  assert.equal(resolveVoiceDuration(10_400, 9, 60), 10)
+  assert.equal(resolveVoiceDuration(0, 12, 60), 12)
+})
+
+test('语音录制弹窗使用动态计时且只在录音管理器确认开始后读秒', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+
+  assert.match(edit, /const \[recordingSeconds, setRecordingSeconds\] = useState\(0\)/, '录音页缺少实时秒数状态')
+  assert.match(edit, /manager\.onStart\([\s\S]{0,120}activeVoiceRecorderSession\?\.onStart/, '全局录音管理器必须把 onStart 转发给当前页面会话')
+  assert.match(edit, /onStart:\s*\(\)\s*=>\s*\{[\s\S]{0,220}startVoiceTimer\(\)/, '必须收到当前录音会话 onStart 后才开始计时')
+  assert.match(edit, /setInterval\([\s\S]{0,220}getVoiceRecordingSeconds/, '录音中必须按真实开始时间持续刷新秒数')
+  assert.match(edit, /clearInterval\(/, '停止、失败、离页时必须清理录音定时器')
+  assert.match(edit, /durationText=\{formatVoiceDuration\(recordingSeconds\)\}/, '录制中弹窗必须渲染动态秒数，禁止继续显示演示 00:00')
+  assert.match(edit, /activeVoiceRecorderSession/, '全局唯一录音管理器必须只转发给当前页面，避免重进页面重复回调')
+})
+
+test('语音录制完成后支持真实试听、确认上传、删除与退出恢复', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+
+  assert.match(edit, /Taro\.createInnerAudioContext\(\)/, '语音试听必须使用真实音频上下文')
+  assert.match(edit, /audio\.play\(\)/, '点击播放必须真实开始音频')
+  assert.match(edit, /audio\.pause\(\)/, '点击暂停必须真实暂停音频')
+  assert.match(edit, /audio\?\.destroy\(\)/, '页面离开时必须销毁音频上下文')
+  assert.match(edit, /setVoiceTempPath\(result\.tempFilePath\)/, '停止录音后必须保留本地文件用于试听')
+  assert.match(edit, /confirmVoiceRecording[\s\S]{0,1200}prd01Api\.uploadVoice[\s\S]{0,500}prd01Api\.submitVoiceIntro/, '点击完成后必须直传 OSS 并保存语音接口')
+  assert.match(edit, /onCancelConfirm=\{cancelVoiceConfirm\}/, '退出或删除确认弹层必须支持取消并恢复原状态')
+  assert.match(edit, /onConfirmExit=\{confirmDiscardRecording\}/, '确认退出时必须停止并丢弃本次录音')
+  assert.match(edit, /onConfirmDelete=\{confirmDeleteVoice\}/, '确认删除必须区分本地未保存录音与服务端已有语音')
+  assert.match(edit, /const confirmDiscardRecording[\s\S]{0,500}setVoiceSheet\(null\)/, '确认退出录音后必须关闭录音浮层')
+  assert.match(edit, /const closeVoiceSheet[\s\S]{0,400}voiceTempPath[\s\S]{0,120}resetVoiceDraft\(\)/, '关闭完成态浮层时必须清理未保存的本地录音')
+  assert.match(edit, /voiceDetailRef\.current\?\.voiceIntroUrl \? 'complete' : 'voice'/, '重新录音过短时必须恢复服务端已有语音的完成态')
 })

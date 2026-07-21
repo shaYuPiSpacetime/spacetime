@@ -241,7 +241,7 @@ export function useProfile(): UseProfileReturn {
 
   /** 跳转帮助与客服页 */
   const goToHelp = useCallback(() => {
-    Taro.showToast({ title: '帮助与客服功能即将开放', icon: 'none' });
+    Taro.navigateTo({ url: '/pages/settings/help' });
   }, []);
 
   /** 跳转设置页 */

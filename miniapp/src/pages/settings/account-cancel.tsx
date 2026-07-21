@@ -3,31 +3,46 @@ import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import { canRevokeCancellation, isCoolingOff, resolveCancelSubmitState } from '@/domain/settingsFlow'
 import { settingsApi } from '@/services/settings'
-import type { AccountCancelStatus } from '@/types/settings'
+import type { AccountCancelCheck, AccountCancelStatus } from '@/types/settings'
 import { navigateBackOrRedirect } from '@/utils/navigation'
 import SettingsDialog from './components/SettingsDialog'
 import SettingsShell from './components/SettingsShell'
 
-const DEFAULT_REASONS = ['暂时不想使用', '隐私顾虑', '其他']
-
-function parseReasons(raw?: string) {
-  if (!raw) return DEFAULT_REASONS
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      const reasons = parsed.map(item => String(item || '').trim()).filter(Boolean)
-      if (reasons.length > 0) return reasons
-    }
-  } catch {
-    const reasons = raw.split(/[，,；;\n]/).map(item => item.trim()).filter(Boolean)
-    if (reasons.length > 0) return reasons
-  }
-  return DEFAULT_REASONS
-}
+const CANCEL_COPY_KEYS = [
+  'account_cancel.heading_title',
+  'account_cancel.heading_subtitle',
+  'account_cancel.cooling_title',
+  'account_cancel.cooling_end_label',
+  'account_cancel.reason_title',
+  'account_cancel.other_reason_value',
+  'account_cancel.other_placeholder',
+  'account_cancel.cancel_button',
+  'account_cancel.submit_button',
+  'account_cancel.checking_button',
+  'account_cancel.submitted_button',
+  'account_cancel.revoke_button',
+  'account_cancel.revoking_button',
+  'account_cancel.dialog_title',
+  'account_cancel.dialog_cancel',
+  'account_cancel.dialog_confirm',
+  'account_cancel.risk_title',
+  'account_cancel.agreement_prefix',
+  'account_cancel.agreement_title',
+  'account_cancel.success_text',
+  'account_cancel.agree_required_text',
+  'account_cancel.revoked_success_text',
+  'account_cancel.blocked_fallback_text',
+  'account_cancel.operation_failed_text',
+]
 
 export default function AccountCancelPage() {
   const [status, setStatus] = useState<AccountCancelStatus>({ status: 'NONE' })
-  const [config, setConfig] = useState<Record<string, string>>({})
+  const [check, setCheck] = useState<AccountCancelCheck>({
+    canSubmit: false,
+    reasons: [],
+    hardBlocks: [],
+    risks: [],
+  })
   const [selected, setSelected] = useState<string[]>([])
   const [detail, setDetail] = useState('')
   const [agreed, setAgreed] = useState(false)
@@ -35,34 +50,43 @@ export default function AccountCancelPage() {
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [revoking, setRevoking] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [copyConfig, setCopyConfig] = useState<Record<string, string>>({})
 
   useEffect(() => {
     void loadPage()
   }, [])
 
-  const reasons = useMemo(() => parseReasons(config['account_cancel.reasons']), [config])
+  const reasons = check.reasons || []
   const submitState = useMemo(() => resolveCancelSubmitState({ selected, detail }), [detail, selected])
   const cooling = isCoolingOff(status)
-  const blocked = Boolean(status.blockReason)
-  const canOpenDialog = submitState.enabled && !cooling && !blocked
-  const coolingDays = status.coolingDays || Number(config['account_cancel.cooling_days']) || 30
-  const reapplyDays = Number(config['account_cancel.reapply_days']) || 30
+  const hardBlocks = check.hardBlocks || []
+  const risks = check.risks || []
+  const canOpenDialog = submitState.enabled && !cooling
+  const otherReason = copyConfig['account_cancel.other_reason_value'] || ''
+
+  function copy(key: string) {
+    return copyConfig[key] || ''
+  }
 
   async function loadPage() {
     try {
-      const [statusResult, configResult] = await Promise.all([
+      const [statusResult, checkResult, copyResult] = await Promise.all([
         settingsApi.cancelStatus(),
-        settingsApi.publicConfig([
-          'account_cancel.reasons',
-          'account_cancel.cooling_days',
-          'account_cancel.reapply_days',
-          'account_cancel.notice_copy',
-          'account_cancel.protocol_summary',
-          'agreement.account_cancellation',
-        ]),
+        settingsApi.cancelCheck(),
+        settingsApi.publicConfig(CANCEL_COPY_KEYS),
       ])
       setStatus(statusResult)
-      setConfig(configResult || {})
+      setCopyConfig(copyResult || {})
+      setCheck({
+        canSubmit: Boolean(checkResult?.canSubmit),
+        coolingDays: checkResult?.coolingDays,
+        description: checkResult?.description,
+        reasons: checkResult?.reasons || [],
+        recheckToken: checkResult?.recheckToken,
+        hardBlocks: checkResult?.hardBlocks || [],
+        risks: checkResult?.risks || [],
+      })
     } catch (error) {
       await showError(error)
     }
@@ -70,24 +94,56 @@ export default function AccountCancelPage() {
 
   function toggleReason(reason: string) {
     setSelected(current => current.includes(reason) ? [] : [reason])
-    if (reason !== '其他') setDetail('')
+    if (reason !== otherReason) setDetail('')
+  }
+
+  async function openCancelDialog() {
+    if (!submitState.enabled || cooling || checking) return
+    setChecking(true)
+    try {
+      const latest = await settingsApi.cancelCheck()
+      const normalized = {
+        canSubmit: Boolean(latest?.canSubmit),
+        coolingDays: latest?.coolingDays,
+        description: latest?.description,
+        reasons: latest?.reasons || [],
+        recheckToken: latest?.recheckToken,
+        hardBlocks: latest?.hardBlocks || [],
+        risks: latest?.risks || [],
+      }
+      setCheck(normalized)
+      if (!normalized.canSubmit || normalized.hardBlocks.length > 0 || !normalized.recheckToken) {
+        const firstBlock = normalized.hardBlocks[0]
+        await Taro.showToast({
+          title: firstBlock?.description || firstBlock?.title || normalized.description || copy('account_cancel.blocked_fallback_text'),
+          icon: 'none',
+        })
+        return
+      }
+      setAgreed(false)
+      setCancelDialogOpen(true)
+    } catch (error) {
+      await showError(error, copy('account_cancel.operation_failed_text'))
+    } finally {
+      setChecking(false)
+    }
   }
 
   async function submitCancellation() {
     if (!agreed) {
-      await Taro.showToast({ title: '请先阅读并同意用户注销协议', icon: 'none' })
+      await Taro.showToast({ title: copy('account_cancel.agree_required_text'), icon: 'none' })
       return
     }
     if (!submitState.enabled || submitting) return
     setSubmitting(true)
     try {
-      await settingsApi.applyCancel(submitState.reason)
+      await settingsApi.applyCancel(submitState.reason, check.recheckToken)
       setCancelDialogOpen(false)
       setSubmitSuccess(true)
       await loadPage()
       setTimeout(() => setSubmitSuccess(false), 1600)
     } catch (error) {
-      await showError(error)
+      await showError(error, copy('account_cancel.operation_failed_text'))
     } finally {
       setSubmitting(false)
     }
@@ -99,45 +155,46 @@ export default function AccountCancelPage() {
     try {
       await settingsApi.revokeCancel()
       await loadPage()
-      await Taro.showToast({ title: '已撤销注销申请', icon: 'none' })
+      await Taro.showToast({ title: copy('account_cancel.revoked_success_text'), icon: 'none' })
     } catch (error) {
-      await showError(error)
+      await showError(error, copy('account_cancel.operation_failed_text'))
     } finally {
       setRevoking(false)
     }
   }
 
   function openAgreement() {
-    const url = config['agreement.account_cancellation']
-    if (!url) {
-      void Taro.showToast({ title: '注销须知暂未配置', icon: 'none' })
-      return
-    }
     void Taro.navigateTo({
-      url: `/pages/settings/content?title=${encodeURIComponent('注销须知')}&url=${encodeURIComponent(url)}`,
+      url: `/pages/settings/content?title=${encodeURIComponent(copy('account_cancel.agreement_title'))}&contentCode=account_cancellation`,
     })
   }
 
   return (
     <SettingsShell title="注销账号" className="cancel-content">
       <View className="cancel-heading">
-        <Text className="cancel-heading__title">注销账号须知</Text>
-        <Text className="cancel-heading__subtitle">账号注销后，资料将被清空且无法恢复</Text>
+        <Text className="cancel-heading__title">{copy('account_cancel.heading_title')}</Text>
+        <Text className="cancel-heading__subtitle">{copy('account_cancel.heading_subtitle') || check.description || ''}</Text>
       </View>
 
       {cooling ? (
         <View className="cancel-status-card">
-          <Text className="cancel-status-card__title">注销申请已提交</Text>
+          <Text className="cancel-status-card__title">{copy('account_cancel.cooling_title')}</Text>
           <Text className="cancel-status-card__copy">
-            账号正在{coolingDays}天冷静期内，预计于{status.coolingEndTime || '冷静期结束后'}注销。
+            {copy('account_cancel.cooling_end_label')}{status.coolingEndTime || ''}
           </Text>
         </View>
       ) : null}
 
-      {blocked ? <Text className="cancel-block-reason">{status.blockReason}</Text> : null}
+      {status.blockReason ? <Text className="cancel-block-reason">{status.blockReason}</Text> : null}
+      {hardBlocks.map(item => (
+        <View key={item.code} className="cancel-check-item cancel-check-item--blocked">
+          <Text className="cancel-check-item__title">{item.title}</Text>
+          {item.description ? <Text className="cancel-check-item__copy">{item.description}</Text> : null}
+        </View>
+      ))}
 
       <View className="cancel-reason-title">
-        <Text>选择原因</Text>
+        <Text>{copy('account_cancel.reason_title')}</Text>
         <View className="cancel-reason-title__underline" />
       </View>
 
@@ -155,9 +212,9 @@ export default function AccountCancelPage() {
           <Textarea
             className="cancel-detail"
             value={detail}
-            disabled={!selected.includes('其他')}
+            disabled={!otherReason || !selected.includes(otherReason)}
             maxlength={120}
-            placeholder="好聚好散，把注销原因告诉我们吧"
+            placeholder={copy('account_cancel.other_placeholder')}
             onInput={event => setDetail(event.detail.value)}
           />
         </View>
@@ -169,46 +226,61 @@ export default function AccountCancelPage() {
           onClick={() => cooling ? void revokeCancellation() : navigateBackOrRedirect('/pages/settings/index')}
           hoverClass="settings-hover"
         >
-          <Text>{cooling ? (revoking ? '撤销中' : '撤销注销') : '取消注销'}</Text>
+          <Text>{cooling
+            ? revoking
+              ? copy('account_cancel.revoking_button')
+              : copy('account_cancel.revoke_button')
+            : copy('account_cancel.cancel_button')}</Text>
         </View>
         <View
           className={`cancel-bottom-button cancel-bottom-button--primary ${canOpenDialog ? '' : 'is-disabled'}`}
-          onClick={() => canOpenDialog && setCancelDialogOpen(true)}
+          onClick={() => canOpenDialog && void openCancelDialog()}
           hoverClass={canOpenDialog ? 'settings-hover' : 'none'}
         >
-          <Text>{cooling ? '已提交' : '仍要注销'}</Text>
+          <Text>{cooling
+            ? copy('account_cancel.submitted_button')
+            : checking
+              ? copy('account_cancel.checking_button')
+              : copy('account_cancel.submit_button')}</Text>
         </View>
       </View>
 
       <SettingsDialog
         open={cancelDialogOpen}
-        title="注销提醒"
-        cancelText="取消注销"
-        confirmText="确定注销"
+        title={copy('account_cancel.dialog_title')}
+        cancelText={copy('account_cancel.dialog_cancel')}
+        confirmText={copy('account_cancel.dialog_confirm')}
         loading={submitting}
         variant="cancel"
         onCancel={() => setCancelDialogOpen(false)}
         onConfirm={() => void submitCancellation()}
       >
         <Text className="cancel-dialog-copy">
-          {config['account_cancel.notice_copy'] || `本次注销有${coolingDays}天的冷静期，如${coolingDays}天内重新登录，可以恢复账号。但为了避免频繁操作，${reapplyDays}天内只可提交1次，否则下次注销时无冷静期。`}
+          {check.description || ''}
         </Text>
-        <View className="cancel-dialog-notice">
-          <Text className="cancel-dialog-notice__title">注销须知</Text>
-          <Text>{config['account_cancel.protocol_summary'] || `注销期间，你的资料将被下架，无法被查看。所有进行的好友申请即刻失效。\n千寻币、时空邂逅会员等权益如在注销期间过期，无法恢复。\n${coolingDays}天后，你的账号资料、匹配记录、千寻币会员等将永久清空，无法恢复。\n由于平台风控要求，注销后${reapplyDays}天内，你将无法重新注册账号。`}</Text>
-        </View>
+        {risks.length > 0 ? <View className="cancel-dialog-notice">
+          <Text className="cancel-dialog-notice__title">{copy('account_cancel.risk_title')}</Text>
+          {risks.map(item => (
+            <View key={item.code} className="cancel-risk-row">
+              <Text className="cancel-risk-row__title">{item.title}</Text>
+              {item.description ? <Text className="cancel-risk-row__copy">{item.description}</Text> : null}
+            </View>
+          ))}
+        </View> : null}
         <View className="cancel-dialog-agreement" onClick={() => setAgreed(value => !value)} hoverClass="settings-hover">
           <View className={`settings-check settings-check--small ${agreed ? 'is-active' : ''}`}><View className="settings-check__mark" /></View>
-          <Text>阅读并同意</Text>
-          <Text className="cancel-dialog-link" onClick={event => { event.stopPropagation(); openAgreement() }}>《用户注销协议》</Text>
+          <Text>{copy('account_cancel.agreement_prefix')}</Text>
+          <Text className="cancel-dialog-link" onClick={event => { event.stopPropagation(); openAgreement() }}>
+            {copy('account_cancel.agreement_title')}
+          </Text>
         </View>
       </SettingsDialog>
 
-      {submitSuccess ? <View className="settings-success-toast"><Text>提交成功</Text></View> : null}
+      {submitSuccess ? <View className="settings-success-toast"><Text>{copy('account_cancel.success_text')}</Text></View> : null}
     </SettingsShell>
   )
 }
 
-async function showError(error: unknown) {
-  await Taro.showToast({ title: error instanceof Error ? error.message : '操作失败，请稍后重试', icon: 'none' })
+async function showError(error: unknown, fallback = '') {
+  await Taro.showToast({ title: error instanceof Error ? error.message : fallback, icon: 'none' })
 }

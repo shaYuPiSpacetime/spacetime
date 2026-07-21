@@ -22,7 +22,6 @@
     "uploadWithSourceMap": false,
     "compileHotReLoad": false,
     "lazyloadPlaceholderEnable": false,
-    "lazyCodeLoading": "requiredComponents",
     "useMultiFrameRuntime": true,
     "babelSetting": {
       "ignore": [],

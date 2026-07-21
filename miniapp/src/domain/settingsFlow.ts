@@ -1,6 +1,6 @@
-export function resolveCancelSubmitState(
-  { selected = [], detail = '' } = /** @type {{ selected?: string[], detail?: string }} */ ({}),
-) {
+export function resolveCancelSubmitState(input = {}) {
+  const selected = 'selected' in input && Array.isArray(input.selected) ? input.selected : []
+  const detail = 'detail' in input ? String(input.detail || '') : ''
   const normalized = Array.from(new Set(selected.map(item => String(item || '').trim()).filter(Boolean)))
   const trimmedDetail = String(detail || '').trim()
   if (normalized.length === 0) return { enabled: false, reason: '' }
@@ -16,7 +16,7 @@ export function resolveCancelSubmitState(
 }
 
 export function isCoolingOff(status = /** @type {{ status?: string }} */ ({})) {
-  return status?.status === 'COOLING_OFF'
+  return 'status' in status && status.status === 'COOLING_OFF'
 }
 
 export function canRevokeCancellation(status = /** @type {{ status?: string }} */ ({})) {

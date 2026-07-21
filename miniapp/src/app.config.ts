@@ -20,7 +20,6 @@ const useDevFixedStartup = process.env.MINIAPP_DEV_FIXED_LOGIN === 'true'
 const startPage = useDevFixedStartup ? 'pages/index/index' : 'pages/login/index'
 
 export default {
-  lazyCodeLoading: 'requiredComponents',
   pages: [startPage, ...MAIN_PAGES.filter(page => page !== startPage)],
   subPackages: [
     {
@@ -77,7 +76,11 @@ export default {
     },
     {
       root: 'pages/settings',
-      pages: ['index', 'account-cancel', 'about', 'content', 'announcements'],
+      pages: ['index', 'privacy', 'help', 'account-cancel', 'about', 'content', 'announcements'],
+    },
+    {
+      root: 'pages/search',
+      pages: ['index', 'result'],
     },
   ],
   window: {
@@ -97,7 +100,7 @@ export default {
         pagePath: 'pages/index/index',
         text: '千寻',
         iconPath: 'assets/icons/tab-home.png',
-        selectedIconPath: 'assets/icons/tab-home.png',
+        selectedIconPath: 'assets/icons/tab-home-active.png',
       },
       {
         pagePath: 'pages/community/index',
@@ -115,12 +118,12 @@ export default {
         pagePath: 'pages/chat/index',
         text: '消息',
         iconPath: 'assets/icons/tab-message.png',
-        selectedIconPath: 'assets/icons/tab-message.png',
+        selectedIconPath: 'assets/icons/tab-message-active.png',
       },
       {
         pagePath: 'pages/profile/index',
         text: '我的',
-        iconPath: 'assets/icons/tab-profile-active.png',
+        iconPath: 'assets/icons/tab-profile.png',
         selectedIconPath: 'assets/icons/tab-profile-active.png',
       },
     ],

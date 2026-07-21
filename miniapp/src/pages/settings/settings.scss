@@ -47,6 +47,16 @@ page {
   min-height: 98rpx;
   margin: 0 auto;
   box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  line-height: normal;
+  text-align: left;
+}
+
+.settings-row::after {
+  border: 0;
 }
 
 .settings-row.has-divider::after {
@@ -295,6 +305,37 @@ page {
   color: #d95f5f;
 }
 
+.cancel-check-item {
+  margin-bottom: 16rpx;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+}
+
+.cancel-check-item--blocked {
+  background: #fff0ef;
+}
+
+.cancel-check-item__title,
+.cancel-check-item__copy,
+.cancel-risk-row__title,
+.cancel-risk-row__copy {
+  display: block;
+}
+
+.cancel-check-item__title {
+  color: #c94d4d;
+  font-size: 25rpx;
+  font-weight: 700;
+  line-height: 36rpx;
+}
+
+.cancel-check-item__copy {
+  margin-top: 6rpx;
+  color: #d06868;
+  font-size: 23rpx;
+  line-height: 34rpx;
+}
+
 .cancel-reason-title {
   position: relative;
   width: 700rpx;
@@ -491,6 +532,29 @@ page {
   line-height: 37rpx;
 }
 
+.cancel-risk-row {
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #e7ebf2;
+}
+
+.cancel-risk-row:last-child {
+  border-bottom: 0;
+}
+
+.cancel-risk-row__title {
+  color: #333;
+  font-size: 24rpx;
+  font-weight: 600;
+  line-height: 36rpx;
+}
+
+.cancel-risk-row__copy {
+  margin-top: 4rpx;
+  color: #737b8e;
+  font-size: 22rpx;
+  line-height: 34rpx;
+}
+
 .cancel-dialog-agreement {
   display: flex;
   align-items: center;
@@ -560,6 +624,166 @@ page {
   color: #a4a8b2;
   font-size: 26rpx;
   text-align: center;
+}
+
+.settings-content-empty {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+.settings-content-retry {
+  width: 220rpx;
+  height: 76rpx;
+  margin: -72rpx 0 0;
+  border: 0;
+  border-radius: 8rpx;
+  background: var(--settings-blue, #2876ff);
+  color: #fff;
+  font-size: 26rpx;
+  line-height: 76rpx;
+}
+
+.settings-content-retry::after {
+  border: 0;
+}
+
+.privacy-intro,
+.privacy-cooling,
+.help-service-card,
+.help-safety-note {
+  border-radius: 16rpx;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.privacy-intro {
+  padding: 36rpx 32rpx;
+}
+
+.privacy-intro__title,
+.privacy-intro__copy,
+.privacy-cooling__title,
+.privacy-cooling__copy,
+.help-service-card__title,
+.help-service-card__copy,
+.help-safety-note__title,
+.help-safety-note__copy {
+  display: block;
+}
+
+.privacy-intro__title {
+  color: #0c285a;
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 48rpx;
+}
+
+.privacy-intro__copy {
+  margin-top: 16rpx;
+  color: #7b8496;
+  font-size: 25rpx;
+  line-height: 40rpx;
+}
+
+.privacy-cooling {
+  margin-top: 20rpx;
+  padding: 28rpx 32rpx;
+  background: #eaf2ff;
+}
+
+.privacy-cooling__title {
+  color: #2876ff;
+  font-size: 27rpx;
+  font-weight: 700;
+  line-height: 40rpx;
+}
+
+.privacy-cooling__copy {
+  margin-top: 10rpx;
+  color: #6a7690;
+  font-size: 23rpx;
+  line-height: 34rpx;
+}
+
+.privacy-card {
+  margin-top: 24rpx;
+  border-radius: 12rpx;
+}
+
+.help-service-card {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 52rpx 42rpx 46rpx;
+}
+
+.help-service-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 52rpx;
+  background: linear-gradient(145deg, #4b9cff, #2876ff);
+  color: #fff;
+  font-size: 38rpx;
+  font-weight: 700;
+}
+
+.help-service-card__title {
+  margin-top: 26rpx;
+  color: #0c285a;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.help-service-card__copy {
+  margin-top: 16rpx;
+  color: #7d8699;
+  font-size: 25rpx;
+  line-height: 40rpx;
+  text-align: center;
+}
+
+.help-service-button {
+  width: 520rpx;
+  height: 88rpx;
+  margin-top: 38rpx;
+  border: 0;
+  border-radius: 10rpx;
+  background: #2876ff;
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 88rpx;
+}
+
+.help-service-button::after {
+  border: 0;
+}
+
+.help-service-button.is-disabled {
+  background: #dce6f5;
+  color: #8e9ab0;
+}
+
+.help-safety-note {
+  margin-top: 24rpx;
+  padding: 30rpx 32rpx;
+}
+
+.help-safety-note__title {
+  color: #0c285a;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.help-safety-note__copy {
+  margin-top: 12rpx;
+  color: #858ea0;
+  font-size: 24rpx;
+  line-height: 38rpx;
 }
 
 .announcement-list {

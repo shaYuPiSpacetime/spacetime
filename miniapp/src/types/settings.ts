@@ -18,6 +18,7 @@ export interface SettingsHome {
   wechatBindStatus: string
   entries: SettingsEntry[]
   currentVersion?: string
+  accountStatus?: string
 }
 
 export interface AccountCancelStatus {
@@ -27,6 +28,23 @@ export interface AccountCancelStatus {
   blockReason?: string
   coolingEndTime?: string
   coolingDays?: number
+}
+
+export interface AccountCancelCheckItem {
+  code: string
+  title: string
+  description?: string
+  severity?: string
+}
+
+export interface AccountCancelCheck {
+  canSubmit: boolean
+  coolingDays?: number
+  description?: string
+  reasons: string[]
+  recheckToken?: string
+  hardBlocks: AccountCancelCheckItem[]
+  risks: AccountCancelCheckItem[]
 }
 
 export interface ContentArticleSummary {
@@ -43,6 +61,50 @@ export interface ContentArticleSummary {
 
 export interface ContentArticleDetail extends ContentArticleSummary {
   contentBody?: string
+}
+
+export interface ComplianceContentDetail {
+  id?: number
+  contentCode: string
+  contentType?: string
+  title: string
+  version?: string
+  linkType?: SettingsJumpType | string
+  contentUrl?: string
+  url?: string
+  contentBody?: string
+  nativeContent?: string
+  summary?: string
+  effectiveTime?: string
+  updateTime?: string
+}
+
+export type SearchSourceScene = 'global' | 'community' | 'recommend'
+export type SearchResultTab = 'users' | 'posts' | 'topics'
+
+export interface SearchResultItem {
+  id: number
+  type: 'user' | 'post' | 'topic' | string
+  title: string
+  subtitle?: string
+  avatar?: string
+}
+
+export interface SearchResultPage {
+  keyword: string
+  type: string
+  tabs?: string[]
+  items: SearchResultItem[]
+  hasMore?: boolean
+  totalCount?: number
+  violation?: boolean
+  message?: string
+}
+
+export interface SearchRuntimeConfig {
+  emptyStateText?: string
+  violationText?: string
+  defaultSort?: string
 }
 
 export interface ContentPage<T> {

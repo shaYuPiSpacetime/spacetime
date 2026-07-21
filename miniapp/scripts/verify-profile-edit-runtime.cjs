@@ -35,11 +35,42 @@ async function findTextElement(page, value) {
   return undefined
 }
 
+async function waitForElementText(page, selector, matcher, label, timeout = 6000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeout) {
+    const element = await page.$(selector)
+    const text = element ? await element.text() : ''
+    if (matcher.test(text)) return { element, text }
+    await page.waitFor(200)
+  }
+  throw new Error(`${label}未在${timeout}ms内出现`)
+}
+
+async function waitForPageText(page, value, label, timeout = 6000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeout) {
+    const element = await findTextElement(page, value)
+    if (element) return element
+    await page.waitFor(200)
+  }
+  throw new Error(`${label}未在${timeout}ms内出现`)
+}
+
+async function waitForElement(page, selector, label, timeout = 6000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeout) {
+    const element = await page.$(selector)
+    if (element) return element
+    await page.waitFor(200)
+  }
+  throw new Error(`${label}未在${timeout}ms内出现`)
+}
+
 async function open(miniProgram, route) {
   const page = await withTimeout(miniProgram.reLaunch(route), `${route} 跳转`)
   await page.waitFor(4200)
   const current = await miniProgram.currentPage()
-  assert.equal(current.path, route.slice(1), `${route} 路由不一致`)
+  assert.equal(current.path, route.split('?')[0].slice(1), `${route} 路由不一致`)
   return page
 }
 
@@ -84,6 +115,39 @@ async function open(miniProgram, route) {
   await page.waitFor(1200)
   assert.equal(exceptions.length, 0, `主页预览存在运行异常：${exceptions.join('；')}`)
   assert.ok(editTexts.includes('主页预览'))
+
+  page = await open(miniProgram, '/pages/profile/edit?voice=voice')
+  const recordButton = await page.$('#voice-round-button')
+  assert.ok(recordButton, '语音录制浮层缺少可点击录音按钮')
+  await recordButton.tap()
+  await waitForElementText(page, '#voice-duration', /^00:10$/, '语音录制动态读秒与最小时长', 14000)
+  const stopButton = await page.$('#voice-round-button')
+  assert.ok(stopButton, '录音开始后缺少停止按钮')
+  await stopButton.tap()
+  await waitForPageText(page, '录制完成', '录音停止后的完成态')
+  const playButton = await page.$('#voice-round-button')
+  assert.ok(playButton, '录制完成后缺少试听按钮')
+  await playButton.tap()
+  await waitForPageText(page, '试听语音', '本地录音试听态')
+  const pauseButton = await page.$('#voice-round-button')
+  assert.ok(pauseButton, '试听中缺少暂停按钮')
+  await pauseButton.tap()
+  await waitForPageText(page, '录制完成', '暂停后的完成态')
+  const deleteButton = await findTextElement(page, '删除')
+  assert.ok(deleteButton, '录制完成后缺少删除入口')
+  await deleteButton.tap()
+  await waitForPageText(page, '删除语音介绍', '本地录音删除确认态')
+  const cancelDelete = await page.$('#voice-confirm-left')
+  assert.ok(cancelDelete, '删除确认弹层缺少取消按钮')
+  await cancelDelete.tap()
+  await waitForPageText(page, '录制完成', '取消删除后的状态恢复')
+  const deleteAgain = await findTextElement(page, '删除')
+  assert.ok(deleteAgain, '取消删除后缺少再次删除入口')
+  await deleteAgain.tap()
+  const confirmDelete = await waitForElement(page, '#voice-confirm-right', '删除确认按钮')
+  await confirmDelete.tap()
+  await page.waitFor(500)
+  assert.equal(await page.$('#voice-confirm-right'), null, '确认删除本地录音后弹层未关闭')
 
   page = await open(miniProgram, '/pages/verification/my-certification')
   await assertTexts(page, ['我的认证', '为什么要认证', '头像认证', '实名认证', '学历认证'])

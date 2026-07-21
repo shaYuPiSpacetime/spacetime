@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
 import AppTabBar, { releaseTabSwitch, type TabKey } from '@/components/AppTabBar'
+import { getActiveTabKey, setActiveTabKey, subscribeActiveTabKey } from './tabState'
 
 /** Tab 路径映射 — 从当前页面路径推导激活的 Tab */
 const PATH_TO_TAB: Record<string, TabKey> = {
@@ -16,12 +17,8 @@ function getCurrentRoute() {
   return pages.length > 0 ? pages[pages.length - 1]?.route ?? '' : ''
 }
 
-let lastActiveKey: TabKey = 'index'
-
-function resolveActiveKey() {
-  const routeKey = PATH_TO_TAB[getCurrentRoute()]
-  if (routeKey) lastActiveKey = routeKey
-  return lastActiveKey
+function resolveInitialActiveKey() {
+  return PATH_TO_TAB[getCurrentRoute()] ?? getActiveTabKey()
 }
 
 /**
@@ -32,7 +29,7 @@ function resolveActiveKey() {
  * Taro 构建时会自动在 app.config 注入 custom-tab-bar 组件路径。
  */
 export default function CustomTabBar() {
-  const [activeKey, setActiveKey] = useState<TabKey>(resolveActiveKey)
+  const [activeKey, setActiveKey] = useState<TabKey>(resolveInitialActiveKey)
 
   /** 根据当前页面路径推导激活 Tab */
   const updateActiveTab = () => {
@@ -40,19 +37,21 @@ export default function CustomTabBar() {
     if (route) {
       const key = PATH_TO_TAB[route]
       if (key) {
-        lastActiveKey = key
+        setActiveTabKey(key)
         setActiveKey(key)
       }
     }
   }
 
   const handleActiveChange = (key: TabKey) => {
-    setActiveKey(key)
+    setActiveTabKey(key)
   }
 
-  // 初始化时获取当前 Tab
+  // 各 Tab 页面会缓存自己的自定义 TabBar 实例，必须订阅同一份点亮态。
   useEffect(() => {
+    const unsubscribe = subscribeActiveTabKey(setActiveKey)
     updateActiveTab()
+    return unsubscribe
   }, [])
 
   // 页面显示时同步 Tab 状态
