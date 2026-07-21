@@ -3,17 +3,19 @@
 ## 1. 实现结构
 
 - `html/miniapp.html`：页面结构、导航和弹层容器。
-- `html/mock/demo-data.js`：互动历史、关系、收藏、草稿、话题社交证明等本地数据。
+- `html/mock/demo-data.js`：互动历史、关系、草稿、话题参与数据和审核态等本地数据。
 - `html/assets/demo.js`：原生 JavaScript 状态机、渲染和点击事件。
 - `html/assets/demo.css`：沿用现有 token 与卡片体系，新增状态样式。
 
 ## 2. 关键实现口径
 
-1. 收藏使用 `favoritePostIds` 记录最终态，按钮和数量同步刷新。
+1. 同城筛选固定使用 `currentUser.city`；`citySource=已审核资料`、`cityReadOnly=true`，页面不提供城市编辑控件。
 2. 上传图片使用 `uploadStatus`，非 success 状态禁用提交；重试后恢复 success。
 3. 草稿保存正文、标题、话题和上传成功图片；恢复只回填，不自动提交。
-4. `hiddenPostId` 与 `hiddenAuthor` 分别实现单内容和作者级过滤。
-5. 新增三页使用独立 Tab 状态，切换后只刷新对应页面数据。
+4. 提交成功后新增“我的动态”待复核卡片并跳转，不弹发布成功或审核结果提示。
+5. 举报以 `reporterId + targetType + targetId` 作为处理中幂等键；点击原因直接提交并复用通用 toast。
+6. 详情评论使用 `commentSort=latest/earliest`；点赞/评论用户使用通用列表与空态。
+7. `hiddenPostId` 与 `hiddenAuthor` 分别实现单内容和作者级过滤。
 
 ## 3. 验收门禁
 
@@ -23,5 +25,8 @@
 node docs/静态Demo/05-推荐模块（朋友、社区与内容互动）/verify-reverse-gaps.mjs
 ```
 
-校验页面锚点、收藏、草稿、上传状态、术语和两级屏蔽等 14 项静态契约。
+校验页面锚点、草稿、上传状态、术语、互动人数、举报幂等和两级屏蔽等 18 项静态契约。
 
+最终 UI 口径另执行 `verify-ui-final-alignment.mjs`，同时校验 PRD、Demo 与蓝湖缺失清单。
+
+同城范围另执行 `verify-city-scope.mjs`，校验 PRD、Demo 与蓝湖缺失清单不再出现本期外能力，并包含“资料城市只读、完善资料、去热门”最终口径。

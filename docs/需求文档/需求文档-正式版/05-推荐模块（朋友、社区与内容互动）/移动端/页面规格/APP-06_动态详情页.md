@@ -5,6 +5,7 @@
 | 版本01 | 2026-07-06 | Codex | 创建页面规格 |
 | 版本02 | 2026-07-06 | Codex | 增加 `contentType=sincere_post` 诚意贴视图承接 |
 | 版本03 | 2026-07-07 | Codex | 按移动端 Demo 审查明确图片预览与评论回复入口验收 |
+| 版本04 | 2026-07-20 | Codex | 按蓝湖最终稿增加申请认识和互动人数，评论排序改为最新/最早；删除收藏；图片预览无需独立画板 |
 
 - **页面 ID**：`APP-05-PAGE-post-detail`
 - **所属模块 PRD**：`模块PRD_APP-05_推荐模块（朋友、社区与内容互动）`
@@ -16,7 +17,7 @@
 ## 1. 页面定位
 
 - **目标用户**：已登录用户
-- **核心任务**：查看完整动态或诚意贴内容并进行点赞、评论、举报
+- **核心任务**：查看完整动态或诚意贴内容并进行申请认识、点赞、评论、举报
 - **页面类型**：详情页
 
 ## 2. 布局（给 UI）
@@ -30,7 +31,7 @@
 │ 作者信息 + 关注按钮   │
 │ 正文 / 图片 / 话题    │
 ├────────────────────┤
-│ 点赞 评论 分享        │
+│ 申请认识 点赞 评论     │
 ├────────────────────┤
 │ 评论输入框 + 评论列表  │
 └────────────────────┘
@@ -42,7 +43,7 @@
 |------|------|------|------------|------------------|
 | 作者信息 | 顶部 | 头像、昵称、时间、关注按钮 | 否 | 否 |
 | 内容区 | 主体 | 正文、图片、话题；诚意贴视图额外展示标题 | 否 | 否 |
-| 互动区 | 内容下方 | 点赞、评论、举报入口 | 否 | 否 |
+| 互动区 | 内容下方 | 申请认识、互动人数、点赞、评论、举报入口 | 否 | 否 |
 | 评论区 | 底部 | 评论输入框、评论列表 | 否 | 是 |
 
 ### 2.3 弹层 / 抽屉 / 模态
@@ -60,8 +61,9 @@
 | `APP-05-post-detail-01` | 动态详情-主页面 | 内容详情和评论 | |
 | `APP-05-post-detail-02` | 动态详情-评论输入 | 评论输入和回复态 | |
 | `APP-05-post-detail-03` | 动态详情-内容下架 | 不可见状态 | |
-| `APP-05-post-detail-04` | 动态详情-图片预览 | 图片轮播 | |
 | `APP-05-post-detail-05` | 动态详情-诚意贴视图 | `contentType=sincere_post` 时的标题、长文正文和评论 | 承接诚意贴列表点击 |
+
+图片全屏轮播复用客户端通用图片预览组件，属于运行态能力，不单独要求 UI 画板。
 
 ### 2.5 编辑控件口径
 
@@ -80,7 +82,7 @@
 
 | 筛选 ID | 筛选名 | 类型 | 选项来源 | 是否多选 | 默认值 | 是否可清除 |
 |---------|--------|------|----------|----------|--------|------------|
-| `APP-05-PAGE-post-detail-FILTER-comment-sort` | 评论排序 | 切换 | 最新/热门 | 否 | 最新 | 否 |
+| `APP-05-PAGE-post-detail-FILTER-comment-sort` | 评论排序 | 切换 | 最新/最早 | 否 | 最新 | 否 |
 
 ### 3.3 筛选交互
 
@@ -114,6 +116,7 @@
 | `APP-05-PAGE-post-detail-FIELD-images` | 图片 | image[] | 否 | 0-9 张 | 私有 URL | 无 | 否 | 普通 | 社区内容 |
 | `APP-05-PAGE-post-detail-FIELD-topic` | 话题 | enum | 否 | `M05-CFG-topic-dict` | 下线话题展示历史名 | 无 | 否 | 普通 | 后台配置 |
 | `APP-05-PAGE-post-detail-FIELD-like-count` | 点赞数 | int | 是 | >=0 | 系统计算 | 0 | 否 | 普通 | 系统计算 |
+| `APP-05-PAGE-post-detail-FIELD-interaction-count` | 互动人数 | int | 是 | >=0 | 点赞用户与评论用户合并去重 | 0 | 否 | 普通 | 系统计算 |
 | `APP-05-PAGE-post-detail-FIELD-comment-input` | 评论输入 | string | 否 | 1-500 字 | 内容安全校验 | 空 | 提交前可编辑 | 普通 | 用户填写 |
 
 ## 5. 操作表
@@ -136,6 +139,8 @@
 | `APP-05-PAGE-post-detail-ACT-like` | 点赞/取消点赞 | 互动区 | 内容公开 | `M05-RULE-interaction-gate` | 否 | 点赞态更新 | `M05-ERR-core-access-required` |
 | `APP-05-PAGE-post-detail-ACT-comment` | 发表评论 | 评论输入 | 内容公开且输入合法 | `M05-RULE-interaction-gate` | 否 | 评论公开或提示失败 | 内容安全失败 |
 | `APP-05-PAGE-post-detail-ACT-follow` | 关注作者 | 作者区 | 作者不是本人 | `M05-RULE-interaction-gate` | 否 | 关注态更新 | `M05-ERR-core-access-required` |
+| `APP-05-PAGE-post-detail-ACT-apply-acquaintance` | 申请认识 | 作者区/底部操作栏 | 作者不是本人且目标可见 | `M05-RULE-community-greeting-entry` | 否 | 进入社区打招呼页 | `M05-ERR-community-target-unavailable` |
+| `APP-05-PAGE-post-detail-ACT-open-interactors` | 查看互动用户 | 互动人数 | 内容公开且互动人数大于 0 | `GLB-ROLE-app-user` | 否 | 进入点赞/评论互动用户列表 | `M05-ERR-content-not-found` |
 | `APP-05-PAGE-post-detail-ACT-preview-image` | 预览图片 | 内容图片区 | 图片可见 | `GLB-ROLE-app-user` | 否 | 打开图片预览轮播 | 图片加载失败 |
 | `APP-05-PAGE-post-detail-ACT-report` | 举报 | 更多弹窗 | 内容公开 | `M05-RULE-report-gate` | 否 | 打开举报弹窗 | `M05-ERR-login-required` |
 | `APP-05-PAGE-post-detail-ACT-delete-post` | 删除动态 | 更多弹窗 | 本人动态 | 作者本人 | 是 | 返回列表且内容不可见 | `M05-ERR-content-not-found` |
@@ -164,7 +169,7 @@
 ## 8. 查询与列表
 
 - **默认排序**：评论按发布时间倒序
-- **可选排序**：最新/热门
+- **可选排序**：最新/最早
 - **分页**：评论默认 20 条
 - **分页方式**：加载更多
 - **列表轮询/实时刷新**：不轮询
@@ -215,11 +220,11 @@ Then  进入 `APP-05-PAGE-post-detail`，按 `contentType=sincere_post` 展示�
 | 依赖的模块规则 | `M05-RULE-report-gate` | 举报准入 |
 | 依赖的其他页面 | `APP-05-PAGE-report-modal` | 举报弹窗 |
 
-## 11. 蓝湖反向缺口补充
+## 11. 蓝湖最终补充口径
 
-- 新增 `favoriteCount`、`favoritedByMe`，操作 `favorite/unfavorite` 引用 `M05-RULE-content-favorite`，连续点击返回服务端最终态。
-- 点赞数、收藏数、评论人数可进入 `APP-05-PAGE-post-interactors`；收藏用户明细仅作者本人可见。
-- 作者摘要补充出生年、城市、职业、活跃描述；“申请认识”是 `greeting` 的 UI 别名，进入 `APP-05-PAGE-community-greeting`。
+- 作者摘要展示出生年、城市、职业、活跃描述；“申请认识”是 `greeting` 的 UI 别名，进入 `APP-05-PAGE-community-greeting`。
+- 互动人数按点赞用户与评论用户合并去重，点击后进入 `APP-05-PAGE-post-interactors`。
 - 更多操作必须同时定义 `hide_post` 和 `hide_author_posts/unhide_author_posts`；后者不等于拉黑。
+- 本期不提供收藏能力；详情、列表、接口和统计均不出现收藏入口或字段。
 
-验收：收藏切换后数量与状态同步；非作者不能获得收藏用户明细；屏蔽当前内容不隐藏同作者其他动态。
+验收：评论排序只提供最新/最早；互动人数与互动用户列表同源；屏蔽当前内容不隐藏同作者其他动态。

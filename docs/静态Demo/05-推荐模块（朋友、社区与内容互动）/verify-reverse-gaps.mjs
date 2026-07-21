@@ -14,7 +14,6 @@ const assertions = [
   ['互动中心页面', 'APP-05-PAGE-interaction-center'],
   ['关注粉丝列表页面', 'APP-05-PAGE-follow-relations'],
   ['动态互动用户列表页面', 'APP-05-PAGE-post-interactors'],
-  ['动态收藏动作', 'data-toggle-favorite'],
   ['草稿保存动作', 'data-save-draft'],
   ['草稿恢复动作', 'data-restore-draft'],
   ['图片上传状态', 'uploadStatus'],
@@ -23,8 +22,13 @@ const assertions = [
   ['不看 TA 动态动作', 'hide_author_posts'],
   ['取消不看 TA 动态动作', 'unhide_author_posts'],
   ['评论预览', 'commentPreview'],
-  ['话题最新动态预览', 'latestPost'],
   ['话题参与者头像', 'participantAvatars'],
+  ['详情互动人数', '互动 ${escapeHtml(post.interactionCount'],
+  ['评论最新最早排序', 'data-comment-sort'],
+  ['举报对象幂等键', 'reportSubmissions'],
+  ['发布后进入我的动态', "location.hash = 'APP-05-PAGE-user-posts'"],
+  ['点赞空态', '暂无点赞'],
+  ['评论空态', '暂无评论'],
 ];
 
 const missing = assertions.filter(([, token]) => !source.includes(token));

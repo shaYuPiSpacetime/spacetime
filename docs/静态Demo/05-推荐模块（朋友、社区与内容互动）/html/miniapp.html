@@ -64,10 +64,10 @@
         </section>
 
         <section class="section-band" id="APP-05-PAGE-community-city">
-          <div class="page-head"><h2>APP-05-PAGE-community-city 成家同城信息流页</h2><p>优先使用资料城市或手动选择城市，不依赖 GPS 强授权。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-community-city 成家同城信息流页</h2><p>仅使用当前用户已审核资料城市，页面只读展示且不申请 GPS 定位权限。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:42</span><span>成家 · 同城</span></div><div class="phone-screen"><div class="notice"><strong>杭州</strong> 可手动切换城市，拒绝定位时保留默认城市。</div><div class="mini-tabs"><button data-feed-tab="关注">关注</button><button class="is-active" data-feed-tab="同城">同城</button><button data-feed-tab="热门">热门</button></div><div data-render="feed"></div></div></article>
-            <article class="mini-panel"><h3>降级口径</h3><p>城市来源缺失时展示默认城市和手动选择入口；城市无内容展示空态。</p></article>
+            <article class="phone"><div class="phone-bar"><span>9:42</span><span>成家 · 同城</span></div><div class="phone-screen"><div class="notice"><strong>资料城市只读：杭州</strong><br>城市范围由已审核资料确定，本页不提供跨城市浏览入口。</div><div class="mini-tabs"><button data-feed-tab="关注">关注</button><button class="is-active" data-feed-tab="同城">同城</button><button data-feed-tab="热门">热门</button></div><div data-render="feed"></div></div></article>
+            <article class="mini-panel"><h3>空态口径</h3><ul class="check-list"><li><span>资料城市缺失</span><strong>完善资料</strong></li><li><span>当前城市无内容</span><strong>刷新 / 去热门</strong></li><li><span>定位权限</span><strong>本页不申请</strong></li></ul></article>
           </div>
         </section>
 
@@ -80,10 +80,10 @@
         </section>
 
         <section class="section-band" id="APP-05-PAGE-topic-list">
-          <div class="page-head"><h2>APP-05-PAGE-topic-list 话题列表页</h2><p>独立对应 MVP-PAGE-008，话题来自后台启用字典。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-topic-list 话题列表页</h2><p>独立对应 MVP-PAGE-008，连续展示后台启用话题，无搜索框和推荐/全部分区。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:44</span><span>话题列表</span></div><div class="phone-screen"><input aria-label="搜索话题" data-topic-search placeholder="搜索话题名称"><div data-render="topics"></div></div></article>
-            <article class="mini-panel"><h3>搜索与状态</h3><p>输入防抖 300ms；话题下线后不展示新增入口，历史内容展示历史话题名。</p></article>
+            <article class="phone"><div class="phone-bar"><span>9:44</span><span>话题列表</span></div><div class="phone-screen"><div data-render="topics"></div></div></article>
+            <article class="mini-panel"><h3>列表口径</h3><p>不展示最新帖子预览；话题下线后不展示新增入口，历史内容展示历史话题名。</p></article>
           </div>
         </section>
 
@@ -117,7 +117,7 @@
         <section class="section-band" id="APP-05-PAGE-post-detail">
           <div class="page-head"><h2 data-detail-title>APP-05-PAGE-post-detail 动态详情页</h2><p>动态详情同时承接诚意贴视图，评论机审通过后公开。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:47</span><span>详情</span></div><div class="phone-screen"><div data-render="post-detail"></div><div class="mini-panel"><h3>评论</h3><div data-render="comments"></div><div data-render="comment-reply-target"></div><textarea placeholder="写下评论"></textarea><button class="btn primary full" data-toast="评论已提交机审">发表评论</button></div></div></article>
+            <article class="phone"><div class="phone-bar"><span>9:47</span><span>详情</span></div><div class="phone-screen"><div data-render="post-detail"></div><div class="mini-panel"><h3>评论</h3><div class="mini-tabs"><button data-comment-sort="latest">最新</button><button data-comment-sort="earliest">最早</button></div><div data-render="comments"></div><div data-render="comment-reply-target"></div><textarea placeholder="写下评论"></textarea><button class="btn primary full" data-toast="评论已提交机审">发表评论</button></div></div></article>
             <article class="mini-panel"><h3>业务态</h3><ul class="check-list"><li><span>已公开</span><strong>正常展示</strong></li><li><span>已下架/已删除</span><strong>不可见提示</strong></li><li><span>举报入口</span><strong>进入 APP-08</strong></li></ul></article>
           </div>
         </section>
@@ -126,7 +126,7 @@
           <div class="page-head"><h2>APP-05-PAGE-report-modal 举报弹窗</h2><p>动态详情、评论操作、用户主页更多操作均可打开举报弹窗。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:48</span><span>举报</span></div><div class="phone-screen"><button class="btn danger full" data-open-modal="reportModal">打开举报弹窗</button><div class="notice">举报仅要求已登录且账号未冻结，原因字典来自后台配置。</div></div></article>
-            <article class="mini-panel"><h3>验收</h3><p>未选原因不能提交；重复举报提示已提交；提交后生成待处理举报记录。</p></article>
+            <article class="mini-panel"><h3>验收</h3><p>点击原因直接提交；同一用户对同类型同对象的处理中重复举报复用通用 toast。</p></article>
           </div>
         </section>
 
@@ -166,23 +166,23 @@
           <div class="page-head"><h2>APP-05-PAGE-follow-relations 关注粉丝列表页</h2><p>社区关注是弱关系，关注/取消关注不改变匹配或普通私信资格。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:52</span><span>关注与粉丝</span></div><div class="phone-screen"><div class="mini-tabs"><button data-relation-type="following">关注 18</button><button data-relation-type="followers">粉丝 26</button></div><div data-render="follow-relations"></div></div></article>
-            <article class="mini-panel"><h3>统计口径</h3><p>列表总数与主页统计同源；关注空态和粉丝空态分别定义。</p></article>
+            <article class="mini-panel"><h3>统计口径</h3><p>列表总数与主页统计同源；关注和粉丝列表复用同一通用空态。</p></article>
           </div>
         </section>
 
         <section class="section-band" id="APP-05-PAGE-post-interactors">
-          <div class="page-head"><h2>APP-05-PAGE-post-interactors 动态互动用户列表页</h2><p>点赞、收藏、评论用户独立查询；收藏用户明细仅作者本人可见。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-post-interactors 动态互动用户列表页</h2><p>复用“千寻互动-互动-评论/点赞通用”UI，按点赞和评论查询互动用户。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:53</span><span>互动用户</span></div><div class="phone-screen"><div class="mini-tabs"><button data-interactor-type="liked">点赞</button><button data-interactor-type="favorited">收藏</button><button data-interactor-type="commented">评论</button></div><div data-render="post-interactors"></div></div></article>
-            <article class="mini-panel"><h3>隐私</h3><p>非作者只能看到本人收藏态和允许公开的收藏数，不返回收藏用户明细。</p></article>
+            <article class="phone"><div class="phone-bar"><span>9:53</span><span>互动用户</span></div><div class="phone-screen"><div class="mini-tabs"><button data-interactor-type="liked">点赞</button><button data-interactor-type="commented">评论</button></div><div data-render="post-interactors"></div></div></article>
+            <article class="mini-panel"><h3>通用空态</h3><p>复用同一空态结构，按当前 Tab 展示“暂无点赞”或“暂无评论”。</p></article>
           </div>
         </section>
 
         <section class="section-band" id="APP-05-PAGE-community-greeting">
           <div class="page-head"><h2>APP-05-PAGE-community-greeting 社区打招呼页</h2><p>“申请认识”是打招呼/悄悄话入口别名，发送资格引用 PRD-03。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:54</span><span>申请认识</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span data-static-avatar="P-240701"></span><div><strong>申请认识周予安</strong><div class="helper">标准动作：greeting · 来源：动态 P-240701</div></div></div></div><div class="composer"><div data-render="greeting-templates"></div><textarea data-greeting-content></textarea><div data-render="greeting-cost"></div><button class="btn primary full" data-open-modal="greetingConfirmModal">发送悄悄话</button></div></div></article>
-            <article class="mini-panel"><h3>引用规则</h3><p>同一对象已有待回复悄悄话时展示等待态，不重复发送。</p></article>
+            <article class="phone"><div class="phone-bar"><span>9:54</span><span>申请认识</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span data-static-avatar="P-240701"></span><div><strong>申请认识周予安</strong><div class="helper">标准动作：greeting · 来源：动态 P-240701</div></div></div></div><div class="composer"><div data-render="greeting-templates"></div><textarea data-greeting-content></textarea><div data-render="greeting-cost"></div><button class="btn primary full" data-open-modal="module08AssetModal">发送悄悄话</button></div></div></article>
+            <article class="mini-panel"><h3>引用规则</h3><p>同一对象已有待回复悄悄话时展示等待态；消耗确认、余额不足和充值入口由模块 08 UI 提供。</p></article>
           </div>
         </section>
 
@@ -207,11 +207,10 @@
 
   <div class="modal-backdrop" id="reportModal" aria-hidden="true">
     <div class="modal-card">
-      <h2>举报原因</h2>
+      <h2>选择举报原因</h2>
       <div class="filter-pills" data-render="report-reasons"></div>
-      <textarea placeholder="补充说明，0-300 字"></textarea>
-      <div class="notice">重复举报会提示已提交，并合并到原举报记录。</div>
-      <div class="admin-actions"><button class="btn" data-close-surface>取消</button><button class="btn danger" data-submit-report>提交举报</button></div>
+      <div class="notice">点击原因直接提交；重复举报只按同一举报人、对象类型和对象编号判定。</div>
+      <div class="admin-actions"><button class="btn" data-close-surface>取消</button></div>
     </div>
   </div>
 
@@ -226,10 +225,10 @@
     <div class="modal-card preview-card" data-render="image-preview"></div>
   </div>
 
-  <div class="modal-backdrop" id="greetingConfirmModal" aria-hidden="true">
+  <div class="modal-backdrop" id="module08AssetModal" aria-hidden="true">
     <div class="modal-card">
-      <h2>确认发送悄悄话</h2>
-      <p>将优先使用免费次数；若免费次数不足，则按 PRD-03/PRD-04 规则扣减千寻币。</p>
+      <h2>模块 08 · 千寻币消耗确认</h2>
+      <p>本弹窗由模块 08 通用资产 UI 提供；PRD-04 返回免费次数、余额和扣费结果。</p>
       <div class="admin-actions"><button class="btn" data-close-surface>取消</button><button class="btn primary" data-confirm-greeting>确认发送</button></div>
     </div>
   </div>

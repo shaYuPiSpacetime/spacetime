@@ -5,7 +5,9 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
-| 版本09 | 2026-07-20 | Codex | 补齐蓝湖反向缺口：互动历史、关注粉丝、动态收藏、草稿上传状态、申请认识别名及两级屏蔽，影响 APP-05-PAGE-interaction-center、follow-relations、post-interactors、post-publish、post-detail、community-greeting、community-more-actions、user-profile |
+| 版本11 | 2026-07-20 | Codex | 按蓝湖最终确认口径删除收藏，明确举报幂等、发布审核态、话题字段和模块 08 资产弹窗边界，影响 APP-05-PAGE-community-hot、topic-list、post-publish、post-detail、report-modal、community-greeting、follow-relations、post-interactors |
+| 版本10 | 2026-07-20 | Codex | 同城页收敛为已审核资料城市只读范围，补充资料缺失与当前城市无内容空态，影响 APP-05-PAGE-community-city、APP-05-PAGE-post-publish |
+| 版本09 | 2026-07-20 | Codex | 补齐蓝湖反向缺口：互动历史、关注粉丝、互动用户、草稿上传状态、申请认识别名及两级屏蔽，影响 APP-05-PAGE-interaction-center、follow-relations、post-interactors、post-publish、post-detail、community-greeting、community-more-actions、user-profile |
 | 版本08 | 2026-07-15 | Codex | 新增统一婚恋用户主页，承接 PRD-02 访客、喜欢、匹配聊天及用户安全动作，影响 APP-05-PAGE-user-profile、APP-05-PAGE-user-posts |
 | 版本01 | 2026-07-06 | Codex | 按一期上线目标创建 PRD-05 正式版模块公共定义，影响 APP-05/ADM-05 全部页面 |
 | 版本02 | 2026-07-06 | Codex | 按第 1 轮核查收敛诚意贴详情为动态详情页视图，补充跨模块接口依赖与编号说明，影响 APP-05-PAGE-post-detail、APP-05-PAGE-sincere-list、APP-05-PAGE-user-posts、ADM-05-PAGE-comment-audit |
@@ -42,6 +44,8 @@
 | M05-20 | 后台内容治理按内容来源场景兼容多来源帖子：一期接入成家动态、知音诚意贴；立业帖子仅预留来源枚举和字段，不在一期移动端开放 | `M05-RULE-content-source-compatible`、`M05-ENUM-content-source-scene` |
 | M05-21 | 举报成立后的禁言动作必须选择禁言周期；防机器人刷帖等高风险场景支持 IP 封禁，并记录周期、范围、原因和审计日志 | `M05-RULE-mute-period`、`M05-RULE-ip-block` |
 | M05-22 | 婚恋用户主页由 PRD-05 统一承接；`APP-05-PAGE-user-posts` 仅作为主页个人动态区块，不等同完整主页 | `M05-RULE-user-profile-handoff`、`APP-05-PAGE-user-profile` |
+| M05-23 | 同城信息流仅使用当前登录用户在 PRD-01 中已审核通过的资料城市；资料城市只读，本页不提供跨城市浏览能力，也不申请 GPS 定位权限 | `M05-RULE-city-feed-scope`、`APP-05-PAGE-community-city` |
+| M05-24 | 重复举报只指同一举报人对同一对象类型、同一对象，在既有举报仍处于待处理或处理中时再次提交；不同对象、对象类型或举报人均可独立举报 | `M05-RULE-report-idempotency` |
 
 ---
 
@@ -203,8 +207,10 @@
 | 规则 ID | 规则描述 | 涉及端/页面 | 判定逻辑 | 备注 |
 |---------|----------|-------------|----------|------|
 | `M05-RULE-browse-gate` | 已登录用户可浏览公开社区内容 | APP 全部内容浏览页 | 未登录引导登录；账号冻结/停用不展示互动入口 | 浏览不要求三项认证 |
+| `M05-RULE-city-feed-scope` | 同城信息流范围固定为本人已审核资料城市 | APP 同城信息流页 | 服务端按登录用户读取 PRD-01 已审核城市，客户端不得覆盖；资料城市为空时不查询信息流并引导完善资料 | 本期不申请 GPS 定位权限，不支持跨城市浏览 |
 | `M05-RULE-interaction-gate` | 发布、评论、回复、点赞、关注、@用户需满足核心准入 | APP 发布/详情/列表页 | `isLogin && accountNormal && M01-RULE-core-access == passed` | 若技术侧临时降级需在技术方案标明，不改变 PRD 目标口径 |
 | `M05-RULE-report-gate` | 举报仅要求已登录且账号未冻结 | APP 举报弹窗 | `isLogin && accountNotFrozen` | 安全治理优先 |
+| `M05-RULE-report-idempotency` | 举报提交幂等 | APP 举报弹窗/举报接口 | 以 `reporterId + targetType + targetId` 作为业务唯一口径；仅当该组合已有 `pending/processing` 记录时返回 `M05-ERR-report-duplicate` | 不同举报人、不同对象类型或不同对象不属于前端重复；后台将多名用户对同一对象的举报合并处理是另一条治理规则 |
 | `M05-RULE-follow-isolation` | 关注不开放普通私信 | APP 关注/用户主页 | 关注只写 `FollowRelation`，不改聊天权限 | 避免与 PRD-03 冲突 |
 | `M05-RULE-audit-publish` | 动态机审通过可公开并抽检，诚意贴需人工通过公开，评论机审通过公开 | APP/ADM 审核页 | 按 `M05-SM-content-audit` 和 `M05-SM-comment-audit` | 统一旧移动端/后台冲突 |
 | `M05-RULE-contact-block` | 默认拦截联系方式 | 发布页/审核页 | 命中联系方式且开关关闭时阻断或驳回 | 包含文本与图片二维码 |
@@ -289,6 +295,7 @@
 | `M05-ERR-audit-conflict` | 409 | 505009 | 审核并发冲突 | 记录已被其他人处理，请刷新 | 是 |
 | `M05-ERR-wechat-audit-unavailable` | 503 | 505010 | 微信内容安全不可用 | 内容已进入人工复核，请等待结果 | 是 |
 | `M05-ERR-community-target-unavailable` | 404 | 505011 | 社区触达目标不可用 | 对方状态已变化，暂不可操作 | 是 |
+| `M05-ERR-profile-city-required` | 409 | 505012 | 当前用户已审核资料城市为空 | 请先完善资料城市 | 否 |
 
 ---
 
@@ -296,7 +303,7 @@
 
 | 端 | 方法 | 路径 | 说明 | 关联规则/状态 |
 |----|------|------|------|--------------|
-| APP | GET | `/miniapp/community/feed` | 社区关注/同城/热门信息流 | `M05-RULE-browse-gate` |
+| APP | GET | `/miniapp/community/feed` | 社区关注/同城/热门信息流；`tab=city` 时城市由服务端读取当前用户资料 | `M05-RULE-browse-gate`、`M05-RULE-city-feed-scope` |
 | APP | GET | `/miniapp/community/topics` | 话题列表 | `M05-CFG-topic-dict` |
 | APP | GET | `/miniapp/community/topic/{topicId}` | 话题详情与内容列表 | `M05-RULE-topic-source` |
 | APP | POST | `/miniapp/community/posts` | 发布动态 | `M05-RULE-interaction-gate`、`M05-SM-content-audit` |
@@ -351,7 +358,7 @@
 
 | 找茬编号 | 等级 | 处理结论 | 正式版落点 |
 |----------|------|----------|------------|
-| C-11 | P1 | 同城优先使用用户资料城市/手动城市选择；不依赖 GPS 必授权，拒绝定位时展示默认城市与手动选择 | `APP-02_成家同城信息流页.md` |
+| C-11 | P1 | 同城仅使用当前用户已审核资料城市并只读展示；资料缺失时引导完善资料，当前城市无内容时提供刷新和去热门；不申请 GPS 定位权限 | `M05-RULE-city-feed-scope`、`APP-02_成家同城信息流页.md` |
 | M05-01 | P0 | 按一期目标采用千寻成家/知音入口 | `APP-05_端内定义.md` |
 | M05-02 | P0 | 按 PRD-01 核心准入目标口径：发布、评论、点赞、关注、@需三项认证；举报仅登录 | `M05-RULE-interaction-gate`、`M05-RULE-report-gate` |
 | M05-03/A05-03 | P1 | 动态机审通过可公开并人工抽检；诚意贴需人工通过公开；评论机审通过公开 | `M05-RULE-audit-publish` |
@@ -383,8 +390,7 @@
 | `M05-RULE-interaction-history` | 千寻互动历史 | 本人可按 `commented/liked/unlocked/viewed` 查看行为历史；评论、点赞、浏览来自 PRD-05，解锁结果只读引用 PRD-04；对象失效时保留行为时间但不展示已失效正文 | 由 `APP-05-PAGE-interaction-center` 承接，不替代通知中心 |
 | `M05-RULE-received-like-stats` | 获赞统计 | 统计分为动态获赞、评论获赞、累计获赞；取消点赞或内容下架后按最终有效关系重算 | 统计数不得以通知条数代替 |
 | `M05-RULE-follow-relations` | 关注粉丝列表 | 关注数与粉丝数来自同一关注关系表；关注/取消关注只影响社区弱关系，不影响喜欢、匹配、普通私信 | 由 `APP-05-PAGE-follow-relations` 承接 |
-| `M05-RULE-content-favorite` | 动态收藏 | 满足互动准入的用户可收藏/取消收藏公开动态；以 userId + postId 唯一键保证幂等；详情返回本人收藏态和收藏数 | 收藏是私密行为，收藏用户明细默认仅作者本人可见 |
-| `M05-RULE-post-interactors` | 动态互动用户列表 | 点赞、收藏、评论三类列表分别查询；评论用户按用户去重并保留最近互动时间；统计与详情页同源 | 收藏列表按 `M05-RULE-content-favorite` 做权限过滤 |
+| `M05-RULE-post-interactors` | 动态互动用户列表 | 点赞、评论两类列表分别查询；评论用户按用户去重并保留最近互动时间；统计与详情页同源 | 空态复用通用互动空态，并按 Tab 展示“暂无点赞”或“暂无评论” |
 | `M05-RULE-publish-upload-state` | 图片上传状态 | 单图状态为 `queued/uploading/success/failed`；上传成功仅表示文件上传完成，不代表动态提交或审核成功；存在 uploading/failed 时禁止提交 | 失败图片可重试或删除，成功图片才计入提交 payload |
 | `M05-RULE-publish-draft` | 发布草稿 | 正文、标题、图片上传结果、话题、@用户按当前用户和内容类型保存；退出有内容时提示保存；发布成功后删除对应草稿 | 一期每种内容类型保留最近 1 份本地/服务端草稿 |
 | `M05-RULE-apply-acquaintance-alias` | 申请认识别名 | 蓝湖“申请认识”是社区打招呼/发送悄悄话的入口文案别名，统一进入 `APP-05-PAGE-community-greeting`，不得新建第三套关系或会话状态机 | 埋点需同时记录展示文案和标准动作 `greeting` |
@@ -395,31 +401,27 @@
 
 | 实体 | 表名（建议） | 关键字段 | 说明 |
 |------|-------------|----------|------|
-| 动态收藏 | `community_favorite` | postId, userId, status, createdAt | 用户与动态唯一 |
 | 内容浏览记录 | `community_view_history` | userId, postId, viewedAt | 仅用于本人历史，支持清空 |
 | 内容屏蔽偏好 | `community_content_preference` | userId, targetType, targetId, actionType, status | 区分 `hide_post` 与 `hide_author_posts` |
 | 发布草稿 | `community_post_draft` | userId, contentType, content, images, topicId, mentions, updatedAt | 每用户每内容类型最近一份 |
 
-社区内容聚合返回字段补充：`favoriteCount`、`favoritedByMe`、`commentPreview`；话题聚合返回 `latestPost`、`participantAvatars`、`participantCount`、`viewCount`；作者摘要返回 `birthYear`、`cityName`、`occupation`、`activeText`。
+社区内容聚合返回字段补充：`commentPreview`、`interactionCount`；热门话题入口返回 `participantAvatars`、`participantCount`、`viewCount`；话题列表不返回最新帖子预览；作者摘要返回 `birthYear`、`cityName`、`occupation`、`activeText`。
 
 ### 12.3 补充事件、错误码与接口
 
 | ID | 类型 | 触发/含义 | 载荷或提示 |
 |----|------|-----------|------------|
-| `M05-EVT-favorite-changed` | 事件 | 收藏最终状态变化 | postId, userId, favorited |
 | `M05-EVT-content-preference-changed` | 事件 | 屏蔽当前内容或不看作者动态变化 | actionType, targetId, enabled |
 | `M05-EVT-draft-saved` | 事件 | 草稿保存成功 | draftId, contentType, updatedAt |
 | `M05-ERR-upload-incomplete` | 错误码 | 存在上传中或失败图片时提交 | 图片尚未上传完成，请处理后再发布 |
-| `M05-ERR-favorite-forbidden` | 错误码 | 无收藏资格或内容不可见 | 当前内容暂不可收藏 |
 
 | 端 | 方法 | 路径 | 说明 |
 |----|------|------|------|
-| APP | POST | `/miniapp/community/favorites/toggle` | 收藏/取消收藏，返回最终状态与收藏数 |
 | APP | GET | `/miniapp/community/interactions/history` | 查询评论过、点赞过、解锁过、浏览记录 |
 | APP | DELETE | `/miniapp/community/interactions/view-history` | 清空本人浏览记录 |
 | APP | GET | `/miniapp/community/interactions/received-like-stats` | 查询动态/评论/累计获赞 |
 | APP | GET | `/miniapp/community/follows` | 查询关注或粉丝列表 |
-| APP | GET | `/miniapp/community/posts/{postId}/interactors` | 查询点赞/收藏/评论用户列表 |
+| APP | GET | `/miniapp/community/posts/{postId}/interactors` | 查询点赞或评论用户列表 |
 | APP | PUT | `/miniapp/community/posts/draft` | 保存或覆盖最近草稿 |
 | APP | GET | `/miniapp/community/posts/draft` | 按内容类型读取最近草稿 |
 | APP | DELETE | `/miniapp/community/posts/draft/{draftId}` | 发布成功或用户主动删除草稿 |
@@ -428,6 +430,6 @@
 ### 12.4 一期范围约束
 
 - 蓝湖已出现的“申请认识”按入口别名纳入一期，不新增独立页面或关系状态。
-- 动态收藏、草稿、图片上传状态与两级屏蔽动作纳入 PRD-05；其中“不看 TA 动态”只在内容/用户更多操作中提供切换。
+- 草稿、图片上传状态与两级屏蔽动作纳入 PRD-05；其中“不看 TA 动态”只在内容/用户更多操作中提供切换。
 - `APP-PAGE-087 不看 TA 动态页` 及独立黑名单/不看列表管理仍不在一期范围，避免与 `docs/需求文档/一期上线目标.md` 冲突。
 - 关注/粉丝、互动历史和互动用户列表按蓝湖现有画板补为 P1 页面；若一期排期需裁剪，可隐藏入口，但数据口径不得用通知中心或匹配关系统计替代。

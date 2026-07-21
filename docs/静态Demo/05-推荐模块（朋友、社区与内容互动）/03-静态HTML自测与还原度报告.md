@@ -5,17 +5,23 @@
 | 检查项 | 结果 | 证据 |
 |--------|------|------|
 | JavaScript 语法 | 通过 | `node --check html/assets/demo.js`、`node --check html/mock/demo-data.js` |
-| 反向缺口静态契约 | 通过 | `verify-reverse-gaps.mjs` 共 14 项 |
+| 反向缺口静态契约 | 通过 | `verify-reverse-gaps.mjs` 共 18 项 |
+| UI 最终口径契约 | 通过 | `verify-ui-final-alignment.mjs` 覆盖 PRD、Demo 和最终缺失清单 |
 | 移动端页面锚点 | 通过 | 17 个唯一 `APP-05-PAGE-*` 页面 |
 | 草稿与上传状态 | 通过 | 保存/恢复/状态切换/失败重试为真实按钮 |
-| 收藏与两级屏蔽 | 通过 | 收藏切换、hide_post、hide_author_posts、unhide_author_posts |
+| 互动与两级屏蔽 | 通过 | 互动人数、点赞/评论用户、hide_post、hide_author_posts、unhide_author_posts |
+| 发布审核态 | 通过 | 提交后进入“我的动态”，每条动态展示待复核/已驳回标识，无业务结果弹窗 |
+| 举报幂等 | 通过 | 同一举报人 + 对象类型 + 对象编号的处理中记录复用通用 toast |
 | 术语统一 | 通过 | “申请认识”统一跳转 greeting，不新增关系状态 |
-| 浏览器交互回归 | 通过 | Chrome Headless：17 个页面锚点、收藏切换、草稿恢复、上传失败重试、作者级内容偏好 |
+| 同城范围 | 通过 | 资料城市只读；资料缺失引导完善资料，无内容可刷新/去热门 |
+| 浏览器交互回归 | 通过 | Chrome Headless：17 个页面锚点；话题列表无搜索/分区/最新帖子预览；详情最新/最早排序有效；举报重复 toast 正确；发布后进入“我的动态”且首条为待复核；页面脚本无报错 |
 
 ## 2. 截图证据
 
 - [千寻互动中心](截图证据/PRD-05-interaction-center.png)
 - [发布页单图上传失败与重试](截图证据/PRD-05-publish-upload-failed.png)
+- [同城资料城市只读与空态口径](截图证据/PRD-05-city-profile-readonly.png)
+- [UI 最终口径：话题列表、详情互动、我的动态与互动用户](截图证据/PRD-05-ui-final-alignment.png)
 
 ## 3. 还原度说明
 
@@ -23,6 +29,8 @@
 
 ## 4. 已知限制
 
-- 静态 Demo 不持久化刷新后的草稿、收藏和屏蔽结果。
+- 静态 Demo 不持久化刷新后的草稿、举报幂等记录和屏蔽结果。
 - 图片上传进度为前端状态演示，不调用真实 OSS。
 - 解锁记录只展示 PRD-04 返回结果，不模拟真实扣费或资产流水。
+- 千寻币消耗确认弹窗仅演示模块 08 UI 调用，不在 PRD-05 内模拟充值链路。
+- 同城 Demo 使用固定 mock 资料城市验证主页面；资料缺失与无内容以同页状态说明呈现，不模拟 PRD-01 资料编辑页。

@@ -18,10 +18,9 @@
     draft: data.publishDraft || null,
     hiddenPostId: null,
     hiddenAuthor: null,
-    favoritePostIds: new Set((data.posts || []).filter((post) => post.favoritedByMe).map((post) => post.id)),
     followingAuthor: null,
-    topicKeyword: '',
     topicSort: '热门',
+    commentSort: 'latest',
     sincereSort: '热门',
     userPostView: 'owner',
     privateState: 'not_matched',
@@ -29,7 +28,9 @@
     replyTo: null,
     moreTargetType: 'post',
     moreTargetPostId: data.posts?.[0]?.id,
-    reportReasons: ['联系方式'],
+    reportTargetType: 'post',
+    reportTargetId: data.posts?.[0]?.id || 'P-240701',
+    reportSubmissions: new Set(),
     previewImage: null,
     yuemuLimit: 2,
     yuemuLiked: new Set(),
@@ -158,7 +159,6 @@
       postId: post.id
     })).join('');
     const imageClass = imageItems.length > 1 ? 'image-strip image-strip-grid' : 'image-strip image-strip-single';
-    const favorited = state.favoritePostIds.has(post.id);
     const commentPreview = (post.commentPreview || []).slice(0, 2);
     return `
       <article class="${isSincere ? 'sincere-card' : 'feed-card'}" data-post-card="${escapeHtml(post.id)}">
@@ -180,9 +180,9 @@
         </div>
         <div class="community-actions">
           <button class="action-link yo-link" data-jump="#APP-05-PAGE-community-greeting">申请认识</button>
+          <button class="action-link" data-jump="#APP-05-PAGE-post-interactors">互动 ${escapeHtml(post.interactionCount || 0)}</button>
           <button class="action-link" data-open-detail="${escapeHtml(post.id)}">评论 ${escapeHtml(post.commentCount)}</button>
           <button class="action-link" data-like="${escapeHtml(post.id)}">赞 ${escapeHtml(post.likeCount)}</button>
-          <button class="action-link ${favorited ? 'is-active' : ''}" data-toggle-favorite="${escapeHtml(post.id)}">${favorited ? '已收藏' : '收藏'} ${escapeHtml((post.favoriteCount || 0) + (favorited && !post.favoritedByMe ? 1 : 0))}</button>
         </div>
         ${commentPreview.length ? `<div class="comment-preview">${commentPreview.map((item) => `<p>${escapeHtml(item)}</p>`).join('')}<button type="button" data-open-detail="${escapeHtml(post.id)}">查看全部 ${escapeHtml(post.commentCount)} 条评论</button></div>` : ''}
       </article>
@@ -232,9 +232,9 @@
             ${topics.map((topic, index) => `
               <button type="button" class="hot-topic-card hot-topic-card-${index + 1}" style="background-image:url('${escapeHtml(topic.cover)}')" data-jump="#APP-05-PAGE-topic-list">
                 <span># ${escapeHtml(topic.name)}</span>
-                <strong>${escapeHtml(topic.desc)}</strong>
-                <em>${escapeHtml(topic.count)} 条内容 · 热度 ${escapeHtml(topic.hot)}</em>
-                <em>${escapeHtml(topic.latestPost || '暂无最新动态')}</em>
+                <strong>${escapeHtml(topic.name)}</strong>
+                <span class="participant-avatars">${(topic.participantAvatars || []).slice(0, 3).map((item, avatarIndex) => avatar(item, true, `参与者${avatarIndex + 1}`)).join('')}</span>
+                <em>${escapeHtml(topic.participantCount || 0)} 人参与 · ${escapeHtml(topic.viewCount || 0)} 次浏览</em>
               </button>
             `).join('')}
           </div>
@@ -245,13 +245,10 @@
 
   function renderTopics() {
     qsa('[data-render="topics"]').forEach((target) => {
-      const keyword = state.topicKeyword.trim();
-      const rows = (data.topics || []).filter((topic) => {
-        if (topic.status !== '启用') return false;
-        if (!keyword) return true;
-        return `${topic.name} ${topic.desc}`.includes(keyword);
-      });
-      const recommended = rows.filter((topic) => topic.hot >= 800);
+      const rows = (data.topics || [])
+        .filter((topic) => topic.status === '启用')
+        .slice()
+        .sort((a, b) => (a.sort || 0) - (b.sort || 0) || b.hot - a.hot);
       const topicCard = (topic) => `
         <article class="topic-card">
           <div class="author-row">
@@ -266,17 +263,10 @@
             <button class="btn" data-jump="#APP-05-PAGE-topic-detail">查看话题</button>
             <button class="btn" data-jump="#APP-05-PAGE-post-publish">参与发布</button>
           </div>
-          <div class="topic-social-proof">
-            <div class="participant-avatars">${(topic.participantAvatars || []).slice(0, 3).map((item, index) => avatar(item, true, `参与者${index + 1}`)).join('')}</div>
-            <span>${escapeHtml(topic.participantCount || 0)} 人参与 · ${escapeHtml(topic.viewCount || 0)} 次浏览</span>
-          </div>
-          <p class="topic-latest">最新：${escapeHtml(topic.latestPost || '暂无公开动态')}</p>
+          <div class="topic-social-proof"><span>${escapeHtml(topic.count || 0)} 条内容 · 热度 ${escapeHtml(topic.hot || 0)}</span></div>
         </article>
       `;
-      target.innerHTML = rows.length ? `
-        ${recommended.length ? `<div class="topic-section"><h3>推荐话题</h3>${recommended.map(topicCard).join('')}</div>` : ''}
-        <div class="topic-section"><h3>全部话题</h3>${rows.map(topicCard).join('')}</div>
-      ` : '<div class="notice">没有匹配的话题，清空关键词后重试。</div>';
+      target.innerHTML = rows.length ? `<div class="topic-section">${rows.map(topicCard).join('')}</div>` : '<div class="notice">暂无启用话题，请稍后重试。</div>';
     });
   }
 
@@ -296,7 +286,11 @@
 
   function renderComments() {
     qsa('[data-render="comments"]').forEach((target) => {
-      target.innerHTML = (data.comments || []).map((item) => `
+      const rows = (data.comments || []).slice().sort((a, b) => {
+        const compared = String(a.createTime || '').localeCompare(String(b.createTime || ''));
+        return state.commentSort === 'earliest' ? compared : -compared;
+      });
+      target.innerHTML = rows.map((item) => `
         <div class="comment-row">
           <div class="author-row">
             ${avatar(item.avatar, true, `${item.author}上传头像`)}
@@ -310,6 +304,10 @@
           </div>
         </div>
       `).join('');
+    });
+
+    qsa('[data-comment-sort]').forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.commentSort === state.commentSort);
     });
 
     qsa('[data-render="comment-reply-target"]').forEach((target) => {
@@ -459,7 +457,7 @@
     qsa('[data-relation-type]').forEach((button) => button.classList.toggle('is-active', button.dataset.relationType === state.relationType));
     qsa('[data-render="follow-relations"]').forEach((target) => {
       const rows = data.followRelations?.[state.relationType] || [];
-      target.innerHTML = rows.map((user) => `<article class="relation-card"><div class="author-row">${avatar(user.avatar, true, `${user.name}上传头像`)}<div><strong>${escapeHtml(user.name)}</strong><div class="helper">${escapeHtml(user.profile)} · ${escapeHtml(user.activeText)}</div></div><button class="follow-btn" type="button" data-toggle-relation="${escapeHtml(user.name)}">${user.followed ? '已关注' : state.relationType === 'followers' ? '回关' : '关注'}</button></div></article>`).join('') || `<div class="notice">${state.relationType === 'following' ? '还没有关注任何人，去热门看看。' : '还没有粉丝。'}</div>`;
+      target.innerHTML = rows.map((user) => `<article class="relation-card"><div class="author-row">${avatar(user.avatar, true, `${user.name}上传头像`)}<div><strong>${escapeHtml(user.name)}</strong><div class="helper">${escapeHtml(user.profile)} · ${escapeHtml(user.activeText)}</div></div><button class="follow-btn" type="button" data-toggle-relation="${escapeHtml(user.name)}">${user.followed ? '已关注' : state.relationType === 'followers' ? '回关' : '关注'}</button></div></article>`).join('') || '<div class="notice">暂无相关用户。</div>';
     });
   }
 
@@ -467,7 +465,8 @@
     qsa('[data-interactor-type]').forEach((button) => button.classList.toggle('is-active', button.dataset.interactorType === state.interactorType));
     qsa('[data-render="post-interactors"]').forEach((target) => {
       const rows = data.postInteractors?.[state.interactorType] || [];
-      target.innerHTML = rows.map((user) => `<article class="relation-card"><div><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml(user.detail)}</p></div><button class="btn" data-toast="已打开${escapeHtml(user.name)}的婚恋用户主页">查看主页</button></article>`).join('') || '<div class="notice">当前类型暂无互动用户。</div>';
+      const emptyText = state.interactorType === 'liked' ? '暂无点赞' : '暂无评论';
+      target.innerHTML = rows.map((user) => `<article class="relation-card"><div><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml(user.detail)}</p></div><button class="btn" data-toast="已打开${escapeHtml(user.name)}的婚恋用户主页">查看主页</button></article>`).join('') || `<div class="notice">${emptyText}</div>`;
     });
   }
 
@@ -551,7 +550,7 @@
   function renderReportModal() {
     qsa('[data-render="report-reasons"]').forEach((target) => {
       target.innerHTML = (data.config?.reportReasons || []).map((reason) => `
-        <button type="button" class="${state.reportReasons.includes(reason) ? 'is-active' : ''}" data-report-reason="${escapeHtml(reason)}">${escapeHtml(reason)}</button>
+        <button type="button" data-report-reason="${escapeHtml(reason)}">${escapeHtml(reason)}</button>
       `).join('');
     });
   }
@@ -771,12 +770,6 @@
     });
 
     document.addEventListener('input', (event) => {
-      const topicSearch = event.target.closest('[data-topic-search]');
-      if (topicSearch) {
-        state.topicKeyword = topicSearch.value;
-        renderTopics();
-      }
-
       const greetingContent = event.target.closest('[data-greeting-content]');
       if (greetingContent) {
         greetingContent.dataset.touched = 'true';
@@ -834,15 +827,6 @@
         showToast('点赞成功，通知事件由 PRD-03 承接');
       }
 
-      const favorite = event.target.closest('[data-toggle-favorite]');
-      if (favorite) {
-        const id = favorite.dataset.toggleFavorite;
-        if (state.favoritePostIds.has(id)) state.favoritePostIds.delete(id);
-        else state.favoritePostIds.add(id);
-        renderAll();
-        showToast(state.favoritePostIds.has(id) ? '收藏成功' : '已取消收藏');
-      }
-
       const yuemuLike = event.target.closest('[data-yuemu-like]');
       if (yuemuLike) {
         const id = yuemuLike.dataset.yuemuLike;
@@ -863,6 +847,8 @@
           renderMoreActions();
         }
         if (modal.dataset.openModal === 'reportModal') {
+          state.reportTargetType = modal.dataset.targetType || state.moreTargetType || 'post';
+          state.reportTargetId = modal.dataset.targetId || modal.dataset.targetPost || state.moreTargetPostId || currentDetailPost()?.id || 'P-240701';
           renderReportModal();
         }
         openModal(modal.dataset.openModal);
@@ -975,7 +961,20 @@
           return;
         }
         state.draft = null;
-        showToast(state.publishType === 'sincere_post' ? '诚意贴已提交，进入人工审核' : `动态已提交，等待机审；图片 ${state.publishImages.length}/9`);
+        const pendingPost = {
+          id: `MY-${Date.now()}`,
+          type: state.publishType,
+          summary: content,
+          topic: state.selectedTopic,
+          status: state.publishType === 'sincere_post' ? 'pending_manual' : 'pending_machine',
+          statusText: '待复核',
+          time: '刚刚',
+          images: state.publishImages.map((item) => item.label)
+        };
+        data.myPosts = [pendingPost, ...(data.myPosts || [])];
+        state.userPostView = 'owner';
+        renderUserPosts();
+        location.hash = 'APP-05-PAGE-user-posts';
       }
 
       const historyType = event.target.closest('[data-history-type]');
@@ -1017,6 +1016,12 @@
       if (topicSort) {
         state.topicSort = topicSort.dataset.topicSort;
         renderTopicDetailPosts();
+      }
+
+      const commentSort = event.target.closest('[data-comment-sort]');
+      if (commentSort) {
+        state.commentSort = commentSort.dataset.commentSort;
+        renderComments();
       }
 
       const sincereSort = event.target.closest('[data-sincere-sort]');
@@ -1068,22 +1073,11 @@
 
       const reportReason = event.target.closest('[data-report-reason]');
       if (reportReason) {
-        const value = reportReason.dataset.reportReason;
-        if (state.reportReasons.includes(value)) {
-          state.reportReasons = state.reportReasons.filter((item) => item !== value);
-        } else {
-          state.reportReasons.push(value);
-        }
-        renderReportModal();
-      }
-
-      const submitReport = event.target.closest('[data-submit-report]');
-      if (submitReport) {
-        if (!state.reportReasons.length) {
-          showToast('请至少选择一个举报原因', 'warning');
-          return;
-        }
-        showToast('举报已提交；重复举报会提示已提交');
+        const reporterId = data.currentUser?.id || 'CURRENT-USER';
+        const reportKey = `${reporterId}:${state.reportTargetType}:${state.reportTargetId}`;
+        const duplicated = state.reportSubmissions.has(reportKey);
+        if (!duplicated) state.reportSubmissions.add(reportKey);
+        showToast(duplicated ? '你的举报已提交，请等待处理' : `举报已提交：${reportReason.dataset.reportReason}`);
         qsa('.modal-backdrop.is-open').forEach(closeSurface);
       }
 

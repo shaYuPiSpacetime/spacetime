@@ -6,7 +6,9 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
-| 版本07 | 2026-07-20 | Codex | 补齐蓝湖反向缺口：互动历史、关注粉丝、互动用户、收藏、草稿、上传状态、申请认识别名和两级屏蔽 |
+| 版本09 | 2026-07-20 | Codex | 按蓝湖最终确认口径删除收藏，明确举报幂等、发布审核态、话题字段及模块 08 资产弹窗边界 |
+| 版本08 | 2026-07-20 | Codex | 同城信息流收敛为当前用户已审核资料城市，城市只读并补充资料缺失、无内容分支 |
+| 版本07 | 2026-07-20 | Codex | 补齐蓝湖反向缺口：互动历史、关注粉丝、互动用户、草稿、上传状态、申请认识别名和两级屏蔽 |
 | 版本06 | 2026-07-15 | Codex | 新增统一婚恋用户主页，承接关系反馈与个人动态区 |
 | 版本01 | 2026-07-06 | Codex | 按一期上线目标创建移动端 PRD-05 正式版模块入口 |
 | 版本02 | 2026-07-06 | Codex | 修复流程代码块，明确诚意贴列表由动态详情页诚意贴视图承接，并补充个人动态区归属说明 |
@@ -50,7 +52,9 @@
   3. 用户浏览图文摘要、作者、话题、点赞数和评论数
   4. 点击内容进入动态详情页，点击话题进入话题详情页
 分支：
-  - 同城页优先使用资料城市或用户手动选择城市
+  - 同城页由服务端读取当前用户已审核资料城市，页面只读展示且不申请 GPS 定位权限
+  - 资料城市缺失时不请求同城内容，引导完善资料
+  - 当前资料城市无内容时可刷新或去热门
   - 关注页无关注内容时展示空态和热门入口
 异常：
   - 字典或配置加载失败时保留默认入口并允许重试
@@ -103,7 +107,7 @@
   4. 后台举报处理页处理结果
   5. PRD-03 通知中心承接举报结果通知
 异常：
-  - 重复举报：提示已提交
+  - 重复举报：同一 `reporterId + targetType + targetId` 已存在 `pending/processing` 记录时复用通用 toast 提示“你的举报已提交，请等待处理”；不同对象、对象类型或举报人均可独立提交
   - 举报对象不可见：提示内容状态已变化
 ```
 
@@ -135,7 +139,6 @@
 | 社区内容 | `community_post` | 动态、诚意贴、悦目内容来源 | 05 | contentId, authorId, contentType, status, topicId |
 | 评论 | `community_comment` | 动态/诚意贴评论和回复 | 05 | commentId, contentId, authorId, parentCommentId, status |
 | 点赞 | `community_like` | 用户对内容的点赞关系 | 05 | contentId, userId, status |
-| 收藏 | `community_favorite` | 用户对动态的私密收藏关系 | 05 | contentId, userId, status |
 | 关注 | `community_follow` | 用户之间的社区关注关系 | 05 | followerId, targetUserId, status |
 | 浏览记录 | `community_view_history` | 本人最近浏览内容 | 05 | userId, contentId, viewedAt |
 | 内容偏好 | `community_content_preference` | 屏蔽当前内容或不看作者动态 | 05 | userId, actionType, targetId, status |
@@ -150,7 +153,6 @@
 用户 1──N 社区内容
 社区内容 1──N 评论
 社区内容 1──N 点赞
-社区内容 1──N 收藏
 用户 1──N 关注
 用户 1──N 浏览记录/内容偏好/发布草稿
 话题 1──N 社区内容
@@ -180,13 +182,12 @@
 | `APP-05-RULE-yuemu` | 悦目图片内容流 | P0 | `APP-05-PAGE-yuemu` | 双列瀑布流按原始宽高比展示，支持预览、点赞和加载更多 |
 | `APP-05-RULE-sincere-post` | 诚意贴列表、发布与详情承接 | P0 | `APP-05-PAGE-sincere-list`、`APP-05-PAGE-post-publish`、`APP-05-PAGE-post-detail` | 发布和详情均通过 `contentType=sincere_post` 条件视图承接 |
 | `APP-05-RULE-more-actions` | 社区更多操作弹窗 | P0 | `APP-05-PAGE-community-more-actions` | 按 `post/comment/user` 对象类型展示举报、屏蔽、复制链接和触达入口 |
-| `APP-05-RULE-report` | 举报弹窗与举报提交 | P0 | `APP-05-PAGE-report-modal` | 已登录可提交 |
+| `APP-05-RULE-report` | 举报弹窗与举报提交 | P0 | `APP-05-PAGE-report-modal` | 已登录可提交；重复判定引用 `M05-RULE-report-idempotency` |
 | `APP-05-RULE-community-contact` | 社区打招呼与发私信入口 | P0 | `APP-05-PAGE-community-greeting`、`APP-05-PAGE-community-private-entry` | 发送与会话规则引用 PRD-03 |
 | `APP-05-RULE-user-posts` | 个人动态区 | P1 | `APP-05-PAGE-user-posts` | 本人可看审核态，他人仅看公开内容 |
 | `APP-05-RULE-interaction-center` | 评论过、点赞过、解锁过、浏览记录与获赞统计 | P1 | `APP-05-PAGE-interaction-center` | 解锁历史只读引用 PRD-04 |
 | `APP-05-RULE-follow-relations` | 关注、粉丝列表与统计 | P1 | `APP-05-PAGE-follow-relations` | 不改变匹配和私信资格 |
-| `APP-05-RULE-post-interactors` | 动态点赞、收藏、评论用户列表 | P1 | `APP-05-PAGE-post-interactors` | 收藏用户明细仅作者可见 |
-| `APP-05-RULE-content-favorite` | 动态收藏/取消收藏 | P1 | `APP-05-PAGE-post-detail` | 幂等返回最终收藏态 |
+| `APP-05-RULE-post-interactors` | 动态点赞、评论用户列表 | P1 | `APP-05-PAGE-post-interactors` | 评论用户去重并保留最近互动时间 |
 | `APP-05-RULE-publish-draft-upload` | 草稿保存恢复和图片上传状态 | P0 | `APP-05-PAGE-post-publish` | 上传成功不等于动态发布成功 |
 | `APP-05-RULE-content-preference` | 屏蔽当前内容、不看 TA 动态及取消 | P0 | `APP-05-PAGE-community-more-actions` | 一期不新增独立管理页 |
 
@@ -206,7 +207,7 @@
 | 核心准入 | PRD-01 | 发布与互动资格 | 入口置灰或点击引导认证 | 阻塞互动 |
 | 关系反馈 | PRD-02 | 匹配成功状态 | 发私信入口展示原因或跳转私信 | 阻塞普通私信 |
 | 消息触达 | PRD-03 | 悄悄话发送、普通私信、女性保护、会话状态 | 展示 PRD-03 返回的禁用原因 | 阻塞触达 |
-| 商业化资产 | PRD-04 | 悄悄话免费次数和千寻币余额 | 展示余额不足或充值引导 | 阻塞打招呼 |
+| 商业化资产 | PRD-04、模块 08 | PRD-04 提供免费次数、千寻币余额和扣费规则；模块 08 提供消耗确认、余额不足和充值入口 UI | PRD-05 只调用并展示返回结果，不重复定义资产弹窗 | 阻塞打招呼 |
 | 通知中心 | PRD-03 | 互动、审核、举报通知 | 主操作成功，通知事件补偿 | 非阻塞 |
 | 微信内容安全 | `M05-SRV-wechat-content-security` | 文本和图片机审 | 进入人工复核或提示重试 | 阻塞自动公开 |
 | 家园话题管理 | ADM-05 | 话题字典、推荐话题、话题排序、话题启停 | 使用首批默认话题并提示后台初始化 | 非阻塞 |
@@ -264,13 +265,12 @@
 | 需幂等的操作 | 并发场景 | 幂等方案建议 |
 |-------------|----------|-------------|
 | 点赞/取消点赞 | 连续点击 | 用户 + 内容唯一键，返回最终状态 |
-| 收藏/取消收藏 | 连续点击 | 用户 + 内容唯一键，返回最终状态 |
 | 关注/取消关注 | 连续点击 | followerId + targetUserId 唯一键 |
 | 草稿保存 | 自动保存与手动保存并发 | userId + contentType 唯一草稿，按 updatedAt 覆盖 |
 | 屏蔽偏好切换 | 连续点击 | userId + actionType + targetId 唯一键，返回最终状态 |
 | 社区打招呼提交 | 连续点击 | 引用 `M03-RULE-whisper-repeat-limit`，同一对象待回复时阻断 |
 | 发布提交 | 弱网重提 | 客户端提交 token 或内容 hash 去重 |
-| 举报提交 | 重复举报 | reporterId + targetType + targetId 有效期内去重 |
+| 举报提交 | 重复举报 | 引用 `M05-RULE-report-idempotency`：`reporterId + targetType + targetId` 仅在既有记录为 `pending/processing` 时去重 |
 | 评论提交 | 连续点击 | 短时幂等 key 防重 |
 
 ### 9.5 埋点
@@ -282,7 +282,6 @@
 | `community_publish_submit` | 提交发布 | contentType, topicId, imageCount |
 | `community_comment_submit` | 提交评论 | contentId, hasParent |
 | `community_like_click` | 点赞/取消点赞 | contentId, action |
-| `community_favorite_click` | 收藏/取消收藏 | contentId, action, source |
 | `community_follow_click` | 关注/取消关注 | targetUserId, action |
 | `community_interaction_history_show` | 互动历史曝光 | historyType, resultCount |
 | `community_draft_action` | 保存、恢复或删除草稿 | contentType, action |
