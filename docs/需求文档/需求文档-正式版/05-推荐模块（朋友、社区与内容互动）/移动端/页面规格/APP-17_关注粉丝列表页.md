@@ -9,7 +9,7 @@
 
 ## 1. 页面定位
 
-- **入口来源**：婚恋用户主页关注数、粉丝数；我的互动快捷入口。
+- **入口来源**：个人动态区他人主页关注数、粉丝数；我的互动快捷入口。
 - **核心任务**：查看本人或目标用户的关注/粉丝列表，并在本人视图中关注或取消关注。
 - **关系边界**：社区关注是弱关系，不改变喜欢、匹配或普通私信资格。
 
@@ -34,7 +34,7 @@
 | 操作 ID | 操作 | 前置条件 | 结果 |
 |---------|------|----------|------|
 | `APP-05-PAGE-follow-relations-ACT-change-tab` | 切换关注/粉丝 | 已登录 | 列表刷新 |
-| `APP-05-PAGE-follow-relations-ACT-open-profile` | 查看主页 | 用户可见 | 进入婚恋用户主页 |
+| `APP-05-PAGE-follow-relations-ACT-open-profile` | 查看主页 | 用户可见 | 进入 `APP-05-PAGE-user-posts` 他人主页 |
 | `APP-05-PAGE-follow-relations-ACT-follow` | 关注/回关 | 满足互动准入 | 更新关注态与统计数 |
 | `APP-05-PAGE-follow-relations-ACT-unfollow` | 取消关注 | 当前已关注 | 确认后更新最终状态 |
 
@@ -54,4 +54,4 @@
 ## 5. 关联
 
 - 模块规则：`M05-RULE-follow-isolation`、`M05-RULE-follow-relations`。
-- 目标页面：`APP-05-PAGE-user-profile`、`APP-05-PAGE-community-hot`。
+- 目标页面：`APP-05-PAGE-user-posts`、`APP-05-PAGE-community-hot`。

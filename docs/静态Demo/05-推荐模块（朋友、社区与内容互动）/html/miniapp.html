@@ -35,7 +35,6 @@
         <a href="#APP-05-PAGE-follow-relations">关注与粉丝</a>
         <a href="#APP-05-PAGE-post-interactors">动态互动用户</a>
         <a href="#APP-05-PAGE-community-greeting">社区打招呼</a>
-        <a href="#APP-05-PAGE-community-private-entry">社区发私信</a>
         <a href="#APP-05-PAGE-community-more-actions">更多操作</a>
       </aside>
 
@@ -91,7 +90,7 @@
           <div class="page-head"><h2>APP-05-PAGE-topic-detail 话题详情页</h2><p>展示单个话题下动态和诚意贴内容，发布时自动带入当前话题。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:45</span><span>#认真找对象</span></div><div class="phone-screen"><div class="community-card"><h3>认真找对象</h3><p>长期主义、坦诚表达和稳定相处。</p><button class="btn primary full" data-jump="#APP-05-PAGE-post-publish">参与话题</button></div><div class="mini-tabs"><button data-topic-sort="热门">热门</button><button data-topic-sort="最新">最新</button></div><div data-render="topic-detail-posts"></div></div></article>
-            <article class="mini-panel"><h3>话题详情承接</h3><p>话题头保留，内容列表为空时展示“暂无相关内容”。</p></article>
+            <article class="mini-panel"><h3>话题详情承接</h3><p>话题头始终按快照展示，内容为空时列表区统一显示“暂无数据”；话题停用不增加详情专属状态。</p></article>
           </div>
         </section>
 
@@ -105,7 +104,6 @@
                 <textarea data-publish-content placeholder="分享此刻。诚意贴正文不少于 20 字。">周末想去看展，也想认真认识生活节奏相近的人。</textarea>
                 <div data-render="topic-chips"></div>
                 <div data-render="upload-grid"></div>
-                <button class="btn" data-toast="已打开 @ 用户选择弹窗">选择 @ 用户</button>
                 <div class="draft-actions"><button class="btn" data-save-draft>保存草稿</button><button class="btn" data-restore-draft>恢复草稿</button><button class="btn" data-cycle-upload>演示上传状态</button></div>
                 <button class="btn primary full" data-submit-publish>提交审核</button>
               </div>
@@ -147,10 +145,10 @@
         </section>
 
         <section class="section-band" id="APP-05-PAGE-user-posts">
-          <div class="page-head"><h2>APP-05-PAGE-user-posts 个人动态区</h2><p>本人视图展示审核态和删除；他人视图仅展示已公开内容。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-user-posts 个人动态区与他人主页</h2><p>本人视图展示审核态和删除；他人主页同页展示已审核资料、关系动作与公开动态。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:51</span><span>个人动态</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span data-static-avatar="P-240701"></span><div><strong>周予安</strong><div class="helper">18 条动态 · 风险状态正常</div></div></div></div><div class="segmented"><button data-user-post-view="owner">本人</button><button data-user-post-view="other">他人</button></div><div data-render="user-posts"></div></div></article>
-            <article class="mini-panel"><h3>视图区分</h3><ul class="check-list"><li><span>本人</span><strong>可看审核中/驳回</strong></li><li><span>他人</span><strong>仅公开内容</strong></li></ul></article>
+            <article class="mini-panel"><h3>视图区分</h3><ul class="check-list"><li><span>本人</span><strong>可看审核中/驳回</strong></li><li><span>他人</span><strong>资料 + 关系动作 + 公开动态</strong></li></ul><button class="btn full" data-toggle-interaction>演示切换互动关系</button></article>
           </div>
         </section>
 
@@ -179,26 +177,18 @@
         </section>
 
         <section class="section-band" id="APP-05-PAGE-community-greeting">
-          <div class="page-head"><h2>APP-05-PAGE-community-greeting 社区打招呼页</h2><p>“申请认识”是打招呼/悄悄话入口别名，发送资格引用 PRD-03。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-community-greeting 社区打招呼页</h2><p>未建立互动关系时从“申请认识”进入，发送资格引用 PRD-03。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:54</span><span>申请认识</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span data-static-avatar="P-240701"></span><div><strong>申请认识周予安</strong><div class="helper">标准动作：greeting · 来源：动态 P-240701</div></div></div></div><div class="composer"><div data-render="greeting-templates"></div><textarea data-greeting-content></textarea><div data-render="greeting-cost"></div><button class="btn primary full" data-open-modal="module08AssetModal">发送悄悄话</button></div></div></article>
-            <article class="mini-panel"><h3>引用规则</h3><p>同一对象已有待回复悄悄话时展示等待态；消耗确认、余额不足和充值入口由模块 08 UI 提供。</p></article>
-          </div>
-        </section>
-
-        <section class="section-band" id="APP-05-PAGE-community-private-entry">
-          <div class="page-head"><h2>APP-05-PAGE-community-private-entry 社区发私信页</h2><p>按 PRD-03 普通私信开放规则判断，未匹配成功时提供打招呼入口。</p></div>
-          <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:53</span><span>发私信</span></div><div class="phone-screen"><div class="mini-tabs"><button data-private-state="not_matched">未匹配</button><button data-private-state="can_chat">可聊天</button><button data-private-state="protected">保护期</button><button data-private-state="invalid">失效</button></div><div data-render="private-entry"></div></div></article>
-            <article class="mini-panel"><h3>异常</h3><p>目标用户不可见、会话失效、女性保护等原因由 PRD-03 返回，本页展示原因。</p></article>
+            <article class="mini-panel"><h3>引用规则</h3><p>重复发送、目标不可用等复用 PRD-03 通用反馈；关系建立后入口隐藏，消息动作直接进入 PRD-03 会话。</p></article>
           </div>
         </section>
 
         <section class="section-band" id="APP-05-PAGE-community-more-actions">
-          <div class="page-head"><h2>APP-05-PAGE-community-more-actions 社区更多操作弹窗</h2><p>区分屏蔽当前内容与不看 TA 动态，并支持取消不看。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-community-more-actions 社区更多操作弹窗</h2><p>内容和用户菜单以 UI 稿为准；申请认识与私信均不放入更多菜单。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:54</span><span>更多操作</span></div><div class="phone-screen"><div class="segmented"><button data-more-target-type="post">内容</button><button data-more-target-type="comment">评论</button><button data-more-target-type="user">用户</button></div><button class="btn full" data-open-modal="moreActionsModal">打开更多操作</button><div class="notice">屏蔽成功后 toast 提供 3 秒撤销，当前反馈内闭环。</div><button class="btn" data-undo-hide>撤销最近一次屏蔽</button></div></article>
-            <article class="mini-panel"><h3>对象类型</h3><ul class="check-list"><li><span>post</span><strong>举报/屏蔽/复制</strong></li><li><span>comment</span><strong>举报/复制</strong></li><li><span>user</span><strong>打招呼/发私信/举报</strong></li></ul></article>
+            <article class="phone"><div class="phone-bar"><span>9:54</span><span>更多操作</span></div><div class="phone-screen"><div class="segmented"><button data-more-target-type="post">内容</button><button data-more-target-type="comment">评论</button><button data-more-target-type="user">用户</button></div><button class="btn full" data-open-modal="moreActionsModal">打开更多操作</button><div class="notice">关注和不看 TA 动态均按服务端最终状态切换正向/反向操作。</div></div></article>
+            <article class="mini-panel"><h3>对象类型</h3><ul class="check-list"><li><span>post</span><strong>分享/关注/不看/举报</strong></li><li><span>comment</span><strong>沿用评论 UI</strong></li><li><span>user</span><strong>关注/不看/举报</strong></li></ul></article>
           </div>
         </section>
       </div>

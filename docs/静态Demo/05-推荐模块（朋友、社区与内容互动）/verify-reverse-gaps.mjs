@@ -18,7 +18,6 @@ const assertions = [
   ['草稿恢复动作', 'data-restore-draft'],
   ['图片上传状态', 'uploadStatus'],
   ['申请认识别名', '申请认识'],
-  ['屏蔽当前内容动作', 'hide_post'],
   ['不看 TA 动态动作', 'hide_author_posts'],
   ['取消不看 TA 动态动作', 'unhide_author_posts'],
   ['评论预览', 'commentPreview'],
@@ -29,12 +28,31 @@ const assertions = [
   ['发布后进入我的动态', "location.hash = 'APP-05-PAGE-user-posts'"],
   ['点赞空态', '暂无点赞'],
   ['评论空态', '暂无评论'],
+  ['他人主页资料', 'otherUserProfile'],
+  ['互动关系路由', 'interactionEstablished'],
+  ['直达 PRD-03', 'data-direct-chat'],
+  ['热门与话题通用空态', '暂无数据'],
+  ['内容分享动作', '已调起小程序分享'],
 ];
 
 const missing = assertions.filter(([, token]) => !source.includes(token));
 if (missing.length) {
   console.error('PRD-05 反向缺口静态验收失败：');
   for (const [name, token] of missing) console.error(`- ${name}：缺少 ${token}`);
+  process.exit(1);
+}
+
+const forbidden = [
+  ['@Ta 入口', '选择 @ 用户'],
+  ['社区私信中转页', 'APP-05-PAGE-community-private-entry'],
+  ['社区私信中转数据', 'privateEntryStates'],
+  ['单条内容屏蔽', 'hide_post'],
+];
+
+const unexpected = forbidden.filter(([, token]) => source.includes(token));
+if (unexpected.length) {
+  console.error('PRD-05 已取消能力仍残留：');
+  for (const [name, token] of unexpected) console.error(`- ${name}：仍包含 ${token}`);
   process.exit(1);
 }
 

@@ -5,6 +5,7 @@
 | 版本01 | 2026-07-06 | Codex | 按一期上线目标补充社区打招呼页 |
 | 版本02 | 2026-07-07 | Codex | 按移动端 Demo 审查明确招呼语模板、消耗确认和余额不足状态验收 |
 | 版本03 | 2026-07-20 | Codex | 千寻币消耗确认、余额不足和充值入口改为调用模块 08 UI，PRD-05 不重复出稿 |
+| 版本04 | 2026-07-21 | Codex | 仅保留“申请认识”默认详情画板；待回复和目标不可用复用 PRD-03/通用反馈，关系建立后入口隐藏 |
 
 - **页面 ID**：`APP-05-PAGE-community-greeting`
 - **所属模块 PRD**：`模块PRD_APP-05_推荐模块（朋友、社区与内容互动）`
@@ -58,8 +59,6 @@
 | 画板 ID | 画板名称 | 设计内容 | 备注 |
 |---------|----------|----------|------|
 | `APP-05-greeting-01` | 社区打招呼页-默认态 | 目标用户、招呼语、发送按钮 | P0 |
-| `APP-05-greeting-04` | 社区打招呼页-待回复态 | 已有待回复悄悄话 | P0 |
-| `APP-05-greeting-05` | 社区打招呼页-目标不可用 | 对方状态异常 | P1 |
 
 千寻币消耗确认、余额不足和充值入口由模块 08 提供通用 UI 画板；PRD-05 仅携带业务场景、目标用户和扣费结果调用，不将这些资产弹窗计入本模块画板。
 
@@ -105,7 +104,6 @@
 | `APP-05-PAGE-community-greeting-FIELD-content` | 招呼内容 | string | 是 | 1-200 字 | 内容安全校验，去首尾空格后非空 | 模板文案 | 提交前可编辑 | 敏感，加密存储 | 用户输入 |
 | `APP-05-PAGE-community-greeting-FIELD-pay-type` | 消耗方式 | enum | 是 | 免费次数/千寻币 | 引用 PRD-03/PRD-04 返回 | 系统计算 | 否 | 普通 | PRD-03/PRD-04 |
 | `APP-05-PAGE-community-greeting-FIELD-balance` | 千寻币余额 | int | 条件必填 | >=0 | 需消耗千寻币时展示 | 0 | 否 | 普通 | PRD-04 |
-| `APP-05-PAGE-community-greeting-FIELD-whisper-status` | 悄悄话状态 | enum | 否 | `M03-SM-whisper` | 存在待回复记录时展示 | 无 | 否 | 普通 | PRD-03 |
 
 ## 5. 操作表
 
@@ -121,7 +119,7 @@
 
 | 操作 ID | 操作名 | 位置 | 触发条件 | 前置权限 | 二次确认 | 成功态 | 失败态 |
 |---------|--------|------|----------|----------|----------|--------|--------|
-| `APP-05-PAGE-community-greeting-ACT-send` | 发送招呼 | 底部 | 内容非空且目标用户可见 | `M05-RULE-community-greeting-entry`、`M03-RULE-whisper-send` | 需消耗千寻币时确认 | 触发 PRD-03 悄悄话发送并提示等待回复 | `M03-ERR-whisper-duplicate-pending`、`M03-ERR-whisper-quota-insufficient`、内容安全失败 |
+| `APP-05-PAGE-community-greeting-ACT-send` | 发送招呼 | 底部 | 未建立互动关系、内容非空且目标用户可见 | `M05-RULE-community-greeting-entry`、`M03-RULE-whisper-send` | 需消耗千寻币时确认 | 触发 PRD-03 悄悄话发送并返回来源页 | 重复发送、目标不可用、配额不足或内容安全失败均复用 PRD-03/通用反馈，不新增本页状态画板 |
 | `APP-05-PAGE-community-greeting-ACT-view-profile` | 查看主页 | 用户卡片 | 目标用户正常 | `GLB-ROLE-app-user` | 否 | 跳转用户主页 | `M05-ERR-community-target-unavailable` |
 | `APP-05-PAGE-community-greeting-ACT-cancel` | 取消 | 顶部/底部 | 页面打开 | `GLB-ROLE-app-user` | 否 | 返回来源页 | 无 |
 
@@ -140,7 +138,7 @@
 | 状态类型 | 触发场景 | 页面表现 | 用户可做的操作 | 引用 |
 |----------|----------|----------|----------------|------|
 | 加载态 | 首次进入 | 骨架屏 | 等待 | 通用态 |
-| 空态（无数据） | 目标用户不存在 | 目标不可用提示 | 返回 | `M05-ERR-community-target-unavailable` |
+| 空态（无数据） | 目标用户不存在或关系状态已变化 | 复用通用反馈并返回来源页 | 返回 | `M05-ERR-community-target-unavailable` |
 | 空态（搜索无结果） | 本页无搜索 | 本节不适用 | — | — |
 | 错误态（网络） | 加载或提交失败 | toast + 重试 | 重试/返回 | 通用态 |
 | 无权限态 | 未登录或未通过核心准入 | 登录/认证引导 | 去登录/去认证 | `M05-RULE-community-greeting-entry` |
@@ -196,4 +194,4 @@ Then  页面展示等待对方回复提示，不展示发送按钮
 
 ## 11. “申请认识”文案别名
 
-蓝湖中的“申请认识”不是新的关系类型。入口展示“申请认识”时仍携带 `standardAction=greeting` 进入本页，资格、免费次数/千寻币消耗、待回复限制与目标不可用状态全部复用本页和 PRD-03 悄悄话规则。埋点同时记录 `displayLabel=申请认识`，便于比较入口文案效果。
+蓝湖中的“申请认识”不是新的关系类型。未建立互动关系时，入口携带 `standardAction=greeting` 进入本页；资格、免费次数/千寻币消耗、重复发送和目标不可用反馈复用 PRD-03 与模块 08。对方回复并建立互动关系后，来源页隐藏“申请认识”，头像/昵称进入 `APP-05-PAGE-user-posts` 他人主页，显式消息动作直接进入 `APP-03-PAGE-private-chat`。

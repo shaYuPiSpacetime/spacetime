@@ -290,12 +290,16 @@ window.PRD05_DEMO_DATA = {
     '你的分享很真诚，想和你聊聊近况。',
     '我也在杭州，周末路线可以互相推荐。'
   ],
-  privateEntryStates: [
-    { code: 'not_matched', title: '相互喜欢后才能聊天', desc: '当前与目标用户未匹配成功，不能直接打开普通私信。', primary: '去打招呼', action: 'greeting' },
-    { code: 'can_chat', title: '可以进入普通私信', desc: '双方已满足普通私信开放规则，可跳转 PRD-03 私信对话页。', primary: '去聊天', action: 'chat' },
-    { code: 'protected', title: '保护期内可查看会话状态', desc: '命中女性保护规则，可进入聊天页查看状态，但发送能力由 PRD-03 判断。', primary: '查看会话状态', action: 'chat' },
-    { code: 'invalid', title: '会话暂不可用', desc: '目标用户或会话状态异常，暂不能进入普通私信。', primary: '查看主页', action: 'profile' }
-  ],
+  otherUserProfile: {
+    name: '周予安',
+    birthYear: '97年',
+    city: '杭州',
+    occupation: '设计行业',
+    bio: '认真生活，也认真认识愿意分享日常的人。',
+    followingCount: 18,
+    followerCount: 26,
+    receivedLikeCount: 328
+  },
   myPosts: [
     { id: 'MY-0501', type: 'community_post', summary: '刚提交的展览动态，等待审核结果。', topic: '周末去哪里', status: 'pending_machine', statusText: '待复核', time: '刚刚', images: ['展馆门口'] },
     { id: 'MY-0502', type: 'sincere_post', summary: '诚意贴已进入人工复核，暂未公开。', topic: '认真找对象', status: 'pending_manual', statusText: '待复核', time: '今天 10:18', images: ['书店角落'] },

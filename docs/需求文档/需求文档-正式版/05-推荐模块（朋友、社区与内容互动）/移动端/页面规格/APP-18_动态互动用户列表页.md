@@ -35,7 +35,7 @@
 | 操作 ID | 操作 | 前置条件 | 结果 |
 |---------|------|----------|------|
 | `APP-05-PAGE-post-interactors-ACT-change-tab` | 切换点赞/评论 | 内容可访问 | 列表刷新 |
-| `APP-05-PAGE-post-interactors-ACT-open-profile` | 查看用户主页 | 用户可见 | 进入婚恋用户主页 |
+| `APP-05-PAGE-post-interactors-ACT-open-profile` | 查看用户主页 | 用户可见 | 进入 `APP-05-PAGE-user-posts` 他人主页 |
 | `APP-05-PAGE-post-interactors-ACT-follow` | 关注/取消关注 | 满足互动准入 | 更新最终关注态 |
 
 ## 4. 状态与验收
@@ -56,4 +56,4 @@
 
 - 模块规则：`M05-RULE-post-interactors`。
 - 来源页面：`APP-05-PAGE-post-detail`。
-- 目标页面：`APP-05-PAGE-user-profile`。
+- 目标页面：`APP-05-PAGE-user-posts`。

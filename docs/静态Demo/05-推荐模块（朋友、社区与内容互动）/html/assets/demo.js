@@ -16,14 +16,13 @@
     selectedTopic: data.topics?.[0]?.name || '',
     publishImages: (data.uploadSamples || []).slice(0, 2).map((label) => ({ label, uploadStatus: 'success' })),
     draft: data.publishDraft || null,
-    hiddenPostId: null,
     hiddenAuthor: null,
     followingAuthor: null,
     topicSort: '热门',
     commentSort: 'latest',
     sincereSort: '热门',
     userPostView: 'owner',
-    privateState: 'not_matched',
+    interactionEstablished: false,
     greetingTemplate: data.greetingTemplates?.[0] || '',
     replyTo: null,
     moreTargetType: 'post',
@@ -163,11 +162,13 @@
     return `
       <article class="${isSincere ? 'sincere-card' : 'feed-card'}" data-post-card="${escapeHtml(post.id)}">
         <div class="author-row feed-author-row">
-          ${avatar(post.avatar, isSincere, `${post.author}上传头像`)}
-          <div>
-            <strong>${escapeHtml(post.author)} ${post.gender ? `<span class="gender-dot">${escapeHtml(post.gender)}</span>` : ''}</strong>
-            <div class="helper">${escapeHtml(post.profile || `97年 · ${post.city} · ${post.topic}`)}</div>
-          </div>
+          <button class="author-profile-link" type="button" data-user-post-view="other" data-jump="#APP-05-PAGE-user-posts">
+            ${avatar(post.avatar, isSincere, `${post.author}上传头像`)}
+            <span>
+              <strong>${escapeHtml(post.author)} ${post.gender ? `<span class="gender-dot">${escapeHtml(post.gender)}</span>` : ''}</strong>
+              <span class="helper">${escapeHtml(post.profile || `97年 · ${post.city} · ${post.topic}`)}</span>
+            </span>
+          </button>
           <button class="follow-btn" type="button" data-toast="${post.followed ? '已打开取消关注确认' : '已打开关注确认'}">${post.followed ? '已关注' : '关注'}</button>
           <button class="more-dot" type="button" data-open-modal="moreActionsModal" data-target-type="post" data-target-post="${escapeHtml(post.id)}" aria-label="更多操作">⋮</button>
         </div>
@@ -179,7 +180,9 @@
           <button type="button" data-jump="#APP-05-PAGE-topic-detail"># ${escapeHtml(post.topic)} ›</button>
         </div>
         <div class="community-actions">
-          <button class="action-link yo-link" data-jump="#APP-05-PAGE-community-greeting">申请认识</button>
+          ${state.interactionEstablished
+            ? '<button class="action-link yo-link" data-direct-chat>发消息</button>'
+            : '<button class="action-link yo-link" data-jump="#APP-05-PAGE-community-greeting">申请认识</button>'}
           <button class="action-link" data-jump="#APP-05-PAGE-post-interactors">互动 ${escapeHtml(post.interactionCount || 0)}</button>
           <button class="action-link" data-open-detail="${escapeHtml(post.id)}">评论 ${escapeHtml(post.commentCount)}</button>
           <button class="action-link" data-like="${escapeHtml(post.id)}">赞 ${escapeHtml(post.likeCount)}</button>
@@ -192,7 +195,6 @@
   function renderFeed() {
     qsa('[data-render="feed"]').forEach((target) => {
       const rows = (data.posts || []).filter((post) => {
-        if (post.id === state.hiddenPostId) return false;
         if (post.author === state.hiddenAuthor) return false;
         if (state.feedTab === '关注') {
           if (!post.followed) return false;
@@ -266,7 +268,7 @@
           <div class="topic-social-proof"><span>${escapeHtml(topic.count || 0)} 条内容 · 热度 ${escapeHtml(topic.hot || 0)}</span></div>
         </article>
       `;
-      target.innerHTML = rows.length ? `<div class="topic-section">${rows.map(topicCard).join('')}</div>` : '<div class="notice">暂无启用话题，请稍后重试。</div>';
+      target.innerHTML = rows.length ? `<div class="topic-section">${rows.map(topicCard).join('')}</div>` : '<div class="notice">暂无数据</div>';
     });
   }
 
@@ -384,7 +386,7 @@
           if (state.topicSort === '热门') return b.likeCount - a.likeCount;
           return String(b.time).localeCompare(String(a.time));
         });
-      target.innerHTML = rows.map((post) => postCard(post, true)).join('') || '<div class="notice">暂无相关内容。</div>';
+      target.innerHTML = rows.map((post) => postCard(post, true)).join('') || '<div class="notice">暂无数据</div>';
     });
 
     qsa('[data-topic-sort]').forEach((button) => {
@@ -397,7 +399,7 @@
       target.innerHTML = `
         <div class="control-label">选择话题</div>
         <div class="chip-row">
-          ${(data.topics || []).map((topic) => `
+          ${(data.topics || []).filter((topic) => topic.status === '启用').map((topic) => `
             <button type="button" class="${state.selectedTopic === topic.name ? 'is-active' : ''}" data-select-topic="${escapeHtml(topic.name)}"># ${escapeHtml(topic.name)}</button>
           `).join('')}
         </div>
@@ -466,7 +468,7 @@
     qsa('[data-render="post-interactors"]').forEach((target) => {
       const rows = data.postInteractors?.[state.interactorType] || [];
       const emptyText = state.interactorType === 'liked' ? '暂无点赞' : '暂无评论';
-      target.innerHTML = rows.map((user) => `<article class="relation-card"><div><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml(user.detail)}</p></div><button class="btn" data-toast="已打开${escapeHtml(user.name)}的婚恋用户主页">查看主页</button></article>`).join('') || `<div class="notice">${emptyText}</div>`;
+      target.innerHTML = rows.map((user) => `<article class="relation-card"><div><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml(user.detail)}</p></div><button class="btn" data-user-post-view="other" data-jump="#APP-05-PAGE-user-posts">查看主页</button></article>`).join('') || `<div class="notice">${emptyText}</div>`;
     });
   }
 
@@ -496,7 +498,19 @@
       }
 
       const rows = (data.posts || []).filter((post) => post.author === '周予安' && post.status === 'published');
-      target.innerHTML = rows.map((post) => postCard(post, true)).join('') || '<div class="notice">对方暂无公开动态。</div>';
+      const profile = data.otherUserProfile || {};
+      const primaryAction = state.interactionEstablished
+        ? '<button class="btn primary" data-direct-chat>发消息</button>'
+        : '<button class="btn primary" data-jump="#APP-05-PAGE-community-greeting">申请认识</button>';
+      target.innerHTML = `
+        <article class="community-card profile-summary-card">
+          <div class="author-row">${avatar(profile.avatar || data.posts?.[0]?.avatar, false, `${profile.name || '周予安'}上传头像`)}<div><strong>${escapeHtml(profile.name || '周予安')}</strong><div class="helper">${escapeHtml(profile.birthYear || '97年')} · ${escapeHtml(profile.city || '杭州')} · ${escapeHtml(profile.occupation || '设计行业')}</div></div>${tag('三项认证', 'success')}</div>
+          <p>${escapeHtml(profile.bio || '认真生活，也认真认识愿意分享日常的人。')}</p>
+          <div class="metric-strip"><div class="metric"><strong>${escapeHtml(profile.followingCount || 18)}</strong><span>关注</span></div><div class="metric"><strong>${escapeHtml(profile.followerCount || 26)}</strong><span>粉丝</span></div><div class="metric"><strong>${escapeHtml(profile.receivedLikeCount || 328)}</strong><span>获赞</span></div></div>
+          <div class="community-actions">${primaryAction}<button class="btn" data-more-target-type="user" data-open-modal="moreActionsModal">更多</button></div>
+        </article>
+        ${rows.map((post) => postCard(post, true)).join('') || '<div class="notice">暂无数据</div>'}
+      `;
     });
   }
 
@@ -524,29 +538,6 @@
     });
   }
 
-  function renderPrivateEntry() {
-    qsa('[data-private-state]').forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.privateState === state.privateState);
-    });
-
-    qsa('[data-render="private-entry"]').forEach((target) => {
-      const current = (data.privateEntryStates || []).find((item) => item.code === state.privateState) || data.privateEntryStates?.[0];
-      const primaryAction = current?.action === 'greeting'
-        ? 'data-jump="#APP-05-PAGE-community-greeting"'
-        : current?.action === 'chat'
-          ? 'data-toast="已跳转 APP-03 私信对话页"'
-          : 'data-toast="已打开目标用户主页"';
-      target.innerHTML = `
-        <div class="community-card private-state-card">
-          <div class="author-row">${avatar(data.posts?.[0]?.avatar, true, '周予安上传头像')}<div><strong>周予安</strong><div class="helper">来源：动态 P-240701</div></div></div>
-          <h3>${escapeHtml(current?.title)}</h3>
-          <p>${escapeHtml(current?.desc)}</p>
-          <button class="btn primary full" ${primaryAction}>${escapeHtml(current?.primary)}</button>
-        </div>
-      `;
-    });
-  }
-
   function renderReportModal() {
     qsa('[data-render="report-reasons"]').forEach((target) => {
       target.innerHTML = (data.config?.reportReasons || []).map((reason) => `
@@ -558,9 +549,8 @@
   function moreActions() {
     if (state.moreTargetType === 'user') {
       return [
-        { label: '申请认识', action: '进入', attrs: 'data-close-surface data-jump="#APP-05-PAGE-community-greeting"' },
+        { label: data.posts?.[0]?.followed ? '取消关注' : '关注', action: data.posts?.[0]?.followed ? '取消' : '关注', attrs: 'data-close-surface data-more-follow' },
         { label: state.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', action: state.hiddenAuthor ? '取消' : '设置', attrs: `data-close-surface data-author-preference="${state.hiddenAuthor ? 'unhide_author_posts' : 'hide_author_posts'}"` },
-        { label: '发私信', action: '判断资格', attrs: 'data-close-surface data-jump="#APP-05-PAGE-community-private-entry"' },
         { label: '举报用户', action: '举报', danger: true, attrs: 'data-close-surface data-open-modal="reportModal"' }
       ];
     }
@@ -571,10 +561,10 @@
       ];
     }
     return [
-      { label: '举报内容', action: '举报', danger: true, attrs: 'data-close-surface data-open-modal="reportModal"' },
-      { label: '屏蔽当前内容', action: '屏蔽', attrs: 'data-close-surface data-preference-action="hide_post" data-hide-post' },
+      { label: '分享', action: '分享', attrs: 'data-close-surface data-toast="已调起小程序分享"' },
+      { label: data.posts?.[0]?.followed ? '取消关注' : '关注', action: data.posts?.[0]?.followed ? '取消' : '关注', attrs: 'data-close-surface data-more-follow' },
       { label: state.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', action: state.hiddenAuthor ? '取消' : '设置', attrs: `data-close-surface data-author-preference="${state.hiddenAuthor ? 'unhide_author_posts' : 'hide_author_posts'}"` },
-      { label: '复制内容链接', action: '复制', attrs: 'data-close-surface data-toast="链接已复制"' }
+      { label: '举报内容', action: '举报', danger: true, attrs: 'data-close-surface data-open-modal="reportModal"' }
     ];
   }
 
@@ -750,7 +740,6 @@
     renderFollowRelations();
     renderPostInteractors();
     renderGreeting();
-    renderPrivateEntry();
     renderReportModal();
     renderMoreActions();
     renderImagePreview();
@@ -1065,12 +1054,6 @@
         renderGreeting();
       }
 
-      const privateState = event.target.closest('[data-private-state]');
-      if (privateState) {
-        state.privateState = privateState.dataset.privateState;
-        renderPrivateEntry();
-      }
-
       const reportReason = event.target.closest('[data-report-reason]');
       if (reportReason) {
         const reporterId = data.currentUser?.id || 'CURRENT-USER';
@@ -1106,14 +1089,6 @@
         qsa('.modal-backdrop.is-open').forEach(closeSurface);
       }
 
-      const hidePost = event.target.closest('[data-hide-post]');
-      if (hidePost) {
-        const post = (data.posts || []).find((item) => item.id === state.moreTargetPostId) || currentDetailPost();
-        state.hiddenPostId = post?.id;
-        renderFeed();
-        showToast('已屏蔽当前内容，3 秒内可撤销');
-      }
-
       const authorPreference = event.target.closest('[data-author-preference]');
       if (authorPreference) {
         const post = (data.posts || []).find((item) => item.id === state.moreTargetPostId) || currentDetailPost();
@@ -1123,12 +1098,23 @@
         showToast(action === 'hide_author_posts' ? '已设置不看 TA 动态；关注和私信关系不变' : '已取消不看 TA 动态');
       }
 
-      const undoHide = event.target.closest('[data-undo-hide]');
-      if (undoHide) {
-        state.hiddenPostId = null;
-        renderFeed();
-        showToast('已撤销屏蔽');
+      const moreFollow = event.target.closest('[data-more-follow]');
+      if (moreFollow && data.posts?.[0]) {
+        data.posts[0].followed = !data.posts[0].followed;
+        renderAll();
+        showToast(data.posts[0].followed ? '关注成功' : '已取消关注');
       }
+
+      const toggleInteraction = event.target.closest('[data-toggle-interaction]');
+      if (toggleInteraction) {
+        state.interactionEstablished = !state.interactionEstablished;
+        state.userPostView = 'other';
+        renderUserPosts();
+        showToast(state.interactionEstablished ? '已建立互动关系：消息动作直达 PRD-03' : '未建立互动关系：展示申请认识');
+      }
+
+      const directChat = event.target.closest('[data-direct-chat]');
+      if (directChat) showToast('已直接进入 APP-03 私信对话页');
 
       const close = event.target.closest('[data-close-surface]');
       if (close) {
