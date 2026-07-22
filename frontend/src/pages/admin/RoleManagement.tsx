@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Pencil, Trash2, Menu, RotateCcw, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
+import { showToast } from '@/components/ui/toast';
 import {
   getRoleList,
   getRoleDetail,
@@ -39,6 +40,7 @@ export default function RoleManagement() {
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const listRequestId = useRef(0);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -57,14 +59,16 @@ export default function RoleManagement() {
 
   const fetchList = useCallback(async () => {
     if (!canList) return;
+    const requestId = ++listRequestId.current;
     setLoading(true);
     try {
       const res = await getRoleList({ page, size: pageSize, keyword: keyword || undefined, status: status || undefined });
+      if (requestId !== listRequestId.current) return;
       const data = (res as any).data;
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
-      setLoading(false);
+      if (requestId === listRequestId.current) setLoading(false);
     }
   }, [canList, page, pageSize, keyword, status]);
 
@@ -87,7 +91,10 @@ export default function RoleManagement() {
   }
 
   async function handleSave() {
-    if (!form.roleName.trim() || !form.roleCode.trim()) return;
+    if (!form.roleName.trim() || !form.roleCode.trim()) {
+      showToast('请填写角色名称和角色编码', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const data = { roleName: form.roleName.trim(), roleCode: form.roleCode.trim(), roleGroup: form.roleGroup.trim() || undefined, roleSort: form.roleSort, status: form.status, remark: form.remark.trim() || undefined };

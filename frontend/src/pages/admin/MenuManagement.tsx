@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { showToast } from '@/components/ui/toast';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import {
   getMenuTree,
@@ -121,7 +122,10 @@ export default function MenuManagement() {
   }
 
   async function handleSave() {
-    if (!form.menuName.trim()) return;
+    if (!form.menuName.trim()) {
+      showToast('请填写菜单名称', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const data = {

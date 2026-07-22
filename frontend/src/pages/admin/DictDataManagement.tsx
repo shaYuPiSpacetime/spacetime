@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { showToast } from '@/components/ui/toast';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -186,7 +187,10 @@ export default function DictDataManagement() {
   }
 
   async function handleSave() {
-    if (!form.dictLabel.trim() || !form.dictValue.trim()) return;
+    if (!form.dictLabel.trim() || !form.dictValue.trim()) {
+      showToast('请填写字典标签和字典键值', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const data = {

@@ -33,9 +33,12 @@ export default function LoginPage() {
       await login(account.trim(), password);
       navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
+      const requestError = err as { response?: { data?: { msg?: string; message?: string } } };
       const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? '登录失败，请重试';
+        (requestError.response?.data?.msg ??
+          requestError.response?.data?.message ??
+          (err instanceof Error ? err.message : '')) ||
+        '登录失败，请重试';
       setError(msg);
     } finally {
       setLoading(false);

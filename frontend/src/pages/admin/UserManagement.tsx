@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Pencil, Trash2, Shield, RotateCcw, LockKeyhole, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
+import { showToast } from '@/components/ui/toast';
 import {
   getUserList,
   getUserDetail,
@@ -49,6 +50,7 @@ export default function UserManagement() {
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const listRequestId = useRef(0);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,14 +74,16 @@ export default function UserManagement() {
 
   const fetchList = useCallback(async () => {
     if (!canList) return;
+    const requestId = ++listRequestId.current;
     setLoading(true);
     try {
       const res = await getUserList({ page, size: pageSize, keyword: keyword || undefined, status: status || undefined });
+      if (requestId !== listRequestId.current) return;
       const data = (res as any).data;
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
-      setLoading(false);
+      if (requestId === listRequestId.current) setLoading(false);
     }
   }, [canList, page, pageSize, keyword, status]);
 
@@ -102,13 +106,15 @@ export default function UserManagement() {
   }
 
   async function handleSave() {
-    if (!form.nickname.trim()) return;
+    if (!form.nickname.trim() || (!editingId && (!form.username.trim() || !form.password.trim()))) {
+      showToast(editingId ? '请填写昵称' : '请填写用户名、密码和昵称', 'error');
+      return;
+    }
     setSaving(true);
     try {
       if (editingId) {
         await updateUser(editingId, { nickname: form.nickname.trim(), email: form.email.trim() || undefined, phone: form.phone.trim() || undefined, status: form.status });
       } else {
-        if (!form.username.trim() || !form.password.trim()) return;
         await createUser({ username: form.username.trim(), password: form.password, nickname: form.nickname.trim(), email: form.email.trim() || undefined, phone: form.phone.trim() || undefined, status: form.status });
       }
       setDialogOpen(false);
@@ -219,7 +225,7 @@ export default function UserManagement() {
           </div>
 
           {/* Table */}
-          <Table>
+          <Table className="min-w-[1120px]">
             <TableHeader>
               <TableRow>
                 <TableHead>用户名</TableHead>

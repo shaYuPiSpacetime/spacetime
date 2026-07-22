@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { showToast } from '@/components/ui/toast';
 import { Pagination } from '@/components/ui/pagination';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import {
@@ -34,6 +35,7 @@ export default function DictTypeManagement() {
   const [status, setStatus] = useState('');
   const [appliedFilters, setAppliedFilters] = useState({ keyword: '', status: '' });
   const [loading, setLoading] = useState(false);
+  const listRequestId = useRef(0);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -42,6 +44,7 @@ export default function DictTypeManagement() {
 
   const fetchList = useCallback(async () => {
     if (!canList) return;
+    const requestId = ++listRequestId.current;
     setLoading(true);
     try {
       const res = await getDictTypeList({
@@ -50,11 +53,12 @@ export default function DictTypeManagement() {
         keyword: appliedFilters.keyword || undefined,
         status: appliedFilters.status || undefined,
       });
+      if (requestId !== listRequestId.current) return;
       const data = (res as any).data ?? {};
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
-      setLoading(false);
+      if (requestId === listRequestId.current) setLoading(false);
     }
   }, [appliedFilters, canList, page, pageSize]);
 
@@ -73,7 +77,10 @@ export default function DictTypeManagement() {
   }
 
   async function handleSave() {
-    if (!form.dictName.trim() || !form.dictType.trim()) return;
+    if (!form.dictName.trim() || !form.dictType.trim()) {
+      showToast('请填写字典名称和字典编码', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const data = { ...form, dictName: form.dictName.trim(), dictType: form.dictType.trim(), remark: form.remark.trim() || undefined };

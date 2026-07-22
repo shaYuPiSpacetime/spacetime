@@ -21,9 +21,13 @@ export const useAuthStore = create<AuthState>()(
         localStorage.setItem('token', res.data.token);
       },
       logout: () => {
+        const token = localStorage.getItem('token');
+        const logoutRequest = request.post('/admin/logout', undefined, {
+          headers: token ? { 'X-Auth-Token': token } : undefined,
+        });
         set({ token: null, user: null });
         localStorage.removeItem('token');
-        request.post('/admin/logout').catch(() => {});
+        logoutRequest.catch(() => {});
       },
     }),
     { name: 'auth' }

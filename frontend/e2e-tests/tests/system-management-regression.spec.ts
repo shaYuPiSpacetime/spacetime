@@ -292,4 +292,192 @@ test.describe('系统管理缺陷回归', () => {
 
     await expect.poll(() => updatePayload?.parentId).toBe(0);
   });
+
+  test('SM-USER-05 用户必填项为空时应明确提示', async ({ page }) => {
+    await authenticate(page, ALL_SYSTEM_PERMISSIONS);
+    await page.route('**/api/admin/user/list**', (route) => fulfill(route, {
+      records: [], total: 0, current: 1, size: 10,
+    }));
+
+    await page.goto('/system/user');
+    await page.getByRole('button', { name: '新增用户' }).click();
+    await page.getByRole('button', { name: '保存', exact: true }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('请填写用户名、密码和昵称');
+  });
+
+  test('SM-ROLE-04 角色必填项为空时应明确提示', async ({ page }) => {
+    await authenticate(page, ALL_SYSTEM_PERMISSIONS);
+    await page.route('**/api/admin/role/list**', (route) => fulfill(route, {
+      records: [], total: 0, current: 1, size: 10,
+    }));
+
+    await page.goto('/system/role');
+    await page.getByRole('button', { name: '新增角色' }).click();
+    await page.getByRole('button', { name: '保存', exact: true }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('请填写角色名称和角色编码');
+  });
+
+  test('SM-MENU-02 菜单名称为空时应明确提示', async ({ page }) => {
+    await authenticate(page, ALL_SYSTEM_PERMISSIONS);
+    await page.route('**/api/admin/menu/tree', (route) => fulfill(route, []));
+
+    await page.goto('/system/menu');
+    await page.getByRole('button', { name: '新增菜单' }).click();
+    await page.getByRole('button', { name: '保存', exact: true }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('请填写菜单名称');
+  });
+
+  test('SM-DICT-TYPE-04 字典类型必填项为空时应明确提示', async ({ page }) => {
+    await authenticate(page, ALL_SYSTEM_PERMISSIONS);
+    await page.route('**/api/admin/dict-type/list**', (route) => fulfill(route, {
+      records: [], total: 0, current: 1, size: 10,
+    }));
+
+    await page.goto('/system/dict-type');
+    await page.getByRole('button', { name: '新增字典类型' }).click();
+    await page.getByRole('button', { name: '保存', exact: true }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('请填写字典名称和字典编码');
+  });
+
+  test('SM-DICT-DATA-02 字典数据必填项为空时应明确提示', async ({ page }) => {
+    await authenticate(page, ALL_SYSTEM_PERMISSIONS);
+    await page.route('**/api/admin/dict-type/all', (route) => fulfill(route, [{
+      id: 1,
+      dictName: '测试字典',
+      dictType: 'test_dict',
+      dictSort: 1,
+      status: 'ENABLED',
+    }]));
+    await page.route('**/api/admin/dict-data/children**', (route) => fulfill(route, []));
+
+    await page.goto('/system/dict-data');
+    await page.getByRole('button', { name: '新增字典数据' }).click();
+    await page.getByRole('button', { name: '保存', exact: true }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('请填写字典标签和字典键值');
+  });
+
+  test('SM-AUTH-03 退出请求应携带清理前的 Token', async ({ page }) => {
+    await authenticate(page, ALL_SYSTEM_PERMISSIONS);
+    let logoutToken: string | undefined;
+    await page.route('**/api/admin/logout', (route) => {
+      logoutToken = route.request().headers()['x-auth-token'];
+      return fulfill(route, null);
+    });
+
+    await page.goto('/dashboard');
+    await page.getByRole('button', { name: '退出', exact: true }).click();
+
+    await expect.poll(() => logoutToken).toBe('system-management-regression-token');
+    await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test('SM-USER-02 过期用户列表响应不得覆盖最新搜索结果', async ({ page }) => {
+    await authenticate(page, ['system:user:list']);
+    let initialRequestStarted = false;
+    await page.route('**/api/admin/user/list**', async (route) => {
+      const keyword = new URL(route.request().url()).searchParams.get('keyword');
+      if (!keyword) {
+        initialRequestStarted = true;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return fulfill(route, { records: buildRecords('user', 2), total: 2, current: 1, size: 10 });
+      }
+      return fulfill(route, {
+        records: [{ ...buildRecords('user', 1)[0], username: 'target_user', nickname: '目标用户' }],
+        total: 1, current: 1, size: 10,
+      });
+    });
+
+    await page.goto('/system/user');
+    await expect.poll(() => initialRequestStarted).toBe(true);
+    await page.getByPlaceholder('用户名/昵称/邮箱').fill('target_user');
+    await expect(page.getByRole('cell', { name: 'target_user', exact: true })).toBeVisible();
+    await page.waitForTimeout(600);
+    await expect(page.getByRole('cell', { name: 'target_user', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'user_2', exact: true })).toHaveCount(0);
+  });
+
+  test('SM-ROLE-01 过期角色列表响应不得覆盖最新搜索结果', async ({ page }) => {
+    await authenticate(page, ['system:role:list']);
+    let initialRequestStarted = false;
+    await page.route('**/api/admin/role/list**', async (route) => {
+      const keyword = new URL(route.request().url()).searchParams.get('keyword');
+      if (!keyword) {
+        initialRequestStarted = true;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return fulfill(route, { records: buildRecords('role', 2), total: 2, current: 1, size: 10 });
+      }
+      return fulfill(route, {
+        records: [{ ...buildRecords('role', 1)[0], roleName: '目标角色', roleCode: 'target_role' }],
+        total: 1, current: 1, size: 10,
+      });
+    });
+
+    await page.goto('/system/role');
+    await expect.poll(() => initialRequestStarted).toBe(true);
+    await page.getByPlaceholder('角色名称/编码').fill('target_role');
+    await expect(page.getByRole('cell', { name: '目标角色', exact: true })).toBeVisible();
+    await page.waitForTimeout(600);
+    await expect(page.getByRole('cell', { name: '目标角色', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: '角色2', exact: true })).toHaveCount(0);
+  });
+
+  test('SM-DICT-TYPE-01 过期字典列表响应不得覆盖已提交搜索结果', async ({ page }) => {
+    await authenticate(page, ['system:dict:list']);
+    let initialRequestStarted = false;
+    await page.route('**/api/admin/dict-type/list**', async (route) => {
+      const keyword = new URL(route.request().url()).searchParams.get('keyword');
+      if (!keyword) {
+        initialRequestStarted = true;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return fulfill(route, { records: buildRecords('dict', 2), total: 2, current: 1, size: 10 });
+      }
+      return fulfill(route, {
+        records: [{ ...buildRecords('dict', 1)[0], dictName: '目标字典', dictType: 'target_dict' }],
+        total: 1, current: 1, size: 10,
+      });
+    });
+
+    await page.goto('/system/dict-type');
+    await expect.poll(() => initialRequestStarted).toBe(true);
+    await page.getByPlaceholder('搜索字典名称/编码').fill('target_dict');
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
+    await expect(page.getByRole('cell', { name: 'target_dict', exact: true })).toBeVisible();
+    await page.waitForTimeout(600);
+    await expect(page.getByRole('cell', { name: 'target_dict', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'dict_2', exact: true })).toHaveCount(0);
+  });
+
+  test('SM-AUTH-02 登录失败应显示服务端的明确原因', async ({ page }) => {
+    await page.route('**/api/admin/login', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 5001, msg: '用户名或密码错误', data: null }),
+    }));
+
+    await page.goto('/login');
+    await page.getByPlaceholder('请输入用户名/手机号').fill('wrong-user');
+    await page.getByPlaceholder('请输入密码').fill('wrong-password');
+    await page.getByRole('button', { name: '登录', exact: true }).click();
+
+    await expect(page.getByText('用户名或密码错误', { exact: true })).toBeVisible();
+    await expect(page.getByText('登录失败，请重试', { exact: true })).toHaveCount(0);
+  });
+
+  test('SM-USER-01 窄桌面下用户表格应横向滚动而不是挤压逐字换行', async ({ page }) => {
+    await page.setViewportSize({ width: 1265, height: 710 });
+    await authenticate(page, ALL_SYSTEM_PERMISSIONS);
+    await page.route('**/api/admin/user/list**', (route) => fulfill(route, {
+      records: buildRecords('user', 2), total: 2, current: 1, size: 10,
+    }));
+
+    await page.goto('/system/user');
+    const table = page.locator('table');
+    await expect(table).toBeVisible();
+    await expect.poll(() => table.evaluate((element) => element.scrollWidth)).toBeGreaterThanOrEqual(1120);
+  });
 });
