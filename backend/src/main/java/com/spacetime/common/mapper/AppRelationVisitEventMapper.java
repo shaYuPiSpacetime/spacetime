@@ -23,4 +23,13 @@ public interface AppRelationVisitEventMapper extends BaseMapper<AppRelationVisit
     // 按实际访问事件统计历史 UV/PV；关系后续失效不改写已经发生的访问指标。
     RelationVisitStats countTargetStats(@Param("targetUserId") Long targetUserId,
                                         @Param("startTime") LocalDateTime startTime);
+
+    /** 统计最近实际访问过任意用户主页的全站去重访客数。 */
+    @Select("""
+            SELECT COUNT(DISTINCT visitor_user_id)
+            FROM app_relation_visit_event
+            WHERE visit_time >= #{startTime}
+              AND deleted = 0
+            """)
+    Long countDistinctVisitorsSince(@Param("startTime") LocalDateTime startTime);
 }

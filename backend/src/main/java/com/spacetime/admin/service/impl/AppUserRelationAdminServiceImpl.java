@@ -64,7 +64,7 @@ import java.util.stream.Collectors;
 public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminService {
     private static final int RELATION_PARAM_ERROR = 20008;
     private static final int RELATION_NOT_FOUND = 20009;
-    private static final Set<Integer> PAGE_SIZES = Set.of(10, 20, 50);
+    private static final Set<Integer> PAGE_SIZES = Set.of(5, 10, 20, 50);
     private static final Set<String> DIRECTIONS = Set.of("ALL", "OUTBOUND", "INBOUND");
     private static final String ASSET_PERMISSION = "commercial:user:view";
 
@@ -150,15 +150,12 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
     public Page<AppUserRelationVisitVO> visits(Long userId, RelationPageReq req) {
         requireUser(userId);
         validate(req, enumCodes(RelationVisitStatusEnum.values()), enumCodes(RelationSourceSceneEnum.values()));
-        if (req.getStartTime() == null) {
-            req.setStartTime(LocalDateTime.now().minusDays(7));
-        }
         LambdaQueryWrapper<AppRelationVisit> wrapper = new LambdaQueryWrapper<>();
         applyPairDirection(wrapper, req.getDirection(), userId,
                 AppRelationVisit::getVisitorUserId, AppRelationVisit::getTargetUserId);
         wrapper.eq(StringUtils.hasText(req.getStatus()), AppRelationVisit::getVisitStatus, req.getStatus())
                 .eq(StringUtils.hasText(req.getSource()), AppRelationVisit::getSourceScene, req.getSource())
-                .ge(AppRelationVisit::getLastVisitTime, req.getStartTime())
+                .ge(req.getStartTime() != null, AppRelationVisit::getLastVisitTime, req.getStartTime())
                 .le(req.getEndTime() != null, AppRelationVisit::getLastVisitTime, req.getEndTime())
                 .orderByDesc(AppRelationVisit::getLastVisitTime).orderByDesc(AppRelationVisit::getId);
         Page<AppRelationVisit> page = visitDao.selectPage(pageOf(req), wrapper);
@@ -231,7 +228,8 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
         LambdaQueryWrapper<UserUnlockRecord> wrapper = new LambdaQueryWrapper<>();
         applyPairDirection(wrapper, req.getDirection(), userId,
                 UserUnlockRecord::getUserId, UserUnlockRecord::getTargetUserId);
-        wrapper.eq(StringUtils.hasText(req.getStatus()), UserUnlockRecord::getStatus, req.getStatus())
+        wrapper.eq(StringUtils.hasText(req.getUnlockNo()), UserUnlockRecord::getUnlockNo, req.getUnlockNo())
+                .eq(StringUtils.hasText(req.getStatus()), UserUnlockRecord::getStatus, req.getStatus())
                 .eq(StringUtils.hasText(req.getSource()), UserUnlockRecord::getUnlockScene, req.getSource())
                 .ge(req.getStartTime() != null, UserUnlockRecord::getEffectiveTime, req.getStartTime())
                 .le(req.getEndTime() != null, UserUnlockRecord::getEffectiveTime, req.getEndTime())
@@ -278,7 +276,7 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
 
     private void validate(RelationPageReq req, Set<String> statuses, Set<String> sources) {
         if (req == null || req.getPage() < 1 || !PAGE_SIZES.contains(req.getSize())) {
-            throw new BusinessException(RELATION_PARAM_ERROR, "分页参数不合法，每页仅允许 10、20、50 条");
+            throw new BusinessException(RELATION_PARAM_ERROR, "分页参数不合法，每页仅允许 5、10、20、50 条");
         }
         if (!DIRECTIONS.contains(req.getDirection())) {
             throw new BusinessException(RELATION_PARAM_ERROR, "关系方向不合法");

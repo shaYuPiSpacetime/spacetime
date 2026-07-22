@@ -72,17 +72,19 @@ class RelationSchemaSqlTest {
                 .map(String::trim)
                 .filter(line -> line.contains("ADD COLUMN"))
                 .toList();
-        assertThat(incrementalColumns).hasSize(6)
+        assertThat(incrementalColumns).hasSize(7)
                 .allSatisfy(line -> assertThat(line)
                         .contains("COMMENT ''")
                         .containsPattern("COMMENT ''[^']*[\\u4e00-\\u9fa5][^']*''"));
         assertThat(sql).contains("information_schema")
                 .contains("anonymous_no")
                 .contains("unlock_no")
+                .contains("TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='request_id'")
                 .contains("target_biz_type")
                 .contains("target_biz_no")
                 .contains("refund_no")
                 .contains("active_marker")
+                .contains("uk_user_request_target")
                 .contains("user:app:relation:view")
                 .contains("ENABLED", "active", "DISABLED", "expired")
                 .contains("active-有效，cancelled-已取消，invalid-已失效")
@@ -94,6 +96,17 @@ class RelationSchemaSqlTest {
                 .contains("later-稍后，close-关闭，profile-查看主页，chat-去聊天，system_back-系统返回")
                 .contains("MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '解锁状态：active-有效，expired-已过期，refunded-已退款'")
                 .doesNotContain("DROP TABLE", "DELETE FROM app_relation");
+    }
+
+    @Test
+    @DisplayName("生产迁移应将关系查看权限授予超级管理员")
+    void migrationShouldGrantRelationPermissionToSuperAdmin() throws IOException {
+        String sql = readProjectFile("deploy/sql/prod/056_prd02_relation_feedback.sql");
+
+        assertThat(sql)
+                .contains("INSERT IGNORE INTO sys_role_menu (role_id, menu_id)")
+                .contains("r.role_code='super_admin'")
+                .contains("m.perms='user:app:relation:view'");
     }
 
     private void assertEveryRelationColumnHasChineseComment(String sql) {

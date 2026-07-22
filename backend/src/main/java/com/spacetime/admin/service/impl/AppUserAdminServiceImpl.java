@@ -13,6 +13,7 @@ import com.spacetime.admin.dto.response.AppUserStatsVO;
 import com.spacetime.admin.dto.response.AppUserWorkflowHistoryVO;
 import com.spacetime.admin.dto.response.VerificationDetailVO;
 import com.spacetime.admin.service.AppUserAdminService;
+import com.spacetime.common.dao.AppRelationVisitEventDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserExportTaskDao;
 import com.spacetime.common.dao.AppUserImportBatchDao;
@@ -90,6 +91,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             AppUserAuditTypeEnum.VOICE_INTRO.getCode());
 
     private final AppUserDao appUserDao;
+    private final AppRelationVisitEventDao visitEventDao;
     private final AppUserAuditRecordDao auditRecordDao;
     private final AppUserExportTaskDao exportTaskDao;
     private final AppUserImportBatchDao importBatchDao;
@@ -414,6 +416,12 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         LambdaQueryWrapper<AppUser> coreAllowed = new LambdaQueryWrapper<>();
         applyCoreAccessFilter(coreAllowed, "CORE_ALLOWED");
         stats.setCoreAccessAllowedCount(countOrZero(appUserDao.count(coreAllowed)));
+
+        LambdaQueryWrapper<AppUser> relationshipOpen = new LambdaQueryWrapper<>();
+        applyRelationshipAccessFilter(relationshipOpen, "OPEN");
+        stats.setRelationshipAccessOpenCount(countOrZero(appUserDao.count(relationshipOpen)));
+        stats.setVisitorUv7d(countOrZero(
+                visitEventDao.countDistinctVisitorsSince(LocalDateTime.now().minusDays(7))));
         return stats;
     }
 

@@ -8,6 +8,10 @@ const MOCK_TOKEN = 'mock-admin-token';
  * - `token` key: directly read by Sidebar's useEffect
  */
 async function loginAsAdmin(page: import('@playwright/test').Page) {
+  await mockApi(page, '**/api/admin/permissions', {
+    code: 200,
+    data: ['user:app:list'],
+  });
   await page.addInitScript((token: string) => {
     localStorage.setItem('auth', JSON.stringify({
       state: { token, user: { nickname: 'peter', permissions: ['*:*:*'] } },
@@ -72,7 +76,12 @@ test.describe('用户列表 CustomersPage', () => {
 
     await mockApi(page, '**/api/admin/users/app/stats', {
       code: 200,
-      data: { currentUserCount: 59, coreAccessAllowedCount: 41 },
+      data: {
+        currentUserCount: 59,
+        coreAccessAllowedCount: 41,
+        relationshipAccessOpenCount: 37,
+        visitorUv7d: 28,
+      },
     });
 
     await mockApi(page, '**/api/admin/users/app/1', {
@@ -86,11 +95,24 @@ test.describe('用户列表 CustomersPage', () => {
     await mockApi(page, '**/api/admin/users/app/*/status', { code: 200, data: null });
   });
 
+  test('L4-00 用户列表 — 头部统计', async ({ page }) => {
+    await page.goto('/customers');
+
+    await expect(page.getByText('当前用户').locator('..')).toContainText('59');
+    await expect(page.getByText('核心准入开放').locator('..')).toContainText('41');
+    await expect(page.getByText('关系反馈开放').locator('..')).toContainText('37');
+    await expect(page.getByText('7天访客 UV').locator('..')).toContainText('28');
+  });
+
   test('L4-01 用户列表 — 基础渲染', async ({ page }) => {
     await page.goto('/customers');
     await expect(page.getByText('林女士')).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('张先生')).toBeVisible();
     await expect(page.getByText('北京大学')).toBeVisible();
+    await expect(page.getByText('关系反馈开放')).toBeVisible();
+    await expect(page.getByText('关系反馈开放').locator('..')).toContainText('37');
+    await expect(page.getByText('7天访客 UV')).toBeVisible();
+    await expect(page.getByText('7天访客 UV').locator('..')).toContainText('28');
     await expect(page.getByText('清华大学')).toBeVisible();
     await expect(page.getByText('完全准入')).toBeVisible();
     await expect(page.getByText('已阻止')).toBeVisible();
@@ -153,6 +175,79 @@ test.describe('用户列表 CustomersPage', () => {
     const latest = new URL(listUrls[listUrls.length - 1]);
     expect(latest.searchParams.get('keyword')).toBe('张');
     expect(latest.searchParams.get('size')).toBe('9');
+  });
+
+  test('L4-05B 导入导出结果 — 下载按钮统一固定在右上角', async ({ page }) => {
+    await mockApi(page, '**/api/admin/users/app/workflow-history*', {
+      code: 200,
+      data: {
+        records: [
+          {
+            id: 'import-1',
+            type: 'import',
+            createTime: '2026-07-17 16:41:39',
+            importResult: {
+              batchNo: 'APP-IMPORT-20260717164138682',
+              status: 'IMPORTED',
+              importedCount: 1,
+              failCount: 0,
+              errorSummaryJson: '[]',
+              message: '导入历史记录',
+            },
+          },
+          {
+            id: 'export-1',
+            type: 'export',
+            createTime: '2026-07-17 16:38:59',
+            exportResult: {
+              taskNo: 'APP-USERS-EXPORT-20260717163856997',
+              exportType: 'all_fields',
+              status: 'CREATED',
+              rowCount: 107,
+              fileName: 'app-users-all-fields-20260717163858.csv',
+              filterSummary: '全部用户',
+              message: 'App 用户当前筛选结果导出文件已生成，导出字段为全部用户字段，图片资料输出 URL，导出文件不做掩码',
+              downloadContent: 'id,nickname\n1,test',
+            },
+          },
+        ],
+        total: 2,
+        size: 5,
+        current: 1,
+      },
+    });
+
+    await page.goto('/customers');
+    await page.getByRole('button', { name: '查看导入导出结果' }).click();
+
+    const importCard = page.getByTestId('workflow-history-import-import-1');
+    const exportCard = page.getByTestId('workflow-history-export-export-1');
+    const importButton = importCard.getByRole('button', { name: '下载错误报告' });
+    const exportButton = exportCard.getByRole('button', { name: '下载导出文件' });
+    await expect(importButton).toBeVisible();
+    await expect(exportButton).toBeVisible();
+
+    const [importCardBox, exportCardBox, importButtonBox, exportButtonBox] = await Promise.all([
+      importCard.boundingBox(),
+      exportCard.boundingBox(),
+      importButton.boundingBox(),
+      exportButton.boundingBox(),
+    ]);
+    expect(importCardBox).not.toBeNull();
+    expect(exportCardBox).not.toBeNull();
+    expect(importButtonBox).not.toBeNull();
+    expect(exportButtonBox).not.toBeNull();
+
+    expect(Math.abs((importButtonBox?.width || 0) - (exportButtonBox?.width || 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((importButtonBox?.height || 0) - (exportButtonBox?.height || 0))).toBeLessThanOrEqual(1);
+    expect((importButtonBox?.y || 0) - (importCardBox?.y || 0)).toBeLessThanOrEqual(20);
+    expect((exportButtonBox?.y || 0) - (exportCardBox?.y || 0)).toBeLessThanOrEqual(20);
+    expect(Math.abs(
+      ((importCardBox?.x || 0) + (importCardBox?.width || 0)) - ((importButtonBox?.x || 0) + (importButtonBox?.width || 0)),
+    )).toBeLessThanOrEqual(20);
+    expect(Math.abs(
+      ((exportCardBox?.x || 0) + (exportCardBox?.width || 0)) - ((exportButtonBox?.x || 0) + (exportButtonBox?.width || 0)),
+    )).toBeLessThanOrEqual(20);
   });
 
   test('L4-06 用户管理 — 冻结/解冻操作', async ({ page }) => {

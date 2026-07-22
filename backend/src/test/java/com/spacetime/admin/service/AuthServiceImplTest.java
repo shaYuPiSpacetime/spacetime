@@ -123,4 +123,14 @@ class AuthServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("账号已禁用");
     }
+
+    @Test
+    @DisplayName("L3-05 查询当前权限：始终读取角色菜单最新授权")
+    void shouldReturnCurrentPermissionsFromDatabase() {
+        when(menuDao.selectPermsByUserId(1L))
+                .thenReturn(List.of("user:app:list", "user:app:relation:view"));
+
+        assertThat(authService.getCurrentPermissions(1L))
+                .containsExactly("user:app:list", "user:app:relation:view");
+    }
 }

@@ -77,6 +77,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public List<String> getCurrentPermissions(Long userId) {
+        List<String> permissions = menuDao.selectPermsByUserId(userId);
+        return permissions == null ? List.of() : permissions;
+    }
+
+    @Override
     public void logout(String token) {
         if (token != null && !token.isEmpty()) {
             redisTemplate.delete(AuthConstant.ADMIN_TOKEN_PREFIX + token);

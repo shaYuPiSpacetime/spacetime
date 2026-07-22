@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 public class RelationPageReq {
     /** 页码，从 1 开始。 */
     private int page = 1;
-    /** 每页条数，仅允许 10、20、50。 */
-    private int size = 10;
+    /** 每页条数，管理后台弹窗默认 5 条，接口兼容 10、20、50。 */
+    private int size = 5;
     /** 方向：ALL-全部，OUTBOUND-当前用户发起，INBOUND-当前用户接收。 */
     private String direction = "ALL";
     /** 当前 Tab 的正式状态编码。 */

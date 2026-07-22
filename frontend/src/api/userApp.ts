@@ -168,6 +168,8 @@ export interface PageResult<T> {
 export interface AppUserStatsVO {
   currentUserCount: number;
   coreAccessAllowedCount: number;
+  relationshipAccessOpenCount: number;
+  visitorUv7d: number;
 }
 
 export interface ImportBatchVO {
@@ -282,7 +284,8 @@ export interface AppUserRelationUnlockVO {
 
 export interface RelationPageParams {
   page: number;
-  size: 10 | 20 | 50;
+  size: 5 | 10 | 20 | 50;
+  unlockNo?: string;
   direction?: 'ALL' | 'OUTBOUND' | 'INBOUND';
   status?: string;
   source?: string;

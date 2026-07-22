@@ -7,4 +7,6 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class RelationUnlockPageReq extends RelationPageReq {
+    /** 解锁业务编号，供关系记录跳转后精确定位。 */
+    private String unlockNo;
 }

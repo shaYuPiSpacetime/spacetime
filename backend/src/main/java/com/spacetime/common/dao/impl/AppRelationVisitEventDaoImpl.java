@@ -23,4 +23,9 @@ public class AppRelationVisitEventDaoImpl extends AbstractRelationCrudDao<AppRel
     public RelationVisitStats countTargetStats(Long targetUserId, LocalDateTime startTime) {
         return visitEventMapper.countTargetStats(targetUserId, startTime);
     }
+
+    @Override
+    public Long countDistinctVisitorsSince(LocalDateTime startTime) {
+        return visitEventMapper.countDistinctVisitorsSince(startTime);
+    }
 }

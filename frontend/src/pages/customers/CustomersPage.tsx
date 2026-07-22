@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
   Download,
+  Eye,
   Heart,
   LinkIcon,
   RotateCcw,
@@ -43,6 +44,7 @@ import {
   type AppUserRelationSummaryVO,
   type AppUserRelationUnlockVO,
   type AppUserRelationVisitVO,
+  type RelationCounterpartyVO,
   type RelationPageParams,
 } from '@/api/userApp';
 import { showToast } from '@/components/ui/toast';
@@ -74,6 +76,8 @@ interface CoinRecord {
 interface UserStats {
   total: number;
   coreAllowed: number;
+  relationshipOpen: number;
+  visitorUv7d: number;
 }
 
 interface AppUserFilters extends Record<string, string | undefined> {
@@ -823,7 +827,7 @@ function toCardItem(user: AppUserListVO): AdminUserCardItem {
 }
 
 function toDetailCardItem(detail: AppUserDetailVO, current?: AdminUserCardItem | null): AdminUserCardItem {
-  const base = current as AdminUserCardItem;
+  const base = current ?? ({} as AdminUserCardItem);
   const verification = detail.verification;
   const city = [
     detail.locationProvinceLabel || detail.locationProvince,
@@ -965,7 +969,12 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1);
   const [users, setUsers] = useState<AdminUserCardItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState<UserStats>({ total: 0, coreAllowed: 0 });
+  const [stats, setStats] = useState<UserStats>({
+    total: 0,
+    coreAllowed: 0,
+    relationshipOpen: 0,
+    visitorUv7d: 0,
+  });
   const [loading, setLoading] = useState(false);
   const [drawerUser, setDrawerUser] = useState<AdminUserCardItem | null>(null);
   const [avatarUser, setAvatarUser] = useState<AdminUserCardItem | null>(null);
@@ -1034,14 +1043,27 @@ export default function CustomersPage() {
   const fetchStats = useCallback(async () => {
     try {
       const res = await getAppUserStats();
-      const data = responseData<AppUserStatsVO>(res, { currentUserCount: 0, coreAccessAllowedCount: 0 });
+      const data = responseData<AppUserStatsVO>(res, {
+        currentUserCount: 0,
+        coreAccessAllowedCount: 0,
+        relationshipAccessOpenCount: 0,
+        visitorUv7d: 0,
+      });
       setStats((prev) => ({
         ...prev,
         total: data.currentUserCount ?? 0,
         coreAllowed: data.coreAccessAllowedCount ?? 0,
+        relationshipOpen: data.relationshipAccessOpenCount ?? 0,
+        visitorUv7d: data.visitorUv7d ?? 0,
       }));
     } catch {
-      setStats((prev) => ({ ...prev, total: 0, coreAllowed: 0 }));
+      setStats((prev) => ({
+        ...prev,
+        total: 0,
+        coreAllowed: 0,
+        relationshipOpen: 0,
+        visitorUv7d: 0,
+      }));
     }
   }, []);
 
@@ -1095,6 +1117,28 @@ export default function CustomersPage() {
     } catch {
       showToast('用户详情接口加载失败，当前仅展示列表行数据', 'error');
     }
+  }
+
+  function openRelationProfile(counterparty: RelationCounterpartyVO) {
+    if (!counterparty.userId) return;
+    void openProfile(toCardItem({
+      id: counterparty.userId,
+      avatar: counterparty.avatar || '',
+      nickname: counterparty.nickname || counterparty.userNo || '-',
+      gender: '',
+      age: 0,
+      school: '-',
+      phone: counterparty.maskedPhone,
+      realNameStatus: 'NOT_CERTIFIED',
+      educationStatus: 'NOT_CERTIFIED',
+      avatarVerifyStatus: 'NOT_CERTIFIED',
+      firstLoginCompleted: 0,
+      profileScore: 0,
+      accountStatus: 'NORMAL',
+      accessStatus: 'blocked',
+      registerTime: '-',
+      lastLoginTime: '-',
+    }));
   }
 
   function handleUserStatusChanged(userId: number, status: string) {
@@ -1195,8 +1239,10 @@ export default function CustomersPage() {
       <Card className="overflow-hidden border-0 shadow-sm">
         <CardContent className="p-7">
           <div className="grid gap-4 lg:grid-cols-4">
-            <StatCard icon={<ShieldCheck className="h-8 w-8" />} label="当前用户" value={stats.total} tone="blue" />
-            <StatCard icon={<BadgeCheck className="h-8 w-8" />} label="核心准入开放" value={stats.coreAllowed} tone="green" />
+            <StatCard icon={<ShieldCheck className="h-8 w-8" />} label="当前用户" value={stats.total.toLocaleString('zh-CN')} tone="blue" />
+            <StatCard icon={<BadgeCheck className="h-8 w-8" />} label="核心准入开放" value={stats.coreAllowed.toLocaleString('zh-CN')} tone="green" />
+            <StatCard icon={<Heart className="h-8 w-8" />} label="关系反馈开放" value={stats.relationshipOpen.toLocaleString('zh-CN')} tone="orange" />
+            <StatCard icon={<Eye className="h-8 w-8" />} label="7天访客 UV" value={stats.visitorUv7d.toLocaleString('zh-CN')} tone="purple" />
           </div>
         </CardContent>
       </Card>
@@ -1253,7 +1299,7 @@ export default function CustomersPage() {
           <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[#1F2433]">用户卡片列表</h2>
-              <p className="mt-1 text-sm text-muted-foreground">卡片内展示固定字段和敏感信息掩码，模块补充从卡片或列表操作进入。</p>
+              <p className="mt-1 text-sm text-muted-foreground">卡片内展示固定字段和敏感信息掩码，“心动 & 消息”从卡片或列表操作进入。</p>
             </div>
             <div className="flex rounded-md border border-[#D8E2F0] bg-white p-1 text-sm">
               <button className={`rounded px-3 py-1.5 ${listView === 'card' ? 'bg-[#2876FF] text-white' : 'text-[#526173]'}`} onClick={() => setListView('card')}>卡片</button>
@@ -1302,6 +1348,7 @@ export default function CustomersPage() {
       <ProfileDrawer
         user={drawerUser}
         canViewCommercial={canViewCommercial}
+        elevated={Boolean(moduleSupplementUser)}
         onClose={() => setDrawerUser(null)}
         onStatusChanged={handleUserStatusChanged}
       />
@@ -1309,6 +1356,8 @@ export default function CustomersPage() {
         user={moduleSupplementUser}
         canViewRelations={canViewRelations}
         canViewCommercial={canViewCommercial}
+        childDialogOpen={Boolean(drawerUser)}
+        onViewUser={openRelationProfile}
         onClose={() => setModuleSupplementUser(null)}
       />
       <AvatarAuditDialog
@@ -1416,7 +1465,7 @@ function CustomerCard({
 
         <div className="mt-4 grid grid-cols-[1fr_1fr_88px] gap-2 text-sm font-semibold">
           <button className="h-10 rounded-md bg-[#2876FF] text-white" onClick={onOpenProfile}>详情</button>
-          <button className="h-10 rounded-md border border-[#2876FF] bg-white text-[#2876FF]" onClick={onOpenModuleSupplement}>模块补充</button>
+          <button className="h-10 rounded-md border border-[#2876FF] bg-white text-[#2876FF]" onClick={onOpenModuleSupplement}>心动 &amp; 消息</button>
           <button className="h-10 rounded-md bg-white text-[#1F2433]" onClick={onOpenAvatar}>头像审核</button>
         </div>
       </div>
@@ -1596,7 +1645,7 @@ function AppUserTable({
               <td className="px-4 py-3">
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="sm" onClick={() => onOpenProfile(user)}>详情</Button>
-                  <Button variant="ghost" size="sm" onClick={() => onOpenModuleSupplement(user)}>模块补充</Button>
+                  <Button variant="ghost" size="sm" onClick={() => onOpenModuleSupplement(user)}>心动 &amp; 消息</Button>
                   <Button variant="ghost" size="sm" onClick={() => onOpenAvatar(user)}>头像审核</Button>
                 </div>
               </td>
@@ -1609,6 +1658,7 @@ function AppUserTable({
 }
 type RelationTabKey = 'likes' | 'visitors' | 'matches' | 'unlocks';
 type RelationRecord = AppUserRelationLikeVO | AppUserRelationVisitVO | AppUserRelationMatchVO | AppUserRelationUnlockVO;
+const RELATION_PAGE_SIZE = 5;
 
 const RELATION_LABELS: Record<RelationTabKey, string> = {
   likes: '喜欢记录', visitors: '访客记录', matches: '相互喜欢', unlocks: '解锁记录',
@@ -1632,26 +1682,30 @@ function ModuleSupplementDialog({
   user,
   canViewRelations,
   canViewCommercial,
+  childDialogOpen,
+  onViewUser,
   onClose,
 }: {
   user: AdminUserCardItem | null;
   canViewRelations: boolean;
   canViewCommercial: boolean;
+  childDialogOpen: boolean;
+  onViewUser: (counterparty: RelationCounterpartyVO) => void;
   onClose: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<'relation' | 'message'>(canViewRelations ? 'relation' : 'message');
   const [relationTab, setRelationTab] = useState<RelationTabKey>('likes');
   const [relationPage, setRelationPage] = useState(1);
-  const [relationPageSize, setRelationPageSize] = useState<10 | 20 | 50>(10);
   const [direction, setDirection] = useState<'ALL' | 'OUTBOUND' | 'INBOUND'>('ALL');
   const [relationStatus, setRelationStatus] = useState('');
   const [relationSource, setRelationSource] = useState('');
+  const [unlockNo, setUnlockNo] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [summary, setSummary] = useState<AppUserRelationSummaryVO | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState('');
-  const [relationData, setRelationData] = useState<PageResult<RelationRecord>>({ records: [], total: 0, size: 10, current: 1 });
+  const [relationData, setRelationData] = useState<PageResult<RelationRecord>>({ records: [], total: 0, size: RELATION_PAGE_SIZE, current: 1 });
   const [relationLoading, setRelationLoading] = useState(false);
   const [relationError, setRelationError] = useState('');
   const relationRequestSequence = useRef(0);
@@ -1710,24 +1764,25 @@ function ModuleSupplementDialog({
 
   const queryParams = useMemo<RelationPageParams>(() => ({
     page: relationPage,
-    size: relationPageSize,
+    size: RELATION_PAGE_SIZE,
+    unlockNo: relationTab === 'unlocks' && unlockNo ? unlockNo : undefined,
     direction: relationTab === 'matches' ? 'ALL' : direction,
     status: relationStatus || undefined,
     source: relationSource || undefined,
     startTime: toBackendDateTime(startTime),
     endTime: toBackendDateTime(endTime),
-  }), [direction, endTime, relationPage, relationPageSize, relationSource, relationStatus, relationTab, startTime]);
+  }), [direction, endTime, relationPage, relationSource, relationStatus, relationTab, startTime, unlockNo]);
 
   useEffect(() => {
     relationCache.current.clear();
     setSummary(null);
-    setRelationData({ records: [], total: 0, size: 10, current: 1 });
+    setRelationData({ records: [], total: 0, size: RELATION_PAGE_SIZE, current: 1 });
     setRelationTab('likes');
     setRelationPage(1);
-    setRelationPageSize(10);
     setDirection('ALL');
     setRelationStatus('');
     setRelationSource('');
+    setUnlockNo('');
     setStartTime('');
     setEndTime('');
     setActiveTab(canViewRelations ? 'relation' : 'message');
@@ -1743,26 +1798,38 @@ function ModuleSupplementDialog({
     }
   }, [activeTab, canViewRelations, loadRelationPage, queryParams, relationTab, user?.id]);
 
-  const changeRelationTab = (tab: RelationTabKey) => {
+  const changeRelationTab = (tab: RelationTabKey, targetUnlockNo = '') => {
     setRelationTab(tab);
     setRelationPage(1);
     setDirection('ALL');
     setRelationStatus('');
     setRelationSource('');
+    setUnlockNo(tab === 'unlocks' ? targetUnlockNo : '');
     setStartTime('');
     setEndTime('');
   };
 
-  const pageRows = relationData.records.map((record) => relationTableRow(relationTab, record, canViewCommercial));
+  const pageRows = relationData.records.map((record) => relationTableRow(
+    relationTab,
+    record,
+    canViewCommercial,
+    onViewUser,
+    (targetUnlockNo) => changeRelationTab('unlocks', targetUnlockNo),
+  ));
   const tableHeaders = relationTableHeaders(relationTab, canViewCommercial);
   const filterOptions = relationFilterOptions(relationTab);
 
   return (
-    <Dialog open={Boolean(user)} onClose={onClose} className="max-w-[1080px]">
+    <Dialog
+      open={Boolean(user)}
+      onClose={onClose}
+      closeOnEscape={!childDialogOpen}
+      className="max-h-[calc(100vh-32px)] max-w-[1080px] overflow-y-auto"
+    >
       {user && (
-        <div className="space-y-5">
+        <div className="space-y-5" data-testid="module-supplement-dialog-content">
           <DialogHeader>
-            <DialogTitle>{user.nickname} {user.id} · 模块补充</DialogTitle>
+            <DialogTitle>{user.nickname} {user.id} · 心动 &amp; 消息</DialogTitle>
           </DialogHeader>
           <div className="flex gap-2 border-b border-[#E6EDF7]">
             {[
@@ -1848,9 +1915,9 @@ function ModuleSupplementDialog({
                   <Pagination
                     current={relationPage}
                     total={relationData.total}
-                    pageSize={relationPageSize}
+                    pageSize={RELATION_PAGE_SIZE}
                     onChange={setRelationPage}
-                    onPageSizeChange={(size) => { setRelationPageSize(size as 10 | 20 | 50); setRelationPage(1); }}
+                    showPageSizeSelector={false}
                   />
                 </div>
               </div>
@@ -1893,40 +1960,80 @@ function counterpartyText(record: RelationRecord) {
   return `${counterparty.nickname || '-'} ${counterparty.userNo ? `U${counterparty.userNo}` : ''}`.trim();
 }
 
-function relationStateText(status: string, invalidReason?: string) {
-  const statusText = RELATION_STATUS_LABELS[status] || status || '-';
-  return invalidReason ? `${statusText} · ${RELATION_REASON_LABELS[invalidReason] || invalidReason}` : statusText;
+function relationStateText(status: string) {
+  return RELATION_STATUS_LABELS[status] || status || '-';
+}
+
+function relationReasonText(reason?: string) {
+  return reason ? RELATION_REASON_LABELS[reason] || reason : '-';
 }
 
 function relationTableHeaders(tab: RelationTabKey, canViewCommercial: boolean) {
-  if (tab === 'likes') return ['记录编号', '方向', '对方用户', '来源', '状态', '喜欢时间', '解锁编号'];
-  if (tab === 'visitors') return ['记录编号', '方向', '对方用户', '来源', '状态', '最近访问', 'PV', '解锁编号'];
-  if (tab === 'matches') return ['记录编号', '对方用户', '首次来源', '有效来源', '状态', '匹配时间'];
-  return ['解锁编号', '目标记录', '对方用户', '场景/方式', ...(canViewCommercial ? ['消耗币'] : []), '状态', '生效时间'];
+  if (tab === 'likes') return ['记录编号', '方向', '对方用户', '来源', '状态', '失效原因', '失效时间', '喜欢时间', '解锁编号', '操作'];
+  if (tab === 'visitors') return ['记录编号', '方向', '对方用户', '来源', '状态', '失效原因', '失效时间', '最近访问', 'PV', '解锁编号', '操作'];
+  if (tab === 'matches') return ['记录编号', '对方用户', '首次来源', '有效来源', '状态', '失效原因', '失效时间', '匹配时间', '操作'];
+  return ['解锁编号', '目标记录', '对方用户', '场景/方式', ...(canViewCommercial ? ['消耗币'] : []), '状态', '对象失效原因', '对象失效时间', '生效时间', '到期时间', '操作'];
 }
 
-function relationTableRow(tab: RelationTabKey, record: RelationRecord, canViewCommercial: boolean): string[] {
+function relationActions(
+  record: RelationRecord,
+  unlockNo: string | undefined,
+  canViewCommercial: boolean,
+  onViewUser: (counterparty: RelationCounterpartyVO) => void,
+  onViewUnlock: (unlockNo: string) => void,
+) {
+  const canViewUser = Boolean(record.counterparty.userId);
+  if (!canViewUser && (!unlockNo || !canViewCommercial)) return '-';
+  return (
+    <div className="flex min-w-[76px] flex-col items-start gap-1.5">
+      {canViewUser && (
+        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => onViewUser(record.counterparty)}>
+          查看用户
+        </Button>
+      )}
+      {unlockNo && canViewCommercial && (
+        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => onViewUnlock(unlockNo)}>
+          查看解锁
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function relationTableRow(
+  tab: RelationTabKey,
+  record: RelationRecord,
+  canViewCommercial: boolean,
+  onViewUser: (counterparty: RelationCounterpartyVO) => void,
+  onViewUnlock: (unlockNo: string) => void,
+): DemoTableRow {
   if (tab === 'likes') {
     const row = record as AppUserRelationLikeVO;
-    return [row.recordNo, row.direction === 'OUTBOUND' ? '当前用户发起' : '当前用户接收', counterpartyText(row),
-      RELATION_SOURCE_LABELS[row.sourceScene] || row.sourceScene, relationStateText(row.status, row.invalidReason), row.likedTime || '-', row.unlockNo || '-'];
+    return { key: row.recordNo, cells: [row.recordNo, row.direction === 'OUTBOUND' ? '当前用户发起' : '当前用户接收', counterpartyText(row),
+      RELATION_SOURCE_LABELS[row.sourceScene] || row.sourceScene, relationStateText(row.status), relationReasonText(row.invalidReason),
+      row.invalidTime || '-', row.likedTime || '-', row.unlockNo || '-',
+      relationActions(row, row.unlockNo, canViewCommercial, onViewUser, onViewUnlock)] };
   }
   if (tab === 'visitors') {
     const row = record as AppUserRelationVisitVO;
-    return [row.recordNo, row.direction === 'OUTBOUND' ? '当前用户访问' : '当前用户被访问', counterpartyText(row),
-      RELATION_SOURCE_LABELS[row.sourceScene] || row.sourceScene, relationStateText(row.status, row.invalidReason), row.lastVisitTime || '-', String(row.visitCount ?? 0), row.unlockNo || '-'];
+    return { key: row.recordNo, cells: [row.recordNo, row.direction === 'OUTBOUND' ? '当前用户访问' : '当前用户被访问', counterpartyText(row),
+      RELATION_SOURCE_LABELS[row.sourceScene] || row.sourceScene, relationStateText(row.status), relationReasonText(row.invalidReason),
+      row.invalidTime || '-', row.lastVisitTime || '-', String(row.visitCount ?? 0), row.unlockNo || '-',
+      relationActions(row, row.unlockNo, canViewCommercial, onViewUser, onViewUnlock)] };
   }
   if (tab === 'matches') {
     const row = record as AppUserRelationMatchVO;
-    return [row.recordNo, counterpartyText(row), RELATION_SOURCE_LABELS[row.primarySource] || row.primarySource,
+    return { key: row.recordNo, cells: [row.recordNo, counterpartyText(row), RELATION_SOURCE_LABELS[row.primarySource] || row.primarySource,
       (row.activeSources || []).map((item) => RELATION_SOURCE_LABELS[item] || item).join('、') || '-',
-      relationStateText(row.status, row.invalidReason), row.matchedTime || '-'];
+      relationStateText(row.status), relationReasonText(row.invalidReason), row.invalidTime || '-', row.matchedTime || '-',
+      relationActions(row, undefined, canViewCommercial, onViewUser, onViewUnlock)] };
   }
   const row = record as AppUserRelationUnlockVO;
-  return [row.unlockNo, [row.targetBizType, row.targetBizNo].filter(Boolean).join(' / ') || '-', counterpartyText(row),
+  return { key: row.unlockNo, cells: [row.unlockNo, [row.targetBizType, row.targetBizNo].filter(Boolean).join(' / ') || '-', counterpartyText(row),
     `${RELATION_SOURCE_LABELS[row.unlockScene] || row.unlockScene} / ${row.unlockMethod || '-'}`,
     ...(canViewCommercial && row.assetVisible ? [String(row.coinCost ?? 0)] : canViewCommercial ? ['-'] : []),
-    relationStateText(row.status, row.targetInvalidReason), row.effectiveTime || '-'];
+    relationStateText(row.status), relationReasonText(row.targetInvalidReason), row.targetInvalidTime || '-', row.effectiveTime || '-',
+    row.expireTime || '-', relationActions(row, undefined, canViewCommercial, onViewUser, onViewUnlock)] };
 }
 
 function relationFilterOptions(tab: RelationTabKey) {
@@ -1951,11 +2058,13 @@ function vipStatusText(status?: string) {
 function ProfileDrawer({
   user,
   canViewCommercial,
+  elevated = false,
   onClose,
   onStatusChanged,
 }: {
   user: AdminUserCardItem | null;
   canViewCommercial: boolean;
+  elevated?: boolean;
   onClose: () => void;
   onStatusChanged?: (userId: number, status: string) => void;
 }) {
@@ -2052,9 +2161,21 @@ function ProfileDrawer({
 
   return (
     <>
-      <Dialog open={Boolean(user)} onClose={onClose} className="w-[calc(100vw-64px)] max-w-[1080px] p-0">
+      <Dialog
+        open={Boolean(user)}
+        onClose={onClose}
+        layer={elevated ? 'nested' : 'default'}
+        closeOnEscape={!freezeConfirmOpen}
+        lockBodyScroll={!elevated}
+        className={elevated
+          ? 'w-[calc(100vw-32px)] max-w-[960px] p-0'
+          : 'w-[calc(100vw-64px)] max-w-[1080px] p-0'}
+      >
         {user && (
-          <div className="flex max-h-[88vh] flex-col bg-white">
+          <div
+            data-testid="profile-dialog-content"
+            className={`flex flex-col bg-white ${elevated ? 'max-h-[82vh]' : 'max-h-[88vh]'}`}
+          >
             <div className="flex h-16 shrink-0 items-center border-b border-[#E6EDF7] px-6">
               <DialogHeader>
                 <DialogTitle className="text-base text-[#1F2433]">画像详情</DialogTitle>
@@ -2171,7 +2292,13 @@ function ProfileDrawer({
         </div>
       )}
       </Dialog>
-      <Dialog open={Boolean(user) && freezeConfirmOpen} onClose={() => setFreezeConfirmOpen(false)} className="max-w-[440px]">
+      <Dialog
+        open={Boolean(user) && freezeConfirmOpen}
+        onClose={() => setFreezeConfirmOpen(false)}
+        layer="confirmation"
+        lockBodyScroll={false}
+        className="max-w-[440px]"
+      >
         {user && (
           <>
             <DialogHeader>
@@ -2616,9 +2743,13 @@ function WorkflowHistoryDialog({
           const importResult = isImport ? item.importResult || null : null;
           const exportResult = !isImport ? item.exportResult || null : null;
           return (
-            <div key={item.id} className="rounded-lg border border-[#E6EDF7] bg-white p-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1">
+            <div
+              key={item.id}
+              data-testid={`workflow-history-${item.type}-${item.id}`}
+              className="rounded-lg border border-[#E6EDF7] bg-white p-4 shadow-sm"
+            >
+              <div className="grid grid-cols-[minmax(0,1fr)_112px] items-start gap-3">
+                <div className="min-w-0 space-y-1 break-words">
                   <strong className="text-[#1F2433]">{isImport ? '批量导入' : '字段导出'}</strong>
                   <div>{item.createTime || '-'}</div>
                   {isImport && importResult && (
@@ -2638,11 +2769,12 @@ function WorkflowHistoryDialog({
                     </>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <div className="flex w-28 justify-end">
                   {isImport && importResult && (
                     <Button
                       variant="outline"
                       size="sm"
+                      className="w-28"
                       onClick={() => downloadTextFile(`app-users-import-errors-${importResult.batchNo || 'latest'}.csv`, buildImportErrorReportCsv(importResult))}
                     >
                       下载错误报告
@@ -2652,6 +2784,7 @@ function WorkflowHistoryDialog({
                     <Button
                       variant="outline"
                       size="sm"
+                      className="w-28"
                       onClick={() => downloadTextFile(exportResult.fileName || 'app-users-export.csv', exportResult.downloadContent || '')}
                     >
                       下载导出文件
@@ -2786,23 +2919,46 @@ function WorkflowDialog({
   );
 }
 
-function DemoTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
+interface DemoTableRow {
+  key: string;
+  cells: ReactNode[];
+}
+
+function DemoTable({ headers, rows }: { headers: string[]; rows: DemoTableRow[] }) {
   return (
     <div className="p-5">
       <div className="overflow-x-auto rounded-lg border border-[#E6EDF7]">
         <table className="w-full text-left text-sm" style={{ minWidth: `${Math.max(720, headers.length * 116)}px` }}>
           <thead className="bg-white text-[#5F6B7A]">
             <tr>
-              {headers.map((header) => (
-                <th key={header} className="whitespace-nowrap px-3 py-3 font-medium">{header}</th>
+              {headers.map((header, index) => (
+                <th
+                  key={header}
+                  className={`whitespace-nowrap px-3 py-3 font-medium ${
+                    index === headers.length - 1
+                      ? 'sticky right-0 z-20 min-w-[104px] border-l border-[#E6EDF7] bg-white'
+                      : ''
+                  }`}
+                >
+                  {header}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E6EDF7] text-[#0C3A78]">
             {rows.map((row) => (
-              <tr key={row.join('-')} className="bg-white">
-                {row.map((cell, index) => (
-                  <td key={`${cell}-${index}`} className="whitespace-nowrap px-3 py-3">{cell}</td>
+              <tr key={row.key} className="bg-white">
+                {row.cells.map((cell, index) => (
+                  <td
+                    key={`${row.key}-${index}`}
+                    className={`whitespace-nowrap px-3 py-3 ${
+                      index === row.cells.length - 1
+                        ? 'sticky right-0 z-10 min-w-[104px] border-l border-[#E6EDF7] bg-white'
+                        : ''
+                    }`}
+                  >
+                    {cell}
+                  </td>
                 ))}
               </tr>
             ))}

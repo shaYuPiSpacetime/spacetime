@@ -17,6 +17,7 @@ import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserExportTaskDao;
 import com.spacetime.common.dao.AppUserImportBatchDao;
 import com.spacetime.common.dao.AppUserImportRowDao;
+import com.spacetime.common.dao.AppRelationVisitEventDao;
 import com.spacetime.common.dao.ContentOperationLogDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.entity.AppUser;
@@ -71,6 +72,8 @@ class AppUserAdminServiceImplTest {
 
     @Mock
     private AppUserDao appUserDao;
+    @Mock
+    private AppRelationVisitEventDao visitEventDao;
     @Mock
     private AppUserAuditRecordDao auditRecordDao;
     @Mock
@@ -292,15 +295,23 @@ class AppUserAdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("用户统计只返回当前用户数和核心准入开放数")
+    @DisplayName("用户统计返回当前用户、核心准入、关系开放和七日访客 UV")
     void shouldReturnAppUserStatsFromCountQueries() {
-        when(appUserDao.count(any())).thenReturn(63L, 41L);
+        when(appUserDao.count(any())).thenReturn(63L, 41L, 37L);
+        when(visitEventDao.countDistinctVisitorsSince(any())).thenReturn(28L);
+        LocalDateTime earliestStart = LocalDateTime.now().minusDays(7);
 
         AppUserStatsVO stats = service.getUserStats();
+        LocalDateTime latestStart = LocalDateTime.now().minusDays(7);
 
         assertThat(stats.getCurrentUserCount()).isEqualTo(63L);
         assertThat(stats.getCoreAccessAllowedCount()).isEqualTo(41L);
-        verify(appUserDao, times(2)).count(any());
+        assertThat(stats.getRelationshipAccessOpenCount()).isEqualTo(37L);
+        assertThat(stats.getVisitorUv7d()).isEqualTo(28L);
+        verify(appUserDao, times(3)).count(any());
+        ArgumentCaptor<LocalDateTime> startTimeCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(visitEventDao).countDistinctVisitorsSince(startTimeCaptor.capture());
+        assertThat(startTimeCaptor.getValue()).isBetween(earliestStart, latestStart);
         verifyNoInteractions(auditRecordDao, auditContentService, profileCompletenessCalculator,
                 profileDictionaryService);
     }

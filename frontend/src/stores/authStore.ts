@@ -6,6 +6,7 @@ interface AuthState {
   token: string | null;
   user: { nickname: string; avatar?: string; permissions: string[] } | null;
   login: (account: string, password: string) => Promise<void>;
+  refreshPermissions: () => Promise<void>;
   logout: () => void;
 }
 
@@ -19,6 +20,13 @@ export const useAuthStore = create<AuthState>()(
         const res = await request.post('/admin/login', { account, password });
         set({ token: res.data.token, user: res.data });
         localStorage.setItem('token', res.data.token);
+      },
+      refreshPermissions: async () => {
+        const res = await request.get('/admin/permissions');
+        const permissions = Array.isArray(res.data) ? res.data : [];
+        set((state) => state.user
+          ? { user: { ...state.user, permissions } }
+          : {});
       },
       logout: () => {
         const token = localStorage.getItem('token');

@@ -9,4 +9,7 @@ import java.time.LocalDateTime;
 public interface AppRelationVisitEventDao extends RelationCrudDao<AppRelationVisitEvent> {
     /** 精确统计指定用户自起始时间以来的访客 UV/PV。 */
     RelationVisitStats countTargetStats(Long targetUserId, LocalDateTime startTime);
+
+    /** 统计指定时间以来全站去重访客数。 */
+    Long countDistinctVisitorsSince(LocalDateTime startTime);
 }

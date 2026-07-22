@@ -1,7 +1,11 @@
 package com.spacetime.admin.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.RelationPageReq;
+import com.spacetime.admin.dto.request.RelationUnlockPageReq;
 import com.spacetime.admin.dto.response.AppUserRelationLikeVO;
 import com.spacetime.admin.dto.response.AppUserRelationSummaryVO;
 import com.spacetime.common.dao.AppRelationLikeDao;
@@ -14,7 +18,9 @@ import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
+import com.spacetime.common.entity.AppRelationVisit;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
@@ -26,6 +32,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -79,6 +87,61 @@ class AppUserRelationAdminServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("code")
                 .isEqualTo(20008);
+    }
+
+    @Test
+    void acceptsFiveRowsPageForRelationDialog() {
+        AppUser user = activeUser(1L, "当前用户");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        Page<AppRelationLike> source = new Page<>(1, 5, 0);
+        source.setRecords(List.of());
+        when(likeDao.selectPage(any(), any())).thenReturn(source);
+        RelationPageReq req = new RelationPageReq();
+        req.setSize(5);
+
+        Page<AppUserRelationLikeVO> result = service.likes(1L, req);
+
+        assertThat(result.getSize()).isEqualTo(5);
+        verify(relationAuditService).recordRelationView(any());
+    }
+
+    @Test
+    void doesNotApplyHiddenSevenDayFilterToAdminVisitHistory() {
+        AppUser user = activeUser(1L, "当前用户");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        Page<AppRelationVisit> source = new Page<>(1, 5, 0);
+        source.setRecords(List.of());
+        when(visitDao.selectPage(any(), any())).thenReturn(source);
+        RelationPageReq req = new RelationPageReq();
+        req.setSize(5);
+
+        service.visits(1L, req);
+
+        assertThat(req.getStartTime()).isNull();
+        verify(relationAuditService).recordRelationView(any());
+    }
+
+    @Test
+    void acceptsExactUnlockNumberFilter() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), UserUnlockRecord.class);
+        AppUser user = activeUser(1L, "当前用户");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        Page<UserUnlockRecord> source = new Page<>(1, 5, 0);
+        source.setRecords(List.of());
+        when(unlockRecordDao.selectPage(any(), any())).thenReturn(source);
+        RelationUnlockPageReq req = new RelationUnlockPageReq();
+        req.setSize(5);
+        req.setUnlockNo("ULK-001");
+
+        service.unlocks(1L, req);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<UserUnlockRecord>> wrapperCaptor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(unlockRecordDao).selectPage(any(), wrapperCaptor.capture());
+        assertThat(wrapperCaptor.getValue().getSqlSegment()).contains("unlock_no");
+        assertThat(wrapperCaptor.getValue().getParamNameValuePairs()).containsValue("ULK-001");
     }
 
     @Test

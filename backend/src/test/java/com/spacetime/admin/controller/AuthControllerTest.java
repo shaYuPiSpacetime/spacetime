@@ -4,6 +4,9 @@ import com.spacetime.admin.dto.request.LoginReq;
 import com.spacetime.admin.dto.response.LoginVO;
 import com.spacetime.admin.service.AuthService;
 import com.spacetime.common.exception.GlobalExceptionHandler;
+import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.interceptor.UserContextHolder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,6 +22,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -40,6 +44,11 @@ class AuthControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(authController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContextHolder.clear();
     }
 
     @Test
@@ -78,5 +87,19 @@ class AuthControllerTest {
                         .header("X-Auth-Token", "test-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    @DisplayName("L2-04 查询当前权限返回数据库最新权限")
+    void shouldReturnCurrentPermissions() throws Exception {
+        UserContextHolder.set(new UserContext(1L, "管理员", null, List.of("user:app:list")));
+        when(authService.getCurrentPermissions(1L))
+                .thenReturn(List.of("user:app:list", "user:app:relation:view"));
+
+        mockMvc.perform(get("/admin/permissions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0]").value("user:app:list"))
+                .andExpect(jsonPath("$.data[1]").value("user:app:relation:view"));
     }
 }

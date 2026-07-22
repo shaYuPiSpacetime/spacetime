@@ -7,10 +7,28 @@ interface DialogProps {
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
+  layer?: 'default' | 'nested' | 'confirmation';
+  closeOnEscape?: boolean;
+  lockBodyScroll?: boolean;
 }
 
-function Dialog({ open, onClose, children, className }: DialogProps) {
+const layerClasses = {
+  default: 'z-50',
+  nested: 'z-[70]',
+  confirmation: 'z-[80]',
+};
+
+function Dialog({
+  open,
+  onClose,
+  children,
+  className,
+  layer = 'default',
+  closeOnEscape = true,
+  lockBodyScroll = true,
+}: DialogProps) {
   React.useEffect(() => {
+    if (!lockBodyScroll) return undefined;
     if (open) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -19,24 +37,24 @@ function Dialog({ open, onClose, children, className }: DialogProps) {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [open]);
+  }, [lockBodyScroll, open]);
 
   React.useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
-    if (open) document.addEventListener('keydown', handleEscape);
+    if (open && closeOnEscape) document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [open, onClose]);
+  }, [closeOnEscape, open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className={cn('fixed inset-0 flex items-center justify-center', layerClasses[layer])}>
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <div
         className={cn(
-          'relative z-50 max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg',
+          'relative z-[1] max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg',
           className,
         )}
       >

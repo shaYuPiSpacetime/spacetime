@@ -161,6 +161,9 @@ PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='unlock_no')=0,
     'ALTER TABLE app_user_unlock_record ADD COLUMN unlock_no VARCHAR(64) DEFAULT NULL COMMENT ''解锁业务编号，前缀ULK-'' AFTER id', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='request_id')=0,
+    'ALTER TABLE app_user_unlock_record ADD COLUMN request_id VARCHAR(64) DEFAULT NULL COMMENT ''客户端解锁请求幂等键'' AFTER unlock_no', 'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='target_biz_type')=0,
     'ALTER TABLE app_user_unlock_record ADD COLUMN target_biz_type VARCHAR(32) DEFAULT NULL COMMENT ''目标业务类型：like-喜欢记录，visit-访客记录'' AFTER target_user_id', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -193,6 +196,9 @@ PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='uk_unlock_no')=0,
     'ALTER TABLE app_user_unlock_record ADD UNIQUE KEY uk_unlock_no (unlock_no)', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='uk_user_request_target')=0,
+    'ALTER TABLE app_user_unlock_record ADD UNIQUE KEY uk_user_request_target (user_id, request_id, target_user_id)', 'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='uk_unlock_active_target')=0,
     'ALTER TABLE app_user_unlock_record ADD UNIQUE KEY uk_unlock_active_target (user_id, unlock_scene, target_biz_type, target_biz_no, active_marker)', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -200,13 +206,19 @@ SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SC
     'ALTER TABLE app_user_unlock_record ADD KEY idx_unlock_target_biz (target_biz_type, target_biz_no, status)', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 仅创建功能权限，不自动授予普通角色。
+-- 创建功能权限并授予超级管理员；客服、运营、风控等普通角色仍由部署清单显式授权。
 INSERT INTO sys_menu (parent_id, menu_name, menu_type, perms, menu_sort, visible, status, remark, create_time, update_time)
 SELECT parent.id, '查看关系反馈', 'F', 'user:app:relation:view', 9, 0, 'ENABLED', '查看App用户关系摘要及明细', NOW(), NOW()
 FROM sys_menu parent
 WHERE parent.perms='user:app:list' AND parent.menu_type='C'
   AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms='user:app:relation:view' AND menu_type='F')
 LIMIT 1;
+
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id)
+SELECT r.id, m.id
+FROM sys_role r
+JOIN sys_menu m ON m.perms='user:app:relation:view' AND m.deleted=0
+WHERE r.role_code='super_admin' AND r.status='ENABLED' AND r.deleted=0;
 
 SET @ddl = NULL;
 SET @schema_name = NULL;
