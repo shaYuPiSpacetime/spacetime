@@ -41,16 +41,10 @@ public class PermissionInterceptor implements HandlerInterceptor {
             response.getOutputStream().write("{\"code\":403,\"msg\":\"无权限\"}".getBytes(StandardCharsets.UTF_8));
             return false;
         }
-        List<String> permissions = ctx.getPermissions();
-        if (permissions == null || !permissions.contains(requiredPerm)) {
-            List<String> currentPermissions = menuDao.selectPermsByUserId(ctx.getId());
-            if (currentPermissions != null && currentPermissions.contains(requiredPerm)) {
-                log.info("permission snapshot refreshed by current role permissions: userId={}, required={}",
-                        ctx.getId(), requiredPerm);
-                return true;
-            }
-            log.warn("permission denied: userId={}, required={}, userPermissions={}",
-                    ctx.getId(), requiredPerm, permissions);
+        List<String> currentPermissions = menuDao.selectPermsByUserId(ctx.getId());
+        if (currentPermissions == null || !currentPermissions.contains(requiredPerm)) {
+            log.warn("permission denied: userId={}, required={}, currentPermissions={}",
+                    ctx.getId(), requiredPerm, currentPermissions);
             response.setStatus(403);
             response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write("{\"code\":403,\"msg\":\"无权限\"}".getBytes(StandardCharsets.UTF_8));

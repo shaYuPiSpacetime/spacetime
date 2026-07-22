@@ -42,6 +42,7 @@ function asLazyNodes(nodes: DictDataVO[]): DictNode[] {
 
 export default function DictDataManagement() {
   const { hasPermission } = usePermission();
+  const canList = hasPermission('system:dict:list');
   const [dictTypes, setDictTypes] = useState<DictTypeVO[]>([]);
   const [selectedType, setSelectedType] = useState('');
   const [tree, setTree] = useState<DictNode[]>([]);
@@ -63,14 +64,16 @@ export default function DictDataManagement() {
   });
 
   useEffect(() => {
+    if (!canList) return;
     getAllDictTypes().then((res: any) => {
       const types: DictTypeVO[] = res.data ?? [];
       setDictTypes(types);
       setSelectedType((current) => current || types[0]?.dictType || '');
     });
-  }, []);
+  }, [canList]);
 
   const fetchRoots = useCallback(async () => {
+    if (!canList) return;
     if (!selectedType) {
       setTree([]);
       return;
@@ -84,7 +87,7 @@ export default function DictDataManagement() {
     } finally {
       setLoading(false);
     }
-  }, [selectedType]);
+  }, [canList, selectedType]);
 
   useEffect(() => {
     fetchRoots();
@@ -124,13 +127,23 @@ export default function DictDataManagement() {
     setExpandedIds((previous) => new Set(previous).add(node.id));
   }
 
-  function flattenTree(nodes: DictNode[], depth: number = 0): { value: string; label: string }[] {
+  function flattenTree(nodes: DictNode[], excludedIds: Set<number> = new Set(), depth: number = 0): { value: string; label: string }[] {
     const result: { value: string; label: string }[] = [];
     for (const node of nodes) {
+      if (excludedIds.has(node.id)) continue;
       result.push({ value: String(node.id), label: `${'　'.repeat(depth)}${node.dictLabel}` });
-      if (node.children?.length) result.push(...flattenTree(node.children, depth + 1));
+      if (node.children?.length) result.push(...flattenTree(node.children, excludedIds, depth + 1));
     }
     return result;
+  }
+
+  function collectSubtreeIds(node: DictNode): Set<number> {
+    const ids = new Set<number>();
+    (function collect(current: DictNode) {
+      ids.add(current.id);
+      current.children?.forEach(collect);
+    })(node);
+    return ids;
   }
 
   function findNode(nodes: DictNode[], targetId: number): DictNode | null {
@@ -168,7 +181,7 @@ export default function DictDataManagement() {
       status: node.status,
       remark: node.remark ?? '',
     });
-    setParentOptions([{ value: '', label: '顶级（无）' }, ...flattenTree(tree)]);
+    setParentOptions([{ value: '', label: '顶级（无）' }, ...flattenTree(tree, collectSubtreeIds(node))]);
     setDialogOpen(true);
   }
 
@@ -178,7 +191,7 @@ export default function DictDataManagement() {
     try {
       const data = {
         dictType: selectedType,
-        parentId: form.parentId ? Number(form.parentId) : undefined,
+        parentId: form.parentId ? Number(form.parentId) : 0,
         dictLabel: form.dictLabel.trim(),
         dictValue: form.dictValue.trim(),
         dictSort: form.dictSort,
@@ -240,15 +253,21 @@ export default function DictDataManagement() {
           <TableCell className="max-w-[200px] truncate text-muted-foreground">{node.remark || '-'}</TableCell>
           <TableCell>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openCreate(node.id)} title="添加子节点">
-                <Plus className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(node.id)} title="编辑">
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(node.id)} title="删除">
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {hasPermission('system:dict:add') && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openCreate(node.id)} title="添加子节点">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
+              {hasPermission('system:dict:edit') && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(node.id)} title="编辑">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+              {hasPermission('system:dict:delete') && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(node.id)} title="删除">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </TableCell>
         </TableRow>
@@ -257,7 +276,7 @@ export default function DictDataManagement() {
     );
   }
 
-  if (!hasPermission('system:dict:list')) {
+  if (!canList) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="space-y-3 text-center">
@@ -273,7 +292,9 @@ export default function DictDataManagement() {
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>字典数据管理</CardTitle>
-          <Button onClick={() => openCreate()} disabled={!selectedType}>新增字典数据</Button>
+          {hasPermission('system:dict:add') && (
+            <Button onClick={() => openCreate()} disabled={!selectedType}>新增字典数据</Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex items-center gap-3">

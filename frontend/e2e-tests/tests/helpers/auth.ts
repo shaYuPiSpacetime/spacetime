@@ -9,9 +9,13 @@ const BASE_URL = (process.env.BASE_URL || 'http://127.0.0.1:5173').replace('loca
  */
 export async function loginViaApi(
   page: Page,
-  account = 'peter',
-  password = '000000'
+  account = process.env.ADMIN_USERNAME || '',
+  password = process.env.ADMIN_PASSWORD || ''
 ): Promise<{ token: string; permissions: string[] }> {
+  if (!account || !password) {
+    throw new Error('执行真实登录用例前必须设置 ADMIN_USERNAME 和 ADMIN_PASSWORD');
+  }
+
   const resp = await page.request.post(`${API_URL}/admin/login`, {
     data: { account, password },
     headers: { 'Content-Type': 'application/json' },

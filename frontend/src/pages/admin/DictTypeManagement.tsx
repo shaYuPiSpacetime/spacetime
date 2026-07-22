@@ -24,12 +24,15 @@ const STATUS_OPTIONS = [
 
 export default function DictTypeManagement() {
   const { hasPermission } = usePermission();
+  const canList = hasPermission('system:dict:list');
 
   const [list, setList] = useState<DictTypeVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState({ keyword: '', status: '' });
   const [loading, setLoading] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -38,16 +41,22 @@ export default function DictTypeManagement() {
   const [form, setForm] = useState({ dictName: '', dictType: '', dictSort: 0, status: 'ENABLED', remark: '' });
 
   const fetchList = useCallback(async () => {
+    if (!canList) return;
     setLoading(true);
     try {
-      const res = await getDictTypeList({ page, size: 10, keyword: keyword || undefined, status: status || undefined });
+      const res = await getDictTypeList({
+        page,
+        size: pageSize,
+        keyword: appliedFilters.keyword || undefined,
+        status: appliedFilters.status || undefined,
+      });
       const data = (res as any).data ?? {};
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [page, keyword, status]);
+  }, [appliedFilters, canList, page, pageSize]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
@@ -83,21 +92,23 @@ export default function DictTypeManagement() {
   async function handleDelete(id: number) {
     if (!confirm('确定删除该字典类型？关联的字典数据将一并删除。')) return;
     await deleteDictType(id);
-    fetchList();
+    if (list.length === 1 && page > 1) setPage((current) => current - 1);
+    else fetchList();
   }
 
   function handleSearch() {
     setPage(1);
-    fetchList();
+    setAppliedFilters({ keyword: keyword.trim(), status });
   }
 
   function handleReset() {
     setKeyword('');
     setStatus('');
     setPage(1);
+    setAppliedFilters({ keyword: '', status: '' });
   }
 
-  if (!hasPermission('system:dict:list')) {
+  if (!canList) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-3">
@@ -113,7 +124,7 @@ export default function DictTypeManagement() {
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>字典类型管理</CardTitle>
-          <Button onClick={openCreate}>新增字典类型</Button>
+          {hasPermission('system:dict:add') && <Button onClick={openCreate}>新增字典类型</Button>}
         </CardHeader>
         <CardContent>
           {/* Filter */}
@@ -168,12 +179,16 @@ export default function DictTypeManagement() {
                   <TableCell className="text-muted-foreground">{item.createTime?.replace('T', ' ').substring(0, 19) || '-'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(item.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {hasPermission('system:dict:edit') && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)} title="编辑">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {hasPermission('system:dict:delete') && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(item.id)} title="删除">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -186,8 +201,9 @@ export default function DictTypeManagement() {
             <Pagination
               total={total}
               current={page}
-              pageSize={10}
+              pageSize={pageSize}
               onChange={(p) => setPage(p)}
+              onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
             />
           </div>
         </CardContent>

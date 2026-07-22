@@ -66,6 +66,14 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("L2-25 非法页码、每页条数和状态返回参数错误")
+    void shouldRejectInvalidPaginationAndStatus() throws Exception {
+        mockMvc.perform(get("/admin/user/list?page=0&size=-1&status=UNKNOWN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(4001));
+    }
+
+    @Test
     @DisplayName("L2-05 查询用户详情")
     void shouldReturnUserDetail() throws Exception {
         UserDetailVO detail = new UserDetailVO();

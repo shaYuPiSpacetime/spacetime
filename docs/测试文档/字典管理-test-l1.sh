@@ -6,8 +6,9 @@
 #   自构建优先，自发现兜底
 # ================================================================
 API_URL="${API_URL:-http://localhost:8080}"
-ADMIN_USERNAME="${ADMIN_USERNAME:-peter}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-000000}"
+TOKEN="${TOKEN:-}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
 
@@ -81,17 +82,23 @@ if [ "$RESP_CODE" = "000" ]; then
 fi
 echo "✅ 后端 $API_URL 可达"
 
-# 登录获取 Token
-LOGIN_RESP=$(api_post_no_token "$API_URL/admin/login" "{\"account\":\"$ADMIN_USERNAME\",\"password\":\"$ADMIN_PASSWORD\"}")
-parse_response "$LOGIN_RESP"
-TOKEN=$(json_field "$RESP_BODY" "data.token")
-if [ -z "$TOKEN" ] || [ "$TOKEN" = "" ]; then
-  echo -e "${RED}❌ 登录失败，无法获取 Token (resp: $RESP_BODY)${NC}"
-  exit 1
+# 登录获取 Token，也可由外部安全注入
+if [ -z "$TOKEN" ]; then
+  if [ -z "$ADMIN_USERNAME" ] || [ -z "$ADMIN_PASSWORD" ]; then
+    echo -e "${RED}❌ 未提供 Token 时必须设置 ADMIN_USERNAME 和 ADMIN_PASSWORD${NC}"
+    exit 1
+  fi
+  LOGIN_RESP=$(api_post_no_token "$API_URL/admin/login" "{\"account\":\"$ADMIN_USERNAME\",\"password\":\"$ADMIN_PASSWORD\"}")
+  parse_response "$LOGIN_RESP"
+  TOKEN=$(json_field "$RESP_BODY" "data.token")
+  if [ -z "$TOKEN" ]; then
+    echo -e "${RED}❌ 登录失败，无法获取 Token${NC}"
+    exit 1
+  fi
+  echo "✅ 登录成功"
+else
+  echo "✅ 使用已配置的 Token"
 fi
-echo "✅ 登录成功，Token=${TOKEN:0:20}..."
-PERMISSIONS=$(json_field "$RESP_BODY" "data.permissions")
-echo "   权限: $PERMISSIONS"
 
 # ═══════════════════════════════════════════
 # 1. 字典类型管理 (DictTypeController)
@@ -112,6 +119,14 @@ parse_response "$LIST_RESP"
 assert_eq "D1-P0-01" "分页查询字典类型" "200" "$RESP_CODE"
 TOTAL_RECORDS=$(json_field "$RESP_BODY" "data.total")
 echo "   → 列表 total=$TOTAL_RECORDS"
+
+# 原始缺陷回归：切换到每页 20/50 时，后端分页大小必须生效
+SIZE_20_RESP=$(api_get "$API_URL/admin/dict-type/list?page=1&size=20")
+parse_response "$SIZE_20_RESP"
+assert_eq "D1-P0-06" "字典类型分页 size=20" "20" "$(json_field "$RESP_BODY" "data.size")"
+SIZE_50_RESP=$(api_get "$API_URL/admin/dict-type/list?page=1&size=50")
+parse_response "$SIZE_50_RESP"
+assert_eq "D1-P0-07" "字典类型分页 size=50" "50" "$(json_field "$RESP_BODY" "data.size")"
 
 # 1c. 按关键词搜索
 sleep 1
@@ -192,15 +207,17 @@ if [ -n "$CREATED_TYPE_ID" ] && [ "$CREATED_TYPE_ID" != "None" ] && [ "$CREATED_
   fi
   sleep 1
 
-  # 2c. 查询字典数据树
-  TREE_RESP=$(api_get "$API_URL/admin/dict-data/tree?dictType=$TEST_DICT_TYPE")
+  # 2c. 懒加载查询顶级与子级字典数据
+  TREE_RESP=$(api_get "$API_URL/admin/dict-data/children?dictType=$TEST_DICT_TYPE&parentId=0")
   parse_response "$TREE_RESP"
-  assert_eq "D2-P0-01" "查询字典数据树" "200" "$RESP_CODE"
-  # 应包含 children 字段
-  assert_contains "D2-P0-01-children" "树结构含children" "children" "$RESP_BODY"
+  assert_eq "D2-P0-01" "查询顶级字典数据" "200" "$RESP_CODE"
+  assert_contains "D2-P0-01-hasChildren" "顶级数据标记存在子节点" '"hasChildren":true' "$RESP_BODY"
+  CHILDREN_RESP=$(api_get "$API_URL/admin/dict-data/children?dictType=$TEST_DICT_TYPE&parentId=$CREATED_DATA_ID")
+  parse_response "$CHILDREN_RESP"
+  assert_contains "D2-P0-01-children" "查询直接子节点" "L1子级数据" "$RESP_BODY"
 
   # 2d. 不存在的字典类型查树
-  EMPTY_TREE_RESP=$(api_get "$API_URL/admin/dict-data/tree?dictType=nonexistent_$(date +%s)")
+  EMPTY_TREE_RESP=$(api_get "$API_URL/admin/dict-data/children?dictType=nonexistent_$(date +%s)&parentId=0")
   parse_response "$EMPTY_TREE_RESP"
   EMPTY_TREE_DATA=$(json_field "$RESP_BODY" "data")
   assert_eq "D2-P2-01" "不存在的字典类型返回空数组" "[]" "$EMPTY_TREE_DATA"
@@ -233,7 +250,7 @@ if [ -n "$CREATED_TYPE_ID" ] && [ "$CREATED_TYPE_ID" != "None" ] && [ "$CREATED_
     assert_eq "D2-P0-05" "级联删除字典数据" "200" "$RESP_CODE"
     sleep 1
     # 验证树中已不存在父节点（级联删除验证）
-    TREE_AFTER_RESP=$(api_get "$API_URL/admin/dict-data/tree?dictType=$TEST_DICT_TYPE")
+    TREE_AFTER_RESP=$(api_get "$API_URL/admin/dict-data/children?dictType=$TEST_DICT_TYPE&parentId=0")
     parse_response "$TREE_AFTER_RESP"
     TOTAL=$((TOTAL+1))
     if echo "$RESP_BODY" | grep -q "\"id\":$CREATED_DATA_ID"; then
@@ -260,29 +277,28 @@ echo "── 3. 权限拦截 ──"
 NOAUTH1=$(api_get_no_token "$API_URL/admin/dict-type/list?page=1&size=10")
 check_401 "D1-P3-01" "未登录调字典类型列表" "$NOAUTH1"
 
-NOAUTH2=$(api_get_no_token "$API_URL/admin/dict-data/tree?dictType=gender")
-check_401 "D2-P3-01" "未登录调字典数据树" "$NOAUTH2"
+NOAUTH2=$(api_get_no_token "$API_URL/admin/dict-data/children?dictType=gender&parentId=0")
+check_401 "D2-P3-01" "未登录调字典数据列表" "$NOAUTH2"
 
-# 3b. 无权限调创建（需要无 system:dict:add 权限的 Token）
-# 尝试创建一个无管理权限的用户来测试
-NO_PERM_TOKEN=""
-# 先尝试用登录接口获取一个已知无权限账号的 Token
-NO_PERM_RESP=$(api_post_no_token "$API_URL/admin/login" "{\"account\":\"guest\",\"password\":\"000000\"}")
-parse_response "$NO_PERM_RESP"
-NO_PERM_TOKEN_CANDIDATE=$(json_field "$RESP_BODY" "data.token")
-if [ -n "$NO_PERM_TOKEN_CANDIDATE" ] && [ "$NO_PERM_TOKEN_CANDIDATE" != "" ] && [ ${#NO_PERM_TOKEN_CANDIDATE} -gt 5 ]; then
-  NO_PERM_TOKEN="$NO_PERM_TOKEN_CANDIDATE"
-fi
+# 3b. 自建无角色用户，验证无 system:dict:add 权限时立即拦截
+NO_PERM_USERNAME="test_noperm_$(date +%s)"
+NO_PERM_PASSWORD="NoPerm123456"
+NO_PERM_CREATE_RESP=$(api_post_json "$API_URL/admin/user" "{\"username\":\"$NO_PERM_USERNAME\",\"password\":\"$NO_PERM_PASSWORD\",\"nickname\":\"无权限测试用户\",\"status\":\"ENABLED\"}")
+parse_response "$NO_PERM_CREATE_RESP"
+NO_PERM_USER_ID=$(json_field "$RESP_BODY" "data")
+NO_PERM_LOGIN_RESP=$(api_post_no_token "$API_URL/admin/login" "{\"account\":\"$NO_PERM_USERNAME\",\"password\":\"$NO_PERM_PASSWORD\"}")
+parse_response "$NO_PERM_LOGIN_RESP"
+NO_PERM_TOKEN=$(json_field "$RESP_BODY" "data.token")
 
-if [ -n "$NO_PERM_TOKEN" ]; then
+if [ -n "$NO_PERM_USER_ID" ] && [ -n "$NO_PERM_TOKEN" ]; then
   NO_PERM_RESP=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/admin/dict-type" -H "X-Auth-Token: $NO_PERM_TOKEN" -H "Content-Type: application/json" -d '{"dictName":"noperm","dictType":"noperm"}')
   check_403 "D1-P3-02" "无权限创建字典类型" "$NO_PERM_RESP"
 
   NO_PERM_DATA_RESP=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/admin/dict-data" -H "X-Auth-Token: $NO_PERM_TOKEN" -H "Content-Type: application/json" -d '{"dictType":"gender","dictLabel":"noperm","dictValue":"np"}')
   check_403 "D2-P3-02" "无权限创建字典数据" "$NO_PERM_DATA_RESP"
 else
-  skip_test "D1-P3-02" "无权限创建字典类型" "无测试用低权限账号"
-  skip_test "D2-P3-02" "无权限创建字典数据" "无测试用低权限账号"
+  assert_eq "D1-P3-02" "创建无权限测试用户" "created" "failed"
+  assert_eq "D2-P3-02" "无权限用户登录" "logged-in" "failed"
 fi
 
 # ═══════════════════════════════════════════
@@ -290,6 +306,11 @@ fi
 # ═══════════════════════════════════════════
 echo ""
 echo "── 4. 清理测试数据 ──"
+
+if [ -n "$NO_PERM_USER_ID" ]; then
+  api_delete "$API_URL/admin/user/$NO_PERM_USER_ID" > /dev/null
+  echo "✅ 清理无权限测试用户 id=$NO_PERM_USER_ID"
+fi
 
 # 删除第二个字典类型（冲突测试用的）
 if [ -n "$SECOND_TYPE" ]; then

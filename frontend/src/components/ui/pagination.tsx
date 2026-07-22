@@ -72,14 +72,14 @@ function Pagination({ current, total, pageSize = 10, onChange, onPageSizeChange,
         <ChevronsRight className="h-3 w-3" />
       </Button>
 
-      {showPageSizeSelector && (
+      {showPageSizeSelector && onPageSizeChange && (
         <span className="ml-4 text-xs">
           <select
             className="mx-1 bg-transparent text-xs outline-none"
             value={pageSize}
             onChange={(e) => {
               const newSize = Number(e.target.value);
-              onPageSizeChange?.(newSize);
+              onPageSizeChange(newSize);
               onChange(1);
             }}
           >

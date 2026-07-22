@@ -20,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -61,8 +63,10 @@ public class MenuServiceImpl implements MenuService {
     @Override
     @Transactional
     public Long create(MenuCreateReq req) {
+        Long parentId = normalizeParentId(req.getParentId());
+        validateParent(parentId, null, req.getMenuType());
         SysMenu menu = new SysMenu();
-        menu.setParentId(req.getParentId() != null ? req.getParentId() : 0L);
+        menu.setParentId(parentId);
         menu.setMenuName(req.getMenuName());
         menu.setMenuType(req.getMenuType());
         menu.setPath(req.getPath());
@@ -86,7 +90,9 @@ public class MenuServiceImpl implements MenuService {
         if (menu == null) {
             throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "菜单不存在");
         }
-        menu.setParentId(req.getParentId() != null ? req.getParentId() : menu.getParentId());
+        Long parentId = normalizeParentId(req.getParentId());
+        validateParent(parentId, req.getId(), req.getMenuType());
+        menu.setParentId(parentId);
         menu.setMenuName(req.getMenuName());
         menu.setMenuType(req.getMenuType());
         menu.setPath(req.getPath());
@@ -110,7 +116,6 @@ public class MenuServiceImpl implements MenuService {
         List<SysMenu> all = menuDao.selectAll();
         // 1. 递归收集所有子菜单 ID
         List<Long> childIds = collectChildIds(all, id);
-        childIds.add(id);
         // 2. 级联删除菜单及关联
         for (Long cid : childIds) {
             menuDao.deleteById(cid);
@@ -129,19 +134,65 @@ public class MenuServiceImpl implements MenuService {
     /** 递归收集指定节点的所有子孙 ID（含直接子节点） */
     private List<Long> collectChildIds(List<SysMenu> all, Long parentId) {
         List<Long> ids = new ArrayList<>();
-        for (SysMenu m : all) {
-            if (parentId.equals(m.getParentId())) {
-                ids.add(m.getId());
-                ids.addAll(collectChildIds(all, m.getId()));
+        Set<Long> visited = new HashSet<>();
+        List<Long> pending = new ArrayList<>();
+        pending.add(parentId);
+        while (!pending.isEmpty()) {
+            Long currentId = pending.remove(pending.size() - 1);
+            if (!visited.add(currentId)) {
+                continue;
+            }
+            ids.add(currentId);
+            for (SysMenu menu : all) {
+                if (currentId.equals(menu.getParentId())) {
+                    pending.add(menu.getId());
+                }
             }
         }
         return ids;
     }
 
+    private Long normalizeParentId(Long parentId) {
+        return parentId == null ? 0L : parentId;
+    }
+
+    private void validateParent(Long parentId, Long currentId, String menuType) {
+        if (parentId == null || parentId == 0L) {
+            return;
+        }
+        Set<Long> visited = new HashSet<>();
+        Long ancestorId = parentId;
+        SysMenu directParent = null;
+        while (ancestorId != null && ancestorId > 0) {
+            if (ancestorId.equals(currentId)) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "上级菜单不能是自身或子菜单");
+            }
+            if (!visited.add(ancestorId)) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "菜单层级存在循环引用");
+            }
+            SysMenu ancestor = menuDao.selectById(ancestorId);
+            if (ancestor == null) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "上级菜单不存在");
+            }
+            if (MenuTypeEnum.BUTTON.getCode().equals(ancestor.getMenuType())) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "按钮类型不能作为上级菜单");
+            }
+            if (directParent == null) {
+                directParent = ancestor;
+            }
+            ancestorId = ancestor.getParentId();
+        }
+        if (directParent != null
+                && !MenuTypeEnum.BUTTON.getCode().equals(menuType)
+                && !MenuTypeEnum.DIRECTORY.getCode().equals(directParent.getMenuType())) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "目录和菜单只能挂在目录下");
+        }
+    }
+
     /** 从平铺菜单列表构建树结构（parentId=0 为根） */
     private List<MenuVO> buildTree(List<SysMenu> all) {
         List<MenuVO> roots = all.stream()
-                .filter(m -> m.getParentId() == 0)
+                .filter(m -> Long.valueOf(0L).equals(m.getParentId()))
                 .map(this::toVO)
                 .sorted(Comparator.comparing(MenuVO::getMenuSort))
                 .collect(Collectors.toList());

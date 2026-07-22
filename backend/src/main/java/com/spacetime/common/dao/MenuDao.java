@@ -10,7 +10,7 @@ import java.util.List;
 public interface MenuDao {
     /** 按 ID 查询菜单 */
     SysMenu selectById(Long id);
-    /** 查询全部启用菜单（按排序号升序） */
+    /** 查询全部菜单（含禁用菜单，按排序号升序），用于后台管理。 */
     List<SysMenu> selectAll();
     /** 批量按 ID 查询菜单 */
     List<SysMenu> selectByIds(List<Long> ids);

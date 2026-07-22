@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
-import { Pencil, Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronRight, ChevronDown, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import {
   deleteMenu,
   type MenuVO,
 } from '@/api/menu';
+import { usePermission } from '@/hooks/usePermission';
 
 const MENU_TYPE_OPTIONS = [
   { value: 'M', label: '目录' },
@@ -27,16 +28,49 @@ const STATUS_OPTIONS = [
   { value: 'DISABLED', label: '禁用' },
 ];
 
-function flattenTree(nodes: MenuVO[], depth: number = 0): { value: string; label: string }[] {
+function flattenTree(nodes: MenuVO[], menuType: string, excludedIds: Set<number> = new Set(), depth: number = 0): { value: string; label: string }[] {
   const result: { value: string; label: string }[] = [];
   for (const n of nodes) {
-    result.push({ value: String(n.id), label: '  '.repeat(depth) + n.menuName });
-    if (n.children) result.push(...flattenTree(n.children, depth + 1));
+    if (excludedIds.has(n.id)) continue;
+    const canBeParent = menuType === 'F' ? n.menuType !== 'F' : n.menuType === 'M';
+    if (canBeParent) result.push({ value: String(n.id), label: '  '.repeat(depth) + n.menuName });
+    if (n.children) result.push(...flattenTree(n.children, menuType, excludedIds, depth + 1));
   }
   return result;
 }
 
+function findMenu(nodes: MenuVO[], targetId: number): MenuVO | null {
+  for (const node of nodes) {
+    if (node.id === targetId) return node;
+    const found = node.children ? findMenu(node.children, targetId) : null;
+    if (found) return found;
+  }
+  return null;
+}
+
+function collectSubtreeIds(nodes: MenuVO[], targetId: number): Set<number> {
+  const ids = new Set<number>();
+  function findAndCollect(items: MenuVO[]): boolean {
+    for (const item of items) {
+      if (item.id === targetId) {
+        (function collect(node: MenuVO) {
+          ids.add(node.id);
+          node.children?.forEach(collect);
+        })(item);
+        return true;
+      }
+      if (item.children && findAndCollect(item.children)) return true;
+    }
+    return false;
+  }
+  findAndCollect(nodes);
+  return ids;
+}
+
 export default function MenuManagement() {
+  const { hasPermission } = usePermission();
+  const canList = hasPermission('system:menu:list');
+
   const [tree, setTree] = useState<MenuVO[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -44,11 +78,13 @@ export default function MenuManagement() {
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [parentOptions, setParentOptions] = useState<{ value: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ parentId: '', menuName: '', menuType: 'C', path: '', component: '', icon: '', perms: '', menuSort: 0, status: 'ENABLED', visible: 1, remark: '' });
+  const excludedParentIds = editingId ? collectSubtreeIds(tree, editingId) : new Set<number>();
+  const parentOptions = [{ value: '', label: '顶级（无）' }, ...flattenTree(tree, form.menuType, excludedParentIds)];
 
   const fetchTree = useCallback(async () => {
+    if (!canList) return;
     setLoading(true);
     try {
       const res = await getMenuTree();
@@ -63,14 +99,14 @@ export default function MenuManagement() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canList]);
 
   useEffect(() => { fetchTree(); }, [fetchTree]);
 
   function openCreate(parentId?: number) {
     setEditingId(null);
-    setForm({ parentId: parentId ? String(parentId) : '', menuName: '', menuType: 'C', path: '', component: '', icon: '', perms: '', menuSort: 0, status: 'ENABLED', visible: 1, remark: '' });
-    setParentOptions([{ value: '', label: '顶级（无）' }, ...flattenTree(tree)]);
+    const parent = parentId ? findMenu(tree, parentId) : null;
+    setForm({ parentId: parentId ? String(parentId) : '', menuName: '', menuType: parent?.menuType === 'C' ? 'F' : 'C', path: '', component: '', icon: '', perms: '', menuSort: 0, status: 'ENABLED', visible: 1, remark: '' });
     setDialogOpen(true);
   }
 
@@ -80,7 +116,6 @@ export default function MenuManagement() {
       const res = await getMenuDetail(id);
       const m = (res as any).data as MenuVO;
       setForm({ parentId: m.parentId ? String(m.parentId) : '', menuName: m.menuName, menuType: m.menuType, path: m.path ?? '', component: m.component ?? '', icon: m.icon ?? '', perms: m.perms ?? '', menuSort: m.menuSort ?? 0, status: m.status, visible: m.visible ?? 1, remark: m.remark ?? '' });
-      setParentOptions([{ value: '', label: '顶级（无）' }, ...flattenTree(tree)]);
       setDialogOpen(true);
     } catch { /* ignore */ }
   }
@@ -90,7 +125,7 @@ export default function MenuManagement() {
     setSaving(true);
     try {
       const data = {
-        parentId: form.parentId ? Number(form.parentId) : undefined,
+        parentId: form.parentId ? Number(form.parentId) : 0,
         menuName: form.menuName.trim(),
         menuType: form.menuType,
         path: form.path.trim() || undefined,
@@ -160,18 +195,25 @@ export default function MenuManagement() {
             <Badge variant={node.visible === 1 ? 'success' : 'destructive'}>{node.visible === 1 ? '可见' : '隐藏'}</Badge>
           </TableCell>
           <TableCell>
+            <Badge variant={node.status === 'ENABLED' ? 'success' : 'destructive'}>{node.status === 'ENABLED' ? '启用' : '禁用'}</Badge>
+          </TableCell>
+          <TableCell>
             <div className="flex items-center gap-1">
-              {node.menuType !== 'F' && (
+              {node.menuType !== 'F' && hasPermission('system:menu:add') && (
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openCreate(node.id)} title="添加子节点">
                   <Plus className="h-4 w-4" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(node.id)}>
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(node.id)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {hasPermission('system:menu:edit') && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(node.id)} title="编辑">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+              {hasPermission('system:menu:delete') && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(node.id)} title="删除">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </TableCell>
         </TableRow>
@@ -180,12 +222,23 @@ export default function MenuManagement() {
     );
   }
 
+  if (!canList) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="space-y-3 text-center">
+          <ShieldAlert className="mx-auto h-12 w-12 text-muted-foreground" />
+          <p className="text-muted-foreground">您没有访问该页面的权限</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>菜单管理</CardTitle>
-          <Button onClick={() => openCreate()}>新增菜单</Button>
+          {hasPermission('system:menu:add') && <Button onClick={() => openCreate()}>新增菜单</Button>}
         </CardHeader>
         <CardContent>
           <Table>
@@ -197,14 +250,15 @@ export default function MenuManagement() {
                 <TableHead>权限标识</TableHead>
                 <TableHead>排序</TableHead>
                 <TableHead>可见</TableHead>
+                <TableHead>状态</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">加载中…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">加载中…</TableCell></TableRow>
               ) : tree.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : tree.map((node) => renderRow(node))}
             </TableBody>
           </Table>
@@ -221,7 +275,15 @@ export default function MenuManagement() {
           </div>
           <div>
             <label className="text-sm font-medium">菜单类型</label>
-            <Select options={MENU_TYPE_OPTIONS} value={form.menuType} onChange={(v) => setForm({ ...form, menuType: v, path: '', component: '', perms: '' })} />
+            <Select
+              options={MENU_TYPE_OPTIONS}
+              value={form.menuType}
+              onChange={(value) => {
+                const parent = form.parentId ? findMenu(tree, Number(form.parentId)) : null;
+                const parentAllowed = !parent || (value === 'F' ? parent.menuType !== 'F' : parent.menuType === 'M');
+                setForm({ ...form, menuType: value, parentId: parentAllowed ? form.parentId : '', path: '', component: '', perms: '' });
+              }}
+            />
           </div>
           <div>
             <label className="text-sm font-medium">菜单名称</label>

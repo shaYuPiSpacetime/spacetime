@@ -7,8 +7,8 @@
 # ================================================================
 API_URL="${API_URL:-http://localhost:8080}"
 TOKEN="${TOKEN:-}"
-ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
 # ── 认证头使用 X-Auth-Token ──
 api_post()          { curl -s -w "\n%{http_code}" -X POST "$1" -H "X-Auth-Token: ${TOKEN}"; }
@@ -86,11 +86,15 @@ echo ""
 echo "── 1. 数据准备 ──"
 
 if [ -z "$TOKEN" ]; then
-  LOGIN_JSON=$(printf '{"username":"%s","password":"%s"}' "$ADMIN_USERNAME" "$ADMIN_PASSWORD")
+  if [ -z "$ADMIN_USERNAME" ] || [ -z "$ADMIN_PASSWORD" ]; then
+    echo "❌ 未提供 Token 时必须设置 ADMIN_USERNAME 和 ADMIN_PASSWORD"
+    exit 1
+  fi
+  LOGIN_JSON=$(printf '{"account":"%s","password":"%s"}' "$ADMIN_USERNAME" "$ADMIN_PASSWORD")
   parse_response "$(api_post_no_token "$API_URL/admin/login" "$LOGIN_JSON")"
   TOKEN=$(json_field "$RESP_BODY" "data.token")
   if [ -n "$TOKEN" ] && [ "$TOKEN" != "none" ]; then
-    echo "✅ 登录成功，获取 Token: ${TOKEN:0:12}..."
+    echo "✅ 登录成功"
     ADMIN_PERMISSIONS=$(echo "$RESP_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',{}).get('permissions',[])))" 2>/dev/null)
     echo "   权限数量: $ADMIN_PERMISSIONS"
   else
@@ -99,7 +103,7 @@ if [ -z "$TOKEN" ]; then
     exit 1
   fi
 else
-  echo "✅ 使用已配置的 Token: ${TOKEN:0:12}..."
+  echo "✅ 使用已配置的 Token"
 fi
 
 # ═══════════════════════════════════════════
@@ -119,13 +123,13 @@ echo ""
 echo "── 3. 缺参 / 参数校验 ──"
 
 # 登录缺参 - 验证失败返回 200 HTTP 但 code=4001 (PARAM_ERROR)
-parse_response "$(api_post_no_token "$API_URL/admin/login" '{"username":"admin"}')"
+parse_response "$(api_post_no_token "$API_URL/admin/login" '{"account":"admin"}')"
 assert_eq "F1-P2-05" "登录缺密码-HTTP状态" "200" "$RESP_CODE"
 assert_contains "F1-P2-05" "登录缺密码-非成功" "4001" "$RESP_BODY"
 
 parse_response "$(api_post_no_token "$API_URL/admin/login" '{"password":"xxx"}')"
-assert_eq "F1-P2-04" "登录缺用户名-HTTP状态" "200" "$RESP_CODE"
-assert_contains "F1-P2-04" "登录缺用户名-非成功" "4001" "$RESP_BODY"
+assert_eq "F1-P2-04" "登录缺账号-HTTP状态" "200" "$RESP_CODE"
+assert_contains "F1-P2-04" "登录缺账号-非成功" "4001" "$RESP_BODY"
 
 # 创建用户缺必填字段
 parse_response "$(api_post_json "$API_URL/admin/user" '{"username":"test_missing"}')"
@@ -180,10 +184,21 @@ echo "   用户总数: $user_total"
 # 取首个用户 ID 给后续用
 FIRST_USER_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); recs=d.get('data',{}).get('records',[]); print(recs[0]['id'] if recs else '')" 2>/dev/null)
 
+# 分页大小回归：每页 20/50 必须由后端原样接收
+parse_response "$(api_get "$API_URL/admin/user/list?page=1&size=20")"
+assert_eq "F2-P0-08" "用户分页 size=20" "20" "$(json_field "$RESP_BODY" "data.size")"
+parse_response "$(api_get "$API_URL/admin/user/list?page=1&size=50")"
+assert_eq "F2-P0-09" "用户分页 size=50" "50" "$(json_field "$RESP_BODY" "data.size")"
+
 # 角色分页
 parse_response "$(api_get "$API_URL/admin/role/list?page=1&size=10")"
 assert_eq "F3-P0-01" "角色分页查询" "200" "$RESP_CODE"
 FIRST_ROLE_ID=$(echo "$RESP_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); recs=d.get('data',{}).get('records',[]); print(recs[0]['id'] if recs else '')" 2>/dev/null)
+
+parse_response "$(api_get "$API_URL/admin/role/list?page=1&size=20")"
+assert_eq "F3-P0-08" "角色分页 size=20" "20" "$(json_field "$RESP_BODY" "data.size")"
+parse_response "$(api_get "$API_URL/admin/role/list?page=1&size=50")"
+assert_eq "F3-P0-09" "角色分页 size=50" "50" "$(json_field "$RESP_BODY" "data.size")"
 
 # 首个菜单 ID
 parse_response "$(api_get "$API_URL/admin/menu/list")"
@@ -232,7 +247,7 @@ TEST_ROLE_CODE="test_role_$(date +%s)"
 ROLE_CREATE_JSON=$(printf '{"roleName":"%s","roleCode":"%s","roleSort":99}' '测试角色' "$TEST_ROLE_CODE")
 parse_response "$(api_post_json "$API_URL/admin/role" "$ROLE_CREATE_JSON")"
 assert_eq "F3-P0-04" "创建角色" "200" "$RESP_CODE"
-CREATED_ROLE_ID=$(json_field "$RESP_BODY" "data.id")
+CREATED_ROLE_ID=$(json_field "$RESP_BODY" "data")
 if [ -z "$CREATED_ROLE_ID" ] || [ "$CREATED_ROLE_ID" = "none" ]; then
   # 尝试从列表反查
   CREATED_ROLE_ID=$(query_record "$API_URL/admin/role/list?page=1&size=100" "if r.get('roleCode')=='$TEST_ROLE_CODE': print(r['id'])")
@@ -259,7 +274,7 @@ TEST_MENU_NAME="test_menu_$(date +%s)"
 MENU_CREATE_JSON=$(printf '{"menuName":"%s","menuType":"M","path":"/test","menuSort":99}' "$TEST_MENU_NAME")
 parse_response "$(api_post_json "$API_URL/admin/menu" "$MENU_CREATE_JSON")"
 assert_eq "F4-P0-04" "创建目录菜单" "200" "$RESP_CODE"
-CREATED_MENU_ID=$(json_field "$RESP_BODY" "data.id")
+CREATED_MENU_ID=$(json_field "$RESP_BODY" "data")
 if [ -z "$CREATED_MENU_ID" ] || [ "$CREATED_MENU_ID" = "none" ]; then
   # 菜单列表返回 data 为扁平数组（非分页），直接查询
   parse_response "$(api_get "$API_URL/admin/menu/list")"
@@ -281,7 +296,7 @@ TEST_USERNAME="testuser_$(date +%s)"
 USER_CREATE_JSON=$(printf '{"username":"%s","password":"Test123456","nickname":"%s","status":"ENABLED"}' "$TEST_USERNAME" '测试用户')
 parse_response "$(api_post_json "$API_URL/admin/user" "$USER_CREATE_JSON")"
 assert_eq "F2-P0-03" "创建用户" "200" "$RESP_CODE"
-CREATED_USER_ID=$(json_field "$RESP_BODY" "data.id")
+CREATED_USER_ID=$(json_field "$RESP_BODY" "data")
 if [ -z "$CREATED_USER_ID" ] || [ "$CREATED_USER_ID" = "none" ]; then
   CREATED_USER_ID=$(query_record "$API_URL/admin/user/list?page=1&size=100" "if r.get('username')=='$TEST_USERNAME': print(r['id'])")
 fi

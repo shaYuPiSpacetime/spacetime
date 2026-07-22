@@ -2,6 +2,8 @@ package com.spacetime.admin.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
 
 /**
@@ -16,6 +18,7 @@ public class DictDataUpdateReq {
     @NotBlank(message = "字典类型编码不能为空")
     private String dictType;
     /** 父级 ID（0=顶级） */
+    @PositiveOrZero(message = "父级ID不能为负数")
     private Long parentId;
     /** 字典标签（显示文本） */
     @NotNull(message = "字典标签不能为空")
@@ -28,6 +31,7 @@ public class DictDataUpdateReq {
     /** 排序号 */
     private Integer dictSort;
     /** 状态：ENABLED=启用 / DISABLED=禁用 */
+    @Pattern(regexp = "ENABLED|DISABLED", message = "状态只能是ENABLED或DISABLED")
     private String status;
     /** 备注 */
     private String remark;

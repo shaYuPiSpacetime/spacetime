@@ -17,7 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 字典数据服务实现
@@ -42,9 +44,12 @@ public class DictDataServiceImpl implements DictDataService {
     @Override
     @Transactional
     public Long create(DictDataCreateReq req) {
+        validateDictType(req.getDictType());
+        Long parentId = normalizeParentId(req.getParentId());
+        validateParent(parentId, req.getDictType(), null);
         SysDictData entity = new SysDictData();
         entity.setDictType(req.getDictType());
-        entity.setParentId(req.getParentId() != null ? req.getParentId() : 0L);
+        entity.setParentId(parentId);
         entity.setDictLabel(req.getDictLabel());
         entity.setDictValue(req.getDictValue());
         entity.setDictSort(req.getDictSort() != null ? req.getDictSort() : 0);
@@ -62,8 +67,13 @@ public class DictDataServiceImpl implements DictDataService {
         if (entity == null) {
             throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "字典数据不存在");
         }
-        entity.setDictType(req.getDictType());
-        entity.setParentId(req.getParentId() != null ? req.getParentId() : 0L);
+        validateDictType(req.getDictType());
+        if (!entity.getDictType().equals(req.getDictType())) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "不能修改字典数据所属类型");
+        }
+        Long parentId = normalizeParentId(req.getParentId());
+        validateParent(parentId, req.getDictType(), req.getId());
+        entity.setParentId(parentId);
         entity.setDictLabel(req.getDictLabel());
         entity.setDictValue(req.getDictValue());
         entity.setDictSort(req.getDictSort() != null ? req.getDictSort() : 0);
@@ -76,25 +86,73 @@ public class DictDataServiceImpl implements DictDataService {
     @Override
     @Transactional
     public void delete(Long id) {
+        SysDictData entity = dictDataDao.selectById(id);
+        if (entity == null) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "字典数据不存在");
+        }
         List<SysDictData> all = dictDataDao.selectList(
-                new LambdaQueryWrapper<SysDictData>().orderByAsc(SysDictData::getDictSort));
-        List<Long> idsToDelete = new ArrayList<>();
-        idsToDelete.add(id);
-        collectChildIds(all, id, idsToDelete);
+                new LambdaQueryWrapper<SysDictData>()
+                        .eq(SysDictData::getDictType, entity.getDictType())
+                        .orderByAsc(SysDictData::getDictSort));
+        List<Long> idsToDelete = collectChildIds(all, id);
         for (Long did : idsToDelete) {
             dictDataDao.deleteById(did);
         }
         log.info("dict data deleted: id={}, cascadeCount={}", id, idsToDelete.size());
     }
 
-    /** 构建树形结构 */
-    /** 递归收集子孙节点 ID（含自身） */
-    private void collectChildIds(List<SysDictData> all, Long parentId, List<Long> result) {
-        for (SysDictData entity : all) {
-            if (entity.getParentId().equals(parentId)) {
-                result.add(entity.getId());
-                collectChildIds(all, entity.getId(), result);
+    /** 收集子孙节点 ID（含自身），并避免脏数据导致无限递归。 */
+    private List<Long> collectChildIds(List<SysDictData> all, Long rootId) {
+        List<Long> result = new ArrayList<>();
+        Set<Long> visited = new HashSet<>();
+        List<Long> pending = new ArrayList<>();
+        pending.add(rootId);
+        while (!pending.isEmpty()) {
+            Long currentId = pending.remove(pending.size() - 1);
+            if (!visited.add(currentId)) {
+                continue;
             }
+            result.add(currentId);
+            for (SysDictData data : all) {
+                if (currentId.equals(data.getParentId())) {
+                    pending.add(data.getId());
+                }
+            }
+        }
+        return result;
+    }
+
+    private Long normalizeParentId(Long parentId) {
+        return parentId == null ? 0L : parentId;
+    }
+
+    private void validateDictType(String dictType) {
+        if (dictTypeDao.selectByCode(dictType) == null) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "字典类型不存在");
+        }
+    }
+
+    private void validateParent(Long parentId, String dictType, Long currentId) {
+        if (parentId == null || parentId == 0L) {
+            return;
+        }
+        Set<Long> visited = new HashSet<>();
+        Long ancestorId = parentId;
+        while (ancestorId != null && ancestorId > 0) {
+            if (ancestorId.equals(currentId)) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "上级字典不能是自身或子节点");
+            }
+            if (!visited.add(ancestorId)) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "字典层级存在循环引用");
+            }
+            SysDictData ancestor = dictDataDao.selectById(ancestorId);
+            if (ancestor == null) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "上级字典不存在");
+            }
+            if (!dictType.equals(ancestor.getDictType())) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "上级字典必须属于同一字典类型");
+            }
+            ancestorId = ancestor.getParentId();
         }
     }
 

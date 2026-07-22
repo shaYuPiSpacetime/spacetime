@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 const baseURL = (process.env.BASE_URL || 'http://127.0.0.1:5173').replace('localhost', '127.0.0.1');
+const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: './tests',
@@ -15,6 +16,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'on-first-retry',
+    launchOptions: executablePath ? { executablePath } : undefined,
   },
   projects: [
     {

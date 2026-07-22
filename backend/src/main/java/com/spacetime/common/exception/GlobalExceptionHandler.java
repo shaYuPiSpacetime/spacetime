@@ -6,12 +6,14 @@ import com.spacetime.common.result.R;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.stream.Collectors;
 
@@ -40,6 +42,24 @@ public class GlobalExceptionHandler {
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         log.warn("validation error: {}", message);
+        return R.fail(ResultCodeEnum.PARAM_ERROR.getCode(), message);
+    }
+
+    /** 查询参数绑定或校验失败。 */
+    @ExceptionHandler(BindException.class)
+    public R<Void> handleBindException(BindException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        log.warn("binding error: {}", message);
+        return R.fail(ResultCodeEnum.PARAM_ERROR.getCode(), message);
+    }
+
+    /** 路径或查询参数类型错误，例如把 page 传成非数字。 */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public R<Void> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException e) {
+        String message = e.getName() + ": 参数格式不正确";
+        log.warn("argument type mismatch: {}", message);
         return R.fail(ResultCodeEnum.PARAM_ERROR.getCode(), message);
     }
 

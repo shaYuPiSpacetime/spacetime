@@ -11,6 +11,7 @@ import com.spacetime.admin.service.DictTypeService;
 import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.dao.DictTypeDao;
 import com.spacetime.common.entity.SysDictType;
+import com.spacetime.common.entity.SysDictData;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.ResultCodeEnum;
 import com.spacetime.common.exception.BusinessException;
@@ -81,6 +82,15 @@ public class DictTypeServiceImpl implements DictTypeService {
         SysDictType byCode = dictTypeDao.selectByCode(req.getDictType());
         if (byCode != null && !byCode.getId().equals(req.getId())) {
             throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "字典类型编码已被其他字典使用");
+        }
+        String oldDictType = entity.getDictType();
+        if (!oldDictType.equals(req.getDictType())) {
+            List<SysDictData> dataList = dictDataDao.selectList(
+                    new LambdaQueryWrapper<SysDictData>().eq(SysDictData::getDictType, oldDictType));
+            for (SysDictData data : dataList) {
+                data.setDictType(req.getDictType());
+                dictDataDao.updateById(data);
+            }
         }
         entity.setDictName(req.getDictName());
         entity.setDictType(req.getDictType());

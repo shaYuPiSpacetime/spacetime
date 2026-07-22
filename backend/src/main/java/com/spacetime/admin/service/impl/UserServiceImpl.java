@@ -17,6 +17,8 @@ import com.spacetime.common.entity.SysUserRole;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.ResultCodeEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.interceptor.UserContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,8 +44,10 @@ public class UserServiceImpl implements UserService {
     @Override
     public Page<UserVO> list(UserPageReq req) {
         LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<SysUser>()
-                .like(StrUtil.isNotBlank(req.getKeyword()), SysUser::getUsername, req.getKeyword())
-                .or().like(StrUtil.isNotBlank(req.getKeyword()), SysUser::getNickname, req.getKeyword())
+                .and(StrUtil.isNotBlank(req.getKeyword()), keyword -> keyword
+                        .like(SysUser::getUsername, req.getKeyword())
+                        .or().like(SysUser::getNickname, req.getKeyword())
+                        .or().like(SysUser::getEmail, req.getKeyword()))
                 .eq(StrUtil.isNotBlank(req.getStatus()), SysUser::getStatus, req.getStatus())
                 .orderByDesc(SysUser::getCreateTime);
         Page<SysUser> page = userDao.selectPage(
@@ -113,6 +117,22 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void delete(Long id) {
+        SysUser user = userDao.selectById(id);
+        if (user == null) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "用户不存在");
+        }
+        UserContext context = UserContextHolder.get();
+        if (context != null && id.equals(context.getId())) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "不能删除当前登录用户");
+        }
+        List<SysUserRole> userRoles = userRoleDao.selectByUserId(id);
+        if (!userRoles.isEmpty()) {
+            List<SysRole> roles = roleDao.selectBatchIds(
+                    userRoles.stream().map(SysUserRole::getRoleId).distinct().toList());
+            if (roles.stream().anyMatch(role -> "super_admin".equals(role.getRoleCode()))) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "不能删除超级管理员用户");
+            }
+        }
         userDao.deleteById(id);
         userRoleDao.deleteByUserId(id);
         log.info("user deleted: id={}", id);
@@ -139,12 +159,27 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void assignRoles(UserRoleReq req) {
+        if (userDao.selectById(req.getUserId()) == null) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "用户不存在");
+        }
+        List<Long> roleIds = req.getRoleIds() == null
+                ? List.of()
+                : req.getRoleIds().stream().distinct().toList();
+        if (!roleIds.isEmpty()) {
+            List<SysRole> roles = roleDao.selectBatchIds(roleIds);
+            if (roles.size() != roleIds.size()) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "角色不存在");
+            }
+            if (roles.stream().anyMatch(role -> !CommonStatusEnum.ENABLED.getCode().equals(role.getStatus()))) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "不能分配已禁用角色");
+            }
+        }
         // 1. 清除旧关联
         userRoleDao.deleteByUserId(req.getUserId());
         // 2. 批量插入新关联
-        if (req.getRoleIds() != null && !req.getRoleIds().isEmpty()) {
+        if (!roleIds.isEmpty()) {
             List<SysUserRole> list = new ArrayList<>();
-            for (Long roleId : req.getRoleIds()) {
+            for (Long roleId : roleIds) {
                 SysUserRole ur = new SysUserRole();
                 ur.setUserId(req.getUserId());
                 ur.setRoleId(roleId);

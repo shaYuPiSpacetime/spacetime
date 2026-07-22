@@ -33,6 +33,7 @@ public class DictTypeController {
 
     /** 查询全部启用字典类型（下拉选择用） */
     @GetMapping("/all")
+    @RequirePermission("system:dict:list")
     public R<List<DictTypeVO>> all() {
         return R.ok(dictTypeService.all());
     }

@@ -1,5 +1,9 @@
 package com.spacetime.admin.service;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.*;
 import com.spacetime.admin.dto.response.UserDetailVO;
 import com.spacetime.admin.service.impl.UserServiceImpl;
@@ -10,11 +14,17 @@ import com.spacetime.common.entity.SysUser;
 import com.spacetime.common.entity.SysUserRole;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.interceptor.UserContextHolder;
+import org.junit.jupiter.api.AfterEach;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,6 +39,11 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserServiceImpl L3 测试")
 class UserServiceImplTest {
+
+    @BeforeAll
+    static void initTableInfo() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), SysUser.class);
+    }
 
     @Mock
     private UserDao userDao;
@@ -45,6 +60,11 @@ class UserServiceImplTest {
     @BeforeEach
     void setUp() {
         // No common setup needed beyond mocks
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContextHolder.clear();
     }
 
     @Test
@@ -126,6 +146,16 @@ class UserServiceImplTest {
     @Test
     @DisplayName("L3-09 分配角色：先清除旧关联再插入新关联")
     void shouldClearOldRolesThenInsertNewOnes() {
+        SysUser user = new SysUser();
+        user.setId(1L);
+        when(userDao.selectById(1L)).thenReturn(user);
+        com.spacetime.common.entity.SysRole role1 = new com.spacetime.common.entity.SysRole();
+        role1.setId(1L);
+        role1.setStatus("ENABLED");
+        com.spacetime.common.entity.SysRole role2 = new com.spacetime.common.entity.SysRole();
+        role2.setId(2L);
+        role2.setStatus("ENABLED");
+        when(roleDao.selectBatchIds(List.of(1L, 2L))).thenReturn(List.of(role1, role2));
         UserRoleReq req = new UserRoleReq();
         req.setUserId(1L);
         req.setRoleIds(List.of(1L, 2L));
@@ -134,6 +164,20 @@ class UserServiceImplTest {
 
         verify(userRoleDao).deleteByUserId(1L);
         verify(userRoleDao).batchInsert(anyList());
+    }
+
+    @Test
+    @DisplayName("L3-22 不允许删除当前登录用户")
+    void shouldRejectDeletingCurrentUser() {
+        SysUser user = new SysUser();
+        user.setId(1L);
+        when(userDao.selectById(1L)).thenReturn(user);
+        UserContextHolder.set(new UserContext(1L, "peter", null, List.of()));
+
+        assertThatThrownBy(() -> userService.delete(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("当前登录用户");
+        verify(userDao, never()).deleteById(any());
     }
 
     @Test
@@ -148,5 +192,29 @@ class UserServiceImplTest {
         assertThatThrownBy(() -> userService.resetPassword(req))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("用户不存在");
+    }
+
+    @Test
+    @DisplayName("L3-19 用户关键词应覆盖邮箱并与状态条件正确分组")
+    void shouldGroupUserKeywordConditionsAndIncludeEmail() {
+        Page<SysUser> emptyPage = new Page<>(1, 20, 0);
+        emptyPage.setRecords(List.of());
+        when(userDao.selectPage(any(), any())).thenReturn(emptyPage);
+
+        UserPageReq req = new UserPageReq();
+        req.setKeyword("example.com");
+        req.setStatus("DISABLED");
+        userService.list(req);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<SysUser>> wrapperCaptor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(userDao).selectPage(any(), wrapperCaptor.capture());
+        String sql = wrapperCaptor.getValue().getCustomSqlSegment().toLowerCase();
+        assertThat(sql)
+                .contains("username")
+                .contains("nickname")
+                .contains("email")
+                .contains(") and status");
     }
 }

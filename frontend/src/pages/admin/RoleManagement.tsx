@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Pencil, Trash2, Menu, Search, RotateCcw } from 'lucide-react';
+import { Pencil, Trash2, Menu, RotateCcw, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import {
   type RoleDetailVO,
 } from '@/api/role';
 import { getMenuTree, type MenuVO } from '@/api/menu';
+import { usePermission } from '@/hooks/usePermission';
 
 const STATUS_OPTIONS = [
   { value: '', label: '全部状态' },
@@ -27,10 +28,14 @@ const STATUS_OPTIONS = [
 ];
 
 export default function RoleManagement() {
+  const { hasPermission } = usePermission();
+  const canList = hasPermission('system:role:list');
+
   // List state
   const [list, setList] = useState<RoleVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,24 +53,26 @@ export default function RoleManagement() {
   const [checkedMenuIds, setCheckedMenuIds] = useState<number[]>([]);
   const [expandedMenuIds, setExpandedMenuIds] = useState<Set<number>>(new Set());
   const [menuSaving, setMenuSaving] = useState(false);
+  const [menuLoading, setMenuLoading] = useState(false);
 
   const fetchList = useCallback(async () => {
+    if (!canList) return;
     setLoading(true);
     try {
-      const res = await getRoleList({ page, size: 10, keyword: keyword || undefined, status: status || undefined });
+      const res = await getRoleList({ page, size: pageSize, keyword: keyword || undefined, status: status || undefined });
       const data = (res as any).data;
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [page, keyword, status]);
+  }, [canList, page, pageSize, keyword, status]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
   function openCreate() {
     setEditingId(null);
-    setForm({ roleName: '', roleCode: '', roleGroup: '', roleSort: 0, status: '0', remark: '' });
+    setForm({ roleName: '', roleCode: '', roleGroup: '', roleSort: 0, status: 'ENABLED', remark: '' });
     setDialogOpen(true);
   }
 
@@ -99,13 +106,16 @@ export default function RoleManagement() {
   async function handleDelete(id: number) {
     if (!confirm('确定删除该角色？')) return;
     await deleteRole(id);
-    fetchList();
+    if (list.length === 1 && page > 1) setPage((current) => current - 1);
+    else fetchList();
   }
 
   async function openMenuDialog(id: number) {
     setMenuRoleId(id);
-    setMenuDialogOpen(true);
+    setMenuTree([]);
+    setCheckedMenuIds([]);
     setExpandedMenuIds(new Set());
+    setMenuLoading(true);
     try {
       const [treeRes, detailRes] = await Promise.all([getMenuTree(), getRoleDetail(id)]);
       const tree = (treeRes as any).data ?? [];
@@ -117,7 +127,9 @@ export default function RoleManagement() {
         for (const n of nodes) { allIds.add(n.id); if (n.children) collect(n.children); }
       })(tree);
       setExpandedMenuIds(allIds);
+      setMenuDialogOpen(true);
     } catch { /* ignore */ }
+    finally { setMenuLoading(false); }
   }
 
   async function handleSaveMenus() {
@@ -144,10 +156,23 @@ export default function RoleManagement() {
       if (has) {
         next = next.filter((mid) => !childIds.has(mid));
       } else {
+        const ancestorIds = findAncestorIds(menuTree, id);
+        for (const ancestorId of ancestorIds) { if (!next.includes(ancestorId)) next.push(ancestorId); }
         for (const cid of childIds) { if (!next.includes(cid)) next.push(cid); }
       }
       return next;
     });
+  }
+
+  function findAncestorIds(nodes: MenuVO[], targetId: number, ancestors: number[] = []): number[] {
+    for (const node of nodes) {
+      if (node.id === targetId) return ancestors;
+      if (node.children) {
+        const found = findAncestorIds(node.children, targetId, [...ancestors, node.id]);
+        if (found.length || node.children.some((child) => child.id === targetId)) return found;
+      }
+    }
+    return [];
   }
 
   function toggleMenuExpand(id: number) {
@@ -184,12 +209,23 @@ export default function RoleManagement() {
     ));
   }
 
+  if (!canList) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="space-y-3 text-center">
+          <ShieldAlert className="mx-auto h-12 w-12 text-muted-foreground" />
+          <p className="text-muted-foreground">您没有访问该页面的权限</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>角色管理</CardTitle>
-          <Button onClick={openCreate}>新增角色</Button>
+          {hasPermission('system:role:add') && <Button onClick={openCreate}>新增角色</Button>}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
@@ -234,15 +270,21 @@ export default function RoleManagement() {
                   <TableCell className="text-muted-foreground">{r.createTime || '-'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r.id)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(r.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8" onClick={() => openMenuDialog(r.id)}>
-                        <Menu className="h-4 w-4 mr-1" /> 分配菜单
-                      </Button>
+                      {hasPermission('system:role:edit') && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r.id)} title="编辑">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {hasPermission('system:role:delete') && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(r.id)} title="删除">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {hasPermission('system:role:edit') && hasPermission('system:menu:list') && (
+                        <Button variant="ghost" size="sm" className="h-8" onClick={() => openMenuDialog(r.id)}>
+                          <Menu className="h-4 w-4 mr-1" /> 分配菜单
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -250,7 +292,13 @@ export default function RoleManagement() {
             </TableBody>
           </Table>
 
-          <Pagination current={page} total={total} onChange={setPage} />
+          <Pagination
+            current={page}
+            total={total}
+            pageSize={pageSize}
+            onChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+          />
         </CardContent>
       </Card>
 
@@ -298,7 +346,7 @@ export default function RoleManagement() {
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => setMenuDialogOpen(false)}>取消</Button>
-          <Button onClick={handleSaveMenus} disabled={menuSaving}>{menuSaving ? '保存中…' : '保存'}</Button>
+          <Button onClick={handleSaveMenus} disabled={menuSaving || menuLoading}>{menuSaving ? '保存中…' : '保存'}</Button>
         </div>
       </Dialog>
     </div>

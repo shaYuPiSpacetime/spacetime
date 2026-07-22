@@ -1,7 +1,25 @@
 import { test, expect } from '@playwright/test';
-import { loginViaApi, authHeaders } from './helpers/auth';
+import { loginViaApi } from './helpers/auth';
 
 const API_URL = process.env.API_URL || 'http://localhost:8080';
+
+test.describe('管理后台真实登录主链路', () => {
+  test('L4-00 从登录页输入账号密码后进入后台', async ({ page }) => {
+    const account = process.env.ADMIN_USERNAME;
+    const password = process.env.ADMIN_PASSWORD;
+    if (!account || !password) {
+      throw new Error('执行真实登录用例前必须设置 ADMIN_USERNAME 和 ADMIN_PASSWORD');
+    }
+
+    await page.goto('/login');
+    await page.getByPlaceholder('请输入用户名/手机号').fill(account);
+    await page.getByPlaceholder('请输入密码').fill(password);
+    await page.getByRole('button', { name: '登录' }).click();
+
+    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 10000 });
+    await expect.poll(() => page.evaluate(() => Boolean(localStorage.getItem('token')))).toBe(true);
+  });
+});
 
 test.describe('RBAC 基础功能 E2E 测试', () => {
   let token: string;
@@ -23,8 +41,9 @@ test.describe('RBAC 基础功能 E2E 测试', () => {
   });
 
   test('L4-02 点击用户管理导航到 /system/user', async ({ page }) => {
-    // 点击用户管理菜单
-    await page.getByText('用户管理').first().click();
+    // 首页时系统管理分组默认折叠，先展开再点击子菜单
+    await page.getByRole('button', { name: '系统管理', exact: true }).click();
+    await page.getByRole('link', { name: '用户管理', exact: true }).click();
     await page.waitForURL('**/system/user**', { timeout: 5000 });
 
     // 验证页面标题或表格存在

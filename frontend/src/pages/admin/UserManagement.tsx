@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Pencil, Trash2, Shield, Search, RotateCcw, LockKeyhole } from 'lucide-react';
+import { Pencil, Trash2, Shield, RotateCcw, LockKeyhole, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ import {
   type AdminUserSecuritySummaryVO,
 } from '@/api/userSecurity';
 import { getAllRoles, type RoleVO } from '@/api/role';
+import { usePermission } from '@/hooks/usePermission';
 
 const STATUS_OPTIONS = [
   { value: '', label: '全部状态' },
@@ -37,10 +38,14 @@ const STATUS_OPTIONS = [
 ];
 
 export default function UserManagement() {
+  const { hasPermission } = usePermission();
+  const canList = hasPermission('system:user:list');
+
   // List state
   const [list, setList] = useState<UserVO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,6 +62,7 @@ export default function UserManagement() {
   const [allRoles, setAllRoles] = useState<RoleVO[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
   const [roleSaving, setRoleSaving] = useState(false);
+  const [roleLoading, setRoleLoading] = useState(false);
 
   const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
   const [securitySummary, setSecuritySummary] = useState<AdminUserSecuritySummaryVO | null>(null);
@@ -65,16 +71,17 @@ export default function UserManagement() {
   const [keywords, setKeywords] = useState<AdminUserKeywordVO[]>([]);
 
   const fetchList = useCallback(async () => {
+    if (!canList) return;
     setLoading(true);
     try {
-      const res = await getUserList({ page, size: 10, keyword: keyword || undefined, status: status || undefined });
+      const res = await getUserList({ page, size: pageSize, keyword: keyword || undefined, status: status || undefined });
       const data = (res as any).data;
       setList(data.records ?? []);
       setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [page, keyword, status]);
+  }, [canList, page, pageSize, keyword, status]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
@@ -114,7 +121,8 @@ export default function UserManagement() {
   async function handleDelete(id: number) {
     if (!confirm('确定删除该用户？')) return;
     await deleteUser(id);
-    fetchList();
+    if (list.length === 1 && page > 1) setPage((current) => current - 1);
+    else fetchList();
   }
 
   async function handleResetPwd(id: number) {
@@ -126,12 +134,16 @@ export default function UserManagement() {
 
   async function openRoleDialog(id: number) {
     setRoleUserId(id);
-    setRoleDialogOpen(true);
+    setAllRoles([]);
+    setSelectedRoleIds([]);
+    setRoleLoading(true);
     try {
       const [rolesRes, detailRes] = await Promise.all([getAllRoles(), getUserDetail(id)]);
       setAllRoles((rolesRes as any).data ?? []);
       setSelectedRoleIds((detailRes as any).data?.roleIds ?? []);
+      setRoleDialogOpen(true);
     } catch { /* ignore */ }
+    finally { setRoleLoading(false); }
   }
 
   async function handleSaveRoles() {
@@ -151,6 +163,10 @@ export default function UserManagement() {
   }
 
   async function openSecurityDialog(id: number) {
+    setSecuritySummary(null);
+    setBlacklist([]);
+    setHiddenDynamics([]);
+    setKeywords([]);
     setSecurityDialogOpen(true);
     const [summaryRes, blacklistRes, hiddenRes, keywordRes] = await Promise.all([
       getUserSecuritySummary(id),
@@ -164,12 +180,23 @@ export default function UserManagement() {
     setKeywords((keywordRes as any).data ?? []);
   }
 
+  if (!canList) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="space-y-3 text-center">
+          <ShieldAlert className="mx-auto h-12 w-12 text-muted-foreground" />
+          <p className="text-muted-foreground">您没有访问该页面的权限</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>用户管理</CardTitle>
-          <Button onClick={openCreate}>新增用户</Button>
+          {hasPermission('system:user:add') && <Button onClick={openCreate}>新增用户</Button>}
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filter bar */}
@@ -227,21 +254,31 @@ export default function UserManagement() {
                   <TableCell className="text-muted-foreground">{u.lastLoginTime || '-'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u.id)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(u.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleResetPwd(u.id)} title="重置密码">
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openRoleDialog(u.id)} title="分配角色">
-                        <Shield className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openSecurityDialog(u.id)} title="安全详情">
-                        <LockKeyhole className="h-4 w-4" />
-                      </Button>
+                      {hasPermission('system:user:edit') && (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u.id)} title="编辑">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleResetPwd(u.id)} title="重置密码">
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                          {hasPermission('system:role:list') && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openRoleDialog(u.id)} title="分配角色">
+                              <Shield className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {hasPermission('system:user:delete') && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(u.id)} title="删除">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {hasPermission('user:security:view') && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openSecurityDialog(u.id)} title="安全详情">
+                          <LockKeyhole className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -249,7 +286,13 @@ export default function UserManagement() {
             </TableBody>
           </Table>
 
-          <Pagination current={page} total={total} onChange={setPage} />
+          <Pagination
+            current={page}
+            total={total}
+            pageSize={pageSize}
+            onChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+          />
         </CardContent>
       </Card>
 
@@ -261,10 +304,12 @@ export default function UserManagement() {
             <label className="text-sm font-medium">用户名</label>
             <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} disabled={!!editingId} placeholder="请输入用户名" />
           </div>
-          <div>
-            <label className="text-sm font-medium">密码 {!!editingId && <span className="text-muted-foreground">(留空不修改)</span>}</label>
-            <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder={editingId ? '留空则不修改密码' : '请输入密码'} />
-          </div>
+          {!editingId && (
+            <div>
+              <label className="text-sm font-medium">密码</label>
+              <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="请输入密码" />
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium">昵称</label>
             <Input value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} placeholder="请输入昵称" />
@@ -308,7 +353,7 @@ export default function UserManagement() {
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => setRoleDialogOpen(false)}>取消</Button>
-          <Button onClick={handleSaveRoles} disabled={roleSaving}>{roleSaving ? '保存中…' : '保存'}</Button>
+          <Button onClick={handleSaveRoles} disabled={roleSaving || roleLoading}>{roleSaving ? '保存中…' : '保存'}</Button>
         </div>
       </Dialog>
 

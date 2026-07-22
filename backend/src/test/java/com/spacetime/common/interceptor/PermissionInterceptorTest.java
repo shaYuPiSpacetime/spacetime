@@ -63,6 +63,24 @@ class PermissionInterceptorTest {
         assertThat(response.getStatus()).isEqualTo(403);
     }
 
+    @Test
+    @DisplayName("token 快照仍有权限但当前角色已撤销时拒绝")
+    void shouldDenyWhenPermissionWasRevokedAfterLogin() throws Exception {
+        PermissionInterceptor interceptor = new PermissionInterceptor(menuDao);
+        UserContextHolder.set(new UserContext(1L, "peter", null, List.of("access:config:list")));
+        when(menuDao.selectPermsByUserId(1L)).thenReturn(List.of("user:app:list"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        boolean allowed = interceptor.preHandle(
+                new MockHttpServletRequest(),
+                response,
+                new HandlerMethod(new DemoController(), DemoController.class.getDeclaredMethod("list"))
+        );
+
+        assertThat(allowed).isFalse();
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
     private static class DemoController {
         @RequirePermission("access:config:list")
         void list() {

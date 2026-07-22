@@ -4,6 +4,52 @@
 > - 测试用例：`docs/测试文档/字典管理-testcase.md`
 > - L1 脚本：`docs/测试文档/字典管理-test-l1.sh`
 
+## 2026-07-22 字典管理增量回归（当前结论）
+
+> 以下结果覆盖本轮最新代码，优先于下方 2026-05-14 历史记录。
+
+### 结果汇总
+
+| 层级 | 通过 | 失败 | 跳过 | 说明 |
+|------|------|------|------|------|
+| L1 真实接口 | 27 | 0 | 0 | 真实账号登录；覆盖分页 20/50、CRUD、懒加载子节点、级联删除、401/403；临时数据已清理 |
+| L2 Controller | 9 | 0 | 0 | DictTypeController 5、DictDataController 4 |
+| L3 Service | 15 | 0 | 0 | DictTypeService 6、DictDataService 9 |
+| L4 Playwright | 9 | 0 | 0 | 真实字典页面 6 条 + mock API 专项 3 条；整个系统管理命令共 22/22 通过 |
+| 前端生产构建 | 1 | 0 | 0 | TypeScript 与 Vite 构建通过 |
+
+### 修复结果
+
+| 问题 | 根因 | 修复与验证 |
+|------|------|------------|
+| 20/50 条每页不生效 | 页面请求和分页组件都硬编码 10，且未处理 pageSize 回调 | 改为受控 `pageSize`，Playwright 验证请求依次携带 size=20/50 并回到第 1 页 |
+| 搜索输入触发重复/竞态请求 | 输入草稿直接作为请求依赖，同时搜索按钮再次请求 | 拆分草稿条件与已提交条件；输入不请求，搜索/重置各触发一次有效条件刷新 |
+| 修改字典类型编码后数据丢失 | 类型表改编码，但 `sys_dict_data.dict_type` 保留旧值 | 同一事务迁移全部关联字典数据，L3-D1-06 通过 |
+| 可产生孤儿或跨类型父子节点 | 创建/更新未校验字典类型与父节点 | 校验类型存在、父节点存在且同类型，拒绝自身/后代和改变已有节点类型 |
+| 编辑父级可选择自身/后代 | 前端候选未过滤 | 已加载树中排除当前子树；服务端继续做完整防线校验 |
+| 只读用户仍看到写操作 | 页面未按 `system:dict:*` 操作权限控制 | 字典类型/数据新增、编辑、删除、加子节点均按权限隐藏，Playwright 验证通过 |
+
+**当前判定：通过。** 用户反馈的 20/50 分页缺陷已在真实 API 与浏览器两层回归；L1 27/27、字典相关 L4 9/9，均为 0 失败、0 跳过。无权限场景通过脚本自建无角色临时用户验证 403，执行后已删除。
+
+### 本轮真实执行命令
+
+```bash
+# 凭据仅通过当前 shell 环境注入
+API_URL=https://admin.shikongxiehou.com/api \
+  ADMIN_USERNAME='<test-account>' ADMIN_PASSWORD='<from-env>' \
+  bash docs/测试文档/字典管理-test-l1.sh
+
+cd frontend
+BASE_URL=http://127.0.0.1:5173 \
+  API_URL=https://admin.shikongxiehou.com/api \
+  ADMIN_USERNAME='<test-account>' ADMIN_PASSWORD='<from-env>' \
+  PLAYWRIGHT_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  npx playwright test --config=e2e-tests/playwright.config.ts \
+  e2e-tests/tests/rbac.spec.ts \
+  e2e-tests/tests/dict.spec.ts \
+  e2e-tests/tests/system-management-regression.spec.ts
+```
+
 ---
 
 ## 1. 测试概况

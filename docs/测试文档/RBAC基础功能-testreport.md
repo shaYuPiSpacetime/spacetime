@@ -3,6 +3,61 @@
 > **关联文档**：
 > - 测试用例：`docs/测试文档/RBAC基础功能-testcase.md`
 
+## 2026-07-22 系统管理增量回归（当前结论）
+
+> 以下结果覆盖本轮最新代码，优先于下方 2026-05-12 历史记录。执行基线为 `master@4a823c1` 加本轮工作区修改。
+
+### 结果汇总
+
+| 层级 | 通过 | 失败 | 跳过 | 说明 |
+|------|------|------|------|------|
+| L1 真实接口 | 42 | 0 | 0 | 真实账号登录后执行，覆盖用户/角色分页 20/50、CRUD、绑定、认证拦截；临时数据已清理 |
+| L2 Controller | 26 | 0 | 0 | Auth/User/Role/Menu/Router，含非法分页参数校验 |
+| L3 Service/DAO/权限 | 33 | 0 | 0 | Auth/User/Role/Menu、MenuDao、PermissionInterceptor |
+| L4 Playwright 回归 | 14 | 0 | 0 | 真实登录与 RBAC 页面 9 条 + mock API 缺陷专项 5 条；整个系统管理命令共 22/22 通过 |
+| 前端生产构建 | 1 | 0 | 0 | `tsc -b && vite build` |
+| 全后端回归 | 372 | 0 | 1 | 共执行 373 条；唯一跳过为无关的 `PromotionInviteSeedDataTest` |
+
+### 本轮缺陷与修复
+
+| 类别 | 已修复问题 |
+|------|------------|
+| 分页 | 用户、角色、字典类型统一使用受控 `pageSize`；20/50 条切换真实传参并回到第 1 页；末页删空自动回退；无回调的分页不再展示失效选择器 |
+| 权限 | 页面按 list/add/edit/delete 权限展示；`/role/all`、`/dict-type/all` 补权限；服务端每次按当前用户、当前启用角色、当前启用菜单校验，撤权/禁用即时生效 |
+| 用户/角色 | 用户关键词正确分组并覆盖邮箱；角色搜索覆盖编码；新增角色状态修正为 ENABLED；禁止删除当前账号、超级管理员用户及 `super_admin` 角色 |
+| 菜单 | 禁用菜单仍可在后台查看和恢复；禁用父菜单会连带关闭子权限；父级拒绝自身、后代、按钮和非法层级；移动顶级明确提交 `parentId=0`；角色绑定叶子菜单自动补齐祖先 |
+| 交互 | 异步弹窗打开前清空旧数据；用户编辑不再显示无效密码输入；过高弹窗支持视口内滚动，保存按钮可达 |
+| 参数 | page/size、状态、菜单类型、可见值、邮箱和密码长度补服务端校验；查询参数绑定错误统一返回 code=4001 |
+
+### 执行命令
+
+```bash
+# L1：账号密码通过当前 shell 环境注入，不写入脚本或报告
+API_URL=https://admin.shikongxiehou.com/api \
+  ADMIN_USERNAME='<test-account>' ADMIN_PASSWORD='<from-env>' \
+  bash docs/测试文档/RBAC基础功能-test-l1.sh
+
+cd backend
+JAVA_HOME=/Users/peter/Library/Java/JavaVirtualMachines/openjdk-22/Contents/Home mvn test
+
+cd frontend
+npm run build
+BASE_URL=http://127.0.0.1:5173 \
+  API_URL=https://admin.shikongxiehou.com/api \
+  ADMIN_USERNAME='<test-account>' ADMIN_PASSWORD='<from-env>' \
+  PLAYWRIGHT_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  npx playwright test --config=e2e-tests/playwright.config.ts \
+  e2e-tests/tests/rbac.spec.ts \
+  e2e-tests/tests/dict.spec.ts \
+  e2e-tests/tests/system-management-regression.spec.ts
+
+PLAYWRIGHT_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  npx playwright test --config=e2e-tests/playwright.config.ts \
+  e2e-tests/tests/system-management-regression.spec.ts
+```
+
+**当前判定：通过。** L1 真实接口 42/42、L4 系统管理浏览器回归 22/22，均为 0 失败、0 跳过。本地最新前端通过可配置 Vite 代理连接真实 API；账号密码和 Token 均未写入报告。
+
 ---
 
 ## 1. 测试概况

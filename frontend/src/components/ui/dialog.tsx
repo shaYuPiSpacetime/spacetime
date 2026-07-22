@@ -36,7 +36,7 @@ function Dialog({ open, onClose, children, className }: DialogProps) {
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <div
         className={cn(
-          'relative z-50 w-full max-w-lg rounded-lg border bg-card p-6 shadow-lg',
+          'relative z-50 max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg',
           className,
         )}
       >

@@ -6,6 +6,7 @@ import com.spacetime.admin.service.impl.DictTypeServiceImpl;
 import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.dao.DictTypeDao;
 import com.spacetime.common.entity.SysDictType;
+import com.spacetime.common.entity.SysDictData;
 import com.spacetime.common.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -116,5 +117,31 @@ class DictTypeServiceImplTest {
 
         verify(dictDataDao).deleteByDictType("gender");
         verify(dictTypeDao).deleteById(1L);
+    }
+
+    @Test
+    @DisplayName("L3-D1-06 修改字典编码时同步迁移已有字典数据")
+    void shouldMigrateDictDataWhenCodeChanges() {
+        SysDictType entity = new SysDictType();
+        entity.setId(1L);
+        entity.setDictType("old_code");
+        when(dictTypeDao.selectById(1L)).thenReturn(entity);
+        when(dictTypeDao.selectByCode("new_code")).thenReturn(null);
+        SysDictData data = new SysDictData();
+        data.setId(10L);
+        data.setDictType("old_code");
+        when(dictDataDao.selectList(any())).thenReturn(java.util.List.of(data));
+
+        DictTypeUpdateReq req = new DictTypeUpdateReq();
+        req.setId(1L);
+        req.setDictName("新名称");
+        req.setDictType("new_code");
+        req.setDictSort(1);
+        req.setStatus("ENABLED");
+        dictTypeService.update(req);
+
+        ArgumentCaptor<SysDictData> dataCaptor = ArgumentCaptor.forClass(SysDictData.class);
+        verify(dictDataDao).updateById(dataCaptor.capture());
+        assertThat(dataCaptor.getValue().getDictType()).isEqualTo("new_code");
     }
 }

@@ -3,7 +3,7 @@
 > **关联文档**：
 > - 测试报告：`docs/测试文档/RBAC基础功能-testreport.md`
 > **创建日期**：2026-05-12
-> **测试模式**：完整模式
+> **测试模式**：完整模式；2026-07-22 按系统管理缺陷自查要求进入增量模式
 > **目标项目**：后端 `backend/` / 前端 `frontend/`
 
 ---
@@ -129,7 +129,7 @@
 | L2-06 | testUserCreateValidation | POST /admin/user 缺 @Valid 字段 | status 400 |
 | L2-07 | testUserUpdate | PUT /admin/user/{id} 路径参数+请求体绑定 | status 200 |
 | L2-08 | testRoleList | GET /admin/role/list 参数绑定 | status 200 |
-| L2-09 | testRoleAll | GET /admin/role/all（无需权限） | status 200 |
+| L2-09 | testRoleAll | GET /admin/role/all（需 `system:role:list`） | status 200 |
 | L2-10 | testRoleBindMenus | PUT /admin/role/{id}/menus 请求体绑定 | status 200 |
 | L2-11 | testMenuList | GET /admin/menu/list | status 200 |
 | L2-12 | testMenuTree | GET /admin/menu/tree | status 200 |
@@ -210,3 +210,61 @@
 | G-P3-01 | 权限审查 | P0 | ServiceImpl 不直接注入 Mapper（六层架构） | grep 确认 ServiceImpl 无 Mapper import |
 | G-P3-02 | 权限审查 | P0 | Controller 不返回 `R<?>` | grep 确认所有 Controller 返回精确类型 |
 | G-P3-03 | 数据审查 | P1 | 实体 status 字段使用 CommonStatusEnum.getCode() | grep 无 "ENABLED"/"DISABLED" 字符串字面量 |
+
+## 9. 2026-07-22 系统管理回归增量
+
+> 本轮针对用户管理、角色管理、菜单管理及其共用分页组件补充自动化覆盖。原用例与编号保持不变。
+
+### 9.1 L1 接口增量
+
+| 用例ID | 优先级 | 场景 | 接口 | 期望结果 |
+|--------|-------|------|------|---------|
+| F2-P0-08 | P0 | 用户列表每页 20 条 | `GET /admin/user/list?page=1&size=20` | data.size=20 |
+| F2-P0-09 | P0 | 用户列表每页 50 条 | `GET /admin/user/list?page=1&size=50` | data.size=50 |
+| F3-P0-08 | P0 | 角色列表每页 20 条 | `GET /admin/role/list?page=1&size=20` | data.size=20 |
+| F3-P0-09 | P0 | 角色列表每页 50 条 | `GET /admin/role/list?page=1&size=50` | data.size=50 |
+| F2-P2-07 | P2 | 用户关键词与状态组合筛选 | `GET /admin/user/list?keyword=x&status=DISABLED` | 关键词匹配用户名/昵称/邮箱，且每条记录均为 DISABLED；状态条件作用于整个关键词 OR 分组 |
+| F3-P2-02 | P2 | 按角色编码搜索 | `GET /admin/role/list?keyword=admin` | 返回记录的角色名称或角色编码包含关键词 |
+| F4-P1-01 | P1 | 子菜单移动到顶级 | `PUT /admin/menu/{id}`，`parentId=0` | 更新成功，重新查询后该节点位于根层级 |
+| F4-P2-01 | P2 | 菜单父级设为自身或后代 | `PUT /admin/menu/{id}` | code=5001，拒绝形成循环层级 |
+| F4-P2-02 | P2 | 菜单挂到按钮或不存在父级 | `POST/PUT /admin/menu` | code=5001，不产生不可见孤儿节点 |
+
+### 9.2 L3 Service 增量
+
+| 用例ID | 测试方法 | 输入 | 期望输出 |
+|--------|---------|------|---------|
+| L3-19 | shouldGroupUserKeywordConditionsAndIncludeEmail | keyword + status | 查询条件包含 username/nickname/email 的 OR 分组，status 在分组之外 AND |
+| L3-20 | shouldSearchRoleNameOrCode | roleCode 关键词 | 查询条件同时覆盖 role_name 与 role_code |
+| L3-21 | shouldIncludeAncestorMenusWhenBindingChild | 只提交子菜单 ID | 绑定结果自动补齐所有父级菜单 ID，动态路由可达 |
+| L3-22 | shouldRejectMenuSelfOrDescendantParent | 更新菜单 parentId=自身/后代 | 抛 BusinessException，不写入循环层级 |
+| L3-23 | shouldMoveMenuToRoot | 更新菜单 parentId=0 | 持久化 parentId=0 |
+
+### 9.3 L4 E2E 增量
+
+| 用例ID | 优先级 | 页面 | 操作步骤 | 期望结果 |
+|--------|-------|------|---------|---------|
+| L4-00 | P0 | 登录页 | 使用外部注入的真实测试账号与密码提交登录 | 跳转至 `/dashboard`，localStorage 存在 token；凭据不写入脚本和报告 |
+| L4-15 | P0 | 用户管理 | 从第 2 页切换为 20/50 条每页 | 选择器保持所选值，请求分别携带 size=20/50，并回到第 1 页 |
+| L4-16 | P0 | 角色管理 | 从第 2 页切换为 20/50 条每页 | 选择器保持所选值，请求分别携带 size=20/50，并回到第 1 页 |
+| L4-17 | P1 | 角色管理 | 打开新增角色并保存 | 默认状态为 ENABLED，请求体不得出现历史错误值 `0` |
+| L4-18 | P3 | 用户/角色/菜单管理 | 使用仅有 list 权限的认证状态进入页面 | 无 add/edit/delete 权限的操作按钮不可见，避免必然 403 的入口 |
+| L4-19 | P1 | 菜单管理 | 编辑子菜单并选择“顶级（无）”后保存 | 请求体明确提交 parentId=0，节点可移动到根层级 |
+| L4-20 | P1 | 菜单管理 | 在较矮浏览器窗口打开编辑菜单弹窗 | 弹窗内容可滚动，底部取消/保存按钮始终可达 |
+
+### 9.4 手动增量
+
+| 用例ID | 优先级 | 操作步骤 | 期望结果 | 实际结果 | 状态 |
+|--------|-------|---------|---------|---------|------|
+| M-11 | P1 | 用户、角色列表切到最后一页后删除最后一条记录 | 页码自动回退到有效页，不出现空白死页 | | |
+| M-12 | P1 | 角色分配菜单时仅勾选子菜单并保存，再重新打开 | 父级目录自动选中且动态侧边栏可访问该菜单 | | |
+| M-13 | P2 | 菜单编辑上级下拉 | 当前节点、后代节点和按钮节点不可选为父级 | | |
+
+### 9.5 权限与安全增量
+
+| 用例ID | 层级 | 场景 | 期望结果 |
+|--------|------|------|---------|
+| L2-25 | L2 | page=0、size=-1 或非法 status | code=4001，不进入 Service |
+| L3-24 | L3 | Token 快照仍有权限，但数据库已撤销 | PermissionInterceptor 立即拒绝，HTTP 403 |
+| L3-25 | L3 | 用户或角色被禁用 | 当前权限查询返回空，不再依赖旧 Token 快照 |
+| L3-26 | L3 | 禁用父菜单但子菜单仍启用 | 子菜单路由和按钮权限一并失效 |
+| L3-27 | L3 | 删除当前登录用户或 `super_admin` 角色/用户 | 抛 BusinessException，核心管理员数据不删除 |

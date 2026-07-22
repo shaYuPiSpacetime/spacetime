@@ -30,8 +30,9 @@ public class RoleController {
         return R.ok(roleService.list(req));
     }
 
-    /** 查询全部启用角色（下拉选择用，无需权限校验） */
+    /** 查询全部启用角色（下拉选择用） */
     @GetMapping("/all")
+    @RequirePermission("system:role:list")
     public R<List<RoleVO>> all() {
         return R.ok(roleService.all());
     }

@@ -12,6 +12,7 @@ import com.spacetime.common.dao.RoleDao;
 import com.spacetime.common.dao.RoleMenuDao;
 import com.spacetime.common.dao.UserRoleDao;
 import com.spacetime.common.entity.SysRole;
+import com.spacetime.common.entity.SysMenu;
 import com.spacetime.common.entity.SysRoleMenu;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.ResultCodeEnum;
@@ -22,7 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 角色管理服务实现
@@ -41,7 +44,9 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public Page<RoleVO> list(RolePageReq req) {
         LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<SysRole>()
-                .like(StrUtil.isNotBlank(req.getKeyword()), SysRole::getRoleName, req.getKeyword())
+                .and(StrUtil.isNotBlank(req.getKeyword()), keyword -> keyword
+                        .like(SysRole::getRoleName, req.getKeyword())
+                        .or().like(SysRole::getRoleCode, req.getKeyword()))
                 .eq(StrUtil.isNotBlank(req.getStatus()), SysRole::getStatus, req.getStatus())
                 .orderByAsc(SysRole::getRoleSort);
         Page<SysRole> page = roleDao.selectPage(
@@ -121,6 +126,13 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional
     public void delete(Long id) {
+        SysRole role = roleDao.selectById(id);
+        if (role == null) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "角色不存在");
+        }
+        if ("super_admin".equals(role.getRoleCode())) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "不能删除超级管理员角色");
+        }
         roleDao.deleteById(id);
         roleMenuDao.deleteByRoleId(id);
         userRoleDao.deleteByRoleId(id);
@@ -131,12 +143,21 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional
     public void bindMenus(RoleMenuReq req) {
+        if (roleDao.selectById(req.getRoleId()) == null) {
+            throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "角色不存在");
+        }
+        Set<Long> normalizedMenuIds = new LinkedHashSet<>();
+        if (req.getMenuIds() != null) {
+            for (Long menuId : req.getMenuIds()) {
+                appendMenuAndAncestors(menuId, normalizedMenuIds);
+            }
+        }
         // 1. 清除旧关联
         roleMenuDao.deleteByRoleId(req.getRoleId());
         // 2. 批量插入新关联
-        if (req.getMenuIds() != null && !req.getMenuIds().isEmpty()) {
+        if (!normalizedMenuIds.isEmpty()) {
             List<SysRoleMenu> list = new ArrayList<>();
-            for (Long menuId : req.getMenuIds()) {
+            for (Long menuId : normalizedMenuIds) {
                 SysRoleMenu rm = new SysRoleMenu();
                 rm.setRoleId(req.getRoleId());
                 rm.setMenuId(menuId);
@@ -145,6 +166,22 @@ public class RoleServiceImpl implements RoleService {
             roleMenuDao.batchInsert(list);
         }
         log.info("role menus bound: roleId={}, menuIds={}", req.getRoleId(), req.getMenuIds());
+    }
+
+    private void appendMenuAndAncestors(Long menuId, Set<Long> result) {
+        Set<Long> visited = new LinkedHashSet<>();
+        Long currentId = menuId;
+        while (currentId != null && currentId > 0) {
+            if (!visited.add(currentId)) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "菜单层级存在循环引用");
+            }
+            SysMenu menu = menuDao.selectById(currentId);
+            if (menu == null) {
+                throw new BusinessException(ResultCodeEnum.BUSINESS_ERROR.getCode(), "菜单不存在");
+            }
+            result.add(currentId);
+            currentId = menu.getParentId();
+        }
     }
 
     private RoleVO toVO(SysRole role) {
