@@ -35,9 +35,9 @@ const webConfig = read('backend/src/main/java/com/spacetime/common/interceptor/W
 const applicationDev = read('backend/src/main/resources/application-dev.yml')
 const applicationProd = read('backend/src/main/resources/application-prod.yml')
 
-assert.ok(exists('miniapp/src/assets/lanhu/pages/qianxun-center.png'), '千寻中心必须接入用户提供的新切图 qianxun-center.png')
-assert.ok(indexPage.includes('qianxunCenterImage'), '千寻首页需要引用新的中心图片切图')
-assert.ok(indexPage.includes('qianxun-center.png'), '千寻首页需要从 lanhu/pages/qianxun-center.png 引入切图')
+assert.ok(exists('miniapp/src/assets/lanhu/pages/qianxun-center.png'), '千寻中心必须保留无损源文件供 OSS 上传')
+assert.ok(indexPage.includes('miniappOssIcons.qianxunCenter'), '千寻首页必须引用 OSS 中心插画，避免 526KiB 资源进入主包')
+assert.ok(!indexPage.includes("@/assets/lanhu/pages/qianxun-center.png"), '千寻首页不得直接打包中心插画')
 
 assert.ok(configTs.includes("TOKEN_HEADER = 'X-Auth-Token'"), '小程序请求头必须与后端 AuthConstant.TOKEN_HEADER 保持一致')
 assert.ok(paymentServiceTs.includes("'/miniapp/payment/create-order'"), '创建订单接口必须调用后端真实 /miniapp/payment/create-order')

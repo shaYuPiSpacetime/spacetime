@@ -1,7 +1,6 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
-import qianxunCenterImage from '@/assets/lanhu/pages/qianxun-center.png'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import QianxunFamilyPage from '@/features/qianxun/QianxunFamilyPage'
 import {
@@ -176,7 +175,7 @@ function PartialCertificationPanel({
 function CertificationArtwork() {
   return (
     <View style={{ position: 'absolute', left: '0', top: '453rpx', width: '750rpx', height: '390rpx' }}>
-      <Image src={qianxunCenterImage} mode="aspectFit" style={{ position: 'absolute', left: '90rpx', top: '-44rpx', width: '570rpx', height: '640rpx' }} />
+      <Image src={miniappOssIcons.qianxunCenter} mode="aspectFit" style={{ position: 'absolute', left: '90rpx', top: '-44rpx', width: '570rpx', height: '640rpx' }} />
     </View>
   )
 }

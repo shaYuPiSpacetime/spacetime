@@ -12,7 +12,6 @@ const MAIN_PAGES = [
   'pages/chat/index',
   'pages/index/index',
   'pages/recommend/index',
-  'pages/recommend/post',
   'pages/commerce/payment-result',
 ]
 
@@ -81,6 +80,10 @@ export default {
     {
       root: 'pages/search',
       pages: ['index', 'result'],
+    },
+    {
+      root: 'pages/qianxun',
+      pages: ['compose', 'post-detail', 'topic', 'interactions', 'my-posts', 'kindred'],
     },
   ],
   window: {

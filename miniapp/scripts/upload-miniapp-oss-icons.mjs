@@ -87,6 +87,7 @@ const ICON_ASSETS = Object.freeze({
   qianxunVerifyNote: 'src/assets/lanhu/recommend/slices/verify-note.webp',
   qianxunTopicCover: 'src/assets/lanhu/recommend/slices/city-night.webp',
   qianxunTopicAvatar: 'src/assets/lanhu/recommend/slices/avatar-xiaolaohu.webp',
+  qianxunCenter: 'src/assets/lanhu/pages/qianxun-center.png',
   profilePost: 'src/assets/profile/icon-post.png',
   profileService: 'src/assets/profile/icon-service.png',
   profileSettings: 'src/assets/profile/icon-settings.png',

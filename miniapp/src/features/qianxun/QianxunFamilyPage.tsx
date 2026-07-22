@@ -175,7 +175,13 @@ export default function RecommendFamilyPage() {
 
   return (
     <View style={{ minHeight: '100vh', background: 'linear-gradient(100deg, #F1FEFC 0%, #F2F5FF 52%, #FCFDF3 100%)', overflow: 'hidden', position: 'relative' }}>
-      <FamilyHeader avatar={ownerAvatar} unreadCount={unreadCount} metrics={headerMetrics} />
+      <FamilyHeader
+        avatar={ownerAvatar}
+        unreadCount={unreadCount}
+        metrics={headerMetrics}
+        onKindred={() => void Taro.navigateTo({ url: '/pages/qianxun/kindred' })}
+        onProfile={() => void Taro.navigateTo({ url: '/pages/qianxun/my-posts' })}
+      />
       <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
         <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>
@@ -184,6 +190,9 @@ export default function RecommendFamilyPage() {
               key={post.id}
               post={post}
               optionLabel={optionLabel}
+              onOpen={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
+              onTopic={() => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
+              onComment={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
               onMore={() => openActions(post)}
               onFollow={() => void toggleFollow(post)}
               onLike={() => void toggleLike(post)}
@@ -198,7 +207,7 @@ export default function RecommendFamilyPage() {
         </View>
       </ScrollView>
 
-      <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/recommend/post' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
+      <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
         <Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text>
       </View>
 
@@ -234,16 +243,16 @@ function getFamilyHeaderMetrics(): FamilyHeaderMetrics {
   return { primaryTop, avatarRight, secondaryTop, contentTop: secondaryTop + 82 }
 }
 
-function FamilyHeader({ avatar, unreadCount, metrics }: { avatar: string; unreadCount: number; metrics: FamilyHeaderMetrics }) {
+function FamilyHeader({ avatar, unreadCount, metrics, onKindred, onProfile }: { avatar: string; unreadCount: number; metrics: FamilyHeaderMetrics; onKindred: () => void; onProfile: () => void }) {
   return <View style={{ position: 'relative', width: '750rpx', height: `${metrics.contentTop}rpx` }}>
     <View style={{ position: 'absolute', left: '32rpx', top: `${metrics.primaryTop}rpx`, width: '270rpx', height: '56rpx' }}>
       <Text style={{ position: 'absolute', left: 0, top: 0, color: NAVY, fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 500 }}>成家</Text>
       <View style={{ position: 'absolute', left: 0, top: '45rpx', width: '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} />
       {unreadCount > 0 ? <View style={{ position: 'absolute', left: '44rpx', top: '-10rpx', minWidth: '28rpx', height: '28rpx', borderRadius: '14rpx', border: '2rpx solid #FFFFFF', background: '#EE2525', padding: '0 4rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#FFFFFF', fontSize: '18rpx', lineHeight: '25rpx' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
-      <Text style={{ position: 'absolute', left: '91rpx', top: '9rpx', color: '#7F8494', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>知音</Text>
+      <Text onClick={onKindred} style={{ position: 'absolute', left: '91rpx', top: '9rpx', color: '#7F8494', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>知音</Text>
       <Text style={{ position: 'absolute', left: '167rpx', top: '9rpx', color: '#7F8494', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>立业</Text>
     </View>
-    <Image src={avatar} mode="aspectFill" style={{ position: 'absolute', right: `${metrics.avatarRight}rpx`, top: `${metrics.primaryTop - 1}rpx`, width: '58rpx', height: '58rpx', borderRadius: '29rpx', background: '#EEF3F8' }} />
+    <Image onClick={onProfile} src={avatar} mode="aspectFill" style={{ position: 'absolute', right: `${metrics.avatarRight}rpx`, top: `${metrics.primaryTop - 1}rpx`, width: '58rpx', height: '58rpx', borderRadius: '29rpx', background: '#EEF3F8' }} />
   </View>
 }
 
@@ -259,7 +268,7 @@ function FamilyTabs({ active, tabs, top, onChange }: { active: CommunityScene; t
   </View>
 }
 
-function CommunityCard({ post, optionLabel, onMore, onFollow, onLike }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; onMore: () => void; onFollow: () => void; onLike: () => void }) {
+function CommunityCard({ post, optionLabel, onOpen, onTopic, onComment, onMore, onFollow, onLike }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; onOpen: () => void; onTopic: () => void; onComment: () => void; onMore: () => void; onFollow: () => void; onLike: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const canExpand = post.content.length > 78
   const meta = [
@@ -279,18 +288,20 @@ function CommunityCard({ post, optionLabel, onMore, onFollow, onLike }: { post: 
       <View onClick={onFollow} style={{ width: post.followingAuthor ? '128rpx' : '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: post.followingAuthor ? '#999999' : BLUE, fontSize: '24rpx', lineHeight: '33rpx', fontWeight: post.followingAuthor ? 400 : 500 }}>{post.followingAuthor ? '已关注' : '关注'}</Text></View>
       <View onClick={onMore} style={{ width: '36rpx', height: '52rpx', marginLeft: '4rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '38rpx', lineHeight: '44rpx' }}>⋮</Text></View>
     </View>
+    <View className="qianxun-community-card" data-post-id={post.id} onClick={onOpen}>
     {post.title ? <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginTop: '29rpx' }}>{post.title}</Text> : null}
     <View style={{ position: 'relative', marginTop: post.title ? '12rpx' : '27rpx' }}>
       <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '48rpx', maxHeight: !expanded && canExpand ? '192rpx' : 'none', overflow: 'hidden' }}>{post.content}</Text>
       {!expanded && canExpand ? <View onClick={() => setExpanded(true)} style={{ position: 'absolute', right: 0, bottom: 0, height: '48rpx', paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '26rpx', lineHeight: '48rpx' }}>查看全部</Text></View> : null}
     </View>
     <PostImageGrid images={post.imageUrls || []} />
+    </View>
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '28rpx', marginLeft: '7rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
-    {post.topicName ? <View style={{ width: 'auto', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#EFF4FC', padding: '0 18rpx', marginTop: '23rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#666666', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: '#229AF8' }}># </Text>{post.topicName}</Text></View> : null}
+    {post.topicName ? <View onClick={onTopic} style={{ width: 'auto', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#EFF4FC', padding: '0 18rpx', marginTop: '23rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#666666', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: '#229AF8' }}># </Text>{post.topicName}</Text></View> : null}
     <View style={{ height: '92rpx', borderTop: '2rpx solid #EFF4FC', marginTop: post.topicName ? '30rpx' : '32rpx', display: 'flex', alignItems: 'center' }}>
       <ActionStat kind="contact" text={contactText} />
       <View style={{ flex: 1 }} />
-      <ActionStat kind="comment" text={String(post.commentCount || 0)} />
+      <View onClick={onComment}><ActionStat kind="comment" text={String(post.commentCount || 0)} /></View>
       <View onClick={onLike}><ActionStat kind="like" text={String(post.likeCount || 0)} active={post.liked} /></View>
     </View>
   </View>

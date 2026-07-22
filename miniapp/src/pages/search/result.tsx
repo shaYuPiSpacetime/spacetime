@@ -112,7 +112,7 @@ export default function SearchResultPage() {
       return
     }
     if (item.type === 'post' || activeTab === 'posts') {
-      void Taro.navigateTo({ url: `/pages/recommend/post?id=${item.id}` })
+      void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.id}` })
       return
     }
     void Taro.showToast({ title: copyConfig['search.topic_unavailable_text'] || '', icon: 'none' })

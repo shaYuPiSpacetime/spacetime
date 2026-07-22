@@ -109,8 +109,8 @@ assert.ok(!appTabSource.includes('TAB_ICON_COLORS'), '底部 icon 禁止继续�
 
 const indexSource = read('src/pages/index/index.tsx')
 assert.ok(indexSource.includes('CertificationArtwork'), '未认证首页需要使用专门认证插画组件')
-assert.ok(indexSource.includes('qianxunCenterImage'), '千寻首页中心图必须使用用户提供的新切图')
-assert.ok(indexSource.includes('qianxun-center.png'), '千寻首页中心图必须从 lanhu/pages/qianxun-center.png 引入')
+assert.ok(indexSource.includes('miniappOssIcons.qianxunCenter'), '千寻首页中心图必须使用 OSS 无损切图')
+assert.ok(!indexSource.includes("@/assets/lanhu/pages/qianxun-center.png"), '千寻首页不得直接把中心插画打进主包')
 
 const profileEditSource = read('src/pages/profile/edit.tsx')
 const myCertificationSource = read('src/pages/verification/my-certification.tsx')

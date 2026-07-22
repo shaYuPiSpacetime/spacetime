@@ -109,7 +109,7 @@ function SystemContent() {
         </Text>
         <View
           className="channel-card-action"
-          onClick={() => void Taro.navigateTo({ url: '/pages/recommend/post' })}
+          onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/compose' })}
         >
           <Text>立即分享</Text>
           <Text>〉</Text>
@@ -127,7 +127,7 @@ function SystemContent() {
         </Text>
         <View
           className="channel-card-action"
-          onClick={() => void Taro.navigateTo({ url: '/pages/recommend/post' })}
+          onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/compose' })}
         >
           <Text>立即分享</Text>
           <Text>〉</Text>

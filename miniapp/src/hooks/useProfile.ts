@@ -236,7 +236,7 @@ export function useProfile(): UseProfileReturn {
 
   /** 跳转我的动态页 */
   const goToMyPosts = useCallback(() => {
-    Taro.showToast({ title: '我的动态功能即将开放', icon: 'none' });
+    Taro.navigateTo({ url: '/pages/qianxun/my-posts' });
   }, []);
 
   /** 跳转帮助与客服页 */
