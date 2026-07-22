@@ -6,12 +6,13 @@
 | 版本02 | 2026-07-06 | Codex | 补充屏蔽当前内容后的 3 秒撤销交互 |
 | 版本03 | 2026-07-07 | Codex | 按移动端 Demo 审查明确 `post/comment/user` 对象类型分流和置灰态 |
 | 版本04 | 2026-07-21 | Codex | 内容与用户更多操作完全以 UI 稿为准，删除单条内容屏蔽、复制内容链接、申请认识和社区发私信菜单项 |
+| 版本05 | 2026-07-21 | Codex | 删除独立不可用态画板和置灰原因字段；操作结果复用“千寻-成家-热门-发布失败”的中央灰色反馈层并替换文案 |
 
 - **页面 ID**：`APP-05-PAGE-community-more-actions`
 - **所属模块 PRD**：`模块PRD_APP-05_推荐模块（朋友、社区与内容互动）`
 - **页面路由**：业务页内弹窗 `/components/community-more-actions`
-- **入口来源**：成家关注/同城/热门信息流、动态详情、话题详情、悦目、诚意贴、个人动态区
-- **对应设计稿**：待补充；设计画板按第 2.4 节输出
+- **入口来源**：成家关注/同城/热门信息流、动态详情、话题详情、诚意贴、个人动态区
+- **对应设计稿**：[蓝湖社区更多操作及通用反馈画板](https://lanhuapp.com/web/#/item/project/stage?tid=428e8368-c279-4369-947b-a5828487924d&pid=d9c9e50f-fee5-47ca-bd6b-ae05c0d5332b)
 - **对应移动端 / 技术方案**：`MVP-PAGE-009`
 
 ## 1. 页面定位
@@ -55,8 +56,9 @@
 | `APP-05-more-actions-01` | 社区更多操作-内容对象 | 分享、关注/取消关注、不看 TA 动态/取消不看、举报 | P0 |
 | `APP-05-more-actions-02` | 社区更多操作-用户对象 | 关注/取消关注、不看 TA 动态/取消不看、举报 | P0 |
 | `APP-05-more-actions-03` | 社区更多操作-评论对象 | 举报、复制链接 | P0 |
-| `APP-05-more-actions-04` | 社区更多操作-不可用态 | 操作置灰和原因提示 | P1 |
-| `APP-05-more-actions-05` | 社区更多操作-操作成功 | 关注或不看 TA 动态的结果 toast | P1 |
+| `APP-05-more-actions-05` | 社区更多操作-结果反馈 | 关注/取消关注、不看/取消不看的结果 | 复用蓝湖“千寻-成家-热门-发布失败”中央灰色反馈层，仅替换提示文案；不新增画板 |
+
+不设置 `APP-05-more-actions-04` 独立不可用态：不适用动作直接隐藏，正反动作按最终态切换；请求中使用按钮通用 loading，失败使用中央灰色反馈。
 
 ### 2.5 编辑控件口径
 
@@ -84,15 +86,12 @@
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
 | `APP-05-PAGE-community-more-actions-FIELD-action-code` | 操作编码 | enum | 是 | share/follow/unfollow/hide_author_posts/unhide_author_posts/report/comment_copy | 按对象类型返回 | 无 | 否 | 普通 | 服务端/前端规则 |
 | `APP-05-PAGE-community-more-actions-FIELD-action-name` | 操作名称 | string | 是 | 1-20 字 | 与编码匹配 | 无 | 否 | 普通 | 前端文案 |
-| `APP-05-PAGE-community-more-actions-FIELD-enabled` | 是否可用 | bool | 是 | true/false | 按权限和对象状态计算 | true | 否 | 普通 | 服务端/前端规则 |
-| `APP-05-PAGE-community-more-actions-FIELD-disabled-reason` | 不可用原因 | string | 否 | 0-80 字 | enabled=false 时展示 | 无 | 否 | 普通 | 服务端/前端规则 |
 
 #### 列表字段附加属性
 
 | 字段 ID | 列表位置 | 主次层级 | 点击行为 | 手势行为 | 溢出处理 |
 |---------|----------|----------|----------|----------|----------|
 | `APP-05-PAGE-community-more-actions-FIELD-action-name` | 操作列表 | 主要信息 | 触发对应操作 | 无 | 单行省略 |
-| `APP-05-PAGE-community-more-actions-FIELD-disabled-reason` | 操作副文案 | 辅助信息 | 不单独响应 | 无 | 两行内展示 |
 
 ### 4.2 详情/表单字段
 
@@ -101,7 +100,7 @@
 | `APP-05-PAGE-community-more-actions-FIELD-target-type` | 操作对象类型 | enum | 是 | post/comment/user | 由入口传入 | post | 否 | 普通 | 来源页面 |
 | `APP-05-PAGE-community-more-actions-FIELD-target-id` | 操作对象 | string | 是 | 业务编号 | 对象必须存在 | 无 | 否 | 普通 | 来源页面 |
 | `APP-05-PAGE-community-more-actions-FIELD-target-user-id` | 目标用户 | string | 条件必填 | 业务编号 | 关注或作者级内容偏好时必填 | 无 | 否 | 普通 | 来源页面 |
-| `APP-05-PAGE-community-more-actions-FIELD-source-page` | 来源页面 | enum | 是 | following/city/hot/detail/topic/yuemu/sincere/userPosts | 由入口传入 | detail | 否 | 普通 | 来源页面 |
+| `APP-05-PAGE-community-more-actions-FIELD-source-page` | 来源页面 | enum | 是 | following/city/hot/detail/topic/sincere/userPosts | 由入口传入 | detail | 否 | 普通 | 来源页面 |
 
 ## 5. 操作表
 
@@ -129,9 +128,8 @@
 | 触发字段 | 触发事件 | 影响字段 | 联动行为 | 备注 |
 |----------|----------|----------|----------|------|
 | targetType | 初始化 | 操作列表 | 内容对象展示分享、关注、不看 TA 动态、举报；用户对象展示关注、不看 TA 动态、举报；评论对象沿用评论 UI；不展示与对象无关的操作 | `M05-RULE-community-more-actions` |
-| enabled | false | 操作项 | 置灰并展示不可用原因 | 由入口状态计算 |
 | 点击举报 | 操作成功 | 弹窗状态 | 关闭当前弹窗并打开举报弹窗 | `APP-05-PAGE-report-modal` |
-| 关注或内容偏好 | 操作成功 | 菜单文案、反馈 toast | 按服务端最终状态切换“关注/取消关注”或“不看/取消不看” | 再次打开菜单可执行反向操作 |
+| 关注或内容偏好 | 操作完成 | 菜单文案、中央灰色反馈 | 按服务端最终状态切换“关注/取消关注”或“不看/取消不看”，并显示对应结果文案 | 反馈约 2 秒自动消失，再次打开菜单可执行反向操作 |
 
 ## 7. 状态与异常
 
@@ -140,12 +138,12 @@
 | 加载态 | 操作列表初始化 | loading | 等待 | 通用态 |
 | 空态（无数据） | 无可用操作 | 展示暂无可用操作 | 关闭 | `M05-RULE-community-more-actions` |
 | 空态（搜索无结果） | 本页无搜索 | 本节不适用 | — | — |
-| 错误态（网络） | 关注或内容偏好状态查询失败 | toast + 保留弹窗 | 重试/关闭 | 通用态 |
+| 错误态（网络） | 关注或内容偏好请求失败 | 关闭操作弹窗，在来源页中央展示灰色反馈层及失败原因 | 重试 | 复用蓝湖反馈样式 |
 | 无权限态 | 未登录 | 登录引导 | 去登录/关闭 | `M05-RULE-browse-gate` |
 | 业务态-content | 内容对象 | 展示 UI 内容菜单 | 分享/关注/不看/举报 | `M05-RULE-community-more-actions` |
 | 业务态-user | 用户对象 | 展示 UI 用户菜单 | 关注/不看/举报 | `M05-RULE-community-more-actions` |
 | 业务态-comment | 评论对象 | 展示评论操作 | 举报/复制 | `M05-RULE-community-more-actions` |
-| 降级态 | 剪贴板能力不可用 | 复制操作置灰 | 其他操作 | 小程序能力 |
+| 降级态 | 操作请求中 | 当前操作按钮显示通用 loading，防止重复提交 | 等待 | 通用按钮态 |
 
 ## 8. 查询与列表
 
@@ -159,6 +157,7 @@
 | `APP-05-AC-more-actions-report` | 点击举报进入举报弹窗 | 正常 | P0 |
 | `APP-05-AC-more-actions-author-preference` | 不看 TA 动态与取消不看切换最终状态 | 正常 | P0 |
 | `APP-05-AC-more-actions-no-contact` | 更多菜单不包含申请认识或发私信 | 正常 | P0 |
+| `APP-05-AC-more-actions-feedback` | 操作结果使用中央灰色反馈层 | 正常/异常 | P1 |
 
 ```
 AC-ID: APP-05-AC-more-actions-by-type
@@ -174,6 +173,13 @@ When  菜单完成渲染
 Then  菜单不展示申请认识或发私信；申请认识由来源页主操作承接，已建立关系后的消息动作直接进入 PRD-03
 ```
 
+```
+AC-ID: APP-05-AC-more-actions-feedback
+Given 用户执行关注、取消关注、不看 TA 动态或取消不看 TA 动态
+When  服务端返回最终结果
+Then  关闭操作弹窗，在来源页中央复用蓝湖“千寻-成家-热门-发布失败”灰色反馈样式并替换为实际结果文案；约 2 秒后自动消失
+```
+
 ## 10. 关联
 
 | 关联类型 | 引用 ID | 说明 |
@@ -187,6 +193,6 @@ Then  菜单不展示申请认识或发私信；申请认识由来源页主操�
 | actionCode | 展示文案 | 作用域 | 撤销方式 |
 |------------|----------|--------|----------|
 | `hide_author_posts` | 不看 TA 动态 | 当前 authorId 后续社区动态 | 原入口切换为“取消不看 TA 动态” |
-| `unhide_author_posts` | 取消不看 TA 动态 | 解除当前 authorId 偏好 | 操作成功 toast |
+| `unhide_author_posts` | 取消不看 TA 动态 | 解除当前 authorId 偏好 | 中央灰色反馈“已取消不看 TA 动态” |
 
 `hide_author_posts` 不取消关注、不撤销喜欢或匹配、不关闭私信，也不进入黑名单；一期不提供独立管理页。申请认识与普通私信不属于更多菜单动作。

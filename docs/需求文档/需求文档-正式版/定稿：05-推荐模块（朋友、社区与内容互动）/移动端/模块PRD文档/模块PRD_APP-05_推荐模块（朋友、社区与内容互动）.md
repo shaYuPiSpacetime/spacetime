@@ -6,6 +6,10 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本14 | 2026-07-21 | Codex | 复核新增“YO悄悄话-弹窗”，关闭最后一项蓝湖缺口并将申请认识改为底部弹窗 |
+| 版本13 | 2026-07-21 | Codex | 关闭同城资料缺失分支，登记取消关注弹窗与内容不可见灰色反馈复用 |
+| 版本12 | 2026-07-21 | Codex | 以知音 UI 稿为准完成悦目用户卡片、诚意贴同结构发布/详情和通用状态复用 |
+| 版本11 | 2026-07-21 | Codex | 登记知音悦目、诚意贴与诚意贴发布蓝湖稿；三张稿均因业务对象或字段差异按部分覆盖记录 |
 | 版本10 | 2026-07-21 | Codex | 按最终 UI 口径删除 @Ta、社区私信中转页与单条内容屏蔽，将婚恋主页合并到个人动态区他人主页 |
 | 版本09 | 2026-07-20 | Codex | 按蓝湖最终确认口径删除收藏，明确举报幂等、发布审核态、话题字段及模块 08 资产弹窗边界 |
 | 版本08 | 2026-07-20 | Codex | 同城信息流收敛为当前用户已审核资料城市，城市只读并补充资料缺失、无内容分支 |
@@ -54,7 +58,7 @@
   4. 点击内容进入动态详情页，点击话题进入话题详情页
 分支：
   - 同城页由服务端读取当前用户已审核资料城市，页面只读展示且不申请 GPS 定位权限
-  - 资料城市缺失时不请求同城内容，引导完善资料
+  - 现居城市由 PRD-01 固定必填；存量空值用户在进入核心页面前补录，本模块不承接资料城市缺失分支
   - 当前资料城市无内容时可刷新或去热门
   - 关注页无关注内容时展示空态和热门入口
 异常：
@@ -84,7 +88,7 @@
 ### 3.3 内容互动流程
 
 ```
-入口：信息流卡片、动态详情页（含诚意贴视图）、悦目页
+入口：信息流卡片、动态详情页（含诚意贴类型）、悦目用户卡片
 正常路径：
   1. 用户点击点赞、评论或关注
   2. 小程序校验 `M05-RULE-interaction-gate`
@@ -125,7 +129,7 @@
   - 目标用户不可见：提示对方状态已变化
   - 打招呼发送失败或重复：复用 PRD-03 通用反馈，不增加独立状态画板
   - 普通私信规则变化：由 PRD-03 会话页展示原因
-出口：社区打招呼页、PRD-03 私信对话页或他人主页
+出口：YO 悄悄话弹窗、PRD-03 私信对话页或他人主页
 ```
 
 ---
@@ -136,7 +140,7 @@
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
-| 社区内容 | `community_post` | 动态、诚意贴、悦目内容来源 | 05 | contentId, authorId, contentType, status, topicId |
+| 社区内容 | `community_post` | 动态、诚意贴 | 05 | contentId, authorId, contentType, status, topicId |
 | 评论 | `community_comment` | 动态/诚意贴评论和回复 | 05 | commentId, contentId, authorId, parentCommentId, status |
 | 点赞 | `community_like` | 用户对内容的点赞关系 | 05 | contentId, userId, status |
 | 关注 | `community_follow` | 用户之间的社区关注关系 | 05 | followerId, targetUserId, status |
@@ -177,13 +181,13 @@
 |---------|------|--------|-------------|------|
 | `APP-05-RULE-community-feed` | 关注、同城、热门信息流浏览 | P0 | `APP-05-PAGE-community-following`、`APP-05-PAGE-community-city`、`APP-05-PAGE-community-hot` | 登录后可浏览 |
 | `APP-05-RULE-topic` | 话题入口、话题列表、话题详情和话题内容聚合 | P0 | `APP-05-PAGE-topic-list`、`APP-05-PAGE-topic-detail` | 话题来自后台配置 |
-| `APP-05-RULE-publish-post` | 发布动态/诚意贴 | P0 | `APP-05-PAGE-post-publish` | 需满足互动门槛；图片九宫格展示 `x/9`；话题以 chips 单选；诚意贴通过 `contentType=sincere_post` 条件表单承接 |
+| `APP-05-RULE-publish-post` | 发布动态/诚意贴 | P0 | `APP-05-PAGE-post-publish` | 需满足互动门槛；两类内容使用相同正文、图片和话题字段；诚意贴仅 `contentType=sincere_post` 与审核路径不同 |
 | `APP-05-RULE-post-detail` | 动态详情、点赞、评论、举报 | P0 | `APP-05-PAGE-post-detail` | 评论机审通过后公开 |
-| `APP-05-RULE-yuemu` | 悦目图片内容流 | P0 | `APP-05-PAGE-yuemu` | 双列瀑布流按原始宽高比展示，支持预览、点赞和加载更多 |
-| `APP-05-RULE-sincere-post` | 诚意贴列表、发布与详情承接 | P0 | `APP-05-PAGE-sincere-list`、`APP-05-PAGE-post-publish`、`APP-05-PAGE-post-detail` | 发布和详情均通过 `contentType=sincere_post` 条件视图承接 |
+| `APP-05-RULE-yuemu` | 悦目用户照片发现 | P0 | `APP-05-PAGE-yuemu` | 双列展示用户照片、缘分标签、学历学校、在线时间和心动按钮；点击卡片进入统一他人主页 |
+| `APP-05-RULE-sincere-post` | 诚意贴列表、发布与详情承接 | P0 | `APP-05-PAGE-sincere-list`、`APP-05-PAGE-post-publish`、`APP-05-PAGE-post-detail` | 与动态使用相同字段和交互，仅 `contentType=sincere_post` 与审核路径不同 |
 | `APP-05-RULE-more-actions` | 社区更多操作弹窗 | P0 | `APP-05-PAGE-community-more-actions` | 内容/用户对象按 UI 稿展示分享、关注/取消关注、不看 TA 动态/取消不看和举报；申请认识不放入菜单 |
 | `APP-05-RULE-report` | 举报弹窗与举报提交 | P0 | `APP-05-PAGE-report-modal` | 已登录可提交；重复判定引用 `M05-RULE-report-idempotency` |
-| `APP-05-RULE-community-contact` | 申请认识与关系建立后直达私信 | P0 | `APP-05-PAGE-community-greeting`、`APP-05-PAGE-user-posts` | 未建立关系进入打招呼页，建立关系后消息动作直达 PRD-03 |
+| `APP-05-RULE-community-contact` | 申请认识与关系建立后直达私信 | P0 | `APP-05-PAGE-community-greeting`、`APP-05-PAGE-user-posts` | 未建立关系打开 YO 悄悄话弹窗，建立关系后消息动作直达 PRD-03 |
 | `APP-05-RULE-user-posts` | 个人动态区与他人主页 | P0 | `APP-05-PAGE-user-posts` | 本人可看审核态；他人主页展示已审核资料、关系动作和公开动态 |
 | `APP-05-RULE-interaction-center` | 评论过、点赞过、解锁过、浏览记录与获赞统计 | P1 | `APP-05-PAGE-interaction-center` | 解锁历史只读引用 PRD-04 |
 | `APP-05-RULE-follow-relations` | 关注、粉丝列表与统计 | P1 | `APP-05-PAGE-follow-relations` | 不改变匹配和私信资格 |
@@ -296,19 +300,19 @@
 
 | 页面 ID | 页面名 | 页面规格文件 | 对应设计稿链接 | 对应一期页面 | 优先级 |
 |---------|--------|--------------|---------------|-------------|--------|
-| `APP-05-PAGE-community-following` | 成家关注信息流页 | `../页面规格/APP-01_成家关注信息流页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-001 | P0 |
-| `APP-05-PAGE-community-city` | 成家同城信息流页 | `../页面规格/APP-02_成家同城信息流页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-002 | P0 |
-| `APP-05-PAGE-community-hot` | 成家热门信息流页 | `../页面规格/APP-03_成家热门信息流页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-003；MVP-PAGE-004 作为本页话题入口区承接，点击进入 APP-05-PAGE-topic-list / MVP-PAGE-008 | P0 |
-| `APP-05-PAGE-topic-list` | 话题列表页 | `../页面规格/APP-04_话题列表页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-008 | P0 |
-| `APP-05-PAGE-post-publish` | 发布动态页 | `../页面规格/APP-05_发布动态页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-005 | P0 |
-| `APP-05-PAGE-post-detail` | 动态详情页 | `../页面规格/APP-06_动态详情页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-006；MVP-PAGE-015 列表点击后由本页承接诚意贴视图 | P0 |
-| `APP-05-PAGE-topic-detail` | 话题详情页 | `../页面规格/APP-07_话题详情页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-007 | P0 |
-| `APP-05-PAGE-community-more-actions` | 社区更多操作弹窗 | `../页面规格/APP-15_社区更多操作弹窗.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-009 | P0 |
-| `APP-05-PAGE-report-modal` | 举报弹窗 | `../页面规格/APP-08_举报弹窗.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-012/MVP-POP-003 | P0 |
-| `APP-05-PAGE-community-greeting` | 社区打招呼页 | `../页面规格/APP-13_社区打招呼页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-010 | P0 |
-| `APP-05-PAGE-yuemu` | 悦目页 | `../页面规格/APP-09_悦目页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-014 | P0 |
-| `APP-05-PAGE-sincere-list` | 诚意贴列表页 | `../页面规格/APP-10_诚意贴列表页.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-015 | P0 |
-| `APP-05-PAGE-user-posts` | 个人动态区（本人/他人主页） | `../页面规格/APP-12_个人动态区.md` | 待补充；设计画板按页面规格第 2.4 节输出 | MVP-PAGE-057/058（通过查看对象区分）；同时承接原婚恋用户主页 | P0 |
+| `APP-05-PAGE-community-following` | 成家关注信息流页 | `../页面规格/APP-01_成家关注信息流页.md` | 蓝湖“千寻-成家”关注信息流页面组已覆盖 | MVP-PAGE-001 | P0 |
+| `APP-05-PAGE-community-city` | 成家同城信息流页 | `../页面规格/APP-02_成家同城信息流页.md` | 蓝湖“千寻-成家-同城”及通用空态已覆盖 | MVP-PAGE-002 | P0 |
+| `APP-05-PAGE-community-hot` | 成家热门信息流页 | `../页面规格/APP-03_成家热门信息流页.md` | 蓝湖“千寻-成家-热门”页面组已覆盖 | MVP-PAGE-003；MVP-PAGE-004 作为本页话题入口区承接，点击进入 APP-05-PAGE-topic-list / MVP-PAGE-008 | P0 |
+| `APP-05-PAGE-topic-list` | 话题列表页 | `../页面规格/APP-04_话题列表页.md` | 蓝湖社区话题列表及通用空态已覆盖 | MVP-PAGE-008 | P0 |
+| `APP-05-PAGE-post-publish` | 发布动态页 | `../页面规格/APP-05_发布动态页.md` | 蓝湖“发布动态”页面组、诚意贴发布及发布失败反馈均已覆盖 | MVP-PAGE-005 | P0 |
+| `APP-05-PAGE-post-detail` | 动态详情页 | `../页面规格/APP-06_动态详情页.md` | 蓝湖动态详情页面组及通用反馈层已覆盖 | MVP-PAGE-006；MVP-PAGE-015 列表点击后由本页承接诚意贴视图 | P0 |
+| `APP-05-PAGE-topic-detail` | 话题详情页 | `../页面规格/APP-07_话题详情页.md` | 蓝湖社区话题详情画板已覆盖 | MVP-PAGE-007 | P0 |
+| `APP-05-PAGE-community-more-actions` | 社区更多操作弹窗 | `../页面规格/APP-15_社区更多操作弹窗.md` | 蓝湖内容、用户、评论菜单及通用反馈层已覆盖 | MVP-PAGE-009 | P0 |
+| `APP-05-PAGE-report-modal` | 举报弹窗 | `../页面规格/APP-08_举报弹窗.md` | 蓝湖举报原因与成功反馈已覆盖 | MVP-PAGE-012/MVP-POP-003 | P0 |
+| `APP-05-PAGE-community-greeting` | YO 悄悄话弹窗 | `../页面规格/APP-13_社区打招呼页.md` | 蓝湖“YO悄悄话-弹窗”及文字点亮态完整覆盖 | MVP-PAGE-010 | P0 |
+| `APP-05-PAGE-yuemu` | 悦目页 | `../页面规格/APP-09_悦目页.md` | 蓝湖“千寻-知音-悦目”，完整覆盖 | MVP-PAGE-014 | P0 |
+| `APP-05-PAGE-sincere-list` | 诚意贴列表页 | `../页面规格/APP-10_诚意贴列表页.md` | 蓝湖“千寻-知音-诚意贴”，完整覆盖 | MVP-PAGE-015 | P0 |
+| `APP-05-PAGE-user-posts` | 个人动态区（本人/他人主页） | `../页面规格/APP-12_个人动态区.md` | 蓝湖本人态、他人主页及我的动态空态已覆盖 | MVP-PAGE-057/058（通过查看对象区分）；同时承接原婚恋用户主页 | P0 |
 | `APP-05-PAGE-interaction-center` | 千寻互动中心页 | `../页面规格/APP-11_千寻互动中心页.md` | 蓝湖“千寻互动”页面组 | 蓝湖反向补充 | P1 |
 | `APP-05-PAGE-follow-relations` | 关注粉丝列表页 | `../页面规格/APP-17_关注粉丝列表页.md` | 蓝湖关注/粉丝画板 | 蓝湖反向补充 | P1 |
 | `APP-05-PAGE-post-interactors` | 动态互动用户列表页 | `../页面规格/APP-18_动态互动用户列表页.md` | 蓝湖动态互动用户画板 | 蓝湖反向补充 | P1 |

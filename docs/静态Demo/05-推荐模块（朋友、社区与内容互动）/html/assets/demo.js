@@ -20,10 +20,9 @@
     followingAuthor: null,
     topicSort: '热门',
     commentSort: 'latest',
-    sincereSort: '热门',
     userPostView: 'owner',
     interactionEstablished: false,
-    greetingTemplate: data.greetingTemplates?.[0] || '',
+    greetingContent: '',
     replyTo: null,
     moreTargetType: 'post',
     moreTargetPostId: data.posts?.[0]?.id,
@@ -31,11 +30,18 @@
     reportTargetId: data.posts?.[0]?.id || 'P-240701',
     reportSubmissions: new Set(),
     previewImage: null,
-    yuemuLimit: 2,
+    yuemuLimit: Number.MAX_SAFE_INTEGER,
     yuemuLiked: new Set(),
     historyType: 'commented',
     relationType: 'following',
-    interactorType: 'liked'
+    pendingUnfollowUser: null,
+    interactorType: 'liked',
+    publishFeedback: null,
+    publishFeedbackTimer: null,
+    moreActionFeedback: null,
+    moreActionFeedbackTimer: null,
+    detailUnavailableReason: '内容已下架',
+    draftApplied: false
   };
 
   function tag(text, tone = '') {
@@ -150,8 +156,6 @@
   }
 
   function postCard(post, compact = false) {
-    const isSincere = post.type === 'sincere_post';
-    const title = isSincere ? `<h3>${escapeHtml(post.title)}</h3>` : '';
     const imageItems = (post.images || []).slice(0, compact ? 3 : 4);
     const images = imageItems.map((item, index) => imageTile(item, index, {
       preview: true,
@@ -160,10 +164,10 @@
     const imageClass = imageItems.length > 1 ? 'image-strip image-strip-grid' : 'image-strip image-strip-single';
     const commentPreview = (post.commentPreview || []).slice(0, 2);
     return `
-      <article class="${isSincere ? 'sincere-card' : 'feed-card'}" data-post-card="${escapeHtml(post.id)}">
+      <article class="feed-card" data-post-card="${escapeHtml(post.id)}" data-content-type="${escapeHtml(post.type)}">
         <div class="author-row feed-author-row">
           <button class="author-profile-link" type="button" data-user-post-view="other" data-jump="#APP-05-PAGE-user-posts">
-            ${avatar(post.avatar, isSincere, `${post.author}上传头像`)}
+            ${avatar(post.avatar, true, `${post.author}上传头像`)}
             <span>
               <strong>${escapeHtml(post.author)} ${post.gender ? `<span class="gender-dot">${escapeHtml(post.gender)}</span>` : ''}</strong>
               <span class="helper">${escapeHtml(post.profile || `97年 · ${post.city} · ${post.topic}`)}</span>
@@ -172,8 +176,8 @@
           <button class="follow-btn" type="button" data-toast="${post.followed ? '已打开取消关注确认' : '已打开关注确认'}">${post.followed ? '已关注' : '关注'}</button>
           <button class="more-dot" type="button" data-open-modal="moreActionsModal" data-target-type="post" data-target-post="${escapeHtml(post.id)}" aria-label="更多操作">⋮</button>
         </div>
-        ${title}
-        <p class="post-text">${escapeHtml(compact ? post.text.slice(0, 70) + '...' : post.text)}</p>
+        <p class="post-text">${escapeHtml(compact && post.text.length > 70 ? post.text.slice(0, 70) + '...' : post.text)}</p>
+        ${compact && post.text.length > 70 ? `<button class="action-link sincere-expand" data-open-detail="${escapeHtml(post.id)}">查看全部</button>` : ''}
         ${images ? `<div class="${imageClass}">${images}</div>` : ''}
         <div class="feed-meta">
           <span>${escapeHtml(post.activeText || post.time)}</span>
@@ -273,16 +277,23 @@
   }
 
   function currentDetailPost() {
-    return (data.posts || []).find((post) => post.id === state.detailPostId) || data.posts?.[0];
+    return (data.posts || []).find((post) => post.id === state.detailPostId);
   }
 
   function renderDetail() {
     const post = currentDetailPost();
     qsa('[data-render="post-detail"]').forEach((target) => {
-      target.innerHTML = post ? postCard(post) : '<div class="notice">内容不存在或已不可见</div>';
+      target.innerHTML = post ? postCard(post) : `
+        <div class="detail-unavailable-stage" aria-live="polite">
+          <div class="publish-feedback-card more-action-feedback-card" role="status">
+            <strong>${escapeHtml(state.detailUnavailableReason)}</strong>
+          </div>
+        </div>
+      `;
     });
+    qsa('[data-detail-comments]').forEach((node) => { node.hidden = !post; });
     qsa('[data-detail-title]').forEach((node) => {
-      node.textContent = post?.type === 'sincere_post' ? '动态详情 · 诚意贴视图' : '动态详情';
+      node.textContent = post?.type === 'sincere_post' ? '动态详情 · 诚意贴' : '动态详情';
     });
   }
 
@@ -324,56 +335,31 @@
 
   function renderYuemu() {
     qsa('[data-render="yuemu"]').forEach((target) => {
-      const all = (data.posts || []).filter((post) => post.yuemu);
+      const all = data.yuemuUsers || [];
       const rows = all.slice(0, state.yuemuLimit);
-      target.innerHTML = rows.map((post, index) => {
-        const liked = state.yuemuLiked.has(post.id);
+      target.innerHTML = rows.map((user, index) => {
+        const liked = state.yuemuLiked.has(user.id);
         return `
           <article class="yuemu-card">
-            <div class="yuemu-cover" style="aspect-ratio:${Number(post.width) || 1}/${Number(post.height) || 1}">
-              ${imageTile(post.images?.[0] || '悦目图片', index, {
-                preview: true,
-                postId: post.id,
-                ratio: true,
-                width: post.width,
-                height: post.height
-              })}
-            </div>
+            <button class="yuemu-cover" data-user-post-view="other" data-jump="#APP-05-PAGE-user-posts" aria-label="查看${escapeHtml(user.name)}主页">
+              ${imageTile(user.photo || '悦目用户照片', index)}
+              <span class="yuemu-fate">${escapeHtml(user.fateLabel)}</span>
+              <span class="yuemu-photo-meta"><strong>${escapeHtml(user.educationSchool)}</strong><em>${escapeHtml(user.onlineText)}</em></span>
+            </button>
             <div class="yuemu-meta">
-              <div class="author-row">${avatar(post.avatar, true, `${post.author}上传头像`)}<strong>${escapeHtml(post.author)}</strong></div>
-              <span class="helper">${escapeHtml(post.width)} x ${escapeHtml(post.height)} · 原比例展示</span>
-              <div class="yuemu-actions">
-                <button class="btn ${liked ? 'primary' : ''}" data-yuemu-like="${escapeHtml(post.id)}">${liked ? '已赞' : '点赞'} ${escapeHtml(post.likeCount + (liked ? 1 : 0))}</button>
-                <button class="btn" data-open-detail="${escapeHtml(post.id)}">详情</button>
-              </div>
+              <strong>${escapeHtml(user.name)}</strong>
+              <button class="yuemu-heart ${liked ? 'is-liked' : ''}" data-yuemu-like="${escapeHtml(user.id)}" aria-label="${liked ? '取消心动' : '心动'}">♥</button>
             </div>
           </article>
         `;
-      }).join('') || '<div class="notice">暂无悦目内容，下拉刷新后重试。</div>';
-
-      qsa('[data-yuemu-load]').forEach((button) => {
-        button.disabled = state.yuemuLimit >= all.length;
-        button.textContent = state.yuemuLimit >= all.length ? '已加载全部' : '加载更多';
-      });
-    });
-  }
-
-  function sortedSincerePosts() {
-    const rows = (data.posts || []).filter((post) => post.type === 'sincere_post');
-    return rows.slice().sort((a, b) => {
-      if (state.sincereSort === '热门') return b.likeCount - a.likeCount;
-      return String(b.time).localeCompare(String(a.time));
+      }).join('') || '<div class="notice">暂无数据</div>';
     });
   }
 
   function renderSincere() {
     qsa('[data-render="sincere"]').forEach((target) => {
-      const rows = sortedSincerePosts();
-      target.innerHTML = rows.map((post) => postCard(post, true)).join('') || '<div class="notice">暂无诚意贴，去发布第一条吧。</div>';
-    });
-
-    qsa('[data-sincere-sort]').forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.sincereSort === state.sincereSort);
+      const rows = (data.posts || []).filter((post) => post.type === 'sincere_post');
+      target.innerHTML = rows.map((post) => postCard(post, true)).join('') || '<div class="notice">暂无数据</div>';
     });
   }
 
@@ -395,6 +381,13 @@
   }
 
   function renderPublishControls() {
+    if (!state.draftApplied && state.draft) {
+      state.publishType = state.draft.contentType || 'community_post';
+      state.selectedTopic = state.draft.topic || '';
+      state.publishImages = (state.draft.images || []).map((item) => ({ ...item, uploadStatus: 'success' }));
+      qsa('[data-publish-content]').forEach((node) => { node.value = state.draft.content || ''; });
+      state.draftApplied = true;
+    }
     qsa('[data-render="topic-chips"]').forEach((target) => {
       target.innerHTML = `
         <div class="control-label">选择话题</div>
@@ -430,14 +423,56 @@
     qsa('[data-publish-type]').forEach((button) => {
       button.classList.toggle('is-active', button.dataset.publishType === state.publishType);
     });
-    qsa('[data-sincere-only]').forEach((node) => {
-      node.hidden = state.publishType !== 'sincere_post';
-    });
     const hasIncompleteUpload = state.publishImages.some((item) => item.uploadStatus !== 'success');
     qsa('[data-submit-publish]').forEach((button) => {
       button.disabled = hasIncompleteUpload;
       button.title = hasIncompleteUpload ? '图片尚未上传完成，请处理后再发布' : '';
     });
+
+    qsa('[data-render="publish-feedback"]').forEach((target) => {
+      if (!state.publishFeedback) {
+        target.innerHTML = '';
+        target.hidden = true;
+        return;
+      }
+      target.hidden = false;
+      target.innerHTML = `
+        <div class="publish-feedback-card" role="status">
+          <span class="publish-feedback-icon" aria-hidden="true">!</span>
+          <strong>发布失败</strong>
+          <p>${escapeHtml(state.publishFeedback)}</p>
+        </div>
+      `;
+    });
+  }
+
+  function showPublishFailure(reason) {
+    state.publishFeedback = reason || '网络异常，请稍后重试';
+    if (state.publishFeedbackTimer) window.clearTimeout(state.publishFeedbackTimer);
+    renderPublishControls();
+    state.publishFeedbackTimer = window.setTimeout(() => {
+      state.publishFeedback = null;
+      state.publishFeedbackTimer = null;
+      renderPublishControls();
+    }, 2400);
+  }
+
+  function renderMoreActionFeedback() {
+    qsa('[data-render="more-action-feedback"]').forEach((target) => {
+      target.hidden = !state.moreActionFeedback;
+      target.innerHTML = state.moreActionFeedback ? `<div class="publish-feedback-card more-action-feedback-card" role="status"><strong>${escapeHtml(state.moreActionFeedback)}</strong></div>` : '';
+    });
+  }
+
+  function showMoreActionFeedback(message) {
+    state.moreActionFeedback = message;
+    if (state.moreActionFeedbackTimer) window.clearTimeout(state.moreActionFeedbackTimer);
+    renderMoreActionFeedback();
+    state.moreActionFeedbackTimer = window.setTimeout(() => {
+      state.moreActionFeedback = null;
+      state.moreActionFeedbackTimer = null;
+      renderMoreActionFeedback();
+    }, 2200);
   }
 
   function renderInteractionCenter() {
@@ -515,27 +550,18 @@
   }
 
   function renderGreeting() {
-    qsa('[data-render="greeting-templates"]').forEach((target) => {
-      target.innerHTML = `
-        <div class="control-label">招呼语模板</div>
-        <div class="chip-row">
-          ${(data.greetingTemplates || []).map((text) => `
-            <button type="button" class="${state.greetingTemplate === text ? 'is-active' : ''}" data-greeting-template="${escapeHtml(text)}">${escapeHtml(text)}</button>
-          `).join('')}
-        </div>
-      `;
-    });
-
     qsa('[data-render="greeting-cost"]').forEach((target) => {
       const free = data.currentUser?.freeWhisper || 0;
       target.innerHTML = free > 0
-        ? `<div class="notice">本次优先使用免费次数；剩余 ${free} 次，千寻币余额 ${escapeHtml(data.currentUser?.coinBalance)}。</div>`
-        : `<div class="notice warning">需消耗 20 千寻币；余额 ${escapeHtml(data.currentUser?.coinBalance)}。</div>`;
+        ? `<div class="whisper-cost"><strong>免费 ${free} 次</strong><span>优先使用今日会员权益</span></div>`
+        : `<div class="whisper-cost"><strong>¥ 100</strong><span>悄悄话直达，配对率翻倍</span></div>`;
     });
 
     qsa('[data-greeting-content]').forEach((textarea) => {
-      if (!textarea.dataset.touched) textarea.value = state.greetingTemplate;
+      if (textarea.value !== state.greetingContent) textarea.value = state.greetingContent;
     });
+    qsa('[data-greeting-count]').forEach((node) => { node.textContent = String(state.greetingContent.length); });
+    qsa('[data-confirm-greeting]').forEach((button) => { button.disabled = state.greetingContent.trim().length === 0; });
   }
 
   function renderReportModal() {
@@ -615,7 +641,7 @@
         <div class="community-card"><h3>家园话题</h3><p>话题字典、推荐入口和发布页话题 chips 由家园话题管理独立维护。</p></div>
         <div class="community-card"><h3>举报原因</h3><p>${data.config?.reportReasons?.join('、')}</p></div>
         <div class="community-card"><h3>敏感词库</h3><p>联系方式、广告引流、攻击辱骂；高危词命中进入人工复核。</p></div>
-        <div class="community-card"><h3>发布规则</h3><p>最多 ${data.config?.maxImages} 图；诚意贴正文不少于 ${data.config?.sincereMinText} 字；机审 ${data.config?.machineAudit}。</p></div>
+        <div class="community-card"><h3>发布规则</h3><p>动态与诚意贴均最多 ${data.config?.maxImages} 图、正文最多 500 字；两者字段结构一致，机审 ${data.config?.machineAudit}。</p></div>
         <div class="community-card"><h3>治理策略</h3><p>禁言周期 ${data.config?.mutePeriods?.join(' / ')}；IP 封禁 ${data.config?.ipBlock}，周期 ${data.config?.ipBlockPeriods?.join(' / ')}。</p></div>
         <div class="community-card"><h3>审计要求</h3><p>规则启停、联系方式开关、处罚处理均写入操作日志。</p></div>
       `;
@@ -633,7 +659,7 @@
         (r) => escapeHtml(r.contentId),
         (r) => `<strong>${escapeHtml(r.type)}</strong><div class="helper">${escapeHtml(r.mediaType)}</div>`,
         (r) => escapeHtml(r.module),
-        (r) => `<strong>${escapeHtml(r.title)}</strong><div class="helper">${escapeHtml(r.content)}</div>`,
+        (r) => `<div class="helper">${escapeHtml(r.content)}</div>`,
         (r) => escapeHtml(r.author),
         (r) => escapeHtml(r.time),
         (r) => `${tag(r.machine, r.machine === '通过' ? 'success' : 'warning')}<div class="helper">${escapeHtml(r.risk)}风险</div>`,
@@ -648,7 +674,7 @@
         (r) => escapeHtml(r.contentId),
         (r) => escapeHtml((r.module || '').replace('成家 / ', '') || '成家'),
         (r) => escapeHtml(r.mediaType),
-        (r) => `<strong>${escapeHtml(r.title)}</strong><div class="helper">${escapeHtml(r.content)}</div>`,
+        (r) => `<div class="helper">${escapeHtml(r.content)}</div>`,
         (r) => escapeHtml(r.author),
         (r) => escapeHtml(r.time),
         (r) => `${escapeHtml(r.views)} / ${escapeHtml(r.likes)} / ${escapeHtml(r.comments)}`,
@@ -742,6 +768,7 @@
     renderGreeting();
     renderReportModal();
     renderMoreActions();
+    renderMoreActionFeedback();
     renderImagePreview();
     renderConfig();
     renderAdminTables();
@@ -761,8 +788,8 @@
     document.addEventListener('input', (event) => {
       const greetingContent = event.target.closest('[data-greeting-content]');
       if (greetingContent) {
-        greetingContent.dataset.touched = 'true';
-        state.greetingTemplate = greetingContent.value;
+        state.greetingContent = greetingContent.value.slice(0, 60);
+        renderGreeting();
       }
     });
 
@@ -822,7 +849,7 @@
         if (state.yuemuLiked.has(id)) state.yuemuLiked.delete(id);
         else state.yuemuLiked.add(id);
         renderYuemu();
-        showToast(state.yuemuLiked.has(id) ? '悦目点赞成功' : '已取消点赞');
+        showToast(state.yuemuLiked.has(id) ? '已心动' : '已取消心动');
       }
 
       const jump = event.target.closest('[data-jump]');
@@ -892,34 +919,35 @@
         showToast(`首图状态：${state.publishImages[0].uploadStatus}`);
       }
 
+      const demoPublishFailure = event.target.closest('[data-demo-publish-failure]');
+      if (demoPublishFailure) {
+        showPublishFailure('内容中包含不支持的联系方式');
+      }
+
       const saveDraft = event.target.closest('[data-save-draft]');
       if (saveDraft) {
         state.draft = {
           contentType: state.publishType,
           content: qs('[data-publish-content]')?.value || '',
-          title: qs('[data-publish-title]')?.value || '',
           topic: state.selectedTopic,
           images: state.publishImages.filter((item) => item.uploadStatus === 'success').map((item) => ({ ...item })),
           updatedAt: '刚刚'
         };
+        state.draftApplied = true;
         showToast('草稿已保存；每种内容类型保留最近 1 份');
       }
 
-      const restoreDraft = event.target.closest('[data-restore-draft]');
-      if (restoreDraft) {
-        if (!state.draft) {
-          showToast('暂无可恢复草稿', 'warning');
-        } else {
-          state.publishType = state.draft.contentType || 'community_post';
-          state.selectedTopic = state.draft.topic || '';
-          state.publishImages = (state.draft.images || []).map((item) => ({ ...item, uploadStatus: 'success' }));
-          const contentNode = qs('[data-publish-content]');
-          const titleNode = qs('[data-publish-title]');
-          if (contentNode) contentNode.value = state.draft.content || '';
-          if (titleNode) titleNode.value = state.draft.title || '';
-          renderPublishControls();
-          showToast(`已恢复 ${state.draft.updatedAt || ''} 的草稿，尚未发布`);
-        }
+      const abandonDraft = event.target.closest('[data-abandon-draft]');
+      if (abandonDraft) {
+        state.draft = null;
+        state.draftApplied = false;
+        state.publishImages = [];
+        state.selectedTopic = data.topics?.[0]?.name || '';
+        const contentNode = qs('[data-publish-content]');
+        if (contentNode) contentNode.value = '';
+        renderPublishControls();
+        renderSincere();
+        location.hash = state.publishType === 'sincere_post' ? 'APP-05-PAGE-sincere-list' : 'APP-05-PAGE-community-hot';
       }
 
       const removeImage = event.target.closest('[data-remove-image]');
@@ -931,22 +959,17 @@
 
       const submitPublish = event.target.closest('[data-submit-publish]');
       if (submitPublish) {
-        const title = qs('[data-publish-title]')?.value.trim();
         const content = qs('[data-publish-content]')?.value.trim();
         if (!state.selectedTopic) {
-          showToast('请选择话题', 'warning');
+          showPublishFailure('请选择话题');
           return;
         }
-        if (state.publishType === 'sincere_post' && !title) {
-          showToast('诚意贴标题必填', 'warning');
-          return;
-        }
-        if (!content || (state.publishType === 'sincere_post' && content.length < 20)) {
-          showToast('请补充正文，诚意贴正文不少于 20 字', 'warning');
+        if (!content) {
+          showPublishFailure('正文内容不能为空');
           return;
         }
         if (state.publishImages.some((item) => item.uploadStatus !== 'success')) {
-          showToast('图片尚未上传完成，请处理后再发布', 'warning');
+          showPublishFailure('图片尚未上传完成，请处理后再发布');
           return;
         }
         state.draft = null;
@@ -990,9 +1013,36 @@
       if (toggleRelation) {
         const rows = data.followRelations?.[state.relationType] || [];
         const user = rows.find((item) => item.name === toggleRelation.dataset.toggleRelation);
-        if (user) user.followed = !user.followed;
+        if (user?.followed) {
+          state.pendingUnfollowUser = user;
+          openModal('unfollowConfirmModal');
+        } else if (user) {
+          user.followed = true;
+          renderFollowRelations();
+          showToast('关注成功，不改变匹配或私信资格');
+        }
+      }
+
+      const confirmUnfollow = event.target.closest('[data-confirm-unfollow]');
+      if (confirmUnfollow && state.pendingUnfollowUser) {
+        state.pendingUnfollowUser.followed = false;
+        state.pendingUnfollowUser = null;
         renderFollowRelations();
-        showToast(user?.followed ? '关注成功，不改变匹配或私信资格' : '已取消关注');
+        closeSurface(confirmUnfollow.closest('.modal-backdrop'));
+        showToast('已取消关注，不改变匹配或私信资格');
+      }
+
+      const demoDetailUnavailable = event.target.closest('[data-demo-detail-unavailable]');
+      if (demoDetailUnavailable) {
+        state.detailUnavailableReason = demoDetailUnavailable.dataset.demoDetailUnavailable || '内容暂不可见';
+        state.detailPostId = '__unavailable__';
+        renderDetail();
+      }
+
+      const demoDetailRestore = event.target.closest('[data-demo-detail-restore]');
+      if (demoDetailRestore) {
+        state.detailPostId = data.posts?.[0]?.id;
+        renderDetail();
       }
 
       const interactorType = event.target.closest('[data-interactor-type]');
@@ -1013,15 +1063,9 @@
         renderComments();
       }
 
-      const sincereSort = event.target.closest('[data-sincere-sort]');
-      if (sincereSort) {
-        state.sincereSort = sincereSort.dataset.sincereSort;
-        renderSincere();
-      }
-
       const yuemuRefresh = event.target.closest('[data-yuemu-refresh]');
       if (yuemuRefresh) {
-        state.yuemuLimit = Math.min(2, (data.posts || []).filter((post) => post.yuemu).length);
+        state.yuemuLimit = Math.min(2, (data.yuemuUsers || []).length);
         renderYuemu();
         showToast('悦目内容已刷新');
       }
@@ -1042,16 +1086,6 @@
       const deleteUserPost = event.target.closest('[data-delete-user-post]');
       if (deleteUserPost) {
         showToast('已打开删除确认弹窗');
-      }
-
-      const greetingTemplate = event.target.closest('[data-greeting-template]');
-      if (greetingTemplate) {
-        state.greetingTemplate = greetingTemplate.dataset.greetingTemplate;
-        qsa('[data-greeting-content]').forEach((textarea) => {
-          textarea.value = state.greetingTemplate;
-          textarea.dataset.touched = 'true';
-        });
-        renderGreeting();
       }
 
       const reportReason = event.target.closest('[data-report-reason]');
@@ -1085,7 +1119,10 @@
 
       const confirmGreeting = event.target.closest('[data-confirm-greeting]');
       if (confirmGreeting) {
+        if (!state.greetingContent.trim()) return;
         showToast('悄悄话已发送，等待对方回复');
+        state.greetingContent = '';
+        renderGreeting();
         qsa('.modal-backdrop.is-open').forEach(closeSurface);
       }
 
@@ -1095,14 +1132,14 @@
         const action = authorPreference.dataset.authorPreference;
         state.hiddenAuthor = action === 'hide_author_posts' ? post?.author : null;
         renderAll();
-        showToast(action === 'hide_author_posts' ? '已设置不看 TA 动态；关注和私信关系不变' : '已取消不看 TA 动态');
+        showMoreActionFeedback(action === 'hide_author_posts' ? '已设置不看 TA 动态' : '已取消不看 TA 动态');
       }
 
       const moreFollow = event.target.closest('[data-more-follow]');
       if (moreFollow && data.posts?.[0]) {
         data.posts[0].followed = !data.posts[0].followed;
         renderAll();
-        showToast(data.posts[0].followed ? '关注成功' : '已取消关注');
+        showMoreActionFeedback(data.posts[0].followed ? '关注成功' : '已取消关注');
       }
 
       const toggleInteraction = event.target.closest('[data-toggle-interaction]');

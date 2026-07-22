@@ -6,12 +6,14 @@
 | 版本02 | 2026-07-06 | Codex | 增加 `contentType=sincere_post` 诚意贴视图承接 |
 | 版本03 | 2026-07-07 | Codex | 按移动端 Demo 审查明确图片预览与评论回复入口验收 |
 | 版本04 | 2026-07-20 | Codex | 按蓝湖最终稿增加申请认识和互动人数，评论排序改为最新/最早；删除收藏；图片预览无需独立画板 |
+| 版本05 | 2026-07-21 | Codex | 动态与诚意贴详情统一为同一结构，仅内容类型不同；删除诚意贴独立详情画板、标题字段和差异化正文规则 |
+| 版本06 | 2026-07-21 | Codex | 内容不可见不新增专属结构，复用“千寻-成家-热门-发布失败”中央灰色反馈层并替换状态文案 |
 
 - **页面 ID**：`APP-05-PAGE-post-detail`
 - **所属模块 PRD**：`模块PRD_APP-05_推荐模块（朋友、社区与内容互动）`
 - **页面路由**：`/pages/qianxun/community/post-detail`
-- **入口来源**：社区信息流、话题详情、悦目页、诚意贴列表页、个人动态区
-- **对应设计稿**：待补充；设计画板按第 2.4 节输出
+- **入口来源**：社区信息流、话题详情、诚意贴列表页、个人动态区
+- **对应设计稿**：动态详情组；内容不可见反馈复用蓝湖 `千寻-成家-热门-发布失败`
 - **对应移动端 / 技术方案**：`MVP-PAGE-006`
 
 ## 1. 页面定位
@@ -42,7 +44,7 @@
 | 区块 | 位置 | 内容 | 是否可折叠 | 是否记住展开状态 |
 |------|------|------|------------|------------------|
 | 作者信息 | 顶部 | 头像、昵称、时间、关注按钮 | 否 | 否 |
-| 内容区 | 主体 | 正文、图片、话题；诚意贴视图额外展示标题 | 否 | 否 |
+| 内容区 | 主体 | 正文、图片、话题；动态与诚意贴结构一致 | 否 | 否 |
 | 互动区 | 内容下方 | 申请认识、互动人数、点赞、评论、举报入口 | 否 | 否 |
 | 评论区 | 底部 | 评论输入框、评论列表 | 否 | 是 |
 
@@ -53,6 +55,7 @@
 | 图片预览 | 点击图片 | 全屏 | 图片轮播 | 点击关闭 |
 | 更多操作弹窗 | 点击更多 | 底部弹窗 | 分享、关注/取消关注、不看 TA 动态/取消不看、举报 | 点击取消/遮罩 |
 | 删除确认 | 作者点击删除 | 中央弹窗 | 确认删除 | 取消/确认 |
+| 内容不可见反馈 | 详情请求返回下架、删除或不可见 | 页面中央短时反馈层 | 复用“千寻-成家-热门-发布失败”的半透明灰色反馈样式，替换实际状态文案 | 短时展示后返回来源列表 |
 
 ### 2.4 UI 画板拆分（必填）
 
@@ -60,8 +63,7 @@
 |---------|----------|----------|------|
 | `APP-05-post-detail-01` | 动态详情-主页面 | 内容详情和评论 | |
 | `APP-05-post-detail-02` | 动态详情-评论输入 | 评论输入和回复态 | |
-| `APP-05-post-detail-03` | 动态详情-内容下架 | 不可见状态 | |
-| `APP-05-post-detail-05` | 动态详情-诚意贴视图 | `contentType=sincere_post` 时的标题、长文正文和评论 | 承接诚意贴列表点击 |
+| `APP-05-post-detail-03` | 动态详情-内容不可见反馈 | 下架、删除或暂不可见反馈 | 不新增专属页面稿；完整复用蓝湖 `千寻-成家-热门-发布失败` 中央灰色反馈层，仅替换文案 |
 
 图片全屏轮播复用客户端通用图片预览组件，属于运行态能力，不单独要求 UI 画板。
 
@@ -111,8 +113,7 @@
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
 | `APP-05-PAGE-post-detail-FIELD-author` | 作者 | json | 是 | 头像/昵称/认证摘要 | 缺失展示默认 | 无 | 否 | 普通 | PRD-01 用户资料 |
 | `APP-05-PAGE-post-detail-FIELD-content-type` | 内容类型 | enum | 是 | `M05-ENUM-content-type` | 必须为公开可见类型 | `community_post` | 否 | 普通 | 社区内容 |
-| `APP-05-PAGE-post-detail-FIELD-sincere-title` | 诚意贴标题 | string | 条件必填 | 1-40 字 | `contentType=sincere_post` 时展示 | 无 | 否 | 普通 | 社区内容 |
-| `APP-05-PAGE-post-detail-FIELD-content` | 正文 | string | 是 | 动态 1-500 字；诚意贴不少于 20 字 | 已审核公开 | 无 | 否 | 普通 | 社区内容 |
+| `APP-05-PAGE-post-detail-FIELD-content` | 正文 | string | 是 | 1-500 字 | 已审核公开；动态与诚意贴展示规则一致 | 无 | 否 | 普通 | 社区内容 |
 | `APP-05-PAGE-post-detail-FIELD-images` | 图片 | image[] | 否 | 0-9 张 | 私有 URL | 无 | 否 | 普通 | 社区内容 |
 | `APP-05-PAGE-post-detail-FIELD-topic` | 话题 | enum | 否 | `M05-CFG-topic-dict` | 下线话题展示历史名 | 无 | 否 | 普通 | 后台配置 |
 | `APP-05-PAGE-post-detail-FIELD-like-count` | 点赞数 | int | 是 | >=0 | 系统计算 | 0 | 否 | 普通 | 系统计算 |
@@ -139,7 +140,7 @@
 | `APP-05-PAGE-post-detail-ACT-like` | 点赞/取消点赞 | 互动区 | 内容公开 | `M05-RULE-interaction-gate` | 否 | 点赞态更新 | `M05-ERR-core-access-required` |
 | `APP-05-PAGE-post-detail-ACT-comment` | 发表评论 | 评论输入 | 内容公开且输入合法 | `M05-RULE-interaction-gate` | 否 | 评论公开或提示失败 | 内容安全失败 |
 | `APP-05-PAGE-post-detail-ACT-follow` | 关注作者 | 作者区 | 作者不是本人 | `M05-RULE-interaction-gate` | 否 | 关注态更新 | `M05-ERR-core-access-required` |
-| `APP-05-PAGE-post-detail-ACT-apply-acquaintance` | 申请认识 | 作者区/底部操作栏 | 作者不是本人且目标可见 | `M05-RULE-community-greeting-entry` | 否 | 进入社区打招呼页 | `M05-ERR-community-target-unavailable` |
+| `APP-05-PAGE-post-detail-ACT-apply-acquaintance` | 申请认识 | 作者区/底部操作栏 | 作者不是本人且目标可见 | `M05-RULE-community-greeting-entry` | 否 | 打开 `YO悄悄话-弹窗` | `M05-ERR-community-target-unavailable` |
 | `APP-05-PAGE-post-detail-ACT-open-interactors` | 查看互动用户 | 互动人数 | 内容公开且互动人数大于 0 | `GLB-ROLE-app-user` | 否 | 进入点赞/评论互动用户列表 | `M05-ERR-content-not-found` |
 | `APP-05-PAGE-post-detail-ACT-preview-image` | 预览图片 | 内容图片区 | 图片可见 | `GLB-ROLE-app-user` | 否 | 打开图片预览轮播 | 图片加载失败 |
 | `APP-05-PAGE-post-detail-ACT-report` | 举报 | 更多弹窗 | 内容公开 | `M05-RULE-report-gate` | 否 | 打开举报弹窗 | `M05-ERR-login-required` |
@@ -151,7 +152,7 @@
 |----------|----------|----------|----------|------|
 | 评论输入 | 发送 | 评论列表/评论数 | 机审通过后插入列表并 +1 | `M05-SM-comment-audit` |
 | 点赞状态 | 点击 | 点赞数 | +1 或 -1 | 幂等 |
-| 内容状态 | 后台下架 | 页面主体 | 展示不可见状态 | `M05-SM-content-audit` |
+| 内容状态 | 后台下架、作者删除或访问时不可见 | 页面主体 | 返回来源列表并展示中央灰色短反馈；文案分别为“内容已下架”“内容已删除”“内容暂不可见” | `M05-SM-content-audit`；不展示内部治理原因 |
 
 ## 7. 状态与异常
 
@@ -163,7 +164,7 @@
 | 错误态（网络） | 请求超时 | toast + 重试 | 重试 | `M05-ERR-*` |
 | 无权限态 | 未登录 | 登录引导 | 去登录 | `GLB-ROLE-app-user` |
 | 业务态-published | 内容公开 | 正常展示 | 点赞、评论、举报 | `M05-SM-content-audit` |
-| 业务态-blocked/deleted | 内容不可见 | 不可见提示 | 返回 | `M05-SM-content-audit` |
+| 业务态-blocked/deleted/unavailable | 内容不可见 | 返回来源列表，复用中央灰色短反馈并按最终状态替换文案 | 继续浏览来源列表 | `M05-SM-content-audit` |
 | 降级态 | 图片加载失败 | 占位图 | 继续阅读 | — |
 
 ## 8. 查询与列表
@@ -181,11 +182,12 @@
 | AC ID | 场景 | 类型 | 优先级 |
 |-------|------|------|--------|
 | `APP-05-AC-post-detail-show` | 展示公开动态详情 | 正常 | P0 |
-| `APP-05-AC-post-detail-sincere-view` | 诚意贴列表点击后展示诚意贴视图 | 正常 | P0 |
+| `APP-05-AC-post-detail-sincere-view` | 诚意贴按动态详情同结构展示 | 正常 | P0 |
 | `APP-05-AC-post-detail-comment` | 评论机审通过后公开 | 正常 | P0 |
 | `APP-05-AC-post-detail-reply` | 点击评论回复进入回复态 | 正常 | P1 |
 | `APP-05-AC-post-detail-preview` | 点击图片打开预览 | 正常 | P0 |
 | `APP-05-AC-post-detail-blocked` | 已下架内容不可见 | 异常 | P0 |
+| `APP-05-AC-post-detail-unavailable-feedback` | 内容下架、删除或暂不可见时复用中央灰色反馈层，文案与最终状态一致，随后返回来源列表 | 异常 | P0 |
 | `APP-05-AC-post-detail-report` | 已登录用户可举报内容 | 正常 | P0 |
 
 ```
@@ -206,15 +208,15 @@ Then  评论输入框进入回复态并展示被回复对象，提交后按 `M05
 AC-ID: APP-05-AC-post-detail-sincere-view
 Given 用户已登录且诚意贴状态为 `published`
 When  从诚意贴列表点击卡片
-Then  进入 `APP-05-PAGE-post-detail`，按 `contentType=sincere_post` 展示标题、长文正文、图片、评论和举报入口
+Then  进入 `APP-05-PAGE-post-detail`，除 `contentType=sincere_post` 外，正文、图片、话题、申请认识、互动人数、点赞、评论和举报均与普通动态使用同一结构
 ```
 
 ## 10. 关联
 
 | 关联类型 | 引用 ID | 说明 |
 |----------|---------|------|
-| 依赖的模块枚举 | `M05-ENUM-content-type` | 区分动态与诚意贴视图 |
-| 依赖的模块规则 | `M05-RULE-sincere-post` | 诚意贴字段与公开规则 |
+| 依赖的模块枚举 | `M05-ENUM-content-type` | 区分动态与诚意贴类型 |
+| 依赖的模块规则 | `M05-RULE-sincere-post` | 诚意贴类型与公开规则 |
 | 依赖的模块状态机 | `M05-SM-content-audit` | 内容状态 |
 | 依赖的模块状态机 | `M05-SM-comment-audit` | 评论状态 |
 | 依赖的模块规则 | `M05-RULE-report-gate` | 举报准入 |
@@ -222,9 +224,11 @@ Then  进入 `APP-05-PAGE-post-detail`，按 `contentType=sincere_post` 展示�
 
 ## 11. 蓝湖最终补充口径
 
-- 作者摘要展示出生年、城市、职业、活跃描述；“申请认识”是 `greeting` 的 UI 别名，进入 `APP-05-PAGE-community-greeting`。
+- 作者摘要展示出生年、城市、职业、活跃描述；“申请认识”是 `greeting` 的 UI 别名，打开 `APP-05-PAGE-community-greeting` 对应的 `YO悄悄话-弹窗`。
 - 互动人数按点赞用户与评论用户合并去重，点击后进入 `APP-05-PAGE-post-interactors`。
 - 更多操作按 UI 稿定义分享、关注/取消关注、不看 TA 动态/取消不看和举报；不提供单条内容屏蔽。
 - 本期不提供收藏能力；详情、列表、接口和统计均不出现收藏入口或字段。
+- 诚意贴不增加独立详情画板；动态与诚意贴仅类型不同，详情字段和交互完全复用。
+- `APP-05-post-detail-03` 不是新增页面结构：完整复用蓝湖“千寻-成家-热门-发布失败”反馈层，只替换为内容最终状态文案。
 
 验收：评论排序只提供最新/最早；互动人数与互动用户列表同源；“不看 TA 动态”只改变作者级内容偏好，不等于拉黑。

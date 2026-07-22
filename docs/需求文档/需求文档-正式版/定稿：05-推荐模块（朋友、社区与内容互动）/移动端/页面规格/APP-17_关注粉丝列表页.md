@@ -6,6 +6,7 @@
 |------|------|--------|----------|
 | 版本01 | 2026-07-20 | Codex | 根据蓝湖反向缺口新增关注/粉丝列表规格 |
 | 版本02 | 2026-07-20 | Codex | 关注和粉丝无数据统一复用通用空态，不拆分专属文案与引导 |
+| 版本03 | 2026-07-21 | Codex | 登记蓝湖“千寻-成家-取消关注”确认弹窗及交互文案 |
 
 ## 1. 页面定位
 
@@ -20,7 +21,7 @@
 | `APP-05-follow-relations-01` | 关注列表 | 用户头像、昵称、资料摘要、关注态 | P1 |
 | `APP-05-follow-relations-02` | 粉丝列表 | 用户头像、昵称、资料摘要、回关态 | P1 |
 | `APP-05-follow-relations-03` | 关系列表通用空态 | 通用插图、“暂无相关用户”、返回操作 | P1 |
-| `APP-05-follow-relations-04` | 取消关注确认 | 目标摘要、确认与取消按钮 | P1 |
+| `APP-05-follow-relations-04` | 取消关注确认 | 标题“温馨提示”、正文“确定取消关注吗？”、取消与确定按钮 | P1；蓝湖 `千寻-成家-取消关注` 已完整覆盖 |
 
 ## 3. 字段与操作
 
@@ -36,7 +37,7 @@
 | `APP-05-PAGE-follow-relations-ACT-change-tab` | 切换关注/粉丝 | 已登录 | 列表刷新 |
 | `APP-05-PAGE-follow-relations-ACT-open-profile` | 查看主页 | 用户可见 | 进入 `APP-05-PAGE-user-posts` 他人主页 |
 | `APP-05-PAGE-follow-relations-ACT-follow` | 关注/回关 | 满足互动准入 | 更新关注态与统计数 |
-| `APP-05-PAGE-follow-relations-ACT-unfollow` | 取消关注 | 当前已关注 | 确认后更新最终状态 |
+| `APP-05-PAGE-follow-relations-ACT-unfollow` | 取消关注 | 当前已关注 | 先打开 `APP-05-follow-relations-04`；点击“确定”后更新最终状态，点击“取消”保持原状态 |
 
 ## 4. 状态与验收
 
@@ -50,6 +51,7 @@
 | `APP-05-AC-follow-relations-isolation` | 关注/取消关注不改变匹配和私信资格 | P0 |
 | `APP-05-AC-follow-relations-count` | 列表总数与主页统计使用同一服务端口径 | P1 |
 | `APP-05-AC-follow-relations-empty` | 关注与粉丝列表均复用同一通用空态 | P1 |
+| `APP-05-AC-follow-relations-unfollow-confirm` | 已关注用户点击取消关注时展示“温馨提示 / 确定取消关注吗？”，取消不变更关系，确定后按服务端最终态刷新 | P0 |
 
 ## 5. 关联
 

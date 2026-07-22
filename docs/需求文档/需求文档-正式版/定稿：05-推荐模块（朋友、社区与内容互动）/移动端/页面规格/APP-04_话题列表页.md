@@ -12,7 +12,7 @@
 - **所属模块 PRD**：`模块PRD_APP-05_推荐模块（朋友、社区与内容互动）`
 - **页面路由**：`/pages/qianxun/community/topics`
 - **入口来源**：千寻 -> 成家 -> 话题
-- **对应设计稿**：待补充；设计画板按第 2.4 节输出
+- **对应设计稿**：[蓝湖社区话题列表及通用空态](https://lanhuapp.com/web/#/item/project/stage?tid=428e8368-c279-4369-947b-a5828487924d&pid=d9c9e50f-fee5-47ca-bd6b-ae05c0d5332b)
 - **对应移动端 / 技术方案**：`MVP-PAGE-008`
 
 ## 1. 页面定位
