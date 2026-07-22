@@ -4,6 +4,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本08 | 2026-07-16 | Codex | 隐身/隐藏访问权益一期不展示，仅保留后续预留编码 |
 | 版本07 | 2026-07-02 | Codex | 会员权益列表新增移动端图标取值口径：图标取后台 `M04-CFG-vip-benefit-list.mobileIcon` 配置 |
 | 版本06 | 2026-07-01 | Codex | 会员中心套餐区改为横向平铺滑动，不使用普通/连续订阅 Tab；连续订阅套餐前置推荐，普通套餐右滑可见 |
 | 版本05 | 2026-07-01 | Codex | 按蓝湖 UI 已确认权益名称同步会员中心：心动名单、访客、免费悄悄话、额外浏览、高级筛选、曝光、隐私权益、三天回放、每日心动机会 |
@@ -87,7 +88,7 @@
 | 4 | `extra_browse` | 每日额外浏览 | 额外浏览 | 开关 + `M04-CFG-vip-extra-browse-daily` | `M04-CFG-vip-benefit-list.mobileIcon` | 次数由后台配置 |
 | 5 | `advanced_filter` | 精准筛选功能 | 高级筛选 | 开关 | `M04-CFG-vip-benefit-list.mobileIcon` | 前台按 UI 展示“精准筛选” |
 | 6 | `exposure_score` | 曝光度拉满 | 曝光 | 开关 + `M04-CFG-vip-exposure-score` | `M04-CFG-vip-benefit-list.mobileIcon` | 分数由后台配置 |
-| 7 | `privacy` | 隐身模式 | 隐私权益 | 开关 | `M04-CFG-vip-benefit-list.mobileIcon` | 前台按 UI 展示“隐身” |
+| 7 | `privacy` | 隐身模式（后续预留） | 隐私权益 | 一期不展示 | 无 | 一期会员中心不得展示该权益 |
 | 8 | `three_day_replay` | 三天回放功能 | 三天回放 | 开关 | `M04-CFG-vip-benefit-list.mobileIcon` | 只展示是否可用 |
 | 9 | `daily_heart_chance` | 每日心动机会 | 每日心动机会 | 开关 + `M04-CFG-vip-daily-heart-chance` | `M04-CFG-vip-benefit-list.mobileIcon` | 次数由后台配置 |
 

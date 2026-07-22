@@ -386,8 +386,7 @@ public class VerificationServiceImpl implements VerificationService {
         vo.setProfilePhotoAuditStatus(status(latestOf(userId,
                 AppUserAuditTypeEnum.ALBUM_PHOTO, AppUserAuditTypeEnum.PROFILE_BG)));
         vo.setOpenTextAuditStatus(status(latestOf(userId,
-                AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditTypeEnum.HOPE_THEY_KNOW,
-                AppUserAuditTypeEnum.PROFILE_QA)));
+                AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditTypeEnum.PROFILE_QA)));
         int verifyLevel = auditService.certificationApprovedCount(userId);
         vo.setVerifyLevel(verifyLevel);
         vo.setUnlockMateRecommend(auditService.hasEffective(userId, AppUserAuditTypeEnum.REAL_NAME));

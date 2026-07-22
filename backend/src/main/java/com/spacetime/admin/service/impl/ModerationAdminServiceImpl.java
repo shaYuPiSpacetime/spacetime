@@ -322,13 +322,12 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
     private List<String> textTypes(String textType) {
         if (StrUtil.isNotBlank(textType)) {
             AppUserAuditTypeEnum type = AppUserAuditTypeEnum.getByCode(textType);
-            if (type != null && List.of(AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditTypeEnum.HOPE_THEY_KNOW,
+            if (type != null && List.of(AppUserAuditTypeEnum.ABOUT_ME,
                     AppUserAuditTypeEnum.PROFILE_QA).contains(type)) {
                 return List.of(type.getCode());
             }
         }
         return List.of(AppUserAuditTypeEnum.ABOUT_ME.getCode(),
-                AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode(),
                 AppUserAuditTypeEnum.PROFILE_QA.getCode());
     }
 
@@ -346,9 +345,6 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         if (AppUserAuditTypeEnum.ABOUT_ME.getCode().equals(type)) {
             return "关于我";
         }
-        if (AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode().equals(type)) {
-            return "希望 TA 了解";
-        }
         if (AppUserAuditTypeEnum.PROFILE_QA.getCode().equals(type)) {
             return "资料问答";
         }
@@ -361,9 +357,6 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         }
         if (AppUserAuditTypeEnum.ABOUT_ME.getCode().equals(record.getAuditType())) {
             return "自我介绍";
-        }
-        if (AppUserAuditTypeEnum.HOPE_THEY_KNOW.getCode().equals(record.getAuditType())) {
-            return "希望 TA 了解";
         }
         if (AppUserAuditTypeEnum.PROFILE_QA.getCode().equals(record.getAuditType())) {
             return materialText(record.getMaterialJson(), "questionTitle");

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
@@ -23,6 +23,12 @@ import {
   getAppUserDetail,
   getAppUserList,
   getAppUserStats,
+  getAppUserWorkflowHistory,
+  getAppUserRelationLikes,
+  getAppUserRelationMatches,
+  getAppUserRelationSummary,
+  getAppUserRelationUnlocks,
+  getAppUserRelationVisits,
   importAppUsers,
   updateAppUserStatus,
   type AppUserListVO,
@@ -30,10 +36,24 @@ import {
   type AppUserDetailVO,
   type ExportTaskVO,
   type ImportBatchVO,
+  type AppUserWorkflowHistoryVO,
   type PageResult,
+  type AppUserRelationLikeVO,
+  type AppUserRelationMatchVO,
+  type AppUserRelationSummaryVO,
+  type AppUserRelationUnlockVO,
+  type AppUserRelationVisitVO,
+  type RelationPageParams,
 } from '@/api/userApp';
 import { showToast } from '@/components/ui/toast';
 import { getCommercialUserAssetDetail, type UserCommercialAssetDetail } from '@/api/commercial';
+import {
+  auditAvatar,
+  getAvatarDetail,
+  type VerificationAuditDetailVO,
+} from '@/api/verification';
+import { getTwoLevelRegions, type RegionTreeVO } from '@/api/dict';
+import { usePermission } from '@/hooks/usePermission';
 
 type BadgeVariant = 'success' | 'destructive' | 'warning' | 'secondary';
 type TagTone = 'orange' | 'purple' | 'blue' | 'green';
@@ -86,6 +106,20 @@ interface AdminUserCardItem extends AppUserListVO {
   medal: boolean;
   characterTags: DemoTag[];
   coinRecords: CoinRecord[];
+  aboutMe?: string;
+  profileBgImage?: string;
+  voiceIntroUrl?: string;
+  voiceIntroAuditStatus?: string;
+  favoriteSongId?: string;
+  favoriteSongName?: string;
+  favoriteSongArtist?: string;
+  favoriteSongCoverUrl?: string;
+  emotionalStatus?: string;
+  emotionalStatusLabel?: string;
+  datingGoal?: string;
+  datingGoalLabel?: string;
+  maritalStatus?: string;
+  maritalStatusLabel?: string;
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
@@ -148,10 +182,10 @@ const ACCESS_STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }
 };
 
 const MEMBER_LEVEL_OPTIONS = [
-  { value: '', label: '会员等级' },
-  { value: 'VIP会员', label: 'VIP会员' },
-  { value: '普通会员', label: '普通会员' },
-  { value: '高潜会员', label: '高潜会员' },
+  { value: '', label: '全部VIP' },
+  { value: 'active', label: 'VIP会员' },
+  { value: 'inactive', label: '普通会员' },
+  { value: 'expired', label: '会员过期' },
 ];
 
 const CORE_ACCESS_OPTIONS = [
@@ -173,18 +207,11 @@ const IDENTITY_OPTIONS = [
   { value: 'STUDENT', label: '在校生' },
 ];
 
-const CITY_OPTIONS = [
-  { value: '', label: '全部城市' },
-  { value: '上海', label: '上海' },
-  { value: '杭州', label: '杭州' },
-  { value: '南京', label: '南京' },
-];
-
 const FOLLOW_STATUS_OPTIONS = [
   { value: '', label: '全部' },
-  { value: '开放', label: '开放' },
-  { value: '未开放', label: '未开放' },
-  { value: '账号异常', label: '账号异常' },
+  { value: 'OPEN', label: '开放' },
+  { value: 'CLOSED', label: '未开放' },
+  { value: 'ABNORMAL', label: '账号异常' },
 ];
 
 const ACCESS_OPTIONS = [
@@ -195,9 +222,96 @@ const ACCESS_OPTIONS = [
 ];
 
 const APP_USER_PAGE_SIZE = 9;
+const APP_USER_IMPORT_TEMPLATE_COLUMNS = [
+  '登录方式', '手机号', '短信验证码', '微信授权信息', '登录协议/隐私协议同意',
+  'openid', 'unionid', '昵称', '性别', '出生日期', '年龄', '身高', '体重',
+  '身份', '行业', '职业', '公司', '年收入',
+  '现居省份', '现居城市', '现居区县', '家乡省份', '家乡城市', '家乡区县',
+  '婚姻状况', '脱单目标', '感情状态', '是否想要孩子', '子女计划',
+  '学校', '专业', '最高学历', '个人标签', '微信号',
+  '爱听的歌曲', '爱听歌曲ID', '爱听歌曲名称', '爱听歌曲歌手', '爱听歌曲封面URL', 'MBTI', '星座',
+  '头像来源', '裁剪后主头像', '相册/附加照片', '资料背景图', '语音介绍文件', '语音介绍时长',
+  '自我介绍', '资料问答', '见面偏好', '喜欢的见面活动', '住房情况', '购车情况',
+  '有无子女', '结婚计划', '宗教信仰', '吸烟情况', '饮酒情况', '宠物态度',
+  '真实姓名', '身份证号', '单身承诺/认证协议勾选',
+  '学历人群', '学校名称', '学生证/在读证明', '认证方式', '学信网在线验证码',
+  '毕业证或学位证书编号', '证书姓名', '毕业证/学位证材料', '学历协议勾选',
+];
 
 function responseData<T>(res: unknown, fallback: T): T {
   return (res as any)?.data ?? fallback;
+}
+
+function downloadTextFile(filename: string, content: string, mime = 'text/csv;charset=utf-8') {
+  const blob = new Blob(['\uFEFF', content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value: unknown) {
+  const text = value == null ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function buildImportTemplateCsv() {
+  const sample = [
+    '手机号登录', '13800000001', '123456', '已授权', '是',
+    'openid_demo_01', 'unionid_demo_01', '导入示例用户', '女', '1997-03-06', '29', '168', '50',
+    '职场人', 'IT/互联网', '设计师', '星河科技', '30-50万',
+    '浙江省', '杭州市', '西湖区', '河南省', '郑州市', '中原区',
+    '未婚', '1-2年内结婚', '正在寻觅', '想要', '以后考虑',
+    '浙江工商管理大学', '设计学', '本科', 'IT文娱|户外旅行', 'wx_demo_01',
+    '告白气球', 'song_001', '告白气球', '周杰伦', 'https://example.com/song-cover.jpg', 'INFJ', '双鱼座',
+    '相册选择', 'https://example.com/avatar.jpg', 'https://example.com/album-a.jpg|https://example.com/album-b.jpg',
+    'https://example.com/profile-bg.jpg', 'https://example.com/voice.mp3', '18',
+    '我是一个真诚稳定的人。', '希望你也认真对待关系。',
+    '[{"questionKey":"meetingPreference","title":"见面偏好","answer":"周末咖啡或展览"}]',
+    '周末咖啡或展览', '看电影/逛展', '已购房', '已购车', '无子女', '1-2年内结婚', '无宗教信仰',
+    '不吸烟', '偶尔饮酒', '喜欢宠物',
+    '张三', '330106199703060011', '是',
+    '职场人', '浙江工商管理大学', 'https://example.com/student-card.jpg',
+    '证书编号', 'ABCD12345678', 'DIPLOMA20260001', '张三',
+    'https://example.com/edu-a.jpg|https://example.com/edu-b.jpg', '是',
+  ];
+  return [
+    APP_USER_IMPORT_TEMPLATE_COLUMNS.map(csvCell).join(','),
+    sample.map(csvCell).join(','),
+  ].join('\n');
+}
+
+function parseImportErrors(errorSummaryJson?: string): string[] {
+  if (!errorSummaryJson) return [];
+  try {
+    const parsed = JSON.parse(errorSummaryJson);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => typeof item === 'string' ? item : JSON.stringify(item));
+    }
+    return [JSON.stringify(parsed)];
+  } catch {
+    return errorSummaryJson.split(/\r?\n|;/).map((item) => item.trim()).filter(Boolean);
+  }
+}
+
+function buildImportErrorReportCsv(result: ImportBatchVO) {
+  const errors = parseImportErrors(result.errorSummaryJson);
+  const rows = errors.length > 0 ? errors : ['本次导入没有错误记录'];
+  return [
+    ['批次号', '原文件名', '错误信息'].map(csvCell).join(','),
+    ...rows.map((error) => [result.batchNo, result.fileName, error].map(csvCell).join(',')),
+  ].join('\n');
+}
+
+function flattenCityOptions(regions: RegionTreeVO[]) {
+  return regions.flatMap((province) => (province.children || []).map((city) => ({
+    value: city.code,
+    label: province.name === city.name ? city.name : `${province.name} / ${city.name}`,
+  })));
 }
 
 const DEMO_USERS: AdminUserCardItem[] = [
@@ -645,16 +759,27 @@ const DEMO_USERS: AdminUserCardItem[] = [
 
 function toCardItem(user: AppUserListVO): AdminUserCardItem {
   const tags = toTagPills(user.tags);
+  const educationText = [user.educationLevelLabel || user.educationLevelCode, user.school]
+    .filter(Boolean)
+    .join(' | ') || '-';
   return {
     id: user.id,
     avatar: user.avatar || '',
     nickname: user.nickname || '-',
     gender: user.gender || '',
+    genderLabel: user.genderLabel,
     age: user.age ?? 0,
+    height: user.height,
+    weight: user.weight,
     school: user.school || '-',
     realNameStatus: user.realNameStatus || 'NOT_CERTIFIED',
     educationStatus: user.educationStatus || 'NOT_CERTIFIED',
     avatarVerifyStatus: user.avatarVerifyStatus || 'NOT_CERTIFIED',
+    avatarAuditRecordId: user.avatarAuditRecordId,
+    avatarAuditMediaUrl: user.avatarAuditMediaUrl,
+    avatarAuditThumbUrl: user.avatarAuditThumbUrl,
+    avatarAuditRejectReason: user.avatarAuditRejectReason,
+    avatarAuditSubmitTime: user.avatarAuditSubmitTime,
     firstLoginCompleted: user.firstLoginCompleted ?? 0,
     profileScore: user.profileScore ?? 0,
     accountStatus: user.accountStatus || 'NORMAL',
@@ -664,17 +789,31 @@ function toCardItem(user: AppUserListVO): AdminUserCardItem {
     phone: user.phone || '-',
     city: user.city || '-',
     zodiac: user.zodiac || '-',
-    identity: user.identity || '-',
-    jobTitle: user.occupation || '-',
-    company: '-',
-    educationText: user.school || '-',
-    mateRequirement: '-',
-    coins: 0,
+    identity: user.identityLabel || user.identity || '-',
+    identityCode: user.identityCode,
+    identityLabel: user.identityLabel,
+    industryCode: user.industryCode,
+    industryLabel: user.industryLabel,
+    occupationCode: user.occupationCode,
+    occupationLabel: user.occupationLabel,
+    annualIncomeCode: user.annualIncomeCode,
+    annualIncomeLabel: user.annualIncomeLabel,
+    educationLevelCode: user.educationLevelCode,
+    educationLevelLabel: user.educationLevelLabel,
+    wechatId: user.wechatId,
+    coinBalance: user.coinBalance,
+    vipStatus: user.vipStatus,
+    vipExpireTime: user.vipExpireTime,
+    jobTitle: user.occupationLabel || user.occupation || '-',
+    company: user.company || '-',
+    educationText,
+    mateRequirement: user.annualIncomeLabel || user.annualIncome || '-',
+    coins: user.coinBalance ?? 0,
     vipAmount: 0,
-    vipLabel: '-',
-    vipRange: '-',
-    memberLevel: '-',
-    followStatus: '-',
+    vipLabel: user.vipStatus === 'active' ? 'VIP会员' : user.vipStatus === 'expired' ? '会员过期' : '普通会员',
+    vipRange: user.vipExpireTime || '-',
+    memberLevel: user.vipStatus === 'active' ? 'VIP会员' : user.vipStatus === 'expired' ? '会员过期' : '普通会员',
+    followStatus: relationAccessText(user.accessStatus, user.accountStatus),
     avatarAccent: '#E6EDF7',
     avatarReviewStatus: STATUS_MAP[user.avatarVerifyStatus || '']?.label || '-',
     medal: user.accessStatus === 'full_access',
@@ -686,20 +825,35 @@ function toCardItem(user: AppUserListVO): AdminUserCardItem {
 function toDetailCardItem(detail: AppUserDetailVO, current?: AdminUserCardItem | null): AdminUserCardItem {
   const base = current as AdminUserCardItem;
   const verification = detail.verification;
-  const city = [detail.locationProvince, detail.locationCity].filter(Boolean).join('') || '-';
+  const city = [
+    detail.locationProvinceLabel || detail.locationProvince,
+    detail.locationCityLabel || detail.locationCity,
+    detail.locationDistrictLabel || detail.locationDistrict,
+  ].filter(Boolean).join('') || '-';
   const tags = toTagPills(detail.tags);
   const accessStatus = detail.canMatch && detail.canBeExposed ? 'full_access' : detail.canBrowseCards ? 'browse_only' : 'blocked';
+  const educationText = [detail.educationLevelLabel || detail.educationLevel, detail.school]
+    .filter(Boolean)
+    .join(' | ') || '-';
   return {
     ...base,
     id: detail.id,
     avatar: detail.avatar || '',
     nickname: detail.nickname || '-',
     gender: detail.gender || '',
+    genderLabel: detail.genderLabel,
     age: detail.age ?? 0,
+    height: detail.height,
+    weight: detail.weight,
     school: detail.school || '-',
     realNameStatus: verification?.realNameStatus || 'NOT_CERTIFIED',
     educationStatus: verification?.educationStatus || 'NOT_CERTIFIED',
     avatarVerifyStatus: verification?.avatarVerifyStatus || 'NOT_CERTIFIED',
+    avatarAuditRecordId: detail.avatarAuditRecordId,
+    avatarAuditMediaUrl: detail.avatarAuditMediaUrl,
+    avatarAuditThumbUrl: detail.avatarAuditThumbUrl,
+    avatarAuditRejectReason: detail.avatarAuditRejectReason,
+    avatarAuditSubmitTime: detail.avatarAuditSubmitTime,
     firstLoginCompleted: detail.firstLoginCompleted ?? 0,
     profileScore: detail.profileScore ?? 0,
     accountStatus: detail.accountStatus || 'NORMAL',
@@ -709,14 +863,74 @@ function toDetailCardItem(detail: AppUserDetailVO, current?: AdminUserCardItem |
     phone: detail.phone || base.phone || '-',
     city,
     zodiac: detail.zodiac || '-',
-    identity: detail.identity || '-',
-    jobTitle: detail.occupation || '-',
-    company: '-',
-    educationText: [detail.educationLevel, detail.school].filter(Boolean).join(' | ') || '-',
-    mateRequirement: detail.hopeTheyKnow || '-',
+    identity: detail.identityLabel || detail.identity || '-',
+    identityCode: detail.identityCode,
+    identityLabel: detail.identityLabel,
+    industryCode: detail.industryCode,
+    industryLabel: detail.industryLabel,
+    occupationCode: detail.occupationCode,
+    occupationLabel: detail.occupationLabel,
+    annualIncomeCode: detail.annualIncomeCode,
+    annualIncomeLabel: detail.annualIncomeLabel,
+    educationLevelCode: detail.educationLevelCode,
+    educationLevelLabel: detail.educationLevelLabel,
+    wechatId: detail.wechatId,
+    coinBalance: detail.coinBalance,
+    vipStatus: detail.vipStatus,
+    vipExpireTime: detail.vipExpireTime,
+    jobTitle: detail.occupationLabel || detail.occupation || '-',
+    company: detail.company || '-',
+    educationText,
+    mateRequirement: detail.datingGoalLabel || detail.datingGoal || '-',
+    coins: detail.coinBalance ?? base.coins ?? 0,
+    vipLabel: detail.vipStatus === 'active' ? 'VIP会员' : detail.vipStatus === 'expired' ? '会员过期' : '普通会员',
+    vipRange: detail.vipExpireTime || '-',
+    memberLevel: detail.vipStatus === 'active' ? 'VIP会员' : detail.vipStatus === 'expired' ? '会员过期' : '普通会员',
+    followStatus: relationAccessText(accessStatus, detail.accountStatus),
     characterTags: tags,
     avatarReviewStatus: STATUS_MAP[verification?.avatarVerifyStatus || '']?.label || '-',
+    aboutMe: detail.aboutMe,
+    photos: detail.photos,
+    profileBgImage: detail.profileBgImage,
+    voiceIntroUrl: detail.voiceIntroUrl,
+    voiceIntroDuration: detail.voiceIntroDuration,
+    voiceIntroAuditStatus: detail.voiceIntroAuditStatus,
+    favoriteSongId: detail.favoriteSongId,
+    favoriteSongName: detail.favoriteSongName,
+    favoriteSongArtist: detail.favoriteSongArtist,
+    favoriteSongCoverUrl: detail.favoriteSongCoverUrl,
+    emotionalStatus: detail.emotionalStatus,
+    emotionalStatusLabel: detail.emotionalStatusLabel,
+    datingGoal: detail.datingGoal,
+    datingGoalLabel: detail.datingGoalLabel,
+    maritalStatus: detail.maritalStatus,
+    maritalStatusLabel: detail.maritalStatusLabel,
   };
+}
+
+function relationAccessText(accessStatus?: string, accountStatus?: string) {
+  if (['FROZEN', 'CANCELLED', 'CANCELLING'].includes(accountStatus || '')) {
+    return '账号异常';
+  }
+  if (accessStatus === 'full_access') {
+    return '开放';
+  }
+  return '未开放';
+}
+
+function parseStringArray(raw?: string): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item) => String(typeof item === 'string' ? item : item?.url ?? item?.mediaUrl ?? item?.value ?? ''))
+        .filter(Boolean);
+    }
+  } catch {
+    // 非 JSON 字符串按逗号拆分，兼容历史数据。
+  }
+  return raw.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean);
 }
 
 function toTagPills(raw?: string): DemoTag[] {
@@ -736,6 +950,9 @@ function toTagPills(raw?: string): DemoTag[] {
 
 export default function CustomersPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermission();
+  const canViewRelations = hasPermission('user:app:relation:view');
+  const canViewCommercial = hasPermission('commercial:user:view');
   const [keyword, setKeyword] = useState('');
   const [coreAccessStatus, setCoreAccessStatus] = useState('');
   const [verificationStatus, setVerificationStatus] = useState('');
@@ -743,7 +960,7 @@ export default function CustomersPage() {
   const [city, setCity] = useState('');
   const [memberLevel, setMemberLevel] = useState('');
   const [followStatus, setFollowStatus] = useState('');
-  const [appliedFilters, setAppliedFilters] = useState<AppUserFilters>({});
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [listView, setListView] = useState<'card' | 'table'>('card');
   const [page, setPage] = useState(1);
   const [users, setUsers] = useState<AdminUserCardItem[]>([]);
@@ -755,8 +972,40 @@ export default function CustomersPage() {
   const [moduleSupplementUser, setModuleSupplementUser] = useState<AdminUserCardItem | null>(null);
   const [workflowDialog, setWorkflowDialog] = useState<'import' | 'export' | null>(null);
   const [workflowResult, setWorkflowResult] = useState<ImportBatchVO | ExportTaskVO | null>(null);
+  const [workflowHistory, setWorkflowHistory] = useState<PageResult<AppUserWorkflowHistoryVO>>({
+    records: [],
+    total: 0,
+    size: 5,
+    current: 1,
+  });
+  const [workflowHistoryPage, setWorkflowHistoryPage] = useState(1);
+  const [workflowHistoryOpen, setWorkflowHistoryOpen] = useState(false);
+  const [workflowHistoryLoading, setWorkflowHistoryLoading] = useState(false);
   const [workflowProcessing, setWorkflowProcessing] = useState(false);
+  const [cityOptions, setCityOptions] = useState([{ value: '', label: '全部城市' }]);
   const listRequestSequence = useRef(0);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedKeyword(keyword.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [coreAccessStatus, verificationStatus, identity, city, memberLevel, followStatus]);
+
+  const currentFilters = useMemo<AppUserFilters>(() => ({
+    keyword: debouncedKeyword || undefined,
+    coreAccessStatus: coreAccessStatus || undefined,
+    verificationStatus: verificationStatus || undefined,
+    identity: identity || undefined,
+    city: city || undefined,
+    relationshipAccess: followStatus || undefined,
+    vipStatus: memberLevel || undefined,
+  }), [city, coreAccessStatus, debouncedKeyword, followStatus, identity, memberLevel, verificationStatus]);
 
   const fetchUsers = useCallback(async () => {
     const requestSequence = ++listRequestSequence.current;
@@ -765,7 +1014,7 @@ export default function CustomersPage() {
       const res = await getAppUserList({
         page,
         size: APP_USER_PAGE_SIZE,
-        ...appliedFilters,
+        ...currentFilters,
       });
       if (requestSequence !== listRequestSequence.current) return;
       const data = responseData<PageResult<AppUserListVO>>(res, {
@@ -780,7 +1029,7 @@ export default function CustomersPage() {
     } finally {
       if (requestSequence === listRequestSequence.current) setLoading(false);
     }
-  }, [appliedFilters, page]);
+  }, [currentFilters, page]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -804,18 +1053,24 @@ export default function CustomersPage() {
     fetchStats();
   }, [fetchStats]);
 
+  useEffect(() => {
+    let disposed = false;
+    getTwoLevelRegions()
+      .then((res) => {
+        const regions = responseData<RegionTreeVO[]>(res, []);
+        if (disposed) return;
+        setCityOptions([{ value: '', label: '全部城市' }, ...flattenCityOptions(regions)]);
+      })
+      .catch(() => {
+        if (!disposed) setCityOptions([{ value: '', label: '全部城市' }]);
+      });
+    return () => { disposed = true; };
+  }, []);
+
   const pageUsers = users;
   const paginationTotal = total;
   function handleSearch() {
-    setAppliedFilters({
-      keyword: keyword.trim() || undefined,
-      coreAccessStatus: coreAccessStatus || undefined,
-      verificationStatus: verificationStatus || undefined,
-      identity: identity || undefined,
-      city: city || undefined,
-      relationshipAccess: followStatus || undefined,
-      vipStatus: memberLevel || undefined,
-    });
+    setDebouncedKeyword(keyword.trim());
     setPage(1);
   }
 
@@ -827,7 +1082,7 @@ export default function CustomersPage() {
     setCity('');
     setMemberLevel('');
     setFollowStatus('');
-    setAppliedFilters({});
+    setDebouncedKeyword('');
     setPage(1);
   }
 
@@ -842,9 +1097,47 @@ export default function CustomersPage() {
     }
   }
 
+  function handleUserStatusChanged(userId: number, status: string) {
+    setUsers((prev) => prev.map((item) => (item.id === userId ? { ...item, accountStatus: status } : item)));
+    setDrawerUser((prev) => (prev && prev.id === userId ? { ...prev, accountStatus: status } : prev));
+    fetchUsers();
+    fetchStats();
+  }
+
   function openWorkflowDialog(type: 'import' | 'export') {
     setWorkflowResult(null);
     setWorkflowDialog(type);
+  }
+
+  async function fetchWorkflowHistory(nextPage = workflowHistoryPage) {
+    setWorkflowHistoryLoading(true);
+    try {
+      const res = await getAppUserWorkflowHistory({ page: nextPage, size: 5 });
+      const data = responseData<PageResult<AppUserWorkflowHistoryVO>>(res, {
+        records: [],
+        total: 0,
+        size: 5,
+        current: nextPage,
+      });
+      setWorkflowHistory({
+        records: data.records || [],
+        total: data.total ?? 0,
+        size: data.size ?? 5,
+        current: data.current ?? nextPage,
+      });
+      setWorkflowHistoryPage(data.current ?? nextPage);
+    } catch {
+      setWorkflowHistory({ records: [], total: 0, size: 5, current: nextPage });
+      showToast('导入导出历史加载失败', 'error');
+    } finally {
+      setWorkflowHistoryLoading(false);
+    }
+  }
+
+  function openWorkflowHistory() {
+    setWorkflowHistoryOpen(true);
+    setWorkflowHistoryPage(1);
+    fetchWorkflowHistory(1);
   }
 
   async function handleWorkflowConfirm(type: 'import' | 'export', file?: File | null) {
@@ -860,11 +1153,12 @@ export default function CustomersPage() {
         setWorkflowResult(data);
         showToast(data?.message || '导入预校验完成', 'success');
       } else {
-        const res = await exportAppUsers(appliedFilters, true);
+        const res = await exportAppUsers(currentFilters, true);
         const data = responseData<ExportTaskVO>(res, null as any);
         setWorkflowResult(data);
         showToast(data?.message || '导出任务已创建', 'success');
       }
+      if (workflowHistoryOpen) fetchWorkflowHistory(1);
       fetchUsers();
     } finally {
       setWorkflowProcessing(false);
@@ -879,6 +1173,14 @@ export default function CustomersPage() {
           <p className="mt-1 text-sm text-muted-foreground">用户准入、认证、画像、批量导入、固定字段导出与运营备注。</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={openWorkflowHistory}
+          >
+            查看导入导出结果
+          </Button>
           <Button variant="outline" size="sm" className="h-9" onClick={() => openWorkflowDialog('import')}>
             <Upload className="mr-1.5 h-4 w-4" />
             批量导入
@@ -886,10 +1188,6 @@ export default function CustomersPage() {
           <Button variant="outline" size="sm" className="h-9" onClick={() => openWorkflowDialog('export')}>
             <Download className="mr-1.5 h-4 w-4" />
             导出字段
-          </Button>
-          <Button variant="primary" size="sm" className="h-9" onClick={() => showToast('已重算当前筛选用户准入状态', 'success')}>
-            <ShieldCheck className="mr-1.5 h-4 w-4" />
-            重算准入
           </Button>
         </div>
       </div>
@@ -930,14 +1228,16 @@ export default function CustomersPage() {
               <Select options={IDENTITY_OPTIONS} value={identity} onChange={setIdentity} />
             </QueryField>
             <QueryField label="城市">
-              <Select options={CITY_OPTIONS} value={city} onChange={setCity} />
+              <SearchableSelect options={cityOptions} value={city} onChange={setCity} placeholder="全部城市" />
             </QueryField>
             <QueryField label="关系反馈准入">
               <Select options={FOLLOW_STATUS_OPTIONS} value={followStatus} onChange={setFollowStatus} />
             </QueryField>
-            <QueryField label="VIP 状态">
-              <Select options={MEMBER_LEVEL_OPTIONS} value={memberLevel} onChange={setMemberLevel} />
-            </QueryField>
+            {canViewCommercial && (
+              <QueryField label="VIP 状态">
+                <Select options={MEMBER_LEVEL_OPTIONS} value={memberLevel} onChange={setMemberLevel} />
+              </QueryField>
+            )}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Button variant="primary" size="sm" className="h-9 w-[78px]" onClick={handleSearch}>
@@ -953,7 +1253,7 @@ export default function CustomersPage() {
           <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[#1F2433]">用户卡片列表</h2>
-              <p className="mt-1 text-sm text-muted-foreground">卡片内展示固定字段和敏感信息掩码，跨模块补充从卡片按钮进入。</p>
+              <p className="mt-1 text-sm text-muted-foreground">卡片内展示固定字段和敏感信息掩码，模块补充从卡片或列表操作进入。</p>
             </div>
             <div className="flex rounded-md border border-[#D8E2F0] bg-white p-1 text-sm">
               <button className={`rounded px-3 py-1.5 ${listView === 'card' ? 'bg-[#2876FF] text-white' : 'text-[#526173]'}`} onClick={() => setListView('card')}>卡片</button>
@@ -968,6 +1268,7 @@ export default function CustomersPage() {
                   <CustomerCard
                     key={user.id}
                     user={user}
+                    canViewCommercial={canViewCommercial}
                     onOpenProfile={() => openProfile(user)}
                     onOpenAvatar={() => setAvatarUser(user)}
                     onOpenModuleSupplement={() => setModuleSupplementUser(user)}
@@ -975,7 +1276,13 @@ export default function CustomersPage() {
                 ))}
               </div>
             ) : (
-              <AppUserTable users={pageUsers} onOpenProfile={openProfile} onOpenAvatar={setAvatarUser} />
+              <AppUserTable
+                users={pageUsers}
+                canViewCommercial={canViewCommercial}
+                onOpenProfile={openProfile}
+                onOpenAvatar={setAvatarUser}
+                onOpenModuleSupplement={setModuleSupplementUser}
+              />
             )}
           </div>
 
@@ -992,12 +1299,26 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
-      <ProfileDrawer user={drawerUser} onClose={() => setDrawerUser(null)} />
-      <ModuleSupplementDialog user={moduleSupplementUser} onClose={() => setModuleSupplementUser(null)} />
+      <ProfileDrawer
+        user={drawerUser}
+        canViewCommercial={canViewCommercial}
+        onClose={() => setDrawerUser(null)}
+        onStatusChanged={handleUserStatusChanged}
+      />
+      <ModuleSupplementDialog
+        user={moduleSupplementUser}
+        canViewRelations={canViewRelations}
+        canViewCommercial={canViewCommercial}
+        onClose={() => setModuleSupplementUser(null)}
+      />
       <AvatarAuditDialog
         user={avatarUser}
         onClose={() => setAvatarUser(null)}
-        onGoAudit={() => navigate('/verify/avatar')}
+        onGoAudit={() => {
+          const auditKeyword = avatarUser?.nickname?.trim() || (avatarUser?.id ? String(avatarUser.id) : '');
+          navigate(auditKeyword ? `/verify/avatar?keyword=${encodeURIComponent(auditKeyword)}` : '/verify/avatar');
+        }}
+        onChanged={fetchUsers}
       />
       <WorkflowDialog
         type={workflowDialog}
@@ -1006,17 +1327,26 @@ export default function CustomersPage() {
         onConfirm={handleWorkflowConfirm}
         onClose={() => setWorkflowDialog(null)}
       />
+      <WorkflowHistoryDialog
+        open={workflowHistoryOpen}
+        historyPage={workflowHistory}
+        loading={workflowHistoryLoading}
+        onPageChange={(nextPage) => fetchWorkflowHistory(nextPage)}
+        onClose={() => setWorkflowHistoryOpen(false)}
+      />
     </div>
   );
 }
 
 function CustomerCard({
   user,
+  canViewCommercial,
   onOpenProfile,
   onOpenAvatar,
   onOpenModuleSupplement,
 }: {
   user: AdminUserCardItem;
+  canViewCommercial: boolean;
   onOpenProfile: () => void;
   onOpenAvatar: () => void;
   onOpenModuleSupplement: () => void;
@@ -1041,11 +1371,11 @@ function CustomerCard({
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate text-[15px] font-semibold text-[#1F2433]">{user.nickname}</p>
-                <p className="mt-1 text-sm text-[#5F6675]">{user.gender === 'MALE' ? '男' : '女'} {user.age} · {user.city}</p>
+                <p className="mt-1 text-sm text-[#5F6675]">{user.genderLabel || '-'} {user.age} · {user.city}</p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
                 <span className="rounded-md bg-[#EAF5FF] px-3 py-1 text-xs font-medium text-[#2876FF]">{user.identity}</span>
-                {user.vipLabel !== '普通会员' && <span className="rounded-md bg-[#FFF3E8] px-3 py-1 text-xs font-medium text-[#E57D1F]">VIP</span>}
+                {canViewCommercial && user.vipLabel !== '普通会员' && <span className="rounded-md bg-[#FFF3E8] px-3 py-1 text-xs font-medium text-[#E57D1F]">VIP</span>}
               </div>
             </div>
           </div>
@@ -1056,23 +1386,25 @@ function CustomerCard({
             <span className="font-medium text-[#5F6675]">资料摘要</span>
             <div>
               <b>{user.jobTitle} · {user.company}</b>
-              <div className="mt-1 text-[#5F6675]">年收入30-50万 · {user.city}</div>
+              <div className="mt-1 text-[#5F6675]">年收入{user.annualIncomeLabel || user.annualIncome || '-'} · {user.city}</div>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+        <div className={`mt-4 grid gap-3 text-sm ${canViewCommercial ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <div className="rounded-md bg-[#F7FAFE] p-3">
             <span className="text-xs text-[#7D8597]">完整度</span>
             <strong className="mt-1 block text-[#111827]">{user.profileScore}/100</strong>
           </div>
-          <div className="rounded-md bg-[#F7FAFE] p-3">
-            <span className="text-xs text-[#7D8597]">千寻币</span>
-            <strong className="mt-1 block text-[#111827]">{user.coins.toLocaleString()}</strong>
-          </div>
+          {canViewCommercial && (
+            <div className="rounded-md bg-[#F7FAFE] p-3">
+              <span className="text-xs text-[#7D8597]">千寻币</span>
+              <strong className="mt-1 block text-[#111827]">{user.coins.toLocaleString()}</strong>
+            </div>
+          )}
           <div className="rounded-md bg-[#F7FAFE] p-3">
             <span className="text-xs text-[#7D8597]">微信</span>
-            <strong className="mt-1 block text-[#111827]">wx_****{String(user.id).slice(-2)}</strong>
+            <strong className="mt-1 block text-[#111827]">{user.wechatId || '-'}</strong>
           </div>
         </div>
 
@@ -1131,109 +1463,316 @@ function QueryField({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+function SearchableSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+}: {
+  options: Array<{ value: string; label: string }>;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [keyword, setKeyword] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectedLabel = options.find((item) => item.value === value)?.label || placeholder || '请选择';
+  const filteredOptions = options.filter((item) => {
+    const key = keyword.trim().toLowerCase();
+    return !key || item.label.toLowerCase().includes(key) || item.value.toLowerCase().includes(key);
+  }).slice(0, 80);
+
+  useEffect(() => {
+    function handleOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        className={`flex h-9 w-full items-center justify-between rounded-md border bg-card px-3 text-left text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring ${
+          value ? 'border-[#2876FF] text-foreground' : 'border-input text-muted-foreground'
+        }`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <span className="text-xs text-muted-foreground">v</span>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-[#D8E2F0] bg-white p-2 shadow-lg">
+          <Input
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="输入城市名搜索"
+            className="mb-2 h-8 text-sm"
+            autoFocus
+          />
+          <div className="max-h-64 overflow-y-auto">
+            {filteredOptions.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-muted-foreground">暂无匹配城市</div>
+            ) : filteredOptions.map((option) => (
+              <button
+                key={option.value || '__all_city__'}
+                type="button"
+                className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-[#F4F7FB] ${
+                  option.value === value ? 'bg-[#EAF2FF] font-semibold text-[#2876FF]' : 'text-[#1F2433]'
+                }`}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                  setKeyword('');
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AppUserTable({
   users,
+  canViewCommercial,
   onOpenProfile,
   onOpenAvatar,
+  onOpenModuleSupplement,
 }: {
   users: AdminUserCardItem[];
+  canViewCommercial: boolean;
   onOpenProfile: (user: AdminUserCardItem) => void;
   onOpenAvatar: (user: AdminUserCardItem) => void;
+  onOpenModuleSupplement: (user: AdminUserCardItem) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-[#E6EDF7]">
-      <table className="w-full min-w-[980px] text-left text-sm">
+      <table className={`w-full text-left text-sm ${canViewCommercial ? 'min-w-[980px]' : 'min-w-[860px]'}`}>
         <thead className="bg-[#F7FAFE] text-[#5F6675]">
           <tr>
             <th className="px-4 py-3 font-medium">用户</th>
-            <th className="px-4 py-3 font-medium">身份</th>
-            <th className="px-4 py-3 font-medium">城市</th>
-            <th className="px-4 py-3 font-medium">核心准入</th>
+            <th className="px-4 py-3 font-medium">资料摘要</th>
+            <th className="px-4 py-3 font-medium">完整度</th>
+            {canViewCommercial && <th className="px-4 py-3 font-medium">千寻币</th>}
+            <th className="px-4 py-3 font-medium">微信</th>
             <th className="px-4 py-3 font-medium">认证状态</th>
-            <th className="px-4 py-3 font-medium">VIP 状态</th>
-            <th className="px-4 py-3 font-medium">注册时间</th>
             <th className="px-4 py-3 font-medium">操作</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#E6EDF7] bg-white">
-          {users.map((user) => {
-            const access = ACCESS_STATUS_MAP[user.accessStatus] ?? { label: user.accessStatus || '-', variant: 'secondary' as const };
-            const realName = STATUS_MAP[user.realNameStatus] ?? { label: user.realNameStatus || '-', variant: 'secondary' as const };
-            return (
-              <tr key={user.id}>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9" src={user.avatar} fallback={user.nickname.slice(0, 1)} />
-                    <div>
-                      <div className="font-medium text-[#1F2433]">{user.nickname}</div>
-                      <div className="text-xs text-muted-foreground">{user.phone}</div>
-                    </div>
+          {users.map((user) => (
+            <tr key={user.id}>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-9 w-9" src={user.avatar} fallback={user.nickname.slice(0, 1)} />
+                  <div>
+                    <div className="font-medium text-[#1F2433]">{user.nickname}</div>
+                    <div className="text-xs text-muted-foreground">{user.genderLabel || user.gender} {user.age} · {user.city}</div>
                   </div>
-                </td>
-                <td className="px-4 py-3">{user.identity}</td>
-                <td className="px-4 py-3">{user.city}</td>
-                <td className="px-4 py-3"><Badge variant={access.variant}>{access.label}</Badge></td>
-                <td className="px-4 py-3"><Badge variant={realName.variant}>{realName.label}</Badge></td>
-                <td className="px-4 py-3">{user.vipLabel}</td>
-                <td className="px-4 py-3 text-muted-foreground">{user.registerTime}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onOpenProfile(user)}>画像详情</Button>
-                    <Button variant="ghost" size="sm" onClick={() => onOpenAvatar(user)}>头像审核</Button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
+                </div>
+              </td>
+              <td className="px-4 py-3">
+                <div className="font-medium text-[#1F2433]">{user.jobTitle} · {user.company}</div>
+                <div className="mt-1 text-xs text-muted-foreground">年收入 {user.annualIncomeLabel || user.annualIncome || '-'} · {user.identity}</div>
+              </td>
+              <td className="px-4 py-3 font-semibold">{user.profileScore}/100</td>
+              {canViewCommercial && <td className="px-4 py-3">{user.coins.toLocaleString()}</td>}
+              <td className="px-4 py-3">{user.wechatId || '-'}</td>
+              <td className="px-4 py-3">
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant={STATUS_MAP[user.avatarVerifyStatus]?.variant ?? 'secondary'}>{verificationBadgeText('avatar', user.avatarVerifyStatus)}</Badge>
+                  <Badge variant={STATUS_MAP[user.realNameStatus]?.variant ?? 'secondary'}>{verificationBadgeText('realName', user.realNameStatus)}</Badge>
+                  <Badge variant={STATUS_MAP[user.educationStatus]?.variant ?? 'secondary'}>{verificationBadgeText('education', user.educationStatus)}</Badge>
+                </div>
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => onOpenProfile(user)}>详情</Button>
+                  <Button variant="ghost" size="sm" onClick={() => onOpenModuleSupplement(user)}>模块补充</Button>
+                  <Button variant="ghost" size="sm" onClick={() => onOpenAvatar(user)}>头像审核</Button>
+                </div>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
+type RelationTabKey = 'likes' | 'visitors' | 'matches' | 'unlocks';
+type RelationRecord = AppUserRelationLikeVO | AppUserRelationVisitVO | AppUserRelationMatchVO | AppUserRelationUnlockVO;
 
-function ModuleSupplementDialog({ user, onClose }: { user: AdminUserCardItem | null; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<'relation' | 'message'>('relation');
-  const [relationTab, setRelationTab] = useState<'likes' | 'visitors' | 'matches' | 'unlocks'>('likes');
+const RELATION_LABELS: Record<RelationTabKey, string> = {
+  likes: '喜欢记录', visitors: '访客记录', matches: '相互喜欢', unlocks: '解锁记录',
+};
+const RELATION_ACCESS_LABELS: Record<string, string> = { OPEN: '开放', CLOSED: '未开放', ABNORMAL: '账号异常' };
+const RELATION_SOURCE_LABELS: Record<string, string> = {
+  fate: '觅缘', featured: '精选', ideal: '理想型', profile: '婚恋主页', likes_me: '喜欢我的', recent_viewers: '最近访客',
+  double_like: '双方互送爱心', featured_heart_return_like: '精选心动后回爱心', whisper_reply: '悄悄话回复',
+  likes_unlock_one: '喜欢单条解锁', viewers_unlock_one: '访客单条解锁',
+};
+const RELATION_STATUS_LABELS: Record<string, string> = {
+  active: '有效', cancelled: '已取消', invalid: '已失效', visible: '窗口内可见', expired_window: '已超展示窗口',
+  matched: '匹配有效', expired: '已过期', refunded: '已退款',
+};
+const RELATION_REASON_LABELS: Record<string, string> = {
+  like_cancelled: '取消喜欢', blocked: '任一方拉黑', account_frozen: '账号冻结', account_deleted: '账号注销',
+  risk_banned: '风控封禁', certification_revoked: '认证失效',
+};
+
+function ModuleSupplementDialog({
+  user,
+  canViewRelations,
+  canViewCommercial,
+  onClose,
+}: {
+  user: AdminUserCardItem | null;
+  canViewRelations: boolean;
+  canViewCommercial: boolean;
+  onClose: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'relation' | 'message'>(canViewRelations ? 'relation' : 'message');
+  const [relationTab, setRelationTab] = useState<RelationTabKey>('likes');
   const [relationPage, setRelationPage] = useState(1);
-  const [relationPageSize, setRelationPageSize] = useState(10);
+  const [relationPageSize, setRelationPageSize] = useState<10 | 20 | 50>(10);
+  const [direction, setDirection] = useState<'ALL' | 'OUTBOUND' | 'INBOUND'>('ALL');
+  const [relationStatus, setRelationStatus] = useState('');
+  const [relationSource, setRelationSource] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [summary, setSummary] = useState<AppUserRelationSummaryVO | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
+  const [relationData, setRelationData] = useState<PageResult<RelationRecord>>({ records: [], total: 0, size: 10, current: 1 });
+  const [relationLoading, setRelationLoading] = useState(false);
+  const [relationError, setRelationError] = useState('');
+  const relationRequestSequence = useRef(0);
+  const relationCache = useRef(new Map<string, PageResult<RelationRecord>>());
+
+  const loadSummary = useCallback(async (userId: number) => {
+    setSummaryLoading(true);
+    setSummaryError('');
+    try {
+      const res = await getAppUserRelationSummary(userId);
+      setSummary(responseData<AppUserRelationSummaryVO>(res, null as any));
+    } catch {
+      setSummary(null);
+      setSummaryError('关系摘要加载失败');
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
+  const loadRelationPage = useCallback(async (
+    userId: number,
+    tab: RelationTabKey,
+    params: RelationPageParams,
+    bypassCache = false,
+  ) => {
+    const cacheKey = `${userId}:${tab}:${JSON.stringify(params)}`;
+    const cached = relationCache.current.get(cacheKey);
+    if (cached && !bypassCache) {
+      setRelationData(cached);
+      setRelationError('');
+      return;
+    }
+    const sequence = ++relationRequestSequence.current;
+    setRelationLoading(true);
+    setRelationError('');
+    try {
+      const requestByTab = {
+        likes: getAppUserRelationLikes,
+        visitors: getAppUserRelationVisits,
+        matches: getAppUserRelationMatches,
+        unlocks: getAppUserRelationUnlocks,
+      }[tab];
+      const res = await requestByTab(userId, params);
+      if (sequence !== relationRequestSequence.current) return;
+      const data = responseData<PageResult<RelationRecord>>(res, { records: [], total: 0, size: params.size, current: params.page });
+      relationCache.current.set(cacheKey, data);
+      setRelationData(data);
+    } catch {
+      if (sequence !== relationRequestSequence.current) return;
+      setRelationData({ records: [], total: 0, size: params.size, current: params.page });
+      setRelationError(`${RELATION_LABELS[tab]}加载失败`);
+    } finally {
+      if (sequence === relationRequestSequence.current) setRelationLoading(false);
+    }
+  }, []);
+
+  const queryParams = useMemo<RelationPageParams>(() => ({
+    page: relationPage,
+    size: relationPageSize,
+    direction: relationTab === 'matches' ? 'ALL' : direction,
+    status: relationStatus || undefined,
+    source: relationSource || undefined,
+    startTime: toBackendDateTime(startTime),
+    endTime: toBackendDateTime(endTime),
+  }), [direction, endTime, relationPage, relationPageSize, relationSource, relationStatus, relationTab, startTime]);
 
   useEffect(() => {
-    if (user) {
-      setActiveTab('relation');
-      setRelationTab('likes');
-      setRelationPage(1);
-      setRelationPageSize(10);
-    }
-  }, [user?.id]);
+    relationCache.current.clear();
+    setSummary(null);
+    setRelationData({ records: [], total: 0, size: 10, current: 1 });
+    setRelationTab('likes');
+    setRelationPage(1);
+    setRelationPageSize(10);
+    setDirection('ALL');
+    setRelationStatus('');
+    setRelationSource('');
+    setStartTime('');
+    setEndTime('');
+    setActiveTab(canViewRelations ? 'relation' : 'message');
+  }, [canViewRelations, user?.id]);
 
-  const relationLabels = { likes: '喜欢记录', visitors: '访客记录', matches: '相互喜欢', unlocks: '解锁记录' };
-  const relationPrefixes = { likes: 'LIK', visitors: 'VIS', matches: 'MAT', unlocks: 'ULK' };
-  const relationTotal = relationTab === 'visitors' ? 26 : relationTab === 'likes' ? 23 : relationTab === 'matches' ? 14 : 12;
-  const relationRows = Array.from({ length: relationTotal }, (_, index) => [
-    `${relationPrefixes[relationTab]}-${user?.id ?? 0}-${String(index + 1).padStart(3, '0')}`,
-    index === relationTotal - 1 ? '匿名用户 ANON-0048' : `关系用户 U${100300 + index}`,
-    relationTab === 'matches' ? '匹配有效' : relationTab === 'unlocks' ? '永久有效' : '生效中',
-    `2026-07-${String(Math.max(1, 15 - (index % 14))).padStart(2, '0')} 13:21`,
-  ]);
-  const pageRows = relationRows.slice((relationPage - 1) * relationPageSize, relationPage * relationPageSize);
+  useEffect(() => {
+    if (user && canViewRelations) void loadSummary(user.id);
+  }, [canViewRelations, loadSummary, user?.id]);
+
+  useEffect(() => {
+    if (user && canViewRelations && activeTab === 'relation') {
+      void loadRelationPage(user.id, relationTab, queryParams);
+    }
+  }, [activeTab, canViewRelations, loadRelationPage, queryParams, relationTab, user?.id]);
+
+  const changeRelationTab = (tab: RelationTabKey) => {
+    setRelationTab(tab);
+    setRelationPage(1);
+    setDirection('ALL');
+    setRelationStatus('');
+    setRelationSource('');
+    setStartTime('');
+    setEndTime('');
+  };
+
+  const pageRows = relationData.records.map((record) => relationTableRow(relationTab, record, canViewCommercial));
+  const tableHeaders = relationTableHeaders(relationTab, canViewCommercial);
+  const filterOptions = relationFilterOptions(relationTab);
 
   return (
-    <Dialog open={Boolean(user)} onClose={onClose} className="max-w-[920px]">
+    <Dialog open={Boolean(user)} onClose={onClose} className="max-w-[1080px]">
       {user && (
         <div className="space-y-5">
           <DialogHeader>
             <DialogTitle>{user.nickname} {user.id} · 模块补充</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">承接 PRD-02 关系反馈与 PRD-03 消息互动，不直接铺在用户列表和画像详情内。</p>
           <div className="flex gap-2 border-b border-[#E6EDF7]">
             {[
-              ['relation', '关系反馈 Tab'],
-              ['message', '消息互动 Tab'],
+              ...(canViewRelations ? [['relation', '关系反馈'] as const] : []),
+              ['message', '消息互动'] as const,
             ].map(([value, label]) => (
               <button
                 key={value}
                 type="button"
-                onClick={() => setActiveTab(value as 'relation' | 'message')}
+                onClick={() => setActiveTab(value)}
                 className={`rounded-t-md px-4 py-2 text-sm font-semibold ${
                   activeTab === value ? 'bg-[#2876FF] text-white' : 'bg-[#F4F7FB] text-[#4D5A6D]'
                 }`}
@@ -1242,46 +1781,78 @@ function ModuleSupplementDialog({ user, onClose }: { user: AdminUserCardItem | n
               </button>
             ))}
           </div>
-          {/* 跨模块信息按 Demo 分 Tab 展示，避免重新铺回用户画像详情。 */}
-          {activeTab === 'relation' && (
+          {activeTab === 'relation' && canViewRelations && (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <MetricTile label="关系反馈准入" value={user.followStatus} />
-                <MetricTile label="VIP 状态" value={user.vipRange === '未开通' ? '未开通' : '生效中'} />
-                <MetricTile label="7天访客 UV/PV" value={`${42 + (user.id % 10)} / ${128 + (user.id % 40)}`} />
-                <MetricTile label="当前被喜欢" value={`${3 + (user.id % 5)}`} />
-                <MetricTile label="当前相互喜欢" value={`${1 + (user.id % 3)}`} />
-                <div className="rounded-md border border-[#E6EDF7] p-4 md:col-span-2">
-                  <span className="text-xs text-muted-foreground">最近匹配成功时间</span>
-                  <strong className="mt-2 block">2026-07-02 13:21</strong>
+              {summaryError ? (
+                <div className="flex items-center justify-between rounded-md border border-[#F3C5C5] bg-[#FFF7F7] p-4 text-sm text-[#B42318]">
+                  <span>{summaryError}</span>
+                  <Button variant="outline" size="sm" onClick={() => loadSummary(user.id)}>重试</Button>
                 </div>
-              </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <MetricTile label="关系反馈准入" value={summaryLoading ? '加载中...' : RELATION_ACCESS_LABELS[summary?.relationshipAccess || ''] || '-'} />
+                  {canViewCommercial && summary?.vipVisible && <MetricTile label="VIP 状态" value={vipStatusText(summary.vipStatus)} />}
+                  <MetricTile label="7天访客 UV/PV" value={summaryLoading ? '加载中...' : `${summary?.visitorUv7d ?? 0} / ${summary?.visitorPv7d ?? 0}`} />
+                  <MetricTile label="当前被喜欢" value={summaryLoading ? '加载中...' : `${summary?.activeLikedCount ?? 0}`} />
+                  <MetricTile label="当前相互喜欢" value={summaryLoading ? '加载中...' : `${summary?.activeMutualCount ?? 0}`} />
+                  <MetricTile label="最近匹配成功时间" value={summaryLoading ? '加载中...' : summary?.lastMatchTime || '-'} wide />
+                </div>
+              )}
               <div className="rounded-md border border-[#E6EDF7] p-4">
-              <div className="mb-4 flex flex-wrap gap-2">
-                {(Object.keys(relationLabels) as Array<keyof typeof relationLabels>).map(tab => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => { setRelationTab(tab); setRelationPage(1); }}
-                    className={`rounded-md px-3 py-1.5 text-sm ${relationTab === tab ? 'bg-[#EAF2FF] font-semibold text-[#2876FF]' : 'bg-[#F6F8FB] text-[#526173]'}`}
-                  >
-                    {relationLabels[tab]}
-                  </button>
-                ))}
-              </div>
-              <DemoTable
-                headers={['记录编号', '对方用户', '状态', '发生时间']}
-                rows={pageRows}
-              />
-              <div className="mt-4 flex justify-end border-t border-[#E6EDF7] pt-4">
-                <Pagination
-                  current={relationPage}
-                  total={relationTotal}
-                  pageSize={relationPageSize}
-                  onChange={setRelationPage}
-                  onPageSizeChange={size => { setRelationPageSize(size); setRelationPage(1); }}
-                />
-              </div>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {(Object.keys(RELATION_LABELS) as RelationTabKey[]).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => changeRelationTab(tab)}
+                      className={`rounded-md px-3 py-1.5 text-sm ${relationTab === tab ? 'bg-[#EAF2FF] font-semibold text-[#2876FF]' : 'bg-[#F6F8FB] text-[#526173]'}`}
+                    >
+                      {RELATION_LABELS[tab]}
+                    </button>
+                  ))}
+                </div>
+                <div className="mb-4 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+                  {relationTab !== 'matches' && (
+                    <Select
+                      options={[{ value: 'ALL', label: '全部方向' }, { value: 'OUTBOUND', label: '当前用户发起' }, { value: 'INBOUND', label: '当前用户接收' }]}
+                      value={direction}
+                      onChange={(value) => { setDirection(value as typeof direction); setRelationPage(1); }}
+                    />
+                  )}
+                  <Select
+                    options={filterOptions.statuses}
+                    value={relationStatus}
+                    onChange={(value) => { setRelationStatus(value); setRelationPage(1); }}
+                  />
+                  <Select
+                    options={filterOptions.sources}
+                    value={relationSource}
+                    onChange={(value) => { setRelationSource(value); setRelationPage(1); }}
+                  />
+                  <Input type="datetime-local" value={startTime} onChange={(event) => { setStartTime(event.target.value); setRelationPage(1); }} />
+                  <Input type="datetime-local" value={endTime} onChange={(event) => { setEndTime(event.target.value); setRelationPage(1); }} />
+                </div>
+                {relationError ? (
+                  <div className="flex h-40 items-center justify-center gap-3 rounded-md border border-dashed border-[#F3C5C5] text-sm text-[#B42318]">
+                    <span>{relationError}</span>
+                    <Button variant="outline" size="sm" onClick={() => loadRelationPage(user.id, relationTab, queryParams, true)}>重试</Button>
+                  </div>
+                ) : relationLoading ? (
+                  <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">加载中...</div>
+                ) : pageRows.length > 0 ? (
+                  <DemoTable headers={tableHeaders} rows={pageRows} />
+                ) : (
+                  <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-[#D8E2F0] text-sm text-muted-foreground">暂无关系记录</div>
+                )}
+                <div className="mt-4 flex justify-end border-t border-[#E6EDF7] pt-4">
+                  <Pagination
+                    current={relationPage}
+                    total={relationData.total}
+                    pageSize={relationPageSize}
+                    onChange={setRelationPage}
+                    onPageSizeChange={(size) => { setRelationPageSize(size as 10 | 20 | 50); setRelationPage(1); }}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -1311,15 +1882,111 @@ function ModuleSupplementDialog({ user, onClose }: { user: AdminUserCardItem | n
   );
 }
 
-function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onClose: () => void }) {
+function toBackendDateTime(value: string) {
+  if (!value) return undefined;
+  return `${value.replace('T', ' ')}${value.length === 16 ? ':00' : ''}`;
+}
+
+function counterpartyText(record: RelationRecord) {
+  const counterparty = record.counterparty;
+  if (counterparty.anonymous) return counterparty.userNo || '匿名用户';
+  return `${counterparty.nickname || '-'} ${counterparty.userNo ? `U${counterparty.userNo}` : ''}`.trim();
+}
+
+function relationStateText(status: string, invalidReason?: string) {
+  const statusText = RELATION_STATUS_LABELS[status] || status || '-';
+  return invalidReason ? `${statusText} · ${RELATION_REASON_LABELS[invalidReason] || invalidReason}` : statusText;
+}
+
+function relationTableHeaders(tab: RelationTabKey, canViewCommercial: boolean) {
+  if (tab === 'likes') return ['记录编号', '方向', '对方用户', '来源', '状态', '喜欢时间', '解锁编号'];
+  if (tab === 'visitors') return ['记录编号', '方向', '对方用户', '来源', '状态', '最近访问', 'PV', '解锁编号'];
+  if (tab === 'matches') return ['记录编号', '对方用户', '首次来源', '有效来源', '状态', '匹配时间'];
+  return ['解锁编号', '目标记录', '对方用户', '场景/方式', ...(canViewCommercial ? ['消耗币'] : []), '状态', '生效时间'];
+}
+
+function relationTableRow(tab: RelationTabKey, record: RelationRecord, canViewCommercial: boolean): string[] {
+  if (tab === 'likes') {
+    const row = record as AppUserRelationLikeVO;
+    return [row.recordNo, row.direction === 'OUTBOUND' ? '当前用户发起' : '当前用户接收', counterpartyText(row),
+      RELATION_SOURCE_LABELS[row.sourceScene] || row.sourceScene, relationStateText(row.status, row.invalidReason), row.likedTime || '-', row.unlockNo || '-'];
+  }
+  if (tab === 'visitors') {
+    const row = record as AppUserRelationVisitVO;
+    return [row.recordNo, row.direction === 'OUTBOUND' ? '当前用户访问' : '当前用户被访问', counterpartyText(row),
+      RELATION_SOURCE_LABELS[row.sourceScene] || row.sourceScene, relationStateText(row.status, row.invalidReason), row.lastVisitTime || '-', String(row.visitCount ?? 0), row.unlockNo || '-'];
+  }
+  if (tab === 'matches') {
+    const row = record as AppUserRelationMatchVO;
+    return [row.recordNo, counterpartyText(row), RELATION_SOURCE_LABELS[row.primarySource] || row.primarySource,
+      (row.activeSources || []).map((item) => RELATION_SOURCE_LABELS[item] || item).join('、') || '-',
+      relationStateText(row.status, row.invalidReason), row.matchedTime || '-'];
+  }
+  const row = record as AppUserRelationUnlockVO;
+  return [row.unlockNo, [row.targetBizType, row.targetBizNo].filter(Boolean).join(' / ') || '-', counterpartyText(row),
+    `${RELATION_SOURCE_LABELS[row.unlockScene] || row.unlockScene} / ${row.unlockMethod || '-'}`,
+    ...(canViewCommercial && row.assetVisible ? [String(row.coinCost ?? 0)] : canViewCommercial ? ['-'] : []),
+    relationStateText(row.status, row.targetInvalidReason), row.effectiveTime || '-'];
+}
+
+function relationFilterOptions(tab: RelationTabKey) {
+  const statusCodes = tab === 'likes' ? ['active', 'cancelled', 'invalid']
+    : tab === 'visitors' ? ['visible', 'expired_window', 'invalid']
+      : tab === 'matches' ? ['matched', 'invalid'] : ['active', 'expired', 'refunded'];
+  const sourceCodes = tab === 'matches' ? ['double_like', 'featured_heart_return_like', 'whisper_reply']
+    : tab === 'unlocks' ? ['likes_unlock_one', 'viewers_unlock_one']
+      : ['fate', 'featured', 'ideal', 'profile', 'likes_me', 'recent_viewers'];
+  return {
+    statuses: [{ value: '', label: '全部状态' }, ...statusCodes.map((value) => ({ value, label: RELATION_STATUS_LABELS[value] || value }))],
+    sources: [{ value: '', label: '全部来源' }, ...sourceCodes.map((value) => ({ value, label: RELATION_SOURCE_LABELS[value] || value }))],
+  };
+}
+
+function vipStatusText(status?: string) {
+  if (status === 'active') return 'VIP会员';
+  if (status === 'expired') return '会员已过期';
+  return '未开通';
+}
+
+function ProfileDrawer({
+  user,
+  canViewCommercial,
+  onClose,
+  onStatusChanged,
+}: {
+  user: AdminUserCardItem | null;
+  canViewCommercial: boolean;
+  onClose: () => void;
+  onStatusChanged?: (userId: number, status: string) => void;
+}) {
   const [freezeConfirmOpen, setFreezeConfirmOpen] = useState(false);
   const [freezeProcessing, setFreezeProcessing] = useState(false);
   const [commercial, setCommercial] = useState<UserCommercialAssetDetail | null>(null);
   const [commercialLoading, setCommercialLoading] = useState(false);
-  const genderLabel = user?.gender === 'MALE' ? '男' : '女';
+  const genderLabel = user?.genderLabel || '-';
   const score = Math.max(0, Math.min(user?.profileScore ?? 0, 100));
-  const educationLevel = user?.educationText.split('|')[0]?.trim() || '-';
-  const industry = user?.company.includes('大学') || user?.company.includes('学院') ? '教育科研' : '互联网';
+  const educationLevel = user?.educationLevelLabel || user?.educationText?.split('|')[0]?.trim() || '-';
+  const heightWeight = [
+    user?.height ? `${user.height}cm` : '',
+    user?.weight ? `${user.weight}kg` : '',
+  ].filter(Boolean).join(' / ') || '-';
+  const industry = user?.industryLabel || '-';
+  const annualIncome = user?.annualIncomeLabel || user?.annualIncome || '-';
+  const maritalStatus = user?.maritalStatusLabel || user?.maritalStatus || '-';
+  const emotionalStatus = user?.emotionalStatusLabel || '-';
+  const datingGoal = user?.datingGoalLabel || user?.mateRequirement || '-';
+  const photos = parseStringArray(user?.photos).slice(0, 6);
+  const aboutMe = user?.aboutMe || '-';
+  const voiceIntroText = user?.voiceIntroDuration ? `语音介绍 ${user.voiceIntroDuration}s` : '暂无语音介绍';
+  const isFrozen = user?.accountStatus === 'FROZEN';
+  const nextAccountStatus = isFrozen ? 'NORMAL' : 'FROZEN';
+  const accountActionText = isFrozen ? '解冻账号' : '冻结账号';
+  const accountConfirmTitle = isFrozen ? '解冻账号确认' : '冻结账号确认';
+  const accountConfirmTip = isFrozen
+    ? '解冻后用户将恢复正常账号状态，可继续按准入规则使用功能，操作人和时间会进入审计日志。'
+    : '冻结后用户将无法继续使用核心准入能力，操作人、原因和时间会进入审计日志。';
+  const accountConfirmButtonText = isFrozen ? '确认解冻' : '确认冻结';
+  const locationStatus = user?.city && user.city !== '-' ? '已记录现居地' : '-';
   const coreStatus = user?.accessStatus === 'full_access' ? '核心准入通过' : user?.accessStatus === 'browse_only' ? '核心准入待完善' : '核心准入阻断';
   const verifyBadges = [
     user?.realNameStatus === 'APPROVED' && user?.educationStatus === 'APPROVED' && user?.avatarVerifyStatus === 'APPROVED'
@@ -1334,15 +2001,15 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
     ['身份', user?.identity || '-'],
     ['最高学历', educationLevel],
     ['现居地', user?.city || '-'],
-    ['定位状态', '已授权定位'],
+    ['定位状态', locationStatus],
   ];
   const basicFields = [
     ['昵称', user?.nickname || '-'],
-    ['身高/体重', user?.gender === 'MALE' ? '176cm / 70kg' : '165cm / 49kg'],
-    ['家乡/户口', `${(user?.city || '上海').slice(0, 2)} / 上海`],
+    ['身高/体重', heightWeight],
+    ['家乡/户口', user?.city || '-'],
     ['行业/职业', `${industry} / ${user?.jobTitle || '-'}`],
-    ['公司/年收入', `${user?.company || '-'} / 30-50万`],
-    ['婚姻状况', '未婚'],
+    ['公司/年收入', `${user?.company || '-'} / ${annualIncome}`],
+    ['婚姻状况', maritalStatus],
   ];
 
   useEffect(() => {
@@ -1351,8 +2018,9 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
 
   useEffect(() => {
     let disposed = false;
-    if (!user) {
+    if (!user || !canViewCommercial) {
       setCommercial(null);
+      setCommercialLoading(false);
       return undefined;
     }
     setCommercialLoading(true);
@@ -1367,15 +2035,16 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
         if (!disposed) setCommercialLoading(false);
       });
     return () => { disposed = true; };
-  }, [user]);
+  }, [canViewCommercial, user]);
 
-  const confirmFreeze = async () => {
+  const confirmAccountStatusChange = async () => {
     if (!user) return;
     setFreezeProcessing(true);
     try {
-      await updateAppUserStatus(user.id, 'FROZEN');
+      await updateAppUserStatus(user.id, nextAccountStatus);
       setFreezeConfirmOpen(false);
-      showToast('冻结账号确认已提交，操作已写入审计日志。', 'success');
+      onStatusChanged?.(user.id, nextAccountStatus);
+      showToast(`${accountActionText}已提交，操作已写入审计日志。`, 'success');
     } finally {
       setFreezeProcessing(false);
     }
@@ -1383,9 +2052,9 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
 
   return (
     <>
-      <Dialog open={Boolean(user)} onClose={onClose} className="absolute right-0 top-0 h-screen w-[808px] max-w-[calc(100vw-48px)] rounded-none border-l bg-white p-0">
+      <Dialog open={Boolean(user)} onClose={onClose} className="w-[calc(100vw-64px)] max-w-[1080px] p-0">
         {user && (
-          <div className="flex h-full flex-col">
+          <div className="flex max-h-[88vh] flex-col bg-white">
             <div className="flex h-16 shrink-0 items-center border-b border-[#E6EDF7] px-6">
               <DialogHeader>
                 <DialogTitle className="text-base text-[#1F2433]">画像详情</DialogTitle>
@@ -1410,10 +2079,12 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
                   <p className="mt-2 text-sm text-[#4D5A6D]">{genderLabel} | {user.age}岁 | {user.identity} | {user.city}</p>
                   <p className="mt-2 text-sm text-[#4D5A6D]">手机号 {user.phone} <span className="ml-4">注册 {user.registerTime}</span></p>
                 </div>
-                <div className="flex h-[68px] w-[188px] shrink-0 flex-col justify-center rounded-lg bg-[#343431] px-6 text-[#F7DFA6]">
-                  <span className="text-sm font-semibold">{commercial?.vipStatus === 'active' ? 'VIP会员' : commercial?.vipStatus === 'expired' ? '会员已过期' : '非会员'}</span>
-                  <span className="mt-1 text-xs">{commercial?.vipExpireTime || '-'}</span>
-                </div>
+                {canViewCommercial && (
+                  <div className="flex h-[68px] w-[188px] shrink-0 flex-col justify-center rounded-lg bg-[#343431] px-6 text-[#F7DFA6]">
+                    <span className="text-sm font-semibold">{commercial?.vipStatus === 'active' ? 'VIP会员' : commercial?.vipStatus === 'expired' ? '会员已过期' : '非会员'}</span>
+                    <span className="mt-1 text-xs">{commercial?.vipExpireTime || '-'}</span>
+                  </div>
+                )}
               </div>
               </ProfileConfirmSection>
 
@@ -1431,16 +2102,25 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
                     {user.characterTags.map((tag) => (
                       <DemoTagPill key={tag.label} tag={tag} />
                     ))}
-                    <span className="rounded-full bg-[#E9F8EF] px-3 py-1 text-xs font-medium text-[#27A45D]">MBTI: INFJ</span>
+                    {user.mbtiType && (
+                      <span className="rounded-full bg-[#E9F8EF] px-3 py-1 text-xs font-medium text-[#27A45D]">MBTI: {user.mbtiType}</span>
+                    )}
                   </div>
-                  <p><span className="font-medium text-[#1F2433]">关于我：</span>喜欢稳定而真诚的关系，工作之余会运动、看展，希望能认真了解彼此。</p>
-                  <p><span className="font-medium text-[#1F2433]">见面偏好：</span>周末咖啡/展览；生活方式：不吸烟、少饮酒、可接受宠物；问答 3 条。</p>
+                  <p><span className="font-medium text-[#1F2433]">关于我：</span>{aboutMe}</p>
+                  <p><span className="font-medium text-[#1F2433]">脱单目标：</span>{datingGoal}；<span className="font-medium text-[#1F2433]">感情状态：</span>{emotionalStatus}</p>
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="h-14 w-14 rounded-md bg-[#D7E6FF]" />
-                    <span className="h-14 w-14 rounded-md bg-[#F7D8EA]" />
-                    <span className="h-14 w-14 rounded-md bg-[#D8F7E1]" />
-                    <em className="text-[#4D5A6D] not-italic">相册 6 张 · 背景图已上传 · 语音介绍 18s</em>
+                    {photos.length > 0 ? photos.map((photo, index) => (
+                      <img key={`${photo}-${index}`} src={photo} alt={`相册${index + 1}`} className="h-14 w-14 rounded-md object-cover" />
+                    )) : (
+                      <span className="text-sm text-[#7D8597]">暂无相册图片</span>
+                    )}
+                    <em className="text-[#4D5A6D] not-italic">
+                      相册 {photos.length} 张 · {user.profileBgImage ? '背景图已上传' : '暂无背景图'} · {voiceIntroText}
+                    </em>
                   </div>
+                  {user.favoriteSongName && (
+                    <p><span className="font-medium text-[#1F2433]">爱听的歌曲：</span>{user.favoriteSongName} {user.favoriteSongArtist ? ` / ${user.favoriteSongArtist}` : ''}</p>
+                  )}
                 </div>
               </ProfileConfirmSection>
 
@@ -1463,7 +2143,7 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
                 </div>
               </ProfileConfirmSection>
 
-              <ProfileConfirmSection title="千寻币/VIP">
+              {canViewCommercial && <ProfileConfirmSection title="千寻币/VIP">
                 {commercialLoading ? <p className="p-5 text-sm text-[#667085]">商业化资产加载中...</p> : commercial ? (
                   <ProfileLogList rows={[
                     [`当前余额`, String(commercial.coinBalance ?? 0), `累计充值 ¥${Number(commercial.totalRecharge ?? 0).toFixed(2)}`, '千寻币'],
@@ -1471,7 +2151,7 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
                     ...(commercial.recentOrders || []).map((item) => [item.createTime || '-', item.orderType === 'coin' ? '千寻币订单' : '会员订单', item.orderStatus, item.packageName || '-']),
                   ]} />
                 ) : <p className="p-5 text-sm text-[#667085]">暂无商业化资产记录</p>}
-              </ProfileConfirmSection>
+              </ProfileConfirmSection>}
 
               <ProfileConfirmSection title="客服/风控处理记录">
                 <ProfileLogList
@@ -1486,7 +2166,7 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
           </div>
 
           <div className="flex h-[72px] shrink-0 items-center justify-end border-t border-[#E6EDF7] bg-white px-6">
-            <Button variant="primary" onClick={() => setFreezeConfirmOpen(true)}>冻结账号</Button>
+            <Button variant="primary" onClick={() => setFreezeConfirmOpen(true)}>{accountActionText}</Button>
           </div>
         </div>
       )}
@@ -1495,11 +2175,11 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
         {user && (
           <>
             <DialogHeader>
-              <DialogTitle>冻结账号确认</DialogTitle>
+              <DialogTitle>{accountConfirmTitle}</DialogTitle>
             </DialogHeader>
             <div className="mt-5 space-y-4 text-sm text-[#4D5A6D]">
               <div className="rounded-md bg-[#FFF7E8] p-4 text-[#8A5A00]">
-                冻结后用户将无法继续使用核心准入能力，操作人、原因和时间会进入审计日志。
+                {accountConfirmTip}
               </div>
               <div className="rounded-md border border-[#E6EDF7] p-4">
                 <strong className="block text-[#1F2433]">{user.nickname} U{user.id}</strong>
@@ -1507,8 +2187,8 @@ function ProfileDrawer({ user, onClose }: { user: AdminUserCardItem | null; onCl
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setFreezeConfirmOpen(false)} disabled={freezeProcessing}>取消</Button>
-                <Button variant="primary" onClick={confirmFreeze} disabled={freezeProcessing}>
-                  {freezeProcessing ? '处理中…' : '确认冻结'}
+                <Button variant="primary" onClick={confirmAccountStatusChange} disabled={freezeProcessing}>
+                  {freezeProcessing ? '处理中…' : accountConfirmButtonText}
                 </Button>
               </div>
             </div>
@@ -1590,39 +2270,233 @@ function AvatarAuditDialog({
   user,
   onClose,
   onGoAudit,
+  onChanged,
 }: {
   user: AdminUserCardItem | null;
   onClose: () => void;
   onGoAudit: () => void;
+  onChanged?: () => void;
 }) {
+  const [detail, setDetail] = useState<VerificationAuditDetailVO | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'APPROVE' | 'REJECT' | 'EXPIRE' | null>(null);
+  const [confirmReason, setConfirmReason] = useState('');
+
+  useEffect(() => {
+    let disposed = false;
+    setDetail(null);
+    if (!user) return undefined;
+    if (!user.avatarAuditRecordId) {
+      setLoading(false);
+      return undefined;
+    }
+    setLoading(true);
+    getAvatarDetail(user.avatarAuditRecordId, { historyPage: 1, historySize: 5 })
+      .then((res) => {
+        if (!disposed) setDetail(responseData<VerificationAuditDetailVO>(res, null as any));
+      })
+      .catch(() => {
+        if (!disposed) setDetail(null);
+      })
+      .finally(() => {
+        if (!disposed) setLoading(false);
+      });
+    return () => { disposed = true; };
+  }, [user?.avatarAuditRecordId]);
+
+  function requestAudit(action: 'APPROVE' | 'REJECT' | 'EXPIRE') {
+    if (!detail) return;
+    setConfirmAction(action);
+    setConfirmReason('');
+  }
+
+  async function confirmAudit() {
+    if (!detail) return;
+    if (confirmAction !== 'APPROVE' && !confirmReason.trim()) {
+      showToast(confirmAction === 'REJECT' ? '请输入驳回原因' : '请输入失效原因', 'error');
+      return;
+    }
+    setProcessing(true);
+    try {
+      await auditAvatar(detail.id, {
+        action: confirmAction!,
+        rejectReason: confirmAction === 'APPROVE' ? undefined : confirmReason.trim(),
+      });
+      showToast(confirmAction === 'APPROVE' ? '头像审核已通过' : confirmAction === 'REJECT' ? '头像审核已驳回' : '头像审核已标记失效', 'success');
+      const res = await getAvatarDetail(detail.id, { historyPage: 1, historySize: 5 });
+      setDetail(responseData<VerificationAuditDetailVO>(res, null as any));
+      setConfirmAction(null);
+      setConfirmReason('');
+      onChanged?.();
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  const imageUrl = detail?.mediaUrl || detail?.thumbUrl || user?.avatar || '';
+  const histories = detail?.historyPage?.records || [];
+
+  const confirmTitle = confirmAction === 'REJECT' ? '驳回确认' : confirmAction === 'EXPIRE' ? '失效确认' : '通过确认';
+  const confirmTip = confirmAction === 'REJECT'
+    ? '驳回原因必填，确认后会写入审核历史。'
+    : confirmAction === 'EXPIRE'
+      ? '失效原因必填，确认后会把该审核记录标记为已失效。'
+      : '确认后该头像审核记录会变为已通过。';
+
   return (
-    <Dialog open={Boolean(user)} onClose={onClose} className="max-w-[828px] p-0">
-      {user && (
-        <div>
-          <div className="flex h-[68px] items-center border-b border-[#E6EDF7] px-6">
-            <DialogHeader>
-              <DialogTitle className="text-base text-[#1F2433]">头像审核</DialogTitle>
-            </DialogHeader>
-          </div>
-          <div className="bg-white px-16 py-10">
-            <div className="mx-auto flex h-[410px] max-w-[708px] items-center justify-center overflow-hidden rounded-lg bg-[#F5F6F8]">
-              <img src={user.avatar} alt={`${user.nickname}头像`} className="h-full w-full object-cover" />
+    <>
+      <Dialog open={Boolean(user)} onClose={onClose} className="w-[calc(100vw-64px)] max-w-[1260px] p-0">
+        {user && (
+          <div className="flex max-h-[90vh] flex-col bg-white">
+            <div className="flex h-[64px] shrink-0 items-center justify-between border-b border-[#E6EDF7] px-6">
+              <DialogHeader>
+                <DialogTitle className="text-lg text-[#0C285A]">头像认证审核详情</DialogTitle>
+              </DialogHeader>
+              <button className="mr-8 text-sm text-[#2876FF]" onClick={onGoAudit}>进入审核列表</button>
             </div>
-            <div className="mt-5 flex items-center justify-between text-sm text-muted-foreground">
-              <span>{user.nickname} · {user.avatarReviewStatus}</span>
-              <button className="text-[#2876FF]" onClick={onGoAudit}>进入审核列表</button>
+
+            {loading ? (
+              <div className="flex h-[560px] items-center justify-center text-sm text-muted-foreground">审核详情加载中...</div>
+            ) : !detail ? (
+              <div className="flex h-[560px] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                <div className="rounded-md border border-dashed border-[#D8E2F0] px-8 py-6">暂无头像审核数据</div>
+                <span>{user.nickname} · {user.avatarReviewStatus || '未认证'}</span>
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto bg-white p-6">
+                <div className="mb-4 flex items-center gap-4 rounded-lg bg-[#F8FAFC] p-4">
+                  <Avatar className="h-14 w-14" src={detail.avatar || user.avatar} fallback={detail.nickname?.slice(0, 1) || user.nickname.slice(0, 1)} />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-[#0C285A]">{detail.nickname || user.nickname}</div>
+                    <div className="mt-1 text-sm text-[#667085]">用户ID: {detail.userId} · 认证等级: Lv.{detail.verifyLevel ?? 0}</div>
+                  </div>
+                  <Badge variant={STATUS_MAP[detail.status]?.variant ?? 'secondary'}>{STATUS_MAP[detail.status]?.label || detail.status}</Badge>
+                </div>
+
+                <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+                  <section className="rounded-md border border-[#D8E6F5] bg-white p-4">
+                    <h3 className="mb-3 font-semibold text-[#0C285A]">头像预览</h3>
+                    <div className="flex h-[260px] items-center justify-center overflow-hidden rounded-md bg-[#F4F7FB]">
+                      {imageUrl ? <img src={imageUrl} alt="头像预览" className="h-full w-full object-contain" /> : <span className="text-sm text-muted-foreground">暂无图片</span>}
+                    </div>
+                  </section>
+
+                  <section className="rounded-md border border-[#D8E6F5] bg-white p-4">
+                    <h3 className="mb-3 font-semibold text-[#0C285A]">审核信息</h3>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <AuditInfo label="提交时间" value={detail.submitTime || user.avatarAuditSubmitTime || '-'} />
+                      <AuditInfo label="审核时间" value={detail.resultTime || '-'} />
+                      <AuditInfo label="审核来源" value={auditSourceText(detail.auditSource)} />
+                      <AuditInfo label="当前状态" value={STATUS_MAP[detail.status]?.label || detail.status || '-'} />
+                    </div>
+                    {(detail.rejectReason || user.avatarAuditRejectReason) && (
+                      <div className="mt-3 rounded-md bg-[#FFF1F0] px-4 py-3 text-sm text-[#C0362C]">
+                        驳回/失效原因：{detail.rejectReason || user.avatarAuditRejectReason}
+                      </div>
+                    )}
+                  </section>
+                </div>
+
+                <section className="mt-5 rounded-md border border-[#D8E6F5] bg-white p-4">
+                  <h3 className="mb-3 font-semibold text-[#0C285A]">审核历史记录</h3>
+                  <div className="overflow-hidden rounded-md border border-[#E6EDF7]">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-[#F7FAFE] text-[#667085]">
+                        <tr>
+                          <th className="px-4 py-3">时间</th>
+                          <th className="px-4 py-3">动作</th>
+                          <th className="px-4 py-3">状态变化</th>
+                          <th className="px-4 py-3">来源</th>
+                          <th className="px-4 py-3">操作人</th>
+                          <th className="px-4 py-3">原因</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E6EDF7] bg-white">
+                        {histories.length === 0 ? (
+                          <tr><td className="px-4 py-6 text-center text-muted-foreground" colSpan={6}>暂无历史记录</td></tr>
+                        ) : histories.map((row) => (
+                          <tr key={row.id}>
+                            <td className="px-4 py-3">{row.createTime || '-'}</td>
+                            <td className="px-4 py-3">{auditActionText(row.action)}</td>
+                            <td className="px-4 py-3">{auditStatusText(row.fromStatus)} -&gt; {auditStatusText(row.toStatus)}</td>
+                            <td className="px-4 py-3">{auditSourceText(row.auditSource)}</td>
+                            <td className="px-4 py-3">{row.operatorName || '-'}</td>
+                            <td className="px-4 py-3">{row.reason || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-3 text-xs text-muted-foreground">共{histories.length}条记录 第 1 / 1 页 · 固定每页 5 条</div>
+                </section>
+              </div>
+            )}
+
+            <div className="flex h-[72px] shrink-0 items-center justify-end gap-3 border-t border-[#E6EDF7] bg-white px-6">
+              <Button variant="primary" disabled={!detail || processing} onClick={() => requestAudit('APPROVE')}>通过</Button>
+              <Button variant="destructive" disabled={!detail || processing} onClick={() => requestAudit('REJECT')}>驳回</Button>
+              <Button variant="outline" disabled={!detail || processing} onClick={() => requestAudit('EXPIRE')}>失效</Button>
             </div>
           </div>
-          <div className="flex justify-end gap-3 border-t border-[#E6EDF7] bg-[#F8FAFD] px-6 py-4">
-            <Button variant="outline" onClick={onClose}>审核失败</Button>
-            <Button variant="primary" onClick={onClose}>审核通过</Button>
+        )}
+      </Dialog>
+
+      <Dialog open={Boolean(confirmAction)} onClose={() => setConfirmAction(null)} className="max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>{confirmTitle}</DialogTitle>
+        </DialogHeader>
+        <div className="mt-5 space-y-4 text-sm text-[#4D5A6D]">
+          <div className="rounded-md bg-[#FFF7E8] p-4 text-[#8A5A00]">{confirmTip}</div>
+          {confirmAction !== 'APPROVE' && (
+            <label className="block space-y-2">
+              <span>{confirmAction === 'REJECT' ? '驳回原因' : '失效原因'}</span>
+              <Input
+                value={confirmReason}
+                onChange={(event) => setConfirmReason(event.target.value)}
+                placeholder={confirmAction === 'REJECT' ? '请输入驳回原因' : '请输入失效原因'}
+              />
+            </label>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmAction(null)} disabled={processing}>取消</Button>
+            <Button variant="primary" onClick={confirmAudit} disabled={processing}>{processing ? '处理中...' : '确认'}</Button>
           </div>
         </div>
-      )}
-    </Dialog>
+      </Dialog>
+    </>
   );
 }
 
+function AuditInfo({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="rounded-md bg-[#F7FAFE] px-4 py-3 text-sm">
+      <span className="text-[#667085]">{label}：</span>
+      <strong className="font-semibold text-[#1F2433]">{value || '-'}</strong>
+    </div>
+  );
+}
+
+function auditActionText(action?: string) {
+  const map: Record<string, string> = {
+    SUBMIT: '提交审核',
+    MACHINE_PASS: '机审通过',
+    MACHINE_REJECT: '机审驳回',
+    MANUAL_PASS: '人工通过',
+    MANUAL_REJECT: '人工驳回',
+    MANUAL_EXPIRE: '人工失效',
+  };
+  return action ? map[action] || action : '-';
+}
+
+function auditStatusText(status?: string) {
+  return status ? STATUS_MAP[status]?.label || status : '-';
+}
+
+function auditSourceText(source?: string) {
+  const map: Record<string, string> = { MACHINE: '机审', MANUAL: '人工审核', MOCK: 'Mock' };
+  return source ? map[source] || source : '-';
+}
 function WorkflowImportResult({ result }: { result: ImportBatchVO | null }) {
   return (
     <div className="grid gap-2 rounded-md border border-[#E6EDF7] p-4">
@@ -1652,6 +2526,157 @@ function WorkflowExportResult({ result }: { result: ExportTaskVO }) {
   );
 }
 
+function WorkflowImportResponse({ result }: { result: ImportBatchVO | null }) {
+  const errors = parseImportErrors(result?.errorSummaryJson);
+  return (
+    <div className="grid gap-2 rounded-md border border-[#E6EDF7] p-4">
+      <strong className="text-[#1F2433]">导入接口响应结果</strong>
+      {result ? (
+        <>
+          <span>批次号：{result.batchNo} / 状态：{result.status}</span>
+          <span>原文件：{result.fileName || '-'}</span>
+          <span>
+            总行数 {result.totalCount ?? 0} / 可导入 {result.successCount ?? 0} / 失败 {result.failCount ?? 0} / 重复 {result.duplicateCount ?? 0}
+          </span>
+          <span>已真实入库：{result.importedCount ?? 0} 个用户</span>
+          <span>{result.message || '导入预校验完成，结果来自后端接口。'}</span>
+          {errors.length > 0 && (
+            <div className="max-h-24 overflow-auto rounded bg-[#FFF7E8] p-2 text-[#8A5A00]">
+              {errors.map((error, index) => (
+                <div key={`${error}-${index}`}>{error}</div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <span>选择文件后点击确认导入，这里会展示后端返回的批次号、行数统计和错误摘要。</span>
+      )}
+    </div>
+  );
+}
+
+function WorkflowExportResponse({ result }: { result: ExportTaskVO }) {
+  return (
+    <div className="grid gap-2 rounded-md border border-[#E6EDF7] bg-[#F7FAFE] p-4">
+      <strong className="text-[#1F2433]">导出接口响应结果</strong>
+      <span>任务号：{result.taskNo}</span>
+      <span>类型：{result.exportType} / 状态：{result.status}</span>
+      <span>文件名：{result.fileName || '-'}</span>
+      <span>导出行数：{result.rowCount ?? 0}</span>
+      <span>筛选条件：{result.filterSummary || '全部用户'}</span>
+      <span>创建时间：{result.createTime || '-'}</span>
+      <span>{result.message || '导出任务已由后端创建。'}</span>
+      {result.downloadContent && (
+        <div className="pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadTextFile(result.fileName || 'app-users-export.csv', result.downloadContent || '')}
+          >
+            下载导出文件
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkflowHistoryDialog({
+  open,
+  historyPage,
+  loading,
+  onPageChange,
+  onClose,
+}: {
+  open: boolean;
+  historyPage: PageResult<AppUserWorkflowHistoryVO>;
+  loading: boolean;
+  onPageChange: (page: number) => void;
+  onClose: () => void;
+}) {
+  const records = historyPage.records || [];
+  return (
+    <Dialog open={open} onClose={onClose} className="max-w-[760px]">
+      <DialogHeader>
+        <DialogTitle>导入导出结果</DialogTitle>
+      </DialogHeader>
+      <div className="mt-5 max-h-[560px] space-y-3 overflow-y-auto pr-1 text-sm text-[#5F6675]">
+        {loading && (
+          <div className="rounded-md border border-dashed border-[#D8E2F0] p-6 text-center">
+            加载导入导出结果中...
+          </div>
+        )}
+        {!loading && records.length === 0 && (
+          <div className="rounded-md border border-dashed border-[#D8E2F0] p-6 text-center">
+            暂无导入导出结果
+          </div>
+        )}
+        {!loading && records.map((item) => {
+          const isImport = item.type === 'import';
+          const importResult = isImport ? item.importResult || null : null;
+          const exportResult = !isImport ? item.exportResult || null : null;
+          return (
+            <div key={item.id} className="rounded-lg border border-[#E6EDF7] bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <strong className="text-[#1F2433]">{isImport ? '批量导入' : '字段导出'}</strong>
+                  <div>{item.createTime || '-'}</div>
+                  {isImport && importResult && (
+                    <>
+                      <div>批次号：{importResult.batchNo || '-'}</div>
+                      <div>状态：{importResult.status || '-'}；真实入库：{importResult.importedCount ?? 0} 个；失败：{importResult.failCount ?? 0} 行</div>
+                      <div>{importResult.message || '-'}</div>
+                    </>
+                  )}
+                  {!isImport && exportResult && (
+                    <>
+                      <div>任务号：{exportResult.taskNo || '-'}</div>
+                      <div>状态：{exportResult.status || '-'}；导出行数：{exportResult.rowCount ?? 0}</div>
+                      <div>文件名：{exportResult.fileName || '-'}</div>
+                      <div>筛选条件：{exportResult.filterSummary || '全部用户'}</div>
+                      <div>{exportResult.message || '-'}</div>
+                    </>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {isImport && importResult && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadTextFile(`app-users-import-errors-${importResult.batchNo || 'latest'}.csv`, buildImportErrorReportCsv(importResult))}
+                    >
+                      下载错误报告
+                    </Button>
+                  )}
+                  {!isImport && exportResult?.downloadContent && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadTextFile(exportResult.fileName || 'app-users-export.csv', exportResult.downloadContent || '')}
+                    >
+                      下载导出文件
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {!loading && historyPage.total > 0 && (
+          <Pagination
+            current={historyPage.current || 1}
+            total={historyPage.total || 0}
+            pageSize={5}
+            onChange={onPageChange}
+            showPageSizeSelector={false}
+            className="pt-1"
+          />
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
 function WorkflowDialog({
   type,
   result,
@@ -1674,26 +2699,41 @@ function WorkflowDialog({
     if (!type) setSelectedFile(null);
   }, [type]);
 
+  function handleDownloadTemplate() {
+    downloadTextFile('app-users-all-fields-template.csv', buildImportTemplateCsv());
+    showToast('导入模板已下载', 'success');
+  }
+
+  function handleDownloadErrorReport() {
+    if (!importResult) {
+      showToast('请先上传文件并点击确认导入，拿到预校验结果后再下载错误报告', 'info');
+      return;
+    }
+    downloadTextFile(`app-users-import-errors-${importResult.batchNo || 'latest'}.csv`, buildImportErrorReportCsv(importResult));
+    showToast('错误报告已下载', 'success');
+  }
+
   return (
-    <Dialog open={Boolean(type)} onClose={onClose} className="max-w-[520px]">
+    <Dialog open={Boolean(type)} onClose={onClose} className="max-w-[720px]">
       <DialogHeader>
-        <DialogTitle>{isImport ? '批量导入 App 用户' : '导出固定字段确认'}</DialogTitle>
+        <DialogTitle>{isImport ? '批量导入 App 用户' : '导出 App 用户全部字段确认'}</DialogTitle>
       </DialogHeader>
       <div className="mt-5 space-y-4 text-sm text-[#5F6675]">
         <div className="rounded-md bg-[#F4F8FF] p-4">
           {isImport
-            ? '上传 Excel 导入线下收集用户信息；不会发送短信验证码，也不会自动通过认证。'
-            : '导出前二次确认并记录操作日志。导出字段按后台固定字段输出，导出文件不做掩码。'}
+            ? '上传 Excel/CSV 导入线下收集用户信息；不会发送短信验证码，也不会自动通过认证。必填项按准入与认证配置里的字段配置实时校验。'
+            : '导出前二次确认并记录操作日志。导出用户全部字段，图片资料类字段输出对应 URL，导出文件不做掩码。'}
         </div>
         {isImport && (
           <>
             <div className="grid gap-2 rounded-md border border-[#E6EDF7] p-4">
-              <strong className="text-[#1F2433]">标准模板</strong>
-              <span>必填：手机号、真实姓名、身份证号、性别、出生日期、身份、最高学历、现居省市</span>
+              <strong className="text-[#1F2433]">全字段模板</strong>
+              <span>支持填写：账号资料、基础资料、认证资料、头像/相册/背景图 URL、开放文本、语音 URL、歌曲、微信号等字段。</span>
+              <span>必填：按后台字段配置校验；资料图片类字段填写对应图片 URL，多个 URL 用英文竖线 | 分隔。</span>
               <span>步骤：1 下载模板 / 2 上传 Excel / 3 预校验 / 4 确认导入</span>
               <div className="flex flex-wrap gap-2 pt-1">
-                <Button variant="outline" size="sm">下载模板</Button>
-                <Button variant="outline" size="sm">下载错误报告</Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>下载模板</Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadErrorReport}>下载错误报告</Button>
               </div>
             </div>
             <Input
@@ -1701,7 +2741,7 @@ function WorkflowDialog({
               accept=".csv,.xlsx"
               onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
             />
-            <WorkflowImportResult result={importResult} />
+            <WorkflowImportResponse result={importResult} />
             <div className="hidden">
               <strong className="text-[#1F2433]">预校验结果</strong>
               <span>总行数 286 / 可导入 274 / 失败行 12 / 重复 5</span>
@@ -1713,7 +2753,11 @@ function WorkflowDialog({
           <>
             <div className="font-semibold text-[#1F2433]">字段范围</div>
             <div className="grid grid-cols-2 gap-2 rounded-md border border-[#E6EDF7] p-4 md:grid-cols-3">
-              {['用户姓名', '用户昵称', '身份证号', '性别', '出生日期', '身份', '婚姻状况', '个人标签', '资料完整度', '首登引导状态', '核心准入状态', '头像认证状态', '实名认证状态', '学历认证状态'].map((field) => (
+              {[
+                '账号字段', '基础资料字段', '地区编码/中文', '字典 code/中文', '实名资料',
+                '学历资料', '头像 URL', '相册 URL', '背景图 URL', '开放文本',
+                '语音 URL', '歌曲资料', '微信号', '认证状态/原因', '资料完整度',
+              ].map((field) => (
                 <span key={field}>{field}</span>
               ))}
             </div>
@@ -1722,10 +2766,10 @@ function WorkflowDialog({
             </div>
           </>
         )}
-        {exportResult && <WorkflowExportResult result={exportResult} />}
+        {exportResult && <WorkflowExportResponse result={exportResult} />}
         <div className="flex items-center gap-3 rounded-md border border-[#E6EDF7] p-4">
           {isImport ? <Upload className="h-5 w-5 text-[#2876FF]" /> : <Download className="h-5 w-5 text-[#2876FF]" />}
-          <span>{isImport ? (selectedFile?.name || 'app-users-template.csv') : 'app-user-fixed-fields.xlsx'}</span>
+          <span>{isImport ? (selectedFile?.name || '未选择导入文件') : '导出范围：当前列表筛选条件；字段：全部用户字段'}</span>
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={processing}>取消</Button>
@@ -1745,12 +2789,12 @@ function WorkflowDialog({
 function DemoTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
   return (
     <div className="p-5">
-      <div className="overflow-hidden rounded-lg border border-[#E6EDF7]">
-        <table className="w-full table-fixed text-left text-sm">
+      <div className="overflow-x-auto rounded-lg border border-[#E6EDF7]">
+        <table className="w-full text-left text-sm" style={{ minWidth: `${Math.max(720, headers.length * 116)}px` }}>
           <thead className="bg-white text-[#5F6B7A]">
             <tr>
               {headers.map((header) => (
-                <th key={header} className="px-8 py-3 font-medium">{header}</th>
+                <th key={header} className="whitespace-nowrap px-3 py-3 font-medium">{header}</th>
               ))}
             </tr>
           </thead>
@@ -1758,7 +2802,7 @@ function DemoTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
             {rows.map((row) => (
               <tr key={row.join('-')} className="bg-white">
                 {row.map((cell, index) => (
-                  <td key={`${cell}-${index}`} className="px-8 py-3">{cell}</td>
+                  <td key={`${cell}-${index}`} className="whitespace-nowrap px-3 py-3">{cell}</td>
                 ))}
               </tr>
             ))}

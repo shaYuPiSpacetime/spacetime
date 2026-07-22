@@ -20,12 +20,14 @@ import com.spacetime.common.entity.AppUserAuditHistory;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
+import com.spacetime.common.enums.RelationInvalidReasonEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.service.RelationLifecycleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +57,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     private final ProfileDictionaryService profileDictionaryService;
     private final AppUserDao appUserDao;
     private final AppUserAuditContentService auditContentService;
+    private final RelationLifecycleService relationLifecycleService;
 
     @Override
     public Page<VerificationVO> getRealNamePage(VerificationPageReq req) {
@@ -342,29 +345,31 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     @Override
     @Transactional
     public void auditRealName(Long id, ModerationAuditReq req) {
-        requireRecord(id, AppUserAuditTypeEnum.REAL_NAME);
-        audit(id, req);
+        audit(requireRecord(id, AppUserAuditTypeEnum.REAL_NAME), req);
     }
 
     @Override
     @Transactional
     public void auditEducation(Long id, ModerationAuditReq req) {
-        requireRecord(id, AppUserAuditTypeEnum.EDUCATION);
-        audit(id, req);
+        audit(requireRecord(id, AppUserAuditTypeEnum.EDUCATION), req);
     }
 
     @Override
     @Transactional
     public void auditAvatar(Long id, ModerationAuditReq req) {
-        requireRecord(id, AppUserAuditTypeEnum.AVATAR);
-        audit(id, req);
+        audit(requireRecord(id, AppUserAuditTypeEnum.AVATAR), req);
     }
 
-    private void audit(Long id, ModerationAuditReq req) {
+    private void audit(AppUserAuditRecord record, ModerationAuditReq req) {
         validateAuditReq(req);
         UserContext ctx = UserContextHolder.get();
-        auditService.manualAudit(id, req.getAction(), req.getRejectReason(),
+        auditService.manualAudit(record.getId(), req.getAction(), req.getRejectReason(),
                 ctx == null ? null : ctx.getId(), ctx == null ? "管理员" : ctx.getNickname());
+        if (AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus())
+                && !"APPROVE".equals(req.getAction())) {
+            relationLifecycleService.invalidateByUser(record.getUserId(),
+                    RelationInvalidReasonEnum.CERTIFICATION_REVOKED, LocalDateTime.now());
+        }
     }
 
     private void validateAuditReq(ModerationAuditReq req) {

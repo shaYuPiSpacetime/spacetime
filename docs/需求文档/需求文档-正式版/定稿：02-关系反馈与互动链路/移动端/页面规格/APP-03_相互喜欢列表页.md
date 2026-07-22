@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本06 | 2026-07-16 | Codex | 补充 canEnterConversation，与 PRD-03 的 canSend/protectStatus 拆分 |
 | 版本05 | 2026-07-15 | Codex | 匹配改为单一有效关系与多来源明细，取消喜欢不再必然终止匹配 |
 | 版本04 | 2026-07-10 | Codex | 按蓝湖 UI 与产品确认调整：移除匹配成功弹窗入口、聊天按钮、来源直出和前台失效态 |
 | 版本03 | 2026-07-09 | Codex | 按产品确认调整取消喜欢展示：默认列表仅展示有效匹配，取消喜欢失效记录不展示 |
@@ -63,6 +64,7 @@
 | `APP-02-PAGE-mutual-matches-FIELD-current-city` | 现居地 | string | 否 | 城市字典 | 按蓝湖卡片展示，空值不展示 | 无 | 否 | 普通 | PRD-01 |
 | `APP-02-PAGE-mutual-matches-FIELD-hometown` | 籍贯 | string | 否 | 城市字典 | 按蓝湖卡片展示，空值不展示 | 无 | 否 | 普通 | PRD-01 |
 | `APP-02-PAGE-mutual-matches-FIELD-match-time` | 匹配时间 | datetime | 是 | datetime | 前台可不展示，用于排序和埋点 | 无 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-mutual-matches-FIELD-can-enter-conversation` | 可进入会话 | bool | 是 | true/false | 女性保护不得使其为 false；仅关系或账号失效时为 false | true | 否 | 普通 | PRD-02 |
 
 ---
 
@@ -82,6 +84,7 @@
 | 爱心来源 | 取消喜欢 | 默认列表 | 撤销爱心来源；仍有其他有效来源时继续展示，无任何有效来源时才移除 | `M02-RULE-like-cancel`、`M02-RULE-match-lifecycle` |
 | 匹配状态 | invalid + 非取消喜欢原因 | 默认列表 | 默认列表隐藏该记录，不展示前台失效态 | `M02-RULE-relation-invalid` |
 | 匹配状态 | matched | 婚恋用户主页动作 | 对方主页 `Yo` 按钮改为聊天 icon，底部主按钮改为聊天 icon + 聊天 | `M02-RULE-profile-action-after-match` |
+| 可进入会话 | true | 主页/消息聊天入口 | 允许进入会话；进入后读取 PRD-03 的 `canSend`、`protectStatus` | `M02-RULE-female-protection-ref` |
 
 ---
 
@@ -127,6 +130,11 @@ AC-ID: APP-02-AC-mutual-profile-action
 Given 用户与对方匹配状态为 matched
 When  用户从相互喜欢列表进入对方婚恋用户主页
 Then  主页中的 Yo 按钮展示为聊天 icon，底部主按钮展示为聊天 icon + 聊天
+
+AC-ID: APP-02-AC-mutual-protected-chat-entry
+Given 匹配关系有效且女性保护限制当前用户发送消息
+When  用户点击聊天入口
+Then  canEnterConversation 仍为 true，允许进入会话；发送能力由 PRD-03 决定
 ```
 
 ---

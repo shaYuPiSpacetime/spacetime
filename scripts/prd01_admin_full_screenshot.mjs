@@ -39,7 +39,7 @@ const photoRows = [
 
 const textRows = [
   textRow(3001, 920001, '王启航', '关于我', '喜欢稳定真诚的关系，工作之余会运动、看展...', 'PENDING', 'MACHINE', ''),
-  textRow(3002, 920002, '陈一鸣', '希望 TA 了解', '可线下约咖啡，联...', 'SENSITIVE_HIT', 'MACHINE', ''),
+  textRow(3002, 920002, '陈一鸣', '资料问答', '可线下约咖啡，联...', 'SENSITIVE_HIT', 'MACHINE', ''),
   textRow(3003, 920003, '周语桐', '资料问答', '生活方式：不吸烟...', 'APPROVED', 'MANUAL', ''),
   textRow(3004, 920004, '王启航', '关于我', '存在营销导流表述...', 'REJECTED', 'MANUAL', '存在导流表达'),
 ];

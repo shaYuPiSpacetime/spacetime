@@ -63,7 +63,7 @@ const TABS: Record<string, TabConfig> = {
     detailFn: getTextModerationDetail,
     auditFn: auditText,
     detailTitle: '文字内容审核详情',
-    bottomTip: '关于我、希望 TA 了解、资料问答等开放文本，暂不支持语音转文字',
+    bottomTip: '关于我、资料问答等开放文本，暂不支持语音转文字',
   },
 };
 
@@ -121,7 +121,6 @@ const IMAGE_TYPE_OPTIONS = [
 const TEXT_TYPE_OPTIONS = [
   { value: '', label: '全部文本' },
   { value: 'ABOUT_ME', label: '关于我' },
-  { value: 'HOPE_THEY_KNOW', label: '希望 TA 了解' },
   { value: 'PROFILE_QA', label: '资料问答' },
 ];
 

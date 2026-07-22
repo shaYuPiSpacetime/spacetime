@@ -23,7 +23,7 @@ public class ModerationDetailVO {
     private String imageType;
     /** 内容完整值（照片原图URL 或 文本全文） */
     private String contentFull;
-    /** 文本字段类型（关于我 / 希望TA了解） */
+    /** 文本字段类型（关于我 / 资料问答） */
     private String contentField;
     /** 文本场景标题：资料问答题目标题，如见面偏好、住房情况 */
     private String contentTitle;

@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS app_user (
     major VARCHAR(100) DEFAULT NULL COMMENT '专业',
     education_level VARCHAR(30) DEFAULT NULL COMMENT '最高学历',
     about_me VARCHAR(500) DEFAULT NULL COMMENT '关于我',
-    hope_they_know VARCHAR(500) DEFAULT NULL COMMENT '希望 TA 了解',
     tags JSON DEFAULT NULL COMMENT '标签列表 JSON',
     photos JSON DEFAULT NULL COMMENT '相册 JSON',
     profile_bg_image VARCHAR(500) DEFAULT NULL COMMENT '资料页背景图',
@@ -311,7 +310,6 @@ CALL spacetime_add_column_if_missing('app_user', 'school', 'school VARCHAR(100) 
 CALL spacetime_add_column_if_missing('app_user', 'major', 'major VARCHAR(100) DEFAULT NULL COMMENT ''专业''');
 CALL spacetime_add_column_if_missing('app_user', 'education_level', 'education_level VARCHAR(30) DEFAULT NULL COMMENT ''最高学历''');
 CALL spacetime_add_column_if_missing('app_user', 'about_me', 'about_me VARCHAR(500) DEFAULT NULL COMMENT ''关于我''');
-CALL spacetime_add_column_if_missing('app_user', 'hope_they_know', 'hope_they_know VARCHAR(500) DEFAULT NULL COMMENT ''希望 TA 了解''');
 CALL spacetime_add_column_if_missing('app_user', 'tags', 'tags JSON DEFAULT NULL COMMENT ''标签列表 JSON''');
 CALL spacetime_add_column_if_missing('app_user', 'photos', 'photos JSON DEFAULT NULL COMMENT ''相册 JSON''');
 CALL spacetime_add_column_if_missing('app_user', 'profile_bg_image', 'profile_bg_image VARCHAR(500) DEFAULT NULL COMMENT ''资料页背景图''');

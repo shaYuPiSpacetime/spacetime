@@ -105,7 +105,6 @@ const TEXT_LENGTH_CONFIG_KEY = 'prd01.text.length.rules';
 const SMS_SECURITY_CONFIG_KEY = 'prd01.security.sms.rules';
 const LOG_PAGE_SIZE = 5;
 const REMOVED_SCORE_MIGRATIONS = [
-  { fieldId: 'hopeTheyKnow', targetFieldId: 'aboutMe', studentScore: 5, workerScore: 5 },
   { fieldId: 'mbtiType', targetFieldId: 'tags', studentScore: 2, workerScore: 2 },
   { fieldId: 'qaList', targetFieldId: 'aboutMe', studentScore: 5, workerScore: 5 },
 ];
@@ -254,7 +253,6 @@ const COPY_CONFIG_ROWS: CopyConfigRow[] = [
   copyRow('内容安全文案', '图片安全不通过', 'safety_image_failed', '图片内容未通过安全审核，请重新上传'),
   copyRow('内容安全文案', '语音安全不通过', 'safety_voice_failed', '语音内容未通过安全审核，请重新录制'),
   copyRow('开放文本长度', '关于我', 'text_length_about_me', '关于我建议 20-300 字，请控制在配置范围内'),
-  copyRow('开放文本长度', '希望 TA 了解', 'text_length_hope_they_know', '希望 TA 了解建议 20-300 字，请控制在配置范围内'),
   copyRow('开放文本长度', '资料问答', 'text_length_profile_qa', '资料问答回答建议 1-200 字，请控制在配置范围内'),
 ];
 

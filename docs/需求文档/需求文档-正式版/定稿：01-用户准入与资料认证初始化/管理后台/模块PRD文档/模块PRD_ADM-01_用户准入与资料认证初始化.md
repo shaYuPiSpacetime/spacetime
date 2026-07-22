@@ -115,7 +115,7 @@
 | `ADM-01-RULE-avatar-audit` | 头像认证审核列表/详情/大图弹窗/通过/驳回/失效 | P0 | `ADM-01-PAGE-avatar-audit` | 列表行操作仅详情；蓝湖有头像审核弹窗 |
 | `ADM-01-RULE-education-audit` | 学历认证审核列表/详情/通过/驳回/失效 | P0 | `ADM-01-PAGE-education-audit` | 列表行操作仅详情；24 小时 SLA |
 | `ADM-01-RULE-photo-audit` | 资料图片审核 | P1 | `ADM-01-PAGE-profile-photo-audit` | 覆盖相册和资料背景图，与头像认证隔离 |
-| `ADM-01-RULE-text-audit` | 开放性文字审核 | P1 | `ADM-01-PAGE-open-text-audit` | 关于我、希望 TA 了解等 |
+| `ADM-01-RULE-text-audit` | 开放性文字审核 | P1 | `ADM-01-PAGE-open-text-audit` | 关于我、资料问答等 |
 | `ADM-01-RULE-config` | 准入与认证配置 | P1 | `ADM-01-PAGE-access-config` | 高风险配置二次确认 |
 | `ADM-01-RULE-dict` | 复用系统字典管理 | P1 | `M01-DICT-system-field-map` | 学校、学历、职业、地区等字段使用的系统字典类型在公共定义维护，不单独成页 |
 | `ADM-01-RULE-sensitive-audit` | 敏感字段查看、原图下载、导出审计 | P0 | 全部页面 | 按权限控制 |
@@ -179,7 +179,6 @@ App 用户 Excel 批量导入模板以本文件 `ADM-01-DATA-user-import-fields`
 | 扩展资料 | 脱单目标 | `datingGoal` | 否 | 使用字典中文值 |
 | 扩展资料 | 感情状态 | `emotionalStatus` | 否 | 使用字典中文值 |
 | 扩展资料 | 关于我/自我描述 | `aboutMe` | 否 | 按开放性文字规则校验，导入后进入内容安全/审核链路 |
-| 扩展资料 | 希望 TA 了解 | `hopeTheyKnow` | 否 | 按开放性文字规则校验，导入后进入内容安全/审核链路 |
 | 扩展资料 | 个人标签 | `tags` | 否 | 多个标签用中文逗号分隔，需命中标签字典 |
 | 扩展资料 | MBTI 类型 | `mbtiType` | 否 | 使用 MBTI 枚举 |
 | 扩展资料 | 爱听的歌曲 | `favoriteSong` | 否 | 文本或约定格式 |

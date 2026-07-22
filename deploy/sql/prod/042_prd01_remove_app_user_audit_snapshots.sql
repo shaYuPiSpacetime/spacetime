@@ -54,7 +54,6 @@ CALL spacetime_drop_column_if_exists('app_user', 'avatar');
 CALL spacetime_drop_column_if_exists('app_user', 'photos');
 CALL spacetime_drop_column_if_exists('app_user', 'profile_bg_image');
 CALL spacetime_drop_column_if_exists('app_user', 'about_me');
-CALL spacetime_drop_column_if_exists('app_user', 'hope_they_know');
 CALL spacetime_drop_column_if_exists('app_user', 'profile_score');
 
 DROP PROCEDURE IF EXISTS spacetime_drop_index_if_exists;

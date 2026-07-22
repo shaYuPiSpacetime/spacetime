@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const demoRoot = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(demoRoot, '../../..');
-const prdRoot = path.join(repoRoot, 'docs/需求文档/需求文档-正式版/05-推荐模块（朋友、社区与内容互动）');
+const prdRoot = path.join(repoRoot, 'docs/需求文档/需求文档-正式版/定稿：05-推荐模块（朋友、社区与内容互动）');
 
 const targets = [
   path.join(prdRoot, 'PRD-05_模块公共定义.md'),
@@ -28,7 +28,7 @@ const forbidden = [
   '切换城市入口',
 ];
 
-const required = ['资料城市只读', '完善资料', '去热门'];
+const required = ['资料城市只读', '现居城市', '固定必填', '去热门'];
 const failures = [];
 for (const file of targets) {
   const text = fs.readFileSync(file, 'utf8');
@@ -41,6 +41,9 @@ const combined = targets.map((file) => fs.readFileSync(file, 'utf8')).join('\n')
 for (const token of required) {
   if (!combined.includes(token)) failures.push(`缺少最终口径「${token}」`);
 }
+
+const missingList = fs.readFileSync(path.join(prdRoot, '蓝湖UI缺少页面清单.md'), 'utf8');
+if (missingList.includes('APP-05-city-03')) failures.push('蓝湖缺失页面清单仍包含已删除的 APP-05-city-03');
 
 if (failures.length) {
   console.error('PRD-05 同城范围校验失败：');

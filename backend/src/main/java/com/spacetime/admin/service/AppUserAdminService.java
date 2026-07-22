@@ -7,6 +7,7 @@ import com.spacetime.admin.dto.response.ImportBatchVO;
 import com.spacetime.admin.dto.response.AppUserDetailVO;
 import com.spacetime.admin.dto.response.AppUserListVO;
 import com.spacetime.admin.dto.response.AppUserStatsVO;
+import com.spacetime.admin.dto.response.AppUserWorkflowHistoryVO;
 
 /**
  * 管理后台 — 小程序用户管理服务
@@ -53,4 +54,13 @@ public interface AppUserAdminService {
      * @return 导出任务
      */
     ExportTaskVO exportFixedFields(AppUserPageReq req, boolean confirmNoMask);
+
+    /**
+     * 分页查询 App 用户导入/导出历史结果。
+     *
+     * @param page 页码
+     * @param size 每页条数
+     * @return 导入/导出历史结果
+     */
+    Page<AppUserWorkflowHistoryVO> getWorkflowHistory(int page, int size);
 }

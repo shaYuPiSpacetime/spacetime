@@ -21,6 +21,10 @@ public class ImportBatchVO {
     private Integer failCount;
     /** 重复行数 */
     private Integer duplicateCount;
+    /** 实际入库成功用户数 */
+    private Integer importedCount;
+    /** 实际入库用户 ID，前端用于快速定位导入结果 */
+    private java.util.List<Long> importedUserIds;
     /** 批次状态 */
     private String status;
     /** 错误摘要 JSON */

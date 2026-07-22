@@ -8,6 +8,8 @@ import com.spacetime.common.mapper.UserUnlockRecordMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 /**
  * 用户解锁记录数据访问实现
  */
@@ -20,6 +22,11 @@ public class UserUnlockRecordDaoImpl implements UserUnlockRecordDao {
     @Override
     public UserUnlockRecord selectById(Long id) {
         return mapper.selectById(id);
+    }
+
+    @Override
+    public List<UserUnlockRecord> selectList(LambdaQueryWrapper<UserUnlockRecord> wrapper) {
+        return mapper.selectList(wrapper);
     }
 
     @Override

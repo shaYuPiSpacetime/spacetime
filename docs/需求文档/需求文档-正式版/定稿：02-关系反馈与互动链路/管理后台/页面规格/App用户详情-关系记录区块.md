@@ -101,6 +101,7 @@ App 用户管理卡片
 | `ADM-02-PAGE-user-relation-section-FIELD-source-scene` | 来源场景 | enum | 是 | `M02-ENUM-relation-source-scene` / `M02-ENUM-match-source` | 展示中文 | 无 | 否 | 普通 | PRD-02 |
 | `ADM-02-PAGE-user-relation-section-FIELD-status` | 状态 | enum | 是 | PRD-02 状态枚举 | 展示状态标签 | 无 | 否 | 普通 | PRD-02 |
 | `ADM-02-PAGE-user-relation-section-FIELD-invalid-reason` | 失效原因 | enum | 条件必填 | `M02-ENUM-invalid-reason` | 失效态必填 | 无 | 否 | 普通 | PRD-02 |
+| `ADM-02-PAGE-user-relation-section-FIELD-invalid-time` | 失效时间 | datetime | 条件必填 | yyyy-MM-dd HH:mm:ss | 失效态必填，按业务事件时间记录 | 无 | 否 | 普通 | PRD-02 |
 | `ADM-02-PAGE-user-relation-section-FIELD-created-time` | 创建/访问/匹配时间 | datetime | 是 | yyyy-MM-dd HH:mm:ss | 展示到秒 | 无 | 否 | 普通 | PRD-02 |
 | `ADM-02-PAGE-user-relation-section-FIELD-unlock-no` | 解锁记录号 | string | 否 | ULK 业务编号 | 有解锁时展示 | 无 | 否 | 普通 | PRD-04 |
 
@@ -113,6 +114,7 @@ App 用户管理卡片
 | `ADM-02-PAGE-user-relation-section-COL-source-scene` | 来源场景 | 是 | 否 | 140px | 否 | 状态标签展示 | 喜欢/访客/匹配 |
 | `ADM-02-PAGE-user-relation-section-COL-status` | 状态 | 是 | 否 | 110px | 否 | 状态标签展示 | 喜欢/访客/匹配/解锁 |
 | `ADM-02-PAGE-user-relation-section-COL-invalid-reason` | 失效原因 | 条件显示 | 否 | 160px | 否 | 仅失效态显示，超长换行 | 喜欢/访客/匹配 |
+| `ADM-02-PAGE-user-relation-section-COL-invalid-time` | 失效时间 | 条件显示 | 是 | 170px | 否 | 仅失效态显示，不换行 | 喜欢/访客/匹配/解锁 |
 | `ADM-02-PAGE-user-relation-section-COL-created-time` | 创建/访问/匹配时间 | 是 | 是 | 170px | 否 | 不换行 | 喜欢/访客/匹配/解锁 |
 | `ADM-02-PAGE-user-relation-section-COL-unlock-no` | 解锁记录号 | 条件显示 | 否 | 150px | 否 | 中间省略；无记录显示 `-` | 喜欢/访客/解锁 |
 | `ADM-02-PAGE-user-relation-section-COL-action` | 操作 | 是 | 否 | 150px | 右固定 | 按权限隐藏不可用操作 | 喜欢/访客/匹配/解锁 |

@@ -15,7 +15,7 @@ const assertions = [
   ['关注粉丝列表页面', 'APP-05-PAGE-follow-relations'],
   ['动态互动用户列表页面', 'APP-05-PAGE-post-interactors'],
   ['草稿保存动作', 'data-save-draft'],
-  ['草稿恢复动作', 'data-restore-draft'],
+  ['放弃草稿并返回动作', 'data-abandon-draft'],
   ['图片上传状态', 'uploadStatus'],
   ['申请认识别名', '申请认识'],
   ['不看 TA 动态动作', 'hide_author_posts'],
@@ -26,6 +26,9 @@ const assertions = [
   ['评论最新最早排序', 'data-comment-sort'],
   ['举报对象幂等键', 'reportSubmissions'],
   ['发布后进入我的动态', "location.hash = 'APP-05-PAGE-user-posts'"],
+  ['发布失败反馈层', 'data-render="publish-feedback"'],
+  ['发布失败演示动作', 'data-demo-publish-failure'],
+  ['发布失败具体原因', 'showPublishFailure'],
   ['点赞空态', '暂无点赞'],
   ['评论空态', '暂无评论'],
   ['他人主页资料', 'otherUserProfile'],
@@ -33,6 +36,16 @@ const assertions = [
   ['直达 PRD-03', 'data-direct-chat'],
   ['热门与话题通用空态', '暂无数据'],
   ['内容分享动作', '已调起小程序分享'],
+  ['悦目用户照片卡', 'yuemuUsers'],
+  ['悦目缘分标签', 'yuemu-fate'],
+  ['更多操作灰色反馈', 'showMoreActionFeedback'],
+  ['取消关注确认弹窗', 'unfollowConfirmModal'],
+  ['取消关注确认动作', 'data-confirm-unfollow'],
+  ['内容不可见灰色反馈', 'data-demo-detail-unavailable'],
+  ['内容不可见反馈文案', '内容已下架'],
+  ['YO 悄悄话弹窗', 'YO悄悄话-弹窗'],
+  ['悄悄话字数限制', 'maxlength="60"'],
+  ['悄悄话字数统计', 'data-greeting-count'],
 ];
 
 const missing = assertions.filter(([, token]) => !source.includes(token));
@@ -47,6 +60,11 @@ const forbidden = [
   ['社区私信中转页', 'APP-05-PAGE-community-private-entry'],
   ['社区私信中转数据', 'privateEntryStates'],
   ['单条内容屏蔽', 'hide_post'],
+  ['诚意贴标题输入', 'data-publish-title'],
+  ['诚意贴正文下限', 'sincereMinText'],
+  ['诚意贴排序控件', 'data-sincere-sort'],
+  ['旧招呼语模板数据', 'greetingTemplates'],
+  ['旧招呼语模板控件', 'data-greeting-template'],
 ];
 
 const unexpected = forbidden.filter(([, token]) => source.includes(token));

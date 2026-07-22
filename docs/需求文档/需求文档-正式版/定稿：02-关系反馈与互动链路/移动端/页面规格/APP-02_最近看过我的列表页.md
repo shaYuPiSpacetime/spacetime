@@ -75,7 +75,7 @@
 | 操作 ID | 操作名 | 位置/触发条件 | 前置权限 | 二次确认 | 成功态 | 失败态 |
 |---------|--------|---------------|----------|----------|--------|--------|
 | `APP-02-PAGE-recent-viewers-ACT-unlock-all` | 解锁全部访客 | 底部固定按钮，普通用户非会员 | 已登录且核心准入开放 | 否 | 打开 PRD-04 会员引导 | PRD-04 不可用时置灰 |
-| `APP-02-PAGE-recent-viewers-ACT-unlock-one` | 单条解锁 | 点击 `displayStatus=blur` 卡片 | 已登录且核心准入开放 | 否，列表页只打开单条解锁场景弹窗；弹窗内由 PRD-04 确认扣币 | 打开 `APP-02-PAGE-single-unlock-modal`；用户在弹窗内确认扣币成功后当前记录清晰 | 余额不足/记录不可解锁 |
+| `APP-02-PAGE-recent-viewers-ACT-unlock-one` | 单条解锁 | 点击 `displayStatus=blur` 卡片 | 已登录且核心准入开放 | 否，列表页只打开第一步场景弹窗 | 打开 `APP-02-PAGE-single-unlock-modal`，本操作不扣币；第二步由 PRD-04 确认成功后当前记录清晰 | 记录不可解锁/PRD-04 不可用 |
 | `APP-02-PAGE-recent-viewers-ACT-card-click` | 进入主页 | 点击 `displayStatus=clear` 卡片 | 已登录且核心准入开放 | 否 | 跳婚恋用户主页 | 目标不可访问时 toast 并刷新列表 |
 | `APP-02-PAGE-recent-viewers-ACT-refresh` | 下拉刷新 | 页面顶部 | 已登录且核心准入开放 | 否 | 刷新统计和列表 | 网络失败 toast |
 
@@ -88,7 +88,7 @@
 | 当前日期 | 页面查询 | 列表范围 | 只返回最近 `M02-PARAM-visitor-visible-days=7` 天记录 | 固定参数，代码实现 |
 | 会员状态 | 生效 | 展示状态 | 有效窗口内访客全量清晰 | `M04-ENUM-vip-benefit-type=visitor_list` |
 | 会员状态 | 到期 | 展示状态 | 未单条解锁记录回退为普通模糊态；已单条解锁记录继续清晰 | `M02-RULE-vip-expiry-display` |
-| 单条解锁状态 | 支付成功 | 当前卡片 | 当前记录永久清晰；但是否出现在列表仍受最近 7 天窗口限制 | `M02-RULE-unlock-visibility` |
+| 单条解锁状态 | 支付成功 | 当前卡片 | 对象可展示时保持清晰；列表仍受最近 7 天窗口限制，对象失效后前台移除 | `M02-RULE-unlock-visibility` |
 | 隐藏访问记录 | 一期不提供 | 页面与接口 | 不展示入口、不判断权益、不生成隐藏状态 | `M02-RULE-hidden-visit-reserve` |
 | 访客记录 | 超过 7 天 | 前台列表 | 不展示；解锁历史由 PRD-04 追溯 | `M02-RULE-visitor-window` |
 | 关系状态 | 账号异常/拉黑/封禁等 | 默认列表 | 默认列表隐藏不可互动对象，不展示前台失效态 | `M02-RULE-relation-invalid` |

@@ -11,8 +11,8 @@
 
 1. 同城筛选固定使用 `currentUser.city`；`citySource=已审核资料`、`cityReadOnly=true`，页面不提供城市编辑控件。
 2. 上传图片使用 `uploadStatus`，非 success 状态禁用提交；重试后恢复 success。
-3. 草稿保存正文、标题、话题和上传成功图片；恢复只回填，不自动提交。
-4. 提交成功后新增“我的动态”待复核卡片并跳转，不弹发布成功或审核结果提示。
+3. 草稿保存正文、话题和上传成功图片；再次进入同类型发布页可直接恢复，放弃时清除草稿并返回刷新来源列表，不弹确认。
+4. 提交成功后新增“我的动态”待复核卡片并跳转，不弹发布成功或审核结果提示；提交失败时以真实 DOM 反馈层展示“发布失败”和具体原因，表单保持不变。
 5. 举报以 `reporterId + targetType + targetId` 作为处理中幂等键；点击原因直接提交并复用通用 toast。
 6. 详情评论使用 `commentSort=latest/earliest`；点赞/评论用户使用通用列表与空态。
 7. `hiddenAuthor` 只实现作者级“不看 TA 动态”；内容对象不提供单条屏蔽。
@@ -31,4 +31,4 @@ node docs/静态Demo/05-推荐模块（朋友、社区与内容互动）/verify-
 
 最终 UI 口径另执行 `verify-ui-final-alignment.mjs`，同时校验 PRD、Demo 与蓝湖缺失清单。
 
-同城范围另执行 `verify-city-scope.mjs`，校验 PRD、Demo 与蓝湖缺失清单不再出现本期外能力，并包含“资料城市只读、完善资料、去热门”最终口径。
+同城范围另执行 `verify-city-scope.mjs`，校验 PRD、Demo 与蓝湖缺失清单不再出现本期外能力，并包含“资料城市只读、现居城市固定必填、去热门”最终口径。

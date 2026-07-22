@@ -582,7 +582,7 @@
     } else {
       result.innerHTML = `
         <strong>进入婚恋用户主页</strong>
-        <span>本模块只承接跳转结果。进入主页可能为对方生成访客记录；若隐藏访问权益有效且已开启，则不进入对方访客列表。</span>
+        <span>主页由 PRD-05 承接；进入主页生成或更新访客展示记录，一期不提供隐藏访问能力。</span>
       `;
     }
     openModal('profileHandoffModal', trigger);

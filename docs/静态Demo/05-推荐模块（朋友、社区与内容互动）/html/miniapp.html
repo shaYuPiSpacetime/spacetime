@@ -66,7 +66,7 @@
           <div class="page-head"><h2>APP-05-PAGE-community-city 成家同城信息流页</h2><p>仅使用当前用户已审核资料城市，页面只读展示且不申请 GPS 定位权限。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:42</span><span>成家 · 同城</span></div><div class="phone-screen"><div class="notice"><strong>资料城市只读：杭州</strong><br>城市范围由已审核资料确定，本页不提供跨城市浏览入口。</div><div class="mini-tabs"><button data-feed-tab="关注">关注</button><button class="is-active" data-feed-tab="同城">同城</button><button data-feed-tab="热门">热门</button></div><div data-render="feed"></div></div></article>
-            <article class="mini-panel"><h3>空态口径</h3><ul class="check-list"><li><span>资料城市缺失</span><strong>完善资料</strong></li><li><span>当前城市无内容</span><strong>刷新 / 去热门</strong></li><li><span>定位权限</span><strong>本页不申请</strong></li></ul></article>
+            <article class="mini-panel"><h3>空态口径</h3><ul class="check-list"><li><span>现居城市</span><strong>PRD-01 固定必填</strong></li><li><span>当前城市无内容</span><strong>暂无数据 / 刷新 / 去热门</strong></li><li><span>定位权限</span><strong>本页不申请</strong></li></ul></article>
           </div>
         </section>
 
@@ -95,18 +95,18 @@
         </section>
 
         <section class="section-band" id="APP-05-PAGE-post-publish">
-          <div class="page-head"><h2>APP-05-PAGE-post-publish 发布动态页</h2><p>同一发布页承接动态和诚意贴，诚意贴通过 contentType 条件表单展示标题和正文下限。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-post-publish 发布动态页</h2><p>同一发布页承接动态和诚意贴，两者字段与交互相同，仅 contentType 和审核路径不同。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:46</span><span>发布</span></div><div class="phone-screen">
               <div class="segmented"><button class="is-active" data-publish-type="community_post">发布动态</button><button data-publish-type="sincere_post">发布诚意贴</button></div>
               <div class="composer">
-                <input data-sincere-only data-publish-title hidden placeholder="诚意贴标题，1-40 字">
-                <textarea data-publish-content placeholder="分享此刻。诚意贴正文不少于 20 字。">周末想去看展，也想认真认识生活节奏相近的人。</textarea>
+                <textarea data-publish-content placeholder="分享此刻">周末想去看展，也想认真认识生活节奏相近的人。</textarea>
                 <div data-render="topic-chips"></div>
                 <div data-render="upload-grid"></div>
-                <div class="draft-actions"><button class="btn" data-save-draft>保存草稿</button><button class="btn" data-restore-draft>恢复草稿</button><button class="btn" data-cycle-upload>演示上传状态</button></div>
+                <div class="draft-actions"><button class="btn" data-save-draft>保存草稿</button><button class="btn" data-abandon-draft>放弃并返回</button><button class="btn" data-cycle-upload>演示上传状态</button><button class="btn" data-demo-publish-failure>演示发布失败</button></div>
                 <button class="btn primary full" data-submit-publish>提交审核</button>
               </div>
+              <div data-render="publish-feedback" aria-live="polite"></div>
             </div></article>
             <article class="mini-panel"><h3>审核口径</h3><ul class="check-list"><li><span>动态</span><strong>机审通过可公开</strong></li><li><span>诚意贴</span><strong>人工通过后公开</strong></li><li><span>联系方式命中</span><strong>阻断或驳回</strong></li></ul></article>
           </div>
@@ -115,8 +115,8 @@
         <section class="section-band" id="APP-05-PAGE-post-detail">
           <div class="page-head"><h2 data-detail-title>APP-05-PAGE-post-detail 动态详情页</h2><p>动态详情同时承接诚意贴视图，评论机审通过后公开。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:47</span><span>详情</span></div><div class="phone-screen"><div data-render="post-detail"></div><div class="mini-panel"><h3>评论</h3><div class="mini-tabs"><button data-comment-sort="latest">最新</button><button data-comment-sort="earliest">最早</button></div><div data-render="comments"></div><div data-render="comment-reply-target"></div><textarea placeholder="写下评论"></textarea><button class="btn primary full" data-toast="评论已提交机审">发表评论</button></div></div></article>
-            <article class="mini-panel"><h3>业务态</h3><ul class="check-list"><li><span>已公开</span><strong>正常展示</strong></li><li><span>已下架/已删除</span><strong>不可见提示</strong></li><li><span>举报入口</span><strong>进入 APP-08</strong></li></ul></article>
+            <article class="phone"><div class="phone-bar"><span>9:47</span><span>详情</span></div><div class="phone-screen"><div data-render="post-detail"></div><div class="mini-panel" data-detail-comments><h3>评论</h3><div class="mini-tabs"><button data-comment-sort="latest">最新</button><button data-comment-sort="earliest">最早</button></div><div data-render="comments"></div><div data-render="comment-reply-target"></div><textarea placeholder="写下评论"></textarea><button class="btn primary full" data-toast="评论已提交机审">发表评论</button></div></div></article>
+            <article class="mini-panel"><h3>业务态</h3><ul class="check-list"><li><span>已公开</span><strong>正常展示</strong></li><li><span>已下架/已删除</span><strong>复用中央灰色反馈</strong></li><li><span>举报入口</span><strong>进入 APP-08</strong></li></ul><button class="btn full" data-demo-detail-unavailable="内容已下架">演示内容已下架反馈</button><button class="btn full" data-demo-detail-restore>恢复公开详情</button></article>
           </div>
         </section>
 
@@ -129,18 +129,18 @@
         </section>
 
         <section class="section-band" id="APP-05-PAGE-yuemu">
-          <div class="page-head"><h2>APP-05-PAGE-yuemu 悦目页</h2><p>图片优先双列瀑布流，使用图片原始宽高比等宽展示。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-yuemu 悦目页</h2><p>以 UI 稿为准双列展示用户照片、缘分标签、学历学校、在线时间和心动按钮。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:49</span><span>悦目</span></div><div class="phone-screen"><div class="feed-toolbar"><button class="btn" data-yuemu-refresh>刷新</button><button class="btn" data-yuemu-load>加载更多</button></div><div class="yuemu-grid" data-render="yuemu"></div></div></article>
-            <article class="mini-panel"><h3>来源规则</h3><p>取公开动态第一张图片或标记为悦目的公开内容，两路合并后排序去重。</p></article>
+            <article class="phone"><div class="phone-bar"><span>9:49</span><span>悦目</span></div><div class="phone-screen"><p class="zhiyin-lead">发现志同道合的朋友，即刻交流</p><div class="yuemu-grid" data-render="yuemu"></div></div></article>
+            <article class="mini-panel"><h3>来源规则</h3><p>展示满足当前用户可见条件的用户照片卡；点击卡片进入统一他人主页，心动关系由 PRD-02 承接。</p></article>
           </div>
         </section>
 
         <section class="section-band" id="APP-05-PAGE-sincere-list">
           <div class="page-head"><h2>APP-05-PAGE-sincere-list 诚意贴列表页</h2><p>列表点击进入动态详情页诚意贴视图，发布入口带入 contentType=sincere_post。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:50</span><span>诚意贴</span></div><div class="phone-screen"><button class="btn primary full" data-jump="#APP-05-PAGE-post-publish">发布诚意贴</button><div class="mini-tabs"><button data-sincere-sort="热门">热门</button><button data-sincere-sort="最新">最新</button></div><div data-render="sincere"></div><button class="btn full" data-toast="已加载下一页诚意贴">加载更多</button></div></article>
-            <article class="mini-panel"><h3>字段</h3><p>列表展示话题、标题、摘要、作者头像、作者、点赞数、评论数和发布时间。</p></article>
+            <article class="phone"><div class="phone-bar"><span>9:50</span><span>诚意贴</span></div><div class="phone-screen"><div data-render="sincere"></div><button class="floating-publish" data-publish-type="sincere_post" data-jump="#APP-05-PAGE-post-publish" aria-label="发布诚意贴">＋</button></div></article>
+            <article class="mini-panel"><h3>字段</h3><p>卡片展示作者资料、正文、图片、活跃时间、话题、申请认识、评论和点赞；不设置独立标题或排序切换。</p></article>
           </div>
         </section>
 
@@ -164,7 +164,7 @@
           <div class="page-head"><h2>APP-05-PAGE-follow-relations 关注粉丝列表页</h2><p>社区关注是弱关系，关注/取消关注不改变匹配或普通私信资格。</p></div>
           <div class="section-body phone-stage">
             <article class="phone"><div class="phone-bar"><span>9:52</span><span>关注与粉丝</span></div><div class="phone-screen"><div class="mini-tabs"><button data-relation-type="following">关注 18</button><button data-relation-type="followers">粉丝 26</button></div><div data-render="follow-relations"></div></div></article>
-            <article class="mini-panel"><h3>统计口径</h3><p>列表总数与主页统计同源；关注和粉丝列表复用同一通用空态。</p></article>
+            <article class="mini-panel"><h3>统计口径</h3><p>列表总数与主页统计同源；关注和粉丝列表复用同一通用空态。已关注用户点击按钮时复用蓝湖“千寻-成家-取消关注”确认弹窗。</p></article>
           </div>
         </section>
 
@@ -177,17 +177,17 @@
         </section>
 
         <section class="section-band" id="APP-05-PAGE-community-greeting">
-          <div class="page-head"><h2>APP-05-PAGE-community-greeting 社区打招呼页</h2><p>未建立互动关系时从“申请认识”进入，发送资格引用 PRD-03。</p></div>
+          <div class="page-head"><h2>APP-05-PAGE-community-greeting YO 悄悄话弹窗</h2><p>未建立互动关系时从“申请认识”打开，发送资格引用 PRD-03。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:54</span><span>申请认识</span></div><div class="phone-screen"><div class="community-card"><div class="author-row"><span data-static-avatar="P-240701"></span><div><strong>申请认识周予安</strong><div class="helper">标准动作：greeting · 来源：动态 P-240701</div></div></div></div><div class="composer"><div data-render="greeting-templates"></div><textarea data-greeting-content></textarea><div data-render="greeting-cost"></div><button class="btn primary full" data-open-modal="module08AssetModal">发送悄悄话</button></div></div></article>
-            <article class="mini-panel"><h3>引用规则</h3><p>重复发送、目标不可用等复用 PRD-03 通用反馈；关系建立后入口隐藏，消息动作直接进入 PRD-03 会话。</p></article>
+            <article class="phone"><div class="phone-bar"><span>9:54</span><span>申请认识</span></div><div class="phone-screen whisper-stage"><div class="whisper-sheet"><div class="whisper-title"><h3>悄悄话 <span>?</span></h3><p>—第一时间抓住 ta 的目光—</p></div><div class="author-row"><span data-static-avatar="P-240701"></span><div><strong>筱脑虎</strong><div class="helper">28岁　双鱼座　本科</div></div></div><div class="whisper-input"><textarea data-greeting-content maxlength="60" placeholder="写点什么···"></textarea><span><b data-greeting-count>0</b>/60</span></div><div data-render="greeting-cost"></div><button class="btn primary full" data-confirm-greeting>发送悄悄话</button><p class="whisper-member">◇ 开通<strong>时空邂逅会员</strong>每天一个悄悄话</p></div></div></article>
+            <article class="mini-panel"><h3>蓝湖复用</h3><p>完整复用“YO悄悄话-弹窗”及文字点亮态；重复发送、目标不可用等复用 PRD-03 通用反馈，关系建立后消息动作直接进入 PRD-03 会话。</p></article>
           </div>
         </section>
 
         <section class="section-band" id="APP-05-PAGE-community-more-actions">
           <div class="page-head"><h2>APP-05-PAGE-community-more-actions 社区更多操作弹窗</h2><p>内容和用户菜单以 UI 稿为准；申请认识与私信均不放入更多菜单。</p></div>
           <div class="section-body phone-stage">
-            <article class="phone"><div class="phone-bar"><span>9:54</span><span>更多操作</span></div><div class="phone-screen"><div class="segmented"><button data-more-target-type="post">内容</button><button data-more-target-type="comment">评论</button><button data-more-target-type="user">用户</button></div><button class="btn full" data-open-modal="moreActionsModal">打开更多操作</button><div class="notice">关注和不看 TA 动态均按服务端最终状态切换正向/反向操作。</div></div></article>
+            <article class="phone"><div class="phone-bar"><span>9:54</span><span>更多操作</span></div><div class="phone-screen"><div class="segmented"><button data-more-target-type="post">内容</button><button data-more-target-type="comment">评论</button><button data-more-target-type="user">用户</button></div><button class="btn full" data-open-modal="moreActionsModal">打开更多操作</button><div class="notice">不适用动作直接隐藏；关注和不看 TA 动态按最终态切换正向/反向操作。</div><div data-render="more-action-feedback" aria-live="polite"></div></div></article>
             <article class="mini-panel"><h3>对象类型</h3><ul class="check-list"><li><span>post</span><strong>分享/关注/不看/举报</strong></li><li><span>comment</span><strong>沿用评论 UI</strong></li><li><span>user</span><strong>关注/不看/举报</strong></li></ul></article>
           </div>
         </section>
@@ -211,16 +211,16 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="imagePreviewModal" aria-hidden="true">
-    <div class="modal-card preview-card" data-render="image-preview"></div>
+  <div class="modal-backdrop" id="unfollowConfirmModal" aria-hidden="true">
+    <div class="modal-card unfollow-confirm-card">
+      <h2>温馨提示</h2>
+      <p>确定取消关注吗？</p>
+      <div class="admin-actions"><button class="btn" data-close-surface>取消</button><button class="btn primary" data-confirm-unfollow>确定</button></div>
+    </div>
   </div>
 
-  <div class="modal-backdrop" id="module08AssetModal" aria-hidden="true">
-    <div class="modal-card">
-      <h2>模块 08 · 千寻币消耗确认</h2>
-      <p>本弹窗由模块 08 通用资产 UI 提供；PRD-04 返回免费次数、余额和扣费结果。</p>
-      <div class="admin-actions"><button class="btn" data-close-surface>取消</button><button class="btn primary" data-confirm-greeting>确认发送</button></div>
-    </div>
+  <div class="modal-backdrop" id="imagePreviewModal" aria-hidden="true">
+    <div class="modal-card preview-card" data-render="image-preview"></div>
   </div>
 
   <script src="../../shared/demo-common.js"></script>

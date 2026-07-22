@@ -16,6 +16,7 @@ import com.spacetime.common.enums.BizSceneEnum;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.FlowTypeEnum;
 import com.spacetime.common.enums.UnlockSceneEnum;
+import com.spacetime.common.enums.UnlockRecordStatusEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.UnlockReq;
@@ -106,7 +107,7 @@ public class AssetServiceImpl implements AssetService {
             LambdaQueryWrapper<UserUnlockRecord> requestWrapper = new LambdaQueryWrapper<>();
             requestWrapper.eq(UserUnlockRecord::getUserId, userId)
                     .eq(UserUnlockRecord::getRequestId, req.getRequestId())
-                    .eq(UserUnlockRecord::getStatus, CommonStatusEnum.ENABLED.getCode());
+                    .eq(UserUnlockRecord::getStatus, UnlockRecordStatusEnum.ACTIVE.getCode());
             Page<UserUnlockRecord> existingRequest = userUnlockRecordDao.selectPage(new Page<>(1, 100), requestWrapper);
             if (existingRequest.getTotal() > 0) {
                 UnlockVO result = new UnlockVO();
@@ -154,6 +155,7 @@ public class AssetServiceImpl implements AssetService {
         for (int index = 0; index < targetUserIds.size(); index++) {
             Long targetUserId = targetUserIds.get(index);
             UserUnlockRecord record = new UserUnlockRecord();
+            record.setUnlockNo("ULK-" + IdUtil.getSnowflakeNextIdStr());
             record.setUserId(userId);
             record.setRequestId(req.getRequestId());
             record.setTargetUserId(targetUserId);
@@ -163,7 +165,8 @@ public class AssetServiceImpl implements AssetService {
             record.setEffectiveTime(now);
             record.setExpireTime(sceneConfig.getRetentionDays() == null || sceneConfig.getRetentionDays() <= 0
                     ? expireTime : now.plusDays(sceneConfig.getRetentionDays()));
-            record.setStatus(CommonStatusEnum.ENABLED.getCode());
+            record.setActiveMarker(1);
+            record.setStatus(UnlockRecordStatusEnum.ACTIVE.getCode());
             userUnlockRecordDao.insert(record);
 
             // 写千寻币消费流水

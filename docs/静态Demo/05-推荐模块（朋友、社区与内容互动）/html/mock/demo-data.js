@@ -12,6 +12,12 @@ window.PRD05_DEMO_DATA = {
     coinBalance: 180,
     freeWhisper: 1
   },
+  yuemuUsers: [
+    { id: 'U-YM-01', name: '周予安', photo: '湖边人像', avatar: PRD05_AVATAR('#f7c6a7', '#1f2937', '#64748b', '#111827'), fateLabel: '同专业，超有缘', educationSchool: '硕士 · 南京大学', onlineText: '2 小时前在线' },
+    { id: 'U-YM-02', name: '许知意', photo: '城市人像', avatar: PRD05_AVATAR('#f2b8a2', '#0f766e', '#67e8f9', '#3f2a24'), fateLabel: '兴趣相投', educationSchool: '本科 · 浙江大学', onlineText: '刚刚在线' },
+    { id: 'U-YM-03', name: '孟夏', photo: '咖啡店人像', avatar: PRD05_AVATAR('#f1b79d', '#f97316', '#fb7185', '#4a2c22'), fateLabel: '同城生活家', educationSchool: '硕士 · 浙江工商大学', onlineText: '1 小时前在线' },
+    { id: 'U-YM-04', name: '顾清和', photo: '建筑展人像', avatar: PRD05_AVATAR('#c88b6a', '#334155', '#0ea5e9', '#0f172a'), fateLabel: '审美同频', educationSchool: '本科 · 同济大学', onlineText: '今天在线' }
+  ],
   tabs: ['关注', '同城', '热门', '话题'],
   topics: [
     { id: 'T-1001', name: '周末去哪里', desc: '城市周末活动和约会灵感', cover: PRD05_TOPIC_COVER('#60a5fa', '#0f766e', '#facc15'), hot: 982, count: 128, status: '启用', recommended: true, sort: 10, participantCount: 86, viewCount: 3260, participantAvatars: [PRD05_AVATAR('#f7c6a7', '#1f2937', '#64748b', '#111827'), PRD05_AVATAR('#f2b8a2', '#0f766e', '#67e8f9', '#3f2a24')], updatedBy: '运营admin', updatedTime: '2026-07-06 10:20', scenes: ['热门入口', '话题列表', '发布页'] },
@@ -30,7 +36,6 @@ window.PRD05_DEMO_DATA = {
       city: '杭州',
       topic: '周末去哪里',
       profile: '97年 · 杭州 · 设计行业',
-      title: '',
       text: '周六想去良渚看展，结束后找一家安静的咖啡店坐坐。喜欢慢一点的安排，也欢迎推荐小众路线。',
       images: ['良渚展览', '手冲咖啡'],
       likeCount: 86,
@@ -54,7 +59,6 @@ window.PRD05_DEMO_DATA = {
       city: '杭州',
       topic: '下班后的生活',
       profile: '95年 · 杭州 · 内容运营',
-      title: '',
       text: '最近开始固定夜跑，发现规律生活比一时兴起更难，但也更让人安心。',
       images: ['夜跑路线'],
       likeCount: 64,
@@ -78,7 +82,6 @@ window.PRD05_DEMO_DATA = {
       city: '上海',
       topic: '认真找对象',
       profile: '93年 · 上海 · 产品经理',
-      title: '想认真认识一个愿意一起生活的人',
       text: '我在上海做产品，平时喜欢做饭、看纪录片和短途旅行。希望关系里能坦诚表达，也能给彼此空间。比起热闹，我更在意稳定的相处节奏。',
       images: ['厨房晚餐', '江边散步'],
       likeCount: 142,
@@ -102,7 +105,6 @@ window.PRD05_DEMO_DATA = {
       city: '杭州',
       topic: '同城饭搭子',
       profile: '96年 · 杭州 · 金融行业',
-      title: '',
       text: '今天发现一家小面馆，辣度刚刚好。一个人吃也很自在，但如果有人一起分享会更好。',
       images: ['小面馆'],
       likeCount: 49,
@@ -125,7 +127,6 @@ window.PRD05_DEMO_DATA = {
       city: '杭州',
       topic: '周末去哪里',
       profile: '94年 · 杭州 · 建筑设计',
-      title: '',
       text: '把西湖边常走的路线换成了运河边，晚风和桥洞的灯都刚刚好。',
       images: ['运河夜色'],
       likeCount: 73,
@@ -148,7 +149,6 @@ window.PRD05_DEMO_DATA = {
       city: '杭州',
       topic: '认真找对象',
       profile: '92年 · 杭州 · 软件工程师',
-      title: '希望关系里有稳定回应，也有各自的热爱',
       text: '工作日节奏规律，周末喜欢做饭、骑行和逛书店。希望先从认真聊天开始，慢慢确认三观、边界和生活习惯是否合拍。',
       images: ['书店角落'],
       likeCount: 98,
@@ -239,7 +239,6 @@ window.PRD05_DEMO_DATA = {
     tabs: ['关注', '同城', '热门', '话题'],
     reportReasons: ['色情低俗', '广告引流', '联系方式', '攻击辱骂', '诈骗风险'],
     maxImages: 9,
-    sincereMinText: 20,
     machineAudit: '启用',
     sampleRate: '10%',
     mutePeriods: ['1 天', '3 天', '7 天', '30 天'],
@@ -285,11 +284,6 @@ window.PRD05_DEMO_DATA = {
     liked: [{ name: '许知意', detail: '18 分钟前点赞', followed: false }, { name: '孟夏', detail: '24 分钟前点赞', followed: true }],
     commented: [{ name: '林浅', detail: '最近评论：良渚路线我也记下了', followed: true }, { name: '周予安', detail: '最近回复：收到，谢谢推荐', followed: true }]
   },
-  greetingTemplates: [
-    '看到你也喜欢看展，想认识一下。',
-    '你的分享很真诚，想和你聊聊近况。',
-    '我也在杭州，周末路线可以互相推荐。'
-  ],
   otherUserProfile: {
     name: '周予安',
     birthYear: '97年',

@@ -161,7 +161,7 @@ class MiniappPrd01ConfigServiceTest {
                 .containsEntry("validMinutes", 3)
                 .containsEntry("dailySendLimit", 8)
                 .containsEntry("providerCode", "MOCK");
-        assertThat((List<String>) config.get("openTextFields")).containsExactly("ABOUT_ME", "HOPE_THEY_KNOW", "PROFILE_QA");
+        assertThat((List<String>) config.get("openTextFields")).containsExactly("ABOUT_ME", "PROFILE_QA");
     }
 
     private AppConfig config(String key, String value, String group) {

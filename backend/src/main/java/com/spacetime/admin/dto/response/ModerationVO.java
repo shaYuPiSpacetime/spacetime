@@ -23,7 +23,7 @@ public class ModerationVO {
     private String imageCategory;
     /** 图片预览 URL */
     private String imageUrl;
-    /** 文本类型：关于我/希望TA了解/资料问答 */
+    /** 文本类型：关于我/资料问答 */
     private String textType;
     /** 文本场景标题：资料问答题目标题，如见面偏好、住房情况 */
     private String contentTitle;

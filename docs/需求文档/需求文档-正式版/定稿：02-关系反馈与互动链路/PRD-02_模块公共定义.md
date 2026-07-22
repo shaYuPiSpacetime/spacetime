@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本08 | 2026-07-16 | Codex | 同步需求评审最终确认：单条解锁采用两步确认；女性保护只限制发送；恢复匹配成功弹窗并按用户记录展示/已读状态 |
 | 版本07 | 2026-07-15 | Codex | 按开发答疑确认：隐藏访问一期完全不开发；匹配采用单一有效关系与多来源明细；补齐有效总数、永久留存和后台分页口径 |
 | 版本06 | 2026-07-10 | Codex | 按蓝湖 UI 与产品确认收口：取消前台失效态、匹配成功弹窗、海量曝光/10倍曝光入口，补充单条解锁与喜欢提示文案 |
 | 版本05 | 2026-07-09 | Codex | 按产品确认收口取消喜欢体验：前台默认列表隐藏取消喜欢导致的失效记录，后台保留真实原因 |
@@ -23,7 +24,7 @@
 | M02-01 | 关系反馈链路使用 PRD-01 核心准入口径：实名、头像、学历三重认证全部通过且账号正常后，才可产生真实喜欢、访客、匹配与聊天入口 | `M02-RULE-core-access` |
 | M02-02 | 来访记录只统计进入“婚恋用户主页”的访问；社区动态详情、职业主页不计入，除非最终跳转到同一个婚恋用户主页 | `M02-RULE-visit-generate` |
 | M02-03 | 最近看过我的前台展示窗口为最近 7 天；PRD-04 精选主页 3 天回看不与本模块访客窗口混用 | `M02-PARAM-visitor-visible-days` |
-| M02-04 | 已千寻币单条解锁的喜欢/访客记录永久保持清晰；但最近看过我的列表仍受 7 天展示窗口限制，历史解锁记录可在资产/解锁记录中追溯 | `M02-RULE-unlock-visibility`、`M04-RULE-like-viewer-unlock` |
+| M02-04 | 已千寻币单条解锁的喜欢/访客记录在对象与关系可展示时永久保持清晰；最近看过我的列表仍受 7 天窗口限制，历史解锁记录可在资产/解锁记录中追溯 | `M02-RULE-unlock-visibility`、`M04-RULE-like-viewer-unlock` |
 | M02-05 | 悄悄话回复可作为匹配成功来源之一；悄悄话发送与回复流程由 PRD-03 定义，回复成功后由 PRD-02 生成匹配成功记录并开放普通聊天入口 | `M02-ENUM-match-source`、`M02-RULE-whisper-match` |
 | M02-06 | 喜欢我的、最近看过我的模糊态字段固定：不展示清晰头像、昵称、年龄、学校等强识别字段；仅展示弱识别标签、在线/访问时间分组、访问次数等 | `M02-RULE-blur-display` |
 | M02-07 | 隐藏访问记录仅作为 PRD-04 后续会员权益预留，一期完全不开发入口、开关、访问过滤、统计排除、接口或后台筛选；预留配置不得在一期启用 | `M02-RULE-hidden-visit-reserve`、PRD-04 |
@@ -32,16 +33,16 @@
 | M02-10 | 同一访客 30 分钟内访问同一婚恋用户主页只生成或更新 1 条访客展示记录；PV 按实际访问继续累计，UV 按用户去重 | `M02-PARAM-visit-dedup-minutes` |
 | M02-11 | 管理后台首版不新增全局关系记录一级菜单；关系记录在 ADM-01 App 用户管理卡片的“模块补充”弹窗中，通过“关系反馈”Tab 查看 | `ADM-02-PAGE-user-relation-section` |
 | M02-12 | 后台首版不开放手工制造匹配、补喜欢、恢复关系记录；关系失效由业务事件触发。若后续需要人工修正，需另立高风险需求 | `M02-RULE-admin-manual-boundary` |
-| M02-13 | 女性保护机制主定义归 PRD-03；PRD-02 只在匹配成功后进入聊天链路时引用。PRD-03 必须承接保护期天数配置，原始口径默认 3 天 | `M02-RULE-female-protection-ref` |
+| M02-13 | 女性保护机制主定义归 PRD-03；保护状态只限制消息发送，不限制进入会话。PRD-02 只返回 `canEnterConversation`，进入后由 PRD-03 返回 `canSend`、`protectStatus` | `M02-RULE-female-protection-ref` |
 | M02-14 | 匹配成功来源首版固定三类：双方互送爱心、精选心动后回爱心、悄悄话回复；同一用户对同一时刻最多一条有效匹配，来源按明细去重追加 | `M02-ENUM-match-source`、`M02-RULE-match-lifecycle` |
 | M02-15 | PRD-02 不重复定义支付/充值页面；喜欢/访客单条解锁与全量解锁统一唤起 PRD-04 付费引导弹窗 | `M02-RULE-paywall-handoff` |
 | M02-16 | 单条解锁弹窗的 PRD-02 场景内容以蓝湖 UI 为准：标题“解锁Ta是谁”，喜欢场景副标题“送出喜欢，即刻开聊”，按钮固定为“只看ta”和“解锁全部”；具体单价引用 PRD-04，不在 PRD-02 写死金额 | `APP-02-PAGE-single-unlock-modal`、`M02-RULE-single-unlock-modal-content` |
 | M02-17 | 后台 App 用户管理列表需补充关系反馈搜索条件和“模块补充”入口；字段不直接铺在卡片或画像详情内，不新增独立关系列表 | `ADM-02-PAGE-user-list-relation-fields` |
 | M02-18 | PRD-02 不提供后台关系反馈配置页；最近访客展示天数、访客去重窗口、模糊展示条数、悄悄话触发匹配均按代码固定参数实现；隐藏访问一期不实现 | `M02-PARAM-*`、`M02-RULE-admin-scope` |
 | M02-19 | 02 移动端以蓝湖 UI 为准；心动页不展示“海量曝光”“10倍曝光”运营入口。PRD-04 的会员曝光权益和后续曝光包预留不等同于本模块前台 Boost 入口 | `M02-RULE-blueprint-scope`、PRD-04 |
-| M02-20 | 蓝湖无匹配成功弹窗，本期不作为 P0 页面或弹窗交付；匹配成功仅生成相互喜欢记录，并在心动-相互喜欢列表/用户主页动作中体现 | `M02-RULE-match-generate`、`APP-02-PAGE-mutual-matches` |
+| M02-20 | 匹配成功弹窗纳入正式需求；异步匹配后双方各有一次待展示状态，按 `matchNo + userId` 记录。用户主动关闭或导航均算已读，未成功展示或应用异常退出不算已读 | `M02-RULE-match-popup-user-state`、`APP-02-PAGE-match-success-modal` |
 | M02-21 | 喜欢我的、最近看过我的、相互喜欢列表仅展示可见有效对象；异常/失效/取消喜欢记录默认从前台列表移除，不提供前台失效态切换按钮或关系失效弹窗 | `M02-RULE-relation-invalid`、`M02-RULE-like-cancel` |
-| M02-22 | 会员到期只使喜欢/访客全量清晰权益回退为普通模糊态；已用千寻币单条解锁的记录永久清晰，不因会员到期失效 | `M02-RULE-vip-expiry-display`、`M02-RULE-unlock-visibility` |
+| M02-22 | 会员到期只使喜欢/访客全量清晰权益回退为普通模糊态；已用千寻币单条解锁的记录在对象与关系可展示时永久清晰，不因会员到期失效 | `M02-RULE-vip-expiry-display`、`M02-RULE-unlock-visibility` |
 | M02-23 | “对你一见钟情，秒送喜欢”等为喜欢行为提示文案/运营弱提示，不代表强识别字段，不改变匹配状态 | `M02-TXT-like-action-copy` |
 
 ### 1.1 本模块产出
@@ -50,7 +51,7 @@
 |---------|--------|------|------------------|
 | `M02-OUT-like-feedback` | 喜欢反馈记录 | 记录谁喜欢了我、来源场景、状态与后台失效原因 | `APP-02-PAGE-likes-me`、`M02-SM-like-record` |
 | `M02-OUT-visit-feedback` | 来访反馈记录 | 记录最近 7 天谁进入过我的婚恋用户主页 | `APP-02-PAGE-recent-viewers`、`M02-SM-visit-record` |
-| `M02-OUT-mutual-match` | 相互喜欢/匹配成功记录 | 记录匹配双方、匹配来源、状态与后台失效原因；本期不触发匹配成功弹窗 | `APP-02-PAGE-mutual-matches`、`M02-SM-mutual-match` |
+| `M02-OUT-mutual-match` | 相互喜欢/匹配成功记录 | 记录匹配双方、匹配来源、状态与后台失效原因；为双方分别生成一次匹配弹窗待展示状态 | `APP-02-PAGE-mutual-matches`、`APP-02-PAGE-match-success-modal`、`M02-SM-mutual-match` |
 | `M02-OUT-single-unlock-status` | 单条解锁状态 | 记录某条喜欢/访客是否已通过千寻币单条解锁；资产与扣费由 PRD-04 承接 | `APP-02-PAGE-single-unlock-modal`、`M02-RULE-unlock-visibility` |
 | `M02-OUT-all-unlock-status` | 全量查看权益状态 | 记录用户是否因时空邂逅会员权益全量清晰查看喜欢/访客 | `M04-ENUM-vip-benefit-type=heart_list/visitor_list` |
 | `M02-OUT-display-paywall-rule` | 页面展示状态与付费引导规则 | 定义模糊态、清晰态、单条解锁、解锁全部之间的展示与跳转；前台不画失效态 | `M02-RULE-blur-display`、`M02-RULE-paywall-handoff` |
@@ -159,7 +160,7 @@
 
 | 起始状态 | 事件/触发 | 目标状态 | 副作用 |
 |----------|-----------|----------|--------|
-| 无 | 命中 `M02-ENUM-match-source` 任一来源 | `matched` | 写匹配成功记录；不展示匹配成功弹窗；用户可在相互喜欢列表看到关系，主页动作变为聊天 |
+| 无 | 命中 `M02-ENUM-match-source` 任一来源 | `matched` | 写匹配成功记录；按 `matchNo + userId` 为双方分别生成待展示状态；用户可在相互喜欢列表看到关系，主页动作变为聊天 |
 | `matched` | 取消喜欢 | `matched` 或 `invalid` | 仅撤销对应爱心来源；仍有 `whisper_reply` 等有效来源时维持匹配，无任何有效来源时才失效 |
 | `matched` | 拉黑/冻结/注销/封禁/认证失效 | `invalid` | 默认相互喜欢列表不展示不可互动对象；后续不可普通聊天；后台保留真实原因 |
 | `invalid` | 后续重新命中任一匹配来源 | `matched`（新生命周期） | 新建匹配生命周期；历史失效关系和来源明细永久保留 |
@@ -176,11 +177,12 @@
 | `M02-RULE-visit-dedup` | 访客去重 | APP/ADM | 同一访客 30 分钟内访问同一目标主页，只生成 1 条展示记录；PV 可累计 | 固定参数 `M02-PARAM-visit-dedup-minutes` |
 | `M02-RULE-visitor-window` | 最近看过我的展示窗口 | APP/ADM | 前台列表只展示最近 7 天内 `visible` 访客记录 | 固定参数 `M02-PARAM-visitor-visible-days` |
 | `M02-RULE-blur-display` | 模糊态字段 | APP | 普通未解锁状态不展示清晰头像、昵称、年龄、学校；仅展示弱识别标签、访问分组、访问次数等 | 页面规格列字段 |
-| `M02-RULE-unlock-visibility` | 单条解锁清晰可见 | APP/ADM | 单条解锁成功后该记录永久清晰；访客列表是否展示仍受 7 天窗口限制 | 付费引用 PRD-04 |
-| `M02-RULE-vip-expiry-display` | 会员到期展示回退 | APP/ADM | 会员到期后，喜欢/访客全量清晰权益回退为普通模糊态；已千寻币单条解锁记录继续清晰 | 区分会员权益与单条购买 |
+| `M02-RULE-unlock-visibility` | 单条解锁清晰可见 | APP/ADM | 单条解锁成功后，在对象与关系仍可展示时永久清晰；访客列表仍受 7 天窗口限制。对象取消喜欢、拉黑、冻结、注销、封禁或认证失效后前台移除，不展示失效卡片且不自动退款；后台保留解锁记录、消费流水和真实失效原因 | 特批退款引用 PRD-04 |
+| `M02-RULE-vip-expiry-display` | 会员到期展示回退 | APP/ADM | 会员到期后，喜欢/访客全量清晰权益回退为普通模糊态；已千寻币单条解锁记录在对象与关系可展示时继续清晰 | 区分会员权益与单条购买 |
 | `M02-RULE-paywall-handoff` | 付费承接 | APP | 列表页点击模糊卡片先打开 `APP-02-PAGE-single-unlock-modal` 场景弹窗；弹窗内“只看ta”复用 `APP-04-PAGE-paywall-modal` 千寻币确认；解锁全部唤起会员引导；余额不足进入 PRD-04 充值承接 | 不重复定义支付页 |
 | `M02-RULE-single-unlock-modal-content` | 单条解锁弹窗场景内容 | APP | 标题为“解锁Ta是谁”；喜欢场景副标题为“送出喜欢，即刻开聊”；访客场景副标题按蓝湖最终稿/运营配置；按钮固定为“只看ta”“解锁全部”；价格取 PRD-04 场景配置 | 弹窗承载组件仍复用 PRD-04 |
-| `M02-RULE-match-generate` | 匹配成功生成 | APP/ADM | 命中 `double_like`、`featured_heart_return_like`、`whisper_reply` 任一来源即生成匹配记录 | 本期不展示匹配成功弹窗 |
+| `M02-RULE-match-generate` | 匹配成功生成 | APP/ADM | 命中 `double_like`、`featured_heart_return_like`、`whisper_reply` 任一来源即生成匹配记录，并为双方生成独立弹窗待展示状态 | 弹窗规则见 `M02-RULE-match-popup-user-state` |
+| `M02-RULE-match-popup-user-state` | 匹配弹窗按用户展示与已读 | APP/ADM | 展示状态按 `matchNo + userId` 保存；异步匹配后双方各展示一次。“稍后再说”、关闭、去主页、去聊天、系统返回等用户主动动作均标记当前用户已读；未成功展示、加载失败或应用异常退出不标记已读。新匹配生命周期使用新 `matchNo`，可再次展示 | 页面见 `APP-02-PAGE-match-success-modal` |
 | `M02-RULE-match-lifecycle` | 单一有效匹配与多来源生命周期 | APP/ADM | 同一无序用户对同一时刻最多一条有效匹配；来源事件幂等追加到当前生命周期。取消喜欢只撤销对应爱心来源，仍有其他有效来源则保持匹配；全来源撤销或账号级失效才结束生命周期；后续重新满足条件时新建生命周期 | 历史生命周期与来源明细永久保留 |
 | `M02-RULE-profile-action-after-match` | 匹配后主页动作联动 | APP | 匹配成功后，对方婚恋用户主页中的 `Yo` 按钮改为聊天 icon，底部主按钮改为聊天 icon + 聊天 | 页面主体由用户主页/PRD-05 承接，PRD-02 输出状态 |
 | `M02-RULE-whisper-match` | 悄悄话回复触发匹配 | APP/ADM | PRD-03 悄悄话被接收方回复成功后，PRD-02 生成 `whisper_reply` 匹配记录 | 避免“匹配后才能回复悄悄话”的循环 |
@@ -188,8 +190,8 @@
 | `M02-RULE-relation-invalid` | 关系失效展示 | APP/ADM | 拉黑、冻结、注销、封禁、认证失效后，前台默认列表不展示不可互动对象，不画前台失效态或关系失效弹窗；后台保留真实原因可查 | 取消喜欢另见 `M02-RULE-like-cancel` |
 | `M02-RULE-like-cancel` | 取消喜欢联动 | APP/ADM | 取消喜欢后喜欢我的默认列表移除该记录并撤销对应爱心来源；若仍有悄悄话回复等有效来源，相互喜欢与聊天关系继续有效；无任何有效来源时匹配才失效。前台不展示“对方取消喜欢/不喜欢了”，后台永久保留记录 | |
 | `M02-RULE-relation-retention` | 关系事实永久留存 | APP/ADM | 喜欢、访客、匹配、来源明细、解锁及审计记录永久保留且不物理删除；账号注销后前台移除，后台将关联身份匿名化并保留业务编号、时间、来源、状态与 `account_deleted` 原因 | 财务台账继续引用 PRD-04 |
-| `M02-RULE-blueprint-scope` | 蓝湖 UI 范围收口 | APP | 02 移动端以蓝湖 UI 为准；不纳入“海量曝光”“10倍曝光”运营入口、匹配成功弹窗、前台失效态、关系失效弹窗、喜欢我的筛选胶囊 | 若蓝湖仍有上述内容，按本规则要求 UI 删除 |
-| `M02-RULE-female-protection-ref` | 女性保护引用边界 | APP/ADM | PRD-02 只声明匹配成功后进入聊天链路需遵守 PRD-03 女性保护机制；保护期天数、默认 3 天、发送顺序、后台配置页由 PRD-03 承接 | 发送顺序不在 PRD-02 展开 |
+| `M02-RULE-blueprint-scope` | 蓝湖 UI 范围收口 | APP | 02 移动端不纳入“海量曝光”“10倍曝光”运营入口、前台失效态、关系失效弹窗、喜欢我的筛选胶囊；匹配成功弹窗已确认纳入正式需求，但当前缺蓝湖 UI，登记为待补设计资产，不得据此删除需求 | UI 图不作为本轮移动端接口实现门禁，见 `C02-12` |
+| `M02-RULE-female-protection-ref` | 女性保护引用边界 | APP/ADM | 女性保护只限制发送，不限制用户进入有效会话。PRD-02 仅返回 `canEnterConversation`；进入会话后由 PRD-03 返回 `canSend`、`protectStatus`。拉黑、冻结、注销、封禁、认证失效或关系失效才可使 `canEnterConversation=false` | 保护期和发送顺序归 PRD-03 |
 | `M02-RULE-admin-scope` | 后台承接范围 | ADM | 首版只在 ADM-01 App 用户管理卡片新增“模块补充”入口，并在弹窗“关系反馈”Tab 承接；不新增全局关系列表，不提供关系反馈配置页 | 规则参数按代码固定 |
 | `M02-RULE-admin-manual-boundary` | 后台人工操作边界 | ADM | 不开放手工制造匹配、补喜欢、恢复关系记录 | 高风险需求后续另立 |
 
@@ -241,6 +243,7 @@
 | `M02-ERR-duplicate-like` | 409 | 20004 | 重复喜欢 | 你已经喜欢过对方 | 否 |
 | `M02-ERR-unlock-record-expired-window` | 409 | 20005 | 访客记录超过前台展示窗口 | 该访客记录已不在最近展示范围内 | 否 |
 | `M02-ERR-relation-stat-unavailable` | 503 | 20006 | 关系统计服务不可用 | 关系数据暂不可用，请稍后重试 | 是 |
+| `M02-ERR-match-popup-not-found` | 404 | 20007 | 当前用户不存在对应匹配弹窗状态 | 匹配提示已处理或不存在 | 否 |
 
 ---
 
@@ -254,12 +257,15 @@
 | APP | POST | `/api/app/relation/like` | 发起喜欢 | `M02-RULE-core-access` |
 | APP | POST | `/api/app/relation/like/cancel` | 取消喜欢 | `M02-RULE-like-cancel` |
 | APP | POST | `/api/app/relation/visit` | 记录婚恋主页访问 | `M02-RULE-visit-generate` |
+| APP | GET | `/api/app/relation/match-popup/pending` | 查询当前用户待展示的匹配成功弹窗 | `M02-RULE-match-popup-user-state` |
+| APP | POST | `/api/app/relation/match-popup/read` | 按 `matchNo` 标记当前用户弹窗已读 | `M02-RULE-match-popup-user-state` |
 | ADM | GET | `/api/admin/users/{userId}/relations/summary` | 查询用户关系反馈摘要 | `M02-RULE-admin-scope` |
 | ADM | GET | `/api/admin/users/{userId}/relations/likes` | 查询用户详情喜欢记录 | `M02-SM-like-record` |
 | ADM | GET | `/api/admin/users/{userId}/relations/visits` | 查询用户详情访客记录 | `M02-SM-visit-record` |
 | ADM | GET | `/api/admin/users/{userId}/relations/matches` | 查询用户详情匹配记录 | `M02-SM-mutual-match` |
+| ADM | GET | `/api/admin/users/{userId}/relations/unlocks` | 聚合查询该用户喜欢/访客解锁记录，资产字段由 PRD-04 授权返回 | `M02-RULE-unlock-visibility`、PRD-04 |
 
-> 接口路径为产品草案，最终技术方案可按项目后端路由规范调整；产品规则和 ID 不随接口路径变化。
+> 接口路径为产品草案，最终技术方案可按项目后端路由规范调整；产品规则和 ID 不随接口路径变化。按 `C02-12`，本轮仅保留移动端接口草案，不进入编码、联调和验收。
 > 悄悄话发送接口归 PRD-03 定义；PRD-02 只接收“悄悄话已回复”的内部事件并生成 `whisper_reply` 匹配记录。
 
 ### 9.1 APP 响应结构草案
@@ -326,9 +332,24 @@
       "matchSource": "double_like",
       "matchStatus": "matched",
       "matchTime": "2026-07-02 09:20:00",
-      "canChat": true
+      "canEnterConversation": true
     }
   ]
+}
+```
+
+#### 9.1.4 待展示匹配成功弹窗
+
+```json
+{
+  "matchNo": "MAT-20260702-0001",
+  "matchedUserId": "U100490",
+  "nickname": "小雨",
+  "avatar": "https://example.com/avatar.png",
+  "matchSource": "whisper_reply",
+  "matchTime": "2026-07-02 09:20:00",
+  "canEnterConversation": true,
+  "popupRead": false
 }
 ```
 
@@ -339,7 +360,7 @@
 | 关联 PRD | PRD-02 负责 | 对方 PRD 负责 |
 |----------|-------------|---------------|
 | PRD-01 用户准入 | 引用核心准入结果，决定能否形成真实关系 | 实名、头像、学历认证状态与核心准入状态计算 |
-| PRD-03 消息、私信与通知中心 | 生成匹配成功和聊天入口状态 | 会话、悄悄话发送/回复、女性保护发送顺序、消息内容审核 |
+| PRD-03 消息、私信与通知中心 | 生成匹配成功、弹窗状态和 `canEnterConversation` | 会话、悄悄话发送/回复、`canSend`、`protectStatus`、消息内容审核 |
 | PRD-04 商业化 | 触发喜欢/访客单条解锁与会员全量查看 | 千寻币扣减、会员权益、支付、资产流水、订单、退款 |
 | PRD-05 推荐模块 | 记录从推荐/精选/理想型进入主页、喜欢的来源 | 推荐列表、精选、理想型、用户主页主体展示 |
 | PRD-06 安全设置 | 引用账号状态 | 隐私设置页面、拉黑/屏蔽、注销流程；一期无隐藏访问入口 |
@@ -358,3 +379,5 @@
 | `M02-EX-visitor-window-expired` | 最近看过我的记录超过 7 天 | 前台最近看过我的列表不展示；后台和资产/解锁记录仍可追溯 | `M02-RULE-visitor-window` |
 | `M02-EX-repeat-visit` | 同一用户短时间多次访问同一主页 | 30 分钟内只生成 1 条访客展示记录，PV 可累计 | `M02-RULE-visit-dedup` |
 | `M02-EX-block-after-match` | 匹配成功后对方拉黑 | 相互喜欢默认列表移除该记录，后续不可普通聊天；后台保留真实原因 | `M02-RULE-relation-invalid` |
+| `M02-EX-match-popup-interrupted` | 匹配弹窗加载失败或应用异常退出 | 不标记已读，下次满足展示条件时继续展示 | `M02-RULE-match-popup-user-state` |
+| `M02-EX-match-popup-action` | 用户关闭弹窗、去主页、去聊天或系统返回 | 先按 `matchNo + userId` 幂等标记已读，再执行关闭或导航 | `M02-RULE-match-popup-user-state` |

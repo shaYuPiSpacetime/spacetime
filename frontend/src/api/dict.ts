@@ -26,6 +26,13 @@ export interface DictDataVO {
   children?: DictDataVO[];
 }
 
+export interface RegionTreeVO {
+  code: string;
+  name: string;
+  level: 'PROVINCE' | 'CITY';
+  children?: RegionTreeVO[];
+}
+
 // ============ 字典类型 API ============
 
 export function getDictTypeList(params: { page?: number; size?: number; keyword?: string; status?: string }) {
@@ -52,6 +59,10 @@ export function deleteDictType(id: number) {
 
 export function getDictDataChildren(dictType: string, parentId: number = 0) {
   return request.get('/admin/dict-data/children', { params: { dictType, parentId } });
+}
+
+export function getTwoLevelRegions() {
+  return request.get('/miniapp/dict/locations/two-level');
 }
 
 export function createDictData(data: { dictType: string; parentId?: number; dictLabel: string; dictValue: string; dictSort?: number; status?: string; remark?: string }) {

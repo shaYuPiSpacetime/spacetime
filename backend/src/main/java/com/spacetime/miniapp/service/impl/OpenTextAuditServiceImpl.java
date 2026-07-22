@@ -181,7 +181,6 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
             Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot) {
         String fieldId = switch (field) {
             case ABOUT_ME -> "aboutMe";
-            case HOPE_THEY_KNOW -> "hopeTheyKnow";
             case PROFILE_QA -> "qaList";
         };
         if (!runtimeConfigResolver.fieldVisible(configSnapshot, fieldId, true)) {

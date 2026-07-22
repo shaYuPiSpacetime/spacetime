@@ -28,10 +28,8 @@ public class AppUserPageReq extends PageReq {
     private String city;
     /** 关系反馈准入：OPEN/CLOSED/ABNORMAL */
     private String relationshipAccess;
-    /** VIP 状态：ACTIVE/NONE/EXPIRED */
+    /** VIP 状态：active-有效，inactive-未开通，expired-已过期 */
     private String vipStatus;
-    /** 隐藏访问记录：ON/OFF/UNAVAILABLE */
-    private String hideVisitRecord;
     /** 性别 @see GenderEnum */
     private String gender;
     /** 实名认证状态筛选 @see VerificationStatusEnum */

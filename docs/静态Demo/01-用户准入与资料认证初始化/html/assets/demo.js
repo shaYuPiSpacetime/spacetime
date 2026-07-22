@@ -11,13 +11,14 @@
   const openDrawer = common.openDrawer || (() => {});
   const closeDrawer = common.closeDrawer || (() => {});
   const MODULE_PAGE_SIZE = 5;
+  const RELATION_DEFAULT_PAGE_SIZE = 10;
+  const RELATION_PAGE_SIZES = [10, 20, 50];
 
   function relationProfile(user) {
     const profile = (data.relationProfiles && data.relationProfiles[user.id]) || {};
     return {
       relationAccessStatus: profile.relationAccessStatus || (user.statuses?.core === '已开放' ? '开放' : '未开放'),
       vipStatus: profile.vipStatus || (user.vip ? '生效中' : '未开通'),
-      hiddenVisitStatus: profile.hiddenVisitStatus || (user.vip ? '未开启' : '权益不可用'),
       visitorUv7d: profile.visitorUv7d ?? 0,
       visitorPv7d: profile.visitorPv7d ?? 0,
       activeLikedCount: profile.activeLikedCount ?? 0,
@@ -92,53 +93,190 @@
     });
   }
 
+  function relationOptions(rows, field) {
+    return Array.from(new Set(rows.map((row) => row[field]).filter((value) => value && value !== '-')))
+      .map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)
+      .join('');
+  }
+
+  function normalizeRelationRow(config, row) {
+    const defaultDirection = config.key === 'visits' ? '我被访问' : '我接收';
+    const defaultSource = config.key === 'matches' ? '双方互送爱心' : '婚恋用户主页';
+    return {
+      ...row,
+      oppositeUser: row.oppositeUser || '关联对象已脱敏',
+      direction: row.direction || defaultDirection,
+      source: row.source || defaultSource,
+      status: row.status || row.displayStatus || '有效',
+      invalidReason: row.invalidReason || '-',
+      unlockNo: row.unlockNo || (String(row.id || '').startsWith('UNL-') ? row.id : '-'),
+    };
+  }
+
+  function renderRelationActions(row) {
+    const buttons = [
+      `<button type="button" data-toast="已打开${escapeHtml(row.oppositeUser)}的用户详情，查看操作已记入审计日志">查看用户</button>`,
+    ];
+    if (row.unlockNo && row.unlockNo !== '-') {
+      buttons.push(`<button type="button" data-toast="已打开解锁记录 ${escapeHtml(row.unlockNo)}，查看操作已记入审计日志">查看解锁</button>`);
+    }
+    if (row.invalidReason && row.invalidReason !== '-') {
+      buttons.push(`<button type="button" data-toast="失效原因：${escapeHtml(row.invalidReason)}；查看操作已记入审计日志">查看原因</button>`);
+    }
+    return `<div class="relation-row-actions">${buttons.join('')}</div>`;
+  }
+
+  function renderRelationToolbar(config, rows) {
+    return `
+      <div class="relation-toolbar" data-relation-toolbar>
+        ${config.hasDirection ? `
+          <label><span>关系方向</span><select data-relation-filter="direction"><option value="">全部</option>${relationOptions(rows, 'direction')}</select></label>
+        ` : ''}
+        <label><span>状态</span><select data-relation-filter="status"><option value="">全部</option>${relationOptions(rows, 'status')}</select></label>
+        ${config.hasSource ? `
+          <label><span>来源场景</span><select data-relation-filter="source"><option value="">全部</option>${relationOptions(rows, 'source')}</select></label>
+        ` : ''}
+        <label><span>开始日期</span><input type="date" data-relation-filter="startDate" aria-label="开始日期"></label>
+        <label><span>结束日期</span><input type="date" data-relation-filter="endDate" aria-label="结束日期"></label>
+        <button class="relation-refresh-button" type="button" data-relation-refresh data-toast="关系摘要和当前明细已刷新">刷新</button>
+      </div>
+    `;
+  }
+
+  function renderRelationPagination(total) {
+    const pageSizeOptions = RELATION_PAGE_SIZES.map((size) => `
+      <option value="${size}" ${size === RELATION_DEFAULT_PAGE_SIZE ? 'selected' : ''}>${size} 条/页</option>
+    `).join('');
+    return `
+      <div class="module-pagination" data-relation-pagination data-current-page="1" data-page-count="1" aria-label="分页">
+        <span data-relation-total>共 ${escapeHtml(total)} 条</span>
+        <button type="button" data-page-action="prev" disabled>上一页</button>
+        <div class="module-page-numbers" data-relation-page-numbers></div>
+        <button type="button" data-page-action="next" disabled>下一页</button>
+        <label class="module-page-size"><span>每页</span><select data-relation-page-size>${pageSizeOptions}</select></label>
+      </div>
+    `;
+  }
+
+  function applyRelationPanel(panel, requestedPage = 1) {
+    if (!panel) return;
+    const direction = qs('[data-relation-filter="direction"]', panel)?.value || '';
+    const status = qs('[data-relation-filter="status"]', panel)?.value || '';
+    const source = qs('[data-relation-filter="source"]', panel)?.value || '';
+    const startDate = qs('[data-relation-filter="startDate"]', panel)?.value || '';
+    const endDate = qs('[data-relation-filter="endDate"]', panel)?.value || '';
+    const pageSize = Number(qs('[data-relation-page-size]', panel)?.value) || RELATION_DEFAULT_PAGE_SIZE;
+    const rows = qsa('[data-relation-row]', panel);
+    const filtered = rows.filter((row) => {
+      const rowDate = (row.dataset.time || '').slice(0, 10);
+      return (!direction || row.dataset.direction === direction)
+        && (!status || row.dataset.status === status)
+        && (!source || row.dataset.source === source)
+        && (!startDate || rowDate >= startDate)
+        && (!endDate || rowDate <= endDate);
+    });
+    const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const currentPage = Math.min(Math.max(Number(requestedPage) || 1, 1), pageCount);
+    const filteredSet = new Set(filtered);
+    rows.forEach((row) => { row.hidden = true; });
+    filtered.forEach((row, index) => {
+      row.hidden = Math.floor(index / pageSize) + 1 !== currentPage;
+    });
+
+    const pagination = qs('[data-relation-pagination]', panel);
+    if (pagination) {
+      pagination.dataset.currentPage = String(currentPage);
+      pagination.dataset.pageCount = String(pageCount);
+      const total = qs('[data-relation-total]', pagination);
+      if (total) total.textContent = `共 ${filtered.length} 条`;
+      const numbers = qs('[data-relation-page-numbers]', pagination);
+      if (numbers) {
+        numbers.innerHTML = Array.from({ length: pageCount }, (_, index) => {
+          const page = index + 1;
+          return `<button type="button" class="${page === currentPage ? 'is-active' : ''}" data-page-target="${page}" ${page === currentPage ? 'aria-current="page"' : ''}>${page}</button>`;
+        }).join('');
+      }
+      const prev = qs('[data-page-action="prev"]', pagination);
+      const next = qs('[data-page-action="next"]', pagination);
+      if (prev) prev.disabled = currentPage <= 1;
+      if (next) next.disabled = currentPage >= pageCount;
+    }
+    const empty = qs('[data-relation-filter-empty]', panel);
+    if (empty) empty.hidden = filteredSet.size > 0 || rows.length === 0;
+  }
+
+  function updateRelationPagination(pagination, targetPage) {
+    const panel = pagination?.closest('[data-user-relation-panel]');
+    applyRelationPanel(panel, targetPage);
+  }
+
   function renderRelationRecordPanels(relation) {
     const configs = [
       {
         key: 'likes',
         label: '喜欢记录',
+        dateField: 'happenedAt',
+        hasDirection: true,
+        hasSource: true,
         columns: [
           ['记录编号', 'id'],
           ['对方用户', 'oppositeUser'],
+          ['关系方向', 'direction'],
+          ['来源场景', 'source'],
           ['状态', 'status'],
-          ['解锁状态', 'unlockStatus'],
-          ['发生时间', 'happenedAt'],
           ['失效原因', 'invalidReason'],
+          ['发生时间', 'happenedAt'],
+          ['解锁记录号', 'unlockNo'],
+          ['操作', 'action'],
         ],
       },
       {
         key: 'visits',
         label: '访客记录',
+        dateField: 'lastVisitAt',
+        hasDirection: true,
+        hasSource: true,
         columns: [
           ['记录编号', 'id'],
           ['对方用户', 'oppositeUser'],
+          ['关系方向', 'direction'],
+          ['来源场景', 'source'],
+          ['状态', 'status'],
           ['访问次数', 'visitCount'],
           ['最近访问', 'lastVisitAt'],
-          ['解锁状态', 'unlockStatus'],
-          ['展示状态', 'hiddenStatus'],
+          ['失效原因', 'invalidReason'],
+          ['解锁记录号', 'unlockNo'],
+          ['操作', 'action'],
         ],
       },
       {
         key: 'matches',
         label: '相互喜欢',
+        dateField: 'matchedAt',
+        hasSource: true,
         columns: [
           ['匹配编号', 'id'],
           ['对方用户', 'oppositeUser'],
+          ['来源场景', 'source'],
           ['关系状态', 'status'],
+          ['失效原因', 'invalidReason'],
           ['匹配时间', 'matchedAt'],
-          ['主页联动', 'profileAction'],
+          ['操作', 'action'],
         ],
       },
       {
         key: 'unlocks',
         label: '解锁记录',
+        dateField: 'createdAt',
         columns: [
           ['解锁单号', 'id'],
+          ['对方用户', 'oppositeUser'],
           ['关系类型', 'relationType'],
           ['关联记录', 'targetRecord'],
           ['支付方式', 'payType'],
-          ['展示状态', 'displayStatus'],
+          ['状态', 'status'],
           ['创建时间', 'createdAt'],
+          ['操作', 'action'],
         ],
       },
     ];
@@ -148,13 +286,16 @@
     `).join('');
 
     const panels = configs.map((config, index) => {
-      const rows = relation.records?.[config.key] || [];
+      const rows = (relation.records?.[config.key] || [])
+        .map((row) => normalizeRelationRow(config, row))
+        .sort((left, right) => String(right[config.dateField] || '').localeCompare(String(left[config.dateField] || '')));
       const header = config.columns.map(([label]) => `<th>${escapeHtml(label)}</th>`).join('');
-      const body = rows.map((row, rowIndex) => {
-        const pageIndex = Math.floor(rowIndex / MODULE_PAGE_SIZE) + 1;
+      const body = rows.map((row) => {
+        const time = row[config.dateField] || '';
         return `
-        <tr data-page-index="${pageIndex}" ${pageIndex > 1 ? 'hidden' : ''}>
+        <tr data-relation-row data-direction="${escapeHtml(row.direction)}" data-status="${escapeHtml(row.status)}" data-source="${escapeHtml(row.source)}" data-time="${escapeHtml(time)}">
           ${config.columns.map(([label, field]) => {
+            if (field === 'action') return `<td data-label="${escapeHtml(label)}">${renderRelationActions(row)}</td>`;
             const value = row[field] ?? '-';
             const isStatus = /status|Status|Reason|Action/.test(field);
             return `<td data-label="${escapeHtml(label)}">${isStatus ? `<span class="avatar-status ${relationClass(value)}">${escapeHtml(value)}</span>` : escapeHtml(value)}</td>`;
@@ -165,13 +306,15 @@
 
       return `
         <section class="profile-relation-panel ${index === 0 ? 'is-active' : ''}" data-user-relation-panel="${config.key}" data-pagination-scope>
+          ${renderRelationToolbar(config, rows)}
           ${rows.length ? `
             <table class="profile-relation-table">
               <thead><tr>${header}</tr></thead>
               <tbody>${body}</tbody>
             </table>
           ` : `<div class="profile-relation-empty">暂无${escapeHtml(config.label)}</div>`}
-          ${renderModulePagination(rows.length)}
+          <div class="profile-relation-empty" data-relation-filter-empty hidden>当前筛选条件下暂无记录</div>
+          ${renderRelationPagination(rows.length)}
         </section>
       `;
     }).join('');
@@ -274,12 +417,11 @@
       <section class="module-supplement-panel is-active" data-module-panel="relation">
         <div class="module-supplement-intro">
           <strong>PRD-02 关系反馈与互动链路</strong>
-          <span>从用户卡片进入，仅在弹窗内承接跨模块运营与审计信息。</span>
+          <span>从用户卡片进入，仅承接只读查询与审计；一期不提供隐藏访问和人工修改关系能力。</span>
         </div>
         <div class="profile-relation-summary">
           <article><span>关系反馈准入</span><strong class="${relationClass(relation.relationAccessStatus)}">${escapeHtml(relation.relationAccessStatus)}</strong></article>
           <article><span>VIP 状态</span><strong class="${relationClass(relation.vipStatus)}">${escapeHtml(relation.vipStatus)}</strong></article>
-          <article><span>隐藏访问记录</span><strong class="${relationClass(relation.hiddenVisitStatus)}">${escapeHtml(relation.hiddenVisitStatus)}</strong></article>
           <article><span>7天访客 UV/PV</span><strong>${escapeHtml(relation.visitorUv7d)} / ${escapeHtml(relation.visitorPv7d)}</strong></article>
           <article><span>当前被喜欢</span><strong>${escapeHtml(relation.activeLikedCount)}</strong></article>
           <article><span>当前相互喜欢</span><strong>${escapeHtml(relation.activeMutualCount)}</strong></article>
@@ -311,6 +453,7 @@
         </div>
       </section>
     `;
+    qsa('[data-user-relation-panel]', body).forEach((panel) => applyRelationPanel(panel, 1));
   }
 
   function renderUserCards() {
@@ -1105,6 +1248,7 @@
         const tabName = userRelationTab.dataset.userRelationTab;
         qsa('[data-user-relation-tab]', block).forEach((node) => node.classList.toggle('is-active', node === userRelationTab));
         qsa('[data-user-relation-panel]', block).forEach((node) => node.classList.toggle('is-active', node.dataset.userRelationPanel === tabName));
+        applyRelationPanel(qs(`[data-user-relation-panel="${tabName}"]`, block), 1);
         return;
       }
 
@@ -1124,7 +1268,14 @@
         const targetPage = pageButton.dataset.pageTarget
           ? Number(pageButton.dataset.pageTarget)
           : currentPage + (pageButton.dataset.pageAction === 'next' ? 1 : -1);
-        updateModulePagination(pagination, targetPage);
+        if (pagination?.hasAttribute('data-relation-pagination')) updateRelationPagination(pagination, targetPage);
+        else updateModulePagination(pagination, targetPage);
+        return;
+      }
+
+      const relationRefresh = event.target.closest('[data-relation-refresh]');
+      if (relationRefresh) {
+        applyRelationPanel(relationRefresh.closest('[data-user-relation-panel]'), 1);
         return;
       }
 
@@ -1136,6 +1287,12 @@
           selectButton.classList.add('is-selected');
         }
       }
+    });
+
+    document.addEventListener('change', (event) => {
+      const control = event.target.closest('[data-relation-filter], [data-relation-page-size]');
+      if (!control) return;
+      applyRelationPanel(control.closest('[data-user-relation-panel]'), 1);
     });
 
     if (common.wireBackdropClose) common.wireBackdropClose();

@@ -48,7 +48,7 @@ import java.util.Map;
  * 核心设计：
  * - 首登五步入门：性别、年龄、身份、学历、地址逐步保存
  * - 性别可在基础资料页修改，并统一保存为 MALE/FEMALE
- * - 敏感字段修改（头像/关于我/希望TA了解）触发重新审核
+ * - 敏感字段修改（头像/关于我）触发重新审核
  * - 准入状态由 firstLoginCompleted + 账号状态 + 实名、头像、学历三重认证共同决定
  */
 @Service
@@ -569,7 +569,6 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setChildrenPlan(user.getChildrenPlan());
         vo.setWantChild(user.getWantChild());
         vo.setAboutMe(auditContentService.ownerText(user.getId(), AppUserAuditTypeEnum.ABOUT_ME));
-        vo.setHopeTheyKnow(auditContentService.ownerText(user.getId(), AppUserAuditTypeEnum.HOPE_THEY_KNOW));
         applyVoiceIntro(vo, user.getId());
         vo.setTags(user.getTags());
         vo.setWechatId(user.getWechatId());
