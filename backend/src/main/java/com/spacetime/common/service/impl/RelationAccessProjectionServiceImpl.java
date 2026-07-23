@@ -9,7 +9,11 @@ import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** 关系准入投影实现。 */
 @Service
@@ -46,6 +50,24 @@ public class RelationAccessProjectionServiceImpl implements RelationAccessProjec
             return CLOSED;
         }
         return tripleApproved ? OPEN : CLOSED;
+    }
+
+    @Override
+    public Map<Long, String> projectAll(Collection<AppUser> users) {
+        List<AppUser> candidates = users == null ? List.of() : users.stream()
+                .filter(Objects::nonNull)
+                .filter(user -> user.getId() != null)
+                .toList();
+        if (candidates.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> userIds = candidates.stream().map(AppUser::getId).distinct().toList();
+        Map<Long, Integer> approvedCounts = auditService.certificationApprovedCounts(userIds);
+        int[] ageRange = accessAgeRange();
+        Map<Long, String> result = new LinkedHashMap<>();
+        candidates.forEach(user -> result.put(user.getId(), project(user,
+                approvedCounts.getOrDefault(user.getId(), 0) == 3, ageRange[0], ageRange[1])));
+        return result;
     }
 
     private int[] accessAgeRange() {

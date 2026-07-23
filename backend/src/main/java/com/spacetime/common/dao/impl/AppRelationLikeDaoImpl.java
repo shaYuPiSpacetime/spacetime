@@ -2,12 +2,14 @@ package com.spacetime.common.dao.impl;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.spacetime.common.dao.AppRelationLikeDao;
+import com.spacetime.common.dto.RelationLikeListRow;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.enums.RelationLikeStatusEnum;
 import com.spacetime.common.mapper.AppRelationLikeMapper;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** 喜欢关系数据访问实现。 */
 @Repository
@@ -33,6 +35,34 @@ public class AppRelationLikeDaoImpl extends AbstractRelationCrudDao<AppRelationL
                                 .eq(AppRelationLike::getToUserId, userHighId))
                         .or(pair -> pair.eq(AppRelationLike::getFromUserId, userHighId)
                                 .eq(AppRelationLike::getToUserId, userLowId))));
+    }
+
+    @Override
+    public long countVisibleIncomingLikes(Long userId, boolean vip,
+                                          LocalDateTime snapshotLikedTime, Long snapshotLikeId) {
+        return likeMapper.countVisibleIncomingLikes(userId, vip, snapshotLikedTime, snapshotLikeId);
+    }
+
+    @Override
+    public List<RelationLikeListRow> selectVisibleIncomingLikes(
+            Long userId, boolean vip,
+            LocalDateTime lastReadLikedTime, Long lastReadLikeId,
+            LocalDateTime snapshotLikedTime, Long snapshotLikeId,
+            long offset, int limit) {
+        return likeMapper.selectVisibleIncomingLikes(
+                userId, vip, lastReadLikedTime, lastReadLikeId,
+                snapshotLikedTime, snapshotLikeId, offset, limit);
+    }
+
+    @Override
+    public List<RelationLikeListRow> selectNewIncomingLikePreviews(
+            Long userId,
+            LocalDateTime lastReadLikedTime, Long lastReadLikeId,
+            LocalDateTime snapshotLikedTime, Long snapshotLikeId,
+            int limit) {
+        return likeMapper.selectNewIncomingLikePreviews(
+                userId, lastReadLikedTime, lastReadLikeId,
+                snapshotLikedTime, snapshotLikeId, limit);
     }
 
     private LambdaUpdateWrapper<AppRelationLike> invalidWrapper(String reason, LocalDateTime invalidTime) {

@@ -1,6 +1,9 @@
 package com.spacetime.common.service;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.spacetime.common.dao.AppRelationLikeDao;
 import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppRelationMatchPopupDao;
@@ -8,6 +11,7 @@ import com.spacetime.common.dao.AppRelationMatchSourceDao;
 import com.spacetime.common.dao.AppRelationVisitCursorDao;
 import com.spacetime.common.dao.AppRelationVisitDao;
 import com.spacetime.common.dao.AppRelationVisitEventDao;
+import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppRelationMatchSource;
 import com.spacetime.common.entity.AppRelationVisit;
@@ -19,10 +23,13 @@ import com.spacetime.common.enums.RelationMatchSourceTypeEnum;
 import com.spacetime.common.enums.RelationSourceSceneEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.impl.RelationDomainServiceImpl;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -49,6 +56,13 @@ class RelationDomainServiceImplTest {
     @Mock private AppRelationMatchSourceDao matchSourceDao;
     @Mock private AppRelationMatchPopupDao matchPopupDao;
     @InjectMocks private RelationDomainServiceImpl service;
+
+    @BeforeEach
+    void initializeTableMetadata() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), AppRelationLike.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), AppRelationMatch.class);
+    }
 
     @Test
     @DisplayName("重复访客事件应幂等返回且不增加PV")
@@ -173,6 +187,31 @@ class RelationDomainServiceImplTest {
     }
 
     @Test
+    @DisplayName("取消喜欢必须通过显式更新释放有效唯一标记")
+    void cancellingLikeShouldExplicitlyClearActiveMarker() {
+        AppRelationLike like = new AppRelationLike();
+        like.setId(10L);
+        like.setLikeNo("LIK-1");
+        like.setFromUserId(1L);
+        like.setToUserId(2L);
+        like.setLikeStatus("active");
+        like.setActiveMarker(1);
+        when(likeDao.selectOne(any(LambdaQueryWrapper.class))).thenReturn(like, (AppRelationLike) null);
+
+        service.cancelLike(1L, 2L, LocalDateTime.of(2026, 7, 21, 13, 30));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<AppRelationLike>> captor =
+                ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(likeDao).update(captor.capture());
+        assertThat(captor.getValue().getSqlSet())
+                .contains("like_status")
+                .contains("active_marker")
+                .contains("cancelled_time");
+        verify(likeDao, never()).updateById(any());
+    }
+
+    @Test
     @DisplayName("最后一个来源撤销应使匹配失效并取消待展示弹窗")
     void revokingLastSourceShouldInvalidateMatchAndPendingPopups() {
         AppRelationMatchSource source = new AppRelationMatchSource();
@@ -191,11 +230,17 @@ class RelationDomainServiceImplTest {
         service.revokeMatchSource(RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode(), "LIK-1|LIK-2",
                 RelationInvalidReasonEnum.LIKE_CANCELLED, LocalDateTime.of(2026, 7, 21, 14, 0));
 
-        assertThat(match.getMatchStatus()).isEqualTo("invalid");
-        assertThat(match.getActiveMarker()).isNull();
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<AppRelationMatch>> captor =
+                ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
         verify(matchDao).selectByIdForUpdate(100L);
         verify(matchSourceDao).selectByIdForUpdate(200L);
-        verify(matchDao).updateById(match);
+        verify(matchDao).update(captor.capture());
+        assertThat(captor.getValue().getSqlSet())
+                .contains("match_status")
+                .contains("active_marker")
+                .contains("invalid_reason");
+        verify(matchDao, never()).updateById(any());
         verify(matchPopupDao).cancelPendingByMatchId(100L, LocalDateTime.of(2026, 7, 21, 14, 0));
     }
 

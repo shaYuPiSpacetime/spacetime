@@ -15,11 +15,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RelationEntityContractTest {
 
     @Test
-    @DisplayName("七张关系表实体应继承BaseEntity并映射确认字段")
+    @DisplayName("八张关系表实体应继承BaseEntity并映射确认字段")
     void relationEntitiesShouldMapConfirmedTablesAndFields() {
         assertEntity(AppRelationLike.class, "app_relation_like",
                 "likeNo", "requestId", "fromUserId", "toUserId", "sourceScene", "likeStatus",
                 "activeMarker", "likedTime", "cancelledTime", "invalidReason", "invalidTime");
+        assertEntity(AppRelationLikeInboxState.class, "app_relation_like_inbox_state",
+                "userId", "lastReadLikedTime", "lastReadLikeId", "readAt");
         assertEntity(AppRelationVisit.class, "app_relation_visit",
                 "visitNo", "visitorUserId", "targetUserId", "sourceScene", "visitStatus",
                 "firstVisitTime", "lastVisitTime", "pvCount", "invalidReason", "invalidTime");
@@ -42,7 +44,8 @@ class RelationEntityContractTest {
     @DisplayName("用户和解锁实体应包含确认过的增量字段")
     void existingEntitiesShouldExposeRelationDeltaFields() {
         assertFields(AppUser.class, "anonymousNo");
-        assertFields(UserUnlockRecord.class, "unlockNo", "targetBizType", "targetBizNo", "refundNo", "activeMarker");
+        assertFields(UserUnlockRecord.class, "unlockNo", "requestId", "quoteToken", "targetBizType",
+                "targetBizNo", "refundNo", "activeMarker");
     }
 
     private void assertEntity(Class<?> type, String tableName, String... fields) {

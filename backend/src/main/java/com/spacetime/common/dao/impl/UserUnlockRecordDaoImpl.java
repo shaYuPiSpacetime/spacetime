@@ -30,6 +30,11 @@ public class UserUnlockRecordDaoImpl implements UserUnlockRecordDao {
     }
 
     @Override
+    public UserUnlockRecord selectActiveByTargetUser(Long userId, String targetBizType, Long targetUserId) {
+        return mapper.selectActiveByTargetUser(userId, targetBizType, targetUserId);
+    }
+
+    @Override
     public Page<UserUnlockRecord> selectPage(Page<UserUnlockRecord> page, LambdaQueryWrapper<UserUnlockRecord> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

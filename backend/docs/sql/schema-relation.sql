@@ -29,6 +29,21 @@ CREATE TABLE IF NOT EXISTS `app_relation_like` (
     KEY `idx_like_from_status_time` (`from_user_id`, `like_status`, `deleted`, `liked_time`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户喜欢关系生命周期事实表';
 
+CREATE TABLE IF NOT EXISTS `app_relation_like_inbox_state` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id` BIGINT NOT NULL COMMENT '接收喜欢的用户ID，每个用户唯一一条读取状态',
+    `last_read_liked_time` DATETIME DEFAULT NULL COMMENT '已确认查看到的喜欢生效时间，与喜欢记录主键共同组成读取游标',
+    `last_read_like_id` BIGINT DEFAULT NULL COMMENT '已确认查看到的喜欢记录主键ID，与喜欢生效时间共同组成读取游标',
+    `read_at` DATETIME DEFAULT NULL COMMENT '最近一次成功推进喜欢列表读取位置的时间',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID，移动端确认时写当前用户',
+    `updated_by` BIGINT DEFAULT NULL COMMENT '更新人ID，移动端确认时写当前用户',
+    `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除，本模块不开放删除入口',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_like_inbox_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='喜欢我的列表用户级已读游标表';
+
 CREATE TABLE IF NOT EXISTS `app_relation_visit` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `visit_no` VARCHAR(64) NOT NULL COMMENT '访客展示记录业务编号，前缀VIS-',

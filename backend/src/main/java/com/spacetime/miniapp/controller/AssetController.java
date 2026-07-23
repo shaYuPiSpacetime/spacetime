@@ -7,10 +7,15 @@ import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.request.UnlockReq;
+import com.spacetime.miniapp.dto.request.RelationUnlockConfirmReq;
+import com.spacetime.miniapp.dto.request.RelationUnlockQuoteReq;
 import com.spacetime.miniapp.dto.response.AssetSummaryVO;
 import com.spacetime.miniapp.dto.response.UnlockRecordVO;
 import com.spacetime.miniapp.dto.response.UnlockVO;
+import com.spacetime.miniapp.dto.response.UnlockConfirmVO;
+import com.spacetime.miniapp.dto.response.UnlockQuoteVO;
 import com.spacetime.miniapp.service.AssetService;
+import com.spacetime.miniapp.service.RelationUnlockService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +32,8 @@ public class AssetController {
 
     /** 用户资产服务 */
     private final AssetService assetService;
+    /** 喜欢/访客具体关系记录两步解锁服务 */
+    private final RelationUnlockService relationUnlockService;
 
     /**
      * 查询当前用户资产汇总
@@ -50,6 +57,18 @@ public class AssetController {
         log.info("解锁操作: userId={}, scene={}, count={}", userId, req.getUnlockScene(),
                 req.getTargetUserIds() != null ? req.getTargetUserIds().size() : 0);
         return R.ok(assetService.unlock(userId, req));
+    }
+
+    /** 获取喜欢或访客具体记录的短期解锁报价，不产生扣币。 */
+    @PostMapping("/unlock/quote")
+    public R<UnlockQuoteVO> quote(@Valid @RequestBody RelationUnlockQuoteReq req) {
+        return R.ok(relationUnlockService.quote(currentUserId(), req));
+    }
+
+    /** 用户第二步确认后原子扣币并生成永久单条解锁记录。 */
+    @PostMapping("/unlock/confirm")
+    public R<UnlockConfirmVO> confirm(@Valid @RequestBody RelationUnlockConfirmReq req) {
+        return R.ok(relationUnlockService.confirm(currentUserId(), req));
     }
 
     /**

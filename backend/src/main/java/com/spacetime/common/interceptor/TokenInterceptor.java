@@ -3,6 +3,7 @@ package com.spacetime.common.interceptor;
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.constant.AuthConstant;
+import com.spacetime.common.service.MiniappPresenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 
 /**
  * 登录拦截器
@@ -25,6 +27,7 @@ public class TokenInterceptor implements HandlerInterceptor {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final MiniappPresenceService presenceService;
 
     /**
      * 请求前拦截：校验 token 并写入用户上下文
@@ -42,6 +45,7 @@ public class TokenInterceptor implements HandlerInterceptor {
             return false;
         }
         // 2. 根据 URI 前缀选择 Redis key 前缀
+        boolean miniappRequest = request.getRequestURI().startsWith("/miniapp/");
         String prefix = request.getRequestURI().startsWith("/admin/")
                 ? AuthConstant.ADMIN_TOKEN_PREFIX
                 : AuthConstant.MINIAPP_TOKEN_PREFIX;
@@ -56,6 +60,9 @@ public class TokenInterceptor implements HandlerInterceptor {
         // 4. 反序列化并写入 ThreadLocal
         UserContext context = objectMapper.readValue(json, UserContext.class);
         UserContextHolder.set(context);
+        if (miniappRequest) {
+            presenceService.touch(context.getId(), LocalDateTime.now());
+        }
         return true;
     }
 

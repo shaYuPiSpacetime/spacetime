@@ -29,6 +29,45 @@ CREATE TABLE IF NOT EXISTS `app_relation_like` (
     KEY `idx_like_from_status_time` (`from_user_id`, `like_status`, `deleted`, `liked_time`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户喜欢关系生命周期事实表';
 
+CREATE TABLE IF NOT EXISTS `app_relation_like_inbox_state` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id` BIGINT NOT NULL COMMENT '接收喜欢的用户ID，每个用户唯一一条读取状态',
+    `last_read_liked_time` DATETIME DEFAULT NULL COMMENT '已确认查看到的喜欢生效时间，与喜欢记录主键共同组成读取游标',
+    `last_read_like_id` BIGINT DEFAULT NULL COMMENT '已确认查看到的喜欢记录主键ID，与喜欢生效时间共同组成读取游标',
+    `read_at` DATETIME DEFAULT NULL COMMENT '最近一次成功推进喜欢列表读取位置的时间',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID，移动端确认时写当前用户',
+    `updated_by` BIGINT DEFAULT NULL COMMENT '更新人ID，移动端确认时写当前用户',
+    `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除，本模块不开放删除入口',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_like_inbox_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='喜欢我的列表用户级已读游标表';
+
+-- 首次迁移把存量有效喜欢的最新一条设为读取基线，避免历史数据上线后全部显示为“新喜欢”。
+-- 新迁入喜欢会晚于该基线；新用户在第一次确认查看时由接口原子创建游标。
+INSERT IGNORE INTO app_relation_like_inbox_state
+    (user_id, last_read_liked_time, last_read_like_id, read_at,
+     create_time, update_time, created_by, updated_by, deleted)
+SELECT latest.to_user_id, latest.liked_time, latest.id, CURRENT_TIMESTAMP,
+       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, latest.to_user_id, latest.to_user_id, 0
+FROM app_relation_like latest
+WHERE latest.like_status = 'active'
+  AND latest.active_marker = 1
+  AND latest.deleted = 0
+  AND NOT EXISTS (
+      SELECT 1
+      FROM app_relation_like newer
+      WHERE newer.to_user_id = latest.to_user_id
+        AND newer.like_status = 'active'
+        AND newer.active_marker = 1
+        AND newer.deleted = 0
+        AND (
+              newer.liked_time > latest.liked_time
+              OR (newer.liked_time = latest.liked_time AND newer.id > latest.id)
+        )
+  );
+
 CREATE TABLE IF NOT EXISTS `app_relation_visit` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `visit_no` VARCHAR(64) NOT NULL COMMENT '访客展示记录业务编号，前缀VIS-',
@@ -151,6 +190,15 @@ CREATE TABLE IF NOT EXISTS `app_relation_match_popup` (
     KEY `idx_popup_user_status_time` (`user_id`, `popup_status`, `deleted`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='匹配成功弹窗用户独立状态表';
 
+-- 修复旧版实体更新忽略 NULL 导致的终态唯一标记残留，释放后续关系生命周期。
+UPDATE app_relation_like
+SET active_marker=NULL, update_time=CURRENT_TIMESTAMP
+WHERE like_status IN ('cancelled', 'invalid') AND active_marker IS NOT NULL;
+
+UPDATE app_relation_match
+SET active_marker=NULL, update_time=CURRENT_TIMESTAMP
+WHERE match_status='invalid' AND active_marker IS NOT NULL;
+
 -- 既有表增量字段：每列通过 information_schema 判定，保证迁移可重复执行。
 SET @schema_name = DATABASE();
 
@@ -163,6 +211,9 @@ SET @ddl = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEM
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='request_id')=0,
     'ALTER TABLE app_user_unlock_record ADD COLUMN request_id VARCHAR(64) DEFAULT NULL COMMENT ''客户端解锁请求幂等键'' AFTER unlock_no', 'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='quote_token')=0,
+    'ALTER TABLE app_user_unlock_record ADD COLUMN quote_token VARCHAR(64) DEFAULT NULL COMMENT ''解锁报价令牌，与请求幂等键共同确定一次扣币请求'' AFTER request_id', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='target_biz_type')=0,
     'ALTER TABLE app_user_unlock_record ADD COLUMN target_biz_type VARCHAR(32) DEFAULT NULL COMMENT ''目标业务类型：like-喜欢记录，visit-访客记录'' AFTER target_user_id', 'SELECT 1');
@@ -199,11 +250,20 @@ PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='uk_user_request_target')=0,
     'ALTER TABLE app_user_unlock_record ADD UNIQUE KEY uk_user_request_target (user_id, request_id, target_user_id)', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='uk_unlock_user_request')=0,
+    'ALTER TABLE app_user_unlock_record ADD UNIQUE KEY uk_unlock_user_request (user_id, request_id)', 'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='uk_unlock_active_target')=0,
     'ALTER TABLE app_user_unlock_record ADD UNIQUE KEY uk_unlock_active_target (user_id, unlock_scene, target_biz_type, target_biz_no, active_marker)', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='idx_unlock_target_biz')=0,
     'ALTER TABLE app_user_unlock_record ADD KEY idx_unlock_target_biz (target_biz_type, target_biz_no, status)', 'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='idx_unlock_user_biz_status')=0,
+    'ALTER TABLE app_user_unlock_record ADD KEY idx_unlock_user_biz_status (user_id, target_biz_type, status, active_marker, target_biz_no, effective_time)', 'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@schema_name AND TABLE_NAME='app_user_unlock_record' AND INDEX_NAME='idx_unlock_user_target_status')=0,
+    'ALTER TABLE app_user_unlock_record ADD KEY idx_unlock_user_target_status (user_id, target_biz_type, target_user_id, status, active_marker, effective_time)', 'SELECT 1');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 创建功能权限并授予超级管理员；客服、运营、风控等普通角色仍由部署清单显式授权。
@@ -211,8 +271,22 @@ INSERT INTO sys_menu (parent_id, menu_name, menu_type, perms, menu_sort, visible
 SELECT parent.id, '查看关系反馈', 'F', 'user:app:relation:view', 9, 0, 'ENABLED', '查看App用户关系摘要及明细', NOW(), NOW()
 FROM sys_menu parent
 WHERE parent.perms='user:app:list' AND parent.menu_type='C'
+  AND parent.status='ENABLED' AND parent.deleted=0
   AND NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms='user:app:relation:view' AND menu_type='F')
 LIMIT 1;
+
+-- 修复曾挂到已删除旧菜单下的关系反馈权限，确保权限查询不会被父级状态过滤。
+UPDATE sys_menu relation_menu
+JOIN sys_menu parent
+  ON parent.perms='user:app:list'
+ AND parent.menu_type='C'
+ AND parent.status='ENABLED'
+ AND parent.deleted=0
+SET relation_menu.parent_id=parent.id,
+    relation_menu.update_time=NOW()
+WHERE relation_menu.perms='user:app:relation:view'
+  AND relation_menu.menu_type='F'
+  AND relation_menu.deleted=0;
 
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id)
 SELECT r.id, m.id

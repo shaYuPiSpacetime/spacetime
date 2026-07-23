@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.spacetime.common.entity.UserAsset;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 /**
@@ -12,8 +13,14 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface UserAssetMapper extends BaseMapper<UserAsset> {
 
+    /** 解锁确认事务中锁定当前用户资产，串行化重复确认与扣币。 */
+    @Select("SELECT * FROM app_user_asset WHERE user_id = #{userId} AND deleted = 0 LIMIT 1 FOR UPDATE")
+    UserAsset selectByUserIdForUpdate(@Param("userId") Long userId);
+
     /** 原子更新千寻币余额，余额不足时不更新 */
-    @Update("UPDATE app_user_asset SET coin_balance = coin_balance + #{delta}, update_time = NOW() WHERE user_id = #{userId} AND deleted = 0")
+    @Update("UPDATE app_user_asset SET coin_balance = coin_balance + #{delta}, update_time = NOW() "
+            + "WHERE user_id = #{userId} AND deleted = 0 "
+            + "AND (#{delta} >= 0 OR coin_balance >= -#{delta})")
     int updateCoinBalance(@Param("userId") Long userId, @Param("delta") Integer delta);
 
     /** 原子更新累计充值金额与最后购买时间 */

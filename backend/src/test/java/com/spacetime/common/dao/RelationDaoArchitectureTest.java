@@ -1,6 +1,7 @@
 package com.spacetime.common.dao;
 
 import com.spacetime.common.dao.impl.AppRelationLikeDaoImpl;
+import com.spacetime.common.dao.impl.AppRelationLikeInboxStateDaoImpl;
 import com.spacetime.common.dao.impl.AppRelationMatchDaoImpl;
 import com.spacetime.common.dao.impl.AppRelationMatchPopupDaoImpl;
 import com.spacetime.common.dao.impl.AppRelationMatchSourceDaoImpl;
@@ -24,6 +25,7 @@ class RelationDaoArchitectureTest {
     void everyRelationTableShouldHaveDaoAndRepositoryImplementation() {
         List<Class<?>> daos = List.of(
                 AppRelationLikeDao.class,
+                AppRelationLikeInboxStateDao.class,
                 AppRelationVisitDao.class,
                 AppRelationVisitEventDao.class,
                 AppRelationVisitCursorDao.class,
@@ -32,6 +34,7 @@ class RelationDaoArchitectureTest {
                 AppRelationMatchPopupDao.class);
         List<Class<?>> implementations = List.of(
                 AppRelationLikeDaoImpl.class,
+                AppRelationLikeInboxStateDaoImpl.class,
                 AppRelationVisitDaoImpl.class,
                 AppRelationVisitEventDaoImpl.class,
                 AppRelationVisitCursorDaoImpl.class,
@@ -40,6 +43,7 @@ class RelationDaoArchitectureTest {
                 AppRelationMatchPopupDaoImpl.class);
 
         assertThat(daos).allMatch(Class::isInterface);
+        assertThat(daos).allMatch(RelationCrudDao.class::isAssignableFrom);
         assertThat(implementations).allMatch(type -> type.isAnnotationPresent(Repository.class));
     }
 

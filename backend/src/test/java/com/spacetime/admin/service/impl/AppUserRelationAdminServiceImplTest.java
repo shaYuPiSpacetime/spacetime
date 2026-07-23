@@ -122,6 +122,31 @@ class AppUserRelationAdminServiceImplTest {
     }
 
     @Test
+    void treatsAllStatusAndSourceAsNoFilter() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), AppRelationLike.class);
+        AppUser user = activeUser(1L, "褰撳墠鐢ㄦ埛");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        Page<AppRelationLike> source = new Page<>(1, 5, 0);
+        source.setRecords(List.of());
+        when(likeDao.selectPage(any(), any())).thenReturn(source);
+        RelationPageReq req = new RelationPageReq();
+        req.setSize(5);
+        req.setStatus("ALL");
+        req.setSource("ALL");
+
+        service.likes(1L, req);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<AppRelationLike>> wrapperCaptor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(likeDao).selectPage(any(), wrapperCaptor.capture());
+        assertThat(wrapperCaptor.getValue().getSqlSegment())
+                .doesNotContain("like_status")
+                .doesNotContain("source_scene");
+    }
+
+    @Test
     void acceptsExactUnlockNumberFilter() {
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), UserUnlockRecord.class);

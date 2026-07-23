@@ -17,6 +17,7 @@ class RelationSchemaSqlTest {
 
     private static final List<String> TABLES = List.of(
             "app_relation_like",
+            "app_relation_like_inbox_state",
             "app_relation_visit",
             "app_relation_visit_event",
             "app_relation_visit_cursor",
@@ -25,7 +26,7 @@ class RelationSchemaSqlTest {
             "app_relation_match_popup");
 
     @Test
-    @DisplayName("基线脚本应创建七张关系表并为全部字段写中文注释")
+    @DisplayName("基线脚本应创建八张关系表并为全部字段写中文注释")
     void schemaShouldCreateCommentedRelationTables() throws IOException {
         String sql = readProjectFile("backend/docs/sql/schema-relation.sql");
 
@@ -37,6 +38,8 @@ class RelationSchemaSqlTest {
         assertEveryRelationColumnHasChineseComment(sql);
         assertThat(sql).doesNotContain("window_started_at", "hidden_by_visitor");
         assertThat(sql).contains("COMMENT '主键ID'")
+                .contains("已确认查看到的喜欢生效时间")
+                .contains("已确认查看到的喜欢记录主键ID")
                 .contains("COMMENT '创建时间'")
                 .contains("COMMENT '更新时间'")
                 .contains("COMMENT '创建人ID")
@@ -72,7 +75,7 @@ class RelationSchemaSqlTest {
                 .map(String::trim)
                 .filter(line -> line.contains("ADD COLUMN"))
                 .toList();
-        assertThat(incrementalColumns).hasSize(7)
+        assertThat(incrementalColumns).hasSize(8)
                 .allSatisfy(line -> assertThat(line)
                         .contains("COMMENT ''")
                         .containsPattern("COMMENT ''[^']*[\\u4e00-\\u9fa5][^']*''"));
@@ -80,11 +83,17 @@ class RelationSchemaSqlTest {
                 .contains("anonymous_no")
                 .contains("unlock_no")
                 .contains("TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='request_id'")
+                .contains("TABLE_NAME='app_user_unlock_record' AND COLUMN_NAME='quote_token'")
+                .contains("app_relation_like_inbox_state")
+                .contains("uk_like_inbox_user")
                 .contains("target_biz_type")
                 .contains("target_biz_no")
                 .contains("refund_no")
                 .contains("active_marker")
                 .contains("uk_user_request_target")
+                .contains("uk_unlock_user_request")
+                .contains("idx_unlock_user_biz_status")
+                .contains("idx_unlock_user_target_status")
                 .contains("user:app:relation:view")
                 .contains("ENABLED", "active", "DISABLED", "expired")
                 .contains("active-有效，cancelled-已取消，invalid-已失效")
@@ -95,6 +104,10 @@ class RelationSchemaSqlTest {
                 .contains("pending-待展示或待回执，read-已读，cancelled-展示前已取消")
                 .contains("later-稍后，close-关闭，profile-查看主页，chat-去聊天，system_back-系统返回")
                 .contains("MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '解锁状态：active-有效，expired-已过期，refunded-已退款'")
+                .contains("UPDATE app_relation_like")
+                .contains("like_status IN ('cancelled', 'invalid')")
+                .contains("UPDATE app_relation_match")
+                .contains("match_status='invalid'")
                 .doesNotContain("DROP TABLE", "DELETE FROM app_relation");
     }
 
@@ -107,6 +120,19 @@ class RelationSchemaSqlTest {
                 .contains("INSERT IGNORE INTO sys_role_menu (role_id, menu_id)")
                 .contains("r.role_code='super_admin'")
                 .contains("m.perms='user:app:relation:view'");
+    }
+
+    @Test
+    @DisplayName("Relation permission should be attached to the active App user menu")
+    void migrationShouldRepairRelationPermissionParent() throws IOException {
+        String sql = readProjectFile("deploy/sql/prod/056_prd02_relation_feedback.sql");
+
+        assertThat(sql)
+                .contains("UPDATE sys_menu relation_menu")
+                .contains("relation_menu.perms='user:app:relation:view'")
+                .contains("parent.perms='user:app:list'")
+                .contains("parent.status='ENABLED'")
+                .contains("parent.deleted=0");
     }
 
     private void assertEveryRelationColumnHasChineseComment(String sql) {
