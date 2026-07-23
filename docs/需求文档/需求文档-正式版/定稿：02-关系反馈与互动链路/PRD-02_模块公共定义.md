@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本09 | 2026-07-23 | Codex | 新增“新喜欢”定义、未读计数与快照已读规则，区分新喜欢数和有效喜欢总数，并补齐入口角标、列表分组及接口字段 |
 | 版本08 | 2026-07-16 | Codex | 同步需求评审最终确认：单条解锁采用两步确认；女性保护只限制发送；恢复匹配成功弹窗并按用户记录展示/已读状态 |
 | 版本07 | 2026-07-15 | Codex | 按开发答疑确认：隐藏访问一期完全不开发；匹配采用单一有效关系与多来源明细；补齐有效总数、永久留存和后台分页口径 |
 | 版本06 | 2026-07-10 | Codex | 按蓝湖 UI 与产品确认收口：取消前台失效态、匹配成功弹窗、海量曝光/10倍曝光入口，补充单条解锁与喜欢提示文案 |
@@ -44,12 +45,14 @@
 | M02-21 | 喜欢我的、最近看过我的、相互喜欢列表仅展示可见有效对象；异常/失效/取消喜欢记录默认从前台列表移除，不提供前台失效态切换按钮或关系失效弹窗 | `M02-RULE-relation-invalid`、`M02-RULE-like-cancel` |
 | M02-22 | 会员到期只使喜欢/访客全量清晰权益回退为普通模糊态；已用千寻币单条解锁的记录在对象与关系可展示时永久清晰，不因会员到期失效 | `M02-RULE-vip-expiry-display`、`M02-RULE-unlock-visibility` |
 | M02-23 | “对你一见钟情，秒送喜欢”等为喜欢行为提示文案/运营弱提示，不代表强识别字段，不改变匹配状态 | `M02-TXT-like-action-copy` |
+| M02-24 | “新喜欢”固定指当前用户尚未确认查看的有效入向喜欢，是 `total` 的子集，不代表新注册用户或相互喜欢；入口显示数量角标，列表显示新喜欢摘要并按“新喜欢/更早”分组，首屏成功渲染后按查询快照确认已读 | `M02-TERM-new-like`、`M02-RULE-new-like-definition`、`M02-RULE-new-like-read`、`M02-RULE-new-like-display` |
 
 ### 1.1 本模块产出
 
 | 产出 ID | 产出项 | 说明 | 主要承接页面/规则 |
 |---------|--------|------|------------------|
 | `M02-OUT-like-feedback` | 喜欢反馈记录 | 记录谁喜欢了我、来源场景、状态与后台失效原因 | `APP-02-PAGE-likes-me`、`M02-SM-like-record` |
+| `M02-OUT-like-inbox-state` | 喜欢收件箱读取状态 | 记录当前用户已确认查看到的喜欢快照游标，输出 `newCount`、记录级 `isNew` 与本次查询 `readCursor` | `APP-02-PAGE-likes-me`、`M02-RULE-new-like-read` |
 | `M02-OUT-visit-feedback` | 来访反馈记录 | 记录最近 7 天谁进入过我的婚恋用户主页 | `APP-02-PAGE-recent-viewers`、`M02-SM-visit-record` |
 | `M02-OUT-mutual-match` | 相互喜欢/匹配成功记录 | 记录匹配双方、匹配来源、状态与后台失效原因；为双方分别生成一次匹配弹窗待展示状态 | `APP-02-PAGE-mutual-matches`、`APP-02-PAGE-match-success-modal`、`M02-SM-mutual-match` |
 | `M02-OUT-single-unlock-status` | 单条解锁状态 | 记录某条喜欢/访客是否已通过千寻币单条解锁；资产与扣费由 PRD-04 承接 | `APP-02-PAGE-single-unlock-modal`、`M02-RULE-unlock-visibility` |
@@ -63,6 +66,7 @@
 | 术语 ID | 统一术语 | 禁用旧称/别名 | 定义 | 是否需提升全局 |
 |---------|----------|----------------|------|----------------|
 | `M02-TERM-like-record` | 喜欢记录 | 心动记录（非精选场景） | 用户对另一名异性用户表达喜欢后形成的关系反馈记录 | 否 |
+| `M02-TERM-new-like` | 新喜欢 | 新用户、最新匹配、相互喜欢 | 当前用户尚未按 `M02-RULE-new-like-read` 确认查看，且仍满足 `likeStatus=active`、对象当前可互动的入向喜欢记录 | 否 |
 | `M02-TERM-visit-record` | 访客记录 | 浏览记录、看过我 | 用户进入另一名用户婚恋主页后形成的访问反馈记录 | 否 |
 | `M02-TERM-mutual-match` | 相互喜欢/匹配成功 | 配对成功 | 两名用户满足匹配成功条件后形成的双向关系记录 | 否 |
 | `M02-TERM-blur-display` | 模糊态 | 高斯模糊、匿名态 | 普通用户未解锁前看到的弱识别展示状态 | 否 |
@@ -144,9 +148,9 @@
 
 | 起始状态 | 事件/触发 | 目标状态 | 副作用 |
 |----------|-----------|----------|--------|
-| 无 | 用户喜欢且双方满足 `M02-RULE-core-access` | `active` | 写喜欢记录；接收方喜欢我的列表新增记录；检查是否生成匹配 |
-| `active` | 发起方取消喜欢 | `cancelled` | 接收方喜欢我的默认列表移除该记录并撤销爱心来源；匹配是否继续有效按 `M02-RULE-match-lifecycle` 判断；后台永久保留记录 |
-| `active` | 任一方拉黑/冻结/注销/封禁/认证失效 | `invalid` | 前台默认列表不展示不可互动对象；后台保留记录和真实原因 |
+| 无 | 用户喜欢且双方满足 `M02-RULE-core-access` | `active` | 写喜欢记录；接收方喜欢我的列表新增记录，并在尚未确认查看时计入 `newCount`；检查是否生成匹配 |
+| `active` | 发起方取消喜欢 | `cancelled` | 接收方喜欢我的默认列表移除该记录；若尚未确认查看则同步移出 `newCount`；撤销爱心来源；匹配是否继续有效按 `M02-RULE-match-lifecycle` 判断；后台永久保留记录 |
+| `active` | 任一方拉黑/冻结/注销/封禁/认证失效 | `invalid` | 前台默认列表不展示不可互动对象；若尚未确认查看则同步移出 `newCount`；后台保留记录和真实原因 |
 
 ### 4.2 `M02-SM-visit-record` 访客记录状态机
 
@@ -177,6 +181,9 @@
 | `M02-RULE-visit-dedup` | 访客去重 | APP/ADM | 同一访客 30 分钟内访问同一目标主页，只生成 1 条展示记录；PV 可累计 | 固定参数 `M02-PARAM-visit-dedup-minutes` |
 | `M02-RULE-visitor-window` | 最近看过我的展示窗口 | APP/ADM | 前台列表只展示最近 7 天内 `visible` 访客记录 | 固定参数 `M02-PARAM-visitor-visible-days` |
 | `M02-RULE-blur-display` | 模糊态字段 | APP | 普通未解锁状态不展示清晰头像、昵称、年龄、学校；仅展示弱识别标签、访问分组、访问次数等 | 页面规格列字段 |
+| `M02-RULE-new-like-definition` | 新喜欢定义与计数 | APP | `newCount` 只统计当前用户尚未确认查看、`likeStatus=active` 且对象当前可互动的入向喜欢，是当前有效喜欢 `total` 的子集；同一发起方当前最多一条有效喜欢，取消/失效后重建的新喜欢生命周期可再次计为新喜欢 | 不把新注册用户、相互喜欢或已读历史喜欢计入 |
+| `M02-RULE-new-like-read` | 新喜欢快照已读 | APP | 喜欢我的查询返回本次快照的服务端不透明 `readCursor`；仅当首屏数据成功渲染后，客户端才提交该游标确认已读。服务端幂等推进当前用户读取游标，本次快照之后到达的喜欢仍为新喜欢；查询失败、渲染失败、应用异常退出或已读提交失败均不清除未读状态。当前页面保留本次快照的“新”展示，重新进入或刷新后按最新读取状态计算 | 客户端不得自行拼接或比较游标 |
+| `M02-RULE-new-like-display` | 新喜欢展示 | APP | 心动及喜欢我的入口在 `newCount>0` 时显示数字角标，1-99 显示原数、100 及以上显示 `99+`，0 时隐藏；喜欢我的顶部显示“{newCount} 个新喜欢”和最多 5 个最新新喜欢头像摘要，列表按“新喜欢/更早”分组，新记录显示“新”标签；`newCount=0` 时不显示摘要或分组标题，直接展示常规列表。模糊态仍可展示数量、相对喜欢时间和“新”标签，但头像摘要及卡片必须继续遵守 `M02-RULE-blur-display`，不得泄露强识别信息 | `total` 对应文案固定为“{total} 人喜欢了我”，不得写成“{total} 人新喜欢了我” |
 | `M02-RULE-unlock-visibility` | 单条解锁清晰可见 | APP/ADM | 单条解锁成功后，在对象与关系仍可展示时永久清晰；访客列表仍受 7 天窗口限制。对象取消喜欢、拉黑、冻结、注销、封禁或认证失效后前台移除，不展示失效卡片且不自动退款；后台保留解锁记录、消费流水和真实失效原因 | 特批退款引用 PRD-04 |
 | `M02-RULE-vip-expiry-display` | 会员到期展示回退 | APP/ADM | 会员到期后，喜欢/访客全量清晰权益回退为普通模糊态；已千寻币单条解锁记录在对象与关系可展示时继续清晰 | 区分会员权益与单条购买 |
 | `M02-RULE-paywall-handoff` | 付费承接 | APP | 列表页点击模糊卡片先打开 `APP-02-PAGE-single-unlock-modal` 场景弹窗；弹窗内“只看ta”复用 `APP-04-PAGE-paywall-modal` 千寻币确认；解锁全部唤起会员引导；余额不足进入 PRD-04 充值承接 | 不重复定义支付页 |
@@ -223,6 +230,8 @@
 | `M02-EVT-relation-invalidated` | 事件 | 关系失效 | 内部事件 | relationType, relationId, invalidReason | 否 |
 | `M02-TXT-core-access-block` | 文案 | 未完成三重认证进入关系反馈 | APP | 完成实名、头像、学历三重认证后，才可查看谁喜欢你、谁看过你，并开启真实互动 | 是 |
 | `M02-TXT-likes-empty` | 文案 | 喜欢我的空态 | APP | 还没有人喜欢你，去完善资料和上传更吸引人的照片吧 | 是 |
+| `M02-TXT-new-likes-summary` | 文案 | 喜欢我的顶部新喜欢摘要 | APP | {newCount} 个新喜欢 | 否 |
+| `M02-TXT-likes-total` | 文案 | 喜欢我的有效总数 | APP | {total} 人喜欢了我 | 否 |
 | `M02-TXT-viewers-empty` | 文案 | 最近看过我的空态 | APP | 最近还没有人来看过你 | 是 |
 | `M02-TXT-mutual-empty` | 文案 | 相互喜欢空态 | APP | 还没有相互喜欢的人 | 是 |
 | `M02-TXT-relation-invalid` | 文案 | 关系不可互动兜底提示 | APP/ADM | 该关系已不可互动 | 是 |
@@ -251,7 +260,8 @@
 
 | 端 | 方法 | 路径 | 说明 | 关联规则/状态 |
 |----|------|------|------|---------------|
-| APP | GET | `/api/app/relation/likes-me` | 查询喜欢我的默认列表，不返回 `cancelled` 取消喜欢记录 | `M02-RULE-blur-display`、`M02-RULE-like-cancel` |
+| APP | GET | `/api/app/relation/likes-me` | 查询喜欢我的默认列表，返回 `total`、`newCount`、记录级 `isNew` 与快照 `readCursor`，不返回 `cancelled` 取消喜欢记录 | `M02-RULE-blur-display`、`M02-RULE-new-like-definition`、`M02-RULE-like-cancel` |
+| APP | POST | `/api/app/relation/likes-me/read` | 首屏成功渲染后按服务端 `readCursor` 幂等确认本次新喜欢快照已读 | `M02-RULE-new-like-read` |
 | APP | GET | `/api/app/relation/recent-viewers` | 查询最近看过我的列表 | `M02-RULE-visitor-window` |
 | APP | GET | `/api/app/relation/mutual-matches` | 查询相互喜欢默认列表，仅返回 `matched` 有效记录 | `M02-SM-mutual-match`、`M02-RULE-like-cancel` |
 | APP | POST | `/api/app/relation/like` | 发起喜欢 | `M02-RULE-core-access` |
@@ -275,7 +285,12 @@
 ```json
 {
   "total": 32,
+  "newCount": 5,
+  "readCursor": "LIKE-INBOX-CURSOR-20260702100000-LIK-20260702-0001",
   "vipUnlocked": false,
+  "newLikePreviewAvatars": [
+    "https://example.com/avatar-blur.png"
+  ],
   "list": [
     {
       "recordNo": "LIK-20260702-0001",
@@ -285,12 +300,16 @@
       "avatar": "https://example.com/avatar-blur.png",
       "weakTags": ["同城", "金牛座"],
       "isMutualLike": false,
+      "isNew": true,
       "likedTime": "2026-07-02 10:00:00",
       "likeActionCopy": "对你一见钟情，秒送喜欢"
     }
   ]
 }
 ```
+
+> `readCursor` 为服务端生成的不透明快照游标，仅用于 `/api/app/relation/likes-me/read`；客户端不得从时间或 `recordNo` 自行推导。`newLikePreviewAvatars` 最多返回 5 个，并逐条遵守对应记录的模糊/清晰展示状态。
+> 新喜欢统一只使用 `newCount`：不得同时返回 `likeUnreadCount`、`newLikeCount` 等同义字段形成两套数量口径。`total` 始终表示全部当前有效喜欢数。
 
 #### 9.1.2 最近看过我的列表
 
@@ -381,3 +400,6 @@
 | `M02-EX-block-after-match` | 匹配成功后对方拉黑 | 相互喜欢默认列表移除该记录，后续不可普通聊天；后台保留真实原因 | `M02-RULE-relation-invalid` |
 | `M02-EX-match-popup-interrupted` | 匹配弹窗加载失败或应用异常退出 | 不标记已读，下次满足展示条件时继续展示 | `M02-RULE-match-popup-user-state` |
 | `M02-EX-match-popup-action` | 用户关闭弹窗、去主页、去聊天或系统返回 | 先按 `matchNo + userId` 幂等标记已读，再执行关闭或导航 | `M02-RULE-match-popup-user-state` |
+| `M02-EX-new-like-invalid-before-read` | 新喜欢在用户确认查看前被取消或因对象异常失效 | 从前台列表、`newCount` 和头像摘要中移除，不展示取消/失效提示；后台保留真实记录 | `M02-RULE-new-like-definition`、`M02-RULE-like-cancel` |
+| `M02-EX-new-like-read-interrupted` | 喜欢我的查询、首屏渲染或已读提交失败 | 不推进读取游标，不清除入口角标；下次进入或刷新时继续按新喜欢展示 | `M02-RULE-new-like-read` |
+| `M02-EX-new-like-concurrent-arrival` | 用户确认当前快照已读期间又收到新喜欢 | 只确认 `readCursor` 覆盖的快照；之后到达的记录继续 `isNew=true` 并计入 `newCount` | `M02-RULE-new-like-read` |

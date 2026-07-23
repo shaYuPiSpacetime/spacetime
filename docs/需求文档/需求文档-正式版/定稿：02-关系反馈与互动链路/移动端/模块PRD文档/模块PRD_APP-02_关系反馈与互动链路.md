@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本06 | 2026-07-23 | Codex | 新增新喜欢未读计数、入口角标、列表分组、读取快照状态与幂等确认规则 |
 | 版本05 | 2026-07-16 | Codex | 同步最终确认：匹配弹窗按用户记录已读；单条解锁两步确认；女性保护仅限制发送；移动端接口本轮延期 |
 | 版本04 | 2026-07-10 | Codex | 按蓝湖 UI 与产品确认收口：取消匹配成功弹窗、前台失效态、海量曝光/10倍曝光入口，调整相互喜欢与单条解锁范围 |
 | 版本03 | 2026-07-09 | Codex | 按产品确认调整关系失效前台展示：取消喜欢后默认列表隐藏，不提示“取消喜欢/不喜欢了” |
@@ -44,13 +45,15 @@
   1. 用户 A 对用户 B 点击喜欢
   2. 后端校验 A/B 均满足 `M02-RULE-core-access`、异性、账号正常、未拉黑
   3. 写入 `M02-SM-like-record=active`
-  4. 用户 B 的喜欢我的列表出现记录
-  5. 若 B 已喜欢 A，生成 `M02-SM-mutual-match=matched`
-  6. 按 `matchNo + userId` 为双方分别生成待展示状态；用户成功看到弹窗并主动关闭或导航后标记本人已读
+  4. 用户 B 的喜欢我的列表出现记录；B 尚未确认查看时，该记录按 `M02-RULE-new-like-definition` 计入 `newCount`
+  5. B 进入喜欢我的页面后，接口返回本次服务端快照 `readCursor`；仅首屏成功渲染后提交游标确认已读，快照之后到达的喜欢继续保持新喜欢
+  6. 若 B 已喜欢 A，生成 `M02-SM-mutual-match=matched`
+  7. 按 `matchNo + userId` 为双方分别生成待展示状态；用户成功看到弹窗并主动关闭或导航后标记本人已读
 异常：
   - 未完成三重认证：不写关系，展示认证引导
   - 重复喜欢：幂等返回已喜欢
   - 任一方状态异常：不写关系或置失效
+  - 喜欢我的查询、首屏渲染或已读提交失败：不推进读取游标，不清除新喜欢角标
 出口：继续推荐、查看主页或进入相互喜欢/聊天
 ```
 
@@ -110,6 +113,7 @@
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
 | 喜欢记录 | `relation_like_record` | 用户喜欢关系 | 02 | likeNo, fromUserId, toUserId, sourceScene, likeStatus, invalidReason |
+| 喜欢收件箱读取状态 | `relation_like_inbox_state` | 用户确认查看喜欢列表的快照游标 | 02 | userId, readCursor, readAt |
 | 访客记录 | `relation_visit_record` | 婚恋用户主页访问反馈 | 02 | visitNo, visitorUserId, targetUserId, sourceScene, visitTime, visitStatus |
 | 匹配成功记录 | `relation_mutual_match` | 相互喜欢/匹配成功关系 | 02 | matchNo, userAId, userBId, matchSource, matchStatus, invalidReason |
 | 匹配来源明细 | `relation_match_source` | 同一匹配生命周期内的来源事件 | 02 | matchNo, sourceType, sourceEventNo, sourceStatus |
@@ -121,6 +125,7 @@
 ```text
 用户 1──N 喜欢记录（fromUserId）
 用户 1──N 喜欢记录（toUserId）
+用户 1──1 喜欢收件箱读取状态
 用户 1──N 访客记录（visitorUserId）
 用户 1──N 访客记录（targetUserId）
 用户 1──N 匹配成功记录（userAId/userBId）
@@ -145,7 +150,7 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 
 | 需求 ID | 能力 | 优先级 | 关联页面 ID | 备注 |
 |---------|------|--------|-------------|------|
-| `APP-02-RULE-likes-me` | 喜欢我的列表、模糊/清晰展示、单条解锁、会员全量查看 | P0 | `APP-02-PAGE-likes-me` | |
+| `APP-02-RULE-likes-me` | 喜欢我的列表、新喜欢计数/角标/摘要/分组及快照已读、模糊/清晰展示、单条解锁、会员全量查看 | P0 | `APP-02-PAGE-likes-me` | 新喜欢引用 `M02-RULE-new-like-*` |
 | `APP-02-RULE-recent-viewers` | 最近看过我的列表、7 天窗口、访客 UV/PV 与展示记录去重 | P0 | `APP-02-PAGE-recent-viewers` | 隐藏访问一期不开发 |
 | `APP-02-RULE-mutual-matches` | 相互喜欢默认列表、有效匹配、查看主页入口；聊天由主页/消息链路承接 | P0 | `APP-02-PAGE-mutual-matches` | 取消喜欢或异常导致的失效记录不进入默认列表 |
 | `APP-02-RULE-match-success-modal` | 新匹配生命周期为双方各生成一次匹配成功弹窗状态，并按用户主动动作记录已读 | P0 | `APP-02-PAGE-match-success-modal` | 当前缺蓝湖 UI；移动端实现按 `C02-12` 延期 |
@@ -213,7 +218,7 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 
 | 场景 | 要求 |
 |------|------|
-| 喜欢我的/最近看过我的列表 | 首屏 20 条以内，常规网络 800ms 内返回 |
+| 喜欢我的/最近看过我的列表 | 首屏 20 条以内，常规网络 800ms 内返回；喜欢我的 `total`、`newCount`、头像摘要和 `readCursor` 随列表聚合返回，不新增首屏串行请求 |
 | 相互喜欢列表 | 首屏 20 条以内，常规网络 800ms 内返回 |
 
 ### 9.3 并发与幂等
@@ -222,6 +227,7 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 |------|----------|
 | 发起喜欢 | 同一 fromUserId + toUserId 当前 active 仅保留一条 |
 | 取消喜欢 | 重复取消返回成功态，不重复触发事件 |
+| 新喜欢确认已读 | 服务端按用户幂等推进不透明 `readCursor`；并发新喜欢只影响游标之后的快照，不得被旧游标误标已读 |
 | 访客记录 | 同一 visitorUserId + targetUserId 在 30 分钟窗口内不新增多条展示记录 |
 | 匹配成功 | 同一用户对同一来源在有效状态下不重复生成多条 active 匹配 |
 | 匹配弹窗 | 同一 `matchNo + userId` 仅一条状态；已读重复提交幂等成功，新生命周期使用新 `matchNo` |
@@ -232,6 +238,8 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 | 埋点 ID | 触发时机 |
 |---------|----------|
 | `likes_me_page_show` | 喜欢我的列表曝光 |
+| `likes_me_new_summary_show` | `newCount>0` 时新喜欢数量、头像摘要与分组实际曝光 |
+| `likes_me_read_ack` | 首屏成功渲染后提交 `readCursor` 及返回成功/失败 |
 | `likes_me_card_click` | 点击喜欢我的卡片 |
 | `likes_me_unlock_one_click` | 点击单条解锁 |
 | `likes_me_unlock_all_click` | 点击解锁全部 |
@@ -243,11 +251,30 @@ PRD-04 解锁记录 1──1 PRD-02 喜欢/访客记录
 | `match_success_popup_show` | 匹配成功弹窗实际展示成功 |
 | `match_success_popup_action` | 用户关闭、稍后处理、去主页或去聊天 |
 
+### 9.5 存量数据与老版本兼容
+
+| 场景 | 处理口径 |
+|------|----------|
+| 新喜欢能力首次上线 | 以正式切流时刻初始化每名用户的读取基线；切流前已有的有效喜欢进入“更早”，不一次性制造历史新喜欢角标，切流后新生效的有效入向喜欢才计入 `newCount` |
+| 老版本客户端 | `newCount`、`readCursor`、`newLikePreviewAvatars`、`isNew` 均为新增响应字段，老版本忽略后仍按原喜欢列表展示；不得修改原 `total` 语义 |
+| 已读接口暂不可用 | 不影响喜欢列表浏览、解锁或主页跳转；保留未读状态并在下次进入或刷新时重试 |
+
 ---
 
 ## 10. 验收总则
 
 ```text
+AC-ID: APP-02-AC-new-like-inbox
+Given 当前用户存在尚未确认查看的有效入向喜欢
+When  用户进入喜欢我的页面且首屏成功渲染
+Then  入口角标、顶部摘要、头像预览和“新喜欢/更早”分组符合 M02-RULE-new-like-display；
+      客户端随后按 readCursor 幂等确认当前快照已读，快照之后到达的喜欢仍保持新喜欢
+
+AC-ID: APP-02-AC-new-like-read-fallback
+Given 当前用户存在新喜欢
+When  查询、首屏渲染或已读提交任一环节失败
+Then  不推进读取游标、不清除入口角标，下次进入或刷新时继续按 M02-RULE-new-like-read 展示
+
 AC-ID: APP-02-AC-core-access
 Given 用户未完成实名、头像、学历三重认证任一项
 When  用户进入喜欢我的、最近看过我的或相互喜欢
