@@ -216,8 +216,9 @@ function MessageEntrances() {
           }}
         />
         <Image
+          data-role="message-home-yo-art"
           src={miniappOssIcons.messageHomeYoArt}
-          mode="scaleToFill"
+          mode="aspectFit"
           style={{
             position: 'absolute',
             right: 0,
@@ -269,8 +270,9 @@ function MessageEntrances() {
           有个小秘密只告诉你
         </Text>
         <Image
+          data-role="message-home-private-art"
           src={miniappOssIcons.messageHomePrivateBubbleArt}
-          mode="scaleToFill"
+          mode="aspectFit"
           style={{
             position: 'absolute',
             right: 0,

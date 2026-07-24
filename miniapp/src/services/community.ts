@@ -68,13 +68,71 @@ export interface CommunityConfig {
   homeTabs: Array<{ entryKey: string; entryName: string; sort: number }>
 }
 
+export interface CommunityTopicCardVO {
+  id: number
+  name: string
+  description: string
+  coverUrl?: string
+  postCount: number
+  participantCount: number
+  participantAvatars: string[]
+  previewContent?: string
+  previewImageUrl?: string
+  previewAuthorId?: number
+  previewAuthorName?: string
+  previewAuthorAvatar?: string
+  previewCreateTime?: string
+}
+
+export interface CommunityTopicDetailVO {
+  id: number
+  name: string
+  description: string
+  coverUrl?: string
+  postCount: number
+  participantCount: number
+}
+
+export interface CommunityTopicHomeVO {
+  featured?: CommunityTopicCardVO
+  related: CommunityTopicCardVO[]
+}
+
+export interface YuemuUserVO {
+  userId: number
+  nickname: string
+  photoUrl: string
+  fateLabel: string
+  educationSchool: string
+  onlineText: string
+  liked: boolean
+}
+
 export function getCommunityPosts(scene: CommunityScene, page = 1, size = 10) {
   return get<PageVO<CommunityPostVO>>('/miniapp/community/posts', { scene, page, size })
 }
 
-export function getCommunityTopicPosts(topicId: number, page = 1, size = 10) {
-  return get<PageVO<CommunityPostVO>>('/miniapp/community/posts', { topicId, page, size })
+export const getCommunityTopicHome = () =>
+  get<CommunityTopicHomeVO>('/miniapp/community/topics/home')
+
+export const getCommunityTopics = (page = 1, size = 10) =>
+  get<PageVO<CommunityTopicCardVO>>('/miniapp/community/topics', { page, size })
+
+export const getCommunityTopicDetail = (topicId: number) =>
+  get<CommunityTopicDetailVO>(`/miniapp/community/topics/${topicId}`)
+
+export function getCommunityTopicPosts(topicId: number, sort: 'HOT' | 'LATEST' = 'HOT', page = 1, size = 10) {
+  return get<PageVO<CommunityPostVO>>(`/miniapp/community/topics/${topicId}/posts`, { sort, page, size })
 }
+
+export const getYuemuUsers = (page = 1, size = 20) =>
+  get<PageVO<YuemuUserVO>>('/miniapp/community/yuemu', { page, size })
+
+export const toggleYuemuLike = (targetUserId: number) =>
+  post<{ liked: boolean }>(`/miniapp/community/yuemu/${targetUserId}/like`)
+
+export const getSincerePosts = (page = 1, size = 10) =>
+  get<PageVO<CommunityPostVO>>('/miniapp/community/sincere-posts', { page, size })
 
 export const getCommunityPostDetail = (postId: number) => get<CommunityPostDetailVO>(`/miniapp/community/posts/${postId}`)
 export const getCommunityComments = (postId: number, page = 1, size = 20) => get<PageVO<CommunityCommentVO>>(`/miniapp/community/posts/${postId}/comments`, { page, size })
@@ -88,9 +146,9 @@ export const toggleCommunityFollow = (targetUserId: number) => post<{ following:
 export const toggleCommunityLike = (postId: number) => post<{ liked: boolean; likeCount: number }>(`/miniapp/community/posts/${postId}/like`)
 export const reportCommunityPost = (postId: number, reasonCode: string) => post<number>('/miniapp/community/reports', { targetType: 'post', targetId: postId, reasonCode })
 
-export function publishCommunityPost(content: string, imageUrls: string[], topicId: number): Promise<number> {
+export function publishCommunityPost(content: string, imageUrls: string[], topicId: number, postType: 'normal_post' | 'sincere_post' = 'normal_post'): Promise<number> {
   return post<number>('/miniapp/community/posts', {
-    postType: 'normal_post',
+    postType,
     content,
     imageUrls,
     topicId,

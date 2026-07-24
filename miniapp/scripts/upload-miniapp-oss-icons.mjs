@@ -86,6 +86,8 @@ const ICON_ASSETS = Object.freeze({
   qianxunEmptyFollowing: 'src/assets/lanhu/recommend/slices/empty-following.png',
   qianxunVerifyNote: 'src/assets/lanhu/recommend/slices/verify-note.webp',
   qianxunTopicCover: 'src/assets/lanhu/recommend/slices/city-night.webp',
+  qianxunTopicHero: 'src/assets/lanhu/recommend/slices/topic-forest-rainbow-v2.png',
+  qianxunTopicThumb: 'src/assets/lanhu/recommend/slices/topic-pinky-promise-v2.png',
   qianxunTopicAvatar: 'src/assets/lanhu/recommend/slices/avatar-xiaolaohu.webp',
   qianxunCenter: 'src/assets/lanhu/pages/qianxun-center.png',
   profilePost: 'src/assets/profile/icon-post.png',

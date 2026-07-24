@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 import bg from '@/assets/lanhu/verification/verification-bg.webp'
-import { getWindowMetrics } from '@/utils/system'
 
 interface VerificationSubShellProps {
   title: string
@@ -49,38 +49,21 @@ export default function VerificationSubShell({
 }
 
 function Header({ title, onBack }: { title: string; onBack: () => void }) {
-  const menu = Taro.getMenuButtonBoundingClientRect?.()
-  const system = getWindowMetrics()
-  const scale = system.windowWidth ? 750 / system.windowWidth : 2
-  const top = menu ? `${menu.top * scale}rpx` : '88rpx'
-  const height = menu ? `${menu.height * scale}rpx` : '64rpx'
-  const arrowTop = menu ? `${((menu.height * scale) - 28) / 2}rpx` : '14rpx'
-  const titleTop = menu ? `${menu.top * scale + ((menu.height * scale) - 45) / 2}rpx` : '96rpx'
+  const { menuTop, menuHeight, titleTop } = getNativeNavigationMetrics()
 
   return (
     <View style={{ position: 'relative', width: '750rpx', height: '176rpx' }}>
       <View
-        style={{ position: 'absolute', left: '20rpx', top, width: '56rpx', height, zIndex: 10 }}
+        style={{ position: 'absolute', left: 0, top: `${Math.max(0, menuTop - 20)}rpx`, width: '112rpx', height: `${menuHeight + 40}rpx`, paddingLeft: '28rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box', zIndex: 10 }}
         onClick={onBack}
       >
-        <View
-          style={{
-            position: 'absolute',
-            left: '14rpx',
-            top: arrowTop,
-            width: '28rpx',
-            height: '28rpx',
-            borderLeft: '5rpx solid #697E9C',
-            borderBottom: '5rpx solid #697E9C',
-            transform: 'rotate(45deg)',
-          }}
-        />
+        <MiniappBackIcon color="#607086" />
       </View>
       <Text
         style={{
           position: 'absolute',
           left: '0',
-          top: titleTop,
+          top: `${titleTop}rpx`,
           width: '750rpx',
           color: '#0C285A',
           fontSize: '32rpx',

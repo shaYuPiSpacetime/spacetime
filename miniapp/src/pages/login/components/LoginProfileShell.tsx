@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 import profileBg from '@/assets/login/profile-bg.webp'
 
 interface LoginProfileShellProps {
@@ -41,6 +42,7 @@ export default function LoginProfileShell({
   onRetry,
   onNext,
 }: LoginProfileShellProps) {
+  const { menuTop, menuHeight } = getNativeNavigationMetrics()
   const canContinue = nextActive && !loading && !error
   const handleRetry = async () => {
     try {
@@ -74,27 +76,20 @@ export default function LoginProfileShell({
         <View
           style={{
             position: 'absolute',
-            left: '20rpx',
-            top: '92rpx',
-            width: '56rpx',
-            height: '56rpx',
+            left: 0,
+            top: `${Math.max(0, menuTop - 20)}rpx`,
+            width: '112rpx',
+            height: `${menuHeight + 40}rpx`,
+            paddingLeft: '28rpx',
+            display: 'flex',
+            alignItems: 'center',
+            boxSizing: 'border-box',
             zIndex: 10,
           }}
           onClick={handleBack}
           hoverClass="btn-hover"
         >
-          <View
-            style={{
-              position: 'absolute',
-              left: '14rpx',
-              top: '7rpx',
-              width: '30rpx',
-              height: '30rpx',
-              borderLeft: '5rpx solid #697E9C',
-              borderBottom: '5rpx solid #697E9C',
-              transform: 'rotate(45deg)',
-            }}
-          />
+          <MiniappBackIcon color="#607086" />
         </View>
 
         <View

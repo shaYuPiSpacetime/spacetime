@@ -39,6 +39,11 @@ assert.doesNotMatch(appTabBar, /showActiveDot|background: '#2876FF'[\s\S]{0,120}
 assert.match(appTabBar, /const isOn = tab\.key === active/, '同一 TabBar 必须只由唯一 active key 推导点亮态')
 assert.match(appTabBar, /src=\{tab\.iconPath\}[\s\S]{0,280}opacity: isOn \? 0 : 1[\s\S]{0,420}src=\{tab\.activeIconPath\}[\s\S]{0,280}opacity: isOn \? 1 : 0/, '普通态和点亮态切图必须常驻，切换时只改可见性')
 
+assert.match(appTabBar, /id="app-tab-recommend-outer-arc"[\s\S]{0,180}left: '300rpx'[\s\S]{0,120}top: '0'[\s\S]{0,120}width: '150rpx'[\s\S]{0,120}height: '150rpx'[\s\S]{0,120}borderRadius: '75rpx'/, '推荐按钮必须保留位于中间的 150rpx 白色外圆弧')
+assert.match(appTabBar, /id="app-tab-recommend-blue-circle"[\s\S]{0,360}left: '12rpx'[\s\S]{0,160}top: '12rpx'[\s\S]{0,180}width: `\$\{tab\.iconWidth\}rpx`[\s\S]{0,160}height: `\$\{tab\.iconHeight\}rpx`/, '推荐蓝色内圆必须相对外圆下移并保持 12rpx 环宽')
+assert.match(appTabBar, /key: 'recommend'[\s\S]{0,180}iconWidth: 126, iconHeight: 126/, '推荐蓝色内圆必须按蓝湖 126rpx 尺寸渲染')
+assert.match(appTabBar, /id="app-tab-recommend-label"[\s\S]{0,300}top: '84rpx'/, '推荐文案必须贴近星形图标，恢复蓝湖 84rpx 基线')
+
 assert.match(sharedState, /const listeners = new Set/, 'Tab 点亮态必须具备跨缓存页面实例的订阅集合')
 assert.match(sharedState, /export function setActiveTabKey\([\s\S]{0,260}listeners\.forEach/, '更新点亮态时必须广播到所有缓存 TabBar 实例')
 assert.match(customTabBar, /subscribeActiveTabKey\(setActiveKey\)/, '每个缓存 TabBar 实例必须订阅共享点亮态')

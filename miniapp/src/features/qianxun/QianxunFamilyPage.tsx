@@ -1,11 +1,12 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import {
   getCommunityConfig,
   getCommunityPosts,
+  getCommunityTopicHome,
   getFollowingCount,
   reportCommunityPost,
   toggleCommunityFollow,
@@ -13,19 +14,24 @@ import {
   type CommunityConfig,
   type CommunityPostVO,
   type CommunityScene,
+  type CommunityTopicHomeVO,
 } from '@/services/community'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { prd01Api } from '@/services/prd01'
 import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboardingFlow'
 import { useMessageStore } from '@/stores/messageStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
-import { getWindowMetrics } from '@/utils/system'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
+import { getQianxunHeaderMetrics, QianxunHeader, type QianxunPrimaryTab } from './QianxunHeader'
+import QianxunZhiyinTab from './QianxunZhiyinTab'
+import QianxunTopicSpotlight from './QianxunTopicSpotlight'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
 const HIDDEN_POSTS_KEY = 'qianxun_hidden_post_ids'
 const COMMUNITY_CONFIG_CACHE_KEY = 'qianxun_community_config'
+const REQUESTED_PRIMARY_TAB_KEY = 'qianxun_requested_primary_tab'
+const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
 const sceneByEntryKey: Record<string, CommunityScene> = { follow: 'FOLLOWING', following: 'FOLLOWING', same_city: 'CITY', city: 'CITY', discover: 'HOT', hot: 'HOT' }
 const emptySceneState: Partial<Record<CommunityScene, CommunityPostVO[]>> = {}
 
@@ -34,17 +40,37 @@ function readCachedCommunityConfig() {
   return cached?.homeTabs?.length ? cached : undefined
 }
 
+function readRequestedPrimaryTab(): QianxunPrimaryTab {
+  const requested = Taro.getStorageSync(REQUESTED_PRIMARY_TAB_KEY)
+  if (requested === 'KINDRED') {
+    Taro.removeStorageSync(REQUESTED_PRIMARY_TAB_KEY)
+    return 'KINDRED'
+  }
+  return 'FAMILY'
+}
+
+function readRequestedScene(): CommunityScene | undefined {
+  const requested = Taro.getStorageSync(REQUESTED_SCENE_KEY)
+  if (!['FOLLOWING', 'CITY', 'HOT'].includes(String(requested))) return undefined
+  Taro.removeStorageSync(REQUESTED_SCENE_KEY)
+  return requested as CommunityScene
+}
+
 export default function RecommendFamilyPage() {
   const unreadCount = useMessageStore(state => state.unread.totalCount)
-  const [activeTab, setActiveTab] = useState<CommunityScene>('FOLLOWING')
+  const [primaryTab, setPrimaryTab] = useState<QianxunPrimaryTab>(() => readRequestedPrimaryTab())
+  const [activeTab, setActiveTab] = useState<CommunityScene>(() => readRequestedScene() || 'FOLLOWING')
   const [postsByScene, setPostsByScene] = useState<Partial<Record<CommunityScene, CommunityPostVO[]>>>(emptySceneState)
   const [loadingByScene, setLoadingByScene] = useState<Partial<Record<CommunityScene, boolean>>>({ FOLLOWING: true })
   const [followingCount, setFollowingCount] = useState(0)
+  const [topicHome, setTopicHome] = useState<CommunityTopicHomeVO>()
+  const [topicHomeLoading, setTopicHomeLoading] = useState(false)
   const [config, setConfig] = useState<CommunityConfig | undefined>(readCachedCommunityConfig)
   const [ownerAvatar, setOwnerAvatar] = useState(defaultAvatar)
   const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
   const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | null>(null)
   const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, HOT: 0 })
+  const resumeRefreshRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
 
@@ -88,15 +114,59 @@ export default function RecommendFamilyPage() {
     }
   }
 
-  useDidShow(() => {
+  const loadTopicHome = async () => {
+    setTopicHomeLoading(true)
+    try {
+      setTopicHome(await getCommunityTopicHome())
+    } catch (error) {
+      await showError(error)
+    } finally {
+      setTopicHomeLoading(false)
+    }
+  }
+
+  const refreshFamily = () => {
     void loadContext()
     void loadScene(activeTab)
+    if (activeTab === 'HOT') void loadTopicHome()
+  }
+
+  useEffect(() => {
+    refreshFamily()
+  }, [])
+
+  useDidHide(() => {
+    resumeRefreshRef.current = true
+  })
+
+  useDidShow(() => {
+    const requested = readRequestedPrimaryTab()
+    if (requested === 'KINDRED') setPrimaryTab('KINDRED')
+    const requestedScene = readRequestedScene()
+    if (requestedScene) {
+      setPrimaryTab('FAMILY')
+      setActiveTab(requestedScene)
+      void loadScene(requestedScene)
+      if (requestedScene === 'HOT') void loadTopicHome()
+    }
+    if (!resumeRefreshRef.current) return
+    resumeRefreshRef.current = false
+    if (primaryTab === 'FAMILY') refreshFamily()
   })
 
   const changeTab = (tab: CommunityScene) => {
     if (tab === activeTab) return
     setActiveTab(tab)
     void loadScene(tab)
+    if (tab === 'HOT' && !topicHome) void loadTopicHome()
+  }
+
+  const changePrimaryTab = (tab: QianxunPrimaryTab) => {
+    if (tab === 'CAREER') {
+      void Taro.showToast({ title: '立业功能即将开放', icon: 'none' })
+      return
+    }
+    setPrimaryTab(tab)
   }
 
   const requireCoreAccess = () => {
@@ -171,45 +241,42 @@ export default function RecommendFamilyPage() {
     }
   }
 
-  const headerMetrics = getFamilyHeaderMetrics()
+  const headerMetrics = getQianxunHeaderMetrics()
 
   return (
     <View style={{ minHeight: '100vh', background: 'linear-gradient(100deg, #F1FEFC 0%, #F2F5FF 52%, #FCFDF3 100%)', overflow: 'hidden', position: 'relative' }}>
-      <FamilyHeader
+      <QianxunHeader
+        active={primaryTab}
         avatar={ownerAvatar}
         unreadCount={unreadCount}
         metrics={headerMetrics}
-        onKindred={() => void Taro.navigateTo({ url: '/pages/qianxun/kindred' })}
-        onProfile={() => void Taro.navigateTo({ url: '/pages/qianxun/my-posts' })}
+        onChange={changePrimaryTab}
+        onProfile={() => void Taro.navigateTo({ url: '/pages/qianxun/interactions?section=mine' })}
       />
-      <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
-      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
-        <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>
-          {initialLoading ? <LoadingCards /> : visiblePosts.length ? visiblePosts.map(post => (
-            <CommunityCard
-              key={post.id}
-              post={post}
-              optionLabel={optionLabel}
-              onOpen={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
-              onTopic={() => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
-              onComment={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
-              onMore={() => openActions(post)}
-              onFollow={() => void toggleFollow(post)}
-              onLike={() => void toggleLike(post)}
-            />
-          )) : (
-            <FeedEmptyState
-              tab={activeTab}
-              hasFollowing={followingCount > 0}
-              onGoCity={() => changeTab('CITY')}
-            />
-          )}
-        </View>
-      </ScrollView>
-
-      <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
-        <Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text>
-      </View>
+      {primaryTab === 'FAMILY' ? <>
+        <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
+        <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
+          <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>
+            {activeTab === 'HOT' ? <QianxunTopicSpotlight home={topicHome} loading={topicHomeLoading} onRetry={() => void loadTopicHome()} /> : null}
+            {initialLoading ? <LoadingCards /> : visiblePosts.length ? visiblePosts.map(post => (
+              <CommunityCard
+                key={post.id}
+                post={post}
+                optionLabel={optionLabel}
+                onAuthor={() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` })}
+                onOpen={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
+                onTopic={() => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
+                onComment={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
+                onContact={() => requireCoreAccess() && void Taro.navigateTo({ url: `/pages/message/whisper-detail?receiverUserNo=${post.authorId}&nickname=${encodeURIComponent(post.authorName || '用户')}&avatar=${encodeURIComponent(post.authorAvatar || '')}&meta=${encodeURIComponent(formatPostAuthorMeta(post, optionLabel))}&compose=1` })}
+                onMore={() => openActions(post)}
+                onFollow={() => void toggleFollow(post)}
+                onLike={() => void toggleLike(post)}
+              />
+            )) : <FeedEmptyState tab={activeTab} hasFollowing={followingCount > 0} onGoCity={() => changeTab('CITY')} />}
+          </View>
+        </ScrollView>
+        <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
+      </> : <QianxunZhiyinTab secondaryTop={headerMetrics.secondaryTop} contentTop={headerMetrics.contentTop} />}
 
       {sheet === 'actions' && selectedPost ? (
         <PostActionSheet
@@ -226,36 +293,6 @@ export default function RecommendFamilyPage() {
   )
 }
 
-interface FamilyHeaderMetrics {
-  primaryTop: number
-  avatarRight: number
-  secondaryTop: number
-  contentTop: number
-}
-
-function getFamilyHeaderMetrics(): FamilyHeaderMetrics {
-  const system = getWindowMetrics()
-  const scale = system.windowWidth ? 750 / system.windowWidth : 2
-  const menu = Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? Taro.getMenuButtonBoundingClientRect() : undefined
-  const primaryTop = menu ? menu.top * scale + (menu.height * scale - 45) / 2 : 82
-  const avatarRight = menu ? (system.windowWidth - menu.left) * scale + 18 : 190
-  const secondaryTop = Math.max(176, primaryTop + 91)
-  return { primaryTop, avatarRight, secondaryTop, contentTop: secondaryTop + 82 }
-}
-
-function FamilyHeader({ avatar, unreadCount, metrics, onKindred, onProfile }: { avatar: string; unreadCount: number; metrics: FamilyHeaderMetrics; onKindred: () => void; onProfile: () => void }) {
-  return <View style={{ position: 'relative', width: '750rpx', height: `${metrics.contentTop}rpx` }}>
-    <View style={{ position: 'absolute', left: '32rpx', top: `${metrics.primaryTop}rpx`, width: '270rpx', height: '56rpx' }}>
-      <Text style={{ position: 'absolute', left: 0, top: 0, color: NAVY, fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 500 }}>成家</Text>
-      <View style={{ position: 'absolute', left: 0, top: '45rpx', width: '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} />
-      {unreadCount > 0 ? <View style={{ position: 'absolute', left: '44rpx', top: '-10rpx', minWidth: '28rpx', height: '28rpx', borderRadius: '14rpx', border: '2rpx solid #FFFFFF', background: '#EE2525', padding: '0 4rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#FFFFFF', fontSize: '18rpx', lineHeight: '25rpx' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
-      <Text onClick={onKindred} style={{ position: 'absolute', left: '91rpx', top: '9rpx', color: '#7F8494', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>知音</Text>
-      <Text style={{ position: 'absolute', left: '167rpx', top: '9rpx', color: '#7F8494', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>立业</Text>
-    </View>
-    <Image onClick={onProfile} src={avatar} mode="aspectFill" style={{ position: 'absolute', right: `${metrics.avatarRight}rpx`, top: `${metrics.primaryTop - 1}rpx`, width: '58rpx', height: '58rpx', borderRadius: '29rpx', background: '#EEF3F8' }} />
-  </View>
-}
-
 function FamilyTabs({ active, tabs, top, onChange }: { active: CommunityScene; tabs: Array<{ label: string; scene: CommunityScene }>; top: number; onChange: (tab: CommunityScene) => void }) {
   return <View style={{ position: 'absolute', left: '29rpx', top: `${top}rpx`, width: '344rpx', height: '62rpx', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
     {tabs.map(item => {
@@ -268,20 +305,16 @@ function FamilyTabs({ active, tabs, top, onChange }: { active: CommunityScene; t
   </View>
 }
 
-function CommunityCard({ post, optionLabel, onOpen, onTopic, onComment, onMore, onFollow, onLike }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; onOpen: () => void; onTopic: () => void; onComment: () => void; onMore: () => void; onFollow: () => void; onLike: () => void }) {
+function CommunityCard({ post, optionLabel, onAuthor, onOpen, onTopic, onComment, onContact, onMore, onFollow, onLike }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; onAuthor: () => void; onOpen: () => void; onTopic: () => void; onComment: () => void; onContact: () => void; onMore: () => void; onFollow: () => void; onLike: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const canExpand = post.content.length > 78
-  const meta = [
-    post.authorBirthYear ? `${String(post.authorBirthYear).slice(-2)}年` : post.authorAge ? `${post.authorAge}岁` : '',
-    post.authorCity ? optionLabel('location', post.authorCity) || post.authorCity : '',
-    post.authorProfession || post.authorZodiac || (post.authorAnnualIncome ? optionLabel('annualIncome', post.authorAnnualIncome) : ''),
-  ].filter(Boolean).join('·')
+  const meta = formatPostAuthorMeta(post, optionLabel)
   const gender = post.authorGender === 'FEMALE' ? { symbol: '♀', color: '#FF7078' } : post.authorGender === 'MALE' ? { symbol: '♂', color: BLUE } : undefined
   const contactText = post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'
   return <View style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '33rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
     <View style={{ display: 'flex', alignItems: 'center' }}>
-      <Image src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} />
-      <View style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
+      <Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} />
+      <View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
         <View style={{ display: 'flex', alignItems: 'center', height: '38rpx' }}><Text style={{ maxWidth: '260rpx', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.authorName || '用户'}</Text>{gender ? <Text style={{ color: gender.color, fontSize: '30rpx', lineHeight: '37rpx', marginLeft: '14rpx' }}>{gender.symbol}</Text> : null}</View>
         <Text style={{ display: 'block', maxWidth: '390rpx', color: BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '9rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text>
       </View>
@@ -299,12 +332,20 @@ function CommunityCard({ post, optionLabel, onOpen, onTopic, onComment, onMore, 
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '28rpx', marginLeft: '7rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
     {post.topicName ? <View onClick={onTopic} style={{ width: 'auto', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#EFF4FC', padding: '0 18rpx', marginTop: '23rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#666666', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: '#229AF8' }}># </Text>{post.topicName}</Text></View> : null}
     <View style={{ height: '92rpx', borderTop: '2rpx solid #EFF4FC', marginTop: post.topicName ? '30rpx' : '32rpx', display: 'flex', alignItems: 'center' }}>
-      <ActionStat kind="contact" text={contactText} />
+      <View onClick={onContact} style={{ minHeight: '80rpx', display: 'flex', alignItems: 'center' }}><ActionStat kind="contact" text={contactText} /></View>
       <View style={{ flex: 1 }} />
       <View onClick={onComment}><ActionStat kind="comment" text={String(post.commentCount || 0)} /></View>
       <View onClick={onLike}><ActionStat kind="like" text={String(post.likeCount || 0)} active={post.liked} /></View>
     </View>
   </View>
+}
+
+function formatPostAuthorMeta(post: CommunityPostVO, optionLabel: (type: string, code: string) => string) {
+  return [
+    post.authorBirthYear ? `${String(post.authorBirthYear).slice(-2)}年` : post.authorAge ? `${post.authorAge}岁` : '',
+    post.authorCity ? optionLabel('location', post.authorCity) || post.authorCity : '',
+    post.authorProfession || post.authorZodiac || (post.authorAnnualIncome ? optionLabel('annualIncome', post.authorAnnualIncome) : ''),
+  ].filter(Boolean).join('·') || '资料待完善'
 }
 
 function PostImageGrid({ images }: { images: string[] }) {

@@ -36,13 +36,14 @@ const detailCopy: Record<
 export default function WhisperDetailPage() {
   const router = useRouter()
   const scene = router.params.mockScene || 'whisper-detail-expired'
+  const directCompose = router.params.compose === '1'
   const initialState: DetailState = scene.includes('matched') || scene === 'whisper-report-sheet'
     ? 'matched'
     : scene.includes('cancelled')
       ? 'cancelled'
       : 'expired'
   const [record, setRecord] = useState<WhisperRecord>()
-  const [showComposer, setShowComposer] = useState(scene === 'whisper-compose')
+  const [showComposer, setShowComposer] = useState(scene === 'whisper-compose' || directCompose)
   const [showReportSheet, setShowReportSheet] = useState(scene === 'whisper-report-sheet')
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -58,8 +59,12 @@ export default function WhisperDetailPage() {
     void request.then(setRecord).catch(() => undefined)
   }, [router.params.whisperNo])
 
-  const avatarUrl = isDesignScene ? MESSAGE_AVATAR : record?.applicantAvatarUrl || MESSAGE_AVATAR
-  const profileName = isDesignScene ? '一只筱脑虎' : record?.applicantNickname || '一只筱脑虎'
+  const targetAvatar = router.params.avatar ? decodeURIComponent(router.params.avatar) : ''
+  const targetNickname = router.params.nickname ? decodeURIComponent(router.params.nickname) : ''
+  const targetMeta = router.params.meta ? decodeURIComponent(router.params.meta) : ''
+  const avatarUrl = directCompose ? targetAvatar || MESSAGE_AVATAR : isDesignScene ? MESSAGE_AVATAR : record?.applicantAvatarUrl || MESSAGE_AVATAR
+  const profileName = directCompose ? targetNickname || '用户' : isDesignScene ? '一只筱脑虎' : record?.applicantNickname || '一只筱脑虎'
+  const profileMeta = directCompose ? targetMeta || '资料待完善' : '97年丨163cm丨双鱼座'
   const quoteContent = isDesignScene
     ? '你好，希望能和你认识一下～'
     : record?.content || '你好，希望能和你认识一下～'
@@ -69,6 +74,7 @@ export default function WhisperDetailPage() {
       : miniappOssIcons.messageTimelineMatched
 
   const submit = async () => {
+    if (submitting) return
     if (!content.trim()) {
       void Taro.showToast({ title: '写点什么再申请', icon: 'none' })
       return
@@ -76,11 +82,14 @@ export default function WhisperDetailPage() {
     setSubmitting(true)
     try {
       await messageService.createWhisper(
-        { receiverUserNo: record?.applicantUserNo || 'user-lin', content, costCoins: 100 },
+        { receiverUserNo: router.params.receiverUserNo || record?.applicantUserNo || 'user-lin', content, costCoins: 100 },
         `whisper-${Date.now()}`
       )
       setShowComposer(false)
       void Taro.showToast({ title: '申请已发送', icon: 'success' })
+    } catch (error) {
+      const title = error instanceof Error ? error.message : String(error || '发送失败')
+      void Taro.showToast({ title, icon: 'none' })
     } finally {
       setSubmitting(false)
     }
@@ -107,12 +116,12 @@ export default function WhisperDetailPage() {
       <MessageNav />
       <View
         className="whisper-profile"
-        onClick={() => void Taro.navigateTo({ url: '/pages/heart/user' })}
+        onClick={() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${encodeURIComponent(router.params.receiverUserNo || record?.applicantUserNo || '')}` })}
       >
         <Image className="whisper-profile-avatar" src={avatarUrl} mode="aspectFill" />
         <View className="whisper-profile-copy">
           <Text className="whisper-profile-name">{profileName}</Text>
-          <Text className="whisper-profile-meta">97年丨163cm丨双鱼座</Text>
+          <Text className="whisper-profile-meta">{profileMeta}</Text>
         </View>
         <View className="whisper-profile-chevron" />
       </View>
@@ -164,6 +173,8 @@ export default function WhisperDetailPage() {
       {showComposer ? (
         <WhisperComposer
           avatarUrl={avatarUrl}
+          profileName={profileName}
+          profileMeta={profileMeta}
           content={content}
           submitting={submitting}
           onInput={setContent}
@@ -230,6 +241,8 @@ function TimelineRow({
 
 function WhisperComposer({
   avatarUrl,
+  profileName,
+  profileMeta,
   content,
   submitting,
   onInput,
@@ -237,6 +250,8 @@ function WhisperComposer({
   onSubmit,
 }: {
   avatarUrl: string
+  profileName: string
+  profileMeta: string
   content: string
   submitting: boolean
   onInput: (value: string) => void
@@ -250,8 +265,8 @@ function WhisperComposer({
         <View className="whisper-composer-profile">
           <Image className="whisper-composer-avatar" src={avatarUrl} mode="aspectFill" />
           <View>
-            <Text className="whisper-composer-name">筱脑虎</Text>
-            <Text className="whisper-composer-meta">28岁 双鱼座 本科</Text>
+            <Text className="whisper-composer-name">{profileName}</Text>
+            <Text className="whisper-composer-meta">{profileMeta}</Text>
           </View>
         </View>
         <View className="whisper-textarea-shell">

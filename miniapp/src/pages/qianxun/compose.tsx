@@ -1,6 +1,7 @@
 import { Image, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useMemo, useState } from 'react'
+import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getCommunityConfig, publishCommunityPost, type CommunityConfig } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 
@@ -22,10 +23,13 @@ interface PublishReceipt {
 }
 
 export default function QianxunComposePage() {
+  const navigationMetrics = getNativeNavigationMetrics()
+  const [postType, setPostType] = useState<'normal_post' | 'sincere_post'>('normal_post')
   const [content, setContent] = useState('')
   const [images, setImages] = useState<string[]>([])
   const [config, setConfig] = useState<CommunityConfig>()
   const [topicId, setTopicId] = useState<number>()
+  const [initialTopicName, setInitialTopicName] = useState('')
   const [publishing, setPublishing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -34,6 +38,8 @@ export default function QianxunComposePage() {
   useLoad(params => {
     const initialTopicId = Number(params.topicId)
     if (Number.isFinite(initialTopicId) && initialTopicId > 0) setTopicId(initialTopicId)
+    if (params.topicName) setInitialTopicName(decodeURIComponent(params.topicName))
+    if (params.postType === 'sincere_post') setPostType('sincere_post')
   })
 
   useDidShow(() => {
@@ -44,8 +50,9 @@ export default function QianxunComposePage() {
   })
 
   const selectedTopic = useMemo(
-    () => config?.topics?.find(topic => toTopicId(topic.code) === topicId),
-    [config?.topics, topicId],
+    () => config?.topics?.find(topic => toTopicId(topic.code) === topicId)
+      || (topicId && initialTopicName ? { code: String(topicId), label: initialTopicName } : undefined),
+    [config?.topics, initialTopicName, topicId],
   )
 
   const chooseImages = async () => {
@@ -110,7 +117,7 @@ export default function QianxunComposePage() {
     }
     savePublishReceipt(receipt)
     try {
-      const postId = await publishCommunityPost(content.trim(), images, topicId)
+      const postId = await publishCommunityPost(content.trim(), images, topicId, postType)
       savePublishReceipt({ ...receipt, postId, status: 'published' })
       await Taro.showToast({ title: '发布成功', icon: 'success' })
       setTimeout(() => void Taro.navigateBack(), 450)
@@ -127,8 +134,8 @@ export default function QianxunComposePage() {
 
   return (
     <View id="qianxun-compose-page" style={{ height: '100vh', background: '#FFFFFF', overflow: 'hidden' }}>
-      <PageHeader title="发布动态" onBack={() => void goBack()} />
-      <ScrollView scrollY style={{ position: 'absolute', inset: '168rpx 0 184rpx', boxSizing: 'border-box' }} showScrollbar={false}>
+      <PageHeader title={postType === 'sincere_post' ? '发布诚意贴' : '发布动态'} onBack={() => void goBack()} />
+      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '184rpx', boxSizing: 'border-box' }} showScrollbar={false}>
         <Textarea
           value={content}
           maxlength={Number(config?.postMaxTextLength || 500)}
@@ -173,7 +180,7 @@ export default function QianxunComposePage() {
 }
 
 function PageHeader({ title, onBack }: { title: string; onBack: () => void }) {
-  return <View style={{ width: '750rpx', height: '168rpx', paddingTop: '94rpx', boxSizing: 'border-box', position: 'relative' }}><View onClick={onBack} style={{ position: 'absolute', left: '20rpx', top: '92rpx', width: '90rpx', height: '68rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#667B9A', fontSize: '56rpx', lineHeight: '60rpx' }}>‹</Text></View><Text style={{ display: 'block', color: NAVY, fontSize: '32rpx', fontWeight: 500, lineHeight: '45rpx', textAlign: 'center' }}>{title}</Text></View>
+  return <NativeNavigation title={title} onBack={onBack} titleFontWeight={500} />
 }
 
 function TopicChip({ label, active = false, onClick }: { label: string; active?: boolean; onClick: () => void }) {

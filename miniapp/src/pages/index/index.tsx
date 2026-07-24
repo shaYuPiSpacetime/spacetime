@@ -1,8 +1,9 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import QianxunFamilyPage from '@/features/qianxun/QianxunFamilyPage'
+import { getQianxunHeaderMetrics } from '@/features/qianxun/QianxunHeader'
 import {
   hasPartialBasicProfile,
   isVerificationStepSubmitted,
@@ -11,50 +12,66 @@ import {
 } from '@/domain/verificationOnboardingFlow'
 import { validateVerificationRuntime } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
+import { useAuthStore } from '@/stores/authStore'
 import { useMessageStore } from '@/stores/messageStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, OpenTextDetail, VerificationStatus } from '@/types/prd01'
 
 export default function IndexPage() {
   const unreadCount = useMessageStore(state => state.unread.totalCount)
+  const cachedAccessStatus = useAuthStore(state => state.accessStatus)
+  const setAccessStatus = useAuthStore(state => state.setAccessStatus)
   const bootstrap = usePrd01Store(state => state.bootstrap)
   const copy = usePrd01Store(state => state.copy)
   const [basic, setBasic] = useState<BasicProfile>()
   const [verification, setVerification] = useState<VerificationStatus>()
   const [introduction, setIntroduction] = useState<OpenTextDetail>()
-  const [loading, setLoading] = useState(true)
-  const [ready, setReady] = useState(false)
-  const [coreAllowed, setCoreAllowed] = useState(false)
+  const cachedCoreAllowed = cachedAccessStatus?.coreAccessStatus === 'CORE_ALLOWED'
+  const [loading, setLoading] = useState(!cachedCoreAllowed)
+  const [ready, setReady] = useState(cachedCoreAllowed)
+  const [coreAllowed, setCoreAllowed] = useState(cachedCoreAllowed)
+  const [entryError, setEntryError] = useState('')
+
+  useEffect(() => {
+    if (!cachedCoreAllowed) return
+    setCoreAllowed(true)
+    setReady(true)
+  }, [cachedCoreAllowed])
+
+  const loadIndex = async () => {
+    setLoading(true)
+    setEntryError('')
+    try {
+      await bootstrap()
+      const runtime = usePrd01Store.getState()
+      if (!runtime.config || !runtime.profileOptions) throw new Error('页面配置加载失败')
+      validateVerificationRuntime(runtime.config, runtime.profileOptions)
+      const [basicResult, verificationResult, introductionResult] = await Promise.all([
+        prd01Api.getBasicProfile(),
+        prd01Api.getVerificationStatus(),
+        prd01Api.getIntroduction(),
+      ])
+      if (verificationResult.accessStatus) setAccessStatus(verificationResult.accessStatus)
+      if (verificationResult.accessStatus?.coreAccessStatus === 'CORE_ALLOWED') {
+        setCoreAllowed(true)
+        setReady(true)
+        return
+      }
+      setCoreAllowed(false)
+      setBasic(basicResult)
+      setVerification(verificationResult)
+      setIntroduction(introductionResult)
+      setReady(true)
+    } catch (error) {
+      setEntryError(toErrorMessage(error))
+      setReady(true)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useDidShow(() => {
-    void (async () => {
-      setLoading(true)
-      try {
-        await bootstrap()
-        const runtime = usePrd01Store.getState()
-        if (!runtime.config || !runtime.profileOptions) throw new Error()
-        validateVerificationRuntime(runtime.config, runtime.profileOptions)
-        const [basicResult, verificationResult, introductionResult] = await Promise.all([
-          prd01Api.getBasicProfile(),
-          prd01Api.getVerificationStatus(),
-          prd01Api.getIntroduction(),
-        ])
-        if (verificationResult.accessStatus?.coreAccessStatus === 'CORE_ALLOWED') {
-          setCoreAllowed(true)
-          setReady(true)
-          return
-        }
-        setCoreAllowed(false)
-        setBasic(basicResult)
-        setVerification(verificationResult)
-        setIntroduction(introductionResult)
-        setReady(true)
-      } catch (error) {
-        await showError(error)
-      } finally {
-        setLoading(false)
-      }
-    })()
+    void loadIndex()
   })
 
   const runtimeConfig = usePrd01Store.getState().config
@@ -98,6 +115,7 @@ export default function IndexPage() {
 
   if (!ready) return <IndexLoadingSkeleton unreadCount={unreadCount} />
   if (coreAllowed) return <QianxunFamilyPage />
+  if (entryError) return <IndexLoadError unreadCount={unreadCount} error={entryError} loading={loading} onRetry={() => void loadIndex()} />
 
   return <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48%, rgba(248,250,239,0.6) 100%)', position: 'relative', overflow: 'hidden' }}>
     <TopTabs unreadCount={unreadCount} />
@@ -113,6 +131,22 @@ export default function IndexPage() {
       <Text style={{ color: '#999999', fontSize: '30rpx', fontWeight: 500, lineHeight: '42rpx' }}>{copy('verification_home_later_action')}</Text>
     </View>
   </View>
+}
+
+function IndexLoadError({ unreadCount, error, loading, onRetry }: { unreadCount: number; error: string; loading: boolean; onRetry: () => void }) {
+  return (
+    <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48%, rgba(248,250,239,0.6) 100%)', position: 'relative', overflow: 'hidden' }}>
+      <TopTabs unreadCount={unreadCount} />
+      <View style={{ position: 'absolute', left: '75rpx', right: '75rpx', top: '390rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '300rpx', height: '220rpx' }} />
+        <Text style={{ color: '#0C285A', fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 600, marginTop: '20rpx' }}>成家内容暂时没加载出来</Text>
+        <Text style={{ color: '#8994A5', fontSize: '24rpx', lineHeight: '36rpx', textAlign: 'center', marginTop: '14rpx' }}>{error || '请稍后重试'}</Text>
+        <View id="qianxun-entry-retry" onClick={() => { if (!loading) onRetry() }} style={{ width: '300rpx', height: '82rpx', borderRadius: '41rpx', background: loading ? '#9DBFFB' : '#2876FF', marginTop: '42rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>{loading ? '加载中…' : '重新加载'}</Text>
+        </View>
+      </View>
+    </View>
+  )
 }
 
 function IndexLoadingSkeleton({ unreadCount }: { unreadCount: number }) {
@@ -181,12 +215,13 @@ function CertificationArtwork() {
 }
 
 function TopTabs({ unreadCount }: { unreadCount: number }) {
+  const metrics = getQianxunHeaderMetrics()
   return (
     <View
       style={{
         position: 'absolute',
         left: '0',
-        top: '68rpx',
+        top: `${metrics.primaryTop - 22}rpx`,
         width: '750rpx',
         height: '88rpx',
       }}
@@ -208,7 +243,7 @@ function TopTabs({ unreadCount }: { unreadCount: number }) {
         style={{
           position: 'absolute',
           left: '32rpx',
-          top: '73rpx',
+          top: '67rpx',
           width: '64rpx',
           height: '8rpx',
           borderRadius: '6rpx',
@@ -249,4 +284,7 @@ function TopTabs({ unreadCount }: { unreadCount: number }) {
 }
 
 const headingStyle = { color: '#0C285A', fontSize: '48rpx', fontWeight: 600, lineHeight: '67rpx', textAlign: 'center' } as const
-async function showError(error: unknown) { const title = error instanceof Error ? error.message : String(error); if (title) await Taro.showToast({ title, icon: 'none' }) }
+function toErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || '')
+  return message || '网络开小差了，请重新加载'
+}

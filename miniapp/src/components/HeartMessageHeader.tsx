@@ -1,8 +1,8 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
+import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { getWindowMetrics } from '@/utils/system'
 
 type HeaderProps = {
   title?: string
@@ -19,15 +19,8 @@ const designRpx = (value: number) =>
   Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? `${value}rpx` : `${value / 2}px`
 
 export function getLanhuNavigationMetrics() {
-  const system = getWindowMetrics()
-  const scale = system.windowWidth ? 750 / system.windowWidth : 2
-  const menu =
-    Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? Taro.getMenuButtonBoundingClientRect() : undefined
-
-  return {
-    menuTop: menu ? menu.top * scale : 96,
-    menuHeight: menu ? menu.height * scale : 48,
-  }
+  const { menuTop, menuHeight } = getNativeNavigationMetrics()
+  return { menuTop, menuHeight }
 }
 
 export default function HeartMessageHeader({
@@ -79,16 +72,7 @@ export default function HeartMessageHeader({
             zIndex: 2,
           }}
         >
-          <View
-            style={{
-              width: designRpx(22),
-              height: designRpx(22),
-              borderLeft: `${designRpx(4)} solid #607086`,
-              borderBottom: `${designRpx(4)} solid #607086`,
-              transform: 'rotate(45deg)',
-              boxSizing: 'border-box',
-            }}
-          />
+          <MiniappBackIcon color="#607086" size={22} />
         </View>
       ) : null}
 

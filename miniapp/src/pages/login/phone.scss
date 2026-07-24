@@ -8,21 +8,10 @@
 
 .phone-login-back {
   position: absolute;
-  left: 30px;
-  top: 66px;
-  width: 29px;
-  height: 29px;
-}
-
-.phone-login-back-chevron {
-  position: absolute;
-  left: 5px;
-  top: 4px;
-  width: 18px;
-  height: 18px;
-  border-left: 3px solid #697e9c;
-  border-bottom: 3px solid #697e9c;
-  transform: rotate(45deg);
+  left: 0;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .phone-login-heading {

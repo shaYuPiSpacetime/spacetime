@@ -1,6 +1,5 @@
 import { Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { getWindowMetrics } from '@/utils/system'
+import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 
 export type ProfilePreviewTab = 'form' | 'preview'
 
@@ -20,13 +19,7 @@ export default function ProfilePreviewTopNav({
   onBack,
   onTabChange,
 }: ProfilePreviewTopNavProps) {
-  const menu = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
-    ? Taro.getMenuButtonBoundingClientRect()
-    : undefined
-  const system = getWindowMetrics()
-  const scale = system.windowWidth ? 750 / system.windowWidth : 2
-  const menuTop = menu ? menu.top * scale : 99
-  const menuHeight = menu ? menu.height * scale : 48
+  const { menuTop, menuHeight } = getNativeNavigationMetrics()
   const activeLineHeight = 45
   const titleTabsTop = menuTop + (menuHeight - activeLineHeight) / 2
 
@@ -51,16 +44,7 @@ export default function ProfilePreviewTopNav({
           zIndex: 10,
         }}
       >
-        <View
-          style={{
-            width: '22rpx',
-            height: '22rpx',
-            borderLeft: '4rpx solid #607086',
-            borderBottom: '4rpx solid #607086',
-            transform: 'rotate(45deg)',
-            boxSizing: 'border-box',
-          }}
-        />
+        <MiniappBackIcon color="#607086" size={22} />
       </View>
 
       <View

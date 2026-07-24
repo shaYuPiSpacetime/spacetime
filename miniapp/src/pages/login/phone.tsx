@@ -9,6 +9,7 @@ import { usePrd01Store } from '@/stores/prd01Store'
 import { resolveSmsCountdown } from '@/domain/prd01Runtime'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
+import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 import './phone.scss'
 
 function PhoneIcon() {
@@ -131,6 +132,10 @@ export default function PhoneLoginPage() {
   }
 
   const phoneLoginActive = Boolean(phoneNumber.trim() && verificationCode.trim())
+  const { menuTop, menuHeight } = getNativeNavigationMetrics()
+  const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
+  const navigationUnit = isWeapp ? 'rpx' : 'px'
+  const navigationMetric = (value: number) => (isWeapp ? value : value / 2)
 
   return (
     <View className="phone-login-page">
@@ -138,8 +143,14 @@ export default function PhoneLoginPage() {
         className="phone-login-back"
         onClick={() => Taro.redirectTo({ url: '/pages/login/index?variant=methods' })}
         hoverClass="btn-hover"
+        style={{
+          top: `${navigationMetric(Math.max(0, menuTop - 20))}${navigationUnit}`,
+          width: `${navigationMetric(112)}${navigationUnit}`,
+          height: `${navigationMetric(menuHeight + 40)}${navigationUnit}`,
+          paddingLeft: `${navigationMetric(28)}${navigationUnit}`,
+        }}
       >
-        <View className="phone-login-back-chevron" />
+        <MiniappBackIcon color="#607086" />
       </View>
 
       <View className="phone-login-heading">
