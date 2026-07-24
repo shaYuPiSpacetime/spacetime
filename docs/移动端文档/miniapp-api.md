@@ -2430,3 +2430,77 @@ Controller 统一返回 `R<T>`：
 ### 15.6 联调 Provider 状态
 
 当前短信、实名、学历、头像/资料图片、开放文字、语音安全均已接入 Provider 抽象，开发环境使用 Mock 实现。移动端接口契约在后续替换真实三方时保持不变；Mock 清单和真实三方待办见技术方案“Provider 当前实现与待接入清单”。
+
+## 16. 千寻社区话题
+
+### 16.1 热门页话题聚合
+
+| 项目 | 说明 |
+| --- | --- |
+| Path | `/miniapp/community/topics/home` |
+| Method | `GET` |
+| Auth | 可选；登录时补充当前用户相关的动态状态 |
+| Response | `R<CommunityTopicHomeVO>` |
+
+`featured` 为热门页主推荐话题，`related` 为其余推荐话题，最多 4 条。没有可用话题时返回 `featured: null` 和空数组。
+
+### 16.2 社区话题列表
+
+| 项目 | 说明 |
+| --- | --- |
+| Path | `/miniapp/community/topics` |
+| Method | `GET` |
+| Auth | 不要求 |
+| Query | `page` 默认 1；`size` 默认 10 |
+| Response | `R<Page<CommunityTopicCardVO>>` |
+
+### 16.3 社区话题详情
+
+| 项目 | 说明 |
+| --- | --- |
+| Path | `/miniapp/community/topics/{id}` |
+| Method | `GET` |
+| Auth | 不要求 |
+| Response | `R<CommunityTopicDetailVO>` |
+
+话题不存在或已停用时返回业务错误，不返回空对象。
+
+### 16.4 话题动态列表
+
+| 项目 | 说明 |
+| --- | --- |
+| Path | `/miniapp/community/topics/{id}/posts` |
+| Method | `GET` |
+| Auth | 可选；登录时返回 `liked`、`followingAuthor` 等用户态 |
+| Query | `sort=HOT\|LATEST`，默认 `HOT`；`page` 默认 1；`size` 默认 10 |
+| Response | `R<Page<CommunityPostCardVO>>` |
+
+- `HOT`：按点赞数、评论数、发布时间综合降序。
+- `LATEST`：按发布时间降序。
+- 只返回状态为已发布的动态；话题不存在或已停用时返回业务错误。
+
+### 16.5 话题响应模型
+
+`CommunityTopicCardVO`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | Long | 话题 ID |
+| `name` | String | 话题名称 |
+| `description` | String | 话题说明 |
+| `coverUrl` | String? | 话题头图；未配置时客户端使用设计兜底图 |
+| `postCount` | Long | 已发布动态数 |
+| `participantCount` | Long | 去重参与人数 |
+| `participantAvatars` | String[] | 参与用户头像，最多 5 个 |
+| `previewContent` | String? | 预览动态正文 |
+| `previewImageUrl` | String? | 预览动态首图 |
+| `previewAuthorId` | Long? | 预览作者 ID |
+| `previewAuthorName` | String? | 预览作者昵称 |
+| `previewAuthorAvatar` | String? | 预览作者头像 |
+| `previewCreateTime` | String? | 预览动态发布时间 |
+
+`CommunityTopicDetailVO` 包含 `id、name、description、coverUrl、postCount、participantCount`。`CommunityTopicHomeVO` 包含 `featured` 和 `related`。
+
+### 16.6 发布参与闭环
+
+参与话题复用 `POST /miniapp/community/posts`，请求体携带 `topicId`。提交成功返回动态 ID，初始状态为 `PENDING`；客户端在“我的动态”保留本地回执，返回话题详情后重新请求 16.3 和 16.4，不伪造公共动态。后台通过既有 `POST /admin/community/posts/{id}/audit` 审核，审核通过后状态变为 `PUBLISHED`，才会进入话题统计和公共动态列表。

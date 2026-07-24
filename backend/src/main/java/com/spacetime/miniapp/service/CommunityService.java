@@ -11,6 +11,18 @@ import com.spacetime.miniapp.dto.response.*;
  */
 public interface CommunityService {
 
+    /** 查询千寻热门页话题聚合。 */
+    CommunityTopicHomeVO getTopicHome(Long userId);
+
+    /** 分页查询社区话题。 */
+    Page<CommunityTopicCardVO> getTopics(int page, int size);
+
+    /** 查询社区话题详情。 */
+    CommunityTopicDetailVO getTopicDetail(Long topicId);
+
+    /** 分页查询话题动态，sort 支持 HOT、LATEST。 */
+    Page<CommunityPostCardVO> getTopicPosts(Long userId, Long topicId, String sort, int page, int size);
+
     /**
      * 分页查询社区内容列表
      *
@@ -94,6 +106,12 @@ public interface CommunityService {
      * @return 关注切换结果（是否已关注）
      */
     CommunityFollowToggleVO toggleFollow(Long userId, Long targetUserId);
+
+    /** 查询悦目用户照片发现列表。 */
+    Page<YuemuUserCardVO> getYuemuUsers(Long userId, int page, int size);
+
+    /** 切换悦目用户心动态。 */
+    YuemuLikeToggleVO toggleYuemuLike(Long userId, Long targetUserId);
 
     /** 当前用户有效关注人数。 */
     long countFollowing(Long userId);

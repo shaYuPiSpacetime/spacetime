@@ -14,11 +14,13 @@ import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.CommunityService;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.RelationDomainService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -56,6 +58,85 @@ public class CommunityServiceImpl implements CommunityService {
     private final AppUserAuditContentService auditContentService;
     /** PRD01 准入状态计算 */
     private final Prd01AccessEvaluator accessEvaluator;
+    /** 用户喜欢关系数据访问。 */
+    private final AppRelationLikeDao appRelationLikeDao;
+    /** 喜欢关系领域服务。 */
+    private final RelationDomainService relationDomainService;
+
+    @Override
+    public CommunityTopicHomeVO getTopicHome(Long userId) {
+        List<SysDictData> topics = enabledTopics();
+        CommunityTopicHomeVO result = new CommunityTopicHomeVO();
+        if (topics.isEmpty()) {
+            result.setRelated(List.of());
+            return result;
+        }
+        Map<Long, List<CommunityPost>> postsByTopic = publishedPostsByTopic();
+        result.setFeatured(toTopicCard(topics.get(0), postsByTopic.getOrDefault(topics.get(0).getId(), List.of())));
+        result.setRelated(topics.stream()
+                .skip(1)
+                .limit(4)
+                .map(topic -> toTopicCard(topic, postsByTopic.getOrDefault(topic.getId(), List.of())))
+                .toList());
+        return result;
+    }
+
+    @Override
+    public Page<CommunityTopicCardVO> getTopics(int page, int size) {
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 50));
+        List<SysDictData> topics = enabledTopics();
+        Map<Long, List<CommunityPost>> postsByTopic = publishedPostsByTopic();
+        int start = Math.min((safePage - 1) * safeSize, topics.size());
+        int end = Math.min(start + safeSize, topics.size());
+        List<CommunityTopicCardVO> records = topics.subList(start, end).stream()
+                .map(topic -> toTopicCard(topic, postsByTopic.getOrDefault(topic.getId(), List.of())))
+                .toList();
+        Page<CommunityTopicCardVO> result = new Page<>(safePage, safeSize, topics.size());
+        result.setRecords(records);
+        return result;
+    }
+
+    @Override
+    public CommunityTopicDetailVO getTopicDetail(Long topicId) {
+        SysDictData topic = requireTopicEntity(topicId);
+        List<CommunityPost> posts = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getTopicId, topicId)
+                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode()));
+        CommunityTopicDetailVO result = new CommunityTopicDetailVO();
+        result.setId(topic.getId());
+        result.setName(topic.getDictLabel());
+        result.setDescription(topicDescription(topic));
+        result.setPostCount((long) posts.size());
+        result.setParticipantCount(posts.stream()
+                .map(CommunityPost::getAuthorId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count());
+        return result;
+    }
+
+    @Override
+    public Page<CommunityPostCardVO> getTopicPosts(Long userId, Long topicId, String sort, int page, int size) {
+        requireTopicEntity(topicId);
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        String normalizedSort = StrUtil.blankToDefault(sort, "HOT").trim().toUpperCase(Locale.ROOT);
+        LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getTopicId, topicId)
+                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode());
+        if ("HOT".equals(normalizedSort)) {
+            wrapper.orderByDesc(CommunityPost::getLikeCount)
+                    .orderByDesc(CommunityPost::getCommentCount)
+                    .orderByDesc(CommunityPost::getCreateTime);
+        } else if ("LATEST".equals(normalizedSort)) {
+            wrapper.orderByDesc(CommunityPost::getCreateTime);
+        } else {
+            throw new BusinessException("不支持的话题动态排序");
+        }
+        return toPostCardPage(userId,
+                communityPostDao.selectPage(new Page<>(safePage, safeSize), wrapper));
+    }
 
     /**
      * 分页查询社区内容列表
@@ -106,6 +187,124 @@ public class CommunityServiceImpl implements CommunityService {
         }
         Page<CommunityPost> result = communityPostDao.selectPage(new Page<>(safePage, safeSize), wrapper);
         return toPostCardPage(userId, result);
+    }
+
+    @Override
+    public Page<YuemuUserCardVO> getYuemuUsers(Long userId, int page, int size) {
+        requireLoginForScene(userId);
+        AppUser currentUser = requireUser(userId);
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 50));
+        Page<AppUser> candidatePage = appUserDao.selectPage(new Page<>(safePage, safeSize),
+                new LambdaQueryWrapper<AppUser>()
+                        .ne(AppUser::getId, userId)
+                        .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode())
+                        .eq(AppUser::getFirstLoginCompleted, 1)
+                        .orderByDesc(AppUser::getLastLoginTime)
+                        .orderByDesc(AppUser::getId));
+        List<Long> userIds = candidatePage.getRecords().stream()
+                .map(AppUser::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, List<String>> albums = auditContentService.publicAlbumPhotos(userIds);
+        Map<Long, String> avatars = auditContentService.publicAvatars(userIds);
+        Set<Long> likedUserIds = userIds.isEmpty() ? Set.of() : appRelationLikeDao.selectList(
+                        new LambdaQueryWrapper<AppRelationLike>()
+                                .eq(AppRelationLike::getFromUserId, userId)
+                                .in(AppRelationLike::getToUserId, userIds)
+                                .eq(AppRelationLike::getLikeStatus, RelationLikeStatusEnum.ACTIVE.getCode())
+                                .eq(AppRelationLike::getActiveMarker, 1))
+                .stream()
+                .map(AppRelationLike::getToUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<YuemuUserCardVO> cards = candidatePage.getRecords().stream()
+                .map(candidate -> toYuemuCard(currentUser, candidate, albums, avatars, likedUserIds))
+                .filter(Objects::nonNull)
+                .toList();
+        Page<YuemuUserCardVO> result = new Page<>(safePage, safeSize, candidatePage.getTotal());
+        result.setRecords(cards);
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public YuemuLikeToggleVO toggleYuemuLike(Long userId, Long targetUserId) {
+        ensureInteractionAllowed(userId);
+        if (Objects.equals(userId, targetUserId)) {
+            throw new BusinessException("不能对自己表达心动");
+        }
+        AppUser target = requireUser(targetUserId);
+        if (!AccountStatusEnum.NORMAL.getCode().equals(target.getAccountStatus())) {
+            throw new BusinessException("该用户当前不可互动");
+        }
+        AppRelationLike active = appRelationLikeDao.selectOne(new LambdaQueryWrapper<AppRelationLike>()
+                .eq(AppRelationLike::getFromUserId, userId)
+                .eq(AppRelationLike::getToUserId, targetUserId)
+                .eq(AppRelationLike::getLikeStatus, RelationLikeStatusEnum.ACTIVE.getCode())
+                .eq(AppRelationLike::getActiveMarker, 1));
+        if (active != null) {
+            relationDomainService.cancelLike(userId, targetUserId, LocalDateTime.now());
+            return new YuemuLikeToggleVO(false);
+        }
+        relationDomainService.createLike(UUID.randomUUID().toString(), userId, targetUserId,
+                RelationSourceSceneEnum.YUEMU.getCode(), LocalDateTime.now());
+        return new YuemuLikeToggleVO(true);
+    }
+
+    private YuemuUserCardVO toYuemuCard(AppUser currentUser,
+                                        AppUser candidate,
+                                        Map<Long, List<String>> albums,
+                                        Map<Long, String> avatars,
+                                        Set<Long> likedUserIds) {
+        List<String> photos = albums.getOrDefault(candidate.getId(), List.of());
+        String photoUrl = photos.isEmpty() ? avatars.get(candidate.getId()) : photos.get(0);
+        if (StrUtil.isBlank(photoUrl)) {
+            return null;
+        }
+        YuemuUserCardVO card = new YuemuUserCardVO();
+        card.setUserId(candidate.getId());
+        card.setNickname(StrUtil.blankToDefault(candidate.getNickname(), "用户"));
+        card.setPhotoUrl(photoUrl);
+        card.setFateLabel(resolveFateLabel(currentUser, candidate));
+        card.setEducationSchool(resolveEducationSchool(candidate));
+        card.setOnlineText(resolveOnlineText(candidate.getLastLoginTime()));
+        card.setLiked(likedUserIds.contains(candidate.getId()));
+        return card;
+    }
+
+    private String resolveFateLabel(AppUser currentUser, AppUser candidate) {
+        if (StrUtil.isNotBlank(currentUser.getMajor()) && currentUser.getMajor().equals(candidate.getMajor())) {
+            return "同专业，超有缘";
+        }
+        if (StrUtil.isNotBlank(currentUser.getSchool()) && currentUser.getSchool().equals(candidate.getSchool())) {
+            return "同校，超有缘";
+        }
+        Set<String> currentTags = new LinkedHashSet<>(parseJsonList(currentUser.getTags()));
+        String commonTag = parseJsonList(candidate.getTags()).stream().filter(currentTags::contains).findFirst().orElse(null);
+        return commonTag == null ? "资料契合，很有缘" : "同爱好，超有缘";
+    }
+
+    private String resolveEducationSchool(AppUser candidate) {
+        String education = switch (StrUtil.blankToDefault(candidate.getEducationLevel(), "").toUpperCase(Locale.ROOT)) {
+            case "DOCTOR", "PHD" -> "博士";
+            case "MASTER", "POSTGRADUATE" -> "硕士";
+            case "BACHELOR", "UNDERGRADUATE" -> "本科";
+            case "COLLEGE", "JUNIOR_COLLEGE" -> "大专";
+            default -> "";
+        };
+        if (StrUtil.isBlank(education)) return StrUtil.blankToDefault(candidate.getSchool(), "资料待完善");
+        if (StrUtil.isBlank(candidate.getSchool())) return education;
+        return education + "·" + candidate.getSchool();
+    }
+
+    private String resolveOnlineText(LocalDateTime lastLoginTime) {
+        if (lastLoginTime == null) return "暂无在线记录";
+        long minutes = Math.max(1, java.time.Duration.between(lastLoginTime, LocalDateTime.now()).toMinutes());
+        if (minutes < 60) return minutes + "分钟前在线";
+        if (minutes < 1440) return (minutes / 60) + "小时前在线";
+        return (minutes / 1440) + "天前在线";
     }
 
     private void requireLoginForScene(Long userId) {
@@ -490,6 +689,68 @@ public class CommunityServiceImpl implements CommunityService {
                 }).toList();
     }
 
+    private List<SysDictData> enabledTopics() {
+        List<SysDictData> topics = dictDataDao.selectByDictType("community_topic");
+        if (topics == null) return List.of();
+        return topics.stream()
+                .filter(item -> item.getId() != null)
+                .filter(item -> CommonStatusEnum.ENABLED.getCode().equals(item.getStatus()))
+                .sorted(Comparator.comparing(item -> Optional.ofNullable(item.getDictSort()).orElse(Integer.MAX_VALUE)))
+                .toList();
+    }
+
+    private Map<Long, List<CommunityPost>> publishedPostsByTopic() {
+        List<CommunityPost> posts = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
+                .isNotNull(CommunityPost::getTopicId));
+        if (posts == null) return Map.of();
+        return posts.stream()
+                .filter(item -> item.getTopicId() != null)
+                .collect(Collectors.groupingBy(CommunityPost::getTopicId));
+    }
+
+    private CommunityTopicCardVO toTopicCard(SysDictData topic, List<CommunityPost> posts) {
+        List<CommunityPost> safePosts = posts == null ? List.of() : posts;
+        CommunityPost preview = safePosts.stream()
+                .max(Comparator
+                        .comparingInt((CommunityPost item) -> defaultZero(item.getLikeCount()) + defaultZero(item.getCommentCount()))
+                        .thenComparing(item -> Optional.ofNullable(item.getCreateTime()).orElse(LocalDateTime.MIN)))
+                .orElse(null);
+        CommunityTopicCardVO result = new CommunityTopicCardVO();
+        result.setId(topic.getId());
+        result.setName(topic.getDictLabel());
+        result.setDescription(topicDescription(topic));
+        result.setPostCount((long) safePosts.size());
+        result.setParticipantCount(safePosts.stream()
+                .map(CommunityPost::getAuthorId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count());
+        result.setParticipantAvatars(safePosts.stream()
+                .map(CommunityPost::getAuthorId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .limit(5)
+                .map(auditContentService::publicAvatar)
+                .filter(StrUtil::isNotBlank)
+                .toList());
+        if (preview != null) {
+            AppUser author = appUserDao.selectById(preview.getAuthorId());
+            List<String> images = parseJsonList(preview.getImageUrls());
+            result.setPreviewContent(preview.getContent());
+            result.setPreviewImageUrl(images.isEmpty() ? null : images.get(0));
+            result.setPreviewAuthorId(preview.getAuthorId());
+            result.setPreviewAuthorName(author != null ? author.getNickname() : null);
+            result.setPreviewAuthorAvatar(auditContentService.publicAvatar(preview.getAuthorId()));
+            result.setPreviewCreateTime(preview.getCreateTime() != null ? preview.getCreateTime().format(FMT) : null);
+        }
+        return result;
+    }
+
+    private String topicDescription(SysDictData topic) {
+        return StrUtil.blankToDefault(topic.getRemark(), "和有共同话题的人交换真实生活与想法");
+    }
+
     /**
      * 校验用户交互权限（根据交互门槛模式判断是否允许交互）
      *
@@ -591,10 +852,16 @@ public class CommunityServiceImpl implements CommunityService {
      * @param topicId 话题ID
      */
     private void requireTopic(Long topicId) {
-        SysDictData topic = dictDataDao.selectById(topicId);
-        if (topic == null || !"community_topic".equals(topic.getDictType())) {
+        requireTopicEntity(topicId);
+    }
+
+    private SysDictData requireTopicEntity(Long topicId) {
+        SysDictData topic = topicId == null ? null : dictDataDao.selectById(topicId);
+        if (topic == null || !"community_topic".equals(topic.getDictType())
+                || (topic.getStatus() != null && !CommonStatusEnum.ENABLED.getCode().equals(topic.getStatus()))) {
             throw new BusinessException("话题不存在");
         }
+        return topic;
     }
 
     /**
