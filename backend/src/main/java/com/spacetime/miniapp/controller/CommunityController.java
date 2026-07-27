@@ -27,6 +27,34 @@ public class CommunityController {
     /** 社区服务 */
     private final CommunityService communityService;
 
+    /** 查询千寻热门页话题聚合。 */
+    @GetMapping("/topics/home")
+    public R<CommunityTopicHomeVO> topicHome() {
+        return R.ok(communityService.getTopicHome(optionalCurrentUserId()));
+    }
+
+    /** 分页查询社区话题。 */
+    @GetMapping("/topics")
+    public R<Page<CommunityTopicCardVO>> topics(@RequestParam(defaultValue = "1") int page,
+                                                @RequestParam(defaultValue = "10") int size) {
+        return R.ok(communityService.getTopics(page, size));
+    }
+
+    /** 查询社区话题详情。 */
+    @GetMapping("/topics/{id}")
+    public R<CommunityTopicDetailVO> topicDetail(@PathVariable Long id) {
+        return R.ok(communityService.getTopicDetail(id));
+    }
+
+    /** 分页查询话题动态。 */
+    @GetMapping("/topics/{id}/posts")
+    public R<Page<CommunityPostCardVO>> topicPosts(@PathVariable Long id,
+                                                   @RequestParam(defaultValue = "HOT") String sort,
+                                                   @RequestParam(defaultValue = "1") int page,
+                                                   @RequestParam(defaultValue = "10") int size) {
+        return R.ok(communityService.getTopicPosts(optionalCurrentUserId(), id, sort, page, size));
+    }
+
     /**
      * 分页查询社区内容列表
      *
@@ -43,6 +71,26 @@ public class CommunityController {
                                               @RequestParam(defaultValue = "1") int page,
                                               @RequestParam(defaultValue = "10") int size) {
         return R.ok(communityService.getPosts(optionalCurrentUserId(), postType, topicId, scene, page, size));
+    }
+
+    /** 查询知音悦目用户照片发现列表。 */
+    @GetMapping("/yuemu")
+    public R<Page<YuemuUserCardVO>> yuemu(@RequestParam(defaultValue = "1") int page,
+                                          @RequestParam(defaultValue = "20") int size) {
+        return R.ok(communityService.getYuemuUsers(currentUserId(), page, size));
+    }
+
+    /** 切换悦目用户心动态。 */
+    @PostMapping("/yuemu/{targetUserId}/like")
+    public R<YuemuLikeToggleVO> toggleYuemuLike(@PathVariable Long targetUserId) {
+        return R.ok(communityService.toggleYuemuLike(currentUserId(), targetUserId));
+    }
+
+    /** 查询诚意贴列表，避免客户端错误复用热门动态。 */
+    @GetMapping("/sincere-posts")
+    public R<Page<CommunityPostCardVO>> sincerePosts(@RequestParam(defaultValue = "1") int page,
+                                                     @RequestParam(defaultValue = "10") int size) {
+        return R.ok(communityService.getPosts(optionalCurrentUserId(), "sincere_post", null, null, page, size));
     }
 
     /**

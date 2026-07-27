@@ -83,7 +83,7 @@ export default {
     },
     {
       root: 'pages/qianxun',
-      pages: ['compose', 'post-detail', 'topic', 'interactions', 'my-posts', 'kindred'],
+      pages: ['compose', 'post-detail', 'topics', 'topic', 'interactions', 'my-posts', 'kindred'],
     },
   ],
   window: {

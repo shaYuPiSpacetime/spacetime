@@ -17,20 +17,18 @@
 
 .message-nav-back {
   position: absolute;
-  left: 12px;
-  width: 36px;
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   z-index: 5;
 }
 
-.message-nav-chevron {
-  width: 17px;
-  height: 17px;
-  border-left: 2px solid #607086;
-  border-bottom: 2px solid #607086;
-  transform: rotate(45deg);
-  box-sizing: border-box;
+.message-nav-slot {
+  position: absolute;
+  left: 106px;
+  height: 23px;
+  display: flex;
+  align-items: center;
 }
 
 .message-nav-title {
@@ -129,9 +127,6 @@
 }
 
 .whisper-tabs {
-  position: absolute;
-  left: 106px;
-  top: 55px;
   display: flex;
   gap: 31px;
 }

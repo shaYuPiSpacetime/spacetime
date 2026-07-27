@@ -17,6 +17,8 @@ public class UserUnlockRecord extends BaseEntity {
     private String unlockNo;
     /** 客户端请求幂等键 */
     private String requestId;
+    /** 本次解锁报价令牌，与请求幂等键共同确定一次扣币请求。 */
+    private String quoteToken;
     /** 用户ID（发起解锁者） */
     private Long userId;
     /** 被解锁目标用户ID */

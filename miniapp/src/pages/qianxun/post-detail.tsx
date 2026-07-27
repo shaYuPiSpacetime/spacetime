@@ -1,6 +1,7 @@
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useState } from 'react'
+import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   createCommunityComment,
@@ -16,14 +17,24 @@ import {
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
+
+interface ReplyTarget {
+  commentId: number
+  userId: number
+  name: string
+}
+
 export default function QianxunPostDetailPage() {
   const [post, setPost] = useState<CommunityPostVO>()
   const [comments, setComments] = useState<CommunityCommentVO[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [comment, setComment] = useState('')
+  const [commentFocused, setCommentFocused] = useState(false)
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget>()
   const [sendingComment, setSendingComment] = useState(false)
   const [showActions, setShowActions] = useState(false)
+  const navigationMetrics = getNativeNavigationMetrics()
 
   const loadPost = async (postId: number) => {
     setLoading(true)
@@ -69,8 +80,10 @@ export default function QianxunPostDetailPage() {
     if (!post || !content || sendingComment) return
     setSendingComment(true)
     try {
-      await createCommunityComment(post.id, content)
+      await createCommunityComment(post.id, content, replyTarget?.commentId, replyTarget?.userId)
       setComment('')
+      setReplyTarget(undefined)
+      setCommentFocused(false)
       const [detail, page] = await Promise.all([getCommunityPostDetail(post.id), getCommunityComments(post.id, 1, 100)])
       setPost(detail)
       setComments(page.records || [])
@@ -80,6 +93,13 @@ export default function QianxunPostDetailPage() {
     } finally {
       setSendingComment(false)
     }
+  }
+
+  const beginReply = (target?: ReplyTarget) => {
+    setShowActions(false)
+    setReplyTarget(target)
+    setCommentFocused(false)
+    setTimeout(() => setCommentFocused(true), 20)
   }
 
   const toggleFollow = async () => {
@@ -114,9 +134,9 @@ export default function QianxunPostDetailPage() {
 
   return (
     <View id="qianxun-post-detail-page" style={{ height: '100vh', background: '#F5F7FA', overflow: 'hidden', color: '#333333' }}>
-      <DetailNav onMore={() => post && setShowActions(true)} />
-      {loading ? <DetailLoading /> : loadError || !post ? <LoadFailure text={loadError} /> : (
-        <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '168rpx', bottom: '104rpx' }} showScrollbar={false}>
+      <NativeNavigation title="动态详情" />
+      {loading ? <DetailLoading top={navigationMetrics.navigationHeight} /> : loadError || !post ? <LoadFailure text={loadError} top={navigationMetrics.navigationHeight} /> : (
+        <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
           <View style={{ padding: '18rpx 24rpx 40rpx' }}>
             <View style={{ borderRadius: '16rpx', background: '#FFFFFF', padding: '24rpx 24rpx 0', overflow: 'hidden' }}>
               <AuthorRow post={post} onMore={() => setShowActions(true)} onFollow={() => void toggleFollow()} />
@@ -146,28 +166,20 @@ export default function QianxunPostDetailPage() {
                 <Text style={{ color: NAVY, fontSize: '23rpx', fontWeight: 500 }}>最新</Text>
                 <Text style={{ color: '#A5A9B1', fontSize: '23rpx', marginLeft: '25rpx' }}>最早</Text>
               </View>
-              {comments.length ? comments.map(item => <CommentRow key={item.id} comment={item} onReply={() => setComment(`回复 ${item.authorName || '用户'}：`)} />) : <CommentEmpty hasRemoteCount={post.commentCount > 0} />}
+              {comments.length ? comments.map(item => <CommentRow key={item.id} comment={item} onReply={() => beginReply({ commentId: item.id, userId: item.authorId, name: item.authorName || '用户' })} />) : <CommentEmpty hasRemoteCount={post.commentCount > 0} />}
             </View>
           </View>
         </ScrollView>
       )}
 
       <View style={{ position: 'fixed', left: 0, right: 0, bottom: 0, minHeight: '104rpx', background: '#FFFFFF', borderTop: '1rpx solid #EDF0F4', padding: '14rpx 24rpx calc(14rpx + env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', boxSizing: 'border-box', zIndex: 20 }}>
-        <Input value={comment} onInput={event => setComment(event.detail.value)} placeholder="我来说几句…" placeholderStyle="color:#A5A9B1;font-size:24rpx" style={{ flex: 1, height: '68rpx', borderRadius: '8rpx', background: '#F7F8FA', padding: '0 20rpx', fontSize: '25rpx', boxSizing: 'border-box' }} />
+        <Input id="qianxun-comment-input" value={comment} focus={commentFocused} confirmType="send" onFocus={() => setCommentFocused(true)} onBlur={() => setCommentFocused(false)} onConfirm={() => void submitComment()} onInput={event => setComment(event.detail.value)} placeholder={replyTarget ? `回复 ${replyTarget.name}…` : '我来说几句…'} placeholderStyle="color:#A5A9B1;font-size:24rpx" style={{ flex: 1, height: '68rpx', borderRadius: '8rpx', background: '#F7F8FA', padding: '0 20rpx', fontSize: '25rpx', boxSizing: 'border-box' }} />
         <View onClick={() => void submitComment()} style={{ width: '68rpx', height: '68rpx', marginLeft: '14rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: comment.trim() && !sendingComment ? BLUE : '#B7BBC3', fontSize: '25rpx', fontWeight: 500 }}>{sendingComment ? '发送中' : '发送'}</Text></View>
         <View onClick={() => void likePost()} style={{ width: '58rpx', height: '68rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post?.liked ? '#F06E78' : '#A6AAB3', fontSize: '34rpx' }}>{post?.liked ? '♥' : '♡'}</Text></View>
       </View>
-      {showActions && post ? <ActionSheet post={post} onClose={() => setShowActions(false)} onReply={() => setShowActions(false)} onReport={() => void reportPost()} /> : null}
+      {showActions && post ? <ActionSheet post={post} onClose={() => setShowActions(false)} onReply={() => beginReply()} onReport={() => void reportPost()} /> : null}
     </View>
   )
-}
-
-function DetailNav({ onMore }: { onMore: () => void }) {
-  return <View style={{ position: 'relative', height: '168rpx', background: '#FFFFFF', boxSizing: 'border-box', zIndex: 10 }}>
-    <View onClick={() => void Taro.navigateBack()} style={{ position: 'absolute', left: '18rpx', top: '88rpx', width: '80rpx', height: '68rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#6C7E99', fontSize: '54rpx', lineHeight: '60rpx' }}>‹</Text></View>
-    <Text style={{ display: 'block', paddingTop: '97rpx', color: NAVY, fontSize: '28rpx', lineHeight: '42rpx', fontWeight: 600, textAlign: 'center' }}>动态详情</Text>
-    <View onClick={onMore} style={{ position: 'absolute', right: '76rpx', top: '88rpx', width: '66rpx', height: '68rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#60738F', fontSize: '34rpx', letterSpacing: '3rpx' }}>•••</Text></View>
-  </View>
 }
 
 function AuthorRow({ post, onMore, onFollow }: { post: CommunityPostVO; onMore: () => void; onFollow: () => void }) {
@@ -199,17 +211,17 @@ function CommentRow({ comment, onReply }: { comment: CommunityCommentVO; onReply
     <View style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#43516A', fontSize: '23rpx', fontWeight: 600 }}>{comment.authorName || '用户'}</Text><View style={{ flex: 1 }} /><Text style={{ color: '#A7ACB5', fontSize: '20rpx' }}>{relativeTime(comment.createTime)}</Text></View>
       <Text style={{ display: 'block', color: '#333333', fontSize: '25rpx', lineHeight: '40rpx', marginTop: '10rpx' }}>{comment.replyUserName ? <Text style={{ color: BLUE }}>回复 {comment.replyUserName}：</Text> : null}{comment.content}</Text>
-      <View onClick={onReply} style={{ width: '80rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '21rpx' }}>回复</Text></View>
+      <View id={`qianxun-comment-reply-${comment.id}`} className="qianxun-comment-reply" onClick={onReply} style={{ width: '80rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '21rpx' }}>回复</Text></View>
     </View>
   </View>
 }
 
-function DetailLoading() {
-  return <View style={{ padding: '194rpx 24rpx 0' }}><View style={{ height: '580rpx', borderRadius: '16rpx', background: '#FFFFFF' }} /></View>
+function DetailLoading({ top }: { top: number }) {
+  return <View style={{ position: 'absolute', left: 0, right: 0, top: `${top + 26}rpx`, padding: '0 24rpx' }}><View style={{ height: '580rpx', borderRadius: '16rpx', background: '#FFFFFF' }} /></View>
 }
 
-function LoadFailure({ text }: { text: string }) {
-  return <View style={{ paddingTop: '300rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '240rpx', height: '190rpx' }} /><Text style={{ color: '#999999', fontSize: '26rpx', marginTop: '20rpx' }}>{text || '动态暂时无法查看'}</Text></View>
+function LoadFailure({ text, top }: { text: string; top: number }) {
+  return <View style={{ position: 'absolute', left: 0, right: 0, top: `${top + 132}rpx`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '240rpx', height: '190rpx' }} /><Text style={{ color: '#999999', fontSize: '26rpx', marginTop: '20rpx' }}>{text || '动态暂时无法查看'}</Text></View>
 }
 
 function ActionSheet({ post, onClose, onReply, onReport }: { post: CommunityPostVO; onClose: () => void; onReply: () => void; onReport: () => void }) {

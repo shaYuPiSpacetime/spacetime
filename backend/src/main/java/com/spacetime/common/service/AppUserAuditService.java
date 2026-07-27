@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * App 用户统一审核服务。
@@ -48,4 +50,7 @@ public interface AppUserAuditService {
 
     /** 统计实名、头像、学历三重认证通过数量。 */
     int certificationApprovedCount(Long userId);
+
+    /** 批量统计实名、头像、学历三重认证通过数，避免列表逐用户查询。 */
+    Map<Long, Integer> certificationApprovedCounts(Collection<Long> userIds);
 }

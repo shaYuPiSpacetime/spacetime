@@ -1,6 +1,4 @@
-import { View, Text } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { getWindowMetrics } from '@/utils/system'
+import NativeNavigation from '@/components/NativeNavigation'
 
 export interface CustomNavBarProps {
   /** 标题文字，不传则无标题 */
@@ -25,63 +23,5 @@ export default function CustomNavBar({
   showBack = false,
   titleColor = '#000000',
 }: CustomNavBarProps) {
-  const systemInfo = getWindowMetrics()
-  const statusBarHeight = systemInfo.statusBarHeight ?? 20
-
-  const handleBack = () => {
-    const pages = Taro.getCurrentPages()
-    if (pages.length > 1) {
-      Taro.navigateBack()
-    } else {
-      Taro.switchTab({ url: '/pages/index/index' })
-    }
-  }
-
-  return (
-    <View
-      style={{
-        paddingTop: `${statusBarHeight}px`,
-        background: bgColor,
-      }}
-    >
-      {/* 导航内容区 */}
-      <View
-        className="flex items-center relative"
-        style={{ height: '44px' }}
-      >
-        {/* 返回按钮 */}
-        {showBack && (
-          <View
-            className="flex items-center justify-center absolute left-0"
-            style={{
-              width: '44px',
-              height: '44px',
-              zIndex: 10,
-            }}
-            onClick={handleBack}
-          >
-            <Text style={{ fontSize: '20px', color: titleColor }}>‹</Text>
-          </View>
-        )}
-
-        {/* 标题 — 居中 */}
-        {title ? (
-          <View className="flex-1 flex items-center justify-center">
-            <Text
-              style={{
-                fontSize: '17px',
-                fontWeight: 600,
-                color: titleColor,
-                lineHeight: '44px',
-              }}
-            >
-              {title}
-            </Text>
-          </View>
-        ) : (
-          <View className="flex-1" />
-        )}
-      </View>
-    </View>
-  )
+  return <NativeNavigation title={title} background={bgColor} showBack={showBack} titleColor={titleColor} />
 }

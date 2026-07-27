@@ -130,6 +130,29 @@ public class AppUserAuditContentServiceImpl implements AppUserAuditContentServic
                 .toList();
     }
 
+    @Override
+    public Map<Long, List<String>> publicAlbumPhotos(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<AppUserAuditRecord> records = auditRecordDao.selectList(
+                new LambdaQueryWrapper<AppUserAuditRecord>()
+                        .in(AppUserAuditRecord::getUserId, userIds)
+                        .eq(AppUserAuditRecord::getAuditType, AppUserAuditTypeEnum.ALBUM_PHOTO.getCode())
+                        .eq(AppUserAuditRecord::getStatus, AppUserAuditStatusEnum.APPROVED.getCode())
+                        .orderByAsc(AppUserAuditRecord::getSubmitTime)
+                        .orderByAsc(AppUserAuditRecord::getId));
+        Map<Long, List<String>> result = new LinkedHashMap<>();
+        for (AppUserAuditRecord record : records) {
+            if (StrUtil.isBlank(record.getMediaUrl())) {
+                continue;
+            }
+            result.computeIfAbsent(record.getUserId(), ignored -> new ArrayList<>())
+                    .add(record.getMediaUrl());
+        }
+        return result;
+    }
+
     private void requireTextType(AppUserAuditTypeEnum type) {
         if (type != AppUserAuditTypeEnum.ABOUT_ME
                 && type != AppUserAuditTypeEnum.PROFILE_QA) {

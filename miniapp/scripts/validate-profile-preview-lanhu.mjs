@@ -9,6 +9,7 @@ const read = relativePath => fs.readFileSync(path.join(rootDir, relativePath), '
 
 const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
 const topNav = read('src/components/ProfilePreviewTopNav.tsx')
+const nativeNavigation = read('src/components/NativeNavigation.tsx')
 const packageJson = read('package.json')
 
 assert.doesNotMatch(preview, /import profilePreviewPhoto from/, '蓝湖人物大图禁止打进小程序主包')
@@ -82,7 +83,8 @@ assert.match(topNav, /fontSize: active \? '32rpx' : '28rpx'/, '顶部 Tab 必须
 assert.match(topNav, /lineHeight: active \? '45rpx' : '40rpx'/, '顶部 Tab 必须映射蓝湖激活和未激活行高')
 assert.match(topNav, /width: '128rpx'/, '主页预览激活下划线宽度必须为 128rpx')
 assert.match(topNav, /height: '8rpx'/, '主页预览激活下划线高度必须为 8rpx')
-assert.match(topNav, /Taro\.getEnv\(\) === Taro\.ENV_TYPE\.WEAPP/, '微信胶囊 API 只能在微信环境调用')
+assert.match(topNav, /getNativeNavigationMetrics/, '主页预览顶部必须复用统一导航度量')
+assert.match(nativeNavigation, /Taro\.getEnv\(\) === Taro\.ENV_TYPE\.WEAPP/, '微信胶囊 API 只能在微信环境调用')
 assert.doesNotMatch(preview + topNav, /letterSpacing:\s*['"]-/, '蓝湖还原禁止负字距')
 assert.match(packageJson, /validate-profile-preview-lanhu\.mjs/, '微信开发和构建前必须执行蓝湖视觉门禁')
 

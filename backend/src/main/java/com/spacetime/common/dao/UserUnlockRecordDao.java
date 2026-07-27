@@ -13,6 +13,8 @@ public interface UserUnlockRecordDao {
     UserUnlockRecord selectById(Long id);
     /** 按条件批量查询解锁记录。 */
     List<UserUnlockRecord> selectList(LambdaQueryWrapper<UserUnlockRecord> wrapper);
+    /** 按被解锁用户查询有效权益，访客跨展示记录复用。 */
+    UserUnlockRecord selectActiveByTargetUser(Long userId, String targetBizType, Long targetUserId);
     Page<UserUnlockRecord> selectPage(Page<UserUnlockRecord> page, LambdaQueryWrapper<UserUnlockRecord> wrapper);
     void insert(UserUnlockRecord entity);
     void updateById(UserUnlockRecord entity);

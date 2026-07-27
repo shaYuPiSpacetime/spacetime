@@ -16,7 +16,9 @@ public enum RelationSourceSceneEnum {
     /** 喜欢我的列表。 */
     LIKES_ME("likes_me", "喜欢我的"),
     /** 最近访客列表。 */
-    RECENT_VIEWERS("recent_viewers", "最近访客");
+    RECENT_VIEWERS("recent_viewers", "最近访客"),
+    /** 千寻知音悦目。 */
+    YUEMU("yuemu", "悦目");
 
     /** 数据库存储编码。 */
     private final String code;

@@ -2,6 +2,7 @@ import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import AppTabBar, { type TabKey } from '@/components/AppTabBar'
+import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 
 export const LANHU_BLUE = '#2876FF'
 export const LANHU_NAVY = '#0C285A'
@@ -23,6 +24,7 @@ export function LanhuNav({
   titleLeft?: boolean
 }) {
   const color = tone === 'dark' ? '#FFFFFF' : LANHU_NAVY
+  const metrics = getNativeNavigationMetrics()
 
   const handleBack = () => {
     const pages = Taro.getCurrentPages()
@@ -37,34 +39,36 @@ export function LanhuNav({
     <View
       style={{
         position: 'relative',
-        height: '176rpx',
+        height: `${metrics.navigationHeight}rpx`,
         width: '750rpx',
         flexShrink: 0,
       }}
     >
       {showBack && (
-        <Text
+        <View
           style={{
             position: 'absolute',
-            left: '25rpx',
-            top: '92rpx',
-            color,
-            fontSize: '74rpx',
-            lineHeight: '56rpx',
-            fontWeight: 300,
+            left: 0,
+            top: `${Math.max(0, metrics.menuTop - 20)}rpx`,
+            width: '112rpx',
+            height: `${metrics.menuHeight + 40}rpx`,
+            paddingLeft: '28rpx',
+            display: 'flex',
+            alignItems: 'center',
+            boxSizing: 'border-box',
             zIndex: 2,
           }}
           onClick={handleBack}
         >
-          ‹
-        </Text>
+          <MiniappBackIcon color={color} />
+        </View>
       )}
       {title && (
         <Text
           style={{
             position: 'absolute',
             left: titleLeft ? '25rpx' : '0',
-            top: '95rpx',
+            top: `${metrics.titleTop}rpx`,
             width: titleLeft ? '420rpx' : '750rpx',
             textAlign: titleLeft ? 'left' : 'center',
             color,

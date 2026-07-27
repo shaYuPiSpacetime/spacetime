@@ -2,9 +2,18 @@ import { PropsWithChildren, useRef } from 'react'
 import Taro, { useDidShow, useLaunch } from '@tarojs/taro'
 import { useAuthStore } from './stores/authStore'
 import { usePrd01Store } from './stores/prd01Store'
-import { DEV_FIXED_LOGIN, MOCK_ENABLED, TOKEN_KEY } from './constants/config'
+import { DEV_FIXED_LOGIN, MOCK_ENABLED, TOKEN_KEY, USER_INFO_KEY } from './constants/config'
 
 import './app.scss'
+
+function getDevFixedLoginExtra() {
+  const cached = Taro.getStorageSync(USER_INFO_KEY) || {}
+  return {
+    phone: DEV_FIXED_LOGIN.phone,
+    maskedPhone: DEV_FIXED_LOGIN.maskedPhone,
+    accessStatus: cached.userId === DEV_FIXED_LOGIN.userId ? cached.accessStatus : undefined,
+  }
+}
 
 function App({ children }: PropsWithChildren<object>) {
   const { setLogin, checkLogin } = useAuthStore()
@@ -19,7 +28,7 @@ function App({ children }: PropsWithChildren<object>) {
         DEV_FIXED_LOGIN.userId,
         '',
         '',
-        { phone: DEV_FIXED_LOGIN.phone, maskedPhone: DEV_FIXED_LOGIN.maskedPhone },
+        getDevFixedLoginExtra(),
       )
     } else {
       checkLogin()
@@ -40,7 +49,7 @@ function App({ children }: PropsWithChildren<object>) {
           DEV_FIXED_LOGIN.userId,
           '',
           '',
-          { phone: DEV_FIXED_LOGIN.phone, maskedPhone: DEV_FIXED_LOGIN.maskedPhone },
+          getDevFixedLoginExtra(),
         )
       }
       loginRedirectingRef.current = false

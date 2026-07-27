@@ -30,6 +30,11 @@ public class UserAssetDaoImpl implements UserAssetDao {
     }
 
     @Override
+    public UserAsset selectByUserIdForUpdate(Long userId) {
+        return mapper.selectByUserIdForUpdate(userId);
+    }
+
+    @Override
     public Page<UserAsset> selectPage(Page<UserAsset> page, LambdaQueryWrapper<UserAsset> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

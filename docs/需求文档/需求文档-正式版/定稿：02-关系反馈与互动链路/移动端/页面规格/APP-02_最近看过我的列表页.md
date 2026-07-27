@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本06 | 2026-07-23 | Codex | 最近访客按用户聚合；普通用户展示全部已解锁访客及最近 10 个未解锁访客；补充分页数量、统一排序和按访客用户解锁口径 |
 | 版本05 | 2026-07-15 | Codex | 隐藏访问一期完全不开发；明确展示记录 30 分钟去重但 PV 累计 |
 | 版本03 | 2026-07-10 | Codex | 按蓝湖 UI 与产品确认调整：移除前台失效态，明确会员到期回退模糊、单条解锁永久清晰 |
 | 版本02 | 2026-07-02 | Codex | 明确列表页点击模糊卡片只打开单条解锁场景弹窗，扣币确认在弹窗内复用 PRD-04 |
@@ -59,12 +60,18 @@
 | `APP-02-PAGE-recent-viewers-FIELD-total-pv` | 总浏览量 | int | 是 | >=0 | 累计 PV，极短时间重复刷新不计入 | 0 | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-recent-viewers-FIELD-today-uv` | 今日访客 | int | 是 | >=0 | 同一用户当天多次访问计 1 UV | 0 | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-recent-viewers-FIELD-today-pv` | 今日浏览量 | int | 是 | >=0 | 今日 PV | 0 | 否 | 普通 | PRD-02 |
-| `APP-02-PAGE-recent-viewers-FIELD-visit-no` | 访客记录编号 | string | 是 | 业务编号 | 前台不展示，仅追踪 | 无 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-recent-viewers-FIELD-total` | 7 天有效访客总数 | long | 是 | >=0 | 按访客用户去重，不受普通用户 10 人展示上限影响 | 0 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-recent-viewers-FIELD-visible-total` | 可分页访客数 | long | 是 | >=0 | 普通用户为全部已解锁访客 + 最近 10 个未解锁访客；VIP 为全部有效访客 | 0 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-recent-viewers-FIELD-hidden-count` | 未进入列表人数 | long | 是 | >=0 | `total-visibleTotal` | 0 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-recent-viewers-FIELD-visit-no` | 最近访客记录编号 | string | 是 | `VIS-*` | 前台不展示；取该访客最近一条 30 分钟展示记录，用于解锁校验和审计 | 无 | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-recent-viewers-FIELD-display-status` | 展示状态 | enum | 是 | `blur` / `clear` | APP 默认列表只返回模糊或清晰状态 | `blur` | 否 | 普通 | PRD-02 |
 | `APP-02-PAGE-recent-viewers-FIELD-group-key` | 分组 | enum/string | 是 | 今日/昨日/近 7 天 | 按自然日切分 | 今日 | 否 | 普通 | 系统计算 |
-| `APP-02-PAGE-recent-viewers-FIELD-avatar` | 头像 | image | 是 | URL/模糊占位 | `blur` 时展示模糊或占位 | 模糊头像 | 否 | 普通 | PRD-01 |
-| `APP-02-PAGE-recent-viewers-FIELD-nickname` | 昵称 | string | 条件必填 | 1-20 字 | `clear` 时展示；`blur` 时不展示 | 无 | 否 | 普通 | PRD-01 |
-| `APP-02-PAGE-recent-viewers-FIELD-visit-count` | 访问次数 | int | 是 | >=1 | 展示如“访问了你 2 次” | 1 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-recent-viewers-FIELD-avatar` | 头像 | image | 是 | URL | 后端始终返回；`blur` 时前端渲染模糊样式 | 无 | 否 | 普通 | PRD-01 |
+| `APP-02-PAGE-recent-viewers-FIELD-nickname` | 昵称 | string | 是 | 1-20 字 | 后端始终返回；前端依据 `displayStatus` 决定是否展示 | 无 | 否 | 普通 | PRD-01 |
+| `APP-02-PAGE-recent-viewers-FIELD-profile` | 用户基础资料 | object | 是 | 年龄、学校、在线、身份、行业、职业、公司、年收入 | 后端在 `blur/clear` 均返回，字典字段同时返回 code/label | 无 | 否 | 普通 | PRD-01/02 |
+| `APP-02-PAGE-recent-viewers-FIELD-visit-count` | 7 天访问次数 | int | 是 | >=1 | 聚合同一访客最近 7 天全部 `visible` 展示记录的 PV | 1 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-recent-viewers-FIELD-first-last-time` | 首次/最近访问时间 | datetime | 是 | 最近 7 天窗口 | 同一访客在窗口内聚合后的最早与最晚时间 | 无 | 否 | 普通 | PRD-02 |
+| `APP-02-PAGE-recent-viewers-FIELD-unlock-time` | 单条解锁时间 | datetime | 否 | 时间或空 | 单条解锁清晰时返回；仅 VIP 权益清晰时为空 | 空 | 否 | 普通 | PRD-04 |
 | `APP-02-PAGE-recent-viewers-FIELD-weak-tags` | 弱识别标签 | string[] | 否 | 同城/同乡/校友/星座/专业/985或211 | 不得组合出可唯一识别身份的信息 | 空数组 | 否 | 普通 | 系统计算 |
 | `APP-02-PAGE-recent-viewers-FIELD-relation-badges` | 关系标识 | string[] | 否 | NEW/对方送过悄悄话/我送过悄悄话/已相互喜欢 | 展示图标需有无障碍文案 | 空数组 | 否 | 普通 | PRD-02/03 |
 
@@ -86,9 +93,11 @@
 | 触发字段 | 触发事件 | 影响字段 | 联动行为 | 备注 |
 |----------|----------|----------|----------|------|
 | 当前日期 | 页面查询 | 列表范围 | 只返回最近 `M02-PARAM-visitor-visible-days=7` 天记录 | 固定参数，代码实现 |
+| 同一访客多条展示记录 | 页面查询 | 单张访客卡片 | 按 `visitorUserId` 聚合为 1 张卡片，累计访问次数并取窗口内最早/最近访问时间 | 不改变底层 30 分钟记录与事件事实 |
+| 当前用户非会员 | 页面查询 | 可分页集合 | 全部有效单条已解锁访客 + 最近 10 个有效未解锁访客 | `total` 仍返回窗口内全部有效访客去重人数 |
 | 会员状态 | 生效 | 展示状态 | 有效窗口内访客全量清晰 | `M04-ENUM-vip-benefit-type=visitor_list` |
 | 会员状态 | 到期 | 展示状态 | 未单条解锁记录回退为普通模糊态；已单条解锁记录继续清晰 | `M02-RULE-vip-expiry-display` |
-| 单条解锁状态 | 支付成功 | 当前卡片 | 对象可展示时保持清晰；列表仍受最近 7 天窗口限制，对象失效后前台移除 | `M02-RULE-unlock-visibility` |
+| 单条解锁状态 | 支付成功 | 当前访客用户 | 对象可展示时按访客用户永久保持清晰；该访客后续生成新 `VIS-*` 记录无需再次付费；列表仍受最近 7 天窗口限制 | `M02-RULE-unlock-visibility` |
 | 隐藏访问记录 | 一期不提供 | 页面与接口 | 不展示入口、不判断权益、不生成隐藏状态 | `M02-RULE-hidden-visit-reserve` |
 | 访客记录 | 超过 7 天 | 前台列表 | 不展示；解锁历史由 PRD-04 追溯 | `M02-RULE-visitor-window` |
 | 关系状态 | 账号异常/拉黑/封禁等 | 默认列表 | 默认列表隐藏不可互动对象，不展示前台失效态 | `M02-RULE-relation-invalid` |
@@ -110,9 +119,13 @@
 
 ## 8. 查询与列表
 
-- **默认排序**：访问时间倒序，按今日、昨日、近 7 天分组。
+- **聚合粒度**：同一访客用户只返回 1 张卡片；最近一条记录提供 `recordNo/sourceScene`，窗口内全部记录聚合 `visitCount/firstVisitTime/lastVisitTime`。
+- **普通用户集合**：全部有效已单条解锁访客 + 最近 10 个有效未解锁访客。
+- **VIP 集合**：最近 7 天全部有效访客。
+- **默认排序**：两类用户均按 `lastVisitTime DESC、最近展示记录 id DESC`；解锁时间不参与排序。页面再按今日、昨日、近 7 天分组。
 - **展示窗口**：最近 7 天。
 - **分页方式**：移动端加载更多，默认每页 20 条。
+- **分页统计**：`total` 为窗口内有效访客去重总数；`visibleTotal` 为当前权益下可分页人数；`hiddenCount=total-visibleTotal`；`pages/hasMore` 按 `visibleTotal` 计算。
 - **统计口径**：今日访客 = UV；今日浏览量 = 今日 PV；总浏览量 = 累计 PV。
 
 ---
@@ -139,6 +152,17 @@ AC-ID: APP-02-AC-viewers-vip-expired-reblur
 Given 用户曾因会员权益全量清晰查看访客列表，且未单条解锁某条访客记录
 When  会员到期后再次进入最近看过我的列表
 Then  该记录回退为模糊态；已单条解锁记录仍保持清晰
+
+AC-ID: APP-02-AC-viewers-visible-set
+Given 普通用户最近 7 天有 15 个未解锁访客和 3 个已解锁访客
+When  分页查询最近看过我的列表
+Then  total=18、visibleTotal=13、hiddenCount=5；返回 3 个已解锁访客和最近 10 个未解锁访客，并统一按最近访问时间倒序
+
+AC-ID: APP-02-AC-viewer-user-unlock
+Given 用户已通过某条 VIS 记录单条解锁访客 A
+And   访客 A 后续重新来访并生成新的 VIS 记录
+When  用户再次查询最近看过我的列表或对新 VIS 记录请求报价
+Then  访客 A 仍为 clear；报价返回 alreadyUnlocked=true，不重复扣币
 ```
 
 ---

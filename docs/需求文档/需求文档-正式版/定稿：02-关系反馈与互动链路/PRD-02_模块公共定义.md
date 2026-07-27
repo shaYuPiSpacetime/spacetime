@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本10 | 2026-07-23 | Codex | 落地喜欢我的可见集合：普通用户全部已解锁加最近10条未解锁、VIP全量，并补齐稳定分页快照字段 |
 | 版本09 | 2026-07-23 | Codex | 新增“新喜欢”定义、未读计数与快照已读规则，区分新喜欢数和有效喜欢总数，并补齐入口角标、列表分组及接口字段 |
 | 版本08 | 2026-07-16 | Codex | 同步需求评审最终确认：单条解锁采用两步确认；女性保护只限制发送；恢复匹配成功弹窗并按用户记录展示/已读状态 |
 | 版本07 | 2026-07-15 | Codex | 按开发答疑确认：隐藏访问一期完全不开发；匹配采用单一有效关系与多来源明细；补齐有效总数、永久留存和后台分页口径 |
@@ -180,11 +181,13 @@
 | `M02-RULE-visit-generate` | 来访记录生成 | APP | 仅进入婚恋用户主页时生成；社区动态详情、职业主页不计入 | 来源场景写入 `M02-ENUM-relation-source-scene` |
 | `M02-RULE-visit-dedup` | 访客去重 | APP/ADM | 同一访客 30 分钟内访问同一目标主页，只生成 1 条展示记录；PV 可累计 | 固定参数 `M02-PARAM-visit-dedup-minutes` |
 | `M02-RULE-visitor-window` | 最近看过我的展示窗口 | APP/ADM | 前台列表只展示最近 7 天内 `visible` 访客记录 | 固定参数 `M02-PARAM-visitor-visible-days` |
-| `M02-RULE-blur-display` | 模糊态字段 | APP | 普通未解锁状态不展示清晰头像、昵称、年龄、学校；仅展示弱识别标签、访问分组、访问次数等 | 页面规格列字段 |
+| `M02-RULE-viewers-visible-set` | 最近访客可见集合、聚合与排序 | APP | 最近 7 天内同一访客只形成 1 张列表卡片，`visitCount/firstVisitTime/lastVisitTime` 聚合该访客窗口内全部 `visible` 展示记录，`recordNo/sourceScene` 取最近一条。普通用户可见集合为全部有效单条已解锁访客加最近 10 个有效未解锁访客；VIP 为全部有效访客。两类用户最终均按 `lastVisitTime DESC、最近展示记录 id DESC` 排序，解锁时间不参与排序 | `total` 为窗口内有效访客去重总数；`visibleTotal` 为可分页集合数；`hiddenCount=total-visibleTotal` |
+| `M02-RULE-blur-display` | 模糊态字段 | APP | 接口在 `blur/clear` 两种状态均返回允许公开的用户基础资料；前端必须只依据 `displayStatus` 控制头像模糊、文本显隐和卡片样式，不得依据字段是否为空反推解锁状态 | 当前已确认采用前端展示控制方案 |
 | `M02-RULE-new-like-definition` | 新喜欢定义与计数 | APP | `newCount` 只统计当前用户尚未确认查看、`likeStatus=active` 且对象当前可互动的入向喜欢，是当前有效喜欢 `total` 的子集；同一发起方当前最多一条有效喜欢，取消/失效后重建的新喜欢生命周期可再次计为新喜欢 | 不把新注册用户、相互喜欢或已读历史喜欢计入 |
 | `M02-RULE-new-like-read` | 新喜欢快照已读 | APP | 喜欢我的查询返回本次快照的服务端不透明 `readCursor`；仅当首屏数据成功渲染后，客户端才提交该游标确认已读。服务端幂等推进当前用户读取游标，本次快照之后到达的喜欢仍为新喜欢；查询失败、渲染失败、应用异常退出或已读提交失败均不清除未读状态。当前页面保留本次快照的“新”展示，重新进入或刷新后按最新读取状态计算 | 客户端不得自行拼接或比较游标 |
 | `M02-RULE-new-like-display` | 新喜欢展示 | APP | 心动及喜欢我的入口在 `newCount>0` 时显示数字角标，1-99 显示原数、100 及以上显示 `99+`，0 时隐藏；喜欢我的顶部显示“{newCount} 个新喜欢”和最多 5 个最新新喜欢头像摘要，列表按“新喜欢/更早”分组，新记录显示“新”标签；`newCount=0` 时不显示摘要或分组标题，直接展示常规列表。模糊态仍可展示数量、相对喜欢时间和“新”标签，但头像摘要及卡片必须继续遵守 `M02-RULE-blur-display`，不得泄露强识别信息 | `total` 对应文案固定为“{total} 人喜欢了我”，不得写成“{total} 人新喜欢了我” |
-| `M02-RULE-unlock-visibility` | 单条解锁清晰可见 | APP/ADM | 单条解锁成功后，在对象与关系仍可展示时永久清晰；访客列表仍受 7 天窗口限制。对象取消喜欢、拉黑、冻结、注销、封禁或认证失效后前台移除，不展示失效卡片且不自动退款；后台保留解锁记录、消费流水和真实失效原因 | 特批退款引用 PRD-04 |
+| `M02-RULE-likes-visible-set` | 喜欢我的可见集合与排序 | APP | `total`、`newCount` 均基于全部当前有效入向喜欢。普通用户可见集合为全部有效单条已解锁喜欢加最近 10 条有效未解锁喜欢；VIP 可见集合为全部有效喜欢。集合支持分页，先按新喜欢的喜欢时间倒序，再按更早已解锁记录的解锁时间倒序，最后按更早未解锁记录的喜欢时间倒序 | `visibleTotal` 为可分页集合数量，`hiddenCount=total-visibleTotal`；已解锁不受 10 条上限限制 |
+| `M02-RULE-unlock-visibility` | 单条解锁清晰可见 | APP/ADM | 单条解锁成功后，在对象与关系仍可展示时永久清晰；访客解锁权益按 `当前用户 + visit + 访客用户` 判断，`targetBizNo` 仅保留本次触发解锁的最近访客记录用于校验和审计，因此同一访客后续产生新 `VIS-*` 记录仍保持清晰。访客列表仍受 7 天窗口限制。对象取消喜欢、拉黑、冻结、注销、封禁或认证失效后前台移除，不展示失效卡片且不自动退款；后台保留解锁记录、消费流水和真实失效原因 | 特批退款引用 PRD-04 |
 | `M02-RULE-vip-expiry-display` | 会员到期展示回退 | APP/ADM | 会员到期后，喜欢/访客全量清晰权益回退为普通模糊态；已千寻币单条解锁记录在对象与关系可展示时继续清晰 | 区分会员权益与单条购买 |
 | `M02-RULE-paywall-handoff` | 付费承接 | APP | 列表页点击模糊卡片先打开 `APP-02-PAGE-single-unlock-modal` 场景弹窗；弹窗内“只看ta”复用 `APP-04-PAGE-paywall-modal` 千寻币确认；解锁全部唤起会员引导；余额不足进入 PRD-04 充值承接 | 不重复定义支付页 |
 | `M02-RULE-single-unlock-modal-content` | 单条解锁弹窗场景内容 | APP | 标题为“解锁Ta是谁”；喜欢场景副标题为“送出喜欢，即刻开聊”；访客场景副标题按蓝湖最终稿/运营配置；按钮固定为“只看ta”“解锁全部”；价格取 PRD-04 场景配置 | 弹窗承载组件仍复用 PRD-04 |
@@ -197,7 +200,7 @@
 | `M02-RULE-relation-invalid` | 关系失效展示 | APP/ADM | 拉黑、冻结、注销、封禁、认证失效后，前台默认列表不展示不可互动对象，不画前台失效态或关系失效弹窗；后台保留真实原因可查 | 取消喜欢另见 `M02-RULE-like-cancel` |
 | `M02-RULE-like-cancel` | 取消喜欢联动 | APP/ADM | 取消喜欢后喜欢我的默认列表移除该记录并撤销对应爱心来源；若仍有悄悄话回复等有效来源，相互喜欢与聊天关系继续有效；无任何有效来源时匹配才失效。前台不展示“对方取消喜欢/不喜欢了”，后台永久保留记录 | |
 | `M02-RULE-relation-retention` | 关系事实永久留存 | APP/ADM | 喜欢、访客、匹配、来源明细、解锁及审计记录永久保留且不物理删除；账号注销后前台移除，后台将关联身份匿名化并保留业务编号、时间、来源、状态与 `account_deleted` 原因 | 财务台账继续引用 PRD-04 |
-| `M02-RULE-blueprint-scope` | 蓝湖 UI 范围收口 | APP | 02 移动端不纳入“海量曝光”“10倍曝光”运营入口、前台失效态、关系失效弹窗、喜欢我的筛选胶囊；匹配成功弹窗已确认纳入正式需求，但当前缺蓝湖 UI，登记为待补设计资产，不得据此删除需求 | UI 图不作为本轮移动端接口实现门禁，见 `C02-12` |
+| `M02-RULE-blueprint-scope` | 蓝湖 UI 范围收口 | APP | 02 移动端不纳入“海量曝光”“10倍曝光”运营入口、前台失效态、关系失效弹窗、喜欢我的筛选胶囊；匹配成功弹窗已确认纳入正式需求，但当前缺蓝湖 UI，登记为待补设计资产，不得据此删除需求 | UI 缺稿不阻塞已完成的后端接口；页面视觉验收仍需补稿 |
 | `M02-RULE-female-protection-ref` | 女性保护引用边界 | APP/ADM | 女性保护只限制发送，不限制用户进入有效会话。PRD-02 仅返回 `canEnterConversation`；进入会话后由 PRD-03 返回 `canSend`、`protectStatus`。拉黑、冻结、注销、封禁、认证失效或关系失效才可使 `canEnterConversation=false` | 保护期和发送顺序归 PRD-03 |
 | `M02-RULE-admin-scope` | 后台承接范围 | ADM | 首版只在 ADM-01 App 用户管理卡片新增“模块补充”入口，并在弹窗“关系反馈”Tab 承接；不新增全局关系列表，不提供关系反馈配置页 | 规则参数按代码固定 |
 | `M02-RULE-admin-manual-boundary` | 后台人工操作边界 | ADM | 不开放手工制造匹配、补喜欢、恢复关系记录 | 高风险需求后续另立 |
@@ -212,7 +215,8 @@
 |---------|----------|--------|------|----------|--------------|------|
 | `M02-PARAM-visitor-visible-days` | 最近看过我的前台展示天数 | 7 | int | 后端代码常量/查询条件 | 否 | 只影响前台最近看过我的列表窗口 |
 | `M02-PARAM-visit-dedup-minutes` | 同一访客同一主页去重窗口 | 30 | int | 后端代码常量/写入去重逻辑 | 否 | 30 分钟内只生成 1 条展示记录，PV 可累计 |
-| `M02-PARAM-likes-blur-limit` | 普通用户喜欢我的模糊展示条数上限 | 10 | int | 后端代码常量/列表查询 | 否 | 普通用户最多展示 10 条模糊喜欢记录 |
+| `M02-PARAM-likes-blur-limit` | 普通用户喜欢我的未解锁展示条数上限 | 10 | int | 后端代码常量/列表查询 | 否 | 只限制未解锁部分；全部有效单条已解锁记录仍进入可分页集合 |
+| `M02-PARAM-viewers-blur-limit` | 普通用户最近访客未解锁展示人数上限 | 10 | int | 后端代码常量/列表查询 | 否 | 按访客用户去重后限制未解锁部分；全部有效单条已解锁访客仍进入可分页集合 |
 | `M02-PARAM-hidden-visit-enabled` | 是否允许用户开启隐藏访问记录（已废弃） | false | bool | 不实现 | 否 | 一期完全不开发；仅保留历史 ID |
 | `M02-PARAM-whisper-reply-match-enabled` | 悄悄话回复是否触发匹配成功 | true | bool | 后端代码常量/事件消费逻辑 | 否 | 悄悄话发送和回复归 PRD-03 |
 
@@ -260,9 +264,9 @@
 
 | 端 | 方法 | 路径 | 说明 | 关联规则/状态 |
 |----|------|------|------|---------------|
-| APP | GET | `/api/app/relation/likes-me` | 查询喜欢我的默认列表，返回 `total`、`newCount`、记录级 `isNew` 与快照 `readCursor`，不返回 `cancelled` 取消喜欢记录 | `M02-RULE-blur-display`、`M02-RULE-new-like-definition`、`M02-RULE-like-cancel` |
+| APP | GET | `/api/app/relation/likes-me` | 查询喜欢我的默认列表，返回 `total/newCount/visibleTotal/hiddenCount`、记录级 `isNew` 与快照 `readCursor`；后续页原样回传该游标作为 `snapshotCursor`，不返回 `cancelled` 取消喜欢记录 | `M02-RULE-blur-display`、`M02-RULE-new-like-definition`、`M02-RULE-likes-visible-set`、`M02-RULE-like-cancel` |
 | APP | POST | `/api/app/relation/likes-me/read` | 首屏成功渲染后按服务端 `readCursor` 幂等确认本次新喜欢快照已读 | `M02-RULE-new-like-read` |
-| APP | GET | `/api/app/relation/recent-viewers` | 查询最近看过我的列表 | `M02-RULE-visitor-window` |
+| APP | GET | `/api/app/relation/recent-viewers` | 查询最近看过我的分页列表及统计，返回 `total/visibleTotal/hiddenCount`；同一访客只返回 1 张聚合卡片 | `M02-RULE-visitor-window`、`M02-RULE-viewers-visible-set` |
 | APP | GET | `/api/app/relation/mutual-matches` | 查询相互喜欢默认列表，仅返回 `matched` 有效记录 | `M02-SM-mutual-match`、`M02-RULE-like-cancel` |
 | APP | POST | `/api/app/relation/like` | 发起喜欢 | `M02-RULE-core-access` |
 | APP | POST | `/api/app/relation/like/cancel` | 取消喜欢 | `M02-RULE-like-cancel` |
@@ -275,7 +279,7 @@
 | ADM | GET | `/api/admin/users/{userId}/relations/matches` | 查询用户详情匹配记录 | `M02-SM-mutual-match` |
 | ADM | GET | `/api/admin/users/{userId}/relations/unlocks` | 聚合查询该用户喜欢/访客解锁记录，资产字段由 PRD-04 授权返回 | `M02-RULE-unlock-visibility`、PRD-04 |
 
-> 接口路径为产品草案，最终技术方案可按项目后端路由规范调整；产品规则和 ID 不随接口路径变化。按 `C02-12`，本轮仅保留移动端接口草案，不进入编码、联调和验收。
+> 上表路径为早期产品草案；真实移动端路由已于 2026-07-22 按项目规范实施为 `/miniapp/relation/**` 和 `/miniapp/asset/unlock/{quote|confirm}`，以 mobile handoff 为联调准则。移动端页面编码仍待后续任务。
 > 悄悄话发送接口归 PRD-03 定义；PRD-02 只接收“悄悄话已回复”的内部事件并生成 `whisper_reply` 匹配记录。
 
 ### 9.1 APP 响应结构草案
@@ -284,24 +288,50 @@
 
 ```json
 {
+  "current": 1,
+  "size": 20,
   "total": 32,
   "newCount": 5,
-  "readCursor": "LIKE-INBOX-CURSOR-20260702100000-LIK-20260702-0001",
-  "vipUnlocked": false,
+  "visibleTotal": 14,
+  "hiddenCount": 18,
+  "pages": 1,
+  "readCursor": "SERVER_OPAQUE_CURSOR",
+  "accessMode": "MIXED",
+  "hasMore": false,
   "newLikePreviewAvatars": [
-    "https://example.com/avatar-blur.png"
-  ],
-  "list": [
     {
       "recordNo": "LIK-20260702-0001",
-      "userId": "U100488",
       "displayStatus": "blur",
-      "nickname": null,
-      "avatar": "https://example.com/avatar-blur.png",
+      "avatar": "https://example.com/avatar.png"
+    }
+  ],
+  "records": [
+    {
+      "recordNo": "LIK-20260702-0001",
+      "userId": 100489,
+      "displayStatus": "blur",
+      "nickname": "小雨",
+      "avatar": "https://example.com/avatar.png",
+      "age": 26,
+      "school": "浙江大学",
+      "onlineStatus": "online",
+      "lastActiveTime": "2026-07-02 10:00:00",
+      "onlineText": "在线",
+      "identityCode": "student",
+      "identityLabel": "学生",
+      "industryCode": "internet",
+      "industryLabel": "互联网",
+      "occupationCode": "product_manager",
+      "occupationLabel": "产品经理",
+      "company": "示例科技",
+      "annualIncomeCode": "income_30_50",
+      "annualIncomeLabel": "30-50万",
       "weakTags": ["同城", "金牛座"],
-      "isMutualLike": false,
+      "mutualLike": false,
       "isNew": true,
+      "groupKey": "new",
       "likedTime": "2026-07-02 10:00:00",
+      "unlockTime": null,
       "likeActionCopy": "对你一见钟情，秒送喜欢"
     }
   ]
@@ -310,30 +340,62 @@
 
 > `readCursor` 为服务端生成的不透明快照游标，仅用于 `/api/app/relation/likes-me/read`；客户端不得从时间或 `recordNo` 自行推导。`newLikePreviewAvatars` 最多返回 5 个，并逐条遵守对应记录的模糊/清晰展示状态。
 > 新喜欢统一只使用 `newCount`：不得同时返回 `likeUnreadCount`、`newLikeCount` 等同义字段形成两套数量口径。`total` 始终表示全部当前有效喜欢数。
+> `readCursor` 同时是当前页面的稳定分页快照；第 2 页及以后必须原样作为 `snapshotCursor` 回传。`pages`、`hasMore` 按 `visibleTotal` 计算，不按 `total` 计算。
 
 #### 9.1.2 最近看过我的列表
 
 ```json
 {
-  "totalVisitCount": 415,
-  "todayVisitorCount": 1,
-  "todayViewCount": 1,
+  "current": 1,
+  "size": 20,
+  "total": 32,
+  "visibleTotal": 14,
+  "hiddenCount": 18,
+  "pages": 1,
+  "accessMode": "MIXED",
+  "hasMore": false,
   "visibleDays": 7,
-  "list": [
+  "totalPv": 415,
+  "visitorUv7d": 32,
+  "visitorPv7d": 48,
+  "todayVisitorUv": 1,
+  "todayVisitPv": 2,
+  "records": [
     {
-      "visitNo": "VIS-20260702-0001",
-      "userId": "U100489",
+      "recordNo": "VIS-20260702-0001",
+      "userId": 100489,
       "displayStatus": "blur",
+      "nickname": "小雨",
+      "avatar": "https://example.com/avatar.png",
+      "age": 26,
+      "school": "浙江大学",
+      "onlineStatus": "online",
+      "lastActiveTime": "2026-07-02 10:20:00",
+      "onlineText": "在线",
+      "identityCode": "student",
+      "identityLabel": "学生",
+      "industryCode": "internet",
+      "industryLabel": "互联网",
+      "occupationCode": "product_manager",
+      "occupationLabel": "产品经理",
+      "company": "示例科技",
+      "annualIncomeCode": "income_30_50",
+      "annualIncomeLabel": "30-50万",
       "groupKey": "today",
-      "visitCount": 2,
       "weakTags": ["同城", "在线 2 小时前"],
-      "hasWhisperFromThem": true,
-      "hasWhisperToThem": false,
-      "isMutualLike": false
+      "sourceScene": "profile",
+      "visitCount": 3,
+      "firstVisitTime": "2026-07-01 09:00:00",
+      "lastVisitTime": "2026-07-02 10:20:00",
+      "unlockTime": null,
+      "mutualLike": false,
+      "relationBadges": []
     }
   ]
 }
 ```
+
+> `total`、`visibleTotal` 和分页均按访客用户去重，不按 30 分钟展示记录条数计算。普通用户可分页集合为全部已单条解锁访客加最近 10 个未解锁访客，VIP 为最近 7 天全部有效访客；最终统一按最近来访时间倒序。接口始终返回基础资料，客户端依据 `displayStatus` 控制模糊或清晰展示。
 
 #### 9.1.3 相互喜欢列表
 

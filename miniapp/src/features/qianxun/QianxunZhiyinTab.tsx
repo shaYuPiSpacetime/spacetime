@@ -1,0 +1,350 @@
+import { Button, Image, ScrollView, Text, View } from '@tarojs/components'
+import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import defaultAvatar from '@/assets/profile/default-avatar.webp'
+import { miniappOssIcons } from '@/constants/ossIcons'
+import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboardingFlow'
+import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { prd01Api } from '@/services/prd01'
+import {
+  getCommunityConfig,
+  getSincerePosts,
+  getYuemuUsers,
+  reportCommunityPost,
+  toggleCommunityFollow,
+  toggleCommunityLike,
+  toggleYuemuLike,
+  type CommunityConfig,
+  type CommunityPostVO,
+  type YuemuUserVO,
+} from '@/services/community'
+import { usePrd01Store } from '@/stores/prd01Store'
+import { QIANXUN_BLUE, QIANXUN_NAVY } from './QianxunHeader'
+import './QianxunZhiyinTab.scss'
+
+type ZhiyinTab = 'YUEMU' | 'SINCERE'
+type Sheet = 'actions' | 'report' | 'uncertified' | null
+
+const HIDDEN_SINCERE_POSTS_KEY = 'qianxun_hidden_sincere_post_ids'
+
+interface QianxunZhiyinTabProps {
+  secondaryTop: number
+  contentTop: number
+}
+
+export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZhiyinTabProps) {
+  const [activeTab, setActiveTab] = useState<ZhiyinTab>('YUEMU')
+  const [users, setUsers] = useState<YuemuUserVO[]>()
+  const [sincerePosts, setSincerePosts] = useState<CommunityPostVO[]>()
+  const [loading, setLoading] = useState<Partial<Record<ZhiyinTab, boolean>>>({ YUEMU: true })
+  const [error, setError] = useState<Partial<Record<ZhiyinTab, string>>>({})
+  const [config, setConfig] = useState<CommunityConfig>()
+  const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
+  const [sheet, setSheet] = useState<Sheet>(null)
+  const resumedRef = useRef(false)
+  const access = useAccessStatus('canBrowseCards')
+  const optionLabel = usePrd01Store(state => state.optionLabel)
+
+  useShareAppMessage(() => ({
+    title: selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻诚意贴',
+    path: selectedPost?.id ? `/pages/qianxun/post-detail?id=${selectedPost.id}` : '/pages/index/index',
+  }))
+
+  const loadYuemu = async () => {
+    setLoading(state => ({ ...state, YUEMU: true }))
+    setError(state => ({ ...state, YUEMU: '' }))
+    try {
+      const page = await getYuemuUsers(1, 30)
+      setUsers(page.records || [])
+    } catch (loadError) {
+      setError(state => ({ ...state, YUEMU: toErrorMessage(loadError) }))
+      setUsers([])
+    } finally {
+      setLoading(state => ({ ...state, YUEMU: false }))
+    }
+  }
+
+  const loadSincere = async () => {
+    setLoading(state => ({ ...state, SINCERE: true }))
+    setError(state => ({ ...state, SINCERE: '' }))
+    try {
+      const page = await getSincerePosts(1, 20)
+      const hiddenIds = (Taro.getStorageSync(HIDDEN_SINCERE_POSTS_KEY) || []) as number[]
+      setSincerePosts((page.records || []).filter(post => !hiddenIds.includes(post.id)))
+    } catch (loadError) {
+      setError(state => ({ ...state, SINCERE: toErrorMessage(loadError) }))
+      setSincerePosts([])
+    } finally {
+      setLoading(state => ({ ...state, SINCERE: false }))
+    }
+  }
+
+  const refreshActive = () => activeTab === 'YUEMU' ? loadYuemu() : loadSincere()
+
+  useEffect(() => {
+    void getCommunityConfig().then(setConfig).catch(() => undefined)
+    void loadYuemu()
+  }, [])
+
+  useDidHide(() => {
+    resumedRef.current = true
+  })
+
+  useDidShow(() => {
+    if (!resumedRef.current) return
+    resumedRef.current = false
+    void refreshActive()
+  })
+
+  const changeTab = (tab: ZhiyinTab) => {
+    if (tab === activeTab) return
+    setActiveTab(tab)
+    if (tab === 'YUEMU' && users === undefined) void loadYuemu()
+    if (tab === 'SINCERE' && sincerePosts === undefined) void loadSincere()
+  }
+
+  const requireInteraction = () => {
+    if (access.status?.coreAccessStatus === 'CORE_ALLOWED') return true
+    setSheet('uncertified')
+    return false
+  }
+
+  const likeUser = async (user: YuemuUserVO) => {
+    if (!requireInteraction()) return
+    try {
+      const result = await toggleYuemuLike(user.userId)
+      setUsers(items => items?.map(item => item.userId === user.userId ? { ...item, liked: result.liked } : item))
+    } catch (likeError) {
+      await showError(likeError)
+    }
+  }
+
+  const followPostAuthor = async (post: CommunityPostVO) => {
+    if (!requireInteraction()) return
+    try {
+      const result = await toggleCommunityFollow(post.authorId)
+      setSincerePosts(items => items?.map(item => item.authorId === post.authorId ? { ...item, followingAuthor: result.following } : item))
+      setSheet(null)
+    } catch (followError) {
+      await showError(followError)
+    }
+  }
+
+  const likePost = async (post: CommunityPostVO) => {
+    if (!requireInteraction()) return
+    try {
+      const result = await toggleCommunityLike(post.id)
+      setSincerePosts(items => items?.map(item => item.id === post.id ? { ...item, liked: result.liked, likeCount: result.likeCount } : item))
+    } catch (likeError) {
+      await showError(likeError)
+    }
+  }
+
+  const hideSelectedPost = () => {
+    if (!selectedPost) return
+    const hiddenIds = (Taro.getStorageSync(HIDDEN_SINCERE_POSTS_KEY) || []) as number[]
+    Taro.setStorageSync(HIDDEN_SINCERE_POSTS_KEY, Array.from(new Set([...hiddenIds, selectedPost.id])))
+    setSincerePosts(items => items?.filter(item => item.id !== selectedPost.id))
+    setSheet(null)
+  }
+
+  const reportSelectedPost = async (reasonCode: string) => {
+    if (!selectedPost || !requireInteraction()) return
+    try {
+      await reportCommunityPost(selectedPost.id, reasonCode)
+      setSheet(null)
+      await Taro.showToast({ title: '举报已提交', icon: 'success' })
+    } catch (reportError) {
+      await showError(reportError)
+    }
+  }
+
+  const openContact = (post: CommunityPostVO) => {
+    if (!requireInteraction()) return
+    const query = [
+      `receiverUserNo=${encodeURIComponent(String(post.authorId))}`,
+      `nickname=${encodeURIComponent(post.authorName || '用户')}`,
+      `avatar=${encodeURIComponent(post.authorAvatar || '')}`,
+      `meta=${encodeURIComponent(formatPostAuthorMeta(post, optionLabel))}`,
+      'compose=1',
+    ].join('&')
+    void Taro.navigateTo({ url: `/pages/message/whisper-detail?${query}` })
+  }
+
+  const goVerify = async () => {
+    try {
+      const [basic, verification, introduction] = await Promise.all([
+        prd01Api.getBasicProfile(),
+        prd01Api.getVerificationStatus(),
+        prd01Api.getIntroduction(),
+      ])
+      setSheet(null)
+      await Taro.navigateTo({ url: resolveVerificationOnboardingRoute({
+        basicCompleted: basic.basicProfileCompleted,
+        avatarStatus: verification.avatarVerifyStatus,
+        introductionStatus: introduction.auditStatus,
+      }) })
+    } catch (verifyError) {
+      await showError(verifyError)
+    }
+  }
+
+  return (
+    <>
+      <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
+      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
+        {activeTab === 'YUEMU' ? (
+          <YuemuContent users={users} loading={Boolean(loading.YUEMU)} error={error.YUEMU} onRetry={() => void loadYuemu()} onOpen={user => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} onLike={user => void likeUser(user)} />
+        ) : (
+          <SincereContent
+            posts={sincerePosts}
+            loading={Boolean(loading.SINCERE)}
+            error={error.SINCERE}
+            optionLabel={optionLabel}
+            onRetry={() => void loadSincere()}
+            onAuthor={post => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` })}
+            onOpen={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
+            onTopic={post => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
+            onComment={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
+            onContact={openContact}
+            onFollow={post => void followPostAuthor(post)}
+            onLike={post => void likePost(post)}
+            onMore={post => { setSelectedPost(post); setSheet('actions') }}
+          />
+        )}
+      </ScrollView>
+
+      {activeTab === 'SINCERE' ? (
+        <View id="qianxun-sincere-publish" onClick={() => requireInteraction() && void Taro.navigateTo({ url: '/pages/qianxun/compose?postType=sincere_post' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: QIANXUN_BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text>
+        </View>
+      ) : null}
+
+      {sheet === 'actions' && selectedPost ? <SincereActionSheet post={selectedPost} onClose={() => setSheet(null)} onFollow={() => void followPostAuthor(selectedPost)} onHide={hideSelectedPost} onReport={() => setSheet('report')} /> : null}
+      {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void reportSelectedPost(reason)} /> : null}
+      {sheet === 'uncertified' ? <UncertifiedSheet onClose={() => setSheet(null)} onVerify={() => void goVerify()} /> : null}
+    </>
+  )
+}
+
+function ZhiyinTabs({ active, top, onChange }: { active: ZhiyinTab; top: number; onChange: (tab: ZhiyinTab) => void }) {
+  const tabs: Array<{ id: string; tab: ZhiyinTab; label: string }> = [
+    { id: 'qianxun-zhiyin-yuemu', tab: 'YUEMU', label: '悦目' },
+    { id: 'qianxun-zhiyin-sincere', tab: 'SINCERE', label: '诚意贴' },
+  ]
+  return <View style={{ position: 'absolute', left: '25rpx', top: `${top}rpx`, height: '62rpx', display: 'flex', gap: '10rpx', zIndex: 2 }}>{tabs.map(item => {
+    const selected = active === item.tab
+    return <View key={item.tab} id={item.id} onClick={() => onChange(item.tab)} style={{ position: 'relative', width: item.tab === 'YUEMU' ? '108rpx' : '130rpx', height: '62rpx', borderRadius: '12rpx', background: selected ? 'linear-gradient(180deg, #51AEFF 0%, #2876FF 100%)' : '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? '#FFFFFF' : '#8B96A8', fontSize: selected ? '28rpx' : '26rpx', lineHeight: '40rpx', fontWeight: selected ? 600 : 400 }}>{item.label}</Text>{selected ? <View style={{ position: 'absolute', left: '50%', bottom: '-10rpx', width: 0, height: 0, borderLeft: '10rpx solid transparent', borderRight: '10rpx solid transparent', borderTop: `12rpx solid ${QIANXUN_BLUE}`, transform: 'translateX(-50%)' }} /> : null}</View>
+  })}</View>
+}
+
+function YuemuContent({ users, loading, error, onRetry, onOpen, onLike }: { users?: YuemuUserVO[]; loading: boolean; error?: string; onRetry: () => void; onOpen: (user: YuemuUserVO) => void; onLike: (user: YuemuUserVO) => void }) {
+  if (loading && users === undefined) return <YuemuLoading />
+  if (error) return <EmptyState title="加载失败" description={error} action="重新加载" onAction={onRetry} />
+  if (!users?.length) return <EmptyState title="暂无数据" description="稍后再来看看新的知音" />
+  return <View id="qianxun-yuemu-content" style={{ width: '750rpx', padding: '0 25rpx 130rpx', boxSizing: 'border-box' }}>
+    <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginBottom: '32rpx' }}>发现志同道合的朋友，即刻交流</Text>
+    <View style={{ display: 'flex', flexWrap: 'wrap', columnGap: '20rpx', rowGap: '20rpx' }}>{users.map(user => <YuemuCard key={user.userId} user={user} onOpen={() => onOpen(user)} onLike={() => onLike(user)} />)}</View>
+  </View>
+}
+
+function YuemuCard({ user, onOpen, onLike }: { user: YuemuUserVO; onOpen: () => void; onLike: () => void }) {
+  return <View className="qianxun-yuemu-card" data-user-id={user.userId} onClick={onOpen} style={{ position: 'relative', width: '340rpx', height: '570rpx', borderRadius: '10rpx', overflow: 'hidden', background: '#E9EEF4' }}>
+    <Image src={user.photoUrl} mode="aspectFill" style={{ width: '340rpx', height: '570rpx' }} />
+    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '190rpx', background: 'linear-gradient(180deg, rgba(16,25,38,0) 0%, rgba(16,25,38,.62) 100%)' }} />
+    <View style={{ position: 'absolute', left: '20rpx', top: '24rpx', maxWidth: '270rpx', height: '52rpx', borderRadius: '26rpx', background: 'rgba(255,255,255,.82)', padding: '0 19rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.fateLabel}</Text></View>
+    <Text style={{ position: 'absolute', left: '20rpx', right: '96rpx', bottom: '78rpx', color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.educationSchool}</Text>
+    <Text style={{ position: 'absolute', left: '20rpx', right: '96rpx', bottom: '31rpx', color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx' }}>{user.onlineText}</Text>
+    <View onClick={event => { event.stopPropagation(); onLike() }} style={{ position: 'absolute', right: '18rpx', bottom: '24rpx', width: '92rpx', height: '92rpx', borderRadius: '46rpx', background: user.liked ? '#FF4F65' : '#FF6676', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '45rpx', lineHeight: '56rpx' }}>{'♥'}</Text></View>
+  </View>
+}
+
+function SincereContent({ posts, loading, error, optionLabel, onRetry, onAuthor, onOpen, onTopic, onComment, onContact, onFollow, onLike, onMore }: { posts?: CommunityPostVO[]; loading: boolean; error?: string; optionLabel: (type: string, code: string) => string; onRetry: () => void; onAuthor: (post: CommunityPostVO) => void; onOpen: (post: CommunityPostVO) => void; onTopic: (post: CommunityPostVO) => void; onComment: (post: CommunityPostVO) => void; onContact: (post: CommunityPostVO) => void; onFollow: (post: CommunityPostVO) => void; onLike: (post: CommunityPostVO) => void; onMore: (post: CommunityPostVO) => void }) {
+  if (loading && posts === undefined) return <CardLoading />
+  if (error) return <EmptyState title="加载失败" description={error} action="重新加载" onAction={onRetry} />
+  if (!posts?.length) return <EmptyState title="暂无数据" description="发布一条诚意贴，让更多人认识你" />
+  return <View id="qianxun-sincere-content" style={{ width: '750rpx', padding: '20rpx 25rpx 130rpx', boxSizing: 'border-box' }}>{posts.map(post => <SincereCard key={post.id} post={post} optionLabel={optionLabel} onAuthor={() => onAuthor(post)} onOpen={() => onOpen(post)} onTopic={() => onTopic(post)} onComment={() => onComment(post)} onContact={() => onContact(post)} onFollow={() => onFollow(post)} onLike={() => onLike(post)} onMore={() => onMore(post)} />)}</View>
+}
+
+function SincereCard({ post, optionLabel, onAuthor, onOpen, onTopic, onComment, onContact, onFollow, onLike, onMore }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; onAuthor: () => void; onOpen: () => void; onTopic: () => void; onComment: () => void; onContact: () => void; onFollow: () => void; onLike: () => void; onMore: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const canExpand = post.content.length > 78
+  const meta = formatPostAuthorMeta(post, optionLabel)
+  return <View className="qianxun-sincere-card" data-post-id={post.id} style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '28rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} /><View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{post.authorName || '用户'}</Text>{post.authorGender ? <Text style={{ color: genderColor(post.authorGender), fontSize: '32rpx', lineHeight: '37rpx', marginLeft: '12rpx', fontWeight: 700 }}>{genderSymbol(post.authorGender)}</Text> : null}</View><Text style={{ display: 'block', color: QIANXUN_BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '8rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text></View><View onClick={onFollow} style={{ width: '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : QIANXUN_BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post.followingAuthor ? '#999999' : QIANXUN_BLUE, fontSize: '24rpx' }}>{post.followingAuthor ? '已关注' : '关注'}</Text></View><View onClick={onMore} style={{ width: '52rpx', height: '60rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '38rpx' }}>⋮</Text></View></View>
+    <View onClick={onOpen} style={{ position: 'relative', marginTop: '26rpx' }}><Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '48rpx', maxHeight: !expanded && canExpand ? '192rpx' : 'none', overflow: 'hidden' }}>{post.content}</Text>{!expanded && canExpand ? <View onClick={event => { event.stopPropagation(); setExpanded(true) }} style={{ position: 'absolute', right: 0, bottom: 0, height: '48rpx', paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: QIANXUN_BLUE, fontSize: '26rpx' }}>查看全部</Text></View> : null}<PostImages images={post.imageUrls || []} /></View>
+    <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '26rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
+    {post.topicName ? <View onClick={onTopic} style={{ display: 'inline-flex', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#F4F5F7', padding: '0 18rpx', marginTop: '20rpx', alignItems: 'center' }}><Text style={{ color: '#666666', fontSize: '25rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: QIANXUN_BLUE }}># </Text>{post.topicName}</Text></View> : null}
+    <View style={{ height: '92rpx', borderTop: '2rpx solid #EFF4FC', marginTop: '28rpx', display: 'flex', alignItems: 'center' }}><View onClick={onContact} style={{ minWidth: '176rpx', height: '80rpx', display: 'flex', alignItems: 'center' }}><View style={{ width: '52rpx', height: '52rpx', borderRadius: '26rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10rpx' }}><Text style={{ color: QIANXUN_BLUE, fontSize: '18rpx', fontWeight: 700 }}>YO</Text></View><Text style={{ color: '#4E8EFF', fontSize: '26rpx', fontWeight: 500 }}>{post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View><View style={{ flex: 1 }} /><View onClick={onComment} style={{ minWidth: '90rpx', height: '80rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '27rpx' }}>◯ {post.commentCount || 0}</Text></View><View onClick={onLike} style={{ minWidth: '100rpx', height: '80rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: post.liked ? '#D95D68' : '#999999', fontSize: '27rpx' }}>{post.liked ? '♥' : '♡'} {post.likeCount || 0}</Text></View></View>
+  </View>
+}
+
+function PostImages({ images }: { images: string[] }) {
+  const visible = images.slice(0, 4)
+  if (!visible.length) return null
+  return <View style={{ display: 'flex', flexWrap: 'wrap', gap: '12rpx', marginTop: '28rpx' }}>{visible.map((url, index) => <Image key={`${url}-${index}`} src={url} mode="aspectFill" style={{ width: visible.length === 1 ? '648rpx' : '318rpx', height: visible.length === 1 ? '420rpx' : '348rpx', borderRadius: '8rpx', background: '#EEF2F7' }} />)}</View>
+}
+
+function YuemuLoading() {
+  return <View style={{ padding: '38rpx 25rpx', display: 'flex', flexWrap: 'wrap', gap: '20rpx' }}>{[0, 1, 2, 3].map(index => <View key={index} style={{ width: '340rpx', height: '570rpx', borderRadius: '10rpx', background: 'rgba(255,255,255,.72)' }} />)}</View>
+}
+
+function CardLoading() {
+  return <View style={{ padding: '20rpx 25rpx' }}>{[0, 1].map(index => <View key={index} style={{ width: '700rpx', height: '520rpx', borderRadius: '18rpx', background: 'rgba(255,255,255,.72)', marginBottom: '20rpx' }} />)}</View>
+}
+
+function EmptyState({ title, description, action, onAction }: { title: string; description: string; action?: string; onAction?: () => void }) {
+  return <View style={{ paddingTop: '120rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyHeart} mode="aspectFit" style={{ width: '292rpx', height: '224rpx' }} /><Text style={{ color: '#999999', fontSize: '28rpx', marginTop: '24rpx' }}>{title}</Text><Text style={{ color: '#A7A7A7', fontSize: '24rpx', marginTop: '16rpx' }}>{description}</Text>{action && onAction ? <View onClick={onAction} style={{ width: '300rpx', height: '82rpx', borderRadius: '12rpx', background: QIANXUN_BLUE, marginTop: '38rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx' }}>{action}</Text></View> : null}</View>
+}
+
+function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000 }}>{children}</View>
+}
+
+function SincereActionSheet({ post, onClose, onFollow, onHide, onReport }: { post: CommunityPostVO; onClose: () => void; onFollow: () => void; onHide: () => void; onReport: () => void }) {
+  const actions = [{ label: post.followingAuthor ? '取消关注' : '关注', onClick: onFollow }, { label: '不看 TA 动态', onClick: onHide }, { label: '举报', onClick: onReport }]
+  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '24rpx 24rpx calc(28rpx + env(safe-area-inset-bottom))' }}><Button openType="share" className="qianxun-sincere-share-button">分享</Button>{actions.map(action => <View key={action.label} onClick={action.onClick} style={{ height: '94rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '28rpx' }}>{action.label}</Text></View>)}<View onClick={onClose} style={{ height: '86rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View></View></Overlay>
+}
+
+function ReportSheet({ reasons, onClose, onReport }: { reasons: Array<{ code: string; label: string }>; onClose: () => void; onReport: (code: string) => void }) {
+  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1080rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))' }}><ScrollView scrollY style={{ maxHeight: '850rpx' }}>{reasons.map(reason => <View key={reason.code} onClick={() => onReport(reason.code)} style={{ height: '82rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx' }}>{reason.label}</Text></View>)}</ScrollView><View onClick={onClose} style={{ height: '82rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View></View></Overlay>
+}
+
+function UncertifiedSheet({ onClose, onVerify }: { onClose: () => void; onVerify: () => void }) {
+  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '488rpx', borderRadius: '40rpx 40rpx 0 0', background: 'linear-gradient(180deg, #D8ECFF 0%, #FFFFFF 72%)', padding: '58rpx 46rpx calc(38rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}><Image src={miniappOssIcons.qianxunVerifyNote} mode="aspectFit" style={{ position: 'absolute', right: '44rpx', top: '-104rpx', width: '250rpx', height: '250rpx' }} /><Text style={{ display: 'block', color: QIANXUN_NAVY, fontSize: '38rpx', lineHeight: '54rpx', fontWeight: 800 }}>你还未认证</Text><Text style={{ display: 'block', width: '500rpx', color: '#68778E', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '22rpx' }}>完成认证即可心动、评论和发布诚意贴</Text><View onClick={onVerify} style={{ width: '658rpx', height: '86rpx', borderRadius: '43rpx', background: QIANXUN_BLUE, margin: '62rpx auto 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即认证</Text></View></View></Overlay>
+}
+
+function relativeTime(value: string) {
+  if (!value) return ''
+  const time = new Date(value.replace(' ', 'T')).getTime()
+  if (!Number.isFinite(time)) return value
+  const minutes = Math.max(1, Math.floor((Date.now() - time) / 60000))
+  if (minutes < 60) return `${minutes}分钟前`
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}小时前`
+  return `${Math.floor(minutes / 1440)}天前`
+}
+
+function genderSymbol(gender: string) {
+  return ['FEMALE', 'WOMAN', '2'].includes(gender.toUpperCase()) ? '♀' : '♂'
+}
+
+function genderColor(gender: string) {
+  return ['FEMALE', 'WOMAN', '2'].includes(gender.toUpperCase()) ? '#FF8497' : QIANXUN_BLUE
+}
+
+function formatPostAuthorMeta(post: CommunityPostVO, optionLabel: (type: string, code: string) => string) {
+  return [
+    post.authorBirthYear ? `${String(post.authorBirthYear).slice(-2)}年` : post.authorAge ? `${post.authorAge}岁` : '',
+    post.authorCity ? optionLabel('location', post.authorCity) || post.authorCity : '',
+    post.authorProfession || post.authorZodiac || '',
+  ].filter(Boolean).join('·') || '资料待完善'
+}
+
+function toErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error || '加载失败')
+}
+
+async function showError(error: unknown) {
+  const title = toErrorMessage(error)
+  if (title) await Taro.showToast({ title, icon: 'none' })
+}

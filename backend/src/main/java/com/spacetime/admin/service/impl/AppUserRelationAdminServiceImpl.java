@@ -66,6 +66,7 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
     private static final int RELATION_NOT_FOUND = 20009;
     private static final Set<Integer> PAGE_SIZES = Set.of(5, 10, 20, 50);
     private static final Set<String> DIRECTIONS = Set.of("ALL", "OUTBOUND", "INBOUND");
+    private static final String ALL_FILTER = "ALL";
     private static final String ASSET_PERMISSION = "commercial:user:view";
 
     private final AppUserDao appUserDao;
@@ -113,10 +114,10 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
         requireUser(userId);
         validate(req, enumCodes(RelationLikeStatusEnum.values()), enumCodes(RelationSourceSceneEnum.values()));
         LambdaQueryWrapper<AppRelationLike> wrapper = new LambdaQueryWrapper<>();
-        applyPairDirection(wrapper, req.getDirection(), userId,
+        applyPairDirection(wrapper, directionValue(req), userId,
                 AppRelationLike::getFromUserId, AppRelationLike::getToUserId);
-        wrapper.eq(StringUtils.hasText(req.getStatus()), AppRelationLike::getLikeStatus, req.getStatus())
-                .eq(StringUtils.hasText(req.getSource()), AppRelationLike::getSourceScene, req.getSource())
+        wrapper.eq(hasFilter(req.getStatus()), AppRelationLike::getLikeStatus, req.getStatus())
+                .eq(hasFilter(req.getSource()), AppRelationLike::getSourceScene, req.getSource())
                 .ge(req.getStartTime() != null, AppRelationLike::getLikedTime, req.getStartTime())
                 .le(req.getEndTime() != null, AppRelationLike::getLikedTime, req.getEndTime())
                 .orderByDesc(AppRelationLike::getLikedTime).orderByDesc(AppRelationLike::getId);
@@ -151,10 +152,10 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
         requireUser(userId);
         validate(req, enumCodes(RelationVisitStatusEnum.values()), enumCodes(RelationSourceSceneEnum.values()));
         LambdaQueryWrapper<AppRelationVisit> wrapper = new LambdaQueryWrapper<>();
-        applyPairDirection(wrapper, req.getDirection(), userId,
+        applyPairDirection(wrapper, directionValue(req), userId,
                 AppRelationVisit::getVisitorUserId, AppRelationVisit::getTargetUserId);
-        wrapper.eq(StringUtils.hasText(req.getStatus()), AppRelationVisit::getVisitStatus, req.getStatus())
-                .eq(StringUtils.hasText(req.getSource()), AppRelationVisit::getSourceScene, req.getSource())
+        wrapper.eq(hasFilter(req.getStatus()), AppRelationVisit::getVisitStatus, req.getStatus())
+                .eq(hasFilter(req.getSource()), AppRelationVisit::getSourceScene, req.getSource())
                 .ge(req.getStartTime() != null, AppRelationVisit::getLastVisitTime, req.getStartTime())
                 .le(req.getEndTime() != null, AppRelationVisit::getLastVisitTime, req.getEndTime())
                 .orderByDesc(AppRelationVisit::getLastVisitTime).orderByDesc(AppRelationVisit::getId);
@@ -191,8 +192,8 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
         requireUser(userId);
         validate(req, enumCodes(RelationMatchStatusEnum.values()), enumCodes(RelationMatchSourceTypeEnum.values()));
         LambdaQueryWrapper<AppRelationMatch> wrapper = matchWrapper(userId)
-                .eq(StringUtils.hasText(req.getStatus()), AppRelationMatch::getMatchStatus, req.getStatus())
-                .eq(StringUtils.hasText(req.getSource()), AppRelationMatch::getPrimarySource, req.getSource())
+                .eq(hasFilter(req.getStatus()), AppRelationMatch::getMatchStatus, req.getStatus())
+                .eq(hasFilter(req.getSource()), AppRelationMatch::getPrimarySource, req.getSource())
                 .ge(req.getStartTime() != null, AppRelationMatch::getMatchedTime, req.getStartTime())
                 .le(req.getEndTime() != null, AppRelationMatch::getMatchedTime, req.getEndTime())
                 .orderByDesc(AppRelationMatch::getMatchedTime).orderByDesc(AppRelationMatch::getId);
@@ -226,11 +227,11 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
         requireUser(userId);
         validate(req, enumCodes(UnlockRecordStatusEnum.values()), Set.of());
         LambdaQueryWrapper<UserUnlockRecord> wrapper = new LambdaQueryWrapper<>();
-        applyPairDirection(wrapper, req.getDirection(), userId,
+        applyPairDirection(wrapper, directionValue(req), userId,
                 UserUnlockRecord::getUserId, UserUnlockRecord::getTargetUserId);
         wrapper.eq(StringUtils.hasText(req.getUnlockNo()), UserUnlockRecord::getUnlockNo, req.getUnlockNo())
-                .eq(StringUtils.hasText(req.getStatus()), UserUnlockRecord::getStatus, req.getStatus())
-                .eq(StringUtils.hasText(req.getSource()), UserUnlockRecord::getUnlockScene, req.getSource())
+                .eq(hasFilter(req.getStatus()), UserUnlockRecord::getStatus, req.getStatus())
+                .eq(hasFilter(req.getSource()), UserUnlockRecord::getUnlockScene, req.getSource())
                 .ge(req.getStartTime() != null, UserUnlockRecord::getEffectiveTime, req.getStartTime())
                 .le(req.getEndTime() != null, UserUnlockRecord::getEffectiveTime, req.getEndTime())
                 .orderByDesc(UserUnlockRecord::getEffectiveTime).orderByDesc(UserUnlockRecord::getId);
@@ -278,19 +279,30 @@ public class AppUserRelationAdminServiceImpl implements AppUserRelationAdminServ
         if (req == null || req.getPage() < 1 || !PAGE_SIZES.contains(req.getSize())) {
             throw new BusinessException(RELATION_PARAM_ERROR, "分页参数不合法，每页仅允许 5、10、20、50 条");
         }
-        if (!DIRECTIONS.contains(req.getDirection())) {
+        if (!DIRECTIONS.contains(directionValue(req))) {
             throw new BusinessException(RELATION_PARAM_ERROR, "关系方向不合法");
         }
-        if (StringUtils.hasText(req.getStatus()) && !statuses.contains(req.getStatus())) {
+        if (hasFilter(req.getStatus()) && !statuses.contains(req.getStatus())) {
             throw new BusinessException(RELATION_PARAM_ERROR, "关系状态不合法");
         }
-        if (StringUtils.hasText(req.getSource()) && !sources.isEmpty() && !sources.contains(req.getSource())) {
+        if (hasFilter(req.getSource()) && !sources.isEmpty() && !sources.contains(req.getSource())) {
             throw new BusinessException(RELATION_PARAM_ERROR, "关系来源不合法");
         }
         if (req.getStartTime() != null && req.getEndTime() != null
                 && req.getEndTime().isBefore(req.getStartTime())) {
             throw new BusinessException(RELATION_PARAM_ERROR, "结束时间不能早于开始时间");
         }
+    }
+
+    private String directionValue(RelationPageReq req) {
+        if (req == null || !StringUtils.hasText(req.getDirection())) {
+            return ALL_FILTER;
+        }
+        return req.getDirection();
+    }
+
+    private boolean hasFilter(String value) {
+        return StringUtils.hasText(value) && !ALL_FILTER.equalsIgnoreCase(value.trim());
     }
 
     private <T> void applyPairDirection(LambdaQueryWrapper<T> wrapper, String direction, Long userId,

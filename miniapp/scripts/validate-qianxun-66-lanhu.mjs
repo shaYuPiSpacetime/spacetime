@@ -65,6 +65,8 @@ assert.match(packageJson, /validate-qianxun-66-lanhu\.mjs/, '构建前必须执�
 
 const sourcePaths = [
   'miniapp/src/features/qianxun/QianxunFamilyPage.tsx',
+  'miniapp/src/features/qianxun/QianxunHeader.tsx',
+  'miniapp/src/features/qianxun/QianxunZhiyinTab.tsx',
   ...['compose', 'post-detail', 'topic', 'interactions', 'my-posts', 'kindred']
     .map(page => `miniapp/src/pages/qianxun/${page}.tsx`),
 ]

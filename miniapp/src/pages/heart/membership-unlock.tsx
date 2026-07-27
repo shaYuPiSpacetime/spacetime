@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
 import { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
+import { MiniappBackIcon } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useMembership } from '@/hooks/useMembership'
 import type { MembershipPlan } from '@/types/membership'
@@ -112,7 +113,7 @@ function DarkNavigation({ title }: { title: string }) {
   return (
     <View style={{ position: 'relative', width: '750rpx', height: '176rpx', flexShrink: 0, background: PAGE_BG }}>
       <View onClick={goBack} style={{ position: 'absolute', left: '25rpx', top: `${menuTop}rpx`, width: '54rpx', height: `${menuHeight}rpx`, display: 'flex', alignItems: 'center' }}>
-        <View style={{ width: '22rpx', height: '22rpx', borderLeft: '4rpx solid #FFFFFF', borderBottom: '4rpx solid #FFFFFF', transform: 'rotate(45deg)', boxSizing: 'border-box' }} />
+        <MiniappBackIcon color="#FFFFFF" size={22} />
       </View>
       <Text style={{ position: 'absolute', left: '175rpx', top: `${titleTop}rpx`, width: '400rpx', color: '#FFFFFF', fontSize: '32rpx', fontWeight: 500, lineHeight: '45rpx', textAlign: 'center' }}>{title}</Text>
     </View>

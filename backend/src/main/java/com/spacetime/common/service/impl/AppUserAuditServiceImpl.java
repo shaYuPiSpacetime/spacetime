@@ -18,7 +18,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * App 用户统一审核服务实现。
@@ -194,6 +202,49 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         if (latestApproved(userId, AppUserAuditTypeEnum.AVATAR)) count++;
         if (hasEffective(userId, AppUserAuditTypeEnum.EDUCATION)) count++;
         return count;
+    }
+
+    @Override
+    public Map<Long, Integer> certificationApprovedCounts(Collection<Long> userIds) {
+        List<Long> ids = userIds == null ? List.of() : userIds.stream()
+                .filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        List<AppUserAuditRecord> records = recordDao.selectList(new LambdaQueryWrapper<AppUserAuditRecord>()
+                .in(AppUserAuditRecord::getUserId, ids)
+                .in(AppUserAuditRecord::getAuditType, List.of(
+                        AppUserAuditTypeEnum.REAL_NAME.getCode(),
+                        AppUserAuditTypeEnum.AVATAR.getCode(),
+                        AppUserAuditTypeEnum.EDUCATION.getCode())));
+        Map<Long, Set<String>> approvedTypes = new HashMap<>();
+        Map<Long, AppUserAuditRecord> latestAvatars = new HashMap<>();
+        Comparator<AppUserAuditRecord> latestComparator = Comparator
+                .comparing(AppUserAuditRecord::getSubmitTime,
+                        Comparator.nullsFirst(Comparator.naturalOrder()))
+                .thenComparing(AppUserAuditRecord::getId,
+                        Comparator.nullsFirst(Comparator.naturalOrder()));
+        for (AppUserAuditRecord record : records == null ? List.<AppUserAuditRecord>of() : records) {
+            if (record == null || record.getUserId() == null) {
+                continue;
+            }
+            if (AppUserAuditTypeEnum.AVATAR.getCode().equals(record.getAuditType())) {
+                latestAvatars.merge(record.getUserId(), record,
+                        (left, right) -> latestComparator.compare(left, right) >= 0 ? left : right);
+            } else if (AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus())) {
+                approvedTypes.computeIfAbsent(record.getUserId(), ignored -> new HashSet<>())
+                        .add(record.getAuditType());
+            }
+        }
+        latestAvatars.forEach((userId, record) -> {
+            if (AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus())) {
+                approvedTypes.computeIfAbsent(userId, ignored -> new HashSet<>())
+                        .add(AppUserAuditTypeEnum.AVATAR.getCode());
+            }
+        });
+        Map<Long, Integer> result = new LinkedHashMap<>();
+        ids.forEach(id -> result.put(id, approvedTypes.getOrDefault(id, Set.of()).size()));
+        return result;
     }
 
     private LambdaQueryWrapper<AppUserAuditRecord> baseUserTypeWrapper(Long userId, AppUserAuditTypeEnum type) {

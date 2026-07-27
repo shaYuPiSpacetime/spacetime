@@ -26,7 +26,7 @@ interface Tab {
 const TABS: Tab[] = [
   { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, activeIconPath: tabHomeActiveIcon, iconWidth: 40, iconHeight: 40 },
   { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon, iconWidth: 40, iconHeight: 40 },
-  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendIcon, iconWidth: 134, iconHeight: 134 },
+  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendIcon, iconWidth: 126, iconHeight: 126 },
   { key: 'chat', label: '消息', path: '/pages/chat/index', iconPath: tabMessageIcon, activeIconPath: tabMessageActiveIcon, iconWidth: 40, iconHeight: 40 },
   { key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, activeIconPath: tabProfileActiveIcon, iconWidth: 40, iconHeight: 40 },
 ]
@@ -101,6 +101,7 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
         }}
       />
       <View
+        id="app-tab-recommend-outer-arc"
         style={{
           position: 'absolute',
           left: '300rpx',
@@ -132,22 +133,24 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
               onClick={() => handlePress(tab)}
             >
               <Image
+                id="app-tab-recommend-blue-circle"
                 src={tab.iconPath}
                 mode="aspectFit"
                 style={{
                   position: 'absolute',
-                  left: '8rpx',
-                  top: '0',
+                  left: '12rpx',
+                  top: '12rpx',
                   width: `${tab.iconWidth}rpx`,
                   height: `${tab.iconHeight}rpx`,
                 }}
               />
               <Text
+                id="app-tab-recommend-label"
                 style={{
                   position: 'absolute',
                   left: '0',
                   right: '0',
-                  top: '94rpx',
+                  top: '84rpx',
                   color: '#FFFFFF',
                   fontSize: '20rpx',
                   lineHeight: '28rpx',

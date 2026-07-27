@@ -2,6 +2,7 @@ package com.spacetime.common.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.spacetime.common.dao.AppRelationLikeDao;
 import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppRelationMatchPopupDao;
@@ -105,12 +106,15 @@ public class RelationDomainServiceImpl implements RelationDomainService {
         }
         LocalDateTime eventTime = timeOrNow(cancelledTime);
         AppRelationLike reverse = findActiveLike(toUserId, fromUserId);
-        like.setLikeStatus(RelationLikeStatusEnum.CANCELLED.getCode());
-        like.setActiveMarker(null);
-        like.setCancelledTime(eventTime);
-        like.setInvalidReason(RelationInvalidReasonEnum.LIKE_CANCELLED.getCode());
-        like.setInvalidTime(eventTime);
-        likeDao.updateById(like);
+        likeDao.update(new LambdaUpdateWrapper<AppRelationLike>()
+                .eq(AppRelationLike::getId, like.getId())
+                .eq(AppRelationLike::getLikeStatus, RelationLikeStatusEnum.ACTIVE.getCode())
+                .eq(AppRelationLike::getActiveMarker, 1)
+                .set(AppRelationLike::getLikeStatus, RelationLikeStatusEnum.CANCELLED.getCode())
+                .set(AppRelationLike::getActiveMarker, null)
+                .set(AppRelationLike::getCancelledTime, eventTime)
+                .set(AppRelationLike::getInvalidReason, RelationInvalidReasonEnum.LIKE_CANCELLED.getCode())
+                .set(AppRelationLike::getInvalidTime, eventTime));
         if (reverse != null) {
             revokeMatchSource(RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode(),
                     canonicalPairEvent(like.getLikeNo(), reverse.getLikeNo()),
@@ -280,11 +284,14 @@ public class RelationDomainServiceImpl implements RelationDomainService {
         }
 
         if (RelationMatchStatusEnum.MATCHED.getCode().equals(match.getMatchStatus())) {
-            match.setMatchStatus(RelationMatchStatusEnum.INVALID.getCode());
-            match.setActiveMarker(null);
-            match.setInvalidReason(reason.getCode());
-            match.setInvalidTime(eventTime);
-            matchDao.updateById(match);
+            matchDao.update(new LambdaUpdateWrapper<AppRelationMatch>()
+                    .eq(AppRelationMatch::getId, match.getId())
+                    .eq(AppRelationMatch::getMatchStatus, RelationMatchStatusEnum.MATCHED.getCode())
+                    .eq(AppRelationMatch::getActiveMarker, 1)
+                    .set(AppRelationMatch::getMatchStatus, RelationMatchStatusEnum.INVALID.getCode())
+                    .set(AppRelationMatch::getActiveMarker, null)
+                    .set(AppRelationMatch::getInvalidReason, reason.getCode())
+                    .set(AppRelationMatch::getInvalidTime, eventTime));
             cancelPendingPopups(match.getId(), eventTime);
         }
     }

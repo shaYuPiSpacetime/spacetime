@@ -399,6 +399,19 @@ class AssetServiceImplTest {
         verify(userUnlockRecordDao, never()).insert(any());
     }
 
+    @Test
+    @DisplayName("喜欢和访客单条解锁不得绕过两步确认接口")
+    void unlock_relationScene_shouldRequireQuoteAndConfirm() {
+        UnlockReq req = new UnlockReq();
+        req.setUnlockScene("likes_unlock_one");
+        req.setTargetUserIds(List.of(101L));
+
+        assertThatThrownBy(() -> assetService.unlock(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("两步解锁");
+        verify(userAssetDao, never()).updateCoinBalance(anyLong(), anyInt());
+    }
+
     private void stubEnabledScene() {
         when(coinSceneConfigDao.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
             Page<CoinSceneConfig> page = invocation.getArgument(0);

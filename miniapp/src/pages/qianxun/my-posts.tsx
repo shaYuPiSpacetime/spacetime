@@ -1,6 +1,7 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
+import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { deleteCommunityPost, getFollowingCount } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
@@ -150,16 +151,13 @@ export default function QianxunMyPostsPage() {
 function ProfileHeader({ profile }: { profile: ProfileSummary }) {
   const stats = [
     { label: '动态', value: profile.postCount, onClick: undefined },
-    { label: '关注', value: profile.followingCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions' }) },
-    { label: '粉丝', value: profile.followerCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions' }) },
-    { label: '获赞', value: profile.receivedLikeCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions' }) },
+    { label: '关注', value: profile.followingCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions?roster=following' }) },
+    { label: '粉丝', value: profile.followerCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions?roster=followers' }) },
+    { label: '获赞', value: profile.receivedLikeCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions?likes=1' }) },
   ]
   return (
     <View style={{ height: '544rpx', position: 'relative' }}>
-      <View style={{ width: '750rpx', height: '168rpx', paddingTop: '94rpx', boxSizing: 'border-box', position: 'relative' }}>
-        <View onClick={() => void Taro.navigateBack()} style={{ position: 'absolute', left: '18rpx', top: '88rpx', width: '86rpx', height: '74rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#667B9A', fontSize: '58rpx', lineHeight: '64rpx', fontWeight: 300 }}>‹</Text></View>
-        <Text style={{ display: 'block', color: NAVY, fontSize: '32rpx', fontWeight: 600, lineHeight: '45rpx', textAlign: 'center' }}>千寻互动</Text>
-      </View>
+      <NativeNavigation title="千寻互动" background="transparent" />
       <View style={{ position: 'absolute', left: '33rpx', top: '294rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
         <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
         <View style={{ marginLeft: '20rpx', minWidth: 0 }}>
@@ -176,8 +174,8 @@ function ProfileHeader({ profile }: { profile: ProfileSummary }) {
 
 function MainTabs() {
   const tabs = [
-    { label: '互动', onClick: () => void Taro.redirectTo({ url: '/pages/qianxun/interactions' }) },
-    { label: '浏览记录', onClick: () => void Taro.redirectTo({ url: '/pages/qianxun/interactions' }) },
+    { label: '互动', onClick: () => void Taro.redirectTo({ url: '/pages/qianxun/interactions?section=interaction' }) },
+    { label: '浏览记录', onClick: () => void Taro.redirectTo({ url: '/pages/qianxun/interactions?section=history' }) },
     { label: '我的动态', onClick: undefined },
   ]
   return (

@@ -1,7 +1,7 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
-import { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
+import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 
 export const MESSAGE_AVATAR = miniappOssIcons.messageAvatarXiaoming
@@ -21,8 +21,7 @@ export function MessageNav({
   children,
   onBack,
 }: MessageNavProps) {
-  const { menuTop, menuHeight } = getLanhuNavigationMetrics()
-  const top = menuTop + (menuHeight - 45) / 2
+  const { menuTop, menuHeight, titleTop, navigationHeight } = getNativeNavigationMetrics()
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
   const unit = isWeapp ? 'rpx' : 'px'
   const metric = (value: number) => (isWeapp ? value : value / 2)
@@ -38,21 +37,35 @@ export function MessageNav({
       style={{
         position: 'relative',
         width: isWeapp ? '750rpx' : '100%',
-        height: isWeapp ? '176rpx' : '88px',
+        height: `${metric(navigationHeight)}${unit}`,
         flexShrink: 0,
       }}
     >
       <View
         className="message-nav-back"
         onClick={back}
-        style={{ top: `${metric(menuTop)}${unit}`, height: `${metric(menuHeight)}${unit}` }}
+        style={{
+          left: 0,
+          top: `${metric(Math.max(0, menuTop - 20))}${unit}`,
+          width: `${metric(112)}${unit}`,
+          height: `${metric(menuHeight + 40)}${unit}`,
+          paddingLeft: `${metric(28)}${unit}`,
+        }}
       >
-        <View className="message-nav-chevron" />
+        <MiniappBackIcon color="#607086" />
       </View>
-      {children || (
+      {children ? (
+        <View
+          data-role="message-navigation-slot"
+          className="message-nav-slot"
+          style={{ top: `${metric(titleTop)}${unit}` }}
+        >
+          {children}
+        </View>
+      ) : (
         <View
           className={center ? 'message-nav-title message-nav-title--center' : 'message-nav-title'}
-          style={{ top: `${metric(top)}${unit}` }}
+          style={{ top: `${metric(titleTop)}${unit}` }}
         >
           {avatarUrl ? (
             <Image className="message-nav-avatar" src={avatarUrl} mode="aspectFill" />

@@ -16,6 +16,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -149,6 +153,34 @@ class AppUserAuditServiceTest {
         int count = auditService.certificationApprovedCount(10L);
 
         assertThat(count).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("批量认证计数保持实名/学历有效、头像最新通过的统一口径")
+    void shouldBatchCountTripleCertificationWithoutPerUserQueries() {
+        AppUserAuditRecord realName10 = record(1L, 10L, AppUserAuditTypeEnum.REAL_NAME,
+                AppUserAuditStatusEnum.APPROVED);
+        AppUserAuditRecord oldAvatar10 = record(2L, 10L, AppUserAuditTypeEnum.AVATAR,
+                AppUserAuditStatusEnum.APPROVED);
+        oldAvatar10.setSubmitTime(LocalDateTime.now().minusDays(1));
+        AppUserAuditRecord latestAvatar10 = record(3L, 10L, AppUserAuditTypeEnum.AVATAR,
+                AppUserAuditStatusEnum.REJECTED);
+        latestAvatar10.setSubmitTime(LocalDateTime.now());
+        AppUserAuditRecord education10 = record(4L, 10L, AppUserAuditTypeEnum.EDUCATION,
+                AppUserAuditStatusEnum.APPROVED);
+        AppUserAuditRecord realName11 = record(5L, 11L, AppUserAuditTypeEnum.REAL_NAME,
+                AppUserAuditStatusEnum.APPROVED);
+        AppUserAuditRecord avatar11 = record(6L, 11L, AppUserAuditTypeEnum.AVATAR,
+                AppUserAuditStatusEnum.APPROVED);
+        AppUserAuditRecord education11 = record(7L, 11L, AppUserAuditTypeEnum.EDUCATION,
+                AppUserAuditStatusEnum.APPROVED);
+        when(recordDao.selectList(any())).thenReturn(List.of(realName10, oldAvatar10, latestAvatar10,
+                education10, realName11, avatar11, education11));
+
+        Map<Long, Integer> result = auditService.certificationApprovedCounts(List.of(10L, 11L));
+
+        assertThat(result).containsEntry(10L, 2).containsEntry(11L, 3);
+        verify(recordDao).selectList(any());
     }
 
     private AppUserAuditRecord record(Long id, Long userId, AppUserAuditTypeEnum type,

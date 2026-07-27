@@ -45,4 +45,7 @@ public interface AppUserAuditContentService {
 
     /** 对外相册只返回已通过图片。 */
     List<String> publicAlbumPhotos(Long userId);
+
+    /** 批量查询对外可见的已通过相册图片，供发现列表使用。 */
+    Map<Long, List<String>> publicAlbumPhotos(Collection<Long> userIds);
 }

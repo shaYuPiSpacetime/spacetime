@@ -11,6 +11,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,6 +64,20 @@ class RelationAccessProjectionServiceImplTest {
         user.setAccountStatus(AccountStatusEnum.FROZEN.getCode());
 
         assertThat(service.project(user, true, 18, 60)).isEqualTo("ABNORMAL");
+    }
+
+    @Test
+    void batchProjectionUsesOneCertificationBatchForAllUsers() {
+        AppUser open = normalUser();
+        AppUser closed = normalUser();
+        closed.setId(2L);
+        when(auditService.certificationApprovedCounts(List.of(1L, 2L)))
+                .thenReturn(Map.of(1L, 3, 2L, 2));
+
+        Map<Long, String> result = service.projectAll(List.of(open, closed));
+
+        assertThat(result).containsEntry(1L, "OPEN").containsEntry(2L, "CLOSED");
+        verify(auditService).certificationApprovedCounts(List.of(1L, 2L));
     }
 
     private AppUser normalUser() {

@@ -92,6 +92,10 @@ public class AssetServiceImpl implements AssetService {
         log.info("解锁操作: userId={}, scene={}, count={}", userId, requestedScene,
                 targetUserIds != null ? targetUserIds.size() : 0);
 
+        if (isRelationSingleUnlockScene(requestedScene)) {
+            throw new BusinessException("喜欢和访客单条解锁必须使用报价、确认两步解锁接口");
+        }
+
         // 1. 校验目标用户列表不为空
         if (targetUserIds == null || targetUserIds.isEmpty()) {
             throw new BusinessException("目标用户列表不能为空");
@@ -220,6 +224,13 @@ public class AssetServiceImpl implements AssetService {
             return "compatible_person_unlock_one";
         }
         return sceneCode;
+    }
+
+    private boolean isRelationSingleUnlockScene(String sceneCode) {
+        return UnlockSceneEnum.LIKES.getCode().equals(sceneCode)
+                || UnlockSceneEnum.VIEWERS.getCode().equals(sceneCode)
+                || "likes_unlock_one".equals(sceneCode)
+                || "viewers_unlock_one".equals(sceneCode);
     }
 
     private boolean isIdealScene(String sceneCode) {
