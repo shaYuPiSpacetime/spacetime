@@ -42,7 +42,7 @@
     $$('[data-mobile-state-button]').forEach(button => button.classList.toggle('is-active', button.dataset.mobileStateButton === nextState));
     if (nextState === 'reward-failed') showMobileView('records');
     if (nextState === 'h5-cache' || nextState === 'h5-unavailable') showMobileView('rules');
-    if (nextState === 'qr-fail' || nextState === 'empty') showMobileView('home');
+    if (['normal', 'loading', 'empty', 'network-error', 'share-unavailable'].includes(nextState)) showMobileView('home');
     setInviteRulesH5State(nextState);
   }
 
@@ -70,6 +70,38 @@
     $$('.mobile-sheet').forEach(sheet => { sheet.classList.remove('is-open'); sheet.setAttribute('aria-hidden', 'true'); });
   }
 
+  function renderInviteHome() {
+    const mobile = data.mobile || {};
+    const ladders = Array.isArray(mobile.ladders) ? mobile.ladders : [];
+    const recentInvites = Array.isArray(mobile.recentInvites) ? mobile.recentInvites.slice(0, 3) : [];
+    const successCount = Number(mobile.successCount || 0);
+    const rewardTotal = Number(mobile.rewardTotal || 0);
+    const currentLadderCount = Number(mobile.currentLadderCount ?? successCount);
+    const maxLadderCount = Number(mobile.maxLadderCount || ladders.at(-1)?.count || 0);
+
+    $$('[data-register-reward]').forEach(element => { element.textContent = Number(mobile.registerReward || 0).toLocaleString('zh-CN'); });
+    $$('[data-mobile-success], [data-record-success]').forEach(element => { element.textContent = successCount.toLocaleString('zh-CN'); });
+    $$('[data-mobile-reward], [data-record-reward]').forEach(element => { element.textContent = rewardTotal.toLocaleString('zh-CN'); });
+    if ($('[data-ladder-current]')) $('[data-ladder-current]').textContent = currentLadderCount.toLocaleString('zh-CN');
+    if ($('[data-ladder-max]')) $('[data-ladder-max]').textContent = maxLadderCount.toLocaleString('zh-CN');
+
+    const ladderList = $('[data-ladder-list]');
+    if (ladderList) {
+      const progress = maxLadderCount ? Math.min(currentLadderCount / maxLadderCount, 1) * 100 : 0;
+      ladderList.style.setProperty('--ladder-count', Math.max(ladders.length, 1));
+      ladderList.style.setProperty('--progress', `${progress}%`);
+      ladderList.innerHTML = ladders.length ? ladders.map(ladder => {
+        const achieved = Boolean(ladder.achieved ?? currentLadderCount >= Number(ladder.count));
+        return `<div class="ui-ladder-step${achieved ? ' is-achieved' : ''}" data-invite-ladder><span class="ui-ladder-reward">◎+${escapeHtml(ladder.amount)}</span><small>${achieved ? '已获得' : `完成${escapeHtml(ladder.count)}人`}</small></div>`;
+      }).join('') : '<p class="ui-ladder-empty">当前暂无启用阶梯</p>';
+    }
+
+    const recentList = $('[data-recent-list]');
+    if (recentList) {
+      recentList.innerHTML = recentInvites.map(invite => `<article class="ui-invite-record" data-invite-record><img src="assets/images/invite-avatar.png" alt=""><div><b>${escapeHtml(invite.name)}</b><small>${escapeHtml(invite.time)}　${escapeHtml(invite.status || '注册成功')}</small></div><em>+${escapeHtml(invite.reward)}${escapeHtml(invite.unit || '')}</em></article>`).join('');
+    }
+  }
+
   function filterMobileRecords(filter) {
     state.recordFilter = filter;
     $$('[data-record-filter]').forEach(button => button.classList.toggle('is-active', button.dataset.recordFilter === filter));
@@ -86,6 +118,7 @@
   function bindMobile() {
     if (!$('.phone')) return;
     const initial = ['home', 'records', 'rules'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
+    renderInviteHome();
     showMobileView(initial);
     $$('[data-mobile-nav]').forEach(button => button.addEventListener('click', () => showMobileView(button.dataset.mobileNav)));
     $$('[data-mobile-state-button]').forEach(button => button.addEventListener('click', () => setMobileState(button.dataset.mobileStateButton)));
@@ -97,13 +130,12 @@
       if (action === 'go-home') showMobileView('home');
       if (action === 'go-records') showMobileView('records');
       if (action === 'show-rules') showMobileView('rules');
-      if (action === 'open-share') openMobileSheet('share');
+      if (action === 'open-share' && state.mobileState === 'share-unavailable') showToast('邀请链接已复制，请发送给好友');
+      if (action === 'open-share' && state.mobileState !== 'share-unavailable') openMobileSheet('share');
       if (action === 'close-sheet') closeMobileSheets();
-      if (action === 'copy-code') showToast('邀请码已复制');
-      if (action === 'copy-link') { closeMobileSheets(); showToast('邀请链接已复制'); }
-      if (action === 'save-poster') showToast('二维码已保存到相册（Demo）');
+      if (action === 'copy-link') { closeMobileSheets(); showToast('邀请链接已复制，请发送给好友'); }
       if (action === 'share-done') { closeMobileSheets(); showToast('已调起分享演示'); }
-      if (action === 'retry-qr') { setMobileState('normal'); showToast('二维码加载成功'); }
+      if (action === 'retry-home') { setMobileState('normal'); renderInviteHome(); showToast('邀请数据已更新'); }
       if (action === 'retry-rules-h5') { setMobileState('normal'); showMobileView('rules'); showToast('已加载邀请规则 V4.1'); }
       if (action === 'contact-service') showToast('客服入口为 Demo 演示');
     });
@@ -314,7 +346,15 @@
     showToast('已增加30人档位，请保存发布');
   }
 
+  function enforceRequiredRewardEvents() {
+    $$('[data-required-reward-event]').forEach(control => {
+      control.checked = true;
+      control.disabled = true;
+    });
+  }
+
   function savePromoRules() {
+    enforceRequiredRewardEvents();
     const activePanel = $('.rule-panel.is-active');
     const values = $$('[data-ladder-table] input', activePanel).map(input => Number(input.value));
     if (values.some(value => !Number.isFinite(value) || value <= 0)) { showToast('阶梯人数和金额必须大于0', 'danger'); return; }
@@ -339,11 +379,13 @@
   function applyRole(role) {
     state.role = role;
     $$('[data-write]').forEach(control => { control.disabled = role === 'viewer'; });
+    enforceRequiredRewardEvents();
     if (role === 'viewer') showToast('已切换为只读权限，编辑操作被禁用', 'warning');
   }
 
   function bindAdmin() {
     if (!$('.admin-shell')) return;
+    enforceRequiredRewardEvents();
     renderRelations(); renderRewards(); renderAgents(); renderSettlements(); routeAdminPage();
     window.addEventListener('hashchange', routeAdminPage);
     $('[data-role-select]')?.addEventListener('change', event => applyRole(event.target.value));

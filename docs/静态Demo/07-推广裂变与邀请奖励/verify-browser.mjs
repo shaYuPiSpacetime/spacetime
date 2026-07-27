@@ -33,6 +33,11 @@ try {
   assert(phoneSize.width === 376 && phoneSize.height === 830, `手机内容尺寸异常：${JSON.stringify(phoneSize)}`);
   assert((await page.locator('.phone').innerText()).includes('完成注册即邀请成功'), '移动端成功口径未更新');
   assert(!(await page.locator('.phone').innerText()).includes('冻结'), '移动端仍出现旧奖励状态');
+  const homeText = await page.locator('[data-view="home"]').innerText();
+  ['邀请注册得千寻币', '累计邀请额外奖励', '+50', '+100', '+200', '查看全部', '活动说明'].forEach(text => assert(homeText.includes(text), `邀请首页缺少 ${text}`));
+  ['邀请二维码', '邀请码', '保存二维码', '千寻币可以做什么'].forEach(text => assert(!homeText.includes(text), `邀请首页仍包含 ${text}`));
+  assert(await page.locator('[data-invite-ladder]').count() === 3, '完整阶梯没有按 Mock 渲染');
+  assert(await page.locator('[data-invite-record]').count() === 3, '最近邀请没有按 Mock 渲染三条');
   await shot('PRD-07-01-移动端邀请首页.png', true);
 
   await page.locator('[data-action="open-share"]').first().click();
@@ -40,10 +45,27 @@ try {
   await shot('PRD-07-01A-移动端分享弹层.png', true);
   await page.locator('[data-sheet="share"] [data-action="close-sheet"]').last().click();
 
-  await page.locator('[data-mobile-state-button="qr-fail"]').click();
-  assert(await page.locator('.qr-failure').isVisible(), '二维码失败态不可见');
-  await shot('PRD-07-01B-移动端二维码失败.png', true);
-  await page.locator('[data-action="retry-qr"]').click();
+  await page.locator('[data-mobile-state-button="loading"]').click();
+  assert(await page.locator('[data-home-loading]').isVisible(), '首页加载态不可见');
+  await shot('PRD-07-01B-移动端加载态.png', true);
+  await page.locator('[data-mobile-state-button="empty"]').click();
+  assert(await page.locator('[data-home-empty]').isVisible(), '首页邀请记录空态不可见');
+  await shot('PRD-07-01C-移动端空态.png', true);
+  await page.locator('[data-mobile-state-button="network-error"]').click();
+  assert(await page.locator('[data-home-error]').isVisible(), '首页网络错误态不可见');
+  await shot('PRD-07-01D-移动端网络错误态.png', true);
+  await page.locator('[data-action="retry-home"]').click();
+  await page.locator('[data-mobile-state-button="share-unavailable"]').click();
+  await page.locator('[data-action="open-share"]').first().click();
+  assert(await page.locator('.mobile-toast').isVisible(), '分享不可用时未提示复制链接');
+  assert((await page.locator('.mobile-toast').innerText()).includes('邀请链接已复制'), '分享降级提示错误');
+  assert(await page.locator('[data-sheet="share"].is-open').count() === 0, '分享不可用时仍打开分享弹层');
+  await page.locator('[data-mobile-state-button="normal"]').click();
+  await page.locator('.invite-home-scroll').evaluate(element => { element.scrollTop = element.scrollHeight; });
+  assert(await page.locator('.ui-record-card').isVisible(), '邀请记录卡不可见');
+  assert(await page.locator('.ui-rules-card').isVisible(), '邀请规则卡不可见');
+  await shot('PRD-07-01E-移动端邀请首页下半屏.png', true);
+  await page.locator('.invite-home-scroll').evaluate(element => { element.scrollTop = 0; });
 
   await page.locator('[data-mobile-nav="records"]').click();
   assert(await page.locator('[data-record-filter]').allTextContents().then(values => values.join('|')) === '全部|待发放|已发放|发放失败', '移动端奖励筛选状态错误');
@@ -62,9 +84,9 @@ try {
   assert((await page.locator('[data-h5-version]').innerText()).includes('V4.0（缓存）'), '邀请规则缓存版本错误');
   await page.locator('[data-mobile-state-button="h5-unavailable"]').click();
   assert(await page.locator('[data-h5-unavailable]').isVisible(), '邀请规则 H5 无缓存错误态不可见');
-  await page.locator('[data-action="retry-rules-h5"]').first().click();
+  await page.locator('[data-h5-unavailable] [data-action="retry-rules-h5"]').click();
   assert((await page.locator('[data-h5-version]').innerText()).includes('V4.1'), '邀请规则 H5 重试未恢复当前版本');
-  console.log('PASS 移动端 3 页、分享、H5缓存与异常状态');
+  console.log('PASS 移动端 3 页、完整阶梯、分享降级、H5缓存与异常状态');
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${base}/admin.html#promo-rule-config`, { waitUntil: 'load' });
@@ -72,6 +94,14 @@ try {
   assert(await page.locator('.admin-nav a[data-admin-link]').count() === 5, '后台菜单未收敛为5页');
   assert(await page.locator('[data-rule-tab]').count() === 2, '规则配置Tab数量错误');
   assert(await page.locator('[data-admin-page="promo-rule-config"] .metric-grid').count() === 0, '规则页仍有统计区域');
+  const requiredRegisterEvents = page.locator('[data-required-reward-event]');
+  assert(await requiredRegisterEvents.count() === 2, '普通邀请与推广员都必须包含完成注册固定事件');
+  assert(await requiredRegisterEvents.evaluateAll(inputs => inputs.every(input => input.checked && input.disabled)), '完成注册奖励事件没有保持固定开启');
+  assert((await page.locator('[data-rule-panel="normal"]').innerText()).includes('固定开启'), '普通邀请未展示固定开启');
+  await page.locator('[data-rule-tab="agent"]').click();
+  assert((await page.locator('[data-rule-panel="agent"]').innerText()).includes('固定开启'), '推广员未展示固定开启');
+  await shot('PRD-07-04C-管理端推广员固定开启.png');
+  await page.locator('[data-rule-tab="normal"]').click();
   await shot('PRD-07-04-管理端推广规则配置.png');
 
   await page.locator('[name="normalRewardMode"][value="fixed"]').check();

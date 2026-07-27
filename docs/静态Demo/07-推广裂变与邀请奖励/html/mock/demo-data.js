@@ -4,7 +4,7 @@ window.PRD07_DATA = {
     normal: {
       mode: 'ladder',
       events: [
-        { key: 'register', name: '完成注册', amount: 20, enabled: true },
+        { key: 'register', name: '完成注册', amount: 20, enabled: true, required: true },
         { key: 'profile', name: '完善资料', amount: 30, enabled: true },
         { key: 'verify', name: '认证完成', amount: 50, enabled: true },
         { key: 'firstVip', name: '首次会员', amount: 80, enabled: true },
@@ -15,7 +15,7 @@ window.PRD07_DATA = {
     agent: {
       mode: 'ladder',
       events: [
-        { key: 'register', name: '完成注册', amount: 20, enabled: true },
+        { key: 'register', name: '完成注册', amount: 20, enabled: true, required: true },
         { key: 'profile', name: '完善资料', amount: 30, enabled: true },
         { key: 'verify', name: '认证完成', amount: 50, enabled: true },
         { key: 'firstVip', name: '首次会员', amount: 80, enabled: true },
@@ -25,11 +25,21 @@ window.PRD07_DATA = {
     }
   },
   mobile: {
-    inviteCode: 'QX7M2P', successCount: 8, rewardTotal: 330, nextCount: 10, nextReward: 100,
-    recent: [
-      { name: '林**', time: '07-16 20:18', status: '已发放', reward: 20 },
-      { name: '周**', time: '07-15 11:06', status: '待发放', reward: 20 },
-      { name: '陈**', time: '07-14 18:32', status: '发放失败', reward: 20 }
+    registerReward: 20,
+    successCount: 10,
+    rewardTotal: 330,
+    currentLadderCount: 10,
+    maxLadderCount: 20,
+    shareLink: '/invite/U100086',
+    ladders: [
+      { count: 5, amount: 50, achieved: true },
+      { count: 10, amount: 100, achieved: true },
+      { count: 20, amount: 200, achieved: false }
+    ],
+    recentInvites: [
+      { name: '用户9876', time: '07-15 11:06', status: '注册成功', reward: 20 },
+      { name: '用户0976', time: '07-15 11:06', status: '注册成功', reward: 20 },
+      { name: '用户0976', time: '07-15 11:06', status: '注册成功', reward: 20 }
     ]
   },
   relations: [

@@ -18,7 +18,7 @@
       <aside class="mobile-console">
         <p class="eyebrow">页面导航</p>
         <h1>邀请好友 Demo</h1>
-        <p>以现有资料页邀请卡片的蓝紫色为视觉延续，使用真实控件演示完整状态。</p>
+        <p>以已确认 UI 稿为视觉基线，使用真实控件演示动态奖励、完整阶梯和分享状态。</p>
         <nav class="console-nav" aria-label="移动端页面">
           <button class="is-active" data-mobile-nav="home">01 邀请好友首页</button>
           <button data-mobile-nav="records">02 邀请记录</button>
@@ -28,14 +28,16 @@
           <strong>演示状态</strong>
           <div class="state-grid">
             <button class="is-active" data-mobile-state-button="normal">正常</button>
+            <button data-mobile-state-button="loading">加载中</button>
             <button data-mobile-state-button="empty">空态</button>
-            <button data-mobile-state-button="qr-fail">二维码失败</button>
+            <button data-mobile-state-button="network-error">网络错误</button>
+            <button data-mobile-state-button="share-unavailable">分享不可用</button>
             <button data-mobile-state-button="reward-failed">发放失败</button>
             <button data-mobile-state-button="h5-cache">H5 缓存</button>
             <button data-mobile-state-button="h5-unavailable">H5 不可用</button>
           </div>
         </div>
-        <div class="console-note"><b>Mock 说明</b><span>分享、保存、客服等操作仅提供本地反馈。</span></div>
+        <div class="console-note"><b>Mock 说明</b><span>首页字段由本地数据动态渲染，分享和客服操作仅提供本地反馈。</span></div>
       </aside>
 
       <main class="phone-stage">
@@ -43,52 +45,72 @@
           <div class="phone-status"><span>9:41</span><span>● ● ●</span></div>
 
           <section class="mobile-view is-active" data-view="home">
-            <header class="app-head app-head-light"><button class="icon-button" aria-label="返回">‹</button><h2>邀请好友</h2><button class="text-button" data-action="show-rules">活动说明</button></header>
+            <header class="app-head app-head-light ui-invite-head"><button class="icon-button" aria-label="返回">‹</button><h2>邀请好友</h2><span aria-hidden="true"></span></header>
             <div class="mobile-scroll invite-home-scroll">
-              <section class="invite-hero">
-                <span class="hero-orb orb-one"></span><span class="hero-orb orb-two"></span>
-                <div class="hero-copy"><span>好友同行 · 奖励加倍</span><h1>一起遇见<br>更好的缘分</h1><p>好友完成注册即邀请成功，关系永久有效</p></div>
-                <div class="coin-art" aria-hidden="true"><i>寻</i><i>币</i><i>+</i></div>
+              <section class="ui-invite-hero">
+                <div class="ui-hero-glow ui-hero-glow-one" aria-hidden="true"></div>
+                <div class="ui-hero-glow ui-hero-glow-two" aria-hidden="true"></div>
+                <div class="ui-hero-copy"><span>好友同行·奖励加倍</span><h1>一起遇见<br>更好的缘分</h1><p>好友完成注册即邀请成功，关系永久有效</p></div>
+                <div class="ui-hero-art" aria-hidden="true"><img src="../设计基线/PRD-07-01-移动端邀请首页-UI基线.png" alt=""></div>
               </section>
 
-              <section class="mobile-card stats-card">
-                <div><span>累计邀请成功</span><strong><b data-mobile-success>8</b> 人</strong></div>
-                <i></i>
-                <div><span>累计到账</span><strong class="coin-color"><b data-mobile-reward>330</b> 币</strong></div>
-                <div class="ladder-progress"><div><span>当前进度</span><b>还差 2 人</b></div><div class="progress-track"><span style="width:80%"></span></div><p>下一阶梯：累计 10 人，命中当次额外得 <b>100 千寻币</b></p></div>
-              </section>
-
-              <section class="mobile-card qr-card">
-                <div class="section-heading"><div><span class="mini-label">专属邀请凭证</span><h3>邀请二维码</h3></div><button class="help-dot" data-action="show-rules" aria-label="查看规则">?</button></div>
-                <div class="qr-zone">
-                  <div class="qr-code" aria-label="模拟二维码"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                  <div class="qr-failure"><div>!</div><b>二维码加载失败</b><p>请检查网络后重试</p><button class="secondary-mobile-button" data-action="retry-qr">重新加载</button></div>
+              <div class="ui-invite-data">
+                <div class="ui-home-loading" data-home-loading aria-label="数据加载中">
+                  <div></div><div></div><div></div><span>数据加载中</span>
                 </div>
-                <div class="invite-code-row"><span>邀请码</span><strong>QX7M2P</strong><button data-action="copy-code">复制</button></div>
-                <div class="share-actions"><button class="secondary-mobile-button" data-action="save-poster">保存二维码</button><button class="primary-mobile-button" data-action="open-share">立即分享</button></div>
-              </section>
+                <section class="ui-home-error" data-home-error>
+                  <span>!</span><h3>网络开小差了</h3><p>请检查网络后重新加载邀请数据</p><button class="primary-mobile-button" data-action="retry-home">重新加载</button>
+                </section>
 
-              <section class="coin-use-card"><span class="coin-small">寻</span><div><b>千寻币可以做什么？</b><p>解锁联系方式、购买心动权益</p></div><span>›</span></section>
+                <div class="ui-home-content">
+                  <section class="ui-invite-card ui-reward-card">
+                    <h3 class="ui-card-title">邀请注册得千寻币</h3>
+                    <div class="ui-reward-equation" aria-label="邀请好友加好友注册等于获得注册奖励">
+                      <div><span class="ui-action-icon">↗</span><b>邀请好友</b></div><i>＋</i>
+                      <div><span class="ui-person-icon"><i></i></span><b>好友注册</b></div><i>＝</i>
+                      <div><span class="ui-coin-icon">¥</span><b>获得<span data-register-reward>20</span>千寻币</b></div>
+                    </div>
+                    <button class="ui-invite-button" data-action="open-share">立即邀请</button>
+                    <p class="ui-reward-note">必须是新用户，老用户不计入邀请，无法获得奖励 <button data-action="show-rules">活动说明</button></p>
+                  </section>
 
-              <section class="mobile-card recent-card">
-                <div class="section-heading"><h3>最近邀请</h3><button data-action="go-records">查看全部</button></div>
-                <div class="recent-list" data-recent-list>
-                  <article><span class="avatar purple">林</span><div><b>林**</b><small>07-16 20:18 · 完成注册</small></div><em class="success-text">+20 币</em></article>
-                  <article><span class="avatar blue">周</span><div><b>周**</b><small>07-15 11:06 · 第5位好友</small></div><em class="success-text">+70 币</em></article>
-                  <article><span class="avatar amber">陈</span><div><b>陈**</b><small>07-14 18:32 · 完成注册</small></div><em class="warning-text">发放失败</em></article>
+                  <section class="ui-invite-card ui-progress-card">
+                    <h3 class="ui-card-title">邀请进度</h3>
+                    <div class="ui-progress-metrics">
+                      <div><span>累计邀请成功</span><strong><b data-mobile-success>10</b><small>人</small></strong></div>
+                      <i></i>
+                      <div><span>累计到账</span><strong class="ui-orange"><b data-mobile-reward>330</b><small>币</small></strong></div>
+                    </div>
+                    <div class="ui-ladder-heading">累计邀请额外奖励 <span>（已完成<b data-ladder-current>10</b>/<b data-ladder-max>20</b>）</span></div>
+                    <div class="ui-ladder-track" data-ladder-list></div>
+                  </section>
+
+                  <section class="ui-invite-card ui-record-card">
+                    <h3 class="ui-card-title">邀请记录</h3>
+                    <div class="ui-invite-records" data-recent-list></div>
+                    <div class="ui-home-empty" data-home-empty>
+                      <span>◎</span><b>还没有邀请记录</b><p>邀请好友注册，开启第一份同行奖励</p><button data-action="open-share">立即邀请</button>
+                    </div>
+                    <button class="ui-all-records" data-action="go-records">查看全部</button>
+                  </section>
+
+                  <section class="ui-invite-card ui-rules-card">
+                    <h3 class="ui-card-title">邀请规则</h3>
+                    <ol>
+                      <li>好友通过你的专属入口完成注册即成功；</li>
+                      <li>邀请关系建立后永久有效，不重复绑定；</li>
+                      <li>命中累计人数档位的当次，可额外获得一笔阶梯奖励。</li>
+                    </ol>
+                  </section>
                 </div>
-                <div class="mobile-empty"><span>◎</span><b>还没有邀请记录</b><p>分享给好友，开启第一份同行奖励</p></div>
-              </section>
-
-              <section class="rules-summary"><h3>邀请规则摘要</h3><ol><li>好友通过你的专属入口完成注册即成功。</li><li>邀请关系建立后永久有效，不重复绑定。</li><li>命中累计人数档位的当次，可额外获得一笔阶梯奖励。</li></ol><button data-action="show-rules">查看完整规则</button></section>
+              </div>
             </div>
-            <div class="fixed-share"><button class="primary-mobile-button" data-action="open-share">立即邀请好友</button></div>
           </section>
 
           <section class="mobile-view" data-view="records">
             <header class="app-head"><button class="icon-button" data-action="go-home" aria-label="返回">‹</button><h2>邀请记录</h2><span></span></header>
             <div class="mobile-scroll records-scroll">
-              <section class="record-summary"><div><span>邀请成功</span><strong>8<small> 人</small></strong></div><div><span>累计奖励</span><strong class="coin-color">330<small> 币</small></strong></div></section>
+              <section class="record-summary"><div><span>邀请成功</span><strong><b data-record-success>10</b><small> 人</small></strong></div><div><span>累计奖励</span><strong class="coin-color"><b data-record-reward>330</b><small> 币</small></strong></div></section>
               <div class="record-tabs" role="tablist">
                 <button class="is-active" data-record-filter="全部">全部</button><button data-record-filter="待发放">待发放</button><button data-record-filter="已发放">已发放</button><button data-record-filter="发放失败">发放失败</button>
               </div>
