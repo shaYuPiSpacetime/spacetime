@@ -3,6 +3,7 @@ import Taro, { useDidShow, useLaunch } from '@tarojs/taro'
 import { useAuthStore } from './stores/authStore'
 import { usePrd01Store } from './stores/prd01Store'
 import { DEV_FIXED_LOGIN, MOCK_ENABLED, TOKEN_KEY, USER_INFO_KEY } from './constants/config'
+import { capturePromotionSource } from './services/promotionAttribution'
 
 import './app.scss'
 
@@ -15,12 +16,21 @@ function getDevFixedLoginExtra() {
   }
 }
 
+function captureEntryPromotionSource(query?: Record<string, unknown>) {
+  const persistForRegistration = !DEV_FIXED_LOGIN.enabled && !Taro.getStorageSync(TOKEN_KEY)
+  void capturePromotionSource(query, persistForRegistration).catch(() => {
+    // 推广归因失败不能阻断小程序启动或正常登录。
+  })
+}
+
 function App({ children }: PropsWithChildren<object>) {
   const { setLogin, checkLogin } = useAuthStore()
   const bootstrapPrd01 = usePrd01Store(state => state.bootstrap)
   const loginRedirectingRef = useRef(false)
 
-  useLaunch(() => {
+  useLaunch((options) => {
+    captureEntryPromotionSource(options.query)
+
     // 本地开发：注入固定登录态，跳过微信授权
     if (DEV_FIXED_LOGIN.enabled) {
       setLogin(
@@ -39,7 +49,9 @@ function App({ children }: PropsWithChildren<object>) {
     })
   })
 
-  useDidShow(() => {
+  useDidShow((options) => {
+    captureEntryPromotionSource(options?.query)
+
     if (MOCK_ENABLED) return
     if (DEV_FIXED_LOGIN.enabled) {
       const token = Taro.getStorageSync(TOKEN_KEY)

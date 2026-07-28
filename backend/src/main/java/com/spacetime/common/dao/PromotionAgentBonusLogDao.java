@@ -8,7 +8,9 @@ import com.spacetime.common.entity.PromotionAgentBonusLog;
  */
 public interface PromotionAgentBonusLogDao {
     PromotionAgentBonusLog selectById(Long id);
+    PromotionAgentBonusLog selectByIdempotencyKey(String idempotencyKey);
     Page<PromotionAgentBonusLog> selectPage(Page<PromotionAgentBonusLog> page, com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PromotionAgentBonusLog> wrapper);
     void insert(PromotionAgentBonusLog entity);
-    void updateById(PromotionAgentBonusLog entity);
+    int updateById(PromotionAgentBonusLog entity);
+    int bindSettlementIfUnsettled(Long bonusId, Long settlementId);
 }

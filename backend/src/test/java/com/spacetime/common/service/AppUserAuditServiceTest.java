@@ -37,6 +37,8 @@ class AppUserAuditServiceTest {
 
     @Mock
     private AppUserAuditHistoryDao historyDao;
+    @Mock
+    private PromotionEventInboxService promotionEventInboxService;
 
     @InjectMocks
     private AppUserAuditServiceImpl auditService;

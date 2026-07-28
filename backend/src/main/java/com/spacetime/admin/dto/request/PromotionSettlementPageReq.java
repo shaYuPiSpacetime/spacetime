@@ -14,14 +14,10 @@ import java.time.LocalDate;
 public class PromotionSettlementPageReq extends PageReq {
     /** 结算单号 */
     private String settlementNo;
-    /** 代理ID */
-    private Long agentId;
-    /** 代理名称/联系人/手机号 */
+    /** 代理编号、名称、学校或校区 */
     private String agentKeyword;
     /** 状态 */
     private String status;
-    /** 周期开始 */
-    private LocalDate periodStart;
-    /** 周期结束 */
-    private LocalDate periodEnd;
+    /** 结算月份，yyyy-MM */
+    private String periodMonth;
 }

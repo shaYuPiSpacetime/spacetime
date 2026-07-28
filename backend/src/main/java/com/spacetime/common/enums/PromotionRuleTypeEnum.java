@@ -1,11 +1,11 @@
 package com.spacetime.common.enums;
 
 /**
- * 推广规则类型
+ * 推广奖励模式。
  */
 public enum PromotionRuleTypeEnum {
-    USER_INVITE("user_invite"),
-    AGENT_BONUS("agent_bonus");
+    FIXED("fixed"),
+    LADDER("ladder");
 
     private final String code;
 

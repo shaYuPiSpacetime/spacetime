@@ -12,5 +12,5 @@ public interface PromotionInviteRelationDao {
     PromotionInviteRelation selectByRelationNo(String relationNo);
     Page<PromotionInviteRelation> selectPage(Page<PromotionInviteRelation> page, com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PromotionInviteRelation> wrapper);
     void insert(PromotionInviteRelation entity);
-    void updateById(PromotionInviteRelation entity);
+    int updateById(PromotionInviteRelation entity);
 }

@@ -22,6 +22,12 @@ public class PromotionSourceTraceDaoImpl implements PromotionSourceTraceDao {
     }
 
     @Override
+    public PromotionSourceTrace selectByRequestKey(String requestKey) {
+        return mapper.selectOne(new LambdaQueryWrapper<PromotionSourceTrace>()
+                .eq(PromotionSourceTrace::getRequestKey, requestKey));
+    }
+
+    @Override
     public PromotionSourceTrace selectById(Long id) {
         return mapper.selectById(id);
     }

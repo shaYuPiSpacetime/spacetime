@@ -6,8 +6,7 @@ package com.spacetime.common.enums;
 public enum PromotionRewardStatusEnum {
     PENDING("pending"),
     SUCCESS("success"),
-    FROZEN("frozen"),
-    INVALID("invalid");
+    FAILED("failed");
 
     private final String code;
 
@@ -17,5 +16,12 @@ public enum PromotionRewardStatusEnum {
 
     public String getCode() {
         return code;
+    }
+
+    /**
+     * 判断是否为正式状态值。
+     */
+    public static boolean supports(String code) {
+        return PENDING.code.equals(code) || SUCCESS.code.equals(code) || FAILED.code.equals(code);
     }
 }

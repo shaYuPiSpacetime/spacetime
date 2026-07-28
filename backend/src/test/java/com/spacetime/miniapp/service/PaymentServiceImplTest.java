@@ -9,6 +9,7 @@ import com.spacetime.miniapp.dto.request.UnlockReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.impl.AssetServiceImpl;
 import com.spacetime.miniapp.service.impl.PaymentServiceImpl;
+import com.spacetime.common.service.PromotionEventInboxService;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +40,7 @@ class PaymentServiceImplTest {
     @Mock private AppUserDao appUserDao;
     @Mock private PaymentNotifyLogDao paymentNotifyLogDao;
     @Mock private WechatPayService wechatPayService;
+    @Mock private PromotionEventInboxService promotionEventInboxService;
     private final WechatPayProperties wechatPayProperties = new WechatPayProperties();
     private PaymentServiceImpl paymentService;
 
@@ -61,7 +63,8 @@ class PaymentServiceImplTest {
                 appUserDao,
                 paymentNotifyLogDao,
                 wechatPayService,
-                wechatPayProperties
+                wechatPayProperties,
+                promotionEventInboxService
         );
         vipPackage = new VipPackage();
         vipPackage.setId(1L);

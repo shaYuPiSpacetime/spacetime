@@ -42,7 +42,7 @@ public class PromotionInviteRelationDaoImpl implements PromotionInviteRelationDa
     }
 
     @Override
-    public void updateById(PromotionInviteRelation entity) {
-        mapper.updateById(entity);
+    public int updateById(PromotionInviteRelation entity) {
+        return mapper.updateById(entity);
     }
 }

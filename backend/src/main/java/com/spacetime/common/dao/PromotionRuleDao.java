@@ -8,8 +8,9 @@ import com.spacetime.common.entity.PromotionRule;
  */
 public interface PromotionRuleDao {
     PromotionRule selectById(Long id);
+    PromotionRule selectBySourceTypeAndVersion(String sourceType, Integer versionNo);
     Page<PromotionRule> selectPage(Page<PromotionRule> page, com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PromotionRule> wrapper);
     void insert(PromotionRule entity);
-    void updateById(PromotionRule entity);
+    int updateById(PromotionRule entity);
     void deleteById(Long id);
 }

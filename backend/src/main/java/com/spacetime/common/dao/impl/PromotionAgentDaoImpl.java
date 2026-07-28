@@ -22,6 +22,12 @@ public class PromotionAgentDaoImpl implements PromotionAgentDao {
     }
 
     @Override
+    public PromotionAgent selectByAgentNo(String agentNo) {
+        return mapper.selectOne(new LambdaQueryWrapper<PromotionAgent>()
+                .eq(PromotionAgent::getAgentNo, agentNo));
+    }
+
+    @Override
     public Page<PromotionAgent> selectPage(Page<PromotionAgent> page, LambdaQueryWrapper<PromotionAgent> wrapper) {
         return mapper.selectPage(page, wrapper);
     }
@@ -32,7 +38,7 @@ public class PromotionAgentDaoImpl implements PromotionAgentDao {
     }
 
     @Override
-    public void updateById(PromotionAgent entity) {
-        mapper.updateById(entity);
+    public int updateById(PromotionAgent entity) {
+        return mapper.updateById(entity);
     }
 }

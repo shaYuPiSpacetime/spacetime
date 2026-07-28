@@ -3,11 +3,13 @@ package com.spacetime.miniapp.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.response.PhoneSmsCodeVO;
@@ -59,6 +61,10 @@ class AuthMiniappServiceImplTest {
     private SmsCodeProvider smsCodeProvider;
     @Mock
     private Prd01AccessEvaluator accessEvaluator;
+    @Mock
+    private UserAssetDao userAssetDao;
+    @Mock
+    private PromotionEventInboxService promotionEventInboxService;
 
     private AuthMiniappServiceImpl authService;
 
@@ -79,7 +85,9 @@ class AuthMiniappServiceImplTest {
                 appConfigDao,
                 smsCodeProvider,
                 new Prd01FieldConfigResolver(appConfigDao, objectMapper),
-                accessEvaluator);
+                accessEvaluator,
+                userAssetDao,
+                promotionEventInboxService);
     }
 
     @Test

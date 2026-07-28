@@ -7,6 +7,8 @@ import com.spacetime.common.entity.PromotionAgentStat;
  */
 public interface PromotionAgentStatDao {
     PromotionAgentStat selectByAgentId(Long agentId);
+    PromotionAgentStat selectByAgentIdForUpdate(Long agentId);
+    int incrementScanClickCount(Long agentId);
     void insert(PromotionAgentStat entity);
-    void updateById(PromotionAgentStat entity);
+    int updateById(PromotionAgentStat entity);
 }

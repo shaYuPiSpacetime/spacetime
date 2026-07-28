@@ -12,22 +12,22 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PromotionRewardPageReq extends PageReq {
+    /** 来源类型 */
+    private String sourceType;
     /** 奖励流水号 */
     private String rewardNo;
-    /** 邀请人ID */
-    private Long inviterId;
-    /** 邀请人姓名/手机号/账号 */
-    private String inviterKeyword;
-    /** 被邀请人ID */
-    private Long inviteeId;
-    /** 被邀请人姓名/手机号/账号 */
+    /** 奖励对象关键词 */
+    private String rewardObjectKeyword;
+    /** 被邀请用户关键词 */
     private String inviteeKeyword;
     /** 奖励事件 */
     private String eventType;
+    /** 阶梯阈值 */
+    private Integer ladderThreshold;
     /** 奖励状态 */
     private String status;
-    /** 创建开始时间 */
-    private LocalDateTime startTime;
-    /** 创建结束时间 */
-    private LocalDateTime endTime;
+    /** 生成开始时间 */
+    private LocalDateTime createdStartTime;
+    /** 生成结束时间 */
+    private LocalDateTime createdEndTime;
 }

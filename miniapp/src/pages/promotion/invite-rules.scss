@@ -1,0 +1,231 @@
+page {
+  background: #f7f4fb;
+}
+
+.promotion-rules-page {
+  width: 375px;
+  min-height: 100vh;
+  color: #403747;
+  background: #f7f4fb;
+}
+
+.promotion-rules-page--web {
+  background: #fff;
+}
+
+.promotion-cache-notice {
+  display: grid;
+  min-height: 47px;
+  grid-template-columns: 26px 1fr auto;
+  align-items: center;
+  padding: 7px 12px;
+  border-bottom: 1px solid #f1d697;
+  color: #7c5c22;
+  background: #fff8e8;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.promotion-cache-notice > view:first-child {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #8c5a00;
+  background: #f7d88e;
+  font-weight: 900;
+}
+
+.promotion-cache-notice > view:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.promotion-cache-notice > view:nth-child(2) text:first-child {
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.promotion-cache-notice > view:nth-child(2) text:last-child {
+  font-size: 9px;
+}
+
+.promotion-cache-notice button {
+  min-height: 32px;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  color: #7452db;
+  background: transparent;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 32px;
+}
+
+.promotion-cache-notice button::after,
+.promotion-contact-button::after,
+.promotion-rules-primary::after,
+.promotion-rules-secondary::after,
+.promotion-rules-contact-link::after {
+  border: 0;
+}
+
+.promotion-rules-document {
+  width: 351px;
+  margin: 12px auto;
+  padding: 19px 17px calc(22px + env(safe-area-inset-bottom));
+  border: 1px solid #eee6f6;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 7px 19px rgba(81, 44, 137, 0.07);
+  box-sizing: border-box;
+}
+
+.promotion-rules-meta {
+  display: flex;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0ebf4;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.promotion-rules-meta text:first-child {
+  color: #4c3f56;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.promotion-rules-meta text:last-child {
+  color: #9a91a0;
+  font-size: 10.5px;
+}
+
+.promotion-rules-richtext {
+  display: block;
+  padding: 15px 0;
+  color: #564d5c;
+  font-size: 13px;
+  line-height: 1.8;
+  word-break: break-word;
+}
+
+.promotion-contact-button {
+  height: 42px;
+  margin-top: 9px;
+  border: 1px solid #d8c7f0;
+  border-radius: 10px;
+  color: #7139c5;
+  background: #faf7ff;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 40px;
+}
+
+.promotion-rules-loading {
+  display: flex;
+  margin: 20px 12px;
+  padding: 27px 19px;
+  border-radius: 14px;
+  background: #fff;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.promotion-rules-loading view {
+  width: 100%;
+  height: 13px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #f0ebf5, #faf8fc, #f0ebf5);
+}
+
+.promotion-rules-loading view:nth-child(2) {
+  width: 84%;
+}
+
+.promotion-rules-loading view:nth-child(3) {
+  width: 92%;
+}
+
+.promotion-rules-loading view:nth-child(4) {
+  width: 58%;
+}
+
+.promotion-rules-loading text {
+  color: #958b9b;
+  font-size: 11px;
+  text-align: center;
+}
+
+.promotion-rules-unavailable {
+  display: flex;
+  align-items: center;
+  margin: 56px 20px 0;
+  padding: 36px 22px;
+  border-radius: 15px;
+  background: #fff;
+  flex-direction: column;
+  box-shadow: 0 7px 19px rgba(81, 44, 137, 0.07);
+}
+
+.promotion-rules-unavailable__icon {
+  display: flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #654cd7;
+  background: #eee9ff;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.promotion-rules-unavailable__title {
+  margin-top: 14px;
+  color: #433a49;
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.promotion-rules-unavailable__message {
+  margin: 8px 0 17px;
+  color: #7b7387;
+  font-size: 11.5px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.promotion-rules-primary,
+.promotion-rules-secondary {
+  width: 100%;
+  height: 42px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 42px;
+}
+
+.promotion-rules-primary {
+  color: #fff;
+  background: linear-gradient(180deg, #9b6af0, #7242df);
+}
+
+.promotion-rules-secondary {
+  color: #6f3dbd;
+  background: #f3ecfd;
+}
+
+.promotion-rules-contact-link {
+  min-height: 36px;
+  margin-top: 5px;
+  border: 0;
+  color: #81758b;
+  background: transparent;
+  font-size: 11px;
+  line-height: 36px;
+}

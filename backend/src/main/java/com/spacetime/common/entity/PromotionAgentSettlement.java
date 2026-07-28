@@ -19,24 +19,16 @@ public class PromotionAgentSettlement extends BaseEntity {
     private String settlementNo;
     /** 代理ID */
     private Long agentId;
-    /** 结算开始日期 */
-    private LocalDate periodStart;
-    /** 结算结束日期 */
-    private LocalDate periodEnd;
-    /** 统计口径说明 */
-    private String statsDesc;
+    /** 结算月份，固定为当月首日 */
+    private LocalDate settlementMonth;
     /** 应结算金额 */
     private BigDecimal payableAmount;
-    /** 已结算金额 */
-    private BigDecimal paidAmount;
     /** 状态 */
     private String status;
     /** 确认时间 */
-    private LocalDateTime confirmTime;
-    /** 发放时间 */
-    private LocalDateTime paidTime;
-    /** 操作人ID */
-    private Long operatorId;
+    private LocalDateTime confirmedTime;
+    /** 确认人ID */
+    private Long confirmedBy;
     /** 备注 */
     private String remark;
 }

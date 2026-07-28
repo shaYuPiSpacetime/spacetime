@@ -13,7 +13,10 @@ import com.spacetime.common.enums.AuditOperatorTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.common.service.PromotionEventInboxService;
+import com.spacetime.common.enums.PromotionRewardEventEnum;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,10 +37,12 @@ import java.util.Set;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AppUserAuditServiceImpl implements AppUserAuditService {
 
     private final AppUserAuditRecordDao recordDao;
     private final AppUserAuditHistoryDao historyDao;
+    private final PromotionEventInboxService promotionEventInboxService;
 
     @Override
     public AppUserAuditRecord latestRecord(Long userId, AppUserAuditTypeEnum type) {
@@ -119,6 +124,7 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         recordDao.updateAuditResult(record);
         appendHistory(record, fromStatus, record.getStatus(), AppUserAuditActionEnum.MACHINE_PASS,
                 null, AuditOperatorTypeEnum.PROVIDER, providerTaskId, "Provider");
+        enqueuePromotionAuditEvent(record);
     }
 
     @Override
@@ -169,6 +175,9 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         recordDao.updateAuditResult(record);
         appendHistory(record, fromStatus, targetStatus, historyAction, reason,
                 AuditOperatorTypeEnum.ADMIN, auditorId, auditorName);
+        if (AppUserAuditStatusEnum.APPROVED.getCode().equals(targetStatus)) {
+            enqueuePromotionAuditEvent(record);
+        }
     }
 
     @Override
@@ -251,6 +260,26 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         return new LambdaQueryWrapper<AppUserAuditRecord>()
                 .eq(AppUserAuditRecord::getUserId, userId)
                 .eq(AppUserAuditRecord::getAuditType, type.getCode());
+    }
+
+    private void enqueuePromotionAuditEvent(AppUserAuditRecord record) {
+        if (AppUserAuditTypeEnum.AVATAR.getCode().equals(record.getAuditType())) {
+            promotionEventInboxService.enqueueBusinessEvent(
+                    "profile:" + record.getUserId(),
+                    PromotionRewardEventEnum.PROFILE_COMPLETE_REWARD.getCode(),
+                    record.getUserId(),
+                    String.valueOf(record.getId()));
+        }
+        if ((AppUserAuditTypeEnum.REAL_NAME.getCode().equals(record.getAuditType())
+                || AppUserAuditTypeEnum.EDUCATION.getCode().equals(record.getAuditType()))
+                && hasEffective(record.getUserId(), AppUserAuditTypeEnum.REAL_NAME)
+                && hasEffective(record.getUserId(), AppUserAuditTypeEnum.EDUCATION)) {
+            promotionEventInboxService.enqueueBusinessEvent(
+                    "verify:" + record.getUserId(),
+                    PromotionRewardEventEnum.VERIFY_COMPLETE_REWARD.getCode(),
+                    record.getUserId(),
+                    String.valueOf(record.getId()));
+        }
     }
 
     private AppUserAuditRecord requireRecord(Long id) {

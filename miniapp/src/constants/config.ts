@@ -1,5 +1,5 @@
-/** API 基础地址 */
-export const API_BASE_URL = 'http://localhost:8080'
+/** API 基础地址：由构建配置注入，开发环境可通过 API_BASE_URL 覆盖。 */
+export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080'
 
 /** Token 本地存储 key */
 export const TOKEN_KEY = 'token'

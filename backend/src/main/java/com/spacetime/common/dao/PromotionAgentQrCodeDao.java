@@ -8,7 +8,8 @@ import com.spacetime.common.entity.PromotionAgentQrCode;
  */
 public interface PromotionAgentQrCodeDao {
     PromotionAgentQrCode selectById(Long id);
-    PromotionAgentQrCode selectByQrCode(String qrCode);
+    PromotionAgentQrCode selectByQrToken(String qrToken);
+    PromotionAgentQrCode selectByAgentId(Long agentId);
     Page<PromotionAgentQrCode> selectPage(Page<PromotionAgentQrCode> page, com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PromotionAgentQrCode> wrapper);
     void insert(PromotionAgentQrCode entity);
     void updateById(PromotionAgentQrCode entity);

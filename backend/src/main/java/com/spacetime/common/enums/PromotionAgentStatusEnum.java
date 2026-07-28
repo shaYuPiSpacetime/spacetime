@@ -1,12 +1,11 @@
 package com.spacetime.common.enums;
 
 /**
- * 代理合作状态
+ * 校园推广员状态。
  */
 public enum PromotionAgentStatusEnum {
-    NORMAL("normal"),
-    PAUSED("paused"),
-    TERMINATED("terminated");
+    ENABLED("enabled"),
+    DISABLED("disabled");
 
     private final String code;
 
@@ -16,5 +15,12 @@ public enum PromotionAgentStatusEnum {
 
     public String getCode() {
         return code;
+    }
+
+    /**
+     * 判断是否为正式状态值。
+     */
+    public static boolean supports(String code) {
+        return ENABLED.code.equals(code) || DISABLED.code.equals(code);
     }
 }

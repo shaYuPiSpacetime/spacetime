@@ -4,11 +4,10 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 邀请关系表
+ * 永久邀请关系事实。
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -26,28 +25,6 @@ public class PromotionInviteRelation extends BaseEntity {
     private Long inviteeId;
     /** 代理ID */
     private Long agentId;
-    /** 校园代理二维码编号 */
-    private String qrCode;
-    /** 状态 */
-    private String status;
-    /** 绑定时间 */
-    private LocalDateTime bindTime;
-    /** 首次点击时间 */
-    private LocalDateTime firstClickTime;
     /** 注册时间 */
-    private LocalDateTime registerTime;
-    /** 首次登录时间 */
-    private LocalDateTime firstLoginTime;
-    /** 资料完成时间 */
-    private LocalDateTime profileCompleteTime;
-    /** 三项认证完成时间 */
-    private LocalDateTime verifySuccessTime;
-    /** 冻结前状态 */
-    private String frozenBeforeStatus;
-    /** 无效原因 */
-    private String invalidReason;
-    /** 命中后台成功口径时间 */
-    private LocalDateTime successMetricHitTime;
-    /** 累计奖励 */
-    private BigDecimal totalRewardCoin;
+    private LocalDateTime registeredAt;
 }

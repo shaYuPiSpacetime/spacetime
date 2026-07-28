@@ -22,12 +22,22 @@ public class PromotionAgentStatDaoImpl implements PromotionAgentStatDao {
     }
 
     @Override
+    public PromotionAgentStat selectByAgentIdForUpdate(Long agentId) {
+        return mapper.selectByAgentIdForUpdate(agentId);
+    }
+
+    @Override
+    public int incrementScanClickCount(Long agentId) {
+        return mapper.incrementScanClickCount(agentId);
+    }
+
+    @Override
     public void insert(PromotionAgentStat entity) {
         mapper.insert(entity);
     }
 
     @Override
-    public void updateById(PromotionAgentStat entity) {
-        mapper.updateById(entity);
+    public int updateById(PromotionAgentStat entity) {
+        return mapper.updateById(entity);
     }
 }

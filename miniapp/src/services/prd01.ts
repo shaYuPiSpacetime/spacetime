@@ -37,10 +37,30 @@ export const prd01Api = {
     get<RegionOption[]>(PRD01_API_PATHS.locations, parentCode ? { parentCode } : undefined),
 
   sendSmsCode: (phone: string) => post<SmsCodeResult>(PRD01_API_PATHS.smsCode, { phone }),
-  phoneLogin: (phone: string, smsCode: string, agreeProtocol: boolean) =>
-    post<LoginResult>(PRD01_API_PATHS.phoneLogin, { phone, smsCode, agreeProtocol }),
-  wechatLogin: (loginCode: string | undefined, phoneCode: string, agreeProtocol: boolean) =>
-    post<LoginResult>(PRD01_API_PATHS.wechatLogin, { loginCode, phoneCode, agreeProtocol }),
+  phoneLogin: (
+    phone: string,
+    smsCode: string,
+    agreeProtocol: boolean,
+    promotionTraceNos?: string[],
+  ) =>
+    post<LoginResult>(PRD01_API_PATHS.phoneLogin, {
+      phone,
+      smsCode,
+      agreeProtocol,
+      ...(promotionTraceNos?.length ? { promotionTraceNos } : {}),
+    }),
+  wechatLogin: (
+    loginCode: string | undefined,
+    phoneCode: string,
+    agreeProtocol: boolean,
+    promotionTraceNos?: string[],
+  ) =>
+    post<LoginResult>(PRD01_API_PATHS.wechatLogin, {
+      loginCode,
+      phoneCode,
+      agreeProtocol,
+      ...(promotionTraceNos?.length ? { promotionTraceNos } : {}),
+    }),
 
   getInitStatus: () => get<ProfileInitStatus>(PRD01_API_PATHS.initStatus),
   saveInitStep: (data: ProfileInitStepRequest) =>

@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 /**
  * 代理奖金明细表
@@ -19,14 +20,24 @@ public class PromotionAgentBonusLog extends BaseEntity {
     private Long agentId;
     /** 邀请关系ID */
     private Long relationId;
-    /** 被推广用户ID */
-    private Long userId;
+    /** 被邀请用户ID */
+    private Long inviteeId;
     /** 奖金事件 */
     private String eventType;
+    /** 事件展示名快照 */
+    private String eventLabelSnapshot;
+    /** 规则版本主键 */
+    private Long ruleId;
+    /** 规则版本号 */
+    private Integer ruleVersion;
+    /** 阶梯阈值 */
+    private Integer ladderThreshold;
     /** 应发奖金 */
-    private BigDecimal bonusAmount;
-    /** 状态 */
-    private String status;
+    private BigDecimal amount;
+    /** 发生时间 */
+    private LocalDateTime occurredAt;
+    /** 全局业务幂等键 */
+    private String idempotencyKey;
     /** 结算单ID */
     private Long settlementId;
 }

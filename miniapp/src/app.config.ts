@@ -85,6 +85,10 @@ export default {
       root: 'pages/qianxun',
       pages: ['compose', 'post-detail', 'topics', 'topic', 'interactions', 'my-posts', 'kindred'],
     },
+    {
+      root: 'pages/promotion',
+      pages: ['invite-home', 'invite-records', 'invite-rules'],
+    },
   ],
   window: {
     backgroundTextStyle: 'light',

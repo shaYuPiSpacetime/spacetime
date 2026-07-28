@@ -14,20 +14,14 @@ import java.time.LocalDateTime;
 public class PromotionInvitePageReq extends PageReq {
     /** 关系编号 */
     private String relationNo;
-    /** 邀请人ID */
-    private Long inviterId;
-    /** 邀请人姓名/手机号/账号 */
-    private String inviterKeyword;
-    /** 被邀请人ID */
-    private Long inviteeId;
-    /** 被邀请人姓名/手机号/账号 */
+    /** 来源对象名称、编号或手机号 */
+    private String sourceKeyword;
+    /** 被邀请用户名称、编号或手机号 */
     private String inviteeKeyword;
     /** 来源类型 */
     private String sourceType;
-    /** 状态 */
-    private String status;
-    /** 绑定开始时间 */
-    private LocalDateTime bindStartTime;
-    /** 绑定结束时间 */
-    private LocalDateTime bindEndTime;
+    /** 注册开始时间 */
+    private LocalDateTime registeredStartTime;
+    /** 注册结束时间 */
+    private LocalDateTime registeredEndTime;
 }

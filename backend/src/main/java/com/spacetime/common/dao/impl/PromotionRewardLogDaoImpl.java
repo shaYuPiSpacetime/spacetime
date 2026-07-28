@@ -22,10 +22,20 @@ public class PromotionRewardLogDaoImpl implements PromotionRewardLogDao {
     }
 
     @Override
-    public PromotionRewardLog selectByRelationIdAndEventType(Long relationId, String eventType) {
+    public PromotionRewardLog selectByIdForUpdate(Long id) {
+        return mapper.selectByIdForUpdate(id);
+    }
+
+    @Override
+    public PromotionRewardLog selectByRewardNo(String rewardNo) {
         return mapper.selectOne(new LambdaQueryWrapper<PromotionRewardLog>()
-                .eq(PromotionRewardLog::getRelationId, relationId)
-                .eq(PromotionRewardLog::getEventType, eventType));
+                .eq(PromotionRewardLog::getRewardNo, rewardNo));
+    }
+
+    @Override
+    public PromotionRewardLog selectByIdempotencyKey(String idempotencyKey) {
+        return mapper.selectOne(new LambdaQueryWrapper<PromotionRewardLog>()
+                .eq(PromotionRewardLog::getIdempotencyKey, idempotencyKey));
     }
 
     @Override
@@ -39,7 +49,7 @@ public class PromotionRewardLogDaoImpl implements PromotionRewardLogDao {
     }
 
     @Override
-    public void updateById(PromotionRewardLog entity) {
-        mapper.updateById(entity);
+    public int updateById(PromotionRewardLog entity) {
+        return mapper.updateById(entity);
     }
 }

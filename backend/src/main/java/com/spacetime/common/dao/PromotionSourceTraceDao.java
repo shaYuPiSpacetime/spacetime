@@ -8,6 +8,7 @@ import com.spacetime.common.entity.PromotionSourceTrace;
  */
 public interface PromotionSourceTraceDao {
     PromotionSourceTrace selectByTraceNo(String traceNo);
+    PromotionSourceTrace selectByRequestKey(String requestKey);
     PromotionSourceTrace selectById(Long id);
     Page<PromotionSourceTrace> selectPage(Page<PromotionSourceTrace> page, com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PromotionSourceTrace> wrapper);
     void insert(PromotionSourceTrace entity);

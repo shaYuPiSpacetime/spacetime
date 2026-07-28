@@ -22,6 +22,12 @@ public class PromotionAgentBonusLogDaoImpl implements PromotionAgentBonusLogDao 
     }
 
     @Override
+    public PromotionAgentBonusLog selectByIdempotencyKey(String idempotencyKey) {
+        return mapper.selectOne(new LambdaQueryWrapper<PromotionAgentBonusLog>()
+                .eq(PromotionAgentBonusLog::getIdempotencyKey, idempotencyKey));
+    }
+
+    @Override
     public Page<PromotionAgentBonusLog> selectPage(Page<PromotionAgentBonusLog> page, LambdaQueryWrapper<PromotionAgentBonusLog> wrapper) {
         return mapper.selectPage(page, wrapper);
     }
@@ -32,7 +38,12 @@ public class PromotionAgentBonusLogDaoImpl implements PromotionAgentBonusLogDao 
     }
 
     @Override
-    public void updateById(PromotionAgentBonusLog entity) {
-        mapper.updateById(entity);
+    public int updateById(PromotionAgentBonusLog entity) {
+        return mapper.updateById(entity);
+    }
+
+    @Override
+    public int bindSettlementIfUnsettled(Long bonusId, Long settlementId) {
+        return mapper.bindSettlementIfUnsettled(bonusId, settlementId);
     }
 }

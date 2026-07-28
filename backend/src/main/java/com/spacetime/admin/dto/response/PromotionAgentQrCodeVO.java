@@ -5,21 +5,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 校园代理二维码响应
+ * 校园推广员永久二维码响应。
  */
 @Data
 public class PromotionAgentQrCodeVO {
-    private Long id;
-    private Long agentId;
     private String agentNo;
-    private String agentName;
-    private String qrCode;
+    private String qrToken;
     private String miniappPath;
-    private String qrUrl;
-    private String materialUrl;
-    private String materialTemplate;
-    private String validityText;
-    private Integer versionNo;
-    private String status;
-    private LocalDateTime createTime;
+    private String imageUrl;
+    private LocalDateTime createdAt;
 }

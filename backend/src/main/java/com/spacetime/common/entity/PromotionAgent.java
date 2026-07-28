@@ -23,10 +23,6 @@ public class PromotionAgent extends BaseEntity {
     private String school;
     /** 校区 */
     private String campus;
-    /** 奖金规则组 */
-    private String agentGroup;
-    /** 奖金规则组（正式版字段） */
-    private String bonusRuleGroup;
     /** 状态 */
     private String status;
     /** 备注 */

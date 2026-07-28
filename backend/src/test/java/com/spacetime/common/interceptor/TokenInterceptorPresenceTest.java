@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +50,24 @@ class TokenInterceptorPresenceTest {
 
         assertThat(allowed).isTrue();
         verify(fixture.presenceService(), never()).touch(any(), any());
+    }
+
+    @Test
+    void corsPreflightBypassesTokenAuthentication() throws Exception {
+        StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
+        ObjectMapper objectMapper = mock(ObjectMapper.class);
+        MiniappPresenceService presenceService = mock(MiniappPresenceService.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getMethod()).thenReturn("OPTIONS");
+
+        TokenInterceptor interceptor = new TokenInterceptor(
+                redisTemplate, objectMapper, presenceService);
+
+        boolean allowed = interceptor.preHandle(request, response, new Object());
+
+        assertThat(allowed).isTrue();
+        verifyNoInteractions(redisTemplate, objectMapper, presenceService, response);
     }
 
     private Fixture fixture(String uri, String token, Long userId) throws Exception {

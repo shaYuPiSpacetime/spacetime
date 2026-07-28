@@ -11,7 +11,11 @@ import RoleManagement from '@/pages/admin/RoleManagement';
 import MenuManagement from '@/pages/admin/MenuManagement';
 import DictTypeManagement from '@/pages/admin/DictTypeManagement';
 import DictDataManagement from '@/pages/admin/DictDataManagement';
-import PromotionManagement from '@/pages/promotion/PromotionManagement';
+import PromotionRulesPage from '@/pages/promotion/PromotionRulesPage';
+import PromotionRelationsPage from '@/pages/promotion/PromotionRelationsPage';
+import PromotionRewardsPage from '@/pages/promotion/PromotionRewardsPage';
+import PromotionAgentsPage from '@/pages/promotion/PromotionAgentsPage';
+import PromotionSettlementsPage from '@/pages/promotion/PromotionSettlementsPage';
 import ContentArticlePage from '@/pages/content/ContentArticlePage';
 import AppConfigPage from '@/pages/content/AppConfigPage';
 import MobileEntryConfigPage from '@/pages/content/MobileEntryConfigPage';
@@ -54,15 +58,11 @@ export default function AppRouter() {
         <Route path="system/dict-data" element={<DictDataManagement />} />
 
         {/* Promotion */}
-        <Route path="promotion/rule-config" element={<PromotionManagement />} />
-        <Route path="promotion/invite-relation" element={<PromotionManagement />} />
-        <Route path="promotion/invite-relation/:id" element={<PromotionManagement />} />
-        <Route path="promotion/invite-reward" element={<PromotionManagement />} />
-        <Route path="promotion/invite-reward/frozen" element={<PromotionManagement />} />
-        <Route path="promotion/agent" element={<PromotionManagement />} />
-        <Route path="promotion/agent/:id" element={<PromotionManagement />} />
-        <Route path="promotion/material" element={<PromotionManagement />} />
-        <Route path="promotion/settlement" element={<PromotionManagement />} />
+        <Route path="promotion/rules" element={<PromotionRulesPage />} />
+        <Route path="promotion/relations" element={<PromotionRelationsPage />} />
+        <Route path="promotion/rewards" element={<PromotionRewardsPage />} />
+        <Route path="promotion/agents" element={<PromotionAgentsPage />} />
+        <Route path="promotion/settlements" element={<PromotionSettlementsPage />} />
 
         {/* Content Management */}
         <Route path="content/articles" element={<ContentArticlePage />} />

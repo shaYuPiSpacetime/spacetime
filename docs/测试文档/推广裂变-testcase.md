@@ -1,257 +1,499 @@
-# 推广裂变与邀请奖励 - 测试用例
+# 推广裂变 - 测试用例
 
-> **关联文档**：
-> - 技术方案：`docs/技术方案/2026-06-16-PRD-07推广裂变与邀请奖励正式版-tcdesign.md`
-> - 模块公共定义：`docs/需求文档/需求文档-正式版/07-推广裂变与邀请奖励/PRD-07_模块公共定义.md`
-> - 移动端 PRD：`docs/需求文档/需求文档-正式版/07-推广裂变与邀请奖励/移动端/模块PRD文档/模块PRD_APP-07_推广裂变与邀请奖励.md`
-> - 管理后台 PRD：`docs/需求文档/需求文档-正式版/07-推广裂变与邀请奖励/管理后台/模块PRD文档/模块PRD_ADM-07_推广管理.md`
-> - 测试报告：`docs/测试文档/推广裂变-testreport.md`
->
-> **创建日期**：2026-06-16
-> **测试模式**：完整模式，正式版重写
-> **目标项目**：后端 `backend/` / 前端 `frontend/`
-> **状态**：测试设计已重写，尚未执行
-> **导出测试**：需求保留但首版代码和测试暂不实现；后续由全后台导出中心统一接入后，再补导出接口、审计和文件内容校验用例。
+> **创建日期**：2026-07-27
+> **测试模式**：完整模式
+> **设计来源**：仅使用最新版 PRD-07、正式页面规格和 `docs/静态Demo/07-推广裂变与邀请奖励/`
+> **目标项目**：后端 `backend/`、管理后台 `frontend/`、小程序 `miniapp/`
+> **测试报告**：执行后生成 `docs/测试文档/推广裂变-testreport.md`
 
 ---
 
 ## 1. 测试策略决策
 
-### 后端评估
+### 1.1 后端评估
 
 | 维度 | 评估结果 | 得分 |
-|------|----------|------|
-| A 新增/修改接口数 | 管理后台 9 页面接口 + 小程序 7 个接口 + 结算任务；导出接口需求保留但首版不实现 | 2 |
-| B 状态流转逻辑 | 邀请关系、邀请奖励、代理合作、代理奖金、结算单均有状态机 | 2 |
-| C 纯计算/规则逻辑 | 成功口径、阶梯、风控、单日上限、渠道优先、幂等、结算汇总 | 2 |
-| D 数据关联复杂度 | 规则、配置、来源池、关系、奖励、代理、二维码、事件、奖金、结算、审计、资产、通知 | 2 |
-| E 老代码影响范围 | 需重构现有 promotion 接口、枚举、状态、前端页面，并接入注册/认证/支付事件 | 2 |
-| F 安全变更 | 新增/调整推广权限码、多角色按钮与接口权限；导出审计待导出中心统一实现 | 1 |
-| **总分** |  | **11 -> L1 + L2 + L3** |
+|---|---|---:|
+| A 接口数 | 规则、关系、奖励、代理、二维码、结算、导出、小程序共 20+ 个接口 | 2 |
+| B 状态流转 | 奖励三态、代理两态、结算两态、事件补偿 | 2 |
+| C 规则逻辑 | 来源优先、固定注册奖励、动态阶梯、自然月、重试退避 | 2 |
+| D 数据关联 | 规则版本、关系、奖励、资产、代理奖金、结算等多表 | 2 |
+| E 老代码影响 | 重写 promotion 核心 Service 并接入注册/认证/支付 | 2 |
+| F 安全变更 | 新增并重写菜单、按钮、导出和重试权限 | 1 |
+| **总分** |  | **11 → L1 + L2 + L3** |
 
-### 前端评估
+### 1.2 前端评估
 
 | 条件 | 命中 | 说明 |
-|------|------|------|
-| G 多角色权限差异 | 是 | 运营、渠道运营、财务、风控、超管权限不同 |
-| H 复杂交互流程 | 是 | 规则多 Tab、冻结处理、二维码重生成、结算状态流转 |
-| I 多页面联动 | 是 | 代理列表/详情/素材/结算、邀请关系/奖励流水/冻结队列联动 |
-| J 核心业务页面 | 是 | 推广管理是增长和结算核心后台模块 |
+|---|---:|---|
+| G 多角色权限差异 | ✅ | 运营、渠道运营、财务、超管、只读角色按钮不同 |
+| H 复杂交互 | ✅ | 双 Tab 发布、动态阶梯、抽屉、二维码、多个二次确认 |
+| I 多页面联动 | ✅ | 规则发布影响首页/奖励；结算确认影响代理统计 |
+| J 核心业务页 | ✅ | 后台五页和移动三页均为 PRD-07 P0/P1 |
 
-**最终策略：L1 + L2 + L3 + L4 + 手动验收。**
+**最终策略：L1 + L2 + L3 + L4 + 手动视觉验收。**
 
-> 本文件只定义正式版“测什么”。执行测试前必须确认 `API_URL`、`BASE_URL`、Token、角色账号和可用测试数据；缺失时 L1/L4 对应写入用例跳过，不编造数据。
+### 1.3 测试原则
 
-## 2. 测试数据准备
+1. P0 不得因“没有现成数据”跳过，必须用幂等测试夹具创建。
+2. P0 浏览器用例必须从登录页使用 `peter` 账号真实登录，不以 localStorage 注入 Token 代替。
+3. 正常业务 P0 连接真实后端，不使用前端 Mock；Mock 只用于 500、慢请求、空态和复制权限拒绝等异常分支。
+4. 不把旧测试报告、旧 `target/surefire-reports` 或静态 Demo 的通过结果当作生产实现证据。
+5. 微信分享、微信 scene、微信支付只能在外部环境确实不可用时登记阻塞；内部归因、事件、奖励和幂等仍须通过事件注入完整验证。
+6. 每次写操作都验证响应、重新查询后的状态和数据库/资产副作用，不能只看 Toast。
 
-| 数据需求 | 用途 | 如何准备 | 是否幂等 |
-|----------|------|----------|----------|
-| 后台超管 Token | 规则读取、全量后台接口冒烟 | `.env` 或登录接口获取 | 是 |
-| 运营 Token | 普通奖励规则配置、邀请/奖励查看 | 创建具备 `promotion:rule:invite:save`、`promotion:relation:list`、`promotion:reward:list` 的角色 | 是 |
-| 渠道运营 Token | 代理、素材、结算确认 | 创建具备 `promotion:agent:*`、`promotion:material:*`、`promotion:settlement:confirm` 的角色 | 是 |
-| 风控 Token | 风控参数配置、冻结处理 | 创建具备 `promotion:rule:risk:save`、`promotion:reward:review`、`promotion:relation:review` 的角色 | 是 |
-| 财务 Token | 结算查看、标记已发放 | 创建具备 `promotion:settlement:list/pay` 的角色；导出权限待导出中心上线后补测 | 是 |
-| 小程序邀请人 Token | 邀请首页、二维码、记录 | 用户准入模块创建或使用测试账号 | 否 |
-| 小程序被邀请人 Token | 绑定关系、触发奖励 | 首次注册用户，不能复用老用户 | 否 |
-| 普通奖励配置 | 奖励发放和进度展示 | 调规则配置接口设置 5 类事件、成功口径、阶梯 | 是 |
-| 代理奖金规则组 | 新增代理和奖金生成 | 调代理奖励规则配置接口准备启用规则组 | 是 |
-| 校园代理与二维码 | 渠道优先、素材页、代理统计 | 后台代理接口创建并生成二维码 | 否 |
-| 冻结邀请关系/奖励 | 冻结队列和人工处理 | L3 Mock 风控命中；L1 可通过 SQL fixture 或测试环境预置 | 否 |
-| 待结算代理奖金 | 系统结算任务、结算状态流转 | L3 Mock/fixture；L1 使用预置 `TEST_SETTLEMENT_ID` | 否 |
-| PRD-04 资产流水 Mock | 奖励到账验证 | 资产模块未完成时 Mock `CoinLogService` | 是 |
-| PRD-03 通知 Mock | 到账/冻结/无效通知 | 通知模块未完成时 Mock 通知服务 | 是 |
+## 2. 需求与 Demo 覆盖矩阵
 
-## 3. L1 - 接口测试用例
+| 需求/视图 | 主要用例 |
+|---|---|
+| 永久唯一关系、完成注册成功 | `ATTR-*`、`SRV-ATTR-*` |
+| 校园代理来源优先 | `ATTR-P0-04`、`SRV-ATTR-04` |
+| 五类基础奖励 | `RWD-P0-01`、`RWD-P1-07`～`RWD-P1-10` |
+| 注册奖励固定开启 | `RULE-P0-03`、`RULE-P1-09`、`L4-RULE-03` |
+| 阶梯恰好命中独立流水 | `RWD-P0-02`～`RWD-P0-04`、`SRV-LADDER-*` |
+| 奖励三态和补偿 | `RWD-P0-05`～`RWD-P0-08`、`SRV-RETRY-*` |
+| 代理两态和永久二维码 | `AGT-*`、`L4-AGENT-*` |
+| 自然月结算两态 | `SET-*`、`SRV-SET-*` |
+| 后台 5 菜单 + 2 抽屉 | `L4-NAV-*`、`L4-REL-*`、`L4-AGENT-*` |
+| 移动端 3 页 | `L4-MOB-*`、`MOB-*` |
+| 邀请首页 UI 基线 | `UI-HOME-*` |
+| 邀请规则 H5 缓存降级 | `MOB-P1-10`～`MOB-P1-12`、`L4-MOB-12`～`14` |
+| 导出与审计 | `EXP-*`、`SRV-AUDIT-*` |
+| 废弃能力不可达 | `LEG-*`、`L4-NAV-03` |
 
-### 3.1 小程序推广接口
+## 3. 测试数据准备
 
-| 用例ID | 优先级 | 场景 | 接口 | 前置条件 | 数据来源 | 期望结果 | 验证方式 |
-|--------|--------|------|------|----------|----------|----------|----------|
-| F1-P0-01 | P0 | 获取邀请首页 | `GET /miniapp/promotion/invite/home` | 邀请人已登录，规则已配置 | 小程序 Token | 返回 `successInviteCount/arrivedCoin/qrCode/recentRecords` | 响应断言 |
-| F1-P0-02 | P0 | 获取活动规则 | `GET /miniapp/promotion/invite/rules` | 已配置推广文案或有兜底文案 | 小程序 Token | 返回规则文案、成功口径、奖励说明 | 响应断言 |
-| F1-P0-03 | P0 | 查询邀请记录 | `GET /miniapp/promotion/invite/records` | 邀请人存在关系 | 小程序 Token | 分页返回脱敏记录，状态为正式枚举中文名 | 响应断言 |
-| F1-P0-04 | P0 | 记录普通用户来源 | `POST /miniapp/promotion/invite/share-log` | 有邀请人 | 接口自构建 | 返回 `traceNo`，sourceType=`normal_user` | 响应断言 |
-| F1-P0-05 | P0 | 记录校园代理来源 | `POST /miniapp/promotion/invite/share-log` | 代理二维码存在 | 链式代理二维码 | 返回 `traceNo`，sourceType=`campus_agent` | 响应断言 |
-| F1-P0-06 | P0 | 新用户绑定普通邀请 | `POST /miniapp/promotion/invite/bind` | 被邀请人为首次注册用户，普通来源有效 | 链式 | 建立关系，状态 `registered`，触发注册奖励判定 | 查询关系 |
-| F1-P0-07 | P0 | 新用户绑定代理来源 | `POST /miniapp/promotion/invite/bind` | 被邀请人为首次注册用户，代理来源有效 | 链式 | 建立代理归属，不给普通邀请人发币 | 查询关系/代理事件 |
-| F1-P1-01 | P1 | 邀请首页（未配置规则） | `GET /miniapp/promotion/invite/home` | 邀请人已登录，后台推广规则未配置 | 小程序 Token | `successInviteCount`=0，`nextLadderText` 为空或不展示，不报错 | 响应断言 |
-| F1-P1-02 | P1 | 获取活动规则（文案配置缺失或加载失败） | `GET /miniapp/promotion/invite/rules` | 后台未配置推广文案，或文案服务加载失败 | 小程序 Token | 返回内置兜底规则文案，不返回空白规则页，不报错 | 响应断言 |
-| F1-P1-03 | P1 | 邀请记录按状态筛选 | `GET /miniapp/promotion/invite/records?status=registered` | 邀请人存在多个不同状态的关系 | 小程序 Token | 只返回 status=registered 的记录，分页正确 | 响应断言 |
-| F1-P1-04 | P1 | 普通和代理同时命中 | `POST /miniapp/promotion/invite/bind` | 同一新用户注册前命中两类来源 | 链式 | 永远归属 `campus_agent` | 查询关系 |
-| F1-P1-05 | P1 | 获取普通用户二维码 | `GET /miniapp/promotion/invite/qr-code` | 邀请人已登录 | 小程序 Token | 返回二维码信息或可重试降级态 | 响应断言 |
-| F1-P1-06 | P1 | 解析代理二维码来源 | `GET /miniapp/promotion/invite/qr-source` | 代理二维码编号有效 | 链式 | 返回 available=true、miniappPath | 响应断言 |
-| F1-P2-01 | P2 | 无效来源绑定 | `POST /miniapp/promotion/invite/bind` | trace/qrCode 均无效 | 固定值 | 返回业务错误 `M07-ERR-7001` 或等价错误 | 响应断言 |
-| F1-P2-02 | P2 | 老用户绑定邀请 | `POST /miniapp/promotion/invite/bind` | 当前用户非新用户 | 测试夹具 | 不建立新关系，不发奖 | 查询关系 |
-| F1-P2-03 | P2 | 自邀请 | `POST /miniapp/promotion/invite/bind` | inviterId 等于当前用户 | 测试夹具 | 拒绝或置 invalid，原因 `self_invite` | 响应/查询断言 |
-| F1-P2-04 | P2 | 重复绑定同一被邀请人 | `POST /miniapp/promotion/invite/bind` | 被邀请人已有有效关系 | 链式重复 | 不覆盖首次关系 | 查询关系 |
-| F1-P3-01 | P3 | 未登录访问邀请首页 | `GET /miniapp/promotion/invite/home` | 无 Token | 无需数据 | 返回 401 | HTTP 断言 |
-| F1-P3-02 | P3 | 未登录访问邀请记录 | `GET /miniapp/promotion/invite/records` | 无 Token | 无需数据 | 返回 401 | HTTP 断言 |
+### 3.1 固定夹具
 
-### 3.2 后台规则配置接口
+| 数据 | 用途 | 准备方式 | 幂等/清理 |
+|---|---|---|---|
+| 管理员 `peter` | 真实登录与全权限操作 | 使用既有账号，密码仅运行时安全输入 | 不修改账号 |
+| 只读运营 | 菜单可见、写按钮禁用和接口 403 | fixture 创建/复用角色和账号 | 按固定业务号 upsert |
+| 普通邀请人 A/B | 普通来源、自邀、阶梯并发 | fixture 创建带业务号用户 | 测试前清理该业务号推广事实 |
+| 校园代理 A/B | 启停、二维码、结算 | 通过后台新增接口；必要时 fixture 清理 | 代理编号按测试前缀查询复用 |
+| 新用户 U01～U12 | 注册、5/10 人阶梯、重复绑定 | fixture 通过正式事件入口构造 | 每轮使用唯一 runId |
+| 普通规则 V1/V2 | 固定/阶梯、版本快照 | 通过发布接口创建 | 版本递增，不物理删除 |
+| 代理规则 V1/V2 | 金额精度、阶梯、启停影响 | 通过发布接口创建 | 版本递增 |
+| 可控资产发放器 | success/failed/重试分支 | 测试 Profile 下的确定性 Provider | 仅测试环境启用 |
+| PRD-06 邀请规则 H5 | 当前、缓存、停用、500 | fixture 创建版本化安全快照 | 恢复原启用版本 |
+| 上月代理奖金 | 月度结算 | fixture 以北京时间上月事件生成 | runId 关联，测试后保留报告证据再清理 |
 
-| 用例ID | 优先级 | 场景 | 接口 | 前置条件 | 数据来源 | 期望结果 | 验证方式 |
-|--------|--------|------|------|----------|----------|----------|----------|
-| F2-P0-01 | P0 | 获取规则配置聚合详情 | `GET /admin/promotion/rule-config` | 有后台 Token | 自动查询 | 返回普通奖励、代理奖励、有效期、风控参数四块 | 响应断言 |
-| F2-P0-02 | P0 | 保存普通奖励配置 | `PUT /admin/promotion/rule-config/invite-reward` | 运营/超管权限 | 自构建 | 5 类事件、成功口径、奖励方式、阶梯保存成功 | 再查详情 |
-| F2-P0-03 | P0 | 保存代理奖金规则组 | `PUT /admin/promotion/rule-config/agent-bonus` | 渠道运营/超管权限 | 自构建 | 规则组可被代理新增/编辑选择 | 再查详情 |
-| F2-P0-04 | P0 | 保存风控参数 | `PUT /admin/promotion/rule-config/risk` | 风控/超管权限 | 自构建 | 阈值和开关保存成功，写审计 | 再查详情 |
-| F2-P0-05 | P0 | 规则列表审计字段与排序 | `GET /admin/promotion/rules/list` | 存在多条规则 | 自动查询 | 返回创建时间、修改时间、创建人、修改人；按修改时间、创建时间倒序 | 响应断言 |
-| F2-P0-06 | P0 | 启用规则唯一性 | 新增/编辑/启用规则 | 已存在相同数据类型+事件且状态=启用的规则 | 构造重复启用规则 | 阻止保存，提示同一数据类型、事件在启用状态下只能保留一条规则 | 响应断言 |
-| F2-P1-01 | P1 | 成功统计口径无默认值 | `GET /admin/promotion/rule-config` | 清空配置或新环境 | 测试环境 | 未配置时不返回默认成功口径 | 响应断言 |
-| F2-P1-02 | P1 | 阶梯区间重叠 | `PUT /admin/promotion/rule-config/invite-reward` | 运营/超管权限 | 构造非法阶梯 | 返回参数/业务错误，不保存 | 响应断言 |
-| F2-P1-03 | P1 | 启用事件但金额为空 | `PUT /admin/promotion/rule-config/invite-reward` | 运营/超管权限 | 构造非法事件 | 返回校验错误 | 响应断言 |
-| F2-P1-04 | P1 | 奖励方式选阶梯+有效档位保存 | `PUT /admin/promotion/rule-config/invite-reward` | 运营/超管权限 | 自构建阶梯档位 | rewardMode=`ladder`，ladder 档位保存成功，查询回显正确 | 再查详情 |
-| F2-P2-01 | P2 | 风控阈值非法 | `PUT /admin/promotion/rule-config/risk` | 风控/超管权限 | 阈值 0 或负数 | 返回校验错误 | 响应断言 |
-| F2-P3-01 | P3 | 财务无权保存风控 | `PUT /admin/promotion/rule-config/risk` | 财务 Token | 多角色 Token | 返回 403 | HTTP 断言 |
-| F2-P3-02 | P3 | 未登录读取规则 | `GET /admin/promotion/rule-config` | 无 Token | 无需数据 | 返回 401 | HTTP 断言 |
+### 3.2 规则基准
 
-### 3.3 后台邀请关系与奖励接口
+测试发布一组明确配置，不能依赖代码默认值：
 
-| 用例ID | 优先级 | 场景 | 接口 | 前置条件 | 数据来源 | 期望结果 | 验证方式 |
-|--------|--------|------|------|----------|----------|----------|----------|
-| F3-P0-01 | P0 | 邀请关系列表 | `GET /admin/promotion/invite-relations/list` | 存在关系或空态 | 自动查询 | 返回分页，展示业务编号和中文状态 | 响应断言 |
-| F3-P0-02 | P0 | 邀请关系详情 | `GET /admin/promotion/invite-relations/{id}` | 存在关系 | 自动查询/fixture | 返回时间线、奖励、风控、审计 | 响应断言 |
-| F3-P0-03 | P0 | 奖励流水列表 | `GET /admin/promotion/invite-rewards/list` | 存在奖励或空态 | 自动查询 | 返回事件中文名、状态中文名、成家币数 | 响应断言 |
-| F3-P0-04 | P0 | 冻结奖励队列 | `GET /admin/promotion/invite-rewards/frozen/list` | 存在 frozen 奖励 | fixture | 只返回 frozen 状态 | 响应断言 |
-| F3-P0-05 | P0 | 冻结奖励确认发放 | `PUT /admin/promotion/invite-rewards/{id}/approve` | 奖励为 frozen | fixture | 状态转 success，写资产流水和审计 | 查询奖励/资产 |
-| F3-P0-06 | P0 | 冻结奖励确认无效 | `PUT /admin/promotion/invite-rewards/{id}/reject` | 奖励为 frozen | fixture | 状态转 invalid，不写资产流水 | 查询奖励 |
-| F3-P1-01 | P1 | 邀请关系解除冻结 | `PUT /admin/promotion/invite-relations/{id}/unfreeze` | 关系为 frozen | fixture | 恢复冻结前状态，关联奖励恢复处理 | 查询详情 |
-| F3-P1-02 | P1 | 邀请关系人工判无效 | `PUT /admin/promotion/invite-relations/{id}/invalid` | 关系非终态 | fixture | 关系 invalid，关联奖励 invalid | 查询详情 |
-| F3-P1-03 | P1 | 导出邀请关系 | 后续导出中心接口 | 有导出权限 | 查询条件 | **首版暂不测试**；待全后台导出中心上线。期望：返回导出任务或文件，写审计 | 响应/审计 |
-| F3-P1-04 | P1 | 导出奖励流水 | 后续导出中心接口 | 有导出权限 | 查询条件 | **首版暂不测试**；待全后台导出中心上线。期望：返回导出任务或文件，写审计 | 响应/审计 |
-| F3-P2-01 | P2 | 处理非 frozen 奖励 | `PUT /admin/promotion/invite-rewards/{id}/approve` | 奖励为 success/invalid | fixture | 返回状态不允许 | 响应断言 |
-| F3-P2-02 | P2 | 不存在关系详情 | `GET /admin/promotion/invite-relations/999999999` | 无 | 固定值 | 返回业务错误或空数据 | 响应断言 |
-| F3-P3-01 | P3 | 无权限处理冻结 | `PUT /admin/promotion/invite-rewards/{id}/approve` | 低权限 Token | 多角色 Token | 返回 403 | HTTP 断言 |
+- 普通邀请：阶梯模式；完成注册 20 千寻币；资料 30；认证 50；首次会员 80；首次充值关闭；阶梯 5/+50、10/+100、20/+200。
+- 校园代理：阶梯模式；完成注册 ¥20.00；资料 ¥30.00；认证 ¥50.00；首次会员 ¥80.00；首次充值关闭；阶梯 5/+50.00、10/+100.00、20/+200.00。
 
-### 3.4 后台代理、素材与结算接口
+这些值只用于测试场景和 Demo 对照，不得成为生产默认值。
 
-| 用例ID | 优先级 | 场景 | 接口 | 前置条件 | 数据来源 | 期望结果 | 验证方式 |
-|--------|--------|------|------|----------|----------|----------|----------|
-| F4-P0-01 | P0 | 新增代理 | `POST /admin/promotion/agents` | 渠道运营/超管权限，规则组存在 | 自构建 | 返回代理 ID，生成 `AGT-*` 编号 | 查询详情 |
-| F4-P0-02 | P0 | 代理列表 | `GET /admin/promotion/agents/list` | 代理存在或空态 | 自动查询 | 返回代理编号、名称、合作状态中文 | 响应断言 |
-| F4-P0-03 | P0 | 代理详情 | `GET /admin/promotion/agents/{id}` | 代理存在 | 链式 | 返回基础信息、统计、奖金、结算摘要 | 响应断言 |
-| F4-P0-04 | P0 | 素材二维码列表 | `GET /admin/promotion/materials/list` | 代理二维码存在或空态 | 自动查询 | 返回二维码编号、缩略图、路径、状态 | 响应断言 |
-| F4-P0-05 | P0 | 重新生成二维码 | `POST /admin/promotion/materials/{id}/regenerate` | 二维码存在 | 链式 | version+1，新旧二维码均可追溯 | 查询列表/历史 |
-| F4-P0-06 | P0 | 结算列表 | `GET /admin/promotion/settlements/list` | 结算单存在或空态 | 自动查询 | 返回 `unsettled/confirmed/paid` 中文状态 | 响应断言 |
-| F4-P0-07 | P0 | 标记结算已确认 | `PUT /admin/promotion/settlements/{id}/confirm` | 结算单为 unsettled | fixture | 状态转 confirmed，写审计 | 查询结算 |
-| F4-P0-08 | P0 | 标记结算已发放 | `PUT /admin/promotion/settlements/{id}/paid` | 结算单为 confirmed | fixture | 状态转 paid，写审计 | 查询结算 |
-| F4-P1-01 | P1 | 暂停代理 | `PUT /admin/promotion/agents/{id}/status` | 代理 normal | 链式 | 状态转 paused，新用户仍可进入小程序 | 查询代理 |
-| F4-P1-02 | P1 | 终止代理 | `PUT /admin/promotion/agents/{id}/status` | 代理 normal/paused | fixture | 状态转 terminated，停止新计奖 | 查询代理 |
-| F4-P1-03 | P1 | 停用二维码展示 | `PUT /admin/promotion/materials/{id}/disable` | 二维码 enabled | 链式 | 状态停用展示；已生成二维码仍永久有效 | 查询二维码/扫码 |
-| F4-P1-04 | P1 | 导出结算列表/明细 | 后续导出中心接口 | 财务/超管权限 | 查询条件 | **首版暂不测试**；待全后台导出中心上线。期望：返回导出任务或文件，写审计 | 响应/审计 |
-| F4-P2-01 | P2 | pending_settlement 奖金重复结算 | 系统任务接口/Service | 同代理同周期重复触发 | L3/L1 fixture | 不重复生成结算单 | 查询数量 |
-| F4-P2-02 | P2 | paid 结算单重复发放 | `PUT /admin/promotion/settlements/{id}/paid` | 结算单已 paid | fixture | 返回状态不允许 | 响应断言 |
-| F4-P3-01 | P3 | 运营无权新增代理 | `POST /admin/promotion/agents` | 运营 Token | 多角色 Token | 返回 403 | HTTP 断言 |
-| F4-P3-02 | P3 | 渠道运营无权标记 paid | `PUT /admin/promotion/settlements/{id}/paid` | 渠道运营 Token | 多角色 Token | 返回 403 | HTTP 断言 |
+### 3.3 业务链
 
-## 4. L2 - Controller 测试用例
+```text
+发布规则
+  -> 创建邀请来源 trace
+  -> 新用户完成注册
+  -> 事件收件箱成功
+  -> 建立唯一永久关系
+  -> 生成基础/阶梯奖励或代理奖金
+  -> 普通奖励写千寻币资产流水
+  -> 后台/移动端查询验证
+  -> 上月代理奖金生成结算单
+  -> 人工确认结算并验证代理统计
+```
+
+## 4. L1 - 接口测试用例
+
+### 4.1 环境、登录与权限
+
+| 用例ID | 优先级 | 场景 | 接口/操作 | 前置条件 | 期望结果 | 验证方式 |
+|---|---|---|---|---|---|---|
+| AUTH-P0-01 | P0 | 管理员真实登录 | `POST /admin/login` | peter 凭据由运行时输入 | HTTP 200，返回有效 Token，可查询推广菜单 | 响应断言 + 菜单查询 |
+| AUTH-P0-02 | P0 | Token 可访问五组列表 | 五个后台列表 GET | 登录成功 | 均非 401，返回精确 `R<T>` | 链式查询 |
+| AUTH-P3-03 | P3 | 未登录访问后台 | 任选五个列表 | 无 Token | HTTP 401 | 状态断言 |
+| AUTH-P3-04 | P3 | 未登录访问移动私有接口 | home/records | 无 Token | HTTP 401 | 状态断言 |
+| AUTH-P3-05 | P3 | 只读角色调用发布 | rules/publish | 只读 Token | HTTP 403，规则版本不变 | 查询版本 |
+| AUTH-P3-06 | P3 | 运营越权发布代理规则 | rules/publish | 运营 Token | HTTP 403 | 响应断言 |
+| AUTH-P3-07 | P3 | 渠道运营越权发布普通规则 | rules/publish | 渠道 Token | HTTP 403 | 响应断言 |
+| AUTH-P3-08 | P3 | 非财务确定结算 | settlements/confirm | 非财务 Token | HTTP 403，状态不变 | 重新查询 |
+| AUTH-P3-09 | P3 | 无重试权限手工重试 | rewards/retry | 只读 Token | HTTP 403，重试次数不变 | 重新查询 |
+| AUTH-P3-10 | P3 | 无导出权限创建导出 | 任一 export | 无导出权限 | HTTP 403，无任务、无审计成功记录 | 查询任务/审计 |
+
+### 4.2 规则发布
+
+| 用例ID | 优先级 | 场景 | 数据 | 期望结果 | 验证方式 |
+|---|---|---|---|---|---|
+| RULE-P0-01 | P0 | 发布普通阶梯规则 | §3.2 普通规则 | 新版本发布，current 指向新版本 | GET current |
+| RULE-P0-02 | P0 | 发布代理阶梯规则 | §3.2 代理规则 | 独立新版本发布，不改变普通版本 | GET current |
+| RULE-P0-03 | P0 | 注册奖励固定开启 | `register_reward.enabled=false` | `R.code=400`，提示“完成注册奖励为固定业务口径，不可关闭” | 响应断言 |
+| RULE-P1-04 | P1 | 缺少注册事件 | events 不含 `register_reward` | `R.code=400`，不发布 | 版本不变 |
+| RULE-P1-05 | P1 | 普通奖励小数 | amount=20.5 | `R.code=400` | 响应断言 |
+| RULE-P1-06 | P1 | 代理金额两位小数 | amount=20.25 | 发布成功并按两位小数回显 | GET current |
+| RULE-P2-07 | P2 | 代理金额超过两位 | amount=20.257 | `R.code=400` | 响应断言 |
+| RULE-P2-08 | P2 | 阶梯阈值重复/非递增 | 5、5 或 10、5 | `R.code=400` | 响应断言 |
+| RULE-P1-09 | P1 | 固定模式发布 | mode=fixed、无 tiers | 成功，查询无运行阶梯 | GET current |
+| RULE-P1-10 | P1 | 阶梯模式无档位 | mode=ladder、tiers=[] | `R.code=400` | 响应断言 |
+| RULE-P2-11 | P2 | 并发版本冲突 | 相同 expectedVersion 并发发布 | 仅一条成功，另一条 `R.code=409` | 并发 + 版本查询 |
+| RULE-P1-12 | P1 | 历史快照不追溯 | V1 触发奖励后发布 V2 | V1 奖励仍显示 V1 金额/版本 | 奖励查询 |
+| RULE-P1-13 | P1 | 0 金额可发布 | amount=0 | 发布成功；触发后有 0 值成功流水 | 事件链 |
+| RULE-P3-14 | P3 | 非法来源类型 | sourceType=other | `R.code=400` | 响应断言 |
+
+### 4.3 来源与永久关系
+
+| 用例ID | 优先级 | 场景 | 前置/输入 | 期望结果 | 验证方式 |
+|---|---|---|---|---|---|
+| ATTR-P0-01 | P0 | 普通来源新用户注册 | normal trace + U01 | 建立一条 normal_user 关系 | 关系列表/详情 |
+| ATTR-P0-02 | P0 | 代理来源新用户注册 | enabled agent trace + U02 | 建立一条 campus_agent 关系 | 关系查询 |
+| ATTR-P0-03 | P0 | 重复注册事件幂等 | 重放 U01 register event | 返回/保持原关系，仅一条 | 关系计数 |
+| ATTR-P0-04 | P0 | 同时命中两来源 | normal + agent trace + U03 | campus_agent 优先 | 详情 |
+| ATTR-P0-05 | P0 | 已有关系不可覆盖 | U01 再携带另一来源 | 错误 70003 或幂等返回原关系；来源不变 | 详情对比 |
+| ATTR-P1-06 | P1 | 自邀请 | inviterId=inviteeId | 错误 70004，不建关系 | 列表验证 |
+| ATTR-P1-07 | P1 | 老用户来源 | 已注册用户打开链接 | 错误 70002，不建关系 | 列表验证 |
+| ATTR-P1-08 | P1 | 无效 trace | 随机 traceNo | 错误 70001，不建关系 | 响应 + 查询 |
+| ATTR-P1-09 | P1 | 停用代理来源 | disabled agent trace | 不建代理关系、不生成奖金 | 关系/奖金查询 |
+| ATTR-P1-10 | P1 | 停用二维码仍能打开 | disabled agent source trace | source trace 可记录点击，注册不归因 | trace/关系列表 |
+| ATTR-P2-11 | P2 | 多普通来源 | 同一用户两个 normal trace | 使用最近有效来源 | 详情 |
+| ATTR-P2-12 | P2 | trace 重复提交 | 相同 trace 请求两次 | 返回同一 trace 或幂等成功，不重复计点击 | 点击统计 |
+| ATTR-P3-13 | P3 | 伪造来源对象 | 不存在 inviter/agent | 错误 70001 | 响应断言 |
+| ATTR-P1-14 | P1 | 关系详情无废弃字段 | 正常关系 | 响应无 status/risk/ip/device/invalid | JSON 结构断言 |
+| ATTR-P1-15 | P1 | 关系已发奖励合计 | U01 多笔奖励 | 只合计 success，pending/failed 不计 | 详情/列表 |
+
+### 4.4 普通奖励、阶梯与补偿
+
+| 用例ID | 优先级 | 场景 | 前置/输入 | 期望结果 | 验证方式 |
+|---|---|---|---|---|---|
+| RWD-P0-01 | P0 | 注册基础奖励真实入账 | 第1位普通邀请 | 生成 20 pending 后 success；余额+20；资产流水类型正确 | 奖励+资产双查 |
+| RWD-P0-02 | P0 | 第5人命中阶梯 | 累计注册前为4 | 生成注册20与 ladder5/50 两条，余额合计+70 | 流水/余额 |
+| RWD-P0-03 | P0 | 第8人不命中 | 累计注册前为7 | 仅注册20 | 流水数量 |
+| RWD-P0-04 | P0 | 阶梯重放幂等 | 重放第5人事件 | 不新增、不重复入账 | 唯一键/余额 |
+| RWD-P0-05 | P0 | 发放失败落三态 | Provider 首次失败 | 状态 failed、原因和 nextRetry 有值，资产不变 | 奖励/资产 |
+| RWD-P0-06 | P0 | 自动三次重试时间 | 连续失败 | 依次计划 5m、30m、2h，最多3次后保持 failed | retry 字段 |
+| RWD-P0-07 | P0 | 自动重试成功 | 第二次 Provider 成功 | 原奖励改 success，仅入账一次 | 奖励/资产流水 |
+| RWD-P0-08 | P0 | 人工重试成功 | 3次失败后后台重试 | 原奖励 success，不新建奖励单 | rewardNo/余额 |
+| RWD-P1-09 | P1 | 人工重试重复点击 | 两次并发 retry | 仅一次入账，第二次幂等/状态冲突 | 余额/流水 |
+| RWD-P1-10 | P1 | pending 不可人工重试 | pending reward | `R.code=409`，状态不变 | 查询 |
+| RWD-P1-11 | P1 | success 不可人工重试 | success reward | `R.code=409`，余额不变 | 查询 |
+| RWD-P1-12 | P1 | 资料完善奖励 | 头像首次通过 | 按快照生成30并入账 | 奖励/资产 |
+| RWD-P1-13 | P1 | 头像重复通过 | 重复审核事件 | 不重复奖励 | 流水数量 |
+| RWD-P1-14 | P1 | 认证完成奖励 | 实名+学历均通过 | 仅首次双通过生成50 | 奖励查询 |
+| RWD-P1-15 | P1 | 单项认证不触发 | 仅实名或仅学历 | 无 verify 奖励 | 奖励查询 |
+| RWD-P1-16 | P1 | 首次会员奖励 | 首个 VIP 成功订单 | 生成80；重复支付不再生成 | 奖励/订单 |
+| RWD-P1-17 | P1 | 首次充值关闭 | 首个千寻币成功订单 | 不生成对应奖励 | 奖励查询 |
+| RWD-P1-18 | P1 | 启用首次充值后触发 | 发布新版本后新用户首次充值 | 按新版本生成 | 规则/奖励 |
+| RWD-P2-19 | P2 | 0 值奖励 | 规则金额0 | 生成0值资产流水，reward success | 奖励/资产流水 |
+| RWD-P2-20 | P2 | 并发第5/第6人 | 两注册事件并发 | 恰有一条 threshold=5 阶梯，计数=6 | 计数/流水 |
+| RWD-P1-21 | P1 | 列表三态筛选 | 各准备1条 | 各筛选只返回目标状态 | 列表 |
+| RWD-P1-22 | P1 | 动态阶梯事件筛选 | threshold 5/10 | 筛选项和结果显示具体人数 | 列表 |
+| RWD-P1-23 | P1 | 移动聚合状态 | 一关系含 success+failed | 聚合规则与 PRD 一致，明细状态准确 | records |
+| RWD-P3-24 | P3 | 越权查询他人移动记录 | 替换 userId 参数/路径 | 只能返回 Token 本人数据 | 响应断言 |
+
+### 4.5 校园代理与二维码
+
+| 用例ID | 优先级 | 场景 | 前置/输入 | 期望结果 | 验证方式 |
+|---|---|---|---|---|---|
+| AGT-P0-01 | P0 | 新增代理 | 名称/学校/校区 | 生成唯一代理编号，状态 enabled | 列表 |
+| AGT-P1-02 | P1 | 必填校验 | 缺名称/学校/校区 | `R.code=400`，定位字段 | 响应 |
+| AGT-P1-03 | P1 | 编辑代理 | 修改名称/联系电话 | 回显更新，审计有前后值 | 详情/审计 |
+| AGT-P0-04 | P0 | 启用转停用 | 二次确认后 PUT status | enabled→disabled | 重新查询 |
+| AGT-P0-05 | P0 | 停用转启用 | disabled agent | disabled→enabled | 重新查询 |
+| AGT-P1-06 | P1 | 非法第三状态 | paused/terminated | `R.code=400` | 响应 |
+| AGT-P0-07 | P0 | 获取/生成永久二维码 | 首次调用 | 返回真实图片/URL和不可猜测 token | 响应 + 图片读取 |
+| AGT-P0-08 | P0 | 二维码永久复用 | 连续调用两次 | qrToken、miniappPath、imageUrl 不变 | 响应对比 |
+| AGT-P1-09 | P1 | 二维码服务失败 | Provider 失败 | 错误 70006，可重试；代理其他功能可用 | 响应/列表 |
+| AGT-P0-10 | P0 | 代理注册基础奖金 | enabled agent + 新用户 | 生成 ¥20.00 奖金，不写用户千寻币 | 奖金/资产 |
+| AGT-P0-11 | P0 | 代理第5人阶梯 | 注册前4人 | 基础 ¥20 + 阶梯 ¥50 两条奖金 | 详情 |
+| AGT-P1-12 | P1 | 代理停用后既有关系事件 | 已有关系、代理 disabled、资料通过 | 不生成新奖金，历史保留 | 详情 |
+| AGT-P1-13 | P1 | 代理统计 | 点击/注册/奖金/已确认 | 计数和应发/已发/待结算准确 | 列表 |
+| AGT-P1-14 | P1 | 手机号默认脱敏 | 无敏感字段权限 | `138****1234` | 详情 |
+| AGT-P3-15 | P3 | 完整手机号权限 | 有/无敏感权限对比 | 仅授权者可见完整值，普通导出不扩大权限 | 详情/导出 |
+| AGT-P1-16 | P1 | 列表排序 | 点击、注册、三金额字段 | 排序方向正确且分页稳定 | 列表 |
+
+### 4.6 月度结算
+
+| 用例ID | 优先级 | 场景 | 前置/输入 | 期望结果 | 验证方式 |
+|---|---|---|---|---|---|
+| SET-P0-01 | P0 | 北京时间月初生成 | 模拟每月1日01:00 | 生成上月自然月 pending_confirm 单 | 列表 |
+| SET-P0-02 | P0 | 同代理同月幂等 | 重跑任务 | 仅一张结算单 | 唯一查询 |
+| SET-P1-03 | P1 | 无奖金不生成 | 上月无未归集奖金 | 无0金额单 | 列表 |
+| SET-P1-04 | P1 | 自然月边界 | 月初/下月月初边界事件 | 仅 `[月初,下月月初)` 进入 | 奖金 settlementId |
+| SET-P1-05 | P1 | 跨月未归集 | 当月奖金 | 不进入上月结算 | 明细查询 |
+| SET-P0-06 | P0 | 确定结算 | pending_confirm + 财务权限 | confirmed，记录确认人/时间 | 重新查询 |
+| SET-P0-07 | P0 | 确定后统计刷新 | 确认结算 | 代理已发=confirmed合计，待结算=应发-已发 | 代理列表 |
+| SET-P1-08 | P1 | 重复确定 | confirmed 再 confirm | `R.code=409`，金额/时间不变 | 查询 |
+| SET-P1-09 | P1 | 并发确定 | 两请求并发 | 仅一条成功 | 状态/审计 |
+| SET-P1-10 | P1 | 无手工生成接口 | 尝试旧 create/generate | `R.code=404` | 状态断言 |
+| SET-P1-11 | P1 | 无 paid 状态/字段 | 查询列表/详情 | 仅两态，无 paidAmount/paidTime | JSON 结构 |
+| SET-P1-12 | P1 | 待处理事件阻塞结算 | 上月 promotion event 未完成 | 不生成该代理结算并告警，恢复后补生成 | 任务/列表 |
+
+### 4.7 小程序聚合与 H5
+
+| 用例ID | 优先级 | 场景 | 操作 | 期望结果 | 验证方式 |
+|---|---|---|---|---|---|
+| MOB-P0-01 | P0 | 邀请首页聚合 | GET home | 返回注册金额、成功数、到账合计、全部阶梯、最近3条、分享上下文 | JSON 断言 |
+| MOB-P1-02 | P1 | 阶梯任意数量 | 发布 1/4/6 档规则 | home 原样返回全部启用档位 | 数组断言 |
+| MOB-P1-03 | P1 | 最近邀请排序 | 4条不同注册时间 | 仅最近3条，按注册时间倒序 | 数组断言 |
+| MOB-P1-04 | P1 | 到账合计口径 | success/pending/failed 混合 | 只合计 success | 数值断言 |
+| MOB-P0-05 | P0 | 邀请记录分页 | GET records page1/page2 | 每页20、总数准确、无重复 | 链式查询 |
+| MOB-P1-06 | P1 | 四筛选 | all/pending/success/failed | 返回匹配聚合状态 | 列表断言 |
+| MOB-P1-07 | P1 | 展开奖励明细数据 | 第5人关系 | 注册20+阶梯50、合计70 | 记录 JSON |
+| MOB-P1-08 | P1 | 分享上下文不可猜测 | GET home 后创建 trace | 链接不暴露手机号/内部主键 | 字符串检查 |
+| MOB-P1-09 | P1 | 业务规则接口 | GET invite/rules | 固定成功口径、当前事件和阶梯数据准确 | JSON 断言 |
+| MOB-P0-10 | P0 | H5 当前版本 | PRD-06 当前启用 | 返回标题、版本、时间和安全快照/代理 | 内容断言 |
+| MOB-P1-11 | P1 | H5 失败有缓存 | 当前接口500、本地有缓存 | 展示最近成功版本标记所需数据可用 | API/浏览器 |
+| MOB-P1-12 | P1 | H5 失败无缓存 | 当前接口500、无缓存 | 不返回硬编码完整规则；可重试/返回 | API/浏览器 |
+| MOB-P2-13 | P2 | H5 停用 | invite_rules disabled | 走缓存或不可用态 | API/浏览器 |
+| MOB-P3-14 | P3 | 邀请记录用户隔离 | 两用户各有数据 | 各自 Token 仅见本人 | 对比 |
+
+### 4.8 导出、审计与废弃路由
+
+| 用例ID | 优先级 | 场景 | 操作 | 期望结果 | 验证方式 |
+|---|---|---|---|---|---|
+| EXP-P1-01 | P1 | 关系按筛选导出 | POST relations/export | 任务完成，行数/字段/筛选一致 | 下载解析 |
+| EXP-P1-02 | P1 | 奖励动态事件导出 | rewards/export | 阶梯事件名含具体阈值，状态中文准确 | 下载解析 |
+| EXP-P1-03 | P1 | 代理导出脱敏 | agents/export | 无权限时手机号保持脱敏 | 下载解析 |
+| EXP-P1-04 | P1 | 结算导出 | settlements/export | 仅两态、无打款字段 | 下载解析 |
+| EXP-P1-05 | P1 | 导出审计 | 任一成功导出 | 操作人、时间、页面、筛选、结果完整 | 审计查询 |
+| EXP-P2-06 | P2 | 大数据异步 | 超过单页数据 | 先返回任务，最终完成，不阻塞请求超时 | 轮询 |
+| EXP-P2-07 | P2 | 导出失败 | 执行器失败 | 任务 failed、可诊断、不泄露内部异常 | 任务查询 |
+| EXP-P3-08 | P3 | CSV 注入 | 单元格以 `=+-@` 开头 | 导出转义，不执行公式 | 文件检查 |
+| LEG-P0-01 | P0 | 冻结奖励接口删除 | 旧 frozen URL | `R.code=404` | 状态断言 |
+| LEG-P0-02 | P0 | 素材接口删除 | 旧 materials URL | `R.code=404` | 状态断言 |
+| LEG-P0-03 | P0 | 关系人工处理删除 | unfreeze/invalid | `R.code=404` | 状态断言 |
+| LEG-P0-04 | P0 | 结算 paid 删除 | paid URL | `R.code=404` | 状态断言 |
+| LEG-P1-05 | P1 | 通用旧规则 CRUD 删除 | rules/list、POST rules、tiers | `R.code=404` | 状态断言 |
+| LEG-P1-06 | P1 | 客户端 bind 删除 | invite/bind | `R.code=404` | 状态断言 |
+| LEG-P1-07 | P1 | 返回枚举无旧值 | 全部列表 | 无 frozen/invalid/paused/terminated/paid | 全文检查 |
+
+## 5. L2 - Controller 契约测试
 
 | 用例ID | 测试方法 | 验证点 | 期望 |
-|--------|----------|--------|------|
-| L2-01 | `PromotionRuleConfigControllerTest.getConfig_shouldReturnRConfigVO` | 聚合配置路由和返回类型 | HTTP 200，`R<PromotionRuleConfigVO>` |
-| L2-02 | `PromotionRuleConfigControllerTest.saveInviteReward_shouldValidateBody` | 普通奖励保存参数校验 | 非法阶梯/金额返回参数错误 |
-| L2-03 | `PromotionRuleConfigControllerTest.saveRisk_shouldRequirePermission` | 风控保存权限注解 | 无权限返回 403 |
-| L2-04 | `PromotionRelationControllerTest.list_shouldBindPageReq` | 关系列表分页/筛选绑定 | 返回 `Page<InviteRelationVO>` |
-| L2-05 | `PromotionRelationControllerTest.detail_shouldReturnDetailVO` | 关系详情路径参数 | 返回 `InviteRelationDetailVO` |
-| L2-06 | `PromotionRelationControllerTest.reviewActions_shouldValidateRemark` | 解除冻结/判无效备注 | 缺少备注返回参数错误 |
-| L2-07 | `PromotionRewardControllerTest.frozen_shouldFilterFrozen` | 冻结队列固定过滤 | Service 入参包含 frozen |
-| L2-08 | `PromotionRewardControllerTest.approve_shouldRequireReviewPermission` | 冻结发放权限 | 无权限返回 403 |
-| L2-09 | `PromotionAgentControllerTest.create_shouldValidateRequiredFields` | 新增代理必填校验 | 缺代理名称返回参数错误 |
-| L2-10 | `PromotionMaterialControllerTest.regenerate_shouldReturnQrCodeVO` | 二维码重生成路由 | 返回 `AgentQrCodeVO` |
-| L2-11 | `PromotionSettlementControllerTest.confirm_shouldValidateStateAction` | 结算确认路由 | 调用 Service 并返回 `R<Void>` |
-| L2-12 | `PromotionSettlementControllerTest.paid_shouldRequireFinancePermission` | 标记已发放权限 | 无权限返回 403 |
-| L2-13 | `PromotionInviteControllerTest.home_shouldRequireLogin` | 小程序邀请首页登录态 | 无 Token 返回 401 |
-| L2-14 | `PromotionInviteControllerTest.shareLog_shouldAllowAnonymous` | 分享来源允许匿名 | 无 Token 可记录来源 |
-| L2-15 | `PromotionInviteControllerTest.bind_shouldValidateSource` | 绑定来源必填 | 无来源返回参数错误 |
-| L2-16 | `PromotionInviteControllerTest.records_shouldReturnRecordVOPage` | 小程序记录不返回 Entity | 返回 `Page<InviteRecordVO>` |
-| L2-17 | `PromotionInviteControllerTest.shareLog_shouldBindReqAndReturnTraceVO` | 分享来源路由与参数绑定 | 入参绑定正确，返回 `InviteSourceTraceVO` |
-| L2-18 | `PromotionInviteControllerTest.qrCode_shouldRequireLoginAndReturnQrVO` | 二维码接口登录态与返回类型 | 无 Token 返回 401；有 Token 返回 `InviteQrCodeVO` |
-| L2-19 | `PromotionInviteControllerTest.qrSource_shouldAllowAnonymousAndReturnSourceVO` | 二维码来源解析匿名可访问 | 返回 `InviteQrSourceVO`，scene 参数绑定正确 |
-| L2-20 | `PromotionInviteControllerTest.bind_shouldRequireLoginAndValidateBody` | 绑定接口登录态与参数校验 | 无 Token 返回 401；inviteTraceId/qrCode 必填校验 |
+|---|---|---|---|
+| CTL-01 | `rulesCurrent_返回精确VO` | GET 路由、`R<PromotionRuleConfigVO>` | 200 |
+| CTL-02 | `publish_校验注册固定开启` | DTO/业务错误映射 | 400 |
+| CTL-03 | `publish_权限按来源拆分` | 两个发布权限 | 无权限403 |
+| CTL-04 | `relations_列表参数边界` | page/size≤100 | 非法400 |
+| CTL-05 | `relationDetail_使用业务编号` | relationNo 路由 | 200/404 |
+| CTL-06 | `rewards_三态参数` | status 枚举 | 非法400 |
+| CTL-07 | `rewardRetry_权限与返回类型` | 注解、精确 VO | 200/403 |
+| CTL-08 | `agents_新增必填校验` | 名称/学校/校区 | 400 |
+| CTL-09 | `agentStatus_只接收两态` | enabled/disabled | 200；旧值400 |
+| CTL-10 | `agentQr_返回精确VO` | 图片字段、权限 | 200 |
+| CTL-11 | `settlements_两态参数` | status 枚举 | 200/400 |
+| CTL-12 | `settlementConfirm_权限与状态冲突` | confirm 注解 | 200/409 |
+| CTL-13 | `exports_均有独立权限` | 四组 export | 无权限403 |
+| CTL-14 | `sourceTrace_匿名可访问` | 白名单路由 | 200 |
+| CTL-15 | `inviteHome_必须登录` | 拦截器 | 401/200 |
+| CTL-16 | `inviteRecords_只取上下文用户` | 不接受 userId 覆盖 | 200 |
+| CTL-17 | `legacyRoutes_不注册` | 冻结/素材/paid/bind | 404 |
+| CTL-18 | `controller_不返回Entity或Map` | 方法签名契约 | 全部精确 `R<T>` |
 
-## 5. L3 - Service 单元测试用例
+派生文件：
 
-| 用例ID | 测试方法 | 输入 | 期望输出 |
-|--------|----------|------|----------|
-| L3-01 | `PromotionRuleConfigServiceTest.noConfig_shouldNotReturnDefaultReward` | 空配置 | 不返回默认金额/成功口径 |
-| L3-02 | `PromotionRuleConfigServiceTest.saveInviteReward_shouldValidateLadderRange` | 重叠阶梯 | 抛业务异常 |
-| L3-03 | `PromotionRuleConfigServiceTest.saveAgentBonus_shouldRejectDuplicateGroupName` | 重复规则组名 | 抛业务异常 |
-| L3-04 | `PromotionRuleConfigServiceTest.saveRisk_shouldWriteAudit` | 合法风控配置 | 保存成功并写审计 |
-| L3-05 | `PromotionRuleConfigServiceTest.saveRewardModeLadder_shouldValidateLadderRequired` | rewardMode=ladder 但未配置阶梯档位 | 抛业务异常，提示需配置阶梯 |
-| L3-06 | `PromotionRuleConfigServiceTest.saveRewardModeFixed_shouldIgnoreLadder` | rewardMode=fixed 时附带阶梯数据 | 忽略阶梯配置，按固定金额发奖 |
-| L3-07 | `PromotionInviteServiceTest.bindNormal_shouldCreateRegisteredRelation` | 新用户普通来源 | 创建 `normal_user` 关系 |
-| L3-08 | `PromotionInviteServiceTest.bindCampusAgent_shouldPreferAgent` | 普通+代理来源 | 创建 `campus_agent` 关系 |
-| L3-09 | `PromotionInviteServiceTest.bindOldUser_shouldRejectOrIgnore` | 老用户来源 | 不建立有效关系 |
-| L3-10 | `PromotionInviteServiceTest.bindDuplicate_shouldKeepFirstRelation` | 同一 invitee 重复绑定 | 不覆盖首次关系 |
-| L3-11 | `PromotionInviteServiceTest.selfInvite_shouldInvalid` | inviter=invitee | 拒绝或 invalid，原因 `self_invite` |
-| L3-12 | `PromotionInviteEventServiceTest.registerReward_shouldBeIdempotent` | 注册事件重复触发 | 只生成一条奖励 |
-| L3-13 | `PromotionInviteEventServiceTest.profileReward_shouldAdvanceStatus` | 头像认证通过 | 状态转 `profile_completed` |
-| L3-14 | `PromotionInviteEventServiceTest.verifyReward_shouldAdvanceStatus` | 实名+学历完成 | 状态转 `verify_success` |
-| L3-15 | `PromotionInviteEventServiceTest.firstVip_shouldRequireBizNo` | 首次 VIP 支付事件 | 使用 `bizNo` 幂等 |
-| L3-16 | `PromotionInviteEventServiceTest.dailyCapExceeded_shouldNotReward` | 超出单日上限 | 不发放且不进入冻结 |
-| L3-17 | `PromotionInviteEventServiceTest.totalCapExceeded_shouldNotReward` | 单邀请人累计奖励达 `M07-CFG-invite-reward-cap` 上限后再触发新奖励事件 | 超出部分不发放，不进入冻结队列 |
-| L3-18 | `PromotionInviteEventServiceTest.riskHitSameDevice_shouldFreezeRewardAndRelation` | 命中同设备批量注册（≥阈值） | 奖励 frozen，关联关系也 frozen，记录风控原因 `same_device` |
-| L3-19 | `PromotionInviteEventServiceTest.riskHitPayment_shouldFreezeRewardOnly` | 命中同支付账号异常（仅支付类奖励） | 仅该笔奖励 frozen，关系状态不变，记录风控原因 `same_payment` |
-| L3-20 | `PromotionRewardAdminServiceTest.approveFrozen_shouldCreditCoinAndNotify` | frozen 奖励通过 | success，写资产流水，通知失败不回滚 |
-| L3-21 | `PromotionRewardAdminServiceTest.rejectFrozen_shouldInvalidWithoutCoin` | frozen 奖励驳回 | invalid，不写资产流水 |
-| L3-22 | `PromotionRelationAdminServiceTest.markInvalid_shouldInvalidateRewards` | 关系人工判无效 | 关系和关联奖励 invalid |
-| L3-23 | `PromotionAgentServiceTest.create_shouldGenerateAgentNo` | 新增代理 | 生成 `AGT-*` 编号 |
-| L3-24 | `PromotionAgentStatServiceTest.createAgent_shouldInitStatRow` | 新增代理 | 同事务初始化 `promo_agent_stat`，计数/金额均为 0 |
-| L3-25 | `PromotionAgentStatServiceTest.agentEvent_shouldRefreshStatCounters` | 代理 click/register/verify/firstVip/firstCoin 事件 | 对应累计字段递增，`lastEventTime` 更新 |
-| L3-26 | `PromotionAgentStatServiceTest.successMetricChange_shouldRebuildSuccessCount` | 成功统计口径变更后重算 | `success_cnt` 按新口径重算，`stat_version` 递增 |
-| L3-27 | `PromotionAgentStatServiceTest.settlementStatus_shouldRefreshBonusAmounts` | 结算生成/确认/已发放 | 待结算/已确认/已发放金额统计正确 |
-| L3-28 | `PromotionAgentStatServiceTest.rebuild_shouldBeIdempotentFromFacts` | 重复执行统计补偿任务 | 从事实表覆盖统计快照，不重复累计 |
-| L3-29 | `PromotionInviteServiceTest.bindAgentPaused_shouldStillAttribute` | 代理 paused，新用户扫码注册 | 来源仍归代理渠道（渠道优先永久生效），但 paused 期间不计新奖金 |
-| L3-30 | `PromotionInviteServiceTest.bindAgentTerminated_shouldStillAttributeButNoBonus` | 代理 terminated，新用户扫码注册 | 来源仍归代理渠道，但 terminated 后停止新计奖 |
-| L3-31 | `PromotionMaterialServiceTest.regenerate_shouldKeepOldQrValid` | 重生成二维码 | version+1，旧码仍可归因 |
-| L3-32 | `PromotionMaterialServiceTest.disable_shouldOnlyHideMaterial` | 停用二维码展示 | 不破坏已生成二维码归因 |
-| L3-33 | `PromotionAgentEventServiceTest.agentBonus_shouldBeIdempotent` | 代理事件重复 | 只生成一条奖金，统计不重复累计 |
-| L3-34 | `PromotionSettlementTaskServiceTest.generateMonthly_shouldCreateUnsettled` | 月度待结算奖金 | 生成 unsettled 结算单并刷新 `promo_agent_stat` |
-| L3-35 | `PromotionSettlementTaskServiceTest.generateDuplicatePeriod_shouldReject` | 同代理同周期重复 | 不重复生成，统计金额不重复累计 |
-| L3-36 | `PromotionSettlementAdminServiceTest.confirm_shouldOnlyAllowUnsettled` | confirmed/paid 结算单确认 | 非法状态拒绝 |
-| L3-37 | `PromotionSettlementAdminServiceTest.paid_shouldOnlyAllowConfirmed` | unsettled 直接 paid | 抛业务异常 |
-| L3-38 | `PromotionExportServiceTest.exportSensitiveData_shouldWriteAudit` | 导出关系/奖励/结算 | **首版暂不测试**；待全后台导出中心上线。期望：生成导出任务并写审计 |
-| L3-39 | `PromotionEnumMigrationTest.legacyValues_shouldMapToFormalValues` | 旧枚举数据 | 映射为正式枚举 |
-| L3-40 | `PromotionAuditLogTest.sensitiveOperation_shouldWriteAudit` | 修改规则/冻结处理/代理状态变更/结算状态变更 | `promotion_audit_log` 写入操作人、动作、对象、前后值、备注、时间 |
-| L3-41 | `PromotionAuditLogTest.auditLog_shouldBeQueryable` | 按操作人/时间范围/动作查询审计日志 | 分页返回，字段完整 |
+- `backend/src/test/java/com/spacetime/admin/controller/Promotion*ControllerTest.java`
+- `backend/src/test/java/com/spacetime/miniapp/controller/PromotionInviteControllerTest.java`
 
-## 6. L4 - E2E 浏览器测试用例
+## 6. L3 - Service 与集成测试
+
+### 6.1 归因与规则
+
+| 用例ID | 测试方法 | 输入 | 期望 |
+|---|---|---|---|
+| SRV-RULE-01 | `发布_普通代理版本独立` | 两来源规则 | current 指针独立 |
+| SRV-RULE-02 | `发布_注册事件不可关闭` | false/缺失 | 拒绝 |
+| SRV-RULE-03 | `发布_并发乐观锁` | 相同 expectedVersion | 仅一成功 |
+| SRV-RULE-04 | `事件_锁定发生时版本` | 入箱后发布新版本 | 仍用旧 ruleId |
+| SRV-ATTR-01 | `普通来源_新用户绑定` | normal trace | 唯一关系 |
+| SRV-ATTR-02 | `代理来源_新用户绑定` | enabled agent | 唯一代理关系 |
+| SRV-ATTR-03 | `已有关系_不得覆盖` | 第二来源 | 原关系不变 |
+| SRV-ATTR-04 | `多来源_代理优先` | normal+agent | campus_agent |
+| SRV-ATTR-05 | `自邀老用户无效来源_不落关系` | 三类非法输入 | 对应70001/2/4 |
+| SRV-ATTR-06 | `代理停用_不建新关系` | disabled | 无关系 |
+
+### 6.2 奖励与资产
+
+| 用例ID | 测试方法 | 输入 | 期望 |
+|---|---|---|---|
+| SRV-LADDER-01 | `第5人_基础与阶梯两流水` | count 4→5 | 20+50 两条 |
+| SRV-LADDER-02 | `第8人_只有基础流水` | count 7→8 | 20 一条 |
+| SRV-LADDER-03 | `并发第5第6_精确命中一次` | 并发注册 | 一条 ladder5 |
+| SRV-LADDER-04 | `阶梯重放_幂等` | 相同 threshold | 无重复 |
+| SRV-REWARD-01 | `基础事件_关系事件唯一` | 重复注册/资料 | 一条 |
+| SRV-REWARD-02 | `认证_实名学历均通过才触发` | 状态组合矩阵 | 仅双通过 |
+| SRV-REWARD-03 | `首次支付_只接收首个成功单` | 成功/失败/重复回调 | 一条 |
+| SRV-REWARD-04 | `零金额_写零值资产流水` | amount=0 | success + coinLog |
+| SRV-COIN-01 | `发放_余额流水奖励同事务` | 正常 Provider | 三者一致 |
+| SRV-COIN-02 | `发放中途失败_全部回滚` | coinLog 插入失败 | 余额不变、failed |
+| SRV-COIN-03 | `发放并发_只到账一次` | 同 reward 两线程 | 单流水、单次余额 |
+| SRV-RETRY-01 | `失败_退避序列准确` | 连续失败 | 5m/30m/2h |
+| SRV-RETRY-02 | `三次后_停止自动重试` | retryCount=3 | 保持 failed |
+| SRV-RETRY-03 | `人工重试_复用原幂等键` | failed | 原单 success |
+
+### 6.3 代理、结算、任务
+
+| 用例ID | 测试方法 | 输入 | 期望 |
+|---|---|---|---|
+| SRV-AGENT-01 | `代理状态_两态矩阵` | enabled/disabled | 合法互转 |
+| SRV-AGENT-02 | `永久二维码_并发生成一张` | 两线程 | 同一 qr |
+| SRV-AGENT-03 | `代理奖金_无独立状态` | 五事件/阶梯 | 正确快照 |
+| SRV-AGENT-04 | `停用后_既有关系不再计奖` | disabled | 无新增 |
+| SRV-STAT-01 | `统计_事实重建一致` | trace/relation/bonus/settlement | 数值一致 |
+| SRV-SET-01 | `自然月_闰年与大小月` | 2028-02、30/31天月 | 起止准确 |
+| SRV-SET-02 | `月任务_代理月份唯一` | 重跑 | 一张单 |
+| SRV-SET-03 | `生成_建单与归集同事务` | 回填失败 | 全部回滚 |
+| SRV-SET-04 | `确认_条件更新防并发` | 两线程 confirm | 一成功 |
+| SRV-SET-05 | `确认_统计已发更新` | pending_confirm | confirmed 合计 |
+| SRV-EVENT-01 | `收件箱_主事务提交后处理` | register/payment | success |
+| SRV-EVENT-02 | `收件箱_进程失败任务恢复` | processing 超时 | 可重新领取 |
+| SRV-EVENT-03 | `结算前_上月未完成事件阻塞` | pending event | 不漏结算 |
+| SRV-AUDIT-01 | `敏感操作_完整审计` | 发布/启停/重试/确认/导出 | 字段完整且无密钥 |
+
+## 7. L4 - 真实浏览器 E2E
+
+> P0 使用真实服务和 `peter` 页面登录。异常态可使用 `page.route`，但用例标题和报告必须标明 Mock。
+
+### 7.1 管理后台
 
 | 用例ID | 优先级 | 页面 | 操作步骤 | 期望结果 |
-|--------|--------|------|----------|----------|
-| L4-00 | P0 | 推广管理菜单树 | 超管进入任一推广页面，检查侧栏 `推广裂变` 下的正式版二级页 | 展示推广规则配置、普通邀请关系、普通邀请奖励流水、冻结奖励处理页、代理列表、代理结算管理、推广素材与二维码管理；不再展示旧版“奖励审核/校园代理”等入口 |
-| L4-01 | P0 | 推广规则配置 | 运营进入 `/promotion/rule-config`，切换普通用户奖励 Tab，保存 5 类奖励配置 | 保存成功，二次确认出现，配置回显 |
-| L4-02 | P0 | 推广规则配置 | 风控进入风控参数 Tab，修改阈值和开关 | 保存成功，财务角色只读或无权限 |
-| L4-03 | P0 | 普通邀请关系列表 | 进入 `/promotion/invite-relation`，按状态和关键词查询，打开详情 | 列表展示中文状态，详情展示时间线/奖励/审计 |
-| L4-04 | P0 | 冻结奖励处理 | 风控进入 `/promotion/invite-reward/frozen`，对 frozen 奖励确认发放/判无效 | 二次确认，处理后从队列移除 |
-| L4-05 | P0 | 代理列表 | 渠道运营进入 `/promotion/agent`，新增代理并选择奖金规则组 | 列表出现代理编号，统计字段来自 `promo_agent_stat` 且默认 0，详情可打开 |
-| L4-06 | P0 | 代理详情 | 从代理列表点击代理进入 `/promotion/agent/:id` | 展示基础信息、转化统计（注册/认证/首次会员/首次充值）、奖金汇总、结算摘要 |
-| L4-07 | P0 | 推广素材与二维码 | 进入 `/promotion/material`，预览、重新生成、停用二维码展示 | version 变化，停用文案提示永久有效 |
-| L4-08 | P0 | 代理结算管理 | 财务进入 `/promotion/settlement`，确认结算并标记已发放 | 状态 `待结算 -> 已确认 -> 已发放` |
-| L4-09 | P1 | 多角色权限 | 使用运营/渠道/财务/风控 Token 分别访问对应页面 | 菜单和按钮只展示授权能力 |
-| L4-10 | P1 | 错误/空态 | Mock 列表空数据和接口 500 | 展示“暂无数据”或 toast + 重试，不白屏 |
+|---|---|---|---|---|
+| L4-AUTH-01 | P0 | 登录 | 打开 `/login`，输入账号和安全提供的密码，提交 | 进入 dashboard，网络登录成功 |
+| L4-NAV-01 | P0 | 侧栏 | 展开推广裂变 | 只有规则、关系、奖励、代理、结算5菜单 |
+| L4-NAV-02 | P0 | 页面树 | 逐个点击5菜单 | 各页标题、筛选、表格加载 |
+| L4-NAV-03 | P0 | 废弃路由 | 访问 frozen/material/两个详情旧 URL | 404/无路由，不重定向冒充 |
+| L4-RULE-01 | P0 | 规则 | 切换普通/推广员 Tab | 仅两个 Tab，数据独立 |
+| L4-RULE-02 | P0 | 规则 | 切换固定/阶梯 | 档位编辑器正确显隐 |
+| L4-RULE-03 | P0 | 规则 | 尝试点击完成注册开关 | 选中且禁用，显示固定开启 |
+| L4-RULE-04 | P1 | 规则 | 新增/删除/编辑档位 | 动态行可操作，非法值就地提示 |
+| L4-RULE-05 | P0 | 规则 | 发布并确认，刷新页面 | Toast 成功，版本递增，配置回显 |
+| L4-RULE-06 | P1 | 规则 | 并发旧版本发布 | 冲突提示，不覆盖新版本 |
+| L4-REL-01 | P0 | 关系 | 按来源对象/被邀请用户/来源筛选、重置 | 表格和计数准确 |
+| L4-REL-02 | P0 | 关系 | 点击详情 | 右侧720px抽屉，URL不变 |
+| L4-REL-03 | P1 | 关系抽屉 | 切换/滚动奖励区，关闭 | 列表筛选、分页、滚动保留 |
+| L4-REL-04 | P1 | 关系 | 导出并确认 | 任务创建，下载字段正确 |
+| L4-REWARD-01 | P0 | 奖励 | 三态和动态阶梯筛选 | 只显示目标记录 |
+| L4-REWARD-02 | P0 | 奖励 | failed 行点击重试并确认 | 状态刷新为 success，rewardNo 不变 |
+| L4-REWARD-03 | P1 | 奖励 | success/pending 行查看 | 无可用重试按钮 |
+| L4-AGENT-01 | P0 | 代理 | 新增代理表单 | 必填校验后新增成功 |
+| L4-AGENT-02 | P0 | 代理 | 点击状态、二次确认 | 两态切换，失败时回滚 |
+| L4-AGENT-03 | P0 | 代理 | 点击名称/详情 | 右侧860px抽屉，奖金和结算各5列 |
+| L4-AGENT-04 | P0 | 二维码 | 打开二维码两次 | 同一真实二维码 |
+| L4-AGENT-05 | P0 | 二维码 | 点击保存 | 浏览器产生非空 PNG 下载 |
+| L4-AGENT-06 | P1 | 二维码 | 允许/拒绝 Clipboard | 成功真实复制；拒绝时提示使用保存 |
+| L4-SET-01 | P0 | 结算 | 筛选待确定，点击确定并确认 | 行变已确定、时间出现 |
+| L4-SET-02 | P0 | 代理联动 | 返回代理列表 | 已发/待结算金额同步 |
+| L4-PERM-01 | P0 | 全部 | 只读角色登录 | 页面可看，全部写控件禁用/隐藏 |
+| L4-PERM-02 | P1 | 接口 | 只读角色直接发写请求 | 后端403，不只靠前端 |
+| L4-ERR-01 | P1 | 五页 | Mock 500 后重试 | 错误态明确，重试恢复 |
+| L4-ERR-02 | P1 | 五页 | Mock 空列表 | 页面专属空态，清除筛选可用 |
+| L4-RESP-01 | P1 | 五页 | 1280×800逐页 | 根节点无横向溢出，表格内部滚动 |
 
-## 7. 前端手动测试用例
+### 7.2 小程序 H5/浏览器
 
-| 用例ID | 优先级 | 操作步骤 | 期望结果 | 实际结果 | 状态 |
-|--------|--------|----------|----------|----------|------|
-| M-01 | P0 | 检查推广管理 9 个二级页面菜单、路由、面包屑 | 与 ADM-07 页面规格一致 |  | 未执行 |
-| M-02 | P0 | 检查规则配置四个 Tab 的只读/可编辑权限 | 运营、渠道、风控、超管权限符合矩阵 |  | 未执行 |
-| M-03 | P0 | 检查所有状态和枚举展示 | 页面只展示中文名，不展示内部 code |  | 未执行 |
-| M-04 | P0 | 检查冻结处理二次确认和备注 | 解除冻结/判无效均二次确认并写备注 |  | 未执行 |
-| M-05 | P0 | 检查代理新增/编辑表单 | 代理编号、规则组、学校、状态校验正确 |  | 未执行 |
-| M-06 | P0 | 检查代理统计展示 | 代理列表/详情统计与 `promo_agent_stat` 一致，结算状态变化后金额刷新 |  | 未执行 |
-| M-07 | P1 | 检查二维码预览、下载、历史版本 | 图片、路径、版本和停用说明清晰 |  | 未执行 |
-| M-08 | P1 | 检查结算导出 | **首版暂不测试**；待全后台导出中心上线。期望：导出动作权限正确并记录审计 |  | 跳过 |
-| M-09 | P1 | 检查手机号等敏感字段 | 页面脱敏/明文展示符合角色权限；导出不脱敏由后续导出中心审计覆盖 |  | 未执行 |
-| M-10 | P1 | 检查长学校名、长备注、长规则组名 | 表格和详情不撑破布局 |  | 未执行 |
-| M-11 | P2 | 检查接口失败、网络慢、重复点击 | loading、toast、按钮禁用表现正常 |  | 未执行 |
-| M-12 | P2 | 检查移动端接口返回字段 | 不直接返回 Entity，时间格式统一到秒 |  | 未执行 |
-| M-13 | P3 | 检查无推广权限账号访问 | 页面不可见或无权限，接口返回 403 |  | 未执行 |
+| 用例ID | 优先级 | 页面 | 操作步骤 | 期望结果 |
+|---|---|---|---|---|
+| L4-MOB-01 | P0 | 我的 | 点击推荐给好友 | 登录后进入邀请首页，不再提示即将开放 |
+| L4-MOB-02 | P0 | 首页 | 等待真实 API | 主视觉和5区块按顺序显示 |
+| L4-MOB-03 | P0 | 首页 | 检查动态数据 | 注册金额、人数、到账、全部阶梯、最近3条准确 |
+| L4-MOB-04 | P0 | 首页 | 点击立即邀请 | 打开真实分享弹层/平台分享 |
+| L4-MOB-05 | P1 | 首页 | 模拟分享能力不可用 | 复制链接并显示准确 Toast |
+| L4-MOB-06 | P1 | 首页 | Mock loading/empty/500 | 骨架、空记录、错误重试分别正确 |
+| L4-MOB-07 | P0 | 首页 | 查找禁止项 | 无二维码、邀请码、保存二维码、用途区 |
+| L4-MOB-08 | P0 | 记录 | 点击查看全部 | 进入记录页，默认全部 |
+| L4-MOB-09 | P0 | 记录 | 切换四筛选 | 列表只显示目标状态 |
+| L4-MOB-10 | P0 | 记录 | 展开第5人 | 显示完成注册20、阶梯5/50、合计70 |
+| L4-MOB-11 | P1 | 记录 | 下拉刷新、触底 | 数据不重复，分页稳定 |
+| L4-MOB-12 | P0 | 规则 | 点击活动说明 | 加载 PRD-06 当前 H5 版本 |
+| L4-MOB-13 | P1 | 规则 | 当前失败、有缓存 | 显示最近成功版本弱提示和正文 |
+| L4-MOB-14 | P1 | 规则 | 当前失败、无缓存 | 显示不可用、重试、返回，不显示伪造规则 |
+| L4-MOB-15 | P1 | 三页 | 375×812 | 无横向滚动、安全区遮挡 |
+| L4-MOB-16 | P1 | 三页 | 414×896 | 布局自适应，无裁切 |
 
-## 8. 补充用例（来自审查报告）
+派生文件：`frontend/e2e-tests/tests/promotion.spec.ts`。小程序 H5 场景可放同文件独立 describe，或拆为 `promotion-miniapp.spec.ts`。
 
-> 暂无。后续 Code Review 发现 Critical/Warning 后，将追加到本章节。
+## 8. 前端手动与视觉验收
 
-| 用例ID | 来源 | 审查级别 | 场景 | 期望结果 |
-|--------|------|----------|------|----------|
+### 8.1 邀请首页高保真
+
+| 用例ID | 优先级 | 检查点 | 期望 |
+|---|---|---|---|
+| UI-HOME-01 | P0 | 基线 | 对照 674×1510 已确认 UI 基线 |
+| UI-HOME-02 | P0 | 页面层级 | 紫色主视觉 + 注册奖励 + 进度 + 最近记录 + 规则摘要 |
+| UI-HOME-03 | P1 | 背景/hero | 渐变色与层次接近 token，无明显色偏 |
+| UI-HOME-04 | P1 | 白卡 | 17px圆角、3px浅紫边、紫色阴影、13px侧距、14px卡间距 |
+| UI-HOME-05 | P0 | 主按钮 | 48px高、10px圆角、紫色渐变、真实可点击区域 |
+| UI-HOME-06 | P1 | 奖励等式 | 三段布局和动态金额不换行错位 |
+| UI-HOME-07 | P1 | 进度 | 任意档位数量轨道可用，达成/未达区分清晰 |
+| UI-HOME-08 | P1 | 最近记录 | 头像40px、文本基线、奖励右对齐 |
+| UI-HOME-09 | P0 | 禁止实现 | 无整页背景承载文字/按钮，无透明热区 |
+| UI-HOME-10 | P0 | 禁止内容 | 无普通二维码、邀请码、保存、用途区 |
+| UI-HOME-11 | P1 | 视口 | 375×812、414×896截图无溢出 |
+| UI-HOME-12 | P1 | 素材缺口 | 人物插画为纯装饰，不含稿内边框/文字/控件 |
+
+### 8.2 管理后台结构与可用性
+
+| 用例ID | 优先级 | 检查点 | 期望 |
+|---|---|---|---|
+| UI-ADM-01 | P0 | 生产外壳 | 使用 AdminLayout 蓝白体系，不复制 Demo 控制台外壳 |
+| UI-ADM-02 | P0 | 页面数量 | 5菜单、2抽屉、1二维码弹窗 |
+| UI-ADM-03 | P1 | 规则页 | 两Tab、固定开启、Tooltip、档位编辑器和发布确认 |
+| UI-ADM-04 | P1 | 关系列表 | 7列顺序与 Demo/页面规格一致 |
+| UI-ADM-05 | P1 | 奖励列表 | 9列、三态、动态阶梯名、failed重试 |
+| UI-ADM-06 | P1 | 代理列表 | 10列、状态按钮、详情/二维码 |
+| UI-ADM-07 | P1 | 结算列表 | 9列、只有确定结算操作 |
+| UI-ADM-08 | P1 | 抽屉 | Esc/遮罩/关闭按钮/焦点/滚动锁正常 |
+| UI-ADM-09 | P1 | 反馈 | 所有写操作有 loading、成功 Toast、失败反馈 |
+| UI-ADM-10 | P1 | 响应式 | 1440×900与1280×800截图无根级溢出 |
+
+手动验收表在执行后复制到测试报告并填写实际结果，不在本测试设计中预填“通过”。
+
+## 9. 非功能与安全
+
+| 用例ID | 优先级 | 场景 | 期望 |
+|---|---|---|---|
+| NF-P1-01 | P1 | 首页聚合 P95 | 测试数据规模下 <500ms |
+| NF-P1-02 | P1 | 列表 P95 | <500ms；详情 <300ms |
+| NF-P1-03 | P1 | N+1 | 列表 SQL 次数不随行数线性增长 |
+| NF-P1-04 | P1 | 多实例任务抢占 | 同事件/结算只处理一次 |
+| NF-P1-05 | P1 | 日志安全 | 无密码、Token、完整手机号、支付原文 |
+| NF-P2-06 | P2 | XSS | 名称/备注/H5快照恶意标签被安全处理 |
+| NF-P2-07 | P2 | CSV注入 | 导出危险首字符转义 |
+| NF-P2-08 | P2 | 分页上限 | size>100 拒绝或收敛为100 |
+| NF-P2-09 | P2 | 时区 | 系统时区变化不影响北京时间自然月 |
+| NF-P2-10 | P2 | 可恢复性 | 任务失败原因、次数和下次时间可追踪 |
+
+## 10. 执行命令与产物
+
+| 层级 | 计划产物 | 执行方式 |
+|---|---|---|
+| L1 | `docs/测试文档/推广裂变-test-l1.sh` | 从本文件 §4 派生；运行时从安全环境读取地址、Token/登录凭据 |
+| L2/L3 | `backend/src/test/java/com/spacetime/**/Promotion*Test.java` | 指定 JDK 22 执行 Maven |
+| L4 | `frontend/e2e-tests/tests/promotion.spec.ts` | 系统 Chrome + 页面真实登录 |
+| 小程序静态门禁 | `miniapp/scripts/validate-promotion-ui.mjs` | build 后检查页面注册、文案和禁止实现 |
+| 测试报告 | `docs/测试文档/推广裂变-testreport.md` | 汇总真实命令、通过/失败/跳过和截图证据 |
+
+后端统一命令：
+
+```bash
+cd backend
+JAVA_HOME=/Users/peter/Library/Java/JavaVirtualMachines/openjdk-22/Contents/Home mvn test
+```
+
+前端与小程序构建：
+
+```bash
+cd frontend && npm run build
+cd miniapp && npm run build:h5
+cd miniapp && npm run build:weapp:dev
+```
+
+## 11. 通过门禁
+
+只有同时满足以下条件，测试报告才可判定“通过”：
+
+1. 所有 P0 用例通过且无跳过。
+2. P1 无失败；仅真实微信/支付外部环境可登记明确阻塞，且内部链路替代验证通过。
+3. 后端 Maven、前端 build、小程序 H5/微信构建全部通过。
+4. peter 账号页面真实登录成功，后台五页写操作与刷新回显通过。
+5. 注册基础奖励有真实余额和资产流水证据；阶梯有两条独立流水证据。
+6. 自动/人工重试、代理停用、自然月结算和并发幂等均有执行证据。
+7. 邀请首页与最新浏览器截图完成至少 5 个视觉点比对，无可修复的明显差异。
+8. 旧冻结、素材、独立详情、paid、客户端 bind 路由和菜单均不可达。

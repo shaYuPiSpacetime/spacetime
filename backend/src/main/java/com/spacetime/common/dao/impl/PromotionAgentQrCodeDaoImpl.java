@@ -22,8 +22,15 @@ public class PromotionAgentQrCodeDaoImpl implements PromotionAgentQrCodeDao {
     }
 
     @Override
-    public PromotionAgentQrCode selectByQrCode(String qrCode) {
-        return mapper.selectOne(new LambdaQueryWrapper<PromotionAgentQrCode>().eq(PromotionAgentQrCode::getQrCode, qrCode));
+    public PromotionAgentQrCode selectByQrToken(String qrToken) {
+        return mapper.selectOne(new LambdaQueryWrapper<PromotionAgentQrCode>()
+                .eq(PromotionAgentQrCode::getQrToken, qrToken));
+    }
+
+    @Override
+    public PromotionAgentQrCode selectByAgentId(Long agentId) {
+        return mapper.selectOne(new LambdaQueryWrapper<PromotionAgentQrCode>()
+                .eq(PromotionAgentQrCode::getAgentId, agentId));
     }
 
     @Override

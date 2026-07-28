@@ -231,7 +231,12 @@ export function useProfile(): UseProfileReturn {
 
   /** 跳转邀请好友页 */
   const goToInvite = useCallback(() => {
-    Taro.showToast({ title: '邀请好友功能即将开放', icon: 'none' });
+    const auth = useAuthStore.getState()
+    if (!auth.isLoggedIn) {
+      Taro.navigateTo({ url: '/pages/login/index' })
+      return
+    }
+    Taro.navigateTo({ url: '/pages/promotion/invite-home' })
   }, []);
 
   /** 跳转我的动态页 */

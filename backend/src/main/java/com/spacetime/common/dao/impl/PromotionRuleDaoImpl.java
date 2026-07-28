@@ -22,6 +22,13 @@ public class PromotionRuleDaoImpl implements PromotionRuleDao {
     }
 
     @Override
+    public PromotionRule selectBySourceTypeAndVersion(String sourceType, Integer versionNo) {
+        return mapper.selectOne(new LambdaQueryWrapper<PromotionRule>()
+                .eq(PromotionRule::getSourceType, sourceType)
+                .eq(PromotionRule::getVersionNo, versionNo));
+    }
+
+    @Override
     public Page<PromotionRule> selectPage(Page<PromotionRule> page, LambdaQueryWrapper<PromotionRule> wrapper) {
         return mapper.selectPage(page, wrapper);
     }
@@ -32,8 +39,8 @@ public class PromotionRuleDaoImpl implements PromotionRuleDao {
     }
 
     @Override
-    public void updateById(PromotionRule entity) {
-        mapper.updateById(entity);
+    public int updateById(PromotionRule entity) {
+        return mapper.updateById(entity);
     }
 
     @Override

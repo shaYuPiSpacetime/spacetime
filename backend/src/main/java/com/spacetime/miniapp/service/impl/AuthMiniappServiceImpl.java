@@ -7,14 +7,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.constant.AuthConstant;
 import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.RegisterSourceEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.request.WechatLoginReq;
@@ -36,6 +39,9 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.UUID;
+import java.util.List;
+import java.math.BigDecimal;
+import com.spacetime.common.enums.VipStatusEnum;
 
 /**
  * 小程序登录服务实现。
@@ -63,6 +69,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private final SmsCodeProvider smsCodeProvider;
     private final Prd01FieldConfigResolver fieldConfigResolver;
     private final Prd01AccessEvaluator accessEvaluator;
+    private final UserAssetDao userAssetDao;
+    private final PromotionEventInboxService promotionEventInboxService;
 
     /** 微信授权手机号登录。 */
     @Override
@@ -76,7 +84,9 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         }
         WechatMiniappClient.PhoneInfo phoneInfo = wechatMiniappClient.getPhoneNumber(req.getPhoneCode());
         String phone = normalizePhone(phoneInfo);
-        LoginTarget target = loginByOpenId(session.openid(), RegisterSourceEnum.WECHAT.getCode(), phone, session.unionid());
+        LoginTarget target = loginByOpenId(
+                session.openid(), RegisterSourceEnum.WECHAT.getCode(), phone, session.unionid(),
+                req.getPromotionTraceNos());
         return buildLoginVO(target.user(), target.isNew());
     }
 
@@ -130,7 +140,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         }
         redisTemplate.delete(codeKey);
         String openId = "phone_" + phone;
-        LoginTarget target = loginByOpenId(openId, RegisterSourceEnum.PHONE.getCode(), phone, null);
+        LoginTarget target = loginByOpenId(
+                openId, RegisterSourceEnum.PHONE.getCode(), phone, null, req.getPromotionTraceNos());
         return buildLoginVO(target.user(), target.isNew());
     }
 
@@ -139,11 +150,16 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
      *
      * 手机号登录复用 openId 字段保存 phone_手机号；本期不在登录时生成认证审核记录。
      */
-    private LoginTarget loginByOpenId(String openId, String registerSource, String boundPhone, String unionid) {
+    private LoginTarget loginByOpenId(String openId,
+                                      String registerSource,
+                                      String boundPhone,
+                                      String unionid,
+                                      List<String> promotionTraceNos) {
         AppUser user = appUserDao.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getOpenid, openId));
         boolean isNew = user == null;
         if (isNew) {
-            LoginTarget created = createNewUser(openId, registerSource, boundPhone, unionid);
+            LoginTarget created = createNewUser(
+                    openId, registerSource, boundPhone, unionid, promotionTraceNos);
             user = created.user();
         } else {
             checkAccountStatus(user);
@@ -161,7 +177,11 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     }
 
     /** 创建用户；认证记录按用户后续真实提交生成，不在登录时默认落库。 */
-    private LoginTarget createNewUser(String openId, String registerSource, String boundPhone, String unionid) {
+    private LoginTarget createNewUser(String openId,
+                                      String registerSource,
+                                      String boundPhone,
+                                      String unionid,
+                                      List<String> promotionTraceNos) {
         AppUser user = new AppUser();
         user.setOpenid(openId);
         user.setUnionid(unionid);
@@ -176,6 +196,14 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         user.setFirstLoginCompleted(0);
         user.setFirstLoginNextStep(fieldConfigResolver.nextVisibleStep(1));
         appUserDao.insert(user);
+        UserAsset asset = new UserAsset();
+        asset.setUserId(user.getId());
+        asset.setVipStatus(VipStatusEnum.INACTIVE.getCode());
+        asset.setCoinBalance(0);
+        asset.setTodayFreeWhisperRemain(0);
+        asset.setTotalRecharge(BigDecimal.ZERO);
+        userAssetDao.insert(asset);
+        promotionEventInboxService.enqueueRegister(user.getId(), promotionTraceNos);
         return new LoginTarget(user, true);
     }
 

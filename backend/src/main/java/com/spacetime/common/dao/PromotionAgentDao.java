@@ -8,7 +8,8 @@ import com.spacetime.common.entity.PromotionAgent;
  */
 public interface PromotionAgentDao {
     PromotionAgent selectById(Long id);
+    PromotionAgent selectByAgentNo(String agentNo);
     Page<PromotionAgent> selectPage(Page<PromotionAgent> page, com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PromotionAgent> wrapper);
     void insert(PromotionAgent entity);
-    void updateById(PromotionAgent entity);
+    int updateById(PromotionAgent entity);
 }

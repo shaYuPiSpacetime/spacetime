@@ -7,8 +7,6 @@ import lombok.Data;
  */
 @Data
 public class InviteSourceTraceVO {
-    private Long id;
     private String traceNo;
     private String sourceType;
-    private String bindStatus;
 }

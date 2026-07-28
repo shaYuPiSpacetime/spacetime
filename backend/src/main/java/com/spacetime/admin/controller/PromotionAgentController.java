@@ -4,77 +4,78 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.PromotionAgentPageReq;
 import com.spacetime.admin.dto.request.PromotionAgentSaveReq;
 import com.spacetime.admin.dto.request.PromotionStatusUpdateReq;
+import com.spacetime.admin.dto.response.PromotionAgentItemVO;
 import com.spacetime.admin.dto.response.PromotionAgentQrCodeVO;
-import com.spacetime.admin.dto.response.PromotionAgentVO;
-import com.spacetime.admin.service.PromotionAgentAdminService;
+import com.spacetime.admin.dto.response.PromotionExportTaskVO;
+import com.spacetime.admin.service.PromotionAdminService;
 import com.spacetime.common.annotation.RequirePermission;
-import com.spacetime.common.entity.PromotionAgentEvent;
 import com.spacetime.common.result.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
 /**
- * 校园代理后台控制器
+ * 校园推广员后台接口。
  */
 @RestController
 @RequestMapping("/admin/promotion/agents")
 @RequiredArgsConstructor
 public class PromotionAgentController {
-    private final PromotionAgentAdminService promotionAgentAdminService;
+    private final PromotionAdminService service;
 
-    /** 分页查询代理 */
     @GetMapping("/list")
-    @RequirePermission("promotion:agent:list")
-    public R<Page<PromotionAgentVO>> list(@Valid PromotionAgentPageReq req) {
-        return R.ok(promotionAgentAdminService.list(req));
+    @RequirePermission("promotion:agent:view")
+    public R<Page<PromotionAgentItemVO>> list(@Valid PromotionAgentPageReq req) {
+        return R.ok(service.agents(req));
     }
 
-    /** 查询代理详情 */
-    @GetMapping("/{id}")
-    @RequirePermission("promotion:agent:list")
-    public R<PromotionAgentVO> detail(@PathVariable Long id) {
-        return R.ok(promotionAgentAdminService.detail(id));
-    }
-
-    /** 新增代理 */
     @PostMapping
-    @RequirePermission("promotion:agent:add")
-    public R<Long> create(@Valid @RequestBody PromotionAgentSaveReq req) {
-        return R.ok(promotionAgentAdminService.create(req));
-    }
-
-    /** 编辑代理 */
-    @PutMapping("/{id}")
     @RequirePermission("promotion:agent:edit")
-    public R<Void> update(@PathVariable Long id, @Valid @RequestBody PromotionAgentSaveReq req) {
-        promotionAgentAdminService.update(id, req);
-        return R.ok();
+    public R<PromotionAgentItemVO> create(@Valid @RequestBody PromotionAgentSaveReq req) {
+        return R.ok(service.createAgent(req));
     }
 
-    /** 更新代理状态 */
-    @PutMapping("/{id}/status")
+    @PutMapping("/{agentNo}")
     @RequirePermission("promotion:agent:edit")
-    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody PromotionStatusUpdateReq req) {
-        promotionAgentAdminService.updateStatus(id, req.getStatus());
-        return R.ok();
+    public R<PromotionAgentItemVO> update(@PathVariable String agentNo,
+                                          @Valid @RequestBody PromotionAgentSaveReq req) {
+        return R.ok(service.updateAgent(agentNo, req));
     }
 
-    /** 生成或重生成校园代理二维码 */
-    @PostMapping("/{id}/qr-codes/regenerate")
-    @RequirePermission("promotion:agent:code")
-    public R<PromotionAgentQrCodeVO> regenerateCode(@PathVariable Long id) {
-        return R.ok(promotionAgentAdminService.regenerateCode(id));
+    @PutMapping("/{agentNo}/status")
+    @RequirePermission("promotion:agent:edit")
+    public R<PromotionAgentItemVO> status(@PathVariable String agentNo,
+                                          @Valid @RequestBody PromotionStatusUpdateReq req) {
+        return R.ok(service.updateAgentStatus(agentNo, req.getStatus()));
     }
 
-    /** 查询代理推广事件 */
-    @GetMapping("/{id}/events")
-    @RequirePermission("promotion:agent:list")
-    public R<Page<PromotionAgentEvent>> events(@PathVariable Long id,
-                                               @RequestParam(defaultValue = "1") int page,
-                                               @RequestParam(defaultValue = "20") int size,
-                                               @RequestParam(required = false) String eventType) {
-        return R.ok(promotionAgentAdminService.events(id, page, size, eventType));
+    @GetMapping("/{agentNo}")
+    @RequirePermission("promotion:agent:view")
+    public R<PromotionAgentItemVO> detail(@PathVariable String agentNo) {
+        return R.ok(service.agentDetail(agentNo));
+    }
+
+    @PostMapping("/{agentNo}/qr-code")
+    @RequirePermission("promotion:agent:qrcode")
+    public R<PromotionAgentQrCodeVO> qrCode(@PathVariable String agentNo) {
+        return R.ok(service.getOrCreateAgentQrCode(agentNo));
+    }
+
+    @GetMapping(value = "/{agentNo}/qr-code/image", produces = MediaType.IMAGE_PNG_VALUE)
+    @RequirePermission("promotion:agent:qrcode")
+    public ResponseEntity<byte[]> qrCodeImage(@PathVariable String agentNo) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .contentType(MediaType.IMAGE_PNG)
+                .body(service.agentQrCodePng(agentNo));
+    }
+
+    @PostMapping("/export")
+    @RequirePermission("promotion:agent:export")
+    public R<PromotionExportTaskVO> export(@Valid @RequestBody PromotionAgentPageReq req) {
+        return R.ok(service.exportAgents(req));
     }
 }

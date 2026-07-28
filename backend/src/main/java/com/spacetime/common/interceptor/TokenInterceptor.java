@@ -36,6 +36,10 @@ public class TokenInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // CORS 预检请求本身不携带业务 Token，应交由 Spring CORS 配置直接响应。
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
         // 1. 获取请求头中的 token
         String token = request.getHeader(AuthConstant.TOKEN_HEADER);
         if (StrUtil.isBlank(token)) {

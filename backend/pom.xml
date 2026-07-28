@@ -81,6 +81,24 @@
             <version>3.18.1</version>
         </dependency>
 
+        <!-- 后端确定性生成校园推广员永久二维码，避免本地验收依赖 OSS -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+        <!-- H5 富文本采用显式 safelist 清洗，禁止脚本、危险标签与 javascript 协议 -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.18.3</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

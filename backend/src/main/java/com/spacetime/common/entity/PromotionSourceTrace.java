@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
+
 /**
  * 推广来源追踪表
  */
@@ -17,22 +19,12 @@ public class PromotionSourceTrace extends BaseEntity {
     private String sourceType;
     /** 普通邀请人ID */
     private Long inviterId;
-    /** 普通邀请码 */
-    private String inviteCode;
     /** 代理ID */
     private Long agentId;
-    /** 校园代理二维码编号 */
-    private String qrCode;
-    /** 已登录用户ID */
-    private Long visitorUserId;
-    /** 注册后绑定用户ID */
-    private Long inviteeUserId;
-    /** 小程序 scene */
-    private String scene;
-    /** 设备指纹 */
-    private String deviceHash;
-    /** IP */
-    private String ip;
-    /** 绑定状态 */
-    private String bindStatus;
+    /** 代理永久二维码令牌 */
+    private String qrToken;
+    /** 请求幂等键；visitorKey 为空时不生成 */
+    private String requestKey;
+    /** 本次归因来源被客户端记录的时间 */
+    private LocalDateTime tracedAt;
 }

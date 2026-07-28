@@ -7,7 +7,8 @@ public enum FlowTypeEnum {
     RECHARGE("recharge"),
     CONSUME("consume"),
     GIFT("gift"),
-    REFUND("refund");
+    REFUND("refund"),
+    REWARD("reward");
 
     private final String code;
 

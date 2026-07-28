@@ -82,6 +82,10 @@ export default function NativeNavigation({
   titleFontWeight = 600,
 }: NativeNavigationProps) {
   const metrics = getNativeNavigationMetrics()
+  const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
+  const styleUnit = isWeapp ? 'rpx' : 'px'
+  const styleMetric = (value: number) => (isWeapp ? value : value / 2)
+  const metricValue = (value: number) => `${styleMetric(value)}${styleUnit}`
   const handleBack = () => {
     if (onBack) {
       onBack()
@@ -102,8 +106,8 @@ export default function NativeNavigation({
         position: overlay ? 'absolute' : 'relative',
         left: 0,
         top: 0,
-        width: '750rpx',
-        height: `${metrics.navigationHeight}rpx`,
+        width: isWeapp ? metricValue(750) : '100%',
+        height: metricValue(metrics.navigationHeight),
         background,
         boxSizing: 'border-box',
         flexShrink: 0,
@@ -118,10 +122,10 @@ export default function NativeNavigation({
           style={{
             position: 'absolute',
             left: 0,
-            top: `${Math.max(0, metrics.menuTop - 20)}rpx`,
-            width: '112rpx',
-            height: `${metrics.menuHeight + 40}rpx`,
-            paddingLeft: '28rpx',
+            top: metricValue(Math.max(0, metrics.menuTop - 20)),
+            width: metricValue(112),
+            height: metricValue(metrics.menuHeight + 40),
+            paddingLeft: metricValue(28),
             display: 'flex',
             alignItems: 'center',
             boxSizing: 'border-box',
@@ -136,12 +140,12 @@ export default function NativeNavigation({
           style={{
             position: 'absolute',
             left: 0,
-            top: `${metrics.titleTop}rpx`,
-            width: '750rpx',
+            top: metricValue(metrics.titleTop),
+            width: isWeapp ? metricValue(750) : '100%',
             color: titleColor,
-            fontSize: `${titleFontSize}rpx`,
+            fontSize: metricValue(titleFontSize),
             fontWeight: titleFontWeight,
-            lineHeight: '45rpx',
+            lineHeight: metricValue(45),
             textAlign: 'center',
           }}
         >

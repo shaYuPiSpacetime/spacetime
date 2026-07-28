@@ -16,6 +16,8 @@ public class PromotionAgentPageReq extends PageReq {
     private String agentNo;
     /** 学校 */
     private String school;
+    /** 校区 */
+    private String campus;
     /** 状态 */
     private String status;
 }

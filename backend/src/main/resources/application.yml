@@ -10,3 +10,8 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
     default-property-inclusion: non_null
+
+promotion:
+  share:
+    # Taro H5 部署基址；生产使用 HTTPS，服务端会拼接 #/pages/promotion/invite-home。
+    h5-base-url: ${PROMOTION_SHARE_H5_BASE_URL:}

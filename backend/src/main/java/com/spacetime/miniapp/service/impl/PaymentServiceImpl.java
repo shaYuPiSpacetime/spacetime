@@ -24,6 +24,8 @@ import com.spacetime.common.enums.OrderStatusEnum;
 import com.spacetime.common.enums.OrderTypeEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.PromotionEventInboxService;
+import com.spacetime.common.enums.PromotionRewardEventEnum;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
 import com.spacetime.miniapp.dto.response.CreateOrderVO;
 import com.spacetime.miniapp.dto.response.PayResultVO;
@@ -64,6 +66,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final WechatPayService wechatPayService;
     /** 微信支付配置，用于测试环境覆盖网关扣款金额 */
     private final WechatPayProperties wechatPayProperties;
+    /** 推广事实事件收件箱 */
+    private final PromotionEventInboxService promotionEventInboxService;
 
     /**
      * 创建支付订单（VIP套餐或成家币套餐购买）
@@ -271,11 +275,24 @@ public class PaymentServiceImpl implements PaymentService {
     private void applySuccessfulPayment(TradeOrder order, LocalDateTime now) {
         if (OrderTypeEnum.VIP.getCode().equals(order.getOrderType())) {
             processVipPayment(order, now);
+            enqueuePromotionPaymentEvent(
+                    "first-vip:" + order.getUserId(),
+                    PromotionRewardEventEnum.FIRST_VIP_REWARD.getCode(),
+                    order);
         } else if (OrderTypeEnum.COIN.getCode().equals(order.getOrderType())) {
             processCoinPayment(order, now);
+            enqueuePromotionPaymentEvent(
+                    "first-coin:" + order.getUserId(),
+                    PromotionRewardEventEnum.FIRST_COIN_RECHARGE_REWARD.getCode(),
+                    order);
         } else {
             throw new BusinessException("不支持的订单类型");
         }
+    }
+
+    private void enqueuePromotionPaymentEvent(String eventKey, String eventType, TradeOrder order) {
+        promotionEventInboxService.enqueueBusinessEvent(
+                eventKey, eventType, order.getUserId(), order.getOrderNo());
     }
 
     /**

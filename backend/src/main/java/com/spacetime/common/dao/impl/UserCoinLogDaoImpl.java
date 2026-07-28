@@ -23,6 +23,12 @@ public class UserCoinLogDaoImpl implements UserCoinLogDao {
     }
 
     @Override
+    public UserCoinLog selectByBizIdempotencyKey(String bizIdempotencyKey) {
+        return mapper.selectOne(new LambdaQueryWrapper<UserCoinLog>()
+                .eq(UserCoinLog::getBizIdempotencyKey, bizIdempotencyKey));
+    }
+
+    @Override
     public Page<UserCoinLog> selectPage(Page<UserCoinLog> page, LambdaQueryWrapper<UserCoinLog> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

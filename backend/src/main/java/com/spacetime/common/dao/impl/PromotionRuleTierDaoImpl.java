@@ -17,6 +17,13 @@ public class PromotionRuleTierDaoImpl implements PromotionRuleTierDao {
     private final PromotionRuleTierMapper mapper;
 
     @Override
+    public java.util.List<PromotionRuleTier> selectByRuleId(Long ruleId) {
+        return mapper.selectList(new LambdaQueryWrapper<PromotionRuleTier>()
+                .eq(PromotionRuleTier::getRuleId, ruleId)
+                .orderByAsc(PromotionRuleTier::getThresholdCount));
+    }
+
+    @Override
     public Page<PromotionRuleTier> selectPage(Page<PromotionRuleTier> page, LambdaQueryWrapper<PromotionRuleTier> wrapper) {
         return mapper.selectPage(page, wrapper);
     }
@@ -26,8 +33,4 @@ public class PromotionRuleTierDaoImpl implements PromotionRuleTierDao {
         mapper.insert(entity);
     }
 
-    @Override
-    public void deleteByRuleId(Long ruleId) {
-        mapper.delete(new LambdaQueryWrapper<PromotionRuleTier>().eq(PromotionRuleTier::getRuleId, ruleId));
-    }
 }

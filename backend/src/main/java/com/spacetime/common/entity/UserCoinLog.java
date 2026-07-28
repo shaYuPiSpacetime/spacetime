@@ -31,4 +31,6 @@ public class UserCoinLog extends BaseEntity {
     private Long refId;
     /** 关联业务类型 */
     private String refType;
+    /** 业务幂等键 */
+    private String bizIdempotencyKey;
 }

@@ -15,14 +15,10 @@ import java.math.BigDecimal;
 public class PromotionRuleTier extends BaseEntity {
     /** 规则ID */
     private Long ruleId;
-    /** 阶梯最小成功邀请数 */
-    private Integer minCount;
-    /** 阶梯最大成功邀请数 */
-    private Integer maxCount;
-    /** 单人成家币奖励 */
-    private BigDecimal rewardAmount;
-    /** 状态 */
-    private String status;
-    /** 备注 */
-    private String remark;
+    /** 精确命中的累计成功邀请人数 */
+    private Integer thresholdCount;
+    /** 额外奖励金额 */
+    private BigDecimal amount;
+    /** 是否启用 */
+    private Boolean enabled;
 }
