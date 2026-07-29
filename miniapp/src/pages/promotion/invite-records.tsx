@@ -1,35 +1,67 @@
 import { Button, Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
-import { getInviteRecords } from '@/services/promotion'
-import type { InviteRecordVO, InviteRewardStatus } from '@/types/promotion'
+import { getInviteHome, getInviteRecords } from '@/services/promotion'
+import type { InviteHomeVO, InviteRecordVO } from '@/types/promotion'
 import './invite-records.scss'
-
-type RecordFilter = 'all' | InviteRewardStatus
-
-const FILTERS: Array<{ value: RecordFilter; label: string }> = [
-  { value: 'all', label: '全部' },
-  { value: 'pending', label: '待发放' },
-  { value: 'success', label: '已发放' },
-  { value: 'failed', label: '发放失败' },
-]
 
 const PAGE_SIZE = 20
 
-function statusLabel(status: InviteRewardStatus) {
-  return FILTERS.find(item => item.value === status)?.label || '待发放'
+interface RecordTimelineItem {
+  key: string
+  kind: 'invite' | 'gift'
+  title: string
+  subtitle: string
+  amount: number
+  avatarUrl?: string
 }
 
-function eventLabel(item: InviteRecordVO['rewardItems'][number]) {
+function formatTimelineTime(value: string) {
+  if (!value) return ''
+  return value.replace(/^\d{4}-/, '').replace('T', ' ').slice(0, 11)
+}
+
+function inviteeName(record: InviteRecordVO) {
+  return record.invitee.nickname || record.invitee.mobileMasked || record.invitee.userNo || '邀请好友'
+}
+
+function eventSubtitle(item: InviteRecordVO['rewardItems'][number]) {
   if (item.eventType === 'ladder_bonus' && item.ladderThreshold) {
-    return `阶梯奖励-累计${item.ladderThreshold}人`
+    return `完成${item.ladderThreshold}人邀请奖励`
   }
+  if (item.eventType === 'register_reward') return '注册成功'
   return item.eventLabel || '邀请奖励'
 }
 
+export function toTimelineItems(records: InviteRecordVO[]): RecordTimelineItem[] {
+  return records.flatMap(record => {
+    if (!record.rewardItems.length) {
+      return [{
+        key: `${record.relationNo}:relation`,
+        kind: 'invite' as const,
+        title: inviteeName(record),
+        subtitle: `${formatTimelineTime(record.registeredAt)}  注册成功`,
+        amount: record.paidTotal,
+        avatarUrl: record.invitee.avatarUrl,
+      }]
+    }
+
+    return record.rewardItems.map(item => {
+      const isInvite = item.eventType === 'register_reward'
+      return {
+        key: `${record.relationNo}:${item.rewardNo}`,
+        kind: isInvite ? 'invite' as const : 'gift' as const,
+        title: isInvite ? inviteeName(record) : item.eventLabel || '额外奖励',
+        subtitle: `${formatTimelineTime(item.createdAt || record.registeredAt)}  ${eventSubtitle(item)}`,
+        amount: item.amount,
+        avatarUrl: isInvite ? record.invitee.avatarUrl : undefined,
+      }
+    })
+  })
+}
+
 export default function InviteRecordsPage() {
-  const [filter, setFilter] = useState<RecordFilter>('all')
+  const [summary, setSummary] = useState<InviteHomeVO>()
   const [records, setRecords] = useState<InviteRecordVO[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -38,12 +70,10 @@ export default function InviteRecordsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [failedPage, setFailedPage] = useState<number>()
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const requestSequence = useRef(0)
 
   const load = useCallback(async (
     nextPage: number,
-    nextFilter: RecordFilter,
     mode: 'initial' | 'refresh' | 'more',
   ) => {
     const requestId = ++requestSequence.current
@@ -53,18 +83,18 @@ export default function InviteRecordsPage() {
     if (mode !== 'more') setError('')
 
     try {
-      const result = await getInviteRecords(
-        nextPage,
-        PAGE_SIZE,
-        nextFilter === 'all' ? undefined : nextFilter,
-      )
+      const [recordResult, homeResult] = await Promise.all([
+        getInviteRecords(nextPage, PAGE_SIZE),
+        getInviteHome(),
+      ])
       if (requestId !== requestSequence.current) return
-      const nextRecords = result.records || []
+      const nextRecords = recordResult.records || []
+      setSummary(homeResult)
       setError('')
       setFailedPage(undefined)
       setRecords(current => mode === 'more' ? [...current, ...nextRecords] : nextRecords)
-      setPage(Number(result.current || nextPage))
-      setTotal(Number(result.total || 0))
+      setPage(Number(recordResult.current || nextPage))
+      setTotal(Number(recordResult.total || 0))
     } catch (reason) {
       if (requestId !== requestSequence.current) return
       setError(reason instanceof Error ? reason.message : '邀请记录加载失败，请稍后重试')
@@ -79,50 +109,50 @@ export default function InviteRecordsPage() {
   }, [])
 
   useEffect(() => {
-    void load(1, filter, 'initial')
-  }, [filter, load])
-
-  const changeFilter = (nextFilter: RecordFilter) => {
-    if (nextFilter === filter) return
-    setExpanded(new Set())
-    setFilter(nextFilter)
-  }
+    void load(1, 'initial')
+  }, [load])
 
   const refresh = () => {
-    void load(1, filter, 'refresh')
+    void load(1, 'refresh')
   }
 
   const loadMore = () => {
     if (loading || loadingMore || records.length >= total) return
-    void load(page + 1, filter, 'more')
+    void load(page + 1, 'more')
   }
 
-  const toggleExpanded = (relationNo: string) => {
-    setExpanded(current => {
-      const next = new Set(current)
-      if (next.has(relationNo)) next.delete(relationNo)
-      else next.add(relationNo)
-      return next
-    })
-  }
+  const timelineItems = useMemo(() => toTimelineItems(records), [records])
 
   return (
     <View className="promotion-records-page">
-      <NativeNavigation
-        title="邀请记录"
-        showBack
-        fallbackUrl="/pages/promotion/invite-home"
-      />
-      <View className="promotion-record-tabs">
-        {FILTERS.map(item => (
-          <Button
-            key={item.value}
-            className={`promotion-record-tab${filter === item.value ? ' is-active' : ''}`}
-            onClick={() => changeFilter(item.value)}
-          >
-            {item.label}
-          </Button>
-        ))}
+      <View className="promotion-records-hero">
+        <NativeNavigation
+          title="邀请记录"
+          titleColor="#ffffff"
+          background="transparent"
+          showBack
+          fallbackUrl="/pages/promotion/invite-home"
+          overlay
+        />
+        <View className="promotion-records-summary">
+          <View className="promotion-records-summary__surface">
+            <View className="promotion-records-summary__item">
+              <Text>累计邀请成功</Text>
+              <Text className="promotion-records-summary__number">
+                {summary?.successCount ?? 0}
+              </Text>
+              <Text>人</Text>
+            </View>
+            <View className="promotion-records-summary__divider" />
+            <View className="promotion-records-summary__item">
+              <Text>累计到账</Text>
+              <Text className="promotion-records-summary__number promotion-records-summary__number--orange">
+                {summary?.paidRewardTotal ?? 0}
+              </Text>
+              <Text>币</Text>
+            </View>
+          </View>
+        </View>
       </View>
 
       <ScrollView
@@ -137,88 +167,59 @@ export default function InviteRecordsPage() {
         lowerThreshold={120}
       >
         {loading ? <RecordsSkeleton /> : null}
-        {!loading && error && !records.length ? (
+        {!loading && error && !timelineItems.length ? (
           <RecordsState
             title="邀请记录加载失败"
             description={error}
             action="重新加载"
-            onAction={() => void load(1, filter, 'initial')}
+            onAction={() => void load(failedPage || 1, 'initial')}
           />
         ) : null}
-        {!loading && !error && !records.length ? (
+        {!loading && !error && !timelineItems.length ? (
           <RecordsState
-            title="暂无该状态记录"
-            description={filter === 'all' ? '邀请好友注册后，记录会展示在这里' : '切换其他状态查看邀请进度'}
-            action="返回邀请"
-            onAction={() => void Taro.navigateBack()}
+            title="暂无邀请记录"
+            description="成功邀请好友后，注册与额外奖励会显示在这里"
+            action="刷新看看"
+            onAction={refresh}
           />
         ) : null}
-        {records.length ? (
+        {timelineItems.length ? (
           <View className="promotion-record-list">
             {error ? (
               <View className="promotion-record-inline-error">
-                <Text>{error}，已为你保留当前列表</Text>
-                <Button
-                  onClick={() => void load(
-                    failedPage && failedPage > 1 ? failedPage : 1,
-                    filter,
-                    failedPage && failedPage > 1 ? 'more' : 'refresh',
-                  )}
-                >
-                  重试
-                </Button>
+                <Text>{error}</Text>
+                <Button onClick={() => void load(failedPage || page + 1, 'more')}>重试</Button>
               </View>
             ) : null}
-            {records.map(record => {
-              const isExpanded = expanded.has(record.relationNo)
-              return (
-                <View className="promotion-record-card" key={record.relationNo}>
-                  <View className="promotion-record-main">
-                    {record.invitee.avatarUrl ? (
-                      <Image className="promotion-record-avatar" src={record.invitee.avatarUrl} mode="aspectFill" />
-                    ) : (
-                      <View className="promotion-record-avatar promotion-record-avatar--fallback">
-                        {(record.invitee.nickname || '友').slice(0, 1)}
-                      </View>
-                    )}
-                    <View className="promotion-record-user">
-                      <Text>{record.invitee.nickname || record.invitee.mobileMasked || '邀请好友'}</Text>
-                      <Text>完成注册 {record.registeredAt || '—'}</Text>
+            {timelineItems.map(item => (
+              <View className="promotion-record-item" key={item.key}>
+                {item.kind === 'invite' ? (
+                  item.avatarUrl ? (
+                    <Image
+                      className="promotion-record-item__avatar"
+                      src={item.avatarUrl}
+                      mode="aspectFill"
+                    />
+                  ) : (
+                    <View className="promotion-record-item__avatar promotion-record-item__avatar--fallback">
+                      <View className="promotion-record-item__person-head" />
+                      <View className="promotion-record-item__person-body" />
                     </View>
-                    <Text className={`promotion-record-status is-${record.rewardStatus}`}>
-                      {statusLabel(record.rewardStatus)}
-                    </Text>
+                  )
+                ) : (
+                  <View className="promotion-record-item__gift">
+                    <View className="promotion-record-item__gift-lid" />
+                    <View className="promotion-record-item__gift-box" />
+                    <View className="promotion-record-item__gift-ribbon" />
                   </View>
-                  <View className="promotion-record-summary">
-                    <Text>累计已发奖励</Text>
-                    <Text>+{record.paidTotal} 千寻币</Text>
-                  </View>
-                  <Button
-                    className="promotion-record-expand"
-                    onClick={() => toggleExpanded(record.relationNo)}
-                  >
-                    {isExpanded ? '收起奖励明细' : '查看奖励明细'}
-                    <View className={`promotion-record-chevron${isExpanded ? ' is-expanded' : ''}`} />
-                  </Button>
-                  {isExpanded ? (
-                    <View className="promotion-reward-details">
-                      {record.rewardItems.length ? record.rewardItems.map(item => (
-                        <View className="promotion-reward-detail" key={item.rewardNo}>
-                          <View>
-                            <Text>{eventLabel(item)}</Text>
-                            <Text>{item.createdAt}</Text>
-                          </View>
-                          <View>
-                            <Text>+{item.amount}</Text>
-                            <Text className={`is-${item.status}`}>{statusLabel(item.status)}</Text>
-                          </View>
-                        </View>
-                      )) : <Text className="promotion-reward-details__empty">暂无奖励明细</Text>}
-                    </View>
-                  ) : null}
+                )}
+                <View className="promotion-record-item__copy">
+                  <Text>{item.title}</Text>
+                  <Text>{item.subtitle}</Text>
                 </View>
-              )
-            })}
+                <Text className="promotion-record-item__amount">+{item.amount}</Text>
+              </View>
+            ))}
             <View className="promotion-record-footer">
               {loadingMore ? '正在加载更多…' : records.length >= total ? '已加载全部记录' : '继续上滑加载'}
             </View>
@@ -232,8 +233,8 @@ export default function InviteRecordsPage() {
 function RecordsSkeleton() {
   return (
     <View className="promotion-record-skeleton">
-      {[0, 1, 2].map(item => (
-        <View key={item}>
+      {[0, 1, 2, 3, 4].map(item => (
+        <View className="promotion-record-skeleton__row" key={item}>
           <View /><View /><View />
         </View>
       ))}
@@ -254,7 +255,10 @@ function RecordsState({
 }) {
   return (
     <View className="promotion-record-state">
-      <View className="promotion-record-state__icon">◎</View>
+      <View className="promotion-record-state__icon">
+        <View />
+        <View />
+      </View>
       <Text className="promotion-record-state__title">{title}</Text>
       <Text className="promotion-record-state__description">{description}</Text>
       <Button className="promotion-record-state__button" onClick={onAction}>{action}</Button>

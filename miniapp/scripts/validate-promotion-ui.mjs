@@ -51,14 +51,33 @@ const checks = [
     assert.match(authService, /clearPendingPromotionTraceNos\(\)/)
     assert.match(prd01Service, /promotionTraceNos/)
   }],
-  ['首页包含五个固定区块', () => {
+  ['首页包含蓝湖五个固定区块', () => {
     for (const text of ['好友同行·奖励加倍', '邀请注册得千寻币', '邀请进度', '邀请记录', '邀请规则']) {
       assert.match(home, new RegExp(text))
     }
   }],
-  ['首页阶梯与最近三条动态渲染', () => {
+  ['首页覆盖蓝湖有记录、空记录和完成阶段三态', () => {
     assert.match(home, /\.ladders\.map|ladders\.map/)
     assert.match(home, /\.recentRecords\.slice\(0,\s*3\)|recentRecords\.slice\(0,\s*3\)/)
+    assert.match(home, /recentRecords\.length/)
+    assert.match(home, /promotion-records-card--empty/)
+    assert.match(home, /promotion-records-empty__art/)
+    assert.match(home, /progressCurrent|successCount/)
+    assert.match(homeStyle, /\.promotion-records-card--empty/)
+    assert.match(homeStyle, /\.promotion-records-empty__art/)
+  }],
+  ['首页使用蓝湖独立插画与代码图标，不使用整页截图', () => {
+    assert.match(home, /inviteHero/)
+    assert.match(home, /inviteEmpty/)
+    for (const iconClass of [
+      'promotion-equation__glyph--share',
+      'promotion-equation__glyph--person',
+      'promotion-equation__glyph--coin',
+    ]) {
+      assert.match(home, new RegExp(iconClass))
+      assert.match(homeStyle, new RegExp(iconClass))
+    }
+    assert.doesNotMatch(home, /蓝湖基线|SketchCover|design\\.png/)
   }],
   ['首页支持分享降级', () => {
     assert.match(home, /useShareAppMessage/)
@@ -89,15 +108,23 @@ const checks = [
       'H5 导航容器和标题必须随 375/414 视口铺满，不能固定为 375px',
     )
   }],
-  ['记录页只提供四种奖励筛选', () => {
-    for (const text of ['全部', '待发放', '已发放', '发放失败']) {
-      assert.match(records, new RegExp(text))
-    }
+  ['邀请记录页按蓝湖展示汇总和扁平奖励流', () => {
+    assert.match(records, /getInviteHome/)
+    assert.match(records, /promotion-records-summary/)
+    assert.match(records, /flatMap|toTimelineItems/)
+    assert.match(records, /ladder_bonus/)
+    assert.match(records, /promotion-record-item__gift/)
+    assert.match(recordsStyle, /promotion-record-item__gift/)
+    assert.doesNotMatch(records, /promotion-record-tabs/)
+    assert.doesNotMatch(records, /toggleExpanded/)
     for (const forbidden of ['冻结', '无效', '风险']) {
       assert.doesNotMatch(records, new RegExp(forbidden))
     }
   }],
-  ['规则页覆盖当前、缓存和不可用三态', () => {
+  ['活动说明页匹配蓝湖标题并覆盖当前、缓存和不可用三态', () => {
+    assert.match(rules, /title="活动说明"/)
+    assert.match(rules, /活动规则说明/)
+    assert.match(rules, /className="promotion-rules-document"/)
     for (const text of ['当前内容加载失败，正在展示最近成功版本', '内容暂不可查看', '重新加载', '返回邀请首页']) {
       assert.match(rules, new RegExp(text))
     }

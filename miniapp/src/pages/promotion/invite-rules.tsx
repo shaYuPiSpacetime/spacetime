@@ -36,6 +36,15 @@ function sanitizeRichTextSnapshot(html: string) {
     .replace(/\s(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, '')
 }
 
+function normalizeRuleSnapshot(html: string) {
+  return sanitizeRichTextSnapshot(html)
+    .replace(
+      /<h[1-3][^>]*>\s*(?:活动规则说明|活动说明|邀请规则)\s*<\/h[1-3]>/i,
+      '',
+    )
+    .trim()
+}
+
 function hasRenderableContent(content?: InviteRulesH5VO) {
   return Boolean(content?.htmlSnapshot?.trim() || safeWebUrl(content))
 }
@@ -111,11 +120,7 @@ export default function InviteRulesPage() {
   if (showWebView && webUrl) {
     return (
       <View className="promotion-rules-page promotion-rules-page--web">
-        <NativeNavigation
-          title={content?.title || '邀请规则'}
-          showBack
-          onBack={backHome}
-        />
+        <NativeNavigation title="活动说明" showBack onBack={backHome} />
         {source === 'cache' ? (
           <CacheNotice version={content?.version} onRetry={loadCurrent} />
         ) : null}
@@ -126,11 +131,7 @@ export default function InviteRulesPage() {
 
   return (
     <View className="promotion-rules-page">
-      <NativeNavigation
-        title={content?.title || '邀请规则'}
-        showBack
-        onBack={backHome}
-      />
+      <NativeNavigation title="活动说明" showBack onBack={backHome} />
       {source === 'cache' && !loading ? (
         <CacheNotice version={content?.version} onRetry={loadCurrent} />
       ) : null}
@@ -138,21 +139,17 @@ export default function InviteRulesPage() {
       {loading ? (
         <View className="promotion-rules-loading">
           <View /><View /><View /><View />
-          <Text>邀请规则加载中</Text>
+          <Text>活动说明加载中</Text>
         </View>
       ) : null}
 
       {!loading && source !== 'unavailable' && content?.htmlSnapshot ? (
         <View className="promotion-rules-document">
-          <View className="promotion-rules-meta">
-            <Text>{content.title || '邀请规则'}</Text>
-            <Text>{content.version}{content.updatedAt ? ` · ${content.updatedAt}` : ''}</Text>
-          </View>
+          <Text className="promotion-rules-heading">活动规则说明</Text>
           <RichText
             className="promotion-rules-richtext"
-            nodes={sanitizeRichTextSnapshot(content.htmlSnapshot)}
+            nodes={normalizeRuleSnapshot(content.htmlSnapshot)}
           />
-          <Button className="promotion-contact-button" openType="contact">仍有疑问？联系客服</Button>
         </View>
       ) : null}
 
