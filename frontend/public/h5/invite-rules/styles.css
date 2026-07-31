@@ -1,0 +1,145 @@
+:root {
+  color: #17386e;
+  background: #ffffff;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "PingFang SC",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background: #ffffff;
+}
+
+body {
+  padding:
+    max(30px, env(safe-area-inset-top))
+    15px
+    max(28px, env(safe-area-inset-bottom));
+}
+
+button {
+  font: inherit;
+}
+
+.rules-page {
+  width: min(100%, 520px);
+  margin: 0 auto;
+}
+
+.rules-page h1 {
+  margin: 0 0 38px;
+  color: #17386e;
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+}
+
+.rules-content {
+  color: #17386e;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.82;
+  letter-spacing: 0.005em;
+  overflow-wrap: anywhere;
+}
+
+.rules-content p {
+  margin: 0 0 4px;
+}
+
+.rules-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+  color: #6e7f9c;
+  font-size: 14px;
+}
+
+.rules-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #17386e;
+  animation: rules-pulse 1.2s ease-in-out infinite;
+}
+
+.rules-error {
+  padding: 32px 12px;
+  text-align: center;
+}
+
+.rules-error h2 {
+  margin: 0 0 10px;
+  color: #17386e;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.rules-error p {
+  margin: 0;
+  color: #6e7f9c;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.rules-error button {
+  min-width: 132px;
+  min-height: 42px;
+  margin-top: 22px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #17386e;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.rules-error button:focus-visible {
+  outline: 3px solid rgb(23 56 110 / 25%);
+  outline-offset: 3px;
+}
+
+@keyframes rules-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rules-status__dot {
+    animation: none;
+  }
+}
+
+@media (min-width: 600px) {
+  body {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+}

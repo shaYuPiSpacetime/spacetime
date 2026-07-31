@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 公告与协议预置内容管理服务实现。
@@ -57,13 +58,24 @@ public class ComplianceContentAdminServiceImpl implements ComplianceContentAdmin
         Page<ContentArticle> result = contentArticleDao.selectPage(
                 new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<ComplianceContentVO> page = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
-        page.setRecords(result.getRecords().stream().map(this::toVO).toList());
+        Map<String, String> typeLabels = dictDataDao.selectByDictType("compliance_content_type")
+                .stream()
+                .collect(Collectors.toMap(
+                        item -> item.getDictValue(),
+                        item -> item.getDictLabel(),
+                        (left, right) -> left));
+        page.setRecords(result.getRecords().stream()
+                .map(article -> toVO(article, typeLabels.get(article.getContentCode())))
+                .toList());
         return page;
     }
 
     @Override
     public ComplianceContentVO detail(Long id) {
-        return toVO(requirePreinitialized(id));
+        ContentArticle article = requirePreinitialized(id);
+        com.spacetime.common.entity.SysDictData type = dictDataDao.selectEnabledByTypeAndValue(
+                "compliance_content_type", article.getContentCode());
+        return toVO(article, type == null ? null : type.getDictLabel());
     }
 
     @Override
@@ -78,6 +90,7 @@ public class ComplianceContentAdminServiceImpl implements ComplianceContentAdmin
         }
         article.setTitle(req.getTitle().trim());
         article.setContentUrl(nextUrl);
+        article.setContentBody(null);
         article.setStatus(req.getStatus());
         article.setContentType(ContentTypeEnum.H5.getCode());
         article.setEffectiveTime(LocalDateTime.now());
@@ -174,11 +187,12 @@ public class ComplianceContentAdminServiceImpl implements ComplianceContentAdmin
         }
     }
 
-    private ComplianceContentVO toVO(ContentArticle article) {
+    private ComplianceContentVO toVO(ContentArticle article, String contentTypeLabel) {
         ComplianceContentVO vo = new ComplianceContentVO();
         vo.setId(article.getId());
         vo.setContentCode(article.getContentCode());
         vo.setContentType(article.getContentCode());
+        vo.setContentTypeLabel(contentTypeLabel);
         vo.setType(article.getType());
         vo.setTitle(article.getTitle());
         vo.setVersion(article.getVersion());

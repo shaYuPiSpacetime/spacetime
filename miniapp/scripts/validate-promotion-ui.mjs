@@ -129,6 +129,12 @@ const checks = [
       assert.match(rules, new RegExp(text))
     }
     assert.match(rules, /sanitizeRichTextSnapshot/)
+    assert.match(rules, /const showWebView =[\s\S]*Boolean\(webUrl\)/)
+    assert.doesNotMatch(
+      rules,
+      /Boolean\(webUrl\)\s*&&\s*!content\?\.htmlSnapshot/,
+      '后台配置 URL 存在时必须优先打开 H5，旧正文不得继续遮蔽链接',
+    )
     assert.doesNotMatch(rules, /dangerouslySetInnerHTML|eval\(/)
   }],
 ]

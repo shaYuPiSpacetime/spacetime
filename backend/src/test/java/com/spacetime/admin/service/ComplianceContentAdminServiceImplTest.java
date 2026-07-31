@@ -48,6 +48,7 @@ class ComplianceContentAdminServiceImplTest {
     @DisplayName("替换 H5 地址时版本从 v1.9 自动升级为 v2.0")
     void update_shouldIncreaseVersionWhenUrlChanged() {
         ContentArticle article = complianceArticle("v1.9", "https://m.example.com/privacy/v1");
+        article.setContentBody("<p>旧原生正文</p>");
         when(contentArticleDao.selectById(1L)).thenReturn(article);
         when(dictDataDao.selectEnabledByTypeAndValue("common_status", "ENABLED"))
                 .thenReturn(dictStatus("ENABLED"));
@@ -58,6 +59,7 @@ class ComplianceContentAdminServiceImplTest {
         verify(contentArticleDao).updateById(captor.capture());
         assertThat(captor.getValue().getVersion()).isEqualTo("v2.0");
         assertThat(captor.getValue().getEffectiveTime()).isNotNull();
+        assertThat(captor.getValue().getContentBody()).isNull();
         verify(contentOperationLogDao).insert(org.mockito.ArgumentMatchers.argThat(log ->
                 "COMPLIANCE_CONTENT".equals(log.getBizType())
                         && "UPDATE".equals(log.getAction())
@@ -98,11 +100,16 @@ class ComplianceContentAdminServiceImplTest {
     void detail_shouldReturnComplianceFields() {
         ContentArticle article = complianceArticle("v1.3", "https://m.example.com/privacy/v3");
         when(contentArticleDao.selectById(1L)).thenReturn(article);
+        SysDictData type = dictStatus("PRIVACY_POLICY");
+        type.setDictLabel("隐私");
+        when(dictDataDao.selectEnabledByTypeAndValue("compliance_content_type", "PRIVACY_POLICY"))
+                .thenReturn(type);
 
         ComplianceContentVO result = service.detail(1L);
 
         assertThat(result.getContentCode()).isEqualTo("PRIVACY_POLICY");
         assertThat(result.getContentType()).isEqualTo("PRIVACY_POLICY");
+        assertThat(result.getContentTypeLabel()).isEqualTo("隐私");
         assertThat(result.getVersion()).isEqualTo("v1.3");
         assertThat(result.getLinkType()).isEqualTo("H5");
     }

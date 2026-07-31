@@ -98,6 +98,8 @@ export interface InviteSourceTraceVO {
 
 /** PRD-06 邀请规则 H5 内容。 */
 export interface InviteRulesH5VO {
+  contentCode?: string
+  contentType?: 'H5' | 'NATIVE' | string
   title: string
   version: string
   updatedAt: string
@@ -108,4 +110,21 @@ export interface InviteRulesH5VO {
   htmlSnapshot?: string
   /** 不可变的版本化快照代理地址。 */
   snapshotUrl?: string
+  /** 当前已发布的普通邀请规则，供同域 H5 动态渲染。 */
+  businessRule?: InviteRulesBusinessRuleVO
+}
+
+export interface InviteRulesBusinessRuleVO {
+  version: number
+  rewardMode: 'fixed' | 'ladder' | string
+  publishedAt?: string
+  events: Array<{
+    eventType: string
+    eventLabel: string
+    amount: number | string
+  }>
+  tiers: Array<{
+    threshold: number
+    amount: number | string
+  }>
 }

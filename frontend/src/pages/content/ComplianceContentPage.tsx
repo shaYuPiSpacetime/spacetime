@@ -27,6 +27,10 @@ function optionLabel(options: DictOption[], value?: string) {
   return options.find((item) => item.value === value)?.label || value || '-';
 }
 
+function contentTypeLabel(options: DictOption[], item: ComplianceContentVO) {
+  return item.contentTypeLabel || optionLabel(options, item.contentType);
+}
+
 function contentUrlOf(item: ComplianceContentVO) {
   return item.contentUrl || item.h5Url || '';
 }
@@ -140,7 +144,7 @@ export default function ComplianceContentPage() {
                   <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">配置初始化异常，请刷新或联系管理员</TableCell></TableRow>
                 ) : rows.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell className="h-[50px] text-sm">{optionLabel(typeOptions, row.contentType)}</TableCell>
+                    <TableCell className="h-[50px] text-sm">{contentTypeLabel(typeOptions, row)}</TableCell>
                     <TableCell className="h-[50px] text-sm">{row.title}</TableCell>
                     <TableCell className="h-[50px] text-sm">{row.version}</TableCell>
                     <TableCell className="h-[50px]">
@@ -177,7 +181,7 @@ export default function ComplianceContentPage() {
             <div className="mt-5 space-y-4">
               <label className="block space-y-1.5 text-sm font-medium" htmlFor="compliance-type">
                 <span>内容类型</span>
-                <Input id="compliance-type" value={optionLabel(typeOptions, editing.contentType)} disabled />
+                <Input id="compliance-type" value={contentTypeLabel(typeOptions, editing)} disabled />
               </label>
               <label className="block space-y-1.5 text-sm font-medium" htmlFor="compliance-title">
                 <span>标题</span>

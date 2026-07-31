@@ -6,7 +6,7 @@ import { getInviteRulesH5 } from '@/services/promotion'
 import type { InviteRulesH5VO } from '@/types/promotion'
 import './invite-rules.scss'
 
-const CACHE_KEY = 'promotion_invite_rules_h5_cache_v1'
+const CACHE_KEY = 'promotion_invite_rules_h5_cache_v2'
 
 type ContentSource = 'current' | 'cache' | 'unavailable'
 
@@ -24,7 +24,7 @@ function writeCache(content: InviteRulesH5VO) {
 }
 
 function safeWebUrl(content?: InviteRulesH5VO) {
-  const value = content?.snapshotUrl || content?.url || ''
+  const value = content?.url || content?.snapshotUrl || ''
   return /^https:\/\/[^\s]+$/i.test(value) ? value : ''
 }
 
@@ -54,6 +54,7 @@ export default function InviteRulesPage() {
   const [source, setSource] = useState<ContentSource>('current')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [webFailed, setWebFailed] = useState(false)
 
   const useCachedContent = useCallback((errorMessage: string) => {
     const cached = readCache()
@@ -72,6 +73,7 @@ export default function InviteRulesPage() {
   const loadCurrent = useCallback(async () => {
     setLoading(true)
     setMessage('')
+    setWebFailed(false)
     try {
       const current = await getInviteRulesH5()
       if (current.enabled === false || !hasRenderableContent(current)) {
@@ -93,11 +95,17 @@ export default function InviteRulesPage() {
   }, [loadCurrent])
 
   const handleContentLoad = () => {
-    if (source === 'current' && content?.snapshotUrl) writeCache(content)
+    if (source === 'current' && content) writeCache(content)
   }
 
   const handleContentError = () => {
     if (source === 'current') {
+      if (content?.htmlSnapshot) {
+        writeCache(content)
+        setWebFailed(true)
+        setMessage('当前 H5 加载失败，正在展示同版本规则内容')
+        return
+      }
       useCachedContent('当前内容加载失败')
       return
     }
@@ -115,7 +123,7 @@ export default function InviteRulesPage() {
   }
 
   const webUrl = safeWebUrl(content)
-  const showWebView = source !== 'unavailable' && !loading && Boolean(webUrl) && !content?.htmlSnapshot
+  const showWebView = source === 'current' && !loading && Boolean(webUrl) && !webFailed
 
   if (showWebView && webUrl) {
     return (
@@ -134,6 +142,9 @@ export default function InviteRulesPage() {
       <NativeNavigation title="活动说明" showBack onBack={backHome} />
       {source === 'cache' && !loading ? (
         <CacheNotice version={content?.version} onRetry={loadCurrent} />
+      ) : null}
+      {source === 'current' && webFailed && !loading ? (
+        <CurrentSnapshotNotice message={message} onRetry={loadCurrent} />
       ) : null}
 
       {loading ? (
@@ -165,6 +176,25 @@ export default function InviteRulesPage() {
           <Button className="promotion-rules-contact-link" openType="contact">联系客服</Button>
         </View>
       ) : null}
+    </View>
+  )
+}
+
+function CurrentSnapshotNotice({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => Promise<void>
+}) {
+  return (
+    <View className="promotion-cache-notice">
+      <View>!</View>
+      <View>
+        <Text>{message || '当前 H5 加载失败，正在展示同版本规则内容'}</Text>
+        <Text>奖励金额来自当前已发布配置</Text>
+      </View>
+      <Button onClick={() => void onRetry()}>重试</Button>
     </View>
   )
 }

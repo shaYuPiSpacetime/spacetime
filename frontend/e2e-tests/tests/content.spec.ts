@@ -129,6 +129,7 @@ const complianceRows = [
   { id: 2, contentType: 'privacy_policy', title: '隐私政策', version: 'v1.0', status: 'ENABLED', effectiveTime: '2026-07-08 09:00', h5Url: 'https://m.example.com/agreement/privacy' },
   { id: 3, contentType: 'third_party_list', title: '第三方信息共享清单', version: 'v1.0', status: 'ENABLED', effectiveTime: '2026-07-08 09:00', h5Url: 'https://m.example.com/privacy/third-party' },
   { id: 4, contentType: 'announcement', title: '平台功能更新公告', version: 'v1.0', status: 'DISABLED', effectiveTime: '2026-07-07 18:00', h5Url: 'https://m.example.com/notice/update' },
+  { id: 5, contentType: 'invite_rules', contentTypeLabel: '邀请规则', title: '邀请规则', version: 'v2.0', status: 'ENABLED', effectiveTime: '2026-07-29 18:00', contentUrl: 'https://admin.shikongxiehou.com/h5/invite-rules/index.html' },
 ];
 
 const blockWordRows = [
@@ -224,6 +225,8 @@ test.describe('PRD-06 公告协议与搜索屏蔽词闭环', () => {
     await expect(page.locator('th', { hasText: '版本' })).toBeVisible();
     await expect(page.locator('th', { hasText: '生效时间' })).toBeVisible();
     await expect(page.getByText('协议', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('邀请规则', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('invite_rules', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '预览' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: '编辑' }).first()).toBeVisible();
 

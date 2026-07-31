@@ -11,6 +11,8 @@ public class ComplianceContentVO {
     private String contentCode;
     /** 兼容管理端字段口径，值与 contentCode 一致。 */
     private String contentType;
+    /** 内容类型的中文展示名称。 */
+    private String contentTypeLabel;
     private String type;
     private String title;
     private String version;

@@ -3,6 +3,7 @@ package com.spacetime.miniapp.controller;
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.response.InviteRulesH5VO;
 import com.spacetime.miniapp.service.PromotionInviteQueryService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,7 +19,8 @@ public class InviteRulesH5Controller {
     private final PromotionInviteQueryService service;
 
     @GetMapping("/invite_rules")
-    public R<InviteRulesH5VO> inviteRules() {
+    public R<InviteRulesH5VO> inviteRules(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
         return R.ok(service.rulesH5());
     }
 }

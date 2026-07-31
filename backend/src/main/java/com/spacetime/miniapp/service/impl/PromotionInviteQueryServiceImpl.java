@@ -32,6 +32,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryService {
+    private static final String NORMAL_USER_SOURCE = "normal_user";
+    private static final String INVITE_RULES_CONTENT_CODE = "invite_rules";
     private static final Set<String> RECORD_STATUSES = Set.of("all", "pending", "success", "failed");
     private final PromotionAttributionService attributionService;
     private final PromotionRuleDomainService ruleService;
@@ -55,7 +57,7 @@ public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryServ
 
     @Override
     public InviteHomeVO home(Long userId) {
-        PromotionRuleSnapshot rule = ruleService.current("normal_user");
+        PromotionRuleSnapshot rule = ruleService.current(NORMAL_USER_SOURCE);
         List<PromotionInviteRelation> relations = allRelations(userId);
         Map<Long, AppUser> users = loadInvitees(relations);
         Map<Long, String> avatars = auditContentService.ownerAvatars(users.keySet());
@@ -129,7 +131,7 @@ public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryServ
 
     @Override
     public InviteRulesVO rules() {
-        PromotionRuleSnapshot rule = ruleService.current("normal_user");
+        PromotionRuleSnapshot rule = ruleService.current(NORMAL_USER_SOURCE);
         InviteRulesVO vo = new InviteRulesVO();
         vo.setSuccessDefinition("新用户完成注册并建立唯一邀请关系即为成功邀请");
         vo.setRelationValidity("邀请关系永久有效，建立后不可覆盖");
@@ -159,9 +161,10 @@ public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryServ
 
     @Override
     public InviteRulesH5VO rulesH5() {
-        ContentArticle article = contentArticleDao.selectByContentCode("invite_rules");
+        ContentArticle article = contentArticleDao.selectByContentCode(INVITE_RULES_CONTENT_CODE);
         InviteRulesH5VO vo = new InviteRulesH5VO();
         boolean enabled = article != null
+                && Integer.valueOf(1).equals(article.getPreinitialized())
                 && CommonStatusEnum.ENABLED.getCode().equals(article.getStatus())
                 && (article.getEffectiveTime() == null || !article.getEffectiveTime().isAfter(LocalDateTime.now()))
                 && (article.getExpireTime() == null || article.getExpireTime().isAfter(LocalDateTime.now()));
@@ -169,12 +172,95 @@ public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryServ
         if (article == null) {
             return vo;
         }
+        vo.setContentCode(INVITE_RULES_CONTENT_CODE);
+        vo.setContentType(article.getContentType());
         vo.setTitle(article.getTitle());
         vo.setVersion(article.getVersion());
         vo.setUpdatedAt(article.getUpdateTime());
+        if (!enabled) {
+            return vo;
+        }
         vo.setUrl(article.getContentUrl());
-        vo.setHtmlSnapshot(enabled ? htmlSanitizer.sanitize(article.getContentBody()) : null);
+        InviteRulesH5VO.BusinessRule businessRule = toH5BusinessRule(
+                ruleService.current(NORMAL_USER_SOURCE));
+        vo.setBusinessRule(businessRule);
+        vo.setHtmlSnapshot(renderRulesSnapshot(businessRule));
         return vo;
+    }
+
+    private InviteRulesH5VO.BusinessRule toH5BusinessRule(PromotionRuleSnapshot rule) {
+        if (rule == null) {
+            return null;
+        }
+        InviteRulesH5VO.BusinessRule result = new InviteRulesH5VO.BusinessRule();
+        result.setVersion(rule.version());
+        result.setRewardMode(rule.rewardMode());
+        result.setPublishedAt(rule.publishedAt());
+        result.setEvents(rule.events().stream()
+                .filter(PromotionRuleEventSnapshot::enabled)
+                .map(item -> {
+                    InviteRulesH5VO.EventRule event = new InviteRulesH5VO.EventRule();
+                    event.setEventType(item.eventType());
+                    event.setEventLabel(item.eventLabel());
+                    event.setAmount(item.amount());
+                    return event;
+                })
+                .toList());
+        result.setTiers("ladder".equals(rule.rewardMode())
+                ? rule.tiers().stream()
+                        .filter(PromotionRuleTierSnapshot::enabled)
+                        .sorted(Comparator.comparingInt(PromotionRuleTierSnapshot::threshold))
+                        .map(item -> {
+                            InviteRulesH5VO.TierRule tier = new InviteRulesH5VO.TierRule();
+                            tier.setThreshold(item.threshold());
+                            tier.setAmount(item.amount());
+                            return tier;
+                        })
+                        .toList()
+                : List.of());
+        return result;
+    }
+
+    private String renderRulesSnapshot(InviteRulesH5VO.BusinessRule rule) {
+        if (rule == null) {
+            return htmlSanitizer.sanitize(
+                    "<h1>活动规则说明</h1><p>当前奖励规则暂未发布，请稍后查看。</p>");
+        }
+        List<String> eventCopies = rule.getEvents().stream()
+                .map(item -> {
+                    String prefix = PromotionRewardEventEnum.REGISTER_REWARD.getCode()
+                            .equals(item.getEventType()) ? "普通邀请" : "";
+                    return prefix + item.getEventLabel() + "奖励 "
+                            + formatAmount(item.getAmount()) + " 千寻币";
+                })
+                .toList();
+        String eventCopy = eventCopies.isEmpty()
+                ? "当前暂无启用的邀请奖励事件"
+                : String.join("；", eventCopies);
+        String tierCopy = "";
+        if (!rule.getTiers().isEmpty()) {
+            tierCopy = "；" + rule.getTiers().stream()
+                    .map(item -> "累计"
+                            + (item == rule.getTiers().getFirst() ? "成功邀请 " : " ")
+                            + item.getThreshold() + " 人额外奖励 "
+                            + formatAmount(item.getAmount()) + " 千寻币")
+                    .collect(Collectors.joining("，"));
+        }
+        String html = "<h1>活动规则说明</h1>"
+                + "<p>新用户通过专属邀请入口完成注册后，即建立唯一且永久有效的邀请关系。</p>"
+                + "<p>" + eventCopy + tierCopy + "。</p>"
+                + "<p>完善资料、认证完成、首次开通会员和首次充值等启用事件按当前已发布规则分别发放；"
+                + "阶梯奖励仅在首次命中对应累计人数时额外发放。</p>"
+                + "<p>老用户不重复绑定邀请关系，校园代理停用后旧入口仍可访问，"
+                + "但不再建立新关系或产生新奖金。</p>";
+        return htmlSanitizer.sanitize(html);
+    }
+
+    private String formatAmount(BigDecimal amount) {
+        if (amount == null) {
+            return "0";
+        }
+        return amount.stripTrailingZeros().toPlainString();
     }
 
     private List<PromotionInviteRelation> allRelations(Long userId) {

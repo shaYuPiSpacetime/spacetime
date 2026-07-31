@@ -14,6 +14,8 @@ class Prd06SchemaContractTest {
 
     private static final Path MIGRATION = Path.of(
             "docs/sql/migration-20260717-prd06-admin-miniapp-closure.sql");
+    private static final Path INVITE_RULES_PROD_MIGRATION = Path.of(
+            "../deploy/sql/prod/057_invite_rules_h5_dynamic_content.sql");
 
     @Test
     void migrationMustContainClosedLoopSchemaAndDemoMenus() throws Exception {
@@ -52,11 +54,26 @@ class Prd06SchemaContractTest {
                 .contains("personal_info_list")
                 .contains("platform_rule")
                 .contains("announcement")
+                .contains("invite_rules")
+                .contains("'邀请规则'")
                 .contains("help");
 
         assertThat(sql)
                 .contains("搜索热词")
                 .contains("反馈箱")
                 .contains("visible = 0");
+    }
+
+    @Test
+    void productionMigrationMustSeedDynamicInviteRulesH5AndChineseDictionary() throws Exception {
+        assertThat(INVITE_RULES_PROD_MIGRATION).exists();
+        String sql = Files.readString(INVITE_RULES_PROD_MIGRATION);
+
+        assertThat(sql)
+                .contains("invite_rules")
+                .contains("https://admin.shikongxiehou.com/h5/invite-rules/index.html")
+                .contains("content_body = NULL")
+                .contains("'邀请规则'")
+                .contains("'compliance_content_type'");
     }
 }

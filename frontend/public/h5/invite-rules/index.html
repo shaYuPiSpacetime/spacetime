@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self' https://servicewechat.com https://*.servicewechat.com"
+    />
+    <title>活动说明</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="rules-page" aria-labelledby="rules-title">
+      <h1 id="rules-title">活动规则说明</h1>
+
+      <section id="rules-status" class="rules-status" aria-live="polite">
+        <span class="rules-status__dot" aria-hidden="true"></span>
+        <span id="rules-status-text">活动规则加载中</span>
+      </section>
+
+      <article id="rules-content" class="rules-content" hidden></article>
+
+      <section id="rules-error" class="rules-error" hidden aria-live="assertive">
+        <h2>内容暂不可查看</h2>
+        <p id="rules-error-message">当前活动规则加载失败，请稍后重试。</p>
+        <button id="rules-retry" type="button">重新加载</button>
+      </section>
+    </main>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

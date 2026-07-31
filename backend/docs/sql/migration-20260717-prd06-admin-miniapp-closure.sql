@@ -220,6 +220,14 @@ WHERE NOT EXISTS (
 );
 INSERT INTO app_config
     (config_key, config_value, config_group, config_type, public_visible, status, remark)
+SELECT 'agreement.invite_rules',
+       'https://admin.shikongxiehou.com/h5/invite-rules/index.html',
+       'AGREEMENT', 'URL', 1, 'ENABLED', '邀请规则动态 H5 地址'
+WHERE NOT EXISTS (
+    SELECT 1 FROM app_config WHERE config_key = 'agreement.invite_rules' AND deleted = 0
+);
+INSERT INTO app_config
+    (config_key, config_value, config_group, config_type, public_visible, status, remark)
 SELECT 'account_cancel.cooling_days', '30', 'ACCOUNT_CANCEL', 'NUMBER', 1, 'ENABLED', '账号注销后悔期天数'
 WHERE NOT EXISTS (
     SELECT 1 FROM app_config WHERE config_key = 'account_cancel.cooling_days' AND deleted = 0
@@ -370,6 +378,9 @@ SELECT seed.content_code, 'v1.0', 1, seed.type, seed.category, seed.title, seed.
         UNION ALL
         SELECT 'help_service', 'HELP_DOC', 'SERVICE', '帮助与客服', '常见问题与客服指引',
                'H5', NULL, '如需帮助，请联系在线客服。', 90
+        UNION ALL
+        SELECT 'invite_rules', 'RULE', 'BUSINESS_RULE', '邀请规则', '邀请好友活动规则',
+               'H5', 'agreement.invite_rules', NULL, 100
   ) seed
  LEFT JOIN content_article article
     ON article.content_code = seed.content_code
@@ -383,7 +394,11 @@ UPDATE content_article
    AND deleted = 0;
 UPDATE content_article
    SET content_type = 'H5'
- WHERE content_code IN ('announcement', 'help_service', 'account_cancellation')
+ WHERE content_code IN ('announcement', 'help_service', 'account_cancellation', 'invite_rules')
+   AND deleted = 0;
+UPDATE content_article
+   SET content_body = NULL
+ WHERE content_code = 'invite_rules'
    AND deleted = 0;
 
 -- ============================================================
@@ -434,6 +449,7 @@ SELECT seed.dict_type, 0, seed.dict_label, seed.dict_value, seed.dict_sort, 'ENA
         UNION ALL SELECT 'compliance_content_type', '规范', 'platform_rule', 70, '平台信息管理规范'
         UNION ALL SELECT 'compliance_content_type', '公告', 'announcement', 80, '平台公告'
         UNION ALL SELECT 'compliance_content_type', '帮助', 'help_service', 90, '帮助与客服'
+        UNION ALL SELECT 'compliance_content_type', '邀请规则', 'invite_rules', 100, '推广裂变邀请规则'
   ) seed
  WHERE NOT EXISTS (
        SELECT 1
