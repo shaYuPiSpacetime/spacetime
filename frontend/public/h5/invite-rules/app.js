@@ -7,6 +7,14 @@ const errorElement = document.querySelector('#rules-error');
 const errorMessageElement = document.querySelector('#rules-error-message');
 const retryButton = document.querySelector('#rules-retry');
 
+const INVITE_EVENT_LABELS = {
+  register_reward: '邀请好友完成注册',
+  profile_complete_reward: '邀请好友完善资料',
+  verify_complete_reward: '邀请好友完成认证',
+  first_vip_reward: '邀请好友首次开通会员',
+  first_coin_recharge_reward: '邀请好友首次充值',
+};
+
 function formatAmount(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount < 0) return '0';
@@ -23,24 +31,18 @@ function renderRules(rule) {
   const events = Array.isArray(rule.events) ? rule.events : [];
   const tiers = rule.rewardMode === 'ladder' && Array.isArray(rule.tiers) ? rule.tiers : [];
   const eventCopies = events.map((event) => {
-    const prefix = event.eventType === 'register_reward' ? '普通邀请' : '';
-    return `${prefix}${event.eventLabel}奖励 ${formatAmount(event.amount)} 千寻币`;
+    const label = INVITE_EVENT_LABELS[event.eventType] || event.eventLabel;
+    return `${label}奖励 ${formatAmount(event.amount)} 千寻币`;
   });
   const tierCopies = tiers.map((tier, index) => (
     `${index === 0 ? '累计成功邀请' : '累计'} ${tier.threshold} 人额外奖励 ${formatAmount(tier.amount)} 千寻币`
   ));
   const rewardCopy = [...eventCopies, ...tierCopies].join('；');
-  const otherEventLabels = events
-    .filter((event) => event.eventType !== 'register_reward')
-    .map((event) => event.eventLabel);
-  const eventPolicy = otherEventLabels.length > 0
-    ? `${otherEventLabels.join('、')}等奖励事件按当前已发布规则分别发放；`
-    : '';
 
   contentElement.replaceChildren(
     paragraph('新用户通过专属邀请入口完成注册后，即建立唯一且永久有效的邀请关系。'),
     paragraph(`${rewardCopy || '当前暂无启用的邀请奖励事件'}。`),
-    paragraph(`${eventPolicy}阶梯奖励仅在首次命中对应累计人数时额外发放。`),
+    paragraph('上述奖励在受邀好友完成对应事件后，按当前已发布规则分别发放；阶梯奖励仅在首次命中对应累计人数时额外发放。'),
     paragraph('老用户不重复绑定邀请关系，校园代理停用后旧入口仍可访问，但不再建立新关系或产生新奖金。'),
   );
   document.documentElement.dataset.ruleVersion = String(rule.version || '');

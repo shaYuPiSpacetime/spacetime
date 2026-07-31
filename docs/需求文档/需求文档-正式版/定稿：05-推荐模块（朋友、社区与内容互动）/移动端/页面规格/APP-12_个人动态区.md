@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本07 | 2026-07-31 | Codex | 明确他人主页举报用户与动态内容举报分流：分别使用 targetType=user/post |
 | 版本01 | 2026-07-06 | Codex | 创建页面规格 |
 | 版本02 | 2026-07-06 | Codex | 明确本人/他人视图归属，并将诚意贴详情承接改为动态详情页诚意贴视图 |
 | 版本03 | 2026-07-07 | Codex | 按移动端 Demo 审查补充本人视图审核态标签验收 |
@@ -48,7 +49,8 @@
 | 弹层 | 触发方式 | 大小 | 内容 | 关闭方式 |
 |------|----------|------|------|----------|
 | 删除确认 | 本人内容点击删除 | 中央弹窗 | 确认删除 | 取消/确认 |
-| 更多操作弹窗 | 他人内容点击更多 | 底部弹窗 | 举报 | 点击取消/遮罩 |
+| 内容更多操作弹窗 | 他人内容点击更多 | 底部弹窗 | 举报该动态 | 点击取消/遮罩 |
+| 主页更多操作弹窗 | 他人主页右上更多 | 底部弹窗 | 举报用户 | 点击取消/遮罩 |
 
 ### 2.4 UI 画板拆分（必填）
 
@@ -95,6 +97,7 @@
 | 字段 ID | 显示名 | 类型 | 必填 | 取值范围 | 校验规则 | 默认值 | 可编辑 | 敏感级别 | 数据来源 |
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
 | `APP-05-PAGE-user-posts-FIELD-profile` | 个人资料 | json | 是 | PRD-01 已审核且允许公开字段 | 按隐私范围返回 | 无 | 否 | 敏感；按字段脱敏 | PRD-01 |
+| `APP-05-PAGE-user-posts-FIELD-target-user-no` | 他人用户编号 | string | 是 | 业务编号 | 本人主页不展示举报用户入口；他人主页必须与当前查看对象一致 | 无 | 否 | 普通 | PRD-01 |
 | `APP-05-PAGE-user-posts-FIELD-certifications` | 认证信息 | json | 是 | PRD-01 可公开认证徽章 | 不展示审核中或驳回细节 | 空 | 否 | 普通 | PRD-01 |
 | `APP-05-PAGE-user-posts-FIELD-relation-status` | 互动关系 | enum | 是 | 未建立/已建立 | 服务端最终状态 | 未建立 | 否 | 普通 | PRD-02 |
 | `APP-05-PAGE-user-posts-FIELD-like-status` | 喜欢状态 | enum | 是 | 未喜欢/已喜欢 | 服务端最终状态 | 未喜欢 | 否 | 普通 | PRD-02 |
@@ -123,7 +126,7 @@
 |---------|--------|----------|----------|----------|--------|--------|----------------|
 | `APP-05-PAGE-user-posts-ACT-open-detail` | 查看详情 | 内容可见 | `GLB-ROLE-app-user` | 否 | 跳转详情 | `M05-ERR-content-not-found` | 增加浏览 |
 | `APP-05-PAGE-user-posts-ACT-delete` | 删除 | 本人内容且状态可删除 | 作者本人 | 是 | 内容状态为 `deleted` | `M05-ERR-content-not-found` | 前台不可见 |
-| `APP-05-PAGE-user-posts-ACT-report` | 举报 | 他人公开内容 | `M05-RULE-report-gate` | 否 | 打开举报弹窗 | `M05-ERR-login-required` | 生成举报 |
+| `APP-05-PAGE-user-posts-ACT-report` | 举报该动态 | 他人公开内容 | `M05-RULE-report-gate` | 否 | 打开统一举报弹窗，传 `targetType=post`、`targetId=postNo` | `M05-ERR-login-required` | 生成内容举报 |
 
 ### 5.2 批量操作
 
@@ -140,6 +143,7 @@
 | `APP-05-PAGE-user-posts-ACT-apply-acquaintance` | 申请认识 | 他人主页资料区 | 未建立互动关系且目标可见 | `M05-RULE-community-greeting-entry` | 否 | 进入 `APP-05-PAGE-community-greeting` | 复用 PRD-03/通用反馈 |
 | `APP-05-PAGE-user-posts-ACT-chat` | 发消息 | 他人主页资料区 | 已建立互动关系且 `canEnterConversation=true` | `M05-RULE-community-contact-routing`、`M03-RULE-private-chat-open` | 否 | 直接进入 `APP-03-PAGE-private-chat`；是否可发送由 `canSend/protectStatus` 决定 | 关系或账号失效时不进入会话 |
 | `APP-05-PAGE-user-posts-ACT-follow` | 关注/取消关注 | 他人主页资料区 | 目标可见 | `M05-RULE-interaction-gate` | 否 | 更新关注态与统计 | 网络错误 toast |
+| `APP-05-PAGE-user-posts-ACT-report-user` | 举报用户 | 他人主页右上更多 | 查看对象不是本人且目标用户存在 | `M05-RULE-report-gate` | 否 | 打开统一举报弹窗，传 `targetType=user`、`targetId=targetUserNo`，不携带聊天上下文 | `M05-ERR-login-required`、`M05-ERR-report-target-unavailable` |
 
 ## 6. 数据联动规则
 
@@ -150,6 +154,7 @@
 | 互动关系 | 对方回复并建立关系 | 页面主操作 | 隐藏“申请认识”，展示消息动作并直达 PRD-03 | 不经过社区私信中转页 |
 | `canEnterConversation` | 关系或账号状态变化 | 消息动作 | `true` 时允许进入会话，`false` 时隐藏或禁用并展示服务端原因 | 女性保护不得将其置为 `false` |
 | `canSend/protectStatus` | 进入 PRD-03 会话 | 会话输入区 | 由 PRD-03 决定发送能力并展示保护提示 | 主页只透传，不自行计算 |
+| 举报入口 | 点击主页/内容更多 | 统一举报弹窗 | 主页举报传 `user + targetUserNo`；动态举报传 `post + postNo` | 不得将用户举报误传为聊天举报 |
 
 ## 7. 状态与异常
 
@@ -190,6 +195,7 @@
 | `APP-05-AC-user-posts-contact-route` | 申请认识与直达私信按关系状态互斥 | 正常 | P0 |
 | `APP-05-AC-user-posts-relation-actions` | 进入主页写访客，并按 PRD-02 完成喜欢、取消喜欢与匹配状态切换 | 正常 | P0 |
 | `APP-05-AC-user-posts-chat-permission` | 女性保护仅影响会话内发送，不阻断进入会话 | 正常 | P0 |
+| `APP-05-AC-user-posts-report-routing` | 他人主页用户举报与动态举报对象分流 | 正常 | P0 |
 | `APP-05-AC-user-posts-delete` | 本人删除动态 | 正常 | P1 |
 
 ```
@@ -220,12 +226,19 @@ When  列表存在 `pending_machine`、`pending_manual`、`rejected` 或 `publis
 Then  每条内容展示对应审核态标签；他人视图不得展示非公开内容
 ```
 
+```
+AC-ID: APP-05-AC-user-posts-report-routing
+Given 已登录且账号未冻结的用户正在查看他人主页
+When  用户从主页更多点击“举报用户”，或从他人动态更多点击“举报该动态”
+Then  前者打开统一举报弹窗并传 `targetType=user/targetId=targetUserNo`；后者传 `targetType=post/targetId=postNo`；两者均不携带聊天上下文
+```
+
 ## 10. 关联
 
 | 关联类型 | 引用 ID | 说明 |
 |----------|---------|------|
 | 依赖的模块状态机 | `M05-SM-content-audit` | 内容状态 |
 | 依赖的其他页面 | `APP-05-PAGE-post-detail` | 动态详情，含诚意贴视图 |
-| 依赖的其他页面 | `APP-05-PAGE-report-modal` | 举报 |
+| 依赖的其他页面 | `APP-05-PAGE-report-modal` | 用户资料/账号举报与动态内容举报 |
 | 依赖的其他页面 | `APP-05-PAGE-community-greeting` | 未建立互动关系时申请认识 |
 | 依赖的其他页面 | `APP-03-PAGE-private-chat` | 已建立互动关系后直接进入会话 |

@@ -81,7 +81,7 @@ class PromotionInviteQueryServiceImplTest {
                         org.assertj.core.groups.Tuple.tuple(1, new BigDecimal("50")),
                         org.assertj.core.groups.Tuple.tuple(3, new BigDecimal("100")));
         assertThat(result.getHtmlSnapshot())
-                .contains("普通邀请完成注册奖励 20 千寻币")
+                .contains("邀请好友完成注册奖励 20 千寻币")
                 .contains("累计成功邀请 1 人额外奖励 50 千寻币")
                 .doesNotContain("999");
     }

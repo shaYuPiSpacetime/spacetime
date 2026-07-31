@@ -24,4 +24,26 @@ class PromotionRewardBizSceneEnumTest {
         assertThat(PromotionRewardBizSceneEnum.fromEventType("ladder_bonus"))
                 .isEqualTo("invite_ladder_reward");
     }
+
+    @Test
+    void 移动端邀请奖励文案明确描述好友行为() {
+        assertThat(PromotionRewardBizSceneEnum.mobileDisplayLabel(
+                "invite_register_reward", "完成注册"))
+                .isEqualTo("邀请好友完成注册");
+        assertThat(PromotionRewardBizSceneEnum.mobileDisplayLabel(
+                "invite_profile_reward", "完善资料"))
+                .isEqualTo("邀请好友完善资料");
+        assertThat(PromotionRewardBizSceneEnum.mobileDisplayLabel(
+                "invite_verify_reward", "完成认证"))
+                .isEqualTo("邀请好友完成认证");
+        assertThat(PromotionRewardBizSceneEnum.mobileDisplayLabel(
+                "invite_first_vip_reward", "首次开通会员"))
+                .isEqualTo("邀请好友首次开通会员");
+        assertThat(PromotionRewardBizSceneEnum.mobileDisplayLabel(
+                "invite_first_coin_reward", "首次充值千寻币"))
+                .isEqualTo("邀请好友首次充值");
+        assertThat(PromotionRewardBizSceneEnum.mobileDisplayLabel(
+                "invite_ladder_reward", "阶梯奖励-累计3人"))
+                .isEqualTo("阶梯奖励-累计3人");
+    }
 }

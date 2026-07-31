@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本06 | 2026-07-31 | Codex | 增加私信内容直达举报，区分个人主页用户举报/拉黑，并补齐历史失效态与权限校验 |
 | 版本05 | 2026-07-16 | Codex | 明确女性保护只限制发送：会话入口由 PRD-02 canEnterConversation 判断，页面使用 canSend/protectStatus |
 | 版本04 | 2026-07-13 | Codex | 对齐蓝湖匹配横幅与安全卡；头像跳主页承接举报拉黑；悄悄话回复匹配豁免女性保护 |
 | 版本03 | 2026-07-13 | Codex | 收口消息中心主入口，明确社区仅在已匹配态直达私信 |
@@ -20,7 +21,7 @@
 ## 1. 页面定位
 
 - **目标用户**：三重认证通过且已匹配成功的用户
-- **核心任务**：查看历史消息并发送普通文本私信
+- **核心任务**：查看历史消息、发送普通文本私信，并对当前会话中的对方内容发起举报
 - **页面类型**：详情页/聊天页
 
 ---
@@ -52,7 +53,10 @@
 
 | 弹层 | 触发方式 | 大小 | 内容 | 关闭方式 |
 |------|----------|------|------|----------|
-本页不提供举报、拉黑弹层；点击头像或昵称进入对方个人主页后使用主页既有安全操作。
+| 聊天更多操作 | 点击顶部“更多” | 底部操作弹层 | 当 `canReportChat=true` 时展示“举报聊天内容”；底部固定“取消” | 点击取消、蒙层或选择操作 |
+| 统一举报弹窗 | 点击“举报聊天内容” | 复用 `APP-05-PAGE-report-modal` | 按 `targetType=chat` 展示启用的举报原因；点击原因直接提交 | 取消、提交成功或重复举报后关闭 |
+
+点击头像或昵称进入个人主页后，可举报用户资料/账号或拉黑；本页更多菜单只承接聊天内容举报，不重复提供用户举报和拉黑。
 
 ### 2.4 UI 画板拆分
 
@@ -61,8 +65,9 @@
 | `APP-03-chat-01` | 私信对话页-可发送态 | 正常聊天、输入框 | P0 |
 | `APP-03-chat-02` | 私信对话页-女性保护禁发态 | 输入框置灰、保护提示 | P0 |
 | `APP-03-chat-03` | 私信对话页-会话失效态 | 历史可看、输入区失效 | P0 |
-| `APP-03-chat-04` | 私信对话页-头像跳主页 | 个人主页承接举报、拉黑 | P0 |
+| `APP-03-chat-04` | 私信对话页-头像跳主页 | 个人主页承接用户资料/账号举报与拉黑 | P0 |
 | `APP-03-chat-05` | 私信对话页-发送失败 | 消息失败态和重试 | P1 |
+| `APP-03-chat-06` | 私信对话页-举报聊天内容 | 更多操作、统一举报原因、提交成功/重复提示 | P0 |
 
 ### 2.5 编辑控件口径
 
@@ -96,6 +101,8 @@
 | `APP-03-PAGE-private-chat-FIELD-can-send` | 是否可发送 | bool | 是 | true/false | 服务端返回为准 | false | 系统计算 | 普通 | `M03-RULE-private-chat-open` |
 | `APP-03-PAGE-private-chat-FIELD-protect-status` | 保护状态 | json | 否 | `M03-RULE-female-protection` | 男性侧禁发需返回过期时间 | 无 | 系统计算 | 普通 | 会话规则 |
 | `APP-03-PAGE-private-chat-FIELD-can-enter-conversation` | 可进入会话 | bool | 是 | true/false | 由 PRD-02 关系/账号有效性返回；页面已打开时应为 true | true | 系统计算 | 普通 | PRD-02 |
+| `APP-03-PAGE-private-chat-FIELD-can-report-chat` | 可举报聊天内容 | bool | 是 | true/false | 当前用户已登录、账号未冻结、是会话参与方、会话存在且至少有一条对方发送的可举报文本；会话失效但历史可见时仍可为 true | false | 系统计算 | 普通 | `M03-RULE-report-handoff` |
+| `APP-03-PAGE-private-chat-FIELD-report-context` | 举报上下文 | json | 条件必填 | `sourceType=private_chat`、conversationNo、可选 messageNo | 客户端只传当前页业务编号；不得上传被举报用户 ID 或消息正文 | 无 | 不可编辑 | 敏感 | `M03-RULE-report-context` |
 
 #### 列表字段附加属性
 
@@ -129,7 +136,8 @@
 | 操作 ID | 操作名 | 位置 | 触发条件 | 前置权限 | 二次确认 | 成功态 | 失败态 |
 |---------|--------|------|----------|----------|----------|--------|--------|
 | `APP-03-PAGE-private-chat-ACT-send` | 发送 | 底部 | `canSend=true` 且输入非空 | `GLB-ROLE-app-user` | 否 | 新消息入流，未读发送给对方 | `M03-ERR-private-chat-not-matched`、`M03-ERR-female-protection-blocked` |
-| `APP-03-PAGE-private-chat-ACT-view-profile` | 查看主页 | 顶部头像/昵称 | 对方账号正常 | `GLB-ROLE-app-user` | 否 | 跳转用户主页；举报、拉黑由主页承接 | 对方异常则提示不可查看 |
+| `APP-03-PAGE-private-chat-ACT-view-profile` | 查看主页 | 顶部头像/昵称 | 对方账号正常 | `GLB-ROLE-app-user` | 否 | 跳转用户主页；用户资料/账号举报与拉黑由主页承接 | 对方异常则提示不可查看 |
+| `APP-03-PAGE-private-chat-ACT-report-chat` | 举报聊天内容 | 顶部更多菜单 | `canReportChat=true` | `GLB-ROLE-app-user`、`M05-RULE-report-gate` | 否 | 打开 `APP-05-PAGE-report-modal`；选择原因后生成 `targetType=chat` 工单 | `M05-ERR-report-duplicate`、`M05-ERR-report-no-permission`、`M05-ERR-report-target-unavailable` |
 
 ---
 
@@ -142,6 +150,8 @@
 | 匹配来源 | `whisper_reply` | 女性保护状态 | 视为接收方已发送真实回复，双方直接可聊 | `M03-EVT-whisper-replied` |
 | 拉黑操作 | 成功 | 会话状态 | 转 `blocked`，刷新消息列表状态 | `M03-RULE-conversation-invalid` |
 | 进入页面 | 成功加载 | 未读数 | 当前会话消息置已读 | `M03-RULE-unread` |
+| `canReportChat` | true | 顶部更多菜单 | 展示“举报聊天内容”；会话是否可发送不影响该入口 | `M03-RULE-report-handoff` |
+| 举报聊天内容 | 点击 | 统一举报弹窗 | 传 `targetType=chat`、`targetId=conversationNo` 和白名单 `reportContext` | `M03-RULE-report-context` |
 
 ---
 
@@ -152,10 +162,11 @@
 | 加载态 | 首次进入/上滑加载 | 消息骨架或顶部 loading | 等待 | 通用态 |
 | 空态 | 新会话无历史 | 系统提示“你们已成功匹配” | 发送消息 | `M03-NTF-match-success` |
 | 错误态（网络） | 加载失败 | toast + 重试 | 重试 | 通用态 |
-| 无权限态 | 当前用户非会话参与方 | 返回消息列表 | 返回 | `GLB-ROLE-app-user` |
+| 无权限态 | 当前用户非会话参与方 | 返回消息列表，不返回历史和举报上下文 | 返回 | `M05-ERR-report-no-permission` |
 | 业务态-active | 可聊天 | 输入框可编辑 | 发送文本 | `M03-SM-conversation` |
 | 业务态-protected | 女性保护 | 输入框置灰，保护提示 | 等待对方回复 | `M03-RULE-female-protection` |
 | 业务态-invalid | 会话失效 | 历史可看，输入区不可用 | 查看历史/举报 | `M03-RULE-conversation-invalid` |
+| 业务态-report-forbidden | 仅有本人内容、官方/系统消息或目标记录不存在 | 更多菜单不展示内容举报；绕过提交时拒绝 | 查看主页/返回 | `M03-RULE-report-handoff` |
 | 降级态 | 内容安全服务超时 | 禁止发送，提示稍后重试 | 重试 | 内容安全依赖 |
 
 ---
@@ -178,6 +189,9 @@
 | `APP-03-AC-private-chat-open` | 匹配成功后进入可发送态 | 正常 | P0 |
 | `APP-03-AC-female-protection` | 男性保护期内禁发 | 正常 | P0 |
 | `APP-03-AC-conversation-invalid` | 拉黑后会话失效 | 异常 | P0 |
+| `APP-03-AC-private-chat-report` | 从私信页举报聊天内容 | 正常 | P0 |
+| `APP-03-AC-private-chat-report-history` | 会话失效但历史可见时仍可举报 | 边界 | P0 |
+| `APP-03-AC-private-chat-report-deny` | 非参与方、本人/官方内容不可举报 | 异常 | P0 |
 
 ```text
 AC-ID: APP-03-AC-female-protection
@@ -194,6 +208,21 @@ AC-ID: APP-03-AC-protection-does-not-block-entry
 Given 双方关系有效且男性处于女性保护等待期
 When 男性从匹配弹窗、相互喜欢列表或婚恋用户主页进入聊天
 Then canEnterConversation=true 并正常打开会话，页面以 canSend=false 和 protectStatus 置灰输入区
+
+AC-ID: APP-03-AC-private-chat-report
+Given 当前用户已登录、账号未冻结、是会话参与方，且会话中存在对方发送的文本
+When  用户点击顶部更多菜单的“举报聊天内容”并选择举报原因
+Then  页面通过 `APP-05-PAGE-report-modal` 提交 `targetType=chat`、`targetId=conversationNo`；服务端反查参与关系和必要消息上下文
+
+AC-ID: APP-03-AC-private-chat-report-history
+Given 会话已失效但历史仍对当前参与方可见，且存在对方发送的文本
+When  用户打开更多菜单
+Then  “举报聊天内容”仍可用，但输入区继续保持不可发送
+
+AC-ID: APP-03-AC-private-chat-report-deny
+Given 当前用户不是会话参与方，或目标仅为本人发送内容、官方助手/系统消息
+When  页面渲染或用户绕过前端提交举报
+Then  页面不展示内容举报入口，服务端分别按无权限或对象不可举报拒绝，且不泄露聊天上下文
 ```
 
 ---
@@ -205,4 +234,6 @@ Then canEnterConversation=true 并正常打开会话，页面以 canSend=false �
 | 依赖的模块状态机 | `M03-SM-conversation` | 会话状态 |
 | 依赖的模块规则 | `M03-RULE-private-chat-open` / `M03-RULE-send-permission` | 会话开放与发送权限拆分 |
 | 依赖的模块规则 | `M03-RULE-female-protection` | 女性保护 |
+| 依赖的模块规则 | `M03-RULE-report-handoff` / `M03-RULE-report-context` | 举报路由、准入与聊天最小上下文 |
 | 依赖的页面 | `APP-03-PAGE-message-list` | 返回消息列表 |
+| 复用的页面组件 | `APP-05-PAGE-report-modal` | 统一举报原因与提交反馈 |

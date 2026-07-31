@@ -5,6 +5,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本03 | 2026-07-31 | Codex | 对齐统一举报模型，补齐私信/悄悄话条件上下文、PRD-05 状态与提交幂等 |
 | 版本02 | 2026-07-02 | Codex | 按确认口径将用户消息承接改为 App 用户卡片模块补充弹窗，不再放入列表卡片字段或画像详情 |
 | 版本01 | 2026-07-02 | Codex | 正式版初稿，按一期目标在用户管理、运营中心、移动端配置、社区举报与操作日志中承接 PRD-03 |
 
@@ -73,8 +74,8 @@
 ```text
 入口：社区互动管理 -> 举报处理
 正常路径：
-  1. 审核员筛选来源为聊天举报/悄悄话举报的工单
-  2. 查看举报上下文、会话摘要、被举报消息和双方用户状态
+  1. 审核员筛选 `targetType=chat` 且来源为私信/悄悄话的工单
+  2. 私信按 `conversationNo`、悄悄话按 `whisperNo` 反查上下文；有 `messageNo` 时定位具体对方消息
   3. 作出警告、禁言、封禁、驳回等处理
   4. 处罚结果联动会话状态和站内通知
 ```
@@ -92,7 +93,7 @@
 | 悄悄话记录 | `message_whisper` | 悄悄话状态、消耗方式、冷却期 | 03/04 | whisperNo, status, payType, cooldownExpireTime |
 | 通知记录 | `message_notification` | 站内通知与模板发送状态 | 03 | noticeNo, noticeType, bizType, readStatus, sendStatus |
 | 消息配置 | `message_rule_config` | 女性保护、冷却期、入口开关等 | 03 | configKey, configValue, effectiveStatus |
-| 举报记录 | `report_record` | 聊天/悄悄话举报统一承接 | 05/03 | reportNo, sourceType, conversationNo, handleStatus |
+| 举报记录 | `report_record` | 聊天/悄悄话举报统一承接 | 05/03 | reportNo, targetType, targetId, sourceType, conversationNo, whisperNo, messageNo, reportStatus |
 
 ### 4.2 跨模块字段引用
 
@@ -115,7 +116,7 @@
 | `ADM-03-RULE-message-record-query` | 消息通知记录查询 | P0 | `ADM-03-PAGE-message-record-query` | 查询与排查，不做运营群发 |
 | `ADM-03-RULE-message-config` | 女性保护、悄悄话冷却、官方助手入口等配置 | P0 | `ADM-03-PAGE-message-config` | 不做通知偏好中心 |
 | `ADM-03-RULE-template-config` | 官方消息、通知模板、保护提示文案配置 | P0 | `ADM-GLB-PAGE-copy-message-center` | 复用全局文案与消息中心 |
-| `ADM-03-RULE-report-chat-fields` | 聊天举报和悄悄话举报字段增强 | P0 | `ADM-03-PAGE-report-chat-fields` | 复用社区互动管理举报处理 |
+| `ADM-03-RULE-report-chat-fields` | 私信和悄悄话举报条件字段增强 | P0 | `ADM-03-PAGE-report-chat-fields` | `targetType=chat`；私信使用 conversationNo，悄悄话使用 whisperNo，复用 PRD-05 处理状态 |
 | `ADM-03-RULE-operation-log` | 查看高敏内容、配置保存、举报处理操作日志 | P1 | `ADM-GLB-PAGE-operation-log` | 复用操作日志 |
 
 ---
@@ -196,6 +197,7 @@
 | 操作 | 幂等要求 |
 |------|----------|
 | 保存消息配置 | configKey + version 乐观锁，避免覆盖 |
+| 提交聊天举报 | 引用 `M05-RULE-report-idempotency`；同一举报人、targetType、targetId 已有 pending/processing 时不新增工单 |
 | 处理聊天举报 | 同一举报单只能从待处理流转一次，重复提交返回当前状态 |
 | 查看高敏内容 | 每次查看独立审计，不合并 |
 | 导出记录 | 同一导出任务重复点击返回同一任务编号 |

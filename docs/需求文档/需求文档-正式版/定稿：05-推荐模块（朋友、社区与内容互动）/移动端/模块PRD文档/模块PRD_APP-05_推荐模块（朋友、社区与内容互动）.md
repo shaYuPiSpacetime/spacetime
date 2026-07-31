@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本15 | 2026-07-31 | Codex | 将统一举报组件扩展到 PRD-03 私信/悄悄话内容举报，明确用户与聊天对象分流及最小上下文 |
 | 版本14 | 2026-07-21 | Codex | 复核新增“YO悄悄话-弹窗”，关闭最后一项蓝湖缺口并将申请认识改为底部弹窗 |
 | 版本13 | 2026-07-21 | Codex | 关闭同城资料缺失分支，登记取消关注弹窗与内容不可见灰色反馈复用 |
 | 版本12 | 2026-07-21 | Codex | 以知音 UI 稿为准完成悦目用户卡片、诚意贴同结构发布/详情和通用状态复用 |
@@ -104,16 +105,18 @@
 ### 3.4 举报流程
 
 ```
-入口：更多操作弹窗、动态详情页（含诚意贴视图）、评论操作、用户主页
+入口：更多操作弹窗、动态详情页（含诚意贴视图）、评论操作、用户主页、PRD-03 私信对话页、PRD-03 悄悄话详情页
 正常路径：
-  1. 用户点击举报
+  1. 用户点击举报；用户资料/账号传 `targetType=user`，私信/悄悄话内容传 `targetType=chat`
   2. 用户点击举报原因，直接提交
-  3. 系统生成举报记录
-  4. 后台举报处理页处理结果
-  5. PRD-03 通知中心承接举报结果通知
+  3. 聊天来源按 `M05-RULE-report-target-context` 只传白名单业务编号，服务端按 `M03-RULE-report-handoff` 复核参与关系和内容归属
+  4. 系统生成举报记录
+  5. 后台举报处理页处理结果
+  6. PRD-03 通知中心承接举报结果通知
 异常：
   - 重复举报：同一 `reporterId + targetType + targetId` 已存在 `pending/processing` 记录时复用通用 toast 提示“你的举报已提交，请等待处理”；不同对象、对象类型或举报人均可独立提交
   - 举报对象不可见：提示内容状态已变化
+  - 聊天举报非参与方、本人发送内容、官方助手/系统消息：不建单并返回对应错误；过期/失效历史仍对参与方可见时不属于不可见
 ```
 
 ### 3.5 社区触达入口流程
@@ -148,7 +151,7 @@
 | 内容偏好 | `community_content_preference` | 不看作者动态或取消不看 | 05 | userId, actionType, targetUserId, status |
 | 发布草稿 | `community_post_draft` | 最近一份动态/诚意贴草稿 | 05 | userId, contentType, payload, updatedAt |
 | 话题 | `community_topic` 或字典 | 内容聚合维度 | 05/系统字典 | topicId, topicName, status, sort |
-| 举报 | `community_report` | 举报记录 | 05 | reportId, reporterId, targetType, targetId, status |
+| 举报 | `community_report` | 内容、评论、用户和聊天统一举报记录 | 05/03 | reportId, reporterId, targetType, targetId, sourceType, context, status |
 | 审核记录 | `community_audit_record` | 内容/评论审核历史 | 05 | auditId, targetType, targetId, result, operatorId |
 
 ### 4.2 实体关系
@@ -186,7 +189,7 @@
 | `APP-05-RULE-yuemu` | 悦目用户照片发现 | P0 | `APP-05-PAGE-yuemu` | 双列展示用户照片、缘分标签、学历学校、在线时间和心动按钮；点击卡片进入统一他人主页 |
 | `APP-05-RULE-sincere-post` | 诚意贴列表、发布与详情承接 | P0 | `APP-05-PAGE-sincere-list`、`APP-05-PAGE-post-publish`、`APP-05-PAGE-post-detail` | 与动态使用相同字段和交互，仅 `contentType=sincere_post` 与审核路径不同 |
 | `APP-05-RULE-more-actions` | 社区更多操作弹窗 | P0 | `APP-05-PAGE-community-more-actions` | 内容/用户对象按 UI 稿展示分享、关注/取消关注、不看 TA 动态/取消不看和举报；申请认识不放入菜单 |
-| `APP-05-RULE-report` | 举报弹窗与举报提交 | P0 | `APP-05-PAGE-report-modal` | 已登录可提交；重复判定引用 `M05-RULE-report-idempotency` |
+| `APP-05-RULE-report` | 内容、评论、用户和聊天统一举报弹窗与提交 | P0 | `APP-05-PAGE-report-modal`、`APP-03-PAGE-private-chat`、`APP-03-PAGE-whisper-detail` | 已登录且账号未冻结可提交；聊天叠加 PRD-03 校验，重复判定引用 `M05-RULE-report-idempotency` |
 | `APP-05-RULE-community-contact` | 申请认识与关系建立后直达私信 | P0 | `APP-05-PAGE-community-greeting`、`APP-05-PAGE-user-posts` | 未建立关系打开 YO 悄悄话弹窗，建立关系后消息动作直达 PRD-03 |
 | `APP-05-RULE-user-posts` | 个人动态区与他人主页 | P0 | `APP-05-PAGE-user-posts` | 本人可看审核态；他人主页展示已审核资料、关系动作和公开动态 |
 | `APP-05-RULE-interaction-center` | 评论过、点赞过、解锁过、浏览记录与获赞统计 | P1 | `APP-05-PAGE-interaction-center` | 解锁历史只读引用 PRD-04 |
@@ -289,7 +292,7 @@
 | `community_interaction_history_show` | 互动历史曝光 | historyType, resultCount |
 | `community_draft_action` | 保存、恢复或删除草稿 | contentType, action |
 | `community_upload_state_change` | 单图上传状态变化 | imageIndex, fromStatus, toStatus |
-| `community_report_submit` | 提交举报 | targetType, reasonCode |
+| `community_report_submit` | 提交举报 | targetType, targetId, sourceType, reasonCode, result |
 | `community_more_action_click` | 点击社区更多操作 | action, targetType, sourcePage |
 | `community_greeting_submit` | 社区打招呼提交 | targetUserId, sourceType, sourceId |
 | `community_direct_chat_click` | 已建立互动关系后点击消息动作 | targetUserId, conversationId, sourceType |

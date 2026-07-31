@@ -34,7 +34,7 @@ test.describe('邀请规则同域 H5', () => {
     await page.goto('/h5/invite-rules/index.html');
 
     await expect(page.getByRole('heading', { name: '活动规则说明' })).toBeVisible();
-    await expect(page.getByText(/普通邀请完成注册奖励 20 千寻币/)).toBeVisible();
+    await expect(page.getByText(/邀请好友完成注册奖励 20 千寻币/)).toBeVisible();
     await expect(page.getByText(/累计成功邀请 1 人额外奖励 50 千寻币/)).toBeVisible();
     await expect(page.getByText(/累计 3 人额外奖励 100 千寻币/)).toBeVisible();
   });
@@ -49,12 +49,12 @@ test.describe('邀请规则同域 H5', () => {
     }));
 
     await page.goto('/h5/invite-rules/index.html');
-    await expect(page.getByText(/普通邀请完成注册奖励 20 千寻币/)).toBeVisible();
+    await expect(page.getByText(/邀请好友完成注册奖励 20 千寻币/)).toBeVisible();
 
     response = rulesResponse(7, 30, [[2, 80], [5, 200]]);
     await page.reload();
 
-    await expect(page.getByText(/普通邀请完成注册奖励 30 千寻币/)).toBeVisible();
+    await expect(page.getByText(/邀请好友完成注册奖励 30 千寻币/)).toBeVisible();
     await expect(page.getByText(/累计成功邀请 2 人额外奖励 80 千寻币/)).toBeVisible();
     await expect(page.getByText(/累计 5 人额外奖励 200 千寻币/)).toBeVisible();
     await expect(page.getByText(/累计成功邀请 1 人额外奖励 50 千寻币/)).toHaveCount(0);

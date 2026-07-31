@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本04 | 2026-07-31 | Codex | 明确官方助手消息不可举报，不展示内容举报入口 |
 | 版本03 | 2026-07-13 | Codex | 收口为操作引导，移除认证、治理、资产等正式结果消息 |
 | 版本02 | 2026-07-02 | Codex | 按评审意见整改官方助手消息流展示附加属性 |
 | 版本01 | 2026-07-02 | Codex | 初稿 |
@@ -89,7 +90,7 @@
 | 字段 ID | 消息流位置 | 主次层级 | 点击行为 | 手势行为 | 溢出处理 |
 |---------|------------|----------|----------|----------|----------|
 | `APP-03-PAGE-official-assistant-FIELD-created-time` | 时间分隔条 | 辅助信息 | 不单独响应 | 上滑加载更早消息 | 时间分隔 |
-| `APP-03-PAGE-official-assistant-FIELD-content` | 官方消息气泡或引导卡片 | 主要信息 | 有跳转卡片时点击执行 `APP-03-PAGE-official-assistant-ACT-open-card` | 长按菜单首版不提供 | 气泡换行 |
+| `APP-03-PAGE-official-assistant-FIELD-content` | 官方消息气泡或引导卡片 | 主要信息 | 有跳转卡片时点击执行 `APP-03-PAGE-official-assistant-ACT-open-card` | 不提供长按或举报菜单 | 气泡换行 |
 | `APP-03-PAGE-official-assistant-FIELD-jump-type` | 引导卡片按钮区 | 行为信息，不独立展示 | 由卡片或按钮承接跳转行为 | 长按菜单首版不提供 | 无跳转时隐藏按钮 |
 
 ### 4.2 详情/表单字段
@@ -160,6 +161,7 @@
 | `APP-03-AC-official-assistant-read` | 进入官方助手后未读置已读 | 正常 | P0 |
 | `APP-03-AC-official-assistant-no-input` | 官方助手不允许用户输入 | 正常 | P0 |
 | `APP-03-AC-official-assistant-no-result` | 正式业务结果不进入官方助手 | 正常 | P0 |
+| `APP-03-AC-official-assistant-no-report` | 官方助手消息不提供举报 | 正常 | P0 |
 
 ```text
 AC-ID: APP-03-AC-official-assistant-no-input
@@ -173,6 +175,13 @@ AC-ID: APP-03-AC-official-assistant-no-result
 Given 实名、头像或学历审核产生通过或驳回结果
 When  消息服务生成用户触达
 Then  正式结果只写入通知中心；官方助手仅在需要材料示例或重新认证步骤时生成引导卡片，并引用同一审核记录
+```
+
+```text
+AC-ID: APP-03-AC-official-assistant-no-report
+Given 用户进入官方助手聊天页
+When 查看或长按任一官方助手消息
+Then 页面不展示举报入口；绕过前端以该消息提交聊天举报时返回 `M05-ERR-report-target-unavailable`
 ```
 
 ---

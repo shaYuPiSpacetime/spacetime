@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本09 | 2026-07-31 | Codex | 明确举报双通道路由：用户/资料举报由个人主页发起，私信/悄悄话内容举报由详情页直接发起并复用 PRD-05 统一举报组件 |
 | 版本08 | 2026-07-16 | Codex | 与 PRD-02 对齐聊天权限：关系侧返回 canEnterConversation，消息侧返回 canSend/protectStatus；女性保护只限制发送 |
 | 版本07 | 2026-07-13 | Codex | 取消前台暂不回应；pending 到期自动结束并进入 7 天冷却；拆分私信会话、悄悄话申请和官方/系统消息 |
 | 版本06 | 2026-07-13 | Codex | 移动端对齐蓝湖：通知改官方/系统全文消息流，移除全部已读、独立详情与邀请响应入口 |
@@ -25,7 +26,7 @@
 | M03-03 | 悄悄话是匹配成功前的破冰消息；接收方回复悄悄话后触发 PRD-02 生成 `whisper_reply` 匹配成功记录 | `M03-SM-whisper`、`M03-EVT-whisper-replied` |
 | M03-04 | 女性保护机制首版保留：匹配成功后前 3 天，男方向女方发送普通私信前需等待女性先发送真实用户消息 | `M03-RULE-female-protection`、`M03-CFG-female-protection-days` |
 | M03-05 | 一期不做用户自助通知设置页，也不做后台完整通知偏好中心；保留业务节点通知、站内通知与微信订阅消息模板申请前置项 | `M03-RULE-notification-setting-scope` |
-| M03-06 | 聊天举报与悄悄话举报纳入一期，统一由后台举报处理承接，按来源区分上下文与处罚联动 | `M03-RULE-report-handoff`、`ADM-03-PAGE-report-chat-fields` |
+| M03-06 | 举报分为两条通道：用户资料/账号举报从个人主页发起并使用 `targetType=user`；私信/悄悄话内容举报从对应详情页直接发起并使用 `targetType=chat`。两者复用 PRD-05 统一举报组件和后台处理链路 | `M03-RULE-report-handoff`、`M03-RULE-report-context`、`APP-05-PAGE-report-modal`、`ADM-03-PAGE-report-chat-fields` |
 | M03-07 | 首版消息类型只支持文本、悄悄话卡片、官方/系统提示；图片、语音、视频/通话、撤回、输入中状态均不纳入一期 | `M03-RULE-message-type-scope` |
 | M03-08 | 审核通过不发消息；审核失败直接返回原认证流程展示原因并重提。官方助手只做低频功能介绍、规则说明和服务号/公众号关注引导；系统通知只推社区热点、精选内容、社区活动与重要公告 | `M03-RULE-review-result-in-flow`、`M03-RULE-assistant-scope`、`M03-RULE-notification-scope` |
 | M03-09 | 悄悄话扣费统一引用 PRD-04：普通用户可用千寻币发送，时空邂逅会员每日默认 1 次免费悄悄话，用完后继续走千寻币 | `M04-RULE-whisper-pay`、`M03-CFG-vip-free-whisper-daily` |
@@ -70,6 +71,9 @@
 | `M02-ENUM-match-source=whisper_reply` | 悄悄话回复匹配来源 | 悄悄话回复触发匹配成功 |
 | `M04-RULE-whisper-pay` | 悄悄话扣费规则 | 发送悄悄话时免费次数、千寻币扣费和余额不足 |
 | `M04-CFG-vip-free-whisper-daily` | 会员每日免费悄悄话次数 | 默认 1 次，后台配置来源 |
+| `M05-RULE-report-gate` | 统一举报准入 | 举报要求已登录且账号未冻结；聊天内容举报叠加 PRD-03 参与关系校验 |
+| `M05-RULE-report-idempotency` | 举报提交幂等 | 同一举报人、对象类型和对象在待处理/处理中时禁止重复建单 |
+| `M05-RULE-report-target-context` | 举报对象与上下文映射 | 统一定义 `targetType`、`targetId` 和白名单上下文字段 |
 | `ADM-GLB-PAGE-copy-message-center` | 文案与消息中心 | 后台配置官方消息、通知模板和提示文案 |
 
 ---
@@ -179,6 +183,13 @@
 | `official_message` | 官方消息记录 | 一期停用，仅供历史数据兼容查询 | 3 | 否 | 停用 |
 | `notification` | 站内通知记录 | 通知中心、通知详情承接的站内通知记录 | 4 | 否 | 启用 |
 
+### 3.12 `M03-ENUM-report-source-type` 聊天内容举报来源
+
+| 值（code） | 显示名 | `targetType` | `targetId` | 必要上下文 | 状态 |
+|------------|--------|--------------|------------|------------|------|
+| `private_chat` | 私信内容 | `chat` | `conversationNo` | `conversationNo` 必填，`messageNo` 可选 | 启用 |
+| `whisper` | 悄悄话内容 | `chat` | `whisperNo` | `whisperNo` 必填，`messageNo` 可选 | 启用 |
+
 ---
 
 ## 4. 模块状态机
@@ -247,7 +258,8 @@
 | `M03-RULE-result-single-source` | 消息归属原则 | APP/ADM | 审核结果归原认证流程；用户沟通归私信/悄悄话会话；功能说明归官方助手；社区运营内容归系统通知 | 四类内容不交叉重复 |
 | `M03-RULE-notification-setting-scope` | 通知设置范围收敛 | APP/ADM | 一期不做用户侧通知管理页，不做后台完整通知偏好中心；通知模板和订阅消息申请作为前置/后台模板能力 | 与一期目标一致 |
 | `M03-RULE-notification-subscribe` | 微信订阅消息授权 | APP/ADM | 业务节点触发订阅授权；未授权只影响微信外部提醒，不影响站内消息落库、已读、红点和全文消息流 | 上线前置风险 |
-| `M03-RULE-report-handoff` | 聊天举报承接 | APP/ADM | 聊天页、悄悄话卡片举报统一生成举报工单，后台举报处理按来源展示上下文、处罚联动会话失效 | 不新建聊天举报中心 |
+| `M03-RULE-report-handoff` | 举报双通道路由与聊天举报准入 | APP/ADM | 举报用户资料/账号时，用户从个人主页发起，传 `targetType=user`；举报私信或悄悄话内容时，用户从对应详情页直接发起，传 `targetType=chat`。聊天内容举报要求已登录、账号未冻结、当前用户是目标私信/悄悄话参与方、目标记录存在且至少有一条对方发送的可举报内容；不得举报本人发送内容，官方助手和系统消息不提供举报；会话或悄悄话即使已失效/过期，只要历史仍对该参与方可见，仍允许举报 | 两条通道均复用 `APP-05-PAGE-report-modal` 和后台统一举报处理，不新建聊天举报中心 |
+| `M03-RULE-report-context` | 聊天举报最小上下文 | APP/ADM | 私信内容举报按 `sourceType=private_chat`、`targetId=conversationNo` 提交，`context` 仅允许 `conversationNo/messageNo`；悄悄话内容举报按 `sourceType=whisper`、`targetId=whisperNo` 提交，`context` 仅允许 `whisperNo/messageNo`。`messageNo` 仅在明确选中对方消息时传入；服务端必须按业务编号反查参与关系、被举报用户和必要消息正文，不信任客户端上传的用户 ID 或正文 | 对象映射与通用幂等引用 `M05-RULE-report-target-context`、`M05-RULE-report-idempotency` |
 | `M03-RULE-contact-entry-routing` | 沟通入口分流 | APP | 推荐卡片/推荐详情是悄悄话主入口；社区动态、评论、用户主页是辅助入口。未匹配时仅展示“悄悄话”并进入付费确认，禁止创建普通私信；已匹配时展示“发私信”并进入既有普通私信会话。消息中心统一承接待回复悄悄话和已匹配私信 | 发现入口不复制会话页 |
 | `ADM-03-RULE-admin-scope` | 后台承接范围 | ADM | 首版不建独立 IM 工作台；在 ADM-01 App 用户管理卡片“模块补充”弹窗、消息通知记录查询、文案模板、规则配置、举报处理、操作日志中承接 | 控制报价边界 |
 
@@ -280,7 +292,7 @@
 | `M03-EVT-conversation-invalidated` | 事件 | 会话因拉黑/处罚/账号异常失效 | 内部事件 | conversationId, invalidReason, operatorType | 否 |
 | `M03-NTF-match-success` | 通知 | 匹配成功 | 站内通知/订阅消息 | 你们已成功匹配，快开始聊天吧 | 是 |
 | `M03-NTF-whisper-received` | 通知 | 收到悄悄话 | 站内通知/订阅消息 | 你收到一条悄悄话，回复后即可开始聊天 | 是 |
-| `M03-NTF-report-result` | 通知 | 举报处理完成 | 站内通知 | 你的举报已处理，感谢反馈 | 是 |
+| `M03-NTF-report-result` | 通知承接别名 | PRD-05 产生 `M05-NTF-report-result` 后由消息中心投递 | 站内通知 | 你的举报已处理，感谢反馈 | 是；不得与 `M05-NTF-report-result` 重复生成 |
 | `M03-NTF-violation-warning` | 通知 | 违规处罚生效 | 站内通知 | 你的账号因违规已受到处理，请遵守平台规范 | 是 |
 | `M03-NTF-asset-change` | 通知 | 千寻币或会员资产变动 | 站内通知 | 你的资产有新的变动，请查看明细 | 是 |
 | `M03-NTF-invite-response` | 通知 | 邀请关系绑定或邀请响应 | 站内通知 | 你的邀请有新的响应 | 是 |
@@ -327,7 +339,7 @@
 | APP | POST | `/api/app/message/whispers` | 发送悄悄话 | `M03-RULE-whisper-send` |
 | APP | POST | `/api/app/message/whispers/{whisperId}/reply` | 回复悄悄话 | `M03-SM-whisper` |
 | APP | GET | `/api/app/message/system-messages` | 查询系统消息全文流 | `M03-RULE-notification-scope` |
-| APP | POST | `/api/app/message/report` | 聊天页/悄悄话举报 | `M03-RULE-report-handoff` |
+| APP | POST | `/miniapp/community/reports` | 复用 PRD-05 统一举报接口提交用户或聊天内容举报；聊天仅传业务编号白名单上下文 | `M03-RULE-report-handoff`、`M03-RULE-report-context`、`M05-RULE-report-target-context` |
 | APP | GET | `/api/app/message/notifications/{noticeId}` | `[已废弃]` 历史通知详情接口 | 不新增调用 |
 | APP | POST | `/api/app/message/notifications/read-all` | `[已废弃]` 历史全部已读接口 | 不新增调用 |
 | APP | GET | `/api/app/message/invite-response` | `[已废弃]` 邀请响应接口由 PRD-07 承接 | `M03-OUT-invite-response` |
@@ -403,7 +415,26 @@
 }
 ```
 
-#### 9.1.3 通知中心
+#### 9.1.3 聊天内容举报请求
+
+私信内容举报示例：
+
+```json
+{
+  "targetType": "chat",
+  "targetId": "CV202607020001",
+  "reasonCode": "harassment",
+  "context": {
+    "sourceType": "private_chat",
+    "conversationNo": "CV202607020001",
+    "messageNo": null
+  }
+}
+```
+
+悄悄话内容举报时，`targetId` 与 `context.whisperNo` 均使用当前 `whisperNo`，`sourceType=whisper`。客户端不得上传被举报用户 ID 或拼接消息正文；服务端按 `M03-RULE-report-context` 反查并固化最小必要证据。
+
+#### 9.1.4 通知中心
 
 ```json
 {
@@ -439,6 +470,10 @@
 | 男性保护期内先发消息 | 输入框置灰，展示女性保护提示 | `M03-RULE-female-protection` |
 | 女性保护期内女方发送真实消息 | 男性侧立即恢复发送能力 | `M03-RULE-female-protection` |
 | 任一方账号被冻结、封禁或注销 | 会话置为失效态，历史保留，不可继续发送 | `M03-RULE-conversation-invalid` |
+| 非会话/悄悄话参与方尝试举报 | 拒绝提交，不返回聊天内容或参与方信息 | `M03-RULE-report-handoff` |
+| 用户举报本人发送内容或官方/系统消息 | 不展示入口；绕过前端提交时服务端拒绝 | `M03-RULE-report-handoff` |
+| 会话已失效或悄悄话已过期，但历史仍可见 | 保留聊天内容举报入口，按当前可见历史生成举报工单 | `M03-RULE-report-handoff` |
+| 同一聊天对象已有待处理/处理中举报 | 不新增工单，提示“你的举报已提交，请等待处理” | `M05-RULE-report-idempotency` |
 | 聊天举报处理为封禁或禁言 | 后台处罚联动会话失效或发送能力受限，生成站内通知 | `M03-RULE-report-handoff` |
 | 微信订阅消息未授权 | 不发外部提醒，站内通知照常落库、计入未读 | `M03-RULE-notification-subscribe` |
 
@@ -456,7 +491,7 @@
 | M03-DEV-P0-04 | 官方小助手与系统消息全文流 | 固定入口、全文卡片、单会话已读、行动跳转 |
 | M03-DEV-P0-05 | 官方助手与官方消息详情 | 官方消息入口、官方助手聊天页、不可回复说明 |
 | M03-DEV-P0-06 | 女性保护机制 | 男性侧禁发、女方回复解锁、后台配置快照 |
-| M03-DEV-P0-07 | 举报与拉黑承接 | 聊天页更多菜单、举报工单、拉黑会话失效 |
+| M03-DEV-P0-07 | 举报与拉黑承接 | 私信/悄悄话详情直达聊天内容举报；个人主页承接用户举报与拉黑；统一举报工单和处罚联动 |
 | M03-DEV-P0-08 | 邀请响应页 | `[已移交 PRD-07]`，PRD-03 不实现 |
 
 ### 11.2 可延后

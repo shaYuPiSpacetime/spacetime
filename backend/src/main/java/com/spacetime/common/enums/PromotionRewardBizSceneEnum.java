@@ -35,4 +35,16 @@ public enum PromotionRewardBizSceneEnum {
         }
         throw new IllegalArgumentException("不支持的推广奖励事件");
     }
+
+    /**
+     * 将历史千寻币流水的业务场景转换为明确的移动端邀请文案。
+     */
+    public static String mobileDisplayLabel(String bizScene, String fallback) {
+        for (PromotionRewardBizSceneEnum value : values()) {
+            if (value.bizScene.equals(bizScene)) {
+                return PromotionRewardEventEnum.mobileDisplayLabel(value.eventType, fallback);
+            }
+        }
+        return fallback;
+    }
 }

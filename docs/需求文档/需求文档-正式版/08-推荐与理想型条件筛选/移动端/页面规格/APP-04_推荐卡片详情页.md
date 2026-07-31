@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本02 | 2026-07-31 | Codex | 明确推荐候选举报属于用户资料/账号举报，统一使用 targetType=user |
 | 版本01 | 2026-07-16 | Codex | 推荐候选公开资料与关系动作规格 |
 
 - **页面路由**：`/pages/recommend/detail/index?candidateNo={业务编号}`
@@ -10,7 +11,7 @@
 
 ## 1. 页面定位
 
-展示当前推荐候选在 PRD-01 中有效且允许公开的婚恋资料，并提供喜欢、悄悄话、举报、不再推荐等关系动作。本页不展示候选被筛中的隐藏字段、不显示推荐分或“为什么推荐”。
+展示当前推荐候选在 PRD-01 中有效且允许公开的婚恋资料，并提供喜欢、悄悄话、举报用户、不再推荐等关系动作。本页举报仅针对候选资料/账号，不属于聊天内容举报；本页不展示候选被筛中的隐藏字段、不显示推荐分或“为什么推荐”。
 
 ## 2. 布局（给 UI）
 
@@ -38,9 +39,9 @@
 
 | 弹层 | 触发 | 内容 | 关闭 |
 |------|------|------|------|
-| 更多操作 | 右上更多 | 举报、不再推荐 | 遮罩/取消 |
+| 更多操作 | 右上更多 | 举报用户、不再推荐 | 遮罩/取消 |
 | 不再推荐确认 | 点击不再推荐 | `确定不再向你推荐该用户？` | 取消/确认 |
-| 举报 | 点击举报 | 复用统一举报页面/弹层并传 `sourceScene=recommend` | 按举报模块规则 |
+| 举报用户 | 点击举报用户 | 复用 `APP-05-PAGE-report-modal`，传 `targetType=user`、`targetId=candidateNo`、`sourceScene=recommend`，不携带聊天上下文 | 按举报模块规则 |
 | 悄悄话 | 点击悄悄话 | PRD-03/04 流程 | 按对应规则 |
 
 ### 2.4 UI 画板拆分
@@ -49,7 +50,7 @@
 |---------|------|------|
 | `APP-08-CD-01` | 完整资料态 | 图片、摘要、资料、底部动作 |
 | `APP-08-CD-02` | 最小公开资料态 | 无相册/扩展资料时的紧凑布局 |
-| `APP-08-CD-03` | 更多操作弹层 | 举报、不再推荐 |
+| `APP-08-CD-03` | 更多操作弹层 | 举报用户、不再推荐 |
 | `APP-08-CD-04` | 候选失效态 | 提示后自动返回/加载下一位 |
 | `APP-08-CD-05` | 网络错误态 | 保留上次内容与重试 |
 
@@ -84,7 +85,7 @@
 | `APP-08-PAGE-card-detail-ACT-skip` | 跳过 | 来源为推荐且候选有效 | 核心准入 | 否 | 返回并展示下一位 | 失败保留当前页 | 写推荐浏览动作 |
 | `APP-08-PAGE-card-detail-ACT-like` | 喜欢 | PRD-02 允许喜欢 | PRD-02 | 否 | 状态更新为已喜欢 | 按 PRD-02 错误提示 | 来源 `fate` |
 | `APP-08-PAGE-card-detail-ACT-whisper` | 悄悄话 | 候选有效 | PRD-03/04 | 按付费模块 | 打开消息流程 | 额度/余额/审核失败按对应模块 | 无 |
-| `APP-08-PAGE-card-detail-ACT-report` | 举报 | 候选有效 | 已登录 | 举报提交页二次确认 | 提交成功返回当前页并提示 | 举报失败保留填写内容 | 统一举报记录 |
+| `APP-08-PAGE-card-detail-ACT-report` | 举报用户 | 候选有效且不是本人 | `M05-RULE-report-gate` | 否 | 打开统一举报弹窗；点击原因后以 `targetType=user/targetId=candidateNo` 提交并提示结果 | 按统一举报错误反馈 | 生成用户资料/账号举报，不生成聊天举报 |
 | `APP-08-PAGE-card-detail-ACT-never` | 不再推荐 | 候选有效 | 核心准入 | 是 | 从推荐与理想型实时结果剔除并返回 | 失败保留页面 | 生成场景屏蔽关系 |
 
 ## 6. 数据联动规则
@@ -120,6 +121,7 @@
 | `APP-08-AC-detail-public-only` | 只展示公开有效资料 | 正常 | P0 |
 | `APP-08-AC-detail-no-reason` | 候选失效不泄露原因 | 异常 | P0 |
 | `APP-08-AC-never-recommend` | 不再推荐全场景剔除 | 正常 | P0 |
+| `APP-08-AC-report-user-routing` | 推荐候选举报按用户对象提交 | 正常 | P0 |
 
 ```gherkin
 Given 候选体重和住房情况参与了筛选但设置为不公开
@@ -129,8 +131,12 @@ Then 服务端可用这些字段完成筛选，但详情响应与页面均不返
 Given 用户确认“不再推荐”某候选
 When 屏蔽关系创建成功
 Then 当前详情返回来源页，该候选从后续推荐和未解锁理想型结果中剔除，且操作可审计
+
+Given 用户在推荐卡片详情点击“举报用户”
+When 选择统一举报原因
+Then 以 `targetType=user`、`targetId=candidateNo` 提交，不携带 conversationNo、whisperNo 或 messageNo
 ```
 
 ## 10. 关联
 
-引用 `M08-RULE-candidate-pool`、`M08-RULE-display-privacy`、PRD-01 公开资料、PRD-02 关系、PRD-03/04 悄悄话与统一举报链路。
+引用 `M08-RULE-candidate-pool`、`M08-RULE-display-privacy`、PRD-01 公开资料、PRD-02 关系、PRD-03/04 悄悄话，以及 PRD-05 `M05-RULE-report-target-context` 与 `APP-05-PAGE-report-modal`。

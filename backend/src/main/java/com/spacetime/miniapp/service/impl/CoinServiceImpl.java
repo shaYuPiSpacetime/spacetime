@@ -12,6 +12,7 @@ import com.spacetime.common.entity.CoinSceneConfig;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.enums.CommonStatusEnum;
+import com.spacetime.common.enums.PromotionRewardBizSceneEnum;
 import com.spacetime.miniapp.dto.response.CoinBalanceVO;
 import com.spacetime.miniapp.dto.response.CoinFlowVO;
 import com.spacetime.miniapp.dto.response.CoinPackageVO;
@@ -134,7 +135,8 @@ public class CoinServiceImpl implements CoinService {
             vo.setBalanceBefore(log.getBalanceBefore());
             vo.setBalanceAfter(log.getBalanceAfter());
             vo.setBizScene(log.getBizScene());
-            vo.setBizDesc(log.getBizDesc());
+            vo.setBizDesc(PromotionRewardBizSceneEnum.mobileDisplayLabel(
+                    log.getBizScene(), log.getBizDesc()));
             vo.setCreateTime(log.getCreateTime());
             return vo;
         }).collect(Collectors.toList()));

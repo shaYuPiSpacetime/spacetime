@@ -4,6 +4,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本03 | 2026-07-31 | Codex | 登记私信/悄悄话内容举报状态、分流文案与埋点 |
 | 版本02 | 2026-07-13 | Codex | 明确推荐、社区与消息中心的沟通入口分流 |
 | 版本01 | 2026-07-02 | Codex | 按一期上线目标建立移动端消息页面树，移除用户自助通知管理页 |
 
@@ -65,6 +66,8 @@
 | `APP-03-STATE-protected` | 私信对话 | 命中女性保护机制 | 男性侧输入框置灰 + 保护提示 | `M03-RULE-female-protection` |
 | `APP-03-STATE-whisper-pending` | 悄悄话详情页 | 悄悄话待回复 | 接收方展示回复；发送方仅展示等待，不提供拒绝操作 | `M03-SM-whisper` |
 | `APP-03-STATE-conversation-invalid` | 私信对话、悄悄话 | 会话失效 | 历史可看，输入区置灰，展示失效原因 | `M03-RULE-conversation-invalid` |
+| `APP-03-STATE-reportable-history` | 私信对话、悄悄话详情 | 会话失效/悄悄话过期或失效，但对方历史内容仍对当前参与方可见 | 保留“举报”入口；不恢复发送、回复或申请能力 | `M03-RULE-report-handoff` |
+| `APP-03-STATE-report-forbidden` | 私信对话、悄悄话详情 | 仅有本人内容、官方/系统消息、目标不存在或当前用户非参与方 | 隐藏内容举报入口；绕过提交由服务端拒绝 | `M03-RULE-report-handoff` |
 | `APP-03-STATE-notice-empty` | 系统消息全文页 | 无系统消息 | 展示“暂无系统消息”并可返回 | `M03-RULE-notification-scope` |
 
 ---
@@ -77,7 +80,8 @@
 | `APP-03-TXT-official-card-title` | 官方消息卡片 | 官方消息 | 是，引用 `M03-CFG-notification-template-list` |
 | `APP-03-TXT-notification-entry` | 通知入口 | 通知 | 否 |
 | `APP-03-TXT-chat-input-placeholder` | 私信输入框 | 说点什么吧 | 否 |
-| `APP-03-TXT-chat-report` | 个人主页举报 | 举报 | 否 |
+| `APP-03-TXT-chat-report` | 私信/悄悄话内容举报 | 举报 | 否 |
+| `APP-03-TXT-profile-report` | 个人主页用户资料/账号举报 | 举报用户 | 否 |
 | `APP-03-TXT-chat-block` | 个人主页拉黑 | 拉黑 | 否 |
 
 ---
@@ -94,4 +98,7 @@
 | `msg_whisper_reply_click` | 点击回复悄悄话 | whisperNo |
 | `msg_whisper_expired_show` | 到期申请在列表或详情曝光 | whisperNo, cooldownExpireTime |
 | `msg_protect_block_show` | 女性保护拦截展示 | conversationNo, protectExpireTime |
+| `msg_chat_report_click` | 私信对话页点击举报聊天内容 | conversationNo, messageNo(nullable) |
+| `msg_whisper_report_click` | 悄悄话详情点击举报 | whisperNo, messageNo(nullable), whisperStatus |
+| `msg_report_submit_result` | 统一举报组件返回提交结果 | targetType, targetId, sourceType, result, errorCode |
 | `system_message_open` | 打开系统消息全文流 | unreadCount |

@@ -5,8 +5,11 @@ import com.spacetime.common.dao.CoinPackageDao;
 import com.spacetime.common.dao.CoinSceneConfigDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserCoinLogDao;
+import com.spacetime.common.dto.PageReq;
 import com.spacetime.common.entity.CoinPackage;
 import com.spacetime.common.entity.CoinSceneConfig;
+import com.spacetime.common.entity.UserCoinLog;
+import com.spacetime.miniapp.dto.response.CoinFlowVO;
 import com.spacetime.miniapp.dto.response.CoinPackageVO;
 import com.spacetime.miniapp.dto.response.CoinSceneVO;
 import com.spacetime.miniapp.service.impl.CoinServiceImpl;
@@ -18,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,6 +82,26 @@ class CoinServiceImplTest {
         assertThat(result.getMobileDisplayName()).isEqualTo("送悄悄话");
         assertThat(result.getMobileIcon()).isEqualTo("coinUsageWhisper");
         assertThat(result.getUnitPrice()).isEqualTo(12);
+    }
+
+    @Test
+    @DisplayName("邀请奖励历史流水使用明确的好友行为文案")
+    void getFlows_shouldClarifyInviteeActionForHistoricalPromotionRewards() {
+        UserCoinLog entity = new UserCoinLog();
+        entity.setId(19L);
+        entity.setFlowType("reward");
+        entity.setChangeAmount(19);
+        entity.setBalanceAfter(119);
+        entity.setBizScene("invite_register_reward");
+        entity.setBizDesc("完成注册");
+        entity.setRefType("promotion_reward");
+        entity.setCreateTime(LocalDateTime.of(2026, 7, 31, 15, 14));
+        when(userCoinLogDao.selectPageByUserId(any(), any(), any()))
+                .thenReturn(page(List.of(entity)));
+
+        CoinFlowVO result = service.getFlows(11L, new PageReq(), null).getRecords().getFirst();
+
+        assertThat(result.getBizDesc()).isEqualTo("邀请好友完成注册");
     }
 
     private <T> Page<T> page(List<T> records) {

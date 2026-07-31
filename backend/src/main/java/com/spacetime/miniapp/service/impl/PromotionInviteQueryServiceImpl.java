@@ -144,7 +144,8 @@ public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryServ
         vo.setEventRules(rule.events().stream().map(item -> {
             InviteRulesVO.EventRule row = new InviteRulesVO.EventRule();
             row.setEventType(item.eventType());
-            row.setEventLabel(item.eventLabel());
+            row.setEventLabel(PromotionRewardEventEnum.mobileDisplayLabel(
+                    item.eventType(), item.eventLabel()));
             row.setEnabled(item.enabled());
             row.setAmount(item.amount());
             return row;
@@ -201,7 +202,8 @@ public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryServ
                 .map(item -> {
                     InviteRulesH5VO.EventRule event = new InviteRulesH5VO.EventRule();
                     event.setEventType(item.eventType());
-                    event.setEventLabel(item.eventLabel());
+                    event.setEventLabel(PromotionRewardEventEnum.mobileDisplayLabel(
+                            item.eventType(), item.eventLabel()));
                     event.setAmount(item.amount());
                     return event;
                 })
@@ -227,12 +229,8 @@ public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryServ
                     "<h1>活动规则说明</h1><p>当前奖励规则暂未发布，请稍后查看。</p>");
         }
         List<String> eventCopies = rule.getEvents().stream()
-                .map(item -> {
-                    String prefix = PromotionRewardEventEnum.REGISTER_REWARD.getCode()
-                            .equals(item.getEventType()) ? "普通邀请" : "";
-                    return prefix + item.getEventLabel() + "奖励 "
-                            + formatAmount(item.getAmount()) + " 千寻币";
-                })
+                .map(item -> item.getEventLabel() + "奖励 "
+                        + formatAmount(item.getAmount()) + " 千寻币")
                 .toList();
         String eventCopy = eventCopies.isEmpty()
                 ? "当前暂无启用的邀请奖励事件"
@@ -249,7 +247,7 @@ public class PromotionInviteQueryServiceImpl implements PromotionInviteQueryServ
         String html = "<h1>活动规则说明</h1>"
                 + "<p>新用户通过专属邀请入口完成注册后，即建立唯一且永久有效的邀请关系。</p>"
                 + "<p>" + eventCopy + tierCopy + "。</p>"
-                + "<p>完善资料、认证完成、首次开通会员和首次充值等启用事件按当前已发布规则分别发放；"
+                + "<p>上述奖励在受邀好友完成对应事件后，按当前已发布规则分别发放；"
                 + "阶梯奖励仅在首次命中对应累计人数时额外发放。</p>"
                 + "<p>老用户不重复绑定邀请关系，校园代理停用后旧入口仍可访问，"
                 + "但不再建立新关系或产生新奖金。</p>";

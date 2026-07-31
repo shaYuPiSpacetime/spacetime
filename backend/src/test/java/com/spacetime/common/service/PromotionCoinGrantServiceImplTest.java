@@ -58,6 +58,7 @@ class PromotionCoinGrantServiceImplTest {
         assertThat(captor.getValue().getBizIdempotencyKey()).isEqualTo("normal:55:register_reward");
         assertThat(captor.getValue().getFlowType()).isEqualTo("reward");
         assertThat(captor.getValue().getBizScene()).isEqualTo("invite_register_reward");
+        assertThat(captor.getValue().getBizDesc()).isEqualTo("邀请好友完成注册");
         verify(rewardDao).updateById(reward);
     }
 
@@ -115,6 +116,7 @@ class PromotionCoinGrantServiceImplTest {
         reward.setInviterId(11L);
         reward.setInviteeId(99L);
         reward.setEventType("register_reward");
+        reward.setEventLabelSnapshot("完成注册");
         reward.setAmount(new BigDecimal("20"));
         reward.setStatus("pending");
         reward.setIdempotencyKey("normal:55:register_reward");

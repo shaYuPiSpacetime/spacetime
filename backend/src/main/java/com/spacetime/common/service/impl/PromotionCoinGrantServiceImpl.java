@@ -10,6 +10,7 @@ import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.enums.PromotionRewardStatusEnum;
 import com.spacetime.common.enums.FlowTypeEnum;
 import com.spacetime.common.enums.PromotionRewardBizSceneEnum;
+import com.spacetime.common.enums.PromotionRewardEventEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.PromotionCoinGrantService;
 import lombok.RequiredArgsConstructor;
@@ -65,7 +66,8 @@ public class PromotionCoinGrantServiceImpl implements PromotionCoinGrantService 
         coinLog.setBalanceBefore(balanceBefore);
         coinLog.setBalanceAfter(balanceBefore + amount);
         coinLog.setBizScene(PromotionRewardBizSceneEnum.fromEventType(reward.getEventType()));
-        coinLog.setBizDesc(reward.getEventLabelSnapshot());
+        coinLog.setBizDesc(PromotionRewardEventEnum.mobileDisplayLabel(
+                reward.getEventType(), reward.getEventLabelSnapshot()));
         coinLog.setRefId(reward.getId());
         coinLog.setRefType("promotion_reward");
         coinLog.setBizIdempotencyKey(reward.getIdempotencyKey());
