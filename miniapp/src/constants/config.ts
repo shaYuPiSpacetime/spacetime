@@ -1,5 +1,5 @@
-/** API 基础地址：由构建配置注入，开发环境可通过 API_BASE_URL 覆盖。 */
-export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080'
+/** 体验版和生产构建固定使用生产接口域名，避免 watch 产物固化旧环境变量。 */
+export const API_BASE_URL = 'https://admin.shikongxiehou.com/api'
 
 /** Token 本地存储 key */
 export const TOKEN_KEY = 'token'

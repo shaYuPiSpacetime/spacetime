@@ -127,43 +127,4 @@
   position: absolute;
   left: 156px;
   bottom: 82px;
-  width: 63px;
-  height: 63px;
-  border-radius: 50%;
-  background: #c8daf2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.phone-login-next--active {
-  background: #2876ff;
-  box-shadow: 0 9px 18px rgba(40, 118, 255, 0.25);
-}
-
-.phone-login-next-arrow {
-  position: relative;
-  width: 27px;
-  height: 20px;
-}
-
-.phone-login-next-line {
-  position: absolute;
-  left: 2px;
-  top: 8px;
-  width: 19px;
-  height: 4px;
-  border-radius: 2px;
-  background: #fff;
-}
-
-.phone-login-next-chevron {
-  position: absolute;
-  right: 2px;
-  top: 3px;
-  width: 13px;
-  height: 13px;
-  border-top: 4px solid #fff;
-  border-right: 4px solid #fff;
-  transform: rotate(45deg);
 }

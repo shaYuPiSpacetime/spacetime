@@ -270,6 +270,7 @@ test('API 服务覆盖交接文档的新接口且不包含旧兼容路径', () =
     '/miniapp/config/prd01',
     '/miniapp/dict/profile-options',
     '/miniapp/dict/locations',
+    '/miniapp/dict/locations/two-level',
     '/miniapp/auth/sms-code',
     '/miniapp/auth/phone-login',
     '/miniapp/auth/wechat-login',
@@ -301,6 +302,7 @@ test('运行时加载器并发复用配置请求并按父 code 缓存地区', as
   let configCalls = 0
   let optionCalls = 0
   let locationCalls = 0
+  let provinceCityCalls = 0
   const api = {
     getConfig: async () => {
       configCalls += 1
@@ -323,6 +325,12 @@ test('运行时加载器并发复用配置请求并按父 code 缓存地区', as
       locationCalls += 1
       return [{ code: parentCode || '330000', label: '浙江省', leaf: false }]
     },
+    getProvinceCities: async () => {
+      provinceCityCalls += 1
+      return [{ code: '330000', name: '浙江省', level: 'PROVINCE', children: [
+        { code: '330100', name: '杭州市', level: 'CITY', children: [] },
+      ] }]
+    },
   }
   const loader = createPrd01Loader(api)
 
@@ -334,6 +342,10 @@ test('运行时加载器并发复用配置请求并按父 code 缓存地区', as
   await loader.locations('330000')
   await loader.locations('330000')
   assert.equal(locationCalls, 1)
+
+  await loader.provinceCities()
+  await loader.provinceCities()
+  assert.equal(provinceCityCalls, 1)
 })
 
 test('首登运行时拒绝空字典、无效年龄范围和空地区，不再静默渲染空白页', async () => {
@@ -505,7 +517,8 @@ test('首登五页只使用运行时配置、字典 code 和服务端 nextStep',
   assert.match(sources.gender, /option\.code/)
   assert.match(sources.identity, /option\.code/)
   assert.match(sources.education, /option\.code/)
-  assert.match(sources.address, /loadLocations\(/)
+  assert.match(sources.address, /loadProvinceCities\(/)
+  assert.equal(sources.address.includes('loadLocations('), false)
   assert.equal(sources.address.includes("setSelected('当前位置')"), false)
 })
 

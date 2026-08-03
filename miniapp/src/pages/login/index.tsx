@@ -1,10 +1,11 @@
-import { Button, View, Text, Image } from '@tarojs/components'
+import { Button, CoverImage, CoverView, View, Text, Image, Video } from '@tarojs/components'
 import { useState } from 'react'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { useAuthStore } from '@/stores/authStore'
 import { loginByWechatPhone } from '@/services/auth'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { miniappOssMedia } from '@/constants/ossMedia'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import loginSceneBg from '@/assets/login/login-scene-bg.jpg'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -51,7 +52,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
 
   return (
     <View
-      className="absolute inset-0 z-50"
+      className="login-agreement-dialog absolute inset-0 z-50"
       style={{ background: 'rgba(0,0,0,0.55)' }}
     >
       <View
@@ -79,7 +80,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             textAlign: 'center',
           }}
         >
-          用户协议与隐私政策
+          用户协议和隐私政策
         </Text>
 
         <Text
@@ -149,7 +150,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             hoverClass="btn-hover"
           >
             <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
-              暂不同意
+              不同意
             </Text>
           </View>
           <View
@@ -163,6 +164,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
             alignItems: 'center',
             justifyContent: 'center',
           }}
+          className="login-agreement-accept"
           onClick={onAgree}
           hoverClass="btn-hover"
         >
@@ -225,6 +227,7 @@ function LoginMethodRow({
 }) {
   const content = (
     <View
+      className={`login-method-row login-method-row--${method.key}`}
       style={{
         height: '124rpx',
         borderRadius: '16rpx',
@@ -285,7 +288,7 @@ function LoginMethodSheet({
 }: LoginMethodSheetProps) {
   return (
     <View
-      className="absolute inset-0 z-50"
+      className="login-method-sheet absolute inset-0 z-50"
       style={{ background: 'rgba(0,0,0,0.42)' }}
       onClick={onClose}
     >
@@ -312,7 +315,7 @@ function LoginMethodSheet({
               <LoginMethodRow
                 method={{
                   key: methodKey,
-                  title: methodKey === 'wechat' ? '微信登录' : '手机号登录',
+                  title: methodKey === 'wechat' ? '使用微信登录' : '手机号登录',
                 }}
                 agreementAccepted={agreementAccepted}
                 loading={loading}
@@ -323,6 +326,7 @@ function LoginMethodSheet({
           ))}
         </View>
         <View
+          className="login-agreement-toggle"
           style={{
             height: '52rpx',
             marginTop: '72rpx',
@@ -380,6 +384,7 @@ export default function LoginAuthPage() {
   const [errorText, setErrorText] = useState('')
   const [loading, setLoading] = useState(false)
   const [wechatAuthPending, setWechatAuthPending] = useState(false)
+  const [videoUnavailable, setVideoUnavailable] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState<LoginMethod | null>(null)
 
   useLoad((options) => {
@@ -440,8 +445,15 @@ export default function LoginAuthPage() {
   }
 
   const handleToggleAgreement = () => {
-    setAgreementAccepted((checked) => !checked)
     setShowError(false)
+    setErrorText('')
+    if (agreementAccepted) {
+      setAgreementAccepted(false)
+      return
+    }
+    setSelectedMethod(null)
+    setShowMethodSheet(false)
+    setShowDialog(true)
   }
 
   const handleWechatPhoneLogin = async (event: { detail?: { code?: string; errMsg?: string } }) => {
@@ -522,9 +534,54 @@ export default function LoginAuthPage() {
           zIndex: 0,
         }}
       />
+      {!videoUnavailable && (
+        <Video
+          className="login-scene-video"
+          src={miniappOssMedia.loginBackgroundVideo}
+          poster={loginSceneBg}
+          autoplay
+          loop
+          muted
+          controls={false}
+          showCenterPlayBtn={false}
+          showFullscreenBtn={false}
+          enableProgressGesture={false}
+          objectFit="cover"
+          onError={() => setVideoUnavailable(true)}
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 1,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      {!videoUnavailable && (
+        <CoverView
+          className="login-brand-logo"
+          style={{
+            position: 'absolute',
+            left: '95rpx',
+            top: '300rpx',
+            width: '560rpx',
+            height: '260rpx',
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}
+        >
+          <CoverImage
+            src={miniappOssIcons.loginBrand}
+            style={{ width: '560rpx', height: '260rpx' }}
+          />
+        </CoverView>
+      )}
 
       <View
-        className="absolute flex items-center justify-center"
+        className="login-primary-button absolute flex items-center justify-center"
         style={{
           left: '114rpx',
           right: '114rpx',

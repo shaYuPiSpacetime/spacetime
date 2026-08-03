@@ -33,7 +33,7 @@ export default function LoginGenderPage() {
 
   return (
     <LoginProfileShell
-      description="你的性别"
+      description="—你的性别（注册后性别不可更改）—"
       nextActive={Boolean(selectedCode) || field?.required === false}
       loading={runtimeLoading || (!runtimeError && genderOptions.length === 0)}
       error={runtimeError}
@@ -67,6 +67,7 @@ function GenderCard({
   const isFemale = option.code === 'FEMALE'
   const activeBorder = isFemale ? '#FF7F8C' : '#2876FF'
   const icon = isFemale ? miniappOssIcons.genderFemale : miniappOssIcons.genderMale
+  const displayLabel = isFemale ? '我是女生' : '我是男生'
 
   return (
     <View
@@ -82,7 +83,7 @@ function GenderCard({
       hoverClass="btn-hover"
     >
       <Text style={{ position: 'absolute', left: '66rpx', top: '72rpx', color: active ? '#333333' : '#999999', fontSize: '40rpx', fontWeight: 500, lineHeight: '56rpx' }}>
-        {option.label}
+        {displayLabel}
       </Text>
       <Image src={icon} mode="aspectFit" style={{ position: 'absolute', right: '69rpx', top: '34rpx', width: '120rpx', height: '120rpx', opacity: active ? 1 : 0.72 }} />
     </View>

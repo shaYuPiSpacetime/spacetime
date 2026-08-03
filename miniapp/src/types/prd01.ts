@@ -43,6 +43,14 @@ export interface RegionOption {
   hasChildren?: boolean
 }
 
+/** 省市两级地区树；城市节点的 children 固定为空数组。 */
+export interface RegionTreeOption {
+  code: string
+  name: string
+  level: 'PROVINCE' | 'CITY'
+  children: RegionTreeOption[]
+}
+
 export interface CopywritingItem {
   group?: string
   scene?: string

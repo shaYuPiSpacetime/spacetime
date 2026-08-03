@@ -9,6 +9,7 @@ import type {
   ProfileInitValues,
   ProfileOptionKey,
   RegionOption,
+  RegionTreeOption,
 } from '@/types/prd01'
 
 interface LoginFlowState {
@@ -57,6 +58,7 @@ export function useLogin() {
   const retryRuntime = usePrd01Store(state => state.retry)
   const copy = usePrd01Store(state => state.copy)
   const loadLocations = usePrd01Store(state => state.locations)
+  const loadProvinceCities = usePrd01Store(state => state.provinceCities)
 
   const options = (key: ProfileOptionKey) => {
     const rows = profileOptions?.[key]
@@ -126,6 +128,8 @@ export function useLogin() {
     bootstrap: ensureRuntime,
     loadLocations: (parentCode?: string, force = false): Promise<RegionOption[]> =>
       loadLocations(parentCode, force),
+    loadProvinceCities: (force = false): Promise<RegionTreeOption[]> =>
+      loadProvinceCities(force),
     updateUserInfo,
     saveInitStep,
     resumeInit,

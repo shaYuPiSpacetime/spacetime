@@ -7,6 +7,7 @@ import type {
   ProfileOptionKey,
   ProfileOptions,
   RegionOption,
+  RegionTreeOption,
 } from '@/types/prd01'
 import { getErrorMessage } from '@/utils/errorMessage'
 
@@ -23,6 +24,7 @@ interface Prd01State {
   options: (key: ProfileOptionKey) => DictOption[]
   optionLabel: (key: ProfileOptionKey, code?: string) => string
   locations: (parentCode?: string, force?: boolean) => Promise<RegionOption[]>
+  provinceCities: (force?: boolean) => Promise<RegionTreeOption[]>
   clear: () => void
 }
 
@@ -62,6 +64,7 @@ export const usePrd01Store = create<Prd01State>((set, get) => ({
   },
 
   locations: (parentCode, force = false) => loader.locations(parentCode, force),
+  provinceCities: (force = false) => loader.provinceCities(force),
 
   clear: () => {
     loader.clear()

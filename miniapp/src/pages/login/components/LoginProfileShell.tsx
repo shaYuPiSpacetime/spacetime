@@ -3,6 +3,7 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 import profileBg from '@/assets/login/profile-bg.webp'
+import LoginNextButton from './LoginNextButton'
 
 interface LoginProfileShellProps {
   description: string
@@ -194,56 +195,15 @@ export default function LoginProfileShell({
           </View>
         ) : children}
 
-        <View
+        <LoginNextButton
+          active={canContinue}
+          onClick={onNext}
           style={{
             position: 'absolute',
             left: '312rpx',
             bottom: '164rpx',
-            width: '126rpx',
-            height: '126rpx',
-            borderRadius: '63rpx',
-            background: canContinue ? '#2876FF' : '#E3F1FE',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
           }}
-          onClick={() => {
-            if (canContinue) void onNext()
-          }}
-          hoverClass={canContinue ? 'btn-hover' : 'none'}
-        >
-          <View
-            style={{
-              position: 'relative',
-              width: '54rpx',
-              height: '40rpx',
-            }}
-          >
-            <View
-              style={{
-                position: 'absolute',
-                left: '4rpx',
-                top: '17rpx',
-                width: '38rpx',
-                height: '7rpx',
-                borderRadius: '4rpx',
-                background: '#FFFFFF',
-              }}
-            />
-            <View
-              style={{
-                position: 'absolute',
-                right: '3rpx',
-                top: '5rpx',
-                width: '27rpx',
-                height: '27rpx',
-                borderTop: '7rpx solid #FFFFFF',
-                borderRight: '7rpx solid #FFFFFF',
-                transform: 'rotate(45deg)',
-              }}
-            />
-          </View>
-        </View>
+        />
       </View>
     </View>
   )

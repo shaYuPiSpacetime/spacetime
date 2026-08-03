@@ -22,6 +22,7 @@ import type {
   RealNameDetail,
   RealNameSubmitRequest,
   RegionOption,
+  RegionTreeOption,
   SmsCodeResult,
   SongOption,
   VerificationStatus,
@@ -35,6 +36,7 @@ export const prd01Api = {
   getProfileOptions: () => get<ProfileOptions>(PRD01_API_PATHS.profileOptions),
   getLocations: (parentCode?: string) =>
     get<RegionOption[]>(PRD01_API_PATHS.locations, parentCode ? { parentCode } : undefined),
+  getProvinceCities: () => get<RegionTreeOption[]>(PRD01_API_PATHS.provinceCities),
 
   sendSmsCode: (phone: string) => post<SmsCodeResult>(PRD01_API_PATHS.smsCode, { phone }),
   phoneLogin: (

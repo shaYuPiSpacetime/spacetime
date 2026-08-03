@@ -45,6 +45,21 @@ assert.ok(
   '缺少登录首屏场景背景资产 src/assets/login/login-scene-bg.jpg'
 )
 assert.ok(
+  loginPage.includes('miniappOssMedia.loginBackgroundVideo') &&
+    loginPage.includes('<Video') &&
+    loginPage.includes('autoplay') &&
+    loginPage.includes('loop') &&
+    loginPage.includes('muted') &&
+    loginPage.includes('controls={false}') &&
+    loginPage.includes('onError={() => setVideoUnavailable(true)}'),
+  '登录首屏必须使用远程静音循环视频，并在加载失败时回退静态场景图'
+)
+assert.ok(
+  !fs.readdirSync(path.join(rootDir, 'src'), { recursive: true })
+    .some(file => String(file).toLowerCase().endsWith('.mp4')),
+  '登录背景 MP4 禁止进入小程序主包'
+)
+assert.ok(
   loginPage.includes("className=\"relative w-full h-screen overflow-hidden\"") &&
     loginPage.includes("width: '100%'") &&
     (loginPage.includes("height: '100%'") || loginPage.includes("height: 'calc(100% - 88rpx)'")),

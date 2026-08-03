@@ -1,6 +1,7 @@
 import { Canvas, Image, MovableArea, MovableView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
+import { resolveAvatarUploadError } from '@/domain/avatarUploadError'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { getWindowMetrics } from '@/utils/system'
@@ -186,6 +187,6 @@ function clamp(value: number, min: number, max: number) {
 }
 
 async function showError(error: unknown) {
-  const title = error instanceof Error ? error.message : String(error)
+  const title = resolveAvatarUploadError(error)
   if (title) await Taro.showToast({ title, icon: 'none' })
 }

@@ -61,6 +61,7 @@ const ICON_ASSETS = Object.freeze({
   memberBenefitDailyHeart: 'src/assets/lanhu/pages/member-benefits/member-slice-my-2.png',
   loginMethodWechat: 'src/assets/lanhu/login/login-method-wechat.png',
   loginMethodPhone: 'src/assets/lanhu/login/login-method-phone.png',
+  loginBrand: 'src/assets/lanhu/login/login-brand.png',
   genderFemale: 'src/assets/lanhu/login/gender-female.webp',
   genderMale: 'src/assets/lanhu/login/gender-male.webp',
   verificationCertAvatar: 'src/assets/lanhu/verification/slices/cert-avatar.png',

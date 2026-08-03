@@ -1,29 +1,85 @@
-import { ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import { ScrollView, View, Text } from '@tarojs/components'
+import Taro, { useLoad } from '@tarojs/taro'
+import { useEffect, useRef, useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
-import type { RegionOption } from '@/types/prd01'
+import type { RegionTreeOption } from '@/types/prd01'
+import { getWindowMetrics } from '@/utils/system'
 import LoginProfileShell from './components/LoginProfileShell'
 import './address.scss'
 
-type RegionStage = 'province' | 'city' | 'district' | null
+const ADDRESS_ROW_HEIGHT_RPX = 78
+const ADDRESS_PROVINCE_TOP_SPACER_RPX = 78
+const ADDRESS_WHEEL_BOTTOM_SPACER_RPX = 144
+const USER_LOCATION_SCOPE = 'scope.userLocation'
 
-/** 登录居住地：保留蓝湖入口与底部弹层，提交值始终为行政区 code。 */
+/**
+ * 登录-地址 — 1:1 还原蓝湖「登录-地址」设计稿
+ */
 export default function LoginAddressPage() {
   const {
-    userInfo, initField, bootstrap, loadLocations, saveInitStep,
-    runtimeLoading, runtimeError, retryRuntime,
+    userInfo,
+    bootstrap,
+    loadProvinceCities,
+    saveInitStep,
+    runtimeLoading,
+    runtimeError,
+    retryRuntime,
   } = useLogin()
-  const [provinces, setProvinces] = useState<RegionOption[]>([])
-  const [cities, setCities] = useState<RegionOption[]>([])
-  const [districts, setDistricts] = useState<RegionOption[]>([])
-  const [province, setProvince] = useState<RegionOption>()
-  const [city, setCity] = useState<RegionOption>()
-  const [district, setDistrict] = useState<RegionOption>()
-  const [stage, setStage] = useState<RegionStage>(null)
+  const [provinces, setProvinces] = useState<RegionTreeOption[]>([])
+  const [selectedProvince, setSelectedProvince] = useState<RegionTreeOption>()
+  const [selectedCity, setSelectedCity] = useState<RegionTreeOption>()
+  const [selected, setSelected] = useState<string>('')
+  const [cityValue, setCityValue] = useState([0, 0])
+  const [showManualSheet, setShowManualSheet] = useState(false)
+  const [showLocationSheet, setShowLocationSheet] = useState(false)
+  const [locationLoading, setLocationLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [loadError, setLoadError] = useState<string>()
-  const field = initField(5)
+  const variantRef = useRef('default')
+
+  const locationColor = selected ? '#2876FF' : '#A6A6A6'
+
+  useLoad(options => {
+    const variant = options?.variant ?? 'default'
+    variantRef.current = variant
+    if (variant === 'empty') {
+      setSelectedProvince(undefined)
+      setSelectedCity(undefined)
+      setSelected('')
+      setShowManualSheet(false)
+      setShowLocationSheet(false)
+      return
+    }
+
+    if (variant === 'manual') {
+      setShowManualSheet(true)
+      return
+    }
+
+    if (variant === 'selected' && provinces.length > 0) {
+      restoreSelection(provinces, userInfo.locationProvince, userInfo.locationCity, true)
+    }
+  })
+
+  const restoreSelection = (
+    tree: RegionTreeOption[],
+    provinceCode?: string,
+    cityCode?: string,
+    useFirst = false
+  ) => {
+    const provinceIndex = tree.findIndex(item => item.code === provinceCode)
+    const nextProvinceIndex = provinceIndex >= 0 ? provinceIndex : useFirst ? 0 : -1
+    const province = tree[nextProvinceIndex]
+    if (!province) return
+    const cityIndex = province.children.findIndex(item => item.code === cityCode)
+    const nextCityIndex = cityIndex >= 0 ? cityIndex : useFirst ? 0 : -1
+    const city = province.children[nextCityIndex]
+    if (!city) return
+    setSelectedProvince(province)
+    setSelectedCity(city)
+    setCityValue([nextProvinceIndex, nextCityIndex])
+    setSelected(formatAddressLabel(province.name, city.name))
+  }
 
   const loadPageData = async (force = false) => {
     setPageLoading(true)
@@ -31,19 +87,16 @@ export default function LoginAddressPage() {
     try {
       if (force) await retryRuntime()
       else await bootstrap()
-      const root = await loadLocations(undefined, force)
-      setProvinces(root)
-      const savedProvince = root.find(item => item.code === userInfo.locationProvince)
-      if (!savedProvince) return
-      setProvince(savedProvince)
-      const nextCities = savedProvince.leaf ? [] : await loadLocations(savedProvince.code, force)
-      setCities(nextCities)
-      const savedCity = nextCities.find(item => item.code === userInfo.locationCity)
-      if (!savedCity) return
-      setCity(savedCity)
-      const nextDistricts = savedCity.leaf ? [] : await loadLocations(savedCity.code, force)
-      setDistricts(nextDistricts)
-      setDistrict(nextDistricts.find(item => item.code === userInfo.locationDistrict))
+      const tree = await loadProvinceCities(force)
+      setProvinces(tree)
+      if (variantRef.current !== 'empty') {
+        restoreSelection(
+          tree,
+          userInfo.locationProvince,
+          userInfo.locationCity,
+          variantRef.current === 'selected'
+        )
+      }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : String(error))
     } finally {
@@ -55,125 +108,691 @@ export default function LoginAddressPage() {
     void loadPageData()
   }, [])
 
-  const selectProvince = async (label: string) => {
-    const selected = provinces.find(item => item.label === label)
-    if (!selected) return
-    setProvince(selected)
-    setCity(undefined)
-    setDistrict(undefined)
-    setDistricts([])
-    try {
-      const nextCities = selected.leaf ? [] : await loadLocations(selected.code)
-      setCities(nextCities)
-      setStage(nextCities.length ? 'city' : null)
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : String(error))
-    }
-  }
-
-  const selectCity = async (label: string) => {
-    const selected = cities.find(item => item.label === label)
-    if (!selected) return
-    setCity(selected)
-    setDistrict(undefined)
-    try {
-      const nextDistricts = selected.leaf ? [] : await loadLocations(selected.code)
-      setDistricts(nextDistricts)
-      setStage(nextDistricts.length ? 'district' : null)
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : String(error))
-    }
-  }
-
-  const selectDistrict = (label: string) => {
-    const selected = districts.find(item => item.label === label)
-    if (selected) setDistrict(selected)
-    setStage(null)
-  }
-
   const handleNext = async () => {
-    if (field?.required && !city) {
+    if (!selectedProvince || !selectedCity) {
       await Taro.showToast({ title: '请选择居住地', icon: 'none' })
       return
     }
     try {
       await saveInitStep(5, {
-        locationProvince: province?.code,
-        locationCity: city?.code,
-        locationDistrict: district?.code,
+        locationProvince: selectedProvince.code,
+        locationCity: selectedCity.code,
       })
     } catch (error) {
       await showError(error)
     }
   }
 
-  const selectedLabel = [province?.label, city?.label, district?.label]
-    .filter(Boolean)
-    .map(item => String(item).replace(/[省市区县]$/u, ''))
-    .join(' ')
+  const handleLocationFail = (message = '定位失败，请手动选择') => {
+    setShowLocationSheet(false)
+    setShowManualSheet(true)
+    Taro.showToast({ title: message, icon: 'none' })
+  }
+
+  const handleLocation = async () => {
+    if (locationLoading) return
+    setLocationLoading(true)
+    try {
+      const authorized = await ensureUserLocationAuthorized()
+      if (!authorized) {
+        handleLocationFail('未授权定位，请手动选择')
+        return
+      }
+
+      const location = await Taro.getLocation({ type: 'gcj02' })
+      if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+        throw new Error('INVALID_LOCATION')
+      }
+      setShowLocationSheet(false)
+      setShowManualSheet(true)
+      await Taro.showToast({ title: '定位成功，请选择所在城市', icon: 'none' })
+    } catch {
+      handleLocationFail()
+    } finally {
+      setLocationLoading(false)
+    }
+  }
+
+  const handleManualConfirm = (province: RegionTreeOption, city: RegionTreeOption) => {
+    const provinceIndex = Math.max(
+      0,
+      provinces.findIndex(item => item.code === province.code)
+    )
+    const cityIndex = Math.max(
+      0,
+      province.children.findIndex(item => item.code === city.code)
+    )
+    setCityValue([provinceIndex, cityIndex])
+    setSelectedProvince(province)
+    setSelectedCity(city)
+    setSelected(formatAddressLabel(province.name, city.name))
+    setShowManualSheet(false)
+    setShowLocationSheet(false)
+  }
 
   return (
     <LoginProfileShell
       description="—你的居住地（为你推荐匹配的异性）—"
-      nextActive={Boolean(city) || field?.required === false}
-      loading={pageLoading || runtimeLoading || (!runtimeError && !loadError && provinces.length === 0)}
+      nextActive={Boolean(selected)}
+      loading={pageLoading || runtimeLoading}
       error={runtimeError || loadError}
       onRetry={() => loadPageData(true)}
       onNext={handleNext}
     >
-      <View style={{ position: 'absolute', left: '25rpx', top: '518rpx', width: '700rpx', height: '98rpx', borderRadius: '8rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ flex: 1, height: '98rpx', display: 'flex', alignItems: 'center' }} onClick={() => setStage('province')} hoverClass="btn-hover">
-          <LocationIcon active={Boolean(selectedLabel)} />
-          <Text style={{ color: selectedLabel ? '#333333' : '#999999', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>{selectedLabel || '选择城市'}</Text>
+      <View
+        style={{
+          position: 'absolute',
+          left: '25rpx',
+          top: '518rpx',
+          width: '700rpx',
+          height: '98rpx',
+          borderRadius: '8rpx',
+          background: '#FFFFFF',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <View
+          style={{ flex: 1, height: '98rpx' }}
+          onClick={() => setShowManualSheet(true)}
+          hoverClass="btn-hover"
+        >
+          <View
+            style={{
+              height: '98rpx',
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+            hoverClass="btn-hover"
+          >
+            <View
+              style={{
+                position: 'relative',
+                width: '40rpx',
+                height: '48rpx',
+                marginLeft: '30rpx',
+                marginRight: '20rpx',
+              }}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  left: '4rpx',
+                  top: '0',
+                  width: '32rpx',
+                  height: '32rpx',
+                  borderRadius: '18rpx',
+                  border: `6rpx solid ${locationColor}`,
+                }}
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  left: '15rpx',
+                  top: '13rpx',
+                  width: '10rpx',
+                  height: '10rpx',
+                  borderRadius: '5rpx',
+                  background: locationColor,
+                }}
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  left: '15rpx',
+                  top: '30rpx',
+                  width: '16rpx',
+                  height: '16rpx',
+                  borderRight: `6rpx solid ${locationColor}`,
+                  borderBottom: `6rpx solid ${locationColor}`,
+                  transform: 'rotate(45deg)',
+                }}
+              />
+            </View>
+            <Text
+              style={{
+                color: selected ? '#333333' : '#999999',
+                fontSize: '28rpx',
+                fontWeight: 500,
+                lineHeight: '40rpx',
+              }}
+            >
+              {selected || '选择城市'}
+            </Text>
+          </View>
         </View>
-        <View style={{ width: '170rpx', height: '98rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => {
-          void Taro.showToast({ title: '请选择行政区完成定位', icon: 'none' })
-          setStage('province')
-        }} hoverClass="btn-hover">
-          <Text style={{ color: '#4E8FFE', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>获取定位</Text>
+        <View
+          style={{
+            width: '170rpx',
+            height: '98rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => setShowLocationSheet(true)}
+          hoverClass="btn-hover"
+        >
+          <Text
+            style={{
+              color: '#4E8FFE',
+              fontSize: '28rpx',
+              fontWeight: 500,
+              lineHeight: '40rpx',
+            }}
+          >
+            获取定位
+          </Text>
         </View>
       </View>
 
-      {stage === 'province' ? (
-        <AddressOptionSheet title="选择省份" options={provinces.map(item => item.label)} value={province?.label || ''} onConfirm={label => void selectProvince(label)} onClose={() => setStage(null)} />
-      ) : null}
-      {stage === 'city' ? (
-        <AddressOptionSheet title="选择城市" options={cities.map(item => item.label)} value={city?.label || ''} onConfirm={label => void selectCity(label)} onClose={() => setStage(null)} />
-      ) : null}
-      {stage === 'district' ? (
-        <AddressOptionSheet title="选择区县" options={districts.map(item => item.label)} value={district?.label || ''} onConfirm={selectDistrict} onClose={() => setStage(null)} />
-      ) : null}
+      {showManualSheet && (
+        <ManualAddressSheet
+          provinces={provinces}
+          cityValue={cityValue}
+          onConfirm={handleManualConfirm}
+          onClose={() => setShowManualSheet(false)}
+        />
+      )}
+
+      {showLocationSheet && (
+        <LocationConfirmSheet
+          onConfirm={handleLocation}
+          loading={locationLoading}
+          onManual={() => {
+            setShowLocationSheet(false)
+            setShowManualSheet(true)
+          }}
+          onClose={() => setShowLocationSheet(false)}
+        />
+      )}
     </LoginProfileShell>
   )
 }
 
-function LocationIcon({ active }: { active: boolean }) {
-  const color = active ? '#2876FF' : '#A6A6A6'
+function formatAddressLabel(province: string, city: string) {
+  const provinceLabel = province.replace(/[省市区]$/u, '')
+  const cityLabel = city.replace(/[市区县]$/u, '')
+  return provinceLabel === cityLabel ? cityLabel : `${provinceLabel}${cityLabel}`
+}
+
+function ManualAddressSheet({
+  provinces,
+  cityValue,
+  onConfirm,
+  onClose,
+}: {
+  provinces: RegionTreeOption[]
+  cityValue: number[]
+  onConfirm: (province: RegionTreeOption, city: RegionTreeOption) => void
+  onClose: () => void
+}) {
+  const initialProvinceIndex = clampAddressIndex(cityValue[0] || 0, provinces.length)
+  const initialProvince = provinces[initialProvinceIndex] || provinces[0]
+  const initialCityIndex = clampAddressIndex(
+    cityValue[1] || 0,
+    initialProvince?.children.length || 0
+  )
+  const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
+  const [cityIndex, setCityIndex] = useState(initialCityIndex)
+  const [provinceScrollTop, setProvinceScrollTop] = useState<number | undefined>(() =>
+    getAddressScrollTop(initialProvinceIndex)
+  )
+  const [cityScrollTop, setCityScrollTop] = useState<number | undefined>(() =>
+    getAddressScrollTop(initialCityIndex)
+  )
+  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const province = provinces[provinceIndex] || provinces[0]
+  const cities = province?.children || []
+  const city = cities[clampAddressIndex(cityIndex, cities.length)] || cities[0]
+
+  const releaseControlledAddressScroll = () => {
+    if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
+    releaseTimerRef.current = setTimeout(() => {
+      setProvinceScrollTop(undefined)
+      setCityScrollTop(undefined)
+    }, 240)
+  }
+
+  useEffect(() => {
+    releaseControlledAddressScroll()
+    return () => {
+      if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
+    }
+  }, [])
+
+  const selectProvince = (nextIndex: number) => {
+    const nextProvinceIndex = clampAddressIndex(nextIndex, provinces.length)
+    setProvinceIndex(nextProvinceIndex)
+    setCityIndex(0)
+    setProvinceScrollTop(getAddressScrollTop(nextProvinceIndex))
+    setCityScrollTop(getAddressScrollTop(0))
+    releaseControlledAddressScroll()
+  }
+
+  const selectCity = (nextIndex: number) => {
+    const nextCityIndex = clampAddressIndex(nextIndex, cities.length)
+    setCityIndex(nextCityIndex)
+    setCityScrollTop(getAddressScrollTop(nextCityIndex))
+    releaseControlledAddressScroll()
+  }
+
+  const handleProvinceScroll = (event: { detail: { scrollTop: number } }) => {
+    const nextProvinceIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, provinces.length)
+    if (nextProvinceIndex === provinceIndex) return
+    setProvinceIndex(nextProvinceIndex)
+    setCityIndex(0)
+    setCityScrollTop(getAddressScrollTop(0))
+    releaseControlledAddressScroll()
+  }
+
+  const handleCityScroll = (event: { detail: { scrollTop: number } }) => {
+    const nextCityIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, cities.length)
+    if (nextCityIndex === cityIndex) return
+    setCityIndex(nextCityIndex)
+  }
+
   return (
-    <View style={{ position: 'relative', width: '40rpx', height: '48rpx', marginLeft: '30rpx', marginRight: '20rpx' }}>
-      <View style={{ position: 'absolute', left: '4rpx', top: '0', width: '32rpx', height: '32rpx', borderRadius: '18rpx', border: `6rpx solid ${color}` }} />
-      <View style={{ position: 'absolute', left: '15rpx', top: '13rpx', width: '10rpx', height: '10rpx', borderRadius: '5rpx', background: color }} />
-      <View style={{ position: 'absolute', left: '15rpx', top: '30rpx', width: '16rpx', height: '16rpx', borderRight: `6rpx solid ${color}`, borderBottom: `6rpx solid ${color}`, transform: 'rotate(45deg)' }} />
+    <View
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        background: 'rgba(51,51,51,0.30)',
+        zIndex: 80,
+      }}
+      onClick={onClose}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: '756rpx',
+          borderRadius: '64rpx 64rpx 0 0',
+          background: '#FFFFFF',
+          padding: '42rpx 42rpx calc(36rpx + env(safe-area-inset-bottom)) 44rpx',
+          boxSizing: 'border-box',
+        }}
+        onClick={event => event.stopPropagation()}
+      >
+        <View
+          style={{
+            width: '100%',
+            height: '40rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            style={{
+              color: '#333333',
+              fontSize: '28rpx',
+              fontWeight: 500,
+              lineHeight: '40rpx',
+              textAlign: 'center',
+            }}
+          >
+            地址
+          </Text>
+        </View>
+
+        <View
+          style={{
+            width: '512rpx',
+            margin: '65rpx auto 0',
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+          }}
+        >
+          <View
+            style={{
+              width: '256rpx',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text
+              style={{
+                color: '#0C285A',
+                fontSize: '28rpx',
+                fontWeight: 500,
+                lineHeight: '40rpx',
+                textAlign: 'center',
+              }}
+            >
+              中国
+            </Text>
+          </View>
+          <View
+            style={{
+              width: '256rpx',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text
+              style={{
+                color: '#999999',
+                fontSize: '26rpx',
+                fontWeight: 400,
+                lineHeight: '37rpx',
+                marginTop: '2rpx',
+                textAlign: 'center',
+              }}
+            >
+              海外地区国家
+            </Text>
+          </View>
+        </View>
+        <View style={{ width: '512rpx', margin: '0 auto', display: 'flex', flexDirection: 'row' }}>
+          <View style={{ width: '256rpx', display: 'flex', justifyContent: 'center' }}>
+            <View
+              style={{
+                width: '51rpx',
+                height: '6rpx',
+                borderRadius: '9rpx',
+                background: '#2876FF',
+              }}
+            />
+          </View>
+          <View style={{ width: '256rpx' }} />
+        </View>
+
+        <View
+          style={{
+            position: 'relative',
+            width: '656rpx',
+            height: '300rpx',
+            margin: '80rpx auto 0',
+            overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: '78rpx',
+              width: '656rpx',
+              height: '78rpx',
+              borderRadius: '24rpx',
+              background: '#E3F1FE',
+            }}
+          />
+          <ScrollView
+            scrollY
+            scrollTop={provinceScrollTop}
+            scrollWithAnimation
+            onScroll={handleProvinceScroll}
+            style={{
+              position: 'absolute',
+              left: '78rpx',
+              top: 0,
+              width: '220rpx',
+              height: '300rpx',
+            }}
+            showScrollbar={false}
+          >
+            <View style={{ height: `${ADDRESS_PROVINCE_TOP_SPACER_RPX}rpx` }} />
+            {provinces.map((item, index) => {
+              const isActive = index === provinceIndex
+              return (
+                <View
+                  key={item.code}
+                  style={{
+                    height: '78rpx',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onClick={() => selectProvince(index)}
+                  hoverClass="btn-hover"
+                >
+                  <Text
+                    style={{
+                      color: isActive ? '#0C285A' : index < provinceIndex ? '#D7D7D7' : '#999999',
+                      fontSize: '28rpx',
+                      fontWeight: 500,
+                      lineHeight: '40rpx',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {item.name.replace(/[省市区]$/u, '')}
+                  </Text>
+                </View>
+              )
+            })}
+            <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
+          </ScrollView>
+          <ScrollView
+            scrollY
+            scrollTop={cityScrollTop}
+            scrollWithAnimation
+            onScroll={handleCityScroll}
+            style={{
+              position: 'absolute',
+              left: '358rpx',
+              top: '78rpx',
+              width: '220rpx',
+              height: '222rpx',
+            }}
+            showScrollbar={false}
+          >
+            {cities.map((item, index) => {
+              const isActive = index === cityIndex
+              return (
+                <View
+                  key={item.code}
+                  style={{
+                    height: '78rpx',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onClick={() => selectCity(index)}
+                  hoverClass="btn-hover"
+                >
+                  <Text
+                    style={{
+                      color: isActive ? '#0C285A' : index < cityIndex ? '#D7D7D7' : '#999999',
+                      fontSize: '28rpx',
+                      fontWeight: 500,
+                      lineHeight: '40rpx',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {item.name.replace(/[市区县]$/u, '')}
+                  </Text>
+                </View>
+              )
+            })}
+            <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
+          </ScrollView>
+        </View>
+
+        <View
+          style={{
+            height: '98rpx',
+            borderRadius: '40rpx',
+            background: '#2876FF',
+            marginTop: '43rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => {
+            if (province && city) onConfirm(province, city)
+          }}
+          hoverClass="btn-hover"
+        >
+          <Text
+            style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}
+          >
+            确定
+          </Text>
+        </View>
+      </View>
     </View>
   )
 }
 
-function AddressOptionSheet({ title, options, value, onConfirm, onClose }: { title: string; options: string[]; value: string; onConfirm: (value: string) => void; onClose: () => void }) {
-  const [selected, setSelected] = useState(value || options[0] || '')
+function getAddressScrollTop(index: number) {
+  return Math.max(0, rpxToPx(index * ADDRESS_ROW_HEIGHT_RPX))
+}
+
+function getAddressIndexFromScrollTop(scrollTop: number, length: number) {
+  if (length <= 0) return 0
+  const rowHeight = rpxToPx(ADDRESS_ROW_HEIGHT_RPX)
+  return clampAddressIndex(Math.round(scrollTop / rowHeight), length)
+}
+
+function clampAddressIndex(index: number, length: number) {
+  if (length <= 0) return 0
+  return Math.min(Math.max(0, index), length - 1)
+}
+
+function rpxToPx(value: number) {
+  return (value * getWindowMetrics().windowWidth) / 750
+}
+
+async function ensureUserLocationAuthorized() {
+  const setting = await Taro.getSetting()
+  const authSetting = (setting.authSetting || {}) as Record<string, boolean | undefined>
+  const current = authSetting[USER_LOCATION_SCOPE]
+
+  if (current === true) return true
+
+  if (current === false) {
+    const modal = await Taro.showModal({
+      title: '需要定位权限',
+      content: '请在设置中允许定位，用于自动完善居住地。',
+      confirmText: '去设置',
+      cancelText: '手动选择',
+    })
+    if (!modal.confirm) return false
+
+    const nextSetting = await Taro.openSetting()
+    const nextAuthSetting = (nextSetting.authSetting || {}) as Record<string, boolean | undefined>
+    return nextAuthSetting[USER_LOCATION_SCOPE] === true
+  }
+
+  try {
+    await Taro.authorize({ scope: USER_LOCATION_SCOPE })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function LocationConfirmSheet({
+  onConfirm,
+  loading,
+  onManual,
+  onClose,
+}: {
+  onConfirm: () => void | Promise<void>
+  loading: boolean
+  onManual: () => void
+  onClose: () => void
+}) {
   return (
-    <View style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(51,51,51,0.30)', zIndex: 80 }} onClick={onClose}>
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '756rpx', borderRadius: '64rpx 64rpx 0 0', background: '#FFFFFF', padding: '42rpx 44rpx calc(36rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }} onClick={event => event.stopPropagation()}>
-        <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: '#8A93A5', fontSize: '28rpx' }} onClick={onClose}>取消</Text>
-          <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700 }}>{title}</Text>
-          <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 700 }} onClick={() => selected && onConfirm(selected)}>确定</Text>
+    <View
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.42)',
+        zIndex: 80,
+      }}
+      onClick={onClose}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          minHeight: '438rpx',
+          borderRadius: '64rpx 64rpx 0 0',
+          background: '#FFFFFF',
+          padding: '48rpx 50rpx calc(58rpx + env(safe-area-inset-bottom))',
+          boxSizing: 'border-box',
+        }}
+        onClick={event => event.stopPropagation()}
+      >
+        <Text
+          style={{
+            display: 'block',
+            color: '#0C285A',
+            fontSize: '36rpx',
+            fontWeight: 700,
+            lineHeight: '50rpx',
+            textAlign: 'center',
+          }}
+        >
+          获取当前位置
+        </Text>
+        <Text
+          style={{
+            display: 'block',
+            color: '#6E7890',
+            fontSize: '26rpx',
+            lineHeight: '40rpx',
+            textAlign: 'center',
+            marginTop: '22rpx',
+          }}
+        >
+          我们将仅用于完善居住地资料，帮助推荐更合适的人。
+        </Text>
+        <View
+          style={{
+            height: '96rpx',
+            borderRadius: '24rpx',
+            background: '#2876FF',
+            marginTop: '48rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => {
+            if (!loading) onConfirm()
+          }}
+          hoverClass="btn-hover"
+        >
+          <Text
+            style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}
+          >
+            {loading ? '定位中...' : '允许并获取定位'}
+          </Text>
         </View>
-        <ScrollView scrollY showScrollbar={false} style={{ height: '520rpx', marginTop: '42rpx', borderRadius: '24rpx', background: '#F7FAFF', padding: '12rpx', boxSizing: 'border-box' }}>
-          {options.map(option => {
-            const active = option === selected
-            return <View key={option} style={{ height: '78rpx', borderRadius: '20rpx', background: active ? '#E3F1FE' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8rpx' }} onClick={() => setSelected(option)}><Text style={{ color: active ? '#2876FF' : '#333333', fontSize: active ? '32rpx' : '28rpx', fontWeight: active ? 700 : 400 }}>{option}</Text></View>
-          })}
-        </ScrollView>
+        <View
+          style={{
+            height: '76rpx',
+            marginTop: '16rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={onManual}
+          hoverClass="btn-hover"
+        >
+          <Text
+            style={{ color: '#8792A6', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}
+          >
+            手动选择城市
+          </Text>
+        </View>
       </View>
     </View>
   )

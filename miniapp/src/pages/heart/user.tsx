@@ -1,16 +1,22 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useState } from 'react'
+import Taro, { useRouter } from '@tarojs/taro'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import {
+  cancelRelationLike,
+  reportRelationVisit,
+  sendRelationLike,
+  type RelationSourceScene,
+} from '@/services/relation'
 
 const background =
   'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%)'
 
 const tagRows = [
   ['IT女神', '户外发烧友', '热爱旅行', '电子竞技'],
-  ['IT女神', '户外发烧友', '热爱旅行', '电子竞技'],
-  ['IT女神', '户外发烧友', '热爱旅行', '电子竞技'],
+  ['真诚沟通', '喜欢读书', '周末徒步', '认真恋爱'],
+  ['情绪稳定', '有边界感', '会做饭', '喜欢电影'],
 ]
 
 const tagStyles = [
@@ -20,21 +26,62 @@ const tagStyles = [
   { color: '#9F2CB2', background: '#F4E6F6' },
 ]
 
+function createRequestId(prefix: string, targetUserId: number): string {
+  return `${prefix}-${targetUserId}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
+function createEventNo(targetUserId: number, sourceScene: string): string {
+  return `visit-${targetUserId}-${sourceScene}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
 export default function HeartUserPage() {
-  const [liked, setLiked] = useState(false)
-  const [matched] = useState(true)
+  const router = useRouter()
+  const targetUserId = Number(router.params.targetUserId || router.params.userId || 0)
+  const sourceScene = ((router.params.sourceScene as RelationSourceScene | undefined) || 'profile') as RelationSourceScene
+  const [liked, setLiked] = useState(router.params.liked === '1')
+  const [matched, setMatched] = useState(router.params.matched === '1' || router.params.matched === 'true')
+  const eventNo = useMemo(() => createEventNo(targetUserId || 0, sourceScene), [targetUserId, sourceScene])
+  const visitReported = useRef(false)
+
+  useEffect(() => {
+    if (!targetUserId || visitReported.current) return
+    visitReported.current = true
+    reportRelationVisit(targetUserId, sourceScene, eventNo).catch(() => undefined)
+  }, [targetUserId, sourceScene, eventNo])
 
   const toggleLike = () => {
+    if (!targetUserId) {
+      Taro.showToast({ title: '缺少用户信息', icon: 'none' })
+      return
+    }
     if (liked) {
       Taro.showModal({
         title: '取消喜欢',
         content: '取消后仅撤销爱心来源；若仍有其他匹配来源，聊天关系继续有效。',
-        success: result => result.confirm && setLiked(false),
+        success: result => {
+          if (!result.confirm) return
+          cancelRelationLike(targetUserId)
+            .then(data => {
+              setLiked(false)
+              setMatched(Boolean(data.matched))
+              Taro.showToast({ title: '已取消喜欢', icon: 'none' })
+            })
+            .catch(error => Taro.showToast({ title: error instanceof Error ? error.message : '取消失败', icon: 'none' }))
+        },
       })
       return
     }
-    setLiked(true)
-    Taro.showToast({ title: '已喜欢', icon: 'success' })
+    sendRelationLike(targetUserId, sourceScene, createRequestId('like', targetUserId))
+      .then(data => {
+        setLiked(true)
+        setMatched(Boolean(data.matched))
+        Taro.showToast({ title: data.matched ? '匹配成功' : '已喜欢', icon: 'success' })
+      })
+      .catch(error => {
+        const message = error instanceof Error ? error.message : '喜欢失败'
+        if (/20004|已存在/.test(message)) setLiked(true)
+        Taro.showToast({ title: message, icon: 'none' })
+      })
   }
 
   const openSafetyActions = () => {

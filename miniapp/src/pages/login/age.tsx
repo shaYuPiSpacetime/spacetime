@@ -25,7 +25,6 @@ export default function LoginAgePage() {
   const years = useMemo(() => buildYears(ageRange.min, ageRange.max), [ageRange.min, ageRange.max])
   const initial = useMemo(() => resolveInitialValue(userInfo.birthday, years), [userInfo.birthday, years])
   const [value, setValue] = useState(initial)
-  const [touched, setTouched] = useState(Boolean(userInfo.birthday))
 
   useEffect(() => {
     void bootstrap().catch(showError)
@@ -39,11 +38,14 @@ export default function LoginAgePage() {
     const limits = [years.length, MONTHS.length, DAYS.length]
     if (nextIndex < 0 || nextIndex >= limits[columnIndex]) return
     setValue(current => current.map((item, index) => index === columnIndex ? nextIndex : item))
-    setTouched(true)
   }
 
+  const hasValidDate = Boolean(
+    years[value[0]] && MONTHS[value[1]] && DAYS[value[2]]
+  )
+
   const handleNext = async () => {
-    if (field?.required && !touched) {
+    if (field?.required && !hasValidDate) {
       await Taro.showToast({ title: '请选择出生日期', icon: 'none' })
       return
     }
@@ -60,7 +62,7 @@ export default function LoginAgePage() {
   return (
     <LoginProfileShell
       description="—你是哪一年出生（为你推荐匹配的异性）—"
-      nextActive={touched || field?.required === false}
+      nextActive={hasValidDate || field?.required === false}
       loading={runtimeLoading || (!runtimeError && years.length === 0)}
       error={runtimeError}
       onRetry={retryRuntime}

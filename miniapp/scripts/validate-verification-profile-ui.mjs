@@ -187,7 +187,11 @@ assert.ok(nativeNavigationSource.includes('getWindowMetrics'), '二级页导航�
 assert.ok(nativeNavigationSource.includes('menuLeft'), '二级页导航必须保留系统菜单安全区度量')
 assert.ok(nativeNavigationSource.includes('data-role="native-navigation-back"'), '二级页返回按钮需要统一点击热区')
 assert.ok(nativeNavigationSource.includes('left: 0'), '二级页标题必须按整屏居中，不能被返回按钮或胶囊挤偏')
-assert.ok(nativeNavigationSource.includes("width: '750rpx'"), '二级页标题必须保留整屏宽度以确保视觉居中')
+assert.equal(
+  (nativeNavigationSource.match(/width:\s*isWeapp \? metricValue\(750\) : '100%'/g) || []).length,
+  2,
+  '二级页导航容器和标题必须保留跨端整屏宽度以确保视觉居中',
+)
 assert.ok(nativeNavigationSource.includes('size = 24'), '二级页返回箭头需要按蓝湖尺寸缩小')
 const forbiddenCapsuleDots = ['•', '•', '•'].join('')
 assert.ok(!myCertificationSource.includes(forbiddenCapsuleDots), '我的认证页面禁止自绘右上胶囊')

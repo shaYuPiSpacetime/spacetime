@@ -9,6 +9,7 @@ import type {
   ProfileInitValues,
   ProfileOptions,
   RegionOption,
+  RegionTreeOption,
   SmsCodeResult,
 } from '@/types/prd01'
 
@@ -16,6 +17,7 @@ export interface Prd01LoaderApi {
   getConfig: () => Promise<Prd01Config>
   getProfileOptions: () => Promise<ProfileOptions>
   getLocations: (parentCode?: string) => Promise<RegionOption[]>
+  getProvinceCities: () => Promise<RegionTreeOption[]>
 }
 
 export interface Prd01BootstrapResult {
@@ -367,6 +369,8 @@ export function createPrd01Loader(api: Prd01LoaderApi) {
   let snapshot: Prd01BootstrapResult | undefined
   let bootstrapPromise: Promise<Prd01BootstrapResult> | undefined
   const locationCache = new Map<string, RegionOption[]>()
+  let provinceCityCache: RegionTreeOption[] | undefined
+  let provinceCityPromise: Promise<RegionTreeOption[]> | undefined
 
   const bootstrap = (force = false): Promise<Prd01BootstrapResult> => {
     if (!force && snapshot) return Promise.resolve(snapshot)
@@ -394,11 +398,30 @@ export function createPrd01Loader(api: Prd01LoaderApi) {
     return result
   }
 
+  const provinceCities = (force = false): Promise<RegionTreeOption[]> => {
+    if (!force && provinceCityCache) return Promise.resolve(provinceCityCache)
+    if (!force && provinceCityPromise) return provinceCityPromise
+    provinceCityPromise = api.getProvinceCities()
+      .then(result => {
+        if (!Array.isArray(result) || result.length === 0) {
+          throw new Error('省市字典配置为空，请联系管理员')
+        }
+        provinceCityCache = result
+        return result
+      })
+      .finally(() => {
+        provinceCityPromise = undefined
+      })
+    return provinceCityPromise
+  }
+
   const clear = () => {
     snapshot = undefined
     bootstrapPromise = undefined
     locationCache.clear()
+    provinceCityCache = undefined
+    provinceCityPromise = undefined
   }
 
-  return { bootstrap, locations, clear }
+  return { bootstrap, locations, provinceCities, clear }
 }

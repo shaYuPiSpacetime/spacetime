@@ -7,9 +7,11 @@ import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { resolveSmsCountdown } from '@/domain/prd01Runtime'
+import { isValidLoginPhone, resolvePhoneLoginError } from '@/domain/loginRuntime'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
+import LoginNextButton from './components/LoginNextButton'
 import './phone.scss'
 
 function PhoneIcon() {
@@ -70,15 +72,14 @@ export default function PhoneLoginPage() {
   }, [codeCountdown])
 
   const showError = (fallback: string, error?: unknown) => {
-    const message = error instanceof Error ? error.message : fallback
+    const message = resolvePhoneLoginError(fallback, error)
     setErrorText(message)
-    if (message) void Taro.showToast({ title: message, icon: 'none' })
   }
 
   const handleGetCode = async () => {
     if (codeCountdown > 0 || loading) return
-    if (!phoneNumber.trim()) {
-      showError('请输入手机号')
+    if (!isValidLoginPhone(phoneNumber)) {
+      showError('你输入的手机号有误')
       return
     }
     setLoading(true)
@@ -94,8 +95,12 @@ export default function PhoneLoginPage() {
   }
 
   const handlePhoneLogin = async () => {
-    if (!phoneNumber.trim() || !verificationCode.trim()) {
-      showError('请填写手机号和验证码')
+    if (!isValidLoginPhone(phoneNumber)) {
+      showError('你输入的手机号有误')
+      return
+    }
+    if (!verificationCode.trim()) {
+      showError('请输入验证码')
       return
     }
     if (!agreed) {
@@ -202,16 +207,11 @@ export default function PhoneLoginPage() {
         </Text>
       </View>
 
-      <View
-        className={phoneLoginActive ? 'phone-login-next phone-login-next--active' : 'phone-login-next'}
-        onClick={() => void handlePhoneLogin()}
-        hoverClass="btn-hover"
-      >
-        <View className="phone-login-next-arrow">
-          <View className="phone-login-next-line" />
-          <View className="phone-login-next-chevron" />
-        </View>
-      </View>
+      <LoginNextButton
+        className="phone-login-next"
+        active={phoneLoginActive && !loading}
+        onClick={handlePhoneLogin}
+      />
     </View>
   )
 }
