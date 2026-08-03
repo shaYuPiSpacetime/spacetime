@@ -6,6 +6,10 @@ PROJECT_DIR="${SPACETIME_PROJECT_DIR:-/mnt/data/spacetime-prod}"
 PROD_ENV_FILE="${SPACETIME_PROD_ENV_FILE:-${PROJECT_DIR}/secrets/prod.env}"
 RUNTIME_ENV_FILE="${SPACETIME_RUNTIME_ENV_FILE:-${PROJECT_DIR}/secrets/runtime.env}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=resolve-oss-endpoint.sh
+. "${SCRIPT_DIR}/resolve-oss-endpoint.sh"
 
 log() {
   printf '[spacetime-prod] %s\n' "$*"
@@ -65,6 +69,13 @@ load_env() {
   export WECHAT_PAY_FORCE_TEST_AMOUNT="${WECHAT_PAY_FORCE_TEST_AMOUNT:-false}"
   export WECHAT_PAY_TEST_PAY_AMOUNT="${WECHAT_PAY_TEST_PAY_AMOUNT:-0.01}"
   export WECHAT_PAY_DESCRIPTION_PREFIX="${WECHAT_PAY_DESCRIPTION_PREFIX:-时空邂逅}"
+
+  local original_oss_bucket="${OSS_BUCKET_NAME:-}"
+  local original_oss_endpoint="${OSS_ENDPOINT:-}"
+  normalize_oss_config
+  if [ "$original_oss_bucket" != "${OSS_BUCKET_NAME:-}" ] || [ "$original_oss_endpoint" != "${OSS_ENDPOINT:-}" ]; then
+    log "校正 OSS 存储配置：${original_oss_bucket}@${original_oss_endpoint} -> ${OSS_BUCKET_NAME}@${OSS_ENDPOINT}"
+  fi
 
   for key in \
     DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \

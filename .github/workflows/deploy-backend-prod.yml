@@ -32,6 +32,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate production OSS storage normalization
+        run: |
+          bash -n deploy/scripts/resolve-oss-endpoint.sh deploy/scripts/deploy-prod-local.sh
+          node scripts/test-prod-oss-endpoint.mjs
+
       - name: Validate ACR password
         env:
           HAS_ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD != '' }}
