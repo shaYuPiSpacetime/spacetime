@@ -15,3 +15,14 @@ promotion:
   share:
     # Taro H5 部署基址；生产使用 HTTPS，服务端会拼接 #/pages/promotion/invite-home。
     h5-base-url: ${PROMOTION_SHARE_H5_BASE_URL:}
+
+sms:
+  # 开发和测试默认 mock；生产 profile 覆盖为 aliyun。
+  provider: ${SMS_PROVIDER:mock}
+  aliyun:
+    endpoint: ${SMS_ENDPOINT:dysmsapi.aliyuncs.com}
+    # 用户已确认短信服务复用 OSS 所属 RAM 凭证；SMS 专用变量仍保留最高优先级。
+    access-key-id: ${SMS_ACCESS_KEY_ID:${OSS_ACCESS_KEY_ID:${DEV_OSS_ACCESS_KEY_ID:}}}
+    access-key-secret: ${SMS_ACCESS_KEY_SECRET:${OSS_ACCESS_KEY_SECRET:${DEV_OSS_ACCESS_KEY_SECRET:}}}
+    sign-name: ${SMS_SIGN_NAME:上海兴家立业网络科技}
+    template-code: ${SMS_TEMPLATE_CODE:SMS_336060313}

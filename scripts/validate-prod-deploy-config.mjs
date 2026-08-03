@@ -139,6 +139,12 @@ for (const expected of [
   'OSS_BUCKET_NAME=shikongxiehou',
   'OSS_ACCESS_KEY_ID=',
   'OSS_ACCESS_KEY_SECRET=',
+  'SMS_PROVIDER=aliyun',
+  'SMS_ACCESS_KEY_ID=',
+  'SMS_ACCESS_KEY_SECRET=',
+  'SMS_ENDPOINT=dysmsapi.aliyuncs.com',
+  'SMS_SIGN_NAME=上海兴家立业网络科技',
+  'SMS_TEMPLATE_CODE=SMS_336060313',
   'WECHAT_PAY_APP_ID=wx03e8cd2d1380c465',
   'WECHAT_PAY_MCH_ID=',
   'WECHAT_PAY_API_V3_KEY=',
@@ -159,16 +165,18 @@ for (const expected of [
   '${OSS_BUCKET_NAME:shikongxiehou}',
   'endpoint: ${OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}',
   'bucket-name: ${OSS_BUCKET_NAME:shikongxiehou}',
+  'provider: ${SMS_PROVIDER:aliyun}',
 ]) {
   assertIncludes(prodConfig, expected, 'backend/src/main/resources/application-prod.yml');
 }
 
-const devConfig = read('backend/src/main/resources/application-dev.yml');
+const devConfigFile = 'backend/src/main/resources/application-dev.yml.example';
+const devConfig = read(devConfigFile);
 for (const expected of [
-  'rm-bp11i1ru1405fb2iqio.mysql.rds.aliyuncs.com',
+  '${DEV_DB_HOST}',
   '${DEV_DB_USER',
   '${DEV_DB_PASSWORD',
-  'r-bp182i9r17g2ybq30gpd.redis.rds.aliyuncs.com',
+  '${DEV_REDIS_HOST}',
   '${DEV_REDIS_USERNAME',
   '${DEV_REDIS_PASSWORD',
   '${DEV_OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}',
@@ -176,7 +184,19 @@ for (const expected of [
   '${DEV_OSS_ACCESS_KEY_ID',
   '${DEV_OSS_ACCESS_KEY_SECRET',
 ]) {
-  assertIncludes(devConfig, expected, 'backend/src/main/resources/application-dev.yml');
+  assertIncludes(devConfig, expected, devConfigFile);
+}
+
+const devEnvExample = read('backend/.env.local.example');
+for (const expected of [
+  'SMS_PROVIDER=mock',
+  'SMS_ACCESS_KEY_ID=',
+  'SMS_ACCESS_KEY_SECRET=',
+  'SMS_ENDPOINT=dysmsapi.aliyuncs.com',
+  'SMS_SIGN_NAME=上海兴家立业网络科技',
+  'SMS_TEMPLATE_CODE=SMS_336060313',
+]) {
+  assertIncludes(devEnvExample, expected, 'backend/.env.local.example');
 }
 
 const frontendRequest = read('frontend/src/api/request.ts');
@@ -198,6 +218,8 @@ for (const expected of [
   'docker login "$ALIYUN_CR_REGISTRY"',
   '跳过数据库迁移',
   'WECHAT_MINIAPP_APP_ID WECHAT_MINIAPP_APP_SECRET',
+  'SMS_ACCESS_KEY_ID SMS_ACCESS_KEY_SECRET',
+  'SMS_PROVIDER SMS_ENDPOINT SMS_SIGN_NAME SMS_TEMPLATE_CODE',
 ]) {
   assertIncludes(deployScript, expected, 'deploy/scripts/deploy-prod-local.sh');
 }
@@ -264,7 +286,8 @@ const secretLikeChecks = [
 for (const file of [
   ...workflows,
   'backend/src/main/resources/application-prod.yml',
-  'backend/src/main/resources/application-dev.yml',
+  'backend/src/main/resources/application-dev.yml.example',
+  'backend/.env.local.example',
   'deploy/server.prod.env.example',
 ]) {
   const content = read(file);

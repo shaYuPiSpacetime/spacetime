@@ -19,6 +19,7 @@
         <hutool.version>5.8.32</hutool.version>
         <knife4j.version>4.5.0</knife4j.version>
         <lombok.version>1.18.38</lombok.version>
+        <aliyun-sms.version>4.5.1</aliyun-sms.version>
     </properties>
 
     <dependencies>
@@ -79,6 +80,13 @@
             <groupId>com.aliyun.oss</groupId>
             <artifactId>aliyun-sdk-oss</artifactId>
             <version>3.18.1</version>
+        </dependency>
+
+        <!-- 阿里云短信服务 V2.0 SDK -->
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>dysmsapi20170525</artifactId>
+            <version>${aliyun-sms.version}</version>
         </dependency>
 
         <!-- 后端确定性生成校园推广员永久二维码，避免本地验收依赖 OSS -->

@@ -194,7 +194,7 @@ public class Prd01RuntimeConfigResolver {
     }
 
     /** 短信验证码倒计时、有效期和每日次数沿用现有安全配置。 */
-    public Map<String, Object> smsSecurity(RuntimeConfigSnapshot snapshot) {
+    public Map<String, Object> smsSecurity(RuntimeConfigSnapshot snapshot, String providerCode) {
         int countdown = 60;
         int validMinutes = 5;
         int dailyLimit = 10;
@@ -217,7 +217,7 @@ public class Prd01RuntimeConfigResolver {
         result.put("sendCountdownSeconds", countdown);
         result.put("validMinutes", validMinutes);
         result.put("dailySendLimit", dailyLimit);
-        result.put("providerCode", "MOCK");
+        result.put("providerCode", StrUtil.blankToDefault(providerCode, "MOCK"));
         return result;
     }
 

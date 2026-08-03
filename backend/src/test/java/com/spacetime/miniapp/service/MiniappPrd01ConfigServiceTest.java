@@ -3,6 +3,7 @@ package com.spacetime.miniapp.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.entity.AppConfig;
+import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.miniapp.service.impl.Prd01FieldConfigResolver;
 import com.spacetime.miniapp.service.impl.MiniappPrd01ConfigServiceImpl;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
@@ -26,10 +27,13 @@ class MiniappPrd01ConfigServiceTest {
 
     @Mock
     private AppConfigDao appConfigDao;
+    @Mock
+    private SmsCodeProvider smsCodeProvider;
 
     @Test
     @DisplayName("prd01 config exposes upload limits, region scope and audit policy")
     void shouldExposePrd01ConfigContract() {
+        when(smsCodeProvider.providerCode()).thenReturn("ALIYUN_SMS");
         List<AppConfig> runtimeConfigs = List.of(
                 config("prd01.access.minAge", "20", "PRD01_ACCESS"),
                 config("prd01.access.maxAge", "55", "PRD01_ACCESS"),
@@ -102,7 +106,8 @@ class MiniappPrd01ConfigServiceTest {
         ObjectMapper objectMapper = new ObjectMapper();
         MiniappPrd01ConfigService service = new MiniappPrd01ConfigServiceImpl(
                 new Prd01FieldConfigResolver(appConfigDao, objectMapper),
-                new Prd01RuntimeConfigResolver(appConfigDao, objectMapper));
+                new Prd01RuntimeConfigResolver(appConfigDao, objectMapper),
+                smsCodeProvider);
 
         Map<String, Object> config = service.getPrd01Config();
 
@@ -160,7 +165,7 @@ class MiniappPrd01ConfigServiceTest {
                 .containsEntry("sendCountdownSeconds", 45)
                 .containsEntry("validMinutes", 3)
                 .containsEntry("dailySendLimit", 8)
-                .containsEntry("providerCode", "MOCK");
+                .containsEntry("providerCode", "ALIYUN_SMS");
         assertThat((List<String>) config.get("openTextFields")).containsExactly("ABOUT_ME", "PROFILE_QA");
     }
 

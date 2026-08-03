@@ -11,6 +11,7 @@ import java.util.List;
  */
 public interface AppUserDao {
     AppUser selectById(Long id);
+    AppUser selectByPhoneHash(String phoneHash);
     AppUser selectOne(LambdaQueryWrapper<AppUser> wrapper);
     Long count(LambdaQueryWrapper<AppUser> wrapper);
     Page<AppUser> selectPage(Page<AppUser> page, LambdaQueryWrapper<AppUser> wrapper);

@@ -2,6 +2,9 @@ UPDATE app_user
 SET first_login_completed = 0,
     first_login_next_step = 1
 WHERE phone = '17366629764'; 重置
+波：04、05、06、08
+uploadFile 合法域名中 https://shikongxiehou.oss-cn-shanghai.aliyuncs.com
+
 
 读/Users/bobo/IdeaProjects/shayupi/spacetime/docs/静态Demo/06-认证与安全设置、我的页与搜索 实现管理后台和后台能力，对接小程序实现闭环，
 新增的菜单需要和 demo 保持一致。sql 改动直接执行。闭环后我看效果

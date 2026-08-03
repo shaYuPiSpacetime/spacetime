@@ -48,7 +48,7 @@ import com.spacetime.common.enums.VipStatusEnum;
  *
  * 微信登录和手机号登录共用同一响应结构，移动端可以统一处理首登续填、
  * 核心准入拦截和后续跳转。短信验证码走 Provider 抽象和 Redis 频控；
- * 当前默认 mock 通道，真实短信三方接入时替换 Provider 即可。
+ * 开发环境默认 mock，生产环境使用阿里云短信通道。
  */
 @Slf4j
 @Service
@@ -110,7 +110,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         try {
             smsCodeProvider.sendLoginCode(phone, code, rules.validMinutes());
         } catch (Exception ex) {
-            log.warn("send sms code failed, phone={}, provider={}", phone, smsCodeProvider.providerCode(), ex);
+            log.warn("send sms code failed, phone={}, provider={}, failureType={}",
+                    phone, smsCodeProvider.providerCode(), ex.getClass().getSimpleName());
             throw new BusinessException("AUTH_SMS_SEND_FAILED: 验证码发送失败，请稍后重试");
         }
 
@@ -134,21 +135,42 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         requireProtocolAgreement(req.getAgreeProtocol());
         String phone = req.getPhone().trim();
         String codeKey = SMS_CODE_PREFIX + phone;
-        String cachedCode = redisTemplate.opsForValue().get(codeKey);
+        String cachedCode = normalizeRedisScalar(redisTemplate.opsForValue().get(codeKey));
         if (StrUtil.isBlank(cachedCode) || !cachedCode.equals(req.getSmsCode().trim())) {
             throw new BusinessException("AUTH_SMS_INVALID: 验证码错误或已过期");
         }
+        LoginTarget target = loginByPhone(phone, req.getPromotionTraceNos());
+        WechatLoginVO vo = buildLoginVO(target.user(), target.isNew());
         redisTemplate.delete(codeKey);
-        String openId = "phone_" + phone;
-        LoginTarget target = loginByOpenId(
-                openId, RegisterSourceEnum.PHONE.getCode(), phone, null, req.getPromotionTraceNos());
-        return buildLoginVO(target.user(), target.isNew());
+        return vo;
+    }
+
+    /**
+     * 按手机号登录；已有微信账号时复用原账号和 openid，避免同一手机号重复注册。
+     */
+    private LoginTarget loginByPhone(String phone, List<String> promotionTraceNos) {
+        String phoneHash = hashPhone(phone);
+        AppUser user = appUserDao.selectByPhoneHash(phoneHash);
+        if (user == null) {
+            return loginByOpenId(
+                    "phone_" + phone,
+                    RegisterSourceEnum.PHONE.getCode(),
+                    phone,
+                    null,
+                    promotionTraceNos);
+        }
+        checkAccountStatus(user);
+        user.setPhone(phone);
+        user.setPhoneHash(phoneHash);
+        user.setLastLoginTime(LocalDateTime.now());
+        appUserDao.updateById(user);
+        return new LoginTarget(user, false);
     }
 
     /**
      * 按 openId 登录或创建用户。
      *
-     * 手机号登录复用 openId 字段保存 phone_手机号；本期不在登录时生成认证审核记录。
+     * 新手机号账号使用 openId 字段保存 phone_手机号；本期不在登录时生成认证审核记录。
      */
     private LoginTarget loginByOpenId(String openId,
                                       String registerSource,
@@ -332,14 +354,32 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     }
 
     private int parseInt(String value, int defaultValue) {
-        if (StrUtil.isBlank(value)) {
+        String normalized = normalizeRedisScalar(value);
+        if (StrUtil.isBlank(normalized)) {
             return defaultValue;
         }
         try {
-            return Integer.parseInt(value.trim());
+            return Integer.parseInt(normalized);
         } catch (NumberFormatException ex) {
             return defaultValue;
         }
+    }
+
+    /** 兼容 StringRedisTemplate 使用 JSON 序列化时产生的带引号标量值。 */
+    private String normalizeRedisScalar(String value) {
+        if (StrUtil.isBlank(value)) {
+            return value;
+        }
+        String trimmed = value.trim();
+        try {
+            JsonNode node = objectMapper.readTree(trimmed);
+            if (node != null && node.isTextual()) {
+                return node.textValue();
+            }
+        } catch (Exception ignored) {
+            // 非 JSON 标量按原值兼容处理。
+        }
+        return trimmed;
     }
 
     private String dailyKey(String phone) {

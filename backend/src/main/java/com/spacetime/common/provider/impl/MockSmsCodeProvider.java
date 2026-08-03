@@ -2,7 +2,7 @@ package com.spacetime.common.provider.impl;
 
 import com.spacetime.common.provider.SmsCodeProvider;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Primary;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
  * 联调环境固定生成 000000，避免依赖真实短信三方；接入真实通道时替换 Provider。
  */
 @Slf4j
-@Primary
 @Component
+@ConditionalOnProperty(prefix = "sms", name = "provider", havingValue = "mock", matchIfMissing = true)
 public class MockSmsCodeProvider implements SmsCodeProvider {
 
     @Override

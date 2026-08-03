@@ -119,7 +119,7 @@ class LikesMeInboxServiceTest {
         RelationLikeListRow newLike = row(40L, 40L, "LIK-040", snapshotTime, null, true);
         UserAsset vip = inactiveAsset();
         vip.setVipStatus("active");
-        vip.setVipExpireTime(snapshotTime.plusDays(1));
+        vip.setVipExpireTime(LocalDateTime.now().plusDays(1));
 
         stubBaseQuery(snapshot, null, vip, 40L, 40L, 40L, List.of(newLike), List.of(newLike));
         when(appUserDao.selectList(any())).thenReturn(List.of(user(40L, "VIP可见")));

@@ -1,6 +1,7 @@
 package com.spacetime.miniapp.service.impl;
 
 import com.spacetime.miniapp.service.MiniappPrd01ConfigService;
+import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService 
 
     private final Prd01FieldConfigResolver fieldConfigResolver;
     private final Prd01RuntimeConfigResolver runtimeConfigResolver;
+    private final SmsCodeProvider smsCodeProvider;
 
     /** 获取 PRD01 移动端初始化配置。 */
     @Override
@@ -41,7 +43,7 @@ public class MiniappPrd01ConfigServiceImpl implements MiniappPrd01ConfigService 
         result.put("uploadLimits", runtimeConfigResolver.uploadLimits(snapshot));
         result.put("regionScope", regionScope());
         result.put("auditPolicy", auditPolicyData);
-        result.put("smsSecurity", runtimeConfigResolver.smsSecurity(snapshot));
+        result.put("smsSecurity", runtimeConfigResolver.smsSecurity(snapshot, smsCodeProvider.providerCode()));
         result.put("openTextFields", List.of("ABOUT_ME", "PROFILE_QA"));
         result.put("configUpdatedAt", runtimeConfigResolver.configUpdatedAt(snapshot));
         return result;

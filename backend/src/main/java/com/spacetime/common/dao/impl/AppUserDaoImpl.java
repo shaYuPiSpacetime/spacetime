@@ -25,6 +25,12 @@ public class AppUserDaoImpl implements AppUserDao {
     }
 
     @Override
+    public AppUser selectByPhoneHash(String phoneHash) {
+        return mapper.selectOne(new LambdaQueryWrapper<AppUser>()
+                .eq(AppUser::getPhoneHash, phoneHash));
+    }
+
+    @Override
     public AppUser selectOne(LambdaQueryWrapper<AppUser> wrapper) {
         return mapper.selectOne(wrapper);
     }
