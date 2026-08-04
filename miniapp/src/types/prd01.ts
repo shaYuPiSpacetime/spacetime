@@ -64,6 +64,7 @@ export interface InitFieldConfig {
   label?: string
   visible: boolean
   required: boolean
+  requiredMode?: 'fixed' | 'conditional' | 'configurable' | string
   allowEmpty?: boolean
   submitFields?: string[]
 }
@@ -375,6 +376,7 @@ export interface BasicProfile extends Record<string, unknown> {
   gender?: string
   birthday?: string
   age?: number
+  zodiac?: string
   height?: number
   weight?: number
   identity?: string

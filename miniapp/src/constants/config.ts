@@ -1,5 +1,16 @@
-/** 体验版和生产构建固定使用生产接口域名，避免 watch 产物固化旧环境变量。 */
-export const API_BASE_URL = 'https://admin.shikongxiehou.com/api'
+import { resolveRelationApiBaseUrl } from '@/domain/relationFeedbackFlow'
+
+const PRODUCTION_API_BASE_URL = 'https://admin.shikongxiehou.com/api'
+
+/**
+ * 体验版和生产构建固定使用生产接口域名。
+ * 只有显式 E2E 构建可切到本机回环地址，防止自动化误请求生产环境。
+ */
+export const API_BASE_URL = resolveRelationApiBaseUrl(
+  PRODUCTION_API_BASE_URL,
+  process.env.MINIAPP_E2E_MODE,
+  process.env.MINIAPP_E2E_API_BASE_URL,
+)
 
 /** Token 本地存储 key */
 export const TOKEN_KEY = 'token'

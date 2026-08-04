@@ -7,7 +7,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
 
 const sourceFiles = [
-  'src/pages/login/age.tsx',
   'src/pages/verification/components/BasicInfoCard.tsx',
   'src/pages/verification/components/BasicPickerPage.tsx',
   'src/pages/verification/education-student.tsx',
@@ -54,6 +53,16 @@ for (const relativePath of sourceFiles) {
   assert.ok(!/<Picker\b|<PickerView\b|<PickerViewColumn\b/.test(source), `${relativePath} 仍残留原生 Picker/PickerView JSX`)
   assert.ok(!/from '@tarojs\/components'[^\n]*\bPicker(View|ViewColumn)?\b/.test(source), `${relativePath} 仍从 Taro 引入原生 Picker/PickerView`)
 }
+
+const loginAgeSource = read('src/pages/login/age.tsx')
+assert.ok(!/<Picker\b/.test(loginAgeSource), '出生日期页禁止退回单值原生 Picker')
+assert.match(loginAgeSource, /<PickerView\b/, '出生日期页必须使用可滑动的原生 PickerView')
+assert.equal(
+  (loginAgeSource.match(/<PickerViewColumn\b/g) || []).length,
+  3,
+  '出生日期页必须保留年、月、日三个可独立滑动列',
+)
+assert.match(loginAgeSource, /normalizeBirthDateSelection/, '出生日期页必须在年月变化后修正非法日期')
 
 const sharedPicker = read('src/pages/verification/components/LanhuPickerSheet.tsx')
 const shellSource = read('src/pages/verification/components/VerificationShell.tsx')

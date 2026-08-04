@@ -70,7 +70,7 @@ const SOURCE_EVIDENCE = [
       'FIELD_OPTION_KEYS',
       'profileOptions',
       "copy('common_select_placeholder')",
-      "borderRadius: '24rpx'",
+      "borderRadius: '36rpx'",
       'verificationCardStyle',
     ],
   },

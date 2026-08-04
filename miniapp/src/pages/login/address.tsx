@@ -1,6 +1,7 @@
 import { ScrollView, View, Text } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
+import { toTwoLevelRegionErrorMessage } from '@/domain/basicProfileRegion'
 import { useLogin } from '@/hooks/useLogin'
 import type { RegionTreeOption } from '@/types/prd01'
 import { getWindowMetrics } from '@/utils/system'
@@ -37,7 +38,8 @@ export default function LoginAddressPage() {
   const [loadError, setLoadError] = useState<string>()
   const variantRef = useRef('default')
 
-  const locationColor = selected ? '#2876FF' : '#A6A6A6'
+  const hasCompleteAddress = Boolean(selectedProvince && selectedCity)
+  const locationColor = hasCompleteAddress ? '#2876FF' : '#A6A6A6'
 
   useLoad(options => {
     const variant = options?.variant ?? 'default'
@@ -57,7 +59,12 @@ export default function LoginAddressPage() {
     }
 
     if (variant === 'selected' && provinces.length > 0) {
-      restoreSelection(provinces, userInfo.locationProvince, userInfo.locationCity, true)
+      void restoreSelection(
+        provinces,
+        userInfo.locationProvince,
+        userInfo.locationCity,
+        true
+      )
     }
   })
 
@@ -153,7 +160,10 @@ export default function LoginAddressPage() {
     }
   }
 
-  const handleManualConfirm = (province: RegionTreeOption, city: RegionTreeOption) => {
+  const handleManualConfirm = (
+    province: RegionTreeOption,
+    city: RegionTreeOption
+  ) => {
     const provinceIndex = Math.max(
       0,
       provinces.findIndex(item => item.code === province.code)
@@ -173,7 +183,7 @@ export default function LoginAddressPage() {
   return (
     <LoginProfileShell
       description="—你的居住地（为你推荐匹配的异性）—"
-      nextActive={Boolean(selected)}
+      nextActive={hasCompleteAddress}
       loading={pageLoading || runtimeLoading}
       error={runtimeError || loadError}
       onRetry={() => loadPageData(true)}
@@ -253,7 +263,7 @@ export default function LoginAddressPage() {
             </View>
             <Text
               style={{
-                color: selected ? '#333333' : '#999999',
+                color: hasCompleteAddress ? '#333333' : '#999999',
                 fontSize: '28rpx',
                 fontWeight: 500,
                 lineHeight: '40rpx',
@@ -288,10 +298,10 @@ export default function LoginAddressPage() {
       </View>
 
       {showManualSheet && (
-        <ManualAddressSheet
-          provinces={provinces}
-          cityValue={cityValue}
-          onConfirm={handleManualConfirm}
+          <ManualAddressSheet
+            provinces={provinces}
+            cityValue={cityValue}
+            onConfirm={handleManualConfirm}
           onClose={() => setShowManualSheet(false)}
         />
       )}
@@ -799,6 +809,6 @@ function LocationConfirmSheet({
 }
 
 async function showError(error: unknown) {
-  const title = error instanceof Error ? error.message : String(error)
+  const title = toTwoLevelRegionErrorMessage(error)
   if (title) await Taro.showToast({ title, icon: 'none' })
 }

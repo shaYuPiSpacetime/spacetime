@@ -52,7 +52,15 @@ export default function VerificationShell({
   }
 
   const content = (
-    <View style={{ position: 'relative', width: '750rpx', minHeight: contentHeight, paddingBottom: onPrimary ? '220rpx' : '0', boxSizing: 'border-box' }}>
+    <View
+      style={{
+        position: 'relative',
+        width: '750rpx',
+        minHeight: contentHeight,
+        paddingBottom: onPrimary ? '220rpx' : '0',
+        boxSizing: 'border-box',
+      }}
+    >
       <Header onBack={handleBack} title={copy('verification_nav_title')} />
       <IntroBlock copy={copy} />
       <Progress stage={stage} copy={copy} />
@@ -61,10 +69,25 @@ export default function VerificationShell({
   )
 
   return (
-    <View style={{ minHeight: '100vh', background: '#F3F7FB', position: 'relative', overflow: 'hidden' }}>
-      <Image src={bg} mode="widthFix" style={{ position: 'fixed', left: '0', top: '0', width: '750rpx' }} />
+    <View
+      style={{
+        minHeight: '100vh',
+        background: '#F3F7FB',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <Image
+        src={bg}
+        mode="widthFix"
+        style={{ position: 'fixed', left: '0', top: '0', width: '750rpx' }}
+      />
       {shouldScroll ? (
-        <ScrollView scrollY style={{ height: '100vh', position: 'relative', zIndex: 1 }} showScrollbar={false}>
+        <ScrollView
+          scrollY
+          style={{ height: '100vh', position: 'relative', zIndex: 1 }}
+          showScrollbar={false}
+        >
           {content}
         </ScrollView>
       ) : (
@@ -109,7 +132,9 @@ export function VerificationBottomAction({
       onClick={active ? onClick : undefined}
       hoverClass={active ? 'btn-hover' : undefined}
     >
-      <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>{text}</Text>
+      <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>
+        {text}
+      </Text>
     </View>
   )
 }
@@ -120,7 +145,18 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
   return (
     <View style={{ position: 'relative', width: '750rpx', height: '176rpx' }}>
       <View
-        style={{ position: 'absolute', left: 0, top: `${Math.max(0, menuTop - 20)}rpx`, width: '112rpx', height: `${menuHeight + 40}rpx`, paddingLeft: '28rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box', zIndex: 10 }}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: `${Math.max(0, menuTop - 20)}rpx`,
+          width: '112rpx',
+          height: `${menuHeight + 40}rpx`,
+          paddingLeft: '28rpx',
+          display: 'flex',
+          alignItems: 'center',
+          boxSizing: 'border-box',
+          zIndex: 10,
+        }}
         onClick={onBack}
         hoverClass="btn-hover"
       >
@@ -148,10 +184,26 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
 function IntroBlock({ copy }: { copy: (key: string) => string }) {
   return (
     <View style={{ position: 'absolute', left: '25rpx', top: '224rpx', width: '700rpx' }}>
-      <Text style={{ display: 'block', color: '#0C285A', fontSize: '48rpx', fontWeight: 800, lineHeight: '67rpx' }}>
+      <Text
+        style={{
+          display: 'block',
+          color: '#0C285A',
+          fontSize: '48rpx',
+          fontWeight: 800,
+          lineHeight: '67rpx',
+        }}
+      >
         {copy('verification_onboarding_heading')}
       </Text>
-      <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginTop: '16rpx' }}>
+      <Text
+        style={{
+          display: 'block',
+          color: '#999999',
+          fontSize: '26rpx',
+          lineHeight: '38rpx',
+          marginTop: '16rpx',
+        }}
+      >
         {copy('verification_onboarding_notice')}
       </Text>
     </View>
@@ -159,7 +211,7 @@ function IntroBlock({ copy }: { copy: (key: string) => string }) {
 }
 
 function Progress({ stage, copy }: { stage: VerificationStage; copy: (key: string) => string }) {
-  const activeIndex = STAGES.findIndex((item) => item.key === stage)
+  const activeIndex = STAGES.findIndex(item => item.key === stage)
   const progressWidth = `${activeIndex * 170 + 62}rpx`
 
   return (
@@ -170,14 +222,23 @@ function Progress({ stage, copy }: { stage: VerificationStage; copy: (key: strin
         top: '382rpx',
         width: '700rpx',
         height: '156rpx',
-        borderRadius: '20rpx',
+        borderRadius: '36rpx',
         background: '#FFFFFF',
       }}
     >
       {STAGES.map((item, index) => {
         const isActive = item.key === stage
         return (
-          <View key={item.key} style={{ position: 'absolute', left: item.left, top: '34rpx', width: '120rpx', textAlign: 'center' }}>
+          <View
+            key={item.key}
+            style={{
+              position: 'absolute',
+              left: item.left,
+              top: '34rpx',
+              width: '120rpx',
+              textAlign: 'center',
+            }}
+          >
             <View
               style={{
                 height: '40rpx',
@@ -190,7 +251,14 @@ function Progress({ stage, copy }: { stage: VerificationStage; copy: (key: strin
                 boxSizing: 'border-box',
               }}
             >
-              <Text style={{ color: isActive ? '#FFFFFF' : '#999999', fontSize: '25rpx', lineHeight: '36rpx', whiteSpace: 'nowrap' }}>
+              <Text
+                style={{
+                  color: isActive ? '#FFFFFF' : '#999999',
+                  fontSize: '25rpx',
+                  lineHeight: '36rpx',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {copy(item.labelKey)}
               </Text>
             </View>
@@ -278,7 +346,7 @@ export function FieldRow({
     <View
       style={{
         position: 'relative',
-        minHeight: '104rpx',
+        minHeight: '98rpx',
         borderBottom: last ? '0' : '1rpx solid #EDF2F8',
         display: 'flex',
         flexDirection: 'row',
@@ -288,7 +356,17 @@ export function FieldRow({
       }}
       onClick={onClick}
     >
-      <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx', width: '176rpx' }}>{label}</Text>
+      <Text
+        style={{
+          color: '#0C285A',
+          fontSize: '28rpx',
+          fontWeight: 700,
+          lineHeight: '40rpx',
+          width: '176rpx',
+        }}
+      >
+        {label}
+      </Text>
       <View style={{ flex: 1, textAlign: 'right', minWidth: 0 }}>
         {typeof value === 'string' ? (
           <Text style={{ color: '#697E9C', fontSize: '26rpx', lineHeight: '38rpx' }}>{value}</Text>
@@ -296,7 +374,19 @@ export function FieldRow({
           value
         )}
       </View>
-      {onClick && <Text style={{ color: '#B6C3D6', fontSize: '48rpx', fontWeight: 300, lineHeight: '56rpx', marginLeft: '14rpx' }}>›</Text>}
+      {onClick && (
+        <Text
+          style={{
+            color: '#B6C3D6',
+            fontSize: '48rpx',
+            fontWeight: 300,
+            lineHeight: '56rpx',
+            marginLeft: '14rpx',
+          }}
+        >
+          ›
+        </Text>
+      )}
     </View>
   )
 }
@@ -315,7 +405,15 @@ export function BottomPicker({
   const copy = usePrd01Store(state => state.copy)
   return (
     <View
-      style={{ position: 'fixed', left: 0, right: 0, top: 0, bottom: 0, background: 'rgba(8,24,49,0.38)', zIndex: 30 }}
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        background: 'rgba(8,24,49,0.38)',
+        zIndex: 30,
+      }}
       onClick={onClose}
     >
       <View
@@ -331,10 +429,27 @@ export function BottomPicker({
           boxSizing: 'border-box',
           boxShadow: '0 -10rpx 30rpx rgba(11, 38, 90, 0.10)',
         }}
-        onClick={(event) => event.stopPropagation()}
+        onClick={event => event.stopPropagation()}
       >
-        <View style={{ width: '80rpx', height: '8rpx', borderRadius: '4rpx', background: '#E6EDF8', margin: '0 auto 28rpx' }} />
-        <Text style={{ display: 'block', color: '#0C285A', fontSize: '32rpx', fontWeight: 800, lineHeight: '45rpx', textAlign: 'center' }}>
+        <View
+          style={{
+            width: '80rpx',
+            height: '8rpx',
+            borderRadius: '4rpx',
+            background: '#E6EDF8',
+            margin: '0 auto 28rpx',
+          }}
+        />
+        <Text
+          style={{
+            display: 'block',
+            color: '#0C285A',
+            fontSize: '32rpx',
+            fontWeight: 800,
+            lineHeight: '45rpx',
+            textAlign: 'center',
+          }}
+        >
           {title}
         </Text>
         {children}
@@ -352,7 +467,11 @@ export function BottomPicker({
           onClick={onConfirm}
           hoverClass="btn-hover"
         >
-          <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>{copy('common_confirm_action')}</Text>
+          <Text
+            style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}
+          >
+            {copy('common_confirm_action')}
+          </Text>
         </View>
       </View>
     </View>

@@ -1,3 +1,4 @@
+/* eslint-env node */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -35,17 +36,18 @@ assert.match(chat, /喜欢我的人\(119人\)/, '消息列表人数文案必须�
 assert.match(chat, /官方小助手/, '新版消息首页必须提供官方小助手入口')
 assert.match(chat, /系统消息/, '新版消息首页必须提供系统消息入口')
 
-assert.match(heart, /router\.params\.member/, '心动页必须覆盖会员和非会员状态')
+assert.match(heart, /accessMode !== 'VIP_ALL_CLEAR'/, '心动页会员状态必须以后端 accessMode 为准')
+assert.doesNotMatch(heart, /router\.params\.member/, '心动页不得使用 URL 参数伪造会员状态')
 assert.match(heart, /router\.params\.tab === 'visitors'/, '心动页必须覆盖对我心动和访客 Tab')
-assert.match(heart, /router\.params\.unlock === 'confirm'/, '心动页必须覆盖单人解锁弹层')
-assert.match(heart, /router\.params\.unlock === 'success'/, '心动页必须覆盖解锁成功弹层')
-assert.match(heart, /解锁全部访客/, '心动页解锁按钮文案必须与蓝湖一致')
-assert.match(heart, /只看ta\(100/, '单人解锁按钮文案和币值必须与蓝湖一致')
+assert.match(heart, /quoteRelationUnlock/, '心动页必须从真实接口获取单人解锁报价')
+assert.match(heart, /confirmRelationUnlock/, '心动页必须通过真实接口确认单人解锁')
+assert.match(heart, /quote\?\.unitPrice/, '单人解锁币值必须来自实时报价')
+assert.doesNotMatch(heart, /只看ta\(100|只看 Ta\(100/, '单人解锁不得硬编码币值')
 assert.match(heart, /\/pages\/heart\/mutual/, '胶囊左侧图标必须跳转相互喜欢页')
 assert.match(
   heart,
-  /\/pages\/coins\/unlock-recharge\?sourceScene=likes_unlock_one/,
-  '单人解锁“只看ta”必须进入心动专属充值页'
+  /\/pages\/coins\/unlock-recharge\?sourceScene=\$\{currentUnlockScene\}/,
+  '余额不足必须按当前关系场景进入专属充值页'
 )
 assert.doesNotMatch(
   heart,
@@ -53,6 +55,7 @@ assert.doesNotMatch(
   '单人解锁场景不得复用“我的-千寻币”通用页面'
 )
 assert.match(heart, /\/pages\/heart\/membership-unlock/, '“解锁全部访客”必须进入独立会员页')
+assert.match(heart, /await markMatchPopupRead/, '匹配弹层必须等待动作回执成功')
 assert.doesNotMatch(
   heart,
   /onUnlock=\{\(\) => setUnlockStage\('success'\)\}/,
@@ -64,8 +67,11 @@ assert.match(
   /miniappOssIcons\.heartMutualLikes/,
   '相互喜欢入口必须使用蓝湖无损 OSS 图标'
 )
-assert.match(mutual, /相互喜欢\(4人\)/, '相互喜欢页标题必须与蓝湖一致')
-assert.match(user, /女丨97年丨163cm丨双鱼座/, '用户主页基础资料文案必须与蓝湖一致')
+assert.match(mutual, /page\?\.total \|\| 0/, '相互喜欢页标题必须使用真实总数')
+assert.match(mutual, /useAccessStatus\('canCommunity'\)/, '相互喜欢页必须接入关系准入')
+assert.doesNotMatch(mutual, /fallbackPeople|MAT-DEMO/, '相互喜欢页不得使用假数据')
+assert.match(user, /getPublicProfile/, '用户主页必须读取已审核公开资料')
+assert.match(user, /profile\.age/, '用户主页基础资料必须使用真实公开字段')
 assert.match(user, /liked \? '取消喜欢' : '喜欢'/, '用户主页必须按最新关系状态展示喜欢/取消喜欢')
 assert.match(user, /matched \? '聊天' : '打招呼'/, '用户主页主按钮必须按匹配状态展示聊天/打招呼')
 

@@ -9,6 +9,7 @@ const projectPath = path.resolve(__dirname, '..')
 const outputBaseDir = path.resolve(projectPath, '../docs/验收报告/截图证据/2026-07-15-编辑资料闭环/微信运行')
 const cliPath = '/Applications/wechatwebdevtools.app/Contents/MacOS/cli'
 const automationPort = Number(process.env.WX_AUTO_PORT || 9420)
+const idePort = Number(process.env.WX_IDE_PORT || 9527)
 const scenes = [
   ['01', '/pages/profile/edit', '编辑资料'],
   ['02', '/pages/verification/my-certification', '我的认证'],
@@ -17,6 +18,8 @@ const scenes = [
   ['05', '/pages/profile-edit/songs', '爱听的歌曲'],
   ['06', '/pages/verification/avatar', '添加头像'],
   ['07', '/pages/verification/avatar', '添加头像-选择来源'],
+  ['08', '/pages/verification/basic?from=profile', '编辑基本资料'],
+  ['09', '/pages/verification/basic?from=profile', '编辑基本资料-职业资料与保存'],
 ]
 const requestedIds = String(process.env.PROFILE_EDIT_SCENE_IDS || '').split(',').filter(Boolean)
 const scenesToCapture = requestedIds.length ? scenes.filter(([id]) => requestedIds.includes(id)) : scenes
@@ -41,7 +44,8 @@ function withTimeout(promise, label, timeout = 15000) {
       cliPath,
       projectPath,
       port: automationPort,
-      args: ['--port', '9527'],
+      args: ['--port', String(idePort)],
+      trustProject: true,
     })
   }
 
@@ -58,10 +62,19 @@ function withTimeout(promise, label, timeout = 15000) {
   console.log('模拟器信息', JSON.stringify(systemInfo))
 
   for (const [id, route, name] of scenesToCapture) {
-    const page = await withTimeout(miniProgram.reLaunch(route), `${name}跳转`)
+    let page
+    try {
+      page = await withTimeout(miniProgram.reLaunch(route), `${name}跳转`)
+    } catch (error) {
+      const current = await miniProgram.currentPage()
+      const expectedPath = route.slice(1).split('?')[0]
+      if (current.path !== expectedPath) throw error
+      page = current
+      console.warn(`${name}重载回执超时，运行页已就绪，继续截图`)
+    }
     await page.waitFor(name === '编辑资料' ? 3200 : 4200)
     const current = await miniProgram.currentPage()
-    const expectedPath = route.slice(1)
+    const expectedPath = route.slice(1).split('?')[0]
     if (current.path !== expectedPath) throw new Error(`${name}路由错误：期望 ${expectedPath}，实际 ${current.path}`)
     if (id === '07') {
       const elements = await page.$$('text')
@@ -75,6 +88,12 @@ function withTimeout(promise, label, timeout = 15000) {
       if (!trigger) throw new Error('未找到头像来源选择入口')
       await trigger.tap()
       await page.waitFor(500)
+    }
+    if (id === '09') {
+      const scrollView = await page.$('scroll-view')
+      if (!scrollView) throw new Error('未找到编辑基本资料滚动容器')
+      await scrollView.scrollTo(0, 1400)
+      await page.waitFor(900)
     }
     await withTimeout(
       miniProgram.screenshot({ path: path.join(outputDir, `${id}-${name}.png`) }),

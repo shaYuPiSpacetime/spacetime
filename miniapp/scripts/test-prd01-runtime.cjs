@@ -213,7 +213,6 @@ test('地区步骤只接受行政区 code，不接受当前位置或中文名称
       step: 5,
       locationProvince: '330000',
       locationCity: '330100',
-      locationDistrict: '330106',
     }
   )
   assert.throws(
@@ -378,6 +377,23 @@ test('首登运行时拒绝空字典、无效年龄范围和空地区，不再�
   await assert.rejects(loader.locations(), /地区字典配置为空/)
 })
 
+test('地区懒加载允许城市没有区县节点并缓存空结果', async () => {
+  const { createPrd01Loader } = requireRuntime()
+  let calls = 0
+  const loader = createPrd01Loader({
+    getConfig: async () => ({}),
+    getProfileOptions: async () => ({}),
+    getLocations: async () => {
+      calls += 1
+      return []
+    },
+  })
+
+  assert.deepEqual(await loader.locations('441900'), [])
+  assert.deepEqual(await loader.locations('441900'), [])
+  assert.equal(calls, 1)
+})
+
 test('认证中心拒绝缺失文案和认证字典，不再渲染无文字卡片', () => {
   const { validateVerificationRuntime, VERIFICATION_COPY_KEYS: copyKeys } = requireRuntime()
   const config = {
@@ -518,7 +534,8 @@ test('首登五页只使用运行时配置、字典 code 和服务端 nextStep',
   assert.match(sources.identity, /option\.code/)
   assert.match(sources.education, /option\.code/)
   assert.match(sources.address, /loadProvinceCities\(/)
-  assert.equal(sources.address.includes('loadLocations('), false)
+  assert.doesNotMatch(sources.address, /loadLocations\(/, '现居地固定省市两级，不得加载区县')
+  assert.doesNotMatch(sources.address, /locationDistrict:/, '现居地固定省市两级，不得提交区县 code')
   assert.equal(sources.address.includes("setSelected('当前位置')"), false)
 })
 

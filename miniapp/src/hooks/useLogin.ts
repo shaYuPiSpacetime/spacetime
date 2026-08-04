@@ -101,7 +101,6 @@ export function useLogin() {
     saveInitStep(5, {
       locationProvince: userInfo.locationProvince,
       locationCity: userInfo.locationCity,
-      locationDistrict: userInfo.locationDistrict,
     })
 
   const initField = (stepNumber: number) =>

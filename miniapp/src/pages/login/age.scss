@@ -1,3 +1,107 @@
 .login-age-page {
   min-height: 100vh;
 }
+
+.login-age-picker-wrap {
+  position: absolute;
+  left: 25rpx;
+  top: 493rpx;
+  width: 700rpx;
+  height: 410rpx;
+  overflow: hidden;
+}
+
+.login-age-picker__selection {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  top: 123rpx;
+  width: 700rpx;
+  height: 128rpx;
+  box-sizing: border-box;
+  border: 2rpx solid #2876ff;
+  border-radius: 24rpx;
+  background: #e3f1fe;
+}
+
+.login-age-picker {
+  position: relative;
+  z-index: 1;
+  top: -20rpx;
+  width: 700rpx;
+  height: 410rpx;
+}
+
+.login-age-picker__column {
+  width: 233.333rpx;
+  height: 410rpx;
+}
+
+.login-age-picker__indicator-cover {
+  position: absolute;
+  z-index: 2;
+  left: 2rpx;
+  width: 696rpx;
+  height: 6rpx;
+  background: #e3f1fe;
+  pointer-events: none;
+}
+
+.login-age-picker__indicator-cover--top {
+  top: 152rpx;
+}
+
+.login-age-picker__indicator-cover--bottom {
+  top: 217rpx;
+}
+
+.login-age-picker__item {
+  position: relative;
+  height: 128rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d7d7d7;
+  font-size: 36rpx;
+  font-weight: 400;
+  line-height: 53rpx;
+  transition: color 120ms ease, font-size 120ms ease, top 120ms ease;
+}
+
+.login-age-picker__item--near {
+  color: #999;
+}
+
+.login-age-picker__item--far {
+  color: #d7d7d7;
+}
+
+.login-age-picker__item--active {
+  color: #333;
+  font-size: 40rpx;
+  font-weight: 500;
+}
+
+.login-age-picker__item--above {
+  top: -46rpx;
+}
+
+.login-age-picker__item--below {
+  top: 44.5rpx;
+}
+
+.login-age-picker__item--year {
+  left: 44rpx;
+}
+
+.login-age-picker__item--month {
+  left: 19rpx;
+}
+
+.login-age-picker__item--day {
+  left: -25rpx;
+}
+
+.login-age-picker__item--outer {
+  visibility: hidden;
+}

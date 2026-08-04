@@ -71,7 +71,14 @@ export default {
     },
     {
       root: 'pages/message',
-      pages: ['whisper-list', 'whisper-detail', 'private-list', 'private-chat', 'channel', 'report'],
+      pages: [
+        'whisper-list',
+        'whisper-detail',
+        'private-list',
+        'private-chat',
+        'channel',
+        'report',
+      ],
     },
     {
       root: 'pages/settings',
@@ -96,6 +103,12 @@ export default {
     navigationBarTitleText: '成家立业',
     navigationBarTextStyle: 'black',
   },
+  permission: {
+    'scope.userLocation': {
+      desc: '用于自动完善居住地，为你推荐更合适的人',
+    },
+  },
+  requiredPrivateInfos: ['getLocation'],
   tabBar: {
     custom: true,
     color: '#999999',

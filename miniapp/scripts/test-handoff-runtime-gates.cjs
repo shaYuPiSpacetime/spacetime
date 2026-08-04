@@ -85,9 +85,11 @@ test('认证页面文案与枚举全部由运行态配置驱动，底部操作�
     'common_saving_action',
     'common_save_success',
   ].forEach(copyKey => assert.match(basic, new RegExp(`copy\\('${copyKey}'\\)`)))
-  assert.match(basic, /VerificationBottomAction/)
+  assert.match(basic, /data-role="profile-basic-save"/)
+  assert.match(basic, /env\(safe-area-inset-bottom\)/)
 
   const shell = source('src/pages/verification/components/VerificationShell.tsx')
+  assert.match(shell, /VerificationBottomAction/)
   assert.match(shell, /env\(safe-area-inset-bottom\)/)
 
   assert.equal(fs.existsSync(path.join(miniappRoot, 'src/pages/verification/flow.ts')), false,

@@ -124,7 +124,7 @@ export default function IndexPage() {
     ) : (
       <InitialCertificationPanel copy={copy} />
     )}
-    <View style={{ position: 'absolute', left: '44rpx', top: '1098rpx', width: '664rpx', height: '98rpx', borderRadius: '40rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => void continueFlow()} hoverClass="btn-hover">
+    <View style={{ position: 'absolute', left: '44rpx', top: '1098rpx', width: '664rpx', height: '98rpx', borderRadius: '27rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => void continueFlow()} hoverClass="btn-hover">
       <Text style={{ color: '#FAFBFC', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}>{copy('verification_home_primary_action')}</Text>
     </View>
     <View style={{ position: 'absolute', left: '0', top: '1208rpx', width: '750rpx', height: '50rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => void enterAvailableArea()} hoverClass="btn-hover">

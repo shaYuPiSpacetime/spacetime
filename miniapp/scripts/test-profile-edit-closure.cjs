@@ -79,6 +79,174 @@ test('基本资料输入型字段不复用“请选择”占位', () => {
   assert.match(card, /resolveFieldPlaceholder/, '展示值必须按字段类型选择占位文案')
 })
 
+test('基本资料严格按蓝湖组合行和两组卡片展示', () => {
+  const presentationPath = 'src/domain/basicProfilePresentation.ts'
+  assert.ok(fs.existsSync(path.join(root, presentationPath)), '缺少基本资料蓝湖分组领域模型')
+  const {
+    ensureBasicProfileNickname,
+    PROFILE_PRIMARY_ROW_IDS,
+    PROFILE_SECONDARY_ROW_IDS,
+    VERIFICATION_ROW_IDS,
+  } = loadTypeScriptModule(presentationPath)
+
+  assert.equal(ensureBasicProfileNickname({ userId: 7, nickname: '' }).nickname, '用户0007')
+  assert.equal(ensureBasicProfileNickname({ userId: 7, nickname: '星河' }).nickname, '星河')
+
+  assert.deepEqual(PROFILE_PRIMARY_ROW_IDS, [
+    'nickname',
+    'gender',
+    'birthday',
+    'location',
+    'heightWeight',
+    'hometown',
+    'identity',
+    'maritalStatus',
+  ])
+  assert.deepEqual(PROFILE_SECONDARY_ROW_IDS, [
+    'school',
+    'educationLevel',
+    'industry',
+    'occupation',
+    'company',
+    'annualIncome',
+  ])
+  assert.deepEqual(VERIFICATION_ROW_IDS.slice(0, 7), [
+    'nickname',
+    'gender',
+    'birthday',
+    'location',
+    'heightWeight',
+    'hometown',
+    'identity',
+  ])
+
+  const card = read('src/pages/verification/components/BasicInfoCard.tsx')
+  assert.doesNotMatch(card, /splitIndex|visibleSettings\.slice\(/, '禁止再按接口数组下标机械切分资料卡片')
+  assert.match(card, /LanhuRegionSheet/, '现居地和家乡必须使用组合地区选择器')
+  assert.match(card, /LanhuDualColumnSheet/, '身高和体重必须使用同一个双列选择器')
+  assert.match(card, /borderRadius: '36rpx'/, '资料白卡圆角必须对应蓝湖 18px')
+
+  const picker = read('src/pages/verification/components/LanhuPickerSheet.tsx')
+  assert.match(picker, /海外地区国家/, '地区选择器缺少蓝湖国内/海外页签结构')
+  assert.match(picker, /width: '656rpx'/, '地区选择器缺少蓝湖双列滚轮宽度')
+  assert.match(picker, /background: '#E3F1FE'/, '地区选择器缺少跨双列选中横条')
+  assert.equal((picker.match(/enhanced\s+showScrollbar=\{false\}/g) || []).length, 2,
+    '地区省市两级滚轮必须启用增强滚动并隐藏原生滚动条')
+})
+
+test('现居地和家乡统一提交省市两级并清空历史区县', () => {
+  const regionDomainPath = 'src/domain/basicProfileRegion.ts'
+  assert.ok(fs.existsSync(path.join(root, regionDomainPath)), '缺少基本资料省市选择领域模型')
+  const {
+    buildRegionPatch,
+    normalizeTwoLevelRegionFieldSettings,
+    buildBasicProfileSavePayload,
+  } = loadTypeScriptModule(regionDomainPath)
+
+  assert.deepEqual(
+    buildRegionPatch('location', '320000', '320600'),
+    {
+      locationProvince: '320000',
+      locationCity: '320600',
+      locationDistrict: '',
+    }
+  )
+  assert.deepEqual(
+    buildRegionPatch('hometown', '410000', '410100'),
+    {
+      hometownProvince: '410000',
+      hometownCity: '410100',
+      hometownDistrict: '',
+    }
+  )
+
+  const legacyFieldSettings = [
+    { fieldId: 'locationProvince', visible: true },
+    { fieldId: 'locationCity', visible: true },
+    { fieldId: 'locationDistrict', visible: true },
+    { fieldId: 'hometownProvince', visible: true },
+    { fieldId: 'hometownCity', visible: true },
+    { fieldId: 'hometownDistrict', visible: true },
+  ]
+  assert.deepEqual(
+    normalizeTwoLevelRegionFieldSettings(legacyFieldSettings).map(item => item.fieldId),
+    ['locationProvince', 'locationCity', 'hometownProvince', 'hometownCity'],
+    '旧后端即使仍返回区县可见，前端也必须强制退役区县字段'
+  )
+  assert.deepEqual(
+    buildBasicProfileSavePayload(legacyFieldSettings, {
+      locationProvince: '320000',
+      locationCity: '320600',
+      locationDistrict: '110105',
+      hometownProvince: '410000',
+      hometownCity: '410100',
+      hometownDistrict: '330106',
+    }),
+    {
+      locationProvince: '320000',
+      locationCity: '320600',
+      hometownProvince: '410000',
+      hometownCity: '410100',
+    },
+    '保存请求不得把新省市与历史区县混合提交'
+  )
+
+  const card = read('src/pages/verification/components/BasicInfoCard.tsx')
+  const picker = read('src/pages/verification/components/LanhuPickerSheet.tsx')
+  const basic = read('src/pages/verification/basic.tsx')
+  assert.doesNotMatch(card, /districtCode=|loadDistricts=|includeDistrict=/, '两级资料选择器不得接入区县状态')
+  assert.doesNotMatch(picker, /selectedDistrict|districtLoading|includeDistrict/, '省市选择器不得维护区县状态')
+  assert.doesNotMatch(basic, /loadDistricts=\{loadDistricts\}/, '基本资料页不得为地区选择器加载区县')
+  assert.match(basic, /normalizeTwoLevelRegionFieldSettings/, '页面必须防御旧后端返回的区县可见配置')
+  assert.match(basic, /buildBasicProfileSavePayload/, '页面保存必须使用两级地址字段白名单')
+})
+
+test('现居地和家乡共用严格省市两级选择器', () => {
+  const card = read('src/pages/verification/components/BasicInfoCard.tsx')
+  const picker = read('src/pages/verification/components/LanhuPickerSheet.tsx')
+
+  assert.match(card, /buildRegionPatch\(editor\.rowId, provinceCode, cityCode/, '两处地区确认必须走统一两级 patch')
+  assert.match(picker, /onConfirm\(selectedProvince\.code, selectedCity\.code\)/, '地区选择器只能回传省市 code')
+  assert.equal((picker.match(/enhanced\s+showScrollbar=\{false\}/g) || []).length, 2, '地区选择器只能渲染省、市两列')
+})
+
+test('地区路径异常不得向用户暴露三级行政区技术文案', () => {
+  const regionDomainPath = 'src/domain/basicProfileRegion.ts'
+  const { toTwoLevelRegionErrorMessage } = loadTypeScriptModule(regionDomainPath)
+  assert.equal(
+    toTwoLevelRegionErrorMessage(
+      new Error('REGION_NOT_SUPPORTED：现居地必须使用有效的中国大陆省市区编码')
+    ),
+    '地区选项已更新，请重新选择省市'
+  )
+
+  const loginAddress = read('src/pages/login/address.tsx')
+  const basic = read('src/pages/verification/basic.tsx')
+  assert.match(loginAddress, /toTwoLevelRegionErrorMessage/, '首登地址页必须转换地区业务错误')
+  assert.match(basic, /toTwoLevelRegionErrorMessage/, '基础资料页必须转换地区业务错误')
+})
+
+test('编辑资料保存按钮按蓝湖位于第二张卡片之后，字段弹层打开时只保留确认按钮', () => {
+  const basic = read('src/pages/verification/basic.tsx')
+  const card = read('src/pages/verification/components/BasicInfoCard.tsx')
+
+  assert.match(card, /onEditorVisibilityChange/, '基本资料卡片必须向页面报告字段弹层开关状态')
+  assert.match(basic, /const \[editorVisible, setEditorVisible\] = useState\(false\)/, '基本资料页缺少弹层可见状态')
+  assert.match(basic, /onEditorVisibilityChange=\{setEditorVisible\}/, '基本资料页必须监听字段弹层开关')
+  assert.match(basic, /\{!editorVisible \? \(/, '字段弹层打开时必须隐藏页面级保存按钮')
+  assert.match(basic, /data-role="profile-basic-save"/, '编辑资料保存按钮缺少稳定运行态标识')
+  assert.match(basic, /data-role="profile-basic-save"[\s\S]{0,420}position: 'relative'/, '编辑资料保存按钮必须跟随第二张卡片排版，禁止固定悬浮遮挡字段')
+  assert.match(basic, /data-role="profile-basic-save"[\s\S]{0,420}borderRadius: '40rpx'/, '编辑资料保存按钮圆角必须对应蓝湖 20px')
+  assert.doesNotMatch(basic, /fromProfile[\s\S]{0,2200}<VerificationBottomAction/, '编辑资料禁止继续使用固定底部操作遮挡第二组字段')
+  assert.match(basic, /onPrimary=\{editorVisible \? undefined :/, '认证态字段弹层打开时必须隐藏“下一步”')
+})
+
+test('未认证主按钮圆角与蓝湖 13.5px 基线一致', () => {
+  const index = read('src/pages/index/index.tsx')
+  assert.match(index, /top: '1098rpx'[\s\S]{0,180}borderRadius: '27rpx'/, '未认证“立即完善”按钮圆角必须为 27rpx')
+  assert.doesNotMatch(index, /top: '1098rpx'[\s\S]{0,180}borderRadius: '40rpx'/, '未认证按钮禁止保留过圆的 40rpx')
+})
+
 test('四个蓝湖二级页具备独立结构和首屏数据', () => {
   const certification = read('src/pages/verification/my-certification.tsx')
   const tags = read('src/pages/profile-edit/tags.tsx')

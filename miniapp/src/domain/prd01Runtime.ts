@@ -52,7 +52,9 @@ export function resolveInitStepRoute(nextStep?: number): string {
   return nextStep ? INIT_STEP_ROUTES[nextStep] || '' : ''
 }
 
-export function resolvePostLoginRoute(result: Pick<LoginResult, 'firstLoginCompleted' | 'nextStep'>) {
+export function resolvePostLoginRoute(
+  result: Pick<LoginResult, 'firstLoginCompleted' | 'nextStep'>
+) {
   if (result.firstLoginCompleted) return '/pages/index/index'
   return resolveInitStepRoute(result.nextStep)
 }
@@ -247,9 +249,7 @@ export function validateVerificationRuntime(
     | 'avatarSource'
   >
 ) {
-  const missingCopyKeys = VERIFICATION_COPY_KEYS.filter(
-    key => !readCopy(config?.copywriting, key)
-  )
+  const missingCopyKeys = VERIFICATION_COPY_KEYS.filter(key => !readCopy(config?.copywriting, key))
   if (missingCopyKeys.length > 0) {
     throw new Error(`认证文案配置缺失：${missingCopyKeys.join('、')}，请联系管理员`)
   }
@@ -319,7 +319,6 @@ export function buildInitStepPayload(
       step,
       locationProvince: requireRegionCode(values.locationProvince, Boolean(values.locationCity)),
       locationCity: requireRegionCode(values.locationCity, true),
-      locationDistrict: requireRegionCode(values.locationDistrict, false),
     }
   }
   throw new Error(`不支持的首登步骤：${step}`)
@@ -391,7 +390,7 @@ export function createPrd01Loader(api: Prd01LoaderApi) {
     const cacheKey = parentCode || '__ROOT__'
     if (!force && locationCache.has(cacheKey)) return locationCache.get(cacheKey) || []
     const result = await api.getLocations(parentCode)
-    if (!Array.isArray(result) || result.length === 0) {
+    if (!Array.isArray(result) || (!parentCode && result.length === 0)) {
       throw new Error('地区字典配置为空，请联系管理员')
     }
     locationCache.set(cacheKey, result)
@@ -401,7 +400,8 @@ export function createPrd01Loader(api: Prd01LoaderApi) {
   const provinceCities = (force = false): Promise<RegionTreeOption[]> => {
     if (!force && provinceCityCache) return Promise.resolve(provinceCityCache)
     if (!force && provinceCityPromise) return provinceCityPromise
-    provinceCityPromise = api.getProvinceCities()
+    provinceCityPromise = api
+      .getProvinceCities()
       .then(result => {
         if (!Array.isArray(result) || result.length === 0) {
           throw new Error('省市字典配置为空，请联系管理员')

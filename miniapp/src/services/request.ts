@@ -14,6 +14,22 @@ interface RequestOptions {
   header?: Record<string, string>
 }
 
+export class ApiBusinessError extends Error {
+  code?: number
+  httpStatus?: number
+
+  constructor(message: string, code?: number, httpStatus?: number) {
+    super(message)
+    this.name = 'ApiBusinessError'
+    this.code = code
+    this.httpStatus = httpStatus
+  }
+}
+
+export function getApiErrorCode(error: unknown): number | undefined {
+  return error instanceof ApiBusinessError ? error.code : undefined
+}
+
 function compactRequestData(data: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== ''),
@@ -40,7 +56,7 @@ export async function request<T>(options: RequestOptions): Promise<T> {
       }
     })
   } catch (error) {
-    throw new Error(getErrorMessage(error, '网络连接失败，请稍后重试'))
+    throw new ApiBusinessError(getErrorMessage(error, '网络连接失败，请稍后重试'))
   }
 
   const { code, msg, data } = res.data
@@ -48,12 +64,12 @@ export async function request<T>(options: RequestOptions): Promise<T> {
   // 401: token 过期或无效
   if (code === 401) {
     Taro.removeStorageSync(TOKEN_KEY)
-    return Promise.reject(new Error(msg || String(code)))
+    return Promise.reject(new ApiBusinessError(msg || String(code), code, res.statusCode))
   }
 
   // 非 200: 业务错误
   if (code !== 200) {
-    return Promise.reject(new Error(msg || String(code)))
+    return Promise.reject(new ApiBusinessError(msg || String(code), code, res.statusCode))
   }
 
   return data
