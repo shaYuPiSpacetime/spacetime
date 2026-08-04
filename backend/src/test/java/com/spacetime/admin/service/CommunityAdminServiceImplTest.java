@@ -194,4 +194,37 @@ class CommunityAdminServiceImplTest {
 
         assertThat(communityAdminService.getReportDetail(300L).getReasonLabel()).isEqualTo("辱骂攻击");
     }
+
+    @Test
+    @DisplayName("动态列表批量加载关联数据且不读取详情审核日志")
+    void getPostPage_multipleRows_shouldUseConstantRelationQueries() {
+        CommunityPost secondPost = new CommunityPost();
+        secondPost.setId(101L);
+        secondPost.setAuthorId(2L);
+        secondPost.setStatus("published");
+        secondPost.setContent("第二条动态");
+        secondPost.setCreateTime(LocalDateTime.now());
+        secondPost.setUpdateTime(LocalDateTime.now());
+        post.setContent("第一条动态");
+
+        Page<CommunityPost> page = new Page<>(1, 20, 2);
+        page.setRecords(List.of(post, secondPost));
+        SysUser author = new SysUser();
+        author.setId(2L);
+        author.setNickname("同一作者");
+
+        when(communityPostDao.selectPage(any(), any())).thenReturn(page);
+        when(userDao.selectByIds(any())).thenReturn(List.of(author));
+        when(dictDataDao.selectList(any())).thenReturn(List.of());
+
+        Page<?> result = communityAdminService.getPostPage(new CommunityPostPageReq());
+
+        assertThat(result.getRecords()).hasSize(2);
+        verify(userDao, times(1)).selectByIds(any());
+        verify(userDao, never()).selectById(any());
+        verify(communityExtensionDao, never()).selectTopicById(any());
+        verify(communityExtensionDao, never()).selectAudits(any());
+        verify(dictDataDao, times(2)).selectList(any());
+        verify(dictDataDao, never()).selectByDictType(anyString());
+    }
 }

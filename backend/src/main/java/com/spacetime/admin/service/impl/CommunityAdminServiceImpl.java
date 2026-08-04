@@ -356,7 +356,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                 .orderByDesc(CommunityPost::getUpdateTime);
         Page<CommunityPost> page = communityPostDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<CommunityPostAdminVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(page.getRecords().stream().map(this::toPostAdminVO).toList());
+        result.setRecords(toPostAdminVOs(page.getRecords()));
         return result;
     }
 
@@ -1077,9 +1077,61 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         return values.get(0);
     }
 
+    private List<CommunityPostAdminVO> toPostAdminVOs(List<CommunityPost> entities) {
+        if (entities == null || entities.isEmpty()) return List.of();
+
+        List<Long> authorIds = entities.stream().map(CommunityPost::getAuthorId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, SysUser> authors = authorIds.isEmpty() ? Map.of() : userDao.selectByIds(authorIds).stream()
+                .collect(Collectors.toMap(SysUser::getId, item -> item, (left, right) -> left));
+
+        List<Long> topicIds = entities.stream().map(CommunityPost::getTopicId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, CommunityTopic> topics = topicIds.isEmpty() ? Map.of() : communityExtensionDao
+                .selectTopics(new LambdaQueryWrapper<CommunityTopic>().in(CommunityTopic::getId, topicIds))
+                .stream().collect(Collectors.toMap(CommunityTopic::getId, item -> item, (left, right) -> left));
+
+        Map<String, String> statusLabels = resolveDictLabels("community_content_status");
+        Map<String, String> machineLabels = resolveDictLabels("community_machine_result");
+        return entities.stream().map(entity -> toPostAdminVO(
+                entity,
+                authors.get(entity.getAuthorId()),
+                entity.getTopicId() == null ? null : topics.get(entity.getTopicId()),
+                statusLabels.getOrDefault(entity.getStatus(), entity.getStatus()),
+                machineLabels.getOrDefault(entity.getMachineResult(), entity.getMachineResult()),
+                false
+        )).toList();
+    }
+
+    private Map<String, String> resolveDictLabels(String dictType) {
+        List<SysDictData> values = dictDataDao.selectList(new LambdaQueryWrapper<SysDictData>()
+                .eq(SysDictData::getDictType, dictType)
+                .orderByAsc(SysDictData::getDictSort)
+                .orderByAsc(SysDictData::getId));
+        Map<String, String> labels = new LinkedHashMap<>();
+        Map<String, String> enabledLabels = new LinkedHashMap<>();
+        for (SysDictData item : values) {
+            if (StrUtil.isBlank(item.getDictValue())) continue;
+            labels.putIfAbsent(item.getDictValue(), item.getDictLabel());
+            if (CommonStatusEnum.ENABLED.getCode().equalsIgnoreCase(item.getStatus())) {
+                enabledLabels.putIfAbsent(item.getDictValue(), item.getDictLabel());
+            }
+        }
+        labels.putAll(enabledLabels);
+        return labels;
+    }
+
     private CommunityPostAdminVO toPostAdminVO(CommunityPost entity) {
-        CommunityPostAdminVO vo = new CommunityPostAdminVO();
         SysUser author = userDao.selectById(entity.getAuthorId());
+        CommunityTopic topic = entity.getTopicId() == null ? null : communityExtensionDao.selectTopicById(entity.getTopicId());
+        return toPostAdminVO(entity, author, topic,
+                resolveDictLabel("community_content_status", entity.getStatus()),
+                resolveDictLabel("community_machine_result", entity.getMachineResult()), true);
+    }
+
+    private CommunityPostAdminVO toPostAdminVO(CommunityPost entity, SysUser author, CommunityTopic topic,
+                                                String statusLabel, String machineLabel, boolean includeAuditLogs) {
+        CommunityPostAdminVO vo = new CommunityPostAdminVO();
         vo.setId(entity.getId());
         vo.setPostNo(entity.getPostNo());
         vo.setAuthorId(entity.getAuthorId());
@@ -1094,7 +1146,6 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setImageUrls(readStringList(entity.getImageUrls()));
         vo.setMediaType(vo.getImageUrls().isEmpty() ? "text" : "image");
         vo.setTopicId(entity.getTopicId());
-        CommunityTopic topic = entity.getTopicId() == null ? null : communityExtensionDao.selectTopicById(entity.getTopicId());
         vo.setTopicName(topic == null ? entity.getTopicNameSnapshot() : topic.getTopicName());
         vo.setTopicCode(entity.getTopicCode());
         vo.setDistributionScenes(entity.getSourceScene() == null ? List.of() : List.of(entity.getSourceScene()));
@@ -1103,17 +1154,17 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setCommentCount(entity.getCommentCount());
         vo.setReportCount(entity.getReportCount());
         vo.setStatus(entity.getStatus());
-        vo.setStatusName(resolveDictLabel("community_content_status", entity.getStatus()));
+        vo.setStatusName(statusLabel);
         vo.setAuditStatus(entity.getAuditStatus());
         vo.setAuditRemark(entity.getAuditRemark());
         vo.setMachineResult(entity.getMachineResult());
-        vo.setMachineLabel(resolveDictLabel("community_machine_result", entity.getMachineResult()));
+        vo.setMachineLabel(machineLabel);
         vo.setRiskLevel(entity.getMachineCode());
         vo.setViolationLabels(List.of());
         vo.setVersion(entity.getVersion() == null ? 0 : entity.getVersion());
         vo.setPublishedTime(format(entity.getPublishedAt()));
         vo.setHandledTime(format(entity.getHandledAt()));
-        vo.setAuditLogs(auditLogs("post", entity.getId()));
+        vo.setAuditLogs(includeAuditLogs ? auditLogs("post", entity.getId()) : List.of());
         vo.setCreateTime(entity.getCreateTime() != null ? entity.getCreateTime().format(FMT) : null);
         vo.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);
         return vo;

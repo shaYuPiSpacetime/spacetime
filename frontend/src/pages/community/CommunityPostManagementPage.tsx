@@ -210,8 +210,13 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
         ) : (
           <tbody>{list.pageData.records.map((row) => (
             <tr key={row.id} className="transition-colors hover:bg-slate-50/70">
-              {variant === 'content' ? <><BodyCell>{row.auditNo || '-'}</BodyCell><BodyCell>{row.postNo || row.id}</BodyCell><BodyCell>{metaLabel(meta, 'contentType', row.contentType || row.postType)}</BodyCell><BodyCell>{metaLabel(meta, 'sourceScene', row.sourceScene || row.contentSourceScene)}</BodyCell></> : <><BodyCell>{row.postNo || row.id}</BodyCell><BodyCell>{(row.distributionScenes || []).map((code) => metaLabel(meta, 'distributionScene', code)).join(' / ') || '-'}</BodyCell><BodyCell>{metaLabel(meta, 'mediaType', row.mediaType)}</BodyCell></>}
-              <BodyCell className="max-w-[260px]"><div className="line-clamp-2">{row.contentSummary || row.content || '-'}</div></BodyCell>
+              {variant === 'content' ? <><BodyCell>{row.auditNo || '-'}</BodyCell><BodyCell>{row.postNo || row.id}</BodyCell><BodyCell>{metaLabel(meta, 'contentType', row.contentType || row.postType)}</BodyCell><BodyCell>{metaLabel(meta, 'sourceScene', row.sourceScene || row.contentSourceScene)}</BodyCell></> : <><BodyCell>{row.postNo || row.id}</BodyCell><BodyCell>{(row.distributionScenes || []).map((code) => metaLabel(meta, 'distributionScene', code, metaLabel(meta, 'sourceScene', code))).join(' / ') || '-'}</BodyCell><BodyCell>{metaLabel(meta, 'mediaType', row.mediaType)}</BodyCell></>}
+              <BodyCell className="max-w-[320px]"><div className="flex items-center gap-3">
+                {Boolean(row.imageUrls?.length) && <div className="flex shrink-0 -space-x-2">{row.imageUrls?.slice(0, 3).map((url, index) => (
+                  <img key={`${url}-${index}`} src={url} alt={`${row.postNo || row.id} 内容图片 ${index + 1}`} loading="lazy" className="h-11 w-11 rounded-lg border-2 border-white object-cover shadow-sm" />
+                ))}</div>}
+                <div className="line-clamp-2 min-w-0">{row.contentSummary || row.content || '-'}</div>
+              </div></BodyCell>
               <BodyCell><div>{row.authorNo || row.authorId}</div><div className="mt-0.5 text-xs text-slate-400">{row.authorName || '-'}</div></BodyCell>
               <BodyCell className="whitespace-nowrap">{row.publishedTime || row.createTime || '-'}</BodyCell>
               {variant === 'moments' && <BodyCell className="whitespace-nowrap tabular-nums">{row.readCount ?? 0} / {row.likeCount ?? 0} / {row.commentCount ?? 0}</BodyCell>}

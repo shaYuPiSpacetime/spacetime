@@ -64,7 +64,13 @@ export default function CommunityConfigPage() {
   }, [dirty]);
 
   const sections = useMemo<CommunityConfigSectionVO[]>(() => {
-    if (data.sections?.length) return data.sections;
+    if (data.sections?.length) {
+      const currentItems = new Map((data.items || []).map((item) => [item.configKey, item]));
+      return data.sections.map((section) => ({
+        ...section,
+        items: (section.items || []).map((item) => currentItems.get(item.configKey) || item),
+      }));
+    }
     const grouped = new Map<string, CommunityConfigItemVO[]>();
     (data.items || []).forEach((item) => {
       const code = item.sectionCode || item.configGroup || 'default';

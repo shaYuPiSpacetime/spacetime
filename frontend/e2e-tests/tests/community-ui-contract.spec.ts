@@ -25,6 +25,10 @@ const meta = {
       { code: 'true', label: '是' },
       { code: 'false', label: '否' },
     ],
+    interactionGateMode: [
+      { code: 'LOGIN_ONLY', label: '仅登录' },
+      { code: 'FULL_CERT', label: '需三项认证' },
+    ],
   },
   copy: {
     content_empty: '暂无社区内容',
@@ -133,6 +137,88 @@ test.describe('PRD-05 管理后台六页前端契约', () => {
     await page.getByRole('button', { name: '详情' }).click();
     await expect(page.getByRole('dialog', { name: '内容详情' })).toBeVisible();
     await expect(page.getByText('契约测试内容全文')).toBeVisible();
+  });
+
+  test('动态列表把来源场景显示为中文并展示最多三张内容图片', async ({ page }) => {
+    await page.route('**/api/admin/community/posts/list**', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          data: {
+            current: 1,
+            size: 20,
+            total: 1,
+            records: [{
+              id: 2,
+              postNo: 'P-0002',
+              authorId: 8,
+              authorNo: 'U-0008',
+              authorName: '测试用户',
+              contentType: 'community_post',
+              sourceScene: 'qianxun_chengjia',
+              distributionScenes: ['qianxun_chengjia'],
+              mediaType: 'image_text',
+              content: '带图片的动态',
+              contentSummary: '带图片的动态',
+              imageUrls: [
+                'https://cdn.example.com/community-1.webp',
+                'https://cdn.example.com/community-2.webp',
+                'https://cdn.example.com/community-3.webp',
+                'https://cdn.example.com/community-4.webp',
+              ],
+              likeCount: 1,
+              commentCount: 2,
+              reportCount: 0,
+              status: 'published',
+              version: 1,
+              createTime: '2026-08-03 10:00:00',
+            }],
+          },
+        },
+      });
+    });
+
+    await page.goto(`${BASE_URL}/community/moments`);
+    await expect(page.getByText('千寻成家动态', { exact: true })).toBeVisible();
+    await expect(page.getByText('qianxun_chengjia', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('img', { name: /P-0002 内容图片/ })).toHaveCount(3);
+  });
+
+  test('分组配置编辑后保持新值并启用保存', async ({ page }) => {
+    const gateItem = {
+      configKey: 'community.interaction_gate_mode',
+      configValue: 'FULL_CERT',
+      configGroup: 'COMMUNITY',
+      configType: 'TEXT',
+      sectionCode: 'entry',
+      name: '社区互动使用三项认证准入',
+      description: '社区互动使用三项认证准入',
+      optionsKey: 'interactionGateMode',
+      editable: true,
+      highRisk: true,
+      sort: 10,
+    };
+    await page.route('**/api/admin/community/configs/version', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          data: {
+            version: 0,
+            items: [gateItem],
+            sections: [{ code: 'entry', name: '社区入口', items: [gateItem] }],
+            changeLogs: [],
+          },
+        },
+      });
+    });
+
+    await page.goto(`${BASE_URL}/community/config`);
+    const configCard = page.getByRole('article').filter({ hasText: gateItem.name });
+    const select = configCard.getByRole('combobox');
+    await expect(select).toHaveValue('FULL_CERT');
+    await select.selectOption('LOGIN_ONLY');
+    await expect(select).toHaveValue('LOGIN_ONLY');
+    await expect(page.getByRole('button', { name: '保存配置' })).toBeEnabled();
   });
 
   test('无页面权限时展示动态权限态且不请求业务列表', async ({ page }) => {
