@@ -1,6 +1,7 @@
 package com.spacetime.common.dao.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.CommunityPostDao;
 import com.spacetime.common.entity.CommunityPost;
@@ -42,5 +43,13 @@ public class CommunityPostDaoImpl implements CommunityPostDao {
     @Override
     public void updateById(CommunityPost entity) {
         mapper.updateById(entity);
+    }
+
+    @Override
+    public int updateCas(CommunityPost entity, int expectedVersion) {
+        return mapper.update(entity, new LambdaUpdateWrapper<CommunityPost>()
+                .eq(CommunityPost::getId, entity.getId())
+                .eq(CommunityPost::getVersion, expectedVersion)
+                .set(CommunityPost::getVersion, expectedVersion + 1));
     }
 }

@@ -12,14 +12,17 @@ public class CommunityPostDetailVO {
 
     /** 内容ID */
     private Long id;
+    private String postNo;
     /** 作者用户ID */
     private Long authorId;
+    private String authorUserNo;
     /** 作者昵称 */
     private String authorName;
     /** 作者头像 */
     private String authorAvatar;
     /** 内容类型 */
     private String postType;
+    private String contentType;
     /** 标题 */
     private String title;
     /** 正文（完整内容） */
@@ -28,6 +31,7 @@ public class CommunityPostDetailVO {
     private List<String> imageUrls;
     /** 话题ID */
     private Long topicId;
+    private String topicCode;
     /** 话题名称 */
     private String topicName;
     /** @提及的用户ID列表 */
@@ -42,8 +46,11 @@ public class CommunityPostDetailVO {
     private Boolean liked;
     /** 当前用户是否已关注作者 */
     private Boolean followingAuthor;
+    private Boolean hiddenAuthor;
     /** 内容状态 */
     private String status;
+    private String statusName;
+    private String statusMessage;
     /** 审核状态 */
     private String auditStatus;
     /** 审核备注（驳回原因等） */

@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.miniapp.dto.request.CommunityCommentCreateReq;
+import com.spacetime.miniapp.dto.request.CommunityDraftSaveReq;
 import com.spacetime.miniapp.dto.request.CommunityPostCreateReq;
 import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.*;
@@ -42,7 +43,8 @@ public interface CommunityService {
      * @param postId 内容ID
      * @return 内容详情（含作者信息、点赞/关注状态）
      */
-    CommunityPostDetailVO getPostDetail(Long userId, Long postId);
+    CommunityPostDetailVO getPostDetail(Long userId, String postRef);
+    default CommunityPostDetailVO getPostDetail(Long userId, Long postId) { return getPostDetail(userId, String.valueOf(postId)); }
 
     /**
      * 发布社区内容
@@ -51,7 +53,7 @@ public interface CommunityService {
      * @param req    内容发布请求
      * @return 新内容ID
      */
-    Long createPost(Long userId, CommunityPostCreateReq req);
+    CommunityPublishResultVO createPost(Long userId, CommunityPostCreateReq req);
 
     /**
      * 删除自己的社区内容（软删除）
@@ -59,7 +61,8 @@ public interface CommunityService {
      * @param userId 当前用户ID
      * @param postId 内容ID
      */
-    void deletePost(Long userId, Long postId);
+    void deletePost(Long userId, String postRef);
+    default void deletePost(Long userId, Long postId) { deletePost(userId, String.valueOf(postId)); }
 
     /**
      * 分页查询内容的评论列表
@@ -70,7 +73,8 @@ public interface CommunityService {
      * @param size   每页条数
      * @return 评论分页列表
      */
-    Page<CommunityCommentVO> getComments(Long userId, Long postId, int page, int size);
+    Page<CommunityCommentVO> getComments(Long userId, String postRef, int page, int size);
+    default Page<CommunityCommentVO> getComments(Long userId, Long postId, int page, int size) { return getComments(userId, String.valueOf(postId), page, size); }
 
     /**
      * 发表评论
@@ -79,7 +83,7 @@ public interface CommunityService {
      * @param req    评论请求
      * @return 新评论ID
      */
-    Long createComment(Long userId, CommunityCommentCreateReq req);
+    CommunityCommentResultVO createComment(Long userId, CommunityCommentCreateReq req);
 
     /**
      * 删除自己的评论（软删除）
@@ -87,7 +91,8 @@ public interface CommunityService {
      * @param userId    当前用户ID
      * @param commentId 评论ID
      */
-    void deleteComment(Long userId, Long commentId);
+    void deleteComment(Long userId, String commentRef);
+    default void deleteComment(Long userId, Long commentId) { deleteComment(userId, String.valueOf(commentId)); }
 
     /**
      * 点赞/取消点赞内容（三态切换）
@@ -96,7 +101,8 @@ public interface CommunityService {
      * @param postId 内容ID
      * @return 点赞切换结果（是否已赞、当前点赞数）
      */
-    CommunityLikeToggleVO toggleLike(Long userId, Long postId);
+    CommunityLikeToggleVO toggleLike(Long userId, String postRef);
+    default CommunityLikeToggleVO toggleLike(Long userId, Long postId) { return toggleLike(userId, String.valueOf(postId)); }
 
     /**
      * 关注/取消关注用户
@@ -123,7 +129,7 @@ public interface CommunityService {
      * @param req    举报请求
      * @return 新举报ID
      */
-    Long createReport(Long userId, CommunityReportCreateReq req);
+    CommunityReportResultVO createReport(Long userId, CommunityReportCreateReq req);
 
     /**
      * 获取社区公共配置
@@ -131,4 +137,21 @@ public interface CommunityService {
      * @return 社区配置（交互门槛、发布限制、首页标签等）
      */
     CommunityConfigVO getConfig();
+
+    CommunityMetaVO getMeta();
+    CommunityDraftVO getDraft(Long userId, String contentType);
+    CommunityDraftVO saveDraft(Long userId, String contentType, CommunityDraftSaveReq req);
+    void deleteDraft(Long userId, String contentType);
+    Page<CommunityPostCardVO> getUserPosts(Long currentUserId, String targetUserRef, boolean mine, int page, int size);
+    Page<CommunityInteractionRecordVO> getInteractionHistory(Long userId, String type, int page, int size);
+    Page<CommunityPostCardVO> getViewHistory(Long userId, int page, int size);
+    void clearViewHistory(Long userId);
+    Page<CommunityRelationUserVO> getRelations(Long userId, String relation, int page, int size);
+    Page<CommunityRelationUserVO> getPostInteractors(Long userId, String postRef, String type, int page, int size);
+    Page<CommunityRelationUserVO> getHiddenAuthors(Long userId, int page, int size);
+    CommunityAuthorPreferenceResultVO hideAuthor(Long userId, String targetUserRef);
+    CommunityAuthorPreferenceResultVO unhideAuthor(Long userId, String targetUserRef);
+    void recordView(Long userId, String postRef);
+    CommunityLikeToggleVO toggleCommentLike(Long userId, String commentRef);
+    CommunityProfileSummaryVO getProfileSummary(Long userId);
 }

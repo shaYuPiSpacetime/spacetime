@@ -9,7 +9,8 @@ import lombok.Getter;
 public enum CommunityReportTargetTypeEnum {
     POST("post", "动态"),
     COMMENT("comment", "评论"),
-    USER("user", "用户");
+    USER("user", "用户"),
+    CHAT("chat", "私信/悄悄话内容");
 
     /** 枚举编码 */
     private final String code;

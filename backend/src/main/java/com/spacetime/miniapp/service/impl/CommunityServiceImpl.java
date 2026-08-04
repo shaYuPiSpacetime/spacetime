@@ -1,29 +1,39 @@
 package com.spacetime.miniapp.service.impl;
 
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.constant.CommunityConfigKeys;
+import com.spacetime.common.community.*;
+import com.spacetime.common.config.OssConfig;
 import com.spacetime.common.dao.*;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.enums.*;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.miniapp.dto.request.CommunityCommentCreateReq;
+import com.spacetime.miniapp.dto.request.CommunityDraftSaveReq;
 import com.spacetime.miniapp.dto.request.CommunityPostCreateReq;
 import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.CommunityService;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.RelationDomainService;
+import com.spacetime.common.util.OssUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * 小程序社区服务实现
@@ -62,6 +72,22 @@ public class CommunityServiceImpl implements CommunityService {
     private final AppRelationLikeDao appRelationLikeDao;
     /** 喜欢关系领域服务。 */
     private final RelationDomainService relationDomainService;
+    /** PRD-05 扩展领域数据访问。 */
+    private final CommunityExtensionDao communityExtensionDao;
+    /** 微信内容安全领域端口。 */
+    private final CommunityContentSecurityPort contentSecurityPort;
+    /** 正式审核状态机。 */
+    private final CommunityAuditPolicy auditPolicy;
+    /** PRD-03 聊天举报可信上下文解析端口。 */
+    private final ChatReportContextResolver chatReportContextResolver;
+    /** OSS 归属校验配置。 */
+    private final OssConfig ossConfig;
+    /** OSS 对象完成状态校验。 */
+    private final OssUtil ossUtil;
+    /** OSS 直传归属短期票据。 */
+    private final StringRedisTemplate redisTemplate;
+    /** PRD-04 解锁历史只读依赖。 */
+    private final UserUnlockRecordDao userUnlockRecordDao;
 
     @Override
     public CommunityTopicHomeVO getTopicHome(Long userId) {
@@ -105,8 +131,11 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode()));
         CommunityTopicDetailVO result = new CommunityTopicDetailVO();
         result.setId(topic.getId());
+        result.setTopicCode(topic.getDictValue());
         result.setName(topic.getDictLabel());
         result.setDescription(topicDescription(topic));
+        CommunityTopic formalTopic = communityExtensionDao.selectTopicById(topic.getId());
+        result.setCoverUrl(formalTopic == null ? null : formalTopic.getCoverUrl());
         result.setPostCount((long) posts.size());
         result.setParticipantCount(posts.stream()
                 .map(CommunityPost::getAuthorId)
@@ -132,7 +161,7 @@ public class CommunityServiceImpl implements CommunityService {
         } else if ("LATEST".equals(normalizedSort)) {
             wrapper.orderByDesc(CommunityPost::getCreateTime);
         } else {
-            throw new BusinessException("不支持的话题动态排序");
+            throw error("unsupported_topic_sort");
         }
         return toPostCardPage(userId,
                 communityPostDao.selectPage(new Page<>(safePage, safeSize), wrapper));
@@ -152,10 +181,19 @@ public class CommunityServiceImpl implements CommunityService {
     public Page<CommunityPostCardVO> getPosts(Long userId, String postType, Long topicId, String scene, int page, int size) {
         int safePage = Math.max(1, page);
         int safeSize = Math.max(1, Math.min(size, 100));
+        String normalizedPostType = StrUtil.isBlank(postType) ? null : normalizeContentType(postType);
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
-                .eq(StrUtil.isNotBlank(postType), CommunityPost::getPostType, postType)
+                .eq(StrUtil.isNotBlank(normalizedPostType), CommunityPost::getPostType, normalizedPostType)
                 .eq(topicId != null, CommunityPost::getTopicId, topicId)
                 .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode());
+        if (userId != null) {
+            List<Long> hiddenAuthorIds = communityExtensionDao.selectPreferences(new LambdaQueryWrapper<CommunityContentPreference>()
+                            .eq(CommunityContentPreference::getUserId, userId)
+                            .eq(CommunityContentPreference::getActionType, "hide_author_posts")
+                            .eq(CommunityContentPreference::getStatus, "enabled"))
+                    .stream().map(CommunityContentPreference::getTargetUserId).filter(Objects::nonNull).toList();
+            if (!hiddenAuthorIds.isEmpty()) wrapper.notIn(CommunityPost::getAuthorId, hiddenAuthorIds);
+        }
         String normalizedScene = StrUtil.blankToDefault(scene, "").trim().toUpperCase(Locale.ROOT);
         if ("FOLLOWING".equals(normalizedScene)) {
             requireLoginForScene(userId);
@@ -176,7 +214,7 @@ public class CommunityServiceImpl implements CommunityService {
             if (authorIds.isEmpty()) return emptyPostPage(safePage, safeSize);
             wrapper.in(CommunityPost::getAuthorId, authorIds);
         } else if (!normalizedScene.isEmpty() && !"HOT".equals(normalizedScene)) {
-            throw new BusinessException("不支持的信息流场景");
+            throw error("unsupported_feed_scene");
         }
         if ("HOT".equals(normalizedScene)) {
             wrapper.orderByDesc(CommunityPost::getLikeCount)
@@ -233,11 +271,11 @@ public class CommunityServiceImpl implements CommunityService {
     public YuemuLikeToggleVO toggleYuemuLike(Long userId, Long targetUserId) {
         ensureInteractionAllowed(userId);
         if (Objects.equals(userId, targetUserId)) {
-            throw new BusinessException("不能对自己表达心动");
+            throw error("cannot_like_self");
         }
         AppUser target = requireUser(targetUserId);
         if (!AccountStatusEnum.NORMAL.getCode().equals(target.getAccountStatus())) {
-            throw new BusinessException("该用户当前不可互动");
+            throw error("target_user_unavailable");
         }
         AppRelationLike active = appRelationLikeDao.selectOne(new LambdaQueryWrapper<AppRelationLike>()
                 .eq(AppRelationLike::getFromUserId, userId)
@@ -265,7 +303,7 @@ public class CommunityServiceImpl implements CommunityService {
         }
         YuemuUserCardVO card = new YuemuUserCardVO();
         card.setUserId(candidate.getId());
-        card.setNickname(StrUtil.blankToDefault(candidate.getNickname(), "用户"));
+        card.setNickname(StrUtil.blankToDefault(candidate.getNickname(), message("anonymous_user")));
         card.setPhotoUrl(photoUrl);
         card.setFateLabel(resolveFateLabel(currentUser, candidate));
         card.setEducationSchool(resolveEducationSchool(candidate));
@@ -276,39 +314,39 @@ public class CommunityServiceImpl implements CommunityService {
 
     private String resolveFateLabel(AppUser currentUser, AppUser candidate) {
         if (StrUtil.isNotBlank(currentUser.getMajor()) && currentUser.getMajor().equals(candidate.getMajor())) {
-            return "同专业，超有缘";
+            return message("fate_same_major");
         }
         if (StrUtil.isNotBlank(currentUser.getSchool()) && currentUser.getSchool().equals(candidate.getSchool())) {
-            return "同校，超有缘";
+            return message("fate_same_school");
         }
         Set<String> currentTags = new LinkedHashSet<>(parseJsonList(currentUser.getTags()));
         String commonTag = parseJsonList(candidate.getTags()).stream().filter(currentTags::contains).findFirst().orElse(null);
-        return commonTag == null ? "资料契合，很有缘" : "同爱好，超有缘";
+        return commonTag == null ? message("fate_profile_match") : message("fate_same_hobby");
     }
 
     private String resolveEducationSchool(AppUser candidate) {
         String education = switch (StrUtil.blankToDefault(candidate.getEducationLevel(), "").toUpperCase(Locale.ROOT)) {
-            case "DOCTOR", "PHD" -> "博士";
-            case "MASTER", "POSTGRADUATE" -> "硕士";
-            case "BACHELOR", "UNDERGRADUATE" -> "本科";
-            case "COLLEGE", "JUNIOR_COLLEGE" -> "大专";
+            case "DOCTOR", "PHD" -> message("education_doctor");
+            case "MASTER", "POSTGRADUATE" -> message("education_master");
+            case "BACHELOR", "UNDERGRADUATE" -> message("education_bachelor");
+            case "COLLEGE", "JUNIOR_COLLEGE" -> message("education_college");
             default -> "";
         };
-        if (StrUtil.isBlank(education)) return StrUtil.blankToDefault(candidate.getSchool(), "资料待完善");
+        if (StrUtil.isBlank(education)) return StrUtil.blankToDefault(candidate.getSchool(), message("profile_incomplete"));
         if (StrUtil.isBlank(candidate.getSchool())) return education;
         return education + "·" + candidate.getSchool();
     }
 
     private String resolveOnlineText(LocalDateTime lastLoginTime) {
-        if (lastLoginTime == null) return "暂无在线记录";
+        if (lastLoginTime == null) return message("online_unknown");
         long minutes = Math.max(1, java.time.Duration.between(lastLoginTime, LocalDateTime.now()).toMinutes());
-        if (minutes < 60) return minutes + "分钟前在线";
-        if (minutes < 1440) return (minutes / 60) + "小时前在线";
-        return (minutes / 1440) + "天前在线";
+        if (minutes < 60) return message("online_minutes", minutes);
+        if (minutes < 1440) return message("online_hours", minutes / 60);
+        return message("online_days", minutes / 1440);
     }
 
     private void requireLoginForScene(Long userId) {
-        if (userId == null) throw new BusinessException(401, "未登录或登录已过期");
+        if (userId == null) throw error(401, "login_expired");
     }
 
     private Page<CommunityPostCardVO> emptyPostPage(int page, int size) {
@@ -325,11 +363,11 @@ public class CommunityServiceImpl implements CommunityService {
      * @return 内容详情（含作者信息、点赞/关注状态）
      */
     @Override
-    public CommunityPostDetailVO getPostDetail(Long userId, Long postId) {
-        CommunityPost post = requirePost(postId);
+    public CommunityPostDetailVO getPostDetail(Long userId, String postId) {
+        CommunityPost post = requirePostRef(postId);
         if (!CommunityPostStatusEnum.PUBLISHED.getCode().equals(post.getStatus())
                 && !Objects.equals(userId, post.getAuthorId())) {
-            throw new BusinessException("内容不存在或不可见");
+            throw error("content_unavailable");
         }
         CommunityPostDetailVO vo = new CommunityPostDetailVO();
         fillPostDetail(vo, userId, post);
@@ -345,30 +383,67 @@ public class CommunityServiceImpl implements CommunityService {
      */
     @Override
     @Transactional
-    public Long createPost(Long userId, CommunityPostCreateReq req) {
+    public CommunityPublishResultVO createPost(Long userId, CommunityPostCreateReq req) {
         // 1. 校验交互权限
-        ensureInteractionAllowed(userId);
+        ensureCommunityWriteAllowed(userId, "publish_post");
         // 2. 校验请求参数
-        validatePostRequest(req);
+        validatePostRequest(userId, req);
+
+        String contentType = req.resolvedContentType();
+        AppUser author = requireUser(userId);
+        boolean machineAuditEnabled = defaultBool(CommunityConfigKeys.MACHINE_AUDIT_ENABLED, true);
+        CommunitySecurityResult securityResult = machineAuditEnabled
+                ? contentSecurityPort.checkPost(author.getOpenid(), req.getContent(), req.getImageUrls(), "community")
+                : CommunitySecurityResult.review("machine_audit_disabled");
+        CommunityAuditDecision decision = auditPolicy.decidePost(contentType, securityResult, machineAuditEnabled);
 
         CommunityPost entity = new CommunityPost();
+        entity.setPostNo(businessNo("POST"));
         entity.setAuthorId(userId);
-        entity.setPostType(req.getPostType());
-        entity.setTitle(StrUtil.blankToDefault(StrUtil.trim(req.getTitle()), null));
+        entity.setPostType(contentType);
+        entity.setSourceScene("sincere_post".equals(contentType)
+                ? "qianxun_zhiyin_sincere" : "qianxun_chengjia");
+        entity.setTitle(null);
         entity.setContent(StrUtil.trim(req.getContent()));
         entity.setImageUrls(toJsonList(req.getImageUrls()));
         entity.setTopicId(req.getTopicId());
-        entity.setMentionUserIds(toIdString(req.getMentionUserIds()));
-        entity.setStatus(CommunityPostStatusEnum.PENDING.getCode());
-        entity.setAuditStatus(CommunityAuditStatusEnum.PENDING.getCode());
+        CommunityTopic topic = communityExtensionDao.selectTopicById(req.getTopicId());
+        entity.setTopicCode(topic == null ? null : topic.getTopicCode());
+        entity.setTopicNameSnapshot(topic.getTopicName());
+        entity.setMentionUserIds(null);
+        entity.setStatus(decision.status());
+        entity.setAuditStatus("published".equals(decision.status()) ? CommunityAuditStatusEnum.APPROVED.getCode()
+                : CommunityAuditStatusEnum.PENDING.getCode());
+        entity.setMachineResult(decision.machineConclusion());
+        entity.setMachineCode(decision.machineCode());
+        entity.setMachineDetail(decision.detail());
+        entity.setMachineCheckedAt(LocalDateTime.now());
+        entity.setSampleRequired(decision.sampleRequired() ? 1 : 0);
+        entity.setVersion(0);
+        entity.setPublishedAt("published".equals(decision.status()) ? LocalDateTime.now() : null);
+        entity.setAuthorIp(requestIp());
         entity.setLikeCount(0);
         entity.setCommentCount(0);
         entity.setReportCount(0);
         entity.setDeletedByUser(0);
         // 3. 写入数据库
         communityPostDao.insert(entity);
-        log.info("发布内容: userId={}, postType={}, postId={}", userId, req.getPostType(), entity.getId());
-        return entity.getId();
+        consumeUploadTickets(req.getImageUrls());
+        persistMediaAuditTasks(entity, req.getImageUrls(), decision.machineCode());
+        writeAudit("post", entity.getPostNo(), entity.getId(), "machine_audit",
+                decision.machineConclusion(), decision.detail(), decision.machineCode());
+        writeOutbox("content_submitted", "post", entity.getPostNo(), 0,
+                "{\"postNo\":\"" + entity.getPostNo() + "\",\"authorId\":" + userId + "}");
+        if ("published".equals(decision.status())) {
+            writeOutbox("content_published", "post", entity.getPostNo(), 0,
+                    "{\"postNo\":\"" + entity.getPostNo() + "\"}");
+        }
+        deleteDraft(userId, contentType);
+        log.info("Community post submitted: userId={}, contentType={}, postNo={}, status={}",
+                userId, contentType, entity.getPostNo(), entity.getStatus());
+        return new CommunityPublishResultVO(entity.getId(), entity.getPostNo(), entity.getStatus(),
+                resolveStatusLabel("community_content_status", entity.getStatus()),
+                copy("publish_" + entity.getStatus(), resolveStatusLabel("community_content_status", entity.getStatus())));
     }
 
     /**
@@ -379,17 +454,17 @@ public class CommunityServiceImpl implements CommunityService {
      */
     @Override
     @Transactional
-    public void deletePost(Long userId, Long postId) {
+    public void deletePost(Long userId, String postId) {
         // 1. 校验内容存在且为本人所发
-        CommunityPost post = requirePost(postId);
+        CommunityPost post = requirePostRef(postId);
         if (!Objects.equals(post.getAuthorId(), userId)) {
-            throw new BusinessException("只能删除自己的内容");
+            throw error("delete_own_content_only");
         }
         // 2. 软删除：更新状态
         post.setStatus(CommunityPostStatusEnum.DELETED.getCode());
         post.setDeletedByUser(1);
         communityPostDao.updateById(post);
-        log.info("删除内容: userId={}, postId={}", userId, postId);
+        log.info("Community post deleted: userId={}, postId={}", userId, postId);
     }
 
     /**
@@ -402,10 +477,10 @@ public class CommunityServiceImpl implements CommunityService {
      * @return 评论分页列表
      */
     @Override
-    public Page<CommunityCommentVO> getComments(Long userId, Long postId, int page, int size) {
-        requirePost(postId);
+    public Page<CommunityCommentVO> getComments(Long userId, String postId, int page, int size) {
+        CommunityPost post = requirePostRef(postId);
         LambdaQueryWrapper<CommunityComment> wrapper = new LambdaQueryWrapper<CommunityComment>()
-                .eq(CommunityComment::getPostId, postId)
+                .eq(CommunityComment::getPostId, post.getId())
                 .eq(CommunityComment::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
                 .orderByAsc(CommunityComment::getCreateTime);
         Page<CommunityComment> result = communityCommentDao.selectPage(new Page<>(page, Math.min(size, 100)), wrapper);
@@ -421,32 +496,61 @@ public class CommunityServiceImpl implements CommunityService {
      */
     @Override
     @Transactional
-    public Long createComment(Long userId, CommunityCommentCreateReq req) {
+    public CommunityCommentResultVO createComment(Long userId, CommunityCommentCreateReq req) {
         // 1. 校验交互权限
-        ensureInteractionAllowed(userId);
+        ensureCommunityWriteAllowed(userId, "comment");
         // 2. 校验内容存在且可评论
-        CommunityPost post = requirePost(req.getPostId());
+        CommunityPost post = requirePostRef(req.getPostId());
         if (!CommunityPostStatusEnum.PUBLISHED.getCode().equals(post.getStatus())) {
-            throw new BusinessException("内容当前不可评论");
+            throw error("content_not_commentable");
+        }
+
+        AppUser author = requireUser(userId);
+        boolean machineAuditEnabled = defaultBool(CommunityConfigKeys.MACHINE_AUDIT_ENABLED, true);
+        CommunitySecurityResult securityResult = machineAuditEnabled
+                ? contentSecurityPort.checkText(author.getOpenid(), req.getContent(), "community")
+                : CommunitySecurityResult.unavailable("machine_audit_disabled");
+        CommunityAuditDecision decision = auditPolicy.decideComment(securityResult, machineAuditEnabled);
+        if (decision.retryRequired()) {
+            throw error(505010, "comment_retry");
         }
 
         CommunityComment entity = new CommunityComment();
-        entity.setPostId(req.getPostId());
+        entity.setCommentNo(businessNo("CMT"));
+        entity.setPostId(post.getId());
         entity.setAuthorId(userId);
         entity.setParentCommentId(req.getParentCommentId());
         entity.setReplyUserId(req.getReplyUserId());
         entity.setContent(StrUtil.trim(req.getContent()));
-        entity.setStatus(CommunityPostStatusEnum.PUBLISHED.getCode());
-        entity.setAuditStatus(CommunityAuditStatusEnum.PENDING.getCode());
+        entity.setStatus(decision.status());
+        entity.setAuditStatus("published".equals(decision.status())
+                ? CommunityAuditStatusEnum.APPROVED.getCode() : CommunityAuditStatusEnum.REJECTED.getCode());
+        entity.setMachineResult(decision.machineConclusion());
+        entity.setMachineCode(decision.machineCode());
+        entity.setMachineDetail(decision.detail());
+        entity.setMachineCheckedAt(LocalDateTime.now());
+        entity.setVersion(0);
+        entity.setPublishedAt("published".equals(decision.status()) ? LocalDateTime.now() : null);
+        entity.setAuthorIp(requestIp());
+        entity.setLikeCount(0);
         entity.setReportCount(0);
         // 3. 写入评论
         communityCommentDao.insert(entity);
 
         // 4. 更新内容评论计数
-        post.setCommentCount((post.getCommentCount() == null ? 0 : post.getCommentCount()) + 1);
-        communityPostDao.updateById(post);
-        log.info("发表评论: userId={}, postId={}, commentId={}", userId, req.getPostId(), entity.getId());
-        return entity.getId();
+        if ("published".equals(entity.getStatus())) {
+            post.setCommentCount((post.getCommentCount() == null ? 0 : post.getCommentCount()) + 1);
+            communityPostDao.updateById(post);
+            writeOutbox("comment_created", "comment", entity.getCommentNo(), 0,
+                    "{\"commentNo\":\"" + entity.getCommentNo() + "\",\"postNo\":\"" + post.getPostNo() + "\"}");
+        }
+        writeAudit("comment", entity.getCommentNo(), entity.getId(), "machine_audit",
+                decision.machineConclusion(), decision.detail(), decision.machineCode());
+        log.info("Community comment submitted: userId={}, postId={}, commentNo={}, status={}", userId, req.getPostId(), entity.getCommentNo(), entity.getStatus());
+        return new CommunityCommentResultVO(entity.getId(), entity.getCommentNo(), entity.getStatus(),
+                resolveStatusLabel("community_comment_status", entity.getStatus()),
+                copy("comment_" + entity.getStatus(), resolveStatusLabel("community_comment_status", entity.getStatus())),
+                post.getCommentCount());
     }
 
     /**
@@ -457,11 +561,11 @@ public class CommunityServiceImpl implements CommunityService {
      */
     @Override
     @Transactional
-    public void deleteComment(Long userId, Long commentId) {
+    public void deleteComment(Long userId, String commentId) {
         // 1. 校验评论存在且为本人所发
-        CommunityComment comment = requireComment(commentId);
+        CommunityComment comment = requireCommentRef(commentId);
         if (!Objects.equals(comment.getAuthorId(), userId)) {
-            throw new BusinessException("只能删除自己的评论");
+            throw error("delete_own_comment_only");
         }
         // 2. 幂等：已删除直接返回
         if (CommunityPostStatusEnum.DELETED.getCode().equals(comment.getStatus())) {
@@ -476,7 +580,7 @@ public class CommunityServiceImpl implements CommunityService {
         int count = post.getCommentCount() == null ? 0 : post.getCommentCount();
         post.setCommentCount(Math.max(0, count - 1));
         communityPostDao.updateById(post);
-        log.info("删除评论: userId={}, commentId={}", userId, commentId);
+        log.info("Community comment deleted: userId={}, commentId={}", userId, commentId);
     }
 
     /**
@@ -488,14 +592,14 @@ public class CommunityServiceImpl implements CommunityService {
      */
     @Override
     @Transactional
-    public CommunityLikeToggleVO toggleLike(Long userId, Long postId) {
+    public CommunityLikeToggleVO toggleLike(Long userId, String postId) {
         // 1. 校验交互权限
         ensureInteractionAllowed(userId);
         // 2. 查询内容
-        CommunityPost post = requirePost(postId);
+        CommunityPost post = requirePostRef(postId);
         // 3. 查询已有点赞记录
         CommunityLike like = communityLikeDao.selectOne(new LambdaQueryWrapper<CommunityLike>()
-                .eq(CommunityLike::getPostId, postId)
+                .eq(CommunityLike::getPostId, post.getId())
                 .eq(CommunityLike::getUserId, userId));
 
         // 4. 三态切换逻辑
@@ -504,7 +608,7 @@ public class CommunityServiceImpl implements CommunityService {
         if (like == null) {
             // 从未点赞 → 点赞
             like = new CommunityLike();
-            like.setPostId(postId);
+            like.setPostId(post.getId());
             like.setUserId(userId);
             like.setStatus(CommonStatusEnum.ENABLED.getCode());
             communityLikeDao.insert(like);
@@ -530,7 +634,7 @@ public class CommunityServiceImpl implements CommunityService {
         CommunityLikeToggleVO vo = new CommunityLikeToggleVO();
         vo.setLiked(liked);
         vo.setLikeCount(likeCount);
-        log.info("点赞切换: userId={}, postId={}, liked={}", userId, postId, liked);
+        log.info("Community like toggled: userId={}, postId={}, liked={}", userId, postId, liked);
         return vo;
     }
 
@@ -548,7 +652,7 @@ public class CommunityServiceImpl implements CommunityService {
         ensureInteractionAllowed(userId);
         // 2. 不能关注自己
         if (Objects.equals(userId, targetUserId)) {
-            throw new BusinessException("不能关注自己");
+            throw error("cannot_follow_self");
         }
         // 3. 校验目标用户存在
         requireUser(targetUserId);
@@ -582,7 +686,7 @@ public class CommunityServiceImpl implements CommunityService {
 
         CommunityFollowToggleVO vo = new CommunityFollowToggleVO();
         vo.setFollowing(following);
-        log.info("关注切换: userId={}, targetUserId={}, following={}", userId, targetUserId, following);
+        log.info("Community follow toggled: userId={}, targetUserId={}, following={}", userId, targetUserId, following);
         return vo;
     }
 
@@ -603,28 +707,374 @@ public class CommunityServiceImpl implements CommunityService {
      */
     @Override
     @Transactional
-    public Long createReport(Long userId, CommunityReportCreateReq req) {
+    public CommunityReportResultVO createReport(Long userId, CommunityReportCreateReq req) {
+        ensureReportAllowed(userId);
         // 1. 校验举报目标类型
-        if (CommunityReportTargetTypeEnum.getByCode(req.getTargetType()) == null) {
-            throw new BusinessException("不支持的举报目标类型");
+        CommunityReportTargetTypeEnum targetType = CommunityReportTargetTypeEnum.getByCode(req.getTargetType());
+        if (targetType == null) {
+            throw error("unsupported_report_target");
         }
         // 2. 校验举报原因合法
         requireReportReason(req.getReasonCode());
-        // 3. 增加目标被举报计数
-        increaseReportCount(req.getTargetType(), req.getTargetId());
+
+        CommunityReport duplicate = communityReportDao.selectList(new LambdaQueryWrapper<CommunityReport>()
+                        .eq(CommunityReport::getReporterId, userId)
+                        .eq(CommunityReport::getTargetType, req.getTargetType())
+                        .eq(CommunityReport::getTargetId, req.getTargetId())
+                        .in(CommunityReport::getStatus, List.of("pending", "processing")))
+                .stream().findFirst().orElse(null);
+        if (duplicate != null) {
+            throw error(505008, "report_duplicate");
+        }
+
+        Long targetUserId = null;
+        String contextJson = null;
+        String evidenceJson = null;
+        String targetNo = req.getTargetId();
+        if (CommunityReportTargetTypeEnum.CHAT.equals(targetType)) {
+            TrustedChatReportContext trusted;
+            try {
+                trusted = chatReportContextResolver.resolve(userId,
+                        new ChatReportLookup(req.getSourceType(), req.getConversationNo(), req.getWhisperNo(), req.getMessageNo()));
+            } catch (BusinessException ex) {
+                if (ex.getCode() == 505016) throw error(505016, "chat_report_unavailable");
+                throw ex;
+            }
+            targetNo = trusted.targetNo();
+            targetUserId = trusted.targetUserId();
+            contextJson = "{\"sourceType\":\"" + jsonSafe(trusted.sourceType()) + "\",\"targetNo\":\""
+                    + jsonSafe(trusted.targetNo()) + "\"}";
+            evidenceJson = trusted.evidenceJson();
+        } else {
+            targetUserId = increaseReportCount(req.getTargetType(), req.getTargetId());
+        }
 
         // 4. 创建举报记录
         CommunityReport report = new CommunityReport();
+        report.setReportNo(businessNo("RPT"));
         report.setReporterId(userId);
         report.setTargetType(req.getTargetType());
-        report.setTargetId(req.getTargetId());
+        report.setSourceType(req.getSourceType());
+        report.setTargetId(targetNo);
+        report.setTargetUserId(targetUserId);
         report.setReasonCode(req.getReasonCode());
         report.setExtraText(StrUtil.blankToDefault(StrUtil.trim(req.getExtraText()), null));
+        report.setContextJson(contextJson);
+        report.setEvidenceJson(evidenceJson);
         report.setStatus(CommunityReportStatusEnum.PENDING.getCode());
+        report.setVersion(0);
+        report.setActiveMarker(1);
         communityReportDao.insert(report);
-        log.info("提交举报: userId={}, targetType={}, targetId={}, reportId={}",
-                userId, req.getTargetType(), req.getTargetId(), report.getId());
-        return report.getId();
+        writeOutbox("report_submitted", "report", report.getReportNo(), 0,
+                "{\"reportNo\":\"" + report.getReportNo() + "\",\"targetType\":\""
+                        + jsonSafe(report.getTargetType()) + "\"}");
+        log.info("Community report submitted: userId={}, targetType={}, targetNo={}, reportNo={}",
+                userId, req.getTargetType(), targetNo, report.getReportNo());
+        return new CommunityReportResultVO(report.getId(), report.getReportNo(), report.getStatus(),
+                resolveStatusLabel("community_report_status", report.getStatus()),
+                copy("report_submitted", resolveStatusLabel("community_report_status", report.getStatus())));
+    }
+
+    @Override
+    public CommunityMetaVO getMeta() {
+        CommunityConfigVO config = getConfig();
+        CommunityMetaVO result = new CommunityMetaVO();
+        List<String> dictTypes = List.of(
+                "community_content_type", "community_content_status", "community_comment_status",
+                "community_report_status", "community_report_target_type", "community_report_reason",
+                "community_punish_action", "community_mute_period", "community_source_scene",
+                "community_interaction_type", "community_relation_type", "community_publish_status",
+                "community_media_type", "community_machine_result", "community_risk_level",
+                "community_distribution_scene", "community_ip_block_period", "community_write_scope",
+                "community_topic_status", "community_topic_display_scene", "community_yes_no"
+        );
+        for (String dictType : dictTypes) {
+            result.getDictionaries().put(dictType, toDictOptions(dictDataDao.selectByDictType(dictType)));
+        }
+        result.getDictionaries().put("topics", config.getTopics());
+        result.getDictionaries().put("reportReasons", config.getReportReasons());
+        List<AppConfig> copyItems = appConfigDao.selectByGroup("COMMUNITY_COPY");
+        if (copyItems != null) {
+            copyItems.stream().filter(item -> item.getConfigKey() != null).forEach(item ->
+                    result.getCopies().put(item.getConfigKey().replace(CommunityConfigKeys.COPY_PREFIX, ""), item.getConfigValue()));
+        }
+        List<AppConfig> configItems = appConfigDao.selectByGroup("COMMUNITY");
+        if (configItems != null) {
+            configItems.stream().filter(item -> item.getConfigKey() != null).forEach(item ->
+                    result.getConfigs().put(item.getConfigKey(), parseConfigValue(item.getConfigValue(), item.getConfigType())));
+        }
+        result.getConfigs().put("postMaxImages", config.getPostMaxImages());
+        result.getConfigs().put("postMaxTextLength", config.getPostMaxTextLength());
+        result.getConfigs().put("reportEntryEnabled", config.getReportEntryEnabled());
+        result.setHomeTabs(config.getHomeTabs());
+        return result;
+    }
+
+    @Override
+    public CommunityDraftVO getDraft(Long userId, String contentType) {
+        requireUser(userId);
+        String normalized = normalizeContentType(contentType);
+        CommunityPostDraft entity = communityExtensionDao.selectDraftOne(new LambdaQueryWrapper<CommunityPostDraft>()
+                .eq(CommunityPostDraft::getUserId, userId)
+                .eq(CommunityPostDraft::getContentType, normalized));
+        return entity == null ? null : toDraftVO(entity);
+    }
+
+    @Override
+    @Transactional
+    public CommunityDraftVO saveDraft(Long userId, String contentType, CommunityDraftSaveReq req) {
+        requireUser(userId);
+        String normalized = normalizeContentType(contentType);
+        CommunityPostDraft entity = communityExtensionDao.selectDraftOne(new LambdaQueryWrapper<CommunityPostDraft>()
+                .eq(CommunityPostDraft::getUserId, userId)
+                .eq(CommunityPostDraft::getContentType, normalized));
+        List<String> imageUrls = draftImageUrls(req);
+        if (entity == null) {
+            entity = new CommunityPostDraft();
+            entity.setUserId(userId);
+            entity.setContentType(normalized);
+            entity.setVersion(0);
+            fillDraft(entity, req, imageUrls);
+            communityExtensionDao.insertDraft(entity);
+        } else {
+            int expected = req.getVersion() == null ? entity.getVersion() : req.getVersion();
+            if (!Objects.equals(expected, entity.getVersion())) {
+                throw error(505009, "draft_version_conflict");
+            }
+            fillDraft(entity, req, imageUrls);
+            entity.setVersion(defaultZero(entity.getVersion()) + 1);
+            communityExtensionDao.updateDraft(entity);
+        }
+        writeOutbox("draft_saved", "draft", String.valueOf(entity.getId()), entity.getVersion(),
+                "{\"contentType\":\"" + normalized + "\",\"userId\":" + userId + "}");
+        return toDraftVO(entity);
+    }
+
+    @Override
+    @Transactional
+    public void deleteDraft(Long userId, String contentType) {
+        String normalized = normalizeContentType(contentType);
+        CommunityPostDraft entity = communityExtensionDao.selectDraftOne(new LambdaQueryWrapper<CommunityPostDraft>()
+                .eq(CommunityPostDraft::getUserId, userId)
+                .eq(CommunityPostDraft::getContentType, normalized));
+        if (entity != null) communityExtensionDao.deleteDraft(entity.getId());
+    }
+
+    @Override
+    public Page<CommunityPostCardVO> getUserPosts(Long currentUserId, String targetUserRef, boolean mine, int page, int size) {
+        Long targetUserId = resolveUserRef(targetUserRef);
+        requireUser(targetUserId);
+        LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getAuthorId, targetUserId)
+                .eq(!mine, CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
+                .orderByDesc(CommunityPost::getCreateTime);
+        Page<CommunityPost> data = communityPostDao.selectPage(new Page<>(safePage(page), safeSize(size, 100)), wrapper);
+        return toPostCardPage(currentUserId, data);
+    }
+
+    @Override
+    public Page<CommunityInteractionRecordVO> getInteractionHistory(Long userId, String type, int page, int size) {
+        requireUser(userId);
+        String normalized = StrUtil.blankToDefault(type, "viewed").toLowerCase(Locale.ROOT);
+        if (!Set.of("commented", "liked", "unlocked", "viewed").contains(normalized)) {
+            throw error("unsupported_interaction_type");
+        }
+        List<CommunityInteractionRecordVO> records = new ArrayList<>();
+        if ("commented".equals(normalized)) {
+            for (CommunityComment item : communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
+                    .eq(CommunityComment::getAuthorId, userId).orderByDesc(CommunityComment::getCreateTime))) {
+                CommunityPost post = communityPostDao.selectById(item.getPostId());
+                if (post != null) records.add(interactionRecord("commented", "comment-" + item.getId(), item.getCreateTime(), userId, post));
+            }
+        } else if ("liked".equals(normalized)) {
+            for (CommunityLike item : communityLikeDao.selectList(new LambdaQueryWrapper<CommunityLike>()
+                    .eq(CommunityLike::getUserId, userId).eq(CommunityLike::getStatus, CommonStatusEnum.ENABLED.getCode())
+                    .orderByDesc(CommunityLike::getUpdateTime))) {
+                CommunityPost post = communityPostDao.selectById(item.getPostId());
+                if (post != null) records.add(interactionRecord("liked", "like-" + item.getId(), item.getUpdateTime(), userId, post));
+            }
+        } else if ("viewed".equals(normalized)) {
+            for (CommunityViewHistory item : communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
+                    .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt))) {
+                CommunityPost post = communityPostDao.selectById(item.getPostId());
+                if (post != null) records.add(interactionRecord("viewed", "view-" + item.getId(), item.getViewedAt(), userId, post));
+            }
+        } else {
+            for (UserUnlockRecord item : userUnlockRecordDao.selectList(new LambdaQueryWrapper<UserUnlockRecord>()
+                    .eq(UserUnlockRecord::getUserId, userId).orderByDesc(UserUnlockRecord::getEffectiveTime))) {
+                AppUser target = item.getTargetUserId() == null ? null : appUserDao.selectById(item.getTargetUserId());
+                CommunityInteractionRecordVO vo = new CommunityInteractionRecordVO();
+                vo.setId(item.getUnlockNo());
+                vo.setInteractionType("unlocked");
+                vo.setTargetUserId(item.getTargetUserId());
+                vo.setTargetUserNo(userNo(item.getTargetUserId()));
+                vo.setNickname(target == null ? null : target.getNickname());
+                vo.setAvatar(item.getTargetUserId() == null ? null : auditContentService.publicAvatar(item.getTargetUserId()));
+                vo.setDescription(target == null ? null : profileDescription(target));
+                vo.setInteractionTime(formatTime(item.getEffectiveTime()));
+                records.add(vo);
+            }
+        }
+        return slice(records, page, size);
+    }
+
+    @Override
+    public Page<CommunityPostCardVO> getViewHistory(Long userId, int page, int size) {
+        requireUser(userId);
+        List<CommunityPostCardVO> records = communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
+                        .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt))
+                .stream().map(item -> communityPostDao.selectById(item.getPostId())).filter(Objects::nonNull)
+                .map(item -> toPostCard(userId, item)).toList();
+        return slice(records, page, size);
+    }
+
+    @Override
+    @Transactional
+    public void recordView(Long userId, String postRef) {
+        CommunityPost post = requirePostRef(postRef);
+        CommunityViewHistory entity = communityExtensionDao.selectViewOne(new LambdaQueryWrapper<CommunityViewHistory>()
+                .eq(CommunityViewHistory::getUserId, userId).eq(CommunityViewHistory::getPostId, post.getId()));
+        if (entity == null) {
+            entity = new CommunityViewHistory();
+            entity.setUserId(userId);
+            entity.setPostId(post.getId());
+            entity.setViewedAt(LocalDateTime.now());
+            communityExtensionDao.insertView(entity);
+        } else {
+            entity.setViewedAt(LocalDateTime.now());
+            communityExtensionDao.updateView(entity);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void clearViewHistory(Long userId) {
+        communityExtensionDao.deleteViews(new LambdaQueryWrapper<CommunityViewHistory>()
+                .eq(CommunityViewHistory::getUserId, userId));
+    }
+
+    @Override
+    public Page<CommunityRelationUserVO> getRelations(Long userId, String relation, int page, int size) {
+        requireUser(userId);
+        boolean fans = "fans".equalsIgnoreCase(relation) || "followers".equalsIgnoreCase(relation);
+        List<CommunityFollow> follows = communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
+                .eq(fans, CommunityFollow::getTargetUserId, userId)
+                .eq(!fans, CommunityFollow::getFollowerId, userId)
+                .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())
+                .orderByDesc(CommunityFollow::getUpdateTime));
+        List<CommunityRelationUserVO> records = follows.stream()
+                .map(item -> toRelationUser(userId, fans ? item.getFollowerId() : item.getTargetUserId(), item.getUpdateTime(), null))
+                .filter(Objects::nonNull).toList();
+        return slice(records, page, size);
+    }
+
+    @Override
+    public Page<CommunityRelationUserVO> getPostInteractors(Long userId, String postRef, String type, int page, int size) {
+        CommunityPost post = requirePostRef(postRef);
+        Map<Long, LocalDateTime> users = new LinkedHashMap<>();
+        Map<Long, String> summaries = new HashMap<>();
+        if ("liked".equalsIgnoreCase(type)) {
+            for (CommunityLike item : communityLikeDao.selectList(new LambdaQueryWrapper<CommunityLike>()
+                    .eq(CommunityLike::getPostId, post.getId()).eq(CommunityLike::getStatus, CommonStatusEnum.ENABLED.getCode())
+                    .orderByDesc(CommunityLike::getUpdateTime))) {
+                users.putIfAbsent(item.getUserId(), item.getUpdateTime());
+            }
+        } else if ("commented".equalsIgnoreCase(type)) {
+            for (CommunityComment item : communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
+                    .eq(CommunityComment::getPostId, post.getId()).eq(CommunityComment::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
+                    .orderByDesc(CommunityComment::getCreateTime))) {
+                users.putIfAbsent(item.getAuthorId(), item.getCreateTime());
+                summaries.putIfAbsent(item.getAuthorId(), item.getContent());
+            }
+        } else {
+            throw error("unsupported_interactor_type");
+        }
+        List<CommunityRelationUserVO> records = users.entrySet().stream()
+                .map(item -> toRelationUser(userId, item.getKey(), item.getValue(), summaries.get(item.getKey())))
+                .filter(Objects::nonNull).toList();
+        return slice(records, page, size);
+    }
+
+    @Override
+    public Page<CommunityRelationUserVO> getHiddenAuthors(Long userId, int page, int size) {
+        List<CommunityRelationUserVO> records = communityExtensionDao.selectPreferences(new LambdaQueryWrapper<CommunityContentPreference>()
+                        .eq(CommunityContentPreference::getUserId, userId)
+                        .eq(CommunityContentPreference::getActionType, "hide_author_posts")
+                        .eq(CommunityContentPreference::getStatus, "enabled")
+                        .orderByDesc(CommunityContentPreference::getUpdateTime))
+                .stream().map(item -> toRelationUser(userId, item.getTargetUserId(), item.getUpdateTime(), null))
+                .filter(Objects::nonNull).toList();
+        return slice(records, page, size);
+    }
+
+    @Override
+    @Transactional
+    public CommunityAuthorPreferenceResultVO hideAuthor(Long userId, String targetUserRef) {
+        return setAuthorHidden(userId, resolveUserRef(targetUserRef), true);
+    }
+
+    @Override
+    @Transactional
+    public CommunityAuthorPreferenceResultVO unhideAuthor(Long userId, String targetUserRef) {
+        return setAuthorHidden(userId, resolveUserRef(targetUserRef), false);
+    }
+
+    @Override
+    public CommunityProfileSummaryVO getProfileSummary(Long userId) {
+        AppUser user = requireUser(userId);
+        CommunityProfileSummaryVO result = new CommunityProfileSummaryVO();
+        result.setNickname(user.getNickname());
+        result.setAvatar(auditContentService.publicAvatar(userId));
+        result.setDescription(profileDescription(user));
+        CommunityProfileSummaryVO.Stats stats = new CommunityProfileSummaryVO.Stats();
+        List<CommunityPost> ownPosts = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getAuthorId, userId).notIn(CommunityPost::getStatus, List.of("deleted", "blocked")));
+        stats.setPostCount((long) ownPosts.size());
+        stats.setFollowingCount((long) communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
+                .eq(CommunityFollow::getFollowerId, userId).eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())).size());
+        stats.setFollowerCount((long) communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
+                .eq(CommunityFollow::getTargetUserId, userId).eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())).size());
+        long postLikes = ownPosts.stream().mapToLong(item -> defaultZero(item.getLikeCount())).sum();
+        List<Long> commentIds = communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
+                        .eq(CommunityComment::getAuthorId, userId)).stream().map(CommunityComment::getId).toList();
+        long commentLikes = commentIds.isEmpty() ? 0 : communityExtensionDao.selectCommentLikes(new LambdaQueryWrapper<CommunityCommentLike>()
+                .in(CommunityCommentLike::getCommentId, commentIds).eq(CommunityCommentLike::getStatus, "enabled")).size();
+        stats.setReceivedLikeCount(postLikes + commentLikes);
+        result.setStats(stats);
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public CommunityLikeToggleVO toggleCommentLike(Long userId, String commentRef) {
+        ensureCommunityWriteAllowed(userId, "comment_like");
+        CommunityComment comment = requireCommentRef(commentRef);
+        CommunityCommentLike relation = communityExtensionDao.selectCommentLikeOne(new LambdaQueryWrapper<CommunityCommentLike>()
+                .eq(CommunityCommentLike::getCommentId, comment.getId()).eq(CommunityCommentLike::getUserId, userId));
+        boolean liked;
+        int count = defaultZero(comment.getLikeCount());
+        if (relation == null) {
+            relation = new CommunityCommentLike();
+            relation.setCommentId(comment.getId());
+            relation.setUserId(userId);
+            relation.setStatus("enabled");
+            relation.setActiveMarker(1);
+            communityExtensionDao.insertCommentLike(relation);
+            liked = true;
+            count++;
+        } else {
+            liked = !"enabled".equals(relation.getStatus());
+            relation.setStatus(liked ? "enabled" : "disabled");
+            relation.setActiveMarker(liked ? 1 : null);
+            communityExtensionDao.updateCommentLike(relation);
+            count = Math.max(0, count + (liked ? 1 : -1));
+        }
+        comment.setLikeCount(count);
+        communityCommentDao.updateById(comment);
+        CommunityLikeToggleVO result = new CommunityLikeToggleVO();
+        result.setLiked(liked);
+        result.setLikeCount(count);
+        return result;
     }
 
     /**
@@ -645,18 +1095,426 @@ public class CommunityServiceImpl implements CommunityService {
         )).stream().collect(Collectors.toMap(AppConfig::getConfigKey, item -> item, (a, b) -> a));
 
         CommunityConfigVO vo = new CommunityConfigVO();
-        vo.setInteractionGateMode(configValue(configMap, CommunityConfigKeys.INTERACTION_GATE_MODE, CommunityGateModeEnum.LOGIN_ONLY.getCode()));
-        vo.setPostMaxImages(configInt(configMap, CommunityConfigKeys.POST_MAX_IMAGES, 9));
-        vo.setPostMaxTextLength(configInt(configMap, CommunityConfigKeys.POST_MAX_TEXT_LENGTH, 500));
-        vo.setPostMaxMentions(configInt(configMap, CommunityConfigKeys.POST_MAX_MENTIONS, 5));
-        vo.setSincerePostMinTextLength(configInt(configMap, CommunityConfigKeys.SINCERE_POST_MIN_TEXT_LENGTH, 20));
-        vo.setContactInfoAllowed(configBool(configMap, CommunityConfigKeys.CONTACT_INFO_ALLOWED, false));
-        vo.setReportEntryEnabled(configBool(configMap, CommunityConfigKeys.REPORT_ENTRY_ENABLED, true));
+        vo.setInteractionGateMode(requiredConfigValue(configMap, CommunityConfigKeys.INTERACTION_GATE_MODE));
+        vo.setPostMaxImages(requiredConfigInt(configMap, CommunityConfigKeys.POST_MAX_IMAGES));
+        vo.setPostMaxTextLength(requiredConfigInt(configMap, CommunityConfigKeys.POST_MAX_TEXT_LENGTH));
+        vo.setPostMaxMentions(requiredConfigInt(configMap, CommunityConfigKeys.POST_MAX_MENTIONS));
+        vo.setSincerePostMinTextLength(requiredConfigInt(configMap, CommunityConfigKeys.SINCERE_POST_MIN_TEXT_LENGTH));
+        vo.setContactInfoAllowed(requiredConfigBool(configMap, CommunityConfigKeys.CONTACT_INFO_ALLOWED));
+        vo.setReportEntryEnabled(requiredConfigBool(configMap, CommunityConfigKeys.REPORT_ENTRY_ENABLED));
         vo.setHomeTabs(mobileEntryConfigDao.selectEnabledByPageCode(MobilePageCodeEnum.COMMUNITY_HOME_TAB.getCode())
                 .stream().map(this::toMiniappEntry).toList());
-        vo.setTopics(toTopicOptions(dictDataDao.selectByDictType("community_topic")));
+        vo.setTopics(toTopicOptions(enabledTopics()));
         vo.setReportReasons(toDictOptions(dictDataDao.selectByDictType("community_report_reason")));
         return vo;
+    }
+
+    private void ensureCommunityWriteAllowed(Long userId, String operation) {
+        ensureInteractionAllowed(userId);
+        AppUser user = requireUser(userId);
+        if (AccountStatusEnum.FROZEN.getCode().equals(user.getAccountStatus())
+                || AccountStatusEnum.CANCELLED.getCode().equals(user.getAccountStatus())) {
+            throw error(505002, "account_abnormal");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        boolean muted = communityExtensionDao.selectRestrictions(new LambdaQueryWrapper<CommunityUserRestriction>()
+                        .eq(CommunityUserRestriction::getUserId, userId)
+                        .eq(CommunityUserRestriction::getRestrictionType, "mute")
+                        .eq(CommunityUserRestriction::getStatus, "active")
+                        .eq(CommunityUserRestriction::getActiveMarker, 1))
+                .stream().anyMatch(item -> item.getEndTime() == null || item.getEndTime().isAfter(now));
+        if (muted) throw error(505017, "muted");
+        ensureIpAllowed(operation);
+    }
+
+    private void ensureReportAllowed(Long userId) {
+        AppUser user = requireUser(userId);
+        if (AccountStatusEnum.FROZEN.getCode().equals(user.getAccountStatus())
+                || AccountStatusEnum.CANCELLED.getCode().equals(user.getAccountStatus())) {
+            throw error(505002, "account_abnormal_report");
+        }
+        ensureIpAllowed("report");
+    }
+
+    private void ensureIpAllowed(String operation) {
+        String ip = requestIp();
+        if (StrUtil.isBlank(ip) || !defaultBool(CommunityConfigKeys.IP_BLOCK_ENABLED, true)) return;
+        LocalDateTime now = LocalDateTime.now();
+        boolean blocked = communityExtensionDao.selectIpBlocks(new LambdaQueryWrapper<CommunityIpBlock>()
+                        .eq(CommunityIpBlock::getStatus, "active")
+                        .eq(CommunityIpBlock::getActiveMarker, 1))
+                .stream().filter(item -> item.getEndTime() == null || item.getEndTime().isAfter(now))
+                .filter(item -> scopeContains(item.getWriteScope(), operation))
+                .anyMatch(item -> ipMatches(ip, item.getIpValue(), item.getIpRange()));
+        if (blocked) throw error(505018, "ip_blocked");
+    }
+
+    private boolean scopeContains(String scope, String operation) {
+        return StrUtil.isBlank(scope) || scope.contains("\"" + operation + "\"") || scope.contains(operation);
+    }
+
+    private boolean ipMatches(String requestIp, String blockedIp, String range) {
+        if (Objects.equals(requestIp, blockedIp)) return true;
+        String cidr = StrUtil.isNotBlank(range) ? range : blockedIp;
+        if (StrUtil.isBlank(cidr) || !cidr.contains("/") || requestIp.contains(":")) return false;
+        try {
+            String[] parts = cidr.split("/");
+            int prefix = Integer.parseInt(parts[1]);
+            long mask = prefix == 0 ? 0 : 0xFFFFFFFFL << (32 - prefix);
+            return (ipv4(requestIp) & mask) == (ipv4(parts[0]) & mask);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    private long ipv4(String value) {
+        String[] parts = value.split("\\.");
+        if (parts.length != 4) throw new IllegalArgumentException("invalid ip");
+        long result = 0;
+        for (String part : parts) result = (result << 8) | Integer.parseInt(part);
+        return result;
+    }
+
+    private String requestIp() {
+        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) return null;
+        String forwarded = attributes.getRequest().getHeader("X-Forwarded-For");
+        if (StrUtil.isNotBlank(forwarded)) return forwarded.split(",")[0].trim();
+        return attributes.getRequest().getRemoteAddr();
+    }
+
+    private String businessNo(String prefix) {
+        return prefix + "-" + IdUtil.fastSimpleUUID().substring(0, 20).toUpperCase(Locale.ROOT);
+    }
+
+    private void writeAudit(String bizType, String bizNo, Long bizId, String action,
+                            String result, String reason, String providerCode) {
+        CommunityAuditRecord record = new CommunityAuditRecord();
+        record.setBizType(bizType);
+        record.setBizNo(bizNo);
+        record.setBizId(bizId);
+        record.setAction(action);
+        record.setResult(StrUtil.blankToDefault(result, "unknown"));
+        record.setReason(reason);
+        record.setProviderCode(providerCode);
+        record.setOperatorId(UserContextHolder.get() == null ? null : UserContextHolder.get().getId());
+        record.setOperatorIp(requestIp());
+        communityExtensionDao.insertAudit(record);
+    }
+
+    private void writeOutbox(String eventType, String aggregateType, String aggregateNo,
+                             Integer aggregateVersion, String payload) {
+        CommunityEventOutbox event = new CommunityEventOutbox();
+        event.setEventNo(businessNo("EVT"));
+        event.setEventType(eventType);
+        event.setAggregateType(aggregateType);
+        event.setAggregateNo(aggregateNo);
+        event.setAggregateVersion(aggregateVersion == null ? 0 : aggregateVersion);
+        event.setPayload(payload);
+        event.setStatus("pending");
+        event.setRetryCount(0);
+        communityExtensionDao.insertOutbox(event);
+    }
+
+    private void persistMediaAuditTasks(CommunityPost post, List<String> imageUrls, String machineCode) {
+        if (StrUtil.isBlank(machineCode) || !machineCode.startsWith("media_async:")
+                || imageUrls == null || imageUrls.isEmpty()) return;
+        List<String> traces = Arrays.stream(machineCode.substring("media_async:".length()).split(","))
+                .filter(StrUtil::isNotBlank).toList();
+        if (traces.size() != imageUrls.size()) {
+            post.setStatus(CommunityPostStatusEnum.PENDING_MANUAL.getCode());
+            post.setMachineResult("unavailable");
+            post.setMachineDetail("media_trace_count_mismatch");
+            communityPostDao.updateById(post);
+            return;
+        }
+        for (int index = 0; index < traces.size(); index++) {
+            CommunityMediaAuditTask task = new CommunityMediaAuditTask();
+            task.setPostId(post.getId());
+            task.setPostNo(post.getPostNo());
+            task.setTraceId(traces.get(index));
+            task.setMediaUrl(imageUrls.get(index));
+            task.setStatus("pending");
+            task.setVersion(0);
+            communityExtensionDao.insertMediaTask(task);
+        }
+    }
+
+    private String resolveStatusLabel(String dictType, String code) {
+        if (StrUtil.isBlank(code)) return null;
+        List<SysDictData> values = dictDataDao.selectByDictType(dictType);
+        if (values == null) return code;
+        return values.stream().filter(item -> code.equalsIgnoreCase(item.getDictValue()))
+                .map(SysDictData::getDictLabel).findFirst().orElse(code);
+    }
+
+    private String copy(String key, String fallback) {
+        AppConfig item = appConfigDao.selectByKey(CommunityConfigKeys.COPY_PREFIX + key);
+        return item == null || StrUtil.isBlank(item.getConfigValue()) ? fallback : item.getConfigValue();
+    }
+
+    /** 读取动态文案；缺失时返回稳定键，禁止退回硬编码展示文案。 */
+    private String message(String key, Object... args) {
+        AppConfig item = appConfigDao.selectByKey(CommunityConfigKeys.COPY_PREFIX + key);
+        String template = item == null || StrUtil.isBlank(item.getConfigValue()) ? key : item.getConfigValue();
+        if (args == null || args.length == 0) return template;
+        try {
+            return String.format(Locale.ROOT, template, args);
+        } catch (RuntimeException ignored) {
+            return key;
+        }
+    }
+
+    private BusinessException error(String key) {
+        return new BusinessException(message(key));
+    }
+
+    private BusinessException error(int code, String key) {
+        return new BusinessException(code, message(key));
+    }
+
+    private boolean defaultBool(String key, boolean fallback) {
+        AppConfig item = appConfigDao.selectByKey(key);
+        return item == null || StrUtil.isBlank(item.getConfigValue()) ? fallback : Boolean.parseBoolean(item.getConfigValue());
+    }
+
+    private void validateOwnedImageUrls(Long userId, List<String> imageUrls) {
+        if (imageUrls == null) return;
+        String endpoint = ossConfig.getEndpoint();
+        String bucket = ossConfig.getBucketName();
+        String cdn = ossConfig.getCdnDomain();
+        for (String url : imageUrls) {
+            if (StrUtil.isBlank(url) || !url.startsWith("https://") || url.contains("?")) {
+                throw error(505019, "image_upload_invalid");
+            }
+            String key;
+            try {
+                key = URI.create(url).getPath().replaceFirst("^/", "");
+            } catch (RuntimeException ex) {
+                throw error(505019, "image_upload_invalid");
+            }
+            if (!key.startsWith("miniapp/" + userId + "/")) {
+                throw error(505019, "image_not_owned");
+            }
+            String ticketOwner = redisTemplate.opsForValue().get("community:upload:ticket:" + key);
+            if (StrUtil.isNotBlank(ticketOwner) && !String.valueOf(userId).equals(ticketOwner)) {
+                throw error(505019, "image_not_owned");
+            }
+            if (!ossUtil.objectExists(key)) throw error(505019, "image_upload_invalid");
+            if (StrUtil.isNotBlank(endpoint) && StrUtil.isNotBlank(bucket)) {
+                String expectedHost = bucket + "." + endpoint.replaceFirst("^https?://", "").replaceFirst("/$", "");
+                String cdnHost = StrUtil.blankToDefault(cdn, "").replaceFirst("^https?://", "").replaceFirst("/$", "");
+                if (!url.contains(expectedHost) && (cdnHost.isBlank() || !url.contains(cdnHost))) {
+                    throw error(505019, "image_not_owned");
+                }
+            }
+        }
+    }
+
+    private void consumeUploadTickets(List<String> imageUrls) {
+        if (imageUrls == null) return;
+        for (String url : imageUrls) {
+            String key = URI.create(url).getPath().replaceFirst("^/", "");
+            redisTemplate.delete("community:upload:ticket:" + key);
+        }
+    }
+
+    private CommunityPost requirePostRef(String ref) {
+        if (StrUtil.isBlank(ref)) throw error("content_not_found");
+        if (ref.chars().allMatch(Character::isDigit)) return requirePost(Long.parseLong(ref));
+        List<CommunityPost> values = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getPostNo, ref).last("LIMIT 1"));
+        if (values == null || values.isEmpty()) throw error("content_not_found");
+        return values.get(0);
+    }
+
+    private CommunityComment requireCommentRef(String ref) {
+        if (StrUtil.isBlank(ref)) throw error("comment_not_found");
+        if (ref.chars().allMatch(Character::isDigit)) return requireComment(Long.parseLong(ref));
+        List<CommunityComment> values = communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
+                .eq(CommunityComment::getCommentNo, ref).last("LIMIT 1"));
+        if (values == null || values.isEmpty()) throw error("comment_not_found");
+        return values.get(0);
+    }
+
+    private Long numericId(String ref) {
+        try {
+            return Long.parseLong(ref);
+        } catch (NumberFormatException ex) {
+            throw error("user_reference_invalid");
+        }
+    }
+
+    private Long resolveUserRef(String ref) {
+        if (StrUtil.isBlank(ref)) throw error("user_not_found");
+        if (ref.chars().allMatch(Character::isDigit)) return Long.parseLong(ref);
+        if (ref.startsWith("USR-")) {
+            try { return Long.parseLong(ref.substring(4)); } catch (NumberFormatException ignored) { }
+        }
+        throw error("user_reference_invalid");
+    }
+
+    private String userNo(Long userId) {
+        return userId == null ? null : "USR-" + String.format(Locale.ROOT, "%012d", userId);
+    }
+
+    private String jsonSafe(String value) {
+        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private String normalizeContentType(String contentType) {
+        String normalized = "community".equals(contentType) || "normal_post".equals(contentType)
+                ? "community_post" : contentType;
+        if (!Set.of("community_post", "sincere_post").contains(normalized)) {
+            throw error("unsupported_content_type");
+        }
+        return normalized;
+    }
+
+    private SysDictData toLegacyTopic(CommunityTopic topic) {
+        SysDictData value = new SysDictData();
+        value.setId(topic.getId());
+        value.setDictType("community_topic");
+        value.setDictValue(topic.getTopicCode());
+        value.setDictLabel(topic.getTopicName());
+        value.setDictSort(topic.getSort());
+        value.setRemark(topic.getDescription());
+        value.setStatus("enabled".equalsIgnoreCase(topic.getStatus()) ? CommonStatusEnum.ENABLED.getCode() : CommonStatusEnum.DISABLED.getCode());
+        return value;
+    }
+
+    private List<String> draftImageUrls(CommunityDraftSaveReq req) {
+        if (req.getImages() != null) {
+            return req.getImages().stream().map(CommunityDraftSaveReq.ImageItem::getUrl).filter(StrUtil::isNotBlank).toList();
+        }
+        return req.getImageUrls() == null ? List.of() : req.getImageUrls();
+    }
+
+    private void fillDraft(CommunityPostDraft entity, CommunityDraftSaveReq req, List<String> imageUrls) {
+        entity.setContent(StrUtil.blankToDefault(StrUtil.trim(req.getContent()), null));
+        entity.setImageItems(toJsonList(imageUrls));
+        entity.setTopicId(req.getTopicId());
+        CommunityTopic topic = req.getTopicId() == null ? null : communityExtensionDao.selectTopicById(req.getTopicId());
+        entity.setTopicCode(topic == null ? null : topic.getTopicCode());
+    }
+
+    private CommunityDraftVO toDraftVO(CommunityPostDraft entity) {
+        CommunityDraftVO result = new CommunityDraftVO();
+        result.setDraftId(entity.getId());
+        result.setContentType(entity.getContentType());
+        result.setContent(entity.getContent());
+        result.setImageUrls(parseJsonList(entity.getImageItems()));
+        result.setImages(result.getImageUrls().stream().map(url -> {
+            CommunityDraftVO.ImageItem image = new CommunityDraftVO.ImageItem();
+            image.setUrl(url);
+            return image;
+        }).toList());
+        result.setTopicId(entity.getTopicId());
+        result.setTopicCode(entity.getTopicCode());
+        CommunityTopic topic = entity.getTopicId() == null ? null : communityExtensionDao.selectTopicById(entity.getTopicId());
+        result.setTopicName(topic == null ? null : topic.getTopicName());
+        result.setVersion(entity.getVersion());
+        result.setUpdateTime(formatTime(entity.getUpdateTime()));
+        return result;
+    }
+
+    private CommunityInteractionRecordVO interactionRecord(String type, String id, LocalDateTime time,
+                                                            Long currentUserId, CommunityPost post) {
+        CommunityInteractionRecordVO result = new CommunityInteractionRecordVO();
+        result.setId(id);
+        result.setInteractionType(type);
+        result.setTargetUserId(post.getAuthorId());
+        result.setTargetUserNo(userNo(post.getAuthorId()));
+        AppUser author = appUserDao.selectById(post.getAuthorId());
+        result.setNickname(author == null ? null : author.getNickname());
+        result.setAvatar(auditContentService.publicAvatar(post.getAuthorId()));
+        result.setDescription(author == null ? null : profileDescription(author));
+        result.setInteractionTime(formatTime(time));
+        result.setPost(toPostCard(currentUserId, post));
+        return result;
+    }
+
+    private CommunityRelationUserVO toRelationUser(Long currentUserId, Long targetUserId,
+                                                    LocalDateTime time, String commentSummary) {
+        AppUser target = targetUserId == null ? null : appUserDao.selectById(targetUserId);
+        if (target == null) return null;
+        CommunityRelationUserVO result = new CommunityRelationUserVO();
+        result.setUserId(targetUserId);
+        result.setUserNo(userNo(targetUserId));
+        result.setNickname(target.getNickname());
+        result.setAvatar(auditContentService.publicAvatar(targetUserId));
+        result.setDescription(profileDescription(target));
+        boolean following = currentUserId != null && isFollowing(currentUserId, targetUserId);
+        result.setFollowing(following);
+        result.setMutualFollowing(following && isFollowing(targetUserId, currentUserId));
+        result.setInteractionTime(formatTime(time));
+        result.setCommentSummary(commentSummary);
+        return result;
+    }
+
+    private CommunityAuthorPreferenceResultVO setAuthorHidden(Long userId, Long targetUserId, boolean hidden) {
+        requireUser(userId);
+        requireUser(targetUserId);
+        if (Objects.equals(userId, targetUserId)) throw error("cannot_hide_self");
+        CommunityContentPreference entity = communityExtensionDao.selectPreferenceOne(new LambdaQueryWrapper<CommunityContentPreference>()
+                .eq(CommunityContentPreference::getUserId, userId)
+                .eq(CommunityContentPreference::getTargetUserId, targetUserId)
+                .eq(CommunityContentPreference::getActionType, "hide_author_posts"));
+        if (entity == null) {
+            entity = new CommunityContentPreference();
+            entity.setUserId(userId);
+            entity.setTargetUserId(targetUserId);
+            entity.setActionType("hide_author_posts");
+            entity.setStatus(hidden ? "enabled" : "disabled");
+            communityExtensionDao.insertPreference(entity);
+        } else {
+            entity.setStatus(hidden ? "enabled" : "disabled");
+            communityExtensionDao.updatePreference(entity);
+        }
+        writeOutbox("content_preference_changed", "user", userNo(targetUserId), hidden ? 1 : 0,
+                "{\"targetUserId\":" + targetUserId + ",\"hidden\":" + hidden + "}");
+        return new CommunityAuthorPreferenceResultVO(userNo(targetUserId), hidden,
+                message(hidden ? "author_hidden" : "author_unhidden"));
+    }
+
+    private boolean isAuthorHidden(Long userId, Long targetUserId) {
+        CommunityContentPreference value = communityExtensionDao.selectPreferenceOne(new LambdaQueryWrapper<CommunityContentPreference>()
+                .eq(CommunityContentPreference::getUserId, userId)
+                .eq(CommunityContentPreference::getTargetUserId, targetUserId)
+                .eq(CommunityContentPreference::getActionType, "hide_author_posts"));
+        return value != null && "enabled".equals(value.getStatus());
+    }
+
+    private String profileDescription(AppUser user) {
+        return java.util.stream.Stream.of(user.getAge() == null ? null : message("age_years", user.getAge()),
+                        user.getLocationCity(), user.getOccupation())
+                .filter(StrUtil::isNotBlank).collect(Collectors.joining(" · "));
+    }
+
+    private String formatTime(LocalDateTime value) {
+        return value == null ? null : value.format(FMT);
+    }
+
+    private int safePage(int page) { return Math.max(1, page); }
+    private int safeSize(int size, int max) { return Math.max(1, Math.min(size, max)); }
+
+    private <T> Page<T> slice(List<T> values, int page, int size) {
+        List<T> safe = values == null ? List.of() : values;
+        int current = safePage(page);
+        int limit = safeSize(size, 100);
+        int start = Math.min((current - 1) * limit, safe.size());
+        int end = Math.min(start + limit, safe.size());
+        Page<T> result = new Page<>(current, limit, safe.size());
+        result.setRecords(new ArrayList<>(safe.subList(start, end)));
+        return result;
+    }
+
+    private Object parseConfigValue(String value, String type) {
+        if (value == null) return null;
+        if ("BOOLEAN".equalsIgnoreCase(type)) return Boolean.parseBoolean(value);
+        if ("NUMBER".equalsIgnoreCase(type)) {
+            try { return Integer.parseInt(value); } catch (NumberFormatException ignored) { return value; }
+        }
+        return value;
     }
 
     private List<DictOptionVO> toDictOptions(List<SysDictData> items) {
@@ -690,13 +1548,11 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private List<SysDictData> enabledTopics() {
-        List<SysDictData> topics = dictDataDao.selectByDictType("community_topic");
-        if (topics == null) return List.of();
-        return topics.stream()
-                .filter(item -> item.getId() != null)
-                .filter(item -> CommonStatusEnum.ENABLED.getCode().equals(item.getStatus()))
-                .sorted(Comparator.comparing(item -> Optional.ofNullable(item.getDictSort()).orElse(Integer.MAX_VALUE)))
-                .toList();
+        List<CommunityTopic> formalTopics = communityExtensionDao.selectTopics(new LambdaQueryWrapper<CommunityTopic>()
+                .eq(CommunityTopic::getStatus, "enabled")
+                .orderByDesc(CommunityTopic::getRecommended)
+                .orderByAsc(CommunityTopic::getSort));
+        return formalTopics == null ? List.of() : formalTopics.stream().map(this::toLegacyTopic).toList();
     }
 
     private Map<Long, List<CommunityPost>> publishedPostsByTopic() {
@@ -718,8 +1574,11 @@ public class CommunityServiceImpl implements CommunityService {
                 .orElse(null);
         CommunityTopicCardVO result = new CommunityTopicCardVO();
         result.setId(topic.getId());
+        result.setTopicCode(topic.getDictValue());
         result.setName(topic.getDictLabel());
         result.setDescription(topicDescription(topic));
+        CommunityTopic formal = communityExtensionDao.selectTopicById(topic.getId());
+        result.setCoverUrl(formal == null ? null : formal.getCoverUrl());
         result.setPostCount((long) safePosts.size());
         result.setParticipantCount(safePosts.stream()
                 .map(CommunityPost::getAuthorId)
@@ -748,7 +1607,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private String topicDescription(SysDictData topic) {
-        return StrUtil.blankToDefault(topic.getRemark(), "和有共同话题的人交换真实生活与想法");
+        return StrUtil.blankToDefault(topic.getRemark(), message("topic_default_description"));
     }
 
     /**
@@ -758,12 +1617,14 @@ public class CommunityServiceImpl implements CommunityService {
      */
     private void ensureInteractionAllowed(Long userId) {
         requireUser(userId);
-        AppConfig config = appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE);
-        String mode = config != null ? config.getConfigValue() : CommunityGateModeEnum.LOGIN_ONLY.getCode();
+        String mode = requiredConfigValue(CommunityConfigKeys.INTERACTION_GATE_MODE);
+        if (CommunityGateModeEnum.getByCode(mode) == null) {
+            throw error("runtime_config_invalid");
+        }
         if (CommunityGateModeEnum.FULL_CERT.getCode().equals(mode)) {
             String accessStatus = accessEvaluator.evaluate(requireUser(userId)).getCoreAccessStatus();
             if (!"CORE_ALLOWED".equals(accessStatus)) {
-                throw new BusinessException("完成三重认证后可进行社区互动");
+                throw error("core_access_required");
             }
         }
     }
@@ -773,34 +1634,22 @@ public class CommunityServiceImpl implements CommunityService {
      *
      * @param req 内容发布请求
      */
-    private void validatePostRequest(CommunityPostCreateReq req) {
-        CommunityPostTypeEnum postType = CommunityPostTypeEnum.getByCode(req.getPostType());
+    private void validatePostRequest(Long userId, CommunityPostCreateReq req) {
+        CommunityPostTypeEnum postType = CommunityPostTypeEnum.getByCode(req.resolvedContentType());
         if (postType == null) {
-            throw new BusinessException("不支持的内容类型");
+            throw error("unsupported_content_type");
         }
         requireTopic(req.getTopicId());
 
-        int maxImages = defaultInt(CommunityConfigKeys.POST_MAX_IMAGES, 9);
-        int maxTextLength = defaultInt(CommunityConfigKeys.POST_MAX_TEXT_LENGTH, 500);
-        int maxMentions = defaultInt(CommunityConfigKeys.POST_MAX_MENTIONS, 5);
-        int sincereMinLength = defaultInt(CommunityConfigKeys.SINCERE_POST_MIN_TEXT_LENGTH, 20);
+        int maxImages = requiredConfigInt(CommunityConfigKeys.POST_MAX_IMAGES);
+        int maxTextLength = requiredConfigInt(CommunityConfigKeys.POST_MAX_TEXT_LENGTH);
 
         if (req.getImageUrls() != null && req.getImageUrls().size() > maxImages) {
-            throw new BusinessException("图片数量不能超过 " + maxImages);
+            throw new BusinessException(message("image_count_exceeded", maxImages));
         }
+        validateOwnedImageUrls(userId, req.getImageUrls());
         if (StrUtil.length(req.getContent()) > maxTextLength) {
-            throw new BusinessException("正文长度不能超过 " + maxTextLength);
-        }
-        if (req.getMentionUserIds() != null && req.getMentionUserIds().size() > maxMentions) {
-            throw new BusinessException("@用户数量不能超过 " + maxMentions);
-        }
-        if (CommunityPostTypeEnum.SINCERE_POST.equals(postType)) {
-            if (StrUtil.isBlank(req.getTitle())) {
-                throw new BusinessException("诚意贴标题不能为空");
-            }
-            if (StrUtil.length(StrUtil.trim(req.getContent())) < sincereMinLength) {
-                throw new BusinessException("诚意贴正文长度不能少于 " + sincereMinLength);
-            }
+            throw new BusinessException(message("text_length_exceeded", maxTextLength));
         }
     }
 
@@ -813,7 +1662,7 @@ public class CommunityServiceImpl implements CommunityService {
     private CommunityPost requirePost(Long id) {
         CommunityPost post = communityPostDao.selectById(id);
         if (post == null) {
-            throw new BusinessException("内容不存在");
+            throw error("content_not_found");
         }
         return post;
     }
@@ -827,7 +1676,7 @@ public class CommunityServiceImpl implements CommunityService {
     private CommunityComment requireComment(Long id) {
         CommunityComment comment = communityCommentDao.selectById(id);
         if (comment == null) {
-            throw new BusinessException("评论不存在");
+            throw error("comment_not_found");
         }
         return comment;
     }
@@ -841,7 +1690,7 @@ public class CommunityServiceImpl implements CommunityService {
     private AppUser requireUser(Long userId) {
         AppUser user = appUserDao.selectById(userId);
         if (user == null) {
-            throw new BusinessException("用户不存在");
+            throw error("user_not_found");
         }
         return user;
     }
@@ -856,12 +1705,11 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private SysDictData requireTopicEntity(Long topicId) {
-        SysDictData topic = topicId == null ? null : dictDataDao.selectById(topicId);
-        if (topic == null || !"community_topic".equals(topic.getDictType())
-                || (topic.getStatus() != null && !CommonStatusEnum.ENABLED.getCode().equals(topic.getStatus()))) {
-            throw new BusinessException("话题不存在");
+        CommunityTopic topic = topicId == null ? null : communityExtensionDao.selectTopicById(topicId);
+        if (topic == null || !"enabled".equalsIgnoreCase(topic.getStatus())) {
+            throw error("topic_not_found");
         }
-        return topic;
+        return toLegacyTopic(topic);
     }
 
     /**
@@ -873,7 +1721,7 @@ public class CommunityServiceImpl implements CommunityService {
         List<SysDictData> items = dictDataDao.selectByDictType("community_report_reason");
         boolean exists = items.stream().anyMatch(item -> reasonCode.equals(item.getDictValue()));
         if (!exists) {
-            throw new BusinessException("举报原因不存在");
+            throw error("report_reason_not_found");
         }
     }
 
@@ -883,20 +1731,22 @@ public class CommunityServiceImpl implements CommunityService {
      * @param targetType 举报目标类型
      * @param targetId   目标ID
      */
-    private void increaseReportCount(String targetType, Long targetId) {
+    private Long increaseReportCount(String targetType, String targetId) {
         if (CommunityReportTargetTypeEnum.POST.getCode().equals(targetType)) {
-            CommunityPost post = requirePost(targetId);
+            CommunityPost post = requirePostRef(targetId);
             post.setReportCount((post.getReportCount() == null ? 0 : post.getReportCount()) + 1);
             communityPostDao.updateById(post);
-            return;
+            return post.getAuthorId();
         }
         if (CommunityReportTargetTypeEnum.COMMENT.getCode().equals(targetType)) {
-            CommunityComment comment = requireComment(targetId);
+            CommunityComment comment = requireCommentRef(targetId);
             comment.setReportCount((comment.getReportCount() == null ? 0 : comment.getReportCount()) + 1);
             communityCommentDao.updateById(comment);
-            return;
+            return comment.getAuthorId();
         }
-        requireUser(targetId);
+        Long userId = numericId(targetId);
+        requireUser(userId);
+        return userId;
     }
 
     /**
@@ -923,7 +1773,9 @@ public class CommunityServiceImpl implements CommunityService {
         CommunityPostCardVO vo = new CommunityPostCardVO();
         AppUser author = appUserDao.selectById(post.getAuthorId());
         vo.setId(post.getId());
+        vo.setPostNo(post.getPostNo());
         vo.setAuthorId(post.getAuthorId());
+        vo.setAuthorUserNo(userNo(post.getAuthorId()));
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorAvatar(auditContentService.publicAvatar(post.getAuthorId()));
         if (author != null) {
@@ -932,20 +1784,27 @@ public class CommunityServiceImpl implements CommunityService {
             vo.setAuthorCity(author.getLocationCity());
             vo.setAuthorZodiac(author.getZodiac());
             vo.setAuthorAnnualIncome(author.getAnnualIncome());
+            vo.setAuthorProfession(author.getOccupation());
         }
         vo.setPostType(post.getPostType());
+        vo.setContentType(post.getPostType());
         vo.setTitle(post.getTitle());
         vo.setContent(post.getContent());
         vo.setImageUrls(parseJsonList(post.getImageUrls()));
         vo.setTopicId(post.getTopicId());
+        vo.setTopicCode(post.getTopicCode());
         vo.setTopicName(resolveTopicName(post.getTopicId()));
         vo.setLikeCount(defaultZero(post.getLikeCount()));
         vo.setCommentCount(defaultZero(post.getCommentCount()));
         vo.setReportCount(defaultZero(post.getReportCount()));
         vo.setLiked(userId != null && isLiked(userId, post.getId()));
         vo.setFollowingAuthor(userId != null && isFollowing(userId, post.getAuthorId()));
+        vo.setHiddenAuthor(userId != null && isAuthorHidden(userId, post.getAuthorId()));
         vo.setStatus(post.getStatus());
+        vo.setStatusName(resolveStatusLabel("community_content_status", post.getStatus()));
+        vo.setStatusMessage(copy("publish_" + post.getStatus(), vo.getStatusName()));
         vo.setAuditStatus(post.getAuditStatus());
+        vo.setAuditRemark(post.getAuditRemark());
         vo.setCreateTime(post.getCreateTime() != null ? post.getCreateTime().format(FMT) : null);
         return vo;
     }
@@ -960,14 +1819,18 @@ public class CommunityServiceImpl implements CommunityService {
     private void fillPostDetail(CommunityPostDetailVO vo, Long userId, CommunityPost post) {
         AppUser author = appUserDao.selectById(post.getAuthorId());
         vo.setId(post.getId());
+        vo.setPostNo(post.getPostNo());
         vo.setAuthorId(post.getAuthorId());
+        vo.setAuthorUserNo(userNo(post.getAuthorId()));
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorAvatar(auditContentService.publicAvatar(post.getAuthorId()));
         vo.setPostType(post.getPostType());
+        vo.setContentType(post.getPostType());
         vo.setTitle(post.getTitle());
         vo.setContent(post.getContent());
         vo.setImageUrls(parseJsonList(post.getImageUrls()));
         vo.setTopicId(post.getTopicId());
+        vo.setTopicCode(post.getTopicCode());
         vo.setTopicName(resolveTopicName(post.getTopicId()));
         vo.setMentionUserIds(parseIdString(post.getMentionUserIds()));
         vo.setLikeCount(defaultZero(post.getLikeCount()));
@@ -975,7 +1838,10 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setReportCount(defaultZero(post.getReportCount()));
         vo.setLiked(userId != null && isLiked(userId, post.getId()));
         vo.setFollowingAuthor(userId != null && isFollowing(userId, post.getAuthorId()));
+        vo.setHiddenAuthor(userId != null && isAuthorHidden(userId, post.getAuthorId()));
         vo.setStatus(post.getStatus());
+        vo.setStatusName(resolveStatusLabel("community_content_status", post.getStatus()));
+        vo.setStatusMessage(copy("publish_" + post.getStatus(), vo.getStatusName()));
         vo.setAuditStatus(post.getAuditStatus());
         vo.setAuditRemark(post.getAuditRemark());
         vo.setCreateTime(post.getCreateTime() != null ? post.getCreateTime().format(FMT) : null);
@@ -990,7 +1856,7 @@ public class CommunityServiceImpl implements CommunityService {
      */
     private Page<CommunityCommentVO> toCommentPage(Long userId, Page<CommunityComment> page) {
         Page<CommunityCommentVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(page.getRecords().stream().map(this::toCommentVO).toList());
+        result.setRecords(page.getRecords().stream().map(item -> toCommentVO(userId, item)).toList());
         return result;
     }
 
@@ -1000,12 +1866,15 @@ public class CommunityServiceImpl implements CommunityService {
      * @param comment 评论实体
      * @return 评论VO
      */
-    private CommunityCommentVO toCommentVO(CommunityComment comment) {
+    private CommunityCommentVO toCommentVO(Long userId, CommunityComment comment) {
         CommunityCommentVO vo = new CommunityCommentVO();
         AppUser author = appUserDao.selectById(comment.getAuthorId());
         AppUser replyUser = comment.getReplyUserId() != null ? appUserDao.selectById(comment.getReplyUserId()) : null;
         vo.setId(comment.getId());
+        vo.setCommentNo(comment.getCommentNo());
         vo.setPostId(comment.getPostId());
+        CommunityPost post = communityPostDao.selectById(comment.getPostId());
+        vo.setPostNo(post == null ? null : post.getPostNo());
         vo.setAuthorId(comment.getAuthorId());
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorAvatar(auditContentService.publicAvatar(comment.getAuthorId()));
@@ -1014,6 +1883,13 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setReplyUserName(replyUser != null ? replyUser.getNickname() : null);
         vo.setContent(comment.getContent());
         vo.setStatus(comment.getStatus());
+        vo.setStatusName(resolveStatusLabel("community_comment_status", comment.getStatus()));
+        vo.setLikeCount(defaultZero(comment.getLikeCount()));
+        CommunityCommentLike like = userId == null ? null : communityExtensionDao.selectCommentLikeOne(
+                new LambdaQueryWrapper<CommunityCommentLike>()
+                        .eq(CommunityCommentLike::getCommentId, comment.getId())
+                        .eq(CommunityCommentLike::getUserId, userId));
+        vo.setLiked(like != null && "enabled".equals(like.getStatus()));
         vo.setAuditStatus(comment.getAuditStatus());
         vo.setCreateTime(comment.getCreateTime() != null ? comment.getCreateTime().format(FMT) : null);
         return vo;
@@ -1060,8 +1936,8 @@ public class CommunityServiceImpl implements CommunityService {
         if (topicId == null) {
             return null;
         }
-        SysDictData topic = dictDataDao.selectById(topicId);
-        return topic != null ? topic.getDictLabel() : null;
+        CommunityTopic topic = communityExtensionDao.selectTopicById(topicId);
+        return topic != null ? topic.getTopicName() : null;
     }
 
     /**
@@ -1141,72 +2017,61 @@ public class CommunityServiceImpl implements CommunityService {
         return value == null ? 0 : value;
     }
 
-    /**
-     * 从应用配置中读取整数值（单条查询），配置不存在或解析失败时返回默认值
-     *
-     * @param key          配置键
-     * @param defaultValue 默认值
-     * @return 配置中的整数值
-     */
-    private int defaultInt(String key, int defaultValue) {
+    /** 从应用配置中读取必填整数值，缺失或格式错误时失败关闭。 */
+    private int requiredConfigInt(String key) {
         AppConfig config = appConfigDao.selectByKey(key);
         if (config == null || StrUtil.isBlank(config.getConfigValue())) {
-            return defaultValue;
+            throw error("runtime_config_missing");
         }
         try {
             return Integer.parseInt(config.getConfigValue().trim());
         } catch (NumberFormatException e) {
-            return defaultValue;
+            throw error("runtime_config_invalid");
         }
     }
 
-    /**
-     * 从批量配置Map中读取字符串值，不存在时返回默认值
-     *
-     * @param configMap    配置Map
-     * @param key          配置键
-     * @param defaultValue 默认值
-     * @return 配置值
-     */
-    private String configValue(Map<String, AppConfig> configMap, String key, String defaultValue) {
-        AppConfig config = configMap.get(key);
-        return config == null || StrUtil.isBlank(config.getConfigValue()) ? defaultValue : config.getConfigValue();
+    /** 从单条配置中读取必填字符串值。 */
+    private String requiredConfigValue(String key) {
+        AppConfig config = appConfigDao.selectByKey(key);
+        if (config == null || StrUtil.isBlank(config.getConfigValue())) {
+            throw error("runtime_config_missing");
+        }
+        return config.getConfigValue().trim();
     }
 
-    /**
-     * 从批量配置Map中读取整数值，不存在或解析失败时返回默认值
-     *
-     * @param configMap    配置Map
-     * @param key          配置键
-     * @param defaultValue 默认值
-     * @return 配置中的整数值
-     */
-    private int configInt(Map<String, AppConfig> configMap, String key, int defaultValue) {
+    /** 从批量配置中读取必填字符串值。 */
+    private String requiredConfigValue(Map<String, AppConfig> configMap, String key) {
         AppConfig config = configMap.get(key);
         if (config == null || StrUtil.isBlank(config.getConfigValue())) {
-            return defaultValue;
+            throw error("runtime_config_missing");
+        }
+        return config.getConfigValue().trim();
+    }
+
+    /** 从批量配置中读取必填整数值。 */
+    private int requiredConfigInt(Map<String, AppConfig> configMap, String key) {
+        AppConfig config = configMap.get(key);
+        if (config == null || StrUtil.isBlank(config.getConfigValue())) {
+            throw error("runtime_config_missing");
         }
         try {
             return Integer.parseInt(config.getConfigValue().trim());
         } catch (NumberFormatException e) {
-            return defaultValue;
+            throw error("runtime_config_invalid");
         }
     }
 
-    /**
-     * 从批量配置Map中读取布尔值，不存在或为空时返回默认值
-     *
-     * @param configMap    配置Map
-     * @param key          配置键
-     * @param defaultValue 默认值
-     * @return 配置中的布尔值
-     */
-    private boolean configBool(Map<String, AppConfig> configMap, String key, boolean defaultValue) {
+    /** 从批量配置中读取必填布尔值。 */
+    private boolean requiredConfigBool(Map<String, AppConfig> configMap, String key) {
         AppConfig config = configMap.get(key);
         if (config == null || StrUtil.isBlank(config.getConfigValue())) {
-            return defaultValue;
+            throw error("runtime_config_missing");
         }
-        return Boolean.parseBoolean(config.getConfigValue().trim());
+        String value = config.getConfigValue().trim().toLowerCase(Locale.ROOT);
+        if (!"true".equals(value) && !"false".equals(value)) {
+            throw error("runtime_config_invalid");
+        }
+        return Boolean.parseBoolean(value);
     }
 
     /**

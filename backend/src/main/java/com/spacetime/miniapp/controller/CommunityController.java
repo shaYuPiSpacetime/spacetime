@@ -6,6 +6,7 @@ import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.request.CommunityCommentCreateReq;
+import com.spacetime.miniapp.dto.request.CommunityDraftSaveReq;
 import com.spacetime.miniapp.dto.request.CommunityPostCreateReq;
 import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.*;
@@ -100,7 +101,7 @@ public class CommunityController {
      * @return 内容详情（含作者信息、点赞/关注状态）
      */
     @GetMapping("/posts/{id}")
-    public R<CommunityPostDetailVO> detail(@PathVariable Long id) {
+    public R<CommunityPostDetailVO> detail(@PathVariable String id) {
         return R.ok(communityService.getPostDetail(optionalCurrentUserId(), id));
     }
 
@@ -111,7 +112,7 @@ public class CommunityController {
      * @return 新内容ID
      */
     @PostMapping("/posts")
-    public R<Long> createPost(@Valid @RequestBody CommunityPostCreateReq req) {
+    public R<CommunityPublishResultVO> createPost(@Valid @RequestBody CommunityPostCreateReq req) {
         Long userId = currentUserId();
         log.info("发布内容: userId={}, postType={}", userId, req.getPostType());
         return R.ok(communityService.createPost(userId, req));
@@ -124,7 +125,7 @@ public class CommunityController {
      * @return 空响应
      */
     @DeleteMapping("/posts/{id}")
-    public R<Void> deletePost(@PathVariable Long id) {
+    public R<Void> deletePost(@PathVariable String id) {
         Long userId = currentUserId();
         log.info("删除内容: userId={}, postId={}", userId, id);
         communityService.deletePost(userId, id);
@@ -140,7 +141,7 @@ public class CommunityController {
      * @return 评论分页列表
      */
     @GetMapping("/posts/{id}/comments")
-    public R<Page<CommunityCommentVO>> comments(@PathVariable Long id,
+    public R<Page<CommunityCommentVO>> comments(@PathVariable String id,
                                                 @RequestParam(defaultValue = "1") int page,
                                                 @RequestParam(defaultValue = "10") int size) {
         return R.ok(communityService.getComments(optionalCurrentUserId(), id, page, size));
@@ -153,7 +154,7 @@ public class CommunityController {
      * @return 新评论ID
      */
     @PostMapping("/comments")
-    public R<Long> createComment(@Valid @RequestBody CommunityCommentCreateReq req) {
+    public R<CommunityCommentResultVO> createComment(@Valid @RequestBody CommunityCommentCreateReq req) {
         Long userId = currentUserId();
         log.info("发表评论: userId={}, postId={}", userId, req.getPostId());
         return R.ok(communityService.createComment(userId, req));
@@ -166,7 +167,7 @@ public class CommunityController {
      * @return 空响应
      */
     @DeleteMapping("/comments/{id}")
-    public R<Void> deleteComment(@PathVariable Long id) {
+    public R<Void> deleteComment(@PathVariable String id) {
         Long userId = currentUserId();
         log.info("删除评论: userId={}, commentId={}", userId, id);
         communityService.deleteComment(userId, id);
@@ -180,7 +181,7 @@ public class CommunityController {
      * @return 点赞切换结果（是否已赞、当前点赞数）
      */
     @PostMapping("/posts/{id}/like")
-    public R<CommunityLikeToggleVO> toggleLike(@PathVariable Long id) {
+    public R<CommunityLikeToggleVO> toggleLike(@PathVariable String id) {
         Long userId = currentUserId();
         log.info("点赞切换: userId={}, postId={}", userId, id);
         return R.ok(communityService.toggleLike(userId, id));
@@ -211,7 +212,7 @@ public class CommunityController {
      * @return 新举报ID
      */
     @PostMapping("/reports")
-    public R<Long> createReport(@Valid @RequestBody CommunityReportCreateReq req) {
+    public R<CommunityReportResultVO> createReport(@Valid @RequestBody CommunityReportCreateReq req) {
         Long userId = currentUserId();
         log.info("提交举报: userId={}, targetType={}, targetId={}", userId, req.getTargetType(), req.getTargetId());
         return R.ok(communityService.createReport(userId, req));
@@ -225,6 +226,108 @@ public class CommunityController {
     @GetMapping("/config")
     public R<CommunityConfigVO> config() {
         return R.ok(communityService.getConfig());
+    }
+
+    @GetMapping("/meta")
+    public R<CommunityMetaVO> meta() {
+        return R.ok(communityService.getMeta());
+    }
+
+    @GetMapping("/drafts/{contentType}")
+    public R<CommunityDraftVO> draft(@PathVariable String contentType) {
+        return R.ok(communityService.getDraft(currentUserId(), contentType));
+    }
+
+    @PutMapping("/drafts/{contentType}")
+    public R<CommunityDraftVO> saveDraft(@PathVariable String contentType,
+                                         @RequestBody CommunityDraftSaveReq req) {
+        return R.ok(communityService.saveDraft(currentUserId(), contentType, req));
+    }
+
+    @DeleteMapping("/drafts/{contentType}")
+    public R<Void> deleteDraft(@PathVariable String contentType) {
+        communityService.deleteDraft(currentUserId(), contentType);
+        return R.ok();
+    }
+
+    @GetMapping("/me/posts")
+    public R<Page<CommunityPostCardVO>> myPosts(@RequestParam(defaultValue = "1") int page,
+                                                 @RequestParam(defaultValue = "10") int size) {
+        Long userId = currentUserId();
+        return R.ok(communityService.getUserPosts(userId, String.valueOf(userId), true, page, size));
+    }
+
+    @GetMapping("/users/{userId}/posts")
+    public R<Page<CommunityPostCardVO>> userPosts(@PathVariable String userId,
+                                                   @RequestParam(defaultValue = "1") int page,
+                                                   @RequestParam(defaultValue = "10") int size) {
+        return R.ok(communityService.getUserPosts(optionalCurrentUserId(), userId, false, page, size));
+    }
+
+    @GetMapping("/me/interactions")
+    public R<Page<CommunityInteractionRecordVO>> interactions(@RequestParam(defaultValue = "viewed") String type,
+                                                      @RequestParam(defaultValue = "1") int page,
+                                                      @RequestParam(defaultValue = "10") int size) {
+        return R.ok(communityService.getInteractionHistory(currentUserId(), type, page, size));
+    }
+
+    @GetMapping("/me/view-history")
+    public R<Page<CommunityPostCardVO>> viewHistory(@RequestParam(defaultValue = "1") int page,
+                                                     @RequestParam(defaultValue = "10") int size) {
+        return R.ok(communityService.getViewHistory(currentUserId(), page, size));
+    }
+
+    @DeleteMapping("/me/view-history")
+    public R<Void> clearViewHistory() {
+        communityService.clearViewHistory(currentUserId());
+        return R.ok();
+    }
+
+    @GetMapping("/me/follows")
+    public R<Page<CommunityRelationUserVO>> relations(@RequestParam(defaultValue = "following") String relation,
+                                                       @RequestParam(defaultValue = "1") int page,
+                                                       @RequestParam(defaultValue = "20") int size) {
+        return R.ok(communityService.getRelations(currentUserId(), relation, page, size));
+    }
+
+    @GetMapping("/posts/{id}/interactors")
+    public R<Page<CommunityRelationUserVO>> interactors(@PathVariable String id,
+                                                         @RequestParam String type,
+                                                         @RequestParam(defaultValue = "1") int page,
+                                                         @RequestParam(defaultValue = "20") int size) {
+        return R.ok(communityService.getPostInteractors(optionalCurrentUserId(), id, type, page, size));
+    }
+
+    @GetMapping("/me/hidden-authors")
+    public R<Page<CommunityRelationUserVO>> hiddenAuthors(@RequestParam(defaultValue = "1") int page,
+                                                           @RequestParam(defaultValue = "20") int size) {
+        return R.ok(communityService.getHiddenAuthors(currentUserId(), page, size));
+    }
+
+    @PutMapping("/me/hidden-authors/{targetUserId}")
+    public R<CommunityAuthorPreferenceResultVO> hideAuthor(@PathVariable String targetUserId) {
+        return R.ok(communityService.hideAuthor(currentUserId(), targetUserId));
+    }
+
+    @DeleteMapping("/me/hidden-authors/{targetUserId}")
+    public R<CommunityAuthorPreferenceResultVO> unhideAuthor(@PathVariable String targetUserId) {
+        return R.ok(communityService.unhideAuthor(currentUserId(), targetUserId));
+    }
+
+    @GetMapping("/me/profile-summary")
+    public R<CommunityProfileSummaryVO> profileSummary() {
+        return R.ok(communityService.getProfileSummary(currentUserId()));
+    }
+
+    @PostMapping("/posts/{id}/view")
+    public R<Void> recordView(@PathVariable String id) {
+        communityService.recordView(currentUserId(), id);
+        return R.ok();
+    }
+
+    @PostMapping("/comments/{id}/like")
+    public R<CommunityLikeToggleVO> toggleCommentLike(@PathVariable String id) {
+        return R.ok(communityService.toggleCommentLike(currentUserId(), id));
     }
 
     /**

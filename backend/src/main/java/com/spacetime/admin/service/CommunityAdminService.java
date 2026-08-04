@@ -2,11 +2,7 @@ package com.spacetime.admin.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.*;
-import com.spacetime.admin.dto.response.AppConfigVO;
-import com.spacetime.admin.dto.response.CommunityCommentAdminVO;
-import com.spacetime.admin.dto.response.CommunityPostAdminVO;
-import com.spacetime.admin.dto.response.CommunityReportAdminVO;
-import com.spacetime.admin.dto.response.MobileEntryConfigVO;
+import com.spacetime.admin.dto.response.*;
 
 import java.util.List;
 
@@ -14,6 +10,10 @@ import java.util.List;
  * 后台社区管理服务
  */
 public interface CommunityAdminService {
+    CommunityAdminMetaVO getMeta();
+
+    CommunityStatsVO getPostStats(String scope);
+
     /**
      * 分页查询动态列表
      * @param req 动态分页查询请求
@@ -27,6 +27,8 @@ public interface CommunityAdminService {
      * @return 动态详情（含作者信息）
      */
     CommunityPostAdminVO getPostDetail(Long id);
+
+    void updatePostStatus(Long id, CommunityStatusCommandReq req);
 
     /**
      * 审核动态（通过/驳回）
@@ -42,6 +44,12 @@ public interface CommunityAdminService {
      */
     Page<CommunityCommentAdminVO> getCommentPage(CommunityCommentPageReq req);
 
+    CommunityStatsVO getCommentStats();
+
+    CommunityCommentAdminVO getCommentDetail(Long id);
+
+    void updateCommentStatus(Long id, CommunityStatusCommandReq req);
+
     /**
      * 审核评论（通过/驳回）
      * @param id 评论ID
@@ -55,6 +63,34 @@ public interface CommunityAdminService {
      * @return 举报分页数据
      */
     Page<CommunityReportAdminVO> getReportPage(CommunityReportPageReq req);
+
+    CommunityStatsVO getReportStats();
+
+    CommunityReportAdminVO getReportDetail(Long id);
+
+    void updateReportStatus(Long id, CommunityReportStatusReq req);
+
+    CommunityStatsVO getTopicStats();
+
+    Page<CommunityTopicAdminVO> getTopicPage(CommunityTopicPageReq req);
+
+    CommunityTopicAdminVO getTopicDetail(Long id);
+
+    CommunityTopicAdminVO createTopic(CommunityTopicSaveReq req);
+
+    CommunityTopicAdminVO updateTopic(Long id, CommunityTopicSaveReq req);
+
+    void updateTopicStatus(Long id, CommunityTopicStatusReq req);
+
+    CommunityOssTicketVO createTopicCoverTicket(CommunityCoverTicketReq req);
+
+    CommunityExportTaskVO createExport(CommunityExportCreateReq req);
+
+    CommunityConfigVersionVO getConfigVersion();
+
+    CommunityConfigVersionVO saveConfigVersion(CommunityConfigVersionSaveReq req);
+
+    List<CommunityAuditLogVO> getConfigLogs();
 
     /**
      * 处理举报（校验状态、设置处理信息、执行处理动作、更新举报单、记录日志）

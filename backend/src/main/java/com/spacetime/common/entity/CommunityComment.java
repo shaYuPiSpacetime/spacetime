@@ -13,6 +13,8 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @TableName("community_comment")
 public class CommunityComment extends BaseEntity {
+    /** 评论业务编号 */
+    private String commentNo;
     /** 所属动态ID */
     private Long postId;
     /** 评论者ID */
@@ -31,6 +33,14 @@ public class CommunityComment extends BaseEntity {
     /** 审核备注 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String auditRemark;
+    private String machineResult;
+    private String machineCode;
+    private String machineDetail;
+    private java.time.LocalDateTime machineCheckedAt;
+    private Integer version;
+    private java.time.LocalDateTime publishedAt;
+    private String authorIp;
+    private Integer likeCount;
     /** 被举报次数 */
     private Integer reportCount;
 }

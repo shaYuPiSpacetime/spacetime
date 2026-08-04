@@ -2,11 +2,7 @@ package com.spacetime.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.*;
-import com.spacetime.admin.dto.response.AppConfigVO;
-import com.spacetime.admin.dto.response.CommunityCommentAdminVO;
-import com.spacetime.admin.dto.response.CommunityPostAdminVO;
-import com.spacetime.admin.dto.response.CommunityReportAdminVO;
-import com.spacetime.admin.dto.response.MobileEntryConfigVO;
+import com.spacetime.admin.dto.response.*;
 import com.spacetime.admin.service.CommunityAdminService;
 import com.spacetime.common.annotation.RequirePermission;
 import com.spacetime.common.result.R;
@@ -26,6 +22,17 @@ public class CommunityAdminController {
 
     /** 社区管理后台服务 */
     private final CommunityAdminService communityAdminService;
+
+    @GetMapping("/meta")
+    public R<CommunityAdminMetaVO> meta() {
+        return R.ok(communityAdminService.getMeta());
+    }
+
+    @GetMapping("/posts/stats")
+    @RequirePermission("community:post:list")
+    public R<CommunityStatsVO> postStats(@RequestParam(defaultValue = "content") String scope) {
+        return R.ok(communityAdminService.getPostStats(scope));
+    }
 
     /**
      * 分页查询动态列表
@@ -47,6 +54,19 @@ public class CommunityAdminController {
     @RequirePermission("community:post:list")
     public R<CommunityPostAdminVO> postDetail(@PathVariable Long id) {
         return R.ok(communityAdminService.getPostDetail(id));
+    }
+
+    @PutMapping("/posts/{id}/status")
+    @RequirePermission("community:post:audit")
+    public R<Void> updatePostStatus(@PathVariable Long id, @Valid @RequestBody CommunityStatusCommandReq req) {
+        communityAdminService.updatePostStatus(id, req);
+        return R.ok();
+    }
+
+    @PostMapping("/exports")
+    @RequirePermission("community:export:create")
+    public R<CommunityExportTaskVO> createExport(@Valid @RequestBody CommunityExportCreateReq req) {
+        return R.ok(communityAdminService.createExport(req));
     }
 
     /**
@@ -73,6 +93,25 @@ public class CommunityAdminController {
         return R.ok(communityAdminService.getCommentPage(req));
     }
 
+    @GetMapping("/comments/stats")
+    @RequirePermission("community:comment:list")
+    public R<CommunityStatsVO> commentStats() {
+        return R.ok(communityAdminService.getCommentStats());
+    }
+
+    @GetMapping("/comments/{id}")
+    @RequirePermission("community:comment:list")
+    public R<CommunityCommentAdminVO> commentDetail(@PathVariable Long id) {
+        return R.ok(communityAdminService.getCommentDetail(id));
+    }
+
+    @PutMapping("/comments/{id}/status")
+    @RequirePermission("community:comment:manage")
+    public R<Void> updateCommentStatus(@PathVariable Long id, @Valid @RequestBody CommunityStatusCommandReq req) {
+        communityAdminService.updateCommentStatus(id, req);
+        return R.ok();
+    }
+
     /**
      * 审核评论
      * @param id 评论ID
@@ -95,6 +134,86 @@ public class CommunityAdminController {
     @RequirePermission("community:report:list")
     public R<Page<CommunityReportAdminVO>> reports(@Valid CommunityReportPageReq req) {
         return R.ok(communityAdminService.getReportPage(req));
+    }
+
+    @GetMapping("/reports/stats")
+    @RequirePermission("community:report:list")
+    public R<CommunityStatsVO> reportStats() {
+        return R.ok(communityAdminService.getReportStats());
+    }
+
+    @GetMapping("/reports/{id}")
+    @RequirePermission("community:report:list")
+    public R<CommunityReportAdminVO> reportDetail(@PathVariable Long id) {
+        return R.ok(communityAdminService.getReportDetail(id));
+    }
+
+    @PutMapping("/reports/{id}/status")
+    @RequirePermission("community:report:handle")
+    public R<Void> updateReportStatus(@PathVariable Long id, @Valid @RequestBody CommunityReportStatusReq req) {
+        communityAdminService.updateReportStatus(id, req);
+        return R.ok();
+    }
+
+    @GetMapping("/topics/stats")
+    @RequirePermission("community:topic:list")
+    public R<CommunityStatsVO> topicStats() {
+        return R.ok(communityAdminService.getTopicStats());
+    }
+
+    @GetMapping("/topics/list")
+    @RequirePermission("community:topic:list")
+    public R<Page<CommunityTopicAdminVO>> topics(@Valid CommunityTopicPageReq req) {
+        return R.ok(communityAdminService.getTopicPage(req));
+    }
+
+    @GetMapping("/topics/{id}")
+    @RequirePermission("community:topic:list")
+    public R<CommunityTopicAdminVO> topicDetail(@PathVariable Long id) {
+        return R.ok(communityAdminService.getTopicDetail(id));
+    }
+
+    @PostMapping("/topics")
+    @RequirePermission("community:topic:manage")
+    public R<CommunityTopicAdminVO> createTopic(@Valid @RequestBody CommunityTopicSaveReq req) {
+        return R.ok(communityAdminService.createTopic(req));
+    }
+
+    @PutMapping("/topics/{id}")
+    @RequirePermission("community:topic:manage")
+    public R<CommunityTopicAdminVO> updateTopic(@PathVariable Long id, @Valid @RequestBody CommunityTopicSaveReq req) {
+        return R.ok(communityAdminService.updateTopic(id, req));
+    }
+
+    @PutMapping("/topics/{id}/status")
+    @RequirePermission("community:topic:manage")
+    public R<Void> updateTopicStatus(@PathVariable Long id, @Valid @RequestBody CommunityTopicStatusReq req) {
+        communityAdminService.updateTopicStatus(id, req);
+        return R.ok();
+    }
+
+    @PostMapping("/topics/cover-upload-ticket")
+    @RequirePermission("community:topic:manage")
+    public R<CommunityOssTicketVO> createTopicCoverTicket(@Valid @RequestBody CommunityCoverTicketReq req) {
+        return R.ok(communityAdminService.createTopicCoverTicket(req));
+    }
+
+    @GetMapping("/configs/version")
+    @RequirePermission("community:config:view")
+    public R<CommunityConfigVersionVO> configVersion() {
+        return R.ok(communityAdminService.getConfigVersion());
+    }
+
+    @PostMapping("/configs/version")
+    @RequirePermission("community:config:edit")
+    public R<CommunityConfigVersionVO> saveConfigVersion(@Valid @RequestBody CommunityConfigVersionSaveReq req) {
+        return R.ok(communityAdminService.saveConfigVersion(req));
+    }
+
+    @GetMapping("/configs/logs")
+    @RequirePermission("community:config:view")
+    public R<List<CommunityAuditLogVO>> configLogs() {
+        return R.ok(communityAdminService.getConfigLogs());
     }
 
     /**

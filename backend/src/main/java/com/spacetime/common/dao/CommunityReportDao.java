@@ -15,4 +15,5 @@ public interface CommunityReportDao {
     List<CommunityReport> selectList(LambdaQueryWrapper<CommunityReport> wrapper);
     void insert(CommunityReport entity);
     void updateById(CommunityReport entity);
+    int updateCas(CommunityReport entity, int expectedVersion);
 }

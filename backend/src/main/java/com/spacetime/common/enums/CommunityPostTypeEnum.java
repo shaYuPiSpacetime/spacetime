@@ -7,7 +7,7 @@ import lombok.Getter;
  */
 @Getter
 public enum CommunityPostTypeEnum {
-    COMMUNITY("community", "社区动态"),
+    COMMUNITY("community_post", "动态"),
     NORMAL_POST("normal_post", "普通动态"),
     SINCERE_POST("sincere_post", "诚意贴");
 
@@ -22,6 +22,9 @@ public enum CommunityPostTypeEnum {
     }
 
     public static CommunityPostTypeEnum getByCode(String code) {
+        if ("community".equals(code)) {
+            return COMMUNITY;
+        }
         for (CommunityPostTypeEnum value : values()) {
             if (value.code.equals(code)) {
                 return value;

@@ -2,25 +2,29 @@ package com.spacetime.miniapp.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.constant.CommunityConfigKeys;
+import com.spacetime.common.community.*;
+import com.spacetime.common.config.OssConfig;
 import com.spacetime.common.dao.*;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.CommunityCommentCreateReq;
 import com.spacetime.miniapp.dto.request.CommunityPostCreateReq;
 import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
-import com.spacetime.miniapp.dto.response.CommunityFollowToggleVO;
-import com.spacetime.miniapp.dto.response.CommunityLikeToggleVO;
-import com.spacetime.miniapp.dto.response.YuemuLikeToggleVO;
+import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.impl.CommunityServiceImpl;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.RelationDomainService;
+import com.spacetime.common.util.OssUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,13 +56,22 @@ class CommunityServiceImplTest {
     @Mock private AppRelationLikeDao appRelationLikeDao;
     @Mock private RelationDomainService relationDomainService;
     @Mock private com.spacetime.miniapp.service.impl.Prd01AccessEvaluator accessEvaluator;
+    @Mock private CommunityExtensionDao communityExtensionDao;
+    @Mock private CommunityContentSecurityPort contentSecurityPort;
+    @Spy private CommunityAuditPolicy auditPolicy = new CommunityAuditPolicy();
+    @Mock private ChatReportContextResolver chatReportContextResolver;
+    @Mock private OssConfig ossConfig;
+    @Mock private OssUtil ossUtil;
+    @Mock private UserUnlockRecordDao userUnlockRecordDao;
+    @Mock private StringRedisTemplate redisTemplate;
+    @Mock private ValueOperations<String, String> valueOperations;
 
     @InjectMocks private CommunityServiceImpl communityService;
 
     private AppUser user;
     private CommunityPost post;
     private SysDictData topic;
-    private AppConfig loginOnlyConfig;
+    private Map<String, String> runtimeConfigs;
 
     @BeforeEach
     void setUp() {
@@ -73,7 +86,7 @@ class CommunityServiceImplTest {
         post.setPostType("community");
         post.setContent("hello");
         post.setTopicId(10L);
-        post.setStatus("PUBLISHED");
+        post.setStatus("published");
         post.setAuditStatus("APPROVED");
         post.setLikeCount(0);
         post.setCommentCount(0);
@@ -88,10 +101,40 @@ class CommunityServiceImplTest {
         topic.setDictSort(1);
         topic.setStatus("ENABLED");
         topic.setRemark("一起分享露营时刻");
+        lenient().when(communityExtensionDao.selectTopicById(10L)).thenReturn(formalTopic(topic));
 
-        loginOnlyConfig = new AppConfig();
-        loginOnlyConfig.setConfigKey(CommunityConfigKeys.INTERACTION_GATE_MODE);
-        loginOnlyConfig.setConfigValue("LOGIN_ONLY");
+        runtimeConfigs = Map.of(
+                CommunityConfigKeys.INTERACTION_GATE_MODE, "LOGIN_ONLY",
+                CommunityConfigKeys.POST_MAX_IMAGES, "9",
+                CommunityConfigKeys.POST_MAX_TEXT_LENGTH, "500",
+                CommunityConfigKeys.POST_MAX_MENTIONS, "5",
+                CommunityConfigKeys.SINCERE_POST_MIN_TEXT_LENGTH, "20",
+                CommunityConfigKeys.CONTACT_INFO_ALLOWED, "false",
+                CommunityConfigKeys.REPORT_ENTRY_ENABLED, "true"
+        );
+        lenient().when(appConfigDao.selectByKey(anyString())).thenAnswer(invocation ->
+                appConfig(invocation.getArgument(0), runtimeConfigs.get(invocation.getArgument(0))));
+        lenient().when(appConfigDao.selectPublicEnabled(any())).thenAnswer(invocation -> {
+            List<String> keys = invocation.getArgument(0);
+            return keys.stream().map(key -> appConfig(key, runtimeConfigs.get(key))).toList();
+        });
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    }
+
+    @Test
+    @DisplayName("发布配置缺失-失败关闭")
+    void createPost_missingRuntimeConfig_shouldFailClosed() {
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community");
+        req.setContent("测试动态");
+        req.setTopicId(10L);
+
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appConfigDao.selectByKey(CommunityConfigKeys.POST_MAX_IMAGES)).thenReturn(null);
+
+        assertThatThrownBy(() -> communityService.createPost(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("runtime_config_missing");
     }
 
     @Test
@@ -101,28 +144,102 @@ class CommunityServiceImplTest {
         req.setPostType("community");
         req.setContent("测试动态");
         req.setTopicId(10L);
-        req.setImageUrls(List.of("a.png"));
+        req.setImageUrls(List.of("https://static.example.com/miniapp/1/album/a.png"));
         req.setMentionUserIds(List.of(2L));
 
         when(appUserDao.selectById(1L)).thenReturn(user);
-        when(dictDataDao.selectById(10L)).thenReturn(topic);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.POST_MAX_IMAGES)).thenReturn(null);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.POST_MAX_TEXT_LENGTH)).thenReturn(null);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.POST_MAX_MENTIONS)).thenReturn(null);
+        when(contentSecurityPort.checkPost(any(), any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
+        when(ossUtil.objectExists("miniapp/1/album/a.png")).thenReturn(true);
+        when(valueOperations.get("community:upload:ticket:miniapp/1/album/a.png")).thenReturn("1");
 
-        Long result = communityService.createPost(1L, req);
+        CommunityPublishResultVO result = communityService.createPost(1L, req);
 
-        assertThat(result).isNull();
+        assertThat(result.getStatus()).isEqualTo("published");
         verify(communityPostDao).insert(argThat(entity ->
-                "community".equals(entity.getPostType())
-                        && "PENDING".equals(entity.getStatus())
-                        && "PENDING".equals(entity.getAuditStatus())));
+                "community_post".equals(entity.getPostType())
+                        && "published".equals(entity.getStatus())
+                        && "APPROVED".equals(entity.getAuditStatus())));
+        verify(redisTemplate).delete("community:upload:ticket:miniapp/1/album/a.png");
     }
 
     @Test
-    @DisplayName("发布诚意贴-正文长度不足")
-    void createSincerePost_tooShort_shouldThrow() {
+    @DisplayName("发布草稿动态-直传票据过期但本人OSS对象存在时允许提交")
+    void createPost_expiredUploadTicketButOwnedObjectExists_shouldSucceed() {
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community");
+        req.setContent("恢复草稿后发布");
+        req.setTopicId(10L);
+        req.setImageUrls(List.of("https://static.example.com/miniapp/1/album/expired.png"));
+
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(contentSecurityPort.checkPost(any(), any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
+        when(ossUtil.objectExists("miniapp/1/album/expired.png")).thenReturn(true);
+        when(valueOperations.get("community:upload:ticket:miniapp/1/album/expired.png")).thenReturn(null);
+
+        CommunityPublishResultVO result = communityService.createPost(1L, req);
+
+        assertThat(result.getStatus()).isEqualTo("published");
+        verify(communityPostDao).insert(any(CommunityPost.class));
+        verify(redisTemplate).delete("community:upload:ticket:miniapp/1/album/expired.png");
+    }
+
+    @Test
+    @DisplayName("发布含图动态-持久化微信异步审核trace")
+    void createPost_asyncMedia_shouldPersistTrace() {
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community");
+        req.setContent("含图动态");
+        req.setTopicId(10L);
+        req.setImageUrls(List.of("https://static.example.com/miniapp/1/album/async.png"));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(valueOperations.get("community:upload:ticket:miniapp/1/album/async.png")).thenReturn("1");
+        when(ossUtil.objectExists("miniapp/1/album/async.png")).thenReturn(true);
+        when(contentSecurityPort.checkPost(any(), any(), any(), any()))
+                .thenReturn(CommunitySecurityResult.asyncReview("trace-1"));
+
+        CommunityPublishResultVO result = communityService.createPost(1L, req);
+
+        assertThat(result.getStatus()).isEqualTo("pending_manual");
+        verify(communityExtensionDao).insertMediaTask(argThat(task -> "trace-1".equals(task.getTraceId())
+                && "pending".equals(task.getStatus())));
+    }
+
+    @Test
+    @DisplayName("发布动态-拒绝引用其他用户OSS对象")
+    void createPost_otherOwnerImage_shouldReject() {
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community");
+        req.setContent("测试动态");
+        req.setTopicId(10L);
+        req.setImageUrls(List.of("https://static.example.com/miniapp/2/album/a.png"));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        assertThatThrownBy(() -> communityService.createPost(1L, req))
+                .isInstanceOf(BusinessException.class).hasMessage("image_not_owned");
+        verify(ossUtil, never()).objectExists(anyString());
+        verifyNoInteractions(contentSecurityPort);
+    }
+
+    @Test
+    @DisplayName("发布动态-本人对象未完成上传时拒绝")
+    void createPost_missingObject_shouldReject() {
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community");
+        req.setContent("测试动态");
+        req.setTopicId(10L);
+        req.setImageUrls(List.of("https://static.example.com/miniapp/1/album/missing.png"));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(valueOperations.get("community:upload:ticket:miniapp/1/album/missing.png")).thenReturn("1");
+        when(ossUtil.objectExists("miniapp/1/album/missing.png")).thenReturn(false);
+
+        assertThatThrownBy(() -> communityService.createPost(1L, req))
+                .isInstanceOf(BusinessException.class).hasMessage("image_upload_invalid");
+        verifyNoInteractions(contentSecurityPort);
+    }
+
+    @Test
+    @DisplayName("发布诚意贴-机审通过后进入人工审核")
+    void createSincerePost_machinePass_shouldPendingManual() {
         CommunityPostCreateReq req = new CommunityPostCreateReq();
         req.setPostType("sincere_post");
         req.setTitle("真诚交友");
@@ -130,25 +247,18 @@ class CommunityServiceImplTest {
         req.setTopicId(10L);
 
         when(appUserDao.selectById(1L)).thenReturn(user);
-        when(dictDataDao.selectById(10L)).thenReturn(topic);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
-        AppConfig minConfig = new AppConfig();
-        minConfig.setConfigValue("20");
-        when(appConfigDao.selectByKey(CommunityConfigKeys.SINCERE_POST_MIN_TEXT_LENGTH)).thenReturn(minConfig);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.POST_MAX_IMAGES)).thenReturn(null);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.POST_MAX_TEXT_LENGTH)).thenReturn(null);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.POST_MAX_MENTIONS)).thenReturn(null);
+        when(contentSecurityPort.checkPost(any(), any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
 
-        assertThatThrownBy(() -> communityService.createPost(1L, req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("不能少于");
+        CommunityPublishResultVO result = communityService.createPost(1L, req);
+
+        assertThat(result.getStatus()).isEqualTo("pending_manual");
+        verify(communityPostDao).insert(argThat(entity -> "pending_manual".equals(entity.getStatus())));
     }
 
     @Test
     @DisplayName("点赞动态-首次点击")
     void toggleLike_firstTime_shouldLike() {
         when(appUserDao.selectById(1L)).thenReturn(user);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         when(communityPostDao.selectById(100L)).thenReturn(post);
         when(communityLikeDao.selectOne(any())).thenReturn(null);
 
@@ -170,7 +280,6 @@ class CommunityServiceImplTest {
 
         when(appUserDao.selectById(1L)).thenReturn(user);
         when(appUserDao.selectById(2L)).thenReturn(new AppUser());
-        when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         when(communityFollowDao.selectOne(any())).thenReturn(follow);
 
         CommunityFollowToggleVO result = communityService.toggleFollow(1L, 2L);
@@ -187,12 +296,13 @@ class CommunityServiceImplTest {
         req.setContent("nice");
 
         when(appUserDao.selectById(1L)).thenReturn(user);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         when(communityPostDao.selectById(100L)).thenReturn(post);
 
-        Long result = communityService.createComment(1L, req);
+        when(contentSecurityPort.checkText(any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
 
-        assertThat(result).isNull();
+        CommunityCommentResultVO result = communityService.createComment(1L, req);
+
+        assertThat(result.getStatus()).isEqualTo("published");
         verify(communityCommentDao).insert(any());
         verify(communityPostDao).updateById(argThat(item -> item.getCommentCount() == 1));
     }
@@ -202,7 +312,7 @@ class CommunityServiceImplTest {
     void createReport_shouldSucceed() {
         CommunityReportCreateReq req = new CommunityReportCreateReq();
         req.setTargetType("post");
-        req.setTargetId(100L);
+        req.setTargetId("100");
         req.setReasonCode("spam");
 
         SysDictData reason = new SysDictData();
@@ -211,9 +321,11 @@ class CommunityServiceImplTest {
         when(dictDataDao.selectByDictType("community_report_reason")).thenReturn(List.of(reason));
         when(communityPostDao.selectById(100L)).thenReturn(post);
 
-        Long result = communityService.createReport(1L, req);
+        when(appUserDao.selectById(1L)).thenReturn(user);
 
-        assertThat(result).isNull();
+        CommunityReportResultVO result = communityService.createReport(1L, req);
+
+        assertThat(result.getStatus()).isEqualTo("pending");
         verify(communityReportDao).insert(any());
         verify(communityPostDao).updateById(argThat(item -> item.getReportCount() == 1));
     }
@@ -252,6 +364,12 @@ class CommunityServiceImplTest {
         when(auditContentService.publicAlbumPhotos(anyCollection())).thenReturn(Map.of(2L, List.of("photo.png")));
         when(auditContentService.publicAvatars(anyCollection())).thenReturn(Map.of());
         when(appRelationLikeDao.selectList(any())).thenReturn(List.of(liked));
+        AppConfig fateCopy = new AppConfig();
+        fateCopy.setConfigValue("同专业，超有缘");
+        when(appConfigDao.selectByKey("community.copy.fate_same_major")).thenReturn(fateCopy);
+        AppConfig educationCopy = new AppConfig();
+        educationCopy.setConfigValue("硕士");
+        when(appConfigDao.selectByKey("community.copy.education_master")).thenReturn(educationCopy);
 
         var result = communityService.getYuemuUsers(1L, 1, 20);
 
@@ -270,7 +388,6 @@ class CommunityServiceImplTest {
         target.setAccountStatus("NORMAL");
         when(appUserDao.selectById(1L)).thenReturn(user);
         when(appUserDao.selectById(2L)).thenReturn(target);
-        when(appConfigDao.selectByKey(CommunityConfigKeys.INTERACTION_GATE_MODE)).thenReturn(loginOnlyConfig);
         when(appRelationLikeDao.selectOne(any())).thenReturn(null);
 
         YuemuLikeToggleVO result = communityService.toggleYuemuLike(1L, 2L);
@@ -304,7 +421,7 @@ class CommunityServiceImplTest {
         CommunityPost relatedPost = post(101L, 11L, 3L, "新人报道", 8, 2,
                 LocalDateTime.now().minusHours(1));
 
-        when(dictDataDao.selectByDictType("community_topic")).thenReturn(List.of(topic, related));
+        when(communityExtensionDao.selectTopics(any())).thenReturn(List.of(formalTopic(topic), formalTopic(related)));
         when(communityPostDao.selectList(any())).thenReturn(List.of(featuredPost, relatedPost));
         when(appUserDao.selectById(2L)).thenReturn(author(2L, "筱老虎"));
         when(appUserDao.selectById(3L)).thenReturn(author(3L, "mini"));
@@ -328,7 +445,6 @@ class CommunityServiceImplTest {
                 LocalDateTime.now());
         CommunityPost third = post(102L, 10L, 2L, "第三条", 5, 3,
                 LocalDateTime.now().minusHours(2));
-        when(dictDataDao.selectById(10L)).thenReturn(topic);
         when(communityPostDao.selectList(any())).thenReturn(List.of(first, second, third));
 
         var result = communityService.getTopicDetail(10L);
@@ -343,13 +459,26 @@ class CommunityServiceImplTest {
     void getTopicPosts_shouldUseRequestedSort() {
         Page<CommunityPost> page = new Page<>(1, 10, 0);
         page.setRecords(List.of());
-        when(dictDataDao.selectById(10L)).thenReturn(topic);
         when(communityPostDao.selectPage(any(), any())).thenReturn(page);
 
         communityService.getTopicPosts(null, 10L, "HOT", 1, 10);
         communityService.getTopicPosts(null, 10L, "LATEST", 1, 10);
 
         verify(communityPostDao, times(2)).selectPage(any(), any());
+    }
+
+    @Test
+    @DisplayName("社区Meta-话题唯一读取独立话题表")
+    void getMeta_shouldExposeFormalTopicsWithoutRuntimeDictionaryFallback() {
+        CommunityTopic formal = formalTopic(topic);
+        when(communityExtensionDao.selectTopics(any())).thenReturn(List.of(formal));
+        when(dictDataDao.selectByDictType(anyString())).thenReturn(List.of());
+
+        CommunityMetaVO result = communityService.getMeta();
+
+        assertThat(result.getDictionaries().get("topics")).isNotNull();
+        assertThat(result.getDictionaries().get("topics")).hasSize(1);
+        verify(dictDataDao, never()).selectByDictType("community_topic");
     }
 
     private SysDictData topic(Long id, String label, int sort, String remark) {
@@ -364,6 +493,15 @@ class CommunityServiceImplTest {
         return value;
     }
 
+    private AppConfig appConfig(String key, String value) {
+        if (value == null) return null;
+        AppConfig config = new AppConfig();
+        config.setConfigKey(key);
+        config.setConfigValue(value);
+        config.setStatus("ENABLED");
+        return config;
+    }
+
     private CommunityPost post(Long id, Long topicId, Long authorId, String content,
                                int likeCount, int commentCount, LocalDateTime createTime) {
         CommunityPost value = new CommunityPost();
@@ -373,7 +511,7 @@ class CommunityServiceImplTest {
         value.setPostType("community");
         value.setContent(content);
         value.setImageUrls("[]");
-        value.setStatus("PUBLISHED");
+        value.setStatus("published");
         value.setAuditStatus("APPROVED");
         value.setLikeCount(likeCount);
         value.setCommentCount(commentCount);
@@ -386,6 +524,19 @@ class CommunityServiceImplTest {
         AppUser value = new AppUser();
         value.setId(id);
         value.setNickname(nickname);
+        return value;
+    }
+
+    private CommunityTopic formalTopic(SysDictData source) {
+        CommunityTopic value = new CommunityTopic();
+        value.setId(source.getId());
+        value.setTopicCode(source.getDictValue());
+        value.setTopicName(source.getDictLabel());
+        value.setDescription(source.getRemark());
+        value.setSort(source.getDictSort());
+        value.setRecommended(source.getDictSort() != null && source.getDictSort() == 1 ? 1 : 0);
+        value.setStatus("enabled");
+        value.setVersion(0);
         return value;
     }
 }

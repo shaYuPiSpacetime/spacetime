@@ -57,6 +57,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/miniapp/promotion/source-traces",
                         "/miniapp/app/h5-content/**",
                         "/miniapp/content/**",
+                        "/miniapp/content-security/wechat/callback",
                         "/miniapp/mobile-config/**",
                         "/miniapp/payment/wechat/notify",
                         "/miniapp/search/hot-words",

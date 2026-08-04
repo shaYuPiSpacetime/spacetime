@@ -7,9 +7,11 @@ import lombok.Getter;
  */
 @Getter
 public enum CommunityReportStatusEnum {
-    PENDING("PENDING", "待处理"),
-    RESOLVED("RESOLVED", "已处理"),
-    REJECTED("REJECTED", "已驳回");
+    PENDING("pending", "待处理"),
+    PROCESSING("processing", "处理中"),
+    VALID("valid", "举报成立"),
+    INVALID("invalid", "举报不成立"),
+    MERGED("merged", "已合并");
 
     /** 枚举编码 */
     private final String code;
@@ -22,8 +24,14 @@ public enum CommunityReportStatusEnum {
     }
 
     public static CommunityReportStatusEnum getByCode(String code) {
+        if ("RESOLVED".equalsIgnoreCase(code)) {
+            return VALID;
+        }
+        if ("REJECTED".equalsIgnoreCase(code)) {
+            return INVALID;
+        }
         for (CommunityReportStatusEnum value : values()) {
-            if (value.code.equals(code)) {
+            if (value.code.equalsIgnoreCase(code)) {
                 return value;
             }
         }

@@ -23,7 +23,11 @@ import SearchHotWordPage from '@/pages/content/SearchHotWordPage';
 import SearchBlockWordPage from '@/pages/content/SearchBlockWordPage';
 import ComplianceContentPage from '@/pages/content/ComplianceContentPage';
 import ContentOperationLogPage from '@/pages/content/ContentOperationLogPage';
-import CommunityManagementPage from '@/pages/community/CommunityManagementPage';
+import CommunityPostManagementPage from '@/pages/community/CommunityPostManagementPage';
+import CommunityCommentAuditPage from '@/pages/community/CommunityCommentAuditPage';
+import CommunityReportsPage from '@/pages/community/CommunityReportsPage';
+import CommunityTopicsPage from '@/pages/community/CommunityTopicsPage';
+import CommunityConfigPage from '@/pages/community/CommunityConfigPage';
 import VerificationManagementPage from '@/pages/verify/VerificationManagementPage';
 import ModerationPage from '@/pages/moderation/ModerationPage';
 import FeedbackPage from '@/pages/user-security/FeedbackPage';
@@ -75,10 +79,15 @@ export default function AppRouter() {
         <Route path="content/operation-logs" element={<ContentOperationLogPage />} />
 
         {/* Community Management */}
-        <Route path="community/posts" element={<CommunityManagementPage />} />
-        <Route path="community/comments" element={<CommunityManagementPage />} />
-        <Route path="community/reports" element={<CommunityManagementPage />} />
-        <Route path="community/configs" element={<CommunityManagementPage />} />
+        <Route path="community/content" element={<CommunityPostManagementPage variant="content" />} />
+        <Route path="community/moments" element={<CommunityPostManagementPage variant="moments" />} />
+        <Route path="community/comment-audit" element={<CommunityCommentAuditPage />} />
+        <Route path="community/reports" element={<CommunityReportsPage />} />
+        <Route path="community/topics" element={<CommunityTopicsPage />} />
+        <Route path="community/config" element={<CommunityConfigPage />} />
+        <Route path="community/posts" element={<Navigate to="/community/content" replace />} />
+        <Route path="community/comments" element={<Navigate to="/community/comment-audit" replace />} />
+        <Route path="community/configs" element={<Navigate to="/community/config" replace />} />
 
         {/* Verification Audit */}
         <Route path="verify/real-name" element={<VerificationManagementPage />} />

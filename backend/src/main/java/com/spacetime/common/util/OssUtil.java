@@ -95,7 +95,12 @@ public class OssUtil {
 
     /** 为小程序签发 5 分钟有效、限定对象 Key 和文件大小的 OSS 表单直传凭证。 */
     public DirectUploadPolicy createDirectUploadPolicy(String originalFilename, long maxBytes) {
-        String key = newObjectKey(originalFilename);
+        return createDirectUploadPolicy(originalFilename, maxBytes, null);
+    }
+
+    /** 签发带业务归属前缀的直传凭证。 */
+    public DirectUploadPolicy createDirectUploadPolicy(String originalFilename, long maxBytes, String ownerPrefix) {
+        String key = newObjectKey(originalFilename, ownerPrefix);
         long expiresAt = Instant.now().plusSeconds(300).getEpochSecond();
         String expiration = Instant.ofEpochSecond(expiresAt).toString();
         String policyJson = "{\"expiration\":\"" + expiration + "\",\"conditions\":[[\"eq\",\"$key\",\""
@@ -109,6 +114,18 @@ public class OssUtil {
         formData.put("Signature", signature);
         formData.put("success_action_status", "200");
         return new DirectUploadPolicy(ossHost(), key, formData, expiresAt);
+    }
+
+    /** 确认直传对象已真实落到当前 bucket。 */
+    public boolean objectExists(String key) {
+        if (StrUtil.isBlank(key)) return false;
+        OSS oss = new OSSClientBuilder().build(
+                ossConfig.getEndpoint(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
+        try {
+            return oss.doesObjectExist(ossConfig.getBucketName(), key);
+        } finally {
+            oss.shutdown();
+        }
     }
 
     /**
@@ -162,11 +179,17 @@ public class OssUtil {
     }
 
     private String newObjectKey(String originalFilename) {
+        return newObjectKey(originalFilename, null);
+    }
+
+    private String newObjectKey(String originalFilename, String ownerPrefix) {
         String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         String filename = StrUtil.blankToDefault(originalFilename, "file.jpg");
         int dot = filename.lastIndexOf(".");
         String ext = dot >= 0 ? filename.substring(dot).toLowerCase() : ".jpg";
-        return datePath + "/" + IdUtil.simpleUUID() + ext;
+        String prefix = StrUtil.blankToDefault(ownerPrefix, "").replaceAll("[^a-zA-Z0-9/_-]", "")
+                .replaceAll("^/+|/+$", "");
+        return (prefix.isEmpty() ? "" : prefix + "/") + datePath + "/" + IdUtil.simpleUUID() + ext;
     }
 
     private String ossHost() {

@@ -12,8 +12,10 @@ public class CommunityPostCardVO {
 
     /** 内容ID */
     private Long id;
+    private String postNo;
     /** 作者用户ID */
     private Long authorId;
+    private String authorUserNo;
     /** 作者昵称 */
     private String authorName;
     /** 作者头像 */
@@ -28,8 +30,10 @@ public class CommunityPostCardVO {
     private String authorZodiac;
     /** 作者年收入字典 code */
     private String authorAnnualIncome;
+    private String authorProfession;
     /** 内容类型 */
     private String postType;
+    private String contentType;
     /** 标题 */
     private String title;
     /** 正文（列表页可能截断） */
@@ -38,6 +42,7 @@ public class CommunityPostCardVO {
     private List<String> imageUrls;
     /** 话题ID */
     private Long topicId;
+    private String topicCode;
     /** 话题名称 */
     private String topicName;
     /** 点赞数 */
@@ -50,10 +55,14 @@ public class CommunityPostCardVO {
     private Boolean liked;
     /** 当前用户是否已关注作者 */
     private Boolean followingAuthor;
+    private Boolean hiddenAuthor;
     /** 内容状态 */
     private String status;
+    private String statusName;
+    private String statusMessage;
     /** 审核状态 */
     private String auditStatus;
+    private String auditRemark;
     /** 创建时间（yyyy-MM-dd HH:mm:ss） */
     private String createTime;
 }

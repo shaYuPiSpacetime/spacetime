@@ -26,3 +26,9 @@ sms:
     access-key-secret: ${SMS_ACCESS_KEY_SECRET:${OSS_ACCESS_KEY_SECRET:${DEV_OSS_ACCESS_KEY_SECRET:}}}
     sign-name: ${SMS_SIGN_NAME:上海兴家立业网络科技}
     template-code: ${SMS_TEMPLATE_CODE:SMS_336060313}
+
+community:
+  content-security:
+    provider: ${COMMUNITY_CONTENT_SECURITY_PROVIDER:wechat}
+    # 微信小程序消息接收服务器 URL：/miniapp/content-security/wechat/callback
+    callback-token: ${COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN:}

@@ -1,11 +1,17 @@
 package com.spacetime.miniapp.service;
 
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
+import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.util.OssUtil;
 import com.spacetime.miniapp.dto.response.OssUploadTicketVO;
 import com.spacetime.miniapp.service.impl.MiniappOssUploadTicketServiceImpl;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import com.spacetime.common.dao.AppConfigDao;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 
 import java.util.List;
 import java.util.Map;
@@ -22,21 +28,33 @@ class MiniappOssUploadTicketServiceImplTest {
     private OssUtil ossUtil;
     private Prd01RuntimeConfigResolver runtimeConfigResolver;
     private MiniappOssUploadTicketServiceImpl service;
+    private StringRedisTemplate redisTemplate;
+    private AppConfigDao appConfigDao;
 
     @BeforeEach
     void setUp() {
         ossUtil = mock(OssUtil.class);
         runtimeConfigResolver = mock(Prd01RuntimeConfigResolver.class);
-        service = new MiniappOssUploadTicketServiceImpl(ossUtil, runtimeConfigResolver);
+        redisTemplate = mock(StringRedisTemplate.class);
+        ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        appConfigDao = mock(AppConfigDao.class);
+        service = new MiniappOssUploadTicketServiceImpl(ossUtil, runtimeConfigResolver, redisTemplate, appConfigDao);
+        UserContextHolder.set(new UserContext(1L, "tester", List.of(), List.of()));
         when(runtimeConfigResolver.snapshot()).thenReturn(new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(Map.of()));
         when(runtimeConfigResolver.uploadRule(any(), any(), any(Integer.class), any(Integer.class)))
                 .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(4, 10, List.of("jpg", "png")));
-        when(ossUtil.createDirectUploadPolicy(any(), any(Long.class)))
+        when(ossUtil.createDirectUploadPolicy(any(), any(Long.class), any()))
                 .thenReturn(new OssUtil.DirectUploadPolicy(
                         "https://bucket.oss-cn-shanghai.aliyuncs.com",
                         "2026/07/14/demo.jpg",
                         Map.of("key", "2026/07/14/demo.jpg", "policy", "policy", "Signature", "signature"),
                         1784030400L));
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContextHolder.clear();
     }
 
     @Test

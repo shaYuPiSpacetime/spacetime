@@ -13,10 +13,14 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @TableName("community_post")
 public class CommunityPost extends BaseEntity {
+    /** 帖子业务编号 */
+    private String postNo;
     /** 作者ID */
     private Long authorId;
     /** 动态类型 @see CommunityPostTypeEnum */
     private String postType;
+    /** 内容来源场景 */
+    private String sourceScene;
     /** 诚意贴标题 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String title;
@@ -28,6 +32,10 @@ public class CommunityPost extends BaseEntity {
     private String imageUrls;
     /** 话题ID */
     private Long topicId;
+    /** 话题稳定编码 */
+    private String topicCode;
+    /** 发布时话题名称快照 */
+    private String topicNameSnapshot;
     /** @提及用户ID列表（JSON数组） */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String mentionUserIds;
@@ -38,6 +46,15 @@ public class CommunityPost extends BaseEntity {
     /** 审核备注 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String auditRemark;
+    private String machineResult;
+    private String machineCode;
+    private String machineDetail;
+    private java.time.LocalDateTime machineCheckedAt;
+    private Integer sampleRequired;
+    private Integer version;
+    private java.time.LocalDateTime publishedAt;
+    private java.time.LocalDateTime handledAt;
+    private String authorIp;
     /** 点赞数 */
     private Integer likeCount;
     /** 评论数 */

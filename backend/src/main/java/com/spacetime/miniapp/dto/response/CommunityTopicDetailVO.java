@@ -10,6 +10,7 @@ public class CommunityTopicDetailVO {
 
     /** 话题ID */
     private Long id;
+    private String topicCode;
     /** 话题名称 */
     private String name;
     /** 话题说明 */

@@ -7,6 +7,8 @@ import com.spacetime.common.dao.*;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.admin.service.impl.CommunityAdminServiceImpl;
+import com.spacetime.common.util.OssUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,8 +20,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
@@ -35,8 +39,12 @@ class CommunityAdminServiceImplTest {
     @Mock private DictDataDao dictDataDao;
     @Mock private UserDao userDao;
     @Mock private ContentOperationLogDao contentOperationLogDao;
+    @Mock private CommunityExtensionDao communityExtensionDao;
+    @Mock private AppUserAdminService appUserAdminService;
+    @Mock private OssUtil ossUtil;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @InjectMocks private CommunityAdminServiceImpl communityAdminService;
+    private CommunityAdminServiceImpl communityAdminService;
 
     private CommunityPost post;
     private CommunityComment comment;
@@ -44,10 +52,13 @@ class CommunityAdminServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        communityAdminService = new CommunityAdminServiceImpl(communityPostDao, communityCommentDao,
+                communityReportDao, appConfigDao, mobileEntryConfigDao, dictDataDao, userDao,
+                contentOperationLogDao, communityExtensionDao, appUserAdminService, ossUtil, objectMapper);
         post = new CommunityPost();
         post.setId(100L);
         post.setAuthorId(2L);
-        post.setStatus("PENDING");
+        post.setStatus("pending_machine");
         post.setAuditStatus("PENDING");
         post.setCreateTime(LocalDateTime.now());
         post.setUpdateTime(LocalDateTime.now());
@@ -56,7 +67,7 @@ class CommunityAdminServiceImplTest {
         comment.setId(200L);
         comment.setPostId(100L);
         comment.setAuthorId(3L);
-        comment.setStatus("PUBLISHED");
+        comment.setStatus("published");
         comment.setAuditStatus("PENDING");
         comment.setCreateTime(LocalDateTime.now());
         comment.setUpdateTime(LocalDateTime.now());
@@ -65,9 +76,9 @@ class CommunityAdminServiceImplTest {
         report.setId(300L);
         report.setReporterId(4L);
         report.setTargetType("post");
-        report.setTargetId(100L);
+        report.setTargetId("100");
         report.setReasonCode("spam");
-        report.setStatus("PENDING");
+        report.setStatus("pending");
         report.setCreateTime(LocalDateTime.now());
         report.setUpdateTime(LocalDateTime.now());
     }
@@ -84,7 +95,7 @@ class CommunityAdminServiceImplTest {
         communityAdminService.auditPost(100L, req);
 
         verify(communityPostDao).updateById(argThat(item ->
-                "APPROVED".equals(item.getAuditStatus()) && "PUBLISHED".equals(item.getStatus())));
+                "APPROVED".equals(item.getAuditStatus()) && "published".equals(item.getStatus())));
         verify(contentOperationLogDao).insert(any());
     }
 
@@ -100,7 +111,7 @@ class CommunityAdminServiceImplTest {
         communityAdminService.auditComment(200L, req);
 
         verify(communityCommentDao).updateById(argThat(item ->
-                "REJECTED".equals(item.getAuditStatus()) && "REJECTED".equals(item.getStatus())));
+                "REJECTED".equals(item.getAuditStatus()) && "rejected".equals(item.getStatus())));
     }
 
     @Test
@@ -116,8 +127,8 @@ class CommunityAdminServiceImplTest {
 
         communityAdminService.handleReport(300L, req);
 
-        verify(communityPostDao).updateById(argThat(item -> "BLOCKED".equals(item.getStatus())));
-        verify(communityReportDao).updateById(argThat(item -> "RESOLVED".equals(item.getStatus())));
+        verify(communityPostDao).updateById(argThat(item -> "blocked".equals(item.getStatus())));
+        verify(communityReportDao).updateById(argThat(item -> "valid".equals(item.getStatus())));
     }
 
     @Test
@@ -131,7 +142,7 @@ class CommunityAdminServiceImplTest {
 
         assertThatThrownBy(() -> communityAdminService.handleReport(300L, req))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("不支持的处理动作");
+                .hasMessage("unsupported_handle_action");
     }
 
     @Test
@@ -145,5 +156,42 @@ class CommunityAdminServiceImplTest {
         communityAdminService.getCommunityConfigs();
 
         verify(appConfigDao).selectByKeys(any());
+    }
+
+    @Test
+    @DisplayName("社区配置按四个业务分区返回且准入模式使用动态选项")
+    void getConfigVersion_shouldReturnFourSectionsAndDynamicOptions() {
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of());
+        when(communityExtensionDao.selectConfigVersionOne(any())).thenReturn(null);
+        when(communityExtensionDao.selectAudits(any())).thenReturn(List.of());
+        when(dictDataDao.selectByDictType(anyString())).thenReturn(List.of());
+        when(dictDataDao.selectList(any())).thenReturn(List.of());
+
+        var result = communityAdminService.getConfigVersion();
+
+        assertThat(result.getItems()).hasSize(13);
+        assertThat(result.getSections()).extracting("code")
+                .containsExactly("entry", "audit", "report", "governance");
+        assertThat(result.getItems()).filteredOn(item -> CommunityConfigKeys.INTERACTION_GATE_MODE.equals(item.getConfigKey()))
+                .singleElement().extracting("optionsKey").isEqualTo("interactionGateMode");
+    }
+
+    @Test
+    @DisplayName("历史举报原因停用后仍返回字典显示名")
+    void getReportDetail_disabledReason_shouldReturnHistoricalLabel() {
+        report.setReasonCode("abuse");
+        SysDictData historicalReason = new SysDictData();
+        historicalReason.setDictType("community_report_reason");
+        historicalReason.setDictValue("abuse");
+        historicalReason.setDictLabel("辱骂攻击");
+        historicalReason.setStatus("DISABLED");
+
+        when(communityReportDao.selectById(300L)).thenReturn(report);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(dictDataDao.selectByDictType(anyString())).thenReturn(List.of());
+        when(dictDataDao.selectList(any())).thenReturn(List.of(historicalReason));
+        when(communityExtensionDao.selectAudits(any())).thenReturn(List.of());
+
+        assertThat(communityAdminService.getReportDetail(300L).getReasonLabel()).isEqualTo("辱骂攻击");
     }
 }

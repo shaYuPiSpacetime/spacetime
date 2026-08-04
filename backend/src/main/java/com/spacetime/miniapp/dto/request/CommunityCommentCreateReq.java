@@ -1,7 +1,6 @@
 package com.spacetime.miniapp.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
@@ -11,8 +10,16 @@ import lombok.Data;
 public class CommunityCommentCreateReq {
 
     /** 动态（帖子）ID */
-    @NotNull(message = "动态ID不能为空")
-    private Long postId;
+    @NotBlank(message = "动态ID不能为空")
+    private String postId;
+
+    public void setPostId(String postId) {
+        this.postId = postId;
+    }
+
+    public void setPostId(Long postId) {
+        this.postId = postId == null ? null : String.valueOf(postId);
+    }
 
     /** 父评论ID（回复评论时使用，一级评论为null） */
     private Long parentCommentId;

@@ -15,4 +15,5 @@ public interface CommunityPostDao {
     List<CommunityPost> selectList(LambdaQueryWrapper<CommunityPost> wrapper);
     void insert(CommunityPost entity);
     void updateById(CommunityPost entity);
+    int updateCas(CommunityPost entity, int expectedVersion);
 }

@@ -10,8 +10,10 @@ public class CommunityCommentVO {
 
     /** 评论ID */
     private Long id;
+    private String commentNo;
     /** 所属帖子ID */
     private Long postId;
+    private String postNo;
     /** 评论作者用户ID */
     private Long authorId;
     /** 评论作者昵称 */
@@ -28,6 +30,9 @@ public class CommunityCommentVO {
     private String content;
     /** 评论状态 */
     private String status;
+    private String statusName;
+    private Boolean liked;
+    private Integer likeCount;
     /** 审核状态 */
     private String auditStatus;
     /** 创建时间（yyyy-MM-dd HH:mm:ss） */
