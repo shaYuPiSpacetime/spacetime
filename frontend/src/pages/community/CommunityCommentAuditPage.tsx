@@ -21,6 +21,15 @@ interface CommentQuery {
 
 const INITIAL_QUERY: CommentQuery = { page: 1, size: DEFAULT_PAGE_SIZE, keyword: '', userId: '', postNo: '', status: '', reported: '', startTime: '', endTime: '' };
 
+function commentActionAllowed(status: string | undefined, action: string) {
+  const allowed: Record<string, string[]> = {
+    pending_machine: ['published', 'rejected', 'blocked', 'warn_user', 'mute_user'],
+    published: ['rejected', 'blocked', 'warn_user', 'mute_user'],
+    blocked: ['published', 'warn_user', 'mute_user'],
+  };
+  return Boolean(status && allowed[status]?.includes(action));
+}
+
 export default function CommunityCommentAuditPage() {
   const { meta, loading: metaLoading } = useCommunityMeta();
   const { hasAnyPermission } = usePermission();
@@ -38,9 +47,12 @@ export default function CommunityCommentAuditPage() {
   const [mutePeriod, setMutePeriod] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const canRiskHandle = hasAnyPermission('community:comment:risk');
   const configuredActions = metaOptions(meta, 'commentAction');
   const actionOptions = configuredActions.length ? configuredActions : metaOptions(meta, 'commentStatus').filter((item) => ['published', 'rejected', 'blocked'].includes(item.code));
-  const selectedAction = actionOptions.find((item) => item.code === action);
+  const availableActionOptions = current ? actionOptions.filter((item) =>
+    commentActionAllowed(current.status, item.code) && (item.code !== 'mute_user' || canRiskHandle)) : actionOptions;
+  const selectedAction = availableActionOptions.find((item) => item.code === action);
   const highRisk = selectedAction?.tone === 'danger' || Boolean(selectedAction?.extra?.highRisk) || /block|restore|mute|reject|remove/i.test(action) || (current?.status === 'blocked' && action === 'published');
 
   useEffect(() => {
@@ -79,7 +91,7 @@ export default function CommunityCommentAuditPage() {
     if (!current || !action) return;
     setSaving(true);
     try {
-      await handleCommunityComment(current.id, { action, reason: reason || undefined, version: Number(current.version ?? 0), mutePeriod: mutePeriod || undefined });
+      await handleCommunityComment(current.id, { action, reason: reason || undefined, version: Number(current.version ?? 0), mutePeriod: mutePeriod || undefined, notifyUser: true });
       showToast(metaCopy(meta, 'comment_action_success'), 'success');
       setConfirmOpen(false);
       setDrawerOpen(false);
@@ -101,6 +113,15 @@ export default function CommunityCommentAuditPage() {
 
   const canHandle = hasAnyPermission('community:comment:manage', 'community:comment:audit', 'community:comment:handle');
   const canExport = hasAnyPermission('community:export:create');
+  const canHandleCurrent = canHandle && Boolean(current) && availableActionOptions.length > 0;
+
+  function hasPostContext(value: CommunityCommentAdminVO) {
+    return value.postAvailable !== false && Boolean(value.postNo || value.postType || value.postTitle || value.postSummary || value.postContent);
+  }
+
+  function postTypeLabel(value: CommunityCommentAdminVO) {
+    return metaLabel(meta, 'contentType', value.postType) || '动态';
+  }
 
   return (
     <CommunityPage>
@@ -119,18 +140,44 @@ export default function CommunityCommentAuditPage() {
         <TableHead><tr><HeaderCell>评论编号</HeaderCell><HeaderCell>归属内容</HeaderCell><HeaderCell>用户信息</HeaderCell><HeaderCell>评论内容</HeaderCell><HeaderCell>发布时间</HeaderCell><HeaderCell>点赞/举报</HeaderCell><HeaderCell>状态</HeaderCell><HeaderCell className="sticky right-0 bg-slate-50">操作</HeaderCell></tr></TableHead>
         {list.loading || list.error || !list.pageData.records.length ? <DataRowsState colSpan={8} loading={list.loading} error={list.error} emptyText={metaCopy(meta, 'comment_empty')} onRetry={list.load} /> : (
           <tbody>{list.pageData.records.map((row) => <tr key={row.id} className="hover:bg-slate-50/70">
-            <BodyCell>{row.commentNo || row.id}</BodyCell><BodyCell><div>{row.postNo || row.postId}</div><div className="mt-0.5 max-w-[180px] truncate text-xs text-slate-400">{row.postSummary || '-'}</div></BodyCell><BodyCell><div>{row.authorNo || row.authorId}</div><div className="mt-0.5 text-xs text-slate-400">{row.authorName || '-'}</div></BodyCell><BodyCell className="max-w-[280px]"><div className="line-clamp-2">{row.content}</div></BodyCell><BodyCell className="whitespace-nowrap">{row.createTime || '-'}</BodyCell><BodyCell>{row.likeCount ?? 0} / {row.reportCount ?? 0}</BodyCell><BodyCell>{statusPill(meta, 'commentStatus', row.status, row.statusName)}</BodyCell><BodyCell className="sticky right-0 bg-white"><Button variant="ghost" size="sm" onClick={() => void openDetail(row)}><Eye className="mr-1 h-3.5 w-3.5" />详情</Button></BodyCell>
+            <BodyCell>{row.commentNo || row.id}</BodyCell>
+            <BodyCell className="min-w-[250px]">
+              {hasPostContext(row) ? <div className="flex items-start gap-2.5">
+                {row.postImageUrls?.[0] && <img src={row.postImageUrls[0]} alt={`${row.postNo || row.postId} 所属动态封面`} className="h-12 w-12 shrink-0 rounded-lg border border-slate-200 object-cover" />}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5"><span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700">{postTypeLabel(row)}</span><span className="text-xs text-slate-500">{row.postNo}</span></div>
+                  {row.postTitle && <div className="mt-1 max-w-[180px] truncate text-sm font-medium text-slate-700">{row.postTitle}</div>}
+                  <div className="mt-0.5 max-w-[180px] truncate text-xs text-slate-400">{row.postSummary || '-'}</div>
+                </div>
+              </div> : <span className="text-sm text-amber-600">内容已变化</span>}
+            </BodyCell>
+            <BodyCell><div>{row.authorNo || row.authorId}</div><div className="mt-0.5 text-xs text-slate-400">{row.authorName || '-'}</div></BodyCell><BodyCell className="max-w-[280px]"><div className="line-clamp-2">{row.content}</div></BodyCell><BodyCell className="whitespace-nowrap">{row.createTime || '-'}</BodyCell><BodyCell>{row.likeCount ?? 0} / {row.reportCount ?? 0}</BodyCell><BodyCell>{statusPill(meta, 'commentStatus', row.status, row.statusName)}</BodyCell><BodyCell className="sticky right-0 bg-white"><Button variant="ghost" size="sm" onClick={() => void openDetail(row)}><Eye className="mr-1 h-3.5 w-3.5" />详情</Button></BodyCell>
           </tr>)}</tbody>
         )}
       </TableFrame>
       <PageFooter current={list.query.page} total={list.pageData.total} pageSize={list.query.size} onChange={list.setPage} onPageSizeChange={list.setPageSize} />
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="评论详情" description={metaCopy(meta, 'comment_detail_description')} footer={canHandle ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDrawerOpen(false)}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>确认处理</Button></div> : undefined}>
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="评论详情" description={metaCopy(meta, 'comment_detail_description')} footer={canHandleCurrent ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDrawerOpen(false)}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>确认处理</Button></div> : undefined}>
         {detailLoading || !current ? <div className="py-20 text-center text-sm text-slate-400">加载中</div> : <div className="space-y-4">
-          <DetailGrid items={[{ label: '评论 ID', value: current.commentNo || current.id }, { label: '归属内容', value: current.postNo || current.postId }, { label: '用户', value: `${current.authorNo || current.authorId} / ${current.authorName || '-'}` }, { label: '点赞 / 举报', value: `${current.likeCount ?? 0} / ${current.reportCount ?? 0}` }, { label: '当前状态', value: statusPill(meta, 'commentStatus', current.status, current.statusName) }, { label: '机审结果', value: metaLabel(meta, 'machineResult', current.machineResult) }]} />
+          <DetailGrid items={[{ label: '评论 ID', value: current.commentNo || current.id }, { label: '归属内容', value: hasPostContext(current) ? `${postTypeLabel(current)} / ${current.postNo}` : '内容已变化' }, { label: '用户', value: `${current.authorNo || current.authorId} / ${current.authorName || '-'}` }, { label: '点赞 / 举报', value: `${current.likeCount ?? 0} / ${current.reportCount ?? 0}` }, { label: '当前状态', value: statusPill(meta, 'commentStatus', current.status, current.statusName) }, { label: '机审结果', value: metaLabel(meta, 'machineResult', current.machineResult) }]} />
           <DetailSection title="评论内容"><p className="whitespace-pre-wrap">{current.content}</p>{current.parentContent && <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">{current.parentContent}</div>}</DetailSection>
+          <DetailSection title={hasPostContext(current) && current.postType === 'sincere_post' ? '所属诚意贴' : '所属动态'}>
+            {hasPostContext(current) ? <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="rounded bg-blue-50 px-2 py-1 font-medium text-blue-700">{postTypeLabel(current)}</span>
+                <span>{current.postNo}</span>
+                {current.postSourceScene && <span>{metaLabel(meta, 'sourceScene', current.postSourceScene)}</span>}
+                {current.postStatus && statusPill(meta, 'contentStatus', current.postStatus, current.postStatusName)}
+              </div>
+              {current.postTitle && <h4 className="text-base font-semibold text-slate-900">{current.postTitle}</h4>}
+              <p className="whitespace-pre-wrap leading-6 text-slate-700">{current.postContent || current.postSummary || '-'}</p>
+              {Boolean(current.postImageUrls?.length) && <div className="grid grid-cols-3 gap-2">
+                {current.postImageUrls?.slice(0, 9).map((url, index) => <img key={`${url}-${index}`} src={url} alt={`${current.postNo || current.postId} 所属动态图片 ${index + 1}`} className="aspect-square w-full rounded-lg border border-slate-200 object-cover" />)}
+              </div>}
+            </div> : <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">内容已变化，所属内容可能已删除或不可查看。</div>}
+          </DetailSection>
           <DetailSection title="操作日志"><AuditTimeline logs={current.auditLogs} emptyText={metaCopy(meta, 'audit_log_empty')} /></DetailSection>
-          {canHandle && <DetailSection title="评论处理"><div className="grid gap-3 sm:grid-cols-2"><Field label="处理结果"><NativeSelect includeAll={false} value={action} onChange={setAction} options={actionOptions} /></Field>{(Boolean(selectedAction?.extra?.muteRequired) || /mute/i.test(action)) && <Field label="禁言周期"><NativeSelect includeAll={false} value={mutePeriod} onChange={setMutePeriod} options={metaOptions(meta, 'mutePeriod')} /></Field>}<Field label="处理说明" className="sm:col-span-2"><textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={4} className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" /></Field></div></DetailSection>}
+          {canHandleCurrent ? <DetailSection title="评论处理"><div className="grid gap-3 sm:grid-cols-2"><Field label="处理结果"><NativeSelect includeAll={false} value={action} onChange={setAction} options={availableActionOptions} /></Field>{(Boolean(selectedAction?.extra?.muteRequired) || /mute/i.test(action)) && <Field label="禁言周期"><NativeSelect includeAll={false} value={mutePeriod} onChange={setMutePeriod} options={metaOptions(meta, 'mutePeriod')} /></Field>}<Field label="处理说明" className="sm:col-span-2"><textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={4} className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" /></Field></div></DetailSection> : canHandle && <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">当前状态无可执行操作</div>}
         </div>}
       </Drawer>
       <ConfirmActionDialog open={confirmOpen} title={metaCopy(meta, 'high_risk_confirm_title')} description={selectedAction?.description || metaCopy(meta, 'comment_high_risk_description')} confirmText={selectedAction?.label || metaCopy(meta, 'confirm_action')} cancelText={metaCopy(meta, 'cancel_action')} busyText={metaCopy(meta, 'processing')} busy={saving} danger onClose={() => setConfirmOpen(false)} onConfirm={() => void submitAction()} />

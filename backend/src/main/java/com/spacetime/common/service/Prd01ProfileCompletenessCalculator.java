@@ -156,10 +156,12 @@ public class Prd01ProfileCompletenessCalculator {
             case "weight" -> user.getWeight() != null;
             case "locationProvince" -> StrUtil.isNotBlank(user.getLocationProvince());
             case "locationCity" -> StrUtil.isNotBlank(user.getLocationCity());
-            case "locationDistrict" -> StrUtil.isNotBlank(user.getLocationDistrict());
+            case "locationDistrict" -> StrUtil.isNotBlank(user.getLocationProvince())
+                    && StrUtil.isNotBlank(user.getLocationCity());
             case "hometownProvince" -> StrUtil.isNotBlank(user.getHometownProvince());
             case "hometownCity" -> StrUtil.isNotBlank(user.getHometownCity());
-            case "hometownDistrict" -> StrUtil.isNotBlank(user.getHometownDistrict());
+            case "hometownDistrict" -> StrUtil.isNotBlank(user.getHometownProvince())
+                    && StrUtil.isNotBlank(user.getHometownCity());
             case "residence" -> StrUtil.isNotBlank(user.getLocationProvince()) || StrUtil.isNotBlank(user.getLocationCity());
             case "identity", "identityType" -> StrUtil.isNotBlank(user.getIdentity());
             case "educationLevel" -> StrUtil.isNotBlank(user.getEducationLevel());

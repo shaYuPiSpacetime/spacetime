@@ -21,6 +21,8 @@ public class CommunityPost extends BaseEntity {
     private String postType;
     /** 内容来源场景 */
     private String sourceScene;
+    /** 关注/同城/热门等分发场景（JSON 数组） */
+    private String distributionScenes;
     /** 诚意贴标题 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String title;
@@ -61,6 +63,8 @@ public class CommunityPost extends BaseEntity {
     private Integer commentCount;
     /** 被举报次数 */
     private Integer reportCount;
+    /** 阅读次数 */
+    private Integer readCount;
     /** 用户主动删除标记(0=未删/1=已删) */
     private Integer deletedByUser;
 }

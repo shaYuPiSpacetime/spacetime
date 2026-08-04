@@ -91,8 +91,16 @@ export interface CommunityCommentAdminVO {
   id: number;
   commentNo?: string;
   postId: number;
+  postAvailable?: boolean;
   postNo?: string;
+  postType?: string;
+  postTitle?: string;
   postSummary?: string;
+  postContent?: string;
+  postImageUrls?: string[];
+  postSourceScene?: string;
+  postStatus?: string;
+  postStatusName?: string;
   authorId: number;
   authorNo?: string;
   authorName?: string;

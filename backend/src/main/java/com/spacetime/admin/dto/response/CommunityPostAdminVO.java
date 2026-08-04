@@ -15,6 +15,8 @@ public class CommunityPostAdminVO {
     private String auditNo;
     /** 作者ID */
     private Long authorId;
+    /** 小程序用户业务编号 */
+    private String authorNo;
     /** 作者昵称 */
     private String authorName;
     /** 作者手机号 */

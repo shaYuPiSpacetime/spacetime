@@ -25,6 +25,14 @@ public class AppUserDaoImpl implements AppUserDao {
     }
 
     @Override
+    public List<AppUser> selectByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return mapper.selectBatchIds(ids);
+    }
+
+    @Override
     public AppUser selectByPhoneHash(String phoneHash) {
         return mapper.selectOne(new LambdaQueryWrapper<AppUser>()
                 .eq(AppUser::getPhoneHash, phoneHash));

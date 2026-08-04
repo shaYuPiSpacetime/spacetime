@@ -34,6 +34,8 @@ public class CommunityReport extends BaseEntity {
     private String evidenceJson;
     /** 处理状态 @see CommunityReportStatusEnum */
     private String status;
+    /** 举报人回复状态：pending/sent/failed。 */
+    private String replyStatus;
     private Integer version;
     private Long mergedToReportId;
     /** 处理动作 @see CommunityReportHandleActionEnum */

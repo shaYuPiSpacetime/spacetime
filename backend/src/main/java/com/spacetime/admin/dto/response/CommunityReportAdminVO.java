@@ -14,6 +14,7 @@ public class CommunityReportAdminVO {
     private String reportNo;
     /** 举报人ID */
     private Long reporterId;
+    private String reporterNo;
     /** 举报人昵称 */
     private String reporterName;
     /** 举报人手机号 */
@@ -23,6 +24,7 @@ public class CommunityReportAdminVO {
     /** 举报目标ID */
     private String targetId;
     private Long targetUserId;
+    private String targetUserNo;
     private String targetUserName;
     private String targetNo;
     /** 举报原因编码 */
@@ -34,6 +36,7 @@ public class CommunityReportAdminVO {
     /** 处理状态 @see CommunityReportStatusEnum */
     private String status;
     private String statusName;
+    private String replyStatus;
     /** 处理动作 @see CommunityReportHandleActionEnum */
     private String handleAction;
     private String punishAction;

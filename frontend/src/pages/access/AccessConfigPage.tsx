@@ -168,7 +168,7 @@ const FIELD_CONFIG_ROWS: FieldConfigRow[] = [
   fieldRow('轻量资料', '最高学历', 'educationLevel', '学历选择页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '4', '4'),
   fieldRow('轻量资料', '现居省份', 'locationProvince', '现居地选择页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '2', '2'),
   fieldRow('轻量资料', '现居城市', 'locationCity', '现居地选择页、基本资料页', 'fixed', 'fixed', 'configurable', true, true, '2', '2'),
-  fieldRow('轻量资料', '现居区县', 'locationDistrict', '现居地选择页、基本资料页', 'fixed', 'conditional', 'configurable', true, true, '1', '1'),
+  fieldRow('轻量资料', '现居区县（历史兼容）', 'locationDistrict', '不再采集', 'fixed', 'none', 'none', false, false, '0', '0'),
   fieldRow('轻量资料', '经度', 'longitude', '定位能力', 'fixed', 'none', 'none', true, false, '0', '0'),
   fieldRow('轻量资料', '纬度', 'latitude', '定位能力', 'fixed', 'none', 'none', true, false, '0', '0'),
 
@@ -177,7 +177,7 @@ const FIELD_CONFIG_ROWS: FieldConfigRow[] = [
   fieldRow('基础资料', '体重', 'weight', '基本资料页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '1', '1'),
   fieldRow('基础资料', '家乡省份', 'hometownProvince', '家乡选择页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '1', '1'),
   fieldRow('基础资料', '家乡城市', 'hometownCity', '家乡选择页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '2', '2'),
-  fieldRow('基础资料', '家乡区县', 'hometownDistrict', '家乡选择页、基础资料编辑页', 'fixed', 'configurable', 'configurable', true, false, '1', '1'),
+  fieldRow('基础资料', '家乡区县（历史兼容）', 'hometownDistrict', '不再采集', 'fixed', 'none', 'none', false, false, '0', '0'),
   fieldRow('基础资料', '户口所在地', 'residence', '基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '1', '1'),
   fieldRow('基础资料', '行业', 'industry', '基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '2', '2'),
   fieldRow('基础资料', '职业', 'occupation', '基本资料页、基础资料编辑页', 'configurable', 'configurable', 'configurable', true, false, '3', '4'),
@@ -1786,8 +1786,8 @@ function ToggleButton({
 }
 
 function fixedControlReason(row: FieldConfigRow, field: 'visible' | 'required' | 'scoreEnabled', mode: ControlMode) {
-  if (mode === 'conditional') return '所选省市存在区县层级时必填，不提供人工开关';
-  if (field === 'visible' && ['height', 'weight', 'hometownProvince', 'hometownCity', 'hometownDistrict'].includes(row.fieldId)) {
+  if (mode === 'conditional') return '按业务条件决定是否必填，不提供人工开关';
+  if (field === 'visible' && ['height', 'weight', 'hometownProvince', 'hometownCity'].includes(row.fieldId)) {
     return '编辑资料基础信息固定展示，必填和计分仍可单独配置';
   }
   if (field === 'visible') return '登录或认证流程字段固定展示，不允许关闭';

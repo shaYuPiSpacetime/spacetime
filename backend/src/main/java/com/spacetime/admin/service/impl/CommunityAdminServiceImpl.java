@@ -15,6 +15,7 @@ import com.spacetime.common.dao.*;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.enums.*;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.exception.ForbiddenException;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.util.DesensitizeUtil;
 import com.spacetime.common.util.OssUtil;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -37,6 +39,18 @@ import java.util.stream.Collectors;
 public class CommunityAdminServiceImpl implements CommunityAdminService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final Set<String> PUBLIC_COMMUNITY_CONFIG_KEYS = Set.of(
+            CommunityConfigKeys.INTERACTION_GATE_MODE,
+            CommunityConfigKeys.POST_MAX_IMAGES,
+            CommunityConfigKeys.POST_MAX_TEXT_LENGTH,
+            CommunityConfigKeys.POST_MAX_MENTIONS,
+            CommunityConfigKeys.SINCERE_POST_MIN_TEXT_LENGTH,
+            CommunityConfigKeys.CONTACT_INFO_ALLOWED,
+            CommunityConfigKeys.REPORT_ENTRY_ENABLED
+    );
+    private static final Set<String> TERMINAL_REPORT_STATUSES = Set.of("valid", "invalid", "merged");
+    private static final String TOPIC_COVER_HOST = "shikongxiehou.oss-cn-shanghai.aliyuncs.com";
+    private static final Set<String> TOPIC_DISPLAY_SCENES = Set.of("hot", "topic_list", "publish");
 
     /** 社区动态数据访问对象 */
     private final CommunityPostDao communityPostDao;
@@ -52,6 +66,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     private final DictDataDao dictDataDao;
     /** 用户数据访问对象 */
     private final UserDao userDao;
+    /** 小程序用户数据访问对象 */
+    private final AppUserDao appUserDao;
     /** 内容操作日志数据访问对象 */
     private final ContentOperationLogDao contentOperationLogDao;
     /** PRD-05 扩展领域数据访问对象 */
@@ -118,10 +134,17 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityPost entity = requirePost(id);
         ensureVersion(entity.getVersion(), req.getVersion());
         String before = entity.getStatus();
-        entity.setStatus(resolveContentAction(req.getAction(), false));
+        String target = resolveContentAction(req.getAction(), false);
+        validateContentTransition(before, target, false, Objects.equals(entity.getDeletedByUser(), 1));
+        entity.setStatus(target);
+        applyAuditStatus(entity, target);
         entity.setHandledAt(LocalDateTime.now());
         if (communityPostDao.updateCas(entity, req.getVersion()) != 1) throw versionConflict();
         writeAudit("post", entity.getPostNo(), entity.getId(), req.getAction(), before, entity.getStatus(), req.getReason());
+        if (Boolean.TRUE.equals(req.getNotifyUser())) {
+            writeModerationResult("post", entity.getPostNo(), req.getVersion() + 1,
+                    entity.getAuthorId(), entity.getStatus(), req.getReason());
+        }
     }
 
     @Override
@@ -146,9 +169,40 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityComment entity = requireComment(id);
         ensureVersion(entity.getVersion(), req.getVersion());
         String before = entity.getStatus();
-        entity.setStatus(resolveContentAction(req.getAction(), true));
+        String normalizedAction = StrUtil.blankToDefault(req.getAction(), "").toLowerCase(Locale.ROOT);
+        if (Set.of("warn_user", "mute_user").contains(normalizedAction)) {
+            if (StrUtil.isBlank(req.getReason())) throw error("reason_required");
+            if ("mute_user".equals(normalizedAction)) {
+                requireContextPermission("community:comment:risk");
+                CommunityUserRestriction restriction = new CommunityUserRestriction();
+                restriction.setUserId(entity.getAuthorId());
+                restriction.setRestrictionType("mute");
+                restriction.setReason(StrUtil.trim(req.getReason()));
+                restriction.setStartTime(LocalDateTime.now());
+                restriction.setEndTime(resolveUntil(req.getMutePeriod()));
+                restriction.setStatus("active");
+                restriction.setActiveMarker(1);
+                restriction.setVersion(0);
+                communityExtensionDao.insertRestriction(restriction);
+            }
+            if (communityCommentDao.updateCas(entity, req.getVersion()) != 1) throw versionConflict();
+            writeAudit("comment", entity.getCommentNo(), entity.getId(), normalizedAction,
+                    before, before, req.getReason());
+            writeModerationResult("comment", entity.getCommentNo(), req.getVersion() + 1,
+                    entity.getAuthorId(), normalizedAction, req.getReason());
+            return;
+        }
+        String target = resolveContentAction(req.getAction(), true);
+        validateContentTransition(before, target, true, false);
+        entity.setStatus(target);
+        applyAuditStatus(entity, target);
         if (communityCommentDao.updateCas(entity, req.getVersion()) != 1) throw versionConflict();
+        syncPostCommentCount(entity.getPostId(), before, target);
         writeAudit("comment", entity.getCommentNo(), entity.getId(), req.getAction(), before, entity.getStatus(), req.getReason());
+        if (Boolean.TRUE.equals(req.getNotifyUser())) {
+            writeModerationResult("comment", entity.getCommentNo(), req.getVersion() + 1,
+                    entity.getAuthorId(), entity.getStatus(), req.getReason());
+        }
     }
 
     @Override
@@ -171,6 +225,9 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     @Transactional
     public void updateReportStatus(Long id, CommunityReportStatusReq req) {
         CommunityReport report = requireReport(id);
+        if (TERMINAL_REPORT_STATUSES.contains(StrUtil.blankToDefault(report.getStatus(), "").toLowerCase(Locale.ROOT))) {
+            throw error("report_already_handled");
+        }
         ensureVersion(report.getVersion(), req.getVersion());
         CommunityReportStatusEnum result = CommunityReportStatusEnum.getByCode(req.getResult());
         if (result == null) throw error("unsupported_report_result");
@@ -181,10 +238,19 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         report.setHandleRemark(StrUtil.trim(req.getHandleRemark()));
         report.setHandlerId(currentUserId());
         report.setHandlerTime(LocalDateTime.now());
+        report.setReplyStatus(Boolean.TRUE.equals(req.getReplyReporter()) ? "sent" : "pending");
         if (result == CommunityReportStatusEnum.MERGED) mergeReport(report, req.getMergeIntoReportNo());
         if (result == CommunityReportStatusEnum.VALID) applyPunishment(report, req);
         if (communityReportDao.updateCas(report, req.getVersion()) != 1) throw versionConflict();
         writeAudit("report", report.getReportNo(), report.getId(), req.getAction(), before, report.getStatus(), req.getHandleRemark());
+        if (Boolean.TRUE.equals(req.getReplyReporter())) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("recipientUserId", report.getReporterId());
+            payload.put("reportNo", report.getReportNo());
+            payload.put("result", report.getStatus());
+            payload.put("handleRemark", report.getHandleRemark());
+            writeOutbox("report_result", "report", report.getReportNo(), req.getVersion() + 1, json(payload));
+        }
     }
 
     @Override
@@ -204,13 +270,20 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     public Page<CommunityTopicAdminVO> getTopicPage(CommunityTopicPageReq req) {
         LambdaQueryWrapper<CommunityTopic> wrapper = new LambdaQueryWrapper<CommunityTopic>()
                 .and(StrUtil.isNotBlank(req.getKeyword()), w -> w.like(CommunityTopic::getTopicName, req.getKeyword())
-                        .or().like(CommunityTopic::getTopicCode, req.getKeyword()))
+                        .or().like(CommunityTopic::getTopicCode, req.getKeyword())
+                        .or().like(CommunityTopic::getDescription, req.getKeyword()))
                 .eq(StrUtil.isNotBlank(req.getStatus()), CommunityTopic::getStatus, req.getStatus())
                 .eq(req.getRecommended() != null, CommunityTopic::getRecommended, Boolean.TRUE.equals(req.getRecommended()) ? 1 : 0)
-                .orderByAsc(CommunityTopic::getSort).orderByDesc(CommunityTopic::getUpdateTime);
+                .ge(req.getStartTime() != null, CommunityTopic::getUpdateTime,
+                        req.getStartTime() == null ? null : req.getStartTime().atStartOfDay())
+                .lt(req.getEndTime() != null, CommunityTopic::getUpdateTime,
+                        req.getEndTime() == null ? null : req.getEndTime().plusDays(1).atStartOfDay())
+                .orderByDesc(CommunityTopic::getRecommended)
+                .orderByAsc(CommunityTopic::getSort)
+                .orderByDesc(CommunityTopic::getUpdateTime);
         Page<CommunityTopic> page = communityExtensionDao.selectTopicPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<CommunityTopicAdminVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(page.getRecords().stream().map(item -> toTopicAdminVO(item, false)).toList());
+        result.setRecords(toTopicAdminVOs(page.getRecords()));
         return result;
     }
 
@@ -223,6 +296,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     @Transactional
     public CommunityTopicAdminVO createTopic(CommunityTopicSaveReq req) {
         validateTopicCover(req.getCoverUrl());
+        validateTopicDisplayScenes(req.getDisplayScenes());
+        ensureUniqueTopicName(req.getTopicName(), null, req.getStatus());
         CommunityTopic entity = new CommunityTopic();
         entity.setTopicCode("topic_" + IdUtil.fastSimpleUUID().substring(0, 12));
         applyTopic(entity, req);
@@ -239,6 +314,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         if (req.getVersion() == null) throw error("version_required");
         ensureVersion(entity.getVersion(), req.getVersion());
         validateTopicCover(req.getCoverUrl());
+        validateTopicDisplayScenes(req.getDisplayScenes());
+        ensureUniqueTopicName(req.getTopicName(), id, req.getStatus());
         String before = json(entity);
         applyTopic(entity, req);
         if (communityExtensionDao.updateTopicCas(entity, req.getVersion()) != 1) throw versionConflict();
@@ -252,6 +329,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     public void updateTopicStatus(Long id, CommunityTopicStatusReq req) {
         CommunityTopic entity = requireTopic(id);
         ensureVersion(entity.getVersion(), req.getVersion());
+        ensureUniqueTopicName(entity.getTopicName(), id, req.getStatus());
         String before = entity.getStatus();
         entity.setStatus(req.getStatus());
         if (communityExtensionDao.updateTopicCas(entity, req.getVersion()) != 1) throw versionConflict();
@@ -305,26 +383,53 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityConfigVersion latest = latestConfigVersion();
         int current = latest == null ? 0 : latest.getVersion();
         ensureVersion(current, req.getVersion());
-        boolean highRisk = req.getItems().stream().anyMatch(item -> Boolean.TRUE.equals(item.getHighRisk()));
-        if (highRisk && !Boolean.TRUE.equals(req.getHighRiskConfirmed())) throw error("high_risk_confirmation_required");
-        List<CommunityConfigItemVO> values = req.getItems().stream().map(this::toConfigItem).toList();
+
+        List<CommunityConfigItemVO> canonicalItems = defaultConfigItems();
+        Map<String, CommunityConfigItemVO> canonicalByKey = canonicalItems.stream()
+                .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item));
+        List<CommunityConfigItemVO> previousItems = latest == null ? canonicalItems : readConfigItems(latest.getConfigSnapshot());
+        Map<String, CommunityConfigItemVO> previousByKey = previousItems.stream()
+                .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item, (left, right) -> left));
+        Set<String> requestKeys = new LinkedHashSet<>();
         for (CommunityConfigVersionSaveReq.Item item : req.getItems()) {
+            if (!requestKeys.add(item.getConfigKey())) throw error("duplicate_config_key");
+            if (!canonicalByKey.containsKey(item.getConfigKey())) throw error("unsupported_config_key");
+        }
+        boolean highRiskChanged = req.getItems().stream().anyMatch(item -> {
+            CommunityConfigItemVO canonical = canonicalByKey.get(item.getConfigKey());
+            CommunityConfigItemVO previous = previousByKey.get(item.getConfigKey());
+            return Boolean.TRUE.equals(canonical.getHighRisk())
+                    && !sameConfigValue(previous == null ? null : previous.getConfigValue(), item.getConfigValue());
+        });
+        if (highRiskChanged && !Boolean.TRUE.equals(req.getHighRiskConfirmed())) {
+            throw error("high_risk_confirmation_required");
+        }
+        if (highRiskChanged) requireContextPermission("community:config:risk");
+
+        Map<String, CommunityConfigItemVO> merged = previousItems.stream()
+                .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item,
+                        (left, right) -> left, LinkedHashMap::new));
+        for (CommunityConfigVersionSaveReq.Item item : req.getItems()) {
+            CommunityConfigItemVO canonical = canonicalByKey.get(item.getConfigKey());
+            CommunityConfigItemVO value = canonicalConfigItem(canonical, item.getConfigValue());
+            merged.put(item.getConfigKey(), value);
             AppConfig config = new AppConfig();
             config.setConfigKey(item.getConfigKey());
-            config.setConfigValue(item.getConfigValue() instanceof String value ? value : json(item.getConfigValue()));
-            config.setConfigGroup(StrUtil.blankToDefault(item.getConfigGroup(), "COMMUNITY"));
-            config.setConfigType(StrUtil.blankToDefault(item.getConfigType(), "TEXT"));
-            config.setPublicVisible(0);
+            config.setConfigValue(item.getConfigValue() instanceof String stringValue ? stringValue : json(item.getConfigValue()));
+            config.setConfigGroup(canonical.getConfigGroup());
+            config.setConfigType(canonical.getConfigType());
+            config.setPublicVisible(PUBLIC_COMMUNITY_CONFIG_KEYS.contains(item.getConfigKey()) ? 1 : 0);
             config.setStatus(CommonStatusEnum.ENABLED.getCode());
-            config.setRemark(item.getDescription());
+            config.setRemark(canonical.getDescription());
             appConfigDao.upsert(config);
         }
+        List<CommunityConfigItemVO> values = new ArrayList<>(merged.values());
         CommunityConfigVersion entity = new CommunityConfigVersion();
         entity.setVersion(current + 1);
         entity.setVersionNo("community-v" + (current + 1));
         entity.setConfigSnapshot(json(values));
         entity.setChangeSummary(req.getChangeSummary());
-        entity.setHighRiskConfirmed(Boolean.TRUE.equals(req.getHighRiskConfirmed()) ? 1 : 0);
+        entity.setHighRiskConfirmed(highRiskChanged && Boolean.TRUE.equals(req.getHighRiskConfirmed()) ? 1 : 0);
         entity.setOperatorId(currentUserId());
         communityExtensionDao.insertConfigVersion(entity);
         writeAudit("config", entity.getVersionNo(), entity.getId(), "save", latest == null ? null : latest.getConfigSnapshot(), entity.getConfigSnapshot(), req.getChangeSummary());
@@ -345,13 +450,35 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
      */
     @Override
     public Page<CommunityPostAdminVO> getPostPage(CommunityPostPageReq req) {
+        Long authorId = req.getUserId() != null ? req.getUserId() : req.getAuthorId();
+        String postType = "moments".equalsIgnoreCase(req.getScope())
+                ? CommunityPostTypeEnum.COMMUNITY.getCode()
+                : StrUtil.blankToDefault(req.getContentType(), req.getPostType());
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
-                .eq(req.getAuthorId() != null, CommunityPost::getAuthorId, req.getAuthorId())
-                .eq(StrUtil.isNotBlank(req.getPostType()), CommunityPost::getPostType, req.getPostType())
+                .eq(authorId != null, CommunityPost::getAuthorId, authorId)
+                .eq(StrUtil.isNotBlank(postType), CommunityPost::getPostType, postType)
+                .eq(StrUtil.isNotBlank(req.getSourceScene()), CommunityPost::getSourceScene, req.getSourceScene())
                 .eq(StrUtil.isNotBlank(req.getStatus()), CommunityPost::getStatus, req.getStatus())
                 .eq(StrUtil.isNotBlank(req.getAuditStatus()), CommunityPost::getAuditStatus, req.getAuditStatus())
+                .eq(StrUtil.isNotBlank(req.getMachineResult()), CommunityPost::getMachineResult, req.getMachineResult())
                 .eq(req.getTopicId() != null, CommunityPost::getTopicId, req.getTopicId())
-                .and(StrUtil.isNotBlank(req.getKeyword()), w -> w.like(CommunityPost::getTitle, req.getKeyword())
+                .and("text".equalsIgnoreCase(req.getMediaType()), item -> item
+                        .isNull(CommunityPost::getImageUrls).or().eq(CommunityPost::getImageUrls, "")
+                        .or().eq(CommunityPost::getImageUrls, "[]"))
+                .and("image".equalsIgnoreCase(req.getMediaType()), item -> item
+                        .isNotNull(CommunityPost::getImageUrls).ne(CommunityPost::getImageUrls, "")
+                        .ne(CommunityPost::getImageUrls, "[]"))
+                .apply(StrUtil.isNotBlank(req.getDistributionScene()),
+                        "JSON_CONTAINS(distribution_scenes, JSON_QUOTE({0}))", req.getDistributionScene())
+                .gt(Boolean.TRUE.equals(req.getReported()), CommunityPost::getReportCount, 0)
+                .and(Boolean.FALSE.equals(req.getReported()), item -> item
+                        .eq(CommunityPost::getReportCount, 0).or().isNull(CommunityPost::getReportCount))
+                .ge(req.getStartTime() != null, CommunityPost::getCreateTime,
+                        req.getStartTime() == null ? null : req.getStartTime().atStartOfDay())
+                .lt(req.getEndTime() != null, CommunityPost::getCreateTime,
+                        req.getEndTime() == null ? null : req.getEndTime().plusDays(1).atStartOfDay())
+                .and(StrUtil.isNotBlank(req.getKeyword()), w -> w.like(CommunityPost::getPostNo, req.getKeyword())
+                        .or().like(CommunityPost::getTitle, req.getKeyword())
                         .or().like(CommunityPost::getContent, req.getKeyword()))
                 .orderByDesc(CommunityPost::getUpdateTime);
         Page<CommunityPost> page = communityPostDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
@@ -403,16 +530,39 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
      */
     @Override
     public Page<CommunityCommentAdminVO> getCommentPage(CommunityCommentPageReq req) {
+        List<Long> matchedPostIds = null;
+        if (StrUtil.isNotBlank(req.getPostNo())) {
+            matchedPostIds = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
+                            .like(CommunityPost::getPostNo, StrUtil.trim(req.getPostNo())))
+                    .stream().map(CommunityPost::getId).filter(Objects::nonNull).distinct().toList();
+            if (matchedPostIds.isEmpty()) {
+                Page<CommunityCommentAdminVO> empty = new Page<>(req.getPage(), req.getSize(), 0);
+                empty.setRecords(List.of());
+                return empty;
+            }
+        }
+        Long authorId = req.getUserId() != null ? req.getUserId() : req.getAuthorId();
         LambdaQueryWrapper<CommunityComment> wrapper = new LambdaQueryWrapper<CommunityComment>()
                 .eq(req.getPostId() != null, CommunityComment::getPostId, req.getPostId())
-                .eq(req.getAuthorId() != null, CommunityComment::getAuthorId, req.getAuthorId())
+                .in(matchedPostIds != null, CommunityComment::getPostId, matchedPostIds == null ? List.of() : matchedPostIds)
+                .eq(authorId != null, CommunityComment::getAuthorId, authorId)
                 .eq(StrUtil.isNotBlank(req.getStatus()), CommunityComment::getStatus, req.getStatus())
                 .eq(StrUtil.isNotBlank(req.getAuditStatus()), CommunityComment::getAuditStatus, req.getAuditStatus())
-                .like(StrUtil.isNotBlank(req.getKeyword()), CommunityComment::getContent, req.getKeyword())
+                .and(StrUtil.isNotBlank(req.getKeyword()), item -> item
+                        .like(CommunityComment::getCommentNo, StrUtil.trim(req.getKeyword()))
+                        .or().like(CommunityComment::getContent, StrUtil.trim(req.getKeyword())))
+                .gt(Boolean.TRUE.equals(req.getReported()), CommunityComment::getReportCount, 0)
+                .and(Boolean.FALSE.equals(req.getReported()), item -> item
+                        .eq(CommunityComment::getReportCount, 0)
+                        .or().isNull(CommunityComment::getReportCount))
+                .ge(req.getStartTime() != null, CommunityComment::getCreateTime,
+                        req.getStartTime() == null ? null : req.getStartTime().atStartOfDay())
+                .lt(req.getEndTime() != null, CommunityComment::getCreateTime,
+                        req.getEndTime() == null ? null : req.getEndTime().plusDays(1).atStartOfDay())
                 .orderByDesc(CommunityComment::getUpdateTime);
         Page<CommunityComment> page = communityCommentDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<CommunityCommentAdminVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(page.getRecords().stream().map(this::toCommentAdminVO).toList());
+        result.setRecords(toCommentAdminVOs(page.getRecords()));
         return result;
     }
 
@@ -449,15 +599,34 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
      */
     @Override
     public Page<CommunityReportAdminVO> getReportPage(CommunityReportPageReq req) {
+        Set<Long> keywordUserIds = new LinkedHashSet<>();
+        if (StrUtil.isNotBlank(req.getKeyword())) {
+            String keyword = StrUtil.trim(req.getKeyword());
+            if (keyword.chars().allMatch(Character::isDigit)) keywordUserIds.add(Long.parseLong(keyword));
+            keywordUserIds.addAll(appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
+                            .like(AppUser::getNickname, keyword))
+                    .stream().map(AppUser::getId).filter(Objects::nonNull).toList());
+        }
         LambdaQueryWrapper<CommunityReport> wrapper = new LambdaQueryWrapper<CommunityReport>()
                 .eq(req.getReporterId() != null, CommunityReport::getReporterId, req.getReporterId())
                 .eq(StrUtil.isNotBlank(req.getTargetType()), CommunityReport::getTargetType, req.getTargetType())
                 .eq(StrUtil.isNotBlank(req.getStatus()), CommunityReport::getStatus, req.getStatus())
                 .eq(StrUtil.isNotBlank(req.getReasonCode()), CommunityReport::getReasonCode, req.getReasonCode())
+                .and(StrUtil.isNotBlank(req.getKeyword()), item -> {
+                    String keyword = StrUtil.trim(req.getKeyword());
+                    item.like(CommunityReport::getReportNo, keyword)
+                            .or().like(CommunityReport::getTargetId, keyword)
+                            .or().like(CommunityReport::getExtraText, keyword);
+                    if (!keywordUserIds.isEmpty()) item.or().in(CommunityReport::getReporterId, keywordUserIds);
+                })
+                .ge(req.getStartTime() != null, CommunityReport::getCreateTime,
+                        req.getStartTime() == null ? null : req.getStartTime().atStartOfDay())
+                .lt(req.getEndTime() != null, CommunityReport::getCreateTime,
+                        req.getEndTime() == null ? null : req.getEndTime().plusDays(1).atStartOfDay())
                 .orderByDesc(CommunityReport::getUpdateTime);
         Page<CommunityReport> page = communityReportDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<CommunityReportAdminVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(page.getRecords().stream().map(this::toReportAdminVO).toList());
+        result.setRecords(toReportAdminVOs(page.getRecords()));
         return result;
     }
 
@@ -705,6 +874,71 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         throw error("unsupported_handle_action");
     }
 
+    private void validateContentTransition(String currentStatus, String targetStatus,
+                                           boolean comment, boolean deletedByUser) {
+        String current = StrUtil.blankToDefault(currentStatus, "").toLowerCase(Locale.ROOT);
+        String target = StrUtil.blankToDefault(targetStatus, "").toLowerCase(Locale.ROOT);
+        if (deletedByUser || CommunityPostStatusEnum.DELETED.getCode().equals(current) || current.equals(target)) {
+            throw error("invalid_status_transition");
+        }
+        Map<String, Set<String>> allowed = comment ? Map.of(
+                CommunityPostStatusEnum.PENDING.getCode(), Set.of(
+                        CommunityPostStatusEnum.PUBLISHED.getCode(),
+                        CommunityPostStatusEnum.REJECTED.getCode(),
+                        CommunityPostStatusEnum.BLOCKED.getCode()),
+                CommunityPostStatusEnum.PUBLISHED.getCode(), Set.of(
+                        CommunityPostStatusEnum.BLOCKED.getCode(),
+                        CommunityPostStatusEnum.REJECTED.getCode()),
+                CommunityPostStatusEnum.BLOCKED.getCode(), Set.of(CommunityPostStatusEnum.PUBLISHED.getCode())
+        ) : Map.of(
+                CommunityPostStatusEnum.DRAFT.getCode(), Set.of(CommunityPostStatusEnum.PENDING_MANUAL.getCode()),
+                CommunityPostStatusEnum.PENDING.getCode(), Set.of(
+                        CommunityPostStatusEnum.PENDING_MANUAL.getCode(),
+                        CommunityPostStatusEnum.PUBLISHED.getCode(),
+                        CommunityPostStatusEnum.REJECTED.getCode()),
+                CommunityPostStatusEnum.PENDING_MANUAL.getCode(), Set.of(
+                        CommunityPostStatusEnum.PUBLISHED.getCode(),
+                        CommunityPostStatusEnum.REJECTED.getCode(),
+                        CommunityPostStatusEnum.BLOCKED.getCode()),
+                CommunityPostStatusEnum.PUBLISHED.getCode(), Set.of(CommunityPostStatusEnum.BLOCKED.getCode()),
+                CommunityPostStatusEnum.BLOCKED.getCode(), Set.of(CommunityPostStatusEnum.PUBLISHED.getCode())
+        );
+        if (!allowed.getOrDefault(current, Set.of()).contains(target)) {
+            throw error("invalid_status_transition");
+        }
+    }
+
+    private void applyAuditStatus(CommunityPost entity, String targetStatus) {
+        if (CommunityPostStatusEnum.PUBLISHED.getCode().equals(targetStatus)) {
+            entity.setAuditStatus(CommunityAuditStatusEnum.APPROVED.getCode());
+            if (entity.getPublishedAt() == null) entity.setPublishedAt(LocalDateTime.now());
+        } else if (CommunityPostStatusEnum.REJECTED.getCode().equals(targetStatus)) {
+            entity.setAuditStatus(CommunityAuditStatusEnum.REJECTED.getCode());
+        } else if (CommunityPostStatusEnum.PENDING_MANUAL.getCode().equals(targetStatus)) {
+            entity.setAuditStatus(CommunityAuditStatusEnum.PENDING.getCode());
+        }
+    }
+
+    private void applyAuditStatus(CommunityComment entity, String targetStatus) {
+        if (CommunityPostStatusEnum.PUBLISHED.getCode().equals(targetStatus)) {
+            entity.setAuditStatus(CommunityAuditStatusEnum.APPROVED.getCode());
+            if (entity.getPublishedAt() == null) entity.setPublishedAt(LocalDateTime.now());
+        } else if (CommunityPostStatusEnum.REJECTED.getCode().equals(targetStatus)) {
+            entity.setAuditStatus(CommunityAuditStatusEnum.REJECTED.getCode());
+        }
+    }
+
+    private void syncPostCommentCount(Long postId, String beforeStatus, String afterStatus) {
+        boolean wasPublished = CommunityPostStatusEnum.PUBLISHED.getCode().equals(beforeStatus);
+        boolean isPublished = CommunityPostStatusEnum.PUBLISHED.getCode().equals(afterStatus);
+        if (postId == null || wasPublished == isPublished) return;
+        CommunityPost post = communityPostDao.selectById(postId);
+        if (post == null) return;
+        int current = Optional.ofNullable(post.getCommentCount()).orElse(0);
+        post.setCommentCount(Math.max(0, current + (isPublished ? 1 : -1)));
+        communityPostDao.updateById(post);
+    }
+
     private void ensureVersion(Integer actual, Integer expected) {
         if (!Objects.equals(actual == null ? 0 : actual, expected)) throw versionConflict();
     }
@@ -715,6 +949,22 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
 
     private Long currentUserId() {
         return UserContextHolder.get() == null ? null : UserContextHolder.get().getId();
+    }
+
+    private void requireContextPermission(String permission) {
+        var context = UserContextHolder.get();
+        boolean superAdmin = context != null && context.getRoles() != null
+                && context.getRoles().stream().anyMatch(role -> "super_admin".equalsIgnoreCase(role));
+        boolean granted = context != null && context.getPermissions() != null
+                && (context.getPermissions().contains(permission)
+                || context.getPermissions().contains("*:*:*")
+                || context.getPermissions().contains("*"));
+        if (!superAdmin && !granted) throw new ForbiddenException(message("high_risk_permission_denied"));
+    }
+
+    private String userNo(AppUser user, Long id) {
+        if (user != null && StrUtil.isNotBlank(user.getAnonymousNo())) return user.getAnonymousNo();
+        return id == null ? null : "USR-" + String.format(Locale.ROOT, "%012d", id);
     }
 
     private void mergeReport(CommunityReport report, String targetReportNo) {
@@ -734,7 +984,18 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             applyHandleAction(report.getTargetType(), report.getTargetId(), action.getCode());
             return;
         }
-        if (action == CommunityReportHandleActionEnum.NONE || action == CommunityReportHandleActionEnum.WARN_USER) return;
+        if (action == CommunityReportHandleActionEnum.NONE) return;
+        if (action == CommunityReportHandleActionEnum.WARN_USER) {
+            if (report.getTargetUserId() == null) throw error("trusted_target_user_required");
+            writeModerationResult("report", report.getReportNo(), report.getVersion() + 1,
+                    report.getTargetUserId(), "warn_user", req.getHandleRemark());
+            return;
+        }
+        if (Set.of(CommunityReportHandleActionEnum.MUTE_USER,
+                CommunityReportHandleActionEnum.IP_BLOCK,
+                CommunityReportHandleActionEnum.FREEZE_USER).contains(action)) {
+            requireContextPermission("community:report:risk");
+        }
         if (report.getTargetUserId() == null && action != CommunityReportHandleActionEnum.IP_BLOCK) {
             throw error("trusted_target_user_required");
         }
@@ -788,21 +1049,74 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     }
 
     private void validateTopicCover(String url) {
-        if (StrUtil.isBlank(url) || !url.startsWith("https://")) throw error("topic_cover_url_invalid");
+        if (StrUtil.isBlank(url)) throw error("topic_cover_url_invalid");
+        try {
+            URI uri = URI.create(url);
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || !TOPIC_COVER_HOST.equalsIgnoreCase(uri.getHost())
+                    || StrUtil.isBlank(uri.getPath())) {
+                throw error("topic_cover_url_invalid");
+            }
+        } catch (IllegalArgumentException exception) {
+            throw error("topic_cover_url_invalid");
+        }
+    }
+
+    private void validateTopicDisplayScenes(List<String> scenes) {
+        if (scenes == null || scenes.isEmpty()
+                || scenes.stream().anyMatch(scene -> !TOPIC_DISPLAY_SCENES.contains(scene))) {
+            throw error("topic_display_scene_invalid");
+        }
+    }
+
+    private void ensureUniqueTopicName(String topicName, Long excludeId, String status) {
+        if (!"enabled".equalsIgnoreCase(status)) return;
+        String normalizedName = StrUtil.trim(topicName);
+        List<CommunityTopic> matches = communityExtensionDao.selectTopics(new LambdaQueryWrapper<CommunityTopic>()
+                .eq(CommunityTopic::getTopicName, normalizedName)
+                .eq(CommunityTopic::getStatus, "enabled")
+                .ne(excludeId != null, CommunityTopic::getId, excludeId)
+                .last("LIMIT 1"));
+        if (matches != null && !matches.isEmpty()) throw error("topic_name_duplicate");
     }
 
     private void applyTopic(CommunityTopic entity, CommunityTopicSaveReq req) {
         entity.setTopicName(StrUtil.trim(req.getTopicName()));
         entity.setDescription(StrUtil.trim(req.getDescription()));
         entity.setCoverUrl(req.getCoverUrl());
-        entity.setCoverAuditStatus("pending_machine");
+        // 封面只能来自后台签发上传票据对应的项目 OSS，保存时可直接进入已通过状态。
+        entity.setCoverAuditStatus("approved");
         entity.setDisplayScenes(json(req.getDisplayScenes() == null ? List.of() : req.getDisplayScenes()));
         entity.setRecommended(Boolean.TRUE.equals(req.getRecommended()) ? 1 : 0);
         entity.setSort(req.getSort());
         entity.setStatus(req.getStatus());
     }
 
+    private List<CommunityTopicAdminVO> toTopicAdminVOs(List<CommunityTopic> entities) {
+        if (entities == null || entities.isEmpty()) return List.of();
+        List<Long> topicIds = entities.stream().map(CommunityTopic::getId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, List<CommunityPost>> postsByTopic = topicIds.isEmpty() ? Map.of() : communityPostDao
+                .selectList(new LambdaQueryWrapper<CommunityPost>().in(CommunityPost::getTopicId, topicIds))
+                .stream().filter(item -> item.getTopicId() != null)
+                .collect(Collectors.groupingBy(CommunityPost::getTopicId));
+        Map<String, String> statusLabels = resolveDictLabels("community_topic_status");
+        return entities.stream().map(entity -> {
+            List<CommunityPost> posts = postsByTopic.getOrDefault(entity.getId(), List.of());
+            return toTopicAdminVO(entity, posts,
+                    statusLabels.getOrDefault(entity.getStatus(), entity.getStatus()), false);
+        }).toList();
+    }
+
     private CommunityTopicAdminVO toTopicAdminVO(CommunityTopic entity, boolean withLogs) {
+        List<CommunityPost> posts = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getTopicId, entity.getId()));
+        return toTopicAdminVO(entity, posts,
+                resolveDictLabel("community_topic_status", entity.getStatus()), withLogs);
+    }
+
+    private CommunityTopicAdminVO toTopicAdminVO(CommunityTopic entity, List<CommunityPost> posts,
+                                                   String statusLabel, boolean withLogs) {
         CommunityTopicAdminVO vo = new CommunityTopicAdminVO();
         vo.setId(entity.getId());
         vo.setTopicCode(entity.getTopicCode());
@@ -813,11 +1127,13 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setRecommended(Objects.equals(entity.getRecommended(), 1));
         vo.setSort(entity.getSort());
         vo.setStatus(entity.getStatus());
-        vo.setStatusName(resolveDictLabel("community_topic_status", entity.getStatus()));
-        long contentCount = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
-                .eq(CommunityPost::getTopicId, entity.getId())).size();
+        vo.setStatusName(statusLabel);
+        List<CommunityPost> safePosts = posts == null ? List.of() : posts;
+        long contentCount = safePosts.size();
         vo.setContentCount(contentCount);
-        vo.setHeatValue(contentCount);
+        vo.setHeatValue(safePosts.stream().mapToLong(item ->
+                Optional.ofNullable(item.getLikeCount()).orElse(0)
+                        + Optional.ofNullable(item.getCommentCount()).orElse(0)).sum());
         vo.setVersion(entity.getVersion() == null ? 0 : entity.getVersion());
         vo.setCreateTime(format(entity.getCreateTime()));
         vo.setUpdateTime(format(entity.getUpdateTime()));
@@ -914,6 +1230,27 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         return vo;
     }
 
+    private CommunityConfigItemVO canonicalConfigItem(CommunityConfigItemVO canonical, Object value) {
+        CommunityConfigItemVO vo = new CommunityConfigItemVO();
+        vo.setConfigKey(canonical.getConfigKey());
+        vo.setConfigValue(value);
+        vo.setSectionCode(canonical.getSectionCode());
+        vo.setConfigGroup(canonical.getConfigGroup());
+        vo.setName(canonical.getName());
+        vo.setDescription(canonical.getDescription());
+        vo.setConfigType(canonical.getConfigType());
+        vo.setHighRisk(canonical.getHighRisk());
+        vo.setEditable(canonical.getEditable());
+        vo.setOptionsKey(canonical.getOptionsKey());
+        vo.setSort(canonical.getSort());
+        return vo;
+    }
+
+    private boolean sameConfigValue(Object left, Object right) {
+        if (Objects.equals(left, right)) return true;
+        return Objects.equals(json(left), json(right));
+    }
+
     private CommunityConfigVersionVO toConfigVersionVO(CommunityConfigVersion entity, List<CommunityConfigItemVO> items) {
         CommunityConfigVersionVO vo = new CommunityConfigVersionVO();
         vo.setVersion(entity == null ? 0 : entity.getVersion());
@@ -970,6 +1307,30 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         communityExtensionDao.insertAudit(record);
     }
 
+    private void writeModerationResult(String aggregateType, String aggregateNo, int aggregateVersion,
+                                       Long recipientUserId, String result, String reason) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("recipientUserId", recipientUserId);
+        payload.put("bizNo", aggregateNo);
+        payload.put("result", result);
+        payload.put("reason", reason);
+        writeOutbox("moderation_result", aggregateType, aggregateNo, aggregateVersion, json(payload));
+    }
+
+    private void writeOutbox(String eventType, String aggregateType, String aggregateNo,
+                             int aggregateVersion, String payload) {
+        CommunityEventOutbox event = new CommunityEventOutbox();
+        event.setEventNo("EVT-" + IdUtil.fastSimpleUUID().substring(0, 20).toUpperCase(Locale.ROOT));
+        event.setEventType(eventType);
+        event.setAggregateType(aggregateType);
+        event.setAggregateNo(aggregateNo);
+        event.setAggregateVersion(aggregateVersion);
+        event.setPayload(payload);
+        event.setStatus("pending");
+        event.setRetryCount(0);
+        communityExtensionDao.insertOutbox(event);
+    }
+
     private CommunityExportTaskVO toExportVO(CommunityExportTask entity) {
         CommunityExportTaskVO vo = new CommunityExportTaskVO();
         vo.setId(entity.getId());
@@ -1015,20 +1376,32 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityReportContextVO vo = new CommunityReportContextVO();
         vo.setSourceNo(report.getTargetId());
         if (CommunityReportTargetTypeEnum.POST.getCode().equals(report.getTargetType())) {
-            CommunityPost post = requirePostRef(report.getTargetId());
-            vo.setContent(post.getContent());
-            vo.setSummary(StrUtil.maxLength(post.getContent(), 100));
-            vo.setImageUrls(readStringList(post.getImageUrls()));
-            vo.setAvailable(true);
+            try {
+                CommunityPost post = requirePostRef(report.getTargetId());
+                vo.setContent(post.getContent());
+                vo.setSummary(StrUtil.maxLength(post.getContent(), 100));
+                vo.setImageUrls(readStringList(post.getImageUrls()));
+                vo.setAvailable(true);
+            } catch (BusinessException exception) {
+                vo.setAvailable(false);
+                vo.setUnavailableReason("content_not_found");
+            }
         } else if (CommunityReportTargetTypeEnum.COMMENT.getCode().equals(report.getTargetType())) {
-            CommunityComment comment = requireCommentRef(report.getTargetId());
-            vo.setContent(comment.getContent());
-            vo.setSummary(StrUtil.maxLength(comment.getContent(), 100));
-            vo.setAvailable(true);
+            try {
+                CommunityComment comment = requireCommentRef(report.getTargetId());
+                vo.setContent(comment.getContent());
+                vo.setSummary(StrUtil.maxLength(comment.getContent(), 100));
+                vo.setAvailable(true);
+            } catch (BusinessException exception) {
+                vo.setAvailable(false);
+                vo.setUnavailableReason("comment_not_found");
+            }
         } else if (CommunityReportTargetTypeEnum.CHAT.getCode().equals(report.getTargetType())) {
             vo.setConversationType(report.getSourceType());
-            vo.setContent(report.getContextJson());
-            vo.setAvailable(StrUtil.isNotBlank(report.getContextJson()));
+            String evidence = StrUtil.blankToDefault(report.getEvidenceJson(), report.getContextJson());
+            vo.setContent(evidence);
+            vo.setSummary(StrUtil.maxLength(evidence, 100));
+            vo.setAvailable(StrUtil.isNotBlank(evidence));
             if (!Boolean.TRUE.equals(vo.getAvailable())) vo.setUnavailableReason("chat_context_unavailable");
         } else {
             vo.setSummary(report.getContextJson());
@@ -1082,8 +1455,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
 
         List<Long> authorIds = entities.stream().map(CommunityPost::getAuthorId)
                 .filter(Objects::nonNull).distinct().toList();
-        Map<Long, SysUser> authors = authorIds.isEmpty() ? Map.of() : userDao.selectByIds(authorIds).stream()
-                .collect(Collectors.toMap(SysUser::getId, item -> item, (left, right) -> left));
+        Map<Long, AppUser> authors = authorIds.isEmpty() ? Map.of() : appUserDao.selectByIds(authorIds).stream()
+                .collect(Collectors.toMap(AppUser::getId, item -> item, (left, right) -> left));
 
         List<Long> topicIds = entities.stream().map(CommunityPost::getTopicId)
                 .filter(Objects::nonNull).distinct().toList();
@@ -1122,19 +1495,20 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     }
 
     private CommunityPostAdminVO toPostAdminVO(CommunityPost entity) {
-        SysUser author = userDao.selectById(entity.getAuthorId());
+        AppUser author = appUserDao.selectById(entity.getAuthorId());
         CommunityTopic topic = entity.getTopicId() == null ? null : communityExtensionDao.selectTopicById(entity.getTopicId());
         return toPostAdminVO(entity, author, topic,
                 resolveDictLabel("community_content_status", entity.getStatus()),
                 resolveDictLabel("community_machine_result", entity.getMachineResult()), true);
     }
 
-    private CommunityPostAdminVO toPostAdminVO(CommunityPost entity, SysUser author, CommunityTopic topic,
+    private CommunityPostAdminVO toPostAdminVO(CommunityPost entity, AppUser author, CommunityTopic topic,
                                                 String statusLabel, String machineLabel, boolean includeAuditLogs) {
         CommunityPostAdminVO vo = new CommunityPostAdminVO();
         vo.setId(entity.getId());
         vo.setPostNo(entity.getPostNo());
         vo.setAuthorId(entity.getAuthorId());
+        vo.setAuthorNo(userNo(author, entity.getAuthorId()));
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorPhone(author != null ? DesensitizeUtil.maskPhone(author.getPhone()) : null);
         vo.setPostType(entity.getPostType());
@@ -1148,8 +1522,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setTopicId(entity.getTopicId());
         vo.setTopicName(topic == null ? entity.getTopicNameSnapshot() : topic.getTopicName());
         vo.setTopicCode(entity.getTopicCode());
-        vo.setDistributionScenes(entity.getSourceScene() == null ? List.of() : List.of(entity.getSourceScene()));
-        vo.setReadCount(0);
+        vo.setDistributionScenes(readStringList(entity.getDistributionScenes()));
+        vo.setReadCount(Optional.ofNullable(entity.getReadCount()).orElse(0));
         vo.setLikeCount(entity.getLikeCount());
         vo.setCommentCount(entity.getCommentCount());
         vo.setReportCount(entity.getReportCount());
@@ -1170,21 +1544,77 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         return vo;
     }
 
+    private List<CommunityCommentAdminVO> toCommentAdminVOs(List<CommunityComment> entities) {
+        if (entities == null || entities.isEmpty()) return List.of();
+
+        List<Long> userIds = entities.stream()
+                .flatMap(entity -> java.util.stream.Stream.of(entity.getAuthorId(), entity.getReplyUserId()))
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, AppUser> users = userIds.isEmpty() ? Map.of() : appUserDao.selectByIds(userIds).stream()
+                .collect(Collectors.toMap(AppUser::getId, item -> item, (left, right) -> left));
+
+        List<Long> postIds = entities.stream().map(CommunityComment::getPostId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, CommunityPost> posts = postIds.isEmpty() ? Map.of() : communityPostDao
+                .selectList(new LambdaQueryWrapper<CommunityPost>().in(CommunityPost::getId, postIds))
+                .stream().collect(Collectors.toMap(CommunityPost::getId, item -> item, (left, right) -> left));
+
+        List<Long> parentIds = entities.stream().map(CommunityComment::getParentCommentId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, CommunityComment> parents = parentIds.isEmpty() ? Map.of() : communityCommentDao
+                .selectList(new LambdaQueryWrapper<CommunityComment>().in(CommunityComment::getId, parentIds))
+                .stream().collect(Collectors.toMap(CommunityComment::getId, item -> item, (left, right) -> left));
+
+        Map<String, String> commentStatusLabels = resolveDictLabels("community_comment_status");
+        Map<String, String> postStatusLabels = resolveDictLabels("community_content_status");
+        return entities.stream().map(entity -> toCommentAdminVO(
+                entity,
+                users.get(entity.getAuthorId()),
+                users.get(entity.getReplyUserId()),
+                posts.get(entity.getPostId()),
+                parents.get(entity.getParentCommentId()),
+                commentStatusLabels.getOrDefault(entity.getStatus(), entity.getStatus()),
+                posts.containsKey(entity.getPostId())
+                        ? postStatusLabels.getOrDefault(posts.get(entity.getPostId()).getStatus(), posts.get(entity.getPostId()).getStatus())
+                        : null,
+                false
+        )).toList();
+    }
+
     private CommunityCommentAdminVO toCommentAdminVO(CommunityComment entity) {
+        AppUser author = appUserDao.selectById(entity.getAuthorId());
+        AppUser replyUser = entity.getReplyUserId() != null ? appUserDao.selectById(entity.getReplyUserId()) : null;
+        CommunityPost post = communityPostDao.selectById(entity.getPostId());
+        CommunityComment parent = entity.getParentCommentId() == null ? null : communityCommentDao.selectById(entity.getParentCommentId());
+        return toCommentAdminVO(entity, author, replyUser, post, parent,
+                resolveDictLabel("community_comment_status", entity.getStatus()),
+                post == null ? null : resolveDictLabel("community_content_status", post.getStatus()), true);
+    }
+
+    private CommunityCommentAdminVO toCommentAdminVO(CommunityComment entity, AppUser author, AppUser replyUser,
+                                                       CommunityPost post, CommunityComment parent,
+                                                       String statusLabel, String postStatusLabel,
+                                                       boolean includeAuditLogs) {
         CommunityCommentAdminVO vo = new CommunityCommentAdminVO();
-        SysUser author = userDao.selectById(entity.getAuthorId());
-        SysUser replyUser = entity.getReplyUserId() != null ? userDao.selectById(entity.getReplyUserId()) : null;
         vo.setId(entity.getId());
         vo.setCommentNo(entity.getCommentNo());
         vo.setPostId(entity.getPostId());
-        CommunityPost post = communityPostDao.selectById(entity.getPostId());
+        vo.setPostAvailable(post != null);
         vo.setPostNo(post == null ? null : post.getPostNo());
-        vo.setPostSummary(post == null ? null : StrUtil.maxLength(post.getContent(), 80));
+        vo.setPostType(post == null ? null : post.getPostType());
+        vo.setPostTitle(post == null ? null : post.getTitle());
+        vo.setPostSummary(post == null ? null : StrUtil.maxLength(
+                StrUtil.blankToDefault(post.getTitle(), post.getContent()), 80));
+        vo.setPostContent(post == null ? null : post.getContent());
+        vo.setPostImageUrls(post == null ? List.of() : readStringList(post.getImageUrls()));
+        vo.setPostSourceScene(post == null ? null : post.getSourceScene());
+        vo.setPostStatus(post == null ? null : post.getStatus());
+        vo.setPostStatusName(postStatusLabel);
         vo.setAuthorId(entity.getAuthorId());
+        vo.setAuthorNo(userNo(author, entity.getAuthorId()));
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorPhone(author != null ? DesensitizeUtil.maskPhone(author.getPhone()) : null);
         vo.setParentCommentId(entity.getParentCommentId());
-        CommunityComment parent = entity.getParentCommentId() == null ? null : communityCommentDao.selectById(entity.getParentCommentId());
         vo.setParentContent(parent == null ? null : parent.getContent());
         vo.setReplyUserId(entity.getReplyUserId());
         vo.setReplyUserName(replyUser != null ? replyUser.getNickname() : null);
@@ -1192,51 +1622,100 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setLikeCount(entity.getLikeCount());
         vo.setReportCount(entity.getReportCount());
         vo.setStatus(entity.getStatus());
-        vo.setStatusName(resolveDictLabel("community_comment_status", entity.getStatus()));
+        vo.setStatusName(statusLabel);
         vo.setAuditStatus(entity.getAuditStatus());
         vo.setAuditRemark(entity.getAuditRemark());
         vo.setMachineResult(entity.getMachineResult());
         vo.setVersion(entity.getVersion() == null ? 0 : entity.getVersion());
-        vo.setAuditLogs(auditLogs("comment", entity.getId()));
+        vo.setAuditLogs(includeAuditLogs ? auditLogs("comment", entity.getId()) : List.of());
         vo.setCreateTime(entity.getCreateTime() != null ? entity.getCreateTime().format(FMT) : null);
         vo.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);
         return vo;
     }
 
+    private List<CommunityReportAdminVO> toReportAdminVOs(List<CommunityReport> entities) {
+        if (entities == null || entities.isEmpty()) return List.of();
+
+        List<Long> appUserIds = entities.stream()
+                .flatMap(entity -> java.util.stream.Stream.of(entity.getReporterId(), entity.getTargetUserId()))
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, AppUser> appUsers = appUserIds.isEmpty() ? Map.of() : appUserDao.selectByIds(appUserIds).stream()
+                .collect(Collectors.toMap(AppUser::getId, item -> item, (left, right) -> left));
+
+        List<Long> handlerIds = entities.stream().map(CommunityReport::getHandlerId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, SysUser> handlers = handlerIds.isEmpty() ? Map.of() : userDao.selectByIds(handlerIds).stream()
+                .collect(Collectors.toMap(SysUser::getId, item -> item, (left, right) -> left));
+
+        List<Long> mergedIds = entities.stream().map(CommunityReport::getMergedToReportId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, String> mergedReportNos = mergedIds.isEmpty() ? Map.of() : communityReportDao
+                .selectList(new LambdaQueryWrapper<CommunityReport>().in(CommunityReport::getId, mergedIds))
+                .stream().collect(Collectors.toMap(CommunityReport::getId, CommunityReport::getReportNo,
+                        (left, right) -> left));
+
+        Map<String, String> reasonLabels = resolveDictLabels("community_report_reason");
+        Map<String, String> statusLabels = resolveDictLabels("community_report_status");
+        return entities.stream().map(entity -> toReportAdminVO(
+                entity,
+                appUsers.get(entity.getReporterId()),
+                entity.getTargetUserId() == null ? null : appUsers.get(entity.getTargetUserId()),
+                entity.getHandlerId() == null ? null : handlers.get(entity.getHandlerId()),
+                entity.getMergedToReportId() == null ? null : mergedReportNos.get(entity.getMergedToReportId()),
+                reasonLabels.getOrDefault(entity.getReasonCode(), entity.getReasonCode()),
+                statusLabels.getOrDefault(entity.getStatus(), entity.getStatus()),
+                false
+        )).toList();
+    }
+
     private CommunityReportAdminVO toReportAdminVO(CommunityReport entity) {
-        CommunityReportAdminVO vo = new CommunityReportAdminVO();
-        SysUser reporter = userDao.selectById(entity.getReporterId());
+        AppUser reporter = appUserDao.selectById(entity.getReporterId());
+        AppUser targetUser = entity.getTargetUserId() == null ? null : appUserDao.selectById(entity.getTargetUserId());
         SysUser handler = entity.getHandlerId() != null ? userDao.selectById(entity.getHandlerId()) : null;
+        String mergedReportNo = null;
+        if (entity.getMergedToReportId() != null) {
+            CommunityReport merged = communityReportDao.selectById(entity.getMergedToReportId());
+            mergedReportNo = merged == null ? null : merged.getReportNo();
+        }
+        return toReportAdminVO(entity, reporter, targetUser, handler, mergedReportNo,
+                resolveDictLabel("community_report_reason", entity.getReasonCode()),
+                resolveDictLabel("community_report_status", entity.getStatus()), true);
+    }
+
+    private CommunityReportAdminVO toReportAdminVO(CommunityReport entity, AppUser reporter, AppUser targetUser,
+                                                     SysUser handler, String mergedReportNo,
+                                                     String reasonLabel, String statusLabel,
+                                                     boolean includeDetail) {
+        CommunityReportAdminVO vo = new CommunityReportAdminVO();
         vo.setId(entity.getId());
         vo.setReportNo(entity.getReportNo());
         vo.setReporterId(entity.getReporterId());
+        vo.setReporterNo(userNo(reporter, entity.getReporterId()));
         vo.setReporterName(reporter != null ? reporter.getNickname() : null);
         vo.setReporterPhone(reporter != null ? DesensitizeUtil.maskPhone(reporter.getPhone()) : null);
         vo.setTargetType(entity.getTargetType());
         vo.setTargetId(entity.getTargetId());
         vo.setTargetNo(entity.getTargetId());
         vo.setTargetUserId(entity.getTargetUserId());
-        SysUser targetUser = entity.getTargetUserId() == null ? null : userDao.selectById(entity.getTargetUserId());
+        vo.setTargetUserNo(userNo(targetUser, entity.getTargetUserId()));
         vo.setTargetUserName(targetUser == null ? null : targetUser.getNickname());
         vo.setReasonCode(entity.getReasonCode());
-        vo.setReasonLabel(resolveDictLabel("community_report_reason", entity.getReasonCode()));
+        vo.setReasonLabel(reasonLabel);
         vo.setExtraText(entity.getExtraText());
         vo.setStatus(entity.getStatus());
-        vo.setStatusName(resolveDictLabel("community_report_status", entity.getStatus()));
+        vo.setStatusName(statusLabel);
+        vo.setReplyStatus(StrUtil.blankToDefault(entity.getReplyStatus(), "pending"));
         vo.setHandleAction(entity.getHandleAction());
         vo.setPunishAction(entity.getPunishmentAction());
         vo.setHandleRemark(entity.getHandleRemark());
         vo.setHandlerId(entity.getHandlerId());
         vo.setHandlerName(handler != null ? handler.getNickname() : null);
-        if (entity.getMergedToReportId() != null) {
-            CommunityReport merged = communityReportDao.selectById(entity.getMergedToReportId());
-            vo.setMergedIntoReportNo(merged == null ? null : merged.getReportNo());
-        }
+        vo.setMergedIntoReportNo(mergedReportNo);
         vo.setRiskIpMasked(maskIp(entity.getTargetIp()));
         vo.setVersion(entity.getVersion() == null ? 0 : entity.getVersion());
         vo.setHandleTime(format(entity.getHandlerTime()));
-        vo.setContext(resolveReportContext(entity));
-        vo.setAuditLogs(auditLogs("report", entity.getId()));
+        vo.setContext(includeDetail ? resolveReportContext(entity) : null);
+        vo.setAuditLogs(includeDetail ? auditLogs("report", entity.getId()) : List.of());
         vo.setCreateTime(entity.getCreateTime() != null ? entity.getCreateTime().format(FMT) : null);
         vo.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);
         return vo;

@@ -155,11 +155,10 @@ async function main() {
   await step('POST /miniapp/profile/init-step birthday', () => http('POST', '/miniapp/profile/init-step', { step: 2, birthday: '1996-07-14' }, token));
   await step('POST /miniapp/profile/init-step identity', () => http('POST', '/miniapp/profile/init-step', { step: 3, identity }, token));
   await step('POST /miniapp/profile/init-step education', () => http('POST', '/miniapp/profile/init-step', { step: 4, educationLevel }, token));
-  await step('POST /miniapp/profile/init-step location', () => http('POST', '/miniapp/profile/init-step', {
+  await step('POST /miniapp/profile/init-step two-level location', () => http('POST', '/miniapp/profile/init-step', {
     step: 5,
     locationProvince: loc.province,
     locationCity: loc.city,
-    locationDistrict: loc.district,
   }, token));
 
   await step('GET /miniapp/profile/basic', () => http('GET', '/miniapp/profile/basic', undefined, token));
@@ -177,16 +176,26 @@ async function main() {
     maritalStatus,
     locationProvince: loc.province,
     locationCity: loc.city,
-    locationDistrict: loc.district,
     hometownProvince: loc.province,
     hometownCity: loc.city,
-    hometownDistrict: loc.district,
     company: `接口测试公司${stamp.slice(-4)}`,
     schoolName: undefined,
     school: `接口测试大学${stamp.slice(-4)}`,
     major: '软件工程',
   }, token));
-  await step('GET /miniapp/profile/basic after save', () => http('GET', '/miniapp/profile/basic', undefined, token));
+  await step('GET /miniapp/profile/basic after save', async () => {
+    const profile = await http('GET', '/miniapp/profile/basic', undefined, token);
+    if (profile.hometownProvince !== loc.province || profile.hometownCity !== loc.city) {
+      throw new Error(`hometown two-level values not saved: ${JSON.stringify(profile)}`);
+    }
+    if (profile.locationDistrict || profile.hometownDistrict) {
+      throw new Error(`two-level region districts must remain empty: ${JSON.stringify(profile)}`);
+    }
+    if (!profile.basicProfileCompleted) {
+      throw new Error(`two-level region must not block basic profile completion: ${JSON.stringify(profile.missingRequiredFields)}`);
+    }
+    return profile;
+  });
 
   await step('GET /miniapp/profile/home-detail before audits', () => http('GET', '/miniapp/profile/home-detail', undefined, token));
 
@@ -264,13 +273,33 @@ async function main() {
   await step('GET /miniapp/profile/albums after changes', () => http('GET', '/miniapp/profile/albums', undefined, token));
 
   await step('GET /miniapp/profile/background', () => http('GET', '/miniapp/profile/background', undefined, token));
-  await step('PUT /miniapp/profile/background', () => http('PUT', '/miniapp/profile/background', {
+  const background = await step('PUT /miniapp/profile/background', () => http('PUT', '/miniapp/profile/background', {
     mediaUrl: `https://example.test/prd01/${stamp}/profile-bg.jpg`,
     thumbUrl: `https://example.test/prd01/${stamp}/profile-bg-thumb.jpg`,
     fileSizeBytes: 512000,
     sortOrder: 1,
   }, token));
+  await step('POST /admin/moderation/photos/{id}/audit background approve', () => http(
+    'POST',
+    `/admin/moderation/photos/${background.mediaId}/audit`,
+    { action: 'APPROVE' },
+    adminToken,
+  ));
+  await step('GET /miniapp/profile/background after approve', async () => {
+    const current = await http('GET', '/miniapp/profile/background', undefined, token);
+    if (current?.mediaId !== background.mediaId || current?.auditStatus !== 'APPROVED') {
+      throw new Error(`background approve not effective: ${JSON.stringify(current)}`);
+    }
+    return current;
+  });
   await step('DELETE /miniapp/profile/background', () => http('DELETE', '/miniapp/profile/background', undefined, token));
+  await step('GET /miniapp/profile/background after delete', async () => {
+    const current = await http('GET', '/miniapp/profile/background', undefined, token);
+    if (current?.mediaId !== background.mediaId || current?.auditStatus !== 'EXPIRED') {
+      throw new Error(`background delete not expired: ${JSON.stringify(current)}`);
+    }
+    return current;
+  });
   await step('PUT /miniapp/profile/background keep active', () => http('PUT', '/miniapp/profile/background', {
     mediaUrl: `https://example.test/prd01/${stamp}/profile-bg-active.jpg`,
     thumbUrl: `https://example.test/prd01/${stamp}/profile-bg-active-thumb.jpg`,

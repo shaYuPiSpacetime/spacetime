@@ -437,6 +437,23 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("热门话题只展示封面审核通过且配置热门场景的话题")
+    void getTopicHome_shouldFilterByCoverAuditAndDisplayScene() {
+        CommunityTopic hot = formalTopic(topic);
+        CommunityTopic publishOnly = formalTopic(topic(11L, "仅发布可选", 2, "发布页话题"));
+        publishOnly.setDisplayScenes("[\"publish\"]");
+        CommunityTopic pendingCover = formalTopic(topic(12L, "封面待审", 3, "待审核封面"));
+        pendingCover.setCoverAuditStatus("pending_machine");
+        when(communityExtensionDao.selectTopics(any())).thenReturn(List.of(hot, publishOnly, pendingCover));
+        when(communityPostDao.selectList(any())).thenReturn(List.of());
+
+        var result = communityService.getTopicHome(null);
+
+        assertThat(result.getFeatured().getId()).isEqualTo(10L);
+        assertThat(result.getRelated()).isEmpty();
+    }
+
+    @Test
     @DisplayName("话题详情-统计动态数和参与人数")
     void getTopicDetail_shouldCountPostsAndParticipants() {
         CommunityPost first = post(100L, 10L, 2L, "第一条", 3, 1,
@@ -536,6 +553,8 @@ class CommunityServiceImplTest {
         value.setSort(source.getDictSort());
         value.setRecommended(source.getDictSort() != null && source.getDictSort() == 1 ? 1 : 0);
         value.setStatus("enabled");
+        value.setCoverAuditStatus("approved");
+        value.setDisplayScenes("[\"hot\",\"topic_list\",\"publish\"]");
         value.setVersion(0);
         return value;
     }

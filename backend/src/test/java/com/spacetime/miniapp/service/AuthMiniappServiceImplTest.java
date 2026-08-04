@@ -162,6 +162,8 @@ class AuthMiniappServiceImplTest {
         WechatLoginVO vo = authService.phoneLogin(req);
 
         assertThat(vo.getUserId()).isEqualTo(9L);
+        assertThat(vo.getNickname()).isEqualTo("用户0009");
+        assertThat(user.getNickname()).isEqualTo("用户0009");
         assertThat(vo.getMaskedPhone()).isEqualTo("138****8000");
         verify(redisTemplate).delete("miniapp:auth:sms:code:13800138000");
     }

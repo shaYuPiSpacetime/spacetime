@@ -15,6 +15,8 @@ public class BasicProfileFieldVO {
     private Boolean visible;
     /** 是否必填；只有展示字段才可能必填 */
     private Boolean required;
+    /** 必填模式：fixed 固定必填、conditional 按地区层级条件必填、configurable 可配置 */
+    private String requiredMode;
     /** 移动端是否允许编辑 */
     private Boolean editable;
     /** 字典类型；非字典字段为空 */

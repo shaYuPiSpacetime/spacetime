@@ -30,6 +30,8 @@ import java.util.Map;
 public class Prd01FieldConfigResolver {
 
     static final String PROFILE_FIELD_CONFIG_KEY = "prd01.profile.fieldSettings";
+    private static final List<String> TWO_LEVEL_REGION_DISTRICT_FIELDS =
+            List.of("locationDistrict", "hometownDistrict");
     private static final String MIN_AGE_KEY = "prd01.access.minAge";
     private static final String MAX_AGE_KEY = "prd01.access.maxAge";
 
@@ -52,7 +54,7 @@ public class Prd01FieldConfigResolver {
             field("occupation", "occupation", "职业", "dict", true, ProfileDictType.OCCUPATION, null, null, null, null),
             field("company", "company", "公司", "input", true, null, null, null, 2, 50),
             field("annualIncome", "annualIncomeRange", "年收入", "dict", true, ProfileDictType.ANNUAL_INCOME, null, null, null, null),
-            field("school", "school", "学校", "input", true, null, null, null, 2, 50),
+            field("school", "school", "毕业院校", "input", true, null, null, null, 2, 50),
             field("major", "major", "专业", "input", true, null, null, null, null, 100),
             field("maritalStatus", "maritalStatus", "婚姻状况", "dict", true, ProfileDictType.MARITAL_STATUS, null, null, null, null)
     );
@@ -96,8 +98,10 @@ public class Prd01FieldConfigResolver {
             item.setFieldId(definition.fieldId);
             item.setLabel(definition.label);
             item.setFieldType(definition.fieldType);
-            item.setVisible(state.visible);
-            item.setRequired(state.visible && state.required);
+            boolean districtField = TWO_LEVEL_REGION_DISTRICT_FIELDS.contains(definition.fieldId);
+            item.setVisible(!districtField && state.visible);
+            item.setRequired(!districtField && state.visible && state.required);
+            item.setRequiredMode(districtField ? "fixed" : state.requiredMode);
             item.setEditable(definition.editable);
             item.setDictType(definition.dictType);
             item.setMinValue(definition.minValue);
@@ -115,6 +119,9 @@ public class Prd01FieldConfigResolver {
         for (BasicProfileFieldVO setting : settings) {
             if (Boolean.TRUE.equals(setting.getVisible())
                     && Boolean.TRUE.equals(setting.getRequired())
+                    && !"locationDistrict".equals(setting.getFieldId())
+                    && !"hometownDistrict".equals(setting.getFieldId())
+                    && !"conditional".equalsIgnoreCase(setting.getRequiredMode())
                     && !isFieldFilled(user, setting.getFieldId())) {
                 result.add(setting.getFieldId());
             }
@@ -253,7 +260,7 @@ public class Prd01FieldConfigResolver {
     }
 
     private InitFieldRule locationRule(Map<String, FieldState> states) {
-        List<String> submitFields = List.of("locationProvince", "locationCity", "locationDistrict");
+        List<String> submitFields = List.of("locationProvince", "locationCity");
         List<String> requiredSubmitFields = new ArrayList<>();
         boolean visible = false;
         for (String field : submitFields) {
@@ -300,7 +307,10 @@ public class Prd01FieldConfigResolver {
                 FieldState fallback = defaultState(fieldId);
                 boolean visible = row.has("visible") ? row.path("visible").asBoolean(fallback.visible) : fallback.visible;
                 boolean required = row.has("required") ? row.path("required").asBoolean(fallback.required) : fallback.required;
-                states.put(fieldId, new FieldState(visible, required));
+                String requiredMode = row.has("requiredMode")
+                        ? row.path("requiredMode").asText(fallback.requiredMode)
+                        : fallback.requiredMode;
+                states.put(fieldId, new FieldState(visible, required, requiredMode));
             }
         } catch (Exception ignored) {
             return states;
@@ -324,12 +334,13 @@ public class Prd01FieldConfigResolver {
     private FieldState defaultState(String fieldId) {
         return switch (fieldId) {
             case "gender", "birthday", "identity", "identityType", "educationLevel", "locationProvince", "locationCity" ->
-                    new FieldState(true, true);
-            case "nickname" -> new FieldState(true, true);
-            case "locationDistrict", "height", "weight", "hometownProvince", "hometownCity", "hometownDistrict",
+                    new FieldState(true, true, "fixed");
+            case "nickname" -> new FieldState(true, true, "configurable");
+            case "height", "weight", "hometownProvince", "hometownCity",
                     "industry", "occupation", "company", "annualIncome", "annualIncomeRange", "school", "major", "maritalStatus" ->
-                    new FieldState(true, false);
-            default -> new FieldState(false, false);
+                    new FieldState(true, false, "configurable");
+            case "locationDistrict", "hometownDistrict" -> new FieldState(false, false, "fixed");
+            default -> new FieldState(false, false, "configurable");
         };
     }
 
@@ -395,7 +406,7 @@ public class Prd01FieldConfigResolver {
                 minValue, maxValue, minLength, maxLength, aliases);
     }
 
-    private record FieldState(boolean visible, boolean required) {
+    private record FieldState(boolean visible, boolean required, String requiredMode) {
     }
 
     record AgeRange(int minAge, int maxAge) {

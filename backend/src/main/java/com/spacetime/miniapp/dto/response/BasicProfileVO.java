@@ -13,6 +13,7 @@ public class BasicProfileVO {
     private String gender;
     private String birthday;
     private Integer age;
+    private String zodiac;
     private Integer height;
     private Integer weight;
     /** 以下字典字段返回 code，中文通过资料字典接口展示 */

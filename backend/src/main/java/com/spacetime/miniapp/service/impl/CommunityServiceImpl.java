@@ -91,7 +91,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     public CommunityTopicHomeVO getTopicHome(Long userId) {
-        List<SysDictData> topics = enabledTopics();
+        List<SysDictData> topics = enabledTopics("hot");
         CommunityTopicHomeVO result = new CommunityTopicHomeVO();
         if (topics.isEmpty()) {
             result.setRelated(List.of());
@@ -111,7 +111,7 @@ public class CommunityServiceImpl implements CommunityService {
     public Page<CommunityTopicCardVO> getTopics(int page, int size) {
         int safePage = Math.max(1, page);
         int safeSize = Math.max(1, Math.min(size, 50));
-        List<SysDictData> topics = enabledTopics();
+        List<SysDictData> topics = enabledTopics("topic_list");
         Map<Long, List<CommunityPost>> postsByTopic = publishedPostsByTopic();
         int start = Math.min((safePage - 1) * safeSize, topics.size());
         int end = Math.min(start + safeSize, topics.size());
@@ -125,7 +125,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     public CommunityTopicDetailVO getTopicDetail(Long topicId) {
-        SysDictData topic = requireTopicEntity(topicId);
+        SysDictData topic = requireTopicForScene(topicId, "topic_list");
         List<CommunityPost> posts = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
                 .eq(CommunityPost::getTopicId, topicId)
                 .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode()));
@@ -147,7 +147,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     public Page<CommunityPostCardVO> getTopicPosts(Long userId, Long topicId, String sort, int page, int size) {
-        requireTopicEntity(topicId);
+        requireTopicForScene(topicId, "topic_list");
         int safePage = Math.max(1, page);
         int safeSize = Math.max(1, Math.min(size, 100));
         String normalizedSort = StrUtil.blankToDefault(sort, "HOT").trim().toUpperCase(Locale.ROOT);
@@ -1104,7 +1104,7 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setReportEntryEnabled(requiredConfigBool(configMap, CommunityConfigKeys.REPORT_ENTRY_ENABLED));
         vo.setHomeTabs(mobileEntryConfigDao.selectEnabledByPageCode(MobilePageCodeEnum.COMMUNITY_HOME_TAB.getCode())
                 .stream().map(this::toMiniappEntry).toList());
-        vo.setTopics(toTopicOptions(enabledTopics()));
+        vo.setTopics(toTopicOptions(enabledTopics("publish")));
         vo.setReportReasons(toDictOptions(dictDataDao.selectByDictType("community_report_reason")));
         return vo;
     }
@@ -1547,12 +1547,18 @@ public class CommunityServiceImpl implements CommunityService {
                 }).toList();
     }
 
-    private List<SysDictData> enabledTopics() {
+    private List<SysDictData> enabledTopics(String displayScene) {
         List<CommunityTopic> formalTopics = communityExtensionDao.selectTopics(new LambdaQueryWrapper<CommunityTopic>()
                 .eq(CommunityTopic::getStatus, "enabled")
+                .eq(CommunityTopic::getCoverAuditStatus, "approved")
                 .orderByDesc(CommunityTopic::getRecommended)
                 .orderByAsc(CommunityTopic::getSort));
-        return formalTopics == null ? List.of() : formalTopics.stream().map(this::toLegacyTopic).toList();
+        return formalTopics == null ? List.of() : formalTopics.stream()
+                .filter(topic -> "enabled".equalsIgnoreCase(topic.getStatus()))
+                .filter(topic -> "approved".equalsIgnoreCase(topic.getCoverAuditStatus()))
+                .filter(topic -> parseJsonList(topic.getDisplayScenes()).contains(displayScene))
+                .map(this::toLegacyTopic)
+                .toList();
     }
 
     private Map<Long, List<CommunityPost>> publishedPostsByTopic() {
@@ -1701,12 +1707,23 @@ public class CommunityServiceImpl implements CommunityService {
      * @param topicId 话题ID
      */
     private void requireTopic(Long topicId) {
-        requireTopicEntity(topicId);
+        requireTopicForScene(topicId, "publish");
     }
 
     private SysDictData requireTopicEntity(Long topicId) {
         CommunityTopic topic = topicId == null ? null : communityExtensionDao.selectTopicById(topicId);
-        if (topic == null || !"enabled".equalsIgnoreCase(topic.getStatus())) {
+        if (topic == null || !"enabled".equalsIgnoreCase(topic.getStatus())
+                || !"approved".equalsIgnoreCase(topic.getCoverAuditStatus())) {
+            throw error("topic_not_found");
+        }
+        return toLegacyTopic(topic);
+    }
+
+    private SysDictData requireTopicForScene(Long topicId, String displayScene) {
+        CommunityTopic topic = topicId == null ? null : communityExtensionDao.selectTopicById(topicId);
+        if (topic == null || !"enabled".equalsIgnoreCase(topic.getStatus())
+                || !"approved".equalsIgnoreCase(topic.getCoverAuditStatus())
+                || !parseJsonList(topic.getDisplayScenes()).contains(displayScene)) {
             throw error("topic_not_found");
         }
         return toLegacyTopic(topic);

@@ -43,9 +43,11 @@ export default function CommunityReportsPage() {
   const [replyReporter, setReplyReporter] = useState(true);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const canRiskHandle = hasAnyPermission('community:report:risk');
   const configuredResults = metaOptions(meta, 'reportResult');
   const resultOptions = configuredResults.length ? configuredResults : metaOptions(meta, 'reportStatus').filter((item) => ['valid', 'invalid', 'merged'].includes(item.code));
-  const punish = metaOptions(meta, 'punishAction').find((item) => item.code === punishAction);
+  const punishOptions = metaOptions(meta, 'punishAction').filter((item) => canRiskHandle || !['mute_user', 'ip_block', 'freeze_user'].includes(item.code));
+  const punish = punishOptions.find((item) => item.code === punishAction);
   const muteSelected = Boolean(punish?.extra?.muteRequired) || punishAction === 'mute_user';
   const ipBlockSelected = Boolean(punish?.extra?.ipRequired) || punishAction === 'ip_block';
   const highRisk = punish?.tone === 'danger' || Boolean(punish?.extra?.highRisk) || ['block_content', 'block_comment', 'mute_user', 'ip_block', 'freeze_user'].includes(punishAction);
@@ -135,6 +137,8 @@ export default function CommunityReportsPage() {
 
   const canHandle = hasAnyPermission('community:report:handle');
   const canExport = hasAnyPermission('community:export:create');
+  const reportEditable = Boolean(current && ['pending', 'processing'].includes(current.status));
+  const canHandleCurrent = canHandle && reportEditable;
 
   return (
     <CommunityPage>
@@ -156,20 +160,20 @@ export default function CommunityReportsPage() {
       </TableFrame>
       <PageFooter current={list.query.page} total={list.pageData.total} pageSize={list.query.size} onChange={list.setPage} onPageSizeChange={list.setPageSize} />
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="举报详情" description={metaCopy(meta, 'report_detail_description')} className="w-[760px]" footer={canHandle ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDrawerOpen(false)}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>保存处理</Button></div> : undefined}>
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="举报详情" description={metaCopy(meta, 'report_detail_description')} className="w-[760px]" footer={canHandleCurrent ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDrawerOpen(false)}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>保存处理</Button></div> : undefined}>
         {detailLoading || !current ? <div className="py-20 text-center text-sm text-slate-400">加载中</div> : <div className="space-y-4">
           <DetailGrid items={[{ label: '举报编号', value: current.reportNo || current.id }, { label: '举报对象', value: `${metaLabel(meta, 'reportTargetType', current.targetType)} / ${current.targetNo || current.targetId}` }, { label: '举报人', value: `${current.reporterNo || current.reporterId} / ${current.reporterName || '-'}` }, { label: '被举报人', value: `${current.targetUserNo || current.targetUserId || '-'} / ${current.targetUserName || '-'}` }, { label: '举报原因', value: metaLabel(meta, 'reportReason', current.reasonCode, current.reasonLabel) }, { label: '当前状态', value: statusPill(meta, 'reportStatus', current.status, current.statusName) }]} />
           <DetailSection title="举报上下文">{current.context?.available === false ? <div className="rounded-lg bg-amber-50 p-3 text-amber-700">{current.context.unavailableReason || metaCopy(meta, 'report_context_unavailable')}</div> : <div className="space-y-2"><p className="whitespace-pre-wrap">{current.context?.content || current.context?.summary || current.extraText || '-'}</p>{current.context?.sourceNo && <p className="text-xs text-slate-400">{current.context.sourceNo}</p>}{Boolean(current.context?.imageUrls?.length) && <div className="grid grid-cols-3 gap-2">{current.context?.imageUrls?.map((url) => <img key={url} src={url} alt="举报证据" className="aspect-square rounded-lg object-cover" />)}</div>}</div>}</DetailSection>
           <DetailSection title="操作日志"><AuditTimeline logs={current.auditLogs} emptyText={metaCopy(meta, 'audit_log_empty')} /></DetailSection>
-          {canHandle && <DetailSection title="举报处理"><div className="grid gap-3 sm:grid-cols-2">
+          {canHandleCurrent ? <DetailSection title="举报处理"><div className="grid gap-3 sm:grid-cols-2">
             <Field label="处理结论"><NativeSelect includeAll={false} value={result} onChange={setResult} options={resultOptions} /></Field>
-            <Field label="处罚动作"><NativeSelect includeAll={false} value={punishAction} onChange={setPunishAction} options={metaOptions(meta, 'punishAction')} /></Field>
+            <Field label="处罚动作"><NativeSelect includeAll={false} value={punishAction} onChange={setPunishAction} options={punishOptions} /></Field>
             {muteSelected && <Field label="禁言周期"><NativeSelect includeAll={false} value={mutePeriod} onChange={setMutePeriod} options={metaOptions(meta, 'mutePeriod')} /></Field>}
             {ipBlockSelected && <><Field label="风险 IP"><Input value={riskIp} onChange={(event) => setRiskIp(event.target.value)} placeholder={current.riskIpMasked || ''} /></Field><Field label="IP 封禁周期"><NativeSelect includeAll={false} value={ipBlockPeriod} onChange={setIpBlockPeriod} options={metaOptions(meta, 'ipBlockPeriod')} /></Field><Field label="封禁范围" className="sm:col-span-2"><div className="flex flex-wrap gap-2">{metaOptions(meta, 'writeScope').map((option) => <label key={option.code} className="inline-flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm font-normal"><input type="checkbox" checked={ipBlockScopes.includes(option.code)} onChange={() => toggleScope(option.code)} />{option.label}</label>)}</div></Field></>}
             {(Boolean(resultOptions.find((item) => item.code === result)?.extra?.mergeRequired) || result === 'merged') && <Field label="主举报编号"><Input value={mergeIntoReportNo} onChange={(event) => setMergeIntoReportNo(event.target.value)} /></Field>}
             <Field label="回复举报人"><NativeSelect includeAll={false} value={String(replyReporter)} onChange={(value) => setReplyReporter(value === 'true')} options={metaOptions(meta, 'yesNo')} /></Field>
             <Field label="处理说明" className="sm:col-span-2"><textarea value={handleRemark} onChange={(event) => setHandleRemark(event.target.value)} rows={4} className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" /></Field>
-          </div></DetailSection>}
+          </div></DetailSection> : canHandle && <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">该举报已处理，处理结果仅供查看。</div>}
         </div>}
       </Drawer>
       <ConfirmActionDialog open={confirmOpen} title={metaCopy(meta, 'report_high_risk_title')} description={punish?.description || metaCopy(meta, 'report_high_risk_description')} confirmText={punish?.label || metaCopy(meta, 'confirm_punish')} cancelText={metaCopy(meta, 'cancel_action')} busyText={metaCopy(meta, 'processing')} busy={saving} danger onClose={() => setConfirmOpen(false)} onConfirm={() => void submitHandle()} />

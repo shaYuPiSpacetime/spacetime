@@ -38,6 +38,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -131,6 +132,49 @@ class ProfileServiceImplTest {
     }
 
     @Test
+    @DisplayName("首登城市没有区县节点时允许两级地址完成")
+    void shouldCompleteTwoLevelAddressWhenCityHasNoDistricts() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(conditionalDistrictFields())));
+        AppUser user = completedUntilStepFive();
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        ProfileInitStepReq req = new ProfileInitStepReq();
+        req.setStep(5);
+        req.setLocationProvince("330000");
+        req.setLocationCity("330100");
+
+        ProfileInitStatusVO result = newService().saveInitStep(7L, req);
+
+        assertThat(result.getFirstLoginCompleted()).isTrue();
+        assertThat(user.getLocationProvince()).isEqualTo("330000");
+        assertThat(user.getLocationCity()).isEqualTo("330100");
+        assertThat(user.getLocationDistrict()).isNull();
+        verify(appUserDao).updateById(user);
+    }
+
+    @Test
+    @DisplayName("首登现居地固定省市两级，旧配置也不得要求区县")
+    void shouldAllowTwoLevelLocationUnderLegacyDistrictConfig() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(legacyRequiredDistrictFields())));
+        AppUser user = completedUntilStepFive();
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        ProfileInitStepReq req = new ProfileInitStepReq();
+        req.setStep(5);
+        req.setLocationProvince("140000");
+        req.setLocationCity("140200");
+
+        ProfileInitStatusVO result = newService().saveInitStep(7L, req);
+
+        assertThat(result.getFirstLoginCompleted()).isTrue();
+        assertThat(user.getLocationProvince()).isEqualTo("140000");
+        assertThat(user.getLocationCity()).isEqualTo("140200");
+        assertThat(user.getLocationDistrict()).isNull();
+        verify(profileDictionaryService, never()).hasEnabledRegionChildren(any());
+        verify(appUserDao).updateById(user);
+    }
+
+    @Test
     @DisplayName("不能越过当前步骤提交后续步骤")
     void shouldRejectFutureStep() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD")).thenReturn(List.of(config(allFieldsRequired())));
@@ -202,13 +246,16 @@ class ProfileServiceImplTest {
 
         BasicProfileVO result = newService().getBasicProfile(7L);
 
+        assertThat(result.getNickname()).isEqualTo("用户0007");
+        assertThat(user.getNickname()).isEqualTo("用户0007");
         assertThat(result.getGender()).isEqualTo("FEMALE");
         assertThat(result.getIdentity()).isEqualTo("WORKER");
         assertThat(result.getIndustry()).isEqualTo("INTERNET");
         assertThat(result.getAge()).isEqualTo(new ProfileScoreConfig().calculateAge(user.getBirthday()));
         assertThat(result.getMinAge()).isEqualTo(18);
         assertThat(result.getMaxAge()).isEqualTo(60);
-        assertThat(result.getMissingRequiredFields()).containsExactly("nickname");
+        assertThat(result.getMissingRequiredFields()).isEmpty();
+        verify(appUserDao).updateById(user);
         assertThat(result.getFieldSettings())
                 .filteredOn(item -> "gender".equals(item.getFieldId()))
                 .singleElement()
@@ -271,6 +318,108 @@ class ProfileServiceImplTest {
         assertThat(user.getCompany()).isEqualTo("星河科技有限公司");
         assertThat(result.getBasicProfileCompleted()).isTrue();
         assertThat(result.getNextAction()).isEqualTo("ADD_AVATAR");
+        verify(appUserDao).updateById(user);
+    }
+
+    @Test
+    @DisplayName("基础资料所选城市没有区县节点时允许条件必填区县为空")
+    void shouldAllowEmptyConditionalDistrictWhenCityHasNoDistricts() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(conditionalDistrictFields())));
+        when(appConfigDao.selectByGroup("PRD01_ACCESS")).thenReturn(List.of());
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(profileDictionaryService.requireCode(ProfileDictType.IDENTITY, "WORKER", "身份"))
+                .thenReturn("WORKER");
+        when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
+                .thenReturn("BACHELOR");
+
+        BasicProfileSaveReq req = validBasicProfileReq();
+
+        BasicProfileVO result = newService().saveBasicProfile(7L, req);
+
+        assertThat(result.getBasicProfileCompleted()).isTrue();
+        assertThat(user.getLocationDistrict()).isNull();
+        verify(appUserDao).updateById(user);
+    }
+
+    @Test
+    @DisplayName("基础资料现居地固定省市两级，不检查城市区县节点")
+    void shouldAllowTwoLevelLocationWhenCityHasDistricts() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(conditionalDistrictFields())));
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(profileDictionaryService.requireCode(ProfileDictType.IDENTITY, "WORKER", "身份"))
+                .thenReturn("WORKER");
+        when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
+                .thenReturn("BACHELOR");
+        BasicProfileSaveReq req = validBasicProfileReq();
+
+        BasicProfileVO result = newService().saveBasicProfile(7L, req);
+
+        assertThat(result.getBasicProfileCompleted()).isTrue();
+        assertThat(user.getLocationDistrict()).isNull();
+        verify(profileDictionaryService, never()).hasEnabledRegionChildren(any());
+        verify(appUserDao).updateById(user);
+    }
+
+    @Test
+    @DisplayName("家乡固定省市两级，即使城市存在区县也不要求家乡区县")
+    void shouldAllowHometownDistrictEmptyBecauseHometownIsTwoLevel() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(hometownTwoLevelFields())));
+        when(appConfigDao.selectByGroup("PRD01_ACCESS")).thenReturn(List.of());
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(profileDictionaryService.requireCode(ProfileDictType.IDENTITY, "WORKER", "身份"))
+                .thenReturn("WORKER");
+        when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
+                .thenReturn("BACHELOR");
+        BasicProfileSaveReq req = validBasicProfileReq();
+        req.setHometownProvince("410000");
+        req.setHometownCity("410100");
+
+        BasicProfileVO result = newService().saveBasicProfile(7L, req);
+
+        assertThat(result.getBasicProfileCompleted()).isTrue();
+        assertThat(user.getHometownProvince()).isEqualTo("410000");
+        assertThat(user.getHometownCity()).isEqualTo("410100");
+        assertThat(user.getHometownDistrict()).isNull();
+        verify(appUserDao).updateById(user);
+        verify(profileDictionaryService, never()).hasEnabledRegionChildren("410100");
+    }
+
+    @Test
+    @DisplayName("两级地址保存时统一清理请求中的历史区县值")
+    void shouldClearLegacyDistrictValuesWhenSavingTwoLevelRegions() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(hometownTwoLevelFields())));
+        when(appConfigDao.selectByGroup("PRD01_ACCESS")).thenReturn(List.of());
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setLocationDistrict("330106");
+        user.setHometownDistrict("410102");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(profileDictionaryService.requireCode(ProfileDictType.IDENTITY, "WORKER", "身份"))
+                .thenReturn("WORKER");
+        when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
+                .thenReturn("BACHELOR");
+        BasicProfileSaveReq req = validBasicProfileReq();
+        req.setLocationDistrict("330106");
+        req.setHometownProvince("410000");
+        req.setHometownCity("410100");
+        req.setHometownDistrict("410102");
+
+        BasicProfileVO result = newService().saveBasicProfile(7L, req);
+
+        assertThat(result.getLocationDistrict()).isNull();
+        assertThat(result.getHometownDistrict()).isNull();
+        assertThat(user.getLocationDistrict()).isNull();
+        assertThat(user.getHometownDistrict()).isNull();
         verify(appUserDao).updateById(user);
     }
 
@@ -496,6 +645,45 @@ class ProfileServiceImplTest {
 
     private String allFieldsRequired() {
         return configJson(true, true);
+    }
+
+    private String conditionalDistrictFields() {
+        return "{\"rows\":["
+                + "{\"fieldId\":\"gender\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"birthday\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"identity\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"educationLevel\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"locationProvince\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"locationCity\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"locationDistrict\",\"visible\":true,\"required\":true,\"requiredMode\":\"conditional\"}"
+                + "]}";
+    }
+
+    private String legacyRequiredDistrictFields() {
+        return "{\"rows\":["
+                + "{\"fieldId\":\"gender\",\"visible\":true,\"required\":true},"
+                + "{\"fieldId\":\"birthday\",\"visible\":true,\"required\":true},"
+                + "{\"fieldId\":\"identity\",\"visible\":true,\"required\":true},"
+                + "{\"fieldId\":\"educationLevel\",\"visible\":true,\"required\":true},"
+                + "{\"fieldId\":\"locationProvince\",\"visible\":true,\"required\":true},"
+                + "{\"fieldId\":\"locationCity\",\"visible\":true,\"required\":true},"
+                + "{\"fieldId\":\"locationDistrict\",\"visible\":true,\"required\":true}"
+                + "]}";
+    }
+
+    private String hometownTwoLevelFields() {
+        return "{\"rows\":["
+                + "{\"fieldId\":\"gender\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"birthday\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"identity\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"educationLevel\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"locationProvince\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"locationCity\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"locationDistrict\",\"visible\":true,\"required\":false},"
+                + "{\"fieldId\":\"hometownProvince\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"hometownCity\",\"visible\":true,\"required\":true,\"requiredMode\":\"fixed\"},"
+                + "{\"fieldId\":\"hometownDistrict\",\"visible\":true,\"required\":true,\"requiredMode\":\"conditional\"}"
+                + "]}";
     }
 
     private String configJson(boolean birthdayVisible, boolean birthdayRequired) {

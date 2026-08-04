@@ -127,4 +127,29 @@ class Prd01ProfileCompletenessCalculatorTest {
 
         assertThat(score).isEqualTo(20);
     }
+
+    @Test
+    @DisplayName("现居地和家乡按省市两级完成区县历史计分项")
+    void shouldCountLegacyDistrictScoreItemsFromProvinceAndCity() {
+        Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot =
+                new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(Map.of());
+        Map<String, Object> completeness = Map.of(
+                "studentTotalScore", 20,
+                "workerTotalScore", 20,
+                "items", List.of(
+                        Map.of("fieldId", "locationDistrict", "studentScore", 10, "workerScore", 10),
+                        Map.of("fieldId", "hometownDistrict", "studentScore", 10, "workerScore", 10)));
+        when(runtimeConfigResolver.snapshot()).thenReturn(snapshot);
+        when(runtimeConfigResolver.profileCompleteness(snapshot)).thenReturn(completeness);
+
+        AppUser user = new AppUser();
+        user.setId(9L);
+        user.setIdentity("WORKER");
+        user.setLocationProvince("330000");
+        user.setLocationCity("330100");
+        user.setHometownProvince("410000");
+        user.setHometownCity("410100");
+
+        assertThat(calculator.calculate(user)).isEqualTo(20);
+    }
 }

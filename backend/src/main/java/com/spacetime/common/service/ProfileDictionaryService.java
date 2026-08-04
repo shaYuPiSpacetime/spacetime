@@ -119,6 +119,21 @@ public class ProfileDictionaryService {
         }
     }
 
+    /** 判断指定省市节点是否存在启用的下一级行政区，供区县条件必填规则使用。 */
+    public boolean hasEnabledRegionChildren(String parentCode) {
+        SysDictData parent = enabledRegion(StrUtil.trim(parentCode));
+        if (parent == null) {
+            return false;
+        }
+        LambdaQueryWrapper<SysDictData> wrapper = new LambdaQueryWrapper<SysDictData>()
+                .eq(SysDictData::getDictType, CHINA_REGION_DICT_TYPE)
+                .eq(SysDictData::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .eq(SysDictData::getParentId, parent.getId())
+                .last("LIMIT 1");
+        List<SysDictData> children = dictDataDao.selectList(wrapper);
+        return children != null && !children.isEmpty();
+    }
+
     private SysDictData enabledRegion(String code) {
         return StrUtil.isBlank(code)
                 ? null
@@ -126,7 +141,7 @@ public class ProfileDictionaryService {
     }
 
     private BusinessException unsupportedRegion(String fieldLabel) {
-        return new BusinessException("REGION_NOT_SUPPORTED：" + fieldLabel + "必须使用有效的中国大陆省市区编码");
+        return new BusinessException("REGION_NOT_SUPPORTED：" + fieldLabel + "必须使用有效的中国大陆省市编码");
     }
 
     /** 将业务表中的 code 转换为中文标签；历史异常值暂按原值返回，便于排查。 */

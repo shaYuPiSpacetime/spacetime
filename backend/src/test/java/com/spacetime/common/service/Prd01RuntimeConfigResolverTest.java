@@ -68,4 +68,26 @@ class Prd01RuntimeConfigResolverTest {
                 "maxCount", 1, "maxMb", 10, "formats", List.of("jpg", "png")));
         assertThat(limits).containsEntry("profileBgMaxCount", 1);
     }
+
+    @Test
+    void 旧地址区县配置必须按省市两级口径关闭() {
+        AppConfigDao appConfigDao = mock(AppConfigDao.class);
+        AppConfig config = new AppConfig();
+        config.setConfigKey("prd01.profile.fieldSettings");
+        config.setConfigValue("""
+                {"rows":[
+                  {"fieldId":"locationDistrict","visible":true,"required":true,"scoreEnabled":true},
+                  {"fieldId":"hometownDistrict","visible":true,"required":true,"scoreEnabled":true}
+                ]}
+                """);
+        when(appConfigDao.selectByKeys(anyList())).thenReturn(List.of(config));
+        Prd01RuntimeConfigResolver resolver = new Prd01RuntimeConfigResolver(appConfigDao, new ObjectMapper());
+
+        List<Map<String, Object>> settings = resolver.fieldSettings(resolver.snapshot());
+
+        assertThat(settings).allSatisfy(item -> assertThat(item)
+                .containsEntry("visible", false)
+                .containsEntry("required", false)
+                .containsEntry("scoreEnabled", false));
+    }
 }

@@ -18,6 +18,7 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.util.DefaultNicknameGenerator;
 import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
 import com.spacetime.miniapp.dto.request.FavoriteSongSaveReq;
 import com.spacetime.miniapp.dto.request.ProfileCodeSaveReq;
@@ -195,6 +196,10 @@ public class ProfileServiceImpl implements ProfileService {
     @Override
     public BasicProfileVO getBasicProfile(Long userId) {
         AppUser user = requireUser(userId);
+        if (StrUtil.isBlank(user.getNickname())) {
+            user.setNickname(DefaultNicknameGenerator.fromUserId(user.getId()));
+            appUserDao.updateById(user);
+        }
         List<BasicProfileFieldVO> settings = fieldConfigResolver.basicFieldsForMobile();
         return toBasicProfileVO(user, settings);
     }
@@ -213,7 +218,7 @@ public class ProfileServiceImpl implements ProfileService {
         List<BasicProfileFieldVO> settings = fieldConfigResolver.basicFieldsForMobile();
         validateMainlandRegion(req);
         applyBasicProfileFields(user, req, settings);
-        fieldConfigResolver.validateRequiredBasicFields(user, settings);
+        validateRequiredBasicFields(user, settings);
 
         appUserDao.updateById(user);
         return toBasicProfileVO(user, settings);
@@ -310,21 +315,21 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
-    /** 首版仅支持中国大陆省市区 code，并校验真实字典节点及父子层级。 */
+    /** 首版仅支持中国大陆省市两级 code，并校验真实字典节点及父子层级。 */
     private void validateMainlandRegion(ProfileInitStepReq req) {
         if (req == null) {
             return;
         }
         profileDictionaryService.requireChinaRegionPath(
-                req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
+                req.getLocationProvince(), req.getLocationCity(), null, "现居地");
     }
 
-    /** 基础资料页的现居地和家乡都只允许中国大陆地区。 */
+    /** 基础资料页的现居地和家乡都固定校验中国大陆省市两级。 */
     private void validateMainlandRegion(BasicProfileSaveReq req) {
         profileDictionaryService.requireChinaRegionPath(
-                req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
+                req.getLocationProvince(), req.getLocationCity(), null, "现居地");
         profileDictionaryService.requireChinaRegionPath(
-                req.getHometownProvince(), req.getHometownCity(), req.getHometownDistrict(), "家乡");
+                req.getHometownProvince(), req.getHometownCity(), null, "家乡");
     }
 
     /** 按当前字段展示配置应用完整表单值。 */
@@ -378,10 +383,11 @@ public class ProfileServiceImpl implements ProfileService {
         }
         if (visible(settings, "locationProvince")) user.setLocationProvince(trimToNull(req.getLocationProvince()));
         if (visible(settings, "locationCity")) user.setLocationCity(trimToNull(req.getLocationCity()));
-        if (visible(settings, "locationDistrict")) user.setLocationDistrict(trimToNull(req.getLocationDistrict()));
         if (visible(settings, "hometownProvince")) user.setHometownProvince(trimToNull(req.getHometownProvince()));
         if (visible(settings, "hometownCity")) user.setHometownCity(trimToNull(req.getHometownCity()));
-        if (visible(settings, "hometownDistrict")) user.setHometownDistrict(trimToNull(req.getHometownDistrict()));
+        // 现居地、家乡统一为省市两级；兼容旧客户端入参并清理历史区县值。
+        user.setLocationDistrict(null);
+        user.setHometownDistrict(null);
         if (visible(settings, "company")) {
             user.setCompany(validatedText(req.getCompany(), 2, 50, "公司名称需2-50个字符"));
         }
@@ -497,7 +503,7 @@ public class ProfileServiceImpl implements ProfileService {
                 case 2 -> "出生日期";
                 case 3 -> "身份";
                 case 4 -> "学历";
-                case 5 -> "现居省市区";
+                case 5 -> "现居省市";
                 default -> "当前步骤字段";
             };
             throw new BusinessException("第" + req.getStep() + "步只能提交" + allowed);
@@ -532,7 +538,7 @@ public class ProfileServiceImpl implements ProfileService {
             case 5 -> {
                 if (StrUtil.isNotBlank(req.getLocationProvince())) user.setLocationProvince(req.getLocationProvince().trim());
                 if (StrUtil.isNotBlank(req.getLocationCity())) user.setLocationCity(req.getLocationCity().trim());
-                if (StrUtil.isNotBlank(req.getLocationDistrict())) user.setLocationDistrict(req.getLocationDistrict().trim());
+                user.setLocationDistrict(null);
             }
             default -> throw new BusinessException("首登步骤必须在1-5之间");
         }
@@ -579,7 +585,9 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setPhotos(toJson(auditContentService.ownerAlbumPhotos(user.getId())));
         vo.setProfileBgImage(auditContentService.ownerProfileBackground(user.getId()));
         vo.setMbtiType(user.getMbtiType());
-        vo.setZodiac(user.getZodiac());
+        vo.setZodiac(user.getBirthday() == null
+                ? user.getZodiac()
+                : scoreConfig.calculateZodiac(user.getBirthday()));
         vo.setProfileScore(profileCompletenessCalculator.calculate(user));
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1);
         if (includeAccessStatus) {
@@ -596,6 +604,7 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setGender(user.getGender());
         vo.setBirthday(user.getBirthday() == null ? null : user.getBirthday().toString());
         vo.setAge(user.getBirthday() == null ? user.getAge() : scoreConfig.calculateAge(user.getBirthday()));
+        vo.setZodiac(user.getZodiac());
         vo.setHeight(user.getHeight());
         vo.setWeight(user.getWeight());
         vo.setIdentity(user.getIdentity());
@@ -617,12 +626,31 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setMinAge(ageRange.minAge());
         vo.setMaxAge(ageRange.maxAge());
         vo.setProfileScore(profileCompletenessCalculator.calculate(user));
-        List<String> missing = fieldConfigResolver.missingRequiredBasicFields(user, settings);
+        List<String> missing = missingRequiredBasicFields(user, settings);
         vo.setMissingRequiredFields(missing);
         vo.setBasicProfileCompleted(missing.isEmpty());
         vo.setNextAction(missing.isEmpty() ? "ADD_AVATAR" : "COMPLETE_BASIC_PROFILE");
         vo.setFieldSettings(settings);
         return vo;
+    }
+
+    /** 基础资料固定必填由配置解析器处理；地址只校验省市两级。 */
+    private void validateRequiredBasicFields(AppUser user, List<BasicProfileFieldVO> settings) {
+        List<String> missing = missingRequiredBasicFields(user, settings);
+        if (missing.isEmpty()) {
+            return;
+        }
+        String fieldId = missing.getFirst();
+        String label = settings.stream()
+                .filter(item -> fieldId.equals(item.getFieldId()))
+                .map(BasicProfileFieldVO::getLabel)
+                .findFirst()
+                .orElse(fieldId);
+        throw new BusinessException(label + "不能为空");
+    }
+
+    private List<String> missingRequiredBasicFields(AppUser user, List<BasicProfileFieldVO> settings) {
+        return fieldConfigResolver.missingRequiredBasicFields(user, settings);
     }
 
     /** 语音介绍从统一审核记录实时派生，app_user 不保存语音审核快照。 */

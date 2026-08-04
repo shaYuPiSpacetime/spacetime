@@ -4,14 +4,12 @@
 set -u
 
 API_URL="${API_URL:-http://localhost:8080}"
-ADMIN_USERNAME="${ADMIN_USERNAME:-peter}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-000000}"
 MINIAPP_TOKEN="${MINIAPP_TOKEN:-}"
 
 PASS=0
 FAIL=0
 SKIP=0
-TOKEN=""
+TOKEN="${TOKEN:-}"
 RESP_BODY=""
 RESP_HTTP=""
 
@@ -66,11 +64,8 @@ check_jq() {
 
 printf 'PRD-05 L1: %s\n' "$API_URL"
 
-request POST "$API_URL/admin/login" '' "{\"account\":\"$ADMIN_USERNAME\",\"password\":\"$ADMIN_PASSWORD\"}"
-check_ok '管理员真实登录'
-TOKEN="$(printf '%s' "$RESP_BODY" | jq -r '.data.token // empty')"
 if [[ -z "$TOKEN" ]]; then
-  printf '管理员登录响应缺少 Token，停止后台用例。\n'
+  printf '未提供管理员 TOKEN，停止后台用例。\n'
   exit 1
 fi
 

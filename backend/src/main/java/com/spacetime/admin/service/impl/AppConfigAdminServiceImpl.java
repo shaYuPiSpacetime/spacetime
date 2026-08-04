@@ -46,8 +46,8 @@ public class AppConfigAdminServiceImpl implements AppConfigAdminService {
     private static final String PROFILE_FIELD_SETTINGS_KEY = "prd01.profile.fieldSettings";
     private static final Set<String> FIXED_VISIBLE_PROFILE_FIELDS = Set.of(
             "gender", "birthday", "identityType", "identity", "educationLevel",
-            "locationProvince", "locationCity", "locationDistrict",
-            "height", "weight", "hometownProvince", "hometownCity", "hometownDistrict"
+            "locationProvince", "locationCity",
+            "height", "weight", "hometownProvince", "hometownCity"
     );
     private static final Set<String> FIXED_REQUIRED_PROFILE_FIELDS = Set.of(
             "gender", "birthday", "identityType", "identity", "educationLevel",
@@ -190,9 +190,6 @@ public class AppConfigAdminServiceImpl implements AppConfigAdminService {
             }
             if (FIXED_REQUIRED_PROFILE_FIELDS.contains(fieldId) && !row.path("required").asBoolean(false)) {
                 throw new BusinessException("字段 " + fieldId + " 为固定必填，不允许改为选填");
-            }
-            if ("locationDistrict".equals(fieldId) && !row.path("required").asBoolean(false)) {
-                throw new BusinessException("字段 locationDistrict 为条件必填，不允许人工关闭");
             }
         }
     }

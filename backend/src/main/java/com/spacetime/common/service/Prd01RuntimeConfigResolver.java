@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,6 +29,9 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class Prd01RuntimeConfigResolver {
+
+    private static final Set<String> TWO_LEVEL_REGION_DISTRICT_FIELDS =
+            Set.of("locationDistrict", "hometownDistrict");
 
     static final String MIN_AGE_KEY = "prd01.access.minAge";
     static final String MAX_AGE_KEY = "prd01.access.maxAge";
@@ -84,9 +88,10 @@ public class Prd01RuntimeConfigResolver {
             item.put("label", text(row, "label"));
             item.put("fieldId", fieldId);
             item.put("pageMenu", text(row, "pageMenu"));
-            item.put("visible", row.path("visible").asBoolean(true));
-            item.put("required", row.path("required").asBoolean(false));
-            item.put("scoreEnabled", row.path("scoreEnabled").asBoolean(false));
+            boolean districtField = TWO_LEVEL_REGION_DISTRICT_FIELDS.contains(fieldId);
+            item.put("visible", !districtField && row.path("visible").asBoolean(true));
+            item.put("required", !districtField && row.path("required").asBoolean(false));
+            item.put("scoreEnabled", !districtField && row.path("scoreEnabled").asBoolean(false));
             result.add(item);
         }
         return result;

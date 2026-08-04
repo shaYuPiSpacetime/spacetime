@@ -4,6 +4,8 @@ import com.spacetime.common.dto.PageReq;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDate;
+
 /**
  * 后台举报分页查询
  */
@@ -18,4 +20,8 @@ public class CommunityReportPageReq extends PageReq {
     private String status;
     /** 举报原因编码 */
     private String reasonCode;
+    /** 举报编号、用户或对象编号 */
+    private String keyword;
+    private LocalDate startTime;
+    private LocalDate endTime;
 }

@@ -62,16 +62,14 @@ class AppConfigAdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("现居区县条件必填开关不能人工关闭")
-    void batchSave_shouldRejectOptionalConditionalDistrictField() {
+    @DisplayName("现居地区县已退出采集后允许配置为选填")
+    void batchSave_shouldAllowOptionalLocationDistrictField() {
         AppConfigBatchReq req = request("{\"rows\":[{\"fieldId\":\"locationDistrict\",\"visible\":true,\"required\":false,\"scoreEnabled\":true}]}");
 
-        assertThatThrownBy(() -> service.batchSave(req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("locationDistrict")
-                .hasMessageContaining("条件必填");
+        service.batchSave(req);
 
-        verify(appConfigDao, never()).upsert(any());
+        verify(appConfigDao).upsert(any());
+        verify(contentOperationLogDao).insert(any());
     }
 
     @Test

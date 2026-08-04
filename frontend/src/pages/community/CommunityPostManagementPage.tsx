@@ -59,6 +59,17 @@ const initialQueries: Record<Variant, PostQuery> = {
   moments: { page: 1, size: DEFAULT_PAGE_SIZE, keyword: '', userId: '', contentType: 'community_post', sourceScene: '', mediaType: '', status: '', machineResult: '', distributionScene: '', reported: '', startTime: '', endTime: '', scope: 'moments' },
 };
 
+function postActionAllowed(status: string | undefined, action: string) {
+  const allowed: Record<string, string[]> = {
+    draft: ['pending_manual'],
+    pending_machine: ['pending_manual', 'published', 'rejected'],
+    pending_manual: ['published', 'rejected', 'blocked'],
+    published: ['blocked'],
+    blocked: ['published'],
+  };
+  return Boolean(status && allowed[status]?.includes(action));
+}
+
 export default function CommunityPostManagementPage({ variant }: { variant: Variant }) {
   const { meta, loading: metaLoading } = useCommunityMeta();
   const { hasAnyPermission } = usePermission();
@@ -88,7 +99,8 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
   const emptyCopyKey = variant === 'content' ? 'content_empty' : 'moment_empty';
   const configuredActions = metaOptions(meta, 'postAction');
   const actionOptions = configuredActions.length ? configuredActions : metaOptions(meta, 'contentStatus').filter((item) => ['published', 'rejected', 'blocked'].includes(item.code));
-  const selectedAction = actionOptions.find((item) => item.code === action);
+  const availableActionOptions = current ? actionOptions.filter((item) => postActionAllowed(current.status, item.code)) : actionOptions;
+  const selectedAction = availableActionOptions.find((item) => item.code === action);
   const highRisk = Boolean(selectedAction?.extra?.highRisk) || selectedAction?.tone === 'danger' || /block|restore|mute|freeze|reject|remove/i.test(action) || (current?.status === 'blocked' && action === 'published');
 
   useEffect(() => {
@@ -172,6 +184,7 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
 
   const canHandle = hasAnyPermission('community:content:audit', 'community:moments:audit', 'community:post:audit');
   const canExport = hasAnyPermission('community:export:create');
+  const canHandleCurrent = canHandle && Boolean(current) && availableActionOptions.length > 0;
 
   return (
     <CommunityPage>
@@ -234,7 +247,7 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
         onClose={() => setDrawerOpen(false)}
         title={variant === 'content' ? '内容详情' : '动态详情'}
         description={metaCopy(meta, 'post_detail_description')}
-        footer={canHandle ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDrawerOpen(false)}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>确认处理</Button></div> : undefined}
+        footer={canHandleCurrent ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDrawerOpen(false)}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>确认处理</Button></div> : undefined}
       >
         {detailLoading || !current ? <div className="py-20 text-center text-sm text-slate-400">加载中</div> : <div className="space-y-4">
           <DetailGrid items={[
@@ -247,12 +260,12 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
           ]} />
           <DetailSection title="正文全文"><p className="whitespace-pre-wrap">{current.content || '-'}</p>{Boolean(current.imageUrls?.length) && <div className="mt-3 grid grid-cols-3 gap-2">{current.imageUrls?.map((url) => <img key={url} src={url} alt="内容图片" className="aspect-square w-full rounded-lg object-cover" />)}</div>}</DetailSection>
           <DetailSection title="操作日志"><AuditTimeline logs={current.auditLogs} emptyText={metaCopy(meta, 'audit_log_empty')} /></DetailSection>
-          {canHandle && <DetailSection title="审核操作"><div className="grid gap-3 sm:grid-cols-2">
-            <Field label="处理结果"><NativeSelect includeAll={false} allLabel="请选择" value={action} onChange={setAction} options={actionOptions} /></Field>
+          {canHandleCurrent ? <DetailSection title="审核操作"><div className="grid gap-3 sm:grid-cols-2">
+            <Field label="处理结果"><NativeSelect includeAll={false} allLabel="请选择" value={action} onChange={setAction} options={availableActionOptions} /></Field>
             {(Boolean(selectedAction?.extra?.muteRequired) || /mute/i.test(action)) && <Field label="禁言周期"><NativeSelect includeAll={false} allLabel="请选择" value={mutePeriod} onChange={setMutePeriod} options={metaOptions(meta, 'mutePeriod')} /></Field>}
             <Field label="通知用户"><NativeSelect includeAll={false} value={String(notifyUser)} onChange={(value) => setNotifyUser(value === 'true')} options={metaOptions(meta, 'yesNo')} /></Field>
             <Field label="处理说明" className="sm:col-span-2"><textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={4} className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" /></Field>
-          </div></DetailSection>}
+          </div></DetailSection> : canHandle && <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">当前状态无可执行操作</div>}
         </div>}
       </Drawer>
       <ConfirmActionDialog open={confirmOpen} title={metaCopy(meta, 'high_risk_confirm_title')} description={selectedAction?.description || metaCopy(meta, 'high_risk_confirm_description')} confirmText={selectedAction?.label || metaCopy(meta, 'confirm_action')} cancelText={metaCopy(meta, 'cancel_action')} busyText={metaCopy(meta, 'processing')} busy={saving} danger onClose={() => setConfirmOpen(false)} onConfirm={() => void submitAction()} />

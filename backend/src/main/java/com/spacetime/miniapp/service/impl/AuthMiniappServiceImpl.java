@@ -18,6 +18,7 @@ import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.PromotionEventInboxService;
+import com.spacetime.common.util.DefaultNicknameGenerator;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.request.WechatLoginReq;
@@ -162,6 +163,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         checkAccountStatus(user);
         user.setPhone(phone);
         user.setPhoneHash(phoneHash);
+        ensureDefaultNickname(user);
         user.setLastLoginTime(LocalDateTime.now());
         appUserDao.updateById(user);
         return new LoginTarget(user, false);
@@ -185,6 +187,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             user = created.user();
         } else {
             checkAccountStatus(user);
+            ensureDefaultNickname(user);
             if (StrUtil.isNotBlank(unionid)) {
                 user.setUnionid(unionid);
             }
@@ -218,6 +221,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         user.setFirstLoginCompleted(0);
         user.setFirstLoginNextStep(fieldConfigResolver.nextVisibleStep(1));
         appUserDao.insert(user);
+        ensureDefaultNickname(user);
+        appUserDao.updateById(user);
         UserAsset asset = new UserAsset();
         asset.setUserId(user.getId());
         asset.setVipStatus(VipStatusEnum.INACTIVE.getCode());
@@ -227,6 +232,13 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         userAssetDao.insert(asset);
         promotionEventInboxService.enqueueRegister(user.getId(), promotionTraceNos);
         return new LoginTarget(user, true);
+    }
+
+    /** 历史空昵称账号登录时就地补齐，避免资料页和用户卡片继续展示空白。 */
+    private void ensureDefaultNickname(AppUser user) {
+        if (StrUtil.isBlank(user.getNickname())) {
+            user.setNickname(DefaultNicknameGenerator.fromUserId(user.getId()));
+        }
     }
 
     /** 冻结或注销账号不允许登录。 */

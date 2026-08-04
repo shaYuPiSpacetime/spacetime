@@ -8,19 +8,52 @@ const meta = {
       { code: 'pending_manual', label: '待人工复核', tone: 'warning' },
       { code: 'published', label: '已公开', tone: 'success' },
     ],
-    contentType: [{ code: 'community_post', label: '动态' }],
+    contentType: [
+      { code: 'community_post', label: '动态' },
+      { code: 'sincere_post', label: '诚意贴' },
+    ],
     sourceScene: [{ code: 'qianxun_chengjia', label: '千寻成家动态' }],
     mediaType: [{ code: 'image_text', label: '图文' }],
     machineResult: [{ code: 'pass', label: '通过' }],
+    postAction: [
+      { code: 'published', label: '公开/恢复' },
+      { code: 'rejected', label: '驳回' },
+      { code: 'blocked', label: '下架' },
+      { code: 'pending_manual', label: '转人工复核' },
+    ],
     commentStatus: [{ code: 'published', label: '已公开', tone: 'success' }],
+    commentAction: [
+      { code: 'published', label: '公开/恢复' },
+      { code: 'rejected', label: '驳回' },
+      { code: 'blocked', label: '屏蔽' },
+      { code: 'warn_user', label: '警告用户' },
+      { code: 'mute_user', label: '禁言用户', tone: 'danger', extra: { muteRequired: true, highRisk: true } },
+    ],
     reportStatus: [{ code: 'pending', label: '待处理', tone: 'warning' }],
+    reportResult: [
+      { code: 'processing', label: '处理中' },
+      { code: 'valid', label: '举报成立' },
+      { code: 'invalid', label: '举报不成立' },
+      { code: 'merged', label: '合并举报' },
+    ],
     reportTargetType: [{ code: 'chat', label: '聊天' }],
     reportReason: [{ code: 'abuse', label: '攻击辱骂' }],
-    punishAction: [{ code: 'warn_user', label: '警告用户' }],
+    punishAction: [
+      { code: 'none', label: '不处罚' },
+      { code: 'warn_user', label: '警告用户' },
+      { code: 'mute_user', label: '禁言用户', tone: 'danger' },
+      { code: 'ip_block', label: 'IP 封禁', tone: 'danger' },
+      { code: 'freeze_user', label: '冻结账号', tone: 'danger' },
+    ],
     mutePeriod: [{ code: 'P1D', label: '1 天' }],
     ipBlockPeriod: [{ code: 'PT24H', label: '24 小时' }],
     writeScope: [{ code: 'post', label: '发布动态' }],
     topicStatus: [{ code: 'enabled', label: '启用', tone: 'success' }],
+    topicDisplayScene: [
+      { code: 'hot', label: '热门入口' },
+      { code: 'topic_list', label: '话题列表' },
+      { code: 'publish', label: '发布页' },
+    ],
     yesNo: [
       { code: 'true', label: '是' },
       { code: 'false', label: '否' },
@@ -46,7 +79,9 @@ const permissions = [
   'community:post:list',
   'community:post:audit',
   'community:comment:list',
+  'community:comment:risk',
   'community:report:list',
+  'community:report:handle',
   'community:topic:list',
   'community:config:view',
   'community:config:edit',
@@ -182,6 +217,164 @@ test.describe('PRD-05 管理后台六页前端契约', () => {
     await expect(page.getByText('千寻成家动态', { exact: true })).toBeVisible();
     await expect(page.getByText('qianxun_chengjia', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('img', { name: /P-0002 内容图片/ })).toHaveCount(3);
+  });
+
+  test('评论列表和详情展示当前所属动态完整上下文及失效态', async ({ page }) => {
+    const image = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+    const validComment = {
+      id: 31,
+      commentNo: 'C-0031',
+      postId: 11,
+      postAvailable: true,
+      postNo: 'P-0011',
+      postType: 'community_post',
+      postTitle: '周末露营计划',
+      postSummary: '周末一起去露营',
+      postContent: '周末一起去露营，欢迎带上你的宠物。这是所属动态完整正文。',
+      postImageUrls: [image, image, image],
+      postSourceScene: 'qianxun_chengjia',
+      postStatus: 'published',
+      postStatusName: '已公开',
+      authorId: 8,
+      authorNo: 'U-0008',
+      authorName: '测试用户',
+      content: '我报名参加',
+      likeCount: 2,
+      reportCount: 0,
+      status: 'published',
+      version: 1,
+      createTime: '2026-08-04 10:00:00',
+      auditLogs: [],
+    };
+    const missingComment = {
+      ...validComment,
+      id: 32,
+      commentNo: 'C-0032',
+      postId: 12,
+      postAvailable: false,
+      postNo: undefined,
+      postType: undefined,
+      postTitle: undefined,
+      postSummary: undefined,
+      postContent: undefined,
+      postImageUrls: [],
+      content: '原内容还在吗',
+    };
+    await page.route('**/api/admin/community/comments/list**', async (route) => {
+      await route.fulfill({ json: { code: 200, data: { current: 1, size: 20, total: 2, records: [validComment, missingComment] } } });
+    });
+    await page.route('**/api/admin/community/comments/31', async (route) => {
+      await route.fulfill({ json: { code: 200, data: validComment } });
+    });
+
+    await page.goto(`${BASE_URL}/community/comment-audit`);
+    await expect(page.getByText('动态', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('周末一起去露营', { exact: true })).toBeVisible();
+    await expect(page.getByText('内容已变化', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: '详情' }).first().click();
+    const dialog = page.getByRole('dialog', { name: '评论详情' });
+    await expect(dialog.getByText('所属动态', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('周末一起去露营，欢迎带上你的宠物。这是所属动态完整正文。')).toBeVisible();
+    await expect(dialog.getByRole('img', { name: /P-0011 所属动态图片/ })).toHaveCount(3);
+  });
+
+  test('家园话题封面在列表与编辑详情一致回显', async ({ page }) => {
+    const coverUrl = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+    const topic = {
+      id: 71,
+      topicCode: 'camp',
+      topicName: '露营交友',
+      description: '在自然里认识聊得来的人',
+      coverUrl,
+      displayScenes: ['hot', 'topic_list', 'publish'],
+      recommended: true,
+      sort: 10,
+      status: 'enabled',
+      contentCount: 12,
+      heatValue: 86,
+      version: 1,
+      createTime: '2026-08-04 10:00:00',
+      updateTime: '2026-08-04 10:00:00',
+      auditLogs: [],
+    };
+    await page.route('**/api/admin/community/topics/list**', async (route) => {
+      await route.fulfill({ json: { code: 200, data: { current: 1, size: 20, total: 1, records: [topic] } } });
+    });
+    await page.route('**/api/admin/community/topics/71', async (route) => {
+      await route.fulfill({ json: { code: 200, data: topic } });
+    });
+
+    await page.goto(`${BASE_URL}/community/topics`);
+    await expect(page.getByRole('img', { name: '露营交友封面' })).toBeVisible();
+    await page.getByRole('button', { name: '详情' }).click();
+    const dialog = page.getByRole('dialog', { name: '家园话题详情' });
+    await expect(dialog.getByRole('img', { name: '话题封面预览' })).toBeVisible();
+    await expect(dialog.locator('input[value="露营交友"]')).toBeVisible();
+  });
+
+  test('用户已删除内容不再提供重新公开等治理动作', async ({ page }) => {
+    const deletedPost = {
+      id: 81,
+      postNo: 'P-0081',
+      authorId: 8,
+      authorNo: 'USR-000000000008',
+      authorName: '测试用户',
+      contentType: 'community_post',
+      postType: 'community_post',
+      content: '用户已经删除的动态',
+      contentSummary: '用户已经删除的动态',
+      imageUrls: [],
+      likeCount: 0,
+      commentCount: 0,
+      reportCount: 0,
+      status: 'deleted',
+      version: 2,
+      auditLogs: [],
+    };
+    await page.route('**/api/admin/community/posts/list**', async (route) => {
+      await route.fulfill({ json: { code: 200, data: { current: 1, size: 20, total: 1, records: [deletedPost] } } });
+    });
+    await page.route('**/api/admin/community/posts/81', async (route) => {
+      await route.fulfill({ json: { code: 200, data: deletedPost } });
+    });
+
+    await page.goto(`${BASE_URL}/community/content`);
+    await page.getByRole('button', { name: '详情' }).click();
+    const dialog = page.getByRole('dialog', { name: '内容详情' });
+    await expect(dialog.getByRole('button', { name: '确认处理' })).toHaveCount(0);
+    await expect(dialog.getByText('当前状态无可执行操作')).toBeVisible();
+  });
+
+  test('已结束举报只读展示且普通运营看不到高风险处罚', async ({ page }) => {
+    const terminalReport = {
+      id: 91,
+      reportNo: 'RPT-0091',
+      reporterId: 8,
+      reporterNo: 'USR-000000000008',
+      reporterName: '举报用户',
+      targetType: 'post',
+      targetId: 'P-0081',
+      targetNo: 'P-0081',
+      reasonCode: 'abuse',
+      status: 'valid',
+      version: 2,
+      context: { available: true, content: '举报上下文' },
+      auditLogs: [],
+    };
+    await page.route('**/api/admin/community/reports/list**', async (route) => {
+      await route.fulfill({ json: { code: 200, data: { current: 1, size: 20, total: 1, records: [terminalReport] } } });
+    });
+    await page.route('**/api/admin/community/reports/91', async (route) => {
+      await route.fulfill({ json: { code: 200, data: terminalReport } });
+    });
+
+    await page.goto(`${BASE_URL}/community/reports`);
+    await page.getByRole('button', { name: '详情' }).click();
+    const dialog = page.getByRole('dialog', { name: '举报详情' });
+    await expect(dialog.getByRole('button', { name: '保存处理' })).toHaveCount(0);
+    await expect(dialog.getByText('该举报已处理，处理结果仅供查看。')).toBeVisible();
+    await expect(dialog.getByText('IP 封禁', { exact: true })).toHaveCount(0);
   });
 
   test('分组配置编辑后保持新值并启用保存', async ({ page }) => {

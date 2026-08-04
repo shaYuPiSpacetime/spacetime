@@ -309,7 +309,7 @@ if ($script:AdminToken -and $script:MiniToken) {
     Expect-Code "L1-PROFILE-002" "miniapp" "init step2" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 2; birthday = "1998-01-01" } $script:MiniToken) 200
     Expect-Code "L1-PROFILE-003" "miniapp" "init step3" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 3; identity = "EMPLOYEE" } $script:MiniToken) 200
     Expect-Code "L1-PROFILE-004" "miniapp" "init step4" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 4; educationLevel = "BACHELOR" } $script:MiniToken) 200
-    Expect-Code "L1-PROFILE-005" "miniapp" "init step5 complete" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 5; locationProvince = "310000"; locationCity = "310100"; locationDistrict = "310115" } $script:MiniToken) 200
+    Expect-Code "L1-PROFILE-005" "miniapp" "init step5 two-level complete" (Invoke-Api "POST" "/miniapp/profile/init-step" @{ step = 5; locationProvince = "310000"; locationCity = "310100" } $script:MiniToken) 200
 
     $idTail = (Get-Random -Minimum 1000 -Maximum 9999).ToString()
     Expect-Code "L1-VERIFY-REAL-001" "miniapp" "submit real-name machine approved" (Invoke-Api "POST" "/miniapp/verify/real-name" @{ realName = "AuditUser"; idCardNo = "11010119900101$idTail"; singleCommitmentChecked = $true } $script:MiniToken) 200

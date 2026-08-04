@@ -9,8 +9,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -69,7 +72,18 @@ class ProfileDictionaryServiceTest {
         assertThatThrownBy(() -> service.requireChinaRegionPath(
                         "330000", "410100", null, "现居地"))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("REGION_NOT_SUPPORTED");
+                .hasMessage("REGION_NOT_SUPPORTED：现居地必须使用有效的中国大陆省市编码");
+    }
+
+    @Test
+    @DisplayName("城市存在启用区县节点时返回真实层级结果")
+    void shouldDetectEnabledRegionChildren() {
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "320600"))
+                .thenReturn(region(2L, 1L, "320600"));
+        when(dictDataDao.selectList(any())).thenReturn(List.of(region(3L, 2L, "320602")));
+        ProfileDictionaryService service = new ProfileDictionaryService(dictDataDao);
+
+        assertThat(service.hasEnabledRegionChildren("320600")).isTrue();
     }
 
     private SysDictData dict(String type, String code, String label) {

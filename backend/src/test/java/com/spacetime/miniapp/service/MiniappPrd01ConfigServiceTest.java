@@ -143,7 +143,14 @@ class MiniappPrd01ConfigServiceTest {
                 .containsEntry("required", true)
                 .containsEntry("allowEmpty", false);
         assertThat((List<String>) location.get("submitFields"))
-                .containsExactly("locationProvince", "locationCity", "locationDistrict");
+                .containsExactly("locationProvince", "locationCity");
+        assertThat((List<Map<String, Object>>) config.get("fieldSettings"))
+                .filteredOn(item -> "locationDistrict".equals(item.get("fieldId"))
+                        || "hometownDistrict".equals(item.get("fieldId")))
+                .allSatisfy(item -> assertThat(item)
+                        .containsEntry("visible", false)
+                        .containsEntry("required", false)
+                        .containsEntry("scoreEnabled", false));
         assertThat((Map<String, Object>) config.get("uploadLimits")).containsEntry("albumMaxCount", 9);
         assertThat((Map<String, Object>) config.get("regionScope"))
                 .containsEntry("supportsOverseas", false)
