@@ -322,15 +322,15 @@ JDK: C:\Users\50449\.jdks\ms-21.0.11
 
 | 检查项 | 结果 |
 |--------|------|
-| 生产只读复现 | 当前线上 `GET /api/miniapp/profile/basic` 仍返回 `missingRequiredFields=["hometownDistrict"]`，证明线上还是旧后端/旧配置 |
+| 生产只读复现 | 发布前线上 `GET /api/miniapp/profile/basic` 返回 `missingRequiredFields=["hometownDistrict"]`，确认故障来自旧后端/旧配置 |
 | 代码兼容 | 新后端不再校验两个区县字段，并在保存省市时清理该用户历史区县值 |
 | 配置兼容 | 新运行时会覆盖数据库旧配置，强制两个区县字段不可见、非必填、不计分 |
 | 生产迁移 | 新增幂等脚本 `deploy/sql/prod/063_prd01_region_two_level.sql`，用于永久修正字段配置与区县计分权重 |
-| 真实写接口 L1 | 本轮未对尚未部署新代码的生产环境执行写入测试，避免用旧后端制造无效测试数据；部署后须执行增量 L1 脚本复验 |
+| 真实写接口 L1 | 发布后使用现有真实账号按小程序可见字段白名单保存成功；两处区县均为 `null`，区县不再进入缺失项，`basicProfileCompleted=true` |
 
 ### 20.5 结论
 
-本地交付代码已按“现居地、家乡均为省市两级”闭环，并通过后端全量测试、小程序专项与正式构建、管理后台构建和微信开发者工具双场景运行验收。生产环境当前仍是旧版本，必须同步发布后端、小程序并执行 `063_prd01_region_two_level.sql`；未完成发布前，线上旧提示不会自行消失。
+代码与生产环境均已按“现居地、家乡均为省市两级”闭环。后端、管理端发布和 `063_prd01_region_two_level.sql` 已成功完成；生产真实写接口验证通过，线上旧区县缺失与三级路径提示已消除。
 
 ## 21. `REGION_NOT_SUPPORTED` 线上提示修复复测（2026-08-04）
 
@@ -363,4 +363,16 @@ JDK: C:\Users\50449\.jdks\ms-21.0.11
 
 ### 21.4 结论
 
-源代码、自动化测试和正式构建已经闭环通过。当前截图中的线上提示来自仍未升级的生产后端；完成上述三步发布后，再执行生产写接口验收，才能判定线上故障正式消失。
+源代码、自动化测试、正式构建、生产发布、数据库迁移和真实写接口已经全部闭环通过。截图中的 `REGION_NOT_SUPPORTED` 故障已在生产消除。
+
+### 21.5 生产发布与真实接口证据
+
+| 检查项 | 结果 |
+|--------|------|
+| Git 发布提交 | 后端/管理端/迁移 `f88b881`；小程序 `07f7d61`；均已推送到 `origin/master` |
+| 管理端工作流 | GitHub Actions `30920450041` 执行成功 |
+| 后端工作流 | GitHub Actions `30920451690` 执行成功，包含服务器部署与健康检查 |
+| SQL 执行 | 生产执行 `063_prd01_region_two_level.sql` 成功；字段配置的两处区县均为 `visible=false、required=false、requiredMode=none、scoreEnabled=false`，完整度权重均为 `0` |
+| 回滚保障 | 执行前配置已备份至生产服务器 `/mnt/data/spacetime-prod/backups/prd01-region-two-level-before-20260804-063-safe.sql`，权限为仅 root 可读 |
+| 生产查询 | `GET /api/miniapp/profile/basic` 返回 `code=200`、`missingRequiredFields=[]`，两处区县配置均不可见且非必填 |
+| 生产写入 | `PUT /api/miniapp/profile/basic` 返回 `code=200`；历史现居区县从 `110105` 清理为 `null`，家乡区县为 `null`，`basicProfileCompleted=true`、`nextAction=ADD_AVATAR` |
