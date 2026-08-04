@@ -4,13 +4,18 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import {
-  getCommunityConfig,
+  COMMUNITY_COPY_KEYS,
+  getCommunityMeta,
   getCommunityPosts,
   getCommunityTopicHome,
   getFollowingCount,
+  hideCommunityAuthor,
   reportCommunityPost,
+  resolveCommunityCopy,
+  resolveCommunityFeedback,
   toggleCommunityFollow,
   toggleCommunityLike,
+  unhideCommunityAuthor,
   type CommunityConfig,
   type CommunityPostVO,
   type CommunityScene,
@@ -28,7 +33,6 @@ import QianxunTopicSpotlight from './QianxunTopicSpotlight'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
-const HIDDEN_POSTS_KEY = 'qianxun_hidden_post_ids'
 const COMMUNITY_CONFIG_CACHE_KEY = 'qianxun_community_config'
 const REQUESTED_PRIMARY_TAB_KEY = 'qianxun_requested_primary_tab'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
@@ -85,12 +89,11 @@ export default function RecommendFamilyPage() {
     try {
       const page = await getCommunityPosts(targetScene)
       if (requestSequenceRef.current[targetScene] !== sequence) return
-      const hiddenIds = (Taro.getStorageSync(HIDDEN_POSTS_KEY) || []) as number[]
-      const records = (page.records || []).filter(item => !hiddenIds.includes(item.id))
+      const records = page.records || []
       setPostsByScene(state => ({ ...state, [targetScene]: records }))
       setSelectedPost(current => current || records[0])
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     } finally {
       if (requestSequenceRef.current[targetScene] === sequence) {
         setLoadingByScene(state => ({ ...state, [targetScene]: false }))
@@ -101,7 +104,7 @@ export default function RecommendFamilyPage() {
   const loadContext = async () => {
     try {
       const [runtime, count, home] = await Promise.all([
-        getCommunityConfig(),
+        getCommunityMeta(),
         getFollowingCount(),
         prd01Api.getHomeDetail(),
       ])
@@ -110,7 +113,7 @@ export default function RecommendFamilyPage() {
       setFollowingCount(Number(count || 0))
       setOwnerAvatar(normalizeAvatarUrl(String(home.profile.avatar || ''), defaultAvatar))
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     }
   }
 
@@ -119,7 +122,7 @@ export default function RecommendFamilyPage() {
     try {
       setTopicHome(await getCommunityTopicHome())
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     } finally {
       setTopicHomeLoading(false)
     }
@@ -163,7 +166,7 @@ export default function RecommendFamilyPage() {
 
   const changePrimaryTab = (tab: QianxunPrimaryTab) => {
     if (tab === 'CAREER') {
-      void Taro.showToast({ title: '立业功能即将开放', icon: 'none' })
+      void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.careerUnavailable), icon: 'none' })
       return
     }
     setPrimaryTab(tab)
@@ -183,7 +186,7 @@ export default function RecommendFamilyPage() {
       setFollowingCount(value => Math.max(0, value + (result.following ? 1 : -1)))
       setSheet(null)
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     }
   }
 
@@ -193,7 +196,7 @@ export default function RecommendFamilyPage() {
       const result = await toggleCommunityLike(post.id)
       setPostsByScene(state => mapPostsByScene(state, item => item.id === post.id ? { ...item, liked: result.liked, likeCount: result.likeCount } : item))
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     }
   }
 
@@ -202,23 +205,29 @@ export default function RecommendFamilyPage() {
     setSheet('actions')
   }
 
-  const hideSelectedPost = () => {
-    if (selectedPost) {
-      const hiddenIds = (Taro.getStorageSync(HIDDEN_POSTS_KEY) || []) as number[]
-      Taro.setStorageSync(HIDDEN_POSTS_KEY, Array.from(new Set([...hiddenIds, selectedPost.id])))
-      setPostsByScene(state => filterPostsByScene(state, item => item.id !== selectedPost.id))
+  const toggleSelectedAuthorPreference = async () => {
+    if (!selectedPost) return
+    try {
+      const result = selectedPost.hiddenAuthor
+        ? await unhideCommunityAuthor(selectedPost.authorUserNo || selectedPost.authorId)
+        : await hideCommunityAuthor(selectedPost.authorUserNo || selectedPost.authorId)
+      setPostsByScene(state => mapPostsByScene(state, item => item.authorId === selectedPost.authorId ? { ...item, hiddenAuthor: result.hidden } : item))
+      setSelectedPost(current => current ? { ...current, hiddenAuthor: result.hidden } : current)
+      setSheet(null)
+      if (result.message) await Taro.showToast({ title: result.message, icon: 'none' })
+    } catch (error) {
+      await showError(config, error)
     }
-    setSheet(null)
   }
 
   const report = async (reasonCode: string) => {
-    if (!selectedPost || !requireCoreAccess()) return
+    if (!selectedPost) return
     try {
-      await reportCommunityPost(selectedPost.id, reasonCode)
+      const result = await reportCommunityPost(selectedPost.postNo || selectedPost.id, reasonCode)
       setSheet(null)
-      await Taro.showToast({ title: '举报已提交', icon: 'success' })
+      await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.reportSubmitted, result), icon: 'none' })
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     }
   }
 
@@ -237,7 +246,7 @@ export default function RecommendFamilyPage() {
       setSheet(null)
       await Taro.navigateTo({ url: route })
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     }
   }
 
@@ -257,7 +266,7 @@ export default function RecommendFamilyPage() {
         <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
         <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
           <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>
-            {activeTab === 'HOT' ? <QianxunTopicSpotlight home={topicHome} loading={topicHomeLoading} onRetry={() => void loadTopicHome()} /> : null}
+            {activeTab === 'HOT' ? <QianxunTopicSpotlight home={topicHome} loading={topicHomeLoading} config={config} onRetry={() => void loadTopicHome()} /> : null}
             {initialLoading ? <LoadingCards /> : visiblePosts.length ? visiblePosts.map(post => (
               <CommunityCard
                 key={post.id}
@@ -272,7 +281,7 @@ export default function RecommendFamilyPage() {
                 onFollow={() => void toggleFollow(post)}
                 onLike={() => void toggleLike(post)}
               />
-            )) : <FeedEmptyState tab={activeTab} hasFollowing={followingCount > 0} onGoCity={() => changeTab('CITY')} />}
+            )) : <FeedEmptyState tab={activeTab} hasFollowing={followingCount > 0} config={config} onGoCity={() => changeTab('CITY')} />}
           </View>
         </ScrollView>
         <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
@@ -283,8 +292,11 @@ export default function RecommendFamilyPage() {
           post={selectedPost}
           onClose={() => setSheet(null)}
           onFollow={() => void toggleFollow(selectedPost)}
-          onHide={hideSelectedPost}
-          onReport={config?.reportEntryEnabled === false ? undefined : () => setSheet('report')}
+          onHide={() => void toggleSelectedAuthorPreference()}
+          onReport={config?.reportEntryEnabled === false ? undefined : () => {
+            if (config?.reportReasons?.length) setSheet('report')
+            else void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
+          }}
         />
       ) : null}
       {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void report(reason)} /> : null}
@@ -365,10 +377,12 @@ function ActionStat({ kind, text, active = false }: { kind: 'contact' | 'comment
   return <View style={{ minWidth: '92rpx', marginLeft: '24rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: active ? '#D95D68' : '#999999', fontSize: '28rpx', marginRight: '8rpx' }}>{icon}</Text><Text style={{ color: active ? '#D95D68' : '#999999', fontSize: '26rpx', lineHeight: '37rpx' }}>{text}</Text></View>
 }
 
-function FeedEmptyState({ tab, hasFollowing, onGoCity }: { tab: CommunityScene; hasFollowing: boolean; onGoCity: () => void }) {
+function FeedEmptyState({ tab, hasFollowing, config, onGoCity }: { tab: CommunityScene; hasFollowing: boolean; config?: CommunityConfig; onGoCity: () => void }) {
   const following = tab === 'FOLLOWING'
-  const title = following ? (hasFollowing ? '关注的人暂时还没有发布动态' : '暂无关注的人') : '暂时还没有同城动态'
-  const desc = following ? '去「千寻同城」看看，发现精彩动态' : '稍后再来看看，发现同城精彩动态'
+  const title = resolveCommunityCopy(config, following
+    ? (hasFollowing ? COMMUNITY_COPY_KEYS.emptyFollowingFeed : COMMUNITY_COPY_KEYS.emptyFollowingUsers)
+    : COMMUNITY_COPY_KEYS.emptyCityFeed)
+  const desc = resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyFeedDescription)
   return <View style={{ width: '700rpx', paddingTop: '128rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
     <Image src={miniappOssIcons.qianxunEmptyFollowing} mode="aspectFit" style={{ width: '334rpx', height: '254rpx' }} />
     <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 400, marginTop: '30rpx' }}>{title}</Text>
@@ -385,10 +399,6 @@ function mapPostsByScene(state: Partial<Record<CommunityScene, CommunityPostVO[]
   return Object.fromEntries(Object.entries(state).map(([scene, posts]) => [scene, posts?.map(mapper)])) as Partial<Record<CommunityScene, CommunityPostVO[]>>
 }
 
-function filterPostsByScene(state: Partial<Record<CommunityScene, CommunityPostVO[]>>, predicate: (post: CommunityPostVO) => boolean) {
-  return Object.fromEntries(Object.entries(state).map(([scene, posts]) => [scene, posts?.filter(predicate)])) as Partial<Record<CommunityScene, CommunityPostVO[]>>
-}
-
 function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000 }}>{children}</View>
 }
@@ -397,7 +407,7 @@ function PostActionSheet({ post, onClose, onFollow, onHide, onReport }: { post: 
   const actions = [
     { label: '分享', share: true, onClick: () => void Taro.showShareMenu({ withShareTicket: true }) },
     { label: post.followingAuthor ? '取消关注' : '关注', onClick: onFollow },
-    { label: '不看ta动态', onClick: onHide },
+    { label: post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', onClick: onHide },
     ...(onReport ? [{ label: '举报', onClick: onReport }] : []),
   ]
   return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '24rpx 24rpx calc(28rpx + env(safe-area-inset-bottom))' }}>
@@ -432,7 +442,7 @@ function relativeTime(value: string) {
   return `${Math.floor(minutes / 1440)}天前`
 }
 
-async function showError(error: unknown) {
-  const title = error instanceof Error ? error.message : String(error)
+async function showError(config: CommunityConfig | undefined, error: unknown) {
+  const title = resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error)
   if (title) await Taro.showToast({ title, icon: 'none' })
 }

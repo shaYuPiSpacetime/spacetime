@@ -3,7 +3,18 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { deleteCommunityPost, getFollowingCount } from '@/services/community'
+import {
+  COMMUNITY_COPY_KEYS,
+  deleteCommunityPost,
+  getCommunityMeta,
+  getCommunityProfileSummary,
+  getMyCommunityPosts,
+  resolveCommunityCopy,
+  resolveCommunityFeedback,
+  resolveCommunityStatusLabel,
+  type CommunityConfig,
+  type CommunityPostVO,
+} from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
@@ -11,14 +22,12 @@ import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
-const MY_POST_RECEIPTS_KEY = 'qianxun_my_post_receipts'
-
-type ReceiptStatus = 'publishing' | 'failed' | 'published'
-
 interface MyPostReceipt {
   id: string
   postId?: number
-  status: ReceiptStatus
+  postNo?: string
+  status: string
+  statusName?: string
   content: string
   imageUrls: string[]
   topicName?: string
@@ -39,9 +48,9 @@ interface ProfileSummary {
 }
 
 const emptyProfile: ProfileSummary = {
-  nickname: '待完善昵称',
+  nickname: `community.copy.${COMMUNITY_COPY_KEYS.profilePendingNickname}`,
   avatar: defaultAvatar,
-  description: '完善资料，让更多人认识你',
+  description: `community.copy.${COMMUNITY_COPY_KEYS.profilePendingDescription}`,
   postCount: 0,
   followingCount: 0,
   followerCount: 0,
@@ -56,6 +65,7 @@ export default function QianxunMyPostsPage() {
   const [sheetVisible, setSheetVisible] = useState(false)
   const [failureReceipt, setFailureReceipt] = useState<MyPostReceipt>()
   const [deleteReceipt, setDeleteReceipt] = useState<MyPostReceipt>()
+  const [config, setConfig] = useState<CommunityConfig>()
 
   useDidShow(() => {
     void loadPage()
@@ -63,26 +73,29 @@ export default function QianxunMyPostsPage() {
 
   const loadPage = async () => {
     setLoading(true)
-    const localReceipts = readReceipts()
-    setReceipts(localReceipts)
     try {
-      const [home, followingCount] = await Promise.all([
+      const [runtime, home, summary, postPage] = await Promise.all([
+        getCommunityMeta(),
         prd01Api.getHomeDetail(),
-        getFollowingCount(),
+        getCommunityProfileSummary(),
+        getMyCommunityPosts(1, 50),
       ])
+      setConfig(runtime)
+      const serverPosts = (postPage.records || []).map(toPostReceipt)
+      setReceipts(serverPosts)
       const auth = useAuthStore.getState()
       const source = home.profile || {}
       setProfile({
-        nickname: String(source.nickname || auth.nickname || emptyProfile.nickname),
+        nickname: String(source.nickname || auth.nickname || resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.profilePendingNickname)),
         avatar: normalizeAvatarUrl(String(source.avatar || auth.avatar || ''), defaultAvatar),
-        description: buildProfileDescription(source),
-        postCount: Math.max(readNonNegativeNumber(source.postCount ?? source.dynamicCount), localReceipts.length),
-        followingCount: readNonNegativeNumber(followingCount),
-        followerCount: readNonNegativeNumber(source.followerCount ?? source.fansCount),
-        receivedLikeCount: readNonNegativeNumber(source.beLikedCount ?? source.receivedLikeCount),
+        description: buildProfileDescription(source, runtime),
+        postCount: readNonNegativeNumber(summary.stats?.postCount),
+        followingCount: readNonNegativeNumber(summary.stats?.followingCount),
+        followerCount: readNonNegativeNumber(summary.stats?.followerCount),
+        receivedLikeCount: readNonNegativeNumber(summary.stats?.receivedLikeCount),
       })
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     } finally {
       setLoading(false)
     }
@@ -97,7 +110,7 @@ export default function QianxunMyPostsPage() {
     if (!selected) return
     setSheetVisible(false)
     if (selected.status === 'published') {
-      await Taro.showToast({ title: '已发布动态暂不支持编辑', icon: 'none' })
+      await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.editPublishedUnavailable), icon: 'none' })
       return
     }
     await Taro.navigateTo({ url: '/pages/qianxun/compose' })
@@ -112,17 +125,15 @@ export default function QianxunMyPostsPage() {
   const confirmDelete = async () => {
     if (!deleteReceipt) return
     try {
-      if (deleteReceipt.status === 'published' && deleteReceipt.postId) {
+      if (deleteReceipt.postId) {
         await deleteCommunityPost(deleteReceipt.postId)
       }
-      const next = receipts.filter(item => item.id !== deleteReceipt.id)
-      setReceipts(next)
-      Taro.setStorageSync(MY_POST_RECEIPTS_KEY, next)
+      setReceipts(items => items.filter(item => item.id !== deleteReceipt.id))
       setSelected(undefined)
       setDeleteReceipt(undefined)
-      await Taro.showToast({ title: '已删除', icon: 'success' })
+      await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.deleteSuccess), icon: 'success' })
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     }
   }
 
@@ -135,15 +146,15 @@ export default function QianxunMyPostsPage() {
           <View style={{ padding: '0 25rpx 60rpx' }}>
             <PublishBanner />
             {loading ? <MyPostsLoading /> : receipts.length ? receipts.map(receipt => (
-              <MyPostCard key={receipt.id} receipt={receipt} onMore={() => openActions(receipt)} onFailure={() => setFailureReceipt(receipt)} />
-            )) : <MyPostsEmpty />}
+              <MyPostCard key={receipt.id} receipt={receipt} config={config} onMore={() => openActions(receipt)} onFailure={() => setFailureReceipt(receipt)} />
+            )) : <MyPostsEmpty config={config} />}
             {receipts.length ? <Text style={{ display: 'block', color: '#B1B1B1', fontSize: '22rpx', lineHeight: '32rpx', textAlign: 'center', marginTop: '42rpx' }}>— 到底啦 —</Text> : null}
           </View>
         </ScrollView>
       </View>
       {sheetVisible && selected ? <PostActionSheet onEdit={() => void editSelected()} onDelete={requestDeleteSelected} onClose={() => setSheetVisible(false)} /> : null}
       {deleteReceipt ? <DeleteConfirmDialog onCancel={() => setDeleteReceipt(undefined)} onConfirm={() => void confirmDelete()} /> : null}
-      {failureReceipt ? <PublishFailureDialog receipt={failureReceipt} onClose={() => setFailureReceipt(undefined)} /> : null}
+      {failureReceipt ? <PublishFailureDialog receipt={failureReceipt} config={config} onClose={() => setFailureReceipt(undefined)} /> : null}
     </View>
   )
 }
@@ -198,12 +209,10 @@ function PublishBanner() {
   )
 }
 
-function MyPostCard({ receipt, onMore, onFailure }: { receipt: MyPostReceipt; onMore: () => void; onFailure: () => void }) {
-  const status = receipt.status === 'publishing'
-    ? { label: '发布中', background: '#E7F0FF', color: BLUE }
-    : receipt.status === 'failed'
-      ? { label: '发布失败', background: '#E83333', color: '#FFFFFF' }
-      : undefined
+function MyPostCard({ receipt, config, onMore, onFailure }: { receipt: MyPostReceipt; config?: CommunityConfig; onMore: () => void; onFailure: () => void }) {
+  const status = receipt.status !== 'published'
+    ? { label: resolveCommunityStatusLabel(config, receipt.status, receipt.statusName), background: receipt.status === 'rejected' ? '#E83333' : '#E7F0FF', color: receipt.status === 'rejected' ? '#FFFFFF' : BLUE }
+    : undefined
   return (
     <View style={{ padding: '38rpx 0 28rpx', borderBottom: '2rpx solid #EEF3F8' }}>
       <View style={{ display: 'flex', alignItems: 'baseline' }}>
@@ -213,7 +222,7 @@ function MyPostCard({ receipt, onMore, onFailure }: { receipt: MyPostReceipt; on
       </View>
       <View style={{ display: 'flex', alignItems: 'flex-start', marginTop: '18rpx' }}>
         <View style={{ width: '130rpx', flexShrink: 0 }}>
-          {status ? <View onClick={receipt.status === 'failed' ? onFailure : undefined} style={{ minWidth: '96rpx', height: '50rpx', borderRadius: '8rpx', padding: '0 11rpx', background: status.background, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: status.color, fontSize: '23rpx' }}>{status.label}</Text></View> : null}
+          {status ? <View onClick={receipt.status === 'rejected' ? onFailure : undefined} style={{ minWidth: '96rpx', height: '50rpx', borderRadius: '8rpx', padding: '0 11rpx', background: status.background, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: status.color, fontSize: '23rpx' }}>{status.label}</Text></View> : null}
         </View>
         <View style={{ width: '452rpx' }}>
           <PostImages urls={receipt.imageUrls} />
@@ -224,7 +233,7 @@ function MyPostCard({ receipt, onMore, onFailure }: { receipt: MyPostReceipt; on
             <Text style={{ color: '#999999', fontSize: '22rpx' }}>◯ {receipt.commentCount}</Text>
             <Text style={{ color: '#FF6C79', fontSize: '22rpx', marginLeft: '28rpx' }}>♥ {receipt.likeCount}</Text>
           </View>
-          {receipt.status === 'failed' ? <View onClick={onFailure} style={{ minHeight: '52rpx', paddingTop: '12rpx' }}><Text style={{ color: '#D44747', fontSize: '22rpx' }}>查看失败原因</Text></View> : null}
+          {receipt.status === 'rejected' && receipt.failureMessage ? <View onClick={onFailure} style={{ minHeight: '52rpx', paddingTop: '12rpx' }}><Text style={{ color: '#D44747', fontSize: '22rpx' }}>{receipt.failureMessage}</Text></View> : null}
         </View>
       </View>
     </View>
@@ -242,11 +251,11 @@ function PostImages({ urls }: { urls: string[] }) {
   )
 }
 
-function MyPostsEmpty() {
+function MyPostsEmpty({ config }: { config?: CommunityConfig }) {
   return (
     <View style={{ paddingTop: '102rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Image src={miniappOssIcons.qianxunEmptyChart} mode="aspectFit" style={{ width: '320rpx', height: '218rpx' }} />
-      <Text style={{ color: '#A3A3A3', fontSize: '27rpx', marginTop: '16rpx' }}>还没有发布动态</Text>
+      <Text style={{ color: '#A3A3A3', fontSize: '27rpx', marginTop: '16rpx' }}>{resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyMyPosts)}</Text>
     </View>
   )
 }
@@ -287,54 +296,44 @@ function DeleteConfirmDialog({ onCancel, onConfirm }: { onCancel: () => void; on
   )
 }
 
-function PublishFailureDialog({ receipt, onClose }: { receipt: MyPostReceipt; onClose: () => void }) {
+function PublishFailureDialog({ receipt, config, onClose }: { receipt: MyPostReceipt; config?: CommunityConfig; onClose: () => void }) {
   return (
     <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 31, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '46rpx 50rpx 28rpx', boxSizing: 'border-box' }}>
         <View style={{ position: 'relative', height: '126rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={miniappOssIcons.qianxunEmptyChart} mode="aspectFit" style={{ width: '180rpx', height: '126rpx', filter: 'grayscale(1)' }} /><View style={{ position: 'absolute', right: '176rpx', bottom: '17rpx', width: '42rpx', height: '42rpx', borderRadius: '21rpx', background: '#E60012', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '29rpx', fontWeight: 700 }}>!</Text></View></View>
-        <Text style={{ display: 'block', color: '#222222', fontSize: '31rpx', fontWeight: 600, textAlign: 'center', marginTop: '18rpx' }}>发布失败</Text>
-        <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '39rpx', marginTop: '18rpx' }}>{receipt.failureMessage || '动态未通过审核，可修改后重新提交。'}</Text>
+        <Text style={{ display: 'block', color: '#222222', fontSize: '31rpx', fontWeight: 600, textAlign: 'center', marginTop: '18rpx' }}>{resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishFailedTitle)}</Text>
+        <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '39rpx', marginTop: '18rpx' }}>{resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.publishRejectedDefault, receipt.failureMessage)}</Text>
         <View onClick={onClose} style={{ height: '70rpx', borderRadius: '7rpx', background: BLUE, marginTop: '38rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx' }}>我知道了</Text></View>
       </View>
     </View>
   )
 }
 
-function readReceipts(): MyPostReceipt[] {
-  const raw = Taro.getStorageSync(MY_POST_RECEIPTS_KEY)
-  if (!Array.isArray(raw)) return []
-  return raw.flatMap((item, index) => {
-    if (!item || typeof item !== 'object') return []
-    const source = item as Partial<MyPostReceipt>
-    if (!['publishing', 'failed', 'published'].includes(String(source.status))) return []
-    return [{
-      id: String(source.id || index),
-      postId: readOptionalNumber(source.postId),
-      status: source.status as ReceiptStatus,
-      content: String(source.content || ''),
-      imageUrls: Array.isArray(source.imageUrls) ? source.imageUrls.filter(url => typeof url === 'string') : [],
-      topicName: source.topicName ? String(source.topicName) : undefined,
-      createdAt: String(source.createdAt || ''),
-      commentCount: readNonNegativeNumber(source.commentCount),
-      likeCount: readNonNegativeNumber(source.likeCount),
-      failureMessage: source.failureMessage ? String(source.failureMessage) : undefined,
-    }]
-  })
+function toPostReceipt(post: CommunityPostVO): MyPostReceipt {
+  return {
+    id: post.postNo || String(post.id),
+    postId: post.id,
+    postNo: post.postNo,
+    status: post.status || 'published',
+    statusName: post.statusName,
+    content: post.content,
+    imageUrls: post.imageUrls || [],
+    topicName: post.topicName,
+    createdAt: post.createTime,
+    commentCount: readNonNegativeNumber(post.commentCount),
+    likeCount: readNonNegativeNumber(post.likeCount),
+    failureMessage: post.auditRemark || post.statusMessage,
+  }
 }
 
-function buildProfileDescription(source: Record<string, unknown>) {
+function buildProfileDescription(source: Record<string, unknown>, config?: CommunityConfig) {
   const birthYear = source.birthYear || (typeof source.birthday === 'string' ? source.birthday.slice(0, 4) : '')
-  return [birthYear ? `${birthYear}年` : '', source.locationCityName || source.locationCity, source.occupationLabel || source.occupation].filter(Boolean).join(' · ') || emptyProfile.description
+  return [birthYear ? `${birthYear}年` : '', source.locationCityName || source.locationCity, source.occupationLabel || source.occupation].filter(Boolean).join(' · ') || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profilePendingDescription)
 }
 
 function readNonNegativeNumber(value: unknown) {
   const number = Number(value)
   return Number.isFinite(number) ? Math.max(0, number) : 0
-}
-
-function readOptionalNumber(value: unknown) {
-  const number = Number(value)
-  return Number.isFinite(number) && number > 0 ? number : undefined
 }
 
 function dayOfMonth(value: string) {
@@ -347,7 +346,7 @@ function monthLabel(value: string) {
   return match ? `${Number(match[1])}月` : ''
 }
 
-async function showError(error: unknown) {
-  const title = error instanceof Error ? error.message : String(error || '加载失败，请稍后重试')
+async function showError(config: CommunityConfig | undefined, error: unknown) {
+  const title = resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error)
   await Taro.showToast({ title, icon: 'none' })
 }

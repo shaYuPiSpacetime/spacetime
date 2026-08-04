@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+await import('./validate-prd05-community-closure.mjs')
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const pageEntry = read('src/pages/recommend/index.tsx')
@@ -35,7 +37,7 @@ assert.match(page, /sheet === 'uncertified'/, '千寻未认证面板状态缺失
 assert.match(page, /config\?\.reportEntryEnabled === false/, '举报入口必须服从后台开关')
 assert.match(page, /config\?\.reportReasons/, '举报原因必须来自接口字典')
 assert.match(page, /resolveVerificationOnboardingRoute/, '立即认证必须解析下一未完成步骤')
-assert.match(page, /HIDDEN_POSTS_KEY/, '不看动态必须具备持久化过滤')
+assert.match(page, /hideCommunityAuthor/, '不看动态必须通过服务端作者偏好持久化')
 assert.match(header, /getMenuButtonBoundingClientRect/, '共享千寻头部必须读取微信原生胶囊位置')
 assert.doesNotMatch(header, /width: '152rpx'.*letterSpacing: '5rpx'/s, '禁止在原生胶囊位置重复绘制假胶囊')
 assert.match(header, /fontSize: selected \? '32rpx' : '28rpx'/, '成家、知音、立业一级导航字号必须按蓝湖选中态切换')
@@ -52,14 +54,14 @@ assert.doesNotMatch(page, /觅知音/, '不得残留旧版“觅知音”页结�
 assert.match(page, /<QianxunZhiyinTab[\s\S]{0,160}secondaryTop=/, '知音必须作为千寻页内一级 Tab 渲染')
 assert.match(zhiyin, /qianxun-zhiyin-yuemu/, '知音必须具备悦目二级 Tab')
 assert.match(zhiyin, /qianxun-zhiyin-sincere/, '知音必须具备诚意贴二级 Tab')
-assert.match(post, /getCommunityConfig/, '发布限制和话题必须读取接口')
-assert.match(post, /uploadAlbum\(paths\[index\]\)/, '发布图片必须前端直传 OSS')
+assert.match(post, /getCommunityMeta/, '发布限制、话题和动态文案必须读取聚合接口')
+assert.match(post, /prd01Api\.uploadAlbum\(item\.tempPath\)/, '发布图片必须逐图前端直传 OSS')
 assert.match(post, /publishCommunityPost/, '发布按钮必须调用真实接口')
 assert.match(post, /ToolIcon kind="image"/, '发布页缺少图片工具')
 assert.match(post, /ToolIcon kind="video"/, '发布页缺少视频工具')
 assert.match(post, /ToolIcon kind="smile"/, '发布页缺少表情工具')
 assert.match(service, /scene: CommunityScene/, '信息流服务缺少场景参数')
-assert.match(service, /postType: 'normal_post'/, '普通动态必须使用后端支持的类型')
+assert.match(service, /CommunityContentType = 'community_post' \| 'sincere_post'/, '动态类型必须使用正式 PRD 稳定 code')
 for (const key of ['qianxunEmptyFollowing', 'qianxunEmptyHeart', 'qianxunVerifyNote', 'qianxunTopicCover']) {
   assert.match(icons, new RegExp(`${key}: 'https://`), `${key} 必须引用 OSS 公网地址`)
 }

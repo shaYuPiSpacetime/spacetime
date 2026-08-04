@@ -1,53 +1,106 @@
 import { Image, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
-import { getCommunityConfig, publishCommunityPost, type CommunityConfig } from '@/services/community'
+import {
+  deleteCommunityDraft,
+  COMMUNITY_COPY_KEYS,
+  getCommunityDraft,
+  getCommunityMeta,
+  publishCommunityPost,
+  resolveCommunityCopy,
+  resolveCommunityFeedback,
+  saveCommunityDraft,
+  type CommunityConfig,
+  type CommunityContentType,
+  type CommunityUploadStatus,
+} from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
-const MY_POST_RECEIPTS_KEY = 'qianxun_my_post_receipts'
-
-interface PublishReceipt {
-  id: string
-  postId?: number
-  status: 'publishing' | 'failed' | 'published'
-  content: string
-  imageUrls: string[]
-  topicName?: string
-  createdAt: string
-  commentCount: number
-  likeCount: number
+interface UploadImage {
+  localId: string
+  tempPath: string
+  url?: string
+  objectKey?: string
+  uploadStatus: CommunityUploadStatus
   failureMessage?: string
 }
 
 export default function QianxunComposePage() {
   const navigationMetrics = getNativeNavigationMetrics()
-  const [postType, setPostType] = useState<'normal_post' | 'sincere_post'>('normal_post')
+  const [postType, setPostType] = useState<CommunityContentType>('community_post')
   const [content, setContent] = useState('')
-  const [images, setImages] = useState<string[]>([])
+  const [images, setImages] = useState<UploadImage[]>([])
   const [config, setConfig] = useState<CommunityConfig>()
   const [topicId, setTopicId] = useState<number>()
   const [initialTopicName, setInitialTopicName] = useState('')
   const [publishing, setPublishing] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const [topicSheetVisible, setTopicSheetVisible] = useState(false)
+  const [failureFeedback, setFailureFeedback] = useState('')
+  const hydratedRef = useRef(false)
+  const postTypeRef = useRef<CommunityContentType>('community_post')
+  const draftVersionRef = useRef<number>()
+  const saveSequenceRef = useRef(0)
 
   useLoad(params => {
     const initialTopicId = Number(params.topicId)
     if (Number.isFinite(initialTopicId) && initialTopicId > 0) setTopicId(initialTopicId)
     if (params.topicName) setInitialTopicName(decodeURIComponent(params.topicName))
-    if (params.postType === 'sincere_post') setPostType('sincere_post')
+    if (params.postType === 'sincere_post') {
+      postTypeRef.current = 'sincere_post'
+      setPostType('sincere_post')
+    }
   })
 
   useDidShow(() => {
-    void getCommunityConfig().then(runtime => {
-      setConfig(runtime)
-      setTopicId(current => current || toTopicId(runtime.topics?.[0]?.code))
-    }).catch(showError)
+    if (hydratedRef.current) return
+    void loadRuntimeAndDraft()
   })
+
+  const loadRuntimeAndDraft = async () => {
+    try {
+      const contentType = postTypeRef.current
+      const [runtime, draft] = await Promise.all([getCommunityMeta(), getCommunityDraft(contentType)])
+      setConfig(runtime)
+      if (draft) {
+        setContent(draft.content || '')
+        setImages((draft.images || []).filter(item => item.url).map((item, index) => ({
+          localId: `draft-${index}-${item.objectKey || item.url}`,
+          tempPath: item.url,
+          url: item.url,
+          objectKey: item.objectKey,
+          uploadStatus: 'success',
+        })))
+        draftVersionRef.current = draft.version
+      }
+      setTopicId(current => current || draft?.topicId || toTopicId(runtime.topics?.[0]?.code))
+    } catch (error) {
+      await showError(config, error)
+    } finally {
+      hydratedRef.current = true
+    }
+  }
+
+  useEffect(() => {
+    if (!hydratedRef.current || publishing) return undefined
+    const successfulImages = images.filter(item => item.uploadStatus === 'success' && item.url)
+    if (!content.trim() && !topicId && !successfulImages.length) return undefined
+    const sequence = saveSequenceRef.current + 1
+    saveSequenceRef.current = sequence
+    const timer = setTimeout(() => {
+      void saveCommunityDraft(postType, {
+        content,
+        topicId,
+        images: successfulImages.map(item => ({ url: item.url!, objectKey: item.objectKey })),
+        version: draftVersionRef.current,
+      }).then(draft => {
+        if (draft.version !== undefined) draftVersionRef.current = Math.max(draftVersionRef.current || 0, draft.version)
+      }).catch(() => undefined)
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [content, images, postType, publishing, topicId])
 
   const selectedTopic = useMemo(
     () => config?.topics?.find(topic => toTopicId(topic.code) === topicId)
@@ -63,74 +116,83 @@ export default function QianxunComposePage() {
       const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album', 'camera'] })
       const paths = result.tempFilePaths || []
       if (!paths.length) return
-      setUploading(true)
-      setUploadProgress(0)
-      const uploadedUrls: string[] = []
-      for (let index = 0; index < paths.length; index += 1) {
-        const uploaded = await prd01Api.uploadAlbum(paths[index])
-        uploadedUrls.push(uploaded.url)
-        setUploadProgress(Math.round(((index + 1) / paths.length) * 100))
-      }
-      setImages(current => [...current, ...uploadedUrls].slice(0, maxCount))
+      const queued = paths.map((tempPath, index) => ({
+        localId: `${Date.now()}-${index}-${tempPath}`,
+        tempPath,
+        uploadStatus: 'queued' as const,
+      }))
+      setImages(current => [...current, ...queued].slice(0, maxCount))
+      for (const item of queued) await uploadImage(item)
     } catch (error) {
-      if (!/cancel/i.test(String((error as { errMsg?: string })?.errMsg || error))) await showError(error)
-    } finally {
-      setUploading(false)
+      if (!/cancel/i.test(String((error as { errMsg?: string })?.errMsg || error))) await showError(config, error)
+    }
+  }
+
+  const uploadImage = async (item: UploadImage) => {
+    setImages(current => current.map(image => image.localId === item.localId ? { ...image, uploadStatus: 'uploading', failureMessage: undefined } : image))
+    try {
+      const uploaded = await prd01Api.uploadAlbum(item.tempPath)
+      setImages(current => current.map(image => image.localId === item.localId ? {
+        ...image,
+        url: uploaded.url,
+        objectKey: uploaded.key,
+        uploadStatus: 'success',
+        failureMessage: undefined,
+      } : image))
+    } catch (error) {
+      setImages(current => current.map(image => image.localId === item.localId ? {
+        ...image,
+        uploadStatus: 'failed',
+        failureMessage: error instanceof Error ? error.message : String(error),
+      } : image))
     }
   }
 
   const goBack = async () => {
-    if (!content.trim() && !images.length) {
-      await Taro.navigateBack()
+    try {
+      await deleteCommunityDraft(postType)
+    } catch (error) {
+      await showError(config, error)
       return
     }
-    const result = await Taro.showModal({
-      title: '温馨提示',
-      content: '是否保留当前内容？',
-      cancelText: '取消',
-      confirmText: '确定',
-      confirmColor: BLUE,
-    })
-    if (result.confirm) await Taro.navigateBack()
+    await Taro.navigateBack()
   }
 
   const handlePublish = async () => {
     if (!content.trim()) {
-      await Taro.showToast({ title: '请填写内容', icon: 'none' })
+      await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.composeContentRequired), icon: 'none' })
       return
     }
     if (!topicId) {
       setTopicSheetVisible(true)
       return
     }
-    if (publishing || uploading) return
-    setPublishing(true)
-    const receipt: PublishReceipt = {
-      id: `local-${Date.now()}`,
-      status: 'publishing',
-      content: content.trim(),
-      imageUrls: images,
-      topicName: selectedTopic?.label,
-      createdAt: new Date().toISOString(),
-      commentCount: 0,
-      likeCount: 0,
+    const incomplete = images.some(item => item.uploadStatus !== 'success')
+    if (incomplete) {
+      showFailureFeedback(COMMUNITY_COPY_KEYS.uploadIncomplete)
+      return
     }
-    savePublishReceipt(receipt)
+    if (publishing) return
+    setPublishing(true)
     try {
-      const postId = await publishCommunityPost(content.trim(), images, topicId, postType)
-      savePublishReceipt({ ...receipt, postId, status: 'published' })
-      await Taro.showToast({ title: '发布成功', icon: 'success' })
-      setTimeout(() => void Taro.navigateBack(), 450)
+      const publishResult = await publishCommunityPost(content.trim(), images.map(item => item.url!).filter(Boolean), topicId, postType)
+      await deleteCommunityDraft(postType).catch(() => undefined)
+      await Taro.redirectTo({ url: `/pages/qianxun/interactions?section=mine&postNo=${encodeURIComponent(publishResult.postNo)}&status=${encodeURIComponent(publishResult.status)}` })
     } catch (error) {
-      savePublishReceipt({ ...receipt, status: 'failed', failureMessage: error instanceof Error ? error.message : String(error) })
-      await showError(error)
+      showFailureFeedback(COMMUNITY_COPY_KEYS.publishFailed, error)
     } finally {
       setPublishing(false)
     }
   }
 
+  const showFailureFeedback = (key: string, source?: unknown) => {
+    setFailureFeedback(resolveCommunityFeedback(config, key, source))
+    setTimeout(() => setFailureFeedback(''), 2200)
+  }
+
   const maxImages = Number(config?.postMaxImages || 9)
-  const canPublish = Boolean(content.trim() && topicId && !publishing && !uploading)
+  const hasIncompleteImage = images.some(item => item.uploadStatus !== 'success')
+  const canPublish = Boolean(content.trim() && topicId && !publishing && !hasIncompleteImage)
 
   return (
     <View id="qianxun-compose-page" style={{ height: '100vh', background: '#FFFFFF', overflow: 'hidden' }}>
@@ -145,10 +207,11 @@ export default function QianxunComposePage() {
           style={{ width: '700rpx', minHeight: '218rpx', margin: '22rpx 25rpx 0', color: '#333333', fontSize: '28rpx', lineHeight: '44rpx', boxSizing: 'border-box' }}
         />
         <View style={{ display: 'flex', flexWrap: 'wrap', gap: '10rpx', padding: '26rpx 25rpx' }}>
-          {images.map((url, index) => (
-            <View key={`${url}-${index}`} style={{ position: 'relative', width: '226rpx', height: '226rpx' }}>
-              <Image src={url} mode="aspectFill" style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx' }} />
+          {images.map((item, index) => (
+            <View key={item.localId} style={{ position: 'relative', width: '226rpx', height: '226rpx' }}>
+              <Image src={item.url || item.tempPath} mode="aspectFill" style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx' }} />
               <View onClick={() => setImages(items => items.filter((_, itemIndex) => itemIndex !== index))} style={{ position: 'absolute', right: '6rpx', top: '6rpx', width: '34rpx', height: '34rpx', borderRadius: '17rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>×</Text></View>
+              {item.uploadStatus !== 'success' ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '48rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text onClick={() => item.uploadStatus === 'failed' && void uploadImage(item)} style={{ color: '#FFFFFF', fontSize: '21rpx' }}>{resolveCommunityCopy(config, item.uploadStatus === 'failed' ? COMMUNITY_COPY_KEYS.uploadRetry : COMMUNITY_COPY_KEYS.uploading)}</Text></View> : null}
             </View>
           ))}
           {images.length < maxImages ? <View onClick={() => void chooseImages()} style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#80899A', fontSize: '68rpx', fontWeight: 200 }}>＋</Text></View> : null}
@@ -165,16 +228,16 @@ export default function QianxunComposePage() {
         <View style={{ height: '2rpx', background: '#EFF4FC' }} />
         <View style={{ height: '98rpx', padding: '13rpx 25rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
           <ToolIcon kind="image" onClick={() => void chooseImages()} />
-          <ToolIcon kind="video" onClick={() => void Taro.showToast({ title: '视频功能即将开放', icon: 'none' })} />
-          <ToolIcon kind="smile" onClick={() => void Taro.showToast({ title: '表情功能即将开放', icon: 'none' })} />
+          <ToolIcon kind="video" onClick={() => void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.videoUnavailable), icon: 'none' })} />
+          <ToolIcon kind="smile" onClick={() => void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emojiUnavailable), icon: 'none' })} />
           <Text style={{ color: '#999999', fontSize: '23rpx' }}>{images.length}/{maxImages}</Text>
           <View style={{ flex: 1 }} />
-          <View onClick={() => void handlePublish()} style={{ width: '148rpx', height: '66rpx', borderRadius: '8rpx', background: canPublish ? BLUE : '#F4F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: canPublish ? '#FFFFFF' : '#999999', fontSize: '28rpx', fontWeight: 500 }}>{publishing ? '发布中' : '发布'}</Text></View>
+          <View onClick={() => void handlePublish()} style={{ width: '148rpx', height: '66rpx', borderRadius: '8rpx', background: canPublish ? BLUE : '#F4F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: canPublish ? '#FFFFFF' : '#999999', fontSize: '28rpx', fontWeight: 500 }}>{publishing ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishing) : '发布'}</Text></View>
         </View>
       </View>
 
-      {uploading ? <UploadOverlay progress={uploadProgress} /> : null}
       {topicSheetVisible ? <TopicSheet topics={config?.topics || []} onSelect={id => { setTopicId(id); setTopicSheetVisible(false) }} onClose={() => setTopicSheetVisible(false)} /> : null}
+      {failureFeedback ? <PublishFailureFeedback title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishFailedTitle)} message={failureFeedback} /> : null}
     </View>
   )
 }
@@ -192,8 +255,8 @@ function ToolIcon({ kind, onClick }: { kind: 'image' | 'video' | 'smile'; onClic
   return <View onClick={onClick} style={{ width: '56rpx', height: '56rpx', marginRight: '14rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7D8796', fontSize: kind === 'smile' ? '38rpx' : '42rpx', lineHeight: '48rpx' }}>{glyph}</Text></View>
 }
 
-function UploadOverlay({ progress }: { progress: number }) {
-  return <View style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.28)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><View style={{ width: '310rpx', height: '134rpx', borderRadius: '14rpx', background: '#FFFFFF', padding: '30rpx 26rpx', boxSizing: 'border-box' }}><Text style={{ display: 'block', color: '#333333', fontSize: '25rpx', textAlign: 'center' }}>正在上传照片</Text><View style={{ height: '5rpx', borderRadius: '3rpx', background: '#E7E9EE', marginTop: '24rpx', overflow: 'hidden' }}><View style={{ width: `${progress}%`, height: '5rpx', background: BLUE }} /></View><Text style={{ display: 'block', color: '#999999', fontSize: '20rpx', marginTop: '13rpx' }}>上传中，请耐心等待 {progress}%</Text></View></View>
+function PublishFailureFeedback({ title, message }: { title: string; message: string }) {
+  return <View style={{ position: 'fixed', inset: 0, zIndex: 110, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><View style={{ width: '390rpx', minHeight: '142rpx', borderRadius: '16rpx', background: 'rgba(38,45,56,.78)', padding: '26rpx 30rpx', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>{title}</Text><Text style={{ color: '#FFFFFF', fontSize: '23rpx', lineHeight: '34rpx', marginTop: '12rpx', textAlign: 'center' }}>{message}</Text></View></View>
 }
 
 function TopicSheet({ topics, onSelect, onClose }: { topics: CommunityConfig['topics']; onSelect: (id: number) => void; onClose: () => void }) {
@@ -209,13 +272,7 @@ function toTopicId(code: string | undefined) {
   return Number.isFinite(id) && id > 0 ? id : undefined
 }
 
-function savePublishReceipt(receipt: PublishReceipt) {
-  const current = Taro.getStorageSync(MY_POST_RECEIPTS_KEY)
-  const receipts = Array.isArray(current) ? current.filter(item => item?.id !== receipt.id) : []
-  Taro.setStorageSync(MY_POST_RECEIPTS_KEY, [receipt, ...receipts].slice(0, 30))
-}
-
-async function showError(error: unknown) {
-  const title = error instanceof Error ? error.message : String(error)
+async function showError(config: CommunityConfig | undefined, error: unknown) {
+  const title = resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error)
   if (title) await Taro.showToast({ title, icon: 'none' })
 }

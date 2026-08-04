@@ -1,21 +1,22 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import type { CommunityTopicCardVO, CommunityTopicHomeVO } from '@/services/community'
+import { COMMUNITY_COPY_KEYS, resolveCommunityCopy, type CommunityConfig, type CommunityTopicCardVO, type CommunityTopicHomeVO } from '@/services/community'
 
 const BLUE = '#2876FF'
 
 interface Props {
   home?: CommunityTopicHomeVO
   loading?: boolean
+  config?: CommunityConfig
   onRetry?: () => void
 }
 
-export default function QianxunTopicSpotlight({ home, loading = false, onRetry }: Props) {
+export default function QianxunTopicSpotlight({ home, loading = false, config, onRetry }: Props) {
   if (loading && !home?.featured) return <TopicSpotlightSkeleton />
   if (!home?.featured) {
     return <View style={{ width: '700rpx', minHeight: '182rpx', marginBottom: '20rpx', borderRadius: '18rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#999999', fontSize: '24rpx' }}>暂时没有社区话题</Text>
+      <Text style={{ color: '#999999', fontSize: '24rpx' }}>{resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopics)}</Text>
       {onRetry ? <Text onClick={onRetry} style={{ color: BLUE, fontSize: '24rpx', marginTop: '16rpx' }}>重新加载</Text> : null}
     </View>
   }
@@ -35,7 +36,7 @@ export default function QianxunTopicSpotlight({ home, loading = false, onRetry }
       <Image src={topicImage(featured)} mode="aspectFill" style={{ width: '176rpx', height: '176rpx', borderRadius: '12rpx', background: '#EDF1F5', flexShrink: 0 }} />
       <View style={{ minWidth: 0, flex: 1, marginLeft: '18rpx', paddingTop: '3rpx' }}>
         <Text style={{ display: 'block', color: '#333333', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: BLUE, fontSize: '37rpx' }}>#</Text> {featured.name}</Text>
-        <Text style={{ display: '-webkit-box', color: '#333333', fontSize: '24rpx', lineHeight: '39rpx', height: '78rpx', marginTop: '9rpx', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{featured.description || featured.previewContent || '分享真实的生活，也听见彼此的故事。'}</Text>
+        <Text style={{ display: '-webkit-box', color: '#333333', fontSize: '24rpx', lineHeight: '39rpx', height: '78rpx', marginTop: '9rpx', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{featured.description || featured.previewContent || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.topicDefaultDescription)}</Text>
         <View style={{ height: '42rpx', display: 'flex', alignItems: 'center', marginTop: '5rpx' }}>
           <TopicAvatars urls={featured.participantAvatars || []} />
           <Text style={{ color: '#AAAAAA', fontSize: '22rpx', marginLeft: '11rpx' }}>{formatBrowseCount(featured.postCount)}</Text>

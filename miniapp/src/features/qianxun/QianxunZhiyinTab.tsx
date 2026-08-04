@@ -7,13 +7,18 @@ import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboard
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { prd01Api } from '@/services/prd01'
 import {
-  getCommunityConfig,
+  COMMUNITY_COPY_KEYS,
+  getCommunityMeta,
   getSincerePosts,
   getYuemuUsers,
+  hideCommunityAuthor,
   reportCommunityPost,
+  resolveCommunityCopy,
+  resolveCommunityFeedback,
   toggleCommunityFollow,
   toggleCommunityLike,
   toggleYuemuLike,
+  unhideCommunityAuthor,
   type CommunityConfig,
   type CommunityPostVO,
   type YuemuUserVO,
@@ -24,8 +29,6 @@ import './QianxunZhiyinTab.scss'
 
 type ZhiyinTab = 'YUEMU' | 'SINCERE'
 type Sheet = 'actions' | 'report' | 'uncertified' | null
-
-const HIDDEN_SINCERE_POSTS_KEY = 'qianxun_hidden_sincere_post_ids'
 
 interface QianxunZhiyinTabProps {
   secondaryTop: number
@@ -57,7 +60,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
       const page = await getYuemuUsers(1, 30)
       setUsers(page.records || [])
     } catch (loadError) {
-      setError(state => ({ ...state, YUEMU: toErrorMessage(loadError) }))
+      setError(state => ({ ...state, YUEMU: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, loadError) }))
       setUsers([])
     } finally {
       setLoading(state => ({ ...state, YUEMU: false }))
@@ -69,10 +72,9 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
     setError(state => ({ ...state, SINCERE: '' }))
     try {
       const page = await getSincerePosts(1, 20)
-      const hiddenIds = (Taro.getStorageSync(HIDDEN_SINCERE_POSTS_KEY) || []) as number[]
-      setSincerePosts((page.records || []).filter(post => !hiddenIds.includes(post.id)))
+      setSincerePosts(page.records || [])
     } catch (loadError) {
-      setError(state => ({ ...state, SINCERE: toErrorMessage(loadError) }))
+      setError(state => ({ ...state, SINCERE: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, loadError) }))
       setSincerePosts([])
     } finally {
       setLoading(state => ({ ...state, SINCERE: false }))
@@ -82,7 +84,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   const refreshActive = () => activeTab === 'YUEMU' ? loadYuemu() : loadSincere()
 
   useEffect(() => {
-    void getCommunityConfig().then(setConfig).catch(() => undefined)
+    void getCommunityMeta().then(setConfig).catch(() => undefined)
     void loadYuemu()
   }, [])
 
@@ -115,7 +117,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
       const result = await toggleYuemuLike(user.userId)
       setUsers(items => items?.map(item => item.userId === user.userId ? { ...item, liked: result.liked } : item))
     } catch (likeError) {
-      await showError(likeError)
+      await showError(config, likeError)
     }
   }
 
@@ -126,7 +128,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
       setSincerePosts(items => items?.map(item => item.authorId === post.authorId ? { ...item, followingAuthor: result.following } : item))
       setSheet(null)
     } catch (followError) {
-      await showError(followError)
+      await showError(config, followError)
     }
   }
 
@@ -136,26 +138,33 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
       const result = await toggleCommunityLike(post.id)
       setSincerePosts(items => items?.map(item => item.id === post.id ? { ...item, liked: result.liked, likeCount: result.likeCount } : item))
     } catch (likeError) {
-      await showError(likeError)
+      await showError(config, likeError)
     }
   }
 
-  const hideSelectedPost = () => {
+  const toggleSelectedAuthorPreference = async () => {
     if (!selectedPost) return
-    const hiddenIds = (Taro.getStorageSync(HIDDEN_SINCERE_POSTS_KEY) || []) as number[]
-    Taro.setStorageSync(HIDDEN_SINCERE_POSTS_KEY, Array.from(new Set([...hiddenIds, selectedPost.id])))
-    setSincerePosts(items => items?.filter(item => item.id !== selectedPost.id))
-    setSheet(null)
+    try {
+      const result = selectedPost.hiddenAuthor
+        ? await unhideCommunityAuthor(selectedPost.authorUserNo || selectedPost.authorId)
+        : await hideCommunityAuthor(selectedPost.authorUserNo || selectedPost.authorId)
+      setSincerePosts(items => items?.map(item => item.authorId === selectedPost.authorId ? { ...item, hiddenAuthor: result.hidden } : item))
+      setSelectedPost(current => current ? { ...current, hiddenAuthor: result.hidden } : current)
+      setSheet(null)
+      if (result.message) await Taro.showToast({ title: result.message, icon: 'none' })
+    } catch (hideError) {
+      await showError(config, hideError)
+    }
   }
 
   const reportSelectedPost = async (reasonCode: string) => {
-    if (!selectedPost || !requireInteraction()) return
+    if (!selectedPost) return
     try {
-      await reportCommunityPost(selectedPost.id, reasonCode)
+      const result = await reportCommunityPost(selectedPost.postNo || selectedPost.id, reasonCode)
       setSheet(null)
-      await Taro.showToast({ title: '举报已提交', icon: 'success' })
+      await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.reportSubmitted, result), icon: 'none' })
     } catch (reportError) {
-      await showError(reportError)
+      await showError(config, reportError)
     }
   }
 
@@ -163,7 +172,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
     if (!requireInteraction()) return
     const query = [
       `receiverUserNo=${encodeURIComponent(String(post.authorId))}`,
-      `nickname=${encodeURIComponent(post.authorName || '用户')}`,
+      `nickname=${encodeURIComponent(post.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser))}`,
       `avatar=${encodeURIComponent(post.authorAvatar || '')}`,
       `meta=${encodeURIComponent(formatPostAuthorMeta(post, optionLabel))}`,
       'compose=1',
@@ -185,7 +194,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
         introductionStatus: introduction.auditStatus,
       }) })
     } catch (verifyError) {
-      await showError(verifyError)
+      await showError(config, verifyError)
     }
   }
 
@@ -194,12 +203,13 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
         {activeTab === 'YUEMU' ? (
-          <YuemuContent users={users} loading={Boolean(loading.YUEMU)} error={error.YUEMU} onRetry={() => void loadYuemu()} onOpen={user => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} onLike={user => void likeUser(user)} />
+          <YuemuContent users={users} loading={Boolean(loading.YUEMU)} error={error.YUEMU} config={config} onRetry={() => void loadYuemu()} onOpen={user => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} onLike={user => void likeUser(user)} />
         ) : (
           <SincereContent
             posts={sincerePosts}
             loading={Boolean(loading.SINCERE)}
             error={error.SINCERE}
+            config={config}
             optionLabel={optionLabel}
             onRetry={() => void loadSincere()}
             onAuthor={post => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` })}
@@ -220,7 +230,10 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
         </View>
       ) : null}
 
-      {sheet === 'actions' && selectedPost ? <SincereActionSheet post={selectedPost} onClose={() => setSheet(null)} onFollow={() => void followPostAuthor(selectedPost)} onHide={hideSelectedPost} onReport={() => setSheet('report')} /> : null}
+      {sheet === 'actions' && selectedPost ? <SincereActionSheet post={selectedPost} onClose={() => setSheet(null)} onFollow={() => void followPostAuthor(selectedPost)} onHide={() => void toggleSelectedAuthorPreference()} onReport={() => {
+        if (config?.reportReasons?.length) setSheet('report')
+        else void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
+      }} /> : null}
       {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void reportSelectedPost(reason)} /> : null}
       {sheet === 'uncertified' ? <UncertifiedSheet onClose={() => setSheet(null)} onVerify={() => void goVerify()} /> : null}
     </>
@@ -238,10 +251,10 @@ function ZhiyinTabs({ active, top, onChange }: { active: ZhiyinTab; top: number;
   })}</View>
 }
 
-function YuemuContent({ users, loading, error, onRetry, onOpen, onLike }: { users?: YuemuUserVO[]; loading: boolean; error?: string; onRetry: () => void; onOpen: (user: YuemuUserVO) => void; onLike: (user: YuemuUserVO) => void }) {
+function YuemuContent({ users, loading, error, config, onRetry, onOpen, onLike }: { users?: YuemuUserVO[]; loading: boolean; error?: string; config?: CommunityConfig; onRetry: () => void; onOpen: (user: YuemuUserVO) => void; onLike: (user: YuemuUserVO) => void }) {
   if (loading && users === undefined) return <YuemuLoading />
-  if (error) return <EmptyState title="加载失败" description={error} action="重新加载" onAction={onRetry} />
-  if (!users?.length) return <EmptyState title="暂无数据" description="稍后再来看看新的知音" />
+  if (error) return <EmptyState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.loadFailed)} description={error} action="重新加载" onAction={onRetry} />
+  if (!users?.length) return <EmptyState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyYuemu)} description={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyYuemuDescription)} />
   return <View id="qianxun-yuemu-content" style={{ width: '750rpx', padding: '0 25rpx 130rpx', boxSizing: 'border-box' }}>
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginBottom: '32rpx' }}>发现志同道合的朋友，即刻交流</Text>
     <View style={{ display: 'flex', flexWrap: 'wrap', columnGap: '20rpx', rowGap: '20rpx' }}>{users.map(user => <YuemuCard key={user.userId} user={user} onOpen={() => onOpen(user)} onLike={() => onLike(user)} />)}</View>
@@ -259,10 +272,10 @@ function YuemuCard({ user, onOpen, onLike }: { user: YuemuUserVO; onOpen: () => 
   </View>
 }
 
-function SincereContent({ posts, loading, error, optionLabel, onRetry, onAuthor, onOpen, onTopic, onComment, onContact, onFollow, onLike, onMore }: { posts?: CommunityPostVO[]; loading: boolean; error?: string; optionLabel: (type: string, code: string) => string; onRetry: () => void; onAuthor: (post: CommunityPostVO) => void; onOpen: (post: CommunityPostVO) => void; onTopic: (post: CommunityPostVO) => void; onComment: (post: CommunityPostVO) => void; onContact: (post: CommunityPostVO) => void; onFollow: (post: CommunityPostVO) => void; onLike: (post: CommunityPostVO) => void; onMore: (post: CommunityPostVO) => void }) {
+function SincereContent({ posts, loading, error, config, optionLabel, onRetry, onAuthor, onOpen, onTopic, onComment, onContact, onFollow, onLike, onMore }: { posts?: CommunityPostVO[]; loading: boolean; error?: string; config?: CommunityConfig; optionLabel: (type: string, code: string) => string; onRetry: () => void; onAuthor: (post: CommunityPostVO) => void; onOpen: (post: CommunityPostVO) => void; onTopic: (post: CommunityPostVO) => void; onComment: (post: CommunityPostVO) => void; onContact: (post: CommunityPostVO) => void; onFollow: (post: CommunityPostVO) => void; onLike: (post: CommunityPostVO) => void; onMore: (post: CommunityPostVO) => void }) {
   if (loading && posts === undefined) return <CardLoading />
-  if (error) return <EmptyState title="加载失败" description={error} action="重新加载" onAction={onRetry} />
-  if (!posts?.length) return <EmptyState title="暂无数据" description="发布一条诚意贴，让更多人认识你" />
+  if (error) return <EmptyState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.loadFailed)} description={error} action="重新加载" onAction={onRetry} />
+  if (!posts?.length) return <EmptyState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptySincere)} description={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptySincereDescription)} />
   return <View id="qianxun-sincere-content" style={{ width: '750rpx', padding: '20rpx 25rpx 130rpx', boxSizing: 'border-box' }}>{posts.map(post => <SincereCard key={post.id} post={post} optionLabel={optionLabel} onAuthor={() => onAuthor(post)} onOpen={() => onOpen(post)} onTopic={() => onTopic(post)} onComment={() => onComment(post)} onContact={() => onContact(post)} onFollow={() => onFollow(post)} onLike={() => onLike(post)} onMore={() => onMore(post)} />)}</View>
 }
 
@@ -302,7 +315,7 @@ function Overlay({ children, onClose }: { children: ReactNode; onClose: () => vo
 }
 
 function SincereActionSheet({ post, onClose, onFollow, onHide, onReport }: { post: CommunityPostVO; onClose: () => void; onFollow: () => void; onHide: () => void; onReport: () => void }) {
-  const actions = [{ label: post.followingAuthor ? '取消关注' : '关注', onClick: onFollow }, { label: '不看 TA 动态', onClick: onHide }, { label: '举报', onClick: onReport }]
+  const actions = [{ label: post.followingAuthor ? '取消关注' : '关注', onClick: onFollow }, { label: post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', onClick: onHide }, { label: '举报', onClick: onReport }]
   return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '24rpx 24rpx calc(28rpx + env(safe-area-inset-bottom))' }}><Button openType="share" className="qianxun-sincere-share-button">分享</Button>{actions.map(action => <View key={action.label} onClick={action.onClick} style={{ height: '94rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '28rpx' }}>{action.label}</Text></View>)}<View onClick={onClose} style={{ height: '86rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View></View></Overlay>
 }
 
@@ -340,11 +353,7 @@ function formatPostAuthorMeta(post: CommunityPostVO, optionLabel: (type: string,
   ].filter(Boolean).join('·') || '资料待完善'
 }
 
-function toErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error || '加载失败')
-}
-
-async function showError(error: unknown) {
-  const title = toErrorMessage(error)
+async function showError(config: CommunityConfig | undefined, error: unknown) {
+  const title = resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error)
   if (title) await Taro.showToast({ title, icon: 'none' })
 }

@@ -4,16 +4,26 @@ import { useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
+  COMMUNITY_COPY_KEYS,
   createCommunityComment,
+  deleteCommunityComment,
   getCommunityComments,
-  getCommunityConfig,
+  getCommunityMeta,
   getCommunityPostDetail,
-  reportCommunityPost,
+  hideCommunityAuthor,
+  recordCommunityView,
+  reportCommunityTarget,
+  resolveCommunityCopy,
+  resolveCommunityFeedback,
+  toggleCommunityCommentLike,
   toggleCommunityFollow,
   toggleCommunityLike,
+  unhideCommunityAuthor,
   type CommunityCommentVO,
+  type CommunityConfig,
   type CommunityPostVO,
 } from '@/services/community'
+import { useAuthStore } from '@/stores/authStore'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
@@ -25,6 +35,7 @@ interface ReplyTarget {
 }
 
 export default function QianxunPostDetailPage() {
+  const currentUserId = useAuthStore(state => state.userId)
   const [post, setPost] = useState<CommunityPostVO>()
   const [comments, setComments] = useState<CommunityCommentVO[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,14 +45,18 @@ export default function QianxunPostDetailPage() {
   const [replyTarget, setReplyTarget] = useState<ReplyTarget>()
   const [sendingComment, setSendingComment] = useState(false)
   const [showActions, setShowActions] = useState(false)
+  const [selectedComment, setSelectedComment] = useState<CommunityCommentVO>()
+  const [config, setConfig] = useState<CommunityConfig>()
   const navigationMetrics = getNativeNavigationMetrics()
 
   const loadPost = async (postId: number) => {
     setLoading(true)
     setLoadError('')
     try {
-      const current = await getCommunityPostDetail(postId)
+      const [runtime, current] = await Promise.all([getCommunityMeta(), getCommunityPostDetail(postId)])
+      setConfig(runtime)
       setPost(current)
+      void recordCommunityView(current.id).catch(() => undefined)
       try {
         const page = await getCommunityComments(postId, 1, 100)
         setComments(page.records || [])
@@ -49,7 +64,7 @@ export default function QianxunPostDetailPage() {
         setComments([])
       }
     } catch (error) {
-      setLoadError(toErrorMessage(error))
+      setLoadError(resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, error))
     } finally {
       setLoading(false)
     }
@@ -59,7 +74,7 @@ export default function QianxunPostDetailPage() {
     const postId = Number(options.id)
     if (!Number.isFinite(postId) || postId <= 0) {
       setLoading(false)
-      setLoadError('缺少动态信息')
+      setLoadError(resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.postUnavailable))
       return
     }
     void loadPost(postId)
@@ -71,7 +86,7 @@ export default function QianxunPostDetailPage() {
       const result = await toggleCommunityLike(post.id)
       setPost(current => current ? { ...current, liked: result.liked, likeCount: result.likeCount } : current)
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     }
   }
 
@@ -80,16 +95,16 @@ export default function QianxunPostDetailPage() {
     if (!post || !content || sendingComment) return
     setSendingComment(true)
     try {
-      await createCommunityComment(post.id, content, replyTarget?.commentId, replyTarget?.userId)
+      const result = await createCommunityComment(post.id, content, replyTarget?.commentId, replyTarget?.userId)
       setComment('')
       setReplyTarget(undefined)
       setCommentFocused(false)
       const [detail, page] = await Promise.all([getCommunityPostDetail(post.id), getCommunityComments(post.id, 1, 100)])
       setPost(detail)
       setComments(page.records || [])
-      await Taro.showToast({ title: '评论已发布', icon: 'success' })
+      if (result.message || result.statusName) await Taro.showToast({ title: result.message || result.statusName, icon: 'none' })
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     } finally {
       setSendingComment(false)
     }
@@ -107,28 +122,82 @@ export default function QianxunPostDetailPage() {
     try {
       const result = await toggleCommunityFollow(post.authorId)
       setPost(current => current ? { ...current, followingAuthor: result.following } : current)
+      setShowActions(false)
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     }
   }
 
-  const reportPost = async () => {
+  const toggleAuthorPreference = async () => {
     if (!post) return
     try {
-      const config = await getCommunityConfig()
-      const reasons = config.reportReasons || []
+      const result = post.hiddenAuthor
+        ? await unhideCommunityAuthor(post.authorUserNo || post.authorId)
+        : await hideCommunityAuthor(post.authorUserNo || post.authorId)
+      setPost(current => current ? { ...current, hiddenAuthor: result.hidden } : current)
+      setShowActions(false)
+      if (result.message) await Taro.showToast({ title: result.message, icon: 'none' })
+    } catch (error) {
+      await showError(config, error)
+    }
+  }
+
+  const reportTarget = async (targetType: 'post' | 'comment', targetId: number | string) => {
+    try {
+      const runtime = config || await getCommunityMeta()
+      setConfig(runtime)
+      const reasons = runtime.reportReasons || []
       if (!reasons.length) {
-        await Taro.showToast({ title: '暂无可用举报原因', icon: 'none' })
+        await Taro.showToast({ title: resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
         return
       }
       const result = await Taro.showActionSheet({ itemList: reasons.map(item => item.label) })
       const reason = reasons[result.tapIndex]
       if (!reason) return
-      await reportCommunityPost(post.id, reason.code)
+      const reportResult = await reportCommunityTarget(targetType, targetId, reason.code)
       setShowActions(false)
-      await Taro.showToast({ title: '举报已提交', icon: 'success' })
+      setSelectedComment(undefined)
+      await Taro.showToast({ title: resolveCommunityFeedback(runtime, COMMUNITY_COPY_KEYS.reportSubmitted, reportResult), icon: 'none' })
     } catch (error) {
-      if (!String((error as { errMsg?: string })?.errMsg || error).includes('cancel')) await showError(error)
+      if (!String((error as { errMsg?: string })?.errMsg || error).includes('cancel')) await showError(config, error)
+    }
+  }
+
+  const reportPost = async () => {
+    if (post) await reportTarget('post', post.postNo || post.id)
+  }
+
+  const reportComment = async (target: CommunityCommentVO) => {
+    await reportTarget('comment', target.commentNo || target.id)
+  }
+
+  const likeComment = async (target: CommunityCommentVO) => {
+    try {
+      const result = await toggleCommunityCommentLike(target.id)
+      setComments(current => current.map(item => item.id === target.id ? { ...item, liked: result.liked, likeCount: result.likeCount } : item))
+    } catch (error) {
+      await showError(config, error)
+    }
+  }
+
+  const deleteSelectedComment = async (target: CommunityCommentVO) => {
+    if (!post || target.authorId !== currentUserId) return
+    const confirmation = await Taro.showModal({
+      title: '温馨提示',
+      content: '确定删除这条评论吗？',
+      cancelText: '取消',
+      confirmText: '删除',
+      confirmColor: '#E62828',
+    })
+    if (!confirmation.confirm) return
+    try {
+      await deleteCommunityComment(target.commentNo || target.id)
+      const [detail, page] = await Promise.all([getCommunityPostDetail(post.id), getCommunityComments(post.id, 1, 100)])
+      setPost(detail)
+      setComments(page.records || [])
+      setSelectedComment(undefined)
+    } catch (error) {
+      await showError(config, error)
     }
   }
 
@@ -154,7 +223,7 @@ export default function QianxunPostDetailPage() {
               <View style={{ height: '84rpx', borderTop: '1rpx solid #EEF1F5', marginTop: '24rpx', display: 'flex', alignItems: 'center' }}>
                 <View style={{ display: 'flex', alignItems: 'center' }}><View style={{ width: '42rpx', height: '42rpx', borderRadius: '21rpx', background: '#E6F2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: BLUE, fontSize: '20rpx', fontWeight: 700 }}>YO</Text></View><Text style={{ color: '#448BEE', fontSize: '24rpx', marginLeft: '10rpx' }}>悄悄话</Text></View>
                 <View style={{ flex: 1 }} />
-                <Text style={{ color: '#A6AAB3', fontSize: '25rpx', marginRight: '26rpx' }}>◯ {post.commentCount || 0}</Text>
+                <Text onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/interactions?postId=${post.id}&interactionType=commented` })} style={{ color: '#A6AAB3', fontSize: '25rpx', marginRight: '26rpx' }}>◯ {post.commentCount || 0}</Text>
                 <View onClick={() => void likePost()} style={{ minWidth: '76rpx', height: '60rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: post.liked ? '#F06E78' : '#A6AAB3', fontSize: '27rpx' }}>{post.liked ? '♥' : '♡'} {post.likeCount || 0}</Text></View>
               </View>
             </View>
@@ -166,7 +235,7 @@ export default function QianxunPostDetailPage() {
                 <Text style={{ color: NAVY, fontSize: '23rpx', fontWeight: 500 }}>最新</Text>
                 <Text style={{ color: '#A5A9B1', fontSize: '23rpx', marginLeft: '25rpx' }}>最早</Text>
               </View>
-              {comments.length ? comments.map(item => <CommentRow key={item.id} comment={item} onReply={() => beginReply({ commentId: item.id, userId: item.authorId, name: item.authorName || '用户' })} />) : <CommentEmpty hasRemoteCount={post.commentCount > 0} />}
+              {comments.length ? comments.map(item => <CommentRow key={item.id} comment={item} onReply={() => beginReply({ commentId: item.id, userId: item.authorId, name: item.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onLike={() => void likeComment(item)} onMore={() => setSelectedComment(item)} />) : <CommentEmpty hasRemoteCount={post.commentCount > 0} config={config} />}
             </View>
           </View>
         </ScrollView>
@@ -174,10 +243,11 @@ export default function QianxunPostDetailPage() {
 
       <View style={{ position: 'fixed', left: 0, right: 0, bottom: 0, minHeight: '104rpx', background: '#FFFFFF', borderTop: '1rpx solid #EDF0F4', padding: '14rpx 24rpx calc(14rpx + env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', boxSizing: 'border-box', zIndex: 20 }}>
         <Input id="qianxun-comment-input" value={comment} focus={commentFocused} confirmType="send" onFocus={() => setCommentFocused(true)} onBlur={() => setCommentFocused(false)} onConfirm={() => void submitComment()} onInput={event => setComment(event.detail.value)} placeholder={replyTarget ? `回复 ${replyTarget.name}…` : '我来说几句…'} placeholderStyle="color:#A5A9B1;font-size:24rpx" style={{ flex: 1, height: '68rpx', borderRadius: '8rpx', background: '#F7F8FA', padding: '0 20rpx', fontSize: '25rpx', boxSizing: 'border-box' }} />
-        <View onClick={() => void submitComment()} style={{ width: '68rpx', height: '68rpx', marginLeft: '14rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: comment.trim() && !sendingComment ? BLUE : '#B7BBC3', fontSize: '25rpx', fontWeight: 500 }}>{sendingComment ? '发送中' : '发送'}</Text></View>
+        <View onClick={() => void submitComment()} style={{ width: '68rpx', height: '68rpx', marginLeft: '14rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: comment.trim() && !sendingComment ? BLUE : '#B7BBC3', fontSize: '25rpx', fontWeight: 500 }}>{sendingComment ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.commentSending) : '发送'}</Text></View>
         <View onClick={() => void likePost()} style={{ width: '58rpx', height: '68rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post?.liked ? '#F06E78' : '#A6AAB3', fontSize: '34rpx' }}>{post?.liked ? '♥' : '♡'}</Text></View>
       </View>
-      {showActions && post ? <ActionSheet post={post} onClose={() => setShowActions(false)} onReply={() => beginReply()} onReport={() => void reportPost()} /> : null}
+      {showActions && post ? <ActionSheet post={post} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
+      {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: selectedComment.id, userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
     </View>
   )
 }
@@ -198,20 +268,20 @@ function ImageGrid({ images }: { images: string[] }) {
   return <View style={{ display: 'flex', flexWrap: 'wrap', gap: '8rpx', marginTop: '24rpx' }}>{visible.map((url, index) => <Image key={`${url}-${index}`} src={url} mode="aspectFill" onClick={() => void Taro.previewImage({ current: url, urls: visible })} style={{ width: visible.length === 1 ? '654rpx' : '212rpx', height: visible.length === 1 ? '500rpx' : '212rpx', borderRadius: '6rpx', background: '#EDF1F5' }} />)}</View>
 }
 
-function CommentEmpty({ hasRemoteCount }: { hasRemoteCount: boolean }) {
+function CommentEmpty({ hasRemoteCount, config }: { hasRemoteCount: boolean; config?: CommunityConfig }) {
   return <View style={{ paddingTop: '55rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
     <Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '230rpx', height: '180rpx' }} />
-    <Text style={{ color: '#9DA3AE', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '18rpx', textAlign: 'center' }}>{hasRemoteCount ? '评论列表暂时无法加载，请稍后再试' : '期待你的评论，发表讨论让动态有更多回应'}</Text>
+    <Text style={{ color: '#9DA3AE', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '18rpx', textAlign: 'center' }}>{resolveCommunityCopy(config, hasRemoteCount ? COMMUNITY_COPY_KEYS.postCommentsUnavailable : COMMUNITY_COPY_KEYS.postCommentsEmpty)}</Text>
   </View>
 }
 
-function CommentRow({ comment, onReply }: { comment: CommunityCommentVO; onReply: () => void }) {
-  return <View onLongPress={onReply} style={{ display: 'flex', alignItems: 'flex-start', padding: '24rpx 0', borderBottom: '1rpx solid #F0F2F5' }}>
+function CommentRow({ comment, onReply, onLike, onMore }: { comment: CommunityCommentVO; onReply: () => void; onLike: () => void; onMore: () => void }) {
+  return <View onLongPress={onMore} style={{ display: 'flex', alignItems: 'flex-start', padding: '24rpx 0', borderBottom: '1rpx solid #F0F2F5' }}>
     <Image src={comment.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '64rpx', height: '64rpx', borderRadius: '32rpx', background: '#EEF2F6', flexShrink: 0 }} />
     <View style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#43516A', fontSize: '23rpx', fontWeight: 600 }}>{comment.authorName || '用户'}</Text><View style={{ flex: 1 }} /><Text style={{ color: '#A7ACB5', fontSize: '20rpx' }}>{relativeTime(comment.createTime)}</Text></View>
       <Text style={{ display: 'block', color: '#333333', fontSize: '25rpx', lineHeight: '40rpx', marginTop: '10rpx' }}>{comment.replyUserName ? <Text style={{ color: BLUE }}>回复 {comment.replyUserName}：</Text> : null}{comment.content}</Text>
-      <View id={`qianxun-comment-reply-${comment.id}`} className="qianxun-comment-reply" onClick={onReply} style={{ width: '80rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '21rpx' }}>回复</Text></View>
+      <View style={{ display: 'flex', alignItems: 'center' }}><View id={`qianxun-comment-reply-${comment.id}`} className="qianxun-comment-reply" onClick={onReply} style={{ width: '80rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '21rpx' }}>回复</Text></View><View onClick={onLike} style={{ minWidth: '72rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: comment.liked ? '#F06E78' : '#8E96A3', fontSize: '22rpx' }}>{comment.liked ? '♥' : '♡'} {comment.likeCount || 0}</Text></View><View onClick={onMore} style={{ width: '70rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '24rpx', letterSpacing: '5rpx' }}>···</Text></View></View>
     </View>
   </View>
 }
@@ -221,18 +291,31 @@ function DetailLoading({ top }: { top: number }) {
 }
 
 function LoadFailure({ text, top }: { text: string; top: number }) {
-  return <View style={{ position: 'absolute', left: 0, right: 0, top: `${top + 132}rpx`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '240rpx', height: '190rpx' }} /><Text style={{ color: '#999999', fontSize: '26rpx', marginTop: '20rpx' }}>{text || '动态暂时无法查看'}</Text></View>
+  return <View style={{ position: 'absolute', left: 0, right: 0, top: `${top + 132}rpx`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '240rpx', height: '190rpx' }} /><Text style={{ color: '#999999', fontSize: '26rpx', marginTop: '20rpx' }}>{text}</Text></View>
 }
 
-function ActionSheet({ post, onClose, onReply, onReport }: { post: CommunityPostVO; onClose: () => void; onReply: () => void; onReport: () => void }) {
-  const copy = async () => {
-    await Taro.setClipboardData({ data: post.content })
+function ActionSheet({ post, onClose, onFollow, onHide, onReport }: { post: CommunityPostVO; onClose: () => void; onFollow: () => void; onHide: () => void; onReport: () => void }) {
+  const share = () => {
+    void Taro.showShareMenu({ withShareTicket: true })
     onClose()
   }
   return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(10,18,32,0.45)', zIndex: 100 }}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '24rpx 24rpx 0 0', background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)', overflow: 'hidden' }}>
-    {[{ label: '回复', action: onReply }, { label: '复制', action: () => void copy() }, { label: '举报', action: onReport }].map(item => <View key={item.label} onClick={item.action} style={{ height: '92rpx', borderBottom: '1rpx solid #EFF1F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx' }}>{item.label}</Text></View>)}
+    {[{ label: '分享', action: share }, { label: post.followingAuthor ? '取消关注' : '关注', action: onFollow }, { label: post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', action: onHide }, { label: '举报', action: onReport }].map(item => <View key={item.label} onClick={item.action} style={{ height: '92rpx', borderBottom: '1rpx solid #EFF1F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx' }}>{item.label}</Text></View>)}
     <View onClick={onClose} style={{ height: '94rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7B818B', fontSize: '27rpx' }}>取消</Text></View>
   </View></View>
+}
+
+function CommentActionSheet({ comment, onClose, onReply, onDelete, onReport }: { comment: CommunityCommentVO; onClose: () => void; onReply: () => void; onDelete?: () => void; onReport: () => void }) {
+  const copy = async () => {
+    await Taro.setClipboardData({ data: comment.content })
+    onClose()
+  }
+  const reply = () => {
+    onClose()
+    onReply()
+  }
+  const actions = [{ label: '回复', action: reply }, { label: '复制', action: () => void copy() }, ...(onDelete ? [{ label: '删除', action: onDelete }] : []), { label: '举报', action: onReport }]
+  return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(10,18,32,0.45)', zIndex: 100 }}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '24rpx 24rpx 0 0', background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)', overflow: 'hidden' }}>{actions.map(item => <View key={item.label} onClick={item.action} style={{ height: '92rpx', borderBottom: '1rpx solid #EFF1F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: item.label === '删除' ? '#E62828' : '#333333', fontSize: '27rpx' }}>{item.label}</Text></View>)}<View onClick={onClose} style={{ height: '94rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7B818B', fontSize: '27rpx' }}>取消</Text></View></View></View>
 }
 
 function relativeTime(value: string) {
@@ -245,10 +328,6 @@ function relativeTime(value: string) {
   return `${Math.floor(minutes / 1440)}天前`
 }
 
-function toErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error || '加载失败')
-}
-
-async function showError(error: unknown) {
-  await Taro.showToast({ title: toErrorMessage(error), icon: 'none' })
+async function showError(config: CommunityConfig | undefined, error: unknown) {
+  await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error), icon: 'none' })
 }

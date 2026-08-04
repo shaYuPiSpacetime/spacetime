@@ -9,6 +9,16 @@ import {
   sendRelationLike,
   type RelationSourceScene,
 } from '@/services/relation'
+import {
+  COMMUNITY_COPY_KEYS,
+  getCommunityMeta,
+  getUserCommunityPosts,
+  reportCommunityTarget,
+  resolveCommunityCopy,
+  resolveCommunityFeedback,
+  type CommunityConfig,
+  type CommunityPostVO,
+} from '@/services/community'
 
 const background =
   'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%)'
@@ -40,6 +50,10 @@ export default function HeartUserPage() {
   const sourceScene = ((router.params.sourceScene as RelationSourceScene | undefined) || 'profile') as RelationSourceScene
   const [liked, setLiked] = useState(router.params.liked === '1')
   const [matched, setMatched] = useState(router.params.matched === '1' || router.params.matched === 'true')
+  const [communityPosts, setCommunityPosts] = useState<CommunityPostVO[]>([])
+  const [communityPostsLoading, setCommunityPostsLoading] = useState(true)
+  const [communityPostsError, setCommunityPostsError] = useState('')
+  const [communityConfig, setCommunityConfig] = useState<CommunityConfig>()
   const eventNo = useMemo(() => createEventNo(targetUserId || 0, sourceScene), [targetUserId, sourceScene])
   const visitReported = useRef(false)
 
@@ -48,6 +62,23 @@ export default function HeartUserPage() {
     visitReported.current = true
     reportRelationVisit(targetUserId, sourceScene, eventNo).catch(() => undefined)
   }, [targetUserId, sourceScene, eventNo])
+
+  useEffect(() => {
+    setCommunityPostsLoading(true)
+    setCommunityPostsError('')
+    void getCommunityMeta().then(async runtime => {
+      setCommunityConfig(runtime)
+      if (!targetUserId) {
+        setCommunityPostsError(resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.profileUnavailable))
+        return
+      }
+      const page = await getUserCommunityPosts(String(targetUserId), 1, 20)
+      setCommunityPosts(page.records || [])
+    }).catch(error => {
+      setCommunityPosts([])
+      setCommunityPostsError(resolveCommunityFeedback(communityConfig, COMMUNITY_COPY_KEYS.loadFailed, error))
+    }).finally(() => setCommunityPostsLoading(false))
+  }, [targetUserId])
 
   const toggleLike = () => {
     if (!targetUserId) {
@@ -84,11 +115,42 @@ export default function HeartUserPage() {
       })
   }
 
-  const openSafetyActions = () => {
-    Taro.showActionSheet({
-      itemList: ['举报该用户', '拉黑该用户'],
-      success: result => Taro.showToast({ title: result.tapIndex === 0 ? '已进入举报流程' : '拉黑需再次确认', icon: 'none' }),
+  const reportUser = async () => {
+    if (!targetUserId) {
+      await Taro.showToast({ title: resolveCommunityCopy(communityConfig, COMMUNITY_COPY_KEYS.profileUnavailable), icon: 'none' })
+      return
+    }
+    const meta = communityConfig || await getCommunityMeta()
+    setCommunityConfig(meta)
+    if (!meta.reportReasons.length) {
+      await Taro.showToast({ title: resolveCommunityCopy(meta, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
+      return
+    }
+    const selection = await Taro.showActionSheet({ itemList: meta.reportReasons.map(item => item.label) })
+    const reason = meta.reportReasons[selection.tapIndex]
+    if (!reason) return
+    const result = await reportCommunityTarget('user', targetUserId, reason.code)
+    await Taro.showModal({
+      title: result.statusName || resolveCommunityCopy(meta, COMMUNITY_COPY_KEYS.reportSubmitted),
+      content: [result.message, result.reportNo ? resolveCommunityCopy(meta, COMMUNITY_COPY_KEYS.reportNumberFormat).replace('{reportNo}', result.reportNo) : ''].filter(Boolean).join('\n'),
+      showCancel: false,
+      confirmText: '知道了',
     })
+  }
+
+  const openSafetyActions = async () => {
+    try {
+      const selection = await Taro.showActionSheet({ itemList: ['举报该用户', '拉黑该用户'] })
+      if (selection.tapIndex === 0) {
+        await reportUser()
+      } else {
+        await Taro.showToast({ title: resolveCommunityCopy(communityConfig, COMMUNITY_COPY_KEYS.blockUnavailable), icon: 'none' })
+      }
+    } catch (error) {
+      if (!String((error as { errMsg?: string })?.errMsg || error).includes('cancel')) {
+        await Taro.showToast({ title: resolveCommunityFeedback(communityConfig, COMMUNITY_COPY_KEYS.reportSubmitFailed, error), icon: 'none' })
+      }
+    }
   }
   return (
     <View style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
@@ -104,7 +166,7 @@ export default function HeartUserPage() {
                 onClick={() => Taro.showShareMenu({ withShareTicket: true })}
                 style={{ position: 'absolute', right: '30rpx', top: '28rpx', width: '48rpx', height: '48rpx', borderRadius: '50%' }}
               />
-              <View onClick={openSafetyActions} style={{ position: 'absolute', left: '30rpx', top: '28rpx', zIndex: 4, padding: '10rpx 18rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.28)' }}>
+              <View onClick={() => void openSafetyActions()} style={{ position: 'absolute', left: '30rpx', top: '28rpx', zIndex: 4, padding: '10rpx 18rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.28)' }}>
                 <Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>举报 · 拉黑</Text>
               </View>
               <Image src={miniappOssIcons.profilePreviewAvatar} mode="scaleToFill" style={{ position: 'absolute', left: '30rpx', bottom: '57rpx', zIndex: 3, width: '188rpx', height: '188rpx', borderRadius: '50%', background: '#FFFFFF' }} />
@@ -156,8 +218,7 @@ export default function HeartUserPage() {
             </View>
             <View style={{ width: '700rpx', marginTop: '20rpx', padding: '32rpx', borderRadius: '32rpx', background: '#FFFFFF', boxSizing: 'border-box' }}>
               <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>个人动态</Text>
-              <Text style={{ display: 'block', marginTop: '20rpx', color: '#596273', fontSize: '24rpx', lineHeight: '38rpx' }}>周末去西湖边拍了晚霞，也开始学习做一道新的家常菜。</Text>
-              <Text style={{ display: 'block', marginTop: '12rpx', color: '#A0A6B2', fontSize: '20rpx' }}>2 小时前 · 公开动态</Text>
+              {communityPostsLoading ? <CommunityPostLoading /> : communityPostsError ? <CommunityPostEmpty text={communityPostsError} /> : communityPosts.length ? communityPosts.map(post => <CommunityPostCard key={post.postNo || post.id} post={post} />) : <CommunityPostEmpty text={resolveCommunityCopy(communityConfig, COMMUNITY_COPY_KEYS.emptyUserPosts)} />}
             </View>
           </View>
         </View>
@@ -181,4 +242,33 @@ function InfoLine({ icon, text }: { icon: string; text: string }) {
       <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx' }}>{text}</Text>
     </View>
   )
+}
+
+function CommunityPostCard({ post }: { post: CommunityPostVO }) {
+  return (
+    <View onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} style={{ padding: '24rpx 0 20rpx', borderBottom: '1rpx solid #EEF1F5' }}>
+      <Text style={{ display: 'block', color: '#596273', fontSize: '24rpx', lineHeight: '38rpx' }}>{post.content}</Text>
+      {post.imageUrls?.length ? <View style={{ display: 'flex', flexWrap: 'wrap', gap: '8rpx', marginTop: '16rpx' }}>{post.imageUrls.slice(0, 3).map((url, index) => <Image key={`${post.id}-${index}`} src={url} mode="aspectFill" style={{ width: '202rpx', height: '202rpx', borderRadius: '8rpx', background: '#F0F3F7' }} />)}</View> : null}
+      {post.topicName ? <Text style={{ display: 'block', marginTop: '12rpx', color: '#2876FF', fontSize: '21rpx' }}># {post.topicName}</Text> : null}
+      <View style={{ display: 'flex', alignItems: 'center', marginTop: '12rpx' }}><Text style={{ color: '#A0A6B2', fontSize: '20rpx' }}>{relativeTime(post.createTime)} · 公开动态</Text><View style={{ flex: 1 }} /><Text style={{ color: '#A0A6B2', fontSize: '20rpx' }}>◯ {post.commentCount || 0}</Text><Text style={{ color: '#F06E78', fontSize: '20rpx', marginLeft: '20rpx' }}>♥ {post.likeCount || 0}</Text></View>
+    </View>
+  )
+}
+
+function CommunityPostLoading() {
+  return <View style={{ padding: '26rpx 0 12rpx' }}><View style={{ width: '88%', height: '24rpx', borderRadius: '12rpx', background: '#F0F2F5' }} /><View style={{ width: '62%', height: '24rpx', borderRadius: '12rpx', background: '#F0F2F5', marginTop: '16rpx' }} /></View>
+}
+
+function CommunityPostEmpty({ text }: { text: string }) {
+  return <View style={{ minHeight: '120rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A0A6B2', fontSize: '23rpx' }}>{text}</Text></View>
+}
+
+function relativeTime(value: string) {
+  if (!value) return ''
+  const time = new Date(value.replace(' ', 'T')).getTime()
+  if (!Number.isFinite(time)) return value
+  const minutes = Math.max(1, Math.floor((Date.now() - time) / 60000))
+  if (minutes < 60) return `${minutes}分钟前`
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}小时前`
+  return `${Math.floor(minutes / 1440)}天前`
 }

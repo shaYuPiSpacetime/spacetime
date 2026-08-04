@@ -1,19 +1,33 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { prd01Api } from '@/services/prd01'
-import { getFollowingCount, type CommunityPostVO } from '@/services/community'
+import {
+  COMMUNITY_COPY_KEYS,
+  clearCommunityViewHistory,
+  getCommunityMeta,
+  getCommunityFollowRelations,
+  getCommunityInteractions,
+  getCommunityPostInteractors,
+  getCommunityProfileSummary,
+  getCommunityViewHistory,
+  getMyCommunityPosts,
+  resolveCommunityCopy,
+  resolveCommunityFeedback,
+  resolveCommunityStatusLabel,
+  toggleCommunityFollow,
+  type CommunityConfig,
+  type CommunityPostVO,
+  type CommunityRelationUserVO,
+} from '@/services/community'
 import { useAuthStore } from '@/stores/authStore'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
-const INTERACTION_STORAGE_KEY = 'qianxun_interaction_history'
-const BROWSING_STORAGE_KEY = 'qianxun_browsing_history'
-const MY_POST_RECEIPTS_KEY = 'qianxun_my_post_receipts'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
 
 type MainSection = 'interaction' | 'history' | 'mine'
@@ -42,7 +56,8 @@ interface InteractionRecord {
 interface MyPostSnapshot {
   id: string
   postId?: number
-  status: 'publishing' | 'failed' | 'published'
+  status: string
+  statusName?: string
   content: string
   imageUrls: string[]
   topicName?: string
@@ -52,9 +67,9 @@ interface MyPostSnapshot {
 }
 
 const emptyProfile: ProfileSummary = {
-  nickname: '待完善昵称',
+  nickname: `community.copy.${COMMUNITY_COPY_KEYS.profilePendingNickname}`,
   avatar: defaultAvatar,
-  description: '完善资料，让更多人认识你',
+  description: `community.copy.${COMMUNITY_COPY_KEYS.profilePendingDescription}`,
   postCount: 0,
   followingCount: 0,
   followerCount: 0,
@@ -70,7 +85,12 @@ export default function QianxunInteractionsPage() {
   const [history, setHistory] = useState<CommunityPostVO[]>([])
   const [myPosts, setMyPosts] = useState<MyPostSnapshot[]>([])
   const [roster, setRoster] = useState<RosterKind | null>(null)
+  const [rosterUsers, setRosterUsers] = useState<CommunityRelationUserVO[]>([])
+  const [rosterLoading, setRosterLoading] = useState(false)
+  const [interactorPostId, setInteractorPostId] = useState<string>()
+  const [interactorType, setInteractorType] = useState<'liked' | 'commented'>('liked')
   const [likeSummaryVisible, setLikeSummaryVisible] = useState(false)
+  const [config, setConfig] = useState<CommunityConfig>()
 
   useLoad(options => {
     if (['interaction', 'history', 'mine'].includes(String(options.section))) {
@@ -80,36 +100,68 @@ export default function QianxunInteractionsPage() {
       setRoster(options.roster as RosterKind)
     }
     if (options.likes === '1') setLikeSummaryVisible(true)
+    if (options.postId) setInteractorPostId(String(options.postId))
+    if (options.interactionType === 'commented') setInteractorType('commented')
   })
 
   useDidShow(() => {
     void loadPage()
   })
 
+  useEffect(() => {
+    if (!roster) return
+    setRosterLoading(true)
+    void getCommunityFollowRelations(roster, 1, 50).then(page => {
+      setRosterUsers(page.records || [])
+    }).catch(error => showError(config, error)).finally(() => setRosterLoading(false))
+  }, [roster])
+
+  useEffect(() => {
+    if (!interactorPostId) return
+    setRosterLoading(true)
+    void getCommunityPostInteractors(interactorPostId, interactorType, 1, 50).then(page => {
+      setRosterUsers(page.records || [])
+    }).catch(error => showError(config, error)).finally(() => setRosterLoading(false))
+  }, [interactorPostId, interactorType])
+
   const loadPage = async () => {
     setLoading(true)
     try {
-      const [home, followingCount] = await Promise.all([
+      const [runtime, home, summary, commented, liked, unlocked, viewHistory, myPostPage] = await Promise.all([
+        getCommunityMeta(),
         prd01Api.getHomeDetail(),
-        getFollowingCount(),
+        getCommunityProfileSummary(),
+        getCommunityInteractions('commented', 1, 50),
+        getCommunityInteractions('liked', 1, 50),
+        getCommunityInteractions('unlocked', 1, 50),
+        getCommunityViewHistory(1, 50),
+        getMyCommunityPosts(1, 50),
       ])
+      setConfig(runtime)
       const auth = useAuthStore.getState()
       const source = home.profile || {}
       setProfile({
-        nickname: String(source.nickname || auth.nickname || emptyProfile.nickname),
+        nickname: String(source.nickname || auth.nickname || resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.profilePendingNickname)),
         avatar: normalizeAvatarUrl(String(source.avatar || auth.avatar || ''), defaultAvatar),
-        description: buildProfileDescription(source),
-        postCount: readNonNegativeNumber(source.postCount ?? source.dynamicCount),
-        followingCount: readNonNegativeNumber(followingCount),
-        followerCount: readNonNegativeNumber(source.followerCount ?? source.fansCount),
-        receivedLikeCount: readNonNegativeNumber(source.beLikedCount ?? source.receivedLikeCount),
+        description: buildProfileDescription(source, runtime),
+        postCount: readNonNegativeNumber(summary.stats?.postCount),
+        followingCount: readNonNegativeNumber(summary.stats?.followingCount),
+        followerCount: readNonNegativeNumber(summary.stats?.followerCount),
+        receivedLikeCount: readNonNegativeNumber(summary.stats?.receivedLikeCount),
       })
+      setRecords([...commented.records, ...liked.records, ...unlocked.records].map(item => ({
+        id: String(item.id),
+        kind: item.interactionType as InteractionFilter,
+        userId: item.targetUserId,
+        nickname: item.nickname,
+        avatar: item.avatar,
+        description: item.description,
+      })))
+      setHistory(viewHistory.records || [])
+      setMyPosts((myPostPage.records || []).map(toMyPostSnapshot))
     } catch (error) {
-      await showError(error)
+      await showError(config, error)
     } finally {
-      setRecords(readInteractionRecords())
-      setHistory(readBrowsingHistory())
-      setMyPosts(readMyPostSnapshots())
       setLoading(false)
     }
   }
@@ -118,6 +170,28 @@ export default function QianxunInteractionsPage() {
 
   const changeSection = (next: MainSection) => {
     setSection(next)
+  }
+
+  const clearHistory = async () => {
+    if (!history.length) return
+    const confirmation = await Taro.showModal({
+      title: '温馨提示',
+      content: '确定清空浏览记录吗？',
+      cancelText: '取消',
+      confirmText: '清空',
+      confirmColor: BLUE,
+    })
+    if (!confirmation.confirm) return
+    try {
+      await clearCommunityViewHistory()
+      setHistory([])
+    } catch (error) {
+      await showError(config, error)
+    }
+  }
+
+  if (interactorPostId) {
+    return <View id="qianxun-interactors-page" style={{ minHeight: '100vh', background: '#FFFFFF' }}><SimpleHeader title="互动" onBack={() => void Taro.navigateBack()} /><View style={{ height: '88rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', borderBottom: '1rpx solid #EFF2F6' }}>{(['liked', 'commented'] as const).map(type => <View key={type} onClick={() => setInteractorType(type)} style={{ position: 'relative', width: '150rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: interactorType === type ? NAVY : '#999999', fontSize: '27rpx', fontWeight: interactorType === type ? 600 : 400 }}>{type === 'liked' ? '点赞' : '评论'}</Text>{interactorType === type ? <View style={{ position: 'absolute', bottom: 0, width: '54rpx', height: '6rpx', borderRadius: '3rpx', background: BLUE }} /> : null}</View>)}</View>{rosterLoading ? <LoadingRows /> : rosterUsers.length ? <RosterList users={rosterUsers} onChanged={() => void getCommunityPostInteractors(interactorPostId, interactorType, 1, 50).then(page => setRosterUsers(page.records || [])).catch(error => showError(config, error))} config={config} /> : <InteractorEmpty type={interactorType} config={config} />}</View>
   }
 
   if (roster) {
@@ -129,7 +203,7 @@ export default function QianxunInteractionsPage() {
             {roster === 'following' ? `我关注的（${profile.followingCount}人）` : `我的粉丝（${profile.followerCount}人）`}
           </Text>
         </View>
-        <RosterEmpty kind={roster} />
+        {rosterLoading ? <LoadingRows /> : rosterUsers.length ? <RosterList users={rosterUsers} onChanged={() => void getCommunityFollowRelations(roster, 1, 50).then(page => setRosterUsers(page.records || [])).catch(error => showError(config, error))} config={config} /> : <RosterEmpty kind={roster} config={config} />}
       </View>
     )
   }
@@ -150,22 +224,23 @@ export default function QianxunInteractionsPage() {
           <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '80rpx', bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : visibleRecords.length ? (
               <View style={{ padding: '20rpx 26rpx 40rpx' }}>
-                {visibleRecords.map(item => <InteractionRow key={item.id} item={item} />)}
+                {visibleRecords.map(item => <InteractionRow key={item.id} item={item} config={config} />)}
               </View>
-            ) : <InteractionEmpty filter={filter} />}
+            ) : <InteractionEmpty filter={filter} config={config} />}
           </ScrollView>
         </View>
         <View id="qianxun-interactions-panel-history" data-section-panel="history" style={sectionPanelStyle(section === 'history')}>
-          <ScrollView scrollY style={{ height: '100%' }} showScrollbar={false}>
+          {history.length && !loading ? <View onClick={() => void clearHistory()} style={{ position: 'absolute', right: '26rpx', top: 0, height: '64rpx', display: 'flex', alignItems: 'center', zIndex: 2 }}><Text style={{ color: '#999999', fontSize: '23rpx' }}>清空</Text></View> : null}
+          <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: history.length && !loading ? '64rpx' : 0, bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : history.length ? (
               <View style={{ padding: '18rpx 26rpx 44rpx' }}>
                 {history.map(item => <HistoryCard key={item.id} post={item} />)}
               </View>
-            ) : <HistoryEmpty />}
+            ) : <HistoryEmpty config={config} />}
           </ScrollView>
         </View>
         <View id="qianxun-interactions-panel-mine" data-section-panel="mine" style={sectionPanelStyle(section === 'mine')}>
-          <MinePanel loading={loading} posts={myPosts} />
+          <MinePanel loading={loading} posts={myPosts} config={config} />
         </View>
       </View>
       {likeSummaryVisible ? <LikeSummary count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} /> : null}
@@ -241,7 +316,7 @@ function sectionPanelStyle(active: boolean) {
   }
 }
 
-function MinePanel({ loading, posts }: { loading: boolean; posts: MyPostSnapshot[] }) {
+function MinePanel({ loading, posts, config }: { loading: boolean; posts: MyPostSnapshot[]; config?: CommunityConfig }) {
   return (
     <ScrollView scrollY style={{ height: '100%' }} showScrollbar={false}>
       <View style={{ padding: '6rpx 26rpx 54rpx' }}>
@@ -250,18 +325,18 @@ function MinePanel({ loading, posts }: { loading: boolean; posts: MyPostSnapshot
           <View onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'absolute', left: '36rpx', top: '100rpx', width: '130rpx', height: '50rpx', borderRadius: '7rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '25rpx', fontWeight: 500 }}>发动态</Text></View>
           <Image src={miniappOssIcons.qianxunEmptyChart} mode="aspectFit" style={{ position: 'absolute', right: '20rpx', top: '22rpx', width: '205rpx', height: '142rpx' }} />
         </View>
-        {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} />) : <MineEmpty />}
+        {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} config={config} />) : <MineEmpty config={config} />}
       </View>
     </ScrollView>
   )
 }
 
-function MyPostSnapshotCard({ item }: { item: MyPostSnapshot }) {
+function MyPostSnapshotCard({ item, config }: { item: MyPostSnapshot; config?: CommunityConfig }) {
   const open = () => {
     if (item.postId && item.status === 'published') {
       void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.postId}` })
-    } else if (item.status === 'failed') {
-      void Taro.showToast({ title: '发布失败，可前往管理页查看原因', icon: 'none' })
+    } else if (item.statusName) {
+      void Taro.showToast({ title: item.statusName, icon: 'none' })
     }
   }
   return (
@@ -273,7 +348,7 @@ function MyPostSnapshotCard({ item }: { item: MyPostSnapshot }) {
           {item.imageUrls[0] ? <Image src={item.imageUrls[0]} mode="aspectFill" style={{ width: '260rpx', height: '190rpx', borderRadius: '9rpx', background: '#F1F3F6', marginTop: '16rpx' }} /> : null}
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
-            {item.status !== 'published' ? <Text style={{ color: item.status === 'failed' ? '#D44747' : BLUE, fontSize: '21rpx' }}>{item.status === 'failed' ? '发布失败' : '发布中'}</Text> : null}
+            {item.status !== 'published' ? <Text style={{ color: item.status === 'rejected' ? '#D44747' : BLUE, fontSize: '21rpx' }}>{resolveCommunityStatusLabel(config, item.status, item.statusName)}</Text> : null}
             <View style={{ flex: 1 }} />
             <Text style={{ color: '#999999', fontSize: '21rpx' }}>◯ {item.commentCount}</Text>
             <Text style={{ color: '#FF6C79', fontSize: '21rpx', marginLeft: '24rpx' }}>♥ {item.likeCount}</Text>
@@ -284,8 +359,8 @@ function MyPostSnapshotCard({ item }: { item: MyPostSnapshot }) {
   )
 }
 
-function MineEmpty() {
-  return <View style={{ paddingTop: '82rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyChart} mode="aspectFit" style={{ width: '300rpx', height: '204rpx' }} /><Text style={{ color: '#A3A3A3', fontSize: '27rpx', marginTop: '14rpx' }}>还没有发布动态</Text></View>
+function MineEmpty({ config }: { config?: CommunityConfig }) {
+  return <View style={{ paddingTop: '82rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyChart} mode="aspectFit" style={{ width: '300rpx', height: '204rpx' }} /><Text style={{ color: '#A3A3A3', fontSize: '27rpx', marginTop: '14rpx' }}>{resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyMyPosts)}</Text></View>
 }
 
 function FilterTabs({ active, onChange }: { active: InteractionFilter; onChange: (value: InteractionFilter) => void }) {
@@ -304,12 +379,12 @@ function FilterTabs({ active, onChange }: { active: InteractionFilter; onChange:
   )
 }
 
-function InteractionEmpty({ filter }: { filter: InteractionFilter }) {
+function InteractionEmpty({ filter, config }: { filter: InteractionFilter; config?: CommunityConfig }) {
   const model = filter === 'commented'
-    ? { image: miniappOssIcons.qianxunEmptyMessage, title: '还没有评论', subtitle: '去「千寻同城」看看，发现精彩动态' }
+    ? { image: miniappOssIcons.qianxunEmptyMessage, title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyCommented), subtitle: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyInteractionDescription) }
     : filter === 'liked'
-      ? { image: miniappOssIcons.qianxunEmptyHeart, title: '还没有点赞过', subtitle: '去「千寻同城」看看，发现精彩动态' }
-      : { image: miniappOssIcons.qianxunEmptyFollowing, title: '还没有解锁过', subtitle: '去「千寻同城」看看，发现精彩动态' }
+      ? { image: miniappOssIcons.qianxunEmptyHeart, title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyLiked), subtitle: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyInteractionDescription) }
+      : { image: miniappOssIcons.qianxunEmptyFollowing, title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyUnlocked), subtitle: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyInteractionDescription) }
   return (
     <View style={{ paddingTop: '126rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Image src={model.image} mode="aspectFit" style={{ width: '330rpx', height: '230rpx' }} />
@@ -322,11 +397,11 @@ function InteractionEmpty({ filter }: { filter: InteractionFilter }) {
   )
 }
 
-function HistoryEmpty() {
+function HistoryEmpty({ config }: { config?: CommunityConfig }) {
   return (
     <View style={{ paddingTop: '162rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '330rpx', height: '230rpx' }} />
-      <Text style={{ color: '#A3A3A3', fontSize: '28rpx', marginTop: '14rpx' }}>还没有浏览记录</Text>
+      <Text style={{ color: '#A3A3A3', fontSize: '28rpx', marginTop: '14rpx' }}>{resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyHistory)}</Text>
       <View onClick={openQianxunCity} style={{ width: '472rpx', height: '82rpx', borderRadius: '7rpx', background: BLUE, marginTop: '54rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx' }}>去千寻同城看看</Text></View>
     </View>
   )
@@ -337,7 +412,7 @@ function openQianxunCity() {
   void Taro.switchTab({ url: '/pages/index/index' })
 }
 
-function InteractionRow({ item }: { item: InteractionRecord }) {
+function InteractionRow({ item, config }: { item: InteractionRecord; config?: CommunityConfig }) {
   return (
     <View style={{ height: '124rpx', display: 'flex', alignItems: 'center' }}>
       <Image src={normalizeAvatarUrl(item.avatar, defaultAvatar)} mode="aspectFill" style={{ width: '82rpx', height: '82rpx', borderRadius: '41rpx', background: '#EEF1F5' }} />
@@ -345,7 +420,7 @@ function InteractionRow({ item }: { item: InteractionRecord }) {
         <Text style={{ display: 'block', color: '#292929', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600 }}>{item.nickname}</Text>
         <Text style={{ display: 'block', color: '#A1A1A1', fontSize: '23rpx', lineHeight: '33rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.description}</Text>
       </View>
-      <View onClick={() => item.userId ? void Taro.navigateTo({ url: `/pages/heart/user?userId=${item.userId}` }) : void Taro.showToast({ title: '暂无可查看的主页', icon: 'none' })} style={{ width: '138rpx', height: '58rpx', borderRadius: '29rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>查看主页</Text></View>
+      <View onClick={() => item.userId ? void Taro.navigateTo({ url: `/pages/heart/user?userId=${item.userId}` }) : void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnavailable), icon: 'none' })} style={{ width: '138rpx', height: '58rpx', borderRadius: '29rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>查看主页</Text></View>
     </View>
   )
 }
@@ -372,13 +447,39 @@ function LoadingRows() {
   )
 }
 
-function RosterEmpty({ kind }: { kind: RosterKind }) {
+function RosterEmpty({ kind, config }: { kind: RosterKind; config?: CommunityConfig }) {
   return (
     <View style={{ paddingTop: '110rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Image src={miniappOssIcons.qianxunEmptyFollowing} mode="aspectFit" style={{ width: '330rpx', height: '230rpx' }} />
-      <Text style={{ color: '#A3A3A3', fontSize: '28rpx', marginTop: '18rpx' }}>{kind === 'following' ? '还没有关注' : '还没有收到关注'}</Text>
+      <Text style={{ color: '#A3A3A3', fontSize: '28rpx', marginTop: '18rpx' }}>{resolveCommunityCopy(config, kind === 'following' ? COMMUNITY_COPY_KEYS.emptyFollowingRelations : COMMUNITY_COPY_KEYS.emptyFollowerRelations)}</Text>
     </View>
   )
+}
+
+function InteractorEmpty({ type, config }: { type: 'liked' | 'commented'; config?: CommunityConfig }) {
+  return <View style={{ paddingTop: '150rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={type === 'liked' ? miniappOssIcons.qianxunEmptyHeart : miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '330rpx', height: '230rpx' }} /><Text style={{ color: '#A3A3A3', fontSize: '28rpx', marginTop: '18rpx' }}>{resolveCommunityCopy(config, type === 'liked' ? COMMUNITY_COPY_KEYS.emptyPostLikes : COMMUNITY_COPY_KEYS.emptyPostComments)}</Text></View>
+}
+
+function RosterList({ users, onChanged, config }: { users: CommunityRelationUserVO[]; onChanged: () => void; config?: CommunityConfig }) {
+  const changeFollow = async (user: CommunityRelationUserVO) => {
+    if (user.following) {
+      const confirmed = await Taro.showModal({
+        title: '温馨提示',
+        content: '确定取消关注吗？',
+        cancelText: '取消',
+        confirmText: '确定',
+        confirmColor: BLUE,
+      })
+      if (!confirmed.confirm) return
+    }
+    try {
+      await toggleCommunityFollow(user.userNo || user.userId)
+      onChanged()
+    } catch (error) {
+      await showError(config, error)
+    }
+  }
+  return <ScrollView scrollY style={{ height: 'calc(100vh - 260rpx)' }} showScrollbar={false}><View style={{ padding: '16rpx 28rpx 40rpx' }}>{users.map(user => <View key={user.userNo || user.userId} style={{ height: '126rpx', display: 'flex', alignItems: 'center' }}><Image onClick={() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} src={normalizeAvatarUrl(user.avatar, defaultAvatar)} mode="aspectFill" style={{ width: '82rpx', height: '82rpx', borderRadius: '41rpx', background: '#EEF1F5' }} /><View onClick={() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} style={{ marginLeft: '18rpx', minWidth: 0, flex: 1 }}><Text style={{ display: 'block', color: '#292929', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600 }}>{user.nickname}</Text><Text style={{ display: 'block', color: '#A1A1A1', fontSize: '23rpx', lineHeight: '33rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.description}</Text></View><View onClick={() => void changeFollow(user)} style={{ minWidth: '126rpx', height: '58rpx', borderRadius: '29rpx', padding: '0 18rpx', border: `1rpx solid ${user.following ? '#A8ADB5' : BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: user.following ? '#999999' : BLUE, fontSize: '24rpx' }}>{user.following ? '已关注' : '关注'}</Text></View></View>)}</View></ScrollView>
 }
 
 function LikeSummary({ count, nickname, onClose }: { count: number; nickname: string; onClose: () => void }) {
@@ -394,57 +495,24 @@ function LikeSummary({ count, nickname, onClose }: { count: number; nickname: st
   )
 }
 
-function readInteractionRecords(): InteractionRecord[] {
-  const raw = Taro.getStorageSync(INTERACTION_STORAGE_KEY)
-  if (!Array.isArray(raw)) return []
-  return raw.flatMap((item, index) => {
-    if (!item || typeof item !== 'object') return []
-    const source = item as Partial<InteractionRecord>
-    if (!['commented', 'liked', 'unlocked'].includes(String(source.kind))) return []
-    return [{
-      id: String(source.id || index),
-      kind: source.kind as InteractionFilter,
-      userId: readOptionalNumber(source.userId),
-      nickname: String(source.nickname || '未命名用户'),
-      avatar: String(source.avatar || ''),
-      description: String(source.description || ''),
-    }]
-  })
+function toMyPostSnapshot(post: CommunityPostVO): MyPostSnapshot {
+  return {
+    id: post.postNo || String(post.id),
+    postId: post.id,
+    status: post.status || 'published',
+    statusName: post.statusName,
+    content: post.content,
+    imageUrls: post.imageUrls || [],
+    topicName: post.topicName,
+    createdAt: post.createTime,
+    commentCount: readNonNegativeNumber(post.commentCount),
+    likeCount: readNonNegativeNumber(post.likeCount),
+  }
 }
 
-function readBrowsingHistory(): CommunityPostVO[] {
-  const raw = Taro.getStorageSync(BROWSING_STORAGE_KEY)
-  if (!Array.isArray(raw)) return []
-  return raw.filter(item => item && typeof item === 'object' && Number.isFinite(Number(item.id)) && typeof item.content === 'string') as CommunityPostVO[]
-}
-
-function readMyPostSnapshots(): MyPostSnapshot[] {
-  const raw = Taro.getStorageSync(MY_POST_RECEIPTS_KEY)
-  if (!Array.isArray(raw)) return []
-  return raw.flatMap((item, index) => {
-    if (!item || typeof item !== 'object') return []
-    const source = item as Partial<MyPostSnapshot>
-    if (typeof source.content !== 'string') return []
-    const status = ['publishing', 'failed', 'published'].includes(String(source.status))
-      ? source.status as MyPostSnapshot['status']
-      : 'published'
-    return [{
-      id: String(source.id || index),
-      postId: readOptionalNumber(source.postId),
-      status,
-      content: source.content,
-      imageUrls: Array.isArray(source.imageUrls) ? source.imageUrls.filter(url => typeof url === 'string') : [],
-      topicName: source.topicName ? String(source.topicName) : undefined,
-      createdAt: String(source.createdAt || ''),
-      commentCount: readNonNegativeNumber(source.commentCount),
-      likeCount: readNonNegativeNumber(source.likeCount),
-    }]
-  })
-}
-
-function buildProfileDescription(source: Record<string, unknown>) {
+function buildProfileDescription(source: Record<string, unknown>, config?: CommunityConfig) {
   const birthYear = source.birthYear || (typeof source.birthday === 'string' ? source.birthday.slice(0, 4) : '')
-  return [birthYear ? `${birthYear}年` : '', source.locationCityName || source.locationCity, source.occupationLabel || source.occupation].filter(Boolean).join(' · ') || emptyProfile.description
+  return [birthYear ? `${birthYear}年` : '', source.locationCityName || source.locationCity, source.occupationLabel || source.occupation].filter(Boolean).join(' · ') || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profilePendingDescription)
 }
 
 function readNonNegativeNumber(value: unknown) {
@@ -452,17 +520,12 @@ function readNonNegativeNumber(value: unknown) {
   return Number.isFinite(number) ? Math.max(0, number) : 0
 }
 
-function readOptionalNumber(value: unknown) {
-  const number = Number(value)
-  return Number.isFinite(number) && number > 0 ? number : undefined
-}
-
 function formatDate(value: string) {
   const match = String(value || '').match(/\d{4}-(\d{2})-(\d{2})/)
   return match ? `${match[1]}-${match[2]}` : String(value || '')
 }
 
-async function showError(error: unknown) {
-  const title = error instanceof Error ? error.message : String(error || '加载失败，请稍后重试')
+async function showError(config: CommunityConfig | undefined, error: unknown) {
+  const title = resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error)
   await Taro.showToast({ title, icon: 'none' })
 }

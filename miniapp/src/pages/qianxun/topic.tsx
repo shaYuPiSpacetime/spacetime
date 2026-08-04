@@ -4,11 +4,18 @@ import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
-  getCommunityConfig,
+  COMMUNITY_COPY_KEYS,
+  getCommunityMeta,
   getCommunityTopicDetail,
   getCommunityTopicPosts,
+  hideCommunityAuthor,
   reportCommunityPost,
+  resolveCommunityCopy,
+  resolveCommunityFeedback,
+  toggleCommunityFollow,
   toggleCommunityLike,
+  unhideCommunityAuthor,
+  type CommunityConfig,
   type CommunityPostVO,
   type CommunityTopicDetailVO,
 } from '@/services/community'
@@ -19,11 +26,12 @@ const NAVY = '#0C285A'
 export default function QianxunTopicPage() {
   const [topicId, setTopicId] = useState<number>()
   const [topic, setTopic] = useState<CommunityTopicDetailVO>()
-  const [fallbackName, setFallbackName] = useState('社区话题')
+  const [fallbackName, setFallbackName] = useState(`community.copy.${COMMUNITY_COPY_KEYS.topicDefaultName}`)
   const [posts, setPosts] = useState<CommunityPostVO[]>([])
   const [sort, setSort] = useState<'HOT' | 'LATEST'>('HOT')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [config, setConfig] = useState<CommunityConfig>()
   const topicIdRef = useRef<number>()
   const resumeRefreshRef = useRef(false)
   const requestSequenceRef = useRef(0)
@@ -34,15 +42,17 @@ export default function QianxunTopicPage() {
     setLoading(true)
     setLoadError('')
     try {
-      const [detail, page] = await Promise.all([
+      const [runtime, detail, page] = await Promise.all([
+        getCommunityMeta(),
         getCommunityTopicDetail(id),
         getCommunityTopicPosts(id, requestedSort, 1, 30),
       ])
       if (requestSequenceRef.current !== sequence) return
+      setConfig(runtime)
       setTopic(detail)
       setPosts(page.records || [])
     } catch (error) {
-      if (requestSequenceRef.current === sequence) setLoadError(toErrorMessage(error))
+      if (requestSequenceRef.current === sequence) setLoadError(resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, error))
     } finally {
       if (requestSequenceRef.current === sequence) setLoading(false)
     }
@@ -53,7 +63,7 @@ export default function QianxunTopicPage() {
     const name = options.topicName ? decodeURIComponent(options.topicName) : ''
     if (!Number.isFinite(id) || id <= 0) {
       setLoading(false)
-      setLoadError('话题不存在或已下线')
+      setLoadError(resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.topicUnavailable))
       return
     }
     topicIdRef.current = id
@@ -83,37 +93,55 @@ export default function QianxunTopicPage() {
       const result = await toggleCommunityLike(post.id)
       setPosts(items => items.map(item => item.id === post.id ? { ...item, liked: result.liked, likeCount: result.likeCount } : item))
     } catch (error) {
-      await Taro.showToast({ title: toErrorMessage(error), icon: 'none' })
+      await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error), icon: 'none' })
     }
   }
 
   const openPostActions = async (post: CommunityPostVO) => {
     try {
-      const action = await Taro.showActionSheet({ itemList: ['不看此动态', '举报'] })
+      const action = await Taro.showActionSheet({ itemList: [
+        '分享',
+        post.followingAuthor ? '取消关注' : '关注',
+        post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态',
+        '举报',
+      ] })
       if (action.tapIndex === 0) {
-        setPosts(items => items.filter(item => item.id !== post.id))
-        await Taro.showToast({ title: '已减少此类推荐', icon: 'none' })
+        await Taro.showShareMenu({ withShareTicket: true })
         return
       }
-      const config = await getCommunityConfig()
-      const reasons = config.reportReasons || []
+      if (action.tapIndex === 1) {
+        const result = await toggleCommunityFollow(post.authorId)
+        setPosts(items => items.map(item => item.authorId === post.authorId ? { ...item, followingAuthor: result.following } : item))
+        return
+      }
+      if (action.tapIndex === 2) {
+        const result = post.hiddenAuthor
+          ? await unhideCommunityAuthor(post.authorUserNo || post.authorId)
+          : await hideCommunityAuthor(post.authorUserNo || post.authorId)
+        setPosts(items => items.map(item => item.authorId === post.authorId ? { ...item, hiddenAuthor: result.hidden } : item))
+        if (result.message) await Taro.showToast({ title: result.message, icon: 'none' })
+        return
+      }
+      const runtime = config || await getCommunityMeta()
+      setConfig(runtime)
+      const reasons = runtime.reportReasons || []
       if (!reasons.length) {
-        await Taro.showToast({ title: '暂无可用举报原因', icon: 'none' })
+        await Taro.showToast({ title: resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
         return
       }
       const reasonResult = await Taro.showActionSheet({ itemList: reasons.map(item => item.label) })
       const reason = reasons[reasonResult.tapIndex]
       if (!reason) return
-      await reportCommunityPost(post.id, reason.code)
-      await Taro.showToast({ title: '举报已提交', icon: 'success' })
+      const result = await reportCommunityPost(post.postNo || post.id, reason.code)
+      await Taro.showToast({ title: resolveCommunityFeedback(runtime, COMMUNITY_COPY_KEYS.reportSubmitted, result), icon: 'none' })
     } catch (error) {
-      if (!isActionSheetCancel(error)) await Taro.showToast({ title: toErrorMessage(error), icon: 'none' })
+      if (!isActionSheetCancel(error)) await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error), icon: 'none' })
     }
   }
 
   const topicName = topic?.name || fallbackName
   return <View id="qianxun-topic-page" style={{ height: '100vh', background: '#F3F5F7', overflow: 'hidden' }}>
-    <TopicHero topic={topic} name={topicName} />
+    <TopicHero topic={topic} name={topicName} config={config} />
     <View style={{ position: 'absolute', left: 0, right: 0, top: '454rpx', bottom: 0, borderRadius: '24rpx 24rpx 0 0', background: '#F3F5F7', overflow: 'hidden' }}>
       <View style={{ height: '82rpx', padding: '0 30rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}>
         <SortTab label="热门" selected={sort === 'HOT'} onClick={() => changeSort('HOT')} />
@@ -121,7 +149,7 @@ export default function QianxunTopicPage() {
       </View>
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
         <View style={{ padding: '18rpx 25rpx calc(160rpx + env(safe-area-inset-bottom))' }}>
-          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} />) : <TopicState title="该话题还没有动态，来发布第一条吧" />}
+          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
         </View>
       </ScrollView>
     </View>
@@ -129,7 +157,7 @@ export default function QianxunTopicPage() {
   </View>
 }
 
-function TopicHero({ topic, name }: { topic?: CommunityTopicDetailVO; name: string }) {
+function TopicHero({ topic, name, config }: { topic?: CommunityTopicDetailVO; name: string; config?: CommunityConfig }) {
   return <View style={{ position: 'relative', height: '478rpx', overflow: 'hidden', background: '#203047' }}>
     <Image src={topic?.coverUrl || miniappOssIcons.qianxunTopicHero} mode="aspectFill" style={{ position: 'absolute', inset: 0, width: '750rpx', height: '478rpx' }} />
     <View style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(7,19,34,.16) 0%, rgba(7,19,34,.76) 100%)' }} />
@@ -137,7 +165,7 @@ function TopicHero({ topic, name }: { topic?: CommunityTopicDetailVO; name: stri
     <View style={{ position: 'absolute', left: '30rpx', right: '30rpx', bottom: '50rpx' }}>
       <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 700 }}># {name}</Text>
       <View style={{ display: 'flex', alignItems: 'center', marginTop: '10rpx' }}><Text style={{ color: 'rgba(255,255,255,.88)', fontSize: '22rpx', lineHeight: '32rpx' }}>{formatCompactCount(topic?.participantCount || 0)}人参与</Text><Text style={{ color: 'rgba(255,255,255,.88)', fontSize: '22rpx', lineHeight: '32rpx', marginLeft: '36rpx' }}>{formatCompactCount(topic?.postCount || 0)}动态</Text></View>
-      <Text style={{ display: '-webkit-box', color: 'rgba(255,255,255,.94)', fontSize: '23rpx', lineHeight: '34rpx', height: '68rpx', marginTop: '10rpx', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{topic?.description || '分享与话题有关的真实经历和此刻想法，遇见有共鸣的人。'}</Text>
+      <Text style={{ display: '-webkit-box', color: 'rgba(255,255,255,.94)', fontSize: '23rpx', lineHeight: '34rpx', height: '68rpx', marginTop: '10rpx', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{topic?.description || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.topicDefaultDescription)}</Text>
     </View>
   </View>
 }
@@ -204,10 +232,6 @@ function relativeTime(value: string) {
   if (minutes < 60) return `${minutes}分钟前`
   if (minutes < 1440) return `${Math.floor(minutes / 60)}小时前`
   return `${Math.floor(minutes / 1440)}天前`
-}
-
-function toErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error || '加载失败')
 }
 
 function isActionSheetCancel(error: unknown) {
