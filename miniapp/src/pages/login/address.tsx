@@ -3,7 +3,7 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { toTwoLevelRegionErrorMessage } from '@/domain/basicProfileRegion'
 import { useLogin } from '@/hooks/useLogin'
-import type { RegionTreeOption } from '@/types/prd01'
+import type { RegionOption, RegionTreeOption } from '@/types/prd01'
 import { getWindowMetrics } from '@/utils/system'
 import LoginProfileShell from './components/LoginProfileShell'
 import './address.scss'
@@ -20,6 +20,7 @@ export default function LoginAddressPage() {
   const {
     userInfo,
     bootstrap,
+    loadLocations,
     loadProvinceCities,
     saveInitStep,
     runtimeLoading,
@@ -29,8 +30,10 @@ export default function LoginAddressPage() {
   const [provinces, setProvinces] = useState<RegionTreeOption[]>([])
   const [selectedProvince, setSelectedProvince] = useState<RegionTreeOption>()
   const [selectedCity, setSelectedCity] = useState<RegionTreeOption>()
+  const [selectedDistrict, setSelectedDistrict] = useState<RegionOption>()
+  const [districtResolved, setDistrictResolved] = useState(false)
   const [selected, setSelected] = useState<string>('')
-  const [cityValue, setCityValue] = useState([0, 0])
+  const [cityValue, setCityValue] = useState([0, 0, 0])
   const [showManualSheet, setShowManualSheet] = useState(false)
   const [showLocationSheet, setShowLocationSheet] = useState(false)
   const [locationLoading, setLocationLoading] = useState(false)
@@ -38,7 +41,7 @@ export default function LoginAddressPage() {
   const [loadError, setLoadError] = useState<string>()
   const variantRef = useRef('default')
 
-  const hasCompleteAddress = Boolean(selectedProvince && selectedCity)
+  const hasCompleteAddress = Boolean(selectedProvince && selectedCity && districtResolved)
   const locationColor = hasCompleteAddress ? '#2876FF' : '#A6A6A6'
 
   useLoad(options => {
@@ -47,6 +50,8 @@ export default function LoginAddressPage() {
     if (variant === 'empty') {
       setSelectedProvince(undefined)
       setSelectedCity(undefined)
+      setSelectedDistrict(undefined)
+      setDistrictResolved(false)
       setSelected('')
       setShowManualSheet(false)
       setShowLocationSheet(false)
@@ -63,15 +68,17 @@ export default function LoginAddressPage() {
         provinces,
         userInfo.locationProvince,
         userInfo.locationCity,
+        userInfo.locationDistrict,
         true
       )
     }
   })
 
-  const restoreSelection = (
+  const restoreSelection = async (
     tree: RegionTreeOption[],
     provinceCode?: string,
     cityCode?: string,
+    districtCode?: string,
     useFirst = false
   ) => {
     const provinceIndex = tree.findIndex(item => item.code === provinceCode)
@@ -82,10 +89,17 @@ export default function LoginAddressPage() {
     const nextCityIndex = cityIndex >= 0 ? cityIndex : useFirst ? 0 : -1
     const city = province.children[nextCityIndex]
     if (!city) return
+    setDistrictResolved(false)
+    const districts = await loadLocations(city.code)
+    const districtIndex = districts.findIndex(item => item.code === districtCode)
+    const nextDistrictIndex = districtIndex >= 0 ? districtIndex : districts.length > 0 ? 0 : -1
+    const district = districts[nextDistrictIndex]
     setSelectedProvince(province)
     setSelectedCity(city)
-    setCityValue([nextProvinceIndex, nextCityIndex])
-    setSelected(formatAddressLabel(province.name, city.name))
+    setSelectedDistrict(district)
+    setDistrictResolved(true)
+    setCityValue([nextProvinceIndex, nextCityIndex, Math.max(0, nextDistrictIndex)])
+    setSelected(formatAddressLabel(province.name, city.name, district?.label))
   }
 
   const loadPageData = async (force = false) => {
@@ -97,10 +111,11 @@ export default function LoginAddressPage() {
       const tree = await loadProvinceCities(force)
       setProvinces(tree)
       if (variantRef.current !== 'empty') {
-        restoreSelection(
+        await restoreSelection(
           tree,
           userInfo.locationProvince,
           userInfo.locationCity,
+          userInfo.locationDistrict,
           variantRef.current === 'selected'
         )
       }
@@ -120,10 +135,15 @@ export default function LoginAddressPage() {
       await Taro.showToast({ title: '请选择居住地', icon: 'none' })
       return
     }
+    if (!districtResolved) {
+      await Taro.showToast({ title: '请选择区县', icon: 'none' })
+      return
+    }
     try {
       await saveInitStep(5, {
         locationProvince: selectedProvince.code,
         locationCity: selectedCity.code,
+        locationDistrict: selectedDistrict?.code,
       })
     } catch (error) {
       await showError(error)
@@ -162,7 +182,9 @@ export default function LoginAddressPage() {
 
   const handleManualConfirm = (
     province: RegionTreeOption,
-    city: RegionTreeOption
+    city: RegionTreeOption,
+    district: RegionOption | undefined,
+    districtIndex: number
   ) => {
     const provinceIndex = Math.max(
       0,
@@ -172,10 +194,12 @@ export default function LoginAddressPage() {
       0,
       province.children.findIndex(item => item.code === city.code)
     )
-    setCityValue([provinceIndex, cityIndex])
+    setCityValue([provinceIndex, cityIndex, districtIndex])
     setSelectedProvince(province)
     setSelectedCity(city)
-    setSelected(formatAddressLabel(province.name, city.name))
+    setSelectedDistrict(district)
+    setDistrictResolved(true)
+    setSelected(formatAddressLabel(province.name, city.name, district?.label))
     setShowManualSheet(false)
     setShowLocationSheet(false)
   }
@@ -298,10 +322,11 @@ export default function LoginAddressPage() {
       </View>
 
       {showManualSheet && (
-          <ManualAddressSheet
-            provinces={provinces}
-            cityValue={cityValue}
-            onConfirm={handleManualConfirm}
+        <ManualAddressSheet
+          provinces={provinces}
+          cityValue={cityValue}
+          loadDistricts={loadLocations}
+          onConfirm={handleManualConfirm}
           onClose={() => setShowManualSheet(false)}
         />
       )}
@@ -321,21 +346,30 @@ export default function LoginAddressPage() {
   )
 }
 
-function formatAddressLabel(province: string, city: string) {
+function formatAddressLabel(province: string, city: string, district?: string) {
   const provinceLabel = province.replace(/[省市区]$/u, '')
   const cityLabel = city.replace(/[市区县]$/u, '')
-  return provinceLabel === cityLabel ? cityLabel : `${provinceLabel}${cityLabel}`
+  const districtLabel = (district || '').replace(/[市区县]$/u, '')
+  const cityAddress = provinceLabel === cityLabel ? cityLabel : `${provinceLabel}${cityLabel}`
+  return districtLabel ? `${cityAddress}${districtLabel}` : cityAddress
 }
 
 function ManualAddressSheet({
   provinces,
   cityValue,
+  loadDistricts,
   onConfirm,
   onClose,
 }: {
   provinces: RegionTreeOption[]
   cityValue: number[]
-  onConfirm: (province: RegionTreeOption, city: RegionTreeOption) => void
+  loadDistricts: (cityCode: string) => Promise<RegionOption[]>
+  onConfirm: (
+    province: RegionTreeOption,
+    city: RegionTreeOption,
+    district: RegionOption | undefined,
+    districtIndex: number
+  ) => void
   onClose: () => void
 }) {
   const initialProvinceIndex = clampAddressIndex(cityValue[0] || 0, provinces.length)
@@ -346,22 +380,33 @@ function ManualAddressSheet({
   )
   const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
   const [cityIndex, setCityIndex] = useState(initialCityIndex)
+  const [districts, setDistricts] = useState<RegionOption[]>([])
+  const [districtIndex, setDistrictIndex] = useState(cityValue[2] || 0)
+  const [districtLoading, setDistrictLoading] = useState(false)
+  const [districtError, setDistrictError] = useState(false)
+  const [districtResolved, setDistrictResolved] = useState(false)
   const [provinceScrollTop, setProvinceScrollTop] = useState<number | undefined>(() =>
     getAddressScrollTop(initialProvinceIndex)
   )
   const [cityScrollTop, setCityScrollTop] = useState<number | undefined>(() =>
     getAddressScrollTop(initialCityIndex)
   )
+  const [districtScrollTop, setDistrictScrollTop] = useState<number | undefined>(() =>
+    getAddressScrollTop(cityValue[2] || 0)
+  )
   const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const districtRequestRef = useRef(0)
   const province = provinces[provinceIndex] || provinces[0]
   const cities = province?.children || []
   const city = cities[clampAddressIndex(cityIndex, cities.length)] || cities[0]
+  const district = districts[clampAddressIndex(districtIndex, districts.length)] || districts[0]
 
   const releaseControlledAddressScroll = () => {
     if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
     releaseTimerRef.current = setTimeout(() => {
       setProvinceScrollTop(undefined)
       setCityScrollTop(undefined)
+      setDistrictScrollTop(undefined)
     }, 240)
   }
 
@@ -372,19 +417,75 @@ function ManualAddressSheet({
     }
   }, [])
 
+  useEffect(() => {
+    const requestId = districtRequestRef.current + 1
+    districtRequestRef.current = requestId
+    if (!city?.code) {
+      setDistricts([])
+      setDistrictIndex(0)
+      setDistrictLoading(false)
+      setDistrictError(false)
+      setDistrictResolved(false)
+      return
+    }
+
+    setDistricts([])
+    setDistrictIndex(0)
+    setDistrictLoading(true)
+    setDistrictError(false)
+    setDistrictResolved(false)
+    void loadDistricts(city.code)
+      .then(options => {
+        if (requestId !== districtRequestRef.current) return
+        const nextIndex = clampAddressIndex(
+          city.code === initialProvince?.children[initialCityIndex]?.code ? cityValue[2] || 0 : 0,
+          options.length
+        )
+        setDistricts(options)
+        setDistrictIndex(nextIndex)
+        setDistrictScrollTop(getAddressScrollTop(nextIndex))
+        setDistrictLoading(false)
+        setDistrictResolved(true)
+        releaseControlledAddressScroll()
+      })
+      .catch(() => {
+        if (requestId !== districtRequestRef.current) return
+        setDistricts([])
+        setDistrictIndex(0)
+        setDistrictLoading(false)
+        setDistrictError(true)
+        setDistrictResolved(false)
+      })
+  }, [city?.code, loadDistricts])
+
   const selectProvince = (nextIndex: number) => {
     const nextProvinceIndex = clampAddressIndex(nextIndex, provinces.length)
     setProvinceIndex(nextProvinceIndex)
     setCityIndex(0)
+    setDistricts([])
+    setDistrictIndex(0)
+    setDistrictResolved(false)
     setProvinceScrollTop(getAddressScrollTop(nextProvinceIndex))
     setCityScrollTop(getAddressScrollTop(0))
+    setDistrictScrollTop(getAddressScrollTop(0))
     releaseControlledAddressScroll()
   }
 
   const selectCity = (nextIndex: number) => {
     const nextCityIndex = clampAddressIndex(nextIndex, cities.length)
     setCityIndex(nextCityIndex)
+    setDistricts([])
+    setDistrictIndex(0)
+    setDistrictResolved(false)
     setCityScrollTop(getAddressScrollTop(nextCityIndex))
+    setDistrictScrollTop(getAddressScrollTop(0))
+    releaseControlledAddressScroll()
+  }
+
+  const selectDistrict = (nextIndex: number) => {
+    const normalized = clampAddressIndex(nextIndex, districts.length)
+    setDistrictIndex(normalized)
+    setDistrictScrollTop(getAddressScrollTop(normalized))
     releaseControlledAddressScroll()
   }
 
@@ -393,7 +494,11 @@ function ManualAddressSheet({
     if (nextProvinceIndex === provinceIndex) return
     setProvinceIndex(nextProvinceIndex)
     setCityIndex(0)
+    setDistricts([])
+    setDistrictIndex(0)
+    setDistrictResolved(false)
     setCityScrollTop(getAddressScrollTop(0))
+    setDistrictScrollTop(getAddressScrollTop(0))
     releaseControlledAddressScroll()
   }
 
@@ -401,6 +506,12 @@ function ManualAddressSheet({
     const nextCityIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, cities.length)
     if (nextCityIndex === cityIndex) return
     setCityIndex(nextCityIndex)
+  }
+
+  const handleDistrictScroll = (event: { detail: { scrollTop: number } }) => {
+    const nextDistrictIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, districts.length)
+    if (nextDistrictIndex === districtIndex) return
+    setDistrictIndex(nextDistrictIndex)
   }
 
   return (
@@ -545,9 +656,9 @@ function ManualAddressSheet({
             onScroll={handleProvinceScroll}
             style={{
               position: 'absolute',
-              left: '78rpx',
+              left: '8rpx',
               top: 0,
-              width: '220rpx',
+              width: '200rpx',
               height: '300rpx',
             }}
             showScrollbar={false}
@@ -590,9 +701,9 @@ function ManualAddressSheet({
             onScroll={handleCityScroll}
             style={{
               position: 'absolute',
-              left: '358rpx',
+              left: '228rpx',
               top: '78rpx',
-              width: '220rpx',
+              width: '200rpx',
               height: '222rpx',
             }}
             showScrollbar={false}
@@ -627,6 +738,76 @@ function ManualAddressSheet({
             })}
             <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
           </ScrollView>
+
+          {districtLoading || districtError || districts.length === 0 ? (
+            <View
+              style={{
+                position: 'absolute',
+                left: '448rpx',
+                top: '78rpx',
+                width: '200rpx',
+                height: '78rpx',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  color: districtError ? '#E35A5A' : '#999999',
+                  fontSize: '26rpx',
+                  lineHeight: '40rpx',
+                }}
+              >
+                {districtLoading ? '加载中' : districtError ? '加载失败' : '无区县'}
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              scrollY
+              scrollTop={districtScrollTop}
+              scrollWithAnimation
+              onScroll={handleDistrictScroll}
+              style={{
+                position: 'absolute',
+                left: '448rpx',
+                top: '78rpx',
+                width: '200rpx',
+                height: '222rpx',
+              }}
+              showScrollbar={false}
+            >
+              {districts.map((item, index) => {
+                const isActive = index === districtIndex
+                return (
+                  <View
+                    key={item.code}
+                    style={{
+                      height: '78rpx',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    onClick={() => selectDistrict(index)}
+                    hoverClass="btn-hover"
+                  >
+                    <Text
+                      style={{
+                        color: isActive ? '#0C285A' : index < districtIndex ? '#D7D7D7' : '#999999',
+                        fontSize: '28rpx',
+                        fontWeight: 500,
+                        lineHeight: '40rpx',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {(item.label || item.name || '').replace(/[市区县]$/u, '')}
+                    </Text>
+                  </View>
+                )
+              })}
+              <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
+            </ScrollView>
+          )}
         </View>
 
         <View
@@ -640,7 +821,17 @@ function ManualAddressSheet({
             justifyContent: 'center',
           }}
           onClick={() => {
-            if (province && city) onConfirm(province, city)
+            if (districtLoading) {
+              void Taro.showToast({ title: '区县加载中，请稍候', icon: 'none' })
+              return
+            }
+            if (districtError) {
+              void Taro.showToast({ title: '区县加载失败，请重新选择城市', icon: 'none' })
+              return
+            }
+            if (province && city && districtResolved) {
+              onConfirm(province, city, district, districtIndex)
+            }
           }}
           hoverClass="btn-hover"
         >

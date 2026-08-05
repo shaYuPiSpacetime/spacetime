@@ -76,6 +76,7 @@ export interface ProfileFieldSetting {
   pageMenu?: string
   visible: boolean
   required: boolean
+  requiredMode?: 'fixed' | 'conditional' | 'configurable' | string
   editable?: boolean
   fieldType?: string
   dictType?: string

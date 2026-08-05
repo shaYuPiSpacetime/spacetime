@@ -88,6 +88,7 @@ export default function BasicInfoCard({
   onEditorVisibilityChange,
 }: BasicInfoCardProps) {
   const copy = usePrd01Store(state => state.copy)
+  const loadDistricts = usePrd01Store(state => state.locations)
   const [editor, setEditor] = useState<EditorState>(null)
   const settingMap = useMemo(
     () => new Map(fieldSettings.map(setting => [setting.fieldId, setting])),
@@ -224,9 +225,12 @@ export default function BasicInfoCard({
           regions={regionTree}
           provinceCode={String(userInfo[`${editor.rowId}Province`] || '')}
           cityCode={String(userInfo[`${editor.rowId}City`] || '')}
-          onConfirm={(provinceCode, cityCode) => {
+          districtCode={String(userInfo[`${editor.rowId}District`] || '')}
+          includeDistrict={editor.rowId === 'location'}
+          loadDistricts={loadDistricts}
+          onConfirm={(provinceCode, cityCode, districtCode) => {
             void applyPatch(
-              buildRegionPatch(editor.rowId, provinceCode, cityCode)
+              buildRegionPatch(editor.rowId, provinceCode, cityCode, districtCode)
             ).then(closeEditor)
           }}
           onClose={closeEditor}
@@ -396,6 +400,7 @@ function resolveRowValue(
       regionTree,
       String(userInfo[`${rowId}Province`] || ''),
       String(userInfo[`${rowId}City`] || ''),
+      rowId === 'location' ? String(userInfo.locationDistrict || '') : '',
       placeholder
     )
   }
@@ -436,6 +441,7 @@ function resolveRegionLabel(
   tree: RegionTreeOption[],
   provinceCode: string,
   cityCode: string,
+  districtCode: string,
   placeholder: string
 ) {
   if (!provinceCode && !cityCode) return placeholder
@@ -443,9 +449,11 @@ function resolveRegionLabel(
   const city = province?.children.find(item => item.code === cityCode)
   const provinceLabel = trimRegionSuffix(province?.name || provinceCode)
   const cityLabel = trimRegionSuffix(city?.name || cityCode)
+  const districtLabel = trimRegionSuffix(districtCode)
   if (!provinceLabel) return cityLabel || placeholder
-  if (!cityLabel || provinceLabel === cityLabel) return provinceLabel
-  return `${provinceLabel}-${cityLabel}`
+  const provinceCityLabel =
+    !cityLabel || provinceLabel === cityLabel ? provinceLabel : `${provinceLabel}-${cityLabel}`
+  return districtLabel ? `${provinceCityLabel}-${districtLabel}` : provinceCityLabel
 }
 
 function trimRegionSuffix(value: string) {

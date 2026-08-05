@@ -101,6 +101,7 @@ export function useLogin() {
     saveInitStep(5, {
       locationProvince: userInfo.locationProvince,
       locationCity: userInfo.locationCity,
+      locationDistrict: userInfo.locationDistrict,
     })
 
   const initField = (stepNumber: number) =>
@@ -127,8 +128,7 @@ export function useLogin() {
     bootstrap: ensureRuntime,
     loadLocations: (parentCode?: string, force = false): Promise<RegionOption[]> =>
       loadLocations(parentCode, force),
-    loadProvinceCities: (force = false): Promise<RegionTreeOption[]> =>
-      loadProvinceCities(force),
+    loadProvinceCities: (force = false): Promise<RegionTreeOption[]> => loadProvinceCities(force),
     updateUserInfo,
     saveInitStep,
     resumeInit,

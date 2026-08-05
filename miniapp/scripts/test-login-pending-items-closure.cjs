@@ -69,32 +69,47 @@ test('登录视频播放时仍显示蓝湖品牌 Logo', () => {
 
   assert.ok(fs.existsSync(logoSource), '缺少从蓝湖登录稿拆出的无损品牌 Logo')
   assert.match(iconManifest, /loginBrand:\s*'https:\/\//, '品牌 Logo 必须使用 OSS 公网地址')
-  assert.match(login, /import \{[^}]*CoverImage[^}]*CoverView[^}]*\} from '@tarojs\/components'/, '视频上层 Logo 必须使用原生覆盖组件')
+  assert.match(
+    login,
+    /import \{[^}]*CoverImage[^}]*CoverView[^}]*\} from '@tarojs\/components'/,
+    '视频上层 Logo 必须使用原生覆盖组件'
+  )
   assert.match(login, /className="login-brand-logo"/, '登录页缺少独立品牌 Logo 图层')
   assert.match(login, /src=\{miniappOssIcons\.loginBrand\}/, '登录页没有引用品牌 Logo OSS 切图')
-  assert.match(login, /className="login-brand-logo"[\s\S]{0,500}zIndex:\s*2/, '品牌 Logo 必须位于视频图层之上')
+  assert.match(
+    login,
+    /className="login-brand-logo"[\s\S]{0,500}zIndex:\s*2/,
+    '品牌 Logo 必须位于视频图层之上'
+  )
 })
 
-test('现居地选择固定为省市两级联动', () => {
+test('现居地选择按城市区县节点完成省市区联动', () => {
   const source = read('src/pages/login/address.tsx')
 
   assert.match(source, /loadProvinceCities\(/, '地址页应一次加载省市树')
-  assert.match(source, /ManualAddressSheet/, '地址页缺少省市两级联动弹层')
-  assert.doesNotMatch(source, /loadLocations\(/, '现居地两级联动不得加载区县')
-  assert.doesNotMatch(source, /selectedDistrict|districtResolved/, '现居地两级联动不得维护区县状态')
-  assert.match(source, /nextActive=\{hasCompleteAddress\}/, '选择完整省市后必须点亮下一步')
+  assert.match(source, /ManualAddressSheet/, '地址页缺少省市区联动弹层')
+  assert.match(source, /loadLocations\(/, '现居地必须按城市加载区县')
+  assert.match(source, /selectedDistrict/, '现居地必须维护区县选中态')
+  assert.match(source, /districtResolved/, '无区县城市也必须有明确的加载完成态')
+  assert.match(source, /nextActive=\{hasCompleteAddress\}/, '完整地址解析后必须点亮下一步')
   assert.match(source, /locationProvince:/, '地址提交必须保留省级行政区 code')
   assert.match(source, /locationCity:/, '地址提交必须保留市级行政区 code')
-  assert.doesNotMatch(source, /locationDistrict:/, '地址提交不得继续携带区县行政区 code')
+  assert.match(source, /locationDistrict:/, '地址提交必须携带区县行政区 code')
 })
 
 test('获取定位所需微信权限必须进入最终 app.json', () => {
   const appConfig = read('src/app.config.ts')
 
-  assert.match(appConfig, /permission:\s*\{[\s\S]*['"]scope\.userLocation['"]:\s*\{[\s\S]*desc:/,
-    'app.config.ts 必须声明 scope.userLocation 及用途说明')
-  assert.match(appConfig, /requiredPrivateInfos:\s*\[[\s\S]*['"]getLocation['"]/,
-    'app.config.ts 必须声明 getLocation 隐私接口')
+  assert.match(
+    appConfig,
+    /permission:\s*\{[\s\S]*['"]scope\.userLocation['"]:\s*\{[\s\S]*desc:/,
+    'app.config.ts 必须声明 scope.userLocation 及用途说明'
+  )
+  assert.match(
+    appConfig,
+    /requiredPrivateInfos:\s*\[[\s\S]*['"]getLocation['"]/,
+    'app.config.ts 必须声明 getLocation 隐私接口'
+  )
 })
 
 test('手机号和验证码错误提示按真实原因区分', () => {
@@ -207,14 +222,8 @@ test('出生日期滚轮按闰年和月份生成合法天数', () => {
 test('出生日期月份变化后自动修正非法日期', () => {
   const wheel = requireBirthDateWheel()
 
-  assert.deepEqual(
-    wheel.normalizeBirthDateSelection(['2024年'], [0, 1, 30]),
-    [0, 1, 28]
-  )
-  assert.deepEqual(
-    wheel.normalizeBirthDateSelection(['2023年'], [0, 1, 30]),
-    [0, 1, 27]
-  )
+  assert.deepEqual(wheel.normalizeBirthDateSelection(['2024年'], [0, 1, 30]), [0, 1, 28])
+  assert.deepEqual(wheel.normalizeBirthDateSelection(['2023年'], [0, 1, 30]), [0, 1, 27])
   assert.equal(wheel.formatBirthDate(['2024年'], [0, 1, 28]), '2024-02-29')
 })
 
@@ -222,19 +231,30 @@ test('出生日期使用年月日三列原生滚轮并移除静态点击行', ()
   const age = read('src/pages/login/age.tsx')
   const styles = read('src/pages/login/age.scss')
 
-  assert.match(age, /import \{[^}]*PickerView[^}]*PickerViewColumn[^}]*\} from '@tarojs\/components'/)
+  assert.match(
+    age,
+    /import \{[^}]*PickerView[^}]*PickerViewColumn[^}]*\} from '@tarojs\/components'/
+  )
   assert.equal((age.match(/<PickerViewColumn/g) || []).length, 3)
   assert.match(age, /normalizeBirthDateSelection/)
-  assert.match(age, /maskStyle="background: transparent;"/, '原生滚轮必须关闭默认白色蒙层，保留完整选中背景')
+  assert.match(
+    age,
+    /maskStyle="background: transparent;"/,
+    '原生滚轮必须关闭默认白色蒙层，保留完整选中背景'
+  )
   assert.equal(
-    (age.match(/className="login-age-picker__indicator-cover login-age-picker__indicator-cover--/g) || []).length,
+    (
+      age.match(
+        /className="login-age-picker__indicator-cover login-age-picker__indicator-cover--/g
+      ) || []
+    ).length,
     2,
-    '选中面必须覆盖原生上下两条不可控指示线',
+    '选中面必须覆盖原生上下两条不可控指示线'
   )
   assert.match(
     styles,
     /\.login-age-picker__indicator-cover\s*\{[\s\S]*z-index:\s*2;[\s\S]*background:\s*#e3f1fe;[\s\S]*pointer-events:\s*none;/,
-    '指示线覆盖层必须使用蓝湖选中背景且不得拦截滑动',
+    '指示线覆盖层必须使用蓝湖选中背景且不得拦截滑动'
   )
   assert.match(styles, /\.login-age-picker__indicator-cover\s*\{[\s\S]*height:\s*6rpx;/)
   assert.match(styles, /\.login-age-picker__indicator-cover--top\s*\{[\s\S]*top:\s*152rpx;/)

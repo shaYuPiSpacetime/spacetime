@@ -1,6 +1,7 @@
 import { ScrollView, Text, View } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
-import type { RegionTreeOption } from '@/types/prd01'
+import type { RegionOption, RegionTreeOption } from '@/types/prd01'
 import { getWindowMetrics } from '@/utils/system'
 import { BottomPicker } from './VerificationShell'
 
@@ -36,7 +37,10 @@ interface LanhuRegionSheetProps {
   regions: RegionTreeOption[]
   provinceCode: string
   cityCode: string
-  onConfirm: (provinceCode: string, cityCode: string) => void
+  districtCode: string
+  includeDistrict?: boolean
+  loadDistricts: (cityCode: string) => Promise<RegionOption[]>
+  onConfirm: (provinceCode: string, cityCode: string, districtCode: string) => void
   onClose: () => void
 }
 
@@ -130,13 +134,16 @@ export function LanhuDateSheet({ title, value, onConfirm, onClose }: LanhuDateSh
 }
 
 /**
- * 省市两级组合选择器。现居地和家乡统一不采集区县。
+ * 组合地区选择器：现居地显示省市区，家乡通过 includeDistrict=false 保持省市两级。
  */
 export function LanhuRegionSheet({
   title,
   regions,
   provinceCode,
   cityCode,
+  districtCode,
+  includeDistrict = true,
+  loadDistricts,
   onConfirm,
   onClose,
 }: LanhuRegionSheetProps) {
@@ -151,22 +158,31 @@ export function LanhuRegionSheet({
   )
   const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
   const [cityIndex, setCityIndex] = useState(initialCityIndex)
+  const [districts, setDistricts] = useState<RegionOption[]>([])
+  const [districtIndex, setDistrictIndex] = useState(0)
+  const [districtLoading, setDistrictLoading] = useState(false)
+  const [districtError, setDistrictError] = useState(false)
   const [provinceScrollTop, setProvinceScrollTop] = useState<number | undefined>(() =>
     regionScrollTop(initialProvinceIndex)
   )
   const [cityScrollTop, setCityScrollTop] = useState<number | undefined>(() =>
     regionScrollTop(initialCityIndex)
   )
+  const [districtScrollTop, setDistrictScrollTop] = useState<number | undefined>(0)
   const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const districtRequestRef = useRef(0)
   const selectedProvince = regions[provinceIndex] || regions[0]
   const cities = selectedProvince?.children || []
   const selectedCity = cities[clampRegionIndex(cityIndex, cities.length)] || cities[0]
+  const selectedDistrict =
+    districts[clampRegionIndex(districtIndex, districts.length)] || districts[0]
 
   const releaseControlledScroll = () => {
     if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
     releaseTimerRef.current = setTimeout(() => {
       setProvinceScrollTop(undefined)
       setCityScrollTop(undefined)
+      setDistrictScrollTop(undefined)
     }, 240)
   }
 
@@ -177,19 +193,70 @@ export function LanhuRegionSheet({
     }
   }, [])
 
+  useEffect(() => {
+    const requestId = districtRequestRef.current + 1
+    districtRequestRef.current = requestId
+    if (!includeDistrict || !selectedCity?.code) {
+      setDistricts([])
+      setDistrictIndex(0)
+      setDistrictLoading(false)
+      setDistrictError(false)
+      return
+    }
+
+    setDistricts([])
+    setDistrictIndex(0)
+    setDistrictLoading(true)
+    setDistrictError(false)
+    void loadDistricts(selectedCity.code)
+      .then(options => {
+        if (requestId !== districtRequestRef.current) return
+        const preferredCode = selectedCity.code === cityCode ? districtCode : ''
+        const nextIndex = clampRegionIndex(
+          options.findIndex(item => item.code === preferredCode),
+          options.length
+        )
+        setDistricts(options)
+        setDistrictIndex(nextIndex)
+        setDistrictScrollTop(regionScrollTop(nextIndex))
+        setDistrictLoading(false)
+        releaseControlledScroll()
+      })
+      .catch(() => {
+        if (requestId !== districtRequestRef.current) return
+        setDistricts([])
+        setDistrictIndex(0)
+        setDistrictLoading(false)
+        setDistrictError(true)
+      })
+  }, [selectedCity?.code, cityCode, districtCode, includeDistrict, loadDistricts])
+
   const selectProvince = (nextIndex: number) => {
     const normalized = clampRegionIndex(nextIndex, regions.length)
     setProvinceIndex(normalized)
     setCityIndex(0)
+    setDistricts([])
+    setDistrictIndex(0)
     setProvinceScrollTop(regionScrollTop(normalized))
     setCityScrollTop(regionScrollTop(0))
+    setDistrictScrollTop(regionScrollTop(0))
     releaseControlledScroll()
   }
 
   const selectCity = (nextIndex: number) => {
     const normalized = clampRegionIndex(nextIndex, cities.length)
     setCityIndex(normalized)
+    setDistricts([])
+    setDistrictIndex(0)
     setCityScrollTop(regionScrollTop(normalized))
+    setDistrictScrollTop(regionScrollTop(0))
+    releaseControlledScroll()
+  }
+
+  const selectDistrict = (nextIndex: number) => {
+    const normalized = clampRegionIndex(nextIndex, districts.length)
+    setDistrictIndex(normalized)
+    setDistrictScrollTop(regionScrollTop(normalized))
     releaseControlledScroll()
   }
 
@@ -197,8 +264,16 @@ export function LanhuRegionSheet({
     <BottomPicker
       title={title}
       onConfirm={() => {
+        if (includeDistrict && districtLoading) {
+          void Taro.showToast({ title: '区县加载中，请稍候', icon: 'none' })
+          return
+        }
+        if (includeDistrict && districtError) {
+          void Taro.showToast({ title: '区县加载失败，请重新选择城市', icon: 'none' })
+          return
+        }
         if (selectedProvince && selectedCity) {
-          onConfirm(selectedProvince.code, selectedCity.code)
+          onConfirm(selectedProvince.code, selectedCity.code, selectedDistrict?.code || '')
         }
       }}
       onClose={onClose}
@@ -259,15 +334,18 @@ export function LanhuRegionSheet({
             if (nextIndex !== provinceIndex) {
               setProvinceIndex(nextIndex)
               setCityIndex(0)
+              setDistricts([])
+              setDistrictIndex(0)
               setCityScrollTop(regionScrollTop(0))
+              setDistrictScrollTop(regionScrollTop(0))
               releaseControlledScroll()
             }
           }}
           style={{
             position: 'absolute',
-            left: '78rpx',
+            left: includeDistrict ? '8rpx' : '78rpx',
             top: 0,
-            width: '220rpx',
+            width: includeDistrict ? '200rpx' : '220rpx',
             height: '300rpx',
           }}
         >
@@ -315,9 +393,9 @@ export function LanhuRegionSheet({
           }
           style={{
             position: 'absolute',
-            left: '358rpx',
+            left: includeDistrict ? '228rpx' : '358rpx',
             top: '78rpx',
-            width: '220rpx',
+            width: includeDistrict ? '200rpx' : '220rpx',
             height: '222rpx',
           }}
         >
@@ -348,6 +426,81 @@ export function LanhuRegionSheet({
           ))}
           <View style={{ height: `${REGION_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
         </ScrollView>
+
+        {includeDistrict &&
+          (districtLoading || districtError || districts.length === 0 ? (
+            <View
+              style={{
+                position: 'absolute',
+                left: '448rpx',
+                top: '78rpx',
+                width: '200rpx',
+                height: '78rpx',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  color: districtError ? '#E35A5A' : '#999999',
+                  fontSize: '26rpx',
+                  lineHeight: '40rpx',
+                }}
+              >
+                {districtLoading ? '加载中' : districtError ? '加载失败' : '无区县'}
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              scrollY
+              scrollTop={districtScrollTop}
+              scrollWithAnimation
+              enhanced
+              showScrollbar={false}
+              onScroll={event =>
+                setDistrictIndex(regionIndexFromScrollTop(event.detail.scrollTop, districts.length))
+              }
+              style={{
+                position: 'absolute',
+                left: '448rpx',
+                top: '78rpx',
+                width: '200rpx',
+                height: '222rpx',
+              }}
+            >
+              {districts.map((item, index) => (
+                <View
+                  key={item.code}
+                  style={{
+                    height: '78rpx',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onClick={() => selectDistrict(index)}
+                  hoverClass="btn-hover"
+                >
+                  <Text
+                    style={{
+                      color:
+                        index === districtIndex
+                          ? '#0C285A'
+                          : index < districtIndex
+                            ? '#D7D7D7'
+                            : '#999999',
+                      fontSize: '28rpx',
+                      fontWeight: 500,
+                      lineHeight: '40rpx',
+                    }}
+                  >
+                    {trimRegionName(item.label || item.name || '')}
+                  </Text>
+                </View>
+              ))}
+              <View style={{ height: `${REGION_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
+            </ScrollView>
+          ))}
       </View>
     </BottomPicker>
   )

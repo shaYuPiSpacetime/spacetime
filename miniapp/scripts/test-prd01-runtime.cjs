@@ -58,7 +58,10 @@ function requireErrorMessage() {
 test('禁用、缺失或空白文案不返回前端硬编码兜底', () => {
   const { readCopy } = requireRuntime()
   assert.equal(readCopy({}, 'avatar_notice'), '')
-  assert.equal(readCopy({ avatar_notice: { enabled: false, content: '不应展示' } }, 'avatar_notice'), '')
+  assert.equal(
+    readCopy({ avatar_notice: { enabled: false, content: '不应展示' } }, 'avatar_notice'),
+    ''
+  )
   assert.equal(readCopy({ avatar_notice: { enabled: true, content: '  ' } }, 'avatar_notice'), '')
   assert.equal(
     readCopy({ avatar_notice: { enabled: true, content: '请上传本人清晰头像' } }, 'avatar_notice'),
@@ -77,10 +80,7 @@ test('请求失败对象转换为可读提示，不向页面渲染 [object Objec
   )
   assert.equal(getErrorMessage({}, '加载失败，请稍后重试'), '加载失败，请稍后重试')
 
-  const requestSource = fs.readFileSync(
-    path.join(miniappRoot, 'src/services/request.ts'),
-    'utf8'
-  )
+  const requestSource = fs.readFileSync(path.join(miniappRoot, 'src/services/request.ts'), 'utf8')
   assert.match(requestSource, /getErrorMessage/)
   assert.match(requestSource, /网络连接失败，请稍后重试/)
 })
@@ -96,18 +96,12 @@ test('运行时文案快照更新后发布新的读取器并触发页面重绘',
   assert.equal(emptyReader('login_use_action'), '')
   assert.equal(configuredReader('login_use_action'), '立即使用')
 
-  const storeSource = fs.readFileSync(
-    path.join(miniappRoot, 'src/stores/prd01Store.ts'),
-    'utf8'
-  )
+  const storeSource = fs.readFileSync(path.join(miniappRoot, 'src/stores/prd01Store.ts'), 'utf8')
   assert.match(storeSource, /copy:\s*createCopyReader\(snapshot\.config\.copywriting\)/)
 })
 
 test('千寻准入页保留蓝湖顶部页签，认证文案由运行时配置提供', () => {
-  const source = fs.readFileSync(
-    path.join(miniappRoot, 'src/pages/index/index.tsx'),
-    'utf8'
-  )
+  const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/index.tsx'), 'utf8')
 
   assert.match(source, /<TopTabs\b/)
   assert.match(source, /function TopTabs/)
@@ -195,10 +189,7 @@ test('首登步骤只提交字典 code 并严格隔离字段', () => {
     step: 4,
     educationLevel: 'BACHELOR',
   })
-  assert.throws(
-    () => buildInitStepPayload(3, { identity: '职场人' }, profileOptions),
-    /identity/
-  )
+  assert.throws(() => buildInitStepPayload(3, { identity: '职场人' }, profileOptions), /identity/)
 })
 
 test('地区步骤只接受行政区 code，不接受当前位置或中文名称', () => {
@@ -215,18 +206,12 @@ test('地区步骤只接受行政区 code，不接受当前位置或中文名称
       locationCity: '330100',
     }
   )
-  assert.throws(
-    () => buildInitStepPayload(5, { locationCity: '当前位置' }),
-    /地区 code/
-  )
+  assert.throws(() => buildInitStepPayload(5, { locationCity: '当前位置' }), /地区 code/)
 })
 
 test('短信倒计时优先使用发送接口响应，其次使用运行时配置', () => {
   const { resolveSmsCountdown } = requireRuntime()
-  assert.equal(
-    resolveSmsCountdown({ countdownSeconds: 45 }, { sendCountdownSeconds: 60 }),
-    45
-  )
+  assert.equal(resolveSmsCountdown({ countdownSeconds: 45 }, { sendCountdownSeconds: 60 }), 45)
   assert.equal(resolveSmsCountdown(undefined, { sendCountdownSeconds: 60 }), 60)
 })
 
@@ -293,7 +278,9 @@ test('API 服务覆盖交接文档的新接口且不包含旧兼容路径', () =
     '/miniapp/profile/media',
     '/miniapp/profile/open-text',
     '/miniapp/profile/init-complete',
-  ].forEach(forbidden => assert.equal(paths.includes(forbidden), false, `禁止接入旧接口：${forbidden}`))
+  ].forEach(forbidden =>
+    assert.equal(paths.includes(forbidden), false, `禁止接入旧接口：${forbidden}`)
+  )
 })
 
 test('运行时加载器并发复用配置请求并按父 code 缓存地区', async () => {
@@ -326,9 +313,14 @@ test('运行时加载器并发复用配置请求并按父 code 缓存地区', as
     },
     getProvinceCities: async () => {
       provinceCityCalls += 1
-      return [{ code: '330000', name: '浙江省', level: 'PROVINCE', children: [
-        { code: '330100', name: '杭州市', level: 'CITY', children: [] },
-      ] }]
+      return [
+        {
+          code: '330000',
+          name: '浙江省',
+          level: 'PROVINCE',
+          children: [{ code: '330100', name: '杭州市', level: 'CITY', children: [] }],
+        },
+      ]
     },
   }
   const loader = createPrd01Loader(api)
@@ -354,7 +346,10 @@ test('首登运行时拒绝空字典、无效年龄范围和空地区，不再�
     accessPolicy: { minAge: 18, maxAge: 80 },
   }
   const validOptions = {
-    gender: [{ code: 'FEMALE', label: '女' }, { code: 'MALE', label: '男' }],
+    gender: [
+      { code: 'FEMALE', label: '女' },
+      { code: 'MALE', label: '男' },
+    ],
     identity: [{ code: 'WORKER', label: '职场人' }],
     educationLevel: [{ code: 'BACHELOR', label: '本科' }],
   }
@@ -397,9 +392,7 @@ test('地区懒加载允许城市没有区县节点并缓存空结果', async ()
 test('认证中心拒绝缺失文案和认证字典，不再渲染无文字卡片', () => {
   const { validateVerificationRuntime, VERIFICATION_COPY_KEYS: copyKeys } = requireRuntime()
   const config = {
-    copywriting: Object.fromEntries(
-      copyKeys.map(key => [key, { enabled: true, content: key }])
-    ),
+    copywriting: Object.fromEntries(copyKeys.map(key => [key, { enabled: true, content: key }])),
   }
   const options = {
     educationLevel: [{ code: 'BACHELOR', label: '本科' }],
@@ -412,10 +405,7 @@ test('认证中心拒绝缺失文案和认证字典，不再渲染无文字卡�
   }
 
   assert.doesNotThrow(() => validateVerificationRuntime(config, options))
-  assert.throws(
-    () => validateVerificationRuntime({ copywriting: {} }, options),
-    /认证文案配置缺失/
-  )
+  assert.throws(() => validateVerificationRuntime({ copywriting: {} }, options), /认证文案配置缺失/)
   assert.throws(
     () => validateVerificationRuntime(config, { ...options, auditStatus: [] }),
     /审核状态字典配置为空/
@@ -452,9 +442,7 @@ test('认证页面入口相互隔离，避免构建产物重复注册 Page', () 
   assert.match(boundary, /validateVerificationRuntime/)
   assert.match(boundary, /common_load_failed_title/)
   assert.match(boundary, /common_retry_action/)
-  const packageJson = JSON.parse(
-    fs.readFileSync(path.join(miniappRoot, 'package.json'), 'utf8')
-  )
+  const packageJson = JSON.parse(fs.readFileSync(path.join(miniappRoot, 'package.json'), 'utf8'))
   assert.match(packageJson.scripts['prebuild:weapp'], /validate-page-entry-isolation\.mjs/)
   assert.match(packageJson.scripts['predev:weapp'], /validate-page-entry-isolation\.mjs/)
 })
@@ -505,7 +493,10 @@ test('首登动态数据异常时所有页面展示固定错误态与重试入�
 })
 
 test('部署迁移补齐 app_gender 大写 code 且可重复执行', () => {
-  const migrationPath = path.resolve(miniappRoot, '../deploy/sql/prod/048_prd01_gender_dictionary_seed.sql')
+  const migrationPath = path.resolve(
+    miniappRoot,
+    '../deploy/sql/prod/048_prd01_gender_dictionary_seed.sql'
+  )
   assert.ok(fs.existsSync(migrationPath), '缺少性别字典修复迁移')
   const source = fs.readFileSync(migrationPath, 'utf8')
   assert.match(source, /'app_gender'/)
@@ -534,8 +525,8 @@ test('首登五页只使用运行时配置、字典 code 和服务端 nextStep',
   assert.match(sources.identity, /option\.code/)
   assert.match(sources.education, /option\.code/)
   assert.match(sources.address, /loadProvinceCities\(/)
-  assert.doesNotMatch(sources.address, /loadLocations\(/, '现居地固定省市两级，不得加载区县')
-  assert.doesNotMatch(sources.address, /locationDistrict:/, '现居地固定省市两级，不得提交区县 code')
+  assert.match(sources.address, /loadLocations\(/, '现居地必须按城市加载区县')
+  assert.match(sources.address, /locationDistrict:/, '现居地必须提交区县 code')
   assert.equal(sources.address.includes("setSelected('当前位置')"), false)
 })
 
@@ -564,8 +555,14 @@ test('学历认证页面从字典取人群、方式和学历 code，并先上传
 })
 
 test('头像认证从头像来源字典选择，并按上传 URL 提交审核', () => {
-  const sourcePage = fs.readFileSync(path.join(miniappRoot, 'src/pages/verification/avatar.tsx'), 'utf8')
-  const cropPage = fs.readFileSync(path.join(miniappRoot, 'src/pages/verification/avatar-crop.tsx'), 'utf8')
+  const sourcePage = fs.readFileSync(
+    path.join(miniappRoot, 'src/pages/verification/avatar.tsx'),
+    'utf8'
+  )
+  const cropPage = fs.readFileSync(
+    path.join(miniappRoot, 'src/pages/verification/avatar-crop.tsx'),
+    'utf8'
+  )
   assert.match(sourcePage, /profileOptions\?\.avatarSource/)
   assert.match(sourcePage, /option\.code/)
   assert.match(cropPage, /prd01Api\.uploadAvatar/)
@@ -575,7 +572,10 @@ test('头像认证从头像来源字典选择，并按上传 URL 提交审核', 
 
 test('资料编辑页按后端字段配置渲染，并使用字典 code 保存', () => {
   const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/profile/edit.tsx'), 'utf8')
-  const basicEditor = fs.readFileSync(path.join(miniappRoot, 'src/pages/verification/basic.tsx'), 'utf8')
+  const basicEditor = fs.readFileSync(
+    path.join(miniappRoot, 'src/pages/verification/basic.tsx'),
+    'utf8'
+  )
   assert.equal(source.includes('getDemoPageData'), false)
   assert.match(source, /prd01Api\.getBasicProfile/)
   assert.match(source, /fieldSettings/)
@@ -615,7 +615,10 @@ test('核心页面准入只消费 access-status，不在前端自行拼认证规
     assert.match(source, /useAccessStatus/)
     assert.match(source, /AccessBlockedPage/)
   })
-  const recommend = fs.readFileSync(path.join(miniappRoot, 'src/features/qianxun/QianxunFamilyPage.tsx'), 'utf8')
+  const recommend = fs.readFileSync(
+    path.join(miniappRoot, 'src/features/qianxun/QianxunFamilyPage.tsx'),
+    'utf8'
+  )
   assert.match(recommend, /useAccessStatus/)
   assert.match(recommend, /access\.status\?\.coreAccessStatus === 'CORE_ALLOWED'/)
   assert.match(recommend, /UncertifiedSheet/, '千寻按最新蓝湖稿使用页内未认证弹层')
@@ -640,7 +643,10 @@ test('文件上传由小程序拿短时凭证后直传 OSS', () => {
 test('相册、背景图和语音介绍使用真实查询、直传、保存与删除接口', () => {
   const files = {
     albums: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile-edit/albums.tsx'), 'utf8'),
-    background: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile-edit/background.tsx'), 'utf8'),
+    background: fs.readFileSync(
+      path.join(miniappRoot, 'src/pages/profile-edit/background.tsx'),
+      'utf8'
+    ),
     voice: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile/edit.tsx'), 'utf8'),
   }
   assert.match(files.albums, /prd01Api\.getAlbums/)
