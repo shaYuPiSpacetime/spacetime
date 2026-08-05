@@ -4,6 +4,7 @@ import process from 'node:process'
 
 const root = process.cwd()
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
+const exists = (file) => fs.existsSync(path.join(root, file))
 const failures = []
 
 function check(condition, message) {
@@ -16,6 +17,8 @@ const adminPage = read('frontend/src/pages/commercial/CommercialManagement.tsx')
 const coinsPage = read('miniapp/src/pages/coins/index.tsx')
 const adminRouter = read('frontend/src/router/index.tsx')
 const commercialApi = read('frontend/src/api/commercial.ts')
+const oneTimeMigrationPath = 'deploy/sql/prod/064_vip_packages_one_time_purchase.sql'
+const oneTimeMigration = exists(oneTimeMigrationPath) ? read(oneTimeMigrationPath) : ''
 
 check(payment.includes('originAmount?: number'), '小程序币包契约缺少原价')
 check(payment.includes('discountAmount?: number'), '小程序币包契约缺少优惠价')
@@ -37,6 +40,16 @@ check(commercialApi.includes('export interface CommercialSettings'), '管理后�
 check(!adminPage.includes('后台接口暂未返回社交与订单参数配置'), '社交与订单参数仍是占位空态')
 check(!adminPage.includes('后台接口暂未返回曝光包预留配置'), '曝光包预留仍是占位空态')
 check(adminPage.includes('updateCommercialSettings'), '后台通用参数未绑定聚合保存状态')
+check(adminPage.includes('会员套餐（一次性购买）'), '会员套餐页未明确一次性购买')
+check(adminPage.includes('value="普通套餐" readOnly'), '会员套餐类型未固定为普通套餐')
+check(adminPage.includes('value="一次性购买" readOnly'), '会员套餐购买方式未固定为一次性购买')
+check(!adminPage.includes('<option value="continuous">'), '会员套餐页仍可选择连续订阅套餐')
+check(!adminPage.includes('<option value="month">'), '会员套餐页仍可选择自动续费周期')
+check(exists(oneTimeMigrationPath), '缺少 VIP 套餐一次性购买生产迁移')
+check(oneTimeMigration.includes("package_type = 'normal'"), '生产迁移未归一化普通套餐类型')
+check(oneTimeMigration.includes("subscription_type = 'once'"), '生产迁移未归一化一次性购买方式')
+check(oneTimeMigration.includes('wechat_product_id = NULL'), '生产迁移未清理微信连续订阅商品')
+check(oneTimeMigration.includes('agreement_config = NULL'), '生产迁移未清理连续订阅协议配置')
 
 if (failures.length) {
   console.error(failures.map((item) => `FAIL: ${item}`).join('\n'))

@@ -47,13 +47,13 @@ interface BenefitRow {
 interface VipPackageRow {
   id: string;
   name: string;
-  type: 'normal' | 'subscription';
+  type: 'normal';
+  purchaseMode: 'once';
   originalPrice: number;
   price: number;
   duration: string;
   tag: string;
   status: 'on' | 'off';
-  wxProductReady?: boolean;
 }
 
 interface CoinPackageRow {
@@ -286,24 +286,34 @@ function benefitConfigType(item: VipBenefitConfig): BenefitRow['configType'] {
 }
 
 function toVipPackageRow(item: VipPackageConfig, index: number): VipPackageRow {
-  const subscription = item.subscriptionType && item.subscriptionType !== 'once';
   return {
-    id: `${subscription ? 'SUB' : 'VIP'}-${String(item.id ?? index + 1).padStart(2, '0')}`,
+    id: `VIP-${String(item.id ?? index + 1).padStart(2, '0')}`,
     name: item.packageName,
-    type: subscription ? 'subscription' : 'normal',
+    type: 'normal',
+    purchaseMode: 'once',
     originalPrice: Number(item.originPrice ?? item.price),
     price: Number(item.price ?? 0),
-    duration: subscription ? subscriptionDuration(item.subscriptionType) : `${item.durationDays || 31} 天`,
-    tag: item.packageTag || (subscription ? '连续订阅' : '后台配置'),
+    duration: `${item.durationDays || 31} 天`,
+    tag: item.packageTag || '后台配置',
     status: item.status === 'DISABLED' ? 'off' : 'on',
-    wxProductReady: Boolean(item.wechatProductId || !subscription),
   };
 }
 
-function subscriptionDuration(type?: string) {
-  if (type === 'quarter') return '每季自动续费';
-  if (type === 'year') return '每年自动续费';
-  return '每月自动续费';
+function normalizeVipPackage(item: VipPackageConfig): VipPackageConfig {
+  return {
+    ...item,
+    packageType: 'normal',
+    subscriptionType: 'once',
+    wechatProductId: undefined,
+    agreementConfig: undefined,
+  };
+}
+
+function normalizeCommercialConfig(value: CommercialConfig): CommercialConfig {
+  return {
+    ...value,
+    vipPackages: (value.vipPackages || []).map(normalizeVipPackage),
+  };
 }
 
 function toCoinPackageRow(item: CoinPackageConfig, index: number): CoinPackageRow {
@@ -492,7 +502,8 @@ function ConfigWorkspace() {
   const load = useCallback(async () => {
     try {
       const res = await getCommercialConfig();
-      setConfig(responseData<CommercialConfig | null>(res, null));
+      const loaded = responseData<CommercialConfig | null>(res, null);
+      setConfig(loaded ? normalizeCommercialConfig(loaded) : null);
     } catch {
       setConfig(null);
     }
@@ -541,9 +552,9 @@ function ConfigWorkspace() {
     }
     setSaving(true);
     try {
-      const payload = config;
+      const payload = normalizeCommercialConfig(config);
       const res = await saveCommercialConfig({ ...payload, changeSummary: saveReason });
-      setConfig(responseData<CommercialConfig>(res, payload));
+      setConfig(normalizeCommercialConfig(responseData<CommercialConfig>(res, payload)));
       showToast('商业化配置已保存', 'success');
       setSaveOpen(false);
     } finally {
@@ -635,17 +646,18 @@ function ConfigWorkspace() {
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'vipPackages'} name="vipPackages">
-          <Toolbar title="普通套餐 / 连续订阅套餐">
+          <Toolbar title="会员套餐（一次性购买）">
             <button className="btn primary" type="button" onClick={() => { setVipEditIndex(null); setVipEditOpen(true); }}>新增套餐</button>
           </Toolbar>
           <TableWrap minWidth={1120}>
-            <thead><tr><th>套餐编号</th><th>套餐名称</th><th>类型</th><th>原价</th><th>优惠价</th><th>时长/周期</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th>套餐编号</th><th>套餐名称</th><th>套餐类型</th><th>购买方式</th><th>原价</th><th>优惠价</th><th>有效天数</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
             <tbody data-render="admin-vip-packages">
               {data.vipPackages.map((item, index) => (
                 <tr key={item.id}>
                   <td>{item.id}</td>
                   <td>{item.name}</td>
-                  <td>{item.type === 'subscription' ? '连续订阅套餐' : '普通套餐'}</td>
+                  <td>普通套餐</td>
+                  <td>一次性购买</td>
                   <td>{money(item.originalPrice)}</td>
                   <td>{money(item.price)}</td>
                   <td>{item.duration}</td>
@@ -654,10 +666,10 @@ function ConfigWorkspace() {
                   <td><button className="btn" type="button" onClick={() => { setVipEditIndex(index); setVipEditOpen(true); }}>编辑</button> <button className="btn danger" type="button" onClick={() => toggleConfigStatus('vipPackages', index)}>切换状态</button></td>
                 </tr>
               ))}
-              {!data.vipPackages.length && <EmptyTableRow colSpan={9} />}
+              {!data.vipPackages.length && <EmptyTableRow colSpan={10} />}
             </tbody>
           </TableWrap>
-          <Notice title="连续订阅校验">上架前必须绑定微信连续订阅商品、周期和协议；缺失时保存阻断。</Notice>
+          <Notice title="购买方式">所有会员套餐均为普通套餐，通过微信支付一次性购买；再次购买只延长会员有效期，不会自动扣费。</Notice>
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'coinPackages'} name="coinPackages">
@@ -1329,17 +1341,15 @@ function VipPackageModal({
     <Modal id="vipPackageEditModal" title="会员套餐新增/编辑" open={open} onClose={onClose}>
       <div className="form-stack">
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
-        <label className="field">套餐类型<select value={form.packageType} onChange={(event) => setForm({ ...form, packageType: event.target.value })}><option value="normal">普通套餐</option><option value="continuous">连续订阅套餐</option></select></label>
+        <label className="field">套餐类型<input value="普通套餐" readOnly /></label>
         <label className="field">售价<input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} /></label>
         <label className="field">原价<input type="number" value={form.originPrice ?? ''} onChange={(event) => setForm({ ...form, originPrice: event.target.value ? Number(event.target.value) : undefined })} /></label>
         <label className="field">时长（天）<input type="number" value={form.durationDays} onChange={(event) => setForm({ ...form, durationDays: Number(event.target.value) })} /></label>
-        <label className="field">订阅周期<select value={form.subscriptionType || 'once'} onChange={(event) => setForm({ ...form, subscriptionType: event.target.value })}><option value="once">一次性购买</option><option value="month">每月自动续费</option><option value="quarter">每季自动续费</option><option value="year">每年自动续费</option></select></label>
+        <label className="field">购买方式<input value="一次性购买" readOnly /></label>
         <label className="field">标签<input value={form.packageTag || ''} onChange={(event) => setForm({ ...form, packageTag: event.target.value })} /></label>
-        <label className="field">微信连续订阅商品<input value={form.wechatProductId || ''} onChange={(event) => setForm({ ...form, wechatProductId: event.target.value })} /></label>
-        <label className="field">协议配置<input value={form.agreementConfig || ''} onChange={(event) => setForm({ ...form, agreementConfig: event.target.value })} /></label>
       </div>
-      <Notice title="校验">连续订阅套餐上架前必须绑定微信连续订阅商品、周期和协议。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || form.price <= 0} onClick={() => onSubmit(form)}>确认</button></div>
+      <Notice title="购买方式">固定为普通套餐、一次性购买，不签约自动续费。</Notice>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || form.price <= 0} onClick={() => onSubmit(normalizeVipPackage(form))}>确认</button></div>
     </Modal>
   );
 }

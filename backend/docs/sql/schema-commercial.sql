@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS app_vip_benefit (
 CREATE TABLE IF NOT EXISTS app_vip_package (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     package_name VARCHAR(100) NOT NULL COMMENT '套餐名称',
-    package_type VARCHAR(30) DEFAULT 'normal' COMMENT '套餐类型: normal/limited',
-    subscription_type VARCHAR(30) DEFAULT 'once' COMMENT '订阅类型: once/month/quarter/year',
+    package_type VARCHAR(30) DEFAULT 'normal' COMMENT '套餐类型，固定 normal（普通套餐）',
+    subscription_type VARCHAR(30) DEFAULT 'once' COMMENT '购买方式，固定 once（一次性购买）',
     price DECIMAL(10,2) DEFAULT 0 COMMENT '售价',
     origin_price DECIMAL(10,2) DEFAULT 0 COMMENT '原价',
     duration_days INT DEFAULT 0 COMMENT '有效天数',

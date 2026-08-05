@@ -19,7 +19,7 @@
 |------|----------|------|
 | A 接口数 | 聚合查询/保存、套餐增改查启停、移动端套餐/场景查询 | 2 |
 | B 状态流转 | 套餐启停、推荐互斥、固定目录约束 | 2 |
-| C 规则逻辑 | 价格、连续订阅、固定 9 项权益和 8 个场景校验 | 2 |
+| C 规则逻辑 | 价格、普通套餐/一次性购买、固定 9 项权益和 8 个场景校验 | 2 |
 | D 数据关联 | 权益、会员套餐、币包、场景、审计日志 | 2 |
 | E 老代码影响 | 修改商业化核心聚合 Service 和移动端响应契约 | 2 |
 | F 安全变更 | 保留既有 RBAC 权限，不移除安全注解 | 0 |
@@ -54,6 +54,8 @@
 | F1-P0-03 | P0 | 套餐改名按 ID 更新 | `PUT/GET /admin/commercial/config` | 选择已有套餐 | 自动查询 | ID 不变、名称更新、记录数不增加 | 重新查询验证状态 |
 | F1-P1-04 | P1 | 千寻币推荐档互斥 | `PUT /admin/commercial/config` | 有编辑权限 | 自动查询 | 两个推荐档被拒绝，事务不写入 | 响应断言 + 重新查询 |
 | F1-P1-05 | P1 | 非法场景目录 | `PUT /admin/commercial/config` | 有编辑权限 | 自动查询后替换 code | 未知、重复或 `invite_*` 场景被拒绝 | 响应断言 |
+| F1-P0-06 | P0 | 查询一次性会员套餐 | `GET /admin/commercial/config` | 有查看权限 | 自动查询 | 所有会员套餐均返回 `packageType=normal`、`subscriptionType=once`，不返回微信签约配置 | 响应断言 |
+| F1-P0-07 | P0 | 拒绝连续/周期扣费套餐 | `PUT /admin/commercial/config` | 有编辑权限 | 将任一套餐改为 `continuous/month` | 返回业务校验失败，数据库不写入 | 响应断言 + 重新查询 |
 | G-P3-01 | P3 | 未登录读取配置 | `GET /admin/commercial/config` | 无 Token | 无需数据 | HTTP 401 | 状态码断言 |
 | G-P3-02 | P3 | 未登录保存配置 | `PUT /admin/commercial/config` | 无 Token | 无需数据 | HTTP 401 | 状态码断言 |
 
@@ -82,6 +84,9 @@
 | L3-09 | `getPackages_shouldExposeLanhuPriceFields` | 币包含原价/优惠价/移动端标签 | 移动端 VO 字段完整 |
 | L3-10 | `saveConfig_shouldRejectOmittedExistingPackage` | 聚合保存漏传已有套餐 | 拒绝保存，提示使用下架而非隐式删除 |
 | L3-11 | `getScenes_shouldExposeDatabaseMobileFields` | 数据库场景移动端名称、图标键和价格 | 小程序 VO 字段完整 |
+| L3-12 | `saveConfig_shouldRejectContinuousVipPackage` | `packageType=continuous` | 抛业务异常，事务不写入 |
+| L3-13 | `saveConfig_shouldRejectRecurringVipPurchaseMode` | `subscriptionType=month` | 抛业务异常，事务不写入 |
+| L3-14 | `create/update_shouldRejectNonOneTimePurchase` | 独立套餐接口传连续类型或周期扣费 | 抛业务异常，无法绕过聚合接口约束 |
 
 ## 6. L4 - E2E 浏览器测试用例
 
@@ -93,6 +98,7 @@
 | L4-04 | P1 | `/commercial/config` | 将第二个币包设为推荐 | 其他币包推荐标记自动取消 |
 | L4-05 | P1 | `/commercial/config` | 切换 Tab 再返回 | 未保存编辑不被意外重新请求覆盖 |
 | L4-06 | P1 | `/commercial/config` | 接口为空/失败 | 展示明确空态或错误提示，不回退 demo 假数据 |
+| L4-07 | P0 | `/commercial/config` | 加载历史 `continuous/month` 套餐，打开编辑并保存 | 页面固定显示“普通套餐/一次性购买”；保存请求归一化为 `normal/once`，清空微信商品与签约配置 |
 
 ## 7. 前端手动测试用例
 
@@ -103,6 +109,8 @@
 | M-03 | P0 | 后台停用一个币包/场景后重新进入小程序 | 对应项目不展示 | 待执行 | 待执行 |
 | M-04 | P1 | 检查千寻币三档价格卡 | 与蓝湖 `1000/99`、`3000/268`、`6000/428` 展示一致 | 待执行 | 待执行 |
 | M-05 | P1 | 检查 8 个用途图标和名称 | 图标来自 OSS，名称按数据库配置展示 | 待执行 | 待执行 |
+| M-06 | P0 | 打开会员套餐编辑弹窗 | 套餐类型和购买方式为只读“普通套餐/一次性购买”，无连续订阅选项和微信签约字段 | 自动化覆盖 | PASS |
+| M-07 | P0 | 微信小程序进入会员中心并再次购买 | 使用微信 JSAPI 一次性下单；没有订阅管理入口、连续订阅协议或自动续费文案 | 编译与静态门禁覆盖 | PASS |
 
 ## 8. 补充用例（来自审查报告）
 
@@ -111,3 +119,11 @@
 | R-P0-01 | 后端只读审查 | P0 | 套餐改名 | 不新增重复记录 |
 | R-P0-02 | 后端只读审查 | P0 | 固定权益/场景目录 | 后端拒绝越界配置 |
 | R-P1-03 | 后端只读审查 | P1 | 独立接口绕过审计 | 商业化聚合页面统一写入配置审计 |
+
+## 9. 数据迁移验证
+
+| 用例 ID | 优先级 | 场景 | 期望结果 |
+|---------|--------|------|----------|
+| DB-P0-01 | P0 | 执行 `064_vip_packages_one_time_purchase.sql` | 历史启用套餐统一为 `normal/once`，微信商品 ID 与签约配置清空 |
+| DB-P0-02 | P0 | 重复执行迁移 | SQL 幂等，套餐数量、价格和有效期不变 |
+| DB-P0-03 | P0 | 执行迁移末尾核对查询 | `invalid_package_count=0` |

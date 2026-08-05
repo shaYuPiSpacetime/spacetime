@@ -218,6 +218,35 @@ class CommercialAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("L3-12 聚合保存拒绝连续订阅套餐")
+    void saveConfig_shouldRejectContinuousVipPackage() {
+        VipPackageSaveReq continuous = vipPackageReq(null, "连续包月");
+        continuous.setPackageType("continuous");
+        continuous.setSubscriptionType("month");
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setVipPackages(List.of(continuous));
+
+        assertThatThrownBy(() -> service.saveConfig(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("普通套餐和一次性购买");
+        verify(vipPackageDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("L3-13 聚合保存拒绝自动续费周期")
+    void saveConfig_shouldRejectRecurringVipPurchaseMode() {
+        VipPackageSaveReq recurring = vipPackageReq(null, "普通月卡");
+        recurring.setSubscriptionType("month");
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setVipPackages(List.of(recurring));
+
+        assertThatThrownBy(() -> service.saveConfig(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("普通套餐和一次性购买");
+        verify(vipPackageDao, never()).insert(any());
+    }
+
+    @Test
     @DisplayName("L3-09 聚合保存漏传已有套餐时拒绝静默保留")
     void saveConfig_shouldRejectOmittedExistingPackage() {
         stubReadCatalogs();

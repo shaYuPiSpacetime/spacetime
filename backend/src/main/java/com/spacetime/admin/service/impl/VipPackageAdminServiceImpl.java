@@ -65,6 +65,7 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
     @Override
     @Transactional
     public Long create(VipPackageSaveReq req) {
+        validateOneTimePurchase(req);
         VipPackage entity = toEntity(req);
         if (StrUtil.isBlank(entity.getStatus())) {
             entity.setStatus(CommonStatusEnum.ENABLED.getCode());
@@ -82,6 +83,7 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
     @Override
     @Transactional
     public void update(Long id, VipPackageSaveReq req) {
+        validateOneTimePurchase(req);
         VipPackage entity = requirePackage(id);
         VipPackage changed = toEntity(req);
         entity.setPackageName(changed.getPackageName());
@@ -131,6 +133,12 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
         entity.setSortOrder(req.getSortOrder());
         entity.setStatus(req.getStatus());
         return entity;
+    }
+
+    private void validateOneTimePurchase(VipPackageSaveReq req) {
+        if (!"normal".equals(req.getPackageType()) || !"once".equals(req.getSubscriptionType())) {
+            throw new BusinessException("会员套餐仅支持普通套餐和一次性购买");
+        }
     }
 
     private VipPackageVO toVO(VipPackage entity) {

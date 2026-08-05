@@ -1,8 +1,39 @@
 # 商业化后台数据库闭环 - 测试报告
 
-> 日期：2026-07-10  
+> 日期：2026-08-05
 > 关联用例：`docs/测试文档/商业化后台数据库闭环-testcase.md`  
-> 覆盖模块：商业化管理后台、后端聚合配置、真实开发库、微信小程序千寻币页
+> 覆盖模块：商业化管理后台、后端聚合配置、会员一次性购买、数据库迁移、微信小程序会员中心与千寻币页
+
+## 2026-08-05 增量回归：会员套餐统一一次性购买
+
+本轮已将会员套餐口径统一为“普通套餐 + 一次性购买”。管理后台不再提供连续套餐或月/季/年周期扣费选项，后端聚合保存与独立套餐增改接口均拒绝非 `normal/once` 数据；小程序删除订阅管理页、连续订阅协议和自动续费入口，仍通过既有微信 JSAPI 订单执行单次支付。
+
+### 自动化结果
+
+| 层级 | 命令/方式 | 结果 |
+|------|-----------|------|
+| L3 定向测试 | `CommercialAdminServiceImplTest`、`VipPackageAdminServiceImplTest` | 13/13 PASS；已先验证 3 条新增约束用例在修复前失败 |
+| 后端全量 | `mvn test`（项目指定 JDK） | 497/497 PASS，0 失败、0 错误、0 跳过 |
+| 商业化静态门禁 | `node docs/测试文档/商业化后台数据库闭环-static-check.mjs` | PASS |
+| 管理后台构建 | `frontend/npm run build` | PASS，仅有既有 chunk 体积告警 |
+| L4 Playwright | `commercial-database-closure.spec.ts` | 5/5 PASS，新增历史连续套餐归一化保存验证 |
+| 小程序商业化门禁 | `validate-membership-payment-ui.mjs`、`validate-membership-benefit-pages.mjs`、`validate-commerce-ui-coverage.mjs` | PASS |
+| 微信小程序编译 | `miniapp/npm run build:weapp` | PASS；75 个页面注册正常，主包 1.30 MiB，总包 1.96 MiB |
+| 生产代码关键字核查 | `miniapp/src`、`frontend/src`、`backend/src/main/java` | 无连续套餐/订阅管理残留；仅保留“不会自动续费”的一次性购买说明 |
+
+### 数据迁移状态
+
+迁移文件：`deploy/sql/prod/064_vip_packages_one_time_purchase.sql`。迁移会把历史启用套餐统一为 `package_type=normal`、`subscription_type=once`，并清空 `wechat_product_id`、`agreement_config`；执行结果在本次发布完成后回填。
+
+### 本轮暂未执行项
+
+| 项目 | 状态 | 原因 |
+|------|------|------|
+| 真实管理后台 L1 写入 | SKIP | 本机未配置管理员 `TOKEN`，不虚构账号或凭证 |
+| 真实微信支付 | SKIP | 依赖真实用户、商户回调与微信客户端；本轮仅验证真实支付代码链路和编译门禁 |
+| 生产 SQL | PENDING | 等代码推送后按发布顺序执行并核对 `invalid_package_count` |
+
+---
 
 ## 1. 测试结论
 

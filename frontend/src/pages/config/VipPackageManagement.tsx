@@ -15,21 +15,10 @@ import {
   type VipPackage,
 } from '@/api/vip';
 
-const PACKAGE_TYPE_OPTIONS = [
-  { value: '', label: '请选择套餐类型' },
-  { value: 'normal', label: '普通订阅' },
-  { value: 'continuous', label: '连续订阅' },
-];
-
 const STATUS_OPTIONS = [
   { value: 'ENABLED', label: '启用' },
   { value: 'DISABLED', label: '停用' },
 ];
-
-const PACKAGE_TYPE_LABELS: Record<string, string> = {
-  normal: '普通订阅',
-  continuous: '连续订阅',
-};
 
 function statusBadge(status?: string) {
   if (!status) return <span>-</span>;
@@ -96,7 +85,7 @@ export default function VipPackageManagement() {
     setEditing(row);
     setForm({
       packageName: row.packageName,
-      packageType: row.packageType,
+      packageType: 'normal',
       price: String(row.price ?? ''),
       originPrice: row.originPrice ? String(row.originPrice) : '',
       durationDays: String(row.durationDays ?? 30),
@@ -114,7 +103,8 @@ export default function VipPackageManagement() {
     try {
       const data = {
         packageName: form.packageName.trim(),
-        packageType: form.packageType,
+        packageType: 'normal',
+        subscriptionType: 'once',
         price: Number(form.price),
         originPrice: form.originPrice ? Number(form.originPrice) : undefined,
         durationDays: Number(form.durationDays || 30),
@@ -201,7 +191,7 @@ export default function VipPackageManagement() {
                 filteredList.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell className="font-medium">{row.packageName}</TableCell>
-                    <TableCell>{PACKAGE_TYPE_LABELS[row.packageType] ?? row.packageType}</TableCell>
+                    <TableCell>普通套餐</TableCell>
                     <TableCell>¥{(row.price ?? 0).toFixed(2)}</TableCell>
                     <TableCell>
                       {row.originPrice ? `¥${row.originPrice.toFixed(2)}` : '-'}
@@ -251,11 +241,7 @@ export default function VipPackageManagement() {
             </label>
             <label className="space-y-1 text-sm font-medium">
               套餐类型
-              <Select
-                options={PACKAGE_TYPE_OPTIONS.filter((o) => o.value)}
-                value={form.packageType}
-                onChange={(v) => setForm({ ...form, packageType: v })}
-              />
+              <Input value="普通套餐" readOnly />
             </label>
           </div>
           <div className="grid grid-cols-3 gap-3">

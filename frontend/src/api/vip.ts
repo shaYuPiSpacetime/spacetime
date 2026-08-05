@@ -18,6 +18,7 @@ export interface VipPackage {
   id: number;
   packageName: string;
   packageType: string;
+  subscriptionType?: string;
   price: number;
   originPrice?: number;
   durationDays: number;

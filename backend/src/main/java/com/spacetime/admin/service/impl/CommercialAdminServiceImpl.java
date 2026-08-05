@@ -193,8 +193,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         }
         for (VipPackageSaveReq req : reqList) {
             validateStatus(req.getStatus());
-            if (!Set.of("normal", "continuous").contains(req.getPackageType())) {
-                throw new BusinessException("会员套餐类型不合法");
+            if (!"normal".equals(req.getPackageType()) || !"once".equals(req.getSubscriptionType())) {
+                throw new BusinessException("会员套餐仅支持普通套餐和一次性购买");
             }
             if (req.getPrice() == null || req.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException("会员套餐售价必须大于 0");

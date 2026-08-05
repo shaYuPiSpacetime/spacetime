@@ -6,7 +6,9 @@ const screenshotDir = path.resolve(process.cwd(), '../docs/验收报告/2026-07-
 const configData = {
   configVersion: 'COMM-UI-20260710',
   vipBenefits: [],
-  vipPackages: [],
+  vipPackages: [
+    { id: 7, packageName: '连续包月', packageType: 'continuous', subscriptionType: 'month', price: 198, originPrice: 198, durationDays: 30, recommendFlag: 0, packageTag: '尝鲜首选', wechatProductId: 'legacy-product', agreementConfig: 'legacy-agreement', sortOrder: 3, status: 'ENABLED' },
+  ],
   coinPackages: [
     { id: 10, packageName: '1000千寻币', amount: 99, originAmount: 0, discountAmount: 99, coinCount: 1000, bonusCoinCount: 0, recommendFlag: 0, packageTag: '尝鲜首选', sortOrder: 1, status: 'ENABLED' },
     { id: 11, packageName: '3000千寻币', amount: 268, originAmount: 301.12, discountAmount: 268, coinCount: 3000, bonusCoinCount: 0, recommendFlag: 1, packageTag: '热销推荐', mobileTag: '8.9折', sortOrder: 2, status: 'ENABLED' },
@@ -109,6 +111,41 @@ test.describe('商业化配置数据库闭环', () => {
     await expect(modal.getByLabel('移动端标签')).toHaveValue('8.9折');
     await expect(modal.getByRole('button', { name: '确认' })).toBeInViewport();
     await page.screenshot({ path: path.join(screenshotDir, '后台-千寻币套餐编辑回显.png'), fullPage: true });
+  });
+
+  test('L4-07 历史连续订阅套餐统一按普通套餐一次性购买保存', async ({ page, baseURL }) => {
+    await bootstrap(page);
+    let savedBody: typeof configData & { changeSummary?: string } | null = null;
+    await page.route('**/api/admin/commercial/config', async (route) => {
+      if (route.request().method() === 'PUT') {
+        savedBody = route.request().postDataJSON();
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: savedBody }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: configData }) });
+    });
+
+    await page.goto(`${baseURL}/commercial/config?tab=vipPackages`);
+    const row = page.locator('[data-render="admin-vip-packages"] tr', { hasText: '连续包月' });
+    await expect(row).toContainText('普通套餐');
+    await expect(row).toContainText('一次性购买');
+    await expect(page.getByText('连续订阅套餐')).toHaveCount(0);
+
+    await row.getByRole('button', { name: '编辑' }).click();
+    const modal = page.locator('#vipPackageEditModal.is-open');
+    await expect(modal.getByLabel('套餐类型')).toHaveValue('普通套餐');
+    await expect(modal.getByLabel('购买方式')).toHaveValue('一次性购买');
+    await expect(modal.getByLabel('套餐类型')).toHaveAttribute('readonly', '');
+    await expect(modal.getByLabel('购买方式')).toHaveAttribute('readonly', '');
+    await modal.getByRole('button', { name: '确认' }).click();
+
+    await page.getByRole('button', { name: '保存当前配置' }).click();
+    await page.locator('#configSaveModal textarea').fill('会员套餐统一改为一次性购买');
+    await page.locator('#configSaveModal').getByRole('button', { name: '确认保存' }).click();
+    await expect.poll(() => savedBody).not.toBeNull();
+    expect(savedBody!.vipPackages[0]).toMatchObject({ packageType: 'normal', subscriptionType: 'once' });
+    expect(savedBody!.vipPackages[0].wechatProductId).toBeUndefined();
+    expect(savedBody!.vipPackages[0].agreementConfig).toBeUndefined();
   });
 
   test('L4-04 推荐档切换后自动取消其他套餐推荐', async ({ page, baseURL }) => {
