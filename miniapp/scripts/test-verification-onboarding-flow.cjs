@@ -1,3 +1,6 @@
+/* eslint-env node */
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -173,6 +176,21 @@ test('实名提交续接学历分流且学历页面保留三步与双分段', ()
   assert.match(mainland, /education_method_chsi_desc/)
   assert.match(mainland, /education_method_diploma_no_desc/)
   assert.match(mainland, /education_method_material_upload_desc/)
+})
+
+test('在校学生学历认证严格保持资料卡、提交、协议、客服的蓝湖顺序', () => {
+  const educationSubmit = read('src/pages/verification/components/EducationSubmitPage.tsx')
+  const educationShared = read('src/pages/verification/components/EducationVerificationShared.tsx')
+  const standardFormStart = educationSubmit.indexOf('function StandardForm')
+  const studentForm = educationSubmit.slice(standardFormStart)
+
+  assert.ok(educationSubmit.indexOf('<SubmitButton') < educationSubmit.indexOf('<AgreementRow'), '提交按钮必须渲染在协议上方')
+  assert.match(educationSubmit, /STUDENT_CARD:\s*'1258rpx'/, '在校学生提交按钮纵坐标必须对齐蓝湖')
+  assert.match(educationSubmit, /STUDENT_CARD:\s*'1382rpx'/, '在校学生协议纵坐标必须对齐蓝湖')
+  assert.match(educationShared, /position:\s*'absolute'/, '学历提交按钮必须跟随页面内容定位')
+  assert.doesNotMatch(educationShared, /position:\s*'fixed'[\s\S]{0,180}safe-area-inset-bottom/, '学历提交按钮不得固定覆盖协议和客服区')
+  assert.match(studentForm, /isStudent[\s\S]{0,800}<UploadProofBox/, '在校学生无材料时必须使用蓝湖大尺寸上传区')
+  assert.match(studentForm, /minHeight:\s*isStudent\s*\?\s*'725rpx'/, '在校学生资料卡必须保留蓝湖背景分割高度')
 })
 
 test('部分资料态图标全部来自蓝湖官方切图并走 OSS 常量', () => {

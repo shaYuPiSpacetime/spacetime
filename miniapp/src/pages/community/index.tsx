@@ -482,8 +482,8 @@ function UnlockSheet({ stage, card, quote, result, submitting, sourceScene, onCl
   const subtitle = success ? '现在可以查看主页并继续互动' : quoteReady ? `本次消耗 ${quote?.unitPrice ?? 0} 千寻币，余额 ${quote?.coinBalance ?? 0}` : '先查看实时报价，确认后才会扣费'
   const shownName = success ? card?.nickname || `用户${result?.targetUserId || ''}` : card?.weakTags?.join('·') || '一位心动用户'
   return (
-    <View id="relation-unlock-sheet" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.42)' }}>
-      <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '454rpx', overflow: 'hidden', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF' }}>
+    <View id="relation-unlock-sheet" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.42)' }}>
+      <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: '166rpx', minHeight: '454rpx', overflow: 'hidden', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF' }}>
         <View style={{ padding: '44rpx 28rpx 24rpx', background: success ? '#FFF3F3' : '#EAF4FF' }}><Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', fontWeight: 600 }}>{title}</Text><Text style={{ display: 'block', marginTop: '8rpx', color: '#7F8494', fontSize: '24rpx' }}>{subtitle}</Text></View>
         <View style={{ height: '128rpx', margin: '10rpx 28rpx 0', padding: '0 20rpx', borderRadius: '12rpx', background: success ? '#FFFFFF' : '#E3F1FE', display: 'flex', alignItems: 'center' }}><Image src={success ? (card?.avatar || personImage) : blurredPersonImage} mode="aspectFill" style={{ width: '92rpx', height: '92rpx', borderRadius: '50%', filter: success ? 'none' : 'blur(8rpx)' }} /><Text style={{ marginLeft: '20rpx', color: '#333333', fontSize: '28rpx', fontWeight: 500 }}>{shownName}</Text></View>
         {success ? (
@@ -501,7 +501,7 @@ function UnlockSheet({ stage, card, quote, result, submitting, sourceScene, onCl
 
 function MatchPopupSheet({ popup, submitting, onAction }: { popup: MatchPopupVO; submitting: boolean; onAction: (action: MatchPopupAction) => void }) {
   return (
-    <View id="relation-match-popup" onClick={() => !submitting && onAction('close')} style={{ position: 'fixed', inset: 0, zIndex: 21000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <View id="relation-match-popup" onClick={() => !submitting && onAction('close')} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '42rpx 34rpx 34rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
         <Image src={popup.avatar || personImage} mode="aspectFill" style={{ width: '132rpx', height: '132rpx', borderRadius: '50%' }} />
         <Text style={{ marginTop: '24rpx', color: '#0C285A', fontSize: '34rpx', fontWeight: 700 }}>匹配成功</Text>

@@ -98,10 +98,15 @@ test('页面源码不得保留假数据、URL 会员覆盖或文案猜错误码'
 
 test('匹配弹窗必须先确认回执再关闭或跳转', () => {
   const community = read('src/pages/community/index.tsx')
+  const appTabBar = read('src/components/AppTabBar/index.tsx')
 
   assert.match(community, /await markMatchPopupRead/)
   assert.match(community, /setMatchPopup\(null\)/)
   assert.doesNotMatch(community, /setMatchPopup\(null\)[\s\S]{0,180}markMatchPopupRead/)
+  const tabBarZIndex = Number(appTabBar.match(/zIndex:\s*(\d+)/)?.[1])
+  const popupZIndex = Number(community.match(/id="relation-match-popup"[\s\S]{0,220}zIndex:\s*(\d+)/)?.[1])
+  assert.ok(Number.isFinite(tabBarZIndex) && Number.isFinite(popupZIndex), '必须能读取底部 Tab 和匹配弹窗层级')
+  assert.ok(popupZIndex < tabBarZIndex, '匹配弹窗不得覆盖底部 Tab，用户必须始终能离开心动页')
 })
 
 test('公开资料必须成功加载后才上报访问', () => {

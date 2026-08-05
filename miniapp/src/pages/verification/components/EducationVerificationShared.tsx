@@ -137,14 +137,15 @@ export function FormRow({ label, children, top = '0' }: { label: string; childre
   )
 }
 
-export function SubmitButton({ active, submitting, text, submittingText, onClick }: { active: boolean; submitting?: boolean; text: string; submittingText: string; onClick: () => void }) {
+export function SubmitButton({ id, top, active, submitting, text, submittingText, onClick }: { id?: string; top: string; active: boolean; submitting?: boolean; text: string; submittingText: string; onClick: () => void }) {
   return (
     <View
+      id={id}
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: '25rpx',
-        right: '25rpx',
-        bottom: 'calc(24rpx + env(safe-area-inset-bottom))',
+        top,
+        width: '700rpx',
         height: '98rpx',
         borderRadius: '20rpx',
         background: active ? '#2876FF' : '#CEE0F8',
@@ -160,12 +161,14 @@ export function SubmitButton({ active, submitting, text, submittingText, onClick
 }
 
 export function AgreementRow({
+  id,
   top,
   checked,
   onToggle,
   prefix,
   agreementName,
 }: {
+  id?: string
   top: string
   checked: boolean
   onToggle: () => void
@@ -174,6 +177,7 @@ export function AgreementRow({
 }) {
   return (
     <View
+      id={id}
       style={{
         position: 'absolute',
         left: '32rpx',
@@ -219,9 +223,10 @@ export function AgreementRow({
   )
 }
 
-export function CustomerServiceLink({ top, text }: { top: string; text: string }) {
+export function CustomerServiceLink({ id, top, text }: { id?: string; top: string; text: string }) {
   return (
     <View
+      id={id}
       style={{
         position: 'absolute',
         left: '0',
@@ -242,11 +247,13 @@ export function CustomerServiceLink({ top, text }: { top: string; text: string }
 }
 
 export function UploadProofBox({
+  id,
   uploadPath,
   onClick,
   height = '306rpx',
   text,
 }: {
+  id?: string
   uploadPath?: string
   onClick: () => void
   height?: string
@@ -254,6 +261,7 @@ export function UploadProofBox({
 }) {
   return (
     <View
+      id={id}
       style={{
         width: '640rpx',
         height,
