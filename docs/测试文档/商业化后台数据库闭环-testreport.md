@@ -23,7 +23,7 @@
 
 ### 数据迁移状态
 
-迁移文件：`deploy/sql/prod/064_vip_packages_one_time_purchase.sql`。迁移会把历史启用套餐统一为 `package_type=normal`、`subscription_type=once`，并清空 `wechat_product_id`、`agreement_config`；执行结果在本次发布完成后回填。
+迁移文件：`deploy/sql/prod/064_vip_packages_one_time_purchase.sql`。2026-08-05 已将文件上传到生产服务器并核对本地/远端 SHA-256 一致；随后连续执行两次验证幂等，两次均返回 `active_package_count=3`、`invalid_package_count=0`。历史套餐现已统一为 `package_type=normal`、`subscription_type=once`，微信商品 ID 与签约配置已清空。
 
 ### 本轮暂未执行项
 
@@ -31,7 +31,7 @@
 |------|------|------|
 | 真实管理后台 L1 写入 | SKIP | 本机未配置管理员 `TOKEN`，不虚构账号或凭证 |
 | 真实微信支付 | SKIP | 依赖真实用户、商户回调与微信客户端；本轮仅验证真实支付代码链路和编译门禁 |
-| 生产 SQL | PENDING | 等代码推送后按发布顺序执行并核对 `invalid_package_count` |
+| 生产 SQL | PASS | 已连续执行两次，均为 3 个套餐、0 个非法套餐 |
 
 ---
 
