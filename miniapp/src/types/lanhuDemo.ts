@@ -122,13 +122,6 @@ export interface MembershipDemoData {
   expiredMembership: MyMembership
   annualPlanId: number
   wechatPayPreviewAmount: string
-  subscription: {
-    renewalAmount: string
-    originalAmount: string
-    renewalCycle: string
-    statusLabel: string
-    nextRenewTime: string
-  }
   regularPlans: MembershipPlan[]
   plans: MembershipPlan[]
   records: MembershipRecord[]

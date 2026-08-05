@@ -18,12 +18,10 @@ const REQUIRED_COMMERCE_DESIGNS = {
     { designName: '会员中心-会员未开通，支付按钮固定下方', route: '/pages/membership/index?variant=none', variant: 'none' },
     { designName: '会员中心-已开通', route: '/pages/membership/index?variant=active', variant: 'active' },
     { designName: '会员中心-已过期', route: '/pages/membership/index?variant=expired', variant: 'expired' },
-    { designName: '会员中心-连续包年', route: '/pages/membership/index?variant=annual', variant: 'annual' },
     { designName: '会员中心-微信支付', route: '/pages/membership/index?payState=wechat-pay', variant: 'wechat-pay' },
     { designName: '会员中心-支付成功', route: '/pages/membership/index?payState=pay-success', variant: 'pay-success' },
     { designName: '会员中心-取消支付', route: '/pages/membership/index?payState=pay-cancel', variant: 'pay-cancel' },
     { designName: '会员中心-未支付出弹窗', route: '/pages/membership/index?payState=unpaid-sheet', variant: 'unpaid-sheet' },
-    { designName: '订阅管理', route: '/pages/membership/subscription', variant: 'default' },
     { designName: '会员记录', route: '/pages/membership/records', variant: 'default' },
     { designName: '会员记录-详情（已支付）', route: '/pages/membership/record-detail?status=paid', variant: 'paid' },
     { designName: '会员记录-详情（已退款）', route: '/pages/membership/record-detail?status=refunded', variant: 'refunded' },
@@ -73,7 +71,6 @@ const COMMERCIAL_PAGE_FILES = [
   'src/pages/membership/index.tsx',
   'src/pages/membership/records.tsx',
   'src/pages/membership/record-detail.tsx',
-  'src/pages/membership/subscription.tsx',
 ]
 
 const REQUIRED_MEMBERSHIP_REFERENCE_BY_DESIGN = {

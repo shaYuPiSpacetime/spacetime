@@ -12,9 +12,9 @@ const GOLD = '#D5A85F'
 const PAGE_BG = '#121212'
 
 const LANHU_PLANS: MembershipPlan[] = [
-  { id: -1, name: '连续包年', price: 568, originalPrice: 2376, duration: 365, durationLabel: '12个月', monthlyPriceLabel: '¥47.33/月', tag: '专属2.4折', perks: [] },
-  { id: -2, name: '连续包季', price: 318, originalPrice: 594, duration: 90, durationLabel: '3个月', monthlyPriceLabel: '¥106.00/月', tag: '专属5.4折', perks: [] },
-  { id: -3, name: '连续包月', price: 198, originalPrice: 198, duration: 30, durationLabel: '1个月', monthlyPriceLabel: '¥198.00/月', tag: '尝鲜首选', perks: [] },
+  { id: -1, name: '年卡会员', price: 568, originalPrice: 2376, duration: 365, durationLabel: '12个月', monthlyPriceLabel: '¥47.33/月', tag: '专属2.4折', perks: [] },
+  { id: -2, name: '季卡会员', price: 318, originalPrice: 594, duration: 90, durationLabel: '3个月', monthlyPriceLabel: '¥106.00/月', tag: '专属5.4折', perks: [] },
+  { id: -3, name: '月卡会员', price: 198, originalPrice: 198, duration: 30, durationLabel: '1个月', monthlyPriceLabel: '¥198.00/月', tag: '尝鲜首选', perks: [] },
   { id: -4, name: '单月会员', price: 218, originalPrice: 218, duration: 30, durationLabel: '1个月', monthlyPriceLabel: '¥218.00/月', tag: '随用随开', perks: [] },
 ]
 

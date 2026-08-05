@@ -123,7 +123,6 @@ export default function MembershipPage() {
             avatar={heroAvatar}
             nickname={heroNickname}
             onRecords={goToRecords}
-            onSubscription={() => Taro.navigateTo({ url: '/pages/membership/subscription' })}
           />
           <PlanRail plans={plans} activePlanId={activePlanId} onSelect={handleSelect} />
           <BenefitTitle title={getBenefitTitle(variant)} />
@@ -155,13 +154,11 @@ function MemberHero({
   avatar,
   nickname,
   onRecords,
-  onSubscription,
 }: {
   membership: MyMembership
   avatar: string
   nickname: string
   onRecords: () => void
-  onSubscription: () => void
 }) {
   const { status, startTime, expireTime, planName } = membership
   const desc = '你还不是会员，开通立享超多特权'
@@ -225,7 +222,6 @@ function MemberHero({
             display: 'flex',
             alignItems: 'center',
           }}
-          onClick={onSubscription}
         >
           <Text style={{ color: LANHU_GOLD, fontSize: '24rpx' }}>{planName || '会员权益'}</Text>
         </View>
@@ -634,9 +630,8 @@ function PayBar({
   const buttonText = getPayButtonText(memberStatus)
   const price = plan?.price.toFixed(2) ?? '0.00'
   const billingLabel = getBillingLabel(plan, variant)
-  const agreement = getAgreementText(plan, variant)
-  const pricePrefix = memberStatus === 'active' ? '续费价 ' : memberStatus === 'expired' ? '重启价 ' : ''
-  const loadingText = memberStatus === 'active' ? '续费中...' : memberStatus === 'expired' ? '开通中...' : '开通中...'
+  const pricePrefix = memberStatus === 'active' ? '再次购买价 ' : memberStatus === 'expired' ? '重新购买价 ' : ''
+  const loadingText = memberStatus === 'active' ? '购买中...' : memberStatus === 'expired' ? '购买中...' : '开通中...'
 
   return (
     <View
@@ -709,22 +704,13 @@ function PayBar({
         </View>
         <Text style={{ color: '#666666', fontSize: '24rpx' }}>阅读并同意</Text>
         <Text style={{ color: '#C4913F', fontSize: '24rpx' }}>《时空邂逅会员服务协议》</Text>
-        {agreement.showContinuous && (
-          <>
-            <Text style={{ color: '#666666', fontSize: '24rpx' }}>及</Text>
-            <Text style={{ color: '#C4913F', fontSize: '24rpx' }}>《连续订阅会员服务协议》</Text>
-            <Text style={{ color: '#C4913F', fontSize: '24rpx' }}>
-              {agreement.discountText}
-            </Text>
-          </>
-        )}
       </View>
     </View>
   )
 }
 
 function getPayButtonText(memberStatus: MemberStatus) {
-  if (memberStatus === 'active') return '立即续费'
+  if (memberStatus === 'active') return '再次购买'
   if (memberStatus === 'expired') return '重新开通'
   return '立即开通'
 }
@@ -734,30 +720,11 @@ function getPlanHeader(plan: MembershipPlan) {
   return plan.name
 }
 
-function getBillingLabel(plan?: MembershipPlan, variant?: MembershipPageVariant) {
+function getBillingLabel(plan?: MembershipPlan, _variant?: MembershipPageVariant) {
   if (!plan) return ''
-  if (variant === 'annual' && plan.name === '连续包年') return '连续包年'
   if (plan.name === '年卡会员') return '年卡'
   if (plan.name.includes('包年')) return '包年'
   if (plan.name.includes('包季')) return '包季'
   if (plan.name.includes('包月')) return '包月'
   return plan.durationLabel
-}
-
-function getAgreementText(plan?: MembershipPlan, variant?: MembershipPageVariant) {
-  const isContinuous = Boolean(plan?.name.includes('连续')) || variant === 'annual'
-  if (!isContinuous) {
-    return { showContinuous: false, discountText: '' }
-  }
-
-  const renewalAmount = formatSubscriptionAmount(`¥${(plan?.price ?? 0).toFixed(2)}`)
-  const originalAmount = formatSubscriptionAmount(`¥${(plan?.originalPrice ?? plan?.price ?? 0).toFixed(2)}`)
-  return {
-    showContinuous: true,
-    discountText: `享${renewalAmount}订阅优惠价（原价${originalAmount}），可随时取消自动续费`,
-  }
-}
-
-function formatSubscriptionAmount(amount: string) {
-  return amount.replace('¥', '').replace(/\.00$/, '')
 }

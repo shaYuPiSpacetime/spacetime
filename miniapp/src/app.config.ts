@@ -51,7 +51,7 @@ export default {
     },
     {
       root: 'pages/membership',
-      pages: ['index', 'records', 'record-detail', 'subscription'],
+      pages: ['index', 'records', 'record-detail'],
     },
     {
       root: 'pages/coins',

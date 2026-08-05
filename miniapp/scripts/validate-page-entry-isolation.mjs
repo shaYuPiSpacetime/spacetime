@@ -75,7 +75,7 @@ function readImports(file) {
 
 const routes = configuredRoutes(readAppConfig())
 assert.equal(new Set(routes).size, routes.length, 'app.config.ts 存在重复页面路由')
-assert.equal(routes.length, 76, `app.config.ts 页面数应为 76，实际为 ${routes.length}`)
+assert.equal(routes.length, 75, `app.config.ts 页面数应为 75，实际为 ${routes.length}`)
 
 const entries = routes.map(route => {
   const file = resolveSource(`@/${route}`, appConfigPath)

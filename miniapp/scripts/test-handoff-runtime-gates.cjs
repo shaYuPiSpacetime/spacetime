@@ -162,12 +162,12 @@ test('手机号和微信登录后统一重新查询 init-status 再导航', () =
   })
 })
 
-test('页面入口门禁精确读取 app.config 的 76 个路由并递归扫描依赖', () => {
+test('页面入口门禁精确读取 app.config 的 75 个路由并递归扫描依赖', () => {
   const gate = source('scripts/validate-page-entry-isolation.mjs')
   assert.match(gate, /app\.config\.ts/)
   assert.match(gate, /transpileModule/)
   assert.match(gate, /visit|traverse|walkImports/)
-  assert.match(gate, /76/)
+  assert.match(gate, /75/)
 })
 
 test('构建注册门禁从 dist app.json 校验 Page、App 唯一注册', () => {

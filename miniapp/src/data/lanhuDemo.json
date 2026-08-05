@@ -677,18 +677,6 @@
       ]
     },
     {
-      "index": 57,
-      "id": "lanhu-index-57",
-      "name": "会员中心-连续包年",
-      "flow": "membership",
-      "route": "/pages/membership/index?variant=annual",
-      "status": "implemented",
-      "assetRefs": [
-        ".lanhu-ref/lanhu-full-2026-07-07/images/61-会员中心-连续包年.png",
-        "src/assets/profile/default-avatar.webp"
-      ]
-    },
-    {
       "index": 58,
       "id": "lanhu-index-58",
       "name": "会员中心-已开通",
@@ -934,18 +922,6 @@
       "status": "implemented",
       "assetRefs": [
         ".lanhu-ref/lanhu-full-2026-07-07/images/77-会员记录-详情（已支付）.png"
-      ]
-    },
-    {
-      "index": 76,
-      "id": "2a0848f7-51f5-4939-8996-5b6b2e0d4898",
-      "name": "订阅管理",
-      "flow": "membership",
-      "route": "/pages/membership/subscription",
-      "status": "implemented",
-      "assetRefs": [
-        "src/assets/profile/default-avatar.webp",
-        ".lanhu-ref/lanhu-full-2026-07-07/images/78-订阅管理.png"
       ]
     },
     {
@@ -1870,14 +1846,7 @@
     "activeMembership": {
       "status": "active",
       "expireTime": "2027.05.27 15:58",
-      "planName": "连续包年"
-    },
-    "subscription": {
-      "renewalAmount": "¥568.00",
-      "originalAmount": "¥688.00",
-      "renewalCycle": "每年",
-      "statusLabel": "生效中",
-      "nextRenewTime": "2027.05.27 15:58"
+      "planName": "年卡会员"
     },
     "regularPlans": [
       {
@@ -1947,7 +1916,7 @@
     "plans": [
       {
         "id": 1,
-        "name": "连续包年",
+        "name": "年卡会员",
         "price": 568,
         "originalPrice": 568,
         "duration": 365,
@@ -1962,7 +1931,7 @@
       },
       {
         "id": 2,
-        "name": "连续包季",
+        "name": "季卡会员",
         "price": 318,
         "originalPrice": 318,
         "duration": 90,
@@ -1978,7 +1947,7 @@
       },
       {
         "id": 3,
-        "name": "连续包月",
+        "name": "月卡会员",
         "price": 198,
         "originalPrice": 198,
         "duration": 30,
@@ -2010,8 +1979,8 @@
     "records": [
       {
         "id": 1,
-        "planName": "连续包年",
-        "listTitle": "时空邂逅会员连续包年",
+        "planName": "年卡会员",
+        "listTitle": "时空邂逅年卡会员",
         "durationLabel": "12个月",
         "amount": 568,
         "validityStart": "2026.05.28 15:58",
@@ -2026,8 +1995,8 @@
       },
       {
         "id": 2,
-        "planName": "连续包年",
-        "listTitle": "时空邂逅会员包年",
+        "planName": "年卡会员",
+        "listTitle": "时空邂逅年卡会员",
         "durationLabel": "12个月",
         "amount": 568,
         "validityStart": "2026.05.28 15:58",
@@ -2127,13 +2096,6 @@
         "description": "会员过期状态，可重新开通"
       },
       {
-        "key": "annual",
-        "designName": "会员中心-连续包年",
-        "route": "/pages/membership/index?variant=annual",
-        "variant": "annual",
-        "description": "连续包年套餐选中状态"
-      },
-      {
         "key": "wechatPay",
         "designName": "会员中心-微信支付",
         "route": "/pages/membership/index?payState=wechat-pay",
@@ -2160,13 +2122,6 @@
         "route": "/pages/membership/index?payState=unpaid-sheet",
         "variant": "unpaid-sheet",
         "description": "未支付订单挽留底部弹层"
-      },
-      {
-        "key": "subscription",
-        "designName": "订阅管理",
-        "route": "/pages/membership/subscription",
-        "variant": "default",
-        "description": "会员连续订阅管理独立页，展示扣费说明和取消续费指引"
       },
       {
         "key": "records",
