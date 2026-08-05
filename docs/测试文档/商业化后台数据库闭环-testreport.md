@@ -20,6 +20,8 @@
 | 小程序商业化门禁 | `validate-membership-payment-ui.mjs`、`validate-membership-benefit-pages.mjs`、`validate-commerce-ui-coverage.mjs` | PASS |
 | 微信小程序编译 | `miniapp/npm run build:weapp` | PASS；75 个页面注册正常，主包 1.30 MiB，总包 1.96 MiB |
 | 生产代码关键字核查 | `miniapp/src`、`frontend/src`、`backend/src/main/java` | 无连续套餐/订阅管理残留；仅保留“不会自动续费”的一次性购买说明 |
+| 自动发布 | GitHub Actions `30974157031`（后台）、`30974157043`（后端） | 均为 `completed/success`；生产容器已重建，健康接口 HTTP 200 |
+| 线上只读回归 | `GET /api/miniapp/vip/packages` | 返回 3 个套餐：年卡、季卡、月卡均为 `normal/once`，微信商品 ID 和签约配置均为 `null` |
 
 ### 数据迁移状态
 
