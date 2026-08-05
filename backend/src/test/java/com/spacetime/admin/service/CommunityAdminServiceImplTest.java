@@ -297,6 +297,25 @@ class CommunityAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("评论列表只有一级评论时不应因空父评论编号异常")
+    void getCommentPage_rootCommentWithoutParent_shouldReturnNormally() {
+        comment.setContent("一级评论");
+        comment.setParentCommentId(null);
+        Page<CommunityComment> page = new Page<>(1, 20, 1);
+        page.setRecords(List.of(comment));
+
+        when(communityCommentDao.selectPage(any(), any())).thenReturn(page);
+        when(appUserDao.selectByIds(any())).thenReturn(List.of());
+        when(communityPostDao.selectList(any())).thenReturn(List.of(post));
+        when(dictDataDao.selectList(any())).thenReturn(List.of());
+
+        Page<?> result = communityAdminService.getCommentPage(new CommunityCommentPageReq());
+
+        assertThat(result.getRecords()).hasSize(1);
+        verify(communityCommentDao, never()).selectList(any());
+    }
+
+    @Test
     @DisplayName("评论筛选请求支持页面实际提交的全部字段")
     void commentPageRequest_shouldExposeFrontendFilterFields() throws Exception {
         List<String> properties = Arrays.stream(Introspector.getBeanInfo(CommunityCommentPageReq.class)

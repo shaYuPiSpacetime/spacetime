@@ -376,3 +376,16 @@ JDK: C:\Users\50449\.jdks\ms-21.0.11
 | 回滚保障 | 执行前配置已备份至生产服务器 `/mnt/data/spacetime-prod/backups/prd01-region-two-level-before-20260804-063-safe.sql`，权限为仅 root 可读 |
 | 生产查询 | `GET /api/miniapp/profile/basic` 返回 `code=200`、`missingRequiredFields=[]`，两处区县配置均不可见且非必填 |
 | 生产写入 | `PUT /api/miniapp/profile/basic` 返回 `code=200`；历史现居区县从 `110105` 清理为 `null`，家乡区县为 `null`，`basicProfileCompleted=true`、`nextAction=ADD_AVATAR` |
+
+## 22. 学历认证在校学生蓝湖还原复测（2026-08-05）
+
+| 检查项 | 结果 |
+|--------|------|
+| 设计基线 | 750×1678 三张在校学生稿，覆盖空材料、上传选择、已上传材料态 |
+| TDD 红灯 | 修复前稳定识别提交按钮在协议之后、按钮 fixed 覆盖底部、资料卡缺少 725rpx 分割高度 |
+| 小程序专项 | `test-verification-onboarding-flow.cjs` 9/9 通过 |
+| 微信运行态 | 390px 模拟器按设备比例核对资料卡、提交、协议、客服坐标通过；已上传材料网格真实渲染；异常监听为 0 |
+| 正式构建 | Webpack 成功；76 个页面注册通过；主包 1.30 MiB，总包 1.97 MiB；无开发 Token |
+| 截图环境 | 微信开发者工具 screenshot 接口超时；已记录限制，未把静态源码冒充截图证据 |
+
+结论：资料卡、提交按钮、协议和客服区的视觉分割与交互顺序已按 UI 稿闭环，上传与提交仍使用真实组件和真实接口。

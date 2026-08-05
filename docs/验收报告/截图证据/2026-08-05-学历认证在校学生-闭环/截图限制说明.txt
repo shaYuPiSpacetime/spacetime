@@ -1,0 +1,1 @@
+微信开发者工具截图接口不可用；页面结构、坐标和异常监听均已通过运行态断言。原因：timeout waiting for automator response

@@ -1567,18 +1567,25 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
 
         Map<String, String> commentStatusLabels = resolveDictLabels("community_comment_status");
         Map<String, String> postStatusLabels = resolveDictLabels("community_content_status");
-        return entities.stream().map(entity -> toCommentAdminVO(
-                entity,
-                users.get(entity.getAuthorId()),
-                users.get(entity.getReplyUserId()),
-                posts.get(entity.getPostId()),
-                parents.get(entity.getParentCommentId()),
-                commentStatusLabels.getOrDefault(entity.getStatus(), entity.getStatus()),
-                posts.containsKey(entity.getPostId())
-                        ? postStatusLabels.getOrDefault(posts.get(entity.getPostId()).getStatus(), posts.get(entity.getPostId()).getStatus())
-                        : null,
-                false
-        )).toList();
+        return entities.stream().map(entity -> {
+            CommunityPost post = getIfKeyPresent(posts, entity.getPostId());
+            String commentStatus = entity.getStatus();
+            String postStatus = post == null ? null : post.getStatus();
+            return toCommentAdminVO(
+                    entity,
+                    getIfKeyPresent(users, entity.getAuthorId()),
+                    getIfKeyPresent(users, entity.getReplyUserId()),
+                    post,
+                    getIfKeyPresent(parents, entity.getParentCommentId()),
+                    commentStatus == null ? null : commentStatusLabels.getOrDefault(commentStatus, commentStatus),
+                    postStatus == null ? null : postStatusLabels.getOrDefault(postStatus, postStatus),
+                    false
+            );
+        }).toList();
+    }
+
+    private static <K, V> V getIfKeyPresent(Map<K, V> values, K key) {
+        return key == null ? null : values.get(key);
     }
 
     private CommunityCommentAdminVO toCommentAdminVO(CommunityComment entity) {
