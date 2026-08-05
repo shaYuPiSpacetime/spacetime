@@ -366,7 +366,7 @@ export function reportCommunityTarget(targetType: CommunityReportTargetType, tar
 
 export const reportCommunityPost = (postId: number | string, reasonCode: string) => reportCommunityTarget('post', postId, reasonCode)
 
-export function publishCommunityPost(content: string, imageUrls: string[], topicId: number, contentType: CommunityContentType = 'community_post') {
+export function publishCommunityPost(content: string, imageUrls: string[], topicId?: number, contentType: CommunityContentType = 'community_post') {
   return post<CommunityPublishResultVO>('/miniapp/community/posts', {
     contentType,
     postType: contentType,

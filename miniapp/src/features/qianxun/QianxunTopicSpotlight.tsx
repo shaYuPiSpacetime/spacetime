@@ -1,5 +1,6 @@
-import { Image, Text, View } from '@tarojs/components'
+import { Image, Swiper, SwiperItem, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { COMMUNITY_COPY_KEYS, resolveCommunityCopy, type CommunityConfig, type CommunityTopicCardVO, type CommunityTopicHomeVO } from '@/services/community'
 
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function QianxunTopicSpotlight({ home, loading = false, config, onRetry }: Props) {
+  const [current, setCurrent] = useState(0)
   if (loading && !home?.featured) return <TopicSpotlightSkeleton />
   if (!home?.featured) {
     return <View style={{ width: '700rpx', minHeight: '182rpx', marginBottom: '20rpx', borderRadius: '18rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -21,7 +23,9 @@ export default function QianxunTopicSpotlight({ home, loading = false, config, o
     </View>
   }
 
-  const featured = home.featured
+  const topics = [home.featured, ...(home.related || [])]
+    .filter((topic, index, items) => items.findIndex(item => item.id === topic.id) === index)
+  const slides = topics.slice(0, 3)
   return <View id="qianxun-topic-spotlight" style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '32rpx 26rpx 24rpx', boxSizing: 'border-box', overflow: 'hidden' }}>
     <View style={{ height: '50rpx', display: 'flex', alignItems: 'center' }}>
       <View style={{ width: '38rpx', height: '38rpx', borderRadius: '10rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '31rpx', lineHeight: '36rpx', fontWeight: 700 }}>#</Text></View>
@@ -32,7 +36,25 @@ export default function QianxunTopicSpotlight({ home, loading = false, config, o
       </View>
     </View>
 
-    <View id="qianxun-topic-featured" onClick={() => openTopic(featured)} style={{ display: 'flex', marginTop: '28rpx' }}>
+    <Swiper
+      id="qianxun-topic-swiper"
+      current={Math.min(current, slides.length - 1)}
+      circular={slides.length > 1}
+      duration={260}
+      onChange={event => setCurrent(event.detail.current)}
+      style={{ width: '648rpx', height: '364rpx' }}
+    >
+      {slides.map(featured => <SwiperItem key={featured.id}>
+        <TopicSpotlightSlide featured={featured} related={topics.filter(item => item.id !== featured.id).slice(0, 4)} config={config} />
+      </SwiperItem>)}
+    </Swiper>
+    {slides.length > 1 ? <View style={{ height: '28rpx', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>{slides.map((topic, index) => <View key={topic.id} id={`qianxun-topic-indicator-${index}`} style={{ width: index === current ? '20rpx' : '6rpx', height: '6rpx', borderRadius: '3rpx', background: index === current ? BLUE : '#A9AAAD', marginLeft: index ? '8rpx' : 0 }} />)}</View> : null}
+  </View>
+}
+
+function TopicSpotlightSlide({ featured, related, config }: { featured: CommunityTopicCardVO; related: CommunityTopicCardVO[]; config?: CommunityConfig }) {
+  return <View style={{ width: '648rpx', height: '364rpx', overflow: 'hidden' }}>
+    <View id={`qianxun-topic-featured-${featured.id}`} onClick={() => openTopic(featured)} style={{ display: 'flex', marginTop: '28rpx' }}>
       <Image src={topicImage(featured)} mode="aspectFill" style={{ width: '176rpx', height: '176rpx', borderRadius: '12rpx', background: '#EDF1F5', flexShrink: 0 }} />
       <View style={{ minWidth: 0, flex: 1, marginLeft: '18rpx', paddingTop: '3rpx' }}>
         <Text style={{ display: 'block', color: '#333333', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: BLUE, fontSize: '37rpx' }}>#</Text> {featured.name}</Text>
@@ -43,11 +65,9 @@ export default function QianxunTopicSpotlight({ home, loading = false, config, o
         </View>
       </View>
     </View>
-
-    {home.related?.length ? <View style={{ marginTop: '18rpx', borderRadius: '12rpx', background: '#F6F7F9', padding: '14rpx 14rpx 12rpx', display: 'flex', flexWrap: 'wrap', boxSizing: 'border-box' }}>
-      {home.related.slice(0, 4).map(item => <RelatedTopic key={item.id} topic={item} />)}
+    {related.length ? <View style={{ marginTop: '18rpx', borderRadius: '12rpx', background: '#F6F7F9', padding: '14rpx 14rpx 12rpx', display: 'flex', flexWrap: 'wrap', boxSizing: 'border-box' }}>
+      {related.map(item => <RelatedTopic key={item.id} topic={item} />)}
     </View> : null}
-    <View style={{ height: '28rpx', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}><View style={{ width: '20rpx', height: '6rpx', borderRadius: '3rpx', background: BLUE }} /><View style={{ width: '6rpx', height: '6rpx', borderRadius: '3rpx', background: '#A9AAAD', marginLeft: '8rpx' }} /><View style={{ width: '6rpx', height: '6rpx', borderRadius: '3rpx', background: '#A9AAAD', marginLeft: '8rpx' }} /></View>
   </View>
 }
 

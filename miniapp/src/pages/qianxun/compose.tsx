@@ -75,7 +75,7 @@ export default function QianxunComposePage() {
         })))
         draftVersionRef.current = draft.version
       }
-      setTopicId(current => current || draft?.topicId || toTopicId(runtime.topics?.[0]?.code))
+      setTopicId(current => current || draft?.topicId)
     } catch (error) {
       await showError(config, error)
     } finally {
@@ -113,7 +113,7 @@ export default function QianxunComposePage() {
     const remaining = maxCount - images.length
     if (remaining <= 0) return
     try {
-      const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album', 'camera'] })
+      const result = await Taro.chooseImage({ count: remaining, sizeType: ['compressed'], sourceType: ['album', 'camera'] })
       const paths = result.tempFilePaths || []
       if (!paths.length) return
       const queued = paths.map((tempPath, index) => ({
@@ -163,10 +163,6 @@ export default function QianxunComposePage() {
       await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.composeContentRequired), icon: 'none' })
       return
     }
-    if (!topicId) {
-      setTopicSheetVisible(true)
-      return
-    }
     const incomplete = images.some(item => item.uploadStatus !== 'success')
     if (incomplete) {
       showFailureFeedback(COMMUNITY_COPY_KEYS.uploadIncomplete)
@@ -192,7 +188,7 @@ export default function QianxunComposePage() {
 
   const maxImages = Number(config?.postMaxImages || 9)
   const hasIncompleteImage = images.some(item => item.uploadStatus !== 'success')
-  const canPublish = Boolean(content.trim() && topicId && !publishing && !hasIncompleteImage)
+  const canPublish = Boolean(content.trim() && !publishing && !hasIncompleteImage)
 
   return (
     <View id="qianxun-compose-page" style={{ height: '100vh', background: '#FFFFFF', overflow: 'hidden' }}>
@@ -210,19 +206,19 @@ export default function QianxunComposePage() {
           {images.map((item, index) => (
             <View key={item.localId} style={{ position: 'relative', width: '226rpx', height: '226rpx' }}>
               <Image src={item.url || item.tempPath} mode="aspectFill" style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx' }} />
-              <View onClick={() => setImages(items => items.filter((_, itemIndex) => itemIndex !== index))} style={{ position: 'absolute', right: '6rpx', top: '6rpx', width: '34rpx', height: '34rpx', borderRadius: '17rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>×</Text></View>
+              <View onClick={() => setImages(items => items.filter((_, itemIndex) => itemIndex !== index))} style={{ position: 'absolute', right: '6rpx', top: '6rpx', width: '34rpx', height: '34rpx', borderRadius: '17rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ComposeRemoveImageIcon /></View>
               {item.uploadStatus !== 'success' ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '48rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text onClick={() => item.uploadStatus === 'failed' && void uploadImage(item)} style={{ color: '#FFFFFF', fontSize: '21rpx' }}>{resolveCommunityCopy(config, item.uploadStatus === 'failed' ? COMMUNITY_COPY_KEYS.uploadRetry : COMMUNITY_COPY_KEYS.uploading)}</Text></View> : null}
             </View>
           ))}
-          {images.length < maxImages ? <View onClick={() => void chooseImages()} style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#80899A', fontSize: '68rpx', fontWeight: 200 }}>＋</Text></View> : null}
+          {images.length > 0 && images.length < maxImages ? <View onClick={() => void chooseImages()} style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ComposeAddImageIcon /></View> : null}
         </View>
       </ScrollView>
 
       <View style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)', zIndex: 10 }}>
         <ScrollView scrollX style={{ width: '750rpx', height: '70rpx', whiteSpace: 'nowrap' }} showScrollbar={false}>
           <View style={{ display: 'inline-flex', height: '70rpx', padding: '10rpx 27rpx', boxSizing: 'border-box' }}>
-            <TopicChip label={selectedTopic ? `# ${selectedTopic.label}` : '添加话题'} active onClick={() => setTopicSheetVisible(true)} />
-            {(config?.topics || []).filter(item => toTopicId(item.code) !== topicId).slice(0, 3).map(topic => <TopicChip key={topic.code} label={`# ${topic.label}`} onClick={() => setTopicId(toTopicId(topic.code))} />)}
+            <TopicChip label={selectedTopic?.label || '添加话题'} active removable={Boolean(selectedTopic)} onClick={() => setTopicSheetVisible(true)} />
+            {(config?.topics || []).filter(item => toTopicId(item.code) !== topicId).slice(0, 3).map(topic => <TopicChip key={topic.code} label={topic.label} onClick={() => setTopicId(toTopicId(topic.code))} />)}
           </View>
         </ScrollView>
         <View style={{ height: '2rpx', background: '#EFF4FC' }} />
@@ -230,7 +226,6 @@ export default function QianxunComposePage() {
           <ToolIcon kind="image" onClick={() => void chooseImages()} />
           <ToolIcon kind="video" onClick={() => void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.videoUnavailable), icon: 'none' })} />
           <ToolIcon kind="smile" onClick={() => void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emojiUnavailable), icon: 'none' })} />
-          <Text style={{ color: '#999999', fontSize: '23rpx' }}>{images.length}/{maxImages}</Text>
           <View style={{ flex: 1 }} />
           <View onClick={() => void handlePublish()} style={{ width: '148rpx', height: '66rpx', borderRadius: '8rpx', background: canPublish ? BLUE : '#F4F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: canPublish ? '#FFFFFF' : '#999999', fontSize: '28rpx', fontWeight: 500 }}>{publishing ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishing) : '发布'}</Text></View>
         </View>
@@ -246,13 +241,76 @@ function PageHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return <NativeNavigation title={title} onBack={onBack} titleFontWeight={500} />
 }
 
-function TopicChip({ label, active = false, onClick }: { label: string; active?: boolean; onClick: () => void }) {
-  return <View onClick={onClick} style={{ height: '50rpx', borderRadius: '25rpx', background: active ? '#E3F1FE' : '#F4F4F6', padding: '0 20rpx', marginRight: '12rpx', display: 'flex', alignItems: 'center', flexShrink: 0 }}><Text style={{ color: active ? BLUE : '#999999', fontSize: '24rpx', whiteSpace: 'nowrap' }}>{label}</Text></View>
+function TopicChip({ label, active = false, removable = false, onClick }: { label: string; active?: boolean; removable?: boolean; onClick: () => void }) {
+  return (
+    <View onClick={onClick} style={{ height: '50rpx', borderRadius: '25rpx', background: active ? '#E3F1FE' : '#F4F4F6', padding: active ? '0 14rpx 0 10rpx' : '0 20rpx', marginRight: '12rpx', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+      {active ? <View id="qianxun-compose-topic-leading-icon" data-role="compose-topic-leading-icon" style={{ width: '34rpx', height: '34rpx', borderRadius: '17rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '9rpx', flexShrink: 0 }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx', lineHeight: '32rpx', fontWeight: 500 }}>#</Text></View> : <Text style={{ color: '#999999', fontSize: '24rpx', marginRight: '7rpx' }}>#</Text>}
+      <Text style={{ color: active ? BLUE : '#999999', fontSize: '24rpx', whiteSpace: 'nowrap' }}>{label}</Text>
+      {active ? <TopicTrailingIcon removable={removable} /> : null}
+    </View>
+  )
 }
 
 function ToolIcon({ kind, onClick }: { kind: 'image' | 'video' | 'smile'; onClick: () => void }) {
-  const glyph = kind === 'image' ? '▧' : kind === 'video' ? '▻' : '☺'
-  return <View onClick={onClick} style={{ width: '56rpx', height: '56rpx', marginRight: '14rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7D8796', fontSize: kind === 'smile' ? '38rpx' : '42rpx', lineHeight: '48rpx' }}>{glyph}</Text></View>
+  return (
+    <View id={`qianxun-compose-tool-${kind}`} data-role={`compose-tool-${kind}`} onClick={onClick} hoverClass="btn-hover" style={{ width: '56rpx', height: '56rpx', marginRight: '18rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {kind === 'image' ? <ComposePhotoIcon /> : kind === 'video' ? <ComposeVideoIcon /> : <ComposeSmileIcon />}
+    </View>
+  )
+}
+
+function ComposePhotoIcon() {
+  return (
+    <View data-role="compose-tool-image" aria-hidden style={{ position: 'relative', width: '46rpx', height: '40rpx', border: '4rpx solid #343434', borderRadius: '7rpx', boxSizing: 'border-box' }}>
+      <View style={{ position: 'absolute', left: '7rpx', top: '7rpx', width: '9rpx', height: '9rpx', borderRadius: '50%', background: BLUE }} />
+      <View style={{ position: 'absolute', left: '5rpx', bottom: '7rpx', width: '18rpx', height: '4rpx', borderRadius: '2rpx', background: '#343434', transform: 'rotate(-28deg)', transformOrigin: 'left center' }} />
+      <View style={{ position: 'absolute', left: '19rpx', bottom: '8rpx', width: '18rpx', height: '4rpx', borderRadius: '2rpx', background: '#343434', transform: 'rotate(31deg)', transformOrigin: 'left center' }} />
+    </View>
+  )
+}
+
+function ComposeVideoIcon() {
+  return (
+    <View data-role="compose-tool-video" aria-hidden style={{ position: 'relative', width: '46rpx', height: '40rpx', border: '4rpx solid #343434', borderRadius: '7rpx', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 0, height: 0, borderTop: '10rpx solid transparent', borderBottom: '10rpx solid transparent', borderLeft: `14rpx solid ${BLUE}`, marginLeft: '4rpx' }} />
+    </View>
+  )
+}
+
+function ComposeSmileIcon() {
+  return (
+    <View data-role="compose-tool-smile" aria-hidden style={{ position: 'relative', width: '42rpx', height: '42rpx', border: '4rpx solid #343434', borderRadius: '50%', boxSizing: 'border-box' }}>
+      <View style={{ position: 'absolute', left: '8rpx', top: '10rpx', width: '5rpx', height: '5rpx', borderRadius: '50%', background: '#343434' }} />
+      <View style={{ position: 'absolute', right: '8rpx', top: '10rpx', width: '5rpx', height: '5rpx', borderRadius: '50%', background: '#343434' }} />
+      <View style={{ position: 'absolute', left: '8rpx', bottom: '7rpx', width: '18rpx', height: '9rpx', borderBottom: '4rpx solid #343434', borderRadius: '0 0 18rpx 18rpx', boxSizing: 'border-box' }} />
+    </View>
+  )
+}
+
+function ComposeAddImageIcon() {
+  return (
+    <View id="qianxun-compose-add-image-icon" data-role="compose-add-image-icon" aria-hidden style={{ position: 'relative', width: '64rpx', height: '64rpx' }}>
+      <View style={{ position: 'absolute', left: '29rpx', top: 0, width: '6rpx', height: '64rpx', borderRadius: '3rpx', background: '#8A91A2' }} />
+      <View style={{ position: 'absolute', left: 0, top: '29rpx', width: '64rpx', height: '6rpx', borderRadius: '3rpx', background: '#8A91A2' }} />
+    </View>
+  )
+}
+
+function ComposeRemoveImageIcon() {
+  return (
+    <View data-role="compose-remove-image-icon" aria-hidden style={{ position: 'relative', width: '22rpx', height: '22rpx' }}>
+      <View style={{ position: 'absolute', left: '1rpx', top: '9rpx', width: '20rpx', height: '3rpx', borderRadius: '2rpx', background: '#FFFFFF', transform: 'rotate(45deg)' }} />
+      <View style={{ position: 'absolute', left: '1rpx', top: '9rpx', width: '20rpx', height: '3rpx', borderRadius: '2rpx', background: '#FFFFFF', transform: 'rotate(-45deg)' }} />
+    </View>
+  )
+}
+
+function TopicTrailingIcon({ removable }: { removable: boolean }) {
+  return (
+    <View id="qianxun-compose-topic-trailing-icon" data-role="compose-topic-trailing-icon" aria-hidden style={{ position: 'relative', width: '18rpx', height: '24rpx', marginLeft: '8rpx', flexShrink: 0 }}>
+      {removable ? <><View style={{ position: 'absolute', left: '2rpx', top: '10rpx', width: '15rpx', height: '3rpx', borderRadius: '2rpx', background: BLUE, transform: 'rotate(45deg)' }} /><View style={{ position: 'absolute', left: '2rpx', top: '10rpx', width: '15rpx', height: '3rpx', borderRadius: '2rpx', background: BLUE, transform: 'rotate(-45deg)' }} /></> : <View style={{ position: 'absolute', left: '1rpx', top: '5rpx', width: '10rpx', height: '10rpx', borderTop: `3rpx solid ${BLUE}`, borderRight: `3rpx solid ${BLUE}`, transform: 'rotate(45deg)', boxSizing: 'border-box' }} />}
+    </View>
+  )
 }
 
 function PublishFailureFeedback({ title, message }: { title: string; message: string }) {

@@ -44,6 +44,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   const [config, setConfig] = useState<CommunityConfig>()
   const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
   const [sheet, setSheet] = useState<Sheet>(null)
+  const [likingUserIds, setLikingUserIds] = useState<number[]>([])
   const resumedRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
@@ -113,11 +114,16 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
 
   const likeUser = async (user: YuemuUserVO) => {
     if (!requireInteraction()) return
+    if (likingUserIds.includes(user.userId)) return
+    setLikingUserIds(items => [...items, user.userId])
     try {
       const result = await toggleYuemuLike(user.userId)
       setUsers(items => items?.map(item => item.userId === user.userId ? { ...item, liked: result.liked } : item))
+      await Taro.showToast({ title: result.liked ? '已心动' : '已取消心动', icon: 'none', duration: 1200 })
     } catch (likeError) {
       await showError(config, likeError)
+    } finally {
+      setLikingUserIds(items => items.filter(id => id !== user.userId))
     }
   }
 
@@ -203,7 +209,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
         {activeTab === 'YUEMU' ? (
-          <YuemuContent users={users} loading={Boolean(loading.YUEMU)} error={error.YUEMU} config={config} onRetry={() => void loadYuemu()} onOpen={user => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} onLike={user => void likeUser(user)} />
+          <YuemuContent users={users} loading={Boolean(loading.YUEMU)} error={error.YUEMU} config={config} likingUserIds={likingUserIds} onRetry={() => void loadYuemu()} onOpen={user => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} onLike={user => void likeUser(user)} />
         ) : (
           <SincereContent
             posts={sincerePosts}
@@ -251,24 +257,24 @@ function ZhiyinTabs({ active, top, onChange }: { active: ZhiyinTab; top: number;
   })}</View>
 }
 
-function YuemuContent({ users, loading, error, config, onRetry, onOpen, onLike }: { users?: YuemuUserVO[]; loading: boolean; error?: string; config?: CommunityConfig; onRetry: () => void; onOpen: (user: YuemuUserVO) => void; onLike: (user: YuemuUserVO) => void }) {
+function YuemuContent({ users, loading, error, config, likingUserIds, onRetry, onOpen, onLike }: { users?: YuemuUserVO[]; loading: boolean; error?: string; config?: CommunityConfig; likingUserIds: number[]; onRetry: () => void; onOpen: (user: YuemuUserVO) => void; onLike: (user: YuemuUserVO) => void }) {
   if (loading && users === undefined) return <YuemuLoading />
   if (error) return <EmptyState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.loadFailed)} description={error} action="重新加载" onAction={onRetry} />
   if (!users?.length) return <EmptyState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyYuemu)} description={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyYuemuDescription)} />
   return <View id="qianxun-yuemu-content" style={{ width: '750rpx', padding: '0 25rpx 130rpx', boxSizing: 'border-box' }}>
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '38rpx', marginBottom: '32rpx' }}>发现志同道合的朋友，即刻交流</Text>
-    <View style={{ display: 'flex', flexWrap: 'wrap', columnGap: '20rpx', rowGap: '20rpx' }}>{users.map(user => <YuemuCard key={user.userId} user={user} onOpen={() => onOpen(user)} onLike={() => onLike(user)} />)}</View>
+    <View style={{ display: 'flex', flexWrap: 'wrap', columnGap: '20rpx', rowGap: '20rpx' }}>{users.map(user => <YuemuCard key={user.userId} user={user} liking={likingUserIds.includes(user.userId)} onOpen={() => onOpen(user)} onLike={() => onLike(user)} />)}</View>
   </View>
 }
 
-function YuemuCard({ user, onOpen, onLike }: { user: YuemuUserVO; onOpen: () => void; onLike: () => void }) {
+function YuemuCard({ user, liking, onOpen, onLike }: { user: YuemuUserVO; liking: boolean; onOpen: () => void; onLike: () => void }) {
   return <View className="qianxun-yuemu-card" data-user-id={user.userId} onClick={onOpen} style={{ position: 'relative', width: '340rpx', height: '570rpx', borderRadius: '10rpx', overflow: 'hidden', background: '#E9EEF4' }}>
     <Image src={user.photoUrl} mode="aspectFill" style={{ width: '340rpx', height: '570rpx' }} />
     <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '190rpx', background: 'linear-gradient(180deg, rgba(16,25,38,0) 0%, rgba(16,25,38,.62) 100%)' }} />
     <View style={{ position: 'absolute', left: '20rpx', top: '24rpx', maxWidth: '270rpx', height: '52rpx', borderRadius: '26rpx', background: 'rgba(255,255,255,.82)', padding: '0 19rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.fateLabel}</Text></View>
     <Text style={{ position: 'absolute', left: '20rpx', right: '96rpx', bottom: '78rpx', color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.educationSchool}</Text>
     <Text style={{ position: 'absolute', left: '20rpx', right: '96rpx', bottom: '31rpx', color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx' }}>{user.onlineText}</Text>
-    <View onClick={event => { event.stopPropagation(); onLike() }} style={{ position: 'absolute', right: '18rpx', bottom: '24rpx', width: '92rpx', height: '92rpx', borderRadius: '46rpx', background: user.liked ? '#FF4F65' : '#FF6676', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '45rpx', lineHeight: '56rpx' }}>{'♥'}</Text></View>
+    <View className="qianxun-yuemu-like" id={`qianxun-yuemu-like-${user.userId}`} aria-label={user.liked ? '取消心动' : '心动'} onClick={event => { event.stopPropagation(); if (!liking) onLike() }} style={{ position: 'absolute', right: '18rpx', bottom: '24rpx', width: '92rpx', height: '92rpx', borderRadius: '46rpx', border: user.liked ? '0' : '2rpx solid rgba(255,79,101,.48)', background: user.liked ? '#FF4F65' : 'rgba(255,255,255,.94)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', opacity: liking ? 0.72 : 1 }}><Text aria-hidden style={{ display: 'block', width: '54rpx', height: '54rpx', color: user.liked ? '#FFFFFF' : '#FF4F65', fontSize: '48rpx', lineHeight: '54rpx', textAlign: 'center' }}>{liking ? '…' : user.liked ? '♥' : '♡'}</Text></View>
   </View>
 }
 
@@ -284,11 +290,19 @@ function SincereCard({ post, optionLabel, onAuthor, onOpen, onTopic, onComment, 
   const canExpand = post.content.length > 78
   const meta = formatPostAuthorMeta(post, optionLabel)
   return <View className="qianxun-sincere-card" data-post-id={post.id} style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '28rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
-    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} /><View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{post.authorName || '用户'}</Text>{post.authorGender ? <Text style={{ color: genderColor(post.authorGender), fontSize: '32rpx', lineHeight: '37rpx', marginLeft: '12rpx', fontWeight: 700 }}>{genderSymbol(post.authorGender)}</Text> : null}</View><Text style={{ display: 'block', color: QIANXUN_BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '8rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text></View><View onClick={onFollow} style={{ width: '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : QIANXUN_BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post.followingAuthor ? '#999999' : QIANXUN_BLUE, fontSize: '24rpx' }}>{post.followingAuthor ? '已关注' : '关注'}</Text></View><View onClick={onMore} style={{ width: '52rpx', height: '60rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '38rpx' }}>⋮</Text></View></View>
+    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} /><View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{post.authorName || '用户'}</Text>{post.authorGender ? <Text style={{ color: genderColor(post.authorGender), fontSize: '32rpx', lineHeight: '37rpx', marginLeft: '12rpx', fontWeight: 700 }}>{genderSymbol(post.authorGender)}</Text> : null}</View><Text style={{ display: 'block', color: QIANXUN_BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '8rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text></View><View className="qianxun-sincere-follow" onClick={onFollow} style={{ width: '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : QIANXUN_BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post.followingAuthor ? '#999999' : QIANXUN_BLUE, fontSize: '24rpx' }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View><View onClick={onMore} style={{ width: '52rpx', height: '60rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '38rpx' }}>⋮</Text></View></View>
     <View onClick={onOpen} style={{ position: 'relative', marginTop: '26rpx' }}><Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '48rpx', maxHeight: !expanded && canExpand ? '192rpx' : 'none', overflow: 'hidden' }}>{post.content}</Text>{!expanded && canExpand ? <View onClick={event => { event.stopPropagation(); setExpanded(true) }} style={{ position: 'absolute', right: 0, bottom: 0, height: '48rpx', paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: QIANXUN_BLUE, fontSize: '26rpx' }}>查看全部</Text></View> : null}<PostImages images={post.imageUrls || []} /></View>
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '26rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
     {post.topicName ? <View onClick={onTopic} style={{ display: 'inline-flex', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#F4F5F7', padding: '0 18rpx', marginTop: '20rpx', alignItems: 'center' }}><Text style={{ color: '#666666', fontSize: '25rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: QIANXUN_BLUE }}># </Text>{post.topicName}</Text></View> : null}
-    <View style={{ height: '92rpx', borderTop: '2rpx solid #EFF4FC', marginTop: '28rpx', display: 'flex', alignItems: 'center' }}><View onClick={onContact} style={{ minWidth: '176rpx', height: '80rpx', display: 'flex', alignItems: 'center' }}><View style={{ width: '52rpx', height: '52rpx', borderRadius: '26rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10rpx' }}><Text style={{ color: QIANXUN_BLUE, fontSize: '18rpx', fontWeight: 700 }}>YO</Text></View><Text style={{ color: '#4E8EFF', fontSize: '26rpx', fontWeight: 500 }}>{post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View><View style={{ flex: 1 }} /><View onClick={onComment} style={{ minWidth: '90rpx', height: '80rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '27rpx' }}>◯ {post.commentCount || 0}</Text></View><View onClick={onLike} style={{ minWidth: '100rpx', height: '80rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: post.liked ? '#D95D68' : '#999999', fontSize: '27rpx' }}>{post.liked ? '♥' : '♡'} {post.likeCount || 0}</Text></View></View>
+    <View style={{ height: '92rpx', borderTop: '2rpx solid #EFF4FC', marginTop: '28rpx', display: 'flex', alignItems: 'center' }}><View onClick={onContact} style={{ minWidth: '176rpx', height: '80rpx', display: 'flex', alignItems: 'center' }}><View style={{ width: '52rpx', height: '52rpx', borderRadius: '26rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10rpx' }}><Text style={{ color: QIANXUN_BLUE, fontSize: '18rpx', lineHeight: '24rpx', fontWeight: 700 }}>YO</Text></View><Text style={{ color: '#4E8EFF', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View><View style={{ flex: 1 }} /><View onClick={onComment}><SincereActionStat kind="comment" count={post.commentCount || 0} /></View><View onClick={onLike}><SincereActionStat kind="like" count={post.likeCount || 0} active={post.liked} /></View></View>
+  </View>
+}
+
+function SincereActionStat({ kind, count, active = false }: { kind: 'comment' | 'like'; count: number; active?: boolean }) {
+  const color = active ? '#D95D68' : '#999999'
+  return <View className={`sincere-${kind}-stat`} style={{ minWidth: kind === 'comment' ? '90rpx' : '100rpx', height: '80rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+    {kind === 'comment' ? <View className="sincere-comment-icon" data-role="sincere-comment-icon" aria-hidden style={{ position: 'relative', width: '30rpx', height: '26rpx', border: `2rpx solid ${color}`, borderRadius: '14rpx', boxSizing: 'border-box', marginRight: '8rpx', flexShrink: 0 }}><View style={{ position: 'absolute', left: '3rpx', bottom: '-5rpx', width: '8rpx', height: '7rpx', borderLeft: `2rpx solid ${color}`, transform: 'rotate(-26deg)', background: '#FFFFFF' }} /></View> : <View className="sincere-like-icon" data-role="sincere-like-icon" aria-hidden style={{ width: '34rpx', height: '36rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '7rpx', flexShrink: 0 }}><Text style={{ display: 'block', width: '34rpx', height: '36rpx', color, fontSize: '31rpx', lineHeight: '36rpx', textAlign: 'center' }}>{active ? '♥' : '♡'}</Text></View>}
+    <Text style={{ color, fontSize: '26rpx', lineHeight: '37rpx' }}>{count}</Text>
   </View>
 }
 
@@ -324,7 +338,7 @@ function ReportSheet({ reasons, onClose, onReport }: { reasons: Array<{ code: st
 }
 
 function UncertifiedSheet({ onClose, onVerify }: { onClose: () => void; onVerify: () => void }) {
-  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '488rpx', borderRadius: '40rpx 40rpx 0 0', background: 'linear-gradient(180deg, #D8ECFF 0%, #FFFFFF 72%)', padding: '58rpx 46rpx calc(38rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}><Image src={miniappOssIcons.qianxunVerifyNote} mode="aspectFit" style={{ position: 'absolute', right: '44rpx', top: '-104rpx', width: '250rpx', height: '250rpx' }} /><Text style={{ display: 'block', color: QIANXUN_NAVY, fontSize: '38rpx', lineHeight: '54rpx', fontWeight: 800 }}>你还未认证</Text><Text style={{ display: 'block', width: '500rpx', color: '#68778E', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '22rpx' }}>完成认证即可心动、评论和发布诚意贴</Text><View onClick={onVerify} style={{ width: '658rpx', height: '86rpx', borderRadius: '43rpx', background: QIANXUN_BLUE, margin: '62rpx auto 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即认证</Text></View></View></Overlay>
+  return <Overlay onClose={onClose}><View id="qianxun-uncertified-sheet" onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '488rpx', borderRadius: '40rpx 40rpx 0 0', background: 'linear-gradient(180deg, #D8ECFF 0%, #FFFFFF 72%)', padding: '58rpx 46rpx calc(38rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}><Image src={miniappOssIcons.qianxunVerifyNote} mode="aspectFit" style={{ position: 'absolute', right: '44rpx', top: '-104rpx', width: '250rpx', height: '250rpx' }} /><Text style={{ display: 'block', color: QIANXUN_NAVY, fontSize: '38rpx', lineHeight: '54rpx', fontWeight: 800 }}>你还未认证</Text><Text style={{ display: 'block', width: '500rpx', color: '#68778E', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '22rpx' }}>完成认证即可心动、评论和发布诚意贴</Text><View onClick={onVerify} style={{ width: '658rpx', height: '86rpx', borderRadius: '43rpx', background: QIANXUN_BLUE, margin: '62rpx auto 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即认证</Text></View></View></Overlay>
 }
 
 function relativeTime(value: string) {

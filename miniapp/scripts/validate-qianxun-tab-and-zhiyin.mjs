@@ -37,7 +37,8 @@ assert.match(zhiyinSource, /toggleYuemuLike/, '悦目心动按钮必须绑定真
 assert.match(zhiyinSource, /onContact/, '诚意贴申请认识必须有可执行交互')
 assert.match(zhiyinSource, /onAuthor/, '诚意贴头像和昵称必须可进入真实用户主页')
 assert.match(zhiyinSource, /openType="share"/, '诚意贴分享必须使用微信真实分享按钮')
-assert.match(zhiyinSource, /\{'♥'\}/, '悦目心动图标必须按蓝湖稿使用白色实心')
+assert.match(zhiyinSource, /user\.liked\s*\?\s*['"]♥['"]\s*:\s*['"]♡['"]/, '悦目心动图标必须明确区分已心动和未心动')
+assert.match(zhiyinSource, /已心动|已取消心动/, '悦目心动操作必须提供可感知反馈')
 assert.doesNotMatch(zhiyinSource, /getCommunityPosts\(['"]HOT['"]/, '悦目不得继续从热门动态生成照片墙')
 
 assert.match(communityService, /getYuemuUsers/, '社区服务缺少悦目用户候选接口')
