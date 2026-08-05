@@ -63,11 +63,17 @@ load_env() {
   export SMS_SIGN_NAME="${SMS_SIGN_NAME:-上海兴家立业网络科技}"
   export SMS_TEMPLATE_CODE="${SMS_TEMPLATE_CODE:-SMS_336060313}"
   export WECHAT_PAY_APP_ID="${WECHAT_PAY_APP_ID:-wx03e8cd2d1380c465}"
+  export WECHAT_PAY_CERT_DIR="${WECHAT_PAY_CERT_DIR:-${PROJECT_DIR}/secrets/cert}"
   export WECHAT_PAY_PRIVATE_KEY_PATH="${WECHAT_PAY_PRIVATE_KEY_PATH:-cert/apiclient_key.pem}"
   export WECHAT_PAY_MERCHANT_CERT_PATH="${WECHAT_PAY_MERCHANT_CERT_PATH:-cert/apiclient_cert.pem}"
   export WECHAT_PAY_NOTIFY_URL="${WECHAT_PAY_NOTIFY_URL:-https://admin.shikongxiehou.com/api/miniapp/payment/wechat/notify}"
   export WECHAT_PAY_FORCE_TEST_AMOUNT="${WECHAT_PAY_FORCE_TEST_AMOUNT:-false}"
   export WECHAT_PAY_TEST_PAY_AMOUNT="${WECHAT_PAY_TEST_PAY_AMOUNT:-0.01}"
+  if [ "${WECHAT_PAY_FORCE_TEST_AMOUNT,,}" = "true" ]; then
+    export WECHAT_PAY_TEST_AMOUNT="$WECHAT_PAY_TEST_PAY_AMOUNT"
+  else
+    export WECHAT_PAY_TEST_AMOUNT=""
+  fi
   export WECHAT_PAY_DESCRIPTION_PREFIX="${WECHAT_PAY_DESCRIPTION_PREFIX:-时空邂逅}"
 
   local original_oss_bucket="${OSS_BUCKET_NAME:-}"
@@ -83,9 +89,11 @@ load_env() {
     OSS_ENDPOINT OSS_BUCKET_NAME OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET \
     SMS_ACCESS_KEY_ID SMS_ACCESS_KEY_SECRET \
     SMS_PROVIDER SMS_ENDPOINT SMS_SIGN_NAME SMS_TEMPLATE_CODE \
+    WECHAT_PAY_MCH_ID WECHAT_PAY_API_V3_KEY WECHAT_PAY_CERT_SERIAL_NO \
     WECHAT_MINIAPP_APP_ID WECHAT_MINIAPP_APP_SECRET; do
     [ -n "${!key:-}" ] || fail "prod.env 缺少 ${key}"
   done
+  require_file "${WECHAT_PAY_CERT_DIR}/apiclient_key.pem"
   export SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL:-jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}"
 
   require_file "${ADMIN_SSL_DIR}/${ADMIN_DOMAIN}.pem"
@@ -107,7 +115,7 @@ write_runtime_env() {
       SMS_PROVIDER SMS_ENDPOINT SMS_SIGN_NAME SMS_TEMPLATE_CODE \
       WECHAT_PAY_APP_ID WECHAT_PAY_MCH_ID WECHAT_PAY_API_V3_KEY WECHAT_PAY_CERT_SERIAL_NO \
       WECHAT_PAY_PRIVATE_KEY_PATH WECHAT_PAY_MERCHANT_CERT_PATH WECHAT_PAY_NOTIFY_URL \
-      WECHAT_PAY_FORCE_TEST_AMOUNT WECHAT_PAY_TEST_PAY_AMOUNT WECHAT_PAY_DESCRIPTION_PREFIX \
+      WECHAT_PAY_FORCE_TEST_AMOUNT WECHAT_PAY_TEST_PAY_AMOUNT WECHAT_PAY_TEST_AMOUNT WECHAT_PAY_DESCRIPTION_PREFIX \
       WECHAT_MINIAPP_APP_ID WECHAT_MINIAPP_APP_SECRET \
       SPRING_DATASOURCE_URL; do
       printf '%s=%s\n' "$key" "${!key:-}"
@@ -181,6 +189,7 @@ restart_backend() {
     --network spacetime-prod \
     --network-alias backend \
     --env-file "$RUNTIME_ENV_FILE" \
+    -v "${WECHAT_PAY_CERT_DIR}:/app/cert:ro" \
     -e SPRING_PROFILES_ACTIVE=prod \
     -e TZ=Asia/Shanghai \
     -p 127.0.0.1:8080:8080 \

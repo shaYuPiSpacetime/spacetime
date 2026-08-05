@@ -153,6 +153,27 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    @DisplayName("部署环境强制测试金额-VIP微信扣款0.01元且订单保持原价")
+    void createVipOrder_forceTestAmountShouldUseConfiguredTestPayAmount() {
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(1L);
+
+        wechatPayProperties.setForceTestAmount(true);
+        wechatPayProperties.setTestPayAmount(new BigDecimal("0.01"));
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("0.01"))))
+                .thenReturn(payParams);
+
+        CreateOrderVO result = paymentService.createOrder(1L, req);
+
+        assertThat(result.getPayAmount()).isEqualByComparingTo("19.90");
+        verify(tradeOrderDao).insert(argThat(order -> new BigDecimal("19.90").compareTo(order.getPayAmount()) == 0));
+        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("0.01")));
+    }
+
+    @Test
     @DisplayName("测试环境创建千寻币订单-仅微信扣款金额为0.01元，订单展示金额保持原价")
     void createCoinOrder_testAmountShouldOnlyApplyToWechatPayment() {
         CreateOrderReq req = new CreateOrderReq();

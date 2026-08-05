@@ -36,6 +36,7 @@ jobs:
         run: |
           bash -n deploy/scripts/resolve-oss-endpoint.sh deploy/scripts/deploy-prod-local.sh
           node scripts/test-prod-oss-endpoint.mjs
+          node scripts/test-prod-wechat-pay-config.mjs
 
       - name: Validate ACR password
         env:

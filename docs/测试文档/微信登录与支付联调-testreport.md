@@ -29,3 +29,36 @@
 
 - 真实微信授权登录必须使用微信开发者工具或真机生成的 `wx.login` code 和授权手机号 code。
 - 真实 JSAPI 支付必须使用微信登录得到的真实 openid；手机号 mock 登录不能完成微信支付闭环。
+
+## 2026-08-05 测试环境支付配置回归
+
+### 问题与根因
+
+- 线上容器的 `WECHAT_PAY_MCH_ID`、`WECHAT_PAY_API_V3_KEY`、`WECHAT_PAY_CERT_SERIAL_NO` 为空，创建订单时稳定返回“微信支付配置不完整”。
+- 私钥只存在于本机私有目录，生产容器未挂载证书目录。
+- 部署脚本写入了 `WECHAT_PAY_FORCE_TEST_AMOUNT` 和 `WECHAT_PAY_TEST_PAY_AMOUNT`，但生产 Spring 配置没有绑定，导致测试环境 `0.01` 元配置失效。
+
+### 本轮结果
+
+| 用例 | 结果 | 证据 |
+| --- | --- | --- |
+| TC-08 测试金额配置绑定 | 通过 | `application-prod.yml` 已绑定测试开关和测试金额；部署脚本兼容当前及后续镜像 |
+| TC-09 测试金额业务口径 | 通过 | `PaymentServiceImplTest` 断言微信网关金额 `0.01`，订单和返回金额保持套餐原价 `19.90` |
+| TC-10 微信商户配置部署门禁 | 通过 | 部署脚本在重启前强制校验商户号、API v3 密钥、证书序列号 |
+| TC-11 微信私钥部署门禁 | 通过 | 私钥位于服务器私有目录并以只读卷挂载到 `/app/cert`；Git 与镜像均不包含私钥 |
+| TC-12 线上容器配置核验 | 通过 | 六项支付配置均为 `SET`，测试金额为 `0.01`，容器内私钥可读，健康检查返回 `code=200` |
+| TC-13 真机 0.01 元支付闭环 | 待真机复测 | 需要微信登录用户重新拉起收银台并完成一笔 `0.01` 元支付 |
+
+### 自动化执行
+
+| 命令 | 结果 |
+| --- | --- |
+| `JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn -f backend/pom.xml -Dtest=PaymentServiceImplTest test` | 10/10 通过 |
+| `JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn -f backend/pom.xml test` | 497/497 通过，0 失败，0 跳过 |
+| `node scripts/test-prod-wechat-pay-config.mjs` | 9/9 通过 |
+| `bash -n deploy/scripts/deploy-prod-local.sh` | 通过 |
+| `GET https://admin.shikongxiehou.com/api/health` | `code=200` |
+
+### 判定
+
+**当前结论：🟡 有条件通过。** 支付配置、私钥挂载、测试金额和支付成功事务依赖表均已在线验证；剩余唯一门禁为真机完成一笔 `0.01` 元支付并确认会员状态生效。

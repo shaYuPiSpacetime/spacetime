@@ -145,8 +145,21 @@ public class PaymentServiceImpl implements PaymentService {
      * 仅覆盖微信网关实际扣款金额，订单和页面继续保留套餐原价。
      */
     private BigDecimal resolveWechatPaymentAmount(BigDecimal packageAmount) {
-        BigDecimal testAmount = wechatPayProperties == null ? null : wechatPayProperties.getTestAmount();
-        return testAmount != null && testAmount.compareTo(BigDecimal.ZERO) > 0 ? testAmount : packageAmount;
+        if (wechatPayProperties == null) {
+            return packageAmount;
+        }
+        BigDecimal testAmount = wechatPayProperties.getTestAmount();
+        if (testAmount != null && testAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return testAmount;
+        }
+        if (!wechatPayProperties.isForceTestAmount()) {
+            return packageAmount;
+        }
+        BigDecimal forcedTestAmount = wechatPayProperties.getTestPayAmount();
+        if (forcedTestAmount == null || forcedTestAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("微信支付测试金额配置不正确");
+        }
+        return forcedTestAmount;
     }
 
     @Override

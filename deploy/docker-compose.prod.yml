@@ -10,6 +10,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: Asia/Shanghai
+    volumes:
+      - ${WECHAT_PAY_CERT_DIR:-/mnt/data/spacetime-prod/secrets/cert}:/app/cert:ro
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:

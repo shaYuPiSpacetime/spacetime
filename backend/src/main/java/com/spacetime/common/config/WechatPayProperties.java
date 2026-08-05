@@ -31,4 +31,8 @@ public class WechatPayProperties {
     private String descriptionPrefix = "时空邂逅";
     /** 测试环境传给微信的覆盖金额；为空时使用套餐真实金额 */
     private BigDecimal testAmount;
+    /** 部署环境是否强制使用测试扣款金额 */
+    private boolean forceTestAmount;
+    /** 部署环境测试扣款金额 */
+    private BigDecimal testPayAmount = new BigDecimal("0.01");
 }
