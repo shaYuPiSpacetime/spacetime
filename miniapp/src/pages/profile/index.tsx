@@ -25,6 +25,7 @@ export default function ProfilePage() {
     goToMyPosts,
     goToHelp,
     goToSettings,
+    goToHeart,
   } = useProfile()
   useEffect(() => {
     fetch()
@@ -90,7 +91,7 @@ export default function ProfilePage() {
           onAvatarError={() => setAvatar(defaultAvatar)}
         />
         <>
-          <StatsCard stats={stats} boostText="提升人气" />
+          <StatsCard stats={stats} boostText="提升人气" onHeart={goToHeart} />
           <VipBanner
             status={membershipVariant}
             expireTime={membership.expireTime}
@@ -133,6 +134,9 @@ function HeaderBlock({
 }) {
   return (
     <View
+      id="profile-header-edit-area"
+      onClick={onEdit}
+      hoverClass="btn-hover"
       style={{
         position: 'absolute',
         left: '25rpx',
@@ -190,8 +194,6 @@ function HeaderBlock({
           flexDirection: 'row',
           alignItems: 'center',
         }}
-        onClick={onEdit}
-        hoverClass="btn-hover"
       >
         <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '34rpx' }}>{editText}</Text>
         <View
@@ -311,7 +313,7 @@ function CertBadge({ text }: { text: string }) {
   )
 }
 
-function StatsCard({ stats, boostText }: { stats: Array<{ value: number; label: string }>; boostText: string }) {
+function StatsCard({ stats, boostText, onHeart }: { stats: Array<{ value: number; label: string }>; boostText: string; onHeart: () => void }) {
   return (
     <View
       style={{
@@ -336,13 +338,19 @@ function StatsCard({ stats, boostText }: { stats: Array<{ value: number; label: 
           justifyContent: 'space-around',
         }}
       >
-        {stats.map(item => (
+        {stats.map((item, index) => (
           <View
             key={item.label}
+            id={`profile-stat-${index}`}
+            onClick={onHeart}
+            hoverClass="btn-hover"
             style={{
+              width: '176rpx',
+              height: '120rpx',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <Text

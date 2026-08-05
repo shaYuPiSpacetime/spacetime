@@ -130,7 +130,7 @@ const SOURCE_EVIDENCE = [
   {
     label: '千寻币明细空态',
     route: '/pages/coins/detail',
-    snippets: ['transactions', 'filtered.length === 0', '<EmptyState />', '暂无千寻币流水'],
+    snippets: ['transactions', 'filtered.length === 0', '<EmptyState />', '暂无记录'],
   },
   {
     label: '我的页切图和会员状态',

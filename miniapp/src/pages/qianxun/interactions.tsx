@@ -320,10 +320,10 @@ function MinePanel({ loading, posts, config }: { loading: boolean; posts: MyPost
   return (
     <ScrollView scrollY style={{ height: '100%' }} showScrollbar={false}>
       <View style={{ padding: '6rpx 26rpx 54rpx' }}>
-        <View style={{ position: 'relative', height: '184rpx', borderRadius: '12rpx', background: '#F7F8FA', overflow: 'hidden' }}>
-          <Text style={{ position: 'absolute', left: '36rpx', top: '38rpx', color: '#999999', fontSize: '27rpx', lineHeight: '40rpx' }}>记录美好生活 遇上另一半</Text>
-          <View onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'absolute', left: '36rpx', top: '100rpx', width: '130rpx', height: '50rpx', borderRadius: '7rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '25rpx', fontWeight: 500 }}>发动态</Text></View>
-          <Image src={miniappOssIcons.qianxunEmptyChart} mode="aspectFit" style={{ position: 'absolute', right: '20rpx', top: '22rpx', width: '205rpx', height: '142rpx' }} />
+        <View id="qianxun-post-guide" style={{ position: 'relative', width: '650rpx', height: '188rpx', borderRadius: '12rpx', overflow: 'hidden' }}>
+          <Image src={miniappOssIcons.qianxunPostGuideBg} mode="scaleToFill" style={{ position: 'absolute', left: 0, top: 0, width: '650rpx', height: '188rpx' }} />
+          <Text style={{ position: 'absolute', left: '45rpx', top: '42rpx', color: '#999999', fontSize: '27rpx', lineHeight: '40rpx' }}>记录美好生活 遇上另一半</Text>
+          <View onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'absolute', left: '45rpx', top: '102rpx', width: '130rpx', height: '50rpx', borderRadius: '7rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '25rpx', fontWeight: 500 }}>发动态</Text></View>
         </View>
         {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} config={config} />) : <MineEmpty config={config} />}
       </View>

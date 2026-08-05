@@ -1,5 +1,5 @@
 import { ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState } from 'react'
 import { useCoins } from '@/hooks/useCoins'
 import { LANHU_BLUE, LanhuNav } from '@/pages/lanhu/LanhuShell'
@@ -8,6 +8,7 @@ import type { CoinTransaction } from '@/types/coin'
 const TABS = ['全部', '获取', '消耗'] as const
 
 export default function CoinsDetailPage() {
+  const router = useRouter()
   const {
     transactions,
     transactionsLoading,
@@ -19,7 +20,8 @@ export default function CoinsDetailPage() {
     void fetchTransactions().catch(() => undefined)
   })
 
-  const filtered = transactions.filter((item) => {
+  const sourceTransactions = router.params.variant === 'empty' ? [] : transactions
+  const filtered = sourceTransactions.filter((item) => {
     if (active === '获取') return item.type === 'income'
     if (active === '消耗') return item.type === 'expense'
     return true
@@ -97,17 +99,23 @@ export default function CoinsDetailPage() {
 function EmptyState() {
   return (
     <View style={{ width: '750rpx', paddingTop: '262rpx', boxSizing: 'border-box', display: 'flex', alignItems: 'center', flexDirection: 'column' }}>
-      <View style={{ position: 'relative', width: '298rpx', height: '210rpx' }}>
-        <View style={{ position: 'absolute', left: '78rpx', top: '28rpx', width: '134rpx', height: '154rpx', borderRadius: '18rpx', border: '12rpx solid #D8DEE6' }} />
-        <View style={{ position: 'absolute', left: '44rpx', top: '64rpx', width: '134rpx', height: '130rpx', borderRadius: '18rpx', border: '12rpx solid #D8DEE6', background: '#FFFFFF' }} />
-        <View style={{ position: 'absolute', left: '82rpx', top: '108rpx', width: '66rpx', height: '66rpx', borderRadius: '33rpx', border: '10rpx solid #D8DEE6' }} />
-        <View style={{ position: 'absolute', left: '137rpx', top: '162rpx', width: '58rpx', height: '18rpx', borderRadius: '9rpx', background: '#D8DEE6', transform: 'rotate(45deg)' }} />
-        <View style={{ position: 'absolute', left: '76rpx', top: '84rpx', width: '78rpx', height: '10rpx', borderRadius: '5rpx', background: '#D8DEE6' }} />
-        <View style={{ position: 'absolute', left: '76rpx', top: '118rpx', width: '98rpx', height: '10rpx', borderRadius: '5rpx', background: '#D8DEE6' }} />
-        <EmptyPlusMark left="0" top="65rpx" size="34rpx" />
-        <EmptyRingMark right="0" top="90rpx" size="40rpx" />
+      <View id="coin-empty-illustration" style={{ position: 'relative', width: '298rpx', height: '210rpx' }}>
+        <View style={{ position: 'absolute', left: '91rpx', top: '26rpx', width: '128rpx', height: '150rpx', borderRadius: '14rpx', border: '10rpx solid #D8DEE6', boxSizing: 'border-box' }} />
+        <View style={{ position: 'absolute', left: '62rpx', top: '45rpx', width: '136rpx', height: '148rpx', borderRadius: '14rpx', border: '10rpx solid #D8DEE6', background: '#FFFFFF', boxSizing: 'border-box' }} />
+        <View style={{ position: 'absolute', left: '84rpx', top: '69rpx', width: '55rpx', height: '8rpx', borderRadius: '4rpx', background: '#D8DEE6' }} />
+        <View style={{ position: 'absolute', left: '84rpx', top: '91rpx', width: '76rpx', height: '8rpx', borderRadius: '4rpx', background: '#D8DEE6' }} />
+        <View style={{ position: 'absolute', left: '84rpx', top: '113rpx', width: '35rpx', height: '8rpx', borderRadius: '4rpx', background: '#D8DEE6' }} />
+        <View style={{ position: 'absolute', left: '89rpx', top: '126rpx', width: '61rpx', height: '61rpx', borderRadius: '31rpx', border: '9rpx solid #D8DEE6', background: '#FFFFFF', boxSizing: 'border-box' }} />
+        <View style={{ position: 'absolute', left: '139rpx', top: '174rpx', width: '55rpx', height: '16rpx', borderRadius: '8rpx', background: '#D8DEE6', transform: 'rotate(45deg)', transformOrigin: 'left center' }} />
+        <View style={{ position: 'absolute', left: '4rpx', top: '186rpx', width: '34rpx', height: '8rpx', borderRadius: '4rpx', background: '#D8DEE6' }} />
+        <View style={{ position: 'absolute', left: '198rpx', top: '166rpx', width: '54rpx', height: '8rpx', borderRadius: '4rpx', background: '#D8DEE6' }} />
+        <EmptyPlusMark left="34rpx" top="4rpx" size="27rpx" />
+        <EmptyPlusMark left="16rpx" top="126rpx" size="20rpx" />
+        <EmptyPlusMark left="270rpx" top="108rpx" size="20rpx" />
+        <EmptyRingMark left="0" top="58rpx" size="28rpx" />
+        <EmptyRingMark left="246rpx" top="28rpx" size="30rpx" />
       </View>
-      <Text style={{ color: '#9A9A9A', fontSize: '34rpx', lineHeight: '48rpx', marginTop: '28rpx' }}>暂无千寻币流水</Text>
+      <Text style={{ color: '#9A9A9A', fontSize: '34rpx', lineHeight: '48rpx', marginTop: '28rpx' }}>暂无记录</Text>
       <View
         style={{
           width: '664rpx',
@@ -145,11 +153,13 @@ function EmptyPlusMark({
 }
 
 function EmptyRingMark({
+  left,
   right,
   top,
   size,
 }: {
-  right: string
+  left?: string
+  right?: string
   top: string
   size: string
 }) {
@@ -157,6 +167,7 @@ function EmptyRingMark({
     <View
       style={{
         position: 'absolute',
+        left,
         right,
         top,
         width: size,

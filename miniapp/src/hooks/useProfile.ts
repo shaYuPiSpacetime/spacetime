@@ -80,6 +80,8 @@ interface UseProfileReturn {
   goToHelp: () => void;
   /** 跳转设置 */
   goToSettings: () => void;
+  /** 跳转心动页 */
+  goToHeart: () => void;
 }
 
 /**
@@ -254,6 +256,11 @@ export function useProfile(): UseProfileReturn {
     Taro.navigateTo({ url: '/pages/settings/index' });
   }, []);
 
+  /** 统计项统一跳转心动 Tab，避免普通路由与 Tab 路由混用。 */
+  const goToHeart = useCallback(() => {
+    Taro.switchTab({ url: '/pages/community/index' });
+  }, []);
+
   return {
     data,
     loading,
@@ -269,6 +276,7 @@ export function useProfile(): UseProfileReturn {
     goToMyPosts,
     goToHelp,
     goToSettings,
+    goToHeart,
   };
 }
 

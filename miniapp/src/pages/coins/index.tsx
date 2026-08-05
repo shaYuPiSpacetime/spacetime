@@ -150,28 +150,7 @@ function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => v
         overflow: 'hidden',
       }}
     >
-      <View
-        style={{
-          position: 'absolute',
-          right: '46rpx',
-          top: '-72rpx',
-          width: '154rpx',
-          height: '154rpx',
-          borderRadius: '76rpx',
-          background: 'rgba(255, 255, 255, 0.08)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '-22rpx',
-          bottom: '-86rpx',
-          width: '246rpx',
-          height: '246rpx',
-          borderRadius: '123rpx',
-          background: 'rgba(255, 255, 255, 0.06)',
-        }}
-      />
+      <BalanceWatermarks />
       <Text style={{ position: 'absolute', left: '32rpx', top: '48rpx', color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>
         千寻币余额
       </Text>
@@ -185,6 +164,21 @@ function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => v
         <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>明细</Text>
         <CoinChevronIcon color="#FFFFFF" size="20rpx" marginLeft="6rpx" />
       </View>
+    </View>
+  )
+}
+
+function BalanceWatermarks() {
+  const color = 'rgba(255, 255, 255, 0.08)'
+  return (
+    <View id="coin-balance-watermarks" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <View style={{ position: 'absolute', left: '-31rpx', top: '25rpx', width: '151rpx', height: '34rpx', borderRadius: '17rpx', background: color, transform: 'rotate(-45deg)' }} />
+      <Text style={{ position: 'absolute', left: '28rpx', bottom: '-42rpx', color, fontSize: '146rpx', lineHeight: '146rpx', fontWeight: 300 }}>+</Text>
+      <Text style={{ position: 'absolute', left: '250rpx', bottom: '-40rpx', color, fontSize: '100rpx', lineHeight: '100rpx', fontWeight: 600 }}>¥</Text>
+      <Text style={{ position: 'absolute', right: '190rpx', top: '-47rpx', color, fontSize: '146rpx', lineHeight: '146rpx', fontWeight: 300 }}>+</Text>
+      <View style={{ position: 'absolute', right: '18rpx', top: '-25rpx', width: '34rpx', height: '130rpx', borderRadius: '17rpx', background: color, transform: 'rotate(-45deg)' }} />
+      <View style={{ position: 'absolute', right: '-26rpx', top: '68rpx', width: '160rpx', height: '34rpx', borderRadius: '17rpx', background: color }} />
+      <View style={{ position: 'absolute', right: '-26rpx', bottom: '4rpx', width: '160rpx', height: '34rpx', borderRadius: '17rpx', background: color }} />
     </View>
   )
 }
@@ -489,14 +483,15 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: '386rpx 64rpx 0 65rpx',
+        padding: '386rpx 65rpx 0',
         boxSizing: 'border-box',
       }}
     >
       <View
+        id="recharge-notice-card"
         style={{
           width: '620rpx',
-          height: '538rpx',
+          height: '570rpx',
           borderRadius: '32rpx',
           background: '#FFFFFF',
           padding: '51rpx 45rpx 28rpx',
@@ -505,13 +500,14 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
       >
         <Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', fontWeight: 500, lineHeight: '45rpx', textAlign: 'center' }}>{rechargeNotice.title}</Text>
         <Text
+          id="recharge-notice-body"
           style={{
             display: 'block',
             width: '530rpx',
-            height: '282rpx',
+            height: '310rpx',
             color: '#333333',
-            fontSize: '24rpx',
-            lineHeight: '40rpx',
+            fontSize: '26rpx',
+            lineHeight: '44rpx',
             marginTop: '30rpx',
             whiteSpace: 'pre-wrap',
             overflowWrap: 'break-word',
