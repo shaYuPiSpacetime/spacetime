@@ -2,7 +2,6 @@ package com.spacetime.miniapp.dto.request;
 
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.List;
@@ -29,8 +28,7 @@ public class CommunityPostCreateReq {
     /** 图片URL列表（最多9张） */
     private List<String> imageUrls;
 
-    /** 话题ID（字典数据） */
-    @NotNull(message = "话题不能为空")
+    /** 话题ID（可选；同城等普通动态允许不关联话题） */
     private Long topicId;
 
     /** @提及的用户ID列表（最多5人） */

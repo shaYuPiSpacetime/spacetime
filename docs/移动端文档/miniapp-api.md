@@ -1830,7 +1830,7 @@ Controller 统一返回 `R<T>`：
 | `title` | String | 否 | 诚意贴标题（`sincere_post` 时必填） |
 | `content` | String | 是 | 正文内容 |
 | `imageUrls` | List\<String\> | 否 | 图片 URL 列表，数量受 `community.post_max_images` 限制 |
-| `topicId` | Long | 是 | 话题字典数据 ID |
+| `topicId` | Long | 否 | 话题字典数据 ID；同城等普通动态可不关联话题 |
 | `mentionUserIds` | List\<Long\> | 否 | @提及的用户 ID 列表，数量受 `community.post_max_mentions` 限制 |
 
 请求示例（发布普通社区动态）：
@@ -1840,7 +1840,6 @@ Controller 统一返回 `R<T>`：
   "postType": "community",
   "content": "周末露营，天气真好 ☀️",
   "imageUrls": ["https://cdn.example.com/img/001.png"],
-  "topicId": 10,
   "mentionUserIds": [2, 3]
 }
 ```
@@ -1870,6 +1869,7 @@ Controller 统一返回 `R<T>`：
 
 说明：
 - 发布后默认 `status=PENDING`，`audit_status=PENDING`，需后台审核通过后才公开展示。
+- `topicId` 为空时按无话题动态发布；传入时必须引用已审核且启用的话题。
 - 诚意贴正文长度需 ≥ `community.sincere_post_min_text_length`（默认 20 字），否则返回参数错误。
 - 图片数量超过上限时返回参数错误。
 - 通过准入校验（`community.interaction_gate_mode`）判断用户是否有发布权限，当前默认 `LOGIN_ONLY`。

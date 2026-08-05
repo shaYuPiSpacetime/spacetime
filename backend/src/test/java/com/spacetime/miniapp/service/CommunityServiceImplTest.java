@@ -163,6 +163,57 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("发布同城普通动态-不关联话题也允许提交")
+    void createPost_withoutTopic_shouldSucceed() {
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community");
+        req.setContent("不关联话题的同城动态");
+        req.setImageUrls(List.of());
+
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(contentSecurityPort.checkPost(any(), any(), any(), any()))
+                .thenReturn(CommunitySecurityResult.pass("ok"));
+
+        CommunityPublishResultVO result = communityService.createPost(1L, req);
+
+        assertThat(result.getStatus()).isEqualTo("published");
+        verify(communityPostDao).insert(argThat(entity -> entity.getTopicId() == null
+                && entity.getTopicCode() == null
+                && entity.getTopicNameSnapshot() == null));
+        verify(communityExtensionDao, never()).selectTopicById(any());
+    }
+
+    @Test
+    @DisplayName("发布多图动态-超长异步审核追踪码安全持久化")
+    void createPost_longMediaTraceCode_shouldPersistSafely() {
+        String traceA = "a".repeat(48);
+        String traceB = "b".repeat(48);
+        String imageA = "https://static.example.com/miniapp/1/album/async-a.png";
+        String imageB = "https://static.example.com/miniapp/1/album/async-b.png";
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community");
+        req.setContent("两张图片异步审核");
+        req.setTopicId(10L);
+        req.setImageUrls(List.of(imageA, imageB));
+
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(valueOperations.get(anyString())).thenReturn("1");
+        when(ossUtil.objectExists(anyString())).thenReturn(true);
+        when(contentSecurityPort.checkPost(any(), any(), any(), any()))
+                .thenReturn(CommunitySecurityResult.asyncReview(traceA + "," + traceB));
+
+        CommunityPublishResultVO result = communityService.createPost(1L, req);
+
+        assertThat(result.getStatus()).isEqualTo("pending_manual");
+        verify(communityPostDao).insert(argThat(entity -> entity.getMachineCode() != null
+                && entity.getMachineCode().length() <= 64));
+        verify(communityExtensionDao).insertAudit(argThat(record -> record.getProviderCode() != null
+                && record.getProviderCode().length() <= 64));
+        verify(communityExtensionDao, times(2)).insertMediaTask(argThat(task ->
+                traceA.equals(task.getTraceId()) || traceB.equals(task.getTraceId())));
+    }
+
+    @Test
     @DisplayName("发布草稿动态-直传票据过期但本人OSS对象存在时允许提交")
     void createPost_expiredUploadTicketButOwnedObjectExists_shouldSucceed() {
         CommunityPostCreateReq req = new CommunityPostCreateReq();

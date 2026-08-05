@@ -407,15 +407,15 @@ public class CommunityServiceImpl implements CommunityService {
         entity.setContent(StrUtil.trim(req.getContent()));
         entity.setImageUrls(toJsonList(req.getImageUrls()));
         entity.setTopicId(req.getTopicId());
-        CommunityTopic topic = communityExtensionDao.selectTopicById(req.getTopicId());
+        CommunityTopic topic = req.getTopicId() == null ? null : communityExtensionDao.selectTopicById(req.getTopicId());
         entity.setTopicCode(topic == null ? null : topic.getTopicCode());
-        entity.setTopicNameSnapshot(topic.getTopicName());
+        entity.setTopicNameSnapshot(topic == null ? null : topic.getTopicName());
         entity.setMentionUserIds(null);
         entity.setStatus(decision.status());
         entity.setAuditStatus("published".equals(decision.status()) ? CommunityAuditStatusEnum.APPROVED.getCode()
                 : CommunityAuditStatusEnum.PENDING.getCode());
         entity.setMachineResult(decision.machineConclusion());
-        entity.setMachineCode(decision.machineCode());
+        entity.setMachineCode(persistableProviderCode(decision.machineCode()));
         entity.setMachineDetail(decision.detail());
         entity.setMachineCheckedAt(LocalDateTime.now());
         entity.setSampleRequired(decision.sampleRequired() ? 1 : 0);
@@ -526,7 +526,7 @@ public class CommunityServiceImpl implements CommunityService {
         entity.setAuditStatus("published".equals(decision.status())
                 ? CommunityAuditStatusEnum.APPROVED.getCode() : CommunityAuditStatusEnum.REJECTED.getCode());
         entity.setMachineResult(decision.machineConclusion());
-        entity.setMachineCode(decision.machineCode());
+        entity.setMachineCode(persistableProviderCode(decision.machineCode()));
         entity.setMachineDetail(decision.detail());
         entity.setMachineCheckedAt(LocalDateTime.now());
         entity.setVersion(0);
@@ -1195,7 +1195,7 @@ public class CommunityServiceImpl implements CommunityService {
         record.setAction(action);
         record.setResult(StrUtil.blankToDefault(result, "unknown"));
         record.setReason(reason);
-        record.setProviderCode(providerCode);
+        record.setProviderCode(persistableProviderCode(providerCode));
         record.setOperatorId(UserContextHolder.get() == null ? null : UserContextHolder.get().getId());
         record.setOperatorIp(requestIp());
         communityExtensionDao.insertAudit(record);
@@ -1237,6 +1237,16 @@ public class CommunityServiceImpl implements CommunityService {
             task.setVersion(0);
             communityExtensionDao.insertMediaTask(task);
         }
+    }
+
+    /**
+     * 数据库 provider code 字段上限为 64 字符。多图异步审核的完整 trace 已逐条写入
+     * community_media_audit_task，这里只保留稳定短码，避免帖子事务因追踪串过长回滚。
+     */
+    private String persistableProviderCode(String providerCode) {
+        if (StrUtil.isBlank(providerCode) || providerCode.length() <= 64) return providerCode;
+        if (providerCode.startsWith("media_async:")) return "media_async";
+        return providerCode.substring(0, 64);
     }
 
     private String resolveStatusLabel(String dictType, String code) {
@@ -1645,7 +1655,9 @@ public class CommunityServiceImpl implements CommunityService {
         if (postType == null) {
             throw error("unsupported_content_type");
         }
-        requireTopic(req.getTopicId());
+        if (req.getTopicId() != null) {
+            requireTopic(req.getTopicId());
+        }
 
         int maxImages = requiredConfigInt(CommunityConfigKeys.POST_MAX_IMAGES);
         int maxTextLength = requiredConfigInt(CommunityConfigKeys.POST_MAX_TEXT_LENGTH);
