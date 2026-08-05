@@ -70,7 +70,7 @@ class Prd01RuntimeConfigResolverTest {
     }
 
     @Test
-    void 旧地址区县配置必须按省市两级口径关闭() {
+    void 旧地址配置必须保留现居区县并关闭家乡区县() {
         AppConfigDao appConfigDao = mock(AppConfigDao.class);
         AppConfig config = new AppConfig();
         config.setConfigKey("prd01.profile.fieldSettings");
@@ -85,9 +85,21 @@ class Prd01RuntimeConfigResolverTest {
 
         List<Map<String, Object>> settings = resolver.fieldSettings(resolver.snapshot());
 
-        assertThat(settings).allSatisfy(item -> assertThat(item)
-                .containsEntry("visible", false)
+        assertThat(settings)
+                .filteredOn(item -> "locationDistrict".equals(item.get("fieldId")))
+                .singleElement()
+                .satisfies(item -> assertThat(item)
+                        .containsEntry("visible", true)
+                        .containsEntry("required", true)
+                        .containsEntry("requiredMode", "conditional")
+                        .containsEntry("scoreEnabled", false));
+        assertThat(settings)
+                .filteredOn(item -> "hometownDistrict".equals(item.get("fieldId")))
+                .singleElement()
+                .satisfies(item -> assertThat(item)
+                        .containsEntry("visible", false)
                 .containsEntry("required", false)
+                .containsEntry("requiredMode", "fixed")
                 .containsEntry("scoreEnabled", false));
     }
 }

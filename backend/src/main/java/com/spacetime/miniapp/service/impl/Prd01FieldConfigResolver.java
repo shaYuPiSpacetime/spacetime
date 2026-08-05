@@ -30,8 +30,6 @@ import java.util.Map;
 public class Prd01FieldConfigResolver {
 
     static final String PROFILE_FIELD_CONFIG_KEY = "prd01.profile.fieldSettings";
-    private static final List<String> TWO_LEVEL_REGION_DISTRICT_FIELDS =
-            List.of("locationDistrict", "hometownDistrict");
     private static final String MIN_AGE_KEY = "prd01.access.minAge";
     private static final String MAX_AGE_KEY = "prd01.access.maxAge";
 
@@ -98,10 +96,9 @@ public class Prd01FieldConfigResolver {
             item.setFieldId(definition.fieldId);
             item.setLabel(definition.label);
             item.setFieldType(definition.fieldType);
-            boolean districtField = TWO_LEVEL_REGION_DISTRICT_FIELDS.contains(definition.fieldId);
-            item.setVisible(!districtField && state.visible);
-            item.setRequired(!districtField && state.visible && state.required);
-            item.setRequiredMode(districtField ? "fixed" : state.requiredMode);
+            item.setVisible(state.visible);
+            item.setRequired(state.visible && state.required);
+            item.setRequiredMode(state.requiredMode);
             item.setEditable(definition.editable);
             item.setDictType(definition.dictType);
             item.setMinValue(definition.minValue);
@@ -260,13 +257,14 @@ public class Prd01FieldConfigResolver {
     }
 
     private InitFieldRule locationRule(Map<String, FieldState> states) {
-        List<String> submitFields = List.of("locationProvince", "locationCity");
+        List<String> submitFields = List.of("locationProvince", "locationCity", "locationDistrict");
         List<String> requiredSubmitFields = new ArrayList<>();
         boolean visible = false;
         for (String field : submitFields) {
             FieldState state = state(states, field);
             visible = visible || state.visible;
-            if (state.visible && state.required) {
+            // 区县是否必填取决于所选城市是否存在下级节点，由 ProfileServiceImpl 统一校验。
+            if (state.visible && state.required && !"locationDistrict".equals(field)) {
                 requiredSubmitFields.add(field);
             }
         }
@@ -339,7 +337,8 @@ public class Prd01FieldConfigResolver {
             case "height", "weight", "hometownProvince", "hometownCity",
                     "industry", "occupation", "company", "annualIncome", "annualIncomeRange", "school", "major", "maritalStatus" ->
                     new FieldState(true, false, "configurable");
-            case "locationDistrict", "hometownDistrict" -> new FieldState(false, false, "fixed");
+            case "locationDistrict" -> new FieldState(true, true, "conditional");
+            case "hometownDistrict" -> new FieldState(false, false, "fixed");
             default -> new FieldState(false, false, "configurable");
         };
     }

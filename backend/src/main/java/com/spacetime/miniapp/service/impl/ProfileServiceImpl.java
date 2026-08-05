@@ -126,6 +126,9 @@ public class ProfileServiceImpl implements ProfileService {
         }
         applyStepFields(user, req);
         fieldConfigResolver.validateRequiredStepFields(user, req.getStep());
+        if (req.getStep() == 5) {
+            validateRequiredLocationDistrict(user);
+        }
 
         // 编辑已完成步骤时不回退进度；只有提交当前步骤才向后推进。
         Integer nextStep = currentStep;
@@ -315,19 +318,19 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
-    /** 首版仅支持中国大陆省市两级 code，并校验真实字典节点及父子层级。 */
+    /** 现居地支持中国大陆省市区 code，并校验真实字典节点及父子层级。 */
     private void validateMainlandRegion(ProfileInitStepReq req) {
         if (req == null) {
             return;
         }
         profileDictionaryService.requireChinaRegionPath(
-                req.getLocationProvince(), req.getLocationCity(), null, "现居地");
+                req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
     }
 
-    /** 基础资料页的现居地和家乡都固定校验中国大陆省市两级。 */
+    /** 基础资料页现居地支持省市区；家乡按产品口径固定为省市两级。 */
     private void validateMainlandRegion(BasicProfileSaveReq req) {
         profileDictionaryService.requireChinaRegionPath(
-                req.getLocationProvince(), req.getLocationCity(), null, "现居地");
+                req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
         profileDictionaryService.requireChinaRegionPath(
                 req.getHometownProvince(), req.getHometownCity(), null, "家乡");
     }
@@ -383,10 +386,10 @@ public class ProfileServiceImpl implements ProfileService {
         }
         if (visible(settings, "locationProvince")) user.setLocationProvince(trimToNull(req.getLocationProvince()));
         if (visible(settings, "locationCity")) user.setLocationCity(trimToNull(req.getLocationCity()));
+        if (visible(settings, "locationDistrict")) user.setLocationDistrict(trimToNull(req.getLocationDistrict()));
         if (visible(settings, "hometownProvince")) user.setHometownProvince(trimToNull(req.getHometownProvince()));
         if (visible(settings, "hometownCity")) user.setHometownCity(trimToNull(req.getHometownCity()));
-        // 现居地、家乡统一为省市两级；兼容旧客户端入参并清理历史区县值。
-        user.setLocationDistrict(null);
+        // 家乡固定为省市两级，兼容旧客户端入参并清理历史区县值。
         user.setHometownDistrict(null);
         if (visible(settings, "company")) {
             user.setCompany(validatedText(req.getCompany(), 2, 50, "公司名称需2-50个字符"));
@@ -503,7 +506,7 @@ public class ProfileServiceImpl implements ProfileService {
                 case 2 -> "出生日期";
                 case 3 -> "身份";
                 case 4 -> "学历";
-                case 5 -> "现居省市";
+                case 5 -> "现居省市区";
                 default -> "当前步骤字段";
             };
             throw new BusinessException("第" + req.getStep() + "步只能提交" + allowed);
@@ -538,7 +541,7 @@ public class ProfileServiceImpl implements ProfileService {
             case 5 -> {
                 if (StrUtil.isNotBlank(req.getLocationProvince())) user.setLocationProvince(req.getLocationProvince().trim());
                 if (StrUtil.isNotBlank(req.getLocationCity())) user.setLocationCity(req.getLocationCity().trim());
-                user.setLocationDistrict(null);
+                user.setLocationDistrict(trimToNull(req.getLocationDistrict()));
             }
             default -> throw new BusinessException("首登步骤必须在1-5之间");
         }
@@ -634,7 +637,7 @@ public class ProfileServiceImpl implements ProfileService {
         return vo;
     }
 
-    /** 基础资料固定必填由配置解析器处理；地址只校验省市两级。 */
+    /** 基础资料固定必填由配置解析器处理；现居区县按城市真实子节点条件必填。 */
     private void validateRequiredBasicFields(AppUser user, List<BasicProfileFieldVO> settings) {
         List<String> missing = missingRequiredBasicFields(user, settings);
         if (missing.isEmpty()) {
@@ -650,7 +653,22 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     private List<String> missingRequiredBasicFields(AppUser user, List<BasicProfileFieldVO> settings) {
-        return fieldConfigResolver.missingRequiredBasicFields(user, settings);
+        List<String> missing = new java.util.ArrayList<>(fieldConfigResolver.missingRequiredBasicFields(user, settings));
+        if (StrUtil.isNotBlank(user.getLocationCity())
+                && StrUtil.isBlank(user.getLocationDistrict())
+                && profileDictionaryService.hasEnabledRegionChildren(user.getLocationCity())) {
+            missing.add("locationDistrict");
+        }
+        return missing;
+    }
+
+    /** 首登现居地：城市有区县节点时必须选择区县，无下级节点时允许省市两级。 */
+    private void validateRequiredLocationDistrict(AppUser user) {
+        if (StrUtil.isNotBlank(user.getLocationCity())
+                && StrUtil.isBlank(user.getLocationDistrict())
+                && profileDictionaryService.hasEnabledRegionChildren(user.getLocationCity())) {
+            throw new BusinessException("现居区县不能为空");
+        }
     }
 
     /** 语音介绍从统一审核记录实时派生，app_user 不保存语音审核快照。 */

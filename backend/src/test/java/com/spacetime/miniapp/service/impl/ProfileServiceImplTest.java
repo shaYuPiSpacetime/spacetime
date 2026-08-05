@@ -153,8 +153,8 @@ class ProfileServiceImplTest {
     }
 
     @Test
-    @DisplayName("首登现居地固定省市两级，旧配置也不得要求区县")
-    void shouldAllowTwoLevelLocationUnderLegacyDistrictConfig() {
+    @DisplayName("首登旧配置缺少requiredMode时仍按城市节点要求现居区县")
+    void shouldRequireLocationDistrictUnderLegacyDistrictConfig() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
                 .thenReturn(List.of(config(legacyRequiredDistrictFields())));
         AppUser user = completedUntilStepFive();
@@ -163,15 +163,12 @@ class ProfileServiceImplTest {
         req.setStep(5);
         req.setLocationProvince("140000");
         req.setLocationCity("140200");
+        when(profileDictionaryService.hasEnabledRegionChildren("140200")).thenReturn(true);
 
-        ProfileInitStatusVO result = newService().saveInitStep(7L, req);
-
-        assertThat(result.getFirstLoginCompleted()).isTrue();
-        assertThat(user.getLocationProvince()).isEqualTo("140000");
-        assertThat(user.getLocationCity()).isEqualTo("140200");
-        assertThat(user.getLocationDistrict()).isNull();
-        verify(profileDictionaryService, never()).hasEnabledRegionChildren(any());
-        verify(appUserDao).updateById(user);
+        assertThatThrownBy(() -> newService().saveInitStep(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("现居区县不能为空");
+        verify(appUserDao, never()).updateById(user);
     }
 
     @Test
@@ -345,8 +342,8 @@ class ProfileServiceImplTest {
     }
 
     @Test
-    @DisplayName("基础资料现居地固定省市两级，不检查城市区县节点")
-    void shouldAllowTwoLevelLocationWhenCityHasDistricts() {
+    @DisplayName("基础资料所选城市存在区县节点时要求现居区县")
+    void shouldRequireLocationDistrictWhenCityHasDistricts() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
                 .thenReturn(List.of(config(conditionalDistrictFields())));
         AppUser user = baseUser(null);
@@ -356,14 +353,13 @@ class ProfileServiceImplTest {
                 .thenReturn("WORKER");
         when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
                 .thenReturn("BACHELOR");
+        when(profileDictionaryService.hasEnabledRegionChildren("330100")).thenReturn(true);
         BasicProfileSaveReq req = validBasicProfileReq();
 
-        BasicProfileVO result = newService().saveBasicProfile(7L, req);
-
-        assertThat(result.getBasicProfileCompleted()).isTrue();
-        assertThat(user.getLocationDistrict()).isNull();
-        verify(profileDictionaryService, never()).hasEnabledRegionChildren(any());
-        verify(appUserDao).updateById(user);
+        assertThatThrownBy(() -> newService().saveBasicProfile(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("现居区县不能为空");
+        verify(appUserDao, never()).updateById(user);
     }
 
     @Test
@@ -394,8 +390,8 @@ class ProfileServiceImplTest {
     }
 
     @Test
-    @DisplayName("两级地址保存时统一清理请求中的历史区县值")
-    void shouldClearLegacyDistrictValuesWhenSavingTwoLevelRegions() {
+    @DisplayName("现居地区县正常保存，家乡仍清理为省市两级")
+    void shouldKeepLocationDistrictAndClearHometownDistrict() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
                 .thenReturn(List.of(config(hometownTwoLevelFields())));
         when(appConfigDao.selectByGroup("PRD01_ACCESS")).thenReturn(List.of());
@@ -416,9 +412,9 @@ class ProfileServiceImplTest {
 
         BasicProfileVO result = newService().saveBasicProfile(7L, req);
 
-        assertThat(result.getLocationDistrict()).isNull();
+        assertThat(result.getLocationDistrict()).isEqualTo("330106");
         assertThat(result.getHometownDistrict()).isNull();
-        assertThat(user.getLocationDistrict()).isNull();
+        assertThat(user.getLocationDistrict()).isEqualTo("330106");
         assertThat(user.getHometownDistrict()).isNull();
         verify(appUserDao).updateById(user);
     }

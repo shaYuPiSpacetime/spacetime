@@ -30,8 +30,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class Prd01RuntimeConfigResolver {
 
-    private static final Set<String> TWO_LEVEL_REGION_DISTRICT_FIELDS =
-            Set.of("locationDistrict", "hometownDistrict");
+    private static final Set<String> RETIRED_REGION_FIELDS = Set.of("hometownDistrict");
 
     static final String MIN_AGE_KEY = "prd01.access.minAge";
     static final String MAX_AGE_KEY = "prd01.access.maxAge";
@@ -88,10 +87,15 @@ public class Prd01RuntimeConfigResolver {
             item.put("label", text(row, "label"));
             item.put("fieldId", fieldId);
             item.put("pageMenu", text(row, "pageMenu"));
-            boolean districtField = TWO_LEVEL_REGION_DISTRICT_FIELDS.contains(fieldId);
-            item.put("visible", !districtField && row.path("visible").asBoolean(true));
-            item.put("required", !districtField && row.path("required").asBoolean(false));
-            item.put("scoreEnabled", !districtField && row.path("scoreEnabled").asBoolean(false));
+            boolean retiredField = RETIRED_REGION_FIELDS.contains(fieldId);
+            boolean locationDistrict = "locationDistrict".equals(fieldId);
+            item.put("visible", !retiredField && row.path("visible").asBoolean(true));
+            item.put("required", !retiredField && row.path("required").asBoolean(false));
+            String requiredMode = text(row, "requiredMode");
+            item.put("requiredMode", retiredField
+                    ? "fixed"
+                    : locationDistrict && StrUtil.isBlank(requiredMode) ? "conditional" : requiredMode);
+            item.put("scoreEnabled", !retiredField && !locationDistrict && row.path("scoreEnabled").asBoolean(false));
             result.add(item);
         }
         return result;

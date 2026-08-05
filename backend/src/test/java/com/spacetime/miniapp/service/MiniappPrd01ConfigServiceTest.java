@@ -51,7 +51,11 @@ class MiniappPrd01ConfigServiceTest {
                         "{\"rows\":[{\"key\":\"sendCountdownSeconds\",\"value\":\"45\"},{\"key\":\"validMinutes\",\"value\":\"3\"},{\"key\":\"dailySendLimit\",\"value\":\"8\"}]}",
                         "PRD01_AUDIT"),
                 config("prd01.profile.fieldSettings",
-                        "{\"rows\":[{\"fieldId\":\"aboutMe\",\"visible\":true,\"required\":true,\"scoreEnabled\":true},{\"fieldId\":\"avatarImage\",\"visible\":true,\"required\":true,\"scoreEnabled\":true}]}",
+                        "{\"rows\":["
+                                + "{\"fieldId\":\"locationDistrict\",\"visible\":true,\"required\":false,\"requiredMode\":\"conditional\",\"scoreEnabled\":false},"
+                                + "{\"fieldId\":\"hometownDistrict\",\"visible\":true,\"required\":true,\"requiredMode\":\"conditional\",\"scoreEnabled\":true},"
+                                + "{\"fieldId\":\"aboutMe\",\"visible\":true,\"required\":true,\"scoreEnabled\":true},"
+                                + "{\"fieldId\":\"avatarImage\",\"visible\":true,\"required\":true,\"scoreEnabled\":true}]}",
                         "PRD01_PROFILE_FIELD"),
                 config("prd01.profile.scoreWeights",
                         "{\"rows\":[{\"fieldId\":\"aboutMe\",\"label\":\"关于我/自我描述\",\"scoreEnabled\":true,\"studentScore\":\"5\",\"workerScore\":\"5\"},{\"fieldId\":\"avatarImage\",\"label\":\"裁剪后主头像\",\"scoreEnabled\":true,\"studentScore\":\"4\",\"workerScore\":\"4\"}]}",
@@ -143,11 +147,19 @@ class MiniappPrd01ConfigServiceTest {
                 .containsEntry("required", true)
                 .containsEntry("allowEmpty", false);
         assertThat((List<String>) location.get("submitFields"))
-                .containsExactly("locationProvince", "locationCity");
+                .containsExactly("locationProvince", "locationCity", "locationDistrict");
         assertThat((List<Map<String, Object>>) config.get("fieldSettings"))
-                .filteredOn(item -> "locationDistrict".equals(item.get("fieldId"))
-                        || "hometownDistrict".equals(item.get("fieldId")))
-                .allSatisfy(item -> assertThat(item)
+                .filteredOn(item -> "locationDistrict".equals(item.get("fieldId")))
+                .singleElement()
+                .satisfies(item -> assertThat(item)
+                        .containsEntry("visible", true)
+                        .containsEntry("required", false)
+                        .containsEntry("requiredMode", "conditional")
+                        .containsEntry("scoreEnabled", false));
+        assertThat((List<Map<String, Object>>) config.get("fieldSettings"))
+                .filteredOn(item -> "hometownDistrict".equals(item.get("fieldId")))
+                .singleElement()
+                .satisfies(item -> assertThat(item)
                         .containsEntry("visible", false)
                         .containsEntry("required", false)
                         .containsEntry("scoreEnabled", false));
