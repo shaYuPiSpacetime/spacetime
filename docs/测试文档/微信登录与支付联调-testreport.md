@@ -62,3 +62,32 @@
 ### 判定
 
 **当前结论：🟡 有条件通过。** 支付配置、私钥挂载、测试金额和支付成功事务依赖表均已在线验证；剩余唯一门禁为真机完成一笔 `0.01` 元支付并确认会员状态生效。
+
+## 2026-08-05 生产“微信下单异常”复测
+
+### 生产根因证据
+
+- 12:54 至 12:55，用户 123 连续三次创建 VIP 订单，均在 `WechatPayServiceImpl.readConfiguredFile → loadPrivateKey → sign` 失败。
+- 当时商户号、AppID、API v3 密钥、证书序列号均已注入，但容器内 `/app/cert/apiclient_key.pem` 不可读；宿主机源文件存在且属主与容器用户一致，证明故障位于 Docker 私钥目录未挂载。
+- 支付修复代码此前仍在共享工作区未提交，商业化发布重建容器后覆盖了临时挂载，因而用户再次看到“微信下单异常”。
+
+### 修复与发布
+
+| 项目 | 结果 |
+| --- | --- |
+| 修复提交 | `b0a28d3 fix(payment): 挂载生产微信支付私钥` |
+| GitHub 后端发布 | Actions `30976639166`，build/deploy 均为 success |
+| 容器私钥 | `/mnt/data/spacetime-prod/secrets/cert -> /app/cert`，只读挂载，容器用户可读 |
+| 测试金额 | `WECHAT_PAY_FORCE_TEST_AMOUNT=true`、`WECHAT_PAY_TEST_PAY_AMOUNT=0.01` |
+| 健康检查 | HTTP 200 |
+
+### TC-14 生产预下单结果
+
+- 使用具有真实 openid 的用户 123 创建 10 分钟临时 Redis 会话，调用生产 `POST /api/miniapp/payment/create-order`；调用后临时会话自动删除。
+- 热修复后订单 38：HTTP/业务码 200，数据库状态 `unpaid`，业务金额 `568.00`，`prepay_id` 已保存。
+- 标准 GitHub 新镜像发布后订单 39：HTTP/业务码 200，返回 `payParams.package=prepay_id=...`、`paySign`、`signType=RSA`。
+- 本测试只验证微信统一下单和小程序支付签名参数，不调用 `wx.requestPayment`，没有发生真实扣款。
+
+### 最新判定
+
+**微信预下单：✅ 通过。** 原“微信下单异常”已复现、定位并完成生产修复。完整支付闭环仍保留 TC-13：需要用户在小程序中拉起微信收银台，支付 0.01 元后再确认订单成功和会员生效。
