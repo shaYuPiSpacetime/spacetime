@@ -263,10 +263,7 @@ page {
 }
 
 .search-result-empty {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  padding: 180rpx 24rpx 0;
+  padding: 0 24rpx;
 }
 
 .search-result-empty__title {

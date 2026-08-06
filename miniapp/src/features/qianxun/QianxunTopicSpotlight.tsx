@@ -54,7 +54,7 @@ export default function QianxunTopicSpotlight({ home, loading = false, config, o
 
 function TopicSpotlightSlide({ featured, related, config }: { featured: CommunityTopicCardVO; related: CommunityTopicCardVO[]; config?: CommunityConfig }) {
   return <View style={{ width: '648rpx', height: '364rpx', overflow: 'hidden' }}>
-    <View id={`qianxun-topic-featured-${featured.id}`} onClick={() => openTopic(featured)} style={{ display: 'flex', marginTop: '28rpx' }}>
+    <View id={`qianxun-topic-featured-${featured.id}`} className="qianxun-topic-featured" onClick={() => openTopic(featured)} style={{ display: 'flex', marginTop: '28rpx' }}>
       <Image src={topicImage(featured)} mode="aspectFill" style={{ width: '176rpx', height: '176rpx', borderRadius: '12rpx', background: '#EDF1F5', flexShrink: 0 }} />
       <View style={{ minWidth: 0, flex: 1, marginLeft: '18rpx', paddingTop: '3rpx' }}>
         <Text style={{ display: 'block', color: '#333333', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: BLUE, fontSize: '37rpx' }}>#</Text> {featured.name}</Text>

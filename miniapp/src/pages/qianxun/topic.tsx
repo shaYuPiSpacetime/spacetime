@@ -2,6 +2,7 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, useLoad } from '@tarojs/taro'
 import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
+import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   COMMUNITY_COPY_KEYS,
@@ -185,15 +186,15 @@ function TopicPostCard({ post, onLike, onMore }: { post: CommunityPostVO; onLike
     void Taro.navigateTo({ url: `/pages/message/whisper-detail?receiverUserNo=${post.authorId}&nickname=${encodeURIComponent(post.authorName || '用户')}&avatar=${encodeURIComponent(post.authorAvatar || '')}&compose=1` })
   }
   return <View onClick={openPost} style={{ width: '700rpx', borderRadius: '14rpx', background: '#FFFFFF', marginBottom: '18rpx', padding: '24rpx 24rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
-    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={openAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '68rpx', height: '68rpx', borderRadius: '34rpx', background: '#EFF3F7' }} /><View onClick={openAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '14rpx' }}><Text style={{ display: 'block', color: '#303B4A', fontSize: '24rpx', fontWeight: 600 }}>{post.authorName || '用户'} <Text style={{ color: post.authorGender === 'FEMALE' ? '#FF7D8C' : '#56A1FF' }}>{post.authorGender === 'FEMALE' ? '♀' : post.authorGender === 'MALE' ? '♂' : ''}</Text></Text><Text style={{ display: 'block', color: '#7F8EA4', fontSize: '20rpx', marginTop: '5rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{postAuthorMeta(post) || relativeTime(post.createTime)}</Text></View><View id={`qianxun-topic-post-more-${post.id}`} onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '54rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx', lineHeight: '44rpx' }}>⋮</Text></View></View>
+    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={openAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '68rpx', height: '68rpx', borderRadius: '34rpx', background: '#EFF3F7' }} /><View onClick={openAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '14rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#303B4A', fontSize: '24rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: '#7F8EA4', fontSize: '20rpx', marginTop: '5rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{postAuthorMeta(post) || relativeTime(post.createTime)}</Text></View><View id={`qianxun-topic-post-more-${post.id}`} onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '54rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx', lineHeight: '44rpx' }}>⋮</Text></View></View>
     {post.title ? <Text style={{ display: 'block', color: '#283548', fontSize: '27rpx', fontWeight: 600, lineHeight: '42rpx', marginTop: '18rpx' }}>{post.title}</Text> : null}
     <Text style={{ display: 'block', color: '#3E4755', fontSize: '25rpx', lineHeight: '42rpx', marginTop: '16rpx' }}>{post.content}</Text>
     <TopicImages images={post.imageUrls || []} />
     <View style={{ height: '72rpx', borderTop: '1rpx solid #F0F2F5', marginTop: '18rpx', display: 'flex', alignItems: 'center' }}>
-      <View onClick={openContact} style={{ minWidth: '110rpx', height: '62rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '22rpx' }}>◉ {post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View>
+      <View onClick={openContact} style={{ minWidth: '150rpx', height: '72rpx', display: 'flex', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunWhisper} mode="aspectFit" style={{ width: '36rpx', height: '36rpx' }} /><Text style={{ color: BLUE, fontSize: '22rpx', marginLeft: '8rpx' }}>{post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View>
       <View style={{ flex: 1 }} />
-      <View onClick={event => { event.stopPropagation(); openPost() }} style={{ minWidth: '88rpx', height: '62rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A4A9B2', fontSize: '22rpx' }}>◯ {post.commentCount || 0}</Text></View>
-      <View onClick={event => { event.stopPropagation(); onLike() }} style={{ minWidth: '88rpx', height: '62rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: post.liked ? '#F06E78' : '#A4A9B2', fontSize: '22rpx' }}>{post.liked ? '♥' : '♡'} {post.likeCount || 0}</Text></View>
+      <QianxunActionStat kind="comment" count={post.commentCount || 0} onClick={openPost} />
+      <QianxunActionStat kind="like" count={post.likeCount || 0} active={post.liked} onClick={onLike} />
     </View>
   </View>
 }

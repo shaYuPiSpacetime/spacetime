@@ -117,9 +117,11 @@ assert.ok(!appTabSource.includes('function TabIcon'), '底部 icon 禁止继续�
 assert.ok(!appTabSource.includes('TAB_ICON_COLORS'), '底部 icon 禁止继续用颜色重绘替代切图')
 
 const indexSource = read('src/pages/index/index.tsx')
-assert.ok(indexSource.includes('CertificationArtwork'), '未认证首页需要使用专门认证插画组件')
-assert.ok(indexSource.includes('miniappOssIcons.qianxunCenter'), '千寻首页中心图必须使用 OSS 无损切图')
-assert.ok(!indexSource.includes("@/assets/lanhu/pages/qianxun-center.png"), '千寻首页不得直接把中心插画打进主包')
+const verificationEntrySource = read('src/features/verification/VerificationEntryView.tsx')
+assert.ok(indexSource.includes('VerificationEntryView'), '未认证首页需要接入共享认证引导视图')
+assert.ok(verificationEntrySource.includes('CertificationArtwork'), '未认证视图需要使用专门认证插画组件')
+assert.ok(verificationEntrySource.includes('miniappOssIcons.qianxunCenter'), '认证引导中心图必须使用 OSS 无损切图')
+assert.ok(!verificationEntrySource.includes("@/assets/lanhu/pages/qianxun-center.png"), '认证引导不得直接把中心插画打进主包')
 
 const profileEditSource = read('src/pages/profile/edit.tsx')
 const myCertificationSource = read('src/pages/verification/my-certification.tsx')
@@ -151,7 +153,7 @@ assert.ok(!profileEditSource.includes(forbiddenTagPanel), '我的标签必须跳
 assert.ok(!/profile\/edit\?variant=(songs|about|voice-delete|voice-delete-success|profile)/.test(profileEditSource), '歌曲/关于我/语音删除/资料填写禁止继续塞进 profile/edit variant')
 assert.ok(profileEditSource.includes("/pages/profile-edit/intro"), '自我介绍需要跳转独立页面')
 assert.ok(profileEditSource.includes("/pages/profile-edit/tags"), '我的标签需要跳转独立页面')
-assert.ok(profileEditSource.includes("/pages/profile-edit/about?topic=meet"), '关于我见面便好需要跳转独立页面')
+assert.ok(profileEditSource.includes('/pages/profile-edit/about?topic=${key}'), '关于我固定摘要需要按真实问题 key 跳转独立页面')
 assert.ok(profileEditSource.includes("/pages/profile-edit/songs"), '爱听的歌曲需要跳转独立页面')
 const forbiddenVoiceRoute = ['/pages/profile-edit', '/voice'].join('')
 assert.ok(!profileEditSource.includes(forbiddenVoiceRoute), '语音介绍必须是编辑资料页蓝湖底部弹窗，禁止从编辑资料跳转语音独立页')
@@ -220,7 +222,7 @@ for (const relativePath of profileEditPages) {
 }
 
 const introSource = read('src/pages/profile-edit/intro.tsx')
-assert.ok(introSource.includes('认真介绍自己，让 TA 更快了解你'), '自我介绍页面缺少蓝湖标题描述')
+assert.ok(introSource.includes('介绍下自己的性格、习惯、有点、缺点'), '自我介绍页面缺少蓝湖标题描述')
 assert.ok(introSource.includes('写下你的自我介绍'), '自我介绍页面缺少输入提示')
 assert.ok(introSource.includes(": '保存'"), '自我介绍页面按钮文案必须是保存')
 const forbiddenIntroButtonText = ['保存自我', '介绍'].join('')
@@ -282,7 +284,8 @@ assert.ok(profileEditSource.includes("color: '#FFFFFF'"), '更换照片按钮必
 assert.ok(profileEditSource.includes('HeroCertBadge'), '编辑资料头像区需要使用认证勾切图/组件')
 assert.ok(profileEditSource.includes("mode=\"aspectFit\""), '编辑资料小头像必须完整展示，不能只显示左上角裁切')
 assert.ok(!profileEditSource.includes("background: 'rgba(255,255,255,0.9)'"), '编辑资料照片底部信息禁止使用白色浮层')
-assert.ok(profileEditSource.includes('SectionTitleDot'), '编辑资料每个模块标题必须带蓝色圆点')
+assert.ok(profileEditSource.includes('SectionTitleDecoration'), '编辑资料每个模块标题必须带蓝湖浅蓝圆形装饰')
+assert.ok(!profileEditSource.includes('SectionTitleDot'), '编辑资料禁止继续使用标题左侧实心蓝点替代设计装饰')
 assert.ok(profileEditSource.includes('PhotoUploadPlus'), '更多照片加号必须按蓝湖单独组件还原')
 assert.ok(profileEditSource.includes('AddPromptPlus'), '脱单目标/我的标签加号必须按蓝湖单独组件还原')
 assert.ok(profileEditSource.includes('BasicInfoIcon'), '基础资料缺少两行左侧图标')

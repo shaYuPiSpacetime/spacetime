@@ -69,7 +69,10 @@ for (const key of businessStorageKeys) {
 }
 
 assert.match(interactions, /getCommunityInteractions/, '互动中心必须读取服务端互动历史')
-assert.match(interactions, /getCommunityViewHistory/, '互动中心必须读取服务端浏览历史')
+assert.match(interactions, /getCommunityInteractions\('viewed',\s*1,\s*50\)/, '互动中心必须读取包含真实浏览时间的 viewed 互动历史')
+assert.doesNotMatch(interactions, /getCommunityViewHistory/, '互动中心不得继续消费缺少浏览时间的扁平浏览列表')
+assert.match(interactions, /interactionTime:\s*item\.interactionTime/, '互动中心必须保留服务端互动时间')
+assert.match(interactions, /post:\s*item\.post/, '互动中心必须保留服务端关联动态')
 assert.match(interactions, /clearCommunityViewHistory/, '互动中心清空浏览记录必须调用服务端')
 assert.match(interactions, /确定清空浏览记录吗/, '清空浏览记录必须二次确认')
 assert.match(interactions, /getCommunityFollowRelations/, '关注粉丝必须读取服务端')

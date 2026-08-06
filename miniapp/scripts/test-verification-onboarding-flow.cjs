@@ -77,6 +77,7 @@ test('首页三项勾选严格使用真实完成状态', async () => {
 
 test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   const index = read('src/pages/index/index.tsx')
+  const verificationEntry = read('src/features/verification/VerificationEntryView.tsx')
   const basic = read('src/pages/verification/basic.tsx')
   const avatar = read('src/pages/verification/avatar.tsx')
   const avatarReview = read('src/pages/verification/avatar-review.tsx')
@@ -85,7 +86,8 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
 
   assert.match(index, /useDidShow/)
   assert.match(index, /getIntroduction\(\)/)
-  assert.match(index, /PartialCertificationPanel/)
+  assert.match(index, /VerificationEntryView/)
+  assert.match(verificationEntry, /PartialCertificationPanel/)
   assert.match(index, /resolveVerificationOnboardingRoute/)
   assert.doesNotMatch(index, /basicProfileCompleted === false[\s\S]{0,160}pages\/profile\/edit/)
 
@@ -122,7 +124,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
 
 test('蓝湖关键几何尺寸和构建门禁不可回退', () => {
   const shell = read('src/pages/verification/components/VerificationShell.tsx')
-  const index = read('src/pages/index/index.tsx')
+  const verificationEntry = read('src/features/verification/VerificationEntryView.tsx')
   const packageJson = JSON.parse(read('package.json'))
   const prebuild = packageJson.scripts['prebuild:weapp']
 
@@ -130,7 +132,7 @@ test('蓝湖关键几何尺寸和构建门禁不可回退', () => {
   assert.match(shell, /width: '700rpx'/)
   assert.match(shell, /height: '156rpx'/)
   assert.match(shell, /width: '620rpx'/)
-  assert.match(index, /top: '1098rpx'/)
+  assert.match(verificationEntry, /top: '1098rpx'/)
   assert.match(prebuild, /test-verification-onboarding-flow\.cjs/)
   assert.match(prebuild, /validate-page-entry-isolation\.mjs/)
 })
@@ -194,13 +196,13 @@ test('在校学生学历认证严格保持资料卡、提交、协议、客服�
 })
 
 test('部分资料态图标全部来自蓝湖官方切图并走 OSS 常量', () => {
-  const index = read('src/pages/index/index.tsx')
+  const verificationEntry = read('src/features/verification/VerificationEntryView.tsx')
   const icons = read('src/constants/ossIcons.ts')
 
-  assert.match(index, /miniappOssIcons\.verificationProfileBasic/)
-  assert.match(index, /miniappOssIcons\.verificationProfileAvatarIntro/)
-  assert.match(index, /miniappOssIcons\.verificationProfileTriple/)
-  assert.doesNotMatch(index, /function ChecklistIcon/)
+  assert.match(verificationEntry, /miniappOssIcons\.verificationProfileBasic/)
+  assert.match(verificationEntry, /miniappOssIcons\.verificationProfileAvatarIntro/)
+  assert.match(verificationEntry, /miniappOssIcons\.verificationProfileTriple/)
+  assert.doesNotMatch(verificationEntry, /function ChecklistIcon/)
   assert.match(icons, /verificationProfileBasic/)
   assert.match(icons, /verificationProfileAvatarIntro/)
   assert.match(icons, /verificationProfileTriple/)

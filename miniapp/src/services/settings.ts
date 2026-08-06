@@ -35,4 +35,6 @@ export const settingsApi = {
     size = 20,
     sourceScene: SearchSourceScene = 'global',
   ) => get<SearchResultPage>('/miniapp/search/results', { keyword, type, page, size, sourceScene }),
+  addBlacklist: (targetUserId: number, sourceScene: string) =>
+    post<number>('/miniapp/settings/blocks/blacklist', { targetUserId, sourceScene }),
 }

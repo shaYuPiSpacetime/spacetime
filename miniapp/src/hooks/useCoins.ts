@@ -17,6 +17,11 @@ import {
 
 export type CoinPayState = 'idle' | 'paying' | 'pay-success' | 'pay-cancel' | 'pay-failed'
 
+export interface CoinPurchaseOptions {
+  /** 来源页是否沿用通用支付结果页；理想型充值成功后由来源页直接回跳。 */
+  navigateOnSuccess?: boolean
+}
+
 function adaptCoinPackage(pkg: CoinPackageVO): CoinPackage {
   const coinCount = Number(pkg.coinCount || 0)
   const bonusCount = Number(pkg.bonusCoinCount || 0)
@@ -153,7 +158,10 @@ export function useCoins() {
     setSelectedPackage(pkg)
   }, [])
 
-  const purchase = useCallback(async (sourcePage = 'coins') => {
+  const purchase = useCallback(async (
+    sourcePage = 'coins',
+    options: CoinPurchaseOptions = {},
+  ) => {
     if (!selectedPackage) {
       Taro.showToast({ title: '暂无可购买套餐', icon: 'none' })
       return
@@ -178,7 +186,9 @@ export function useCoins() {
       if (result.coinBalance != null) setBalance(Number(result.coinBalance))
       await fetchTransactions()
       setPayState('pay-success')
-      Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=coin&sourcePage=${sourcePage}&result=success` })
+      if (options.navigateOnSuccess !== false) {
+        Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=coin&sourcePage=${sourcePage}&result=success` })
+      }
     } catch (error) {
       if (isPaymentCancel(error)) {
         setPayState('pay-cancel')

@@ -53,9 +53,18 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
   return (
     <View
       className="login-agreement-dialog absolute inset-0 z-50"
-      style={{ background: 'rgba(0,0,0,0.55)' }}
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        zIndex: 100,
+        background: 'rgba(0,0,0,0.55)',
+      }}
     >
       <View
+        id="login-agreement-card"
         style={{
           position: 'absolute',
           left: '65rpx',
@@ -534,9 +543,9 @@ export default function LoginAuthPage() {
           zIndex: 0,
         }}
       />
-      {!videoUnavailable && (
-        <Video
-          className="login-scene-video"
+          {!videoUnavailable && !showDialog && (
+            <Video
+              className="login-scene-video"
           src={miniappOssMedia.loginBackgroundVideo}
           poster={loginSceneBg}
           autoplay
@@ -560,8 +569,8 @@ export default function LoginAuthPage() {
         />
       )}
 
-      {!videoUnavailable && (
-        <CoverView
+          {!videoUnavailable && !showDialog && (
+            <CoverView
           className="login-brand-logo"
           style={{
             position: 'absolute',
@@ -577,8 +586,25 @@ export default function LoginAuthPage() {
             src={miniappOssIcons.loginBrand}
             style={{ width: '560rpx', height: '260rpx' }}
           />
-        </CoverView>
-      )}
+            </CoverView>
+          )}
+
+          {showDialog && (
+            <Image
+              className="login-brand-logo login-brand-logo--dialog"
+              src={miniappOssIcons.loginBrand}
+              mode="aspectFit"
+              style={{
+                position: 'absolute',
+                left: '95rpx',
+                top: '300rpx',
+                width: '560rpx',
+                height: '260rpx',
+                zIndex: 2,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
 
       <View
         className="login-primary-button absolute flex items-center justify-center"

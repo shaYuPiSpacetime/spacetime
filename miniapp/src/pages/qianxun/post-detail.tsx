@@ -2,6 +2,7 @@ import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
+import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   COMMUNITY_COPY_KEYS,
@@ -216,15 +217,15 @@ export default function QianxunPostDetailPage() {
                 <Text style={{ color: '#999999', fontSize: '24rpx', lineHeight: '34rpx' }}>{relativeTime(post.createTime)}活跃</Text>
               </View>
               {post.topicName ? (
-                <View onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId || ''}&topicName=${encodeURIComponent(post.topicName || '')}` })} style={{ width: 'fit-content', maxWidth: '480rpx', height: '50rpx', borderRadius: '25rpx', background: '#F0F5FC', padding: '0 20rpx', marginTop: '23rpx', display: 'flex', alignItems: 'center' }}>
+                <View id="qianxun-post-topic" onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId || ''}&topicName=${encodeURIComponent(post.topicName || '')}` })} style={{ width: 'fit-content', maxWidth: '480rpx', height: '50rpx', borderRadius: '25rpx', background: '#F0F5FC', padding: '0 20rpx', marginTop: '23rpx', display: 'flex', alignItems: 'center' }}>
                   <Text style={{ color: '#5C6572', fontSize: '24rpx' }}><Text style={{ color: '#258BFA' }}># </Text>{post.topicName}</Text>
                 </View>
               ) : null}
-              <View style={{ height: '84rpx', borderTop: '1rpx solid #EEF1F5', marginTop: '24rpx', display: 'flex', alignItems: 'center' }}>
-                <View style={{ display: 'flex', alignItems: 'center' }}><View style={{ width: '42rpx', height: '42rpx', borderRadius: '21rpx', background: '#E6F2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: BLUE, fontSize: '20rpx', fontWeight: 700 }}>YO</Text></View><Text style={{ color: '#448BEE', fontSize: '24rpx', marginLeft: '10rpx' }}>悄悄话</Text></View>
+              <View style={{ height: '92rpx', borderTop: '1rpx solid #EEF1F5', marginTop: '24rpx', display: 'flex', alignItems: 'center' }}>
+                <View style={{ height: '88rpx', display: 'flex', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunWhisper} mode="aspectFit" style={{ width: '42rpx', height: '42rpx' }} /><Text style={{ color: '#448BEE', fontSize: '24rpx', marginLeft: '10rpx' }}>悄悄话</Text></View>
                 <View style={{ flex: 1 }} />
-                <Text onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/interactions?postId=${post.id}&interactionType=commented` })} style={{ color: '#A6AAB3', fontSize: '25rpx', marginRight: '26rpx' }}>◯ {post.commentCount || 0}</Text>
-                <View onClick={() => void likePost()} style={{ minWidth: '76rpx', height: '60rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: post.liked ? '#F06E78' : '#A6AAB3', fontSize: '27rpx' }}>{post.liked ? '♥' : '♡'} {post.likeCount || 0}</Text></View>
+                <QianxunActionStat kind="comment" count={post.commentCount || 0} onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/interactions?postId=${post.id}&interactionType=commented` })} fontSize="25rpx" />
+                <QianxunActionStat kind="like" count={post.likeCount || 0} active={post.liked} onClick={() => void likePost()} fontSize="25rpx" />
               </View>
             </View>
 
@@ -244,7 +245,7 @@ export default function QianxunPostDetailPage() {
       <View style={{ position: 'fixed', left: 0, right: 0, bottom: 0, minHeight: '104rpx', background: '#FFFFFF', borderTop: '1rpx solid #EDF0F4', padding: '14rpx 24rpx calc(14rpx + env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', boxSizing: 'border-box', zIndex: 20 }}>
         <Input id="qianxun-comment-input" value={comment} focus={commentFocused} confirmType="send" onFocus={() => setCommentFocused(true)} onBlur={() => setCommentFocused(false)} onConfirm={() => void submitComment()} onInput={event => setComment(event.detail.value)} placeholder={replyTarget ? `回复 ${replyTarget.name}…` : '我来说几句…'} placeholderStyle="color:#A5A9B1;font-size:24rpx" style={{ flex: 1, height: '68rpx', borderRadius: '8rpx', background: '#F7F8FA', padding: '0 20rpx', fontSize: '25rpx', boxSizing: 'border-box' }} />
         <View onClick={() => void submitComment()} style={{ width: '68rpx', height: '68rpx', marginLeft: '14rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: comment.trim() && !sendingComment ? BLUE : '#B7BBC3', fontSize: '25rpx', fontWeight: 500 }}>{sendingComment ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.commentSending) : '发送'}</Text></View>
-        <View onClick={() => void likePost()} style={{ width: '58rpx', height: '68rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post?.liked ? '#F06E78' : '#A6AAB3', fontSize: '34rpx' }}>{post?.liked ? '♥' : '♡'}</Text></View>
+        <View onClick={() => void likePost()} style={{ width: '88rpx', height: '68rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={post?.liked ? miniappOssIcons.qianxunLikeActive : miniappOssIcons.qianxunLike} mode="aspectFit" style={{ width: '36rpx', height: '36rpx' }} /></View>
       </View>
       {showActions && post ? <ActionSheet post={post} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
       {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: selectedComment.id, userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
@@ -256,7 +257,7 @@ function AuthorRow({ post, onMore, onFollow }: { post: CommunityPostVO; onMore: 
   const meta = [post.authorBirthYear ? `${String(post.authorBirthYear).slice(-2)}年` : post.authorAge ? `${post.authorAge}岁` : '', post.authorCity || '', post.authorProfession || post.authorZodiac || ''].filter(Boolean).join('·')
   return <View style={{ display: 'flex', alignItems: 'center' }}>
     <Image src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: '#EFF3F7', flexShrink: 0 }} />
-    <View style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}><Text style={{ display: 'block', color: '#26354A', fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><Text style={{ display: 'block', color: BLUE, fontSize: '21rpx', lineHeight: '30rpx', marginTop: '4rpx' }}>{meta || '资料待完善'}</Text></View>
+    <View style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#26354A', fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: BLUE, fontSize: '21rpx', lineHeight: '30rpx', marginTop: '4rpx' }}>{meta || '资料待完善'}</Text></View>
     <View onClick={onFollow} style={{ width: '106rpx', height: '44rpx', borderRadius: '22rpx', background: post.followingAuthor ? '#F1F3F6' : BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post.followingAuthor ? '#999999' : '#FFFFFF', fontSize: '21rpx' }}>{post.followingAuthor ? '已关注' : '申请认识'}</Text></View>
     <View onClick={onMore} style={{ width: '45rpx', height: '52rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx' }}>⋮</Text></View>
   </View>
@@ -281,7 +282,7 @@ function CommentRow({ comment, onReply, onLike, onMore }: { comment: CommunityCo
     <View style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#43516A', fontSize: '23rpx', fontWeight: 600 }}>{comment.authorName || '用户'}</Text><View style={{ flex: 1 }} /><Text style={{ color: '#A7ACB5', fontSize: '20rpx' }}>{relativeTime(comment.createTime)}</Text></View>
       <Text style={{ display: 'block', color: '#333333', fontSize: '25rpx', lineHeight: '40rpx', marginTop: '10rpx' }}>{comment.replyUserName ? <Text style={{ color: BLUE }}>回复 {comment.replyUserName}：</Text> : null}{comment.content}</Text>
-      <View style={{ display: 'flex', alignItems: 'center' }}><View id={`qianxun-comment-reply-${comment.id}`} className="qianxun-comment-reply" onClick={onReply} style={{ width: '80rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '21rpx' }}>回复</Text></View><View onClick={onLike} style={{ minWidth: '72rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: comment.liked ? '#F06E78' : '#8E96A3', fontSize: '22rpx' }}>{comment.liked ? '♥' : '♡'} {comment.likeCount || 0}</Text></View><View onClick={onMore} style={{ width: '70rpx', height: '46rpx', marginTop: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '24rpx', letterSpacing: '5rpx' }}>···</Text></View></View>
+      <View style={{ display: 'flex', alignItems: 'center' }}><View id={`qianxun-comment-reply-${comment.id}`} className="qianxun-comment-reply" onClick={onReply} style={{ width: '80rpx', height: '88rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '21rpx' }}>回复</Text></View><QianxunActionStat kind="like" count={comment.likeCount || 0} active={comment.liked} onClick={onLike} /><View onClick={onMore} style={{ width: '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '24rpx', letterSpacing: '5rpx' }}>···</Text></View></View>
     </View>
   </View>
 }

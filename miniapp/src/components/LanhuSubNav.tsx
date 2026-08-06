@@ -7,5 +7,5 @@ interface LanhuSubNavProps {
 }
 
 export default function LanhuSubNav({ title, onBack, titleColor = '#0C285A' }: LanhuSubNavProps) {
-  return <NativeNavigation title={title} onBack={onBack} titleColor={titleColor} titleFontWeight={700} />
+  return <NativeNavigation title={title} onBack={onBack} titleColor={titleColor} titleFontWeight={700} background="transparent" />
 }

@@ -20,13 +20,169 @@ function loadTypeScriptModule(relativePath) {
   return loaded.exports
 }
 
-test('主页预览无未定义组件且隐藏 MBTI 模块', () => {
+test('主页预览无未定义组件且按产品要求隐藏 MBTI 模块', () => {
   const edit = read('src/pages/profile/edit.tsx')
   const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
 
   assert.doesNotMatch(preview, /<EmptyText\b/, '主页预览禁止引用未定义的 EmptyText')
-  assert.doesNotMatch(edit, /<MbtiSection\b/, '编辑资料页必须隐藏 MBTI 模块')
-  assert.doesNotMatch(preview, /<ProfilePreviewMbti\b/, '主页预览必须隐藏 MBTI 模块')
+  assert.doesNotMatch(edit, /<MbtiSection\b/, '编辑资料页必须继续隐藏 MBTI 模块')
+  assert.doesNotMatch(preview, /<ProfilePreviewMbti\b/, '主页预览必须继续隐藏 MBTI 模块')
+})
+
+test('主页预览空内容和空图片不生成占位模块', () => {
+  const visibilityPath = 'src/domain/profilePreviewVisibility.ts'
+  assert.ok(fs.existsSync(path.join(root, visibilityPath)), '缺少主页预览真实内容显隐领域模型')
+
+  const { buildProfilePreviewVisibility } = loadTypeScriptModule(visibilityPath)
+  const empty = buildProfilePreviewVisibility({
+    tags: [],
+    introduction: '   ',
+    photos: ['', '  '],
+    certifications: [{ passed: false }, { passed: false }],
+    favoriteSong: '',
+  })
+  assert.deepEqual(empty.tags, [])
+  assert.equal(empty.introduction, '')
+  assert.deepEqual(empty.photos, [])
+  assert.equal(empty.showCertification, false)
+  assert.equal(empty.favoriteSong, '')
+
+  const filled = buildProfilePreviewVisibility({
+    tags: [
+      { code: ' quiet ', label: ' 安静 ' },
+      { code: '', label: '无效标签' },
+      { code: 'blank', label: '   ' },
+    ],
+    introduction: '  喜欢阅读和散步  ',
+    photos: [' one.jpg ', '', 'two.jpg', 'three.jpg', 'four.jpg', 'five.jpg'],
+    certifications: [{ passed: false }, { passed: true }],
+    favoriteSong: '  晴天｜周杰伦  ',
+  })
+  assert.deepEqual(filled.tags, [{ code: 'quiet', label: '安静' }])
+  assert.equal(filled.introduction, '喜欢阅读和散步')
+  assert.deepEqual(filled.photos, ['one.jpg', 'two.jpg', 'three.jpg', 'four.jpg'])
+  assert.equal(filled.showCertification, true)
+  assert.equal(filled.favoriteSong, '晴天｜周杰伦')
+
+  const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
+  assert.match(preview, /buildProfilePreviewVisibility\(model\)/, '主页预览必须统一消费真实内容显隐结果')
+  assert.doesNotMatch(preview, /暂未添加标签|暂未填写自我介绍|暂未添加照片|暂未添加喜欢的歌曲/, '主页预览禁止显示空内容占位文案')
+  assert.doesNotMatch(preview, /minHeight: '5900rpx'/, '隐藏空模块后禁止保留固定超长页面高度')
+})
+
+test('关于我摘要固定三项并优先回显本人最新填写内容', () => {
+  const presentationPath = 'src/domain/profileAboutPresentation.ts'
+  assert.ok(fs.existsSync(path.join(root, presentationPath)), '缺少关于我固定摘要领域映射')
+  const { PROFILE_ABOUT_SUMMARY_DEFINITIONS, buildProfileAboutSummary } =
+    loadTypeScriptModule(presentationPath)
+
+  assert.deepEqual(
+    PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(item => [item.key, item.title]),
+    [
+      ['meetingPreference', '见面便好'],
+      ['preferredActivities', '喜欢的见面活动'],
+      ['housingStatus', '住房情况'],
+    ],
+    '关于我未填写时也必须按蓝湖固定展示三项'
+  )
+
+  const empty = buildProfileAboutSummary([])
+  assert.equal(empty.length, 3)
+  assert.deepEqual(empty.map(item => item.value), ['', '', ''])
+  assert.ok(empty.every(item => item.placeholder), '空值三项必须展示蓝湖引导文案')
+
+  const filled = buildProfileAboutSummary([
+    {
+      questionKey: 'housingStatus',
+      title: '接口乱序住房标题',
+      placeholder: '接口住房占位',
+      latestContent: '和家人同住，未来计划独立居住',
+      effectiveContent: '旧住房内容',
+      canSubmit: true,
+    },
+    {
+      questionKey: 'meetingPreference',
+      title: '接口见面标题',
+      placeholder: '接口见面占位',
+      latestContent: '',
+      effectiveContent: '周末喝咖啡或一起散步',
+      canSubmit: true,
+    },
+    {
+      questionKey: 'carStatus',
+      title: '购车情况',
+      placeholder: '购车占位',
+      latestContent: '已有代步车',
+      canSubmit: true,
+    },
+  ])
+
+  assert.deepEqual(filled.map(item => item.key), [
+    'meetingPreference',
+    'preferredActivities',
+    'housingStatus',
+  ])
+  assert.equal(filled[0].value, '周末喝咖啡或一起散步', '无最新内容时使用已生效内容')
+  assert.equal(filled[1].value, '', '接口缺项不能挤掉固定摘要入口')
+  assert.equal(filled[2].value, '和家人同住，未来计划独立居住', '本人页优先回显最新填写内容')
+})
+
+test('编辑资料主页面按蓝湖比例和真实组件展示关键模块', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+
+  assert.match(edit, /buildProfileAboutSummary\(/, '初始化和局部更新必须复用关于我摘要映射')
+  assert.match(edit, /data-role="profile-score-track"/, '资料评分必须使用蓝湖浮标进度条')
+  assert.doesNotMatch(edit, />\s*资料完整度\s*</, '蓝湖评分区不展示额外的“资料完整度”标题')
+  assert.match(edit, /height: '734rpx'/, '主照片高度必须匹配蓝湖 367px 基线')
+  assert.match(edit, /function SectionTitleDecoration/, '卡片标题必须使用蓝湖浅蓝圆形装饰')
+  assert.doesNotMatch(edit, /function SectionTitleDot/, '禁止继续使用标题左侧实心蓝点替代设计装饰')
+  assert.match(edit, /item\.value \|\| item\.placeholder/, '关于我空值必须展示固定三项引导文案')
+  assert.match(edit, /height: '138rpx'/, '评分卡高度必须匹配蓝湖 138rpx')
+  assert.match(edit, /width: '128rpx'[\s\S]{0,80}height: '43rpx'/, '评分胶囊必须匹配蓝湖 128×43rpx')
+  assert.match(edit, /height: '10rpx'[\s\S]{0,100}marginTop: '19rpx'/, '评分轨道必须匹配蓝湖 10rpx 与 19rpx 间距')
+  assert.match(edit, /margin: '20rpx auto 0'[\s\S]{0,100}background: mainBlue/, '真实性提示顶部间距必须为 20rpx')
+  assert.match(edit, /width: '198rpx'[\s\S]{0,80}height: '198rpx'/, '照片六宫格单格必须为 198×198rpx')
+  assert.match(edit, /isLastInRow \? '0' : '27rpx'/, '照片六宫格列间距必须为 27rpx')
+})
+
+test('自我介绍、语音和歌曲在空态与已填写状态都能正确回显', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+
+  assert.match(
+    edit,
+    /value \|\| '介绍下自己的性格、习惯、优点、缺点'/,
+    '自我介绍未填写时必须展示蓝湖引导文案'
+  )
+  assert.match(edit, /<VoiceSection\s+voice=\{voiceDetail\}/, '语音卡片必须接收当前已保存语音')
+  assert.match(edit, /voice\?\.voiceIntroUrl/, '语音卡片必须按已保存地址切换空态和回显态')
+  assert.match(edit, /voice\.voiceIntroDuration \|\| 0/, '语音卡片必须回显已保存时长')
+  assert.match(
+    edit,
+    /song \|\| '添加一首喜欢的歌曲'/,
+    '歌曲未填写时必须展示可理解的空态文案'
+  )
+})
+
+test('微信号保持空白时失焦不提交也不展示接口错误', () => {
+  const domainPath = 'src/domain/profileWechat.ts'
+  assert.ok(fs.existsSync(path.join(root, domainPath)), '缺少可独立验证的可选微信号保存规则')
+
+  const { normalizeOptionalWechatId } = loadTypeScriptModule(domainPath)
+  assert.equal(normalizeOptionalWechatId(''), null)
+  assert.equal(normalizeOptionalWechatId('   '), null)
+  assert.equal(normalizeOptionalWechatId(' wx_user_01 '), 'wx_user_01')
+
+  const edit = read('src/pages/profile/edit.tsx')
+  assert.match(
+    edit,
+    /const normalizedWechatId = normalizeOptionalWechatId\(wechatId\)[\s\S]{0,100}if \(normalizedWechatId === null\) return/,
+    '微信号为空时必须在请求前静默结束'
+  )
+  assert.match(
+    edit,
+    /prd01Api\.saveWechatId\(normalizedWechatId\)/,
+    '非空微信号必须提交规范化后的值'
+  )
 })
 
 test('编辑资料返回按钮具备足够点击区域且单页栈回到我的页面', () => {
@@ -317,14 +473,14 @@ test('编辑资料保存按钮按蓝湖位于第二张卡片之后，字段弹�
 })
 
 test('未认证主按钮圆角与蓝湖 13.5px 基线一致', () => {
-  const index = read('src/pages/index/index.tsx')
+  const verificationEntry = read('src/features/verification/VerificationEntryView.tsx')
   assert.match(
-    index,
+    verificationEntry,
     /top: '1098rpx'[\s\S]{0,180}borderRadius: '27rpx'/,
     '未认证“立即完善”按钮圆角必须为 27rpx'
   )
   assert.doesNotMatch(
-    index,
+    verificationEntry,
     /top: '1098rpx'[\s\S]{0,180}borderRadius: '40rpx'/,
     '未认证按钮禁止保留过圆的 40rpx'
   )
@@ -367,6 +523,27 @@ test('标签在编辑页、选择页和主页预览按完整色块换行', () =>
   assert.match(chip, /whiteSpace: 'nowrap'/, '标签文字禁止在色块内部换行')
   assert.match(chip, /flexShrink: 0/, '标签块必须整体换行')
   assert.match(tagDomain, /stableTagHash\(item\.code\)/, '颜色必须按标签 code 稳定映射')
+})
+
+test('标签连续点击立即反馈并按顺序保存，不得在请求期间吞掉操作', () => {
+  const tags = read('src/pages/profile-edit/tags.tsx')
+
+  assert.doesNotMatch(tags, /if \(saving\) return/, '保存期间不能直接丢弃用户后续点击')
+  assert.match(tags, /selectedTagsRef\.current = next[\s\S]{0,100}setSelectedTags\(next\)/, '点击后必须先乐观更新选中态')
+  assert.match(tags, /saveQueueRef\.current/, '连续保存必须通过队列保持服务端最终顺序')
+})
+
+test('编辑资料二级页沿用渐变导航并严格使用蓝湖歌曲与关于我内容', () => {
+  const nav = read('src/components/LanhuSubNav.tsx')
+  const songs = read('src/pages/profile-edit/songs.tsx')
+  const edit = read('src/pages/profile/edit.tsx')
+
+  assert.match(nav, /background="transparent"/, '二级导航必须透出页面渐变背景')
+  assert.match(songs, /title="爱听的歌曲"/, '歌曲页标题必须与蓝湖一致')
+  assert.doesNotMatch(songs, /song\.coverUrl/, '歌曲列表必须统一使用蓝湖音乐圆盘图标')
+  assert.match(edit, /const aboutStoryPrompts = \['购车情况\?', '是否想要孩子\?', '有无子女\?'\]/, '关于我补充项只能展示蓝湖明确的三项')
+  assert.match(edit, /function RightChevron/, '页面右箭头必须使用稳定图形组件')
+  assert.match(edit, /function VoiceActionIcon/, '语音操作图标必须使用稳定图形组件')
 })
 
 test('语音录制时长按真实开始时间递增并受接口最大时长限制', () => {

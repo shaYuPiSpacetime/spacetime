@@ -20,10 +20,18 @@ export interface PublicProfileVO {
   annualIncomeLabel?: string | null
   tags?: string[]
   introduction?: string | null
+  datingGoal?: string | null
+  maritalStatus?: string | null
+  emotionalStatus?: string | null
+  favoriteSongName?: string | null
+  favoriteSongArtist?: string | null
+  favoriteSongCoverUrl?: string | null
   liked: boolean
   matched: boolean
   matchNo?: string | null
   canEnterConversation: boolean
+  communicationMode: 'WHISPER' | 'PRIVATE_MESSAGE'
+  certifications?: Array<'AVATAR' | 'REAL_NAME' | 'EDUCATION' | string>
 }
 
 /** 获取关系链路中的已审核公开资料。 */

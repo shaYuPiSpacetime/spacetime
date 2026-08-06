@@ -5,6 +5,12 @@ import { useEffect, useRef, useState } from 'react'
 import ProfilePreviewTopNav from '@/components/ProfilePreviewTopNav'
 import ProfileTagChip from '@/components/ProfileTagChip'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import {
+  buildProfileAboutSummary,
+  resolveOwnerVisibleText,
+  type ProfileAboutSummaryItem,
+} from '@/domain/profileAboutPresentation'
+import { normalizeOptionalWechatId } from '@/domain/profileWechat'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, ProfileFieldSetting, ProfileMedia, VerificationStatus, VoiceIntro } from '@/types/prd01'
@@ -30,12 +36,6 @@ type ProfilePhotoSlot = {
   label: string
   imageUrl?: string
   mediaId?: number
-}
-
-type AboutTopic = {
-  key: string
-  title: string
-  value?: string
 }
 
 type VoiceSheetVariant =
@@ -72,7 +72,7 @@ type ProfileDemo = {
     intro: {
       value: string
     }
-    aboutTopics: AboutTopic[]
+    aboutTopics: ProfileAboutSummaryItem[]
     voiceIntro: {
       title: string
       subtitle?: string
@@ -109,10 +109,10 @@ const profileDemo: ProfileDemo = {
     aboutTopics: [],
     voiceIntro: {
       title: '语音介绍',
-      deleteTitle: '删除语音介绍',
-      deleteContent: '确定删除当前语音介绍吗？',
-      deleteConfirmText: '删除',
-      deleteCancelText: '取消',
+      deleteTitle: '删除提示',
+      deleteContent: '一旦删除不可恢复，确定删除吗？',
+      deleteConfirmText: '确认',
+      deleteCancelText: '删除',
       successText: '语音介绍已删除',
       states: {
         voice: { title: '使用语音介绍特别的你', desc: '更容易获得异性青睐哦', buttonText: '开始录音' },
@@ -144,7 +144,7 @@ const defaultPhotoSlots: ProfilePhotoSlot[] = [
   { label: '展示才艺的照片' },
   { label: '宠物小伙伴' },
 ]
-const aboutStoryPrompts = ['购车情况?', '是否想要孩子?', '有无子女?', '宠物?', '作息习惯?']
+const aboutStoryPrompts = ['购车情况?', '是否想要孩子?', '有无子女?']
 
 type VoiceRecorderSession = {
   onStart: () => void
@@ -206,7 +206,9 @@ export default function ProfileEditPage() {
   const [fieldSettings, setFieldSettings] = useState<ProfileFieldSetting[]>([])
   const [verification, setVerification] = useState<VerificationStatus>({})
   const [intro, setIntro] = useState('')
-  const [aboutTopics, setAboutTopics] = useState<AboutTopic[]>([])
+  const [aboutTopics, setAboutTopics] = useState<ProfileAboutSummaryItem[]>(() =>
+    buildProfileAboutSummary([])
+  )
   const [selectedTags, setSelectedTags] = useState<ProfileTagItem[]>([])
   const [favoriteSong, setFavoriteSong] = useState('')
   const [goal, setGoal] = useState('')
@@ -267,12 +269,8 @@ export default function ProfileEditPage() {
         setGoal(options?.datingGoal.find(option => option.code === nextGoalCode)?.label || '')
         setRelationship(options?.emotionalStatus.find(option => option.code === nextRelationshipCode)?.label || '')
         setWechat(wechatId || '')
-        setIntro(introDetail.effectiveContent || introDetail.latestContent || '')
-        setAboutTopics(aboutDetail.questions.map(question => ({
-          key: question.questionKey,
-          title: question.title,
-          value: question.effectiveContent || question.latestContent,
-        })))
+        setIntro(resolveOwnerVisibleText(introDetail))
+        setAboutTopics(buildProfileAboutSummary(aboutDetail.questions))
         const tagCodes = parseTagCodes(tags)
         setSelectedTags(tagCodes.map(code => ({
           code,
@@ -583,11 +581,7 @@ export default function ProfileEditPage() {
       setSelectedTags(update.items)
     }
     if (update.type === 'about') {
-      setAboutTopics(update.questions.map(question => ({
-        key: question.questionKey,
-        title: question.title,
-        value: question.effectiveContent || question.latestContent,
-      })))
+      setAboutTopics(buildProfileAboutSummary(update.questions))
     }
     if (update.type === 'song') setFavoriteSong(update.display)
     if (update.type === 'verification') setVerification(update.status)
@@ -790,16 +784,17 @@ export default function ProfileEditPage() {
                 : <Text style={{ color: '#9AA1AF', fontSize: '26rpx', lineHeight: '38rpx' }}>添加标签，让TA更了解你</Text>}
             </View>
           </ProfileSection>
-          <VoiceSection onRecord={() => setVoiceSheet(voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')} />
+          <VoiceSection
+            voice={voiceDetail}
+            onRecord={() => setVoiceSheet(voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')}
+          />
           <AboutDetailSection
             items={aboutTopics}
             onAdd={() => handleProfileAction('关于我', '/pages/profile-edit/about')}
             onFill={key =>
               handleProfileAction(
                 '关于我',
-                key === 'meet'
-                  ? '/pages/profile-edit/about?topic=meet'
-                  : `/pages/profile-edit/about?topic=${key}`
+                `/pages/profile-edit/about?topic=${key}`
               )
             }
           />
@@ -852,53 +847,79 @@ export default function ProfileEditPage() {
 }
 
 function ProfileScoreCard({ score, onClick }: { score: number; onClick: () => void }) {
+  const normalizedScore = Math.max(0, Math.min(100, Number(score) || 0))
+  const trackWidth = 652
+  const markerSize = 30
+  const bubbleWidth = 128
+  const markerLeft = Math.max(0, Math.min(trackWidth - markerSize, trackWidth * normalizedScore / 100 - markerSize / 2))
+  const bubbleLeft = Math.max(0, Math.min(trackWidth - bubbleWidth, trackWidth * normalizedScore / 100 - bubbleWidth / 2))
   return (
     <View
       onClick={onClick}
       style={{
         width: '700rpx',
-        height: '128rpx',
-        margin: '0 auto',
+        height: '138rpx',
+        margin: '35rpx auto 0',
         borderRadius: '8rpx',
         background: '#FFFFFF',
-        padding: '18rpx 26rpx 0 22rpx',
+        padding: '20rpx 24rpx 0',
         boxSizing: 'border-box',
         boxShadow: cardShadow,
       }}
     >
-      <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text
-          style={{ color: titleColor, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}
-        >
-          资料完整度
-        </Text>
-        <Text style={{ color: mainBlue, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600 }}>
-          评分：{score}
-        </Text>
-      </View>
       <View
         style={{
           position: 'relative',
-          width: '650rpx',
+          left: `${bubbleLeft}rpx`,
+          width: '128rpx',
+          height: '43rpx',
+          borderRadius: '24rpx',
+          background: mainBlue,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: '24rpx', lineHeight: '33rpx', fontWeight: 500 }}>
+          评分：{normalizedScore}
+        </Text>
+        <View
+          style={{
+            position: 'absolute',
+            left: '53rpx',
+            bottom: '-10rpx',
+            width: 0,
+            height: 0,
+            borderLeft: '11rpx solid transparent',
+            borderRight: '11rpx solid transparent',
+            borderTop: `12rpx solid ${mainBlue}`,
+          }}
+        />
+      </View>
+      <View
+        data-role="profile-score-track"
+        style={{
+          position: 'relative',
+          width: '652rpx',
           height: '10rpx',
           borderRadius: '10rpx',
           background: '#D6E4FB',
-          marginTop: '22rpx',
+          marginTop: '19rpx',
         }}
       >
         <View
-          style={{ width: '326rpx', height: '10rpx', borderRadius: '10rpx', background: mainBlue }}
+          style={{ width: `${trackWidth * normalizedScore / 100}rpx`, height: '10rpx', borderRadius: '10rpx', background: mainBlue }}
         />
         <View
           style={{
             position: 'absolute',
-            left: '322rpx',
-            top: '-8rpx',
-            width: '26rpx',
-            height: '26rpx',
-            borderRadius: '26rpx',
+            left: `${markerLeft}rpx`,
+            top: '-10rpx',
+            width: `${markerSize}rpx`,
+            height: `${markerSize}rpx`,
+            borderRadius: `${markerSize}rpx`,
             background: mainBlue,
-            border: '5rpx solid #FFFFFF',
+            border: '6rpx solid #A9C7FF',
             boxSizing: 'border-box',
           }}
         />
@@ -923,21 +944,18 @@ function TruthNotice() {
       }}
     >
       <View
+        data-role="truth-check-icon"
         style={{
-          width: '36rpx',
-          height: '36rpx',
-          borderRadius: '36rpx',
-          background: '#FFFFFF',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: '16rpx',
+          width: '30rpx',
+          height: '18rpx',
+          borderLeft: '5rpx solid #FFFFFF',
+          borderBottom: '5rpx solid #FFFFFF',
+          transform: 'rotate(-45deg)',
+          margin: '-8rpx 22rpx 0 4rpx',
+          boxSizing: 'border-box',
+          flexShrink: 0,
         }}
-      >
-        <Text style={{ color: mainBlue, fontSize: '24rpx', lineHeight: '30rpx', fontWeight: 700 }}>
-          ✓
-        </Text>
-      </View>
+      />
       <Text style={{ color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 500 }}>
         为保障平台真实性，请您如实填写个人资料。
       </Text>
@@ -961,12 +979,13 @@ function ProfileHeroCard({
       style={{
         position: 'relative',
         width: '700rpx',
-        height: '558rpx',
+        height: '734rpx',
         margin: '20rpx auto 0',
-        borderRadius: '8rpx',
-        overflow: 'hidden',
+        borderRadius: '32rpx',
+        overflow: 'visible',
         background: '#EFF6F6',
         boxShadow: cardShadow,
+        zIndex: 3,
       }}
     >
       <View
@@ -977,10 +996,10 @@ function ProfileHeroCard({
           left: '0',
           top: '0',
           width: '700rpx',
-          height: '558rpx',
-          borderRadius: '8rpx',
+          height: '734rpx',
+          borderRadius: '32rpx',
           background: '#EFF6F6',
-          overflow: 'hidden',
+          overflow: 'visible',
         }}
       >
         <Image
@@ -991,7 +1010,8 @@ function ProfileHeroCard({
             left: '0',
             top: '0',
             width: '700rpx',
-            height: '558rpx',
+            height: '734rpx',
+            borderRadius: '32rpx',
           }}
         />
         <View
@@ -1000,7 +1020,8 @@ function ProfileHeroCard({
             left: '0',
             right: '0',
             bottom: '0',
-            height: '210rpx',
+            height: '260rpx',
+            borderRadius: '0 0 32rpx 32rpx',
             background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(15,27,48,0.64) 100%)',
           }}
         />
@@ -1008,10 +1029,10 @@ function ProfileHeroCard({
           style={{
             position: 'absolute',
             left: '36rpx',
-            bottom: '34rpx',
-            height: '116rpx',
-            display: 'flex',
-            alignItems: 'center',
+            bottom: '-34rpx',
+            width: '142rpx',
+            height: '142rpx',
+            zIndex: 5,
           }}
         >
           <Image
@@ -1019,43 +1040,50 @@ function ProfileHeroCard({
             src={miniAvatar}
             mode="aspectFit"
             style={{
-              width: '104rpx',
-              height: '104rpx',
-              borderRadius: '104rpx',
+              width: '142rpx',
+              height: '142rpx',
+              borderRadius: '142rpx',
               background: '#FFFFFF',
-              border: '4rpx solid #FFFFFF',
+              border: '7rpx solid #FFFFFF',
               boxShadow: '0 8rpx 20rpx rgba(0,0,0,0.18)',
-              marginRight: '18rpx',
               boxSizing: 'border-box',
             }}
           />
-          <View style={{ minWidth: 0 }}>
-            <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-              <Text
-                style={{
-                  color: '#FFFFFF',
-                  fontSize: '32rpx',
-                  lineHeight: '45rpx',
-                  fontWeight: 700,
-                  maxWidth: '360rpx',
-                }}
-              >
-                {nickname}
-              </Text>
-              <HeroCertBadge />
-            </View>
+        </View>
+        <View
+          style={{
+            position: 'absolute',
+            left: '186rpx',
+            bottom: '22rpx',
+            minWidth: 0,
+            zIndex: 4,
+          }}
+        >
+          <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
             <Text
               style={{
-                display: 'block',
-                color: 'rgba(255,255,255,0.84)',
-                fontSize: '24rpx',
-                lineHeight: '34rpx',
-                marginTop: '8rpx',
+                color: '#FFFFFF',
+                fontSize: '32rpx',
+                lineHeight: '45rpx',
+                fontWeight: 700,
+                maxWidth: '360rpx',
               }}
             >
-              97年丨杭州丨双鱼座
+              {nickname}
             </Text>
+            <HeroCertBadge />
           </View>
+          <Text
+            style={{
+              display: 'block',
+              color: 'rgba(255,255,255,0.84)',
+              fontSize: '24rpx',
+              lineHeight: '34rpx',
+              marginTop: '8rpx',
+            }}
+          >
+            97年丨杭州丨双鱼座
+          </Text>
         </View>
         <View
           onClick={onChangePhoto}
@@ -1077,17 +1105,9 @@ function ProfileHeroCard({
           >
             更换照片
           </Text>
-          <Text
-            style={{
-              color: '#FFFFFF',
-              fontSize: '38rpx',
-              lineHeight: '38rpx',
-              fontWeight: 300,
-              marginLeft: '12rpx',
-            }}
-          >
-            ›
-          </Text>
+          <View style={{ marginLeft: '14rpx' }}>
+            <RightChevron color="#FFFFFF" size={15} borderWidth={3} />
+          </View>
         </View>
       </View>
     </View>
@@ -1117,19 +1137,19 @@ function HeroCertBadge({ compact = false }: { compact?: boolean }) {
           transform: 'skewY(-4deg)',
         }}
       />
-      <Text
+      <View
         style={{
           position: 'absolute',
-          left: compact ? '6rpx' : '8rpx',
-          top: compact ? '2rpx' : '3rpx',
-          color: '#FFFFFF',
-          fontSize: compact ? '16rpx' : '20rpx',
-          lineHeight: compact ? '22rpx' : '26rpx',
-          fontWeight: 800,
+          left: compact ? '7rpx' : '9rpx',
+          top: compact ? '8rpx' : '10rpx',
+          width: compact ? '10rpx' : '12rpx',
+          height: compact ? '6rpx' : '8rpx',
+          borderLeft: `${compact ? 3 : 4}rpx solid #FFFFFF`,
+          borderBottom: `${compact ? 3 : 4}rpx solid #FFFFFF`,
+          transform: 'rotate(-45deg)',
+          boxSizing: 'border-box',
         }}
-      >
-        ✓
-      </Text>
+      />
     </View>
   )
 }
@@ -1144,29 +1164,20 @@ function PhotoUploadGrid({
   return (
     <View
       style={{
+        position: 'relative',
         width: '700rpx',
         height: '648rpx',
-        margin: '20rpx auto 0',
+        margin: '-12rpx auto 0',
         borderRadius: '32rpx',
         background: '#FFFFFF',
-        padding: '30rpx 26rpx',
+        padding: '64rpx 26rpx 28rpx',
         boxSizing: 'border-box',
         boxShadow: cardShadow,
+        zIndex: 2,
       }}
     >
       <View style={{ display: 'flex', alignItems: 'center' }}>
-        <SectionTitleDot />
-        <Text
-          style={{
-            display: 'block',
-            color: titleColor,
-            fontSize: '28rpx',
-            lineHeight: '40rpx',
-            fontWeight: 700,
-          }}
-        >
-          更多照片
-        </Text>
+        <SectionTitleDecoration title="更多照片" />
       </View>
       <Text
         style={{
@@ -1179,7 +1190,7 @@ function PhotoUploadGrid({
       >
         生活照、兴趣照、旅行照、让TA了解不同的你
       </Text>
-      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', marginTop: '26rpx' }}>
+      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', marginTop: '24rpx' }}>
         {photos.map((item, index) => (
           <UploadCard
             key={item.label}
@@ -1216,7 +1227,7 @@ function UploadCard({
         borderRadius: '12rpx',
         background: '#F6F8FC',
         marginRight: isLastInRow ? '0' : '27rpx',
-        marginBottom: '28rpx',
+        marginBottom: '14rpx',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -1332,29 +1343,15 @@ function ProfileSection({
       }}
     >
       <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ display: 'flex', alignItems: 'center' }}>
-          <SectionTitleDot />
-          <Text
-            style={{ color: titleColor, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}
-          >
-            {title}
-          </Text>
-        </View>
+        <SectionTitleDecoration title={title} />
         {action ? (
           <View onClick={onAction} style={{ display: 'flex', alignItems: 'center' }}>
             <Text style={{ color: '#9AA1AF', fontSize: '24rpx', lineHeight: '34rpx' }}>
               {action}
             </Text>
-            <Text
-              style={{
-                color: '#C0C5D0',
-                fontSize: '34rpx',
-                lineHeight: '34rpx',
-                marginLeft: '8rpx',
-              }}
-            >
-              ›
-            </Text>
+            <View style={{ marginLeft: '12rpx' }}>
+              <RightChevron />
+            </View>
           </View>
         ) : null}
       </View>
@@ -1363,19 +1360,40 @@ function ProfileSection({
   )
 }
 
-function SectionTitleDot() {
+function SectionTitleDecoration({ title }: { title: string }) {
   return (
     <View
-      data-role="section-title-dot"
+      data-role="section-title-decoration"
       style={{
-        width: '10rpx',
-        height: '10rpx',
-        borderRadius: '10rpx',
-        background: mainBlue,
-        marginRight: '12rpx',
-        flexShrink: 0,
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'center',
       }}
-    />
+    >
+      <View
+        style={{
+          position: 'absolute',
+          right: '-8rpx',
+          top: '-6rpx',
+          width: '34rpx',
+          height: '34rpx',
+          borderRadius: '34rpx',
+          background: 'rgba(227,241,254,0.92)',
+        }}
+      />
+      <Text
+        style={{
+          position: 'relative',
+          color: titleColor,
+          fontSize: '28rpx',
+          lineHeight: '40rpx',
+          fontWeight: 700,
+          zIndex: 1,
+        }}
+      >
+        {title}
+      </Text>
+    </View>
   )
 }
 
@@ -1405,7 +1423,7 @@ function BasicInfoRow({ type, text }: { type: 'gender' | 'location'; text: strin
   return (
     <View style={{ display: 'flex', alignItems: 'center', height: '40rpx', marginBottom: '14rpx' }}>
       <BasicInfoIcon type={type} />
-      <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 400 }}>
+      <Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 400 }}>
         {text}
       </Text>
     </View>
@@ -1413,84 +1431,18 @@ function BasicInfoRow({ type, text }: { type: 'gender' | 'location'; text: strin
 }
 
 function BasicInfoIcon({ type }: { type: 'gender' | 'location' }) {
-  const isGender = type === 'gender'
   return (
-    <View
+    <Image
       data-role={`basic-info-icon-${type}`}
+      src={type === 'gender' ? miniappOssIcons.profilePreviewGender : miniappOssIcons.profilePreviewLocation}
+      mode="aspectFit"
       style={{
-        position: 'relative',
         width: '30rpx',
         height: '30rpx',
         marginRight: '14rpx',
         flexShrink: 0,
       }}
-    >
-      {isGender ? (
-        <>
-          <View
-            style={{
-              position: 'absolute',
-              left: '6rpx',
-              top: '1rpx',
-              width: '16rpx',
-              height: '16rpx',
-              borderRadius: '16rpx',
-              border: '3rpx solid #FF7D9D',
-              boxSizing: 'border-box',
-            }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              left: '13rpx',
-              top: '17rpx',
-              width: '3rpx',
-              height: '11rpx',
-              borderRadius: '3rpx',
-              background: '#FF7D9D',
-            }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              left: '9rpx',
-              top: '22rpx',
-              width: '11rpx',
-              height: '3rpx',
-              borderRadius: '3rpx',
-              background: '#FF7D9D',
-            }}
-          />
-        </>
-      ) : (
-        <>
-          <View
-            style={{
-              position: 'absolute',
-              left: '6rpx',
-              top: '2rpx',
-              width: '18rpx',
-              height: '22rpx',
-              borderRadius: '12rpx 12rpx 14rpx 14rpx',
-              border: '3rpx solid #7BC8E8',
-              boxSizing: 'border-box',
-              transform: 'rotate(45deg)',
-            }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              left: '11rpx',
-              top: '8rpx',
-              width: '8rpx',
-              height: '8rpx',
-              borderRadius: '8rpx',
-              background: '#7BC8E8',
-            }}
-          />
-        </>
-      )}
-    </View>
+    />
   )
 }
 
@@ -1516,7 +1468,7 @@ function CertificationSection({ verification, onUpdate }: { verification: Verifi
           >
             <View style={{ display: 'flex', alignItems: 'center' }}>
               <CertificationIcon src={item.icon} />
-              <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx' }}>
+              <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>
                 {item.title}
               </Text>
             </View>
@@ -1525,8 +1477,8 @@ function CertificationSection({ verification, onUpdate }: { verification: Verifi
               <Text
                 style={{
                   color: '#666666',
-                  fontSize: '24rpx',
-                  lineHeight: '34rpx',
+                  fontSize: '26rpx',
+                  lineHeight: '36rpx',
                   marginLeft: '8rpx',
                 }}
               >
@@ -1706,23 +1658,38 @@ function SingleLineSection({
         boxShadow: cardShadow,
       }}
     >
-      <View style={{ display: 'flex', alignItems: 'center' }}>
-        <SectionTitleDot />
-        <Text
-          style={{ color: titleColor, fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}
-        >
-          {title}
-        </Text>
-      </View>
+      <SectionTitleDecoration title={title} />
       <View style={{ display: 'flex', alignItems: 'center' }}>
         <Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '36rpx' }}>{value}</Text>
-        <Text
-          style={{ color: '#C0C5D0', fontSize: '34rpx', lineHeight: '34rpx', marginLeft: '12rpx' }}
-        >
-          ›
-        </Text>
+        <View style={{ marginLeft: '14rpx' }}>
+          <RightChevron />
+        </View>
       </View>
     </View>
+  )
+}
+
+function RightChevron({
+  color = '#C0C5D0',
+  size = 14,
+  borderWidth = 3,
+}: {
+  color?: string
+  size?: number
+  borderWidth?: number
+}) {
+  return (
+    <View
+      aria-hidden
+      style={{
+        width: `${size}rpx`,
+        height: `${size}rpx`,
+        borderTop: `${borderWidth}rpx solid ${color}`,
+        borderRight: `${borderWidth}rpx solid ${color}`,
+        transform: 'rotate(45deg)',
+        boxSizing: 'border-box',
+      }}
+    />
   )
 }
 
@@ -1740,43 +1707,89 @@ function AboutMeSection({ value, onEdit }: { value: string; onEdit: () => void }
           marginTop: '22rpx',
         }}
       >
-        {value}
+        {value || '介绍下自己的性格、习惯、优点、缺点'}
       </Text>
     </ProfileSection>
   )
 }
 
-function VoiceSection({ onRecord }: { onRecord: () => void }) {
+function VoiceSection({ voice, onRecord }: { voice?: VoiceIntro; onRecord: () => void }) {
+  const hasVoice = Boolean(voice?.voiceIntroUrl)
+  const duration = voice ? voice.voiceIntroDuration || 0 : 0
   return (
-    <ProfileSection title="语音介绍" action="录音" onAction={onRecord}>
-      <View
-        onClick={onRecord}
-        style={{
-          marginTop: '24rpx',
-          minHeight: '118rpx',
-          borderRadius: '12rpx',
-          background: '#F7FAFF',
-          padding: '24rpx 26rpx',
-          boxSizing: 'border-box',
-        }}
-      >
-        <Text
-          style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '38rpx' }}
-        >
-          使用语音介绍特别的你，更容易获得异性青睐哦。
-        </Text>
-        <Text
+    <ProfileSection title="语音介绍" action={hasVoice ? '管理' : '录音'} onAction={onRecord}>
+      {hasVoice ? (
+        <View
+          data-role="voice-intro-echo"
+          onClick={onRecord}
           style={{
-            display: 'block',
-            color: '#9AA1AF',
-            fontSize: '24rpx',
-            lineHeight: '34rpx',
-            marginTop: '8rpx',
+            height: '86rpx',
+            borderRadius: '12rpx',
+            background: mainBlue,
+            marginTop: '24rpx',
+            padding: '0 24rpx',
+            display: 'flex',
+            alignItems: 'center',
+            boxSizing: 'border-box',
           }}
         >
-          例如：唱歌、一段深情的告白等等
-        </Text>
-      </View>
+          <View
+            style={{
+              width: 0,
+              height: 0,
+              borderTop: '12rpx solid transparent',
+              borderBottom: '12rpx solid transparent',
+              borderLeft: '19rpx solid #FFFFFF',
+              marginRight: '24rpx',
+            }}
+          />
+          <View style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8rpx' }}>
+            {[18, 30, 22, 38, 26, 34, 18, 29, 21, 36, 24, 31].map((height, index) => (
+              <View
+                key={`${height}-${index}`}
+                style={{
+                  width: '5rpx',
+                  height: `${height}rpx`,
+                  borderRadius: '5rpx',
+                  background: 'rgba(255,255,255,0.92)',
+                }}
+              />
+            ))}
+          </View>
+          <Text style={{ color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx' }}>
+            {duration}s
+          </Text>
+        </View>
+      ) : (
+        <View
+          onClick={onRecord}
+          style={{
+            marginTop: '24rpx',
+            minHeight: '118rpx',
+            borderRadius: '12rpx',
+            background: '#F7FAFF',
+            padding: '24rpx 26rpx',
+            boxSizing: 'border-box',
+          }}
+        >
+          <Text
+            style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '38rpx' }}
+          >
+            使用语音介绍特别的你，更容易获得异性青睐哦。
+          </Text>
+          <Text
+            style={{
+              display: 'block',
+              color: '#9AA1AF',
+              fontSize: '24rpx',
+              lineHeight: '34rpx',
+              marginTop: '8rpx',
+            }}
+          >
+            例如：唱歌、一段深情的告白等等
+          </Text>
+        </View>
+      )}
     </ProfileSection>
   )
 }
@@ -1786,7 +1799,7 @@ function AboutDetailSection({
   onAdd,
   onFill,
 }: {
-  items: AboutTopic[]
+  items: ProfileAboutSummaryItem[]
   onAdd: () => void
   onFill: (key: string) => void
 }) {
@@ -1811,27 +1824,25 @@ function AboutDetailSection({
                 style={{
                   display: 'block',
                   color: titleColor,
-                  fontSize: '28rpx',
-                  lineHeight: '38rpx',
+                  fontSize: '26rpx',
+                  lineHeight: '37rpx',
                   fontWeight: 700,
                 }}
               >
                 {item.title}
               </Text>
-              {item.value ? (
-                <Text
-                  numberOfLines={2}
-                  style={{
-                    display: 'block',
-                    color: '#9B9FA8',
-                    fontSize: '25rpx',
-                    lineHeight: '36rpx',
-                    marginTop: '6rpx',
-                  }}
-                >
-                  {item.value}
-                </Text>
-              ) : null}
+              <Text
+                numberOfLines={2}
+                style={{
+                  display: 'block',
+                  color: '#9B9FA8',
+                  fontSize: '24rpx',
+                  lineHeight: '40rpx',
+                  marginTop: '6rpx',
+                }}
+              >
+                {item.value || item.placeholder}
+              </Text>
             </View>
             <View
               onClick={event => {
@@ -1839,16 +1850,20 @@ function AboutDetailSection({
                 onFill(item.key)
               }}
               style={{
-                minWidth: '108rpx',
+                minWidth: '116rpx',
+                height: '48rpx',
+                borderRadius: '24rpx',
+                background: '#FAFAFB',
+                padding: '0 18rpx',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'flex-end',
+                justifyContent: 'center',
                 boxSizing: 'border-box',
               }}
             >
               <Text
                 data-role="about-action-text"
-                style={{ color: mainBlue, fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 700 }}
+                style={{ color: mainBlue, fontSize: '24rpx', lineHeight: '33rpx', fontWeight: 700 }}
               >
                 去填写
               </Text>
@@ -1986,7 +2001,7 @@ function SongSection({ song, onSwitch }: { song: string; onSwitch: () => void })
               fontWeight: 700,
             }}
           >
-            {song}
+            {song || '添加一首喜欢的歌曲'}
           </Text>
           <Text
             style={{
@@ -2007,100 +2022,16 @@ function SongSection({ song, onSwitch }: { song: string; onSwitch: () => void })
 
 function MusicDiscIcon() {
   return (
-    <View
+    <Image
       data-role="music-disc-icon"
+      src={miniappOssIcons.profilePreviewSong}
+      mode="aspectFit"
       style={{
-        position: 'relative',
         width: '82rpx',
         height: '82rpx',
-        borderRadius: '82rpx',
-        background: 'linear-gradient(135deg, #79A1FF 0%, #2876FF 100%)',
         flexShrink: 0,
       }}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          left: '19rpx',
-          top: '20rpx',
-          width: '30rpx',
-          height: '30rpx',
-          borderRadius: '30rpx',
-          background: '#DBE8FF',
-          border: '3rpx solid rgba(255,255,255,0.75)',
-          boxSizing: 'border-box',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '28rpx',
-          top: '29rpx',
-          width: '12rpx',
-          height: '12rpx',
-          borderRadius: '12rpx',
-          background: '#FFFFFF',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '47rpx',
-          top: '18rpx',
-          width: '4rpx',
-          height: '38rpx',
-          borderRadius: '4rpx',
-          background: '#FFFFFF',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '49rpx',
-          top: '18rpx',
-          width: '18rpx',
-          height: '10rpx',
-          borderTop: '4rpx solid #FFFFFF',
-          borderRight: '4rpx solid #FFFFFF',
-          borderRadius: '0 10rpx 0 0',
-          boxSizing: 'border-box',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '39rpx',
-          top: '52rpx',
-          width: '20rpx',
-          height: '15rpx',
-          borderRadius: '50%',
-          background: '#FFFFFF',
-          transform: 'rotate(-12deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '21rpx',
-          top: '19rpx',
-          width: '5rpx',
-          height: '5rpx',
-          borderRadius: '5rpx',
-          background: '#8CB2FF',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '41rpx',
-          top: '38rpx',
-          width: '5rpx',
-          height: '5rpx',
-          borderRadius: '5rpx',
-          background: '#8CB2FF',
-        }}
-      />
-    </View>
+    />
   )
 }
 
@@ -2192,6 +2123,10 @@ function VoiceIntroSheet({
   const isComplete = baseVariant === 'complete' || baseVariant === 'play'
 
   const handleBackdrop = () => {
+    if (showConfirm) {
+      onCancelConfirm()
+      return
+    }
     if (isRecording) {
       onChange('exit')
       return
@@ -2304,21 +2239,21 @@ function VoiceIntroSheet({
             <VoiceActionButton
               label={voiceIntro.deleteText || '删除'}
               tone="muted"
-              symbol="×"
+              icon="delete"
               onClick={() => onChange('delete')}
               disabled={saving}
             />
             <VoiceActionButton
               label={isPlay ? '暂停' : '点击播放'}
               tone="primary"
-              symbol={isPlay ? 'Ⅱ' : '▶'}
+              icon={isPlay ? 'pause' : 'play'}
               onClick={() => onChange(isPlay ? 'complete' : 'play')}
               disabled={saving}
             />
             <VoiceActionButton
               label={saving ? '保存中' : '完成'}
               tone="primary"
-              symbol="✓"
+              icon="confirm"
               onClick={onComplete}
               disabled={saving}
             />
@@ -2342,15 +2277,15 @@ function VoiceIntroSheet({
 
       {showConfirm ? (
         <VoiceConfirmDialog
-          title={variant === 'exit' ? '退出提示' : voiceIntro.deleteTitle || '删除提示'}
+          title={variant === 'exit' ? '退出提示' : '删除提示'}
           content={
             variant === 'exit'
               ? '退出录音后当前录音丢失，确定要关闭吗？'
-              : voiceIntro.deleteContent || '一旦删除不可恢复，确定删除吗？'
+              : '一旦删除不可恢复，确定删除吗？'
           }
-          leftText={voiceIntro.deleteCancelText || '取消'}
-          rightText={variant === 'exit' ? '退出' : voiceIntro.deleteConfirmText || '删除'}
-          onLeft={onCancelConfirm}
+          leftText="删除"
+          rightText="确认"
+          onLeft={variant === 'exit' ? onConfirmExit : onConfirmDelete}
           onRight={variant === 'exit' ? onConfirmExit : onConfirmDelete}
         />
       ) : null}
@@ -2399,7 +2334,6 @@ function VoiceRoundButton({
 }) {
   const recording = variant === 'recording'
   const play = variant === 'play'
-  const symbol = recording ? '' : play ? 'Ⅱ' : variant === 'voice' ? '' : '▶'
   return (
     <View
       id="voice-round-button"
@@ -2442,12 +2376,8 @@ function VoiceRoundButton({
           />
         ) : null}
         {variant === 'voice' ? <MicIcon /> : null}
-        {symbol ? (
-          <Text
-            style={{ color: '#FFFFFF', fontSize: '50rpx', lineHeight: '58rpx', fontWeight: 800 }}
-          >
-            {symbol}
-          </Text>
+        {!recording && variant !== 'voice' ? (
+          <VoiceActionIcon type={play ? 'pause' : 'play'} large />
         ) : null}
       </View>
       {recording ? (
@@ -2526,13 +2456,13 @@ function MicIcon() {
 function VoiceActionButton({
   label,
   tone,
-  symbol,
+  icon,
   onClick,
   disabled = false,
 }: {
   label: string
   tone: 'muted' | 'primary'
-  symbol: string
+  icon: 'delete' | 'play' | 'pause' | 'confirm'
   onClick: () => void
   disabled?: boolean
 }) {
@@ -2559,9 +2489,7 @@ function VoiceActionButton({
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: '42rpx', lineHeight: '48rpx', fontWeight: 800 }}>
-          {symbol}
-        </Text>
+        <VoiceActionIcon type={icon} />
       </View>
       <Text
         style={{
@@ -2574,6 +2502,61 @@ function VoiceActionButton({
       >
         {label}
       </Text>
+    </View>
+  )
+}
+
+function VoiceActionIcon({
+  type,
+  large = false,
+}: {
+  type: 'delete' | 'play' | 'pause' | 'confirm'
+  large?: boolean
+}) {
+  const metric = large ? 1.25 : 1
+  if (type === 'play') {
+    return (
+      <View
+        aria-hidden
+        style={{
+          width: 0,
+          height: 0,
+          borderTop: `${17 * metric}rpx solid transparent`,
+          borderBottom: `${17 * metric}rpx solid transparent`,
+          borderLeft: `${25 * metric}rpx solid #FFFFFF`,
+          marginLeft: `${6 * metric}rpx`,
+        }}
+      />
+    )
+  }
+  if (type === 'pause') {
+    return (
+      <View aria-hidden style={{ display: 'flex', gap: `${8 * metric}rpx` }}>
+        <View style={{ width: `${8 * metric}rpx`, height: `${34 * metric}rpx`, borderRadius: '4rpx', background: '#FFFFFF' }} />
+        <View style={{ width: `${8 * metric}rpx`, height: `${34 * metric}rpx`, borderRadius: '4rpx', background: '#FFFFFF' }} />
+      </View>
+    )
+  }
+  if (type === 'confirm') {
+    return (
+      <View
+        aria-hidden
+        style={{
+          width: `${30 * metric}rpx`,
+          height: `${17 * metric}rpx`,
+          borderLeft: `${7 * metric}rpx solid #FFFFFF`,
+          borderBottom: `${7 * metric}rpx solid #FFFFFF`,
+          transform: 'rotate(-45deg)',
+          marginTop: `${-8 * metric}rpx`,
+          boxSizing: 'border-box',
+        }}
+      />
+    )
+  }
+  return (
+    <View aria-hidden style={{ position: 'relative', width: `${34 * metric}rpx`, height: `${34 * metric}rpx` }}>
+      <View style={{ position: 'absolute', left: `${15 * metric}rpx`, top: 0, width: `${6 * metric}rpx`, height: `${34 * metric}rpx`, borderRadius: '6rpx', background: '#FFFFFF', transform: 'rotate(45deg)' }} />
+      <View style={{ position: 'absolute', left: `${15 * metric}rpx`, top: 0, width: `${6 * metric}rpx`, height: `${34 * metric}rpx`, borderRadius: '6rpx', background: '#FFFFFF', transform: 'rotate(-45deg)' }} />
     </View>
   )
 }
@@ -2843,8 +2826,11 @@ function isCertificationPassed(status?: string) {
 }
 
 async function saveWechat(wechatId: string) {
+  const normalizedWechatId = normalizeOptionalWechatId(wechatId)
+  if (normalizedWechatId === null) return
+
   try {
-    await prd01Api.saveWechatId(wechatId.trim())
+    await prd01Api.saveWechatId(normalizedWechatId)
     await Taro.showToast({ title: '保存成功', icon: 'success' })
   } catch (error) {
     await showError(error)

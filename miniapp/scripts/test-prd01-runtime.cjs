@@ -101,8 +101,10 @@ test('运行时文案快照更新后发布新的读取器并触发页面重绘',
 })
 
 test('千寻准入页保留蓝湖顶部页签，认证文案由运行时配置提供', () => {
-  const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/index.tsx'), 'utf8')
+  const indexSource = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/index.tsx'), 'utf8')
+  const source = fs.readFileSync(path.join(miniappRoot, 'src/features/verification/VerificationEntryView.tsx'), 'utf8')
 
+  assert.match(indexSource, /<VerificationEntryView\b/)
   assert.match(source, /<TopTabs\b/)
   assert.match(source, /function TopTabs/)
   assert.match(source, /hoverClass="btn-hover"/)
@@ -123,7 +125,6 @@ test('非认证页面按蓝湖固定文案渲染，不消费认证文案配置',
     'src/pages/login/identity.tsx',
     'src/pages/login/education.tsx',
     'src/pages/login/address.tsx',
-    'src/pages/profile/index.tsx',
     'src/pages/profile/edit.tsx',
     'src/pages/profile-edit/about.tsx',
     'src/pages/profile-edit/albums.tsx',
@@ -666,14 +667,15 @@ test('相册、背景图和语音介绍使用真实查询、直传、保存与�
 
 test('首登完成页根据资料与认证接口决定下一步，不再进入旧资料页', () => {
   const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/index.tsx'), 'utf8')
+  const verificationEntry = fs.readFileSync(path.join(miniappRoot, 'src/features/verification/VerificationEntryView.tsx'), 'utf8')
   assert.match(source, /prd01Api\.getBasicProfile/)
   assert.match(source, /prd01Api\.getVerificationStatus/)
   assert.match(source, /prd01Api\.getIntroduction/)
   assert.match(source, /basicProfileCompleted/)
   assert.equal(source.includes('/pages/verification/basic'), false)
   assert.match(source, /resolveVerificationOnboardingRoute/)
-  assert.match(source, /copy\('verification_onboarding_heading'\)/)
-  assert.match(source, /copy\('verification_home_primary_action'\)/)
+  assert.match(verificationEntry, /copy\('verification_onboarding_heading'\)/)
+  assert.match(verificationEntry, /copy\('verification_home_primary_action'\)/)
 })
 
 test('个人中心使用主页统一详情，不再读取蓝湖演示资料', () => {

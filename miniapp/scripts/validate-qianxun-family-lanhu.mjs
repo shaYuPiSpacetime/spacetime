@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -45,7 +47,8 @@ assert.match(page, /width: '344rpx'/, '关注、同城、热门二级 Tab 总宽
 assert.match(page, /width: '108rpx'/, '二级 Tab 单项宽度必须按蓝湖约 108rpx')
 assert.match(page, /linear-gradient\(180deg, #51AEFF 0%, #2876FF 100%\)/, '二级 Tab 点亮态必须使用蓝湖渐变')
 assert.doesNotMatch(page, /# 我们官宣啦|分享心动故事|2\.2亿浏览/, '生产页面不得硬编码蓝湖演示话题数据')
-assert.match(pageEntry, /QianxunFamilyPage/, '推荐页入口必须复用独立千寻成家组件，禁止页面入口相互导入')
+assert.doesNotMatch(pageEntry, /QianxunFamilyPage/, '推荐 Tab 与千寻成家 Tab 必须保持页面入口隔离')
+assert.match(pageEntry, /getRecommendCandidates/, '推荐 Tab 必须读取独立推荐候选接口')
 assert.doesNotMatch(indexPage, /CORE_ALLOWED[\s\S]{0,180}switchTab\(\{ url: '\/pages\/recommend\/index' \}\)/, '已认证账号进入千寻后禁止二次跳到推荐 Tab')
 assert.match(indexPage, /CORE_ALLOWED[\s\S]{0,180}setCoreAllowed\(true\)/, '已认证账号必须在千寻 Tab 内直接渲染成家内容')
 assert.match(indexPage, /if \(coreAllowed\) return <QianxunFamilyPage \/>/, '千寻 Tab 必须在自身路由承载已认证成家页面')
@@ -65,6 +68,24 @@ assert.match(service, /CommunityContentType = 'community_post' \| 'sincere_post'
 for (const key of ['qianxunEmptyFollowing', 'qianxunEmptyHeart', 'qianxunVerifyNote', 'qianxunTopicCover']) {
   assert.match(icons, new RegExp(`${key}: 'https://`), `${key} 必须引用 OSS 公网地址`)
 }
+
+for (const key of [
+  'qianxunGenderFemale',
+  'qianxunGenderMale',
+  'qianxunWhisper',
+  'qianxunComment',
+  'qianxunLike',
+  'qianxunLikeActive',
+]) {
+  assert.match(icons, new RegExp(`${key}: 'https://`), `${key} 必须使用蓝湖切图的 OSS 公网地址`)
+  assert.match(page, new RegExp(`miniappOssIcons\\.${key}`), `${key} 必须由共享动态卡真实渲染`)
+}
+assert.match(page, /const genderIcon = post\.authorGender === 'FEMALE'[\s\S]{0,180}qianxunGenderFemale[\s\S]{0,180}qianxunGenderMale/, '性别必须按接口状态映射女性/男性蓝湖切图')
+assert.match(page, /<Image[^>]+src=\{genderIcon\}[^>]+width: '32rpx', height: '32rpx'/, '性别切图必须按蓝湖 32×32rpx 渲染')
+assert.match(page, /qianxunWhisper[^\n]{0,220}width: '52rpx', height: '52rpx'/, '悄悄话切图必须按蓝湖 52×52rpx 渲染')
+assert.match(page, /const icon = kind === 'comment'[\s\S]{0,220}qianxunLikeActive[\s\S]{0,120}qianxunLike/, '评论和点赞必须映射蓝湖切图及点赞双状态')
+assert.match(page, /<Image[^>]+src=\{icon\}[^>]+width: '32rpx', height: '32rpx'/, '评论和点赞切图必须按蓝湖 32×32rpx 渲染')
+assert.doesNotMatch(page, /symbol: '♀'|symbol: '♂'|>YO<|'◯'|'♡'|'♥'/, '共享动态卡禁止继续用字体字符近似蓝湖图标')
 
 assert.match(appTabBar, /activeIconPath/, '普通底部 Tab 必须提供 normal/active 两套图标')
 assert.doesNotMatch(appTabBar, /src=\{isOn \? tab\.activeIconPath : tab\.iconPath\}/, '底部 Tab 禁止替换 Image src 导致点亮态闪烁')
@@ -89,7 +110,7 @@ assert.doesNotMatch(customTabBar, /lastActiveKey/, '自定义 TabBar 禁止保�
 assert.match(customTabBar, /useDidShow\(\(\) => \{[\s\S]{0,160}updateActiveTab\(\)[\s\S]{0,120}releaseTabSwitch\(\)/, '目标 Tab 显示并确认真实路由后必须释放共享导航锁')
 assert.doesNotMatch(customTabBar, /pendingActiveKey/, '自定义 TabBar 禁止用跨页面 pending 状态覆盖真实路由，避免旧页面回调造成乱跳')
 assert.doesNotMatch(customTabBar, /if \(!activeKey\) return null/, '自定义 TabBar 禁止因首帧路由未就绪整栏消失')
-assert.doesNotMatch(appConfig, /lazyCodeLoading:\s*['"]requiredComponents['"]/, 'Taro 动态模板与自定义 TabBar 禁止启用组件懒加载，避免运行时解析为 wx:\/\/not-found')
+assert.doesNotMatch(appConfig, /lazyCodeLoading:\s*['"]requiredComponents['"]/, 'Taro 动态模板与自定义 TabBar 禁止启用组件懒加载，避免运行时解析为 wx://not-found')
 assert.doesNotMatch(capture, /variant=/, '运行截图禁止通过生产路由 variant 注入 mock')
 assert.match(capture, /selectScene\(page, 'CITY'\)/, '同城截图必须点击真实 CITY Tab')
 assert.match(capture, /selectScene\(page, 'HOT'\)/, '热门截图必须点击真实 HOT Tab')

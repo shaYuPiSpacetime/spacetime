@@ -56,7 +56,7 @@ export default function ProfileEditSongsPage() {
 
   return (
     <View style={{ height: '100vh', overflow: 'hidden', background: 'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 50%, rgba(248,250,239,0.72) 100%)' }}>
-      <LanhuSubNav title="添加爱听的歌曲" onBack={navigateBackOrRedirect} />
+      <LanhuSubNav title="爱听的歌曲" onBack={navigateBackOrRedirect} />
       <View style={{ width: '700rpx', height: '88rpx', borderRadius: '8rpx', background: '#FFFFFF', margin: '0 auto 16rpx', padding: '0 28rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
         <View style={{ position: 'relative', width: '30rpx', height: '30rpx', borderRadius: '18rpx', border: '4rpx solid #858EA0', boxSizing: 'border-box', marginRight: '18rpx' }}>
           <View style={{ position: 'absolute', right: '-9rpx', bottom: '-7rpx', width: '12rpx', height: '4rpx', borderRadius: '4rpx', background: '#858EA0', transform: 'rotate(45deg)' }} />
@@ -76,10 +76,9 @@ export default function ProfileEditSongsPage() {
 }
 
 function SongRecord({ song, saving, onSelect }: { song: SongOption; saving: boolean; onSelect: () => void }) {
-  const cover = song.coverUrl && !song.coverUrl.includes('example.test') ? song.coverUrl : miniappOssIcons.profilePreviewSong
   return (
     <View onClick={onSelect} style={{ minHeight: '118rpx', display: 'flex', alignItems: 'center' }}>
-      <Image src={cover} mode="aspectFill" style={{ width: '88rpx', height: '88rpx', borderRadius: '44rpx', flexShrink: 0 }} />
+      <Image src={miniappOssIcons.profilePreviewSong} mode="aspectFit" style={{ width: '88rpx', height: '88rpx', borderRadius: '44rpx', flexShrink: 0 }} />
       <View style={{ minWidth: 0, flex: 1, marginLeft: '22rpx' }}>
         <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}>{song.songName}</Text>
         <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>{song.artistName || ''}</Text>

@@ -1,7 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
-import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useCoins, type CoinPayState } from '@/hooks/useCoins'
 import { LANHU_BLUE, LANHU_NAVY, LanhuNav } from '@/pages/lanhu/LanhuShell'
@@ -10,17 +9,9 @@ import type { CoinPackage } from '@/types/coin'
 const PAGE_BACKGROUND =
   'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.68) 49%, rgba(248,250,239,0.68) 100%)'
 const AGREEMENT_TITLE = '《时空邂逅充值协议》'
-const UNLOCK_COST = 100
 const PLAN_CARD_WIDTH_RPX = 242
 const PLAN_CARD_GAP_RPX = 6
 const PLAN_SELECTED_LEFT_RPX = 150
-
-const LANHU_PACKAGES: CoinPackage[] = [
-  { id: -1, amount: 100, price: 8, label: '解锁2位嘉宾', recommended: false },
-  { id: -2, amount: 3000, price: 268, label: '60位嘉宾', originalPrice: '¥301.12', discountLabel: '8.9折', tag: '热销推荐', recommended: true },
-  { id: -3, amount: 6000, price: 428, label: '150位嘉宾', originalPrice: '¥602.82', discountLabel: '7.1折', tag: '节省最多', recommended: false },
-  { id: -4, amount: 12000, price: 698, label: '300位嘉宾', recommended: false },
-]
 
 const RECHARGE_NOTICE = [
   '1.微信支付显示成功后，若千寻币数量没有更新，可以退出该页面再重新进入。',
@@ -30,6 +21,8 @@ const RECHARGE_NOTICE = [
 export default function UnlockRechargePage() {
   const router = useRouter()
   const sourceScene = String(router.params.sourceScene || 'likes_unlock_one')
+  const idealScene = sourceScene === 'ideal_user_unlock'
+  const unlockCost = Math.max(0, Number(router.params.cost || 0))
   const {
     balance,
     packages,
@@ -43,11 +36,11 @@ export default function UnlockRechargePage() {
     purchase,
     hidePaymentLayer,
   } = useCoins()
-  const displayPackages = packages.length > 0 ? packages : LANHU_PACKAGES
+  const displayPackages = packages
   const defaultPackage = displayPackages.find(pkg => pkg.amount === 3000)
     || displayPackages.find(pkg => pkg.recommended)
     || displayPackages[0]
-  const [activePackageId, setActivePackageId] = useState(defaultPackage.id)
+  const [activePackageId, setActivePackageId] = useState(0)
   const [agreementChecked, setAgreementChecked] = useState(false)
   const [agreementError, setAgreementError] = useState(false)
   const [noticeVisible, setNoticeVisible] = useState(false)
@@ -65,10 +58,17 @@ export default function UnlockRechargePage() {
     selectPackage(preferred)
   }, [packages, selectPackage])
 
+  useEffect(() => {
+    if (!idealScene || payState !== 'pay-success') return
+    const timer = setTimeout(() => void Taro.navigateBack(), 500)
+    return () => clearTimeout(timer)
+  }, [idealScene, payState])
+
   const activePackage = useMemo(
     () => displayPackages.find(pkg => pkg.id === activePackageId)
       || selectedPackage
-      || defaultPackage,
+      || defaultPackage
+      || null,
     [activePackageId, defaultPackage, displayPackages, selectedPackage],
   )
 
@@ -83,21 +83,21 @@ export default function UnlockRechargePage() {
       return
     }
     setAgreementError(false)
-    if (activePackage.id <= 0) {
+    if (!activePackage || activePackage.id <= 0) {
       Taro.showToast({ title: packagesLoading ? '套餐加载中，请稍后重试' : '套餐暂不可用，请稍后重试', icon: 'none' })
       return
     }
-    await purchase(sourceScene)
+    await purchase(sourceScene, idealScene ? { navigateOnSuccess: false } : undefined)
   }
 
   const handleAgreementConfirm = async () => {
     setAgreementChecked(true)
     setAgreementError(false)
-    if (activePackage.id <= 0) {
+    if (!activePackage || activePackage.id <= 0) {
       Taro.showToast({ title: packagesLoading ? '套餐加载中，请稍后重试' : '套餐暂不可用，请稍后重试', icon: 'none' })
       return
     }
-    await purchase(sourceScene)
+    await purchase(sourceScene, idealScene ? { navigateOnSuccess: false } : undefined)
   }
 
   return (
@@ -105,14 +105,9 @@ export default function UnlockRechargePage() {
       <LanhuNav title="千寻币" showBack />
       <ScrollView scrollY enableFlex showScrollbar={false} style={{ flex: 1, height: 0, minHeight: 0 }}>
         <View style={{ width: '750rpx', minHeight: '1170rpx', paddingBottom: '36rpx', boxSizing: 'border-box' }}>
-          <UnlockSceneHero />
-          <UnlockSummary balance={balance} />
-          <RechargePanel
-            packages={displayPackages}
-            activePackage={activePackage}
-            onSelect={handleSelect}
-            onNotice={() => setNoticeVisible(true)}
-          />
+          <UnlockSceneHero idealScene={idealScene} />
+          <UnlockSummary balance={balance} cost={unlockCost} />
+          {displayPackages.length && activePackage ? <RechargePanel packages={displayPackages} activePackage={activePackage} onSelect={handleSelect} onNotice={() => setNoticeVisible(true)} /> : <View style={{ width: '700rpx', height: '220rpx', margin: '52rpx auto 0', borderRadius: '12rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '24rpx' }}>{packagesLoading ? '充值套餐加载中…' : '暂无可用充值套餐'}</Text></View>}
         </View>
       </ScrollView>
       <RechargePayBar
@@ -131,16 +126,16 @@ export default function UnlockRechargePage() {
   )
 }
 
-function UnlockSceneHero() {
+function UnlockSceneHero({ idealScene }: { idealScene: boolean }) {
   return (
     <View style={{ position: 'relative', width: '700rpx', height: '420rpx', margin: '0 auto' }}>
       <SceneAvatar left={122} top={90} size={120} />
       <SceneAvatar left={458} top={90} size={120} />
       <SceneAvatar left={250} top={50} size={200} featured />
-      <SceneBubble left={210} top={68} text="97年" tail="right" />
-      <SceneBubble left={390} top={150} text="本科" tail="left" />
-      <Text style={{ position: 'absolute', left: 0, top: '270rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>Ta也喜欢了你!</Text>
-      <Text style={{ position: 'absolute', left: 0, top: '326rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>解锁后立即和ta配对聊天</Text>
+      <SceneBubble left={210} top={68} text={idealScene ? '理想型' : '心动'} tail="right" />
+      <SceneBubble left={390} top={150} text={idealScene ? '已匹配' : '待解锁'} tail="left" />
+      <Text style={{ position: 'absolute', left: 0, top: '270rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>{idealScene ? '立即解锁理想型' : 'Ta也喜欢了你!'}</Text>
+      <Text style={{ position: 'absolute', left: 0, top: '326rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>{idealScene ? '只邂逅你想要的人' : '解锁后立即和ta配对聊天'}</Text>
     </View>
   )
 }
@@ -148,7 +143,7 @@ function UnlockSceneHero() {
 function SceneAvatar({ left, top, size, featured = false }: { left: number; top: number; size: number; featured?: boolean }) {
   return (
     <View style={{ position: 'absolute', left: `${left}rpx`, top: `${top}rpx`, width: `${size}rpx`, height: `${size}rpx`, borderRadius: '50%', border: featured ? '6rpx solid #FFFFFF' : '4rpx solid rgba(255,255,255,0.9)', overflow: 'hidden', boxSizing: 'border-box' }}>
-      <Image src={blurredPersonImage} mode="aspectFill" style={{ width: '100%', height: '100%' }} />
+      <Image src={miniappOssIcons.messageAvatarLikedBlurred} mode="aspectFill" style={{ width: '100%', height: '100%' }} />
     </View>
   )
 }
@@ -162,10 +157,10 @@ function SceneBubble({ left, top, text, tail }: { left: number; top: number; tex
   )
 }
 
-function UnlockSummary({ balance }: { balance: number }) {
+function UnlockSummary({ balance, cost }: { balance: number; cost: number }) {
   return (
     <View style={{ width: '664rpx', height: '54rpx', margin: '24rpx auto 0', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <SummaryAmount label="本次消耗" value={UNLOCK_COST} />
+      <SummaryAmount label="本次消耗" value={cost} />
       <SummaryAmount label="余额" value={balance} />
     </View>
   )

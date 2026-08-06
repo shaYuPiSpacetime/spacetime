@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { getCoinBalance, getVipStatus, type VipStatusVO } from '@/services/payment';
 import { prd01Api } from '@/services/prd01';
 import { usePrd01Store } from '@/stores/prd01Store';
-import type { ProfileHomeDetail } from '@/types/prd01';
+import type { AccessStatus, BasicProfile, OpenTextDetail, ProfileHomeDetail, VerificationStatus } from '@/types/prd01';
 import type { MyMembership } from '@/types/membership';
 
 /**
@@ -33,6 +33,16 @@ interface ProfileData {
   zodiac: string;
   /** 是否已认证 */
   isVerified: boolean;
+  /** 核心页面准入状态；未通过时“我的”只展示认证引导节点。 */
+  accessStatus: AccessStatus | null;
+  /** 我的未认证节点所需基础资料。 */
+  basicProfile: BasicProfile | null;
+  /** 我的未认证节点所需认证进度。 */
+  verification: VerificationStatus | null;
+  /** 我的未认证节点所需自我介绍审核进度。 */
+  introduction: OpenTextDetail | null;
+  /** 是否已完成一次我的页准入数据请求。 */
+  entryResolved: boolean;
   /** 认证标签列表 */
   verifiedLabels: string[];
   profileScore: number;
@@ -115,7 +125,14 @@ function adaptProfileMembership(status?: VipStatusVO): MyMembership {
   return { status: 'none' };
 }
 
-function buildProfileData(home?: ProfileHomeDetail, membership: MyMembership | null = null, coinBalance: CoinBalance | null = null, location = ''): ProfileData {
+function buildProfileData(
+  home?: ProfileHomeDetail,
+  membership: MyMembership | null = null,
+  coinBalance: CoinBalance | null = null,
+  location = '',
+  basicProfile: BasicProfile | null = null,
+  introduction: OpenTextDetail | null = null,
+): ProfileData {
   const auth = useAuthStore.getState();
   const profile = home?.profile || {};
   const verified = Boolean(home?.accessStatus?.canBrowseCards);
@@ -128,6 +145,11 @@ function buildProfileData(home?: ProfileHomeDetail, membership: MyMembership | n
     age: typeof profile.age === 'number' ? profile.age : null,
     zodiac: '',
     isVerified: verified,
+    accessStatus: home?.accessStatus || auth.accessStatus,
+    basicProfile,
+    verification: home?.verificationStatus || null,
+    introduction,
+    entryResolved: Boolean(home),
     verifiedLabels: [],
     profileScore: Number(profile.profileScore || 0),
     membership,
@@ -188,16 +210,28 @@ export function useProfile(): UseProfileReturn {
       let membership: MyMembership | null = null;
       let coinBalance: CoinBalance | null = null;
       let home: ProfileHomeDetail | undefined;
+      let basicProfile: BasicProfile | null = null;
+      let introduction: OpenTextDetail | null = null;
       let location = '';
       if (auth.isLoggedIn) {
         await usePrd01Store.getState().bootstrap();
-        const [status, balance, homeResult] = await Promise.all([getVipStatus(), getCoinBalance(), prd01Api.getHomeDetail()]);
-        membership = adaptProfileMembership(status);
-        coinBalance = { balance: Number(balance.coinBalance || 0) };
+        const [homeResult, basicResult, introductionResult] = await Promise.all([
+          prd01Api.getHomeDetail(),
+          prd01Api.getBasicProfile(),
+          prd01Api.getIntroduction(),
+        ]);
         home = homeResult;
+        basicProfile = basicResult;
+        introduction = introductionResult;
+        useAuthStore.getState().setAccessStatus(homeResult.accessStatus);
         location = await loadLocationLabel(homeResult);
+        if (homeResult.accessStatus.coreAccessStatus === 'CORE_ALLOWED') {
+          const [status, balance] = await Promise.all([getVipStatus(), getCoinBalance()]);
+          membership = adaptProfileMembership(status);
+          coinBalance = { balance: Number(balance.coinBalance || 0) };
+        }
       }
-      const freshData = buildProfileData(home, membership, coinBalance, location);
+      const freshData = buildProfileData(home, membership, coinBalance, location, basicProfile, introduction);
       setData(freshData);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '资料加载失败，请稍后重试';

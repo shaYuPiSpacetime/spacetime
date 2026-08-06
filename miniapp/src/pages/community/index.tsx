@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import HeartMessageHeader, { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
 import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
 import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
 import {
@@ -277,7 +278,7 @@ export default function CommunityPage() {
   return (
     <View id="relation-feedback-page" style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
       <ScrollView scrollY style={{ width: '750rpx', height: '100vh' }} showScrollbar={false}>
-        <View style={{ minHeight: '1624rpx', paddingBottom: showMembershipEntry ? '310rpx' : '180rpx', boxSizing: 'border-box' }}>
+        <View id="relation-scroll-content" style={{ minHeight: '1624rpx', paddingBottom: showMembershipEntry ? '310rpx' : '180rpx', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
           <HeartTabsHeader
             active={activeTab}
             likesCount={likesPage?.newCount || 0}
@@ -382,7 +383,7 @@ interface PanelCommonProps {
 function LikesPanel({ page, records, state, error, loadingMore, onCard, onRetry, onLoadMore }: PanelCommonProps & { page: LikesMePageVO | null; records: LikesMeItemVO[]; onCard: (card: LikesMeItemVO) => void }) {
   if (state === 'loading' && !records.length) return <RelationStatePanel state="loading" message="正在加载喜欢你的人" />
   if (state === 'error' && !records.length) return <RelationStatePanel state="error" message={error || '喜欢列表加载失败'} onRetry={onRetry} />
-  if (state === 'empty') return <RelationStatePanel state="empty" message="还没有人向你表达心动" onRetry={onRetry} />
+  if (state === 'empty') return <RelationStatePanel state="empty" message="暂时没有对我心动人员" illustration={miniappOssIcons.qianxunEmptyHeart} />
   const previewAvatars = page?.newLikePreviewAvatars || []
   const newest = records.filter(item => item.groupKey === 'new')
   const earlier = records.filter(item => item.groupKey !== 'new')
@@ -408,7 +409,7 @@ function LikesPanel({ page, records, state, error, loadingMore, onCard, onRetry,
 function VisitorsPanel({ page, records, state, error, loadingMore, onCard, onRetry, onLoadMore }: PanelCommonProps & { page: RecentViewersPageVO | null; records: RecentViewerItemVO[]; onCard: (card: RecentViewerItemVO) => void }) {
   if (state === 'loading' && !records.length) return <RelationStatePanel state="loading" message="正在加载最近访客" />
   if (state === 'error' && !records.length) return <RelationStatePanel state="error" message={error || '访客列表加载失败'} onRetry={onRetry} />
-  if (state === 'empty') return <RelationStatePanel state="empty" message="最近还没有人来访" onRetry={onRetry} />
+  if (state === 'empty') return <RelationStatePanel state="empty" message="暂时还没有访客" illustration={miniappOssIcons.qianxunEmptyFollowing} />
   const groups = groupRecentVisitors(records) as Array<{ key: string; title: string; records: RecentViewerItemVO[] }>
   return (
     <View id="relation-visitors-panel" style={{ width: '700rpx', margin: '0 auto' }}>
@@ -424,11 +425,12 @@ function VisitorsPanel({ page, records, state, error, loadingMore, onCard, onRet
   )
 }
 
-function RelationStatePanel({ state, message, onRetry }: { state: 'loading' | 'empty' | 'error'; message: string; onRetry?: () => void }) {
+function RelationStatePanel({ state, message, illustration, onRetry }: { state: 'loading' | 'empty' | 'error'; message: string; illustration?: string; onRetry?: () => void }) {
   return (
-    <View id={`relation-${state}-state`} style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#7F8494', fontSize: '26rpx' }}>{message}</Text>
-      {onRetry ? <View onClick={onRetry} style={{ marginTop: '28rpx', padding: '18rpx 48rpx', borderRadius: '40rpx', background: '#2876FF' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>重新加载</Text></View> : null}
+    <View id={`relation-${state}-state`} style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto', flex: state === 'empty' ? 1 : undefined, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+      {state === 'empty' && illustration ? <View id="relation-empty-illustration" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={illustration} mode="aspectFit" style={{ width: '330rpx', height: '230rpx', display: 'block' }} /></View> : null}
+      <Text style={{ marginTop: illustration ? '18rpx' : 0, color: '#7F8494', fontSize: '26rpx' }}>{message}</Text>
+      {state === 'error' && onRetry ? <View onClick={onRetry} style={{ marginTop: '28rpx', padding: '18rpx 48rpx', borderRadius: '40rpx', background: '#2876FF' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>重新加载</Text></View> : null}
     </View>
   )
 }

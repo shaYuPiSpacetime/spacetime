@@ -13,6 +13,7 @@ function page(records, current, total, hasMore) {
 function createRelationFeedbackMockServer(port) {
   const state = {
     likesMode: 'ready',
+    visitorsMode: 'ready',
     unlocked: false,
     matchPopup: null,
     failMatchAckOnce: false,
@@ -64,7 +65,22 @@ function createRelationFeedbackMockServer(port) {
     } else if (pathname === '/miniapp/relation/likes-me/read' && request.method === 'POST') {
       payload = success(null)
     } else if (pathname === '/miniapp/relation/recent-viewers' && request.method === 'GET') {
-      payload = success({
+      if (state.visitorsMode === 'error') {
+        payload = { code: 5202, msg: '访客列表模拟失败', data: null }
+      } else if (state.visitorsMode === 'empty') {
+        payload = success({
+          ...page([], 1, 0, false),
+          visibleTotal: 0,
+          hiddenCount: 0,
+          accessMode: 'MIXED',
+          visibleDays: 7,
+          totalPv: 0,
+          visitorUv7d: 0,
+          visitorPv7d: 0,
+          todayVisitorUv: 0,
+          todayVisitPv: 0,
+        })
+      } else payload = success({
         ...page([
           { recordNo: 'VIS-TODAY', userId: 201, displayStatus: 'clear', nickname: '星河', avatar: null, age: 26, groupKey: 'today', visitCount: 2, lastVisitTime: '2026-08-04 10:00:00', onlineText: '10分钟前在线', weakTags: [] },
           { recordNo: 'VIS-YESTERDAY', userId: 202, displayStatus: 'blur', nickname: '不可泄露昵称', avatar: null, age: null, groupKey: 'yesterday', visitCount: 1, lastVisitTime: '2026-08-03 19:00:00', onlineText: '昨天来访', weakTags: ['本科', '杭州'] },

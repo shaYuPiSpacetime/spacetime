@@ -15,7 +15,7 @@ const routes = [
     (pkg.pages || []).map(page => `${pkg.root}/${page}`)
   ),
 ]
-assert.equal(routes.length, 75, `dist/app.json 页面数应为 75，实际为 ${routes.length}`)
+assert.equal(routes.length, 84, `dist/app.json 页面数应为 84，实际为 ${routes.length}`)
 
 function countRegistrations(source, expression) {
   return [...source.matchAll(expression)].length

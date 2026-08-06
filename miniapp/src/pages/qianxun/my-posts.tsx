@@ -2,7 +2,9 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
+import { QianxunActionStat } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import {
   COMMUNITY_COPY_KEYS,
   deleteCommunityPost,
@@ -81,7 +83,7 @@ export default function QianxunMyPostsPage() {
         getMyCommunityPosts(1, 50),
       ])
       setConfig(runtime)
-      const serverPosts = (postPage.records || []).map(toPostReceipt)
+      const serverPosts = (postPage.records || []).filter(item => shouldDisplayMyCommunityPost(item.status)).map(toPostReceipt)
       setReceipts(serverPosts)
       const auth = useAuthStore.getState()
       const source = home.profile || {}
@@ -140,7 +142,7 @@ export default function QianxunMyPostsPage() {
   return (
     <View id="qianxun-my-posts-page" style={{ height: '100vh', background: 'linear-gradient(105deg, #EEFFFC 0%, #F2F6FF 55%, #FEFFF4 100%)', overflow: 'hidden' }}>
       <ProfileHeader profile={profile} />
-      <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '544rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '430rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
         <MainTabs />
         <ScrollView scrollY style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
           <View style={{ padding: '0 25rpx 60rpx' }}>
@@ -167,16 +169,16 @@ function ProfileHeader({ profile }: { profile: ProfileSummary }) {
     { label: '获赞', value: profile.receivedLikeCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions?likes=1' }) },
   ]
   return (
-    <View style={{ height: '544rpx', position: 'relative' }}>
+    <View style={{ height: '430rpx', position: 'relative' }}>
       <NativeNavigation title="千寻互动" background="transparent" />
-      <View style={{ position: 'absolute', left: '33rpx', top: '294rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
+      <View style={{ position: 'absolute', left: '33rpx', top: '226rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
         <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
         <View style={{ marginLeft: '20rpx', minWidth: 0 }}>
           <Text style={{ display: 'block', color: '#222222', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600 }}>{profile.nickname}</Text>
           <Text style={{ display: 'block', color: '#999999', fontSize: '23rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.description}</Text>
         </View>
       </View>
-      <View style={{ position: 'absolute', left: '28rpx', top: '442rpx', width: '510rpx', height: '62rpx', display: 'flex', alignItems: 'center' }}>
+      <View style={{ position: 'absolute', left: '28rpx', top: '356rpx', width: '550rpx', height: '62rpx', display: 'flex', alignItems: 'center' }}>
         {stats.map(item => <View key={item.label} onClick={item.onClick} style={{ minWidth: '116rpx', height: '62rpx', marginRight: '5rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#9A9FA8', fontSize: '22rpx', marginRight: '10rpx' }}>{item.label}</Text><Text style={{ color: NAVY, fontSize: '30rpx', fontWeight: 600 }}>{item.value}</Text></View>)}
       </View>
     </View>
@@ -230,8 +232,9 @@ function MyPostCard({ receipt, config, onMore, onFailure }: { receipt: MyPostRec
           <View style={{ height: '54rpx', display: 'flex', alignItems: 'flex-end' }}>
             <View onClick={onMore} style={{ width: '74rpx', height: '52rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '8rpx' }}>···</Text></View>
             <View style={{ flex: 1 }} />
-            <Text style={{ color: '#999999', fontSize: '22rpx' }}>◯ {receipt.commentCount}</Text>
-            <Text style={{ color: '#FF6C79', fontSize: '22rpx', marginLeft: '28rpx' }}>♥ {receipt.likeCount}</Text>
+            <QianxunActionStat kind="comment" count={receipt.commentCount} />
+            <View style={{ width: '30rpx' }} />
+            <QianxunActionStat kind="like" count={receipt.likeCount} active />
           </View>
           {receipt.status === 'rejected' && receipt.failureMessage ? <View onClick={onFailure} style={{ minHeight: '52rpx', paddingTop: '12rpx' }}><Text style={{ color: '#D44747', fontSize: '22rpx' }}>{receipt.failureMessage}</Text></View> : null}
         </View>

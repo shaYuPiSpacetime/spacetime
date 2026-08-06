@@ -73,7 +73,12 @@ assert.doesNotMatch(mutual, /fallbackPeople|MAT-DEMO/, '相互喜欢页不得使
 assert.match(user, /getPublicProfile/, '用户主页必须读取已审核公开资料')
 assert.match(user, /profile\.age/, '用户主页基础资料必须使用真实公开字段')
 assert.match(user, /liked \? '取消喜欢' : '喜欢'/, '用户主页必须按最新关系状态展示喜欢/取消喜欢')
-assert.match(user, /matched \? '聊天' : '打招呼'/, '用户主页主按钮必须按匹配状态展示聊天/打招呼')
+assert.match(
+  user,
+  /profile\.communicationMode === 'PRIVATE_MESSAGE' \? '私信' : '悄悄话'/,
+  '用户主页主按钮必须使用服务端沟通模式展示私信/悄悄话',
+)
+assert.doesNotMatch(user, /matched \? '聊天' : '打招呼'/, '用户主页不得再按匹配状态猜测沟通入口')
 
 assert.match(appConfig, /root: 'pages\/heart'/, '相互喜欢和用户主页必须注册心动分包')
 assert.match(appConfig, /'mutual'/, '相互喜欢页面必须注册')

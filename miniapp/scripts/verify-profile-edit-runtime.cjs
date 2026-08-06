@@ -8,6 +8,7 @@ const automator = require('/tmp/spacetime-wx-automator/node_modules/miniprogram-
 const projectPath = path.resolve(__dirname, '..')
 const cliPath = '/Applications/wechatwebdevtools.app/Contents/MacOS/cli'
 const automationPort = Number(process.env.WX_AUTO_PORT || 9425)
+const idePort = Number(process.env.WX_IDE_PORT || 57814)
 
 function withTimeout(promise, label, timeout = 20000) {
   return Promise.race([
@@ -37,13 +38,15 @@ async function findTextElement(page, value) {
 
 async function waitForElementText(page, selector, matcher, label, timeout = 6000) {
   const startedAt = Date.now()
+  let lastText = ''
   while (Date.now() - startedAt < timeout) {
     const element = await page.$(selector)
     const text = element ? await element.text() : ''
+    lastText = text
     if (matcher.test(text)) return { element, text }
     await page.waitFor(200)
   }
-  throw new Error(`${label}未在${timeout}ms内出现`)
+  throw new Error(`${label}未在${timeout}ms内出现，最后文本：${lastText || '空'}`)
 }
 
 async function waitForPageText(page, value, label, timeout = 6000) {
@@ -67,10 +70,16 @@ async function waitForElement(page, selector, label, timeout = 6000) {
 }
 
 async function open(miniProgram, route) {
-  const page = await withTimeout(miniProgram.reLaunch(route), `${route} 跳转`)
+  let page = await withTimeout(miniProgram.reLaunch(route), `${route} 跳转`)
   await page.waitFor(4200)
-  const current = await miniProgram.currentPage()
-  assert.equal(current.path, route.split('?')[0].slice(1), `${route} 路由不一致`)
+  let current = await miniProgram.currentPage()
+  const expectedPath = route.split('?')[0].slice(1)
+  if (current.path !== expectedPath) {
+    page = await withTimeout(miniProgram.navigateTo(route), `${route} 二次跳转`)
+    await page.waitFor(1800)
+    current = await miniProgram.currentPage()
+  }
+  assert.equal(current.path, expectedPath, `${route} 路由不一致`)
   return page
 }
 
@@ -87,7 +96,8 @@ async function open(miniProgram, route) {
       cliPath,
       projectPath,
       port: automationPort,
-      args: ['--port', '9527'],
+      args: ['--port', String(idePort)],
+      trustProject: true,
     })
   }
 
@@ -102,7 +112,7 @@ async function open(miniProgram, route) {
   await miniProgram.callWxMethod('setStorageSync', 'token', 'dev-fixed-token-17366629764')
 
   let page = await open(miniProgram, '/pages/profile/edit')
-  const editTexts = await assertTexts(page, ['编辑资料', '主页预览', '基础资料', '我的标签', '关于我', '爱听的歌曲'])
+  const editTexts = await assertTexts(page, ['编辑资料', '主页预览', '基础资料', '我的标签', '关于我', '爱听的歌曲', '见面便好', '喜欢的见面活动', '住房情况'])
   const backButton = await page.$('.profile-edit-back')
   assert.ok(backButton, '编辑资料页缺少可点击返回按钮')
   await backButton.tap()
@@ -136,18 +146,13 @@ async function open(miniProgram, route) {
   const deleteButton = await findTextElement(page, '删除')
   assert.ok(deleteButton, '录制完成后缺少删除入口')
   await deleteButton.tap()
-  await waitForPageText(page, '删除语音介绍', '本地录音删除确认态')
-  const cancelDelete = await page.$('#voice-confirm-left')
-  assert.ok(cancelDelete, '删除确认弹层缺少取消按钮')
-  await cancelDelete.tap()
-  await waitForPageText(page, '录制完成', '取消删除后的状态恢复')
-  const deleteAgain = await findTextElement(page, '删除')
-  assert.ok(deleteAgain, '取消删除后缺少再次删除入口')
-  await deleteAgain.tap()
-  const confirmDelete = await waitForElement(page, '#voice-confirm-right', '删除确认按钮')
+  await waitForPageText(page, '删除提示', '本地录音删除确认态')
+  const confirmDelete = await page.$('#voice-confirm-left')
+  assert.ok(confirmDelete, '删除确认弹层缺少蓝湖删除按钮')
   await confirmDelete.tap()
   await page.waitFor(500)
-  assert.equal(await page.$('#voice-confirm-right'), null, '确认删除本地录音后弹层未关闭')
+  assert.equal(await page.$('#voice-confirm-left'), null, '删除本地录音后弹层未关闭')
+  await waitForPageText(page, '使用语音介绍特别的你', '删除本地录音后的初始态恢复')
 
   page = await open(miniProgram, '/pages/verification/my-certification')
   await assertTexts(page, ['我的认证', '为什么要认证', '头像认证', '实名认证', '学历认证'])
@@ -159,7 +164,7 @@ async function open(miniProgram, route) {
   await assertTexts(page, ['关于我', '全部', '我是谁', '我的日常', '我的故事', '我热爱的'])
 
   page = await open(miniProgram, '/pages/profile-edit/songs')
-  const songTexts = await assertTexts(page, ['添加爱听的歌曲'])
+  const songTexts = await assertTexts(page, ['爱听的歌曲'])
   assert.ok(!songTexts.includes('没有找到相关歌曲'), '歌曲页首屏推荐数据仍为空')
   assert.ok(await page.$('input'), '歌曲页缺少搜索输入框')
 

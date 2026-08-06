@@ -53,17 +53,20 @@ async function captureRoute(miniProgram, route, file, label, waitMs = 2800) {
     miniProgram = await automator.launch({ cliPath, projectPath, port, args: ['--port', String(idePort)], trustProject: true })
   }
   connectedMiniProgram = miniProgram
+  console.log('[1/8] 已连接微信开发者工具')
 
   const exceptions = []
   miniProgram.on('exception', error => exceptions.push(String(error?.message || error)))
   await miniProgram.callWxMethod('setStorageSync', 'token', 'dev-fixed-token-17366629764')
   const system = await miniProgram.systemInfo()
+  console.log('[2/8] 已写入测试登录态并读取设备信息')
   const outputDir = path.join(outputRoot, `微信运行-${system.windowWidth}x${system.windowHeight}`)
   fs.mkdirSync(outputDir, { recursive: true })
 
   const page = await timeout(miniProgram.reLaunch('/pages/index/index'), '千寻成家刷新跳转')
   await page.waitFor(4200)
   assert.equal((await miniProgram.currentPage()).path, 'pages/index/index', '千寻成家路由错误')
+  console.log('[3/8] 千寻成家首页已就绪')
   await timeout(miniProgram.screenshot({ path: path.join(outputDir, '00-千寻-成家-首屏.png') }), '首屏截图')
   assert.ok(await page.$('#qianxun-scene-FOLLOWING'), '刷新后成家二级 Tab 必须立即渲染')
 
@@ -76,6 +79,7 @@ async function captureRoute(miniProgram, route, file, label, waitMs = 2800) {
   await timeout(miniProgram.screenshot({ path: hotFile }), '热门截图')
 
   assert.notEqual(sha1(cityFile), sha1(hotFile), '同城与热门截图不得相同')
+  console.log('[4/8] 成家场景截图完成')
 
   const firstPost = await page.$('.qianxun-community-card')
   if (firstPost) {
@@ -85,23 +89,39 @@ async function captureRoute(miniProgram, route, file, label, waitMs = 2800) {
   }
 
   await captureRoute(miniProgram, '/pages/qianxun/compose', path.join(outputDir, '04-发布动态.png'), '发布动态')
-  await captureRoute(miniProgram, '/pages/qianxun/topic', path.join(outputDir, '05-话题.png'), '话题')
-  const interactionsPage = await captureRoute(miniProgram, '/pages/qianxun/interactions', path.join(outputDir, '06-千寻互动.png'), '千寻互动')
-  await selectById(interactionsPage, 'qianxun-interactions-tab-history', '互动浏览记录 Tab', 120)
+  const topicHome = await timeout(miniProgram.reLaunch('/pages/index/index'), '话题入口跳转')
+  await topicHome.waitFor(3600)
+  await selectScene(topicHome, 'HOT')
+  await selectById(topicHome, 'qianxun-topic-featured', '精选话题入口', 1600)
+  assert.equal((await miniProgram.currentPage()).path, 'pages/qianxun/topic', '精选话题必须进入真实话题详情')
+  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '05-话题.png') }), '话题截图')
+  console.log('[5/8] 动态详情、发布与真实话题截图完成')
+  const interactionsPage = await captureRoute(miniProgram, '/pages/qianxun/interactions', path.join(outputDir, '06-千寻互动-评论过.png'), '千寻互动')
+  await selectById(interactionsPage, 'qianxun-interactions-filter-commented', '互动评论过筛选', 500)
+  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '06-千寻互动-评论过.png') }), '互动评论过截图')
+  await selectById(interactionsPage, 'qianxun-interactions-filter-liked', '互动点赞过筛选', 300)
+  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '06-1-千寻互动-点赞过.png') }), '互动点赞过截图')
+  await selectById(interactionsPage, 'qianxun-interactions-filter-unlocked', '互动解锁过筛选', 300)
+  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '06-2-千寻互动-解锁过.png') }), '互动解锁过截图')
+  await selectById(interactionsPage, 'qianxun-interactions-tab-history', '互动浏览记录 Tab', 900)
   assert.ok(await interactionsPage.$('#qianxun-interactions-panel-history'), '浏览记录内容区必须保持挂载')
-  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '06-1-千寻互动-浏览记录.png') }), '互动浏览记录截图')
-  await selectById(interactionsPage, 'qianxun-interactions-tab-mine', '互动我的动态 Tab', 120)
+  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '06-3-千寻互动-浏览记录.png') }), '互动浏览记录截图')
+  await selectById(interactionsPage, 'qianxun-interactions-tab-mine', '互动我的动态 Tab', 900)
   assert.ok(await interactionsPage.$('#qianxun-interactions-panel-mine'), '我的动态内容区必须保持挂载')
-  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '06-2-千寻互动-我的动态.png') }), '互动我的动态截图')
+  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '06-4-千寻互动-我的动态.png') }), '互动我的动态截图')
+  console.log('[6/8] 千寻互动各筛选与浏览记录截图完成')
   await captureRoute(miniProgram, '/pages/qianxun/my-posts', path.join(outputDir, '07-我的动态.png'), '我的动态')
   const zhiyinPage = await timeout(miniProgram.reLaunch('/pages/index/index'), '知音 Tab 跳转')
   await zhiyinPage.waitFor(3800)
   await selectById(zhiyinPage, 'qianxun-primary-kindred', '千寻知音一级 Tab', 3200)
-  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '08-知音-悦目.png') }), '知音悦目截图')
   await selectById(zhiyinPage, 'qianxun-zhiyin-sincere', '知音诚意贴二级 Tab', 3200)
   await timeout(miniProgram.screenshot({ path: path.join(outputDir, '09-知音-诚意贴.png') }), '知音诚意贴截图')
+  await selectById(zhiyinPage, 'qianxun-zhiyin-yuemu', '知音悦目二级 Tab', 3200)
+  await timeout(miniProgram.screenshot({ path: path.join(outputDir, '08-知音-悦目.png') }), '知音悦目截图')
+  console.log('[7/8] 我的动态与知音截图完成')
 
   assert.equal(exceptions.length, 0, `运行异常：${exceptions.join('；')}`)
+  console.log('[8/8] 运行异常检查通过')
   console.log(`千寻 66 稿主页面运行截图完成：${outputDir}`)
 })().catch(error => {
   console.error(error?.stack || error)

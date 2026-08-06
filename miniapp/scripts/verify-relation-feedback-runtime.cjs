@@ -74,6 +74,35 @@ async function captureEvidence(miniProgram, filename, label) {
   }
 }
 
+async function assertEmptyStateLayout(page, label) {
+  const state = await waitForSelector(page, '#relation-empty-state', `${label}空态`)
+  const illustration = await waitForSelector(page, '#relation-empty-illustration', `${label}空态插画`)
+  const membershipEntry = await waitForSelector(page, '#relation-membership-entry', `${label}会员入口`)
+  const image = await illustration.$('image')
+  const message = await state.$('text')
+  assert.ok(image, `${label}空态必须展示插画`)
+  assert.ok(message, `${label}空态必须展示文案`)
+  const [stateOffset, stateSize, imageOffset, imageSize, messageOffset, messageSize, membershipOffset, stateWxml] = await Promise.all([
+    state.offset(),
+    state.size(),
+    image.offset(),
+    image.size(),
+    message.offset(),
+    message.size(),
+    membershipEntry.offset(),
+    state.outerWxml(),
+  ])
+  const stateCenter = stateOffset.left + stateSize.width / 2
+  const imageCenter = imageOffset.left + imageSize.width / 2
+  assert.ok(Math.abs(stateCenter - imageCenter) <= 1, `${label}空态插画必须水平居中`)
+  const stateVerticalCenter = stateOffset.top + stateSize.height / 2
+  const contentVerticalCenter = (imageOffset.top + messageOffset.top + messageSize.height) / 2
+  assert.ok(Math.abs(stateVerticalCenter - contentVerticalCenter) <= 2, `${label}空态插画与文案必须整体垂直居中`)
+  const stateBottomGap = membershipOffset.top - (stateOffset.top + stateSize.height)
+  assert.ok(stateBottomGap >= 0 && stateBottomGap <= 20, `${label}空态必须撑满至底部会员入口上方，当前间距 ${stateBottomGap}px`)
+  assert.doesNotMatch(stateWxml, /重新加载/, `${label}空态不得展示重新加载按钮`)
+}
+
 ;(async () => {
   let miniProgram
   try {
@@ -158,8 +187,14 @@ async function captureEvidence(miniProgram, filename, label) {
     mock.state.likesMode = 'empty'
     console.log('开始校验空态与错误态')
     page = await relaunch(miniProgram, '/pages/community/index?tab=likes', '#relation-feedback-page')
-    await waitForSelector(page, '#relation-empty-state', '喜欢列表空态')
+    await assertEmptyStateLayout(page, '喜欢列表')
     await captureEvidence(miniProgram, '04-喜欢列表空态.png', '喜欢空态')
+
+    mock.state.visitorsMode = 'empty'
+    page = await relaunch(miniProgram, '/pages/community/index?tab=visitors', '#relation-feedback-page')
+    await assertEmptyStateLayout(page, '访客列表')
+    await captureEvidence(miniProgram, '04b-访客列表空态.png', '访客空态')
+    mock.state.visitorsMode = 'ready'
 
     mock.state.likesMode = 'error'
     page = await relaunch(miniProgram, '/pages/community/index?tab=likes', '#relation-feedback-page')

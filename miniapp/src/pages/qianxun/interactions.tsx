@@ -2,7 +2,9 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
+import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { prd01Api } from '@/services/prd01'
 import {
@@ -13,7 +15,6 @@ import {
   getCommunityInteractions,
   getCommunityPostInteractors,
   getCommunityProfileSummary,
-  getCommunityViewHistory,
   getMyCommunityPosts,
   resolveCommunityCopy,
   resolveCommunityFeedback,
@@ -51,6 +52,8 @@ interface InteractionRecord {
   nickname: string
   avatar: string
   description: string
+  interactionTime?: string
+  post?: CommunityPostVO
 }
 
 interface MyPostSnapshot {
@@ -82,7 +85,7 @@ export default function QianxunInteractionsPage() {
   const [section, setSection] = useState<MainSection>('interaction')
   const [filter, setFilter] = useState<InteractionFilter>('commented')
   const [records, setRecords] = useState<InteractionRecord[]>([])
-  const [history, setHistory] = useState<CommunityPostVO[]>([])
+  const [history, setHistory] = useState<InteractionRecord[]>([])
   const [myPosts, setMyPosts] = useState<MyPostSnapshot[]>([])
   const [roster, setRoster] = useState<RosterKind | null>(null)
   const [rosterUsers, setRosterUsers] = useState<CommunityRelationUserVO[]>([])
@@ -134,7 +137,7 @@ export default function QianxunInteractionsPage() {
         getCommunityInteractions('commented', 1, 50),
         getCommunityInteractions('liked', 1, 50),
         getCommunityInteractions('unlocked', 1, 50),
-        getCommunityViewHistory(1, 50),
+        getCommunityInteractions('viewed', 1, 50),
         getMyCommunityPosts(1, 50),
       ])
       setConfig(runtime)
@@ -156,9 +159,20 @@ export default function QianxunInteractionsPage() {
         nickname: item.nickname,
         avatar: item.avatar,
         description: item.description,
+        interactionTime: item.interactionTime,
+        post: item.post,
       })))
-      setHistory(viewHistory.records || [])
-      setMyPosts((myPostPage.records || []).map(toMyPostSnapshot))
+      setHistory((viewHistory.records || []).map(item => ({
+        id: String(item.id),
+        kind: 'commented',
+        userId: item.targetUserId,
+        nickname: item.nickname,
+        avatar: item.avatar,
+        description: item.description,
+        interactionTime: item.interactionTime,
+        post: item.post,
+      })))
+      setMyPosts((myPostPage.records || []).filter(item => shouldDisplayMyCommunityPost(item.status)).map(toMyPostSnapshot))
     } catch (error) {
       await showError(config, error)
     } finally {
@@ -167,6 +181,11 @@ export default function QianxunInteractionsPage() {
   }
 
   const visibleRecords = useMemo(() => records.filter(item => item.kind === filter), [filter, records])
+  const visiblePostGroups = useMemo(
+    () => groupCommunityInteractions(visibleRecords.filter(item => item.post)),
+    [visibleRecords]
+  )
+  const historyGroups = useMemo(() => groupCommunityInteractions(history.filter(item => item.post)), [history])
 
   const changeSection = (next: MainSection) => {
     setSection(next)
@@ -188,6 +207,12 @@ export default function QianxunInteractionsPage() {
     } catch (error) {
       await showError(config, error)
     }
+  }
+
+  const openHistoryActions = async () => {
+    if (!history.length) return
+    const selected = await Taro.showActionSheet({ itemList: ['清空浏览记录'] })
+    if (selected.tapIndex === 0) await clearHistory()
   }
 
   if (interactorPostId) {
@@ -217,25 +242,23 @@ export default function QianxunInteractionsPage() {
         onLikes={() => setLikeSummaryVisible(true)}
         onMine={() => setSection('mine')}
       />
-      <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '544rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '430rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
         <MainTabs active={section} onChange={changeSection} />
         <View id="qianxun-interactions-panel-interaction" data-section-panel="interaction" style={sectionPanelStyle(section === 'interaction')}>
           <FilterTabs active={filter} onChange={setFilter} />
           <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '80rpx', bottom: 0 }} showScrollbar={false}>
-            {loading ? <LoadingRows /> : visibleRecords.length ? (
-              <View style={{ padding: '20rpx 26rpx 40rpx' }}>
-                {visibleRecords.map(item => <InteractionRow key={item.id} item={item} config={config} />)}
-              </View>
+            {loading ? <LoadingRows /> : (filter === 'unlocked' ? visibleRecords.length > 0 : visiblePostGroups.length > 0) ? (
+              filter === 'unlocked'
+                ? <View style={{ padding: '20rpx 26rpx 40rpx' }}>{visibleRecords.map(item => <InteractionRow key={item.id} item={item} config={config} />)}</View>
+                : <InteractionPostGroups groups={visiblePostGroups} />
             ) : <InteractionEmpty filter={filter} config={config} />}
           </ScrollView>
         </View>
         <View id="qianxun-interactions-panel-history" data-section-panel="history" style={sectionPanelStyle(section === 'history')}>
-          {history.length && !loading ? <View onClick={() => void clearHistory()} style={{ position: 'absolute', right: '26rpx', top: 0, height: '64rpx', display: 'flex', alignItems: 'center', zIndex: 2 }}><Text style={{ color: '#999999', fontSize: '23rpx' }}>清空</Text></View> : null}
-          <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: history.length && !loading ? '64rpx' : 0, bottom: 0 }} showScrollbar={false}>
-            {loading ? <LoadingRows /> : history.length ? (
-              <View style={{ padding: '18rpx 26rpx 44rpx' }}>
-                {history.map(item => <HistoryCard key={item.id} post={item} />)}
-              </View>
+          {history.length && !loading ? <View id="qianxun-history-more" role="button" onClick={() => void openHistoryActions()} style={{ position: 'absolute', right: '20rpx', top: '4rpx', width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}><Text style={{ color: '#8D929B', fontSize: '32rpx', letterSpacing: '3rpx' }}>···</Text></View> : null}
+          <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} showScrollbar={false}>
+            {loading ? <LoadingRows /> : historyGroups.length ? (
+              <InteractionPostGroups groups={historyGroups} />
             ) : <HistoryEmpty config={config} />}
           </ScrollView>
         </View>
@@ -256,16 +279,16 @@ function ProfileHeader({ profile, onFollowing, onFollowers, onLikes, onMine }: {
     { label: '获赞', value: profile.receivedLikeCount, onClick: onLikes },
   ]
   return (
-    <View style={{ height: '544rpx', position: 'relative' }}>
+    <View style={{ height: '430rpx', position: 'relative' }}>
       <SimpleHeader title="千寻互动" onBack={() => void Taro.navigateBack()} transparent />
-      <View style={{ position: 'absolute', left: '33rpx', top: '294rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
+      <View style={{ position: 'absolute', left: '33rpx', top: '226rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
         <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
         <View style={{ marginLeft: '20rpx', minWidth: 0 }}>
           <Text style={{ display: 'block', color: '#222222', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600 }}>{profile.nickname}</Text>
           <Text style={{ display: 'block', color: '#999999', fontSize: '23rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.description}</Text>
         </View>
       </View>
-      <View style={{ position: 'absolute', left: '28rpx', top: '442rpx', width: '510rpx', height: '62rpx', display: 'flex', alignItems: 'center' }}>
+      <View style={{ position: 'absolute', left: '28rpx', top: '356rpx', width: '550rpx', height: '62rpx', display: 'flex', alignItems: 'center' }}>
         {stats.map(item => (
           <View key={item.label} onClick={item.onClick} style={{ minWidth: '116rpx', height: '62rpx', marginRight: '5rpx', display: 'flex', alignItems: 'center' }}>
             <Text style={{ color: '#9A9FA8', fontSize: '22rpx', marginRight: '10rpx' }}>{item.label}</Text>
@@ -332,6 +355,7 @@ function MinePanel({ loading, posts, config }: { loading: boolean; posts: MyPost
 }
 
 function MyPostSnapshotCard({ item, config }: { item: MyPostSnapshot; config?: CommunityConfig }) {
+  const date = splitMyPostDate(item.createdAt)
   const open = () => {
     if (item.postId && item.status === 'published') {
       void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.postId}` })
@@ -342,7 +366,7 @@ function MyPostSnapshotCard({ item, config }: { item: MyPostSnapshot; config?: C
   return (
     <View onClick={open} style={{ padding: '30rpx 0 24rpx', borderBottom: '2rpx solid #EEF3F8' }}>
       <View style={{ display: 'flex', alignItems: 'flex-start' }}>
-        <Text style={{ width: '112rpx', color: '#8F8F8F', fontSize: '23rpx', lineHeight: '40rpx', flexShrink: 0 }}>{formatDate(item.createdAt)}</Text>
+        <View style={{ width: '112rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', lineHeight: '42rpx' }}>{item.content}</Text>
           {item.imageUrls[0] ? <Image src={item.imageUrls[0]} mode="aspectFill" style={{ width: '260rpx', height: '190rpx', borderRadius: '9rpx', background: '#F1F3F6', marginTop: '16rpx' }} /> : null}
@@ -350,8 +374,9 @@ function MyPostSnapshotCard({ item, config }: { item: MyPostSnapshot; config?: C
           <View style={{ marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
             {item.status !== 'published' ? <Text style={{ color: item.status === 'rejected' ? '#D44747' : BLUE, fontSize: '21rpx' }}>{resolveCommunityStatusLabel(config, item.status, item.statusName)}</Text> : null}
             <View style={{ flex: 1 }} />
-            <Text style={{ color: '#999999', fontSize: '21rpx' }}>◯ {item.commentCount}</Text>
-            <Text style={{ color: '#FF6C79', fontSize: '21rpx', marginLeft: '24rpx' }}>♥ {item.likeCount}</Text>
+            <QianxunActionStat kind="comment" count={item.commentCount} fontSize="21rpx" />
+            <View style={{ width: '30rpx' }} />
+            <QianxunActionStat kind="like" count={item.likeCount} active fontSize="21rpx" />
           </View>
         </View>
       </View>
@@ -373,7 +398,7 @@ function FilterTabs({ active, onChange }: { active: InteractionFilter; onChange:
     <View style={{ height: '80rpx', padding: '4rpx 27rpx 12rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
       {tabs.map(item => {
         const selected = active === item.key
-        return <View key={item.key} onClick={() => onChange(item.key)} style={{ height: '56rpx', borderRadius: '28rpx', padding: '0 22rpx', marginRight: '12rpx', background: selected ? BLUE : '#F5F6F8', display: 'flex', alignItems: 'center' }}><Text style={{ color: selected ? '#FFFFFF' : '#AAAAAA', fontSize: '24rpx' }}>{item.label}</Text></View>
+        return <View key={item.key} id={`qianxun-interactions-filter-${item.key}`} onClick={() => onChange(item.key)} style={{ height: '56rpx', borderRadius: '28rpx', padding: '0 22rpx', marginRight: '12rpx', background: selected ? BLUE : '#F5F6F8', display: 'flex', alignItems: 'center' }}><Text style={{ color: selected ? '#FFFFFF' : '#AAAAAA', fontSize: '24rpx' }}>{item.label}</Text></View>
       })}
     </View>
   )
@@ -425,16 +450,42 @@ function InteractionRow({ item, config }: { item: InteractionRecord; config?: Co
   )
 }
 
-function HistoryCard({ post }: { post: CommunityPostVO }) {
+function InteractionPostGroups({ groups }: { groups: Array<{ key: string; label: string; items: InteractionRecord[] }> }) {
   return (
-    <View onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} style={{ padding: '22rpx 0 28rpx', borderBottom: '2rpx solid #F0F3F8' }}>
+    <View style={{ padding: '18rpx 26rpx 52rpx' }}>
+      {groups.map((group, groupIndex) => (
+        <View key={group.key} style={{ paddingTop: groupIndex ? '38rpx' : 0 }}>
+          <Text className="qianxun-interaction-date-group" data-date-label={group.label} style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '36rpx', marginBottom: '28rpx' }}>{group.label}</Text>
+          {group.items.map(item => item.post ? <InteractionPostCard key={item.id} post={item.post} /> : null)}
+        </View>
+      ))}
+    </View>
+  )
+}
+
+function InteractionPostCard({ post }: { post: CommunityPostVO }) {
+  return (
+    <View className="qianxun-interaction-post-card" onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} style={{ padding: '0 0 32rpx', marginBottom: '38rpx', borderBottom: '2rpx solid #F0F3F8' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}>
         <Image src={normalizeAvatarUrl(post.authorAvatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }} />
-        <View style={{ marginLeft: '16rpx', flex: 1, minWidth: 0 }}><Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', fontWeight: 600 }}>{post.authorName}</Text><Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', marginTop: '5rpx' }}>{[post.authorCity, post.authorProfession].filter(Boolean).join(' · ')}</Text></View>
+        <View style={{ marginLeft: '16rpx', flex: 1, minWidth: 0 }}>
+          <View style={{ display: 'flex', alignItems: 'center' }}>
+            <Text style={{ color: '#333333', fontSize: '27rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName}</Text>
+            <View style={{ marginLeft: '15rpx', display: 'flex', alignItems: 'center' }}><QianxunGenderIcon gender={post.authorGender} /></View>
+          </View>
+          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx', marginTop: '4rpx' }}>{[post.authorCity, post.authorProfession].filter(Boolean).join(' · ')}</Text>
+        </View>
       </View>
-      <Text style={{ display: 'block', color: '#3D3D3D', fontSize: '27rpx', lineHeight: '42rpx', marginTop: '19rpx' }}>{post.content}</Text>
-      {post.imageUrls?.[0] ? <Image src={post.imageUrls[0]} mode="aspectFill" style={{ width: '344rpx', height: '286rpx', borderRadius: '10rpx', marginTop: '17rpx', background: '#F3F5F8' }} /> : null}
-      <View style={{ marginTop: '18rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#A4A4A4', fontSize: '22rpx' }}>{formatDate(post.createTime)}</Text><View style={{ flex: 1 }} /><Text style={{ color: '#999999', fontSize: '22rpx' }}>◯ {post.commentCount}</Text><Text style={{ color: '#FF6C79', fontSize: '22rpx', marginLeft: '26rpx' }}>♥ {post.likeCount}</Text></View>
+      <Text style={{ display: 'block', color: '#3D3D3D', fontSize: '27rpx', lineHeight: '42rpx', marginTop: '20rpx' }}>{post.content}</Text>
+      {post.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '23rpx', lineHeight: '34rpx', marginTop: '12rpx' }}># {post.topicName}</Text> : null}
+      {post.imageUrls?.[0] ? <Image src={post.imageUrls[0]} mode="aspectFill" style={{ width: '100%', height: '448rpx', borderRadius: '10rpx', marginTop: '18rpx', background: '#F3F5F8' }} /> : null}
+      <View style={{ marginTop: '20rpx', height: '34rpx', display: 'flex', alignItems: 'center' }}>
+        <Text className="qianxun-interaction-card-date" style={{ color: '#A4A4A4', fontSize: '22rpx', lineHeight: '32rpx' }}>{formatInteractionCardDate(post.createTime)}</Text>
+        <View style={{ flex: 1 }} />
+        <QianxunActionStat kind="comment" count={post.commentCount} />
+        <View style={{ width: '30rpx' }} />
+        <QianxunActionStat kind="like" count={post.likeCount} active={post.liked} />
+      </View>
     </View>
   )
 }
@@ -486,7 +537,9 @@ function LikeSummary({ count, nickname, onClose }: { count: number; nickname: st
   return (
     <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '46rpx 50rpx 28rpx', boxSizing: 'border-box' }}>
-        <View style={{ height: '126rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FF6776', fontSize: '82rpx' }}>♡</Text><Text style={{ color: '#FF6776', fontSize: '46rpx', marginLeft: '-8rpx', marginTop: '-54rpx' }}>♥</Text></View>
+        <View style={{ height: '126rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {[0, 1, 2, 3, 4].map(index => <Image key={index} src={miniappOssIcons.qianxunLikeActive} mode="aspectFit" style={{ width: index === 2 ? '42rpx' : '32rpx', height: index === 2 ? '42rpx' : '32rpx', margin: index === 2 ? '0 10rpx' : '0 5rpx', marginTop: index % 2 ? '-20rpx' : '14rpx' }} />)}
+        </View>
         <Text style={{ display: 'block', color: '#222222', fontSize: '30rpx', lineHeight: '44rpx', fontWeight: 600, textAlign: 'center' }}>“{nickname}”共获得{count}个赞</Text>
         <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '39rpx', textAlign: 'center', marginTop: '14rpx' }}>获赞数含动态、日常、诚意帖点赞，重复点赞仅累计一次</Text>
         <View onClick={onClose} style={{ height: '70rpx', borderRadius: '7rpx', background: BLUE, marginTop: '38rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx' }}>我知道了</Text></View>
@@ -520,9 +573,10 @@ function readNonNegativeNumber(value: unknown) {
   return Number.isFinite(number) ? Math.max(0, number) : 0
 }
 
-function formatDate(value: string) {
+function splitMyPostDate(value: string) {
   const match = String(value || '').match(/\d{4}-(\d{2})-(\d{2})/)
-  return match ? `${match[1]}-${match[2]}` : String(value || '')
+  if (!match) return { day: '--', month: '' }
+  return { day: String(Number(match[2])), month: `${Number(match[1])}月` }
 }
 
 async function showError(config: CommunityConfig | undefined, error: unknown) {

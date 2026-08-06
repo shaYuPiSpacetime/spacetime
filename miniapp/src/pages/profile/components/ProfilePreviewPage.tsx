@@ -1,9 +1,11 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
+import HeartMessageHeader from '@/components/HeartMessageHeader'
 import ProfilePreviewTopNav from '@/components/ProfilePreviewTopNav'
 import ProfileTagChip from '@/components/ProfileTagChip'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { buildProfilePreviewVisibility } from '@/domain/profilePreviewVisibility'
 import type { ProfileTagItem } from '@/utils/profileTags'
 
 export type ProfilePreviewModel = {
@@ -31,12 +33,17 @@ export type ProfilePreviewModel = {
   relationshipStatus: string
   favoriteSong: string
   aboutMe: Array<{ title: string; value: string }>
+  detailInfo?: string[]
 }
 
 type ProfilePreviewPageProps = {
   model: ProfilePreviewModel
   onBack: () => void
-  onEdit: () => void
+  onEdit?: () => void
+  variant?: 'owner-preview' | 'public-profile'
+  onSafetyActions?: () => void
+  additionalContent?: ReactNode
+  footer?: ReactNode
 }
 
 type ProfilePreviewCardProps = {
@@ -58,7 +65,16 @@ const certificationIcons = {
   education: miniappOssIcons.profilePreviewCertEducation,
 }
 
-export default function ProfilePreviewPage({ model, onBack, onEdit }: ProfilePreviewPageProps) {
+export default function ProfilePreviewPage({
+  model,
+  onBack,
+  onEdit,
+  variant = 'owner-preview',
+  onSafetyActions,
+  additionalContent,
+  footer,
+}: ProfilePreviewPageProps) {
+  const visibleContent = buildProfilePreviewVisibility(model)
   const showShare = () => {
     void Taro.showShareMenu({ withShareTicket: true }).catch(() => {
       Taro.showToast({ title: '请使用右上角分享', icon: 'none' })
@@ -71,36 +87,45 @@ export default function ProfilePreviewPage({ model, onBack, onEdit }: ProfilePre
         <View
           style={{
             width: '750rpx',
-            minHeight: '5900rpx',
+            minHeight: '100vh',
             boxSizing: 'border-box',
           }}
         >
-          <ProfilePreviewTopNav
-            activeTab="preview"
-            onBack={onBack}
-            onTabChange={tab => {
-              if (tab === 'form') onEdit()
-            }}
-          />
+          {variant === 'owner-preview' ? (
+            <ProfilePreviewTopNav
+              activeTab="preview"
+              onBack={onBack}
+              onTabChange={tab => {
+                if (tab === 'form') onEdit?.()
+              }}
+            />
+          ) : <HeartMessageHeader title="用户主页" align="center" showBack />}
           <View style={{ width: '700rpx', margin: '0 auto' }}>
-            <ProfilePreviewHero model={model} onShare={showShare} />
-            <ProfilePreviewBasicInfo model={model} />
-            <ProfilePreviewTagSection tags={model.tags} />
-            <ProfilePreviewIntroduction introduction={model.introduction} />
-            <ProfilePreviewPhoto url={model.photos[0]} />
-            <ProfilePreviewCertification certifications={model.certifications} />
-            <ProfilePreviewPhoto url={model.photos[1]} />
-            <ProfilePreviewSong favoriteSong={model.favoriteSong} />
-            <ProfilePreviewPhoto url={model.photos[2]} />
-            <ProfilePreviewPhoto url={model.photos[3]} />
+            <ProfilePreviewHero model={model} onShare={showShare} onSafetyActions={onSafetyActions} />
+            {(variant === 'owner-preview' || model.genderAgeHeight || model.location)
+              ? <ProfilePreviewBasicInfo model={model} variant={variant} />
+              : null}
+            {model.detailInfo?.length ? <ProfilePreviewDetailInfo items={model.detailInfo} /> : null}
+            {visibleContent.tags.length ? <ProfilePreviewTagSection tags={visibleContent.tags} /> : null}
+            {visibleContent.introduction ? <ProfilePreviewIntroduction introduction={visibleContent.introduction} /> : null}
+            {visibleContent.photos[0] ? <ProfilePreviewPhoto url={visibleContent.photos[0]} /> : null}
+            {visibleContent.showCertification ? <ProfilePreviewCertification certifications={model.certifications} /> : null}
+            {visibleContent.photos[1] ? <ProfilePreviewPhoto url={visibleContent.photos[1]} /> : null}
+            {visibleContent.favoriteSong ? <ProfilePreviewSong favoriteSong={visibleContent.favoriteSong} /> : null}
+            {visibleContent.photos.slice(2).map((url, index) => (
+              <ProfilePreviewPhoto key={`${url}-${index}`} url={url} />
+            ))}
+            {additionalContent}
+            {footer ? <View style={{ height: '160rpx' }} /> : null}
           </View>
         </View>
       </ScrollView>
+      {footer}
     </View>
   )
 }
 
-function ProfilePreviewHero({ model, onShare }: { model: ProfilePreviewModel; onShare: () => void }) {
+function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: ProfilePreviewModel; onShare: () => void; onSafetyActions?: () => void }) {
   const verifiedCount = model.certifications.filter(item => item.passed).length
   const playVoice = () => {
     if (!model.voice.url) return
@@ -136,6 +161,11 @@ function ProfilePreviewHero({ model, onShare }: { model: ProfilePreviewModel; on
         onClick={onShare}
         style={{ position: 'absolute', right: '30rpx', top: '28rpx', width: '48rpx', height: '48rpx', borderRadius: '24rpx' }}
       />
+      {onSafetyActions ? (
+        <View onClick={onSafetyActions} style={{ position: 'absolute', left: '30rpx', top: '28rpx', zIndex: 4, padding: '10rpx 18rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.28)' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>举报 · 拉黑</Text>
+        </View>
+      ) : null}
       <Image
         src={model.avatarUrl || miniappOssIcons.profilePreviewAvatar}
         mode="scaleToFill"
@@ -160,12 +190,12 @@ function ProfilePreviewHero({ model, onShare }: { model: ProfilePreviewModel; on
           <Text style={{ color: '#FFFFFF', fontSize: '38rpx', lineHeight: '53rpx', fontWeight: 500, textShadow: '0 3rpx 4rpx rgba(0,0,0,0.5)', whiteSpace: 'nowrap' }}>
             {model.nickname || '昵称待完善'}
           </Text>
-          <View style={{ width: '168rpx', height: '48rpx', borderRadius: '24rpx', background: '#E3F1FE', marginLeft: '10rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+          {model.certifications.length ? <View style={{ width: '168rpx', height: '48rpx', borderRadius: '24rpx', background: '#E3F1FE', marginLeft: '10rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
             <Image src={miniappOssIcons.profileCertification} mode="aspectFit" style={{ width: '30rpx', height: '30rpx', marginRight: '8rpx' }} />
             <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx', fontWeight: 500 }}>
               {verifiedCount}/{model.certifications.length}项认证
             </Text>
-          </View>
+          </View> : null}
         </View>
         {model.datingGoal || model.relationshipStatus ? (
           <View style={{ width: '148rpx', height: '48rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.2)', marginTop: '10rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
@@ -180,7 +210,7 @@ function ProfilePreviewHero({ model, onShare }: { model: ProfilePreviewModel; on
   )
 }
 
-function ProfilePreviewBasicInfo({ model }: { model: ProfilePreviewModel }) {
+function ProfilePreviewBasicInfo({ model, variant }: { model: ProfilePreviewModel; variant: 'owner-preview' | 'public-profile' }) {
   return (
     <View
       style={{
@@ -195,20 +225,34 @@ function ProfilePreviewBasicInfo({ model }: { model: ProfilePreviewModel }) {
         boxSizing: 'border-box',
       }}
     >
-      <ProfilePreviewInfoLine
+      {model.genderAgeHeight || variant === 'owner-preview' ? <ProfilePreviewInfoLine
         icon={miniappOssIcons.profilePreviewGender}
         iconWidth="24rpx"
         iconHeight="34rpx"
         text={model.genderAgeHeight || '基础资料待完善'}
-      />
-      <ProfilePreviewInfoLine
+      /> : null}
+      {model.location || variant === 'owner-preview' ? <ProfilePreviewInfoLine
         icon={miniappOssIcons.profilePreviewLocation}
         iconWidth="34rpx"
         iconHeight="34rpx"
         text={model.location || '地区待完善'}
-        marginTop="23rpx"
-      />
+        marginTop={model.genderAgeHeight || variant === 'owner-preview' ? '23rpx' : '0'}
+      /> : null}
     </View>
+  )
+}
+
+function ProfilePreviewDetailInfo({ items }: { items: string[] }) {
+  return (
+    <ProfilePreviewCard title="资料信息" height="auto" padding="30rpx 30rpx 34rpx">
+      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '10rpx', marginTop: '20rpx' }}>
+        {items.map((item, index) => (
+          <View key={`${item}-${index}`} style={{ minHeight: '48rpx', padding: '0 22rpx', borderRadius: '24rpx', background: '#F1F5FC', display: 'flex', alignItems: 'center' }}>
+            <Text style={{ color: '#61718A', fontSize: '23rpx' }}>{item}</Text>
+          </View>
+        ))}
+      </View>
+    </ProfilePreviewCard>
   )
 }
 
@@ -239,17 +283,13 @@ function ProfilePreviewTagSection({ tags }: { tags: ProfileTagItem[] }) {
   const visibleTags = tags.slice(0, 8)
   return (
     <ProfilePreviewCard title="我的标签" height="182rpx" padding="30rpx 40rpx 40rpx 29rpx">
-      {visibleTags.length ? (
-        <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: '10rpx', marginTop: '20rpx' }}>
-          {visibleTags.map(item => (
-              <View key={item.code} style={{ flexShrink: 0 }}>
-                <ProfileTagChip item={item} />
-              </View>
-          ))}
-        </View>
-      ) : (
-        <Text style={{ display: 'block', color: '#9AA1AF', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '20rpx' }}>暂未添加标签</Text>
-      )}
+      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: '10rpx', marginTop: '20rpx' }}>
+        {visibleTags.map(item => (
+          <View key={item.code} style={{ flexShrink: 0 }}>
+            <ProfileTagChip item={item} />
+          </View>
+        ))}
+      </View>
     </ProfilePreviewCard>
   )
 }
@@ -262,34 +302,28 @@ function ProfilePreviewIntroduction({ introduction }: { introduction: string }) 
           display: 'block',
           width: '620rpx',
           height: '104rpx',
-          color: introduction ? '#333333' : '#9AA1AF',
+          color: '#333333',
           fontSize: '26rpx',
           lineHeight: '52rpx',
           fontWeight: 400,
           textAlign: 'justify',
-          textIndent: introduction ? '54rpx' : '0',
+          textIndent: '54rpx',
           marginTop: '20rpx',
           marginLeft: '12rpx',
           overflow: 'hidden',
           whiteSpace: 'pre-wrap',
         }}
       >
-        {introduction || '暂未填写自我介绍'}
+        {introduction}
       </Text>
     </ProfilePreviewCard>
   )
 }
 
-function ProfilePreviewPhoto({ url }: { url?: string }) {
+function ProfilePreviewPhoto({ url }: { url: string }) {
   return (
     <View style={{ width: '700rpx', height: '880rpx', marginTop: '20rpx', borderRadius: '32rpx', overflow: 'hidden', background: '#F4F4F2' }}>
-      {url ? (
-        <Image src={url} mode="aspectFill" style={{ display: 'block', width: '700rpx', height: '896rpx', marginBottom: '-16rpx' }} />
-      ) : (
-        <View style={{ width: '700rpx', height: '896rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#9AA1AF', fontSize: '26rpx', lineHeight: '38rpx' }}>暂未添加照片</Text>
-        </View>
-      )}
+      <Image src={url} mode="aspectFill" style={{ display: 'block', width: '700rpx', height: '896rpx', marginBottom: '-16rpx' }} />
     </View>
   )
 }
@@ -355,8 +389,8 @@ function ProfilePreviewSong({ favoriteSong }: { favoriteSong: string }) {
       <View style={{ width: '560rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '30rpx', marginLeft: '13rpx' }}>
         <Image src={miniappOssIcons.profilePreviewSong} mode="scaleToFill" style={{ width: '98rpx', height: '98rpx', borderRadius: '49rpx' }} />
         <View style={{ marginLeft: '11rpx' }}>
-          <Text style={{ display: 'block', color: favoriteSong ? '#333333' : '#9AA1AF', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>
-            {favoriteSong || '暂未添加喜欢的歌曲'}
+          <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>
+            {favoriteSong}
           </Text>
           <Text style={{ display: 'block', color: '#333333', fontSize: '22rpx', lineHeight: '30rpx', fontWeight: 400, marginTop: '10rpx', whiteSpace: 'nowrap' }}>
             分享你的音乐灵魂，遇见相同频率的人

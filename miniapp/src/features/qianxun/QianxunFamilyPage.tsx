@@ -321,13 +321,17 @@ function CommunityCard({ post, optionLabel, onAuthor, onOpen, onTopic, onComment
   const [expanded, setExpanded] = useState(false)
   const canExpand = post.content.length > 78
   const meta = formatPostAuthorMeta(post, optionLabel)
-  const gender = post.authorGender === 'FEMALE' ? { symbol: '♀', color: '#FF7078' } : post.authorGender === 'MALE' ? { symbol: '♂', color: BLUE } : undefined
+  const genderIcon = post.authorGender === 'FEMALE'
+    ? miniappOssIcons.qianxunGenderFemale
+    : post.authorGender === 'MALE'
+      ? miniappOssIcons.qianxunGenderMale
+      : undefined
   const contactText = post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'
   return <View style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '33rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
     <View style={{ display: 'flex', alignItems: 'center' }}>
       <Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} />
       <View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
-        <View style={{ display: 'flex', alignItems: 'center', height: '38rpx' }}><Text style={{ maxWidth: '260rpx', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.authorName || '用户'}</Text>{gender ? <Text style={{ color: gender.color, fontSize: '30rpx', lineHeight: '37rpx', marginLeft: '14rpx' }}>{gender.symbol}</Text> : null}</View>
+        <View style={{ display: 'flex', alignItems: 'center', height: '38rpx' }}><Text style={{ maxWidth: '260rpx', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.authorName || '用户'}</Text>{genderIcon ? <Image src={genderIcon} mode="aspectFit" style={{ width: '32rpx', height: '32rpx', marginLeft: '14rpx', flexShrink: 0 }} /> : null}</View>
         <Text style={{ display: 'block', maxWidth: '390rpx', color: BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '9rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text>
       </View>
       <View className="qianxun-family-follow" onClick={onFollow} style={{ width: post.followingAuthor ? '128rpx' : '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: post.followingAuthor ? '#999999' : BLUE, fontSize: '24rpx', lineHeight: '33rpx', fontWeight: post.followingAuthor ? 400 : 500 }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View>
@@ -372,9 +376,9 @@ function PostImageGrid({ images }: { images: string[] }) {
 }
 
 function ActionStat({ kind, text, active = false }: { kind: 'contact' | 'comment' | 'like'; text: string; active?: boolean }) {
-  if (kind === 'contact') return <View style={{ display: 'flex', alignItems: 'center' }}><View style={{ width: '52rpx', height: '52rpx', borderRadius: '26rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10rpx' }}><View style={{ width: '36rpx', height: '36rpx', borderRadius: '18rpx', background: 'linear-gradient(180deg, #76B7FF 0%, #2876FF 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '24rpx' }}>YO</Text></View></View><Text style={{ color: '#4E8EFF', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{text}</Text></View>
-  const icon = kind === 'comment' ? '◯' : active ? '♥' : '♡'
-  return <View style={{ minWidth: '92rpx', marginLeft: '24rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: active ? '#D95D68' : '#999999', fontSize: '28rpx', marginRight: '8rpx' }}>{icon}</Text><Text style={{ color: active ? '#D95D68' : '#999999', fontSize: '26rpx', lineHeight: '37rpx' }}>{text}</Text></View>
+  if (kind === 'contact') return <View style={{ display: 'flex', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunWhisper} mode="aspectFit" style={{ width: '52rpx', height: '52rpx', marginRight: '10rpx', flexShrink: 0 }} /><Text style={{ color: '#4E8EFF', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{text}</Text></View>
+  const icon = kind === 'comment' ? miniappOssIcons.qianxunComment : active ? miniappOssIcons.qianxunLikeActive : miniappOssIcons.qianxunLike
+  return <View style={{ minWidth: '92rpx', marginLeft: '24rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Image src={icon} mode="aspectFit" style={{ width: '32rpx', height: '32rpx', marginRight: '8rpx', flexShrink: 0 }} /><Text style={{ color: '#999999', fontSize: '26rpx', lineHeight: '37rpx' }}>{text}</Text></View>
 }
 
 function FeedEmptyState({ tab, hasFollowing, config, onGoCity }: { tab: CommunityScene; hasFollowing: boolean; config?: CommunityConfig; onGoCity: () => void }) {
@@ -383,7 +387,7 @@ function FeedEmptyState({ tab, hasFollowing, config, onGoCity }: { tab: Communit
     ? (hasFollowing ? COMMUNITY_COPY_KEYS.emptyFollowingFeed : COMMUNITY_COPY_KEYS.emptyFollowingUsers)
     : COMMUNITY_COPY_KEYS.emptyCityFeed)
   const desc = resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyFeedDescription)
-  return <View style={{ width: '700rpx', paddingTop: '128rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+  return <View id="qianxun-family-empty-state" style={{ width: '700rpx', paddingTop: '128rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
     <Image src={miniappOssIcons.qianxunEmptyFollowing} mode="aspectFit" style={{ width: '334rpx', height: '254rpx' }} />
     <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 400, marginTop: '30rpx' }}>{title}</Text>
     <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '20rpx' }}>{desc}</Text>

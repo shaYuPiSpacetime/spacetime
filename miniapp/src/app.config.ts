@@ -96,6 +96,20 @@ export default {
       root: 'pages/promotion',
       pages: ['invite-home', 'invite-records', 'invite-rules'],
     },
+    {
+      root: 'pages/prd08',
+      pages: [
+        'recommend/waiting/index',
+        'recommend/replay/index',
+        'recommend/preference/index',
+        'recommend/meeting-preference/index',
+        'ideal/filter/index',
+        'ideal/results/index',
+        'ideal/records/index',
+        'ideal/unlocks/index',
+        'ideal/help/index',
+      ],
+    },
   ],
   window: {
     backgroundTextStyle: 'light',

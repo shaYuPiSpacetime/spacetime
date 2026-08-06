@@ -2,7 +2,16 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import {
+  hasPartialBasicProfile,
+  isVerificationStepSubmitted,
+  resolveCertificationChecklist,
+  resolveVerificationOnboardingRoute,
+} from '@/domain/verificationOnboardingFlow'
+import VerificationEntryView from '@/features/verification/VerificationEntryView'
 import { useProfile } from '@/hooks/useProfile'
+import { useMessageStore } from '@/stores/messageStore'
+import { usePrd01Store } from '@/stores/prd01Store'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import type { MyMembership } from '@/types/membership'
 
@@ -15,8 +24,13 @@ import cardInvite from '@/assets/profile/card-invite.webp'
  * 我的页面。
  */
 export default function ProfilePage() {
+  const unreadCount = useMessageStore(state => state.unread.totalCount)
+  const runtimeConfig = usePrd01Store(state => state.config)
+  const copy = usePrd01Store(state => state.copy)
   const {
     data,
+    loading,
+    error,
     fetch,
     goToEditProfile,
     goToVip,
@@ -51,6 +65,68 @@ export default function ProfilePage() {
   useEffect(() => {
     setAvatar(sourceAvatar)
   }, [sourceAvatar])
+
+  const basic = data.basicProfile
+  const verification = data.verification
+  const introduction = data.introduction
+  const fieldSettings = basic?.fieldSettings || runtimeConfig?.fieldSettings || []
+  const hasPartialProfile = Boolean(basic) && (
+    basic?.basicProfileCompleted === true ||
+    hasPartialBasicProfile(basic, fieldSettings, runtimeConfig?.initFields || []) ||
+    isVerificationStepSubmitted(verification?.avatarVerifyStatus) ||
+    isVerificationStepSubmitted(introduction?.auditStatus) ||
+    Number(verification?.verifyLevel) > 0
+  )
+  const checklist = resolveCertificationChecklist({
+    basicCompleted: basic?.basicProfileCompleted,
+    avatarStatus: verification?.avatarVerifyStatus,
+    introductionStatus: introduction?.auditStatus,
+    verifyLevel: verification?.verifyLevel,
+  })
+
+  const continueVerification = async () => {
+    const route = resolveVerificationOnboardingRoute({
+      basicCompleted: basic?.basicProfileCompleted,
+      avatarStatus: verification?.avatarVerifyStatus,
+      introductionStatus: introduction?.auditStatus,
+    })
+    await Taro.navigateTo({ url: route })
+  }
+
+  const enterAvailableArea = async () => {
+    if (data.accessStatus?.canBrowseCards) {
+      await Taro.switchTab({ url: '/pages/recommend/index' })
+      return
+    }
+    if (data.accessStatus?.canCommunity) {
+      await Taro.switchTab({ url: '/pages/community/index' })
+      return
+    }
+    const reason = data.accessStatus?.blockReasons?.[0] || copy('verification_home_partial_notice')
+    if (reason) await Taro.showToast({ title: reason, icon: 'none' })
+  }
+
+  const renderVerificationEntry = () => (
+      <VerificationEntryView
+        role="profile-unverified"
+        unreadCount={unreadCount}
+        loading={loading || !data.entryResolved}
+        error={error || ''}
+        hasPartialProfile={hasPartialProfile}
+        checklist={checklist}
+        copy={copy}
+        onContinue={() => void continueVerification()}
+        onLater={() => void enterAvailableArea()}
+        onRetry={() => void fetch()}
+      />
+  )
+
+  // 必须等服务端最新准入状态返回后再决定页面，避免缓存曾通过时闪现正常“我的”。
+  if (!data.entryResolved) return renderVerificationEntry()
+
+  if (data.accessStatus?.coreAccessStatus !== 'CORE_ALLOWED') {
+    return renderVerificationEntry()
+  }
 
   return (
     <View

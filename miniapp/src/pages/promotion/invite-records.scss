@@ -290,11 +290,12 @@ page {
 
 .promotion-record-state {
   display: flex;
+  width: 335px;
   align-items: center;
-  margin: 54px 20px 0;
   padding: 32px 22px;
   border-radius: 14px;
   background: #faf8fd;
+  box-sizing: border-box;
   flex-direction: column;
 }
 

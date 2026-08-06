@@ -135,8 +135,10 @@ test('所有消费认证文案的页面都由统一运行态边界托管', () =>
   ].forEach(copyKey => assert.match(boundary, new RegExp(`copy\\('${copyKey}'\\)`)))
 
   const index = source('src/pages/index/index.tsx')
+  const verificationEntry = source('src/features/verification/VerificationEntryView.tsx')
   assert.match(index, /validateVerificationRuntime/, '千寻准入页必须先校验认证运行态')
-  assert.match(index, /if \(!ready\) return <IndexLoadingSkeleton/, '千寻准入页运行态未就绪时禁止渲染空文案控件')
+  assert.match(index, /loading=\{!ready \|\| loading\}/, '千寻准入页必须把运行态未就绪状态传给共享认证视图')
+  assert.match(verificationEntry, /loading \? \([\s\S]{0,120}<EntryLoadingSkeleton/, '运行态未就绪时共享认证视图禁止渲染空文案控件')
 })
 
 test('学历受保护材料通过带 token 的 downloadFile 生成临时预览地址', () => {
@@ -162,12 +164,12 @@ test('手机号和微信登录后统一重新查询 init-status 再导航', () =
   })
 })
 
-test('页面入口门禁精确读取 app.config 的 75 个路由并递归扫描依赖', () => {
+test('页面入口门禁精确读取 app.config 的 84 个路由并递归扫描依赖', () => {
   const gate = source('scripts/validate-page-entry-isolation.mjs')
   assert.match(gate, /app\.config\.ts/)
   assert.match(gate, /transpileModule/)
   assert.match(gate, /visit|traverse|walkImports/)
-  assert.match(gate, /75/)
+  assert.match(gate, /84/)
 })
 
 test('构建注册门禁从 dist app.json 校验 Page、App 唯一注册', () => {

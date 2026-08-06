@@ -1,3 +1,5 @@
+/* global console */
+
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,6 +15,7 @@ const existsRepo = relativePath => fs.existsSync(path.join(repoRoot, relativePat
 const familySource = read('src/features/qianxun/QianxunFamilyPage.tsx')
 const headerSource = read('src/features/qianxun/QianxunHeader.tsx')
 const indexSource = read('src/pages/index/index.tsx')
+const verificationEntrySource = read('src/features/verification/VerificationEntryView.tsx')
 const communityService = read('src/services/community.ts')
 const appConfig = read('src/app.config.ts')
 
@@ -37,7 +40,7 @@ assert.match(zhiyinSource, /toggleYuemuLike/, '悦目心动按钮必须绑定真
 assert.match(zhiyinSource, /onContact/, '诚意贴申请认识必须有可执行交互')
 assert.match(zhiyinSource, /onAuthor/, '诚意贴头像和昵称必须可进入真实用户主页')
 assert.match(zhiyinSource, /openType="share"/, '诚意贴分享必须使用微信真实分享按钮')
-assert.match(zhiyinSource, /user\.liked\s*\?\s*['"]♥['"]\s*:\s*['"]♡['"]/, '悦目心动图标必须明确区分已心动和未心动')
+assert.match(zhiyinSource, /user\.liked\s*\?\s*miniappOssIcons\.qianxunLikeActive\s*:\s*miniappOssIcons\.qianxunLike/, '悦目心动图标必须使用不同 OSS 切图区分已心动和未心动')
 assert.match(zhiyinSource, /已心动|已取消心动/, '悦目心动操作必须提供可感知反馈')
 assert.doesNotMatch(zhiyinSource, /getCommunityPosts\(['"]HOT['"]/, '悦目不得继续从热门动态生成照片墙')
 
@@ -50,7 +53,7 @@ assert.match(controllerSource, /@GetMapping\("\/yuemu"\)/, '后端缺少悦目�
 assert.match(controllerSource, /@PostMapping\("\/yuemu\/\{targetUserId\}\/like"\)/, '后端缺少悦目心动切换接口')
 assert.ok(existsRepo('backend/src/main/java/com/spacetime/miniapp/dto/response/YuemuUserCardVO.java'), '后端缺少悦目用户卡响应模型')
 
-assert.match(indexSource, /getQianxunHeaderMetrics|QianxunHeader/, '千寻准入态与内容态必须复用胶囊安全区度量')
+assert.match(verificationEntrySource, /getQianxunHeaderMetrics|QianxunHeader/, '千寻准入态与内容态必须复用胶囊安全区度量')
 assert.match(appConfig, /root:\s*'pages\/qianxun'/, '千寻业务页面必须继续保持独立分包')
 
 console.log('千寻刷新、一级 Tab、知音双页与胶囊门禁通过')

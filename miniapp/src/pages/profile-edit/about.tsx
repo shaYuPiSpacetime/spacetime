@@ -2,6 +2,7 @@ import { ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import LanhuSubNav from '@/components/LanhuSubNav'
+import { resolveOwnerVisibleText } from '@/domain/profileAboutPresentation'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { AboutMeQuestion } from '@/types/prd01'
@@ -10,10 +11,10 @@ import { emitProfileUpdated } from '@/utils/profileEditEvents'
 
 const aboutTabs = [
   { key: 'all', title: '全部', questionKeys: [] },
-  { key: 'self', title: '我是谁', questionKeys: ['moreStory'] },
-  { key: 'daily', title: '我的日常', questionKeys: ['interests', 'dailyLife', 'lifeSituation'] },
-  { key: 'story', title: '我的故事', questionKeys: ['idealWeekend'] },
-  { key: 'love', title: '我热爱的', questionKeys: ['loveView'] },
+  { key: 'self', title: '我是谁', questionKeys: ['housingStatus', 'carStatus', 'hasChild', 'religion'] },
+  { key: 'daily', title: '我的日常', questionKeys: ['smoking', 'drinking', 'pets'] },
+  { key: 'story', title: '我的故事', questionKeys: ['childrenPlan', 'marriagePlan'] },
+  { key: 'love', title: '我热爱的', questionKeys: ['meetingPreference', 'preferredActivities'] },
 ]
 
 export default function ProfileEditAboutPage() {
@@ -32,7 +33,7 @@ export default function ProfileEditAboutPage() {
         const next = (await prd01Api.getAboutMe()).questions || []
         setQuestions(next)
         const initial = next.find(question => question.questionKey === String(router.params.topic || ''))
-        if (initial) setContent(initial.latestContent || initial.effectiveContent || '')
+        if (initial) setContent(resolveOwnerVisibleText(initial))
         else setActiveTopicKey('all')
       } catch (error) {
         await showError(error)
@@ -50,7 +51,7 @@ export default function ProfileEditAboutPage() {
 
   const select = (question: AboutMeQuestion) => {
     setActiveTopicKey(question.questionKey)
-    setContent(question.latestContent || question.effectiveContent || '')
+    setContent(resolveOwnerVisibleText(question))
   }
 
   const save = async () => {
@@ -96,10 +97,10 @@ export default function ProfileEditAboutPage() {
           <ScrollView scrollY style={{ height: 'calc(100vh - 260rpx)' }} showScrollbar={false}>
             <View style={{ padding: '0 25rpx 172rpx', boxSizing: 'border-box' }}>
               {visibleQuestions.map(question => (
-                <View key={question.questionKey} onClick={() => select(question)} style={{ position: 'relative', width: '700rpx', minHeight: '160rpx', borderRadius: '16rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '42rpx 86rpx 28rpx 26rpx', boxSizing: 'border-box' }}>
+                <View key={question.questionKey} onClick={() => select(question)} style={{ position: 'relative', width: '700rpx', minHeight: '160rpx', borderRadius: '16rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '30rpx 86rpx 24rpx 26rpx', boxSizing: 'border-box' }}>
                   <Text style={{ display: 'block', color: '#0C285A', fontSize: '30rpx', lineHeight: '42rpx', fontWeight: 700 }}>{question.title}</Text>
-                  <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '36rpx', marginTop: '12rpx' }}>{question.latestContent || question.effectiveContent || question.placeholder}</Text>
-                  <View style={{ position: 'absolute', right: '42rpx', top: '72rpx', width: '22rpx', height: '22rpx', borderTop: '4rpx solid #999999', borderRight: '4rpx solid #999999', transform: 'rotate(45deg)' }} />
+                  <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '36rpx', marginTop: '12rpx' }}>{resolveOwnerVisibleText(question) || question.placeholder}</Text>
+                  <View style={{ position: 'absolute', right: '42rpx', top: '68rpx', width: '22rpx', height: '22rpx', borderTop: '4rpx solid #999999', borderRight: '4rpx solid #999999', transform: 'rotate(45deg)' }} />
                 </View>
               ))}
             </View>
