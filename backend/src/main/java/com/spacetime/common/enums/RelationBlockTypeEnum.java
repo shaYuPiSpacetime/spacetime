@@ -5,7 +5,8 @@ import lombok.Getter;
 @Getter
 public enum RelationBlockTypeEnum {
     BLACKLIST("BLACKLIST", "黑名单"),
-    HIDDEN_DYNAMIC("HIDDEN_DYNAMIC", "不看TA动态");
+    HIDDEN_DYNAMIC("HIDDEN_DYNAMIC", "不看TA动态"),
+    NO_RECOMMEND("NO_RECOMMEND", "不再推荐");
 
     private final String code;
     private final String desc;

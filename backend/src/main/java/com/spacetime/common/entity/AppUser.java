@@ -81,6 +81,10 @@ public class AppUser extends BaseEntity {
     private String maritalStatus;
     /** 感情状态 */
     private String emotionalStatus;
+    /** 见面偏好字典 code */
+    private String meetingPreference;
+    /** 喜欢的见面活动字典 code 列表 JSON */
+    private String preferredActivities;
     /** 子女计划 */
     private String childrenPlan;
     /** 是否想要孩子 */

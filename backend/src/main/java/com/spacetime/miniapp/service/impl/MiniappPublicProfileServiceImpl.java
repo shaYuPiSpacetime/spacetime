@@ -8,15 +8,19 @@ import com.spacetime.common.dao.AppRelationLikeDao;
 import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
+import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.enums.RelationLikeStatusEnum;
 import com.spacetime.common.enums.RelationMatchStatusEnum;
+import com.spacetime.common.enums.UnlockRecordStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
@@ -25,7 +29,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
+import java.time.LocalDateTime;
 
 /** 小程序公开资料查询实现。 */
 @Service
@@ -40,7 +46,9 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
     private final AppUserRelationBlockDao relationBlockDao;
     private final RelationAccessProjectionService accessProjectionService;
     private final AppUserAuditContentService auditContentService;
+    private final AppUserAuditService auditService;
     private final ProfileDictionaryService profileDictionaryService;
+    private final UserUnlockRecordDao unlockRecordDao;
 
     @Override
     public PublicProfileVO getPublicProfile(Long currentUserId, Long targetUserId) {
@@ -62,6 +70,10 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
                 Math.max(current.getId(), target.getId()));
         boolean matched = match != null
                 && RelationMatchStatusEnum.MATCHED.getCode().equals(match.getMatchStatus());
+        UserUnlockRecord idealUnlock = unlockRecordDao.selectActiveByTargetUser(
+                current.getId(), "ideal", target.getId());
+        boolean idealUnlocked = activeUnlock(idealUnlock);
+        boolean privateMessage = matched || idealUnlocked;
 
         PublicProfileVO result = new PublicProfileVO();
         result.setUserId(target.getId());
@@ -83,11 +95,40 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
         result.setAnnualIncomeLabel(profileLabel(ProfileDictType.ANNUAL_INCOME, target.getAnnualIncome()));
         result.setTags(parseTags(target.getTags()));
         result.setIntroduction(auditContentService.publicText(target.getId(), AppUserAuditTypeEnum.ABOUT_ME));
+        result.setDatingGoal(target.getDatingGoal());
+        result.setMaritalStatus(target.getMaritalStatus());
+        result.setEmotionalStatus(target.getEmotionalStatus());
+        result.setFavoriteSongName(target.getFavoriteSongName());
+        result.setFavoriteSongArtist(target.getFavoriteSongArtist());
+        result.setFavoriteSongCoverUrl(target.getFavoriteSongCoverUrl());
         result.setLiked(like != null);
         result.setMatched(matched);
         result.setMatchNo(matched ? match.getMatchNo() : null);
-        result.setCanEnterConversation(matched);
+        result.setCanEnterConversation(privateMessage);
+        result.setCommunicationMode(privateMessage ? "PRIVATE_MESSAGE" : "WHISPER");
+        result.setCertifications(certifications(target.getId()));
         return result;
+    }
+
+    private List<String> certifications(Long userId) {
+        List<String> result = new ArrayList<>(3);
+        if (auditService.latestApproved(userId, AppUserAuditTypeEnum.AVATAR)) {
+            result.add("AVATAR");
+        }
+        if (auditService.hasEffective(userId, AppUserAuditTypeEnum.REAL_NAME)) {
+            result.add("REAL_NAME");
+        }
+        if (auditService.hasEffective(userId, AppUserAuditTypeEnum.EDUCATION)) {
+            result.add("EDUCATION");
+        }
+        return List.copyOf(result);
+    }
+
+    private boolean activeUnlock(UserUnlockRecord record) {
+        return record != null
+                && UnlockRecordStatusEnum.ACTIVE.getCode().equals(record.getStatus())
+                && Integer.valueOf(1).equals(record.getActiveMarker())
+                && (record.getExpireTime() == null || record.getExpireTime().isAfter(LocalDateTime.now()));
     }
 
     private AppUser requireOpenUser(Long userId, int errorCode, String message) {

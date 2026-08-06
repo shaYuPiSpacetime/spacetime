@@ -105,6 +105,10 @@ public class Prd01ProfileCompletenessCalculator {
             case "qaList", "profileQa" -> auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.PROFILE_QA) != null;
             case "voiceIntro", "voiceIntroUrl", "voiceIntroDuration" ->
                     auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.VOICE_INTRO) != null;
+            case "meetingPreference" -> StrUtil.isNotBlank(user.getMeetingPreference())
+                    || effectiveProfileQaQuestionKeys(user.getId()).contains(fieldId);
+            case "preferredActivities" -> hasJsonValues(user.getPreferredActivities())
+                    || effectiveProfileQaQuestionKeys(user.getId()).contains(fieldId);
             default -> PROFILE_QA_FIELD_IDS.contains(fieldId)
                     ? effectiveProfileQaQuestionKeys(user.getId()).contains(fieldId)
                     : filledScalar(user, fieldId);
@@ -122,6 +126,10 @@ public class Prd01ProfileCompletenessCalculator {
             case "qaList", "profileQa" -> effectiveAuditTypes.contains(AppUserAuditTypeEnum.PROFILE_QA.getCode());
             case "voiceIntro", "voiceIntroUrl", "voiceIntroDuration" ->
                     effectiveAuditTypes.contains(AppUserAuditTypeEnum.VOICE_INTRO.getCode());
+            case "meetingPreference" -> StrUtil.isNotBlank(user.getMeetingPreference())
+                    || effectiveProfileQaQuestionKeys.contains(fieldId);
+            case "preferredActivities" -> hasJsonValues(user.getPreferredActivities())
+                    || effectiveProfileQaQuestionKeys.contains(fieldId);
             default -> PROFILE_QA_FIELD_IDS.contains(fieldId)
                     ? effectiveProfileQaQuestionKeys.contains(fieldId)
                     : filledScalar(user, fieldId);
@@ -186,6 +194,10 @@ public class Prd01ProfileCompletenessCalculator {
 
     private boolean approved(AppUserAuditRecord record) {
         return record != null && AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus());
+    }
+
+    private boolean hasJsonValues(String json) {
+        return StrUtil.isNotBlank(json) && !"[]".equals(json.replaceAll("\\s", ""));
     }
 
     private boolean latestApproved(Long userId, AppUserAuditTypeEnum type) {

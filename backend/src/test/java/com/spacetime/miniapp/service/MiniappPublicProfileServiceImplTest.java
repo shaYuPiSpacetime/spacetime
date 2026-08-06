@@ -4,13 +4,16 @@ import com.spacetime.common.dao.AppRelationLikeDao;
 import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
+import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
@@ -22,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,7 +44,9 @@ class MiniappPublicProfileServiceImplTest {
     @Mock private AppUserRelationBlockDao relationBlockDao;
     @Mock private RelationAccessProjectionService accessProjectionService;
     @Mock private AppUserAuditContentService auditContentService;
+    @Mock private AppUserAuditService auditService;
     @Mock private ProfileDictionaryService profileDictionaryService;
+    @Mock private UserUnlockRecordDao unlockRecordDao;
 
     @InjectMocks private MiniappPublicProfileServiceImpl service;
 
@@ -83,6 +89,9 @@ class MiniappPublicProfileServiceImplTest {
         when(auditContentService.publicProfileBackground(8L)).thenReturn("https://cdn.test/hero.jpg");
         when(auditContentService.publicAlbumPhotos(8L)).thenReturn(List.of("https://cdn.test/album.jpg"));
         when(auditContentService.publicText(8L, AppUserAuditTypeEnum.ABOUT_ME)).thenReturn("审核通过的自我介绍");
+        when(auditService.latestApproved(8L, AppUserAuditTypeEnum.AVATAR)).thenReturn(true);
+        when(auditService.hasEffective(8L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(true);
+        when(auditService.hasEffective(8L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(true);
         when(profileDictionaryService.label("app_identity", "WORKER")).thenReturn("职场人");
         when(profileDictionaryService.label("app_industry", "INTERNET")).thenReturn("互联网");
         when(profileDictionaryService.label("app_occupation", "ENGINEER")).thenReturn("工程师");
@@ -109,6 +118,8 @@ class MiniappPublicProfileServiceImplTest {
         assertThat(result.getMatched()).isTrue();
         assertThat(result.getMatchNo()).isEqualTo("MAT-001");
         assertThat(result.getCanEnterConversation()).isTrue();
+        assertThat(result.getCommunicationMode()).isEqualTo("PRIVATE_MESSAGE");
+        assertThat(result.getCertifications()).containsExactly("AVATAR", "REAL_NAME", "EDUCATION");
     }
 
     @Test
@@ -195,7 +206,49 @@ class MiniappPublicProfileServiceImplTest {
         assertThat(result.getLiked()).isFalse();
         assertThat(result.getMatched()).isFalse();
         assertThat(result.getCanEnterConversation()).isFalse();
+        assertThat(result.getCommunicationMode()).isEqualTo("WHISPER");
         verifyNoInteractions(profileDictionaryService);
+    }
+
+    @Test
+    void activeIdealUnlockChangesSharedProfileFromWhisperToPrivateMessage() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        UserUnlockRecord unlock = new UserUnlockRecord();
+        unlock.setStatus("active");
+        unlock.setActiveMarker(1);
+        unlock.setExpireTime(LocalDateTime.now().plusDays(1));
+        when(unlockRecordDao.selectActiveByTargetUser(7L, "ideal", 8L)).thenReturn(unlock);
+
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
+
+        assertThat(result.getMatched()).isFalse();
+        assertThat(result.getCanEnterConversation()).isTrue();
+        assertThat(result.getCommunicationMode()).isEqualTo("PRIVATE_MESSAGE");
+    }
+
+    @Test
+    void expiredIdealUnlockDoesNotExposePrivateMessageMode() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        UserUnlockRecord unlock = new UserUnlockRecord();
+        unlock.setStatus("active");
+        unlock.setActiveMarker(1);
+        unlock.setExpireTime(LocalDateTime.now().minusSeconds(1));
+        when(unlockRecordDao.selectActiveByTargetUser(7L, "ideal", 8L)).thenReturn(unlock);
+
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
+
+        assertThat(result.getCanEnterConversation()).isFalse();
+        assertThat(result.getCommunicationMode()).isEqualTo("WHISPER");
     }
 
     private AppUser user(Long id, String nickname) {

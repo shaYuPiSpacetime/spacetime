@@ -55,9 +55,9 @@
             </div>
             <div class="admin-summary-grid">
               <article class="stat-card"><span>配置版本</span><strong>v04.20260630</strong></article>
-              <article class="stat-card"><span>未保存变更</span><strong>3 项</strong></article>
-              <article class="stat-card"><span>高风险配置</span><strong>6 项</strong></article>
-              <article class="stat-card"><span>订单关闭</span><strong>固定 30 分钟</strong></article>
+              <article class="stat-card"><span>会员权益</span><strong>9 项</strong></article>
+              <article class="stat-card"><span>套餐配置</span><strong>6 项</strong></article>
+              <article class="stat-card"><span>消费场景</span><strong>8 项</strong></article>
             </div>
             <div class="config-workbench">
               <nav class="commerce-tabs" aria-label="商业化配置 Tab">
@@ -81,16 +81,16 @@
               </div>
               <div class="config-panel" data-config-panel="vipPackages">
                 <div class="toolbar">
-                  <strong>普通套餐 / 连续订阅套餐</strong>
+                  <strong>会员套餐（一次性购买）</strong>
                   <button class="btn primary" data-open-modal="vipPackageEditModal">新增套餐</button>
                 </div>
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>套餐编号</th><th>套餐名称</th><th>类型</th><th>原价</th><th>优惠价</th><th>时长/周期</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>套餐编号</th><th>套餐名称</th><th>套餐类型</th><th>购买方式</th><th>原价</th><th>优惠价</th><th>有效天数</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
                     <tbody data-render="admin-vip-packages"></tbody>
                   </table>
                 </div>
-                <div class="notice"><strong>连续订阅校验</strong>上架前必须绑定微信连续订阅商品、周期和协议；缺失时保存阻断。</div>
+                <div class="notice"><strong>购买方式</strong>所有会员套餐均为普通套餐，通过微信支付一次性购买；再次购买只延长会员有效期，不会自动扣费。</div>
               </div>
               <div class="config-panel" data-config-panel="coinPackages">
                 <div class="toolbar">
@@ -131,7 +131,7 @@
               <div class="config-panel" data-config-panel="exposure">
                 <div class="config-grid">
                   <div class="config-item"><div class="switch-line"><strong>曝光包预留开关</strong><span class="mini-switch off">关</span></div><span>首版只保留说明，不允许购买。</span></div>
-                  <label class="config-item"><strong>预留说明文案</strong><textarea>人气曝光包能力预留，待推荐分发规则补齐后上线。</textarea></label>
+                  <label class="config-item"><strong>预留说明文案</strong><textarea>首版仅预留，不开放购买</textarea></label>
                 </div>
               </div>
             </div>
@@ -256,15 +256,15 @@
     <div class="modal">
       <h2>会员套餐新增/编辑</h2>
       <div class="form-stack">
-        <label class="field">套餐名称<input value="连续包月"></label>
-        <label class="field">套餐类型<select><option>普通套餐</option><option selected>连续订阅套餐</option></select></label>
-        <label class="field">原价<input value="39.00"></label>
-        <label class="field">优惠价<input value="29.00"></label>
-        <label class="field">时长/周期<input value="每月自动续费"></label>
-        <label class="field">标签<input value="连续订阅"></label>
-        <label class="field">微信连续订阅商品<input value="wx-subscribe-monthly-001"></label>
+        <label class="field">套餐名称<input value="月卡会员"></label>
+        <label class="field">套餐类型<input value="普通套餐" readonly></label>
+        <label class="field">售价<input value="198.00"></label>
+        <label class="field">原价<input value="198.00"></label>
+        <label class="field">时长（天）<input value="30" type="number"></label>
+        <label class="field">购买方式<input value="一次性购买" readonly></label>
+        <label class="field">标签<input value="尝鲜首选"></label>
       </div>
-      <div class="notice"><strong>校验</strong>连续订阅套餐上架前必须绑定微信连续订阅商品、周期和协议。</div>
+      <div class="notice"><strong>购买方式</strong>固定为普通套餐、一次性购买，不签约自动续费。</div>
       <div class="modal-actions"><button class="btn" onclick="DemoCommon.closeModal(this)">取消</button><button class="btn primary" onclick="DemoCommon.closeModal(this);showToast('套餐已进入待保存变更')">保存草稿</button></div>
     </div>
   </div>
@@ -310,7 +310,7 @@
   </div>
 
   <script src="../../shared/demo-common.js"></script>
-  <script src="mock/demo-data.js"></script>
-  <script src="assets/demo.js"></script>
+  <script src="mock/demo-data.js?v=20260805-config-alignment"></script>
+  <script src="assets/demo.js?v=20260805-config-alignment"></script>
 </body>
 </html>

@@ -29,6 +29,7 @@ import {
   type VipPackageConfig,
 } from '@/api/commercial';
 import { cn } from '@/lib/utils';
+import { buildCommercialLogChanges, type CommercialLogChange } from './commercialConfigLog';
 
 type WorkspaceKey = 'config' | 'orders' | 'flows' | 'refunds' | 'reconcile';
 type ConfigTabKey = 'benefits' | 'vipPackages' | 'coinPackages' | 'scenePrices' | 'retention' | 'social' | 'exposure';
@@ -175,6 +176,23 @@ const CONFIG_TABS: { key: ConfigTabKey; label: string }[] = [
 ];
 
 const ICON_GLYPHS: Record<string, string> = {
+  'heart-list': '♥',
+  'visitor-eye': '👁',
+  'yo-message': '✉',
+  'extra-browse': '+',
+  filter: '⌕',
+  exposure: '★',
+  stealth: '◌',
+  replay: '↺',
+  'daily-heart': '♡',
+  coinUsageWhisper: '✉',
+  coinUsageHeartbeat: '♥',
+  coinUsageIdealUnlock: '◎',
+  coinUsageBoost: '↑',
+  coinUsageCuratedUnlock: '◎+',
+  coinUsageRecommend: '≋',
+  coinUsageAnonymousUnlock: '匿',
+  coinUsageLimitedActivity: '限',
   'icon-heart-list': '♥',
   'icon-visitor': '👁',
   'icon-whisper': '✉',
@@ -191,6 +209,17 @@ const ICON_GLYPHS: Record<string, string> = {
   'icon-compatible-person': '≋',
   'icon-soulmate': '知',
   'icon-career-recommend': '业',
+};
+
+const COIN_SCENE_ADMIN_NAMES: Record<string, string> = {
+  whisper: '发送悄悄话',
+  likes_unlock_one: '解锁喜欢我的单条',
+  viewers_unlock_one: '解锁最近看过我的单条',
+  ideal_user_unlock: '解锁理想型用户',
+  ideal_batch_unlock: '批量解锁理想型用户',
+  compatible_person_unlock_one: '合拍的人',
+  soulmate_mizhiyin_unlock_one: '解锁知音-觅知音',
+  career_recommend_unlock_one: '立业-职业推荐',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -269,7 +298,7 @@ function configFromApi(config: CommercialConfig | null): {
 function toBenefitRow(item: VipBenefitConfig): BenefitRow {
   return {
     code: item.benefitCode || String(item.id ?? '-'),
-    name: item.benefitName || '-',
+    name: item.benefitType || item.benefitName || '-',
     type: item.benefitType || '-',
     desc: item.benefitDesc || '-',
     mobileIcon: item.mobileIcon || '',
@@ -332,7 +361,7 @@ function toCoinPackageRow(item: CoinPackageConfig, index: number): CoinPackageRo
 
 function toScenePriceRow(item: CoinSceneConfig): ScenePriceRow {
   return {
-    scene: item.mobileName || item.sceneCode || '-',
+    scene: COIN_SCENE_ADMIN_NAMES[item.sceneCode] || item.sceneCode || '-',
     code: item.sceneCode || '-',
     mobileDisplayName: item.mobileName || '-',
     mobileIcon: item.mobileIcon || '',
@@ -491,13 +520,11 @@ function ConfigWorkspace() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [vipEditOpen, setVipEditOpen] = useState(false);
   const [coinEditOpen, setCoinEditOpen] = useState(false);
-  const [sceneEditOpen, setSceneEditOpen] = useState(false);
   const [vipEditIndex, setVipEditIndex] = useState<number | null>(null);
   const [coinEditIndex, setCoinEditIndex] = useState<number | null>(null);
-  const [sceneEditIndex, setSceneEditIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveReason, setSaveReason] = useState('');
-  const [logs, setLogs] = useState<Array<{ id: string; operator: string; item: string; before: string; after: string; time: string }>>([]);
+  const [logs, setLogs] = useState<Array<{ id: string; operator: string; changes: CommercialLogChange[]; reason: string; time: string }>>([]);
 
   const load = useCallback(async () => {
     try {
@@ -531,11 +558,10 @@ function ConfigWorkspace() {
       const rows = pageRecords<CommercialConfigLog>(res);
       if (rows.length) {
         setLogs(rows.map((row) => ({
-          id: row.configVersion,
+          id: row.configVersion || String(row.id),
           operator: row.operatorName || '运营后台',
-          item: row.changeModule || 'commercial',
-          before: '-',
-          after: row.changeSummary || '-',
+          changes: buildCommercialLogChanges(row),
+          reason: row.changeReason || row.changeSummary || '未填写变更原因',
           time: row.createTime || '-',
         })));
       }
@@ -548,6 +574,10 @@ function ConfigWorkspace() {
   const save = async () => {
     if (!config) {
       showToast('配置尚未加载，不能覆盖数据库', 'error');
+      return;
+    }
+    if (!saveReason.trim()) {
+      showToast('请填写变更原因', 'error');
       return;
     }
     setSaving(true);
@@ -663,7 +693,7 @@ function ConfigWorkspace() {
                   <td>{item.duration}</td>
                   <td><Tag>{item.tag}</Tag></td>
                   <td><Tag tone={item.status === 'on' ? 'success' : 'danger'}>{item.status === 'on' ? '上架' : '下架'}</Tag></td>
-                  <td><button className="btn" type="button" onClick={() => { setVipEditIndex(index); setVipEditOpen(true); }}>编辑</button> <button className="btn danger" type="button" onClick={() => toggleConfigStatus('vipPackages', index)}>切换状态</button></td>
+                  <td><button className="btn" type="button" onClick={() => { setVipEditIndex(index); setVipEditOpen(true); }}>编辑</button> <button className="btn danger" type="button" onClick={() => toggleConfigStatus('vipPackages', index)}>{item.status === 'on' ? '下架' : '上架'}</button></td>
                 </tr>
               ))}
               {!data.vipPackages.length && <EmptyTableRow colSpan={10} />}
@@ -690,7 +720,7 @@ function ConfigWorkspace() {
                   <td><Tag>{item.tag}</Tag></td>
                   <td>{item.recommended ? <Tag tone="success">推荐档</Tag> : '-'}</td>
                   <td><Tag tone={item.status === 'on' ? 'success' : 'danger'}>{item.status === 'on' ? '上架' : '下架'}</Tag></td>
-                  <td><button className="btn" type="button" onClick={() => { setCoinEditIndex(index); setCoinEditOpen(true); }}>编辑</button> <button className="btn" type="button" onClick={() => toggleConfigStatus('coinPackages', index)}>切换状态</button></td>
+                  <td><button className="btn" type="button" onClick={() => { setCoinEditIndex(index); setCoinEditOpen(true); }}>编辑</button> <button className="btn danger" type="button" onClick={() => toggleConfigStatus('coinPackages', index)}>{item.status === 'on' ? '下架' : '上架'}</button></td>
                 </tr>
               ))}
               {!data.coinPackages.length && <EmptyTableRow colSpan={10} />}
@@ -701,18 +731,18 @@ function ConfigWorkspace() {
         <ConfigPanel active={activeTab === 'scenePrices'} name="scenePrices">
           <Notice title="千寻币消费场景">仅展示 8 个消费场景；支持移动端展示名称、说明、单价、启停和移动端图标配置；邀请奖励场景不进入消费配置。</Notice>
           <TableWrap minWidth={1120}>
-            <thead><tr><th>消费场景</th><th>场景 code</th><th>移动端展示名称</th><th>移动端图标配置</th><th>说明</th><th>单价</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th>消费场景</th><th>场景 code</th><th>移动端展示名称</th><th>移动端图标配置</th><th>说明</th><th>单价</th><th>启停</th><th>影响页面</th></tr></thead>
             <tbody data-render="admin-scene-prices">
               {data.scenes.map((item, index) => (
                 <tr key={item.code}>
                   <td>{item.scene}</td>
                   <td>{item.code}</td>
-                  <td>{item.mobileDisplayName}</td>
-                  <td><MobileIcon icon={item.mobileIcon} /> <span className="helper">{item.mobileIcon || '-'}</span></td>
+                  <td><input className="icon-config-input scene-name-input" aria-label="移动端展示名称" value={item.mobileDisplayName} onChange={(event) => updateConfigList('coinScenes', index, { ...config!.coinScenes[index], mobileName: event.target.value })} /></td>
+                  <td><IconConfigInput value={item.mobileIcon} onChange={(value) => updateConfigList('coinScenes', index, { ...config!.coinScenes[index], mobileIcon: value })} /></td>
                   <td>{item.desc}</td>
-                  <td>{item.price} 千寻币</td>
-                  <td><Tag tone={item.enabled ? 'success' : 'danger'}>{item.enabled ? '启用' : '停用'}</Tag></td>
-                  <td><button className="btn" type="button" onClick={() => { setSceneEditIndex(index); setSceneEditOpen(true); }}>编辑</button></td>
+                  <td><input className="number-input" aria-label="消费单价" type="number" min="0" value={item.price} onChange={(event) => updateConfigList('coinScenes', index, { ...config!.coinScenes[index], unitPrice: Number(event.target.value) })} /> 千寻币</td>
+                  <td><MiniSwitch on={item.enabled} onClick={() => toggleConfigStatus('coinScenes', index)} /></td>
+                  <td>APP 付费弹窗 / 来源业务页</td>
                 </tr>
               ))}
               {!data.scenes.length && <EmptyTableRow colSpan={8} />}
@@ -721,29 +751,28 @@ function ConfigWorkspace() {
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'retention'} name="retention">
-          <SettingsForm title="解锁保留期">
-            <label className="field">理想型批量上限<input type="number" min="1" value={config?.settings.idealBatchMax ?? ''} onChange={(event) => updateCommercialSettings({ idealBatchMax: Number(event.target.value) })} /></label>
-            <label className="field">理想型保留天数<input type="number" min="1" value={config?.settings.idealRetentionDays ?? ''} onChange={(event) => updateCommercialSettings({ idealRetentionDays: Number(event.target.value) })} /></label>
-          </SettingsForm>
-          <Notice title="复用规则">合拍的人、知音-觅知音保留期复用理想型保留天数；消费业务 code 与单价仍由消费场景 Tab 维护。</Notice>
+          <div className="config-grid">
+            <label className="config-item"><strong>理想型批量上限</strong><input type="number" min="1" value={config?.settings.idealBatchMax ?? ''} onChange={(event) => updateCommercialSettings({ idealBatchMax: Number(event.target.value) })} /><span>默认 5 个，保存后立即生效。</span></label>
+            <label className="config-item"><strong>理想型解锁全部折扣比例</strong><input type="number" min="0" max="100" value={config?.settings.idealBatchDiscountPercent ?? ''} onChange={(event) => updateCommercialSettings({ idealBatchDiscountPercent: Number(event.target.value) })} /><span>填写 0–100，10 表示优惠 10%，实付金额由服务端向上取整。</span></label>
+            <label className="config-item"><strong>理想型/合拍/知音保留天数</strong><input type="number" min="1" value={config?.settings.idealRetentionDays ?? ''} onChange={(event) => updateCommercialSettings({ idealRetentionDays: Number(event.target.value) })} /><span>默认 90 天，合拍的人与知音-觅知音复用。</span></label>
+          </div>
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'social'} name="social">
-          <SettingsForm title="社交与订单参数">
-            <label className="field">普通用户每日查看配额<input type="number" min="0" value={config?.settings.normalViewQuota ?? ''} onChange={(event) => updateCommercialSettings({ normalViewQuota: Number(event.target.value) })} /></label>
-            <label className="field">会员每日查看配额<input type="number" min="0" value={config?.settings.vipViewQuota ?? ''} onChange={(event) => updateCommercialSettings({ vipViewQuota: Number(event.target.value) })} /></label>
-            <label className="field">会员到期提醒提前天数<input type="number" min="1" max="30" value={config?.settings.vipExpireRemindDays ?? ''} onChange={(event) => updateCommercialSettings({ vipExpireRemindDays: Number(event.target.value) })} /></label>
-            <label className="field">退款状态前台展示<MiniSwitch on={Boolean(config?.settings.refundDisplay)} onClick={() => updateCommercialSettings({ refundDisplay: !config?.settings.refundDisplay })} /></label>
-          </SettingsForm>
-          <Notice title="订单关闭">未支付订单固定 30 分钟自动关闭，不提供后台修改。</Notice>
+          <div className="config-grid">
+            <label className="config-item"><strong>普通用户每日查看配额</strong><input type="number" min="0" value={config?.settings.normalViewQuota ?? ''} onChange={(event) => updateCommercialSettings({ normalViewQuota: Number(event.target.value) })} /><span>新访问判定生效。</span></label>
+            <label className="config-item"><strong>会员每日查看配额</strong><input type="number" min="0" value={config?.settings.vipViewQuota ?? ''} onChange={(event) => updateCommercialSettings({ vipViewQuota: Number(event.target.value) })} /><span>不得低于普通用户配额。</span></label>
+            <label className="config-item"><strong>会员到期提醒提前天数</strong><input type="number" min="1" max="30" value={config?.settings.vipExpireRemindDays ?? ''} onChange={(event) => updateCommercialSettings({ vipExpireRemindDays: Number(event.target.value) })} /><span>影响后续提醒任务。</span></label>
+            <div className="config-item"><div className="switch-line"><strong>退款状态前台展示</strong><MiniSwitch on={Boolean(config?.settings.refundDisplay)} label={config?.settings.refundDisplay ? '开' : '关'} onClick={() => updateCommercialSettings({ refundDisplay: !config?.settings.refundDisplay })} /></div><span>关闭后前台隐藏退款标签，后台台账保留。</span></div>
+            <div className="config-item"><div className="switch-line"><strong>未支付订单关闭</strong><span className="mini-switch off">只读</span></div><span>首版固定 30 分钟，不提供后台配置。</span></div>
+          </div>
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'exposure'} name="exposure">
-          <SettingsForm title="曝光包预留">
-            <label className="field">预留开关<MiniSwitch on={Boolean(config?.settings.exposureReserveEnabled)} onClick={() => updateCommercialSettings({ exposureReserveEnabled: !config?.settings.exposureReserveEnabled })} /></label>
-            <label className="field">预留说明<textarea value={config?.settings.exposureReserveDescription || ''} onChange={(event) => updateCommercialSettings({ exposureReserveDescription: event.target.value })} /></label>
-          </SettingsForm>
-          <Notice title="售卖边界">首版仅维护预留状态和说明，不开放购买入口。</Notice>
+          <div className="config-grid">
+            <div className="config-item"><div className="switch-line"><strong>曝光包预留开关</strong><MiniSwitch on={Boolean(config?.settings.exposureReserveEnabled)} label={config?.settings.exposureReserveEnabled ? '开' : '关'} onClick={() => updateCommercialSettings({ exposureReserveEnabled: !config?.settings.exposureReserveEnabled })} /></div><span>首版只保留说明，不允许购买。</span></div>
+            <label className="config-item"><strong>预留说明文案</strong><textarea value={config?.settings.exposureReserveDescription || ''} onChange={(event) => updateCommercialSettings({ exposureReserveDescription: event.target.value })} /></label>
+          </div>
         </ConfigPanel>
       </div>
 
@@ -752,9 +781,14 @@ function ConfigWorkspace() {
           <div className="drawer-section" key={row.id}>
             <h3>{row.id}</h3>
             <DrawerKV label="操作人">{row.operator}</DrawerKV>
-            <DrawerKV label="配置项">{row.item}</DrawerKV>
-            <DrawerKV label="变更前">{row.before}</DrawerKV>
-            <DrawerKV label="变更后">{row.after}</DrawerKV>
+            {row.changes.map((change, index) => (
+              <div className="config-log-change" key={`${change.item}-${index}`}>
+                <DrawerKV label="配置项">{change.item}</DrawerKV>
+                <DrawerKV label="变更前">{change.before}</DrawerKV>
+                <DrawerKV label="变更后">{change.after}</DrawerKV>
+              </div>
+            ))}
+            <DrawerKV label="变更原因">{row.reason}</DrawerKV>
             <DrawerKV label="时间">{row.time}</DrawerKV>
           </div>
         ))}
@@ -764,7 +798,7 @@ function ConfigWorkspace() {
       <Modal id="configSaveModal" title="保存配置确认" open={saveOpen} onClose={() => setSaveOpen(false)}>
         <p>本次变更将立即影响移动端套餐、单价或权益展示，并写入审计日志。</p>
         <label className="field">变更原因<textarea value={saveReason} onChange={(event) => setSaveReason(event.target.value)} /></label>
-        <div className="modal-actions"><button className="btn" type="button" onClick={() => setSaveOpen(false)}>取消</button><button className="btn primary" type="button" disabled={saving} onClick={save}>确认保存</button></div>
+        <div className="modal-actions"><button className="btn" type="button" onClick={() => setSaveOpen(false)}>取消</button><button className="btn primary" type="button" disabled={saving || !saveReason.trim()} onClick={save}>确认保存</button></div>
       </Modal>
 
       <VipPackageModal
@@ -778,12 +812,6 @@ function ConfigWorkspace() {
         initial={coinEditIndex == null ? null : config?.coinPackages[coinEditIndex] || null}
         onClose={() => setCoinEditOpen(false)}
         onSubmit={(value) => { saveCoinPackageDraft(coinEditIndex, value); setCoinEditOpen(false); }}
-      />
-      <CoinSceneModal
-        open={sceneEditOpen}
-        initial={sceneEditIndex == null ? null : config?.coinScenes[sceneEditIndex] || null}
-        onClose={() => setSceneEditOpen(false)}
-        onSubmit={(value) => { updateConfigList('coinScenes', sceneEditIndex, value); setSceneEditOpen(false); }}
       />
     </PageFrame>
   );
@@ -1233,10 +1261,6 @@ function ControlField({ label, children }: { label: string; children: ReactNode 
   return <label className="control-field">{label}{children}</label>;
 }
 
-function SettingsForm({ title, children }: { title: string; children: ReactNode }) {
-  return <div className="query-panel"><h2>{title}</h2><div className="settings-form-grid">{children}</div></div>;
-}
-
 function ConfigPanel({ active, name, children }: { active: boolean; name: string; children: ReactNode }) {
   return <div className={cn('config-panel', active && 'is-active')} data-config-panel={name}>{children}</div>;
 }
@@ -1389,41 +1413,6 @@ function CoinPackageModal({
   );
 }
 
-function CoinSceneModal({
-  open,
-  initial,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  initial: CoinSceneConfig | null;
-  onClose: () => void;
-  onSubmit: (value: CoinSceneConfig) => void;
-}) {
-  const [form, setForm] = useState<CoinSceneConfig>({ sceneCode: '', mobileName: '', mobileIcon: '', sceneDesc: '', unitPrice: 0, retentionDays: 0, status: 'ENABLED' });
-  useEffect(() => {
-    if (open) {
-      setForm(initial || { sceneCode: '', mobileName: '', mobileIcon: '', sceneDesc: '', unitPrice: 0, retentionDays: 0, status: 'ENABLED' });
-    }
-  }, [initial, open]);
-
-  return (
-    <Modal id="coinSceneEditModal" title="千寻币消费场景编辑" open={open} onClose={onClose}>
-      <div className="form-stack">
-        <label className="field">场景 code<input value={form.sceneCode} readOnly /></label>
-        <label className="field">移动端展示名称<input aria-label="场景移动端展示名称" value={form.mobileName} onChange={(event) => setForm({ ...form, mobileName: event.target.value })} /></label>
-        <label className="field">移动端图标配置<IconConfigInput value={form.mobileIcon} onChange={(value) => setForm({ ...form, mobileIcon: value })} /></label>
-        <label className="field">场景说明<textarea value={form.sceneDesc || ''} onChange={(event) => setForm({ ...form, sceneDesc: event.target.value })} /></label>
-        <label className="field">消费单价<input aria-label="场景消费单价" type="number" min="0" value={form.unitPrice} onChange={(event) => setForm({ ...form, unitPrice: Number(event.target.value) })} /></label>
-        <label className="field">保留天数<input type="number" min="0" value={form.retentionDays ?? 0} onChange={(event) => setForm({ ...form, retentionDays: Number(event.target.value) })} /></label>
-        <label className="field">状态<select value={form.status || 'ENABLED'} onChange={(event) => setForm({ ...form, status: event.target.value })}><option value="ENABLED">启用</option><option value="DISABLED">停用</option></select></label>
-      </div>
-      <Notice title="生效范围">保存商业化配置后写入数据库，小程序重新进入页面时按名称、图标、价格和状态动态展示。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.mobileName.trim() || !form.mobileIcon?.trim() || form.unitPrice < 0} onClick={() => onSubmit(form)}>确认</button></div>
-    </Modal>
-  );
-}
-
 function RefundApplyModal({
   open,
   form,
@@ -1519,8 +1508,12 @@ const commerceStyles = `
 .commerce-demo-page .config-panel.is-active { display: block; }
 .commerce-demo-page .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .commerce-demo-page .config-item { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
+.commerce-demo-page .config-item > span { color: var(--muted); font-size: 12px; font-weight: 400; }
+.commerce-demo-page .config-item input,
+.commerce-demo-page .config-item textarea { min-height: 34px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; color: var(--text); }
+.commerce-demo-page .config-item textarea { min-height: 84px; resize: vertical; }
 .commerce-demo-page .switch-line { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
-.commerce-demo-page .mini-switch { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 24px; padding: 0 10px; border-radius: 99px; background: var(--mint-soft); color: var(--mint); font-size: 12px; font-weight: 800; }
+.commerce-demo-page .mini-switch { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 24px; padding: 0 10px; border: 0; border-radius: 99px; background: var(--mint-soft); color: var(--mint); font-size: 12px; font-weight: 800; }
 .commerce-demo-page .mini-switch.off { background: #e5e7eb; color: #64748b; }
 .commerce-demo-page .toolbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
 .commerce-demo-page .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
@@ -1560,6 +1553,7 @@ const commerceStyles = `
 .commerce-demo-page .mobile-icon { display: inline-grid; width: 30px; height: 30px; place-items: center; border: 1px solid #c7ddff; border-radius: 9px; background: #eff6ff; color: var(--brand); font-size: 16px; font-weight: 900; line-height: 1; }
 .commerce-demo-page .icon-config-cell { display: inline-flex; gap: 8px; align-items: center; }
 .commerce-demo-page .icon-config-input { width: 150px; min-height: 32px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; color: var(--text); font-size: 12px; }
+.commerce-demo-page .scene-name-input { width: 180px; }
 .commerce-demo-page .number-input { width: 88px; }
 .commerce-demo-page .helper { color: var(--muted); font-size: 12px; }
 .commerce-demo-page .amount-plus { color: var(--mint); font-weight: 800; }
@@ -1583,6 +1577,8 @@ const commerceStyles = `
 .commerce-demo-page .drawer-section h3 { margin: 0; font-weight: 800; }
 .commerce-demo-page .drawer-kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; font-size: 13px; }
 .commerce-demo-page .drawer-kv span { color: var(--muted); }
+.commerce-demo-page .drawer-kv strong { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.commerce-demo-page .config-log-change { display: grid; gap: 8px; padding: 10px 0; border-top: 1px dashed var(--line); }
 .commerce-demo-page .form-stack { display: grid; gap: 12px; }
 @media (max-width: 980px) {
   .commerce-demo-page .admin-summary-grid { grid-template-columns: 1fr; }

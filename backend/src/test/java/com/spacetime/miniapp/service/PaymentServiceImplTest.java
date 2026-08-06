@@ -340,7 +340,7 @@ class AssetServiceImplTest {
         userAsset.setTodayFreeWhisperRemain(1);
         userAsset.setTotalRecharge(BigDecimal.ZERO);
         sceneConfig = new CoinSceneConfig();
-        sceneConfig.setSceneCode("ideal_user");
+        sceneConfig.setSceneCode("compatible_person_unlock_one");
         sceneConfig.setUnitPrice(10);
         sceneConfig.setRetentionDays(90);
         sceneConfig.setStatus("ENABLED");
@@ -359,10 +359,10 @@ class AssetServiceImplTest {
     }
 
     @Test
-    @DisplayName("单条解锁-余额充足")
+    @DisplayName("兼容对象单条解锁-余额充足")
     void unlock_single_shouldDeductCoin() {
         UnlockReq req = new UnlockReq();
-        req.setUnlockScene("ideal_user");
+        req.setUnlockScene("featured_profile");
         req.setTargetUserIds(List.of(101L));
 
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
@@ -377,11 +377,11 @@ class AssetServiceImplTest {
     }
 
     @Test
-    @DisplayName("批量解锁理想型-5个")
+    @DisplayName("兼容对象批量解锁-5个")
     void unlock_batch5_shouldSucceed() {
         userAsset.setCoinBalance(500);
         UnlockReq req = new UnlockReq();
-        req.setUnlockScene("ideal_user");
+        req.setUnlockScene("featured_profile");
         req.setTargetUserIds(List.of(101L, 102L, 103L, 104L, 105L));
 
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
@@ -394,16 +394,17 @@ class AssetServiceImplTest {
     }
 
     @Test
-    @DisplayName("批量解锁-超过5个上限")
-    void unlock_batch6_shouldThrow() {
+    @DisplayName("理想型旧接口不得绕过报价、折扣和快照校验")
+    void unlock_idealScene_shouldRequireDedicatedQuoteAndConfirm() {
         UnlockReq req = new UnlockReq();
         req.setUnlockScene("ideal_user");
         req.setTargetUserIds(List.of(101L, 102L, 103L, 104L, 105L, 106L));
-        stubEnabledScene();
 
         assertThatThrownBy(() -> assetService.unlock(1L, req))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("最多");
+                .hasMessageContaining("理想型")
+                .hasMessageContaining("报价");
+        verify(userAssetDao, never()).updateCoinBalance(anyLong(), anyInt());
     }
 
     @Test
@@ -411,7 +412,7 @@ class AssetServiceImplTest {
     void unlock_insufficientBalance_shouldThrow() {
         userAsset.setCoinBalance(5);
         UnlockReq req = new UnlockReq();
-        req.setUnlockScene("ideal_user");
+        req.setUnlockScene("featured_profile");
         req.setTargetUserIds(List.of(101L));
 
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);

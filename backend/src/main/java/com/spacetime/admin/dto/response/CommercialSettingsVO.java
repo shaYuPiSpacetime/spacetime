@@ -8,6 +8,7 @@ import lombok.Data;
 @Data
 public class CommercialSettingsVO {
     private Integer idealBatchMax;
+    private Integer idealBatchDiscountPercent;
     private Integer idealRetentionDays;
     private Integer normalViewQuota;
     private Integer vipViewQuota;

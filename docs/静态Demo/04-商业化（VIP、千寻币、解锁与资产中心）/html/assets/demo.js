@@ -10,6 +10,23 @@
   const openDrawer = common.openDrawer || (() => {});
 
   const iconGlyphs = {
+    'heart-list': '♥',
+    'visitor-eye': '👁',
+    'yo-message': '✉',
+    'extra-browse': '+',
+    filter: '⌕',
+    exposure: '★',
+    stealth: '◌',
+    replay: '↺',
+    'daily-heart': '♡',
+    coinUsageWhisper: '✉',
+    coinUsageHeartbeat: '♥',
+    coinUsageIdealUnlock: '◎',
+    coinUsageBoost: '↑',
+    coinUsageCuratedUnlock: '◎+',
+    coinUsageRecommend: '≋',
+    coinUsageAnonymousUnlock: '匿',
+    coinUsageLimitedActivity: '限',
     'icon-heart-list': '♥',
     'icon-visitor': '👁',
     'icon-whisper': '✉',
@@ -39,6 +56,10 @@
 
   function money(value) {
     return `¥${escapeHtml(value)}`;
+  }
+
+  function adminMoney(value) {
+    return `¥${Number(value || 0).toFixed(2)}`;
   }
 
   function tag(text) {
@@ -312,14 +333,15 @@
   function renderAdminPackages() {
     const vipTarget = qs('[data-render="admin-vip-packages"]');
     if (vipTarget) {
-      const rows = [...(data.vipPackages || []), ...(data.subscriptionPackages || [])];
+      const rows = data.vipPackages || [];
       vipTarget.innerHTML = rows.map((item) => `
         <tr>
           <td>${escapeHtml(item.id)}</td>
           <td>${escapeHtml(item.name)}</td>
-          <td>${escapeHtml(item.type === 'subscription' ? '连续订阅套餐' : '普通套餐')}</td>
-          <td>${money(item.originalPrice || item.price)}</td>
-          <td>${money(item.price)}</td>
+          <td>普通套餐</td>
+          <td>一次性购买</td>
+          <td>${adminMoney(item.originalPrice ?? item.price)}</td>
+          <td>${adminMoney(item.price)}</td>
           <td>${escapeHtml(item.duration)}</td>
           <td>${tag(item.tag)}</td>
           <td>${tag(item.status === 'on' ? '上架' : '下架')}</td>
@@ -333,14 +355,14 @@
         <tr>
           <td>${escapeHtml(item.id)}</td>
           <td>${escapeHtml(item.name)}</td>
-          <td>${money(item.originalPrice || item.payAmount)}</td>
-          <td>${money(item.payAmount)}</td>
+          <td>${adminMoney(item.originalPrice ?? item.payAmount)}</td>
+          <td>${adminMoney(item.payAmount)}</td>
           <td>${escapeHtml(item.coinCount)}</td>
           <td>${escapeHtml(item.bonusCoin)}</td>
           <td>${tag(item.tag)}</td>
           <td>${item.recommended ? tag('推荐档') : '-'}</td>
           <td>${tag(item.status === 'on' ? '上架' : '下架')}</td>
-          <td><button class="btn" data-open-modal="coinPackageEditModal">编辑</button></td>
+          <td><button class="btn" data-open-modal="coinPackageEditModal">编辑</button> <button class="btn danger" data-toast="套餐已下架，历史订单保留" data-toast-type="warning">${item.status === 'on' ? '下架' : '上架'}</button></td>
         </tr>
       `).join('');
     }

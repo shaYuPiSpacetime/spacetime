@@ -87,6 +87,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
             CommonStatusEnum.ENABLED.getCode(), CommonStatusEnum.DISABLED.getCode()
     );
     private static final String CFG_IDEAL_BATCH_MAX = "commercial.ideal.batch.max";
+    private static final String CFG_IDEAL_BATCH_DISCOUNT_PERCENT = "commercial.ideal.batch.discount.percent";
     private static final String CFG_IDEAL_RETENTION_DAYS = "commercial.ideal.retention.days";
     private static final String CFG_NORMAL_VIEW_QUOTA = "commercial.view.quota.normal";
     private static final String CFG_VIP_VIEW_QUOTA = "commercial.view.quota.vip";
@@ -95,7 +96,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
     private static final String CFG_EXPOSURE_RESERVE_ENABLED = "commercial.exposure.reserve.enabled";
     private static final String CFG_EXPOSURE_RESERVE_DESC = "commercial.exposure.reserve.description";
     private static final List<String> COMMERCIAL_SETTING_KEYS = List.of(
-            CFG_IDEAL_BATCH_MAX, CFG_IDEAL_RETENTION_DAYS, CFG_NORMAL_VIEW_QUOTA, CFG_VIP_VIEW_QUOTA,
+            CFG_IDEAL_BATCH_MAX, CFG_IDEAL_BATCH_DISCOUNT_PERCENT, CFG_IDEAL_RETENTION_DAYS,
+            CFG_NORMAL_VIEW_QUOTA, CFG_VIP_VIEW_QUOTA,
             CFG_VIP_EXPIRE_REMIND_DAYS, CFG_REFUND_DISPLAY, CFG_EXPOSURE_RESERVE_ENABLED,
             CFG_EXPOSURE_RESERVE_DESC
     );
@@ -277,6 +279,11 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
                 || settings.getIdealRetentionDays() == null || settings.getIdealRetentionDays() < 1) {
             throw new BusinessException("解锁批量上限和保留天数必须大于 0");
         }
+        if (settings.getIdealBatchDiscountPercent() == null
+                || settings.getIdealBatchDiscountPercent() < 0
+                || settings.getIdealBatchDiscountPercent() > 100) {
+            throw new BusinessException("理想型解锁全部折扣比例必须为 0-100");
+        }
         if (settings.getNormalViewQuota() == null || settings.getNormalViewQuota() < 0
                 || settings.getVipViewQuota() == null || settings.getVipViewQuota() < settings.getNormalViewQuota()) {
             throw new BusinessException("会员查看配额不能低于普通用户配额");
@@ -325,6 +332,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
                 .collect(Collectors.toMap(AppConfig::getConfigKey, AppConfig::getConfigValue, (a, b) -> b));
         CommercialSettingsVO vo = new CommercialSettingsVO();
         vo.setIdealBatchMax(intValue(values, CFG_IDEAL_BATCH_MAX, 5));
+        vo.setIdealBatchDiscountPercent(intValue(values, CFG_IDEAL_BATCH_DISCOUNT_PERCENT, 10));
         vo.setIdealRetentionDays(intValue(values, CFG_IDEAL_RETENTION_DAYS, 90));
         vo.setNormalViewQuota(intValue(values, CFG_NORMAL_VIEW_QUOTA, 10));
         vo.setVipViewQuota(intValue(values, CFG_VIP_VIEW_QUOTA, 20));
@@ -353,6 +361,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
             return;
         }
         upsertSetting(CFG_IDEAL_BATCH_MAX, settings.getIdealBatchMax(), ConfigTypeEnum.NUMBER, "理想型批量上限");
+        upsertSetting(CFG_IDEAL_BATCH_DISCOUNT_PERCENT, settings.getIdealBatchDiscountPercent(),
+                ConfigTypeEnum.NUMBER, "理想型解锁全部折扣比例");
         upsertSetting(CFG_IDEAL_RETENTION_DAYS, settings.getIdealRetentionDays(), ConfigTypeEnum.NUMBER, "理想型保留天数");
         upsertSetting(CFG_NORMAL_VIEW_QUOTA, settings.getNormalViewQuota(), ConfigTypeEnum.NUMBER, "普通用户每日查看配额");
         upsertSetting(CFG_VIP_VIEW_QUOTA, settings.getVipViewQuota(), ConfigTypeEnum.NUMBER, "会员每日查看配额");
@@ -740,9 +750,13 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         vo.setId(entity.getId());
         vo.setConfigVersion(entity.getConfigVersion());
         vo.setChangeModule(entity.getChangeModule());
+        vo.setChangeModuleName("commercial".equalsIgnoreCase(entity.getChangeModule()) ? "商业化配置" : entity.getChangeModule());
         vo.setChangeSummary(entity.getChangeSummary());
+        vo.setChangeReason(entity.getChangeSummary());
         vo.setOperatorId(entity.getOperatorId());
         vo.setOperatorName(entity.getOperatorName());
+        vo.setBeforeSnapshot(entity.getBeforeSnapshot());
+        vo.setAfterSnapshot(entity.getAfterSnapshot());
         vo.setCreateTime(entity.getCreateTime());
         return vo;
     }

@@ -166,7 +166,7 @@ includes('frontend/src/pages/commercial/CommercialManagement.tsx', [
   'refundApplyModal',
   'exportModal',
   'handleConfigTabChange',
-  'void handleConfigTabChange(tab.key)',
+  'onClick={() => handleConfigTabChange(tab.key)}',
   'await load();',
   'EmptyTableRow',
   'dateRange',
@@ -175,6 +175,35 @@ includes('frontend/src/pages/commercial/CommercialManagement.tsx', [
   'assetType: filters.assetType',
   '<option value="coin">千寻币</option>',
   '<option value="vip">会员权益</option>',
+  '<th>套餐编号</th><th>套餐名称</th><th>套餐类型</th><th>购买方式</th><th>原价</th><th>优惠价</th><th>有效天数</th><th>标签</th><th>状态</th><th>操作</th>',
+  '<th>消费场景</th><th>场景 code</th><th>移动端展示名称</th><th>移动端图标配置</th><th>说明</th><th>单价</th><th>启停</th><th>影响页面</th>',
+  '理想型/合拍/知音保留天数',
+  '默认 90 天，合拍的人与知音-觅知音复用。',
+  '首版固定 30 分钟，不提供后台配置。',
+  '预留说明文案',
+]);
+
+includes('docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/admin.html', [
+  '<th>套餐编号</th><th>套餐名称</th><th>套餐类型</th><th>购买方式</th><th>原价</th><th>优惠价</th><th>有效天数</th><th>标签</th><th>状态</th><th>操作</th>',
+  '<th>消费场景</th><th>场景 code</th><th>移动端展示名称</th><th>移动端图标配置</th><th>说明</th><th>单价</th><th>启停</th><th>影响页面</th>',
+  '会员套餐（一次性购买）',
+  '理想型/合拍/知音保留天数',
+  '首版固定 30 分钟，不提供后台配置。',
+  '预留说明文案',
+]);
+
+includes('docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/assets/demo.js', [
+  'const rows = data.vipPackages || [];',
+  '<td>普通套餐</td>',
+  '<td>一次性购买</td>',
+  '<td>APP 付费弹窗 / 来源业务页</td>',
+  "${item.status === 'on' ? '下架' : '上架'}",
+]);
+
+excludes('docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/admin.html', [
+  '普通套餐 / 连续订阅套餐',
+  '连续订阅校验',
+  '微信连续订阅商品',
 ]);
 
 includes('frontend/src/api/commercial.ts', [

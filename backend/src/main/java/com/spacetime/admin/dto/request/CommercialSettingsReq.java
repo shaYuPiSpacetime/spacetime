@@ -12,6 +12,8 @@ import lombok.Data;
 public class CommercialSettingsReq {
     @NotNull @Min(1)
     private Integer idealBatchMax;
+    @NotNull @Min(0) @Max(100)
+    private Integer idealBatchDiscountPercent;
     @NotNull @Min(1)
     private Integer idealRetentionDays;
     @NotNull @Min(0)

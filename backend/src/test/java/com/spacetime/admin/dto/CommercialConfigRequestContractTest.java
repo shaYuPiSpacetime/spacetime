@@ -4,7 +4,9 @@ import com.spacetime.admin.dto.request.CoinPackageSaveReq;
 import com.spacetime.admin.dto.request.VipBenefitSaveReq;
 import com.spacetime.admin.dto.request.VipPackageSaveReq;
 import com.spacetime.admin.dto.request.CommercialConfigSaveReq;
+import com.spacetime.admin.dto.request.CommercialSettingsReq;
 import com.spacetime.admin.dto.response.CommercialConfigVO;
+import com.spacetime.admin.dto.response.CommercialSettingsVO;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,5 +32,9 @@ class CommercialConfigRequestContractTest {
     void aggregateConfigShouldCarryDatabaseBackedCommercialSettings() throws Exception {
         assertEquals("CommercialSettingsReq", CommercialConfigSaveReq.class.getDeclaredField("settings").getType().getSimpleName());
         assertEquals("CommercialSettingsVO", CommercialConfigVO.class.getDeclaredField("settings").getType().getSimpleName());
+        assertEquals(Integer.class, CommercialSettingsReq.class
+                .getDeclaredField("idealBatchDiscountPercent").getType());
+        assertEquals(Integer.class, CommercialSettingsVO.class
+                .getDeclaredField("idealBatchDiscountPercent").getType());
     }
 }

@@ -1,3 +1,12 @@
+读08-推荐与理想型条件筛选小程序先读设计稿，看生成设计描述文件，然后再读取设计描述文件生成页面，严格 1:1 还原
+蓝湖推荐分组所有的 ui 稿 https://lanhuapp.com/web/#/item/project/stage?pid=d9c9e50f-fee5-47ca-bd6b-ae05c0d5332b&image_id=b7c6a008-f0ae-4a29-a320-87e0abf4d9fc&tid=428e8368-c279-4369-947b-a5828487924d
+然后打通后台，ui 数据传至数据库实现动态化。达到整体闭环
+用户主页和主页预览是共用的,免费开聊到私信，没解锁之前都是悄悄话，解锁后就是私信
+商业化配置新增折扣比例，解锁全部按折扣来计算
+
+和demo/08-推荐与理想型条件筛选/html/admin.html，管理后台实现闭环，
+完成未处理 https://docs.qq.com/sheet/DVWNidG1xaWhIenBu?tab=BB08J2 达到闭环
+
 UPDATE app_user
 SET first_login_completed = 0,
     first_login_next_step = 1

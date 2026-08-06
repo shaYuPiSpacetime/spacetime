@@ -867,6 +867,7 @@ public class CommunityServiceImpl implements CommunityService {
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
                 .eq(CommunityPost::getAuthorId, targetUserId)
                 .eq(!mine, CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
+                .notIn(mine, CommunityPost::getStatus, List.of("deleted", "blocked"))
                 .orderByDesc(CommunityPost::getCreateTime);
         Page<CommunityPost> data = communityPostDao.selectPage(new Page<>(safePage(page), safeSize(size, 100)), wrapper);
         return toPostCardPage(currentUserId, data);
@@ -882,22 +883,24 @@ public class CommunityServiceImpl implements CommunityService {
         List<CommunityInteractionRecordVO> records = new ArrayList<>();
         if ("commented".equals(normalized)) {
             for (CommunityComment item : communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
-                    .eq(CommunityComment::getAuthorId, userId).orderByDesc(CommunityComment::getCreateTime))) {
+                    .eq(CommunityComment::getAuthorId, userId)
+                    .eq(CommunityComment::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
+                    .orderByDesc(CommunityComment::getCreateTime))) {
                 CommunityPost post = communityPostDao.selectById(item.getPostId());
-                if (post != null) records.add(interactionRecord("commented", "comment-" + item.getId(), item.getCreateTime(), userId, post));
+                if (isPublishedPost(post)) records.add(interactionRecord("commented", "comment-" + item.getId(), item.getCreateTime(), userId, post));
             }
         } else if ("liked".equals(normalized)) {
             for (CommunityLike item : communityLikeDao.selectList(new LambdaQueryWrapper<CommunityLike>()
                     .eq(CommunityLike::getUserId, userId).eq(CommunityLike::getStatus, CommonStatusEnum.ENABLED.getCode())
                     .orderByDesc(CommunityLike::getUpdateTime))) {
                 CommunityPost post = communityPostDao.selectById(item.getPostId());
-                if (post != null) records.add(interactionRecord("liked", "like-" + item.getId(), item.getUpdateTime(), userId, post));
+                if (isPublishedPost(post)) records.add(interactionRecord("liked", "like-" + item.getId(), item.getUpdateTime(), userId, post));
             }
         } else if ("viewed".equals(normalized)) {
             for (CommunityViewHistory item : communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
                     .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt))) {
                 CommunityPost post = communityPostDao.selectById(item.getPostId());
-                if (post != null) records.add(interactionRecord("viewed", "view-" + item.getId(), item.getViewedAt(), userId, post));
+                if (isPublishedPost(post)) records.add(interactionRecord("viewed", "view-" + item.getId(), item.getViewedAt(), userId, post));
             }
         } else {
             for (UserUnlockRecord item : userUnlockRecordDao.selectList(new LambdaQueryWrapper<UserUnlockRecord>()
@@ -2034,6 +2037,11 @@ public class CommunityServiceImpl implements CommunityService {
                 .map(String::trim)
                 .map(Long::valueOf)
                 .toList();
+    }
+
+    /** 互动历史只允许回显当前仍可公开访问的动态。 */
+    private boolean isPublishedPost(CommunityPost post) {
+        return post != null && CommunityPostStatusEnum.PUBLISHED.getCode().equalsIgnoreCase(post.getStatus());
     }
 
     /**

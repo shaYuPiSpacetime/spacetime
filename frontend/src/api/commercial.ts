@@ -63,12 +63,17 @@ export interface CommercialConfigLog {
   configVersion: string;
   changeModule: string;
   changeSummary: string;
+  changeModuleName?: string;
+  changeReason?: string;
+  beforeSnapshot?: string;
+  afterSnapshot?: string;
   operatorName?: string;
   createTime?: string;
 }
 
 export interface CommercialSettings {
   idealBatchMax: number;
+  idealBatchDiscountPercent: number;
   idealRetentionDays: number;
   normalViewQuota: number;
   vipViewQuota: number;

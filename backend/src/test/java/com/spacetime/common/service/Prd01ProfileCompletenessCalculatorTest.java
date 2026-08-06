@@ -129,6 +129,28 @@ class Prd01ProfileCompletenessCalculatorTest {
     }
 
     @Test
+    @DisplayName("字典化见面偏好主资料字段应直接参与完整度计分")
+    void shouldCountStructuredMeetingPreferenceFields() {
+        Prd01ProfileCompletenessCalculator.ProfileCompletenessRules rules =
+                new Prd01ProfileCompletenessCalculator.ProfileCompletenessRules(Map.of(
+                        "studentTotalScore", 40,
+                        "workerTotalScore", 40,
+                        "items", List.of(
+                                Map.of("fieldId", "meetingPreference", "studentScore", 20, "workerScore", 20),
+                                Map.of("fieldId", "preferredActivities", "studentScore", 20, "workerScore", 20))));
+        AppUser user = new AppUser();
+        user.setId(9L);
+        user.setIdentity("WORKER");
+        user.setMeetingPreference("NATURAL");
+        user.setPreferredActivities("[\"COFFEE\"]");
+
+        int score = calculator.calculate(user, rules, Map.of(), Set.of(), Set.of());
+
+        assertThat(score).isEqualTo(40);
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
     @DisplayName("现居地和家乡按省市两级完成区县历史计分项")
     void shouldCountLegacyDistrictScoreItemsFromProvinceAndCity() {
         Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot =

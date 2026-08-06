@@ -1,0 +1,8 @@
+2026-08-05 微信开发者工具自动化已成功打开登录协议弹窗、“我的-未认证”和“我的-未认证-填完部分资料”三个运行态，并完成 DOM、原生组件树、Tab 激活和关键像素几何断言。
+
+本机未给微信开发者工具开放“屏幕录制/屏幕共享”权限，miniprogram-automator 的 screenshot 指令持续超时，系统 ScreenCaptureKit 返回 TCC 拒绝，因此本目录不放置伪造或其他环境截图。
+
+已用以下可复现命令完成非截图运行态验收：
+WX_AUTO_PORT=9432 WX_IDE_PORT=57814 SKIP_RUNTIME_SCREENSHOTS=true npm run verify:login-profile-unverified-runtime
+
+开放微信开发者工具屏幕录制权限后，去掉 SKIP_RUNTIME_SCREENSHOTS 即可补采同一套三张证据图。

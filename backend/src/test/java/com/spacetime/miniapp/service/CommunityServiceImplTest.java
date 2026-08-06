@@ -1,6 +1,7 @@
 package com.spacetime.miniapp.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.enums.SqlKeyword;
 import com.spacetime.common.constant.CommunityConfigKeys;
 import com.spacetime.common.community.*;
 import com.spacetime.common.config.OssConfig;
@@ -461,6 +462,18 @@ class CommunityServiceImplTest {
 
         verify(appUserDao).selectList(any());
         verify(communityPostDao).selectPage(any(), any());
+    }
+
+    @Test
+    @DisplayName("我的动态-查询层排除已删除和已屏蔽内容")
+    void getUserPosts_mine_shouldExcludeDeletedAndBlocked() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(1, 10, 0));
+
+        communityService.getUserPosts(1L, "1", true, 1, 10);
+
+        verify(communityPostDao).selectPage(any(), argThat(wrapper ->
+                wrapper.getExpression().getNormal().stream().anyMatch(segment -> segment == SqlKeyword.NOT_IN)));
     }
 
     @Test

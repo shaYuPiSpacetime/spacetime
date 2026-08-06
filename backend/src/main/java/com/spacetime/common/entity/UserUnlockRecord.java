@@ -27,6 +27,10 @@ public class UserUnlockRecord extends BaseEntity {
     private String targetBizType;
     /** 具体关系业务编号，前缀 LIK- 或 VIS-。 */
     private String targetBizNo;
+    /** 理想型筛选快照业务编号。 */
+    private String snapshotNo;
+    /** 理想型筛选结果项业务编号。 */
+    private String snapshotItemNo;
     /** 特批退款业务编号。 */
     private String refundNo;
     /** 有效唯一标记：有效时为 1，过期或退款后为空。 */

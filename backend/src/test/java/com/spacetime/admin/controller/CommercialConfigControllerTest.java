@@ -68,7 +68,7 @@ class CommercialConfigControllerTest {
                   "vipPackages": [{"id":8,"packageName":"连续包年","packageType":"continuous","price":568,"durationDays":365}],
                   "coinPackages": [{"id":11,"packageName":"3000千寻币","amount":268,"coinCount":3000}],
                   "coinScenes": [{"id":9,"sceneCode":"whisper","mobileName":"送悄悄话","unitPrice":12}],
-                  "settings": {"idealBatchMax":5,"idealRetentionDays":90,"normalViewQuota":10,"vipViewQuota":20,"vipExpireRemindDays":3,"refundDisplay":true,"exposureReserveEnabled":false}
+                  "settings": {"idealBatchMax":5,"idealBatchDiscountPercent":10,"idealRetentionDays":90,"normalViewQuota":10,"vipViewQuota":20,"vipExpireRemindDays":3,"refundDisplay":true,"exposureReserveEnabled":false}
                 }
                 """;
 
@@ -86,6 +86,7 @@ class CommercialConfigControllerTest {
         assertThat(request.getCoinPackages().get(0).getId()).isEqualTo(11L);
         assertThat(request.getCoinScenes().get(0).getId()).isEqualTo(9L);
         assertThat(request.getSettings().getIdealRetentionDays()).isEqualTo(90);
+        assertThat(request.getSettings().getIdealBatchDiscountPercent()).isEqualTo(10);
     }
 
     @Test

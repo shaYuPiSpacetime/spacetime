@@ -22,6 +22,8 @@ import com.spacetime.common.dao.VipBenefitDao;
 import com.spacetime.common.dao.VipPackageDao;
 import com.spacetime.common.entity.CoinPackage;
 import com.spacetime.common.entity.CoinSceneConfig;
+import com.spacetime.common.entity.CommercialConfigLog;
+import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.VipBenefit;
 import com.spacetime.common.entity.VipPackage;
 import com.spacetime.common.exception.BusinessException;
@@ -34,6 +36,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -271,7 +274,54 @@ class CommercialAdminServiceImplTest {
 
         service.saveConfig(req);
 
-        verify(appConfigDao, org.mockito.Mockito.times(8)).upsert(any());
+        ArgumentCaptor<AppConfig> captor = ArgumentCaptor.forClass(AppConfig.class);
+        verify(appConfigDao, org.mockito.Mockito.times(9)).upsert(captor.capture());
+        assertThat(captor.getAllValues())
+                .filteredOn(item -> "commercial.ideal.batch.discount.percent".equals(item.getConfigKey()))
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.getConfigValue()).isEqualTo("10");
+                    assertThat(item.getRemark()).isEqualTo("理想型解锁全部折扣比例");
+                });
+    }
+
+    @Test
+    @DisplayName("L3-11 理想型解锁全部折扣比例必须为 0-100")
+    void saveConfig_shouldRejectInvalidIdealBatchDiscount() {
+        CommercialSettingsReq settings = validSettings();
+        settings.setIdealBatchDiscountPercent(101);
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setSettings(settings);
+
+        assertThatThrownBy(() -> service.saveConfig(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("折扣比例")
+                .hasMessageContaining("0-100");
+        verify(appConfigDao, never()).upsert(any());
+    }
+
+    @Test
+    @DisplayName("L3-14 配置日志返回中文模块、变更原因和前后快照")
+    void getConfigLogs_shouldExposeAuditDetails() {
+        CommercialConfigLog log = new CommercialConfigLog();
+        log.setId(101L);
+        log.setConfigVersion("COMM-20260805175955");
+        log.setChangeModule("commercial");
+        log.setChangeSummary("调整每日专属悄悄话");
+        log.setBeforeSnapshot("{\"settings\":{\"normalViewQuota\":3}}");
+        log.setAfterSnapshot("{\"settings\":{\"normalViewQuota\":5}}");
+        log.setOperatorName("peter");
+        log.setCreateTime(LocalDateTime.of(2026, 8, 5, 17, 59, 55));
+        when(commercialConfigLogDao.selectPage(any(), any())).thenReturn(page(List.of(log)));
+
+        Page<com.spacetime.admin.dto.response.CommercialConfigLogVO> result = service.getConfigLogs(1, 10);
+
+        assertThat(result.getRecords()).hasSize(1);
+        com.spacetime.admin.dto.response.CommercialConfigLogVO item = result.getRecords().getFirst();
+        assertThat(item.getChangeModuleName()).isEqualTo("商业化配置");
+        assertThat(item.getChangeReason()).isEqualTo("调整每日专属悄悄话");
+        assertThat(item.getBeforeSnapshot()).contains("normalViewQuota");
+        assertThat(item.getAfterSnapshot()).contains("normalViewQuota");
     }
 
     private VipPackageSaveReq vipPackageReq(Long id, String name) {
@@ -433,6 +483,7 @@ class CommercialAdminServiceImplTest {
     private CommercialSettingsReq validSettings() {
         CommercialSettingsReq req = new CommercialSettingsReq();
         req.setIdealBatchMax(5);
+        req.setIdealBatchDiscountPercent(10);
         req.setIdealRetentionDays(90);
         req.setNormalViewQuota(10);
         req.setVipViewQuota(20);

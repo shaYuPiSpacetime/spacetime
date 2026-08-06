@@ -26,8 +26,17 @@ public class PublicProfileVO {
     private String annualIncomeLabel;
     private List<String> tags;
     private String introduction;
+    private String datingGoal;
+    private String maritalStatus;
+    private String emotionalStatus;
+    private String favoriteSongName;
+    private String favoriteSongArtist;
+    private String favoriteSongCoverUrl;
     private Boolean liked;
     private Boolean matched;
     private String matchNo;
     private Boolean canEnterConversation;
+    private String communicationMode;
+    /** 对外可见且当前生效的三重认证 code。 */
+    private List<String> certifications;
 }

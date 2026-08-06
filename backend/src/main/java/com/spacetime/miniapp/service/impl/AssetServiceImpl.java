@@ -95,6 +95,9 @@ public class AssetServiceImpl implements AssetService {
         if (isRelationSingleUnlockScene(requestedScene)) {
             throw new BusinessException("喜欢和访客单条解锁必须使用报价、确认两步解锁接口");
         }
+        if (isIdealScene(requestedScene)) {
+            throw new BusinessException("理想型解锁必须使用理想型报价、确认两步接口");
+        }
 
         // 1. 校验目标用户列表不为空
         if (targetUserIds == null || targetUserIds.isEmpty()) {

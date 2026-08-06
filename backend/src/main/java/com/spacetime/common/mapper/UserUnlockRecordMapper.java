@@ -20,6 +20,7 @@ public interface UserUnlockRecordMapper extends BaseMapper<UserUnlockRecord> {
               AND target_user_id = #{targetUserId}
               AND status = 'active'
               AND active_marker = 1
+              AND (expire_time IS NULL OR expire_time > NOW())
               AND deleted = 0
             ORDER BY effective_time DESC, id DESC
             LIMIT 1
