@@ -330,6 +330,15 @@ export function updateAppUserStatus(id: number, status: string) {
   return request.put(`/admin/users/app/${id}/status`, { status });
 }
 
+export interface DeleteAppUserPayload {
+  confirmation: string;
+  reason: string;
+}
+
+export function deleteAppUser(id: number, payload: DeleteAppUserPayload) {
+  return request.delete(`/admin/users/app/${id}`, { data: payload });
+}
+
 export function importAppUsers(file: File) {
   const formData = new FormData();
   formData.append('file', file);

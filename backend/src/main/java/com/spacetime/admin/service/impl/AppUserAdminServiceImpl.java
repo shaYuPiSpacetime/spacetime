@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.AppUserPageReq;
+import com.spacetime.admin.dto.request.DeleteAppUserReq;
 import com.spacetime.admin.dto.response.ExportTaskVO;
 import com.spacetime.admin.dto.response.AppUserDetailVO;
 import com.spacetime.admin.dto.response.ImportBatchVO;
@@ -15,6 +16,7 @@ import com.spacetime.admin.dto.response.VerificationDetailVO;
 import com.spacetime.admin.service.AppUserAdminService;
 import com.spacetime.common.dao.AppRelationVisitEventDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.AppUserCleanupDao;
 import com.spacetime.common.dao.AppUserExportTaskDao;
 import com.spacetime.common.dao.AppUserImportBatchDao;
 import com.spacetime.common.dao.AppUserImportRowDao;
@@ -43,6 +45,7 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.RelationAccessProjectionService;
+import com.spacetime.common.service.MiniappTokenSessionService;
 import com.spacetime.common.service.RelationLifecycleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -91,6 +94,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             AppUserAuditTypeEnum.VOICE_INTRO.getCode());
 
     private final AppUserDao appUserDao;
+    private final AppUserCleanupDao appUserCleanupDao;
     private final AppRelationVisitEventDao visitEventDao;
     private final AppUserAuditRecordDao auditRecordDao;
     private final AppUserExportTaskDao exportTaskDao;
@@ -103,6 +107,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
     private final Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
     private final Prd01RuntimeConfigResolver runtimeConfigResolver;
     private final RelationAccessProjectionService relationAccessProjectionService;
+    private final MiniappTokenSessionService miniappTokenSessionService;
     private final RelationLifecycleService relationLifecycleService;
 
     private static final Map<String, String> IMPORT_FIELD_ALIASES = Map.ofEntries(
@@ -457,6 +462,46 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                 && !status.equals(previousStatus)) {
             relationLifecycleService.invalidateByUser(id, RelationInvalidReasonEnum.ACCOUNT_DELETED, LocalDateTime.now());
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteUser(Long id, DeleteAppUserReq req) {
+        if (id == null || id <= 0) {
+            throw new BusinessException("用户ID无效");
+        }
+        String expectedConfirmation = "DELETE U" + id;
+        String confirmation = req == null ? null : req.getConfirmation();
+        if (!expectedConfirmation.equals(confirmation)) {
+            throw new BusinessException("删除确认文字不匹配");
+        }
+        String reason = req == null ? null : StrUtil.trim(req.getReason());
+        if (StrUtil.isBlank(reason)) {
+            throw new BusinessException("删除原因不能为空");
+        }
+        if (reason.length() < 2 || reason.length() > 200) {
+            throw new BusinessException("删除原因长度应为2到200个字符");
+        }
+
+        AppUser user = appUserDao.selectById(id);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        String beforeValue = "{\"userId\":" + id
+                + ",\"phone\":\"" + escapeJson(maskPhone(user.getPhone()))
+                + "\",\"accountStatus\":\"" + escapeJson(user.getAccountStatus()) + "\"}";
+
+        appUserCleanupDao.deleteByUserId(id);
+        miniappTokenSessionService.revokeAllByUserId(id);
+
+        ContentOperationLog log = new ContentOperationLog();
+        log.setBizType("APP_USER");
+        log.setBizId(id);
+        log.setAction("HARD_DELETE");
+        log.setBeforeValue(beforeValue);
+        log.setAfterValue("{\"deleted\":true,\"sessionRevoked\":true}");
+        log.setRemark(reason);
+        contentOperationLogDao.insert(log);
     }
 
     @Override

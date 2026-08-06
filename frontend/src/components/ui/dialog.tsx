@@ -10,6 +10,7 @@ interface DialogProps {
   layer?: 'default' | 'nested' | 'confirmation';
   closeOnEscape?: boolean;
   lockBodyScroll?: boolean;
+  ariaLabel?: string;
 }
 
 const layerClasses = {
@@ -26,6 +27,7 @@ function Dialog({
   layer = 'default',
   closeOnEscape = true,
   lockBodyScroll = true,
+  ariaLabel,
 }: DialogProps) {
   React.useEffect(() => {
     if (!lockBodyScroll) return undefined;
@@ -53,12 +55,17 @@ function Dialog({
     <div className={cn('fixed inset-0 flex items-center justify-center', layerClasses[layer])}>
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
         className={cn(
           'relative z-[1] max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg',
           className,
         )}
       >
         <button
+          type="button"
+          aria-label="关闭弹窗"
           onClick={onClose}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
         >

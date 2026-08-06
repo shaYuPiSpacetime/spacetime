@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Search,
   ShieldCheck,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,7 @@ import {
   getAppUserRelationUnlocks,
   getAppUserRelationVisits,
   importAppUsers,
+  deleteAppUser,
   updateAppUserStatus,
   type AppUserListVO,
   type AppUserStatsVO,
@@ -957,6 +959,7 @@ export default function CustomersPage() {
   const { hasPermission } = usePermission();
   const canViewRelations = hasPermission('user:app:relation:view');
   const canViewCommercial = hasPermission('commercial:user:view');
+  const canDeleteUser = hasPermission('user:app:delete');
   const [keyword, setKeyword] = useState('');
   const [coreAccessStatus, setCoreAccessStatus] = useState('');
   const [verificationStatus, setVerificationStatus] = useState('');
@@ -1146,6 +1149,17 @@ export default function CustomersPage() {
     setDrawerUser((prev) => (prev && prev.id === userId ? { ...prev, accountStatus: status } : prev));
     fetchUsers();
     fetchStats();
+  }
+
+  function handleUserDeleted(userId: number) {
+    setDrawerUser(null);
+    setUsers((prev) => prev.filter((item) => item.id !== userId));
+    if (users.length <= 1 && page > 1) {
+      setPage((current) => Math.max(1, current - 1));
+    } else {
+      void fetchUsers();
+    }
+    void fetchStats();
   }
 
   function openWorkflowDialog(type: 'import' | 'export') {
@@ -1348,9 +1362,11 @@ export default function CustomersPage() {
       <ProfileDrawer
         user={drawerUser}
         canViewCommercial={canViewCommercial}
+        canDeleteUser={canDeleteUser}
         elevated={Boolean(moduleSupplementUser)}
         onClose={() => setDrawerUser(null)}
         onStatusChanged={handleUserStatusChanged}
+        onDeleted={handleUserDeleted}
       />
       <ModuleSupplementDialog
         user={moduleSupplementUser}
@@ -2058,18 +2074,26 @@ function vipStatusText(status?: string) {
 function ProfileDrawer({
   user,
   canViewCommercial,
+  canDeleteUser,
   elevated = false,
   onClose,
   onStatusChanged,
+  onDeleted,
 }: {
   user: AdminUserCardItem | null;
   canViewCommercial: boolean;
+  canDeleteUser: boolean;
   elevated?: boolean;
   onClose: () => void;
   onStatusChanged?: (userId: number, status: string) => void;
+  onDeleted?: (userId: number) => void;
 }) {
   const [freezeConfirmOpen, setFreezeConfirmOpen] = useState(false);
   const [freezeProcessing, setFreezeProcessing] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteProcessing, setDeleteProcessing] = useState(false);
   const [commercial, setCommercial] = useState<UserCommercialAssetDetail | null>(null);
   const [commercialLoading, setCommercialLoading] = useState(false);
   const genderLabel = user?.genderLabel || '-';
@@ -2095,6 +2119,9 @@ function ProfileDrawer({
     ? '解冻后用户将恢复正常账号状态，可继续按准入规则使用功能，操作人和时间会进入审计日志。'
     : '冻结后用户将无法继续使用核心准入能力，操作人、原因和时间会进入审计日志。';
   const accountConfirmButtonText = isFrozen ? '确认解冻' : '确认冻结';
+  const expectedDeleteConfirmation = user ? `DELETE U${user.id}` : '';
+  const deleteReady = deleteReason.trim().length >= 2
+    && deleteConfirmation === expectedDeleteConfirmation;
   const locationStatus = user?.city && user.city !== '-' ? '已记录现居地' : '-';
   const coreStatus = user?.accessStatus === 'full_access' ? '核心准入通过' : user?.accessStatus === 'browse_only' ? '核心准入待完善' : '核心准入阻断';
   const verifyBadges = [
@@ -2122,8 +2149,11 @@ function ProfileDrawer({
   ];
 
   useEffect(() => {
-    if (!user) setFreezeConfirmOpen(false);
-  }, [user]);
+    setFreezeConfirmOpen(false);
+    setDeleteConfirmOpen(false);
+    setDeleteReason('');
+    setDeleteConfirmation('');
+  }, [user?.id]);
 
   useEffect(() => {
     let disposed = false;
@@ -2159,13 +2189,36 @@ function ProfileDrawer({
     }
   };
 
+  const closeDeleteConfirm = () => {
+    if (deleteProcessing) return;
+    setDeleteConfirmOpen(false);
+    setDeleteReason('');
+    setDeleteConfirmation('');
+  };
+
+  const confirmHardDelete = async () => {
+    if (!user || !deleteReady) return;
+    setDeleteProcessing(true);
+    try {
+      await deleteAppUser(user.id, {
+        confirmation: deleteConfirmation,
+        reason: deleteReason.trim(),
+      });
+      showToast('用户已彻底删除，可使用原手机号重新注册', 'success');
+      setDeleteConfirmOpen(false);
+      onDeleted?.(user.id);
+    } finally {
+      setDeleteProcessing(false);
+    }
+  };
+
   return (
     <>
       <Dialog
         open={Boolean(user)}
         onClose={onClose}
         layer={elevated ? 'nested' : 'default'}
-        closeOnEscape={!freezeConfirmOpen}
+        closeOnEscape={!freezeConfirmOpen && !deleteConfirmOpen}
         lockBodyScroll={!elevated}
         className={elevated
           ? 'w-[calc(100vw-32px)] max-w-[960px] p-0'
@@ -2286,11 +2339,103 @@ function ProfileDrawer({
             </div>
           </div>
 
-          <div className="flex h-[72px] shrink-0 items-center justify-end border-t border-[#E6EDF7] bg-white px-6">
+          <div className="flex min-h-[72px] shrink-0 items-center justify-between gap-3 border-t border-[#E6EDF7] bg-white px-6 py-3">
+            {canDeleteUser ? (
+              <Button variant="destructive" onClick={() => setDeleteConfirmOpen(true)}>
+                <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                彻底删除用户
+              </Button>
+            ) : <span />}
             <Button variant="primary" onClick={() => setFreezeConfirmOpen(true)}>{accountActionText}</Button>
           </div>
         </div>
       )}
+      </Dialog>
+      <Dialog
+        open={Boolean(user) && deleteConfirmOpen}
+        onClose={closeDeleteConfirm}
+        layer="confirmation"
+        closeOnEscape={!deleteProcessing}
+        lockBodyScroll={false}
+        ariaLabel="彻底删除 App 用户"
+        className="max-w-[520px]"
+      >
+        {user && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-[#B42318]">彻底删除 App 用户</DialogTitle>
+            </DialogHeader>
+            <div className="mt-5 space-y-5 text-sm text-[#4D5A6D]">
+              <div className="rounded-lg border border-[#F3C5C5] bg-[#FFF3F1] p-4 text-[#912018]" role="alert">
+                <strong className="block text-base">此操作不可恢复</strong>
+                <p className="mt-1 leading-6">删除后，原手机号可重新注册并从登录页完整走一遍准入流程。</p>
+              </div>
+
+              <div className="rounded-lg border border-[#E6EDF7] p-4">
+                <strong className="text-[#1F2433]">将永久删除以下数据</strong>
+                <ul className="mt-3 grid list-disc gap-x-6 gap-y-2 pl-5 sm:grid-cols-2">
+                  <li>账号和登录身份</li>
+                  <li>认证信息</li>
+                  <li>个人资料与媒体引用</li>
+                  <li>关系、互动与社区内容</li>
+                  <li>订单、资产与解锁记录</li>
+                  <li>推荐、浏览与推广记录</li>
+                  <li>登录会话</li>
+                </ul>
+              </div>
+
+              <div className="rounded-lg bg-[#F7FAFE] p-4">
+                <strong className="block text-[#1F2433]">{user.nickname} U{user.id}</strong>
+                <span className="mt-1 block">手机号：{user.phone || '-'}</span>
+              </div>
+
+              <div>
+                <label htmlFor="hard-delete-reason" className="mb-2 block font-medium text-[#1F2433]">
+                  变更原因 <span className="text-[#D92D20]">*</span>
+                </label>
+                <textarea
+                  id="hard-delete-reason"
+                  rows={3}
+                  maxLength={200}
+                  value={deleteReason}
+                  onChange={(event) => setDeleteReason(event.target.value)}
+                  disabled={deleteProcessing}
+                  placeholder="请填写删除原因，例如：重复测试完整准入流程"
+                  className="w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm text-[#1F2433] outline-none transition focus:border-[#2876FF] focus:ring-2 focus:ring-[#2876FF]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <p className="mt-1 text-xs text-[#7D8597]">原因将进入后台审计日志，2–200 个字符。</p>
+              </div>
+
+              <div>
+                <label htmlFor="hard-delete-confirmation" className="mb-2 block font-medium text-[#1F2433]">
+                  确认文字 <span className="text-[#D92D20]">*</span>
+                </label>
+                <Input
+                  id="hard-delete-confirmation"
+                  autoComplete="off"
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  disabled={deleteProcessing}
+                  placeholder={`请输入 ${expectedDeleteConfirmation}`}
+                />
+                <p className="mt-1 text-xs text-[#7D8597]">
+                  请输入 <code className="rounded bg-[#EEF3F8] px-1.5 py-0.5 text-[#1F2433]">{expectedDeleteConfirmation}</code>
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-[#E6EDF7] pt-4">
+                <Button variant="outline" onClick={closeDeleteConfirm} disabled={deleteProcessing}>取消</Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmHardDelete}
+                  disabled={!deleteReady || deleteProcessing}
+                >
+                  {deleteProcessing ? '删除中…' : '确认彻底删除'}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </Dialog>
       <Dialog
         open={Boolean(user) && freezeConfirmOpen}

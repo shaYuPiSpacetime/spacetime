@@ -2,6 +2,7 @@ package com.spacetime.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.AppUserPageReq;
+import com.spacetime.admin.dto.request.DeleteAppUserReq;
 import com.spacetime.admin.dto.request.RelationPageReq;
 import com.spacetime.admin.dto.request.RelationUnlockPageReq;
 import com.spacetime.admin.dto.request.UpdateStatusReq;
@@ -129,6 +130,14 @@ public class AppUserController {
     @RequirePermission("user:app:freeze")
     public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody UpdateStatusReq req) {
         appUserAdminService.updateUserStatus(id, req.getStatus());
+        return R.ok();
+    }
+
+    /** 彻底删除 App 用户账号、认证及关联业务数据。 */
+    @DeleteMapping("/{id}")
+    @RequirePermission("user:app:delete")
+    public R<Void> delete(@PathVariable Long id, @Valid @RequestBody DeleteAppUserReq req) {
+        appUserAdminService.deleteUser(id, req);
         return R.ok();
     }
 

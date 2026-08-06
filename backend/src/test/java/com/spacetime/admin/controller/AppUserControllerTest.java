@@ -1,7 +1,9 @@
 package com.spacetime.admin.controller;
 
 import com.spacetime.admin.dto.response.ImportBatchVO;
+import com.spacetime.admin.dto.request.DeleteAppUserReq;
 import com.spacetime.admin.service.AppUserAdminService;
+import com.spacetime.common.annotation.RequirePermission;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,9 +12,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Method;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -33,6 +37,22 @@ class AppUserControllerTest {
 
     @InjectMocks
     private AppUserController controller;
+
+    @Test
+    @DisplayName("彻底删除接口应使用 DELETE 方法和独立高风险权限")
+    void hardDeleteEndpointShouldUseDedicatedPermission() throws Exception {
+        Method method = AppUserController.class.getMethod("delete", Long.class, DeleteAppUserReq.class);
+
+        assertThat(method.getAnnotation(DeleteMapping.class).value()).containsExactly("/{id}");
+        assertThat(method.getAnnotation(RequirePermission.class).value()).isEqualTo("user:app:delete");
+
+        DeleteAppUserReq req = new DeleteAppUserReq();
+        req.setConfirmation("DELETE U88");
+        req.setReason("重复测试完整准入流程");
+        controller.delete(88L, req);
+
+        verify(appUserAdminService).deleteUser(88L, req);
+    }
 
     @Test
     @DisplayName("导入接口应支持读取 xlsx 第一张表并转成 CSV 内容")

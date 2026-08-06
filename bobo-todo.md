@@ -8,7 +8,7 @@
 完成未处理 https://docs.qq.com/sheet/DVWNidG1xaWhIenBu?tab=BB08J2 达到闭环
 
 UPDATE app_user
-SET first_login_completed = 0,
+SET first_login_completed = 0,提交代码,push 代码，发布小程序
     first_login_next_step = 1
 WHERE phone = '17366629764'; 重置
 波：04、05、06、08

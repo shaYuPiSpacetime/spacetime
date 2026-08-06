@@ -2,6 +2,7 @@ package com.spacetime.admin.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.AppUserPageReq;
+import com.spacetime.admin.dto.request.DeleteAppUserReq;
 import com.spacetime.admin.dto.response.ExportTaskVO;
 import com.spacetime.admin.dto.response.ImportBatchVO;
 import com.spacetime.admin.dto.response.AppUserDetailVO;
@@ -36,6 +37,14 @@ public interface AppUserAdminService {
      * @param status 目标状态 @see AccountStatusEnum
      */
     void updateUserStatus(Long id, String status);
+
+    /**
+     * 彻底删除 App 用户账号、认证和全部关联业务数据。
+     *
+     * @param id 目标用户ID
+     * @param req 二次确认文字与删除原因
+     */
+    void deleteUser(Long id, DeleteAppUserReq req);
 
     /**
      * App 用户导入文件预校验。

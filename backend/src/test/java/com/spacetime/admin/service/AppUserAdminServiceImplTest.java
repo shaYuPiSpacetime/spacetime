@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.AppUserPageReq;
+import com.spacetime.admin.dto.request.DeleteAppUserReq;
 import com.spacetime.admin.dto.response.AppUserDetailVO;
 import com.spacetime.admin.dto.response.AppUserWorkflowHistoryVO;
 import com.spacetime.admin.dto.response.ExportTaskVO;
@@ -19,6 +20,7 @@ import com.spacetime.common.dao.AppUserImportBatchDao;
 import com.spacetime.common.dao.AppUserImportRowDao;
 import com.spacetime.common.dao.AppRelationVisitEventDao;
 import com.spacetime.common.dao.ContentOperationLogDao;
+import com.spacetime.common.dao.AppUserCleanupDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
@@ -33,6 +35,7 @@ import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.RelationAccessProjectionService;
+import com.spacetime.common.service.MiniappTokenSessionService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +51,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -85,6 +89,8 @@ class AppUserAdminServiceImplTest {
     @Mock
     private ContentOperationLogDao contentOperationLogDao;
     @Mock
+    private AppUserCleanupDao appUserCleanupDao;
+    @Mock
     private UserAssetDao userAssetDao;
     @Mock
     private ProfileDictionaryService profileDictionaryService;
@@ -96,9 +102,97 @@ class AppUserAdminServiceImplTest {
     private Prd01RuntimeConfigResolver runtimeConfigResolver;
     @Mock
     private RelationAccessProjectionService relationAccessProjectionService;
+    @Mock
+    private MiniappTokenSessionService miniappTokenSessionService;
 
     @InjectMocks
     private AppUserAdminServiceImpl service;
+
+    @Test
+    @DisplayName("彻底删除用户应清理数据库、撤销会话并写入脱敏审计")
+    void shouldHardDeleteUserAndWriteSanitizedAudit() {
+        AppUser user = user(88L, "待删除用户");
+        user.setPhone("17366629764");
+        user.setOpenid("sensitive-openid");
+        user.setUnionid("sensitive-unionid");
+        when(appUserDao.selectById(88L)).thenReturn(user);
+        DeleteAppUserReq req = deleteReq("DELETE U88", "重复测试完整准入流程");
+
+        service.deleteUser(88L, req);
+
+        verify(appUserCleanupDao).deleteByUserId(88L);
+        verify(miniappTokenSessionService).revokeAllByUserId(88L);
+        ArgumentCaptor<com.spacetime.common.entity.ContentOperationLog> logCaptor =
+                ArgumentCaptor.forClass(com.spacetime.common.entity.ContentOperationLog.class);
+        verify(contentOperationLogDao).insert(logCaptor.capture());
+        com.spacetime.common.entity.ContentOperationLog log = logCaptor.getValue();
+        assertThat(log.getBizType()).isEqualTo("APP_USER");
+        assertThat(log.getBizId()).isEqualTo(88L);
+        assertThat(log.getAction()).isEqualTo("HARD_DELETE");
+        assertThat(log.getBeforeValue())
+                .contains("173****9764")
+                .doesNotContain("17366629764", "sensitive-openid", "sensitive-unionid");
+        assertThat(log.getAfterValue()).contains("\"deleted\":true", "\"sessionRevoked\":true");
+        assertThat(log.getRemark()).isEqualTo("重复测试完整准入流程");
+    }
+
+    @Test
+    @DisplayName("彻底删除用户的确认文字必须与用户编号完全一致")
+    void shouldRejectMismatchedHardDeleteConfirmation() {
+        DeleteAppUserReq req = deleteReq("DELETE U89", "测试重置");
+
+        assertThatThrownBy(() -> service.deleteUser(88L, req))
+                .isInstanceOf(com.spacetime.common.exception.BusinessException.class)
+                .hasMessage("删除确认文字不匹配");
+        verifyNoInteractions(appUserCleanupDao, miniappTokenSessionService, contentOperationLogDao);
+    }
+
+    @Test
+    @DisplayName("彻底删除用户的原因去除空格后不得为空")
+    void shouldRejectBlankHardDeleteReason() {
+        DeleteAppUserReq req = deleteReq("DELETE U88", "  ");
+
+        assertThatThrownBy(() -> service.deleteUser(88L, req))
+                .isInstanceOf(com.spacetime.common.exception.BusinessException.class)
+                .hasMessage("删除原因不能为空");
+        verifyNoInteractions(appUserCleanupDao, miniappTokenSessionService, contentOperationLogDao);
+    }
+
+    @Test
+    @DisplayName("数据库清理失败后不得撤销会话或写成功审计")
+    void shouldStopWhenHardDeleteCleanupFails() {
+        AppUser user = user(88L, "待删除用户");
+        when(appUserDao.selectById(88L)).thenReturn(user);
+        org.mockito.Mockito.doThrow(new RuntimeException("cleanup failed"))
+                .when(appUserCleanupDao).deleteByUserId(88L);
+
+        assertThatThrownBy(() -> service.deleteUser(88L, deleteReq("DELETE U88", "测试重置")))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("cleanup failed");
+        verifyNoInteractions(miniappTokenSessionService, contentOperationLogDao);
+    }
+
+    @Test
+    @DisplayName("登录态清理失败后不得写入删除成功审计")
+    void shouldRollbackWhenSessionRevocationFails() {
+        AppUser user = user(88L, "待删除用户");
+        when(appUserDao.selectById(88L)).thenReturn(user);
+        org.mockito.Mockito.doThrow(new com.spacetime.common.exception.BusinessException("用户登录态清理失败，请稍后重试"))
+                .when(miniappTokenSessionService).revokeAllByUserId(88L);
+
+        assertThatThrownBy(() -> service.deleteUser(88L, deleteReq("DELETE U88", "测试重置")))
+                .isInstanceOf(com.spacetime.common.exception.BusinessException.class)
+                .hasMessage("用户登录态清理失败，请稍后重试");
+        verify(appUserCleanupDao).deleteByUserId(88L);
+        verifyNoInteractions(contentOperationLogDao);
+    }
+
+    private DeleteAppUserReq deleteReq(String confirmation, String reason) {
+        DeleteAppUserReq req = new DeleteAppUserReq();
+        req.setConfirmation(confirmation);
+        req.setReason(reason);
+        return req;
+    }
 
     @Test
     @DisplayName("用户详情关联头像只展示当前对外生效头像")

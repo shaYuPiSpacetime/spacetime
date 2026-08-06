@@ -10,11 +10,11 @@ const MOCK_TOKEN = 'mock-admin-token';
 async function loginAsAdmin(page: import('@playwright/test').Page) {
   await mockApi(page, '**/api/admin/permissions', {
     code: 200,
-    data: ['user:app:list'],
+    data: ['user:app:list', 'user:app:delete'],
   });
   await page.addInitScript((token: string) => {
     localStorage.setItem('auth', JSON.stringify({
-      state: { token, user: { nickname: 'peter', permissions: ['*:*:*'] } },
+      state: { token, user: { nickname: 'peter', permissions: ['*:*:*', 'user:app:delete'] } },
       version: 0,
     }));
     localStorage.setItem('token', token);
@@ -93,6 +93,46 @@ test.describe('用户列表 CustomersPage', () => {
     });
 
     await mockApi(page, '**/api/admin/users/app/*/status', { code: 200, data: null });
+  });
+
+  test('L4-06A 用户管理 — 彻底删除需原因与精确确认并刷新列表', async ({ page }) => {
+    let deletePayload: unknown;
+    await page.route('**/api/admin/users/app/1', async (route, request) => {
+      if (request.method() !== 'DELETE') {
+        await route.fallback();
+        return;
+      }
+      deletePayload = request.postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 200, data: null }),
+      });
+    });
+
+    await page.goto('/customers');
+    await expect(page.getByText('林女士')).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: '详情' }).first().click();
+    await page.getByRole('button', { name: '彻底删除用户' }).click();
+
+    const dialog = page.getByRole('dialog', { name: '彻底删除 App 用户' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('认证信息')).toBeVisible();
+    await expect(dialog.getByText('登录会话')).toBeVisible();
+    const submit = dialog.getByRole('button', { name: '确认彻底删除' });
+    await expect(submit).toBeDisabled();
+
+    await dialog.getByLabel('变更原因').fill('重复测试完整准入流程');
+    await dialog.getByLabel('确认文字').fill('DELETE U1');
+    await expect(submit).toBeEnabled();
+    await submit.click();
+
+    expect(deletePayload).toEqual({
+      confirmation: 'DELETE U1',
+      reason: '重复测试完整准入流程',
+    });
+    await expect(page.getByText('用户已彻底删除，可使用原手机号重新注册')).toBeVisible();
+    await expect(dialog).toBeHidden();
   });
 
   test('L4-00 用户列表 — 头部统计', async ({ page }) => {
