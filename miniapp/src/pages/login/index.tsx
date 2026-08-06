@@ -395,6 +395,7 @@ export default function LoginAuthPage() {
   const [wechatAuthPending, setWechatAuthPending] = useState(false)
   const [videoUnavailable, setVideoUnavailable] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState<LoginMethod | null>(null)
+  const [showDirectWechatAuth, setShowDirectWechatAuth] = useState(false)
 
   useLoad((options) => {
     void bootstrap().catch(error => {
@@ -435,7 +436,7 @@ export default function LoginAuthPage() {
     setShowDialog(false)
     setShowError(false)
     if (method === 'wechat') {
-      setShowMethodSheet(true)
+      setShowDirectWechatAuth(true)
       return
     }
     await Taro.redirectTo({ url: '/pages/login/phone?agreed=1' })
@@ -514,7 +515,7 @@ export default function LoginAuthPage() {
     setErrorText('')
     if (selectedMethod) {
       if (selectedMethod === 'wechat') {
-        setShowMethodSheet(true)
+        setShowDirectWechatAuth(true)
         return
       }
       await proceedWithMethod(selectedMethod)
@@ -635,6 +636,111 @@ export default function LoginAuthPage() {
           onWechatPhoneLogin={handleWechatPhoneLogin}
           onClose={() => setShowMethodSheet(false)}
         />
+      )}
+
+      {showDirectWechatAuth && (
+        <View
+          className="wechat-direct-auth absolute inset-0 z-50"
+          style={{ background: 'rgba(0,0,0,0.42)' }}
+          onClick={() => setShowDirectWechatAuth(false)}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              left: '0',
+              right: '0',
+              bottom: '0',
+              minHeight: '440rpx',
+              borderRadius: '64rpx 64rpx 0 0',
+              background: '#F5F6FA',
+              padding: '54rpx 25rpx calc(40rpx + env(safe-area-inset-bottom))',
+              boxSizing: 'border-box',
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Text
+              style={{
+                display: 'block',
+                color: '#333333',
+                fontSize: '34rpx',
+                fontWeight: 800,
+                lineHeight: '48rpx',
+                textAlign: 'center',
+              }}
+            >
+              微信授权登录
+            </Text>
+            <Text
+              style={{
+                display: 'block',
+                color: '#999999',
+                fontSize: '26rpx',
+                lineHeight: '38rpx',
+                textAlign: 'center',
+                marginTop: '12rpx',
+              }}
+            >
+              授权微信手机号即可完成登录
+            </Text>
+
+            <View style={{ marginTop: '52rpx', padding: '0 20rpx' }}>
+              <Button
+                className="login-wechat-custom-button"
+                openType="getPhoneNumber"
+                onGetPhoneNumber={handleWechatPhoneLogin}
+                disabled={wechatAuthPending}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  height: '108rpx',
+                  margin: 0,
+                  padding: 0,
+                  background: '#2876FF',
+                  border: 0,
+                  borderRadius: '24rpx',
+                  lineHeight: 'normal',
+                }}
+                hoverClass="btn-hover"
+              >
+                <Image
+                  src={miniappOssIcons.loginMethodWechat}
+                  mode="aspectFit"
+                  style={{ width: '48rpx', height: '48rpx' }}
+                />
+                <Text
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: '34rpx',
+                    fontWeight: 700,
+                    lineHeight: '48rpx',
+                    marginLeft: '16rpx',
+                  }}
+                >
+                  {wechatAuthPending ? '授权中...' : '微信授权登录'}
+                </Text>
+              </Button>
+            </View>
+
+            <View
+              style={{
+                marginTop: '36rpx',
+                display: 'flex',
+                justifyContent: 'center',
+              }}
+              onClick={() => {
+                setShowDirectWechatAuth(false)
+                setShowMethodSheet(true)
+              }}
+              hoverClass="btn-hover"
+            >
+              <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx' }}>
+                选择其他方式登录
+              </Text>
+            </View>
+          </View>
+        </View>
       )}
 
       {showDialog && (
