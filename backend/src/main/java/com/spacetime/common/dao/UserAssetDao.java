@@ -13,6 +13,8 @@ public interface UserAssetDao {
     UserAsset selectByUserId(Long userId);
     /** 在当前事务内按用户 ID 查询并锁定资产行。 */
     UserAsset selectByUserIdForUpdate(Long userId);
+    /** 原子消费一次免费悄悄话权益。 */
+    int consumeFreeWhisper(Long userId);
     Page<UserAsset> selectPage(Page<UserAsset> page, LambdaQueryWrapper<UserAsset> wrapper);
     void insert(UserAsset entity);
     void updateById(UserAsset entity);

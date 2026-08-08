@@ -342,8 +342,8 @@ class ProfileServiceImplTest {
     }
 
     @Test
-    @DisplayName("基础资料所选城市存在区县节点时要求现居区县")
-    void shouldRequireLocationDistrictWhenCityHasDistricts() {
+    @DisplayName("基础资料现居地固定省市两级，城市存在区县节点时也不要求区县")
+    void shouldAllowLocationDistrictEmptyWhenCityHasDistricts() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
                 .thenReturn(List.of(config(conditionalDistrictFields())));
         AppUser user = baseUser(null);
@@ -353,13 +353,14 @@ class ProfileServiceImplTest {
                 .thenReturn("WORKER");
         when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
                 .thenReturn("BACHELOR");
-        when(profileDictionaryService.hasEnabledRegionChildren("330100")).thenReturn(true);
         BasicProfileSaveReq req = validBasicProfileReq();
 
-        assertThatThrownBy(() -> newService().saveBasicProfile(7L, req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("现居区县不能为空");
-        verify(appUserDao, never()).updateById(user);
+        BasicProfileVO result = newService().saveBasicProfile(7L, req);
+
+        assertThat(result.getBasicProfileCompleted()).isTrue();
+        assertThat(user.getLocationDistrict()).isNull();
+        verify(profileDictionaryService, never()).hasEnabledRegionChildren("330100");
+        verify(appUserDao).updateById(user);
     }
 
     @Test
@@ -390,8 +391,8 @@ class ProfileServiceImplTest {
     }
 
     @Test
-    @DisplayName("现居地区县正常保存，家乡仍清理为省市两级")
-    void shouldKeepLocationDistrictAndClearHometownDistrict() {
+    @DisplayName("现居地和家乡保存时都清理历史区县并返回中文地区标签")
+    void shouldClearBothDistrictsAndReturnChineseRegionLabels() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
                 .thenReturn(List.of(config(hometownTwoLevelFields())));
         when(appConfigDao.selectByGroup("PRD01_ACCESS")).thenReturn(List.of());
@@ -404,6 +405,10 @@ class ProfileServiceImplTest {
                 .thenReturn("WORKER");
         when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
                 .thenReturn("BACHELOR");
+        when(profileDictionaryService.label(ProfileDictType.CHINA_REGION, "330000")).thenReturn("浙江省");
+        when(profileDictionaryService.label(ProfileDictType.CHINA_REGION, "330100")).thenReturn("杭州市");
+        when(profileDictionaryService.label(ProfileDictType.CHINA_REGION, "410000")).thenReturn("河南省");
+        when(profileDictionaryService.label(ProfileDictType.CHINA_REGION, "410100")).thenReturn("郑州市");
         BasicProfileSaveReq req = validBasicProfileReq();
         req.setLocationDistrict("330106");
         req.setHometownProvince("410000");
@@ -412,9 +417,13 @@ class ProfileServiceImplTest {
 
         BasicProfileVO result = newService().saveBasicProfile(7L, req);
 
-        assertThat(result.getLocationDistrict()).isEqualTo("330106");
+        assertThat(result.getLocationDistrict()).isNull();
         assertThat(result.getHometownDistrict()).isNull();
-        assertThat(user.getLocationDistrict()).isEqualTo("330106");
+        assertThat(result.getLocationProvinceLabel()).isEqualTo("浙江省");
+        assertThat(result.getLocationCityLabel()).isEqualTo("杭州市");
+        assertThat(result.getHometownProvinceLabel()).isEqualTo("河南省");
+        assertThat(result.getHometownCityLabel()).isEqualTo("郑州市");
+        assertThat(user.getLocationDistrict()).isNull();
         assertThat(user.getHometownDistrict()).isNull();
         verify(appUserDao).updateById(user);
     }

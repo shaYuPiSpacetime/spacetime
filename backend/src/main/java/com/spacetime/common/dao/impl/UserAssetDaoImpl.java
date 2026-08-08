@@ -35,6 +35,11 @@ public class UserAssetDaoImpl implements UserAssetDao {
     }
 
     @Override
+    public int consumeFreeWhisper(Long userId) {
+        return mapper.consumeFreeWhisper(userId);
+    }
+
+    @Override
     public Page<UserAsset> selectPage(Page<UserAsset> page, LambdaQueryWrapper<UserAsset> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

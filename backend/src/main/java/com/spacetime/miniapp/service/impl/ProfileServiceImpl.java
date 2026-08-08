@@ -327,10 +327,10 @@ public class ProfileServiceImpl implements ProfileService {
                 req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
     }
 
-    /** 基础资料页现居地支持省市区；家乡按产品口径固定为省市两级。 */
+    /** 基础资料页现居地和家乡都固定为省市两级。 */
     private void validateMainlandRegion(BasicProfileSaveReq req) {
         profileDictionaryService.requireChinaRegionPath(
-                req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
+                req.getLocationProvince(), req.getLocationCity(), null, "现居地");
         profileDictionaryService.requireChinaRegionPath(
                 req.getHometownProvince(), req.getHometownCity(), null, "家乡");
     }
@@ -386,10 +386,10 @@ public class ProfileServiceImpl implements ProfileService {
         }
         if (visible(settings, "locationProvince")) user.setLocationProvince(trimToNull(req.getLocationProvince()));
         if (visible(settings, "locationCity")) user.setLocationCity(trimToNull(req.getLocationCity()));
-        if (visible(settings, "locationDistrict")) user.setLocationDistrict(trimToNull(req.getLocationDistrict()));
+        // 基本资料固定省市两级，兼容旧客户端入参并清理历史区县值。
+        user.setLocationDistrict(null);
         if (visible(settings, "hometownProvince")) user.setHometownProvince(trimToNull(req.getHometownProvince()));
         if (visible(settings, "hometownCity")) user.setHometownCity(trimToNull(req.getHometownCity()));
-        // 家乡固定为省市两级，兼容旧客户端入参并清理历史区县值。
         user.setHometownDistrict(null);
         if (visible(settings, "company")) {
             user.setCompany(validatedText(req.getCompany(), 2, 50, "公司名称需2-50个字符"));
@@ -430,6 +430,15 @@ public class ProfileServiceImpl implements ProfileService {
 
     private String trimToNull(String value) {
         return StrUtil.isBlank(value) ? null : value.trim();
+    }
+
+    /** 基础资料响应统一补齐地区中文，空 code 不返回占位符。 */
+    private String regionLabel(String code) {
+        if (StrUtil.isBlank(code)) {
+            return null;
+        }
+        String label = profileDictionaryService.label(ProfileDictType.CHINA_REGION, code);
+        return code.equals(label) ? null : label;
     }
 
     private LocalDate parseBirthday(String value) {
@@ -617,10 +626,14 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setCompany(user.getCompany());
         vo.setAnnualIncome(user.getAnnualIncome());
         vo.setLocationProvince(user.getLocationProvince());
+        vo.setLocationProvinceLabel(regionLabel(user.getLocationProvince()));
         vo.setLocationCity(user.getLocationCity());
+        vo.setLocationCityLabel(regionLabel(user.getLocationCity()));
         vo.setLocationDistrict(user.getLocationDistrict());
         vo.setHometownProvince(user.getHometownProvince());
+        vo.setHometownProvinceLabel(regionLabel(user.getHometownProvince()));
         vo.setHometownCity(user.getHometownCity());
+        vo.setHometownCityLabel(regionLabel(user.getHometownCity()));
         vo.setHometownDistrict(user.getHometownDistrict());
         vo.setSchool(user.getSchool());
         vo.setMajor(user.getMajor());
@@ -637,7 +650,7 @@ public class ProfileServiceImpl implements ProfileService {
         return vo;
     }
 
-    /** 基础资料固定必填由配置解析器处理；现居区县按城市真实子节点条件必填。 */
+    /** 基础资料固定必填由配置解析器处理；现居地和家乡都不再校验区县。 */
     private void validateRequiredBasicFields(AppUser user, List<BasicProfileFieldVO> settings) {
         List<String> missing = missingRequiredBasicFields(user, settings);
         if (missing.isEmpty()) {
@@ -653,13 +666,7 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     private List<String> missingRequiredBasicFields(AppUser user, List<BasicProfileFieldVO> settings) {
-        List<String> missing = new java.util.ArrayList<>(fieldConfigResolver.missingRequiredBasicFields(user, settings));
-        if (StrUtil.isNotBlank(user.getLocationCity())
-                && StrUtil.isBlank(user.getLocationDistrict())
-                && profileDictionaryService.hasEnabledRegionChildren(user.getLocationCity())) {
-            missing.add("locationDistrict");
-        }
-        return missing;
+        return fieldConfigResolver.missingRequiredBasicFields(user, settings);
     }
 
     /** 首登现居地：城市有区县节点时必须选择区县，无下级节点时允许省市两级。 */

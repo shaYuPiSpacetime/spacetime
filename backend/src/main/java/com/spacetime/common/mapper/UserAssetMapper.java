@@ -17,6 +17,12 @@ public interface UserAssetMapper extends BaseMapper<UserAsset> {
     @Select("SELECT * FROM app_user_asset WHERE user_id = #{userId} AND deleted = 0 LIMIT 1 FOR UPDATE")
     UserAsset selectByUserIdForUpdate(@Param("userId") Long userId);
 
+    /** 原子消费一次免费悄悄话权益，权益不足时不更新。 */
+    @Update("UPDATE app_user_asset "
+            + "SET today_free_whisper_remain = today_free_whisper_remain - 1, update_time = NOW() "
+            + "WHERE user_id = #{userId} AND deleted = 0 AND today_free_whisper_remain > 0")
+    int consumeFreeWhisper(@Param("userId") Long userId);
+
     /** 原子更新千寻币余额，余额不足时不更新 */
     @Update("UPDATE app_user_asset SET coin_balance = coin_balance + #{delta}, update_time = NOW() "
             + "WHERE user_id = #{userId} AND deleted = 0 "

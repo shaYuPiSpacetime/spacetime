@@ -152,9 +152,9 @@ class MiniappPrd01ConfigServiceTest {
                 .filteredOn(item -> "locationDistrict".equals(item.get("fieldId")))
                 .singleElement()
                 .satisfies(item -> assertThat(item)
-                        .containsEntry("visible", true)
+                        .containsEntry("visible", false)
                         .containsEntry("required", false)
-                        .containsEntry("requiredMode", "conditional")
+                        .containsEntry("requiredMode", "fixed")
                         .containsEntry("scoreEnabled", false));
         assertThat((List<Map<String, Object>>) config.get("fieldSettings"))
                 .filteredOn(item -> "hometownDistrict".equals(item.get("fieldId")))

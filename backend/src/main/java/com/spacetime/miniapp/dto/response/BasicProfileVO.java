@@ -23,12 +23,16 @@ public class BasicProfileVO {
     private String occupation;
     private String annualIncome;
     private String maritalStatus;
-    /** 省市区字段返回地区 code */
+    /** 省市字段同时返回地区 code 和中文标签，移动端展示不得直接使用 code */
     private String locationProvince;
+    private String locationProvinceLabel;
     private String locationCity;
+    private String locationCityLabel;
     private String locationDistrict;
     private String hometownProvince;
+    private String hometownProvinceLabel;
     private String hometownCity;
+    private String hometownCityLabel;
     private String hometownDistrict;
     private String company;
     private String school;

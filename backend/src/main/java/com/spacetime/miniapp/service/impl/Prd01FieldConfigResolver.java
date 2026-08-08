@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * PRD01 首登字段配置解析器。
@@ -32,6 +33,8 @@ public class Prd01FieldConfigResolver {
     static final String PROFILE_FIELD_CONFIG_KEY = "prd01.profile.fieldSettings";
     private static final String MIN_AGE_KEY = "prd01.access.minAge";
     private static final String MAX_AGE_KEY = "prd01.access.maxAge";
+    private static final Set<String> RETIRED_BASIC_REGION_FIELDS = Set.of(
+            "locationDistrict", "hometownDistrict");
 
     /** 基本资料页字段顺序和不可配置的交互元数据。 */
     private static final List<BasicFieldDefinition> BASIC_FIELDS = List.of(
@@ -92,13 +95,14 @@ public class Prd01FieldConfigResolver {
         List<BasicProfileFieldVO> result = new ArrayList<>();
         for (BasicFieldDefinition definition : BASIC_FIELDS) {
             FieldState state = state(states, definition.configFieldId, definition.aliases);
+            boolean retiredRegionField = RETIRED_BASIC_REGION_FIELDS.contains(definition.fieldId);
             BasicProfileFieldVO item = new BasicProfileFieldVO();
             item.setFieldId(definition.fieldId);
             item.setLabel(definition.label);
             item.setFieldType(definition.fieldType);
-            item.setVisible(state.visible);
-            item.setRequired(state.visible && state.required);
-            item.setRequiredMode(state.requiredMode);
+            item.setVisible(!retiredRegionField && state.visible);
+            item.setRequired(!retiredRegionField && state.visible && state.required);
+            item.setRequiredMode(retiredRegionField ? "fixed" : state.requiredMode);
             item.setEditable(definition.editable);
             item.setDictType(definition.dictType);
             item.setMinValue(definition.minValue);
