@@ -1,7 +1,7 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
-import AppTabBar from '@/components/AppTabBar'
+import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
@@ -254,7 +254,6 @@ export default function RecommendPage() {
       <AppTabBar active="recommend" />
       {showIpDialog ? (
         <IpLocationDialog
-          city={candidate?.actualCity || candidate?.profile.currentCity || ''}
           onClose={() => setShowIpDialog(false)}
         />
       ) : null}
@@ -281,6 +280,13 @@ function RecommendHeader({
 }) {
   const metrics = getNativeNavigationMetrics()
   const top = metrics.menuTop + (metrics.menuHeight - 54) / 2
+  const actionsLayout = getCapsuleLeftActionsLayout({
+    menuLeft: metrics.menuLeft,
+    menuTop: metrics.menuTop,
+    menuHeight: metrics.menuHeight,
+    actionCount: 2,
+    actionSize: 70,
+  })
   return (
     <View
       style={{ position: 'relative', zIndex: 20, height: `${metrics.navigationHeight + 18}rpx` }}
@@ -331,42 +337,49 @@ function RecommendHeader({
         })}
       </View>
       <View
-        onClick={onHistory}
         style={{
           position: 'absolute',
-          left: '470rpx',
-          top: `${top - 4}rpx`,
-          width: '70rpx',
-          height: '70rpx',
+          left: `${actionsLayout.left}rpx`,
+          top: `${actionsLayout.top}rpx`,
+          width: `${actionsLayout.width}rpx`,
+          height: `${actionsLayout.actionSize}rpx`,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          gap: `${actionsLayout.actionGap}rpx`,
         }}
       >
-        <Image
-          src={miniappOssIcons.recommendReplay}
-          mode="aspectFit"
-          style={{ width: '48rpx', height: '48rpx' }}
-        />
-      </View>
-      <View
-        onClick={onPreference}
-        style={{
-          position: 'absolute',
-          left: '535rpx',
-          top: `${top - 4}rpx`,
-          width: '70rpx',
-          height: '70rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Image
-          src={miniappOssIcons.recommendPreference}
-          mode="aspectFit"
-          style={{ width: '48rpx', height: '48rpx' }}
-        />
+        <View
+          onClick={onHistory}
+          style={{
+            width: `${actionsLayout.actionSize}rpx`,
+            height: `${actionsLayout.actionSize}rpx`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Image
+            src={miniappOssIcons.recommendReplay}
+            mode="aspectFit"
+            style={{ width: '48rpx', height: '48rpx' }}
+          />
+        </View>
+        <View
+          onClick={onPreference}
+          style={{
+            width: `${actionsLayout.actionSize}rpx`,
+            height: `${actionsLayout.actionSize}rpx`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Image
+            src={miniappOssIcons.recommendPreference}
+            mode="aspectFit"
+            style={{ width: '48rpx', height: '48rpx' }}
+          />
+        </View>
       </View>
     </View>
   )
@@ -793,6 +806,13 @@ function CenteredText({ text }: { text: string }) {
 function IdealLanding({ onTabChange }: { onTabChange: (tab: RecommendTab) => void }) {
   const metrics = getNativeNavigationMetrics()
   const top = metrics.menuTop + (metrics.menuHeight - 54) / 2
+  const actionsLayout = getCapsuleLeftActionsLayout({
+    menuLeft: metrics.menuLeft,
+    menuTop: metrics.menuTop,
+    menuHeight: metrics.menuHeight,
+    actionCount: 1,
+    actionSize: 72,
+  })
   return (
     <View
       style={{
@@ -846,11 +866,11 @@ function IdealLanding({ onTabChange }: { onTabChange: (tab: RecommendTab) => voi
         onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })}
         style={{
           position: 'absolute',
-          left: '520rpx',
-          top: `${top - 2}rpx`,
+          left: `${actionsLayout.left}rpx`,
+          top: `${actionsLayout.top}rpx`,
           zIndex: 3,
-          width: '72rpx',
-          height: '72rpx',
+          width: `${actionsLayout.actionSize}rpx`,
+          height: `${actionsLayout.actionSize}rpx`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -898,11 +918,11 @@ function IdealLanding({ onTabChange }: { onTabChange: (tab: RecommendTab) => voi
       <View
         onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })}
         style={{
-          position: 'absolute',
+          position: 'fixed',
           left: '44rpx',
           right: '44rpx',
-          bottom: '76rpx',
-          zIndex: 2,
+          bottom: 'calc(190rpx + env(safe-area-inset-bottom))',
+          zIndex: 9998,
           height: '98rpx',
           borderRadius: '49rpx',
           background: '#FFFFFF',
@@ -917,7 +937,7 @@ function IdealLanding({ onTabChange }: { onTabChange: (tab: RecommendTab) => voi
   )
 }
 
-function IpLocationDialog({ city, onClose }: { city: string; onClose: () => void }) {
+function IpLocationDialog({ onClose }: { onClose: () => void }) {
   return (
     <View
       id="recommend-ip-dialog"

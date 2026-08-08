@@ -70,7 +70,7 @@ test('主页预览空内容和空图片不生成占位模块', () => {
   assert.doesNotMatch(preview, /minHeight: '5900rpx'/, '隐藏空模块后禁止保留固定超长页面高度')
 })
 
-test('关于我摘要固定三项并优先回显本人最新填写内容', () => {
+test('关于我无填写默认三项，有填写时按真实填写条数回显', () => {
   const presentationPath = 'src/domain/profileAboutPresentation.ts'
   assert.ok(fs.existsSync(path.join(root, presentationPath)), '缺少关于我固定摘要领域映射')
   const { PROFILE_ABOUT_SUMMARY_DEFINITIONS, buildProfileAboutSummary } =
@@ -83,7 +83,7 @@ test('关于我摘要固定三项并优先回显本人最新填写内容', () =>
       ['preferredActivities', '喜欢的见面活动'],
       ['housingStatus', '住房情况'],
     ],
-    '关于我未填写时也必须按蓝湖固定展示三项'
+    '关于我未填写时必须按蓝湖默认展示三项'
   )
 
   const empty = buildProfileAboutSummary([])
@@ -96,8 +96,8 @@ test('关于我摘要固定三项并优先回显本人最新填写内容', () =>
       questionKey: 'housingStatus',
       title: '接口乱序住房标题',
       placeholder: '接口住房占位',
-      latestContent: '和家人同住，未来计划独立居住',
-      effectiveContent: '旧住房内容',
+      latestContent: '',
+      effectiveContent: '',
       canSubmit: true,
     },
     {
@@ -117,14 +117,103 @@ test('关于我摘要固定三项并优先回显本人最新填写内容', () =>
     },
   ])
 
-  assert.deepEqual(filled.map(item => item.key), [
-    'meetingPreference',
-    'preferredActivities',
-    'housingStatus',
-  ])
+  assert.deepEqual(filled.map(item => item.key), ['meetingPreference', 'carStatus'])
+  assert.equal(filled.length, 2, '填写两条时只能展示两条，不得补齐默认占位项')
   assert.equal(filled[0].value, '周末喝咖啡或一起散步', '无最新内容时使用已生效内容')
-  assert.equal(filled[1].value, '', '接口缺项不能挤掉固定摘要入口')
-  assert.equal(filled[2].value, '和家人同住，未来计划独立居住', '本人页优先回显最新填写内容')
+  assert.equal(filled[1].title, '购车情况', '额外已填写问题必须使用接口标题完整回显')
+  assert.equal(filled[1].value, '已有代步车', '本人页优先回显最新填写内容')
+})
+
+test('编辑资料地区优先展示接口标签，缺标签时按省市树回显中文', () => {
+  const presentationPath = 'src/domain/basicProfilePresentation.ts'
+  const { buildBasicProfileLocationText } = loadTypeScriptModule(presentationPath)
+  const regionTree = [
+    {
+      code: '140000',
+      name: '山西省',
+      level: 'PROVINCE',
+      children: [{ code: '140200', name: '大同市', level: 'CITY', children: [] }],
+    },
+    {
+      code: '110000',
+      name: '北京市',
+      level: 'PROVINCE',
+      children: [{ code: '110100', name: '北京市', level: 'CITY', children: [] }],
+    },
+  ]
+
+  assert.equal(
+    buildBasicProfileLocationText({
+      locationCity: '140200',
+      locationCityLabel: '大同市',
+      hometownProvince: '110000',
+      hometownProvinceLabel: '北京市',
+      hometownCityLabel: '北京市',
+    }),
+    '现居大同丨北京人'
+  )
+  assert.equal(
+    buildBasicProfileLocationText(
+      { locationProvince: '140000', locationCity: '140200', hometownProvince: '110000' },
+      regionTree
+    ),
+    '现居大同丨北京人',
+    '接口暂未返回中文标签时也必须用已加载的省市树回显已有资料'
+  )
+  assert.equal(
+    buildBasicProfileLocationText(
+      {
+        locationProvince: '140000',
+        locationProvinceLabel: '山西省',
+        locationCity: '140200',
+        hometownProvince: '110000',
+        hometownProvinceLabel: '北京市',
+      },
+      regionTree
+    ),
+    '现居大同丨北京人',
+    '有城市 code 时必须优先解析城市，不能被省份标签降级覆盖'
+  )
+  assert.equal(
+    buildBasicProfileLocationText(
+      { locationProvince: '999999', locationCity: '999998', hometownProvince: '999997' },
+      regionTree
+    ),
+    '',
+    '未知地区编码不得直接展示给用户'
+  )
+})
+
+test('主页预览按出生年份和真实性别展示资料，并按蓝湖拉开头像文字间距', () => {
+  const presentationPath = 'src/domain/basicProfilePresentation.ts'
+  const { buildBasicProfileBirthYearText } = loadTypeScriptModule(presentationPath)
+  const edit = read('src/pages/profile/edit.tsx')
+  const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
+
+  assert.equal(buildBasicProfileBirthYearText('1997-06-18'), '97年')
+  assert.equal(buildBasicProfileBirthYearText(''), '')
+  assert.match(edit, /buildBasicProfileBirthYearText\(String\(basic\.birthday \|\| ''\)\)/, '主页预览必须读取出生年份')
+  assert.doesNotMatch(
+    edit,
+    /const genderAgeHeight = \[[\s\S]{0,180}basic\.age/,
+    '主页预览禁止继续按当前年龄展示'
+  )
+  assert.match(
+    edit,
+    /const genderAgeHeight = \[[\s\S]{0,260}basic\.zodiac/,
+    '主页预览资料首行必须按蓝湖在身高后展示星座'
+  )
+  assert.match(edit, /gender:\s*String\(basic\.gender \|\| ''\)/, '主页预览模型必须携带真实性别 code')
+  assert.match(
+    preview,
+    /model\.gender === 'MALE'[\s\S]{0,180}qianxunGenderMale[\s\S]{0,180}profilePreviewGender/,
+    '男性必须使用蓝色男性图标，女性继续使用蓝湖红色图标'
+  )
+  assert.match(
+    preview,
+    /data-role="profile-preview-identity"[\s\S]{0,300}left: '238rpx'[\s\S]{0,220}alignItems: 'flex-start'/,
+    '昵称和感情状态必须同左边缘，并与头像保留蓝湖 20rpx 间距'
+  )
 })
 
 test('编辑资料主页面按蓝湖比例和真实组件展示关键模块', () => {
@@ -160,6 +249,67 @@ test('自我介绍、语音和歌曲在空态与已填写状态都能正确回�
     edit,
     /song \|\| '添加一首喜欢的歌曲'/,
     '歌曲未填写时必须展示可理解的空态文案'
+  )
+})
+
+test('认证、标签和关于我按最新蓝湖稿展示正确入口与间距', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+
+  for (const iconKey of [
+    'profileEditCertAvatar',
+    'profileEditCertRealName',
+    'profileEditCertEducation',
+  ]) {
+    assert.match(edit, new RegExp(`miniappOssIcons\\.${iconKey}`), `认证信息缺少正确图标：${iconKey}`)
+  }
+  assert.match(
+    edit,
+    /<ProfileSection[\s\S]{0,100}title="我的标签"[\s\S]{0,100}action="编辑"/,
+    '我的标签卡片右上角必须始终展示编辑按钮'
+  )
+  assert.match(
+    edit,
+    /data-role="about-detail-list"[\s\S]{0,180}marginTop: '28rpx'/,
+    '关于我标题与第一项见面偏好之间必须保留 28rpx 间距'
+  )
+})
+
+test('编辑资料和主页预览在真实头像与空头像状态都使用同一来源', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+
+  assert.match(edit, /profileAvatar=\{profileAvatar \|\| defaultAvatar\}/, '编辑资料圆头像必须使用统一兜底头像')
+  assert.match(edit, /avatarUrl:\s*profileAvatar \|\| defaultAvatar/, '主页预览模型必须复用编辑资料的同一兜底头像')
+})
+
+test('语音卡片与录音浮层按蓝湖完成态展示时限、短条、X 和管理入口', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+
+  assert.match(
+    edit,
+    /<ProfileSection title="语音介绍" action=\{hasVoice \? '管理' : '录音'\}/,
+    '已有录音时必须展示管理入口'
+  )
+  assert.match(edit, /id="voice-intro-saved-bar"/, '已录音短条缺少稳定验收节点')
+  assert.match(
+    edit,
+    /id="voice-intro-saved-bar"[\s\S]{0,260}width: '270rpx'[\s\S]{0,120}height: '48rpx'/,
+    '已录音短条必须匹配蓝湖 270×48rpx 尺寸'
+  )
+  assert.match(edit, /id="voice-intro-delete"/, '已录音态缺少独立 X 删除按钮')
+  assert.match(
+    edit,
+    /id="voice-intro-delete"[\s\S]{0,220}width: '48rpx'[\s\S]{0,100}height: '48rpx'/,
+    'X 删除按钮必须匹配蓝湖 48×48rpx 尺寸'
+  )
+  assert.match(edit, /height: 'calc\(548rpx \+ env\(safe-area-inset-bottom\)\)'/, '录音底部面板必须匹配蓝湖约 548rpx 高度')
+  assert.match(edit, /id="voice-recording-limit"/, '录音浮层必须明确展示动态最大时长')
+  assert.match(edit, /minDuration=\{config\?\.uploadLimits\.voiceMinDuration \|\| 10\}/, '录音浮层最短时限必须读取运行时配置')
+  assert.match(edit, /maxDuration=\{config\?\.uploadLimits\.voiceMaxDuration \|\| 60\}/, '录音浮层时限必须读取运行时配置')
+  assert.match(edit, /id="voice-complete-actions"/, '录制完成态必须提供单组删除、播放、完成控件')
+  assert.match(
+    edit,
+    /if \(elapsed >= maxDuration && !recordingStopRequested\.current\)[\s\S]{0,180}recorder\.current\.stop\(\)/,
+    '达到最大时长时必须主动停止录音，不能只把界面计时封顶'
   )
 })
 
@@ -329,7 +479,7 @@ test('基本资料严格按蓝湖组合行和两组卡片展示', () => {
   )
 })
 
-test('现居地提交省市区，家乡保持省市两级', () => {
+test('现居地和家乡都提交省市两级', () => {
   const regionDomainPath = 'src/domain/basicProfileRegion.ts'
   assert.ok(fs.existsSync(path.join(root, regionDomainPath)), '缺少基本资料省市选择领域模型')
   const { buildRegionPatch, normalizeTwoLevelRegionFieldSettings, buildBasicProfileSavePayload } =
@@ -338,7 +488,7 @@ test('现居地提交省市区，家乡保持省市两级', () => {
   assert.deepEqual(buildRegionPatch('location', '320000', '320600', '320602'), {
     locationProvince: '320000',
     locationCity: '320600',
-    locationDistrict: '320602',
+    locationDistrict: '',
   })
   assert.deepEqual(buildRegionPatch('hometown', '410000', '410100'), {
     hometownProvince: '410000',
@@ -356,8 +506,8 @@ test('现居地提交省市区，家乡保持省市两级', () => {
   ]
   assert.deepEqual(
     normalizeTwoLevelRegionFieldSettings(legacyFieldSettings).map(item => item.fieldId),
-    ['locationProvince', 'locationCity', 'locationDistrict', 'hometownProvince', 'hometownCity'],
-    '现居区县必须保留，家乡区县必须强制退役'
+    ['locationProvince', 'locationCity', 'hometownProvince', 'hometownCity'],
+    '现居和家乡区县都必须强制退役'
   )
   assert.deepEqual(
     buildBasicProfileSavePayload(legacyFieldSettings, {
@@ -371,32 +521,30 @@ test('现居地提交省市区，家乡保持省市两级', () => {
     {
       locationProvince: '320000',
       locationCity: '320600',
-      locationDistrict: '110105',
       hometownProvince: '410000',
       hometownCity: '410100',
     },
-    '保存请求必须提交现居区县，但不得提交家乡历史区县'
+    '保存请求不得提交现居或家乡历史区县'
   )
 
   const card = read('src/pages/verification/components/BasicInfoCard.tsx')
   const picker = read('src/pages/verification/components/LanhuPickerSheet.tsx')
   const basic = read('src/pages/verification/basic.tsx')
-  assert.match(card, /includeDistrict=\{editor\.rowId === 'location'\}/, '只有现居地必须启用区县列')
-  assert.match(card, /districtCode=/, '资料选择器必须反显现居区县')
+  assert.match(card, /includeDistrict=\{false\}/, '现居地和家乡都必须关闭区县列')
   assert.match(
     picker,
     /selectedDistrict|districtLoading|includeDistrict/,
     '现居地选择器必须维护区县状态'
   )
-  assert.match(basic, /normalizeTwoLevelRegionFieldSettings/, '页面必须继续防御家乡区县可见配置')
+  assert.match(basic, /normalizeTwoLevelRegionFieldSettings/, '页面必须防御两个区县字段的历史可见配置')
   assert.match(
     basic,
     /buildBasicProfileSavePayload/,
-    '页面保存必须使用现居三级、家乡两级字段白名单'
+    '页面保存必须使用现居和家乡两级字段白名单'
   )
 })
 
-test('现居地和家乡共用选择器并按场景切换三级或两级', () => {
+test('现居地和家乡共用省市两级选择器', () => {
   const card = read('src/pages/verification/components/BasicInfoCard.tsx')
   const picker = read('src/pages/verification/components/LanhuPickerSheet.tsx')
 
@@ -407,13 +555,8 @@ test('现居地和家乡共用选择器并按场景切换三级或两级', () =>
   )
   assert.match(
     picker,
-    /onConfirm\(selectedProvince\.code, selectedCity\.code, selectedDistrict\?\.code \|\| ''\)/,
-    '现居地必须回传省市区 code'
-  )
-  assert.equal(
-    (picker.match(/enhanced\s+showScrollbar=\{false\}/g) || []).length,
-    3,
-    '现居地必须支持省、市、区三列'
+    /includeDistrict \? selectedDistrict\?\.code \|\| '' : ''/,
+    '关闭区县列时必须只回传省市 code'
   )
 })
 
@@ -424,13 +567,24 @@ test('地区路径异常不得向用户暴露三级行政区技术文案', () =>
     toTwoLevelRegionErrorMessage(
       new Error('REGION_NOT_SUPPORTED：现居地必须使用有效的中国大陆省市区编码')
     ),
-    '地区选项已更新，请重新选择省市区'
+    '地区选项已更新，请重新选择省市'
   )
 
   const loginAddress = read('src/pages/login/address.tsx')
   const basic = read('src/pages/verification/basic.tsx')
   assert.match(loginAddress, /toTwoLevelRegionErrorMessage/, '首登地址页必须转换地区业务错误')
   assert.match(basic, /toTwoLevelRegionErrorMessage/, '基础资料页必须转换地区业务错误')
+})
+
+test('主页预览移除语音播放入口并按蓝湖展示三重认证和单行副文案', () => {
+  const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
+  assert.doesNotMatch(preview, /createInnerAudioContext|▶/, '主页预览不得保留播放声音按钮或播放逻辑')
+  assert.match(preview, />\s*三重认证\s*</, '主页预览认证徽标必须显示“三重认证”')
+  assert.match(
+    preview,
+    /data-role="profile-preview-subtitle"[\s\S]{0,520}whiteSpace: 'nowrap'/,
+    '头像右侧名称下方文案必须完整单行展示'
+  )
 })
 
 test('编辑资料保存按钮按蓝湖位于第二张卡片之后，字段弹层打开时只保留确认按钮', () => {
@@ -476,12 +630,12 @@ test('未认证主按钮圆角与蓝湖 13.5px 基线一致', () => {
   const verificationEntry = read('src/features/verification/VerificationEntryView.tsx')
   assert.match(
     verificationEntry,
-    /top: '1098rpx'[\s\S]{0,180}borderRadius: '27rpx'/,
+    /id="verification-entry-actions"[\s\S]{0,220}marginTop: '1098rpx'[\s\S]{0,320}borderRadius: '27rpx'/,
     '未认证“立即完善”按钮圆角必须为 27rpx'
   )
   assert.doesNotMatch(
     verificationEntry,
-    /top: '1098rpx'[\s\S]{0,180}borderRadius: '40rpx'/,
+    /id="verification-entry-actions"[\s\S]{0,520}borderRadius: '40rpx'/,
     '未认证按钮禁止保留过圆的 40rpx'
   )
 })
@@ -587,7 +741,7 @@ test('语音录制弹窗使用动态计时且只在录音管理器确认开始�
   assert.match(edit, /clearInterval\(/, '停止、失败、离页时必须清理录音定时器')
   assert.match(
     edit,
-    /durationText=\{formatVoiceDuration\(recordingSeconds\)\}/,
+    /recordingSeconds=\{recordingSeconds\}/,
     '录制中弹窗必须渲染动态秒数，禁止继续显示演示 00:00'
   )
   assert.match(

@@ -39,7 +39,8 @@ export default function ProfileTagChip({
     <View
       onClick={onClick}
       style={{
-        width,
+        width: 'fit-content',
+        ...(width ? { width } : {}),
         height,
         maxWidth: '100%',
         padding: compact ? '0 14rpx' : '0 22rpx',

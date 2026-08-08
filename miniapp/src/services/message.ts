@@ -1,4 +1,5 @@
 import { useMessageStore } from '../stores/messageStore'
+import { request } from './request'
 import type {
   ConversationState,
   ConversationSummary,
@@ -17,6 +18,65 @@ export interface WhisperPrecheckResult {
   costCoins: number
   balanceCoins: number
   reason?: 'INSUFFICIENT_COINS' | 'NOT_CERTIFIED' | 'ALREADY_PENDING'
+}
+
+export interface WhisperPrecheckCommand {
+  targetUserNo: string
+  sourcePostNo?: string
+  scene: 'community_post' | 'profile' | 'recommendation' | 'message_home'
+}
+
+export interface RealWhisperPrecheckResult {
+  allowed: boolean
+  reasonCode?: string
+  reasonText?: string
+  contentMaxLength: number
+  coinAmount: number
+  free: boolean
+  coinBalance: number
+  freeWhisperRemain: number
+  targetUserNo: string
+  targetNickname?: string
+  targetAvatarUrl?: string
+}
+
+export interface WhisperCreateCommand extends WhisperPrecheckCommand {
+  content: string
+}
+
+export interface WhisperCreateResult {
+  whisperNo: string
+  status: string
+  targetUserNo: string
+  content: string
+  coinCost: number
+  coinBalance: number
+  charged: boolean
+  paymentMethod: 'coin' | 'free_quota'
+  createTime?: string
+  expireTime?: string
+}
+
+/** 动态详情等真实业务入口使用后端预检查，费用只取运行时商业化配置。 */
+export function precheckWhisper(input: WhisperPrecheckCommand): Promise<RealWhisperPrecheckResult> {
+  return request<RealWhisperPrecheckResult>({
+    url: '/miniapp/message/whispers/precheck',
+    method: 'POST',
+    data: { ...input },
+  })
+}
+
+/** 创建悄悄话；幂等键由一次弹层会话生成并在重试时复用。 */
+export function createWhisper(
+  input: WhisperCreateCommand,
+  idempotencyKey: string,
+): Promise<WhisperCreateResult> {
+  return request<WhisperCreateResult>({
+    url: '/miniapp/message/whispers',
+    method: 'POST',
+    data: { ...input },
+    header: { 'Idempotency-Key': idempotencyKey },
+  })
 }
 
 export const MESSAGE_REPORT_REASON_CODES = [

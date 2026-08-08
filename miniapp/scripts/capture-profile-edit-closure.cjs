@@ -27,6 +27,10 @@ const scenes = [
   ['12', '/pages/profile/edit', '编辑资料-标签语音关于我'],
   ['13', '/pages/profile/edit', '编辑资料-歌曲微信'],
   ['14', '/pages/profile/edit', '主页预览-真实内容'],
+  ['15', '/pages/profile/edit?voice=voice', '语音介绍-初始态'],
+  ['16', '/pages/profile/edit?voice=recording', '语音介绍-录制中'],
+  ['17', '/pages/profile/edit?voice=complete', '语音介绍-完成态'],
+  ['18', '/pages/profile/edit?voice=delete', '语音介绍-删除确认'],
 ]
 const requestedIds = String(process.env.PROFILE_EDIT_SCENE_IDS || '').split(',').filter(Boolean)
 const scenesToCapture = requestedIds.length ? scenes.filter(([id]) => requestedIds.includes(id)) : scenes

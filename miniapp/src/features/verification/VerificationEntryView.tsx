@@ -54,26 +54,31 @@ export default function VerificationEntryView({
             <InitialCertificationPanel copy={copy} />
           )}
           <View
-            id={`${role}-continue`}
-            data-role={`${role}-continue`}
-            style={{ position: 'absolute', left: '44rpx', top: '1098rpx', width: '664rpx', height: '98rpx', borderRadius: '27rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={onContinue}
-            hoverClass="btn-hover"
+            id="verification-entry-actions"
+            style={{ position: 'relative', zIndex: 5, width: '750rpx', marginTop: '1098rpx', padding: '0 44rpx 36rpx', boxSizing: 'border-box' }}
           >
-            <Text style={{ color: '#FAFBFC', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}>
-              {copy('verification_home_primary_action')}
-            </Text>
-          </View>
-          <View
-            id={`${role}-later`}
-            data-role={`${role}-later`}
-            style={{ position: 'absolute', left: '0', top: '1208rpx', width: '750rpx', height: '50rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={onLater}
-            hoverClass="btn-hover"
-          >
-            <Text style={{ color: '#999999', fontSize: '30rpx', fontWeight: 500, lineHeight: '42rpx' }}>
-              {copy('verification_home_later_action')}
-            </Text>
+            <View
+              id={`${role}-continue`}
+              data-role={`${role}-continue`}
+              style={{ width: '664rpx', height: '98rpx', borderRadius: '27rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={onContinue}
+              hoverClass="btn-hover"
+            >
+              <Text style={{ color: '#FAFBFC', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}>
+                {copy('verification_home_primary_action')}
+              </Text>
+            </View>
+            <View
+              id={`${role}-later`}
+              data-role={`${role}-later`}
+              style={{ width: '664rpx', height: '50rpx', marginTop: '12rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={onLater}
+              hoverClass="btn-hover"
+            >
+              <Text style={{ color: '#999999', fontSize: '30rpx', fontWeight: 500, lineHeight: '42rpx' }}>
+                {copy('verification_home_later_action')}
+              </Text>
+            </View>
           </View>
         </>
       )}

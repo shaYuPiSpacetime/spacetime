@@ -19,6 +19,28 @@ test('协议弹窗打开时原生视频和 CoverView Logo 退出覆盖层', () =
   assert.match(login, /id="login-agreement-card"/, '协议弹窗卡片必须提供微信运行态几何验收节点')
 })
 
+test('选择微信登录后点击协议同意直接触发原生账号选择', () => {
+  const login = read('src/pages/login/index.tsx')
+  const agreementDialog = login.match(/function AgreementDialog[\s\S]*?\n}\n\ninterface LoginMethodSheetProps/)?.[0]
+
+  assert.ok(agreementDialog, '无法定位协议弹窗组件')
+  assert.match(
+    agreementDialog,
+    /selectedMethod === 'wechat'[\s\S]*?<Button[\s\S]*?openType="getPhoneNumber"[\s\S]*?onGetPhoneNumber=\{onWechatPhoneLogin\}/,
+    '微信登录的协议同意按钮必须直接承载 getPhoneNumber，才能在同一次点击中弹出系统账号选择'
+  )
+  assert.match(
+    login,
+    /const handleAgreementWechatPhoneLogin = async[\s\S]*?setAgreementAccepted\(true\)[\s\S]*?handleWechatPhoneLogin\(event, true\)/,
+    '协议授权回调必须显式按已同意协议继续登录，不能依赖尚未刷新的 React 状态'
+  )
+  assert.doesNotMatch(
+    login,
+    /showDirectWechatAuth|wechat-direct-auth/,
+    '协议同意后不得再插入需要二次点击的自定义微信授权面板'
+  )
+})
+
 test('千寻与我的共用蓝湖未认证视图', () => {
   const componentPath = path.join(root, 'src/features/verification/VerificationEntryView.tsx')
   assert.ok(fs.existsSync(componentPath), '缺少共享蓝湖未认证视图')
@@ -35,7 +57,8 @@ test('千寻与我的共用蓝湖未认证视图', () => {
   assert.match(verificationEntry, /data-role=\{role\}/, '共享未认证视图必须暴露真实运行态节点')
   assert.match(verificationEntry, /id=\{role\}/, '共享未认证视图必须提供微信自动化可定位节点')
   assert.match(verificationEntry, /id=\{`\$\{role\}-continue`\}/, '未认证主按钮必须提供微信运行态几何验收节点')
-  assert.match(verificationEntry, /top: '1098rpx'[\s\S]{0,180}borderRadius: '27rpx'/, '未认证主按钮必须保持蓝湖 13.5px 圆角与纵向基线')
+  assert.match(verificationEntry, /id="verification-entry-actions"[\s\S]{0,220}marginTop: '1098rpx'/, '未认证主操作区必须保持蓝湖纵向基线并避免绝对定位漂移')
+  assert.match(verificationEntry, /id=\{`\$\{role\}-continue`\}[\s\S]{0,220}borderRadius: '27rpx'/, '未认证主按钮必须保持蓝湖 13.5px 圆角')
   assert.match(verificationEntry, /width: '700rpx'[\s\S]{0,100}height: '168rpx'/, '部分资料卡必须保持蓝湖 350×84px 几何')
 })
 

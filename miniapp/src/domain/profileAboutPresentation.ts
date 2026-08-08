@@ -31,18 +31,25 @@ export function resolveOwnerVisibleText(detail?: Pick<OpenTextDetail, 'latestCon
 }
 
 /**
- * 编辑资料总页只固定展示蓝湖定义的三项摘要。
- * 接口可以返回更多问题或改变顺序，但不能挤掉、打乱这三个入口。
+ * 未填写任何内容时展示蓝湖默认三项；已有填写时按接口顺序展示全部已填写条目。
  */
 export function buildProfileAboutSummary(
-  questions: Array<Pick<AboutMeQuestion, 'questionKey' | 'latestContent' | 'effectiveContent'>> = []
+  questions: Array<Pick<AboutMeQuestion, 'questionKey' | 'title' | 'placeholder' | 'latestContent' | 'effectiveContent'>> = []
 ): ProfileAboutSummaryItem[] {
-  const questionByKey = new Map(questions.map(question => [question.questionKey, question]))
-  return PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(definition => {
-    const question = questionByKey.get(definition.key)
-    return {
-      ...definition,
-      value: resolveOwnerVisibleText(question),
-    }
+  const definitionByKey = new Map<string, (typeof PROFILE_ABOUT_SUMMARY_DEFINITIONS)[number]>(
+    PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(item => [item.key, item])
+  )
+  const filled = questions.flatMap(question => {
+    const value = resolveOwnerVisibleText(question)
+    if (!value) return []
+    const definition = definitionByKey.get(question.questionKey)
+    return [{
+      key: question.questionKey,
+      title: String(question.title || definition?.title || question.questionKey),
+      placeholder: String(question.placeholder || definition?.placeholder || ''),
+      value,
+    }]
   })
+  if (filled.length) return filled
+  return PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(definition => ({ ...definition, value: '' }))
 }

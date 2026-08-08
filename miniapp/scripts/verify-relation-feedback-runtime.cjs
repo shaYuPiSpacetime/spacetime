@@ -8,7 +8,9 @@ const automator = require('/tmp/spacetime-wx-automator/node_modules/miniprogram-
 const { createRelationFeedbackMockServer } = require('./relation-feedback-mock-server.cjs')
 
 const projectPath = path.resolve(__dirname, '..')
-const outputDir = path.resolve(projectPath, '../docs/验收报告/截图证据/2026-08-04-关系反馈与互动链路-小程序闭环')
+const outputDir = process.env.RELATION_CAPTURE_DIR
+  ? path.resolve(process.env.RELATION_CAPTURE_DIR)
+  : path.resolve(projectPath, '../docs/验收报告/截图证据/2026-08-04-关系反馈与互动链路-小程序闭环')
 const cliPath = '/Applications/wechatwebdevtools.app/Contents/MacOS/cli'
 const apiPort = Number(process.env.RELATION_MOCK_PORT || 19092)
 const automationPort = Number(process.env.WX_AUTO_PORT || 9447)
@@ -77,29 +79,25 @@ async function captureEvidence(miniProgram, filename, label) {
 async function assertEmptyStateLayout(page, label) {
   const state = await waitForSelector(page, '#relation-empty-state', `${label}空态`)
   const illustration = await waitForSelector(page, '#relation-empty-illustration', `${label}空态插画`)
-  const membershipEntry = await waitForSelector(page, '#relation-membership-entry', `${label}会员入口`)
   const image = await illustration.$('image')
   const message = await state.$('text')
   assert.ok(image, `${label}空态必须展示插画`)
   assert.ok(message, `${label}空态必须展示文案`)
-  const [stateOffset, stateSize, imageOffset, imageSize, messageOffset, messageSize, membershipOffset, stateWxml] = await Promise.all([
+  const [stateOffset, stateSize, imageOffset, imageSize, messageOffset, messageSize, stateWxml] = await Promise.all([
     state.offset(),
     state.size(),
     image.offset(),
     image.size(),
     message.offset(),
     message.size(),
-    membershipEntry.offset(),
     state.outerWxml(),
   ])
   const stateCenter = stateOffset.left + stateSize.width / 2
   const imageCenter = imageOffset.left + imageSize.width / 2
   assert.ok(Math.abs(stateCenter - imageCenter) <= 1, `${label}空态插画必须水平居中`)
-  const stateVerticalCenter = stateOffset.top + stateSize.height / 2
-  const contentVerticalCenter = (imageOffset.top + messageOffset.top + messageSize.height) / 2
-  assert.ok(Math.abs(stateVerticalCenter - contentVerticalCenter) <= 2, `${label}空态插画与文案必须整体垂直居中`)
-  const stateBottomGap = membershipOffset.top - (stateOffset.top + stateSize.height)
-  assert.ok(stateBottomGap >= 0 && stateBottomGap <= 20, `${label}空态必须撑满至底部会员入口上方，当前间距 ${stateBottomGap}px`)
+  assert.ok(imageOffset.top - stateOffset.top <= 90, `${label}空态插画必须靠上展示，不能整体垂直居中`)
+  assert.ok(messageOffset.top > imageOffset.top + imageSize.height, `${label}空态文案必须位于插画下方`)
+  assert.equal(await page.$('#relation-membership-entry'), null, `${label}无数据时不得展示会员入口按钮`)
   assert.doesNotMatch(stateWxml, /重新加载/, `${label}空态不得展示重新加载按钮`)
 }
 

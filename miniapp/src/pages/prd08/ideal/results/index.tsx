@@ -1,7 +1,7 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
-import AppTabBar from '@/components/AppTabBar'
+import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
@@ -27,6 +27,7 @@ export default function IdealResultsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
   const pendingCheck = useRef(false)
+  const showEmptyState = !loading && !message && items.length === 0
   const load = async (cursor?: string) => {
     if (!snapshotNo) {
       setMessage('筛选快照不存在')
@@ -117,85 +118,91 @@ export default function IdealResultsPage() {
       style={{ minHeight: '100vh', background: '#FFFFFF', fontFamily: 'PingFang SC, sans-serif' }}
     >
       <IdealResultsHeader />
-      <ScrollView
-        scrollY
-        showScrollbar={false}
-        onScrollToLower={() => {
-          if (page?.nextCursor && !loadingMore) void load(page.nextCursor)
-        }}
-        style={{
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          top: '184rpx',
-          zIndex: 3,
-          height: 'calc(100vh - 334rpx)',
-        }}
-      >
-        <View
+      {showEmptyState ? (
+        <IdealResultsEmptyState />
+      ) : (
+        <ScrollView
+          scrollY
+          showScrollbar={false}
+          onScrollToLower={() => {
+            if (page?.nextCursor && !loadingMore) void load(page.nextCursor)
+          }}
           style={{
-            width: '700rpx',
-            margin: '0 auto',
-            paddingBottom: '360rpx',
-            position: 'relative',
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            top: '184rpx',
+            zIndex: 3,
+            height: 'calc(100vh - 334rpx)',
           }}
         >
-          {loading ? <CenterText text="理想型结果加载中…" /> : null}
-          {message ? <CenterText text={message} /> : null}
-          {!loading && !message && !items.length ? (
-            <CenterText text="当前条件下暂未找到理想型" />
-          ) : null}
-          {items.map(item => (
-            <IdealCandidateCard
-              key={item.itemNo}
-              item={item}
-              onUnlock={() => void handleQuote(() => quoteIdealUnlock(snapshotNo, [item.itemNo]))}
-            />
-          ))}
-          {loadingMore ? (
-            <Text
-              style={{
-                display: 'block',
-                color: '#999999',
-                fontSize: '23rpx',
-                textAlign: 'center',
-                marginTop: '24rpx',
-              }}
-            >
-              加载中…
-            </Text>
-          ) : null}
-          {items.length ? (
-            <View
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                gap: '60rpx',
-                marginTop: '30rpx',
-              }}
-            >
-              <View
-                onClick={() => void Taro.redirectTo({ url: '/pages/prd08/ideal/filter/index' })}
-                style={{ display: 'flex', alignItems: 'center' }}
-              >
-                <Image
-                  src={miniappOssIcons.recommendReplay}
-                  mode="aspectFit"
-                  style={{ width: '25rpx', height: '25rpx', marginRight: '8rpx', opacity: 0.58 }}
-                />
-                <Text style={{ color: '#999999', fontSize: '24rpx' }}>换一批</Text>
-              </View>
+          <View
+            style={{
+              width: '700rpx',
+              margin: '0 auto',
+              paddingBottom: '360rpx',
+              position: 'relative',
+            }}
+          >
+            {loading ? <CenterText text="理想型结果加载中…" /> : null}
+            {message ? <CenterText text={message} /> : null}
+            {items.map(item => (
+              <IdealCandidateCard
+                key={item.itemNo}
+                item={item}
+                onUnlock={() => void handleQuote(() => quoteIdealUnlock(snapshotNo, [item.itemNo]))}
+              />
+            ))}
+            {loadingMore ? (
               <Text
-                onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/help/index' })}
-                style={{ color: '#999999', fontSize: '24rpx' }}
+                style={{
+                  display: 'block',
+                  color: '#999999',
+                  fontSize: '23rpx',
+                  textAlign: 'center',
+                  marginTop: '24rpx',
+                }}
               >
-                活动说明
+                加载中…
               </Text>
-            </View>
-          ) : null}
-        </View>
-      </ScrollView>
-      {page?.unlockableCount ? (
+            ) : null}
+            {items.length ? (
+              <View
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: '60rpx',
+                  marginTop: '30rpx',
+                }}
+              >
+                <View
+                  onClick={() => void Taro.redirectTo({ url: '/pages/prd08/ideal/filter/index' })}
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <Image
+                    src={miniappOssIcons.recommendReplay}
+                    mode="aspectFit"
+                    style={{
+                      width: '25rpx',
+                      height: '25rpx',
+                      marginRight: '8rpx',
+                      opacity: 0.58,
+                    }}
+                  />
+                  <Text style={{ color: '#999999', fontSize: '24rpx' }}>换一批</Text>
+                </View>
+                <Text
+                  onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/help/index' })}
+                  style={{ color: '#999999', fontSize: '24rpx' }}
+                >
+                  活动说明
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
+      )}
+      {!showEmptyState && page?.unlockableCount ? (
         <View
           style={{
             position: 'fixed',
@@ -269,6 +276,13 @@ export default function IdealResultsPage() {
 function IdealResultsHeader() {
   const metrics = getNativeNavigationMetrics()
   const top = metrics.menuTop + (metrics.menuHeight - 54) / 2
+  const actionsLayout = getCapsuleLeftActionsLayout({
+    menuLeft: metrics.menuLeft,
+    menuTop: metrics.menuTop,
+    menuHeight: metrics.menuHeight,
+    actionCount: 1,
+    actionSize: 72,
+  })
   return (
     <View style={{ position: 'relative', width: '750rpx', height: '378rpx' }}>
       <Image
@@ -311,11 +325,11 @@ function IdealResultsHeader() {
         onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })}
         style={{
           position: 'absolute',
-          left: '520rpx',
-          top: `${top - 10}rpx`,
+          left: `${actionsLayout.left}rpx`,
+          top: `${actionsLayout.top}rpx`,
           zIndex: 2,
-          width: '72rpx',
-          height: '72rpx',
+          width: `${actionsLayout.actionSize}rpx`,
+          height: `${actionsLayout.actionSize}rpx`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -327,9 +341,82 @@ function IdealResultsHeader() {
           style={{ width: '52rpx', height: '52rpx' }}
         />
       </View>
+      <Text
+        style={{
+          position: 'absolute',
+          left: '28rpx',
+          top: `${metrics.navigationHeight + 52}rpx`,
+          zIndex: 2,
+          color: '#FFFFFF',
+          fontSize: '48rpx',
+          fontWeight: 600,
+          lineHeight: '68rpx',
+        }}
+      >
+        选择你的理想型
+      </Text>
     </View>
   )
 }
+
+function IdealResultsEmptyState() {
+  return (
+    <View
+      id="ideal-results-empty-state"
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: '378rpx',
+        bottom: 0,
+        zIndex: 3,
+        background: '#FFFFFF',
+      }}
+    >
+      <View
+        style={{
+          paddingTop: '128rpx',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <Image
+          src={miniappOssIcons.qianxunEmptyFollowing}
+          mode="aspectFit"
+          style={{ width: '334rpx', height: '254rpx' }}
+        />
+        <Text style={{ color: '#999999', fontSize: '28rpx', marginTop: '24rpx' }}>
+          当前条件下暂未找到理想型
+        </Text>
+      </View>
+      <View
+        id="ideal-results-empty-filter"
+        onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })}
+        style={{
+          position: 'absolute',
+          right: '44rpx',
+          bottom: '210rpx',
+          width: '112rpx',
+          height: '112rpx',
+          borderRadius: '56rpx',
+          background: '#FFFFFF',
+          boxShadow: '0 0 8rpx rgba(175,175,175,.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Image
+          src={miniappOssIcons.idealFilter}
+          mode="aspectFit"
+          style={{ width: '82rpx', height: '82rpx' }}
+        />
+      </View>
+    </View>
+  )
+}
+
 function IdealCandidateCard({ item, onUnlock }: { item: IdealResultItemVO; onUnlock: () => void }) {
   const profile = item.profile
   const avatar = item.unlocked ? profile?.avatar : item.blurAvatarUrl

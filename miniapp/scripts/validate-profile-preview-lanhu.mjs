@@ -47,8 +47,8 @@ assert.match(
 )
 assert.match(
   preview,
-  /src=\{model\.avatarUrl \|\| miniappOssIcons\.profilePreviewAvatar\}\s+mode="scaleToFill"/,
-  '首屏头像必须优先使用真实头像并保留蓝湖 OSS 2x 缺省切图'
+  /id="profile-preview-avatar"[\s\S]{0,180}src=\{model\.avatarUrl \|\| miniappOssIcons\.profilePreviewAvatar\}[\s\S]{0,80}mode="aspectFill"/,
+  '首屏圆头像必须优先使用真实头像、保留蓝湖 OSS 2x 缺省切图并按比例裁切'
 )
 assert.match(preview, /height: '896rpx'/, '相册图片高度必须为 896rpx')
 assert.doesNotMatch(preview, /height: '920rpx'/, '禁止保留错误的 920rpx 主图高度')
@@ -82,7 +82,11 @@ assert.match(preview, /miniappOssIcons\.profilePreviewCertAvatar/, '头像认证
 assert.match(preview, /miniappOssIcons\.profilePreviewCertRealname/, '实名认证必须使用主页预览蓝湖切图')
 assert.match(preview, /miniappOssIcons\.profilePreviewCertEducation/, '学历认证必须使用主页预览蓝湖切图')
 assert.match(preview, /miniappOssIcons\.profilePreviewShare/, '分享按钮必须使用蓝湖 OSS 切图')
-assert.match(preview, /miniappOssIcons\.profilePreviewGender/, '性别图标必须使用蓝湖 OSS 切图')
+assert.match(
+  preview,
+  /model\.gender === 'MALE'[\s\S]{0,180}miniappOssIcons\.qianxunGenderMale[\s\S]{0,180}miniappOssIcons\.profilePreviewGender/,
+  '性别图标必须按真实性别切换：男性蓝色、女性红色蓝湖切图'
+)
 assert.match(preview, /miniappOssIcons\.profilePreviewLocation/, '所在地图标必须使用蓝湖 OSS 切图')
 assert.match(preview, /miniappOssIcons\.profilePreviewSong/, '歌曲图标必须使用蓝湖 OSS 切图')
 assert.match(topNav, /fontSize: active \? '32rpx' : '28rpx'/, '顶部 Tab 必须映射蓝湖激活和未激活字号')
@@ -92,6 +96,11 @@ assert.match(topNav, /height: '8rpx'/, '主页预览激活下划线高度必须�
 assert.match(topNav, /getNativeNavigationMetrics/, '主页预览顶部必须复用统一导航度量')
 assert.match(nativeNavigation, /Taro\.getEnv\(\) === Taro\.ENV_TYPE\.WEAPP/, '微信胶囊 API 只能在微信环境调用')
 assert.doesNotMatch(preview + topNav, /letterSpacing:\s*['"]-/, '蓝湖还原禁止负字距')
+assert.match(
+  preview,
+  /data-role="profile-preview-identity"[\s\S]{0,300}left: '238rpx'[\s\S]{0,220}alignItems: 'flex-start'/,
+  '头像右侧昵称和感情状态必须同左边缘，并保留蓝湖 20rpx 间距'
+)
 assert.match(packageJson, /validate-profile-preview-lanhu\.mjs/, '微信开发和构建前必须执行蓝湖视觉门禁')
 
 console.log('主页预览蓝湖视觉门禁通过')

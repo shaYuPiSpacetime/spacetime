@@ -225,8 +225,8 @@ export default function BasicInfoCard({
           regions={regionTree}
           provinceCode={String(userInfo[`${editor.rowId}Province`] || '')}
           cityCode={String(userInfo[`${editor.rowId}City`] || '')}
-          districtCode={String(userInfo[`${editor.rowId}District`] || '')}
-          includeDistrict={editor.rowId === 'location'}
+          districtCode=""
+          includeDistrict={false}
           loadDistricts={loadDistricts}
           onConfirm={(provinceCode, cityCode, districtCode) => {
             void applyPatch(
@@ -400,7 +400,7 @@ function resolveRowValue(
       regionTree,
       String(userInfo[`${rowId}Province`] || ''),
       String(userInfo[`${rowId}City`] || ''),
-      rowId === 'location' ? String(userInfo.locationDistrict || '') : '',
+      '',
       placeholder
     )
   }

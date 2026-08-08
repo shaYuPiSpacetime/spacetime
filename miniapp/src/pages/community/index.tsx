@@ -272,8 +272,8 @@ export default function CommunityPage() {
   if (access.allowed !== true) return <AccessBlockedPage {...access} />
 
   const showMembershipEntry = activeTab === 'likes'
-    ? likesPage?.accessMode !== 'VIP_ALL_CLEAR'
-    : visitorsPage?.accessMode !== 'VIP_ALL_CLEAR'
+    ? likesState === 'ready' && likesRecords.length > 0 && likesPage?.accessMode !== 'VIP_ALL_CLEAR'
+    : visitorsState === 'ready' && visitorRecords.length > 0 && visitorsPage?.accessMode !== 'VIP_ALL_CLEAR'
 
   return (
     <View id="relation-feedback-page" style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
@@ -383,7 +383,7 @@ interface PanelCommonProps {
 function LikesPanel({ page, records, state, error, loadingMore, onCard, onRetry, onLoadMore }: PanelCommonProps & { page: LikesMePageVO | null; records: LikesMeItemVO[]; onCard: (card: LikesMeItemVO) => void }) {
   if (state === 'loading' && !records.length) return <RelationStatePanel state="loading" message="正在加载喜欢你的人" />
   if (state === 'error' && !records.length) return <RelationStatePanel state="error" message={error || '喜欢列表加载失败'} onRetry={onRetry} />
-  if (state === 'empty') return <RelationStatePanel state="empty" message="暂时没有对我心动人员" illustration={miniappOssIcons.qianxunEmptyHeart} />
+  if (state === 'empty') return <RelationStatePanel state="empty" message="暂时没有对我心动人员" illustration={miniappOssIcons.qianxunEmptyFollowing} />
   const previewAvatars = page?.newLikePreviewAvatars || []
   const newest = records.filter(item => item.groupKey === 'new')
   const earlier = records.filter(item => item.groupKey !== 'new')
@@ -427,9 +427,9 @@ function VisitorsPanel({ page, records, state, error, loadingMore, onCard, onRet
 
 function RelationStatePanel({ state, message, illustration, onRetry }: { state: 'loading' | 'empty' | 'error'; message: string; illustration?: string; onRetry?: () => void }) {
   return (
-    <View id={`relation-${state}-state`} style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto', flex: state === 'empty' ? 1 : undefined, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-      {state === 'empty' && illustration ? <View id="relation-empty-illustration" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={illustration} mode="aspectFit" style={{ width: '330rpx', height: '230rpx', display: 'block' }} /></View> : null}
-      <Text style={{ marginTop: illustration ? '18rpx' : 0, color: '#7F8494', fontSize: '26rpx' }}>{message}</Text>
+    <View id={`relation-${state}-state`} style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto', paddingTop: state === 'empty' ? '128rpx' : '0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: state === 'empty' ? 'flex-start' : 'center', boxSizing: 'border-box' }}>
+      {state === 'empty' && illustration ? <View id="relation-empty-illustration" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={illustration} mode="aspectFit" style={{ width: '334rpx', height: '254rpx', display: 'block' }} /></View> : null}
+      <Text style={{ marginTop: illustration ? '30rpx' : 0, color: '#7F8494', fontSize: '28rpx', lineHeight: '40rpx' }}>{message}</Text>
       {state === 'error' && onRetry ? <View onClick={onRetry} style={{ marginTop: '28rpx', padding: '18rpx 48rpx', borderRadius: '40rpx', background: '#2876FF' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>重新加载</Text></View> : null}
     </View>
   )

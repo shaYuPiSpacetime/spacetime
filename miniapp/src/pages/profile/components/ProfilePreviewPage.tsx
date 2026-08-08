@@ -12,6 +12,7 @@ export type ProfilePreviewModel = {
   avatarUrl: string
   heroImageUrl: string
   nickname: string
+  gender: string
   genderAgeHeight: string
   location: string
   tags: ProfileTagItem[]
@@ -126,18 +127,6 @@ export default function ProfilePreviewPage({
 }
 
 function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: ProfilePreviewModel; onShare: () => void; onSafetyActions?: () => void }) {
-  const verifiedCount = model.certifications.filter(item => item.passed).length
-  const playVoice = () => {
-    if (!model.voice.url) return
-    const audio = Taro.createInnerAudioContext()
-    audio.src = model.voice.url
-    audio.onEnded(() => audio.destroy())
-    audio.onError(() => {
-      audio.destroy()
-      void Taro.showToast({ title: '语音播放失败', icon: 'none' })
-    })
-    audio.play()
-  }
   return (
     <View style={{ position: 'relative', width: '700rpx', height: '828rpx' }}>
       <View
@@ -167,8 +156,9 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
         </View>
       ) : null}
       <Image
+        id="profile-preview-avatar"
         src={model.avatarUrl || miniappOssIcons.profilePreviewAvatar}
-        mode="scaleToFill"
+        mode="aspectFill"
         style={{
           position: 'absolute',
           zIndex: 3,
@@ -176,16 +166,26 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
           bottom: '57rpx',
           width: '188rpx',
           height: '188rpx',
-          borderRadius: '94rpx',
+          borderRadius: '50%',
           background: '#FFFFFF',
+          border: '7rpx solid #FFFFFF',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
         }}
       />
-      {model.voice.url ? (
-        <View onClick={playVoice} hoverClass="btn-hover" style={{ position: 'absolute', zIndex: 4, right: '30rpx', top: '92rpx', height: '48rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.2)', padding: '0 18rpx', display: 'flex', alignItems: 'center' }}>
-          <Text style={{ color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx' }}>▶ {model.voice.duration ? `${model.voice.duration}s` : '语音介绍'}</Text>
-        </View>
-      ) : null}
-      <View style={{ position: 'absolute', zIndex: 2, left: '208rpx', bottom: '101rpx', width: '380rpx' }}>
+      <View
+        data-role="profile-preview-identity"
+        style={{
+          position: 'absolute',
+          zIndex: 2,
+          left: '238rpx',
+          bottom: '101rpx',
+          width: '432rpx',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+        }}
+      >
         <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
           <Text style={{ color: '#FFFFFF', fontSize: '38rpx', lineHeight: '53rpx', fontWeight: 500, textShadow: '0 3rpx 4rpx rgba(0,0,0,0.5)', whiteSpace: 'nowrap' }}>
             {model.nickname || '昵称待完善'}
@@ -193,14 +193,30 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
           {model.certifications.length ? <View style={{ width: '168rpx', height: '48rpx', borderRadius: '24rpx', background: '#E3F1FE', marginLeft: '10rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
             <Image src={miniappOssIcons.profileCertification} mode="aspectFit" style={{ width: '30rpx', height: '30rpx', marginRight: '8rpx' }} />
             <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx', fontWeight: 500 }}>
-              {verifiedCount}/{model.certifications.length}项认证
+              三重认证
             </Text>
           </View> : null}
         </View>
         {model.datingGoal || model.relationshipStatus ? (
-          <View style={{ width: '148rpx', height: '48rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.2)', marginTop: '10rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+          <View
+            data-role="profile-preview-subtitle"
+            style={{
+              display: 'inline-flex',
+              width: 'auto',
+              minWidth: '148rpx',
+              height: '48rpx',
+              borderRadius: '24rpx',
+              background: 'rgba(0,0,0,0.2)',
+              marginTop: '10rpx',
+              padding: '0 18rpx',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxSizing: 'border-box',
+              whiteSpace: 'nowrap',
+            }}
+          >
             <Text style={{ color: '#FE918E', fontSize: '27rpx', lineHeight: '28rpx', marginRight: '10rpx' }}>♥</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx', fontWeight: 500 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx', fontWeight: 500, whiteSpace: 'nowrap' }}>
               {model.datingGoal || model.relationshipStatus}
             </Text>
           </View>
@@ -211,6 +227,10 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
 }
 
 function ProfilePreviewBasicInfo({ model, variant }: { model: ProfilePreviewModel; variant: 'owner-preview' | 'public-profile' }) {
+  const isMale = model.gender === 'MALE'
+  const genderIcon = model.gender === 'MALE'
+    ? miniappOssIcons.qianxunGenderMale
+    : miniappOssIcons.profilePreviewGender
   return (
     <View
       style={{
@@ -226,9 +246,9 @@ function ProfilePreviewBasicInfo({ model, variant }: { model: ProfilePreviewMode
       }}
     >
       {model.genderAgeHeight || variant === 'owner-preview' ? <ProfilePreviewInfoLine
-        icon={miniappOssIcons.profilePreviewGender}
-        iconWidth="24rpx"
-        iconHeight="34rpx"
+        icon={genderIcon}
+        iconWidth={isMale ? '32rpx' : '24rpx'}
+        iconHeight={isMale ? '32rpx' : '34rpx'}
         text={model.genderAgeHeight || '基础资料待完善'}
       /> : null}
       {model.location || variant === 'owner-preview' ? <ProfilePreviewInfoLine
@@ -282,7 +302,18 @@ function ProfilePreviewInfoLine({
 function ProfilePreviewTagSection({ tags }: { tags: ProfileTagItem[] }) {
   const visibleTags = tags.slice(0, 8)
   return (
-    <ProfilePreviewCard title="我的标签" height="182rpx" padding="30rpx 40rpx 40rpx 29rpx">
+    <View
+      style={{
+        width: '700rpx',
+        minHeight: '182rpx',
+        marginTop: '20rpx',
+        borderRadius: '32rpx',
+        background: '#FFFFFF',
+        padding: '30rpx 40rpx 40rpx 29rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <ProfilePreviewTitle title="我的标签" bubbleLeft="94rpx" />
       <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: '10rpx', marginTop: '20rpx' }}>
         {visibleTags.map(item => (
           <View key={item.code} style={{ flexShrink: 0 }}>
@@ -290,7 +321,7 @@ function ProfilePreviewTagSection({ tags }: { tags: ProfileTagItem[] }) {
           </View>
         ))}
       </View>
-    </ProfilePreviewCard>
+    </View>
   )
 }
 

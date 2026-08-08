@@ -387,10 +387,14 @@ export interface BasicProfile extends Record<string, unknown> {
   annualIncome?: string
   maritalStatus?: string
   locationProvince?: string
+  locationProvinceLabel?: string
   locationCity?: string
+  locationCityLabel?: string
   locationDistrict?: string
   hometownProvince?: string
+  hometownProvinceLabel?: string
   hometownCity?: string
+  hometownCityLabel?: string
   hometownDistrict?: string
   company?: string
   school?: string

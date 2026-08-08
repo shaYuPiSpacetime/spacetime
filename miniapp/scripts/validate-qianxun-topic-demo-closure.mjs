@@ -1,3 +1,4 @@
+/* global console */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -61,6 +62,13 @@ assert.match(compose, /images\.length\s*>\s*0\s*&&\s*images\.length\s*<\s*maxIma
 assert.doesNotMatch(compose, /\{images\.length\}\s*\/\s*\{maxImages\}/, '蓝湖底部工具栏不显示图片数量计数')
 assert.doesNotMatch(compose, /runtime\.topics\?\.\[0\]/, '发布动态默认态必须显示“添加话题”，不得自动选中第一个话题')
 assert.doesNotMatch(compose, /['"][▧▻☺＋]['"]|const\s+glyph/, '发布动态禁止使用字符代替图片、视频、表情或加图图标')
+assert.doesNotMatch(compose, /COMMUNITY_COPY_KEYS\.uploadRetry/, '图片上传失败不得提供“重新上传”按钮')
+assert.match(compose, /const\s+choosingImagesRef\s*=\s*useRef\(false\)/, '图片选择器必须有同步互斥锁，避免连续点击重复拉起')
+assert.match(compose, /if\s*\(choosingImagesRef\.current\)\s*return/, '图片选择器互斥锁必须在调用系统能力前生效')
+assert.match(compose, /data-role="compose-image-preview"/, '已选图片必须提供独立大图预览层')
+assert.match(compose, /<MovableArea[\s\S]{0,1200}<MovableView/, '发布动态大图预览必须使用原生手势容器')
+assert.match(compose, /scaleMin=\{1\}/, '发布动态图片预览最小缩放必须为 1 倍')
+assert.match(compose, /scaleMax=\{3\}/, '发布动态图片预览最大缩放必须限制为 3 倍')
 assert.match(topicDetail, /reportCommunityPost/, '话题动态更多菜单必须接通举报接口')
 assert.match(topicDetail, /Taro\.showActionSheet/, '话题动态更多菜单必须提供真实操作反馈')
 assert.match(topicDetail, /Taro\.previewImage/, '话题动态图片必须支持原图预览')

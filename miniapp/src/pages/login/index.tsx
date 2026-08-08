@@ -42,10 +42,11 @@ interface AgreementSheetProps {
   selectedMethod: LoginMethod | null
   loading: boolean
   onAgree: () => void | Promise<void>
+  onWechatPhoneLogin: (event: { detail?: { code?: string; errMsg?: string } }) => void | Promise<void>
   onDisagree: () => void
 }
 
-function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: AgreementSheetProps) {
+function AgreementDialog({ selectedMethod, loading, onAgree, onWechatPhoneLogin, onDisagree }: AgreementSheetProps) {
   const agreeText = selectedMethod === 'wechat' && loading
     ? '授权中...'
     : '同意'
@@ -162,25 +163,52 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onDisagree }: Agree
               不同意
             </Text>
           </View>
-          <View
-          style={{
-              width: '258rpx',
-              height: '86rpx',
-              borderRadius: '16rpx',
-            background: '#2876FF',
-              marginLeft: '22rpx',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          className="login-agreement-accept"
-          onClick={onAgree}
-          hoverClass="btn-hover"
-        >
-            <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
-            {agreeText}
-          </Text>
-          </View>
+          {selectedMethod === 'wechat' ? (
+            <Button
+              className="login-wechat-custom-button login-agreement-accept"
+              openType="getPhoneNumber"
+              onGetPhoneNumber={onWechatPhoneLogin}
+              disabled={loading}
+              style={{
+                width: '258rpx',
+                height: '86rpx',
+                borderRadius: '16rpx',
+                background: '#2876FF',
+                margin: '0 0 0 22rpx',
+                padding: 0,
+                border: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 'normal',
+              }}
+              hoverClass="btn-hover"
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
+                {agreeText}
+              </Text>
+            </Button>
+          ) : (
+            <View
+              className="login-agreement-accept"
+              style={{
+                width: '258rpx',
+                height: '86rpx',
+                borderRadius: '16rpx',
+                background: '#2876FF',
+                marginLeft: '22rpx',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onClick={onAgree}
+              hoverClass="btn-hover"
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700, lineHeight: '42rpx' }}>
+                {agreeText}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -395,7 +423,6 @@ export default function LoginAuthPage() {
   const [wechatAuthPending, setWechatAuthPending] = useState(false)
   const [videoUnavailable, setVideoUnavailable] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState<LoginMethod | null>(null)
-  const [showDirectWechatAuth, setShowDirectWechatAuth] = useState(false)
 
   useLoad((options) => {
     void bootstrap().catch(error => {
@@ -436,7 +463,7 @@ export default function LoginAuthPage() {
     setShowDialog(false)
     setShowError(false)
     if (method === 'wechat') {
-      setShowDirectWechatAuth(true)
+      setShowMethodSheet(true)
       return
     }
     await Taro.redirectTo({ url: '/pages/login/phone?agreed=1' })
@@ -466,7 +493,10 @@ export default function LoginAuthPage() {
     setShowDialog(true)
   }
 
-  const handleWechatPhoneLogin = async (event: { detail?: { code?: string; errMsg?: string } }) => {
+  const handleWechatPhoneLogin = async (
+    event: { detail?: { code?: string; errMsg?: string } },
+    protocolAccepted = agreementAccepted,
+  ) => {
     if (wechatAuthPending || loading) return
     const phoneCode = event.detail?.code
     if (!phoneCode) {
@@ -486,7 +516,7 @@ export default function LoginAuthPage() {
       if (!loginCode) {
         throw new Error('微信登录凭证获取失败，请重试')
       }
-      const loginData = await loginByWechatPhone({ loginCode, phoneCode, agreeProtocol: agreementAccepted })
+      const loginData = await loginByWechatPhone({ loginCode, phoneCode, agreeProtocol: protocolAccepted })
       const nickname = loginData.nickname || ''
       const avatar = normalizeAvatarUrl(loginData.avatar, defaultAvatar)
 
@@ -508,16 +538,23 @@ export default function LoginAuthPage() {
     }
   }
 
+  const handleAgreementWechatPhoneLogin = async (event: { detail?: { code?: string; errMsg?: string } }) => {
+    setAgreementAccepted(true)
+    setShowDialog(false)
+    setShowError(false)
+    setErrorText('')
+    if (!event.detail?.code) {
+      setShowMethodSheet(true)
+    }
+    await handleWechatPhoneLogin(event, true)
+  }
+
   const handleAgreeAgreement = async () => {
     setAgreementAccepted(true)
     setShowDialog(false)
     setShowError(false)
     setErrorText('')
     if (selectedMethod) {
-      if (selectedMethod === 'wechat') {
-        setShowDirectWechatAuth(true)
-        return
-      }
       await proceedWithMethod(selectedMethod)
     } else {
       setShowMethodSheet(true)
@@ -638,116 +675,12 @@ export default function LoginAuthPage() {
         />
       )}
 
-      {showDirectWechatAuth && (
-        <View
-          className="wechat-direct-auth absolute inset-0 z-50"
-          style={{ background: 'rgba(0,0,0,0.42)' }}
-          onClick={() => setShowDirectWechatAuth(false)}
-        >
-          <View
-            style={{
-              position: 'absolute',
-              left: '0',
-              right: '0',
-              bottom: '0',
-              minHeight: '440rpx',
-              borderRadius: '64rpx 64rpx 0 0',
-              background: '#F5F6FA',
-              padding: '54rpx 25rpx calc(40rpx + env(safe-area-inset-bottom))',
-              boxSizing: 'border-box',
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <Text
-              style={{
-                display: 'block',
-                color: '#333333',
-                fontSize: '34rpx',
-                fontWeight: 800,
-                lineHeight: '48rpx',
-                textAlign: 'center',
-              }}
-            >
-              微信授权登录
-            </Text>
-            <Text
-              style={{
-                display: 'block',
-                color: '#999999',
-                fontSize: '26rpx',
-                lineHeight: '38rpx',
-                textAlign: 'center',
-                marginTop: '12rpx',
-              }}
-            >
-              授权微信手机号即可完成登录
-            </Text>
-
-            <View style={{ marginTop: '52rpx', padding: '0 20rpx' }}>
-              <Button
-                className="login-wechat-custom-button"
-                openType="getPhoneNumber"
-                onGetPhoneNumber={handleWechatPhoneLogin}
-                disabled={wechatAuthPending}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '100%',
-                  height: '108rpx',
-                  margin: 0,
-                  padding: 0,
-                  background: '#2876FF',
-                  border: 0,
-                  borderRadius: '24rpx',
-                  lineHeight: 'normal',
-                }}
-                hoverClass="btn-hover"
-              >
-                <Image
-                  src={miniappOssIcons.loginMethodWechat}
-                  mode="aspectFit"
-                  style={{ width: '48rpx', height: '48rpx' }}
-                />
-                <Text
-                  style={{
-                    color: '#FFFFFF',
-                    fontSize: '34rpx',
-                    fontWeight: 700,
-                    lineHeight: '48rpx',
-                    marginLeft: '16rpx',
-                  }}
-                >
-                  {wechatAuthPending ? '授权中...' : '微信授权登录'}
-                </Text>
-              </Button>
-            </View>
-
-            <View
-              style={{
-                marginTop: '36rpx',
-                display: 'flex',
-                justifyContent: 'center',
-              }}
-              onClick={() => {
-                setShowDirectWechatAuth(false)
-                setShowMethodSheet(true)
-              }}
-              hoverClass="btn-hover"
-            >
-              <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx' }}>
-                选择其他方式登录
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
-
       {showDialog && (
         <AgreementDialog
           selectedMethod={selectedMethod}
           loading={wechatAuthPending}
           onAgree={handleAgreeAgreement}
+          onWechatPhoneLogin={handleAgreementWechatPhoneLogin}
           onDisagree={handleDisagree}
         />
       )}

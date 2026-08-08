@@ -56,7 +56,7 @@ test('诚意贴与同城恢复改动前的顶部留白节奏', () => {
 test('其余受影响空态恢复各页面原有定位，不再使用整屏高度计算', () => {
   const expectedOffsets = [
     ['src/pages/coins/detail.tsx', /paddingTop:\s*'262rpx'/],
-    ['src/pages/community/index.tsx', /minHeight:\s*'520rpx'[\s\S]{0,220}justifyContent:\s*'center'/],
+    ['src/pages/community/index.tsx', /minHeight:\s*'520rpx'[\s\S]{0,180}paddingTop:\s*state === 'empty' \? '128rpx'/],
     ['src/pages/heart/mutual.tsx', /minHeight:\s*'520rpx'[\s\S]{0,180}justifyContent:\s*'center'/],
     ['src/pages/membership/records.tsx', /marginTop:\s*'220rpx'/],
     ['src/pages/qianxun/interactions.tsx', /paddingTop:\s*'126rpx'/],
@@ -75,6 +75,14 @@ test('其余受影响空态恢复各页面原有定位，不再使用整屏高�
     /"validate:empty-state-centering":\s*"node --test scripts\/test-empty-state-layout-regression\.cjs"/,
     '发布构建中的原命令入口应已改为执行原布局回归测试',
   )
+})
+
+test('心动与访客空态复用同城插画并保持靠上布局', () => {
+  const source = read('src/pages/community/index.tsx')
+  assert.equal((source.match(/illustration=\{miniappOssIcons\.qianxunEmptyFollowing\}/g) || []).length, 2)
+  assert.doesNotMatch(source, /flex:\s*state === 'empty' \? 1 : undefined/)
+  assert.match(source, /width:\s*'334rpx',\s*height:\s*'254rpx'/)
+  assert.match(source, /marginTop:\s*illustration \? '30rpx'/)
 })
 
 console.log('空态原布局回归测试完成')

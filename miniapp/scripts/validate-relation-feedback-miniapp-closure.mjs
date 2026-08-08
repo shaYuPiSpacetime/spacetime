@@ -67,23 +67,20 @@ assert.doesNotMatch(communityPage, /fallbackLikes|fallbackVisitors|router\.param
 assert.match(communityPage, /relation-loading-state|state="loading"/, '心动页必须提供加载态')
 assert.match(communityPage, /relation-empty-state|state="empty"/, '心动页必须提供空态')
 assert.match(communityPage, /relation-error-state|state="error"/, '心动页必须提供错误重试态')
-assert.match(likesPanel, /state="empty" message="暂时没有对我心动人员" illustration=\{miniappOssIcons\.qianxunEmptyHeart\}/, '对我心动空态必须将指定文案与爱心插画成对绑定')
+assert.match(likesPanel, /state="empty" message="暂时没有对我心动人员" illustration=\{miniappOssIcons\.qianxunEmptyFollowing\}/, '对我心动空态必须与同城空态复用人物插画')
 assert.match(visitorsPanel, /state="empty" message="暂时还没有访客" illustration=\{miniappOssIcons\.qianxunEmptyFollowing\}/, '访客空态必须将指定文案与人像插画成对绑定')
 assert.doesNotMatch(likesPanel, /state="empty"[^>]*onRetry=/, '对我心动空态不得展示重新加载按钮')
 assert.doesNotMatch(visitorsPanel, /state="empty"[^>]*onRetry=/, '访客空态不得展示重新加载按钮')
 assert.match(communityPage, /state === 'empty' && illustration/, '空态插画不得出现在加载态或错误态')
 assert.match(communityPage, /id="relation-empty-illustration"[\s\S]*?width: '100%'[\s\S]*?justifyContent: 'center'/, '两个空态插画必须通过全宽容器水平居中')
 assert.match(communityPage, /id="relation-scroll-content"[\s\S]*?display: 'flex'[\s\S]*?flexDirection: 'column'/, '心动页首屏内容必须建立纵向弹性布局')
-assert.match(communityPage, /id=\{`relation-\$\{state\}-state`\}[\s\S]*?flex: state === 'empty' \? 1 : undefined/, '两个空态必须撑满导航与底部操作区之间的剩余高度以垂直居中')
+assert.match(communityPage, /id=\{`relation-\$\{state\}-state`\}[\s\S]*?paddingTop: state === 'empty' \? '128rpx' : '0'/, '两个空态必须保留同城设计的顶部留白')
+assert.doesNotMatch(communityPage, /flex: state === 'empty' \? 1 : undefined/, '两个空态不得撑满剩余高度垂直居中')
+assert.match(communityPage, /width: '334rpx', height: '254rpx'/, '两个空态插画尺寸必须匹配同城设计')
 assert.match(communityPage, /<Image[\s\S]*?src=\{illustration\}[\s\S]*?mode="aspectFit"/, '空态插画必须保持原始比例完整展示')
 assert.match(communityPage, /state === 'error' && onRetry[\s\S]*?重新加载/, '重新加载按钮只能在错误态展示')
 assert.match(ossIcons, /qianxunEmptyHeart: 'https:\/\//, '爱心空态图必须使用 OSS 公网 URL')
 assert.match(ossIcons, /qianxunEmptyFollowing: 'https:\/\//, '访客空态图必须使用 OSS 公网 URL')
-assert.notEqual(
-  ossIcons.match(/qianxunEmptyHeart:\s*['"]([^'"]+)['"]/)?.[1],
-  ossIcons.match(/qianxunEmptyFollowing:\s*['"]([^'"]+)['"]/)?.[1],
-  '两个空状态不得复用同一张 OSS 图片',
-)
 assert.match(communityPage, /ensureUnlockAttempt/, '解锁确认必须复用稳定 requestId')
 assert.match(communityPage, /getApiErrorCode\(error\) === 5001/, '解锁错误必须使用业务错误码分支')
 assert.doesNotMatch(communityPage, /\/余额\|5001\//, '解锁错误不得通过文案正则猜测')

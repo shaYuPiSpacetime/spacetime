@@ -10,6 +10,7 @@ import tabMessageIcon from '@/assets/icons/tab-message.png'
 import tabMessageActiveIcon from '@/assets/icons/tab-message-active.png'
 import tabProfileIcon from '@/assets/icons/tab-profile.png'
 import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'
+import type { NativeNavigationMetrics } from '@/components/NativeNavigation'
 
 export type TabKey = 'index' | 'community' | 'recommend' | 'chat' | 'profile'
 
@@ -47,6 +48,37 @@ function getCurrentRoute() {
 interface Props {
   active: TabKey
   onActiveChange?: (key: TabKey) => void
+}
+
+interface CapsuleLeftActionsOptions
+  extends Pick<NativeNavigationMetrics, 'menuLeft' | 'menuTop' | 'menuHeight'> {
+  actionCount: number
+  actionSize?: number
+  actionGap?: number
+  capsuleGap?: number
+  minLeft?: number
+}
+
+export function getCapsuleLeftActionsLayout({
+  menuLeft,
+  menuTop,
+  menuHeight,
+  actionCount,
+  actionSize = 72,
+  actionGap = 0,
+  capsuleGap = 12,
+  minLeft = 24,
+}: CapsuleLeftActionsOptions) {
+  const count = Math.max(1, actionCount)
+  const width = count * actionSize + (count - 1) * actionGap
+
+  return {
+    left: Math.max(minLeft, menuLeft - capsuleGap - width),
+    top: menuTop + (menuHeight - actionSize) / 2,
+    width,
+    actionSize,
+    actionGap,
+  }
 }
 
 /**
@@ -87,7 +119,6 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
           top: '22rpx',
           bottom: '0',
           background: '#FFFFFF',
-          boxShadow: '0 -4rpx 16rpx rgba(222, 229, 238, 0.65)',
         }}
       />
       <View
@@ -110,7 +141,6 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
           height: '150rpx',
           borderRadius: '75rpx',
           background: '#FFFFFF',
-          boxShadow: '0 -4rpx 16rpx rgba(222, 229, 238, 0.65)',
         }}
       />
       {TABS.map((tab, index) => {

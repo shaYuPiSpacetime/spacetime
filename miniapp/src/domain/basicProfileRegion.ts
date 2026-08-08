@@ -5,24 +5,24 @@ interface BasicProfileFieldLike {
   visible?: boolean
 }
 
-const RETIRED_DISTRICT_FIELD_IDS = new Set(['hometownDistrict'])
+const RETIRED_DISTRICT_FIELD_IDS = new Set(['locationDistrict', 'hometownDistrict'])
 
-/** 现居地保存省市区；家乡按产品口径只保存省市并清空历史区县。 */
+/** 现居地和家乡都只保存省市，并主动清空历史区县。 */
 export function buildRegionPatch(
   rowId: BasicProfileRegionRowId,
   provinceCode: string,
   cityCode: string,
-  districtCode = ''
+  _districtCode = ''
 ) {
   return {
     [`${rowId}Province`]: provinceCode,
     [`${rowId}City`]: cityCode,
-    [`${rowId}District`]: rowId === 'location' ? districtCode : '',
+    [`${rowId}District`]: '',
   }
 }
 
 /**
- * 家乡固定为两级；即使旧后端仍返回家乡区县可见，也必须在小程序侧退役。
+ * 现居地和家乡固定为两级；即使旧后端仍返回区县可见，也必须在小程序侧退役。
  */
 export function normalizeTwoLevelRegionFieldSettings<T extends BasicProfileFieldLike>(
   settings: T[] | undefined
@@ -30,7 +30,7 @@ export function normalizeTwoLevelRegionFieldSettings<T extends BasicProfileField
   return (settings || []).filter(setting => !RETIRED_DISTRICT_FIELD_IDS.has(setting.fieldId))
 }
 
-/** 按可见字段白名单生成保存请求，保留现居区县并阻止家乡历史区县重新提交。 */
+/** 按可见字段白名单生成保存请求，阻止两个历史区县重新提交。 */
 export function buildBasicProfileSavePayload(
   settings: BasicProfileFieldLike[] | undefined,
   values: Record<string, unknown>
@@ -45,5 +45,5 @@ export function buildBasicProfileSavePayload(
 /** 地区错误只向用户说明可执行动作。 */
 export function toTwoLevelRegionErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error || '')
-  return message.includes('REGION_NOT_SUPPORTED') ? '地区选项已更新，请重新选择省市区' : message
+  return message.includes('REGION_NOT_SUPPORTED') ? '地区选项已更新，请重新选择省市' : message
 }

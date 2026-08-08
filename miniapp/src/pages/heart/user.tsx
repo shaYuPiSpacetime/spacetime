@@ -193,6 +193,7 @@ export default function HeartUserPage() {
     avatarUrl: profile.avatar || '',
     heroImageUrl: profile.heroPhoto || profile.photos?.[0] || '',
     nickname: profile.nickname,
+    gender: profile.gender || '',
     genderAgeHeight: basicInfo,
     location: locationInfo,
     detailInfo,

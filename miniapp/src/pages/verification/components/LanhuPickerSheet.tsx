@@ -134,7 +134,7 @@ export function LanhuDateSheet({ title, value, onConfirm, onClose }: LanhuDateSh
 }
 
 /**
- * 组合地区选择器：现居地显示省市区，家乡通过 includeDistrict=false 保持省市两级。
+ * 组合地区选择器：基本资料的现居地和家乡均以 includeDistrict=false 使用省市两级。
  */
 export function LanhuRegionSheet({
   title,
@@ -142,7 +142,7 @@ export function LanhuRegionSheet({
   provinceCode,
   cityCode,
   districtCode,
-  includeDistrict = true,
+  includeDistrict = false,
   loadDistricts,
   onConfirm,
   onClose,
@@ -273,7 +273,11 @@ export function LanhuRegionSheet({
           return
         }
         if (selectedProvince && selectedCity) {
-          onConfirm(selectedProvince.code, selectedCity.code, selectedDistrict?.code || '')
+          onConfirm(
+            selectedProvince.code,
+            selectedCity.code,
+            includeDistrict ? selectedDistrict?.code || '' : ''
+          )
         }
       }}
       onClose={onClose}

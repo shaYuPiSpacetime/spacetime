@@ -22,6 +22,8 @@ const mockPort = Number(process.env.PRD08_MOCK_PORT || 3938)
 const resumeIdeal = process.env.PRD08_RESUME_IDEAL === 'true'
 const onlyWaiting = process.env.PRD08_ONLY_WAITING === 'true'
 const onlyAddress = process.env.PRD08_ONLY_ADDRESS === 'true'
+const onlyEmpty = process.env.PRD08_ONLY_EMPTY === 'true'
+const onlyWhisper = process.env.PRD08_ONLY_WHISPER === 'true'
 const outputRoot = path.resolve(
   projectPath,
   '../docs/验收报告/截图证据/2026-08-05-PRD08推荐理想型-蓝湖还原'
@@ -38,6 +40,7 @@ const state = {
   replay: 'member',
   vip: false,
   unlocks: 'ready',
+  idealResults: 'ready',
 }
 
 let server
@@ -134,6 +137,23 @@ function preference() {
 }
 
 function resultPage() {
+  if (state.idealResults === 'empty') {
+    return {
+      snapshotNo: 'IDS-RUNTIME-EMPTY',
+      status: 'active',
+      summary: {
+        targetCities: [{ code: '320100', name: '南京' }],
+        minAge: 24,
+        maxAge: 34,
+        conditionNames: ['身高165+', '博士学历', '喜欢旅行'],
+      },
+      resultCount: 0,
+      unlockableCount: 0,
+      items: [],
+      nextCursor: null,
+      pricing: { unitPrice: 100, discountPercent: 10, retentionDays: 90, batchMax: 20 },
+    }
+  }
   return {
     snapshotNo: 'IDS-RUNTIME-001',
     status: 'active',
@@ -491,6 +511,47 @@ function responseFor(request) {
       hasMore: false,
     }
   }
+  if (pathname === '/miniapp/community/posts/501') {
+    return {
+      id: 501,
+      postNo: 'POST-RUNTIME-501',
+      authorId: 208,
+      authorUserNo: 'USR-000000000208',
+      authorName: '林知夏',
+      authorAvatar: avatar,
+      authorGender: 'FEMALE',
+      authorAge: 27,
+      authorBirthYear: 1999,
+      authorCity: '南京',
+      authorProfession: '产品经理',
+      authorZodiac: '天秤座',
+      postType: 'community_post',
+      content: '周末去看了一场日落，认真生活，也认真期待每一次温柔的相遇。',
+      imageUrls: [hero],
+      likeCount: 18,
+      commentCount: 0,
+      liked: false,
+      followingAuthor: false,
+      createTime: '2026-08-05T18:30:00',
+    }
+  }
+  if (pathname === '/miniapp/community/posts/501/comments') {
+    return { records: [], current: 1, size: 100, total: 0, pages: 1, hasMore: false }
+  }
+  if (pathname === '/miniapp/community/posts/501/view') return null
+  if (pathname === '/miniapp/message/whispers/precheck' && method === 'POST') {
+    return {
+      allowed: true,
+      contentMaxLength: 60,
+      coinAmount: 15,
+      free: false,
+      coinBalance: 100,
+      freeWhisperRemain: 0,
+      targetUserNo: 'USR-000000000208',
+      targetNickname: '林知夏',
+      targetAvatarUrl: avatar,
+    }
+  }
   if (/^\/miniapp\/community\/users\/\d+\/posts$/.test(pathname)) {
     return { records: [], current: 1, size: 20, total: 0, pages: 1, hasMore: false }
   }
@@ -599,6 +660,36 @@ async function screenshot(miniProgram, outputDir, filename) {
   const outputDir = path.join(outputRoot, `微信运行-${system.windowWidth}x${system.windowHeight}`)
   fs.mkdirSync(outputDir, { recursive: true })
 
+  if (onlyEmpty) {
+    state.vip = true
+    state.idealResults = 'empty'
+    await open(
+      miniProgram,
+      '/pages/prd08/ideal/results/index?snapshotNo=IDS-RUNTIME-EMPTY',
+      '理想型条件选择后暂无数据',
+      2600
+    )
+    await screenshot(miniProgram, outputDir, '024-理想型条件选择后暂无数据.png')
+    assert.equal(exceptions.length, 0, `运行异常：${exceptions.join('；')}`)
+    console.log(`PRD-08 理想型空态截图完成：${outputDir}`)
+    return
+  }
+
+  if (onlyWhisper) {
+    const page = await open(
+      miniProgram,
+      '/pages/qianxun/post-detail?id=501',
+      '动态详情申请认识',
+      2600
+    )
+    await (await waitForElement(page, '#qianxun-post-apply-whisper', '申请认识入口')).tap()
+    await waitForElement(page, '#qianxun-whisper-compose-sheet', '悄悄话弹层')
+    await screenshot(miniProgram, outputDir, '025-动态详情-申请认识悄悄话.png')
+    assert.equal(exceptions.length, 0, `运行异常：${exceptions.join('；')}`)
+    console.log(`动态详情悄悄话弹层截图完成：${outputDir}`)
+    return
+  }
+
   if (onlyWaiting) {
     state.recommend = 'limit'
     await open(miniProgram, '/pages/recommend/index', '推荐上限')
@@ -703,6 +794,16 @@ async function screenshot(miniProgram, outputDir, filename) {
   )
   await screenshot(miniProgram, outputDir, '018-理想型结果首屏.png')
   await screenshot(miniProgram, outputDir, '019-理想型结果完整-首屏证据.png')
+
+  state.idealResults = 'empty'
+  await open(
+    miniProgram,
+    '/pages/prd08/ideal/results/index?snapshotNo=IDS-RUNTIME-EMPTY',
+    '理想型条件选择后暂无数据',
+    2600
+  )
+  await screenshot(miniProgram, outputDir, '024-理想型条件选择后暂无数据.png')
+  state.idealResults = 'ready'
 
   await open(
     miniProgram,

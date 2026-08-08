@@ -1,4 +1,4 @@
-import { Image, ScrollView, Text, Textarea, View } from '@tarojs/components'
+import { Image, MovableArea, MovableView, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
@@ -16,6 +16,7 @@ import {
   type CommunityUploadStatus,
 } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
+import { resolveCommunityImageUploadError } from '@/domain/communityImageUpload'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
@@ -39,7 +40,9 @@ export default function QianxunComposePage() {
   const [publishing, setPublishing] = useState(false)
   const [topicSheetVisible, setTopicSheetVisible] = useState(false)
   const [failureFeedback, setFailureFeedback] = useState('')
+  const [previewImageUrl, setPreviewImageUrl] = useState('')
   const hydratedRef = useRef(false)
+  const choosingImagesRef = useRef(false)
   const postTypeRef = useRef<CommunityContentType>('community_post')
   const draftVersionRef = useRef<number>()
   const saveSequenceRef = useRef(0)
@@ -109,9 +112,11 @@ export default function QianxunComposePage() {
   )
 
   const chooseImages = async () => {
+    if (choosingImagesRef.current) return
     const maxCount = Math.max(1, Number(config?.postMaxImages || 9))
     const remaining = maxCount - images.length
     if (remaining <= 0) return
+    choosingImagesRef.current = true
     try {
       const result = await Taro.chooseImage({ count: remaining, sizeType: ['compressed'], sourceType: ['album', 'camera'] })
       const paths = result.tempFilePaths || []
@@ -122,10 +127,24 @@ export default function QianxunComposePage() {
         uploadStatus: 'queued' as const,
       }))
       setImages(current => [...current, ...queued].slice(0, maxCount))
-      for (const item of queued) await uploadImage(item)
+      void uploadImagesWithLimit(queued)
     } catch (error) {
       if (!/cancel/i.test(String((error as { errMsg?: string })?.errMsg || error))) await showError(config, error)
+    } finally {
+      choosingImagesRef.current = false
     }
+  }
+
+  const uploadImagesWithLimit = async (items: UploadImage[]) => {
+    let cursor = 0
+    const workerCount = Math.min(3, items.length)
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (cursor < items.length) {
+        const current = items[cursor]
+        cursor += 1
+        await uploadImage(current)
+      }
+    }))
   }
 
   const uploadImage = async (item: UploadImage) => {
@@ -143,7 +162,7 @@ export default function QianxunComposePage() {
       setImages(current => current.map(image => image.localId === item.localId ? {
         ...image,
         uploadStatus: 'failed',
-        failureMessage: error instanceof Error ? error.message : String(error),
+        failureMessage: resolveCommunityImageUploadError(error),
       } : image))
     }
   }
@@ -205,9 +224,28 @@ export default function QianxunComposePage() {
         <View style={{ display: 'flex', flexWrap: 'wrap', gap: '10rpx', padding: '26rpx 25rpx' }}>
           {images.map((item, index) => (
             <View key={item.localId} style={{ position: 'relative', width: '226rpx', height: '226rpx' }}>
-              <Image src={item.url || item.tempPath} mode="aspectFill" style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx' }} />
-              <View onClick={() => setImages(items => items.filter((_, itemIndex) => itemIndex !== index))} style={{ position: 'absolute', right: '6rpx', top: '6rpx', width: '34rpx', height: '34rpx', borderRadius: '17rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ComposeRemoveImageIcon /></View>
-              {item.uploadStatus !== 'success' ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '48rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text onClick={() => item.uploadStatus === 'failed' && void uploadImage(item)} style={{ color: '#FFFFFF', fontSize: '21rpx' }}>{resolveCommunityCopy(config, item.uploadStatus === 'failed' ? COMMUNITY_COPY_KEYS.uploadRetry : COMMUNITY_COPY_KEYS.uploading)}</Text></View> : null}
+              <Image
+                id={`qianxun-compose-image-thumbnail-${index}`}
+                data-role="compose-image-thumbnail"
+                src={item.url || item.tempPath}
+                mode="aspectFill"
+                onClick={() => item.uploadStatus === 'success' && setPreviewImageUrl(item.url || item.tempPath)}
+                style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx' }}
+              />
+              <View
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setImages(items => items.filter((_, itemIndex) => itemIndex !== index))
+                }}
+                style={{ position: 'absolute', right: '6rpx', top: '6rpx', width: '34rpx', height: '34rpx', borderRadius: '17rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <ComposeRemoveImageIcon />
+              </View>
+              {item.uploadStatus !== 'success' ? (
+                <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '48rpx', background: 'rgba(20,32,48,.68)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx', textAlign: 'center', padding: '8rpx 12rpx' }}>{item.uploadStatus === 'failed' ? item.failureMessage || '图片上传失败' : resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.uploading)}</Text>
+                </View>
+              ) : null}
             </View>
           ))}
           {images.length > 0 && images.length < maxImages ? <View onClick={() => void chooseImages()} style={{ width: '226rpx', height: '226rpx', borderRadius: '8rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ComposeAddImageIcon /></View> : null}
@@ -233,6 +271,7 @@ export default function QianxunComposePage() {
 
       {topicSheetVisible ? <TopicSheet topics={config?.topics || []} onSelect={id => { setTopicId(id); setTopicSheetVisible(false) }} onClose={() => setTopicSheetVisible(false)} /> : null}
       {failureFeedback ? <PublishFailureFeedback title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishFailedTitle)} message={failureFeedback} /> : null}
+      {previewImageUrl ? <ImagePreview src={previewImageUrl} closeTop={navigationMetrics.menuTop} onClose={() => setPreviewImageUrl('')} /> : null}
     </View>
   )
 }
@@ -315,6 +354,38 @@ function TopicTrailingIcon({ removable }: { removable: boolean }) {
 
 function PublishFailureFeedback({ title, message }: { title: string; message: string }) {
   return <View style={{ position: 'fixed', inset: 0, zIndex: 110, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><View style={{ width: '390rpx', minHeight: '142rpx', borderRadius: '16rpx', background: 'rgba(38,45,56,.78)', padding: '26rpx 30rpx', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>{title}</Text><Text style={{ color: '#FFFFFF', fontSize: '23rpx', lineHeight: '34rpx', marginTop: '12rpx', textAlign: 'center' }}>{message}</Text></View></View>
+}
+
+function ImagePreview({ src, closeTop, onClose }: { src: string; closeTop: number; onClose: () => void }) {
+  return (
+    <View id="qianxun-compose-image-preview" data-role="compose-image-preview" style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#000000', overflow: 'hidden' }}>
+      <MovableArea scaleArea style={{ position: 'absolute', inset: 0, width: '750rpx', height: '100vh', overflow: 'hidden' }}>
+        <MovableView
+          direction="all"
+          scale
+          scaleMin={1}
+          scaleMax={3}
+          scaleValue={1}
+          outOfBounds={false}
+          style={{ width: '750rpx', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Image src={src} mode="aspectFit" style={{ width: '750rpx', height: '100vh' }} />
+        </MovableView>
+      </MovableArea>
+      <View
+        id="qianxun-compose-image-preview-close"
+        data-role="compose-image-preview-close"
+        onClick={onClose}
+        hoverClass="btn-hover"
+        style={{ position: 'absolute', left: '22rpx', top: `${Math.max(24, closeTop - 14)}rpx`, width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: 'rgba(0,0,0,.46)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
+      >
+        <ComposeRemoveImageIcon />
+      </View>
+      <Text style={{ position: 'absolute', left: '175rpx', right: '175rpx', bottom: 'calc(42rpx + env(safe-area-inset-bottom))', color: 'rgba(255,255,255,.72)', fontSize: '22rpx', lineHeight: '32rpx', textAlign: 'center', pointerEvents: 'none', zIndex: 2 }}>
+        双指缩放，最多放大 3 倍
+      </Text>
+    </View>
+  )
 }
 
 function TopicSheet({ topics, onSelect, onClose }: { topics: CommunityConfig['topics']; onSelect: (id: number) => void; onClose: () => void }) {
