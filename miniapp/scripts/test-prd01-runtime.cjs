@@ -526,8 +526,8 @@ test('首登五页只使用运行时配置、字典 code 和服务端 nextStep',
   assert.match(sources.identity, /option\.code/)
   assert.match(sources.education, /option\.code/)
   assert.match(sources.address, /loadProvinceCities\(/)
-  assert.match(sources.address, /loadLocations\(/, '现居地必须按城市加载区县')
-  assert.match(sources.address, /locationDistrict:/, '现居地必须提交区县 code')
+  assert.doesNotMatch(sources.address, /loadLocations\(/, '首登现居地必须固定使用省市两级树')
+  assert.doesNotMatch(sources.address, /locationDistrict:/, '首登现居地不得提交区县 code')
   assert.equal(sources.address.includes("setSelected('当前位置')"), false)
 })
 

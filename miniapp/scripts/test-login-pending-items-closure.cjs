@@ -83,18 +83,22 @@ test('登录视频播放时仍显示蓝湖品牌 Logo', () => {
   )
 })
 
-test('现居地选择按城市区县节点完成省市区联动', () => {
+test('首登现居地固定为省市两级选择与提交', () => {
   const source = read('src/pages/login/address.tsx')
+  const loginHook = read('src/hooks/useLogin.ts')
+  const backupSubmit = loginHook.match(/const submit = async \(\) =>[\s\S]*?\n\n  const initField/)?.[0]
 
   assert.match(source, /loadProvinceCities\(/, '地址页应一次加载省市树')
-  assert.match(source, /ManualAddressSheet/, '地址页缺少省市区联动弹层')
-  assert.match(source, /loadLocations\(/, '现居地必须按城市加载区县')
-  assert.match(source, /selectedDistrict/, '现居地必须维护区县选中态')
-  assert.match(source, /districtResolved/, '无区县城市也必须有明确的加载完成态')
-  assert.match(source, /nextActive=\{hasCompleteAddress\}/, '完整地址解析后必须点亮下一步')
+  assert.match(source, /ManualAddressSheet/, '地址页缺少省市两级联动弹层')
+  assert.doesNotMatch(source, /loadLocations\(/, '首登现居地不得继续请求第三级区县')
+  assert.doesNotMatch(source, /selectedDistrict/, '首登现居地不得维护第三级区县状态')
+  assert.doesNotMatch(source, /districtResolved/, '省市选择完成后应直接点亮下一步')
+  assert.match(source, /nextActive=\{hasCompleteAddress\}/, '省市选择完成后必须点亮下一步')
   assert.match(source, /locationProvince:/, '地址提交必须保留省级行政区 code')
   assert.match(source, /locationCity:/, '地址提交必须保留市级行政区 code')
-  assert.match(source, /locationDistrict:/, '地址提交必须携带区县行政区 code')
+  assert.doesNotMatch(source, /locationDistrict:/, '地址提交不得携带已退役的区县字段')
+  assert.ok(backupSubmit, '登录 hook 缺少备用首登地址提交入口')
+  assert.doesNotMatch(backupSubmit, /locationDistrict:/, '备用提交入口不得恢复已退役的区县字段')
 })
 
 test('获取定位所需微信权限必须进入最终 app.json', () => {
