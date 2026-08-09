@@ -147,7 +147,7 @@ class MiniappPrd01ConfigServiceTest {
                 .containsEntry("required", true)
                 .containsEntry("allowEmpty", false);
         assertThat((List<String>) location.get("submitFields"))
-                .containsExactly("locationProvince", "locationCity", "locationDistrict");
+                .containsExactly("locationProvince", "locationCity");
         assertThat((List<Map<String, Object>>) config.get("fieldSettings"))
                 .filteredOn(item -> "locationDistrict".equals(item.get("fieldId")))
                 .singleElement()

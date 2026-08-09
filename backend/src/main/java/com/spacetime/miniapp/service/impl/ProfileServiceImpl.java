@@ -126,9 +126,6 @@ public class ProfileServiceImpl implements ProfileService {
         }
         applyStepFields(user, req);
         fieldConfigResolver.validateRequiredStepFields(user, req.getStep());
-        if (req.getStep() == 5) {
-            validateRequiredLocationDistrict(user);
-        }
 
         // 编辑已完成步骤时不回退进度；只有提交当前步骤才向后推进。
         Integer nextStep = currentStep;
@@ -318,13 +315,13 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
-    /** 现居地支持中国大陆省市区 code，并校验真实字典节点及父子层级。 */
+    /** 首登现居地固定为中国大陆省市两级，兼容旧客户端区县入参但不参与校验。 */
     private void validateMainlandRegion(ProfileInitStepReq req) {
         if (req == null) {
             return;
         }
         profileDictionaryService.requireChinaRegionPath(
-                req.getLocationProvince(), req.getLocationCity(), req.getLocationDistrict(), "现居地");
+                req.getLocationProvince(), req.getLocationCity(), null, "现居地");
     }
 
     /** 基础资料页现居地和家乡都固定为省市两级。 */
@@ -515,7 +512,7 @@ public class ProfileServiceImpl implements ProfileService {
                 case 2 -> "出生日期";
                 case 3 -> "身份";
                 case 4 -> "学历";
-                case 5 -> "现居省市区";
+                case 5 -> "现居省市";
                 default -> "当前步骤字段";
             };
             throw new BusinessException("第" + req.getStep() + "步只能提交" + allowed);
@@ -550,7 +547,8 @@ public class ProfileServiceImpl implements ProfileService {
             case 5 -> {
                 if (StrUtil.isNotBlank(req.getLocationProvince())) user.setLocationProvince(req.getLocationProvince().trim());
                 if (StrUtil.isNotBlank(req.getLocationCity())) user.setLocationCity(req.getLocationCity().trim());
-                user.setLocationDistrict(trimToNull(req.getLocationDistrict()));
+                // 首登固定省市两级，旧客户端即使携带区县也不再保存。
+                user.setLocationDistrict(null);
             }
             default -> throw new BusinessException("首登步骤必须在1-5之间");
         }
@@ -667,15 +665,6 @@ public class ProfileServiceImpl implements ProfileService {
 
     private List<String> missingRequiredBasicFields(AppUser user, List<BasicProfileFieldVO> settings) {
         return fieldConfigResolver.missingRequiredBasicFields(user, settings);
-    }
-
-    /** 首登现居地：城市有区县节点时必须选择区县，无下级节点时允许省市两级。 */
-    private void validateRequiredLocationDistrict(AppUser user) {
-        if (StrUtil.isNotBlank(user.getLocationCity())
-                && StrUtil.isBlank(user.getLocationDistrict())
-                && profileDictionaryService.hasEnabledRegionChildren(user.getLocationCity())) {
-            throw new BusinessException("现居区县不能为空");
-        }
     }
 
     /** 语音介绍从统一审核记录实时派生，app_user 不保存语音审核快照。 */

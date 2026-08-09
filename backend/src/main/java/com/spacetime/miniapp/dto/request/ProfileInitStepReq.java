@@ -34,6 +34,6 @@ public class ProfileInitStepReq {
     /** 现居市。 */
     private String locationCity;
 
-    /** 现居区县。 */
+    /** 历史客户端兼容字段；首登已固定为省市两级，服务端忽略该值。 */
     private String locationDistrict;
 }

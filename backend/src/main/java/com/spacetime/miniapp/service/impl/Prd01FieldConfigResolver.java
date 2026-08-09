@@ -261,14 +261,13 @@ public class Prd01FieldConfigResolver {
     }
 
     private InitFieldRule locationRule(Map<String, FieldState> states) {
-        List<String> submitFields = List.of("locationProvince", "locationCity", "locationDistrict");
+        List<String> submitFields = List.of("locationProvince", "locationCity");
         List<String> requiredSubmitFields = new ArrayList<>();
         boolean visible = false;
         for (String field : submitFields) {
             FieldState state = state(states, field);
             visible = visible || state.visible;
-            // 区县是否必填取决于所选城市是否存在下级节点，由 ProfileServiceImpl 统一校验。
-            if (state.visible && state.required && !"locationDistrict".equals(field)) {
+            if (state.visible && state.required) {
                 requiredSubmitFields.add(field);
             }
         }

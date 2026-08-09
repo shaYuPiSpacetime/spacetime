@@ -129,6 +129,7 @@ class ProfileServiceImplTest {
         assertThat(result.getNextAction()).isEqualTo("COMPLETED");
         assertThat(user.getFirstLoginCompleted()).isEqualTo(1);
         assertThat(user.getFirstLoginNextStep()).isNull();
+        assertThat(user.getLocationDistrict()).isNull();
     }
 
     @Test
@@ -153,8 +154,8 @@ class ProfileServiceImplTest {
     }
 
     @Test
-    @DisplayName("首登旧配置缺少requiredMode时仍按城市节点要求现居区县")
-    void shouldRequireLocationDistrictUnderLegacyDistrictConfig() {
+    @DisplayName("首登旧配置仍要求区县时也按省市两级完成")
+    void shouldIgnoreLegacyDistrictRequirementForTwoLevelAddress() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
                 .thenReturn(List.of(config(legacyRequiredDistrictFields())));
         AppUser user = completedUntilStepFive();
@@ -163,12 +164,15 @@ class ProfileServiceImplTest {
         req.setStep(5);
         req.setLocationProvince("140000");
         req.setLocationCity("140200");
-        when(profileDictionaryService.hasEnabledRegionChildren("140200")).thenReturn(true);
 
-        assertThatThrownBy(() -> newService().saveInitStep(7L, req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("现居区县不能为空");
-        verify(appUserDao, never()).updateById(user);
+        ProfileInitStatusVO result = newService().saveInitStep(7L, req);
+
+        assertThat(result.getFirstLoginCompleted()).isTrue();
+        assertThat(user.getLocationProvince()).isEqualTo("140000");
+        assertThat(user.getLocationCity()).isEqualTo("140200");
+        assertThat(user.getLocationDistrict()).isNull();
+        verify(appUserDao).updateById(user);
+        verify(profileDictionaryService, never()).hasEnabledRegionChildren(any());
     }
 
     @Test
