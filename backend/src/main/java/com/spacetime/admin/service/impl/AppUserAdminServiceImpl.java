@@ -470,11 +470,6 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         if (id == null || id <= 0) {
             throw new BusinessException("用户ID无效");
         }
-        String expectedConfirmation = "DELETE U" + id;
-        String confirmation = req == null ? null : req.getConfirmation();
-        if (!expectedConfirmation.equals(confirmation)) {
-            throw new BusinessException("删除确认文字不匹配");
-        }
         String reason = req == null ? null : StrUtil.trim(req.getReason());
         if (StrUtil.isBlank(reason)) {
             throw new BusinessException("删除原因不能为空");

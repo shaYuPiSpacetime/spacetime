@@ -2092,7 +2092,6 @@ function ProfileDrawer({
   const [freezeProcessing, setFreezeProcessing] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteProcessing, setDeleteProcessing] = useState(false);
   const [commercial, setCommercial] = useState<UserCommercialAssetDetail | null>(null);
   const [commercialLoading, setCommercialLoading] = useState(false);
@@ -2119,9 +2118,7 @@ function ProfileDrawer({
     ? '解冻后用户将恢复正常账号状态，可继续按准入规则使用功能，操作人和时间会进入审计日志。'
     : '冻结后用户将无法继续使用核心准入能力，操作人、原因和时间会进入审计日志。';
   const accountConfirmButtonText = isFrozen ? '确认解冻' : '确认冻结';
-  const expectedDeleteConfirmation = user ? `DELETE U${user.id}` : '';
-  const deleteReady = deleteReason.trim().length >= 2
-    && deleteConfirmation === expectedDeleteConfirmation;
+  const deleteReady = deleteReason.trim().length >= 2;
   const locationStatus = user?.city && user.city !== '-' ? '已记录现居地' : '-';
   const coreStatus = user?.accessStatus === 'full_access' ? '核心准入通过' : user?.accessStatus === 'browse_only' ? '核心准入待完善' : '核心准入阻断';
   const verifyBadges = [
@@ -2152,7 +2149,6 @@ function ProfileDrawer({
     setFreezeConfirmOpen(false);
     setDeleteConfirmOpen(false);
     setDeleteReason('');
-    setDeleteConfirmation('');
   }, [user?.id]);
 
   useEffect(() => {
@@ -2193,7 +2189,6 @@ function ProfileDrawer({
     if (deleteProcessing) return;
     setDeleteConfirmOpen(false);
     setDeleteReason('');
-    setDeleteConfirmation('');
   };
 
   const confirmHardDelete = async () => {
@@ -2201,7 +2196,6 @@ function ProfileDrawer({
     setDeleteProcessing(true);
     try {
       await deleteAppUser(user.id, {
-        confirmation: deleteConfirmation,
         reason: deleteReason.trim(),
       });
       showToast('用户已彻底删除，可使用原手机号重新注册', 'success');
@@ -2406,23 +2400,6 @@ function ProfileDrawer({
                 <p className="mt-1 text-xs text-[#7D8597]">原因将进入后台审计日志，2–200 个字符。</p>
               </div>
 
-              <div>
-                <label htmlFor="hard-delete-confirmation" className="mb-2 block font-medium text-[#1F2433]">
-                  确认文字 <span className="text-[#D92D20]">*</span>
-                </label>
-                <Input
-                  id="hard-delete-confirmation"
-                  autoComplete="off"
-                  value={deleteConfirmation}
-                  onChange={(event) => setDeleteConfirmation(event.target.value)}
-                  disabled={deleteProcessing}
-                  placeholder={`请输入 ${expectedDeleteConfirmation}`}
-                />
-                <p className="mt-1 text-xs text-[#7D8597]">
-                  请输入 <code className="rounded bg-[#EEF3F8] px-1.5 py-0.5 text-[#1F2433]">{expectedDeleteConfirmation}</code>
-                </p>
-              </div>
-
               <div className="flex justify-end gap-2 border-t border-[#E6EDF7] pt-4">
                 <Button variant="outline" onClick={closeDeleteConfirm} disabled={deleteProcessing}>取消</Button>
                 <Button
@@ -2430,7 +2407,7 @@ function ProfileDrawer({
                   onClick={confirmHardDelete}
                   disabled={!deleteReady || deleteProcessing}
                 >
-                  {deleteProcessing ? '删除中…' : '确认彻底删除'}
+                  {deleteProcessing ? '删除中…' : '彻底删除'}
                 </Button>
               </div>
             </div>

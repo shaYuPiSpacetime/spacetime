@@ -95,7 +95,7 @@ test.describe('用户列表 CustomersPage', () => {
     await mockApi(page, '**/api/admin/users/app/*/status', { code: 200, data: null });
   });
 
-  test('L4-06A 用户管理 — 彻底删除需原因与精确确认并刷新列表', async ({ page }) => {
+  test('L4-06A 用户管理 — 彻底删除只需原因且不追加二次确认', async ({ page }) => {
     let deletePayload: unknown;
     await page.route('**/api/admin/users/app/1', async (route, request) => {
       if (request.method() !== 'DELETE') {
@@ -119,16 +119,15 @@ test.describe('用户列表 CustomersPage', () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText('认证信息')).toBeVisible();
     await expect(dialog.getByText('登录会话')).toBeVisible();
-    const submit = dialog.getByRole('button', { name: '确认彻底删除' });
+    const submit = dialog.getByRole('button', { name: '彻底删除', exact: true });
     await expect(submit).toBeDisabled();
+    await expect(dialog.getByLabel('确认文字')).toHaveCount(0);
 
     await dialog.getByLabel('变更原因').fill('重复测试完整准入流程');
-    await dialog.getByLabel('确认文字').fill('DELETE U1');
     await expect(submit).toBeEnabled();
     await submit.click();
 
     expect(deletePayload).toEqual({
-      confirmation: 'DELETE U1',
       reason: '重复测试完整准入流程',
     });
     await expect(page.getByText('用户已彻底删除，可使用原手机号重新注册')).toBeVisible();

@@ -361,3 +361,23 @@
 | L4-MINI-EDU-016 | 静态+运行态 | P0 | 已上传 1~3 份材料 | 按 148×148rpx 网格回显，保留继续上传入口；资料卡背景高度不塌陷 |
 | L4-MINI-EDU-017 | 静态 | P0 | 页面底部操作区 | 提交 top=1258rpx、协议 top=1382rpx、客服位于协议后；按钮不得使用 fixed 覆盖协议 |
 | L4-MINI-EDU-018 | 构建 | P1 | 正式小程序构建 | 76 个页面注册唯一，正式产物无开发 Token，包体门禁通过 |
+
+## 16. 2026-08-08 App 用户彻底删除生产兼容增量用例
+
+| 用例 ID | 层级 | 优先级 | 场景 | 断言 |
+|---------|------|--------|------|------|
+| L3-ADM-HARD-DELETE-001 | 数据库迁移契约 | P0 | 生产库仅存在 `promotion_agent_event_legacy_20260727`，不存在当前表 `promotion_agent_event` | 066 清理过程必须先判断当前表是否存在再动态删除；不得无条件引用缺失表；legacy 表仍按既有兼容分支清理 |
+| L3-ADM-HARD-DELETE-002 | 数据库迁移契约 | P0 | 社区审核记录同时按业务 ID 和业务编号匹配待删内容 | 每个临时范围表在同一条 SQL 中只能引用一次，使用单个相关 `EXISTS` 同时匹配 ID/编号，避免 MySQL 1137 `Can't reopen table` |
+| L3-ADM-HARD-DELETE-003 | 数据库迁移契约 | P0 | 生产库默认排序规则为 `utf8mb4_unicode_ci`，社区业务编号历史列为 `utf8mb4_0900_ai_ci` | 删除链路统一按 `utf8mb4_unicode_ci` 比较：两个临时范围表的 `biz_no` 显式使用该规则，历史列参与比较时显式转换，避免 MySQL 1267 排序规则冲突 |
+| L3-ADM-HARD-DELETE-004 | 数据库迁移契约 | P0 | 当前 `promotion_agent_bonus_log` 已用 `invitee_id` 替代旧 `user_id` | 当前表按 `invitee_id` 和邀请关系范围清理，不得引用不存在的 `user_id`；legacy 表继续使用其真实 `user_id` |
+| L3-ADM-HARD-DELETE-005 | 数据库迁移契约 | P0 | 当前 `promotion_source_trace` 只保留 `inviter_id`，不再有 `visitor_user_id/invitee_user_id` | 在删除邀请关系前，按 `inviter_id` 和关系表 `source_trace_id` 清理当前来源追踪；历史字段只用于 legacy 表 |
+
+## 17. 2026-08-08 全库排序规则统一增量用例
+
+| 用例 ID | 层级 | 优先级 | 场景 | 断言 |
+|---------|------|--------|------|------|
+| L3-DB-COLLATION-001 | 数据库迁移契约 | P0 | 执行 069 全库排序规则迁移 | 数据库默认规则、全部基础表和全部字符列统一为 `utf8mb4_unicode_ci`；迁移可重复执行并恢复外键检查状态 |
+| L3-DB-COLLATION-002 | 数据库回滚契约 | P1 | 回滚 069 到 2026-08-08 迁移前基线 | 96 张历史表恢复 `utf8mb4_0900_ai_ci`，迁移前已是 unicode 的 5 张表恢复 `utf8mb4_unicode_ci`，数据库默认规则保持 unicode |
+| L3-DB-COLLATION-003 | 数据库迁移契约 | P0 | MySQL 不支持通过预处理协议执行 `ALTER DATABASE` | 069 与回滚脚本使用当前数据库的直接 `ALTER DATABASE`，不得 `PREPARE ALTER DATABASE`，避免 MySQL 1295 |
+| L1-DB-COLLATION-001 | 生产只读核验 | P0 | 069 执行后查询 `information_schema` | 基础表总数仍为 101；非 `utf8mb4_unicode_ci` 的表为 0、字符列为 0 |
+| L1-ADM-HARD-DELETE-001 | 生产事务演练 | P0 | 在显式事务内调用 `spacetime_delete_app_user_data(121)` 后回滚 | 调用无 1146/1137/1267/1054 异常；事务内 U121 为 0 行，回滚后恢复为 1 行；不执行永久删除 |

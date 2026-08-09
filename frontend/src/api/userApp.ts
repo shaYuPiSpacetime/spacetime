@@ -331,7 +331,6 @@ export function updateAppUserStatus(id: number, status: string) {
 }
 
 export interface DeleteAppUserPayload {
-  confirmation: string;
   reason: string;
 }
 

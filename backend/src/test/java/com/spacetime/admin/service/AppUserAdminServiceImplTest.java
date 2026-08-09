@@ -116,7 +116,7 @@ class AppUserAdminServiceImplTest {
         user.setOpenid("sensitive-openid");
         user.setUnionid("sensitive-unionid");
         when(appUserDao.selectById(88L)).thenReturn(user);
-        DeleteAppUserReq req = deleteReq("DELETE U88", "重复测试完整准入流程");
+        DeleteAppUserReq req = deleteReq("重复测试完整准入流程");
 
         service.deleteUser(88L, req);
 
@@ -137,20 +137,9 @@ class AppUserAdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("彻底删除用户的确认文字必须与用户编号完全一致")
-    void shouldRejectMismatchedHardDeleteConfirmation() {
-        DeleteAppUserReq req = deleteReq("DELETE U89", "测试重置");
-
-        assertThatThrownBy(() -> service.deleteUser(88L, req))
-                .isInstanceOf(com.spacetime.common.exception.BusinessException.class)
-                .hasMessage("删除确认文字不匹配");
-        verifyNoInteractions(appUserCleanupDao, miniappTokenSessionService, contentOperationLogDao);
-    }
-
-    @Test
     @DisplayName("彻底删除用户的原因去除空格后不得为空")
     void shouldRejectBlankHardDeleteReason() {
-        DeleteAppUserReq req = deleteReq("DELETE U88", "  ");
+        DeleteAppUserReq req = deleteReq("  ");
 
         assertThatThrownBy(() -> service.deleteUser(88L, req))
                 .isInstanceOf(com.spacetime.common.exception.BusinessException.class)
@@ -166,7 +155,7 @@ class AppUserAdminServiceImplTest {
         org.mockito.Mockito.doThrow(new RuntimeException("cleanup failed"))
                 .when(appUserCleanupDao).deleteByUserId(88L);
 
-        assertThatThrownBy(() -> service.deleteUser(88L, deleteReq("DELETE U88", "测试重置")))
+        assertThatThrownBy(() -> service.deleteUser(88L, deleteReq("测试重置")))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("cleanup failed");
         verifyNoInteractions(miniappTokenSessionService, contentOperationLogDao);
@@ -180,16 +169,15 @@ class AppUserAdminServiceImplTest {
         org.mockito.Mockito.doThrow(new com.spacetime.common.exception.BusinessException("用户登录态清理失败，请稍后重试"))
                 .when(miniappTokenSessionService).revokeAllByUserId(88L);
 
-        assertThatThrownBy(() -> service.deleteUser(88L, deleteReq("DELETE U88", "测试重置")))
+        assertThatThrownBy(() -> service.deleteUser(88L, deleteReq("测试重置")))
                 .isInstanceOf(com.spacetime.common.exception.BusinessException.class)
                 .hasMessage("用户登录态清理失败，请稍后重试");
         verify(appUserCleanupDao).deleteByUserId(88L);
         verifyNoInteractions(contentOperationLogDao);
     }
 
-    private DeleteAppUserReq deleteReq(String confirmation, String reason) {
+    private DeleteAppUserReq deleteReq(String reason) {
         DeleteAppUserReq req = new DeleteAppUserReq();
-        req.setConfirmation(confirmation);
         req.setReason(reason);
         return req;
     }

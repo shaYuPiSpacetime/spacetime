@@ -37,7 +37,7 @@ delete_main: BEGIN
     DROP TEMPORARY TABLE IF EXISTS tmp_spacetime_delete_posts;
     CREATE TEMPORARY TABLE tmp_spacetime_delete_posts (
         id BIGINT NOT NULL PRIMARY KEY,
-        biz_no VARCHAR(64) DEFAULT NULL
+        biz_no VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL
     ) ENGINE=InnoDB;
     INSERT INTO tmp_spacetime_delete_posts (id, biz_no)
     SELECT id, post_no FROM community_post WHERE author_id = p_user_id;
@@ -45,7 +45,7 @@ delete_main: BEGIN
     DROP TEMPORARY TABLE IF EXISTS tmp_spacetime_delete_comments;
     CREATE TEMPORARY TABLE tmp_spacetime_delete_comments (
         id BIGINT NOT NULL PRIMARY KEY,
-        biz_no VARCHAR(64) DEFAULT NULL
+        biz_no VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL
     ) ENGINE=InnoDB;
     INSERT INTO tmp_spacetime_delete_comments (id, biz_no)
     SELECT c.id, c.comment_no
@@ -137,20 +137,34 @@ delete_main: BEGIN
     -- 社区：删除用户内容、与其内容关联的互动、治理记录和待投递事件。
     DELETE FROM community_media_audit_task
      WHERE post_id IN (SELECT id FROM tmp_spacetime_delete_posts);
-    DELETE FROM community_audit_record
-     WHERE (UPPER(biz_type) IN ('POST', 'COMMUNITY_POST')
-            AND (biz_id IN (SELECT id FROM tmp_spacetime_delete_posts)
-                 OR biz_no IN (SELECT biz_no FROM tmp_spacetime_delete_posts)))
-        OR (UPPER(biz_type) IN ('COMMENT', 'COMMUNITY_COMMENT')
-            AND (biz_id IN (SELECT id FROM tmp_spacetime_delete_comments)
-                 OR biz_no IN (SELECT biz_no FROM tmp_spacetime_delete_comments)))
-        OR (UPPER(biz_type) IN ('REPORT', 'COMMUNITY_REPORT')
-            AND biz_id IN (SELECT id FROM tmp_spacetime_delete_reports));
+    DELETE audit_record
+      FROM community_audit_record audit_record
+     WHERE (UPPER(audit_record.biz_type) IN ('POST', 'COMMUNITY_POST')
+            AND EXISTS (
+                SELECT 1 FROM tmp_spacetime_delete_posts post_scope
+                 WHERE audit_record.biz_id = post_scope.id
+                    OR audit_record.biz_no COLLATE utf8mb4_unicode_ci = post_scope.biz_no
+            ))
+        OR (UPPER(audit_record.biz_type) IN ('COMMENT', 'COMMUNITY_COMMENT')
+            AND EXISTS (
+                SELECT 1 FROM tmp_spacetime_delete_comments comment_scope
+                 WHERE audit_record.biz_id = comment_scope.id
+                    OR audit_record.biz_no COLLATE utf8mb4_unicode_ci = comment_scope.biz_no
+            ))
+        OR (UPPER(audit_record.biz_type) IN ('REPORT', 'COMMUNITY_REPORT')
+            AND EXISTS (
+                SELECT 1 FROM tmp_spacetime_delete_reports report_scope
+                 WHERE audit_record.biz_id = report_scope.id
+            ));
     DELETE FROM community_event_outbox
      WHERE (UPPER(aggregate_type) IN ('POST', 'COMMUNITY_POST')
-            AND aggregate_no IN (SELECT biz_no FROM tmp_spacetime_delete_posts))
+            AND aggregate_no COLLATE utf8mb4_unicode_ci IN (
+                SELECT biz_no FROM tmp_spacetime_delete_posts
+            ))
         OR (UPPER(aggregate_type) IN ('COMMENT', 'COMMUNITY_COMMENT')
-            AND aggregate_no IN (SELECT biz_no FROM tmp_spacetime_delete_comments));
+            AND aggregate_no COLLATE utf8mb4_unicode_ci IN (
+                SELECT biz_no FROM tmp_spacetime_delete_comments
+            ));
     DELETE FROM community_report
      WHERE id IN (SELECT id FROM tmp_spacetime_delete_reports);
     DELETE FROM community_comment_like
@@ -175,17 +189,21 @@ delete_main: BEGIN
 
     -- 当前推广表：关系和奖励均按邀请人、被邀请人双向清理。
     DELETE FROM promotion_agent_bonus_log
-     WHERE user_id = p_user_id
+     WHERE invitee_id = p_user_id
         OR relation_id IN (
             SELECT id FROM promotion_invite_relation
              WHERE inviter_id = p_user_id OR invitee_id = p_user_id
         );
-    DELETE FROM promotion_agent_event
-     WHERE user_id = p_user_id
-        OR relation_id IN (
-            SELECT id FROM promotion_invite_relation
-             WHERE inviter_id = p_user_id OR invitee_id = p_user_id
-        );
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'promotion_agent_event'
+    ) THEN
+        SET @delete_user_id = p_user_id;
+        SET @delete_sql = 'DELETE FROM promotion_agent_event WHERE user_id = ? OR relation_id IN (SELECT id FROM promotion_invite_relation WHERE inviter_id = ? OR invitee_id = ?)';
+        PREPARE delete_stmt FROM @delete_sql;
+        EXECUTE delete_stmt USING @delete_user_id, @delete_user_id, @delete_user_id;
+        DEALLOCATE PREPARE delete_stmt;
+    END IF;
     DELETE FROM promotion_reward_log
      WHERE inviter_id = p_user_id
         OR invitee_id = p_user_id
@@ -196,12 +214,15 @@ delete_main: BEGIN
     DELETE FROM promotion_event_inbox WHERE user_id = p_user_id;
     DELETE FROM promotion_invite_counter
      WHERE source_type = 'normal_user' AND reward_object_id = p_user_id;
-    DELETE FROM promotion_invite_relation
-     WHERE inviter_id = p_user_id OR invitee_id = p_user_id;
     DELETE FROM promotion_source_trace
      WHERE inviter_id = p_user_id
-        OR visitor_user_id = p_user_id
-        OR invitee_user_id = p_user_id;
+        OR id IN (
+            SELECT source_trace_id FROM promotion_invite_relation
+             WHERE (inviter_id = p_user_id OR invitee_id = p_user_id)
+               AND source_trace_id IS NOT NULL
+        );
+    DELETE FROM promotion_invite_relation
+     WHERE inviter_id = p_user_id OR invitee_id = p_user_id;
 
     -- 2026-07-27 推广重构前的历史兼容表，仅在对应表存在时清理。
     IF EXISTS (
@@ -339,4 +360,3 @@ SELECT r.id, m.id
  WHERE r.role_code='super_admin'
    AND r.status='ENABLED'
    AND r.deleted=0;
-

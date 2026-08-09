@@ -47,7 +47,6 @@ class AppUserControllerTest {
         assertThat(method.getAnnotation(RequirePermission.class).value()).isEqualTo("user:app:delete");
 
         DeleteAppUserReq req = new DeleteAppUserReq();
-        req.setConfirmation("DELETE U88");
         req.setReason("重复测试完整准入流程");
         controller.delete(88L, req);
 

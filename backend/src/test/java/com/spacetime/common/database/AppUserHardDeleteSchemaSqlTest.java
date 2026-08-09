@@ -61,7 +61,6 @@ class AppUserHardDeleteSchemaSqlTest {
                 "community_content_preference",
                 "community_user_restriction",
                 "community_media_audit_task",
-                "community_audit_record",
                 "community_event_outbox",
                 "ct_recommend_preference",
                 "ct_ideal_filter_snapshot",
@@ -76,9 +75,84 @@ class AppUserHardDeleteSchemaSqlTest {
                         .as("应清理表 %s", table)
                         .contains("DELETE FROM " + table));
         assertThat(sql)
+                .contains("DELETE audit_record\n      FROM community_audit_record audit_record")
                 .contains("visitor_user_id = p_user_id")
-                .contains("invitee_user_id = p_user_id")
+                .contains("visitor_user_id = ?")
+                .contains("invitee_user_id = ?")
                 .contains("target_user_id = p_user_id");
+    }
+
+    @Test
+    @DisplayName("066 迁移应兼容当前推广事件表不存在的生产结构")
+    void migrationShouldGuardOptionalPromotionAgentEventTable() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+
+        assertThat(sql)
+                .contains("TABLE_NAME = 'promotion_agent_event'")
+                .contains("SET @delete_sql = 'DELETE FROM promotion_agent_event WHERE user_id = ?")
+                .doesNotContain("\n    DELETE FROM promotion_agent_event\n");
+    }
+
+    @Test
+    @DisplayName("066 迁移应使用当前代理奖励表真实存在的被邀请人字段")
+    void migrationShouldUseCurrentAgentBonusLogColumns() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+        String currentAgentBonusDelete = sql.substring(
+                sql.indexOf("DELETE FROM promotion_agent_bonus_log\n"),
+                sql.indexOf("    IF EXISTS (\n", sql.indexOf("DELETE FROM promotion_agent_bonus_log\n")));
+
+        assertThat(currentAgentBonusDelete)
+                .contains("WHERE invitee_id = p_user_id")
+                .doesNotContain("WHERE user_id = p_user_id");
+    }
+
+    @Test
+    @DisplayName("066 迁移应在删除邀请关系前按当前字段清理来源追踪")
+    void migrationShouldUseCurrentSourceTraceColumnsBeforeDeletingRelations() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+        int sourceTraceDelete = sql.indexOf("DELETE FROM promotion_source_trace\n");
+        int relationDelete = sql.indexOf("DELETE FROM promotion_invite_relation\n");
+        String currentSourceTraceDelete = sql.substring(sourceTraceDelete, relationDelete);
+
+        assertThat(sourceTraceDelete).isPositive();
+        assertThat(relationDelete).isGreaterThan(sourceTraceDelete);
+        assertThat(currentSourceTraceDelete)
+                .contains("WHERE inviter_id = p_user_id")
+                .contains("source_trace_id")
+                .doesNotContain("visitor_user_id", "invitee_user_id");
+    }
+
+    @Test
+    @DisplayName("066 迁移的社区审核清理不应重复打开同一临时表")
+    void migrationShouldNotReopenCommunityScopeTemporaryTables() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+
+        assertThat(sql)
+                .contains("DELETE audit_record\n      FROM community_audit_record audit_record")
+                .contains("FROM tmp_spacetime_delete_posts post_scope")
+                .contains("audit_record.biz_id = post_scope.id")
+                .contains("audit_record.biz_no COLLATE utf8mb4_unicode_ci = post_scope.biz_no")
+                .contains("FROM tmp_spacetime_delete_comments comment_scope")
+                .doesNotContain("biz_id IN (SELECT id FROM tmp_spacetime_delete_posts)\n"
+                        + "                 OR biz_no IN (SELECT biz_no FROM tmp_spacetime_delete_posts)")
+                .doesNotContain("biz_id IN (SELECT id FROM tmp_spacetime_delete_comments)\n"
+                        + "                 OR biz_no IN (SELECT biz_no FROM tmp_spacetime_delete_comments)");
+    }
+
+    @Test
+    @DisplayName("066 迁移的社区业务编号比较应统一使用 unicode 排序规则")
+    void migrationShouldAlignCommunityScopeNumberCollation() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+        String declaration = "biz_no VARCHAR(64) CHARACTER SET utf8mb4 "
+                + "COLLATE utf8mb4_unicode_ci DEFAULT NULL";
+
+        assertThat(sql.lines().filter(line -> line.contains(declaration)).count())
+                .as("帖子和评论两个临时范围表都应显式对齐业务编号排序规则")
+                .isEqualTo(2);
+        assertThat(sql)
+                .contains("audit_record.biz_no COLLATE utf8mb4_unicode_ci = post_scope.biz_no")
+                .contains("audit_record.biz_no COLLATE utf8mb4_unicode_ci = comment_scope.biz_no")
+                .contains("aggregate_no COLLATE utf8mb4_unicode_ci IN");
     }
 
     @Test
