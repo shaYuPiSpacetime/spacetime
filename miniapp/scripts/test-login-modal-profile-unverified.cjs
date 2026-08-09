@@ -31,7 +31,12 @@ test('选择微信登录后点击协议同意直接触发原生账号选择', ()
   )
   assert.match(
     login,
-    /const handleAgreementWechatPhoneLogin = async[\s\S]*?setAgreementAccepted\(true\)[\s\S]*?handleWechatPhoneLogin\(event, true\)/,
+    /const handleAgreementWechatPhoneStart = \(\) => \{[\s\S]*?setAgreementAccepted\(true\)[\s\S]*?setAgreementWechatAuthorizing\(true\)/,
+    '同意按钮按下时必须先记录协议状态并隐藏协议视觉层'
+  )
+  assert.match(
+    login,
+    /const handleAgreementWechatPhoneLogin = async[\s\S]*?setAgreementWechatAuthorizing\(false\)[\s\S]*?setShowDialog\(false\)[\s\S]*?handleWechatPhoneLogin\(event, true\)/,
     '协议授权回调必须显式按已同意协议继续登录，不能依赖尚未刷新的 React 状态'
   )
   assert.doesNotMatch(

@@ -40,6 +40,13 @@ function requireBirthDateWheel() {
   return require(file)
 }
 
+function requireTwoLevelRegionWheel() {
+  const file = path.join(miniappRoot, 'src/domain/twoLevelRegionWheel.ts')
+  assert.ok(fs.existsSync(file), '缺少省市两级原生滚轮领域函数')
+  delete require.cache[file]
+  return require(file)
+}
+
 test('登录背景使用远程静音循环视频并保留静态兜底', () => {
   const login = read('src/pages/login/index.tsx')
   const mediaFile = path.join(miniappRoot, 'src/constants/ossMedia.ts')
@@ -169,6 +176,46 @@ test('首次勾选协议必须先展示协议弹窗，同意后才更新状态',
   )
 })
 
+test('微信手机号面板弹出时隐藏协议视觉层但保留授权按钮直到结果回调', () => {
+  const login = read('src/pages/login/index.tsx')
+
+  assert.match(
+    login,
+    /openType="getPhoneNumber"[\s\S]{0,240}onClick=\{onWechatPhoneStart\}[\s\S]{0,240}onGetPhoneNumber=\{onWechatPhoneLogin\}/,
+    '协议同意按钮必须在同一个原生节点上承载点击与手机号授权结果'
+  )
+  assert.match(
+    login,
+    /const handleAgreementWechatPhoneStart = \(\) => \{[\s\S]*setAgreementAccepted\(true\)[\s\S]*setAgreementWechatAuthorizing\(true\)/,
+    '点击授权时必须只隐藏协议视觉层并保持授权节点挂载'
+  )
+  assert.doesNotMatch(
+    login,
+    /const handleAgreementWechatPhoneStart = \(\) => \{[^}]*setShowDialog\(false\)/,
+    '授权结果返回前不得卸载协议弹窗中的 getPhoneNumber 按钮'
+  )
+  assert.match(
+    login,
+    /const handleAgreementWechatPhoneLogin = async[\s\S]*setAgreementWechatAuthorizing\(false\)[\s\S]*setShowDialog\(false\)[\s\S]*handleWechatPhoneLogin\(event, true\)/,
+    '微信返回手机号授权结果后才允许卸载协议弹窗并继续登录'
+  )
+  assert.match(
+    login,
+    /<AgreementDialog[\s\S]{0,300}authorizing=\{agreementWechatAuthorizing\}/,
+    '协议弹窗必须通过独立视觉状态隐藏，不能依赖条件卸载'
+  )
+})
+
+test('微信手机号授权期间只保留静态背景内置品牌避免双层重叠', () => {
+  const login = read('src/pages/login/index.tsx')
+
+  assert.match(
+    login,
+    /\{showDialog && !agreementWechatAuthorizing && \([\s\S]{0,180}<Image[\s\S]{0,180}className="login-brand-logo login-brand-logo--dialog"/,
+    '授权期间必须卸载协议态额外品牌图，只保留静态背景中已经存在的 Logo 与标语'
+  )
+})
+
 test('手机号页和首登资料页共享底部圆形按钮及弯向右箭头', () => {
   const buttonPath = path.join(miniappRoot, 'src/pages/login/components/LoginNextButton.tsx')
   assert.ok(fs.existsSync(buttonPath), '缺少登录链路共享底部按钮')
@@ -272,26 +319,61 @@ test('出生日期使用年月日三列原生滚轮并移除静态点击行', ()
   assert.match(styles, /\.login-age-picker__item--far\s*\{/)
 })
 
-test('出生日期滚轮严格匹配蓝湖五行透视与三列中心', () => {
+test('出生日期滚轮保留五行层次但不得叠加二次位移动画', () => {
   const age = read('src/pages/login/age.tsx')
   const styles = read('src/pages/login/age.scss')
 
-  assert.match(age, /distance === 2/, '只允许选中项上下各展示两行')
-  assert.match(age, /login-age-picker__item--outer/, '第三行及更远内容必须隐藏')
-  assert.match(age, /login-age-picker__item--above/, '选中项上方文字必须具备独立透视位移')
-  assert.match(age, /login-age-picker__item--below/, '选中项下方文字必须具备独立透视位移')
+  assert.doesNotMatch(age, /login-age-picker__item--outer/, '快速滚动时不得按旧索引隐藏远端选项')
+  assert.doesNotMatch(age, /login-age-picker__item--above/, '不得用 React 状态给上方文字追加二次位移')
+  assert.doesNotMatch(age, /login-age-picker__item--below/, '不得用 React 状态给下方文字追加二次位移')
   assert.match(age, /login-age-picker__item--\$\{prefix\}/, '年月日必须按列追加蓝湖独立中心位移类')
 
   assert.match(styles, /\.login-age-picker__selection\s*\{[\s\S]*top:\s*123rpx;/)
   assert.match(styles, /\.login-age-picker\s*\{[\s\S]*top:\s*-20rpx;/)
   assert.match(styles, /\.login-age-picker__item\s*\{[\s\S]*font-size:\s*36rpx;/)
   assert.match(styles, /\.login-age-picker__item--active\s*\{[\s\S]*font-size:\s*40rpx;/)
-  assert.match(styles, /\.login-age-picker__item--above\s*\{[\s\S]*top:\s*-46rpx;/)
-  assert.match(styles, /\.login-age-picker__item--below\s*\{[\s\S]*top:\s*44\.5rpx;/)
+  assert.doesNotMatch(styles, /transition:\s*[^;]*(top|transform)/, '原生滚轮上不得再叠加位置过渡')
+  assert.doesNotMatch(styles, /\.login-age-picker__item--above/)
+  assert.doesNotMatch(styles, /\.login-age-picker__item--below/)
   assert.match(styles, /\.login-age-picker__item--year\s*\{[\s\S]*left:\s*44rpx;/)
   assert.match(styles, /\.login-age-picker__item--month\s*\{[\s\S]*left:\s*19rpx;/)
   assert.match(styles, /\.login-age-picker__item--day\s*\{[\s\S]*left:\s*-25rpx;/)
-  assert.match(styles, /\.login-age-picker__item--outer\s*\{[\s\S]*visibility:\s*hidden;/)
+  assert.doesNotMatch(styles, /visibility:\s*hidden/, '原生滚轮内容不得因 React 选中索引滞后而短暂消失')
+})
+
+test('首登现居地使用省市两列原生滚轮且不在滚动帧受控回写', () => {
+  const address = read('src/pages/login/address.tsx')
+
+  assert.match(
+    address,
+    /import \{[^}]*PickerView[^}]*PickerViewColumn[^}]*\} from '@tarojs\/components'/
+  )
+  assert.equal((address.match(/<PickerViewColumn/g) || []).length, 2, '现居地只能展示省市两列')
+  assert.match(address, /normalizeTwoLevelRegionSelection/)
+  assert.doesNotMatch(address, /<ScrollView/, '地区滚轮不得继续使用逐帧触发 React 更新的 ScrollView')
+  assert.doesNotMatch(address, /onScroll=/, '地区滚动过程中不得逐帧写入 React 状态')
+  assert.doesNotMatch(address, /scrollTop=/, '地区滚轮不得和手势抢占受控 scrollTop')
+  assert.doesNotMatch(address, /releaseControlledAddressScroll/)
+})
+
+test('省市两级滚轮切换省份时会同步收敛城市索引', () => {
+  const { normalizeTwoLevelRegionSelection } = requireTwoLevelRegionWheel()
+  const regions = [
+    { code: '11', name: '北京', children: [{ code: '1101', name: '北京' }] },
+    {
+      code: '32',
+      name: '江苏',
+      children: [
+        { code: '3201', name: '南京' },
+        { code: '3206', name: '南通' },
+      ],
+    },
+  ]
+
+  assert.deepEqual(normalizeTwoLevelRegionSelection(regions, [1, 1]), [1, 1])
+  assert.deepEqual(normalizeTwoLevelRegionSelection(regions, [0, 1]), [0, 0])
+  assert.deepEqual(normalizeTwoLevelRegionSelection(regions, [99, 99]), [1, 1])
+  assert.deepEqual(normalizeTwoLevelRegionSelection([], [1, 1]), [0, 0])
 })
 
 test('登录专项门禁已接入开发和发布构建', () => {

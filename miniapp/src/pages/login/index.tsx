@@ -41,12 +41,22 @@ function getWechatAuthErrorText(error: unknown) {
 interface AgreementSheetProps {
   selectedMethod: LoginMethod | null
   loading: boolean
+  authorizing: boolean
   onAgree: () => void | Promise<void>
+  onWechatPhoneStart: () => void
   onWechatPhoneLogin: (event: { detail?: { code?: string; errMsg?: string } }) => void | Promise<void>
   onDisagree: () => void
 }
 
-function AgreementDialog({ selectedMethod, loading, onAgree, onWechatPhoneLogin, onDisagree }: AgreementSheetProps) {
+function AgreementDialog({
+  selectedMethod,
+  loading,
+  authorizing,
+  onAgree,
+  onWechatPhoneStart,
+  onWechatPhoneLogin,
+  onDisagree,
+}: AgreementSheetProps) {
   const agreeText = selectedMethod === 'wechat' && loading
     ? '授权中...'
     : '同意'
@@ -61,7 +71,9 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onWechatPhoneLogin,
         top: 0,
         bottom: 0,
         zIndex: 100,
-        background: 'rgba(0,0,0,0.55)',
+        visibility: authorizing ? 'hidden' : 'visible',
+        pointerEvents: authorizing ? 'none' : 'auto',
+        background: authorizing ? 'transparent' : 'rgba(0,0,0,0.55)',
       }}
     >
       <View
@@ -167,6 +179,7 @@ function AgreementDialog({ selectedMethod, loading, onAgree, onWechatPhoneLogin,
             <Button
               className="login-wechat-custom-button login-agreement-accept"
               openType="getPhoneNumber"
+              onClick={onWechatPhoneStart}
               onGetPhoneNumber={onWechatPhoneLogin}
               disabled={loading}
               style={{
@@ -421,6 +434,7 @@ export default function LoginAuthPage() {
   const [errorText, setErrorText] = useState('')
   const [loading, setLoading] = useState(false)
   const [wechatAuthPending, setWechatAuthPending] = useState(false)
+  const [agreementWechatAuthorizing, setAgreementWechatAuthorizing] = useState(false)
   const [videoUnavailable, setVideoUnavailable] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState<LoginMethod | null>(null)
 
@@ -539,18 +553,25 @@ export default function LoginAuthPage() {
   }
 
   const handleAgreementWechatPhoneLogin = async (event: { detail?: { code?: string; errMsg?: string } }) => {
-    setAgreementAccepted(true)
+    setAgreementWechatAuthorizing(false)
     setShowDialog(false)
-    setShowError(false)
-    setErrorText('')
     if (!event.detail?.code) {
       setShowMethodSheet(true)
     }
     await handleWechatPhoneLogin(event, true)
   }
 
+  const handleAgreementWechatPhoneStart = () => {
+    setAgreementAccepted(true)
+    setAgreementWechatAuthorizing(true)
+    setShowMethodSheet(false)
+    setShowError(false)
+    setErrorText('')
+  }
+
   const handleAgreeAgreement = async () => {
     setAgreementAccepted(true)
+    setAgreementWechatAuthorizing(false)
     setShowDialog(false)
     setShowError(false)
     setErrorText('')
@@ -562,6 +583,7 @@ export default function LoginAuthPage() {
   }
 
   const handleDisagree = () => {
+    setAgreementWechatAuthorizing(false)
     setShowDialog(false)
     setShowError(true)
     setErrorText('请阅读并同意用户协议与隐私政策后继续使用')
@@ -627,7 +649,7 @@ export default function LoginAuthPage() {
             </CoverView>
           )}
 
-          {showDialog && (
+          {showDialog && !agreementWechatAuthorizing && (
             <Image
               className="login-brand-logo login-brand-logo--dialog"
               src={miniappOssIcons.loginBrand}
@@ -679,7 +701,9 @@ export default function LoginAuthPage() {
         <AgreementDialog
           selectedMethod={selectedMethod}
           loading={wechatAuthPending}
+          authorizing={agreementWechatAuthorizing}
           onAgree={handleAgreeAgreement}
+          onWechatPhoneStart={handleAgreementWechatPhoneStart}
           onWechatPhoneLogin={handleAgreementWechatPhoneLogin}
           onDisagree={handleDisagree}
         />

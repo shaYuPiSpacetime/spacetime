@@ -1,16 +1,16 @@
-import { ScrollView, View, Text } from '@tarojs/components'
+import { PickerView, PickerViewColumn, View, Text } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { toTwoLevelRegionErrorMessage } from '@/domain/basicProfileRegion'
+import {
+  normalizeTwoLevelRegionSelection,
+  type TwoLevelRegionSelection,
+} from '@/domain/twoLevelRegionWheel'
 import { useLogin } from '@/hooks/useLogin'
 import type { RegionTreeOption } from '@/types/prd01'
-import { getWindowMetrics } from '@/utils/system'
 import LoginProfileShell from './components/LoginProfileShell'
 import './address.scss'
 
-const ADDRESS_ROW_HEIGHT_RPX = 78
-const ADDRESS_PROVINCE_TOP_SPACER_RPX = 78
-const ADDRESS_WHEEL_BOTTOM_SPACER_RPX = 144
 const USER_LOCATION_SCOPE = 'scope.userLocation'
 
 /**
@@ -330,69 +330,16 @@ function ManualAddressSheet({
   onConfirm: (province: RegionTreeOption, city: RegionTreeOption) => void
   onClose: () => void
 }) {
-  const initialProvinceIndex = clampAddressIndex(cityValue[0] || 0, provinces.length)
-  const initialProvince = provinces[initialProvinceIndex] || provinces[0]
-  const initialCityIndex = clampAddressIndex(
-    cityValue[1] || 0,
-    initialProvince?.children.length || 0
+  const [pickerValue, setPickerValue] = useState<TwoLevelRegionSelection>(() =>
+    normalizeTwoLevelRegionSelection(provinces, cityValue)
   )
-  const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
-  const [cityIndex, setCityIndex] = useState(initialCityIndex)
-  const [provinceScrollTop, setProvinceScrollTop] = useState<number | undefined>(() =>
-    getAddressScrollTop(initialProvinceIndex)
-  )
-  const [cityScrollTop, setCityScrollTop] = useState<number | undefined>(() =>
-    getAddressScrollTop(initialCityIndex)
-  )
-  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [provinceIndex, cityIndex] = pickerValue
   const province = provinces[provinceIndex] || provinces[0]
   const cities = province?.children || []
-  const city = cities[clampAddressIndex(cityIndex, cities.length)] || cities[0]
+  const city = cities[cityIndex] || cities[0]
 
-  const releaseControlledAddressScroll = () => {
-    if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
-    releaseTimerRef.current = setTimeout(() => {
-      setProvinceScrollTop(undefined)
-      setCityScrollTop(undefined)
-    }, 240)
-  }
-
-  useEffect(() => {
-    releaseControlledAddressScroll()
-    return () => {
-      if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
-    }
-  }, [])
-
-  const selectProvince = (nextIndex: number) => {
-    const nextProvinceIndex = clampAddressIndex(nextIndex, provinces.length)
-    setProvinceIndex(nextProvinceIndex)
-    setCityIndex(0)
-    setProvinceScrollTop(getAddressScrollTop(nextProvinceIndex))
-    setCityScrollTop(getAddressScrollTop(0))
-    releaseControlledAddressScroll()
-  }
-
-  const selectCity = (nextIndex: number) => {
-    const nextCityIndex = clampAddressIndex(nextIndex, cities.length)
-    setCityIndex(nextCityIndex)
-    setCityScrollTop(getAddressScrollTop(nextCityIndex))
-    releaseControlledAddressScroll()
-  }
-
-  const handleProvinceScroll = (event: { detail: { scrollTop: number } }) => {
-    const nextProvinceIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, provinces.length)
-    if (nextProvinceIndex === provinceIndex) return
-    setProvinceIndex(nextProvinceIndex)
-    setCityIndex(0)
-    setCityScrollTop(getAddressScrollTop(0))
-    releaseControlledAddressScroll()
-  }
-
-  const handleCityScroll = (event: { detail: { scrollTop: number } }) => {
-    const nextCityIndex = getAddressIndexFromScrollTop(event.detail.scrollTop, cities.length)
-    if (nextCityIndex === cityIndex) return
-    setCityIndex(nextCityIndex)
+  const handlePickerChange = (event: { detail: { value: number[] } }) => {
+    setPickerValue(normalizeTwoLevelRegionSelection(provinces, event.detail.value))
   }
 
   return (
@@ -530,95 +477,47 @@ function ManualAddressSheet({
               background: '#E3F1FE',
             }}
           />
-          <ScrollView
-            scrollY
-            scrollTop={provinceScrollTop}
-            scrollWithAnimation
-            onScroll={handleProvinceScroll}
+          <PickerView
+            value={pickerValue}
+            indicatorStyle="height: 78rpx; border: 0; background: transparent;"
+            maskStyle="background: transparent;"
+            onChange={handlePickerChange}
             style={{
               position: 'absolute',
               left: '78rpx',
               top: 0,
-              width: '220rpx',
-              height: '300rpx',
+              width: '500rpx',
+              height: '234rpx',
+              zIndex: 1,
             }}
-            showScrollbar={false}
           >
-            <View style={{ height: `${ADDRESS_PROVINCE_TOP_SPACER_RPX}rpx` }} />
-            {provinces.map((item, index) => {
-              const isActive = index === provinceIndex
-              return (
-                <View
-                  key={item.code}
-                  style={{
-                    height: '78rpx',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onClick={() => selectProvince(index)}
-                  hoverClass="btn-hover"
-                >
-                  <Text
-                    style={{
-                      color: isActive ? '#0C285A' : index < provinceIndex ? '#D7D7D7' : '#999999',
-                      fontSize: '28rpx',
-                      fontWeight: 500,
-                      lineHeight: '40rpx',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {item.name.replace(/[省市区]$/u, '')}
-                  </Text>
-                </View>
-              )
-            })}
-            <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
-          </ScrollView>
-          <ScrollView
-            scrollY
-            scrollTop={cityScrollTop}
-            scrollWithAnimation
-            onScroll={handleCityScroll}
-            style={{
-              position: 'absolute',
-              left: '358rpx',
-              top: '78rpx',
-              width: '220rpx',
-              height: '222rpx',
-            }}
-            showScrollbar={false}
-          >
-            {cities.map((item, index) => {
-              const isActive = index === cityIndex
-              return (
-                <View
-                  key={item.code}
-                  style={{
-                    height: '78rpx',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onClick={() => selectCity(index)}
-                  hoverClass="btn-hover"
-                >
-                  <Text
-                    style={{
-                      color: isActive ? '#0C285A' : index < cityIndex ? '#D7D7D7' : '#999999',
-                      fontSize: '28rpx',
-                      fontWeight: 500,
-                      lineHeight: '40rpx',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {item.name.replace(/[市区县]$/u, '')}
-                  </Text>
-                </View>
-              )
-            })}
-            <View style={{ height: `${ADDRESS_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
-          </ScrollView>
+            <PickerViewColumn>
+              {provinces.map((item, index) => {
+                const isActive = index === provinceIndex
+                return (
+                  <AddressPickerItem
+                    key={item.code}
+                    label={item.name.replace(/[省市区]$/u, '')}
+                    active={isActive}
+                    before={index < provinceIndex}
+                  />
+                )
+              })}
+            </PickerViewColumn>
+            <PickerViewColumn>
+              {cities.map((item, index) => {
+                const isActive = index === cityIndex
+                return (
+                  <AddressPickerItem
+                    key={item.code}
+                    label={item.name.replace(/[市区县]$/u, '')}
+                    active={isActive}
+                    before={index < cityIndex}
+                  />
+                )
+              })}
+            </PickerViewColumn>
+          </PickerView>
         </View>
 
         <View
@@ -647,23 +546,37 @@ function ManualAddressSheet({
   )
 }
 
-function getAddressScrollTop(index: number) {
-  return Math.max(0, rpxToPx(index * ADDRESS_ROW_HEIGHT_RPX))
-}
-
-function getAddressIndexFromScrollTop(scrollTop: number, length: number) {
-  if (length <= 0) return 0
-  const rowHeight = rpxToPx(ADDRESS_ROW_HEIGHT_RPX)
-  return clampAddressIndex(Math.round(scrollTop / rowHeight), length)
-}
-
-function clampAddressIndex(index: number, length: number) {
-  if (length <= 0) return 0
-  return Math.min(Math.max(0, index), length - 1)
-}
-
-function rpxToPx(value: number) {
-  return (value * getWindowMetrics().windowWidth) / 750
+function AddressPickerItem({
+  label,
+  active,
+  before,
+}: {
+  label: string
+  active: boolean
+  before: boolean
+}) {
+  return (
+    <View
+      style={{
+        height: '78rpx',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text
+        style={{
+          color: active ? '#0C285A' : before ? '#D7D7D7' : '#999999',
+          fontSize: '28rpx',
+          fontWeight: 500,
+          lineHeight: '40rpx',
+          textAlign: 'center',
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  )
 }
 
 async function ensureUserLocationAuthorized() {

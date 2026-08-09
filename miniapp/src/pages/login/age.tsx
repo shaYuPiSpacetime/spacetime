@@ -127,19 +127,11 @@ function renderPickerItems(items: string[], selectedIndex: number, prefix: strin
         ? ' login-age-picker__item--active'
         : distance === 1
           ? ' login-age-picker__item--near'
-          : distance === 2
-            ? ' login-age-picker__item--far'
-            : ' login-age-picker__item--outer'
-    const directionClass =
-      index < selectedIndex
-        ? ' login-age-picker__item--above'
-        : index > selectedIndex
-          ? ' login-age-picker__item--below'
-          : ''
+          : ' login-age-picker__item--far'
     return (
       <View
         key={`${prefix}-${item}`}
-        className={`login-age-picker__item login-age-picker__item--${prefix}${stateClass}${directionClass}`}
+        className={`login-age-picker__item login-age-picker__item--${prefix}${stateClass}`}
       >
         <Text>{item}</Text>
       </View>
