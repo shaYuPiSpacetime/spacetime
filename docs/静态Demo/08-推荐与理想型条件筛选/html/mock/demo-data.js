@@ -1,11 +1,27 @@
 window.PRD08_DATA = {
-  demoDate: '2026-07-16',
-  config: { unitUnlockPrice: 80, batchMax: 5, replayDays: 3, targetCityMax: 3 },
-  profile: { city: '杭州', ageMin: 25, ageMax: 31, isVip: false, profileComplete: true, balance: 260, meeting: '先聊一周再见面', activities: ['喝咖啡', '散步'] },
+  demoDate: '2026-08-09',
+  config: { unitUnlockPrice: 80, batchMax: 5, replayDays: 3, targetCityMax: 3, demoCities: ['杭州','宁波','上海'], nextRecommendResetAt: '2026-08-10 00:00' },
+  routes: {
+    communityCityUrl: '../../05-推荐模块（朋友、社区与内容互动）/html/miniapp.html#APP-05-PAGE-community-city',
+    whisperMessageUrl: '../../03-消息、私信与通知中心/html/miniapp.html#APP-03-PAGE-whisper-message'
+  },
+  defaultAssets: {
+    noData: 'https://lanhu-oss-2537-2.lanhuapp.com/SketchPng12d856510a769fecf7cf5091f43bfb35e7e48df18c6f85f675ac61e113c1c3a2',
+    emptyPerson: 'https://lanhu-oss-2537-2.lanhuapp.com/SketchPng0f7c32bdf6420f4d391ed3ac2197126ce6375ad17544aa6ce9f2cc17a7c0246a',
+    loadFailed: 'https://lanhu-oss-2537-2.lanhuapp.com/SketchPng4051565776b692bee37d4f3ce2b5f1c217e0debd52975105f6c22974a9b90a82',
+    networkFailed: 'https://lanhu-oss-2537-2.lanhuapp.com/SketchPng067d92063cdc7ee314f3dbcd906e02067d5d91bb6d2db6b12fbfdda0c9182a91',
+    searchEmpty: 'https://lanhu-oss-2537-2.lanhuapp.com/SketchPng8064b5ed11a40071254131263a6ec02e7071bd7c00f79f21c7ce7304c11aa733'
+  },
+  profile: { city: '杭州', ageMin: 25, ageMax: 31, isVip: false, isCertified: true, profileComplete: true, balance: 260 },
   candidates: [
-    { no:'U8001201', name:'林知夏', age:27, city:'杭州', school:'浙江大学', job:'品牌策划', height:'168cm', tags:['喜欢旅行','有运动习惯','认真生活'], photo:'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=85' },
-    { no:'U8001202', name:'周予安', age:29, city:'杭州', school:'同济大学', job:'建筑设计师', height:'170cm', tags:['喜欢小动物','喜欢美食','周末徒步'], photo:'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=900&q=85' },
-    { no:'U8001203', name:'沈听澜', age:28, city:'绍兴', school:'浙江工业大学', job:'产品经理', height:'166cm', tags:['喜欢旅行','有运动习惯','阅读'], photo:'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=85' }
+    { no:'U8001201', name:'林知夏', age:27, birthYear:1999, city:'杭州', school:'浙江大学', job:'品牌策划', height:'168cm', tags:['喜欢旅行','有运动习惯','认真生活'], photo:'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=85' },
+    { no:'U8001202', name:'周予安', age:29, birthYear:1997, city:'杭州', school:'同济大学', job:'建筑设计师', height:'170cm', tags:['喜欢小动物','喜欢美食','周末徒步'], photo:'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=900&q=85' },
+    { no:'U8001203', name:'沈听澜', age:28, birthYear:1998, city:'绍兴', school:'浙江工业大学', job:'产品经理', height:'166cm', tags:['喜欢旅行','有运动习惯','阅读'], photo:'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=85' }
+  ],
+  replayDays: [
+    { date:'2026-08-06', recommendedCount:10, skippedCount:8, candidateIndexes:[0,1] },
+    { date:'2026-08-05', recommendedCount:0, skippedCount:0, candidateIndexes:[] },
+    { date:'2026-08-04', recommendedCount:6, skippedCount:3, candidateIndexes:[2] }
   ],
   idealGroups: [
     { name:'外在条件', items:[['height_165','身高165+']] },

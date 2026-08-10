@@ -23,7 +23,6 @@
         <h2>移动端页面</h2>
         <button class="demo-nav-button is-active" type="button" data-shell-view="home">双 Tab 首页</button>
         <button class="demo-nav-button" type="button" data-shell-view="filter">推荐筛选</button>
-        <button class="demo-nav-button" type="button" data-shell-view="meeting">见面偏好</button>
         <button class="demo-nav-button" type="button" data-shell-view="detail">候选详情</button>
         <button class="demo-nav-button" type="button" data-shell-view="waiting">推荐等待</button>
         <button class="demo-nav-button" type="button" data-shell-view="replay">三天回看</button>
@@ -38,13 +37,18 @@
         </section>
 
         <section class="section-band" id="demo-controls">
-          <header class="shell-section-head"><div><h2>演示状态</h2><p>切换页面、会员、资料完整度与千寻币余额，验证不同业务分支。</p></div></header>
+          <header class="shell-section-head"><div><h2>演示状态</h2><p>切换页面、认证、会员、资料完整度、候选失效、网络与回看失败，验证不同业务分支。</p></div></header>
           <div class="section-body demo-control-grid">
-            <label class="control-field">快速页面<select id="viewSelect"><option value="home">双 Tab 首页</option><option value="filter">推荐筛选</option><option value="meeting">见面偏好</option><option value="detail">候选详情</option><option value="waiting">推荐等待</option><option value="replay">三天回看</option><option value="results">理想型结果</option><option value="records">筛选记录</option><option value="unlocks">历史解锁</option></select></label>
+            <label class="control-field">快速页面<select id="viewSelect"><option value="home">双 Tab 首页</option><option value="filter">推荐筛选</option><option value="detail">候选详情</option><option value="waiting">推荐等待</option><option value="replay">三天回看</option><option value="results">理想型结果</option><option value="records">筛选记录</option><option value="unlocks">历史解锁</option></select></label>
             <div class="state-controls" aria-label="Demo 状态控制">
               <button class="btn" id="vipMode" type="button" aria-pressed="false">普通用户</button>
+              <button class="btn" id="authMode" type="button" aria-pressed="true">已认证</button>
               <button class="btn" id="profileMode" type="button" aria-pressed="true">资料完整</button>
               <button class="btn" id="balanceMode" type="button" aria-pressed="true">余额充足</button>
+              <button class="btn" id="networkMode" type="button" aria-pressed="false">网络正常</button>
+              <button class="btn" id="waitingMode" type="button" aria-pressed="false">等待：无候选</button>
+              <button class="btn" id="candidateMode" type="button" aria-pressed="false">候选有效</button>
+              <button class="btn" id="replayErrorMode" type="button" aria-pressed="false">回看正常</button>
             </div>
           </div>
         </section>
@@ -52,19 +56,18 @@
         <section class="section-band phone-demo-band">
           <header class="shell-section-head"><div><h2>移动端页面</h2><p>手机内控件均可操作；左侧目录和上方状态栏用于快速切换演示场景。</p></div><span class="tag brand">390 × 844</span></header>
           <div class="section-body mobile-stage">
-            <main class="phone" id="prd08App" data-blueprint="prd08-user-reference-2026-07-16">
+            <main class="phone" id="prd08App" data-blueprint="prd08-lanhu-32-boards-2026-08-09">
     <section class="screen active" data-view="home" aria-label="推荐与理想型页">
-      <header class="home-head"><div><small>时空邂逅</small><h1>遇见认真生活的人</h1></div><div class="head-actions"><button data-go="meeting" aria-label="见面偏好">♡</button><button class="filter-icon" id="openFilter" data-go="filter" aria-label="推荐筛选"><span></span></button></div></header>
+      <header class="home-head"><div><small>时空邂逅</small><h1>遇见认真生活的人</h1></div><div class="head-actions"><button class="filter-icon" id="openFilter" data-go="filter" aria-label="推荐筛选"><span></span></button></div></header>
       <div class="main-tabs" role="tablist"><button class="active" data-main-tab="recommend" role="tab">推荐</button><button data-main-tab="ideal" role="tab">理想型</button></div>
 
       <div class="tab-content active" data-main-panel="recommend">
-        <div class="filter-summary"><span id="recommendSummary">杭州 · 25–31岁</span><button data-go="filter">调整筛选</button></div>
-        <article class="candidate-card" id="candidateCard">
+        <button class="candidate-card" id="candidateCard" type="button">
           <div class="candidate-photo"><img id="candidatePhoto" alt="推荐候选人照片"><span id="photoFallback">林</span><div class="city-badge" id="candidateCity">杭州</div></div>
           <div class="candidate-info"><div><h2 id="candidateName">林知夏</h2><span id="candidateAge">27岁</span></div><p id="candidateMeta">浙江大学 · 品牌策划 · 168cm</p><div class="tag-row" id="candidateTags"></div></div>
-        </article>
-        <div class="card-actions" aria-label="推荐操作"><button id="skipCandidate"><i>×</i><span>跳过</span></button><button data-go="detail"><i>⌂</i><span>详情</span></button><button id="likeCandidate"><i>♥</i><span>喜欢</span></button></div>
-        <div class="quick-links"><button data-go="replay"><span>↶</span><b>三天回看</b><small id="replayHint">VIP 权益</small></button><button data-go="meeting"><span>☕</span><b>见面偏好</b><small>不参与筛选</small></button></div>
+        </button>
+        <div class="card-actions" aria-label="推荐操作"><button id="skipCandidate"><i>×</i><span>跳过</span></button><button id="whisperCandidate"><i>✦</i><span>悄悄话</span></button><button id="likeCandidate"><i>♥</i><span>喜欢</span></button></div>
+        <div class="quick-links"><button data-go="replay"><span>↶</span><b>三天回看</b><small id="replayHint">VIP 权益</small></button></div>
       </div>
 
       <div class="tab-content ideal-content" data-main-panel="ideal">
@@ -78,13 +81,12 @@
 
     <section class="screen" data-view="filter" aria-label="推荐筛选设置页">
       <header class="page-head"><button data-back aria-label="返回">‹</button><h1>偏好设置</h1><button id="resetFilter">重置</button></header>
-      <div class="sub-tabs"><button class="active" data-filter-tab="basic">基础筛选</button><button data-filter-tab="advanced"><span class="vip-mini">VIP</span>高级筛选</button></div>
-      <div class="filter-panel active" data-filter-panel="basic">
-        <section class="form-card"><div class="form-title"><div><h2>对方所在城市</h2><p>最多选择 3 个城市</p></div><span id="cityCounter">1/3</span></div><div class="choice-row" id="cityChoices"><button class="selected" data-city="杭州">⌖ 杭州</button><button data-city="宁波">宁波</button><button data-city="上海">上海</button></div><label class="switch-row"><span><b>允许推荐周边城市</b><small>仅推荐 Tab 候选不足时生效</small></span><input id="neighborToggle" type="checkbox" checked><i></i></label></section>
+      <div data-filter-panel="basic" class="filter-panel active">
+        <section class="form-card"><div class="form-title"><div><h2>对方所在城市</h2><p>默认当前城市，至少 1 个、最多 3 个</p></div><span id="cityCounter">1/3</span></div><div class="choice-row" id="cityChoices"></div><button class="add-city" id="addCity" type="button">＋ 添加城市</button><p class="field-hint" id="cityHint">还可添加 2 个城市</p><label class="switch-row"><span><b>允许推荐周边城市</b><small>仅推荐 Tab 候选不足时生效</small></span><input id="neighborToggle" type="checkbox" checked><i></i></label></section>
         <section class="form-card age-card"><div class="form-title"><div><h2>对方年龄</h2><p>按出生日期实时计算</p></div><strong id="ageValue">25–31</strong></div><label><span>最低年龄</span><input id="ageMin" type="range" min="18" max="60" value="25"></label><label><span>最高年龄</span><input id="ageMax" type="range" min="18" max="60" value="31"></label></section>
         <div class="notice mint"><b>基础筛选免费</b><span>位置与年龄会同步到理想型 Tab</span></div>
       </div>
-      <div class="filter-panel" data-filter-panel="advanced">
+      <div data-filter-panel="advanced" class="filter-panel active">
         <div class="vip-banner"><div><span>VIP</span><h2>只看更符合期待的人</h2><p id="vipBannerText">开通会员后可保存六项高级条件</p></div><button id="openVip">模拟开通</button></div>
         <section class="advanced-form" id="advancedForm">
           <label><span>身高范围</span><select id="heightFilter" name="heightFilter"><option>不限</option><option>165–175cm</option><option>170cm 以上</option></select></label>
@@ -98,24 +100,16 @@
       <footer class="sticky-footer"><button class="primary-btn" id="saveFilter">保存筛选</button><p>只保存本页明确展示的基础与高级条件</p></footer>
     </section>
 
-    <section class="screen" data-view="meeting" aria-label="见面偏好页">
-      <header class="page-head"><button data-back>‹</button><h1>见面偏好</h1><span></span></header>
-      <div class="page-intro"><span>☕</span><h2>怎样见面更舒服？</h2><p>仅用于向对方展示你的节奏，不参与推荐或理想型筛选。</p></div>
-      <section class="form-card radio-list"><h2>见面节奏</h2><label><input type="radio" name="meeting" value="聊得来就见面">聊得来就见面</label><label><input type="radio" name="meeting" value="先聊一周再见面" checked>先聊一周再见面</label><label><input type="radio" name="meeting" value="慢慢了解，不着急">慢慢了解，不着急</label></section>
-      <section class="form-card"><h2>喜欢的见面活动</h2><div class="choice-row activity-choices"><button class="selected">喝咖啡</button><button class="selected">散步</button><button>看展</button><button>吃饭</button><button>运动</button></div></section>
-      <footer class="sticky-footer"><button class="primary-btn" id="saveMeeting">保存偏好</button></footer>
-    </section>
-
     <section class="screen" data-view="detail" aria-label="推荐卡片详情页">
-      <header class="transparent-head"><button data-back>‹</button><button id="neverRecommend">•••</button></header>
+      <header class="transparent-head"><button data-back>‹</button><button id="detailMore" aria-label="更多操作">•••</button></header>
       <div class="detail-photo"><img id="detailPhoto" alt="候选人公开照片"><span>林</span></div>
       <article class="detail-sheet"><div class="detail-title"><div><h1 id="detailName">林知夏</h1><p id="detailLine">27岁 · 杭州 · 168cm</p></div><span>资料已核验</span></div><h2>关于我</h2><p>喜欢认真做事，也享受周末去山里走走。希望遇见愿意真诚交流、一起成长的人。</p><h2>公开资料</h2><div class="detail-facts"><span id="detailSchool">浙江大学</span><span id="detailJob">品牌策划</span><span>想在两年内进入稳定关系</span></div></article>
-      <div class="detail-actions"><button id="detailSkip">暂不喜欢</button><button id="detailLike">♥ 喜欢</button></div>
+      <div class="detail-actions"><button id="detailSkip">跳过</button><button id="detailWhisper">悄悄话</button><button id="detailLike">♥ 喜欢</button></div>
     </section>
 
     <section class="screen centered-screen" data-view="waiting" aria-label="推荐等待页">
       <header class="page-head"><button data-back>‹</button><h1>今日推荐</h1><span></span></header>
-      <div class="empty-illustration"><span>⌁</span></div><h2 id="waitingTitle">暂时没有符合条件的人</h2><p id="waitingText">你的筛选条件已完整保留，不会被自动放宽。</p><button class="primary-btn compact" data-go="filter">调整筛选</button><button class="text-btn" data-go="replay">看看三天回看</button>
+      <div class="empty-illustration"><img id="waitingIllustration" alt="推荐空状态插画"></div><h2 id="waitingTitle">当前条件下暂未找到推荐人</h2><p id="waitingText">已保留你的筛选条件，可前往千寻同城发现更多嘉宾。</p><button class="primary-btn compact" id="waitingPrimary">去千寻同城看看</button><button class="text-btn" id="waitingSecondary">稍后重试</button><button class="text-btn" id="waitingVip">开通会员</button>
     </section>
 
     <section class="screen" data-view="replay" aria-label="推荐回看页">
@@ -144,7 +138,7 @@
               <div><span>01</span><h3>推荐与筛选</h3><p>首页可切换推荐/理想型 Tab；筛选页区分免费基础项与 VIP 高级项。</p></div>
               <div><span>02</span><h3>严格匹配</h3><p>17 个理想型条件同时满足，结果不足时不会自动放宽。</p></div>
               <div><span>03</span><h3>匿名与解锁</h3><p>结果先匿名展示，最多勾选 5 人，并按动态单价校验千寻币余额。</p></div>
-              <div class="guide-note"><b>演示提示</b><p>点击“资料完整/余额充足”可快速触发依赖锁定和余额不足分支。</p></div>
+              <div class="guide-note"><b>演示提示</b><p>“未认证”仅拦截喜欢/悄悄话；“资料缺失”会直接隐藏对应理想型条件。</p></div>
             </aside>
           </div>
         </section>
@@ -152,8 +146,11 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="confirmModal" aria-hidden="true"><div class="modal"><span class="modal-icon" id="modalIcon">✦</span><h2 id="modalTitle">确认解锁？</h2><p id="modalText"></p><div class="modal-actions"><button data-close-modal>取消</button><button class="confirm" id="modalConfirm">确认</button></div></div></div>
-  <div class="modal-backdrop" id="profileModal" aria-hidden="true"><div class="modal"><span class="modal-icon mint-icon">＋</span><h2>先完善你的资料</h2><p>该条件需要你的学校、兴趣标签或感情观信息才能判断。</p><div class="modal-actions"><button data-close-modal>稍后再说</button><button class="confirm" id="completeProfile">模拟完善</button></div></div></div>
+  <div class="modal-backdrop" id="confirmModal" aria-hidden="true"><div class="modal"><span class="modal-icon" id="modalIcon">✦</span><h2 id="modalTitle">确认解锁？</h2><p id="modalText"></p><div class="modal-actions"><button id="modalCancel">取消</button><button class="confirm" id="modalConfirm">确认</button></div></div></div>
+  <div class="modal-backdrop" id="authModal" aria-hidden="true"><div class="modal"><span class="modal-icon mint-icon">✓</span><h2>完成三项认证后使用</h2><p>你仍可浏览推荐、详情和筛选。完成实名、头像与学历认证后，才能使用喜欢和悄悄话。</p><div class="modal-actions"><button data-close-modal>稍后认证</button><button class="confirm" id="finishAuth">模拟完成认证</button></div></div></div>
+  <div class="modal-backdrop" id="vipModal" aria-hidden="true"><div class="modal"><span class="modal-icon">VIP</span><h2>时空邂逅会员</h2><p>高级条件需要时空邂逅会员。开通后返回本页会刷新权益，当前基础筛选草稿不会丢失。</p><div class="modal-actions"><button data-close-modal>返回筛选</button><button class="confirm" id="activateVip">模拟开通会员</button></div></div></div>
+  <div class="modal-backdrop" id="detailActionModal" aria-hidden="true"><div class="modal action-sheet"><h2>更多操作</h2><button id="reportUser">举报用户</button><button id="neverRecommendAction">不再推荐</button><button data-close-modal>取消</button></div></div>
+  <div class="modal-backdrop" id="reportModal" aria-hidden="true"><div class="modal report-modal"><span class="modal-icon">!</span><h2>举报用户</h2><p>请选择最符合的举报原因，提交后平台将进行审核。</p><label for="reportReason">举报原因</label><select id="reportReason"><option value="">请选择</option><option value="false_profile">资料不实</option><option value="harassment">骚扰或不当言论</option><option value="fraud">疑似诈骗</option><option value="other">其他</option></select><div class="modal-actions"><button data-close-modal>取消</button><button class="confirm" id="submitReport">提交举报</button></div></div></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="mock/demo-data.js"></script>
   <script src="assets/demo.js"></script>
