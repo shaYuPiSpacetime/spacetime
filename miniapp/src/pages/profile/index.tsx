@@ -218,7 +218,7 @@ function HeaderBlock({
         left: '25rpx',
         top: '186rpx',
         width: '700rpx',
-        height: '105rpx',
+        height: '124rpx',
       }}
     >
       <ProfileAvatarFrame
@@ -227,10 +227,11 @@ function HeaderBlock({
         onError={onAvatarError}
       />
       <View
+        id="profile-nickname-row"
         style={{
           position: 'absolute',
-          left: '123rpx',
-          top: '8rpx',
+          left: '124rpx',
+          top: '2rpx',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
@@ -249,10 +250,11 @@ function HeaderBlock({
         {showCert && <CertBadge text={certText} />}
       </View>
       <Text
+        id="profile-sub-info"
         style={{
           position: 'absolute',
           left: '124rpx',
-          top: '64rpx',
+          top: '58rpx',
           color: '#333333',
           fontSize: '26rpx',
           lineHeight: '37rpx',
@@ -310,23 +312,25 @@ function ProfileAvatarFrame({
 }) {
   return (
     <View
+      id="profile-avatar-frame"
       style={{
         position: 'absolute',
         left: '0',
         top: '0',
-        width: '124rpx',
-        height: '124rpx',
-        borderRadius: '62rpx',
+        width: '110rpx',
+        height: '110rpx',
+        borderRadius: '55rpx',
         background: profileScore > 0 ? '#E3F1FE' : '#FFFFFF',
         padding: '6rpx',
         boxSizing: 'border-box',
       }}
     >
       <Image
+        id="profile-avatar-image"
         src={avatar}
         mode="aspectFill"
         onError={onError}
-        style={{ width: '112rpx', height: '112rpx', borderRadius: '56rpx' }}
+        style={{ width: '98rpx', height: '98rpx', borderRadius: '49rpx' }}
       />
       {profileScore > 0 && (
         <View

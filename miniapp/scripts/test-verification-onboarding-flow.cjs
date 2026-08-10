@@ -22,13 +22,62 @@ async function loadFlowModule() {
 test('未认证入口严格按基本资料、头像、自我介绍、三重认证续传', async () => {
   const { resolveVerificationOnboardingRoute } = await loadFlowModule()
 
-  assert.equal(resolveVerificationOnboardingRoute({ basicCompleted: false }), '/pages/verification/basic')
-  assert.equal(resolveVerificationOnboardingRoute({ basicCompleted: true, avatarStatus: 'NOT_SUBMITTED' }), '/pages/verification/avatar')
-  assert.equal(resolveVerificationOnboardingRoute({ basicCompleted: true, avatarStatus: 'REJECTED' }), '/pages/verification/avatar')
-  assert.equal(resolveVerificationOnboardingRoute({ basicCompleted: true, avatarStatus: 'PENDING', introductionStatus: 'NOT_SUBMITTED' }), '/pages/verification/intro')
-  assert.equal(resolveVerificationOnboardingRoute({ basicCompleted: true, avatarStatus: 'APPROVED', introductionStatus: 'REJECTED' }), '/pages/verification/intro')
-  assert.equal(resolveVerificationOnboardingRoute({ basicCompleted: true, avatarStatus: 'PENDING', introductionStatus: 'PENDING' }), '/pages/verification/triple')
-  assert.equal(resolveVerificationOnboardingRoute({ basicCompleted: true, avatarStatus: 'APPROVED', introductionStatus: 'APPROVED' }), '/pages/verification/triple')
+  assert.equal(
+    resolveVerificationOnboardingRoute({ basicCompleted: false }),
+    '/pages/verification/basic'
+  )
+  assert.equal(
+    resolveVerificationOnboardingRoute({ basicCompleted: true, avatarStatus: 'NOT_SUBMITTED' }),
+    '/pages/verification/avatar'
+  )
+  assert.equal(
+    resolveVerificationOnboardingRoute({ basicCompleted: true, avatarStatus: 'REJECTED' }),
+    '/pages/verification/avatar'
+  )
+  assert.equal(
+    resolveVerificationOnboardingRoute({
+      basicCompleted: true,
+      avatarStatus: 'PENDING',
+      introductionStatus: 'NOT_SUBMITTED',
+    }),
+    '/pages/verification/intro'
+  )
+  assert.equal(
+    resolveVerificationOnboardingRoute({
+      basicCompleted: true,
+      avatarStatus: 'APPROVED',
+      introductionStatus: 'REJECTED',
+    }),
+    '/pages/verification/intro'
+  )
+  assert.equal(
+    resolveVerificationOnboardingRoute({
+      basicCompleted: true,
+      avatarStatus: 'PENDING',
+      introductionStatus: 'PENDING',
+    }),
+    '/pages/verification/triple'
+  )
+  assert.equal(
+    resolveVerificationOnboardingRoute({
+      basicCompleted: true,
+      avatarStatus: 'APPROVED',
+      introductionStatus: 'APPROVED',
+    }),
+    '/pages/verification/triple'
+  )
+})
+
+test('所有立即完善入口都进入基本资料而不是只关闭弹窗', () => {
+  const featured = read('src/pages/featured/index.tsx')
+  const authModal = featured.slice(featured.indexOf('function AuthModal'))
+
+  assert.match(
+    featured,
+    /const handleAuthContinue = async[\s\S]*?hideAuthModal\(\)[\s\S]*?Taro\.navigateTo\(\{ url: '\/pages\/verification\/basic' \}\)/
+  )
+  assert.match(featured, /<AuthModal\s+onClose=\{hideAuthModal\}\s+onContinue=/)
+  assert.match(authModal, /onContinue[\s\S]*?onClick=\{onContinue\}[\s\S]*?立即完善/)
 })
 
 test('部分资料态排除首登轻量字段并由接口字段配置计算', async () => {
@@ -46,8 +95,14 @@ test('部分资料态排除首登轻量字段并由接口字段配置计算', as
     { fieldId: 'hiddenField', visible: false },
   ]
 
-  assert.equal(hasPartialBasicProfile({ gender: 'FEMALE', birthday: '1997-03-06' }, fieldSettings, initFields), false)
-  assert.equal(hasPartialBasicProfile({ gender: 'FEMALE', nickname: '千寻' }, fieldSettings, initFields), true)
+  assert.equal(
+    hasPartialBasicProfile({ gender: 'FEMALE', birthday: '1997-03-06' }, fieldSettings, initFields),
+    false
+  )
+  assert.equal(
+    hasPartialBasicProfile({ gender: 'FEMALE', nickname: '千寻' }, fieldSettings, initFields),
+    true
+  )
   assert.equal(hasPartialBasicProfile({ occupation: 'DESIGNER' }, fieldSettings, initFields), true)
   assert.equal(hasPartialBasicProfile({ hiddenField: 'ignored' }, fieldSettings, initFields), false)
 })
@@ -62,7 +117,7 @@ test('首页三项勾选严格使用真实完成状态', async () => {
       introductionStatus: 'PENDING',
       verifyLevel: 2,
     }),
-    { basic: true, avatarIntro: true, triple: false },
+    { basic: true, avatarIntro: true, triple: false }
   )
   assert.deepEqual(
     resolveCertificationChecklist({
@@ -71,7 +126,7 @@ test('首页三项勾选严格使用真实完成状态', async () => {
       introductionStatus: 'REJECTED',
       verifyLevel: 3,
     }),
-    { basic: true, avatarIntro: false, triple: true },
+    { basic: true, avatarIntro: false, triple: true }
   )
 })
 
@@ -132,8 +187,14 @@ test('蓝湖关键几何尺寸和构建门禁不可回退', () => {
   assert.match(shell, /width: '700rpx'/)
   assert.match(shell, /height: '156rpx'/)
   assert.match(shell, /width: '620rpx'/)
-  assert.match(verificationEntry, /id="verification-entry-actions"[\s\S]{0,220}marginTop: '1098rpx'/)
-  assert.doesNotMatch(verificationEntry, /id="verification-entry-actions"[\s\S]{0,220}position: 'absolute'/)
+  assert.match(
+    verificationEntry,
+    /id="verification-entry-actions"[\s\S]{0,220}marginTop: '1098rpx'/
+  )
+  assert.doesNotMatch(
+    verificationEntry,
+    /id="verification-entry-actions"[\s\S]{0,220}position: 'absolute'/
+  )
   assert.match(prebuild, /test-verification-onboarding-flow\.cjs/)
   assert.match(prebuild, /validate-page-entry-isolation\.mjs/)
 })
@@ -187,13 +248,28 @@ test('在校学生学历认证严格保持资料卡、提交、协议、客服�
   const standardFormStart = educationSubmit.indexOf('function StandardForm')
   const studentForm = educationSubmit.slice(standardFormStart)
 
-  assert.ok(educationSubmit.indexOf('<SubmitButton') < educationSubmit.indexOf('<AgreementRow'), '提交按钮必须渲染在协议上方')
+  assert.ok(
+    educationSubmit.indexOf('<SubmitButton') < educationSubmit.indexOf('<AgreementRow'),
+    '提交按钮必须渲染在协议上方'
+  )
   assert.match(educationSubmit, /STUDENT_CARD:\s*'1258rpx'/, '在校学生提交按钮纵坐标必须对齐蓝湖')
   assert.match(educationSubmit, /STUDENT_CARD:\s*'1382rpx'/, '在校学生协议纵坐标必须对齐蓝湖')
   assert.match(educationShared, /position:\s*'absolute'/, '学历提交按钮必须跟随页面内容定位')
-  assert.doesNotMatch(educationShared, /position:\s*'fixed'[\s\S]{0,180}safe-area-inset-bottom/, '学历提交按钮不得固定覆盖协议和客服区')
-  assert.match(studentForm, /isStudent[\s\S]{0,800}<UploadProofBox/, '在校学生无材料时必须使用蓝湖大尺寸上传区')
-  assert.match(studentForm, /minHeight:\s*isStudent\s*\?\s*'725rpx'/, '在校学生资料卡必须保留蓝湖背景分割高度')
+  assert.doesNotMatch(
+    educationShared,
+    /position:\s*'fixed'[\s\S]{0,180}safe-area-inset-bottom/,
+    '学历提交按钮不得固定覆盖协议和客服区'
+  )
+  assert.match(
+    studentForm,
+    /isStudent[\s\S]{0,800}<UploadProofBox/,
+    '在校学生无材料时必须使用蓝湖大尺寸上传区'
+  )
+  assert.match(
+    studentForm,
+    /minHeight:\s*isStudent\s*\?\s*'725rpx'/,
+    '在校学生资料卡必须保留蓝湖背景分割高度'
+  )
 })
 
 test('部分资料态图标全部来自蓝湖官方切图并走 OSS 常量', () => {

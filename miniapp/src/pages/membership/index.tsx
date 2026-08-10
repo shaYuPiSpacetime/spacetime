@@ -375,7 +375,7 @@ function PlanRail({
           const months = plan.duration >= 365 ? 12 : plan.duration >= 90 ? 3 : 1
           const pricePerMonth = (plan.price / months).toFixed(2)
           const pricePerMonthText = plan.monthlyPriceLabel ?? `¥${pricePerMonth}/月`
-          const duration = plan.durationLabel
+          const duration = splitDurationLabel(plan.durationLabel)
           const header = getPlanHeader(plan)
 
           return (
@@ -410,14 +410,21 @@ function PlanRail({
               >
                 <Text style={{ color: '#8B5B19', fontSize: '22rpx', fontWeight: 600 }}>{label}</Text>
               </View>
-              <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx' }}>{header}</Text>
-              <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '42rpx', fontWeight: 700, lineHeight: '58rpx', marginTop: '8rpx' }}>
-                {duration}
-              </Text>
-              <Text style={{ display: 'block', color: LANHU_GOLD, fontSize: '28rpx', fontWeight: 700, marginTop: '8rpx' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: '22rpx', lineHeight: '32rpx' }}>{header}</Text>
+              <View
+                style={{ display: 'flex', flexDirection: 'row', alignItems: 'baseline', height: '58rpx', marginTop: '8rpx' }}
+              >
+                <Text id={`membership-plan-duration-count-${plan.id}`} data-ui="membership-plan-duration-count" style={{ color: '#FFFFFF', fontSize: '42rpx', fontWeight: 500, lineHeight: '58rpx' }}>
+                  {duration.count}
+                </Text>
+                <Text id={`membership-plan-duration-unit-${plan.id}`} data-ui="membership-plan-duration-unit" style={{ color: '#FFFFFF', fontSize: '26rpx', fontWeight: 500, lineHeight: '37rpx' }}>
+                  {duration.unit}
+                </Text>
+              </View>
+              <Text id={`membership-plan-monthly-price-${plan.id}`} data-ui="membership-plan-monthly-price" style={{ display: 'block', color: LANHU_GOLD, fontSize: '26rpx', fontWeight: 500, lineHeight: '37rpx', marginTop: '8rpx' }}>
                 {pricePerMonthText}
               </Text>
-              <Text style={{ display: 'block', color: '#9C9C9C', fontSize: '22rpx', marginTop: '8rpx' }}>
+              <Text id={`membership-plan-original-price-${plan.id}`} data-ui="membership-plan-original-price" style={{ display: 'block', color: '#9C9C9C', fontSize: '18rpx', lineHeight: '26rpx', marginTop: '6rpx' }}>
                 ¥{plan.originalPrice.toFixed(2)}
               </Text>
             </View>
@@ -658,7 +665,7 @@ function PayBar({
           overflow: 'hidden',
         }}
       >
-        <Text style={{ color: LANHU_GOLD, fontSize: '30rpx', fontWeight: 700, maxWidth: '420rpx' }}>{pricePrefix}¥{price}{billingLabel ? `/${billingLabel}` : ''}</Text>
+        <Text id="membership-pay-price" style={{ color: LANHU_GOLD, fontSize: '24rpx', fontWeight: 500, maxWidth: '420rpx' }}>{pricePrefix}¥{price}{billingLabel ? `/${billingLabel}` : ''}</Text>
         <View
           style={{
             width: '248rpx',
@@ -675,7 +682,7 @@ function PayBar({
           <Text style={{ color: '#211D1E', fontSize: '32rpx', fontWeight: 700 }}>{loading ? loadingText : buttonText}</Text>
         </View>
       </View>
-      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: '26rpx' }} onClick={onToggle}>
+      <View id="membership-agreement-row" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap', marginTop: '26rpx' }} onClick={onToggle}>
         <View
           style={{
             width: '28rpx',
@@ -684,6 +691,7 @@ function PayBar({
             border: checked ? '0' : '1rpx solid #C4913F',
             background: checked ? LANHU_GOLD : '#FFFFFF',
             marginRight: '12rpx',
+            flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -702,8 +710,12 @@ function PayBar({
             />
           )}
         </View>
-        <Text style={{ color: '#666666', fontSize: '24rpx' }}>阅读并同意</Text>
-        <Text style={{ color: '#C4913F', fontSize: '24rpx' }}>《时空邂逅会员服务协议》</Text>
+        <Text
+          id="membership-agreement-line"
+          style={{ color: '#666666', fontSize: '22rpx', lineHeight: '30rpx', whiteSpace: 'nowrap' }}
+        >
+          阅读并同意<Text style={{ color: '#C4913F' }}>《时空邂逅会员服务协议》</Text>
+        </Text>
       </View>
     </View>
   )
@@ -713,6 +725,12 @@ function getPayButtonText(memberStatus: MemberStatus) {
   if (memberStatus === 'active') return '再次购买'
   if (memberStatus === 'expired') return '重新开通'
   return '立即开通'
+}
+
+function splitDurationLabel(label: string) {
+  const matched = label.trim().match(/^(\d+)(.*)$/)
+  if (!matched) return { count: label, unit: '' }
+  return { count: matched[1], unit: matched[2] }
 }
 
 function getPlanHeader(plan: MembershipPlan) {

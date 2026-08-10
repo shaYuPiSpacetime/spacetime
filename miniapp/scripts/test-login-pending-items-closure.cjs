@@ -93,7 +93,9 @@ test('登录视频播放时仍显示蓝湖品牌 Logo', () => {
 test('首登现居地固定为省市两级选择与提交', () => {
   const source = read('src/pages/login/address.tsx')
   const loginHook = read('src/hooks/useLogin.ts')
-  const backupSubmit = loginHook.match(/const submit = async \(\) =>[\s\S]*?\n\n  const initField/)?.[0]
+  const backupSubmit = loginHook.match(
+    /const submit = async \(\) =>[\s\S]*?\n\n  const initField/
+  )?.[0]
 
   assert.match(source, /loadProvinceCities\(/, '地址页应一次加载省市树')
   assert.match(source, /ManualAddressSheet/, '地址页缺少省市两级联动弹层')
@@ -319,26 +321,39 @@ test('出生日期使用年月日三列原生滚轮并移除静态点击行', ()
   assert.match(styles, /\.login-age-picker__item--far\s*\{/)
 })
 
-test('出生日期滚轮保留五行层次但不得叠加二次位移动画', () => {
+test('出生日期空闲时恢复蓝湖五行排版，且仅当前滑动列切到原生流畅态', () => {
   const age = read('src/pages/login/age.tsx')
   const styles = read('src/pages/login/age.scss')
 
-  assert.doesNotMatch(age, /login-age-picker__item--outer/, '快速滚动时不得按旧索引隐藏远端选项')
-  assert.doesNotMatch(age, /login-age-picker__item--above/, '不得用 React 状态给上方文字追加二次位移')
-  assert.doesNotMatch(age, /login-age-picker__item--below/, '不得用 React 状态给下方文字追加二次位移')
+  assert.match(age, /const \[pickingColumn, setPickingColumn\] = useState<PickerColumn>\(\)/)
+  assert.match(age, /onPickEnd=\{\(\) => setPickingColumn\(undefined\)\}/)
+  assert.match(age, /onTouchStart=\{\(\) => setPickingColumn\('year'\)\}/)
+  assert.match(age, /onTouchStart=\{\(\) => setPickingColumn\('month'\)\}/)
+  assert.match(age, /onTouchStart=\{\(\) => setPickingColumn\('day'\)\}/)
+  assert.match(age, /login-age-picker__column--picking/)
+  assert.doesNotMatch(age, /login-age-picker--picking/, '滑动一列时不得切换整个选择器的样式')
+  assert.match(age, /login-age-picker__item--outer/, '空闲态只允许显示选中项上下各两行')
+  assert.match(age, /login-age-picker__item--above/, '空闲态必须恢复蓝湖上方文字位移')
+  assert.match(age, /login-age-picker__item--below/, '空闲态必须恢复蓝湖下方文字位移')
   assert.match(age, /login-age-picker__item--\$\{prefix\}/, '年月日必须按列追加蓝湖独立中心位移类')
 
   assert.match(styles, /\.login-age-picker__selection\s*\{[\s\S]*top:\s*123rpx;/)
   assert.match(styles, /\.login-age-picker\s*\{[\s\S]*top:\s*-20rpx;/)
   assert.match(styles, /\.login-age-picker__item\s*\{[\s\S]*font-size:\s*36rpx;/)
   assert.match(styles, /\.login-age-picker__item--active\s*\{[\s\S]*font-size:\s*40rpx;/)
+  assert.match(styles, /\.login-age-picker__item--above\s*\{[\s\S]*top:\s*-46rpx;/)
+  assert.match(styles, /\.login-age-picker__item--below\s*\{[\s\S]*top:\s*44\.5rpx;/)
   assert.doesNotMatch(styles, /transition:\s*[^;]*(top|transform)/, '原生滚轮上不得再叠加位置过渡')
-  assert.doesNotMatch(styles, /\.login-age-picker__item--above/)
-  assert.doesNotMatch(styles, /\.login-age-picker__item--below/)
   assert.match(styles, /\.login-age-picker__item--year\s*\{[\s\S]*left:\s*44rpx;/)
   assert.match(styles, /\.login-age-picker__item--month\s*\{[\s\S]*left:\s*19rpx;/)
   assert.match(styles, /\.login-age-picker__item--day\s*\{[\s\S]*left:\s*-25rpx;/)
-  assert.doesNotMatch(styles, /visibility:\s*hidden/, '原生滚轮内容不得因 React 选中索引滞后而短暂消失')
+  assert.match(styles, /\.login-age-picker__item--outer\s*\{[\s\S]*visibility:\s*hidden;/)
+  assert.match(
+    styles,
+    /\.login-age-picker__column--picking[\s\S]*\.login-age-picker__item--outer[\s\S]*visibility:\s*visible;/,
+    '手指滚动期间只能取消当前列的五行隐藏，避免其他列跟随位移'
+  )
+  assert.doesNotMatch(styles, /\.login-age-picker--picking/, '不得用全局滑动态带动其他两列')
 })
 
 test('首登现居地使用省市两列原生滚轮且不在滚动帧受控回写', () => {
@@ -350,7 +365,11 @@ test('首登现居地使用省市两列原生滚轮且不在滚动帧受控回�
   )
   assert.equal((address.match(/<PickerViewColumn/g) || []).length, 2, '现居地只能展示省市两列')
   assert.match(address, /normalizeTwoLevelRegionSelection/)
-  assert.doesNotMatch(address, /<ScrollView/, '地区滚轮不得继续使用逐帧触发 React 更新的 ScrollView')
+  assert.doesNotMatch(
+    address,
+    /<ScrollView/,
+    '地区滚轮不得继续使用逐帧触发 React 更新的 ScrollView'
+  )
   assert.doesNotMatch(address, /onScroll=/, '地区滚动过程中不得逐帧写入 React 状态')
   assert.doesNotMatch(address, /scrollTop=/, '地区滚轮不得和手势抢占受控 scrollTop')
   assert.doesNotMatch(address, /releaseControlledAddressScroll/)

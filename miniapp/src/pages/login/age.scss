@@ -81,6 +81,30 @@
   font-weight: 500;
 }
 
+.login-age-picker__item--above {
+  top: -46rpx;
+}
+
+.login-age-picker__item--below {
+  top: 44.5rpx;
+}
+
+.login-age-picker__item--outer {
+  visibility: hidden;
+}
+
+// 只让当前触摸列交给原生 PickerView 连续排版，另外两列保持蓝湖静止态。
+.login-age-picker__column--picking {
+  .login-age-picker__item--above,
+  .login-age-picker__item--below {
+    top: 0;
+  }
+
+  .login-age-picker__item--outer {
+    visibility: visible;
+  }
+}
+
 .login-age-picker__item--year {
   left: 44rpx;
 }

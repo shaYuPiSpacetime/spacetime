@@ -13,6 +13,7 @@ import LoginProfileShell from './components/LoginProfileShell'
 import './age.scss'
 
 const MONTHS = Array.from({ length: 12 }, (_, index) => `${index + 1}月`)
+type PickerColumn = 'year' | 'month' | 'day'
 
 /** 登录出生日期选择：蓝湖三列滚轮外观，年龄范围由接口配置。 */
 export default function LoginAgePage() {
@@ -33,6 +34,7 @@ export default function LoginAgePage() {
     [userInfo.birthday, years]
   )
   const [value, setValue] = useState<BirthDateSelection>(initial)
+  const [pickingColumn, setPickingColumn] = useState<PickerColumn>()
   const days = useMemo(() => {
     const year = Number(years[value[0]]?.replace('年', ''))
     if (!Number.isInteger(year) || year <= 0) return []
@@ -84,14 +86,24 @@ export default function LoginAgePage() {
           maskStyle="background: transparent;"
           value={value}
           onChange={handlePickerChange}
+          onPickEnd={() => setPickingColumn(undefined)}
         >
-          <PickerViewColumn className="login-age-picker__column">
+          <PickerViewColumn
+            className={`login-age-picker__column${pickingColumn === 'year' ? ' login-age-picker__column--picking' : ''}`}
+            onTouchStart={() => setPickingColumn('year')}
+          >
             {renderPickerItems(years, value[0], 'year')}
           </PickerViewColumn>
-          <PickerViewColumn className="login-age-picker__column">
+          <PickerViewColumn
+            className={`login-age-picker__column${pickingColumn === 'month' ? ' login-age-picker__column--picking' : ''}`}
+            onTouchStart={() => setPickingColumn('month')}
+          >
             {renderPickerItems(MONTHS, value[1], 'month')}
           </PickerViewColumn>
-          <PickerViewColumn className="login-age-picker__column">
+          <PickerViewColumn
+            className={`login-age-picker__column${pickingColumn === 'day' ? ' login-age-picker__column--picking' : ''}`}
+            onTouchStart={() => setPickingColumn('day')}
+          >
             {renderPickerItems(days, value[2], 'day')}
           </PickerViewColumn>
         </PickerView>
@@ -127,11 +139,19 @@ function renderPickerItems(items: string[], selectedIndex: number, prefix: strin
         ? ' login-age-picker__item--active'
         : distance === 1
           ? ' login-age-picker__item--near'
-          : ' login-age-picker__item--far'
+          : distance === 2
+            ? ' login-age-picker__item--far'
+            : ' login-age-picker__item--outer'
+    const directionClass =
+      index < selectedIndex
+        ? ' login-age-picker__item--above'
+        : index > selectedIndex
+          ? ' login-age-picker__item--below'
+          : ''
     return (
       <View
         key={`${prefix}-${item}`}
-        className={`login-age-picker__item login-age-picker__item--${prefix}${stateClass}`}
+        className={`login-age-picker__item login-age-picker__item--${prefix}${stateClass}${directionClass}`}
       >
         <Text>{item}</Text>
       </View>

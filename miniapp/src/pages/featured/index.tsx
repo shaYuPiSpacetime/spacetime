@@ -56,6 +56,11 @@ export default function FeaturedPage() {
     Taro.showToast({ title: '支付功能建设中', icon: 'none' })
   }
 
+  const handleAuthContinue = async () => {
+    hideAuthModal()
+    await Taro.navigateTo({ url: '/pages/verification/basic' })
+  }
+
   const handleTopTabClick = (tab: '觅缘' | '心印测试' | '精选' | '理想型') => {
     if (tab === '觅缘') {
       Taro.navigateBack({
@@ -91,7 +96,9 @@ export default function FeaturedPage() {
       </ScrollView>
       <LanhuTabBar active="index" />
 
-      {authModalVisible && <AuthModal onClose={hideAuthModal} />}
+      {authModalVisible && (
+        <AuthModal onClose={hideAuthModal} onContinue={() => void handleAuthContinue()} />
+      )}
       {unlockModalVisible && selectedGuest && (
         <UnlockModal
           guest={selectedGuest}
@@ -100,9 +107,7 @@ export default function FeaturedPage() {
           onConfirm={handleUnlockConfirm}
         />
       )}
-      {coinModalVisible && (
-        <CoinModal onClose={hideCoinModal} onBuy={handleBuyPackage} />
-      )}
+      {coinModalVisible && <CoinModal onClose={hideCoinModal} onBuy={handleBuyPackage} />}
     </View>
   )
 }
@@ -151,12 +156,23 @@ function FeaturedCard({
           bottom: 0,
           height: '260rpx',
           // 原人物切图底部带有旧文案和心形按钮，底部不透明遮罩负责清理旧图层，下面再绘制真实组件。
-          background: 'linear-gradient(180deg, rgba(13,25,37,0) 0%, rgba(13,25,37,0.6) 30%, #15212A 58%, #15212A 100%)',
+          background:
+            'linear-gradient(180deg, rgba(13,25,37,0) 0%, rgba(13,25,37,0.6) 30%, #15212A 58%, #15212A 100%)',
         }}
       />
       <View style={{ position: 'absolute', left: '31rpx', bottom: '31rpx' }}>
-        <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>筱脑虎</Text>
-        <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '3rpx' }}>
+        <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>
+          筱脑虎
+        </Text>
+        <Text
+          style={{
+            display: 'block',
+            color: '#FFFFFF',
+            fontSize: '26rpx',
+            lineHeight: '37rpx',
+            marginTop: '3rpx',
+          }}
+        >
           28岁 双鱼座 本科
         </Text>
       </View>
@@ -195,12 +211,40 @@ function UnlockBanner({ onClick }: { onClick: () => void }) {
         boxSizing: 'border-box',
       }}
     >
-      <View style={{ position: 'absolute', left: '-28rpx', top: '-26rpx', width: '86rpx', height: '86rpx', borderRadius: '43rpx', background: 'rgba(255,255,255,0.18)' }} />
-      <View style={{ position: 'absolute', right: '-8rpx', bottom: '-28rpx', width: '96rpx', height: '96rpx', borderRadius: '48rpx', background: 'rgba(255,255,255,0.16)' }} />
+      <View
+        style={{
+          position: 'absolute',
+          left: '-28rpx',
+          top: '-26rpx',
+          width: '86rpx',
+          height: '86rpx',
+          borderRadius: '43rpx',
+          background: 'rgba(255,255,255,0.18)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          right: '-8rpx',
+          bottom: '-28rpx',
+          width: '96rpx',
+          height: '96rpx',
+          borderRadius: '48rpx',
+          background: 'rgba(255,255,255,0.16)',
+        }}
+      />
       <Text style={{ color: '#FFFFFF', fontSize: '34rpx', fontWeight: 700, lineHeight: '48rpx' }}>
         解锁更多精选嘉宾
       </Text>
-      <Text style={{ display: 'block', color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '3rpx' }}>
+      <Text
+        style={{
+          display: 'block',
+          color: '#FFFFFF',
+          fontSize: '28rpx',
+          lineHeight: '40rpx',
+          marginTop: '3rpx',
+        }}
+      >
         从这一刻起，遇见你的小确幸
       </Text>
       <View
@@ -224,7 +268,7 @@ function UnlockBanner({ onClick }: { onClick: () => void }) {
   )
 }
 
-function AuthModal({ onClose }: { onClose: () => void }) {
+function AuthModal({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
   return (
     <View
       style={{
@@ -252,7 +296,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
           flexDirection: 'column',
           alignItems: 'center',
         }}
-        onClick={(event) => event.stopPropagation()}
+        onClick={event => event.stopPropagation()}
       >
         <View
           style={{
@@ -268,7 +312,15 @@ function AuthModal({ onClose }: { onClose: () => void }) {
         >
           <Text style={{ color: '#FFFFFF', fontSize: '58rpx' }}>✎</Text>
         </View>
-        <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700, lineHeight: '48rpx', textAlign: 'center' }}>
+        <Text
+          style={{
+            color: LANHU_NAVY,
+            fontSize: '32rpx',
+            fontWeight: 700,
+            lineHeight: '48rpx',
+            textAlign: 'center',
+          }}
+        >
           完善资料并完成认证{'\n'}解锁更多专属权益
         </Text>
         <View
@@ -282,7 +334,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
             justifyContent: 'center',
             marginTop: '38rpx',
           }}
-          onClick={onClose}
+          onClick={onContinue}
         >
           <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即完善</Text>
         </View>
@@ -304,25 +356,85 @@ function UnlockModal({
 }) {
   return (
     <LanhuBottomModal onClose={onClose}>
-      <Text style={{ display: 'block', textAlign: 'center', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 700 }}>
+      <Text
+        style={{
+          display: 'block',
+          textAlign: 'center',
+          color: LANHU_NAVY,
+          fontSize: '34rpx',
+          fontWeight: 700,
+        }}
+      >
         解锁嘉宾
       </Text>
-      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '30rpx', padding: '24rpx', borderRadius: '20rpx', background: '#F6F9FF' }}>
-        <Image src={featuredPerson} mode="aspectFill" style={{ width: '88rpx', height: '88rpx', borderRadius: '44rpx', marginRight: '22rpx' }} />
+      <View
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: '30rpx',
+          padding: '24rpx',
+          borderRadius: '20rpx',
+          background: '#F6F9FF',
+        }}
+      >
+        <Image
+          src={featuredPerson}
+          mode="aspectFill"
+          style={{ width: '88rpx', height: '88rpx', borderRadius: '44rpx', marginRight: '22rpx' }}
+        />
         <View>
-          <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700 }}>{guest.nickname}</Text>
-          <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', marginTop: '8rpx' }}>{guest.age}岁 · {guest.education}</Text>
+          <Text style={{ color: '#333333', fontSize: '30rpx', fontWeight: 700 }}>
+            {guest.nickname}
+          </Text>
+          <Text
+            style={{ display: 'block', color: '#999999', fontSize: '24rpx', marginTop: '8rpx' }}
+          >
+            {guest.age}岁 · {guest.education}
+          </Text>
         </View>
       </View>
-      <Text style={{ display: 'block', color: balanceInsufficient ? '#E54D42' : '#666666', fontSize: '26rpx', textAlign: 'center', marginTop: '26rpx' }}>
+      <Text
+        style={{
+          display: 'block',
+          color: balanceInsufficient ? '#E54D42' : '#666666',
+          fontSize: '26rpx',
+          textAlign: 'center',
+          marginTop: '26rpx',
+        }}
+      >
         本次消耗 {guest.unlockCost} 千寻币，当前余额 {mockCoinBalance}
       </Text>
       <View style={{ display: 'flex', flexDirection: 'row', gap: '18rpx', marginTop: '30rpx' }}>
-        <View style={{ flex: 1, height: '88rpx', borderRadius: '44rpx', border: '1rpx solid #E1E4EA', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+        <View
+          style={{
+            flex: 1,
+            height: '88rpx',
+            borderRadius: '44rpx',
+            border: '1rpx solid #E1E4EA',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={onClose}
+        >
           <Text style={{ color: '#666666', fontSize: '30rpx' }}>取消</Text>
         </View>
-        <View style={{ flex: 1, height: '88rpx', borderRadius: '44rpx', background: LANHU_BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onConfirm}>
-          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>{balanceInsufficient ? '去购买' : '确认解锁'}</Text>
+        <View
+          style={{
+            flex: 1,
+            height: '88rpx',
+            borderRadius: '44rpx',
+            background: LANHU_BLUE,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={onConfirm}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>
+            {balanceInsufficient ? '去购买' : '确认解锁'}
+          </Text>
         </View>
       </View>
     </LanhuBottomModal>
@@ -332,12 +444,20 @@ function UnlockModal({
 function CoinModal({ onClose, onBuy }: { onClose: () => void; onBuy: (pkg: CoinPackage) => void }) {
   return (
     <LanhuBottomModal onClose={onClose}>
-      <Text style={{ display: 'block', textAlign: 'center', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 700 }}>
+      <Text
+        style={{
+          display: 'block',
+          textAlign: 'center',
+          color: LANHU_NAVY,
+          fontSize: '34rpx',
+          fontWeight: 700,
+        }}
+      >
         充值千寻币
       </Text>
       <ScrollView scrollX showScrollbar={false} style={{ marginTop: '28rpx', width: '690rpx' }}>
         <View style={{ display: 'flex', flexDirection: 'row' }}>
-          {mockCoinPackages.map((pkg) => (
+          {mockCoinPackages.map(pkg => (
             <View
               key={pkg.id}
               style={{
@@ -354,14 +474,38 @@ function CoinModal({ onClose, onBuy }: { onClose: () => void; onBuy: (pkg: CoinP
               }}
               onClick={() => onBuy(pkg)}
             >
-              <Text style={{ color: LANHU_BLUE, fontSize: '30rpx', fontWeight: 700 }}>{pkg.amount}</Text>
-              <Text style={{ color: '#666666', fontSize: '22rpx', marginTop: '7rpx' }}>{pkg.label}</Text>
-              <Text style={{ color: LANHU_NAVY, fontSize: '32rpx', fontWeight: 700, marginTop: '12rpx' }}>¥{pkg.price}</Text>
+              <Text style={{ color: LANHU_BLUE, fontSize: '30rpx', fontWeight: 700 }}>
+                {pkg.amount}
+              </Text>
+              <Text style={{ color: '#666666', fontSize: '22rpx', marginTop: '7rpx' }}>
+                {pkg.label}
+              </Text>
+              <Text
+                style={{
+                  color: LANHU_NAVY,
+                  fontSize: '32rpx',
+                  fontWeight: 700,
+                  marginTop: '12rpx',
+                }}
+              >
+                ¥{pkg.price}
+              </Text>
             </View>
           ))}
         </View>
       </ScrollView>
-      <View style={{ height: '88rpx', borderRadius: '44rpx', background: LANHU_BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '30rpx' }} onClick={() => onBuy(mockCoinPackages[1])}>
+      <View
+        style={{
+          height: '88rpx',
+          borderRadius: '44rpx',
+          background: LANHU_BLUE,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: '30rpx',
+        }}
+        onClick={() => onBuy(mockCoinPackages[1])}
+      >
         <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即获取千寻币</Text>
       </View>
     </LanhuBottomModal>
