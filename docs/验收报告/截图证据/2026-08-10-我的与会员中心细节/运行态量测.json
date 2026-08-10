@@ -1,0 +1,40 @@
+{
+  "date": "2026-08-10",
+  "platform": "微信开发者工具小程序模拟器",
+  "viewportWidthPx": 390,
+  "rpxScale": 0.52,
+  "profile": {
+    "avatarFramePx": {
+      "width": 57,
+      "height": 57
+    },
+    "avatarImagePx": {
+      "width": 50,
+      "height": 50
+    },
+    "avatarImageOffsetPx": {
+      "left": 16,
+      "top": 99
+    },
+    "nicknameOffsetPx": {
+      "left": 77,
+      "top": 97
+    },
+    "subInfoOffsetPx": {
+      "left": 77,
+      "top": 126
+    },
+    "avatarNicknameGapPx": 11,
+    "result": "PASS"
+  },
+  "membership": {
+    "durationCountText": "12",
+    "durationUnitText": "个月",
+    "agreementText": "阅读并同意《时空邂逅会员服务协议》",
+    "agreementSizePx": {
+      "width": 187,
+      "height": 15
+    },
+    "result": "PASS"
+  }
+}
