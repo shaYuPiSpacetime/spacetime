@@ -14,6 +14,7 @@ import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.impl.CommunityServiceImpl;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.ChatReportEvidenceService;
 import com.spacetime.common.service.RelationDomainService;
 import com.spacetime.common.util.OssUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +62,7 @@ class CommunityServiceImplTest {
     @Mock private CommunityContentSecurityPort contentSecurityPort;
     @Spy private CommunityAuditPolicy auditPolicy = new CommunityAuditPolicy();
     @Mock private ChatReportContextResolver chatReportContextResolver;
+    @Mock private ChatReportEvidenceService chatReportEvidenceService;
     @Mock private OssConfig ossConfig;
     @Mock private OssUtil ossUtil;
     @Mock private UserUnlockRecordDao userUnlockRecordDao;
@@ -383,6 +385,86 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("提交私信举报-服务端固化可信证据并返回快照状态")
+    void createMessageReport_shouldFreezeTrustedEvidence() {
+        CommunityReportCreateReq req = new CommunityReportCreateReq();
+        req.setTargetType("message");
+        req.setClientReportId("CLIENT-RPT-001");
+        req.setTargetBizNo("MSG-001");
+        req.setTimConversationId("C2C_peer");
+        req.setTimMessageId("TIM-MSG-001");
+        req.setTimMsgKey("TIM-KEY-001");
+        req.setReasonCode("spam");
+
+        SysDictData reason = new SysDictData();
+        reason.setDictType("community_report_reason");
+        reason.setDictValue("spam");
+        when(dictDataDao.selectByDictType("community_report_reason")).thenReturn(List.of(reason));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(chatReportContextResolver.resolve(eq(1L), any(ChatReportLookup.class)))
+                .thenReturn(new TrustedChatReportContext(
+                        "MSG-001", 2L, "message", null,
+                        501L, List.of(500L, 501L, 502L), "CONV-001", "partial"));
+        doAnswer(invocation -> {
+            CommunityReport report = invocation.getArgument(0);
+            report.setId(9001L);
+            report.setCreateTime(LocalDateTime.of(2026, 8, 10, 10, 30));
+            return null;
+        }).when(communityReportDao).insert(any(CommunityReport.class));
+        when(chatReportEvidenceService.freeze(any(CommunityReport.class), any(TrustedChatReportContext.class), any()))
+                .thenReturn(new ChatEvidenceSnapshot("complete", 3, "{\"evidenceCount\":3}"));
+
+        CommunityReportResultVO result = communityService.createReport(1L, req);
+
+        assertThat(result.getReportId()).isEqualTo(9001L);
+        assertThat(result.getSnapshotStatus()).isEqualTo("complete");
+        assertThat(result.getCreatedTime()).isEqualTo(LocalDateTime.of(2026, 8, 10, 10, 30));
+        verify(communityReportDao).insert(argThat(report ->
+                "CLIENT-RPT-001".equals(report.getClientReportId())
+                        && "MSG-001".equals(report.getTargetBizNo())
+                        && Long.valueOf(2L).equals(report.getReportedUserId())));
+        verify(communityReportDao).updateById(argThat(report ->
+                "complete".equals(report.getSnapshotStatus())
+                        && "{\"evidenceCount\":3}".equals(report.getEvidenceJson())));
+    }
+
+    @Test
+    @DisplayName("提交私信举报-相同客户端编号重试返回原举报")
+    void createMessageReport_shouldReturnExistingForSameIdempotentRequest() {
+        CommunityReportCreateReq req = messageReportRequest("CLIENT-RPT-RETRY", "MSG-RETRY", "spam");
+        CommunityReport existing = existingMessageReport("CLIENT-RPT-RETRY", "MSG-RETRY", "spam");
+        when(dictDataDao.selectByDictType("community_report_reason"))
+                .thenReturn(List.of(reportReason("spam")));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityReportDao.selectList(any())).thenReturn(List.of(existing));
+
+        CommunityReportResultVO result = communityService.createReport(1L, req);
+
+        assertThat(result.getReportNo()).isEqualTo("RPT-EXISTING");
+        assertThat(result.getSnapshotStatus()).isEqualTo("complete");
+        verifyNoInteractions(chatReportContextResolver, chatReportEvidenceService);
+        verify(communityReportDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("提交私信举报-同一客户端编号更换目标返回幂等冲突")
+    void createMessageReport_shouldRejectChangedIdempotentRequest() {
+        CommunityReportCreateReq req = messageReportRequest("CLIENT-RPT-CONFLICT", "MSG-NEW", "spam");
+        CommunityReport existing = existingMessageReport("CLIENT-RPT-CONFLICT", "MSG-OLD", "spam");
+        when(dictDataDao.selectByDictType("community_report_reason"))
+                .thenReturn(List.of(reportReason("spam")));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityReportDao.selectList(any())).thenReturn(List.of(existing));
+
+        assertThatThrownBy(() -> communityService.createReport(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(30020);
+        verifyNoInteractions(chatReportContextResolver, chatReportEvidenceService);
+        verify(communityReportDao, never()).insert(any());
+    }
+
+    @Test
     @DisplayName("关注信息流-没有关注关系返回空页")
     void getPosts_followingWithoutRelations_shouldReturnEmptyPage() {
         when(communityFollowDao.selectList(any())).thenReturn(List.of());
@@ -572,6 +654,40 @@ class CommunityServiceImplTest {
         value.setStatus("ENABLED");
         value.setRemark(remark);
         return value;
+    }
+
+    private CommunityReportCreateReq messageReportRequest(String clientReportId, String targetBizNo,
+                                                           String reasonCode) {
+        CommunityReportCreateReq req = new CommunityReportCreateReq();
+        req.setTargetType("message");
+        req.setClientReportId(clientReportId);
+        req.setTargetBizNo(targetBizNo);
+        req.setReasonCode(reasonCode);
+        return req;
+    }
+
+    private CommunityReport existingMessageReport(String clientReportId, String targetBizNo,
+                                                    String reasonCode) {
+        CommunityReport report = new CommunityReport();
+        report.setId(9002L);
+        report.setReportNo("RPT-EXISTING");
+        report.setReporterId(1L);
+        report.setClientReportId(clientReportId);
+        report.setTargetType("message");
+        report.setTargetId(targetBizNo);
+        report.setTargetBizNo(targetBizNo);
+        report.setReasonCode(reasonCode);
+        report.setStatus("pending");
+        report.setSnapshotStatus("complete");
+        report.setCreateTime(LocalDateTime.of(2026, 8, 10, 9, 0));
+        return report;
+    }
+
+    private SysDictData reportReason(String reasonCode) {
+        SysDictData reason = new SysDictData();
+        reason.setDictType("community_report_reason");
+        reason.setDictValue(reasonCode);
+        return reason;
     }
 
     private AppConfig appConfig(String key, String value) {

@@ -12,6 +12,8 @@ public interface PromotionRewardLogDao {
     PromotionRewardLog selectByRewardNo(String rewardNo);
     PromotionRewardLog selectByIdempotencyKey(String idempotencyKey);
     Page<PromotionRewardLog> selectPage(Page<PromotionRewardLog> page, com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PromotionRewardLog> wrapper);
+    java.util.List<PromotionRewardLog> selectTerminalWithoutMessage(
+            java.time.LocalDateTime updatedAfter, int limit);
     void insert(PromotionRewardLog entity);
     int updateById(PromotionRewardLog entity);
 }

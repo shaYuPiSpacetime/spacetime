@@ -23,6 +23,10 @@ public interface UserAssetMapper extends BaseMapper<UserAsset> {
             + "WHERE user_id = #{userId} AND deleted = 0 AND today_free_whisper_remain > 0")
     int consumeFreeWhisper(@Param("userId") Long userId);
 
+    @Update("UPDATE app_user_asset SET today_free_whisper_remain=#{remain}, update_time=NOW() "
+            + "WHERE user_id=#{userId} AND deleted=0")
+    int updateFreeWhisperProjection(@Param("userId") Long userId, @Param("remain") Integer remain);
+
     /** 原子更新千寻币余额，余额不足时不更新 */
     @Update("UPDATE app_user_asset SET coin_balance = coin_balance + #{delta}, update_time = NOW() "
             + "WHERE user_id = #{userId} AND deleted = 0 "

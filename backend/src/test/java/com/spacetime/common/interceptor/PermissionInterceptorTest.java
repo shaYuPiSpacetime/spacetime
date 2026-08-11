@@ -43,6 +43,8 @@ class PermissionInterceptorTest {
         );
 
         assertThat(allowed).isTrue();
+        assertThat(UserContextHolder.get().getPermissions())
+                .containsExactly("user:app:list", "access:config:list");
     }
 
     @Test

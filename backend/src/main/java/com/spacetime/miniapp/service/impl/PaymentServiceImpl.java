@@ -24,6 +24,7 @@ import com.spacetime.common.enums.OrderStatusEnum;
 import com.spacetime.common.enums.OrderTypeEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AssetResultMessageNotificationService;
 import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.common.enums.PromotionRewardEventEnum;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
@@ -68,6 +69,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final WechatPayProperties wechatPayProperties;
     /** 推广事实事件收件箱 */
     private final PromotionEventInboxService promotionEventInboxService;
+    /** 资产结果系统消息适配器 */
+    private final AssetResultMessageNotificationService assetResultNotificationService;
 
     /**
      * 创建支付订单（VIP套餐或成家币套餐购买）
@@ -301,6 +304,7 @@ public class PaymentServiceImpl implements PaymentService {
         } else {
             throw new BusinessException("不支持的订单类型");
         }
+        assetResultNotificationService.publishOrderAfterCommit(order, now);
     }
 
     private void enqueuePromotionPaymentEvent(String eventKey, String eventType, TradeOrder order) {

@@ -11,6 +11,7 @@ import java.util.List;
  */
 public interface CommunityReportDao {
     CommunityReport selectById(Long id);
+    CommunityReport selectByReportNo(String reportNo);
     Page<CommunityReport> selectPage(Page<CommunityReport> page, LambdaQueryWrapper<CommunityReport> wrapper);
     List<CommunityReport> selectList(LambdaQueryWrapper<CommunityReport> wrapper);
     void insert(CommunityReport entity);

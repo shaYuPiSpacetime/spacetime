@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.entity.AppUser;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -17,6 +18,7 @@ public interface AppUserDao {
     Long count(LambdaQueryWrapper<AppUser> wrapper);
     Page<AppUser> selectPage(Page<AppUser> page, LambdaQueryWrapper<AppUser> wrapper);
     List<AppUser> selectList(LambdaQueryWrapper<AppUser> wrapper);
+    List<AppUser> selectRestrictedWithoutMessage(LocalDateTime updatedAfter, int limit);
     void insert(AppUser entity);
     void updateById(AppUser entity);
 }

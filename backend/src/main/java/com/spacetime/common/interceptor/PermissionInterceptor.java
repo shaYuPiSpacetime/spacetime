@@ -50,6 +50,7 @@ public class PermissionInterceptor implements HandlerInterceptor {
             response.getOutputStream().write("{\"code\":403,\"msg\":\"无权限\"}".getBytes(StandardCharsets.UTF_8));
             return false;
         }
+        ctx.setPermissions(List.copyOf(currentPermissions));
         return true;
     }
 }

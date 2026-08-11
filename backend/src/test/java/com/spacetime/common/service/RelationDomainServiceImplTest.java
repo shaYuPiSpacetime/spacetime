@@ -55,6 +55,7 @@ class RelationDomainServiceImplTest {
     @Mock private AppRelationMatchDao matchDao;
     @Mock private AppRelationMatchSourceDao matchSourceDao;
     @Mock private AppRelationMatchPopupDao matchPopupDao;
+    @Mock private MessageConversationLifecycleService conversationLifecycleService;
     @InjectMocks private RelationDomainServiceImpl service;
 
     @BeforeEach
@@ -165,6 +166,9 @@ class RelationDomainServiceImplTest {
         assertThat(result.getPrimarySource()).isEqualTo("double_like");
         verify(matchSourceDao).insert(any());
         verify(matchPopupDao, org.mockito.Mockito.times(2)).insert(any());
+        verify(conversationLifecycleService).ensureForMatch(
+                result, RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode(),
+                LocalDateTime.of(2026, 7, 21, 13, 0));
     }
 
     @Test
@@ -242,6 +246,9 @@ class RelationDomainServiceImplTest {
                 .contains("invalid_reason");
         verify(matchDao, never()).updateById(any());
         verify(matchPopupDao).cancelPendingByMatchId(100L, LocalDateTime.of(2026, 7, 21, 14, 0));
+        verify(conversationLifecycleService).invalidateForMatch(
+                match, RelationInvalidReasonEnum.LIKE_CANCELLED.getCode(),
+                LocalDateTime.of(2026, 7, 21, 14, 0));
     }
 
     @Test

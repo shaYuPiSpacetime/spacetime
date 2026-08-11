@@ -6,7 +6,9 @@ import com.spacetime.common.dao.PromotionRewardLogDao;
 import com.spacetime.common.entity.PromotionRewardLog;
 import com.spacetime.common.service.PromotionCoinGrantService;
 import com.spacetime.common.service.PromotionRewardFailureService;
+import com.spacetime.common.service.PromotionMessageNotificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -17,10 +19,12 @@ import java.time.LocalDateTime;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class PromotionRewardRetryJob {
     private final PromotionRewardLogDao rewardDao;
     private final PromotionCoinGrantService grantService;
     private final PromotionRewardFailureService failureService;
+    private final PromotionMessageNotificationService notificationService;
 
     @Scheduled(fixedDelayString = "${promotion.reward-retry.delay-ms:60000}")
     public void retryDueRewards() {
@@ -35,10 +39,22 @@ public class PromotionRewardRetryJob {
                         .orderByAsc(PromotionRewardLog::getCreateTime));
         for (PromotionRewardLog reward : page.getRecords()) {
             try {
-                grantService.grant(reward.getId());
+                PromotionRewardLog granted = grantService.grant(reward.getId());
+                publishNotificationQuietly(granted);
             } catch (Exception ex) {
-                failureService.markFailed(reward.getId(), ex.getMessage(), LocalDateTime.now());
+                PromotionRewardLog failed = failureService.markFailed(
+                        reward.getId(), ex.getMessage(), LocalDateTime.now());
+                publishNotificationQuietly(failed);
             }
+        }
+    }
+
+    private void publishNotificationQuietly(PromotionRewardLog reward) {
+        try {
+            notificationService.publishRewardResult(reward, LocalDateTime.now());
+        } catch (RuntimeException ex) {
+            log.warn("邀请奖励补偿结果消息入箱失败，等待事实对账: rewardNo={}",
+                    reward == null ? null : reward.getRewardNo());
         }
     }
 }

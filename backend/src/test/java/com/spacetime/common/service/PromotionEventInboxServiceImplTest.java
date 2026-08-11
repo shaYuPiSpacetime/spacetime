@@ -32,6 +32,7 @@ class PromotionEventInboxServiceImplTest {
         PromotionEventInboxServiceImpl service = new PromotionEventInboxServiceImpl(
                 inboxDao, mock(PromotionRuleDomainService.class), processor, failureService,
                 mock(PromotionCoinGrantService.class), mock(PromotionRewardFailureService.class),
+                mock(PromotionMessageNotificationService.class),
                 new ObjectMapper());
         when(inboxDao.claim(any(), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0);
 
@@ -49,6 +50,7 @@ class PromotionEventInboxServiceImplTest {
         PromotionEventInboxServiceImpl service = new PromotionEventInboxServiceImpl(
                 inboxDao, mock(PromotionRuleDomainService.class), processor, failureService,
                 mock(PromotionCoinGrantService.class), mock(PromotionRewardFailureService.class),
+                mock(PromotionMessageNotificationService.class),
                 new ObjectMapper());
         when(inboxDao.claim(any(), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(1);
         RuntimeException failure = new RuntimeException("database unavailable");
@@ -68,7 +70,8 @@ class PromotionEventInboxServiceImplTest {
         PromotionRewardFailureService rewardFailureService = mock(PromotionRewardFailureService.class);
         PromotionEventInboxServiceImpl service = new PromotionEventInboxServiceImpl(
                 inboxDao, mock(PromotionRuleDomainService.class), processor, inboxFailureService,
-                coinGrantService, rewardFailureService, new ObjectMapper());
+                coinGrantService, rewardFailureService,
+                mock(PromotionMessageNotificationService.class), new ObjectMapper());
         when(inboxDao.claim(any(), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(1);
         when(processor.processClaimed(1L)).thenReturn(List.of(99L));
         RuntimeException grantFailure = new RuntimeException("asset unavailable");

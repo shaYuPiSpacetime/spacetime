@@ -8,6 +8,7 @@ import com.spacetime.common.mapper.AppUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -56,6 +57,11 @@ public class AppUserDaoImpl implements AppUserDao {
     @Override
     public List<AppUser> selectList(LambdaQueryWrapper<AppUser> wrapper) {
         return mapper.selectList(wrapper);
+    }
+
+    @Override
+    public List<AppUser> selectRestrictedWithoutMessage(LocalDateTime updatedAfter, int limit) {
+        return mapper.selectRestrictedWithoutMessage(updatedAfter, limit);
     }
 
     @Override

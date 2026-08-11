@@ -7,6 +7,14 @@ public record ChatReportLookup(
         String sourceType,
         String conversationNo,
         String whisperNo,
-        String messageNo
+        String messageNo,
+        String targetBizNo,
+        String timConversationId,
+        String timMessageId,
+        String timMsgKey
 ) {
+    public ChatReportLookup(String sourceType, String conversationNo, String whisperNo,
+                            String messageNo) {
+        this(sourceType, conversationNo, whisperNo, messageNo, null, null, null, null);
+    }
 }

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.dao.PromotionEventInboxDao;
 import com.spacetime.common.entity.PromotionEventInbox;
+import com.spacetime.common.entity.PromotionRewardLog;
 import com.spacetime.common.enums.PromotionRewardEventEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.model.promotion.PromotionRegisterPayload;
@@ -13,6 +14,7 @@ import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.common.service.PromotionEventProcessor;
 import com.spacetime.common.service.PromotionCoinGrantService;
 import com.spacetime.common.service.PromotionRewardFailureService;
+import com.spacetime.common.service.PromotionMessageNotificationService;
 import com.spacetime.common.service.PromotionRuleDomainService;
 import com.spacetime.common.service.PromotionRuleSnapshot;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,7 @@ public class PromotionEventInboxServiceImpl implements PromotionEventInboxServic
     private final PromotionEventInboxFailureService failureService;
     private final PromotionCoinGrantService coinGrantService;
     private final PromotionRewardFailureService rewardFailureService;
+    private final PromotionMessageNotificationService notificationService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -79,15 +82,26 @@ public class PromotionEventInboxServiceImpl implements PromotionEventInboxServic
             List<Long> rewardIds = eventProcessor.processClaimed(inboxId);
             for (Long rewardId : rewardIds) {
                 try {
-                    coinGrantService.grant(rewardId);
+                    PromotionRewardLog reward = coinGrantService.grant(rewardId);
+                    publishNotificationQuietly(reward);
                 } catch (Exception grantError) {
-                    rewardFailureService.markFailed(
+                    PromotionRewardLog failed = rewardFailureService.markFailed(
                             rewardId, grantError.getMessage(), LocalDateTime.now());
+                    publishNotificationQuietly(failed);
                 }
             }
         } catch (Exception ex) {
             failureService.markFailed(inboxId, ex);
             log.warn("推广事件处理失败，inboxId={}", inboxId, ex);
+        }
+    }
+
+    private void publishNotificationQuietly(PromotionRewardLog reward) {
+        try {
+            notificationService.publishRewardResult(reward, LocalDateTime.now());
+        } catch (RuntimeException ex) {
+            log.warn("邀请奖励结果消息入箱失败，等待事实对账: rewardNo={}",
+                    reward == null ? null : reward.getRewardNo());
         }
     }
 

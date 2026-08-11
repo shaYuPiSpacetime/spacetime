@@ -8,6 +8,9 @@ import com.spacetime.common.mapper.TradeOrderMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 /**
  * 交易订单数据访问实现
  */
@@ -32,6 +35,12 @@ public class TradeOrderDaoImpl implements TradeOrderDao {
     @Override
     public Page<TradeOrder> selectPage(Page<TradeOrder> page, LambdaQueryWrapper<TradeOrder> wrapper) {
         return mapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public List<TradeOrder> selectMessageNotifiableWithoutInbox(
+            LocalDateTime updatedAfter, int limit) {
+        return mapper.selectMessageNotifiableWithoutInbox(updatedAfter, limit);
     }
 
     @Override

@@ -15,7 +15,10 @@ import com.spacetime.common.entity.AppUserCancelRequest;
 import com.spacetime.common.entity.RefundRecord;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.CancelRequestStatusEnum;
+import com.spacetime.common.enums.RelationInvalidReasonEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AccountStatusMessageNotificationService;
+import com.spacetime.common.service.RelationLifecycleService;
 import com.spacetime.miniapp.dto.request.MiniappAccountCancelReq;
 import com.spacetime.miniapp.dto.response.CoinBalanceVO;
 import com.spacetime.miniapp.dto.response.MiniappAccountCancelCheckVO;
@@ -35,6 +38,7 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +76,8 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
     private final VipService vipService;
     private final CoinService coinService;
     private final AccountCancellationRiskEvaluator riskEvaluator;
+    private final RelationLifecycleService relationLifecycleService;
+    private final AccountStatusMessageNotificationService accountStatusNotificationService;
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redisTemplate;
 
@@ -115,6 +121,7 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
                     : check.getHardBlocks().getFirst().getDescription());
         }
 
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         AppUser user = requireUser(userId);
         VipStatusVO vip = safeVipStatus(userId);
         CoinBalanceVO coin = safeCoinBalance(userId);
@@ -125,7 +132,7 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
         entity.setUserId(userId);
         entity.setStatus(CancelRequestStatusEnum.COOLING_OFF.getCode());
         entity.setReason(req.getReason().trim());
-        entity.setCoolingEndTime(LocalDateTime.now().plusDays(coolingDays()));
+        entity.setCoolingEndTime(now.plusDays(coolingDays()));
         entity.setHardBlockSnapshot(toJson(check.getHardBlocks()));
         entity.setRiskSnapshot(toJson(check.getRisks()));
         entity.setVipSnapshot(toJson(vip));
@@ -145,7 +152,12 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
         }
 
         user.setAccountStatus(AccountStatusEnum.CANCELLING.getCode());
+        user.setUpdateTime(now);
         appUserDao.updateById(user);
+        relationLifecycleService.invalidateByUser(
+                userId, RelationInvalidReasonEnum.ACCOUNT_DELETED, now);
+        accountStatusNotificationService.publishAfterCommit(
+                userId, AccountStatusEnum.CANCELLING.getCode(), now);
         redisTemplate.delete(RECHECK_KEY_PREFIX + userId);
         writeAudit(
                 auditLogDao,
@@ -206,12 +218,18 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
                     cancelRequestDao.updateById(request);
                     continue;
                 }
+                LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
                 AppUser user = requireUser(request.getUserId());
                 user.setAccountStatus(AccountStatusEnum.CANCELLED.getCode());
+                user.setUpdateTime(now);
                 appUserDao.updateById(user);
+                relationLifecycleService.invalidateByUser(
+                        request.getUserId(), RelationInvalidReasonEnum.ACCOUNT_DELETED, now);
+                accountStatusNotificationService.publishAfterCommit(
+                        request.getUserId(), AccountStatusEnum.CANCELLED.getCode(), now);
 
                 request.setStatus(CancelRequestStatusEnum.CANCELLED.getCode());
-                request.setFinalCancelTime(LocalDateTime.now());
+                request.setFinalCancelTime(now);
                 request.setBlockReason(null);
                 request.setNextRetryTime(null);
                 request.setExecutionLog(appendExecution(

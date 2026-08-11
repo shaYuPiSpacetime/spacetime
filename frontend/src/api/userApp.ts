@@ -293,6 +293,103 @@ export interface RelationPageParams {
   endTime?: string;
 }
 
+export interface AppUserMessageSummaryVO {
+  conversationCount: number;
+  activeConversationCount: number;
+  privateMessageCount: number;
+  privateUnreadCount: number;
+  whisperCount: number;
+  pendingWhisperCount: number;
+  whisperUnreadCount: number;
+  systemMessageCount: number;
+  unreadSystemMessageCount: number;
+  assistantUnreadCount: number;
+  platformMessageCount: number;
+  platformUnreadCount: number;
+  messageUnreadCount: number;
+  reportCount: number;
+}
+
+export interface AppUserPrivateMessageVO {
+  messageNo: string;
+  direction: 'sent' | 'received';
+  peerUserId?: number;
+  peerNickname?: string;
+  peerMask: string;
+  messageType: string;
+  conversationNo?: string;
+  sendStatus: string;
+  receiverReadStatus: string;
+  receiverReadAt?: string;
+  failureCode?: string;
+  failureReason?: string;
+  businessTime?: string;
+  contentAvailable: boolean;
+}
+
+export interface AppUserWhisperVO {
+  whisperNo: string;
+  direction: 'sent' | 'received';
+  peerUserId?: number;
+  peerNickname?: string;
+  peerMask: string;
+  status: string;
+  payType?: string;
+  paymentStatus?: string;
+  coinAmount?: number;
+  deliveryStatus: string;
+  expiresAt?: string;
+  repliedAt?: string;
+  invalidReason?: string;
+  invalidTime?: string;
+  matchNo?: string;
+  conversationNo?: string;
+  requestMessageNo?: string;
+  replyMessageNo?: string;
+  failureReason?: string;
+  contentAvailable: boolean;
+  createTime?: string;
+}
+
+export interface AppUserPlatformMessageVO {
+  recordNo: string;
+  channel: 'system' | 'assistant';
+  category?: string;
+  bizType?: string;
+  bizNo?: string;
+  readStatus: string;
+  actionType?: string;
+  visibleUntil?: string;
+  businessTime?: string;
+}
+
+export interface AppUserMessageReportVO {
+  reportNo: string;
+  direction: 'submitted' | 'reported';
+  targetType?: string;
+  targetBizNo?: string;
+  sourceScene?: string;
+  reasonCode?: string;
+  status: string;
+  snapshotStatus?: string;
+  createTime?: string;
+}
+
+export interface SensitiveMessageContentItemVO {
+  role: string;
+  messageNo: string;
+  messageType: string;
+  content: string;
+  eventTime?: string;
+}
+
+export interface SensitiveMessageContentVO {
+  accessNo: string;
+  targetType: string;
+  targetNo: string;
+  items: SensitiveMessageContentItemVO[];
+}
+
 export function getAppUserList(params: {
   page: number;
   size: number;
@@ -374,4 +471,40 @@ export function getAppUserRelationMatches(userId: number, params: RelationPagePa
 
 export function getAppUserRelationUnlocks(userId: number, params: RelationPageParams) {
   return request.get(`/admin/users/app/${userId}/relations/unlocks`, { params });
+}
+
+export function getAppUserMessageSummary(userId: number) {
+  return request.get(`/admin/users/app/${userId}/messages/summary`);
+}
+
+export function getAppUserPrivateMessages(userId: number, page: number) {
+  return request.get(`/admin/users/app/${userId}/messages/private-messages`, { params: { page, size: 5 } });
+}
+
+export function getAppUserWhispers(userId: number, page: number) {
+  return request.get(`/admin/users/app/${userId}/messages/whispers`, { params: { page, size: 5 } });
+}
+
+export function getAppUserPlatformMessages(userId: number, page: number) {
+  return request.get(`/admin/users/app/${userId}/messages/platform-messages`, { params: { page, size: 5 } });
+}
+
+export function getAppUserMessageReports(userId: number, page: number) {
+  return request.get(`/admin/users/app/${userId}/messages/reports`, { params: { page, size: 5 } });
+}
+
+export function viewAppUserPrivateMessageContent(
+  userId: number,
+  messageNo: string,
+  payload: { viewReason: string; requestId: string },
+) {
+  return request.post(`/admin/users/app/${userId}/messages/private-messages/${messageNo}/content-view`, payload);
+}
+
+export function viewAppUserWhisperContent(
+  userId: number,
+  whisperNo: string,
+  payload: { viewReason: string; requestId: string },
+) {
+  return request.post(`/admin/users/app/${userId}/messages/whispers/${whisperNo}/content-view`, payload);
 }

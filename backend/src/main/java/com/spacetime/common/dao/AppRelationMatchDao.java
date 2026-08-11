@@ -17,4 +17,6 @@ public interface AppRelationMatchDao extends RelationCrudDao<AppRelationMatch> {
     AppRelationMatch selectActivePair(Long userLowId, Long userHighId);
     /** 按匹配主键批量失效有效生命周期。 */
     int invalidateByIds(List<Long> matchIds, String reason, LocalDateTime invalidTime);
+    /** 查询近期存在有效匹配但尚未生成私信会话的事实。 */
+    List<AppRelationMatch> selectActiveMissingConversations(LocalDateTime updatedAfter, int limit);
 }

@@ -183,7 +183,9 @@ class AppUserHardDeleteSchemaSqlTest {
         for (int i = 0; i < 5 && current != null; i++, current = current.getParent()) {
             Path candidate = current.resolve(relativePath);
             if (Files.exists(candidate)) {
-                return Files.readString(candidate, StandardCharsets.UTF_8);
+                return Files.readString(candidate, StandardCharsets.UTF_8)
+                        .replace("\r\n", "\n")
+                        .replace('\r', '\n');
             }
         }
         throw new IOException("项目文件不存在: " + relativePath);

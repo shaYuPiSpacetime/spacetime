@@ -13,14 +13,15 @@ public class WhisperCreateReq {
     @Pattern(regexp = "^USR-\\d{12}$", message = "目标用户编号格式不正确")
     private String targetUserNo;
 
-    /** 来源动态业务编号。 */
-    @NotBlank(message = "来源动态编号不能为空")
-    @Size(max = 64, message = "来源动态编号不能超过64个字符")
+    /** 预检返回的短期可信报价令牌。 */
+    @NotBlank(message = "报价令牌不能为空")
+    @Size(max = 128, message = "报价令牌不能超过128个字符")
+    private String quoteToken;
+
+    /** 兼容旧客户端的来源业务编号；不参与支付报价。 */
     private String sourcePostNo;
 
-    /** 当前仅支持动态详情入口。 */
-    @NotBlank(message = "悄悄话场景不能为空")
-    @Pattern(regexp = "^community_post$", message = "悄悄话场景不支持")
+    /** 兼容旧客户端的入口场景。 */
     private String scene;
 
     /** 悄悄话正文，长度为 1 至 60 字。 */

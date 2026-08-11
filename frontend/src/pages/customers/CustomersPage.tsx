@@ -5,7 +5,6 @@ import {
   Download,
   Eye,
   Heart,
-  LinkIcon,
   RotateCcw,
   Search,
   ShieldCheck,
@@ -31,6 +30,13 @@ import {
   getAppUserRelationSummary,
   getAppUserRelationUnlocks,
   getAppUserRelationVisits,
+  getAppUserMessageSummary,
+  getAppUserPrivateMessages,
+  getAppUserWhispers,
+  getAppUserPlatformMessages,
+  getAppUserMessageReports,
+  viewAppUserPrivateMessageContent,
+  viewAppUserWhisperContent,
   importAppUsers,
   deleteAppUser,
   updateAppUserStatus,
@@ -48,6 +54,12 @@ import {
   type AppUserRelationVisitVO,
   type RelationCounterpartyVO,
   type RelationPageParams,
+  type AppUserMessageSummaryVO,
+  type AppUserPrivateMessageVO,
+  type AppUserWhisperVO,
+  type AppUserPlatformMessageVO,
+  type AppUserMessageReportVO,
+  type SensitiveMessageContentVO,
 } from '@/api/userApp';
 import { showToast } from '@/components/ui/toast';
 import { getCommercialUserAssetDetail, type UserCommercialAssetDetail } from '@/api/commercial';
@@ -960,6 +972,12 @@ export default function CustomersPage() {
   const canViewRelations = hasPermission('user:app:relation:view');
   const canViewCommercial = hasPermission('commercial:user:view');
   const canDeleteUser = hasPermission('user:app:delete');
+  const canViewMessageSummary = hasPermission('message:summary:view');
+  const canViewPrivateMessages = hasPermission('message:conversation:list');
+  const canViewWhispers = hasPermission('message:whisper:list');
+  const canViewPlatformMessages = hasPermission('message:system:list');
+  const canViewMessageReports = hasPermission('community:report:list');
+  const canViewSensitiveMessages = hasPermission('message:sensitive-content:view');
   const [keyword, setKeyword] = useState('');
   const [coreAccessStatus, setCoreAccessStatus] = useState('');
   const [verificationStatus, setVerificationStatus] = useState('');
@@ -1372,6 +1390,12 @@ export default function CustomersPage() {
         user={moduleSupplementUser}
         canViewRelations={canViewRelations}
         canViewCommercial={canViewCommercial}
+        canViewMessageSummary={canViewMessageSummary}
+        canViewPrivateMessages={canViewPrivateMessages}
+        canViewWhispers={canViewWhispers}
+        canViewPlatformMessages={canViewPlatformMessages}
+        canViewMessageReports={canViewMessageReports}
+        canViewSensitiveMessages={canViewSensitiveMessages}
         childDialogOpen={Boolean(drawerUser)}
         onViewUser={openRelationProfile}
         onClose={() => setModuleSupplementUser(null)}
@@ -1694,10 +1718,49 @@ const RELATION_REASON_LABELS: Record<string, string> = {
   risk_banned: '风控封禁', certification_revoked: '认证失效',
 };
 
+type MessageListKey = 'private' | 'whisper' | 'platform' | 'report';
+type SensitiveMessageTarget = { type: 'private_message' | 'whisper'; no: string };
+interface MessagePanelItem {
+  key: string;
+  title: string;
+  subtitle: string;
+  status: string;
+  detail: string;
+  action?: ReactNode;
+}
+
+const MESSAGE_PAGE_SIZE = 5;
+const MESSAGE_SEND_LABELS: Record<string, string> = {
+  queued: '待投递', sent: '已发送', failed: '发送失败',
+};
+const MESSAGE_READ_LABELS: Record<string, string> = {
+  not_applicable: '未送达/不适用', unread: '未读', read: '已读',
+};
+const WHISPER_STATUS_LABELS: Record<string, string> = {
+  pending: '等待回复', replied: '已回复并匹配', expired: '已过期', invalid: '已失效',
+};
+const DELIVERY_STATUS_LABELS: Record<string, string> = {
+  queued: '待投递', sent: '已送达', failed: '投递失败',
+};
+const REPORT_STATUS_LABELS: Record<string, string> = {
+  pending: '待处理', processing: '处理中', resolved: '已处理', rejected: '已驳回', closed: '已关闭',
+  valid: '举报成立', invalid: '举报不成立', merged: '已合并',
+};
+
+function emptyMessagePage<T>(page = 1): PageResult<T> {
+  return { records: [], total: 0, size: MESSAGE_PAGE_SIZE, current: page };
+}
+
 function ModuleSupplementDialog({
   user,
   canViewRelations,
   canViewCommercial,
+  canViewMessageSummary,
+  canViewPrivateMessages,
+  canViewWhispers,
+  canViewPlatformMessages,
+  canViewMessageReports,
+  canViewSensitiveMessages,
   childDialogOpen,
   onViewUser,
   onClose,
@@ -1705,6 +1768,12 @@ function ModuleSupplementDialog({
   user: AdminUserCardItem | null;
   canViewRelations: boolean;
   canViewCommercial: boolean;
+  canViewMessageSummary: boolean;
+  canViewPrivateMessages: boolean;
+  canViewWhispers: boolean;
+  canViewPlatformMessages: boolean;
+  canViewMessageReports: boolean;
+  canViewSensitiveMessages: boolean;
   childDialogOpen: boolean;
   onViewUser: (counterparty: RelationCounterpartyVO) => void;
   onClose: () => void;
@@ -1726,6 +1795,34 @@ function ModuleSupplementDialog({
   const [relationError, setRelationError] = useState('');
   const relationRequestSequence = useRef(0);
   const relationCache = useRef(new Map<string, PageResult<RelationRecord>>());
+  const [messageSummary, setMessageSummary] = useState<AppUserMessageSummaryVO | null>(null);
+  const [messageSummaryLoading, setMessageSummaryLoading] = useState(false);
+  const [messageSummaryError, setMessageSummaryError] = useState('');
+  const [privatePage, setPrivatePage] = useState(1);
+  const [whisperPage, setWhisperPage] = useState(1);
+  const [platformPage, setPlatformPage] = useState(1);
+  const [reportPage, setReportPage] = useState(1);
+  const [privateData, setPrivateData] = useState<PageResult<AppUserPrivateMessageVO>>(emptyMessagePage());
+  const [whisperData, setWhisperData] = useState<PageResult<AppUserWhisperVO>>(emptyMessagePage());
+  const [platformData, setPlatformData] = useState<PageResult<AppUserPlatformMessageVO>>(emptyMessagePage());
+  const [reportData, setReportData] = useState<PageResult<AppUserMessageReportVO>>(emptyMessagePage());
+  const [messageLoading, setMessageLoading] = useState<Record<MessageListKey, boolean>>({
+    private: false, whisper: false, platform: false, report: false,
+  });
+  const [messageErrors, setMessageErrors] = useState<Record<MessageListKey, string>>({
+    private: '', whisper: '', platform: '', report: '',
+  });
+  const currentMessageUserId = useRef<number | null>(user?.id ?? null);
+  const messageSummaryRequestSequence = useRef(0);
+  const messageListRequestSequence = useRef<Record<MessageListKey, number>>({
+    private: 0, whisper: 0, platform: 0, report: 0,
+  });
+  currentMessageUserId.current = user?.id ?? null;
+  const [sensitiveTarget, setSensitiveTarget] = useState<SensitiveMessageTarget | null>(null);
+  const [sensitiveReason, setSensitiveReason] = useState('');
+  const [sensitiveLoading, setSensitiveLoading] = useState(false);
+  const [sensitiveError, setSensitiveError] = useState('');
+  const [sensitiveContent, setSensitiveContent] = useState<SensitiveMessageContentVO | null>(null);
 
   const loadSummary = useCallback(async (userId: number) => {
     setSummaryLoading(true);
@@ -1778,6 +1875,99 @@ function ModuleSupplementDialog({
     }
   }, []);
 
+  const loadMessageSummary = useCallback(async (userId: number) => {
+    const sequence = ++messageSummaryRequestSequence.current;
+    setMessageSummaryLoading(true);
+    setMessageSummaryError('');
+    try {
+      const res = await getAppUserMessageSummary(userId);
+      if (sequence !== messageSummaryRequestSequence.current || currentMessageUserId.current !== userId) return;
+      setMessageSummary(responseData<AppUserMessageSummaryVO>(res, null as any));
+    } catch {
+      if (sequence !== messageSummaryRequestSequence.current || currentMessageUserId.current !== userId) return;
+      setMessageSummary(null);
+      setMessageSummaryError('消息摘要加载失败');
+    } finally {
+      if (sequence === messageSummaryRequestSequence.current && currentMessageUserId.current === userId) {
+        setMessageSummaryLoading(false);
+      }
+    }
+  }, []);
+
+  const loadMessageList = useCallback(async (userId: number, key: MessageListKey, page: number) => {
+    const sequence = ++messageListRequestSequence.current[key];
+    const isCurrentRequest = () => sequence === messageListRequestSequence.current[key]
+      && currentMessageUserId.current === userId;
+    setMessageLoading((current) => ({ ...current, [key]: true }));
+    setMessageErrors((current) => ({ ...current, [key]: '' }));
+    try {
+      if (key === 'private') {
+        const res = await getAppUserPrivateMessages(userId, page);
+        if (!isCurrentRequest()) return;
+        setPrivateData(responseData<PageResult<AppUserPrivateMessageVO>>(res, emptyMessagePage(page)));
+      } else if (key === 'whisper') {
+        const res = await getAppUserWhispers(userId, page);
+        if (!isCurrentRequest()) return;
+        setWhisperData(responseData<PageResult<AppUserWhisperVO>>(res, emptyMessagePage(page)));
+      } else if (key === 'platform') {
+        const res = await getAppUserPlatformMessages(userId, page);
+        if (!isCurrentRequest()) return;
+        setPlatformData(responseData<PageResult<AppUserPlatformMessageVO>>(res, emptyMessagePage(page)));
+      } else {
+        const res = await getAppUserMessageReports(userId, page);
+        if (!isCurrentRequest()) return;
+        setReportData(responseData<PageResult<AppUserMessageReportVO>>(res, emptyMessagePage(page)));
+      }
+    } catch {
+      if (!isCurrentRequest()) return;
+      if (key === 'private') setPrivateData(emptyMessagePage(page));
+      if (key === 'whisper') setWhisperData(emptyMessagePage(page));
+      if (key === 'platform') setPlatformData(emptyMessagePage(page));
+      if (key === 'report') setReportData(emptyMessagePage(page));
+      setMessageErrors((current) => ({ ...current, [key]: '数据加载失败' }));
+    } finally {
+      if (isCurrentRequest()) {
+        setMessageLoading((current) => ({ ...current, [key]: false }));
+      }
+    }
+  }, []);
+
+  const openSensitiveContent = (target: SensitiveMessageTarget) => {
+    setSensitiveTarget(target);
+    setSensitiveReason('');
+    setSensitiveError('');
+    setSensitiveContent(null);
+  };
+
+  const confirmSensitiveContent = async () => {
+    if (!user || !sensitiveTarget) return;
+    if (sensitiveReason.trim().length < 5) {
+      setSensitiveError('查看原因至少填写 5 个字符');
+      return;
+    }
+    setSensitiveLoading(true);
+    setSensitiveError('');
+    try {
+      const payload = {
+        viewReason: sensitiveReason.trim(),
+        requestId: `ADMIN-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      };
+      const res = sensitiveTarget.type === 'private_message'
+        ? await viewAppUserPrivateMessageContent(user.id, sensitiveTarget.no, payload)
+        : await viewAppUserWhisperContent(user.id, sensitiveTarget.no, payload);
+      setSensitiveContent(responseData<SensitiveMessageContentVO>(res, null as any));
+    } catch (error: any) {
+      setSensitiveError(
+        error?.response?.data?.msg
+        || error?.response?.data?.message
+        || error?.message
+        || '高敏正文查看失败',
+      );
+    } finally {
+      setSensitiveLoading(false);
+    }
+  };
+
   const queryParams = useMemo<RelationPageParams>(() => ({
     page: relationPage,
     size: RELATION_PAGE_SIZE,
@@ -1790,6 +1980,10 @@ function ModuleSupplementDialog({
   }), [direction, endTime, relationPage, relationSource, relationStatus, relationTab, startTime, unlockNo]);
 
   useEffect(() => {
+    messageSummaryRequestSequence.current += 1;
+    (Object.keys(messageListRequestSequence.current) as MessageListKey[]).forEach((key) => {
+      messageListRequestSequence.current[key] += 1;
+    });
     relationCache.current.clear();
     setSummary(null);
     setRelationData({ records: [], total: 0, size: RELATION_PAGE_SIZE, current: 1 });
@@ -1801,6 +1995,21 @@ function ModuleSupplementDialog({
     setUnlockNo('');
     setStartTime('');
     setEndTime('');
+    setMessageSummary(null);
+    setMessageSummaryLoading(false);
+    setMessageSummaryError('');
+    setPrivatePage(1);
+    setWhisperPage(1);
+    setPlatformPage(1);
+    setReportPage(1);
+    setPrivateData(emptyMessagePage());
+    setWhisperData(emptyMessagePage());
+    setPlatformData(emptyMessagePage());
+    setReportData(emptyMessagePage());
+    setMessageErrors({ private: '', whisper: '', platform: '', report: '' });
+    setMessageLoading({ private: false, whisper: false, platform: false, report: false });
+    setSensitiveTarget(null);
+    setSensitiveContent(null);
     setActiveTab(canViewRelations ? 'relation' : 'message');
   }, [canViewRelations, user?.id]);
 
@@ -1813,6 +2022,36 @@ function ModuleSupplementDialog({
       void loadRelationPage(user.id, relationTab, queryParams);
     }
   }, [activeTab, canViewRelations, loadRelationPage, queryParams, relationTab, user?.id]);
+
+  useEffect(() => {
+    if (user && canViewMessageSummary && activeTab === 'message') {
+      void loadMessageSummary(user.id);
+    }
+  }, [activeTab, canViewMessageSummary, loadMessageSummary, user?.id]);
+
+  useEffect(() => {
+    if (user && canViewPrivateMessages && activeTab === 'message') {
+      void loadMessageList(user.id, 'private', privatePage);
+    }
+  }, [activeTab, canViewPrivateMessages, loadMessageList, privatePage, user?.id]);
+
+  useEffect(() => {
+    if (user && canViewWhispers && activeTab === 'message') {
+      void loadMessageList(user.id, 'whisper', whisperPage);
+    }
+  }, [activeTab, canViewWhispers, loadMessageList, user?.id, whisperPage]);
+
+  useEffect(() => {
+    if (user && canViewPlatformMessages && activeTab === 'message') {
+      void loadMessageList(user.id, 'platform', platformPage);
+    }
+  }, [activeTab, canViewPlatformMessages, loadMessageList, platformPage, user?.id]);
+
+  useEffect(() => {
+    if (user && canViewMessageReports && activeTab === 'message') {
+      void loadMessageList(user.id, 'report', reportPage);
+    }
+  }, [activeTab, canViewMessageReports, loadMessageList, reportPage, user?.id]);
 
   const changeRelationTab = (tab: RelationTabKey, targetUnlockNo = '') => {
     setRelationTab(tab);
@@ -1834,12 +2073,70 @@ function ModuleSupplementDialog({
   ));
   const tableHeaders = relationTableHeaders(relationTab, canViewCommercial);
   const filterOptions = relationFilterOptions(relationTab);
+  const peerLabel = (record: { peerUserId?: number; peerNickname?: string; peerMask?: string }) => {
+    const nickname = record.peerNickname?.trim();
+    if (nickname && record.peerUserId) return `${nickname}（U${record.peerUserId}）`;
+    if (nickname) return nickname;
+    if (record.peerUserId) return `U${record.peerUserId}`;
+    return record.peerMask || '-';
+  };
+  const sensitiveAction = (contentAvailable: boolean, onClick: () => void) => {
+    const disabled = !canViewSensitiveMessages || !contentAvailable;
+    const hint = !contentAvailable
+      ? '正文不可用'
+      : canViewSensitiveMessages ? '查看高敏正文' : '无查看权限';
+    return (
+      <span className="inline-flex" title={hint}>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          aria-label={hint}
+          disabled={disabled}
+          onClick={onClick}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      </span>
+    );
+  };
+  const privateItems: MessagePanelItem[] = privateData.records.map((record) => ({
+    key: record.messageNo,
+    title: record.messageNo,
+    subtitle: `${record.direction === 'sent' ? '当前用户发出' : '当前用户收到'} · ${peerLabel(record)} · ${record.messageType || 'text'}`,
+    status: `${MESSAGE_SEND_LABELS[record.sendStatus] || record.sendStatus} · ${MESSAGE_READ_LABELS[record.receiverReadStatus] || record.receiverReadStatus}`,
+    detail: record.failureReason || `${record.conversationNo || '-'} · ${record.businessTime || '-'}`,
+    action: sensitiveAction(record.contentAvailable, () => openSensitiveContent({ type: 'private_message', no: record.messageNo })),
+  }));
+  const whisperItems: MessagePanelItem[] = whisperData.records.map((record) => ({
+    key: record.whisperNo,
+    title: record.whisperNo,
+    subtitle: `${record.direction === 'sent' ? '我申请的' : '申请我的'} · ${peerLabel(record)} · ${DELIVERY_STATUS_LABELS[record.deliveryStatus] || record.deliveryStatus}`,
+    status: WHISPER_STATUS_LABELS[record.status] || record.status,
+    detail: record.failureReason || record.invalidReason || record.createTime || '-',
+    action: sensitiveAction(record.contentAvailable, () => openSensitiveContent({ type: 'whisper', no: record.whisperNo })),
+  }));
+  const platformItems: MessagePanelItem[] = platformData.records.map((record) => ({
+    key: record.recordNo,
+    title: record.recordNo,
+    subtitle: `${record.channel === 'assistant' ? '官方助手' : '系统消息'} · ${record.category || '-'}`,
+    status: MESSAGE_READ_LABELS[record.readStatus] || record.readStatus,
+    detail: `${record.bizType || '-'}${record.bizNo ? ` / ${record.bizNo}` : ''} · ${record.businessTime || '-'}`,
+  }));
+  const reportItems: MessagePanelItem[] = reportData.records.map((record) => ({
+    key: record.reportNo,
+    title: record.reportNo,
+    subtitle: `${record.direction === 'submitted' ? '当前用户举报' : '当前用户被举报'} · ${record.targetType || '-'} · ${record.targetBizNo || '-'}`,
+    status: REPORT_STATUS_LABELS[record.status] || record.status,
+    detail: `${record.reasonCode || '-'} · ${record.createTime || '-'}`,
+  }));
 
   return (
     <Dialog
       open={Boolean(user)}
       onClose={onClose}
-      closeOnEscape={!childDialogOpen}
+      closeOnEscape={!childDialogOpen && !sensitiveTarget}
       className="max-h-[calc(100vh-32px)] max-w-[1080px] overflow-y-auto"
     >
       {user && (
@@ -1941,24 +2238,116 @@ function ModuleSupplementDialog({
           )}
           {activeTab === 'message' && (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-4">
-                <MetricTile label="消息未读数" value={`${user.id % 6}`} />
-                <MetricTile label="待回复悄悄话" value={`${user.id % 3}`} />
-                <MetricTile label="最近通知" value="资料审核结果通知" />
-                <MetricTile label="聊天举报数" value={`${user.id % 2}`} />
-                <MetricTile label="普通私信状态" value={user.accessStatus === 'full_access' ? '可发起私信' : '普通私信未开启'} wide />
-                <MetricTile label="高敏查看审计" value="高敏内容查看需二次确认并记录审计" wide />
-              </div>
-              <div className="rounded-md border border-[#E6EDF7] p-4">
-              <h3 className="font-semibold text-[#1F2433]">消息互动</h3>
-              <div className="mt-3 grid gap-3 text-sm">
-                <InfoLine icon={<LinkIcon className="h-4 w-4" />} label="普通私信状态" value={user.accessStatus === 'full_access' ? '可发起私信' : '普通私信未开启'} />
-                <InfoLine icon={<Heart className="h-4 w-4" />} label="最近私信" value="最近暂无未读私信" />
-                <InfoLine icon={<ShieldCheck className="h-4 w-4" />} label="高敏查看审计" value="高敏内容查看需二次确认并记录审计" />
-              </div>
+              {messageSummaryError ? (
+                <div className="flex items-center justify-between rounded-md border border-[#F3C5C5] bg-[#FFF7F7] p-4 text-sm text-[#B42318]">
+                  <span>{messageSummaryError}</span>
+                  {canViewMessageSummary && <Button variant="outline" size="sm" onClick={() => loadMessageSummary(user.id)}>重试</Button>}
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-4">
+                  <MetricTile label="消息未读数" value={messageSummaryLoading ? '加载中...' : `${messageSummary?.messageUnreadCount ?? 0}`} />
+                  <MetricTile label="待回复悄悄话" value={messageSummaryLoading ? '加载中...' : `${messageSummary?.pendingWhisperCount ?? 0}`} />
+                  <MetricTile label="系统/助手未读" value={messageSummaryLoading ? '加载中...' : `${(messageSummary?.unreadSystemMessageCount ?? 0) + (messageSummary?.assistantUnreadCount ?? 0)}`} />
+                  <MetricTile label="聊天举报数" value={messageSummaryLoading ? '加载中...' : `${messageSummary?.reportCount ?? 0}`} />
+                  <MetricTile label="普通私信状态" value={(messageSummary?.activeConversationCount ?? 0) > 0 ? '普通私信已开启' : '暂无有效私信会话'} wide />
+                </div>
+              )}
+              <div className="grid items-start gap-4 xl:grid-cols-2">
+                <MessageListPanel
+                  title="私信消息"
+                  total={privateData.total}
+                  page={privatePage}
+                  items={privateItems}
+                  loading={messageLoading.private}
+                  error={canViewPrivateMessages ? messageErrors.private : '无权限查看'}
+                  onPageChange={setPrivatePage}
+                  onRetry={() => loadMessageList(user.id, 'private', privatePage)}
+                />
+                <MessageListPanel
+                  title="悄悄话"
+                  total={whisperData.total}
+                  page={whisperPage}
+                  items={whisperItems}
+                  loading={messageLoading.whisper}
+                  error={canViewWhispers ? messageErrors.whisper : '无权限查看'}
+                  onPageChange={setWhisperPage}
+                  onRetry={() => loadMessageList(user.id, 'whisper', whisperPage)}
+                />
+                <MessageListPanel
+                  title="系统/助手消息"
+                  total={platformData.total}
+                  page={platformPage}
+                  items={platformItems}
+                  loading={messageLoading.platform}
+                  error={canViewPlatformMessages ? messageErrors.platform : '无权限查看'}
+                  onPageChange={setPlatformPage}
+                  onRetry={() => loadMessageList(user.id, 'platform', platformPage)}
+                />
+                <MessageListPanel
+                  title="举报"
+                  total={reportData.total}
+                  page={reportPage}
+                  items={reportItems}
+                  loading={messageLoading.report}
+                  error={canViewMessageReports ? messageErrors.report : '无权限查看'}
+                  onPageChange={setReportPage}
+                  onRetry={() => loadMessageList(user.id, 'report', reportPage)}
+                />
               </div>
             </div>
           )}
+          <Dialog
+            open={Boolean(sensitiveTarget)}
+            onClose={() => { setSensitiveTarget(null); setSensitiveContent(null); }}
+            closeOnEscape={!sensitiveLoading}
+            layer="nested"
+            lockBodyScroll={false}
+            ariaLabel="查看高敏消息正文"
+            className="max-w-[620px]"
+          >
+            <DialogHeader>
+              <DialogTitle>查看高敏消息正文</DialogTitle>
+            </DialogHeader>
+            {!sensitiveContent ? (
+              <div className="space-y-4">
+                <div className="rounded-md border border-[#F3D39A] bg-[#FFF9ED] p-3 text-sm text-[#8A5B00]">
+                  查看对象：{sensitiveTarget?.no || '-'}。本次操作将记录管理员、原因、时间和访问结果。
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-[#1F2433]">查看原因</label>
+                  <Input
+                    value={sensitiveReason}
+                    onChange={(event) => setSensitiveReason(event.target.value)}
+                    placeholder="请填写客诉核查、风控复核等具体原因"
+                    maxLength={100}
+                  />
+                </div>
+                {sensitiveError && <div className="text-sm text-[#B42318]">{sensitiveError}</div>}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setSensitiveTarget(null)} disabled={sensitiveLoading}>取消</Button>
+                  <Button onClick={confirmSensitiveContent} disabled={sensitiveLoading}>
+                    {sensitiveLoading ? '查询中...' : '确认并查看'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-xs text-muted-foreground">审计编号：{sensitiveContent.accessNo}</div>
+                {sensitiveContent.items.map((item) => (
+                  <div key={`${item.role}-${item.messageNo}`} className="rounded-md border border-[#E6EDF7] p-4">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>{item.role === 'request' ? '原悄悄话' : item.role === 'reply' ? '回复内容' : '私信正文'} · {item.messageNo}</span>
+                      <span>{item.eventTime || '-'}</span>
+                    </div>
+                    <div className="whitespace-pre-wrap break-words text-sm text-[#1F2433]">{item.content}</div>
+                  </div>
+                ))}
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => { setSensitiveTarget(null); setSensitiveContent(null); }}>关闭</Button>
+                </div>
+              </div>
+            )}
+          </Dialog>
         </div>
       )}
     </Dialog>
@@ -2512,6 +2901,69 @@ function MetricTile({ label, value, wide = false }: { label: string; value: stri
       <span className="text-xs text-muted-foreground">{label}</span>
       <strong className="mt-2 block text-[#1F2433]">{value}</strong>
     </div>
+  );
+}
+
+function MessageListPanel({
+  title,
+  total,
+  page,
+  items,
+  loading,
+  error,
+  onPageChange,
+  onRetry,
+}: {
+  title: string;
+  total: number;
+  page: number;
+  items: MessagePanelItem[];
+  loading: boolean;
+  error: string;
+  onPageChange: (page: number) => void;
+  onRetry: () => void;
+}) {
+  return (
+    <section className="overflow-hidden rounded-md border border-[#DCE6F3] bg-white" data-testid={`message-panel-${title}`}>
+      <div className="flex items-center justify-between border-b border-[#E6EDF7] px-4 py-3">
+        <h3 className="text-sm font-semibold text-[#1F2433]">{title}</h3>
+        <span className="text-xs text-muted-foreground">共 {total} 条</span>
+      </div>
+      <div className="min-h-[330px] divide-y divide-[#EEF2F7] px-4">
+        {loading ? (
+          <div className="flex h-[330px] items-center justify-center text-sm text-muted-foreground">加载中...</div>
+        ) : error ? (
+          <div className="flex h-[330px] items-center justify-center gap-3 text-sm text-[#B42318]">
+            <span>{error}</span>
+            {error !== '无权限查看' && <Button variant="outline" size="sm" onClick={onRetry}>重试</Button>}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="flex h-[330px] items-center justify-center text-sm text-muted-foreground">暂无数据</div>
+        ) : items.map((item) => (
+          <div key={item.key} className="grid min-h-[66px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2.5">
+            <div className="min-w-0 text-xs">
+              <div className="truncate font-medium text-[#0C3A78]" title={item.title}>{item.title}</div>
+              <div className="mt-1 truncate text-[#526173]" title={item.subtitle}>{item.subtitle}</div>
+              <div className="mt-1 flex min-w-0 gap-2 text-muted-foreground">
+                <span className="shrink-0 text-[#2876FF]">{item.status}</span>
+                <span className="truncate" title={item.detail}>{item.detail}</span>
+              </div>
+            </div>
+            {item.action && <div className="shrink-0">{item.action}</div>}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between border-t border-[#E6EDF7] px-4 py-3">
+        <span className="text-xs text-muted-foreground">{MESSAGE_PAGE_SIZE}条/页</span>
+        <Pagination
+          current={page}
+          total={total}
+          pageSize={MESSAGE_PAGE_SIZE}
+          onChange={onPageChange}
+          showPageSizeSelector={false}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -3087,18 +3539,6 @@ function DemoTable({ headers, rows }: { headers: string[]; rows: DemoTableRow[] 
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-function InfoLine({ icon, label, value }: { icon: ReactNode; label: string; value?: string }) {
-  return (
-    <div className="flex min-w-0 items-center justify-between gap-2">
-      <span className="flex min-w-0 items-center gap-2">
-        <span className="text-[#B0B6C1]">{icon}</span>
-        <span className="truncate">{label}</span>
-      </span>
-      {value && <span className="shrink-0 text-[#323743]">{value}</span>}
     </div>
   );
 }

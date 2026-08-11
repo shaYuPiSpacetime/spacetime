@@ -11,6 +11,9 @@ import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserCancelRequest;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.CancelRequestStatusEnum;
+import com.spacetime.common.enums.RelationInvalidReasonEnum;
+import com.spacetime.common.service.AccountStatusMessageNotificationService;
+import com.spacetime.common.service.RelationLifecycleService;
 import com.spacetime.miniapp.dto.request.MiniappAccountCancelReq;
 import com.spacetime.miniapp.dto.response.CoinBalanceVO;
 import com.spacetime.miniapp.dto.response.MiniappAccountCancelCheckVO;
@@ -33,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
@@ -51,6 +55,8 @@ class MiniappAccountSecurityServiceImplTest {
     @Mock private VipService vipService;
     @Mock private CoinService coinService;
     @Mock private AccountCancellationRiskEvaluator riskEvaluator;
+    @Mock private RelationLifecycleService relationLifecycleService;
+    @Mock private AccountStatusMessageNotificationService accountStatusNotificationService;
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
 
@@ -67,6 +73,8 @@ class MiniappAccountSecurityServiceImplTest {
                 vipService,
                 coinService,
                 riskEvaluator,
+                relationLifecycleService,
+                accountStatusNotificationService,
                 new ObjectMapper(),
                 redisTemplate);
     }
@@ -115,6 +123,10 @@ class MiniappAccountSecurityServiceImplTest {
         assertThat(saved.getRiskSnapshot()).isEqualTo("[]");
         assertThat(user.getAccountStatus()).isEqualTo(AccountStatusEnum.CANCELLING.getCode());
         assertThat(requestId).isEqualTo(19L);
+        verify(relationLifecycleService).invalidateByUser(eq(7L),
+                eq(RelationInvalidReasonEnum.ACCOUNT_DELETED), any());
+        verify(accountStatusNotificationService).publishAfterCommit(eq(7L),
+                eq(AccountStatusEnum.CANCELLING.getCode()), any());
     }
 
     @Test

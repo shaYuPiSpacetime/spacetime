@@ -6,7 +6,7 @@ import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
-/** 社区领域事件 Outbox；本模块不实现 PRD-03 消费。 */
+/** 社区领域事件 Outbox；PRD-03 消费治理与内容结果事件。 */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("community_event_outbox")

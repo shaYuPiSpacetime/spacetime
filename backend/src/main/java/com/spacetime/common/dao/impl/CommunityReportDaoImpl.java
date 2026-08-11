@@ -26,6 +26,12 @@ public class CommunityReportDaoImpl implements CommunityReportDao {
     }
 
     @Override
+    public CommunityReport selectByReportNo(String reportNo) {
+        return mapper.selectOne(new LambdaQueryWrapper<CommunityReport>()
+                .eq(CommunityReport::getReportNo, reportNo));
+    }
+
+    @Override
     public Page<CommunityReport> selectPage(Page<CommunityReport> page, LambdaQueryWrapper<CommunityReport> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

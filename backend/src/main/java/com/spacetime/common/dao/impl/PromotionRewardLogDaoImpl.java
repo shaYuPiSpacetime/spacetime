@@ -44,6 +44,13 @@ public class PromotionRewardLogDaoImpl implements PromotionRewardLogDao {
     }
 
     @Override
+    public java.util.List<PromotionRewardLog> selectTerminalWithoutMessage(
+            java.time.LocalDateTime updatedAfter, int limit) {
+        return mapper.selectTerminalWithoutMessage(updatedAfter,
+                Math.max(1, Math.min(limit, 1000)));
+    }
+
+    @Override
     public void insert(PromotionRewardLog entity) {
         mapper.insert(entity);
     }

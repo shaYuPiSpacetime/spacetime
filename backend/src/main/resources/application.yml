@@ -32,3 +32,32 @@ community:
     provider: ${COMMUNITY_CONTENT_SECURITY_PROVIDER:wechat}
     # 微信小程序消息接收服务器 URL：/miniapp/content-security/wechat/callback
     callback-token: ${COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN:}
+
+message:
+  tencent-im:
+    enabled: ${TENCENT_IM_ENABLED:false}
+    sdk-app-id: ${TENCENT_IM_SDK_APP_ID:0}
+    secret-key: ${TENCENT_IM_SECRET_KEY:}
+    administrator: ${TENCENT_IM_ADMINISTRATOR:administrator}
+    rest-base-url: ${TENCENT_IM_REST_BASE_URL:https://console.tim.qq.com}
+    callback-path-token: ${TENCENT_IM_CALLBACK_PATH_TOKEN:}
+    callback-auth-token: ${TENCENT_IM_CALLBACK_AUTH_TOKEN:}
+    user-sig-expire-seconds: ${TENCENT_IM_USER_SIG_EXPIRE_SECONDS:86400}
+    protocol-version: ${TENCENT_IM_PROTOCOL_VERSION:1}
+    connect-timeout-millis: ${TENCENT_IM_CONNECT_TIMEOUT_MILLIS:3000}
+    request-timeout-millis: ${TENCENT_IM_REQUEST_TIMEOUT_MILLIS:5000}
+  security:
+    # 非生产环境通过环境变量提供；生产 profile 必须接入 KMS 实现，禁止明文降级。
+    key-version: ${MESSAGE_TEXT_KEY_VERSION:}
+    encryption-key-base64: ${MESSAGE_TEXT_ENCRYPTION_KEY_BASE64:}
+    hmac-key-base64: ${MESSAGE_TEXT_HMAC_KEY_BASE64:}
+  whisper-expire:
+    delay-ms: ${MESSAGE_WHISPER_EXPIRE_DELAY_MS:60000}
+  im-account-sync:
+    delay-ms: ${MESSAGE_IM_ACCOUNT_SYNC_DELAY_MS:60000}
+  fact-reconcile:
+    delay-ms: ${MESSAGE_FACT_RECONCILE_DELAY_MS:300000}
+  tim-mapping-audit:
+    delay-ms: ${MESSAGE_TIM_MAPPING_AUDIT_DELAY_MS:300000}
+  community-outbox:
+    delay-ms: ${MESSAGE_COMMUNITY_OUTBOX_DELAY_MS:5000}

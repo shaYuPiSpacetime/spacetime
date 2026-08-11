@@ -15,6 +15,8 @@ public interface UserAssetDao {
     UserAsset selectByUserIdForUpdate(Long userId);
     /** 原子消费一次免费悄悄话权益。 */
     int consumeFreeWhisper(Long userId);
+    /** 同步今日免费悄悄话剩余次数投影，业务事实以悄悄话记录计数为准。 */
+    int updateFreeWhisperProjection(Long userId, Integer remain);
     Page<UserAsset> selectPage(Page<UserAsset> page, LambdaQueryWrapper<UserAsset> wrapper);
     void insert(UserAsset entity);
     void updateById(UserAsset entity);

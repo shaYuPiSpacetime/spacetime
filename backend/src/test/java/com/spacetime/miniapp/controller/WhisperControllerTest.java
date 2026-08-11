@@ -76,7 +76,8 @@ class WhisperControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"targetUserNo":"USR-000000000008","sourcePostNo":"POST-001",\
-                                 "scene":"community_post","content":"想认识你，可以聊聊吗？"}
+                                 "scene":"community_post","quoteToken":"wq-token",\
+                                 "content":"想认识你，可以聊聊吗？"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.whisperNo").value("WSP-001"))
@@ -89,7 +90,7 @@ class WhisperControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"targetUserNo":"USR-000000000008","sourcePostNo":"POST-001",\
-                                 "scene":"community_post","content":"你好"}
+                                 "scene":"community_post","quoteToken":"wq-token","content":"你好"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(4001))

@@ -15,6 +15,8 @@ import lombok.EqualsAndHashCode;
 public class CommunityReport extends BaseEntity {
     /** 举报业务编号 */
     private String reportNo;
+    /** 客户端举报幂等编号，举报人下唯一。 */
+    private String clientReportId;
     /** 举报人ID */
     private Long reporterId;
     /** 举报目标类型 @see CommunityReportTargetTypeEnum */
@@ -23,8 +25,16 @@ public class CommunityReport extends BaseEntity {
     private String sourceType;
     /** 被举报目标ID */
     private String targetId;
+    /** 消息、会话或悄悄话业务编号。 */
+    private String targetBizNo;
     /** 服务端反查的被举报用户 */
     private Long targetUserId;
+    /** PRD-03 统一字段：服务端反查的被举报用户。 */
+    private Long reportedUserId;
+    /** 来源场景：community/chat/whisper。 */
+    private String sourceScene;
+    /** 证据快照状态：not_required/complete/partial。 */
+    private String snapshotStatus;
     /** 举报原因编码 */
     private String reasonCode;
     /** 补充说明 */

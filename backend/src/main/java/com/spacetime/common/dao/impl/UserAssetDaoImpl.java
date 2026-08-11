@@ -40,6 +40,11 @@ public class UserAssetDaoImpl implements UserAssetDao {
     }
 
     @Override
+    public int updateFreeWhisperProjection(Long userId, Integer remain) {
+        return mapper.updateFreeWhisperProjection(userId, remain);
+    }
+
+    @Override
     public Page<UserAsset> selectPage(Page<UserAsset> page, LambdaQueryWrapper<UserAsset> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

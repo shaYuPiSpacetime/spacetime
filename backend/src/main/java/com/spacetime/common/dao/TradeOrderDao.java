@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.entity.TradeOrder;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 /**
  * 交易订单数据访问接口
  */
@@ -12,6 +15,7 @@ public interface TradeOrderDao {
     /** 根据订单编号查询 */
     TradeOrder selectByOrderNo(String orderNo);
     Page<TradeOrder> selectPage(Page<TradeOrder> page, LambdaQueryWrapper<TradeOrder> wrapper);
+    List<TradeOrder> selectMessageNotifiableWithoutInbox(LocalDateTime updatedAfter, int limit);
     void insert(TradeOrder entity);
     void updateById(TradeOrder entity);
     void deleteById(Long id);

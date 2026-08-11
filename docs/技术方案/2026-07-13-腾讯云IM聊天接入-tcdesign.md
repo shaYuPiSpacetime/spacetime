@@ -1,6 +1,11 @@
 # 腾讯云 IM 聊天接入技术方案
 
-> **消息业务接口契约更新（2026-07-14）**：消息首页、会话、悄悄话、官方频道、举报、IM 凭证与腾讯回调的字段级定义，以 `docs/技术方案/2026-07-14-消息15稿后端接口契约.md` 为唯一实施口径。本文件继续负责 LiteChat、回调、Outbox 与数据权威边界；若两份文档存在接口差异，以 2026-07-14 新契约为准。
+> **需求确认更新（2026-08-07）**：普通私信和悄悄话均通过腾讯云 TIM 收发，平台与 TIM 云端审核均不对本期日常消息执行发送前文本内容审核。普通私信由 LiteChat SDK 直发并由消息前回调校验业务权限；悄悄话由后端完成准入、扣费、状态和幂等后通过 TIM REST 投递。日常私信、悄悄话申请和回复的完整明文同时归档到 `app_message_record.content_text`，普通后台接口不返回该字段。举报调用平台 PRD-05 接口，TIM 消息编号仅用于定位被举报消息。
+
+> **一致性复核（2026-08-07）**：字段级接口、表结构、状态机和交付边界统一以
+> `docs/技术方案/2026-07-31-消息、私信与通知中心-tcdesign.md` 与
+> `docs/技术方案/2026-07-31-消息、私信与通知中心-mobile-api-handoff.md` 为唯一实施口径。
+> 2026-07-14 的消息 15 稿契约仅保留为历史设计记录，不得继续实施。
 
 ## 1. 结论
 
@@ -9,33 +14,38 @@
 | 决策项 | 最终选择 |
 |---|---|
 | 客户端 SDK | `@tencentcloud/lite-chat` V4 标准版默认入口 |
-| POC 固定版本 | `4.4.1`，通过 POC 后以精确版本写入 `package.json` 和锁文件，不使用 `latest` 或范围版本 |
+| POC 固定版本 | `4.4.2`，通过 POC 后以精确版本写入 `package.json` 和锁文件，不使用 `latest` 或范围版本 |
 | SDK 入口 | `import TencentCloudChat from '@tencentcloud/lite-chat'` |
 | UI 方案 | 不接入 TUIKit，消息列表、聊天气泡、输入区和业务卡片全部使用 Taro 真实组件绘制 |
 | 实时通道与云端漫游 | 腾讯云 IM |
 | 业务规则与后台查询 | 本项目 Spring Boot 后端、MySQL 和 Redis |
-| 普通私信发送 | 小程序 LiteChat 直发，单聊消息前回调做最终授权，消息后回调幂等同步本地副本 |
-| 悄悄话、官方消息 | 后端完成事务和业务校验后，通过 IM REST API 发送，并使用 Outbox 补偿 |
+| 普通私信发送 | 小程序 LiteChat 直发，单聊消息前回调做最终授权，消息后回调幂等同步必要映射 |
+| 悄悄话 | 后端完成事务和业务校验后，通过 IM REST API 发送，并使用 Outbox 补偿 |
+| 官方助手与系统消息 | 使用平台 HTTP API 和本地表，不作为 TIM 私信会话 |
 
-小程序不直接保存腾讯云 `SecretKey`，而是登录本项目后从后端获取 `UserID + UserSig`，再初始化并登录 IM SDK。普通私信可以由小程序通过 IM SDK 直发，由腾讯云 IM 的“发单聊消息之前回调”作为最终业务拦截点；悄悄话、官方消息等涉及扣费、状态流转或平台身份的消息由本项目后端编排后发送。
+小程序不直接保存腾讯云 `SecretKey`，而是登录本项目后从后端获取 `UserID + UserSig`，再初始化并登录 IM SDK。普通私信由小程序通过 IM SDK 直发，由腾讯云 IM 的“发单聊消息之前回调”作为最终业务拦截点；悄悄话由本项目后端完成扣费和状态编排后通过 TIM REST 发送。两条日常消息链路均显式跳过 TIM 云端内容审核。官方助手与系统消息继续走平台接口，不进入 TIM 私信会话。
 
 这里的 LiteChat 是**无 UI 的通信 SDK**，不是聊天页面组件库。聊天页面不采用腾讯云默认 UI。当前项目是 Taro 4.1.9，并已有蓝湖风格的消息页面，因此使用 LiteChat 提供连接、收发、历史、会话和已读能力，页面样式继续由项目自绘。
 
 ## 2. 现状与范围
 
-当前仓库的消息页仍是静态数据和页面交互，尚未接入 IM SDK、UserSig、消息接口或聊天数据表：
+截至 2026-08-07，当前仓库仍未形成可联调的 TIM 实现：
 
 - `miniapp/src/pages/chat/index.tsx` 中的消息列表由 `verifiedRows`、`unverifiedRows` 硬编码生成。
 - `miniapp/package.json` 当前没有腾讯云 IM、TUIKit 或 `@tencentcloud/lite-chat` 依赖。
-- 后端尚无消息、会话、悄悄话相关 Controller、Service、DAO、Mapper 和实体。
-- PRD-03 已定义私信、悄悄话、官方助手、通知中心、女性保护、举报和后台承接，但实时通道仍要求技术方案确认。
+- 工作区存在未提交的消息 Controller、Service、DAO、实体和 SQL 草稿，但仍采用平台 HTTP 普通私信、
+  本地正文与本地已读游标，没有 UserSig、TIM Provider 和回调闭环；该草稿不符合本方案，不能视为完成。
+- PRD-03 的业务和技术通道均已确认；尚未完成的是 TIM、系统/证据 KMS 外部资源准备、代码实现和真实联调。
 
 本方案覆盖：
 
 1. 小程序 IM 登录、会话列表、私信、悄悄话、已读和消息状态展示。
 2. 后端 UserSig 签发、IM 回调、业务鉴权、消息同步、通知和审计。
-3. 管理后台的消息互动摘要、聊天记录查询、举报上下文和规则配置。
+3. 管理后台的消息互动统计、聊天元数据查询、举报上下文和规则配置。
 4. 自绘聊天 UI 与腾讯云消息能力的边界。
+
+本文件描述完整端到端接入方式；当前约定的代码交付范围不包含小程序前端实现。第 5、8 节作为移动端
+团队对接要求，第 6、7 节由本仓库后端与管理后台承接。
 
 本期不包含：图片、语音、视频/通话、撤回、输入中状态、群聊和完整人工客服 IM 工作台。
 
@@ -89,12 +99,12 @@ flowchart LR
 | 能力 | 腾讯云 IM | 本项目后端 | 小程序 | 管理后台 |
 |---|---|---|---|---|
 | 长连接、在线收发 | 负责 | 不重复建设 | 调用 SDK | 不直接依赖 |
-| 消息漫游和历史拉取 | 负责 | 保存索引与业务副本 | 展示分页历史 | 查询业务副本 |
+| 消息漫游和历史拉取 | 负责移动端云端历史 | 在消息主表保存完整明文归档、业务会话和 TIM 映射，普通接口不返回正文 | 展示 TIM 分页历史 | 仅在有效举报案件查看独立冻结证据 |
 | UserSig | 不暴露 SecretKey | 生成和签发 | 获取并使用 | 不处理 |
 | 匹配、认证、女性保护 | 不负责 | 最终裁决 | 预检查和展示 | 查看规则状态 |
 | 悄悄话扣费和退款 | 不负责 | 事务、幂等、补偿 | 发起操作 | 查询流水 |
 | 拉黑、封禁、会话失效 | 提供消息拦截能力 | 保存业务状态并通过回调拦截 | 展示失效态 | 配置和处理处罚 |
-| 举报、审计、内容追溯 | 提供回调和消息标识 | 落库、审计、查询 | 提交举报 | 处理举报 |
+| 举报、审计、内容追溯 | 提供消息标识用于定位 | PRD-05 接口创建案件、固化证据并审计 | 调平台举报接口 | 处理举报 |
 | 页面样式 | 提供可选通用 UI | 不负责视觉布局 | 负责最终绘制 | 负责后台页面 |
 
 ### 4.1 两条发送链路
@@ -122,7 +132,7 @@ sequenceDiagram
     end
 
     rect rgb(255, 248, 238)
-        Note over M,D: 悄悄话/官方消息：后端事务编排
+        Note over M,D: 悄悄话：后端事务编排
         M->>B: 创建悄悄话，携带 Idempotency-Key
         B->>D: 资格、扣费、业务记录、Outbox 同一事务提交
         B->>I: REST API 发送
@@ -143,7 +153,7 @@ sequenceDiagram
 | 在线连接、投递结果、云端历史 | 腾讯云 IM | 小程序历史消息从 LiteChat 拉取；具体漫游时长由已购套餐和控制台配置决定 |
 | 匹配、认证、女性保护、拉黑、禁言、封禁 | 本项目后端 | 消息前回调必须重新裁决，客户端状态仅用于交互提示 |
 | 扣费、退款、悄悄话状态机 | 本项目 MySQL | 必须事务化并可补偿，不能以客户端消息状态代替账务状态 |
-| 管理后台查询、举报上下文、访问审计 | 本项目 MySQL | 保存必要消息副本和腾讯消息标识，不让后台直接依赖客户端 SDK |
+| 平台明文归档、管理后台查询、举报上下文、访问审计 | 本项目 MySQL | `app_message_record.content_text` 保存日常聊天完整明文；普通查询显式排除正文，举报案件从主表优先固化最小证据 |
 | 小程序消息列表展示 | 业务会话接口 + LiteChat 会话数据 | 后端提供业务状态，LiteChat 提供最后消息、时间和未读；由适配层统一合并 |
 
 ## 5. 小程序端需要建设的内容
@@ -185,11 +195,11 @@ sequenceDiagram
 
 将当前静态 `verifiedRows` 替换为“业务接口数据 + IM 会话数据”的聚合结果：
 
-- 官方助手、官方消息、通知中心使用本项目业务接口和本地状态。
-- 普通私信会话使用 IM 会话摘要作为消息预览、时间和未读来源，并与本项目会话状态合并。
+- 官方助手和系统消息使用本项目业务接口和本地状态，不进入 TIM 普通私信会话。
+- 普通私信会话使用 IM 会话摘要作为消息预览、时间和未读来源，并与本项目会话状态合并；未读只汇总平台有效会话映射，不直接采用 TIM 全局总数。
 - 未完成三重认证时，继续遵循 PRD-03，只展示官方消息、通知和认证引导，不展示用户私信会话。
 - 会话排序以最后消息时间为主，官方消息固定置顶。
-- 下拉刷新调用后端未读汇总；页面可见时按 PRD 约定刷新，实时新消息由 SDK 事件驱动。
+- 下拉刷新同时调用平台频道未读接口和 LiteChat 未读接口；页面可见时按 PRD 约定刷新，实时私信由 SDK 事件驱动，最终总红点在小程序本地合成。
 
 ### 5.3 私信对话页
 
@@ -198,18 +208,20 @@ sequenceDiagram
 - 拉取 IM 历史消息并按时间分页。
 - 监听新消息并追加到当前会话。
 - 文本输入、发送中、发送成功、失败重试。
+- 发送普通文本时设置 `messageControlInfo.excludedFromContentModeration=true`，不启用 TIM 云端内容审核。
 - 进入页面后上报已读回执。
 - 展示系统提示、匹配成功、女性保护、拉黑、禁言和会话失效。
 - 发送前调用后端轻量预检查改善用户体验，但不能把前端预检查当作安全边界。
 
 普通私信的最终权限由后端的 IM 消息前回调裁决，避免用户绕过页面直接调用 SDK 发消息。
 
-### 5.4 悄悄话和官方消息
+### 5.4 悄悄话、官方助手和系统消息
 
-- 悄悄话发送必须走本项目后端接口，后端负责认证门槛、重复发送限制、内容安全、会员免费次数、千寻币扣费、幂等和失败补偿。
+- 悄悄话发送必须走本项目后端接口，后端负责认证门槛、重复发送限制、会员免费次数、千寻币扣费、幂等和失败补偿；正文不做平台发送前内容审核。
 - 悄悄话使用 IM 自定义消息或带业务扩展字段的文本消息，前端根据 `messageType=whisper` 渲染卡片。
-- 悄悄话回复和暂不回应必须走后端状态机，回复成功后原子触发匹配成功和普通私信会话开放。
-- 官方助手消息由后端使用 IM REST API 或本地通知接口生成，小程序只展示，不开放普通输入框。
+- `whisper_request` 通过 TIM REST 投递时设置 `SendMsgControl=["NoUnread","NoLastMsg","NoMsgCheck"]`，待处理未读由平台业务表统计；回复使用 `SendMsgControl=["NoMsgCheck"]`，成功开放私信会话后才按普通 TIM 消息计入接收方私信未读。
+- 悄悄话回复必须走后端状态机，回复成功后触发唯一匹配和普通私信会话开放；未回复到期只结束申请。
+- 官方助手和系统消息由平台本地业务接口生成并读取，小程序只展示；官方助手不开放普通输入框。
 
 ### 5.5 微信小程序配置和合规
 
@@ -223,7 +235,7 @@ POC 固定环境和门禁：
 | 项目 | 基线/验收 |
 |---|---|
 | 项目框架 | Taro 4.1.9、React 18、当前仓库 Node 20.20.2 |
-| LiteChat | 精确安装 `@tencentcloud/lite-chat@4.4.1`，禁止 POC 期间漂移版本 |
+| LiteChat | 精确安装 `@tencentcloud/lite-chat@4.4.2`，禁止 POC 期间漂移版本 |
 | 构建 | `npm run build:weapp` 成功，微信开发者工具无运行时模块错误 |
 | 登录 | 两个独立测试账号均可登录并收到 `SDK_READY` |
 | 单聊 | 双向文本收发、会话更新、未读、已读和历史分页均通过 |
@@ -291,7 +303,6 @@ UserSig 服务必须校验本项目登录态、账号状态和有效期。默认
 
 - `generateUserSig(imUserId, expireSeconds)`
 - `ensureAccount(imUserId, profile)`
-- `sendSystemMessage(fromImUserId, toImUserId, payload)`
 - `sendWhisperMessage(fromImUserId, toImUserId, payload)`
 - `disableAccount(imUserId)`
 
@@ -319,26 +330,26 @@ Provider 发送接口必须接收项目幂等键、`traceId` 和协议化 payloa
 | `CallbackCommand` | 用途 | 同步处理 |
 |---|---|---|
 | `C2C.CallbackBeforeSendMsg` | 普通私信最终授权 | 必须同步返回允许、拒绝或静默丢弃 |
-| `C2C.CallbackAfterSendMsg` | 消息副本、业务索引和发送结果同步 | 幂等落库后快速返回 |
-| `C2C.CallbackAfterMsgReport` | 已读上报后的本地状态同步 | 幂等更新读取进度 |
+| `C2C.CallbackAfterSendMsg` | TIM 消息映射、业务摘要和发送结果同步 | 幂等落库后快速返回 |
+| `C2C.CallbackAfterMsgReport` | 可选业务统计投影 | 幂等更新；普通私信已读仍以 TIM 为准 |
 
 回调处理要求：
 
 1. 仅允许 HTTPS；在网关校验不可猜测的 `callbackPathToken`、请求体大小、方法和频率，再校验查询参数中的 `SdkAppid`、`CallbackCommand` 和命令白名单。不能只依赖来源 IP，也不能虚构腾讯云未提供的签名请求头。
 2. 通过 `From_Account`、`To_Account` 映射本项目用户，不信任消息扩展字段中的本项目用户 ID。
-3. 严格解析 `cloudCustomData.v`、`bizType`、`conversationNo` 和 `bizId`；协议不合法直接拒绝或记录异常，不进入业务分支。
+3. 严格解析 `cloudCustomData.v`、`bizType`、`conversationNo` 和 `bizId`；协议不合法直接拒绝或记录异常，不进入业务分支。普通 `text` 要求已有有效会话；悄悄话自定义消息要求对应业务记录和未终结 Outbox，客户端伪造一律拒绝。
 4. 消息前回调从 Redis 读取短 TTL 的会话权限快照；缓存未命中时只允许执行有超时上限的本地数据库查询，禁止调用支付、内容平台或其他外部服务。
 5. 消息前回调校验账号状态、认证门槛、匹配关系、女性保护、拉黑/禁言/封禁和会话双方关系。权限数据不可用时按失败关闭处理，并立即告警。
 6. 腾讯云消息前回调默认超时时间约 2 秒，项目目标为 P95 小于 300ms、P99 小于 800ms，任何异步通知和统计都不能阻塞回调。
 7. 消息后回调以 `SDKAppID + MsgKey` 为主唯一键，`MsgId` 为辅助索引，`clientMsgId` 只用于前端消息关联；重复回调返回成功且不重复写业务数据。
-8. 消息后回调保存必要消息副本、发送结果和腾讯消息标识，再投递内部事件更新会话摘要、未读和审计；耗时任务异步处理。
+8. 消息后回调保存发送结果和必要 TIM 消息映射，再投递内部事件更新业务摘要；正文、历史和普通私信未读不复制到第二套事实源。
 9. 记录回调命令、消息标识、耗时、结果码和 `traceId`，不在普通日志打印 UserSig 或消息原文。
 
-腾讯云官方说明单聊消息前回调可用于实时记录和拦截违规发言，但默认超时时间有限，因此不应在回调中执行长事务或同步等待复杂外部服务。
+消息前回调默认超时时间有限，因此只执行业务权限裁决，不在回调中执行长事务或同步等待复杂外部服务。
 
 ### 6.4 业务接口
 
-沿用 PRD-03 的业务语义，统一落地为单数前缀 `/miniapp/message/*`。完整请求、`R<T>` 响应、分页、枚举、状态机、幂等、错误码、权限、Mock fixture 与 LiteChat 来源映射见 `docs/技术方案/2026-07-14-消息15稿后端接口契约.md`，本节只保留能力总览：
+沿用 PRD-03 的业务语义，统一落地为单数前缀 `/miniapp/message/*`。完整请求、`R<T>` 响应、分页、枚举、状态机、幂等、错误码、权限与 LiteChat 来源映射见 `docs/技术方案/2026-07-31-消息、私信与通知中心-mobile-api-handoff.md`，本节只保留能力总览：
 
 | 方法 | 路径 | 责任 |
 |---|---|---|
@@ -346,55 +357,56 @@ Provider 发送接口必须接收项目幂等键、`traceId` 和协议化 payloa
 | GET | `/miniapp/message/home` | 查询消息首页聚合结果 |
 | GET | `/miniapp/message/conversations` | 查询消息列表聚合结果 |
 | GET | `/miniapp/message/unread-summary` | 查询消息 Tab 未读汇总 |
-| GET | `/miniapp/message/conversations/{conversationNo}/state` | 查询会话双方、业务状态、发送权限和失效原因，不返回历史正文 |
-| POST | `/miniapp/message/messages/read` | 本地已读状态同步 |
+| GET | `/miniapp/message/conversations/{conversationNo}` | 查询会话双方、业务状态、发送权限和 TIM 映射，不返回历史正文 |
 | GET | `/miniapp/message/whispers` | 查询申请我的/我申请的悄悄话列表 |
 | GET | `/miniapp/message/whispers/{whisperNo}` | 查询悄悄话详情与时间线 |
 | POST | `/miniapp/message/whispers/precheck` | 查询创建资格、60 字上限、价格和余额 |
 | POST | `/miniapp/message/whispers` | 创建并发送悄悄话 |
 | POST | `/miniapp/message/whispers/{whisperNo}/reply` | 回复悄悄话并触发匹配 |
-| POST | `/miniapp/message/whispers/{whisperNo}/ignore` | 暂不回应并启动冷却 |
-| POST | `/miniapp/message/whispers/{whisperNo}/cancel` | 发送方撤销仍待处理的申请 |
-| DELETE | `/miniapp/message/whispers/{whisperNo}/visibility` | 仅隐藏当前用户列表投影 |
-| POST | `/miniapp/message/whispers/visibility/batch-hide` | 批量隐藏当前用户列表投影 |
-| GET | `/miniapp/message/channels/{channel}/messages` | 查询官方小助手或系统消息，`channel=assistant/system` |
-| POST | `/miniapp/message/channels/{channel}/read` | 更新官方频道读取进度，`channel=assistant/system` |
-| POST | `/miniapp/message/report` | 聊天或悄悄话举报 |
+| GET | `/miniapp/message/assistant/messages` | 查询官方助手消息 |
+| POST | `/miniapp/message/assistant/messages/read-batch` | 按成功曝光批次更新官方助手已读 |
+| GET | `/miniapp/message/system-messages` | 查询系统消息全文流 |
+| POST | `/miniapp/message/system-messages/read-batch` | 按成功曝光批次更新系统消息已读 |
+| POST | `/miniapp/community/reports` | PRD-05 平台举报接口；TIM 消息编号只用于定位证据，举报不经 TIM 发送 |
 | POST | `/internal/tencent-im/callback/{callbackPathToken}` | 腾讯云 IM 统一回调入口 |
 
 普通文本由 LiteChat 唯一发送，不提供 `/send-text`。会话状态接口只用于页面预检和提示，消息前回调才是最终安全边界。埋点由客户端事件和消息后回调分别记录，不通过一个看似“发送”但不真正发送消息的接口实现。
 
-删除语义固定为“当前用户列表隐藏”，不等于拒绝、撤销、退款或物理删除审计记录。悄悄话正文上限当前按新蓝湖契约返回 `contentMaxLength=60`；旧 PRD 的 200/500 字口径继续登记为待产品确认差异，在确认前不得混用。
+悄悄话正文上限按当前契约返回 `contentMaxLength=60`。已回复的申请从双方悄悄话默认列表移除并进入同一私信会话，后台仍保留业务状态和 TIM 映射。
 
 ### 6.5 本地数据
 
-腾讯云 IM 保存消息传输和漫游数据，本项目仍需保存业务数据和最小消息副本，支撑后台查询、举报、审计和规则判断：
+腾讯云 IM 保存消息传输、会话、移动端漫游历史和普通私信未读；本项目消息主表同步保存完整明文归档、业务状态、必要 TIM 映射，并在举报时冻结最小必要证据：
 
-- `app_im_conversation`：业务会话、参与者、类型、状态、失效原因、最近业务消息时间。
-- `app_im_message`：IM 消息 ID、会话 ID、发送者、接收者、消息类型、内容摘要/文本副本、发送时间、审核状态和回调状态。
-- `app_im_whisper`：悄悄话状态、支付流水、冷却时间、回复时间和匹配来源。
-- `app_im_notification`：站内通知、跳转类型、已读状态和业务关联 ID。
-- `app_im_outbox`：后端发送业务消息的幂等键、业务类型、业务 ID、payload 摘要、重试次数、下次重试时间和发送状态。
-- `app_im_callback_log`：回调去重键、命令、处理结果、耗时和重试次数；消息正文不重复存入日志表。
-- `app_im_audit_log`：高敏消息查看、举报处理、处罚联动和配置变更日志。
+- `app_message_conversation`、`app_message_conversation_member`：业务会话生命周期和参与者映射，不保存普通私信未读游标。
+- `app_message_record`：消息主表，保存 IM messageId/MsgKey、业务会话、发送方、接收方、消息类型、发送状态、时间及 `content_text` 明文正文；禁止普通接口 `SELECT *`、正文搜索、普通导出或日志打印。
+- `app_message_whisper`：悄悄话状态、支付流水、冷却、回复、匹配/会话与 TIM 消息映射。
+- `app_system_message`、`app_assistant_message`：平台系统消息和官方助手内容及其已读状态。
+- `app_message_delivery_outbox`：悄悄话 TIM REST 与微信外部提醒的可靠投递，只保存投递元数据；发送任务按 `message_no` 从消息主表读取正文，普通私信 SDK 直发不写此 Outbox。
+- `app_message_event_inbox`：上游业务事件和 TIM 回调的幂等消费。
+- `app_user_im_account`：平台用户与不可枚举 TIM UserID 的稳定映射。
+- `app_message_sensitive_access_log`、`community_report_evidence`：举报案件证据访问审计和冻结证据。
 
-所有业务表遵循现有 `BaseEntity` 审计字段和逻辑删除约定。消息内容副本属于敏感数据，需定义脱敏、访问权限、保留周期和导出限制，后台查看原文必须写入审计日志。
+所有业务表遵循现有 `BaseEntity` 审计字段和逻辑删除约定。举报证据属于敏感数据，需定义脱敏、
+访问权限、保留周期和导出限制，后台查看原文必须写入审计日志。举报请求由平台 PRD-05 接口受理，
+不会向 TIM 发送“举报消息”。
 
 建议唯一约束：
 
 - `app_user_im_account(app_user_id)`、`app_user_im_account(im_user_id)`。
-- `app_im_conversation(conversation_no)` 和标准化后的双方用户组合。
-- `app_im_message(sdk_app_id, msg_key)`。
-- `app_im_outbox(biz_type, biz_id)`。
-- `app_im_callback_log(sdk_app_id, callback_command, msg_key)`。
+- `app_message_conversation(conversation_no)`、`app_message_conversation(match_id)` 和标准化后的活跃双方组合。
+- `app_message_record(tim_msg_key)`。
+- `app_message_whisper(sender_user_id,send_request_id)`、`app_message_whisper(receiver_user_id,reply_request_id)`。
+- `app_message_delivery_outbox(channel,biz_type,biz_no,idempotency_key)`。
+- `app_message_event_inbox(source_module,source_event_id,event_type)`。
 
 ### 6.6 悄悄话事务与 Outbox
 
 悄悄话不能在数据库事务中同步调用腾讯 REST API 后直接假设成功，采用“本地事务 + Outbox + 可重试发送”：
 
 1. 使用请求头 `Idempotency-Key` 锁定一次业务请求。
-2. 本地事务内完成资格检查、免费次数或千寻币预占/扣减、创建 `app_im_whisper` 和 `app_im_outbox(PENDING)`。
-3. 事务提交后发送任务把 Outbox 改为 `SENDING`，调用 `ImProvider`。
+2. 本地事务内完成资格检查、免费次数或千寻币预占/扣减，创建 `app_message_record(content_text=明文,send_status=queued)`、`app_message_whisper` 和仅含投递元数据的 `app_message_delivery_outbox(pending)`。
+3. 事务提交后发送任务把 Outbox 改为 `SENDING`，按 `message_no` 从消息主表读取正文并调用 `ImProvider`。
 4. REST API 成功后写入腾讯消息标识，状态改为 `SENT`；消息后回调再次确认时保持幂等。
 5. 可重试错误按退避策略重试；达到上限进入 `FAILED` 并告警。
 6. 业务要求退款时，由补偿任务执行一次性返还并写支付流水，状态改为 `COMPENSATED`；重复补偿必须被唯一键拦截。
@@ -406,29 +418,29 @@ Outbox 状态：`PENDING -> SENDING -> SENT`，异常进入 `FAILED`，需退款
 - Redis 权限快照键按 `conversationNo` 存储双方 ID、认证状态、匹配状态、保护期、拉黑/禁言/封禁和版本号，TTL 只用于性能，不作为永久数据源。
 - 匹配、拉黑、封禁和保护期变化时，在数据库事务提交后删除或更新快照。
 - 消息前回调读取的快照必须校验会话双方与 `From_Account/To_Account` 一致。
-- 回调不可用或本地消息副本持续落后时，客户端实时收发仍以腾讯云为准，但后台显示“同步延迟”，不能把缺失副本解释成没有消息。
+- 回调不可用或本地 TIM 映射持续落后时，客户端实时收发仍以腾讯云为准，但后台显示“同步延迟”，不能把缺失映射解释成没有消息。
 - 监控回调积压和 Outbox 后台任务；对回调缺口执行按时间窗口的对账任务，禁止静默丢失后台审计链路。
 
 ## 7. 管理后台需要建设的内容
 
 管理后台不直接把腾讯云 IM 控制台嵌进产品，也不新增独立 IM 运营工作台。按照 PRD-03，建设以下本项目能力：
 
-1. App 用户详情“消息互动”区块：会话摘要、私信、悄悄话、通知、举报和会话状态。
+1. App 用户详情“消息互动”区块：数量统计、私信、悄悄话、通知、举报和会话状态，只展示元数据，不展示正文或内容摘要。
 2. 消息通知记录查询：按用户、会话、消息类型、状态、时间和来源筛选。
-3. 聊天举报处理：展示会话号、消息号、双方用户、内容摘要和举报来源，支持处罚联动。
+3. 聊天举报处理：普通案件列表展示会话号、消息号、双方用户和举报来源；授权案件详情可按条查看独立冻结证据并支持处罚联动。
 4. 消息规则配置：女性保护期、悄悄话冷却、每日免费次数、消息模板和官方助手入口。
-5. 权限和审计：客服可看脱敏摘要，审核员按权限查看必要上下文，敏感原文查看必须填写原因。
-6. 服务降级态：IM 回调异常、消息查询失败、消息副本缺失时展示“消息服务不可用”，不能伪造消息内容。
+5. 权限和审计：客服、运营只看脱敏元数据；只有 PRD-05 有效举报案件处理人可按条查看已冻结证据，且必须填写原因、二次确认并记录审计。
+6. 服务降级态：IM 回调异常、消息映射查询失败或举报证据获取失败时展示“消息服务不可用”，不能伪造消息内容。
 
-腾讯云 IM 控制台仅用于 SDKAppID、套餐、回调、云端审核、统计和基础运维；业务人员日常操作仍在本项目后台完成。
+腾讯云 IM 控制台仅用于 SDKAppID、套餐、回调、历史配置、统计和基础运维；业务人员日常操作仍在本项目后台完成。
 
 后台接口继续返回精确 `R<T>`，Controller 使用现有 `@RequirePermission`。建议权限点：
 
 | 权限 | 用途 |
 |---|---|
-| `message:conversation:list` | 查看会话和脱敏摘要 |
-| `message:content:view` | 按审批原因查看必要消息原文，并记录审计 |
-| `message:report:handle` | 处理聊天举报和处罚联动 |
+| `message:conversation:list` | 查看会话统计与业务元数据 |
+| `message:report-context:view` | 查看 PRD-05 有效案件中的单条冻结证据；Service 仍需复核案件处理权限、分配关系和原因 |
+| `community:report:handle` | 处理聊天举报和处罚联动 |
 | `message:config:view` | 查看消息业务规则 |
 | `message:config:edit` | 修改保护期、冷却、次数和模板 |
 
@@ -449,10 +461,10 @@ Outbox 状态：`PENDING -> SENDING -> SENT`，异常进入 `FAILED`，需退款
 ## 9. 实施顺序
 
 1. 创建腾讯云 IM 应用，确认数据中心、套餐、SDKAppID、历史消息保留期、回调 URL 和微信小程序域名白名单。
-2. 用当前 Taro 4.1.9 和 `@tencentcloud/lite-chat@4.4.1` 完成独立 POC，不在此阶段改造全部聊天页面。
+2. 用当前 Taro 4.1.9 和 `@tencentcloud/lite-chat@4.4.2` 完成独立 POC，不在此阶段改造全部聊天页面。
 3. POC 通过后固定依赖和锁文件，落地客户端适配层、生命周期状态机和消息协议测试。
 4. 落地后端 IM 账号表、UserSig 接口、ImProvider、权限快照和统一回调入口。
-5. 落地普通私信业务会话、消息前回调授权、消息后回调副本和已读同步。
+5. 落地普通私信业务会话、消息前回调授权、消息后回调 TIM 映射；历史、已读和未读继续由 LiteChat 承接。
 6. 逐页改造小程序自绘私信页和消息列表，每页完成构建、真机截图和交互验收后再进入下一页。
 7. 落地悄悄话支付、Outbox、补偿状态机、回复匹配和自定义消息卡片。
 8. 落地官方助手、通知中心、举报、后台消息互动区块和 RBAC 权限。
@@ -463,13 +475,13 @@ Outbox 状态：`PENDING -> SENDING -> SENT`，异常进入 `FAILED`，需退款
 
 | 风险 | 处理方式 |
 |---|---|
-| Taro 与 LiteChat 兼容性不确定 | 固定 4.4.1 完成构建和真机 POC；失败时先定位导入、分包和构建问题，再评估原生小程序聊天分包 |
+| Taro 与 LiteChat 兼容性不确定 | 固定 4.4.2 完成构建和真机 POC；失败时先定位导入、分包和构建问题，再评估原生小程序聊天分包 |
 | 客户端绕过业务页面发消息 | 使用 IM 单聊消息前回调做最终拦截，客户端预检查只用于提升体验 |
 | 悄悄话扣费与消息发送不一致 | 使用幂等键、支付状态机、发送结果回调和补偿任务；禁止仅靠前端扣费后直发 |
-| 后台无法追溯举报内容 | 消息后回调写入本地索引和必要内容副本，按消息 ID 去重并记录访问审计 |
+| 后台无法追溯举报内容 | 主表保存完整明文和 TIM 映射；举报时优先按消息编号/MsgKey 从主表固化最小必要证据，本地归档缺失时再按双方账号和时间窗向 TIM 补证；均无法回查时建 `partial` 工单 |
 | SecretKey 泄露 | 只放后端私有环境变量；前端只接收短期 UserSig；提交前做密钥扫描 |
-| IM 历史消息保留周期不满足业务 | 在腾讯云控制台配置并核对历史消息保留周期；本地消息副本按合规要求定义保留策略 |
-| 离线提醒与站内未读口径不一致 | 站内未读以本项目业务接口和回调为准，离线推送作为辅助触达，不作为消息数据源 |
+| IM 历史消息保留周期不满足业务 | 在腾讯云控制台配置并核对历史消息保留周期；举报证据按 PRD-05 合规期限独立冻结 |
+| 离线提醒与站内未读口径不一致 | 普通私信未读以 TIM 为准；待处理悄悄话、平台助手和系统消息未读以本地表为准；小程序负责合成，离线推送只作辅助触达 |
 | 消息前回调超时导致策略失效 | 回调只做 Redis/本地数据库快速裁决，权限数据不可用时失败关闭，并对耗时分位值告警 |
 | SDK 升级导致协议或构建回归 | 固定精确版本；升级必须经过 POC 全矩阵、包体积对比和灰度，不允许 Dependabot 类工具自动合并 |
 | REST API 代发绕过业务规则 | 所有后端发送只允许经业务 Service 和 ImProvider，禁止暴露通用代发接口 |
@@ -479,7 +491,7 @@ Outbox 状态：`PENDING -> SENDING -> SENT`，异常进入 `FAILED`，需退款
 - 两个已完成认证且已匹配的用户可以在真机互发文本，历史消息可分页拉取。
 - 未匹配、未认证、女性保护、拉黑、封禁状态下，客户端无法通过直接 SDK 调用绕过发送限制。
 - 悄悄话扣费、发送、回复、匹配和失败补偿具备幂等结果。
-- 消息列表未读、进入会话已读、后台消息摘要和 IM 消息 ID 可以相互追溯。
+- 消息列表未读、进入会话已读、后台消息元数据、消息主表记录和 IM 消息 ID 可以相互追溯。
 - 页面视觉使用项目自有 Taro 组件完成，运行态没有把输入框、按钮、Tab 或弹窗烘焙进背景图片。
 
 ### 10.1 测试矩阵
@@ -492,17 +504,19 @@ Outbox 状态：`PENDING -> SENDING -> SENT`，异常进入 `FAILED`，需退款
 | 小程序自动化 | 消息列表加载/空态/失败态、发送中/成功/失败重试、未知消息降级、事件解绑 |
 | 真机测试 | 双账号收发、历史分页、未读/已读、前后台、弱网、断网重连、踢下线、UserSig 刷新 |
 | 安全测试 | SecretKey/UserSig 泄露扫描、回调令牌错误、越权会话、伪造 conversationNo、消息正文日志检查 |
-| 业务回归 | 未认证、未匹配、女性保护、拉黑、禁言、封禁、悄悄话扣费/回复/忽略/补偿 |
+| 业务回归 | 未认证、未匹配、女性保护、拉黑、禁言、封禁、悄悄话扣费/回复/到期/补偿 |
 
 ### 10.2 监控与告警
 
 - 客户端：LiteChat 初始化成功率、登录成功率、`SDK_READY` 耗时、发送成功率、重连次数和未知消息协议数。
 - 回调：按命令统计 QPS、成功率、拒绝原因、P50/P95/P99、重复回调数和消费延迟。
-- 业务：消息副本同步延迟、Outbox 各状态数量、最大积压时长、重试次数、补偿成功率和对账差异数。
+- 业务：TIM 映射同步延迟、Outbox 各状态数量、最大积压时长、重试次数、补偿成功率和对账差异数。
 - 安全：非法 callback token、错误 SDKAppID、未知命令、伪造会话和高频发送拦截数。
 - 告警建议：消息前回调 P95 超过 300ms、P99 超过 800ms、Outbox 最老积压超过 5 分钟或回调连续失败时立即告警；阈值上线后按真实基线调整。
 
-日志仅记录腾讯消息标识、业务号、结果码、耗时和脱敏账号。消息正文只进入受控业务表，不进入应用普通日志、网关访问日志或前端错误上报。
+日志仅记录腾讯消息标识、业务号、结果码、耗时和脱敏账号。日常普通私信、悄悄话申请和回复正文
+以明文写入 `app_message_record.content_text`；普通查询、导出和用户详情接口必须显式排除该列。平台在
+PRD-05 举报时再从主表优先固化最小必要加密证据。正文不得进入应用日志、网关日志或前端错误上报。
 
 ### 10.3 发布与回滚
 

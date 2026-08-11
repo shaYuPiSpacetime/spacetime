@@ -27,6 +27,7 @@ import com.spacetime.common.enums.RelationMatchStatusEnum;
 import com.spacetime.common.enums.RelationSourceSceneEnum;
 import com.spacetime.common.enums.RelationVisitStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.MessageConversationLifecycleService;
 import com.spacetime.common.service.RelationDomainService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -54,6 +55,7 @@ public class RelationDomainServiceImpl implements RelationDomainService {
     private final AppRelationMatchDao matchDao;
     private final AppRelationMatchSourceDao matchSourceDao;
     private final AppRelationMatchPopupDao matchPopupDao;
+    private final MessageConversationLifecycleService conversationLifecycleService;
 
     @Override
     @Transactional
@@ -197,7 +199,9 @@ public class RelationDomainServiceImpl implements RelationDomainService {
         requireText(sourceEventNo, "匹配来源事件号不能为空");
         AppRelationMatchSource duplicate = findMatchSource(sourceType, sourceEventNo);
         if (duplicate != null) {
-            return requireMatch(duplicate.getMatchId());
+            AppRelationMatch duplicateMatch = requireMatch(duplicate.getMatchId());
+            ensureConversationForSource(duplicateMatch, sourceType, duplicate.getEffectiveTime());
+            return duplicateMatch;
         }
 
         Long low = Math.min(userA, userB);
@@ -246,6 +250,7 @@ public class RelationDomainServiceImpl implements RelationDomainService {
             createPopup(match, low);
             createPopup(match, high);
         }
+        ensureConversationForSource(match, sourceType, eventTime);
         return match;
     }
 
@@ -293,6 +298,7 @@ public class RelationDomainServiceImpl implements RelationDomainService {
                     .set(AppRelationMatch::getInvalidReason, reason.getCode())
                     .set(AppRelationMatch::getInvalidTime, eventTime));
             cancelPendingPopups(match.getId(), eventTime);
+            conversationLifecycleService.invalidateForMatch(match, reason.getCode(), eventTime);
         }
     }
 
@@ -347,6 +353,13 @@ public class RelationDomainServiceImpl implements RelationDomainService {
 
     private void cancelPendingPopups(Long matchId, LocalDateTime eventTime) {
         matchPopupDao.cancelPendingByMatchId(matchId, eventTime);
+    }
+
+    private void ensureConversationForSource(AppRelationMatch match, String sourceType,
+                                             LocalDateTime eventTime) {
+        if (!RelationMatchSourceTypeEnum.WHISPER_REPLY.getCode().equals(sourceType)) {
+            conversationLifecycleService.ensureForMatch(match, sourceType, eventTime);
+        }
     }
 
     private AppRelationLike findActiveLike(Long fromUserId, Long toUserId) {

@@ -5,6 +5,9 @@ import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppRelationMatchPopupDao;
 import com.spacetime.common.dao.AppRelationMatchSourceDao;
 import com.spacetime.common.dao.AppRelationVisitDao;
+import com.spacetime.common.dao.AppMessageConversationDao;
+import com.spacetime.common.dao.AppMessageRecordDao;
+import com.spacetime.common.dao.AppMessageWhisperDao;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.enums.RelationInvalidReasonEnum;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,9 @@ class RelationLifecycleServiceImplTest {
     @Mock private AppRelationMatchDao matchDao;
     @Mock private AppRelationMatchSourceDao matchSourceDao;
     @Mock private AppRelationMatchPopupDao matchPopupDao;
+    @Mock private AppMessageWhisperDao whisperDao;
+    @Mock private AppMessageConversationDao conversationDao;
+    @Mock private AppMessageRecordDao messageRecordDao;
     @InjectMocks private RelationLifecycleServiceImpl service;
 
     @Test
@@ -40,6 +46,9 @@ class RelationLifecycleServiceImplTest {
 
         verify(likeDao).invalidateByUser(1L, "account_frozen", time);
         verify(visitDao).invalidateByUser(1L, "account_frozen", time);
+        verify(whisperDao).invalidateByUser(1L, "account_frozen", time);
+        verify(conversationDao).invalidateByUser(1L, "invalid", "account_frozen", time);
+        verify(messageRecordDao).schedulePurgeByUser(1L, time);
         verify(matchSourceDao).invalidateActiveByMatchIds(List.of(30L), "account_frozen", time);
         verify(matchPopupDao).cancelPendingByMatchIds(List.of(30L), time);
         verify(matchDao).invalidateByIds(List.of(30L), "account_frozen", time);
@@ -56,6 +65,9 @@ class RelationLifecycleServiceImplTest {
 
         verify(likeDao).invalidateByPair(2L, 9L, "blocked", time);
         verify(visitDao).invalidateByPair(2L, 9L, "blocked", time);
+        verify(whisperDao).invalidateByPair(2L, 9L, "blocked", time);
+        verify(conversationDao).invalidateByPair(2L, 9L, "blocked", "blocked", 9L, time);
+        verify(messageRecordDao).schedulePurgeByPair(2L, 9L, time);
         verify(matchSourceDao).invalidateActiveByMatchIds(List.of(31L), "blocked", time);
         verify(matchPopupDao).cancelPendingByMatchIds(List.of(31L), time);
         verify(matchDao).invalidateByIds(List.of(31L), "blocked", time);

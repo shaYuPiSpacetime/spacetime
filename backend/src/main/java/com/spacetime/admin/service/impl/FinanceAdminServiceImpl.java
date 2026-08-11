@@ -34,6 +34,7 @@ import com.spacetime.common.enums.OrderTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
+import com.spacetime.common.service.AssetResultMessageNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -66,6 +67,8 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
     private final UserDao userDao;
     /** 退款记录数据访问对象 */
     private final RefundRecordDao refundRecordDao;
+    /** 资产结果系统消息适配器 */
+    private final AssetResultMessageNotificationService assetResultNotificationService;
 
     /**
      * 分页查询订单列表，支持多条件筛选
@@ -187,6 +190,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         order.setRefundTime(now);
         order.setRefundReason(req.getReason());
         tradeOrderDao.updateById(order);
+        assetResultNotificationService.publishOrderAfterCommit(order, now);
         log.info("退款处理完成: orderId={}, orderNo={}", id, order.getOrderNo());
     }
 

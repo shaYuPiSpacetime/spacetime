@@ -10,6 +10,7 @@ import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.impl.AssetServiceImpl;
 import com.spacetime.miniapp.service.impl.PaymentServiceImpl;
 import com.spacetime.common.service.PromotionEventInboxService;
+import com.spacetime.common.service.AssetResultMessageNotificationService;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +42,7 @@ class PaymentServiceImplTest {
     @Mock private PaymentNotifyLogDao paymentNotifyLogDao;
     @Mock private WechatPayService wechatPayService;
     @Mock private PromotionEventInboxService promotionEventInboxService;
+    @Mock private AssetResultMessageNotificationService assetResultNotificationService;
     private final WechatPayProperties wechatPayProperties = new WechatPayProperties();
     private PaymentServiceImpl paymentService;
 
@@ -64,7 +66,8 @@ class PaymentServiceImplTest {
                 paymentNotifyLogDao,
                 wechatPayService,
                 wechatPayProperties,
-                promotionEventInboxService
+                promotionEventInboxService,
+                assetResultNotificationService
         );
         vipPackage = new VipPackage();
         vipPackage.setId(1L);
@@ -263,6 +266,8 @@ class PaymentServiceImplTest {
         // 验证真实支付确认后写入充值流水（充值70币=60+10赠送）
         verify(userCoinLogDao).insert(argThat(log ->
                 "recharge".equals(log.getFlowType()) && log.getChangeAmount() == 70));
+        verify(assetResultNotificationService).publishOrderAfterCommit(
+                eq(unpaidOrder), any(LocalDateTime.class));
     }
 
     @Test

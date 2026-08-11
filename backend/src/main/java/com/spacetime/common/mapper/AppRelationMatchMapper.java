@@ -18,4 +18,14 @@ public interface AppRelationMatchMapper extends BaseMapper<AppRelationMatch> {
     /** 按主键锁定匹配生命周期。 */
     @Select("SELECT * FROM app_relation_match WHERE id=#{matchId} AND deleted=0 FOR UPDATE")
     AppRelationMatch selectByIdForUpdate(@Param("matchId") Long matchId);
+
+    /** 查询近期缺失私信会话投影的有效匹配。 */
+    @Select("SELECT m.* FROM app_relation_match m "
+            + "LEFT JOIN app_message_conversation c ON c.match_id=m.id AND c.deleted=0 "
+            + "WHERE m.match_status='matched' AND m.active_marker=1 AND m.deleted=0 "
+            + "AND m.update_time>=#{updatedAfter} AND c.id IS NULL "
+            + "ORDER BY m.update_time,m.id LIMIT #{limit}")
+    java.util.List<AppRelationMatch> selectActiveMissingConversations(
+            @Param("updatedAfter") java.time.LocalDateTime updatedAfter,
+            @Param("limit") int limit);
 }

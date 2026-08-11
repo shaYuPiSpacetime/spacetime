@@ -5,8 +5,12 @@ import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppRelationMatchPopupDao;
 import com.spacetime.common.dao.AppRelationMatchSourceDao;
 import com.spacetime.common.dao.AppRelationVisitDao;
+import com.spacetime.common.dao.AppMessageConversationDao;
+import com.spacetime.common.dao.AppMessageRecordDao;
+import com.spacetime.common.dao.AppMessageWhisperDao;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.enums.RelationInvalidReasonEnum;
+import com.spacetime.common.enums.MessageConversationStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.RelationLifecycleService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +31,9 @@ public class RelationLifecycleServiceImpl implements RelationLifecycleService {
     private final AppRelationMatchDao matchDao;
     private final AppRelationMatchSourceDao matchSourceDao;
     private final AppRelationMatchPopupDao matchPopupDao;
+    private final AppMessageWhisperDao whisperDao;
+    private final AppMessageConversationDao conversationDao;
+    private final AppMessageRecordDao messageRecordDao;
 
     @Override
     @Transactional
@@ -36,6 +43,9 @@ public class RelationLifecycleServiceImpl implements RelationLifecycleService {
         List<Long> matchIds = matchDao.selectActiveByUser(userId).stream().map(AppRelationMatch::getId).toList();
         likeDao.invalidateByUser(userId, reason.getCode(), eventTime);
         visitDao.invalidateByUser(userId, reason.getCode(), eventTime);
+        whisperDao.invalidateByUser(userId, reason.getCode(), eventTime);
+        conversationDao.invalidateByUser(userId, conversationStatus(reason), reason.getCode(), eventTime);
+        messageRecordDao.schedulePurgeByUser(userId, eventTime);
         invalidateMatches(matchIds, reason, eventTime);
     }
 
@@ -53,6 +63,10 @@ public class RelationLifecycleServiceImpl implements RelationLifecycleService {
         AppRelationMatch match = matchDao.selectActivePair(low, high);
         likeDao.invalidateByPair(low, high, reason.getCode(), eventTime);
         visitDao.invalidateByPair(low, high, reason.getCode(), eventTime);
+        whisperDao.invalidateByPair(low, high, reason.getCode(), eventTime);
+        conversationDao.invalidateByPair(low, high, conversationStatus(reason), reason.getCode(),
+                RelationInvalidReasonEnum.BLOCKED == reason ? userA : null, eventTime);
+        messageRecordDao.schedulePurgeByPair(low, high, eventTime);
         invalidateMatches(match == null ? List.of() : List.of(match.getId()), reason, eventTime);
     }
 
@@ -69,5 +83,11 @@ public class RelationLifecycleServiceImpl implements RelationLifecycleService {
         if (userId == null || reason == null) {
             throw new BusinessException(RELATION_PARAM_ERROR, "关系失效用户和原因不能为空");
         }
+    }
+
+    private String conversationStatus(RelationInvalidReasonEnum reason) {
+        return RelationInvalidReasonEnum.BLOCKED == reason
+                ? MessageConversationStatusEnum.BLOCKED.getCode()
+                : MessageConversationStatusEnum.INVALID.getCode();
     }
 }

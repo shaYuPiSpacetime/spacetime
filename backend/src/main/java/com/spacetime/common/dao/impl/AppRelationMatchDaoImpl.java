@@ -61,4 +61,11 @@ public class AppRelationMatchDaoImpl extends AbstractRelationCrudDao<AppRelation
                 .set(AppRelationMatch::getInvalidReason, reason)
                 .set(AppRelationMatch::getInvalidTime, invalidTime));
     }
+
+    @Override
+    public List<AppRelationMatch> selectActiveMissingConversations(
+            LocalDateTime updatedAfter, int limit) {
+        return matchMapper.selectActiveMissingConversations(
+                updatedAfter, Math.max(1, Math.min(limit, 500)));
+    }
 }

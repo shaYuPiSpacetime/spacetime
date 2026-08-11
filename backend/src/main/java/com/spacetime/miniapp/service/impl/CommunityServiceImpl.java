@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.constant.CommunityConfigKeys;
@@ -19,6 +20,7 @@ import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.CommunityService;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.ChatReportEvidenceService;
 import com.spacetime.common.service.RelationDomainService;
 import com.spacetime.common.util.OssUtil;
 import lombok.RequiredArgsConstructor;
@@ -80,6 +82,8 @@ public class CommunityServiceImpl implements CommunityService {
     private final CommunityAuditPolicy auditPolicy;
     /** PRD-03 聊天举报可信上下文解析端口。 */
     private final ChatReportContextResolver chatReportContextResolver;
+    /** PRD-03 聊天举报独立证据快照服务。 */
+    private final ChatReportEvidenceService chatReportEvidenceService;
     /** OSS 归属校验配置。 */
     private final OssConfig ossConfig;
     /** OSS 对象完成状态校验。 */
@@ -709,70 +713,105 @@ public class CommunityServiceImpl implements CommunityService {
     @Transactional
     public CommunityReportResultVO createReport(Long userId, CommunityReportCreateReq req) {
         ensureReportAllowed(userId);
-        // 1. 校验举报目标类型
         CommunityReportTargetTypeEnum targetType = CommunityReportTargetTypeEnum.getByCode(req.getTargetType());
         if (targetType == null) {
             throw error("unsupported_report_target");
         }
-        // 2. 校验举报原因合法
         requireReportReason(req.getReasonCode());
+
+        boolean chatContext = targetType.isChatContext();
+        String clientReportId = StrUtil.blankToDefault(StrUtil.trim(req.getClientReportId()), null);
+        String requestedTargetNo = resolveRequestedTargetNo(targetType, req);
+        if (chatContext && clientReportId == null) {
+            throw error(30020, "client_report_id_required");
+        }
+        if (StrUtil.isNotBlank(clientReportId)) {
+            CommunityReport idempotent = findReportByClientId(userId, clientReportId);
+            if (idempotent != null) {
+                requireSameReportRequest(idempotent, req, requestedTargetNo);
+                return toReportResult(idempotent);
+            }
+        }
+
+        TrustedChatReportContext trusted = null;
+        Long targetUserId;
+        String contextJson = null;
+        String targetNo = requestedTargetNo;
+        String sourceType = req.getSourceType();
+        String sourceScene = "community";
+        if (chatContext) {
+            String lookupSourceType = targetType == CommunityReportTargetTypeEnum.CHAT
+                    ? req.getSourceType() : targetType.getCode();
+            try {
+                trusted = chatReportContextResolver.resolve(userId,
+                        new ChatReportLookup(lookupSourceType, req.getConversationNo(), req.getWhisperNo(),
+                                req.getMessageNo(), requestedTargetNo, req.getTimConversationId(),
+                                req.getTimMessageId(), req.getTimMsgKey()));
+            } catch (BusinessException ex) {
+                if (ex.getCode() == 505016) throw error(30022, "chat_report_unavailable");
+                throw ex;
+            }
+            targetNo = trusted.targetNo();
+            targetUserId = trusted.targetUserId();
+            sourceType = trusted.sourceType();
+            sourceScene = CommunityReportTargetTypeEnum.WHISPER.getCode().equals(trusted.sourceType())
+                    ? "whisper" : "chat";
+            Map<String, Object> context = new LinkedHashMap<>();
+            context.put("sourceType", trusted.sourceType());
+            context.put("targetNo", trusted.targetNo());
+            context.put("conversationNo", trusted.conversationNo());
+            context.put("targetMessageId", trusted.targetMessageId());
+            context.put("requestedEvidenceCount", trusted.evidenceMessageIds().size());
+            contextJson = JSONUtil.toJsonStr(context);
+        } else {
+            targetUserId = null;
+        }
 
         CommunityReport duplicate = communityReportDao.selectList(new LambdaQueryWrapper<CommunityReport>()
                         .eq(CommunityReport::getReporterId, userId)
                         .eq(CommunityReport::getTargetType, req.getTargetType())
-                        .eq(CommunityReport::getTargetId, req.getTargetId())
+                        .eq(CommunityReport::getTargetId, targetNo)
                         .in(CommunityReport::getStatus, List.of("pending", "processing")))
                 .stream().findFirst().orElse(null);
         if (duplicate != null) {
             throw error(505008, "report_duplicate");
         }
 
-        Long targetUserId = null;
-        String contextJson = null;
-        String evidenceJson = null;
-        String targetNo = req.getTargetId();
-        if (CommunityReportTargetTypeEnum.CHAT.equals(targetType)) {
-            TrustedChatReportContext trusted;
-            try {
-                trusted = chatReportContextResolver.resolve(userId,
-                        new ChatReportLookup(req.getSourceType(), req.getConversationNo(), req.getWhisperNo(), req.getMessageNo()));
-            } catch (BusinessException ex) {
-                if (ex.getCode() == 505016) throw error(505016, "chat_report_unavailable");
-                throw ex;
-            }
-            targetNo = trusted.targetNo();
-            targetUserId = trusted.targetUserId();
-            contextJson = "{\"sourceType\":\"" + jsonSafe(trusted.sourceType()) + "\",\"targetNo\":\""
-                    + jsonSafe(trusted.targetNo()) + "\"}";
-            evidenceJson = trusted.evidenceJson();
-        } else {
+        if (!chatContext) {
             targetUserId = increaseReportCount(req.getTargetType(), req.getTargetId());
         }
 
-        // 4. 创建举报记录
         CommunityReport report = new CommunityReport();
         report.setReportNo(businessNo("RPT"));
+        report.setClientReportId(clientReportId);
         report.setReporterId(userId);
         report.setTargetType(req.getTargetType());
-        report.setSourceType(req.getSourceType());
+        report.setSourceType(sourceType);
         report.setTargetId(targetNo);
+        report.setTargetBizNo(chatContext ? targetNo : null);
         report.setTargetUserId(targetUserId);
+        report.setReportedUserId(targetUserId);
+        report.setSourceScene(sourceScene);
+        report.setSnapshotStatus(chatContext ? "partial" : "not_required");
         report.setReasonCode(req.getReasonCode());
         report.setExtraText(StrUtil.blankToDefault(StrUtil.trim(req.getExtraText()), null));
         report.setContextJson(contextJson);
-        report.setEvidenceJson(evidenceJson);
         report.setStatus(CommunityReportStatusEnum.PENDING.getCode());
         report.setVersion(0);
         report.setActiveMarker(1);
         communityReportDao.insert(report);
+        if (chatContext) {
+            ChatEvidenceSnapshot snapshot = chatReportEvidenceService.freeze(report, trusted, LocalDateTime.now());
+            report.setSnapshotStatus(snapshot.snapshotStatus());
+            report.setEvidenceJson(snapshot.evidenceJson());
+            communityReportDao.updateById(report);
+        }
         writeOutbox("report_submitted", "report", report.getReportNo(), 0,
                 "{\"reportNo\":\"" + report.getReportNo() + "\",\"targetType\":\""
                         + jsonSafe(report.getTargetType()) + "\"}");
         log.info("Community report submitted: userId={}, targetType={}, targetNo={}, reportNo={}",
                 userId, req.getTargetType(), targetNo, report.getReportNo());
-        return new CommunityReportResultVO(report.getId(), report.getReportNo(), report.getStatus(),
-                resolveStatusLabel("community_report_status", report.getStatus()),
-                copy("report_submitted", resolveStatusLabel("community_report_status", report.getStatus())));
+        return toReportResult(report);
     }
 
     @Override
@@ -1755,6 +1794,60 @@ public class CommunityServiceImpl implements CommunityService {
         if (!exists) {
             throw error("report_reason_not_found");
         }
+    }
+
+    private String resolveRequestedTargetNo(CommunityReportTargetTypeEnum targetType,
+                                            CommunityReportCreateReq req) {
+        String targetNo = switch (targetType) {
+            case MESSAGE -> firstNonBlank(req.getTargetBizNo(), req.getMessageNo(), req.getTargetId());
+            case CONVERSATION -> firstNonBlank(req.getTargetBizNo(), req.getConversationNo(), req.getTargetId());
+            case WHISPER -> firstNonBlank(req.getTargetBizNo(), req.getWhisperNo(), req.getTargetId());
+            case CHAT -> firstNonBlank(req.getTargetBizNo(), req.getMessageNo(), req.getWhisperNo(),
+                    req.getConversationNo(), req.getTargetId());
+            default -> firstNonBlank(req.getTargetId());
+        };
+        if (targetNo == null) {
+            throw error(30022, "report_target_not_found");
+        }
+        return targetNo;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) return null;
+        for (String value : values) {
+            String normalized = StrUtil.blankToDefault(StrUtil.trim(value), null);
+            if (normalized != null) return normalized;
+        }
+        return null;
+    }
+
+    private CommunityReport findReportByClientId(Long reporterId, String clientReportId) {
+        if (clientReportId.length() < 8 || clientReportId.length() > 64) {
+            throw error(30020, "client_report_id_invalid");
+        }
+        return communityReportDao.selectList(new LambdaQueryWrapper<CommunityReport>()
+                        .eq(CommunityReport::getReporterId, reporterId)
+                        .eq(CommunityReport::getClientReportId, clientReportId))
+                .stream().findFirst().orElse(null);
+    }
+
+    private void requireSameReportRequest(CommunityReport existing, CommunityReportCreateReq req,
+                                          String requestedTargetNo) {
+        String existingTargetNo = firstNonBlank(existing.getTargetBizNo(), existing.getTargetId());
+        String requestedExtra = StrUtil.blankToDefault(StrUtil.trim(req.getExtraText()), null);
+        if (!Objects.equals(existing.getTargetType(), req.getTargetType())
+                || !Objects.equals(existingTargetNo, requestedTargetNo)
+                || !Objects.equals(existing.getReasonCode(), req.getReasonCode())
+                || !Objects.equals(existing.getExtraText(), requestedExtra)) {
+            throw error(30020, "report_idempotency_conflict");
+        }
+    }
+
+    private CommunityReportResultVO toReportResult(CommunityReport report) {
+        String statusName = resolveStatusLabel("community_report_status", report.getStatus());
+        return new CommunityReportResultVO(report.getId(), report.getReportNo(), report.getStatus(),
+                statusName, copy("report_submitted", statusName), report.getSnapshotStatus(),
+                report.getCreateTime());
     }
 
     /**
