@@ -324,6 +324,19 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("关注自己返回面向用户的业务提示")
+    void toggleFollow_self_shouldReturnFriendlyMessage() {
+        AppConfig message = appConfig("community.copy.cannot_follow_self", "不能关注自己");
+        when(appConfigDao.selectByKey("community.copy.cannot_follow_self")).thenReturn(message);
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        assertThatThrownBy(() -> communityService.toggleFollow(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("不能关注自己");
+        verify(communityFollowDao, never()).insert(any());
+    }
+
+    @Test
     @DisplayName("关注用户-再次点击取消")
     void toggleFollow_secondTime_shouldUnfollow() {
         CommunityFollow follow = new CommunityFollow();

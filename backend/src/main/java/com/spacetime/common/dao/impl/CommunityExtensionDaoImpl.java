@@ -3,6 +3,7 @@ package com.spacetime.common.dao.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.dao.CommunityExtensionDao;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.mapper.*;
@@ -27,6 +28,7 @@ public class CommunityExtensionDaoImpl implements CommunityExtensionDao {
     private final CommunityExportTaskMapper exportMapper;
     private final CommunityEventOutboxMapper outboxMapper;
     private final CommunityMediaAuditTaskMapper mediaAuditTaskMapper;
+    private final ObjectMapper objectMapper;
 
     public CommunityTopic selectTopicById(Long id) { return topicMapper.selectById(id); }
     public CommunityTopic selectTopicOne(LambdaQueryWrapper<CommunityTopic> wrapper) { return topicMapper.selectOne(wrapper); }
@@ -67,7 +69,11 @@ public class CommunityExtensionDaoImpl implements CommunityExtensionDao {
     public List<CommunityIpBlock> selectIpBlocks(LambdaQueryWrapper<CommunityIpBlock> wrapper) { return ipBlockMapper.selectList(wrapper); }
     public void insertIpBlock(CommunityIpBlock entity) { ipBlockMapper.insert(entity); }
 
-    public void insertAudit(CommunityAuditRecord entity) { auditMapper.insert(entity); }
+    public void insertAudit(CommunityAuditRecord entity) {
+        entity.setBeforeSnapshot(normalizeJsonSnapshot(entity.getBeforeSnapshot()));
+        entity.setAfterSnapshot(normalizeJsonSnapshot(entity.getAfterSnapshot()));
+        auditMapper.insert(entity);
+    }
     public List<CommunityAuditRecord> selectAudits(LambdaQueryWrapper<CommunityAuditRecord> wrapper) { return auditMapper.selectList(wrapper); }
     public void insertOutbox(CommunityEventOutbox entity) { outboxMapper.insert(entity); }
 
@@ -89,4 +95,23 @@ public class CommunityExtensionDaoImpl implements CommunityExtensionDao {
     public Page<CommunityExportTask> selectExportPage(Page<CommunityExportTask> page, LambdaQueryWrapper<CommunityExportTask> wrapper) { return exportMapper.selectPage(page, wrapper); }
     public void insertExport(CommunityExportTask entity) { exportMapper.insert(entity); }
     public void updateExport(CommunityExportTask entity) { exportMapper.updateById(entity); }
+
+    /**
+     * 审核快照列是 MySQL JSON 类型：已有 JSON 保持原样，普通文本编码为 JSON 字符串。
+     */
+    private String normalizeJsonSnapshot(String snapshot) {
+        if (snapshot == null) return null;
+        try {
+            var node = objectMapper.readTree(snapshot);
+            return node == null || node.isMissingNode()
+                    ? objectMapper.writeValueAsString(snapshot)
+                    : snapshot;
+        } catch (Exception ignored) {
+            try {
+                return objectMapper.writeValueAsString(snapshot);
+            } catch (Exception exception) {
+                throw new IllegalStateException("审核快照序列化失败", exception);
+            }
+        }
+    }
 }
