@@ -7,6 +7,7 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf
 
 const edit = read('src/pages/profile/edit.tsx')
 const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
+const profileHero = read('src/pages/profile/components/ProfileHeroImage.tsx')
 const previewVisibility = read('src/domain/profilePreviewVisibility.ts')
 const intro = read('src/pages/verification/intro.tsx')
 const introEdit = read('src/pages/verification/intro-edit.tsx')
@@ -32,7 +33,6 @@ assert.doesNotMatch(preview, /getDemoPageData|profileDemo/, '主页预览不得�
 assert.doesNotMatch(preview, /女丨97年|浙江杭州|河南人|深夜电台|告白气球|ENFJ 主人公|92%/, '主页预览不得保留演示用户资料')
 for (const geometry of [
   /minHeight: '100vh'/,
-  /height: '828rpx'/,
   /height: '896rpx'/,
   /flexWrap: 'wrap'/,
   /<ProfileTagChip item=\{item\}/,
@@ -43,6 +43,8 @@ for (const geometry of [
 ]) {
   assert.match(preview, geometry, `主页预览蓝湖几何基线缺失：${geometry}`)
 }
+assert.match(profileHero, /PROFILE_HERO_HEIGHT = '828rpx'/, '主页预览共享主图高度必须为 828rpx')
+assert.match(profileHero, /mode="aspectFill"/, '主页预览共享主图必须按比例裁切')
 assert.doesNotMatch(preview, /previewTagWidths/, '标签宽度不得按演示数据写死')
 assert.match(previewVisibility, /filter\(Boolean\)\.slice\(0, 4\)/, '相册必须最多保留四张真实图片')
 assert.match(preview, /visibleContent\.photos\[0\] \? <ProfilePreviewPhoto/, '空相册不得生成第一个蓝湖大图卡位')
@@ -50,7 +52,8 @@ assert.match(preview, /visibleContent\.photos\.slice\(2\)\.map/, '剩余蓝湖�
 assert.doesNotMatch(preview, /暂未添加标签|暂未填写自我介绍|暂未添加照片|暂未添加喜欢的歌曲/, '主页预览空内容不得显示占位模块')
 assert.match(edit, /<ProfilePreviewPage\s+model=\{previewModel\}/, '编辑页必须将完整真实资料模型传给预览页')
 assert.match(edit, /profile\.profileBgImage/, '主页预览背景必须读取 home-detail 的 profileBgImage')
-assert.match(edit, /heroImageUrl:\s*profileBackground/, '主页预览必须优先展示真实资料背景图')
+assert.match(edit, /const profileHeroImage = profileBackground \|\| editHeroPhoto/, '两页主图必须统一解析真实背景和空态兜底')
+assert.match(edit, /heroImageUrl:\s*profileHeroImage/, '主页预览必须接收编辑资料当前展示的同一背景图')
 assert.doesNotMatch(edit + preview, /MbtiSection|ProfilePreviewMbti|MBTI类型/, '产品要求隐藏编辑资料与预览 MBTI 模块')
 assert.match(edit, /prd01Api\.replaceAlbum[\s\S]*fileSizeBytes:\s*uploaded\.fileSizeBytes/, '替换相册必须透传 OSS 返回的文件大小')
 assert.match(edit, /prd01Api\.addAlbum[\s\S]*fileSizeBytes:\s*uploaded\.fileSizeBytes/, '新增相册必须透传 OSS 返回的文件大小')

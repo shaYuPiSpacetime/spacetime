@@ -24,6 +24,7 @@ import {
   getVoiceRecordingSeconds,
   resolveVoiceDuration,
 } from '@/utils/voiceRecording'
+import ProfileHeroImage from './components/ProfileHeroImage'
 import ProfilePreviewPage, { type ProfilePreviewModel } from './components/ProfilePreviewPage'
 
 import editHeroPhoto from '@/assets/lanhu/profile/edit-hero-photo.jpg'
@@ -201,7 +202,6 @@ export default function ProfileEditPage() {
   const bootstrap = usePrd01Store(state => state.bootstrap)
   const config = usePrd01Store(state => state.config)
   const profileOptions = usePrd01Store(state => state.profileOptions)
-  const [heroPhoto, setHeroPhoto] = useState(editHeroPhoto)
   const [profileAvatar, setProfileAvatar] = useState('')
   const [profileBackground, setProfileBackground] = useState('')
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
@@ -263,7 +263,6 @@ export default function ProfileEditPage() {
         const avatar = String(profile.avatar || '')
         const background = String(profile.profileBgImage || '')
         setProfileBackground(background)
-        setHeroPhoto(background || editHeroPhoto)
         const nextGoalCode = String(profile.datingGoal || '')
         const nextRelationshipCode = String(profile.emotionalStatus || '')
         setNickname(String(profile.nickname || basicResult.nickname || ''))
@@ -651,7 +650,6 @@ export default function ProfileEditPage() {
         sortOrder: 0,
       })
       const backgroundUrl = saved.mediaUrl || uploaded.url
-      setHeroPhoto(backgroundUrl)
       setProfileBackground(backgroundUrl)
     }, '更换背景')
   }
@@ -713,6 +711,7 @@ export default function ProfileEditPage() {
     basic.zodiac ? String(basic.zodiac) : '',
   ].filter(Boolean).join('丨')
   const locationText = buildBasicProfileLocationText(basic, regionTree)
+  const profileHeroImage = profileBackground || editHeroPhoto
   const photos = profilePhotos.flatMap(item => item.imageUrl ? [item.imageUrl] : [])
   const certificationRows = [
     { key: 'avatar' as const, label: '头像', status: verification.avatarVerifyStatus },
@@ -721,7 +720,7 @@ export default function ProfileEditPage() {
   ]
   const previewModel: ProfilePreviewModel = {
     avatarUrl: profileAvatar || defaultAvatar,
-    heroImageUrl: profileBackground,
+    heroImageUrl: profileHeroImage,
     nickname,
     gender: String(basic.gender || ''),
     genderAgeHeight,
@@ -779,7 +778,7 @@ export default function ProfileEditPage() {
           <TruthNotice />
           <ProfileHeroCard
             nickname={nickname}
-            avatar={heroPhoto}
+            heroImageUrl={profileHeroImage}
             profileAvatar={profileAvatar || defaultAvatar}
             onChangeBackground={onChangeBackground}
             onChangeAvatar={onChangeAvatar}
@@ -906,7 +905,7 @@ function ProfileScoreCard({ score, onClick }: { score: number; onClick: () => vo
       style={{
         width: '700rpx',
         height: '138rpx',
-        margin: '35rpx auto 0',
+        margin: '0 auto',
         borderRadius: '8rpx',
         background: '#FFFFFF',
         padding: '20rpx 24rpx 0',
@@ -1012,57 +1011,36 @@ function TruthNotice() {
 
 function ProfileHeroCard({
   nickname,
-  avatar,
+  heroImageUrl,
   profileAvatar,
   onChangeBackground,
   onChangeAvatar,
 }: {
   nickname: string
-  avatar: string
+  heroImageUrl: string
   profileAvatar: string
   onChangeBackground: () => void
   onChangeAvatar: () => void
 }) {
   return (
     <View
+      data-role="profile-edit-hero"
       style={{
         position: 'relative',
         width: '700rpx',
-        height: '734rpx',
+        height: '828rpx',
         margin: '20rpx auto 0',
         borderRadius: '32rpx',
         overflow: 'visible',
         background: '#EFF6F6',
         boxShadow: cardShadow,
-        zIndex: 3,
       }}
     >
-      <View
-        data-role="hero-main-photo"
+      <ProfileHeroImage
+        src={heroImageUrl}
+        dataRole="hero-main-photo"
         onClick={onChangeBackground}
-        style={{
-          position: 'absolute',
-          left: '0',
-          top: '0',
-          width: '700rpx',
-          height: '734rpx',
-          borderRadius: '32rpx',
-          background: '#EFF6F6',
-          overflow: 'visible',
-        }}
       >
-        <Image
-          src={avatar}
-          mode="aspectFill"
-          style={{
-            position: 'absolute',
-            left: '0',
-            top: '0',
-            width: '700rpx',
-            height: '734rpx',
-            borderRadius: '32rpx',
-          }}
-        />
         <View
           data-role="hero-mini-avatar"
           aria-label="更换头像"
@@ -1075,7 +1053,7 @@ function ProfileHeroCard({
             left: '0',
             right: '0',
             bottom: '0',
-            height: '260rpx',
+            height: '300rpx',
             borderRadius: '0 0 32rpx 32rpx',
             background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(15,27,48,0.64) 100%)',
           }}
@@ -1083,10 +1061,10 @@ function ProfileHeroCard({
         <View
           style={{
             position: 'absolute',
-            left: '36rpx',
-            bottom: '-34rpx',
-            width: '142rpx',
-            height: '142rpx',
+            left: '30rpx',
+            bottom: '56rpx',
+            width: '188rpx',
+            height: '188rpx',
             zIndex: 5,
           }}
         >
@@ -1095,8 +1073,8 @@ function ProfileHeroCard({
             src={profileAvatar}
             mode="aspectFill"
             style={{
-              width: '142rpx',
-              height: '142rpx',
+              width: '188rpx',
+              height: '188rpx',
               borderRadius: '50%',
               background: '#FFFFFF',
               border: '7rpx solid #FFFFFF',
@@ -1109,8 +1087,8 @@ function ProfileHeroCard({
         <View
           style={{
             position: 'absolute',
-            left: '186rpx',
-            bottom: '22rpx',
+            left: '238rpx',
+            bottom: '117rpx',
             minWidth: 0,
             zIndex: 4,
           }}
@@ -1150,7 +1128,7 @@ function ProfileHeroCard({
             <RightChevron color="#FFFFFF" size={15} borderWidth={3} />
           </View>
         </View>
-      </View>
+      </ProfileHeroImage>
     </View>
   )
 }
@@ -1164,11 +1142,12 @@ function PhotoUploadGrid({
 }) {
   return (
     <View
+      data-role="profile-photo-grid"
       style={{
         position: 'relative',
         width: '700rpx',
         height: '648rpx',
-        margin: '-12rpx auto 0',
+        margin: '-105rpx auto 0',
         borderRadius: '32rpx',
         background: '#FFFFFF',
         padding: '64rpx 26rpx 28rpx',

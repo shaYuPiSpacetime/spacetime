@@ -7,6 +7,7 @@ import ProfileTagChip from '@/components/ProfileTagChip'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { buildProfilePreviewVisibility } from '@/domain/profilePreviewVisibility'
 import type { ProfileTagItem } from '@/utils/profileTags'
+import ProfileHeroImage from './ProfileHeroImage'
 
 export type ProfilePreviewModel = {
   avatarUrl: string
@@ -128,22 +129,7 @@ export default function ProfilePreviewPage({
 
 function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: ProfilePreviewModel; onShare: () => void; onSafetyActions?: () => void }) {
   return (
-    <View style={{ position: 'relative', width: '700rpx', height: '828rpx' }}>
-      <View
-        style={{
-          position: 'absolute',
-          inset: '0',
-          overflow: 'hidden',
-          borderRadius: '32rpx',
-          background: '#D8E7E6',
-        }}
-      >
-        <Image
-          src={model.heroImageUrl || miniappOssIcons.profilePreviewHero}
-          mode="aspectFill"
-          style={{ width: '700rpx', height: '828rpx' }}
-        />
-      </View>
+    <ProfileHeroImage src={model.heroImageUrl || miniappOssIcons.profilePreviewHero}>
       <Image
         src={miniappOssIcons.profilePreviewShare}
         mode="scaleToFill"
@@ -222,7 +208,7 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
           </View>
         ) : null}
       </View>
-    </View>
+    </ProfileHeroImage>
   )
 }
 

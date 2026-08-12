@@ -8,6 +8,7 @@ const rootDir = path.resolve(__dirname, '..')
 const read = relativePath => fs.readFileSync(path.join(rootDir, relativePath), 'utf8')
 
 const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
+const profileHero = read('src/pages/profile/components/ProfileHeroImage.tsx')
 const visibility = read('src/domain/profilePreviewVisibility.ts')
 const topNav = read('src/components/ProfilePreviewTopNav.tsx')
 const nativeNavigation = read('src/components/NativeNavigation.tsx')
@@ -38,13 +39,14 @@ for (const certIcon of ['avatar', 'realname', 'education']) {
 }
 assert.match(preview, /minHeight: '100vh'/, '空模块隐藏后页面高度必须跟随真实内容收口')
 assert.doesNotMatch(preview, /minHeight: '5900rpx'/, '主页预览禁止保留固定超长页面高度')
-assert.match(preview, /height: '828rpx'/, '首屏主图高度必须为 828rpx')
+assert.match(profileHero, /PROFILE_HERO_HEIGHT = '828rpx'/, '首屏共享主图高度必须为 828rpx')
 assert.doesNotMatch(preview, /editHeroPhoto/, '主页预览禁止复用缺少竖向像素的编辑页横图')
 assert.match(
   preview,
-  /src=\{model\.heroImageUrl \|\| miniappOssIcons\.profilePreviewHero\}\s+mode="aspectFill"/,
+  /<ProfileHeroImage src=\{model\.heroImageUrl \|\| miniappOssIcons\.profilePreviewHero\}/,
   '首屏主图必须优先使用真实背景、保留蓝湖 OSS 2x 缺省切图并按比例裁切'
 )
+assert.match(profileHero, /mode="aspectFill"/, '共享主图组件必须按比例裁切')
 assert.match(
   preview,
   /id="profile-preview-avatar"[\s\S]{0,180}src=\{model\.avatarUrl \|\| miniappOssIcons\.profilePreviewAvatar\}[\s\S]{0,80}mode="aspectFill"/,
@@ -53,7 +55,7 @@ assert.match(
 assert.match(preview, /height: '896rpx'/, '相册图片高度必须为 896rpx')
 assert.doesNotMatch(preview, /height: '920rpx'/, '禁止保留错误的 920rpx 主图高度')
 assert.doesNotMatch(preview, /height: '700rpx'/, '禁止保留错误的 700rpx 相册图片高度')
-assert.match(preview, /borderRadius: '32rpx'/, '蓝湖卡片和图片圆角必须为 32rpx')
+assert.match(preview + profileHero, /(?:borderRadius: '32rpx'|PROFILE_HERO_RADIUS = '32rpx')/, '蓝湖卡片和图片圆角必须为 32rpx')
 assert.match(preview, /text=\{model\.genderAgeHeight/, '基础资料必须由真实资料模型驱动')
 assert.match(preview, /text=\{model\.location/, '地区资料必须由真实资料模型驱动')
 assert.doesNotMatch(preview, /女丨97年|浙江杭州|河南人/, '主页预览不得保留蓝湖演示用户文案')

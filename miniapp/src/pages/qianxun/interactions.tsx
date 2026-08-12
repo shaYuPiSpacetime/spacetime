@@ -513,6 +513,10 @@ function InteractorEmpty({ type, config }: { type: 'liked' | 'commented'; config
 
 function RosterList({ users, onChanged, config }: { users: CommunityRelationUserVO[]; onChanged: () => void; config?: CommunityConfig }) {
   const changeFollow = async (user: CommunityRelationUserVO) => {
+    if (user.userId === useAuthStore.getState().userId) {
+      await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.cannotFollowSelf), icon: 'none' })
+      return
+    }
     if (user.following) {
       const confirmed = await Taro.showModal({
         title: '温馨提示',
@@ -524,7 +528,7 @@ function RosterList({ users, onChanged, config }: { users: CommunityRelationUser
       if (!confirmed.confirm) return
     }
     try {
-      await toggleCommunityFollow(user.userNo || user.userId)
+      await toggleCommunityFollow(user.userId)
       onChanged()
     } catch (error) {
       await showError(config, error)

@@ -66,6 +66,7 @@ export const COMMUNITY_COPY_KEYS = {
   profilePendingNickname: 'profile_pending_nickname',
   profilePendingDescription: 'profile_pending_description',
   profileUnknownUser: 'profile_unknown_user',
+  cannotFollowSelf: 'cannot_follow_self',
   commentSending: 'comment_sending',
 } as const
 
@@ -360,7 +361,7 @@ export const deleteCommunityPost = (postId: number | string) => del<void>(`/mini
 export const getCommunityConfig = () => get<CommunityConfig>('/miniapp/community/config')
 export const getCommunityMeta = async () => normalizeCommunityMeta(await get<CommunityMetaPayloadVO>('/miniapp/community/meta'))
 export const getFollowingCount = () => get<number>('/miniapp/community/following/count')
-export const toggleCommunityFollow = (targetUserId: number | string) => post<{ following: boolean; followingCount?: number; followerCount?: number }>(`/miniapp/community/follows/${targetUserId}`)
+export const toggleCommunityFollow = (targetUserId: number) => post<{ following: boolean; followingCount?: number; followerCount?: number }>(`/miniapp/community/follows/${targetUserId}`)
 export const toggleCommunityLike = (postId: number | string) => post<{ liked: boolean; likeCount: number }>(`/miniapp/community/posts/${postId}/like`)
 export const toggleCommunityCommentLike = (commentId: number | string) => post<{ liked: boolean; likeCount: number }>(`/miniapp/community/comments/${commentId}/like`)
 

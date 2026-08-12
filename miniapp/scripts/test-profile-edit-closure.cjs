@@ -222,7 +222,8 @@ test('编辑资料主页面按蓝湖比例和真实组件展示关键模块', ()
   assert.match(edit, /buildProfileAboutSummary\(/, '初始化和局部更新必须复用关于我摘要映射')
   assert.match(edit, /data-role="profile-score-track"/, '资料评分必须使用蓝湖浮标进度条')
   assert.doesNotMatch(edit, />\s*资料完整度\s*</, '蓝湖评分区不展示额外的“资料完整度”标题')
-  assert.match(edit, /height: '734rpx'/, '主照片高度必须匹配蓝湖 367px 基线')
+  assert.match(edit, /margin: '0 auto'/, '评分卡必须紧接蓝湖顶部导航，不得额外下移')
+  assert.match(edit, /margin: '-105rpx auto 0'/, '更多照片卡必须按蓝湖覆盖主图底部 105rpx')
   assert.match(edit, /function SectionTitleDecoration/, '卡片标题必须使用蓝湖浅蓝圆形装饰')
   assert.doesNotMatch(edit, /function SectionTitleDot/, '禁止继续使用标题左侧实心蓝点替代设计装饰')
   assert.match(edit, /item\.value \|\| item\.placeholder/, '关于我空值必须展示固定三项引导文案')
@@ -232,6 +233,33 @@ test('编辑资料主页面按蓝湖比例和真实组件展示关键模块', ()
   assert.match(edit, /margin: '20rpx auto 0'[\s\S]{0,100}background: mainBlue/, '真实性提示顶部间距必须为 20rpx')
   assert.match(edit, /width: '198rpx'[\s\S]{0,80}height: '198rpx'/, '照片六宫格单格必须为 198×198rpx')
   assert.match(edit, /isLastInRow \? '0' : '27rpx'/, '照片六宫格列间距必须为 27rpx')
+})
+
+test('编辑资料与主页预览共用同一背景图内容、裁切和高度', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+  const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
+  const hero = read('src/pages/profile/components/ProfileHeroImage.tsx')
+
+  assert.match(hero, /PROFILE_HERO_WIDTH = '700rpx'/, '共享主图宽度必须匹配蓝湖 700rpx')
+  assert.match(hero, /PROFILE_HERO_HEIGHT = '828rpx'/, '共享主图高度必须匹配蓝湖 828rpx')
+  assert.match(hero, /PROFILE_HERO_RADIUS = '32rpx'/, '共享主图圆角必须匹配蓝湖 32rpx')
+  assert.match(hero, /mode="aspectFill"/, '编辑资料与主页预览必须使用同一 aspectFill 裁切方式')
+  assert.match(edit, /<ProfileHeroImage\s+src=\{heroImageUrl\}/, '编辑资料必须复用共享主图组件')
+  assert.match(preview, /<ProfileHeroImage\s+src=\{model\.heroImageUrl/, '主页预览必须复用共享主图组件')
+  assert.match(edit, /const profileHeroImage = profileBackground \|\| editHeroPhoto/, '两种状态必须解析为同一背景图来源')
+  assert.match(edit, /heroImageUrl:\s*profileHeroImage,/, '主页预览模型必须接收编辑资料当前显示的同一背景图')
+  assert.match(edit, /heroImageUrl=\{profileHeroImage\}/, '编辑资料主图必须接收与主页预览一致的背景图')
+})
+
+test('背景图加高后更多照片卡片及头像姓名仍保持蓝湖前后层级', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+  const heroWrapper = edit.match(/data-role="profile-edit-hero"[\s\S]*?<ProfileHeroImage/)?.[0]
+
+  assert.ok(heroWrapper, '编辑资料主图容器缺少稳定验收节点')
+  assert.doesNotMatch(heroWrapper, /zIndex:/, '主图外层不得创建层叠上下文压住更多照片标题')
+  assert.match(edit, /data-role="profile-photo-grid"[\s\S]{0,420}zIndex: 2/, '更多照片卡片必须覆盖主图底部')
+  assert.match(edit, /left: '30rpx',[\s\S]{0,180}zIndex: 5/, '圆头像必须继续显示在更多照片卡片之上')
+  assert.match(edit, /left: '238rpx',[\s\S]{0,160}zIndex: 4/, '姓名必须继续显示在更多照片卡片之上')
 })
 
 test('自我介绍、语音和歌曲在空态与已填写状态都能正确回显', () => {
@@ -290,20 +318,20 @@ test('编辑资料背景图与头像分别上传并独立回显', () => {
   assert.match(backgroundHandler, /prd01Api\.uploadBackground/, '背景图必须调用背景上传接口')
   assert.match(backgroundHandler, /prd01Api\.saveBackground/, '背景图上传后必须保存为主页背景')
   assert.match(backgroundHandler, /setProfileBackground/, '背景图上传后必须独立更新背景状态')
-  assert.match(backgroundHandler, /setHeroPhoto/, '背景图上传后必须独立更新编辑页主图')
+  assert.doesNotMatch(backgroundHandler, /setHeroPhoto/, '背景图不得再维护第二份易分叉的展示状态')
   assert.doesNotMatch(backgroundHandler, /uploadAvatar|submitAvatar|setProfileAvatar/, '修改背景图不得修改头像')
 
   assert.ok(avatarHandler, '缺少独立的头像上传处理器')
   assert.match(avatarHandler, /prd01Api\.uploadAvatar/, '头像必须调用头像上传接口')
   assert.match(avatarHandler, /prd01Api\.submitAvatar/, '头像上传后必须提交头像审核')
   assert.match(avatarHandler, /setProfileAvatar/, '头像上传后必须独立更新圆头像')
-  assert.doesNotMatch(avatarHandler, /uploadBackground|saveBackground|setProfileBackground|setHeroPhoto/, '修改头像不得修改背景图')
+  assert.doesNotMatch(avatarHandler, /uploadBackground|saveBackground|setProfileBackground/, '修改头像不得修改背景图')
 
-  assert.match(edit, /data-role="hero-main-photo"[\s\S]{0,100}onClick=\{onChangeBackground\}/, '主页背景点击必须只触发背景上传')
+  assert.match(edit, /dataRole="hero-main-photo"[\s\S]{0,120}onClick=\{onChangeBackground\}/, '主页背景点击必须只触发背景上传')
   assert.match(edit, /data-role="hero-mini-avatar"[\s\S]{0,180}onChangeAvatar\(\)/, '圆头像点击必须只触发头像上传')
-  assert.match(edit, /setHeroPhoto\(background \|\| editHeroPhoto\)/, '初始化时编辑页主图必须优先回显背景图')
-  assert.match(edit, /heroImageUrl:\s*profileBackground,/, '主页预览背景必须只读取背景图状态')
-  assert.doesNotMatch(edit, /heroImageUrl:\s*profileBackground[^\n]*profileAvatar/, '头像不得作为主页背景兜底，避免修改头像时连带修改背景')
+  assert.match(edit, /const profileHeroImage = profileBackground \|\| editHeroPhoto/, '初始化时两页主图必须解析同一背景来源')
+  assert.match(edit, /heroImageUrl:\s*profileHeroImage,/, '主页预览背景必须读取当前统一主图')
+  assert.doesNotMatch(edit, /heroImageUrl:\s*profileHeroImage[^\n]*profileAvatar/, '头像不得作为主页背景兜底，避免修改头像时连带修改背景')
 })
 
 test('语音卡片与录音浮层按蓝湖完成态展示时限、短条、X 和管理入口', () => {

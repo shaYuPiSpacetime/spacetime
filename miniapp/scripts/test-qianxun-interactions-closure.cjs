@@ -52,6 +52,7 @@ test('互动记录按真实互动日期稳定分组并显示蓝湖日期文本',
 
 test('互动页消费真实 viewed 互动接口并保留关联动态和互动时间', () => {
   const source = read('src/pages/qianxun/interactions.tsx')
+  const communityService = read('src/services/community.ts')
 
   assert.match(source, /getCommunityInteractions\('viewed',\s*1,\s*50\)/, '浏览记录必须读取包含 viewedAt 的真实互动接口')
   assert.doesNotMatch(source, /getCommunityViewHistory/, '互动页禁止继续使用缺少浏览时间的旧列表接口')
@@ -59,6 +60,9 @@ test('互动页消费真实 viewed 互动接口并保留关联动态和互动时
   assert.match(source, /post:\s*item\.post/, '互动映射必须保留服务端关联动态')
   assert.match(source, /groupCommunityInteractions\(/, '浏览记录和动态互动必须按真实日期分组')
   assert.match(source, /data-section-panel="history"/, '浏览记录面板必须继续保持挂载')
+  assert.match(source, /toggleCommunityFollow\(user\.userId\)/, '关注接口必须提交数字用户 ID')
+  assert.doesNotMatch(source, /toggleCommunityFollow\(user\.userNo\s*\|\|\s*user\.userId\)/, '展示编号 userNo 禁止作为关注接口路径参数')
+  assert.match(communityService, /toggleCommunityFollow\s*=\s*\(targetUserId:\s*number\)/, '关注接口类型必须限制为数字用户 ID')
 })
 
 test('千寻动态卡统一使用 OSS 性别评论点赞图标', () => {

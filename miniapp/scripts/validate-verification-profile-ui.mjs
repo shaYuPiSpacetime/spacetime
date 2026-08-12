@@ -162,7 +162,7 @@ assert.ok(profileEditSource.includes('VoiceIntroSheet'), '语音介绍缺少蓝�
 assert.ok(profileEditSource.includes('setVoiceSheet'), '语音介绍缺少弹窗状态流转')
 assert.ok(profileEditSource.includes("/pages/verification/basic?from=profile"), '基础资料编辑入口需要跳转基本资料编辑态')
 assert.ok(profileEditSource.includes("/pages/verification/my-certification"), '更新认证必须进入我的认证新 UI')
-assert.ok(profileEditSource.includes('data-role="hero-main-photo"'), '头像区需要还原主照片结构')
+assert.ok(profileEditSource.includes('dataRole="hero-main-photo"'), '头像区需要还原主照片结构')
 assert.ok(profileEditSource.includes('data-role="hero-mini-avatar"'), '头像区需要还原小头像结构')
 for (const componentName of [
   'ProfileScoreCard',
