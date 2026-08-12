@@ -281,6 +281,31 @@ test('编辑资料和主页预览在真实头像与空头像状态都使用同�
   assert.match(edit, /avatarUrl:\s*profileAvatar \|\| defaultAvatar/, '主页预览模型必须复用编辑资料的同一兜底头像')
 })
 
+test('编辑资料背景图与头像分别上传并独立回显', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+  const backgroundHandler = edit.match(/const onChangeBackground = \(\) => \{[\s\S]*?\n  \}\n\n  const onChangeAvatar/)?.[0]
+  const avatarHandler = edit.match(/const onChangeAvatar = \(\) => \{[\s\S]*?\n  \}\n\n  const handlePhotoClick/)?.[0]
+
+  assert.ok(backgroundHandler, '缺少独立的背景图上传处理器')
+  assert.match(backgroundHandler, /prd01Api\.uploadBackground/, '背景图必须调用背景上传接口')
+  assert.match(backgroundHandler, /prd01Api\.saveBackground/, '背景图上传后必须保存为主页背景')
+  assert.match(backgroundHandler, /setProfileBackground/, '背景图上传后必须独立更新背景状态')
+  assert.match(backgroundHandler, /setHeroPhoto/, '背景图上传后必须独立更新编辑页主图')
+  assert.doesNotMatch(backgroundHandler, /uploadAvatar|submitAvatar|setProfileAvatar/, '修改背景图不得修改头像')
+
+  assert.ok(avatarHandler, '缺少独立的头像上传处理器')
+  assert.match(avatarHandler, /prd01Api\.uploadAvatar/, '头像必须调用头像上传接口')
+  assert.match(avatarHandler, /prd01Api\.submitAvatar/, '头像上传后必须提交头像审核')
+  assert.match(avatarHandler, /setProfileAvatar/, '头像上传后必须独立更新圆头像')
+  assert.doesNotMatch(avatarHandler, /uploadBackground|saveBackground|setProfileBackground|setHeroPhoto/, '修改头像不得修改背景图')
+
+  assert.match(edit, /data-role="hero-main-photo"[\s\S]{0,100}onClick=\{onChangeBackground\}/, '主页背景点击必须只触发背景上传')
+  assert.match(edit, /data-role="hero-mini-avatar"[\s\S]{0,180}onChangeAvatar\(\)/, '圆头像点击必须只触发头像上传')
+  assert.match(edit, /setHeroPhoto\(background \|\| editHeroPhoto\)/, '初始化时编辑页主图必须优先回显背景图')
+  assert.match(edit, /heroImageUrl:\s*profileBackground,/, '主页预览背景必须只读取背景图状态')
+  assert.doesNotMatch(edit, /heroImageUrl:\s*profileBackground[^\n]*profileAvatar/, '头像不得作为主页背景兜底，避免修改头像时连带修改背景')
+})
+
 test('语音卡片与录音浮层按蓝湖完成态展示时限、短条、X 和管理入口', () => {
   const edit = read('src/pages/profile/edit.tsx')
 

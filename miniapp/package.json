@@ -31,7 +31,7 @@
     "validate:message-15": "node scripts/validate-message-15-lanhu.mjs",
     "validate:message-18": "node scripts/validate-message-18-lanhu.mjs",
     "validate:qianxun-66": "node scripts/validate-qianxun-66-lanhu.mjs",
-    "validate:qianxun-tabs": "node scripts/validate-qianxun-tab-and-zhiyin.mjs && node scripts/validate-native-navigation-and-qianxun-interactions.mjs",
+    "validate:qianxun-tabs": "node scripts/validate-qianxun-tab-and-zhiyin.mjs && node scripts/validate-native-navigation-and-qianxun-interactions.mjs && node --test scripts/test-community-comment-threads.cjs",
     "validate:qianxun-topics": "node scripts/validate-qianxun-topic-demo-closure.mjs",
     "validate:qianxun-community": "node scripts/validate-qianxun-community-interaction-closure.mjs",
     "validate:qianxun-interactions": "node --test scripts/test-qianxun-interactions-closure.cjs",

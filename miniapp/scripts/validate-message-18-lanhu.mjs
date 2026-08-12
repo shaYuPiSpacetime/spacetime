@@ -77,5 +77,15 @@ assert.match(runtime, /onClick=|onInput=/, '交互控件必须绑定真实事件
 assert.doesNotMatch(runtime, /lanhuapp\.com|alipic\.lanhuapp|\.lanhu-ref/, '运行代码禁止引用蓝湖参考图')
 assert.doesNotMatch(runtime, /opacity\s*:\s*0(?:[;,}]|\b)/, '禁止透明点击热区')
 assert.doesNotMatch(runtime, /backgroundImage[^\n]*(?:reference|screenshot|design|lanhu)/i, '禁止整页设计图背景')
+assert.match(
+  read('src/pages/chat/index.tsx'),
+  /id="message-home-private-art"[\s\S]{0,300}top: designRpx\(18\)[\s\S]{0,120}width: designRpx\(111\)[\s\S]{0,120}height: designRpx\(140\)/,
+  '私信复合插画必须使用当前蓝湖版本的 111×140rpx 切图及 18rpx 顶部偏移'
+)
+assert.match(
+  read('src/pages/chat/index.tsx'),
+  /height: designRpx\(158\),[\s\S]{0,100}margin: `\$\{designRpx\(6\)\} auto 0`/,
+  '消息入口卡片必须位于蓝湖 y=182rpx，不能整体下移 8rpx'
+)
 
 console.log('消息 18 稿路由、状态、举报链路与静态安全门禁通过')

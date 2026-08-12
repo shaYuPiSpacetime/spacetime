@@ -62,7 +62,7 @@ assert.equal(
   3,
   '出生日期页必须保留年、月、日三个可独立滑动列',
 )
-assert.match(loginAgeSource, /normalizeBirthDateSelection/, '出生日期页必须在年月变化后修正非法日期')
+assert.match(loginAgeSource, /updateBirthDatePickerColumn/, '出生日期页必须在年月变化后修正非法日期')
 
 const sharedPicker = read('src/pages/verification/components/LanhuPickerSheet.tsx')
 const shellSource = read('src/pages/verification/components/VerificationShell.tsx')
@@ -143,7 +143,8 @@ assert.ok(profileEditSource.includes('profileDemo.editProfile'), '编辑资料�
 assert.ok(profileEditSource.includes('<Input'), '编辑资料页微信号等字段需要保留可输入能力')
 assert.ok(profileEditSource.includes('handleProfileAction'), '编辑资料页所有按钮需要统一点击处理，不能只展示')
 assert.ok(profileEditSource.includes('handlePhotoClick'), '更多照片每一个上传位都需要可点击')
-assert.ok(profileEditSource.includes('onChangePhoto'), '顶部更换照片按钮需要可点击')
+assert.ok(profileEditSource.includes('onChangeBackground'), '顶部更换背景按钮需要可点击')
+assert.ok(profileEditSource.includes('onChangeAvatar'), '圆头像需要支持独立更换')
 assert.ok(profileEditSource.includes('profilePhotos'), '更多照片需要使用结构化状态承载上传结果')
 assert.ok(profileEditSource.includes('Taro.chooseImage'), '头像和更多照片点击后需要走选择图片能力')
 const forbiddenTextSheet = ['TextEdit', 'Sheet'].join('')

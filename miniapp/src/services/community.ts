@@ -120,6 +120,10 @@ export interface CommunityCommentVO {
   authorId: number
   authorName: string
   authorAvatar: string
+  authorGender?: string
+  authorBirthYear?: number
+  authorCity?: string
+  authorProfession?: string
   parentCommentId?: number
   replyUserId?: number
   replyUserName?: string

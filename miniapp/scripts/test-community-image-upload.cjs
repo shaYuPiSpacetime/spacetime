@@ -158,6 +158,49 @@ test('超限和接口错误转换为发布动态可理解提示', async () => {
     resolveCommunityImageUploadError({ errMsg: 'uploadFile:fail timeout' }),
     '网络不稳定，图片上传失败',
   )
+  assert.equal(
+    resolveCommunityImageUploadError({ errMsg: 'uploadFile:fail url not in domain list' }),
+    '图片上传域名未配置，请联系管理员',
+  )
+  assert.equal(
+    resolveCommunityImageUploadError(new Error('403:SignatureDoesNotMatch')),
+    '图片上传鉴权失败，请稍后重试',
+  )
+})
+
+test('临时网络错误自动重试两次，鉴权和域名配置错误不盲目重试', async () => {
+  const {
+    runCommunityImageUploadWithRetry,
+  } = requirePreparation()
+  let attempts = 0
+  const waits = []
+  const result = await runCommunityImageUploadWithRetry(
+    async () => {
+      attempts += 1
+      if (attempts < 3) throw { errMsg: 'uploadFile:fail timeout' }
+      return 'uploaded'
+    },
+    {
+      wait: async delay => waits.push(delay),
+    },
+  )
+  assert.equal(result, 'uploaded')
+  assert.equal(attempts, 3)
+  assert.deepEqual(waits, [300, 1000])
+
+  for (const error of [
+    { errMsg: 'uploadFile:fail url not in domain list' },
+    new Error('403:SignatureDoesNotMatch'),
+  ]) {
+    let blockedAttempts = 0
+    await assert.rejects(
+      runCommunityImageUploadWithRetry(async () => {
+        blockedAttempts += 1
+        throw error
+      }, { wait: async () => undefined }),
+    )
+    assert.equal(blockedAttempts, 1)
+  }
 })
 
 test('发布动态消费预处理结果、展示真实失败原因且不提供重新上传', () => {
@@ -168,9 +211,13 @@ test('发布动态消费预处理结果、展示真实失败原因且不提供�
   assert.match(uploadService, /prepareCommunityImageForUpload/)
   assert.match(uploadService, /Taro\.compressImage/)
   assert.match(uploadService, /export async function uploadCommunityImageDirectToOss/)
+  assert.match(uploadService, /runCommunityImageUploadWithRetry/)
+  assert.match(uploadService, /timeout: 20000/)
   assert.match(prd01Service, /uploadAlbum:[\s\S]{0,160}uploadCommunityImageDirectToOss/)
   assert.match(compose, /resolveCommunityImageUploadError/)
   assert.match(compose, /item\.failureMessage/)
+  assert.match(compose, /await uploadImagesWithLimit\(queued\)/)
+  assert.match(compose, /const workerCount = Math\.min\(1, items\.length\)/)
   assert.doesNotMatch(compose, /COMMUNITY_COPY_KEYS\.uploadRetry/)
 })
 

@@ -61,7 +61,10 @@ const ICON_ASSETS = Object.freeze({
   memberBenefitDailyHeart: 'src/assets/lanhu/pages/member-benefits/member-slice-my-2.png',
   loginMethodWechat: 'src/assets/lanhu/login/login-method-wechat.png',
   loginMethodPhone: 'src/assets/lanhu/login/login-method-phone.png',
+  loginPhoneField: 'src/assets/lanhu/login/login-phone-field.png',
+  loginSmsCode: 'src/assets/lanhu/login/login-sms-code.png',
   loginBrand: 'src/assets/lanhu/login/login-brand.png',
+  loginCityLocation: 'src/assets/lanhu/login/city-location.png',
   genderFemale: 'src/assets/lanhu/login/gender-female.webp',
   genderMale: 'src/assets/lanhu/login/gender-male.webp',
   verificationCertAvatar: 'src/assets/lanhu/verification/slices/cert-avatar.png',
@@ -117,6 +120,10 @@ const ICON_ASSETS = Object.freeze({
   profilePreviewLocation: 'src/assets/lanhu/profile/profile-preview-location.png',
   profilePreviewSong: 'src/assets/lanhu/profile/profile-preview-song.png',
   profilePreviewPhoto: 'src/assets/lanhu/profile/profile-preview-photo.png',
+  showcaseProfileHero: 'src/assets/lanhu/profile/edit-hero-photo.jpg',
+  showcaseProfileAvatar: 'src/assets/lanhu/heart-message/heart-avatar.webp',
+  showcaseProfilePortrait: 'src/assets/lanhu/heart-message/heart-person.webp',
+  showcaseProfileAlternate: 'src/assets/lanhu/pages/match-photo.webp',
   recommendSkip: '../docs/验收报告/截图证据/2026-08-05-PRD08推荐理想型-蓝湖还原/设计基线/切图原始/01-A15D81F1-D8E9-41D7-B909-FEC2B1BACA88.png',
   recommendLike: '../docs/验收报告/截图证据/2026-08-05-PRD08推荐理想型-蓝湖还原/设计基线/切图原始/02-C5EBE5E6-F9E2-41A1-AEAB-AFEE38E606F6.png',
   recommendWhisper: '../docs/验收报告/截图证据/2026-08-05-PRD08推荐理想型-蓝湖还原/设计基线/切图原始/03-69CA943B-E604-4A4D-BB5C-8FCD8BCBD246.png',
@@ -160,6 +167,7 @@ function requiredEnv(env, key) {
 function contentType(fileName) {
   if (fileName.endsWith('.png')) return 'image/png'
   if (fileName.endsWith('.webp')) return 'image/webp'
+  if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) return 'image/jpeg'
   throw new Error(`不支持的图标格式：${fileName}`)
 }
 

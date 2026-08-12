@@ -253,7 +253,7 @@ export default function RecommendFamilyPage() {
   const headerMetrics = getQianxunHeaderMetrics()
 
   return (
-    <View style={{ minHeight: '100vh', background: 'linear-gradient(100deg, #F1FEFC 0%, #F2F5FF 52%, #FCFDF3 100%)', overflow: 'hidden', position: 'relative' }}>
+    <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%)', overflow: 'hidden', position: 'relative' }}>
       <QianxunHeader
         active={primaryTab}
         avatar={ownerAvatar}

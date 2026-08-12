@@ -361,7 +361,7 @@ function RecommendHeader({
           <Image
             src={miniappOssIcons.recommendReplay}
             mode="aspectFit"
-            style={{ width: '48rpx', height: '48rpx' }}
+            style={{ width: '36rpx', height: '36rpx' }}
           />
         </View>
         <View
@@ -377,7 +377,7 @@ function RecommendHeader({
           <Image
             src={miniappOssIcons.recommendPreference}
             mode="aspectFit"
-            style={{ width: '48rpx', height: '48rpx' }}
+            style={{ width: '36rpx', height: '36rpx' }}
           />
         </View>
       </View>
@@ -879,7 +879,7 @@ function IdealLanding({ onTabChange }: { onTabChange: (tab: RecommendTab) => voi
         <Image
           src={miniappOssIcons.idealHistory}
           mode="aspectFit"
-          style={{ width: '52rpx', height: '52rpx' }}
+          style={{ width: '36rpx', height: '36rpx' }}
         />
       </View>
       <View

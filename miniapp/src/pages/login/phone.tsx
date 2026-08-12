@@ -1,5 +1,5 @@
 import { Image, Input, Text, View } from '@tarojs/components'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { loginByPhone, sendPhoneSmsCode } from '@/services/auth'
@@ -18,9 +18,9 @@ function PhoneIcon() {
   return (
     <View className="phone-login-method-icon">
       <Image
-        src={miniappOssIcons.loginMethodPhone}
+        src={miniappOssIcons.loginPhoneField}
         mode="aspectFit"
-        style={{ width: '44rpx', height: '54rpx' }}
+        style={{ width: '36rpx', height: '48rpx' }}
       />
     </View>
   )
@@ -28,26 +28,18 @@ function PhoneIcon() {
 
 function SmsCodeIcon() {
   return (
-    <View className="phone-login-sms-icon">
-      {[0, 1, 2].map(item => (
-        <View
-          key={item}
-          style={{
-            width: '6rpx',
-            height: item === 1 ? '28rpx' : '24rpx',
-            borderRadius: '4rpx',
-            background: '#64A4FF',
-            marginLeft: item === 0 ? '0' : '6rpx',
-          }}
-        />
-      ))}
-    </View>
+    <Image
+      className="phone-login-sms-icon"
+      src={miniappOssIcons.loginSmsCode}
+      mode="aspectFit"
+      style={{ width: '36rpx', height: '32rpx' }}
+    />
   )
 }
 
 export default function PhoneLoginPage() {
   const router = useRouter()
-  const { bootstrap, resumeInit } = useLogin()
+  const { bootstrap, resumeAfterLogin } = useLogin()
   const smsSecurity = usePrd01Store(state => state.config?.smsSecurity)
   const setLogin = useAuthStore(state => state.setLogin)
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -55,6 +47,7 @@ export default function PhoneLoginPage() {
   const [errorText, setErrorText] = useState('')
   const [loading, setLoading] = useState(false)
   const [codeCountdown, setCodeCountdown] = useState(0)
+  const loginPendingRef = useRef(false)
   const agreed = router.params.agreed === '1'
 
   useEffect(() => {
@@ -108,7 +101,8 @@ export default function PhoneLoginPage() {
       await Taro.redirectTo({ url: '/pages/login/index?variant=dialog' })
       return
     }
-    if (loading) return
+    if (loginPendingRef.current || loading) return
+    loginPendingRef.current = true
     setLoading(true)
     try {
       const loginData = await loginByPhone(
@@ -128,10 +122,11 @@ export default function PhoneLoginPage() {
           accessStatus: loginData.accessStatus,
         }
       )
-      await resumeInit()
+      await resumeAfterLogin(loginData)
     } catch (error) {
       showError('登录失败，请稍后重试', error)
     } finally {
+      loginPendingRef.current = false
       setLoading(false)
     }
   }
@@ -175,7 +170,7 @@ export default function PhoneLoginPage() {
           type="number"
           value={phoneNumber}
           placeholder="请输入手机号"
-          placeholderStyle="color:#A8B2C4;font-size:36rpx"
+          placeholderStyle="color:#999999;font-size:32rpx"
           onInput={event => {
             setPhoneNumber(event.detail.value)
             setErrorText('')
@@ -192,19 +187,19 @@ export default function PhoneLoginPage() {
           type="number"
           value={verificationCode}
           placeholder="请输入验证码"
-          placeholderStyle="color:#A8B2C4;font-size:36rpx"
+          placeholderStyle="color:#999999;font-size:32rpx"
           onInput={event => {
             setVerificationCode(event.detail.value)
             setErrorText('')
           }}
           className="phone-login-input"
         />
-        <Text
-          className={codeCountdown > 0 ? 'phone-login-code phone-login-code--counting' : 'phone-login-code'}
+        <View
+          className="phone-login-code"
           onClick={() => void handleGetCode()}
         >
-          {codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码'}
-        </Text>
+          {codeCountdown > 0 ? <><Text className="phone-login-code-countdown">{codeCountdown}s</Text><Text className="phone-login-code-retry">重新获取</Text></> : <Text>获取验证码</Text>}
+        </View>
       </View>
 
       <LoginNextButton

@@ -155,13 +155,41 @@ test('学历受保护材料通过带 token 的 downloadFile 生成临时预览�
   assert.equal(education.includes('API_BASE_URL + url'), false)
 })
 
-test('手机号和微信登录后统一重新查询 init-status 再导航', () => {
+test('手机号和微信登录优先使用登录响应导航，仅非法状态回退 init-status', () => {
   const phone = source('src/pages/login/phone.tsx')
   const wechat = source('src/pages/login/index.tsx')
   ;[phone, wechat].forEach(loginSource => {
-    assert.equal(loginSource.includes('resolvePostLoginRoute'), false)
-    assert.match(loginSource, /await resumeInit\(\)/)
+    assert.match(loginSource, /await resumeAfterLogin\(loginData\)/)
+    assert.doesNotMatch(loginSource, /await resumeInit\(\)/)
   })
+
+  const hook = source('src/hooks/useLogin.ts')
+  assert.match(hook, /resolvePostLoginRoute/)
+  assert.match(hook, /const resumeAfterLogin = async/)
+  assert.match(hook, /if \(!route\) return resumeInit\(\)/)
+  assert.match(hook, /Taro\.switchTab\(\{ url: route \}\)/)
+  assert.match(hook, /Taro\.redirectTo\(\{ url: route \}\)/)
+})
+
+test('千寻币明细暂无数据使用蓝湖原始切图', () => {
+  const detail = source('src/pages/coins/detail.tsx')
+  const ossIcons = source('src/constants/ossIcons.ts')
+  const uploadScript = source('scripts/upload-miniapp-oss-icons.mjs')
+
+  assert.match(detail, /import \{ Image, ScrollView, Text, View \} from '@tarojs\/components'/)
+  assert.match(detail, /miniappOssIcons\.qianxunEmptyChart/)
+  assert.match(
+    detail,
+    /id="coin-empty-illustration"[\s\S]{0,260}width: '334rpx'[\s\S]{0,80}height: '251rpx'/,
+    '暂无数据切图必须按蓝湖 167×125.5px 的 2rpx 映射展示',
+  )
+  assert.doesNotMatch(detail, /EmptyPlusMark|EmptyRingMark/, '不得继续渲染旧的手写灰色占位插画')
+  assert.match(ossIcons, /qianxunEmptyChart: 'https:\/\//, '运行态必须引用 OSS 公网切图')
+  assert.match(
+    uploadScript,
+    /qianxunEmptyChart: 'src\/assets\/lanhu\/recommend\/slices\/empty-chart\.png'/,
+    'OSS 上传清单必须保留蓝湖原始切图源文件',
+  )
 })
 
 test('页面入口门禁精确读取 app.config 的 84 个路由并递归扫描依赖', () => {

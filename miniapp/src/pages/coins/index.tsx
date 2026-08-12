@@ -480,18 +480,16 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
         bottom: 0,
         background: 'rgba(51, 51, 51, 0.4)',
         zIndex: 70,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        padding: '386rpx 65rpx 0',
-        boxSizing: 'border-box',
       }}
     >
       <View
         id="recharge-notice-card"
         style={{
+          position: 'absolute',
+          left: '65rpx',
+          top: '386rpx',
           width: '620rpx',
-          height: '570rpx',
+          height: '538rpx',
           borderRadius: '32rpx',
           background: '#FFFFFF',
           padding: '51rpx 45rpx 28rpx',
@@ -504,10 +502,10 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
           style={{
             display: 'block',
             width: '530rpx',
-            height: '310rpx',
+            height: '282rpx',
             color: '#333333',
-            fontSize: '26rpx',
-            lineHeight: '44rpx',
+            fontSize: '24rpx',
+            lineHeight: '40rpx',
             marginTop: '30rpx',
             whiteSpace: 'pre-wrap',
             overflowWrap: 'break-word',

@@ -1,5 +1,5 @@
 import { Button, CoverImage, CoverView, View, Text, Image, Video } from '@tarojs/components'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { useAuthStore } from '@/stores/authStore'
@@ -425,7 +425,7 @@ function LoginMethodSheet({
  * 登录入口页：先选择登录方式，再确认协议，最后进入对应登录方式。
  */
 export default function LoginAuthPage() {
-  const { bootstrap, resumeInit } = useLogin()
+  const { bootstrap, resumeAfterLogin } = useLogin()
   const { setLogin } = useAuthStore()
   const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [showMethodSheet, setShowMethodSheet] = useState(false)
@@ -434,6 +434,7 @@ export default function LoginAuthPage() {
   const [errorText, setErrorText] = useState('')
   const [loading, setLoading] = useState(false)
   const [wechatAuthPending, setWechatAuthPending] = useState(false)
+  const loginPendingRef = useRef(false)
   const [agreementWechatAuthorizing, setAgreementWechatAuthorizing] = useState(false)
   const [videoUnavailable, setVideoUnavailable] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState<LoginMethod | null>(null)
@@ -511,7 +512,7 @@ export default function LoginAuthPage() {
     event: { detail?: { code?: string; errMsg?: string } },
     protocolAccepted = agreementAccepted,
   ) => {
-    if (wechatAuthPending || loading) return
+    if (loginPendingRef.current || wechatAuthPending || loading) return
     const phoneCode = event.detail?.code
     if (!phoneCode) {
       const nextErrorText = getWechatAuthErrorText({ errMsg: event.detail?.errMsg })
@@ -521,6 +522,7 @@ export default function LoginAuthPage() {
       return
     }
 
+    loginPendingRef.current = true
     setWechatAuthPending(true)
     setLoading(true)
     setShowError(false)
@@ -540,13 +542,14 @@ export default function LoginAuthPage() {
         maskedPhone: loginData.maskedPhone,
         accessStatus: loginData.accessStatus,
       })
-      await resumeInit()
+      await resumeAfterLogin(loginData)
     } catch (error) {
       const nextErrorText = getWechatAuthErrorText(error)
       setErrorText(nextErrorText)
       setShowError(true)
       Taro.showToast({ title: nextErrorText, icon: 'none' })
     } finally {
+      loginPendingRef.current = false
       setWechatAuthPending(false)
       setLoading(false)
     }

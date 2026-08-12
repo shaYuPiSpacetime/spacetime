@@ -41,7 +41,7 @@ export default function VerificationEntryView({
         overflow: 'hidden',
       }}
     >
-      <TopTabs unreadCount={unreadCount} />
+      {role === 'index-unverified' ? <TopTabs unreadCount={unreadCount} /> : null}
       {error ? (
         <EntryLoadError error={error} loading={loading} onRetry={onRetry} />
       ) : loading ? (

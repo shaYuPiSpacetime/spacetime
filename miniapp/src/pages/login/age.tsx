@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   formatBirthDate,
   getDaysInMonth,
-  normalizeBirthDateSelection,
   resolveBirthDateInitialValue,
+  updateBirthDatePickerColumn,
   type BirthDateSelection,
 } from '@/domain/birthDateWheel'
 import { useLogin } from '@/hooks/useLogin'
@@ -49,9 +49,16 @@ export default function LoginAgePage() {
     setValue(initial)
   }, [initial[0], initial[1], initial[2]])
 
-  const handlePickerChange = (event: { detail: { value: number[] } }) => {
-    setValue(normalizeBirthDateSelection(years, event.detail.value))
+  const handlePickerChange = (
+    column: PickerColumn,
+    event: { detail: { value: number[] } }
+  ) => {
+    const nextIndex = event.detail.value[0]
+    setValue(current => updateBirthDatePickerColumn(years, current, column, nextIndex))
   }
+
+  const handlePickerStart = (column: PickerColumn) => setPickingColumn(column)
+  const handlePickerEnd = () => setPickingColumn(undefined)
 
   const hasValidDate = Boolean(formatBirthDate(years, value))
 
@@ -80,33 +87,53 @@ export default function LoginAgePage() {
     >
       <View className="login-age-picker-wrap">
         <View className="login-age-picker__selection" />
-        <PickerView
-          className="login-age-picker"
-          indicatorStyle="height: 128rpx; border: 0; background: transparent;"
-          maskStyle="background: transparent;"
-          value={value}
-          onChange={handlePickerChange}
-          onPickEnd={() => setPickingColumn(undefined)}
-        >
-          <PickerViewColumn
-            className={`login-age-picker__column${pickingColumn === 'year' ? ' login-age-picker__column--picking' : ''}`}
-            onTouchStart={() => setPickingColumn('year')}
+        <View className="login-age-picker-row">
+          <PickerView
+            className="login-age-picker login-age-picker--year"
+            indicatorStyle="height: 128rpx; border: 0; background: transparent;"
+            maskStyle="background: transparent;"
+            value={[value[0]]}
+            onChange={event => handlePickerChange('year', event)}
+            onPickStart={() => handlePickerStart('year')}
+            onPickEnd={handlePickerEnd}
           >
-            {renderPickerItems(years, value[0], 'year')}
-          </PickerViewColumn>
-          <PickerViewColumn
-            className={`login-age-picker__column${pickingColumn === 'month' ? ' login-age-picker__column--picking' : ''}`}
-            onTouchStart={() => setPickingColumn('month')}
+            <PickerViewColumn
+              className={`login-age-picker__column${pickingColumn === 'year' ? ' login-age-picker__column--picking' : ''}`}
+            >
+              {renderPickerItems(years, value[0], 'year')}
+            </PickerViewColumn>
+          </PickerView>
+          <PickerView
+            className="login-age-picker login-age-picker--month"
+            indicatorStyle="height: 128rpx; border: 0; background: transparent;"
+            maskStyle="background: transparent;"
+            value={[value[1]]}
+            onChange={event => handlePickerChange('month', event)}
+            onPickStart={() => handlePickerStart('month')}
+            onPickEnd={handlePickerEnd}
           >
-            {renderPickerItems(MONTHS, value[1], 'month')}
-          </PickerViewColumn>
-          <PickerViewColumn
-            className={`login-age-picker__column${pickingColumn === 'day' ? ' login-age-picker__column--picking' : ''}`}
-            onTouchStart={() => setPickingColumn('day')}
+            <PickerViewColumn
+              className={`login-age-picker__column${pickingColumn === 'month' ? ' login-age-picker__column--picking' : ''}`}
+            >
+              {renderPickerItems(MONTHS, value[1], 'month')}
+            </PickerViewColumn>
+          </PickerView>
+          <PickerView
+            className="login-age-picker login-age-picker--day"
+            indicatorStyle="height: 128rpx; border: 0; background: transparent;"
+            maskStyle="background: transparent;"
+            value={[value[2]]}
+            onChange={event => handlePickerChange('day', event)}
+            onPickStart={() => handlePickerStart('day')}
+            onPickEnd={handlePickerEnd}
           >
-            {renderPickerItems(days, value[2], 'day')}
-          </PickerViewColumn>
-        </PickerView>
+            <PickerViewColumn
+              className={`login-age-picker__column${pickingColumn === 'day' ? ' login-age-picker__column--picking' : ''}`}
+            >
+              {renderPickerItems(days, value[2], 'day')}
+            </PickerViewColumn>
+          </PickerView>
+        </View>
         <View className="login-age-picker__indicator-cover login-age-picker__indicator-cover--top" />
         <View className="login-age-picker__indicator-cover login-age-picker__indicator-cover--bottom" />
       </View>

@@ -62,6 +62,11 @@ test('千寻与我的共用蓝湖未认证视图', () => {
   assert.match(verificationEntry, /data-role=\{role\}/, '共享未认证视图必须暴露真实运行态节点')
   assert.match(verificationEntry, /id=\{role\}/, '共享未认证视图必须提供微信自动化可定位节点')
   assert.match(verificationEntry, /id=\{`\$\{role\}-continue`\}/, '未认证主按钮必须提供微信运行态几何验收节点')
+  assert.match(
+    verificationEntry,
+    /role === 'index-unverified' \? <TopTabs unreadCount=\{unreadCount\} \/> : null/,
+    '我的未认证态不得显示左上角成家/知音/立业栏目头'
+  )
   assert.match(verificationEntry, /id="verification-entry-actions"[\s\S]{0,220}marginTop: '1098rpx'/, '未认证主操作区必须保持蓝湖纵向基线并避免绝对定位漂移')
   assert.match(verificationEntry, /id=\{`\$\{role\}-continue`\}[\s\S]{0,220}borderRadius: '27rpx'/, '未认证主按钮必须保持蓝湖 13.5px 圆角')
   assert.match(verificationEntry, /width: '700rpx'[\s\S]{0,100}height: '168rpx'/, '部分资料卡必须保持蓝湖 350×84px 几何')

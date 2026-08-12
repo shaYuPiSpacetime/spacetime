@@ -338,7 +338,7 @@ function IdealResultsHeader() {
         <Image
           src={miniappOssIcons.idealHistory}
           mode="aspectFit"
-          style={{ width: '52rpx', height: '52rpx' }}
+          style={{ width: '36rpx', height: '36rpx' }}
         />
       </View>
       <Text

@@ -6,6 +6,7 @@ import {
   normalizePendingSources,
   parsePromotionSource,
   removePendingSource,
+  waitWithinBudget,
 } from '@/domain/promotionAttribution'
 import type { InviteSourceType } from '@/types/promotion'
 import { createInviteSourceTrace } from './promotion'
@@ -24,6 +25,7 @@ const traceTasks = new Map<string, Promise<string>>()
 const resolvedTraceNos = new Map<string, string>()
 const pendingCaptureTasks = new Set<Promise<unknown>>()
 let visitorKeyTask: Promise<string> | undefined
+let registrationGeneration = 0
 
 function readStorage<T>(key: string, fallback: T): T {
   try {
@@ -110,6 +112,7 @@ export async function capturePromotionSource(
 ): Promise<boolean> {
   const source = parsePromotionSource(query || {}) as PromotionSource | undefined
   if (!source) return false
+  const captureGeneration = registrationGeneration
 
   if (persistForRegistration) persistPendingSource(source)
 
@@ -146,7 +149,7 @@ export async function capturePromotionSource(
     }
   }
 
-  if (persistForRegistration && traceNo) {
+  if (persistForRegistration && traceNo && captureGeneration === registrationGeneration) {
     persistPendingTraceNo(traceNo)
     clearPendingSource(source)
   }
@@ -154,19 +157,17 @@ export async function capturePromotionSource(
 }
 
 /** 登录请求发出前等待仍在进行的匿名来源换号，避免快速登录丢失归因。 */
-export async function waitForPromotionAttributionCapture() {
+export async function waitForPromotionAttributionCapture(maxWaitMs = 150) {
   const tasks = Array.from(pendingCaptureTasks)
-  if (tasks.length) await Promise.allSettled(tasks)
-
   const pendingSources = normalizePendingSources(
     readStorage<unknown[]>(PENDING_SOURCES_STORAGE, []),
   ) as PromotionSource[]
-  if (!pendingSources.length) return
+  const retryTasks = pendingSources.map(source => capturePromotionSource(source, true))
+  const allTasks = [...tasks, ...retryTasks]
+  if (!allTasks.length) return true
 
-  // 首次网络失败时，登录前对已校验来源并行补偿一次；失败仍不阻断正常登录。
-  await Promise.allSettled(
-    pendingSources.map(source => capturePromotionSource(source, true)),
-  )
+  // 归因最多占用 150ms 登录预算，超时后继续后台完成，不能阻塞手机号登录。
+  return waitWithinBudget(Promise.allSettled(allTasks), maxWaitMs)
 }
 
 export function getPendingPromotionTraceNos(): string[] {
@@ -175,6 +176,7 @@ export function getPendingPromotionTraceNos(): string[] {
 
 /** 登录成功后无论新老用户都清理，防止同设备后续账号串归因。 */
 export function clearPendingPromotionTraceNos() {
+  registrationGeneration += 1
   try {
     Taro.removeStorageSync(PENDING_TRACE_NOS_STORAGE)
     Taro.removeStorageSync(PENDING_SOURCES_STORAGE)

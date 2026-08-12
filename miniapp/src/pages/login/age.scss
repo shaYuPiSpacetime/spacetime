@@ -24,12 +24,19 @@
   background: #e3f1fe;
 }
 
-.login-age-picker {
+.login-age-picker-row {
   position: relative;
   z-index: 1;
   top: -20rpx;
   width: 700rpx;
   height: 410rpx;
+  display: flex;
+}
+
+.login-age-picker {
+  width: 233.333rpx;
+  height: 410rpx;
+  flex: 0 0 233.333rpx;
 }
 
 .login-age-picker__column {
@@ -93,7 +100,7 @@
   visibility: hidden;
 }
 
-// 只让当前触摸列交给原生 PickerView 连续排版，另外两列保持蓝湖静止态。
+// 静止时保留蓝湖五行视觉，只在当前滑动列恢复原生连续排版。
 .login-age-picker__column--picking {
   .login-age-picker__item--above,
   .login-age-picker__item--below {

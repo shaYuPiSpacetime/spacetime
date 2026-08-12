@@ -3,7 +3,7 @@
   min-height: 100vh;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(180deg, #f6fffd 0%, #f7f9ff 100%);
+  background: linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%);
 }
 
 .phone-login-back {
@@ -17,7 +17,7 @@
 .phone-login-heading {
   position: absolute;
   left: 0;
-  top: 159px;
+  top: 123.5px;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -26,26 +26,26 @@
 
 .phone-login-title {
   color: #0c285a;
-  font-size: 21px;
-  font-weight: 800;
-  line-height: 30px;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 25px;
 }
 
 .phone-login-notice {
-  margin-top: 24px;
+  margin-top: 14px;
   color: #999;
-  font-size: 15px;
-  line-height: 21px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .phone-login-error {
   position: absolute;
   z-index: 5;
-  left: 72px;
-  top: 248px;
-  width: 255px;
-  min-height: 62px;
-  padding: 12px 18px;
+  left: 58px;
+  top: 196.5px;
+  width: 259px;
+  min-height: 49px;
+  padding: 8px 18px;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.32);
   display: flex;
@@ -64,67 +64,64 @@
 
 .phone-login-field {
   position: absolute;
-  left: 40px;
-  width: 295px;
-  height: 62px;
-  border-radius: 8px;
+  left: 32px;
+  width: 311px;
+  height: 49px;
+  border-radius: 4px;
   background: #fff;
-  padding: 0 24px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   box-sizing: border-box;
 }
 
 .phone-login-field--phone {
-  top: 312px;
+  top: 247px;
 }
 
 .phone-login-field--sms {
-  top: 394px;
-  padding-right: 17px;
+  top: 312px;
+  padding-right: 16px;
 }
 
 .phone-login-method-icon {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.phone-login-sms-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  background: #ddeeff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .phone-login-input {
   flex: 1;
-  height: 62px;
-  margin-left: 19px;
+  height: 49px;
+  margin-left: 8px;
   color: #333;
-  font-size: 19px;
-  line-height: 62px;
+  font-size: 16px;
+  line-height: 49px;
 }
 
 .phone-login-code {
   color: #2876ff;
   font-size: 16px;
-  line-height: 23px;
+  line-height: 22.5px;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
 }
 
-.phone-login-code--counting {
+.phone-login-code-retry {
   color: #999;
+  margin-left: 6px;
+}
+
+.phone-login-code-countdown {
+  color: #2876ff;
 }
 
 .phone-login-next {
   position: absolute;
-  left: 156px;
-  bottom: 82px;
+  left: 156.5px;
+  bottom: 84px;
 }

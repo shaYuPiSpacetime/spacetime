@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import Taro from '@tarojs/taro'
-import { buildInitStepPayload, resolveInitStepRoute } from '@/domain/prd01Runtime'
+import { buildInitStepPayload, resolveInitStepRoute, resolvePostLoginRoute } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { LoginStep, LoginUserInfo } from '@/types/login'
@@ -11,6 +11,7 @@ import type {
   RegionOption,
   RegionTreeOption,
 } from '@/types/prd01'
+import type { LoginVO } from '@/types/user'
 
 interface LoginFlowState {
   step: LoginStep
@@ -84,6 +85,25 @@ export function useLogin() {
     return status
   }
 
+  const resumeAfterLogin = async (
+    result: Pick<LoginVO, 'firstLoginCompleted' | 'nextStep'>,
+  ) => {
+    const firstLoginCompleted = Boolean(result.firstLoginCompleted)
+    const route = resolvePostLoginRoute({
+      firstLoginCompleted,
+      nextStep: result.nextStep,
+    })
+    if (!route) return resumeInit()
+    if (firstLoginCompleted) {
+      reset()
+      await Taro.switchTab({ url: route })
+      return undefined
+    }
+    useLoginFlowStore.getState().setStep(loginStepFromNumber(result.nextStep))
+    await Taro.redirectTo({ url: route })
+    return undefined
+  }
+
   const saveInitStep = async (stepNumber: number, values: ProfileInitValues) => {
     await ensureRuntime()
     const payload = buildInitStepPayload(
@@ -131,6 +151,7 @@ export function useLogin() {
     updateUserInfo,
     saveInitStep,
     resumeInit,
+    resumeAfterLogin,
     submit,
     enterHome,
     setStep,

@@ -268,13 +268,14 @@ function YuemuContent({ users, loading, error, config, likingUserIds, onRetry, o
 }
 
 function YuemuCard({ user, liking, onOpen, onLike }: { user: YuemuUserVO; liking: boolean; onOpen: () => void; onLike: () => void }) {
-  return <View className="qianxun-yuemu-card" data-user-id={user.userId} onClick={onOpen} style={{ position: 'relative', width: '340rpx', height: '570rpx', borderRadius: '10rpx', overflow: 'hidden', background: '#E9EEF4' }}>
-    <Image src={user.photoUrl} mode="aspectFill" style={{ width: '340rpx', height: '570rpx' }} />
-    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '190rpx', background: 'linear-gradient(180deg, rgba(16,25,38,0) 0%, rgba(16,25,38,.62) 100%)' }} />
-    <View style={{ position: 'absolute', left: '20rpx', top: '24rpx', maxWidth: '270rpx', height: '52rpx', borderRadius: '26rpx', background: 'rgba(255,255,255,.82)', padding: '0 19rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.fateLabel}</Text></View>
-    <Text style={{ position: 'absolute', left: '20rpx', right: '96rpx', bottom: '78rpx', color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.educationSchool}</Text>
-    <Text style={{ position: 'absolute', left: '20rpx', right: '96rpx', bottom: '31rpx', color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx' }}>{user.onlineText}</Text>
-    <View className="qianxun-yuemu-like" id={`qianxun-yuemu-like-${user.userId}`} aria-label={user.liked ? '取消心动' : '心动'} onClick={event => { event.stopPropagation(); if (!liking) onLike() }} style={{ position: 'absolute', right: '18rpx', bottom: '24rpx', width: '92rpx', height: '92rpx', borderRadius: '46rpx', border: `2rpx solid ${user.liked ? '#FF7078' : 'rgba(255,79,101,.48)'}`, background: 'rgba(255,255,255,.96)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', opacity: liking ? 0.72 : 1 }}><Image src={user.liked ? miniappOssIcons.qianxunLikeActive : miniappOssIcons.qianxunLike} mode="aspectFit" style={{ width: '54rpx', height: '54rpx' }} /></View>
+  const [photoUnavailable, setPhotoUnavailable] = useState(false)
+  return <View className="qianxun-yuemu-card" data-user-id={user.userId} onClick={onOpen} style={{ position: 'relative', width: '340rpx', height: '458rpx', borderRadius: '8rpx', overflow: 'hidden', background: '#E9EEF4' }}>
+    <Image src={!photoUnavailable && user.photoUrl ? user.photoUrl : defaultAvatar} mode="aspectFill" onError={() => setPhotoUnavailable(true)} style={{ width: '340rpx', height: '458rpx' }} />
+    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '116rpx', background: 'linear-gradient(180deg, rgba(16,25,38,0) 0%, rgba(16,25,38,.62) 100%)' }} />
+    <View style={{ position: 'absolute', left: '20rpx', top: '21rpx', maxWidth: '270rpx', height: '39rpx', borderRadius: '19rpx', background: 'rgba(255,255,255,.82)', padding: '0 19rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.fateLabel}</Text></View>
+    <Text style={{ position: 'absolute', left: '20rpx', right: '94rpx', bottom: '49rpx', color: '#FFFFFF', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.educationSchool}</Text>
+    <Text style={{ position: 'absolute', left: '20rpx', right: '94rpx', bottom: '20rpx', color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx' }}>{user.onlineText}</Text>
+    <View className="qianxun-yuemu-like" id={`qianxun-yuemu-like-${user.userId}`} aria-label={user.liked ? '取消心动' : '心动'} onClick={event => { event.stopPropagation(); if (!liking) onLike() }} style={{ position: 'absolute', right: '20rpx', bottom: '26rpx', width: '54rpx', height: '54rpx', borderRadius: '27rpx', background: '#FF7078', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: liking ? 0.72 : 1 }}><Image src={miniappOssIcons.qianxunLikeActive} mode="aspectFit" style={{ width: '21rpx', height: '19rpx', filter: 'brightness(0) invert(1)' }} /></View>
   </View>
 }
 
@@ -305,7 +306,7 @@ function PostImages({ images }: { images: string[] }) {
 }
 
 function YuemuLoading() {
-  return <View style={{ padding: '38rpx 25rpx', display: 'flex', flexWrap: 'wrap', gap: '20rpx' }}>{[0, 1, 2, 3].map(index => <View key={index} style={{ width: '340rpx', height: '570rpx', borderRadius: '10rpx', background: 'rgba(255,255,255,.72)' }} />)}</View>
+  return <View style={{ padding: '38rpx 25rpx', display: 'flex', flexWrap: 'wrap', gap: '20rpx' }}>{[0, 1, 2, 3].map(index => <View key={index} style={{ width: '340rpx', height: '458rpx', borderRadius: '8rpx', background: 'rgba(255,255,255,.72)' }} />)}</View>
 }
 
 function CardLoading() {

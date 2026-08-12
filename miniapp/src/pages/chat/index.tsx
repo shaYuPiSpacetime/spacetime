@@ -171,7 +171,7 @@ function MessageEntrances() {
       style={{
         width: designRpx(700),
         height: designRpx(158),
-        margin: `${designRpx(14)} auto 0`,
+        margin: `${designRpx(6)} auto 0`,
         display: 'flex',
         gap: designRpx(20),
       }}
@@ -270,13 +270,14 @@ function MessageEntrances() {
           有个小秘密只告诉你
         </Text>
         <Image
+          id="message-home-private-art"
           data-role="message-home-private-art"
           src={miniappOssIcons.messageHomePrivateBubbleArt}
           mode="aspectFit"
           style={{
             position: 'absolute',
             right: 0,
-            top: 0,
+            top: designRpx(18),
             width: designRpx(111),
             height: designRpx(140),
           }}

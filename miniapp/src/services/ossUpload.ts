@@ -2,6 +2,7 @@ import Taro from '@tarojs/taro'
 import { post } from './request'
 import {
   prepareCommunityImageForUpload,
+  runCommunityImageUploadWithRetry,
   type PreparedCommunityImage,
 } from '@/domain/communityImageUpload'
 import type { FileUploadResult, OssUploadTicket } from '@/types/prd01'
@@ -40,28 +41,32 @@ async function uploadPreparedFile(
   prepared: PreparedCommunityImage,
 ): Promise<FileUploadResult> {
   const { filePath, fileName, fileSizeBytes } = prepared
-  const ticket = await post<OssUploadTicket>(ticketPath, {
-    fileName,
-    fileSizeBytes,
+  return runCommunityImageUploadWithRetry(async () => {
+    // 每次重试都重新签票，避免继续复用已过期或网络切换前的短时凭证。
+    const ticket = await post<OssUploadTicket>(ticketPath, {
+      fileName,
+      fileSizeBytes,
+    })
+    const result = await Taro.uploadFile({
+      url: ticket.uploadUrl,
+      filePath,
+      name: 'file',
+      formData: ticket.formData,
+      timeout: 20000,
+    })
+    if (result.statusCode !== 200 && result.statusCode !== 204) {
+      const ossCode = typeof result.data === 'string'
+        ? result.data.match(/<Code>([^<]+)<\/Code>/)?.[1]
+        : undefined
+      throw new OssDirectUploadError([result.statusCode, ossCode].filter(Boolean).join(':'))
+    }
+    return {
+      key: ticket.key,
+      url: ticket.fileUrl,
+      protectedFile: ticket.protectedFile,
+      fileSizeBytes,
+    }
   })
-  const result = await Taro.uploadFile({
-    url: ticket.uploadUrl,
-    filePath,
-    name: 'file',
-    formData: ticket.formData,
-  })
-  if (result.statusCode !== 200 && result.statusCode !== 204) {
-    const ossCode = typeof result.data === 'string'
-      ? result.data.match(/<Code>([^<]+)<\/Code>/)?.[1]
-      : undefined
-    throw new OssDirectUploadError([result.statusCode, ossCode].filter(Boolean).join(':'))
-  }
-  return {
-    key: ticket.key,
-    url: ticket.fileUrl,
-    protectedFile: ticket.protectedFile,
-    fileSizeBytes,
-  }
 }
 
 function safeFileName(filePath: string): string {

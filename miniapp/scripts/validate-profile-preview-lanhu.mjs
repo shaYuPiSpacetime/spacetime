@@ -42,8 +42,8 @@ assert.match(preview, /height: '828rpx'/, '首屏主图高度必须为 828rpx')
 assert.doesNotMatch(preview, /editHeroPhoto/, '主页预览禁止复用缺少竖向像素的编辑页横图')
 assert.match(
   preview,
-  /src=\{model\.heroImageUrl \|\| miniappOssIcons\.profilePreviewHero\}\s+mode="scaleToFill"/,
-  '首屏主图必须优先使用真实背景并保留蓝湖 OSS 2x 缺省切图'
+  /src=\{model\.heroImageUrl \|\| miniappOssIcons\.profilePreviewHero\}\s+mode="aspectFill"/,
+  '首屏主图必须优先使用真实背景、保留蓝湖 OSS 2x 缺省切图并按比例裁切'
 )
 assert.match(
   preview,

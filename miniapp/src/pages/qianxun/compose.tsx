@@ -127,7 +127,7 @@ export default function QianxunComposePage() {
         uploadStatus: 'queued' as const,
       }))
       setImages(current => [...current, ...queued].slice(0, maxCount))
-      void uploadImagesWithLimit(queued)
+      await uploadImagesWithLimit(queued)
     } catch (error) {
       if (!/cancel/i.test(String((error as { errMsg?: string })?.errMsg || error))) await showError(config, error)
     } finally {
@@ -137,7 +137,7 @@ export default function QianxunComposePage() {
 
   const uploadImagesWithLimit = async (items: UploadImage[]) => {
     let cursor = 0
-    const workerCount = Math.min(3, items.length)
+    const workerCount = Math.min(1, items.length)
     await Promise.all(Array.from({ length: workerCount }, async () => {
       while (cursor < items.length) {
         const current = items[cursor]

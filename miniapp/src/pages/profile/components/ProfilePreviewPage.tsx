@@ -140,7 +140,7 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
       >
         <Image
           src={model.heroImageUrl || miniappOssIcons.profilePreviewHero}
-          mode="scaleToFill"
+          mode="aspectFill"
           style={{ width: '700rpx', height: '828rpx' }}
         />
       </View>

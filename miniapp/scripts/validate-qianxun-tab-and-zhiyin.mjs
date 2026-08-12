@@ -40,9 +40,20 @@ assert.match(zhiyinSource, /toggleYuemuLike/, '悦目心动按钮必须绑定真
 assert.match(zhiyinSource, /onContact/, '诚意贴申请认识必须有可执行交互')
 assert.match(zhiyinSource, /onAuthor/, '诚意贴头像和昵称必须可进入真实用户主页')
 assert.match(zhiyinSource, /openType="share"/, '诚意贴分享必须使用微信真实分享按钮')
-assert.match(zhiyinSource, /user\.liked\s*\?\s*miniappOssIcons\.qianxunLikeActive\s*:\s*miniappOssIcons\.qianxunLike/, '悦目心动图标必须使用不同 OSS 切图区分已心动和未心动')
+assert.match(zhiyinSource, /src=\{miniappOssIcons\.qianxunLikeActive\}/, '悦目必须复用真实心形 OSS 切图绘制蓝湖白色心形')
 assert.match(zhiyinSource, /已心动|已取消心动/, '悦目心动操作必须提供可感知反馈')
 assert.doesNotMatch(zhiyinSource, /getCommunityPosts\(['"]HOT['"]/, '悦目不得继续从热门动态生成照片墙')
+assert.match(
+  familySource,
+  /linear-gradient\(90deg, rgba\(233,253,251,0\.6\) 0%, rgba\(234,238,249,0\.6\) 48\.5%, rgba\(248,250,239,0\.6\) 100%\)/,
+  '千寻页面背景必须与蓝湖消息、资料页共用同一组三段渐变'
+)
+assert.match(zhiyinSource, /width: '340rpx', height: '458rpx'/, '悦目卡片必须按蓝湖保持 340×458rpx')
+assert.match(zhiyinSource, /height: '116rpx'.*linear-gradient/s, '悦目卡片底部遮罩必须收敛到蓝湖 116rpx')
+assert.match(zhiyinSource, /height: '39rpx'.*borderRadius: '19rpx'/s, '悦目缘分标签高度和圆角必须按蓝湖还原')
+assert.match(zhiyinSource, /width: '54rpx', height: '54rpx'.*background: '#FF7078'/s, '悦目心动圆必须是 54rpx 实心珊瑚红')
+assert.match(zhiyinSource, /width: '21rpx', height: '19rpx'/, '悦目心形必须按蓝湖使用 21×19rpx 可见尺寸')
+assert.doesNotMatch(zhiyinSource, /height: '570rpx'|width: '92rpx', height: '92rpx'/, '悦目不得保留过高卡片或 92rpx 大心动按钮')
 
 assert.match(communityService, /getYuemuUsers/, '社区服务缺少悦目用户候选接口')
 assert.match(communityService, /getSincerePosts/, '社区服务缺少诚意贴列表接口')

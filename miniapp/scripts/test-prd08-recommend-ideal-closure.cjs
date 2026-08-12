@@ -92,6 +92,49 @@ test('推荐非底部静态素材全部来自 OSS 常量', () => {
   }
 })
 
+test('推荐与理想型右上角图标按蓝湖 18px 基线渲染并保留足够点击热区', () => {
+  const source = read('src/pages/recommend/index.tsx')
+  const waiting = read('src/pages/prd08/recommend/waiting/index.tsx')
+  const results = read('src/pages/prd08/ideal/results/index.tsx')
+  const recommendHeader = source.slice(
+    source.indexOf('function RecommendHeader'),
+    source.indexOf('function RecommendCandidateCard')
+  )
+  const idealLanding = source.slice(
+    source.indexOf('function IdealLanding'),
+    source.indexOf('function RecommendWaiting')
+  )
+
+  assert.match(recommendHeader, /actionSize:\s*70/, '推荐页点击热区必须保持 70rpx')
+  for (const icon of ['recommendReplay', 'recommendPreference']) {
+    assert.match(
+      recommendHeader,
+      new RegExp(`${icon}[\\s\\S]{0,180}width: '36rpx', height: '36rpx'`),
+      `${icon} 可见尺寸必须还原蓝湖 18px，即 36rpx`
+    )
+  }
+  assert.match(idealLanding, /actionSize:\s*72/, '理想型点击热区必须保持 72rpx')
+  assert.match(
+    idealLanding,
+    /idealHistory[\s\S]{0,180}width: '36rpx', height: '36rpx'/,
+    '理想型历史图标可见尺寸必须还原蓝湖 18px，即 36rpx'
+  )
+  assert.match(waiting, /getCapsuleLeftActionsLayout/, '每日上限页右上操作区必须避让真实胶囊')
+  assert.doesNotMatch(waiting, /left:\s*['"](?:470|535)rpx['"]/, '每日上限页不得写死操作区横坐标')
+  for (const icon of ['recommendReplay', 'recommendPreference']) {
+    assert.match(
+      waiting,
+      new RegExp(`${icon}[\\s\\S]{0,180}width: '36rpx', height: '36rpx'`),
+      `每日上限页 ${icon} 必须保持 36rpx`
+    )
+  }
+  assert.match(
+    results,
+    /idealHistory[\s\S]{0,180}width: '36rpx', height: '36rpx'/,
+    '理想型结果页历史图标必须保持 36rpx'
+  )
+})
+
 test('推荐等待聚合页的悄悄话和同城入口使用设计图标', () => {
   const waiting = read('src/pages/prd08/recommend/waiting/index.tsx')
 

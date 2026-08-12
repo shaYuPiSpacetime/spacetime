@@ -28,6 +28,11 @@ export interface PreparedCommunityImage {
 
 export class CommunityImagePreparationError extends Error {}
 
+export interface CommunityImageRetryOptions {
+  retryDelays?: number[]
+  wait?: (delayMs: number) => Promise<void>
+}
+
 /**
  * 将微信临时图片归一化为后端可签票的 JPG/PNG，并优先压缩到 3MB 内。
  * 3MB 是顺畅上传目标，不是硬上限；压缩失败时，合法且不超过 10MB 的原图仍可上传。
@@ -81,6 +86,9 @@ export function resolveCommunityImageUploadError(error: unknown): string {
   if (/invalid_file_size|文件内容不能为空|图片文件无效/.test(detail)) {
     return '图片文件无效，请重新选择'
   }
+  if (/url not in domain list/i.test(detail)) {
+    return '图片上传域名未配置，请联系管理员'
+  }
   if (/AccessDenied|SignatureDoesNotMatch|InvalidAccessKeyId|(?:^|:)40[13](?:$|:)/i.test(detail)) {
     return '图片上传鉴权失败，请稍后重试'
   }
@@ -89,6 +97,37 @@ export function resolveCommunityImageUploadError(error: unknown): string {
   }
   if (/^[\u4e00-\u9fff]/.test(detail)) return detail
   return '图片上传失败，请稍后重试'
+}
+
+/** 对短时网络抖动和 OSS 临时错误自动重试，配置与鉴权错误直接返回。 */
+export async function runCommunityImageUploadWithRetry<T>(
+  operation: (attempt: number) => Promise<T>,
+  options: CommunityImageRetryOptions = {},
+): Promise<T> {
+  const retryDelays = options.retryDelays || [300, 1000]
+  const wait = options.wait || (delayMs => new Promise(resolve => setTimeout(resolve, delayMs)))
+  for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+    try {
+      return await operation(attempt + 1)
+    } catch (error) {
+      if (attempt >= retryDelays.length || !isRetryableCommunityImageUploadError(error)) {
+        throw error
+      }
+      await wait(retryDelays[attempt])
+    }
+  }
+  throw new Error('图片上传重试状态异常')
+}
+
+export function isRetryableCommunityImageUploadError(error: unknown): boolean {
+  const detail = extractErrorDetail(error)
+  if (/url not in domain list/i.test(detail)) return false
+  if (/RequestExpired|RequestTimeTooSkewed|ExpiredToken/i.test(detail)) return true
+  if (/AccessDenied|SignatureDoesNotMatch|InvalidAccessKeyId|(?:^|:)40[13](?:$|:)/i.test(detail)) {
+    return false
+  }
+  if (/文件大小|图片过大|文件格式|图片格式|invalid_file_size/i.test(detail)) return false
+  return /uploadFile:fail|timeout|request:fail|network|网络连接|socket|connection reset|(?:^|:)5\d\d(?:$|:)/i.test(detail)
 }
 
 function prepared(
@@ -124,7 +163,10 @@ function isSupportedImagePath(filePath: string): boolean {
 }
 
 function extractErrorDetail(error: unknown): string {
-  if (error instanceof Error) return error.message.trim()
+  if (error instanceof Error) {
+    const httpStatus = (error as Error & { httpStatus?: number }).httpStatus
+    return [error.message.trim(), httpStatus].filter(Boolean).join(':')
+  }
   if (typeof error === 'string') return error.trim()
   if (!error || typeof error !== 'object') return ''
   const value = error as { message?: unknown; errMsg?: unknown; data?: { msg?: unknown } }

@@ -46,10 +46,12 @@ const checks = [
     assert.match(attributionService, /pendingSources\.map\(source => capturePromotionSource\(source,\s*true\)\)/)
   }],
   ['登录请求一次性携带并成功后清理推广 traceNo', () => {
-    assert.match(authService, /waitForPromotionAttributionCapture\(\)/)
+    assert.match(authService, /waitForPromotionAttributionCapture\(150\)/)
     assert.match(authService, /getPendingPromotionTraceNos\(\)/)
     assert.match(authService, /clearPendingPromotionTraceNos\(\)/)
     assert.match(prd01Service, /promotionTraceNos/)
+    assert.match(attributionService, /waitWithinBudget/)
+    assert.match(attributionService, /registrationGeneration/)
   }],
   ['首页包含蓝湖五个固定区块', () => {
     for (const text of ['好友同行·奖励加倍', '邀请注册得千寻币', '邀请进度', '邀请记录', '邀请规则']) {

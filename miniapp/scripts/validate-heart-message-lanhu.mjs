@@ -67,6 +67,10 @@ assert.match(
   /miniappOssIcons\.heartMutualLikes/,
   '相互喜欢入口必须使用蓝湖无损 OSS 图标'
 )
+assert.match(heartHeader, /menuLeft/, '心动右上图标必须读取原生胶囊实时左边界')
+assert.match(heartHeader, /menuLeft - width - gap/, '心动右上图标必须按胶囊左边界预留安全间距')
+assert.match(heartHeader, /id="heart-mutual-entry-icon"/, '心动右上图标必须保留运行态几何验收标识')
+assert.doesNotMatch(heartHeader, /left: designRpx\(506\)/, '心动右上图标禁止写死坐标')
 assert.match(mutual, /page\?\.total \|\| 0/, '相互喜欢页标题必须使用真实总数')
 assert.match(mutual, /useAccessStatus\('canCommunity'\)/, '相互喜欢页必须接入关系准入')
 assert.doesNotMatch(mutual, /fallbackPeople|MAT-DEMO/, '相互喜欢页不得使用假数据')

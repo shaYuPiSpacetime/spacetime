@@ -1,4 +1,5 @@
 export type BirthDateSelection = [number, number, number]
+export type BirthDatePickerColumn = 'year' | 'month' | 'day'
 
 /** 返回指定公历年月的天数，月份索引从 0 开始。 */
 export function getDaysInMonth(year: number, monthIndex: number) {
@@ -16,6 +17,19 @@ export function normalizeBirthDateSelection(
   const maxDayIndex = year === undefined ? 0 : getDaysInMonth(year, monthIndex) - 1
   const dayIndex = clampIndex(selection[2], maxDayIndex)
   return [yearIndex, monthIndex, dayIndex]
+}
+
+/** 只替换当前原生单列滚轮的索引，其他两列保持不变。 */
+export function updateBirthDatePickerColumn(
+  years: string[],
+  selection: BirthDateSelection,
+  column: BirthDatePickerColumn,
+  nextIndex: number
+): BirthDateSelection {
+  const columnIndex = column === 'year' ? 0 : column === 'month' ? 1 : 2
+  const next: BirthDateSelection = [...selection]
+  next[columnIndex] = nextIndex
+  return normalizeBirthDateSelection(years, next)
 }
 
 /** 根据已有生日生成滚轮默认索引；无有效生日时默认落在年份中点的 1 月 1 日。 */

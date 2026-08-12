@@ -4,6 +4,35 @@ const TRACE_NO_PATTERN = /^TRC-[A-Za-z0-9]{8,128}$/
 const MAX_PENDING_TRACE_COUNT = 10
 const MAX_PENDING_SOURCE_COUNT = 5
 
+/**
+ * 只在给定预算内等待非关键任务；超时后任务继续在后台完成。
+ * 返回 true 表示任务在预算内结束，false 表示登录链路已先行放行。
+ */
+export async function waitWithinBudget(task, maxWaitMs) {
+  const budget = Math.max(0, Number(maxWaitMs) || 0)
+  if (budget === 0) return false
+
+  return new Promise(resolve => {
+    let settled = false
+    const finish = value => {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
+    const timer = setTimeout(() => finish(false), budget)
+    Promise.resolve(task).then(
+      () => {
+        clearTimeout(timer)
+        finish(true)
+      },
+      () => {
+        clearTimeout(timer)
+        finish(true)
+      },
+    )
+  })
+}
+
 function safeDecode(value) {
   let decoded = String(value || '').trim()
   for (let index = 0; index < 2; index += 1) {

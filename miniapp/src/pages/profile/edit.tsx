@@ -261,7 +261,9 @@ export default function ProfileEditPage() {
         const options = usePrd01Store.getState().profileOptions
         const profile = home.profile
         const avatar = String(profile.avatar || '')
-        setProfileBackground(String(profile.profileBgImage || ''))
+        const background = String(profile.profileBgImage || '')
+        setProfileBackground(background)
+        setHeroPhoto(background || editHeroPhoto)
         const nextGoalCode = String(profile.datingGoal || '')
         const nextRelationshipCode = String(profile.emotionalStatus || '')
         setNickname(String(profile.nickname || basicResult.nickname || ''))
@@ -271,7 +273,6 @@ export default function ProfileEditPage() {
         setFieldSettings(home.fieldSettings || basicResult.fieldSettings || [])
         setVerification(home.verificationStatus || {})
         if (avatar) {
-          setHeroPhoto(avatar)
           setProfileAvatar(avatar)
         }
         setProfilePhotos(mergeAlbumSlots(albums))
@@ -641,15 +642,28 @@ export default function ProfileEditPage() {
     }
   }
 
-  const onChangePhoto = () => {
+  const onChangeBackground = () => {
+    void chooseProfileImage(async imagePath => {
+      const uploaded = await prd01Api.uploadBackground(imagePath)
+      const saved = await prd01Api.saveBackground({
+        mediaUrl: uploaded.url,
+        fileSizeBytes: uploaded.fileSizeBytes,
+        sortOrder: 0,
+      })
+      const backgroundUrl = saved.mediaUrl || uploaded.url
+      setHeroPhoto(backgroundUrl)
+      setProfileBackground(backgroundUrl)
+    }, '更换背景')
+  }
+
+  const onChangeAvatar = () => {
     void chooseProfileImage(async imagePath => {
       const source = usePrd01Store.getState().profileOptions?.avatarSource[0]
       if (!source) throw new Error('头像来源字典为空，请联系管理员')
       const uploaded = await prd01Api.uploadAvatar(imagePath)
       await prd01Api.submitAvatar({ avatarSource: source.code, avatarUrl: uploaded.url })
-      setHeroPhoto(uploaded.url)
       setProfileAvatar(uploaded.url)
-    }, '更换照片')
+    }, '更换头像')
   }
 
   const handlePhotoClick = (index: number) => {
@@ -707,7 +721,7 @@ export default function ProfileEditPage() {
   ]
   const previewModel: ProfilePreviewModel = {
     avatarUrl: profileAvatar || defaultAvatar,
-    heroImageUrl: profileBackground || photos[0] || profileAvatar,
+    heroImageUrl: profileBackground,
     nickname,
     gender: String(basic.gender || ''),
     genderAgeHeight,
@@ -767,7 +781,8 @@ export default function ProfileEditPage() {
             nickname={nickname}
             avatar={heroPhoto}
             profileAvatar={profileAvatar || defaultAvatar}
-            onChangePhoto={onChangePhoto}
+            onChangeBackground={onChangeBackground}
+            onChangeAvatar={onChangeAvatar}
           />
           <PhotoUploadGrid photos={profilePhotos} onPhotoClick={handlePhotoClick} />
           <BasicInfoSection basic={basic} fieldSettings={fieldSettings} regionTree={regionTree}
@@ -999,12 +1014,14 @@ function ProfileHeroCard({
   nickname,
   avatar,
   profileAvatar,
-  onChangePhoto,
+  onChangeBackground,
+  onChangeAvatar,
 }: {
   nickname: string
   avatar: string
   profileAvatar: string
-  onChangePhoto: () => void
+  onChangeBackground: () => void
+  onChangeAvatar: () => void
 }) {
   return (
     <View
@@ -1022,7 +1039,7 @@ function ProfileHeroCard({
     >
       <View
         data-role="hero-main-photo"
-        onClick={onChangePhoto}
+        onClick={onChangeBackground}
         style={{
           position: 'absolute',
           left: '0',
@@ -1047,6 +1064,12 @@ function ProfileHeroCard({
           }}
         />
         <View
+          data-role="hero-mini-avatar"
+          aria-label="更换头像"
+          onClick={event => {
+            event.stopPropagation()
+            onChangeAvatar()
+          }}
           style={{
             position: 'absolute',
             left: '0',
@@ -1069,7 +1092,6 @@ function ProfileHeroCard({
         >
           <Image
             id="profile-edit-avatar"
-            data-role="hero-mini-avatar"
             src={profileAvatar}
             mode="aspectFill"
             style={{
@@ -1106,7 +1128,6 @@ function ProfileHeroCard({
           </Text>
         </View>
         <View
-          onClick={onChangePhoto}
           style={{
             position: 'absolute',
             right: '28rpx',
@@ -1123,7 +1144,7 @@ function ProfileHeroCard({
           <Text
             style={{ color: '#FFFFFF', fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 600 }}
           >
-            更换照片
+            更换背景
           </Text>
           <View style={{ marginLeft: '14rpx' }}>
             <RightChevron color="#FFFFFF" size={15} borderWidth={3} />

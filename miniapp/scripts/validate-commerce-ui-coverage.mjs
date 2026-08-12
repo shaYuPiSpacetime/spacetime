@@ -944,11 +944,6 @@ const REQUIRED_UNCLOSED_VISUAL_DIFF_NOTES = [
 
 const REQUIRED_MISSING_SLICE_FALLBACKS = [
   {
-    note: '千寻币明细暂无记录插画 MCP slices 为 0',
-    file: 'src/pages/coins/detail.tsx',
-    snippets: ['function EmptyState', "width: '298rpx'", "paddingTop: '262rpx'"],
-  },
-  {
     note: '会员权益已使用 08 MCP 图标切片',
     file: 'src/pages/membership/index.tsx',
     snippets: ['MEMBER_BENEFIT_ICONS', 'MemberBenefitIcon', 'miniappOssIcons.memberBenefitMatch'],
@@ -1001,9 +996,6 @@ const REQUIRED_MISSING_SLICE_FALLBACKS = [
 ]
 
 const ALLOWED_MISSING_SLICE_PLACEHOLDER_FUNCTIONS = [
-  'EmptyState',
-  'EmptyPlusMark',
-  'EmptyRingMark',
   'MemberHeroPattern',
   'MemberRecordDiamond',
   'MemberRecordGemLine',
@@ -1971,17 +1963,11 @@ function assertCoinPagesMatchLanhu() {
     "isActive ? LANHU_BLUE : '#999999'",
     "item.amount > 0 ? LANHU_BLUE : '#F32B61'",
     "paddingTop: '262rpx'",
-    "width: '298rpx'",
-    "height: '210rpx'",
-    'function EmptyPlusMark',
-    'EmptyPlusMark left="34rpx" top="4rpx" size="27rpx"',
-    'EmptyPlusMark left="16rpx" top="126rpx" size="20rpx"',
-    'EmptyPlusMark left="270rpx" top="108rpx" size="20rpx"',
-    'function EmptyRingMark',
-    'EmptyRingMark left="0" top="58rpx" size="28rpx"',
-    'EmptyRingMark left="246rpx" top="28rpx" size="30rpx"',
-    "border: '10rpx solid #D8DEE6'",
-    "marginTop: '52rpx'",
+    'function CoinNoDataState',
+    'miniappOssIcons.qianxunEmptyChart',
+    "width: '334rpx'",
+    "height: '251rpx'",
+    "marginTop: '87rpx'",
     "width: '664rpx'",
     "height: '98rpx'",
     "borderRadius: '14rpx'",
@@ -1989,6 +1975,8 @@ function assertCoinPagesMatchLanhu() {
   ]) {
     assert.ok(coinDetailSource.includes(snippet), `千寻币明细页缺少蓝湖结构证据: ${snippet}`)
   }
+  assert.ok(!coinDetailSource.includes('EmptyPlusMark'), '千寻币明细空态不得保留旧加号占位函数')
+  assert.ok(!coinDetailSource.includes('EmptyRingMark'), '千寻币明细空态不得保留旧圆环占位函数')
   assert.ok(!coinDetailSource.includes('>+</Text>'), '千寻币明细空态插画不能用文本 + 冒充线性装饰')
   assert.ok(!coinDetailSource.includes('>。</Text>'), '千寻币明细空态插画不能用中文句号冒充圆形装饰')
 }

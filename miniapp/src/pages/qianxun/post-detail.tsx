@@ -1,9 +1,15 @@
 import { Image, Input, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import {
+  buildCommunityCommentThreads,
+  resolveCommentThreadRootId,
+  type CommunityCommentSort,
+  type CommunityCommentThread,
+} from '@/domain/communityCommentThreads'
 import {
   COMMUNITY_COPY_KEYS,
   createCommunityComment,
@@ -30,6 +36,7 @@ import {
   type RealWhisperPrecheckResult,
 } from '@/services/message'
 import { useAuthStore } from '@/stores/authStore'
+import { usePrd01Store } from '@/stores/prd01Store'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
@@ -42,6 +49,7 @@ interface ReplyTarget {
 
 export default function QianxunPostDetailPage() {
   const currentUserId = useAuthStore(state => state.userId)
+  const optionLabel = usePrd01Store(state => state.optionLabel)
   const [post, setPost] = useState<CommunityPostVO>()
   const [comments, setComments] = useState<CommunityCommentVO[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,6 +60,7 @@ export default function QianxunPostDetailPage() {
   const [sendingComment, setSendingComment] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const [selectedComment, setSelectedComment] = useState<CommunityCommentVO>()
+  const [commentSort, setCommentSort] = useState<CommunityCommentSort>('latest')
   const [config, setConfig] = useState<CommunityConfig>()
   const [showWhisper, setShowWhisper] = useState(false)
   const [whisperContent, setWhisperContent] = useState('')
@@ -60,6 +69,10 @@ export default function QianxunPostDetailPage() {
   const [whisperSubmitting, setWhisperSubmitting] = useState(false)
   const [whisperIdempotencyKey, setWhisperIdempotencyKey] = useState('')
   const navigationMetrics = getNativeNavigationMetrics()
+  const commentThreads = useMemo(
+    () => buildCommunityCommentThreads(comments, commentSort),
+    [comments, commentSort]
+  )
 
   const loadPost = async (postId: number) => {
     setLoading(true)
@@ -285,11 +298,11 @@ export default function QianxunPostDetailPage() {
   }
 
   return (
-    <View id="qianxun-post-detail-page" style={{ height: '100vh', background: '#F5F7FA', overflow: 'hidden', color: '#333333' }}>
+    <View id="qianxun-post-detail-page" style={{ height: '100vh', background: '#F8F9FB', overflow: 'hidden', color: '#333333' }}>
       <NativeNavigation title="动态详情" />
       {loading ? <DetailLoading top={navigationMetrics.navigationHeight} /> : loadError || !post ? <LoadFailure text={loadError} top={navigationMetrics.navigationHeight} /> : (
         <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
-          <View style={{ padding: '18rpx 24rpx 40rpx' }}>
+          <View style={{ padding: '18rpx 25rpx 40rpx' }}>
             <View style={{ borderRadius: '16rpx', background: '#FFFFFF', padding: '24rpx 24rpx 0', overflow: 'hidden' }}>
               <AuthorRow post={post} onMore={() => setShowActions(true)} onApply={() => void openWhisper()} />
               {post.title ? <Text style={{ display: 'block', color: '#222F45', fontSize: '29rpx', lineHeight: '44rpx', fontWeight: 600, marginTop: '24rpx' }}>{post.title}</Text> : null}
@@ -311,14 +324,25 @@ export default function QianxunPostDetailPage() {
               </View>
             </View>
 
-            <View style={{ marginTop: '18rpx', borderRadius: '16rpx', background: '#FFFFFF', minHeight: '490rpx', padding: '24rpx', boxSizing: 'border-box' }}>
+            <View style={{ marginTop: '18rpx', borderRadius: '16rpx', background: '#FFFFFF', minHeight: comments.length ? '490rpx' : '816rpx', padding: '24rpx 27rpx', boxSizing: 'border-box' }}>
               <View style={{ height: '48rpx', display: 'flex', alignItems: 'center' }}>
                 <Text style={{ color: NAVY, fontSize: '28rpx', fontWeight: 600 }}>全部评论 {post.commentCount || 0}</Text>
                 <View style={{ flex: 1 }} />
-                <Text style={{ color: NAVY, fontSize: '23rpx', fontWeight: 500 }}>最新</Text>
-                <Text style={{ color: '#A5A9B1', fontSize: '23rpx', marginLeft: '25rpx' }}>最早</Text>
+                <Text onClick={() => setCommentSort('latest')} style={{ color: commentSort === 'latest' ? NAVY : '#A5A9B1', fontSize: '23rpx', fontWeight: commentSort === 'latest' ? 500 : 400 }}>最新</Text>
+                <View style={{ width: '1rpx', height: '28rpx', background: '#E6E9EF', margin: '0 14rpx' }} />
+                <Text onClick={() => setCommentSort('earliest')} style={{ color: commentSort === 'earliest' ? NAVY : '#A5A9B1', fontSize: '23rpx', fontWeight: commentSort === 'earliest' ? 500 : 400 }}>最早</Text>
               </View>
-              {comments.length ? comments.map(item => <CommentRow key={item.id} comment={item} onReply={() => beginReply({ commentId: item.id, userId: item.authorId, name: item.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onLike={() => void likeComment(item)} onMore={() => setSelectedComment(item)} />) : <CommentEmpty hasRemoteCount={post.commentCount > 0} config={config} />}
+              {commentThreads.length ? commentThreads.map(thread => (
+                <CommentThread
+                  key={thread.root.id}
+                  thread={thread}
+                  postAuthorId={post.authorId}
+                  optionLabel={optionLabel}
+                  onReply={(target, rootId) => beginReply({ commentId: rootId, userId: target.authorId, name: target.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })}
+                  onLike={target => void likeComment(target)}
+                  onMore={target => setSelectedComment(target)}
+                />
+              )) : <CommentEmpty hasRemoteCount={post.commentCount > 0} config={config} />}
             </View>
           </View>
         </ScrollView>
@@ -330,7 +354,7 @@ export default function QianxunPostDetailPage() {
         <View onClick={() => void likePost()} style={{ width: '88rpx', height: '68rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={post?.liked ? miniappOssIcons.qianxunLikeActive : miniappOssIcons.qianxunLike} mode="aspectFit" style={{ width: '36rpx', height: '36rpx' }} /></View>
       </View>
       {showActions && post ? <ActionSheet post={post} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
-      {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: selectedComment.id, userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
+      {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: resolveCommentThreadRootId(comments, selectedComment.id), userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
       {showWhisper && post ? (
         <WhisperComposeSheet
           post={post}
@@ -465,15 +489,45 @@ function CommentEmpty({ hasRemoteCount, config }: { hasRemoteCount: boolean; con
   </View>
 }
 
-function CommentRow({ comment, onReply, onLike, onMore }: { comment: CommunityCommentVO; onReply: () => void; onLike: () => void; onMore: () => void }) {
-  return <View onLongPress={onMore} style={{ display: 'flex', alignItems: 'flex-start', padding: '24rpx 0', borderBottom: '1rpx solid #F0F2F5' }}>
-    <Image src={comment.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '64rpx', height: '64rpx', borderRadius: '32rpx', background: '#EEF2F6', flexShrink: 0 }} />
-    <View style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}>
-      <View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#43516A', fontSize: '23rpx', fontWeight: 600 }}>{comment.authorName || '用户'}</Text><View style={{ flex: 1 }} /><Text style={{ color: '#A7ACB5', fontSize: '20rpx' }}>{relativeTime(comment.createTime)}</Text></View>
-      <Text style={{ display: 'block', color: '#333333', fontSize: '25rpx', lineHeight: '40rpx', marginTop: '10rpx' }}>{comment.replyUserName ? <Text style={{ color: BLUE }}>回复 {comment.replyUserName}：</Text> : null}{comment.content}</Text>
-      <View style={{ display: 'flex', alignItems: 'center' }}><View id={`qianxun-comment-reply-${comment.id}`} className="qianxun-comment-reply" onClick={onReply} style={{ width: '80rpx', height: '88rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '21rpx' }}>回复</Text></View><QianxunActionStat kind="like" count={comment.likeCount || 0} active={comment.liked} onClick={onLike} /><View onClick={onMore} style={{ width: '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#8E96A3', fontSize: '24rpx', letterSpacing: '5rpx' }}>···</Text></View></View>
+function CommentThread({ thread, postAuthorId, optionLabel, onReply, onLike, onMore }: { thread: CommunityCommentThread<CommunityCommentVO>; postAuthorId: number; optionLabel: (type: 'occupation', code?: string) => string; onReply: (target: CommunityCommentVO, rootId: number) => void; onLike: (target: CommunityCommentVO) => void; onMore: (target: CommunityCommentVO) => void }) {
+  const root = thread.root
+  const meta = formatCommentAuthorMeta(root, optionLabel)
+  return <View className="qianxun-comment-thread" style={{ padding: '24rpx 0', borderBottom: '1rpx solid #EFF4FC' }}>
+    <View style={{ display: 'flex', alignItems: 'flex-start' }}>
+      <Image src={root.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF2F6', flexShrink: 0 }} />
+      <View onClick={() => onReply(root, root.id)} onLongPress={() => onMore(root)} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
+        <View style={{ display: 'flex', alignItems: 'center', minHeight: '37rpx' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{root.authorName || '用户'}</Text><View style={{ marginLeft: '10rpx', display: 'flex' }}><QianxunGenderIcon gender={root.authorGender} size="28rpx" /></View></View>
+        {meta ? <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '5rpx' }}>{meta}</Text> : null}
+        <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '40rpx', marginTop: '24rpx' }}>{root.content}</Text>
+        <CommentMetaRow comment={root} onLike={() => onLike(root)} />
+      </View>
     </View>
+    {thread.replies.map(reply => (
+      <View key={reply.id} className="qianxun-comment-child" style={{ display: 'flex', alignItems: 'flex-start', marginLeft: '100rpx', marginTop: '26rpx' }}>
+        <Image src={reply.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '48rpx', height: '48rpx', borderRadius: '24rpx', background: '#EEF2F6', flexShrink: 0 }} />
+        <View onClick={() => onReply(reply, root.id)} onLongPress={() => onMore(reply)} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
+          <View style={{ display: 'flex', alignItems: 'center', minHeight: '34rpx' }}><Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 500 }}>{reply.authorName || '用户'}</Text>{reply.authorId === postAuthorId ? <View style={{ height: '30rpx', borderRadius: '8rpx', background: '#E3F1FE', padding: '0 9rpx', marginLeft: '10rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '20rpx', lineHeight: '28rpx' }}>楼主</Text></View> : null}</View>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '24rpx', lineHeight: '38rpx', marginTop: '15rpx' }}>{reply.replyUserName ? <Text style={{ color: '#999999' }}>回复 {reply.replyUserName}： </Text> : null}{reply.content}</Text>
+          <CommentMetaRow comment={reply} onLike={() => onLike(reply)} />
+        </View>
+      </View>
+    ))}
   </View>
+}
+
+function CommentMetaRow({ comment, onLike }: { comment: CommunityCommentVO; onLike: () => void }) {
+  return <View className="qianxun-comment-meta-row" style={{ height: '34rpx', marginTop: '20rpx', display: 'flex', alignItems: 'center' }}>
+    <Text style={{ color: '#999999', fontSize: '24rpx', lineHeight: '34rpx' }}>{relativeTime(comment.createTime)}</Text>
+    <View style={{ flex: 1 }} />
+    <View onClick={event => { event.stopPropagation(); onLike() }} style={{ minWidth: '80rpx', height: '44rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Image src={comment.liked ? miniappOssIcons.qianxunLikeActive : miniappOssIcons.qianxunLike} mode="aspectFit" style={{ width: '28rpx', height: '26rpx' }} /><Text style={{ color: comment.liked ? '#FF7078' : '#999999', fontSize: '24rpx', lineHeight: '34rpx', marginLeft: '10rpx' }}>{Math.max(0, Number(comment.likeCount) || 0)}</Text></View>
+  </View>
+}
+
+function formatCommentAuthorMeta(comment: CommunityCommentVO, optionLabel: (type: 'occupation', code?: string) => string) {
+  const year = comment.authorBirthYear ? `${String(comment.authorBirthYear).slice(-2)}年` : ''
+  const city = comment.authorCity || ''
+  const profession = comment.authorProfession ? optionLabel('occupation', comment.authorProfession) || comment.authorProfession : ''
+  return [year, city, profession].filter(Boolean).join('·')
 }
 
 function DetailLoading({ top }: { top: number }) {

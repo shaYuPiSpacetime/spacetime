@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
 const assert = require('node:assert/strict')
+const { createHash } = require('node:crypto')
 const fs = require('node:fs')
 const path = require('node:path')
 const test = require('node:test')
@@ -108,6 +109,29 @@ test('首登现居地固定为省市两级选择与提交', () => {
   assert.doesNotMatch(source, /locationDistrict:/, '地址提交不得携带已退役的区县字段')
   assert.ok(backupSubmit, '登录 hook 缺少备用首登地址提交入口')
   assert.doesNotMatch(backupSubmit, /locationDistrict:/, '备用提交入口不得恢复已退役的区县字段')
+})
+
+test('选择城市左侧使用用户指定的无损 OSS 定位切图', () => {
+  const source = read('src/pages/login/address.tsx')
+  const iconManifest = read('src/constants/ossIcons.ts')
+  const uploadScript = read('scripts/upload-miniapp-oss-icons.mjs')
+  const assetPath = path.join(miniappRoot, 'src/assets/lanhu/login/city-location.png')
+
+  assert.ok(fs.existsSync(assetPath), '缺少用户指定的选择城市定位原图')
+  const assetHash = createHash('sha256').update(fs.readFileSync(assetPath)).digest('hex')
+  assert.equal(
+    assetHash,
+    '34daa393244a6db9cd506b03bbcd38625035cfc8d95a7850e4a01fecf544aa5a',
+    '选择城市图标必须保持用户提供 PNG 原始字节'
+  )
+  assert.match(uploadScript, /loginCityLocation: 'src\/assets\/lanhu\/login\/city-location\.png'/)
+  assert.match(iconManifest, /loginCityLocation:\s*'https:\/\//, '选择城市图标必须使用 OSS 公网地址')
+  assert.match(source, /import \{[^}]*Image[^}]*\} from '@tarojs\/components'/)
+  assert.match(source, /src=\{miniappOssIcons\.loginCityLocation\}/)
+  assert.match(source, /mode="aspectFit"/)
+  assert.match(source, /width:\s*'38rpx'/)
+  assert.match(source, /height:\s*'46rpx'/)
+  assert.doesNotMatch(source, /locationColor/, '选择城市左侧不得继续使用 CSS 临摹图标')
 })
 
 test('获取定位所需微信权限必须进入最终 app.json', () => {
@@ -247,12 +271,26 @@ test('登录方式、手机号和性别图标在运行态使用真实组件', ()
   assert.match(login, /miniappOssIcons\.loginMethodWechat/)
   assert.match(login, /miniappOssIcons\.loginMethodPhone/)
   assert.match(login, /使用微信登录/)
-  assert.match(phone, /miniappOssIcons\.loginMethodPhone/)
-  assert.match(phone, /function SmsCodeIcon\(\)/)
+  assert.match(phone, /miniappOssIcons\.loginPhoneField/)
+  assert.match(phone, /miniappOssIcons\.loginSmsCode/)
   assert.match(gender, /miniappOssIcons\.genderFemale/)
   assert.match(gender, /miniappOssIcons\.genderMale/)
   assert.match(gender, /我是女生/)
   assert.match(gender, /我是男生/)
+})
+
+test('手机号登录页按蓝湖 375×812 逻辑画布精确落位', () => {
+  const phone = read('src/pages/login/phone.tsx')
+  const styles = read('src/pages/login/phone.scss')
+
+  assert.match(styles, /linear-gradient\(90deg, rgba\(233,253,251,0\.6\) 0%, rgba\(234,238,249,0\.6\) 48\.5%, rgba\(248,250,239,0\.6\) 100%\)/)
+  assert.match(styles, /\.phone-login-heading\s*\{[\s\S]*?top:\s*123\.5px;/)
+  assert.match(styles, /\.phone-login-title\s*\{[\s\S]*?font-size:\s*18px;[\s\S]*?font-weight:\s*500;[\s\S]*?line-height:\s*25px;/)
+  assert.match(styles, /\.phone-login-field\s*\{[\s\S]*?left:\s*32px;[\s\S]*?width:\s*311px;[\s\S]*?height:\s*49px;/)
+  assert.match(styles, /\.phone-login-field--phone\s*\{[\s\S]*?top:\s*247px;/)
+  assert.match(styles, /\.phone-login-field--sms\s*\{[\s\S]*?top:\s*312px;/)
+  assert.match(styles, /\.phone-login-next\s*\{[\s\S]*?left:\s*156\.5px;[\s\S]*?bottom:\s*84px;/)
+  assert.match(phone, /placeholderStyle="color:#999999;font-size:32rpx"/)
 })
 
 test('出生日期已有有效默认值时进入页面即点亮', () => {
@@ -280,6 +318,15 @@ test('出生日期月份变化后自动修正非法日期', () => {
   assert.equal(wheel.formatBirthDate(['2024年'], [0, 1, 28]), '2024-02-29')
 })
 
+test('出生日期三列独立更新且保留其他两列', () => {
+  const wheel = requireBirthDateWheel()
+  const years = ['2023年', '2024年']
+
+  assert.deepEqual(wheel.updateBirthDatePickerColumn(years, [0, 5, 15], 'year', 1), [1, 5, 15])
+  assert.deepEqual(wheel.updateBirthDatePickerColumn(years, [1, 4, 15], 'month', 5), [1, 5, 15])
+  assert.deepEqual(wheel.updateBirthDatePickerColumn(years, [1, 5, 14], 'day', 15), [1, 5, 15])
+})
+
 test('出生日期使用年月日三列原生滚轮并移除静态点击行', () => {
   const age = read('src/pages/login/age.tsx')
   const styles = read('src/pages/login/age.scss')
@@ -289,7 +336,7 @@ test('出生日期使用年月日三列原生滚轮并移除静态点击行', ()
     /import \{[^}]*PickerView[^}]*PickerViewColumn[^}]*\} from '@tarojs\/components'/
   )
   assert.equal((age.match(/<PickerViewColumn/g) || []).length, 3)
-  assert.match(age, /normalizeBirthDateSelection/)
+  assert.match(age, /updateBirthDatePickerColumn/)
   assert.match(
     age,
     /maskStyle="background: transparent;"/,
@@ -316,44 +363,50 @@ test('出生日期使用年月日三列原生滚轮并移除静态点击行', ()
   assert.doesNotMatch(age, /const ROWS/)
   assert.doesNotMatch(age, /AgeColumnText/)
   assert.match(styles, /\.login-age-picker__selection\s*\{[\s\S]*top:\s*123rpx;/)
-  assert.match(styles, /\.login-age-picker\s*\{[\s\S]*top:\s*-20rpx;/)
+  assert.match(styles, /\.login-age-picker-row\s*\{[\s\S]*top:\s*-20rpx;/)
   assert.match(styles, /\.login-age-picker__item--near\s*\{/)
   assert.match(styles, /\.login-age-picker__item--far\s*\{/)
 })
 
-test('出生日期空闲时恢复蓝湖五行排版，且仅当前滑动列切到原生流畅态', () => {
+test('出生日期保持蓝湖五行样式，只在当前滑动列显示后续数值', () => {
   const age = read('src/pages/login/age.tsx')
   const styles = read('src/pages/login/age.scss')
 
-  assert.match(age, /const \[pickingColumn, setPickingColumn\] = useState<PickerColumn>\(\)/)
-  assert.match(age, /onPickEnd=\{\(\) => setPickingColumn\(undefined\)\}/)
-  assert.match(age, /onTouchStart=\{\(\) => setPickingColumn\('year'\)\}/)
-  assert.match(age, /onTouchStart=\{\(\) => setPickingColumn\('month'\)\}/)
-  assert.match(age, /onTouchStart=\{\(\) => setPickingColumn\('day'\)\}/)
+  assert.equal((age.match(/<PickerView\b/g) || []).length, 3, '年月日必须使用三个物理隔离的原生单列滚轮')
+  assert.equal((age.match(/<PickerViewColumn\b/g) || []).length, 3)
+  assert.match(age, /login-age-picker-row/)
+  assert.match(age, /login-age-picker--year/)
+  assert.match(age, /login-age-picker--month/)
+  assert.match(age, /login-age-picker--day/)
+  assert.match(age, /value=\{\[value\[0\]\]\}/)
+  assert.match(age, /value=\{\[value\[1\]\]\}/)
+  assert.match(age, /value=\{\[value\[2\]\]\}/)
+  assert.match(age, /onPickStart=\{\(\) => handlePickerStart\('year'\)\}/)
+  assert.match(age, /onPickStart=\{\(\) => handlePickerStart\('month'\)\}/)
+  assert.match(age, /onPickStart=\{\(\) => handlePickerStart\('day'\)\}/)
+  assert.doesNotMatch(age, /onTouchStart|resolveBirthDatePickerColumn/, '不得再依赖原生触摸事件识别列')
   assert.match(age, /login-age-picker__column--picking/)
-  assert.doesNotMatch(age, /login-age-picker--picking/, '滑动一列时不得切换整个选择器的样式')
-  assert.match(age, /login-age-picker__item--outer/, '空闲态只允许显示选中项上下各两行')
-  assert.match(age, /login-age-picker__item--above/, '空闲态必须恢复蓝湖上方文字位移')
-  assert.match(age, /login-age-picker__item--below/, '空闲态必须恢复蓝湖下方文字位移')
+  assert.match(age, /login-age-picker__item--outer/)
+  assert.match(age, /login-age-picker__item--above|login-age-picker__item--below/)
   assert.match(age, /login-age-picker__item--\$\{prefix\}/, '年月日必须按列追加蓝湖独立中心位移类')
 
   assert.match(styles, /\.login-age-picker__selection\s*\{[\s\S]*top:\s*123rpx;/)
-  assert.match(styles, /\.login-age-picker\s*\{[\s\S]*top:\s*-20rpx;/)
+  assert.match(styles, /\.login-age-picker-row\s*\{[\s\S]*top:\s*-20rpx;[\s\S]*display:\s*flex;/)
+  assert.match(styles, /\.login-age-picker\s*\{[\s\S]*width:\s*233\.333rpx;/)
   assert.match(styles, /\.login-age-picker__item\s*\{[\s\S]*font-size:\s*36rpx;/)
   assert.match(styles, /\.login-age-picker__item--active\s*\{[\s\S]*font-size:\s*40rpx;/)
   assert.match(styles, /\.login-age-picker__item--above\s*\{[\s\S]*top:\s*-46rpx;/)
   assert.match(styles, /\.login-age-picker__item--below\s*\{[\s\S]*top:\s*44\.5rpx;/)
+  assert.match(styles, /\.login-age-picker__item--outer\s*\{[\s\S]*visibility:\s*hidden;/)
+  assert.match(
+    styles,
+    /\.login-age-picker__column--picking\s*\{[\s\S]*visibility:\s*visible;/,
+    '当前滑动列必须临时显示后续全部数值'
+  )
   assert.doesNotMatch(styles, /transition:\s*[^;]*(top|transform)/, '原生滚轮上不得再叠加位置过渡')
   assert.match(styles, /\.login-age-picker__item--year\s*\{[\s\S]*left:\s*44rpx;/)
   assert.match(styles, /\.login-age-picker__item--month\s*\{[\s\S]*left:\s*19rpx;/)
   assert.match(styles, /\.login-age-picker__item--day\s*\{[\s\S]*left:\s*-25rpx;/)
-  assert.match(styles, /\.login-age-picker__item--outer\s*\{[\s\S]*visibility:\s*hidden;/)
-  assert.match(
-    styles,
-    /\.login-age-picker__column--picking[\s\S]*\.login-age-picker__item--outer[\s\S]*visibility:\s*visible;/,
-    '手指滚动期间只能取消当前列的五行隐藏，避免其他列跟随位移'
-  )
-  assert.doesNotMatch(styles, /\.login-age-picker--picking/, '不得用全局滑动态带动其他两列')
 })
 
 test('首登现居地使用省市两列原生滚轮且不在滚动帧受控回写', () => {

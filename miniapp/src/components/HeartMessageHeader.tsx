@@ -19,8 +19,12 @@ const designRpx = (value: number) =>
   Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? `${value}rpx` : `${value / 2}px`
 
 export function getLanhuNavigationMetrics() {
-  const { menuTop, menuHeight } = getNativeNavigationMetrics()
-  return { menuTop, menuHeight }
+  const { menuTop, menuHeight, menuLeft } = getNativeNavigationMetrics()
+  return { menuTop, menuHeight, menuLeft }
+}
+
+export function resolveHeaderIconLeft(menuLeft: number, width: number, gap = 12) {
+  return Math.max(430, menuLeft - width - gap)
 }
 
 export default function HeartMessageHeader({
@@ -33,7 +37,7 @@ export default function HeartMessageHeader({
   onRightIconClick,
   children,
 }: HeaderProps) {
-  const { menuTop, menuHeight } = getLanhuNavigationMetrics()
+  const { menuTop, menuHeight, menuLeft } = getLanhuNavigationMetrics()
   const titleTop = menuTop + (menuHeight - 45) / 2
   const handleBack = () => {
     if (onBack) {
@@ -118,21 +122,27 @@ export default function HeartMessageHeader({
         </View>
       ) : null}
 
-      {rightIcon === 'clean' ? <CleanIcon top={titleTop - 2} /> : null}
+      {rightIcon === 'clean' ? (
+        <CleanIcon left={resolveHeaderIconLeft(menuLeft, 52)} top={titleTop - 2} />
+      ) : null}
       {rightIcon === 'folder' ? (
-        <HeartFolderIcon top={titleTop - 11} onClick={onRightIconClick} />
+        <HeartFolderIcon
+          left={resolveHeaderIconLeft(menuLeft, 64)}
+          top={titleTop - 11}
+          onClick={onRightIconClick}
+        />
       ) : null}
       {children}
     </View>
   )
 }
 
-function CleanIcon({ top }: { top: number }) {
+function CleanIcon({ left, top }: { left: number; top: number }) {
   return (
     <View
       style={{
         position: 'absolute',
-        left: designRpx(516),
+        left: designRpx(left),
         top: designRpx(top),
         width: designRpx(52),
         height: designRpx(48),
@@ -168,15 +178,16 @@ function CleanIcon({ top }: { top: number }) {
   )
 }
 
-function HeartFolderIcon({ top, onClick }: { top: number; onClick?: () => void }) {
+function HeartFolderIcon({ left, top, onClick }: { left: number; top: number; onClick?: () => void }) {
   return (
     <Image
+      id="heart-mutual-entry-icon"
       onClick={onClick}
       src={miniappOssIcons.heartMutualLikes}
       mode="aspectFit"
       style={{
         position: 'absolute',
-        left: designRpx(506),
+        left: designRpx(left),
         top: designRpx(top),
         width: designRpx(64),
         height: designRpx(64),

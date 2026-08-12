@@ -1,7 +1,7 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useState } from 'react'
-import AppTabBar from '@/components/AppTabBar'
+import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getCommunityPosts, type CommunityPostVO } from '@/services/community'
@@ -174,6 +174,13 @@ export default function RecommendWaitingPage() {
 function WaitingHeader({ onIdeal }: { onIdeal: () => void }) {
   const metrics = getNativeNavigationMetrics()
   const top = metrics.menuTop + (metrics.menuHeight - 54) / 2
+  const actionsLayout = getCapsuleLeftActionsLayout({
+    menuLeft: metrics.menuLeft,
+    menuTop: metrics.menuTop,
+    menuHeight: metrics.menuHeight,
+    actionCount: 2,
+    actionSize: 70,
+  })
   return (
     <View
       style={{
@@ -218,42 +225,49 @@ function WaitingHeader({ onIdeal }: { onIdeal: () => void }) {
         </Text>
       </View>
       <View
-        onClick={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
         style={{
           position: 'absolute',
-          left: '470rpx',
-          top: `${top - 4}rpx`,
-          width: '70rpx',
-          height: '70rpx',
+          left: `${actionsLayout.left}rpx`,
+          top: `${actionsLayout.top}rpx`,
+          width: `${actionsLayout.width}rpx`,
+          height: `${actionsLayout.actionSize}rpx`,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          gap: `${actionsLayout.actionGap}rpx`,
         }}
       >
-        <Image
-          src={miniappOssIcons.recommendReplay}
-          mode="aspectFit"
-          style={{ width: '48rpx', height: '48rpx' }}
-        />
-      </View>
-      <View
-        onClick={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })}
-        style={{
-          position: 'absolute',
-          left: '535rpx',
-          top: `${top - 4}rpx`,
-          width: '70rpx',
-          height: '70rpx',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Image
-          src={miniappOssIcons.recommendPreference}
-          mode="aspectFit"
-          style={{ width: '48rpx', height: '48rpx' }}
-        />
+        <View
+          onClick={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
+          style={{
+            width: `${actionsLayout.actionSize}rpx`,
+            height: `${actionsLayout.actionSize}rpx`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Image
+            src={miniappOssIcons.recommendReplay}
+            mode="aspectFit"
+            style={{ width: '36rpx', height: '36rpx' }}
+          />
+        </View>
+        <View
+          onClick={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })}
+          style={{
+            width: `${actionsLayout.actionSize}rpx`,
+            height: `${actionsLayout.actionSize}rpx`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Image
+            src={miniappOssIcons.recommendPreference}
+            mode="aspectFit"
+            style={{ width: '36rpx', height: '36rpx' }}
+          />
+        </View>
       </View>
     </View>
   )

@@ -120,3 +120,23 @@ test('换 traceNo 失败时可安全持久化合法 raw source，重试成功后
   assert.deepEqual(appendPendingSource([normalSource], agentSource), [normalSource, agentSource])
   assert.deepEqual(removePendingSource([normalSource, agentSource], normalSource), [agentSource])
 })
+
+test('推广归因等待受时间预算约束，不得长期阻塞登录请求', async () => {
+  const { waitWithinBudget } = await loadDomainModule()
+  let completed = false
+  const pendingTask = new Promise(resolve => {
+    setTimeout(() => {
+      completed = true
+      resolve('done')
+    }, 80)
+  })
+
+  const startedAt = Date.now()
+  const finishedInBudget = await waitWithinBudget(pendingTask, 20)
+  const elapsed = Date.now() - startedAt
+
+  assert.equal(finishedInBudget, false)
+  assert.ok(elapsed < 70, `登录前归因等待超出预算：${elapsed}ms`)
+  await pendingTask
+  assert.equal(completed, true, '超时后归因任务仍应在后台完成')
+})

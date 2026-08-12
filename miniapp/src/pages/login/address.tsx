@@ -1,6 +1,7 @@
-import { PickerView, PickerViewColumn, View, Text } from '@tarojs/components'
+import { Image, PickerView, PickerViewColumn, View, Text } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { toTwoLevelRegionErrorMessage } from '@/domain/basicProfileRegion'
 import {
   normalizeTwoLevelRegionSelection,
@@ -39,8 +40,6 @@ export default function LoginAddressPage() {
   const variantRef = useRef('default')
 
   const hasCompleteAddress = Boolean(selectedProvince && selectedCity)
-  const locationColor = hasCompleteAddress ? '#2876FF' : '#A6A6A6'
-
   useLoad(options => {
     const variant = options?.variant ?? 'default'
     variantRef.current = variant
@@ -209,50 +208,18 @@ export default function LoginAddressPage() {
             }}
             hoverClass="btn-hover"
           >
-            <View
+            <Image
+              id="login-city-location-icon"
+              src={miniappOssIcons.loginCityLocation}
+              mode="aspectFit"
               style={{
-                position: 'relative',
-                width: '40rpx',
-                height: '48rpx',
-                marginLeft: '30rpx',
-                marginRight: '20rpx',
+                width: '38rpx',
+                height: '46rpx',
+                marginLeft: '31rpx',
+                marginRight: '21rpx',
+                flexShrink: 0,
               }}
-            >
-              <View
-                style={{
-                  position: 'absolute',
-                  left: '4rpx',
-                  top: '0',
-                  width: '32rpx',
-                  height: '32rpx',
-                  borderRadius: '18rpx',
-                  border: `6rpx solid ${locationColor}`,
-                }}
-              />
-              <View
-                style={{
-                  position: 'absolute',
-                  left: '15rpx',
-                  top: '13rpx',
-                  width: '10rpx',
-                  height: '10rpx',
-                  borderRadius: '5rpx',
-                  background: locationColor,
-                }}
-              />
-              <View
-                style={{
-                  position: 'absolute',
-                  left: '15rpx',
-                  top: '30rpx',
-                  width: '16rpx',
-                  height: '16rpx',
-                  borderRight: `6rpx solid ${locationColor}`,
-                  borderBottom: `6rpx solid ${locationColor}`,
-                  transform: 'rotate(45deg)',
-                }}
-              />
-            </View>
+            />
             <Text
               style={{
                 color: hasCompleteAddress ? '#333333' : '#999999',
