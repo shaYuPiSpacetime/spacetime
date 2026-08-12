@@ -381,3 +381,13 @@
 | L3-DB-COLLATION-003 | 数据库迁移契约 | P0 | MySQL 不支持通过预处理协议执行 `ALTER DATABASE` | 069 与回滚脚本使用当前数据库的直接 `ALTER DATABASE`，不得 `PREPARE ALTER DATABASE`，避免 MySQL 1295 |
 | L1-DB-COLLATION-001 | 生产只读核验 | P0 | 069 执行后查询 `information_schema` | 基础表总数仍为 101；非 `utf8mb4_unicode_ci` 的表为 0、字符列为 0 |
 | L1-ADM-HARD-DELETE-001 | 生产事务演练 | P0 | 在显式事务内调用 `spacetime_delete_app_user_data(121)` 后回滚 | 调用无 1146/1137/1267/1054 异常；事务内 U121 为 0 行，回滚后恢复为 1 行；不执行永久删除 |
+
+## 18. 2026-08-12 我的未认证态与资料媒体独立上传增量用例
+
+| 用例 ID | 层级 | 优先级 | 场景 | 断言 |
+|---------|------|--------|------|------|
+| L4-MINI-PROFILE-019 | 静态+构建 | P0 | 用户未完成核心认证，切换到“我的” | 保持在“我的”真实 Tab；完善资料与认证页面不显示左上角“成家/知音/立业”栏目头；千寻未认证入口仍保留栏目头 |
+| L4-MINI-PROFILE-020 | 静态+接口契约 | P0 | 在编辑资料点击大背景图 | 仅调用 `uploadBackground` 与 `saveBackground`，只更新背景图状态，不调用头像接口、不修改圆头像 |
+| L4-MINI-PROFILE-021 | 静态+接口契约 | P0 | 在编辑资料点击圆头像 | 仅调用 `uploadAvatar` 与 `submitAvatar`，只更新圆头像状态，不调用背景接口、不修改背景图 |
+| L4-MINI-PROFILE-022 | 静态+视觉 | P0 | 同一背景图从编辑资料切换到主页预览 | 两处均使用 `aspectFill` 按比例裁切，主页预览不得使用 `scaleToFill` 拉伸图片 |
+| L4-MINI-PROFILE-023 | 构建 | P1 | 小程序正式构建 | 全部预构建门禁、84 个页面唯一注册、正式产物与包体检查均通过 |

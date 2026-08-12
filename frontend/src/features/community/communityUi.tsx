@@ -224,6 +224,7 @@ export function NativeSelect({ value, onChange, options, includeAll = true, allL
   return (
     <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} className={cn('h-9 w-full rounded-md border border-input bg-white px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50', className)}>
       {includeAll && <option value="">{allLabel}</option>}
+      {!includeAll && value === '' && <option value="" disabled>{allLabel}</option>}
       {options.map((item) => <option key={item.code} value={item.code} disabled={item.disabled}>{item.label}</option>)}
     </select>
   );

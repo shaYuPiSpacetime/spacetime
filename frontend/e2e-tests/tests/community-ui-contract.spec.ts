@@ -69,6 +69,8 @@ const meta = {
     comment_empty: '暂无评论记录',
     report_empty: '暂无举报记录',
     topic_empty: '暂无家园话题',
+    action_required: '请选择处理结果',
+    post_action_success: '处理成功',
     permission_denied: '当前测试账号无权访问该社区管理页面',
   },
 };
@@ -172,6 +174,37 @@ test.describe('PRD-05 管理后台六页前端契约', () => {
     await page.getByRole('button', { name: '详情' }).click();
     await expect(page.getByRole('dialog', { name: '内容详情' })).toBeVisible();
     await expect(page.getByText('契约测试内容全文')).toBeVisible();
+  });
+
+  test('内容审核处理结果必须真实选择后才可提交', async ({ page }) => {
+    const post = { id: 6, postNo: 'P-0006', authorId: 8, authorNo: 'U-0008', authorName: '测试用户', contentType: 'community_post', sourceScene: 'qianxun_chengjia', mediaType: 'image_text', content: '待审核内容', contentSummary: '待审核内容', likeCount: 0, commentCount: 0, reportCount: 0, machineResult: 'pass', riskLevel: 'low', status: 'pending_manual', version: 1, createTime: '2026-08-03 10:00:00', auditLogs: [] };
+    let submittedAction = '';
+    await page.route('**/api/admin/community/posts/list**', async (route) => {
+      await route.fulfill({ json: { code: 200, data: { current: 1, size: 20, total: 1, records: [post] } } });
+    });
+    await page.route('**/api/admin/community/posts/6', async (route) => {
+      await route.fulfill({ json: { code: 200, data: post } });
+    });
+    await page.route('**/api/admin/community/posts/6/status', async (route) => {
+      submittedAction = String(route.request().postDataJSON()?.action || '');
+      await route.fulfill({ json: { code: 200, data: true } });
+    });
+
+    await page.goto(`${BASE_URL}/community/content`);
+    await page.getByRole('button', { name: '详情' }).click();
+    const dialog = page.getByRole('dialog', { name: '内容详情' });
+    const resultSelect = dialog.getByLabel('处理结果');
+    await expect(resultSelect).toHaveValue('');
+    await expect(resultSelect.locator('option[value=""]')).toHaveText('请选择');
+    await expect(resultSelect.locator('option[value=""]')).toHaveAttribute('disabled', '');
+
+    await dialog.getByRole('button', { name: '确认处理' }).click();
+    await expect(page.getByText(meta.copy.action_required)).toBeVisible();
+    expect(submittedAction).toBe('');
+
+    await resultSelect.selectOption('published');
+    await dialog.getByRole('button', { name: '确认处理' }).click();
+    await expect.poll(() => submittedAction).toBe('published');
   });
 
   test('动态列表把来源场景显示为中文并展示最多三张内容图片', async ({ page }) => {

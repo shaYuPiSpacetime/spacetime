@@ -20,6 +20,14 @@ public class CommunityCommentVO {
     private String authorName;
     /** 评论作者头像 */
     private String authorAvatar;
+    /** 评论作者性别 */
+    private String authorGender;
+    /** 评论作者出生年份 */
+    private Integer authorBirthYear;
+    /** 评论作者现居城市 */
+    private String authorCity;
+    /** 评论作者职业 */
+    private String authorProfession;
     /** 父评论ID（一级评论为null） */
     private Long parentCommentId;
     /** 被回复用户ID */

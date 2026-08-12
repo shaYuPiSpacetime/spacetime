@@ -2003,6 +2003,12 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setAuthorId(comment.getAuthorId());
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorAvatar(auditContentService.publicAvatar(comment.getAuthorId()));
+        if (author != null) {
+            vo.setAuthorGender(author.getGender());
+            vo.setAuthorBirthYear(author.getBirthday() == null ? null : author.getBirthday().getYear());
+            vo.setAuthorCity(author.getLocationCity());
+            vo.setAuthorProfession(author.getOccupation());
+        }
         vo.setParentCommentId(comment.getParentCommentId());
         vo.setReplyUserId(comment.getReplyUserId());
         vo.setReplyUserName(replyUser != null ? replyUser.getNickname() : null);
