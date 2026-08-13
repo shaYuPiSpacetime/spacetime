@@ -803,14 +803,14 @@ WHERE role.role_code = 'super_admin' AND role.status = 'ENABLED' AND role.delete
 -- 管理后台补漏：消息通知记录、社交权限与消息配置为两个真实菜单页面。
 -- “用户通知设置页”“后台通知偏好中心”一期不做，不创建菜单、路由或页面入口。
 INSERT INTO `sys_menu`
-(`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `icon`, `perms`,
+(`parent_id`, `menu_name`, `menu_type`, `path`, `component`, `icon`, `perms`,
  `menu_sort`, `visible`, `status`, `remark`, `create_time`, `update_time`)
-VALUES
-(830, 0, '运营中心', 'M', NULL, NULL, 'Megaphone', NULL,
- 83, 1, 'ENABLED', '一期运营中心父菜单', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON DUPLICATE KEY UPDATE
- menu_name=VALUES(menu_name), menu_type=VALUES(menu_type), icon=VALUES(icon),
- menu_sort=VALUES(menu_sort), visible=1, status='ENABLED', deleted=0, update_time=CURRENT_TIMESTAMP;
+SELECT 0, '运营中心', 'M', NULL, NULL, 'Megaphone', NULL,
+       83, 1, 'ENABLED', '一期运营中心父菜单', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+WHERE NOT EXISTS (
+    SELECT 1 FROM `sys_menu`
+     WHERE parent_id=0 AND menu_name='运营中心' AND menu_type='M' AND deleted=0
+);
 
 UPDATE `sys_menu`
 SET menu_name='移动端配置管理', visible=1, status='ENABLED', deleted=0,
@@ -818,7 +818,9 @@ SET menu_name='移动端配置管理', visible=1, status='ENABLED', deleted=0,
 WHERE id=810 AND menu_type='M';
 
 UPDATE `sys_menu` page
-JOIN `sys_menu` parent ON parent.id=830 AND parent.deleted=0
+JOIN `sys_menu` parent
+  ON parent.parent_id=0 AND parent.menu_name='运营中心'
+ AND parent.menu_type='M' AND parent.deleted=0
 SET page.parent_id=parent.id,
     page.menu_name='消息通知记录查询',
     page.menu_type='C',
@@ -859,6 +861,15 @@ UPDATE `sys_menu` action_menu
 JOIN `sys_menu` page ON page.perms='message:config:view' AND page.menu_type='C' AND page.deleted=0
 SET action_menu.parent_id=page.id, action_menu.update_time=CURRENT_TIMESTAMP
 WHERE action_menu.perms='message:config:edit' AND action_menu.deleted=0;
+
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
+SELECT DISTINCT role_page.role_id, parent.id
+FROM `sys_role_menu` role_page
+JOIN `sys_menu` page
+  ON page.id=role_page.menu_id
+ AND page.perms IN ('message:record:list','message:config:view')
+ AND page.deleted=0
+JOIN `sys_menu` parent ON parent.id=page.parent_id AND parent.deleted=0;
 
 -- 举报类型兼容：沿用“社区互动管理 -> 举报处理”，不新增举报菜单。
 INSERT INTO `sys_dict_data`

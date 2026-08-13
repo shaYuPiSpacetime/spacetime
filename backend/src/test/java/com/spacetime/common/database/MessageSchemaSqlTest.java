@@ -18,6 +18,8 @@ class MessageSchemaSqlTest {
     private static final String MIGRATION = "deploy/sql/prod/070_prd03_message_center_closure.sql";
     private static final String MOBILE_CONTRACT =
             "deploy/sql/prod/071_prd03_message_mobile_contract.sql";
+    private static final String ADMIN_MENU_VISIBILITY =
+            "deploy/sql/prod/072_prd03_admin_menu_visibility.sql";
     private static final List<String> TABLES = List.of(
             "app_message_conversation",
             "app_message_conversation_member",
@@ -216,13 +218,20 @@ class MessageSchemaSqlTest {
     @DisplayName("后台补漏脚本应创建两个真实页面菜单且不创建一期外入口")
     void adminClosureShouldExposeOnlyPhaseOneMenus() throws IOException {
         String sql = readProjectFile(MIGRATION);
+        String visibilitySql = readProjectFile(ADMIN_MENU_VISIBILITY);
 
         assertThat(sql)
                 .contains("消息通知记录查询", "/operation/message-records", "message/MessageRecordPage")
                 .contains("社交权限与消息配置", "/mobile-config/message-social", "message/MessageConfigPage")
                 .contains("'message'", "'conversation'", "'whisper'")
                 .doesNotContain("/mobile-config/user-notification-settings")
-                .doesNotContain("/operation/notification-preferences");
+                .doesNotContain("/operation/notification-preferences")
+                .doesNotContain("(830, 0,");
+        assertThat(visibilitySql)
+                .contains("parent_id=0 AND menu_name='运营中心' AND menu_type='M'")
+                .contains("page.perms='message:record:list'")
+                .contains("page.perms='message:config:view'")
+                .contains("INSERT IGNORE INTO `sys_role_menu`");
     }
 
     private void assertEveryColumnHasChineseComment(String sql, String table) {
