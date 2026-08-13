@@ -27,8 +27,8 @@ public class MessageAdminQueryDaoImpl implements MessageAdminQueryDao {
     }
 
     @Override
-    public MessageAdminRecordStatsProjection stats(MessageAdminRecordFilter filter) {
-        return mapper.stats(filter);
+    public MessageAdminRecordStatsProjection stats() {
+        return mapper.stats();
     }
 
     @Override

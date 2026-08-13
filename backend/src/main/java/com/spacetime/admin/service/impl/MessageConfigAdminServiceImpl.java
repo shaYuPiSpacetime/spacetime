@@ -61,6 +61,8 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
             "auth_center", "asset", "invite_center", "appeal");
     private static final Set<String> ASSISTANT_ACTION_TYPES = Set.of(
             "none", "h5", "wechat_service", "help");
+    private static final Set<String> ASSISTANT_CARD_TYPES = Set.of("text", "action", "tip");
+    private static final Set<String> CONTENT_FORMATS = Set.of("plain_text", "rich_text");
 
     private final AppMessageRuleVersionDao ruleDao;
     private final AppMessageRuntimeControlDao runtimeDao;
@@ -198,6 +200,9 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         next.setActiveMarker(1);
         next.setTitleTemplate(req.getTitleTemplate().trim());
         next.setContentTemplate(req.getContentTemplate().trim());
+        next.setCardType(resolveCardType(req));
+        next.setContentFormat(resolveContentFormat(req));
+        next.setActionTextTemplate(blankToNull(req.getActionTextTemplate()));
         next.setAllowedVariablesJson(writeJson(req.getAllowedVariables()));
         next.setJumpType(req.getJumpType().trim());
         next.setJumpValueTemplate(blankToNull(req.getJumpValueTemplate()));
@@ -234,6 +239,7 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         Set<String> used = new HashSet<>();
         collectVariables(req.getTitleTemplate(), used);
         collectVariables(req.getContentTemplate(), used);
+        collectVariables(req.getActionTextTemplate(), used);
         collectVariables(req.getJumpValueTemplate(), used);
         if (!allowed.containsAll(used)) {
             throw new BusinessException(4001, "模板使用了未授权变量");
@@ -241,7 +247,35 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         if ("none".equals(req.getJumpType()) && StringUtils.hasText(req.getJumpValueTemplate())) {
             throw new BusinessException(4001, "无跳转模板不能配置跳转值");
         }
+        if ("none".equals(req.getJumpType()) && StringUtils.hasText(req.getActionTextTemplate())) {
+            throw new BusinessException(4001, "无跳转模板不能配置行动文案");
+        }
+        if (StringUtils.hasText(req.getActionTextTemplate())
+                && req.getActionTextTemplate().codePointCount(
+                        0, req.getActionTextTemplate().length()) > 10) {
+            throw new BusinessException(4001, "消息行动文案不能超过10个字符");
+        }
+        String cardType = resolveCardType(req);
+        if ("assistant".equals(req.getNotificationType())
+                && !ASSISTANT_CARD_TYPES.contains(cardType)) {
+            throw new BusinessException(4001, "官方助手卡片类型不合法");
+        }
+        if (!CONTENT_FORMATS.contains(resolveContentFormat(req))) {
+            throw new BusinessException(4001, "系统消息正文格式不合法");
+        }
         validateH5(req.getJumpType(), req.getJumpValueTemplate());
+    }
+
+    private String resolveCardType(MessageTemplatePublishReq req) {
+        if (StringUtils.hasText(req.getCardType())) {
+            return req.getCardType().trim();
+        }
+        return "none".equals(req.getJumpType()) ? "text" : "action";
+    }
+
+    private String resolveContentFormat(MessageTemplatePublishReq req) {
+        return StringUtils.hasText(req.getContentFormat())
+                ? req.getContentFormat().trim() : "plain_text";
     }
 
     private void validateH5(String jumpType, String jumpValue) {
@@ -313,6 +347,9 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         vo.setCurrent(Integer.valueOf(1).equals(entity.getActiveMarker()));
         vo.setTitleTemplate(entity.getTitleTemplate());
         vo.setContentTemplate(entity.getContentTemplate());
+        vo.setCardType(entity.getCardType());
+        vo.setContentFormat(entity.getContentFormat());
+        vo.setActionTextTemplate(entity.getActionTextTemplate());
         vo.setAllowedVariables(readVariables(entity.getAllowedVariablesJson()));
         vo.setJumpType(entity.getJumpType());
         vo.setJumpValueTemplate(entity.getJumpValueTemplate());

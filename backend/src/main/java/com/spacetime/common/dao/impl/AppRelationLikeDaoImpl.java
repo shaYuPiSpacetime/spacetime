@@ -65,6 +65,11 @@ public class AppRelationLikeDaoImpl extends AbstractRelationCrudDao<AppRelationL
                 snapshotLikedTime, snapshotLikeId, limit);
     }
 
+    @Override
+    public RelationLikeListRow selectLatestIncomingLike(Long userId) {
+        return likeMapper.selectLatestIncomingLike(userId);
+    }
+
     private LambdaUpdateWrapper<AppRelationLike> invalidWrapper(String reason, LocalDateTime invalidTime) {
         return new LambdaUpdateWrapper<AppRelationLike>()
                 .eq(AppRelationLike::getLikeStatus, RelationLikeStatusEnum.ACTIVE.getCode())

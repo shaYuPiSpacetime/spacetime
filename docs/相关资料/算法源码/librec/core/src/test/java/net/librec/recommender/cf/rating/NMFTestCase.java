@@ -1,10 +1,6 @@
 /**
  * Copyright (C) 2016 LibRec
-<<<<<<< HEAD
- * 
-=======
  *
->>>>>>> 2b919855b3ae617ac5f5d28e33ed7b6c1523c783
  * This file is part of LibRec.
  * LibRec is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

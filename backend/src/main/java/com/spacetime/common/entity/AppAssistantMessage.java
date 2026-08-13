@@ -25,7 +25,9 @@ public class AppAssistantMessage extends BaseEntity {
     private byte[] contentIv;
     private String contentKeyVersion;
     private String contentHmac;
+    private String cardType;
     private String actionType;
+    private String actionText;
     private String actionValue;
     private LocalDateTime readAt;
     private LocalDateTime visibleFrom;

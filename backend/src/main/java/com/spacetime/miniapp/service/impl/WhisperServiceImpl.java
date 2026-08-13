@@ -56,6 +56,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -80,12 +81,15 @@ public class WhisperServiceImpl implements WhisperService {
     private static final int REQUEST_ID_MIN_LENGTH = 8;
     private static final int REQUEST_ID_MAX_LENGTH = 64;
     private static final Duration QUOTE_TTL = Duration.ofMinutes(10);
-    private static final String RULE_SCOPE = "message_core";
+    private static final String RULE_SCOPE = "global";
     private static final String GLOBAL_SEND_KEY = "global_send_enabled";
     private static final String WHISPER_SCENE = "whisper";
     private static final String PAY_COIN = "coin";
     private static final String PAY_VIP_FREE = "vip_free";
     private static final Pattern USER_NO_PATTERN = Pattern.compile("^USR-(\\d{12})$");
+    private static final List<String> SOURCE_SCENES = List.of(
+            "recommendation", "profile", "community_post", "community_comment",
+            "whisper_reverse");
 
     private final AppMessageWhisperDao whisperDao;
     private final AppMessageRecordDao recordDao;
@@ -109,6 +113,7 @@ public class WhisperServiceImpl implements WhisperService {
             throw new BusinessException(PARAM_ERROR, "预检查请求不能为空");
         }
         LocalDateTime now = LocalDateTime.now();
+        SourceContext source = sourceContext(req.getSourceScene(), req.getSourceBizNo());
         requireGlobalSendEnabled();
         WhisperTarget target = requireEligiblePair(senderUserId, req.getTargetUserNo(), now);
         AppMessageRuleVersion rule = requireCurrentRule();
@@ -119,7 +124,8 @@ public class WhisperServiceImpl implements WhisperService {
                 || coinBalance(asset) >= payment.coinAmount();
         LocalDateTime quoteExpireAt = now.plus(QUOTE_TTL);
         String quoteToken = canSend ? quoteStore.issue(new WhisperQuoteSnapshot(
-                senderUserId, target.receiver().getId(), req.getTargetUserNo(), payment.payType(),
+                senderUserId, target.receiver().getId(), req.getTargetUserNo(),
+                source.scene(), source.bizNo(), payment.payType(),
                 payment.coinAmount(), payment.freeRemain(), rule.getVersionNo(),
                 requirePositive(rule.getWhisperExpireDays(), "悄悄话有效期配置不可用"),
                 requirePositive(rule.getWhisperCooldownDays(), "悄悄话冷却期配置不可用"),
@@ -127,7 +133,6 @@ public class WhisperServiceImpl implements WhisperService {
 
         WhisperPrecheckVO result = new WhisperPrecheckVO();
         result.setCanSend(canSend);
-        result.setAllowed(canSend);
         result.setReasonCode(canSend ? null : "INSUFFICIENT_COIN");
         result.setReasonText(canSend ? null : "千寻币余额不足");
         result.setContentMaxLength(CONTENT_MAX_LENGTH);
@@ -145,8 +150,6 @@ public class WhisperServiceImpl implements WhisperService {
                 : "确认消耗 " + payment.coinAmount() + " 千寻币发送悄悄话");
         result.setTargetUserNo(req.getTargetUserNo());
         result.setTargetNickname(target.receiver().getNickname());
-        // 头像由用户卡片接口统一返回，报价接口不额外拼接资料图片查询。
-        result.setTargetAvatarUrl(null);
         return result;
     }
 
@@ -158,14 +161,15 @@ public class WhisperServiceImpl implements WhisperService {
         }
         String requestId = normalizeRequestId(idempotencyKey);
         String content = normalizeContent(req.getContent());
+        SourceContext source = sourceContext(req.getSourceScene(), req.getSourceBizNo());
         AppMessageWhisper existing = whisperDao.selectBySenderRequestId(senderUserId, requestId);
         if (existing != null) {
-            return existingResult(existing, req.getTargetUserNo(), content, senderUserId);
+            return existingResult(existing, req.getTargetUserNo(), content, source, senderUserId);
         }
 
         WhisperQuoteSnapshot quote = quoteStore.read(req.getQuoteToken());
         LocalDateTime now = LocalDateTime.now();
-        requireQuoteIdentity(quote, senderUserId, req.getTargetUserNo(), now);
+        requireQuoteIdentity(quote, senderUserId, req.getTargetUserNo(), source, now);
         requireGlobalSendEnabled();
         WhisperTarget target = requireEligiblePair(senderUserId, req.getTargetUserNo(), now);
         if (!Objects.equals(target.receiver().getId(), quote.receiverUserId())) {
@@ -178,7 +182,7 @@ public class WhisperServiceImpl implements WhisperService {
         }
         AppMessageWhisper concurrent = whisperDao.selectBySenderRequestId(senderUserId, requestId);
         if (concurrent != null) {
-            return existingResult(concurrent, req.getTargetUserNo(), content, senderUserId);
+            return existingResult(concurrent, req.getTargetUserNo(), content, source, senderUserId);
         }
 
         // 资产锁内再次读取所有可变事实，禁止使用过期价格或已被消费的免费权益。
@@ -212,7 +216,7 @@ public class WhisperServiceImpl implements WhisperService {
         }
 
         AppMessageWhisper whisper = createWhisper(senderUserId, target.receiver().getId(),
-                requestId, whisperNo, message.getId(), payment, rule, consumeFlowNo, now);
+                requestId, whisperNo, message.getId(), source, payment, rule, consumeFlowNo, now);
         try {
             whisperDao.insert(whisper);
         } catch (DuplicateKeyException ex) {
@@ -340,10 +344,13 @@ public class WhisperServiceImpl implements WhisperService {
     }
 
     private void requireQuoteIdentity(WhisperQuoteSnapshot quote, Long senderUserId,
-                                      String targetUserNo, LocalDateTime now) {
+                                      String targetUserNo, SourceContext source,
+                                      LocalDateTime now) {
         if (quote == null || quote.expireAt() == null || !quote.expireAt().isAfter(now)
                 || !Objects.equals(senderUserId, quote.senderUserId())
-                || !Objects.equals(targetUserNo, quote.targetUserNo())) {
+                || !Objects.equals(targetUserNo, quote.targetUserNo())
+                || !Objects.equals(source.scene(), quote.sourceScene())
+                || !Objects.equals(source.bizNo(), quote.sourceBizNo())) {
             throw new BusinessException(QUOTE_CHANGED, "悄悄话报价已过期，请重新预检");
         }
     }
@@ -383,7 +390,8 @@ public class WhisperServiceImpl implements WhisperService {
 
     private AppMessageWhisper createWhisper(Long senderUserId, Long receiverUserId,
                                              String requestId, String whisperNo,
-                                             Long messageId, PaymentChoice payment,
+                                             Long messageId, SourceContext source,
+                                             PaymentChoice payment,
                                              AppMessageRuleVersion rule, String consumeFlowNo,
                                              LocalDateTime now) {
         AppMessageWhisper whisper = new AppMessageWhisper();
@@ -393,6 +401,8 @@ public class WhisperServiceImpl implements WhisperService {
         whisper.setReceiverUserId(receiverUserId);
         whisper.setUserLowId(Math.min(senderUserId, receiverUserId));
         whisper.setUserHighId(Math.max(senderUserId, receiverUserId));
+        whisper.setSourceScene(source.scene());
+        whisper.setSourceBizNo(source.bizNo());
         whisper.setStatus(MessageWhisperStatusEnum.PENDING.getCode());
         whisper.setActiveMarker(1);
         whisper.setVersion(0);
@@ -426,11 +436,16 @@ public class WhisperServiceImpl implements WhisperService {
         outbox.setReceiverUserId(whisper.getReceiverUserId());
         outbox.setChannel("tencent_im");
         outbox.setEventType("whisper_request");
-        outbox.setPayloadJson(writeMetadata(Map.of(
-                "whisperNo", whisper.getWhisperNo(),
-                "messageType", "whisper_request",
-                "requestId", requestId,
-                "sendMsgControl", List.of("NoUnread", "NoLastMsg", "NoMsgCheck"))));
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("whisperNo", whisper.getWhisperNo());
+        metadata.put("messageType", "whisper_request");
+        metadata.put("requestId", requestId);
+        metadata.put("sourceScene", whisper.getSourceScene());
+        if (whisper.getSourceBizNo() != null) {
+            metadata.put("sourceBizNo", whisper.getSourceBizNo());
+        }
+        metadata.put("sendMsgControl", List.of("NoUnread", "NoLastMsg", "NoMsgCheck"));
+        outbox.setPayloadJson(writeMetadata(metadata));
         outbox.setProtocolVersion(1);
         outbox.setStatus(MessageReliableStatusEnum.PENDING.getCode());
         outbox.setRetryCount(0);
@@ -438,12 +453,15 @@ public class WhisperServiceImpl implements WhisperService {
     }
 
     private WhisperCreateVO existingResult(AppMessageWhisper whisper, String targetUserNo,
-                                            String content, Long senderUserId) {
+                                            String content, SourceContext source,
+                                            Long senderUserId) {
         Long expectedReceiver = parseTargetUserId(targetUserNo);
         AppMessageRecord message = whisper.getRequestMessageId() == null
                 ? null : recordDao.selectById(whisper.getRequestMessageId());
         boolean same = Objects.equals(senderUserId, whisper.getSenderUserId())
                 && Objects.equals(expectedReceiver, whisper.getReceiverUserId())
+                && Objects.equals(source.scene(), whisper.getSourceScene())
+                && Objects.equals(source.bizNo(), whisper.getSourceBizNo())
                 && message != null
                 && MessageTypeEnum.WHISPER.getCode().equals(message.getMessageType())
                 && Objects.equals(content, message.getContentText());
@@ -487,10 +505,6 @@ public class WhisperServiceImpl implements WhisperService {
         result.setCoinBalance(balance);
         result.setCharged(charged);
         result.setCreatedTime(whisper.getCreateTime());
-        result.setStatus(whisper.getStatus());
-        result.setCoinCost(whisper.getCoinAmount());
-        result.setPaymentMethod(whisper.getPayType());
-        result.setCreateTime(whisper.getCreateTime());
         result.setExpireTime(whisper.getExpiresAt());
         return result;
     }
@@ -510,6 +524,22 @@ public class WhisperServiceImpl implements WhisperService {
             throw new BusinessException(PARAM_ERROR, "悄悄话内容长度必须为1至60字");
         }
         return normalized;
+    }
+
+    private SourceContext sourceContext(String sourceScene, String sourceBizNo) {
+        String scene = sourceScene == null ? "" : sourceScene.trim();
+        if (!SOURCE_SCENES.contains(scene)) {
+            throw new BusinessException(PARAM_ERROR, "来源场景不支持");
+        }
+        String bizNo = sourceBizNo == null || sourceBizNo.isBlank() ? null : sourceBizNo.trim();
+        if (("community_post".equals(scene) || "community_comment".equals(scene)
+                || "whisper_reverse".equals(scene)) && bizNo == null) {
+            throw new BusinessException(PARAM_ERROR, "当前来源场景必须提供来源业务编号");
+        }
+        if (bizNo != null && bizNo.length() > 64) {
+            throw new BusinessException(PARAM_ERROR, "来源业务编号不能超过64个字符");
+        }
+        return new SourceContext(scene, bizNo);
     }
 
     private Long parseTargetUserId(String targetUserNo) {
@@ -557,5 +587,8 @@ public class WhisperServiceImpl implements WhisperService {
 
     private record PaymentChoice(String payType, Integer coinAmount, Integer freeRemain,
                                  Integer quotaSnapshot, LocalDate benefitDate) {
+    }
+
+    private record SourceContext(String scene, String bizNo) {
     }
 }

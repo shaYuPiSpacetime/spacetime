@@ -6,6 +6,7 @@ import com.spacetime.miniapp.dto.request.MessageReadReq;
 import com.spacetime.miniapp.dto.request.SystemMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReplyReq;
+import com.spacetime.miniapp.dto.request.WhisperHideAllReq;
 import com.spacetime.miniapp.dto.response.AssistantMessagePageVO;
 import com.spacetime.miniapp.dto.response.ConversationBlockVO;
 import com.spacetime.miniapp.dto.response.MessageConversationDetailVO;
@@ -18,13 +19,23 @@ import com.spacetime.miniapp.dto.response.MessageWhisperDetailVO;
 import com.spacetime.miniapp.dto.response.MessageWhisperPageVO;
 import com.spacetime.miniapp.dto.response.SystemMessagePageVO;
 import com.spacetime.miniapp.dto.response.WhisperReplyVO;
+import com.spacetime.miniapp.dto.response.WhisperHideVO;
 
 /** 小程序悄悄话待处理与私信会话查询服务。 */
 public interface MiniappMessageService {
-    MessageHomeVO home(Long userId);
+    MessageHomeVO home(Long userId, String cursor, int size);
+    default MessageHomeVO home(Long userId) {
+        return home(userId, null, 20);
+    }
     MessageUnreadSummaryVO unreadSummary(Long userId);
-    MessageWhisperPageVO whispers(Long userId, String direction, String cursor, int size);
+    MessageWhisperPageVO whispers(Long userId, String direction, String bucket,
+                                  String cursor, int size);
+    default MessageWhisperPageVO whispers(Long userId, String direction, String cursor, int size) {
+        return whispers(userId, direction, "pending", cursor, size);
+    }
     MessageWhisperDetailVO whisperDetail(Long userId, String whisperNo);
+    WhisperHideVO hideWhisper(Long userId, String whisperNo);
+    WhisperHideVO hideReceivedWhispers(Long userId, WhisperHideAllReq req);
     WhisperReplyVO replyWhisper(Long userId, String whisperNo, WhisperReplyReq req);
     MessageConversationPageVO conversations(Long userId, String cursor, int size);
     MessageConversationDetailVO conversationDetail(Long userId, String conversationNo);

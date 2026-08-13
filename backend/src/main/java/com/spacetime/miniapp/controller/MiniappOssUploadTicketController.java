@@ -42,4 +42,9 @@ public class MiniappOssUploadTicketController {
     public R<OssUploadTicketVO> voice(@Valid @RequestBody OssUploadTicketReq req) {
         return R.ok(uploadTicketService.createVoiceTicket(req.getFileName(), req.getFileSizeBytes()));
     }
+
+    @PostMapping("/report-evidence")
+    public R<OssUploadTicketVO> reportEvidence(@Valid @RequestBody OssUploadTicketReq req) {
+        return R.ok(uploadTicketService.createReportEvidenceTicket(req.getFileName(), req.getFileSizeBytes()));
+    }
 }

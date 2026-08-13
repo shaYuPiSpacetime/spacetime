@@ -38,26 +38,26 @@
         <section class="hero-band message-hero" id="scope">
           <div class="hero-copy">
             <h1>03-消息、私信与通知中心静态 Demo</h1>
-            <p>覆盖消息列表、普通私信、悄悄话、低频官方助手、社区系统通知、通知详情和后台查询/配置/举报承接。</p>
+            <p>覆盖七个有效移动端页面，以及脱敏查询、配置版本、全局安全开关和按案件授权的举报证据承接。</p>
             <div class="metric-strip">
-              <div class="metric"><strong>8</strong><span>移动端页面</span></div>
+              <div class="metric"><strong>7</strong><span>移动端页面</span></div>
               <div class="metric"><strong>2</strong><span>后台独立页</span></div>
               <div class="metric"><strong>3</strong><span>后台合并承接区</span></div>
-              <div class="metric"><strong>通过</strong><span>二轮 PRD 门禁</span></div>
+              <div class="metric"><strong>2026-07-31</strong><span>方案同步日期</span></div>
             </div>
           </div>
           <div class="portal-grid">
             <a class="portal-card" href="miniapp.html">
               <div>
                 <h2>移动端 Demo</h2>
-                <p>消息 Tab、私信会话、低频官方助手、社区系统通知，以及悄悄话从付费发送到匹配或结束的完整闭环。</p>
+                <p>三个固定入口、最近三条私信、完整私信列表、安全菜单、悄悄话原子回复和五类系统消息全文流。</p>
               </div>
               <span class="btn primary">进入移动端</span>
             </a>
             <a class="portal-card" href="admin.html">
               <div>
                 <h2>管理后台 Demo</h2>
-                <p>消息通知记录查询、社交权限配置；用户管理字段补充合并到 01 模块补充弹窗，举报字段补充合并到原页面语境。</p>
+                <p>消息元数据查询、配置版本与安全开关；用户管理字段合并到 01，敏感正文只在 PRD-05 有效案件上下文查看。</p>
               </div>
               <span class="btn">进入后台</span>
             </a>
@@ -67,25 +67,25 @@
         <section class="section-band" id="source">
           <div class="page-head">
             <h2>需求来源</h2>
-            <p>静态 Demo 按 PRD-03 第二轮 Claude 复核通过后的正式版文档生成。</p>
+            <p>静态 Demo 按 2026-07-31 用户确认的标准交友软件推荐方案与 PRD-03 正式文档同步生成。</p>
           </div>
           <div class="section-body">
             <div class="page-grid">
               <article class="setting-card">
                 <h3>移动端正式 PRD</h3>
-                <p>消息首页、私信列表与对话、悄悄话列表与详情、官方小助手、系统消息全文流。</p>
+                <p>消息首页、完整私信列表、私信对话、官方助手、悄悄话列表与详情、系统消息全文流，共七页。</p>
               </article>
               <article class="setting-card">
                 <h3>后台正式 PRD</h3>
-                <p>消息通知记录查询、社交权限与消息配置、用户管理字段补充、用户详情消息互动、聊天举报字段补充。</p>
+                <p>脱敏消息记录查询、社交权限与消息配置、用户详情元数据、PRD-05 举报案件字段补充。</p>
               </article>
               <article class="setting-card">
                 <h3>一期上线目标</h3>
                 <p>不做用户自助通知设置页、不做后台完整通知偏好中心；保留聊天举报；普通私信只在匹配成功后开放。</p>
               </article>
               <article class="setting-card">
-                <h3>二轮核查结论</h3>
-                <p>第 1 轮问题全部闭环；第 2 轮无 P0/P1，可进入 UI、静态 Demo、技术方案和测试用例阶段。</p>
+                <h3>视觉验收边界</h3>
+                <p>功能与交互口径可验收；七个正式移动端 UI 画板尚未交付，视觉还原度暂记 N/A。</p>
               </article>
             </div>
           </div>
@@ -106,7 +106,7 @@
               <article class="merge-card">
                 <small>已合并</small>
                 <h3>App 用户管理模块补充弹窗-消息互动 Tab</h3>
-                <p>在 01 原 App 用户管理模块补充弹窗中展示摘要卡、私信、悄悄话、通知、举报；四类记录均展示 5 条/页分页组件，不作为独立菜单页，也不放入画像详情抽屉。</p>
+                <p>在 01 原 App 用户管理模块补充弹窗中展示摘要卡、私信、悄悄话、系统消息和举报关联元数据；不提供正文查看，也不放入画像详情抽屉。</p>
               </article>
               <article class="merge-card">
                 <small>已合并</small>
@@ -129,13 +129,14 @@
           </div>
           <div class="section-body">
             <ul class="check-list">
-              <li><span>未完成三重认证用户进入消息 Tab，只看系统通知入口和认证引导</span><strong>移动端</strong></li>
-              <li><span>匹配成功后进入普通私信；女性保护期内男性侧禁发</span><strong>移动端</strong></li>
-              <li><span>悄悄话支付成功后发送；回复即匹配，7 天未回复由后台自动结束并进入 7 天冷却</span><strong>移动端</strong></li>
+              <li><span>未完成三重认证或账号受限时，只看必要安全系统消息与对应引导</span><strong>移动端</strong></li>
+              <li><span>消息首页固定官方助手、系统消息、悄悄话，并仅展示最近三条私信</span><strong>移动端</strong></li>
+              <li><span>匹配成功后进入普通私信；女性保护只限制发送，不限制进入</span><strong>移动端</strong></li>
+              <li><span>悄悄话回复、匹配、普通会话和状态一次提交；任一步失败全部回滚</span><strong>移动端</strong></li>
               <li><span>已扣费但未有效送达时原路退款；发送方不可见已读、明确拒绝和拉黑原因</span><strong>移动端</strong></li>
-              <li><span>官方小助手与系统消息均直接全文展示，不提供通知筛选、详情层级或全部已读</span><strong>移动端</strong></li>
-              <li><span>后台按 `M03-ENUM-admin-record-type` 查询私信、悄悄话和系统通知</span><strong>后台</strong></li>
-              <li><span>聊天举报在举报处理原页面展示上下文，处罚联动会话失效和站内通知</span><strong>后台合并</strong></li>
+              <li><span>治理、资产、邀请、社区、平台与安全消息在同一全文流按曝光批次置已读</span><strong>移动端</strong></li>
+              <li><span>后台通用查询不返回正文，导出永不包含正文</span><strong>后台</strong></li>
+              <li><span>聊天举报在 PRD-05 案件页按条授权查看冻结证据，全部访问写审计</span><strong>后台合并</strong></li>
             </ul>
           </div>
         </section>
@@ -161,7 +162,7 @@
               </article>
               <article class="message-card">
                 <h3>跨 PRD 只承接</h3>
-                <p>千寻币和会员归 PRD-04，邀请关系和奖励归 PRD-07，举报处理复用后台举报能力。</p>
+                <p>资产事实归 PRD-04，邀请事实和页面归 PRD-07，举报案件事实归 PRD-05；PRD-03 只生成面向用户的消息快照。</p>
               </article>
             </div>
           </div>

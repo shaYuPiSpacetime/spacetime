@@ -27,7 +27,9 @@ public class AppSystemMessage extends BaseEntity {
     private byte[] contentIv;
     private String contentKeyVersion;
     private String contentHmac;
+    private String contentFormat;
     private String jumpType;
+    private String actionText;
     private String jumpValue;
     private Integer safetyRequired;
     private LocalDateTime readAt;

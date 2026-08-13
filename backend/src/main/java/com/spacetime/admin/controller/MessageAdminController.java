@@ -7,6 +7,8 @@ import com.spacetime.admin.dto.request.MessageTemplatePageReq;
 import com.spacetime.admin.dto.request.MessageTemplatePublishReq;
 import com.spacetime.admin.dto.request.MessageRecordExportReq;
 import com.spacetime.admin.dto.request.MessageRecordPageReq;
+import com.spacetime.admin.dto.request.SensitiveContentViewReq;
+import com.spacetime.admin.dto.response.AdminSensitiveMessageContentVO;
 import com.spacetime.admin.dto.response.AdminMessageRecordDetailVO;
 import com.spacetime.admin.dto.response.AdminMessageRecordVO;
 import com.spacetime.admin.dto.response.ContentOperationLogVO;
@@ -21,6 +23,7 @@ import com.spacetime.common.annotation.RequirePermission;
 import com.spacetime.common.dto.PageReq;
 import com.spacetime.common.result.R;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,8 +42,8 @@ public class MessageAdminController {
 
     @GetMapping("/records/stats")
     @RequirePermission("message:record:list")
-    public R<MessageRecordStatsVO> recordStats(@Valid MessageRecordPageReq req) {
-        return R.ok(recordService.stats(req));
+    public R<MessageRecordStatsVO> recordStats() {
+        return R.ok(recordService.stats());
     }
 
     @GetMapping("/records")
@@ -53,6 +56,17 @@ public class MessageAdminController {
     @RequirePermission("message:record:list")
     public R<AdminMessageRecordDetailVO> recordDetail(@PathVariable String recordNo) {
         return R.ok(recordService.detail(recordNo));
+    }
+
+    @PostMapping("/records/{recordNo}/content-view")
+    @RequirePermission("message:sensitive-content:view")
+    public R<AdminSensitiveMessageContentVO> recordContentView(
+            @PathVariable String recordNo,
+            @Valid @RequestBody SensitiveContentViewReq req,
+            HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        response.setHeader("Pragma", "no-cache");
+        return R.ok(recordService.viewContent(recordNo, req));
     }
 
     @PostMapping("/records/export")

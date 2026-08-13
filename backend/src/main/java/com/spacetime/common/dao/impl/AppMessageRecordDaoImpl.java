@@ -55,6 +55,21 @@ public class AppMessageRecordDaoImpl implements AppMessageRecordDao {
     }
 
     @Override
+    public AppMessageRecord selectByConversationAndTimLocator(
+            Long conversationId, String timMessageId, String timMsgKey) {
+        boolean hasMessageId = timMessageId != null && !timMessageId.isBlank();
+        boolean hasMsgKey = timMsgKey != null && !timMsgKey.isBlank();
+        if (conversationId == null || !hasMessageId && !hasMsgKey) {
+            return null;
+        }
+        return mapper.selectOne(new LambdaQueryWrapper<AppMessageRecord>()
+                .eq(AppMessageRecord::getConversationId, conversationId)
+                .eq(hasMessageId, AppMessageRecord::getTimMessageId, timMessageId)
+                .eq(hasMsgKey, AppMessageRecord::getTimMsgKey, timMsgKey)
+                .last("LIMIT 1"));
+    }
+
+    @Override
     public long countUnreadAfter(Long conversationId, Long receiverUserId, Long messageId) {
         return mapper.selectCount(new LambdaQueryWrapper<AppMessageRecord>()
                 .eq(AppMessageRecord::getConversationId, conversationId)
@@ -175,6 +190,19 @@ public class AppMessageRecordDaoImpl implements AppMessageRecordDao {
     public int markReadThrough(Long conversationId, Long receiverUserId, Long lastMessageId,
                                java.time.LocalDateTime readAt) {
         return mapper.markReadThrough(conversationId, receiverUserId, lastMessageId, readAt);
+    }
+
+    @Override
+    public int markReadThroughTime(Long conversationId, Long receiverUserId, Long senderUserId,
+                                   java.time.LocalDateTime lastReadTime,
+                                   java.time.LocalDateTime readAt) {
+        return mapper.markReadThroughTime(conversationId, receiverUserId, senderUserId,
+                lastReadTime, readAt);
+    }
+
+    @Override
+    public boolean existsReportableIncomingText(Long conversationId, Long receiverUserId) {
+        return mapper.countReportableIncomingText(conversationId, receiverUserId) > 0;
     }
 
     @Override

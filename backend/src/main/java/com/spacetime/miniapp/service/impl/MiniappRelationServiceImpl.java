@@ -43,6 +43,7 @@ import com.spacetime.miniapp.dto.request.RelationVisitCreateReq;
 import com.spacetime.miniapp.dto.response.LikesMeAvatarPreviewVO;
 import com.spacetime.miniapp.dto.response.LikesMeItemVO;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
+import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MatchPopupVO;
 import com.spacetime.miniapp.dto.response.MutualMatchItemVO;
 import com.spacetime.miniapp.dto.response.MutualMatchPageVO;
@@ -179,6 +180,28 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         result.setAccessMode(vip ? "VIP_ALL_CLEAR" : containsUnlocked ? "MIXED" : "BLUR_LIMIT");
         result.setHasMore((long) current * effectiveSize < visibleTotal);
         result.setRecords(records);
+        return result;
+    }
+
+    @Override
+    public LikesMeSummaryVO likesMeSummary(Long userId) {
+        requireOpenUser(userId, CURRENT_ACCESS_CLOSED, "关系反馈准入未开放");
+        LocalDateTime now = LocalDateTime.now();
+        RelationLikeListRow latest = likeDao.selectLatestIncomingLike(userId);
+        LikesMeSummaryVO result = new LikesMeSummaryVO();
+        if (latest == null) {
+            result.setTotalCount(0L);
+            result.setNewCount(0L);
+            return result;
+        }
+        LikesMeSnapshot snapshot = resolveLikesMeSnapshot(userId, null);
+        result.setTotalCount(likeDao.count(incomingActiveLikesAtSnapshot(userId, snapshot)));
+        result.setNewCount(likeDao.count(newIncomingActiveLikesAtSnapshot(userId, snapshot)));
+        result.setLatestAvatarUrl(auditContentService.publicAvatar(latest.getFromUserId()));
+        result.setLatestLikedTime(latest.getLikedTime());
+        boolean vip = isVipActive(userAssetDao.selectByUserId(userId), now);
+        result.setLatestDisplayStatus(vip || latest.getUnlockTime() != null
+                ? DISPLAY_CLEAR : DISPLAY_BLUR);
         return result;
     }
 

@@ -71,6 +71,8 @@ class MessageNotificationDomainServiceImplTest {
         assertThat(stored.getBizType()).isEqualTo("report_result");
         assertThat(stored.getTitleHmac()).isEqualTo("title-hmac");
         assertThat(stored.getContentHmac()).isEqualTo("content-hmac");
+        assertThat(stored.getContentFormat()).isEqualTo("rich_text");
+        assertThat(stored.getActionText()).isEqualTo("查看结果");
         assertThat(stored.getSafetyRequired()).isEqualTo(1);
         assertThat(stored.getVisibleUntil()).isEqualTo(now.plusDays(30));
     }
@@ -102,6 +104,8 @@ class MessageNotificationDomainServiceImplTest {
         template.setAllowedVariablesJson("[]");
         template.setJumpType("help");
         template.setJumpValueTemplate("/pages/help/index");
+        template.setCardType("action");
+        template.setActionTextTemplate("查看安全指南");
         when(templateDao.selectCurrentByNotificationType("assistant")).thenReturn(List.of(template));
         when(assistantMessageDao.selectByUserTopicVersion(
                 8L, "private_chat_safety", "v1")).thenReturn(null);
@@ -117,6 +121,8 @@ class MessageNotificationDomainServiceImplTest {
         assertThat(captor.getValue().getTitleHmac()).isEqualTo("title-hmac");
         assertThat(captor.getValue().getActionType()).isEqualTo("help");
         assertThat(captor.getValue().getActionValue()).isEqualTo("/pages/help/index");
+        assertThat(captor.getValue().getCardType()).isEqualTo("action");
+        assertThat(captor.getValue().getActionText()).isEqualTo("查看安全指南");
     }
 
     @Test
@@ -149,6 +155,8 @@ class MessageNotificationDomainServiceImplTest {
         template.setContentTemplate("你的举报{{result}}");
         template.setAllowedVariablesJson("{\"result\":{\"required\":true}}");
         template.setJumpType("none");
+        template.setContentFormat("rich_text");
+        template.setActionTextTemplate("查看结果");
         template.setSafetyRequired(1);
         return template;
     }

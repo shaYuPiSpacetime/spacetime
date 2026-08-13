@@ -95,7 +95,6 @@ class WhisperServiceImplTest {
         WhisperPrecheckVO result = service.precheck(7L, precheckReq());
 
         assertThat(result.getCanSend()).isTrue();
-        assertThat(result.getAllowed()).isTrue();
         assertThat(result.getPayType()).isEqualTo("vip_free");
         assertThat(result.getCoinAmount()).isZero();
         assertThat(result.getFreeWhisperRemain()).isEqualTo(1);
@@ -252,7 +251,7 @@ class WhisperServiceImplTest {
         AppMessageRuntimeControl control = new AppMessageRuntimeControl();
         control.setEnabled(1);
         when(runtimeControlDao.selectByControlKey("global_send_enabled")).thenReturn(control);
-        lenient().when(ruleVersionDao.selectCurrent("message_core")).thenReturn(rule());
+        lenient().when(ruleVersionDao.selectCurrent("global")).thenReturn(rule());
         when(appUserDao.selectById(7L)).thenReturn(user(7L, "发送者"));
         when(appUserDao.selectById(8L)).thenReturn(user(8L, "接收者"));
         when(accessProjectionService.project(any(AppUser.class))).thenReturn("OPEN");
@@ -275,7 +274,8 @@ class WhisperServiceImplTest {
     }
 
     private WhisperQuoteSnapshot quote(String payType, int coinAmount, int freeRemain) {
-        return new WhisperQuoteSnapshot(7L, 8L, "USR-000000000008", payType,
+        return new WhisperQuoteSnapshot(7L, 8L, "USR-000000000008",
+                "profile", null, payType,
                 coinAmount, freeRemain, "MSG-RULE-V1", 7, 7,
                 LocalDateTime.now().plusMinutes(5));
     }
@@ -295,6 +295,7 @@ class WhisperServiceImplTest {
         whisper.setSendRequestId(requestId);
         whisper.setSenderUserId(7L);
         whisper.setReceiverUserId(8L);
+        whisper.setSourceScene("profile");
         whisper.setStatus("pending");
         whisper.setPayType("coin");
         whisper.setPaymentStatus("paid");
@@ -319,12 +320,14 @@ class WhisperServiceImplTest {
     private WhisperPrecheckReq precheckReq() {
         WhisperPrecheckReq req = new WhisperPrecheckReq();
         req.setTargetUserNo("USR-000000000008");
+        req.setSourceScene("profile");
         return req;
     }
 
     private WhisperCreateReq createReq(String quoteToken, String content) {
         WhisperCreateReq req = new WhisperCreateReq();
         req.setTargetUserNo("USR-000000000008");
+        req.setSourceScene("profile");
         req.setQuoteToken(quoteToken);
         req.setContent(content);
         return req;

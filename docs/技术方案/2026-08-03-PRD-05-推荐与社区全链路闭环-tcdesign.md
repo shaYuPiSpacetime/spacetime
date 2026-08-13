@@ -8,6 +8,12 @@
 >
 > 历史方案：`docs/技术方案/2026-05-29-PRD-05-推荐模块（朋友、社区与内容互动）-tcdesign.md`
 
+> **跨模块一致性更新（2026-08-07）**：聊天举报按最新版 PRD-03/TIM 契约处理。客户端只提交
+> `sourceType/conversationNo/whisperNo/messageNo/timConversationId/timMessageId/timMsgKey` 白名单定位
+> 字段，不提交用户 ID 或正文；PRD-03 服务端校验参与关系与 TIM 映射，PRD-05 创建工单并引用
+> `community_report_evidence` 冻结证据。字段、权限和取证流程以
+> `2026-07-31-消息、私信与通知中心-tcdesign.md` 为准。
+
 ## 1. 背景与目标
 
 旧方案只覆盖帖子、评论、点赞、关注、举报和单页后台的最小闭环，且将话题放在字典、审核默认走人工、小程序保留本地 Mock/Storage 替代数据。此次按正式 PRD 升级为可运营、可治理、可审计、可恢复的完整社区闭环。
@@ -69,7 +75,8 @@
 |---|---|---|
 | `community_post` | 增量 | 业务编号、来源场景、机审、抽检、版本、审核与处理时间 |
 | `community_comment` | 增量 | 业务编号、点赞数、机审结果、版本、审核时间 |
-| `community_report` | 增量 | 字符串目标编号、举报编号、四类目标、证据、合并、处罚与版本 |
+| `community_report` | 增量 | 字符串目标编号、举报编号、四类目标、证据状态/引用、合并、处罚与版本；聊天正文不直接存本表 |
+| `community_report_evidence` | PRD-03 新增 | 聊天举报最小必要冻结证据及 KMS 密文；只能在有效案件内按条访问 |
 | `community_topic` | 新增 | 独立话题、封面、场景、推荐、排序、启停与版本 |
 | `community_comment_like` | 新增 | 评论点赞关系 |
 | `community_post_draft` | 新增 | 用户+内容类型唯一草稿 |
@@ -134,7 +141,7 @@ Controller 均精确返回 `R<T>`，使用 `@RequirePermission`；状态写操�
 - 普通帖图片异步结果未返回前保持 `pending_machine`；明确通过才进入公开/人工下一态。
 - 服务超时、不确定或回调验签失败按帖子进入人工复核；评论直接返回可重试错误。
 - 账号冻结复用公共账号治理能力；社区禁言和 IP 封禁由统一写准入组件校验。
-- 聊天举报通过 `ChatReportContextResolver` 端口获取可信上下文；默认不可用实现返回明确业务错误，不读取客户端正文。
+- 聊天举报通过 `ChatReportContextResolver` 端口获取可信上下文；输入只接收业务/TIM 定位编号白名单，PRD-03 实现负责校验参与关系、消息归属和映射并冻结最小必要证据。默认不可用实现返回明确业务错误，绝不读取客户端正文或信任客户端用户 ID。
 
 ## 7. 管理后台前端设计
 

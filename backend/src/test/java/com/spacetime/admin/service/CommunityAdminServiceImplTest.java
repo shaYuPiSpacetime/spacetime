@@ -697,6 +697,27 @@ class CommunityAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("悄悄话举报详情应复用现有举报处理并展示固化证据")
+    void getReportDetail_whisperTarget_shouldExposeTrustedEvidence() {
+        report.setReportNo("RPT-WHISPER-300");
+        report.setTargetType("whisper");
+        report.setTargetId("WSP-100");
+        report.setTargetBizNo("WSP-100");
+        report.setSourceType("whisper");
+        report.setEvidenceJson("{\"content\":\"服务端固化的悄悄话举报证据\"}");
+        when(communityReportDao.selectById(300L)).thenReturn(report);
+        when(dictDataDao.selectByDictType(anyString())).thenReturn(List.of());
+        when(dictDataDao.selectList(any())).thenReturn(List.of());
+        when(communityExtensionDao.selectAudits(any())).thenReturn(List.of());
+
+        var result = communityAdminService.getReportDetail(300L);
+
+        assertThat(result.getTargetNo()).isEqualTo("WSP-100");
+        assertThat(result.getContext().getAvailable()).isTrue();
+        assertThat(result.getContext().getContent()).contains("固化的悄悄话举报证据");
+    }
+
+    @Test
     @DisplayName("举报成立并警告用户时通知被举报用户")
     void updateReportStatus_warnUser_shouldNotifyTargetUser() {
         report.setReportNo("RPT-300");

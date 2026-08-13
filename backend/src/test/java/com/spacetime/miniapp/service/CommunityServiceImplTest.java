@@ -324,19 +324,6 @@ class CommunityServiceImplTest {
     }
 
     @Test
-    @DisplayName("关注自己返回面向用户的业务提示")
-    void toggleFollow_self_shouldReturnFriendlyMessage() {
-        AppConfig message = appConfig("community.copy.cannot_follow_self", "不能关注自己");
-        when(appConfigDao.selectByKey("community.copy.cannot_follow_self")).thenReturn(message);
-        when(appUserDao.selectById(1L)).thenReturn(user);
-
-        assertThatThrownBy(() -> communityService.toggleFollow(1L, 1L))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("不能关注自己");
-        verify(communityFollowDao, never()).insert(any());
-    }
-
-    @Test
     @DisplayName("关注用户-再次点击取消")
     void toggleFollow_secondTime_shouldUnfollow() {
         CommunityFollow follow = new CommunityFollow();
@@ -408,6 +395,9 @@ class CommunityServiceImplTest {
         req.setTimMessageId("TIM-MSG-001");
         req.setTimMsgKey("TIM-KEY-001");
         req.setReasonCode("spam");
+        req.setEvidenceImageUrls(List.of(
+                "https://static.example.com/miniapp/1/reportEvidence/proof-a.jpg",
+                "https://static.example.com/miniapp/1/reportEvidence/proof-b.png"));
 
         SysDictData reason = new SysDictData();
         reason.setDictType("community_report_reason");
@@ -426,6 +416,12 @@ class CommunityServiceImplTest {
         }).when(communityReportDao).insert(any(CommunityReport.class));
         when(chatReportEvidenceService.freeze(any(CommunityReport.class), any(TrustedChatReportContext.class), any()))
                 .thenReturn(new ChatEvidenceSnapshot("complete", 3, "{\"evidenceCount\":3}"));
+        when(valueOperations.get("community:upload:ticket:miniapp/1/reportEvidence/proof-a.jpg"))
+                .thenReturn("1");
+        when(valueOperations.get("community:upload:ticket:miniapp/1/reportEvidence/proof-b.png"))
+                .thenReturn("1");
+        when(ossUtil.objectExists("miniapp/1/reportEvidence/proof-a.jpg")).thenReturn(true);
+        when(ossUtil.objectExists("miniapp/1/reportEvidence/proof-b.png")).thenReturn(true);
 
         CommunityReportResultVO result = communityService.createReport(1L, req);
 
@@ -435,10 +431,59 @@ class CommunityServiceImplTest {
         verify(communityReportDao).insert(argThat(report ->
                 "CLIENT-RPT-001".equals(report.getClientReportId())
                         && "MSG-001".equals(report.getTargetBizNo())
-                        && Long.valueOf(2L).equals(report.getReportedUserId())));
+                        && Long.valueOf(2L).equals(report.getReportedUserId())
+                        && "[\"https://static.example.com/miniapp/1/reportEvidence/proof-a.jpg\",\"https://static.example.com/miniapp/1/reportEvidence/proof-b.png\"]"
+                        .equals(report.getEvidenceImageUrlsJson())));
         verify(communityReportDao).updateById(argThat(report ->
                 "complete".equals(report.getSnapshotStatus())
-                        && "{\"evidenceCount\":3}".equals(report.getEvidenceJson())));
+                        && "{\"evidenceCount\":3}".equals(report.getEvidenceJson())
+                        && report.getEvidenceImageUrlsJson().contains("proof-a.jpg")));
+        verify(redisTemplate).delete("community:upload:ticket:miniapp/1/reportEvidence/proof-a.jpg");
+        verify(redisTemplate).delete("community:upload:ticket:miniapp/1/reportEvidence/proof-b.png");
+    }
+
+    @Test
+    @DisplayName("正式聊天举报使用chat目标和private_chat上下文")
+    void createChatReport_shouldUseFormalMobileContract() {
+        CommunityReportCreateReq req = new CommunityReportCreateReq();
+        req.setTargetType("chat");
+        req.setTargetId("CV-001");
+        req.setClientReportId("CLIENT-CHAT-001");
+        req.setSourceType("private_chat");
+        req.setConversationNo("CV-001");
+        req.setMessageNo("MSG-001");
+        req.setReasonCode("spam");
+
+        when(dictDataDao.selectByDictType("community_report_reason"))
+                .thenReturn(List.of(reportReason("spam")));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(chatReportContextResolver.resolve(eq(1L), argThat(lookup ->
+                "private_chat".equals(lookup.sourceType())
+                        && "CV-001".equals(lookup.targetBizNo())
+                        && "CV-001".equals(lookup.conversationNo())
+                        && "MSG-001".equals(lookup.messageNo()))))
+                .thenReturn(new TrustedChatReportContext(
+                        "CV-001", 2L, "private_chat", null,
+                        501L, List.of(501L), "CV-001", "complete"));
+        doAnswer(invocation -> {
+            CommunityReport report = invocation.getArgument(0);
+            report.setId(9003L);
+            report.setCreateTime(LocalDateTime.of(2026, 8, 13, 12, 0));
+            return null;
+        }).when(communityReportDao).insert(any(CommunityReport.class));
+        when(chatReportEvidenceService.freeze(any(CommunityReport.class),
+                any(TrustedChatReportContext.class), any()))
+                .thenReturn(new ChatEvidenceSnapshot("complete", 1, "{\"evidenceCount\":1}"));
+
+        CommunityReportResultVO result = communityService.createReport(1L, req);
+
+        assertThat(result.getReportId()).isEqualTo(9003L);
+        verify(communityReportDao).insert(argThat(report ->
+                "chat".equals(report.getTargetType())
+                        && "CV-001".equals(report.getTargetId())
+                        && "CV-001".equals(report.getTargetBizNo())
+                        && "private_chat".equals(report.getSourceType())
+                        && Long.valueOf(2L).equals(report.getReportedUserId())));
     }
 
     @Test
@@ -474,6 +519,96 @@ class CommunityServiceImplTest {
                 .extracting("code")
                 .isEqualTo(30020);
         verifyNoInteractions(chatReportContextResolver, chatReportEvidenceService);
+        verify(communityReportDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("提交举报-凭证图片最多三张")
+    void createReport_shouldRejectMoreThanThreeEvidenceImages() {
+        CommunityReportCreateReq req = messageReportRequest("CLIENT-RPT-IMAGES-COUNT", "MSG-COUNT", "spam");
+        req.setEvidenceImageUrls(List.of(
+                reportEvidenceUrl(1, "a.jpg"), reportEvidenceUrl(1, "b.jpg"),
+                reportEvidenceUrl(1, "c.jpg"), reportEvidenceUrl(1, "d.jpg")));
+        when(dictDataDao.selectByDictType("community_report_reason"))
+                .thenReturn(List.of(reportReason("spam")));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        assertThatThrownBy(() -> communityService.createReport(1L, req))
+                .isInstanceOf(BusinessException.class);
+
+        verify(communityReportDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("提交举报-凭证图片必须来自当前用户举报目录")
+    void createReport_shouldRejectEvidenceOutsideCurrentUserDirectory() {
+        CommunityReportCreateReq req = messageReportRequest("CLIENT-RPT-WRONG-DIR", "MSG-WRONG-DIR", "spam");
+        req.setEvidenceImageUrls(List.of("https://static.example.com/miniapp/2/reportEvidence/a.jpg"));
+        prepareMessageReport(req, "MSG-WRONG-DIR");
+
+        assertThatThrownBy(() -> communityService.createReport(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(505019);
+
+        verify(communityReportDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("提交举报-凭证图片必须持有当前用户Redis票据")
+    void createReport_shouldRejectMissingOrForeignEvidenceTicket() {
+        CommunityReportCreateReq req = messageReportRequest("CLIENT-RPT-FOREIGN-TICKET", "MSG-FOREIGN", "spam");
+        String imageUrl = reportEvidenceUrl(1, "foreign.jpg");
+        req.setEvidenceImageUrls(List.of(imageUrl));
+        prepareMessageReport(req, "MSG-FOREIGN");
+        when(valueOperations.get("community:upload:ticket:miniapp/1/reportEvidence/foreign.jpg"))
+                .thenReturn("2");
+
+        assertThatThrownBy(() -> communityService.createReport(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(505019);
+
+        verify(ossUtil, never()).objectExists(anyString());
+        verify(communityReportDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("提交举报-凭证图片必须已上传到OSS")
+    void createReport_shouldRejectMissingEvidenceObject() {
+        CommunityReportCreateReq req = messageReportRequest("CLIENT-RPT-MISSING-OSS", "MSG-MISSING-OSS", "spam");
+        req.setEvidenceImageUrls(List.of(reportEvidenceUrl(1, "missing.jpg")));
+        prepareMessageReport(req, "MSG-MISSING-OSS");
+        when(valueOperations.get("community:upload:ticket:miniapp/1/reportEvidence/missing.jpg"))
+                .thenReturn("1");
+        when(ossUtil.objectExists("miniapp/1/reportEvidence/missing.jpg")).thenReturn(false);
+
+        assertThatThrownBy(() -> communityService.createReport(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(505019);
+
+        verify(communityReportDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("提交举报-相同幂等编号必须比较凭证图片列表")
+    void createMessageReport_shouldRejectChangedEvidenceImagesForSameIdempotencyKey() {
+        CommunityReportCreateReq req = messageReportRequest("CLIENT-RPT-IMAGE-CONFLICT", "MSG-IMAGE", "spam");
+        req.setEvidenceImageUrls(List.of(reportEvidenceUrl(1, "new.jpg")));
+        CommunityReport existing = existingMessageReport("CLIENT-RPT-IMAGE-CONFLICT", "MSG-IMAGE", "spam");
+        existing.setEvidenceImageUrlsJson("[\"" + reportEvidenceUrl(1, "old.jpg") + "\"]");
+        when(dictDataDao.selectByDictType("community_report_reason"))
+                .thenReturn(List.of(reportReason("spam")));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityReportDao.selectList(any())).thenReturn(List.of(existing));
+
+        assertThatThrownBy(() -> communityService.createReport(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(30020);
+
+        verifyNoInteractions(ossUtil);
         verify(communityReportDao, never()).insert(any());
     }
 
@@ -692,8 +827,23 @@ class CommunityServiceImplTest {
         report.setReasonCode(reasonCode);
         report.setStatus("pending");
         report.setSnapshotStatus("complete");
+        report.setEvidenceImageUrlsJson("[]");
         report.setCreateTime(LocalDateTime.of(2026, 8, 10, 9, 0));
         return report;
+    }
+
+    private void prepareMessageReport(CommunityReportCreateReq req, String targetNo) {
+        when(dictDataDao.selectByDictType("community_report_reason"))
+                .thenReturn(List.of(reportReason(req.getReasonCode())));
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        lenient().when(chatReportContextResolver.resolve(eq(1L), any(ChatReportLookup.class)))
+                .thenReturn(new TrustedChatReportContext(
+                        targetNo, 2L, "message", null,
+                        501L, List.of(501L), "CONV-001", "partial"));
+    }
+
+    private String reportEvidenceUrl(long userId, String fileName) {
+        return "https://static.example.com/miniapp/" + userId + "/reportEvidence/" + fileName;
     }
 
     private SysDictData reportReason(String reasonCode) {

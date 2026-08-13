@@ -9,4 +9,5 @@ public interface MiniappOssUploadTicketService {
     OssUploadTicketVO createAlbumTicket(String fileName, long fileSizeBytes);
     OssUploadTicketVO createBackgroundTicket(String fileName, long fileSizeBytes);
     OssUploadTicketVO createVoiceTicket(String fileName, long fileSizeBytes);
+    OssUploadTicketVO createReportEvidenceTicket(String fileName, long fileSizeBytes);
 }

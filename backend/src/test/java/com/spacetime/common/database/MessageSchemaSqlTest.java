@@ -16,6 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MessageSchemaSqlTest {
 
     private static final String MIGRATION = "deploy/sql/prod/070_prd03_message_center_closure.sql";
+    private static final String MOBILE_CONTRACT =
+            "deploy/sql/prod/071_prd03_message_mobile_contract.sql";
     private static final List<String> TABLES = List.of(
             "app_message_conversation",
             "app_message_conversation_member",
@@ -73,12 +75,41 @@ class MessageSchemaSqlTest {
         assertThat(record)
                 .contains("`tim_message_id` VARCHAR(128) NULL")
                 .contains("`tim_msg_key` VARCHAR(128) NULL")
-                .contains("uk_message_record_tim_key");
+                .contains("uk_message_record_tim_key")
+                .contains("idx_message_record_tim_id");
         assertThat(whisper)
                 .contains("`request_message_id` BIGINT")
                 .contains("`reply_message_id` BIGINT")
                 .doesNotContain("request_tim_message_id", "request_tim_msg_key",
                         "reply_tim_message_id", "reply_tim_msg_key", "provider_msg_key");
+    }
+
+    @Test
+    @DisplayName("悄悄话应保存来源快照和接收方逻辑隐藏审计")
+    void whisperShouldPersistSourceAndReceiverVisibilityFacts() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+        String whisper = tableSql(sql, "app_message_whisper");
+
+        assertThat(whisper)
+                .contains("`source_scene` VARCHAR(32) NOT NULL")
+                .contains("recommendation-推荐，profile-主页，community_post-社区动态，community_comment-社区评论，whisper_reverse-反向申请")
+                .contains("`source_biz_no` VARCHAR(64) NULL")
+                .contains("`receiver_hidden_at` DATETIME NULL")
+                .contains("`receiver_hide_type` VARCHAR(20) NULL")
+                .contains("single-单条隐藏，bucket-分组全部隐藏")
+                .contains("idx_message_whisper_receiver_bucket");
+        assertThat(sql)
+                .contains("prd03_add_column_if_missing('app_message_whisper', 'source_scene'")
+                .contains("prd03_add_column_if_missing('app_message_whisper', 'receiver_hidden_at'");
+    }
+
+    @Test
+    @DisplayName("举报表应保存用户上传的图片凭证URL列表")
+    void reportShouldPersistEvidenceImageUrls() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+        assertThat(sql)
+                .contains("prd03_add_column_if_missing('community_report', 'evidence_image_urls_json'")
+                .contains("举报人上传凭证图片URL列表JSON，最多3张");
     }
 
     @Test
@@ -156,6 +187,42 @@ class MessageSchemaSqlTest {
                 .contains("INSERT IGNORE INTO `app_message_conversation_member`")
                 .contains("c.user_low_id, c.user_high_id")
                 .contains("c.user_high_id, c.user_low_id");
+    }
+
+    @Test
+    @DisplayName("移动端消息展示契约迁移应包含字段、枚举和中文注释")
+    void mobileMessageContractShouldDeclareDisplaySnapshots() throws IOException {
+        String baseSql = readProjectFile(MIGRATION).toLowerCase();
+        String upgradeSql = readProjectFile(MOBILE_CONTRACT).toLowerCase();
+
+        assertThat(baseSql)
+                .contains("`card_type` varchar(20)", "text-纯文本", "action-行动卡片", "tip-提示卡片")
+                .contains("`content_format` varchar(20)", "plain_text-纯文本", "rich_text-白名单富文本")
+                .contains("`action_text` varchar(32)", "`action_text_template` varchar(32)");
+        assertThat(upgradeSql)
+                .contains("information_schema.columns")
+                .contains("information_schema.statistics")
+                .contains("'app_message_template_version', 'card_type'")
+                .contains("'app_assistant_message', 'card_type'")
+                .contains("'app_system_message', 'content_format'")
+                .contains("'app_message_conversation_member', 'last_read_message_time'")
+                .contains("'app_message_conversation_member', 'last_read_at'")
+                .contains("'app_message_conversation', 'idx_message_conversation_pair_lifecycle'")
+                .contains("'app_message_record', 'idx_message_record_tim_id'")
+                .contains("set `content_format`", "set `action_text`");
+    }
+
+    @Test
+    @DisplayName("后台补漏脚本应创建两个真实页面菜单且不创建一期外入口")
+    void adminClosureShouldExposeOnlyPhaseOneMenus() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+
+        assertThat(sql)
+                .contains("消息通知记录查询", "/operation/message-records", "message/MessageRecordPage")
+                .contains("社交权限与消息配置", "/mobile-config/message-social", "message/MessageConfigPage")
+                .contains("'message'", "'conversation'", "'whisper'")
+                .doesNotContain("/mobile-config/user-notification-settings")
+                .doesNotContain("/operation/notification-preferences");
     }
 
     private void assertEveryColumnHasChineseComment(String sql, String table) {

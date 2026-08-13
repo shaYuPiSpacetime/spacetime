@@ -9,7 +9,13 @@ import java.time.LocalDateTime;
 public class AdminMessageRecordDetailVO {
     private String recordNo;
     private String recordType;
+    private Long userId;
+    private String userNickname;
+    private Long peerUserId;
+    private String peerNickname;
+    @Deprecated
     private String userMask;
+    @Deprecated
     private String peerMask;
     private String messageType;
     private String systemCategory;
@@ -23,4 +29,10 @@ public class AdminMessageRecordDetailVO {
     private String failureReason;
     private LocalDateTime contentClearedAt;
     private Long caseCount;
+    private Boolean contentAvailable;
+    private Boolean sensitiveContent;
+    private String title;
+    private String content;
+    private String contentFormat;
+    private String actionText;
 }

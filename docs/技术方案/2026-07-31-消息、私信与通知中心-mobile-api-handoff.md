@@ -1,1073 +1,1003 @@
-# 消息、私信与通知中心 - 移动端 API 对接文档
+# 消息、私信与通知中心 - 小程序接口对接文档
 
-> 日期：2026-07-31
-> 需求编号：PRD-03
-> 面向对象：小程序前端与联调测试人员
-> 技术方案：`docs/技术方案/2026-07-31-消息、私信与通知中心-tcdesign.md`
-> 当前状态：2026-08-11 后端接口、TIM Provider/回调、14 表、私信已读同步、四类未读汇总、可靠任务及本地自动化测试已完成；按“普通私信 SDK 直发、悄悄话后端编排后经 TIM REST 投递、平台消息主表明文归档并同步已读事实”对接
-> 交付边界：本轮没有编写或修改小程序前端；真实 TIM 双账号及生产 KMS 联调仍需外部环境
+> 文档状态：`IMPLEMENTED`
+> 更新日期：2026-08-13（后端最终契约）
+> 需求模块：`03-消息、私信与通知中心`
+> 关联技术方案：`docs/技术方案/2026-07-31-消息、私信与通知中心-tcdesign.md`
+> 实现边界：后端接口、数据库迁移和自动化测试已实现；未编写小程序前端代码。普通私信实时收发及漫游历史由腾讯云 TIM SDK 承接。
 
-## 1. 对接边界
+## 1. 通用约定
 
-本文件只定义移动端调用后端的稳定契约，不代表本轮实现小程序前端。业务口径以冻结 PRD 和主技术
-方案为准；移动端正式 UI 图缺失时，不得用旧 Mock 状态反推业务。
+| 项 | 约定 |
+| --- | --- |
+| 路由前缀 | `/miniapp`；若客户端 HTTP 基地址已含 `/api`，最终请求为 `{apiBase}/miniapp/...`，不得重复拼接 |
+| 登录 Header | `X-Auth-Token: {token}` |
+| 当前用户 | 从登录上下文取得，客户端不得提交当前用户 ID |
+| 返回结构 | `R<T>`，成功时 `code=200`、`msg=success`、业务数据在 `data` |
+| 时间格式 | `yyyy-MM-dd HH:mm:ss`，时区 `Asia/Shanghai` |
+| 分页 | 不透明游标；首屏不传 `cursor`，续页原样回传 `nextCursor` |
+| 空值 | Jackson 使用 `non_null`；文档中标记为可空的字符串、数字、对象无值时可能省略，前端类型必须声明为可选；空列表固定返回 `[]` |
+| 业务编号 | 按字符串保存和传递，不得转换为 Number |
+| 幂等 | 悄悄话发送和回复使用 `Idempotency-Key`；举报使用 `clientReportId` |
+| 一期消息类型 | 普通文本、Unicode Emoji、悄悄话文本、系统提示 |
+| 一期不支持 | 图片私信、语音、视频、文件、撤回、输入中状态、音视频通话 |
 
-以下旧能力禁止继续调用或保留 UI：
+### 1.1 平台库与 TIM 分工
 
-- 悄悄话 `ignore`、`cancel`、批量隐藏；
-- 悄悄话 `ignored/cancelled/matched` 状态；
-- 独立通知详情、邀请响应、全部已读；
-- 图片、视频、语音、文件、自定义贴纸等富媒体发送；首版只开放文本和 Unicode Emoji；
-- 互相关注或任意人直接私信；
-- 普通私信继续调用平台旧发送接口，形成与 TIM 并行的第二条消息通道。
+| 能力 | 负责方 | 说明 |
+| --- | --- | --- |
+| 消息首页、会话列表 | 平台后端 | 查询平台库，不要求当前用户或对方已建立 TIM 连接 |
+| 最新消息摘要、发送状态、未读数 | 平台后端 | 来自 `app_message_record`，首页不实时查询 TIM |
+| 普通私信完整历史、发送、接收、失败重试 | TIM SDK | 点击具体会话后才初始化 TIM 并拉取历史 |
+| 本机尚未送达 TIM 的发送中/失败气泡 | 小程序本地 Outbox | 按当前登录用户和会话隔离保存；成功后由 TIM 消息替换并删除本地项 |
+| 悄悄话预检、扣费、创建、到期、删除投影、回复匹配 | 平台后端 | 小程序禁止绕过后端直接用 TIM 发送悄悄话 |
+| 悄悄话申请和回复投递 | 平台后端调用 TIM | 正文先写平台消息主表，再通过 Outbox 可靠投递 TIM |
+| 悄悄话详情正文 | 平台后端 | 留存期内从 `app_message_record.content_text` 返回完整正文 |
+| 举报 | 平台后端 | 举报不发送 TIM 消息；服务端按业务编号固化证据 |
 
-腾讯云 TIM 是普通私信和悄悄话的消息传输通道。普通私信由 LiteChat SDK 发送、接收和拉取历史，
-平台消息前回调执行最终业务权限校验；悄悄话必须先调用平台接口完成资格、扣费、
-状态和幂等编排，再由后端通过 TIM REST 投递自定义消息。平台与 TIM 云端审核均不对本期日常
-私信、悄悄话执行发送前文本内容审核。
+消息首页和会话列表只返回最新一条消息的单行摘要，最多 50 个 Unicode 字符。完整普通私信历史仍从 TIM 拉取。首页不会因为对方尚未建立 TIM 账号而整体失败；只有进入具体私信会话时才校验 TIM 映射。
 
-平台数据库会把日常私信、悄悄话申请和回复的完整明文归档到 `app_message_record.content_text`，但平台
-移动端 HTTP 接口不返回该归档字段。小程序按平台返回的 TIM 会话/消息标识从 LiteChat 取得正文和
-最后消息，再与平台业务状态合并。平台消息主表同时保存接收方已读状态，未读汇总接口直接返回
-私信、悄悄话、官方助手和系统消息四类未读及总数。`whisper_request` 投递时不计入 TIM
-会话未读且不更新最近会话，悄悄话待处理未读由平台维护，避免同一申请被重复计数。
+上线前必须在腾讯云控制台把 TIM 单聊漫游消息保留期配置为不短于产品承诺的聊天可见期，并验证套餐上限。平台归档表保存正文事实用于摘要、未读、举报和审计，但当前 C 端不提供“平台历史补拉”接口；因此 TIM 已清理的历史不会自动从平台表回灌聊天窗口。
 
-申请和回复的 TIM messageId/MsgKey 只保存在各自的 `app_message_record`。平台接口虽然仍按页面契约
-返回 `requestTimMessageId/requestTimMsgKey/replyTimMessageId/replyTimMsgKey`，但这些字段由
-`app_message_whisper.request_message_id/reply_message_id` 关联消息主表组装，不是悄悄话表中的重复字段。
+普通私信发送时，小程序本地 Outbox 只补 TIM 服务端尚未收到的 `sending/failed` 消息，不是第二套聊天历史库。每个本地气泡使用小程序生成的 `localOutboxId` 去重；若 TIM SDK 返回本地消息标识，可一并保存为 `timLocalMessageId`。发送成功后使用当前发送 Promise/SDK 回调关联的 `localOutboxId` 删除本地气泡，并以 TIM 返回消息为准；发送失败保留原本地项供重试。`localOutboxId` 只存在小程序本地，平台接口不接收、不返回，也不能误用平台消息表的 `client_msg_id`。切换账号、退出登录或清理缓存时必须按产品策略清理对应本地 Outbox，禁止跨账号展示。
 
-举报不走 TIM：用户点击举报后调用 PRD-05 平台举报接口。TIM 会话/消息编号只用于定位被举报消息
-并固化最小必要证据，不用于发送举报或创建举报工单。
+普通私信一期只允许一条 `TIMTextElem`，正文 trim 后为 1-500 个 Unicode 码点。TIM 发送前回调再次校验双方准入、匹配关系、拉黑、会话状态、全局发送开关和女性保护；即使前端按钮仍可点，回调也可能拒绝本次发送。TIM 回调响应使用腾讯协议，不是平台 `R<T>`：女性保护和会话失效分别映射为腾讯业务码 `120003`、`120004`。
 
-### 1.1 目标对接范围
+### 1.2 业务状态枚举
 
-移动端应对接以下能力：
+| 字段 | code | 中文说明 |
+| --- | --- | --- |
+| `accessMode` | `normal` | 正常消息模式 |
+| `accessMode` | `restricted` | 账号受限，仅展示必要安全系统消息 |
+| `direction` | `received` | 申请我的，当前用户是接收方 |
+| `direction` | `sent` | 我申请的，当前用户是发送方 |
+| `bucket` | `pending` | 未处理：已送达、待回复且未到期 |
+| `bucket` | `processed` | 已处理：已回复、已过期或已失效 |
+| `status` | `pending` | 待回复 |
+| `status` | `replied` | 已回复并完成匹配 |
+| `status` | `expired` | 已过期 |
+| `status` | `invalid` | 账号、关系或投递等原因导致失效 |
+| `payType` | `vip_free` | 使用会员当日免费次数 |
+| `payType` | `coin` | 使用千寻币 |
+| `sendStatus` | `queued` | 平台消息已进入可靠投递流程，尚未收到 TIM 成功回调 |
+| `sendStatus` | `sending` | 仅悄悄话创建响应或小程序本地 Outbox 使用，消息主表不保存该状态 |
+| `sendStatus` | `sent` | 已发送 |
+| `sendStatus` | `failed` | 发送失败 |
+| `conversationStatus` | `active` | 有效私信会话 |
+| `conversationStatus` | `blocked` | 已拉黑 |
+| `conversationStatus` | `invalid` | 会话已失效 |
+| `accessMode` | `safety_readonly` | 会话失效后的安全只读模式；有 TIM 映射时可查看历史，始终禁止发送和打开主页 |
+| `readStatus` | `unread` | 未读 |
+| `readStatus` | `read` | 已读 |
+| `cardType` | `text/action/tip` | 助手纯文本卡片、行动卡片、提示卡片 |
+| `contentFormat` | `plain_text/rich_text` | 系统消息纯文本或服务端白名单清洗后的富文本 |
 
-- `GET /miniapp/im/credentials`
-- `GET /miniapp/message/whispers`
-- `GET /miniapp/message/whispers/{whisperNo}`
-- `POST /miniapp/message/whispers/precheck`
-- `POST /miniapp/message/whispers`
-- `POST /miniapp/message/whispers/{whisperNo}/reply`
-- `GET /miniapp/message/conversations`
-- `GET /miniapp/message/conversations/{conversationNo}`
-- `POST /miniapp/message/conversations/{conversationNo}/read`
-- LiteChat SDK：普通私信发送、历史、会话和腾讯侧已读
+### 1.3 悄悄话来源 `sourceScene`
 
-上述平台后端接口已在当前分支实现并通过 Controller/Service 自动化测试；旧的普通私信发送和历史
-HTTP 接口视为退役契约，不再新增调用。小程序端仍需按本文接入 LiteChat SDK、平台已读确认和这些 HTTP API。
+| code | 中文说明 | `sourceBizNo` |
+| --- | --- | --- |
+| `recommendation` | 推荐页或推荐卡片 | 可不传 |
+| `profile` | 用户主页 | 可不传 |
+| `community_post` | 社区动态 | 必传帖子业务编号 |
+| `community_comment` | 社区评论 | 必传评论业务编号 |
+| `whisper_reverse` | 旧申请结束后的反向申请 | 必传原 `whisperNo` |
 
-生产环境必须完成腾讯云 TIM SDKAppID、UserSig、REST API、消息前/后回调和账号映射配置后才能
-开放真实聊天；不得回退为平台自建消息通道。平台系统/助手消息和独立举报证据仍按项目 KMS 规则加密，
-该规则不适用于 `app_message_record.content_text` 中的日常聊天明文归档。
+`sourceScene` 和 `sourceBizNo` 同时绑定在预检报价中。创建接口必须原样提交，不能更换来源。
 
-## 2. 7 个页面与 API
+## 2. 页面与接口总览
 
-| 页面 ID | 当前小程序路由建议 | API |
-|---------|--------------------|-----|
-| `APP-03-PAGE-message-list` | `/pages/chat/index` | home、unread-summary；总红点直接使用 `messageUnreadCount` |
-| `APP-03-PAGE-private-list` | `/pages/message/private-list` | conversations + LiteChat conversation/history |
-| `APP-03-PAGE-private-chat` | `/pages/message/private-chat?conversationNo=...` | detail + LiteChat history/send/read + 平台 read + block + report |
-| `APP-03-PAGE-official-assistant` | `/pages/message/channel?channel=assistant` | assistant list/read-batch |
-| `APP-03-PAGE-whisper-message` | `/pages/message/whisper-list` | whispers/read-batch |
-| `APP-03-PAGE-whisper-detail` | `/pages/message/whisper-detail?whisperNo=...` | detail、precheck、send、reply、report |
-| `APP-03-PAGE-notification-center` | `/pages/message/channel?channel=system` | system list/read-batch |
+| ID | Method | Path | 页面或用途 |
+| --- | --- | --- | --- |
+| `MOB-03-01` | GET | `/miniapp/message/home` | 消息首页 |
+| `MOB-03-02` | GET | `/miniapp/message/unread-summary` | 消息 Tab 未读 |
+| `MOB-03-03` | GET | `/miniapp/message/conversations` | 普通私信会话分页 |
+| `MOB-03-04` | GET | `/miniapp/message/conversations/{conversationNo}` | 进入私信前查询权限和 TIM 映射 |
+| `MOB-03-05` | POST | `/miniapp/message/conversations/{conversationNo}/read` | 平台私信已读 |
+| `MOB-03-06` | POST | `/miniapp/message/conversations/{conversationNo}/block` | 拉黑会话对方 |
+| `MOB-03-07` | GET | `/miniapp/message/whispers` | 悄悄话分组列表 |
+| `MOB-03-08` | GET | `/miniapp/message/whispers/{whisperNo}` | 悄悄话详情 |
+| `MOB-03-09` | POST | `/miniapp/message/whispers/read-batch` | 悄悄话曝光已读 |
+| `MOB-03-10` | DELETE | `/miniapp/message/whispers/{whisperNo}` | 接收方单条逻辑隐藏 |
+| `MOB-03-11` | POST | `/miniapp/message/whispers/received/hide-all` | 接收方分组全部逻辑隐藏 |
+| `MOB-03-12` | POST | `/miniapp/message/whispers/precheck` | 发送资格和报价 |
+| `MOB-03-13` | POST | `/miniapp/message/whispers` | 扣费并发送悄悄话 |
+| `MOB-03-14` | POST | `/miniapp/message/whispers/{whisperNo}/reply` | 回复、匹配并创建私信会话 |
+| `MOB-03-15` | GET | `/miniapp/message/assistant/messages` | 官方助手消息 |
+| `MOB-03-16` | POST | `/miniapp/message/assistant/messages/read-batch` | 官方助手曝光已读 |
+| `MOB-03-17` | GET | `/miniapp/message/system-messages` | 系统消息 |
+| `MOB-03-18` | POST | `/miniapp/message/system-messages/read-batch` | 系统消息曝光已读 |
+| `MOB-03-19` | GET | `/miniapp/im/credentials` | TIM 登录凭证 |
+| `MOB-03-20` | POST | `/miniapp/file/upload-ticket/report-evidence` | 举报图片直传凭证 |
+| `MOB-03-21` | POST | `/miniapp/community/reports` | 提交举报 |
+| `MOB-03-22` | GET | `/miniapp/community/config` | 举报入口开关与举报原因字典 |
 
-路由由小程序维护，后端只返回 `entryType/jumpType/jumpValue`，不得信任后端字符串绕过小程序路由白名单。
+## 3. 前端总流程
 
-## 3. 通用协议
-
-### 3.1 请求头
-
-| Header | 必填 | 说明 |
-|--------|------|------|
-| `X-Auth-Token` | 是 | 小程序登录 Token |
-| `Idempotency-Key` | 平台写接口条件必填 | 悄悄话发送/回复和其他平台幂等写入，8-64 字符；普通私信由 TIM SDK 自身消息随机号去重 |
-| `X-Request-Id` | 否 | 客户端链路号；缺失时服务端生成 |
-| `Content-Type` | POST 必填 | `application/json` |
-
-悄悄话发送把 Header 值作为 `sendRequestId`；回复要求 Header 值等于 `body.requestId`。
-
-### 3.2 统一响应
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {}
-}
-```
-
-- 平台业务接口成功以 `code=200` 为准；普通私信发送结果以 LiteChat SDK 返回为准，但消息前回调
-  拒绝时必须按平台业务错误映射提示，不能在本地伪造发送成功。
-- HTTP 状态仍应正确表达 400/401/403/404/409/422/429/500/503。
-- 腾讯回调不是小程序接口，不使用本返回体。
-
-### 3.3 时间、编号和空值
-
-- 时间：`yyyy-MM-dd HH:mm:ss`，时区 `Asia/Shanghai`。
-- `conversationNo/messageNo/whisperNo/noticeNo/userNo` 全部为 string。
-- 前端不得把业务号转 Number/BigInt。
-- 可空字段统一返回 JSON `null`，不使用空字符串代替未知时间或业务号。
-- 未知枚举显示通用文案并禁止危险操作，不应抛异常或默认视为可发送。
-
-### 3.4 游标分页
-
-请求：
-
-```http
-GET /miniapp/message/conversations?cursor=opaque-value&size=20
-```
-
-响应数据：
-
-```json
-{
-  "list": [],
-  "nextCursor": "opaque-next-value",
-  "hasMore": true
-}
-```
-
-- `cursor` 不透明，前端只原样保存和回传。
-- `size` 默认 20，范围 1-50。
-- 刷新时清空 cursor；加载更多时使用上次 `nextCursor`。
-- 普通私信历史分页遵循 LiteChat SDK 游标；本节 HTTP 游标只适用于平台业务列表、悄悄话、助手和系统消息。
-
-## 4. 领域枚举
-
-### 4.1 会话与消息
-
-| 枚举 | 值 | 前端处理 |
-|------|----|----------|
-| `conversationStatus` | `active` | 可进入；是否可发送只看 `canSend` |
-|  | `blocked` | 只读安全记录，保留举报 |
-|  | `invalid` | 只读安全记录，保留举报 |
-| `messageType` | `text` | 普通文本 |
-|  | `whisper` | 原悄悄话卡片 |
-|  | `whisper_reply` | 悄悄话回复 |
-|  | `system_tip` | 会话内系统提示 |
-| `sendStatus` | `sending` | 展示发送中，不允许生成新 clientMsgId 重发 |
-|  | `sent` | 已发送 |
-|  | `failed` | 显示重试；沿用原 clientMsgId |
-
-### 4.2 悄悄话
-
-| 枚举 | 值 | 前端处理 |
-|------|----|----------|
-| `status` | `pending` | 接收方可回复；发送方显示等待回应 |
-|  | `replied` | 可进入生成的私信会话 |
-|  | `expired` | 对用户统一显示申请已结束 |
-|  | `invalid` | 对用户统一显示申请已结束 |
-| `direction` | `received/sent` | 收到/已发 Tab |
-| `payType` | `vip_free/coin` | 免费权益/千寻币 |
-| `paymentStatus` | `paid/refunding/refunded` | 补偿中需明确提示，不允许再次扣费 |
-
-前端永远不会收到 `receiverReadAt`、明确拒绝、拉黑原因、处罚原因或具体 invalid 原因。
-
-### 4.3 系统消息
-
-| 字段 | 值 |
-|------|----|
-| `notificationType` | `governance/asset/invite/community/platform` |
-| `bizType` | `report_result/violation_result/content_review_result/asset_result/invite_result/community_interaction_summary/community_hot_topic/featured_content/community_activity/community_recall/platform_announcement/account_security` |
-| `jumpType` | `none/chat/profile/auth_center/asset/invite_center/community/appeal/h5` |
-| `readStatus` | `unread/read` |
-
-无 `notification_detail` 和 `invite_response` 跳转。
-
-## 5. 接口总表
-
-| 场景 | Method | Path | 幂等 | 页面 |
-|------|--------|------|------|------|
-| 消息首页 | GET | `/miniapp/message/home` | 只读 | 消息首页 |
-| 四类未读汇总 | GET | `/miniapp/message/unread-summary` | 只读 | Tab/首页，直接返回私信、悄悄话、助手、系统及总数 |
-| 完整私信列表 | GET | `/miniapp/message/conversations` | 只读 | 私信列表 |
-| 会话业务详情/TIM 映射 | GET | `/miniapp/message/conversations/{conversationNo}` | 只读 | 私信对话 |
-| 普通私信发送 | TIM SDK | `C2C text / sendMessage` | SDK 消息随机号 | 私信对话 |
-| 私信历史与腾讯侧已读 | TIM SDK | C2C conversation/history/read | SDK 契约 | 私信列表/对话 |
-| 平台私信已读确认 | POST | `/miniapp/message/conversations/{conversationNo}/read` | 天然幂等 | 私信对话成功渲染后 |
-| 拉黑对方 | POST | `/miniapp/message/conversations/{conversationNo}/block` | 结果幂等 | 私信对话 |
-| 悄悄话列表 | GET | `/miniapp/message/whispers` | 只读 | 悄悄话列表 |
-| 悄悄话详情 | GET | `/miniapp/message/whispers/{whisperNo}` | 只读 | 悄悄话详情 |
-| 悄悄话预检 | POST | `/miniapp/message/whispers/precheck` | 只读语义 | 发送弹窗 |
-| 发送悄悄话 | POST | `/miniapp/message/whispers` | Header | 发送弹窗 |
-| 回复悄悄话 | POST | `/miniapp/message/whispers/{whisperNo}/reply` | Header + requestId | 悄悄话详情 |
-| 悄悄话批次已读 | POST | `/miniapp/message/whispers/read-batch` | 天然幂等 | 悄悄话列表 |
-| 助手消息 | GET | `/miniapp/message/assistant/messages` | 只读 | 官方助手 |
-| 助手批次已读 | POST | `/miniapp/message/assistant/messages/read-batch` | 天然幂等 | 官方助手 |
-| 系统消息 | GET | `/miniapp/message/system-messages` | 只读 | 系统消息 |
-| 系统消息批次已读 | POST | `/miniapp/message/system-messages/read-batch` | 天然幂等 | 系统消息 |
-| 举报 | POST | `/miniapp/community/reports` | clientReportId | 对话/悄悄话 |
-| IM 凭证 | GET | `/miniapp/im/credentials` | 只读 | App 生命周期 |
-
-## 6. 消息首页与未读
-
-### 6.1 `GET /miniapp/message/home`
-
-正常用户示例：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "accessMode": "normal",
-    "platformUnreadSummary": {
-      "privateUnreadCount": 3,
-      "whisperUnreadCount": 1,
-      "assistantUnreadCount": 2,
-      "systemUnreadCount": 4,
-      "platformUnreadCount": 7,
-      "messageUnreadCount": 10,
-      "snapshotTime": "2026-07-31 10:10:00"
-    },
-    "fixedEntries": [
-      {
-        "entryType": "official_assistant",
-        "title": "官方助手",
-        "lastMessagePreview": "了解私信安全与女性保护规则",
-        "unreadCount": 2,
-        "enabled": true
-      },
-      {
-        "entryType": "system_message",
-        "title": "系统消息",
-        "lastMessagePreview": "你的举报已处理，感谢反馈",
-        "unreadCount": 4,
-        "enabled": true
-      },
-      {
-        "entryType": "whisper",
-        "title": "悄悄话",
-        "lastMessagePreview": "你收到一条待回复的悄悄话",
-        "unreadCount": 1,
-        "enabled": true
-      }
-    ],
-    "recentConversationBindings": [
-      {
-        "conversationNo": "CV202607310001",
-        "timConversationId": "C2C_tu_7Fx3A9",
-        "targetUser": {
-          "userNo": "U202607310021",
-          "nickname": "小雨",
-          "avatarUrl": "https://example.com/avatar.jpg"
-        },
-        "conversationStatus": "active",
-        "canEnterConversation": true,
-        "canSend": true,
-        "sendBlockedReason": null,
-        "lastBusinessActivityTime": "2026-07-31 10:10:00"
-      }
-    ],
-    "recentConversationLimit": 3,
-    "hasMoreConversations": true
-  }
-}
-```
-
-受限用户示例：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "accessMode": "restricted",
-    "restrictionPrompt": "当前仅可查看账号安全、处罚和申诉消息",
-    "platformUnreadSummary": {
-      "privateUnreadCount": 0,
-      "whisperUnreadCount": 0,
-      "assistantUnreadCount": 0,
-      "systemUnreadCount": 1,
-      "platformUnreadCount": 1,
-      "messageUnreadCount": 1,
-      "snapshotTime": "2026-07-31 10:10:00"
-    },
-    "fixedEntries": [
-      {
-        "entryType": "system_message",
-        "title": "系统消息",
-        "lastMessagePreview": "你有一条账号安全消息",
-        "unreadCount": 1,
-        "enabled": true
-      }
-    ],
-    "recentConversationBindings": [],
-    "recentConversationLimit": 3,
-    "hasMoreConversations": false
-  }
-}
-```
-
-前端不得在 `restricted` 模式保留之前缓存的真人会话/悄悄话，也不得把 LiteChat 缓存未读计入当前展示。
-
-### 6.2 `GET /miniapp/message/unread-summary`
-
-响应 `data` 与 home 内 `platformUnreadSummary` 同结构。字段名 `platformUnreadSummary` 为兼容保留，
-对象实际包含四类未读。后端只统计有效业务范围：私信为有效会话中发给当前用户的 `sent + unread`；
-悄悄话为已送达、待回复且当前用户未曝光；助手和系统消息按各自 `read_at`。小程序直接使用：
+### 3.1 消息首页
 
 ```text
-platformUnreadCount = whisperUnreadCount + assistantUnreadCount + systemUnreadCount
-messageUnreadCount = privateUnreadCount + platformUnreadCount
-displayText = messageUnreadCount == 0 ? "" : min(messageUnreadCount, 99)；超过 99 显示 "99+"
+进入消息 Tab
+  -> GET /miniapp/message/home?size=20
+  -> 渲染悄悄话卡片、喜欢我的人、官方助手、系统消息、普通私信会话
+  -> 不初始化 TIM，不查询 TIM 历史
+  -> 私信列表续页调用 GET /miniapp/message/conversations?cursor=...
+
+点击某个普通私信会话
+  -> GET /miniapp/message/conversations/{conversationNo}
+  -> canEnterConversation=true 时 GET /miniapp/im/credentials
+  -> 登录 TIM，使用 timConversationId 拉完整历史
+  -> 合并当前账号+会话的本地 sending/failed Outbox
+  -> TIM 会话已读上报触发平台 C2C.CallbackAfterMsgReport 回调
+  -> 回调暂不可用时，使用 POST /miniapp/message/conversations/{conversationNo}/read 幂等补偿
 ```
 
-最终 Tab 红点规则：
+消息首页动态行只展示有效普通私信会话。悄悄话只在顶部卡片和悄悄话页面展示，不混入普通私信会话行。
 
-- 0：不显示；
-- 1-99：显示数字；
-- >99：显示 `99+`。
+### 3.2 悄悄话列表双分组
 
-监听 LiteChat 新消息、平台刷新事件、会话已读成功或前后台切换时，节流重新调用本接口；不采用
-TIM 全局未读、不做本地 `+1/-1` 猜测。进入 restricted、退出登录或切换账号时立即清空缓存并重新拉取。
-
-## 7. 私信会话
-
-### 7.1 `GET /miniapp/message/conversations`
-
-该接口返回平台业务上允许展示的私信会话及 TIM 映射，不返回完整聊天历史。查询参数：
-`cursor,size`。响应：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "list": [
-      {
-        "conversationNo": "CV202607310001",
-        "timConversationId": "C2C_tu_7Fx3A9",
-        "peerUser": {
-          "userId": 21,
-          "nickname": "小雨",
-          "avatarUrl": "https://example.com/avatar.jpg",
-          "profileAvailable": true
-        },
-        "conversationStatus": "active",
-        "canSend": true,
-        "sendBlockedReason": null,
-        "lastBusinessActivityTime": "2026-07-31 11:20:00"
-      }
-    ],
-    "nextCursor": null,
-    "hasMore": false
-  }
-}
-```
-
-正常列表不返回 blocked/invalid 会话。小程序按 `timConversationId` 与 LiteChat 会话列表合并，
-最后消息、未读数和实际会话排序以 TIM SDK 为准；平台接口负责决定哪些业务会话可以出现以及是否可发送。
-
-### 7.2 `GET /miniapp/message/conversations/{conversationNo}`
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "conversationNo": "CV202607310001",
-    "timConversationId": "C2C_tu_7Fx3A9",
-    "conversationStatus": "active",
-    "peerUser": {
-      "userId": 21,
-      "nickname": "小雨",
-      "avatarUrl": "https://example.com/avatar.jpg",
-      "profileAvailable": true
-    },
-    "canSend": true,
-    "sendBlockedReason": null,
-    "femaleProtection": {
-      "enabled": true,
-      "waitingForFemaleFirstMessage": false
-    }
-  }
-}
-```
-
-该接口只返回平台会话状态、权限和 TIM 映射。小程序使用 `timConversationId` 从 LiteChat SDK
-拉取历史；由悄悄话回复生成的会话中，原申请和回复是 TIM 自定义消息，展示为开场上下文。
-
-### 7.3 LiteChat SDK 发送普通私信
-
-普通私信不再调用平台 `POST .../messages`。前端流程：
-
-1. 调用 `GET /miniapp/im/credentials` 获取 `SDKAppID/userID/userSig/expireAt` 并登录 LiteChat。
-2. 调用平台会话详情确认 `conversationStatus=active` 且 `canSend=true`，用于提前控制输入区。
-3. 通过 LiteChat SDK 向 `timConversationId` 对应用户发送 C2C 文本消息。
-4. 腾讯消息前回调再次校验开关、准入、匹配、会话、拉黑、处罚、保护期和限流；回调允许后 TIM 才真正投递。
-5. 发送结果、失败重试和本地气泡状态按 LiteChat SDK 契约处理，同一重试沿用 SDK 原消息对象/随机号。
-
-平台只校验非空、长度、消息类型和业务权限，不做发送前文本内容审核。前端不能只依赖
-`canSend`，因为按钮展示后业务状态可能变化；消息前回调是最终授权。
-
-回调拒绝原因按以下公开业务码映射到 SDK 错误信息：
-
-- 30001：未完成核心准入；
-- 30002：不存在有效匹配；
-- 30003：命中女性保护；
-- 30004：会话已失效；
-- 30015：全局发送关闭；
-- 30019：发送频率过高。
-
-### 7.4 LiteChat SDK 历史与双重已读
-
-- 会话列表和最后消息：调用 LiteChat 会话 API。
-- 历史消息：调用 LiteChat C2C 历史接口，首屏取最新一页，滚动时沿用 SDK 游标加载更早消息。
-- 进入会话且消息已成功渲染后：先调用 LiteChat 会话已读接口，再调用平台会话 read 接口提交当前页面最后一条 `messageNo`。
-- 平台 read 失败时不得只在本地把角标清零；保留可重试状态并重新拉取 `unread-summary`。
-- 发送普通私信时设置 `messageControlInfo.excludedFromContentModeration=true`；最终业务权限仍由 TIM 消息前回调裁决。
-- 产品仍不展示“对方已读到哪一条”的逐条已读回执。
-
-### 7.5 `POST /miniapp/message/conversations/{conversationNo}/read`
-
-调用时机：当前会话消息已成功渲染，且已取得本页最后一条属于该会话的 `messageNo`。
-
-```json
-{
-  "lastMessageNo": "MSG202608110001"
-}
-```
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "conversationNo": "CV202607310001",
-    "lastReadMessageNo": "MSG202608110001",
-    "unreadCount": 0,
-    "readAt": "2026-08-11 15:30:00"
-  }
-}
-```
-
-- 服务端校验当前用户是会话成员，且 `lastMessageNo` 属于该会话。
-- 只更新“发给当前用户、`send_status=sent`、当前为 unread、且业务时间不晚于游标”的消息。
-- 重复提交同一或更早游标幂等；不会向对方返回或推送逐条已读状态。
-- 成功后刷新 `/miniapp/message/unread-summary`，页面总角标以最新 `messageUnreadCount` 为准。
-
-### 7.6 `POST /miniapp/message/conversations/{conversationNo}/block`
-
-```json
-{
-  "sourceScene": "chat_menu"
-}
-```
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "conversationNo": "CV202607310001",
-    "conversationStatus": "blocked",
-    "blockNo": "BLK202607310001",
-    "canSend": false
-  }
-}
-```
-
-解除拉黑不恢复本会话。前端收到成功后立即移出正常列表，但可保留只读安全页。
-
-## 8. 悄悄话
-
-> 本节描述最终对接契约。当前工作区的本地消息草稿仍包含平台普通私信发送、历史和已读游标，
-> 不符合本契约，不能据此判断接口已完成；实现状态必须以真实路由与测试报告为准。
-
-### 8.1 `GET /miniapp/message/whispers`
-
-查询参数：
-
-| 参数 | 必填 | 值 |
-|------|------|----|
-| `direction` | 是 | `received/sent` |
-| `cursor` | 否 | 不透明游标 |
-| `size` | 否 | 默认 20，最大 50 |
-
-一期默认列表固定只返回“已有效送达、未过期、`status=pending`”的待处理申请，不提供终态筛选：
-
-- A 的“我申请的”查询 `direction=sent`，显示“等待回应”；
-- B 的“申请我的”查询 `direction=received`，显示“回复并匹配”；
-- B 回复成功后，同一条记录保留在数据库并迁移为 `replied`，立即从双方默认列表移除；
-- `replied/expired/invalid` 不建设前台“已完成悄悄话”列表，客服、举报和审计仍可按业务号追溯。
-
-响应：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "list": [
-      {
-        "whisperNo": "WSP202607310001",
-        "direction": "received",
-        "status": "pending",
-        "displayStatus": "等待你回应",
-        "peerUser": {
-          "userId": 31,
-          "nickname": "晨风",
-          "avatarUrl": "https://example.com/avatar-31.jpg"
-        },
-        "timConversationId": "C2C_tu_9Ab2Cd",
-        "requestTimMessageId": "144115233701",
-        "requestTimMsgKey": "TIM-WSP-REQ-001",
-        "payType": "coin",
-        "createdTime": "2026-07-31 09:20:00",
-        "expireTime": "2026-08-07 09:20:00",
-        "canReply": true,
-        "unread": true
-      }
-    ],
-    "nextCursor": null,
-    "hasMore": false
-  }
-}
-```
-
-发送方收到的对象不含 `unread/receiverReadAt`。列表不返回 `content`；小程序按
-`timConversationId + requestTimMessageId/requestTimMsgKey` 从 LiteChat 定位 `whisper_request` 自定义消息并渲染。
-详情中的 expired 和 invalid 均用“申请已结束”，不得显示对方已读、拒绝、拉黑或处罚原因。
-
-### 8.2 `GET /miniapp/message/whispers/{whisperNo}`
-
-接收方 pending 示例：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "whisperNo": "WSP202607310001",
-    "direction": "received",
-    "status": "pending",
-    "displayStatus": "等待你回应",
-    "peerUser": {
-      "userId": 31,
-      "nickname": "晨风",
-      "avatarUrl": "https://example.com/avatar-31.jpg",
-      "profileAvailable": true
-    },
-    "timConversationId": "C2C_tu_9Ab2Cd",
-    "requestTimMessageId": "144115233701",
-    "requestTimMsgKey": "TIM-WSP-REQ-001",
-    "createdTime": "2026-07-31 09:20:00",
-    "expireTime": "2026-08-07 09:20:00",
-    "remainingSeconds": 601200,
-    "canReply": true,
-    "conversationNo": null,
-    "safetyActions": ["report_whisper", "block", "block_and_report"]
-  }
-}
-```
-
-平台详情不返回 `content/replyContent`。小程序按 TIM 映射取得原申请和已有回复正文；`replied` 时平台
-返回 `conversationNo`、`replyMessageNo`、`replyTimMessageId/replyTimMsgKey`，发送方仍不接收接收方查看时间。
-
-### 8.3 `POST /miniapp/message/whispers/precheck`
-
-```json
-{
-  "targetUserNo": "U202607310031"
-}
-```
-
-会员免费权益示例：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "canSend": true,
-    "payType": "vip_free",
-    "coinAmount": 0,
-    "freeRemain": 1,
-    "coinBalance": 36,
-    "quoteToken": "signed-opaque-token",
-    "quoteExpireTime": "2026-07-31 12:10:00",
-    "whisperExpireDays": 7,
-    "cooldownDays": 7,
-    "confirmText": "本次使用会员今日免费悄悄话"
-  }
-}
-```
-
-千寻币示例：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "canSend": true,
-    "payType": "coin",
-    "coinAmount": 10,
-    "freeRemain": 0,
-    "coinBalance": 36,
-    "quoteToken": "signed-opaque-token",
-    "quoteExpireTime": "2026-07-31 12:10:00",
-    "whisperExpireDays": 7,
-    "cooldownDays": 7,
-    "confirmText": "确认消耗 10 千寻币发送悄悄话"
-  }
-}
-```
-
-预检不扣费、不占额度、不创建悄悄话。发送时服务端会在资产行锁内重新校验。
-
-### 8.4 `POST /miniapp/message/whispers`
-
-```http
-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440100
-```
-
-```json
-{
-  "targetUserNo": "U202607310031",
-  "content": "看了你的资料，想认真认识一下",
-  "quoteToken": "signed-opaque-token"
-}
-```
-
-响应：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "whisperNo": "WSP202607310001",
-    "sendStatus": "sending",
-    "whisperStatus": null,
-    "paymentStatus": "paid",
-    "payType": "coin",
-    "coinAmount": 10,
-    "createdTime": "2026-07-31 12:06:00"
-  }
-}
-```
-
-- `sendStatus=sending` 表示已扣费并可靠入队，但尚未确认有效送达。
-- 服务端在同一事务内创建悄悄话业务记录、`app_message_record(message_type=whisper, content_text=明文, send_status=queued)` 和只含消息主键、业务号及 TIM 投递参数的 Outbox；Outbox 不重复保存正文，Inbox 也不得把聊天正文作为临时载荷保存。
-- Outbox 投递时按消息主键从 `app_message_record.content_text` 读取正文，通过 TIM REST 发送，并在消息主表回写 TIM 消息编号、MsgKey 与最终发送状态。
-- 服务端投递 `whisper_request` 时固定使用 `SendMsgControl=["NoUnread","NoLastMsg","NoMsgCheck"]`。
-- 有效送达后详情返回 `status=pending`。
-- 永久投递失败时状态转 invalid 并进入 `refunding/refunded`；客户端不得再次扣费。
-- 30021 时重新预检，不能自动接受变更后的价格。
-- 同一 Idempotency-Key 重试返回同一 whisperNo。
-
-### 8.5 `POST /miniapp/message/whispers/{whisperNo}/reply`
-
-```http
-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440200
-```
-
-```json
-{
-  "requestId": "550e8400-e29b-41d4-a716-446655440200",
-  "content": "你好呀，我也想认识你"
-}
-```
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "whisperNo": "WSP202607310001",
-    "status": "replied",
-    "matchNo": "MAT202607310011",
-    "conversationNo": "CV202607310011",
-    "replyMessageNo": "MSG202607310211",
-    "replyTimMessageId": "144115233702",
-    "replyTimMsgKey": "TIM-WSP-REPLY-001",
-    "repliedTime": "2026-07-31 12:20:00"
-  }
-}
-```
-
-只有收到方、pending、已送达、未过期且双方仍可匹配时可回复。30014 表示状态竞争，
-前端刷新详情；不得本地先显示成功回复。
-
-回复成功采用“状态迁移”而非复制或物理删除。平台以稳定 `requestId` 编排 TIM 投递和业务最终确认：
-
-1. 校验 B 的回复非空和 1-500 字长度，不做发送前文本内容审核；
-2. 校验悄悄话仍为 `pending`、已送达、未过期且双方仍可匹配；
-3. 以 `requestId` 预占本次回复，创建 `app_message_record(message_type=whisper_reply,content_text=明文,send_status=queued)` 和只含投递元数据的 TIM Outbox；重复请求复用原任务，不同请求不能并发回复同一申请；
-4. Outbox 从消息主表读取正文，通过 TIM REST 以稳定 `MsgSeq/MsgRandom` 投递 B 的回复；投递失败时把消息记录标记为 `failed`，不创建匹配，申请保持/恢复 `pending`；
-5. TIM 投递成功后，在同一 MySQL 事务内以 `sourceType=whisper_reply` 创建或复用唯一有效匹配和唯一私信会话，并把悄悄话迁移 `pending -> replied`、关联申请/回复 TIM 编号；
-6. 本地事务提交成功后，双方悄悄话默认列表立即移除该记录，双方私信列表显示同一 TIM C2C 会话，接口才返回本节成功响应；
-7. TIM 已送达而本地提交暂失败时按同一 `requestId + MsgKey` 继续最终确认，不重复投递；提交前客户端不展示半完成结果；
-8. 原申请与 B 的回复作为 TIM 自定义消息保留为会话开场上下文，A 不需要再次回复才能匹配。
-
-回复投递固定使用 `SendMsgControl=["NoMsgCheck"]`。若小程序先收到 `whisper_reply` TIM 事件、平台
-业务会话尚未变为 `active`，只能暂存并刷新会话映射，不能提前展示、跳转或把它计入有效私信未读；
-平台确认 `conversationNo + timConversationId + status=active` 后再合并展示。
-
-同一 `Idempotency-Key/requestId` 重试返回首次成功结果；不同幂等键重复处理同一申请返回 30014，
-不能重复创建匹配、会话或 TIM 消息。相同幂等键携带不同正文或悄悄话编号返回 30020；完全相同
-的重放返回首次结果。未回复到期只迁移为 `expired`，绝不创建私信会话。
-
-### 8.6 `POST /miniapp/message/whispers/read-batch`
-
-```json
-{
-  "whisperNos": ["WSP202607310001"]
-}
-```
-
-响应使用通用 `ReadBatchVO`。只允许接收方提交已经成功渲染的记录；已读事实不会返回发送方。
-
-## 9. 官方助手和系统消息
-
-### 9.1 `GET /miniapp/message/assistant/messages`
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "list": [
-      {
-        "assistantMessageNo": "AST202607310001",
-        "topicCode": "private_chat_safety",
-        "title": "安全聊天提示",
-        "content": "请勿向陌生人转账或泄露验证码。",
-        "actionType": "help",
-        "actionValue": "chat-safety",
-        "readStatus": "unread",
-        "createdTime": "2026-07-31 08:00:00"
-      }
-    ],
-    "nextCursor": null,
-    "hasMore": false
-  }
-}
-```
-
-页面不显示输入框。认证/审核正式结果不得出现在官方助手。
-
-### 9.2 `POST /miniapp/message/assistant/messages/read-batch`
-
-```json
-{
-  "messageNos": ["AST202607310001"]
-}
-```
-
-只在消息卡片已成功渲染后调用。
-
-### 9.3 `GET /miniapp/message/system-messages`
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "list": [
-      {
-        "noticeNo": "NTF202607310001",
-        "notificationType": "governance",
-        "bizType": "report_result",
-        "title": "举报处理结果",
-        "content": "你的举报已处理，感谢你帮助维护社区环境。",
-        "readStatus": "unread",
-        "jumpType": "none",
-        "jumpValue": null,
-        "createdTime": "2026-07-31 09:00:00"
-      }
-    ],
-    "nextCursor": "opaque-next",
-    "hasMore": true,
-    "readAck": {
-      "noticeNos": ["NTF202607310001"]
-    }
-  }
-}
-```
-
-- 卡片直接展示完整标题和正文。
-- 不点击进入通知详情；合法 `jumpType` 才显示行动按钮。
-- `readAck.noticeNos` 只是本批候选，前端必须等渲染成功再提交。
-
-### 9.4 `POST /miniapp/message/system-messages/read-batch`
-
-```json
-{
-  "noticeNos": ["NTF202607310001"]
-}
-```
-
-服务端只更新属于当前用户且本批存在的消息。无“一键全部已读”接口。
-
-### 9.5 系统消息生产与补偿流程
-
-| 来源业务 | `bizType` | 生产方式 | 失败恢复 |
-|----------|-----------|----------|----------|
-| 订单、退款、悄悄话补偿 | `asset_result` | 上游事务提交后发布稳定事件 | `MessageFactReconcileJob` 按订单/补偿事实补齐 |
-| 邀请奖励 | `invite_result` | 奖励处理完成后发布稳定事件 | 按奖励日志状态补齐 |
-| 账号冻结、注销申请/完成 | `account_security` | 状态事务提交后发布，同时失效关系和会话 | 按账号状态及更新时间补齐 |
-| 举报、内容治理、处罚 | `report_result/violation_result/content_review_result` | 消费 `community_event_outbox` | Outbox 7 段退避，dead 告警 |
-| 社区互动、热点、精选、活动、召回 | 五类 `community_*` | 消费社区聚合 Outbox | Outbox 7 段退避，dead 告警 |
-| 平台公告 | `platform_announcement` | 用户读取消息中心时按文章 ID + 版本幂等补齐 | 下次读取继续尝试，不重复生成 |
-
-所有来源先进入 `app_message_event_inbox`，再按已发布模板生成 `app_system_message`；
-`producerEventId + receiverUserId + bizType` 保证幂等。上游业务成功不因通知失败而回滚。
-
-## 10. 举报与“拉黑并举报”
-
-### 10.1 `POST /miniapp/community/reports`
-
-举报具体消息：
-
-```json
-{
-  "clientReportId": "report-550e8400-e29b-41d4-a716-446655440300",
-  "targetType": "message",
-  "targetBizNo": "MSG202607310088",
-  "timConversationId": "C2C_tu_7Fx3A9",
-  "timMessageId": "144115233553",
-  "timMsgKey": "TIM-MSG-KEY-01",
-  "reasonCode": "harassment",
-  "extraText": "持续发送不适当内容"
-}
-```
-
-举报会话：
-
-```json
-{
-  "clientReportId": "report-550e8400-e29b-41d4-a716-446655440301",
-  "targetType": "conversation",
-  "targetBizNo": "CV202607310001",
-  "timConversationId": "C2C_tu_7Fx3A9",
-  "reasonCode": "fraud",
-  "extraText": "疑似诱导转账"
-}
-```
-
-举报悄悄话：
-
-```json
-{
-  "clientReportId": "report-550e8400-e29b-41d4-a716-446655440302",
-  "targetType": "whisper",
-  "targetBizNo": "WSP202607310001",
-  "timConversationId": "C2C_tu_7Fx3A9",
-  "timMessageId": "144115233501",
-  "timMsgKey": "TIM-MSG-KEY-WSP-01",
-  "reasonCode": "harassment",
-  "extraText": null
-}
-```
-
-统一响应：
-
-```json
-{
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "reportNo": "RPT202607310001",
-    "status": "PENDING",
-    "snapshotStatus": "complete",
-    "createdTime": "2026-07-31 12:30:00"
-  }
-}
-```
-
-前端不提交 `reportedUserId`、证据正文或任意上下文文本；服务端校验 TIM 编号、消息归属和参与方后，
-优先按本地消息编号/MsgKey 从 `app_message_record.content_text` 读取原消息并冻结最小必要证据；只有本地
-归档缺失时，才根据双方账号与发送时间调用 TIM 单聊历史接口补证。若本地归档缺失且漫游期限、删除
-或 TIM 暂不可用导致正文无法回查，仍创建举报工单并返回 `snapshotStatus=partial`，
-由后台补证；不得采用客户端正文冒充证据。主页不可访问不影响历史目标举报。
-
-该请求是普通平台 HTTP 举报接口，不会向对方发送 TIM 消息，也不会通过 TIM 创建举报工单。
-TIM 编号只承担证据定位；举报编号、案件状态和处理结果均由 PRD-05 保存。
-
-### 10.2 “拉黑并举报”顺序
+进入“申请我的”时同时发起两次独立查询：
 
 ```text
-1. POST /conversations/{conversationNo}/block
-2. block 成功后 POST /miniapp/community/reports
-3. report 成功 -> 展示“已拉黑并提交举报”
-4. report 失败 -> 展示“已拉黑，举报提交失败”，保留相同 clientReportId 重试
+GET /miniapp/message/whispers?direction=received&bucket=pending&size=20
+GET /miniapp/message/whispers?direction=received&bucket=processed&size=20
 ```
 
-不得并行调用，也不得在举报失败后把拉黑状态回滚。
+页面维护两套独立状态：
 
-## 11. IM 凭证和实时事件
+| 分组 | 列表状态 | 游标状态 | 加载状态 |
+| --- | --- | --- | --- |
+| 未处理 | `pendingList` | `pendingNextCursor` | `pendingLoading/pendingHasMore` |
+| 已处理 | `processedList` | `processedNextCursor` | `processedLoading/processedHasMore` |
 
-### 11.1 `GET /miniapp/im/credentials`
+手机页面可以是同一个纵向滚动容器。滚动到“未处理”分组底部时加载未处理下一页；继续滚动到“已处理”分组底部时加载已处理下一页。两组不能共用游标，也不能把两个响应拼成一个服务端分页。
+
+“我申请的”只调用：
+
+```text
+GET /miniapp/message/whispers?direction=sent&bucket=pending&size=20
+```
+
+发送方不展示历史已处理列表，也不提供删除。
+
+### 3.3 回复并匹配
+
+```text
+申请我的详情 actions.canReply=true
+  -> 用户填写回复内容
+  -> POST /miniapp/message/whispers/{whisperNo}/reply
+  -> 后端写回复消息主表并通过 TIM 可靠投递
+  -> 同一业务编排完成匹配和唯一私信会话
+  -> 返回 conversationNo
+  -> 刷新悄悄话两组列表
+  -> GET /miniapp/message/conversations/{conversationNo}
+  -> 进入该用户的聊天窗口
+```
+
+接收方回复一次即表示接受申请并完成匹配，不需要发送方再次确认。原悄悄话保留为 `replied` 业务事实，但退出双方待处理列表。
+
+### 3.4 删除
+
+- 只有“申请我的”支持删除。
+- 单条删除和“全部删除”都是接收方视角逻辑隐藏，不修改悄悄话业务状态，不物理删除。
+- 删除后接收方列表和详情不可见；发送方自己的待处理记录不受影响。
+- 后台仍能查询原始申请、真实状态、隐藏时间和隐藏方式。
+- 已删除的待处理申请不能绕过列表直接回复。
+
+## 4. 消息首页与普通私信
+
+### 4.1 GET `/miniapp/message/home`
+
+用途：一次返回消息首页所需摘要和普通私信首屏。首页只查询平台数据库，不依赖 TIM 登录或对方 TIM 账号。
+
+请求参数：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `cursor` | String | 否 | 普通私信续页游标，首屏不传 |
+| `size` | Integer | 否 | 普通私信每页数量，默认 20，最大 50 |
+
+顶层返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `accessMode` | String | `normal` 正常、`restricted` 受限只读 |
+| `restrictionPrompt` | String/null | 受限模式提示文案 |
+| `unreadSummary` | Object | 四类未读汇总 |
+| `whisperSummary` | Object | 悄悄话卡片摘要 |
+| `likesMeSummary` | Object | 喜欢我的人摘要 |
+| `assistantSummary` | Object | 官方助手摘要 |
+| `systemSummary` | Object | 系统消息摘要 |
+| `conversationPage` | Object | 普通私信会话首屏或续页 |
+
+`unreadSummary` 字段：
+
+与 4.2 `GET /miniapp/message/unread-summary` 的返回结构、字段含义和查询口径完全一致。消息首页不维护第二套未读定义。
+
+`whisperSummary` 字段：
+
+| 字段 | 类型 | 中文说明 | 查询范围 |
+| --- | --- | --- | --- |
+| `pendingCount` | Long | 申请我的待处理总数 | 已送达、待回复、未到期、未隐藏，已读和未读都计入 |
+| `recentAvatarUrls` | Array<String> | 最近申请人头像 | 按申请倒序最多 3 个审核通过头像 |
+
+`likesMeSummary` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `totalCount` | Long | 当前有效“喜欢我的”总数 |
+| `newCount` | Long | 尚未确认查看的新喜欢数 |
+| `latestAvatarUrl` | String/null | 最近一人的头像 |
+| `latestLikedTime` | String/null | 最近喜欢时间 |
+| `latestDisplayStatus` | String/null | `clear` 清晰、`blur` 模糊，由 PRD-02 权益决定 |
+
+`assistantSummary` 和 `systemSummary` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `unreadCount` | Long | 当前未读数 |
+| `latestPreview` | String/null | 最新一条单行摘要，最多 50 字符 |
+| `latestTime` | String/null | 最新一条时间 |
+
+`conversationPage` 字段：
+
+与 4.3 `GET /miniapp/message/conversations` 返回结构一致，即 `list/nextCursor/hasMore` 以及该节定义的 `list[]/peerUser/lastMessage`。首页不额外扩展会话字段。
+
+查询和排序：
+
+1. 只查当前用户参与且 `conversation.status=active` 的普通私信会话。
+2. 按 `last_message_time DESC, id DESC` 稳定排序。
+3. 对方未建立 TIM 账号不会影响首页返回。
+4. 悄悄话申请不进入 `conversationPage.list`。
+5. `restricted` 模式返回空悄悄话、喜欢、助手和真人会话，只保留必要安全系统消息。
+
+### 4.2 GET `/miniapp/message/unread-summary`
+
+无业务入参。消息 Tab 直接使用 `messageUnreadCount`；前端不把 TIM 全局未读再叠加一次。
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 | 查询范围 |
+| --- | --- | --- | --- |
+| `privateUnreadCount` | Long | 普通私信未读数 | 接收人为当前用户、`send_status=sent`、`receiver_read_status=unread`、未隔离的普通私信 |
+| `whisperUnreadCount` | Long | 悄悄话未读数 | 申请我的、已送达、待回复、未到期、未隐藏且未曝光 |
+| `assistantUnreadCount` | Long | 官方助手未读数 | 当前用户可见、未过可见期且未读的助手消息 |
+| `systemUnreadCount` | Long | 系统消息未读数 | 当前用户可见、未过可见期且未读的系统消息；受限账号只计安全类消息 |
+| `messageUnreadCount` | Long | 消息 Tab 总未读数 | 上述四项相加，服务端直接计算 |
+| `snapshotTime` | String | 统计快照时间 | 服务端本次计算时间 |
+
+### 4.3 GET `/miniapp/message/conversations`
+
+用途：消息首页普通私信加载更多及独立私信列表。只查询当前用户参与、`status=active` 的会话，按 `last_message_time DESC, id DESC` 排序，不依赖 TIM 在线状态。
+
+请求参数：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `cursor` | String | 否 | 上一页返回的不透明游标，首屏不传 |
+| `size` | Integer | 否 | 每页数量，默认 20，最大 50 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `list` | Array<Object> | 当前页有效普通私信会话 |
+| `nextCursor` | String/null | 下一页游标；无下一页时省略 |
+| `hasMore` | Boolean | 是否还有下一页 |
+
+`list[]` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `conversationNo` | String | 平台私信会话业务编号 |
+| `peerUser.userId` | Long | 对方用户 ID |
+| `peerUser.nickname` | String | 对方昵称；缺失时使用兜底名 |
+| `peerUser.avatarUrl` | String/null | 对方审核通过头像 |
+| `peerUser.profileAvailable` | Boolean | 当前是否允许打开对方主页 |
+| `unreadCount` | Long | 当前会话平台未读投影 |
+| `lastMessage.messageNo` | String | 最新平台消息编号 |
+| `lastMessage.messageType` | String | `text/whisper/whisper_reply/system_tip` |
+| `lastMessage.direction` | String | `incoming` 对方发来、`outgoing` 当前用户发出 |
+| `lastMessage.preview` | String/null | 最新消息单行摘要，最多 50 个 Unicode 字符 |
+| `lastMessage.messageTime` | String | 已发送时间；缺失时使用创建时间 |
+| `lastMessage.sendStatus` | String | `queued/sent/failed` |
+
+尚无归档消息时 `lastMessage` 整体省略。悄悄话申请不进入本列表。
+
+查询范围与数据源：
+
+1. `app_message_conversation_member` 定位当前用户参与的会话，`app_message_conversation` 只保留 `status=active`。
+2. `app_message_record` 提供最后消息、发送状态和当前用户收到的未读数量；首页不请求 TIM。
+3. 对方摘要来自用户资料及审核通过头像；对方 TIM 账号是否存在不影响本接口。
+4. 游标绑定排序键和当前用户，按 `last_message_time DESC, id DESC` 稳定分页。
+
+### 4.4 GET `/miniapp/message/conversations/{conversationNo}`
+
+路径参数：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `conversationNo` | String | 平台私信会话编号 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `conversationNo` | String | 平台私信会话编号 |
+| `timConversationId` | String/null | TIM C2C 会话编号；正常会话必有，失效会话若映射缺失则省略 |
+| `conversationStatus` | String | `active/blocked/invalid` |
+| `accessMode` | String | `normal` 正常会话；`safety_readonly` 失效后的安全只读会话 |
+| `peerUser.userId` | Long | 对方用户 ID |
+| `peerUser.nickname` | String | 正常会话返回当前昵称；安全只读固定返回“用户已不可互动” |
+| `peerUser.avatarUrl` | String/null | 正常会话返回审核通过头像；安全只读不返回 |
+| `peerUser.profileAvailable` | Boolean | 正常会话按账号状态计算；安全只读固定 false |
+| `canEnterConversation` | Boolean | 是否允许进入聊天页查看历史 |
+| `canSend` | Boolean | 当前是否允许发送 |
+| `sendBlockedReason` | String/null | `female_protection` 或 `conversation_invalid` |
+| `canReportChat` | Boolean | 当前是否存在可固化为证据的对方已发送正文 |
+| `reportContext` | Object/null | 会话顶部举报所需的可信定位；不可举报时为 null |
+| `femaleProtection.enabled` | Boolean | 是否启用女性保护 |
+| `femaleProtection.waitingForFemaleFirstMessage` | Boolean | 是否等待女方先发送真实消息 |
+| `femaleProtection.protectionUntil` | String/null | 女性保护截止时间；未启用或无截止时间时为 null |
+| `safetyActions` | Array<String> | 当前可用操作：`report_chat`、`block`、`block_and_report` |
+
+`reportContext` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `sourceType` | String | 固定 `private_chat`，表示举报整段私信会话 |
+| `conversationNo` | String | 平台会话业务编号 |
+| `timConversationId` | String/null | TIM C2C 会话编号；失效会话映射缺失时省略，举报仍可按 `conversationNo` 反查 |
+
+状态规则：
+
+1. `active` 会话返回 `accessMode=normal`；可发送时 `canSend=true`，女性保护期内男方为 `canSend=false`、`sendBlockedReason=female_protection`。
+2. `blocked/invalid` 会话返回 `accessMode=safety_readonly`、`canSend=false`，不得继续打开对方主页，也不返回对方最新昵称、头像和账号状态。
+3. 安全只读会话仍有 TIM 映射时 `canEnterConversation=true`，可查看 TIM 保留期内历史；映射缺失时为 false，但详情和会话顶部举报不报错。
+4. 只有平台消息主表中存在当前用户收到、发送成功且正文仍可取证的对方消息时，`canReportChat=true`。
+5. `normal` 模式可返回举报和拉黑动作；`safety_readonly` 只返回 `report_chat`。
+
+正常会话对方 TIM 账号尚不可用时返回 `30023`。安全只读会话不会因此失败，而是返回 `canEnterConversation=false`。
+
+### 4.5 POST `/miniapp/message/conversations/{conversationNo}/read`
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `lastMessageNo` | String | 条件必填 | 当前页已成功渲染的最后一条平台消息编号；首页或平台摘要已提供时优先传此字段 |
+| `timMessageId` | String | 条件必填 | TIM SDK 返回的最后已读消息 ID；不知道平台 `messageNo` 时可使用 |
+| `timMsgKey` | String | 否 | TIM 服务端消息唯一键，可与 `timMessageId` 一并提交增强定位 |
+
+`lastMessageNo`、`timMessageId`、`timMsgKey` 至少传一个。若同时提交多个定位字段，它们必须指向当前会话内同一条已归档消息，否则返回参数错误。
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `conversationNo` | String | 会话编号 |
+| `lastReadMessageNo` | String | 服务端确认的最后已读消息编号 |
+| `unreadCount` | Integer | 当前会话剩余未读数 |
+| `readAt` | String | 平台已读确认时间 |
+
+主链路由 TIM SDK 上报会话已读，腾讯回调 `C2C.CallbackAfterMsgReport` 按 `LastReadTime` 推进会话成员单调已读水位，再更新平台消息主表。该接口作为幂等补偿：回调延迟、丢失或需要立即刷新角标时，前端提交平台 `messageNo` 或 TIM 定位字段。服务端在一个事务中先推进同一水位、再标记历史消息；迟到的消息归档若早于水位会直接记为已读，两条链路重复执行不会重复计数。
+
+TIM 发送后回调和已读回调都按消息发送时间或读水位时间查找当时所属的会话生命周期。旧会话失效后即使重新匹配产生新会话，迟到的旧回调也只能更新旧生命周期，不得污染新会话的最后消息、未读和已读水位。
+
+### 4.6 POST `/miniapp/message/conversations/{conversationNo}/block`
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `sourceScene` | String | 否 | 来源场景，聊天菜单建议传 `chat_menu` |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `conversationNo` | String | 被操作会话编号 |
+| `conversationStatus` | String | 固定返回 `blocked` |
+| `blockNo` | String | 拉黑记录编号 |
+| `canSend` | Boolean | 固定 false |
+
+## 5. 悄悄话接口
+
+### 5.1 GET `/miniapp/message/whispers`
+
+请求参数：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `direction` | String | 是 | `received` 申请我的、`sent` 我申请的 |
+| `bucket` | String | 否 | `pending` 未处理、`processed` 已处理；默认 pending |
+| `cursor` | String | 否 | 当前方向和分组的下一页游标 |
+| `size` | Integer | 否 | 默认 20，最大 20 |
+
+约束：`sent` 只支持 `bucket=pending`；传 `sent+processed` 返回参数错误。
+
+顶层返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `direction` | String | 本次查询方向 |
+| `bucket` | String | 本次查询分组 |
+| `totalCount` | Long | 当前方向和分组全部可见记录数 |
+| `list` | Array<Object> | 当前页记录 |
+| `nextCursor` | String/null | 当前方向和分组的下一页游标 |
+| `hasMore` | Boolean | 当前方向和分组是否还有数据 |
+
+`list[]` 返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `whisperNo` | String | 悄悄话业务编号 |
+| `direction` | String | `received/sent` |
+| `status` | String | `pending/replied/expired/invalid`；到期未迁移记录会投影为 expired |
+| `displayStatus` | String | `等待你回应/等待回应/已回复并匹配/申请已结束` |
+| `peerUser.userId` | Long | 对方用户 ID |
+| `peerUser.nickname` | String | 对方昵称，缺失时使用兜底名 |
+| `peerUser.avatarUrl` | String/null | 对方审核通过头像 |
+| `peerUser.profileAvailable` | Boolean | 当前是否允许打开对方主页 |
+| `payType` | String | `vip_free/coin` |
+| `createdTime` | String | 申请时间 |
+| `expireTime` | String | 到期时间 |
+| `canReply` | Boolean | 当前记录是否允许回复 |
+| `unread` | Boolean/null | 接收方未曝光为 true；发送方向为 null |
+
+查询范围：
+
+- `received + pending`：接收人为当前用户、未隐藏、`status=pending`、`delivery_status=sent`、未到期。
+- `received + processed`：接收人为当前用户、未隐藏，状态为 `replied/expired/invalid`，或待回复但已到期。
+- `sent + pending`：发送人为当前用户、`status=pending`、已送达、未到期。
+- 各分组均按 `id DESC` 排序，游标与当前用户、方向和分组绑定。
+
+### 5.2 GET `/miniapp/message/whispers/{whisperNo}`
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `whisperNo` | String | 悄悄话业务编号 |
+| `direction` | String | 当前用户视角 `received/sent` |
+| `status` | String | 当前业务状态：`pending/replied/expired/invalid` |
+| `displayStatus` | String | 可直接展示的中文状态 |
+| `peerUser.userId` | Long | 对方用户 ID |
+| `peerUser.nickname` | String | 对方昵称，缺失时使用兜底名 |
+| `peerUser.avatarUrl` | String/null | 对方审核通过头像 |
+| `peerUser.profileAvailable` | Boolean | 当前是否允许打开对方主页 |
+| `content` | String/null | 申请完整正文；正文已按留存策略清理时为 null |
+| `contentAvailable` | Boolean | 当前正文是否可用 |
+| `requestMessageNo` | String/null | 申请对应的平台消息编号 |
+| `createdTime` | String | 申请时间 |
+| `expireTime` | String | 到期时间 |
+| `processedTime` | String/null | 回复、过期或失效时间；未处理为 null |
+| `remainingSeconds` | Long | 剩余有效秒数，已到期为 0 |
+| `conversationNo` | String/null | 回复匹配后关联的私信会话编号 |
+| `actions` | Object | 服务端计算的可操作项 |
+
+`actions` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `canReply` | Boolean | 是否可回复并匹配 |
+| `canDelete` | Boolean | 是否可从当前接收方列表逻辑删除；只有 received 为 true |
+| `canReportWhisperContent` | Boolean | 是否可举报当前悄悄话正文；申请我的和我申请的均可，只要正文仍可用 |
+| `canReportPeerUser` | Boolean | 是否可举报对方账号或资料 |
+| `canReverseApply` | Boolean | 旧申请结束后，当前接收方是否可反向申请 |
+| `canEnterConversation` | Boolean | 是否已匹配并可使用 `conversationNo` 进入私信 |
+| `canOpenProfile` | Boolean | 是否可打开对方主页 |
+
+正文直接由本接口返回，不需要前端再去 TIM 查询悄悄话申请正文。
+
+### 5.3 POST `/miniapp/message/whispers/read-batch`
+
+用途：只确认本批已成功渲染的“申请我的”未处理卡片为已读，不改变业务状态。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `whisperNos` | Array<String> | 是 | 成功渲染的悄悄话编号，1-50 条 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `acceptedNos` | Array<String> | 服务端确认属于当前用户且可置已读的编号 |
+| `updatedCount` | Integer | 本次从未读变为已读的数量 |
+| `platformUnreadSummary.privateUnreadCount` | Long | 更新后的普通私信未读数 |
+| `platformUnreadSummary.whisperUnreadCount` | Long | 更新后的悄悄话未读数 |
+| `platformUnreadSummary.assistantUnreadCount` | Long | 更新后的官方助手未读数 |
+| `platformUnreadSummary.systemUnreadCount` | Long | 更新后的系统消息未读数 |
+| `platformUnreadSummary.messageUnreadCount` | Long | 更新后的四类消息总未读数 |
+| `platformUnreadSummary.snapshotTime` | String | 本次未读统计快照时间 |
+
+前端应在卡片真正渲染成功后调用，不能在 GET 成功但页面未展示时提前清除未读。
+
+### 5.4 DELETE `/miniapp/message/whispers/{whisperNo}`
+
+用途：接收方单条逻辑隐藏。发送方调用返回 403。
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `whisperNo` | String | 被隐藏的悄悄话编号 |
+| `bucket` | String | 删除前所属 `pending/processed` 分组 |
+| `hiddenCount` | Integer | 成功隐藏数量，正常为 1 |
+| `hiddenTime` | String | 逻辑隐藏时间 |
+
+### 5.5 POST `/miniapp/message/whispers/received/hide-all`
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `bucket` | String | 是 | 只支持 `pending/processed`，表示清空哪个接收方分组 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `whisperNo` | null | 批量操作没有单条编号 |
+| `bucket` | String | 被清空分组 |
+| `hiddenCount` | Integer | 实际逻辑隐藏数量 |
+| `hiddenTime` | String | 批量隐藏时间 |
+
+### 5.6 POST `/miniapp/message/whispers/precheck`
+
+用途：发送或反向申请前检查资格、费用、免费权益、有效天数和冷却天数。预检不扣费、不占次数、不创建申请。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `targetUserNo` | String | 是 | 目标用户稳定编号，格式 `USR-` + 12 位数字 |
+| `sourceScene` | String | 是 | 来源枚举见 1.3 |
+| `sourceBizNo` | String | 条件必填 | 社区动态、评论和反向申请必传 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `canSend` | Boolean | 当前是否可以继续确认发送 |
+| `reasonCode` | String/null | 不可发送原因编码 |
+| `reasonText` | String/null | 不可发送中文原因 |
+| `contentMaxLength` | Integer | 正文最大长度，当前 60 |
+| `payType` | String | `vip_free/coin` |
+| `coinAmount` | Integer | 本次需要千寻币数量；免费为 0 |
+| `free` | Boolean | 是否使用会员免费权益 |
+| `coinBalance` | Integer | 当前千寻币余额 |
+| `freeWhisperRemain` | Integer | 当日剩余免费次数 |
+| `quoteToken` | String/null | 可发送时返回的不透明报价令牌 |
+| `quoteExpireTime` | String/null | 报价过期时间，当前 10 分钟 |
+| `whisperExpireDays` | Integer | 本次申请有效天数 |
+| `cooldownDays` | Integer | 到期后原发送方再次申请的冷却天数 |
+| `confirmText` | String | 确认弹层文案 |
+| `targetUserNo` | String | 目标用户编号 |
+| `targetNickname` | String | 目标用户昵称 |
+
+有效天数和冷却天数不是代码写死值。服务端读取当前已发布的 `app_message_rule_version`，管理后台通过 `GET /admin/message/config` 查看，通过 `POST /admin/message/config/versions` 发布新版本；每次发送时把配置快照写入悄悄话记录。
+
+### 5.7 POST `/miniapp/message/whispers`
+
+Header：
+
+| 字段 | 必填 | 中文说明 |
+| --- | --- | --- |
+| `Idempotency-Key` | 是 | 8-64 字符；同一次点击和网络重试必须复用 |
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `targetUserNo` | String | 是 | 必须与预检对象一致 |
+| `quoteToken` | String | 是 | 预检返回的未过期报价令牌 |
+| `sourceScene` | String | 是 | 必须与预检一致 |
+| `sourceBizNo` | String | 条件必填 | 必须与预检一致 |
+| `content` | String | 是 | 悄悄话正文，1-60 字 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `whisperNo` | String | 新申请编号 |
+| `sendStatus` | String | 当前投递状态：`sending/sent/failed`；可靠投递尚未完成时统一返回 `sending` |
+| `whisperStatus` | String/null | 当前业务状态；投递未确认时可为 null |
+| `paymentStatus` | String | 支付状态：`paid`-已支付、`refunding`-退款处理中、`refunded`-已退款 |
+| `targetUserNo` | String | 目标用户编号 |
+| `payType` | String | `vip_free/coin` |
+| `coinAmount` | Integer | 本次计价数量 |
+| `coinBalance` | Integer | 操作后千寻币余额 |
+| `charged` | Boolean | 本次调用是否真实扣除千寻币；幂等重放不会重复扣费 |
+| `createdTime` | String | 创建时间 |
+| `expireTime` | String | 申请到期时间 |
+
+实现顺序：核验报价和关系 -> 锁定资产 -> 核销免费次数或扣币 -> 写 `app_message_record` 明文正文 -> 写 `app_message_whisper` -> 写投递 Outbox -> 后端投递 TIM。前端不得再自行向 TIM 发送同一条申请。
+
+### 5.8 POST `/miniapp/message/whispers/{whisperNo}/reply`
+
+Header 与请求字段：
+
+| 位置 | 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- | --- |
+| Header | `Idempotency-Key` | String | 是 | 必须与 body `requestId` 完全一致 |
+| Body | `requestId` | String | 是 | 8-64 字符幂等编号 |
+| Body | `content` | String | 是 | 回复内容，1-500 字 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `whisperNo` | String | 原申请编号 |
+| `status` | String | 成功为 `replied` |
+| `matchNo` | String | 创建或复用的匹配编号 |
+| `conversationNo` | String | 创建或复用的唯一私信会话编号 |
+| `replyMessageNo` | String | 回复对应的平台消息编号 |
+| `repliedTime` | String | 回复、匹配和会话完成时间 |
+
+回复内容由小程序提交给平台后端，后端写消息主表并通过 TIM 发送。只有回复投递、匹配和会话业务编排成功后接口才返回成功。前端收到成功后使用 `conversationNo` 打开这个人的聊天窗口，不是停留在悄悄话页。
+
+## 6. 官方助手、系统消息与 TIM 凭证
+
+### 6.1 GET `/miniapp/message/assistant/messages`
+
+用途：查询官方助手站内消息。正常用户首次查询前，后端按模板幂等补齐应存在的助手消息；受限账号返回空列表。
+
+请求参数：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `cursor` | String | 否 | 上一页返回的不透明游标，首屏不传 |
+| `size` | Integer | 否 | 默认 20，最大 50 |
+
+顶层返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `list` | Array<Object> | 当前页助手消息，按 `id DESC` 排序 |
+| `nextCursor` | String/null | 下一页游标；无下一页时省略 |
+| `hasMore` | Boolean | 是否还有下一页 |
+
+`list[]` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `assistantMessageNo` | String | 助手消息编号 |
+| `topicCode` | String | 助手主题编码 |
+| `title` | String | 标题 |
+| `content` | String | 完整正文 |
+| `cardType` | String | `text/action/tip`，决定助手卡片结构 |
+| `actionType` | String | `none/h5/wechat_service/help` |
+| `actionText` | String/null | 行动按钮文案；无行动时为 null，最多 10 个字符 |
+| `actionValue` | String/null | 操作参数 |
+| `readStatus` | String | `unread/read` |
+| `createdTime` | String | 创建时间 |
+
+`actionType/actionValue` 对接规则：
+
+| `actionType` | `actionValue` 含义 | 前端处理 |
+| --- | --- | --- |
+| `none` | 不返回 | 不展示行动按钮 |
+| `h5` | 已通过后端域名白名单校验的 HTTPS URL | 使用受控 WebView 打开，不自行改写 URL |
+| `wechat_service` | 后台配置的客服目标参数 | 交给小程序客服适配器解析 |
+| `help` | 后台配置的帮助主题或路由参数 | 交给客户端白名单帮助路由解析 |
+
+除 `h5` 外，`actionValue` 是后台生成的受控不透明值。前端必须按 `actionType` 分发到已注册处理器，禁止把任意值直接当 URL 或页面路径执行。
+
+### 6.2 POST `/miniapp/message/assistant/messages/read-batch`
+
+用途：页面成功渲染助手卡片后确认曝光已读，不改变助手消息业务内容。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `messageNos` | Array<String> | 是 | 已成功渲染的 `assistantMessageNo`，1-50 条，重复编号会去重 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `acceptedNos` | Array<String> | 属于当前用户、仍可见且允许置已读的助手消息编号 |
+| `updatedCount` | Integer | 本次从未读变为已读的数量；幂等重放可为 0 |
+| `platformUnreadSummary.privateUnreadCount` | Long | 更新后的普通私信未读数 |
+| `platformUnreadSummary.whisperUnreadCount` | Long | 更新后的悄悄话未读数 |
+| `platformUnreadSummary.assistantUnreadCount` | Long | 更新后的助手未读数 |
+| `platformUnreadSummary.systemUnreadCount` | Long | 更新后的系统消息未读数 |
+| `platformUnreadSummary.messageUnreadCount` | Long | 更新后的四类总未读数 |
+| `platformUnreadSummary.snapshotTime` | String | 本次统计时间 |
+
+### 6.3 GET `/miniapp/message/system-messages`
+
+用途：查询平台系统通知。正常账号查询前幂等补齐全局公告；受限账号只返回允许在安全场景展示的系统消息。
+
+请求参数：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `cursor` | String | 否 | 上一页返回的不透明游标，首屏不传 |
+| `size` | Integer | 否 | 默认 20，最大 50 |
+
+顶层返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `list` | Array<Object> | 当前页系统消息，按 `id DESC` 排序 |
+| `nextCursor` | String/null | 下一页游标；无下一页时省略 |
+| `hasMore` | Boolean | 是否还有下一页 |
+| `readAck.noticeNos` | Array<String> | 本页已返回、前端渲染成功后可提交已读的系统消息编号 |
+
+`list[]` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `noticeNo` | String | 系统消息编号 |
+| `notificationType` | String | `governance/asset/invite/community/platform` |
+| `bizType` | String | 具体业务类型编码 |
+| `title` | String | 标题 |
+| `content` | String | 完整正文 |
+| `contentFormat` | String | `plain_text` 或 `rich_text`；富文本已由服务端按白名单清洗 |
+| `readStatus` | String | `unread/read` |
+| `jumpType` | String | `none/miniapp/h5/service/chat/profile/community/auth_center/asset/invite_center/appeal` |
+| `actionText` | String/null | 跳转按钮文案；无跳转时为 null，最多 10 个字符 |
+| `jumpValue` | String/null | 白名单跳转参数 |
+| `createdTime` | String | 创建时间 |
+
+`readAck.noticeNos` 是本页可确认已读的系统消息编号列表。它不是自动已读结果，前端成功渲染后把该数组提交 6.4。
+
+`jumpType/jumpValue` 对接规则：
+
+| `jumpType` | `jumpValue` 含义 | 前端处理 |
+| --- | --- | --- |
+| `none` | 不返回 | 不展示行动按钮 |
+| `h5` | 后端白名单校验后的 HTTPS URL | 使用受控 WebView 打开 |
+| `miniapp` | 小程序内部白名单路由参数 | 交给统一路由器解析 |
+| `chat` | 私信会话业务编号 | 进入会话前仍先调用会话详情校验 |
+| `profile` | 用户稳定业务编号 | 进入主页前重新校验可访问性 |
+| `community` | 社区内容业务编号 | 交给社区白名单路由解析 |
+| `service/auth_center/asset/invite_center/appeal` | 对应业务模块的受控目标参数 | 交给对应模块处理器解析 |
+
+`jumpValue` 是后台模板渲染快照。前端不得拼接任意页面路径，也不得绕过对应业务接口的权限校验。
+
+### 6.4 POST `/miniapp/message/system-messages/read-batch`
+
+用途：页面成功渲染系统卡片后确认曝光已读。GET 返回不等于已读，必须在渲染成功后调用。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `noticeNos` | Array<String> | 是 | 已成功渲染的系统消息编号，1-50 条，通常直接使用本页 `readAck.noticeNos` |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `acceptedNos` | Array<String> | 属于当前用户、仍可见且允许置已读的系统消息编号 |
+| `updatedCount` | Integer | 本次从未读变为已读的数量；幂等重放可为 0 |
+| `platformUnreadSummary.privateUnreadCount` | Long | 更新后的普通私信未读数 |
+| `platformUnreadSummary.whisperUnreadCount` | Long | 更新后的悄悄话未读数 |
+| `platformUnreadSummary.assistantUnreadCount` | Long | 更新后的助手未读数 |
+| `platformUnreadSummary.systemUnreadCount` | Long | 更新后的系统消息未读数 |
+| `platformUnreadSummary.messageUnreadCount` | Long | 更新后的四类总未读数 |
+| `platformUnreadSummary.snapshotTime` | String | 本次统计时间 |
+
+### 6.5 GET `/miniapp/im/credentials`
+
+无业务入参。返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `sdkAppId` | Long | 腾讯云 TIM 应用 ID |
+| `imUserId` | String | 当前用户 TIM UserID |
+| `userSig` | String | 短期登录签名，禁止写日志和持久化 |
+| `expireAt` | String | 凭证过期时间 |
+| `protocolVersion` | Integer | 自定义消息协议版本 |
+
+### 6.6 私信对接顺序与本地 Outbox
+
+```text
+进入聊天页
+  -> GET 会话详情，读取 accessMode/canSend/timConversationId
+  -> canEnterConversation=true：获取 TIM 凭证
+  -> 登录 TIM，拉取 timConversationId 的漫游历史
+  -> 读取本机当前用户+conversationNo 的 Outbox 并合并 sending/failed 气泡
+
+发送文本（仅 canSend=true）
+  -> 生成当前账号+conversationNo 内唯一的 localOutboxId
+  -> 先写本机 Outbox，状态 sending；SDK 有本地消息 ID 时记录 timLocalMessageId
+  -> 调 TIM SDK 发送文本
+  -> SDK 成功：按当前 Promise/回调关联的 localOutboxId 移除本地项，以 TIM 返回消息为准
+  -> SDK 失败：本地项变 failed，展示重试入口
+  -> 用户重试：复用原 localOutboxId 和正文，避免生成两个本地气泡
+
+阅读消息
+  -> 调 TIM SDK 会话已读
+  -> TIM 回调同步平台未读投影
+  -> 需要立即对账或回调异常时，再调平台会话 /read 接口补偿
+```
+
+平台接口不接收 `localOutboxId/timLocalMessageId` 或本地 Outbox 正文，也不返回 `sending/failed` 本地气泡。TIM 服务端没有收到的失败消息，平台无法可靠感知；因此失败气泡只在原设备本地存在，清理缓存或换设备后可能消失，这是本地未发送草稿的正常边界。TIM 已成功接收的消息由 TIM 漫游历史返回，并通过发送后回调归档到 `app_message_record`，不依赖小程序缓存。平台归档不是 C 端历史备份接口；TIM 漫游过期后，当前小程序不会自动从平台归档补回聊天记录。
+
+## 7. 举报接口
+
+### 7.1 GET `/miniapp/community/config`
+
+用途：举报页打开前取得举报入口开关和原因字典。该接口还包含社区其他配置，消息模块只消费以下字段。
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `reportEntryEnabled` | Boolean | 是否开放举报入口；false 时隐藏提交入口 |
+| `reportReasons` | Array<Object> | 当前启用的举报原因，已按后台排序 |
+| `reportReasons[].code` | String | 提交举报时使用的 `reasonCode` |
+| `reportReasons[].label` | String | 举报原因中文名称 |
+| `reportReasons[].sort` | Integer | 展示顺序 |
+| `reportReasons[].categoryCode` | String/null | 所属分类编码；普通举报原因通常为空 |
+| `reportReasons[].categoryLabel` | String/null | 所属分类中文；普通举报原因通常为空 |
+
+前端不得写死举报原因编码。页面展示 `label`，提交 7.3 时传对应 `code`。
+
+### 7.2 POST `/miniapp/file/upload-ticket/report-evidence`
+
+用途：举报页面上传凭证图片前获取 OSS 直传凭证。支持 `jpg/jpeg/png`，单张最大 5 MB，单个举报最多 3 张。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `fileName` | String | 是 | 原文件名，后缀用于格式校验 |
+| `fileSizeBytes` | Long | 是 | 文件字节数 |
+
+返回字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `uploadUrl` | String | OSS 表单上传地址 |
+| `key` | String | OSS 对象 Key |
+| `formData` | Object | 直传表单字段，前端原样提交 |
+| `expiresAt` | Long | 凭证过期时间，Unix 秒时间戳；前端比较当前时间时必须使用秒单位 |
+| `fileUrl` | String | 上传成功后提交举报使用的公网 URL |
+| `protectedFile` | Boolean | 是否为受保护文件 |
+
+### 7.3 POST `/miniapp/community/reports`
+
+聊天举报只提交服务端可反查的业务编号和详情接口返回的最小定位字段；不提交聊天正文或被举报用户 ID。TIM 定位字段只做交叉校验，证据正文仍由服务端从平台归档表固化。新小程序统一使用 `targetId` 传业务编号；后端内部兼容字段 `targetBizNo` 不属于本次移动端契约，前端不要提交。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `targetType` | String | 是 | 私信和悄悄话内容举报统一固定为 `chat` |
+| `targetId` | String | 是 | 私信填 `conversationNo`；悄悄话填 `whisperNo`；与下方对应业务编号一致 |
+| `clientReportId` | String | 是 | 8-64 字符幂等编号，重试复用 |
+| `sourceType` | String | 是 | 私信填 `private_chat`；悄悄话填 `whisper` |
+| `conversationNo` | String | 私信举报是 | 私信会话业务编号 |
+| `messageNo` | String | 否 | 用户明确选中某条对方私信且已知平台消息编号时提交；会话顶部举报不传 |
+| `whisperNo` | String | 悄悄话举报是 | 被举报的悄悄话编号 |
+| `timConversationId` | String | 否 | 详情返回的 TIM 会话编号，用于服务端交叉校验 |
+| `timMessageId` | String | 否 | TIM SDK 返回的消息 ID；不知道平台 `messageNo` 时可单独用于定位 |
+| `timMsgKey` | String | 否 | TIM 服务端消息唯一键，可单独定位或与 `timMessageId/messageNo` 交叉校验 |
+| `reasonCode` | String | 是 | 举报原因字典编码 |
+| `extraText` | String | 否 | 补充说明 |
+| `evidenceImageUrls` | Array<String> | 否 | 7.2 上传成功后的 `fileUrl`，最多 3 张 |
+
+聊天举报必传组合：
+
+| 场景 | 必传字段 | 不传字段 |
+| --- | --- | --- |
+| 悄悄话正文 | `targetType=chat`、`clientReportId`、`targetId=whisperNo`、`sourceType=whisper`、`whisperNo`、`reasonCode` | 正文、被举报人 ID、`targetBizNo` |
+| 单条私信 | 基础字段加 `messageNo`，或加 `timMessageId/timMsgKey`；至少有一种消息定位字段 | 正文、被举报人 ID、`targetBizNo` |
+| 整段会话 | `targetType=chat`、`clientReportId`、`targetId=conversationNo`、`sourceType=private_chat`、`conversationNo`、`reasonCode` | 正文、被举报人 ID、`targetBizNo` |
+
+悄悄话示例：
 
 ```json
 {
-  "code": 200,
-  "msg": "操作成功",
-  "data": {
-    "sdkAppId": 1400000000,
-    "imUserId": "im_01K1ABCDEFGHJKMNPQRST",
-    "userSig": "eJyrVgrx...",
-    "expireAt": "2026-08-01 12:00:00",
-    "protocolVersion": 1
-  }
+  "targetType":"chat",
+  "clientReportId":"report-20260813-0001",
+  "targetId":"WSP-8F21F0C30B7C4E88A001",
+  "sourceType":"whisper",
+  "whisperNo":"WSP-8F21F0C30B7C4E88A001",
+  "reasonCode":"harassment",
+  "extraText":"持续发送不适当内容",
+  "evidenceImageUrls":["https://cdn.example.com/miniapp/108/reportEvidence/a.png"]
 }
 ```
 
-- `sdkAppId` 可为 number；`imUserId` 必须为 string。
-- 不缓存 UserSig 到源码或长期日志。
-- 距离过期不足 10 分钟时刷新；UserSig 无效或被踢下线时停止发送并重新登录。
-- 30023 且无有效旧凭证时进入 API 只读模式。
+会话顶部举报示例：
 
-### 11.2 SDK 使用边界
-
-允许：
-
-- 登录、连接状态、普通私信发送和实时接收；
-- 获取 TIM 会话列表、历史、发送状态、已读与未读；
-- 按 `timConversationId/timMessageId/timMsgKey` 与平台业务会话、悄悄话和举报目标关联；
-- 网络恢复/回前台后使用 TIM SDK 重新同步会话、历史和未读，再刷新平台业务状态。
-
-禁止：
-
-- 调 SDK 直接发送悄悄话，绕过平台资格、扣费、pending/冷却和幂等校验；
-- 在没有平台有效业务会话的情况下强行展示 TIM C2C 会话；
-- 调用已经退役的平台普通私信发送、历史或已读接口；
-- 把腾讯消息对象直接存进页面 Store。
-
-### 11.3 实时事件
-
-| 事件 | 关键字段 | 前端动作 |
-|------|----------|----------|
-| TIM 普通文本消息 | `timConversationId,timMessageId,timMsgKey` | 按 SDK 契约去重、渲染并更新 TIM 未读 |
-| `whisper_received` | `v,whisperNo` | 刷新悄悄话入口与列表 |
-| `system_message_refresh` | `v,noticeNo` | 节流刷新系统消息与未读 |
-| `conversation_invalidated` | `v,conversationNo` | 当前页转只读并刷新详情 |
-| TIM 消息状态变化 | `timMessageId,status` | 按 SDK 契约更新发送方气泡 |
-
-协议版本未知时忽略事件正文并触发 API 全量刷新，不得按旧结构强行解析。
-
-## 12. 错误码与前端动作
-
-| code | HTTP | 场景 | 是否自动重试 | 前端动作 |
-|------|------|------|--------------|----------|
-| 30001 | 403 | 核心准入/账号受限 | 否 | 进入认证或受限只读模式 |
-| 30002 | 403 | 未匹配发普通私信/不满足悄悄话关系 | 否 | 刷新关系状态 |
-| 30003 | 403 | 女性保护 | 否 | 禁用输入，显示保护提示 |
-| 30004 | 409 | 会话 blocked/invalid | 否 | 刷新并转只读 |
-| 30005 | 409 | 已有 pending 悄悄话 | 否 | 跳转现有记录 |
-| 30006 | 409 | 悄悄话冷却 | 否 | 显示可重试时间 |
-| 30007 | 402 | 免费次数/千寻币不足 | 否 | 跳转充值/会员 |
-| 30008 | 500 | 消息发送失败 | 是 | 沿用原幂等键 |
-| 30009 | 404 | 系统消息不存在/不属于本人 | 否 | 从列表移除并刷新 |
-| 30010 | 409 | 模板停用 | 是 | 不影响上游业务，刷新 |
-| 30011 | 409 | 悄悄话已过期 | 否 | 刷新为申请已结束 |
-| 30012 | 409 | 支付/补偿处理中 | 是，轮询状态 | 禁止重复扣费 |
-| 30013 | 500 | 补偿暂失败 | 是，服务端主导 | 显示退款处理中 |
-| 30014 | 409 | 回复与到期/失效冲突 | 否 | 刷新详情 |
-| 30015 | 503 | 全局安全开关关闭 | 是，稍后 | 保留输入，显示平台提示 |
-| 30016 | 403 | 后台案件正文权限错误 | 不适用于小程序 | 无 |
-| 30019 | 429 | 频率过高 | 是，倒计时后 | 使用 `retryAfterSeconds` |
-| 30020 | 409 | 幂等参数冲突/批次归属错误 | 否 | 刷新事实，停止自动重试 |
-| 30021 | 409 | 报价过期/资产价格变化 | 否 | 重新预检和确认 |
-| 30022 | 404 | 举报目标无效 | 否 | 提示不可举报 |
-| 30023 | 503 | IM 凭证不可用 | 是 | 使用有效旧凭证或只读 |
-| 30024 | 503 | 消息读取服务降级 | 是 | 显示失败态，禁止伪造空列表 |
-
-项目通用错误码继续保留：4001 表示参数格式错误，401 表示 Token 失效，403 表示当前用户不是
-资源参与方，404 表示业务号不存在；它们不得占用业务错误码语义。30017/30018 已退役，平台与
-TIM 均不做本期日常消息发送前文本内容审核。错误日志和埋点不得带用户正文。
-
-## 13. Store 与去重建议
-
-建议页面 Store 使用项目领域对象：
-
-```ts
-type MessageKey = string // timMessageId 或 timMsgKey
-type ConversationKey = string // conversationNo
-
-interface MessageState {
-  byTimKey: Record<MessageKey, MessageItem>
-  orderedTimKeysByConversation: Record<ConversationKey, MessageKey[]>
-  unreadSummary: MessageUnreadSummary
-}
-
-interface MessageUnreadSummary {
-  privateUnreadCount: number // platform app_message_record
-  whisperUnreadCount: number // platform app_message_whisper
-  assistantUnreadCount: number // platform app_assistant_message
-  systemUnreadCount: number // platform app_system_message
-  platformUnreadCount: number // whisper + assistant + system，兼容字段
-  messageUnreadCount: number // 四类总数，Tab 直接使用
-  snapshotTime: string
+```json
+{
+  "targetType":"chat",
+  "clientReportId":"report-20260813-0002",
+  "targetId":"CV-20260813-0001",
+  "sourceType":"private_chat",
+  "conversationNo":"CV-20260813-0001",
+  "timConversationId":"C2C_tu_peer_2",
+  "reasonCode":"harassment",
+  "extraText":"对方在聊天中持续骚扰",
+  "evidenceImageUrls":[]
 }
 ```
 
-规则：
+返回字段：
 
-1. 普通私信临时消息按 LiteChat SDK 消息随机号索引，收到 TIM messageId/MsgKey 后建立稳定映射。
-2. SDK 实时事件、发送结果和 TIM 历史按 TIM 唯一键合并，不追加重复气泡。
-3. SDK 的 `sending -> sent/failed` 单向更新；用户重试 failed 时复用原消息对象。
-4. TIM 历史是小程序正文展示与漫游来源；平台消息主表保存同一正文的明文归档，但普通移动端接口只覆盖 `canSend/status` 等业务字段，不返回 `content_text`。
-5. 悄悄话列表/详情的业务状态来自平台，正文按 TIM 映射合并；找不到对应 TIM 消息时显示显式加载失败，不能伪造空正文。
-6. `MessageUnreadSummary` 完全采用后端返回值；任一消息事件、已读确认或前后台切换后节流重拉，不做增量猜测或采用 TIM 全局总数。
-7. 切换账号、进入 restricted、Token 失效时清空真人消息缓存。
-8. 不持久化 UserSig、案件敏感信息或腾讯原始消息对象。
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `reportId` | Long | 举报数据库 ID |
+| `reportNo` | String | 举报业务编号 |
+| `status` | String | 工单状态编码 |
+| `statusName` | String | 工单状态中文 |
+| `message` | String | 提交结果文案 |
+| `snapshotStatus` | String/null | `complete/partial/not_required` 证据快照状态 |
+| `createdTime` | String | 举报创建时间 |
 
-## 14. 前端迁移清单
+前端流程：调用 7.1 取得原因字典 -> 最多选择 3 张图片 -> 每张调用 7.2 -> 使用返回凭证直传 OSS -> 收集 `fileUrl` -> 连同举报原因调用 7.3。举报本身不走 TIM，也不会给对方发送任何消息。
 
-| 项 | 当前风险 | 必须改为 |
-|----|----------|----------|
-| 悄悄话状态 | 含 ignored/cancelled/matched | pending/replied/expired/invalid |
-| 会话状态 | 保护期可能混入 status | active/blocked/invalid + protectStatus |
-| 发送权限 | 页面本地推导 | 完全读取 `canEnterConversation/canSend/sendBlockReason` |
-| 发送链路 | Mock 或平台旧 POST | 普通私信 LiteChat SDK 直发 + 消息前回调；悄悄话平台接口 + TIM REST |
-| 已读 | 本地清零/全部已读 | 普通私信成功渲染后调用 LiteChat 已读并提交平台 `lastMessageNo`；悄悄话/助手/系统消息按平台精确曝光批次 POST |
-| 系统消息 | 旧通知详情 | 列表全文，无详情 |
-| 举报 | 可能只报 user | 调 PRD-05 平台接口，提交 conversation/message/whisper 业务号和 TIM 定位编号；不向 TIM 发举报 |
-| 拉黑并举报 | 单一乐观成功提示 | 顺序执行并支持部分成功 |
-| 分页 | 页码或本地切片 | 普通私信历史使用 TIM SDK 游标，平台业务列表使用不透明 cursor |
-| 时间 | 旧 ISO 字符串 | `yyyy-MM-dd HH:mm:ss` |
-| 真实服务 | `createMessageService('real')` 抛错 | 实现本文全部接口 |
-| LiteChat | 未安装/未 POC | Taro 4.1.9 + 精确版本 4.4.2 POC 后接入 |
+## 8. 主要错误码
 
-## 15. 联调验收清单
+| code | 场景 | 前端处理 |
+| --- | --- | --- |
+| `4001` | 参数、方向、分组或游标错误 | 修正参数，不自动重试 |
+| `401` | 登录失效 | 重新登录并清理 TIM 登录态 |
+| `403` | 非参与方或发送方尝试删除 | 关闭操作并刷新列表 |
+| `404` | 记录不存在或接收方已删除 | 移除当前卡片并刷新 |
+| `30001` | 准入或账号受限 | 进入认证或受限提示 |
+| `30002` | 已匹配、拉黑或关系不可互动 | 刷新关系，已匹配则进入私信 |
+| `30003` | 女性保护期内男方先发普通私信 | 保留输入内容，等待女方先发；TIM 回调码为 `120003` |
+| `30004` | 普通私信会话已失效 | 切换到安全只读，不再发送；TIM 回调码为 `120004` |
+| `30005` | 已有待处理悄悄话 | 定位现有申请 |
+| `30006` | 冷却期未结束 | 展示稍后再试 |
+| `30007` | 千寻币不足 | 展示充值或会员入口 |
+| `30008` | TIM 投递失败 | 保留原幂等键，由可靠投递和补偿处理 |
+| `30011` | 申请已过期 | 展示“申请已结束” |
+| `30015` | 消息总开关关闭 | 保留草稿，稍后重试 |
+| `30020` | 幂等键冲突 | 停止重试并刷新事实 |
+| `30021` | 报价过期或变化 | 重新预检并再次确认 |
+| `30022` | 举报目标不可用 | 刷新页面并提示不可举报 |
+| `30023` | 正常会话 TIM 账号或凭证不可用 | 聊天页稍后重试；不影响首页和列表；安全只读详情降级为不可进入历史 |
+| `505008` | 已有待处理举报 | 提示已提交，等待处理 |
+| `505019` | 举报图片凭证无效 | 重新上传图片后提交 |
 
-移动端接口完整度按以下 28 项计数，任一 P0 主链路缺失时总分不得达标：
+## 9. 对接边界
 
-1. 正常首页。
-2. 受限首页。
-3. 私信列表游标分页。
-4. active 会话进入。
-5. blocked/invalid 安全读取。
-6. LiteChat 文本 sending/sent/failed。
-7. SDK 原消息重试与重复回调幂等。
-8. 未匹配/保护期/全局开关/处罚由消息前回调拦截。
-9. 消息前回调超时或业务事实不可用时拒绝发送。
-10. LiteChat 私信历史 + TIM/平台双重已读 + 后端四类未读总数。
-11. 拉黑。
-12. 拉黑成功、举报失败。
-13. 免费悄悄话预检。
-14. 千寻币报价/余额不足。
-15. pending 与冷却。
-16. 报价过期。
-17. 投递失败补偿。
-18. 回复原子成功。
-19. 回复竞争回滚。
-20. 悄悄话已读隐私。
-21. 助手不可回复与已读。
-22. 五类系统消息与跳转。
-23. 系统消息曝光批次已读。
-24. 无详情/无全部已读。
-25. 三类聊天举报均调用 PRD-05 平台接口，TIM 编号仅用于证据定位。
-26. 主页不可用举报。
-27. IM 凭证刷新/失效。
-28. 未知枚举/协议降级。
+- 首页和悄悄话列表不返回 TIM 会话或原始消息定位字段。
+- 悄悄话详情只返回平台消息编号，不返回 TIM 原始消息编号。
+- 普通私信首页和列表不调用 TIM；只有进入具体会话才获取 TIM 凭证与历史。
+- 平台归档表不向 C 端提供完整私信历史补拉；TIM 漫游保留期必须在上线前按产品可见期配置。
+- 平台后端不提供普通私信发送和完整历史接口；小程序本地 Outbox 也不得上传平台冒充已发送消息。
+- 活跃会话缺少当前接收方成员映射时，TIM 后回调返回失败并等待重试，不写入不完整消息事实。
+- TIM 发送后和已读回调按事件业务时间绑定会话生命周期；旧生命周期的迟到回调不得更新重新匹配后的新会话。
+- 助手和系统消息不走 TIM，正文、卡片类型、正文格式和行动文案都使用消息创建时快照。
+- 预检和创建统一使用 `sourceScene/sourceBizNo`，不接历史兼容别名。
+- `sent` 方向不提供已处理分组。
+- 小程序不得直接使用 TIM SDK 发送悄悄话。
+- 删除不得物理删除，也不得篡改为过期或失效状态。
 
-当前分支的后端契约和本地自动化测试已完成，结果见
-`docs/测试文档/消息私信通知中心-testreport.md`。真实 TIM 双账号、公网回调、生产 KMS 和隔离数据库
-测试仍必须在具备外部资源后执行；在此之前只能标记“后端本地验证通过”，不能标记“生产联调完成”。
+## 10. 联调验收清单
+
+- [ ] 首页不初始化 TIM 也能返回全部摘要和普通私信首屏。
+- [ ] 对方没有 TIM 账号时首页正常；正常聊天详情提示不可用，安全只读详情返回 `canEnterConversation=false` 而不是整体失败。
+- [ ] 首页动态行只展示有效普通私信，不混入悄悄话申请。
+- [ ] 消息总未读严格等于普通私信、悄悄话、助手、系统四项之和。
+- [ ] “申请我的”未处理和已处理使用两套独立游标下拉。
+- [ ] “我申请的”只查询未处理，不展示删除入口。
+- [ ] 悄悄话详情直接返回留存期内完整正文。
+- [ ] 只有接收方可单条或分组逻辑隐藏，后台事实仍保留。
+- [ ] 预检、创建的 `sourceScene/sourceBizNo` 完全一致。
+- [ ] 有效天数和冷却天数来自当前已发布后台配置并写入快照。
+- [ ] 回复内容经后端写库和 TIM 投递，成功后返回 `conversationNo` 并进入聊天页。
+- [ ] 普通私信 TIM 发送失败时仅生成当前账号、当前会话的本地 Outbox 气泡；重试复用 `localOutboxId`，发送成功后按本次 SDK 回调去重移除。
+- [ ] TIM 会话已读回调先推进单调已读水位再更新消息；平台 `/read` 重复补偿结果幂等，迟到归档不重新产生未读。
+- [ ] 关系失效与消息后回调并发时，迟到消息只归档并隔离，不更新会话列表投影、不计未读；重新匹配后也不得污染新生命周期。
+- [ ] 失效会话进入 `safety_readonly`，不能发送或打开主页，不泄露最新昵称头像；有 TIM 映射时可看历史，仍可对已有对方正文举报。
+- [ ] 官方助手按 `cardType` 渲染，系统消息按 `contentFormat` 渲染，行动按钮使用 `actionText`。
+- [ ] 申请我的和我申请的均可按详情 `actions` 举报正文或对方用户。
+- [ ] 举报图片先获取上传凭证，最多 3 张，再提交 URL。
+- [ ] 举报原因来自 `/miniapp/community/config.reportReasons`，页面展示 `label`、提交 `code`，不写死原因枚举。
+- [ ] 文档第 9 节禁止项未出现在新小程序请求和响应模型中。
+
+后端自动化结果见 `docs/测试文档/消息私信通知中心-testreport.md`。真实 TIM 双账号、公网回调、生产 OSS/KMS 和小程序 UI 联调完成前，不标记为生产验收通过。

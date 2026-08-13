@@ -1396,7 +1396,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                 vo.setAvailable(false);
                 vo.setUnavailableReason("comment_not_found");
             }
-        } else if (CommunityReportTargetTypeEnum.CHAT.getCode().equals(report.getTargetType())) {
+        } else if (CommunityReportTargetTypeEnum.getByCode(report.getTargetType()) != null
+                && CommunityReportTargetTypeEnum.getByCode(report.getTargetType()).isChatContext()) {
             vo.setConversationType(report.getSourceType());
             String evidence = StrUtil.blankToDefault(report.getEvidenceJson(), report.getContextJson());
             vo.setContent(evidence);
@@ -1702,13 +1703,15 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setReporterPhone(reporter != null ? DesensitizeUtil.maskPhone(reporter.getPhone()) : null);
         vo.setTargetType(entity.getTargetType());
         vo.setTargetId(entity.getTargetId());
-        vo.setTargetNo(entity.getTargetId());
+        vo.setTargetNo(StrUtil.blankToDefault(entity.getTargetBizNo(), entity.getTargetId()));
         vo.setTargetUserId(entity.getTargetUserId());
         vo.setTargetUserNo(userNo(targetUser, entity.getTargetUserId()));
         vo.setTargetUserName(targetUser == null ? null : targetUser.getNickname());
         vo.setReasonCode(entity.getReasonCode());
         vo.setReasonLabel(reasonLabel);
         vo.setExtraText(entity.getExtraText());
+        vo.setEvidenceImageUrls(includeDetail
+                ? reportEvidenceImageUrls(entity.getEvidenceImageUrlsJson()) : List.of());
         vo.setStatus(entity.getStatus());
         vo.setStatusName(statusLabel);
         vo.setReplyStatus(StrUtil.blankToDefault(entity.getReplyStatus(), "pending"));
@@ -1726,6 +1729,19 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setCreateTime(entity.getCreateTime() != null ? entity.getCreateTime().format(FMT) : null);
         vo.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);
         return vo;
+    }
+
+    private List<String> reportEvidenceImageUrls(String json) {
+        if (StrUtil.isBlank(json)) {
+            return List.of();
+        }
+        try {
+            List<String> values = objectMapper.readValue(json, new TypeReference<>() {});
+            return values == null ? List.of() : values;
+        } catch (Exception ex) {
+            log.warn("Invalid report evidence image JSON");
+            return List.of();
+        }
     }
 
     private AppConfigVO toConfigVO(Map<String, AppConfig> configMap, String key, String type, String defaultValue, String group, String remark) {

@@ -38,6 +38,13 @@ public class AppMessageConversationMemberDaoImpl implements AppMessageConversati
     }
 
     @Override
+    public int advanceReadWatermark(Long conversationId, Long userId,
+                                    java.time.LocalDateTime lastReadMessageTime,
+                                    java.time.LocalDateTime readAt) {
+        return mapper.advanceReadWatermark(conversationId, userId, lastReadMessageTime, readAt);
+    }
+
+    @Override
     public void insert(AppMessageConversationMember entity) {
         mapper.insert(entity);
     }

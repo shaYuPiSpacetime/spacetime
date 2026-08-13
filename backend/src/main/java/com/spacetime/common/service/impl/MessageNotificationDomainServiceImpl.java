@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.HtmlUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
 
 import java.net.URI;
 import java.time.LocalDateTime;
@@ -84,8 +86,13 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
         validateVariables(template.getAllowedVariablesJson(), variables);
         String title = render(template.getTitleTemplate(), variables);
         String content = render(template.getContentTemplate(), variables);
+        String contentFormat = defaultContentFormat(template.getContentFormat());
+        if ("rich_text".equals(contentFormat)) {
+            content = Jsoup.clean(content, Safelist.basic().removeTags("img"));
+        }
         String jumpValue = StringUtils.hasText(template.getJumpValueTemplate())
                 ? render(template.getJumpValueTemplate(), variables) : null;
+        String actionText = renderActionText(template, variables);
         validateJump(template.getNotificationType(), template.getJumpType(), jumpValue);
         EncryptedMessageContent encryptedTitle = cipher.encrypt(title);
         EncryptedMessageContent encryptedContent = cipher.encrypt(content);
@@ -102,7 +109,9 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
         message.setTemplateVersion(template.getVersionNo());
         applyTitle(message, encryptedTitle);
         applyContent(message, encryptedContent);
+        message.setContentFormat(contentFormat);
         message.setJumpType(template.getJumpType());
+        message.setActionText(actionText);
         message.setJumpValue(jumpValue);
         message.setSafetyRequired(valueOrZero(template.getSafetyRequired()));
         message.setVisibleUntil(payload.visibleUntil() == null
@@ -137,6 +146,7 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
             validateVariables(template.getAllowedVariablesJson(), Map.of());
             String title = render(template.getTitleTemplate(), Map.of());
             String content = render(template.getContentTemplate(), Map.of());
+            String actionText = renderActionText(template, Map.of());
             validateJump(template.getNotificationType(), template.getJumpType(),
                     template.getJumpValueTemplate());
             EncryptedMessageContent encryptedTitle = cipher.encrypt(title);
@@ -156,7 +166,9 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
             message.setContentIv(encryptedContent.iv());
             message.setContentKeyVersion(encryptedContent.keyVersion());
             message.setContentHmac(encryptedContent.hmac());
+            message.setCardType(defaultCardType(template));
             message.setActionType(template.getJumpType());
+            message.setActionText(actionText);
             message.setActionValue(template.getJumpValueTemplate());
             message.setVisibleFrom(effectiveNow);
             try {
@@ -223,6 +235,28 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
         }
         matcher.appendTail(result);
         return result.toString();
+    }
+
+    private String defaultCardType(AppMessageTemplateVersion template) {
+        if (StringUtils.hasText(template.getCardType())) {
+            return template.getCardType();
+        }
+        return "none".equals(template.getJumpType()) ? "text" : "action";
+    }
+
+    private String defaultContentFormat(String contentFormat) {
+        return StringUtils.hasText(contentFormat) ? contentFormat : "plain_text";
+    }
+
+    private String renderActionText(AppMessageTemplateVersion template,
+                                    Map<String, Object> variables) {
+        String actionText = StringUtils.hasText(template.getActionTextTemplate())
+                ? render(template.getActionTextTemplate(), variables)
+                : ("none".equals(template.getJumpType()) ? null : "查看详情");
+        if (actionText != null && actionText.codePointCount(0, actionText.length()) > 10) {
+            throw new BusinessException(30018, "消息行动文案不能超过10个字符");
+        }
+        return actionText;
     }
 
     private void validateJump(String notificationType, String jumpType, String jumpValue) {

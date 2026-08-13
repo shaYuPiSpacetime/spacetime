@@ -18,14 +18,14 @@ public class WhisperCreateReq {
     @Size(max = 128, message = "报价令牌不能超过128个字符")
     private String quoteToken;
 
-    /** 兼容旧客户端的来源业务编号；不参与支付报价。 */
-    private String sourcePostNo;
+    /** 来源场景，必须与预检报价完全一致。 */
+    @NotBlank(message = "来源场景不能为空")
+    private String sourceScene;
 
-    /** 兼容旧客户端的入口场景。 */
-    private String scene;
+    /** 来源业务编号，必须与预检报价完全一致。 */
+    private String sourceBizNo;
 
     /** 悄悄话正文，长度为 1 至 60 字。 */
     @NotBlank(message = "悄悄话内容不能为空")
-    @Size(max = 60, message = "悄悄话内容不能超过60字")
     private String content;
 }

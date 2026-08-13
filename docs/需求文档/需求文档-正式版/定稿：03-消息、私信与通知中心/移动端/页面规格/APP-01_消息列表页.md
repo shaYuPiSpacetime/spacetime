@@ -1,16 +1,16 @@
-# 页面规格 - APP-03-PAGE-message-list 消息列表页
+# 页面规格 - APP-03-PAGE-message-list 消息首页
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
-| 版本03 | 2026-07-13 | Codex | 对齐蓝湖消息首页双入口卡片及固定官方会话结构 |
-| 版本02 | 2026-07-02 | Codex | 按评审意见整改移动端展示附加属性 |
+| 版本07 | 2026-08-12 | Codex | 首页与 TIM 解耦：列表仅返回平台渲染字段，点击会话后再获取 TIM 映射和详情态权限 |
+| 版本06 | 2026-08-12 | Codex | 首页改为双入口卡片、三类固定摘要及全部有效私信会话游标分页，取消“最近 3 条/查看全部” |
+| 版本05 | 2026-08-06 | Codex | 同步悄悄话回复迁移：待处理入口只统计 pending，回复后转入私信并更新发送方未读 |
 | 版本01 | 2026-07-02 | Codex | 初稿 |
 
 - **页面 ID**：`APP-03-PAGE-message-list`
 - **所属模块 PRD**：`../模块PRD文档/模块PRD_APP-03_消息、私信与通知中心.md`
 - **页面路由**：`/pages/message/index`
 - **入口来源**：底部 Tab `消息`
-- **对应设计稿**：待补充；设计画板按第 2.4 节输出
 - **对应移动端页面**：MVP-PAGE-033 / APP-PAGE-049
 
 ---
@@ -18,8 +18,10 @@
 ## 1. 页面定位
 
 - **目标用户**：已登录用户
-- **核心任务**：进入悄悄话申请、普通私信，查看官方小助手、系统消息和最近私信会话
-- **页面类型**：列表页
+- **核心任务**：在一个页面查看悄悄话、喜欢我的人、官方助手、系统消息和全部有效普通私信会话
+- **页面类型**：摘要入口 + 游标分页会话列表
+
+仍为 `pending` 的悄悄话申请只进入悄悄话卡片和悄悄话页面，不混入普通私信会话行。接收方回复成功后，申请迁移为 `replied`，双方显示同一条普通私信会话。
 
 ---
 
@@ -28,161 +30,144 @@
 ### 2.1 整体布局
 
 ```text
-┌────────────────────────────┐
-│ 标题：消息             清理 │
-├────────────────────────────┤
-│ 悄悄话       | 私信         │
-├────────────────────────────┤
-│ 喜欢我的人                  │
-│ 官方小助手 / 系统消息       │
-│ 最近私信会话                │
-└────────────────────────────┘
+┌──────────────────────────────┐
+│ 标题：消息                     │
+├──────────────┬───────────────┤
+│ 悄悄话        │ 私信           │
+│ 待处理数+头像  │ 私信未读数      │
+├──────────────┴───────────────┤
+│ 喜欢我的人  总数/新喜欢/最新头像 │
+│ 官方小助手  最新摘要/时间/未读   │
+│ 系统消息    最新摘要/时间/未读   │
+├──────────────────────────────┤
+│ 私信会话 1  最新消息/时间/未读   │
+│ 私信会话 2  最新消息/时间/未读   │
+│ ...游标加载更多                 │
+└──────────────────────────────┘
 ```
 
 ### 2.2 区块说明
 
-| 区块 | 位置 | 内容 | 是否可折叠 | 是否记住展开状态 |
-|------|------|------|------------|------------------|
-| 顶部标题栏 | 顶部 | 标题、清理图标 | 否 | 否 |
-| 双入口卡片 | 标题下方 | 悄悄话、私信及各自摘要/头像 | 否 | 否 |
-| 固定官方会话 | 会话列表顶部 | 官方小助手、系统消息、最新全文摘要和时间 | 否 | 否 |
-| 私信会话列表 | 主体 | 对方头像、昵称、最后消息、时间、状态、未读数 | 否 | 否 |
-| 认证引导空态 | 主体 | 未认证用户的认证引导 | 否 | 否 |
+| 区块 | 内容 | 点击行为 |
+|------|------|----------|
+| 悄悄话卡片 | 当前用户收到且仍有效的全部待处理数、最近 3 个申请人头像 | 进入“申请我的”悄悄话列表 |
+| 私信卡片 | 当前有效普通私信未读总数 | 页面内定位到私信会话列表；无会话时保留空态 |
+| 喜欢我的人 | PRD-02 当前有效喜欢总数、新喜欢数、最新头像和时间 | 进入 PRD-02“喜欢我的”列表 |
+| 官方小助手 | 未读数、最新短摘要和时间 | 进入官方助手页 |
+| 系统消息 | 未读数、最新短摘要和时间 | 进入系统消息页 |
+| 私信会话列表 | 全部有效普通私信会话，按最新消息时间倒序游标分页 | 点击有效会话进入私信对话页 |
 
-### 2.3 弹层 / 抽屉 / 模态
+### 2.3 不建设内容
 
-本页不直接弹层；举报、拉黑、悄悄话处理在会话页承接。
-
-### 2.4 UI 画板拆分
-
-| 画板 ID | 画板名称 | 设计内容 | 备注 |
-|---------|----------|----------|------|
-| `APP-03-msg-list-01` | 消息列表页-主页面 | 系统通知卡片、私信列表、红点 | P0 |
-| `APP-03-msg-list-02` | 消息列表页-未认证空态 | 系统通知入口保留，私信区认证引导 | P0 |
-| `APP-03-msg-list-03` | 消息列表页-无会话空态 | 无私信会话空态 | P0 |
-| `APP-03-msg-list-04` | 消息列表页-加载失败 | 网络错误与重试 | P1 |
-
-### 2.5 编辑控件口径
-
-本页为列表展示页，无表单编辑控件。
+- 不建设“最近 3 条私信”和“查看全部”跳转。
+- 不建设独立私信列表路由，原 `APP-03-PAGE-private-list` 仅保留废弃记录。
+- 不把待处理悄悄话、官方助手或系统消息混入动态私信会话行。
+- 本页不提供会话删除、全部已读、举报或拉黑操作。
 
 ---
 
-## 3. 筛选与搜索
+## 3. 字段表
 
-本页不提供搜索或类型筛选；“悄悄话申请”和“普通私信”通过顶部两个入口分流，官方小助手与系统消息不参与筛选。
+### 3.1 首页摘要
 
----
+| 字段 | 类型 | 中文说明 | 数据来源 |
+|------|------|----------|----------|
+| `whisperSummary.pendingCount` | long | 收到且仍为 pending、未过期的全部待处理悄悄话数，包含已曝光和未曝光 | `app_message_whisper` |
+| `whisperSummary.recentAvatarUrls` | string[] | 最近 3 个待处理申请人头像，按申请时间倒序 | 悄悄话 + 用户头像 |
+| `unreadSummary.privateUnreadCount` | long | 当前有效普通私信会话未读消息数，同时用于私信卡片 | `app_message_record.receiver_read_status` |
+| `likesMeSummary.totalCount` | long | 当前有效“喜欢我的”总数 | PRD-02 有效喜欢关系 |
+| `likesMeSummary.newCount` | long | 晚于 PRD-02 新喜欢游标的有效喜欢数 | PRD-02 喜欢游标 |
+| `likesMeSummary.latestAvatarUrl` | string/null | 最新有效喜欢人的头像 | PRD-02 喜欢关系 + 用户资料 |
+| `likesMeSummary.latestLikedTime` | datetime/null | 最新有效喜欢时间 | PRD-02 喜欢关系 |
+| `likesMeSummary.latestDisplayStatus` | enum/null | `clear/blur`，只控制头像样式 | VIP/单条解锁 |
+| `assistantSummary` | object | 官方助手未读、最新 50 字短摘要、最新时间 | 助手收件箱与消息主表 |
+| `systemSummary` | object | 系统消息未读、最新 50 字短摘要、最新时间 | 系统消息收件箱与消息主表 |
 
-## 4. 字段表
+### 3.2 私信会话行
 
-### 4.1 列表字段
-
-| 字段 ID | 显示名 | 类型 | 必填 | 取值范围 | 校验规则 | 默认值 | 可编辑 | 敏感级别 | 数据来源 |
-|---------|--------|------|------|----------|----------|--------|--------|----------|----------|
-| `APP-03-PAGE-message-list-FIELD-official-title` | 系统通知标题 | string | 是 | 1-20 字 | 服务端返回非空 | 系统通知 | 后台模板配置 | 普通 | `M03-CFG-notification-template-list` |
-| `APP-03-PAGE-message-list-FIELD-official-preview` | 系统通知摘要 | string | 否 | 0-50 字 | 超长省略 | 无 | 系统生成 | 普通 | 最新系统通知 |
-| `APP-03-PAGE-message-list-FIELD-official-time` | 系统通知时间 | datetime | 否 | datetime | 展示相对时间 | 无 | 不可编辑 | 普通 | 最新系统通知 |
-| `APP-03-PAGE-message-list-FIELD-target-avatar` | 对方头像 | image | 否 | URL | 私有图片 URL，失败展示默认头像 | 默认头像 | 不可编辑 | 普通 | 用户资料 |
-| `APP-03-PAGE-message-list-FIELD-target-nickname` | 对方昵称 | string | 是 | 1-20 字 | 敏感词已审核 | 无 | 用户资料编辑触发 | 普通 | PRD-01 用户资料 |
-| `APP-03-PAGE-message-list-FIELD-last-preview` | 最后消息 | string | 否 | 0-50 字 | 按消息类型生成摘要 | 无 | 系统生成 | 敏感，列表只展示摘要 | 消息记录 |
-| `APP-03-PAGE-message-list-FIELD-last-time` | 最后时间 | datetime | 否 | datetime | 刚刚/X 分钟前/昨天/日期 | 无 | 不可编辑 | 普通 | 消息记录 |
-| `APP-03-PAGE-message-list-FIELD-unread-count` | 未读数 | int | 是 | 0-99+ | 超过 99 展示 99+ | 0 | 系统计算 | 普通 | `message_unread_summary` |
-| `APP-03-PAGE-message-list-FIELD-conversation-status` | 会话状态 | enum | 是 | `M03-ENUM-conversation-status` | 仅展示中文状态 | `active` | 系统流转 | 普通 | `M03-SM-conversation` |
-
-#### 列表字段附加属性
-
-| 字段 ID | 展示位置 | 主次层级 | 点击行为 | 长按/左滑行为 | 溢出处理 |
-|---------|----------|----------|----------|----------------|----------|
-| `APP-03-PAGE-message-list-FIELD-last-time` | 会话行右上角 | 辅助信息 | 随整行点击进入会话 | 不单独响应 | 相对时间 |
-| `APP-03-PAGE-message-list-FIELD-last-preview` | 会话行昵称下方 | 次要信息 | 随整行点击进入会话 | 左滑由会话行整体承接；首版不提供删除 | 单行省略 |
-
-### 4.2 详情/表单字段
-
-本页不提供详情表单；点击列表进入对应会话或通知中心。
+| 字段 | 类型 | 中文说明 |
+|------|------|----------|
+| `conversationNo` | string | 平台会话编号 |
+| `peerUser` | object | 对方用户 ID、头像、昵称及主页是否可进入 |
+| `unreadCount` | long | 当前用户在该会话的未读接收消息数 |
+| `lastMessage.messageNo` | string/null | 平台最新消息编号，供平台已读接口使用 |
+| `lastMessage.messageType` | enum/null | `text/whisper_reply/system_tip` 等 |
+| `lastMessage.direction` | enum/null | `incoming/outgoing` |
+| `lastMessage.preview` | string/null | 最新消息单行短摘要，最多 50 个 Unicode 字符，不是聊天历史接口 |
+| `lastMessage.messageTime` | datetime/null | 最新消息时间 |
+| `lastMessage.sendStatus` | enum/null | `sending/sent/failed`；服务端列表通常投影已归档消息 |
 
 ---
 
-## 5. 操作表
+## 4. 查询与分页
 
-### 5.1 行级操作
-
-| 操作 ID | 操作名 | 触发条件 | 前置权限 | 二次确认 | 成功态 | 失败态 | 影响（副作用） |
-|---------|--------|----------|----------|----------|--------|--------|----------------|
-| `APP-03-PAGE-message-list-ACT-open-official` | 打开系统通知 | 系统通知卡片可见 | `GLB-ROLE-app-user` | 否 | 进入 `APP-03-PAGE-notification-center` | toast + `M03-ERR-notification-not-found` | 通知未读可在详情中置已读 |
-| `APP-03-PAGE-message-list-ACT-open-chat` | 打开会话 | 会话状态非无权限 | `GLB-ROLE-app-user` | 否 | 进入对应会话页 | 会话失效时进入只读态并提示 `M03-ERR-conversation-invalid` | 当前会话消息可置已读 |
-
-### 5.2 批量操作
-
-移动端本页不提供批量操作。
-
-### 5.3 页面级操作
-
-| 操作 ID | 操作名 | 位置 | 触发条件 | 前置权限 | 二次确认 | 成功态 | 失败态 |
-|---------|--------|------|----------|----------|----------|--------|--------|
-| `APP-03-PAGE-message-list-ACT-open-notification` | 通知 | 右上角 | 已登录 | `GLB-ROLE-app-user` | 否 | 进入通知中心 | 网络失败保留本页并提示重试 |
-| `APP-03-PAGE-message-list-ACT-go-auth` | 去认证 | 未认证空态 | 未完成三重认证 | `GLB-ROLE-app-user` | 否 | 跳转认证中心 | 认证中心不可用时 toast |
+- 首屏调用 `GET /miniapp/message/home?size=20`，一次返回摘要和首屏会话。
+- 加载更多优先调用 `GET /miniapp/message/conversations?cursor={nextCursor}&size=20`；也允许将同一游标传给首页接口。
+- `size` 默认 20，最大 50；客户端不得解析或自行生成游标。
+- 会话范围：当前用户是参与方且平台会话 `status=active`。
+- 排序：`lastMessageTime DESC, conversationId DESC`。
+- 每行最新摘要、发送状态和未读均来自平台消息主表；TIM 负责实时收发和漫游历史。
+- 首页和会话分页不查询 TIM 账号映射，也不要求 TIM 已登录；点击行后只携带 `conversationNo` 调用会话详情，再取得 `timConversationId、canEnterConversation、canSend、sendBlockedReason`。
 
 ---
 
-## 6. 数据联动规则
+## 5. 数据联动
 
-| 触发字段 | 触发事件 | 影响字段 | 联动行为 | 备注 |
-|----------|----------|----------|----------|------|
-| 认证状态 | 未完成三重认证 | 私信会话列表 | 不展示用户私信会话，展示认证引导 | `M03-RULE-message-tab-scope` |
-| 未读汇总 | 未读数变化 | Tab 红点、卡片红点 | 刷新未读展示，超过 99 展示 99+ | `M03-RULE-unread` |
-| 会话状态 | 变为 `invalid`/`blocked` | 会话行状态 | 展示不可聊天标识，点击进入只读会话 | `M03-SM-conversation` |
-
----
-
-## 7. 状态与异常
-
-| 状态类型 | 触发场景 | 页面表现 | 用户可做的操作 | 引用 |
-|----------|----------|----------|----------------|------|
-| 加载态 | 首次进入 | 骨架屏 | 等待 | 移动端通用态 |
-| 空态（无数据） | 无私信会话 | 文案 `M03-TXT-no-conversation-empty` | 去成家看看 | `M03-TXT-no-conversation-empty` |
-| 空态（未认证） | 未完成三重认证 | 私信区认证引导 | 去认证 | `APP-03-STATE-auth-guide` |
-| 错误态（网络） | 请求超时 | toast + 重试 | 重试 | 端专属层通用态 |
-| 无权限态 | 未登录 | 引导登录 | 登录 | `GLB-ROLE-visitor` |
-| 业务态-可聊天 | `active` | 正常会话行 | 进入会话 | `M03-SM-conversation` |
-| 业务态-失效 | `invalid`/`blocked` | 状态标识不可聊天 | 查看历史 | `M03-SM-conversation` |
-| 降级态 | 未读接口失败 | 会话列表正常，红点暂不展示 | 下拉刷新 | `M03-RULE-unread` |
+| 事件 | 首页变化 |
+|------|----------|
+| 收到新悄悄话 | 待处理数增加；若为未曝光记录，悄悄话未读同时增加 |
+| 悄悄话回复并匹配成功 | 该申请退出双方悄悄话默认列表；双方显示同一私信会话；原发送方新增回复未读 |
+| 收到普通私信 | 对应会话移到首位，更新最新摘要、时间和未读 |
+| 当前用户发送成功 | 更新对应会话最新摘要和时间，不增加本人未读 |
+| 进入会话并成功渲染 | TIM SDK 置已读，同时向平台提交 `lastMessage.messageNo` 推进平台未读 |
+| 关系拉黑、账号冻结/注销、认证失效 | 关系生命周期将会话改为 `blocked/invalid`，下次查询不返回 |
+| 仅临时发送受限 | 会话继续展示；点击后由会话详情返回 `canSend=false` 和原因 |
 
 ---
 
-## 8. 查询与列表
+## 6. 状态与异常
 
-- **默认排序**：最后消息时间倒序；系统通知卡片固定置顶
-- **分页**：默认 20 条
-- **分页方式**：下拉刷新 + 上滑加载更多
-- **列表轮询/实时刷新**：页面可见时 30 秒刷新未读汇总；消息实时通道由技术方案确认
-- **批量选择**：不支持
-- **列表为空时引导**：去成家看看
+| 状态 | 页面表现 |
+|------|----------|
+| 首次加载 | 摘要区和会话行骨架屏 |
+| 无私信会话 | 五类摘要仍展示，会话区显示“暂无私信” |
+| 加载更多失败 | 已有数据保留，列表底部提供重试 |
+| 受限安全态 | 不返回真人互动、悄悄话、喜欢和助手；仅展示必要安全系统消息与认证/申诉引导 |
+| 会话权限已变化 | 点击后服务端拒绝进入，刷新首页并移除失效会话 |
 
 ---
 
-## 9. 验收标准
+## 7. 验收标准
 
-| AC ID | 场景 | 类型 | 优先级 |
-|-------|------|------|--------|
-| `APP-03-AC-message-list-auth-guide` | 未认证用户进入消息列表只看到官方消息和认证引导 | 正常 | P0 |
-| `APP-03-AC-message-list-open-chat` | 匹配会话点击进入私信对话并置已读 | 正常 | P0 |
-| `APP-03-AC-message-list-unread` | 未读数超过 99 展示 99+ | 正常 | P1 |
+| AC ID | 场景 | 优先级 |
+|-------|------|--------|
+| `APP-03-AC-message-home-structure` | 双卡片、三类固定摘要和动态私信列表结构正确 | P0 |
+| `APP-03-AC-message-home-page` | 全部有效私信按稳定游标分页，无最近 3 条限制 | P0 |
+| `APP-03-AC-message-home-whisper-scope` | 待处理悄悄话只进卡片，不混入私信行 | P0 |
+| `APP-03-AC-message-home-unread` | 四类未读与总红点使用平台事实源 | P0 |
+| `APP-03-AC-message-home-restricted` | 受限用户不返回真人互动数据 | P0 |
 
 ```text
-AC-ID: APP-03-AC-message-list-auth-guide
-Given 用户已登录但未完成三重认证
-When  用户点击底部 Tab 消息
-Then  页面展示系统通知卡片，不展示用户私信会话，并展示 `M03-TXT-core-access-chat-block` 与去认证入口
+AC-ID: APP-03-AC-message-home-page
+Given 当前用户存在 35 条 active 普通私信会话，其中部分对方 TIM 账号尚未同步
+When 用户进入消息首页并连续使用 nextCursor 加载
+Then 服务端不查询 TIM 映射，按 lastMessageTime DESC, conversationId DESC 无重复、无跳项返回全部 35 条，不出现“查看全部”入口
+
+AC-ID: APP-03-AC-message-home-whisper-scope
+Given 当前用户收到 4 条有效 pending 悄悄话，其中 1 条未曝光
+When 用户进入消息首页
+Then whisperSummary.pendingCount=4，whisperUnreadCount=1，最近头像最多返回 3 个，4 条申请均不进入 conversationPage.list
 ```
 
 ---
 
-## 10. 关联
+## 8. 关联
 
-| 关联类型 | 引用 ID | 说明 |
-|----------|---------|------|
-| 依赖的模块规则 | `M03-RULE-message-tab-scope` | 消息 Tab 分层展示 |
-| 依赖的模块状态机 | `M03-SM-conversation` | 会话状态 |
-| 依赖的页面 | `APP-03-PAGE-private-chat` | 私信对话页 |
-| 依赖的页面 | `APP-03-PAGE-notification-center` | 通知中心 |
+| 关联类型 | 引用 |
+|----------|------|
+| 模块规则 | `M03-RULE-message-home-structure` |
+| 未读规则 | `M03-RULE-unread` |
+| 悄悄话迁移 | `M03-RULE-whisper-to-conversation` |
+| 私信对话页 | `APP-03-PAGE-private-chat` |
+| 喜欢我的 | PRD-02 `APP-02-PAGE-likes-me` |
+| 废弃页面 | `APP-03-PAGE-private-list` |

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.spacetime.common.entity.AppMessageRecord;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
@@ -96,4 +97,22 @@ public interface AppMessageRecordMapper extends BaseMapper<AppMessageRecord> {
                         @Param("receiverUserId") Long receiverUserId,
                         @Param("lastMessageId") Long lastMessageId,
                         @Param("readAt") LocalDateTime readAt);
+
+    @Update("UPDATE app_message_record SET receiver_read_status='read', receiver_read_at=#{readAt}, "
+            + "update_time=#{readAt} WHERE conversation_id=#{conversationId} "
+            + "AND receiver_user_id=#{receiverUserId} AND sender_user_id=#{senderUserId} "
+            + "AND sent_at<=#{lastReadTime} AND send_status='sent' "
+            + "AND receiver_read_status='unread' AND deleted=0")
+    int markReadThroughTime(@Param("conversationId") Long conversationId,
+                            @Param("receiverUserId") Long receiverUserId,
+                            @Param("senderUserId") Long senderUserId,
+                            @Param("lastReadTime") LocalDateTime lastReadTime,
+                            @Param("readAt") LocalDateTime readAt);
+
+    @Select("SELECT COUNT(1) FROM app_message_record WHERE conversation_id=#{conversationId} "
+            + "AND receiver_user_id=#{receiverUserId} AND sender_user_id<>#{receiverUserId} "
+            + "AND message_type IN ('text','whisper','whisper_reply') "
+            + "AND send_status='sent' AND content_text IS NOT NULL AND deleted=0")
+    long countReportableIncomingText(@Param("conversationId") Long conversationId,
+                                     @Param("receiverUserId") Long receiverUserId);
 }

@@ -28,6 +28,7 @@ import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.common.service.RelationDomainService;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
+import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MutualMatchPageVO;
 import com.spacetime.miniapp.dto.response.RecentViewersPageVO;
 import com.spacetime.miniapp.dto.response.RelationLikeActionVO;
@@ -68,6 +69,29 @@ class MiniappRelationServiceImplTest {
     @Mock private MiniappPresenceService presenceService;
 
     @InjectMocks private MiniappRelationServiceImpl service;
+
+    @Test
+    void likesMeSummaryUsesSameEffectiveRelationsReadCursorAndUnlockDisplay() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppRelationLike like = incomingLike(8L, 7L, "LIK-001");
+        RelationLikeListRow latest = likeRow(like);
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(likeDao.selectLatestIncomingLike(7L)).thenReturn(latest);
+        when(likeDao.selectOne(any())).thenReturn(like);
+        when(likeDao.count(any())).thenReturn(12L, 3L);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(inactiveAsset(7L));
+        when(auditContentService.publicAvatar(8L)).thenReturn("https://cdn.test/8.jpg");
+
+        LikesMeSummaryVO result = service.likesMeSummary(7L);
+
+        assertThat(result.getTotalCount()).isEqualTo(12L);
+        assertThat(result.getNewCount()).isEqualTo(3L);
+        assertThat(result.getLatestAvatarUrl()).isEqualTo("https://cdn.test/8.jpg");
+        assertThat(result.getLatestLikedTime()).isEqualTo(like.getLikedTime());
+        assertThat(result.getLatestDisplayStatus()).isEqualTo("blur");
+    }
 
     @Test
     void ordinaryLikesListReturnsTrueTotalAndCompleteProfileWithBlurDisplayStatus() {

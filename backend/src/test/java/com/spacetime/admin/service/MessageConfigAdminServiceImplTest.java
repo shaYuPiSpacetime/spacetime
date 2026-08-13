@@ -108,6 +108,29 @@ class MessageConfigAdminServiceImplTest {
         verifyNoInteractions(templateDao, operationLogDao);
     }
 
+    @Test
+    @DisplayName("模板行动文案渲染前也必须限制为最多十个字符")
+    void templateShouldRejectActionTextLongerThanTenCharacters() {
+        MessageTemplatePublishReq req = new MessageTemplatePublishReq();
+        req.setBizType("getting_started");
+        req.setNotificationType("assistant");
+        req.setTitleTemplate("欢迎使用消息中心");
+        req.setContentTemplate("查看消息中心使用帮助");
+        req.setCardType("action");
+        req.setContentFormat("plain_text");
+        req.setActionTextTemplate("一二三四五六七八九十十一");
+        req.setAllowedVariables(List.of());
+        req.setJumpType("help");
+        req.setJumpValueTemplate("chat-safety");
+        req.setSafetyRequired(true);
+        req.setRemark("验证行动文案长度和运行时限制保持一致");
+
+        assertThatThrownBy(() -> service().publishTemplate("assistant_getting_started", req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("行动文案不能超过10个字符");
+        verifyNoInteractions(templateDao, operationLogDao);
+    }
+
     private MessageConfigAdminServiceImpl service() {
         return new MessageConfigAdminServiceImpl(ruleDao, runtimeDao, templateDao,
                 operationLogDao, new ObjectMapper());

@@ -11,7 +11,9 @@ public class AssistantMessageItemVO {
     private String topicCode;
     private String title;
     private String content;
+    private String cardType;
     private String actionType;
+    private String actionText;
     private String actionValue;
     private String readStatus;
     private LocalDateTime createdTime;

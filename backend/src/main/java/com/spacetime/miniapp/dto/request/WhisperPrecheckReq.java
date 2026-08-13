@@ -12,9 +12,10 @@ public class WhisperPrecheckReq {
     @Pattern(regexp = "^USR-\\d{12}$", message = "目标用户编号格式不正确")
     private String targetUserNo;
 
-    /** 兼容旧客户端的来源业务编号；不参与发送资格判断。 */
-    private String sourcePostNo;
+    /** 来源场景：推荐、主页、社区动态、社区评论或反向申请。 */
+    @NotBlank(message = "来源场景不能为空")
+    private String sourceScene;
 
-    /** 兼容旧客户端的入口场景；推荐、主页和社区均可发起。 */
-    private String scene;
+    /** 来源业务编号；社区和反向申请场景必填。 */
+    private String sourceBizNo;
 }

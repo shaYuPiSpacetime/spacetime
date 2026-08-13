@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本15 | 2026-07-31 | Codex | 对齐 PRD-03 系统消息契约：资产结果统一调用 `M03-CMD-system-message-create`，站内消息投递失败不回滚资产交易，影响全部资产结果通知 |
 | 版本14 | 2026-07-16 | Codex | 对齐 PRD-02 单条解锁：两步确认、扣币前复验与幂等；对象失效前台移除且不自动退款，影响 APP-04-PAGE-paywall-modal |
 | 版本13 | 2026-07-15 | Codex | 隐藏访问/隐身权益调整为后续预留，一期不开发且后台不可启用，影响 APP-04-PAGE-vip-center、ADM-04-PAGE-commerce-config |
 | 版本12 | 2026-07-02 | Codex | 千寻币消费场景新增立业-职业推荐，消费场景扩展为 8 项，影响 `APP-04-PAGE-coin-recharge`、`APP-04-PAGE-paywall-modal`、`ADM-04-PAGE-commerce-config` |
@@ -333,7 +334,7 @@
 |---------|--------|------|------------|
 | `M04-SRV-wechat-pay` | 微信支付 | VIP 购买、千寻币充值 | 支付按钮置灰或提示稍后重试；不创建成功资产 |
 | `M04-SRV-wechat-subscription` | 微信连续订阅 | 连续订阅套餐真实自动续费扣款、订阅状态查询和取消续费承接 | 服务不可用时连续订阅套餐置灰，订阅管理页展示稍后重试或取消指引 |
-| `M04-SRV-notification` | 消息/通知中心 | 充值成功、余额变动、会员到期提醒 | 通知失败不阻塞资产入账，进入重试 |
+| PRD-03 `M03-CMD-system-message-create` | 系统消息创建命令 | 充值成功、余额变动、会员开通/续费/到期等资产结果，统一使用 `bizType=asset_result` | 命令失败不回滚已提交的订单或资产结果；按 `producerEventId + receiverUserId + bizType` 幂等重试 |
 
 ---
 
@@ -341,11 +342,11 @@
 
 | ID | 类型 | 触发时机 / 所属场景 | 渠道 | 内容/变量/默认文案 | 是否后台可配 |
 |----|------|---------------------|------|-------------------|-------------|
-| `M04-NTF-coin-recharge-success` | 通知 | 千寻币充值成功 | 站内信/订阅消息 | 千寻币已到账：{coinAmount} | 是 |
-| `M04-NTF-coin-changed` | 通知 | 千寻币消费/赠送/奖励/退款退回 | 站内信 | 千寻币变动：{changeAmount}，原因：{bizDesc} | 是 |
-| `M04-NTF-vip-opened` | 通知 | 会员开通或续费成功 | 站内信/订阅消息 | 会员已开通，有效期至 {vipExpireTime} | 是 |
-| `M04-NTF-vip-expire-remind` | 通知 | 会员到期前提醒，默认到期前 3 天，取 `M04-CFG-vip-expire-remind-days` | 站内信/订阅消息 | 会员即将到期，续费可继续享受权益 | 是 |
-| `M04-NTF-vip-expired` | 通知 | 会员已到期 | 站内信 | 会员已到期，相关权益已回退普通态 | 是 |
+| `M04-NTF-coin-recharge-success` | 通知 | 千寻币充值成功 | PRD-03 系统消息 `asset_result`；用户已授权时可并行发订阅消息 | 千寻币已到账：{coinAmount} | 是 |
+| `M04-NTF-coin-changed` | 通知 | 千寻币赠送、奖励、退款退回或需要用户关注的异常变动；普通逐笔消费不重复打扰 | PRD-03 系统消息 `asset_result` | 千寻币变动：{changeAmount}，原因：{bizDesc} | 是 |
+| `M04-NTF-vip-opened` | 通知 | 会员开通或续费成功 | PRD-03 系统消息 `asset_result`；用户已授权时可并行发订阅消息 | 会员已开通，有效期至 {vipExpireTime} | 是 |
+| `M04-NTF-vip-expire-remind` | 通知 | 会员到期前提醒，默认到期前 3 天，取 `M04-CFG-vip-expire-remind-days` | PRD-03 系统消息 `asset_result`；用户已授权时可并行发订阅消息 | 会员即将到期，续费可继续享受权益 | 是 |
+| `M04-NTF-vip-expired` | 通知 | 会员已到期 | PRD-03 系统消息 `asset_result` | 会员已到期，相关权益已回退普通态 | 是 |
 | `M04-EVT-payment-success` | 事件 | 支付成功回调处理完成 | 内部事件 | 刷新来源页权益/余额、订单列表与千寻币流水 | 否 |
 | `M04-EVT-vip-opened` | 事件 | 会员首次开通 | 内部事件 | 刷新会员权益并通知 PRD-07 首次会员奖励 | 否 |
 | `M04-EVT-vip-renewed` | 事件 | 会员续费 | 内部事件 | 延长有效期，不触发 PRD-07 首次会员奖励 | 否 |
@@ -355,6 +356,8 @@
 | `M04-TXT-core-access-purchase-tip` | 文案 | 未完成三重认证购买前/后提示 | APP | 完成三重认证后，相关社交权益才会实际生效 | 是 |
 | `M04-TXT-pay-cancelled` | 文案 | 支付取消 | APP | 支付已取消，资产未发生变化 | 是 |
 | `M04-TXT-balance-insufficient` | 文案 | 千寻币余额不足 | APP | 千寻币余额不足，请先充值 | 是 |
+
+> PRD-04 只产出事实事件和消息变量，不直接写 PRD-03 消息表。订单/资产事务提交后调用 `M03-CMD-system-message-create`；`producerEventId` 必须取不可变业务事件号。系统消息创建失败进入可观测重试与死信补偿，不得把已成功的支付、入账、退款或会员状态回滚。
 
 ---
 

@@ -9,6 +9,7 @@
 | 版本03 | 2026-07-20 | Codex | 移动端邀请规则改为 PRD-06 配置的 H5；PRD-07 继续作为邀请与奖励业务规则事实源（影响 `APP-07-PAGE-invite-rules`） |
 | 版本04 | 2026-07-27 | Codex | 以已确认 UI 稿重构普通用户邀请首页：移除首页二维码/邀请码，改为分享入口，展示全量阶梯与最近邀请；分享不可用时复制链接（影响 `APP-07-PAGE-invite-home`） |
 | 版本05 | 2026-07-27 | Codex | 固定普通邀请与推广员的“完成注册”奖励事件为开启且不可关闭，奖励金额仍可配置（影响 `ADM-07-PAGE-promo-rule-config`） |
+| 版本06 | 2026-07-31 | Codex | 对齐 PRD-03 系统消息契约：邀请奖励到账/最终失败统一使用 `invite_result` 全文消息，邀请业务交互仍归 PRD-07 |
 
 ---
 
@@ -102,10 +103,10 @@
 | 起始状态 | 事件 | 目标状态 | 前置条件 | 副作用 |
 |---|---|---|---|---|
 | 无 | 奖励事件或阶梯档位命中 | `pending` | 幂等键不存在 | 创建独立奖励流水 |
-| `pending` | 资产服务发放成功 | `success` | 写币流水成功 | 发送到账通知 |
+| `pending` | 资产服务发放成功 | `success` | 写币流水成功 | 提交成功后调用 PRD-03 创建到账系统消息 |
 | `pending` | 资产服务发放失败 | `failed` | 返回失败原因 | 保留失败原因和幂等键 |
-| `failed` | 技术补偿重试成功 | `success` | 使用原幂等键 | 写币流水，不重复发奖 |
-| `failed` | 技术补偿重试失败 | `failed` | — | 更新最近失败原因/时间 |
+| `failed` | 技术补偿重试成功 | `success` | 使用原幂等键 | 写币流水，不重复发奖；创建到账系统消息 |
+| `failed` | 技术补偿重试失败 | `failed` | — | 更新最近失败原因/时间；自动重试耗尽后创建最终失败系统消息 |
 
 补偿策略：首次失败后由系统按 5 分钟、30 分钟、2 小时三个时间点自动重试，最多 3 次；仍失败时保持 `failed`，记录最后失败原因和时间，并允许具备 `promotion:reward:retry` 权限的人员在奖励流水页手工重试。手工重试继续复用原幂等键，不创建新奖励单。
 
@@ -227,19 +228,19 @@
 
 ## 7. 通知与文案
 
-以下短文案和通知模板统一由全局“运营中心 → 文案与消息中心”（`ADM-GLB-PAGE-copy-message-center`）承接；邀请规则完整 H5 由 PRD-06 `invite_rules` 配置承接。PRD-07 不新增 H5 编辑页，业务金额、阶梯人数仍以 PRD-07 已发布规则为准。
+以下短文案和通知模板统一由全局“运营中心 → 文案与消息中心”（`ADM-GLB-PAGE-copy-message-center`）承接；邀请规则完整 H5 由 PRD-06 `invite_rules` 配置承接。PRD-07 不新增 H5 编辑页，业务金额、阶梯人数仍以 PRD-07 已发布规则为准。邀请结果消息在奖励事务提交后调用 PRD-03 `M03-CMD-system-message-create`，统一使用 `bizType=invite_result`；消息失败不回滚发奖，按 `producerEventId + receiverUserId + bizType` 幂等重试。
 
-| ID | 默认文案/用途 |
-|---|---|
-| `M07-NTF-invite-reward-arrive` | 邀请奖励已发放 |
-| `M07-NTF-invite-ladder-arrive` | 达成累计 {count} 人，额外奖励 {amount} 已发放 |
-| `M07-NTF-invite-reward-failed` | 奖励发放暂未成功，系统将保留记录 |
-| `M07-TXT-invite-entry` | 推荐给好友 |
-| `M07-TXT-invite-entry-sub` | 免费获得千寻币 |
-| `M07-TXT-invite-home-title` | 邀请好友得千寻币 |
-| `M07-TXT-invite-home-subtitle` | 好友完成注册，邀请即成功 |
-| `M07-TXT-invite-share-fallback` | 邀请链接已复制，请发送给好友 |
-| `M07-TXT-invite-ladder-desc` | 阶梯为命中累计人数档位时的一次性额外奖励 |
+| ID | PRD-03 类型 | 跳转 | 默认文案/用途 |
+|---|---|---|---|
+| `M07-NTF-invite-reward-arrive` | `invite_result` | `invite_center` | 邀请奖励已发放 |
+| `M07-NTF-invite-ladder-arrive` | `invite_result` | `invite_center` | 达成累计 {count} 人，额外奖励 {amount} 已发放 |
+| `M07-NTF-invite-reward-failed` | `invite_result` | `invite_center` | 奖励发放暂未成功，系统将保留记录 |
+| `M07-TXT-invite-entry` | — | — | 推荐给好友 |
+| `M07-TXT-invite-entry-sub` | — | — | 免费获得千寻币 |
+| `M07-TXT-invite-home-title` | — | — | 邀请好友得千寻币 |
+| `M07-TXT-invite-home-subtitle` | — | — | 好友完成注册，邀请即成功 |
+| `M07-TXT-invite-share-fallback` | — | — | 邀请链接已复制，请发送给好友 |
+| `M07-TXT-invite-ladder-desc` | — | — | 阶梯为命中累计人数档位时的一次性额外奖励 |
 
 旧冻结/无效通知与文案全部 `[已废弃]`。
 

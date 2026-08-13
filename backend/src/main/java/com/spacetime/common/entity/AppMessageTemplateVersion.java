@@ -19,6 +19,9 @@ public class AppMessageTemplateVersion extends BaseEntity {
     private Integer activeMarker;
     private String titleTemplate;
     private String contentTemplate;
+    private String cardType;
+    private String contentFormat;
+    private String actionTextTemplate;
     private String allowedVariablesJson;
     private String jumpType;
     private String jumpValueTemplate;

@@ -10,6 +10,6 @@ import java.util.List;
 public interface MessageAdminQueryDao {
     List<MessageAdminRecordProjection> selectPage(MessageAdminRecordFilter filter, int offset, int limit);
     long count(MessageAdminRecordFilter filter);
-    MessageAdminRecordStatsProjection stats(MessageAdminRecordFilter filter);
+    MessageAdminRecordStatsProjection stats();
     MessageAdminRecordProjection selectByRecordNo(String recordNo);
 }

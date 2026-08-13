@@ -16,6 +16,9 @@ public class MessageTemplateVO {
     private Boolean current;
     private String titleTemplate;
     private String contentTemplate;
+    private String cardType;
+    private String contentFormat;
+    private String actionTextTemplate;
     private List<String> allowedVariables;
     private String jumpType;
     private String jumpValueTemplate;

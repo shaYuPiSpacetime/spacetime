@@ -2,14 +2,11 @@ package com.spacetime.common.model.message;
 
 import lombok.Data;
 
-/** 后台消息元数据统计投影。 */
+/** 后台消息记录页固定业务口径统计投影。 */
 @Data
 public class MessageAdminRecordStatsProjection {
-    private Long totalCount;
-    private Long privateMessageCount;
-    private Long whisperMessageCount;
+    private Long todayPrivateMessageCount;
+    private Long waitingWhisperCount;
     private Long systemMessageCount;
-    private Long assistantMessageCount;
-    private Long failedCount;
     private Long caseLinkedCount;
 }

@@ -21,6 +21,10 @@ public class AppMessageWhisper extends BaseEntity {
     private Long receiverUserId;
     private Long userLowId;
     private Long userHighId;
+    /** recommendation-推荐，profile-主页，community_post-社区动态，community_comment-社区评论，whisper_reverse-反向申请。 */
+    private String sourceScene;
+    /** 来源帖子、评论或原悄悄话业务编号。 */
+    private String sourceBizNo;
     /** @see MessageWhisperStatusEnum */
     private String status;
     private Integer activeMarker;
@@ -41,6 +45,10 @@ public class AppMessageWhisper extends BaseEntity {
     private LocalDateTime cooldownUntil;
     private LocalDateTime deliveredAt;
     private LocalDateTime receiverReadAt;
+    /** 接收方在小程序端逻辑隐藏时间；不改变业务状态和后台事实。 */
+    private LocalDateTime receiverHiddenAt;
+    /** single-单条隐藏，bucket-分组全部隐藏。 */
+    private String receiverHideType;
     private LocalDateTime repliedAt;
     private String invalidReason;
     private LocalDateTime invalidTime;

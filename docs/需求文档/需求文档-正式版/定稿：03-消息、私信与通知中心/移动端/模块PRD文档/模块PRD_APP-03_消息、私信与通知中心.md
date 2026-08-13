@@ -5,6 +5,10 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本13 | 2026-08-07 | Codex | 日常私信、悄悄话申请与回复的完整明文同步归档至消息主表；移动端仍从 TIM 展示正文，平台普通接口不返回归档正文 |
+| 版本12 | 2026-08-07 | Codex | 明确平台与 TIM 均不做本期日常消息内容审核，并按有效业务会话汇总私信未读 |
+| 版本11 | 2026-08-06 | Codex | 确认普通私信与悄悄话均通过腾讯云 TIM 收发，移除平台发送前文本内容审核 |
+| 版本10 | 2026-08-06 | Codex | 确认悄悄话回复后的状态迁移：双方申请列表移除，唯一私信会话承接原申请、回复和后续消息；不建设已完成申请列表 |
 | 版本09 | 2026-07-31 | Codex | 补齐举报双通道路由、聊天内容直达举报、失效历史可举报和统一组件复用口径 |
 | 版本08 | 2026-07-16 | Codex | 对齐 PRD-02：有效关系允许进入会话，女性保护仅通过 canSend/protectStatus 限制发送 |
 | 版本07 | 2026-07-13 | Codex | 修正匹配前实体关系；补私信列表与悄悄话详情独立页；未回复到期自动进入 7 天冷却，移除前台暂不回应 |
@@ -17,7 +21,7 @@
 
 ## 1. 模块目标
 
-移动端 PRD-03 承接悄悄话申请、匹配成功后的普通私信、官方小助手和系统消息，让用户从“申请认识”进入安全、可控、可追溯的互动链路。
+移动端 PRD-03 承接悄悄话申请、匹配成功后的普通私信、官方小助手和系统消息；普通私信与悄悄话通过腾讯云 TIM 收发，平台后端负责业务准入、扣费、状态、举报和映射，让用户从“申请认识”进入可控、可追溯的互动链路。
 
 **用户故事：** 作为已登录用户，我想在消息 Tab 中查看官方消息、通知和可聊天对象，并在满足匹配与安全规则后发送私信或回复悄悄话，以便完成从关系反馈到真实互动的闭环。
 
@@ -48,7 +52,7 @@
   2. 后端校验双方均满足 `M01-RULE-core-access`、账号正常、未拉黑、`M02-SM-mutual-match=matched`
   3. 创建或打开 `M03-SM-conversation=active` 会话
   4. 用户进入 `APP-03-PAGE-private-chat`
-  5. PRD-03 返回 `canSend`、`protectStatus`；若未命中女性保护机制，底部输入框可发送文本消息
+  5. PRD-03 返回 `canSend`、`protectStatus`；若允许发送，小程序通过 TIM SDK 发送文本消息，TIM 消息前回调再次校验平台业务权限
 异常：
   - 未匹配成功：提示相互喜欢后才能聊天
   - 男方命中女性保护：仍进入会话，输入框置灰，等待女方先发送真实消息
@@ -63,24 +67,24 @@
 正常路径：
   1. 按 `M03-RULE-contact-entry-routing` 校验关系；已匹配直接进入普通私信，未匹配进入悄悄话流程
   2. 校验登录、三重认证、账号、处罚、拉黑、重复待回应和到期冷却；任一失败均不进入扣费
-  3. 发送方填写 1～60 字内容并通过内容安全检测
+  3. 发送方填写 1～60 字内容；平台只校验长度、发送资格和业务规则，平台与 TIM 均不做本期日常消息发送前文本内容审核
   4. 展示免费次数或千寻币消耗；用户确认后进入 `M03-SM-whisper-payment=paying`
-  5. 权益核销/扣费与消息创建均成功后写入 `M03-SM-whisper=pending`，接收方在消息中心收到悄悄话卡片
-  6. 接收方从“申请我的”列表进入详情，可直接回复；不单独提供“暂不回应”按钮，未处理状态到期后自动结束
-  7. 接收方回复：原子完成回复落库、`M03-EVT-whisper-replied`、PRD-02 `whisper_reply` 匹配和普通私信会话创建
-  8. 发送满 7 天未回复：后台定时任务或延迟队列自动转 `expired`，并从到期时间起进入 7 天冷却；列表弱化展示“申请已结束”
-  9. 原接收方在过期详情点击“申请认识”时，反向新建一条悄悄话并重新执行权益校验与付费
+  5. 权益核销/扣费、业务记录创建和 TIM 自定义消息有效投递后写入 `M03-SM-whisper=pending`，接收方在消息中心收到悄悄话卡片
+  6. 接收方从“申请我的”列表进入详情，可直接回复；不单独提供“暂不回应”按钮
+  7. 接收方回复：平台按 `whisperId + requestId` 幂等编排 `pending -> replied`、PRD-02 `whisper_reply` 匹配创建/复用、唯一普通私信会话创建/复用，并通过 TIM 投递回复；原悄悄话和回复作为该 TIM 会话的开场上下文
+  8. 事务成功后，该申请立即退出双方“申请我的/我申请的”默认列表；双方私信列表出现同一会话，原发送方新增 1 条回复未读；一期不建设已完成申请列表
+  9. 发送满 7 天未回复：后台定时任务或延迟队列自动转 `expired`，退出双方默认列表，并从到期时间起进入 7 天冷却
 异常：
   - 存在同对象待回复悄悄话：不允许重复发送
   - 存在同对象待回复申请：打开原申请详情，不重复展示付费入口
   - 余额不足：唤起 PRD-04 充值引导
-  - 内容安全失败、资格失效：不扣费、不创建悄悄话
-  - 已扣费但消息创建失败、未有效送达或平台主动下架：进入 `refunding` 并原路补回权益
+  - 资格失效：不扣费、不创建悄悄话
+  - 已扣费但业务记录创建失败、TIM 未有效投递或平台主动下架：进入 `refunding` 并原路补回权益
   - 任一方拉黑、处罚或账号异常：状态转 `invalid`，发送方不看到具体原因
-发送方等待态：
+双方待回复态：
   - 在“我申请的”列表查看申请记录和弱化状态
   - 不可编辑、撤回、补发、连续追问，不展示对方已读
-出口：回复后进入普通私信；超时/取消/失效后本次结束；原接收方可反向发起新悄悄话
+出口：回复后只进入普通私信；超时/失效后本次结束，后续重新申请必须从用户发现/主页入口重新执行资格校验
 ```
 
 ### 3.3 官方小助手与系统消息流程
@@ -107,7 +111,7 @@
 正常路径：
   1. 页面按 `M03-RULE-report-handoff` 判断当前用户是否可举报
   2. 打开 `APP-05-PAGE-report-modal`，按对象类型展示举报原因
-  3. 用户点击原因后直接提交，聊天来源仅携带 `M03-RULE-report-context` 白名单业务编号
+  3. 用户点击原因后直接调用 PRD-05 平台举报接口，聊天来源仅携带 `M03-RULE-report-context` 允许的业务编号与 TIM 定位编号；不通过 TIM 发送举报
   4. PRD-05 统一生成举报工单并按 `M05-RULE-report-idempotency` 去重
   5. 后台统一举报处理完成后，由 PRD-03 生成处理结果通知
 异常：
@@ -124,9 +128,9 @@
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
-| 私信会话 | `message_conversation` | 匹配成功后创建的普通私信会话 | 03 | conversationNo, userAId, userBId, matchNo, status, lastMessageTime |
-| 私信消息记录 | `message_record` | 私信会话内文本与系统提示 | 03 | messageNo, conversationNo, senderUserId, receiverUserId, messageType, sendStatus |
-| 悄悄话申请 | `message_whisper` | 匹配前独立申请；回复后才创建匹配和私信会话 | 03/04 | whisperNo, senderUserId, receiverUserId, status, payType, expireTime, cooldownExpireTime |
+| 私信会话 | `message_conversation` | 平台会话状态及腾讯云 TIM 会话映射；实际消息会话、历史与未读由 TIM 承接 | 03 | conversationNo, timConversationId, userAId, userBId, matchNo, status, lastMessageTime |
+| 消息主表 | `app_message_record` | 保存平台消息编号、TIM messageId/MsgKey、类型、发送方、状态和完整明文 `contentText`；作为平台归档副本，不作为第二套消息传输，普通移动端接口不返回正文列 | 03 | messageNo, timMessageId, timMsgKey, conversationNo, senderUserId, receiverUserId, messageType, contentText, sendStatus |
+| 悄悄话申请 | `message_whisper` | 匹配前业务申请，通过 TIM 自定义消息投递；申请和回复正文分别写消息主表，本表只保存业务状态及两条消息外键；回复后状态迁移并关联唯一匹配与 TIM 会话 | 03/04 | whisperNo, senderUserId, receiverUserId, status, payType, expireTime, cooldownExpireTime, matchNo, conversationNo, requestMessageNo, replyMessageNo |
 | 官方/系统消息 | `message_official_feed` | 官方小助手和系统消息全文记录 | 03 | feedNo, userId, channelType, title, content, readStatus, actionType |
 | 未读汇总 | `message_unread_summary` | 消息 Tab 红点和分组未读 | 03 | userId, privateUnreadCount, whisperUnreadCount, assistantUnreadCount, systemUnreadCount |
 
@@ -157,10 +161,10 @@
 
 | 需求 ID | 能力 | 优先级 | 关联页面 ID | 备注 |
 |---------|------|--------|-------------|------|
-| `APP-03-RULE-message-list` | 消息首页、悄悄话申请入口、私信入口、官方小助手、系统消息和未读红点 | P0 | `APP-03-PAGE-message-list` | 对齐蓝湖 |
+| `APP-03-RULE-message-list` | 消息首页双入口卡片、喜欢我的人/官方小助手/系统消息摘要、全部有效私信游标分页和未读红点 | P0 | `APP-03-PAGE-message-list` | 首页直接承接完整私信列表 |
 | `APP-03-RULE-official-assistant` | 首次功能介绍、安全提示、帮助与服务号/公众号关注引导 | P0 | `APP-03-PAGE-official-assistant` | 低频、不可回复、不推审核结果 |
-| `APP-03-RULE-private-chat` | 私信列表、匹配成功后文本私信、已读、历史分页、发送失败 | P0 | `APP-03-PAGE-private-list`、`APP-03-PAGE-private-chat` | 普通私信只在匹配后开放 |
-| `APP-03-RULE-whisper` | 申请我的/我申请的列表、付费发起、回复匹配、到期冷却与删除 | P0 | `APP-03-PAGE-whisper-message`、`APP-03-PAGE-whisper-detail` | 扣费引用 PRD-04 |
+| `APP-03-RULE-private-chat` | 消息首页私信分页、匹配成功后文本私信、已读、历史分页、发送失败 | P0 | `APP-03-PAGE-message-list`、`APP-03-PAGE-private-chat` | 普通私信只在匹配后开放 |
+| `APP-03-RULE-whisper` | 申请我的/我申请的 pending 列表、付费发起、回复匹配、状态迁移和到期冷却；不建设已完成列表或用户删除 | P0 | `APP-03-PAGE-whisper-message`、`APP-03-PAGE-whisper-detail`、`APP-03-PAGE-message-list`、`APP-03-PAGE-private-chat` | 扣费引用 PRD-04 |
 | `APP-03-RULE-system-message` | 系统消息全文消息流 | P0 | `APP-03-PAGE-notification-center` | 无筛选、无全部已读、无独立详情页 |
 | `APP-03-RULE-profile-safety-entry` | 点击聊天头像进入个人主页后举报用户资料/账号或拉黑 | P0 | `APP-03-PAGE-private-chat`、`APP-03-PAGE-whisper-detail` | 用户举报与内容举报分流 |
 | `APP-03-RULE-chat-report-entry` | 私信/悄悄话详情直接举报聊天内容并复用统一举报组件 | P0 | `APP-03-PAGE-private-chat`、`APP-03-PAGE-whisper-detail`、`APP-05-PAGE-report-modal` | `targetType=chat`，引用 `M03-RULE-report-handoff` |
@@ -200,7 +204,7 @@
 | 页面 ID | 页面名 | 页面规格路径 | 对应一期页面 | 优先级 |
 |---------|--------|--------------|--------------|--------|
 | `APP-03-PAGE-message-list` | 消息列表页 | `../页面规格/APP-01_消息列表页.md` | MVP-PAGE-033 | P0 |
-| `APP-03-PAGE-private-list` | 私信列表页 | `../页面规格/APP-09_私信列表页.md` | 蓝湖“私信” | P0 |
+| `APP-03-PAGE-private-list` | 私信列表页（已合并废弃） | `../页面规格/APP-09_私信列表页.md` | - | - |
 | `APP-03-PAGE-private-chat` | 私信对话页 | `../页面规格/APP-02_私信对话页.md` | MVP-PAGE-034 | P0 |
 | `APP-03-PAGE-official-assistant` | 官方助手聊天页 | `../页面规格/APP-03_官方助手聊天页.md` | MVP-PAGE-035 | P0 |
 | `APP-03-PAGE-whisper-message` | 悄悄话消息页 | `../页面规格/APP-05_悄悄话消息页.md` | MVP-PAGE-037 | P0 |
@@ -216,9 +220,9 @@
 | 场景 | 要求 |
 |------|------|
 | 私信/悄悄话 | 必须服务端校验核心准入、匹配状态、拉黑、处罚、女性保护，不依赖前端控制 |
-| 消息内容 | 文本内容入库前需走内容安全检测；违规进入举报/审核联动 |
+| 消息内容 | 平台自建审核和 TIM 云端审核均不做本期日常消息发送前文本内容审核；普通私信和悄悄话通过 TIM 收发。举报不走 TIM，用户点击举报后调用 PRD-05 平台接口创建工单；TIM 消息编号仅用于定位被举报消息和固化必要证据 |
 | 聊天内容举报 | 服务端必须校验登录、账号未冻结、当前用户为参与方、目标存在且有对方可举报内容；历史失效/过期但仍可见时允许举报；拒绝本人内容、官方助手和系统消息 |
-| 举报上下文 | 客户端仅传 `conversationNo/whisperNo/messageNo` 白名单业务编号；被举报用户和必要正文必须由服务端反查，禁止信任客户端拼接 |
+| 举报上下文 | 客户端仅传 `conversationNo/whisperNo/messageNo` 及 `timConversationId/timMessageId/timMsgKey` 白名单定位编号；被举报用户和必要正文必须由服务端校验映射后反查，禁止信任客户端拼接；举报提交不经过 TIM |
 | 官方/系统消息 | 只能查看属于当前用户的消息流 |
 | 历史消息 | 用户侧只可查看自己参与的会话 |
 
@@ -271,12 +275,12 @@ Then  输入框置灰，展示 `M03-TXT-female-protection-block`，发送接口�
 AC-ID: APP-03-AC-whisper-reply-match
 Given 接收方收到状态为 `pending` 的悄悄话
 When  接收方点击回复并发送成功
-Then  回复落库、悄悄话变为 `replied`、PRD-02 生成 `whisper_reply` 匹配和普通私信会话创建原子完成；该回复视为真实用户消息，不再触发女性保护禁发
+Then  回复落库、悄悄话变为 `replied`、PRD-02 生成/复用 `whisper_reply` 匹配和唯一普通私信会话原子完成；申请退出双方默认列表，私信历史依次保留原悄悄话与回复，原发送方新增 1 条未读；该回复视为真实用户消息，不再触发女性保护禁发
 
 AC-ID: APP-03-AC-whisper-expire-cooldown
 Given 接收方收到状态为 `pending` 的悄悄话
 When  连续 7 天未回复且后台到期任务执行
-Then  状态幂等变为 `expired`，双方不匹配且费用不退；从到期时间起进入 7 天冷却，移动端只弱化展示“申请已结束”
+Then  状态幂等变为 `expired`，双方不匹配且费用不退；从到期时间起进入 7 天冷却，记录退出双方默认列表；旧缓存或合法历史详情只显示“申请已结束”
 
 AC-ID: APP-03-AC-system-message-fulltext
 Given 用户已登录并位于消息首页
