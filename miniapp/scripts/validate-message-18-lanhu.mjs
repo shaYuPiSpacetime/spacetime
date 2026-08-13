@@ -1,6 +1,7 @@
 /* eslint-env node */
 
 import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,6 +27,9 @@ for (const page of requiredPages) {
 const appConfig = read('src/app.config.ts')
 const runtime = requiredPages.map(read).join('\n')
 const sceneRegistry = read('src/mocks/message/designScenes.ts')
+const chat = read('src/pages/chat/index.tsx')
+const ossIcons = read('src/constants/ossIcons.ts')
+const ossUploader = read('scripts/upload-miniapp-oss-icons.mjs')
 
 for (const route of ['whisper-list', 'whisper-detail', 'private-list', 'private-chat', 'channel', 'report']) {
   assert.match(appConfig, new RegExp(`['"]${route}['"]`), `消息分包必须注册 ${route}`)
@@ -79,13 +83,57 @@ assert.doesNotMatch(runtime, /opacity\s*:\s*0(?:[;,}]|\b)/, '禁止透明点击�
 assert.doesNotMatch(runtime, /backgroundImage[^\n]*(?:reference|screenshot|design|lanhu)/i, '禁止整页设计图背景')
 assert.match(
   read('src/pages/chat/index.tsx'),
-  /id="message-home-private-art"[\s\S]{0,300}top: designRpx\(18\)[\s\S]{0,120}width: designRpx\(111\)[\s\S]{0,120}height: designRpx\(140\)/,
-  '私信复合插画必须使用当前蓝湖版本的 111×140rpx 切图及 18rpx 顶部偏移'
-)
-assert.match(
-  read('src/pages/chat/index.tsx'),
   /height: designRpx\(158\),[\s\S]{0,100}margin: `\$\{designRpx\(6\)\} auto 0`/,
   '消息入口卡片必须位于蓝湖 y=182rpx，不能整体下移 8rpx'
 )
+
+const privateCardBackgroundPath = path.join(rootDir, 'src/assets/lanhu/message/home-private-card-bg.png')
+assert.equal(fs.existsSync(privateCardBackgroundPath), true, '消息首页缺少用户指定的私信卡片背景源文件')
+if (fs.existsSync(privateCardBackgroundPath)) {
+  const backgroundBytes = fs.readFileSync(privateCardBackgroundPath)
+  assert.equal(backgroundBytes.readUInt32BE(16), 680, '私信卡片背景源文件宽度必须保持 680px（2x）')
+  assert.equal(backgroundBytes.readUInt32BE(20), 316, '私信卡片背景源文件高度必须保持 316px（2x）')
+}
+assert.match(ossUploader, /messageHomePrivateCardBackground:\s*'src\/assets\/lanhu\/message\/home-private-card-bg\.png'/, '私信卡片背景必须接入无损 OSS 上传清单')
+assert.match(ossIcons, /messageHomePrivateCardBackground:\s*'https:\/\//, '私信卡片背景必须使用上传后的 OSS 公网地址')
+assert.match(
+  chat,
+  /data-role="message-home-private-background"[\s\S]{0,160}src=\{miniappOssIcons\.messageHomePrivateCardBackground\}[\s\S]{0,100}mode="aspectFill"[\s\S]{0,220}width: designRpx\(340\)[\s\S]{0,100}height: designRpx\(158\)/,
+  '消息首页私信入口必须以 340×158rpx 真实背景图承载用户指定素材'
+)
+assert.match(chat, /id="message-home-private-entry"[\s\S]{0,120}onClick=/, '私信卡片必须保留独立真实点击入口')
+assert.match(
+  chat,
+  /data-role="message-home-private-background"[\s\S]{0,340}pointerEvents: 'none'/,
+  '私信背景仅承载视觉，不得拦截整卡点击事件'
+)
+assert.doesNotMatch(chat, /src=\{miniappOssIcons\.messageHomePrivateBubbleArt\}/, '私信入口不得继续叠加旧气泡插画')
+
+const whisperCardBackgroundPath = path.join(rootDir, 'src/assets/lanhu/message/home-whisper-card-bg.png')
+assert.equal(fs.existsSync(whisperCardBackgroundPath), true, '消息首页缺少用户指定的悄悄话卡片背景源文件')
+if (fs.existsSync(whisperCardBackgroundPath)) {
+  const backgroundBytes = fs.readFileSync(whisperCardBackgroundPath)
+  assert.equal(backgroundBytes.readUInt32BE(16), 680, '悄悄话卡片背景源文件宽度必须保持 680px（2x）')
+  assert.equal(backgroundBytes.readUInt32BE(20), 316, '悄悄话卡片背景源文件高度必须保持 316px（2x）')
+  assert.equal(
+    crypto.createHash('sha256').update(backgroundBytes).digest('hex'),
+    '1e609a1f5efb8e8e514d254f04533a05aa072cda3680088093e99f7d4ffa484c',
+    '悄悄话卡片背景必须与用户提供的原始 PNG 字节一致'
+  )
+}
+assert.match(ossUploader, /messageHomeWhisperCardBackground:\s*'src\/assets\/lanhu\/message\/home-whisper-card-bg\.png'/, '悄悄话卡片背景必须接入无损 OSS 上传清单')
+assert.match(ossIcons, /messageHomeWhisperCardBackground:\s*'https:\/\//, '悄悄话卡片背景必须使用上传后的 OSS 公网地址')
+assert.match(
+  chat,
+  /data-role="message-home-whisper-background"[\s\S]{0,180}src=\{miniappOssIcons\.messageHomeWhisperCardBackground\}[\s\S]{0,100}mode="aspectFill"[\s\S]{0,220}width: designRpx\(340\)[\s\S]{0,100}height: designRpx\(158\)/,
+  '消息首页悄悄话入口必须以 340×158rpx 真实背景图承载用户指定素材'
+)
+assert.match(chat, /id="message-home-whisper-entry"[\s\S]{0,120}onClick=/, '悄悄话卡片必须保留独立真实点击入口')
+assert.match(
+  chat,
+  /data-role="message-home-whisper-background"[\s\S]{0,340}pointerEvents: 'none'/,
+  '悄悄话背景仅承载视觉，不得拦截整卡点击事件'
+)
+assert.doesNotMatch(chat, /src=\{miniappOssIcons\.messageHomeYoArt\}/, '悄悄话入口不得继续叠加旧 YO 插画')
 
 console.log('消息 18 稿路由、状态、举报链路与静态安全门禁通过')

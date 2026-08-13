@@ -74,10 +74,10 @@ assert.match(topicDetail, /Taro\.showActionSheet/, '话题动态更多菜单必�
 assert.match(topicDetail, /Taro\.previewImage/, '话题动态图片必须支持原图预览')
 assert.match(topicDetail, /qianxun-topic-post-more-/, '话题动态更多入口必须有稳定运行态标识')
 
-assert.match(chat, /data-role="message-home-yo-art"/, '悄悄话入口图标缺少稳定运行态标识')
-assert.match(chat, /data-role="message-home-private-art"/, '私信入口图标缺少稳定运行态标识')
-assert.doesNotMatch(chat, /messageHomeYoArt[\s\S]{0,120}mode="scaleToFill"/, '悄悄话插画禁止拉伸变形')
-assert.doesNotMatch(chat, /messageHomePrivateBubbleArt[\s\S]{0,120}mode="scaleToFill"/, '私信插画禁止拉伸变形')
+assert.match(chat, /data-role="message-home-whisper-background"/, '悄悄话入口背景缺少稳定运行态标识')
+assert.match(chat, /data-role="message-home-private-background"/, '私信入口背景缺少稳定运行态标识')
+assert.doesNotMatch(chat, /messageHomeWhisperCardBackground[\s\S]{0,120}mode="scaleToFill"/, '悄悄话背景禁止拉伸变形')
+assert.doesNotMatch(chat, /messageHomePrivateCardBackground[\s\S]{0,120}mode="scaleToFill"/, '私信背景禁止拉伸变形')
 assert.doesNotMatch(interactions, /pages\/heart\/user\?id=/, '千寻互动查看主页必须使用 userId 参数')
 
 for (const source of [family, spotlight, topicList, topicDetail, compose, interactions]) {

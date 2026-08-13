@@ -31,10 +31,12 @@ const scenesToCapture = requestedIds.length
   ? scenes.filter(([designId]) => requestedIds.includes(designId))
   : scenes
 const [width, height] = (process.env.MESSAGE_VIEWPORT || '375x812').split('x').map(Number)
-const outputDir = path.resolve(
-  __dirname,
-  `../../docs/验收报告/截图证据/2026-07-14-消息18稿/H5运行-${width}x${height}`
-)
+const outputDir = process.env.MESSAGE_CAPTURE_OUTPUT_DIR
+  ? path.resolve(process.env.MESSAGE_CAPTURE_OUTPUT_DIR)
+  : path.resolve(
+      __dirname,
+      `../../docs/验收报告/截图证据/2026-07-14-消息18稿/H5运行-${width}x${height}`
+    )
 
 ;(async () => {
   fs.mkdirSync(outputDir, { recursive: true })
@@ -45,6 +47,9 @@ const outputDir = path.resolve(
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
+  await page.addInitScript(token => {
+    localStorage.setItem('token', JSON.stringify({ data: token }))
+  }, 'dev-fixed-token-17366629764')
 
   for (const [designId, route, name] of scenesToCapture) {
     await page.goto(`http://127.0.0.1:10087/#${route}`, { waitUntil: 'networkidle' })

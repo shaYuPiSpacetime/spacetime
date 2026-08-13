@@ -41,12 +41,34 @@
       "sha256": "87043feb823adcc5ae1678ee806a611ebcedc86ccbd1870698d266bc645ae8a7"
     },
     {
+      "file": "home-whisper-card-bg.png",
+      "purpose": "消息首页悄悄话入口完整无文案背景",
+      "source": "用户提供原始 PNG",
+      "pixelWidth": 680,
+      "pixelHeight": 316,
+      "runtimeWidthRpx": 340,
+      "runtimeHeightRpx": 158,
+      "cropPolicy": "原始字节上传，不缩放、不裁切、不转换格式、不压缩",
+      "sha256": "1e609a1f5efb8e8e514d254f04533a05aa072cda3680088093e99f7d4ffa484c"
+    },
+    {
       "file": "home-private-bubble-art.png",
       "purpose": "首页私信气泡标识",
       "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
       "sourceFile": "626cd513-消息.png",
       "crop": { "x": 1228, "y": 400, "width": 222, "height": 280 },
       "sha256": "fbc931ac9426c0f765c8ddc587aeab6a7a5c927a1fe5c6c8b21e495e97c99bcc"
+    },
+    {
+      "file": "home-private-card-bg.png",
+      "purpose": "消息首页私信入口完整无文案背景",
+      "source": "用户提供原始 PNG",
+      "pixelWidth": 680,
+      "pixelHeight": 316,
+      "runtimeWidthRpx": 340,
+      "runtimeHeightRpx": 158,
+      "cropPolicy": "原始字节上传，不缩放、不裁切、不转换格式、不压缩",
+      "sha256": "61f35677170f82465ab6d10eb6395e2f51bd22bf9966710b520b1035e54ffffc"
     },
     {
       "file": "icon-assistant.png",

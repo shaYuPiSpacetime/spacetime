@@ -177,6 +177,8 @@ function MessageEntrances() {
       }}
     >
       <View
+        id="message-home-whisper-entry"
+        data-role="message-home-whisper-entry"
         onClick={() =>
           Taro.navigateTo({ url: '/pages/message/whisper-list?mockScene=whisper-received' })
         }
@@ -189,6 +191,21 @@ function MessageEntrances() {
           background: '#E3F1FE',
         }}
       >
+        <Image
+          id="message-home-whisper-background"
+          data-role="message-home-whisper-background"
+          src={miniappOssIcons.messageHomeWhisperCardBackground}
+          mode="aspectFill"
+          style={{
+            position: 'absolute',
+            zIndex: 1,
+            left: 0,
+            top: 0,
+            width: designRpx(340),
+            height: designRpx(158),
+            pointerEvents: 'none',
+          }}
+        />
         <Text
           style={{
             position: 'absolute',
@@ -215,20 +232,10 @@ function MessageEntrances() {
             height: designRpx(55),
           }}
         />
-        <Image
-          data-role="message-home-yo-art"
-          src={miniappOssIcons.messageHomeYoArt}
-          mode="aspectFit"
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: 0,
-            width: designRpx(150),
-            height: designRpx(140),
-          }}
-        />
       </View>
       <View
+        id="message-home-private-entry"
+        data-role="message-home-private-entry"
         onClick={() =>
           Taro.navigateTo({ url: '/pages/message/private-list?mockScene=private-list' })
         }
@@ -241,6 +248,21 @@ function MessageEntrances() {
           background: '#FDEAD9',
         }}
       >
+        <Image
+          id="message-home-private-background"
+          data-role="message-home-private-background"
+          src={miniappOssIcons.messageHomePrivateCardBackground}
+          mode="aspectFill"
+          style={{
+            position: 'absolute',
+            zIndex: 1,
+            left: 0,
+            top: 0,
+            width: designRpx(340),
+            height: designRpx(158),
+            pointerEvents: 'none',
+          }}
+        />
         <Text
           style={{
             position: 'absolute',
@@ -269,19 +291,6 @@ function MessageEntrances() {
         >
           有个小秘密只告诉你
         </Text>
-        <Image
-          id="message-home-private-art"
-          data-role="message-home-private-art"
-          src={miniappOssIcons.messageHomePrivateBubbleArt}
-          mode="aspectFit"
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: designRpx(18),
-            width: designRpx(111),
-            height: designRpx(140),
-          }}
-        />
       </View>
     </View>
   )
