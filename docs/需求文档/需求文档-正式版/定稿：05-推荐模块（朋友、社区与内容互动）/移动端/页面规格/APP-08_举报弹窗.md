@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本05 | 2026-08-07 | Codex | 对齐 PRD-03 TIM 举报定位编号白名单，明确客户端不提交正文或被举报用户 ID |
 | 版本04 | 2026-07-31 | Codex | 扩展为社区、用户、私信和悄悄话统一举报组件，补齐聊天上下文、参与方校验和不可举报状态 |
 | 版本01 | 2026-07-06 | Codex | 创建页面规格 |
 | 版本02 | 2026-07-07 | Codex | 按移动端 Demo 审查明确举报原因多选和重复举报提示 |
@@ -92,7 +93,7 @@
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
 | `APP-05-PAGE-report-modal-FIELD-target-type` | 举报对象类型 | enum | 是 | `M05-ENUM-report-target-type` | 由入口传入 | 无 | 否 | 普通 | 来源页面 |
 | `APP-05-PAGE-report-modal-FIELD-target-id` | 举报对象 | string | 是 | 业务编号 | 记录必须存在且当前用户有查看权；已失效/过期聊天历史仍对参与方可见时视为有查看权 | 无 | 否 | 普通 | 来源页面 |
-| `APP-05-PAGE-report-modal-FIELD-context` | 来源上下文 | json | `targetType=chat` 时必填 | `M05-RULE-report-target-context` | 仅允许 `sourceType/conversationNo/whisperNo/messageNo`；用户/帖子/评论举报不传该字段 | 无 | 否 | 敏感 | 来源页面 |
+| `APP-05-PAGE-report-modal-FIELD-context` | 来源上下文 | json | `targetType=chat` 时必填 | `M05-RULE-report-target-context` | 仅允许 `sourceType/conversationNo/whisperNo/messageNo/timConversationId/timMessageId/timMsgKey`；不得提交用户 ID 或正文；用户/帖子/评论举报不传该字段 | 无 | 否 | 敏感 | 来源页面 |
 | `APP-05-PAGE-report-modal-FIELD-reason` | 举报原因 | enum | 是 | `M05-CFG-report-reason-dict` | 必须为当前 targetType 启用原因；chat 再按 sourceType 过滤 | 无 | 点击前可选择 | 普通 | 后台配置 |
 
 ## 5. 操作表
@@ -167,7 +168,7 @@ Then  不新增举报记录，关闭弹窗并复用通用 toast 提示已提交�
 AC-ID: APP-05-AC-report-chat-context
 Given PRD-03 私信或悄悄话详情已按参与关系和内容归属展示举报入口
 When  用户选择举报原因
-Then  私信以 `targetType=chat`、`targetId=conversationNo` 并携带 `sourceType=private_chat/conversationNo` 提交；悄悄话以 `targetType=chat`、`targetId=whisperNo` 并携带 `sourceType=whisper/whisperNo` 提交；明确指定对方消息时可附带 `messageNo`，服务端反查正文和被举报用户
+Then  私信以 `targetType=chat`、`targetId=conversationNo` 并携带 `sourceType=private_chat/conversationNo` 提交；悄悄话以 `targetType=chat`、`targetId=whisperNo` 并携带 `sourceType=whisper/whisperNo` 提交；明确指定对方消息时可附带平台 `messageNo` 和/或 TIM `timConversationId/timMessageId/timMsgKey` 定位编号，服务端校验映射后反查正文和被举报用户；客户端不得提交用户 ID 或正文
 ```
 
 ```

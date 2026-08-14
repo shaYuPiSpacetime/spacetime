@@ -34,6 +34,8 @@ import FeedbackPage from '@/pages/user-security/FeedbackPage';
 import CancelRequestPage from '@/pages/user-security/CancelRequestPage';
 import FinanceManagement from '@/pages/finance/FinanceManagement';
 import CommercialManagement from '@/pages/commercial/CommercialManagement';
+import MessageRecordPage from '@/pages/message/MessageRecordPage';
+import MessageConfigPage from '@/pages/message/MessageConfigPage';
 
 export default function AppRouter() {
   return (
@@ -77,6 +79,8 @@ export default function AppRouter() {
         <Route path="operation/search-block-words" element={<SearchBlockWordPage />} />
         <Route path="content/search-block-words" element={<Navigate to="/operation/search-block-words" replace />} />
         <Route path="content/operation-logs" element={<ContentOperationLogPage />} />
+        <Route path="operation/message-records" element={<MessageRecordPage />} />
+        <Route path="mobile-config/message-social" element={<MessageConfigPage />} />
 
         {/* Community Management */}
         <Route path="community/content" element={<CommunityPostManagementPage variant="content" />} />

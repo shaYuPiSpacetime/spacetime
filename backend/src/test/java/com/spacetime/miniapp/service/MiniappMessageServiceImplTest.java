@@ -25,7 +25,6 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.MessageDomainService;
 import com.spacetime.common.service.MessageAnnouncementHydrationService;
 import com.spacetime.common.service.MessageNotificationDomainService;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.AssistantMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.ConversationBlockReq;
@@ -33,6 +32,7 @@ import com.spacetime.miniapp.dto.request.MessageReadReq;
 import com.spacetime.miniapp.dto.request.SystemMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReplyReq;
+import com.spacetime.miniapp.dto.request.WhisperHideAllReq;
 import com.spacetime.miniapp.dto.response.MessageConversationDetailVO;
 import com.spacetime.miniapp.dto.response.MessageConversationPageVO;
 import com.spacetime.miniapp.dto.response.MessageWhisperDetailVO;
@@ -40,6 +40,7 @@ import com.spacetime.miniapp.dto.response.MessageWhisperPageVO;
 import com.spacetime.miniapp.dto.response.AssistantMessagePageVO;
 import com.spacetime.miniapp.dto.response.ConversationBlockVO;
 import com.spacetime.miniapp.dto.response.MessageHomeVO;
+import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MessageReadBatchVO;
 import com.spacetime.miniapp.dto.response.MessageReadVO;
 import com.spacetime.miniapp.dto.response.MessageUnreadSummaryVO;
@@ -61,8 +62,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("移动端悄悄话状态与 TIM 会话映射查询")
@@ -82,7 +85,7 @@ class MiniappMessageServiceImplTest {
     @Mock private MessageNotificationDomainService notificationDomainService;
     @Mock private RelationAccessProjectionService accessProjectionService;
     @Mock private MiniappSettingService settingService;
-    @Mock private SensitiveTextCipher sensitiveTextCipher;
+    @Mock private MiniappRelationService relationService;
 
     private MiniappMessageServiceImpl service;
     private LocalDateTime now;
@@ -94,34 +97,85 @@ class MiniappMessageServiceImplTest {
                 imAccountDao, assistantMessageDao, systemMessageDao, auditContentService,
                 messageDomainService, notificationDomainService, announcementHydrationService,
                 accessProjectionService,
-                settingService, sensitiveTextCipher);
+                settingService, relationService);
         now = LocalDateTime.of(2026, 8, 10, 12, 0);
     }
 
     @Test
-    @DisplayName("悄悄话列表只返回待处理状态和消息主表中的 TIM 映射，不返回正文")
-    void whisperListShouldExposeTimMappingWithoutBody() {
+    @DisplayName("悄悄话列表只返回业务投影，不依赖 TIM 账号和消息映射")
+    void whisperListShouldExposeBusinessProjectionWithoutTimDependency() {
         AppMessageWhisper whisper = pendingWhisper();
-        AppMessageRecord request = requestMessage();
-        when(whisperDao.selectPending(eq(2L), eq("received"), eq(null), eq(21), any()))
+        when(whisperDao.selectVisible(eq(2L), eq("received"), eq("pending"),
+                eq(null), eq(21), any()))
                 .thenReturn(List.of(whisper));
-        when(recordDao.selectByIds(List.of(31L))).thenReturn(List.of(request));
+        when(whisperDao.countVisible(eq(2L), eq("received"), eq("pending"), any()))
+                .thenReturn(1L);
         when(appUserDao.selectByIds(List.of(1L))).thenReturn(List.of(user(1L, "小星")));
-        when(imAccountDao.selectByUserIds(List.of(1L))).thenReturn(List.of(imAccount(1L, "tu_peer_1")));
         when(auditContentService.publicAvatars(any())).thenReturn(Map.of(1L, "avatar-1"));
 
         MessageWhisperPageVO result = service.whispers(2L, "received", null, 20);
 
         assertThat(result.getList()).hasSize(1);
-        assertThat(result.getList().getFirst().getRequestTimMessageId()).isEqualTo("TIM-ID-1");
-        assertThat(result.getList().getFirst().getRequestTimMsgKey()).isEqualTo("TIM-KEY-1");
-        assertThat(result.getList().getFirst().getTimConversationId()).isEqualTo("C2C_tu_peer_1");
+        assertThat(result.getBucket()).isEqualTo("pending");
+        assertThat(result.getTotalCount()).isEqualTo(1L);
         assertThat(result.getList().getFirst().getCanReply()).isTrue();
+        verifyNoInteractions(imAccountDao);
     }
 
     @Test
-    @DisplayName("悄悄话详情从申请和回复消息外键组装 TIM 映射，不返回正文")
-    void whisperDetailShouldResolveBothTimMappingsFromMessageRecords() {
+    @DisplayName("申请我的已处理区返回终态并使用独立分组游标")
+    void receivedProcessedShouldUseIndependentBucket() {
+        AppMessageWhisper replied = pendingWhisper();
+        replied.setStatus(MessageWhisperStatusEnum.REPLIED.getCode());
+        replied.setRepliedAt(now.minusMinutes(5));
+        when(whisperDao.selectVisible(eq(2L), eq("received"), eq("processed"),
+                eq(null), eq(21), any())).thenReturn(List.of(replied));
+        when(whisperDao.countVisible(eq(2L), eq("received"), eq("processed"), any()))
+                .thenReturn(1L);
+        when(appUserDao.selectByIds(List.of(1L))).thenReturn(List.of(user(1L, "小星")));
+        when(auditContentService.publicAvatars(any())).thenReturn(Map.of(1L, "avatar-1"));
+
+        MessageWhisperPageVO result = service.whispers(
+                2L, "received", "processed", null, 20);
+
+        assertThat(result.getBucket()).isEqualTo("processed");
+        assertThat(result.getList().getFirst().getStatus()).isEqualTo("replied");
+        assertThat(result.getList().getFirst().getDisplayStatus()).isEqualTo("已回复并匹配");
+    }
+
+    @Test
+    @DisplayName("接收方删除只写可见性事实，不修改悄悄话业务状态")
+    void receiverHideShouldOnlyChangeVisibilityProjection() {
+        AppMessageWhisper whisper = pendingWhisper();
+        when(whisperDao.selectByWhisperNo("WSP-1")).thenReturn(whisper);
+        when(whisperDao.hideByReceiver(eq(2L), eq("WSP-1"), eq("single"), any()))
+                .thenReturn(1);
+
+        var result = service.hideWhisper(2L, "WSP-1");
+
+        assertThat(result.getHiddenCount()).isEqualTo(1);
+        assertThat(result.getBucket()).isEqualTo("pending");
+        assertThat(whisper.getStatus()).isEqualTo("pending");
+        verify(whisperDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("申请我的支持按当前分组全部逻辑隐藏")
+    void receiverCanHideCurrentBucket() {
+        WhisperHideAllReq req = new WhisperHideAllReq();
+        req.setBucket("processed");
+        when(whisperDao.hideBucketByReceiver(eq(2L), eq("processed"), eq("bucket"), any()))
+                .thenReturn(6);
+
+        var result = service.hideReceivedWhispers(2L, req);
+
+        assertThat(result.getBucket()).isEqualTo("processed");
+        assertThat(result.getHiddenCount()).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("悄悄话详情从消息主表返回正文和业务动作，不暴露 TIM 原始编号")
+    void whisperDetailShouldExposeBodyAndBusinessActions() {
         AppMessageWhisper replied = pendingWhisper();
         replied.setStatus(MessageWhisperStatusEnum.REPLIED.getCode());
         replied.setActiveMarker(null);
@@ -130,22 +184,23 @@ class MiniappMessageServiceImplTest {
         AppMessageRecord request = requestMessage();
         AppMessageRecord reply = replyMessage();
         when(whisperDao.selectByWhisperNo("WSP-1")).thenReturn(replied);
-        when(recordDao.selectByIds(List.of(31L, 32L))).thenReturn(List.of(request, reply));
+        when(recordDao.selectById(31L)).thenReturn(request);
         when(appUserDao.selectById(1L)).thenReturn(user(1L, "小星"));
-        when(imAccountDao.selectByUserId(1L)).thenReturn(imAccount(1L, "tu_peer_1"));
         when(auditContentService.publicAvatar(1L)).thenReturn("avatar-1");
 
         MessageWhisperDetailVO result = service.whisperDetail(2L, "WSP-1");
 
-        assertThat(result.getRequestTimMessageId()).isEqualTo("TIM-ID-1");
-        assertThat(result.getReplyMessageNo()).isEqualTo("MSG-REPLY-1");
-        assertThat(result.getReplyTimMessageId()).isEqualTo("TIM-ID-2");
+        assertThat(result.getContent()).isEqualTo(request.getContentText());
+        assertThat(result.getContentAvailable()).isTrue();
+        assertThat(result.getRequestMessageNo()).isEqualTo("MSG-REQUEST-1");
+        assertThat(result.getActions().getCanEnterConversation()).isTrue();
         assertThat(result.getConversationNo()).isEqualTo("CV-1");
     }
 
     @Test
     @DisplayName("回复接口直接把原始正文交给领域编排，不做内容审核或本地加密")
     void replyShouldDelegatePlaintextToDomainOrchestrator() {
+        when(whisperDao.selectByWhisperNo("WSP-1")).thenReturn(pendingWhisper());
         WhisperReplyReq req = new WhisperReplyReq();
         req.setRequestId("reply-001");
         req.setContent("  我也想认识你  ");
@@ -158,41 +213,54 @@ class MiniappMessageServiceImplTest {
         WhisperReplyVO result = service.replyWhisper(2L, "WSP-1", req);
 
         assertThat(result.getConversationNo()).isEqualTo("CV-1");
-        assertThat(result.getReplyTimMessageId()).isEqualTo("TIM-ID-2");
-        assertThat(result.getReplyTimMsgKey()).isEqualTo("TIM-KEY-2");
+        assertThat(result.getReplyMessageNo()).isEqualTo("MSG-REPLY-1");
         verify(messageDomainService).replyWhisper(
                 eq(2L), eq("WSP-1"), eq("reply-001"), eq("我也想认识你"), any());
     }
 
     @Test
-    @DisplayName("会话列表仅返回业务白名单与 TIM 映射，不返回本地未读和最后正文")
-    void conversationListShouldReturnBusinessMappingOnly() {
+    @DisplayName("会话列表返回最新消息摘要发送状态和当前用户未读数")
+    void conversationListShouldReturnLatestMessageProjection() {
         AppMessageConversation conversation = conversation();
+        conversation.setLastMessageId(41L);
         AppMessageConversationMember member = member();
+        AppMessageRecord latest = new AppMessageRecord();
+        latest.setId(41L);
+        latest.setMessageNo("MSG-41");
+        latest.setConversationId(30L);
+        latest.setSenderUserId(1L);
+        latest.setReceiverUserId(2L);
+        latest.setMessageType("text");
+        latest.setContentText("周末有空一起吃饭吗？");
+        latest.setSendStatus("sent");
+        latest.setSentAt(now.minusMinutes(1));
         when(conversationDao.selectActiveByUser(1L, null, null, 21))
                 .thenReturn(List.of(conversation));
         when(memberDao.selectByUserAndConversations(1L, List.of(30L)))
                 .thenReturn(List.of(member));
+        when(recordDao.selectByIds(List.of(41L))).thenReturn(List.of(latest));
+        when(recordDao.countUnreadByConversation(30L, 1L)).thenReturn(2L);
         when(appUserDao.selectByIds(List.of(2L))).thenReturn(List.of(user(2L, "小月")));
-        when(imAccountDao.selectByUserIds(List.of(2L))).thenReturn(List.of(imAccount(2L, "tu_peer_2")));
         when(auditContentService.publicAvatars(any())).thenReturn(Map.of(2L, "avatar-2"));
 
         MessageConversationPageVO result = service.conversations(1L, null, 20);
 
         assertThat(result.getList()).hasSize(1);
-        assertThat(result.getList().getFirst().getTimConversationId()).isEqualTo("C2C_tu_peer_2");
-        assertThat(result.getList().getFirst().getCanSend()).isTrue();
-        assertThat(result.getList().getFirst().getLastBusinessActivityTime())
-                .isEqualTo(conversation.getLastMessageTime());
+        assertThat(result.getList().getFirst())
+                .extracting("unreadCount", "lastMessage.messageNo", "lastMessage.direction",
+                        "lastMessage.preview", "lastMessage.sendStatus")
+                .containsExactly(2L, "MSG-41", "outgoing", "周末有空一起吃饭吗？", "sent");
+        verify(imAccountDao, never()).selectByUserIds(any());
         verify(recordDao, never()).selectHistory(any(), any(), any(Integer.class));
     }
 
     @Test
-    @DisplayName("会话详情不查询聊天历史，普通消息历史和已读由 LiteChat SDK 承接")
+    @DisplayName("会话详情不查询聊天历史，普通消息历史和已读由腾讯云 TIM SDK 承接")
     void conversationDetailShouldNotReadPlatformMessageHistory() {
         AppMessageConversation conversation = conversation();
         when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
         when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(recordDao.existsReportableIncomingText(30L, 1L)).thenReturn(true);
         when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
         when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount(2L, "tu_peer_2"));
         when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
@@ -200,9 +268,43 @@ class MiniappMessageServiceImplTest {
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
         assertThat(result.getTimConversationId()).isEqualTo("C2C_tu_peer_2");
+        assertThat(result.getAccessMode()).isEqualTo("normal");
         assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getCanReportChat()).isTrue();
+        assertThat(result.getReportContext())
+                .extracting("sourceType", "conversationNo", "timConversationId")
+                .containsExactly("private_chat", "CV-1", "C2C_tu_peer_2");
+        assertThat(result.getSafetyActions())
+                .containsExactly("report_chat", "block", "block_and_report");
         assertThat(result.getFemaleProtection().getEnabled()).isFalse();
         verify(recordDao, never()).selectHistory(any(), any(), any(Integer.class));
+    }
+
+    @Test
+    @DisplayName("失效会话仅以安全只读模式开放历史和举报定位")
+    void invalidConversationShouldReturnSafetyReadonlyContract() {
+        AppMessageConversation conversation = conversation();
+        conversation.setStatus(MessageConversationStatusEnum.INVALID.getCode());
+        conversation.setInvalidReason("account_invalid");
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(recordDao.existsReportableIncomingText(30L, 1L)).thenReturn(true);
+
+        MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
+
+        assertThat(result.getAccessMode()).isEqualTo("safety_readonly");
+        assertThat(result.getCanEnterConversation()).isFalse();
+        assertThat(result.getCanSend()).isFalse();
+        assertThat(result.getSendBlockedReason()).isEqualTo("conversation_invalid");
+        assertThat(result.getCanReportChat()).isTrue();
+        assertThat(result.getSafetyActions()).containsExactly("report_chat");
+        assertThat(result.getPeerUser().getProfileAvailable()).isFalse();
+        assertThat(result.getPeerUser().getNickname()).isEqualTo("用户已不可互动");
+        assertThat(result.getPeerUser().getAvatarUrl()).isNull();
+        assertThat(result.getTimConversationId()).isNull();
+        assertThat(result.getReportContext().getTimConversationId()).isNull();
+        verifyNoInteractions(appUserDao, auditContentService);
+        verify(imAccountDao).selectByUserId(2L);
     }
 
     @Test
@@ -224,6 +326,30 @@ class MiniappMessageServiceImplTest {
         assertThat(result.getCanSend()).isFalse();
         assertThat(result.getSendBlockedReason()).isEqualTo("female_protection");
         assertThat(result.getFemaleProtection().getWaitingForFemaleFirstMessage()).isTrue();
+        assertThat(result.getFemaleProtection().getProtectionUntil())
+                .isEqualTo(conversation.getProtectionUntil());
+    }
+
+    @Test
+    @DisplayName("女性保护已开启但截止时间缺失时按保守策略禁止男方先发消息")
+    void femaleProtectionWithoutDeadlineShouldStillDisableMaleSend() {
+        AppMessageConversation conversation = conversation();
+        conversation.setProtectionEnabled(1);
+        conversation.setFemaleUserId(2L);
+        conversation.setMaleUserId(1L);
+        conversation.setProtectionUntil(null);
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount(2L, "tu_peer_2"));
+        when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+
+        MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
+
+        assertThat(result.getCanSend()).isFalse();
+        assertThat(result.getSendBlockedReason()).isEqualTo("female_protection");
+        assertThat(result.getFemaleProtection().getWaitingForFemaleFirstMessage()).isTrue();
+        assertThat(result.getFemaleProtection().getProtectionUntil()).isNull();
     }
 
     @Test
@@ -234,6 +360,7 @@ class MiniappMessageServiceImplTest {
         lastMessage.setId(41L);
         lastMessage.setMessageNo("MSG-41");
         lastMessage.setConversationId(30L);
+        lastMessage.setSentAt(now);
         MessageReadReq req = new MessageReadReq();
         req.setLastMessageNo("MSG-41");
         when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
@@ -245,12 +372,43 @@ class MiniappMessageServiceImplTest {
 
         assertThat(result.getLastReadMessageNo()).isEqualTo("MSG-41");
         assertThat(result.getUnreadCount()).isEqualTo(2);
-        verify(recordDao).markReadThrough(eq(30L), eq(1L), eq(41L), any());
+        var ordered = inOrder(memberDao, recordDao);
+        ordered.verify(memberDao).advanceReadWatermark(eq(30L), eq(1L), eq(now), any());
+        ordered.verify(recordDao).markReadThrough(eq(30L), eq(1L), eq(41L), any());
     }
 
     @Test
-    @DisplayName("消息首页汇总四类消息未读并只返回最近三条有效会话")
-    void homeShouldReturnPlatformSummaryAndThreeRecentConversations() {
+    @DisplayName("私信已读确认可使用TIM消息标识定位平台归档消息")
+    void conversationReadShouldResolveTimMessageLocator() {
+        AppMessageConversation conversation = conversation();
+        AppMessageRecord lastMessage = new AppMessageRecord();
+        lastMessage.setId(42L);
+        lastMessage.setMessageNo("MSG-42");
+        lastMessage.setConversationId(30L);
+        lastMessage.setTimMessageId("TIM-42");
+        lastMessage.setTimMsgKey("KEY-42");
+        lastMessage.setSentAt(now);
+        MessageReadReq req = new MessageReadReq();
+        req.setTimMessageId("TIM-42");
+        req.setTimMsgKey("KEY-42");
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(recordDao.selectByConversationAndTimLocator(30L, "TIM-42", "KEY-42"))
+                .thenReturn(lastMessage);
+        when(recordDao.countUnreadByConversation(30L, 1L)).thenReturn(0L);
+
+        MessageReadVO result = service.readConversation(1L, "CV-1", req);
+
+        assertThat(result.getLastReadMessageNo()).isEqualTo("MSG-42");
+        verify(recordDao).markReadThrough(30L, 1L, 42L, result.getReadAt());
+    }
+
+    @Test
+    @DisplayName("消息首页提供游标分页并返回五类摘要和首屏私信会话")
+    void homeShouldReturnSummariesAndConversationPage() {
+        assertThat(List.of(MiniappMessageService.class.getMethods()))
+                .anyMatch(method -> method.getName().equals("home")
+                        && method.getParameterCount() == 3);
         AppUser current = user(1L, "当前用户");
         when(appUserDao.selectById(1L)).thenReturn(current);
         when(accessProjectionService.project(current)).thenReturn("OPEN");
@@ -258,31 +416,37 @@ class MiniappMessageServiceImplTest {
         when(recordDao.countUnreadByReceiver(1L)).thenReturn(5L);
         when(assistantMessageDao.countUnreadVisible(eq(1L), any())).thenReturn(3L);
         when(systemMessageDao.countUnreadVisible(eq(1L), any(), eq(false))).thenReturn(4L);
-        when(conversationDao.selectActiveByUser(1L, null, null, 4))
+        when(conversationDao.selectActiveByUser(1L, null, null, 21))
                 .thenReturn(List.of(conversation(30L, "CV-1", 2L),
                         conversation(31L, "CV-2", 3L),
                         conversation(32L, "CV-3", 4L),
                         conversation(33L, "CV-4", 5L)));
-        when(memberDao.selectByUserAndConversations(1L, List.of(30L, 31L, 32L)))
+        when(memberDao.selectByUserAndConversations(1L, List.of(30L, 31L, 32L, 33L)))
                 .thenReturn(List.of(member(30L, "CV-1", 2L), member(31L, "CV-2", 3L),
-                        member(32L, "CV-3", 4L)));
-        when(appUserDao.selectByIds(List.of(2L, 3L, 4L)))
-                .thenReturn(List.of(user(2L, "用户2"), user(3L, "用户3"), user(4L, "用户4")));
-        when(imAccountDao.selectByUserIds(List.of(2L, 3L, 4L)))
-                .thenReturn(List.of(imAccount(2L, "tu_2"), imAccount(3L, "tu_3"),
-                        imAccount(4L, "tu_4")));
+                        member(32L, "CV-3", 4L), member(33L, "CV-4", 5L)));
+        when(appUserDao.selectByIds(List.of(2L, 3L, 4L, 5L)))
+                .thenReturn(List.of(user(2L, "用户2"), user(3L, "用户3"), user(4L, "用户4"),
+                        user(5L, "用户5")));
         when(auditContentService.publicAvatars(any())).thenReturn(Map.of());
+        when(whisperDao.selectPending(eq(1L), eq("received"), eq(null), eq(3), any()))
+                .thenReturn(List.of());
+        when(whisperDao.countPending(eq(1L), any())).thenReturn(7L);
+        when(assistantMessageDao.selectVisible(eq(1L), eq(null), eq(1), any()))
+                .thenReturn(List.of());
+        when(systemMessageDao.selectVisible(eq(1L), eq(null), eq(1), any(), eq(false)))
+                .thenReturn(List.of());
+        when(relationService.likesMeSummary(1L)).thenReturn(new LikesMeSummaryVO());
 
         MessageHomeVO result = service.home(1L);
 
         assertThat(result.getAccessMode()).isEqualTo("normal");
-        assertThat(result.getPlatformUnreadSummary().getPlatformUnreadCount()).isEqualTo(9L);
-        assertThat(result.getPlatformUnreadSummary().getPrivateUnreadCount()).isEqualTo(5L);
-        assertThat(result.getPlatformUnreadSummary().getMessageUnreadCount()).isEqualTo(14L);
-        assertThat(result.getRecentConversationBindings()).hasSize(3);
-        assertThat(result.getHasMoreConversations()).isTrue();
-        assertThat(result.getFixedEntries()).extracting("entryType")
-                .containsExactly("official_assistant", "system_message", "whisper");
+        assertThat(result).extracting("unreadSummary.messageUnreadCount")
+                .isEqualTo(14L);
+        assertThat(result).extracting("whisperSummary", "likesMeSummary",
+                        "assistantSummary", "systemSummary", "conversationPage")
+                .doesNotContainNull();
+        assertThat(result.getWhisperSummary().getPendingCount()).isEqualTo(7L);
+        verify(imAccountDao, never()).selectByUserIds(any());
     }
 
     @Test
@@ -292,17 +456,18 @@ class MiniappMessageServiceImplTest {
         when(appUserDao.selectById(1L)).thenReturn(current);
         when(accessProjectionService.project(current)).thenReturn("ABNORMAL");
         when(systemMessageDao.countUnreadVisible(eq(1L), any(), eq(true))).thenReturn(2L);
+        when(systemMessageDao.selectVisible(eq(1L), eq(null), eq(1), any(), eq(true)))
+                .thenReturn(List.of());
 
         MessageHomeVO result = service.home(1L);
 
         assertThat(result.getAccessMode()).isEqualTo("restricted");
-        assertThat(result.getPlatformUnreadSummary().getWhisperUnreadCount()).isZero();
-        assertThat(result.getPlatformUnreadSummary().getPrivateUnreadCount()).isZero();
-        assertThat(result.getPlatformUnreadSummary().getAssistantUnreadCount()).isZero();
-        assertThat(result.getPlatformUnreadSummary().getSystemUnreadCount()).isEqualTo(2L);
-        assertThat(result.getRecentConversationBindings()).isEmpty();
-        assertThat(result.getFixedEntries()).extracting("entryType")
-                .containsExactly("system_message");
+        assertThat(result.getUnreadSummary().getWhisperUnreadCount()).isZero();
+        assertThat(result.getUnreadSummary().getPrivateUnreadCount()).isZero();
+        assertThat(result.getUnreadSummary().getAssistantUnreadCount()).isZero();
+        assertThat(result.getUnreadSummary().getSystemUnreadCount()).isEqualTo(2L);
+        assertThat(result.getConversationPage().getList()).isEmpty();
+        assertThat(result.getSystemSummary().getUnreadCount()).isEqualTo(2L);
         verify(conversationDao, never()).selectActiveByUser(any(), any(), any(), any(Integer.class));
     }
 
@@ -325,13 +490,13 @@ class MiniappMessageServiceImplTest {
 
         assertThat(result.getAcceptedNos()).containsExactly("WSP-1");
         assertThat(result.getUpdatedCount()).isEqualTo(1);
-        assertThat(result.getPlatformUnreadSummary().getPlatformUnreadCount()).isZero();
+        assertThat(result.getPlatformUnreadSummary().getMessageUnreadCount()).isZero();
         verify(recordDao).markWhisperRequestsRead(eq(2L), eq(List.of("WSP-1")), any());
     }
 
     @Test
-    @DisplayName("官方助手和系统消息列表解密标题正文并返回曝光确认候选")
-    void channelListsShouldDecryptContentAndExposeReadCandidates() {
+    @DisplayName("官方助手和系统消息列表直接读取明文并返回曝光确认候选")
+    void channelListsShouldReadPlaintextAndExposeReadCandidates() {
         AppUser current = user(1L, "当前用户");
         AppAssistantMessage assistant = assistantMessage();
         AppSystemMessage system = systemMessage();
@@ -341,14 +506,17 @@ class MiniappMessageServiceImplTest {
                 .thenReturn(List.of(assistant));
         when(systemMessageDao.selectVisible(eq(1L), eq(null), eq(21), any(), eq(false)))
                 .thenReturn(List.of(system));
-        when(sensitiveTextCipher.decrypt(any())).thenReturn("已解密内容");
-
         AssistantMessagePageVO assistantResult = service.assistantMessages(1L, null, 20);
         SystemMessagePageVO systemResult = service.systemMessages(1L, null, 20);
 
-        assertThat(assistantResult.getList().getFirst().getTitle()).isEqualTo("已解密内容");
-        assertThat(assistantResult.getList().getFirst().getContent()).isEqualTo("已解密内容");
-        assertThat(systemResult.getList().getFirst().getTitle()).isEqualTo("已解密内容");
+        assertThat(assistantResult.getList().getFirst().getTitle()).isEqualTo("助手标题");
+        assertThat(assistantResult.getList().getFirst().getContent()).isEqualTo("助手正文");
+        assertThat(assistantResult.getList().getFirst().getCardType()).isEqualTo("action");
+        assertThat(assistantResult.getList().getFirst().getActionText()).isEqualTo("查看安全指南");
+        assertThat(systemResult.getList().getFirst().getTitle()).isEqualTo("系统标题");
+        assertThat(systemResult.getList().getFirst().getContent()).isEqualTo("系统正文");
+        assertThat(systemResult.getList().getFirst().getContentFormat()).isEqualTo("rich_text");
+        assertThat(systemResult.getList().getFirst().getActionText()).isEqualTo("立即查看");
         assertThat(systemResult.getReadAck().getNoticeNos()).containsExactly("NTF-1");
         verify(announcementHydrationService).hydrate(eq(1L), any());
         verify(notificationDomainService).ensureAssistantMessages(eq(1L), any());
@@ -390,6 +558,7 @@ class MiniappMessageServiceImplTest {
         message.setMessageNo("MSG-REQUEST-1");
         message.setTimMessageId("TIM-ID-1");
         message.setTimMsgKey("TIM-KEY-1");
+        message.setContentText("你好，希望能和你认识一下");
         message.setSendStatus(MessageSendStatusEnum.SENT.getCode());
         return message;
     }
@@ -449,16 +618,12 @@ class MiniappMessageServiceImplTest {
         message.setId(41L);
         message.setAssistantMessageNo("AST-1");
         message.setTopicCode("private_chat_safety");
-        message.setTitleCiphertext(new byte[]{1});
-        message.setTitleIv(new byte[12]);
-        message.setTitleKeyVersion("v1");
-        message.setTitleHmac("a".repeat(64));
-        message.setContentCiphertext(new byte[]{2});
-        message.setContentIv(new byte[12]);
-        message.setContentKeyVersion("v1");
-        message.setContentHmac("b".repeat(64));
+        message.setTitleText("助手标题");
+        message.setContentText("助手正文");
         message.setActionType("help");
         message.setActionValue("chat-safety");
+        message.setCardType("action");
+        message.setActionText("查看安全指南");
         message.setCreateTime(now);
         return message;
     }
@@ -469,15 +634,11 @@ class MiniappMessageServiceImplTest {
         message.setNoticeNo("NTF-1");
         message.setNotificationType("governance");
         message.setBizType("report_result");
-        message.setTitleCiphertext(new byte[]{1});
-        message.setTitleIv(new byte[12]);
-        message.setTitleKeyVersion("v1");
-        message.setTitleHmac("a".repeat(64));
-        message.setContentCiphertext(new byte[]{2});
-        message.setContentIv(new byte[12]);
-        message.setContentKeyVersion("v1");
-        message.setContentHmac("b".repeat(64));
+        message.setTitleText("系统标题");
+        message.setContentText("系统正文");
         message.setJumpType("none");
+        message.setContentFormat("rich_text");
+        message.setActionText("立即查看");
         message.setCreateTime(now);
         return message;
     }

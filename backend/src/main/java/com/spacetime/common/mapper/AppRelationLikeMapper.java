@@ -194,4 +194,32 @@ public interface AppRelationLikeMapper extends BaseMapper<AppRelationLike> {
             @Param("snapshotLikedTime") LocalDateTime snapshotLikedTime,
             @Param("snapshotLikeId") Long snapshotLikeId,
             @Param("limit") int limit);
+
+    @Select("""
+            SELECT l.id,
+                   l.like_no AS likeNo,
+                   l.from_user_id AS fromUserId,
+                   l.source_scene AS sourceScene,
+                   l.liked_time AS likedTime,
+                   u.unlock_time AS unlockTime,
+                   FALSE AS newLike
+            FROM app_relation_like l
+            LEFT JOIN (
+                SELECT target_biz_no, MAX(effective_time) AS unlock_time
+                FROM app_user_unlock_record
+                WHERE user_id = #{userId}
+                  AND target_biz_type = 'like'
+                  AND status = 'active'
+                  AND active_marker = 1
+                  AND deleted = 0
+                GROUP BY target_biz_no
+            ) u ON u.target_biz_no = l.like_no
+            WHERE l.to_user_id = #{userId}
+              AND l.like_status = 'active'
+              AND l.active_marker = 1
+              AND l.deleted = 0
+            ORDER BY l.liked_time DESC, l.id DESC
+            LIMIT 1
+            """)
+    RelationLikeListRow selectLatestIncomingLike(@Param("userId") Long userId);
 }

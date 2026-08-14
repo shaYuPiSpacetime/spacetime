@@ -4,6 +4,9 @@ import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.util.OssUtil;
+import com.spacetime.common.exception.BusinessException;
+import com.spacetime.miniapp.controller.MiniappOssUploadTicketController;
+import com.spacetime.miniapp.dto.request.OssUploadTicketReq;
 import com.spacetime.miniapp.dto.response.OssUploadTicketVO;
 import com.spacetime.miniapp.service.impl.MiniappOssUploadTicketServiceImpl;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -17,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -87,5 +91,39 @@ class MiniappOssUploadTicketServiceImplTest {
 
         assertThat(result.getFileUrl()).isEqualTo("https://static.example/voice.mp3");
         verify(runtimeConfigResolver).uploadRule(any(), eq("voice"), eq(1), eq(20));
+    }
+
+    @Test
+    void 举报凭证应使用当前用户独立目录和默认五MB限制() {
+        when(runtimeConfigResolver.uploadRule(any(), eq("reportEvidence"), eq(3), eq(5)))
+                .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(3, 5, List.of("jpg", "jpeg", "png")));
+        when(ossUtil.toCdnUrl("2026/07/14/demo.jpg")).thenReturn("https://static.example/report.jpg");
+
+        OssUploadTicketVO result = service.createReportEvidenceTicket("proof.jpeg", 4096L);
+
+        assertThat(result.getFileUrl()).isEqualTo("https://static.example/report.jpg");
+        assertThat(result.getProtectedFile()).isFalse();
+        verify(runtimeConfigResolver).uploadRule(any(), eq("reportEvidence"), eq(3), eq(5));
+        verify(ossUtil).createDirectUploadPolicy(
+                "proof.jpeg", 5L * 1024L * 1024L, "miniapp/1/reportEvidence");
+    }
+
+    @Test
+    void 举报凭证只允许JpgJpeg和Png() {
+        when(runtimeConfigResolver.uploadRule(any(), eq("reportEvidence"), eq(3), eq(5)))
+                .thenReturn(new Prd01RuntimeConfigResolver.UploadRule(3, 5, List.of("jpg", "jpeg", "png", "gif")));
+
+        assertThatThrownBy(() -> service.createReportEvidenceTicket("proof.gif", 4096L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("upload_format_unsupported");
+    }
+
+    @Test
+    void 举报凭证接口路径应为ReportEvidence() throws Exception {
+        var method = MiniappOssUploadTicketController.class
+                .getDeclaredMethod("reportEvidence", OssUploadTicketReq.class);
+
+        assertThat(method.getAnnotation(org.springframework.web.bind.annotation.PostMapping.class).value())
+                .containsExactly("/report-evidence");
     }
 }

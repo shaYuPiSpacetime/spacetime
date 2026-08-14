@@ -336,6 +336,11 @@ public class AppUserMessageAdminServiceImpl implements AppUserMessageAdminServic
         vo.setPaymentStatus(value.getPaymentStatus());
         vo.setCoinAmount(value.getCoinAmount());
         vo.setDeliveryStatus(value.getDeliveryStatus());
+        vo.setSourceScene(value.getSourceScene());
+        vo.setSourceBizNo(value.getSourceBizNo());
+        vo.setReceiverHidden(value.getReceiverHiddenAt() != null);
+        vo.setReceiverHiddenAt(value.getReceiverHiddenAt());
+        vo.setReceiverHideType(value.getReceiverHideType());
         vo.setExpiresAt(value.getExpiresAt());
         vo.setRepliedAt(value.getRepliedAt());
         vo.setInvalidReason(value.getInvalidReason());

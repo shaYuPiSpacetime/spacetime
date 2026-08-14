@@ -94,22 +94,42 @@ public class AppMessageWhisperDaoImpl implements AppMessageWhisperDao {
     @Override
     public List<AppMessageWhisper> selectPending(Long userId, String direction, Long cursorId,
                                                   int size, LocalDateTime now) {
+        return selectVisible(userId, direction, "pending", cursorId, size, now);
+    }
+
+    @Override
+    public List<AppMessageWhisper> selectVisible(Long userId, String direction, String bucket,
+                                                  Long cursorId, int size, LocalDateTime now) {
         LambdaQueryWrapper<AppMessageWhisper> query = new LambdaQueryWrapper<AppMessageWhisper>()
                 .eq("received".equals(direction), AppMessageWhisper::getReceiverUserId, userId)
                 .eq("sent".equals(direction), AppMessageWhisper::getSenderUserId, userId)
-                .eq(AppMessageWhisper::getStatus, MessageWhisperStatusEnum.PENDING.getCode())
-                .eq(AppMessageWhisper::getDeliveryStatus, MessageDeliveryStatusEnum.SENT.getCode())
-                .gt(AppMessageWhisper::getExpiresAt, now)
+                .isNull("received".equals(direction), AppMessageWhisper::getReceiverHiddenAt)
                 .lt(cursorId != null, AppMessageWhisper::getId, cursorId)
                 .orderByDesc(AppMessageWhisper::getId)
-                .last("LIMIT " + Math.max(1, Math.min(size, 51)));
+                .last("LIMIT " + Math.max(1, Math.min(size, 21)));
+        applyBucket(query, bucket, now);
         return mapper.selectList(query);
+    }
+
+    @Override
+    public long countVisible(Long userId, String direction, String bucket, LocalDateTime now) {
+        LambdaQueryWrapper<AppMessageWhisper> query = new LambdaQueryWrapper<AppMessageWhisper>()
+                .eq("received".equals(direction), AppMessageWhisper::getReceiverUserId, userId)
+                .eq("sent".equals(direction), AppMessageWhisper::getSenderUserId, userId)
+                .isNull("received".equals(direction), AppMessageWhisper::getReceiverHiddenAt);
+        applyBucket(query, bucket, now);
+        return mapper.selectCount(query);
     }
 
     @Override
     public long countUnreadPending(Long receiverUserId, LocalDateTime now) {
         return mapper.selectCount(readableQuery(receiverUserId, now)
                 .isNull(AppMessageWhisper::getReceiverReadAt));
+    }
+
+    @Override
+    public long countPending(Long receiverUserId, LocalDateTime now) {
+        return mapper.selectCount(readableQuery(receiverUserId, now));
     }
 
     @Override
@@ -135,6 +155,7 @@ public class AppMessageWhisperDaoImpl implements AppMessageWhisperDao {
                 .eq(AppMessageWhisper::getStatus, MessageWhisperStatusEnum.PENDING.getCode())
                 .eq(AppMessageWhisper::getDeliveryStatus, MessageDeliveryStatusEnum.SENT.getCode())
                 .gt(AppMessageWhisper::getExpiresAt, readAt)
+                .isNull(AppMessageWhisper::getReceiverHiddenAt)
                 .isNull(AppMessageWhisper::getReceiverReadAt)
                 .set(AppMessageWhisper::getReceiverReadAt, readAt)
                 .set(AppMessageWhisper::getUpdateTime, readAt));
@@ -146,7 +167,69 @@ public class AppMessageWhisperDaoImpl implements AppMessageWhisperDao {
                 .eq(AppMessageWhisper::getReceiverUserId, receiverUserId)
                 .eq(AppMessageWhisper::getStatus, MessageWhisperStatusEnum.PENDING.getCode())
                 .eq(AppMessageWhisper::getDeliveryStatus, MessageDeliveryStatusEnum.SENT.getCode())
-                .gt(AppMessageWhisper::getExpiresAt, now);
+                .gt(AppMessageWhisper::getExpiresAt, now)
+                .isNull(AppMessageWhisper::getReceiverHiddenAt);
+    }
+
+    @Override
+    public int hideByReceiver(Long receiverUserId, String whisperNo, String hideType,
+                              LocalDateTime hiddenAt) {
+        return mapper.update(null, new LambdaUpdateWrapper<AppMessageWhisper>()
+                .eq(AppMessageWhisper::getReceiverUserId, receiverUserId)
+                .eq(AppMessageWhisper::getWhisperNo, whisperNo)
+                .isNull(AppMessageWhisper::getReceiverHiddenAt)
+                .set(AppMessageWhisper::getReceiverHiddenAt, hiddenAt)
+                .set(AppMessageWhisper::getReceiverHideType, hideType)
+                .set(AppMessageWhisper::getUpdateTime, hiddenAt));
+    }
+
+    @Override
+    public int hideBucketByReceiver(Long receiverUserId, String bucket, String hideType,
+                                    LocalDateTime now) {
+        LambdaUpdateWrapper<AppMessageWhisper> update = new LambdaUpdateWrapper<AppMessageWhisper>()
+                .eq(AppMessageWhisper::getReceiverUserId, receiverUserId)
+                .isNull(AppMessageWhisper::getReceiverHiddenAt)
+                .set(AppMessageWhisper::getReceiverHiddenAt, now)
+                .set(AppMessageWhisper::getReceiverHideType, hideType)
+                .set(AppMessageWhisper::getUpdateTime, now);
+        applyBucket(update, bucket, now);
+        return mapper.update(null, update);
+    }
+
+    private void applyBucket(LambdaQueryWrapper<AppMessageWhisper> query, String bucket,
+                             LocalDateTime now) {
+        if ("pending".equals(bucket)) {
+            query.eq(AppMessageWhisper::getStatus, MessageWhisperStatusEnum.PENDING.getCode())
+                    .eq(AppMessageWhisper::getDeliveryStatus, MessageDeliveryStatusEnum.SENT.getCode())
+                    .gt(AppMessageWhisper::getExpiresAt, now);
+            return;
+        }
+        query.and(wrapper -> wrapper
+                .in(AppMessageWhisper::getStatus,
+                        MessageWhisperStatusEnum.REPLIED.getCode(),
+                        MessageWhisperStatusEnum.EXPIRED.getCode(),
+                        MessageWhisperStatusEnum.INVALID.getCode())
+                .or(expired -> expired
+                        .eq(AppMessageWhisper::getStatus, MessageWhisperStatusEnum.PENDING.getCode())
+                        .le(AppMessageWhisper::getExpiresAt, now)));
+    }
+
+    private void applyBucket(LambdaUpdateWrapper<AppMessageWhisper> update, String bucket,
+                             LocalDateTime now) {
+        if ("pending".equals(bucket)) {
+            update.eq(AppMessageWhisper::getStatus, MessageWhisperStatusEnum.PENDING.getCode())
+                    .eq(AppMessageWhisper::getDeliveryStatus, MessageDeliveryStatusEnum.SENT.getCode())
+                    .gt(AppMessageWhisper::getExpiresAt, now);
+            return;
+        }
+        update.and(wrapper -> wrapper
+                .in(AppMessageWhisper::getStatus,
+                        MessageWhisperStatusEnum.REPLIED.getCode(),
+                        MessageWhisperStatusEnum.EXPIRED.getCode(),
+                        MessageWhisperStatusEnum.INVALID.getCode())
+                .or(expired -> expired
+                        .eq(AppMessageWhisper::getStatus, MessageWhisperStatusEnum.PENDING.getCode())
+                        .le(AppMessageWhisper::getExpiresAt, now)));
     }
 
     @Override

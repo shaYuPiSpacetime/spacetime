@@ -47,10 +47,7 @@ message:
     connect-timeout-millis: ${TENCENT_IM_CONNECT_TIMEOUT_MILLIS:3000}
     request-timeout-millis: ${TENCENT_IM_REQUEST_TIMEOUT_MILLIS:5000}
   security:
-    # 非生产环境通过环境变量提供；生产 profile 必须接入 KMS 实现，禁止明文降级。
-    key-version: ${MESSAGE_TEXT_KEY_VERSION:}
-    encryption-key-base64: ${MESSAGE_TEXT_ENCRYPTION_KEY_BASE64:}
-    hmac-key-base64: ${MESSAGE_TEXT_HMAC_KEY_BASE64:}
+    allowed-h5-hosts: ${MESSAGE_ALLOWED_H5_HOSTS:}
   whisper-expire:
     delay-ms: ${MESSAGE_WHISPER_EXPIRE_DELAY_MS:60000}
   im-account-sync:

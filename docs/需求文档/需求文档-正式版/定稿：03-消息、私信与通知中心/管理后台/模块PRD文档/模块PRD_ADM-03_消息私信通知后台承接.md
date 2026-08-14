@@ -5,6 +5,10 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本07 | 2026-08-07 | Codex | 日常私信、悄悄话申请与回复正文统一明文归档到消息主表；后台通用页面仅查询元数据，不展示正文或内容摘要 |
+| 版本06 | 2026-08-07 | Codex | 历史口径：平台不复制日常聊天正文；该口径已由版本07“消息主表明文归档”替代 |
+| 版本05 | 2026-08-06 | Codex | 对齐腾讯云 TIM 消息通道，移除平台发送前内容审核字段，补充 TIM 消息映射与举报取证边界 |
+| 版本04 | 2026-08-06 | Codex | 对齐悄悄话回复后的状态迁移，补充匹配、私信会话和开场消息关联追溯 |
 | 版本03 | 2026-07-31 | Codex | 对齐统一举报模型，补齐私信/悄悄话条件上下文、PRD-05 状态与提交幂等 |
 | 版本02 | 2026-07-02 | Codex | 按确认口径将用户消息承接改为 App 用户卡片模块补充弹窗，不再放入列表卡片字段或画像详情 |
 | 版本01 | 2026-07-02 | Codex | 正式版初稿，按一期目标在用户管理、运营中心、移动端配置、社区举报与操作日志中承接 PRD-03 |
@@ -23,11 +27,11 @@
 
 | 角色 | 在本模块中做什么 | 引用全局角色 |
 |------|------------------|-------------|
-| 客服 | 查询消息互动摘要、通知记录、解释会话不可发原因 | `GLB-ROLE-customer-service` |
+| 客服 | 查询消息互动统计与元数据、通知记录、解释会话不可发原因 | `GLB-ROLE-customer-service` |
 | 运营 | 配置通知模板、查看消息通知记录、维护提示文案 | `GLB-ROLE-operation` |
 | 审核员 | 在举报上下文中查看必要聊天内容并处理举报 | `GLB-ROLE-auditor` |
 | 风控 | 查看聊天举报、处罚联动、会话失效原因和高风险记录 | `GLB-ROLE-risk` |
-| 超级管理员 | 配置规则、导出记录、查看审计和高敏内容 | `GLB-ROLE-super-admin` |
+| 超级管理员 | 配置规则、导出记录、查看审计；查看冻结证据仍必须处于本人有权处理的有效 PRD-05 案件上下文 | `GLB-ROLE-super-admin` |
 
 ---
 
@@ -53,7 +57,7 @@
 入口：运营中心 -> 消息通知记录查询
 正常路径：
   1. 运营按用户、消息类型、通知类型、业务类型、时间和状态筛选
-  2. 查看消息/通知摘要、状态、跳转目标和失败原因
+  2. 查看消息/通知业务编号、类型、状态、跳转目标和失败原因
   3. 有权限角色可打开详情抽屉
   4. 如涉及敏感内容，需二次确认并记录审计
 ```
@@ -88,9 +92,9 @@
 
 | 实体 | 表名（建议） | 说明 | 所属模块 | 关键字段 |
 |------|-------------|------|----------|----------|
-| 会话 | `message_conversation` | 后台查询会话摘要与状态 | 03 | conversationNo, conversationType, status, lastMessageTime |
-| 消息记录 | `message_record` | 后台按权限查看消息摘要/内容 | 03 | messageNo, messageType, sendStatus, contentRiskStatus |
-| 悄悄话记录 | `message_whisper` | 悄悄话状态、消耗方式、冷却期 | 03/04 | whisperNo, status, payType, cooldownExpireTime |
+| 会话 | `message_conversation` | 后台查询会话元数据与状态 | 03 | conversationNo, conversationType, status, lastMessageTime |
+| 消息映射记录 | `message_record` | 保存平台消息编号与腾讯云 TIM messageId/MsgKey、发送状态及举报证据关联，不作为第二套消息通道；举报工单仍由 PRD-05 平台接口创建 | 03 | messageNo, timMessageId, timMsgKey, messageType, sendStatus |
+| 悄悄话记录 | `message_whisper` | 悄悄话业务状态、消耗方式、冷却期及 TIM 投递映射；回复完成匹配后保留与匹配、私信会话及两条开场消息的关联 | 03/04/02 | whisperNo, status, payType, cooldownExpireTime, matchNo, conversationNo, requestMessageNo, replyMessageNo, requestTimMessageId, replyTimMessageId |
 | 通知记录 | `message_notification` | 站内通知与模板发送状态 | 03 | noticeNo, noticeType, bizType, readStatus, sendStatus |
 | 消息配置 | `message_rule_config` | 女性保护、冷却期、入口开关等 | 03 | configKey, configValue, effectiveStatus |
 | 举报记录 | `report_record` | 聊天/悄悄话举报统一承接 | 05/03 | reportNo, targetType, targetId, sourceType, conversationNo, whisperNo, messageNo, reportStatus |
@@ -103,7 +107,7 @@
 | 匹配成功记录 | PRD-02 | 相互喜欢/匹配成功 | 会话开放原因无法展示，提示关系数据暂不可用 |
 | 会员/千寻币消耗 | PRD-04 | 资产流水、会员权益 | 悄悄话支付信息显示占位或引用资产不可用 |
 | 举报与处罚 | PRD-05/社区互动管理 | 举报处理 | 举报 Tab 只展示已入库基础记录 |
-| 邀请关系 | PRD-07 | 邀请关系 | 邀请响应通知详情展示占位 |
+| 邀请关系 | PRD-07 | 邀请关系 | 生成系统消息并按合法跳转进入 PRD-07 邀请记录/推广页，不建设 PRD-03 通知详情 |
 
 ---
 
@@ -112,7 +116,7 @@
 | 需求 ID | 能力 | 优先级 | 关联页面 ID | 备注 |
 |---------|------|--------|-------------|------|
 | `ADM-03-RULE-user-list-message-fields` | App 用户管理列表模块补充入口与消息筛选 | P0 | `ADM-03-PAGE-user-list-message-fields` | 不新增独立用户列表，不直铺消息字段 |
-| `ADM-03-RULE-user-message-section` | 模块补充弹窗消息互动摘要、私信/悄悄话/通知/举报记录 | P0 | `ADM-03-PAGE-user-message-section` | |
+| `ADM-03-RULE-user-message-section` | 模块补充弹窗消息互动统计、私信/悄悄话/通知/举报元数据记录 | P0 | `ADM-03-PAGE-user-message-section` | 已回复悄悄话须可追溯匹配、私信会话和开场消息 |
 | `ADM-03-RULE-message-record-query` | 消息通知记录查询 | P0 | `ADM-03-PAGE-message-record-query` | 查询与排查，不做运营群发 |
 | `ADM-03-RULE-message-config` | 女性保护、悄悄话冷却、官方助手入口等配置 | P0 | `ADM-03-PAGE-message-config` | 不做通知偏好中心 |
 | `ADM-03-RULE-template-config` | 官方消息、通知模板、保护提示文案配置 | P0 | `ADM-GLB-PAGE-copy-message-center` | 复用全局文案与消息中心 |
@@ -131,7 +135,7 @@
 | 手工补发悄悄话 | 涉及付费和社交骚扰风险 | 禁止 | 无 |
 | 独立通知投放系统 | 一期不是群发运营系统 | 只做模板与站内通知记录 | 二期 |
 | 后台完整通知偏好中心 | 一期目标明确不做 | 不建页面 | 后续按订阅消息策略评估 |
-| 聊天内容 AI 风控中心 | 依赖实时风控模型和质检策略 | 内容安全检测只作为接口依赖 | 二期 |
+| 聊天内容 AI 风控中心 | 本期消息不做平台发送前文本内容审核 | 不建设；仅保留用户举报和案件取证 | 二期重新立项评估 |
 | 消息 BI 看板 | 非首版核心 | 不展示 | 二期 |
 
 ---
@@ -169,8 +173,8 @@
 
 | 场景 | 要求 |
 |------|------|
-| 查看消息内容 | 高敏操作，默认仅审核/风控/超级管理员可按举报或排查原因查看，并记录审计 |
-| 查看消息摘要 | 客服/运营可查看摘要，手机号、昵称、内容按权限脱敏 |
+| 查看案件证据 | 仅具备 `message:report-context:view` 和 `community:report:handle` 的案件处理人，可在本人有权处理的有效 PRD-05 举报案件内按条查看冻结证据；填写原因、二次确认并记录审计 |
+| 查看消息元数据 | 客服/运营只查看类型、时间、状态、业务号和脱敏用户信息，不返回正文或可还原正文的摘要 |
 | 保存规则配置 | 需二次确认、填写备注、记录修改前后值 |
 | 导出记录 | 首版仅超级管理员可导出，必须脱敏并记录审计 |
 
@@ -179,15 +183,15 @@
 | 字段 | 加密存储 | 脱敏规则 | 留存时长 | 注销后处理 | 是否可导出 |
 |------|----------|----------|----------|------------|------------|
 | 手机号 | 是 | 138****1234 | 按账号合规策略 | 匿名化或删除 | 按权限脱敏导出 |
-| 消息内容 | 是 | 默认不展示内容详情 | 长期保留供争议处理 | 匿名化发送/接收方 | 原则上不导出 |
-| 悄悄话内容 | 是 | 默认仅摘要 | 长期保留供争议处理 | 匿名化发送/接收方 | 原则上不导出 |
+| 日常私信/悄悄话正文 | 否，完整明文直接写 `app_message_record.content_text` | 后台通用页面接口字段白名单始终排除正文和内容摘要 | 有效期间可用；关系终止后隔离 180 天再按合规任务清理 | 平台立即隐藏业务入口；期满删除或不可逆匿名化 | 否 |
+| 举报冻结证据 | 否，受控明文保存 | 仅有效案件处理人按条查看；填写原因、二次确认并记录审计 | 普通 3 年；严重违规/永久封禁 5 年 | 按法务义务保留最小证据并匿名化身份 | 否 |
 | 举报处理备注 | 是 | 后台内部可见 | >= 1 年 | 保留审计所需 | 管理员导出 |
 
 ### 9.3 性能
 
 | 场景 | 要求 |
 |------|------|
-| 用户详情消息摘要 | 800ms 内返回 |
+| 用户消息互动统计 | 800ms 内返回 |
 | 用户详情 Tab | 默认每页 10 条，可切换 10/20/50 |
 | 消息通知记录查询 | 默认 20 条，可切换 20/50/100，复杂筛选 1.5s 内返回 |
 | 配置保存 | 1s 内返回保存结果，异步刷新缓存 |
@@ -210,7 +214,12 @@
 AC-ID: ADM-03-AC-user-message-section
 Given 客服具备 `ADM-03-PERM-message-summary-view`
 When  在 App 用户卡片点击“模块补充”并切换到消息互动 Tab
-Then  页面展示消息互动摘要、私信会话、悄悄话记录、通知记录和举报记录 Tab，内容按权限脱敏
+Then  页面展示消息互动统计、私信会话、悄悄话记录、通知记录和举报记录 Tab；身份字段按权限脱敏，消息正文和内容摘要不返回
+
+AC-ID: ADM-03-AC-whisper-link-retained
+Given 接收方回复悄悄话并已完成匹配和私信会话迁移
+When  有权限的管理员查询该悄悄话元数据
+Then  原 whisperNo 仍为唯一事实记录，状态为 replied，并可追溯唯一 matchNo、conversationNo、requestMessageNo 和 replyMessageNo；前台列表移除不等于物理删除
 
 AC-ID: ADM-03-AC-sensitive-content-audit
 Given 风控人员具备 `ADM-03-PERM-message-content-view`

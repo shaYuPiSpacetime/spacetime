@@ -5,8 +5,9 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要（改动须列出受影响的页面 ID） |
 |------|------|--------|----------|
+| 版本19 | 2026-08-10 | Codex | 对齐 PRD-03 腾讯 TIM 举报取证：聊天上下文增加 TIM 定位编号白名单，客户端仍不得提交正文或被举报用户 ID，影响 APP-05-PAGE-report-modal、APP-03-PAGE-private-chat、APP-03-PAGE-whisper-detail |
 | 版本18 | 2026-08-08 | Codex | 同步发布图片最新口径：移除失败态重新上传入口，九宫格不展示计数，成功图采用 1～3 倍受控预览，影响 APP-05-PAGE-post-publish |
-| 版本17 | 2026-07-31 | Codex | 统一用户举报与 PRD-03 私信/悄悄话内容举报的对象映射、最小上下文、准入和错误反馈，影响 APP-05-PAGE-report-modal、APP-03-PAGE-private-chat、APP-03-PAGE-whisper-detail |
+| 版本17 | 2026-07-31 | Codex | 统一用户举报与 PRD-03 私信/悄悄话内容举报的对象映射、最小上下文、准入和错误反馈；系统消息使用统一创建命令，社区互动按窗口聚合，不逐条推送点赞/关注，影响 APP-05-PAGE-report-modal、APP-03-PAGE-private-chat、APP-03-PAGE-whisper-detail |
 | 版本16 | 2026-07-21 | Codex | 在页面收敛后补充他人主页聊天权限拆分口径：PRD-02 `canEnterConversation`，PRD-03 `canSend/protectStatus`，影响 APP-05-PAGE-user-posts |
 | 版本15 | 2026-07-21 | Codex | 复核新增“YO悄悄话-弹窗”并完整覆盖 APP-05-greeting-01，社区申请认识改为打开底部弹窗 |
 | 版本14 | 2026-07-21 | Codex | 按蓝湖复核关闭资料城市缺失下游状态，登记取消关注确认与内容不可见灰色反馈复用，影响 community-city、post-publish、post-detail、follow-relations |
@@ -41,7 +42,7 @@
 | M05-09 | 动态公开口径一期统一为“机审通过后可公开，并进入人工抽检”；诚意贴为“机审通过后进入人工审核，人工通过后公开”；评论为“机审通过后公开，支持人工复核” | `M05-RULE-audit-publish` |
 | M05-10 | 默认不允许联系方式；联系方式识别范围至少包含手机号、微信号、QQ、邮箱、二维码、明显谐音规避和图片内联系方式 | `M05-RULE-contact-block` |
 | M05-11 | 话题由后台家园话题管理维护，用户不可临时创建话题 | `M05-CFG-topic-dict` |
-| M05-12 | 点赞、评论、关注、审核结果、举报结果等互动通知由 PRD-03 消息通知中心承接，PRD-05 只定义事件与触发时机 | `M05-NTF-*`、`M05-EVT-*` |
+| M05-12 | 内容审核、举报结果及社区互动聚合消息由 PRD-03 系统消息承接；PRD-05 是业务事实源并负责生成带 `producerEventId` 的请求。点赞/关注不逐条推送，评论/回复/点赞/关注按时间窗口聚合 | `M05-NTF-*`、`M05-EVT-*`、`M03-CMD-system-message-create` |
 | M05-13 | 后台一期采用 `社区互动管理` 菜单，包含内容管理、动态管理、评论管理、举报管理、家园话题管理和社区配置 | `ADM-05_端内定义.md` |
 | M05-15 | 未建立互动关系时，社区作者区展示“申请认识”，点击打开模块 08 `YO悄悄话-弹窗` 并承接 PRD-03 悄悄话发送规则 | `M05-RULE-community-greeting-entry` |
 | M05-16 | 对方回复并建立互动关系后，不再展示“申请认识”；头像/昵称进入他人主页，明确的消息动作直接进入 PRD-03 私信对话，不设置社区发私信中转页 | `M05-RULE-community-contact-routing` |
@@ -67,6 +68,7 @@
 | `M05-TERM-topic` | 话题 | 家园话题、社区标签 | 后台预置的内容聚合维度，发布动态/诚意贴时从启用话题中选择 | 否 |
 | `M05-TERM-content-audit` | 内容审核 | 机审、人工审核 | 对动态、诚意贴、评论进行微信内容安全校验和人工审核/抽检的治理流程 | 否 |
 | `M05-TERM-report` | 举报 | 投诉 | 用户对动态、评论、用户资料/账号、私信或悄悄话内容等对象提交的安全治理线索；PRD-05 提供统一对象模型、组件和处理链路，来源模块负责业务对象准入 | 否 |
+| `M05-TERM-report` | 举报 | 投诉 | 用户对动态、评论、用户、私信会话、具体消息或悄悄话提交的安全治理线索；PRD-05 统一承接案件状态和处罚事实，来源模块提供必要证据引用 | 否 |
 | `M05-TERM-follow` | 关注 | 粉丝关系 | 社区弱关系关注，不等同于匹配成功，也不开放普通私信 | 否 |
 | `M05-TERM-community-greeting-entry` | 社区打招呼入口 | 社区破冰入口 | 从社区内容卡片、作者区或用户主页触发的悄悄话发送入口，发送资格、扣费和状态由 PRD-03/PRD-04 承接 | 否 |
 | `M05-TERM-community-more-actions` | 社区更多操作 | 更多菜单 | 社区内容、评论或用户维度的底部操作弹窗；内容/用户菜单动作以 UI 稿为准，申请认识与普通私信不放入菜单 | 否 |
@@ -81,6 +83,7 @@
 | `M02-SM-mutual-match` | 匹配成功状态机 | 判断社区作者是否已建立互动关系 |
 | `M03-RULE-private-chat-open` | 普通私信开放规则 | 已建立互动关系后直接打开私信对话 |
 | `M03-RULE-whisper-send` | 悄悄话发送规则 | 社区打招呼入口发送资格判断 |
+| `M03-CMD-system-message-create` | 系统消息创建命令 | 内容审核、举报结果和社区互动聚合消息承接 |
 | `M03-RULE-report-handoff` | 聊天内容举报准入与分流 | 私信/悄悄话内容举报的参与关系、本人内容、历史态和官方消息限制 |
 | `M03-RULE-report-context` | 聊天举报最小上下文 | 私信/悄悄话业务编号白名单与服务端反查要求 |
 | `M03-EVT-notification-created` | 通知创建事件 | 互动通知、审核结果和举报结果通知承接 |
@@ -137,6 +140,11 @@
 | `comment` | 评论 | 评论或回复举报 | 2 | 否 | 启用 |
 | `user` | 用户资料/账号 | 个人主页发起；`targetId=userNo`，用于举报资料、头像、账号行为等用户维度问题 | 3 | 否 | 启用 |
 | `chat` | 私信/悄悄话内容 | PRD-03 详情页发起；私信 `targetId=conversationNo`，悄悄话 `targetId=whisperNo` | 4 | 否 | 启用 |
+| `user` | 用户主页 | 用户资料、头像或主页举报 | 3 | 否 | 启用 |
+| `chat_conversation` | 私信会话 | 由 PRD-03 会话级举报接入统一举报处理 | 4 | 否 | 启用 |
+| `chat_message` | 具体私信消息 | 由 PRD-03 消息长按举报接入，必须携带 messageNo 与证据引用 | 5 | 否 | 启用 |
+| `whisper` | 悄悄话 | 由 PRD-03 悄悄话卡片/详情举报接入 | 6 | 否 | 启用 |
+| `chat` | 聊天/悄悄话 | `[已废弃]` 历史数据按来源迁移为上述三类 | 7 | 否 | 停用 |
 
 ### 3.6 `M05-ENUM-punish-action` 处罚动作
 
@@ -219,7 +227,8 @@
 | `M05-RULE-interaction-gate` | 发布、评论、回复、点赞、关注需满足核心准入 | APP 发布/详情/列表页 | `isLogin && accountNormal && M01-RULE-core-access == passed` | 若技术侧临时降级需在技术方案标明，不改变 PRD 目标口径 |
 | `M05-RULE-report-gate` | 举报通用准入 | APP 举报弹窗 | `isLogin && accountNotFrozen`；对象必须存在且属于 `M05-ENUM-report-target-type`。`targetType=chat` 还必须通过 `M03-RULE-report-handoff` 的参与关系、对方内容与历史可见校验 | 举报不要求三项认证，安全治理优先 |
 | `M05-RULE-report-idempotency` | 举报提交幂等 | APP 举报弹窗/举报接口 | 以 `reporterId + targetType + targetId` 作为业务唯一口径；仅当该组合已有 `pending/processing` 记录时返回 `M05-ERR-report-duplicate` | 不同举报人、不同对象类型或不同对象不属于前端重复；后台将多名用户对同一对象的举报合并处理是另一条治理规则 |
-| `M05-RULE-report-target-context` | 举报对象与最小上下文映射 | APP 举报弹窗/举报接口/ADM 举报管理 | `post/comment/user` 的 `targetId` 分别为 postNo/commentNo/userNo；`chat` 私信为 conversationNo、悄悄话为 whisperNo。`chat.context` 仅允许 `sourceType`、`conversationNo`、`whisperNo`、`messageNo`，其中 `sourceType` 与对应主业务编号必填，`messageNo` 仅在明确选择对方消息时可选传；服务端按目标编号反查被举报用户、正文和参与关系，禁止信任客户端上传的用户 ID 或正文 | `sourceType` 引用 `M03-ENUM-report-source-type`；后台只展示处理所需最小证据 |
+| `M05-RULE-chat-report-context` | 聊天来源举报证据与权限 | APP 私信/悄悄话；ADM 举报案件 | 客户端只提交 `targetType`、目标业务编号和白名单业务/TIM 定位编号；PRD-03 服务端校验参与关系、消息归属和编号映射后，向 PRD-05 返回可信的双方账号、证据引用与哈希，PRD-05 保存案件引用。正文只允许具备 PRD-05 案件权限和 `ADM-03-PERM-report-context-content-view` 的当前案件处理人按条查看并写 3 年审计 | 客户端不得提交双方用户 ID 或正文；通用用户/消息查询页不得借案件号返回正文 |
+| `M05-RULE-report-target-context` | 举报对象与最小上下文映射 | APP 举报弹窗/举报接口/ADM 举报管理 | `post/comment/user` 的 `targetId` 分别为 postNo/commentNo/userNo；`chat` 私信为 conversationNo、悄悄话为 whisperNo。`chat.context` 仅允许 `sourceType`、`conversationNo`、`whisperNo`、`messageNo`、`timConversationId`、`timMessageId`、`timMsgKey`；`sourceType` 与对应主业务编号必填，消息定位编号仅在明确选择对方消息时可选传。服务端按业务编号和 TIM 映射反查被举报用户、必要正文和参与关系，禁止信任客户端上传的用户 ID、正文或任意扩展字段 | `sourceType` 引用 `M03-ENUM-report-source-type`；后台只展示处理所需最小证据 |
 | `M05-RULE-follow-isolation` | 关注不开放普通私信 | APP 关注/用户主页 | 关注只写 `FollowRelation`，不改聊天权限 | 避免与 PRD-03 冲突 |
 | `M05-RULE-audit-publish` | 动态机审通过可公开并抽检，诚意贴需人工通过公开，评论机审通过公开 | APP/ADM 审核页 | 按 `M05-SM-content-audit` 和 `M05-SM-comment-audit` | 统一旧移动端/后台冲突 |
 | `M05-RULE-contact-block` | 默认拦截联系方式 | 发布页/审核页 | 命中联系方式且开关关闭时阻断或驳回 | 包含文本与图片二维码 |
@@ -232,7 +241,7 @@
 | `M05-RULE-community-contact-routing` | 社区关系建立后的路由规则 | APP 信息流/详情/他人主页 | 已建立互动关系时，头像/昵称进入 `APP-05-PAGE-user-posts` 他人主页；显式消息动作直接进入 `APP-03-PAGE-private-chat` 并由 `M03-RULE-private-chat-open` 校验 | 不设置社区私信资格中转页 |
 | `M05-RULE-author-avatar` | 作者头像展示规则 | APP 信息流/详情/悦目/诚意贴/个人动态区 | 作者头像取 PRD-01 用户已审核通过的上传头像 URL；禁止用姓名、姓氏首字、昵称文字作为头像；头像为空或加载失败时展示平台默认头像 | 昵称仍可展示，但不得充当头像 |
 | `M05-RULE-topic-cover-image` | 话题封面图片规则 | APP 话题列表/话题详情/热门话题入口、ADM 家园话题管理 | 话题封面必须为图片资源，后台上传后生成私有资源地址并做图片安全校验；移动端使用图片缩略图展示，失败时展示平台默认封面图 | 不使用纯文字块或姓名式占位图 |
-| `M05-RULE-content-source-compatible` | 多来源帖子治理兼容规则 | ADM 内容管理/评论管理/举报管理 | 治理对象以 `targetType=post/comment/user/chat` 和 `contentSourceScene` 组合区分来源；一期接入成家动态、知音诚意贴，后续立业帖子接入时复用同一审核、举报、处罚和日志链路 | 立业帖子一期不进入移动端范围 |
+| `M05-RULE-content-source-compatible` | 多来源治理兼容规则 | ADM 内容管理/评论管理/举报管理 | 治理对象以 `targetType=post/comment/user/chat_conversation/chat_message/whisper` 和 `contentSourceScene` 组合区分来源；一期接入成家动态、知音诚意贴及 PRD-03 聊天来源，后续立业帖子接入时复用同一举报、处罚和日志链路 | 立业帖子一期不进入移动端范围 |
 | `M05-RULE-mute-period` | 禁言周期规则 | ADM 举报管理/内容管理/评论管理 | 选择 `mute_user` 时必须选择禁言周期，默认候选 1 天、3 天、7 天、30 天，支持具备权限角色填写自定义结束时间；禁言生效后禁止发布动态、诚意贴和评论 | 永久封禁不在 PRD-05 直接执行，需走账号冻结 |
 | `M05-RULE-ip-block` | IP 封禁规则 | ADM 举报管理/社区配置 | 防机器人刷帖、批量广告、异常高频举报等场景可选择 `ip_block`；必须填写封禁周期、风险 IP、封禁范围和原因；默认只限制写操作，不影响已登录正常浏览；风险 IP 展示需脱敏并按权限查看 | IP 地址为安全敏感数据，解除和误伤申诉需写审计 |
 | `M05-RULE-user-profile-handoff` | 他人主页承接 | APP 个人动态区-他人主页 | `APP-05-PAGE-user-posts` 同页展示 PRD-01 已审核资料与认证信息及 PRD-05 公开动态；进入主页通知 PRD-02 写访客，喜欢/取消喜欢、匹配状态和 `canEnterConversation` 引用 PRD-02；`canEnterConversation` 仅在关系或账号失效时为 `false`，女性保护不得阻断进入；进入会话后的 `canSend`、`protectStatus` 引用 PRD-03；主页举报用户资料/账号时传 `targetType=user`、`targetId=targetUserNo`，不携带聊天上下文 | 不另设婚恋用户主页或社区私信中转页，不复制关系或消息状态机 |
@@ -271,14 +280,18 @@
 | `M05-EVT-like-created` | 事件 | 点赞成功 | 服务端事件 | postId, actorId, authorId | 否 |
 | `M05-EVT-follow-created` | 事件 | 关注成功 | 服务端事件 | followerId, targetUserId | 否 |
 | `M05-EVT-report-submitted` | 事件 | 举报提交 | 服务端事件 | reportId, targetType, targetId, sourceType；聊天来源仅记录已校验的业务编号上下文 | 否 |
+| `M05-EVT-report-submitted` | 事件 | 举报提交 | 服务端事件 | reportId, targetType, targetId | 否 |
+| `M05-EVT-report-handled` | 事件 | 举报处理完成 | 服务端事件 | producerEventId, reportId, reporterUserId, reportedUserId, resultCode, punishAction | 否 |
+| `M05-EVT-interaction-summary-ready` | 事件 | 社区互动聚合窗口完成 | 服务端事件 | producerEventId, receiverUserId, commentCount, replyCount, likeCount, followCount, windowStart, windowEnd | 否 |
 | `M05-EVT-community-more-action-clicked` | 事件 | 点击社区更多操作 | 服务端/埋点事件 | action, targetType, targetId, sourcePage | 否 |
 | `M05-EVT-community-greeting-entry-clicked` | 事件 | 点击社区打招呼入口 | 服务端/埋点事件 | sourceType, sourceId, targetUserId | 否 |
-| `M05-NTF-content-approved` | 通知 | 内容审核通过 | 站内通知/PRD-03 | 你的内容已通过审核 | 是 |
-| `M05-NTF-content-rejected` | 通知 | 内容审核驳回 | 站内通知/PRD-03 | 你的内容未通过审核，原因：{reason} | 是 |
-| `M05-NTF-report-result` | 通知 | 举报处理完成 | 站内通知/PRD-03 | 你的举报已处理，结果：{result} | 是 |
-| `M05-NTF-like` | 通知 | 收到点赞 | 站内通知/PRD-03 | {nickname} 赞了你的动态 | 是 |
-| `M05-NTF-comment` | 通知 | 收到评论/回复 | 站内通知/PRD-03 | {nickname} 评论了你的动态 | 是 |
-| `M05-NTF-follow` | 通知 | 收到关注 | 站内通知/PRD-03 | {nickname} 关注了你 | 是 |
+| `M05-NTF-content-approved` | 系统消息请求 | 内容审核通过 | `M03-CMD-system-message-create` | `bizType=content_review_result`；你的内容已通过审核 | 是 |
+| `M05-NTF-content-rejected` | 系统消息请求 | 内容审核驳回 | `M03-CMD-system-message-create` | `bizType=content_review_result`；你的内容未通过审核，请查看原因 | 是 |
+| `M05-NTF-report-result` | 系统消息请求 | 举报处理完成 | `M03-CMD-system-message-create` | `bizType=report_result`；你的举报已处理，感谢反馈 | 是 |
+| `M05-NTF-interaction-summary` | 系统消息请求 | 评论/回复/点赞/关注聚合窗口完成 | `M03-CMD-system-message-create` | `bizType=community_interaction_summary`；你的社区内容有新的互动 | 是 |
+| `M05-NTF-like` | 逐条点赞通知 | 收到点赞 | 不生成 | `[已废弃]` 由互动聚合替代 | 否 |
+| `M05-NTF-comment` | 逐条评论通知 | 收到评论/回复 | 不生成 | `[已废弃]` 由互动聚合替代 | 否 |
+| `M05-NTF-follow` | 逐条关注通知 | 收到关注 | 不生成 | `[已废弃]` 由互动聚合替代 | 否 |
 | `M05-TXT-core-access-tip` | 文案 | 未满足互动门槛 | APP | 完成认证后即可参与互动 | 是 |
 | `M05-TXT-contact-blocked` | 文案 | 联系方式拦截 | APP | 内容中包含联系方式，请修改后再提交 | 是 |
 
@@ -371,7 +384,7 @@
 | M05-04/A05-04 | P1 | 默认不允许联系方式，联系方式范围写入 `M05-RULE-contact-block` | `M05-RULE-contact-block` |
 | M05-05 | P1 | 关注不影响私信，按钮文案不得暗示关注后聊天 | `M05-RULE-follow-isolation` |
 | M05-05-EXT | P1 | 未建立互动关系展示“申请认识”并打开 `YO悄悄话-弹窗`；关系建立后消息动作直接打开 PRD-03 私信，不设置社区私信中转页 | `M05-RULE-community-greeting-entry`、`M05-RULE-community-contact-routing` |
-| M05-06 | P1 | 互动通知由 PRD-03 承接，PRD-05 定义事件 | 第 7 节 |
+| M05-06 | P1 | 内容审核/举报结果与社区互动聚合由 PRD-03 系统消息承接；PRD-05 定义业务事件，不逐条推送点赞/关注 | 第 7 节 |
 | M05-07/A05-05 | P1 | 话题由后台家园话题管理维护，覆盖话题字典、排序、启停和推荐标记 | `M05-CFG-topic-dict`、`ADM-05-PAGE-topic-manage` |
 | M05-08/M05-09/M05-10/D-08 | P0/P1 | 悦目按 UI 稿定义为用户照片发现页；诚意贴为与动态同字段结构的内容类型 | 第 1、2、5 节 |
 | M05-11 | P1 | 诚意贴复用社区内容模型，以 `sincere_post` 类型区分 | `M05-ENUM-content-type` |

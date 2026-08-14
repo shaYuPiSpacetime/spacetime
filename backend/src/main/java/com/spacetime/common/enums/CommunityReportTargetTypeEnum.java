@@ -10,10 +10,10 @@ public enum CommunityReportTargetTypeEnum {
     POST("post", "动态"),
     COMMENT("comment", "评论"),
     USER("user", "用户"),
-    CHAT("chat", "历史兼容聊天举报"),
-    MESSAGE("message", "私信消息"),
-    CONVERSATION("conversation", "私信会话"),
-    WHISPER("whisper", "悄悄话");
+    CHAT("chat", "聊天举报"),
+    MESSAGE("message", "历史兼容私信消息举报"),
+    CONVERSATION("conversation", "历史兼容私信会话举报"),
+    WHISPER("whisper", "历史兼容悄悄话举报");
 
     /** 枚举编码 */
     private final String code;

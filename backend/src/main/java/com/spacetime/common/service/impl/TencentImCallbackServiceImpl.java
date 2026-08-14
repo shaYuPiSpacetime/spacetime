@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.config.TencentImProperties;
 import com.spacetime.common.dao.AppMessageConversationDao;
+import com.spacetime.common.dao.AppMessageConversationMemberDao;
 import com.spacetime.common.dao.AppMessageDeliveryOutboxDao;
 import com.spacetime.common.dao.AppMessageRecordDao;
 import com.spacetime.common.dao.AppMessageRuntimeControlDao;
@@ -14,6 +15,7 @@ import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserImAccountDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
 import com.spacetime.common.entity.AppMessageConversation;
+import com.spacetime.common.entity.AppMessageConversationMember;
 import com.spacetime.common.entity.AppMessageDeliveryOutbox;
 import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.AppMessageRuntimeControl;
@@ -55,6 +57,7 @@ import java.util.Set;
 public class TencentImCallbackServiceImpl implements TencentImCallbackService {
     private static final String BEFORE_COMMAND = "C2C.CallbackBeforeSendMsg";
     private static final String AFTER_COMMAND = "C2C.CallbackAfterSendMsg";
+    private static final String READ_COMMAND = "C2C.CallbackAfterMsgReport";
     private static final String GLOBAL_SEND_KEY = "global_send_enabled";
     private static final String TIM_CHANNEL = "tencent_im";
     private static final int MAX_BODY_BYTES = 64 * 1024;
@@ -75,6 +78,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
     private final RelationAccessProjectionService accessProjectionService;
     private final AppRelationMatchDao matchDao;
     private final AppMessageConversationDao conversationDao;
+    private final AppMessageConversationMemberDao memberDao;
     private final AppUserRelationBlockDao relationBlockDao;
     private final AppMessageRuntimeControlDao runtimeControlDao;
     private final AppMessageRecordDao recordDao;
@@ -92,6 +96,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
             RelationAccessProjectionService accessProjectionService,
             AppRelationMatchDao matchDao,
             AppMessageConversationDao conversationDao,
+            AppMessageConversationMemberDao memberDao,
             AppUserRelationBlockDao relationBlockDao,
             AppMessageRuntimeControlDao runtimeControlDao,
             AppMessageRecordDao recordDao,
@@ -99,7 +104,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
             AppMessageWhisperDao whisperDao,
             TransactionOperations transactionOperations) {
         this(properties, objectMapper, accountDao, userDao, accessProjectionService, matchDao,
-                conversationDao, relationBlockDao, runtimeControlDao, recordDao, outboxDao,
+                conversationDao, memberDao, relationBlockDao, runtimeControlDao, recordDao, outboxDao,
                 whisperDao, transactionOperations, Clock.systemUTC());
     }
 
@@ -111,6 +116,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
             RelationAccessProjectionService accessProjectionService,
             AppRelationMatchDao matchDao,
             AppMessageConversationDao conversationDao,
+            AppMessageConversationMemberDao memberDao,
             AppUserRelationBlockDao relationBlockDao,
             AppMessageRuntimeControlDao runtimeControlDao,
             AppMessageRecordDao recordDao,
@@ -125,6 +131,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
         this.accessProjectionService = accessProjectionService;
         this.matchDao = matchDao;
         this.conversationDao = conversationDao;
+        this.memberDao = memberDao;
         this.relationBlockDao = relationBlockDao;
         this.runtimeControlDao = runtimeControlDao;
         this.recordDao = recordDao;
@@ -155,6 +162,20 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
                         ex.code() + ":" + ex.getMessage());
             } catch (RuntimeException ex) {
                 log.warn("TIM before-send callback failed, command={}", request.callbackCommand(), ex);
+                return TencentImCallbackResponse.fail(1, "callback processing failed");
+            }
+        }
+
+        if (READ_COMMAND.equals(request.callbackCommand())) {
+            try {
+                transactionOperations.execute(status -> {
+                    syncReadReport(body, request.requestTime());
+                    return null;
+                });
+                return TencentImCallbackResponse.ok();
+            } catch (RuntimeException ex) {
+                log.warn("TIM read-report callback failed, command={}",
+                        request.callbackCommand(), ex);
                 return TencentImCallbackResponse.fail(1, "callback processing failed");
             }
         }
@@ -194,7 +215,8 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
             throw protocol("callback signature invalid");
         }
         if (!BEFORE_COMMAND.equals(request.callbackCommand())
-                && !AFTER_COMMAND.equals(request.callbackCommand())) {
+                && !AFTER_COMMAND.equals(request.callbackCommand())
+                && !READ_COMMAND.equals(request.callbackCommand())) {
             throw protocol("callback command unsupported");
         }
         if (isBlank(request.body())
@@ -264,14 +286,45 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
         throw protocol("callback message type unsupported");
     }
 
+    private void syncReadReport(JsonNode body, long requestTime) {
+        String reporterIm = requiredText(body, "Report_Account");
+        String peerIm = requiredText(body, "Peer_Account");
+        AppUserImAccount reporter = accountDao.selectByImUserId(reporterIm);
+        AppUserImAccount peer = accountDao.selectByImUserId(peerIm);
+        if (reporter == null || peer == null || reporter.getUserId() == null
+                || peer.getUserId() == null
+                || Objects.equals(reporter.getUserId(), peer.getUserId())) {
+            throw protocol("TIM read-report account mapping invalid");
+        }
+        Long lowId = Math.min(reporter.getUserId(), peer.getUserId());
+        Long highId = Math.max(reporter.getUserId(), peer.getUserId());
+        long lastReadEpochSecond = body.path("LastReadTime").asLong(0);
+        if (lastReadEpochSecond <= 0) {
+            throw protocol("read-report time invalid");
+        }
+        long eventTimeMillis = body.path("EventTime").asLong(requestTime * 1000L);
+        LocalDateTime lastReadTime = LocalDateTime.ofInstant(
+                Instant.ofEpochSecond(lastReadEpochSecond), BUSINESS_ZONE);
+        LocalDateTime readAt = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(eventTimeMillis), BUSINESS_ZONE);
+        AppMessageConversation conversation = conversationDao.selectPairAtMessageTimeForUpdate(
+                lowId, highId, lastReadTime);
+        if (conversation == null) {
+            throw protocol("conversation mapping missing");
+        }
+        memberDao.advanceReadWatermark(conversation.getId(), reporter.getUserId(),
+                lastReadTime, readAt);
+        recordDao.markReadThroughTime(conversation.getId(), reporter.getUserId(),
+                peer.getUserId(), lastReadTime, readAt);
+    }
+
     private void archiveText(ParticipantPair pair, JsonNode body, String content, long requestTime) {
         validateText(content, 500);
         String timMsgKey = requiredText(body, "MsgKey");
         String timMessageId = requiredText(body, "MsgId");
-        AppMessageConversation conversation = conversationDao.selectActivePair(pair.lowId(), pair.highId());
-        if (conversation == null) {
-            conversation = conversationDao.selectLatestPair(pair.lowId(), pair.highId());
-        }
+        LocalDateTime sentAt = callbackTime(body, requestTime);
+        AppMessageConversation conversation = conversationDao.selectPairAtMessageTimeForUpdate(
+                pair.lowId(), pair.highId(), sentAt);
         if (conversation == null) {
             throw protocol("conversation mapping missing");
         }
@@ -282,8 +335,19 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
             return;
         }
 
-        LocalDateTime sentAt = callbackTime(body, requestTime);
         int sendResult = body.path("SendMsgResult").asInt(0);
+        boolean active = MessageConversationStatusEnum.ACTIVE.getCode().equals(
+                conversation.getStatus()) && Integer.valueOf(1).equals(conversation.getActiveMarker());
+        AppMessageConversationMember receiverMember = sendResult == 0 && active
+                ? memberDao.selectByConversationAndUserForUpdate(
+                        conversation.getId(), pair.receiverUserId())
+                : null;
+        if (sendResult == 0 && active && receiverMember == null) {
+            throw protocol("conversation receiver member mapping missing");
+        }
+        boolean coveredByReadWatermark = receiverMember != null
+                && receiverMember.getLastReadMessageTime() != null
+                && !sentAt.isAfter(receiverMember.getLastReadMessageTime());
         AppMessageRecord record = new AppMessageRecord();
         record.setMessageNo(stableId("TIM-", properties.getSdkAppId() + ":" + timMsgKey));
         record.setClientMsgId(stableId("TC-", pair.senderImUserId() + ":"
@@ -297,9 +361,15 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
         record.setContentText(content);
         record.setSendStatus(sendResult == 0
                 ? MessageSendStatusEnum.SENT.getCode() : MessageSendStatusEnum.FAILED.getCode());
-        record.setReceiverReadStatus(sendResult == 0
-                ? MessageReadStatusEnum.UNREAD.getCode()
+        record.setReceiverReadStatus(sendResult == 0 && active
+                ? (coveredByReadWatermark
+                    ? MessageReadStatusEnum.READ.getCode()
+                    : MessageReadStatusEnum.UNREAD.getCode())
                 : MessageReadStatusEnum.NOT_APPLICABLE.getCode());
+        record.setReceiverReadAt(coveredByReadWatermark
+                ? Objects.requireNonNullElse(
+                        receiverMember.getLastReadAt(), receiverMember.getLastReadMessageTime())
+                : null);
         record.setTimMessageId(timMessageId);
         record.setTimMsgKey(timMsgKey);
         record.setProviderSentAt(sentAt);
@@ -308,6 +378,11 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
         record.setSourceBizNo(conversation.getConversationNo());
         record.setFailureCode(sendResult == 0 ? null : "TIM_SEND_" + sendResult);
         record.setFailureReason(sendResult == 0 ? null : "腾讯云TIM发送失败");
+        if (!active) {
+            record.setIsolatedAt(sentAt);
+            record.setPurgeAfter(Objects.requireNonNullElseGet(
+                    conversation.getPurgeAfter(), () -> sentAt.plusDays(180)));
+        }
         record.setVersion(0);
         try {
             recordDao.insert(record);
@@ -322,7 +397,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
         if (record.getId() == null) {
             throw protocol("message archive id missing");
         }
-        if (sendResult == 0) {
+        if (sendResult == 0 && active) {
             boolean femaleFirst = Integer.valueOf(1).equals(conversation.getProtectionEnabled())
                     && Objects.equals(pair.senderUserId(), conversation.getFemaleUserId())
                     && conversation.getFemaleFirstMessageAt() == null;

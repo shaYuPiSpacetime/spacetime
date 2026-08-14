@@ -38,7 +38,8 @@ public class MessageChatReportContextResolver implements ChatReportContextResolv
             throw unavailable();
         }
         return switch (lookup.sourceType()) {
-            case "message", "private_chat" -> resolveMessage(reporterId, lookup);
+            case "message" -> resolveMessage(reporterId, lookup);
+            case "private_chat" -> resolvePrivateChat(reporterId, lookup);
             case "conversation" -> resolveConversation(reporterId, lookup);
             case "whisper" -> resolveWhisper(reporterId, lookup);
             default -> throw unavailable();
@@ -79,8 +80,40 @@ public class MessageChatReportContextResolver implements ChatReportContextResolv
         List<AppMessageRecord> latest = new ArrayList<>(
                 recordDao.selectHistory(conversation.getId(), null, 20));
         Collections.reverse(latest);
-        return trusted(conversationNo, member.getPeerUserId(), "conversation", null,
+        return trusted(conversationNo, member.getPeerUserId(), "private_chat", null,
                 latest.stream().map(AppMessageRecord::getId).toList(), conversationNo);
+    }
+
+    private TrustedChatReportContext resolvePrivateChat(Long reporterId, ChatReportLookup lookup) {
+        String conversationNo = firstText(lookup.targetBizNo(), lookup.conversationNo());
+        if (!StringUtils.hasText(lookup.messageNo())
+                && !StringUtils.hasText(lookup.timMessageId())
+                && !StringUtils.hasText(lookup.timMsgKey())) {
+            return resolveConversation(reporterId, lookup);
+        }
+        AppMessageConversation conversation = conversationDao.selectByConversationNo(conversationNo);
+        AppMessageConversationMember member = requireMember(conversation, reporterId, null);
+        validateTimConversation(lookup.timConversationId(), member.getPeerUserId());
+        AppMessageRecord target = StringUtils.hasText(lookup.messageNo())
+                ? recordDao.selectByMessageNo(lookup.messageNo())
+                : recordDao.selectByConversationAndTimLocator(
+                        conversation.getId(), lookup.timMessageId(), lookup.timMsgKey());
+        if (target == null || !Objects.equals(target.getConversationId(), conversation.getId())
+                || !Objects.equals(target.getSenderUserId(), member.getPeerUserId())
+                || !Objects.equals(target.getReceiverUserId(), reporterId)) {
+            throw unavailable();
+        }
+        requireOptionalSame(lookup.timMessageId(), target.getTimMessageId());
+        requireOptionalSame(lookup.timMsgKey(), target.getTimMsgKey());
+        List<AppMessageRecord> before = new ArrayList<>(recordDao.selectSentBefore(
+                conversation.getId(), target.getId(), 5));
+        Collections.reverse(before);
+        List<Long> evidenceIds = new ArrayList<>(before.stream().map(AppMessageRecord::getId).toList());
+        evidenceIds.add(target.getId());
+        evidenceIds.addAll(recordDao.selectSentAfter(conversation.getId(), target.getId(), 2)
+                .stream().map(AppMessageRecord::getId).toList());
+        return trusted(conversationNo, member.getPeerUserId(), "private_chat",
+                target.getId(), evidenceIds, conversationNo);
     }
 
     private TrustedChatReportContext resolveWhisper(Long reporterId, ChatReportLookup lookup) {

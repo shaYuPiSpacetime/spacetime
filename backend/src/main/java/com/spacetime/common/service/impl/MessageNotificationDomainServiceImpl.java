@@ -10,9 +10,7 @@ import com.spacetime.common.entity.AppMessageTemplateVersion;
 import com.spacetime.common.entity.AppSystemMessage;
 import com.spacetime.common.entity.AppAssistantMessage;
 import com.spacetime.common.exception.BusinessException;
-import com.spacetime.common.model.message.EncryptedMessageContent;
 import com.spacetime.common.model.message.SystemMessageEventPayload;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import com.spacetime.common.service.MessageNotificationDomainService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.HtmlUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
 
 import java.net.URI;
 import java.time.LocalDateTime;
@@ -31,7 +31,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** 模板白名单渲染并加密生成系统/助手消息。 */
+/** 模板白名单渲染并生成系统/助手明文通知。 */
 @Service
 public class MessageNotificationDomainServiceImpl implements MessageNotificationDomainService {
     private static final Pattern VARIABLE = Pattern.compile("\\{\\{([A-Za-z0-9_]+)}}");
@@ -44,7 +44,6 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
     private final AppMessageTemplateVersionDao templateDao;
     private final AppSystemMessageDao systemMessageDao;
     private final AppAssistantMessageDao assistantMessageDao;
-    private final SensitiveTextCipher cipher;
     private final ObjectMapper objectMapper;
     private final Set<String> allowedH5Hosts;
 
@@ -52,13 +51,11 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
             AppMessageTemplateVersionDao templateDao,
             AppSystemMessageDao systemMessageDao,
             AppAssistantMessageDao assistantMessageDao,
-            SensitiveTextCipher cipher,
             ObjectMapper objectMapper,
             @Value("${message.security.allowed-h5-hosts:}") String allowedH5Hosts) {
         this.templateDao = templateDao;
         this.systemMessageDao = systemMessageDao;
         this.assistantMessageDao = assistantMessageDao;
-        this.cipher = cipher;
         this.objectMapper = objectMapper;
         this.allowedH5Hosts = parseHosts(allowedH5Hosts);
     }
@@ -84,11 +81,14 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
         validateVariables(template.getAllowedVariablesJson(), variables);
         String title = render(template.getTitleTemplate(), variables);
         String content = render(template.getContentTemplate(), variables);
+        String contentFormat = defaultContentFormat(template.getContentFormat());
+        if ("rich_text".equals(contentFormat)) {
+            content = Jsoup.clean(content, Safelist.basic().removeTags("img"));
+        }
         String jumpValue = StringUtils.hasText(template.getJumpValueTemplate())
                 ? render(template.getJumpValueTemplate(), variables) : null;
+        String actionText = renderActionText(template, variables);
         validateJump(template.getNotificationType(), template.getJumpType(), jumpValue);
-        EncryptedMessageContent encryptedTitle = cipher.encrypt(title);
-        EncryptedMessageContent encryptedContent = cipher.encrypt(content);
         LocalDateTime effectiveNow = now == null ? LocalDateTime.now() : now;
 
         AppSystemMessage message = new AppSystemMessage();
@@ -100,9 +100,11 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
         message.setBizNo(inbox.getBizNo());
         message.setTemplateCode(template.getTemplateCode());
         message.setTemplateVersion(template.getVersionNo());
-        applyTitle(message, encryptedTitle);
-        applyContent(message, encryptedContent);
+        message.setTitleText(title);
+        message.setContentText(content);
+        message.setContentFormat(contentFormat);
         message.setJumpType(template.getJumpType());
+        message.setActionText(actionText);
         message.setJumpValue(jumpValue);
         message.setSafetyRequired(valueOrZero(template.getSafetyRequired()));
         message.setVisibleUntil(payload.visibleUntil() == null
@@ -137,10 +139,9 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
             validateVariables(template.getAllowedVariablesJson(), Map.of());
             String title = render(template.getTitleTemplate(), Map.of());
             String content = render(template.getContentTemplate(), Map.of());
+            String actionText = renderActionText(template, Map.of());
             validateJump(template.getNotificationType(), template.getJumpType(),
                     template.getJumpValueTemplate());
-            EncryptedMessageContent encryptedTitle = cipher.encrypt(title);
-            EncryptedMessageContent encryptedContent = cipher.encrypt(content);
             AppAssistantMessage message = new AppAssistantMessage();
             message.setAssistantMessageNo("AST-" + UUID.randomUUID().toString().replace("-", ""));
             message.setReceiverUserId(userId);
@@ -148,15 +149,11 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
             message.setContentVersion(template.getVersionNo());
             message.setTemplateCode(template.getTemplateCode());
             message.setTemplateVersion(template.getVersionNo());
-            message.setTitleCiphertext(encryptedTitle.ciphertext());
-            message.setTitleIv(encryptedTitle.iv());
-            message.setTitleKeyVersion(encryptedTitle.keyVersion());
-            message.setTitleHmac(encryptedTitle.hmac());
-            message.setContentCiphertext(encryptedContent.ciphertext());
-            message.setContentIv(encryptedContent.iv());
-            message.setContentKeyVersion(encryptedContent.keyVersion());
-            message.setContentHmac(encryptedContent.hmac());
+            message.setTitleText(title);
+            message.setContentText(content);
+            message.setCardType(defaultCardType(template));
             message.setActionType(template.getJumpType());
+            message.setActionText(actionText);
             message.setActionValue(template.getJumpValueTemplate());
             message.setVisibleFrom(effectiveNow);
             try {
@@ -225,6 +222,28 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
         return result.toString();
     }
 
+    private String defaultCardType(AppMessageTemplateVersion template) {
+        if (StringUtils.hasText(template.getCardType())) {
+            return template.getCardType();
+        }
+        return "none".equals(template.getJumpType()) ? "text" : "action";
+    }
+
+    private String defaultContentFormat(String contentFormat) {
+        return StringUtils.hasText(contentFormat) ? contentFormat : "plain_text";
+    }
+
+    private String renderActionText(AppMessageTemplateVersion template,
+                                    Map<String, Object> variables) {
+        String actionText = StringUtils.hasText(template.getActionTextTemplate())
+                ? render(template.getActionTextTemplate(), variables)
+                : ("none".equals(template.getJumpType()) ? null : "查看详情");
+        if (actionText != null && actionText.codePointCount(0, actionText.length()) > 10) {
+            throw new BusinessException(30018, "消息行动文案不能超过10个字符");
+        }
+        return actionText;
+    }
+
     private void validateJump(String notificationType, String jumpType, String jumpValue) {
         Set<String> allowedTypes = "assistant".equals(notificationType)
                 ? ASSISTANT_ACTION_TYPES : SYSTEM_JUMP_TYPES;
@@ -252,20 +271,6 @@ public class MessageNotificationDomainServiceImpl implements MessageNotification
                 throw new BusinessException(30018, "系统消息H5跳转目标不在白名单");
             }
         }
-    }
-
-    private void applyTitle(AppSystemMessage message, EncryptedMessageContent encrypted) {
-        message.setTitleCiphertext(encrypted.ciphertext());
-        message.setTitleIv(encrypted.iv());
-        message.setTitleKeyVersion(encrypted.keyVersion());
-        message.setTitleHmac(encrypted.hmac());
-    }
-
-    private void applyContent(AppSystemMessage message, EncryptedMessageContent encrypted) {
-        message.setContentCiphertext(encrypted.ciphertext());
-        message.setContentIv(encrypted.iv());
-        message.setContentKeyVersion(encrypted.keyVersion());
-        message.setContentHmac(encrypted.hmac());
     }
 
     private Set<String> parseHosts(String value) {

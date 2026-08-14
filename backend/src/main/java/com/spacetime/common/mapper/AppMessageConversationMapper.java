@@ -23,6 +23,15 @@ public interface AppMessageConversationMapper extends BaseMapper<AppMessageConve
     AppMessageConversation selectActivePairForUpdate(@Param("userLowId") Long userLowId,
                                                      @Param("userHighId") Long userHighId);
 
+    @Select("SELECT * FROM app_message_conversation WHERE user_low_id=#{userLowId} "
+            + "AND user_high_id=#{userHighId} AND create_time<=#{messageTime} "
+            + "AND (invalid_time IS NULL OR invalid_time>=#{messageTime}) AND deleted=0 "
+            + "ORDER BY create_time DESC,id DESC LIMIT 1 FOR UPDATE")
+    AppMessageConversation selectPairAtMessageTimeForUpdate(
+            @Param("userLowId") Long userLowId,
+            @Param("userHighId") Long userHighId,
+            @Param("messageTime") java.time.LocalDateTime messageTime);
+
     @Update("UPDATE app_message_conversation SET "
             + "last_message_id=CASE WHEN last_message_time IS NULL OR last_message_time<=#{messageTime} "
             + "THEN #{messageId} ELSE last_message_id END, "
@@ -30,7 +39,8 @@ public interface AppMessageConversationMapper extends BaseMapper<AppMessageConve
             + "THEN #{messageTime} ELSE last_message_time END, "
             + "female_first_message_at=CASE WHEN #{femaleFirstMessage}=TRUE "
             + "AND female_first_message_at IS NULL THEN #{messageTime} ELSE female_first_message_at END, "
-            + "version=version+1, update_time=#{messageTime} WHERE id=#{id} AND deleted=0")
+            + "version=version+1, update_time=#{messageTime} WHERE id=#{id} "
+            + "AND status='active' AND active_marker=1 AND deleted=0")
     int touchMessage(@Param("id") Long id,
                      @Param("messageId") Long messageId,
                      @Param("messageTime") java.time.LocalDateTime messageTime,

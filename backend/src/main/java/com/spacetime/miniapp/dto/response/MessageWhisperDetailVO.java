@@ -3,8 +3,6 @@ package com.spacetime.miniapp.dto.response;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.List;
-
 /** 悄悄话详情，包括历史终态关联的私信会话。 */
 @Data
 public class MessageWhisperDetailVO {
@@ -13,16 +11,13 @@ public class MessageWhisperDetailVO {
     private String status;
     private String displayStatus;
     private MessagePeerUserVO peerUser;
-    private String timConversationId;
-    private String requestTimMessageId;
-    private String requestTimMsgKey;
-    private String replyMessageNo;
-    private String replyTimMessageId;
-    private String replyTimMsgKey;
+    private String content;
+    private Boolean contentAvailable;
+    private String requestMessageNo;
     private LocalDateTime createdTime;
     private LocalDateTime expireTime;
+    private LocalDateTime processedTime;
     private Long remainingSeconds;
-    private Boolean canReply;
     private String conversationNo;
-    private List<String> safetyActions;
+    private MessageWhisperActionsVO actions;
 }

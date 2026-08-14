@@ -13,7 +13,7 @@ public class MessageConfigPublishReq {
     @NotBlank(message = "期望版本不能为空")
     private String expectedVersion;
     @NotBlank(message = "变更说明不能为空")
-    @Size(min = 5, max = 200, message = "变更说明长度必须为5-200个字符")
+    @Size(min = 5, max = 100, message = "变更说明长度必须为5-100个字符")
     private String remark;
     @NotNull private Boolean femaleProtectionEnabled;
     @NotNull @Min(1) @Max(30) private Integer femaleProtectionDays;

@@ -4,7 +4,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
-/** 举报冻结证据元数据，不包含正文和加密材料。 */
+/** 举报冻结证据元数据，不包含正文。 */
 @Data
 public class ReportEvidenceVO {
     private String evidenceNo;
@@ -18,7 +18,6 @@ public class ReportEvidenceVO {
     private LocalDateTime eventTime;
     private Integer contextOrder;
     private String severity;
-    private String contentHmacSummary;
     private LocalDateTime snapshotAt;
     private LocalDateTime retainUntil;
     private boolean contentAvailable;

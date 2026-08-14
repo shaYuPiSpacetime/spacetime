@@ -49,9 +49,10 @@ public class AuthServiceImpl implements AuthService {
         }
 
         List<String> permissions = menuDao.selectPermsByUserId(user.getId());
+        List<String> roles = menuDao.selectRoleCodesByUserId(user.getId());
 
         String token = IdUtil.simpleUUID();
-        UserContext context = new UserContext(user.getId(), user.getNickname(), null, permissions);
+        UserContext context = new UserContext(user.getId(), user.getNickname(), roles, permissions);
         String json;
         try {
             json = objectMapper.writeValueAsString(context);

@@ -4,13 +4,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * 社区举报请求
  */
 @Data
 public class CommunityReportCreateReq {
 
-    /** 举报目标类型：post/comment/user/message/conversation/whisper。 */
+    /** 举报目标类型：post/comment/user/chat；其余聊天类型仅用于历史兼容。 */
     @NotBlank(message = "举报目标类型不能为空")
     private String targetType;
 
@@ -43,6 +45,10 @@ public class CommunityReportCreateReq {
 
     /** 补充说明（可选） */
     private String extraText;
+
+    /** 举报人上传的图片凭证 URL，最多 3 张。 */
+    @Size(max = 3, message = "举报凭证图片最多上传3张")
+    private List<String> evidenceImageUrls;
 
     /** 聊天举报最小上下文；正文和被举报用户 ID 不允许由客户端提交。 */
     private String sourceType;

@@ -78,7 +78,14 @@ public interface MessageAdminQueryMapper {
                   OR records.conversation_no LIKE CONCAT('%', #{filter.keyword}, '%')
                   OR records.source_biz_no LIKE CONCAT('%', #{filter.keyword}, '%')
                   OR CAST(records.user_id AS CHAR) = #{filter.keyword}
-                  OR CAST(records.peer_user_id AS CHAR) = #{filter.keyword})
+                  OR CAST(records.peer_user_id AS CHAR) = #{filter.keyword}
+                  OR EXISTS (
+                      SELECT 1
+                        FROM app_user keyword_user
+                       WHERE keyword_user.deleted = 0
+                         AND keyword_user.id IN (records.user_id, records.peer_user_id)
+                         AND keyword_user.nickname LIKE CONCAT('%', #{filter.keyword}, '%')
+                  ))
               </if>
               <if test="filter.recordType != null and filter.recordType != ''">
                 AND records.record_type = #{filter.recordType}
@@ -125,17 +132,20 @@ public interface MessageAdminQueryMapper {
     @Select({"<script>", "SELECT COUNT(*) FROM", RECORD_UNION, FILTER, "</script>"})
     long count(@Param("filter") MessageAdminRecordFilter filter);
 
-    @Select({"<script>",
-            "SELECT COUNT(*) AS totalCount,",
-            "COALESCE(SUM(CASE WHEN records.record_type = 'private_message' THEN 1 ELSE 0 END), 0) AS privateMessageCount,",
-            "COALESCE(SUM(CASE WHEN records.record_type = 'whisper_message' THEN 1 ELSE 0 END), 0) AS whisperMessageCount,",
-            "COALESCE(SUM(CASE WHEN records.record_type = 'system_message' THEN 1 ELSE 0 END), 0) AS systemMessageCount,",
-            "COALESCE(SUM(CASE WHEN records.record_type = 'assistant_message' THEN 1 ELSE 0 END), 0) AS assistantMessageCount,",
-            "COALESCE(SUM(CASE WHEN records.status = 'failed' THEN 1 ELSE 0 END), 0) AS failedCount,",
-            "COALESCE(SUM(CASE WHEN EXISTS (SELECT 1 FROM community_report cr",
-            "WHERE cr.deleted = 0 AND cr.target_biz_no = records.record_no) THEN 1 ELSE 0 END), 0) AS caseLinkedCount",
-            "FROM", RECORD_UNION, FILTER, "</script>"})
-    MessageAdminRecordStatsProjection stats(@Param("filter") MessageAdminRecordFilter filter);
+    @Select({"SELECT",
+            "(SELECT COUNT(*) FROM app_message_record m WHERE m.deleted = 0",
+            " AND m.message_type NOT IN ('whisper','whisper_request','whisper_reply')",
+            " AND COALESCE(m.sent_at,m.provider_sent_at,m.create_time) >= CURRENT_DATE",
+            " AND COALESCE(m.sent_at,m.provider_sent_at,m.create_time) < DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY)) AS todayPrivateMessageCount,",
+            "(SELECT COUNT(*) FROM app_message_whisper w WHERE w.deleted = 0 AND w.status = 'pending'",
+            " AND (w.expires_at IS NULL OR w.expires_at > NOW())) AS waitingWhisperCount,",
+            "(SELECT COUNT(*) FROM app_system_message s WHERE s.deleted = 0",
+            " AND (s.visible_until IS NULL OR s.visible_until > NOW())) AS systemMessageCount,",
+            "(SELECT COUNT(DISTINCT cr.target_biz_no) FROM community_report cr",
+            " WHERE cr.deleted = 0 AND cr.target_biz_no IS NOT NULL",
+            " AND (cr.target_type IN ('message','conversation','whisper','chat')",
+            " OR cr.source_scene IN ('chat','whisper'))) AS caseLinkedCount"})
+    MessageAdminRecordStatsProjection stats();
 
     @Select({"SELECT records.record_no AS recordNo, records.record_type AS recordType,",
             "records.user_id AS userId, records.peer_user_id AS peerUserId,",

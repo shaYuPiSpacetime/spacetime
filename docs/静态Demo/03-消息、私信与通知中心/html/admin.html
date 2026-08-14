@@ -62,7 +62,7 @@
               <article class="merge-card">
                 <small>详情区块已合并</small>
                 <h3>App 用户管理模块补充弹窗-消息互动 Tab</h3>
-                <p>已合并到 01 原 App 用户管理的模块补充弹窗中展示，包括私信、悄悄话、通知、举报摘要、5 条/页分页组件和高敏查看审计。</p>
+                <p>已合并到 01 原 App 用户管理的模块补充弹窗中展示，包括私信、悄悄话、系统消息和举报关联的统计及业务元数据；本弹窗不查询正文或内容摘要。</p>
                 <strong>承接位置：01 / App 用户管理 / 模块补充弹窗</strong>
               </article>
             </div>
@@ -78,39 +78,38 @@
             <div class="admin-page-header">
               <div>
                 <h1>消息通知记录查询</h1>
-                <p>运营中心独立页面。记录类型统一引用 `M03-ENUM-admin-record-type`，避免混用会话、消息和通知枚举。</p>
+                <p>运营中心独立页面，只返回业务编号、参与方脱敏标识、类型、时间、状态和失败原因；通用查询没有正文或内容摘要字段。</p>
               </div>
               <div class="admin-actions">
-                <button class="btn" type="button" data-view-content>查看高敏内容</button>
                 <button class="btn primary" type="button" data-export-records>导出记录</button>
               </div>
             </div>
             <div class="admin-summary-grid">
-              <article class="stat-card"><span>今日私信</span><strong>1,248</strong></article>
+              <article class="stat-card"><span>今日私信元数据</span><strong>1,248</strong></article>
               <article class="stat-card"><span>等待回应悄悄话</span><strong>86</strong></article>
-              <article class="stat-card"><span>系统通知</span><strong>312</strong></article>
-              <article class="stat-card"><span>站内通知</span><strong>4,902</strong></article>
+              <article class="stat-card"><span>系统消息</span><strong>312</strong></article>
+              <article class="stat-card"><span>关联举报案件</span><strong>27</strong></article>
             </div>
             <div class="query-panel">
               <h2>查询条件</h2>
               <div class="query-grid">
                 <label class="control-field">用户/编号搜索<input value="U100281"></label>
-                <label class="control-field">记录类型<select data-record-type-filter><option value="全部">全部</option><option value="private_message">私信记录</option><option value="whisper_message">悄悄话记录</option><option value="notification">系统通知记录</option></select></label>
-                <label class="control-field">消息类型<select><option>全部</option><option>text</option><option>whisper</option></select></label>
-                <label class="control-field">通知内容<select><option>全部</option><option>community_hot_topic</option><option>featured_content</option><option>community_activity</option><option>platform_announcement</option></select></label>
+                <label class="control-field">记录类型<select data-record-type-filter><option value="全部">全部</option><option value="private_message">私信记录</option><option value="whisper_message">悄悄话记录</option><option value="system_message">系统消息记录</option></select></label>
+                <label class="control-field">消息类型<select><option>全部</option><option>text</option><option>whisper</option><option>system_tip</option></select></label>
+                <label class="control-field">系统消息分类<select><option>全部</option><option>governance</option><option>asset</option><option>invite</option><option>community</option><option>platform</option></select></label>
                 <label class="control-field">状态<select><option>全部</option><option>已发送</option><option>未读</option><option>已读</option><option>失败</option></select></label>
                 <label class="control-field">时间范围<input type="date" value="2026-07-02"></label>
               </div>
               <div class="record-type-help">
                 <div><strong>private_message</strong><span>普通私信记录</span></div>
                 <div><strong>whisper_message</strong><span>悄悄话记录</span></div>
-                <div><strong>notification</strong><span>系统通知记录</span></div>
+                <div><strong>system_message</strong><span>系统消息记录</span></div>
               </div>
             </div>
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th>记录编号</th><th>记录类型</th><th>用户编号</th><th>对方用户</th><th>内容摘要</th><th>通知标题</th><th>状态</th><th>创建时间</th><th>操作</th></tr>
+                  <tr><th>记录编号</th><th>记录类型</th><th>用户编号</th><th>对方用户</th><th>消息类型</th><th>状态</th><th>创建时间</th><th>操作</th></tr>
                 </thead>
                 <tbody data-render="records"></tbody>
               </table>
@@ -123,7 +122,7 @@
             <div class="admin-page-header">
               <div>
                 <h1>社交权限与消息配置</h1>
-                <p>移动端配置管理独立页面。首版只配置女性保护、悄悄话冷却和系统通知模板，不做完整通知偏好中心。</p>
+                <p>普通规则按版本发布并仅影响新会话/新申请；全局发送安全开关关闭后立即阻断新发送。</p>
               </div>
               <div class="admin-actions">
                 <button class="btn" type="button" data-open-drawer="configLogDrawer">查看变更日志</button>
@@ -131,19 +130,21 @@
               </div>
             </div>
             <div class="admin-summary-grid">
+              <article class="stat-card"><span>全局发送</span><strong data-safety-switch-label>开启</strong></article>
+              <article class="stat-card"><span>当前配置版本</span><strong>v03</strong></article>
               <article class="stat-card"><span>女性保护</span><strong>开启</strong></article>
               <article class="stat-card"><span>保护期</span><strong>3 天</strong></article>
               <article class="stat-card"><span>到期后冷却</span><strong>7 天</strong></article>
               <article class="stat-card"><span>待回应有效期</span><strong>7 天</strong></article>
-              <article class="stat-card"><span>系统通知模板</span><strong>已启用</strong></article>
-              <article class="stat-card"><span>官方助手</span><strong>低频引导</strong></article>
             </div>
             <div class="config-grid">
-              <div class="config-item"><div class="switch-line"><strong>女性保护机制</strong><span class="mini-switch">开</span></div><span>匹配成功后 3 天内，男方等待女方先发送真实用户消息。</span></div>
-              <label class="config-item"><strong>女性保护期天数</strong><input type="number" value="3"><span>高风险配置，保存需二次确认。</span></label>
-              <label class="config-item"><strong>悄悄话到期后冷却天数</strong><input type="number" value="7"><span>待回复满 7 天由后台自动结束；从到期时间起，同一发送方 7 天内不可再次发送。</span></label>
+              <div class="config-item"><div class="switch-line"><strong>全局发送安全开关</strong><span class="mini-switch" data-safety-switch-label>开启</span></div><span>关闭后所有新私信和悄悄话立即禁发，历史对象状态不改写。</span><button class="btn danger" type="button" data-open-modal="safetySwitchModal">切换开关</button></div>
+              <div class="config-item"><div class="switch-line"><strong>女性保护机制</strong><span class="mini-switch">开启</span></div><span>匹配成功后 3 天内，男方等待女方先发送真实用户消息；会话仍可进入。</span></div>
+              <label class="config-item"><strong>女性保护期天数</strong><input type="number" value="3"><span>保存到新版本，只影响新建会话并写入快照。</span></label>
+              <label class="config-item"><strong>悄悄话有效期 / 冷却</strong><input type="number" value="7"><span>有效期和到期后冷却均为 7 天，只影响新申请并写入快照。</span></label>
               <div class="config-item"><div class="switch-line"><strong>官方助手内容范围</strong><span class="mini-switch">开</span></div><span>只允许首次功能介绍、安全提示、帮助入口和服务号/公众号关注引导；禁止配置审核结果。</span></div>
-              <div class="config-item"><div class="switch-line"><strong>系统通知内容范围</strong><span class="mini-switch">开</span></div><span>只允许社区热点、精选内容、社区活动、聚合召回和重要公告。</span></div>
+              <div class="config-item"><div class="switch-line"><strong>系统消息模板范围</strong><span class="mini-switch">开</span></div><span>治理结果、资产结果、邀请结果、社区运营、平台与安全五类模板；仅影响新生成消息。</span></div>
+              <div class="config-item"><div class="switch-line"><strong>分类留存基线</strong><span class="mini-switch">法务复核</span></div><span>普通消息隔离 180 天；系统消息用户可见 2 年；举报证据 3 年；严重证据 5 年；审计 3 年。</span></div>
               <div class="config-item"><div class="switch-line"><strong>用户通知设置页</strong><span class="mini-switch off">不做</span></div><span>一期目标明确不做用户侧通知设置页。</span></div>
               <div class="config-item"><div class="switch-line"><strong>后台通知偏好中心</strong><span class="mini-switch off">不做</span></div><span>只保留通知模板与订阅消息前置准备。</span></div>
             </div>
@@ -155,7 +156,7 @@
             <div class="admin-page-header">
               <div>
                 <h1>举报处理 / 聊天举报字段已合并</h1>
-                <p>承接 `举报处理-聊天举报字段补充`，不新增聊天举报中心，在原举报处理详情中展示消息上下文。</p>
+                <p>PRD-05 是举报案件事实源。只有具备案件处理权限的人员，才能在有效案件上下文按条查看冻结正文。</p>
               </div>
               <button class="btn primary" type="button" data-open-report="RPT202607020011">打开举报详情</button>
             </div>
@@ -163,18 +164,18 @@
               <article class="merge-card">
                 <small>字段补充已合并</small>
                 <h3>聊天举报上下文</h3>
-                <p>展示会话编号、消息编号、消息类型、发送方、接收方、内容摘要和举报来源。</p>
+                <p>展示案件号、会话/消息/悄悄话编号、证据数量和证据哈希；正文不进入普通查询。</p>
               </article>
               <article class="merge-card">
                 <small>处罚联动</small>
-                <h3>会话失效与通知</h3>
-                <p>处理为封禁、禁言或拉黑时，联动会话失效并生成站内通知。</p>
+                <h3>会话失效与系统消息</h3>
+                <p>处罚事实生效后联动会话失效，并通过 PRD-03 生成治理结果或处罚结果系统消息。</p>
               </article>
             </div>
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th>举报编号</th><th>来源</th><th>举报人</th><th>被举报人</th><th>原因</th><th>状态</th><th>上下文</th><th>操作</th></tr>
+                  <tr><th>举报编号</th><th>案件编号</th><th>来源</th><th>举报人</th><th>被举报人</th><th>原因</th><th>状态</th><th>操作</th></tr>
                 </thead>
                 <tbody data-render="reports"></tbody>
               </table>
@@ -191,7 +192,6 @@
       <div class="drawer-body" data-render="record-detail"></div>
       <div class="drawer-actions">
         <button class="btn" onclick="DemoCommon.closeDrawer(this)">关闭</button>
-        <button class="btn primary" type="button" data-view-content>查看内容</button>
       </div>
     </aside>
   </div>
@@ -215,14 +215,15 @@
     </aside>
   </div>
 
-  <div class="modal-backdrop" id="contentConfirmModal" aria-hidden="true">
+  <div class="modal-backdrop" id="caseContentConfirmModal" aria-hidden="true">
     <div class="modal">
-      <h2>高敏内容查看确认</h2>
-      <p>私信和悄悄话内容属于敏感信息，查看需填写原因并写入审计。</p>
-      <label class="field">查看原因<textarea>用户投诉核查，需要查看相关聊天上下文。</textarea></label>
+      <h2>案件冻结正文查看确认</h2>
+      <p>仅限当前有效举报案件、当前证据条目。客服与普通运营无权查看，导出始终不包含正文。</p>
+      <label class="field">案件号<input value="CASE202607310021" readonly></label>
+      <label class="field">查看原因<textarea>核查本举报案件中已冻结的关联消息证据。</textarea></label>
       <div class="modal-actions">
         <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
-        <button class="btn primary" type="button" data-confirm-content-view>确认查看</button>
+        <button class="btn primary" type="button" data-confirm-case-content>确认并写审计</button>
       </div>
     </div>
   </div>
@@ -230,7 +231,7 @@
   <div class="modal-backdrop" id="exportModal" aria-hidden="true">
     <div class="modal">
       <h2>导出确认</h2>
-      <p>导出将按当前筛选条件生成脱敏文件，敏感内容默认不导出。</p>
+      <p>导出按当前筛选生成元数据文件，私信、悄悄话及案件正文永不导出。</p>
       <div class="modal-actions">
         <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
         <button class="btn primary" onclick="DemoCommon.closeModal(this);showToast('导出任务已创建')">确认导出</button>
@@ -241,7 +242,7 @@
   <div class="modal-backdrop" id="configSaveModal" aria-hidden="true">
     <div class="modal">
       <h2>保存配置确认</h2>
-      <p>女性保护、悄悄话冷却等高风险配置保存后立即影响移动端发送权限。</p>
+      <p>女性保护、悄悄话有效期和冷却等普通配置会发布新版本，只影响新对象并写入配置快照。</p>
       <label class="field">变更原因<textarea>按一期上线目标确认，保持默认配置并写入审计。</textarea></label>
       <div class="modal-actions">
         <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
@@ -250,10 +251,22 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="safetySwitchModal" aria-hidden="true">
+    <div class="modal">
+      <h2>切换全局发送安全开关</h2>
+      <p>开关变更立即生效：关闭时阻断所有新私信和悄悄话发送，但不改写历史会话或申请状态。</p>
+      <label class="field">变更原因<textarea>安全演练或风险事件处置。</textarea></label>
+      <div class="modal-actions">
+        <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
+        <button class="btn danger" type="button" data-confirm-safety-toggle>确认切换</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="punishModal" aria-hidden="true">
     <div class="modal">
       <h2>处罚确认</h2>
-      <p>确认处罚后，会话将按规则失效，并向相关用户生成站内通知。</p>
+      <p>确认处罚后，会话按规则失效，并生成治理结果或处罚结果系统消息；不披露不必要的处罚细节。</p>
       <div class="modal-actions">
         <button class="btn" onclick="DemoCommon.closeModal(this)">取消</button>
         <button class="btn danger" onclick="DemoCommon.closeModal(this);showToast('处罚已生效，会话已联动失效')">确认处罚</button>

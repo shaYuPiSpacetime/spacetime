@@ -38,21 +38,49 @@ class MessageAdminQueryMapperContractTest {
             MappedStatement statement = configuration.getMappedStatement(
                     MessageAdminQueryMapper.class.getName() + "." + method);
             String sql = statement.getBoundSql(params).getSql().toLowerCase(Locale.ROOT);
-            assertThat(sql).contains("app_message_record", "app_system_message", "app_assistant_message");
+            if ("stats".equals(method)) {
+                assertThat(sql).contains("app_message_record", "app_message_whisper", "app_system_message",
+                        "community_report");
+            } else {
+                assertThat(sql).contains("app_message_record", "app_system_message", "app_assistant_message");
+            }
             assertThat(sql).doesNotContain("content_text", "content_ciphertext", "title_ciphertext",
                     "content_iv", "title_iv", "content_hmac", "title_hmac");
         }
     }
 
     @Test
-    @DisplayName("通用消息列表和详情 VO 不得暴露正文、密文或内容摘要字段")
+    @DisplayName("消息记录关键词查询应兼容用户昵称")
+    void keywordFilterShouldSearchUserNickname() {
+        Configuration configuration = new Configuration();
+        configuration.addMapper(MessageAdminQueryMapper.class);
+        MessageAdminRecordFilter filter = new MessageAdminRecordFilter();
+        filter.setKeyword("张三");
+        Map<String, Object> params = new HashMap<>();
+        params.put("filter", filter);
+        params.put("offset", 0);
+        params.put("limit", 20);
+
+        String sql = configuration.getMappedStatement(
+                        MessageAdminQueryMapper.class.getName() + ".selectPage")
+                .getBoundSql(params).getSql().toLowerCase(Locale.ROOT);
+
+        assertThat(sql).contains("app_user", "nickname");
+    }
+
+    @Test
+    @DisplayName("列表不得暴露正文；详情仅允许系统与助手明文槽位且不得暴露密文字段")
     void adminProjectionShouldNotExposeSensitiveContentFields() {
         Set<String> forbidden = Set.of("content", "contentText", "contentSummary", "ciphertext",
                 "contentCiphertext", "contentIv", "titleCiphertext", "titleIv", "contentHmac",
                 "titleHmac");
 
         assertThat(fieldNames(AdminMessageRecordVO.class)).doesNotContainAnyElementsOf(forbidden);
-        assertThat(fieldNames(AdminMessageRecordDetailVO.class)).doesNotContainAnyElementsOf(forbidden);
+        assertThat(fieldNames(AdminMessageRecordDetailVO.class))
+                .contains("content", "sensitiveContent", "contentAvailable")
+                .doesNotContainAnyElementsOf(Set.of("contentText", "contentSummary", "ciphertext",
+                        "contentCiphertext", "contentIv", "titleCiphertext", "titleIv",
+                        "contentHmac", "titleHmac"));
     }
 
     @Test

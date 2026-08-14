@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @TableName("app_message_conversation")
 public class AppMessageConversation extends BaseEntity {
     private String conversationNo;
+    /** 平台内部 TIM 映射键，不是返回给客户端的 C2C 会话 ID。 */
     private String timConversationId;
     private Long matchId;
     private String matchNo;

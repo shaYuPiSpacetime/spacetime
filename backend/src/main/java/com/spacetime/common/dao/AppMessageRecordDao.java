@@ -13,6 +13,8 @@ public interface AppMessageRecordDao {
     AppMessageRecord selectByMessageNo(String messageNo);
     AppMessageRecord selectBySenderClientMsgId(Long senderUserId, String clientMsgId);
     AppMessageRecord selectByTimMsgKey(String timMsgKey);
+    AppMessageRecord selectByConversationAndTimLocator(Long conversationId, String timMessageId,
+                                                        String timMsgKey);
     long countUnreadAfter(Long conversationId, Long receiverUserId, Long messageId);
     long countUnreadByReceiver(Long receiverUserId);
     long countUnreadByConversation(Long conversationId, Long receiverUserId);
@@ -34,6 +36,9 @@ public interface AppMessageRecordDao {
     int schedulePurgeForTerminalWhispers(java.time.LocalDateTime terminalTime);
     int markReadThrough(Long conversationId, Long receiverUserId, Long lastMessageId,
                         LocalDateTime readAt);
+    int markReadThroughTime(Long conversationId, Long receiverUserId, Long senderUserId,
+                            LocalDateTime lastReadTime, LocalDateTime readAt);
+    boolean existsReportableIncomingText(Long conversationId, Long receiverUserId);
     int markWhisperRequestsRead(Long receiverUserId, Collection<String> whisperNos,
                                 LocalDateTime readAt);
 }

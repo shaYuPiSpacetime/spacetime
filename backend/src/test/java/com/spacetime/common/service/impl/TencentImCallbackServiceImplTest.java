@@ -3,6 +3,7 @@ package com.spacetime.common.service.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.config.TencentImProperties;
 import com.spacetime.common.dao.AppMessageConversationDao;
+import com.spacetime.common.dao.AppMessageConversationMemberDao;
 import com.spacetime.common.dao.AppMessageDeliveryOutboxDao;
 import com.spacetime.common.dao.AppMessageRecordDao;
 import com.spacetime.common.dao.AppMessageRuntimeControlDao;
@@ -12,6 +13,7 @@ import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserImAccountDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
 import com.spacetime.common.entity.AppMessageConversation;
+import com.spacetime.common.entity.AppMessageConversationMember;
 import com.spacetime.common.entity.AppMessageDeliveryOutbox;
 import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.AppMessageRuntimeControl;
@@ -60,6 +62,7 @@ class TencentImCallbackServiceImplTest {
     @Mock private RelationAccessProjectionService accessProjectionService;
     @Mock private AppRelationMatchDao matchDao;
     @Mock private AppMessageConversationDao conversationDao;
+    @Mock private AppMessageConversationMemberDao memberDao;
     @Mock private AppUserRelationBlockDao relationBlockDao;
     @Mock private AppMessageRuntimeControlDao runtimeControlDao;
     @Mock private AppMessageRecordDao recordDao;
@@ -83,7 +86,7 @@ class TencentImCallbackServiceImplTest {
         });
         service = new TencentImCallbackServiceImpl(
                 properties, new ObjectMapper(), accountDao, userDao, accessProjectionService,
-                matchDao, conversationDao, relationBlockDao, runtimeControlDao, recordDao,
+                matchDao, conversationDao, memberDao, relationBlockDao, runtimeControlDao, recordDao,
                 outboxDao, whisperDao, transactionOperations,
                 Clock.fixed(Instant.ofEpochSecond(REQUEST_TIME), ZoneId.of("UTC")));
     }
@@ -184,6 +187,153 @@ class TencentImCallbackServiceImplTest {
     }
 
     @Test
+    void shouldAdvancePlatformUnreadProjectionAfterConversationReadReport() {
+        openAccounts();
+        AppMessageConversation conversation = new AppMessageConversation();
+        conversation.setId(30L);
+        conversation.setConversationNo("CV-1");
+        when(conversationDao.selectPairAtMessageTimeForUpdate(eq(11L), eq(22L),
+                any(LocalDateTime.class))).thenReturn(conversation);
+        when(memberDao.advanceReadWatermark(eq(30L), eq(22L),
+                any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(1);
+        when(recordDao.markReadThroughTime(eq(30L), eq(22L), eq(11L),
+                any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(2);
+
+        TencentImCallbackResponse response = service.handle(signedRequest(
+                "C2C.CallbackAfterMsgReport", readReportBody()));
+
+        assertThat(response.errorCode()).isZero();
+        verify(memberDao).advanceReadWatermark(eq(30L), eq(22L),
+                eq(LocalDateTime.of(2026, 8, 10, 12, 0)),
+                eq(LocalDateTime.of(2026, 8, 10, 12, 0, 1)));
+        verify(recordDao).markReadThroughTime(eq(30L), eq(22L), eq(11L),
+                eq(LocalDateTime.of(2026, 8, 10, 12, 0)),
+                eq(LocalDateTime.of(2026, 8, 10, 12, 0, 1)));
+    }
+
+    @Test
+    void shouldApplyDelayedReadReportOnlyToLifecycleCoveredByReadTime() {
+        openAccounts();
+        AppMessageConversation oldConversation = new AppMessageConversation();
+        oldConversation.setId(29L);
+        oldConversation.setConversationNo("CV-OLD");
+        oldConversation.setStatus("invalid");
+        when(conversationDao.selectPairAtMessageTimeForUpdate(eq(11L), eq(22L),
+                any(LocalDateTime.class))).thenReturn(oldConversation);
+
+        TencentImCallbackResponse response = service.handle(signedRequest(
+                "C2C.CallbackAfterMsgReport", readReportBody()));
+
+        assertThat(response.errorCode()).isZero();
+        verify(memberDao).advanceReadWatermark(eq(29L), eq(22L),
+                eq(LocalDateTime.of(2026, 8, 10, 12, 0)), any(LocalDateTime.class));
+        verify(recordDao).markReadThroughTime(eq(29L), eq(22L), eq(11L),
+                eq(LocalDateTime.of(2026, 8, 10, 12, 0)), any(LocalDateTime.class));
+    }
+
+    @Test
+    void shouldArchiveDelayedMessageAsReadWhenReadWatermarkAlreadyCoversIt() {
+        openAccountsAndConversation(false);
+        AppMessageConversationMember receiverMember = new AppMessageConversationMember();
+        receiverMember.setConversationId(30L);
+        receiverMember.setUserId(22L);
+        receiverMember.setLastReadMessageTime(LocalDateTime.of(2026, 8, 10, 12, 0));
+        receiverMember.setLastReadAt(LocalDateTime.of(2026, 8, 10, 12, 0, 1));
+        when(memberDao.selectByConversationAndUserForUpdate(30L, 22L)).thenReturn(receiverMember);
+        when(recordDao.selectByTimMsgKey("msg-key-1")).thenReturn(null);
+        when(conversationDao.touchMessage(eq(30L), eq(501L), any(LocalDateTime.class), eq(false)))
+                .thenReturn(1);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            AppMessageRecord record = invocation.getArgument(0);
+            record.setId(501L);
+            return null;
+        }).when(recordDao).insert(any(AppMessageRecord.class));
+
+        TencentImCallbackResponse response = service.handle(signedRequest(
+                "C2C.CallbackAfterSendMsg", textBody("C2C.CallbackAfterSendMsg")));
+
+        assertThat(response.errorCode()).isZero();
+        ArgumentCaptor<AppMessageRecord> captor = ArgumentCaptor.forClass(AppMessageRecord.class);
+        verify(recordDao).insert(captor.capture());
+        assertThat(captor.getValue().getReceiverReadStatus()).isEqualTo("read");
+        assertThat(captor.getValue().getReceiverReadAt())
+                .isEqualTo(LocalDateTime.of(2026, 8, 10, 12, 0, 1));
+    }
+
+    @Test
+    void shouldRejectActiveArchiveWhenReceiverMemberMappingIsMissing() {
+        openAccountsAndConversation(false);
+        when(memberDao.selectByConversationAndUserForUpdate(30L, 22L)).thenReturn(null);
+        when(recordDao.selectByTimMsgKey("msg-key-1")).thenReturn(null);
+
+        TencentImCallbackResponse response = service.handle(signedRequest(
+                "C2C.CallbackAfterSendMsg", textBody("C2C.CallbackAfterSendMsg")));
+
+        assertThat(response.errorCode()).isEqualTo(1);
+        assertThat(response.actionStatus()).isEqualTo("FAIL");
+        verify(recordDao, never()).insert(any(AppMessageRecord.class));
+        verify(conversationDao, never()).touchMessage(any(), any(), any(), eq(false));
+    }
+
+    @Test
+    void shouldIsolateAfterSendCallbackWhenConversationAlreadyBecameTerminal() {
+        openAccounts();
+        AppMessageConversation terminal = new AppMessageConversation();
+        terminal.setId(30L);
+        terminal.setConversationNo("CV-1");
+        terminal.setStatus("invalid");
+        terminal.setPurgeAfter(LocalDateTime.of(2027, 2, 6, 12, 0));
+        when(conversationDao.selectPairAtMessageTimeForUpdate(eq(11L), eq(22L),
+                any(LocalDateTime.class))).thenReturn(terminal);
+        when(recordDao.selectByTimMsgKey("msg-key-1")).thenReturn(null);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            AppMessageRecord record = invocation.getArgument(0);
+            record.setId(501L);
+            return null;
+        }).when(recordDao).insert(any(AppMessageRecord.class));
+
+        TencentImCallbackResponse response = service.handle(signedRequest(
+                "C2C.CallbackAfterSendMsg", textBody("C2C.CallbackAfterSendMsg")));
+
+        assertThat(response.errorCode()).isZero();
+        ArgumentCaptor<AppMessageRecord> captor = ArgumentCaptor.forClass(AppMessageRecord.class);
+        verify(recordDao).insert(captor.capture());
+        assertThat(captor.getValue().getReceiverReadStatus()).isEqualTo("not_applicable");
+        assertThat(captor.getValue().getIsolatedAt()).isNotNull();
+        assertThat(captor.getValue().getPurgeAfter()).isEqualTo(terminal.getPurgeAfter());
+        verify(conversationDao, never()).touchMessage(any(), any(), any(), eq(false));
+    }
+
+    @Test
+    void shouldBindDelayedAfterCallbackToOldLifecycleInsteadOfNewActiveConversation() {
+        openAccounts();
+        AppMessageConversation oldTerminal = new AppMessageConversation();
+        oldTerminal.setId(29L);
+        oldTerminal.setConversationNo("CV-OLD");
+        oldTerminal.setStatus("invalid");
+        oldTerminal.setPurgeAfter(LocalDateTime.of(2027, 2, 6, 12, 0));
+        when(conversationDao.selectPairAtMessageTimeForUpdate(eq(11L), eq(22L),
+                any(LocalDateTime.class))).thenReturn(oldTerminal);
+        when(recordDao.selectByTimMsgKey("msg-key-1")).thenReturn(null);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            AppMessageRecord record = invocation.getArgument(0);
+            record.setId(501L);
+            return null;
+        }).when(recordDao).insert(any(AppMessageRecord.class));
+
+        TencentImCallbackResponse response = service.handle(signedRequest(
+                "C2C.CallbackAfterSendMsg", textBody("C2C.CallbackAfterSendMsg")));
+
+        assertThat(response.errorCode()).isZero();
+        ArgumentCaptor<AppMessageRecord> captor = ArgumentCaptor.forClass(AppMessageRecord.class);
+        verify(recordDao).insert(captor.capture());
+        assertThat(captor.getValue().getConversationId()).isEqualTo(29L);
+        assertThat(captor.getValue().getConversationNo()).isEqualTo("CV-OLD");
+        assertThat(captor.getValue().getIsolatedAt()).isNotNull();
+        verify(conversationDao, never()).touchMessage(any(), any(), any(), eq(false));
+    }
+
+    @Test
     void shouldConfirmWhisperMappingWithoutCopyingBodyToOutbox() {
         openAccounts();
         AppMessageRecord record = new AppMessageRecord();
@@ -248,11 +398,21 @@ class TencentImCallbackServiceImplTest {
         conversation.setConversationNo("CV-1");
         conversation.setMatchId(20L);
         conversation.setStatus("active");
+        conversation.setActiveMarker(1);
         conversation.setProtectionEnabled(femaleProtection ? 1 : 0);
         conversation.setMaleUserId(11L);
         conversation.setFemaleUserId(22L);
         conversation.setProtectionUntil(LocalDateTime.of(2026, 8, 13, 12, 0));
-        when(conversationDao.selectActivePair(11L, 22L)).thenReturn(conversation);
+        lenient().when(conversationDao.selectActivePair(11L, 22L)).thenReturn(conversation);
+        lenient().when(conversationDao.selectPairAtMessageTimeForUpdate(eq(11L), eq(22L),
+                any(LocalDateTime.class))).thenReturn(conversation);
+        AppMessageConversationMember receiverMember = new AppMessageConversationMember();
+        receiverMember.setConversationId(30L);
+        receiverMember.setConversationNo("CV-1");
+        receiverMember.setUserId(22L);
+        receiverMember.setPeerUserId(11L);
+        lenient().when(memberDao.selectByConversationAndUserForUpdate(30L, 22L))
+                .thenReturn(receiverMember);
     }
 
     private void openAccounts() {
@@ -302,6 +462,14 @@ class TencentImCallbackServiceImplTest {
                  "MsgKey":"msg-key-image","MsgId":"msg-id-image","SendMsgResult":0,
                  "MsgBody":[{"MsgType":"TIMImageElem","MsgContent":{"UUID":"image-id"}}]}
                 """.formatted(command);
+    }
+
+    private String readReportBody() {
+        return """
+                {"CallbackCommand":"C2C.CallbackAfterMsgReport",
+                 "Report_Account":"im-b","Peer_Account":"im-a",
+                 "LastReadTime":1786334400,"EventTime":1786334401000}
+                """;
     }
 
     private String whisperBody(String command) {

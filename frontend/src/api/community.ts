@@ -169,6 +169,17 @@ export interface CommunityReportAdminVO {
   auditLogs?: CommunityAuditLogVO[];
 }
 
+export interface ReportEvidenceVO {
+  evidenceNo: string; evidenceType?: string; targetType?: string; sourceBizNo?: string;
+  conversationNo?: string; senderMask?: string; receiverMask?: string; messageType?: string;
+  eventTime?: string; contextOrder?: number; severity?: string;
+  snapshotAt?: string; retainUntil?: string; contentAvailable: boolean;
+}
+
+export interface ReportSensitiveContentVO {
+  accessNo: string; evidenceNo: string; messageType?: string; content: string; eventTime?: string;
+}
+
 export interface CommunityTopicAdminVO {
   id: number;
   topicCode: string;
@@ -333,6 +344,15 @@ export function getCommunityReportDetail(id: number) {
 
 export function handleCommunityReport(id: number, data: CommunityReportHandleCommand) {
   return request.put(`/admin/community/reports/${id}/status`, data);
+}
+
+export function getCommunityReportEvidence(reportNo: string) {
+  return request.get(`/admin/community/reports/${reportNo}/evidence`);
+}
+
+export function viewCommunityReportEvidenceContent(reportNo: string, evidenceNo: string,
+  data: { viewReason: string; requestId: string }) {
+  return request.post(`/admin/community/reports/${reportNo}/evidence/${evidenceNo}/content-view`, data);
 }
 
 export function getCommunityTopicStats() {

@@ -97,6 +97,18 @@ public class MenuDaoImpl implements MenuDao {
     }
 
     @Override
+    public List<String> selectRoleCodesByUserId(Long userId) {
+        List<Long> roleIds = selectEnabledRoleIdsByUserId(userId);
+        if (roleIds.isEmpty()) return Collections.emptyList();
+        return roleMapper.selectBatchIds(roleIds).stream()
+                .filter(role -> CommonStatusEnum.ENABLED.getCode().equals(role.getStatus()))
+                .map(SysRole::getRoleCode)
+                .filter(code -> code != null && !code.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    @Override
     public List<SysMenu> selectRoutersByUserId(Long userId) {
         List<Long> roleIds = selectEnabledRoleIdsByUserId(userId);
         if (roleIds.isEmpty()) return Collections.emptyList();

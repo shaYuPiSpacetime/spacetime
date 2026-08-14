@@ -34,13 +34,9 @@
       userNo: profile.userNo || user.profileNo || user.id,
       unreadTotal: profile.unreadTotal ?? 0,
       whisperPending: profile.whisperPending ?? 0,
-      recentNotice: profile.recentNotice || '无未读通知',
+      recentNotice: profile.recentNotice || '无未读系统消息',
       chatReportCount: profile.chatReportCount ?? 0,
       conversationStatus: profile.conversationStatus || '普通私信未开启',
-      lastPrivateMessage: profile.lastPrivateMessage || '-',
-      lastNotification: profile.lastNotification || '-',
-      lastWhisper: profile.lastWhisper || '-',
-      auditSummary: profile.auditSummary || '高敏内容查看需二次确认并记录审计',
       records: profile.records || { privateMessages: [], whispers: [], notifications: [], reports: [] },
     };
   }
@@ -337,7 +333,6 @@
           <span>${escapeHtml(item.id)}</span>
           <strong>${escapeHtml(item.oppositeUser)}</strong>
           <b>${escapeHtml(item.status)}</b>
-          <em>${escapeHtml(item.preview)}</em>
           <time>${escapeHtml(item.time)}</time>
         `,
       },
@@ -349,19 +344,17 @@
           <span>${escapeHtml(item.id)}</span>
           <strong>${escapeHtml(item.oppositeUser)}</strong>
           <b>${escapeHtml(item.status)}</b>
-          <em>${escapeHtml(item.preview)}</em>
           <time>${escapeHtml(item.time)}</time>
         `,
       },
       {
         key: 'notifications',
-        label: '通知',
-        empty: '暂无通知记录',
+        label: '系统消息',
+        empty: '暂无系统消息记录',
         render: (item) => `
           <span>${escapeHtml(item.id)}</span>
           <strong>${escapeHtml(item.type)} / ${escapeHtml(item.bizType)}</strong>
           <b>${escapeHtml(item.status)}</b>
-          <em>${escapeHtml(item.title)}</em>
           <time>${escapeHtml(item.time)}</time>
         `,
       },
@@ -433,20 +426,14 @@
       <section class="module-supplement-panel" data-module-panel="message">
         <div class="module-supplement-intro">
           <strong>PRD-03 消息、私信与通知中心</strong>
-          <span>消息互动信息不铺在列表或画像详情内，由本弹窗集中查看。</span>
+          <span>仅集中查看统计和业务元数据；本弹窗不查询、不返回私信、悄悄话或系统消息正文。</span>
         </div>
         <div class="profile-message-summary">
           <article><span>消息未读数</span><strong>${escapeHtml(message.unreadTotal)}</strong></article>
           <article><span>待回复悄悄话</span><strong>${escapeHtml(message.whisperPending)}</strong></article>
-          <article><span>最近通知</span><strong>${escapeHtml(message.recentNotice)}</strong></article>
+          <article><span>未读系统消息</span><strong>${escapeHtml(message.recentNotice)}</strong></article>
           <article><span>聊天举报数</span><strong>${escapeHtml(message.chatReportCount)}</strong></article>
           <article class="is-wide"><span>普通私信状态</span><strong>${escapeHtml(message.conversationStatus)}</strong></article>
-          <article class="is-wide"><span>高敏查看审计</span><strong>${escapeHtml(message.auditSummary)}</strong></article>
-        </div>
-        <div class="profile-message-latest">
-          <p><span>最近私信</span><strong>${escapeHtml(message.lastPrivateMessage)}</strong></p>
-          <p><span>最近悄悄话</span><strong>${escapeHtml(message.lastWhisper)}</strong></p>
-          <p><span>最近通知</span><strong>${escapeHtml(message.lastNotification)}</strong></p>
         </div>
         <div class="profile-message-tabs">
           ${renderMessageRecordPanels(message)}
@@ -725,7 +712,7 @@
     if (modalId === 'auditRejectConfirmModal') {
       return {
         title: kind === 'avatar' ? '审核驳回确认' : '驳回确认',
-        message: `${subject} 驳回原因必填，确认后发送站内信。`,
+        message: `${subject} 驳回原因必填，确认后在原认证流程更新结果。`,
         toast: `审核已驳回：${row?.id || ''}`,
         danger: true,
       };
@@ -734,7 +721,7 @@
     if (modalId === 'auditExpireModal') {
       return {
         title: '失效确认',
-        message: `${subject} 失效原因必填，确认后发送站内信并重新计算展示状态。`,
+        message: `${subject} 失效原因必填，确认后在原认证流程更新结果并重新计算展示状态。`,
         toast: `审核已标记失效：${row?.id || ''}`,
         danger: true,
       };
@@ -742,7 +729,7 @@
 
     return {
       title: '通过确认',
-      message: `${subject} 通过后发送站内信，并重算核心准入状态。`,
+      message: `${subject} 通过后在原认证流程更新结果，并重算核心准入状态。`,
       toast: `审核已通过：${row?.id || ''}`,
       danger: false,
     };

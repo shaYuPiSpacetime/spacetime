@@ -12,7 +12,5 @@ public class WhisperReplyVO {
     private String matchNo;
     private String conversationNo;
     private String replyMessageNo;
-    private String replyTimMessageId;
-    private String replyTimMsgKey;
     private LocalDateTime repliedTime;
 }

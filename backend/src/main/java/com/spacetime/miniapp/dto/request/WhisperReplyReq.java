@@ -12,6 +12,5 @@ public class WhisperReplyReq {
     private String requestId;
 
     @NotBlank(message = "回复内容不能为空")
-    @Size(max = 500, message = "回复内容不能超过500个字符")
     private String content;
 }

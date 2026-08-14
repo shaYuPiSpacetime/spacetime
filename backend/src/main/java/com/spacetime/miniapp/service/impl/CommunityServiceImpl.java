@@ -28,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -722,16 +724,18 @@ public class CommunityServiceImpl implements CommunityService {
         boolean chatContext = targetType.isChatContext();
         String clientReportId = StrUtil.blankToDefault(StrUtil.trim(req.getClientReportId()), null);
         String requestedTargetNo = resolveRequestedTargetNo(targetType, req);
+        List<String> evidenceImageUrls = normalizeReportEvidenceImageUrls(req.getEvidenceImageUrls());
         if (chatContext && clientReportId == null) {
             throw error(30020, "client_report_id_required");
         }
         if (StrUtil.isNotBlank(clientReportId)) {
             CommunityReport idempotent = findReportByClientId(userId, clientReportId);
             if (idempotent != null) {
-                requireSameReportRequest(idempotent, req, requestedTargetNo);
+                requireSameReportRequest(idempotent, req, requestedTargetNo, evidenceImageUrls);
                 return toReportResult(idempotent);
             }
         }
+        validateReportEvidenceImageUrls(userId, evidenceImageUrls);
 
         TrustedChatReportContext trusted = null;
         Long targetUserId;
@@ -796,6 +800,7 @@ public class CommunityServiceImpl implements CommunityService {
         report.setReasonCode(req.getReasonCode());
         report.setExtraText(StrUtil.blankToDefault(StrUtil.trim(req.getExtraText()), null));
         report.setContextJson(contextJson);
+        report.setEvidenceImageUrlsJson(JSONUtil.toJsonStr(evidenceImageUrls));
         report.setStatus(CommunityReportStatusEnum.PENDING.getCode());
         report.setVersion(0);
         report.setActiveMarker(1);
@@ -809,6 +814,7 @@ public class CommunityServiceImpl implements CommunityService {
         writeOutbox("report_submitted", "report", report.getReportNo(), 0,
                 "{\"reportNo\":\"" + report.getReportNo() + "\",\"targetType\":\""
                         + jsonSafe(report.getTargetType()) + "\"}");
+        consumeReportEvidenceTicketsAfterCommit(evidenceImageUrls);
         log.info("Community report submitted: userId={}, targetType={}, targetNo={}, reportNo={}",
                 userId, req.getTargetType(), targetNo, report.getReportNo());
         return toReportResult(report);
@@ -1370,6 +1376,65 @@ public class CommunityServiceImpl implements CommunityService {
         }
     }
 
+    private List<String> normalizeReportEvidenceImageUrls(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) return List.of();
+        if (imageUrls.size() > 3) {
+            throw new BusinessException(message("image_count_exceeded", 3));
+        }
+        return imageUrls.stream().map(url -> StrUtil.blankToDefault(StrUtil.trim(url), "")).toList();
+    }
+
+    private void validateReportEvidenceImageUrls(Long userId, List<String> imageUrls) {
+        if (imageUrls.isEmpty()) return;
+        String expectedPrefix = "miniapp/" + userId + "/reportEvidence/";
+        String endpoint = ossConfig.getEndpoint();
+        String bucket = ossConfig.getBucketName();
+        String cdn = ossConfig.getCdnDomain();
+        for (String url : imageUrls) {
+            if (StrUtil.isBlank(url) || !url.startsWith("https://") || url.contains("?")) {
+                throw error(505019, "image_upload_invalid");
+            }
+            String key;
+            try {
+                key = URI.create(url).getPath().replaceFirst("^/", "");
+            } catch (RuntimeException ex) {
+                throw error(505019, "image_upload_invalid");
+            }
+            String lowerKey = key.toLowerCase(Locale.ROOT);
+            if (!key.startsWith(expectedPrefix)
+                    || !(lowerKey.endsWith(".jpg") || lowerKey.endsWith(".jpeg") || lowerKey.endsWith(".png"))) {
+                throw error(505019, "image_not_owned");
+            }
+            String ticketOwner = redisTemplate.opsForValue().get("community:upload:ticket:" + key);
+            if (!String.valueOf(userId).equals(ticketOwner)) {
+                throw error(505019, "image_not_owned");
+            }
+            if (!ossUtil.objectExists(key)) throw error(505019, "image_upload_invalid");
+            if (StrUtil.isNotBlank(endpoint) && StrUtil.isNotBlank(bucket)) {
+                String expectedHost = bucket + "." + endpoint.replaceFirst("^https?://", "").replaceFirst("/$", "");
+                String cdnHost = StrUtil.blankToDefault(cdn, "").replaceFirst("^https?://", "").replaceFirst("/$", "");
+                if (!url.contains(expectedHost) && (cdnHost.isBlank() || !url.contains(cdnHost))) {
+                    throw error(505019, "image_not_owned");
+                }
+            }
+        }
+    }
+
+    private void consumeReportEvidenceTicketsAfterCommit(List<String> imageUrls) {
+        if (imageUrls.isEmpty()) return;
+        Runnable consume = () -> consumeUploadTickets(imageUrls);
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            consume.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                consume.run();
+            }
+        });
+    }
+
     private CommunityPost requirePostRef(String ref) {
         if (StrUtil.isBlank(ref)) throw error("content_not_found");
         if (ref.chars().allMatch(Character::isDigit)) return requirePost(Long.parseLong(ref));
@@ -1802,8 +1867,9 @@ public class CommunityServiceImpl implements CommunityService {
             case MESSAGE -> firstNonBlank(req.getTargetBizNo(), req.getMessageNo(), req.getTargetId());
             case CONVERSATION -> firstNonBlank(req.getTargetBizNo(), req.getConversationNo(), req.getTargetId());
             case WHISPER -> firstNonBlank(req.getTargetBizNo(), req.getWhisperNo(), req.getTargetId());
-            case CHAT -> firstNonBlank(req.getTargetBizNo(), req.getMessageNo(), req.getWhisperNo(),
-                    req.getConversationNo(), req.getTargetId());
+            case CHAT -> firstNonBlank(req.getTargetBizNo(), req.getTargetId(),
+                    "private_chat".equals(req.getSourceType()) ? req.getConversationNo() : null,
+                    "whisper".equals(req.getSourceType()) ? req.getWhisperNo() : null);
             default -> firstNonBlank(req.getTargetId());
         };
         if (targetNo == null) {
@@ -1832,14 +1898,24 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private void requireSameReportRequest(CommunityReport existing, CommunityReportCreateReq req,
-                                          String requestedTargetNo) {
+                                          String requestedTargetNo, List<String> evidenceImageUrls) {
         String existingTargetNo = firstNonBlank(existing.getTargetBizNo(), existing.getTargetId());
         String requestedExtra = StrUtil.blankToDefault(StrUtil.trim(req.getExtraText()), null);
         if (!Objects.equals(existing.getTargetType(), req.getTargetType())
                 || !Objects.equals(existingTargetNo, requestedTargetNo)
                 || !Objects.equals(existing.getReasonCode(), req.getReasonCode())
-                || !Objects.equals(existing.getExtraText(), requestedExtra)) {
+                || !Objects.equals(existing.getExtraText(), requestedExtra)
+                || !Objects.equals(parseEvidenceImageUrls(existing.getEvidenceImageUrlsJson()), evidenceImageUrls)) {
             throw error(30020, "report_idempotency_conflict");
+        }
+    }
+
+    private List<String> parseEvidenceImageUrls(String json) {
+        if (StrUtil.isBlank(json)) return List.of();
+        try {
+            return JSONUtil.parseArray(json).toList(String.class);
+        } catch (RuntimeException ignored) {
+            return null;
         }
     }
 
@@ -2003,12 +2079,6 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setAuthorId(comment.getAuthorId());
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorAvatar(auditContentService.publicAvatar(comment.getAuthorId()));
-        if (author != null) {
-            vo.setAuthorGender(author.getGender());
-            vo.setAuthorBirthYear(author.getBirthday() == null ? null : author.getBirthday().getYear());
-            vo.setAuthorCity(author.getLocationCity());
-            vo.setAuthorProfession(author.getOccupation());
-        }
         vo.setParentCommentId(comment.getParentCommentId());
         vo.setReplyUserId(comment.getReplyUserId());
         vo.setReplyUserName(replyUser != null ? replyUser.getNickname() : null);

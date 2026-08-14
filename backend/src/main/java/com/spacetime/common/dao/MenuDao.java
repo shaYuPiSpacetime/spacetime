@@ -24,6 +24,8 @@ public interface MenuDao {
     List<String> selectPermsByRoleIds(List<Long> roleIds);
     /** 按用户 ID 查询权限标识 */
     List<String> selectPermsByUserId(Long userId);
+    /** 按用户 ID 查询启用角色编码，用于登录上下文中的业务角色校验。 */
+    List<String> selectRoleCodesByUserId(Long userId);
     /** 按用户 ID 查询可展示的路由菜单（M/C 类型且 visible=1） */
     List<SysMenu> selectRoutersByUserId(Long userId);
     /** 插入菜单 */

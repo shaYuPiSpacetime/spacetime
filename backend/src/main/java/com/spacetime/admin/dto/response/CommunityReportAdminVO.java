@@ -33,6 +33,8 @@ public class CommunityReportAdminVO {
     private String reasonLabel;
     /** 补充说明 */
     private String extraText;
+    /** 举报人上传的凭证图片URL，最多3张；后台详情可见。 */
+    private List<String> evidenceImageUrls;
     /** 处理状态 @see CommunityReportStatusEnum */
     private String status;
     private String statusName;

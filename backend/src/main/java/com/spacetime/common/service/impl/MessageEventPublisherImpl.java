@@ -5,10 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.dao.AppMessageEventInboxDao;
 import com.spacetime.common.entity.AppMessageEventInbox;
 import com.spacetime.common.exception.BusinessException;
-import com.spacetime.common.model.message.EncryptedMessageContent;
 import com.spacetime.common.model.message.SystemMessageEvent;
 import com.spacetime.common.model.message.SystemMessageEventPayload;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import com.spacetime.common.service.MessageEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,7 +29,6 @@ public class MessageEventPublisherImpl implements MessageEventPublisher {
             "content", "message", "text", "body", "replyContent", "requestContent");
 
     private final AppMessageEventInboxDao inboxDao;
-    private final SensitiveTextCipher cipher;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -48,8 +45,6 @@ public class MessageEventPublisherImpl implements MessageEventPublisher {
         SystemMessageEventPayload payload = new SystemMessageEventPayload(
                 event.templateCode(), event.bizType(), safeVariables(event.variables()),
                 event.visibleUntil());
-        EncryptedMessageContent encrypted = cipher.encrypt(writePayload(payload));
-
         AppMessageEventInbox inbox = new AppMessageEventInbox();
         inbox.setEventKey(eventKey);
         inbox.setSourceModule(event.sourceModule());
@@ -57,10 +52,7 @@ public class MessageEventPublisherImpl implements MessageEventPublisher {
         inbox.setProducerEventId(event.producerEventId());
         inbox.setBizNo(event.bizNo());
         inbox.setReceiverUserId(event.receiverUserId());
-        inbox.setPayloadCiphertext(encrypted.ciphertext());
-        inbox.setPayloadIv(encrypted.iv());
-        inbox.setPayloadKeyVersion(encrypted.keyVersion());
-        inbox.setPayloadHmac(encrypted.hmac());
+        inbox.setPayloadJson(writePayload(payload));
         inbox.setPayloadExpiresAt(effectiveNow.plusDays(7));
         inbox.setStatus("pending");
         inbox.setRetryCount(0);

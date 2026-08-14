@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 
 /** 小程序 OSS 直传凭证服务实现。 */
@@ -56,6 +57,14 @@ public class MiniappOssUploadTicketServiceImpl implements MiniappOssUploadTicket
         return createPublicTicket(fileName, fileSizeBytes, "voice", 1, 20);
     }
 
+    @Override
+    public OssUploadTicketVO createReportEvidenceTicket(String fileName, long fileSizeBytes) {
+        Prd01RuntimeConfigResolver.UploadRule rule = validateReportEvidence(fileName, fileSizeBytes);
+        OssUtil.DirectUploadPolicy policy = createOwnedPolicy(
+                fileName, (long) rule.maxMb() * MB, "reportEvidence");
+        return toTicket(policy, ossUtil.toCdnUrl(policy.key()), false);
+    }
+
     private OssUploadTicketVO createPublicTicket(String fileName, long fileSizeBytes, String ruleKey, int defaultCount, int defaultMb) {
         Prd01RuntimeConfigResolver.UploadRule rule = validate(fileName, fileSizeBytes, ruleKey, defaultCount, defaultMb);
         OssUtil.DirectUploadPolicy policy = createOwnedPolicy(fileName, (long) rule.maxMb() * MB, ruleKey);
@@ -83,6 +92,22 @@ public class MiniappOssUploadTicketServiceImpl implements MiniappOssUploadTicket
         int dot = filename.lastIndexOf('.');
         String extension = dot >= 0 ? filename.substring(dot + 1).toLowerCase(Locale.ROOT) : "";
         if (StrUtil.isBlank(extension) || !rule.formats().contains(extension)) throw new BusinessException(message("upload_format_unsupported"));
+        return rule;
+    }
+
+    private Prd01RuntimeConfigResolver.UploadRule validateReportEvidence(String fileName, long fileSizeBytes) {
+        if (fileSizeBytes <= 0) throw new BusinessException(message("upload_empty"));
+        Prd01RuntimeConfigResolver.UploadRule rule = runtimeConfigResolver.uploadRule(
+                runtimeConfigResolver.snapshot(), "reportEvidence", 3, 5);
+        if (fileSizeBytes > (long) rule.maxMb() * MB) {
+            throw new BusinessException(message("upload_too_large", rule.maxMb()));
+        }
+        String filename = StrUtil.blankToDefault(fileName, "");
+        int dot = filename.lastIndexOf('.');
+        String extension = dot >= 0 ? filename.substring(dot + 1).toLowerCase(Locale.ROOT) : "";
+        if (!List.of("jpg", "jpeg", "png").contains(extension)) {
+            throw new BusinessException(message("upload_format_unsupported"));
+        }
         return rule;
     }
 

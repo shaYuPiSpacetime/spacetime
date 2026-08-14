@@ -27,7 +27,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
+import com.spacetime.common.interceptor.UserContext;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -68,6 +71,7 @@ class AuthServiceImplTest {
     void shouldLoginSuccessfully() throws Exception {
         when(userDao.selectByUsernameOrPhone("peter")).thenReturn(enabledUser);
         when(menuDao.selectPermsByUserId(1L)).thenReturn(List.of("system:user:list", "system:role:list"));
+        when(menuDao.selectRoleCodesByUserId(1L)).thenReturn(List.of("super_admin"));
         when(objectMapper.writeValueAsString(any())).thenReturn("{\"id\":1}");
 
         LoginReq req = new LoginReq();
@@ -79,6 +83,10 @@ class AuthServiceImplTest {
         assertThat(vo.getToken()).isNotNull();
         assertThat(vo.getNickname()).isEqualTo("peter");
         assertThat(vo.getPermissions()).contains("system:user:list", "system:role:list");
+
+        ArgumentCaptor<UserContext> contextCaptor = ArgumentCaptor.forClass(UserContext.class);
+        verify(objectMapper).writeValueAsString(contextCaptor.capture());
+        assertThat(contextCaptor.getValue().getRoles()).containsExactly("super_admin");
     }
 
     @Test

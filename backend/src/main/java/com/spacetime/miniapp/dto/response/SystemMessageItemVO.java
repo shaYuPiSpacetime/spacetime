@@ -12,8 +12,10 @@ public class SystemMessageItemVO {
     private String bizType;
     private String title;
     private String content;
+    private String contentFormat;
     private String readStatus;
     private String jumpType;
+    private String actionText;
     private String jumpValue;
     private LocalDateTime createdTime;
 }

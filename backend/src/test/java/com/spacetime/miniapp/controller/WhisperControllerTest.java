@@ -49,7 +49,7 @@ class WhisperControllerTest {
     @Test
     void exposesPrecheckAndCreateRoutes() throws Exception {
         WhisperPrecheckVO precheck = new WhisperPrecheckVO();
-        precheck.setAllowed(true);
+        precheck.setCanSend(true);
         precheck.setCoinAmount(12);
         precheck.setCoinBalance(50);
         precheck.setContentMaxLength(60);
@@ -57,26 +57,26 @@ class WhisperControllerTest {
 
         WhisperCreateVO created = new WhisperCreateVO();
         created.setWhisperNo("WSP-001");
-        created.setCoinCost(12);
+        created.setCoinAmount(12);
         created.setCoinBalance(38);
         when(whisperService.create(eq(7L), eq("idem-001"), any())).thenReturn(created);
 
         String body = """
-                {"targetUserNo":"USR-000000000008","sourcePostNo":"POST-001","scene":"community_post"}
+                {"targetUserNo":"USR-000000000008","sourceBizNo":"POST-001","sourceScene":"community_post"}
                 """;
         mockMvc.perform(post("/miniapp/message/whispers/precheck")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.allowed").value(true))
+                .andExpect(jsonPath("$.data.canSend").value(true))
                 .andExpect(jsonPath("$.data.coinAmount").value(12));
 
         mockMvc.perform(post("/miniapp/message/whispers")
                         .header("Idempotency-Key", "idem-001")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"targetUserNo":"USR-000000000008","sourcePostNo":"POST-001",\
-                                 "scene":"community_post","quoteToken":"wq-token",\
+                                {"targetUserNo":"USR-000000000008","sourceBizNo":"POST-001",\
+                                 "sourceScene":"community_post","quoteToken":"wq-token",\
                                  "content":"想认识你，可以聊聊吗？"}
                                 """))
                 .andExpect(status().isOk())
@@ -89,8 +89,8 @@ class WhisperControllerTest {
         mockMvc.perform(post("/miniapp/message/whispers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"targetUserNo":"USR-000000000008","sourcePostNo":"POST-001",\
-                                 "scene":"community_post","quoteToken":"wq-token","content":"你好"}
+                                {"targetUserNo":"USR-000000000008","sourceBizNo":"POST-001",\
+                                 "sourceScene":"community_post","quoteToken":"wq-token","content":"你好"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(4001))

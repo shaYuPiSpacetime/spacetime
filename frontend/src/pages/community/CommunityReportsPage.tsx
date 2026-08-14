@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Eye } from 'lucide-react';
-import { createCommunityExport, getCommunityReportDetail, getCommunityReportPage, getCommunityReportStats, handleCommunityReport, type CommunityReportAdminVO, type CommunityStatCard } from '@/api/community';
+import { createCommunityExport, getCommunityReportDetail, getCommunityReportEvidence, getCommunityReportPage, getCommunityReportStats, handleCommunityReport, viewCommunityReportEvidenceContent, type CommunityReportAdminVO, type CommunityStatCard, type ReportEvidenceVO, type ReportSensitiveContentVO } from '@/api/community';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer } from '@/components/ui/drawer';
 import { showToast } from '@/components/ui/toast';
 import { usePermission } from '@/hooks/usePermission';
@@ -43,6 +44,12 @@ export default function CommunityReportsPage() {
   const [replyReporter, setReplyReporter] = useState(true);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [evidence, setEvidence] = useState<ReportEvidenceVO[]>([]);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [evidenceTarget, setEvidenceTarget] = useState<ReportEvidenceVO | null>(null);
+  const [evidenceReason, setEvidenceReason] = useState('');
+  const [evidenceContent, setEvidenceContent] = useState<ReportSensitiveContentVO | null>(null);
+  const [evidenceContentLoading, setEvidenceContentLoading] = useState(false);
   const canRiskHandle = hasAnyPermission('community:report:risk');
   const configuredResults = metaOptions(meta, 'reportResult');
   const resultOptions = configuredResults.length ? configuredResults : metaOptions(meta, 'reportStatus').filter((item) => ['valid', 'invalid', 'merged'].includes(item.code));
@@ -83,10 +90,37 @@ export default function CommunityReportsPage() {
     setIpBlockScopes([]);
     setMergeIntoReportNo('');
     setReplyReporter(true);
+    setEvidence([]);
+    setEvidenceTarget(null);
+    setEvidenceContent(null);
     try {
-      setCurrent(unwrapData<CommunityReportAdminVO>(await getCommunityReportDetail(row.id), row));
+      const value = unwrapData<CommunityReportAdminVO>(await getCommunityReportDetail(row.id), row);
+      setCurrent(value);
+      if (value.reportNo && ['chat', 'message', 'conversation', 'whisper'].includes(value.targetType)) {
+        setEvidenceLoading(true);
+        try {
+          setEvidence(unwrapData<ReportEvidenceVO[]>(await getCommunityReportEvidence(value.reportNo), []));
+        } finally {
+          setEvidenceLoading(false);
+        }
+      }
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  async function revealEvidence() {
+    if (!current?.reportNo || !evidenceTarget) return;
+    if (evidenceReason.trim().length < 5) return showToast('查看原因至少填写5个字符', 'error');
+    setEvidenceContentLoading(true);
+    try {
+      setEvidenceContent(unwrapData<ReportSensitiveContentVO>(await viewCommunityReportEvidenceContent(
+        current.reportNo, evidenceTarget.evidenceNo, {
+          viewReason: evidenceReason.trim(),
+          requestId: `ADMIN-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        }), null as any));
+    } finally {
+      setEvidenceContentLoading(false);
     }
   }
 
@@ -110,7 +144,7 @@ export default function CommunityReportsPage() {
       });
       showToast(metaCopy(meta, 'report_action_success'), 'success');
       setConfirmOpen(false);
-      setDrawerOpen(false);
+      closeDrawer();
       await list.load();
     } catch (cause) {
       if (cause instanceof Error && /version|版本|conflict/i.test(cause.message)) showToast(metaCopy(meta, 'version_conflict'), 'error');
@@ -139,6 +173,14 @@ export default function CommunityReportsPage() {
   const canExport = hasAnyPermission('community:export:create');
   const reportEditable = Boolean(current && ['pending', 'processing'].includes(current.status));
   const canHandleCurrent = canHandle && reportEditable;
+  const canViewEvidenceContent = hasAnyPermission('message:report-context:view');
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setEvidence([]);
+    setEvidenceTarget(null);
+    setEvidenceContent(null);
+    setEvidenceReason('');
+  };
 
   return (
     <CommunityPage>
@@ -160,10 +202,11 @@ export default function CommunityReportsPage() {
       </TableFrame>
       <PageFooter current={list.query.page} total={list.pageData.total} pageSize={list.query.size} onChange={list.setPage} onPageSizeChange={list.setPageSize} />
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="举报详情" description={metaCopy(meta, 'report_detail_description')} className="w-[760px]" footer={canHandleCurrent ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDrawerOpen(false)}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>保存处理</Button></div> : undefined}>
+      <Drawer open={drawerOpen} onClose={closeDrawer} title="举报详情" description={metaCopy(meta, 'report_detail_description')} className="w-[760px]" footer={canHandleCurrent ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={closeDrawer}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>保存处理</Button></div> : undefined}>
         {detailLoading || !current ? <div className="py-20 text-center text-sm text-slate-400">加载中</div> : <div className="space-y-4">
           <DetailGrid items={[{ label: '举报编号', value: current.reportNo || current.id }, { label: '举报对象', value: `${metaLabel(meta, 'reportTargetType', current.targetType)} / ${current.targetNo || current.targetId}` }, { label: '举报人', value: `${current.reporterNo || current.reporterId} / ${current.reporterName || '-'}` }, { label: '被举报人', value: `${current.targetUserNo || current.targetUserId || '-'} / ${current.targetUserName || '-'}` }, { label: '举报原因', value: metaLabel(meta, 'reportReason', current.reasonCode, current.reasonLabel) }, { label: '当前状态', value: statusPill(meta, 'reportStatus', current.status, current.statusName) }]} />
           <DetailSection title="举报上下文">{current.context?.available === false ? <div className="rounded-lg bg-amber-50 p-3 text-amber-700">{current.context.unavailableReason || metaCopy(meta, 'report_context_unavailable')}</div> : <div className="space-y-2"><p className="whitespace-pre-wrap">{current.context?.content || current.context?.summary || current.extraText || '-'}</p>{current.context?.sourceNo && <p className="text-xs text-slate-400">{current.context.sourceNo}</p>}{Boolean(current.context?.imageUrls?.length) && <div className="grid grid-cols-3 gap-2">{current.context?.imageUrls?.map((url) => <img key={url} src={url} alt="举报证据" className="aspect-square rounded-lg object-cover" />)}</div>}</div>}</DetailSection>
+          {['chat', 'message', 'conversation', 'whisper'].includes(current.targetType) && <DetailSection title="聊天举报冻结证据">{evidenceLoading ? <p>证据加载中...</p> : !evidence.length ? <p className="text-slate-400">暂无可用冻结证据</p> : <div className="space-y-3">{evidence.map(item => <div key={item.evidenceNo} className="rounded-lg border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div><strong className="text-sm">{item.evidenceNo}</strong><p className="mt-1 text-xs text-slate-500">{item.sourceBizNo || '-'} · {item.messageType || '-'} · {item.eventTime || '-'}</p></div><Button size="sm" variant="outline" disabled={!canViewEvidenceContent || !item.contentAvailable} title={!item.contentAvailable ? '正文不可用' : canViewEvidenceContent ? '查看冻结正文' : '无查看权限'} onClick={() => { setEvidenceTarget(item); setEvidenceReason(''); setEvidenceContent(null); }}>{!item.contentAvailable ? '正文不可用' : '查看冻结正文'}</Button></div><div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2"><span>会话：{item.conversationNo || '-'}</span><span>参与方：{item.senderMask || '-'} → {item.receiverMask || '-'}</span><span>快照：{item.snapshotAt || '-'}</span><span>留存至：{item.retainUntil || '-'}</span></div></div>)}</div>}</DetailSection>}
           <DetailSection title="操作日志"><AuditTimeline logs={current.auditLogs} emptyText={metaCopy(meta, 'audit_log_empty')} /></DetailSection>
           {canHandleCurrent ? <DetailSection title="举报处理"><div className="grid gap-3 sm:grid-cols-2">
             <Field label="处理结论"><NativeSelect includeAll={false} value={result} onChange={setResult} options={resultOptions} /></Field>
@@ -177,6 +220,7 @@ export default function CommunityReportsPage() {
         </div>}
       </Drawer>
       <ConfirmActionDialog open={confirmOpen} title={metaCopy(meta, 'report_high_risk_title')} description={punish?.description || metaCopy(meta, 'report_high_risk_description')} confirmText={punish?.label || metaCopy(meta, 'confirm_punish')} cancelText={metaCopy(meta, 'cancel_action')} busyText={metaCopy(meta, 'processing')} busy={saving} danger onClose={() => setConfirmOpen(false)} onConfirm={() => void submitHandle()} />
+      <Dialog open={Boolean(evidenceTarget)} onClose={() => { setEvidenceTarget(null); setEvidenceContent(null); setEvidenceReason(''); }} layer="nested" lockBodyScroll={false} className="max-w-[620px]" ariaLabel="查看冻结消息正文"><DialogHeader><DialogTitle>查看冻结消息正文</DialogTitle></DialogHeader>{!evidenceContent ? <div className="mt-4 space-y-4"><p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">查看对象：{evidenceTarget?.evidenceNo}。本次访问将记录管理员、原因、时间和结果。</p><Input maxLength={100} value={evidenceReason} onChange={(event) => setEvidenceReason(event.target.value)} placeholder="请填写案件核查的具体原因"/><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setEvidenceTarget(null)}>取消</Button><Button disabled={evidenceContentLoading} onClick={() => void revealEvidence()}>{evidenceContentLoading ? '查询中...' : '确认并查看'}</Button></div></div> : <div className="mt-4 space-y-3"><div className="text-xs text-slate-500">审计编号：{evidenceContent.accessNo}</div><div className="rounded-lg border p-4"><div className="mb-2 text-xs text-slate-500">{evidenceContent.evidenceNo} · {evidenceContent.eventTime || '-'}</div><div className="whitespace-pre-wrap break-words">{evidenceContent.content}</div></div></div>}</Dialog>
     </CommunityPage>
   );
 }

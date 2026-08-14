@@ -16,6 +16,8 @@ public interface AppMessageConversationDao {
     AppMessageConversation selectActivePair(Long userLowId, Long userHighId);
     AppMessageConversation selectLatestPair(Long userLowId, Long userHighId);
     AppMessageConversation selectActivePairForUpdate(Long userLowId, Long userHighId);
+    AppMessageConversation selectPairAtMessageTimeForUpdate(Long userLowId, Long userHighId,
+                                                             LocalDateTime messageTime);
     List<AppMessageConversation> selectActiveByUser(Long userId, LocalDateTime cursorTime,
                                                      Long cursorId, int size);
     Page<AppMessageConversation> selectPage(Page<AppMessageConversation> page,

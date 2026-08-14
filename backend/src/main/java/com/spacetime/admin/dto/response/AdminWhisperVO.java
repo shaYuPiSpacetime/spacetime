@@ -17,6 +17,11 @@ public class AdminWhisperVO {
     private String paymentStatus;
     private Integer coinAmount;
     private String deliveryStatus;
+    private String sourceScene;
+    private String sourceBizNo;
+    private Boolean receiverHidden;
+    private LocalDateTime receiverHiddenAt;
+    private String receiverHideType;
     private LocalDateTime expiresAt;
     private LocalDateTime repliedAt;
     private String invalidReason;

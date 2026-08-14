@@ -4,9 +4,12 @@ import lombok.Data;
 
 import java.util.List;
 
-/** 待处理悄悄话游标分页。 */
+/** 悄悄话分组游标分页。 */
 @Data
 public class MessageWhisperPageVO {
+    private String direction;
+    private String bucket;
+    private Long totalCount;
     private List<MessageWhisperItemVO> list;
     private String nextCursor;
     private Boolean hasMore;

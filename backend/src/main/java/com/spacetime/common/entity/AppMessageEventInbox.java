@@ -6,7 +6,7 @@ import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
-/** 上游事件与腾讯回调可靠收件箱；载荷是有界临时密文，不得保存聊天正文。 */
+/** 上游事件与腾讯回调可靠收件箱；载荷是有界临时 JSON，不得保存聊天正文。 */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("app_message_event_inbox")
@@ -17,10 +17,7 @@ public class AppMessageEventInbox extends BaseEntity {
     private String producerEventId;
     private String bizNo;
     private Long receiverUserId;
-    private byte[] payloadCiphertext;
-    private byte[] payloadIv;
-    private String payloadKeyVersion;
-    private String payloadHmac;
+    private String payloadJson;
     private LocalDateTime payloadExpiresAt;
     private LocalDateTime payloadClearedAt;
     private String status;

@@ -29,7 +29,7 @@ public interface AppMessageEventInboxMapper extends BaseMapper<AppMessageEventIn
               @Param("staleBefore") LocalDateTime staleBefore);
 
     @Update("UPDATE app_message_event_inbox SET status='success', processed_at=#{processedAt}, "
-            + "payload_ciphertext=NULL, payload_iv=NULL, payload_key_version=NULL, payload_hmac=NULL, "
+            + "payload_json=NULL, "
             + "payload_cleared_at=CASE WHEN payload_cleared_at IS NULL THEN #{processedAt} "
             + "ELSE payload_cleared_at END, next_retry_time=NULL, last_error_code=NULL, "
             + "last_error_summary=NULL, update_time=#{processedAt} "
@@ -40,10 +40,7 @@ public interface AppMessageEventInboxMapper extends BaseMapper<AppMessageEventIn
     @Update("<script>UPDATE app_message_event_inbox SET status=#{status}, retry_count=#{retryCount}, "
             + "next_retry_time=#{nextRetryTime}, last_error_code=#{errorCode}, "
             + "last_error_summary=#{errorSummary}, "
-            + "payload_ciphertext=CASE WHEN #{dead}=1 THEN NULL ELSE payload_ciphertext END, "
-            + "payload_iv=CASE WHEN #{dead}=1 THEN NULL ELSE payload_iv END, "
-            + "payload_key_version=CASE WHEN #{dead}=1 THEN NULL ELSE payload_key_version END, "
-            + "payload_hmac=CASE WHEN #{dead}=1 THEN NULL ELSE payload_hmac END, "
+            + "payload_json=CASE WHEN #{dead}=1 THEN NULL ELSE payload_json END, "
             + "payload_cleared_at=CASE WHEN #{dead}=1 AND payload_cleared_at IS NULL THEN #{now} "
             + "ELSE payload_cleared_at END, update_time=#{now} "
             + "WHERE id=#{id} AND status='processing' AND deleted=0</script>")
@@ -56,8 +53,7 @@ public interface AppMessageEventInboxMapper extends BaseMapper<AppMessageEventIn
                     @Param("errorSummary") String errorSummary,
                     @Param("now") LocalDateTime now);
 
-    @Update("UPDATE app_message_event_inbox SET payload_ciphertext=NULL, payload_iv=NULL, "
-            + "payload_key_version=NULL, payload_hmac=NULL, payload_cleared_at=#{now}, "
+    @Update("UPDATE app_message_event_inbox SET payload_json=NULL, payload_cleared_at=#{now}, "
             + "status=CASE WHEN status IN ('pending','processing','failed') THEN 'dead' ELSE status END, "
             + "next_retry_time=NULL, update_time=#{now} WHERE payload_cleared_at IS NULL "
             + "AND payload_expires_at IS NOT NULL AND payload_expires_at<=#{now} AND deleted=0 "

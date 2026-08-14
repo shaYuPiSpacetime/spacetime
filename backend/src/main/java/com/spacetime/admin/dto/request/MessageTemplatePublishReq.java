@@ -15,6 +15,9 @@ public class MessageTemplatePublishReq {
     @NotBlank private String notificationType;
     @NotBlank @Size(max = 256) private String titleTemplate;
     @NotBlank @Size(max = 4000) private String contentTemplate;
+    private String cardType;
+    private String contentFormat;
+    @Size(max = 32) private String actionTextTemplate;
     @NotNull private List<String> allowedVariables;
     @NotBlank private String jumpType;
     @Size(max = 500) private String jumpValueTemplate;

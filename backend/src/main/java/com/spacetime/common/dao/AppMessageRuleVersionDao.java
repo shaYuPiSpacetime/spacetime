@@ -13,4 +13,5 @@ public interface AppMessageRuleVersionDao {
                                            LambdaQueryWrapper<AppMessageRuleVersion> wrapper);
     void insert(AppMessageRuleVersion entity);
     int updateById(AppMessageRuleVersion entity);
+    int retireCurrent(Long id);
 }

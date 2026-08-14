@@ -2,6 +2,8 @@ package com.spacetime.admin.controller;
 
 import com.spacetime.admin.dto.request.SensitiveContentViewReq;
 import com.spacetime.admin.dto.response.SensitiveContentVO;
+import com.spacetime.admin.dto.response.AdminSensitiveMessageContentVO;
+import com.spacetime.admin.service.MessageRecordAdminService;
 import com.spacetime.admin.service.MessageReportEvidenceAdminService;
 import com.spacetime.common.annotation.RequirePermission;
 import com.spacetime.common.result.R;
@@ -35,6 +37,8 @@ class MessageAdminControllerContractTest {
                 "message:record:list");
         assertEndpoint(MessageAdminController.class, "recordDetail", "GET", "/records/{recordNo}",
                 "message:record:list");
+        assertEndpoint(MessageAdminController.class, "recordContentView", "POST",
+                "/records/{recordNo}/content-view", "message:sensitive-content:view");
         assertEndpoint(MessageAdminController.class, "exportRecords", "POST", "/records/export",
                 "message:record:export");
         assertEndpoint(MessageAdminController.class, "config", "GET", "/config",
@@ -49,6 +53,26 @@ class MessageAdminControllerContractTest {
                 "message:template:view");
         assertEndpoint(MessageAdminController.class, "publishTemplate", "POST",
                 "/templates/{templateCode}/versions", "message:template:edit");
+    }
+
+    @Test
+    @DisplayName("消息记录高敏正文接口应禁止响应缓存")
+    void recordContentRouteShouldBeNonCacheable() {
+        MessageRecordAdminService recordService = mock(MessageRecordAdminService.class);
+        SensitiveContentViewReq req = new SensitiveContentViewReq();
+        req.setViewReason("核查用户投诉中的消息内容");
+        req.setRequestId("REQ-RECORD-001");
+        when(recordService.viewContent("MSG-001", req))
+                .thenReturn(new AdminSensitiveMessageContentVO("ACC-001", "private_message",
+                        "MSG-001", List.of()));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new MessageAdminController(mock(com.spacetime.admin.service.MessageConfigAdminService.class),
+                recordService).recordContentView("MSG-001", req, response);
+
+        assertThat(response.getHeader("Cache-Control"))
+                .isEqualTo("no-store, no-cache, must-revalidate, max-age=0");
+        assertThat(response.getHeader("Pragma")).isEqualTo("no-cache");
     }
 
     @Test

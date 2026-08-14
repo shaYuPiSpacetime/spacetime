@@ -11,7 +11,7 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS `app_message_conversation` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `conversation_no` VARCHAR(64) NOT NULL COMMENT '私信会话业务编号',
-    `tim_conversation_id` VARCHAR(128) NOT NULL COMMENT '腾讯云TIM单聊会话标识',
+    `tim_conversation_id` VARCHAR(128) NOT NULL COMMENT '平台内部TIM映射键，不等同客户端C2C会话ID',
     `match_id` BIGINT NOT NULL COMMENT '关系匹配生命周期主键ID',
     `match_no` VARCHAR(64) NOT NULL COMMENT '关系匹配生命周期业务编号',
     `user_low_id` BIGINT NOT NULL COMMENT '双方用户中较小的用户ID',
@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS `app_message_conversation` (
     UNIQUE KEY `uk_message_conversation_active_pair` (`user_low_id`, `user_high_id`, `active_marker`),
     KEY `idx_message_conversation_low` (`user_low_id`, `status`, `last_message_time`),
     KEY `idx_message_conversation_high` (`user_high_id`, `status`, `last_message_time`),
+    KEY `idx_message_conversation_pair_lifecycle` (`user_low_id`, `user_high_id`, `create_time`, `invalid_time`, `deleted`),
     KEY `idx_message_conversation_purge` (`purge_after`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='私信会话生命周期与TIM会话映射表';
 
@@ -53,6 +54,8 @@ CREATE TABLE IF NOT EXISTS `app_message_conversation_member` (
     `conversation_no` VARCHAR(64) NOT NULL COMMENT '私信会话业务编号',
     `user_id` BIGINT NOT NULL COMMENT '当前会话成员用户ID',
     `peer_user_id` BIGINT NOT NULL COMMENT '会话对方用户ID',
+    `last_read_message_time` DATETIME NULL COMMENT '已读水位覆盖的最近消息发送时间，仅允许单调递增',
+    `last_read_at` DATETIME NULL COMMENT '最近一次推进已读水位的业务时间，仅允许单调递增',
     `version` INT NOT NULL DEFAULT 0 COMMENT '成员业务状态手工CAS版本号',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -102,6 +105,7 @@ CREATE TABLE IF NOT EXISTS `app_message_record` (
     UNIQUE KEY `uk_message_record_client` (`sender_user_id`, `client_msg_id`),
     UNIQUE KEY `uk_message_record_tim_key` (`tim_msg_key`),
     KEY `idx_message_record_conversation` (`conversation_id`, `create_time`),
+    KEY `idx_message_record_tim_id` (`conversation_id`, `tim_message_id`),
     KEY `idx_message_record_receiver_unread` (`receiver_user_id`, `receiver_read_status`, `send_status`, `conversation_id`, `deleted`),
     KEY `idx_message_record_source` (`source_biz_type`, `source_biz_no`),
     KEY `idx_message_record_purge` (`purge_after`, `content_cleared_at`, `deleted`)
@@ -116,6 +120,8 @@ CREATE TABLE IF NOT EXISTS `app_message_whisper` (
     `receiver_user_id` BIGINT NOT NULL COMMENT '悄悄话申请接收方用户ID',
     `user_low_id` BIGINT NOT NULL COMMENT '双方用户中较小的用户ID',
     `user_high_id` BIGINT NOT NULL COMMENT '双方用户中较大的用户ID',
+    `source_scene` VARCHAR(32) NOT NULL DEFAULT 'profile' COMMENT '申请来源：recommendation-推荐，profile-主页，community_post-社区动态，community_comment-社区评论，whisper_reverse-反向申请',
+    `source_biz_no` VARCHAR(64) NULL COMMENT '来源帖子、评论或原悄悄话业务编号',
     `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '悄悄话状态：pending-待回复，replied-已回复并匹配，expired-已过期，invalid-已失效',
     `active_marker` TINYINT NULL DEFAULT 1 COMMENT '待回复唯一标记：1-待回复，NULL-终态已释放',
     `version` INT NOT NULL DEFAULT 0 COMMENT '悄悄话状态手工CAS版本号',
@@ -134,6 +140,8 @@ CREATE TABLE IF NOT EXISTS `app_message_whisper` (
     `cooldown_until` DATETIME NOT NULL COMMENT '到期后原发送方再次申请的冷却结束时间',
     `delivered_at` DATETIME NULL COMMENT '悄悄话确认有效送达时间',
     `receiver_read_at` DATETIME NULL COMMENT '接收方首次确认查看时间，不返回发送方',
+    `receiver_hidden_at` DATETIME NULL COMMENT '接收方在小程序端逻辑隐藏时间，后台事实仍保留',
+    `receiver_hide_type` VARCHAR(20) NULL COMMENT '接收方隐藏方式：single-单条隐藏，bucket-分组全部隐藏',
     `replied_at` DATETIME NULL COMMENT '回复、匹配和会话原子完成时间',
     `invalid_reason` VARCHAR(40) NULL COMMENT '悄悄话失效原因编码',
     `invalid_time` DATETIME NULL COMMENT '悄悄话进入终态的业务时间',
@@ -157,6 +165,7 @@ CREATE TABLE IF NOT EXISTS `app_message_whisper` (
     UNIQUE KEY `uk_message_whisper_reply_request` (`receiver_user_id`, `reply_request_id`),
     UNIQUE KEY `uk_message_whisper_active_pair` (`user_low_id`, `user_high_id`, `active_marker`),
     KEY `idx_message_whisper_receiver` (`receiver_user_id`, `status`, `create_time`),
+    KEY `idx_message_whisper_receiver_bucket` (`receiver_user_id`, `receiver_hidden_at`, `status`, `delivery_status`, `id`),
     KEY `idx_message_whisper_sender` (`sender_user_id`, `status`, `create_time`),
     KEY `idx_message_whisper_expire` (`status`, `delivery_status`, `expires_at`),
     KEY `idx_message_whisper_free_quota` (`sender_user_id`, `benefit_date`, `pay_type`, `payment_status`),
@@ -173,15 +182,11 @@ CREATE TABLE IF NOT EXISTS `app_system_message` (
     `biz_no` VARCHAR(64) NULL COMMENT '上游关联业务编号',
     `template_code` VARCHAR(64) NOT NULL COMMENT '消息模板编码',
     `template_version` VARCHAR(32) NOT NULL COMMENT '消息模板版本号',
-    `title_ciphertext` BLOB NULL COMMENT '标题AES-256-GCM密文',
-    `title_iv` VARBINARY(12) NULL COMMENT '标题AES-GCM随机初始向量',
-    `title_key_version` VARCHAR(32) NULL COMMENT '标题数据密钥版本',
-    `title_hmac` CHAR(64) NULL COMMENT '标题HMAC-SHA256摘要',
-    `content_ciphertext` MEDIUMBLOB NULL COMMENT '正文AES-256-GCM密文',
-    `content_iv` VARBINARY(12) NULL COMMENT '正文AES-GCM随机初始向量',
-    `content_key_version` VARCHAR(32) NULL COMMENT '正文数据密钥版本',
-    `content_hmac` CHAR(64) NULL COMMENT '正文HMAC-SHA256摘要',
+    `title_text` VARCHAR(200) NULL COMMENT '系统消息标题明文',
+    `content_text` TEXT NULL COMMENT '系统消息正文原始明文',
+    `content_format` VARCHAR(20) NOT NULL DEFAULT 'plain_text' COMMENT '正文格式：plain_text-纯文本，rich_text-白名单富文本',
     `jump_type` VARCHAR(32) NOT NULL DEFAULT 'none' COMMENT '跳转类型：none-无跳转，miniapp-小程序页面，h5-H5页面，service-客服，chat-私信，profile-用户主页，community-社区，auth_center-认证中心，asset-资产，invite_center-邀请中心，appeal-申诉',
+    `action_text` VARCHAR(32) NULL COMMENT '行动按钮文案，渲染后最多10个字符',
     `jump_value` VARCHAR(500) NULL COMMENT '经过白名单校验的跳转目标',
     `safety_required` TINYINT NOT NULL DEFAULT 0 COMMENT '受限账号必须可见标记：0-否，1-是',
     `read_at` DATETIME NULL COMMENT '用户批次曝光确认时间',
@@ -209,15 +214,11 @@ CREATE TABLE IF NOT EXISTS `app_assistant_message` (
     `content_version` VARCHAR(32) NOT NULL COMMENT '用户侧内容去重版本',
     `template_code` VARCHAR(64) NOT NULL COMMENT '助手模板编码',
     `template_version` VARCHAR(32) NOT NULL COMMENT '助手模板版本号',
-    `title_ciphertext` BLOB NULL COMMENT '标题AES-256-GCM密文',
-    `title_iv` VARBINARY(12) NULL COMMENT '标题AES-GCM随机初始向量',
-    `title_key_version` VARCHAR(32) NULL COMMENT '标题数据密钥版本',
-    `title_hmac` CHAR(64) NULL COMMENT '标题HMAC-SHA256摘要',
-    `content_ciphertext` MEDIUMBLOB NULL COMMENT '内容AES-256-GCM密文',
-    `content_iv` VARBINARY(12) NULL COMMENT '内容AES-GCM随机初始向量',
-    `content_key_version` VARCHAR(32) NULL COMMENT '内容数据密钥版本',
-    `content_hmac` CHAR(64) NULL COMMENT '内容HMAC-SHA256摘要',
+    `title_text` VARCHAR(200) NULL COMMENT '官方助手标题明文',
+    `content_text` TEXT NULL COMMENT '官方助手正文原始明文',
+    `card_type` VARCHAR(20) NOT NULL DEFAULT 'text' COMMENT '卡片类型：text-纯文本，action-行动卡片，tip-提示卡片',
     `action_type` VARCHAR(32) NOT NULL DEFAULT 'none' COMMENT '操作类型：none-无，h5-H5页面，wechat_service-微信客服，help-帮助',
+    `action_text` VARCHAR(32) NULL COMMENT '行动按钮文案，渲染后最多10个字符',
     `action_value` VARCHAR(500) NULL COMMENT '经过白名单校验的操作目标',
     `read_at` DATETIME NULL COMMENT '用户批次曝光确认时间',
     `visible_from` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '消息生效时间',
@@ -242,10 +243,7 @@ CREATE TABLE IF NOT EXISTS `app_message_event_inbox` (
     `producer_event_id` VARCHAR(128) NOT NULL COMMENT '上游稳定事件编号',
     `biz_no` VARCHAR(64) NULL COMMENT '上游关联业务编号',
     `receiver_user_id` BIGINT NULL COMMENT '单用户事件接收用户ID',
-    `payload_ciphertext` MEDIUMBLOB NULL COMMENT '处理前临时变量或回调载荷密文，不得包含聊天正文，处理结束后清空',
-    `payload_iv` VARBINARY(12) NULL COMMENT '临时载荷AES-GCM随机初始向量',
-    `payload_key_version` VARCHAR(32) NULL COMMENT '临时载荷数据密钥版本',
-    `payload_hmac` CHAR(64) NULL COMMENT '临时载荷HMAC-SHA256摘要',
+    `payload_json` MEDIUMTEXT NULL COMMENT '处理前有界临时业务载荷JSON，不得包含聊天正文，处理结束后清空',
     `payload_expires_at` DATETIME NULL COMMENT '临时载荷最晚保留时间，为空表示无需临时载荷',
     `payload_cleared_at` DATETIME NULL COMMENT '临时载荷实际清空时间',
     `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '处理状态：pending-待处理，processing-处理中，success-成功，failed-失败待重试，dead-死信',
@@ -382,6 +380,9 @@ CREATE TABLE IF NOT EXISTS `app_message_template_version` (
     `active_marker` TINYINT NULL COMMENT '当前发布版本唯一标记：1-当前版本，NULL-非当前版本',
     `title_template` VARCHAR(256) NOT NULL COMMENT '标题结构化文本模板',
     `content_template` TEXT NOT NULL COMMENT '正文结构化文本模板',
+    `card_type` VARCHAR(20) NOT NULL DEFAULT 'text' COMMENT '助手卡片类型：text-纯文本，action-行动卡片，tip-提示卡片',
+    `content_format` VARCHAR(20) NOT NULL DEFAULT 'plain_text' COMMENT '系统消息正文格式：plain_text-纯文本，rich_text-白名单富文本',
+    `action_text_template` VARCHAR(32) NULL COMMENT '行动按钮文案模板，渲染后最多10个字符',
     `allowed_variables_json` JSON NOT NULL COMMENT '允许变量名称类型必填性和脱敏级别JSON',
     `jump_type` VARCHAR(32) NOT NULL DEFAULT 'none' COMMENT '跳转或操作类型：系统消息支持none/miniapp/h5/service/chat/profile/community/auth_center/asset/invite_center/appeal；官方助手支持none/h5/wechat_service/help',
     `jump_value_template` VARCHAR(500) NULL COMMENT '经过白名单约束的跳转目标模板',
@@ -442,10 +443,7 @@ CREATE TABLE IF NOT EXISTS `community_report_evidence` (
     `sender_user_id` BIGINT NULL COMMENT '原消息发送用户ID',
     `receiver_user_id` BIGINT NULL COMMENT '原消息接收用户ID',
     `message_type` VARCHAR(20) NOT NULL COMMENT '原消息类型编码',
-    `content_ciphertext` MEDIUMBLOB NOT NULL COMMENT '冻结时独立AES-256-GCM加密的正文',
-    `content_iv` VARBINARY(12) NOT NULL COMMENT '冻结证据AES-GCM随机初始向量',
-    `content_key_version` VARCHAR(32) NOT NULL COMMENT '冻结证据数据密钥版本',
-    `content_hmac` CHAR(64) NOT NULL COMMENT '冻结证据正文HMAC-SHA256摘要',
+    `content_text` MEDIUMTEXT NOT NULL COMMENT '举报冻结时保存的受控明文正文',
     `event_time` DATETIME NOT NULL COMMENT '原消息业务发生时间',
     `context_order` SMALLINT NOT NULL DEFAULT 0 COMMENT '同一案件内证据上下文顺序',
     `severity` VARCHAR(20) NOT NULL DEFAULT 'normal' COMMENT '证据严重等级：normal-普通，severe-严重',
@@ -463,7 +461,7 @@ CREATE TABLE IF NOT EXISTS `community_report_evidence` (
     KEY `idx_community_report_evidence_case` (`report_id`, `context_order`),
     KEY `idx_community_report_evidence_source` (`target_type`, `source_biz_no`),
     KEY `idx_community_report_evidence_retain` (`retain_until`, `severity`, `deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='聊天举报案件不可变加密证据表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='聊天举报案件不可变受控明文证据表';
 
 -- 已存在的PRD-05举报表只做兼容增量，不改变既有target_id字符串契约。
 DROP PROCEDURE IF EXISTS prd03_add_column_if_missing;
@@ -503,6 +501,21 @@ CALL prd03_add_column_if_missing('app_message_record', 'receiver_read_at',
     'DATETIME NULL COMMENT ''接收方确认已读时间'' AFTER `receiver_read_status`');
 CALL prd03_add_index_if_missing('app_message_record', 'idx_message_record_receiver_unread',
     'INDEX `idx_message_record_receiver_unread` (`receiver_user_id`, `receiver_read_status`, `send_status`, `conversation_id`, `deleted`)');
+CALL prd03_add_index_if_missing('app_message_record', 'idx_message_record_tim_id',
+    'INDEX `idx_message_record_tim_id` (`conversation_id`, `tim_message_id`)');
+CALL prd03_add_index_if_missing('app_message_conversation', 'idx_message_conversation_pair_lifecycle',
+    'INDEX `idx_message_conversation_pair_lifecycle` (`user_low_id`, `user_high_id`, `create_time`, `invalid_time`, `deleted`)');
+
+CALL prd03_add_column_if_missing('app_message_whisper', 'source_scene',
+    'VARCHAR(32) NOT NULL DEFAULT ''profile'' COMMENT ''申请来源：recommendation-推荐，profile-主页，community_post-社区动态，community_comment-社区评论，whisper_reverse-反向申请'' AFTER `user_high_id`');
+CALL prd03_add_column_if_missing('app_message_whisper', 'source_biz_no',
+    'VARCHAR(64) NULL COMMENT ''来源帖子、评论或原悄悄话业务编号'' AFTER `source_scene`');
+CALL prd03_add_column_if_missing('app_message_whisper', 'receiver_hidden_at',
+    'DATETIME NULL COMMENT ''接收方在小程序端逻辑隐藏时间，后台事实仍保留'' AFTER `receiver_read_at`');
+CALL prd03_add_column_if_missing('app_message_whisper', 'receiver_hide_type',
+    'VARCHAR(20) NULL COMMENT ''接收方隐藏方式：single-单条隐藏，bucket-分组全部隐藏'' AFTER `receiver_hidden_at`');
+CALL prd03_add_index_if_missing('app_message_whisper', 'idx_message_whisper_receiver_bucket',
+    'INDEX `idx_message_whisper_receiver_bucket` (`receiver_user_id`, `receiver_hidden_at`, `status`, `delivery_status`, `id`)');
 
 -- 旧数据仅将已确认发送、尚无已读事实的消息迁移为未读；失败和待投递继续保持不适用。
 UPDATE `app_message_record`
@@ -523,6 +536,8 @@ CALL prd03_add_column_if_missing('community_report', 'source_scene',
     'VARCHAR(32) NOT NULL DEFAULT ''community'' COMMENT ''举报来源：community-社区，chat-私信，whisper-悄悄话''');
 CALL prd03_add_column_if_missing('community_report', 'snapshot_status',
     'VARCHAR(20) NOT NULL DEFAULT ''not_required'' COMMENT ''证据快照状态：not_required-无需，complete-完整，partial-待补证''');
+CALL prd03_add_column_if_missing('community_report', 'evidence_image_urls_json',
+    'TEXT NULL COMMENT ''举报人上传凭证图片URL列表JSON，最多3张''');
 CALL prd03_add_index_if_missing('community_report', 'uk_community_report_client',
     'UNIQUE INDEX `uk_community_report_client` (`reporter_id`, `client_report_id`)');
 CALL prd03_add_index_if_missing('community_report', 'idx_community_report_target_biz',
@@ -703,7 +718,7 @@ WHERE parent.perms = 'user:app:list'
   AND parent.deleted = 0
   AND NOT EXISTS (
       SELECT 1 FROM `sys_menu` existing
-       WHERE existing.perms = seed.perms AND existing.menu_type = 'F' AND existing.deleted = 0
+       WHERE existing.perms = seed.perms AND existing.deleted = 0
   );
 
 INSERT INTO `sys_menu`
@@ -766,3 +781,88 @@ JOIN `sys_menu` menu ON menu.perms IN (
     'message:template:edit', 'message:report-context:view', 'message:sensitive-content:view'
 ) AND menu.status = 'ENABLED' AND menu.deleted = 0
 WHERE role.role_code = 'super_admin' AND role.status = 'ENABLED' AND role.deleted = 0;
+
+-- 管理后台补漏：消息通知记录、社交权限与消息配置为两个真实菜单页面。
+-- “用户通知设置页”“后台通知偏好中心”一期不做，不创建菜单、路由或页面入口。
+INSERT INTO `sys_menu`
+(`parent_id`, `menu_name`, `menu_type`, `path`, `component`, `icon`, `perms`,
+ `menu_sort`, `visible`, `status`, `remark`, `create_time`, `update_time`)
+SELECT 0, '运营中心', 'M', NULL, NULL, 'Megaphone', NULL,
+       83, 1, 'ENABLED', '一期运营中心父菜单', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+WHERE NOT EXISTS (
+    SELECT 1 FROM `sys_menu`
+     WHERE parent_id=0 AND menu_name='运营中心' AND menu_type='M' AND deleted=0
+);
+
+UPDATE `sys_menu`
+SET menu_name='移动端配置管理', visible=1, status='ENABLED', deleted=0,
+    update_time=CURRENT_TIMESTAMP
+WHERE id=810 AND menu_type='M';
+
+UPDATE `sys_menu` page
+JOIN `sys_menu` parent
+  ON parent.parent_id=0 AND parent.menu_name='运营中心'
+ AND parent.menu_type='M' AND parent.deleted=0
+SET page.parent_id=parent.id,
+    page.menu_name='消息通知记录查询',
+    page.menu_type='C',
+    page.path='/operation/message-records',
+    page.component='message/MessageRecordPage',
+    page.icon='ScrollText',
+    page.menu_sort=5,
+    page.visible=1,
+    page.status='ENABLED',
+    page.remark='运营中心独立消息记录查询页面；正文按消息类型分级展示',
+    page.deleted=0,
+    page.update_time=CURRENT_TIMESTAMP
+WHERE page.perms='message:record:list' AND page.deleted=0;
+
+UPDATE `sys_menu` page
+JOIN `sys_menu` parent ON parent.id=810 AND parent.deleted=0
+SET page.parent_id=parent.id,
+    page.menu_name='社交权限与消息配置',
+    page.menu_type='C',
+    page.path='/mobile-config/message-social',
+    page.component='message/MessageConfigPage',
+    page.icon='MessageSquareLock',
+    page.menu_sort=8,
+    page.visible=1,
+    page.status='ENABLED',
+    page.remark='移动端配置管理独立页面；仅展示一期已实现配置项',
+    page.deleted=0,
+    page.update_time=CURRENT_TIMESTAMP
+WHERE page.perms='message:config:view' AND page.deleted=0;
+
+UPDATE `sys_menu` action_menu
+JOIN `sys_menu` page ON page.perms='message:record:list' AND page.menu_type='C' AND page.deleted=0
+SET action_menu.parent_id=page.id, action_menu.update_time=CURRENT_TIMESTAMP
+WHERE action_menu.perms IN ('message:record:export','message:sensitive-content:view')
+  AND action_menu.deleted=0;
+
+UPDATE `sys_menu` action_menu
+JOIN `sys_menu` page ON page.perms='message:config:view' AND page.menu_type='C' AND page.deleted=0
+SET action_menu.parent_id=page.id, action_menu.update_time=CURRENT_TIMESTAMP
+WHERE action_menu.perms='message:config:edit' AND action_menu.deleted=0;
+
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
+SELECT DISTINCT role_page.role_id, parent.id
+FROM `sys_role_menu` role_page
+JOIN `sys_menu` page
+  ON page.id=role_page.menu_id
+ AND page.perms IN ('message:record:list','message:config:view')
+ AND page.deleted=0
+JOIN `sys_menu` parent ON parent.id=page.parent_id AND parent.deleted=0;
+
+-- 举报类型兼容：沿用“社区互动管理 -> 举报处理”，不新增举报菜单。
+INSERT INTO `sys_dict_data`
+(`dict_type`,`parent_id`,`dict_label`,`dict_value`,`dict_sort`,`status`,`remark`)
+SELECT seed.dict_type,0,seed.dict_label,seed.dict_value,seed.dict_sort,'ENABLED','PRD-03/PRD-05 聊天举报兼容'
+FROM (
+ SELECT 'community_report_target_type' dict_type,'私信消息' dict_label,'message' dict_value,5 dict_sort
+ UNION ALL SELECT 'community_report_target_type','私信会话','conversation',6
+ UNION ALL SELECT 'community_report_target_type','悄悄话','whisper',7
+) seed
+WHERE NOT EXISTS (
+ SELECT 1 FROM `sys_dict_data` existing
+ WHERE existing.dict_type=seed.dict_type AND existing.dict_value=seed.dict_value AND existing.deleted=0
+);

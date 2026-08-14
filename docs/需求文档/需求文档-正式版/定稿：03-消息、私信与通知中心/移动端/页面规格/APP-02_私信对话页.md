@@ -2,7 +2,10 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本08 | 2026-08-06 | Codex | 普通私信改由腾讯云 TIM SDK 收发、拉取历史和未读，移除平台发送前文本内容审核 |
+| 版本07 | 2026-08-06 | Codex | 确认悄悄话回复转私信后的开场上下文：依次展示原悄悄话与接收方回复，并承接后续普通消息 |
 | 版本06 | 2026-07-31 | Codex | 增加私信内容直达举报，区分个人主页用户举报/拉黑，并补齐历史失效态与权限校验 |
+| 版本06 | 2026-07-31 | Codex | 会话内增加举报、拉黑、拉黑并举报和消息长按举报；补主页不可用安全兜底、失效只读态与全局安全开关 |
 | 版本05 | 2026-07-16 | Codex | 明确女性保护只限制发送：会话入口由 PRD-02 canEnterConversation 判断，页面使用 canSend/protectStatus |
 | 版本04 | 2026-07-13 | Codex | 对齐蓝湖匹配横幅与安全卡；头像跳主页承接举报拉黑；悄悄话回复匹配豁免女性保护 |
 | 版本03 | 2026-07-13 | Codex | 收口消息中心主入口，明确社区仅在已匹配态直达私信 |
@@ -35,7 +38,8 @@
 │ 返回  对方昵称        更多 │
 ├────────────────────────────┤
 │       消息流区域           │
-│  系统提示 / 文本气泡 / 时间 │
+│ 原悄悄话 / 回复 / 文本气泡  │
+│       系统提示 / 时间        │
 ├────────────────────────────┤
 │ 输入框              发送   │
 └────────────────────────────┘
@@ -46,7 +50,7 @@
 | 区块 | 位置 | 内容 | 是否可折叠 | 是否记住展开状态 |
 |------|------|------|------------|------------------|
 | 顶部导航 | 顶部 | 返回、对方昵称、更多菜单 | 否 | 否 |
-| 消息流 | 主体 | 时间、系统提示、左右气泡、失败状态 | 否 | 否 |
+| 消息流 | 主体 | 时间、系统提示、原悄悄话卡片、回复气泡、后续左右文本气泡、失败状态 | 否 | 否 |
 | 输入区 | 底部 | 文本输入框、发送按钮、禁发提示 | 否 | 否 |
 
 ### 2.3 弹层 / 抽屉 / 模态
@@ -57,6 +61,9 @@
 | 统一举报弹窗 | 点击“举报聊天内容” | 复用 `APP-05-PAGE-report-modal` | 按 `targetType=chat` 展示启用的举报原因；点击原因直接提交 | 取消、提交成功或重复举报后关闭 |
 
 点击头像或昵称进入个人主页后，可举报用户资料/账号或拉黑；本页更多菜单只承接聊天内容举报，不重复提供用户举报和拉黑。
+| 会话安全菜单 | 点击右上角“更多” | 底部操作面板 | 举报、拉黑、拉黑并举报、取消 | 点击取消/遮罩 |
+| 拉黑确认框 | 点击拉黑 | 居中确认框 | 影响说明、取消、确认拉黑 | 点击按钮 |
+| 举报提交面板 | 点击举报、拉黑并举报，或长按具体消息后举报 | 底部抽屉 | 原因、补充说明、来源摘要；具体消息举报携带 messageNo | 提交成功/取消 |
 
 ### 2.4 UI 画板拆分
 
@@ -65,8 +72,10 @@
 | `APP-03-chat-01` | 私信对话页-可发送态 | 正常聊天、输入框 | P0 |
 | `APP-03-chat-02` | 私信对话页-女性保护禁发态 | 输入框置灰、保护提示 | P0 |
 | `APP-03-chat-03` | 私信对话页-会话失效态 | 历史可看、输入区失效 | P0 |
+| `APP-03-chat-04` | 私信对话页-安全菜单 | 举报、拉黑、拉黑并举报 | P0 |
 | `APP-03-chat-04` | 私信对话页-头像跳主页 | 个人主页承接用户资料/账号举报与拉黑 | P0 |
 | `APP-03-chat-05` | 私信对话页-发送失败 | 消息失败态和重试 | P1 |
+| `APP-03-chat-06` | 私信对话页-消息长按举报 | 具体消息举报抽屉 | P0 |
 | `APP-03-chat-06` | 私信对话页-举报聊天内容 | 更多操作、统一举报原因、提交成功/重复提示 | P0 |
 
 ### 2.5 编辑控件口径
@@ -94,28 +103,29 @@
 | `APP-03-PAGE-private-chat-FIELD-conversation-no` | 会话编号 | string | 是 | 业务编号 | 当前用户必须参与该会话 | 无 | 不可编辑 | 普通 | 会话 |
 | `APP-03-PAGE-private-chat-FIELD-target-nickname` | 对方昵称 | string | 是 | 1-20 字 | 已审核昵称 | 无 | 用户资料编辑触发 | 普通 | PRD-01 用户资料 |
 | `APP-03-PAGE-private-chat-FIELD-message-no` | 消息编号 | string | 是 | 业务编号 | 当前会话内唯一 | 无 | 不可编辑 | 普通 | 消息记录 |
-| `APP-03-PAGE-private-chat-FIELD-message-type` | 消息类型 | enum | 是 | `M03-ENUM-message-type` | 首版仅文本/系统提示 | `text` | 不可编辑 | 普通 | 消息记录 |
-| `APP-03-PAGE-private-chat-FIELD-content` | 消息内容 | string | 是 | 1-500 字 | 发送前内容安全检测；超长禁止发送 | 无 | 发送前可编辑 | 敏感，加密存储，注销后匿名化 | 用户输入 |
+| `APP-03-PAGE-private-chat-FIELD-message-type` | 消息类型 | enum | 是 | `M03-ENUM-message-type` | 普通用户只可新增 text；whisper/whisper_reply 仅由回复迁移事务生成 | `text` | 不可编辑 | 普通 | 消息记录 |
+| `APP-03-PAGE-private-chat-FIELD-content` | 消息内容 | string | 是 | 1-500 字 | 去首尾空格后非空；超长禁止发送 | 无 | 发送前可编辑 | 敏感；内容与历史由 TIM 承接 | TIM 文本消息 |
 | `APP-03-PAGE-private-chat-FIELD-send-status` | 发送状态 | enum | 是 | `M03-ENUM-send-status` | 失败可重试 | `sending` | 系统流转 | 普通 | 消息记录 |
 | `APP-03-PAGE-private-chat-FIELD-created-time` | 发送时间 | datetime | 是 | datetime | 按本地展示相对或完整时间 | 无 | 不可编辑 | 普通 | 消息记录 |
 | `APP-03-PAGE-private-chat-FIELD-can-send` | 是否可发送 | bool | 是 | true/false | 服务端返回为准 | false | 系统计算 | 普通 | `M03-RULE-private-chat-open` |
 | `APP-03-PAGE-private-chat-FIELD-protect-status` | 保护状态 | json | 否 | `M03-RULE-female-protection` | 男性侧禁发需返回过期时间 | 无 | 系统计算 | 普通 | 会话规则 |
 | `APP-03-PAGE-private-chat-FIELD-can-enter-conversation` | 可进入会话 | bool | 是 | true/false | 由 PRD-02 关系/账号有效性返回；页面已打开时应为 true | true | 系统计算 | 普通 | PRD-02 |
 | `APP-03-PAGE-private-chat-FIELD-can-report-chat` | 可举报聊天内容 | bool | 是 | true/false | 当前用户已登录、账号未冻结、是会话参与方、会话存在且至少有一条对方发送的可举报文本；会话失效但历史可见时仍可为 true | false | 系统计算 | 普通 | `M03-RULE-report-handoff` |
-| `APP-03-PAGE-private-chat-FIELD-report-context` | 举报上下文 | json | 条件必填 | `sourceType=private_chat`、conversationNo、可选 messageNo | 客户端只传当前页业务编号；不得上传被举报用户 ID 或消息正文 | 无 | 不可编辑 | 敏感 | `M03-RULE-report-context` |
+| `APP-03-PAGE-private-chat-FIELD-report-context` | 举报上下文 | json | 条件必填 | `sourceType=private_chat`、conversationNo、timConversationId、可选 messageNo/timMessageId/timMsgKey | 客户端只传当前页业务编号与 TIM 定位编号；不得上传被举报用户 ID、消息正文或任意上下文 | 无 | 不可编辑 | 敏感 | `M03-RULE-report-context` |
+| `APP-03-PAGE-private-chat-FIELD-access-mode` | 页面访问模式 | enum | 是 | `normal/safety_readonly` | 正常会话为 normal；失效会话仅允许从本人历史安全记录进入 safety_readonly | normal | 系统计算 | 普通 | 会话安全访问规则 |
 
 #### 列表字段附加属性
 
 | 字段 ID | 消息流位置 | 主次层级 | 点击行为 | 手势行为 | 溢出处理 |
 |---------|------------|----------|----------|----------|----------|
 | `APP-03-PAGE-private-chat-FIELD-created-time` | 时间分隔条 | 辅助信息 | 不单独响应 | 上滑加载更早消息 | 按时间分组展示 |
-| `APP-03-PAGE-private-chat-FIELD-content` | 左右消息气泡 | 主要信息 | 发送失败气泡可触发重试 | 长按菜单首版不提供 | 气泡内换行 |
+| `APP-03-PAGE-private-chat-FIELD-content` | 左右消息气泡 | 主要信息 | 发送失败气泡可触发重试 | 长按可举报该条消息；不提供复制外的高风险操作 | 气泡内换行 |
 
 ### 4.2 详情/表单字段
 
 | 字段 ID | 显示名 | 类型 | 必填 | 取值范围 | 校验规则 | 默认值 | 可编辑 | 敏感级别 | 数据来源 |
 |---------|--------|------|------|----------|----------|--------|--------|----------|----------|
-| `APP-03-PAGE-private-chat-FIELD-input-content` | 输入内容 | string | 是 | 1-500 字 | 去首尾空格后非空；内容安全检测 | 无 | 当前用户在可发送态编辑 | 敏感，加密存储 | 用户填写 |
+| `APP-03-PAGE-private-chat-FIELD-input-content` | 输入内容 | string | 是 | 1-500 字 | 去首尾空格后非空 | 无 | 当前用户在可发送态编辑 | 敏感 | 用户填写 |
 
 ---
 
@@ -126,6 +136,7 @@
 | 操作 ID | 操作名 | 触发条件 | 前置权限 | 二次确认 | 成功态 | 失败态 | 影响（副作用） |
 |---------|--------|----------|----------|----------|--------|--------|----------------|
 | `APP-03-PAGE-private-chat-ACT-retry` | 重试发送 | 消息状态 `failed` 且会话可发送 | `GLB-ROLE-app-user` | 否 | 消息变为 `sent` | `M03-ERR-message-send-failed` | 不重复生成消息编号 |
+| `APP-03-PAGE-private-chat-ACT-report-message` | 举报该消息 | 长按本人可见的对方消息 | `GLB-ROLE-app-user` | 提交前确认 | 调用 PRD-05 平台接口，工单保存业务/TIM 消息编号、必要上下文快照和哈希 | 提交失败保留页面并可按 requestId 重试 | 不向 TIM 发送举报消息；不改变原消息；案件状态归 PRD-05 |
 
 ### 5.2 批量操作
 
@@ -138,6 +149,11 @@
 | `APP-03-PAGE-private-chat-ACT-send` | 发送 | 底部 | `canSend=true` 且输入非空 | `GLB-ROLE-app-user` | 否 | 新消息入流，未读发送给对方 | `M03-ERR-private-chat-not-matched`、`M03-ERR-female-protection-blocked` |
 | `APP-03-PAGE-private-chat-ACT-view-profile` | 查看主页 | 顶部头像/昵称 | 对方账号正常 | `GLB-ROLE-app-user` | 否 | 跳转用户主页；用户资料/账号举报与拉黑由主页承接 | 对方异常则提示不可查看 |
 | `APP-03-PAGE-private-chat-ACT-report-chat` | 举报聊天内容 | 顶部更多菜单 | `canReportChat=true` | `GLB-ROLE-app-user`、`M05-RULE-report-gate` | 否 | 打开 `APP-05-PAGE-report-modal`；选择原因后生成 `targetType=chat` 工单 | `M05-ERR-report-duplicate`、`M05-ERR-report-no-permission`、`M05-ERR-report-target-unavailable` |
+| `APP-03-PAGE-private-chat-ACT-send` | 发送 | 底部 | `canSend=true`、TIM 已就绪且输入非空 | `GLB-ROLE-app-user` | 否 | TIM 文本消息发送成功并进入会话流，对方未读由 TIM 更新 | 业务权限被 TIM 前回调拒绝、TIM 网络/服务异常时保留输入并允许重试 |
+| `APP-03-PAGE-private-chat-ACT-view-profile` | 查看主页 | 顶部头像/昵称 | `accessMode=normal` 且对方账号可访问 | `GLB-ROLE-app-user` | 否 | 跳转用户主页 | 对方异常则提示不可查看；安全菜单仍可用 |
+| `APP-03-PAGE-private-chat-ACT-report` | 举报会话对象 | 右上角安全菜单 | 当前用户参与过会话 | `GLB-ROLE-app-user` | 提交前确认 | 创建 PRD-05 举报工单 | 失败保留表单并可重试 |
+| `APP-03-PAGE-private-chat-ACT-block` | 拉黑 | 右上角安全菜单 | 尚未拉黑 | `GLB-ROLE-app-user` | 是 | 拉黑关系生效，会话转 `blocked` 并退出正常列表 | 失败不改变会话状态 |
+| `APP-03-PAGE-private-chat-ACT-block-report` | 拉黑并举报 | 右上角安全菜单 | 当前用户参与过会话 | `GLB-ROLE-app-user` | 是 | 先幂等拉黑，再提交 PRD-05 举报 | 举报失败时拉黑保持生效，并允许单独重试举报 |
 
 ---
 
@@ -147,11 +163,13 @@
 |----------|----------|----------|----------|------|
 | `canSend` | false | 输入区 | 输入框置灰，展示原因 | `M03-SM-conversation` |
 | 女性保护状态 | 等待女方 | 输入区 | 男性侧禁发，女方侧正常 | `M03-RULE-female-protection` |
-| 匹配来源 | `whisper_reply` | 女性保护状态 | 视为接收方已发送真实回复，双方直接可聊 | `M03-EVT-whisper-replied` |
+| 匹配来源 | `whisper_reply` | 消息流、女性保护状态 | 消息流首部依次展示原悄悄话和接收方回复；回复视为真实用户消息，双方直接可聊 | `M03-RULE-whisper-to-conversation` |
 | 拉黑操作 | 成功 | 会话状态 | 转 `blocked`，刷新消息列表状态 | `M03-RULE-conversation-invalid` |
 | 进入页面 | 成功加载 | 未读数 | 当前会话消息置已读 | `M03-RULE-unread` |
 | `canReportChat` | true | 顶部更多菜单 | 展示“举报聊天内容”；会话是否可发送不影响该入口 | `M03-RULE-report-handoff` |
 | 举报聊天内容 | 点击 | 统一举报弹窗 | 传 `targetType=chat`、`targetId=conversationNo` 和白名单 `reportContext` | `M03-RULE-report-context` |
+| 进入页面 | 成功加载 | 未读数 | 仅将服务端本次返回且属于当前用户的已收消息 ID 批量置已读 | `M03-RULE-unread` |
+| 安全总开关 | 关闭 | 输入区 | `canSend=false`，展示平台暂不可发送；历史读取与安全菜单不受影响 | `M03-CFG-global-send-enabled` |
 
 ---
 
@@ -160,14 +178,16 @@
 | 状态类型 | 触发场景 | 页面表现 | 用户可做的操作 | 引用 |
 |----------|----------|----------|----------------|------|
 | 加载态 | 首次进入/上滑加载 | 消息骨架或顶部 loading | 等待 | 通用态 |
-| 空态 | 新会话无历史 | 系统提示“你们已成功匹配” | 发送消息 | `M03-NTF-match-success` |
+| 空态 | 非悄悄话来源的新会话无历史 | 系统提示“你们已成功匹配” | 发送消息 | `M03-NTF-match-success` |
+| 业务态-whisper-opening | 匹配来源为 `whisper_reply` | 不展示空态；按时间依次展示原悄悄话与回复，之后承接普通文本 | 继续发送消息/举报对方内容 | `M03-RULE-whisper-to-conversation` |
 | 错误态（网络） | 加载失败 | toast + 重试 | 重试 | 通用态 |
 | 无权限态 | 当前用户非会话参与方 | 返回消息列表，不返回历史和举报上下文 | 返回 | `M05-ERR-report-no-permission` |
 | 业务态-active | 可聊天 | 输入框可编辑 | 发送文本 | `M03-SM-conversation` |
 | 业务态-protected | 女性保护 | 输入框置灰，保护提示 | 等待对方回复 | `M03-RULE-female-protection` |
+| 业务态-invalid/blocked | 从本人历史安全记录进入 | 只读展示留存范围内记录；隐藏对方最新资料/在线状态，输入区不可用 | 举报、返回 | `M03-RULE-conversation-invalid` |
 | 业务态-invalid | 会话失效 | 历史可看，输入区不可用 | 查看历史/举报 | `M03-RULE-conversation-invalid` |
 | 业务态-report-forbidden | 仅有本人内容、官方/系统消息或目标记录不存在 | 更多菜单不展示内容举报；绕过提交时拒绝 | 查看主页/返回 | `M03-RULE-report-handoff` |
-| 降级态 | 内容安全服务超时 | 禁止发送，提示稍后重试 | 重试 | 内容安全依赖 |
+| 降级态 | TIM 未登录、网络断开或服务异常 | 禁止伪造发送成功，保留输入并提示重连/重试 | 重连/重试 | `M03-RULE-tencent-im-channel` |
 
 ---
 
@@ -192,6 +212,10 @@
 | `APP-03-AC-private-chat-report` | 从私信页举报聊天内容 | 正常 | P0 |
 | `APP-03-AC-private-chat-report-history` | 会话失效但历史可见时仍可举报 | 边界 | P0 |
 | `APP-03-AC-private-chat-report-deny` | 非参与方、本人/官方内容不可举报 | 异常 | P0 |
+| `APP-03-AC-conversation-safety-menu` | 会话内举报/拉黑/拉黑并举报 | 正常 | P0 |
+| `APP-03-AC-message-longpress-report` | 长按具体消息举报 | 正常 | P0 |
+| `APP-03-AC-whisper-reply-no-protection` | 悄悄话回复匹配后双方直接可聊 | 正常 | P0 |
+| `APP-03-AC-whisper-opening-context` | 原悄悄话与回复作为私信开场上下文 | 正常 | P0 |
 
 ```text
 AC-ID: APP-03-AC-female-protection
@@ -203,6 +227,11 @@ AC-ID: APP-03-AC-whisper-reply-no-protection
 Given 匹配来源为 `whisper_reply` 且接收方回复已成功落库
 When 双方进入普通私信
 Then 回复被视为真实用户消息，双方输入框均可发送，不再命中女性保护禁发
+
+AC-ID: APP-03-AC-whisper-opening-context
+Given A 的原悄悄话被 B 回复，并已完成匹配和会话迁移
+When A 或 B 首次进入该私信会话
+Then 消息历史按时间依次展示 A 的原悄悄话、B 的回复和后续普通私信；两条开场消息只生成一次，可继续用于举报上下文追溯
 
 AC-ID: APP-03-AC-protection-does-not-block-entry
 Given 双方关系有效且男性处于女性保护等待期
@@ -223,6 +252,16 @@ AC-ID: APP-03-AC-private-chat-report-deny
 Given 当前用户不是会话参与方，或目标仅为本人发送内容、官方助手/系统消息
 When  页面渲染或用户绕过前端提交举报
 Then  页面不展示内容举报入口，服务端分别按无权限或对象不可举报拒绝，且不泄露聊天上下文
+
+AC-ID: APP-03-AC-conversation-safety-menu
+Given 用户正在查看本人参与的有效会话
+When 用户点击右上角更多菜单
+Then 展示举报、拉黑、拉黑并举报；“拉黑并举报”中举报失败时拉黑仍保持生效，并允许按原 requestId 重试举报
+
+AC-ID: APP-03-AC-message-longpress-report
+Given 用户可查看一条对方发送的消息，且对方主页当前不可访问
+When 用户长按该消息并提交举报
+Then 系统仍通过平台接口向 PRD-05 创建包含 conversationNo、TIM 会话/消息定位编号、必要上下文快照与哈希的举报工单，不向 TIM 发送举报消息，也不开放对方最新资料
 ```
 
 ---

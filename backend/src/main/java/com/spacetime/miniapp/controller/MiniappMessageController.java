@@ -10,6 +10,7 @@ import com.spacetime.miniapp.dto.request.MessageReadReq;
 import com.spacetime.miniapp.dto.request.SystemMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReplyReq;
+import com.spacetime.miniapp.dto.request.WhisperHideAllReq;
 import com.spacetime.miniapp.dto.response.AssistantMessagePageVO;
 import com.spacetime.miniapp.dto.response.ConversationBlockVO;
 import com.spacetime.miniapp.dto.response.MessageConversationDetailVO;
@@ -22,10 +23,12 @@ import com.spacetime.miniapp.dto.response.MessageWhisperDetailVO;
 import com.spacetime.miniapp.dto.response.MessageWhisperPageVO;
 import com.spacetime.miniapp.dto.response.SystemMessagePageVO;
 import com.spacetime.miniapp.dto.response.WhisperReplyVO;
+import com.spacetime.miniapp.dto.response.WhisperHideVO;
 import com.spacetime.miniapp.service.MiniappMessageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -42,8 +45,10 @@ public class MiniappMessageController {
     private final MiniappMessageService messageService;
 
     @GetMapping("/home")
-    public R<MessageHomeVO> home() {
-        return R.ok(messageService.home(currentUserId()));
+    public R<MessageHomeVO> home(
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "20") int size) {
+        return R.ok(messageService.home(currentUserId(), cursor, size));
     }
 
     @GetMapping("/unread-summary")
@@ -54,9 +59,10 @@ public class MiniappMessageController {
     @GetMapping("/whispers")
     public R<MessageWhisperPageVO> whispers(
             @RequestParam String direction,
+            @RequestParam(defaultValue = "pending") String bucket,
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int size) {
-        return R.ok(messageService.whispers(currentUserId(), direction, cursor, size));
+        return R.ok(messageService.whispers(currentUserId(), direction, bucket, cursor, size));
     }
 
     @GetMapping("/whispers/{whisperNo}")
@@ -67,6 +73,17 @@ public class MiniappMessageController {
     @PostMapping("/whispers/read-batch")
     public R<MessageReadBatchVO> readWhispers(@Valid @RequestBody WhisperReadBatchReq req) {
         return R.ok(messageService.readWhispers(currentUserId(), req));
+    }
+
+    @DeleteMapping("/whispers/{whisperNo}")
+    public R<WhisperHideVO> hideWhisper(@PathVariable String whisperNo) {
+        return R.ok(messageService.hideWhisper(currentUserId(), whisperNo));
+    }
+
+    @PostMapping("/whispers/received/hide-all")
+    public R<WhisperHideVO> hideReceivedWhispers(
+            @Valid @RequestBody WhisperHideAllReq req) {
+        return R.ok(messageService.hideReceivedWhispers(currentUserId(), req));
     }
 
     @PostMapping("/whispers/{whisperNo}/reply")

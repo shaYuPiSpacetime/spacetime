@@ -12,6 +12,6 @@ public class GlobalSendSwitchReq {
     @NotNull private Boolean enabled;
     @NotNull @Min(0) private Integer expectedVersion;
     @NotBlank(message = "变更原因不能为空")
-    @Size(min = 5, max = 200, message = "变更原因长度必须为5-200个字符")
+    @Size(min = 5, max = 100, message = "变更原因长度必须为5-100个字符")
     private String reason;
 }

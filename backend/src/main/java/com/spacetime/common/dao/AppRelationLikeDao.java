@@ -30,4 +30,7 @@ public interface AppRelationLikeDao extends RelationCrudDao<AppRelationLike> {
             LocalDateTime lastReadLikedTime, Long lastReadLikeId,
             LocalDateTime snapshotLikedTime, Long snapshotLikeId,
             int limit);
+
+    /** 查询当前最新一条有效入向喜欢及单条解锁状态。 */
+    RelationLikeListRow selectLatestIncomingLike(Long userId);
 }

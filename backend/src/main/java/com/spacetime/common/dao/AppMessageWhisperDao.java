@@ -23,10 +23,18 @@ public interface AppMessageWhisperDao {
     List<AppMessageWhisper> selectRefundedWithoutMessage(LocalDateTime updatedAfter, int limit);
     List<AppMessageWhisper> selectPending(Long userId, String direction, Long cursorId,
                                           int size, LocalDateTime now);
+    List<AppMessageWhisper> selectVisible(Long userId, String direction, String bucket,
+                                          Long cursorId, int size, LocalDateTime now);
+    long countVisible(Long userId, String direction, String bucket, LocalDateTime now);
+    long countPending(Long receiverUserId, LocalDateTime now);
     long countUnreadPending(Long receiverUserId, LocalDateTime now);
     List<String> selectReadableNos(Long receiverUserId, Collection<String> whisperNos,
                                    LocalDateTime now);
     int markReadBatch(Long receiverUserId, Collection<String> whisperNos, LocalDateTime readAt);
+    int hideByReceiver(Long receiverUserId, String whisperNo, String hideType,
+                       LocalDateTime hiddenAt);
+    int hideBucketByReceiver(Long receiverUserId, String bucket, String hideType,
+                             LocalDateTime now);
     Page<AppMessageWhisper> selectPage(Page<AppMessageWhisper> page,
                                        LambdaQueryWrapper<AppMessageWhisper> wrapper);
     void insert(AppMessageWhisper entity);

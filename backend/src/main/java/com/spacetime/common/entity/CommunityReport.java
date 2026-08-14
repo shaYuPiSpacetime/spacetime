@@ -41,6 +41,9 @@ public class CommunityReport extends BaseEntity {
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String extraText;
     private String contextJson;
+    /** 举报人上传凭证图片 URL 列表 JSON，最多 3 张。 */
+    private String evidenceImageUrlsJson;
+    /** 服务端固化的业务证据快照 JSON。 */
     private String evidenceJson;
     /** 处理状态 @see CommunityReportStatusEnum */
     private String status;

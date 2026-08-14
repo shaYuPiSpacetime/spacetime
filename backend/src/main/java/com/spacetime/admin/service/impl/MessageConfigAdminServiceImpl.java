@@ -17,6 +17,7 @@ import com.spacetime.common.dao.AppMessageRuleVersionDao;
 import com.spacetime.common.dao.AppMessageRuntimeControlDao;
 import com.spacetime.common.dao.AppMessageTemplateVersionDao;
 import com.spacetime.common.dao.ContentOperationLogDao;
+import com.spacetime.common.dao.MenuDao;
 import com.spacetime.common.entity.AppMessageRuleVersion;
 import com.spacetime.common.entity.AppMessageRuntimeControl;
 import com.spacetime.common.entity.AppMessageTemplateVersion;
@@ -61,11 +62,14 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
             "auth_center", "asset", "invite_center", "appeal");
     private static final Set<String> ASSISTANT_ACTION_TYPES = Set.of(
             "none", "h5", "wechat_service", "help");
+    private static final Set<String> ASSISTANT_CARD_TYPES = Set.of("text", "action", "tip");
+    private static final Set<String> CONTENT_FORMATS = Set.of("plain_text", "rich_text");
 
     private final AppMessageRuleVersionDao ruleDao;
     private final AppMessageRuntimeControlDao runtimeDao;
     private final AppMessageTemplateVersionDao templateDao;
     private final ContentOperationLogDao operationLogDao;
+    private final MenuDao menuDao;
     private final ObjectMapper objectMapper;
 
     @Value("${message.security.allowed-h5-hosts:}")
@@ -87,9 +91,9 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         }
         validateRetention(req);
         LocalDateTime now = LocalDateTime.now();
-        current.setStatus("retired");
-        current.setActiveMarker(null);
-        ruleDao.updateById(current);
+        if (ruleDao.retireCurrent(current.getId()) != 1) {
+            throw new BusinessException(30020, "消息配置版本已变化，请刷新后重试");
+        }
 
         AppMessageRuleVersion next = new AppMessageRuleVersion();
         next.setVersionNo(versionNo("MSG-CFG", now));
@@ -198,6 +202,9 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         next.setActiveMarker(1);
         next.setTitleTemplate(req.getTitleTemplate().trim());
         next.setContentTemplate(req.getContentTemplate().trim());
+        next.setCardType(resolveCardType(req));
+        next.setContentFormat(resolveContentFormat(req));
+        next.setActionTextTemplate(blankToNull(req.getActionTextTemplate()));
         next.setAllowedVariablesJson(writeJson(req.getAllowedVariables()));
         next.setJumpType(req.getJumpType().trim());
         next.setJumpValueTemplate(blankToNull(req.getJumpValueTemplate()));
@@ -234,6 +241,7 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         Set<String> used = new HashSet<>();
         collectVariables(req.getTitleTemplate(), used);
         collectVariables(req.getContentTemplate(), used);
+        collectVariables(req.getActionTextTemplate(), used);
         collectVariables(req.getJumpValueTemplate(), used);
         if (!allowed.containsAll(used)) {
             throw new BusinessException(4001, "模板使用了未授权变量");
@@ -241,7 +249,35 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         if ("none".equals(req.getJumpType()) && StringUtils.hasText(req.getJumpValueTemplate())) {
             throw new BusinessException(4001, "无跳转模板不能配置跳转值");
         }
+        if ("none".equals(req.getJumpType()) && StringUtils.hasText(req.getActionTextTemplate())) {
+            throw new BusinessException(4001, "无跳转模板不能配置行动文案");
+        }
+        if (StringUtils.hasText(req.getActionTextTemplate())
+                && req.getActionTextTemplate().codePointCount(
+                        0, req.getActionTextTemplate().length()) > 10) {
+            throw new BusinessException(4001, "消息行动文案不能超过10个字符");
+        }
+        String cardType = resolveCardType(req);
+        if ("assistant".equals(req.getNotificationType())
+                && !ASSISTANT_CARD_TYPES.contains(cardType)) {
+            throw new BusinessException(4001, "官方助手卡片类型不合法");
+        }
+        if (!CONTENT_FORMATS.contains(resolveContentFormat(req))) {
+            throw new BusinessException(4001, "系统消息正文格式不合法");
+        }
         validateH5(req.getJumpType(), req.getJumpValueTemplate());
+    }
+
+    private String resolveCardType(MessageTemplatePublishReq req) {
+        if (StringUtils.hasText(req.getCardType())) {
+            return req.getCardType().trim();
+        }
+        return "none".equals(req.getJumpType()) ? "text" : "action";
+    }
+
+    private String resolveContentFormat(MessageTemplatePublishReq req) {
+        return StringUtils.hasText(req.getContentFormat())
+                ? req.getContentFormat().trim() : "plain_text";
     }
 
     private void validateH5(String jumpType, String jumpValue) {
@@ -313,6 +349,9 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         vo.setCurrent(Integer.valueOf(1).equals(entity.getActiveMarker()));
         vo.setTitleTemplate(entity.getTitleTemplate());
         vo.setContentTemplate(entity.getContentTemplate());
+        vo.setCardType(entity.getCardType());
+        vo.setContentFormat(entity.getContentFormat());
+        vo.setActionTextTemplate(entity.getActionTextTemplate());
         vo.setAllowedVariables(readVariables(entity.getAllowedVariablesJson()));
         vo.setJumpType(entity.getJumpType());
         vo.setJumpValueTemplate(entity.getJumpValueTemplate());
@@ -362,8 +401,12 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
 
     private void requireRiskOperator() {
         UserContext context = UserContextHolder.get();
-        boolean allowed = context != null && context.getRoles() != null
-                && context.getRoles().stream().anyMatch(role -> Set.of(
+        List<String> roles = context == null ? List.of() : context.getRoles();
+        if ((roles == null || roles.isEmpty()) && context != null && context.getId() != null) {
+            roles = menuDao.selectRoleCodesByUserId(context.getId());
+        }
+        boolean allowed = roles != null
+                && roles.stream().anyMatch(role -> Set.of(
                         "risk", "risk_control", "super_admin").contains(role.toLowerCase(Locale.ROOT)));
         if (!allowed) throw new ForbiddenException("只有风控或超级管理员可以修改全局发送开关");
     }

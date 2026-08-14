@@ -12,6 +12,8 @@ public interface WhisperQuoteStore {
             Long senderUserId,
             Long receiverUserId,
             String targetUserNo,
+            String sourceScene,
+            String sourceBizNo,
             String payType,
             Integer coinAmount,
             Integer freeRemain,

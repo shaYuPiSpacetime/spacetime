@@ -69,6 +69,12 @@ public class AppMessageConversationDaoImpl implements AppMessageConversationDao 
     }
 
     @Override
+    public AppMessageConversation selectPairAtMessageTimeForUpdate(
+            Long userLowId, Long userHighId, LocalDateTime messageTime) {
+        return mapper.selectPairAtMessageTimeForUpdate(userLowId, userHighId, messageTime);
+    }
+
+    @Override
     public List<AppMessageConversation> selectActiveByUser(Long userId, LocalDateTime cursorTime,
                                                             Long cursorId, int size) {
         return mapper.selectList(new LambdaQueryWrapper<AppMessageConversation>()

@@ -10,8 +10,6 @@ import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.CommunityReport;
 import com.spacetime.common.entity.CommunityReportEvidence;
 import com.spacetime.common.exception.BusinessException;
-import com.spacetime.common.model.message.EncryptedMessageContent;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import com.spacetime.common.service.ChatReportEvidenceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,13 +24,12 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** 案件证据使用独立随机 IV 加密，不修改或复用消息主表正文。 */
+/** 案件证据冻结为受控明文快照，不修改或复用消息主表正文。 */
 @Service
 @RequiredArgsConstructor
 public class ChatReportEvidenceServiceImpl implements ChatReportEvidenceService {
     private final AppMessageRecordDao recordDao;
     private final CommunityReportEvidenceDao evidenceDao;
-    private final SensitiveTextCipher cipher;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -68,7 +65,6 @@ public class ChatReportEvidenceServiceImpl implements ChatReportEvidenceService 
                 order++;
                 continue;
             }
-            EncryptedMessageContent encrypted = cipher.encrypt(record.getContentText());
             CommunityReportEvidence evidence = new CommunityReportEvidence();
             evidence.setEvidenceNo("EVD-" + UUID.randomUUID().toString().replace("-", ""));
             evidence.setReportId(report.getId());
@@ -80,10 +76,7 @@ public class ChatReportEvidenceServiceImpl implements ChatReportEvidenceService 
             evidence.setSenderUserId(record.getSenderUserId());
             evidence.setReceiverUserId(record.getReceiverUserId());
             evidence.setMessageType(record.getMessageType());
-            evidence.setContentCiphertext(encrypted.ciphertext());
-            evidence.setContentIv(encrypted.iv());
-            evidence.setContentKeyVersion(encrypted.keyVersion());
-            evidence.setContentHmac(encrypted.hmac());
+            evidence.setContentText(record.getContentText());
             evidence.setEventTime(record.getProviderSentAt() == null
                     ? valueOrNow(record.getCreateTime(), effectiveNow) : record.getProviderSentAt());
             evidence.setContextOrder(order++);

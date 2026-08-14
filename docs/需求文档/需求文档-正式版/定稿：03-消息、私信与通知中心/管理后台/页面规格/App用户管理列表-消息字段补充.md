@@ -2,6 +2,8 @@
 
 | 版本 | 日期 | 修改人 | 变更摘要 |
 |------|------|--------|----------|
+| 版本04 | 2026-08-07 | Codex | 模块补充弹窗删除最近消息及脱敏内容摘要，只展示消息互动统计、时间与业务元数据 |
+| 版本03 | 2026-07-31 | Codex | 统一“系统消息”口径并锁定客服/运营仅看元数据、所有导出排除消息正文 |
 | 版本02 | 2026-07-02 | Codex | 按确认口径改为用户卡片模块补充按钮 + 弹窗消息互动 Tab，不在列表卡片或画像详情直铺 |
 | 版本01 | 2026-07-02 | Codex | 初稿 |
 
@@ -17,7 +19,7 @@
 ## 1. 页面定位
 
 - **目标用户**：客服、运营、风控、超级管理员
-- **核心任务**：在 App 用户管理卡片中提供统一模块补充入口，点击后查看用户消息互动摘要和相关记录
+- **核心任务**：在 App 用户管理卡片中提供统一模块补充入口，点击后查看用户消息互动统计和相关元数据记录
 - **页面类型**：既有列表页入口补充 + 弹窗 Tab 承接
 
 ---
@@ -42,21 +44,21 @@
 
 | 区块 | 位置 | 内容 | 是否可折叠 | 是否记住展开状态 |
 |------|------|------|------------|------------------|
-| 消息筛选增强 | 筛选栏 | 是否有私信、悄悄话待回复、女性保护命中、未读通知范围 | 否 | 否 |
+| 消息筛选增强 | 筛选栏 | 是否有私信、悄悄话待回复、女性保护命中、未读系统消息范围 | 否 | 否 |
 | 模块补充按钮 | 用户卡片底部按钮行 | 与详情、头像审核同一行，打开模块补充弹窗 | 否 | 否 |
-| 消息互动 Tab | 模块补充弹窗内 | 有效会话数、悄悄话待回复、未读通知、被拉黑会话、最近消息 | 否 | 是 |
+| 消息互动 Tab | 模块补充弹窗内 | 有效会话数、悄悄话待回复、未读系统消息、被拉黑/失效会话、最近消息时间及各类业务元数据 | 否 | 是 |
 | 操作列 | 用户卡片按钮行 | 详情、模块补充、头像审核 | 否 | 否 |
 
 ### 2.3 弹层 / 抽屉 / 模态
 
-本页新增或复用 App 用户管理的“模块补充”弹窗；弹窗内以两个 Tab 承接 PRD-02 关系反馈与 PRD-03 消息互动。消息字段不进入画像详情抽屉，消息互动内私信、悄悄话、通知、举报列表默认每页 5 条。
+本页新增或复用 App 用户管理的“模块补充”弹窗；弹窗内以两个 Tab 承接 PRD-02 关系反馈与 PRD-03 消息互动。消息字段不进入画像详情抽屉，消息互动内私信、悄悄话、系统消息、举报关联列表默认每页 5 条；所有普通角色仅见统计和元数据，不返回正文或内容摘要。
 
 ### 2.4 UI 画板拆分
 
 | 画板 ID | 画板名称 | 设计内容 | 备注 |
 |---------|----------|----------|------|
 | `ADM-03-user-list-msg-01` | App 用户管理卡片-模块补充入口 | 用户卡片新增“模块补充”按钮，与详情、头像审核同一行 | P0 |
-| `ADM-03-user-list-msg-02` | 模块补充弹窗-消息互动 Tab | 消息摘要、最近消息、私信/悄悄话/通知/举报记录 | P0 |
+| `ADM-03-user-list-msg-02` | 模块补充弹窗-消息互动 Tab | 消息互动统计、私信/悄悄话/系统消息/举报关联元数据 | P0 |
 | `ADM-03-user-list-msg-03` | App 用户管理列表-消息筛选无结果 | 搜索无结果态 | P1 |
 
 ### 2.5 编辑控件口径
@@ -85,7 +87,7 @@
 | `ADM-03-PAGE-user-list-message-fields-FILTER-has-conversation` | 是否存在私信会话 | 下拉 | 是/否 | 否 | 全部 | 是 |
 | `ADM-03-PAGE-user-list-message-fields-FILTER-whisper-pending` | 是否有悄悄话待回复 | 下拉 | 是/否 | 否 | 全部 | 是 |
 | `ADM-03-PAGE-user-list-message-fields-FILTER-protection-hit` | 是否命中女性保护 | 下拉 | 是/否 | 否 | 全部 | 是 |
-| `ADM-03-PAGE-user-list-message-fields-FILTER-notice-unread` | 未读通知范围 | 下拉 | 0/1-9/10+ | 否 | 全部 | 是 |
+| `ADM-03-PAGE-user-list-message-fields-FILTER-notice-unread` | 未读系统消息范围 | 下拉 | 0/1-9/10+ | 否 | 全部 | 是 |
 
 ### 3.3 筛选交互
 
@@ -107,7 +109,7 @@
 | `ADM-03-PAGE-user-list-message-fields-FIELD-auth-status` | 三重认证状态 | enum | 是 | 引用 PRD-01 | 展示中文 | 未完成 | 系统流转 | 普通 | PRD-01 |
 | `ADM-03-PAGE-user-list-message-fields-FIELD-conversation-count` | 有效私信会话数 | int | 是 | >=0 | 系统计算 | 0 | 不可编辑 | 普通 | PRD-03 会话 |
 | `ADM-03-PAGE-user-list-message-fields-FIELD-whisper-pending-count` | 悄悄话待回复数 | int | 是 | >=0 | 系统计算 | 0 | 不可编辑 | 普通 | PRD-03 悄悄话 |
-| `ADM-03-PAGE-user-list-message-fields-FIELD-notification-unread-count` | 未读通知数 | int | 是 | >=0 | 系统计算 | 0 | 不可编辑 | 普通 | PRD-03 通知 |
+| `ADM-03-PAGE-user-list-message-fields-FIELD-notification-unread-count` | 未读系统消息数 | int | 是 | >=0 | 系统计算 | 0 | 不可编辑 | 普通 | PRD-03 系统消息 |
 | `ADM-03-PAGE-user-list-message-fields-FIELD-protection-hit` | 女性保护命中 | bool | 是 | 是/否 | 系统计算 | 否 | 不可编辑 | 普通 | `M03-RULE-female-protection` |
 | `ADM-03-PAGE-user-list-message-fields-FIELD-blocked-conversation-count` | 被拉黑/失效会话数 | int | 是 | >=0 | 系统计算 | 0 | 不可编辑 | 普通 | PRD-03 会话 |
 | `ADM-03-PAGE-user-list-message-fields-FIELD-last-message-time` | 最近消息时间 | datetime | 否 | datetime | `yyyy-MM-dd HH:mm:ss` | 无 | 不可编辑 | 普通 | PRD-03 消息 |
@@ -116,7 +118,7 @@
 
 | 字段 ID | 所在位置 | 是否可排序 | 默认展示 | 溢出处理 |
 |---------|----------|------------|----------|----------|
-| `ADM-03-PAGE-user-list-message-fields-FIELD-last-message-time` | 消息互动 Tab 摘要/最近消息区 | 否 | 是 | 空值 `-` |
+| `ADM-03-PAGE-user-list-message-fields-FIELD-last-message-time` | 消息互动 Tab 统计区 | 否 | 是 | 空值 `-` |
 | `ADM-03-PAGE-user-list-message-fields-FIELD-phone` | 不在弹窗直接展示；高敏信息仍由画像详情/审计能力承接 | 否 | 否 | 脱敏 |
 | `ADM-03-PAGE-user-list-message-fields-FIELD-conversation-count` | 消息互动 Tab 摘要区 | 否 | 是 | 数字 |
 
@@ -136,7 +138,7 @@
 
 ### 5.2 批量操作
 
-本页不新增消息相关批量操作；导出继承 App 用户管理原有权限，消息敏感字段默认不导出。
+本页不新增消息相关批量操作；导出继承 App 用户管理原有权限，但字段白名单必须固定排除私信、悄悄话正文及任何可还原正文的快照，只允许脱敏元数据。
 
 ### 5.3 页面级操作
 
@@ -202,6 +204,6 @@ Then  列表只返回悄悄话待回复数大于 0 的用户；点击该用户�
 
 | 关联类型 | 引用 ID | 说明 |
 |----------|---------|------|
-| 依赖权限 | `ADM-03-PERM-message-summary-view` | 查看消息摘要 |
+| 依赖权限 | `ADM-03-PERM-message-summary-view` | 查看消息互动统计 |
 | 依赖页面 | `ADM-03-PAGE-user-message-section` | 用户详情消息区块 |
 | 依赖状态 | `M03-SM-conversation` | 会话状态 |

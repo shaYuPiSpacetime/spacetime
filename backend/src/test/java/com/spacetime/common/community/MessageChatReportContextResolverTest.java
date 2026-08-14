@@ -77,6 +77,74 @@ class MessageChatReportContextResolverTest {
                 .isInstanceOf(BusinessException.class);
     }
 
+    @Test
+    @DisplayName("会话顶部举报使用private_chat上下文并冻结最近消息")
+    void privateChatReportShouldResolveConversationWindow() {
+        AppMessageConversation conversation = conversation();
+        when(conversationDao.selectByConversationNo("CV-10")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(10L, 1L)).thenReturn(member());
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount());
+        when(recordDao.selectHistory(10L, null, 20)).thenReturn(List.of(
+                message(21L, "MSG-21", 2L, 1L),
+                message(20L, "MSG-20", 1L, 2L)));
+
+        TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
+                "private_chat", "CV-10", null, null, "CV-10",
+                "C2C_tu_peer_2", null, null));
+
+        assertThat(result.targetNo()).isEqualTo("CV-10");
+        assertThat(result.targetUserId()).isEqualTo(2L);
+        assertThat(result.sourceType()).isEqualTo("private_chat");
+        assertThat(result.evidenceMessageIds()).containsExactly(20L, 21L);
+    }
+
+    @Test
+    @DisplayName("私信明确选中对方消息时仍以会话为举报主目标")
+    void privateChatSelectedMessageShouldKeepConversationAsReportTarget() {
+        AppMessageRecord target = message(20L, "MSG-20", 2L, 1L);
+        target.setTimMessageId("TIM-20");
+        target.setTimMsgKey("KEY-20");
+        AppMessageConversation conversation = conversation();
+        when(recordDao.selectByMessageNo("MSG-20")).thenReturn(target);
+        when(conversationDao.selectByConversationNo("CV-10")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(10L, 1L)).thenReturn(member());
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount());
+        when(recordDao.selectSentBefore(10L, 20L, 5)).thenReturn(List.of());
+        when(recordDao.selectSentAfter(10L, 20L, 2)).thenReturn(List.of());
+
+        TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
+                "private_chat", "CV-10", null, "MSG-20", "CV-10",
+                "C2C_tu_peer_2", "TIM-20", "KEY-20"));
+
+        assertThat(result.targetNo()).isEqualTo("CV-10");
+        assertThat(result.sourceType()).isEqualTo("private_chat");
+        assertThat(result.targetMessageId()).isEqualTo(20L);
+    }
+
+    @Test
+    @DisplayName("私信可使用TIM消息标识选定被举报消息且主目标仍为会话")
+    void privateChatShouldResolveSelectedMessageByTimLocator() {
+        AppMessageRecord target = message(20L, "MSG-20", 2L, 1L);
+        target.setTimMessageId("TIM-20");
+        target.setTimMsgKey("KEY-20");
+        AppMessageConversation conversation = conversation();
+        when(conversationDao.selectByConversationNo("CV-10")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(10L, 1L)).thenReturn(member());
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount());
+        when(recordDao.selectByConversationAndTimLocator(10L, "TIM-20", "KEY-20"))
+                .thenReturn(target);
+        when(recordDao.selectSentBefore(10L, 20L, 5)).thenReturn(List.of());
+        when(recordDao.selectSentAfter(10L, 20L, 2)).thenReturn(List.of());
+
+        TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
+                "private_chat", "CV-10", null, null, "CV-10",
+                "C2C_tu_peer_2", "TIM-20", "KEY-20"));
+
+        assertThat(result.targetNo()).isEqualTo("CV-10");
+        assertThat(result.targetMessageId()).isEqualTo(20L);
+        assertThat(result.evidenceMessageIds()).containsExactly(20L);
+    }
+
     private AppMessageConversation conversation() {
         AppMessageConversation value = new AppMessageConversation();
         value.setId(10L);

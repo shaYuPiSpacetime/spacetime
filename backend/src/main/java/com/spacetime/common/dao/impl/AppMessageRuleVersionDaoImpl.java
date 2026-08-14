@@ -47,4 +47,9 @@ public class AppMessageRuleVersionDaoImpl implements AppMessageRuleVersionDao {
     public int updateById(AppMessageRuleVersion entity) {
         return mapper.updateById(entity);
     }
+
+    @Override
+    public int retireCurrent(Long id) {
+        return mapper.retireCurrent(id);
+    }
 }

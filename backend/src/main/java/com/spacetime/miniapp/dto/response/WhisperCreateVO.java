@@ -18,15 +18,5 @@ public class WhisperCreateVO {
     /** 当前调用是否真实扣除了成家币。 */
     private Boolean charged;
     private LocalDateTime createdTime;
-
-    /** 兼容旧客户端字段。 */
-    private String status;
-    /** 兼容旧客户端字段。 */
-    private Integer coinCost;
-    /** 兼容旧客户端字段。 */
-    private String paymentMethod;
-    /** 兼容旧客户端字段。 */
-    private LocalDateTime createTime;
-    /** 兼容旧客户端字段。 */
     private LocalDateTime expireTime;
 }
