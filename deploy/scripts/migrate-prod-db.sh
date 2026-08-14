@@ -62,8 +62,28 @@ ensure_database() {
 }
 
 run_migrations() {
-  shopt -s nullglob
-  local sql_files=("$ROOT_DIR"/deploy/sql/prod/*.sql)
+  local sql_files=()
+  local sql_file
+
+  if [ "$#" -gt 0 ]; then
+    for sql_file in "$@"; do
+      if [[ "$sql_file" != /* ]]; then
+        sql_file="${ROOT_DIR}/${sql_file}"
+      fi
+      case "$sql_file" in
+        "${ROOT_DIR}"/deploy/sql/prod/*.sql)
+          ;;
+        *)
+          fail "Only production migrations under deploy/sql/prod are allowed: ${sql_file}"
+          ;;
+      esac
+      require_file "$sql_file"
+      sql_files+=("$sql_file")
+    done
+  else
+    shopt -s nullglob
+    sql_files=("$ROOT_DIR"/deploy/sql/prod/*.sql)
+  fi
   [ "${#sql_files[@]}" -gt 0 ] || fail "未发现生产 SQL：$ROOT_DIR/deploy/sql/prod/*.sql"
 
   local client
@@ -85,7 +105,7 @@ run_migrations() {
 main() {
   cd "$ROOT_DIR"
   load_env
-  run_migrations
+  run_migrations "$@"
   log "数据库迁移完成"
 }
 

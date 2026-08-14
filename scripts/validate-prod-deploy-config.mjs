@@ -44,7 +44,7 @@ for (const file of workflows) {
   assertNotIncludes(content, 'runs-on: self-hosted', file);
   assertIncludes(content, 'appleboy/ssh-action', file);
   assertIncludes(content, 'appleboy/scp-action', file);
-  assertIncludes(content, "source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*'", file);
+  assertIncludes(content, "source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*", file);
   assertIncludes(content, "target: '/mnt/data/spacetime-prod'", file);
   assertIncludes(content, 'host: ${{ env.PROD_SERVER_HOST }}', file);
   assertIncludes(content, 'username: ${{ env.PROD_SERVER_USER }}', file);
@@ -85,6 +85,11 @@ for (const expected of [
   "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'",
   'PROD_SERVER_HOST: 112.124.59.146',
   'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy',
+  'bash scripts/migrate-prod-db.sh',
+  'deploy/sql/prod/071_prd03_message_mobile_contract.sql',
+  'deploy/sql/prod/072_prd03_admin_menu_visibility.sql',
+  'deploy/sql/prod/073_prd03_platform_message_plaintext.sql',
+  'deploy/sql/prod/074_prd03_remove_message_kms.sql',
   'bash scripts/deploy-prod-local.sh backend',
   'NGINX_IMAGE_TAG: spacetime-nginx-prod',
   'docker pull nginx:1.27-alpine',

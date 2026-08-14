@@ -35,7 +35,7 @@ jobs:
 
       - name: Validate production runtime configuration
         run: |
-          bash -n deploy/scripts/resolve-oss-endpoint.sh deploy/scripts/deploy-prod-local.sh
+          bash -n deploy/scripts/resolve-oss-endpoint.sh deploy/scripts/migrate-prod-db.sh deploy/scripts/deploy-prod-local.sh
           node scripts/test-prod-oss-endpoint.mjs
           node scripts/test-prod-wechat-pay-config.mjs
           node scripts/test-prod-tencent-im-config.mjs
@@ -89,7 +89,7 @@ jobs:
           host: ${{ env.PROD_SERVER_HOST }}
           username: ${{ env.PROD_SERVER_USER }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*'
+          source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*,deploy/sql/prod/071_prd03_message_mobile_contract.sql,deploy/sql/prod/072_prd03_admin_menu_visibility.sql,deploy/sql/prod/073_prd03_platform_message_plaintext.sql,deploy/sql/prod/074_prd03_remove_message_kms.sql'
           target: '/mnt/data/spacetime-prod'
 
       - name: Deploy backend over SSH
@@ -105,4 +105,9 @@ jobs:
           script: |
             set -e
             cd "${{ env.PROD_DEPLOY_DIR }}"
+            bash scripts/migrate-prod-db.sh \
+              deploy/sql/prod/071_prd03_message_mobile_contract.sql \
+              deploy/sql/prod/072_prd03_admin_menu_visibility.sql \
+              deploy/sql/prod/073_prd03_platform_message_plaintext.sql \
+              deploy/sql/prod/074_prd03_remove_message_kms.sql
             bash scripts/deploy-prod-local.sh backend
