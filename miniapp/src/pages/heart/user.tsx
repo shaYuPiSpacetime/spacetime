@@ -3,6 +3,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
 import { getApiErrorCode } from '@/services/request'
+import { findConversationByPeerUserId } from '@/services/message'
 import { getPublicProfile, type PublicProfileVO } from '@/services/profile'
 import {
   cancelRelationLike,
@@ -127,7 +128,7 @@ export default function HeartUserPage() {
     if (!profile) return
     if (profile.communicationMode === 'WHISPER') {
       const query = [
-        `receiverUserNo=${profile.userId}`,
+        `receiverUserNo=${profile.userNo}`,
         `nickname=${encodeURIComponent(profile.nickname || '用户')}`,
         `avatar=${encodeURIComponent(profile.avatar || '')}`,
         'compose=1',
@@ -135,7 +136,12 @@ export default function HeartUserPage() {
       await Taro.navigateTo({ url: `/pages/message/whisper-detail?${query}` })
       return
     }
-    await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${profile.matchNo || ''}&targetUserId=${profile.userId}` })
+    const conversation = await findConversationByPeerUserId(profile.userId)
+    if (!conversation) {
+      await Taro.showToast({ title: '私信会话暂不可用，请刷新后重试', icon: 'none' })
+      return
+    }
+    await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}` })
   }
 
   const reportUser = async () => {

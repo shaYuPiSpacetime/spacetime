@@ -93,40 +93,15 @@ test('标记会话已读同时清零会话和首页未读数', () => {
   assert.equal(store.getState().unread.privateMessageCount, 0)
 })
 
-test('隐藏悄悄话仅改变当前用户可见性，不改变业务状态', () => {
+test('悄悄话列表仅投影收发双方待回复记录', () => {
   const store = freshStore()
-  const before = store
+  const visiblePending = store
     .getState()
-    .whispers.find(item => item.whisperNo === 'whisper-received-pending')
+    .whispers.filter(item => item.visible && item.state === 'pending')
 
-  store.getState().hideWhisper('whisper-received-pending')
-
-  const hidden = store
-    .getState()
-    .whispers.find(item => item.whisperNo === 'whisper-received-pending')
-  assert.equal(hidden.visible, false)
-  assert.equal(hidden.state, before.state)
-})
-
-test('批量隐藏只处理指定列表方向', () => {
-  const store = freshStore()
-
-  store.getState().batchHideWhispers('received')
-
-  assert.equal(
-    store
-      .getState()
-      .whispers.filter(item => item.direction === 'received')
-      .every(item => !item.visible),
-    true
-  )
-  assert.equal(
-    store
-      .getState()
-      .whispers.filter(item => item.direction === 'sent')
-      .every(item => item.visible),
-    true
-  )
+  assert.equal(visiblePending.some(item => item.direction === 'received'), true)
+  assert.equal(visiblePending.some(item => item.direction === 'sent'), true)
+  assert.equal(visiblePending.every(item => item.state === 'pending'), true)
 })
 
 test('悄悄话创建限制 60 字且相同 Idempotency-Key 不重复创建', () => {
@@ -153,7 +128,7 @@ test('Mock IM 网关提供历史、发送、重发和已读能力', async () => 
   const gateway = new MockMessageImGateway(store)
 
   const history = await gateway.listHistory('conversation-lin')
-  assert.equal(history.length >= 1, true)
+  assert.equal(history.list.length >= 1, true)
   const failed = await gateway.sendText('conversation-lin', '网络异常', { shouldFail: true })
   const retried = await gateway.retry('conversation-lin', failed.clientMsgId)
   await gateway.markRead('conversation-lin')
@@ -195,25 +170,22 @@ test('18 个蓝湖设计状态完整映射到 7 个业务路由和稳定 mockSce
   assert.equal(new Set(messageDesignScenes.map(item => item.mockScene)).size, 18)
 })
 
-test('举报契约接受八类原因并拒绝超过 400 字的描述', async () => {
-  const { MockMessageService } = requireDomain('src/services/message.ts')
-  const service = new MockMessageService()
-  const result = await service.report({
-    targetType: 'whisper',
-    targetNo: 'whisper-received-pending',
-    reasonCode: 'AVATAR_MISMATCH',
-    description: '头像与本人不符',
-  })
-
-  assert.match(result.reportNo, /^report-mock-/)
-  await assert.rejects(
-    () =>
-      service.report({
-        targetType: 'whisper',
-        targetNo: 'whisper-received-pending',
-        reasonCode: 'OTHER',
-        description: '举'.repeat(401),
-      }),
-    /400/
-  )
+test('举报契约使用后端八类原因、稳定请求号与 400 字限制', () => {
+  const source = fs.readFileSync(path.join(miniappRoot, 'src/services/message.ts'), 'utf8')
+  for (const reason of [
+    'avatar_mismatch',
+    'false_profile',
+    'contact_disclosure',
+    'marriage_agency',
+    'spam_ad',
+    'fraud',
+    'harassment',
+    'other',
+  ]) {
+    assert.match(source, new RegExp(`'${reason}'`))
+  }
+  assert.match(source, /clientReportId/)
+  assert.match(source, /targetBizNo/)
+  assert.match(source, /length > 400/)
+  assert.doesNotMatch(source, /reasonCode:\s*'AVATAR_MISMATCH'/)
 })

@@ -1,9 +1,11 @@
 import { PropsWithChildren, useRef } from 'react'
-import Taro, { useDidShow, useLaunch } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, useLaunch } from '@tarojs/taro'
 import { useAuthStore } from './stores/authStore'
 import { usePrd01Store } from './stores/prd01Store'
 import { DEV_FIXED_LOGIN, MOCK_ENABLED, TOKEN_KEY, USER_INFO_KEY } from './constants/config'
 import { capturePromotionSource } from './services/promotionAttribution'
+import { messagePlatformRuntime } from './services/messagePlatformRuntime'
+import { MESSAGE_RUNTIME_BACKGROUND_EVENT } from './domain/messageLifecycle'
 
 import './app.scss'
 
@@ -65,12 +67,14 @@ function App({ children }: PropsWithChildren<object>) {
         )
       }
       loginRedirectingRef.current = false
+      void messagePlatformRuntime.onForeground()
       return
     }
     const token = Taro.getStorageSync(TOKEN_KEY)
     if (token) {
       loginRedirectingRef.current = false
       checkLogin()
+      void messagePlatformRuntime.onForeground()
       return
     }
 
@@ -80,11 +84,16 @@ function App({ children }: PropsWithChildren<object>) {
     if (loginRedirectingRef.current) return
 
     loginRedirectingRef.current = true
+    messagePlatformRuntime.stop()
     setTimeout(() => {
       Taro.reLaunch({ url: '/pages/login/index' }).catch(() => {
         loginRedirectingRef.current = false
       })
     }, 0)
+  })
+
+  useDidHide(() => {
+    Taro.eventCenter.trigger(MESSAGE_RUNTIME_BACKGROUND_EVENT)
   })
 
   return children

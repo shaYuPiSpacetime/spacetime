@@ -11,6 +11,8 @@ import tabMessageActiveIcon from '@/assets/icons/tab-message-active.png'
 import tabProfileIcon from '@/assets/icons/tab-profile.png'
 import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'
 import type { NativeNavigationMetrics } from '@/components/NativeNavigation'
+import { formatMessageBadge } from '@/domain/messageRuntime'
+import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 
 export type TabKey = 'index' | 'community' | 'recommend' | 'chat' | 'profile'
 
@@ -85,6 +87,10 @@ export function getCapsuleLeftActionsLayout({
  * 底部 TabBar — 对齐蓝湖「我的」底部栏 750×166 坐标。
  */
 export default function AppTabBar({ active, onActiveChange }: Props) {
+  const messageUnreadCount = useMessageRuntimeStore(
+    state => state.unreadSummary.messageUnreadCount,
+  )
+  const messageBadge = formatMessageBadge(messageUnreadCount)
   const handlePress = (tab: Tab) => {
     const currentRoute = getCurrentRoute()
     const sourceTab = TABS.find(item => item.path.slice(1) === currentRoute)
@@ -241,6 +247,29 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
                   opacity: isOn ? 1 : 0,
                 }}
               />
+              {tab.key === 'chat' && messageBadge ? (
+                <Text
+                  id="app-tab-message-unread"
+                  style={{
+                    position: 'absolute',
+                    left: '27rpx',
+                    top: '-10rpx',
+                    minWidth: '26rpx',
+                    height: '26rpx',
+                    padding: '0 6rpx',
+                    border: '2rpx solid #FFFFFF',
+                    borderRadius: '15rpx',
+                    background: '#EE2525',
+                    color: '#FFFFFF',
+                    fontSize: '16rpx',
+                    lineHeight: '24rpx',
+                    textAlign: 'center',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {messageBadge}
+                </Text>
+              ) : null}
             </View>
             <Text
               style={{

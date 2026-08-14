@@ -11,6 +11,7 @@ import {
   type RecommendCandidatePageVO,
   type RecommendCandidateVO,
 } from '@/services/recommend'
+import { findConversationByPeerUserId } from '@/services/message'
 import { cancelRelationLike, sendRelationLike } from '@/services/relation'
 
 type RecommendTab = 'recommend' | 'ideal'
@@ -185,13 +186,18 @@ export default function RecommendPage() {
     if (!candidate) return
     const profile = candidate.profile
     if (candidate.communicationMode === 'PRIVATE_MESSAGE') {
+      const conversation = await findConversationByPeerUserId(candidate.userId)
+      if (!conversation) {
+        await Taro.showToast({ title: '私信会话暂不可用，请刷新后重试', icon: 'none' })
+        return
+      }
       await Taro.navigateTo({
-        url: `/pages/message/private-chat?conversationNo=${profile.matchNo || ''}&targetUserId=${candidate.userId}`,
+        url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}`,
       })
       return
     }
     await Taro.navigateTo({
-      url: `/pages/message/whisper-detail?receiverUserNo=${candidate.userId}&nickname=${encodeURIComponent(profile.nickname || '用户')}&avatar=${encodeURIComponent(profile.avatar || '')}&compose=1`,
+      url: `/pages/message/whisper-detail?receiverUserNo=${profile.userNo}&nickname=${encodeURIComponent(profile.nickname || '用户')}&avatar=${encodeURIComponent(profile.avatar || '')}&compose=1`,
     })
   }
 

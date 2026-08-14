@@ -1,9 +1,9 @@
-import { Button, Image, ScrollView, Text, Textarea, View } from '@tarojs/components'
+import { Button, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useMemo, useState } from 'react'
-import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   messageService,
+  mockMessageService,
   type MessageReportReasonCode,
 } from '@/services/message'
 import { MessageNav } from './shared'
@@ -14,45 +14,36 @@ const REPORT_REASONS: ReadonlyArray<{
   label: string
   className: string
 }> = [
-  { code: 'AVATAR_MISMATCH', label: '头像非本人或无法看清正脸', className: 'report-reason--avatar' },
-  { code: 'FALSE_PROFILE', label: '内容乱填/虚假资料', className: 'report-reason--profile' },
-  { code: 'CONTACT_DISCLOSURE', label: '资料透露连续方式', className: 'report-reason--contact' },
-  { code: 'MARRIAGE_AGENCY', label: '婚托、饭托、酒托等', className: 'report-reason--agency' },
-  { code: 'SPAM_AD', label: '垃圾营销广告', className: 'report-reason--spam' },
-  { code: 'FRAUD', label: '虚假中奖消息、诈骗等', className: 'report-reason--fraud' },
-  { code: 'HARASSMENT', label: '聊天内容不适/骚扰', className: 'report-reason--harassment' },
-  { code: 'OTHER', label: '其他', className: 'report-reason--other' },
+  { code: 'avatar_mismatch', label: '头像非本人或无法看清正脸', className: 'report-reason--avatar' },
+  { code: 'false_profile', label: '内容乱填/虚假资料', className: 'report-reason--profile' },
+  { code: 'contact_disclosure', label: '资料透露联系方式', className: 'report-reason--contact' },
+  { code: 'marriage_agency', label: '婚托、饭托、酒托等', className: 'report-reason--agency' },
+  { code: 'spam_ad', label: '垃圾营销广告', className: 'report-reason--spam' },
+  { code: 'fraud', label: '虚假中奖消息、诈骗等', className: 'report-reason--fraud' },
+  { code: 'harassment', label: '聊天内容不适/骚扰', className: 'report-reason--harassment' },
+  { code: 'other', label: '其他', className: 'report-reason--other' },
 ]
 
 export default function MessageReportPage() {
   const router = useRouter()
   const isDesignForm = router.params.mockScene === 'report-form'
+  const blocked = router.params.blocked === '1'
+  const service = router.params.mockScene ? mockMessageService : messageService
   const [selectedReason, setSelectedReason] = useState<MessageReportReasonCode | undefined>(
-    isDesignForm ? 'AVATAR_MISMATCH' : undefined
+    isDesignForm ? 'avatar_mismatch' : undefined
   )
   const [description, setDescription] = useState('')
-  const [evidencePath, setEvidencePath] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(router.params.mockScene === 'report-success')
+  const [clientReportId] = useState(
+    router.params.clientReportId || `report-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
+  )
   const descriptionCount = useMemo(() => Array.from(description).length, [description])
 
   const backToMessage = () => {
     const pages = Taro.getCurrentPages()
     if (pages.length > 1) void Taro.navigateBack()
     else void Taro.switchTab({ url: '/pages/chat/index' })
-  }
-
-  const chooseEvidence = async () => {
-    try {
-      const result = await Taro.chooseMedia({
-        count: 1,
-        mediaType: ['image'],
-        sourceType: ['album', 'camera'],
-      })
-      setEvidencePath(result.tempFiles[0]?.tempFilePath || '')
-    } catch {
-      // 用户取消选择时保持当前页面，不展示错误提示。
-    }
   }
 
   const submit = async () => {
@@ -63,17 +54,32 @@ export default function MessageReportPage() {
     if (submitting) return
     setSubmitting(true)
     try {
-      await messageService.report({
-        targetType: 'whisper',
-        targetNo: router.params.targetNo || 'mock-whisper',
+      await service.report({
+        clientReportId,
+        targetType:
+          router.params.targetType === 'message' || router.params.targetType === 'conversation'
+            ? router.params.targetType
+            : 'whisper',
+        targetBizNo: router.params.targetBizNo || router.params.targetNo || 'mock-whisper',
+        timConversationId: router.params.timConversationId,
+        timMessageId: router.params.timMessageId,
+        timMsgKey: router.params.timMsgKey,
         reasonCode: selectedReason,
-        description: description.trim() || undefined,
-        evidenceUrls: evidencePath ? [evidencePath] : undefined,
+        extraText: description.trim() || undefined,
+        sourceType: router.params.targetType,
+        conversationNo: router.params.conversationNo,
+        whisperNo: router.params.whisperNo,
+        messageNo: router.params.messageNo,
       })
       setSuccess(true)
     } catch (error) {
       void Taro.showToast({
-        title: error instanceof Error ? error.message : '提交失败，请稍后重试',
+        title:
+          router.params.blocked === '1'
+            ? '已拉黑，举报提交失败，请重试'
+            : error instanceof Error
+              ? error.message
+              : '提交失败，请稍后重试',
         icon: 'none',
       })
     } finally {
@@ -89,13 +95,19 @@ export default function MessageReportPage() {
           <View className="report-success-icon" aria-label="提交成功">
             <View className="report-success-check" />
           </View>
-          <Text className="report-success-title">提交成功</Text>
+          <Text className="report-success-title">
+            {blocked ? '已拉黑并提交举报' : '提交成功'}
+          </Text>
           <View className="report-success-description">
             <Text>感谢你的提交，我们会根据</Text>
             <View
               className="report-success-link"
               role="link"
-              onClick={() => void Taro.showToast({ title: '处罚细则页面待接入', icon: 'none' })}
+              onClick={() => void Taro.showModal({
+                title: '平台违规行为处罚细则',
+                content: '平台会依据证据对骚扰、诈骗、虚假资料、违规营销等行为进行审核，并按情节采取警告、限制互动或封禁等措施。',
+                showCancel: false,
+              })}
             >
               <Text>《平台违规行为处罚细则》</Text>
             </View>
@@ -143,22 +155,9 @@ export default function MessageReportPage() {
             />
             <Text className="report-description-count">{descriptionCount}/400</Text>
           </View>
-
-          <Text className="report-section-title report-upload-title">上传凭证图片</Text>
-          <Button className="report-upload" onClick={() => void chooseEvidence()}>
-            {evidencePath ? (
-              <Image className="report-upload-preview" src={evidencePath} mode="aspectFill" />
-            ) : (
-              <>
-                <Image
-                  className="report-upload-icon"
-                  src={miniappOssIcons.verificationUploadCamera}
-                  mode="aspectFit"
-                />
-                <Text className="report-upload-copy">上传材料</Text>
-              </>
-            )}
-          </Button>
+          <Text className="report-evidence-note">
+            平台将根据消息编号固化必要聊天证据，无需上传聊天截图。
+          </Text>
         </View>
       </ScrollView>
       <Button

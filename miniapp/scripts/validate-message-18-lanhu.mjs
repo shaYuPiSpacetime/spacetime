@@ -66,7 +66,6 @@ for (const copy of [
   '请选择你要举报的事项类型',
   '头像非本人或无法看清正脸',
   '具体描述',
-  '上传凭证图片',
   '提交成功',
   '平台违规行为处罚细则',
   '知道啦',
@@ -76,7 +75,7 @@ for (const copy of [
 
 assert.match(runtime, /<Textarea\b/, '举报描述必须使用真实 Textarea')
 assert.match(runtime, /maxlength=\{400\}/, '举报描述必须限制 400 字')
-assert.match(runtime, /chooseMedia/, '上传凭证必须调用真实媒体选择能力')
+assert.doesNotMatch(runtime, /chooseMedia/, '消息举报由服务端固化证据，不得提交客户端截图冒充证据')
 assert.match(runtime, /onClick=|onInput=/, '交互控件必须绑定真实事件')
 assert.doesNotMatch(runtime, /lanhuapp\.com|alipic\.lanhuapp|\.lanhu-ref/, '运行代码禁止引用蓝湖参考图')
 assert.doesNotMatch(runtime, /opacity\s*:\s*0(?:[;,}]|\b)/, '禁止透明点击热区')

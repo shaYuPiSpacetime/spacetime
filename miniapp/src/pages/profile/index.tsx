@@ -10,7 +10,7 @@ import {
 } from '@/domain/verificationOnboardingFlow'
 import VerificationEntryView from '@/features/verification/VerificationEntryView'
 import { useProfile } from '@/hooks/useProfile'
-import { useMessageStore } from '@/stores/messageStore'
+import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import type { MyMembership } from '@/types/membership'
@@ -24,7 +24,7 @@ import cardInvite from '@/assets/profile/card-invite.webp'
  * 我的页面。
  */
 export default function ProfilePage() {
-  const unreadCount = useMessageStore(state => state.unread.totalCount)
+  const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
   const runtimeConfig = usePrd01Store(state => state.config)
   const copy = usePrd01Store(state => state.copy)
   const {

@@ -24,7 +24,7 @@ import {
 import { usePrd01Store } from '@/stores/prd01Store'
 import { prd01Api } from '@/services/prd01'
 import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboardingFlow'
-import { useMessageStore } from '@/stores/messageStore'
+import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import { getQianxunHeaderMetrics, QianxunHeader, type QianxunPrimaryTab } from './QianxunHeader'
@@ -61,7 +61,7 @@ function readRequestedScene(): CommunityScene | undefined {
 }
 
 export default function RecommendFamilyPage() {
-  const unreadCount = useMessageStore(state => state.unread.totalCount)
+  const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
   const [primaryTab, setPrimaryTab] = useState<QianxunPrimaryTab>(() => readRequestedPrimaryTab())
   const [activeTab, setActiveTab] = useState<CommunityScene>(() => readRequestedScene() || 'FOLLOWING')
   const [postsByScene, setPostsByScene] = useState<Partial<Record<CommunityScene, CommunityPostVO[]>>>(emptySceneState)

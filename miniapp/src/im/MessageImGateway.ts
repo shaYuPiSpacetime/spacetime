@@ -1,18 +1,50 @@
-import type { ChatMessage } from '../types/message'
+import type {
+  ChatMessage,
+  ImCredentials,
+  TimConversationSnapshot,
+} from '../types/message'
 
-export interface SendMessageOptions {
+export interface SendTextOptions {
   shouldFail?: boolean
   replyToClientMsgId?: string
 }
 
-/** 页面只依赖此网关，后续 LiteChat 接入不改变页面领域模型。 */
+export interface MessageHistoryPage {
+  list: ChatMessage[]
+  nextCursor?: string
+  isCompleted: boolean
+}
+
+export type MessageImEventType =
+  | 'ready'
+  | 'not_ready'
+  | 'message_received'
+  | 'conversation_updated'
+  | 'kicked_out'
+
+export interface MessageImEvent {
+  type: MessageImEventType
+  messages?: ChatMessage[]
+}
+
+/** 页面只能依赖标准化网关，不接触腾讯原始消息对象。 */
 export interface MessageImGateway {
-  listHistory(conversationNo: string): Promise<ChatMessage[]>
+  initialize(credentials: ImCredentials): Promise<void>
+  isReady(): boolean
+  listConversations(): Promise<TimConversationSnapshot[]>
+  listHistory(timConversationId: string, cursor?: string): Promise<MessageHistoryPage>
   sendText(
-    conversationNo: string,
+    timConversationId: string,
     content: string,
-    options?: SendMessageOptions
+    options?: SendTextOptions,
   ): Promise<ChatMessage>
-  retry(conversationNo: string, clientMsgId: string): Promise<ChatMessage>
-  markRead(conversationNo: string): Promise<void>
+  retry(timConversationId: string, clientMsgId: string): Promise<ChatMessage>
+  markRead(timConversationId: string): Promise<void>
+  findMessage(
+    timConversationId: string,
+    timMessageId?: string | null,
+    timMsgKey?: string | null,
+  ): Promise<ChatMessage | undefined>
+  onEvent(listener: (event: MessageImEvent) => void): () => void
+  logout(): Promise<void>
 }
