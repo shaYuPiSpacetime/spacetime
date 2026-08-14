@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.Locale;
 import java.time.LocalDateTime;
 
 /** 小程序公开资料查询实现。 */
@@ -77,6 +78,7 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
 
         PublicProfileVO result = new PublicProfileVO();
         result.setUserId(target.getId());
+        result.setUserNo("USR-" + String.format(Locale.ROOT, "%012d", target.getId()));
         result.setNickname(target.getNickname());
         result.setAvatar(auditContentService.publicAvatar(target.getId()));
         result.setHeroPhoto(auditContentService.publicProfileBackground(target.getId()));

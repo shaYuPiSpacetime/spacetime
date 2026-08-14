@@ -102,6 +102,7 @@ class MiniappPublicProfileServiceImplTest {
         PublicProfileVO result = service.getPublicProfile(7L, 8L);
 
         assertThat(result.getUserId()).isEqualTo(8L);
+        assertThat(result.getUserNo()).isEqualTo("USR-000000000008");
         assertThat(result.getNickname()).isEqualTo("目标用户");
         assertThat(result.getAvatar()).isEqualTo("https://cdn.test/avatar.jpg");
         assertThat(result.getHeroPhoto()).isEqualTo("https://cdn.test/hero.jpg");

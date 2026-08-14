@@ -1,5 +1,39 @@
 # 消息、私信与通知中心测试报告
 
+## 2026-08-14 小程序消息闭环与生产 30023 诊断报告
+
+### 结论
+
+小程序消息中心代码、后端兼容增量、微信正式构建及 H5 可重复端到端链路均已通过。本轮新增公开资料
+稳定用户编号、LiteChat 消息定位举报、平台未读运行时、私信/悄悄话/助手/系统消息页面真实接口接入，
+并保持 LiteChat SDK 仅进入消息分包。
+
+生产接口 `GET /api/miniapp/im/credentials` 返回 `30023` 的直接原因不是 KMS，也不是前端请求格式：
+生产容器对应的 `prod.env` 与 `runtime.env` 均未配置有效的 `TENCENT_IM_ENABLED`、`SDK_APP_ID`、
+`SECRET_KEY` 和回调鉴权参数。仓库与本机可检索配置中也没有真实 TIM 密钥，因此本报告不以占位值、
+测试值或伪造 UserSig 宣称现网已恢复。代码侧已具备启用校验、容器变量透传和发布门禁；现网恢复仍需
+向生产私密配置写入同一 TIM 应用的真实凭据并重新发布。
+
+### 自动化证据
+
+| 层级 | 命令/范围 | 结果 |
+|---|---|---|
+| 小程序契约 | `npm run validate:message-closure` | 14 条通过，0 失败 |
+| 微信正式构建 | `npm run build:weapp` | 编译成功；84 个页面注册门禁通过；主包 1.37 MiB、总包 2.69 MiB |
+| 变更文件 ESLint | 本轮新增/修改的 `.ts/.tsx` | 通过，0 错误 |
+| H5 构建 | `MINIAPP_DEV_FIXED_LOGIN=true MINIAPP_MESSAGE_PROVIDER=mock npm run build:h5` | 编译成功，仅有既有体积警告 |
+| H5 端到端 | `test-message-mobile-closure-h5.cjs` | 首页、私信发送、拉黑举报、单条举报、悄悄话收发、助手与系统频道全部通过 |
+| 后端聚焦 | 举报上下文与公开资料 Service | 通过，0 失败 |
+| 后端全量 | Java 21 执行 `mvn test -q` | 退出码 0，0 失败 |
+| TIM 部署门禁 | `node scripts/test-prod-tencent-im-config.mjs` | 通过；启用校验、容器透传、流水线接入及仓库无真实密钥均符合要求 |
+
+### 已知基线与外部门禁
+
+1. 全仓 `npm run lint` 被本轮未修改的 3 个 PRD-08 文件中的异常空白字符拦截；本轮变更文件定向 ESLint 已通过。
+2. `validate-prod-deploy-config.mjs` 会拒绝历史迁移 `013_prd01_drop_legacy_audit_tables.sql` 中的 `DROP TABLE`；后端发布工作流不执行该综合脚本，本轮未弱化生产 SQL 安全门禁。
+3. H5 首次使用真实登录态构建时按设计跳转登录页；切换为固定测试登录态与 Mock Provider 后完整 E2E 通过。生产微信构建已单独验证，测试态不会进入正式产物。
+4. 生产 TIM 真实双账号、UserSig 和公网回调复验必须在真实密钥配置后执行；当前 `30023` 在此之前仍会持续出现。
+
 ## 2026-08-14 移除应用层 KMS 增量报告
 
 ### 结论

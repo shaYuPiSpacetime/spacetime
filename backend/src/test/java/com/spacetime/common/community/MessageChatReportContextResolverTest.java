@@ -67,6 +67,28 @@ class MessageChatReportContextResolverTest {
     }
 
     @Test
+    @DisplayName("普通私信未携带平台消息号时可按 LiteChat 消息 ID 定位举报目标")
+    void messageReportShouldResolveLiteChatMessageId() {
+        AppMessageRecord target = message(20L, "MSG-20", 2L, 1L);
+        target.setTimMessageId("TIM-20");
+        AppMessageConversation conversation = conversation();
+        when(recordDao.selectByMessageNo("TIM-20")).thenReturn(null);
+        when(recordDao.selectByTimMessageId("TIM-20")).thenReturn(target);
+        when(conversationDao.selectById(10L)).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(10L, 1L)).thenReturn(member());
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount());
+        when(recordDao.selectSentBefore(10L, 20L, 5)).thenReturn(List.of());
+        when(recordDao.selectSentAfter(10L, 20L, 2)).thenReturn(List.of());
+
+        TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
+                "message", "CV-10", null, "TIM-20", "TIM-20", "C2C_tu_peer_2",
+                "TIM-20", null));
+
+        assertThat(result.targetNo()).isEqualTo("MSG-20");
+        assertThat(result.targetMessageId()).isEqualTo(20L);
+    }
+
+    @Test
     @DisplayName("用户不能把自己发送的消息作为被举报目标")
     void ownMessageShouldBeRejected() {
         when(recordDao.selectByMessageNo("MSG-20"))
