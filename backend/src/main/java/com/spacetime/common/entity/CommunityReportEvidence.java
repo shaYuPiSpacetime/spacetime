@@ -6,7 +6,7 @@ import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
-/** 聊天举报案件不可变加密证据。 */
+/** 聊天举报案件不可变受控明文证据。 */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("community_report_evidence")
@@ -21,10 +21,7 @@ public class CommunityReportEvidence extends BaseEntity {
     private Long senderUserId;
     private Long receiverUserId;
     private String messageType;
-    private byte[] contentCiphertext;
-    private byte[] contentIv;
-    private String contentKeyVersion;
-    private String contentHmac;
+    private String contentText;
     private LocalDateTime eventTime;
     private Integer contextOrder;
     private String severity;

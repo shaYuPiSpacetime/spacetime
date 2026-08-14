@@ -25,7 +25,6 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.MessageDomainService;
 import com.spacetime.common.service.MessageAnnouncementHydrationService;
 import com.spacetime.common.service.MessageNotificationDomainService;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.AssistantMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.ConversationBlockReq;
@@ -86,7 +85,6 @@ class MiniappMessageServiceImplTest {
     @Mock private MessageNotificationDomainService notificationDomainService;
     @Mock private RelationAccessProjectionService accessProjectionService;
     @Mock private MiniappSettingService settingService;
-    @Mock private SensitiveTextCipher sensitiveTextCipher;
     @Mock private MiniappRelationService relationService;
 
     private MiniappMessageServiceImpl service;
@@ -99,7 +97,7 @@ class MiniappMessageServiceImplTest {
                 imAccountDao, assistantMessageDao, systemMessageDao, auditContentService,
                 messageDomainService, notificationDomainService, announcementHydrationService,
                 accessProjectionService,
-                settingService, sensitiveTextCipher, relationService);
+                settingService, relationService);
         now = LocalDateTime.of(2026, 8, 10, 12, 0);
     }
 
@@ -522,7 +520,6 @@ class MiniappMessageServiceImplTest {
         assertThat(systemResult.getReadAck().getNoticeNos()).containsExactly("NTF-1");
         verify(announcementHydrationService).hydrate(eq(1L), any());
         verify(notificationDomainService).ensureAssistantMessages(eq(1L), any());
-        verify(sensitiveTextCipher, never()).decrypt(any());
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.AppMessageWhisper;
 import com.spacetime.common.entity.AppSystemMessage;
 import com.spacetime.common.entity.AppAssistantMessage;
+import com.spacetime.common.entity.CommunityReportEvidence;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -42,8 +43,14 @@ class MessageEntityStorageContractTest {
     @Test
     @DisplayName("系统消息和官方助手应以明文字段保存标题正文")
     void platformMessagesShouldOwnPlaintextTitleAndContent() {
-        assertThat(fieldsOf(AppSystemMessage.class)).contains("titleText", "contentText");
-        assertThat(fieldsOf(AppAssistantMessage.class)).contains("titleText", "contentText");
+        assertThat(fieldsOf(AppSystemMessage.class))
+                .contains("titleText", "contentText")
+                .doesNotContain("titleCiphertext", "titleIv", "titleKeyVersion", "titleHmac",
+                        "contentCiphertext", "contentIv", "contentKeyVersion", "contentHmac");
+        assertThat(fieldsOf(AppAssistantMessage.class))
+                .contains("titleText", "contentText")
+                .doesNotContain("titleCiphertext", "titleIv", "titleKeyVersion", "titleHmac",
+                        "contentCiphertext", "contentIv", "contentKeyVersion", "contentHmac");
     }
 
     @Test
@@ -51,7 +58,16 @@ class MessageEntityStorageContractTest {
     void inboxShouldExposeTemporaryPayloadLifecycle() throws ClassNotFoundException {
         Class<?> inboxType = Class.forName("com.spacetime.common.entity.AppMessageEventInbox");
         assertThat(fieldsOf(inboxType))
-                .contains("payloadCiphertext", "payloadExpiresAt", "payloadClearedAt");
+                .contains("payloadJson", "payloadExpiresAt", "payloadClearedAt")
+                .doesNotContain("payloadCiphertext", "payloadIv", "payloadKeyVersion", "payloadHmac");
+    }
+
+    @Test
+    @DisplayName("举报冻结证据应保存受控明文且不声明 KMS 密文字段")
+    void reportEvidenceShouldOwnPlaintextContent() {
+        assertThat(fieldsOf(CommunityReportEvidence.class))
+                .contains("contentText")
+                .doesNotContain("contentCiphertext", "contentIv", "contentKeyVersion", "contentHmac");
     }
 
     private Set<String> fieldsOf(Class<?> type) {

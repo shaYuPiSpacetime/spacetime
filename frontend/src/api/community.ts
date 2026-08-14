@@ -172,7 +172,7 @@ export interface CommunityReportAdminVO {
 export interface ReportEvidenceVO {
   evidenceNo: string; evidenceType?: string; targetType?: string; sourceBizNo?: string;
   conversationNo?: string; senderMask?: string; receiverMask?: string; messageType?: string;
-  eventTime?: string; contextOrder?: number; severity?: string; contentHmacSummary?: string;
+  eventTime?: string; contextOrder?: number; severity?: string;
   snapshotAt?: string; retainUntil?: string; contentAvailable: boolean;
 }
 

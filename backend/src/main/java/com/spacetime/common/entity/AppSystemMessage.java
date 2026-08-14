@@ -21,14 +21,6 @@ public class AppSystemMessage extends BaseEntity {
     private String templateVersion;
     private String titleText;
     private String contentText;
-    private byte[] titleCiphertext;
-    private byte[] titleIv;
-    private String titleKeyVersion;
-    private String titleHmac;
-    private byte[] contentCiphertext;
-    private byte[] contentIv;
-    private String contentKeyVersion;
-    private String contentHmac;
     private String contentFormat;
     private String jumpType;
     private String actionText;

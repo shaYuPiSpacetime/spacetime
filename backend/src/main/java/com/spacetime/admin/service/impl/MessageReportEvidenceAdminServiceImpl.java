@@ -14,8 +14,6 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.exception.ForbiddenException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
-import com.spacetime.common.model.message.EncryptedMessageContent;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -32,7 +30,6 @@ public class MessageReportEvidenceAdminServiceImpl implements MessageReportEvide
     private final CommunityReportDao reportDao;
     private final CommunityReportEvidenceDao evidenceDao;
     private final MessageSensitiveAccessAuditService auditService;
-    private final SensitiveTextCipher cipher;
 
     @Override
     public List<ReportEvidenceVO> listEvidence(String reportNo) {
@@ -55,7 +52,7 @@ public class MessageReportEvidenceAdminServiceImpl implements MessageReportEvide
         if (evidence.getRetainUntil() != null && !evidence.getRetainUntil().isAfter(LocalDateTime.now())) {
             throw new BusinessException(30022, "举报证据已超过保留期");
         }
-        requireEncryptedContent(evidence);
+        requireContent(evidence);
         String reason = req == null ? null : req.getViewReason();
         if (!StringUtils.hasText(reason) || reason.trim().length() < 5 || reason.trim().length() > 100) {
             throw new BusinessException(4001, "查看原因长度必须为5-100个字符");
@@ -64,17 +61,8 @@ public class MessageReportEvidenceAdminServiceImpl implements MessageReportEvide
                 "community_report", reportNo, evidence.getTargetType(), evidence.getSourceBizNo(), reason.trim(),
                 req.getRequestId());
         String accessNo = auditService.begin(command);
-        String content;
-        try {
-            content = cipher.decrypt(new EncryptedMessageContent(
-                    evidence.getContentCiphertext(), evidence.getContentIv(),
-                    evidence.getContentKeyVersion(), evidence.getContentHmac()));
-        } catch (RuntimeException ex) {
-            auditService.complete(accessNo, "error", "decrypt_failed");
-            throw ex;
-        }
         auditService.complete(accessNo, "allowed", null);
-        return new SensitiveContentVO(accessNo, evidenceNo, evidence.getMessageType(), content,
+        return new SensitiveContentVO(accessNo, evidenceNo, evidence.getMessageType(), evidence.getContentText(),
                 evidence.getEventTime());
     }
 
@@ -114,10 +102,8 @@ public class MessageReportEvidenceAdminServiceImpl implements MessageReportEvide
                 && context.getRoles().stream().anyMatch(value -> role.equalsIgnoreCase(value));
     }
 
-    private void requireEncryptedContent(CommunityReportEvidence evidence) {
-        if (evidence.getContentCiphertext() == null || evidence.getContentIv() == null
-                || !StringUtils.hasText(evidence.getContentKeyVersion())
-                || !StringUtils.hasText(evidence.getContentHmac())) {
+    private void requireContent(CommunityReportEvidence evidence) {
+        if (!StringUtils.hasText(evidence.getContentText())) {
             throw new BusinessException(30024, "举报证据正文不可用");
         }
     }
@@ -135,10 +121,9 @@ public class MessageReportEvidenceAdminServiceImpl implements MessageReportEvide
         vo.setEventTime(evidence.getEventTime());
         vo.setContextOrder(evidence.getContextOrder());
         vo.setSeverity(evidence.getSeverity());
-        vo.setContentHmacSummary(hmacSummary(evidence.getContentHmac()));
         vo.setSnapshotAt(evidence.getSnapshotAt());
         vo.setRetainUntil(evidence.getRetainUntil());
-        vo.setContentAvailable(evidence.getContentCiphertext() != null
+        vo.setContentAvailable(StringUtils.hasText(evidence.getContentText())
                 && (evidence.getRetainUntil() == null || evidence.getRetainUntil().isAfter(LocalDateTime.now())));
         return vo;
     }
@@ -149,8 +134,4 @@ public class MessageReportEvidenceAdminServiceImpl implements MessageReportEvide
         return "USR-********" + value.substring(value.length() - 4);
     }
 
-    private String hmacSummary(String hmac) {
-        if (!StringUtils.hasText(hmac)) return null;
-        return hmac.length() <= 12 ? hmac : hmac.substring(0, 12) + "...";
-    }
 }

@@ -83,7 +83,7 @@ class MessageEventInboxServiceImplTest {
         inbox.setSourceModule("prd04");
         inbox.setEventType("asset_changed");
         inbox.setStatus("processing");
-        inbox.setPayloadCiphertext(new byte[]{1});
+        inbox.setPayloadJson("{\"asset\":\"changed\"}");
         return inbox;
     }
 }

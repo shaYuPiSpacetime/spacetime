@@ -22,9 +22,7 @@ import com.spacetime.common.enums.MessageDeliveryStatusEnum;
 import com.spacetime.common.enums.MessageWhisperStatusEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.exception.BusinessException;
-import com.spacetime.common.model.message.EncryptedMessageContent;
 import com.spacetime.common.model.message.WhisperReplyResult;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.MessageDomainService;
 import com.spacetime.common.service.MessageAnnouncementHydrationService;
@@ -118,7 +116,6 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
     private final MessageAnnouncementHydrationService announcementHydrationService;
     private final RelationAccessProjectionService accessProjectionService;
     private final MiniappSettingService settingService;
-    private final SensitiveTextCipher sensitiveTextCipher;
     private final MiniappRelationService relationService;
 
     @Override
@@ -604,8 +601,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         MessageChannelSummaryVO result = new MessageChannelSummaryVO();
         result.setUnreadCount(unreadCount);
         if (latest != null) {
-            result.setLatestPreview(preview(plainOrDecrypt(latest.getContentText(), latest.getContentCiphertext(),
-                    latest.getContentIv(), latest.getContentKeyVersion(), latest.getContentHmac())));
+            result.setLatestPreview(preview(latest.getContentText()));
             result.setLatestTime(latest.getCreateTime());
         }
         return result;
@@ -618,8 +614,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         MessageChannelSummaryVO result = new MessageChannelSummaryVO();
         result.setUnreadCount(unreadCount);
         if (latest != null) {
-            result.setLatestPreview(preview(plainOrDecrypt(latest.getContentText(), latest.getContentCiphertext(),
-                    latest.getContentIv(), latest.getContentKeyVersion(), latest.getContentHmac())));
+            result.setLatestPreview(preview(latest.getContentText()));
             result.setLatestTime(latest.getCreateTime());
         }
         return result;
@@ -694,10 +689,8 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         AssistantMessageItemVO result = new AssistantMessageItemVO();
         result.setAssistantMessageNo(source.getAssistantMessageNo());
         result.setTopicCode(source.getTopicCode());
-        result.setTitle(plainOrDecrypt(source.getTitleText(), source.getTitleCiphertext(), source.getTitleIv(),
-                source.getTitleKeyVersion(), source.getTitleHmac()));
-        result.setContent(plainOrDecrypt(source.getContentText(), source.getContentCiphertext(), source.getContentIv(),
-                source.getContentKeyVersion(), source.getContentHmac()));
+        result.setTitle(source.getTitleText());
+        result.setContent(source.getContentText());
         result.setCardType(source.getCardType());
         result.setActionType(source.getActionType());
         result.setActionText(source.getActionText());
@@ -712,10 +705,8 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         result.setNoticeNo(source.getNoticeNo());
         result.setNotificationType(source.getNotificationType());
         result.setBizType(source.getBizType());
-        result.setTitle(plainOrDecrypt(source.getTitleText(), source.getTitleCiphertext(), source.getTitleIv(),
-                source.getTitleKeyVersion(), source.getTitleHmac()));
-        result.setContent(plainOrDecrypt(source.getContentText(), source.getContentCiphertext(), source.getContentIv(),
-                source.getContentKeyVersion(), source.getContentHmac()));
+        result.setTitle(source.getTitleText());
+        result.setContent(source.getContentText());
         result.setContentFormat(source.getContentFormat());
         result.setReadStatus(source.getReadAt() == null ? "unread" : "read");
         result.setJumpType(source.getJumpType());
@@ -723,20 +714,6 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         result.setJumpValue(source.getJumpValue());
         result.setCreatedTime(source.getCreateTime());
         return result;
-    }
-
-    private String decryptText(byte[] ciphertext, byte[] iv, String keyVersion, String hmac) {
-        if (ciphertext == null || ciphertext.length == 0) {
-            return null;
-        }
-        return sensitiveTextCipher.decrypt(new EncryptedMessageContent(
-                ciphertext, iv, keyVersion, hmac));
-    }
-
-    private String plainOrDecrypt(String plaintext, byte[] ciphertext, byte[] iv,
-                                  String keyVersion, String hmac) {
-        return StringUtils.hasText(plaintext) ? plaintext
-                : decryptText(ciphertext, iv, keyVersion, hmac);
     }
 
     private boolean isRestricted(Long userId) {

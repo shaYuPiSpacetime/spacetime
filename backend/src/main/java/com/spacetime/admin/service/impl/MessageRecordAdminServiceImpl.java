@@ -30,11 +30,9 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.exception.ForbiddenException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
-import com.spacetime.common.model.message.EncryptedMessageContent;
 import com.spacetime.common.model.message.MessageAdminRecordFilter;
 import com.spacetime.common.model.message.MessageAdminRecordProjection;
 import com.spacetime.common.model.message.MessageAdminRecordStatsProjection;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,7 +63,6 @@ public class MessageRecordAdminServiceImpl implements MessageRecordAdminService 
     private final AppSystemMessageDao systemMessageDao;
     private final AppAssistantMessageDao assistantMessageDao;
     private final MessageSensitiveAccessAuditService auditService;
-    private final SensitiveTextCipher sensitiveTextCipher;
 
     @Override
     public MessageRecordStatsVO stats() {
@@ -366,15 +363,15 @@ public class MessageRecordAdminServiceImpl implements MessageRecordAdminService 
         if ("system_message".equals(value.getRecordType())) {
             AppSystemMessage message = systemMessageDao.selectByNoticeNo(value.getRecordNo());
             if (message != null) {
-                vo.setTitle(plainOrDecrypt(message.getTitleText(), message.getTitleCiphertext(), message.getTitleIv(), message.getTitleKeyVersion(), message.getTitleHmac()));
-                vo.setContent(plainOrDecrypt(message.getContentText(), message.getContentCiphertext(), message.getContentIv(), message.getContentKeyVersion(), message.getContentHmac()));
+                vo.setTitle(message.getTitleText());
+                vo.setContent(message.getContentText());
                 vo.setContentFormat(message.getContentFormat());
             }
         } else if ("assistant_message".equals(value.getRecordType())) {
             AppAssistantMessage message = assistantMessageDao.selectByMessageNo(value.getRecordNo());
             if (message != null) {
-                vo.setTitle(plainOrDecrypt(message.getTitleText(), message.getTitleCiphertext(), message.getTitleIv(), message.getTitleKeyVersion(), message.getTitleHmac()));
-                vo.setContent(plainOrDecrypt(message.getContentText(), message.getContentCiphertext(), message.getContentIv(), message.getContentKeyVersion(), message.getContentHmac()));
+                vo.setTitle(message.getTitleText());
+                vo.setContent(message.getContentText());
                 vo.setContentFormat("plain_text");
             }
         }
@@ -416,16 +413,6 @@ public class MessageRecordAdminServiceImpl implements MessageRecordAdminService 
     private boolean contentAvailable(AppMessageRecord message) {
         return message != null && message.getContentClearedAt() == null
                 && StringUtils.hasText(message.getContentText());
-    }
-
-    private String decrypt(byte[] ciphertext, byte[] iv, String keyVersion, String hmac) {
-        if (ciphertext == null || ciphertext.length == 0) return null;
-        return sensitiveTextCipher.decrypt(new EncryptedMessageContent(ciphertext, iv, keyVersion, hmac));
-    }
-
-    private String plainOrDecrypt(String plaintext, byte[] ciphertext, byte[] iv,
-                                  String keyVersion, String hmac) {
-        return StringUtils.hasText(plaintext) ? plaintext : decrypt(ciphertext, iv, keyVersion, hmac);
     }
 
     private String requireSensitiveRequest(SensitiveContentViewReq req) {

@@ -9,7 +9,6 @@ import com.spacetime.common.entity.AppMessageTemplateVersion;
 import com.spacetime.common.entity.AppAssistantMessage;
 import com.spacetime.common.entity.AppSystemMessage;
 import com.spacetime.common.model.message.SystemMessageEventPayload;
-import com.spacetime.common.provider.SensitiveTextCipher;
 import com.spacetime.common.service.impl.MessageNotificationDomainServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,12 +30,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("系统消息模板渲染与加密落库")
+@DisplayName("系统消息模板渲染与明文落库")
 class MessageNotificationDomainServiceImplTest {
     @Mock private AppMessageTemplateVersionDao templateDao;
     @Mock private AppSystemMessageDao systemMessageDao;
     @Mock private AppAssistantMessageDao assistantMessageDao;
-    @Mock private SensitiveTextCipher cipher;
 
     private MessageNotificationDomainServiceImpl service;
     private LocalDateTime now;
@@ -67,9 +65,6 @@ class MessageNotificationDomainServiceImplTest {
         assertThat(stored.getBizType()).isEqualTo("report_result");
         assertThat(stored.getTitleText()).isEqualTo("举报处理结果");
         assertThat(stored.getContentText()).isEqualTo("你的举报已处理");
-        assertThat(stored.getTitleCiphertext()).isNull();
-        assertThat(stored.getContentCiphertext()).isNull();
-        verify(cipher, never()).encrypt(any());
         assertThat(stored.getContentFormat()).isEqualTo("rich_text");
         assertThat(stored.getActionText()).isEqualTo("查看结果");
         assertThat(stored.getSafetyRequired()).isEqualTo(1);
@@ -116,9 +111,6 @@ class MessageNotificationDomainServiceImplTest {
         assertThat(captor.getValue().getContentVersion()).isEqualTo("v1");
         assertThat(captor.getValue().getTitleText()).isEqualTo("举报处理结果");
         assertThat(captor.getValue().getContentText()).isEqualTo("请勿向陌生人转账");
-        assertThat(captor.getValue().getTitleCiphertext()).isNull();
-        assertThat(captor.getValue().getContentCiphertext()).isNull();
-        verify(cipher, never()).encrypt(any());
         assertThat(captor.getValue().getActionType()).isEqualTo("help");
         assertThat(captor.getValue().getActionValue()).isEqualTo("/pages/help/index");
         assertThat(captor.getValue().getCardType()).isEqualTo("action");

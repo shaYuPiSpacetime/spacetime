@@ -55,7 +55,7 @@ class MessageRecordAdminServiceImplTest {
         when(appUserDao.selectByIds(any())).thenReturn(List.of(sender, peer));
 
         var result = new MessageRecordAdminServiceImpl(queryDao, exportTaskDao, appUserDao,
-                null, null, null, null, null, null)
+                null, null, null, null, null)
                 .records(new MessageRecordPageReq());
 
         assertThat(result.getTotal()).isEqualTo(1);
@@ -86,7 +86,7 @@ class MessageRecordAdminServiceImplTest {
         req.setConfirmNoContent(true);
 
         new MessageRecordAdminServiceImpl(queryDao, exportTaskDao, appUserDao,
-                null, null, null, null, null, null).export(req);
+                null, null, null, null, null).export(req);
 
         ArgumentCaptor<AppUserExportTask> captor = ArgumentCaptor.forClass(AppUserExportTask.class);
         verify(exportTaskDao).insert(captor.capture());

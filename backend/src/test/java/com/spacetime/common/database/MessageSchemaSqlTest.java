@@ -20,6 +20,8 @@ class MessageSchemaSqlTest {
             "deploy/sql/prod/071_prd03_message_mobile_contract.sql";
     private static final String ADMIN_MENU_VISIBILITY =
             "deploy/sql/prod/072_prd03_admin_menu_visibility.sql";
+    private static final String REMOVE_MESSAGE_KMS =
+            "deploy/sql/prod/074_prd03_remove_message_kms.sql";
     private static final List<String> TABLES = List.of(
             "app_message_conversation",
             "app_message_conversation_member",
@@ -120,11 +122,30 @@ class MessageSchemaSqlTest {
         String inbox = tableSql(readProjectFile(MIGRATION), "app_message_event_inbox");
 
         assertThat(inbox)
-                .contains("`payload_ciphertext` MEDIUMBLOB NULL")
+                .contains("`payload_json` MEDIUMTEXT NULL")
                 .contains("`payload_expires_at` DATETIME NULL")
                 .contains("`payload_cleared_at` DATETIME NULL")
                 .contains("idx_message_event_inbox_payload_cleanup")
-                .contains("不得包含聊天正文");
+                .doesNotContain("payload_ciphertext", "payload_iv", "payload_key_version", "payload_hmac");
+    }
+
+    @Test
+    @DisplayName("移除 KMS 升级脚本应补充明文载荷和举报证据并保留历史列")
+    void removeMessageKmsMigrationShouldBeNonDestructive() throws IOException {
+        String sql = readProjectFile(REMOVE_MESSAGE_KMS).toLowerCase();
+
+        assertThat(sql)
+                .contains("'app_message_event_inbox', 'payload_json'")
+                .contains("'app_system_message', 'title_text'")
+                .contains("'app_system_message', 'content_text'")
+                .contains("'app_assistant_message', 'title_text'")
+                .contains("'app_assistant_message', 'content_text'")
+                .contains("'community_report_evidence', 'content_text'")
+                .contains("'community_report_evidence', 'content_ciphertext'")
+                .contains("'mediumblob null comment")
+                .contains("legacy_kms_payload_unsupported")
+                .doesNotContain("drop column")
+                .doesNotContain("delete from");
     }
 
     @Test

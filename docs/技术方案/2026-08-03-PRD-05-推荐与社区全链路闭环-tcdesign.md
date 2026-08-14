@@ -76,7 +76,7 @@
 | `community_post` | 增量 | 业务编号、来源场景、机审、抽检、版本、审核与处理时间 |
 | `community_comment` | 增量 | 业务编号、点赞数、机审结果、版本、审核时间 |
 | `community_report` | 增量 | 字符串目标编号、举报编号、四类目标、证据状态/引用、合并、处罚与版本；聊天正文不直接存本表 |
-| `community_report_evidence` | PRD-03 新增 | 聊天举报最小必要冻结证据及 KMS 密文；只能在有效案件内按条访问 |
+| `community_report_evidence` | PRD-03 新增 | 聊天举报最小必要受控明文证据；只能在有效案件内按条访问并记录查看审计 |
 | `community_topic` | 新增 | 独立话题、封面、场景、推荐、排序、启停与版本 |
 | `community_comment_like` | 新增 | 评论点赞关系 |
 | `community_post_draft` | 新增 | 用户+内容类型唯一草稿 |
