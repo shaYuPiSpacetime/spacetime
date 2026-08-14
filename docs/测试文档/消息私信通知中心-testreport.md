@@ -1,5 +1,54 @@
 # 消息、私信与通知中心测试报告
 
+## 2026-08-13 腾讯云 TIM 真实联调增量报告
+
+### 结论
+
+真实 TIM 账号同步、UserSig、REST 投递、悄悄话回复匹配、本地签名回调和数据库回写均已通过。
+本轮同时修复两项真实联调发现的问题：Jackson 时间类型此前只配置序列化格式、未配置对应反序列化器，
+导致 Redis 悄悄话报价读回失败；生产部署脚本此前未把 `TENCENT_IM_*` 写入容器运行时环境，导致公网
+回调返回 `callback is not configured`。
+
+公网生产入口必须在合并并重新发布后端后再次验证，本报告不把“代码已修复”写成“现网已生效”。
+
+### 真实数据证据
+
+| 项目 | 结果 |
+| --- | --- |
+| 测试用户 | 开发库真实用户 `U78（AACompleteUser01）`、`U79（AACompleteUser02）`，账号状态均为正常 |
+| TIM 账号与凭证 | 两个用户账号导入幂等成功，`/miniapp/im/credentials` 返回对应短期 UserSig；报告不记录 UserSig 或 SecretKey |
+| 悄悄话申请 | `WSP-C16607A0532E475FB42609D2CBEA4380`，`status=replied`、`deliveryStatus=sent`、`payType=vip_free` |
+| 匹配 | `MAT-52E77BBF73A64E5AB1DDBA25CE63932B`，`matchStatus=matched`、`primarySource=whisper_reply` |
+| 私信会话 | `CV-EE9B17E5742745279A77CD767453D63F`，`status=active`，双方会话列表均可查询 |
+| 请求/回复消息 | 两条 `app_message_record` 均为 `sendStatus=sent`，均保存腾讯返回的 MsgId/MsgKey |
+| TIM 漫游反查 | 2026-08-13 通过腾讯 `admin_getroammsg` 反查上述双方账号，返回 `ActionStatus=OK`、`ErrorCode=0`、`MsgCnt=2`、`Complete=1`；云端消息分别为 `MSG-708C11E89C3D4835B496D16F21EA151D / whisper_request` 和 `MSG-EC44288438FB40788761375958902722 / whisper_reply` |
+| 控制台统计口径 | 两条消息发送于 2026-08-13 18:52:48、18:55:53；当时控制台日统计页面仅统计至 2026-08-12，因此“昨日单聊消息量=0”不包含本次消息。腾讯文档说明日统计通常次日上午约 10:00 更新，可同时在罗盘实时监控查看今日单聊消息量 |
+| 可靠投递 | 两条 `app_message_delivery_outbox` 均为 `status=sent`、`retryCount=0`，并保存与腾讯漫游结果一致的 MsgKey；本地签名回调重放后 `callbackConfirmedAt` 已写入 |
+| 已读同步 | 本地签名重放 `C2C.CallbackAfterMsgReport` 均返回 `OK`；接收消息更新为 `read`，成员读水位只前进不回退；腾讯公网已读回调仍需部署后验证 |
+| 回调鉴权 | 正确签名返回 `OK`；错误签名返回 `FAIL/callback signature invalid`，不写业务事实 |
+
+### 自动化证据
+
+| 层级 | 命令/范围 | 结果 |
+| --- | --- | --- |
+| 回归点 | `JacksonConfigTest,RedisWhisperQuoteStoreTest` | 2 条通过，0 失败、0 错误、0 跳过 |
+| TIM 聚焦 | UserSig、REST Provider、回调 Controller/Service、Outbox、悄悄话、会话、文档和 SQL 契约 | 51 条通过，0 失败、0 错误、0 跳过 |
+| 后端全量 | Java 21 执行 `mvn test` | 766 条通过，0 失败、0 错误、0 跳过，`BUILD SUCCESS` |
+| 发布门禁 | `node scripts/test-prod-tencent-im-config.mjs` | 通过；环境变量绑定、启用校验、容器透传、流水线接入和仓库无真实密钥均通过 |
+| 生产总校验 | `node scripts/validate-prod-deploy-config.mjs` | TIM 断言通过后，被既有 `013_prd01_drop_legacy_audit_tables.sql` 的生产 SQL 安全门禁拦截；未弱化该门禁，非本轮 TIM 回归 |
+
+最终复核补充：部署脚本已通过 Bash 语法校验；`JacksonConfigTest`、
+`RedisWhisperQuoteStoreTest` 共 2 条重新执行通过；TIM Callback Controller/Service、REST Provider、
+悄悄话 Service 共 24 条重新执行通过。开发服务 `8080`、真实 TIM 联调实例 `8081` 和管理后台
+`5173` 健康检查均返回 HTTP 200。部署脚本还会在启用 TIM 时校验 SDKAppID、UserSig 有效期、
+协议版本及 HTTP 超时均为正整数，防止错误配置进入运行容器。
+
+### 未完成的外部门禁
+
+1. `https://admin.shikongxiehou.com` 对应生产容器尚未部署本轮运行时变量透传修复；部署后需在腾讯控制台重新校验 URL。
+2. 生产 KMS、真实举报图片 OSS 和小程序 TIM SDK UI 不在本轮后端联调范围。
+3. 本轮未编写、未修改小程序前端代码。
+
 ## 2026-08-13 管理后台遗漏菜单闭环增量报告
 
 ### 2026-08-13 配置业务链路复核
@@ -207,3 +256,30 @@ E2E 在后端健康检查稳定后执行且关闭自动重试，单次直接通�
 - 管理后台构建、真实数据展示和高敏交互：**通过**。
 - 小程序前端：**未改动，符合交付边界**。
 - 腾讯 TIM 与生产 KMS：**未验收，等待外部环境**。
+
+## 7. 2026-08-13 管理后台异常修复回归
+
+- 数据库：已执行 PRD-03 消息迁移与 `071_prd03_message_mobile_contract.sql`，悄悄话、举报、系统消息和官方助手详情依赖字段已补齐。
+- 后端自动化：`AuthServiceImplTest`、`MessageConfigAdminServiceImplTest`、`MessageRecordAdminServiceImplTest`、消息管理契约及相关服务测试共 **32 条通过，0 失败**。
+- 前端构建：React/TypeScript 生产构建通过，仅保留既有 chunk 体积提示。
+- peter 真实接口：登录、消息列表、悄悄话列表、举报列表、三类消息详情、开关切换与恢复、配置保存、中文导出全部 HTTP 200。
+- 页面交互：消息筛选改为 300ms 防抖自动查询；列表、详情与导出枚举中文化（含 `system_tip`、助手分类）；隐藏当前配置版本卡片，但保留版本并发控制。E2E 已覆盖私信、悄悄话高敏详情以及系统/官方助手明文详情。
+
+本轮异常修复判定：**通过**。全局发送开关已在验证后恢复原状态；配置保存验证生成了一个内容相同的新版本，符合版本化发布设计。
+
+## 8. 2026-08-13 系统消息与官方助手明文展示
+
+- 新增 `title_text/content_text`，系统消息和官方助手的新数据直接存储明文；旧密文仅作为历史兼容读取路径。
+- 管理后台详情直接展示标题、正文，不展示 App 端 `actionText`（如“查看详情”）。
+- 开发库已为前 3 个 App 用户各生成 2 条系统消息和 2 条官方助手消息，共 12 条明文演示记录。
+- 后端相关测试 **28 条通过**；前端生产构建通过；管理后台 Playwright **3 条通过**。
+- peter 真实接口查询 12 条演示记录，标题、正文正确且后台 `actionText=null`。
+
+本轮判定：**通过**。私信、悄悄话与举报证据的高敏策略未改变。
+
+## 9. 2026-08-13 peter 旧会话开关权限兼容
+
+- 根因：旧登录会话已包含 `message:config:edit`，但 Redis 用户上下文没有后来新增的角色编码，服务端二次风控校验因此拒绝。
+- 修复：仅当会话角色为空时，按当前管理员 ID 从数据库补查启用角色；仍只允许 `risk/risk_control/super_admin`，没有扩大普通配置编辑权限。
+- 自动化：`MessageConfigAdminServiceImplTest` 与 `AuthServiceImplTest` 共 **10 条通过**。
+- 真实验证：构造 `roles=null` 的 peter 旧会话，成功关闭全局发送后再次恢复为开启；最终开关状态保持开启。

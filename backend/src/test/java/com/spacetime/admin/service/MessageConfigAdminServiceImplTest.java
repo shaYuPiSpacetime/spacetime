@@ -10,6 +10,7 @@ import com.spacetime.common.dao.AppMessageRuleVersionDao;
 import com.spacetime.common.dao.AppMessageRuntimeControlDao;
 import com.spacetime.common.dao.AppMessageTemplateVersionDao;
 import com.spacetime.common.dao.ContentOperationLogDao;
+import com.spacetime.common.dao.MenuDao;
 import com.spacetime.common.entity.AppMessageRuleVersion;
 import com.spacetime.common.entity.AppMessageRuntimeControl;
 import com.spacetime.common.exception.BusinessException;
@@ -39,6 +40,7 @@ class MessageConfigAdminServiceImplTest {
     @Mock private AppMessageRuntimeControlDao runtimeDao;
     @Mock private AppMessageTemplateVersionDao templateDao;
     @Mock private ContentOperationLogDao operationLogDao;
+    @Mock private MenuDao menuDao;
 
     @AfterEach
     void clearContext() {
@@ -53,6 +55,7 @@ class MessageConfigAdminServiceImplTest {
         AppMessageRuleVersion current = currentRule("MSG-CFG-001");
         AppMessageRuntimeControl runtime = runtime(true, 3);
         when(ruleDao.selectCurrent("global")).thenReturn(current);
+        when(ruleDao.retireCurrent(1L)).thenReturn(1);
         when(runtimeDao.selectByControlKey("global_send_enabled")).thenReturn(runtime);
         MessageConfigPublishReq req = publishRequest("MSG-CFG-001");
 
@@ -60,8 +63,7 @@ class MessageConfigAdminServiceImplTest {
 
         assertThat(result.getVersionNo()).startsWith("MSG-CFG-");
         assertThat(result.getVersionNo()).isNotEqualTo("MSG-CFG-001");
-        verify(ruleDao).updateById(argThat(value -> "retired".equals(value.getStatus())
-                && value.getActiveMarker() == null));
+        verify(ruleDao).retireCurrent(1L);
         verify(ruleDao).insert(argThat(value -> "published".equals(value.getStatus())
                 && Integer.valueOf(1).equals(value.getActiveMarker())
                 && Long.valueOf(7L).equals(value.getPublishedBy())));
@@ -86,6 +88,26 @@ class MessageConfigAdminServiceImplTest {
         assertThat(result.getEnabled()).isFalse();
         assertThat(result.getVersion()).isEqualTo(6);
         verify(operationLogDao).insert(argThat(value -> "MESSAGE_RUNTIME".equals(value.getBizType())));
+    }
+
+    @Test
+    @DisplayName("旧登录会话缺少角色时应从数据库补查超级管理员角色")
+    void shouldResolveRiskRoleForLegacySession() {
+        UserContextHolder.set(new UserContext(1L, "peter", null,
+                List.of("message:config:edit")));
+        when(menuDao.selectRoleCodesByUserId(1L)).thenReturn(List.of("super_admin"));
+        AppMessageRuntimeControl current = runtime(true, 5);
+        when(runtimeDao.selectByControlKeyForUpdate("global_send_enabled")).thenReturn(current);
+        when(runtimeDao.updateByVersion(any(), org.mockito.ArgumentMatchers.eq(5))).thenReturn(1);
+        GlobalSendSwitchReq req = new GlobalSendSwitchReq();
+        req.setEnabled(false);
+        req.setExpectedVersion(5);
+        req.setReason("兼容旧登录会话执行安全开关操作");
+
+        var result = service().updateGlobalSend(req);
+
+        assertThat(result.getEnabled()).isFalse();
+        verify(menuDao).selectRoleCodesByUserId(1L);
     }
 
     @Test
@@ -133,7 +155,7 @@ class MessageConfigAdminServiceImplTest {
 
     private MessageConfigAdminServiceImpl service() {
         return new MessageConfigAdminServiceImpl(ruleDao, runtimeDao, templateDao,
-                operationLogDao, new ObjectMapper());
+                operationLogDao, menuDao, new ObjectMapper());
     }
 
     private AppMessageRuleVersion currentRule(String versionNo) {

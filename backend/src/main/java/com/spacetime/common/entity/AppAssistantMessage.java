@@ -17,6 +17,8 @@ public class AppAssistantMessage extends BaseEntity {
     private String contentVersion;
     private String templateCode;
     private String templateVersion;
+    private String titleText;
+    private String contentText;
     private byte[] titleCiphertext;
     private byte[] titleIv;
     private String titleKeyVersion;

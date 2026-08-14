@@ -200,7 +200,7 @@ export function StatGrid({ cards, loading }: { cards: CommunityStatCard[]; loadi
   );
 }
 
-export function FilterPanel({ children, onSearch, onReset, busy, extraActions }: { children: ReactNode; onSearch: () => void; onReset: () => void; busy?: boolean; extraActions?: ReactNode }) {
+export function FilterPanel({ children, onSearch, onReset, busy, extraActions, showSearch = true }: { children: ReactNode; onSearch: () => void; onReset: () => void; busy?: boolean; extraActions?: ReactNode; showSearch?: boolean }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -208,7 +208,7 @@ export function FilterPanel({ children, onSearch, onReset, busy, extraActions }:
         <div className="flex items-center gap-2">
           {extraActions}
           <Button variant="outline" size="sm" onClick={onReset} disabled={busy}><RefreshCcw className="mr-1.5 h-3.5 w-3.5" />重置</Button>
-          <Button size="sm" onClick={onSearch} disabled={busy}><Search className="mr-1.5 h-3.5 w-3.5" />查询</Button>
+          {showSearch && <Button size="sm" onClick={onSearch} disabled={busy}><Search className="mr-1.5 h-3.5 w-3.5" />查询</Button>}
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{children}</div>

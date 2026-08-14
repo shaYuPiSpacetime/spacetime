@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/**'
       - 'deploy/**'
+      - 'scripts/test-prod-tencent-im-config.mjs'
       - '.github/workflows/deploy-backend-prod.yml'
   workflow_dispatch:
 
@@ -32,11 +33,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate production OSS storage normalization
+      - name: Validate production runtime configuration
         run: |
           bash -n deploy/scripts/resolve-oss-endpoint.sh deploy/scripts/deploy-prod-local.sh
           node scripts/test-prod-oss-endpoint.mjs
           node scripts/test-prod-wechat-pay-config.mjs
+          node scripts/test-prod-tencent-im-config.mjs
 
       - name: Validate ACR password
         env:

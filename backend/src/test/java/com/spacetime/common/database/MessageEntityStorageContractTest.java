@@ -2,6 +2,8 @@ package com.spacetime.common.database;
 
 import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.AppMessageWhisper;
+import com.spacetime.common.entity.AppSystemMessage;
+import com.spacetime.common.entity.AppAssistantMessage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +37,13 @@ class MessageEntityStorageContractTest {
         assertThat(fields).doesNotContain("requestTimMessageId", "requestTimMsgKey",
                 "replyTimMessageId", "replyTimMsgKey", "providerMsgKey",
                 "contentCiphertext", "replyCiphertext");
+    }
+
+    @Test
+    @DisplayName("系统消息和官方助手应以明文字段保存标题正文")
+    void platformMessagesShouldOwnPlaintextTitleAndContent() {
+        assertThat(fieldsOf(AppSystemMessage.class)).contains("titleText", "contentText");
+        assertThat(fieldsOf(AppAssistantMessage.class)).contains("titleText", "contentText");
     }
 
     @Test

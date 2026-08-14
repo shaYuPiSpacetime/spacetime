@@ -6,7 +6,7 @@ import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
-/** 用户系统站内消息，正文使用独立敏感字段加密策略。 */
+/** 用户系统站内消息；平台通知标题和正文使用明文存储。 */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("app_system_message")
@@ -19,6 +19,8 @@ public class AppSystemMessage extends BaseEntity {
     private String bizNo;
     private String templateCode;
     private String templateVersion;
+    private String titleText;
+    private String contentText;
     private byte[] titleCiphertext;
     private byte[] titleIv;
     private String titleKeyVersion;

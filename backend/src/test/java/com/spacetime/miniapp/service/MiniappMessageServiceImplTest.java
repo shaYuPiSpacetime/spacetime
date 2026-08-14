@@ -497,8 +497,8 @@ class MiniappMessageServiceImplTest {
     }
 
     @Test
-    @DisplayName("官方助手和系统消息列表解密标题正文并返回曝光确认候选")
-    void channelListsShouldDecryptContentAndExposeReadCandidates() {
+    @DisplayName("官方助手和系统消息列表直接读取明文并返回曝光确认候选")
+    void channelListsShouldReadPlaintextAndExposeReadCandidates() {
         AppUser current = user(1L, "当前用户");
         AppAssistantMessage assistant = assistantMessage();
         AppSystemMessage system = systemMessage();
@@ -508,21 +508,21 @@ class MiniappMessageServiceImplTest {
                 .thenReturn(List.of(assistant));
         when(systemMessageDao.selectVisible(eq(1L), eq(null), eq(21), any(), eq(false)))
                 .thenReturn(List.of(system));
-        when(sensitiveTextCipher.decrypt(any())).thenReturn("已解密内容");
-
         AssistantMessagePageVO assistantResult = service.assistantMessages(1L, null, 20);
         SystemMessagePageVO systemResult = service.systemMessages(1L, null, 20);
 
-        assertThat(assistantResult.getList().getFirst().getTitle()).isEqualTo("已解密内容");
-        assertThat(assistantResult.getList().getFirst().getContent()).isEqualTo("已解密内容");
+        assertThat(assistantResult.getList().getFirst().getTitle()).isEqualTo("助手标题");
+        assertThat(assistantResult.getList().getFirst().getContent()).isEqualTo("助手正文");
         assertThat(assistantResult.getList().getFirst().getCardType()).isEqualTo("action");
         assertThat(assistantResult.getList().getFirst().getActionText()).isEqualTo("查看安全指南");
-        assertThat(systemResult.getList().getFirst().getTitle()).isEqualTo("已解密内容");
+        assertThat(systemResult.getList().getFirst().getTitle()).isEqualTo("系统标题");
+        assertThat(systemResult.getList().getFirst().getContent()).isEqualTo("系统正文");
         assertThat(systemResult.getList().getFirst().getContentFormat()).isEqualTo("rich_text");
         assertThat(systemResult.getList().getFirst().getActionText()).isEqualTo("立即查看");
         assertThat(systemResult.getReadAck().getNoticeNos()).containsExactly("NTF-1");
         verify(announcementHydrationService).hydrate(eq(1L), any());
         verify(notificationDomainService).ensureAssistantMessages(eq(1L), any());
+        verify(sensitiveTextCipher, never()).decrypt(any());
     }
 
     @Test
@@ -621,14 +621,8 @@ class MiniappMessageServiceImplTest {
         message.setId(41L);
         message.setAssistantMessageNo("AST-1");
         message.setTopicCode("private_chat_safety");
-        message.setTitleCiphertext(new byte[]{1});
-        message.setTitleIv(new byte[12]);
-        message.setTitleKeyVersion("v1");
-        message.setTitleHmac("a".repeat(64));
-        message.setContentCiphertext(new byte[]{2});
-        message.setContentIv(new byte[12]);
-        message.setContentKeyVersion("v1");
-        message.setContentHmac("b".repeat(64));
+        message.setTitleText("助手标题");
+        message.setContentText("助手正文");
         message.setActionType("help");
         message.setActionValue("chat-safety");
         message.setCardType("action");
@@ -643,14 +637,8 @@ class MiniappMessageServiceImplTest {
         message.setNoticeNo("NTF-1");
         message.setNotificationType("governance");
         message.setBizType("report_result");
-        message.setTitleCiphertext(new byte[]{1});
-        message.setTitleIv(new byte[12]);
-        message.setTitleKeyVersion("v1");
-        message.setTitleHmac("a".repeat(64));
-        message.setContentCiphertext(new byte[]{2});
-        message.setContentIv(new byte[12]);
-        message.setContentKeyVersion("v1");
-        message.setContentHmac("b".repeat(64));
+        message.setTitleText("系统标题");
+        message.setContentText("系统正文");
         message.setJumpType("none");
         message.setContentFormat("rich_text");
         message.setActionText("立即查看");

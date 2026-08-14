@@ -25,6 +25,7 @@ test.beforeEach(async ({ page }) => bootstrap(page));
 test('消息记录统计固定口径、筛选导出复用已提交条件且详情分级展示', async ({ page }) => {
   let statsCalls = 0;
   let exported: Record<string, unknown> | undefined;
+  let listed: Record<string, string> | undefined;
   await page.route('**/api/admin/message/records/stats', route => {
     statsCalls += 1;
     return route.fulfill({ json: { code: 200, data: {
@@ -40,6 +41,11 @@ test('消息记录统计固定口径、筛选导出复用已提交条件且详�
       { role: 'message', messageNo: 'MSG-001', messageType: 'text', content: '完整私信正文' },
     ] },
   } }));
+  await page.route('**/api/admin/message/records/WSP-001/content-view', route => route.fulfill({ json: {
+    code: 200, data: { accessNo: 'ACC-002', targetType: 'whisper_message', targetNo: 'WSP-001', items: [
+      { role: 'request', messageNo: 'WSP-001', messageType: 'whisper', content: '完整悄悄话正文' },
+    ] },
+  } }));
   await page.route('**/api/admin/message/records/MSG-001', route => route.fulfill({ json: { code: 200, data: {
     recordNo: 'MSG-001', recordType: 'private_message', userId: 100281, userNickname: '张三',
     peerUserId: 100392, peerNickname: '李四', messageType: 'text', status: 'sent',
@@ -49,13 +55,28 @@ test('消息记录统计固定口径、筛选导出复用已提交条件且详�
     recordNo: 'SYS-001', recordType: 'system_message', userId: 100281, userNickname: '张三',
     messageType: 'system', status: 'unread', createdTime: '2026-08-13 09:50:00',
     sensitiveContent: false, title: '治理结果', content: '举报处理结果已送达', contentFormat: 'plain_text',
+    actionText: '查看详情',
+  } } }));
+  await page.route('**/api/admin/message/records/WSP-001', route => route.fulfill({ json: { code: 200, data: {
+    recordNo: 'WSP-001', recordType: 'whisper_message', userId: 100281, userNickname: '张三',
+    peerUserId: 100392, peerNickname: '李四', messageType: 'whisper', status: 'sent',
+    createdTime: '2026-08-13 09:40:00', sensitiveContent: true, contentAvailable: true,
+  } } }));
+  await page.route('**/api/admin/message/records/AST-001', route => route.fulfill({ json: { code: 200, data: {
+    recordNo: 'AST-001', recordType: 'assistant_message', userId: 100281, userNickname: '张三',
+    messageType: 'assistant', systemCategory: 'assistant', status: 'unread', createdTime: '2026-08-13 09:30:00',
+    sensitiveContent: false, title: '官方助手', content: '官方助手明文内容', contentFormat: 'plain_text',
+    actionText: '查看详情',
   } } }));
   await page.route('**/api/admin/message/records**', route => {
     const url = new URL(route.request().url());
-    if (url.pathname.endsWith('/stats') || url.pathname.endsWith('/export') || url.pathname.endsWith('/content-view') || url.pathname.endsWith('/MSG-001') || url.pathname.endsWith('/SYS-001')) return route.fallback();
-    return route.fulfill({ json: { code: 200, data: { current: 1, size: 20, total: 2, records: [
+    if (url.pathname.endsWith('/stats') || url.pathname.endsWith('/export') || url.pathname.endsWith('/content-view') || url.pathname.endsWith('/MSG-001') || url.pathname.endsWith('/SYS-001') || url.pathname.endsWith('/WSP-001') || url.pathname.endsWith('/AST-001')) return route.fallback();
+    listed = Object.fromEntries(url.searchParams.entries());
+    return route.fulfill({ json: { code: 200, data: { current: 1, size: 20, total: 4, records: [
       { recordNo: 'MSG-001', recordType: 'private_message', userId: 100281, userNickname: '张三', peerUserId: 100392, peerNickname: '李四', messageType: 'text', status: 'sent', createdTime: '2026-08-13 10:20:00' },
       { recordNo: 'SYS-001', recordType: 'system_message', userId: 100281, userNickname: '张三', messageType: 'system', status: 'unread', createdTime: '2026-08-13 09:50:00' },
+      { recordNo: 'WSP-001', recordType: 'whisper_message', userId: 100281, userNickname: '张三', peerUserId: 100392, peerNickname: '李四', messageType: 'whisper', status: 'sent', createdTime: '2026-08-13 09:40:00' },
+      { recordNo: 'AST-001', recordType: 'assistant_message', userId: 100281, userNickname: '张三', messageType: 'assistant', systemCategory: 'assistant', status: 'unread', createdTime: '2026-08-13 09:30:00' },
     ] } } });
   });
 
@@ -66,7 +87,11 @@ test('消息记录统计固定口径、筛选导出复用已提交条件且详�
   await page.getByLabel('开始日期').fill('2026-08-01');
   await page.getByLabel('结束日期').fill('2026-08-13');
   await page.getByLabel('用户/编号搜索').fill('张三');
-  await page.getByRole('button', { name: '查询' }).click();
+  await expect(page.getByRole('button', { name: '查询' })).toHaveCount(0);
+  await expect.poll(() => listed).toMatchObject({
+    keyword: '张三', startTime: '2026-08-01 00:00:00', endTime: '2026-08-13 23:59:59', page: '1',
+  });
+  await expect(page.getByRole('cell', { name: '文本' })).toBeVisible();
   await page.getByRole('button', { name: '导出记录' }).click();
   await expect.poll(() => exported).toMatchObject({
     keyword: '张三', startTime: '2026-08-01 00:00:00', endTime: '2026-08-13 23:59:59', confirmNoContent: true,
@@ -75,13 +100,28 @@ test('消息记录统计固定口径、筛选导出复用已提交条件且详�
 
   await page.getByRole('button', { name: '详情' }).first().click();
   await page.getByRole('button', { name: '查看高敏正文' }).click();
-  await page.getByPlaceholder(/客诉核查/).fill('核查聊天举报完整证据');
+  const sensitiveReasonInput = page.getByPlaceholder(/客诉核查/);
+  await sensitiveReasonInput.pressSequentially('核查聊天举报完整证据');
+  await expect(sensitiveReasonInput).toBeFocused();
+  await expect(sensitiveReasonInput).toHaveValue('核查聊天举报完整证据');
   await page.getByRole('button', { name: '确认并查看' }).click();
   await expect(page.getByText('完整私信正文')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '详情' }).nth(1).click();
   await expect(page.getByText('举报处理结果已送达')).toBeVisible();
+  await expect(page.getByText('查看详情')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '详情' }).nth(2).click();
+  await page.getByRole('button', { name: '查看高敏正文' }).click();
+  await page.getByPlaceholder(/客诉核查/).fill('核查悄悄话举报完整证据');
+  await page.getByRole('button', { name: '确认并查看' }).click();
+  await expect(page.getByText('完整悄悄话正文')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '详情' }).nth(3).click();
+  await expect(page.getByText('官方助手明文内容')).toBeVisible();
+  await expect(page.getByText('查看详情')).toHaveCount(0);
   await page.screenshot({ path: '../docs/测试文档/截图/PRD03后台补漏/消息通知记录查询.png', fullPage: true });
 });
 
@@ -110,7 +150,8 @@ test('社交权限配置只展示一期能力并通过版本接口保存', async
   await page.getByPlaceholder('填写5-100字变更原因').fill('按一期上线配置调整保护期');
   await page.getByRole('button', { name: '确认保存' }).click();
   await expect.poll(() => published).toMatchObject({ expectedVersion: 'MSG-CFG-003', femaleProtectionDays: 4 });
-  await expect(page.getByText('MSG-CFG-004')).toBeVisible();
+  await expect(page.getByText('当前配置版本')).toHaveCount(0);
+  await expect(page.getByText('MSG-CFG-004')).toHaveCount(0);
   await page.screenshot({ path: '../docs/测试文档/截图/PRD03后台补漏/社交权限与消息配置.png', fullPage: true });
 });
 

@@ -17,6 +17,7 @@ import com.spacetime.common.dao.AppMessageRuleVersionDao;
 import com.spacetime.common.dao.AppMessageRuntimeControlDao;
 import com.spacetime.common.dao.AppMessageTemplateVersionDao;
 import com.spacetime.common.dao.ContentOperationLogDao;
+import com.spacetime.common.dao.MenuDao;
 import com.spacetime.common.entity.AppMessageRuleVersion;
 import com.spacetime.common.entity.AppMessageRuntimeControl;
 import com.spacetime.common.entity.AppMessageTemplateVersion;
@@ -68,6 +69,7 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
     private final AppMessageRuntimeControlDao runtimeDao;
     private final AppMessageTemplateVersionDao templateDao;
     private final ContentOperationLogDao operationLogDao;
+    private final MenuDao menuDao;
     private final ObjectMapper objectMapper;
 
     @Value("${message.security.allowed-h5-hosts:}")
@@ -89,9 +91,9 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
         }
         validateRetention(req);
         LocalDateTime now = LocalDateTime.now();
-        current.setStatus("retired");
-        current.setActiveMarker(null);
-        ruleDao.updateById(current);
+        if (ruleDao.retireCurrent(current.getId()) != 1) {
+            throw new BusinessException(30020, "消息配置版本已变化，请刷新后重试");
+        }
 
         AppMessageRuleVersion next = new AppMessageRuleVersion();
         next.setVersionNo(versionNo("MSG-CFG", now));
@@ -399,8 +401,12 @@ public class MessageConfigAdminServiceImpl implements MessageConfigAdminService 
 
     private void requireRiskOperator() {
         UserContext context = UserContextHolder.get();
-        boolean allowed = context != null && context.getRoles() != null
-                && context.getRoles().stream().anyMatch(role -> Set.of(
+        List<String> roles = context == null ? List.of() : context.getRoles();
+        if ((roles == null || roles.isEmpty()) && context != null && context.getId() != null) {
+            roles = menuDao.selectRoleCodesByUserId(context.getId());
+        }
+        boolean allowed = roles != null
+                && roles.stream().anyMatch(role -> Set.of(
                         "risk", "risk_control", "super_admin").contains(role.toLowerCase(Locale.ROOT)));
         if (!allowed) throw new ForbiddenException("只有风控或超级管理员可以修改全局发送开关");
     }

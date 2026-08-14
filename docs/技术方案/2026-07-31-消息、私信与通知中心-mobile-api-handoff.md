@@ -1000,4 +1000,53 @@ Header 与请求字段：
 - [ ] 举报原因来自 `/miniapp/community/config.reportReasons`，页面展示 `label`、提交 `code`，不写死原因枚举。
 - [ ] 文档第 9 节禁止项未出现在新小程序请求和响应模型中。
 
-后端自动化结果见 `docs/测试文档/消息私信通知中心-testreport.md`。真实 TIM 双账号、公网回调、生产 OSS/KMS 和小程序 UI 联调完成前，不标记为生产验收通过。
+### 10.1 腾讯云 TIM 服务端部署配置
+
+以下变量只配置在开发机私有 `backend/.env.local` 或服务器私有 `prod.env`，不得提交真实值：
+
+| 环境变量 | 必填条件 | 中文说明 |
+| --- | --- | --- |
+| `TENCENT_IM_ENABLED` | 是 | 是否启用真实腾讯云 TIM；生产联调时为 `true` |
+| `TENCENT_IM_SDK_APP_ID` | 启用时是 | 消息服务 Chat 应用的 SDKAppID，不是腾讯云主账号 ID |
+| `TENCENT_IM_SECRET_KEY` | 启用时是 | 生成管理员/用户 UserSig 的应用 SecretKey |
+| `TENCENT_IM_ADMINISTRATOR` | 启用时是 | TIM 控制台配置的 App 管理员账号，默认 `administrator` |
+| `TENCENT_IM_REST_BASE_URL` | 启用时是 | TIM REST API 根地址，中国数据中心使用 `https://console.tim.qq.com` |
+| `TENCENT_IM_CALLBACK_PATH_TOKEN` | 启用时是 | 回调 URL 路径中的随机不可猜令牌，仅作为第一层入口隔离 |
+| `TENCENT_IM_CALLBACK_AUTH_TOKEN` | 启用时是 | 腾讯控制台“开启鉴权”填写的 Token；后端按 `sha256(Token + RequestTime)` 验签 |
+| `TENCENT_IM_USER_SIG_EXPIRE_SECONDS` | 否 | 小程序短期 UserSig 有效秒数，默认 `86400` |
+| `TENCENT_IM_PROTOCOL_VERSION` | 否 | 悄悄话自定义消息协议版本，默认 `1` |
+| `TENCENT_IM_CONNECT_TIMEOUT_MILLIS` | 否 | TIM REST 建连超时，默认 `3000` 毫秒 |
+| `TENCENT_IM_REQUEST_TIMEOUT_MILLIS` | 否 | TIM REST 整体请求超时，默认 `5000` 毫秒 |
+
+腾讯控制台回调 URL 格式：
+
+```text
+https://admin.shikongxiehou.com/api/internal/tencent-im/callback/{TENCENT_IM_CALLBACK_PATH_TOKEN}
+```
+
+控制台只开启一期使用的三个单聊回调：
+
+| 回调命令 | 作用 | 平台处理 |
+| --- | --- | --- |
+| `C2C.CallbackBeforeSendMsg` | 普通私信发送前鉴权 | 校验准入、匹配、拉黑、会话、总开关和女性保护；悄悄话仅允许后端 REST 投递 |
+| `C2C.CallbackAfterSendMsg` | 消息发送结果归档 | 普通文本写 `app_message_record`；悄悄话确认 TIM 映射和 Outbox 送达，不复制正文到 Outbox |
+| `C2C.CallbackAfterMsgReport` | 会话已读上报 | 单调推进会话成员读水位，并将对应接收消息更新为已读 |
+
+发布流水线会执行 `scripts/test-prod-tencent-im-config.mjs`，并由
+`deploy/scripts/deploy-prod-local.sh` 将以上变量从服务器 `prod.env` 写入容器 `runtime.env`。
+当公网回调返回 `callback is not configured` 时，表示生产容器尚未取得启用开关、SDKAppID
+或回调 Token；应重新发布后端并确认运行容器的变量名称存在，禁止在日志中打印变量值。
+
+### 10.2 2026-08-13 真实联调记录
+
+- 开发库真实用户 `U78（AACompleteUser01）` 与 `U79（AACompleteUser02）` 已完成账号导入和 UserSig 获取。
+- U78 向 U79 发起悄悄话，U79 回复后生成真实匹配和私信会话；申请、回复两条消息均经 TIM REST 投递成功。
+- 申请编号：`WSP-C16607A0532E475FB42609D2CBEA4380`。
+- 匹配编号：`MAT-52E77BBF73A64E5AB1DDBA25CE63932B`。
+- 会话编号：`CV-EE9B17E5742745279A77CD767453D63F`。
+- 本地真实配置实例已验证正确签名、错误签名拒绝、重复发送后回调和重复已读回调；两条 Outbox 均已完成回调确认。
+- 公网生产入口在本次发布前仍返回 `callback is not configured`；代码与部署脚本已修复，必须完成后端生产发布并在腾讯控制台再次执行“校验”，才能勾选公网回调验收。
+
+后端自动化与真实联调结果见 `docs/测试文档/消息私信通知中心-testreport.md`。当前可标记真实 TIM
+账号、UserSig、REST 投递和本地回调处理通过；公网生产回调、生产 OSS/KMS 和小程序 UI 联调完成前，
+不标记为生产全量验收通过。

@@ -231,7 +231,7 @@ public class MessageRecordAdminServiceImpl implements MessageRecordAdminService 
     }
 
     private String buildCsv(List<MessageAdminRecordProjection> values, Map<Long, AppUser> users) {
-        StringBuilder csv = new StringBuilder("\uFEFFrecordNo,recordType,userId,userNickname,peerUserId,peerNickname,messageType,systemCategory,status,businessTime,conversationNo,sourceBizNo,timMessageId,timMsgKey,failureCode,failureReason,contentClearedAt,caseCount\r\n");
+        StringBuilder csv = new StringBuilder("\uFEFF记录编号,记录类型,用户编号,用户昵称,对方用户编号,对方用户昵称,消息类型,系统消息分类,状态,业务时间,会话编号,来源业务编号,TIM消息编号,TIM消息键,失败代码,失败原因,正文清理时间,关联举报数\r\n");
         for (MessageAdminRecordProjection value : values) {
             csv.append(row(value, users)).append("\r\n");
         }
@@ -240,10 +240,10 @@ public class MessageRecordAdminServiceImpl implements MessageRecordAdminService 
 
     private String row(MessageAdminRecordProjection value, Map<Long, AppUser> users) {
         return String.join(",",
-                csv(value.getRecordNo()), csv(value.getRecordType()), csv(value.getUserId()),
+                csv(value.getRecordNo()), csv(recordTypeLabel(value.getRecordType())), csv(value.getUserId()),
                 csv(nickname(users.get(value.getUserId()))), csv(value.getPeerUserId()),
-                csv(nickname(users.get(value.getPeerUserId()))), csv(value.getMessageType()),
-                csv(value.getSystemCategory()), csv(value.getStatus()), csv(value.getBusinessTime()),
+                csv(nickname(users.get(value.getPeerUserId()))), csv(messageTypeLabel(value.getMessageType())),
+                csv(systemCategoryLabel(value.getSystemCategory())), csv(statusLabel(value.getStatus())), csv(value.getBusinessTime()),
                 csv(value.getConversationNo()), csv(value.getSourceBizNo()), csv(value.getTimMessageId()),
                 csv(value.getTimMsgKey()), csv(value.getFailureCode()), csv(value.getFailureReason()),
                 csv(value.getContentClearedAt()), csv(zero(value.getCaseCount())));
@@ -253,6 +253,55 @@ public class MessageRecordAdminServiceImpl implements MessageRecordAdminService 
         if (value == null) return "";
         String text = String.valueOf(value).replace("\"", "\"\"");
         return "\"" + text + "\"";
+    }
+
+    private String recordTypeLabel(String value) {
+        return switch (Objects.toString(value, "")) {
+            case "private_message" -> "私信";
+            case "whisper_message" -> "悄悄话";
+            case "system_message" -> "系统消息";
+            case "assistant_message" -> "官方助手";
+            default -> value;
+        };
+    }
+
+    private String messageTypeLabel(String value) {
+        return switch (Objects.toString(value, "")) {
+            case "text" -> "文本";
+            case "whisper" -> "悄悄话";
+            case "whisper_reply" -> "悄悄话回复";
+            case "system" -> "系统消息";
+            case "system_tip" -> "系统提示";
+            case "assistant" -> "官方助手";
+            default -> value;
+        };
+    }
+
+    private String systemCategoryLabel(String value) {
+        return switch (Objects.toString(value, "")) {
+            case "governance" -> "治理";
+            case "asset" -> "资产";
+            case "invite" -> "邀请";
+            case "community" -> "社区运营";
+            case "platform" -> "平台与安全";
+            case "assistant" -> "官方助手";
+            default -> value;
+        };
+    }
+
+    private String statusLabel(String value) {
+        return switch (Objects.toString(value, "")) {
+            case "sent" -> "已发送";
+            case "queued" -> "待发送";
+            case "pending" -> "等待回应";
+            case "replied" -> "已回应";
+            case "expired" -> "已过期";
+            case "invalid" -> "已失效";
+            case "unread" -> "未读";
+            case "read" -> "已读";
+            case "failed" -> "失败";
+            default -> value;
+        };
     }
 
     private String filterSummary(MessageRecordPageReq req) {
@@ -317,18 +366,16 @@ public class MessageRecordAdminServiceImpl implements MessageRecordAdminService 
         if ("system_message".equals(value.getRecordType())) {
             AppSystemMessage message = systemMessageDao.selectByNoticeNo(value.getRecordNo());
             if (message != null) {
-                vo.setTitle(decrypt(message.getTitleCiphertext(), message.getTitleIv(), message.getTitleKeyVersion(), message.getTitleHmac()));
-                vo.setContent(decrypt(message.getContentCiphertext(), message.getContentIv(), message.getContentKeyVersion(), message.getContentHmac()));
+                vo.setTitle(plainOrDecrypt(message.getTitleText(), message.getTitleCiphertext(), message.getTitleIv(), message.getTitleKeyVersion(), message.getTitleHmac()));
+                vo.setContent(plainOrDecrypt(message.getContentText(), message.getContentCiphertext(), message.getContentIv(), message.getContentKeyVersion(), message.getContentHmac()));
                 vo.setContentFormat(message.getContentFormat());
-                vo.setActionText(message.getActionText());
             }
         } else if ("assistant_message".equals(value.getRecordType())) {
             AppAssistantMessage message = assistantMessageDao.selectByMessageNo(value.getRecordNo());
             if (message != null) {
-                vo.setTitle(decrypt(message.getTitleCiphertext(), message.getTitleIv(), message.getTitleKeyVersion(), message.getTitleHmac()));
-                vo.setContent(decrypt(message.getContentCiphertext(), message.getContentIv(), message.getContentKeyVersion(), message.getContentHmac()));
+                vo.setTitle(plainOrDecrypt(message.getTitleText(), message.getTitleCiphertext(), message.getTitleIv(), message.getTitleKeyVersion(), message.getTitleHmac()));
+                vo.setContent(plainOrDecrypt(message.getContentText(), message.getContentCiphertext(), message.getContentIv(), message.getContentKeyVersion(), message.getContentHmac()));
                 vo.setContentFormat("plain_text");
-                vo.setActionText(message.getActionText());
             }
         }
     }
@@ -374,6 +421,11 @@ public class MessageRecordAdminServiceImpl implements MessageRecordAdminService 
     private String decrypt(byte[] ciphertext, byte[] iv, String keyVersion, String hmac) {
         if (ciphertext == null || ciphertext.length == 0) return null;
         return sensitiveTextCipher.decrypt(new EncryptedMessageContent(ciphertext, iv, keyVersion, hmac));
+    }
+
+    private String plainOrDecrypt(String plaintext, byte[] ciphertext, byte[] iv,
+                                  String keyVersion, String hmac) {
+        return StringUtils.hasText(plaintext) ? plaintext : decrypt(ciphertext, iv, keyVersion, hmac);
     }
 
     private String requireSensitiveRequest(SensitiveContentViewReq req) {

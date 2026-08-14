@@ -604,7 +604,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         MessageChannelSummaryVO result = new MessageChannelSummaryVO();
         result.setUnreadCount(unreadCount);
         if (latest != null) {
-            result.setLatestPreview(preview(decryptText(latest.getContentCiphertext(),
+            result.setLatestPreview(preview(plainOrDecrypt(latest.getContentText(), latest.getContentCiphertext(),
                     latest.getContentIv(), latest.getContentKeyVersion(), latest.getContentHmac())));
             result.setLatestTime(latest.getCreateTime());
         }
@@ -618,7 +618,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         MessageChannelSummaryVO result = new MessageChannelSummaryVO();
         result.setUnreadCount(unreadCount);
         if (latest != null) {
-            result.setLatestPreview(preview(decryptText(latest.getContentCiphertext(),
+            result.setLatestPreview(preview(plainOrDecrypt(latest.getContentText(), latest.getContentCiphertext(),
                     latest.getContentIv(), latest.getContentKeyVersion(), latest.getContentHmac())));
             result.setLatestTime(latest.getCreateTime());
         }
@@ -694,9 +694,9 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         AssistantMessageItemVO result = new AssistantMessageItemVO();
         result.setAssistantMessageNo(source.getAssistantMessageNo());
         result.setTopicCode(source.getTopicCode());
-        result.setTitle(decryptText(source.getTitleCiphertext(), source.getTitleIv(),
+        result.setTitle(plainOrDecrypt(source.getTitleText(), source.getTitleCiphertext(), source.getTitleIv(),
                 source.getTitleKeyVersion(), source.getTitleHmac()));
-        result.setContent(decryptText(source.getContentCiphertext(), source.getContentIv(),
+        result.setContent(plainOrDecrypt(source.getContentText(), source.getContentCiphertext(), source.getContentIv(),
                 source.getContentKeyVersion(), source.getContentHmac()));
         result.setCardType(source.getCardType());
         result.setActionType(source.getActionType());
@@ -712,9 +712,9 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         result.setNoticeNo(source.getNoticeNo());
         result.setNotificationType(source.getNotificationType());
         result.setBizType(source.getBizType());
-        result.setTitle(decryptText(source.getTitleCiphertext(), source.getTitleIv(),
+        result.setTitle(plainOrDecrypt(source.getTitleText(), source.getTitleCiphertext(), source.getTitleIv(),
                 source.getTitleKeyVersion(), source.getTitleHmac()));
-        result.setContent(decryptText(source.getContentCiphertext(), source.getContentIv(),
+        result.setContent(plainOrDecrypt(source.getContentText(), source.getContentCiphertext(), source.getContentIv(),
                 source.getContentKeyVersion(), source.getContentHmac()));
         result.setContentFormat(source.getContentFormat());
         result.setReadStatus(source.getReadAt() == null ? "unread" : "read");
@@ -731,6 +731,12 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         }
         return sensitiveTextCipher.decrypt(new EncryptedMessageContent(
                 ciphertext, iv, keyVersion, hmac));
+    }
+
+    private String plainOrDecrypt(String plaintext, byte[] ciphertext, byte[] iv,
+                                  String keyVersion, String hmac) {
+        return StringUtils.hasText(plaintext) ? plaintext
+                : decryptText(ciphertext, iv, keyVersion, hmac);
     }
 
     private boolean isRestricted(Long userId) {
