@@ -12,6 +12,7 @@ public interface AppMessageRecordDao {
     List<AppMessageRecord> selectByIds(Collection<Long> ids);
     AppMessageRecord selectByMessageNo(String messageNo);
     AppMessageRecord selectBySenderClientMsgId(Long senderUserId, String clientMsgId);
+    AppMessageRecord selectByTimMessageId(String timMessageId);
     AppMessageRecord selectByTimMsgKey(String timMsgKey);
     AppMessageRecord selectByConversationAndTimLocator(Long conversationId, String timMessageId,
                                                         String timMsgKey);

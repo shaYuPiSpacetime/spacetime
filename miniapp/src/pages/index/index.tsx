@@ -11,12 +11,12 @@ import {
 import { validateVerificationRuntime } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
 import { useAuthStore } from '@/stores/authStore'
-import { useMessageStore } from '@/stores/messageStore'
+import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, OpenTextDetail, VerificationStatus } from '@/types/prd01'
 
 export default function IndexPage() {
-  const unreadCount = useMessageStore(state => state.unread.totalCount)
+  const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
   const cachedAccessStatus = useAuthStore(state => state.accessStatus)
   const setAccessStatus = useAuthStore(state => state.setAccessStatus)
   const bootstrap = usePrd01Store(state => state.bootstrap)

@@ -1,5 +1,72 @@
 # 消息、私信与通知中心测试报告
 
+## 2026-08-14 消息链路性能与正文来源复核报告
+
+### 结论
+
+用户提出的四项风险已逐项核实：第 1、3、4 项为真实缺陷并已修复；第 2 项是技术方案和一期上线范围中
+已明确确认的产品口径，本轮不改变线上审核行为，补充静态回归门禁防止无意漂移。
+
+| 复核项 | 结论与处理 |
+|---|---|
+| `tim_message_id` 无独立索引 | 属实。基础建表补充 `idx_message_record_tim_message_id`，新增幂等迁移 `075_prd03_tim_message_lookup_index.sql`，并接入后端生产发布流水线。 |
+| 私信跳过 TIM 内容审核 | 有意保留。技术方案已确认一期普通私信和悄悄话不做发送前文本审核，采用举报后治理；发送和重发继续显式设置 `excludedFromContentModeration=true`，新增决策一致性门禁。 |
+| 私信首屏重复全量加载 | 属实。根因是 `useEffect`、`useDidShow` 并发触发，且已读回调随详情状态变化导致加载函数和 Effect 重建；现用会话键 Single Flight 合并并发请求，并用 Ref 解耦 TIM 会话 ID。 |
+| 悄悄话正文 150 条上限 | 属实。删除前端最多 10 页扫描 TIM 历史的 `findMessage` 链路，详情页直接使用后端 `content/contentAvailable`；同时按 handoff 对齐详情 DTO 和服务端 `actions`。 |
+
+### 自动化证据
+
+| 层级 | 命令/范围 | 结果 |
+|---|---|---|
+| TDD 失败基线 | 新增索引、Single Flight、平台正文来源用例 | 修复前按预期 3 项失败，确认用例能捕获缺陷 |
+| 小程序消息回归 | `npm run validate:message-closure` | 17 条通过，0 失败 |
+| 小程序静态检查 | 本轮 8 个 `.ts/.tsx` 变更文件 ESLint | 通过，0 错误 |
+| 微信正式构建 | `npm run build:weapp` | 全部前置门禁和编译通过；84 个页面注册通过；主包 1.37 MiB、总包 2.69 MiB |
+| 后端聚焦 | 消息表、举报解析、消息服务、Controller 契约 4 类 | 41 条通过，0 失败、0 错误、0 跳过 |
+| 后端全量 | Java 21 执行 `mvn -q test` | 884 条执行，883 条通过，0 失败、0 错误；1 条既有推广种子环境用例跳过 |
+| 差异质量 | `git diff --check` | 通过，无空白错误 |
+
+### 未执行与既有门禁
+
+1. 本轮没有直接连接生产 MySQL，也没有发布代码；`075` 已进入生产发布流水线，发布时会幂等创建索引。
+2. `node scripts/validate-prod-deploy-config.mjs` 仍被历史脚本 `013_prd01_drop_legacy_audit_tables.sql` 的
+   `DROP TABLE` 安全门禁拦截；该基线早于本轮且已有记录，本轮未削弱生产 SQL 安全校验。
+3. 微信构建保留既有 `pages/message/sub-vendors.js` 体积建议警告，编译、页面注册和包体硬门禁均通过。
+
+## 2026-08-14 小程序消息闭环与生产 30023 诊断报告
+
+### 结论
+
+小程序消息中心代码、后端兼容增量、微信正式构建及 H5 可重复端到端链路均已通过。本轮新增公开资料
+稳定用户编号、LiteChat 消息定位举报、平台未读运行时、私信/悄悄话/助手/系统消息页面真实接口接入，
+并保持 LiteChat SDK 仅进入消息分包。
+
+生产接口 `GET /api/miniapp/im/credentials` 返回 `30023` 的直接原因不是 KMS，也不是前端请求格式：
+生产容器对应的 `prod.env` 与 `runtime.env` 均未配置有效的 `TENCENT_IM_ENABLED`、`SDK_APP_ID`、
+`SECRET_KEY` 和回调鉴权参数。仓库与本机可检索配置中也没有真实 TIM 密钥，因此本报告不以占位值、
+测试值或伪造 UserSig 宣称现网已恢复。代码侧已具备启用校验、容器变量透传和发布门禁；现网恢复仍需
+向生产私密配置写入同一 TIM 应用的真实凭据并重新发布。
+
+### 自动化证据
+
+| 层级 | 命令/范围 | 结果 |
+|---|---|---|
+| 小程序契约 | `npm run validate:message-closure` | 14 条通过，0 失败 |
+| 微信正式构建 | `npm run build:weapp` | 编译成功；84 个页面注册门禁通过；主包 1.37 MiB、总包 2.69 MiB |
+| 变更文件 ESLint | 本轮新增/修改的 `.ts/.tsx` | 通过，0 错误 |
+| H5 构建 | `MINIAPP_DEV_FIXED_LOGIN=true MINIAPP_MESSAGE_PROVIDER=mock npm run build:h5` | 编译成功，仅有既有体积警告 |
+| H5 端到端 | `test-message-mobile-closure-h5.cjs` | 首页、私信发送、拉黑举报、单条举报、悄悄话收发、助手与系统频道全部通过 |
+| 后端聚焦 | 举报上下文与公开资料 Service | 通过，0 失败 |
+| 后端全量 | Java 21 执行 `mvn test -q` | 退出码 0，0 失败 |
+| TIM 部署门禁 | `node scripts/test-prod-tencent-im-config.mjs` | 通过；启用校验、容器透传、流水线接入及仓库无真实密钥均符合要求 |
+
+### 已知基线与外部门禁
+
+1. 全仓 `npm run lint` 被本轮未修改的 3 个 PRD-08 文件中的异常空白字符拦截；本轮变更文件定向 ESLint 已通过。
+2. `validate-prod-deploy-config.mjs` 会拒绝历史迁移 `013_prd01_drop_legacy_audit_tables.sql` 中的 `DROP TABLE`；后端发布工作流不执行该综合脚本，本轮未弱化生产 SQL 安全门禁。
+3. H5 首次使用真实登录态构建时按设计跳转登录页；切换为固定测试登录态与 Mock Provider 后完整 E2E 通过。生产微信构建已单独验证，测试态不会进入正式产物。
+4. 生产 TIM 真实双账号、UserSig 和公网回调复验必须在真实密钥配置后执行；当前 `30023` 在此之前仍会持续出现。
+
 ## 2026-08-14 移除应用层 KMS 增量报告
 
 ### 结论

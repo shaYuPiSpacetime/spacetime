@@ -1,7 +1,20 @@
+import { LiteChatMessageImGateway } from './LiteChatMessageImGateway'
 import { MockMessageImGateway } from './MockMessageImGateway'
 
-export type { MessageImGateway, SendMessageOptions } from './MessageImGateway'
-export { MockMessageImGateway } from './MockMessageImGateway'
+const useMockGateway =
+  typeof process !== 'undefined' && process.env.MINIAPP_MESSAGE_PROVIDER === 'mock'
 
-/** 当前默认 Mock；未来在此处按编译配置注入 LiteChat 网关。 */
-export const messageImGateway = new MockMessageImGateway()
+export const messageImGateway = useMockGateway
+  ? new MockMessageImGateway()
+  : new LiteChatMessageImGateway()
+
+export const mockMessageImGateway = new MockMessageImGateway()
+
+export type {
+  MessageHistoryPage,
+  MessageImEvent,
+  MessageImGateway,
+  SendTextOptions,
+} from './MessageImGateway'
+export { LiteChatMessageImGateway } from './LiteChatMessageImGateway'
+export { MockMessageImGateway } from './MockMessageImGateway'

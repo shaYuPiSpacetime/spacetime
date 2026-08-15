@@ -11,6 +11,22 @@
 .message-page--gray {
   background: #f2f2f2;
 }
+.message-empty-copy {
+  display: block;
+  padding: 36px 20px;
+  color: #999;
+  font-size: 14px;
+  line-height: 22px;
+  text-align: center;
+}
+.message-inline-error {
+  display: block;
+  margin: 12px 16px;
+  color: #d64b4b;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}
 .message-scroll {
   height: calc(100vh - 88px);
 }
@@ -225,6 +241,14 @@
   color: #999;
   font-size: 14px;
   line-height: 20px;
+}
+.whisper-unread-dot {
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: #ee2525;
+  flex-shrink: 0;
 }
 .whisper-delete-button {
   position: absolute;
@@ -648,6 +672,14 @@
   font-size: 12px;
   line-height: 17px;
 }
+
+.report-evidence-note {
+  display: block;
+  margin-top: 28rpx;
+  color: #8a94a6;
+  font-size: 22rpx;
+  line-height: 34rpx;
+}
 .report-upload-title {
   margin-top: 17px;
 }
@@ -962,6 +994,9 @@
   font-size: 14px;
   line-height: 39px;
   text-align: center;
+}
+.chat-send-button--disabled {
+  background: #a9c4f5;
 }
 .chat-dialog-mask {
   position: fixed;

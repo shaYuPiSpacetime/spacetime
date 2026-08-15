@@ -55,7 +55,13 @@ export interface ConversationSummary {
 export type MessageSendStatus = 'sending' | 'sent' | 'failed' | 'received'
 
 /** 私信消息类型。 */
-export type ChatMessageType = 'text' | 'match_notice' | 'system_notice'
+export type ChatMessageType =
+  | 'text'
+  | 'whisper'
+  | 'whisper_reply'
+  | 'system_tip'
+  | 'match_notice'
+  | 'system_notice'
 
 /** 私信消息。 */
 export interface ChatMessage {
@@ -70,6 +76,8 @@ export interface ChatMessage {
   timeText: string
   sendStatus: MessageSendStatus
   replyToClientMsgId?: string
+  timMessageId?: string
+  timMsgKey?: string
 }
 
 /** 悄悄话列表方向。 */
@@ -152,4 +160,248 @@ export interface MessageMockState {
   unread: UnreadSummary
   contentMaxLength: number
   idempotencyWhisperNos: Record<string, string>
+}
+
+/** 以下类型严格对应 PRD-03 mobile-api-handoff 的真实移动端契约。 */
+export type MessageAccessMode = 'normal' | 'restricted'
+export type ConversationStatus = 'active' | 'blocked' | 'invalid'
+export type ApiWhisperStatus = 'pending' | 'replied' | 'expired' | 'invalid'
+export type ApiReadStatus = 'read' | 'unread'
+
+export interface MessageUnreadSummary {
+  privateUnreadCount: number
+  whisperUnreadCount: number
+  assistantUnreadCount: number
+  systemUnreadCount: number
+  platformUnreadCount: number
+  messageUnreadCount: number
+  snapshotTime: string
+}
+
+export interface MessagePeerUser {
+  userId: string
+  nickname: string | null
+  avatarUrl: string | null
+  profileAvailable: boolean
+}
+
+export interface MessageFixedEntry {
+  entryType: 'whisper' | 'assistant' | 'system' | string
+  title: string
+  lastMessagePreview: string | null
+  unreadCount: number
+  enabled: boolean
+}
+
+export interface MessageConversationItem {
+  conversationNo: string
+  timConversationId: string
+  conversationStatus: ConversationStatus
+  peerUser: MessagePeerUser
+  canEnterConversation: boolean
+  canSend: boolean
+  sendBlockedReason: string | null
+  lastBusinessActivityTime: string | null
+}
+
+export interface MessageConversationPage {
+  list: MessageConversationItem[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+export interface MessageFemaleProtection {
+  enabled: boolean
+  waitingForFemaleFirstMessage: boolean
+}
+
+export interface MessageConversationDetail extends MessageConversationItem {
+  femaleProtection: MessageFemaleProtection | null
+  safetyActions: string[]
+}
+
+export interface MessageHomeResponse {
+  accessMode: MessageAccessMode
+  restrictionPrompt: string | null
+  platformUnreadSummary: MessageUnreadSummary
+  fixedEntries: MessageFixedEntry[]
+  recentConversationBindings: MessageConversationItem[]
+  recentConversationLimit: number
+  hasMoreConversations: boolean
+}
+
+export interface MessageConversationReadResult {
+  conversationNo: string
+  lastReadMessageNo: string
+  unreadCount: number
+  readAt: string
+}
+
+export interface MessageConversationBlockResult {
+  conversationNo: string
+  conversationStatus: ConversationStatus
+  blockNo: string
+  canSend: boolean
+}
+
+export interface MessageWhisperItem {
+  whisperNo: string
+  direction: WhisperDirection
+  status: ApiWhisperStatus
+  displayStatus: string
+  peerUser: MessagePeerUser
+  timConversationId: string
+  requestTimMessageId: string | null
+  requestTimMsgKey: string | null
+  payType: string | null
+  createdTime: string
+  expireTime: string | null
+  canReply: boolean
+  unread: boolean
+}
+
+export interface MessageWhisperPage {
+  list: MessageWhisperItem[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+export interface MessageWhisperActions {
+  canReply: boolean
+  canDelete: boolean
+  canReportWhisperContent: boolean
+  canReportPeerUser: boolean
+  canReverseApply: boolean
+  canEnterConversation: boolean
+  canOpenProfile: boolean
+}
+
+export interface MessageWhisperDetail {
+  whisperNo: string
+  direction: WhisperDirection
+  status: ApiWhisperStatus
+  displayStatus: string
+  peerUser: MessagePeerUser
+  content: string | null
+  contentAvailable: boolean
+  requestMessageNo: string | null
+  createdTime: string
+  expireTime: string | null
+  processedTime: string | null
+  remainingSeconds: number | null
+  conversationNo: string | null
+  actions: MessageWhisperActions
+}
+
+export interface WhisperPrecheckResponse {
+  canSend: boolean
+  allowed: boolean
+  reasonCode: string | null
+  reasonText: string | null
+  contentMaxLength: number
+  payType: string
+  coinAmount: number
+  free: boolean
+  coinBalance: number
+  freeWhisperRemain: number
+  quoteToken: string
+  quoteExpireTime: string
+  whisperExpireDays: number
+  cooldownDays: number
+  confirmText: string
+  targetUserNo: string
+  targetNickname: string | null
+  targetAvatarUrl: string | null
+}
+
+export interface WhisperCreateResponse {
+  whisperNo: string
+  sendStatus: 'queued' | 'sent' | 'failed' | string
+  whisperStatus: ApiWhisperStatus
+  paymentStatus: string
+  targetUserNo: string
+  payType: string
+  coinAmount: number
+  coinBalance: number
+  charged: boolean
+  createdTime: string
+  status?: string
+  coinCost?: number
+  paymentMethod?: string
+  createTime?: string
+  expireTime?: string
+}
+
+export interface WhisperReplyResponse {
+  whisperNo: string
+  status: ApiWhisperStatus
+  matchNo: string | null
+  conversationNo: string | null
+  replyMessageNo: string | null
+  replyTimMessageId: string | null
+  replyTimMsgKey: string | null
+  repliedTime: string
+}
+
+export interface MessageReadBatchResult {
+  acceptedNos: string[]
+  updatedCount: number
+  platformUnreadSummary: MessageUnreadSummary
+}
+
+export interface AssistantMessageItem {
+  assistantMessageNo: string
+  topicCode: string
+  title: string
+  content: string
+  actionType: string | null
+  actionValue: string | null
+  readStatus: ApiReadStatus
+  createdTime: string
+}
+
+export interface AssistantMessagePage {
+  list: AssistantMessageItem[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+export interface SystemMessageItem {
+  noticeNo: string
+  notificationType: string
+  bizType: string
+  title: string
+  content: string
+  readStatus: ApiReadStatus
+  jumpType: string | null
+  jumpValue: string | null
+  createdTime: string
+}
+
+export interface SystemMessagePage {
+  list: SystemMessageItem[]
+  nextCursor: string | null
+  hasMore: boolean
+  readAck: { noticeNos: string[] }
+}
+
+export interface ImCredentials {
+  sdkAppId: number
+  imUserId: string
+  userSig: string
+  expireAt: string
+  protocolVersion: number
+}
+
+export interface TimConversationSnapshot {
+  timConversationId: string
+  lastMessagePreview: string
+  lastMessageAt: string | null
+  unreadCount: number
+}
+
+export interface MessageConversationView extends MessageConversationItem {
+  lastMessagePreview: string
+  lastMessageAt: string | null
+  platformUnreadCount?: number
 }

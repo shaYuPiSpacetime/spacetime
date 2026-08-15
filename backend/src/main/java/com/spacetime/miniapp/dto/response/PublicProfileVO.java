@@ -8,6 +8,8 @@ import java.util.List;
 @Data
 public class PublicProfileVO {
     private Long userId;
+    /** 悄悄话预检查使用的稳定用户编号。 */
+    private String userNo;
     private String nickname;
     private String avatar;
     private String heroPhoto;

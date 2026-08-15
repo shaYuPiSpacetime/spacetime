@@ -11,6 +11,7 @@ type MessageNavProps = {
   avatarUrl?: string
   center?: boolean
   children?: ReactNode
+  rightContent?: ReactNode
   onBack?: () => void
 }
 
@@ -19,6 +20,7 @@ export function MessageNav({
   avatarUrl,
   center = false,
   children,
+  rightContent,
   onBack,
 }: MessageNavProps) {
   const { menuTop, menuHeight, titleTop, navigationHeight } = getNativeNavigationMetrics()
@@ -73,6 +75,18 @@ export function MessageNav({
           <Text>{title}</Text>
         </View>
       )}
+      {rightContent ? (
+        <View
+          style={{
+            position: 'absolute',
+            right: `${metric(34)}${unit}`,
+            top: `${metric(titleTop)}${unit}`,
+            zIndex: 6,
+          }}
+        >
+          {rightContent}
+        </View>
+      ) : null}
     </View>
   )
 }

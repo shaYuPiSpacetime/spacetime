@@ -2,6 +2,7 @@ import { get } from './request'
 
 export interface PublicProfileVO {
   userId: number
+  userNo: string
   nickname: string
   avatar?: string | null
   heroPhoto?: string | null

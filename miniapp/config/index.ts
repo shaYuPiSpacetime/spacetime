@@ -56,7 +56,7 @@ const config = {
     ),
     'process.env.MINIAPP_DEV_FIXED_TOKEN': JSON.stringify(devFixedLoginToken),
     'process.env.MINIAPP_MESSAGE_PROVIDER': JSON.stringify(
-      process.env.MINIAPP_MESSAGE_PROVIDER || 'mock'
+      process.env.MINIAPP_MESSAGE_PROVIDER || 'real'
     ),
     'process.env.MINIAPP_E2E_MODE': JSON.stringify(relationE2eMode ? 'true' : 'false'),
     'process.env.MINIAPP_E2E_API_BASE_URL': JSON.stringify(

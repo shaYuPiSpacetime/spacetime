@@ -46,6 +46,15 @@ public class AppMessageRecordDaoImpl implements AppMessageRecordDao {
     }
 
     @Override
+    public AppMessageRecord selectByTimMessageId(String timMessageId) {
+        if (timMessageId == null || timMessageId.isBlank()) {
+            return null;
+        }
+        return mapper.selectOne(new LambdaQueryWrapper<AppMessageRecord>()
+                .eq(AppMessageRecord::getTimMessageId, timMessageId));
+    }
+
+    @Override
     public AppMessageRecord selectByTimMsgKey(String timMsgKey) {
         if (timMsgKey == null || timMsgKey.isBlank()) {
             return null;

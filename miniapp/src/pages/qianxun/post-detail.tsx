@@ -277,14 +277,15 @@ export default function QianxunPostDetailPage() {
         sourcePostNo: post.postNo,
         scene: 'community_post',
         content,
+        quoteToken: whisperPrecheck.quoteToken,
       }, whisperIdempotencyKey)
       setShowWhisper(false)
       setWhisperContent('')
       setWhisperPrecheck(undefined)
       await Taro.showToast({
-        title: result.paymentMethod === 'free_quota'
+        title: result.payType === 'free' || result.paymentMethod === 'free_quota'
           ? '悄悄话已发送，本次使用免费权益'
-          : `悄悄话已发送，消耗${result.coinCost}千寻币`,
+          : `悄悄话已发送，消耗${result.coinAmount ?? result.coinCost ?? 0}千寻币`,
         icon: 'success',
       })
     } catch (error) {

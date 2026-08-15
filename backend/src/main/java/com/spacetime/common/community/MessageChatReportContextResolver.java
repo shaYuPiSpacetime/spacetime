@@ -49,6 +49,12 @@ public class MessageChatReportContextResolver implements ChatReportContextResolv
     private TrustedChatReportContext resolveMessage(Long reporterId, ChatReportLookup lookup) {
         String messageNo = firstText(lookup.targetBizNo(), lookup.messageNo());
         AppMessageRecord target = recordDao.selectByMessageNo(messageNo);
+        if (target == null && StringUtils.hasText(lookup.timMessageId())) {
+            target = recordDao.selectByTimMessageId(lookup.timMessageId());
+        }
+        if (target == null && StringUtils.hasText(lookup.timMsgKey())) {
+            target = recordDao.selectByTimMsgKey(lookup.timMsgKey());
+        }
         if (target == null || Objects.equals(target.getSenderUserId(), reporterId)
                 || !Objects.equals(target.getReceiverUserId(), reporterId)
                 || target.getConversationId() == null) {
@@ -68,7 +74,7 @@ public class MessageChatReportContextResolver implements ChatReportContextResolv
         evidenceIds.add(target.getId());
         evidenceIds.addAll(recordDao.selectSentAfter(conversation.getId(), target.getId(), 2)
                 .stream().map(AppMessageRecord::getId).toList());
-        return trusted(messageNo, target.getSenderUserId(), "message", target.getId(),
+        return trusted(target.getMessageNo(), target.getSenderUserId(), "message", target.getId(),
                 evidenceIds, conversation.getConversationNo());
     }
 
