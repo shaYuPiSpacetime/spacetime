@@ -22,6 +22,10 @@ class MessageSchemaSqlTest {
             "deploy/sql/prod/072_prd03_admin_menu_visibility.sql";
     private static final String REMOVE_MESSAGE_KMS =
             "deploy/sql/prod/074_prd03_remove_message_kms.sql";
+    private static final String TIM_MESSAGE_LOOKUP_INDEX =
+            "deploy/sql/prod/075_prd03_tim_message_lookup_index.sql";
+    private static final String BACKEND_DEPLOY_WORKFLOW =
+            ".github/workflows/deploy-backend-prod.yml";
     private static final List<String> TABLES = List.of(
             "app_message_conversation",
             "app_message_conversation_member",
@@ -86,6 +90,24 @@ class MessageSchemaSqlTest {
                 .contains("`reply_message_id` BIGINT")
                 .doesNotContain("request_tim_message_id", "request_tim_msg_key",
                         "reply_tim_message_id", "reply_tim_msg_key", "provider_msg_key");
+    }
+
+    @Test
+    @DisplayName("TIM 消息 ID 全局定位应具备独立索引并进入生产迁移")
+    void timMessageIdGlobalLookupShouldHaveStandaloneIndex() throws IOException {
+        String record = tableSql(readProjectFile(MIGRATION), "app_message_record");
+        Path upgradePath = resolveProjectFile(TIM_MESSAGE_LOOKUP_INDEX);
+        String workflow = readProjectFile(BACKEND_DEPLOY_WORKFLOW);
+
+        assertThat(upgradePath).as("应提供 TIM 消息 ID 独立索引升级脚本").exists();
+        String upgradeSql = Files.readString(upgradePath, StandardCharsets.UTF_8);
+        assertThat(record)
+                .contains("KEY `idx_message_record_tim_message_id` (`tim_message_id`)");
+        assertThat(upgradeSql)
+                .contains("information_schema.STATISTICS")
+                .contains("INDEX `idx_message_record_tim_message_id` (`tim_message_id`)");
+        assertThat(workflow)
+                .contains("deploy/sql/prod/075_prd03_tim_message_lookup_index.sql");
     }
 
     @Test
@@ -277,13 +299,21 @@ class MessageSchemaSqlTest {
     }
 
     private String readProjectFile(String relativePath) throws IOException {
+        Path projectFile = resolveProjectFile(relativePath);
+        if (Files.exists(projectFile)) {
+            return Files.readString(projectFile, StandardCharsets.UTF_8);
+        }
+        throw new IOException("项目文件不存在: " + relativePath);
+    }
+
+    private Path resolveProjectFile(String relativePath) {
         Path current = Path.of("").toAbsolutePath();
         for (int i = 0; i < 4 && current != null; i++, current = current.getParent()) {
             Path candidate = current.resolve(relativePath);
             if (Files.exists(candidate)) {
-                return Files.readString(candidate, StandardCharsets.UTF_8);
+                return candidate;
             }
         }
-        throw new IOException("项目文件不存在: " + relativePath);
+        return Path.of("").toAbsolutePath().resolve(relativePath);
     }
 }

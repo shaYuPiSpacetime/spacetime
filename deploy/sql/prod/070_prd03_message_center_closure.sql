@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS `app_message_record` (
     UNIQUE KEY `uk_message_record_tim_key` (`tim_msg_key`),
     KEY `idx_message_record_conversation` (`conversation_id`, `create_time`),
     KEY `idx_message_record_tim_id` (`conversation_id`, `tim_message_id`),
+    KEY `idx_message_record_tim_message_id` (`tim_message_id`),
     KEY `idx_message_record_receiver_unread` (`receiver_user_id`, `receiver_read_status`, `send_status`, `conversation_id`, `deleted`),
     KEY `idx_message_record_source` (`source_biz_type`, `source_biz_no`),
     KEY `idx_message_record_purge` (`purge_after`, `content_cleared_at`, `deleted`)
@@ -503,6 +504,8 @@ CALL prd03_add_index_if_missing('app_message_record', 'idx_message_record_receiv
     'INDEX `idx_message_record_receiver_unread` (`receiver_user_id`, `receiver_read_status`, `send_status`, `conversation_id`, `deleted`)');
 CALL prd03_add_index_if_missing('app_message_record', 'idx_message_record_tim_id',
     'INDEX `idx_message_record_tim_id` (`conversation_id`, `tim_message_id`)');
+CALL prd03_add_index_if_missing('app_message_record', 'idx_message_record_tim_message_id',
+    'INDEX `idx_message_record_tim_message_id` (`tim_message_id`)');
 CALL prd03_add_index_if_missing('app_message_conversation', 'idx_message_conversation_pair_lifecycle',
     'INDEX `idx_message_conversation_pair_lifecycle` (`user_low_id`, `user_high_id`, `create_time`, `invalid_time`, `deleted`)');
 

@@ -90,6 +90,7 @@ for (const expected of [
   'deploy/sql/prod/072_prd03_admin_menu_visibility.sql',
   'deploy/sql/prod/073_prd03_platform_message_plaintext.sql',
   'deploy/sql/prod/074_prd03_remove_message_kms.sql',
+  'deploy/sql/prod/075_prd03_tim_message_lookup_index.sql',
   'bash scripts/deploy-prod-local.sh backend',
   'NGINX_IMAGE_TAG: spacetime-nginx-prod',
   'docker pull nginx:1.27-alpine',

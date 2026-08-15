@@ -1,5 +1,38 @@
 # 消息、私信与通知中心测试报告
 
+## 2026-08-14 消息链路性能与正文来源复核报告
+
+### 结论
+
+用户提出的四项风险已逐项核实：第 1、3、4 项为真实缺陷并已修复；第 2 项是技术方案和一期上线范围中
+已明确确认的产品口径，本轮不改变线上审核行为，补充静态回归门禁防止无意漂移。
+
+| 复核项 | 结论与处理 |
+|---|---|
+| `tim_message_id` 无独立索引 | 属实。基础建表补充 `idx_message_record_tim_message_id`，新增幂等迁移 `075_prd03_tim_message_lookup_index.sql`，并接入后端生产发布流水线。 |
+| 私信跳过 TIM 内容审核 | 有意保留。技术方案已确认一期普通私信和悄悄话不做发送前文本审核，采用举报后治理；发送和重发继续显式设置 `excludedFromContentModeration=true`，新增决策一致性门禁。 |
+| 私信首屏重复全量加载 | 属实。根因是 `useEffect`、`useDidShow` 并发触发，且已读回调随详情状态变化导致加载函数和 Effect 重建；现用会话键 Single Flight 合并并发请求，并用 Ref 解耦 TIM 会话 ID。 |
+| 悄悄话正文 150 条上限 | 属实。删除前端最多 10 页扫描 TIM 历史的 `findMessage` 链路，详情页直接使用后端 `content/contentAvailable`；同时按 handoff 对齐详情 DTO 和服务端 `actions`。 |
+
+### 自动化证据
+
+| 层级 | 命令/范围 | 结果 |
+|---|---|---|
+| TDD 失败基线 | 新增索引、Single Flight、平台正文来源用例 | 修复前按预期 3 项失败，确认用例能捕获缺陷 |
+| 小程序消息回归 | `npm run validate:message-closure` | 17 条通过，0 失败 |
+| 小程序静态检查 | 本轮 8 个 `.ts/.tsx` 变更文件 ESLint | 通过，0 错误 |
+| 微信正式构建 | `npm run build:weapp` | 全部前置门禁和编译通过；84 个页面注册通过；主包 1.37 MiB、总包 2.69 MiB |
+| 后端聚焦 | 消息表、举报解析、消息服务、Controller 契约 4 类 | 41 条通过，0 失败、0 错误、0 跳过 |
+| 后端全量 | Java 21 执行 `mvn -q test` | 884 条执行，883 条通过，0 失败、0 错误；1 条既有推广种子环境用例跳过 |
+| 差异质量 | `git diff --check` | 通过，无空白错误 |
+
+### 未执行与既有门禁
+
+1. 本轮没有直接连接生产 MySQL，也没有发布代码；`075` 已进入生产发布流水线，发布时会幂等创建索引。
+2. `node scripts/validate-prod-deploy-config.mjs` 仍被历史脚本 `013_prd01_drop_legacy_audit_tables.sql` 的
+   `DROP TABLE` 安全门禁拦截；该基线早于本轮且已有记录，本轮未削弱生产 SQL 安全校验。
+3. 微信构建保留既有 `pages/message/sub-vendors.js` 体积建议警告，编译、页面注册和包体硬门禁均通过。
+
 ## 2026-08-14 小程序消息闭环与生产 30023 诊断报告
 
 ### 结论
