@@ -266,13 +266,31 @@ export interface MessageWhisperPage {
   hasMore: boolean
 }
 
-export interface MessageWhisperDetail extends Omit<MessageWhisperItem, 'payType' | 'unread'> {
-  replyMessageNo: string | null
-  replyTimMessageId: string | null
-  replyTimMsgKey: string | null
+export interface MessageWhisperActions {
+  canReply: boolean
+  canDelete: boolean
+  canReportWhisperContent: boolean
+  canReportPeerUser: boolean
+  canReverseApply: boolean
+  canEnterConversation: boolean
+  canOpenProfile: boolean
+}
+
+export interface MessageWhisperDetail {
+  whisperNo: string
+  direction: WhisperDirection
+  status: ApiWhisperStatus
+  displayStatus: string
+  peerUser: MessagePeerUser
+  content: string | null
+  contentAvailable: boolean
+  requestMessageNo: string | null
+  createdTime: string
+  expireTime: string | null
+  processedTime: string | null
   remainingSeconds: number | null
   conversationNo: string | null
-  safetyActions: string[]
+  actions: MessageWhisperActions
 }
 
 export interface WhisperPrecheckResponse {

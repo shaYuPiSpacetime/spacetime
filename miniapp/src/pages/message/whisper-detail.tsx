@@ -2,9 +2,8 @@ import { Image, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { messageImGateway, mockMessageImGateway } from '@/im'
-import { messageRuntime } from '@/im/messageRuntime'
 import { messageService, mockMessageService } from '@/services/message'
+import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import type {
   MessageWhisperDetail,
   WhisperPrecheckResponse,
@@ -28,7 +27,6 @@ export default function WhisperDetailPage() {
   const isMockScene = Boolean(router.params.mockScene)
   const directCompose = router.params.compose === '1'
   const service = isMockScene ? mockMessageService : messageService
-  const gateway = isMockScene ? mockMessageImGateway : messageImGateway
   const [record, setRecord] = useState<MessageWhisperDetail>()
   const [quote, setQuote] = useState<WhisperPrecheckResponse>()
   const [messageContent, setMessageContent] = useState('')
@@ -49,8 +47,6 @@ export default function WhisperDetailPage() {
     setLoading(true)
     setErrorMessage('')
     try {
-      if (!isMockScene) await messageRuntime.onForeground()
-      if (isMockScene && !gateway.isReady()) await gateway.initialize(await service.getImCredentials())
       if (directCompose) {
         const nextQuote = await service.precheckWhisper({
           targetUserNo,
@@ -69,12 +65,7 @@ export default function WhisperDetailPage() {
       if (!whisperNo) throw new Error('悄悄话编号缺失')
       const nextRecord = await service.getWhisper(whisperNo)
       setRecord(nextRecord)
-      const timMessage = await gateway.findMessage(
-        nextRecord.timConversationId,
-        nextRecord.requestTimMessageId,
-        nextRecord.requestTimMsgKey,
-      )
-      setMessageContent(timMessage?.content || '')
+      setMessageContent(nextRecord.contentAvailable ? nextRecord.content || '' : '')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '悄悄话加载失败')
     } finally {
@@ -102,7 +93,7 @@ export default function WhisperDetailPage() {
       : '该申请已结束'
 
   const prepareComposer = async () => {
-    if (record?.canReply) {
+    if (record?.actions.canReply) {
       setShowComposer(true)
       return
     }
@@ -119,7 +110,7 @@ export default function WhisperDetailPage() {
     }
     setSubmitting(true)
     try {
-      if (record?.canReply) {
+      if (record?.actions.canReply) {
         const requestId = createRequestId('whisper-reply')
         const result = await service.replyWhisper(
           record.whisperNo,
@@ -150,7 +141,7 @@ export default function WhisperDetailPage() {
         await Taro.showToast({ title: '申请已发送', icon: 'success' })
       }
       setContent('')
-      if (!isMockScene) await messageRuntime.refreshUnread()
+      if (!isMockScene) await messagePlatformRuntime.onForeground()
     } catch (error) {
       await Taro.showToast({ title: error instanceof Error ? error.message : '提交失败，请稍后重试', icon: 'none' })
     } finally {
@@ -159,11 +150,11 @@ export default function WhisperDetailPage() {
   }
 
   const openPrimary = () => {
-    if (record?.status === 'replied' && record.conversationNo) {
+    if (record?.actions.canEnterConversation && record.conversationNo) {
       void Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(record.conversationNo)}` })
       return
     }
-    if (directCompose || record?.canReply) void prepareComposer()
+    if (directCompose || record?.actions.canReply) void prepareComposer()
   }
 
   const openReport = () => {
@@ -171,14 +162,14 @@ export default function WhisperDetailPage() {
     setShowReportSheet(false)
     const clientReportId = createRequestId('report')
     void Taro.navigateTo({
-      url: `/pages/message/report?targetType=whisper&targetBizNo=${encodeURIComponent(record.whisperNo)}&whisperNo=${encodeURIComponent(record.whisperNo)}&timConversationId=${encodeURIComponent(record.timConversationId)}&timMessageId=${encodeURIComponent(record.requestTimMessageId || '')}&timMsgKey=${encodeURIComponent(record.requestTimMsgKey || '')}&clientReportId=${clientReportId}${isMockScene ? '&mockScene=report-form' : ''}`,
+      url: `/pages/message/report?targetType=whisper&targetBizNo=${encodeURIComponent(record.whisperNo)}&whisperNo=${encodeURIComponent(record.whisperNo)}&clientReportId=${clientReportId}${isMockScene ? '&mockScene=report-form' : ''}`,
     })
   }
 
-  const canAct = directCompose || Boolean(record?.canReply) || Boolean(record?.conversationNo)
-  const actionText = record?.status === 'replied' && record.conversationNo
+  const canAct = directCompose || Boolean(record?.actions.canReply) || Boolean(record?.actions.canEnterConversation)
+  const actionText = record?.actions.canEnterConversation && record.conversationNo
     ? '私信'
-    : record?.canReply
+    : record?.actions.canReply
       ? '回复并认识'
       : '发起申请'
 
@@ -187,7 +178,9 @@ export default function WhisperDetailPage() {
       <MessageNav />
       <View className="whisper-profile" onClick={() => {
         const userId = record?.peerUser.userId || router.params.receiverUserId
-        if (userId) void Taro.navigateTo({ url: `/pages/heart/user?userId=${encodeURIComponent(userId)}` })
+        if (userId && (directCompose || record?.actions.canOpenProfile)) {
+          void Taro.navigateTo({ url: `/pages/heart/user?userId=${encodeURIComponent(userId)}` })
+        }
       }}>
         <Image className="whisper-profile-avatar" src={avatarUrl} mode="aspectFill" />
         <View className="whisper-profile-copy">
@@ -223,9 +216,9 @@ export default function WhisperDetailPage() {
           profileMeta={profileMeta}
           content={content}
           submitting={submitting}
-          maxLength={record?.canReply ? 500 : quote?.contentMaxLength || 60}
-          coinAmount={record?.canReply ? 0 : quote?.coinAmount || 0}
-          isReply={Boolean(record?.canReply)}
+          maxLength={record?.actions.canReply ? 500 : quote?.contentMaxLength || 60}
+          coinAmount={record?.actions.canReply ? 0 : quote?.coinAmount || 0}
+          isReply={Boolean(record?.actions.canReply)}
           onInput={setContent}
           onClose={() => setShowComposer(false)}
           onSubmit={() => void submit()}

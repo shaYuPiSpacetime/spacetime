@@ -32,6 +32,10 @@ export interface MessageErrorResolution {
   retryable: boolean
 }
 
+export interface KeyedSingleFlight {
+  run<T>(key: string, task: () => Promise<T>): Promise<T>
+}
+
 const ERROR_ACTIONS: Record<number, Omit<MessageErrorResolution, 'code'>> = {
   30001: { action: 'restrict', message: '当前账号暂不可使用消息功能', retryable: false },
   30002: { action: 'refresh_relation', message: '当前关系状态不允许发送', retryable: false },
@@ -100,6 +104,35 @@ export function resolveMessageError(error: unknown): MessageErrorResolution {
         ? candidate.message
         : '网络开小差了，请稍后重试',
     retryable: true,
+  }
+}
+
+/** 合并同一业务键的并发请求；请求结束后允许下一次主动刷新。 */
+export function createKeyedSingleFlight(): KeyedSingleFlight {
+  let activeKey: string | undefined
+  let activePromise: Promise<unknown> | undefined
+
+  return {
+    run<T>(key: string, task: () => Promise<T>): Promise<T> {
+      if (activeKey === key && activePromise) return activePromise as Promise<T>
+
+      let promise: Promise<T>
+      try {
+        promise = Promise.resolve(task())
+      } catch (error) {
+        promise = Promise.reject(error)
+      }
+      activeKey = key
+      activePromise = promise
+
+      const clear = () => {
+        if (activePromise !== promise) return
+        activeKey = undefined
+        activePromise = undefined
+      }
+      void promise.then(clear, clear)
+      return promise
+    },
   }
 }
 

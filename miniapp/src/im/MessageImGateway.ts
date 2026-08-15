@@ -40,11 +40,6 @@ export interface MessageImGateway {
   ): Promise<ChatMessage>
   retry(timConversationId: string, clientMsgId: string): Promise<ChatMessage>
   markRead(timConversationId: string): Promise<void>
-  findMessage(
-    timConversationId: string,
-    timMessageId?: string | null,
-    timMsgKey?: string | null,
-  ): Promise<ChatMessage | undefined>
   onEvent(listener: (event: MessageImEvent) => void): () => void
   logout(): Promise<void>
 }

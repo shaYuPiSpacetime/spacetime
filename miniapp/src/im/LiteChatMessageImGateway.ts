@@ -173,26 +173,6 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     await this.requireReadyChat().setMessageRead({ conversationID: timConversationId })
   }
 
-  async findMessage(
-    timConversationId: string,
-    timMessageId?: string | null,
-    timMsgKey?: string | null,
-  ): Promise<ChatMessage | undefined> {
-    let cursor: string | undefined
-    for (let page = 0; page < 10; page += 1) {
-      const result = await this.listHistory(timConversationId, cursor)
-      const matched = result.list.find(
-        item =>
-          item.timMessageId === timMessageId ||
-          item.timMsgKey === timMsgKey ||
-          item.messageNo === timMessageId,
-      )
-      if (matched || result.isCompleted || !result.nextCursor) return matched
-      cursor = result.nextCursor
-    }
-    return undefined
-  }
-
   onEvent(listener: (event: MessageImEvent) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)

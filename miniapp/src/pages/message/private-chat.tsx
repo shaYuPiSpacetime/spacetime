@@ -2,7 +2,7 @@ import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { resolveMessageError } from '@/domain/messageRuntime'
+import { createKeyedSingleFlight, resolveMessageError } from '@/domain/messageRuntime'
 import { messageImGateway, mockMessageImGateway } from '@/im'
 import { messageRuntime } from '@/im/messageRuntime'
 import { messageService, mockMessageService } from '@/services/message'
@@ -37,6 +37,8 @@ export default function PrivateChatPage() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const readAckKey = useRef('')
+  const timConversationIdRef = useRef(isMockScene ? conversationNo : '')
+  const loadSingleFlight = useRef(createKeyedSingleFlight()).current
 
   const timConversationId = isMockScene
     ? conversationNo
@@ -44,14 +46,15 @@ export default function PrivateChatPage() {
 
   const acknowledgeRendered = useCallback(
     async (rendered: ChatMessage[]) => {
-      if (!detail || !timConversationId || rendered.length === 0) return
+      const gatewayId = timConversationIdRef.current
+      if (!gatewayId || rendered.length === 0) return
       const lastIncoming = [...rendered].reverse().find(item => item.direction === 'incoming')
       const lastMessageNo = lastIncoming?.messageNo || lastIncoming?.timMessageId
       if (!lastMessageNo) return
       const ackKey = `${conversationNo}:${lastMessageNo}`
       if (readAckKey.current === ackKey) return
       try {
-        await gateway.markRead(timConversationId)
+        await gateway.markRead(gatewayId)
         await service.markConversationRead(
           conversationNo,
           lastMessageNo,
@@ -65,37 +68,47 @@ export default function PrivateChatPage() {
         setErrorMessage(error instanceof Error ? error.message : '已读状态同步失败')
       }
     },
-    [conversationNo, detail, gateway, isMockScene, service, timConversationId],
+    [conversationNo, gateway, isMockScene, service],
   )
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setErrorMessage('')
-    try {
-      if (!isMockScene) await messageRuntime.onForeground()
-      if (isMockScene && !gateway.isReady()) await gateway.initialize(await service.getImCredentials())
-      const nextDetail = await service.getConversation(conversationNo)
-      setDetail(nextDetail)
-      const gatewayId = isMockScene ? conversationNo : nextDetail.timConversationId
-      const page = await gateway.listHistory(gatewayId)
-      setMessages(page.list)
-      setHistoryCursor(page.nextCursor)
-      setHistoryCompleted(page.isCompleted)
-      setTimeout(() => void acknowledgeRendered(page.list), 0)
-    } catch (error) {
-      const resolved = resolveMessageError(error)
-      setErrorMessage(resolved.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [acknowledgeRendered, conversationNo, gateway, isMockScene, service])
+  const load = useCallback(
+    () => loadSingleFlight.run(conversationNo, async () => {
+      setLoading(true)
+      setErrorMessage('')
+      try {
+        if (!isMockScene) await messageRuntime.onForeground()
+        if (isMockScene && !gateway.isReady()) await gateway.initialize(await service.getImCredentials())
+        const nextDetail = await service.getConversation(conversationNo)
+        const gatewayId = isMockScene ? conversationNo : nextDetail.timConversationId
+        timConversationIdRef.current = gatewayId
+        setDetail(nextDetail)
+        const page = await gateway.listHistory(gatewayId)
+        setMessages(page.list)
+        setHistoryCursor(page.nextCursor)
+        setHistoryCompleted(page.isCompleted)
+        setTimeout(() => void acknowledgeRendered(page.list), 0)
+      } catch (error) {
+        const resolved = resolveMessageError(error)
+        setErrorMessage(resolved.message)
+      } finally {
+        setLoading(false)
+      }
+    }),
+    [acknowledgeRendered, conversationNo, gateway, isMockScene, loadSingleFlight, service],
+  )
+
+  useEffect(() => {
+    readAckKey.current = ''
+    timConversationIdRef.current = isMockScene ? conversationNo : ''
+  }, [conversationNo, isMockScene])
 
   useEffect(() => {
     void load()
     return gateway.onEvent(event => {
       if (!event.messages?.length) return
+      const currentTimConversationId = timConversationIdRef.current
       const relevant = event.messages.filter(
-        item => item.conversationNo === timConversationId || item.conversationNo === conversationNo,
+        item => item.conversationNo === currentTimConversationId || item.conversationNo === conversationNo,
       )
       if (!relevant.length) return
       setMessages(current => {
@@ -104,7 +117,7 @@ export default function PrivateChatPage() {
         return next
       })
     })
-  }, [conversationNo, gateway, timConversationId])
+  }, [acknowledgeRendered, conversationNo, gateway, load])
 
   useDidShow(() => {
     if (!isMockScene) void load()

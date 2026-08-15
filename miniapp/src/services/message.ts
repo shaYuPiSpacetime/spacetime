@@ -394,7 +394,30 @@ export class MockMessageService implements MessageService {
     const item = useMessageStore.getState().whispers.find(row => row.whisperNo === whisperNo)
     if (!item) throw new Error('悄悄话不存在')
     const mapped = mockWhisper(item)
-    return { ...mapped, replyMessageNo: null, replyTimMessageId: null, replyTimMsgKey: null, remainingSeconds: null, conversationNo: null, safetyActions: ['report'] }
+    return {
+      whisperNo: mapped.whisperNo,
+      direction: mapped.direction,
+      status: mapped.status,
+      displayStatus: mapped.displayStatus,
+      peerUser: mapped.peerUser,
+      content: item.content,
+      contentAvailable: Boolean(item.content),
+      requestMessageNo: `mock-message-${item.whisperNo}`,
+      createdTime: mapped.createdTime,
+      expireTime: mapped.expireTime,
+      processedTime: null,
+      remainingSeconds: null,
+      conversationNo: null,
+      actions: {
+        canReply: mapped.canReply,
+        canDelete: mapped.direction === 'received',
+        canReportWhisperContent: Boolean(item.content),
+        canReportPeerUser: true,
+        canReverseApply: false,
+        canEnterConversation: false,
+        canOpenProfile: true,
+      },
+    }
   }
 
   async precheckWhisper(input: WhisperPrecheckCommand): Promise<WhisperPrecheckResponse> {

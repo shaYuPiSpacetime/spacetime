@@ -66,21 +66,6 @@ export class MockMessageImGateway implements MessageImGateway {
     this.emit({ type: 'conversation_updated' })
   }
 
-  async findMessage(
-    conversationNo: string,
-    timMessageId?: string | null,
-    timMsgKey?: string | null,
-  ): Promise<ChatMessage | undefined> {
-    return (
-      this.store.getState().messagesByConversation[this.resolveConversationNo(conversationNo)] || []
-    ).find(
-      item =>
-        item.timMessageId === timMessageId ||
-        item.timMsgKey === timMsgKey ||
-        item.messageNo === timMessageId,
-    )
-  }
-
   onEvent(listener: (event: MessageImEvent) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
