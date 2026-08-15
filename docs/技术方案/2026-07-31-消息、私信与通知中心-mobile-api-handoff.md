@@ -1,7 +1,7 @@
 # 消息、私信与通知中心 - 小程序接口对接文档
 
 > 文档状态：`IMPLEMENTED`
-> 更新日期：2026-08-13（后端最终契约）
+> 更新日期：2026-08-15（字段说明与出入参示例补全）
 > 需求模块：`03-消息、私信与通知中心`
 > 关联技术方案：`docs/技术方案/2026-07-31-消息、私信与通知中心-tcdesign.md`
 > 实现边界：后端接口、数据库迁移和自动化测试已实现；未编写小程序前端代码。普通私信实时收发及漫游历史由腾讯云 TIM SDK 承接。
@@ -21,6 +21,30 @@
 | 幂等 | 悄悄话发送和回复使用 `Idempotency-Key`；举报使用 `clientReportId` |
 | 一期消息类型 | 普通文本、Unicode Emoji、悄悄话文本、系统提示 |
 | 一期不支持 | 图片私信、语音、视频、文件、撤回、输入中状态、音视频通话 |
+
+统一请求 Header：
+
+| 字段 | 必填 | 中文说明 |
+| --- | --- | --- |
+| `X-Auth-Token` | 是 | 小程序登录 Token；示例统一写作 `{token}`，禁止在日志和文档中记录真实值 |
+| `Content-Type: application/json` | POST/DELETE 有 JSON Body 时是 | 请求体编码固定为 UTF-8 JSON |
+| `Idempotency-Key` | 仅悄悄话发送、回复时是 | 8-64 字符的客户端幂等编号，具体约束见对应接口 |
+
+所有成功响应均使用以下 `R<T>` 外壳：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `code` | Integer | HTTP 请求成功且业务成功时为 `200` |
+| `msg` | String | 成功固定为 `success`；失败时为可展示或可记录的错误摘要 |
+| `data` | Object/Array/null | 当前接口业务数据；无业务返回值时为 `null` |
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {}
+}
+```
 
 ### 1.1 平台库与 TIM 分工
 
@@ -250,6 +274,91 @@ GET /miniapp/message/whispers?direction=sent&bucket=pending&size=20
 4. 悄悄话申请不进入 `conversationPage.list`。
 5. `restricted` 模式返回空悄悄话、喜欢、助手和真人会话，只保留必要安全系统消息。
 
+请求示例：
+
+```http
+GET /api/miniapp/message/home?size=20 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "accessMode": "normal",
+    "unreadSummary": {
+      "privateUnreadCount": 4,
+      "whisperUnreadCount": 3,
+      "assistantUnreadCount": 3,
+      "systemUnreadCount": 4,
+      "messageUnreadCount": 14,
+      "snapshotTime": "2026-08-15 12:00:10"
+    },
+    "whisperSummary": {
+      "pendingCount": 3,
+      "recentAvatarUrls": [
+        "https://cdn.example.com/avatar/140.webp",
+        "https://cdn.example.com/avatar/141.webp",
+        "https://cdn.example.com/avatar/142.webp"
+      ]
+    },
+    "likesMeSummary": {
+      "totalCount": 9,
+      "newCount": 1,
+      "latestAvatarUrl": "https://cdn.example.com/avatar/78.webp",
+      "latestLikedTime": "2026-08-15 12:00:11",
+      "latestDisplayStatus": "clear"
+    },
+    "assistantSummary": {
+      "unreadCount": 3,
+      "latestPreview": "欢迎使用消息中心，悄悄话回复成功后会自动进入私信会话。",
+      "latestTime": "2026-08-15 11:21:36"
+    },
+    "systemSummary": {
+      "unreadCount": 4,
+      "latestPreview": "你的头像、实名认证和学历认证均已通过。",
+      "latestTime": "2026-08-15 11:08:36"
+    },
+    "conversationPage": {
+      "list": [
+        {
+          "conversationNo": "CV-2087485877996027904",
+          "peerUser": {
+            "userId": 131,
+            "nickname": "清禾",
+            "avatarUrl": "https://cdn.example.com/avatar/131.webp",
+            "profileAvailable": true
+          },
+          "unreadCount": 1,
+          "lastMessage": {
+            "messageNo": "MSG-8F21F0C30B7C4E88A001",
+            "messageType": "text",
+            "direction": "incoming",
+            "preview": "周末有空一起去看展吗？",
+            "messageTime": "2026-08-15 11:53:36",
+            "sendStatus": "sent"
+          }
+        }
+      ],
+      "nextCursor": "eyJ0IjoiMjAyNi0wOC0xNSAxMTo1MzozNiIsImlkIjozM30",
+      "hasMore": true
+    }
+  }
+}
+```
+
+受限账号会额外返回 `restrictionPrompt`，并将真人关系内容投影为空：
+
+```json
+{
+  "accessMode": "restricted",
+  "restrictionPrompt": "当前仅可查看账号安全、处罚和申诉消息"
+}
+```
+
 ### 4.2 GET `/miniapp/message/unread-summary`
 
 无业务入参。消息 Tab 直接使用 `messageUnreadCount`；前端不把 TIM 全局未读再叠加一次。
@@ -264,6 +373,30 @@ GET /miniapp/message/whispers?direction=sent&bucket=pending&size=20
 | `systemUnreadCount` | Long | 系统消息未读数 | 当前用户可见、未过可见期且未读的系统消息；受限账号只计安全类消息 |
 | `messageUnreadCount` | Long | 消息 Tab 总未读数 | 上述四项相加，服务端直接计算 |
 | `snapshotTime` | String | 统计快照时间 | 服务端本次计算时间 |
+
+请求示例：
+
+```http
+GET /api/miniapp/message/unread-summary HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "privateUnreadCount": 4,
+    "whisperUnreadCount": 3,
+    "assistantUnreadCount": 3,
+    "systemUnreadCount": 4,
+    "messageUnreadCount": 14,
+    "snapshotTime": "2026-08-15 12:00:10"
+  }
+}
+```
 
 ### 4.3 GET `/miniapp/message/conversations`
 
@@ -309,6 +442,53 @@ GET /miniapp/message/whispers?direction=sent&bucket=pending&size=20
 2. `app_message_record` 提供最后消息、发送状态和当前用户收到的未读数量；首页不请求 TIM。
 3. 对方摘要来自用户资料及审核通过头像；对方 TIM 账号是否存在不影响本接口。
 4. 游标绑定排序键和当前用户，按 `last_message_time DESC, id DESC` 稳定分页。
+
+请求示例：
+
+```http
+GET /api/miniapp/message/conversations?size=20 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+续页请求示例：
+
+```http
+GET /api/miniapp/message/conversations?cursor=eyJ0IjoiMjAyNi0wOC0xNSAxMTo1MzozNiIsImlkIjozM30&size=20 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "list": [
+      {
+        "conversationNo": "CV-2087485877996027904",
+        "peerUser": {
+          "userId": 131,
+          "nickname": "清禾",
+          "avatarUrl": "https://cdn.example.com/avatar/131.webp",
+          "profileAvailable": true
+        },
+        "unreadCount": 1,
+        "lastMessage": {
+          "messageNo": "MSG-8F21F0C30B7C4E88A001",
+          "messageType": "text",
+          "direction": "incoming",
+          "preview": "周末有空一起去看展吗？",
+          "messageTime": "2026-08-15 11:53:36",
+          "sendStatus": "sent"
+        }
+      }
+    ],
+    "nextCursor": "eyJ0IjoiMjAyNi0wOC0xNSAxMTo1MzozNiIsImlkIjozM30",
+    "hasMore": true
+  }
+}
+```
 
 ### 4.4 GET `/miniapp/message/conversations/{conversationNo}`
 
@@ -358,6 +538,50 @@ GET /miniapp/message/whispers?direction=sent&bucket=pending&size=20
 
 正常会话对方 TIM 账号尚不可用时返回 `30023`。安全只读会话不会因此失败，而是返回 `canEnterConversation=false`。
 
+请求示例：
+
+```http
+GET /api/miniapp/message/conversations/CV-2087485877996027904 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "conversationNo": "CV-2087485877996027904",
+    "timConversationId": "C2C_tu_000000000131",
+    "conversationStatus": "active",
+    "accessMode": "normal",
+    "peerUser": {
+      "userId": 131,
+      "nickname": "清禾",
+      "avatarUrl": "https://cdn.example.com/avatar/131.webp",
+      "profileAvailable": true
+    },
+    "canEnterConversation": true,
+    "canSend": true,
+    "canReportChat": true,
+    "reportContext": {
+      "sourceType": "private_chat",
+      "conversationNo": "CV-2087485877996027904",
+      "timConversationId": "C2C_tu_000000000131"
+    },
+    "femaleProtection": {
+      "enabled": true,
+      "waitingForFemaleFirstMessage": false,
+      "protectionUntil": "2026-08-16 12:00:00"
+    },
+    "safetyActions": ["report_chat", "block", "block_and_report"]
+  }
+}
+```
+
+当 `canSend=false` 时会返回 `sendBlockedReason`；字段值和前端处理见本节状态规则。
+
 ### 4.5 POST `/miniapp/message/conversations/{conversationNo}/read`
 
 请求字段：
@@ -383,6 +607,33 @@ GET /miniapp/message/whispers?direction=sent&bucket=pending&size=20
 
 TIM 发送后回调和已读回调都按消息发送时间或读水位时间查找当时所属的会话生命周期。旧会话失效后即使重新匹配产生新会话，迟到的旧回调也只能更新旧生命周期，不得污染新会话的最后消息、未读和已读水位。
 
+请求示例：
+
+```http
+POST /api/miniapp/message/conversations/CV-2087485877996027904/read HTTP/1.1
+X-Auth-Token: {token}
+Content-Type: application/json
+
+{
+  "lastMessageNo": "MSG-8F21F0C30B7C4E88A001"
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "conversationNo": "CV-2087485877996027904",
+    "lastReadMessageNo": "MSG-8F21F0C30B7C4E88A001",
+    "unreadCount": 0,
+    "readAt": "2026-08-15 12:05:20"
+  }
+}
+```
+
 ### 4.6 POST `/miniapp/message/conversations/{conversationNo}/block`
 
 请求字段：
@@ -399,6 +650,33 @@ TIM 发送后回调和已读回调都按消息发送时间或读水位时间查�
 | `conversationStatus` | String | 固定返回 `blocked` |
 | `blockNo` | String | 拉黑记录编号 |
 | `canSend` | Boolean | 固定 false |
+
+请求示例：
+
+```http
+POST /api/miniapp/message/conversations/CV-2087485877996027904/block HTTP/1.1
+X-Auth-Token: {token}
+Content-Type: application/json
+
+{
+  "sourceScene": "chat_menu"
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "conversationNo": "CV-2087485877996027904",
+    "conversationStatus": "blocked",
+    "blockNo": "BLK-2089000000000000001",
+    "canSend": false
+  }
+}
+```
 
 ## 5. 悄悄话接口
 
@@ -451,7 +729,55 @@ TIM 发送后回调和已读回调都按消息发送时间或读水位时间查�
 - `sent + pending`：发送人为当前用户、`status=pending`、已送达、未到期。
 - 各分组均按 `id DESC` 排序，游标与当前用户、方向和分组绑定。
 
+请求示例（申请我的未处理首屏）：
+
+```http
+GET /api/miniapp/message/whispers?direction=received&bucket=pending&size=20 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "direction": "received",
+    "bucket": "pending",
+    "totalCount": 3,
+    "list": [
+      {
+        "whisperNo": "WSP-8F21F0C30B7C4E88A001",
+        "direction": "received",
+        "status": "pending",
+        "displayStatus": "等待你回应",
+        "peerUser": {
+          "userId": 140,
+          "nickname": "书妍",
+          "avatarUrl": "https://cdn.example.com/avatar/140.webp",
+          "profileAvailable": true
+        },
+        "payType": "coin",
+        "createdTime": "2026-08-15 11:42:00",
+        "expireTime": "2026-08-22 11:42:00",
+        "canReply": true,
+        "unread": true
+      }
+    ],
+    "nextCursor": "eyJzY29wZSI6InJlY2VpdmVkOnBlbmRpbmciLCJpZCI6MTIzfQ",
+    "hasMore": true
+  }
+}
+```
+
 ### 5.2 GET `/miniapp/message/whispers/{whisperNo}`
+
+路径参数：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `whisperNo` | String | 是 | 悄悄话业务编号，只能查询当前用户参与且当前视角未隐藏的记录 |
 
 返回字段：
 
@@ -489,6 +815,59 @@ TIM 发送后回调和已读回调都按消息发送时间或读水位时间查�
 
 正文直接由本接口返回，不需要前端再去 TIM 查询悄悄话申请正文。
 
+请求示例：
+
+```http
+GET /api/miniapp/message/whispers/WSP-8F21F0C30B7C4E88A001 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "whisperNo": "WSP-8F21F0C30B7C4E88A001",
+    "direction": "received",
+    "status": "pending",
+    "displayStatus": "等待你回应",
+    "peerUser": {
+      "userId": 140,
+      "nickname": "书妍",
+      "avatarUrl": "https://cdn.example.com/avatar/140.webp",
+      "profileAvailable": true
+    },
+    "content": "看到你也喜欢旅行，想和你认识一下。",
+    "contentAvailable": true,
+    "requestMessageNo": "MSG-0D7BE441A42F4BAAA001",
+    "createdTime": "2026-08-15 11:42:00",
+    "expireTime": "2026-08-22 11:42:00",
+    "remainingSeconds": 604800,
+    "actions": {
+      "canReply": true,
+      "canDelete": true,
+      "canReportWhisperContent": true,
+      "canReportPeerUser": true,
+      "canReverseApply": false,
+      "canEnterConversation": false,
+      "canOpenProfile": true
+    }
+  }
+}
+```
+
+`processedTime` 和 `conversationNo` 只在对应状态有值。例如已回复记录会返回：
+
+```json
+{
+  "status": "replied",
+  "processedTime": "2026-08-15 12:10:00",
+  "conversationNo": "CV-2087485877996027904"
+}
+```
+
 ### 5.3 POST `/miniapp/message/whispers/read-batch`
 
 用途：只确认本批已成功渲染的“申请我的”未处理卡片为已读，不改变业务状态。
@@ -514,9 +893,54 @@ TIM 发送后回调和已读回调都按消息发送时间或读水位时间查�
 
 前端应在卡片真正渲染成功后调用，不能在 GET 成功但页面未展示时提前清除未读。
 
+请求示例：
+
+```http
+POST /api/miniapp/message/whispers/read-batch HTTP/1.1
+X-Auth-Token: {token}
+Content-Type: application/json
+
+{
+  "whisperNos": [
+    "WSP-8F21F0C30B7C4E88A001",
+    "WSP-8F21F0C30B7C4E88A002"
+  ]
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "acceptedNos": [
+      "WSP-8F21F0C30B7C4E88A001",
+      "WSP-8F21F0C30B7C4E88A002"
+    ],
+    "updatedCount": 2,
+    "platformUnreadSummary": {
+      "privateUnreadCount": 4,
+      "whisperUnreadCount": 1,
+      "assistantUnreadCount": 3,
+      "systemUnreadCount": 4,
+      "messageUnreadCount": 12,
+      "snapshotTime": "2026-08-15 12:06:00"
+    }
+  }
+}
+```
+
 ### 5.4 DELETE `/miniapp/message/whispers/{whisperNo}`
 
 用途：接收方单条逻辑隐藏。发送方调用返回 403。
+
+路径参数：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `whisperNo` | String | 是 | 要从“申请我的”当前用户视角隐藏的悄悄话编号 |
 
 返回字段：
 
@@ -526,6 +950,28 @@ TIM 发送后回调和已读回调都按消息发送时间或读水位时间查�
 | `bucket` | String | 删除前所属 `pending/processed` 分组 |
 | `hiddenCount` | Integer | 成功隐藏数量，正常为 1 |
 | `hiddenTime` | String | 逻辑隐藏时间 |
+
+请求示例：
+
+```http
+DELETE /api/miniapp/message/whispers/WSP-8F21F0C30B7C4E88A001 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "whisperNo": "WSP-8F21F0C30B7C4E88A001",
+    "bucket": "pending",
+    "hiddenCount": 1,
+    "hiddenTime": "2026-08-15 12:07:00"
+  }
+}
+```
 
 ### 5.5 POST `/miniapp/message/whispers/received/hide-all`
 
@@ -543,6 +989,34 @@ TIM 发送后回调和已读回调都按消息发送时间或读水位时间查�
 | `bucket` | String | 被清空分组 |
 | `hiddenCount` | Integer | 实际逻辑隐藏数量 |
 | `hiddenTime` | String | 批量隐藏时间 |
+
+请求示例：
+
+```http
+POST /api/miniapp/message/whispers/received/hide-all HTTP/1.1
+X-Auth-Token: {token}
+Content-Type: application/json
+
+{
+  "bucket": "processed"
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "bucket": "processed",
+    "hiddenCount": 6,
+    "hiddenTime": "2026-08-15 12:08:00"
+  }
+}
+```
+
+批量响应不会序列化值为 null 的 `whisperNo`，前端不得依赖该字段存在。
 
 ### 5.6 POST `/miniapp/message/whispers/precheck`
 
@@ -578,6 +1052,54 @@ TIM 发送后回调和已读回调都按消息发送时间或读水位时间查�
 | `targetNickname` | String | 目标用户昵称 |
 
 有效天数和冷却天数不是代码写死值。服务端读取当前已发布的 `app_message_rule_version`，管理后台通过 `GET /admin/message/config` 查看，通过 `POST /admin/message/config/versions` 发布新版本；每次发送时把配置快照写入悄悄话记录。
+
+请求示例：
+
+```http
+POST /api/miniapp/message/whispers/precheck HTTP/1.1
+X-Auth-Token: {token}
+Content-Type: application/json
+
+{
+  "targetUserNo": "USR-000000000140",
+  "sourceScene": "profile"
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "canSend": true,
+    "contentMaxLength": 60,
+    "payType": "coin",
+    "coinAmount": 100,
+    "free": false,
+    "coinBalance": 520,
+    "freeWhisperRemain": 0,
+    "quoteToken": "wq_7sY3Jp9sQm2xK4nL8vR6",
+    "quoteExpireTime": "2026-08-15 12:20:00",
+    "whisperExpireDays": 7,
+    "cooldownDays": 7,
+    "confirmText": "将消耗100千寻币发送悄悄话",
+    "targetUserNo": "USR-000000000140",
+    "targetNickname": "书妍"
+  }
+}
+```
+
+不可发送时 `canSend=false`，同时返回 `reasonCode/reasonText`，并可能省略 `quoteToken/quoteExpireTime`：
+
+```json
+{
+  "canSend": false,
+  "reasonCode": "existing_pending_whisper",
+  "reasonText": "你已经发送过申请，请等待对方回复"
+}
+```
 
 ### 5.7 POST `/miniapp/message/whispers`
 
@@ -615,7 +1137,51 @@ Header：
 
 实现顺序：核验报价和关系 -> 锁定资产 -> 核销免费次数或扣币 -> 写 `app_message_record` 明文正文 -> 写 `app_message_whisper` -> 写投递 Outbox -> 后端投递 TIM。前端不得再自行向 TIM 发送同一条申请。
 
+请求示例：
+
+```http
+POST /api/miniapp/message/whispers HTTP/1.1
+X-Auth-Token: {token}
+Idempotency-Key: whisper-send-20260815-0001
+Content-Type: application/json
+
+{
+  "targetUserNo": "USR-000000000140",
+  "quoteToken": "wq_7sY3Jp9sQm2xK4nL8vR6",
+  "sourceScene": "profile",
+  "content": "看到你也喜欢旅行，想和你认识一下。"
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "whisperNo": "WSP-8F21F0C30B7C4E88A001",
+    "sendStatus": "sent",
+    "whisperStatus": "pending",
+    "paymentStatus": "paid",
+    "targetUserNo": "USR-000000000140",
+    "payType": "coin",
+    "coinAmount": 100,
+    "coinBalance": 420,
+    "charged": true,
+    "createdTime": "2026-08-15 12:11:00",
+    "expireTime": "2026-08-22 12:11:00"
+  }
+}
+```
+
 ### 5.8 POST `/miniapp/message/whispers/{whisperNo}/reply`
+
+路径参数：
+
+| 字段 | 类型 | 必填 | 中文说明 |
+| --- | --- | --- | --- |
+| `whisperNo` | String | 是 | 当前用户收到且仍允许回复的悄悄话编号 |
 
 Header 与请求字段：
 
@@ -637,6 +1203,37 @@ Header 与请求字段：
 | `repliedTime` | String | 回复、匹配和会话完成时间 |
 
 回复内容由小程序提交给平台后端，后端写消息主表并通过 TIM 发送。只有回复投递、匹配和会话业务编排成功后接口才返回成功。前端收到成功后使用 `conversationNo` 打开这个人的聊天窗口，不是停留在悄悄话页。
+
+请求示例：
+
+```http
+POST /api/miniapp/message/whispers/WSP-8F21F0C30B7C4E88A001/reply HTTP/1.1
+X-Auth-Token: {token}
+Idempotency-Key: whisper-reply-20260815-0001
+Content-Type: application/json
+
+{
+  "requestId": "whisper-reply-20260815-0001",
+  "content": "你好呀，很高兴认识你。"
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "whisperNo": "WSP-8F21F0C30B7C4E88A001",
+    "status": "replied",
+    "matchNo": "MAT-52E77BBF73A64E5AB1DDBA25CE63932B",
+    "conversationNo": "CV-2087485877996027904",
+    "replyMessageNo": "MSG-3C16E21186E34F08A002",
+    "repliedTime": "2026-08-15 12:12:00"
+  }
+}
+```
 
 ## 6. 官方助手、系统消息与 TIM 凭证
 
@@ -685,6 +1282,40 @@ Header 与请求字段：
 
 除 `h5` 外，`actionValue` 是后台生成的受控不透明值。前端必须按 `actionType` 分发到已注册处理器，禁止把任意值直接当 URL 或页面路径执行。
 
+请求示例：
+
+```http
+GET /api/miniapp/message/assistant/messages?size=20 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "list": [
+      {
+        "assistantMessageNo": "AST-7E28CB77A1E34C9DA001",
+        "topicCode": "chat_safety",
+        "title": "聊天安全提醒",
+        "content": "请勿向陌生人转账或透露验证码，遇到骚扰可在聊天页举报。",
+        "cardType": "action",
+        "actionType": "help",
+        "actionText": "安全指南",
+        "actionValue": "chat-safety",
+        "readStatus": "unread",
+        "createdTime": "2026-08-15 11:54:00"
+      }
+    ],
+    "nextCursor": "eyJzY29wZSI6ImFzc2lzdGFudCIsImlkIjo1MDF9",
+    "hasMore": true
+  }
+}
+```
+
 ### 6.2 POST `/miniapp/message/assistant/messages/read-batch`
 
 用途：页面成功渲染助手卡片后确认曝光已读，不改变助手消息业务内容。
@@ -707,6 +1338,45 @@ Header 与请求字段：
 | `platformUnreadSummary.systemUnreadCount` | Long | 更新后的系统消息未读数 |
 | `platformUnreadSummary.messageUnreadCount` | Long | 更新后的四类总未读数 |
 | `platformUnreadSummary.snapshotTime` | String | 本次统计时间 |
+
+请求示例：
+
+```http
+POST /api/miniapp/message/assistant/messages/read-batch HTTP/1.1
+X-Auth-Token: {token}
+Content-Type: application/json
+
+{
+  "messageNos": [
+    "AST-7E28CB77A1E34C9DA001",
+    "AST-7E28CB77A1E34C9DA002"
+  ]
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "acceptedNos": [
+      "AST-7E28CB77A1E34C9DA001",
+      "AST-7E28CB77A1E34C9DA002"
+    ],
+    "updatedCount": 2,
+    "platformUnreadSummary": {
+      "privateUnreadCount": 4,
+      "whisperUnreadCount": 3,
+      "assistantUnreadCount": 1,
+      "systemUnreadCount": 4,
+      "messageUnreadCount": 12,
+      "snapshotTime": "2026-08-15 12:15:00"
+    }
+  }
+}
+```
 
 ### 6.3 GET `/miniapp/message/system-messages`
 
@@ -760,6 +1430,44 @@ Header 与请求字段：
 
 `jumpValue` 是后台模板渲染快照。前端不得拼接任意页面路径，也不得绕过对应业务接口的权限校验。
 
+请求示例：
+
+```http
+GET /api/miniapp/message/system-messages?size=20 HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "list": [
+      {
+        "noticeNo": "NTF-72B0F4AC39834A36A001",
+        "notificationType": "governance",
+        "bizType": "profile_review",
+        "title": "资料审核结果",
+        "content": "你的头像、实名认证和学历认证均已通过。",
+        "contentFormat": "plain_text",
+        "readStatus": "unread",
+        "jumpType": "auth_center",
+        "actionText": "查看认证",
+        "jumpValue": "verification-home",
+        "createdTime": "2026-08-15 11:08:36"
+      }
+    ],
+    "nextCursor": "eyJzY29wZSI6InN5c3RlbSIsImlkIjo2MDF9",
+    "hasMore": true,
+    "readAck": {
+      "noticeNos": ["NTF-72B0F4AC39834A36A001"]
+    }
+  }
+}
+```
+
 ### 6.4 POST `/miniapp/message/system-messages/read-batch`
 
 用途：页面成功渲染系统卡片后确认曝光已读。GET 返回不等于已读，必须在渲染成功后调用。
@@ -783,6 +1491,45 @@ Header 与请求字段：
 | `platformUnreadSummary.messageUnreadCount` | Long | 更新后的四类总未读数 |
 | `platformUnreadSummary.snapshotTime` | String | 本次统计时间 |
 
+请求示例：
+
+```http
+POST /api/miniapp/message/system-messages/read-batch HTTP/1.1
+X-Auth-Token: {token}
+Content-Type: application/json
+
+{
+  "noticeNos": [
+    "NTF-72B0F4AC39834A36A001",
+    "NTF-72B0F4AC39834A36A002"
+  ]
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "acceptedNos": [
+      "NTF-72B0F4AC39834A36A001",
+      "NTF-72B0F4AC39834A36A002"
+    ],
+    "updatedCount": 2,
+    "platformUnreadSummary": {
+      "privateUnreadCount": 4,
+      "whisperUnreadCount": 3,
+      "assistantUnreadCount": 3,
+      "systemUnreadCount": 2,
+      "messageUnreadCount": 12,
+      "snapshotTime": "2026-08-15 12:16:00"
+    }
+  }
+}
+```
+
 ### 6.5 GET `/miniapp/im/credentials`
 
 无业务入参。返回字段：
@@ -794,6 +1541,31 @@ Header 与请求字段：
 | `userSig` | String | 短期登录签名，禁止写日志和持久化 |
 | `expireAt` | String | 凭证过期时间 |
 | `protocolVersion` | Integer | 自定义消息协议版本 |
+
+请求示例：
+
+```http
+GET /api/miniapp/im/credentials HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "sdkAppId": 1600151690,
+    "imUserId": "tu_000000000123",
+    "userSig": "{short-lived-user-sig}",
+    "expireAt": "2026-08-16 12:17:00",
+    "protocolVersion": 1
+  }
+}
+```
+
+`userSig` 仅用于当前登录用户初始化 TIM SDK。不得上传到业务日志、埋点、错误平台或持久化存储；过期后重新请求本接口。
 
 ### 6.6 私信对接顺序与本地 Outbox
 
@@ -824,21 +1596,100 @@ Header 与请求字段：
 
 ### 7.1 GET `/miniapp/community/config`
 
-用途：举报页打开前取得举报入口开关和原因字典。该接口还包含社区其他配置，消息模块只消费以下字段。
+用途：举报页打开前取得举报入口开关和原因字典。接口返回完整社区公共配置，消息举报主要消费 `reportEntryEnabled/reportReasons`。
 
 返回字段：
 
 | 字段 | 类型 | 中文说明 |
 | --- | --- | --- |
+| `interactionGateMode` | String | 社区互动准入模式编码 |
+| `postMaxImages` | Integer | 动态最多图片数 |
+| `postMaxTextLength` | Integer | 动态正文最大长度 |
+| `postMaxMentions` | Integer | 单条动态最多提及人数 |
+| `sincerePostMinTextLength` | Integer | 真诚帖最少正文长度 |
+| `contactInfoAllowed` | Boolean | 社区正文是否允许公开联系方式 |
 | `reportEntryEnabled` | Boolean | 是否开放举报入口；false 时隐藏提交入口 |
+| `homeTabs` | Array<Object> | 社区首页入口配置 |
+| `topics` | Array<Object> | 当前启用的话题字典 |
 | `reportReasons` | Array<Object> | 当前启用的举报原因，已按后台排序 |
-| `reportReasons[].code` | String | 提交举报时使用的 `reasonCode` |
-| `reportReasons[].label` | String | 举报原因中文名称 |
-| `reportReasons[].sort` | Integer | 展示顺序 |
-| `reportReasons[].categoryCode` | String/null | 所属分类编码；普通举报原因通常为空 |
-| `reportReasons[].categoryLabel` | String/null | 所属分类中文；普通举报原因通常为空 |
+
+`homeTabs[]` 字段：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `entryKey` | String | 入口稳定业务键 |
+| `entryName` | String | 入口展示名称 |
+| `icon` | String/null | 入口图标标识或资源地址 |
+| `jumpType` | String | 跳转类型编码 |
+| `jumpTarget` | String | 跳转目标参数 |
+| `badgeText` | String/null | 角标文案 |
+| `badgeType` | String/null | 角标样式类型 |
+| `loginRequired` | Integer | `0` 不要求登录、`1` 要求登录 |
+| `sort` | Integer | 展示顺序 |
+
+`topics[]` 与 `reportReasons[]` 使用同一字典结构：
+
+| 字段 | 类型 | 中文说明 |
+| --- | --- | --- |
+| `code` | String | 业务提交和存储使用的字典编码；举报时作为 `reasonCode` |
+| `label` | String | 页面展示中文名称 |
+| `sort` | Integer | 展示顺序 |
+| `categoryCode` | String/null | 所属分类编码；普通举报原因通常省略 |
+| `categoryLabel` | String/null | 所属分类中文；普通举报原因通常省略 |
 
 前端不得写死举报原因编码。页面展示 `label`，提交 7.3 时传对应 `code`。
+
+请求示例：
+
+```http
+GET /api/miniapp/community/config HTTP/1.1
+X-Auth-Token: {token}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "interactionGateMode": "core_access",
+    "postMaxImages": 9,
+    "postMaxTextLength": 2000,
+    "postMaxMentions": 10,
+    "sincerePostMinTextLength": 100,
+    "contactInfoAllowed": false,
+    "reportEntryEnabled": true,
+    "homeTabs": [
+      {
+        "entryKey": "recommend",
+        "entryName": "推荐",
+        "icon": "community-recommend",
+        "jumpType": "miniapp",
+        "jumpTarget": "community-recommend",
+        "badgeText": "新",
+        "badgeType": "new",
+        "loginRequired": 1,
+        "sort": 10
+      }
+    ],
+    "topics": [
+      {
+        "code": "campus_life",
+        "label": "校园生活",
+        "sort": 10
+      }
+    ],
+    "reportReasons": [
+      {
+        "code": "harassment",
+        "label": "聊天内容不适/骚扰",
+        "sort": 10
+      }
+    ]
+  }
+}
+```
 
 ### 7.2 POST `/miniapp/file/upload-ticket/report-evidence`
 
@@ -861,6 +1712,46 @@ Header 与请求字段：
 | `expiresAt` | Long | 凭证过期时间，Unix 秒时间戳；前端比较当前时间时必须使用秒单位 |
 | `fileUrl` | String | 上传成功后提交举报使用的公网 URL |
 | `protectedFile` | Boolean | 是否为受保护文件 |
+
+请求示例：
+
+```http
+POST /api/miniapp/file/upload-ticket/report-evidence HTTP/1.1
+X-Auth-Token: {token}
+Content-Type: application/json
+
+{
+  "fileName": "chat-evidence-01.png",
+  "fileSizeBytes": 245760
+}
+```
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "uploadUrl": "https://example-bucket.oss-cn-shanghai.aliyuncs.com",
+    "key": "miniapp/123/reportEvidence/2026/08/evidence-01.png",
+    "formData": {
+      "key": "miniapp/123/reportEvidence/2026/08/evidence-01.png",
+      "policy": "{short-lived-policy}",
+      "x-oss-signature-version": "OSS4-HMAC-SHA256",
+      "x-oss-credential": "{temporary-credential}",
+      "x-oss-date": "20260815T041800Z",
+      "x-oss-signature": "{temporary-signature}",
+      "success_action_status": "200"
+    },
+    "expiresAt": 1786767780,
+    "fileUrl": "https://cdn.example.com/miniapp/123/reportEvidence/2026/08/evidence-01.png",
+    "protectedFile": true
+  }
+}
+```
+
+前端使用 `multipart/form-data` 将文件和 `formData` 全部字段原样提交到 `uploadUrl`。上传成功后只把 `fileUrl` 放入举报请求，不能提交本地临时路径或 `key` 代替公网 URL。
 
 ### 7.3 POST `/miniapp/community/reports`
 
@@ -892,7 +1783,7 @@ Header 与请求字段：
 | 单条私信 | 基础字段加 `messageNo`，或加 `timMessageId/timMsgKey`；至少有一种消息定位字段 | 正文、被举报人 ID、`targetBizNo` |
 | 整段会话 | `targetType=chat`、`clientReportId`、`targetId=conversationNo`、`sourceType=private_chat`、`conversationNo`、`reasonCode` | 正文、被举报人 ID、`targetBizNo` |
 
-悄悄话示例：
+请求示例（举报悄悄话正文）：
 
 ```json
 {
@@ -907,7 +1798,7 @@ Header 与请求字段：
 }
 ```
 
-会话顶部举报示例：
+请求示例（举报整段私信会话）：
 
 ```json
 {
@@ -934,6 +1825,24 @@ Header 与请求字段：
 | `message` | String | 提交结果文案 |
 | `snapshotStatus` | String/null | `complete/partial/not_required` 证据快照状态 |
 | `createdTime` | String | 举报创建时间 |
+
+成功响应示例：
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "reportId": 2089000000000000012,
+    "reportNo": "RPT-8B975D423FE34E95A001",
+    "status": "pending",
+    "statusName": "待处理",
+    "message": "举报已提交，我们会尽快处理",
+    "snapshotStatus": "complete",
+    "createdTime": "2026-08-15 12:20:00"
+  }
+}
+```
 
 前端流程：调用 7.1 取得原因字典 -> 最多选择 3 张图片 -> 每张调用 7.2 -> 使用返回凭证直传 OSS -> 收集 `fileUrl` -> 连同举报原因调用 7.3。举报本身不走 TIM，也不会给对方发送任何消息。
 
