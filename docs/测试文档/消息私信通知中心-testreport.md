@@ -28,12 +28,24 @@
 | 微信正式构建 | `npm run build:weapp` | 全部前置门禁与编译通过；84 个页面注册通过；主包 1.37 MiB、总包 2.69 MiB |
 | 差异质量 | `git diff --check` | 通过，无空白错误 |
 
-### 外部验证边界
+### 生产发布与外部验证
 
-生产凭证恢复由用户确认，本轮代码与测试不读取或记录 SecretKey、UserSig、Token。指定生产会话的真实
-LiteChat 双账号互发需要发布本轮后端并具备双方小程序登录态；在此之前仅记录为 `EXT03-09` 待生产
-复验，不以 Mock、单元测试或未认证 HTTP 请求冒充真实通过。微信构建仍保留既有
+| 项目 | 结果 |
+|---|---|
+| 业务修复提交 | `86166ad` 已推送到 `master` |
+| 首次后端发布 | Actions `31921040699` 被安全门禁阻断；原因是上一提交把 TIM 私密值误写入受版本控制的生产示例文件，业务镜像未构建、未发布 |
+| 安全整改提交 | `de53f1c` 清空示例文件中的 SecretKey/回调 Token，恢复 `enabled=false/sdkAppId=0`，并将本地 `deploy/scripts/prod.env` 加入精确忽略规则 |
+| 二次后端发布 | Actions `31924319514` 构建、镜像推送、SQL、SSH 部署全部成功 |
+| 管理后台发布 | 共享 `deploy/**` 变更触发 Actions `31924319521`，构建与部署成功 |
+| 生产健康 | `GET https://admin.shikongxiehou.com/api/health` 返回 HTTP 200、`data=ok` |
+
+生产凭证恢复由用户确认，本轮代码、报告和日志不记录 SecretKey、UserSig、Token。指定生产会话的真实
+LiteChat 双账号互发仍需要双方小程序登录态，当前环境没有第二套生产登录态，故 `EXT03-09` 保留为
+待人工复验；不以 Mock、单元测试或未认证 HTTP 请求冒充真实通过。微信构建仍保留既有
 `pages/message/sub-vendors.js` 体积建议警告，页面注册和包体硬门禁均已通过。
+
+上一提交中的 TIM SecretKey/回调 Token 已进入 Git 历史；从当前文件清空只能阻止继续暴露，不能使旧值
+失效。必须在腾讯云控制台轮换 SecretKey 和两个回调 Token，再更新服务器私有 `prod.env` 并重新发布。
 
 ## 2026-08-14 消息链路性能与正文来源复核报告
 
