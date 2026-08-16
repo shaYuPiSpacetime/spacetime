@@ -5,11 +5,12 @@ import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   createKeyedSingleFlight,
   isTimAccountMissingError,
+  resolveConversationSendBlockedReason,
   resolveMessageError,
 } from '@/domain/messageRuntime'
 import { messageImGateway, mockMessageImGateway } from '@/im'
-import { messageRuntime } from '@/im/messageRuntime'
 import { messageService, mockMessageService } from '@/services/message'
+import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import type { ChatMessage, MessageConversationDetail } from '@/types/message'
 import { DotsButton, MESSAGE_AVATAR, MessageNav } from './shared'
 import './message.scss'
@@ -66,7 +67,7 @@ export default function PrivateChatPage() {
           lastIncoming?.timMsgKey,
         )
         readAckKey.current = ackKey
-        if (!isMockScene) await messageRuntime.refreshUnread()
+        if (!isMockScene) await messagePlatformRuntime.onForeground()
       } catch (error) {
         // 平台确认失败时保留后端未读真值，不在页面本地清零。
         setErrorMessage(error instanceof Error ? error.message : '已读状态同步失败')
@@ -80,12 +81,18 @@ export default function PrivateChatPage() {
       setLoading(true)
       setErrorMessage('')
       try {
-        if (!isMockScene) await messageRuntime.onForeground()
-        if (isMockScene && !gateway.isReady()) await gateway.initialize(await service.getImCredentials())
         const nextDetail = await service.getConversation(conversationNo)
         const gatewayId = isMockScene ? conversationNo : nextDetail.timConversationId
-        timConversationIdRef.current = gatewayId
         setDetail(nextDetail)
+        if (!nextDetail.canEnterConversation || !gatewayId) {
+          timConversationIdRef.current = ''
+          setMessages([])
+          setHistoryCursor(undefined)
+          setHistoryCompleted(true)
+          return
+        }
+        if (!gateway.isReady()) await gateway.initialize(await service.getImCredentials())
+        timConversationIdRef.current = gatewayId
         const page = await gateway.listHistory(gatewayId)
         setMessages(page.list)
         setHistoryCursor(page.nextCursor)
@@ -148,7 +155,7 @@ export default function PrivateChatPage() {
     const value = inputValue.trim()
     if (!value || !timConversationId) return
     if (!canSend) {
-      await Taro.showToast({ title: detail?.sendBlockedReason || '当前会话暂不可发送', icon: 'none' })
+      await Taro.showToast({ title: resolveConversationSendBlockedReason(detail?.sendBlockedReason), icon: 'none' })
       return
     }
     setInputValue('')
@@ -189,19 +196,17 @@ export default function PrivateChatPage() {
 
   const openReport = (blocked = false, message?: ChatMessage) => {
     const clientReportId = createClientReportId()
-    const targetType = message ? 'message' : 'conversation'
-    const targetBizNo = message?.messageNo || message?.timMessageId || conversationNo
     setShowActions(false)
     setMessageReportTarget(undefined)
     void Taro.navigateTo({
-      url: `/pages/message/report?targetType=${targetType}&targetBizNo=${encodeURIComponent(targetBizNo)}&conversationNo=${encodeURIComponent(conversationNo)}&messageNo=${encodeURIComponent(message?.messageNo || '')}&timConversationId=${encodeURIComponent(detail?.timConversationId || '')}&timMessageId=${encodeURIComponent(message?.timMessageId || '')}&timMsgKey=${encodeURIComponent(message?.timMsgKey || '')}&clientReportId=${clientReportId}${blocked ? '&blocked=1' : ''}${isMockScene ? '&mockScene=report-form' : ''}`,
+      url: `/pages/message/report?sourceType=private_chat&targetId=${encodeURIComponent(conversationNo)}&conversationNo=${encodeURIComponent(conversationNo)}&messageNo=${encodeURIComponent(message?.messageNo || '')}&timConversationId=${encodeURIComponent(detail?.reportContext?.timConversationId || detail?.timConversationId || '')}&timMessageId=${encodeURIComponent(message?.timMessageId || '')}&timMsgKey=${encodeURIComponent(message?.timMsgKey || '')}&clientReportId=${clientReportId}${blocked ? '&blocked=1' : ''}${isMockScene ? '&mockScene=report-form' : ''}`,
     })
   }
 
   const blockAndReport = async () => {
     setShowActions(false)
     try {
-      const result = await service.blockConversation(conversationNo, 'private_chat')
+      const result = await service.blockConversation(conversationNo, 'chat_menu')
       setDetail(current => current ? { ...current, conversationStatus: result.conversationStatus, canSend: false, sendBlockedReason: '你已拉黑对方' } : current)
       openReport(true)
     } catch (error) {
@@ -258,7 +263,7 @@ export default function PrivateChatPage() {
       </ScrollView>
 
       <View className="chat-input-bar">
-        {!detail?.canSend && detail?.sendBlockedReason ? <Text className="chat-reply-label">{detail.sendBlockedReason}</Text> : null}
+        {!detail?.canSend && detail?.sendBlockedReason ? <Text className="chat-reply-label">{resolveConversationSendBlockedReason(detail.sendBlockedReason)}</Text> : null}
         <Input className="chat-input" value={inputValue} disabled={!canSend} maxlength={500} adjustPosition cursorSpacing={12} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
         <View className={`chat-send-button${canSend ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>发送</Text></View>
       </View>
@@ -266,7 +271,7 @@ export default function PrivateChatPage() {
       {showActions ? (
         <View className="message-sheet-mask" onClick={() => setShowActions(false)}>
           <View className="message-action-sheet" onClick={event => event.stopPropagation()}>
-            <View className="message-action-sheet-item" onClick={() => openReport(false)}><Text>举报</Text></View>
+            {detail?.canReportChat ? <View className="message-action-sheet-item" onClick={() => openReport(false)}><Text>举报</Text></View> : null}
             {detail?.safetyActions.includes('block_and_report') ? <View className="message-action-sheet-item message-action-sheet-item--danger" onClick={() => void blockAndReport()}><Text>拉黑并举报</Text></View> : null}
             <View className="message-action-sheet-gap" />
             <View className="message-action-sheet-item" onClick={() => setShowActions(false)}><Text>取消</Text></View>

@@ -1,11 +1,8 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
-import { useEffect, useState } from 'react'
-import { mergeConversationBindings } from '@/domain/messageRuntime'
-import { messageImGateway, mockMessageImGateway } from '@/im'
-import { messageRuntime } from '@/im/messageRuntime'
+import { useEffect, useRef, useState } from 'react'
 import { messageService, mockMessageService } from '@/services/message'
-import type { MessageConversationView } from '@/types/message'
+import type { MessageConversationItem } from '@/types/message'
 import { MESSAGE_AVATAR, MessageNav } from './shared'
 import './message.scss'
 
@@ -19,30 +16,28 @@ function formatDate(value?: string | null): string {
 export default function PrivateListPage() {
   const router = useRouter()
   const isMockScene = Boolean(router.params.mockScene)
-  const [conversations, setConversations] = useState<MessageConversationView[]>([])
+  const [conversations, setConversations] = useState<MessageConversationItem[]>([])
   const [cursor, setCursor] = useState<string>()
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const loadingRef = useRef(false)
 
   const load = async (append = false) => {
-    if (loading) return
+    if (loadingRef.current) return
+    loadingRef.current = true
     setLoading(true)
     setErrorMessage('')
     try {
       const service = isMockScene ? mockMessageService : messageService
-      const gateway = isMockScene ? mockMessageImGateway : messageImGateway
-      if (!isMockScene) await messageRuntime.onForeground()
-      if (isMockScene && !gateway.isReady()) await gateway.initialize(await service.getImCredentials())
       const page = await service.listConversations(append ? cursor : undefined, 20)
-      const timConversations = gateway.isReady() ? await gateway.listConversations() : []
-      const merged = mergeConversationBindings(page.list, timConversations)
-      setConversations(current => (append ? [...current, ...merged] : merged))
+      setConversations(current => (append ? [...current, ...page.list] : page.list))
       setCursor(page.nextCursor || undefined)
       setHasMore(page.hasMore)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '私信列表加载失败')
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
   }
@@ -78,13 +73,13 @@ export default function PrivateListPage() {
           >
             <View style={{ position: 'relative' }}>
               <Image className="private-list-avatar" src={row.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" />
-              {row.platformUnreadCount ? <Text className="message-unread">{row.platformUnreadCount > 99 ? '99+' : row.platformUnreadCount}</Text> : null}
+              {row.unreadCount ? <Text className="message-unread">{row.unreadCount > 99 ? '99+' : row.unreadCount}</Text> : null}
             </View>
             <View className="private-list-copy">
               <Text className="private-list-name">{row.peerUser.nickname || '用户已注销'}</Text>
-              <Text className="private-list-preview">{row.lastMessagePreview || '点击进入会话'}</Text>
+              <Text className="private-list-preview">{row.lastMessage?.preview || '点击进入会话'}</Text>
             </View>
-            <Text className="private-list-time">{formatDate(row.lastMessageAt)}</Text>
+            <Text className="private-list-time">{formatDate(row.lastMessage?.messageTime)}</Text>
           </View>
         ))}
         {!loading && conversations.length === 0 && !errorMessage ? <Text className="message-empty-copy">暂无私信</Text> : null}

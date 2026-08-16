@@ -23,7 +23,9 @@ import type {
   SystemMessageItem,
   SystemMessagePage,
   WhisperCreateResponse,
+  WhisperBucket,
   WhisperDirection,
+  WhisperHideResult,
   WhisperPrecheckResponse,
   WhisperReplyResponse,
 } from '../types/message'
@@ -47,7 +49,7 @@ export interface WhisperReplyCommand {
 /** 兼容社区动态页面的既有类型名，字段已切换为真实报价契约。 */
 export type RealWhisperPrecheckResult = WhisperPrecheckResponse
 
-export const MESSAGE_REPORT_REASON_CODES = [
+export const MESSAGE_REPORT_REASON_CODES: ReadonlyArray<string> = [
   'avatar_mismatch',
   'false_profile',
   'contact_disclosure',
@@ -58,18 +60,30 @@ export const MESSAGE_REPORT_REASON_CODES = [
   'other',
 ] as const
 
-export type MessageReportReasonCode = (typeof MESSAGE_REPORT_REASON_CODES)[number]
+export type MessageReportReasonCode = string
+
+export interface CommunityReportReason {
+  code: string
+  label: string
+  sort: number
+}
+
+export interface CommunityReportConfig {
+  reportEntryEnabled: boolean
+  reportReasons: CommunityReportReason[]
+}
 
 export interface MessageReportInput {
   clientReportId: string
-  targetType: 'message' | 'conversation' | 'whisper'
-  targetBizNo: string
+  targetType: 'chat'
+  targetId: string
   timConversationId?: string
   timMessageId?: string
   timMsgKey?: string
   reasonCode: MessageReportReasonCode
   extraText?: string
-  sourceType?: string
+  evidenceImageUrls?: string[]
+  sourceType: 'private_chat' | 'whisper'
   conversationNo?: string
   whisperNo?: string
   messageNo?: string
@@ -100,10 +114,13 @@ export interface MessageService {
   ): Promise<MessageConversationBlockResult>
   listWhispers(
     direction: WhisperDirection,
+    bucket: WhisperBucket,
     cursor?: string,
     size?: number,
   ): Promise<MessageWhisperPage>
   getWhisper(whisperNo: string): Promise<MessageWhisperDetail>
+  hideWhisper(whisperNo: string): Promise<WhisperHideResult>
+  hideReceivedWhispers(bucket: WhisperBucket): Promise<WhisperHideResult>
   precheckWhisper(input: WhisperPrecheckCommand): Promise<WhisperPrecheckResponse>
   createWhisper(
     input: WhisperCreateCommand,
@@ -119,6 +136,7 @@ export interface MessageService {
   readAssistantMessages(messageNos: string[]): Promise<MessageReadBatchResult>
   listSystemMessages(cursor?: string, size?: number): Promise<SystemMessagePage>
   readSystemMessages(noticeNos: string[]): Promise<MessageReadBatchResult>
+  getCommunityReportConfig(): Promise<CommunityReportConfig>
   report(input: MessageReportInput): Promise<MessageReportResult>
 }
 
@@ -126,13 +144,15 @@ function asStringId(value: unknown): string {
   return value === null || value === undefined ? '' : String(value)
 }
 
-function normalizeConversation(item: MessageConversationItem): MessageConversationItem {
+function normalizePeerUser(item: MessageConversationItem['peerUser']) {
+  return { ...item, userId: asStringId(item?.userId) }
+}
+
+function normalizeConversationItem(item: MessageConversationItem): MessageConversationItem {
   return {
     ...item,
     conversationNo: asStringId(item.conversationNo),
-    timConversationId: asStringId(item.timConversationId),
-    conversationStatus: normalizeConversationStatus(item.conversationStatus),
-    peerUser: { ...item.peerUser, userId: asStringId(item.peerUser?.userId) },
+    peerUser: normalizePeerUser(item.peerUser),
   }
 }
 
@@ -146,7 +166,10 @@ export class RealMessageService implements MessageService {
     return {
       ...result,
       accessMode: result.accessMode === 'normal' ? 'normal' : 'restricted',
-      recentConversationBindings: (result.recentConversationBindings || []).map(normalizeConversation),
+      conversationPage: {
+        ...result.conversationPage,
+        list: (result.conversationPage?.list || []).map(normalizeConversationItem),
+      },
     }
   }
 
@@ -159,14 +182,21 @@ export class RealMessageService implements MessageService {
       cursor,
       size: Math.min(50, Math.max(1, size)),
     })
-    return { ...result, list: (result.list || []).map(normalizeConversation) }
+    return { ...result, list: (result.list || []).map(normalizeConversationItem) }
   }
 
   async getConversation(conversationNo: string): Promise<MessageConversationDetail> {
     const result = await get<MessageConversationDetail>(
       `/miniapp/message/conversations/${encodeURIComponent(conversationNo)}`,
     )
-    return { ...result, ...normalizeConversation(result) }
+    return {
+      ...result,
+      conversationNo: asStringId(result.conversationNo),
+      timConversationId: result.timConversationId ? asStringId(result.timConversationId) : null,
+      conversationStatus: normalizeConversationStatus(result.conversationStatus),
+      accessMode: result.accessMode === 'normal' ? 'normal' : 'safety_readonly',
+      peerUser: normalizePeerUser(result.peerUser),
+    }
   }
 
   markConversationRead(
@@ -183,7 +213,7 @@ export class RealMessageService implements MessageService {
 
   blockConversation(
     conversationNo: string,
-    sourceScene = 'private_chat',
+    sourceScene = 'chat_menu',
   ): Promise<MessageConversationBlockResult> {
     return post<MessageConversationBlockResult>(
       `/miniapp/message/conversations/${encodeURIComponent(conversationNo)}/block`,
@@ -193,13 +223,15 @@ export class RealMessageService implements MessageService {
 
   listWhispers(
     direction: WhisperDirection,
+    bucket: WhisperBucket,
     cursor?: string,
     size = 20,
   ): Promise<MessageWhisperPage> {
     return get<MessageWhisperPage>('/miniapp/message/whispers', {
       direction,
+      bucket,
       cursor,
-      size: Math.min(50, Math.max(1, size)),
+      size: Math.min(20, Math.max(1, size)),
     })
   }
 
@@ -207,6 +239,17 @@ export class RealMessageService implements MessageService {
     return get<MessageWhisperDetail>(
       `/miniapp/message/whispers/${encodeURIComponent(whisperNo)}`,
     )
+  }
+
+  hideWhisper(whisperNo: string): Promise<WhisperHideResult> {
+    return request<WhisperHideResult>({
+      url: `/miniapp/message/whispers/${encodeURIComponent(whisperNo)}`,
+      method: 'DELETE',
+    })
+  }
+
+  hideReceivedWhispers(bucket: WhisperBucket): Promise<WhisperHideResult> {
+    return post<WhisperHideResult>('/miniapp/message/whispers/received/hide-all', { bucket })
   }
 
   precheckWhisper(input: WhisperPrecheckCommand): Promise<WhisperPrecheckResponse> {
@@ -262,6 +305,10 @@ export class RealMessageService implements MessageService {
     return post<MessageReadBatchResult>('/miniapp/message/system-messages/read-batch', { noticeNos })
   }
 
+  getCommunityReportConfig(): Promise<CommunityReportConfig> {
+    return get<CommunityReportConfig>('/miniapp/community/config')
+  }
+
   report(input: MessageReportInput): Promise<MessageReportResult> {
     return post<MessageReportResult>('/miniapp/community/reports', { ...input })
   }
@@ -278,28 +325,54 @@ function mockUnread(): MessageUnreadSummary {
     whisperUnreadCount,
     assistantUnreadCount,
     systemUnreadCount,
-    platformUnreadCount: whisperUnreadCount + assistantUnreadCount + systemUnreadCount,
     messageUnreadCount:
       privateUnreadCount + whisperUnreadCount + assistantUnreadCount + systemUnreadCount,
     snapshotTime: new Date().toISOString(),
   }
 }
 
-function mockConversation(item: ReturnType<typeof useMessageStore.getState>['conversations'][number]) {
+function mockConversationItem(item: ReturnType<typeof useMessageStore.getState>['conversations'][number]): MessageConversationItem {
   return {
     conversationNo: item.conversationNo,
-    timConversationId: `C2C_${item.peerUserNo}`,
-    conversationStatus: item.state === 'active' ? ('active' as const) : ('invalid' as const),
     peerUser: {
       userId: item.peerUserNo,
       nickname: item.peerNickname,
       avatarUrl: item.peerAvatarUrl,
       profileAvailable: true,
     },
-    canEnterConversation: item.state === 'active',
-    canSend: item.state === 'active',
-    sendBlockedReason: item.state === 'active' ? null : '当前会话已失效',
-    lastBusinessActivityTime: item.lastMessageAt,
+    unreadCount: item.unreadCount,
+    lastMessage: {
+      messageNo: `mock-last-${item.conversationNo}`,
+      messageType: 'text',
+      direction: 'incoming',
+      preview: item.lastMessagePreview,
+      messageTime: item.lastMessageAt,
+      sendStatus: 'sent',
+    },
+  }
+}
+
+function mockConversationDetail(item: ReturnType<typeof useMessageStore.getState>['conversations'][number]): MessageConversationDetail {
+  const active = item.state === 'active'
+  return {
+    conversationNo: item.conversationNo,
+    timConversationId: `C2Ctu_mock_${item.peerUserNo.replace(/[^a-zA-Z0-9_]/g, '_')}`,
+    conversationStatus: active ? 'active' : 'invalid',
+    accessMode: active ? 'normal' : 'safety_readonly',
+    peerUser: mockConversationItem(item).peerUser,
+    canEnterConversation: true,
+    canSend: active,
+    sendBlockedReason: active ? null : 'conversation_invalid',
+    canReportChat: true,
+    reportContext: {
+      sourceType: 'private_chat',
+      conversationNo: item.conversationNo,
+      timConversationId: `C2Ctu_mock_${item.peerUserNo.replace(/[^a-zA-Z0-9_]/g, '_')}`,
+    },
+    femaleProtection: null,
+    safetyActions: active
+      ? ['report_chat', 'block', 'block_and_report']
+      : ['report_chat'],
   }
 }
 
@@ -327,9 +400,6 @@ function mockWhisper(item: ReturnType<typeof useMessageStore.getState>['whispers
     status,
     displayStatus: status === 'pending' ? '等待回复' : '申请已结束',
     peerUser: peer,
-    timConversationId: `C2C_${peer.userId}`,
-    requestTimMessageId: `mock-tim-${item.whisperNo}`,
-    requestTimMsgKey: `mock-key-${item.whisperNo}`,
     payType: item.costCoins > 0 ? 'coin' : 'free',
     createdTime: item.createdAt,
     expireTime: null,
@@ -346,18 +416,41 @@ export class MockMessageService implements MessageService {
 
   async getHome(): Promise<MessageHomeResponse> {
     const state = useMessageStore.getState()
+    const pendingWhispers = state.whispers.filter(
+      item => item.direction === 'received' && item.visible && item.state === 'pending',
+    )
+    const assistant = state.channels.assistant[0]
+    const system = state.channels.system[0]
     return {
       accessMode: 'normal',
       restrictionPrompt: null,
-      platformUnreadSummary: mockUnread(),
-      fixedEntries: [
-        { entryType: 'whisper', title: '悄悄话', lastMessagePreview: '有个小秘密想告诉你', unreadCount: state.unread.whisperCount, enabled: true },
-        { entryType: 'assistant', title: '官方小助手', lastMessagePreview: state.home.rows.find(item => item.type === 'assistant')?.preview || '', unreadCount: state.unread.assistantCount, enabled: true },
-        { entryType: 'system', title: '系统消息', lastMessagePreview: state.home.rows.find(item => item.type === 'system')?.preview || '', unreadCount: state.unread.systemCount, enabled: true },
-      ],
-      recentConversationBindings: state.conversations.map(mockConversation),
-      recentConversationLimit: 3,
-      hasMoreConversations: state.conversations.length > 3,
+      unreadSummary: mockUnread(),
+      whisperSummary: {
+        pendingCount: pendingWhispers.length,
+        recentAvatarUrls: pendingWhispers.slice(0, 3).map(item => item.applicantAvatarUrl),
+      },
+      likesMeSummary: {
+        totalCount: state.unread.likedCount,
+        newCount: state.unread.likedCount,
+        latestAvatarUrl: null,
+        latestLikedTime: null,
+        latestDisplayStatus: 'blur',
+      },
+      assistantSummary: {
+        unreadCount: state.unread.assistantCount,
+        latestPreview: assistant?.content || null,
+        latestTime: assistant?.sentAt || null,
+      },
+      systemSummary: {
+        unreadCount: state.unread.systemCount,
+        latestPreview: system?.content || null,
+        latestTime: system?.sentAt || null,
+      },
+      conversationPage: {
+        list: state.conversations.map(mockConversationItem),
+        nextCursor: null,
+        hasMore: false,
+      },
     }
   }
 
@@ -366,18 +459,14 @@ export class MockMessageService implements MessageService {
   }
 
   async listConversations(_cursor?: string, size = 20): Promise<MessageConversationPage> {
-    const list = useMessageStore.getState().conversations.slice(0, size).map(mockConversation)
+    const list = useMessageStore.getState().conversations.slice(0, size).map(mockConversationItem)
     return { list, nextCursor: null, hasMore: false }
   }
 
   async getConversation(conversationNo: string): Promise<MessageConversationDetail> {
     const item = useMessageStore.getState().conversations.find(row => row.conversationNo === conversationNo)
     if (!item) throw new Error('会话不存在')
-    return {
-      ...mockConversation(item),
-      femaleProtection: null,
-      safetyActions: ['report_user', 'block', 'block_and_report'],
-    }
+    return mockConversationDetail(item)
   }
 
   async markConversationRead(conversationNo: string, lastMessageNo: string) {
@@ -389,12 +478,18 @@ export class MockMessageService implements MessageService {
     return { conversationNo, conversationStatus: 'blocked' as const, blockNo: `mock-block-${Date.now()}`, canSend: false }
   }
 
-  async listWhispers(direction: WhisperDirection, _cursor?: string, size = 20): Promise<MessageWhisperPage> {
+  async listWhispers(
+    direction: WhisperDirection,
+    bucket: WhisperBucket,
+    _cursor?: string,
+    size = 20,
+  ): Promise<MessageWhisperPage> {
     const list = useMessageStore.getState().whispers
-      .filter(item => item.direction === direction && item.visible && item.state === 'pending')
+      .filter(item => item.direction === direction && item.visible)
+      .filter(item => bucket === 'pending' ? item.state === 'pending' : item.state !== 'pending')
       .slice(0, size)
       .map(mockWhisper)
-    return { list, nextCursor: null, hasMore: false }
+    return { direction, bucket, totalCount: list.length, list, nextCursor: null, hasMore: false }
   }
 
   async getWhisper(whisperNo: string): Promise<MessageWhisperDetail> {
@@ -427,24 +522,66 @@ export class MockMessageService implements MessageService {
     }
   }
 
+  async hideWhisper(whisperNo: string): Promise<WhisperHideResult> {
+    const item = useMessageStore.getState().whispers.find(row => row.whisperNo === whisperNo)
+    if (!item || item.direction !== 'received') throw new Error('无权删除该悄悄话')
+    useMessageStore.getState().hideWhisper(whisperNo)
+    return {
+      whisperNo,
+      bucket: item.state === 'pending' ? 'pending' : 'processed',
+      hiddenCount: 1,
+      hiddenTime: new Date().toISOString(),
+    }
+  }
+
+  async hideReceivedWhispers(bucket: WhisperBucket): Promise<WhisperHideResult> {
+    let hiddenCount = 0
+    useMessageStore.setState(state => ({
+      whispers: state.whispers.map(item => {
+        const sameBucket = bucket === 'pending' ? item.state === 'pending' : item.state !== 'pending'
+        if (item.direction !== 'received' || !item.visible || !sameBucket) return item
+        hiddenCount += 1
+        return { ...item, visible: false }
+      }),
+    }))
+    return {
+      whisperNo: null,
+      bucket,
+      hiddenCount,
+      hiddenTime: new Date().toISOString(),
+    }
+  }
+
   async precheckWhisper(input: WhisperPrecheckCommand): Promise<WhisperPrecheckResponse> {
     return {
       canSend: true, reasonCode: null, reasonText: null, contentMaxLength: 60,
       payType: 'coin', coinAmount: 100, free: false, coinBalance: 520, freeWhisperRemain: 0,
       quoteToken: `mock-quote-${input.targetUserNo}`, quoteExpireTime: '2099-01-01 00:00:00',
       whisperExpireDays: 7, cooldownDays: 3, confirmText: '确认发送悄悄话',
-      targetUserNo: input.targetUserNo, targetNickname: '对方', targetAvatarUrl: null,
+      targetUserNo: input.targetUserNo, targetNickname: '对方',
     }
   }
 
   async createWhisper(input: WhisperCreateCommand, idempotencyKey: string): Promise<WhisperCreateResponse> {
     const record = useMessageStore.getState().createWhisper({ receiverUserNo: input.targetUserNo, content: input.content, costCoins: 100 }, idempotencyKey)
-    return { whisperNo: record.whisperNo, sendStatus: 'sent', whisperStatus: 'pending', paymentStatus: 'paid', targetUserNo: input.targetUserNo, payType: 'coin', coinAmount: 100, coinBalance: 420, charged: true, createdTime: record.createdAt }
+    return {
+      whisperNo: record.whisperNo,
+      sendStatus: 'sent',
+      whisperStatus: 'pending',
+      paymentStatus: 'paid',
+      targetUserNo: input.targetUserNo,
+      payType: 'coin',
+      coinAmount: 100,
+      coinBalance: 420,
+      charged: true,
+      createdTime: record.createdAt,
+      expireTime: '2099-01-08 00:00:00',
+    }
   }
 
   async replyWhisper(whisperNo: string): Promise<WhisperReplyResponse> {
     useMessageStore.getState().replyWhisper(whisperNo)
-    return { whisperNo, status: 'replied', matchNo: `mock-match-${whisperNo}`, conversationNo: 'conversation-lin', replyMessageNo: `mock-reply-${whisperNo}`, replyTimMessageId: null, replyTimMsgKey: null, repliedTime: new Date().toISOString() }
+    return { whisperNo, status: 'replied', matchNo: `mock-match-${whisperNo}`, conversationNo: 'conversation-lin', replyMessageNo: `mock-reply-${whisperNo}`, repliedTime: new Date().toISOString() }
   }
 
   async readWhispers(whisperNos: string[]): Promise<MessageReadBatchResult> {
@@ -471,8 +608,28 @@ export class MockMessageService implements MessageService {
     return { acceptedNos: noticeNos, updatedCount: noticeNos.length, platformUnreadSummary: mockUnread() }
   }
 
+  async getCommunityReportConfig(): Promise<CommunityReportConfig> {
+    return {
+      reportEntryEnabled: true,
+      reportReasons: MESSAGE_REPORT_REASON_CODES.map((code, index) => ({
+        code,
+        label: [
+          '头像非本人或无法看清正脸',
+          '内容乱填/虚假资料',
+          '资料透露联系方式',
+          '婚托、饭托、酒托等',
+          '垃圾营销广告',
+          '虚假中奖消息、诈骗等',
+          '聊天内容不适/骚扰',
+          '其他',
+        ][index],
+        sort: (index + 1) * 10,
+      })),
+    }
+  }
+
   async report(input: MessageReportInput): Promise<MessageReportResult> {
-    if (!input.clientReportId || !input.targetBizNo) throw new Error('举报目标不能为空')
+    if (!input.clientReportId || !input.targetId) throw new Error('举报目标不能为空')
     if (!MESSAGE_REPORT_REASON_CODES.includes(input.reasonCode)) throw new Error('请选择举报原因')
     if (Array.from(input.extraText || '').length > 400) throw new Error('举报描述不能超过 400 字')
     return { reportNo: `report-mock-${Date.now()}`, status: 'PENDING', snapshotStatus: 'complete', createdTime: new Date().toISOString() }

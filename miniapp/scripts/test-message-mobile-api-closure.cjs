@@ -321,14 +321,90 @@ test('页面移除硬编码私信和退役悄悄话交互，接入受限态与�
   assert.match(privateChat, /canSend/)
   assert.match(privateChat, /lastMessageNo/)
   assert.match(privateChat, /onLongPress/)
-  assert.match(privateChat, /targetType\s*=\s*message\s*\?\s*'message'/)
+  assert.match(privateChat, /sourceType=private_chat/)
+  assert.match(privateChat, /targetId=\$\{encodeURIComponent\(conversationNo\)\}/)
   assert.match(whisperList, /readWhispers/)
   assert.match(channel, /readAck|acceptedNos/)
   assert.match(report, /已拉黑并提交举报/)
-  assert.doesNotMatch(report, /chooseMedia|上传凭证图片|处罚细则页面待接入/)
+  assert.match(report, /chooseMedia/)
+  assert.match(report, /evidenceImageUrls/)
+  assert.doesNotMatch(report, /处罚细则页面待接入/)
 
   for (const source of [whisperList, whisperDetail]) {
     assert.doesNotMatch(source, /ignoreWhisper|cancelWhisper|batchHideWhispers/)
     assert.doesNotMatch(source, /忽略|取消申请|批量隐藏/)
   }
+})
+
+test('私信首页与列表严格消费生产 DTO 且列表不提前初始化 TIM', () => {
+  const types = read('src/types/message.ts')
+  const service = read('src/services/message.ts')
+  const home = read('src/pages/chat/index.tsx')
+  const privateList = read('src/pages/message/private-list.tsx')
+  const runtimeStore = read('src/stores/messageRuntimeStore.ts')
+
+  assert.match(types, /interface MessageHomeResponse[\s\S]*unreadSummary:\s*MessageUnreadSummary/)
+  assert.match(types, /interface MessageHomeResponse[\s\S]*conversationPage:\s*MessageConversationPage/)
+  assert.doesNotMatch(types, /interface MessageHomeResponse[\s\S]*recentConversationBindings:/)
+  assert.match(home, /conversationPage\.list/)
+  assert.match(home, /assistantSummary/)
+  assert.match(home, /systemSummary/)
+  assert.doesNotMatch(home, /fixedEntries|recentConversationBindings/)
+  assert.match(runtimeStore, /home\.unreadSummary/)
+  assert.doesNotMatch(runtimeStore, /home\.platformUnreadSummary/)
+
+  assert.match(privateList, /page\.list/)
+  assert.match(privateList, /lastMessage\?\.preview/)
+  assert.doesNotMatch(privateList, /messageImGateway|messageRuntime|listConversations\(\)/)
+  assert.doesNotMatch(service, /recentConversationBindings:\s*\(result\.recentConversationBindings/)
+})
+
+test('悄悄话双分组、隐藏、反向申请和幂等重试全部接入正式契约', () => {
+  const {
+    createWhisperIdempotencyCache,
+  } = requireDomain('src/domain/whisperRuntime.ts')
+  let sequence = 0
+  const cache = createWhisperIdempotencyCache(() => `request-${++sequence}`)
+  assert.equal(cache.get('create:USR-000000000140', '正文A'), 'request-1')
+  assert.equal(cache.get('create:USR-000000000140', '正文A'), 'request-1')
+  assert.equal(cache.get('create:USR-000000000140', '正文B'), 'request-2')
+  cache.clear()
+  assert.equal(cache.get('create:USR-000000000140', '正文B'), 'request-3')
+
+  const types = read('src/types/message.ts')
+  const service = read('src/services/message.ts')
+  const list = read('src/pages/message/whisper-list.tsx')
+  const detail = read('src/pages/message/whisper-detail.tsx')
+
+  assert.match(types, /type WhisperBucket = 'pending' \| 'processed'/)
+  assert.match(types, /interface MessageWhisperPage[\s\S]*bucket:\s*WhisperBucket/)
+  assert.match(types, /interface MessageWhisperPage[\s\S]*totalCount:\s*number/)
+  assert.doesNotMatch(types, /interface MessageWhisperItem[\s\S]*requestTimMessageId:/)
+  assert.match(types, /interface WhisperCreateResponse[\s\S]*expireTime:\s*string/)
+  assert.doesNotMatch(types, /interface WhisperCreateResponse[\s\S]*coinCost\?:/)
+  assert.match(service, /listWhispers\([\s\S]*bucket:\s*WhisperBucket/)
+  assert.match(service, /method:\s*'DELETE'/)
+  assert.match(service, /\/miniapp\/message\/whispers\/received\/hide-all/)
+  assert.match(list, /'pending'/)
+  assert.match(list, /'processed'/)
+  assert.match(list, /hideWhisper/)
+  assert.match(list, /hideReceivedWhispers/)
+  assert.match(list, /全部删除/)
+  assert.match(detail, /whisper_reverse/)
+  assert.match(detail, /createWhisperIdempotencyCache/)
+})
+
+test('私信和悄悄话举报使用动态原因与统一 chat 契约', () => {
+  const service = read('src/services/message.ts')
+  const report = read('src/pages/message/report.tsx')
+
+  assert.match(service, /\/miniapp\/community\/config/)
+  assert.match(service, /evidenceImageUrls\?:\s*string\[\]/)
+  assert.match(report, /targetType:\s*'chat'/)
+  assert.match(report, /targetId,/)
+  assert.match(report, /getCommunityReportConfig/)
+  assert.match(report, /report-evidence/)
+  assert.match(report, /chooseMedia/)
+  assert.doesNotMatch(report, /const REPORT_REASONS/)
+  assert.doesNotMatch(report, /targetBizNo:/)
 })

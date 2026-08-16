@@ -1,13 +1,16 @@
 import { Image, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
+  createWhisperIdempotencyCache,
+  resolveStableWhisperTargetUserNo,
   resolveWhisperErrorMessage,
   resolveWhisperRouteSourceScene,
 } from '@/domain/whisperRuntime'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
+import { getApiErrorCode } from '@/services/request'
 import type {
   MessageWhisperDetail,
   WhisperPrecheckResponse,
@@ -44,6 +47,7 @@ export default function WhisperDetailPage() {
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const idempotencyCache = useRef(createWhisperIdempotencyCache()).current
 
   const targetUserNo = router.params.receiverUserNo || ''
   const sourceScene = resolveWhisperRouteSourceScene(router.params.sourceScene)
@@ -66,7 +70,7 @@ export default function WhisperDetailPage() {
 
       let whisperNo = router.params.whisperNo
       if (!whisperNo && isMockScene) {
-        const page = await service.listWhispers('received', undefined, 1)
+        const page = await service.listWhispers('received', 'pending', undefined, 1)
         whisperNo = page.list[0]?.whisperNo
       }
       if (!whisperNo) throw new Error('悄悄话编号缺失')
@@ -99,14 +103,38 @@ export default function WhisperDetailPage() {
         : '等待对方回复'
       : '该申请已结束'
 
+  const composeTargetUserNo = directCompose
+    ? targetUserNo
+    : resolveStableWhisperTargetUserNo(undefined, record?.peerUser.userId)
+  const composeSourceScene = directCompose ? sourceScene : 'whisper_reverse'
+  const composeSourceBizNo = directCompose ? sourceBizNo : record?.whisperNo
+
+  const precheckCompose = async (): Promise<WhisperPrecheckResponse> => {
+    const nextQuote = await service.precheckWhisper({
+      targetUserNo: composeTargetUserNo,
+      sourceScene: composeSourceScene,
+      sourceBizNo: composeSourceBizNo,
+    })
+    setQuote(nextQuote)
+    return nextQuote
+  }
+
   const prepareComposer = async () => {
     if (record?.actions.canReply) {
       setShowComposer(true)
       return
     }
-    if (!directCompose) return
-    if (!quote) await load()
-    setShowComposer(true)
+    if (!directCompose && !record?.actions.canReverseApply) return
+    try {
+      const activeQuote = quote || await precheckCompose()
+      if (!activeQuote.canSend || !activeQuote.quoteToken) {
+        await Taro.showToast({ title: activeQuote.reasonText || '当前暂时无法申请', icon: 'none' })
+        return
+      }
+      setShowComposer(true)
+    } catch (error) {
+      await Taro.showToast({ title: resolveWhisperErrorMessage(error, '预检失败，请稍后重试'), icon: 'none' })
+    }
   }
 
   const submit = async () => {
@@ -118,7 +146,7 @@ export default function WhisperDetailPage() {
     setSubmitting(true)
     try {
       if (record?.actions.canReply) {
-        const requestId = createRequestId('whisper-reply')
+        const requestId = idempotencyCache.get(`reply:${record.whisperNo}`, normalized)
         const result = await service.replyWhisper(
           record.whisperNo,
           { requestId, content: normalized },
@@ -131,26 +159,42 @@ export default function WhisperDetailPage() {
             url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(result.conversationNo)}${isMockScene ? '&mockScene=private-chat-default' : ''}`,
           })
         }
+        idempotencyCache.clear()
       } else {
-        const activeQuote = quote || (await service.precheckWhisper({ targetUserNo, sourceScene, sourceBizNo }))
+        const activeQuote = quote || await precheckCompose()
         if (!activeQuote.canSend || !activeQuote.quoteToken) throw new Error(activeQuote.reasonText || '当前暂时无法申请')
-        const requestId = createRequestId('whisper-create')
+        const requestId = idempotencyCache.get(
+          `create:${composeTargetUserNo}:${composeSourceScene}:${composeSourceBizNo || ''}`,
+          `${normalized}:${activeQuote.quoteToken}`,
+        )
         await service.createWhisper(
           {
-            targetUserNo,
-            sourceScene,
-            sourceBizNo,
+            targetUserNo: composeTargetUserNo,
+            sourceScene: composeSourceScene,
+            sourceBizNo: composeSourceBizNo,
             content: normalized,
             quoteToken: activeQuote.quoteToken,
           },
           requestId,
         )
         setShowComposer(false)
+        idempotencyCache.clear()
         await Taro.showToast({ title: '申请已发送', icon: 'success' })
       }
       setContent('')
       if (!isMockScene) await messagePlatformRuntime.onForeground()
     } catch (error) {
+      if (getApiErrorCode(error) === 30021) {
+        idempotencyCache.clear()
+        setQuote(undefined)
+        try {
+          await precheckCompose()
+        } catch {
+          // 保留原正文，用户点击重试时重新预检。
+        }
+        await Taro.showToast({ title: '报价已变化，请重新确认后提交', icon: 'none' })
+        return
+      }
       await Taro.showToast({
         title: resolveWhisperErrorMessage(error, '提交失败，请稍后重试'),
         icon: 'none',
@@ -165,7 +209,7 @@ export default function WhisperDetailPage() {
       void Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(record.conversationNo)}` })
       return
     }
-    if (directCompose || record?.actions.canReply) void prepareComposer()
+    if (directCompose || record?.actions.canReply || record?.actions.canReverseApply) void prepareComposer()
   }
 
   const openReport = () => {
@@ -173,16 +217,39 @@ export default function WhisperDetailPage() {
     setShowReportSheet(false)
     const clientReportId = createRequestId('report')
     void Taro.navigateTo({
-      url: `/pages/message/report?targetType=whisper&targetBizNo=${encodeURIComponent(record.whisperNo)}&whisperNo=${encodeURIComponent(record.whisperNo)}&clientReportId=${clientReportId}${isMockScene ? '&mockScene=report-form' : ''}`,
+      url: `/pages/message/report?sourceType=whisper&targetId=${encodeURIComponent(record.whisperNo)}&whisperNo=${encodeURIComponent(record.whisperNo)}&clientReportId=${clientReportId}${isMockScene ? '&mockScene=report-form' : ''}`,
     })
   }
 
-  const canAct = directCompose || Boolean(record?.actions.canReply) || Boolean(record?.actions.canEnterConversation)
+  const deleteRecord = async () => {
+    if (!record?.actions.canDelete) return
+    const confirmed = await Taro.showModal({
+      title: '删除悄悄话',
+      content: '删除后该申请将不再显示，确定删除吗？',
+      confirmText: '删除',
+      confirmColor: '#F52B2B',
+    })
+    if (!confirmed.confirm) return
+    try {
+      await service.hideWhisper(record.whisperNo)
+      await Taro.showToast({ title: '已删除', icon: 'success' })
+      await Taro.navigateBack()
+    } catch (error) {
+      await Taro.showToast({ title: error instanceof Error ? error.message : '删除失败，请稍后重试', icon: 'none' })
+    }
+  }
+
+  const canAct = directCompose
+    || Boolean(record?.actions.canReply)
+    || Boolean(record?.actions.canEnterConversation)
+    || Boolean(record?.actions.canReverseApply)
   const actionText = record?.actions.canEnterConversation && record.conversationNo
     ? '私信'
     : record?.actions.canReply
       ? '回复并认识'
-      : '发起申请'
+      : record?.actions.canReverseApply
+        ? '重新申请'
+        : '发起申请'
 
   return (
     <View className="message-page whisper-detail-page">
@@ -240,6 +307,7 @@ export default function WhisperDetailPage() {
         <View className="message-sheet-mask" onClick={() => setShowReportSheet(false)}>
           <View className="message-action-sheet whisper-report-sheet" onClick={event => event.stopPropagation()}>
             <View className="message-action-sheet-item message-action-sheet-item--report" onClick={openReport}><Text>举报</Text></View>
+            {record?.actions.canDelete ? <View className="message-action-sheet-item message-action-sheet-item--danger" onClick={() => void deleteRecord()}><Text>删除申请</Text></View> : null}
             <View className="message-action-sheet-gap" />
             <View className="message-action-sheet-item" onClick={() => setShowReportSheet(false)}><Text>取消</Text></View>
           </View>

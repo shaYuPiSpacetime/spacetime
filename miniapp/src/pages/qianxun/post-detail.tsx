@@ -287,9 +287,9 @@ export default function QianxunPostDetailPage() {
       setWhisperContent('')
       setWhisperPrecheck(undefined)
       await Taro.showToast({
-        title: result.payType === 'free' || result.paymentMethod === 'free_quota'
+        title: result.payType === 'vip_free'
           ? '悄悄话已发送，本次使用免费权益'
-          : `悄悄话已发送，消耗${result.coinAmount ?? result.coinCost ?? 0}千寻币`,
+          : `悄悄话已发送，消耗${result.coinAmount}千寻币`,
         icon: 'success',
       })
     } catch (error) {

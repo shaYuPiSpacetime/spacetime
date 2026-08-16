@@ -167,13 +167,13 @@ export type MessageAccessMode = 'normal' | 'restricted'
 export type ConversationStatus = 'active' | 'blocked' | 'invalid'
 export type ApiWhisperStatus = 'pending' | 'replied' | 'expired' | 'invalid'
 export type ApiReadStatus = 'read' | 'unread'
+export type WhisperBucket = 'pending' | 'processed'
 
 export interface MessageUnreadSummary {
   privateUnreadCount: number
   whisperUnreadCount: number
   assistantUnreadCount: number
   systemUnreadCount: number
-  platformUnreadCount: number
   messageUnreadCount: number
   snapshotTime: string
 }
@@ -185,23 +185,20 @@ export interface MessagePeerUser {
   profileAvailable: boolean
 }
 
-export interface MessageFixedEntry {
-  entryType: 'whisper' | 'assistant' | 'system' | string
-  title: string
-  lastMessagePreview: string | null
-  unreadCount: number
-  enabled: boolean
+export interface MessageLastMessage {
+  messageNo: string
+  messageType: 'text' | 'whisper' | 'whisper_reply' | 'system_tip' | string
+  direction: 'incoming' | 'outgoing'
+  preview: string | null
+  messageTime: string
+  sendStatus: 'queued' | 'sent' | 'failed' | string
 }
 
 export interface MessageConversationItem {
   conversationNo: string
-  timConversationId: string
-  conversationStatus: ConversationStatus
   peerUser: MessagePeerUser
-  canEnterConversation: boolean
-  canSend: boolean
-  sendBlockedReason: string | null
-  lastBusinessActivityTime: string | null
+  unreadCount: number
+  lastMessage?: MessageLastMessage | null
 }
 
 export interface MessageConversationPage {
@@ -213,21 +210,58 @@ export interface MessageConversationPage {
 export interface MessageFemaleProtection {
   enabled: boolean
   waitingForFemaleFirstMessage: boolean
+  protectionUntil: string | null
 }
 
-export interface MessageConversationDetail extends MessageConversationItem {
+export interface MessageReportContext {
+  sourceType: 'private_chat'
+  conversationNo: string
+  timConversationId: string | null
+}
+
+export interface MessageConversationDetail {
+  conversationNo: string
+  timConversationId: string | null
+  conversationStatus: ConversationStatus
+  accessMode: 'normal' | 'safety_readonly'
+  peerUser: MessagePeerUser
+  canEnterConversation: boolean
+  canSend: boolean
+  sendBlockedReason: string | null
+  canReportChat: boolean
+  reportContext: MessageReportContext | null
   femaleProtection: MessageFemaleProtection | null
   safetyActions: string[]
+}
+
+export interface MessageWhisperSummary {
+  pendingCount: number
+  recentAvatarUrls: string[]
+}
+
+export interface MessageLikesMeSummary {
+  totalCount: number
+  newCount: number
+  latestAvatarUrl: string | null
+  latestLikedTime: string | null
+  latestDisplayStatus: 'clear' | 'blur' | null
+}
+
+export interface MessageChannelSummary {
+  unreadCount: number
+  latestPreview: string | null
+  latestTime: string | null
 }
 
 export interface MessageHomeResponse {
   accessMode: MessageAccessMode
   restrictionPrompt: string | null
-  platformUnreadSummary: MessageUnreadSummary
-  fixedEntries: MessageFixedEntry[]
-  recentConversationBindings: MessageConversationItem[]
-  recentConversationLimit: number
-  hasMoreConversations: boolean
+  unreadSummary: MessageUnreadSummary
+  whisperSummary: MessageWhisperSummary
+  likesMeSummary: MessageLikesMeSummary
+  assistantSummary: MessageChannelSummary
+  systemSummary: MessageChannelSummary
+  conversationPage: MessageConversationPage
 }
 
 export interface MessageConversationReadResult {
@@ -250,20 +284,27 @@ export interface MessageWhisperItem {
   status: ApiWhisperStatus
   displayStatus: string
   peerUser: MessagePeerUser
-  timConversationId: string
-  requestTimMessageId: string | null
-  requestTimMsgKey: string | null
   payType: string | null
   createdTime: string
   expireTime: string | null
   canReply: boolean
-  unread: boolean
+  unread: boolean | null
 }
 
 export interface MessageWhisperPage {
+  direction: WhisperDirection
+  bucket: WhisperBucket
+  totalCount: number
   list: MessageWhisperItem[]
   nextCursor: string | null
   hasMore: boolean
+}
+
+export interface WhisperHideResult {
+  whisperNo?: string | null
+  bucket: WhisperBucket
+  hiddenCount: number
+  hiddenTime: string
 }
 
 export interface MessageWhisperActions {
@@ -314,30 +355,24 @@ export interface WhisperPrecheckResponse {
 
 export interface WhisperCreateResponse {
   whisperNo: string
-  sendStatus: 'queued' | 'sent' | 'failed' | string
-  whisperStatus: ApiWhisperStatus
-  paymentStatus: string
+  sendStatus: 'sending' | 'sent' | 'failed'
+  whisperStatus: ApiWhisperStatus | null
+  paymentStatus: 'paid' | 'refunding' | 'refunded'
   targetUserNo: string
-  payType: string
+  payType: 'vip_free' | 'coin'
   coinAmount: number
   coinBalance: number
   charged: boolean
   createdTime: string
-  status?: string
-  coinCost?: number
-  paymentMethod?: string
-  createTime?: string
-  expireTime?: string
+  expireTime: string
 }
 
 export interface WhisperReplyResponse {
   whisperNo: string
   status: ApiWhisperStatus
-  matchNo: string | null
-  conversationNo: string | null
-  replyMessageNo: string | null
-  replyTimMessageId: string | null
-  replyTimMsgKey: string | null
+  matchNo: string
+  conversationNo: string
+  replyMessageNo: string
   repliedTime: string
 }
 
@@ -396,10 +431,4 @@ export interface TimConversationSnapshot {
   lastMessagePreview: string
   lastMessageAt: string | null
   unreadCount: number
-}
-
-export interface MessageConversationView extends MessageConversationItem {
-  lastMessagePreview: string
-  lastMessageAt: string | null
-  platformUnreadCount?: number
 }

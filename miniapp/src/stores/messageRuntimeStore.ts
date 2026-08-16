@@ -10,7 +10,6 @@ const EMPTY_UNREAD: MessageUnreadSummary = {
   whisperUnreadCount: 0,
   assistantUnreadCount: 0,
   systemUnreadCount: 0,
-  platformUnreadCount: 0,
   messageUnreadCount: 0,
   snapshotTime: '',
 }
@@ -46,7 +45,7 @@ export const useMessageRuntimeStore = create<MessageRuntimeState>(set => ({
       home,
       accessMode: home.accessMode,
       restrictionPrompt: home.restrictionPrompt || '',
-      unreadSummary: home.platformUnreadSummary || EMPTY_UNREAD,
+      unreadSummary: home.unreadSummary || EMPTY_UNREAD,
       errorMessage: '',
     }),
 

@@ -170,7 +170,7 @@ test('18 个蓝湖设计状态完整映射到 7 个业务路由和稳定 mockSce
   assert.equal(new Set(messageDesignScenes.map(item => item.mockScene)).size, 18)
 })
 
-test('举报契约使用后端八类原因、稳定请求号与 400 字限制', () => {
+test('举报契约使用动态八类原因、稳定请求号、统一 chat 目标与 400 字限制', () => {
   const source = fs.readFileSync(path.join(miniappRoot, 'src/services/message.ts'), 'utf8')
   for (const reason of [
     'avatar_mismatch',
@@ -185,7 +185,10 @@ test('举报契约使用后端八类原因、稳定请求号与 400 字限制', 
     assert.match(source, new RegExp(`'${reason}'`))
   }
   assert.match(source, /clientReportId/)
-  assert.match(source, /targetBizNo/)
+  assert.match(source, /targetType:\s*'chat'/)
+  assert.match(source, /targetId:\s*string/)
+  assert.match(source, /getCommunityReportConfig/)
+  assert.doesNotMatch(source, /targetBizNo/)
   assert.match(source, /length > 400/)
   assert.doesNotMatch(source, /reasonCode:\s*'AVATAR_MISMATCH'/)
 })

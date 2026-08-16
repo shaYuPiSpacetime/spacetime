@@ -1,27 +1,24 @@
-import { Button, ScrollView, Text, Textarea, View } from '@tarojs/components'
+import { Button, Image, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   messageService,
   mockMessageService,
   type MessageReportReasonCode,
 } from '@/services/message'
+import { uploadDirectToOss } from '@/services/ossUpload'
 import { MessageNav } from './shared'
 import './message.scss'
 
-const REPORT_REASONS: ReadonlyArray<{
-  code: MessageReportReasonCode
-  label: string
-  className: string
-}> = [
-  { code: 'avatar_mismatch', label: '头像非本人或无法看清正脸', className: 'report-reason--avatar' },
-  { code: 'false_profile', label: '内容乱填/虚假资料', className: 'report-reason--profile' },
-  { code: 'contact_disclosure', label: '资料透露联系方式', className: 'report-reason--contact' },
-  { code: 'marriage_agency', label: '婚托、饭托、酒托等', className: 'report-reason--agency' },
-  { code: 'spam_ad', label: '垃圾营销广告', className: 'report-reason--spam' },
-  { code: 'fraud', label: '虚假中奖消息、诈骗等', className: 'report-reason--fraud' },
-  { code: 'harassment', label: '聊天内容不适/骚扰', className: 'report-reason--harassment' },
-  { code: 'other', label: '其他', className: 'report-reason--other' },
+const REASON_CLASS_NAMES = [
+  'report-reason--avatar',
+  'report-reason--profile',
+  'report-reason--contact',
+  'report-reason--agency',
+  'report-reason--spam',
+  'report-reason--fraud',
+  'report-reason--harassment',
+  'report-reason--other',
 ]
 
 export default function MessageReportPage() {
@@ -29,16 +26,79 @@ export default function MessageReportPage() {
   const isDesignForm = router.params.mockScene === 'report-form'
   const blocked = router.params.blocked === '1'
   const service = router.params.mockScene ? mockMessageService : messageService
+  const [reasons, setReasons] = useState<Array<{ code: string; label: string; className: string }>>([])
+  const [configError, setConfigError] = useState('')
   const [selectedReason, setSelectedReason] = useState<MessageReportReasonCode | undefined>(
     isDesignForm ? 'avatar_mismatch' : undefined
   )
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingEvidence, setUploadingEvidence] = useState(false)
+  const [evidenceImageUrls, setEvidenceImageUrls] = useState<string[]>([])
   const [success, setSuccess] = useState(router.params.mockScene === 'report-success')
   const [clientReportId] = useState(
     router.params.clientReportId || `report-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
   )
   const descriptionCount = useMemo(() => Array.from(description).length, [description])
+
+  useEffect(() => {
+    let cancelled = false
+    void service.getCommunityReportConfig()
+      .then(config => {
+        if (cancelled) return
+        if (!config.reportEntryEnabled) {
+          setConfigError('当前暂未开放举报入口')
+          return
+        }
+        const next = [...config.reportReasons]
+          .sort((left, right) => left.sort - right.sort)
+          .map((reason, index) => ({
+            code: reason.code,
+            label: reason.label,
+            className: REASON_CLASS_NAMES[index % REASON_CLASS_NAMES.length],
+          }))
+        if (next.length === 0) {
+          setConfigError('举报原因暂不可用，请稍后重试')
+          return
+        }
+        setReasons(next)
+        if (isDesignForm && next.length > 0) {
+          setSelectedReason(current => current || next[0].code)
+        }
+      })
+      .catch(error => {
+        if (!cancelled) setConfigError(error instanceof Error ? error.message : '举报原因加载失败')
+      })
+    return () => { cancelled = true }
+  }, [isDesignForm, service])
+
+  const chooseEvidence = async () => {
+    if (uploadingEvidence || evidenceImageUrls.length >= 3) return
+    try {
+      const result = await Taro.chooseMedia({
+        count: 3 - evidenceImageUrls.length,
+        mediaType: ['image'],
+        sourceType: ['album', 'camera'],
+      })
+      setUploadingEvidence(true)
+      const uploaded = [...evidenceImageUrls]
+      for (const file of result.tempFiles) {
+        const item = await uploadDirectToOss(
+          '/miniapp/file/upload-ticket/report-evidence',
+          file.tempFilePath,
+        )
+        uploaded.push(item.url)
+      }
+      setEvidenceImageUrls(uploaded.slice(0, 3))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      if (!/cancel/i.test(message)) {
+        await Taro.showToast({ title: '凭证图片上传失败，请重试', icon: 'none' })
+      }
+    } finally {
+      setUploadingEvidence(false)
+    }
+  }
 
   const backToMessage = () => {
     const pages = Taro.getCurrentPages()
@@ -51,22 +111,37 @@ export default function MessageReportPage() {
       void Taro.showToast({ title: '请选择举报事项类型', icon: 'none' })
       return
     }
+    if (configError) {
+      void Taro.showToast({ title: configError, icon: 'none' })
+      return
+    }
+    if (uploadingEvidence) {
+      void Taro.showToast({ title: '凭证图片上传中，请稍候', icon: 'none' })
+      return
+    }
     if (submitting) return
     setSubmitting(true)
     try {
+      const sourceType = router.params.sourceType === 'whisper' || router.params.whisperNo
+        ? 'whisper'
+        : 'private_chat'
+      const targetId = router.params.targetId
+        || router.params.targetBizNo
+        || router.params.targetNo
+        || (sourceType === 'whisper' ? router.params.whisperNo : router.params.conversationNo)
+        || (isDesignForm ? 'mock-whisper' : '')
+      if (!targetId) throw new Error('举报入口已失效，请返回后重试')
       await service.report({
         clientReportId,
-        targetType:
-          router.params.targetType === 'message' || router.params.targetType === 'conversation'
-            ? router.params.targetType
-            : 'whisper',
-        targetBizNo: router.params.targetBizNo || router.params.targetNo || 'mock-whisper',
+        targetType: 'chat',
+        targetId,
         timConversationId: router.params.timConversationId,
         timMessageId: router.params.timMessageId,
         timMsgKey: router.params.timMsgKey,
         reasonCode: selectedReason,
         extraText: description.trim() || undefined,
-        sourceType: router.params.targetType,
+        evidenceImageUrls,
+        sourceType,
         conversationNo: router.params.conversationNo,
         whisperNo: router.params.whisperNo,
         messageNo: router.params.messageNo,
@@ -128,7 +203,7 @@ export default function MessageReportPage() {
         <View className="report-content">
           <Text className="report-section-title">请选择你要举报的事项类型</Text>
           <View className="report-reasons">
-            {REPORT_REASONS.map(reason => (
+            {reasons.map(reason => (
               <Button
                 key={reason.code}
                 className={
@@ -155,9 +230,21 @@ export default function MessageReportPage() {
             />
             <Text className="report-description-count">{descriptionCount}/400</Text>
           </View>
-          <Text className="report-evidence-note">
-            平台将根据消息编号固化必要聊天证据，无需上传聊天截图。
-          </Text>
+          <View className="report-evidence-header">
+            <Text className="report-section-title">凭证图片（选填，最多3张）</Text>
+            <Button className="report-evidence-add" disabled={uploadingEvidence || evidenceImageUrls.length >= 3} onClick={() => void chooseEvidence()}>
+              {uploadingEvidence ? '上传中' : '添加图片'}
+            </Button>
+          </View>
+          <View className="report-evidence-list">
+            {evidenceImageUrls.map(url => (
+              <View className="report-evidence-item" key={url}>
+                <Image className="report-evidence-image" src={url} mode="aspectFill" />
+                <View className="report-evidence-remove" role="button" aria-label="移除凭证图片" onClick={() => setEvidenceImageUrls(current => current.filter(item => item !== url))}><Text>×</Text></View>
+              </View>
+            ))}
+          </View>
+          {configError ? <Text className="message-inline-error">{configError}</Text> : null}
         </View>
       </ScrollView>
       <Button

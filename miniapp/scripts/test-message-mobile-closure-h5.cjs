@@ -17,7 +17,9 @@ async function expectVisible(locator, message) {
     headless: true,
     executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   })
-  const page = await browser.newPage({ viewport: { width: 375, height: 812 } })
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true })
+  const page = await context.newPage()
+  const cdp = await context.newCDPSession(page)
   const pageErrors = []
   page.on('pageerror', error => pageErrors.push(error.message))
 
@@ -50,8 +52,36 @@ async function expectVisible(locator, message) {
   await expectVisible(page.getByText('已拉黑并提交举报', { exact: true }), '拉黑并举报成功态文案不正确')
 
   // H5 直接验证指定消息举报表单；小程序长按入口由静态门禁检查 onLongPress 与参数组装。
-  await open('/pages/message/report?targetType=message&targetBizNo=MSG-120&conversationNo=conversation-lin&messageNo=MSG-120&timMessageId=TIM-120&clientReportId=report-e2e-message-120&mockScene=report-form')
+  await open('/pages/message/report?sourceType=private_chat&targetId=conversation-lin&conversationNo=conversation-lin&messageNo=MSG-120&timMessageId=TIM-120&clientReportId=report-e2e-message-120&mockScene=report-form')
   await expectVisible(page.getByText('请选择你要举报的事项类型', { exact: true }), '指定消息举报表单未加载')
+
+  // 收到的悄悄话必须独立呈现待回复和已处理；发出的仅呈现等待回复。
+  await open('/pages/message/whisper-list?mockScene=whisper-received')
+  await expectVisible(page.getByText('待回复(1)', { exact: true }), '收到的悄悄话待回复分组未加载')
+  await expectVisible(page.getByText('已处理(1)', { exact: true }), '收到的悄悄话已处理分组未加载')
+  const pendingCard = page.locator('.whisper-card').first()
+  const pendingCardBox = await pendingCard.boundingBox()
+  if (!pendingCardBox) throw new Error('待回复悄悄话卡片无法获取触摸区域')
+  const swipeY = pendingCardBox.y + pendingCardBox.height / 2
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: pendingCardBox.x + pendingCardBox.width - 20, y: swipeY }],
+  })
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: pendingCardBox.x + 80, y: swipeY }],
+  })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await expectVisible(page.locator('.whisper-card--swiped'), '收到的悄悄话左滑未展示删除动作')
+  await page.locator('.whisper-delete-button').first().click()
+  await expectVisible(page.getByText('删除后该申请将不再显示，确定删除吗？', { exact: true }), '单条删除未二次确认')
+  await page.getByText('删除', { exact: true }).last().click()
+  await expectVisible(page.getByText('待回复(0)', { exact: true }), '单条删除后待回复数量未更新')
+  await page.getByText('我申请的', { exact: true }).click()
+  await expectVisible(page.getByText('等待回复(1)', { exact: true }), '发出的悄悄话等待回复分组未加载')
+  if (await page.getByText('已处理(1)', { exact: true }).count()) {
+    throw new Error('发出的悄悄话不应展示已处理分组')
+  }
 
   // 收到的悄悄话回复后必须开启私信会话。
   await open('/pages/message/whisper-detail?whisperNo=whisper-received-pending&mockScene=whisper-compose')

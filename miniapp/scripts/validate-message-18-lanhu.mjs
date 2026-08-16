@@ -28,6 +28,8 @@ const appConfig = read('src/app.config.ts')
 const runtime = requiredPages.map(read).join('\n')
 const sceneRegistry = read('src/mocks/message/designScenes.ts')
 const chat = read('src/pages/chat/index.tsx')
+const report = read('src/pages/message/report.tsx')
+const messageService = read('src/services/message.ts')
 const ossIcons = read('src/constants/ossIcons.ts')
 const ossUploader = read('scripts/upload-miniapp-oss-icons.mjs')
 
@@ -64,7 +66,6 @@ assert.doesNotMatch(sceneRegistry, /0a48d19f-b05f-40d0-8f14-f34bd131a50d/, '旧�
 for (const copy of [
   '发起申请',
   '请选择你要举报的事项类型',
-  '头像非本人或无法看清正脸',
   '具体描述',
   '提交成功',
   '平台违规行为处罚细则',
@@ -75,7 +76,11 @@ for (const copy of [
 
 assert.match(runtime, /<Textarea\b/, '举报描述必须使用真实 Textarea')
 assert.match(runtime, /maxlength=\{400\}/, '举报描述必须限制 400 字')
-assert.doesNotMatch(runtime, /chooseMedia/, '消息举报由服务端固化证据，不得提交客户端截图冒充证据')
+assert.match(report, /getCommunityReportConfig/, '举报原因必须从社区配置动态下发')
+assert.match(report, /chooseMedia/, '举报页必须支持用户主动补充凭证图片')
+assert.match(report, /evidenceImageUrls/, '举报凭证必须随正式举报契约提交')
+assert.doesNotMatch(report, /const\s+REPORT_REASONS/, '正式举报页不得硬编码举报原因')
+assert.match(messageService, /头像非本人或无法看清正脸/, 'Mock 视觉基线必须保留蓝湖首项举报原因')
 assert.match(runtime, /onClick=|onInput=/, '交互控件必须绑定真实事件')
 assert.doesNotMatch(runtime, /lanhuapp\.com|alipic\.lanhuapp|\.lanhu-ref/, '运行代码禁止引用蓝湖参考图')
 assert.doesNotMatch(runtime, /opacity\s*:\s*0(?:[;,}]|\b)/, '禁止透明点击热区')

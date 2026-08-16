@@ -1,8 +1,5 @@
 import type {
   ConversationStatus,
-  MessageConversationItem,
-  MessageConversationView,
-  TimConversationSnapshot,
 } from '../types/message'
 
 export type MessageErrorAction =
@@ -149,6 +146,12 @@ export function resolveTimC2CTargetUserId(timConversationId: unknown): string {
   return normalizeTimC2CConversationId(timConversationId).slice(3)
 }
 
+export function resolveConversationSendBlockedReason(reason?: string | null): string {
+  if (reason === 'female_protection') return '等待女方先发消息后即可聊天'
+  if (reason === 'conversation_invalid') return '当前会话已失效，仅可查看历史消息'
+  return reason?.trim() || '当前会话暂不可发送'
+}
+
 /** 合并同一业务键的并发请求；请求结束后允许下一次主动刷新。 */
 export function createKeyedSingleFlight(): KeyedSingleFlight {
   let activeKey: string | undefined
@@ -176,24 +179,4 @@ export function createKeyedSingleFlight(): KeyedSingleFlight {
       return promise
     },
   }
-}
-
-export function mergeConversationBindings(
-  bindings: MessageConversationItem[],
-  timConversations: TimConversationSnapshot[],
-): MessageConversationView[] {
-  const byTimId = new Map(timConversations.map(item => [item.timConversationId, item]))
-  return bindings
-    .filter(item => item.canEnterConversation && normalizeConversationStatus(item.conversationStatus) === 'active')
-    .map(item => {
-      const tim = byTimId.get(item.timConversationId)
-      return {
-        ...item,
-        conversationStatus: normalizeConversationStatus(item.conversationStatus),
-        lastMessagePreview: tim?.lastMessagePreview || '',
-        lastMessageAt: tim?.lastMessageAt || item.lastBusinessActivityTime,
-        platformUnreadCount: tim?.unreadCount,
-      }
-    })
-    .sort((left, right) => (right.lastMessageAt || '').localeCompare(left.lastMessageAt || ''))
 }

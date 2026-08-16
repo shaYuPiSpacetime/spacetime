@@ -19,6 +19,11 @@ export interface WhisperCreatePayload extends WhisperPrecheckPayload {
   quoteToken: string
 }
 
+export interface WhisperIdempotencyCache {
+  get(scope: string, fingerprint: string): string
+  clear(): void
+}
+
 const USER_NO_PATTERN = /^USR-\d{12}$/
 const COMMUNITY_SOURCE_SCENES = new Set<WhisperSourceScene>([
   'community_post',
@@ -29,6 +34,34 @@ const RECOMMENDATION_ROUTE_SCENES = new Set(['recommendation', 'fate', 'ideal', 
 const TECHNICAL_FIELD_PATTERN = /sourceScene|sourceBizNo|targetUserNo|来源场景|来源业务编号|目标用户编号/i
 const INVALID_ENTRY_MESSAGE = '申请入口信息不完整，请返回后重新进入'
 const EXPIRED_ENTRY_MESSAGE = '申请入口信息已失效，请返回后重新进入'
+
+function defaultRequestId(): string {
+  return `whisper-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+}
+
+/** 同一业务对象和正文的失败重试复用请求号，成功或内容变化后再生成新请求号。 */
+export function createWhisperIdempotencyCache(
+  factory: () => string = defaultRequestId,
+): WhisperIdempotencyCache {
+  let activeScope = ''
+  let activeFingerprint = ''
+  let activeRequestId = ''
+  return {
+    get(scope, fingerprint) {
+      if (scope !== activeScope || fingerprint !== activeFingerprint || !activeRequestId) {
+        activeScope = scope
+        activeFingerprint = fingerprint
+        activeRequestId = factory()
+      }
+      return activeRequestId
+    },
+    clear() {
+      activeScope = ''
+      activeFingerprint = ''
+      activeRequestId = ''
+    },
+  }
+}
 
 function normalizeSource(input: WhisperPrecheckPayload): WhisperPrecheckPayload {
   const targetUserNo = String(input.targetUserNo || '').trim()

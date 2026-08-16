@@ -91,14 +91,14 @@ export default function ChatPage() {
         setConversationRows([])
         return
       }
-      const rows = (result.recentConversationBindings || []).map(
+      const rows = (result.conversationPage.list || []).map(
         item => ({
           id: item.conversationNo,
           type: 'conversation' as const,
           title: item.peerUser.nickname || '用户已注销',
-          preview: item.lastMessagePreview || '点击进入会话',
-          timeText: formatTime(item.lastMessageAt),
-          unreadCount: Number(item.platformUnreadCount || 0),
+          preview: item.lastMessage?.preview || '点击进入会话',
+          timeText: formatTime(item.lastMessage?.messageTime),
+          unreadCount: Number(item.unreadCount || 0),
           avatarUrl: item.peerUser.avatarUrl || miniappOssIcons.messageAvatarXiaoming,
           conversationNo: item.conversationNo,
         }),
@@ -123,18 +123,36 @@ export default function ChatPage() {
   const accessMode = activeHome?.accessMode || 'normal'
   const fixedRows = useMemo<HomeViewRow[]>(() => {
     if (isMockScene) return mockHomeRows
-    const entries = activeHome?.fixedEntries || []
-    return entries
-      .filter(entry => entry.enabled && (entry.entryType === 'assistant' || entry.entryType === 'system'))
-      .filter(entry => accessMode === 'normal' || entry.entryType === 'system')
-      .map(entry => ({
-        id: entry.entryType,
-        type: entry.entryType as 'assistant' | 'system',
-        title: entry.title,
-        preview: entry.lastMessagePreview || '暂无新消息',
-        timeText: '',
-        unreadCount: entry.unreadCount,
-      }))
+    if (!activeHome) return []
+    const rows: HomeViewRow[] = []
+    if (accessMode === 'normal') {
+      rows.push({
+        id: 'liked-me',
+        type: 'liked',
+        title: `喜欢我的人(${activeHome.likesMeSummary.totalCount}人)`,
+        preview: '解锁喜欢你的人，即刻匹配',
+        timeText: formatTime(activeHome.likesMeSummary.latestLikedTime),
+        unreadCount: activeHome.likesMeSummary.newCount,
+        avatarUrl: activeHome.likesMeSummary.latestAvatarUrl || miniappOssIcons.messageAvatarLikedBlurred,
+      })
+      rows.push({
+        id: 'assistant',
+        type: 'assistant',
+        title: '官方小助手',
+        preview: activeHome.assistantSummary.latestPreview || '暂无新消息',
+        timeText: formatTime(activeHome.assistantSummary.latestTime),
+        unreadCount: activeHome.assistantSummary.unreadCount,
+      })
+    }
+    rows.push({
+      id: 'system',
+      type: 'system',
+      title: '系统消息',
+      preview: activeHome.systemSummary.latestPreview || '暂无新消息',
+      timeText: formatTime(activeHome.systemSummary.latestTime),
+      unreadCount: activeHome.systemSummary.unreadCount,
+    })
+    return rows
   }, [activeHome, accessMode, isMockScene])
   const rows = certified
     ? [...(isMockScene ? mockHomeRows : fixedRows), ...conversationRows]
@@ -161,7 +179,7 @@ export default function ChatPage() {
               </Text>
             </View>
           ) : (
-            <MessageEntrances isMockScene={isMockScene} />
+            <MessageEntrances isMockScene={isMockScene} home={activeHome} />
           )}
           <View style={{ width: designRpx(700), minHeight: designRpx(certified ? 1264 : 760), margin: `${designRpx(24)} auto 0`, padding: `0 ${designRpx(17)}`, borderRadius: designRpx(8), background: '#FFFFFF', boxSizing: 'border-box' }}>
             {rows.map(row => <MessageListRow key={row.id} row={row} isMockScene={isMockScene} />)}
@@ -190,19 +208,23 @@ function CertificationBanner() {
   )
 }
 
-function MessageEntrances({ isMockScene }: { isMockScene: boolean }) {
+function MessageEntrances({ isMockScene, home }: { isMockScene: boolean; home?: MessageHomeResponse }) {
   const sceneSuffix = isMockScene ? '?mockScene=whisper-received' : ''
+  const whisperBadge = formatMessageBadge(home?.unreadSummary.whisperUnreadCount || 0)
+  const privateBadge = formatMessageBadge(home?.unreadSummary.privateUnreadCount || 0)
   return (
     <View style={{ width: designRpx(700), height: designRpx(158), margin: `${designRpx(6)} auto 0`, display: 'flex', gap: designRpx(20) }}>
       <View id="message-home-whisper-entry" data-role="message-home-whisper-entry" onClick={() => Taro.navigateTo({ url: `/pages/message/whisper-list${sceneSuffix}` })} style={{ position: 'relative', width: designRpx(340), height: designRpx(158), overflow: 'hidden', borderRadius: designRpx(12), background: '#E3F1FE' }}>
         <Image id="message-home-whisper-background" data-role="message-home-whisper-background" src={miniappOssIcons.messageHomeWhisperCardBackground} mode="aspectFill" style={{ position: 'absolute', zIndex: 1, left: 0, top: 0, width: designRpx(340), height: designRpx(158), pointerEvents: 'none' }} />
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(29), color: '#00469F', fontSize: designRpx(28), fontWeight: 500, lineHeight: designRpx(40) }}>悄悄话</Text>
         <Image src={miniappOssIcons.messageAvatarWhisperGroup} mode="widthFix" style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(79), width: designRpx(114), height: designRpx(55) }} />
+        {whisperBadge ? <Text style={{ position: 'absolute', zIndex: 3, right: designRpx(16), top: designRpx(16), minWidth: designRpx(32), height: designRpx(32), padding: `0 ${designRpx(8)}`, borderRadius: designRpx(18), background: '#EE2525', color: '#FFFFFF', fontSize: designRpx(18), lineHeight: designRpx(32), textAlign: 'center', boxSizing: 'border-box' }}>{whisperBadge}</Text> : null}
       </View>
       <View id="message-home-private-entry" data-role="message-home-private-entry" onClick={() => Taro.navigateTo({ url: `/pages/message/private-list${isMockScene ? '?mockScene=private-list' : ''}` })} style={{ position: 'relative', width: designRpx(340), height: designRpx(158), overflow: 'hidden', borderRadius: designRpx(12), background: '#FDEAD9' }}>
         <Image id="message-home-private-background" data-role="message-home-private-background" src={miniappOssIcons.messageHomePrivateCardBackground} mode="aspectFill" style={{ position: 'absolute', zIndex: 1, left: 0, top: 0, width: designRpx(340), height: designRpx(158), pointerEvents: 'none' }} />
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(29), color: '#9C5C05', fontSize: designRpx(28), fontWeight: 500, lineHeight: designRpx(40) }}>私信</Text>
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(79), color: '#9C5C05', fontSize: designRpx(22), fontWeight: 500, lineHeight: designRpx(30) }}>有个小秘密只告诉你</Text>
+        {privateBadge ? <Text style={{ position: 'absolute', zIndex: 3, right: designRpx(16), top: designRpx(16), minWidth: designRpx(32), height: designRpx(32), padding: `0 ${designRpx(8)}`, borderRadius: designRpx(18), background: '#EE2525', color: '#FFFFFF', fontSize: designRpx(18), lineHeight: designRpx(32), textAlign: 'center', boxSizing: 'border-box' }}>{privateBadge}</Text> : null}
       </View>
     </View>
   )
