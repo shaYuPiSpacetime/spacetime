@@ -107,6 +107,29 @@ export function resolveMessageError(error: unknown): MessageErrorResolution {
   }
 }
 
+/** 识别腾讯云 TIM 返回的账号不存在错误，不解析或记录错误中的具体 UserID。 */
+export function isTimAccountMissingError(error: unknown): boolean {
+  const candidate = error as {
+    code?: unknown
+    message?: unknown
+    error?: { code?: unknown }
+    data?: { code?: unknown }
+  }
+  const directCodes = [candidate?.code, candidate?.error?.code, candidate?.data?.code]
+  if (directCodes.some(code =>
+    (typeof code === 'number' && code === 20003)
+    || (typeof code === 'string' && code.trim() === '20003')
+  )) return true
+
+  const message =
+    typeof candidate?.message === 'string'
+      ? candidate.message
+      : typeof error === 'string'
+        ? error
+        : ''
+  return /(?:^|[{,\s])["']?code["']?\s*[:=]\s*20003(?:\D|$)/i.test(message)
+}
+
 /** 合并同一业务键的并发请求；请求结束后允许下一次主动刷新。 */
 export function createKeyedSingleFlight(): KeyedSingleFlight {
   let activeKey: string | undefined

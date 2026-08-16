@@ -115,6 +115,31 @@ test('LiteChat 网关固定精确版本并具备凭证刷新、文本发送、�
   assert.match(app, /messagePlatformRuntime/)
 })
 
+test('旧聊天页重发遇到 TIM 20003 时先触发账号自愈再安全重发', () => {
+  const { isTimAccountMissingError } = requireDomain('src/domain/messageRuntime.ts')
+  assert.equal(typeof isTimAccountMissingError, 'function')
+  assert.equal(isTimAccountMissingError({ code: 20003 }), true)
+  assert.equal(
+    isTimAccountMissingError({
+      message: 'Unknown failed. error: {"message":"invalid UserID","code":20003}',
+    }),
+    true,
+  )
+  assert.equal(isTimAccountMissingError({ code: 30023 }), false)
+  assert.equal(isTimAccountMissingError({ code: Symbol('invalid') }), false)
+  assert.equal(isTimAccountMissingError({ message: '{"code":120003}' }), false)
+
+  const page = read('src/pages/message/private-chat.tsx')
+  assert.match(page, /isTimAccountMissingError\(error\)/)
+  assert.match(page, /await service\.getConversation\(conversationNo\)/)
+  assert.match(
+    page,
+    /gateway\.retry\(\s*recoveredTimConversationId,\s*retryTarget\.clientMsgId,?\s*\)/,
+  )
+  assert.match(page, /私信账号同步失败，请重新进入会话/)
+  assert.doesNotMatch(page, /title:\s*error instanceof Error \? error\.message : '重发失败'/)
+})
+
 test('普通私信显式遵循已确认的不做发送前文本审核决策', () => {
   const gateway = read('src/im/LiteChatMessageImGateway.ts')
   const technicalDesign = read('../docs/技术方案/2026-07-31-消息、私信与通知中心-tcdesign.md')

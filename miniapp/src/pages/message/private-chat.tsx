@@ -2,7 +2,11 @@ import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { createKeyedSingleFlight, resolveMessageError } from '@/domain/messageRuntime'
+import {
+  createKeyedSingleFlight,
+  isTimAccountMissingError,
+  resolveMessageError,
+} from '@/domain/messageRuntime'
 import { messageImGateway, mockMessageImGateway } from '@/im'
 import { messageRuntime } from '@/im/messageRuntime'
 import { messageService, mockMessageService } from '@/services/message'
@@ -160,7 +164,26 @@ export default function PrivateChatPage() {
       setMessages(current => upsertMessages(current, [retried]))
       setRetryTarget(undefined)
     } catch (error) {
-      await Taro.showToast({ title: error instanceof Error ? error.message : '重发失败', icon: 'none' })
+      if (!isMockScene && isTimAccountMissingError(error)) {
+        try {
+          const recoveredDetail = await service.getConversation(conversationNo)
+          const recoveredTimConversationId = recoveredDetail.timConversationId
+          if (!recoveredTimConversationId) throw new Error('TIM 会话标识缺失')
+          setDetail(recoveredDetail)
+          timConversationIdRef.current = recoveredTimConversationId
+          const retried = await gateway.retry(
+            recoveredTimConversationId,
+            retryTarget.clientMsgId,
+          )
+          setMessages(current => upsertMessages(current, [retried]))
+          setRetryTarget(undefined)
+          return
+        } catch {
+          await Taro.showToast({ title: '私信账号同步失败，请重新进入会话', icon: 'none' })
+          return
+        }
+      }
+      await Taro.showToast({ title: '消息重发失败，请稍后重试', icon: 'none' })
     }
   }
 
