@@ -16,7 +16,9 @@ UserID 在当前 SDKAppID 下不存在。根因是 `app_user_im_account.sync_sta
 3. 当前用户签发凭证和会话对方账号检查均经过同一归属校验，不再只相信本地 `synced` 状态；
 4. 已属于当前 SDKAppID 的映射直接本地复用，不重复调用腾讯云；
 5. 新增幂等迁移 `076_prd03_im_account_sdk_app_id.sql`，存量归属保持 NULL，首次访问时按真实导入结果回填，
-   不伪造历史归属，也不更换 UserID。
+   不伪造历史归属，也不更换 UserID；
+6. 已停留在旧聊天页的用户重发遇到腾讯 `20003` 时，先请求会话详情触发对方账号自愈，再复用原
+   `clientMsgId` 单次重发；恢复失败只显示业务提示，不再暴露腾讯原始错误和 UserID。
 
 ### 自动化与数据库证据
 
@@ -27,6 +29,8 @@ UserID 在当前 SDKAppID 下不存在。根因是 `app_user_im_account.sync_sta
 | 后端全量 | Java 21 执行 `mvn test` | 777 条通过，0 失败、0 错误、0 跳过，`BUILD SUCCESS` |
 | 开发库迁移 | 对开发 MySQL 连续执行两次 `076` 并查询 `information_schema.COLUMNS` | 两次均成功；`sdk_app_id bigint NULL` 与中文注释存在，证明可重复执行 |
 | TIM 生产配置门禁 | `node scripts/test-prod-tencent-im-config.mjs` | 通过；未输出或写入 SecretKey、UserSig、Token |
+| 小程序消息专项 | `npm run validate:message-closure` | 18 条通过，0 失败；新增旧聊天页 `20003` 识别、自愈和原请求重发契约 |
+| 小程序静态检查 | 变更的消息运行时与私信页执行 ESLint | 通过，0 错误 |
 | 微信正式构建 | `npm run build:weapp` | 全部前置门禁与编译通过；84 个页面注册通过；主包 1.37 MiB、总包 2.69 MiB |
 | 差异质量 | `git diff --check` | 通过，无空白错误 |
 
@@ -45,9 +49,10 @@ UserID 在当前 SDKAppID 下不存在。根因是 `app_user_im_account.sync_sta
 | 凭证鉴权边界 | 未携带登录态访问生产凭证端点返回 HTTP 401，未绕过认证或使用虚构 Token |
 
 生产迁移与新容器已上线。下一次当前用户获取 IM 凭证时会校验并回填自己的 SDKAppID 归属；进入有效私信
-会话时会对对方执行同一校验，存量 NULL/旧归属会使用原稳定 UserID 自动重导入。真实 LiteChat 双账号互发
-仍必须使用两个有效生产小程序登录态；当前自动化环境没有第二套生产登录态，因此 `EXT03-10` 的真机互发
-保留为用户重试确认项，不以 Mock、单元测试或未认证请求冒充生产互发通过。
+会话时会对对方执行同一校验，存量 NULL/旧归属会使用原稳定 UserID 自动重导入。已经停留在旧聊天页的用户
+点击“重新发送”也会先触发相同自愈，不要求手工复制错误或清理缓存。真实 LiteChat 双账号互发仍必须使用
+两个有效生产小程序登录态；当前自动化环境没有第二套生产登录态，因此 `EXT03-10` 的真机互发保留为用户
+重试确认项，不以 Mock、单元测试或未认证请求冒充生产互发通过。
 
 ## 2026-08-16 历史会话对方 TIM 账号自愈报告
 
