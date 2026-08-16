@@ -202,6 +202,29 @@ test('LiteChat 网关固定精确版本并具备凭证刷新、文本发送、�
   assert.match(app, /messagePlatformRuntime/)
 })
 
+test('LiteChat 单聊会话号严格使用 C2C 加 UserID 且兼容已下发的错误分隔符', () => {
+  const {
+    normalizeTimC2CConversationId,
+    resolveTimC2CTargetUserId,
+  } = requireDomain('src/domain/messageRuntime.ts')
+
+  assert.equal(typeof normalizeTimC2CConversationId, 'function')
+  assert.equal(typeof resolveTimC2CTargetUserId, 'function')
+  assert.equal(normalizeTimC2CConversationId('C2Ctu_peer_2'), 'C2Ctu_peer_2')
+  assert.equal(normalizeTimC2CConversationId('C2C_tu_peer_2'), 'C2Ctu_peer_2')
+  assert.equal(resolveTimC2CTargetUserId('C2Ctu_peer_2'), 'tu_peer_2')
+  assert.equal(resolveTimC2CTargetUserId('C2C_tu_peer_2'), 'tu_peer_2')
+  assert.throws(() => resolveTimC2CTargetUserId('GROUP10001'), /TIM 单聊会话标识无效/)
+
+  const gateway = read('src/im/LiteChatMessageImGateway.ts')
+  assert.match(gateway, /normalizeTimC2CConversationId\(timConversationId\)/)
+  assert.match(gateway, /resolveTimC2CTargetUserId\(timConversationId\)/)
+  assert.match(gateway, /raw\.to !== targetUserId/)
+  assert.match(gateway, /chat\.createTextMessage/)
+  assert.doesNotMatch(gateway, /timConversationId\.slice\(3\)/)
+  assert.doesNotMatch(gateway, /retry\(_timConversationId:/)
+})
+
 test('旧聊天页重发遇到 TIM 20003 时先触发账号自愈再安全重发', () => {
   const { isTimAccountMissingError } = requireDomain('src/domain/messageRuntime.ts')
   assert.equal(typeof isTimAccountMissingError, 'function')

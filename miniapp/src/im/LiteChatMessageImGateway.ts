@@ -2,6 +2,10 @@ import TencentCloudChat, {
   type Conversation as TencentConversation,
   type Message as TencentMessage,
 } from '@tencentcloud/lite-chat'
+import {
+  normalizeTimC2CConversationId,
+  resolveTimC2CTargetUserId,
+} from '../domain/messageRuntime'
 import type { ChatMessage, ImCredentials, TimConversationSnapshot } from '../types/message'
 import type {
   MessageHistoryPage,
@@ -119,7 +123,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
 
   async listHistory(timConversationId: string, cursor?: string): Promise<MessageHistoryPage> {
     const result = await this.requireChat().getMessageList({
-      conversationID: timConversationId,
+      conversationID: normalizeTimC2CConversationId(timConversationId),
       nextReqMessageID: cursor,
     })
     const rawList = (result?.data?.messageList || []) as TencentMessage[]
@@ -140,7 +144,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     if (!normalized) throw new Error('消息内容不能为空')
     const chat = this.requireReadyChat()
     const message = chat.createTextMessage({
-      to: timConversationId.startsWith('C2C') ? timConversationId.slice(3) : timConversationId,
+      to: resolveTimC2CTargetUserId(timConversationId),
       conversationType: TencentCloudChat.TYPES.CONV_C2C,
       payload: { text: normalized },
     })
@@ -158,19 +162,34 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     }
   }
 
-  async retry(_timConversationId: string, clientMsgId: string): Promise<ChatMessage> {
+  async retry(timConversationId: string, clientMsgId: string): Promise<ChatMessage> {
     const raw = this.rawMessages.get(clientMsgId)
     if (!raw) throw new Error('待重发消息已失效，请重新输入')
-    const result = await this.requireReadyChat().resendMessage(raw, {
-      messageControlInfo: { excludedFromContentModeration: true },
-    })
-    const sent = (result?.data?.message || raw) as TencentMessage
+    const chat = this.requireReadyChat()
+    const targetUserId = resolveTimC2CTargetUserId(timConversationId)
+    const mustRecreate = raw.to !== targetUserId
+    const candidate = mustRecreate
+      ? chat.createTextMessage({
+          to: targetUserId,
+          conversationType: TencentCloudChat.TYPES.CONV_C2C,
+          payload: { text: textOf(raw.payload?.text) },
+        })
+      : raw
+    this.rawMessages.set(clientMsgId, candidate)
+    const options = { messageControlInfo: { excludedFromContentModeration: true } }
+    const result = mustRecreate
+      ? await chat.sendMessage(candidate, options)
+      : await chat.resendMessage(candidate, options)
+    const sent = (result?.data?.message || candidate) as TencentMessage
     this.rawMessages.set(sent.ID, sent)
-    return normalizeMessage(sent)
+    const normalized = normalizeMessage(sent)
+    return mustRecreate ? { ...normalized, clientMsgId } : normalized
   }
 
   async markRead(timConversationId: string): Promise<void> {
-    await this.requireReadyChat().setMessageRead({ conversationID: timConversationId })
+    await this.requireReadyChat().setMessageRead({
+      conversationID: normalizeTimC2CConversationId(timConversationId),
+    })
   }
 
   onEvent(listener: (event: MessageImEvent) => void): () => void {

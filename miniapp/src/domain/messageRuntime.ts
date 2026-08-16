@@ -130,6 +130,25 @@ export function isTimAccountMissingError(error: unknown): boolean {
   return /(?:^|[{,\s])["']?code["']?\s*[:=]\s*20003(?:\D|$)/i.test(message)
 }
 
+/**
+ * LiteChat 单聊会话号固定为 `C2C${userID}`。
+ * 兼容历史错误值 `C2C_tu_*`，避免继续把不存在的 `_tu_*` 当作接收方。
+ */
+export function normalizeTimC2CConversationId(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('TIM 单聊会话标识无效')
+  const normalized = value.trim()
+  if (!normalized.startsWith('C2C')) throw new Error('TIM 单聊会话标识无效')
+
+  let targetUserId = normalized.slice(3)
+  if (targetUserId.startsWith('_tu_')) targetUserId = targetUserId.slice(1)
+  if (!targetUserId.startsWith('tu_')) throw new Error('TIM 单聊会话标识无效')
+  return `C2C${targetUserId}`
+}
+
+export function resolveTimC2CTargetUserId(timConversationId: unknown): string {
+  return normalizeTimC2CConversationId(timConversationId).slice(3)
+}
+
 /** 合并同一业务键的并发请求；请求结束后允许下一次主动刷新。 */
 export function createKeyedSingleFlight(): KeyedSingleFlight {
   let activeKey: string | undefined
