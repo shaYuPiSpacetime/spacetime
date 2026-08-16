@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.net.URI;
@@ -97,6 +98,29 @@ class TencentInstantMessageProviderTest {
         assertThat(credential.expireAt()).isEqualTo(Instant.parse("2026-08-11T09:00:00Z"));
         assertThat(transport.uri.getPath()).isEqualTo("/v4/im_open_login_svc/account_import");
         verify(accountDao).updateById(any(AppUserImAccount.class));
+    }
+
+    @Test
+    void shouldCreateAndImportMissingAccountOnDemand() throws Exception {
+        when(accountDao.selectByUserId(22L)).thenReturn(null);
+        transport.responseBody = "{\"ActionStatus\":\"OK\",\"ErrorCode\":0,\"ErrorInfo\":\"\"}";
+
+        provider.syncAccount(22L, "历史会话用户", "https://example.com/avatar.png");
+
+        ArgumentCaptor<AppUserImAccount> accountCaptor =
+                ArgumentCaptor.forClass(AppUserImAccount.class);
+        verify(accountDao).insert(accountCaptor.capture());
+        AppUserImAccount created = accountCaptor.getValue();
+        assertThat(created.getUserId()).isEqualTo(22L);
+        assertThat(created.getImUserId()).startsWith("tu_").hasSize(27);
+        assertThat(created.getSyncStatus()).isEqualTo("synced");
+        assertThat(transport.uri.getPath()).isEqualTo("/v4/im_open_login_svc/account_import");
+        JsonNode request = objectMapper.readTree(transport.requestBody);
+        assertThat(request.path("UserID").asText()).isEqualTo(created.getImUserId());
+        assertThat(request.path("Nick").asText()).isEqualTo("历史会话用户");
+        assertThat(request.path("FaceUrl").asText())
+                .isEqualTo("https://example.com/avatar.png");
+        verify(accountDao).updateById(created);
     }
 
     private AppUserImAccount synced(Long userId, String imUserId) {

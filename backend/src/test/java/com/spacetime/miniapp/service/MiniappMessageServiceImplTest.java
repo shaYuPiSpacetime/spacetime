@@ -20,7 +20,10 @@ import com.spacetime.common.enums.MessageConversationStatusEnum;
 import com.spacetime.common.enums.MessageDeliveryStatusEnum;
 import com.spacetime.common.enums.MessageSendStatusEnum;
 import com.spacetime.common.enums.MessageWhisperStatusEnum;
+import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.model.message.WhisperReplyResult;
+import com.spacetime.common.provider.InstantMessageAccountProvider;
+import com.spacetime.common.provider.InstantMessageException;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.MessageDomainService;
 import com.spacetime.common.service.MessageAnnouncementHydrationService;
@@ -59,9 +62,11 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -86,6 +91,7 @@ class MiniappMessageServiceImplTest {
     @Mock private RelationAccessProjectionService accessProjectionService;
     @Mock private MiniappSettingService settingService;
     @Mock private MiniappRelationService relationService;
+    @Mock private InstantMessageAccountProvider accountProvider;
 
     private MiniappMessageServiceImpl service;
     private LocalDateTime now;
@@ -97,7 +103,7 @@ class MiniappMessageServiceImplTest {
                 imAccountDao, assistantMessageDao, systemMessageDao, auditContentService,
                 messageDomainService, notificationDomainService, announcementHydrationService,
                 accessProjectionService,
-                settingService, relationService);
+                settingService, relationService, accountProvider);
         now = LocalDateTime.of(2026, 8, 10, 12, 0);
     }
 
@@ -277,7 +283,65 @@ class MiniappMessageServiceImplTest {
         assertThat(result.getSafetyActions())
                 .containsExactly("report_chat", "block", "block_and_report");
         assertThat(result.getFemaleProtection().getEnabled()).isFalse();
+        verify(accountProvider, never()).syncAccount(any(), any(), any());
         verify(recordDao, never()).selectHistory(any(), any(), any(Integer.class));
+    }
+
+    @Test
+    @DisplayName("有效会话缺少对方TIM映射时自动创建并同步账号")
+    void conversationDetailShouldProvisionMissingPeerImAccount() {
+        AppMessageConversation conversation = conversation();
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
+        when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+        when(imAccountDao.selectByUserId(2L))
+                .thenReturn(null, imAccount(2L, "tu_peer_2"));
+
+        MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
+
+        assertThat(result.getTimConversationId()).isEqualTo("C2C_tu_peer_2");
+        assertThat(result.getCanEnterConversation()).isTrue();
+        assertThat(result.getCanSend()).isTrue();
+        verify(accountProvider).syncAccount(2L, "小月", "avatar-2");
+    }
+
+    @Test
+    @DisplayName("有效会话的对方TIM映射待同步时自动完成同步")
+    void conversationDetailShouldSyncPendingPeerImAccount() {
+        AppMessageConversation conversation = conversation();
+        AppUserImAccount pending = imAccount(2L, "tu_peer_2");
+        pending.setSyncStatus("pending");
+        AppUserImAccount synced = imAccount(2L, "tu_peer_2");
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
+        when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+        when(imAccountDao.selectByUserId(2L)).thenReturn(pending, synced);
+
+        MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
+
+        assertThat(result.getTimConversationId()).isEqualTo("C2C_tu_peer_2");
+        verify(accountProvider).syncAccount(2L, "小月", "avatar-2");
+    }
+
+    @Test
+    @DisplayName("对方TIM账号同步失败时保持30023且不返回虚假会话状态")
+    void conversationDetailShouldReturn30023WhenPeerImSyncFails() {
+        AppMessageConversation conversation = conversation();
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
+        when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+        when(imAccountDao.selectByUserId(2L)).thenReturn(null);
+        doThrow(new InstantMessageException("TIM_70002", "签名无效", false))
+                .when(accountProvider).syncAccount(2L, "小月", "avatar-2");
+
+        assertThatThrownBy(() -> service.conversationDetail(1L, "CV-1"))
+                .isInstanceOfSatisfying(BusinessException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(30023);
+                    assertThat(ex.getMessage()).isEqualTo("对方即时通信账号暂不可用");
+                });
     }
 
     @Test

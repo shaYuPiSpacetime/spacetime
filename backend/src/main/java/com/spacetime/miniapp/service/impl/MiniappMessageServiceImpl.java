@@ -17,12 +17,15 @@ import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserImAccount;
 import com.spacetime.common.entity.AppSystemMessage;
 import com.spacetime.common.enums.AccountStatusEnum;
+import com.spacetime.common.enums.ImAccountSyncStatusEnum;
 import com.spacetime.common.enums.MessageConversationStatusEnum;
 import com.spacetime.common.enums.MessageDeliveryStatusEnum;
 import com.spacetime.common.enums.MessageWhisperStatusEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.model.message.WhisperReplyResult;
+import com.spacetime.common.provider.InstantMessageAccountProvider;
+import com.spacetime.common.provider.InstantMessageException;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.MessageDomainService;
 import com.spacetime.common.service.MessageAnnouncementHydrationService;
@@ -117,6 +120,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
     private final RelationAccessProjectionService accessProjectionService;
     private final MiniappSettingService settingService;
     private final MiniappRelationService relationService;
+    private final InstantMessageAccountProvider accountProvider;
 
     @Override
     public MessageHomeVO home(Long userId, String cursor, int size) {
@@ -360,8 +364,11 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
                 : new SendPermission(true, false, "conversation_invalid");
         boolean canReportChat = recordDao.existsReportableIncomingText(
                 conversation.getId(), userId);
+        AppUser peer = active ? appUserDao.selectById(peerId) : null;
+        String peerAvatar = active ? auditContentService.publicAvatar(peerId) : null;
         String timConversationId = active
-                ? timConversationId(peerId) : optionalTimConversationId(peerId);
+                ? activeTimConversationId(peerId, peer, peerAvatar)
+                : optionalTimConversationId(peerId);
 
         MessageFemaleProtectionVO protection = new MessageFemaleProtectionVO();
         protection.setEnabled(Integer.valueOf(1).equals(conversation.getProtectionEnabled()));
@@ -374,8 +381,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         result.setConversationStatus(conversation.getStatus());
         result.setAccessMode(active ? "normal" : "safety_readonly");
         MessagePeerUserVO peerUser = active
-                ? toPeerUser(peerId, appUserDao.selectById(peerId),
-                        auditContentService.publicAvatar(peerId))
+                ? toPeerUser(peerId, peer, peerAvatar)
                 : toSafetyReadonlyPeer(peerId);
         result.setPeerUser(peerUser);
         result.setCanEnterConversation(permission.canEnter() && timConversationId != null);
@@ -854,9 +860,21 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         return "received".equals(direction) ? whisper.getSenderUserId() : whisper.getReceiverUserId();
     }
 
-    private String timConversationId(Long peerUserId) {
-        return timConversationId(peerUserId,
-                peerUserId == null ? Map.of() : Map.of(peerUserId, requireImAccount(peerUserId)));
+    private String activeTimConversationId(Long peerUserId, AppUser peer, String avatarUrl) {
+        AppUserImAccount account = imAccountDao.selectByUserId(peerUserId);
+        if (!isSyncedImAccount(account)) {
+            try {
+                accountProvider.syncAccount(peerUserId,
+                        peer == null ? null : peer.getNickname(), avatarUrl);
+            } catch (InstantMessageException ex) {
+                throw new BusinessException(MESSAGE_IM_UNAVAILABLE, "对方即时通信账号暂不可用");
+            }
+            account = imAccountDao.selectByUserId(peerUserId);
+        }
+        if (!isSyncedImAccount(account)) {
+            throw new BusinessException(MESSAGE_IM_UNAVAILABLE, "对方即时通信账号暂不可用");
+        }
+        return "C2C_" + account.getImUserId();
     }
 
     private String optionalTimConversationId(Long peerUserId) {
@@ -868,20 +886,10 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
                 ? null : "C2C_" + account.getImUserId();
     }
 
-    private String timConversationId(Long peerUserId, Map<Long, AppUserImAccount> accounts) {
-        AppUserImAccount account = peerUserId == null ? null : accounts.get(peerUserId);
-        if (account == null || !StringUtils.hasText(account.getImUserId())) {
-            throw new BusinessException(MESSAGE_IM_UNAVAILABLE, "对方即时通信账号暂不可用");
-        }
-        return "C2C_" + account.getImUserId();
-    }
-
-    private AppUserImAccount requireImAccount(Long peerUserId) {
-        AppUserImAccount account = imAccountDao.selectByUserId(peerUserId);
-        if (account == null || !StringUtils.hasText(account.getImUserId())) {
-            throw new BusinessException(MESSAGE_IM_UNAVAILABLE, "对方即时通信账号暂不可用");
-        }
-        return account;
+    private boolean isSyncedImAccount(AppUserImAccount account) {
+        return account != null
+                && StringUtils.hasText(account.getImUserId())
+                && ImAccountSyncStatusEnum.SYNCED.getCode().equals(account.getSyncStatus());
     }
 
     private boolean canReply(AppMessageWhisper whisper, String direction, LocalDateTime now) {
