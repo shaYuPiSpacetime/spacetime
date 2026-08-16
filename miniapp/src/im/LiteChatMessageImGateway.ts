@@ -7,6 +7,7 @@ import {
   resolveTimC2CTargetUserId,
 } from '../domain/messageRuntime'
 import type { ChatMessage, ImCredentials, TimConversationSnapshot } from '../types/message'
+import { createLiteChatC2CReadPlugin } from './LiteChatC2CReadPlugin'
 import type {
   MessageHistoryPage,
   MessageImEvent,
@@ -74,7 +75,7 @@ function conversationPreview(conversation: TencentConversation): string {
   return ''
 }
 
-/** 腾讯 LiteChat V4 标准适配器；原始 SDK 消息只保存在本实例内存用于失败重发。 */
+/** 腾讯 LiteChat V4 轻量适配器；原始 SDK 消息只保存在本实例内存用于失败重发。 */
 export class LiteChatMessageImGateway implements MessageImGateway {
   private chat?: ChatSdk
   private sdkAppId?: number
@@ -83,6 +84,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
   private rawMessages = new Map<string, TencentMessage>()
   private listeners = new Set<(event: MessageImEvent) => void>()
   private initializing?: Promise<void>
+  private readonly c2cReadPlugin = createLiteChatC2CReadPlugin()
 
   initialize(credentials: ImCredentials): Promise<void> {
     if (
@@ -110,6 +112,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     this.sdkAppId = Number(credentials.sdkAppId)
     this.currentUserId = credentials.imUserId
     this.chat = TencentCloudChat.create({ SDKAppID: this.sdkAppId })
+    this.chat.use(this.c2cReadPlugin)
     this.attachEvents(this.chat)
     await this.chat.login({ userID: credentials.imUserId, userSig: credentials.userSig })
   }
@@ -200,9 +203,15 @@ export class LiteChatMessageImGateway implements MessageImGateway {
   }
 
   async markRead(timConversationId: string): Promise<void> {
-    await this.requireReadyChat().setMessageRead({
-      conversationID: normalizeTimC2CConversationId(timConversationId),
-    })
+    this.requireReadyChat()
+    const conversationId = normalizeTimC2CConversationId(timConversationId)
+    const lastReadTime = Math.max(
+      0,
+      ...[...this.rawMessages.values()]
+        .filter(message => message.conversationID === conversationId)
+        .map(message => Number(message.time) || 0),
+    )
+    if (lastReadTime > 0) await this.c2cReadPlugin.markRead(conversationId, lastReadTime)
   }
 
   onEvent(listener: (event: MessageImEvent) => void): () => void {

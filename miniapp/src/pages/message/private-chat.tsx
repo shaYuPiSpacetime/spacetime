@@ -7,6 +7,7 @@ import {
   isTimAccountMissingError,
   resolveConversationSendBlockedReason,
   resolveMessageError,
+  waitForMessageGatewayReady,
   withMessageTimeout,
 } from '@/domain/messageRuntime'
 import { loadMessageImGateway } from '@/im/loadMessageImGateway'
@@ -72,16 +73,22 @@ export default function PrivateChatPage() {
       const lastIncoming = [...rendered].reverse().find(item => item.direction === 'incoming')
       const lastMessageNo = lastIncoming?.messageNo || lastIncoming?.timMessageId
       if (!lastMessageNo) return
+      const hasPlatformMessageNo = Boolean(
+        lastIncoming?.messageNo && lastIncoming.messageNo !== lastIncoming.timMessageId,
+      )
       const ackKey = `${conversationNo}:${lastMessageNo}`
       if (readAckKey.current === ackKey) return
       try {
-        await gateway.markRead(gatewayId)
-        await service.markConversationRead(
-          conversationNo,
-          lastMessageNo,
-          lastIncoming?.timMessageId,
-          lastIncoming?.timMsgKey,
-        )
+        const [, platformRead] = await Promise.allSettled([
+          gateway.markRead(gatewayId),
+          service.markConversationRead(
+            conversationNo,
+            lastMessageNo,
+            hasPlatformMessageNo ? undefined : lastIncoming?.timMessageId,
+            hasPlatformMessageNo ? undefined : lastIncoming?.timMsgKey,
+          ),
+        ])
+        if (platformRead.status === 'rejected') throw platformRead.reason
         readAckKey.current = ackKey
         if (!isMockScene) await messagePlatformRuntime.refreshUnread()
       } catch (error) {
@@ -158,8 +165,12 @@ export default function PrivateChatPage() {
             CONNECTION_TIMEOUT_MS,
             '私信连接超时，请重试',
           )
+          await waitForMessageGatewayReady(
+            gateway,
+            CONNECTION_TIMEOUT_MS,
+            '私信连接超时，请重试',
+          )
         }
-        if (!gateway.isReady()) throw new Error('私信仍在连接，请稍后重试')
         setConnectionState('ready')
         return gateway
       } catch (error) {

@@ -54,6 +54,44 @@ export function withMessageTimeout<T>(
   })
 }
 
+type MessageGatewayReadyProbe = {
+  isReady(): boolean
+  onEvent(listener: (event: { type: string }) => void): () => void
+}
+
+/** LiteChat 登录 Promise 可能早于 SDK_READY 完成，历史消息必须等到真正就绪后再拉取。 */
+export function waitForMessageGatewayReady(
+  gateway: MessageGatewayReadyProbe,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<void> {
+  if (gateway.isReady()) return Promise.resolve()
+
+  return new Promise<void>((resolve, reject) => {
+    let settled = false
+    let unsubscribe = () => undefined
+    const finish = (error?: Error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      unsubscribe()
+      if (error) reject(error)
+      else resolve()
+    }
+    const timer = setTimeout(
+      () => finish(new Error(timeoutMessage)),
+      Math.max(1, timeoutMs),
+    )
+    const subscribed = gateway.onEvent(event => {
+      if (event.type === 'ready' || gateway.isReady()) finish()
+      else if (event.type === 'kicked_out') finish(new Error('私信登录已失效，请重新进入'))
+    })
+    unsubscribe = subscribed
+    if (settled) unsubscribe()
+    else if (gateway.isReady()) finish()
+  })
+}
+
 const ERROR_ACTIONS: Record<number, Omit<MessageErrorResolution, 'code'>> = {
   30001: { action: 'restrict', message: '当前账号暂不可使用消息功能', retryable: false },
   30002: { action: 'refresh_relation', message: '当前关系状态不允许发送', retryable: false },

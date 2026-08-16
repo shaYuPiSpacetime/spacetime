@@ -183,13 +183,15 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
 test('LiteChat 网关固定精确版本并具备凭证刷新、文本发送、历史、事件和已读', () => {
   const packageJson = JSON.parse(read('package.json'))
   const gateway = read('src/im/LiteChatMessageImGateway.ts')
+  const c2cReadPlugin = read('src/im/LiteChatC2CReadPlugin.ts')
   const runtime = read('src/im/messageRuntime.ts')
 
   assert.equal(packageJson.dependencies['@tencentcloud/lite-chat'], '4.4.2')
   assert.match(gateway, /createTextMessage/)
   assert.match(gateway, /sendMessage/)
   assert.match(gateway, /getMessageList/)
-  assert.match(gateway, /setMessageRead/)
+  assert.match(gateway, /c2cReadPlugin\.markRead/)
+  assert.match(c2cReadPlugin, /openim\.msgreaded/)
   assert.match(runtime, /MESSAGE_RECEIVED/)
   assert.match(runtime, /CONVERSATION_LIST_UPDATED/)
   assert.match(runtime, /10\s*\*\s*60/)
@@ -298,6 +300,7 @@ test('私信首屏按需加载轻量 TIM 且连接异常不会无限卡住交互
   const channel = read('src/pages/message/channel.tsx')
   const gatewayLoader = read('src/im/loadMessageImGateway.ts')
   const liteChatGateway = read('src/im/LiteChatMessageImGateway.ts')
+  const c2cReadPlugin = read('src/im/LiteChatC2CReadPlugin.ts')
   const appConfig = read('src/app.config.ts')
 
   await assert.rejects(
@@ -315,7 +318,74 @@ test('私信首屏按需加载轻量 TIM 且连接异常不会无限卡住交互
   assert.match(channel, /messagePlatformRuntime/)
   assert.match(gatewayLoader, /import\(['"]\.\/LiteChatMessageImGateway['"]\)/)
   assert.match(liteChatGateway, /from ['"]@tencentcloud\/lite-chat\/basic['"]/, '文本私信只加载 LiteChat 基础包')
+  assert.doesNotMatch(liteChatGateway, /@tencentcloud\/lite-chat\/plugins\/conversation/, '私信页不得引入 50 KiB 完整会话插件')
+  assert.match(liteChatGateway, /createLiteChatC2CReadPlugin/, '基础包必须补齐单聊已读能力')
+  assert.match(liteChatGateway, /chat\.use\(this\.c2cReadPlugin\)/, '登录前必须注册轻量单聊已读插件')
+  assert.match(c2cReadPlugin, /servcmd:\s*['"]openim\.msgreaded['"]/, '轻量插件必须调用 TIM 单聊已读命令')
+  assert.match(privateChat, /Promise\.allSettled\(\[\s*gateway\.markRead\(gatewayId\),\s*service\.markConversationRead\(/, 'TIM 与平台已读应独立上报')
   assert.match(appConfig, /preloadRule:[\s\S]*['"]pages\/chat\/index['"][\s\S]*packages:\s*\[['"]pages\/message['"]\]/)
+})
+
+test('轻量 TIM 单聊已读插件只上报当前会话最新消息时间', async () => {
+  const {
+    buildLiteChatC2CReadPayload,
+    createLiteChatC2CReadPlugin,
+  } = requireDomain('src/im/LiteChatC2CReadPlugin.ts')
+  assert.deepEqual(buildLiteChatC2CReadPayload('C2Ctu_peer', 1_786_766_016), {
+    C2CMsgReaded: {
+      Cookie: '',
+      C2CMsgReadedItem: [{
+        To_Account: 'tu_peer',
+        LastedMsgTime: 1_786_766_016,
+        Receipt: 1,
+      }],
+    },
+  })
+  assert.throws(() => buildLiteChatC2CReadPayload('GROUPdemo', 1), /TIM 单聊会话号无效/)
+  assert.throws(() => buildLiteChatC2CReadPayload('C2Ctu_peer', 0), /最新消息时间无效/)
+
+  const packets = []
+  const plugin = createLiteChatC2CReadPlugin()
+  plugin.install({
+    common: {
+      buildAndSendPacket: async options => packets.push(options),
+    },
+  })
+  await plugin.markRead('C2Ctu_peer', 1_786_766_016)
+  assert.equal(plugin.name, 'SpacetimeC2CRead')
+  assert.deepEqual(packets, [{
+    servcmd: 'openim.msgreaded',
+    data: buildLiteChatC2CReadPayload('C2Ctu_peer', 1_786_766_016),
+  }])
+})
+
+test('TIM 登录返回早于 SDK_READY 时必须等待就绪后再拉取历史', async () => {
+  const { waitForMessageGatewayReady } = requireDomain('src/domain/messageRuntime.ts')
+  let ready = false
+  let listener = () => undefined
+  let unsubscribed = false
+  const gateway = {
+    isReady: () => ready,
+    onEvent: callback => {
+      listener = callback
+      return () => {
+        unsubscribed = true
+      }
+    },
+  }
+
+  const waiting = waitForMessageGatewayReady(gateway, 100, '私信连接超时，请重试')
+  setTimeout(() => {
+    ready = true
+    listener({ type: 'ready' })
+  }, 5)
+
+  await waiting
+  assert.equal(unsubscribed, true, 'SDK_READY 后必须清理临时事件监听')
+
+  const privateChat = read('src/pages/message/private-chat.tsx')
+  assert.match(privateChat, /waitForMessageGatewayReady\(\s*gateway/)
+  assert.doesNotMatch(privateChat, /if \(!gateway\.isReady\(\)\) throw new Error\('私信仍在连接/)
 })
 
 test('悄悄话详情直接使用平台正文且不扫描 TIM 历史', () => {
@@ -346,6 +416,8 @@ test('页面移除硬编码私信和退役悄悄话交互，接入受限态与�
   assert.doesNotMatch(privateList, /const designRows/)
   assert.match(privateChat, /canSend/)
   assert.match(privateChat, /lastMessageNo/)
+  assert.match(privateChat, /const hasPlatformMessageNo = Boolean\(/, '存在平台 messageNo 时应以平台编号推进已读')
+  assert.match(privateChat, /hasPlatformMessageNo \? undefined : lastIncoming\?\.timMessageId/, '历史迁移消息不得用旧 TIM 定位字段否决平台 messageNo')
   assert.match(privateChat, /onLongPress/)
   assert.match(privateChat, /sourceType=private_chat/)
   assert.match(privateChat, /targetId=\$\{encodeURIComponent\(conversationNo\)\}/)
