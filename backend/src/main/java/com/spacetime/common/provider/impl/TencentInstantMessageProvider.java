@@ -120,7 +120,10 @@ public class TencentInstantMessageProvider implements InstantMessageProvider, In
         if (ImAccountSyncStatusEnum.DISABLED.getCode().equals(account.getSyncStatus())) {
             throw new InstantMessageException("TIM_ACCOUNT_DISABLED", "腾讯云TIM账号已禁用", false);
         }
-        if (ImAccountSyncStatusEnum.SYNCED.getCode().equals(account.getSyncStatus())) return account;
+        if (ImAccountSyncStatusEnum.SYNCED.getCode().equals(account.getSyncStatus())
+                && Long.valueOf(properties.getSdkAppId()).equals(account.getSdkAppId())) {
+            return account;
+        }
 
         ObjectNode request = objectMapper.createObjectNode();
         request.put("UserID", account.getImUserId());
@@ -128,6 +131,7 @@ public class TencentInstantMessageProvider implements InstantMessageProvider, In
         if (!isBlank(avatarUrl)) request.put("FaceUrl", avatarUrl);
         try {
             call("/v4/im_open_login_svc/account_import", request);
+            account.setSdkAppId(properties.getSdkAppId());
             account.setSyncStatus(ImAccountSyncStatusEnum.SYNCED.getCode());
             account.setSyncedAt(LocalDateTime.ofInstant(clock.instant(), BUSINESS_ZONE));
             account.setLastErrorCode(null);

@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public class AppUserImAccount extends BaseEntity {
     private Long userId;
     private String imUserId;
+    private Long sdkAppId;
     private String syncStatus;
     private LocalDateTime syncedAt;
     private LocalDateTime disabledAt;

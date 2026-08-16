@@ -861,16 +861,13 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
     }
 
     private String activeTimConversationId(Long peerUserId, AppUser peer, String avatarUrl) {
-        AppUserImAccount account = imAccountDao.selectByUserId(peerUserId);
-        if (!isSyncedImAccount(account)) {
-            try {
-                accountProvider.syncAccount(peerUserId,
-                        peer == null ? null : peer.getNickname(), avatarUrl);
-            } catch (InstantMessageException ex) {
-                throw new BusinessException(MESSAGE_IM_UNAVAILABLE, "对方即时通信账号暂不可用");
-            }
-            account = imAccountDao.selectByUserId(peerUserId);
+        try {
+            accountProvider.syncAccount(peerUserId,
+                    peer == null ? null : peer.getNickname(), avatarUrl);
+        } catch (InstantMessageException ex) {
+            throw new BusinessException(MESSAGE_IM_UNAVAILABLE, "对方即时通信账号暂不可用");
         }
+        AppUserImAccount account = imAccountDao.selectByUserId(peerUserId);
         if (!isSyncedImAccount(account)) {
             throw new BusinessException(MESSAGE_IM_UNAVAILABLE, "对方即时通信账号暂不可用");
         }

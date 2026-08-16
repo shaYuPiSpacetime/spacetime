@@ -307,6 +307,7 @@ CREATE TABLE IF NOT EXISTS `app_user_im_account` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `user_id` BIGINT NOT NULL COMMENT '本项目用户ID',
     `im_user_id` VARCHAR(64) NOT NULL COMMENT '不含手机号昵称的稳定腾讯云TIM用户账号',
+    `sdk_app_id` BIGINT NULL COMMENT '最近一次同步成功所属的腾讯云TIM SDKAppID',
     `sync_status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '同步状态：pending-待同步，synced-已同步，disabled-已禁用，failed-同步失败',
     `synced_at` DATETIME NULL COMMENT '最近一次同步成功时间',
     `disabled_at` DATETIME NULL COMMENT '腾讯云TIM账号禁用时间',

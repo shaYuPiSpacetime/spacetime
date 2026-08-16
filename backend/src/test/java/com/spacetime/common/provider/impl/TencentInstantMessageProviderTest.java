@@ -23,6 +23,7 @@ import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -123,7 +124,53 @@ class TencentInstantMessageProviderTest {
         verify(accountDao).updateById(created);
     }
 
+    @Test
+    void shouldReimportLegacySyncedAccountWithoutSdkAppOwnership() {
+        AppUserImAccount legacy = legacySynced(22L, "tu_legacy_peer");
+        when(accountDao.selectByUserId(22L)).thenReturn(legacy);
+        transport.responseBody = "{\"ActionStatus\":\"OK\",\"ErrorCode\":0,\"ErrorInfo\":\"\"}";
+
+        provider.syncAccount(22L, "历史会话用户", null);
+
+        assertThat(transport.uri).isNotNull();
+        assertThat(transport.uri.getPath()).isEqualTo("/v4/im_open_login_svc/account_import");
+        assertThat(legacy.getSdkAppId()).isEqualTo(1400000001L);
+        verify(accountDao).updateById(legacy);
+    }
+
+    @Test
+    void shouldReimportSyncedAccountOwnedByAnotherSdkApp() {
+        AppUserImAccount stale = synced(22L, "tu_stale_peer");
+        stale.setSdkAppId(1400000000L);
+        when(accountDao.selectByUserId(22L)).thenReturn(stale);
+        transport.responseBody = "{\"ActionStatus\":\"OK\",\"ErrorCode\":0,\"ErrorInfo\":\"\"}";
+
+        provider.syncAccount(22L, "历史会话用户", null);
+
+        assertThat(transport.uri.getPath()).isEqualTo("/v4/im_open_login_svc/account_import");
+        assertThat(stale.getSdkAppId()).isEqualTo(1400000001L);
+        verify(accountDao).updateById(stale);
+    }
+
+    @Test
+    void shouldReuseSyncedAccountOwnedByCurrentSdkApp() {
+        AppUserImAccount current = synced(22L, "tu_current_peer");
+        when(accountDao.selectByUserId(22L)).thenReturn(current);
+
+        provider.syncAccount(22L, "当前会话用户", null);
+
+        assertThat(transport.uri).isNull();
+        verify(accountDao, never()).updateById(any(AppUserImAccount.class));
+    }
+
     private AppUserImAccount synced(Long userId, String imUserId) {
+        AppUserImAccount account = pending(userId, imUserId);
+        account.setSdkAppId(1400000001L);
+        account.setSyncStatus("synced");
+        return account;
+    }
+
+    private AppUserImAccount legacySynced(Long userId, String imUserId) {
         AppUserImAccount account = pending(userId, imUserId);
         account.setSyncStatus("synced");
         return account;

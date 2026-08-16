@@ -283,7 +283,7 @@ class MiniappMessageServiceImplTest {
         assertThat(result.getSafetyActions())
                 .containsExactly("report_chat", "block", "block_and_report");
         assertThat(result.getFemaleProtection().getEnabled()).isFalse();
-        verify(accountProvider, never()).syncAccount(any(), any(), any());
+        verify(accountProvider).syncAccount(2L, "小月", "avatar-2");
         verify(recordDao, never()).selectHistory(any(), any(), any(Integer.class));
     }
 
@@ -295,8 +295,7 @@ class MiniappMessageServiceImplTest {
         when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
         when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
         when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
-        when(imAccountDao.selectByUserId(2L))
-                .thenReturn(null, imAccount(2L, "tu_peer_2"));
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount(2L, "tu_peer_2"));
 
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
@@ -310,14 +309,12 @@ class MiniappMessageServiceImplTest {
     @DisplayName("有效会话的对方TIM映射待同步时自动完成同步")
     void conversationDetailShouldSyncPendingPeerImAccount() {
         AppMessageConversation conversation = conversation();
-        AppUserImAccount pending = imAccount(2L, "tu_peer_2");
-        pending.setSyncStatus("pending");
         AppUserImAccount synced = imAccount(2L, "tu_peer_2");
         when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
         when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
         when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
         when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
-        when(imAccountDao.selectByUserId(2L)).thenReturn(pending, synced);
+        when(imAccountDao.selectByUserId(2L)).thenReturn(synced);
 
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
@@ -333,7 +330,6 @@ class MiniappMessageServiceImplTest {
         when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
         when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
         when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
-        when(imAccountDao.selectByUserId(2L)).thenReturn(null);
         doThrow(new InstantMessageException("TIM_70002", "签名无效", false))
                 .when(accountProvider).syncAccount(2L, "小月", "avatar-2");
 

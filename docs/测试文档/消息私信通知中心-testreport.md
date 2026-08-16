@@ -1,5 +1,44 @@
 # 消息、私信与通知中心测试报告
 
+## 2026-08-16 TIM UserID 20003 跨应用归属自愈报告
+
+### 结论
+
+截图中的异常不是平台接口 `30023`，而是腾讯云 LiteChat 发送阶段返回 `20003`：消息发送方或接收方
+UserID 在当前 SDKAppID 下不存在。根因是 `app_user_im_account.sync_status=synced` 只表示历史上曾同步成功，
+没有记录当时所属的 SDKAppID；生产切换或迁移 TIM 应用后，旧映射被错误当成当前应用的有效账号，因而跳过
+`account_import` 并把无效 UserID 返回给小程序。
+
+本轮修复闭环如下：
+
+1. 账号映射新增可空 `sdk_app_id`，只在当前 TIM 应用导入成功后写入；
+2. 历史归属为空或与当前 SDKAppID 不一致时，保留原稳定 UserID 并重新调用当前应用的 `account_import`；
+3. 当前用户签发凭证和会话对方账号检查均经过同一归属校验，不再只相信本地 `synced` 状态；
+4. 已属于当前 SDKAppID 的映射直接本地复用，不重复调用腾讯云；
+5. 新增幂等迁移 `076_prd03_im_account_sdk_app_id.sql`，存量归属保持 NULL，首次访问时按真实导入结果回填，
+   不伪造历史归属，也不更换 UserID。
+
+### 自动化与数据库证据
+
+| 层级 | 命令/范围 | 结果 |
+|---|---|---|
+| TDD 失败基线 | 旧 `synced` 归属、会话 Provider 校验、数据库发布契约 | 修复前三条用例均按预期失败，分别命中三个缺口 |
+| 后端聚焦 | `TencentInstantMessageProviderTest,MiniappMessageServiceImplTest,MessageSchemaSqlTest` | 41 条通过，0 失败、0 错误、0 跳过 |
+| 后端全量 | Java 21 执行 `mvn test` | 777 条通过，0 失败、0 错误、0 跳过，`BUILD SUCCESS` |
+| 开发库迁移 | 对开发 MySQL 连续执行两次 `076` 并查询 `information_schema.COLUMNS` | 两次均成功；`sdk_app_id bigint NULL` 与中文注释存在，证明可重复执行 |
+| TIM 生产配置门禁 | `node scripts/test-prod-tencent-im-config.mjs` | 通过；未输出或写入 SecretKey、UserSig、Token |
+| 微信正式构建 | `npm run build:weapp` | 全部前置门禁与编译通过；84 个页面注册通过；主包 1.37 MiB、总包 2.69 MiB |
+| 差异质量 | `git diff --check` | 通过，无空白错误 |
+
+`node scripts/validate-prod-deploy-config.mjs` 仍会被既有
+`013_prd01_drop_legacy_audit_tables.sql` 的通用幂等规则拦截；该脚本在本轮改动前已存在同一失败，
+本轮未弱化安全门禁。新增 `076` 自身已通过 SQL 契约测试、开发库双执行和生产流水线清单校验。
+
+### 生产发布与外部验证
+
+生产发布、迁移和健康检查将在本次提交推送后补记。真实 LiteChat 双账号互发必须使用两个有效生产登录态；
+若当前自动化环境无法取得第二套用户登录态，将明确标记该项未执行，不以 Mock 或单元测试冒充生产互发通过。
+
 ## 2026-08-16 历史会话对方 TIM 账号自愈报告
 
 ### 结论

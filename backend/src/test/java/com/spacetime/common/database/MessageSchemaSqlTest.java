@@ -24,6 +24,8 @@ class MessageSchemaSqlTest {
             "deploy/sql/prod/074_prd03_remove_message_kms.sql";
     private static final String TIM_MESSAGE_LOOKUP_INDEX =
             "deploy/sql/prod/075_prd03_tim_message_lookup_index.sql";
+    private static final String IM_ACCOUNT_SDK_APP_OWNERSHIP =
+            "deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql";
     private static final String BACKEND_DEPLOY_WORKFLOW =
             ".github/workflows/deploy-backend-prod.yml";
     private static final List<String> TABLES = List.of(
@@ -108,6 +110,25 @@ class MessageSchemaSqlTest {
                 .contains("INDEX `idx_message_record_tim_message_id` (`tim_message_id`)");
         assertThat(workflow)
                 .contains("deploy/sql/prod/075_prd03_tim_message_lookup_index.sql");
+    }
+
+    @Test
+    @DisplayName("TIM 账号映射应记录 SDKAppID 归属并进入生产迁移")
+    void imAccountShouldTrackSdkAppOwnership() throws IOException {
+        String accountTable = tableSql(readProjectFile(MIGRATION), "app_user_im_account");
+        Path upgradePath = resolveProjectFile(IM_ACCOUNT_SDK_APP_OWNERSHIP);
+        String workflow = readProjectFile(BACKEND_DEPLOY_WORKFLOW);
+
+        assertThat(accountTable)
+                .contains("`sdk_app_id` BIGINT NULL COMMENT '最近一次同步成功所属的腾讯云TIM SDKAppID'");
+        assertThat(upgradePath).as("应提供 TIM 账号 SDKAppID 归属升级脚本").exists();
+        String upgradeSql = Files.readString(upgradePath, StandardCharsets.UTF_8);
+        assertThat(upgradeSql)
+                .contains("information_schema.COLUMNS")
+                .contains("ADD COLUMN `sdk_app_id` BIGINT NULL")
+                .doesNotContain("UPDATE `app_user_im_account` SET `sdk_app_id`");
+        assertThat(workflow)
+                .contains("deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql");
     }
 
     @Test
