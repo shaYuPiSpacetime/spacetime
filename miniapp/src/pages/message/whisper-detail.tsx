@@ -7,6 +7,8 @@ import {
   resolveStableWhisperTargetUserNo,
   resolveWhisperErrorMessage,
   resolveWhisperRouteSourceScene,
+  resolveWhisperStatusDescription,
+  shouldInlineWhisperSubmitError,
 } from '@/domain/whisperRuntime'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
@@ -96,12 +98,11 @@ export default function WhisperDetailPage() {
     : record?.peerUser.nickname || '用户已注销'
   const profileMeta = router.params.meta ? decodeURIComponent(router.params.meta) : '资料待完善'
   const statusTitle = record?.displayStatus || (directCompose ? '发起申请' : '等待处理')
-  const statusDescription =
-    record?.status === 'pending'
-      ? record.direction === 'received'
-        ? '回复后将开启私信会话'
-        : '等待对方回复'
-      : '该申请已结束'
+  const statusDescription = resolveWhisperStatusDescription(
+    directCompose,
+    record?.status,
+    record?.direction,
+  )
 
   const composeTargetUserNo = directCompose
     ? targetUserNo
@@ -181,6 +182,7 @@ export default function WhisperDetailPage() {
         idempotencyCache.clear()
         await Taro.showToast({ title: '申请已发送', icon: 'success' })
       }
+      setErrorMessage('')
       setContent('')
       if (!isMockScene) await messagePlatformRuntime.onForeground()
     } catch (error) {
@@ -193,6 +195,10 @@ export default function WhisperDetailPage() {
           // 保留原正文，用户点击重试时重新预检。
         }
         await Taro.showToast({ title: '报价已变化，请重新确认后提交', icon: 'none' })
+        return
+      }
+      if (shouldInlineWhisperSubmitError(getApiErrorCode(error))) {
+        setErrorMessage(resolveWhisperErrorMessage(error, '提交失败，请稍后重试'))
         return
       }
       await Taro.showToast({

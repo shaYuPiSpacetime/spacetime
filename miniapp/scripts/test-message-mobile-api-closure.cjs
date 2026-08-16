@@ -100,6 +100,8 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
     resolveStableWhisperTargetUserNo,
     resolveWhisperErrorMessage,
     resolveWhisperRouteSourceScene,
+    resolveWhisperStatusDescription,
+    shouldInlineWhisperSubmitError,
   } = requireDomain('src/domain/whisperRuntime.ts')
 
   assert.deepEqual(
@@ -143,6 +145,12 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
     resolveWhisperErrorMessage(new Error('sourceScene: 来源场景不能为空'), '预检失败'),
     '申请入口信息已失效，请返回后重新进入',
   )
+  assert.equal(resolveWhisperStatusDescription(true), '发送后等待对方回复')
+  assert.equal(resolveWhisperStatusDescription(false, 'pending', 'received'), '回复后将开启私信会话')
+  assert.equal(resolveWhisperStatusDescription(false, 'pending', 'sent'), '等待对方回复')
+  assert.equal(resolveWhisperStatusDescription(false, 'expired', 'sent'), '该申请已结束')
+  assert.equal(shouldInlineWhisperSubmitError(30015), true)
+  assert.equal(shouldInlineWhisperSubmitError(30021), false)
 
   const service = read('src/services/message.ts')
   const types = read('src/types/message.ts')
@@ -158,6 +166,8 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
   const detail = read('src/pages/message/whisper-detail.tsx')
   assert.match(detail, /sourceScene/)
   assert.match(detail, /resolveWhisperErrorMessage/)
+  assert.match(detail, /resolveWhisperStatusDescription/)
+  assert.match(detail, /shouldInlineWhisperSubmitError/)
   assert.doesNotMatch(detail, /scene:\s*'profile'/)
   assert.doesNotMatch(detail, /\.allowed\b/)
 

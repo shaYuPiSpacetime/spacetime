@@ -118,3 +118,19 @@ export function resolveWhisperErrorMessage(error: unknown, fallback: string): st
   if (TECHNICAL_FIELD_PATTERN.test(message)) return EXPIRED_ENTRY_MESSAGE
   return message || fallback
 }
+
+/** 直达申请尚未产生历史状态，不能误显示为“申请已结束”。 */
+export function resolveWhisperStatusDescription(
+  directCompose: boolean,
+  status?: string,
+  direction?: string,
+): string {
+  if (directCompose) return '发送后等待对方回复'
+  if (status !== 'pending') return '该申请已结束'
+  return direction === 'received' ? '回复后将开启私信会话' : '等待对方回复'
+}
+
+/** 平台总开关暂停时保留页内重试入口，避免与 Toast 重复提示。 */
+export function shouldInlineWhisperSubmitError(code?: number): boolean {
+  return code === 30015
+}
