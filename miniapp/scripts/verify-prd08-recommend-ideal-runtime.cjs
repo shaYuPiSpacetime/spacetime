@@ -24,9 +24,13 @@ const onlyWaiting = process.env.PRD08_ONLY_WAITING === 'true'
 const onlyAddress = process.env.PRD08_ONLY_ADDRESS === 'true'
 const onlyEmpty = process.env.PRD08_ONLY_EMPTY === 'true'
 const onlyWhisper = process.env.PRD08_ONLY_WHISPER === 'true'
+const onlyRecommend = process.env.PRD08_ONLY_RECOMMEND === 'true'
+const privateCommunication = process.env.PRD08_PRIVATE_COMMUNICATION === 'true'
+const skipScreenshots = process.env.PRD08_SKIP_SCREENSHOTS === 'true'
 const outputRoot = path.resolve(
   projectPath,
-  '../docs/验收报告/截图证据/2026-08-05-PRD08推荐理想型-蓝湖还原'
+  process.env.PRD08_OUTPUT_ROOT ||
+    '../docs/验收报告/截图证据/2026-08-05-PRD08推荐理想型-蓝湖还原'
 )
 const avatar =
   'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ce9c1a32157cb601/profile-preview-avatar.png'
@@ -82,9 +86,9 @@ function profile(userId = 208) {
     datingGoal: '认真恋爱',
     emotionalStatus: '单身',
     liked: false,
-    matched: false,
-    canEnterConversation: false,
-    communicationMode: 'WHISPER',
+    matched: privateCommunication,
+    canEnterConversation: privateCommunication,
+    communicationMode: privateCommunication ? 'PRIVATE_MESSAGE' : 'WHISPER',
     communicationDisabledReason: null,
     certifications: ['AVATAR', 'REAL_NAME', 'EDUCATION'],
   }
@@ -222,7 +226,7 @@ function responseFor(request) {
           userId: 208,
           profile: profile(208),
           liked: false,
-          communicationMode: 'WHISPER',
+          communicationMode: privateCommunication ? 'PRIVATE_MESSAGE' : 'WHISPER',
           actualCity: '江苏省南京市',
         },
       ],
@@ -581,6 +585,10 @@ async function open(miniProgram, route, label, waitMs = 2200) {
 }
 
 async function screenshot(miniProgram, outputDir, filename) {
+  if (skipScreenshots) {
+    console.log(`[PRD08] 已跳过截图，仅执行运行态断言：${filename}`)
+    return
+  }
   const target = path.join(outputDir, filename)
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     console.log(`[PRD08] 截图：${filename}（第 ${attempt} 次）`)
@@ -659,6 +667,60 @@ async function screenshot(miniProgram, outputDir, filename) {
   const system = await miniProgram.systemInfo()
   const outputDir = path.join(outputRoot, `微信运行-${system.windowWidth}x${system.windowHeight}`)
   fs.mkdirSync(outputDir, { recursive: true })
+
+  if (onlyRecommend) {
+    const page = await open(miniProgram, '/pages/recommend/index', '推荐私信按钮', 2600)
+    const actions = await waitForElement(page, '#recommend-actions', '推荐三操作区')
+    const action = await waitForElement(page, '#recommend-conversation-action', '推荐沟通按钮')
+    assert.equal(await action.text(), privateCommunication ? '私信' : '悄悄话')
+
+    const rpxScale = system.windowWidth / 750
+    const actionsSize = await actions.size()
+    const [actionsOffset, actionSize, actionOffset, backgroundColor, backgroundImage] =
+      await Promise.all([
+        actions.offset(),
+        action.size(),
+        action.offset(),
+        actions.style('background-color'),
+        actions.style('background-image'),
+      ])
+    const closeTo = (actual, expected, label) =>
+      assert.ok(
+        Math.abs(actual - expected) <= 2,
+        `${label}错误：实际 ${actual}px，预期 ${expected.toFixed(2)}px`
+      )
+
+    closeTo(actionsSize.width, 562 * rpxScale, '推荐三操作区宽度')
+    closeTo(actionsSize.height, 166 * rpxScale, '推荐三操作区高度')
+    closeTo(actionsOffset.left, 94 * rpxScale, '推荐三操作区左边距')
+    closeTo(actionSize.width, 290 * rpxScale, '私信按钮宽度')
+    closeTo(actionSize.height, 92 * rpxScale, '私信按钮高度')
+    assert.match(
+      String(backgroundColor),
+      /^(transparent|rgba\(0,\s*0,\s*0,\s*0\))$/,
+      `推荐三操作区背景必须透明，实际为 ${backgroundColor}`
+    )
+    assert.equal(backgroundImage, 'none', '推荐三操作区不得渲染背景图或渐变')
+    console.log(
+      `[PRD08] 推荐私信按钮运行态布局：${JSON.stringify({
+        viewport: `${system.windowWidth}x${system.windowHeight}`,
+        actionsSize,
+        actionsOffset,
+        actionSize,
+        actionOffset,
+        backgroundColor,
+        backgroundImage,
+      })}`
+    )
+    await screenshot(miniProgram, outputDir, '002-推荐私信按钮透明悬浮.png')
+    assert.equal(exceptions.length, 0, `运行异常：${exceptions.join('；')}`)
+    console.log(
+      skipScreenshots
+        ? 'PRD-08 推荐私信按钮运行态断言完成'
+        : `PRD-08 推荐私信按钮截图完成：${outputDir}`
+    )
+    return
+  }
 
   if (onlyEmpty) {
     state.vip = true

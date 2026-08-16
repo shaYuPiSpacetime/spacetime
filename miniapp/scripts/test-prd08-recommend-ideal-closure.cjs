@@ -1,3 +1,6 @@
+/* eslint-env node */
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -57,6 +60,32 @@ test('推荐首页由真实推荐状态驱动并禁止继续复用家园页', ()
   )
   assert.match(source, /recordRecommendView/, '候选有效曝光后必须写入真实浏览日志')
   assert.match(source, /recordRecommendSkip/, '跳过必须写入真实跳过日志')
+})
+
+test('推荐底部私信操作区按蓝湖透明悬浮且不以整条背景遮挡候选内容', () => {
+  const source = read('src/pages/recommend/index.tsx')
+  const actions = source.slice(
+    source.indexOf('function RecommendActions'),
+    source.indexOf('function RecommendEmpty')
+  )
+
+  assert.match(actions, /id="recommend-actions"/, '推荐三操作区必须提供稳定运行态定位节点')
+  assert.match(actions, /left:\s*'94rpx'/, '三操作区应只覆盖蓝湖三个控件的实际宽度')
+  assert.match(actions, /width:\s*'562rpx'/, '三操作区宽度必须与跳过、沟通、喜欢的蓝湖组合一致')
+  assert.match(actions, /background:\s*'transparent'/, '三操作区外层必须透明')
+  assert.doesNotMatch(actions, /linear-gradient/, '三操作区禁止使用整条渐变背景遮挡候选内容')
+  assert.match(actions, /id="recommend-conversation-action"/, '私信或悄悄话必须由真实可见按钮承载')
+})
+
+test('PRD-08 微信运行夹具可独立复现私信按钮状态并输出本轮截图', () => {
+  const runtime = read('scripts/verify-prd08-recommend-ideal-runtime.cjs')
+
+  assert.match(runtime, /PRD08_PRIVATE_COMMUNICATION/, '运行夹具必须支持服务端私信沟通态')
+  assert.match(runtime, /PRD08_ONLY_RECOMMEND/, '运行夹具必须支持只验收推荐首屏')
+  assert.match(runtime, /PRD08_OUTPUT_ROOT/, '运行夹具必须允许把本轮截图写入独立证据目录')
+  assert.match(runtime, /PRD08_SKIP_SCREENSHOTS/, '截图通道受限时必须支持只执行运行态布局断言')
+  assert.match(runtime, /await actions\.size\(\)/, '运行夹具必须校验推荐操作区实际渲染尺寸')
+  assert.match(runtime, /background-color/, '运行夹具必须校验推荐操作区运行态背景透明')
 })
 
 test('推荐主页与本人预览共用资料组件，未解锁和已解锁文案闭环', () => {

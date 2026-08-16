@@ -687,10 +687,11 @@ function RecommendActions({
 }) {
   return (
     <View
+      id="recommend-actions"
       style={{
         position: 'fixed',
-        left: 0,
-        right: 0,
+        left: '94rpx',
+        width: '562rpx',
         bottom: '132rpx',
         zIndex: 10000,
         height: '166rpx',
@@ -698,7 +699,7 @@ function RecommendActions({
         alignItems: 'center',
         justifyContent: 'center',
         gap: '38rpx',
-        background: 'linear-gradient(transparent,rgba(255,255,255,.94) 44%)',
+        background: 'transparent',
         opacity: disabled ? 0.62 : 1,
       }}
     >
@@ -709,6 +710,7 @@ function RecommendActions({
         style={{ width: '98rpx', height: '98rpx' }}
       />
       <View
+        id="recommend-conversation-action"
         onClick={onConversation}
         style={{
           width: '290rpx',
