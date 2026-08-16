@@ -33,5 +33,6 @@ frontend/.playwright-browsers/
 *.local.env
 backend/.env.local
 !backend/.env.local.example
+deploy/scripts/prod.env
 deploy/nginx-prod/ssl/*.key
 bobo-todo.md
