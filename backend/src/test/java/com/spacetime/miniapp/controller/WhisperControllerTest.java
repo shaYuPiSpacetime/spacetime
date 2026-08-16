@@ -3,6 +3,7 @@ package com.spacetime.miniapp.controller;
 import com.spacetime.common.exception.GlobalExceptionHandler;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
+import com.spacetime.miniapp.dto.request.WhisperPrecheckReq;
 import com.spacetime.miniapp.dto.response.WhisperCreateVO;
 import com.spacetime.miniapp.dto.response.WhisperPrecheckVO;
 import com.spacetime.miniapp.service.WhisperService;
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -97,5 +99,20 @@ class WhisperControllerTest {
                 .andExpect(jsonPath("$.msg").value(org.hamcrest.Matchers.containsString("幂等键")));
 
         verify(whisperService, never()).create(any(), any(), any());
+    }
+
+    @Test
+    void precheckRequiresCanonicalSourceSceneBeforeCallingService() throws Exception {
+        mockMvc.perform(post("/miniapp/message/whispers/precheck")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetUserNo":"USR-000000000008"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(4001))
+                .andExpect(jsonPath("$.msg").value(org.hamcrest.Matchers.containsString("来源场景不能为空")));
+
+        verify(whisperService, never()).precheck(any(), any(WhisperPrecheckReq.class));
+        verifyNoMoreInteractions(whisperService);
     }
 }
