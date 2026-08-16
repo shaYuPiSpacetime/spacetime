@@ -45,6 +45,7 @@ UserID 在当前 SDKAppID 下不存在。根因是 `app_user_im_account.sync_sta
 | 业务修复提交 | `a0363c0` 已推送到 `master` |
 | 后端生产发布 | Actions `31925099485` 成功；构建 2 分 04 秒，包含 `076` 迁移的 SSH 部署 1 分 16 秒 |
 | 管理后台共享发布 | Actions `31925099412` 成功 |
+| 小程序体验版 | 微信开发者工具 CLI 上传 `1.0.20260816.1` 成功；描述为“修复私信TIM账号20003自动自愈重发”；上传包 2.7 MB、主包 1.3 MB |
 | 生产健康 | 连续 3 次 `GET https://admin.shikongxiehou.com/api/health` 均返回 HTTP 200、`data=ok` |
 | 凭证鉴权边界 | 未携带登录态访问生产凭证端点返回 HTTP 401，未绕过认证或使用虚构 Token |
 
