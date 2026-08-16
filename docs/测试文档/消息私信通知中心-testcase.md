@@ -254,3 +254,18 @@
 | `MA03-P0-21` | 历史错误消息重发 | 重发必须使用刷新后的 `timConversationId` 重建正确目标消息，不得忽略参数并继续重发原 `_tu_*` SDK 消息 | L3/L4 | P0 |
 | `DOC03-P0-03` | PRD 与 handoff 会话号示例 | 所有普通私信示例均使用 `C2C${userID}`，文档与 LiteChat 4.4.2 运行时契约一致 | 静态 | P0 |
 | `EXT03-11` | 生产单聊真实发送 | 生产会话详情返回 `C2Ctu_*`；LiteChat 创建消息的 `to` 为 `tu_*`，真实文本发送不再返回 `20003` | L1/L4 | P0 |
+
+## 18. 2026-08-16 私信与悄悄话双链路完整闭环增量
+
+| 用例 ID | 场景 | 预期结果 | 层级 | 优先级 |
+|---------|------|----------|------|--------|
+| `MA03-P0-22` | 消息首页正式 DTO | 小程序按 `unreadSummary/whisperSummary/likesMeSummary/assistantSummary/systemSummary/conversationPage` 消费生产响应，不再读取旧 `fixedEntries/recentConversationBindings/platformUnreadSummary` | 静态/L3 | P0 |
+| `MA03-P0-23` | 私信列表平台投影 | 私信列表直接展示平台会话摘要、未读和最后消息，不提前初始化 TIM，也不因列表项没有 `timConversationId` 被过滤为空 | 静态/L4 | P0 |
+| `MA03-P0-24` | 私信详情按需初始化 TIM | 先查询会话详情；仅 `canEnterConversation=true` 且有标准 TIM 会话号时获取凭证和历史；安全只读不可进入时不调用 SDK、不报初始化异常 | L3/L4 | P0 |
+| `MA03-P0-25` | 悄悄话接收方双分组 | “申请我的”独立请求、展示和翻页 `pending/processed`，使用各自总数、游标、加载和错误状态；“我申请的”只请求 `sent+pending` | L3/L4 | P0 |
+| `MA03-P0-26` | 悄悄话逻辑隐藏 | 接收方支持单条删除和按 `pending/processed` 分组全部删除，操作前确认、成功后只更新对应分组；发送方不展示删除入口 | L3/L4 | P0 |
+| `MA03-P0-27` | 悄悄话回复与反向申请 | 待回复申请提交后进入后端返回的私信会话；已结束且允许反向申请时使用 `whisper_reverse+原 whisperNo+稳定 USR 编号` 重新预检和创建 | L3/L4 | P0 |
+| `MA03-P0-28` | 写操作幂等重试 | 同一正文的悄悄话创建或回复失败重试复用原请求号；成功后清理，正文或业务对象变化后生成新请求号 | L3/L4 | P0 |
+| `MA03-P0-29` | 聊天举报正式契约 | 举报原因来自 `/miniapp/community/config`；私信与悄悄话统一提交 `targetType=chat/targetId/sourceType`，不再依赖历史 `targetBizNo` 契约；可选证据最多 3 张并使用 report-evidence 票据上传 | 静态/L4 | P0 |
+| `MA03-P1-30` | 双链路异常恢复 | 列表、详情、预检、发送、回复、删除、举报失败均保留可恢复状态和用户可理解提示；`30021` 清理旧报价并要求重新确认，技术字段和 TIM UserID 不直接展示 | L3/L4 | P1 |
+| `EXT03-12` | 生产双账号最终互发 | 两个真实生产小程序登录态依次完成悄悄话预检/创建、接收方列表/已读/回复、进入私信、双方文本互发/重试/已读、举报或拉黑 | 全链无 4xx/5xx/腾讯错误且平台投影一致；缺少真实双账号登录态时必须标记未执行，不得用 Mock 冒充 | L1/L4 | P0 |

@@ -1,5 +1,47 @@
 # 消息、私信与通知中心测试报告
 
+## 2026-08-16 私信与悄悄话全链路收口报告
+
+### 结论
+
+本轮按 `2026-07-31-消息、私信与通知中心-mobile-api-handoff.md` 对小程序正式接口逐字段复核，确认此前
+并非单一 TIM 发送问题，而是小程序仍同时消费多组已退役 DTO，导致生产消息首页、私信列表、悄悄话分组和
+举报链路在不同阶段失效。现已统一切换到正式契约，并完成私信与悄悄话核心闭环：
+
+1. 消息首页直接消费 `unreadSummary/whisperSummary/likesMeSummary/assistantSummary/systemSummary/conversationPage`，
+   不再读取旧 `fixedEntries/recentConversationBindings/platformUnreadSummary`；
+2. 私信列表只依赖平台会话投影，不提前初始化 LiteChat；进入详情且后端允许进入时才获取凭证、初始化 SDK、
+   拉历史和上报已读，安全只读会话不再因 TIM 不可用报错；
+3. 收到的悄悄话独立查询 `pending/processed` 两个分组，各自计数、分页和错误重试；发出的悄悄话只展示
+   `pending`，支持接收方左滑单删、分组全部删除和详情删除；
+4. 回复悄悄话成功后使用后端 `conversationNo` 进入私信；已结束申请支持 `whisper_reverse` 重新申请；
+5. 新建与回复在失败重试时复用同一个幂等请求号，正文、报价或业务对象变化后才生成新请求号；报价失效
+   `30021` 时保留正文、刷新报价并要求重新确认，避免重复扣费；
+6. 举报统一提交 `targetType=chat + targetId + sourceType`，原因从 `/miniapp/community/config` 动态获取，
+   支持最多三张凭证图片直传 OSS；单条消息举报仍以可信 `conversationNo` 为目标，消息定位字段单独提交；
+7. 悄悄话创建响应、支付类型和到期时间已移除旧兼容字段，社区动态入口同步使用 `vip_free/coin` 正式口径。
+
+### TDD 与自动化证据
+
+| 层级 | 命令/范围 | 结果 |
+|---|---|---|
+| TDD 失败基线 | 首页/列表正式 DTO、悄悄话双分组与幂等、统一举报契约 | 实现前新增 3 组用例全部按预期失败，精确命中旧契约缺口 |
+| 小程序消息专项 | `npm run validate:message-closure` | 23 条通过，0 失败 |
+| 变更文件静态检查 | 本轮 12 个 `.ts/.tsx` 业务文件执行 ESLint | 通过，0 错误、0 警告 |
+| H5 编译 | 固定登录 + Mock Provider 执行 `npm run build:h5` | 编译成功；仅保留既有 Webpack 体积建议警告 |
+| H5 端到端 | `node scripts/test-message-mobile-closure-h5.cjs` | 首页、私信发送、拉黑举报、动态举报、悄悄话双分组、左滑删除、回复转私信、主动申请、助手和系统消息全部通过 |
+| 后端消息域聚焦 | Controller、Message/Whisper Service、举报证据、IM Provider 共 9 个测试类 | 54 条通过，0 失败、0 错误、0 跳过 |
+| 后端全量 | Java 21 执行 `mvn -q test` | 893 条执行，892 条通过，0 失败、0 错误；1 条无关推广种子环境用例跳过 |
+| 微信正式构建 | `npm run build:weapp` | 全部前置门禁与编译通过；84 个页面注册通过；主包 1.38 MiB、总包 2.71 MiB |
+| 差异质量 | `git diff --check` | 通过，无空白错误 |
+
+### 验证边界
+
+全仓 `npm run lint` 仍会命中三个本轮未修改的 PRD-08 页面历史全角空格错误，以及一个既有未使用类型警告；
+本轮没有扩大范围修改这些无关文件，消息链路全部变更文件已单独执行 ESLint 并通过。自动化环境没有两套
+生产小程序登录态，因此无法替代真机完成生产双账号 LiteChat 互发、真实扣币和真实举报入库；本报告不以
+Mock 或未认证请求冒充生产外部依赖验证。代码契约、服务端消息域、H5 交互链路和微信发布构建均已通过。
+
 ## 2026-08-16 TIM 单聊会话号 20003 根因修复报告
 
 ### 结论
