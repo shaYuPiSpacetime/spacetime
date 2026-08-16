@@ -1,7 +1,7 @@
 import TencentCloudChat, {
   type Conversation as TencentConversation,
   type Message as TencentMessage,
-} from '@tencentcloud/lite-chat'
+} from '@tencentcloud/lite-chat/basic'
 import {
   normalizeTimC2CConversationId,
   resolveTimC2CTargetUserId,
@@ -82,17 +82,30 @@ export class LiteChatMessageImGateway implements MessageImGateway {
   private ready = false
   private rawMessages = new Map<string, TencentMessage>()
   private listeners = new Set<(event: MessageImEvent) => void>()
+  private initializing?: Promise<void>
 
-  async initialize(credentials: ImCredentials): Promise<void> {
+  initialize(credentials: ImCredentials): Promise<void> {
     if (
       this.chat &&
       this.sdkAppId === credentials.sdkAppId &&
       this.currentUserId === credentials.imUserId &&
       this.ready
     ) {
-      return
+      return Promise.resolve()
     }
 
+    if (this.initializing) return this.initializing
+
+    const initializing = this.initializeInternal(credentials)
+    this.initializing = initializing
+    const clearInitializing = () => {
+      if (this.initializing === initializing) this.initializing = undefined
+    }
+    void initializing.then(clearInitializing, clearInitializing)
+    return initializing
+  }
+
+  private async initializeInternal(credentials: ImCredentials): Promise<void> {
     if (this.chat) await this.logout()
     this.sdkAppId = Number(credentials.sdkAppId)
     this.currentUserId = credentials.imUserId

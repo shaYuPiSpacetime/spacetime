@@ -33,6 +33,27 @@ export interface KeyedSingleFlight {
   run<T>(key: string, task: () => Promise<T>): Promise<T>
 }
 
+/** 为外部消息能力设置可恢复的等待上限，避免第三方 Promise 无限占用页面状态。 */
+export function withMessageTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(timeoutMessage)), Math.max(1, timeoutMs))
+    promise.then(
+      value => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      error => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 const ERROR_ACTIONS: Record<number, Omit<MessageErrorResolution, 'code'>> = {
   30001: { action: 'restrict', message: '当前账号暂不可使用消息功能', retryable: false },
   30002: { action: 'refresh_relation', message: '当前关系状态不允许发送', retryable: false },

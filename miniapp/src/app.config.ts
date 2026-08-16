@@ -111,6 +111,12 @@ export default {
       ],
     },
   ],
+  preloadRule: {
+    'pages/chat/index': {
+      network: 'all',
+      packages: ['pages/message'],
+    },
+  },
   window: {
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#ffffff',

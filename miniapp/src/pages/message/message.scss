@@ -1026,6 +1026,18 @@
   font-size: 11px;
   box-sizing: border-box;
 }
+.chat-connection-state {
+  position: absolute;
+  left: 12px;
+  top: -24px;
+  right: 12px;
+  height: 24px;
+  color: #7f8494;
+  font-size: 11px;
+  line-height: 24px;
+  text-align: center;
+  pointer-events: none;
+}
 .chat-input {
   height: 39px;
   flex: 1;

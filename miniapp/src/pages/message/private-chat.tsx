@@ -7,8 +7,10 @@ import {
   isTimAccountMissingError,
   resolveConversationSendBlockedReason,
   resolveMessageError,
+  withMessageTimeout,
 } from '@/domain/messageRuntime'
-import { messageImGateway, mockMessageImGateway } from '@/im'
+import { loadMessageImGateway } from '@/im/loadMessageImGateway'
+import type { MessageImEvent, MessageImGateway } from '@/im/MessageImGateway'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import type { ChatMessage, MessageConversationDetail } from '@/types/message'
@@ -25,12 +27,18 @@ function createClientReportId(): string {
   return `report-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
 }
 
+const DETAIL_TIMEOUT_MS = 8_000
+const CONNECTION_TIMEOUT_MS = 12_000
+const HISTORY_TIMEOUT_MS = 10_000
+const SEND_TIMEOUT_MS = 15_000
+
+type ConnectionState = 'idle' | 'connecting' | 'ready' | 'error'
+
 export default function PrivateChatPage() {
   const router = useRouter()
   const isMockScene = Boolean(router.params.mockScene)
   const conversationNo = router.params.conversationNo || 'conversation-lin'
   const service = isMockScene ? mockMessageService : messageService
-  const gateway = isMockScene ? mockMessageImGateway : messageImGateway
   const [detail, setDetail] = useState<MessageConversationDetail>()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [historyCursor, setHistoryCursor] = useState<string>()
@@ -40,9 +48,16 @@ export default function PrivateChatPage() {
   const [showActions, setShowActions] = useState(false)
   const [messageReportTarget, setMessageReportTarget] = useState<ChatMessage>()
   const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [connectionState, setConnectionState] = useState<ConnectionState>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const readAckKey = useRef('')
   const timConversationIdRef = useRef(isMockScene ? conversationNo : '')
+  const gatewayRef = useRef<MessageImGateway>()
+  const gatewayPromiseRef = useRef<Promise<MessageImGateway>>()
+  const connectionPromiseRef = useRef<Promise<MessageImGateway>>()
+  const unsubscribeGatewayRef = useRef<() => void>()
+  const gatewayEventHandlerRef = useRef<(event: MessageImEvent) => void>(() => undefined)
   const loadSingleFlight = useRef(createKeyedSingleFlight()).current
 
   const timConversationId = isMockScene
@@ -52,7 +67,8 @@ export default function PrivateChatPage() {
   const acknowledgeRendered = useCallback(
     async (rendered: ChatMessage[]) => {
       const gatewayId = timConversationIdRef.current
-      if (!gatewayId || rendered.length === 0) return
+      const gateway = gatewayRef.current
+      if (!gateway || !gatewayId || rendered.length === 0) return
       const lastIncoming = [...rendered].reverse().find(item => item.direction === 'incoming')
       const lastMessageNo = lastIncoming?.messageNo || lastIncoming?.timMessageId
       if (!lastMessageNo) return
@@ -67,21 +83,108 @@ export default function PrivateChatPage() {
           lastIncoming?.timMsgKey,
         )
         readAckKey.current = ackKey
-        if (!isMockScene) await messagePlatformRuntime.onForeground()
+        if (!isMockScene) await messagePlatformRuntime.refreshUnread()
       } catch (error) {
         // 平台确认失败时保留后端未读真值，不在页面本地清零。
         setErrorMessage(error instanceof Error ? error.message : '已读状态同步失败')
       }
     },
-    [conversationNo, gateway, isMockScene, service],
+    [conversationNo, isMockScene, service],
   )
+
+  gatewayEventHandlerRef.current = event => {
+    if (event.type === 'ready') setConnectionState('ready')
+    if (event.type === 'not_ready' || event.type === 'kicked_out') {
+      setConnectionState('error')
+    }
+    if (!event.messages?.length) return
+    const currentTimConversationId = timConversationIdRef.current
+    const relevant = event.messages.filter(
+      item => item.conversationNo === currentTimConversationId || item.conversationNo === conversationNo,
+    )
+    if (!relevant.length) return
+    setMessages(current => {
+      const next = upsertMessages(current, relevant)
+      setTimeout(() => void acknowledgeRendered(next), 0)
+      return next
+    })
+  }
+
+  const getGateway = useCallback(async (): Promise<MessageImGateway> => {
+    if (gatewayRef.current) return gatewayRef.current
+    if (!gatewayPromiseRef.current) {
+      const gatewayPromise = loadMessageImGateway(isMockScene)
+        .then(gateway => {
+          gatewayRef.current = gateway
+          unsubscribeGatewayRef.current?.()
+          unsubscribeGatewayRef.current = gateway.onEvent(event => {
+            gatewayEventHandlerRef.current(event)
+          })
+          return gateway
+        })
+        .catch(error => {
+          if (gatewayPromiseRef.current === gatewayPromise) gatewayPromiseRef.current = undefined
+          throw error
+        })
+      gatewayPromiseRef.current = gatewayPromise
+    }
+    return gatewayPromiseRef.current
+  }, [isMockScene])
+
+  const ensureConnected = useCallback(async (): Promise<MessageImGateway> => {
+    const existing = gatewayRef.current
+    if (existing?.isReady()) {
+      setConnectionState('ready')
+      return existing
+    }
+    if (connectionPromiseRef.current) return connectionPromiseRef.current
+
+    setConnectionState('connecting')
+    const connect = (async () => {
+      try {
+        const gateway = await withMessageTimeout(
+          getGateway(),
+          CONNECTION_TIMEOUT_MS,
+          '私信组件加载超时，请重试',
+        )
+        if (!gateway.isReady()) {
+          const credentials = await withMessageTimeout(
+            service.getImCredentials(),
+            DETAIL_TIMEOUT_MS,
+            '私信凭证获取超时，请重试',
+          )
+          await withMessageTimeout(
+            gateway.initialize(credentials),
+            CONNECTION_TIMEOUT_MS,
+            '私信连接超时，请重试',
+          )
+        }
+        if (!gateway.isReady()) throw new Error('私信仍在连接，请稍后重试')
+        setConnectionState('ready')
+        return gateway
+      } catch (error) {
+        setConnectionState('error')
+        throw error
+      }
+    })()
+    connectionPromiseRef.current = connect
+    const clearConnection = () => {
+      if (connectionPromiseRef.current === connect) connectionPromiseRef.current = undefined
+    }
+    void connect.then(clearConnection, clearConnection)
+    return connect
+  }, [getGateway, service])
 
   const load = useCallback(
     () => loadSingleFlight.run(conversationNo, async () => {
       setLoading(true)
       setErrorMessage('')
       try {
-        const nextDetail = await service.getConversation(conversationNo)
+        const nextDetail = await withMessageTimeout(
+          service.getConversation(conversationNo),
+          DETAIL_TIMEOUT_MS,
+          '会话加载超时，请重试',
+        )
         const gatewayId = isMockScene ? conversationNo : nextDetail.timConversationId
         setDetail(nextDetail)
         if (!nextDetail.canEnterConversation || !gatewayId) {
@@ -89,11 +192,18 @@ export default function PrivateChatPage() {
           setMessages([])
           setHistoryCursor(undefined)
           setHistoryCompleted(true)
+          setConnectionState('idle')
           return
         }
-        if (!gateway.isReady()) await gateway.initialize(await service.getImCredentials())
         timConversationIdRef.current = gatewayId
-        const page = await gateway.listHistory(gatewayId)
+        // 先把会话壳、导航和输入区交给渲染线程，再异步下载与初始化 TIM。
+        await new Promise<void>(resolve => setTimeout(resolve, 0))
+        const gateway = await ensureConnected()
+        const page = await withMessageTimeout(
+          gateway.listHistory(gatewayId),
+          HISTORY_TIMEOUT_MS,
+          '聊天记录加载超时，请重试',
+        )
         setMessages(page.list)
         setHistoryCursor(page.nextCursor)
         setHistoryCompleted(page.isCompleted)
@@ -105,30 +215,23 @@ export default function PrivateChatPage() {
         setLoading(false)
       }
     }),
-    [acknowledgeRendered, conversationNo, gateway, isMockScene, loadSingleFlight, service],
+    [acknowledgeRendered, conversationNo, ensureConnected, isMockScene, loadSingleFlight, service],
   )
 
   useEffect(() => {
     readAckKey.current = ''
     timConversationIdRef.current = isMockScene ? conversationNo : ''
+    setConnectionState('idle')
   }, [conversationNo, isMockScene])
 
   useEffect(() => {
     void load()
-    return gateway.onEvent(event => {
-      if (!event.messages?.length) return
-      const currentTimConversationId = timConversationIdRef.current
-      const relevant = event.messages.filter(
-        item => item.conversationNo === currentTimConversationId || item.conversationNo === conversationNo,
-      )
-      if (!relevant.length) return
-      setMessages(current => {
-        const next = upsertMessages(current, relevant)
-        setTimeout(() => void acknowledgeRendered(next), 0)
-        return next
-      })
-    })
-  }, [acknowledgeRendered, conversationNo, gateway, load])
+  }, [load])
+
+  useEffect(() => () => {
+    unsubscribeGatewayRef.current?.()
+    unsubscribeGatewayRef.current = undefined
+  }, [])
 
   useDidShow(() => {
     if (!isMockScene) void load()
@@ -138,7 +241,12 @@ export default function PrivateChatPage() {
     if (!timConversationId || historyCompleted || !historyCursor || loading) return
     setLoading(true)
     try {
-      const page = await gateway.listHistory(timConversationId, historyCursor)
+      const gateway = await ensureConnected()
+      const page = await withMessageTimeout(
+        gateway.listHistory(timConversationId, historyCursor),
+        HISTORY_TIMEOUT_MS,
+        '聊天记录加载超时，请重试',
+      )
       setMessages(current => upsertMessages(page.list, current))
       setHistoryCursor(page.nextCursor)
       setHistoryCompleted(page.isCompleted)
@@ -149,24 +257,44 @@ export default function PrivateChatPage() {
     }
   }
 
-  const canSend = Boolean(detail?.canSend && gateway.isReady())
+  const canSend = Boolean(detail?.canSend)
 
   const send = async () => {
     const value = inputValue.trim()
-    if (!value || !timConversationId) return
+    if (!value || sending) return
+    if (!detail || !timConversationId) {
+      await Taro.showToast({ title: '会话正在加载，请稍后发送', icon: 'none' })
+      return
+    }
     if (!canSend) {
       await Taro.showToast({ title: resolveConversationSendBlockedReason(detail?.sendBlockedReason), icon: 'none' })
       return
     }
-    setInputValue('')
-    const message = await gateway.sendText(timConversationId, value)
-    setMessages(current => upsertMessages(current, [message]))
-    if (message.sendStatus === 'failed') setRetryTarget(message)
+    setSending(true)
+    try {
+      const gateway = await ensureConnected()
+      const message = await withMessageTimeout(
+        gateway.sendText(timConversationId, value),
+        SEND_TIMEOUT_MS,
+        '消息发送超时，请稍后确认发送结果',
+      )
+      setInputValue('')
+      setMessages(current => upsertMessages(current, [message]))
+      if (message.sendStatus === 'failed') setRetryTarget(message)
+    } catch (error) {
+      setInputValue(value)
+      const resolved = resolveMessageError(error)
+      setErrorMessage(resolved.message)
+      await Taro.showToast({ title: resolved.message, icon: 'none' })
+    } finally {
+      setSending(false)
+    }
   }
 
   const retry = async () => {
     if (!retryTarget || !timConversationId) return
     try {
+      const gateway = await ensureConnected()
       const retried = await gateway.retry(timConversationId, retryTarget.clientMsgId)
       setMessages(current => upsertMessages(current, [retried]))
       setRetryTarget(undefined)
@@ -178,6 +306,7 @@ export default function PrivateChatPage() {
           if (!recoveredTimConversationId) throw new Error('TIM 会话标识缺失')
           setDetail(recoveredDetail)
           timConversationIdRef.current = recoveredTimConversationId
+          const gateway = await ensureConnected()
           const retried = await gateway.retry(
             recoveredTimConversationId,
             retryTarget.clientMsgId,
@@ -264,8 +393,9 @@ export default function PrivateChatPage() {
 
       <View className="chat-input-bar">
         {!detail?.canSend && detail?.sendBlockedReason ? <Text className="chat-reply-label">{resolveConversationSendBlockedReason(detail.sendBlockedReason)}</Text> : null}
-        <Input className="chat-input" value={inputValue} disabled={!canSend} maxlength={500} adjustPosition cursorSpacing={12} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
-        <View className={`chat-send-button${canSend ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>发送</Text></View>
+        {detail?.canSend && connectionState !== 'ready' ? <Text className="chat-connection-state">{connectionState === 'error' ? '连接失败，发送时重试' : '私信连接中，可先输入'}</Text> : null}
+        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canSend) || sending} maxlength={500} adjustPosition cursorSpacing={12} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
+        <View className={`chat-send-button${canSend && !sending ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>{sending ? '发送中' : '发送'}</Text></View>
       </View>
 
       {showActions ? (

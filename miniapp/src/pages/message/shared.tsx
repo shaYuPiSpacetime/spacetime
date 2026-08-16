@@ -41,6 +41,7 @@ export function MessageNav({
         width: isWeapp ? '750rpx' : '100%',
         height: `${metric(navigationHeight)}${unit}`,
         flexShrink: 0,
+        zIndex: 40,
       }}
     >
       <View

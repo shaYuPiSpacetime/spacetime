@@ -292,6 +292,32 @@ test('同一私信会话的并发首屏加载必须合并为一次请求', async
   assert.doesNotMatch(privateChat, /\[conversationNo, gateway, timConversationId\]/)
 })
 
+test('私信首屏按需加载轻量 TIM 且连接异常不会无限卡住交互', async () => {
+  const { withMessageTimeout } = requireDomain('src/domain/messageRuntime.ts')
+  const privateChat = read('src/pages/message/private-chat.tsx')
+  const channel = read('src/pages/message/channel.tsx')
+  const gatewayLoader = read('src/im/loadMessageImGateway.ts')
+  const liteChatGateway = read('src/im/LiteChatMessageImGateway.ts')
+  const appConfig = read('src/app.config.ts')
+
+  await assert.rejects(
+    withMessageTimeout(new Promise(() => undefined), 5, '私信连接超时，请重试'),
+    /私信连接超时，请重试/,
+  )
+
+  assert.doesNotMatch(privateChat, /from ['"]@\/im['"]/, '私信页面不得在模块加载阶段同步引入 TIM SDK')
+  assert.match(privateChat, /loadMessageImGateway/)
+  assert.match(privateChat, /connectionState/)
+  assert.match(privateChat, /connectionPromiseRef/, '初始化与点击发送必须复用同一个连接任务')
+  assert.match(privateChat, /sending \? '发送中' : '发送'/)
+  assert.match(privateChat, /setInputValue\(value\)/, '发送失败必须恢复用户已经输入的正文')
+  assert.doesNotMatch(channel, /@\/im\/messageRuntime/, '官方频道不得为了刷新未读而提前加载 TIM SDK')
+  assert.match(channel, /messagePlatformRuntime/)
+  assert.match(gatewayLoader, /import\(['"]\.\/LiteChatMessageImGateway['"]\)/)
+  assert.match(liteChatGateway, /from ['"]@tencentcloud\/lite-chat\/basic['"]/, '文本私信只加载 LiteChat 基础包')
+  assert.match(appConfig, /preloadRule:[\s\S]*['"]pages\/chat\/index['"][\s\S]*packages:\s*\[['"]pages\/message['"]\]/)
+})
+
 test('悄悄话详情直接使用平台正文且不扫描 TIM 历史', () => {
   const types = read('src/types/message.ts')
   const detail = read('src/pages/message/whisper-detail.tsx')

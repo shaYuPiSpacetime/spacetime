@@ -10,6 +10,8 @@ const MIB = 1024 * 1024
 const MAIN_TARGET = 1.5 * MIB
 const SUBPACKAGE_LIMIT = 2 * MIB
 const QIANXUN_TARGET = 700 * 1024
+const PRIVATE_CHAT_TARGET = 320 * 1024
+const MESSAGE_SHARED_VENDOR_TARGET = 128 * 1024
 
 assert.ok(fs.existsSync(appJsonPath), `构建产物不存在：${appJsonPath}`)
 const appConfig = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'))
@@ -44,4 +46,25 @@ const qianxunBytes = packageBytes('pages/qianxun')
 assert.ok(qianxunBytes <= QIANXUN_TARGET, `千寻分包 ${(qianxunBytes / 1024).toFixed(1)} KiB，超过 700 KiB 项目门槛`)
 assert.ok(!files.some(file => /qianxun-center\.png$/i.test(relative(file))), '526KiB 千寻中心插画不得进入构建包')
 
-console.log(`包体门禁通过：主包 ${(mainBytes / MIB).toFixed(2)} MiB，千寻分包 ${(qianxunBytes / 1024).toFixed(1)} KiB，总包 ${(totalBytes / MIB).toFixed(2)} MiB`)
+const messagePreload = appConfig.preloadRule?.['pages/chat/index']
+assert.ok(messagePreload, '消息首页必须预加载消息分包，避免首次进入私信长时间白屏')
+assert.deepEqual(messagePreload.packages, ['pages/message'], '消息首页只能预加载消息分包')
+
+const privateChatPath = path.join(distRoot, 'pages/message/private-chat.js')
+assert.ok(fs.existsSync(privateChatPath), '私信页面构建产物不存在')
+const privateChatBytes = fs.statSync(privateChatPath).size
+assert.ok(
+  privateChatBytes <= PRIVATE_CHAT_TARGET,
+  `私信页面 ${(privateChatBytes / 1024).toFixed(1)} KiB，超过 320 KiB 首屏门槛`,
+)
+
+const messageSharedVendorPath = path.join(distRoot, 'pages/message/sub-vendors.js')
+const messageSharedVendorBytes = fs.existsSync(messageSharedVendorPath)
+  ? fs.statSync(messageSharedVendorPath).size
+  : 0
+assert.ok(
+  messageSharedVendorBytes <= MESSAGE_SHARED_VENDOR_TARGET,
+  `消息公共依赖 ${(messageSharedVendorBytes / 1024).toFixed(1)} KiB，超过 128 KiB 首屏门槛`,
+)
+
+console.log(`包体门禁通过：主包 ${(mainBytes / MIB).toFixed(2)} MiB，千寻分包 ${(qianxunBytes / 1024).toFixed(1)} KiB，私信页 ${(privateChatBytes / 1024).toFixed(1)} KiB，消息公共依赖 ${(messageSharedVendorBytes / 1024).toFixed(1)} KiB，总包 ${(totalBytes / MIB).toFixed(2)} MiB`)

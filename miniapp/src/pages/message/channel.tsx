@@ -2,8 +2,8 @@ import { ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { isSafeSystemJump } from '@/domain/messageRuntime'
-import { messageRuntime } from '@/im/messageRuntime'
 import { messageService, mockMessageService } from '@/services/message'
+import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import type {
   AssistantMessageItem,
   OfficialChannelType,
@@ -65,7 +65,7 @@ export default function MessageChannelPage() {
         const acceptedNos = result.acceptedNos
         acceptedNos.forEach(no => acknowledged.current.add(no))
       }
-      if (!isMockScene) await messageRuntime.refreshUnread()
+      if (!isMockScene) await messagePlatformRuntime.refreshUnread()
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '消息已读同步失败')
     }

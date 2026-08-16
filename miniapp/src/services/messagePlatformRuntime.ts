@@ -32,6 +32,19 @@ class MessagePlatformRuntime {
     }
   }
 
+  async refreshUnread(): Promise<void> {
+    try {
+      const summary = await messageService.getUnreadSummary()
+      useMessageRuntimeStore.getState().applyUnread(summary)
+    } catch (error) {
+      const resolved = resolveMessageError({
+        code: getApiErrorCode(error),
+        message: error instanceof Error ? error.message : undefined,
+      })
+      useMessageRuntimeStore.getState().setError(resolved.message)
+    }
+  }
+
   stop(): void {
     useMessageRuntimeStore.getState().clear()
   }

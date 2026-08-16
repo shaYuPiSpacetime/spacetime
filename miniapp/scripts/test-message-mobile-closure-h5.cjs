@@ -35,8 +35,18 @@ async function expectVisible(locator, message) {
   await expectVisible(page.getByText('私信', { exact: true }).first(), '消息首页未展示私信入口')
   await page.locator('#message-home-private-entry').click()
   await expectVisible(page.locator('.private-list-row').first(), '私信入口未进入会话列表')
+  const firstEnterAt = Date.now()
   await page.locator('.private-list-row').first().click()
   await expectVisible(page.locator('.private-chat-page'), '私信列表未进入会话详情')
+  const firstEnterDuration = Date.now() - firstEnterAt
+  if (firstEnterDuration > 1500) {
+    throw new Error(`私信首次可操作首屏耗时过长：${firstEnterDuration}ms`)
+  }
+  await page.locator('.chat-input input').fill('返回交互不能被连接阻塞')
+  await page.locator('.message-nav-back').last().click()
+  await expectVisible(page.locator('.private-list-row').first(), '私信初始化期间返回按钮不可用')
+  await page.locator('.private-list-row').first().click()
+  await expectVisible(page.locator('.private-chat-page'), '返回后无法再次进入私信会话')
   await page.locator('.chat-input input').fill('消息闭环自动化测试')
   await page.getByText('发送', { exact: true }).click()
   await expectVisible(page.getByText('消息闭环自动化测试', { exact: true }), '普通文本私信发送后未回显')
