@@ -93,6 +93,93 @@ test('真实 HTTP Provider 覆盖 handoff 全部消息接口且禁用退役动�
   assert.doesNotMatch(source, /真实 Provider 尚未接入/)
 })
 
+test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编号', () => {
+  const {
+    buildWhisperCreatePayload,
+    buildWhisperPrecheckPayload,
+    resolveStableWhisperTargetUserNo,
+    resolveWhisperErrorMessage,
+    resolveWhisperRouteSourceScene,
+  } = requireDomain('src/domain/whisperRuntime.ts')
+
+  assert.deepEqual(
+    buildWhisperPrecheckPayload({
+      targetUserNo: 'USR-000000000140',
+      sourceScene: 'community_post',
+      sourceBizNo: 'POST-001',
+    }),
+    {
+      targetUserNo: 'USR-000000000140',
+      sourceScene: 'community_post',
+      sourceBizNo: 'POST-001',
+    },
+  )
+  assert.deepEqual(
+    buildWhisperCreatePayload({
+      targetUserNo: 'USR-000000000140',
+      sourceScene: 'profile',
+      content: '认真看过你的资料',
+      quoteToken: 'quote-001',
+    }),
+    {
+      targetUserNo: 'USR-000000000140',
+      sourceScene: 'profile',
+      content: '认真看过你的资料',
+      quoteToken: 'quote-001',
+    },
+  )
+  assert.throws(
+    () => buildWhisperPrecheckPayload({
+      targetUserNo: 'USR-000000000140',
+      sourceScene: 'community_post',
+    }),
+    /申请入口信息不完整/,
+  )
+  assert.equal(resolveStableWhisperTargetUserNo(undefined, 140), 'USR-000000000140')
+  assert.equal(resolveStableWhisperTargetUserNo('USR-000000000208', 208), 'USR-000000000208')
+  assert.equal(resolveWhisperRouteSourceScene('fate'), 'recommendation')
+  assert.equal(resolveWhisperRouteSourceScene(undefined), 'profile')
+  assert.equal(
+    resolveWhisperErrorMessage(new Error('sourceScene: 来源场景不能为空'), '预检失败'),
+    '申请入口信息已失效，请返回后重新进入',
+  )
+
+  const service = read('src/services/message.ts')
+  const types = read('src/types/message.ts')
+  assert.match(service, /sourceScene:\s*WhisperSourceScene/)
+  assert.match(service, /buildWhisperPrecheckPayload\(input\)/)
+  assert.match(service, /buildWhisperCreatePayload\(input\)/)
+  assert.doesNotMatch(service, /sourcePostNo/)
+  assert.doesNotMatch(service, /\bscene\?:\s*'community_post'/)
+  assert.doesNotMatch(types, /interface WhisperPrecheckResponse[\s\S]*?\n\s*allowed:/)
+  assert.doesNotMatch(types, /interface WhisperPrecheckResponse[\s\S]*?\n\s*targetAvatarUrl:/)
+  assert.doesNotMatch(service, /canSend:\s*true,\s*allowed:\s*true/)
+
+  const detail = read('src/pages/message/whisper-detail.tsx')
+  assert.match(detail, /sourceScene/)
+  assert.match(detail, /resolveWhisperErrorMessage/)
+  assert.doesNotMatch(detail, /scene:\s*'profile'/)
+  assert.doesNotMatch(detail, /\.allowed\b/)
+
+  const postDetail = read('src/pages/qianxun/post-detail.tsx')
+  assert.match(postDetail, /precheck\?\.canSend/)
+  assert.doesNotMatch(postDetail, /precheck\?\.allowed|whisperPrecheck\.allowed/)
+
+  for (const relativePath of [
+    'src/features/qianxun/QianxunFamilyPage.tsx',
+    'src/features/qianxun/QianxunZhiyinTab.tsx',
+    'src/pages/qianxun/topic.tsx',
+  ]) {
+    const source = read(relativePath)
+    assert.match(source, /sourceScene=community_post/)
+    assert.match(source, /sourceBizNo=/)
+    assert.match(source, /resolveStableWhisperTargetUserNo/)
+  }
+
+  const recommendation = read('src/pages/recommend/index.tsx')
+  assert.match(recommendation, /sourceScene=recommendation/)
+})
+
 test('LiteChat 网关固定精确版本并具备凭证刷新、文本发送、历史、事件和已读', () => {
   const packageJson = JSON.parse(read('package.json'))
   const gateway = read('src/im/LiteChatMessageImGateway.ts')

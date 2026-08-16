@@ -2,6 +2,7 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
+import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
 import { getApiErrorCode } from '@/services/request'
 import { findConversationByPeerUserId } from '@/services/message'
 import { getPublicProfile, type PublicProfileVO } from '@/services/profile'
@@ -127,8 +128,10 @@ export default function HeartUserPage() {
   const openConversation = async () => {
     if (!profile) return
     if (profile.communicationMode === 'WHISPER') {
+      const whisperSourceScene = resolveWhisperRouteSourceScene(sourceScene)
       const query = [
         `receiverUserNo=${profile.userNo}`,
+        `sourceScene=${whisperSourceScene}`,
         `nickname=${encodeURIComponent(profile.nickname || '用户')}`,
         `avatar=${encodeURIComponent(profile.avatar || '')}`,
         'compose=1',

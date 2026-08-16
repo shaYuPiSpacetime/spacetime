@@ -295,7 +295,6 @@ export interface MessageWhisperDetail {
 
 export interface WhisperPrecheckResponse {
   canSend: boolean
-  allowed: boolean
   reasonCode: string | null
   reasonText: string | null
   contentMaxLength: number
@@ -304,14 +303,13 @@ export interface WhisperPrecheckResponse {
   free: boolean
   coinBalance: number
   freeWhisperRemain: number
-  quoteToken: string
-  quoteExpireTime: string
+  quoteToken: string | null
+  quoteExpireTime: string | null
   whisperExpireDays: number
   cooldownDays: number
   confirmText: string
   targetUserNo: string
   targetNickname: string | null
-  targetAvatarUrl: string | null
 }
 
 export interface WhisperCreateResponse {

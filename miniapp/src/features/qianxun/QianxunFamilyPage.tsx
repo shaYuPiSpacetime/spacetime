@@ -24,6 +24,7 @@ import {
 import { usePrd01Store } from '@/stores/prd01Store'
 import { prd01Api } from '@/services/prd01'
 import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboardingFlow'
+import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -231,6 +232,25 @@ export default function RecommendFamilyPage() {
     }
   }
 
+  const openWhisper = (post: CommunityPostVO) => {
+    if (!requireCoreAccess()) return
+    const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
+    if (!targetUserNo || !post.postNo) {
+      void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
+      return
+    }
+    const query = [
+      `receiverUserNo=${encodeURIComponent(targetUserNo)}`,
+      `sourceScene=community_post`,
+      `sourceBizNo=${encodeURIComponent(post.postNo)}`,
+      `nickname=${encodeURIComponent(post.authorName || '用户')}`,
+      `avatar=${encodeURIComponent(post.authorAvatar || '')}`,
+      `meta=${encodeURIComponent(formatPostAuthorMeta(post, optionLabel))}`,
+      'compose=1',
+    ].join('&')
+    void Taro.navigateTo({ url: `/pages/message/whisper-detail?${query}` })
+  }
+
   const goVerify = async () => {
     try {
       const [basic, verification, introduction] = await Promise.all([
@@ -276,7 +296,7 @@ export default function RecommendFamilyPage() {
                 onOpen={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
                 onTopic={() => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
                 onComment={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
-                onContact={() => requireCoreAccess() && void Taro.navigateTo({ url: `/pages/message/whisper-detail?receiverUserNo=${post.authorId}&nickname=${encodeURIComponent(post.authorName || '用户')}&avatar=${encodeURIComponent(post.authorAvatar || '')}&meta=${encodeURIComponent(formatPostAuthorMeta(post, optionLabel))}&compose=1` })}
+                onContact={() => openWhisper(post)}
                 onMore={() => openActions(post)}
                 onFollow={() => void toggleFollow(post)}
                 onLike={() => void toggleLike(post)}

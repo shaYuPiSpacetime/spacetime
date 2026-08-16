@@ -5,6 +5,7 @@ import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboardingFlow'
+import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { prd01Api } from '@/services/prd01'
 import {
@@ -176,8 +177,15 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
 
   const openContact = (post: CommunityPostVO) => {
     if (!requireInteraction()) return
+    const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
+    if (!targetUserNo || !post.postNo) {
+      void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
+      return
+    }
     const query = [
-      `receiverUserNo=${encodeURIComponent(String(post.authorId))}`,
+      `receiverUserNo=${encodeURIComponent(targetUserNo)}`,
+      `sourceScene=community_post`,
+      `sourceBizNo=${encodeURIComponent(post.postNo)}`,
       `nickname=${encodeURIComponent(post.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser))}`,
       `avatar=${encodeURIComponent(post.authorAvatar || '')}`,
       `meta=${encodeURIComponent(formatPostAuthorMeta(post, optionLabel))}`,

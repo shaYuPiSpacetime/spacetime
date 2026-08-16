@@ -5,6 +5,10 @@ import NativeNavigation, { getNativeNavigationMetrics } from '@/components/Nativ
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
+  resolveStableWhisperTargetUserNo,
+  resolveWhisperErrorMessage,
+} from '@/domain/whisperRuntime'
+import {
   buildCommunityCommentThreads,
   resolveCommentThreadRootId,
   type CommunityCommentSort,
@@ -244,14 +248,14 @@ export default function QianxunPostDetailPage() {
     try {
       const result = await precheckWhisper({
         targetUserNo,
-        sourcePostNo: post.postNo,
-        scene: 'community_post',
+        sourceBizNo: post.postNo,
+        sourceScene: 'community_post',
       })
       setWhisperPrecheck(result)
     } catch (error) {
       setShowWhisper(false)
       await Taro.showToast({
-        title: error instanceof Error ? error.message : '悄悄话预检查失败，请稍后重试',
+        title: resolveWhisperErrorMessage(error, '悄悄话预检查失败，请稍后重试'),
         icon: 'none',
       })
     } finally {
@@ -262,7 +266,7 @@ export default function QianxunPostDetailPage() {
   const submitWhisper = async () => {
     const content = whisperContent.trim()
     if (!post || !whisperPrecheck || whisperSubmitting) return
-    if (!whisperPrecheck.allowed) {
+    if (!whisperPrecheck.canSend || !whisperPrecheck.quoteToken) {
       await Taro.showToast({ title: whisperPrecheck.reasonText || '当前暂时无法发送悄悄话', icon: 'none' })
       return
     }
@@ -274,8 +278,8 @@ export default function QianxunPostDetailPage() {
     try {
       const result = await createWhisper({
         targetUserNo: resolveAuthorUserNo(post),
-        sourcePostNo: post.postNo,
-        scene: 'community_post',
+        sourceBizNo: post.postNo,
+        sourceScene: 'community_post',
         content,
         quoteToken: whisperPrecheck.quoteToken,
       }, whisperIdempotencyKey)
@@ -290,7 +294,7 @@ export default function QianxunPostDetailPage() {
       })
     } catch (error) {
       await Taro.showToast({
-        title: error instanceof Error ? error.message : '发送失败，请稍后重试',
+        title: resolveWhisperErrorMessage(error, '发送失败，请稍后重试'),
         icon: 'none',
       })
     } finally {
@@ -407,7 +411,7 @@ function WhisperComposeSheet({
 }) {
   const maxLength = precheck?.contentMaxLength || 60
   const length = Array.from(content).length
-  const disabled = loading || submitting || !precheck?.allowed || length < 1 || length > maxLength
+  const disabled = loading || submitting || !precheck?.canSend || length < 1 || length > maxLength
   const meta = [
     post.authorAge ? `${post.authorAge}岁` : '',
     post.authorZodiac || '',
@@ -467,7 +471,7 @@ function WhisperComposeSheet({
             <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '发送中…' : '发送悄悄话'}</Text>
           </View>
         </View>
-        {!precheck?.allowed && precheck?.reasonText ? <Text style={{ display: 'block', color: '#E35C5C', fontSize: '22rpx', textAlign: 'center', marginTop: '14rpx' }}>{precheck.reasonText}</Text> : null}
+        {precheck && !precheck.canSend && precheck.reasonText ? <Text style={{ display: 'block', color: '#E35C5C', fontSize: '22rpx', textAlign: 'center', marginTop: '14rpx' }}>{precheck.reasonText}</Text> : null}
         <View style={{ marginTop: '45rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: '72rpx', height: '38rpx', borderRadius: '20rpx', background: '#333333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#D9A942', fontSize: '22rpx' }}>◇</Text></View>
           <Text style={{ color: '#333333', fontSize: '26rpx', marginLeft: '12rpx' }}>开通<Text style={{ color: '#E7B64E' }}>时空邂逅会员</Text>每天一个悄悄话</Text>
@@ -564,8 +568,7 @@ function CommentActionSheet({ comment, onClose, onReply, onDelete, onReport }: {
 }
 
 function resolveAuthorUserNo(post: CommunityPostVO) {
-  if (post.authorUserNo) return post.authorUserNo
-  return `USR-${String(post.authorId).padStart(12, '0')}`
+  return resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
 }
 
 function createWhisperIdempotencyKey() {

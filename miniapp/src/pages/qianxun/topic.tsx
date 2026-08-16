@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
@@ -183,8 +184,9 @@ function TopicPostCard({ post, onLike, onMore }: { post: CommunityPostVO; onLike
   }
   const openContact = (event: { stopPropagation: () => void }) => {
     event.stopPropagation()
-    if (!post.authorUserNo) return void Taro.showToast({ title: '当前用户暂时无法申请认识', icon: 'none' })
-    void Taro.navigateTo({ url: `/pages/message/whisper-detail?receiverUserNo=${post.authorUserNo}&nickname=${encodeURIComponent(post.authorName || '用户')}&avatar=${encodeURIComponent(post.authorAvatar || '')}&compose=1` })
+    const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
+    if (!targetUserNo || !post.postNo) return void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
+    void Taro.navigateTo({ url: `/pages/message/whisper-detail?receiverUserNo=${encodeURIComponent(targetUserNo)}&sourceScene=community_post&sourceBizNo=${encodeURIComponent(post.postNo)}&nickname=${encodeURIComponent(post.authorName || '用户')}&avatar=${encodeURIComponent(post.authorAvatar || '')}&compose=1` })
   }
   return <View onClick={openPost} style={{ width: '700rpx', borderRadius: '14rpx', background: '#FFFFFF', marginBottom: '18rpx', padding: '24rpx 24rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
     <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={openAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '68rpx', height: '68rpx', borderRadius: '34rpx', background: '#EFF3F7' }} /><View onClick={openAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '14rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#303B4A', fontSize: '24rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: '#7F8EA4', fontSize: '20rpx', marginTop: '5rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{postAuthorMeta(post) || relativeTime(post.createTime)}</Text></View><View id={`qianxun-topic-post-more-${post.id}`} onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '54rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx', lineHeight: '44rpx' }}>⋮</Text></View></View>

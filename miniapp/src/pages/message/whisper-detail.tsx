@@ -2,6 +2,10 @@ import { Image, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import {
+  resolveWhisperErrorMessage,
+  resolveWhisperRouteSourceScene,
+} from '@/domain/whisperRuntime'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import type {
@@ -42,6 +46,8 @@ export default function WhisperDetailPage() {
   const [errorMessage, setErrorMessage] = useState('')
 
   const targetUserNo = router.params.receiverUserNo || ''
+  const sourceScene = resolveWhisperRouteSourceScene(router.params.sourceScene)
+  const sourceBizNo = router.params.sourceBizNo || undefined
 
   const load = async () => {
     setLoading(true)
@@ -50,10 +56,11 @@ export default function WhisperDetailPage() {
       if (directCompose) {
         const nextQuote = await service.precheckWhisper({
           targetUserNo,
-          scene: 'profile',
+          sourceScene,
+          sourceBizNo,
         })
         setQuote(nextQuote)
-        if (!nextQuote.canSend && !nextQuote.allowed) setErrorMessage(nextQuote.reasonText || '当前暂时无法发送悄悄话')
+        if (!nextQuote.canSend) setErrorMessage(nextQuote.reasonText || '当前暂时无法发送悄悄话')
         return
       }
 
@@ -67,7 +74,7 @@ export default function WhisperDetailPage() {
       setRecord(nextRecord)
       setMessageContent(nextRecord.contentAvailable ? nextRecord.content || '' : '')
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '悄悄话加载失败')
+      setErrorMessage(resolveWhisperErrorMessage(error, '悄悄话加载失败'))
     } finally {
       setLoading(false)
     }
@@ -75,7 +82,7 @@ export default function WhisperDetailPage() {
 
   useEffect(() => {
     void load()
-  }, [router.params.whisperNo, directCompose, isMockScene, targetUserNo])
+  }, [router.params.whisperNo, directCompose, isMockScene, targetUserNo, sourceScene, sourceBizNo])
 
   const avatarUrl = directCompose
     ? (router.params.avatar ? decodeURIComponent(router.params.avatar) : MESSAGE_AVATAR)
@@ -125,13 +132,14 @@ export default function WhisperDetailPage() {
           })
         }
       } else {
-        const activeQuote = quote || (await service.precheckWhisper({ targetUserNo, scene: 'profile' }))
-        if (!activeQuote.canSend && !activeQuote.allowed) throw new Error(activeQuote.reasonText || '当前暂时无法申请')
+        const activeQuote = quote || (await service.precheckWhisper({ targetUserNo, sourceScene, sourceBizNo }))
+        if (!activeQuote.canSend || !activeQuote.quoteToken) throw new Error(activeQuote.reasonText || '当前暂时无法申请')
         const requestId = createRequestId('whisper-create')
         await service.createWhisper(
           {
             targetUserNo,
-            scene: 'profile',
+            sourceScene,
+            sourceBizNo,
             content: normalized,
             quoteToken: activeQuote.quoteToken,
           },
@@ -143,7 +151,10 @@ export default function WhisperDetailPage() {
       setContent('')
       if (!isMockScene) await messagePlatformRuntime.onForeground()
     } catch (error) {
-      await Taro.showToast({ title: error instanceof Error ? error.message : '提交失败，请稍后重试', icon: 'none' })
+      await Taro.showToast({
+        title: resolveWhisperErrorMessage(error, '提交失败，请稍后重试'),
+        icon: 'none',
+      })
     } finally {
       setSubmitting(false)
     }

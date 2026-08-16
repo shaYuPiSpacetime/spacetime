@@ -1,6 +1,11 @@
 import { useMessageStore } from '../stores/messageStore'
 import { get, post, request } from './request'
 import { normalizeConversationStatus } from '../domain/messageRuntime'
+import {
+  buildWhisperCreatePayload,
+  buildWhisperPrecheckPayload,
+  type WhisperSourceScene,
+} from '../domain/whisperRuntime'
 import type {
   AssistantMessageItem,
   AssistantMessagePage,
@@ -25,8 +30,8 @@ import type {
 
 export interface WhisperPrecheckCommand {
   targetUserNo: string
-  sourcePostNo?: string
-  scene?: 'community_post' | 'profile' | 'recommendation' | 'message_home'
+  sourceScene: WhisperSourceScene
+  sourceBizNo?: string
 }
 
 export interface WhisperCreateCommand extends WhisperPrecheckCommand {
@@ -205,7 +210,9 @@ export class RealMessageService implements MessageService {
   }
 
   precheckWhisper(input: WhisperPrecheckCommand): Promise<WhisperPrecheckResponse> {
-    return post<WhisperPrecheckResponse>('/miniapp/message/whispers/precheck', { ...input })
+    return post<WhisperPrecheckResponse>('/miniapp/message/whispers/precheck', {
+      ...buildWhisperPrecheckPayload(input),
+    })
   }
 
   createWhisper(
@@ -215,7 +222,7 @@ export class RealMessageService implements MessageService {
     return request<WhisperCreateResponse>({
       url: '/miniapp/message/whispers',
       method: 'POST',
-      data: { ...input },
+      data: { ...buildWhisperCreatePayload(input) },
       header: { 'Idempotency-Key': idempotencyKey },
     })
   }
@@ -422,7 +429,7 @@ export class MockMessageService implements MessageService {
 
   async precheckWhisper(input: WhisperPrecheckCommand): Promise<WhisperPrecheckResponse> {
     return {
-      canSend: true, allowed: true, reasonCode: null, reasonText: null, contentMaxLength: 60,
+      canSend: true, reasonCode: null, reasonText: null, contentMaxLength: 60,
       payType: 'coin', coinAmount: 100, free: false, coinBalance: 520, freeWhisperRemain: 0,
       quoteToken: `mock-quote-${input.targetUserNo}`, quoteExpireTime: '2099-01-01 00:00:00',
       whisperExpireDays: 7, cooldownDays: 3, confirmText: '确认发送悄悄话',

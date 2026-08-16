@@ -197,7 +197,7 @@ export default function RecommendPage() {
       return
     }
     await Taro.navigateTo({
-      url: `/pages/message/whisper-detail?receiverUserNo=${profile.userNo}&nickname=${encodeURIComponent(profile.nickname || '用户')}&avatar=${encodeURIComponent(profile.avatar || '')}&compose=1`,
+      url: `/pages/message/whisper-detail?receiverUserNo=${profile.userNo}&sourceScene=recommendation&nickname=${encodeURIComponent(profile.nickname || '用户')}&avatar=${encodeURIComponent(profile.avatar || '')}&compose=1`,
     })
   }
 
