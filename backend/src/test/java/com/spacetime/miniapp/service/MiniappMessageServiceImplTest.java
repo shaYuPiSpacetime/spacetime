@@ -273,13 +273,13 @@ class MiniappMessageServiceImplTest {
 
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
-        assertThat(result.getTimConversationId()).isEqualTo("C2C_tu_peer_2");
+        assertThat(result.getTimConversationId()).isEqualTo("C2Ctu_peer_2");
         assertThat(result.getAccessMode()).isEqualTo("normal");
         assertThat(result.getCanSend()).isTrue();
         assertThat(result.getCanReportChat()).isTrue();
         assertThat(result.getReportContext())
                 .extracting("sourceType", "conversationNo", "timConversationId")
-                .containsExactly("private_chat", "CV-1", "C2C_tu_peer_2");
+                .containsExactly("private_chat", "CV-1", "C2Ctu_peer_2");
         assertThat(result.getSafetyActions())
                 .containsExactly("report_chat", "block", "block_and_report");
         assertThat(result.getFemaleProtection().getEnabled()).isFalse();
@@ -299,7 +299,7 @@ class MiniappMessageServiceImplTest {
 
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
-        assertThat(result.getTimConversationId()).isEqualTo("C2C_tu_peer_2");
+        assertThat(result.getTimConversationId()).isEqualTo("C2Ctu_peer_2");
         assertThat(result.getCanEnterConversation()).isTrue();
         assertThat(result.getCanSend()).isTrue();
         verify(accountProvider).syncAccount(2L, "小月", "avatar-2");
@@ -318,7 +318,7 @@ class MiniappMessageServiceImplTest {
 
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
-        assertThat(result.getTimConversationId()).isEqualTo("C2C_tu_peer_2");
+        assertThat(result.getTimConversationId()).isEqualTo("C2Ctu_peer_2");
         verify(accountProvider).syncAccount(2L, "小月", "avatar-2");
     }
 

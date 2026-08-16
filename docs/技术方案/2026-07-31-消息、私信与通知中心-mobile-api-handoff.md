@@ -520,6 +520,9 @@ X-Auth-Token: {token}
 | `femaleProtection.protectionUntil` | String/null | 女性保护截止时间；未启用或无截止时间时为 null |
 | `safetyActions` | Array<String> | 当前可用操作：`report_chat`、`block`、`block_and_report` |
 
+`timConversationId` 必须严格按 LiteChat 的 `C2C${userID}` 生成。例如对方 UserID 为
+`tu_000000000131` 时，会话编号是 `C2Ctu_000000000131`；`C2C` 与 UserID 之间不得额外插入下划线。
+
 `reportContext` 字段：
 
 | 字段 | 类型 | 中文说明 |
@@ -553,7 +556,7 @@ X-Auth-Token: {token}
   "msg": "success",
   "data": {
     "conversationNo": "CV-2087485877996027904",
-    "timConversationId": "C2C_tu_000000000131",
+    "timConversationId": "C2Ctu_000000000131",
     "conversationStatus": "active",
     "accessMode": "normal",
     "peerUser": {
@@ -568,7 +571,7 @@ X-Auth-Token: {token}
     "reportContext": {
       "sourceType": "private_chat",
       "conversationNo": "CV-2087485877996027904",
-      "timConversationId": "C2C_tu_000000000131"
+      "timConversationId": "C2Ctu_000000000131"
     },
     "femaleProtection": {
       "enabled": true,
@@ -1807,7 +1810,7 @@ Content-Type: application/json
   "targetId":"CV-20260813-0001",
   "sourceType":"private_chat",
   "conversationNo":"CV-20260813-0001",
-  "timConversationId":"C2C_tu_peer_2",
+  "timConversationId":"C2Ctu_peer_2",
   "reasonCode":"harassment",
   "extraText":"对方在聊天中持续骚扰",
   "evidenceImageUrls":[]

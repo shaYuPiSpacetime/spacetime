@@ -57,7 +57,7 @@ class MessageChatReportContextResolverTest {
                 .thenReturn(List.of(message(21L, "MSG-21", 1L, 2L)));
 
         TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
-                "message", null, null, "MSG-20", "MSG-20", "C2C_tu_peer_2",
+                "message", null, null, "MSG-20", "MSG-20", "C2Ctu_peer_2",
                 "TIM-20", "KEY-20"));
 
         assertThat(result.targetUserId()).isEqualTo(2L);
@@ -81,7 +81,7 @@ class MessageChatReportContextResolverTest {
         when(recordDao.selectSentAfter(10L, 20L, 2)).thenReturn(List.of());
 
         TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
-                "message", "CV-10", null, "TIM-20", "TIM-20", "C2C_tu_peer_2",
+                "message", "CV-10", null, "TIM-20", "TIM-20", "C2Ctu_peer_2",
                 "TIM-20", null));
 
         assertThat(result.targetNo()).isEqualTo("MSG-20");
@@ -112,7 +112,7 @@ class MessageChatReportContextResolverTest {
 
         TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
                 "private_chat", "CV-10", null, null, "CV-10",
-                "C2C_tu_peer_2", null, null));
+                "C2Ctu_peer_2", null, null));
 
         assertThat(result.targetNo()).isEqualTo("CV-10");
         assertThat(result.targetUserId()).isEqualTo(2L);
@@ -136,7 +136,7 @@ class MessageChatReportContextResolverTest {
 
         TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
                 "private_chat", "CV-10", null, "MSG-20", "CV-10",
-                "C2C_tu_peer_2", "TIM-20", "KEY-20"));
+                "C2Ctu_peer_2", "TIM-20", "KEY-20"));
 
         assertThat(result.targetNo()).isEqualTo("CV-10");
         assertThat(result.sourceType()).isEqualTo("private_chat");
@@ -160,7 +160,7 @@ class MessageChatReportContextResolverTest {
 
         TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
                 "private_chat", "CV-10", null, null, "CV-10",
-                "C2C_tu_peer_2", "TIM-20", "KEY-20"));
+                "C2Ctu_peer_2", "TIM-20", "KEY-20"));
 
         assertThat(result.targetNo()).isEqualTo("CV-10");
         assertThat(result.targetMessageId()).isEqualTo(20L);

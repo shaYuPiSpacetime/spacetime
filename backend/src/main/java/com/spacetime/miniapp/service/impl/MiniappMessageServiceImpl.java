@@ -871,7 +871,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         if (!isSyncedImAccount(account)) {
             throw new BusinessException(MESSAGE_IM_UNAVAILABLE, "对方即时通信账号暂不可用");
         }
-        return "C2C_" + account.getImUserId();
+        return timC2cConversationId(account.getImUserId());
     }
 
     private String optionalTimConversationId(Long peerUserId) {
@@ -880,7 +880,11 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         }
         AppUserImAccount account = imAccountDao.selectByUserId(peerUserId);
         return account == null || !StringUtils.hasText(account.getImUserId())
-                ? null : "C2C_" + account.getImUserId();
+                ? null : timC2cConversationId(account.getImUserId());
+    }
+
+    private String timC2cConversationId(String imUserId) {
+        return "C2C" + imUserId;
     }
 
     private boolean isSyncedImAccount(AppUserImAccount account) {

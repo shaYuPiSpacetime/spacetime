@@ -173,7 +173,7 @@ public class MessageChatReportContextResolver implements ChatReportContextResolv
             return;
         }
         AppUserImAccount account = imAccountDao.selectByUserId(peerUserId);
-        if (account == null || !submitted.equals("C2C_" + account.getImUserId())) {
+        if (account == null || !submitted.equals("C2C" + account.getImUserId())) {
             throw unavailable();
         }
     }

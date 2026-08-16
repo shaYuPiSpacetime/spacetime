@@ -510,7 +510,7 @@
 ```json
 {
   "conversationNo": "CV202607020001",
-  "timConversationId": "C2C_tu_7Fx3A9",
+  "timConversationId": "C2Ctu_7Fx3A9",
   "conversationStatus": "active",
   "canEnterConversation": true,
   "canSend": true,
@@ -522,6 +522,9 @@
   }
 }
 ```
+
+`timConversationId` 使用 TIM SDK 标准格式 `C2C${userID}`。若 UserID 为 `tu_7Fx3A9`，则会话编号为
+`C2Ctu_7Fx3A9`，不得在 `C2C` 与 UserID 之间再增加分隔符。
 
 说明：平台会话详情不返回普通私信正文、历史或本地已读游标；小程序使用 `timConversationId`
 调用 LiteChat 拉取历史、发送文本并设置会话已读。
@@ -538,7 +541,7 @@
   "context": {
     "sourceType": "private_chat",
     "conversationNo": "CV202607020001",
-    "timConversationId": "C2C_tu_7Fx3A9",
+    "timConversationId": "C2Ctu_7Fx3A9",
     "messageNo": "MSG202607020088",
     "timMessageId": "144115233553",
     "timMsgKey": "TIM-MSG-KEY-01"
