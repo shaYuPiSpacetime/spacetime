@@ -357,7 +357,13 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     }
 
     private String truncate(String value, int maxLength) {
-        return value.length() <= maxLength ? value : value.substring(0, maxLength);
+        if (value == null) {
+            return null;
+        }
+        if (value.codePointCount(0, value.length()) <= maxLength) {
+            return value;
+        }
+        return value.substring(0, value.offsetByCodePoints(0, maxLength));
     }
 
     private String maskRealName(String value) {
@@ -382,6 +388,40 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     }
 
     private String escapeJson(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+        if (value == null) {
+            return null;
+        }
+        StringBuilder escaped = new StringBuilder(value.length() + 16);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isHighSurrogate(c)) {
+                if (i + 1 < value.length() && Character.isLowSurrogate(value.charAt(i + 1))) {
+                    escaped.append(c).append(value.charAt(i + 1));
+                    i++;
+                } else {
+                    escaped.append('\uFFFD');
+                }
+            } else if (Character.isLowSurrogate(c)) {
+                escaped.append('\uFFFD');
+            } else {
+                switch (c) {
+                    case '"' -> escaped.append("\\\"");
+                    case '\\' -> escaped.append("\\\\");
+                    case '\b' -> escaped.append("\\b");
+                    case '\f' -> escaped.append("\\f");
+                    case '\n' -> escaped.append("\\n");
+                    case '\r' -> escaped.append("\\r");
+                    case '\t' -> escaped.append("\\t");
+                    default -> {
+                        if (c < 0x20) {
+                            escaped.append(String.format("\\u%04x", (int) c));
+                        } else {
+                            escaped.append(c);
+                        }
+                    }
+                }
+            }
+        }
+        return escaped.toString();
     }
 }

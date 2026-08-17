@@ -8,6 +8,8 @@ import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.service.impl.AppUserAuditServiceImpl;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -183,6 +185,61 @@ class AppUserAuditServiceTest {
 
         assertThat(result).containsEntry(10L, 2).containsEntry(11L, 3);
         verify(recordDao).selectList(any());
+    }
+
+    @Test
+    @DisplayName("快照截断不拆分代理对，生成合法 JSON")
+    void shouldNotSplitSurrogatePairWhenTruncatingSnapshot() throws Exception {
+        AppUserAuditRecord record = record(6L, 10L, AppUserAuditTypeEnum.ABOUT_ME,
+                AppUserAuditStatusEnum.PENDING);
+        String prefix = "a".repeat(23);
+        record.setContentText(prefix + "😀");
+
+        auditService.submit(record);
+
+        String snapshotJson = capturedSnapshotJson();
+        assertNoUnpairedSurrogates(snapshotJson);
+        JsonNode root = new ObjectMapper().readTree(snapshotJson);
+        assertThat(root.get("contentText").asText()).isEqualTo(prefix + "😀");
+    }
+
+    @Test
+    @DisplayName("快照对孤立代理项和控制字符做安全转义")
+    void shouldSanitizeUnpairedSurrogatesAndControlCharsInSnapshot() throws Exception {
+        AppUserAuditRecord record = record(7L, 11L, AppUserAuditTypeEnum.ABOUT_ME,
+                AppUserAuditStatusEnum.PENDING);
+        String content = "line1\n" + "\u0000" + "\uD800" + "end";
+        record.setContentText(content);
+
+        auditService.submit(record);
+
+        String snapshotJson = capturedSnapshotJson();
+        assertNoUnpairedSurrogates(snapshotJson);
+        JsonNode root = new ObjectMapper().readTree(snapshotJson);
+        assertThat(root.get("contentText").asText())
+                .isEqualTo("line1\n" + "\u0000" + "\uFFFD" + "end");
+    }
+
+    private String capturedSnapshotJson() {
+        ArgumentCaptor<AppUserAuditHistory> captor = ArgumentCaptor.forClass(AppUserAuditHistory.class);
+        verify(historyDao).insert(captor.capture());
+        return captor.getValue().getSnapshotJson();
+    }
+
+    private void assertNoUnpairedSurrogates(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isHighSurrogate(c)) {
+                assertThat(i + 1 < value.length() && Character.isLowSurrogate(value.charAt(i + 1)))
+                        .as("快照中存在孤立高代理项")
+                        .isTrue();
+                i++;
+            } else {
+                assertThat(Character.isLowSurrogate(c))
+                        .as("快照中存在孤立低代理项")
+                        .isFalse();
+            }
+        }
     }
 
     private AppUserAuditRecord record(Long id, Long userId, AppUserAuditTypeEnum type,
