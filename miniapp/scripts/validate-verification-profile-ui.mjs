@@ -77,11 +77,17 @@ assert.ok(tabsSource.includes('completedKeys'), '认证状态 Tabs 需要支持�
 assert.ok(tabsSource.includes("active === 'realName'") && tabsSource.includes("active === 'education'"), '认证状态 Tabs 缺少实名/学历前序点亮逻辑')
 
 const realNameSource = read('src/pages/verification/real-name.tsx')
+const verificationSubShellSource = read('src/pages/verification/components/VerificationSubShell.tsx')
 assert.ok(realNameSource.includes('getRealName'), '实名认证页必须从接口回显姓名和状态')
 assert.ok(realNameSource.includes("useState('')"), '实名认证页禁止内置测试身份信息')
 assert.ok(realNameSource.includes("copy('real_name_name_placeholder')"), '实名认证姓名提示必须读取运行时文案')
 assert.ok(realNameSource.includes("copy('real_name_id_placeholder')"), '实名认证证件提示必须读取运行时文案')
 assert.ok(realNameSource.includes('useState(false)'), '实名认证协议不得替用户默认勾选')
+assert.ok(realNameSource.includes('bottomAction='), '实名认证提交按钮必须通过页面底部操作区渲染')
+assert.ok(realNameSource.includes('<VerificationBottomAction'), '实名认证提交按钮必须复用安全区底部按钮组件')
+assert.ok(realNameSource.includes('id="real-name-submit-button"'), '实名认证提交按钮必须保留可验收的真实组件标识')
+assert.ok(!realNameSource.includes('<SubmitButton'), '实名认证提交按钮禁止继续使用缺少纵坐标的绝对定位按钮')
+assert.ok(verificationSubShellSource.includes('{bottomAction}'), '认证子页面容器必须在滚动区外渲染底部操作区')
 
 const educationStudentSource = read('src/pages/verification/education-student.tsx')
 const educationSubmitSource = read('src/pages/verification/components/EducationSubmitPage.tsx')

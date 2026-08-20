@@ -7,6 +7,7 @@ import bg from '@/assets/lanhu/verification/verification-bg.webp'
 interface VerificationSubShellProps {
   title: string
   children: ReactNode
+  bottomAction?: ReactNode
   contentHeight?: string
   scroll?: boolean
   onBack?: () => void
@@ -15,6 +16,7 @@ interface VerificationSubShellProps {
 export default function VerificationSubShell({
   title,
   children,
+  bottomAction,
   contentHeight = '1678rpx',
   scroll = false,
   onBack,
@@ -28,7 +30,7 @@ export default function VerificationSubShell({
   }
 
   const content = (
-    <View style={{ position: 'relative', width: '750rpx', minHeight: contentHeight, boxSizing: 'border-box', paddingBottom: '60rpx' }}>
+    <View style={{ position: 'relative', width: '750rpx', minHeight: contentHeight, boxSizing: 'border-box', paddingBottom: bottomAction ? '220rpx' : '60rpx' }}>
       <Header title={title} onBack={handleBack} />
       {children}
     </View>
@@ -44,6 +46,7 @@ export default function VerificationSubShell({
       ) : (
         <View style={{ position: 'relative', zIndex: 1 }}>{content}</View>
       )}
+      {bottomAction}
     </View>
   )
 }

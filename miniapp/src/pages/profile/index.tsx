@@ -19,6 +19,7 @@ import profileBg from '@/assets/profile/profile-bg.webp'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import cardCoin from '@/assets/profile/card-coin.webp'
 import cardInvite from '@/assets/profile/card-invite.webp'
+import vipBannerBg from '@/assets/profile/vip-banner-bg.svg'
 
 /**
  * 我的页面。
@@ -507,12 +508,22 @@ function VipBanner({
         height: '128rpx',
         borderRadius: '12rpx',
         overflow: 'hidden',
-        background: 'linear-gradient(105deg, #1B1B1B 0%, #292725 58%, #45423D 100%)',
+        background: '#1B1B1B',
       }}
       onClick={onClick}
       hoverClass="btn-hover"
     >
-      <VipBannerPattern />
+      <Image
+        src={vipBannerBg}
+        mode="scaleToFill"
+        style={{
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          width: '700rpx',
+          height: '128rpx',
+        }}
+      />
       <VipBannerMark />
       <Text
         style={{
@@ -578,38 +589,6 @@ function VipBanner({
           </Text>
         </View>
       )}
-    </View>
-  )
-}
-
-function VipBannerPattern() {
-  const border = '10rpx solid rgba(184,166,123,0.24)'
-  return (
-    <View style={{ position: 'absolute', right: '-10rpx', top: '-56rpx', width: '220rpx', height: '240rpx', overflow: 'hidden' }}>
-      <View
-        style={{
-          position: 'absolute',
-          right: '-24rpx',
-          top: '-18rpx',
-          width: '128rpx',
-          height: '128rpx',
-          borderRadius: '18rpx',
-          border,
-          transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '34rpx',
-          top: '72rpx',
-          width: '118rpx',
-          height: '118rpx',
-          borderRadius: '18rpx',
-          border,
-          transform: 'rotate(45deg)',
-        }}
-      />
     </View>
   )
 }

@@ -55,6 +55,9 @@ assert.ok(profilePage.includes('ProfileAvatarFrame'), '我的页面头像必须�
 assert.ok(profilePage.includes('{profileScore > 0 && ('), '资料进度徽标必须只在资料完成度大于零时展示')
 assert.ok(profilePage.includes("background: profileScore > 0 ? '#E3F1FE' : '#FFFFFF'"), '头像底座必须按资料完成度切换蓝湖的浅蓝或白色样式')
 assert.ok(!profilePage.includes('profileVipBanner'), '我的会员横幅不能把带按钮和文案的整图当成交互组件')
+assert.ok(profilePage.includes("import vipBannerBg from '@/assets/profile/vip-banner-bg.svg'"), '我的会员横幅必须使用蓝湖原始纯背景矢量切图')
+assert.ok(profilePage.includes('src={vipBannerBg}'), '我的会员横幅必须渲染蓝湖纯背景切图')
+assert.ok(!profilePage.includes('VipBannerPattern'), '我的会员横幅不能继续使用近似的手绘几何背景')
 assert.ok(profilePage.includes('时空邂逅会员已开通，享尊享特权'), '已开通会员横幅文案必须与蓝湖一致')
 assert.ok(profilePage.includes('时空邂逅会员已过期'), '过期会员横幅文案必须与蓝湖一致')
 

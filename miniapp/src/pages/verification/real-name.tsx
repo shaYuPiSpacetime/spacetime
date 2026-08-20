@@ -7,7 +7,8 @@ import { usePrd01Store } from '@/stores/prd01Store'
 import type { RealNameDetail } from '@/types/prd01'
 import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import VerificationSubShell from './components/VerificationSubShell'
-import { AgreementRow, CustomerServiceLink, SubmitButton, VerificationStatusTabs } from './components/EducationVerificationShared'
+import { VerificationBottomAction } from './components/VerificationShell'
+import { AgreementRow, CustomerServiceLink, VerificationStatusTabs } from './components/EducationVerificationShared'
 
 export default function VerificationRealNamePage() {
   const copy = usePrd01Store(state => state.copy)
@@ -51,7 +52,20 @@ export default function VerificationRealNamePage() {
 
   return (
     <VerificationRuntimeBoundary loadData={loadDetail}>
-      <VerificationSubShell title={copy('verification_nav_title')} contentHeight="1450rpx" scroll>
+      <VerificationSubShell
+        title={copy('verification_nav_title')}
+        contentHeight="1450rpx"
+        scroll
+        bottomAction={detail?.canSubmit !== false ? (
+          <VerificationBottomAction
+            id="real-name-submit-button"
+            active={canSubmit && !submitting}
+            text={submitting ? copy('common_submitting_action') : copy('common_submit_action')}
+            onClick={() => void handleSubmit()}
+            onInactiveClick={() => void handleSubmit()}
+          />
+        ) : null}
+      >
         <View style={{ position: 'absolute', left: '25rpx', top: '226rpx', width: '700rpx' }}>
           <Text style={{ display: 'block', width: '330rpx', color: '#0C285A', fontSize: '48rpx', fontWeight: 600, lineHeight: '67rpx' }}>{copy('real_name_title')}</Text>
           <Text style={{ display: 'block', width: '700rpx', color: '#999999', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '14rpx' }}>{copy('real_name_notice')}</Text>
@@ -79,16 +93,6 @@ export default function VerificationRealNamePage() {
           agreementName={copy('agreement_single_commitment_name')}
         />
         <CustomerServiceLink top={detail?.auditStatus ? '834rpx' : '738rpx'} text={copy('common_customer_service')} />
-
-        {detail?.canSubmit !== false ? (
-          <SubmitButton
-            active={canSubmit}
-            submitting={submitting}
-            text={copy('common_submit_action')}
-            submittingText={copy('common_submitting_action')}
-            onClick={() => void handleSubmit()}
-          />
-        ) : null}
       </VerificationSubShell>
     </VerificationRuntimeBoundary>
   )

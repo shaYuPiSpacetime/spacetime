@@ -105,16 +105,21 @@ export default function VerificationShell({
 }
 
 export function VerificationBottomAction({
+  id,
   text,
   active = true,
   onClick,
+  onInactiveClick,
 }: {
+  id?: string
   text: string
   active?: boolean
   onClick: () => void | Promise<void>
+  onInactiveClick?: () => void | Promise<void>
 }) {
   return (
     <View
+      id={id}
       style={{
         position: 'fixed',
         left: '25rpx',
@@ -129,7 +134,7 @@ export function VerificationBottomAction({
         boxShadow: active ? '0 12rpx 28rpx rgba(40,118,255,0.25)' : 'none',
         zIndex: 20,
       }}
-      onClick={active ? onClick : undefined}
+      onClick={active ? onClick : onInactiveClick}
       hoverClass={active ? 'btn-hover' : undefined}
     >
       <Text style={{ color: '#FFFFFF', fontSize: '32rpx', fontWeight: 700, lineHeight: '45rpx' }}>
