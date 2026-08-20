@@ -20,6 +20,7 @@ const recordsStyle = read('src/pages/promotion/invite-records.scss')
 const rules = read('src/pages/promotion/invite-rules.tsx')
 const rulesStyle = read('src/pages/promotion/invite-rules.scss')
 const nativeNavigation = read('src/components/NativeNavigation.tsx')
+const ossIcons = read('src/constants/ossIcons.ts')
 
 const checks = [
   ['promotion 分包已注册', () => {
@@ -54,7 +55,7 @@ const checks = [
     assert.match(attributionService, /registrationGeneration/)
   }],
   ['首页包含蓝湖五个固定区块', () => {
-    for (const text of ['好友同行·奖励加倍', '邀请注册得千寻币', '邀请进度', '邀请记录', '邀请规则']) {
+    for (const text of ['邀请注册得千寻币', '邀请进度', '邀请记录', '邀请规则']) {
       assert.match(home, new RegExp(text))
     }
   }],
@@ -68,18 +69,34 @@ const checks = [
     assert.match(homeStyle, /\.promotion-records-card--empty/)
     assert.match(homeStyle, /\.promotion-records-empty__art/)
   }],
-  ['首页使用蓝湖独立插画与代码图标，不使用整页截图', () => {
-    assert.match(home, /inviteHero/)
+  ['首页使用 OSS 蓝湖背景和三个独立精灵裁窗', () => {
     assert.match(home, /inviteEmpty/)
-    for (const iconClass of [
-      'promotion-equation__glyph--share',
-      'promotion-equation__glyph--person',
-      'promotion-equation__glyph--coin',
-    ]) {
-      assert.match(home, new RegExp(iconClass))
-      assert.match(homeStyle, new RegExp(iconClass))
-    }
-    assert.doesNotMatch(home, /蓝湖基线|SketchCover|design\\.png/)
+    assert.match(ossIcons, /promotionInviteBackground:\s*['"]https:\/\//)
+    assert.match(ossIcons, /promotionInviteEquationSprite:\s*['"]https:\/\//)
+    assert.match(home, /miniappOssIcons\.promotionInviteBackground/)
+    assert.equal(
+      (home.match(/miniappOssIcons\.promotionInviteEquationSprite/g) || []).length,
+      3,
+      '分享、用户、千寻币必须分别使用独立 Image 裁窗',
+    )
+    assert.match(homeStyle, /\.promotion-home__background/)
+    assert.match(homeStyle, /pointer-events:\s*none/)
+    assert.match(homeStyle, /\.promotion-equation__sprite-window/)
+    assert.doesNotMatch(home, /inviteHero|EquationGlyph|promotion-equation__glyph/)
+    assert.doesNotMatch(homeStyle, /promotion-hero__title|promotion-hero__coin-watermark|promotion-hero__art/)
+    assert.doesNotMatch(homeStyle, /promotion-equation__share-arrow|promotion-equation__person-head|promotion-equation__person-body|promotion-equation__glyph/)
+    assert.doesNotMatch(home + homeStyle, /lanhuapp\.com|蓝湖基线|SketchCover|design\\.png/)
+  }],
+  ['首页阶梯节点、轨道与进度使用同一阈值坐标系', () => {
+    assert.match(home, /positionPercent/)
+    assert.match(home, /left:\s*`\$\{ladder\.positionPercent\}%`/)
+    assert.doesNotMatch(home, /gridTemplateColumns/)
+    assert.match(homeStyle, /--promotion-ladder-inset/)
+  }],
+  ['首页滚动后导航必须遮挡下穿卡片，避免标题重叠', () => {
+    assert.match(home, /handleHomeScroll/)
+    assert.match(home, /onScroll=\{handleHomeScroll\}/)
+    assert.match(home, /navigationScrolled\s*\?\s*['"]#[0-9a-fA-F]{6}['"]\s*:\s*['"]transparent['"]/)
   }],
   ['首页支持分享降级', () => {
     assert.match(home, /useShareAppMessage/)

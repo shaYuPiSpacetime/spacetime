@@ -23,75 +23,21 @@ page {
   background: linear-gradient(180deg, #ac7efb 0%, #7c66d4 97.02%);
 }
 
+.promotion-home__background {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 375px;
+  height: 1256px;
+  pointer-events: none;
+}
+
 .promotion-hero {
   position: relative;
-  height: 242px;
-  overflow: hidden;
-  color: #fff;
-}
-
-.promotion-hero__coin-watermark {
-  position: absolute;
-  top: -76px;
-  left: -41px;
-  color: rgba(255, 255, 255, 0.055);
-  font-size: 275px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.promotion-hero__eyebrow,
-.promotion-hero__title,
-.promotion-hero__subtitle {
-  position: absolute;
-  z-index: 2;
-  display: block;
-}
-
-.promotion-hero__eyebrow {
-  top: 93px;
-  left: 30px;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 16.5px;
-}
-
-.promotion-hero__title {
-  top: 120px;
-  left: 34px;
-  width: 205px;
-  color: #6600b8;
-  font-size: 36px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.5px;
-  text-shadow:
-    -3px -3px 0 #fff,
-    3px -3px 0 #fff,
-    -3px 3px 0 #fff,
-    3px 3px 0 #fff,
-    0 5px 0 #fff;
-  white-space: pre-line;
-  -webkit-text-stroke: 2px #fff;
-}
-
-.promotion-hero__subtitle {
-  top: 203px;
-  left: 30px;
-  color: #fff;
-  font-size: 12px;
-  line-height: 16.5px;
-  white-space: nowrap;
-}
-
-.promotion-hero__art {
-  position: absolute;
   z-index: 1;
-  top: 86px;
-  right: 12.5px;
-  width: 115.5px;
-  height: 156px;
+  height: 242px;
+  pointer-events: none;
 }
 
 .promotion-home__data {
@@ -206,22 +152,31 @@ page {
   white-space: nowrap;
 }
 
-.promotion-equation__glyph {
+.promotion-equation__sprite-window {
   position: relative;
-  display: flex;
   width: 44px;
   height: 44px;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
   border-radius: 4px;
-  background: #f2edff;
 }
 
-.promotion-equation__glyph--share,
-.promotion-equation__glyph--person,
-.promotion-equation__glyph--coin {
-  background: #f2edff;
+.promotion-equation__sprite {
+  position: absolute;
+  top: 0;
+  width: 242px;
+  height: 44px;
+}
+
+.promotion-equation__sprite--share {
+  left: 0;
+}
+
+.promotion-equation__sprite--person {
+  left: -99px;
+}
+
+.promotion-equation__sprite--coin {
+  left: -198px;
 }
 
 .promotion-equation__item > text {
@@ -234,61 +189,6 @@ page {
   font-weight: 400;
   line-height: 44px;
   text-align: center;
-}
-
-.promotion-equation__share-arrow {
-  color: #7742dc;
-  font-size: 30px;
-  font-weight: 900;
-  line-height: 32px;
-  text-shadow: 0 3px 3px rgba(77, 26, 158, 0.35);
-  transform: rotate(-42deg) translate(1px, 1px);
-}
-
-.promotion-equation__person-head {
-  position: absolute;
-  top: 10px;
-  width: 14px;
-  height: 11px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, #9f76f3, #6d33d3);
-  box-shadow: 0 2px 3px rgba(73, 26, 150, 0.34);
-}
-
-.promotion-equation__person-head::after {
-  position: absolute;
-  right: 4px;
-  bottom: 2px;
-  left: 4px;
-  height: 2px;
-  border-radius: 1px;
-  background: #f2edff;
-  content: '';
-}
-
-.promotion-equation__person-body {
-  position: absolute;
-  bottom: 8px;
-  width: 24px;
-  height: 15px;
-  border-radius: 13px 13px 5px 5px;
-  background: linear-gradient(180deg, #9c71f1, #6930cf);
-  box-shadow: 0 3px 4px rgba(73, 26, 150, 0.3);
-}
-
-.promotion-equation__glyph--coin text {
-  display: flex;
-  width: 24px;
-  height: 24px;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid #ff841c;
-  border-radius: 50%;
-  color: #ff841c;
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 24px;
-  box-sizing: border-box;
 }
 
 .promotion-primary-button {
@@ -405,6 +305,7 @@ page {
 }
 
 .promotion-ladder__track {
+  --promotion-ladder-inset: 38px;
   position: relative;
   height: 65px;
   margin-top: 12px;
@@ -413,8 +314,8 @@ page {
 .promotion-ladder__rail {
   position: absolute;
   top: 15px;
-  right: 0;
-  left: 0;
+  right: var(--promotion-ladder-inset);
+  left: var(--promotion-ladder-inset);
   height: 5px;
   border-radius: 3px;
   background: #f0f1f7;
@@ -439,17 +340,23 @@ page {
 }
 
 .promotion-ladder__steps {
-  position: relative;
+  position: absolute;
   z-index: 4;
-  display: grid;
-  height: 65px;
+  top: 0;
+  right: var(--promotion-ladder-inset);
+  bottom: 0;
+  left: var(--promotion-ladder-inset);
 }
 
 .promotion-ladder__step {
+  position: absolute;
+  top: 0;
   display: flex;
+  width: 76px;
   align-items: center;
   color: #aaa;
   flex-direction: column;
+  transform: translateX(-50%);
 }
 
 .promotion-ladder__reward {

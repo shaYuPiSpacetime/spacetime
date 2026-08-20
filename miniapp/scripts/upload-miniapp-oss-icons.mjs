@@ -22,6 +22,8 @@ class OssUploadError extends Error {
 
 // 不包含底部 Tab 图标；这些资源必须按源文件字节上传，不会转换、缩放或压缩图像。
 const ICON_ASSETS = Object.freeze({
+  promotionInviteBackground: '../docs/验收报告/截图证据/2026-08-19-邀请首页蓝湖切图修正/设计基线/切图原始/01-84BC9B17-63B9-41C0-98BB-54DC17EF3FE2-编组13.png',
+  promotionInviteEquationSprite: '../docs/验收报告/截图证据/2026-08-19-邀请首页蓝湖切图修正/设计基线/切图原始/02-19A13B3F-F032-4E6E-A1EB-BABB3A928557-编组14.png',
   heartMutualLikes: 'src/assets/lanhu/heart-message/heart-mutual-likes.png',
   messageAvatarXiaoming: 'src/assets/lanhu/message/avatar-xiaoming.png',
   messageAvatarLikedBlurred: 'src/assets/lanhu/message/avatar-liked-blurred.png',
@@ -161,10 +163,11 @@ function readEnvFile(filePath) {
   return values
 }
 
-function requiredEnv(env, key) {
-  const value = env[key]
-  if (!value) throw new Error(`backend/.env.local 缺少 ${key}`)
-  return value
+function requiredEnv(env, ...keys) {
+  for (const key of keys) {
+    if (env[key]) return env[key]
+  }
+  throw new Error(`backend/.env.local 缺少 ${keys.join(' 或 ')}`)
 }
 
 function contentType(fileName) {
@@ -270,11 +273,11 @@ function writeClientManifest(entries) {
 async function main() {
   const dryRun = process.argv.includes('--dry-run')
   const env = readEnvFile(envFile)
-  const configuredEndpoint = requiredEnv(env, 'DEV_OSS_ENDPOINT')
-  const bucketName = requiredEnv(env, 'DEV_OSS_BUCKET_NAME')
-  const accessKeyId = requiredEnv(env, 'DEV_OSS_ACCESS_KEY_ID')
-  const accessKeySecret = requiredEnv(env, 'DEV_OSS_ACCESS_KEY_SECRET')
-  const cdnDomain = env.DEV_OSS_CDN_DOMAIN || ''
+  const configuredEndpoint = requiredEnv(env, 'DEV_OSS_ENDPOINT', 'OSS_ENDPOINT')
+  const bucketName = requiredEnv(env, 'DEV_OSS_BUCKET_NAME', 'OSS_BUCKET_NAME')
+  const accessKeyId = requiredEnv(env, 'DEV_OSS_ACCESS_KEY_ID', 'OSS_ACCESS_KEY_ID')
+  const accessKeySecret = requiredEnv(env, 'DEV_OSS_ACCESS_KEY_SECRET', 'OSS_ACCESS_KEY_SECRET')
+  const cdnDomain = env.DEV_OSS_CDN_DOMAIN || env.OSS_CDN_DOMAIN || ''
   const entries = []
   let endpoint = configuredEndpoint
 

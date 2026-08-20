@@ -3,9 +3,10 @@ import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { TOKEN_KEY } from '@/constants/config'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import { resolveInviteShareTarget } from '@/domain/promotionAttribution'
+import { displayedLadderStage } from '@/domain/promotionInvitePresentation'
 import inviteEmpty from '@/assets/lanhu/promotion/invite-empty.png'
-import inviteHero from '@/assets/lanhu/promotion/invite-hero.png'
 import { getInviteHome } from '@/services/promotion'
 import { capturePromotionSource } from '@/services/promotionAttribution'
 import { useAuthStore } from '@/stores/authStore'
@@ -23,26 +24,13 @@ function formatRecordTime(value: string) {
   return value.replace(/^\d{4}-/, '').replace('T', ' ').slice(0, 11)
 }
 
-function displayedLadderStage(ladders: InviteLadderVO[], current: number) {
-  if (!ladders.length) {
-    return {
-      ladders: [] as InviteLadderVO[],
-      max: 0,
-      progress: 0,
-    }
-  }
+type InviteLadderPresentation = InviteLadderVO & { positionPercent: number }
 
-  const ordered = [...ladders].sort((left, right) => left.threshold - right.threshold)
-  const firstPending = ordered.findIndex(item => !item.achieved && current < item.threshold)
-  const pivot = firstPending < 0 ? ordered.length - 1 : firstPending
-  const start = Math.max(0, Math.floor(pivot / 3) * 3)
-  const visible = ordered.slice(start, start + 3)
-  const stageBase = start > 0 ? ordered[start - 1].threshold : 0
-  const stageMax = visible[visible.length - 1]?.threshold || ordered[ordered.length - 1].threshold
-  const span = Math.max(stageMax - stageBase, 1)
-  const progress = Math.min(Math.max((current - stageBase) / span, 0), 1) * 100
-
-  return { ladders: visible, max: stageMax, progress }
+type InviteLadderStage = {
+  ladders: InviteLadderPresentation[]
+  stageBase: number
+  max: number
+  progress: number
 }
 
 export default function InviteHomePage() {
@@ -51,6 +39,7 @@ export default function InviteHomePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [shareAvailable, setShareAvailable] = useState(Taro.getEnv() === Taro.ENV_TYPE.WEAPP)
+  const [navigationScrolled, setNavigationScrolled] = useState(false)
 
   const shareContext = data?.shareContext || EMPTY_SHARE
   const shareTarget = useMemo(
@@ -120,10 +109,18 @@ export default function InviteHomePage() {
     void copyShareLink()
   }, [copyShareLink, nativeShareReady])
 
+  const handleHomeScroll = useCallback((event: { detail: { scrollTop: number } }) => {
+    const nextScrolled = event.detail.scrollTop > 8
+    setNavigationScrolled(current => current === nextScrolled ? current : nextScrolled)
+  }, [])
+
   const recentRecords = data?.recentRecords.slice(0, 3) || []
   const hasRecentRecords = recentRecords.length > 0
-  const ladderStage = useMemo(
-    () => displayedLadderStage(data?.ladders || [], Number(data?.progressCurrent || 0)),
+  const ladderStage = useMemo<InviteLadderStage>(
+    () => displayedLadderStage(
+      data?.ladders || [],
+      Number(data?.progressCurrent || 0),
+    ) as InviteLadderStage,
     [data?.ladders, data?.progressCurrent],
   )
   const showContent = Boolean(data) && !loading && !error
@@ -133,21 +130,26 @@ export default function InviteHomePage() {
       <NativeNavigation
         title="邀请好友"
         titleColor="#ffffff"
-        background="transparent"
+        background={navigationScrolled ? '#9b72e6' : 'transparent'}
         showBack
         fallbackUrl="/pages/profile/index"
         overlay
       />
 
-      <ScrollView className="promotion-home__scroll" scrollY enhanced showScrollbar={false}>
+      <ScrollView
+        className="promotion-home__scroll"
+        scrollY
+        enhanced
+        showScrollbar={false}
+        onScroll={handleHomeScroll}
+      >
         <View className="promotion-home__canvas">
-          <View className="promotion-hero">
-            <View className="promotion-hero__coin-watermark">¥</View>
-            <Text className="promotion-hero__eyebrow">好友同行·奖励加倍</Text>
-            <Text className="promotion-hero__title">一起遇见{'\n'}更好的缘分</Text>
-            <Text className="promotion-hero__subtitle">好友完成注册即邀请成功，关系永久有效</Text>
-            <Image className="promotion-hero__art" src={inviteHero} mode="scaleToFill" />
-          </View>
+          <Image
+            className="promotion-home__background"
+            src={miniappOssIcons.promotionInviteBackground}
+            mode="scaleToFill"
+          />
+          <View className="promotion-hero" />
 
           <View className="promotion-home__data">
             {loading ? <HomeSkeleton /> : null}
@@ -220,23 +222,20 @@ function CardShell({
   )
 }
 
-function EquationGlyph({ type }: { type: 'share' | 'person' | 'coin' }) {
-  const typeClass = type === 'share'
-    ? 'promotion-equation__glyph--share'
-    : type === 'person'
-      ? 'promotion-equation__glyph--person'
-      : 'promotion-equation__glyph--coin'
-
+function EquationSprite({
+  src,
+  position,
+}: {
+  src: string
+  position: 'share' | 'person' | 'coin'
+}) {
   return (
-    <View className={`promotion-equation__glyph ${typeClass}`}>
-      {type === 'share' ? <View className="promotion-equation__share-arrow">➜</View> : null}
-      {type === 'person' ? (
-        <>
-          <View className="promotion-equation__person-head" />
-          <View className="promotion-equation__person-body" />
-        </>
-      ) : null}
-      {type === 'coin' ? <Text>¥</Text> : null}
+    <View className="promotion-equation__sprite-window">
+      <Image
+        className={`promotion-equation__sprite promotion-equation__sprite--${position}`}
+        src={src}
+        mode="scaleToFill"
+      />
     </View>
   )
 }
@@ -257,17 +256,26 @@ function RewardCard({
       <CardTitle>邀请注册得千寻币</CardTitle>
       <View className="promotion-equation">
         <View className="promotion-equation__item">
-          <EquationGlyph type="share" />
+          <EquationSprite
+            src={miniappOssIcons.promotionInviteEquationSprite}
+            position="share"
+          />
           <Text>邀请好友</Text>
         </View>
         <Text className="promotion-equation__operator">＋</Text>
         <View className="promotion-equation__item">
-          <EquationGlyph type="person" />
+          <EquationSprite
+            src={miniappOssIcons.promotionInviteEquationSprite}
+            position="person"
+          />
           <Text>好友注册</Text>
         </View>
         <Text className="promotion-equation__operator">＝</Text>
         <View className="promotion-equation__item">
-          <EquationGlyph type="coin" />
+          <EquationSprite
+            src={miniappOssIcons.promotionInviteEquationSprite}
+            position="coin"
+          />
           <Text>获得{amount}千寻币</Text>
         </View>
       </View>
@@ -299,7 +307,7 @@ function ProgressCard({
   current: number
   max: number
   progress: number
-  ladders: InviteLadderVO[]
+  ladders: InviteLadderPresentation[]
 }) {
   return (
     <CardShell className="promotion-progress-card">
@@ -331,12 +339,12 @@ function ProgressCard({
             </View>
             <View
               className="promotion-ladder__steps"
-              style={{ gridTemplateColumns: `repeat(${ladders.length}, minmax(0, 1fr))` }}
             >
               {ladders.map(ladder => (
                 <View
                   key={ladder.threshold}
                   className={`promotion-ladder__step${ladder.achieved ? ' is-achieved' : ''}`}
+                  style={{ left: `${ladder.positionPercent}%` }}
                 >
                   <View className="promotion-ladder__reward">
                     <Text className="promotion-ladder__coin">¥</Text>

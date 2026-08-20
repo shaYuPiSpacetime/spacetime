@@ -1,5 +1,7 @@
 /** 由 scripts/upload-miniapp-oss-icons.mjs 生成；禁止手写密钥或本地回退路径。 */
 export const miniappOssIcons = Object.freeze({
+  promotionInviteBackground: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c207b79cc1b13780/01-84BC9B17-63B9-41C0-98BB-54DC17EF3FE2-编组13.png',
+  promotionInviteEquationSprite: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c498ff33d205fed0/02-19A13B3F-F032-4E6E-A1EB-BABB3A928557-编组14.png',
   heartMutualLikes: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d3b065ad7b9c79cb/heart-mutual-likes.png',
   messageAvatarXiaoming: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/977c346557f18ebd/avatar-xiaoming.png',
   messageAvatarLikedBlurred: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/7607b8cd85521572/avatar-liked-blurred.png',
