@@ -96,3 +96,16 @@ test('互动首页关键纵向基线与单一导航符合蓝湖稿', () => {
   assert.match(source, /top:\s*'356rpx'/, '统计行顶部必须回到蓝湖 356rpx 基线')
   assert.doesNotMatch(source, />\s*清空\s*</, '浏览记录禁止用额外清空行破坏上下间距')
 })
+
+test('千寻互动共享字号和筛选色值符合点赞暂无数据蓝湖基线', () => {
+  const source = read('src/pages/qianxun/interactions.tsx')
+
+  assert.match(source, /fontSize:\s*'32rpx'.*profile\.nickname/, '资料姓名必须使用蓝湖 32rpx 字号')
+  assert.match(source, /fontSize:\s*'24rpx'.*profile\.description/, '资料简介必须使用蓝湖 24rpx 字号')
+  assert.match(source, /fontSize:\s*'24rpx',\s*lineHeight:\s*'34rpx'.*item\.label/, '资料统计标签必须使用蓝湖 24rpx 字号')
+  assert.match(source, /fontSize:\s*'38rpx',\s*lineHeight:\s*'48rpx'.*item\.value/, '资料统计数字必须使用确认后的 38rpx 字号')
+  assert.match(source, /background:\s*selected \? BLUE : '#F8F9FB'/, '未选筛选胶囊必须使用蓝湖 #F8F9FB')
+  assert.match(source, /fontSize:\s*'26rpx',\s*lineHeight:\s*'36rpx'.*item\.label/, '筛选胶囊必须使用蓝湖 26rpx 字号')
+  assert.match(source, /fontSize:\s*'28rpx',\s*lineHeight:\s*'40rpx'.*model\.subtitle/, '空态说明必须使用蓝湖 28rpx 字号')
+  assert.match(source, /fontSize:\s*'32rpx',\s*lineHeight:\s*'44rpx'.*>去千寻同城看看</, '空态主按钮必须使用蓝湖 32rpx 字号')
+})

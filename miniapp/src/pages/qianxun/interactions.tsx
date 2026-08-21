@@ -284,15 +284,15 @@ function ProfileHeader({ profile, onFollowing, onFollowers, onLikes, onMine }: {
       <View style={{ position: 'absolute', left: '33rpx', top: '226rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
         <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
         <View style={{ marginLeft: '20rpx', minWidth: 0 }}>
-          <Text style={{ display: 'block', color: '#222222', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600 }}>{profile.nickname}</Text>
-          <Text style={{ display: 'block', color: '#999999', fontSize: '23rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.description}</Text>
+          <Text style={{ display: 'block', color: '#222222', fontSize: '32rpx', lineHeight: '44rpx', fontWeight: 600 }}>{profile.nickname}</Text>
+          <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.description}</Text>
         </View>
       </View>
       <View style={{ position: 'absolute', left: '28rpx', top: '356rpx', width: '550rpx', height: '62rpx', display: 'flex', alignItems: 'center' }}>
         {stats.map(item => (
           <View key={item.label} onClick={item.onClick} style={{ minWidth: '116rpx', height: '62rpx', marginRight: '5rpx', display: 'flex', alignItems: 'center' }}>
-            <Text style={{ color: '#9A9FA8', fontSize: '22rpx', marginRight: '10rpx' }}>{item.label}</Text>
-            <Text style={{ color: NAVY, fontSize: '30rpx', fontWeight: 600 }}>{item.value}</Text>
+            <Text style={{ color: '#9A9FA8', fontSize: '24rpx', lineHeight: '34rpx', marginRight: '10rpx' }}>{item.label}</Text>
+            <Text style={{ color: NAVY, fontSize: '38rpx', lineHeight: '48rpx', fontWeight: 600 }}>{item.value}</Text>
           </View>
         ))}
       </View>
@@ -398,7 +398,7 @@ function FilterTabs({ active, onChange }: { active: InteractionFilter; onChange:
     <View style={{ height: '80rpx', padding: '4rpx 27rpx 12rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
       {tabs.map(item => {
         const selected = active === item.key
-        return <View key={item.key} id={`qianxun-interactions-filter-${item.key}`} onClick={() => onChange(item.key)} style={{ height: '56rpx', borderRadius: '28rpx', padding: '0 22rpx', marginRight: '12rpx', background: selected ? BLUE : '#F5F6F8', display: 'flex', alignItems: 'center' }}><Text style={{ color: selected ? '#FFFFFF' : '#AAAAAA', fontSize: '24rpx' }}>{item.label}</Text></View>
+        return <View key={item.key} id={`qianxun-interactions-filter-${item.key}`} onClick={() => onChange(item.key)} style={{ height: '56rpx', borderRadius: '28rpx', padding: '0 22rpx', marginRight: '12rpx', background: selected ? BLUE : '#F8F9FB', display: 'flex', alignItems: 'center' }}><Text style={{ color: selected ? '#FFFFFF' : '#AAAAAA', fontSize: '26rpx', lineHeight: '36rpx' }}>{item.label}</Text></View>
       })}
     </View>
   )
@@ -414,9 +414,9 @@ function InteractionEmpty({ filter, config }: { filter: InteractionFilter; confi
     <View style={{ paddingTop: '126rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Image src={model.image} mode="aspectFit" style={{ width: '330rpx', height: '230rpx' }} />
       <Text style={{ color: '#A3A3A3', fontSize: '28rpx', lineHeight: '42rpx', marginTop: '12rpx' }}>{model.title}</Text>
-      <Text style={{ color: '#A3A3A3', fontSize: '25rpx', lineHeight: '38rpx', marginTop: '18rpx' }}>{model.subtitle}</Text>
+      <Text style={{ color: '#A3A3A3', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '18rpx' }}>{model.subtitle}</Text>
       <View onClick={openQianxunCity} style={{ width: '472rpx', height: '82rpx', borderRadius: '7rpx', background: BLUE, marginTop: '48rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>去千寻同城看看</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: '32rpx', lineHeight: '44rpx', fontWeight: 500 }}>去千寻同城看看</Text>
       </View>
     </View>
   )
