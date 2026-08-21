@@ -28,11 +28,14 @@ assert.doesNotMatch(app, /Taro\.switchTab/, '应用启动阶段禁止调用 swit
 assert.match(appConfig, /const useDevFixedStartup = process\.env\.MINIAPP_DEV_FIXED_LOGIN === 'true'/, '仅显式开发开关允许固定登录首页启动')
 assert.match(appConfig, /const startPage = useDevFixedStartup \? 'pages\/index\/index' : 'pages\/login\/index'/, '开发构建必须直接以首页作为启动页')
 assert.match(appConfig, /pages: \[startPage, \.\.\.MAIN_PAGES\.filter\(\(?page\)? => page !== startPage\)\]/, '启动页必须置于页面清单首位且不得重复')
-assert.match(packageJson, /"dev:weapp": "MINIAPP_DEV_FIXED_LOGIN=true npm run build:weapp -- --watch"/, '默认微信开发监听必须开启固定登录')
-assert.match(packageJson, /"build:weapp:dev": "MINIAPP_DEV_FIXED_LOGIN=true npm run build:weapp"/, '本地非 watch 构建必须提供固定登录命令，避免发布构建覆盖开发产物')
+assert.match(packageJson, /"dev:weapp": "MINIAPP_DEV_FIXED_LOGIN=false npm run build:weapp -- --watch"/, '默认微信开发监听必须使用真实登录，禁止开发 Token 请求生产接口')
+assert.match(packageJson, /"build:weapp:dev": "MINIAPP_DEV_FIXED_LOGIN=false npm run build:weapp"/, '本地非 watch 构建必须默认使用真实登录')
 assert.match(packageJson, /"dev:weapp:login": "MINIAPP_DEV_FIXED_LOGIN=false npm run build:weapp -- --watch"/, '真实登录联调必须提供显式关闭固定登录的脚本')
+assert.match(packageJson, /"dev:weapp:fixed-local": "MINIAPP_DEV_FIXED_LOGIN=true MINIAPP_E2E_MODE=true MINIAPP_E2E_API_BASE_URL=http:\/\/127\.0\.0\.1:8080\/api npm run build:weapp -- --watch"/, '固定登录仅允许通过本机后端专用监听命令启用')
+assert.match(packageJson, /"build:weapp:fixed-local": "MINIAPP_DEV_FIXED_LOGIN=true MINIAPP_E2E_MODE=true MINIAPP_E2E_API_BASE_URL=http:\/\/127\.0\.0\.1:8080\/api npm run build:weapp"/, '固定登录仅允许通过本机后端专用构建命令启用')
 assert.match(packageJson, /validate-built-dev-fixed-login\.mjs/, '构建后必须校验最终首页和固定 Token 是否与构建开关一致')
 assert.match(taroConfig, /'process\.env\.MINIAPP_DEV_FIXED_LOGIN': JSON\.stringify\(\s*process\.env\.MINIAPP_DEV_FIXED_LOGIN \|\| 'false'\s*\)/, 'Taro 编译配置必须注入固定登录首页开关')
+assert.match(taroConfig, /if \(devFixedLoginEnabled && !devFixedLoginUsesLoopbackApi\)/, '固定登录构建必须拒绝连接生产接口')
 assert.match(taroConfig, /devFixedLoginEnabled[\s\S]{0,180}'dev-fixed-token-17366629764'/, '开启固定登录时构建配置必须提供与后端一致的默认 Token')
 assert.match(taroConfig, /'process\.env\.MINIAPP_DEV_FIXED_TOKEN': JSON\.stringify\(devFixedLoginToken\)/, 'Taro 编译配置必须按开关注入或清空固定 Token')
 assert.equal(fs.existsSync(builtLoginGatePath), true, '缺少固定登录构建产物门禁')
@@ -42,8 +45,15 @@ assert.match(builtLoginGate, /pages\/index\/index/, '固定登录产物必须以
 assert.match(builtLoginGate, /dev-fixed-token-17366629764/, '固定登录产物必须校验编译后 Token')
 assert.match(applicationDev, /dev-fixed-login:/, '后端 dev 配置模板必须声明固定登录配置')
 if (hasLocalApplicationDev) {
-  assert.ok(applicationDev.includes('enabled: ${DEV_FIXED_LOGIN_ENABLED:true}'), '后端 dev profile 必须启用固定登录')
-  assert.ok(applicationDev.includes('token: ${DEV_FIXED_LOGIN_TOKEN:dev-fixed-token-17366629764}'), '后端固定 token 必须与小程序一致')
+  assert.match(applicationDev, /enabled:\s*(?:true|\$\{DEV_FIXED_LOGIN_ENABLED:true\})/, '后端 dev profile 必须启用固定登录')
+  const frontendDefaultToken = taroConfig.match(/process\.env\.DEV_FIXED_LOGIN_TOKEN \|\| '([^']+)'/)?.[1]
+  const backendTokenSource = applicationDev.match(/^\s*token:\s*['"]?([^'"\s]+)['"]?\s*$/m)?.[1]
+  const backendDefaultToken = backendTokenSource?.match(/^\$\{DEV_FIXED_LOGIN_TOKEN:([^}]+)\}$/)?.[1]
+    || backendTokenSource
+  assert.ok(
+    frontendDefaultToken && backendDefaultToken && frontendDefaultToken === backendDefaultToken,
+    '后端 dev profile 固定登录 Token 必须与小程序默认值一致',
+  )
 }
 assert.doesNotMatch(read('../backend/src/main/resources/application-prod.yml'), /dev-fixed-login/, '生产配置禁止出现固定登录')
 assert.match(startDevScript, /\$\{PID\}/, '后台启动脚本输出 PID 时必须使用明确变量边界')

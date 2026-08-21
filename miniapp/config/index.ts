@@ -3,10 +3,18 @@ import { defineConfig } from '@tarojs/cli'
 import { UnifiedWebpackPluginV5 } from 'weapp-tailwindcss/webpack'
 
 const devFixedLoginEnabled = process.env.MINIAPP_DEV_FIXED_LOGIN === 'true'
+const relationE2eMode = process.env.MINIAPP_E2E_MODE === 'true'
+const relationE2eApiBaseUrl = process.env.MINIAPP_E2E_API_BASE_URL || ''
+const devFixedLoginUsesLoopbackApi =
+  relationE2eMode && /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(?:\/|$)/.test(relationE2eApiBaseUrl)
+
+if (devFixedLoginEnabled && !devFixedLoginUsesLoopbackApi) {
+  throw new Error('开发固定登录只能连接本机回环接口；访问生产接口时请关闭 MINIAPP_DEV_FIXED_LOGIN')
+}
+
 const devFixedLoginToken = devFixedLoginEnabled
   ? process.env.DEV_FIXED_LOGIN_TOKEN || 'dev-fixed-token-17366629764'
   : ''
-const relationE2eMode = process.env.MINIAPP_E2E_MODE === 'true'
 
 function miniAssetName(moduleId: string) {
   const normalized = moduleId.replace(/\\/g, '/')
@@ -60,7 +68,7 @@ const config = {
     ),
     'process.env.MINIAPP_E2E_MODE': JSON.stringify(relationE2eMode ? 'true' : 'false'),
     'process.env.MINIAPP_E2E_API_BASE_URL': JSON.stringify(
-      relationE2eMode ? process.env.MINIAPP_E2E_API_BASE_URL || '' : ''
+      relationE2eMode ? relationE2eApiBaseUrl : ''
     ),
   },
 
