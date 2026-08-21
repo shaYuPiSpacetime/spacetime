@@ -20,17 +20,21 @@
       "file": "avatar-liked-blurred.png",
       "purpose": "喜欢我的人模糊头像",
       "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
-      "sourceFile": "626cd513-消息.png",
-      "crop": { "x": 88, "y": 780, "width": 200, "height": 200 },
-      "sha256": "7607b8cd85521572767cd7b177ffed2f7b00d968488b318ed7b50be6aa985004"
+      "source": "蓝湖 MCP 原始图层 SketchPng231549e5b12e0a1f525c70a8ecfcecda347b190f72c48c7413199a5d01c84b8d",
+      "pixelWidth": 196,
+      "pixelHeight": 196,
+      "cropPolicy": "原始字节下载，不缩放、不裁切、不转换格式、不压缩；未读红点由真实组件绘制",
+      "sha256": "4a3fe2acf9313fcd6ad6ffada001bfc418911efba7f582e9a910862d87058eb3"
     },
     {
       "file": "avatar-whisper-group.png",
       "purpose": "首页悄悄话头像组",
       "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
-      "sourceFile": "626cd513-消息.png",
-      "crop": { "x": 88, "y": 516, "width": 228, "height": 110 },
-      "sha256": "fdb5608cd860aca33d04ceabf2a59fabd63af8b3c4338dc985796cf10fd616b3"
+      "source": "蓝湖 MCP 原始图层 SketchPng5ec2d2817f6c96d2087f84f0ba9dfdf0607cd2559e8545252bf0275cb8c957a0",
+      "pixelWidth": 224,
+      "pixelHeight": 108,
+      "cropPolicy": "原始字节下载，不缩放、不裁切、不转换格式、不压缩",
+      "sha256": "f6603b1742a59f3d775ffc8b6f59d30a25bdcb5bdd1aac7317317c5c93f02758"
     },
     {
       "file": "home-yo-art.png",

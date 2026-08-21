@@ -1,0 +1,536 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "千寻币",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "icon",
+      "name": "背景",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng55df38c3c7b2f32adf02656b49b049a30d56b8546366e1bd0726d4132ef34ccd"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "千寻币余额",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "1800",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "这里是标题",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#637595"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "阅读并同意《时空邂逅充值协议》",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF border-1px border-#2876FF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "立即支付",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "明细",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#E3F1FE border-4px border-#2876FF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2559"
+    },
+    {
+      "type": "text",
+      "name": "热销推荐",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FEDEE4"
+    },
+    {
+      "type": "text",
+      "name": "8.9折",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "3000",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥268.00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FBAB3A"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#0C285A"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#0C285A"
+    },
+    {
+      "type": "icon",
+      "name": "金币",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPnga25cb1d177d390fb937cf64b7feaa105bde6c81fa71706b20c1076be1beece8d"
+    },
+    {
+      "type": "text",
+      "name": "¥301.12",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F7F8FA border-2px border-#CED2DA border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2559"
+    },
+    {
+      "type": "text",
+      "name": "节省最多",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FEDEE4"
+    },
+    {
+      "type": "text",
+      "name": "7.1折",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "6000",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥602.82",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥428.00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FBAB3A"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#0C285A"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#0C285A"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F7F8FA border-2px border-#CED2DA border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2559"
+    },
+    {
+      "type": "text",
+      "name": "尝鲜首选",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "1000",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥99.00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FBAB3A"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#0C285A"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#0C285A"
+    },
+    {
+      "type": "text",
+      "name": "多看50位嘉宾",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "充值千寻币",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "充值须知",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#2F79FE"
+    },
+    {
+      "type": "text",
+      "name": "千寻币用途",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "送悄悄话",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "心动信号",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "解锁理想型",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "提升人气",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "text",
+      "name": "解锁精选",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "更多推荐",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "匿名解锁",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "限定活动",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "icon",
+      "name": "千寻币用途",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng2eb24c735af22f005e881be08256d6e834e151aaef1584e08c73d4403c8e992d"
+    }
+  ]
+}

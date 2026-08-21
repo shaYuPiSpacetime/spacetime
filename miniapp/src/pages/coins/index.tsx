@@ -342,7 +342,7 @@ function CoinAmountLabel({ amount }: { amount: number }) {
   return (
     <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
       <Image src={miniappOssIcons.coinGold} mode="scaleToFill" style={{ width: '19rpx', height: '19rpx', marginRight: '10rpx' }} />
-      <Text style={{ color: LANHU_NAVY, fontSize: '26rpx', fontWeight: 600, lineHeight: '37rpx' }}>{amount}</Text>
+      <Text style={{ color: LANHU_NAVY, fontSize: '38rpx', fontWeight: 600, lineHeight: '40rpx' }}>{amount}</Text>
     </View>
   )
 }

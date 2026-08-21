@@ -43,6 +43,7 @@ const ICON_ASSETS = Object.freeze({
   messageQianxunCoin: 'src/assets/lanhu/message/icon-qianxun-coin.png',
   messageReport: 'src/assets/lanhu/message/icon-report.png',
   messageMemberBadge: 'src/assets/lanhu/message/badge-member.png',
+  coinBalanceBackground: 'src/assets/lanhu/pages/coin-balance-bg.png',
   coinGold: 'src/assets/lanhu/pages/coin-gold.png',
   coinUsageWhisper: 'src/assets/lanhu/pages/coin-usage/whisper.png',
   coinUsageHeartbeat: 'src/assets/lanhu/pages/coin-usage/heartbeat.png',
