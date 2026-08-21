@@ -242,7 +242,7 @@ test('微信手机号授权期间只保留静态背景内置品牌避免双层�
   )
 })
 
-test('手机号页和首登资料页共享蓝湖圆形按钮及白色箭头资源', () => {
+test('手机号页和首登资料页共享蓝湖未点亮与点亮两态按钮图标', () => {
   const buttonPath = path.join(miniappRoot, 'src/pages/login/components/LoginNextButton.tsx')
   assert.ok(fs.existsSync(buttonPath), '缺少登录链路共享底部按钮')
 
@@ -254,10 +254,9 @@ test('手机号页和首登资料页共享蓝湖圆形按钮及白色箭头资�
   assert.match(button, /width: '126rpx'/)
   assert.match(button, /height: '126rpx'/)
   assert.match(button, /borderRadius: '63rpx'/)
-  assert.match(button, /src=\{miniappOssIcons\.loginNextArrow\}/)
+  assert.match(button, /active \? miniappOssIcons\.loginNextActive : miniappOssIcons\.loginNextDisabled/)
   assert.match(button, /className="login-next-icon"/)
-  assert.match(button, /width: '60rpx'/)
-  assert.match(button, /height: '48rpx'/)
+  assert.doesNotMatch(button, /background: active/)
   assert.doesNotMatch(button, /login-next-icon__curve/)
   assert.doesNotMatch(button, /login-next-icon__head/)
   assert.match(button, /if \(!active\) return/)

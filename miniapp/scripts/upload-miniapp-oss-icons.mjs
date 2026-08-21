@@ -71,6 +71,8 @@ const ICON_ASSETS = Object.freeze({
   loginBrand: 'src/assets/lanhu/login/login-brand.png',
   loginCityLocation: 'src/assets/lanhu/login/city-location.png',
   loginNextArrow: 'src/assets/lanhu/login/login-next-arrow.png',
+  loginNextDisabled: 'src/assets/lanhu/login/login-next-disabled.png',
+  loginNextActive: 'src/assets/lanhu/login/login-next-active.png',
   genderFemale: 'src/assets/lanhu/login/gender-female.webp',
   genderMale: 'src/assets/lanhu/login/gender-male.webp',
   verificationCertAvatar: 'src/assets/lanhu/verification/slices/cert-avatar.png',

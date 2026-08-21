@@ -9,7 +9,7 @@ interface LoginNextButtonProps {
   style?: CSSProperties
 }
 
-/** 登录链路统一下一步按钮：真实圆形按钮配蓝湖白色箭头资源。 */
+/** 登录链路统一下一步按钮：直接使用蓝湖未点亮/点亮两态完整图标。 */
 export default function LoginNextButton({
   active,
   onClick,
@@ -23,8 +23,6 @@ export default function LoginNextButton({
         width: '126rpx',
         height: '126rpx',
         borderRadius: '63rpx',
-        background: active ? '#2876FF' : '#E3F1FE',
-        boxShadow: active ? '0 18rpx 36rpx rgba(40, 118, 255, 0.25)' : 'none',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -38,12 +36,12 @@ export default function LoginNextButton({
       hoverClass={active ? 'btn-hover' : 'none'}
     >
       <Image
-        src={miniappOssIcons.loginNextArrow}
+        src={active ? miniappOssIcons.loginNextActive : miniappOssIcons.loginNextDisabled}
         mode="scaleToFill"
         className="login-next-icon"
         style={{
-          width: '60rpx',
-          height: '48rpx',
+          width: '126rpx',
+          height: '126rpx',
         }}
       />
     </View>

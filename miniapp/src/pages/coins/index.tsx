@@ -12,10 +12,10 @@ import {
 } from '@/pages/lanhu/LanhuShell'
 
 
-const COIN_PLAN_CARD_WIDTH_RPX = 242
-const COIN_PLAN_CARD_GAP_RPX = 6
-const COIN_PLAN_SELECTED_LEFT_RPX = 150
-const COIN_AGREEMENT_TITLE = '《千寻币充值协议》'
+const COIN_PLAN_CARD_WIDTH_RPX = 240
+const COIN_PLAN_CARD_GAP_RPX = 8
+const COIN_PLAN_SELECTED_LEFT_RPX = 153
+const COIN_AGREEMENT_TITLE = '《时空邂逅充值协议》'
 const RECHARGE_NOTICE = {
   title: '充值须知',
   faqTitle: '常见问题',
@@ -30,9 +30,11 @@ const RECHARGE_NOTICE = {
 export default function CoinsPage() {
   const router = useRouter()
   const sourceScene = String(router.params.sourceScene || '')
-  const [agreementChecked, setAgreementChecked] = useState(false)
-  const [agreementError, setAgreementError] = useState(false)
-  const [noticeVisible, setNoticeVisible] = useState(router.params.variant === 'recharge-notice')
+  const variant = String(router.params.variant || '')
+  const [routePayState, setRoutePayState] = useState(() => resolveCoinPayState(router.params.payState))
+  const [agreementChecked, setAgreementChecked] = useState(variant === 'checked' || routePayState !== 'idle')
+  const [agreementError, setAgreementError] = useState(variant === 'unchecked-error')
+  const [noticeVisible, setNoticeVisible] = useState(variant === 'recharge-notice')
   const {
     balance,
     packages,
@@ -82,6 +84,8 @@ export default function CoinsPage() {
     setNoticeVisible(true)
   }
 
+  const visiblePayState = payState === 'idle' ? routePayState : payState
+
   return (
     <View
       style={{
@@ -118,10 +122,11 @@ export default function CoinsPage() {
         onPay={handlePay}
       />
       <CoinsPaymentLayer
-        payState={payState}
+        payState={visiblePayState}
         onClose={() => {
-          const wasSuccess = payState === 'pay-success'
-          hidePaymentLayer()
+          const wasSuccess = visiblePayState === 'pay-success'
+          if (payState === 'idle') setRoutePayState('idle')
+          else hidePaymentLayer()
           if (wasSuccess && sourceScene) Taro.navigateBack({ delta: 1 })
         }}
       />
@@ -144,13 +149,17 @@ function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => v
       style={{
         position: 'relative',
         width: '700rpx',
-        height: '190rpx',
+        height: '188rpx',
         borderRadius: '12rpx',
-        background: 'linear-gradient(135deg, #78A4FF 0%, #2E75F6 100%)',
+        background: '#2F79FE',
         overflow: 'hidden',
       }}
     >
-      <BalanceWatermarks />
+      <Image
+        src={miniappOssIcons.coinBalanceBackground}
+        mode="scaleToFill"
+        style={{ position: 'absolute', inset: 0, width: '700rpx', height: '188rpx', pointerEvents: 'none' }}
+      />
       <Text style={{ position: 'absolute', left: '32rpx', top: '48rpx', color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>
         千寻币余额
       </Text>
@@ -158,7 +167,7 @@ function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => v
         {balance}
       </Text>
       <View
-        style={{ position: 'absolute', right: '28rpx', top: '78rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}
+        style={{ position: 'absolute', right: '28rpx', top: '82rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}
         onClick={onDetail}
       >
         <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>明细</Text>
@@ -168,19 +177,10 @@ function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => v
   )
 }
 
-function BalanceWatermarks() {
-  const color = 'rgba(255, 255, 255, 0.08)'
-  return (
-    <View id="coin-balance-watermarks" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-      <View style={{ position: 'absolute', left: '-31rpx', top: '25rpx', width: '151rpx', height: '34rpx', borderRadius: '17rpx', background: color, transform: 'rotate(-45deg)' }} />
-      <Text style={{ position: 'absolute', left: '28rpx', bottom: '-42rpx', color, fontSize: '146rpx', lineHeight: '146rpx', fontWeight: 300 }}>+</Text>
-      <Text style={{ position: 'absolute', left: '250rpx', bottom: '-40rpx', color, fontSize: '100rpx', lineHeight: '100rpx', fontWeight: 600 }}>¥</Text>
-      <Text style={{ position: 'absolute', right: '190rpx', top: '-47rpx', color, fontSize: '146rpx', lineHeight: '146rpx', fontWeight: 300 }}>+</Text>
-      <View style={{ position: 'absolute', right: '18rpx', top: '-25rpx', width: '34rpx', height: '130rpx', borderRadius: '17rpx', background: color, transform: 'rotate(-45deg)' }} />
-      <View style={{ position: 'absolute', right: '-26rpx', top: '68rpx', width: '160rpx', height: '34rpx', borderRadius: '17rpx', background: color }} />
-      <View style={{ position: 'absolute', right: '-26rpx', bottom: '4rpx', width: '160rpx', height: '34rpx', borderRadius: '17rpx', background: color }} />
-    </View>
-  )
+function resolveCoinPayState(value: unknown): CoinPayState {
+  if (value === 'wechat-pay') return 'paying'
+  if (value === 'pay-success' || value === 'pay-cancel' || value === 'pay-failed') return value
+  return 'idle'
 }
 
 function RechargeCard({
@@ -234,7 +234,7 @@ function RechargeCard({
             flexDirection: 'row',
             width: `${Math.max(640, packages.length * (COIN_PLAN_CARD_WIDTH_RPX + COIN_PLAN_CARD_GAP_RPX) - COIN_PLAN_CARD_GAP_RPX)}rpx`,
             height: '198rpx',
-            paddingTop: '15rpx',
+            paddingTop: '16rpx',
             boxSizing: 'border-box',
           }}
         >
@@ -246,12 +246,12 @@ function RechargeCard({
                 style={{
                   position: 'relative',
                   flexShrink: 0,
-                  width: '242rpx',
-                  height: '183rpx',
+                  width: '240rpx',
+                  height: '184rpx',
                   borderRadius: '12rpx',
-                  border: isSelected ? `4rpx solid ${LANHU_BLUE}` : '2rpx solid #CED4DF',
-                  background: isSelected ? '#E8F4FF' : '#F8FAFE',
-                  marginRight: '6rpx',
+                  border: isSelected ? `4rpx solid ${LANHU_BLUE}` : '2rpx solid #CED2DA',
+                  background: isSelected ? '#E3F1FE' : '#F7F8FA',
+                  marginRight: '8rpx',
                   padding: '33rpx 26rpx 29rpx',
                   boxSizing: 'border-box',
                 }}
@@ -265,7 +265,7 @@ function RechargeCard({
                       top: '-15rpx',
                       height: '36rpx',
                       borderRadius: '8rpx',
-                      background: '#F32B61',
+                      background: '#EE2559',
                       padding: '0 13rpx',
                       display: 'flex',
                       alignItems: 'center',
@@ -278,26 +278,26 @@ function RechargeCard({
                 <CoinAmountLabel amount={pkg.amount} />
                 {pkg.originalPrice && pkg.discountLabel ? (
                   <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '2rpx' }}>
-                    <Text style={{ color: '#9A9A9A', fontSize: '18rpx', lineHeight: '25rpx', textDecorationLine: 'line-through' }}>{pkg.originalPrice}</Text>
+                    <Text style={{ color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', textDecorationLine: 'line-through' }}>{pkg.originalPrice}</Text>
                     <View
                       style={{
                         borderRadius: '4rpx',
-                        background: '#FFD5E2',
-                        padding: '2rpx 9rpx 1rpx',
+                        background: '#FEDEE4',
+                        padding: '2rpx 8rpx 1rpx',
                         marginLeft: '8rpx',
                         display: 'flex',
                         alignItems: 'center',
                       }}
                     >
-                      <Text style={{ color: '#F32B61', fontSize: '12rpx', lineHeight: '17rpx' }}>{pkg.discountLabel}</Text>
+                      <Text style={{ color: '#EE2559', fontSize: '18rpx', lineHeight: '24rpx' }}>{pkg.discountLabel}</Text>
                     </View>
                   </View>
                 ) : (
                   <Text style={{ display: 'block', color: '#999999', fontSize: '18rpx', lineHeight: '25rpx', marginTop: '2rpx' }}>{pkg.label}</Text>
                 )}
                 <View style={{ display: 'flex', flexDirection: 'row', width: '142rpx', height: '53rpx' }}>
-                  <Text style={{ color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>¥</Text>
-                  <Text style={{ color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '38rpx', fontWeight: 600, lineHeight: '40rpx' }}>
+                  <Text style={{ color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '28rpx', fontWeight: 600, lineHeight: '44rpx' }}>¥</Text>
+                  <Text style={{ color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '40rpx', fontWeight: 600, lineHeight: '44rpx' }}>
                     {Number(pkg.price).toFixed(2)}
                   </Text>
                 </View>
@@ -342,7 +342,7 @@ function CoinAmountLabel({ amount }: { amount: number }) {
   return (
     <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
       <Image src={miniappOssIcons.coinGold} mode="scaleToFill" style={{ width: '19rpx', height: '19rpx', marginRight: '10rpx' }} />
-      <Text style={{ color: LANHU_NAVY, fontSize: '38rpx', fontWeight: 600, lineHeight: '40rpx' }}>{amount}</Text>
+      <Text style={{ color: LANHU_NAVY, fontSize: '30rpx', fontWeight: 500, lineHeight: '40rpx' }}>{amount}</Text>
     </View>
   )
 }

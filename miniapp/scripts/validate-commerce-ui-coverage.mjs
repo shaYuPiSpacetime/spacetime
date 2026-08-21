@@ -768,9 +768,7 @@ const SOURCE_EVIDENCE = [
     label: '千寻币用途 OSS 独立图标',
     file: 'src/pages/coins/index.tsx',
     snippets: [
-      'COIN_USAGE_ITEMS',
-      'miniappOssIcons.coinUsageWhisper',
-      'miniappOssIcons.coinUsageLimitedActivity',
+      'usages={usages}',
       'function UsageCard',
       'usage.icon',
       "width: '99rpx'",
@@ -1866,23 +1864,22 @@ function assertCoinPagesMatchLanhu() {
     'CoinAmountLabel',
     'function CoinAmountLabel',
     'function CoinChevronIcon',
-    'COIN_USAGE_ITEMS',
-    'miniappOssIcons.coinUsageWhisper',
-    'miniappOssIcons.coinUsageLimitedActivity',
+    'usages={usages}',
+    'miniappOssIcons.coinBalanceBackground',
     "height: '100vh'",
     "flex: 1,\n          height: '0',\n          minHeight: '0'",
     "padding: '6rpx 25rpx 48rpx'",
-    "height: '190rpx'",
+    "height: '188rpx'",
     'scrollLeft={railScrollLeft}',
     "width: '640rpx'",
-    "paddingTop: '15rpx'",
-    "width: '242rpx'",
-    "height: '183rpx'",
+    "paddingTop: '16rpx'",
+    "width: '240rpx'",
+    "height: '184rpx'",
     "fontSize: '26rpx'",
     "fontSize: '18rpx'",
-    "fontSize: '12rpx'",
+    "fontSize: '30rpx'",
     "fontSize: '16rpx'",
-    "fontSize: '38rpx'",
+    "fontSize: '40rpx'",
     "left: '231rpx'",
     "top: '393rpx'",
     "width: '288rpx'",
@@ -1909,8 +1906,8 @@ function assertCoinPagesMatchLanhu() {
     assert.ok(coinsSource.includes(snippet), `千寻币首页缺少蓝湖结构证据: ${snippet}`)
   }
   assert.ok(!coinsSource.includes("marginLeft: '-97rpx'"), '千寻币套餐轨道不能继续用负边距制造双侧裁切')
-  assert.ok(!coinsSource.includes('coinBalanceBg'), '余额卡不得再叠加带文案的背景切图')
-  assert.ok(coinsSource.includes("linear-gradient(135deg, #78A4FF 0%, #2E75F6 100%)"), '余额卡需要使用无文字的蓝色背景层')
+  assert.ok(!coinsSource.includes('BalanceWatermarks'), '余额卡不得继续用 CSS 近似绘制蓝湖水印')
+  assert.ok(coinsSource.includes('miniappOssIcons.coinBalanceBackground'), '余额卡必须使用无文案的蓝湖 MCP 原始背景')
   assert.ok(!coinsSource.includes('coinUsageSlice'), '千寻币用途不得继续使用整卡切图，避免文字和图标重影')
   assert.ok(!coinsSource.includes('coin-usage-slice.png'), '千寻币用途不得继续引用整卡 PNG')
 

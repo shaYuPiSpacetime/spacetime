@@ -1,0 +1,312 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "千寻互动-互动-点赞暂无数据",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "千寻互动",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#637595"
+    },
+    {
+      "type": "text",
+      "name": "筱老虎",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "93年·杭州·产品经理",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "动态",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "关注",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "粉丝",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "19",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "116",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "120",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "获赞",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "120",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FFCC"
+    },
+    {
+      "type": "text",
+      "name": "互动",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "浏览记录",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "我的动态",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "评论过",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F8F9FB"
+    },
+    {
+      "type": "text",
+      "name": "点赞过",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F8F9FB"
+    },
+    {
+      "type": "text",
+      "name": "解锁过",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "直线",
+      "class": "border-6px border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#8AA5F2"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#8AA5F2"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#8AA5F2"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "还没有点赞过",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "去「千寻同城」看看，发现精彩动态",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "去千寻同城看看",
+      "class": "",
+      "text": ""
+    }
+  ]
+}

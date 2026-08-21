@@ -2158,9 +2158,10 @@
     "packages": [
       {
         "id": 1,
-        "amount": 100,
-        "price": 8,
-        "label": "解锁2位嘉宾"
+        "amount": 1000,
+        "price": 99,
+        "label": "多看50位嘉宾",
+        "tag": "尝鲜首选"
       },
       {
         "id": 2,
@@ -2179,12 +2180,6 @@
         "originalPrice": "¥602.82",
         "discountLabel": "7.1折",
         "tag": "节省最多"
-      },
-      {
-        "id": 4,
-        "amount": 12000,
-        "price": 698,
-        "label": "300位嘉宾"
       }
     ],
     "transactions": [
