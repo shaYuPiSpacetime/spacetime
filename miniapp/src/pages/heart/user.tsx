@@ -212,7 +212,7 @@ export default function HeartUserPage() {
     certifications: [],
     voice: { url: '' },
     datingGoal: profile.datingGoal || '',
-    relationshipStatus: profile.emotionalStatus || profile.maritalStatus || '',
+    relationshipStatus: profile.emotionalStatus || '',
     favoriteSong,
     aboutMe: [],
   }

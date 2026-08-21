@@ -104,7 +104,7 @@ export default function ProfilePreviewPage({
           ) : <HeartMessageHeader title="用户主页" align="center" showBack />}
           <View style={{ width: '700rpx', margin: '0 auto' }}>
             <ProfilePreviewHero model={model} onShare={showShare} onSafetyActions={onSafetyActions} />
-            {(variant === 'owner-preview' || model.genderAgeHeight || model.location)
+            {(variant === 'owner-preview' || model.genderAgeHeight || model.location || model.datingGoal)
               ? <ProfilePreviewBasicInfo model={model} variant={variant} />
               : null}
             {model.detailInfo?.length ? <ProfilePreviewDetailInfo items={model.detailInfo} /> : null}
@@ -183,7 +183,7 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
             </Text>
           </View> : null}
         </View>
-        {model.datingGoal || model.relationshipStatus ? (
+        {model.relationshipStatus ? (
           <View
             data-role="profile-preview-subtitle"
             style={{
@@ -203,7 +203,7 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
           >
             <Text style={{ color: '#FE918E', fontSize: '27rpx', lineHeight: '28rpx', marginRight: '10rpx' }}>♥</Text>
             <Text style={{ color: '#FFFFFF', fontSize: '20rpx', lineHeight: '28rpx', fontWeight: 500, whiteSpace: 'nowrap' }}>
-              {model.datingGoal || model.relationshipStatus}
+              {model.relationshipStatus}
             </Text>
           </View>
         ) : null}
@@ -214,6 +214,7 @@ function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: Profil
 
 function ProfilePreviewBasicInfo({ model, variant }: { model: ProfilePreviewModel; variant: 'owner-preview' | 'public-profile' }) {
   const isMale = model.gender === 'MALE'
+  const showDatingGoal = Boolean(model.datingGoal) || variant === 'owner-preview'
   const genderIcon = model.gender === 'MALE'
     ? miniappOssIcons.qianxunGenderMale
     : miniappOssIcons.profilePreviewGender
@@ -223,7 +224,7 @@ function ProfilePreviewBasicInfo({ model, variant }: { model: ProfilePreviewMode
         position: 'relative',
         zIndex: 1,
         width: '700rpx',
-        height: '198rpx',
+        height: showDatingGoal ? '281rpx' : '198rpx',
         marginTop: '-105rpx',
         borderRadius: '32rpx',
         background: '#FFFFFF',
@@ -244,6 +245,20 @@ function ProfilePreviewBasicInfo({ model, variant }: { model: ProfilePreviewMode
         text={model.location || '地区待完善'}
         marginTop={model.genderAgeHeight || variant === 'owner-preview' ? '23rpx' : '0'}
       /> : null}
+      {showDatingGoal ? (
+        <>
+          <View
+            data-role="profile-preview-basic-divider"
+            style={{ height: '1rpx', marginTop: '25rpx', background: '#EEF1F5' }}
+          />
+          <Text
+            data-role="profile-preview-dating-goal"
+            style={{ display: 'block', marginTop: '20rpx', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap' }}
+          >
+            脱单目标：{model.datingGoal || '待完善'}
+          </Text>
+        </>
+      ) : null}
     </View>
   )
 }

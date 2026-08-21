@@ -66,6 +66,9 @@ class MiniappPublicProfileServiceImplTest {
         target.setOccupation("ENGINEER");
         target.setCompany("示例公司");
         target.setAnnualIncome("A30_50");
+        target.setDatingGoal("MARRY_WHEN_READY");
+        target.setMaritalStatus("SINGLE");
+        target.setEmotionalStatus("OPEN_TO_RELATIONSHIP");
         target.setTags("[\"徒步\",\"摄影\"]");
         AppRelationLike like = new AppRelationLike();
         like.setFromUserId(7L);
@@ -96,6 +99,9 @@ class MiniappPublicProfileServiceImplTest {
         when(profileDictionaryService.label("app_industry", "INTERNET")).thenReturn("互联网");
         when(profileDictionaryService.label("app_occupation", "ENGINEER")).thenReturn("工程师");
         when(profileDictionaryService.label("app_annual_income", "A30_50")).thenReturn("30-50万");
+        when(profileDictionaryService.label("app_dating_goal", "MARRY_WHEN_READY")).thenReturn("时机成熟就结婚");
+        when(profileDictionaryService.label("app_marital_status", "SINGLE")).thenReturn("未婚");
+        when(profileDictionaryService.label("app_emotional_status", "OPEN_TO_RELATIONSHIP")).thenReturn("期待恋爱");
         when(profileDictionaryService.label("china_region", "330100")).thenReturn("杭州市");
         when(profileDictionaryService.label("china_region", "410100")).thenReturn("郑州市");
 
@@ -113,6 +119,9 @@ class MiniappPublicProfileServiceImplTest {
         assertThat(result.getIndustryLabel()).isEqualTo("互联网");
         assertThat(result.getOccupationLabel()).isEqualTo("工程师");
         assertThat(result.getAnnualIncomeLabel()).isEqualTo("30-50万");
+        assertThat(result.getDatingGoal()).isEqualTo("时机成熟就结婚");
+        assertThat(result.getMaritalStatus()).isEqualTo("未婚");
+        assertThat(result.getEmotionalStatus()).isEqualTo("期待恋爱");
         assertThat(result.getTags()).containsExactly("徒步", "摄影");
         assertThat(result.getIntroduction()).isEqualTo("审核通过的自我介绍");
         assertThat(result.getLiked()).isTrue();

@@ -638,6 +638,29 @@ test('主页预览移除语音播放入口并按蓝湖展示三重认证和单�
     /data-role="profile-preview-subtitle"[\s\S]{0,520}whiteSpace: 'nowrap'/,
     '头像右侧名称下方文案必须完整单行展示'
   )
+  assert.match(
+    preview,
+    /\{model\.relationshipStatus\}[\s\S]{0,80}<\/Text>/,
+    '头像区副文案必须只取感情状态'
+  )
+  assert.doesNotMatch(
+    preview,
+    /model\.datingGoal \|\| model\.relationshipStatus/,
+    '脱单目标不得再回填到感情状态展示位'
+  )
+  assert.match(
+    preview,
+    /data-role="profile-preview-dating-goal"[\s\S]{0,360}脱单目标：\{model\.datingGoal \|\| '待完善'\}/,
+    '基础资料卡必须独立展示脱单目标'
+  )
+
+  const publicProfile = read('src/pages/heart/user.tsx')
+  assert.match(publicProfile, /relationshipStatus: profile\.emotionalStatus \|\| ''/, '公开主页必须只映射感情状态字段')
+  assert.doesNotMatch(publicProfile, /profile\.emotionalStatus \|\| profile\.maritalStatus/, '婚姻状况不得冒充感情状态')
+
+  const recommend = read('src/pages/recommend/index.tsx')
+  assert.match(recommend, /data-role="recommend-relationship-status"[\s\S]{0,620}\{profile\.emotionalStatus\}/, '推荐首页头像区必须同步展示感情状态')
+  assert.match(recommend, /data-role="recommend-dating-goal"[\s\S]{0,360}脱单目标：\{profile\.datingGoal\}/, '推荐首页资料卡必须同步独立展示脱单目标')
 })
 
 test('编辑资料保存按钮按蓝湖位于第二张卡片之后，字段弹层打开时只保留确认按钮', () => {

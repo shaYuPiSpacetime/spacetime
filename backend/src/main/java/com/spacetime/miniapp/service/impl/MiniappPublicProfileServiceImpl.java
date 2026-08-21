@@ -97,9 +97,9 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
         result.setAnnualIncomeLabel(profileLabel(ProfileDictType.ANNUAL_INCOME, target.getAnnualIncome()));
         result.setTags(parseTags(target.getTags()));
         result.setIntroduction(auditContentService.publicText(target.getId(), AppUserAuditTypeEnum.ABOUT_ME));
-        result.setDatingGoal(target.getDatingGoal());
-        result.setMaritalStatus(target.getMaritalStatus());
-        result.setEmotionalStatus(target.getEmotionalStatus());
+        result.setDatingGoal(profileLabel(ProfileDictType.DATING_GOAL, target.getDatingGoal()));
+        result.setMaritalStatus(profileLabel(ProfileDictType.MARITAL_STATUS, target.getMaritalStatus()));
+        result.setEmotionalStatus(profileLabel(ProfileDictType.EMOTIONAL_STATUS, target.getEmotionalStatus()));
         result.setFavoriteSongName(target.getFavoriteSongName());
         result.setFavoriteSongArtist(target.getFavoriteSongArtist());
         result.setFavoriteSongCoverUrl(target.getFavoriteSongCoverUrl());

@@ -544,8 +544,9 @@ function RecommendCandidateCard({
               <Text style={{ color: '#4285E7', fontSize: '23rpx' }}>✓ 三重认证</Text>
             </View>
           </View>
-          {profile.datingGoal ? (
+          {profile.emotionalStatus ? (
             <View
+              data-role="recommend-relationship-status"
               style={{
                 position: 'absolute',
                 left: '240rpx',
@@ -559,11 +560,11 @@ function RecommendCandidateCard({
                 alignItems: 'center',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: '23rpx' }}>♥ {profile.datingGoal}</Text>
+              <Text style={{ color: '#FFFFFF', fontSize: '23rpx' }}>♥ {profile.emotionalStatus}</Text>
             </View>
           ) : null}
         </View>
-        {basic || location ? (
+        {basic || location || profile.datingGoal ? (
           <View
             style={{
               width: '700rpx',
@@ -586,6 +587,20 @@ function RecommendCandidateCard({
               >
                 <ProfileInfoLine icon={miniappOssIcons.profilePreviewLocation} text={location} />
               </View>
+            ) : null}
+            {profile.datingGoal ? (
+              <>
+                <View
+                  data-role="recommend-basic-divider"
+                  style={{ height: '1rpx', marginTop: '25rpx', background: '#EEF1F5' }}
+                />
+                <Text
+                  data-role="recommend-dating-goal"
+                  style={{ display: 'block', marginTop: '20rpx', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap' }}
+                >
+                  脱单目标：{profile.datingGoal}
+                </Text>
+              </>
             ) : null}
           </View>
         ) : null}
