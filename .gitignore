@@ -25,6 +25,7 @@ frontend/.playwright-browsers/
 /logs/*.log
 **/__pycache__/
 *.py[cod]
+miniapp/.swc/plugins/*_x86_64_*/
 
 # 本地与生产敏感配置
 .env

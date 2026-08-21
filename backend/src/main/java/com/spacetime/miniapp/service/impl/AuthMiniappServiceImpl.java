@@ -15,7 +15,6 @@ import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.RegisterSourceEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
-import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.common.util.DefaultNicknameGenerator;
@@ -48,8 +47,8 @@ import com.spacetime.common.enums.VipStatusEnum;
  * 小程序登录服务实现。
  *
  * 微信登录和手机号登录共用同一响应结构，移动端可以统一处理首登续填、
- * 核心准入拦截和后续跳转。短信验证码走 Provider 抽象和 Redis 频控；
- * 开发环境默认 mock，生产环境使用阿里云短信通道。
+ * 核心准入拦截和后续跳转。当前无生产环境，手机号验证码固定为 0000，
+ * 发送接口仅保留 Redis 频控，不调用短信网关。
  */
 @Slf4j
 @Service
@@ -60,6 +59,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private static final String SMS_CODE_PREFIX = "miniapp:auth:sms:code:";
     private static final String SMS_COOLDOWN_PREFIX = "miniapp:auth:sms:cooldown:";
     private static final String SMS_DAILY_PREFIX = "miniapp:auth:sms:daily:";
+    private static final String FIXED_SMS_CODE = "0000";
 
     private final AppUserDao appUserDao;
     private final AppUserAuditContentService auditContentService;
@@ -67,7 +67,6 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private final ObjectMapper objectMapper;
     private final WechatMiniappClient wechatMiniappClient;
     private final AppConfigDao appConfigDao;
-    private final SmsCodeProvider smsCodeProvider;
     private final Prd01FieldConfigResolver fieldConfigResolver;
     private final Prd01AccessEvaluator accessEvaluator;
     private final UserAssetDao userAssetDao;
@@ -107,14 +106,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             throw new BusinessException("AUTH_SMS_DAILY_LIMIT: 今日验证码次数已达上限");
         }
 
-        String code = smsCodeProvider.generateCode();
-        try {
-            smsCodeProvider.sendLoginCode(phone, code, rules.validMinutes());
-        } catch (Exception ex) {
-            log.warn("send sms code failed, phone={}, provider={}, failureType={}",
-                    phone, smsCodeProvider.providerCode(), ex.getClass().getSimpleName());
-            throw new BusinessException("AUTH_SMS_SEND_FAILED: 验证码发送失败，请稍后重试");
-        }
+        String code = FIXED_SMS_CODE;
 
         redisTemplate.opsForValue().set(SMS_CODE_PREFIX + phone, code, Duration.ofMinutes(rules.validMinutes()));
         redisTemplate.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(rules.sendCountdownSeconds()));
@@ -125,7 +117,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         vo.setValidMinutes(rules.validMinutes());
         vo.setDailyLimit(rules.dailySendLimit());
         vo.setDailyRemaining(Math.max(0, rules.dailySendLimit() - usedCount - 1));
-        vo.setProviderCode(smsCodeProvider.providerCode());
+        vo.setProviderCode("FIXED");
         return vo;
     }
 
@@ -136,8 +128,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         requireProtocolAgreement(req.getAgreeProtocol());
         String phone = req.getPhone().trim();
         String codeKey = SMS_CODE_PREFIX + phone;
-        String cachedCode = normalizeRedisScalar(redisTemplate.opsForValue().get(codeKey));
-        if (StrUtil.isBlank(cachedCode) || !cachedCode.equals(req.getSmsCode().trim())) {
+        String submittedCode = req.getSmsCode().trim();
+        if (!FIXED_SMS_CODE.equals(submittedCode)) {
             throw new BusinessException("AUTH_SMS_INVALID: 验证码错误或已过期");
         }
         LoginTarget target = loginByPhone(phone, req.getPromotionTraceNos());

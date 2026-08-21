@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
-import { View } from '@tarojs/components'
+import { Image, View } from '@tarojs/components'
+import { miniappOssIcons } from '@/constants/ossIcons'
 
 interface LoginNextButtonProps {
   active: boolean
@@ -8,7 +9,7 @@ interface LoginNextButtonProps {
   style?: CSSProperties
 }
 
-/** 登录链路统一下一步按钮：真实圆形按钮配蓝湖弯向右箭头。 */
+/** 登录链路统一下一步按钮：真实圆形按钮配蓝湖白色箭头资源。 */
 export default function LoginNextButton({
   active,
   onClick,
@@ -36,41 +37,15 @@ export default function LoginNextButton({
       }}
       hoverClass={active ? 'btn-hover' : 'none'}
     >
-      <View
+      <Image
+        src={miniappOssIcons.loginNextArrow}
+        mode="scaleToFill"
+        className="login-next-icon"
         style={{
-          position: 'relative',
           width: '60rpx',
           height: '48rpx',
         }}
-      >
-        <View
-          className="login-next-icon__curve"
-          style={{
-            position: 'absolute',
-            left: '5rpx',
-            top: '17rpx',
-            width: '37rpx',
-            height: '24rpx',
-            borderTop: '9rpx solid #FFFFFF',
-            borderRadius: '34rpx 0 0 0',
-            boxSizing: 'border-box',
-            transform: 'skewX(-18deg)',
-          }}
-        />
-        <View
-          className="login-next-icon__head"
-          style={{
-            position: 'absolute',
-            right: '1rpx',
-            top: '6rpx',
-            width: 0,
-            height: 0,
-            borderTop: '18rpx solid transparent',
-            borderBottom: '18rpx solid transparent',
-            borderLeft: '25rpx solid #FFFFFF',
-          }}
-        />
-      </View>
+      />
     </View>
   )
 }

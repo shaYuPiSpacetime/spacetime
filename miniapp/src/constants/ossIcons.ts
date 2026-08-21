@@ -48,6 +48,7 @@ export const miniappOssIcons = Object.freeze({
   loginSmsCode: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/335ddc45780a3baf/login-sms-code.png',
   loginBrand: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/bf2197ddbe607e95/login-brand.png',
   loginCityLocation: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/34daa393244a6db9/city-location.png',
+  loginNextArrow: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/f63ad7a8fcd8e619/login-next-arrow.png',
   genderFemale: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/64f6756070a9536d/gender-female.webp',
   genderMale: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/e6487f6f994c4bfa/gender-male.webp',
   verificationCertAvatar: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c1619209f17e45cc/cert-avatar.png',

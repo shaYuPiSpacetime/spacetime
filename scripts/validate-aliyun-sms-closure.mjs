@@ -13,6 +13,7 @@ const envExample = read('deploy/server.prod.env.example');
 const localEnvExample = read('backend/.env.local.example');
 const deployScript = read('deploy/scripts/deploy-prod-local.sh');
 const miniappApi = read('miniapp/src/constants/prd01ApiPaths.ts');
+const authService = read('backend/src/main/java/com/spacetime/miniapp/service/impl/AuthMiniappServiceImpl.java');
 
 assert.match(pom, /<artifactId>dysmsapi20170525<\/artifactId>[\s\S]*?<version>\$\{aliyun-sms\.version\}<\/version>/);
 assert.match(pom, /<aliyun-sms\.version>4\.5\.1<\/aliyun-sms\.version>/);
@@ -68,6 +69,10 @@ for (const expected of [
 
 assert.ok(miniappApi.includes("smsCode: '/miniapp/auth/sms-code'"), '小程序验证码接口未接入真实后端');
 assert.ok(miniappApi.includes("phoneLogin: '/miniapp/auth/phone-login'"), '小程序手机号登录接口未接入真实后端');
+assert.ok(authService.includes('private static final String FIXED_SMS_CODE = "0000";'), '体验版验证码必须固定为 0000');
+assert.ok(authService.includes('vo.setProviderCode("FIXED")'), '发送接口必须标记为固定验证码模式');
+assert.ok(!authService.includes('smsCodeProvider.sendLoginCode'), '固定验证码模式禁止调用短信网关');
+assert.ok(!authService.includes('smsCodeProvider.generateCode'), '固定验证码模式禁止生成随机短信验证码');
 
 for (const [file, content] of [
   ['application.yml', application],
