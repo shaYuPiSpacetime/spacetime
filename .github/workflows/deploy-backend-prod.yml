@@ -40,15 +40,6 @@ jobs:
           node scripts/test-prod-wechat-pay-config.mjs
           node scripts/test-prod-tencent-im-config.mjs
 
-      - name: Validate WeChat callback token
-        env:
-          HAS_COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN: ${{ secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN != '' }}
-        run: |
-          if [ "$HAS_COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN" != "true" ]; then
-            echo "::error::请在 GitHub Actions Secrets 中配置 COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"
-            exit 1
-          fi
-
       - name: Validate ACR password
         env:
           HAS_ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD != '' }}
@@ -88,8 +79,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    env:
-      COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN: ${{ secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN }}
     steps:
       - name: Checkout deploy files
         uses: actions/checkout@v4
@@ -107,35 +96,14 @@ jobs:
         uses: appleboy/ssh-action@v1.2.2
         env:
           ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
-          COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN: ${{ secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN }}
         with:
           host: ${{ env.PROD_SERVER_HOST }}
           username: ${{ env.PROD_SERVER_USER }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          envs: ALIYUN_REGISTRY_PASSWORD,COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN
+          envs: ALIYUN_REGISTRY_PASSWORD
           script_stop: true
           script: |
             set -e
-            [ -n "${COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN:-}" ] || { echo "微信内容安全回调 Token 未配置"; exit 1; }
-            prod_env=/mnt/data/spacetime-prod/secrets/prod.env
-            [ -f "$prod_env" ] || { echo "生产 prod.env 不存在"; exit 1; }
-            tmp_env="$(mktemp)"
-            trap 'rm -f "$tmp_env"' EXIT
-            awk '
-              BEGIN { updated = 0 }
-              /^COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN=/ {
-                print "COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN=" ENVIRON["COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"]
-                updated = 1
-                next
-              }
-              { print }
-              END {
-                if (!updated) print "COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN=" ENVIRON["COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"]
-              }
-            ' "$prod_env" > "$tmp_env"
-            chmod 600 "$tmp_env"
-            mv "$tmp_env" "$prod_env"
-            trap - EXIT
             cd "${{ env.PROD_DEPLOY_DIR }}"
             bash scripts/migrate-prod-db.sh \
               deploy/sql/prod/071_prd03_message_mobile_contract.sql \

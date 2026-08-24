@@ -93,14 +93,17 @@ for (const expected of [
   'deploy/sql/prod/075_prd03_tim_message_lookup_index.sql',
   'deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql',
   'deploy/sql/prod/077_prd01_wechat_content_security.sql',
-  'COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN: ${{ secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN }}',
-  'envs: ALIYUN_REGISTRY_PASSWORD,COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN',
-  'ENVIRON["COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"]',
   'bash scripts/deploy-prod-local.sh backend',
   'NGINX_IMAGE_TAG: spacetime-nginx-prod',
   'docker pull nginx:1.27-alpine',
 ]) {
   assertIncludes(backendWorkflow, expected, '.github/workflows/deploy-backend-prod.yml');
+}
+for (const forbidden of [
+  'secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN',
+  'ENVIRON["COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"]',
+]) {
+  assertNotIncludes(backendWorkflow, forbidden, '.github/workflows/deploy-backend-prod.yml');
 }
 
 const compose = read('deploy/docker-compose.prod.yml');
