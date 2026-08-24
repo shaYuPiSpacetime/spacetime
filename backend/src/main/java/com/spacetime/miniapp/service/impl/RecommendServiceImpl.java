@@ -80,10 +80,11 @@ public class RecommendServiceImpl implements RecommendService {
     private final ProfileDictionaryService profileDictionaryService;
     private final MiniappPublicProfileService publicProfileService;
     private final VipService vipService;
+    private final Prd01AccessEvaluator accessEvaluator;
 
     @Override
     public RecommendPreferenceVO getPreferences(Long userId) {
-        AppUser user = requireOpenUser(userId);
+        AppUser user = requireBrowsableUser(userId);
         RecommendPreference preference = preferenceDao.selectByUserId(userId);
         boolean vipEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
         if (preference == null) {
@@ -95,7 +96,7 @@ public class RecommendServiceImpl implements RecommendService {
     @Override
     @Transactional
     public RecommendPreferenceVO savePreferences(Long userId, RecommendPreferenceSaveReq req) {
-        requireOpenUser(userId);
+        requireBrowsableUser(userId);
         validateRequest(req);
         validateDictionaries(req);
         boolean vipEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
@@ -125,7 +126,7 @@ public class RecommendServiceImpl implements RecommendService {
 
     @Override
     public RecommendCandidatePageVO getCandidates(Long userId, String cursor) {
-        AppUser current = requireOpenUser(userId);
+        AppUser current = requireBrowsableUser(userId);
         boolean vipEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
         RecommendPreference preference = resolvePreference(current);
         int remaining = remainingBrowseCount(userId, vipEffective);
@@ -179,7 +180,7 @@ public class RecommendServiceImpl implements RecommendService {
     @Override
     @Transactional
     public void recordAction(Long userId, String candidateNo, String action, RecommendViewActionReq req) {
-        requireOpenUser(userId);
+        requireBrowsableUser(userId);
         if (req == null || StrUtil.isBlank(req.getRequestId()) || !ACTIONS.contains(action)) {
             throw new BusinessException(400, "推荐动作参数有误");
         }
@@ -222,7 +223,7 @@ public class RecommendServiceImpl implements RecommendService {
 
     @Override
     public RecommendReplayPageVO getReplay(Long userId) {
-        requireOpenUser(userId);
+        requireBrowsableUser(userId);
         if (!hasEffectiveBenefit(userId, THREE_DAY_REPLAY_BENEFIT)) {
             throw new BusinessException(403, "开通会员且三天回看权益启用后可查看回看记录");
         }
@@ -266,6 +267,19 @@ public class RecommendServiceImpl implements RecommendService {
         AppUser user = userId == null ? null : appUserDao.selectById(userId);
         if (user == null || !"OPEN".equals(accessProjectionService.project(user))) {
             throw new BusinessException(403, "完成资料和三项认证后即可使用推荐");
+        }
+        return user;
+    }
+
+    private AppUser requireBrowsableUser(Long userId) {
+        AppUser user = userId == null ? null : appUserDao.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(403, "请先完成基础资料后使用推荐");
+        }
+        String relationAccess = accessProjectionService.project(user);
+        if ("ABNORMAL".equals(relationAccess)
+                || !Boolean.TRUE.equals(accessEvaluator.evaluate(user).getCanBrowseCards())) {
+            throw new BusinessException(403, "请先完成基础资料后使用推荐");
         }
         return user;
     }

@@ -50,10 +50,11 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
     private final AppUserAuditService auditService;
     private final ProfileDictionaryService profileDictionaryService;
     private final UserUnlockRecordDao unlockRecordDao;
+    private final Prd01AccessEvaluator accessEvaluator;
 
     @Override
     public PublicProfileVO getPublicProfile(Long currentUserId, Long targetUserId) {
-        AppUser current = requireOpenUser(currentUserId, CURRENT_ACCESS_CLOSED, "关系反馈准入未开放");
+        AppUser current = requireBrowsableUser(currentUserId, CURRENT_ACCESS_CLOSED, "公开资料浏览准入未开放");
         if (targetUserId == null || Objects.equals(current.getId(), targetUserId)) {
             throw new BusinessException(TARGET_UNAVAILABLE, "不能访问自己的公开资料");
         }
@@ -136,6 +137,19 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
     private AppUser requireOpenUser(Long userId, int errorCode, String message) {
         AppUser user = userId == null ? null : appUserDao.selectById(userId);
         if (user == null || !"OPEN".equals(accessProjectionService.project(user))) {
+            throw new BusinessException(errorCode, message);
+        }
+        return user;
+    }
+
+    private AppUser requireBrowsableUser(Long userId, int errorCode, String message) {
+        AppUser user = userId == null ? null : appUserDao.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(errorCode, message);
+        }
+        String relationAccess = accessProjectionService.project(user);
+        if ("ABNORMAL".equals(relationAccess)
+                || !Boolean.TRUE.equals(accessEvaluator.evaluate(user).getCanBrowseCards())) {
             throw new BusinessException(errorCode, message);
         }
         return user;

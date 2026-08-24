@@ -18,11 +18,14 @@ import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
 import com.spacetime.miniapp.dto.request.RecommendViewActionReq;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
+import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.RecommendCandidatePageVO;
 import com.spacetime.miniapp.dto.response.RecommendPreferenceVO;
 import com.spacetime.miniapp.dto.response.RecommendReplayPageVO;
 import com.spacetime.miniapp.dto.response.VipBenefitVO;
 import com.spacetime.miniapp.service.impl.RecommendServiceImpl;
+import com.spacetime.miniapp.service.impl.Prd01AccessEvaluator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,8 +62,14 @@ class RecommendServiceImplTest {
     @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private MiniappPublicProfileService publicProfileService;
     @Mock private VipService vipService;
+    @Mock private Prd01AccessEvaluator accessEvaluator;
 
     @InjectMocks private RecommendServiceImpl service;
+
+    @BeforeEach
+    void allowRecommendationBrowsingByDefault() {
+        lenient().when(accessEvaluator.evaluate(any(AppUser.class))).thenReturn(browsableAccess());
+    }
 
     @Test
     @DisplayName("无保存记录时返回现居城市和年龄前后五岁的临时默认值")
@@ -124,16 +134,19 @@ class RecommendServiceImplTest {
     }
 
     @Test
-    @DisplayName("未完成核心准入时不得查询或保存推荐偏好")
-    void getPreferencesShouldRejectClosedUser() {
+    @DisplayName("基础资料完成但三项认证未通过时仍可查询推荐偏好")
+    void getPreferencesShouldAllowNonCoreUser() {
         AppUser user = openUser(7L, 30, "320100");
         when(appUserDao.selectById(7L)).thenReturn(user);
         when(accessProjectionService.project(user)).thenReturn("CLOSED");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(null);
+        when(profileDictionaryService.label("china_region", "320100")).thenReturn("南京");
 
-        assertThatThrownBy(() -> service.getPreferences(7L))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("完成资料和三项认证");
-        verify(preferenceDao, never()).selectByUserId(any());
+        RecommendPreferenceVO result = service.getPreferences(7L);
+
+        assertThat(result.getDefaulted()).isTrue();
+        assertThat(result.getTargetCities()).singleElement()
+                .satisfies(city -> assertThat(city.getCode()).isEqualTo("320100"));
     }
 
     @Test
@@ -284,6 +297,34 @@ class RecommendServiceImplTest {
     }
 
     @Test
+    @DisplayName("基础资料完成但三项认证未通过时仍返回已认证候选人")
+    void getCandidatesShouldAllowNonCoreBrowseUser() {
+        AppUser current = openUser(7L, 30, "320100");
+        AppUser candidate = openUser(8L, 28, "320100");
+        candidate.setGender("FEMALE");
+        RecommendPreference preference = basicPreference(7L, 2);
+        PublicProfileVO profile = new PublicProfileVO();
+        profile.setUserId(8L);
+        profile.setNickname("候选人");
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("CLOSED");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference);
+        when(appUserDao.selectList(any())).thenReturn(List.of(candidate));
+        when(accessProjectionService.projectAll(List.of(candidate))).thenReturn(Map.of(8L, "OPEN"));
+        when(appConfigDao.selectByKeys(any()))
+                .thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        when(viewLogDao.selectList(any())).thenReturn(List.of());
+        when(publicProfileService.getPublicProfile(7L, 8L)).thenReturn(profile);
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).singleElement()
+                .satisfies(item -> assertThat(item.getUserId()).isEqualTo(8L));
+        assertThat(result.getWaitingReason()).isNull();
+    }
+
+    @Test
     @DisplayName("最近登录时间为空的候选也能生成并继续使用游标")
     void getCandidatesShouldPageCandidatesWithNullLastLoginTime() {
         AppUser current = openUser(7L, 30, "320100");
@@ -401,6 +442,14 @@ class RecommendServiceImplTest {
         user.setLocationCity(city);
         user.setGender("MALE");
         return user;
+    }
+
+    private AccessStatusVO browsableAccess() {
+        AccessStatusVO access = new AccessStatusVO();
+        access.setCanBrowseCards(true);
+        access.setCoreAccessStatus("NON_CORE_ONLY");
+        access.setBlockReasons(List.of("请完成实名、头像、学历三重认证后继续使用"));
+        return access;
     }
 
     private RecommendPreferenceSaveReq basicRequest(int version) {

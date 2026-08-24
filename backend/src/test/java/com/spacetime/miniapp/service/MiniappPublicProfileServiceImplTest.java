@@ -18,6 +18,9 @@ import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.service.impl.MiniappPublicProfileServiceImpl;
+import com.spacetime.miniapp.dto.response.AccessStatusVO;
+import com.spacetime.miniapp.service.impl.Prd01AccessEvaluator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -47,8 +51,18 @@ class MiniappPublicProfileServiceImplTest {
     @Mock private AppUserAuditService auditService;
     @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private UserUnlockRecordDao unlockRecordDao;
+    @Mock private Prd01AccessEvaluator accessEvaluator;
 
     @InjectMocks private MiniappPublicProfileServiceImpl service;
+
+    @BeforeEach
+    void allowPublicProfileBrowsingByDefault() {
+        AccessStatusVO access = new AccessStatusVO();
+        access.setCanBrowseCards(true);
+        access.setCoreAccessStatus("NON_CORE_ONLY");
+        access.setBlockReasons(List.of("请完成实名、头像、学历三重认证后继续使用"));
+        lenient().when(accessEvaluator.evaluate(any(AppUser.class))).thenReturn(access);
+    }
 
     @Test
     void returnsPublicAuditProjectionAndActiveRelationshipState() {
@@ -148,16 +162,18 @@ class MiniappPublicProfileServiceImplTest {
     }
 
     @Test
-    void rejectsClosedCurrentUserWithCurrentAccessCode() {
+    void allowsNonCoreCurrentUserToBrowseCertifiedTarget() {
         AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
         when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
         when(accessProjectionService.project(current)).thenReturn("CLOSED");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
 
-        assertThatThrownBy(() -> service.getPublicProfile(7L, 8L))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        error -> assertThat(error.getCode()).isEqualTo(20001));
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
 
-        verify(appUserDao, never()).selectById(8L);
+        assertThat(result.getUserId()).isEqualTo(8L);
+        assertThat(result.getNickname()).isEqualTo("目标用户");
     }
 
     @Test
