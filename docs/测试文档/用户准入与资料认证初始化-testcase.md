@@ -178,6 +178,13 @@
 | L1-PROVIDER-004 | 语音 Provider mock 成功 | 提交语音介绍 | 语音通过，Provider 任务记录 mock |
 | L1-PROVIDER-005 | 生产未配置实名 Provider | 模拟 Provider 不可用 | 不允许自动实名通过，进入待处理/失败兜底 |
 | L1-PROVIDER-006 | 生产未完成语音机审 | 模拟 Provider 未返回 | 新语音不对外展示 |
+| L1-PROVIDER-007 | 微信凭证有效性 | 使用真实小程序 AppId/AppSecret 获取 `access_token` | 微信返回 `errcode=0` 和有效期；日志、报告不输出 Token 与 Secret |
+| L1-PROVIDER-008 | 微信文本真实审核 | 使用具有当前小程序真实 OpenId 的测试用户提交安全自我介绍 | `msg_sec_check` 返回 `suggest=pass`；审核记录为 `APPROVED`，Provider 任务为 `SUCCESS` |
+| L1-PROVIDER-009 | 微信图片真实审核受理 | 提交微信可访问的头像公网 URL | `media_check_async(media_type=2)` 返回 `trace_id`；审核记录为 `REVIEWING`，Provider 任务保存三方任务编号 |
+| L1-PROVIDER-010 | 微信语音真实审核受理 | 提交微信可访问的语音公网 URL | `media_check_async(media_type=1)` 返回 `trace_id`；审核记录为 `REVIEWING`，Provider 任务保存三方任务编号 |
+| L1-PROVIDER-011 | AppId Token 缓存隔离 | Redis 同时存在旧全局 Token 和当前 AppId Token | 微信登录客户端与内容安全客户端只读取 `wechat:miniapp:access_token:{AppId}`，不误用其他小程序 Token |
+| L1-PROVIDER-012 | 微信媒体异步回调闭环 | 在与测试数据库对应的公网后端配置微信消息推送 URL/Token，等待图片或语音审核回调 | 按 `provider_code + trace_id` 幂等更新 Provider 任务和审核记录为通过、驳回或复核；未配置公网回调时必须标记为阻塞，不得宣称通过 |
+| L1-PROVIDER-013 | 微信回调 URL 首次校验 | 微信携带 `signature/timestamp/nonce/echostr` 请求回调 URL | 后端使用 `COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN` 验签；合法请求原样返回 `echostr`，非法签名拒绝 |
 
 ## 4. L2 Controller 测试用例
 
@@ -402,3 +409,16 @@
 | L3-MINI-AUTH-002 | L3 | P0 | 手机号登录输入 `0000` | 验证通过并返回登录用户，登录后清理历史验证码缓存 |
 | L3-MINI-AUTH-003 | L3 | P1 | 手机号登录输入非 `0000` | 返回 `AUTH_SMS_INVALID`，不进入用户查询和登录流程 |
 | L3-MINI-AUTH-004 | L3 | P1 | 固定验证码模式下连续发送 | 仍按后台配置写入验证码、倒计时和每日发送次数，兼容 Redis JSON 序列化值 |
+
+## 20. 2026-08-21 微信图片、文字、语音内容安全增量用例
+
+| 用例 ID | 层级 | 优先级 | 场景 | 断言 |
+|---------|------|--------|------|------|
+| L3-WX-SAFETY-001 | L3 | P0 | 开放文字微信同步审核返回 `pass/risky/review/unavailable` | 分别映射为安全、拒绝、待人工、待人工；使用当前用户 `openid`，不得把服务不可用当作通过 |
+| L3-WX-SAFETY-002 | L3 | P0 | 头像/相册/背景图提交后微信异步受理 | 使用 `media_type=2`；保存 `trace_id` 到 `external_provider_task.external_task_id`，审核记录进入 `REVIEWING` |
+| L3-WX-SAFETY-003 | L3 | P0 | 语音介绍提交后微信异步受理 | 使用 `media_type=1`；保存请求快照和 `trace_id`，审核记录进入 `REVIEWING` 且不公开新语音 |
+| L3-WX-SAFETY-004 | L3 | P0 | 图片回调 `pass/risky/review` | 分别进入 `APPROVED/REJECTED/REVIEWING`；复核态保留后台人工图片审核 |
+| L3-WX-SAFETY-005 | L3 | P0 | 语音回调 `pass/risky/review` | 分别进入 `APPROVED/REJECTED/REJECTED`；风险或复核均提示重新录制 |
+| L3-WX-SAFETY-006 | L3 | P0 | 微信重复或冲突回调 | 相同 `trace_id`、相同结果幂等成功；已落地最终结果与新结果冲突时拒绝更新 |
+| L3-WX-SAFETY-007 | L3 | P1 | Provider 调用抛异常或未返回 `trace_id` | 当前提交保持 `PENDING`，不替换旧有效资料，不伪造审核通过 |
+| L3-WX-SAFETY-008 | L3 | P0 | 生产配置与数据库迁移 | `prod` 默认 `wechat`；执行 077 后存在 `external_task_id` 和 `idx_provider_task_external` |

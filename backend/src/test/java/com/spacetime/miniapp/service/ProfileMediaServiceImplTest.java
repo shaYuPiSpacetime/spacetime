@@ -96,6 +96,7 @@ class ProfileMediaServiceImplTest {
             return record;
         });
         when(imageSafetyProvider.check(
+                null,
                 "AVATAR",
                 "https://static.example.com/avatar/cropped.jpg",
                 "https://static.example.com/avatar/cropped-thumb.jpg"))
@@ -124,13 +125,50 @@ class ProfileMediaServiceImplTest {
         assertThat(record.getMaterialJson()).contains("\"avatarSource\":\"ALBUM\"");
         verify(appUserDao, never()).updateById(any());
         verify(imageSafetyProvider).check(
-                "AVATAR", req.getAvatarUrl(), req.getThumbUrl());
+                null, "AVATAR", req.getAvatarUrl(), req.getThumbUrl());
         verify(auditService, never()).machineApprove(
                 101L, 301L, "{\"mocked\":true,\"result\":\"safe\"}");
 
         assertThat(result.getAuditRecordId()).isEqualTo(101L);
         assertThat(result.getAuditStatus()).isEqualTo(AppUserAuditStatusEnum.PENDING.getCode());
         assertThat(result.getAuditSource()).isEqualTo("MACHINE");
+    }
+
+    @Test
+    @DisplayName("微信异步受理头像后响应状态与数据库一致为审核中")
+    void shouldReturnReviewingAfterWechatAcceptsAvatar() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        user.setOpenid("openid-for-wechat-audit");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.AVATAR)).thenReturn(null);
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0);
+            record.setId(102L);
+            return record;
+        });
+        when(imageSafetyProvider.check(
+                "openid-for-wechat-audit",
+                "AVATAR",
+                "https://static.example.com/avatar/wechat.jpg",
+                null))
+                .thenReturn(ProviderCheckResult.pending(
+                        "wechat-content-security", "{\"conclusion\":\"REVIEW\"}", false,
+                        "trace-image-102", "wechat_media_async_pending"));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ExternalProviderTask task = invocation.getArgument(0);
+            task.setId(302L);
+            return null;
+        }).when(externalProviderTaskDao).insert(any());
+
+        AvatarSubmitReq req = new AvatarSubmitReq();
+        req.setAvatarSource("ALBUM");
+        req.setAvatarUrl("https://static.example.com/avatar/wechat.jpg");
+
+        AvatarSubmitVO result = profileMediaService.submitAvatar(7L, req);
+
+        verify(auditService).machineStart(102L, 302L, "{\"conclusion\":\"REVIEW\"}");
+        assertThat(result.getAuditStatus()).isEqualTo(AppUserAuditStatusEnum.REVIEWING.getCode());
     }
 
     @Test
@@ -144,7 +182,7 @@ class ProfileMediaServiceImplTest {
             record.setId(AppUserAuditTypeEnum.ALBUM_PHOTO.getCode().equals(record.getAuditType()) ? 201L : 202L);
             return record;
         });
-        when(imageSafetyProvider.check(any(), any(), any()))
+        when(imageSafetyProvider.check(any(), any(), any(), any()))
                 .thenReturn(ProviderCheckResult.safe(
                         "mock-image-safety", "{\"mocked\":true,\"result\":\"safe\"}", true));
         org.mockito.Mockito.doAnswer(invocation -> {
@@ -160,9 +198,9 @@ class ProfileMediaServiceImplTest {
         profileMediaService.submitMedia(7L, background);
 
         verify(imageSafetyProvider).check(
-                "ALBUM_PHOTO", album.getMediaUrl(), album.getThumbUrl());
+                null, "ALBUM_PHOTO", album.getMediaUrl(), album.getThumbUrl());
         verify(imageSafetyProvider).check(
-                "PROFILE_BG", background.getMediaUrl(), background.getThumbUrl());
+                null, "PROFILE_BG", background.getMediaUrl(), background.getThumbUrl());
         verify(auditService, never()).machineApprove(any(), any(), any());
     }
 
@@ -204,7 +242,7 @@ class ProfileMediaServiceImplTest {
             record.setId(202L);
             return record;
         });
-        when(imageSafetyProvider.check(any(), any(), any()))
+        when(imageSafetyProvider.check(any(), any(), any(), any()))
                 .thenReturn(ProviderCheckResult.safe(
                         "mock-image-safety", "{\"mocked\":true,\"result\":\"safe\"}", true));
         org.mockito.Mockito.doAnswer(invocation -> {
@@ -221,7 +259,7 @@ class ProfileMediaServiceImplTest {
         verify(auditService).submit(recordCaptor.capture());
         assertThat(recordCaptor.getValue().getAuditType()).isEqualTo(AppUserAuditTypeEnum.PROFILE_BG.getCode());
         verify(imageSafetyProvider).check(
-                "PROFILE_BG", background.getMediaUrl(), background.getThumbUrl());
+                null, "PROFILE_BG", background.getMediaUrl(), background.getThumbUrl());
     }
 
     @Test
@@ -238,7 +276,7 @@ class ProfileMediaServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("上传数量不能超过 9 张");
         verify(auditService, never()).submit(any());
-        verify(imageSafetyProvider, never()).check(any(), any(), any());
+        verify(imageSafetyProvider, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -310,7 +348,7 @@ class ProfileMediaServiceImplTest {
             record.setId(101L);
             return record;
         });
-        when(imageSafetyProvider.check(any(), any(), any()))
+        when(imageSafetyProvider.check(any(), any(), any(), any()))
                 .thenReturn(ProviderCheckResult.unsafe("mock-image-safety", "{}", true, null));
         org.mockito.Mockito.doAnswer(invocation -> {
             ExternalProviderTask task = invocation.getArgument(0);

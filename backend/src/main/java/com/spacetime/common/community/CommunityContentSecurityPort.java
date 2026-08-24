@@ -10,6 +10,8 @@ public interface CommunityContentSecurityPort {
 
     CommunitySecurityResult checkImages(String openId, List<String> imageUrls, String scene);
 
+    CommunitySecurityResult checkAudio(String openId, String audioUrl, String scene);
+
     default CommunitySecurityResult checkPost(String openId, String content, List<String> imageUrls, String scene) {
         CommunitySecurityResult textResult = checkText(openId, content, scene);
         if (textResult.conclusion() != CommunitySecurityConclusion.PASS) {

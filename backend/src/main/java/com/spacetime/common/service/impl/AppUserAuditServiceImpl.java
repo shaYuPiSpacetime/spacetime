@@ -112,6 +112,22 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
 
     @Override
     @Transactional
+    public void machineStart(Long recordId, Long providerTaskId, String machineSignalJson) {
+        AppUserAuditRecord record = requireRecord(recordId);
+        String fromStatus = record.getStatus();
+        record.setStatus(AppUserAuditStatusEnum.REVIEWING.getCode());
+        record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
+        record.setProviderTaskId(providerTaskId);
+        record.setMachineSignalJson(machineSignalJson);
+        record.setRejectReason(null);
+        record.setAuditTime(null);
+        recordDao.updateAuditResult(record);
+        appendHistory(record, fromStatus, record.getStatus(), AppUserAuditActionEnum.MACHINE_START,
+                null, AuditOperatorTypeEnum.PROVIDER, providerTaskId, "Provider");
+    }
+
+    @Override
+    @Transactional
     public void machineApprove(Long recordId, Long providerTaskId, String machineSignalJson) {
         AppUserAuditRecord record = requireRecord(recordId);
         String fromStatus = record.getStatus();

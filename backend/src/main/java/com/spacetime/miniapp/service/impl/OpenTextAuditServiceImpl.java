@@ -4,8 +4,10 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.ExternalProviderTaskDao;
+import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.ExternalProviderTask;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
@@ -25,6 +27,7 @@ import com.spacetime.miniapp.dto.response.IntroductionDetailVO;
 import com.spacetime.miniapp.dto.response.OpenTextAuditVO;
 import com.spacetime.miniapp.service.OpenTextAuditService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +44,7 @@ import java.util.List;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OpenTextAuditServiceImpl implements OpenTextAuditService {
 
     private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -60,6 +64,7 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
             new AboutQuestion("pets", "宠物态度", "说说你对养宠物的态度")
     );
 
+    private final AppUserDao appUserDao;
     private final AppUserAuditRecordDao auditRecordDao;
     private final ExternalProviderTaskDao externalProviderTaskDao;
     private final TextSafetyProvider textSafetyProvider;
@@ -110,6 +115,7 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
     @Override
     @Transactional
     public OpenTextAuditVO submitAboutMeAnswer(Long userId, AboutMeAnswerSubmitReq req) {
+        String openId = requireOpenId(userId);
         AboutQuestion question = requireQuestion(req == null ? null : req.getQuestionKey());
         if (StrUtil.isBlank(req.getContentText())
                 || req.getContentText().length() < 2
@@ -133,13 +139,14 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
         record.setMaterialJson("{\"questionKey\":\"" + json(question.key()) + "\",\"questionTitle\":\""
                 + json(question.title()) + "\"}");
         auditService.submit(record);
-        reviewText(userId, record, OpenTextFieldEnum.PROFILE_QA, configSnapshot);
+        reviewText(openId, userId, record, OpenTextFieldEnum.PROFILE_QA, configSnapshot);
         return toVo(auditService.latestRecord(userId, AppUserAuditTypeEnum.PROFILE_QA));
     }
 
     /** 提交开放性文字并执行文本安全机审。 */
     @Transactional
     private OpenTextAuditVO submitAuditedText(Long userId, OpenTextFieldEnum field, String contentText) {
+        String openId = requireOpenId(userId);
         validate(field, contentText);
         Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot = runtimeConfigResolver.snapshot();
         validateFieldEnabled(field, configSnapshot);
@@ -157,20 +164,7 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
         record.setContentHash(sha256(contentText));
         auditService.submit(record);
 
-        try {
-            ProviderCheckResult result = textSafetyProvider.check(field.getCode(), contentText);
-            ExternalProviderTask task = providerTask(userId, result);
-            externalProviderTaskDao.insert(task);
-            if (Boolean.TRUE.equals(result.getSafe())) {
-                auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
-            } else {
-                auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(),
-                        StrUtil.blankToDefault(result.getRejectReason(), runtimeConfigResolver.copyText(
-                                configSnapshot, "safety_text_failed", "文本内容安全未通过")));
-            }
-        } catch (Exception ignored) {
-            // Provider 异常时保留 PENDING，后台可继续人工处理。
-        }
+        reviewText(openId, userId, record, field, configSnapshot);
         AppUserAuditRecord result = auditService.latestRecord(userId, auditType);
         return toVo(result);
     }
@@ -202,23 +196,34 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
     }
 
     private void reviewText(
+            String openId,
             Long userId,
             AppUserAuditRecord record,
             OpenTextFieldEnum field,
             Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot) {
+        ProviderCheckResult result;
         try {
-            ProviderCheckResult result = textSafetyProvider.check(field.getCode(), record.getContentText());
-            ExternalProviderTask task = providerTask(userId, result);
-            externalProviderTaskDao.insert(task);
-            if (Boolean.TRUE.equals(result.getSafe())) {
-                auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
-            } else {
-                auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(),
-                        StrUtil.blankToDefault(result.getRejectReason(), runtimeConfigResolver.copyText(
-                                configSnapshot, "safety_text_failed", "文本内容安全审核未通过")));
-            }
-        } catch (Exception ignored) {
+            result = textSafetyProvider.check(openId, field.getCode(), record.getContentText());
+        } catch (Exception ex) {
             // Provider 异常时保留 PENDING，后台可继续人工处理。
+            log.warn("文本安全 Provider 调用失败，auditRecordId={}", record.getId(), ex);
+            return;
+        }
+        if (result == null) {
+            log.warn("文本安全 Provider 返回空结果，auditRecordId={}", record.getId());
+            return;
+        }
+
+        ExternalProviderTask task = providerTask(userId, result);
+        externalProviderTaskDao.insert(task);
+        if (Boolean.TRUE.equals(result.getSafe())) {
+            auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
+        } else if (Boolean.FALSE.equals(result.getSafe())) {
+            auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(),
+                    StrUtil.blankToDefault(result.getRejectReason(), runtimeConfigResolver.copyText(
+                            configSnapshot, "safety_text_failed", "文本内容安全审核未通过")));
+        } else {
+            auditService.machineStart(record.getId(), task.getId(), result.getRawResponseJson());
         }
     }
 
@@ -285,12 +290,22 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
         ExternalProviderTask task = new ExternalProviderTask();
         task.setProviderType("TEXT_SAFETY");
         task.setProviderCode(result.getProviderCode());
+        task.setExternalTaskId(result.getExternalTaskId());
         task.setUserId(userId);
         task.setResponsePayloadJson(result.getRawResponseJson());
-        task.setTaskStatus(Boolean.TRUE.equals(result.getSafe()) ? "SUCCESS" : "REJECTED");
+        task.setTaskStatus(Boolean.TRUE.equals(result.getSafe()) ? "SUCCESS"
+                : (Boolean.FALSE.equals(result.getSafe()) ? "REJECTED" : "REVIEWING"));
         task.setMocked(Boolean.TRUE.equals(result.getMocked()) ? 1 : 0);
         task.setErrorMessage(result.getRejectReason());
         return task;
+    }
+
+    private String requireOpenId(Long userId) {
+        AppUser user = appUserDao.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        return user.getOpenid();
     }
 
     private OpenTextAuditVO toVo(AppUserAuditRecord record) {

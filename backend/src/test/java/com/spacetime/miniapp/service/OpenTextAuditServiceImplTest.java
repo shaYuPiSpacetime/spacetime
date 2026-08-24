@@ -2,6 +2,8 @@ package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.ExternalProviderTaskDao;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
+import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.ExternalProviderTask;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
@@ -43,6 +45,8 @@ import static org.mockito.Mockito.when;
 class OpenTextAuditServiceImplTest {
 
     @Mock
+    private AppUserDao appUserDao;
+    @Mock
     private AppUserAuditRecordDao auditRecordDao;
     @Mock
     private ExternalProviderTaskDao externalProviderTaskDao;
@@ -66,6 +70,10 @@ class OpenTextAuditServiceImplTest {
                 .thenReturn(true);
         org.mockito.Mockito.lenient().when(runtimeConfigResolver.fieldVisible(configSnapshot, "qaList", true))
                 .thenReturn(true);
+        AppUser user = new AppUser();
+        user.setId(7L);
+        user.setOpenid("openid-7");
+        org.mockito.Mockito.lenient().when(appUserDao.selectById(7L)).thenReturn(user);
     }
 
     @Test
@@ -103,7 +111,7 @@ class OpenTextAuditServiceImplTest {
             record.setId(102L);
             return record;
         });
-        when(textSafetyProvider.check("PROFILE_QA", req.getContentText()))
+        when(textSafetyProvider.check("openid-7", "PROFILE_QA", req.getContentText()))
                 .thenReturn(ProviderCheckResult.safe("mock-text", "{\"result\":\"safe\"}", true));
         org.mockito.Mockito.doAnswer(invocation -> {
             ExternalProviderTask task = invocation.getArgument(0);
@@ -134,7 +142,7 @@ class OpenTextAuditServiceImplTest {
             record.setId(101L);
             return record;
         });
-        when(textSafetyProvider.check("ABOUT_ME", content))
+        when(textSafetyProvider.check("openid-7", "ABOUT_ME", content))
                 .thenReturn(ProviderCheckResult.safe("mock-text", "{\"result\":\"safe\"}", true));
         org.mockito.Mockito.doAnswer(invocation -> {
             ExternalProviderTask task = invocation.getArgument(0);

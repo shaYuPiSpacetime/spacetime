@@ -16,4 +16,8 @@ public class UnavailableCommunityContentSecurityAdapter implements CommunityCont
     public CommunitySecurityResult checkImages(String openId, List<String> imageUrls, String scene) {
         return CommunitySecurityResult.unavailable("provider_disabled");
     }
+
+    public CommunitySecurityResult checkAudio(String openId, String audioUrl, String scene) {
+        return CommunitySecurityResult.unavailable("provider_disabled");
+    }
 }

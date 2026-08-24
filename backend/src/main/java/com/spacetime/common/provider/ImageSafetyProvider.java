@@ -11,10 +11,11 @@ public interface ImageSafetyProvider {
     /**
      * 审核一张图片。
      *
+     * @param openId 微信小程序用户 openid
      * @param auditType 审核类型：AVATAR、ALBUM_PHOTO、PROFILE_BG
      * @param mediaUrl 原图地址
      * @param thumbUrl 缩略图地址，可为空
      * @return Provider 审核结果
      */
-    ProviderCheckResult check(String auditType, String mediaUrl, String thumbUrl);
+    ProviderCheckResult check(String openId, String auditType, String mediaUrl, String thumbUrl);
 }

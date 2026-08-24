@@ -33,6 +33,9 @@ public interface AppUserAuditService {
     /** 机审通过，并写入机审信号。 */
     void machineApprove(Long recordId, Long providerTaskId, String machineSignalJson);
 
+    /** 异步机审已受理，记录进入审核中并写入三方任务关联。 */
+    void machineStart(Long recordId, Long providerTaskId, String machineSignalJson);
+
     /** 机审驳回，并写入驳回原因。 */
     void machineReject(Long recordId, Long providerTaskId, String machineSignalJson, String reason);
 

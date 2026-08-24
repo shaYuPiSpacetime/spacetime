@@ -49,6 +49,10 @@ wechat-miniapp:
   app-id: ${WECHAT_MINIAPP_APP_ID:${WECHAT_PAY_APP_ID:wx03e8cd2d1380c465}}
   app-secret: ${WECHAT_MINIAPP_APP_SECRET}
 
+prd01:
+  content-security:
+    provider: ${PRD01_CONTENT_SECURITY_PROVIDER:wechat}
+
 sms:
   # 生产环境禁止静默使用 mock 通道；凭证缺失时由配置校验阻止启动。
   provider: ${SMS_PROVIDER:aliyun}

@@ -7,9 +7,10 @@ public interface TextSafetyProvider {
     /**
      * 检查开放性文字是否安全。
      *
+     * @param openId 微信小程序用户 openid
      * @param fieldName 字段类型
      * @param contentText 文本内容
      * @return 机审结果
      */
-    ProviderCheckResult check(String fieldName, String contentText);
+    ProviderCheckResult check(String openId, String fieldName, String contentText);
 }

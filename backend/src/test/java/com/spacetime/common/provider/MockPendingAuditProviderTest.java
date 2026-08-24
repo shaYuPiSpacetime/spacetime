@@ -19,7 +19,7 @@ class MockPendingAuditProviderTest {
         ImageSafetyProvider provider = new MockImageSafetyProvider();
 
         ProviderCheckResult result = provider.check(
-                "AVATAR", "https://static.example.com/avatar.jpg", null);
+                "openid-1", "AVATAR", "https://static.example.com/avatar.jpg", null);
 
         assertThat(result.getSafe()).isTrue();
         assertThat(result.getMocked()).isTrue();

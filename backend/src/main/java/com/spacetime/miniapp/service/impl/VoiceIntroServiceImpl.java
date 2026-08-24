@@ -18,6 +18,7 @@ import com.spacetime.miniapp.dto.request.VoiceIntroSubmitReq;
 import com.spacetime.miniapp.dto.response.VoiceIntroVO;
 import com.spacetime.miniapp.service.VoiceIntroService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VoiceIntroServiceImpl implements VoiceIntroService {
 
     private final AppUserDao appUserDao;
@@ -55,7 +57,7 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
     @Override
     @Transactional
     public VoiceIntroVO submitVoiceIntro(Long userId, VoiceIntroSubmitReq req) {
-        requireUser(userId);
+        AppUser user = requireUser(userId);
         Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot = runtimeConfigResolver.snapshot();
         validateRequest(req, snapshot);
         AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
@@ -75,22 +77,38 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         record.setDuration(req.getDuration());
         auditService.submit(record);
 
+        ProviderCheckResult result;
         try {
-            ProviderCheckResult result = audioSafetyProvider.check(req.getVoiceUrl(), req.getDuration());
-            ExternalProviderTask task = providerTask(userId, "AUDIO_SAFETY", result);
-            externalProviderTaskDao.insert(task);
-            if (Boolean.TRUE.equals(result.getSafe())) {
-                auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
-                AppUserAuditRecord approved = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
-                return toVo(approved, true);
-            }
+            result = audioSafetyProvider.check(
+                    user.getOpenid(), req.getVoiceUrl(), req.getDuration());
+        } catch (Exception ex) {
+            // Provider 异常时保留 PENDING，后台和后续任务可继续处理；不替换旧有效语音。
+            log.warn("音频安全 Provider 调用失败，auditRecordId={}", record.getId(), ex);
+            return toVo(record, false);
+        }
+        if (result == null) {
+            log.warn("音频安全 Provider 返回空结果，auditRecordId={}", record.getId());
+            return toVo(record, false);
+        }
+
+        ExternalProviderTask task = providerTask(
+                userId, "AUDIO_SAFETY", result, req.getVoiceUrl(), req.getDuration());
+        externalProviderTaskDao.insert(task);
+        if (Boolean.TRUE.equals(result.getSafe())) {
+            auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
+            AppUserAuditRecord approved = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+            return toVo(approved, true);
+        }
+        if (Boolean.FALSE.equals(result.getSafe())) {
             String reason = StrUtil.blankToDefault(result.getRejectReason(), "音频内容安全未通过");
             auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(), reason);
             return toVo(auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO), false);
-        } catch (Exception ex) {
-            // Provider 异常时保留 PENDING，后台和后续任务可继续处理；不替换旧有效语音。
-            return toVo(record, false);
         }
+        if (StrUtil.isNotBlank(result.getExternalTaskId())) {
+            auditService.machineStart(record.getId(), task.getId(), result.getRawResponseJson());
+            record.setStatus(AppUserAuditStatusEnum.REVIEWING.getCode());
+        }
+        return toVo(record, false);
     }
 
     /** 删除当前有效语音介绍，当前记录失效后不自动回退旧语音。 */
@@ -123,16 +141,30 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         }
     }
 
-    private ExternalProviderTask providerTask(Long userId, String providerType, ProviderCheckResult result) {
+    private ExternalProviderTask providerTask(
+            Long userId,
+            String providerType,
+            ProviderCheckResult result,
+            String voiceUrl,
+            Integer duration) {
         ExternalProviderTask task = new ExternalProviderTask();
         task.setProviderType(providerType);
         task.setProviderCode(result.getProviderCode());
+        task.setExternalTaskId(result.getExternalTaskId());
         task.setUserId(userId);
+        task.setRequestPayloadJson("{\"voiceUrl\":\"" + json(voiceUrl) + "\",\"duration\":"
+                + (duration == null ? "null" : duration) + "}");
         task.setResponsePayloadJson(result.getRawResponseJson());
-        task.setTaskStatus(Boolean.TRUE.equals(result.getSafe()) ? "SUCCESS" : "REJECTED");
+        task.setTaskStatus(Boolean.TRUE.equals(result.getSafe()) ? "SUCCESS"
+                : (Boolean.FALSE.equals(result.getSafe()) ? "REJECTED"
+                : (StrUtil.isNotBlank(result.getExternalTaskId()) ? "PENDING" : "ERROR")));
         task.setMocked(Boolean.TRUE.equals(result.getMocked()) ? 1 : 0);
         task.setErrorMessage(result.getRejectReason());
         return task;
+    }
+
+    private String json(String value) {
+        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private VoiceIntroVO toVo(AppUserAuditRecord record, boolean exposeVoiceUrl) {

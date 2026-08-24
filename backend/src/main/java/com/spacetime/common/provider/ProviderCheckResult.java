@@ -19,12 +19,19 @@ public class ProviderCheckResult {
     private Boolean mocked;
     /** 未通过原因，通过时为空。 */
     private String rejectReason;
+    /** 三方异步任务编号，例如微信 media_check_async 返回的 trace_id。 */
+    private String externalTaskId;
 
     public static ProviderCheckResult safe(String providerCode, String rawResponseJson, boolean mocked) {
-        return new ProviderCheckResult(true, providerCode, rawResponseJson, mocked, null);
+        return new ProviderCheckResult(true, providerCode, rawResponseJson, mocked, null, null);
     }
 
     public static ProviderCheckResult unsafe(String providerCode, String rawResponseJson, boolean mocked, String rejectReason) {
-        return new ProviderCheckResult(false, providerCode, rawResponseJson, mocked, rejectReason);
+        return new ProviderCheckResult(false, providerCode, rawResponseJson, mocked, rejectReason, null);
+    }
+
+    public static ProviderCheckResult pending(String providerCode, String rawResponseJson, boolean mocked,
+            String externalTaskId, String detail) {
+        return new ProviderCheckResult(null, providerCode, rawResponseJson, mocked, detail, externalTaskId);
     }
 }

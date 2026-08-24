@@ -7,9 +7,10 @@ public interface AudioSafetyProvider {
     /**
      * 检查语音介绍是否安全。
      *
+     * @param openId 微信小程序用户 openid
      * @param voiceUrl 语音文件 URL
      * @param duration 语音时长，单位秒
      * @return 机审结果
      */
-    ProviderCheckResult check(String voiceUrl, Integer duration);
+    ProviderCheckResult check(String openId, String voiceUrl, Integer duration);
 }

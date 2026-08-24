@@ -523,3 +523,96 @@ Maven 结果：`BUILD SUCCESS`，单测耗时 2.935s，首次拉取镜像和依�
 ### 26.4 测试结论
 
 **判定结果：✅ 通过。** P0/P1 增量用例全部通过，无失败和跳过项；本轮为 Mockito Service 单元测试，不会产生真实短信调用。
+
+## 27. 微信图片、文字、语音内容安全后端接入（2026-08-21）
+
+### 27.1 实现结果
+
+| 验证项 | 结果 |
+|--------|------|
+| 文本安全 | `ABOUT_ME/PROFILE_QA` 已接微信 `msg_sec_check`，覆盖通过、风险、复核、不可用映射 |
+| 图片安全 | `AVATAR/ALBUM_PHOTO/PROFILE_BG` 已接微信 `media_check_async(media_type=2)`，保存 `trace_id` 并复用统一回调 |
+| 语音安全 | `VOICE_INTRO` 已接微信 `media_check_async(media_type=1)`，保存请求快照和 `trace_id` 并复用统一回调 |
+| 状态机 | 新增 `MACHINE_START` 状态落点；异步受理后进入 `REVIEWING`，未审内容不对外生效 |
+| 回调 | 按 `provider_code + external_task_id` 查询，覆盖图片/语音通过、风险、复核和重复回调 |
+| 数据库 | 新增 `077_prd01_wechat_content_security.sql`；字段和枚举中文注释同步到基线 schema |
+| 小程序前端 | 未修改；原业务接口和字段保持兼容 |
+
+### 27.2 自动化验证
+
+使用 Java 21 和 Maven 分叉编译执行微信 Provider、审核状态机、图片、文字、语音及回调相关测试：`Tests run: 49, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。随后执行后端全量测试：`Tests run: 790, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。
+
+生产部署静态校验已通过本次新增的环境变量断言，随后被仓库既有 `013_prd01_drop_legacy_audit_tables.sql` 的“缺少幂等迁移语句”门禁拦截；该失败与本次微信内容安全改动无关，未改动该历史迁移。
+
+本轮未使用线上微信 AppSecret 和公网回调发起真实媒体审核，因此结论为后端实现与自动化回归通过，不表述为微信生产回调实测通过。上线前仍需执行 077 迁移，并在微信公众平台确认回调 URL 与 Token。
+
+## 28. 微信真实凭证与内容安全链路实测（2026-08-21）
+
+### 28.1 测试范围
+
+本轮在本地开发后端连接测试库，使用已配置的真实小程序 AppId/AppSecret、现有真实 OpenId 测试用户和 OSS 公网媒体执行真实微信调用。报告不记录 AppSecret、`access_token`、OpenId、手机号、媒体 URL 或完整 `trace_id`。
+
+| 检查项 | 真实结果 |
+|--------|----------|
+| 微信凭证 | 获取 `access_token` 成功，微信返回有效期 7200 秒，AppId/AppSecret 有效 |
+| 文本直调 | `msg_sec_check` 返回 `errcode=0`、`suggest=pass`、`label=100` |
+| 图片直调 | 公网图片可访问且为 `image/png`；`media_check_async` 返回 `errcode=0` 和 `trace_id` |
+| 语音直调 | 公网语音可访问且为 `audio/mpeg`；`media_check_async` 返回 `errcode=0` 和 `trace_id` |
+| 数据库迁移 | 测试库已具备 `external_provider_task.external_task_id` 和 `idx_provider_task_external` 索引 |
+
+### 28.2 真实业务接口与数据库结果
+
+测试用户使用既有真实账号 `userId=208`，未修改小程序前端代码。
+
+| 业务接口 | 接口结果 | 审核记录 | Provider 任务 | 结论 |
+|----------|----------|----------|---------------|------|
+| `POST /miniapp/profile/introduction` | `code=200`、`APPROVED` | `1127 / ABOUT_ME / APPROVED` | `286 / wechat-content-security / SUCCESS` | 文本真实审核闭环通过 |
+| `POST /miniapp/profile/avatar` | `code=200` | `1128 / AVATAR / REVIEWING` | `287 / PENDING`，已保存微信任务编号 | 图片已真实送达微信并受理 |
+| `POST /miniapp/profile/voice-intro` | `code=200` | `1129 / VOICE_INTRO / REVIEWING` | `288 / PENDING`，已保存微信任务编号 | 语音已真实送达微信并受理 |
+| `POST /miniapp/profile/avatar` 状态修复复测 | `code=200`、`auditStatus=REVIEWING` | `1130 / AVATAR / REVIEWING` | `PENDING`，已保存微信任务编号 | 接口返回状态与数据库状态一致 |
+
+### 28.3 实测发现与修复
+
+首次从业务接口调用时，微信返回 `40001`。根因不是新凭证无效，而是微信登录客户端和内容安全客户端共用了固定 Redis 键 `wechat:miniapp:access_token`，其中残留了另一 AppId 的 Token。
+
+现已将两个客户端统一改为按 AppId 隔离缓存：`wechat:miniapp:access_token:{AppId}`。TDD 回归先稳定复现两个客户端读取错误 Token，修复后 `WechatAccessTokenCacheIsolationTest` 为 `2/2` 通过。
+
+真实头像提交还发现接口响应中的 `auditStatus` 保留为提交前的 `PENDING`，但数据库在微信异步任务受理后已经进入 `REVIEWING`。已在异步任务受理成功后同步更新响应对象；回归测试先复现“期望 `REVIEWING`、实际 `PENDING`”，修复后 `ProfileMediaServiceImplTest` 为 `13/13` 通过，真实业务复测记录 `1130` 的接口响应与数据库状态均为 `REVIEWING`。
+
+内容安全定向回归覆盖 Token 隔离、微信 Provider 映射、图片/语音回调状态机、开放文字、资料媒体和语音服务，共 `40` 条测试通过，`0` 失败、`0` 错误、`0` 跳过。
+
+随后使用 Java 21 执行后端全量 Maven 回归：本轮生成的 182 份 Surefire 报告合计 `Tests run: 793, Failures: 0, Errors: 0, Skipped: 0`。
+
+### 28.4 尚未闭环项
+
+图片和语音审核是微信异步任务。本地 `127.0.0.1:8080` 无法被微信公网回调，等待后记录仍为 `REVIEWING`。因此本轮可以确认“凭证有效、媒体真实送达微信、`trace_id` 正确落库”，但不能确认“微信公网回调已更新测试库最终状态”。
+
+要完成最后一步，需要把当前代码部署到与目标数据库对应的公网测试环境，并在微信公众平台配置该环境的消息推送 URL 和同一 `COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN`，再提交一张图片和一段语音等待回调。AppId/AppSecret 本身不替代回调配置。
+
+### 28.5 本轮结论
+
+真实 AppId/AppSecret 配置有效；文字审核全链路通过；图片、语音真实异步受理和三方任务落库通过；跨 AppId Token 污染及媒体响应状态不一致缺陷已修复。公网异步回调是当前唯一未完成的真实环境验收项，不能将其计为已通过。
+
+## 29. 微信回调 URL 配置补全（2026-08-24）
+
+### 29.1 实现与私有配置
+
+- 新增 `GET /miniapp/content-security/wechat/callback`，用于微信公众平台首次保存消息推送配置时验签并原样返回 `echostr`。
+- 继续复用 `COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN` 和现有 SHA-1 签名校验；审核结果仍由同路径 `POST` 接收。
+- 已生成 32 位十六进制随机 Token，并写入本地 `backend/.env.local` 与本机私有 `deploy/secrets/prod.env`；报告不记录 Token 明文。
+
+### 29.2 TDD 与验证
+
+回归测试先因 `verifyUrl` 不存在而编译失败，补充最小实现后执行：
+
+```text
+CommunityMediaAuditCallbackControllerTest    1/1 通过
+CommunityMediaAuditCallbackServiceImplTest  12/12 通过
+合计                                        13/13 通过
+```
+
+随后执行 Java 21 后端全量回归，本轮 183 份 Surefire 报告合计 `Tests run: 795, Failures: 0, Errors: 0, Skipped: 0`。
+
+### 29.3 外部配置状态
+
+生产服务器 `112.124.59.146` 不接受当前机器的 SSH 密钥，当前浏览器控制连接也不可用，因此尚未把 Token 写入服务器 `/mnt/data/spacetime-prod/secrets/prod.env`，也未在微信公众平台保存消息推送配置。此项属于外部权限阻塞，不得表述为生产配置完成。

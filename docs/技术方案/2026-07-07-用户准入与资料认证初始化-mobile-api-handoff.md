@@ -508,7 +508,7 @@
 | `avatarUrl` | String | 是 | 裁剪后图片公网 URL |
 | `thumbUrl` | String | 否 | 缩略图 URL |
 
-提交后生成 `AVATAR` 审核记录，并走图片安全 Provider；当前 Provider 为 mock，结果会写审核历史。
+提交后生成 `AVATAR` 审核记录，并走图片安全 Provider。生产环境默认调用微信 `media_check_async`，开发/测试环境默认使用 mock；Provider 任务和状态变化均写入审核历史。
 
 ### 6.3 实名认证
 
@@ -753,6 +753,53 @@
 | 转文字 | 当前不做语音转文字 |
 | 审核中 | 不允许重复提交 |
 | 删除 | 当前生效语音置 `EXPIRED`，不物理删除 |
+
+### 7.6 微信内容安全审核对接
+
+本次只调整后端 Provider 和审核状态机，小程序调用头像、相册、背景图、自我介绍、关于我、语音介绍的业务接口及请求/响应字段均不变。
+
+#### 7.6.1 环境配置
+
+| 配置项 | 说明 |
+| --- | --- |
+| `PRD01_CONTENT_SECURITY_PROVIDER` | `prod` 默认 `wechat`；开发/测试默认 `mock`。需要临时切换时显式配置 `wechat` 或 `mock` |
+| `WECHAT_MINIAPP_APP_ID` | 微信小程序 AppId；未配置时回退现有 `WECHAT_PAY_APP_ID` |
+| `WECHAT_MINIAPP_APP_SECRET` | 微信小程序 AppSecret，仅由后端运行环境注入 |
+| `COMMUNITY_CONTENT_SECURITY_PROVIDER` | 公共微信内容安全适配器，生产保持 `wechat` |
+| `COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN` | 微信消息接收服务器签名校验 Token，不写入源码或对接文档示例 |
+| 回调 URL | `GET/POST /miniapp/content-security/wechat/callback`；`GET` 用于微信首次绑定时验签并回显 `echostr`，`POST` 接收 JSON/XML 审核结果 |
+
+微信公众平台进入“小程序后台 -> 开发 -> 开发管理 -> 开发设置 -> 消息推送”，按以下口径配置：
+
+| 平台字段 | 配置值 |
+| --- | --- |
+| URL | `https://admin.shikongxiehou.com/api/miniapp/content-security/wechat/callback`；生产 Nginx 去掉 `/api` 后转发至后端 |
+| Token | 与生产私有环境变量 `COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN` 完全一致，不使用 AppSecret 代替 |
+| 消息加密方式 | 当前后端按明文签名和明文消息体处理，选择“明文模式” |
+| 数据格式 | 建议选择 JSON；后端同时兼容 JSON/XML |
+
+微信保存配置时会先调用 `GET` 校验 URL；验签失败或 Token 不一致时不得启用。生产 Token 只存放于 `/mnt/data/spacetime-prod/secrets/prod.env`，不写入 Git、日志或对接文档。
+
+上线前必须执行 `deploy/sql/prod/077_prd01_wechat_content_security.sql`，为 `external_provider_task` 增加 `external_task_id` 和回调查询索引。
+
+#### 7.6.2 三类审核流程
+
+| 内容类型 | 微信能力 | 提交后的处理 | 微信结果与业务状态 |
+| --- | --- | --- | --- |
+| 开放文字 | `msg_sec_check` | 同步调用，覆盖 `ABOUT_ME`、`PROFILE_QA` | `pass -> APPROVED`；`risky -> REJECTED`；`review/服务不可用 -> REVIEWING`，交后台人工处理；调用异常时保留 `PENDING` |
+| 图片 | `media_check_async`，`media_type=2` | 覆盖 `AVATAR`、`ALBUM_PHOTO`、`PROFILE_BG`；受理成功保存微信 `trace_id`，审核记录进入 `REVIEWING` | 回调 `pass -> APPROVED`；`risky -> REJECTED`；`review -> 保持 REVIEWING`，交后台图片审核；未取得 `trace_id` 时保留 `PENDING` |
+| 语音 | `media_check_async`，`media_type=1` | 覆盖 `VOICE_INTRO`；受理成功保存微信 `trace_id`，审核记录进入 `REVIEWING` | 回调 `pass -> APPROVED`；`risky/review -> REJECTED` 并提示重新录制；未取得 `trace_id` 时保留 `PENDING` |
+
+#### 7.6.3 数据与幂等
+
+| 数据 | 写入规则 |
+| --- | --- |
+| `app_user_audit_record` | 保存用户提交内容和当前审核状态；新内容通过前不替换旧的已通过内容 |
+| `external_provider_task` | `provider_code=wechat-content-security`；保存请求/响应、`task_status` 和异步 `external_task_id` |
+| `app_user_audit_history` | 记录 `MACHINE_START/MACHINE_APPROVE/MACHINE_REJECT` 及前后状态 |
+| 重复回调 | 相同 `trace_id`、相同最终结果直接幂等返回；与已落地最终结果冲突时拒绝更新 |
+
+小程序不直接获取微信 `access_token`，也不直接调用内容安全接口。后端使用当前登录用户的 `openid` 调微信；图片和语音回调由后端验签并更新审核结果。
 
 ## 8. 非审核型资料独立接口
 

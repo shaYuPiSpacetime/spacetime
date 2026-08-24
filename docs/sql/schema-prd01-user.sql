@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS external_provider_task (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     provider_type VARCHAR(50) NOT NULL COMMENT 'Provider 类型',
     provider_code VARCHAR(50) DEFAULT NULL COMMENT 'Provider 实现编码',
+    external_task_id VARCHAR(128) DEFAULT NULL COMMENT '三方异步任务编号，如微信内容安全 trace_id',
     user_id BIGINT DEFAULT NULL COMMENT '用户 ID',
     request_payload_json JSON DEFAULT NULL COMMENT '请求 JSON',
     response_payload_json JSON DEFAULT NULL COMMENT '响应 JSON',
@@ -239,7 +240,8 @@ CREATE TABLE IF NOT EXISTS external_provider_task (
     updated_by BIGINT DEFAULT NULL,
     deleted TINYINT DEFAULT 0,
     INDEX idx_provider_task_type_status (provider_type, task_status, deleted),
-    INDEX idx_provider_task_user (user_id, provider_type)
+    INDEX idx_provider_task_user (user_id, provider_type),
+    INDEX idx_provider_task_external (provider_code, external_task_id, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='外部 Provider 调用留痕表';
 
 CREATE TABLE IF NOT EXISTS app_user_import_batch (

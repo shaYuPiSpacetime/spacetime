@@ -10,6 +10,7 @@ import lombok.EqualsAndHashCode;
 public class ExternalProviderTask extends BaseEntity {
     private String providerType;
     private String providerCode;
+    private String externalTaskId;
     private Long userId;
     private String requestPayloadJson;
     private String responsePayloadJson;

@@ -73,6 +73,26 @@ class AppUserAuditServiceTest {
     }
 
     @Test
+    @DisplayName("异步机审受理后进入审核中并写入 MACHINE_START 历史")
+    void shouldStartAsyncMachineReview() {
+        AppUserAuditRecord current = record(8L, 10L, AppUserAuditTypeEnum.AVATAR,
+                AppUserAuditStatusEnum.PENDING);
+        when(recordDao.selectById(8L)).thenReturn(current);
+
+        auditService.machineStart(8L, 88L, "{\"traceId\":\"wx-1\"}");
+
+        assertThat(current.getStatus()).isEqualTo(AppUserAuditStatusEnum.REVIEWING.getCode());
+        assertThat(current.getProviderTaskId()).isEqualTo(88L);
+        assertThat(current.getMachineSignalJson()).contains("wx-1");
+        verify(recordDao).updateAuditResult(current);
+        ArgumentCaptor<AppUserAuditHistory> historyCaptor = ArgumentCaptor.forClass(AppUserAuditHistory.class);
+        verify(historyDao).insert(historyCaptor.capture());
+        assertThat(historyCaptor.getValue().getAction()).isEqualTo("MACHINE_START");
+        assertThat(historyCaptor.getValue().getFromStatus()).isEqualTo("PENDING");
+        assertThat(historyCaptor.getValue().getToStatus()).isEqualTo("REVIEWING");
+    }
+
+    @Test
     @DisplayName("人工通过审核时更新状态并写历史")
     void shouldApproveAndAppendHistory() {
         AppUserAuditRecord current = record(2L, 10L, AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.PENDING);

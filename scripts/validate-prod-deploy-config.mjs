@@ -92,6 +92,10 @@ for (const expected of [
   'deploy/sql/prod/074_prd03_remove_message_kms.sql',
   'deploy/sql/prod/075_prd03_tim_message_lookup_index.sql',
   'deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql',
+  'deploy/sql/prod/077_prd01_wechat_content_security.sql',
+  'COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN: ${{ secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN }}',
+  'envs: ALIYUN_REGISTRY_PASSWORD,COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN',
+  'ENVIRON["COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"]',
   'bash scripts/deploy-prod-local.sh backend',
   'NGINX_IMAGE_TAG: spacetime-nginx-prod',
   'docker pull nginx:1.27-alpine',
@@ -159,6 +163,9 @@ for (const expected of [
   'WECHAT_PAY_NOTIFY_URL=https://admin.shikongxiehou.com/api/miniapp/payment/wechat/notify',
   'WECHAT_MINIAPP_APP_ID=wx03e8cd2d1380c465',
   'WECHAT_MINIAPP_APP_SECRET=',
+  'PRD01_CONTENT_SECURITY_PROVIDER=wechat',
+  'COMMUNITY_CONTENT_SECURITY_PROVIDER=wechat',
+  'COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN=',
   'TENCENT_IM_ENABLED=false',
   'TENCENT_IM_SDK_APP_ID=0',
   'TENCENT_IM_SECRET_KEY=',
@@ -184,6 +191,7 @@ for (const expected of [
   'endpoint: ${OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}',
   'bucket-name: ${OSS_BUCKET_NAME:shikongxiehou}',
   'provider: ${SMS_PROVIDER:aliyun}',
+  'provider: ${PRD01_CONTENT_SECURITY_PROVIDER:wechat}',
 ]) {
   assertIncludes(prodConfig, expected, 'backend/src/main/resources/application-prod.yml');
 }
@@ -236,6 +244,8 @@ for (const expected of [
   'docker login "$ALIYUN_CR_REGISTRY"',
   '跳过数据库迁移',
   'WECHAT_MINIAPP_APP_ID WECHAT_MINIAPP_APP_SECRET',
+  'PRD01_CONTENT_SECURITY_PROVIDER COMMUNITY_CONTENT_SECURITY_PROVIDER',
+  'COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN',
   'SMS_ACCESS_KEY_ID SMS_ACCESS_KEY_SECRET',
   'SMS_PROVIDER SMS_ENDPOINT SMS_SIGN_NAME SMS_TEMPLATE_CODE',
   'TENCENT_IM_ENABLED TENCENT_IM_SDK_APP_ID TENCENT_IM_SECRET_KEY',

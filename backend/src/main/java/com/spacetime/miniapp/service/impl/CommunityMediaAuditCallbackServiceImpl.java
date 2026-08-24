@@ -10,15 +10,21 @@ import com.spacetime.common.community.CommunityAuditDecision;
 import com.spacetime.common.community.CommunityAuditPolicy;
 import com.spacetime.common.community.CommunitySecurityResult;
 import com.spacetime.common.config.CommunityContentSecurityProperties;
+import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.CommunityExtensionDao;
 import com.spacetime.common.dao.CommunityPostDao;
+import com.spacetime.common.dao.ExternalProviderTaskDao;
+import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.CommunityAuditRecord;
 import com.spacetime.common.entity.CommunityEventOutbox;
 import com.spacetime.common.entity.CommunityMediaAuditTask;
 import com.spacetime.common.entity.CommunityPost;
+import com.spacetime.common.entity.ExternalProviderTask;
+import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.CommunityAuditStatusEnum;
 import com.spacetime.common.enums.CommunityPostStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.miniapp.service.CommunityMediaAuditCallbackService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -48,8 +54,18 @@ public class CommunityMediaAuditCallbackServiceImpl implements CommunityMediaAud
     private final CommunityContentSecurityProperties properties;
     private final CommunityExtensionDao extensionDao;
     private final CommunityPostDao postDao;
+    private final ExternalProviderTaskDao externalProviderTaskDao;
+    private final AppUserAuditRecordDao appUserAuditRecordDao;
+    private final AppUserAuditService appUserAuditService;
     private final CommunityAuditPolicy auditPolicy;
     private final ObjectMapper objectMapper;
+
+    @Override
+    public String verifyUrl(String signature, String timestamp, String nonce, String echoString) {
+        verifySignature(signature, timestamp, nonce);
+        if (StrUtil.isBlank(echoString)) throw new BusinessException(403, "media_callback_echo_required");
+        return echoString;
+    }
 
     @Override
     @Transactional
@@ -66,6 +82,7 @@ public class CommunityMediaAuditCallbackServiceImpl implements CommunityMediaAud
         verifySignature(signature, timestamp, nonce);
         String traceId = payload == null ? null : payload.path("trace_id").asText();
         if (StrUtil.isBlank(traceId)) throw new BusinessException("media_trace_missing");
+        if (handleProfileAudit(traceId, payload)) return;
         CommunityMediaAuditTask task = extensionDao.selectMediaTaskOne(new LambdaQueryWrapper<CommunityMediaAuditTask>()
                 .eq(CommunityMediaAuditTask::getTraceId, traceId).last("LIMIT 1"));
         if (task == null) throw new BusinessException("media_trace_not_found");
@@ -81,6 +98,70 @@ public class CommunityMediaAuditCallbackServiceImpl implements CommunityMediaAud
         task.setCallbackTime(LocalDateTime.now());
         if (extensionDao.updateMediaTaskCas(task, expectedVersion) != 1) throw new BusinessException("media_callback_version_conflict");
         aggregate(task.getPostId(), traceId);
+    }
+
+    /** 认证资料图片和语音复用同一个微信回调入口，通过 trace_id 定位外部任务。 */
+    private boolean handleProfileAudit(String traceId, JsonNode payload) {
+        ExternalProviderTask task = externalProviderTaskDao.selectOne(
+                new LambdaQueryWrapper<ExternalProviderTask>()
+                        .eq(ExternalProviderTask::getProviderCode, "wechat-content-security")
+                        .eq(ExternalProviderTask::getExternalTaskId, traceId)
+                        .in(ExternalProviderTask::getProviderType, "IMAGE_SAFETY", "AUDIO_SAFETY")
+                        .last("LIMIT 1"));
+        if (task == null) return false;
+
+        AppUserAuditRecord record = appUserAuditRecordDao.selectOne(
+                new LambdaQueryWrapper<AppUserAuditRecord>()
+                        .eq(AppUserAuditRecord::getProviderTaskId, task.getId())
+                        .last("LIMIT 1"));
+        if (record == null) throw new BusinessException("profile_audit_record_not_found");
+
+        String callbackStatus = callbackStatus(payload.path("result").path("suggest").asText());
+        String expectedTaskStatus = profileTaskStatus(callbackStatus, task.getProviderType());
+        if (isFinalProviderTaskStatus(task.getTaskStatus())) {
+            if (expectedTaskStatus.equals(task.getTaskStatus())) return true;
+            throw new BusinessException("profile_media_callback_conflict");
+        }
+        if (expectedTaskStatus.equals(task.getTaskStatus())) return true;
+
+        String label = payload.path("result").path("label").asText(null);
+        task.setResponsePayloadJson(toJson(payload));
+        task.setTaskStatus(expectedTaskStatus);
+        task.setErrorMessage("pass".equals(callbackStatus) ? null : StrUtil.blankToDefault(label, callbackStatus));
+        externalProviderTaskDao.updateById(task);
+
+        if (isFinalAuditStatus(record.getStatus())) return true;
+        if ("pass".equals(callbackStatus)) {
+            appUserAuditService.machineApprove(record.getId(), task.getId(), task.getResponsePayloadJson());
+        } else if ("risky".equals(callbackStatus)) {
+            appUserAuditService.machineReject(record.getId(), task.getId(), task.getResponsePayloadJson(),
+                    "AUDIO_SAFETY".equals(task.getProviderType())
+                            ? "语音内容安全审核未通过，请重新录制"
+                            : "图片内容安全审核未通过，请重新上传");
+        } else if ("review".equals(callbackStatus) && "AUDIO_SAFETY".equals(task.getProviderType())) {
+            appUserAuditService.machineReject(record.getId(), task.getId(), task.getResponsePayloadJson(),
+                    "语音内容需重新录制后提交");
+        }
+        return true;
+    }
+
+    private String profileTaskStatus(String callbackStatus, String providerType) {
+        return switch (callbackStatus) {
+            case "pass" -> "SUCCESS";
+            case "risky" -> "REJECTED";
+            case "review" -> "AUDIO_SAFETY".equals(providerType) ? "REJECTED" : "REVIEWING";
+            default -> "ERROR";
+        };
+    }
+
+    private boolean isFinalAuditStatus(String status) {
+        return AppUserAuditStatusEnum.APPROVED.getCode().equals(status)
+                || AppUserAuditStatusEnum.REJECTED.getCode().equals(status)
+                || AppUserAuditStatusEnum.EXPIRED.getCode().equals(status);
+    }
+
+    private boolean isFinalProviderTaskStatus(String status) {
+        return "SUCCESS".equals(status) || "REJECTED".equals(status);
     }
 
     private JsonNode parseJson(String payload) {

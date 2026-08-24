@@ -108,7 +108,8 @@ public class WechatMiniappClientImpl implements WechatMiniappClient {
     }
 
     private String getAccessToken() throws Exception {
-        String cached = redisTemplate.opsForValue().get(ACCESS_TOKEN_CACHE_KEY);
+        String cacheKey = accessTokenCacheKey();
+        String cached = redisTemplate.opsForValue().get(cacheKey);
         if (cached != null && !cached.isBlank()) {
             return cached;
         }
@@ -123,8 +124,12 @@ public class WechatMiniappClientImpl implements WechatMiniappClient {
             throw new BusinessException("微信 access_token 获取失败");
         }
         long expiresIn = Math.max(60, root.path("expires_in").asLong(7200) - 300);
-        redisTemplate.opsForValue().set(ACCESS_TOKEN_CACHE_KEY, accessToken, Duration.ofSeconds(expiresIn));
+        redisTemplate.opsForValue().set(cacheKey, accessToken, Duration.ofSeconds(expiresIn));
         return accessToken;
+    }
+
+    private String accessTokenCacheKey() {
+        return ACCESS_TOKEN_CACHE_KEY + ":" + properties.getAppId();
     }
 
     private JsonNode sendGet(String url) throws Exception {

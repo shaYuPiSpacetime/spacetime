@@ -97,7 +97,7 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
         record.setThumbUrl(req.getThumbUrl());
         record.setMaterialJson("{\"avatarSource\":\"" + req.getAvatarSource() + "\"}");
         auditService.submit(record);
-        reviewImage(record);
+        reviewImage(record, user.getOpenid());
 
         return toAvatarVO(record);
     }
@@ -136,7 +136,7 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
     @Override
     @Transactional
     public ProfileMediaVO submitMedia(Long userId, ProfileMediaSubmitReq req) {
-        requireUser(userId);
+        AppUser user = requireUser(userId);
         validate(userId, req);
         AppUserAuditTypeEnum auditType = toAuditType(req.getMediaType());
         AppUserAuditRecord record = new AppUserAuditRecord();
@@ -149,7 +149,7 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
         record.setMaterialJson("{\"mediaType\":\"" + json(req.getMediaType()) + "\",\"sortOrder\":"
                 + (req.getSortOrder() == null ? 0 : req.getSortOrder()) + "}");
         auditService.submit(record);
-        reviewImage(record);
+        reviewImage(record, user.getOpenid());
 
         return toVo(record, req.getMediaType());
     }
@@ -184,26 +184,36 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
      * 调用图片安全 Provider，并统一写入三方任务和机审历史。
      * Provider 异常时保留待审核状态，后台仍可继续人工审核。
      */
-    private void reviewImage(AppUserAuditRecord record) {
+    private void reviewImage(AppUserAuditRecord record, String openId) {
+        ProviderCheckResult result;
         try {
-            ProviderCheckResult result = imageSafetyProvider.check(
-                    record.getAuditType(), record.getMediaUrl(), record.getThumbUrl());
-            ExternalProviderTask task = imageProviderTask(record, result);
-            externalProviderTaskDao.insert(task);
-            // Mock Provider 只用于打通任务链路，不得伪造审核通过；保留待审核态交给后台审核。
-            if (Boolean.TRUE.equals(result.getMocked()) && Boolean.TRUE.equals(result.getSafe())) {
-                return;
-            }
-            if (Boolean.TRUE.equals(result.getSafe())) {
-                auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
-            } else {
-                Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot = runtimeConfigResolver.snapshot();
-                auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(),
-                        StrUtil.blankToDefault(result.getRejectReason(), runtimeConfigResolver.copyText(
-                                configSnapshot, "safety_image_failed", "图片安全审核未通过")));
-            }
+            result = imageSafetyProvider.check(
+                    openId, record.getAuditType(), record.getMediaUrl(), record.getThumbUrl());
         } catch (Exception ex) {
             log.warn("图片安全 Provider 调用失败，auditRecordId={}", record.getId(), ex);
+            return;
+        }
+        if (result == null) {
+            log.warn("图片安全 Provider 返回空结果，auditRecordId={}", record.getId());
+            return;
+        }
+
+        ExternalProviderTask task = imageProviderTask(record, result);
+        externalProviderTaskDao.insert(task);
+        // Mock Provider 只用于打通任务链路，不得伪造审核通过；保留待审核态交给后台审核。
+        if (Boolean.TRUE.equals(result.getMocked()) && Boolean.TRUE.equals(result.getSafe())) {
+            return;
+        }
+        if (Boolean.TRUE.equals(result.getSafe())) {
+            auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
+        } else if (Boolean.FALSE.equals(result.getSafe())) {
+            Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot = runtimeConfigResolver.snapshot();
+            auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(),
+                    StrUtil.blankToDefault(result.getRejectReason(), runtimeConfigResolver.copyText(
+                            configSnapshot, "safety_image_failed", "图片安全审核未通过")));
+        } else if (StrUtil.isNotBlank(result.getExternalTaskId())) {
+            auditService.machineStart(record.getId(), task.getId(), result.getRawResponseJson());
+            record.setStatus(AppUserAuditStatusEnum.REVIEWING.getCode());
         }
     }
 
@@ -212,17 +222,23 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
         ExternalProviderTask task = new ExternalProviderTask();
         task.setProviderType("IMAGE_SAFETY");
         task.setProviderCode(result.getProviderCode());
+        task.setExternalTaskId(result.getExternalTaskId());
         task.setUserId(record.getUserId());
         task.setRequestPayloadJson("{\"auditType\":\"" + json(record.getAuditType())
                 + "\",\"mediaUrl\":\"" + json(record.getMediaUrl())
                 + "\",\"thumbUrl\":\"" + json(record.getThumbUrl()) + "\"}");
         task.setResponsePayloadJson(result.getRawResponseJson());
-        task.setTaskStatus(Boolean.TRUE.equals(result.getMocked()) && Boolean.TRUE.equals(result.getSafe())
-                ? "PENDING"
-                : (Boolean.TRUE.equals(result.getSafe()) ? "SUCCESS" : "REJECTED"));
+        task.setTaskStatus(providerTaskStatus(result));
         task.setMocked(Boolean.TRUE.equals(result.getMocked()) ? 1 : 0);
         task.setErrorMessage(result.getRejectReason());
         return task;
+    }
+
+    private String providerTaskStatus(ProviderCheckResult result) {
+        if (Boolean.TRUE.equals(result.getMocked()) && Boolean.TRUE.equals(result.getSafe())) return "PENDING";
+        if (Boolean.TRUE.equals(result.getSafe())) return "SUCCESS";
+        if (Boolean.FALSE.equals(result.getSafe())) return "REJECTED";
+        return StrUtil.isNotBlank(result.getExternalTaskId()) ? "PENDING" : "ERROR";
     }
 
     /** 删除当前用户自己的媒体审核记录；生效内容删除后不自动回退旧内容。 */

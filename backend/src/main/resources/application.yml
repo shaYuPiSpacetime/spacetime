@@ -33,6 +33,10 @@ community:
     # 微信小程序消息接收服务器 URL：/miniapp/content-security/wechat/callback
     callback-token: ${COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN:}
 
+prd01:
+  content-security:
+    provider: ${PRD01_CONTENT_SECURITY_PROVIDER:mock}
+
 message:
   tencent-im:
     enabled: ${TENCENT_IM_ENABLED:false}

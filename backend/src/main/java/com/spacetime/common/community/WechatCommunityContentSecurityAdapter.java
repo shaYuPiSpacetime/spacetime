@@ -69,21 +69,35 @@ public class WechatCommunityContentSecurityAdapter implements CommunityContentSe
         }
         List<String> traceIds = new ArrayList<>();
         for (String imageUrl : imageUrls) {
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("media_url", imageUrl);
-            body.put("media_type", 2);
-            body.put("version", 2);
-            body.put("scene", sceneCode(scene));
-            body.put("openid", safeOpenId(openId));
-            JsonNode response = post(MEDIA_SEC_URL, body);
-            if (response == null) return CommunitySecurityResult.unavailable("wechat_media_request_failed");
-            int errcode = response.path("errcode").asInt(-1);
-            if (errcode != 0) return CommunitySecurityResult.unavailable("wechat_media_err_" + errcode);
-            String traceId = response.path("trace_id").asText();
-            if (traceId.isBlank()) return CommunitySecurityResult.unavailable("wechat_media_trace_missing");
-            traceIds.add(traceId);
+            CommunitySecurityResult result = submitMedia(openId, imageUrl, 2, scene);
+            if (result.conclusion() != CommunitySecurityConclusion.REVIEW) return result;
+            traceIds.add(result.providerCode().substring("media_async:".length()));
         }
         return CommunitySecurityResult.asyncReview(String.join(",", traceIds));
+    }
+
+    @Override
+    public CommunitySecurityResult checkAudio(String openId, String audioUrl, String scene) {
+        if (audioUrl == null || audioUrl.isBlank()) {
+            return CommunitySecurityResult.pass("empty_audio");
+        }
+        return submitMedia(openId, audioUrl, 1, scene);
+    }
+
+    private CommunitySecurityResult submitMedia(String openId, String mediaUrl, int mediaType, String scene) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("media_url", mediaUrl);
+        body.put("media_type", mediaType);
+        body.put("version", 2);
+        body.put("scene", sceneCode(scene));
+        body.put("openid", safeOpenId(openId));
+        JsonNode response = post(MEDIA_SEC_URL, body);
+        if (response == null) return CommunitySecurityResult.unavailable("wechat_media_request_failed");
+        int errcode = response.path("errcode").asInt(-1);
+        if (errcode != 0) return CommunitySecurityResult.unavailable("wechat_media_err_" + errcode);
+        String traceId = response.path("trace_id").asText();
+        if (traceId.isBlank()) return CommunitySecurityResult.unavailable("wechat_media_trace_missing");
+        return CommunitySecurityResult.asyncReview(traceId);
     }
 
     private JsonNode post(String endpoint, Map<String, Object> body) {
@@ -107,10 +121,11 @@ public class WechatCommunityContentSecurityAdapter implements CommunityContentSe
 
     private String accessToken() {
         try {
-            String cached = redisTemplate.opsForValue().get(TOKEN_CACHE_KEY);
-            if (cached != null && !cached.isBlank()) return cached;
             if (properties.getAppId() == null || properties.getAppId().isBlank()
                     || properties.getAppSecret() == null || properties.getAppSecret().isBlank()) return null;
+            String cacheKey = accessTokenCacheKey();
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null && !cached.isBlank()) return cached;
             String url = TOKEN_URL + "?grant_type=client_credential&appid=" + encode(properties.getAppId())
                     + "&secret=" + encode(properties.getAppSecret());
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofSeconds(8)).GET().build();
@@ -119,12 +134,16 @@ public class WechatCommunityContentSecurityAdapter implements CommunityContentSe
             String token = root.path("access_token").asText();
             if (token.isBlank()) return null;
             long ttl = Math.max(60, root.path("expires_in").asLong(7200) - 300);
-            redisTemplate.opsForValue().set(TOKEN_CACHE_KEY, token, Duration.ofSeconds(ttl));
+            redisTemplate.opsForValue().set(cacheKey, token, Duration.ofSeconds(ttl));
             return token;
         } catch (Exception ex) {
             log.warn("微信 access_token 获取失败，按保守策略降级: {}", ex.getClass().getSimpleName());
             return null;
         }
+    }
+
+    private String accessTokenCacheKey() {
+        return TOKEN_CACHE_KEY + ":" + properties.getAppId();
     }
 
     private int sceneCode(String scene) {

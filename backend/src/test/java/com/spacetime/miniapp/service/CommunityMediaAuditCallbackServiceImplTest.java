@@ -5,9 +5,14 @@ import com.spacetime.common.community.CommunityAuditPolicy;
 import com.spacetime.common.config.CommunityContentSecurityProperties;
 import com.spacetime.common.dao.CommunityExtensionDao;
 import com.spacetime.common.dao.CommunityPostDao;
+import com.spacetime.common.dao.ExternalProviderTaskDao;
+import com.spacetime.common.dao.AppUserAuditRecordDao;
+import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.CommunityMediaAuditTask;
 import com.spacetime.common.entity.CommunityPost;
+import com.spacetime.common.entity.ExternalProviderTask;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.miniapp.service.impl.CommunityMediaAuditCallbackServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +26,7 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -29,6 +35,9 @@ import static org.mockito.Mockito.*;
 class CommunityMediaAuditCallbackServiceImplTest {
     @Mock private CommunityExtensionDao extensionDao;
     @Mock private CommunityPostDao postDao;
+    @Mock private ExternalProviderTaskDao externalProviderTaskDao;
+    @Mock private AppUserAuditRecordDao appUserAuditRecordDao;
+    @Mock private AppUserAuditService appUserAuditService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private CommunityMediaAuditCallbackServiceImpl service;
     private CommunityContentSecurityProperties properties;
@@ -38,6 +47,7 @@ class CommunityMediaAuditCallbackServiceImplTest {
         properties = new CommunityContentSecurityProperties();
         properties.setCallbackToken("callback-token");
         service = new CommunityMediaAuditCallbackServiceImpl(properties, extensionDao, postDao,
+                externalProviderTaskDao, appUserAuditRecordDao, appUserAuditService,
                 new CommunityAuditPolicy(), objectMapper);
     }
 
@@ -47,6 +57,13 @@ class CommunityMediaAuditCallbackServiceImplTest {
                 objectMapper.readTree("{\"trace_id\":\"t1\",\"result\":{\"suggest\":\"pass\"}}")))
                 .isInstanceOf(BusinessException.class).hasMessage("media_callback_signature_invalid");
         verifyNoInteractions(extensionDao, postDao);
+    }
+
+    @Test
+    void verifyUrl_shouldReturnEchoStringForValidSignature() throws Exception {
+        String echoString = service.verifyUrl(signature("11", "verify"), "11", "verify", "wechat-echo");
+
+        assertThat(echoString).isEqualTo("wechat-echo");
     }
 
     @Test
@@ -151,6 +168,48 @@ class CommunityMediaAuditCallbackServiceImplTest {
         verifyNoInteractions(extensionDao, postDao);
     }
 
+    @Test
+    void profileImagePass_shouldApproveAuditRecord() throws Exception {
+        ExternalProviderTask task = providerTask("trace-avatar", "IMAGE_SAFETY");
+        AppUserAuditRecord record = auditRecord(41L, task.getId());
+        when(externalProviderTaskDao.selectOne(any())).thenReturn(task);
+        when(appUserAuditRecordDao.selectOne(any())).thenReturn(record);
+
+        service.handle(signature("8", "a"), "8", "a",
+                objectMapper.readTree("{\"trace_id\":\"trace-avatar\",\"result\":{\"suggest\":\"pass\"}}"));
+
+        verify(appUserAuditService).machineApprove(eq(41L), eq(31L), contains("trace-avatar"));
+        verify(externalProviderTaskDao).updateById(argThat(value -> "SUCCESS".equals(value.getTaskStatus())));
+        verifyNoInteractions(extensionDao, postDao);
+    }
+
+    @Test
+    void profileImageReview_shouldKeepManualReviewState() throws Exception {
+        ExternalProviderTask task = providerTask("trace-image-review", "IMAGE_SAFETY");
+        when(externalProviderTaskDao.selectOne(any())).thenReturn(task);
+        when(appUserAuditRecordDao.selectOne(any())).thenReturn(auditRecord(42L, task.getId()));
+
+        service.handle(signature("9", "b"), "9", "b",
+                objectMapper.readTree("{\"trace_id\":\"trace-image-review\",\"result\":{\"suggest\":\"review\"}}"));
+
+        verify(externalProviderTaskDao).updateById(argThat(value -> "REVIEWING".equals(value.getTaskStatus())));
+        verifyNoInteractions(appUserAuditService);
+    }
+
+    @Test
+    void profileAudioReview_shouldRejectAndRequireRerecording() throws Exception {
+        ExternalProviderTask task = providerTask("trace-audio-review", "AUDIO_SAFETY");
+        when(externalProviderTaskDao.selectOne(any())).thenReturn(task);
+        when(appUserAuditRecordDao.selectOne(any())).thenReturn(auditRecord(43L, task.getId()));
+
+        service.handle(signature("10", "c"), "10", "c",
+                objectMapper.readTree("{\"trace_id\":\"trace-audio-review\",\"result\":{\"suggest\":\"review\"}}"));
+
+        verify(externalProviderTaskDao).updateById(argThat(value -> "REJECTED".equals(value.getTaskStatus())));
+        verify(appUserAuditService).machineReject(eq(43L), eq(31L), contains("trace-audio-review"),
+                contains("重新录制"));
+    }
+
     private CommunityMediaAuditTask task(String traceId) {
         CommunityMediaAuditTask task = new CommunityMediaAuditTask();
         task.setId(1L);
@@ -169,6 +228,23 @@ class CommunityMediaAuditCallbackServiceImplTest {
         post.setStatus("pending_manual");
         post.setVersion(0);
         return post;
+    }
+
+    private ExternalProviderTask providerTask(String traceId, String providerType) {
+        ExternalProviderTask task = new ExternalProviderTask();
+        task.setId(31L);
+        task.setExternalTaskId(traceId);
+        task.setProviderType(providerType);
+        task.setTaskStatus("PENDING");
+        return task;
+    }
+
+    private AppUserAuditRecord auditRecord(Long id, Long providerTaskId) {
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setId(id);
+        record.setProviderTaskId(providerTaskId);
+        record.setStatus("REVIEWING");
+        return record;
     }
 
     private String signature(String timestamp, String nonce) throws Exception {

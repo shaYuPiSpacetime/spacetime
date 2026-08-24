@@ -141,7 +141,8 @@ class VerificationServiceImplTest {
         AppUserAuditRecord realNamePending = record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.PENDING);
         when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
                 .thenReturn(realNamePending, realNamePending);
-        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(null, null);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION))
+                .thenReturn((AppUserAuditRecord) null);
         when(auditService.latestRecord(7L, AppUserAuditTypeEnum.AVATAR)).thenReturn(null);
         when(profileDictionaryService.requireCode("app_education_level", "BACHELOR", "学历"))
                 .thenReturn("BACHELOR");
@@ -237,7 +238,8 @@ class VerificationServiceImplTest {
         when(appUserDao.selectById(7L)).thenReturn(user);
         AppUserAuditRecord realName = record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED);
         when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(realName, realName);
-        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(null, null);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION))
+                .thenReturn((AppUserAuditRecord) null);
         when(auditService.latestRecord(7L, AppUserAuditTypeEnum.AVATAR)).thenReturn(null);
         when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
                 .thenReturn("BACHELOR");

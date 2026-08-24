@@ -79,6 +79,8 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN: ${{ secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN }}
     steps:
       - name: Checkout deploy files
         uses: actions/checkout@v4
@@ -89,21 +91,42 @@ jobs:
           host: ${{ env.PROD_SERVER_HOST }}
           username: ${{ env.PROD_SERVER_USER }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*,deploy/sql/prod/071_prd03_message_mobile_contract.sql,deploy/sql/prod/072_prd03_admin_menu_visibility.sql,deploy/sql/prod/073_prd03_platform_message_plaintext.sql,deploy/sql/prod/074_prd03_remove_message_kms.sql,deploy/sql/prod/075_prd03_tim_message_lookup_index.sql,deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql'
+          source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*,deploy/sql/prod/071_prd03_message_mobile_contract.sql,deploy/sql/prod/072_prd03_admin_menu_visibility.sql,deploy/sql/prod/073_prd03_platform_message_plaintext.sql,deploy/sql/prod/074_prd03_remove_message_kms.sql,deploy/sql/prod/075_prd03_tim_message_lookup_index.sql,deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql,deploy/sql/prod/077_prd01_wechat_content_security.sql'
           target: '/mnt/data/spacetime-prod'
 
       - name: Deploy backend over SSH
         uses: appleboy/ssh-action@v1.2.2
         env:
           ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+          COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN: ${{ secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN }}
         with:
           host: ${{ env.PROD_SERVER_HOST }}
           username: ${{ env.PROD_SERVER_USER }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          envs: ALIYUN_REGISTRY_PASSWORD
+          envs: ALIYUN_REGISTRY_PASSWORD,COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN
           script_stop: true
           script: |
             set -e
+            [ -n "${COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN:-}" ] || { echo "微信内容安全回调 Token 未配置"; exit 1; }
+            prod_env=/mnt/data/spacetime-prod/secrets/prod.env
+            [ -f "$prod_env" ] || { echo "生产 prod.env 不存在"; exit 1; }
+            tmp_env="$(mktemp)"
+            trap 'rm -f "$tmp_env"' EXIT
+            awk '
+              BEGIN { updated = 0 }
+              /^COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN=/ {
+                print "COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN=" ENVIRON["COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"]
+                updated = 1
+                next
+              }
+              { print }
+              END {
+                if (!updated) print "COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN=" ENVIRON["COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"]
+              }
+            ' "$prod_env" > "$tmp_env"
+            chmod 600 "$tmp_env"
+            mv "$tmp_env" "$prod_env"
+            trap - EXIT
             cd "${{ env.PROD_DEPLOY_DIR }}"
             bash scripts/migrate-prod-db.sh \
               deploy/sql/prod/071_prd03_message_mobile_contract.sql \
@@ -111,5 +134,6 @@ jobs:
               deploy/sql/prod/073_prd03_platform_message_plaintext.sql \
               deploy/sql/prod/074_prd03_remove_message_kms.sql \
               deploy/sql/prod/075_prd03_tim_message_lookup_index.sql \
-              deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql
+              deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql \
+              deploy/sql/prod/077_prd01_wechat_content_security.sql
             bash scripts/deploy-prod-local.sh backend
