@@ -7,6 +7,7 @@ import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.w
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import {
   ensureUnlockAttempt,
   formatRelationBadge,
@@ -150,13 +151,13 @@ export default function CommunityPage() {
   }
 
   useEffect(() => {
-    if (access.allowed !== true) return
+    if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') return
     void loadLikes(1)
     void loadVisitors(1)
     void getPendingMatchPopup()
       .then(data => setMatchPopup(data || null))
       .catch(error => Taro.showToast({ title: error instanceof Error ? error.message : '匹配提醒加载失败', icon: 'none' }))
-  }, [access.allowed])
+  }, [access.status?.coreAccessStatus])
 
   const openLockedCard = (card: RelationCard) => {
     setSelectedCard(card)
@@ -269,7 +270,16 @@ export default function CommunityPage() {
     }
   }
 
-  if (access.allowed !== true) return <AccessBlockedPage {...access} />
+  if (access.status?.coreAccessStatus === 'NON_CORE_ONLY') {
+    return (
+      <HeartUnverifiedPage
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onVerify={() => void navigateToPendingVerification()}
+      />
+    )
+  }
+  if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') return <AccessBlockedPage {...access} />
 
   const showMembershipEntry = activeTab === 'likes'
     ? likesState === 'ready' && likesRecords.length > 0 && likesPage?.accessMode !== 'VIP_ALL_CLEAR'
@@ -342,15 +352,15 @@ export default function CommunityPage() {
   )
 }
 
-function HeartTabsHeader({ active, likesCount, visitorsCount, onChange }: { active: HeartTab; likesCount: number; visitorsCount: number; onChange: (tab: HeartTab) => void }) {
+function HeartTabsHeader({ active, likesCount, visitorsCount, onChange, onRightIconClick }: { active: HeartTab; likesCount: number; visitorsCount: number; onChange: (tab: HeartTab) => void; onRightIconClick?: () => void }) {
   const { menuTop, menuHeight } = getLanhuNavigationMetrics()
   const top = menuTop + (menuHeight - 45) / 2
   return (
-    <HeartMessageHeader rightIcon="folder" onRightIconClick={() => Taro.navigateTo({ url: '/pages/heart/mutual' })}>
+    <HeartMessageHeader rightIcon="folder" onRightIconClick={onRightIconClick || (() => Taro.navigateTo({ url: '/pages/heart/mutual' }))}>
       <View style={{ position: 'absolute', left: '24rpx', top: `${top}rpx`, height: '56rpx', display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
         <HeartTabButton label="对我心动" count={likesCount} active={active === 'likes'} onClick={() => onChange('likes')} />
         <View style={{ width: '36rpx' }} />
-        <HeartTabButton label="访客" count={visitorsCount} active={active === 'visitors'} onClick={() => onChange('visitors')} />
+        <HeartTabButton label="最近访客" count={visitorsCount} active={active === 'visitors'} onClick={() => onChange('visitors')} />
       </View>
     </HeartMessageHeader>
   )
@@ -364,10 +374,43 @@ function HeartTabButton({ label, count, active, onClick }: { label: string; coun
       {active ? <View style={{ position: 'absolute', left: 0, bottom: '3rpx', width: `${width}rpx`, height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} /> : null}
       <Text style={{ position: 'relative', zIndex: 1, color: active ? '#0C285A' : '#7F8494', fontSize: active ? '32rpx' : '28rpx', fontWeight: active ? 500 : 400, lineHeight: '45rpx', whiteSpace: 'nowrap' }}>{label}</Text>
       {badge ? (
-        <View id={`relation-${label === '访客' ? 'visitors' : 'likes'}-badge`} style={{ position: 'absolute', right: '-8rpx', top: '-13rpx', minWidth: '28rpx', height: '28rpx', padding: '0 5rpx', borderRadius: '14rpx', background: '#EE2525', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+        <View id={`relation-${label.includes('访客') ? 'visitors' : 'likes'}-badge`} style={{ position: 'absolute', right: '-8rpx', top: '-13rpx', minWidth: '28rpx', height: '28rpx', padding: '0 5rpx', borderRadius: '14rpx', background: '#EE2525', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
           <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '22rpx' }}>{badge}</Text>
         </View>
       ) : null}
+    </View>
+  )
+}
+
+function HeartUnverifiedPage({
+  activeTab,
+  onTabChange,
+  onVerify,
+}: {
+  activeTab: HeartTab
+  onTabChange: (tab: HeartTab) => void
+  onVerify: () => void
+}) {
+  return (
+    <View id="heart-unverified" data-role="heart-unverified" style={{ minHeight: '100vh', background, fontFamily: 'PingFang SC, sans-serif' }}>
+      <HeartTabsHeader active={activeTab} likesCount={0} visitorsCount={0} onChange={onTabChange} onRightIconClick={onVerify} />
+      <View style={{ paddingTop: '220rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Image src={miniappOssIcons.qianxunEmptyHeart} mode="aspectFit" style={{ width: '320rpx', height: '246rpx' }} />
+        <Text style={{ color: '#0C285A', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 600, marginTop: '28rpx' }}>
+          完成认证后查看心动互动
+        </Text>
+        <Text style={{ width: '560rpx', color: '#8A96A8', fontSize: '25rpx', lineHeight: '40rpx', textAlign: 'center', marginTop: '18rpx' }}>
+          完善资料并完成三重认证，即可查看对你心动的人和最近访客
+        </Text>
+        <View
+          id="heart-unverified-verify"
+          data-role="heart-unverified-verify"
+          onClick={onVerify}
+          style={{ width: '600rpx', height: '92rpx', borderRadius: '46rpx', background: '#2876FF', marginTop: '54rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>去完善资料和认证</Text>
+        </View>
+      </View>
     </View>
   )
 }

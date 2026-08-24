@@ -3,8 +3,11 @@ import Taro, { useDidHide, useDidShow, useLoad } from '@tarojs/taro'
 import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
+import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
+import { useAccessStatus } from '@/hooks/useAccessStatus'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
@@ -34,6 +37,8 @@ export default function QianxunTopicPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [config, setConfig] = useState<CommunityConfig>()
+  const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
+  const access = useAccessStatus('canCommunity')
   const topicIdRef = useRef<number>()
   const resumeRefreshRef = useRef(false)
   const requestSequenceRef = useRef(0)
@@ -112,6 +117,10 @@ export default function QianxunTopicPage() {
         return
       }
       if (action.tapIndex === 1) {
+        if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
+          setShowUnverifiedModal(true)
+          return
+        }
         const result = await toggleCommunityFollow(post.authorId)
         setPosts(items => items.map(item => item.authorId === post.authorId ? { ...item, followingAuthor: result.following } : item))
         return
@@ -151,11 +160,21 @@ export default function QianxunTopicPage() {
       </View>
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
         <View style={{ padding: '18rpx 25rpx calc(160rpx + env(safe-area-inset-bottom))' }}>
-          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
+          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => {
+            if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
+              setShowUnverifiedModal(true)
+              return false
+            }
+            return true
+          }} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
         </View>
       </ScrollView>
     </View>
     <View id="qianxun-topic-participate" onClick={() => topicId && void Taro.navigateTo({ url: `/pages/qianxun/compose?topicId=${topicId}&topicName=${encodeURIComponent(topicName)}` })} style={{ position: 'fixed', left: '50%', bottom: 'calc(30rpx + env(safe-area-inset-bottom))', width: '240rpx', height: '82rpx', borderRadius: '41rpx', background: topicId ? BLUE : '#C8D4E8', boxShadow: '0 12rpx 28rpx rgba(40,118,255,0.28)', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx', fontWeight: 600 }}>参与话题</Text></View>
+    {showUnverifiedModal ? <UnverifiedCertificationModal onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
+      setShowUnverifiedModal(false)
+      void navigateToPendingVerification()
+    }} /> : null}
   </View>
 }
 
@@ -176,7 +195,7 @@ function SortTab({ label, selected, onClick }: { label: string; selected: boolea
   return <View onClick={onClick} style={{ position: 'relative', height: '82rpx', minWidth: '76rpx', marginRight: '26rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? NAVY : '#9DA3AE', fontSize: '26rpx', fontWeight: selected ? 600 : 400 }}>{label}</Text>{selected ? <View style={{ position: 'absolute', left: '50%', bottom: '3rpx', width: '44rpx', height: '5rpx', borderRadius: '3rpx', background: BLUE, transform: 'translateX(-50%)' }} /> : null}</View>
 }
 
-function TopicPostCard({ post, onLike, onMore }: { post: CommunityPostVO; onLike: () => void; onMore: () => void }) {
+function TopicPostCard({ post, onLike, onMore, onContact }: { post: CommunityPostVO; onLike: () => void; onMore: () => void; onContact: () => boolean }) {
   const openPost = () => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })
   const openAuthor = (event: { stopPropagation: () => void }) => {
     event.stopPropagation()
@@ -184,6 +203,7 @@ function TopicPostCard({ post, onLike, onMore }: { post: CommunityPostVO; onLike
   }
   const openContact = (event: { stopPropagation: () => void }) => {
     event.stopPropagation()
+    if (!onContact()) return
     const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
     if (!targetUserNo || !post.postNo) return void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
     void Taro.navigateTo({ url: `/pages/message/whisper-detail?receiverUserNo=${encodeURIComponent(targetUserNo)}&sourceScene=community_post&sourceBizNo=${encodeURIComponent(post.postNo)}&nickname=${encodeURIComponent(post.authorName || '用户')}&avatar=${encodeURIComponent(post.authorAvatar || '')}&compose=1` })

@@ -2,7 +2,10 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
+import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
+import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { getApiErrorCode } from '@/services/request'
 import { findConversationByPeerUserId } from '@/services/message'
 import { getPublicProfile, type PublicProfileVO } from '@/services/profile'
@@ -47,9 +50,19 @@ export default function HeartUserPage() {
   const [communityPostsLoading, setCommunityPostsLoading] = useState(true)
   const [communityPostsError, setCommunityPostsError] = useState('')
   const [communityConfig, setCommunityConfig] = useState<CommunityConfig>()
+  const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
+  const access = useAccessStatus('canMatch')
   const eventNo = useMemo(() => createEventNo(targetUserId || 0, sourceScene), [targetUserId, sourceScene])
   const visitReported = useRef(false)
   const likeRequestId = useRef<string | null>(null)
+
+  const runCertifiedAction = (action: () => void) => {
+    if (access.status?.coreAccessStatus === 'CORE_ALLOWED') {
+      action()
+      return
+    }
+    setShowUnverifiedModal(true)
+  }
 
   const loadProfile = async () => {
     if (!targetUserId) {
@@ -228,8 +241,8 @@ export default function HeartUserPage() {
   ) : null
   const footer = (
     <View style={{ position: 'fixed', left: '55rpx', right: '55rpx', bottom: '30rpx', zIndex: 50, display: 'flex', gap: '20rpx' }}>
-      <View id="public-profile-like-button" onClick={() => void toggleLike()} style={{ width: '210rpx', height: '98rpx', borderRadius: '49rpx', background: liked ? '#FFF0F2' : '#FFFFFF', border: '2rpx solid #FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: likeSubmitting ? 0.6 : 1 }}><Text style={{ color: '#FF5E6E', fontSize: '28rpx', fontWeight: 500 }}>{likeSubmitting ? '处理中' : liked ? '取消喜欢' : '喜欢'}</Text></View>
-      <View id="public-profile-chat-button" onClick={() => void openConversation()} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8rpx 22rpx rgba(255,94,110,0.25)' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{profile.communicationMode === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View>
+      <View id="public-profile-like-button" onClick={() => runCertifiedAction(() => void toggleLike())} style={{ width: '210rpx', height: '98rpx', borderRadius: '49rpx', background: liked ? '#FFF0F2' : '#FFFFFF', border: '2rpx solid #FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: likeSubmitting ? 0.6 : 1 }}><Text style={{ color: '#FF5E6E', fontSize: '28rpx', fontWeight: 500 }}>{likeSubmitting ? '处理中' : liked ? '取消喜欢' : '喜欢'}</Text></View>
+      <View id="public-profile-chat-button" onClick={() => runCertifiedAction(() => void openConversation())} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8rpx 22rpx rgba(255,94,110,0.25)' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{profile.communicationMode === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View>
     </View>
   )
 
@@ -243,6 +256,15 @@ export default function HeartUserPage() {
         additionalContent={communityContent}
         footer={footer}
       />
+      {showUnverifiedModal ? (
+        <UnverifiedCertificationModal
+          onClose={() => setShowUnverifiedModal(false)}
+          onConfirm={() => {
+            setShowUnverifiedModal(false)
+            void navigateToPendingVerification()
+          }}
+        />
+      ) : null}
     </View>
   )
 }

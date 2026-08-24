@@ -1,5 +1,6 @@
 import { Image, Text, View } from '@tarojs/components'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getQianxunHeaderMetrics } from '@/features/qianxun/QianxunHeader'
 
 export interface VerificationEntryViewProps {
@@ -12,6 +13,7 @@ export interface VerificationEntryViewProps {
   copy: (key: string) => string
   onContinue: () => void
   onLater: () => void
+  onSettings?: () => void
   onRetry: () => void
 }
 
@@ -28,8 +30,10 @@ export default function VerificationEntryView({
   copy,
   onContinue,
   onLater,
+  onSettings,
   onRetry,
 }: VerificationEntryViewProps) {
+  const nativeNavigationMetrics = getNativeNavigationMetrics()
   return (
     <View
       id={role}
@@ -42,6 +46,16 @@ export default function VerificationEntryView({
       }}
     >
       {role === 'index-unverified' ? <TopTabs unreadCount={unreadCount} /> : null}
+      {role === 'profile-unverified' && onSettings ? (
+        <View
+          id="profile-unverified-settings"
+          data-role="profile-unverified-settings"
+          onClick={onSettings}
+          style={{ position: 'absolute', left: '24rpx', top: `${nativeNavigationMetrics.menuTop}rpx`, zIndex: 10, width: '72rpx', height: `${nativeNavigationMetrics.menuHeight}rpx`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Image src={miniappOssIcons.profileSettings} mode="aspectFit" style={{ width: '42rpx', height: '42rpx' }} />
+        </View>
+      ) : null}
       {error ? (
         <EntryLoadError error={error} loading={loading} onRetry={onRetry} />
       ) : loading ? (

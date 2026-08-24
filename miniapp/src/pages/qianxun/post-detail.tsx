@@ -3,6 +3,7 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useMemo, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
+import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   resolveStableWhisperTargetUserNo,
@@ -41,6 +42,8 @@ import {
 } from '@/services/message'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
+import { useAccessStatus } from '@/hooks/useAccessStatus'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
@@ -67,6 +70,8 @@ export default function QianxunPostDetailPage() {
   const [commentSort, setCommentSort] = useState<CommunityCommentSort>('latest')
   const [config, setConfig] = useState<CommunityConfig>()
   const [showWhisper, setShowWhisper] = useState(false)
+  const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
+  const access = useAccessStatus('canCommunity')
   const [whisperContent, setWhisperContent] = useState('')
   const [whisperPrecheck, setWhisperPrecheck] = useState<RealWhisperPrecheckResult>()
   const [whisperLoading, setWhisperLoading] = useState(false)
@@ -148,6 +153,11 @@ export default function QianxunPostDetailPage() {
 
   const toggleFollow = async () => {
     if (!post) return
+    if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
+      setShowActions(false)
+      setShowUnverifiedModal(true)
+      return
+    }
     try {
       const result = await toggleCommunityFollow(post.authorId)
       setPost(current => current ? { ...current, followingAuthor: result.following } : current)
@@ -232,6 +242,10 @@ export default function QianxunPostDetailPage() {
 
   const openWhisper = async () => {
     if (!post || whisperLoading) return
+    if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
+      setShowUnverifiedModal(true)
+      return
+    }
     if (post.authorId === currentUserId) {
       await Taro.showToast({ title: '不能给自己发送悄悄话', icon: 'none' })
       return
@@ -376,6 +390,10 @@ export default function QianxunPostDetailPage() {
           onSubmit={() => void submitWhisper()}
         />
       ) : null}
+      {showUnverifiedModal ? <UnverifiedCertificationModal onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
+        setShowUnverifiedModal(false)
+        void navigateToPendingVerification()
+      }} /> : null}
     </View>
   )
 }

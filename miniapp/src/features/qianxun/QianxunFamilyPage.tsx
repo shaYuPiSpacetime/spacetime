@@ -2,6 +2,8 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import {
   COMMUNITY_COPY_KEYS,
@@ -23,7 +25,6 @@ import {
 } from '@/services/community'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { prd01Api } from '@/services/prd01'
-import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboardingFlow'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
@@ -33,7 +34,6 @@ import QianxunZhiyinTab from './QianxunZhiyinTab'
 import QianxunTopicSpotlight from './QianxunTopicSpotlight'
 
 const BLUE = '#2876FF'
-const NAVY = '#0C285A'
 const COMMUNITY_CONFIG_CACHE_KEY = 'qianxun_community_config'
 const REQUESTED_PRIMARY_TAB_KEY = 'qianxun_requested_primary_tab'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
@@ -64,9 +64,9 @@ function readRequestedScene(): CommunityScene | undefined {
 export default function RecommendFamilyPage() {
   const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
   const [primaryTab, setPrimaryTab] = useState<QianxunPrimaryTab>(() => readRequestedPrimaryTab())
-  const [activeTab, setActiveTab] = useState<CommunityScene>(() => readRequestedScene() || 'FOLLOWING')
+  const [activeTab, setActiveTab] = useState<CommunityScene>(() => readRequestedScene() || 'CITY')
   const [postsByScene, setPostsByScene] = useState<Partial<Record<CommunityScene, CommunityPostVO[]>>>(emptySceneState)
-  const [loadingByScene, setLoadingByScene] = useState<Partial<Record<CommunityScene, boolean>>>({ FOLLOWING: true })
+  const [loadingByScene, setLoadingByScene] = useState<Partial<Record<CommunityScene, boolean>>>({ CITY: true })
   const [followingCount, setFollowingCount] = useState(0)
   const [topicHome, setTopicHome] = useState<CommunityTopicHomeVO>()
   const [topicHomeLoading, setTopicHomeLoading] = useState(false)
@@ -251,25 +251,6 @@ export default function RecommendFamilyPage() {
     void Taro.navigateTo({ url: `/pages/message/whisper-detail?${query}` })
   }
 
-  const goVerify = async () => {
-    try {
-      const [basic, verification, introduction] = await Promise.all([
-        prd01Api.getBasicProfile(),
-        prd01Api.getVerificationStatus(),
-        prd01Api.getIntroduction(),
-      ])
-      const route = resolveVerificationOnboardingRoute({
-        basicCompleted: basic.basicProfileCompleted,
-        avatarStatus: verification.avatarVerifyStatus,
-        introductionStatus: introduction.auditStatus,
-      })
-      setSheet(null)
-      await Taro.navigateTo({ url: route })
-    } catch (error) {
-      await showError(config, error)
-    }
-  }
-
   const headerMetrics = getQianxunHeaderMetrics()
 
   return (
@@ -320,7 +301,15 @@ export default function RecommendFamilyPage() {
         />
       ) : null}
       {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void report(reason)} /> : null}
-      {sheet === 'uncertified' ? <UncertifiedSheet onClose={() => setSheet(null)} onVerify={() => void goVerify()} /> : null}
+      {sheet === 'uncertified' ? (
+        <UnverifiedCertificationModal
+          onClose={() => setSheet(null)}
+          onConfirm={() => {
+            setSheet(null)
+            void navigateToPendingVerification()
+          }}
+        />
+      ) : null}
     </View>
   )
 }
@@ -444,15 +433,6 @@ function ReportSheet({ reasons, onClose, onReport }: { reasons: Array<{ code: st
   return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1190rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
     <ScrollView scrollY style={{ maxHeight: '920rpx' }}>{reasons.map(reason => <View key={reason.code} onClick={() => onReport(reason.code)} style={{ height: '82rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx', textAlign: 'center' }}>{reason.label}</Text></View>)}</ScrollView>
     <View style={{ height: '14rpx', background: '#F4F5F7', margin: '0 -30rpx' }} /><View onClick={onClose} style={{ height: '78rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View>
-  </View></Overlay>
-}
-
-function UncertifiedSheet({ onClose, onVerify }: { onClose: () => void; onVerify: () => void }) {
-  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '488rpx', borderRadius: '40rpx 40rpx 0 0', background: 'linear-gradient(180deg, #D8ECFF 0%, #FFFFFF 72%)', padding: '58rpx 46rpx calc(38rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
-    <Image src={miniappOssIcons.qianxunVerifyNote} mode="aspectFit" style={{ position: 'absolute', right: '44rpx', top: '-104rpx', width: '250rpx', height: '250rpx' }} />
-    <Text style={{ display: 'block', color: NAVY, fontSize: '38rpx', lineHeight: '54rpx', fontWeight: 800 }}>你还未认证</Text>
-    <Text style={{ display: 'block', width: '500rpx', color: '#68778E', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '22rpx' }}>完成认证即可给感兴趣的用户评论，发布个人动态</Text>
-    <View onClick={onVerify} style={{ width: '658rpx', height: '86rpx', borderRadius: '43rpx', background: BLUE, margin: '62rpx auto 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即认证</Text></View>
   </View></Overlay>
 }
 

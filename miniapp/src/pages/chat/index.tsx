@@ -3,8 +3,10 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
+import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { formatMessageBadge } from '@/domain/messageRuntime'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
@@ -69,18 +71,21 @@ function formatTime(value?: string | null): string {
 
 export default function ChatPage() {
   const router = useRouter()
-  const certified = router.params.variant !== 'unverified'
   const isMockScene = Boolean(router.params.mockScene)
   const access = useAccessStatus('canMessage')
+  const forcedUnverified = router.params.variant === 'unverified'
+  const certified = !forcedUnverified && access.status?.coreAccessStatus === 'CORE_ALLOWED'
+  const unverified = forcedUnverified || access.status?.coreAccessStatus === 'NON_CORE_ONLY'
   const runtimeHome = useMessageRuntimeStore(state => state.home)
   const runtimeError = useMessageRuntimeStore(state => state.errorMessage)
   const [home, setHome] = useState<MessageHomeResponse>()
   const [conversationRows, setConversationRows] = useState<HomeViewRow[]>([])
   const [loading, setLoading] = useState(false)
   const [pageError, setPageError] = useState('')
+  const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
 
   const load = async () => {
-    if (access.allowed !== true) return
+    if (!certified) return
     setLoading(true)
     setPageError('')
     try {
@@ -113,17 +118,17 @@ export default function ChatPage() {
 
   useEffect(() => {
     void load()
-  }, [access.allowed, isMockScene, runtimeHome])
+  }, [certified, isMockScene, runtimeHome])
 
   useDidShow(() => {
-    if (!isMockScene) void messagePlatformRuntime.onForeground()
+    if (!isMockScene && certified) void messagePlatformRuntime.onForeground()
   })
 
   const activeHome = home || runtimeHome
   const accessMode = activeHome?.accessMode || 'normal'
   const fixedRows = useMemo<HomeViewRow[]>(() => {
     if (isMockScene) return mockHomeRows
-    if (!activeHome) return []
+    if (!activeHome) return unverified ? mockHomeRows.filter(row => row.type === 'assistant' || row.type === 'system') : []
     const rows: HomeViewRow[] = []
     if (accessMode === 'normal') {
       rows.push({
@@ -153,12 +158,12 @@ export default function ChatPage() {
       unreadCount: activeHome.systemSummary.unreadCount,
     })
     return rows
-  }, [activeHome, accessMode, isMockScene])
+  }, [activeHome, accessMode, isMockScene, unverified])
   const rows = certified
     ? [...(isMockScene ? mockHomeRows : fixedRows), ...conversationRows]
     : (isMockScene ? mockHomeRows : fixedRows).slice(0, 3)
 
-  if (access.allowed !== true) return <AccessBlockedPage {...access} />
+  if (!certified && !unverified) return <AccessBlockedPage {...access} />
 
   return (
     <View
@@ -171,7 +176,7 @@ export default function ChatPage() {
       >
         <View style={{ minHeight: designRpx(1624), paddingBottom: designRpx(190), boxSizing: 'border-box' }}>
           <HeartMessageHeader title="消息" underline />
-          {!certified ? <CertificationBanner /> : null}
+          {!certified ? <CertificationBanner onVerify={() => void navigateToPendingVerification()} /> : null}
           {accessMode === 'restricted' ? (
             <View style={{ width: designRpx(700), margin: `${designRpx(6)} auto 0`, padding: designRpx(24), borderRadius: designRpx(12), background: '#FFF7ED', boxSizing: 'border-box' }}>
               <Text style={{ color: '#9C5C05', fontSize: designRpx(24), lineHeight: designRpx(36) }}>
@@ -179,7 +184,11 @@ export default function ChatPage() {
               </Text>
             </View>
           ) : (
-            <MessageEntrances isMockScene={isMockScene} home={activeHome} />
+            <MessageEntrances
+              isMockScene={isMockScene}
+              home={activeHome}
+              onRestrictedAction={!certified ? () => setShowUnverifiedModal(true) : undefined}
+            />
           )}
           <View style={{ width: designRpx(700), minHeight: designRpx(certified ? 1264 : 760), margin: `${designRpx(24)} auto 0`, padding: `0 ${designRpx(17)}`, borderRadius: designRpx(8), background: '#FFFFFF', boxSizing: 'border-box' }}>
             {rows.map(row => <MessageListRow key={row.id} row={row} isMockScene={isMockScene} />)}
@@ -193,34 +202,44 @@ export default function ChatPage() {
           </View>
         </View>
       </ScrollView>
+      {showUnverifiedModal ? (
+        <UnverifiedCertificationModal
+          onClose={() => setShowUnverifiedModal(false)}
+          onConfirm={() => {
+            setShowUnverifiedModal(false)
+            void navigateToPendingVerification()
+          }}
+          description="完成认证即可查看悄悄话并与心动用户私信"
+        />
+      ) : null}
     </View>
   )
 }
 
-function CertificationBanner() {
+function CertificationBanner({ onVerify }: { onVerify: () => void }) {
   return (
     <View style={{ width: designRpx(700), height: designRpx(88), margin: `${designRpx(-4)} auto ${designRpx(14)}`, padding: `0 ${designRpx(18)}`, display: 'flex', alignItems: 'center', borderRadius: designRpx(8), background: '#FFFFFF', boxSizing: 'border-box' }}>
       <Text style={{ flex: 1, color: '#7F8494', fontSize: designRpx(24) }}>通过认证，才可以聊天哦！</Text>
-      <View onClick={() => Taro.navigateTo({ url: '/pages/verification/triple' })} style={{ width: designRpx(116), height: designRpx(58), borderRadius: designRpx(8), background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <View onClick={onVerify} style={{ width: designRpx(116), height: designRpx(58), borderRadius: designRpx(8), background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: '#FFFFFF', fontSize: designRpx(24) }}>去认证</Text>
       </View>
     </View>
   )
 }
 
-function MessageEntrances({ isMockScene, home }: { isMockScene: boolean; home?: MessageHomeResponse }) {
+function MessageEntrances({ isMockScene, home, onRestrictedAction }: { isMockScene: boolean; home?: MessageHomeResponse; onRestrictedAction?: () => void }) {
   const sceneSuffix = isMockScene ? '?mockScene=whisper-received' : ''
   const whisperBadge = formatMessageBadge(home?.unreadSummary.whisperUnreadCount || 0)
   const privateBadge = formatMessageBadge(home?.unreadSummary.privateUnreadCount || 0)
   return (
     <View style={{ width: designRpx(700), height: designRpx(158), margin: `${designRpx(6)} auto 0`, display: 'flex', gap: designRpx(20) }}>
-      <View id="message-home-whisper-entry" data-role="message-home-whisper-entry" onClick={() => Taro.navigateTo({ url: `/pages/message/whisper-list${sceneSuffix}` })} style={{ position: 'relative', width: designRpx(340), height: designRpx(158), overflow: 'hidden', borderRadius: designRpx(12), background: '#E3F1FE' }}>
+      <View id="message-home-whisper-entry" data-role="message-home-whisper-entry" onClick={() => onRestrictedAction ? onRestrictedAction() : Taro.navigateTo({ url: `/pages/message/whisper-list${sceneSuffix}` })} style={{ position: 'relative', width: designRpx(340), height: designRpx(158), overflow: 'hidden', borderRadius: designRpx(12), background: '#E3F1FE' }}>
         <Image id="message-home-whisper-background" data-role="message-home-whisper-background" src={miniappOssIcons.messageHomeWhisperCardBackground} mode="aspectFill" style={{ position: 'absolute', zIndex: 1, left: 0, top: 0, width: designRpx(340), height: designRpx(158), pointerEvents: 'none' }} />
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(29), color: '#00469F', fontSize: designRpx(28), fontWeight: 500, lineHeight: designRpx(40) }}>悄悄话</Text>
         <Image src={miniappOssIcons.messageAvatarWhisperGroup} mode="widthFix" style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(79), width: designRpx(114), height: designRpx(55) }} />
         {whisperBadge ? <Text style={{ position: 'absolute', zIndex: 3, right: designRpx(16), top: designRpx(16), minWidth: designRpx(32), height: designRpx(32), padding: `0 ${designRpx(8)}`, borderRadius: designRpx(18), background: '#EE2525', color: '#FFFFFF', fontSize: designRpx(18), lineHeight: designRpx(32), textAlign: 'center', boxSizing: 'border-box' }}>{whisperBadge}</Text> : null}
       </View>
-      <View id="message-home-private-entry" data-role="message-home-private-entry" onClick={() => Taro.navigateTo({ url: `/pages/message/private-list${isMockScene ? '?mockScene=private-list' : ''}` })} style={{ position: 'relative', width: designRpx(340), height: designRpx(158), overflow: 'hidden', borderRadius: designRpx(12), background: '#FDEAD9' }}>
+      <View id="message-home-private-entry" data-role="message-home-private-entry" onClick={() => onRestrictedAction ? onRestrictedAction() : Taro.navigateTo({ url: `/pages/message/private-list${isMockScene ? '?mockScene=private-list' : ''}` })} style={{ position: 'relative', width: designRpx(340), height: designRpx(158), overflow: 'hidden', borderRadius: designRpx(12), background: '#FDEAD9' }}>
         <Image id="message-home-private-background" data-role="message-home-private-background" src={miniappOssIcons.messageHomePrivateCardBackground} mode="aspectFill" style={{ position: 'absolute', zIndex: 1, left: 0, top: 0, width: designRpx(340), height: designRpx(158), pointerEvents: 'none' }} />
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(29), color: '#9C5C05', fontSize: designRpx(28), fontWeight: 500, lineHeight: designRpx(40) }}>私信</Text>
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(79), color: '#9C5C05', fontSize: designRpx(22), fontWeight: 500, lineHeight: designRpx(30) }}>有个小秘密只告诉你</Text>

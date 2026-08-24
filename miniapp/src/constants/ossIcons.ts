@@ -75,7 +75,7 @@ export const miniappOssIcons = Object.freeze({
   qianxunEmptyMessage: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/87c2d874de1322df/empty-message.png',
   qianxunEmptyFollowing: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c5e623318c2f7620/empty-following.png',
   qianxunPostGuideBg: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/2a5cf44dfa9d0941/post-guide-bg.png',
-  qianxunVerifyNote: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/e9f19adc3a9d9b24/verify-note.webp',
+  qianxunVerifyNote: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/84fb941f630accaf/icon-1.png',
   qianxunTopicCover: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/412771e6caaf02d2/city-night.webp',
   qianxunTopicHero: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/501945fba5e11cdb/topic-forest-rainbow-v2.png',
   qianxunTopicThumb: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/f213d46c3fa614d0/topic-pinky-promise-v2.png',

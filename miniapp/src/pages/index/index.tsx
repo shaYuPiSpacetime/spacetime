@@ -24,17 +24,17 @@ export default function IndexPage() {
   const [basic, setBasic] = useState<BasicProfile>()
   const [verification, setVerification] = useState<VerificationStatus>()
   const [introduction, setIntroduction] = useState<OpenTextDetail>()
-  const cachedCoreAllowed = cachedAccessStatus?.coreAccessStatus === 'CORE_ALLOWED'
-  const [loading, setLoading] = useState(!cachedCoreAllowed)
-  const [ready, setReady] = useState(cachedCoreAllowed)
-  const [coreAllowed, setCoreAllowed] = useState(cachedCoreAllowed)
+  const cachedContentAllowed = cachedAccessStatus?.coreAccessStatus === 'CORE_ALLOWED' || cachedAccessStatus?.coreAccessStatus === 'NON_CORE_ONLY'
+  const [loading, setLoading] = useState(!cachedContentAllowed)
+  const [ready, setReady] = useState(cachedContentAllowed)
+  const [contentAllowed, setContentAllowed] = useState(cachedContentAllowed)
   const [entryError, setEntryError] = useState('')
 
   useEffect(() => {
-    if (!cachedCoreAllowed) return
-    setCoreAllowed(true)
+    if (!cachedContentAllowed) return
+    setContentAllowed(true)
     setReady(true)
-  }, [cachedCoreAllowed])
+  }, [cachedContentAllowed])
 
   const loadIndex = async () => {
     setLoading(true)
@@ -50,12 +50,12 @@ export default function IndexPage() {
         prd01Api.getIntroduction(),
       ])
       if (verificationResult.accessStatus) setAccessStatus(verificationResult.accessStatus)
-      if (verificationResult.accessStatus?.coreAccessStatus === 'CORE_ALLOWED') {
-        setCoreAllowed(true)
+      if (verificationResult.accessStatus?.coreAccessStatus === 'CORE_ALLOWED' || verificationResult.accessStatus?.coreAccessStatus === 'NON_CORE_ONLY') {
+        setContentAllowed(true)
         setReady(true)
         return
       }
-      setCoreAllowed(false)
+      setContentAllowed(false)
       setBasic(basicResult)
       setVerification(verificationResult)
       setIntroduction(introductionResult)
@@ -111,7 +111,7 @@ export default function IndexPage() {
     if (reason) await Taro.showToast({ title: reason, icon: 'none' })
   }
 
-  if (coreAllowed) return <QianxunFamilyPage />
+  if (contentAllowed) return <QianxunFamilyPage />
   return (
     <VerificationEntryView
       role="index-unverified"

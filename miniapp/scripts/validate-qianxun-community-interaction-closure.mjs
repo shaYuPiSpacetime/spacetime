@@ -37,7 +37,7 @@ assert.match(zhiyin, /qianxun-yuemu-like-/, '悦目心动按钮必须提供稳�
 assert.match(zhiyin, /className="qianxun-yuemu-like"/, '悦目心动按钮必须提供运行态测试选择器')
 assert.match(zhiyin, /miniappOssIcons\.qianxunYuemuHeart/, '悦目心动按钮必须使用独立完整圆形切图')
 assert.match(zhiyin, /已心动|已取消心动/, '悦目心动成功后必须提供明确反馈')
-assert.match(zhiyin, /qianxun-uncertified-sheet/, '悦目无准入权限时必须提供明确认证反馈')
+assert.match(zhiyin, /UnverifiedCertificationModal/, '悦目无准入权限时必须提供共享未认证弹窗')
 assert.match(communityIcons, /height:\s*'88rpx'[\s\S]{0,120}alignItems:\s*'center'/, '诚意贴图标必须挂载在固定高度且垂直居中的操作区')
 
 const packageJson = read('package.json')

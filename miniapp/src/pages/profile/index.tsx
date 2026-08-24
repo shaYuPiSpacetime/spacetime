@@ -94,17 +94,9 @@ export default function ProfilePage() {
     await Taro.navigateTo({ url: route })
   }
 
-  const enterAvailableArea = async () => {
-    if (data.accessStatus?.canBrowseCards) {
-      await Taro.switchTab({ url: '/pages/recommend/index' })
-      return
-    }
-    if (data.accessStatus?.canCommunity) {
-      await Taro.switchTab({ url: '/pages/community/index' })
-      return
-    }
-    const reason = data.accessStatus?.blockReasons?.[0] || copy('verification_home_partial_notice')
-    if (reason) await Taro.showToast({ title: reason, icon: 'none' })
+  const enterQianxunCity = async () => {
+    Taro.setStorageSync('qianxun_requested_scene', 'CITY')
+    await Taro.switchTab({ url: '/pages/index/index' })
   }
 
   const renderVerificationEntry = () => (
@@ -117,7 +109,8 @@ export default function ProfilePage() {
         checklist={checklist}
         copy={copy}
         onContinue={() => void continueVerification()}
-        onLater={() => void enterAvailableArea()}
+        onLater={() => void enterQianxunCity()}
+        onSettings={() => void goToSettings()}
         onRetry={() => void fetch()}
       />
   )

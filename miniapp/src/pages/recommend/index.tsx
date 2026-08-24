@@ -3,7 +3,10 @@ import Taro, { useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
+import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
+import { useAccessStatus } from '@/hooks/useAccessStatus'
 import {
   getRecommendCandidates,
   recordRecommendSkip,
@@ -38,10 +41,20 @@ export default function RecommendPage() {
   const [actionSubmitting, setActionSubmitting] = useState(false)
   const [showIpDialog, setShowIpDialog] = useState(false)
   const [showCertification, setShowCertification] = useState(false)
+  const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
   const viewedCandidates = useRef(new Set<string>())
+  const access = useAccessStatus('canBrowseCards')
 
   const candidates = page?.items || []
   const candidate = candidates[candidateIndex] || null
+
+  const runCertifiedAction = (action: () => void) => {
+    if (access.status?.coreAccessStatus === 'CORE_ALLOWED') {
+      action()
+      return
+    }
+    setShowUnverifiedModal(true)
+  }
 
   const loadCandidates = async () => {
     setState('loading')
@@ -211,16 +224,24 @@ export default function RecommendPage() {
       }}
     >
       {activeTab === 'ideal' ? (
-        <IdealLanding onTabChange={setActiveTab} />
+        <IdealLanding
+          onTabChange={setActiveTab}
+          onHistory={() => runCertifiedAction(() => {
+            void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })
+          })}
+          onChoose={() => runCertifiedAction(() => {
+            void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })
+          })}
+        />
       ) : (
         <>
           <RecommendHeader
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            onHistory={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
-            onPreference={() =>
+            onHistory={() => runCertifiedAction(() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' }))}
+            onPreference={() => runCertifiedAction(() =>
               void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })
-            }
+            )}
           />
           {state === 'loading' ? <CenteredText text="正在为你寻找合适的人…" /> : null}
           {state === 'error' ? (
@@ -229,20 +250,20 @@ export default function RecommendPage() {
           {state === 'empty' ? <RecommendEmpty /> : null}
           {state === 'limit' ? (
             <RecommendLimit
-              onOpen={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' })}
+              onOpen={() => runCertifiedAction(() => void Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' }))}
             />
           ) : null}
           {state === 'ready' && candidate ? (
             <RecommendCandidateCard
               candidate={candidate}
-              onOpen={() =>
+              onOpen={() => runCertifiedAction(() =>
                 void Taro.navigateTo({
                   url: `/pages/heart/user?targetUserId=${candidate.userId}&sourceScene=fate`,
                 })
-              }
-              onShare={() => void Taro.showShareMenu({ withShareTicket: true })}
-              onIp={() => setShowIpDialog(true)}
-              onCertification={() => setShowCertification(true)}
+              )}
+              onShare={() => runCertifiedAction(() => void Taro.showShareMenu({ withShareTicket: true }))}
+              onIp={() => runCertifiedAction(() => setShowIpDialog(true))}
+              onCertification={() => runCertifiedAction(() => setShowCertification(true))}
             />
           ) : null}
           {state === 'ready' && candidate ? (
@@ -250,9 +271,9 @@ export default function RecommendPage() {
               communicationMode={candidate.communicationMode}
               liked={candidate.liked}
               disabled={actionSubmitting}
-              onSkip={() => void advanceCandidate()}
-              onConversation={() => void openConversation()}
-              onLike={() => void toggleLike()}
+              onSkip={() => runCertifiedAction(() => void advanceCandidate())}
+              onConversation={() => runCertifiedAction(() => void openConversation())}
+              onLike={() => runCertifiedAction(() => void toggleLike())}
             />
           ) : null}
         </>
@@ -267,6 +288,15 @@ export default function RecommendPage() {
         <CertificationSheet
           profile={candidate?.profile || null}
           onClose={() => setShowCertification(false)}
+        />
+      ) : null}
+      {showUnverifiedModal ? (
+        <UnverifiedCertificationModal
+          onClose={() => setShowUnverifiedModal(false)}
+          onConfirm={() => {
+            setShowUnverifiedModal(false)
+            void navigateToPendingVerification()
+          }}
         />
       ) : null}
     </View>
@@ -826,7 +856,7 @@ function CenteredText({ text }: { text: string }) {
   )
 }
 
-function IdealLanding({ onTabChange }: { onTabChange: (tab: RecommendTab) => void }) {
+function IdealLanding({ onTabChange, onHistory, onChoose }: { onTabChange: (tab: RecommendTab) => void; onHistory: () => void; onChoose: () => void }) {
   const metrics = getNativeNavigationMetrics()
   const top = metrics.menuTop + (metrics.menuHeight - 54) / 2
   const actionsLayout = getCapsuleLeftActionsLayout({
@@ -886,7 +916,7 @@ function IdealLanding({ onTabChange }: { onTabChange: (tab: RecommendTab) => voi
         </View>
       </View>
       <View
-        onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })}
+        onClick={onHistory}
         style={{
           position: 'absolute',
           left: `${actionsLayout.left}rpx`,
@@ -939,7 +969,9 @@ function IdealLanding({ onTabChange }: { onTabChange: (tab: RecommendTab) => voi
         </Text>
       </View>
       <View
-        onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })}
+        id="ideal-choose-button"
+        data-role="ideal-choose-button"
+        onClick={onChoose}
         style={{
           position: 'fixed',
           left: '44rpx',

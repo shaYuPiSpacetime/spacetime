@@ -622,7 +622,7 @@ test('核心页面准入只消费 access-status，不在前端自行拼认证规
   )
   assert.match(recommend, /useAccessStatus/)
   assert.match(recommend, /access\.status\?\.coreAccessStatus === 'CORE_ALLOWED'/)
-  assert.match(recommend, /UncertifiedSheet/, '千寻按最新蓝湖稿使用页内未认证弹层')
+  assert.match(recommend, /UnverifiedCertificationModal/, '千寻按最新蓝湖稿使用共享未认证弹层')
   assert.doesNotMatch(recommend, /realNameStatus|educationStatus/, '千寻不得自行拼三项认证规则')
 })
 

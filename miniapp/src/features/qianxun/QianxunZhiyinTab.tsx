@@ -3,11 +3,11 @@ import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
+import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { resolveVerificationOnboardingRoute } from '@/domain/verificationOnboardingFlow'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
-import { prd01Api } from '@/services/prd01'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
@@ -26,7 +26,7 @@ import {
   type YuemuUserVO,
 } from '@/services/community'
 import { usePrd01Store } from '@/stores/prd01Store'
-import { QIANXUN_BLUE, QIANXUN_NAVY } from './QianxunHeader'
+import { QIANXUN_BLUE } from './QianxunHeader'
 import './QianxunZhiyinTab.scss'
 
 type ZhiyinTab = 'YUEMU' | 'SINCERE'
@@ -194,24 +194,6 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
     void Taro.navigateTo({ url: `/pages/message/whisper-detail?${query}` })
   }
 
-  const goVerify = async () => {
-    try {
-      const [basic, verification, introduction] = await Promise.all([
-        prd01Api.getBasicProfile(),
-        prd01Api.getVerificationStatus(),
-        prd01Api.getIntroduction(),
-      ])
-      setSheet(null)
-      await Taro.navigateTo({ url: resolveVerificationOnboardingRoute({
-        basicCompleted: basic.basicProfileCompleted,
-        avatarStatus: verification.avatarVerifyStatus,
-        introductionStatus: introduction.auditStatus,
-      }) })
-    } catch (verifyError) {
-      await showError(config, verifyError)
-    }
-  }
-
   return (
     <>
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
@@ -249,7 +231,16 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
         else void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
       }} /> : null}
       {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void reportSelectedPost(reason)} /> : null}
-      {sheet === 'uncertified' ? <UncertifiedSheet onClose={() => setSheet(null)} onVerify={() => void goVerify()} /> : null}
+      {sheet === 'uncertified' ? (
+        <UnverifiedCertificationModal
+          onClose={() => setSheet(null)}
+          onConfirm={() => {
+            setSheet(null)
+            void navigateToPendingVerification()
+          }}
+          description="完成认证即可心动、评论和发布诚意贴"
+        />
+      ) : null}
     </>
   )
 }
@@ -336,10 +327,6 @@ function SincereActionSheet({ post, onClose, onFollow, onHide, onReport }: { pos
 
 function ReportSheet({ reasons, onClose, onReport }: { reasons: Array<{ code: string; label: string }>; onClose: () => void; onReport: (code: string) => void }) {
   return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1080rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))' }}><ScrollView scrollY style={{ maxHeight: '850rpx' }}>{reasons.map(reason => <View key={reason.code} onClick={() => onReport(reason.code)} style={{ height: '82rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx' }}>{reason.label}</Text></View>)}</ScrollView><View onClick={onClose} style={{ height: '82rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View></View></Overlay>
-}
-
-function UncertifiedSheet({ onClose, onVerify }: { onClose: () => void; onVerify: () => void }) {
-  return <Overlay onClose={onClose}><View id="qianxun-uncertified-sheet" onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '488rpx', borderRadius: '40rpx 40rpx 0 0', background: 'linear-gradient(180deg, #D8ECFF 0%, #FFFFFF 72%)', padding: '58rpx 46rpx calc(38rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}><Image src={miniappOssIcons.qianxunVerifyNote} mode="aspectFit" style={{ position: 'absolute', right: '44rpx', top: '-104rpx', width: '250rpx', height: '250rpx' }} /><Text style={{ display: 'block', color: QIANXUN_NAVY, fontSize: '38rpx', lineHeight: '54rpx', fontWeight: 800 }}>你还未认证</Text><Text style={{ display: 'block', width: '500rpx', color: '#68778E', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '22rpx' }}>完成认证即可心动、评论和发布诚意贴</Text><View onClick={onVerify} style={{ width: '658rpx', height: '86rpx', borderRadius: '43rpx', background: QIANXUN_BLUE, margin: '62rpx auto 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即认证</Text></View></View></Overlay>
 }
 
 function relativeTime(value: string) {
