@@ -29,7 +29,8 @@ for (const asset of ['heart-person.webp', 'heart-person-blur.webp', 'heart-avata
   assert.ok(fs.statSync(file).size < 200 * 1024, `心动/消息切图 ${asset} 必须小于 200KB`)
 }
 
-assert.match(chat, /variant !== 'unverified'/, '消息页必须保留未认证兼容状态')
+assert.match(chat, /router\.params\.variant === 'unverified'/, '消息页必须识别未认证兼容参数')
+assert.match(chat, /!forcedUnverified && access\.status\?\.coreAccessStatus === 'CORE_ALLOWED'/, '消息页未认证兼容参数必须关闭认证态')
 assert.match(chat, /悄悄话/, '新版消息首页必须提供悄悄话入口')
 assert.match(chat, /私信/, '新版消息首页必须提供私信入口')
 assert.match(chat, /喜欢我的人\(119人\)/, '消息列表人数文案必须与新版蓝湖一致')

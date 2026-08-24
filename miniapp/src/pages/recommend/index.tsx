@@ -238,10 +238,10 @@ export default function RecommendPage() {
           <RecommendHeader
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            onHistory={() => runCertifiedAction(() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' }))}
-            onPreference={() => runCertifiedAction(() =>
+            onHistory={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
+            onPreference={() =>
               void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })
-            )}
+            }
           />
           {state === 'loading' ? <CenteredText text="正在为你寻找合适的人…" /> : null}
           {state === 'error' ? (
@@ -250,20 +250,20 @@ export default function RecommendPage() {
           {state === 'empty' ? <RecommendEmpty /> : null}
           {state === 'limit' ? (
             <RecommendLimit
-              onOpen={() => runCertifiedAction(() => void Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' }))}
+              onOpen={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' })}
             />
           ) : null}
           {state === 'ready' && candidate ? (
             <RecommendCandidateCard
               candidate={candidate}
-              onOpen={() => runCertifiedAction(() =>
+              onOpen={() =>
                 void Taro.navigateTo({
                   url: `/pages/heart/user?targetUserId=${candidate.userId}&sourceScene=fate`,
                 })
-              )}
-              onShare={() => runCertifiedAction(() => void Taro.showShareMenu({ withShareTicket: true }))}
-              onIp={() => runCertifiedAction(() => setShowIpDialog(true))}
-              onCertification={() => runCertifiedAction(() => setShowCertification(true))}
+              }
+              onShare={() => void Taro.showShareMenu({ withShareTicket: true })}
+              onIp={() => setShowIpDialog(true)}
+              onCertification={() => setShowCertification(true)}
             />
           ) : null}
           {state === 'ready' && candidate ? (
@@ -271,7 +271,7 @@ export default function RecommendPage() {
               communicationMode={candidate.communicationMode}
               liked={candidate.liked}
               disabled={actionSubmitting}
-              onSkip={() => runCertifiedAction(() => void advanceCandidate())}
+              onSkip={() => void advanceCandidate()}
               onConversation={() => runCertifiedAction(() => void openConversation())}
               onLike={() => runCertifiedAction(() => void toggleLike())}
             />

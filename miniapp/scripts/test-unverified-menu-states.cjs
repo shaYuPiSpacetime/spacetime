@@ -59,17 +59,23 @@ test('心动两个 Tab 复用未认证页并直达认证', () => {
   assert.match(source, /onRightIconClick=\{onVerify\}/, '未认证状态不得从右上入口绕过认证')
 })
 
-test('推荐和理想型业务动作均受未认证弹窗保护', () => {
+test('推荐浏览动作保持开放且喜欢和悄悄话受未认证弹窗保护', () => {
   const source = read('src/pages/recommend/index.tsx')
   const service = readRepo('backend/src/main/java/com/spacetime/miniapp/service/impl/RecommendServiceImpl.java')
 
   assert.match(service, /String opposite = GenderEnum\.MALE\.getCode\(\)\.equals\(current\.getGender\(\)\)/, '推荐必须依据准入性别计算异性目标')
   assert.match(service, /\.eq\(AppUser::getGender, opposite\)/, '推荐候选查询必须限制为异性')
   assert.match(source, /const runCertifiedAction =/, '推荐页缺少统一认证动作守卫')
-  for (const callback of ['onHistory', 'onPreference', 'onOpen', 'onShare', 'onIp', 'onCertification', 'onSkip', 'onConversation', 'onLike']) {
-    assert.match(source, new RegExp(`${callback}=\\{\\(\\) => runCertifiedAction`), `推荐页 ${callback} 未接入认证守卫`)
+  assert.doesNotMatch(source, /onHistory=\{\(\) => runCertifiedAction\(\(\) => void Taro\.navigateTo\(\{ url: '\/pages\/prd08\/recommend\/replay\/index'/, '推荐回看入口不得要求三项认证')
+  assert.doesNotMatch(source, /onPreference=\{\(\) => runCertifiedAction[\s\S]{0,120}recommend\/preference/, '推荐筛选入口不得要求三项认证')
+  assert.doesNotMatch(source, /onOpen=\{\(\) => runCertifiedAction[\s\S]{0,160}pages\/heart\/user/, '候选详情不得要求三项认证')
+  assert.doesNotMatch(source, /onSkip=\{\(\) => runCertifiedAction/, '跳过不得要求三项认证')
+  for (const callback of ['onShare', 'onIp', 'onCertification']) {
+    assert.doesNotMatch(source, new RegExp(`${callback}=\\{\\(\\) => runCertifiedAction`), `推荐页 ${callback} 属于浏览动作，不得要求三项认证`)
   }
-  assert.match(source, /onChoose=\{\(\) => runCertifiedAction/, '选择理想型必须弹出未认证弹窗')
+  for (const callback of ['onConversation', 'onLike']) {
+    assert.match(source, new RegExp(`${callback}=\\{\\(\\) => runCertifiedAction`), `推荐页 ${callback} 必须接入认证守卫`)
+  }
 })
 
 test('消息未认证页保留四类入口并仅拦截悄悄话和私信', () => {
