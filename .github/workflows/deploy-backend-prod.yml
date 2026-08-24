@@ -40,6 +40,15 @@ jobs:
           node scripts/test-prod-wechat-pay-config.mjs
           node scripts/test-prod-tencent-im-config.mjs
 
+      - name: Validate WeChat callback token
+        env:
+          HAS_COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN: ${{ secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN != '' }}
+        run: |
+          if [ "$HAS_COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN" != "true" ]; then
+            echo "::error::请在 GitHub Actions Secrets 中配置 COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"
+            exit 1
+          fi
+
       - name: Validate ACR password
         env:
           HAS_ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD != '' }}
