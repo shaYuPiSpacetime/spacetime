@@ -1,0 +1,676 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "推荐-三重认证弹窗",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "位图",
+      "class": "bg-#FF9191"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "白天是程序员，晚上是‘深夜电台’主播（自",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "text",
+      "name": "自我介绍",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "女丨97年丨163cm丨双鱼座",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FE918E"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FE918E"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FE918E"
+    },
+    {
+      "type": "text",
+      "name": "现居浙江杭州丨河南人",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "筱脑虎",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "text",
+      "name": "三重认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#508CE8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#00000099"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FDB5B3"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#808A90CC"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "悄悄话",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "千寻",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2051A780"
+    },
+    {
+      "type": "text",
+      "name": "心动",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "text",
+      "name": "消息",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2525 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "55",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2525 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "55",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "我的",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "推荐",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#6BBDFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#6BBDFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#6BBDFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#6BBDFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#6BBDFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#6BBDFF"
+    },
+    {
+      "type": "text",
+      "name": "工程师丨浙江某某某有限公司",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "已认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "已认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "职业：",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "硕士丨浙江工商管理大学",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "学历：",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "直线",
+      "class": "border-2px border-#F8FAF9 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FFCC"
+    },
+    {
+      "type": "text",
+      "name": "推荐",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "理想型",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2525 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "55",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#3333334D"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": ""
+    },
+    {
+      "type": "icon",
+      "name": "安全",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng6aa85759c5261ceb848e08674ee0040bfc667d41e7969d5e976ab239519e87ca"
+    },
+    {
+      "type": "shape",
+      "name": "直线",
+      "class": "bg-#D8D8D8 border-2px border-#F8FAF9 border-solid"
+    },
+    {
+      "type": "text",
+      "name": "99%",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "92%",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "可信度",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "我知道了",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "筱脑虎",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "已通过3项认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "icon",
+      "name": "已实名 (1)",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng217fcc87b142b6745b744cd18666fc3bbcdc20f1bd650f37c4ed3eaef9e6961a"
+    },
+    {
+      "type": "text",
+      "name": "头像已认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "平台认证方式",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "icon",
+      "name": "已实名 (1)",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng4f3726aaaef448ff1a092245fb8b0b5b7029922da2c2b631c7c25bb0ad694236"
+    },
+    {
+      "type": "shape",
+      "name": "直线",
+      "class": "bg-#D8D8D8 border-2px border-#F8FAF9 border-solid"
+    },
+    {
+      "type": "text",
+      "name": "80%",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "可信度",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "实名已认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "居民身份证方式认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "直线",
+      "class": "bg-#D8D8D8 border-2px border-#F8FAF9 border-solid"
+    },
+    {
+      "type": "text",
+      "name": "99%",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "可信度",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "border-1px border-#FFFFFFCC border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "icon",
+      "name": "已实名 (1)",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngb67baaf0d5d87c40615dedc518a60749609962d12e29a40f786f8ca761b268d2"
+    },
+    {
+      "type": "text",
+      "name": "学历已认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "硕士丨浙江工商管理大学",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "认证信息以外的资料为用户自主填写，平台不",
+      "class": "",
+      "text": ""
+    }
+  ]
+}

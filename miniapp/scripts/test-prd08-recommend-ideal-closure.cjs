@@ -9,6 +9,14 @@ const test = require('node:test')
 const root = path.resolve(__dirname, '..')
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
+test('推荐三重认证弹窗使用最新蓝湖独立切图', () => {
+  const source = read('src/pages/recommend/index.tsx')
+  assert.match(source, /miniappOssIcons\.recommendCertScoreShield/)
+  assert.match(source, /miniappOssIcons\.recommendCertAvatar/)
+  assert.match(source, /miniappOssIcons\.recommendCertRealName/)
+  assert.match(source, /miniappOssIcons\.recommendCertEducation/)
+})
+
 test('推荐与理想型客户端接口完整绑定 PRD-08 后端', () => {
   const recommend = read('src/services/recommend.ts')
   const ideal = read('src/services/ideal.ts')

@@ -1063,21 +1063,21 @@ function CertificationSheet({
       title: '头像已认证',
       subtitle: '平台认证方式',
       score: '99%',
-      icon: miniappOssIcons.profilePreviewCertAvatar,
+      icon: miniappOssIcons.recommendCertAvatar,
     },
     {
       code: 'REAL_NAME',
       title: '实名已认证',
       subtitle: '居民身份证方式认证',
       score: '80%',
-      icon: miniappOssIcons.profilePreviewCertRealname,
+      icon: miniappOssIcons.recommendCertRealName,
     },
     {
       code: 'EDUCATION',
       title: '学历已认证',
       subtitle: profile?.school ? `学历认证 | ${profile.school}` : '学信网学历认证',
       score: '99%',
-      icon: miniappOssIcons.profilePreviewCertEducation,
+      icon: miniappOssIcons.recommendCertEducation,
     },
   ]
   const passedCount = rows.filter(row => certifications.includes(row.code)).length
@@ -1140,6 +1140,18 @@ function CertificationSheet({
               已通过{passedCount}项认证
             </Text>
           </View>
+          <Image
+            src={miniappOssIcons.recommendCertScoreShield}
+            mode="aspectFit"
+            style={{
+              position: 'absolute',
+              right: '-12rpx',
+              top: '-16rpx',
+              width: '184rpx',
+              height: '184rpx',
+              opacity: 0.22,
+            }}
+          />
           <Text
             style={{
               position: 'absolute',
@@ -1168,7 +1180,7 @@ function CertificationSheet({
               <Image
                 src={row.icon}
                 mode="aspectFit"
-                style={{ width: '96rpx', height: '96rpx', marginRight: '30rpx' }}
+                style={{ width: '100rpx', height: '100rpx', marginRight: '30rpx' }}
               />
               <View style={{ flex: 1 }}>
                 <Text
