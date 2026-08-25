@@ -14,7 +14,6 @@ const MIN_INTRODUCTION_LENGTH = 20
 export default function VerificationIntroPage() {
   const router = useRouter()
   const copy = usePrd01Store(state => state.copy)
-  const optionLabel = usePrd01Store(state => state.optionLabel)
   const [detail, setDetail] = useState<OpenTextDetail>()
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
@@ -72,7 +71,6 @@ export default function VerificationIntroPage() {
             />
             <Text style={{ position: 'absolute', right: '28rpx', bottom: '22rpx', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx' }}>{copy('intro_minimum_hint')}</Text>
           </View>
-          {detail?.auditStatus ? <Text style={{ display: 'block', color: '#2876FF', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '22rpx' }}>{optionLabel('auditStatus', detail.auditStatus)}</Text> : null}
           {detail?.rejectReason ? <Text style={{ display: 'block', color: '#E36A6A', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '12rpx' }}>{detail.rejectReason}</Text> : null}
         </View>
       </VerificationShell>

@@ -41,7 +41,7 @@ export default function LoginIdentityPage() {
           {identityOptions.map(option => {
             const isActive = selectedCode === option.code
             return (
-              <View key={option.code} style={{ width: '700rpx', height: '128rpx', borderRadius: '48rpx', background: isActive ? '#E3F1FE' : '#FFFFFF', border: isActive ? '2rpx solid #2876FF' : '2rpx solid transparent', marginBottom: '29rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectedCode(option.code)} hoverClass="btn-hover">
+              <View key={option.code} style={{ width: '700rpx', height: '128rpx', borderRadius: '24rpx', background: isActive ? '#E3F1FE' : '#FFFFFF', border: isActive ? '2rpx solid #2876FF' : '2rpx solid transparent', marginBottom: '29rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectedCode(option.code)} hoverClass="btn-hover">
                 <Text style={{ color: isActive ? '#2876FF' : '#333333', fontSize: '38rpx', fontWeight: 500 }}>{option.label}</Text>
               </View>
             )

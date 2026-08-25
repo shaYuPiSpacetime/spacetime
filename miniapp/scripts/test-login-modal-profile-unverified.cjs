@@ -46,6 +46,17 @@ test('选择微信登录后点击协议同意直接触发原生账号选择', ()
   )
 })
 
+test('登录方式底部面板与选项框保持最新蓝湖尺寸', () => {
+  const login = read('src/pages/login/index.tsx')
+
+  assert.match(login, /minHeight:\s*'468rpx'/, '登录方式面板高度必须对齐蓝湖')
+  assert.match(login, /background:\s*'#F8F9FB'/, '登录方式面板背景色必须对齐蓝湖')
+  assert.match(login, /id="login-method-options"[\s\S]{0,80}marginTop:\s*'24rpx'/)
+  assert.match(login, /height:\s*'98rpx'/, '登录选项框高度必须为 98rpx')
+  assert.match(login, /index === 0 \? '0' : '20rpx'/, '两条登录选项间距必须为蓝湖 10px')
+  assert.match(login, /marginTop:\s*'42rpx'/, '协议区与登录选项间距必须对齐蓝湖')
+})
+
 test('千寻与我的共用蓝湖未认证视图', () => {
   const componentPath = path.join(root, 'src/features/verification/VerificationEntryView.tsx')
   assert.ok(fs.existsSync(componentPath), '缺少共享蓝湖未认证视图')

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS app_user (
     account_status VARCHAR(20) DEFAULT 'NORMAL' COMMENT '账号状态 @see AccountStatusEnum',
     first_login_completed TINYINT DEFAULT 0 COMMENT '是否完成首登资料初始化',
     first_login_next_step TINYINT DEFAULT 1 COMMENT '首登下一待填写步骤，完成后为空',
+    basic_profile_completed TINYINT NOT NULL DEFAULT 0 COMMENT '是否已在认证流程提交完整基础资料',
     -- 基础资料字段
     nickname VARCHAR(50) DEFAULT NULL COMMENT '昵称',
     gender VARCHAR(10) DEFAULT NULL COMMENT '性别 @see GenderEnum',

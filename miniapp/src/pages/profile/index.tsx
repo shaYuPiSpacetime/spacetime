@@ -13,6 +13,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { normalizeAvatarUrl } from '@/utils/avatar'
+import { navigateToOrRedirect } from '@/utils/navigation'
 import type { MyMembership } from '@/types/membership'
 
 import profileBg from '@/assets/profile/profile-bg.webp'
@@ -91,7 +92,7 @@ export default function ProfilePage() {
       avatarStatus: verification?.avatarVerifyStatus,
       introductionStatus: introduction?.auditStatus,
     })
-    await Taro.navigateTo({ url: route })
+    await navigateToOrRedirect(route)
   }
 
   const enterQianxunCity = async () => {

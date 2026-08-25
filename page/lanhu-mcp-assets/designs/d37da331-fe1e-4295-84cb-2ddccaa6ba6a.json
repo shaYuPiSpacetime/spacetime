@@ -1,0 +1,280 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "三重认证-学历认证中国大陆",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "这里是标题",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#637595"
+    },
+    {
+      "type": "text",
+      "name": "学历认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "完成学历认证，和我们一起打造真实靠谱高质",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FCFCFC"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "text",
+      "name": "学信网验证编号",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "提交在线验证编码，快速完成认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "选择认证方式",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "在校学生",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "中国大陆",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "头像",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "实名",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "学历",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "推荐",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FCFCFC"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "text",
+      "name": "毕业证或者学位证书编号",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "输入毕业证或者学位证编号，24小时内完成",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "较慢",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FCFCFC"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "text",
+      "name": "上传毕业证或学位证书",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "提交相关资料后，24小时内完成审核",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "较慢",
+      "class": "",
+      "text": ""
+    }
+  ]
+}

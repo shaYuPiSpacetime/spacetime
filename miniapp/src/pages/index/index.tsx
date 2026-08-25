@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, OpenTextDetail, VerificationStatus } from '@/types/prd01'
+import { navigateToOrRedirect } from '@/utils/navigation'
 
 export default function IndexPage() {
   const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
@@ -95,7 +96,7 @@ export default function IndexPage() {
       avatarStatus: verification?.avatarVerifyStatus,
       introductionStatus: introduction?.auditStatus,
     })
-    await Taro.navigateTo({ url: route })
+    await navigateToOrRedirect(route)
   }
 
   const enterAvailableArea = async () => {

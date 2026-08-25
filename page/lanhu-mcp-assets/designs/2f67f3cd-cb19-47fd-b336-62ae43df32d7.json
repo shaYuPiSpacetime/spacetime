@@ -1,0 +1,137 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "学历-提交成功",
+      "class": "bg-#F2F2F2"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "提交成功",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#637595"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "icon",
+      "name": "编组",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngb9b2358a2386834cec52f4ea96fdb57e0254061a477e31f152fcd0c0899d24d0"
+    },
+    {
+      "type": "text",
+      "name": "提交成功",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "你的头像正在审核，请耐心等待",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "去千寻同城看看",
+      "class": "",
+      "text": ""
+    }
+  ]
+}

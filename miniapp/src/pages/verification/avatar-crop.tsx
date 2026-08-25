@@ -46,10 +46,12 @@ export default function VerificationAvatarCropPage() {
       const windowWidth = windowMetrics.windowWidth || 375
       const windowHeight = windowMetrics.windowHeight || 667
       const screenScale = windowWidth / 375
-      const areaHeight = Math.min(326 * screenScale, Math.max(230 * screenScale, windowHeight - 370 * screenScale))
+      const maxAreaWidth = windowWidth - 50 * screenScale
+      const maxAreaHeight = Math.max(230 * screenScale, windowHeight - 242 * screenScale)
+      const areaHeight = Math.min(326 * screenScale, maxAreaHeight, maxAreaWidth * 652 / 538)
       const areaWidth = areaHeight * 538 / 652
       const areaLeft = (windowWidth - areaWidth) / 2
-      const areaTop = Math.max(160 * screenScale, windowHeight - 172 * screenScale - areaHeight)
+      const areaTop = (windowHeight - areaHeight) / 2
       const coverScale = Math.max(areaWidth / image.width, areaHeight / image.height)
       const imageWidth = image.width * coverScale
       const imageHeight = image.height * coverScale

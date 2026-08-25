@@ -40,6 +40,8 @@ public class AppUser extends BaseEntity {
     private Integer firstLoginCompleted;
     /** 首登下一待填写步骤；完成后为空，选填空值步骤也依靠该字段记录进度。 */
     private Integer firstLoginNextStep;
+    /** 是否已在认证流程中提交完整基础资料；与首登准入资料完成状态相互独立。 */
+    private Integer basicProfileCompleted;
 
     /** 昵称 */
     private String nickname;

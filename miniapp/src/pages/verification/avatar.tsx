@@ -1,7 +1,6 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import goodAvatar from '@/assets/lanhu/verification/avatar-good.webp'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { chooseAndCropAvatar } from '@/utils/avatar'
@@ -82,19 +81,17 @@ function AvatarGuide({ copy }: { copy: (key: string) => string }) {
 
 function AvatarExampleCard({ copy }: { copy: (key: string) => string }) {
   const rules = [
-    { icon: '😉', text: copy('avatar_rule_self'), left: '346rpx', top: '90rpx' },
-    { icon: '😁', text: copy('avatar_rule_clear'), left: '441rpx', top: '185rpx' },
-    { icon: '😊', text: copy('avatar_rule_best'), left: '389rpx', top: '280rpx' },
+    { icon: miniappOssIcons.verificationAvatarRuleSelf, text: copy('avatar_rule_self'), left: '346rpx', top: '39rpx' },
+    { icon: miniappOssIcons.verificationAvatarRuleClear, text: copy('avatar_rule_clear'), left: '441rpx', top: '134rpx' },
+    { icon: miniappOssIcons.verificationAvatarRuleBest, text: copy('avatar_rule_best'), left: '389rpx', top: '229rpx' },
   ]
   return (
     <View style={{ position: 'relative', marginTop: '54rpx', height: '336rpx' }}>
-      <Image src={goodAvatar} mode="aspectFill" style={{ width: '326rpx', height: '336rpx', borderRadius: '12rpx' }} />
-      <View style={{ position: 'absolute', left: '238rpx', bottom: '-18rpx', width: '114rpx', height: '114rpx', borderRadius: '57rpx', background: '#2876FF', border: '8rpx solid #FFFFFF', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: '48rpx', height: '28rpx', borderLeft: '10rpx solid #FFFFFF', borderBottom: '10rpx solid #FFFFFF', transform: 'rotate(-45deg)', marginTop: '-10rpx' }} />
-      </View>
+      <Image src={miniappOssIcons.verificationAvatarGuidePortrait} mode="aspectFill" style={{ width: '326rpx', height: '336rpx', borderRadius: '12rpx' }} />
+      <Image src={miniappOssIcons.verificationAvatarGuideCheck} mode="aspectFit" style={{ position: 'absolute', left: '238rpx', bottom: '-18rpx', width: '114rpx', height: '114rpx' }} />
       {rules.map(rule => (
         <View key={rule.text} style={{ position: 'absolute', left: rule.left, top: rule.top, height: '68rpx', borderRadius: '34rpx', background: '#E3F1FE', padding: '0 22rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', zIndex: 3, whiteSpace: 'nowrap' }}>
-          <Text style={{ fontSize: '28rpx', lineHeight: '34rpx', marginRight: '12rpx' }}>{rule.icon}</Text>
+          <Image src={rule.icon} mode="aspectFit" style={{ width: '30rpx', height: '30rpx', marginRight: '12rpx', flexShrink: 0 }} />
           <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap' }}>{rule.text}</Text>
         </View>
       ))}

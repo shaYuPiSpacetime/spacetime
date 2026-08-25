@@ -81,7 +81,7 @@ const SOURCE_EVIDENCE = [
   {
     label: '实名认证点亮态',
     route: '/pages/verification/real-name',
-    snippets: ['getRealName', 'submitRealName', 'VerificationRuntimeBoundary', "copy('real_name_id_placeholder')", "optionLabel('auditStatus'"],
+    snippets: ['getRealName', 'submitRealName', 'VerificationRuntimeBoundary', "copy('real_name_id_placeholder')", 'real-name-submit-button'],
   },
   {
     label: '三重认证切图和分支',

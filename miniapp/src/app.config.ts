@@ -43,6 +43,7 @@ export default {
         'education-chsi-help',
         'education-diploma-no',
         'education-certificate-upload',
+        'education-submit-success',
       ],
     },
     {

@@ -63,7 +63,7 @@ export function LanhuOptionSheet({
   return (
     <BottomPicker title={title} onConfirm={() => onConfirm(selected)} onClose={onClose}>
       <View style={{ marginTop: '34rpx' }}>
-        <OptionColumn label={title} options={options} value={selected} onChange={setSelected} />
+        <OptionColumn options={options} value={selected} onChange={setSelected} />
       </View>
     </BottomPicker>
   )
@@ -538,32 +538,34 @@ function OptionColumn({
   value,
   onChange,
 }: {
-  label: string
+  label?: string
   options: string[]
   value: string
   onChange: (value: string) => void
 }) {
   return (
     <View style={{ flex: 1, minWidth: 0 }}>
-      <Text
-        style={{
-          display: 'block',
-          color: '#697E9C',
-          fontSize: '24rpx',
-          lineHeight: '34rpx',
-          textAlign: 'center',
-          marginBottom: '14rpx',
-        }}
-      >
-        {label}
-      </Text>
+      {label ? (
+        <Text
+          style={{
+            display: 'block',
+            color: '#697E9C',
+            fontSize: '24rpx',
+            lineHeight: '34rpx',
+            textAlign: 'center',
+            marginBottom: '14rpx',
+          }}
+        >
+          {label}
+        </Text>
+      ) : null}
       <ScrollView
         scrollY
         showScrollbar={false}
         style={{
           height: '318rpx',
           borderRadius: '18rpx',
-          background: '#F7FAFF',
+          background: 'transparent',
           padding: '8rpx',
           boxSizing: 'border-box',
         }}

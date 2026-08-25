@@ -99,12 +99,18 @@ export default function BasicInfoCard({
     [fieldSettings]
   )
   const secondaryRows = useMemo(
-    () => visibleProfileRows(PROFILE_SECONDARY_ROW_IDS, fieldSettings),
-    [fieldSettings]
+    () => identityScopedRows(
+      visibleProfileRows(PROFILE_SECONDARY_ROW_IDS, fieldSettings),
+      userInfo.identity
+    ),
+    [fieldSettings, userInfo.identity]
   )
   const verificationRows = useMemo(
-    () => visibleProfileRows(VERIFICATION_ROW_IDS, fieldSettings),
-    [fieldSettings]
+    () => identityScopedRows(
+      visibleProfileRows(VERIFICATION_ROW_IDS, fieldSettings),
+      userInfo.identity
+    ),
+    [fieldSettings, userInfo.identity]
   )
   const selectPlaceholder = copy('common_select_placeholder')
   const inputPlaceholder = copy('common_input_placeholder')
@@ -212,7 +218,11 @@ export default function BasicInfoCard({
           options={editor.options}
           placeholder={resolveFieldPlaceholder(editor.setting, selectPlaceholder, inputPlaceholder)}
           onConfirm={async value => {
-            await onChange(editor.setting.fieldId, value)
+            if (editor.setting.fieldId === 'identity' && String(value).toUpperCase() !== 'WORKER') {
+              await applyPatch({ identity: String(value), occupation: '', annualIncome: '' })
+            } else {
+              await onChange(editor.setting.fieldId, value)
+            }
             closeEditor()
           }}
           onClose={closeEditor}
@@ -254,6 +264,12 @@ export default function BasicInfoCard({
       ) : null}
     </>
   )
+}
+
+/** 职业和年收入只属于职场人；身份未选或为在校生时不展示。 */
+function identityScopedRows(rows: BasicProfileRowId[], identity: unknown) {
+  if (String(identity || '').toUpperCase() === 'WORKER') return rows
+  return rows.filter(rowId => rowId !== 'occupation' && rowId !== 'annualIncome')
 }
 
 function RuntimeFieldEditor({

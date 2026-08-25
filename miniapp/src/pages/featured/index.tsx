@@ -1,6 +1,7 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useFeatured } from '@/hooks/useFeatured'
+import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { mockCoinBalance, mockCoinPackages } from '@/services/mock'
 import type { CoinPackage } from '@/types/coin'
 import type { FeaturedGuest } from '@/types/featured'
@@ -58,7 +59,7 @@ export default function FeaturedPage() {
 
   const handleAuthContinue = async () => {
     hideAuthModal()
-    await Taro.navigateTo({ url: '/pages/verification/basic' })
+    await navigateToPendingVerification()
   }
 
   const handleTopTabClick = (tab: '觅缘' | '心印测试' | '精选' | '理想型') => {

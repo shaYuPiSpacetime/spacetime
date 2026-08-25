@@ -1,0 +1,498 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "认证-添加头像",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "这里是标题",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#637595"
+    },
+    {
+      "type": "text",
+      "name": "完善资料和认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "时空邂逅是一个严肃、靠谱的交友平台，请认",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D6E4FB"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#ADCAFF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "基本资料",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "添加头像",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "自我介绍",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "三重认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "选一张你满意的头像",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "知道了，去选照片",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "icon",
+      "name": "位图",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng7ee97d07bee3bb2a7ed8a956b59096b95421585e97856f486180681b3c77f786"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "icon",
+      "name": "位图",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngd2e0c3e9147aec1de6a7492f5cd98d6c1a7f9c882175d94a74c6da02ae707b9a"
+    },
+    {
+      "type": "text",
+      "name": "非人物照",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "icon",
+      "name": "位图",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng2cc28ac8e7fa3d68c6e8f20ef8cd884722df794b98ec353c3638dcc146bf7806"
+    },
+    {
+      "type": "text",
+      "name": "风景照",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "icon",
+      "name": "位图",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngc7f97d22de12f6ec61c26fca9609f833c008304b51765e39beaad893f1e9a0ec"
+    },
+    {
+      "type": "text",
+      "name": "模糊遮挡",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "icon",
+      "name": "位图",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngc3b82514c82230b2e318ea7a7386b7293e39f462254f985494dbf2806873f468"
+    },
+    {
+      "type": "text",
+      "name": "无正脸",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2876FF border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "icon",
+      "name": "编组",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng5e9d6da80be023d5192b84bf21d40bd392b815e9ab419b90960851a476a89d16"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Clip 2",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Fill 1",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 3",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 5",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Clip 8",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Fill 7",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 9",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 11",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 13",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "icon",
+      "name": "编组",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng075ae4df3b3d16ae5cdf054402fb28eefc5b116e645e72536c69da2e6bf6ac56"
+    },
+    {
+      "type": "text",
+      "name": "本人照片",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "text",
+      "name": "能看清长相",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Fill 15",
+      "class": "bg-#FEFEFE"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 1",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 3",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Clip 6",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Fill 5",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 7",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 9",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 11",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 13",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "icon",
+      "name": "编组",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng5deb65640937d023c276762b05e0f53c9312c9ad169615565c394f9880ce344f"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "text",
+      "name": "展示完美的你",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Clip 2",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Fill 1",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Clip 4",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Fill 3",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 5",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 7",
+      "class": "bg-#682519"
+    },
+    {
+      "type": "shape",
+      "name": "Fill 9",
+      "class": "bg-#ED7932"
+    },
+    {
+      "type": "icon",
+      "name": "编组",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng6220cbe241815fc5f14b0ee5d7e24aaac4bb35d79f8cd8b0fc7eb8d81bef4692"
+    },
+    {
+      "type": "text",
+      "name": "以下照片不能通过审核",
+      "class": "",
+      "text": ""
+    }
+  ]
+}

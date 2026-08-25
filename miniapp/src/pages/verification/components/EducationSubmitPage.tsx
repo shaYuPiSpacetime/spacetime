@@ -28,18 +28,20 @@ const CONTENT_HEIGHT: Record<EducationMethod, string> = {
 }
 
 const SUBMIT_TOP: Record<EducationMethod, string> = {
-  STUDENT_CARD: '1258rpx',
+  STUDENT_CARD: '1278rpx',
   CHSI: '2406rpx',
   DIPLOMA_NO: '996rpx',
   MATERIAL_UPLOAD: '1076rpx',
 }
 
 const AGREEMENT_TOP: Record<EducationMethod, string> = {
-  STUDENT_CARD: '1382rpx',
+  STUDENT_CARD: '1402rpx',
   CHSI: '2530rpx',
   DIPLOMA_NO: '1120rpx',
   MATERIAL_UPLOAD: '1200rpx',
 }
+
+const EDUCATION_MATERIAL_MAX_COUNT = 4
 
 export default function EducationSubmitPage({ methodCode, userTypeCode }: { methodCode: EducationMethod; userTypeCode: string }) {
   const profileOptions = usePrd01Store(state => state.profileOptions)
@@ -61,7 +63,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
 
   const loadDetail = async () => {
     const value = await prd01Api.getEducation()
-    const urls = value.materialUrls || []
+    const urls = (value.materialUrls || []).slice(0, EDUCATION_MATERIAL_MAX_COUNT)
     setDetail(value)
     setSchoolName(value.schoolName || '')
     setEducationLevel(value.educationLevel || '')
@@ -83,7 +85,12 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
       : diplomaNo.trim().length > 0 && certificateName.trim().length > 0
   const canSubmit = detail?.canSubmit !== false
     && Boolean(methodOption && userTypeOption && schoolName.trim() && educationLevel && agreed && methodFieldsReady)
-  const maxMaterialCount = config?.uploadLimits.education.maxCount || 0
+  // 蓝湖学历认证稿固定为 0/4。运行时配置只能收紧限制，不能把页面放宽到 4 张以上。
+  const runtimeMaxMaterialCount = config?.uploadLimits.education.maxCount
+  const maxMaterialCount = Math.min(
+    EDUCATION_MATERIAL_MAX_COUNT,
+    Math.max(1, runtimeMaxMaterialCount || EDUCATION_MATERIAL_MAX_COUNT),
+  )
 
   const handleUpload = async () => {
     if (uploading) return
@@ -97,13 +104,13 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
       const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album', 'camera'] })
       const uploaded: string[] = []
       const uploadedPreviews: string[] = []
-      for (const filePath of result.tempFilePaths) {
+      for (const filePath of result.tempFilePaths.slice(0, remaining)) {
         const item = await prd01Api.uploadEducation(filePath)
         uploaded.push(item.url)
         uploadedPreviews.push(await resolveProtectedFilePreview(item.url))
       }
-      setMaterialUrls(current => [...current, ...uploaded])
-      setMaterialPreviewUrls(current => [...current, ...uploadedPreviews])
+      setMaterialUrls(current => [...current, ...uploaded].slice(0, maxMaterialCount))
+      setMaterialPreviewUrls(current => [...current, ...uploadedPreviews].slice(0, maxMaterialCount))
     } catch (error) {
       await showError(error)
     } finally {
@@ -130,10 +137,10 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
         chsiCode,
         diplomaNo,
         certificateName,
-        materialUrls,
+        materialUrls: materialUrls.slice(0, maxMaterialCount),
         educationAgreementChecked: agreed,
       }))
-      await Taro.redirectTo({ url: '/pages/verification/triple' })
+      await Taro.redirectTo({ url: '/pages/verification/education-submit-success' })
     } catch (error) {
       await showError(error)
     } finally {
@@ -143,7 +150,15 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
 
   return (
     <VerificationRuntimeBoundary loadData={loadDetail}>
-      <VerificationSubShell title={methodCode === 'STUDENT_CARD' ? copy('verification_nav_title') : (methodOption?.label || '')} contentHeight={CONTENT_HEIGHT[methodCode]} scroll>
+      <VerificationSubShell
+        title={methodCode === 'STUDENT_CARD'
+          ? copy('verification_nav_title')
+          : methodCode === 'MATERIAL_UPLOAD'
+            ? '上传证书'
+            : (methodOption?.label || '')}
+        contentHeight={CONTENT_HEIGHT[methodCode]}
+        scroll
+      >
         {methodCode === 'STUDENT_CARD' ? (
           <>
             <EducationHero copy={copy} />
@@ -161,7 +176,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
             methodCode={methodCode}
             copy={copy}
             methodLabel={methodOption?.label || ''}
-            top={methodCode === 'STUDENT_CARD' ? '500rpx' : '335rpx'}
+            top={methodCode === 'STUDENT_CARD' ? '520rpx' : '335rpx'}
             schoolName={schoolName}
             educationLevel={educationLevel}
             certificateName={certificateName}
@@ -251,41 +266,21 @@ function StandardForm({ methodCode, copy, methodLabel, top, schoolName, educatio
       <PickerRow label={copy('education_level_label')} value={optionLabel('educationLevel', educationLevel)} placeholder={copy('common_select_placeholder')} onClick={onEducationPicker} />
       {isDiploma ? <InputRow label={copy('education_diploma_label')} value={diplomaNo} placeholder={copy('education_diploma_placeholder')} onInput={onDiplomaNo} /> : null}
       {isDiploma ? <InputRow label={copy('education_certificate_name_label')} value={certificateName} placeholder={copy('education_certificate_name_placeholder')} onInput={onCertificateName} /> : null}
-      {isStudent ? (
+      {isStudent || methodCode === 'MATERIAL_UPLOAD' ? (
         <>
-          {materialUrls.length === 0 ? (
-            <UploadProofBox
-              id="education-student-upload"
-              onClick={onUpload}
-              text={uploading
-                ? copy('common_uploading_action')
-                : formatCopy(copy('education_upload_count_template'), { count: 0, max: maxMaterialCount })}
-            />
-          ) : (
-            <View id="education-student-material-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '12rpx', marginTop: '20rpx' }}>
-              {materialPreviewUrls.map((url, index) => (
-                <Image key={`${url}-${index}`} src={url} mode="aspectFill" style={{ width: '148rpx', height: '148rpx', borderRadius: '12rpx' }} />
-              ))}
-              {materialUrls.length < maxMaterialCount ? (
-                <View id="education-student-upload-more" style={{ width: '148rpx', height: '148rpx', border: '2rpx dashed #D9D9D9', borderRadius: '12rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }} onClick={onUpload}>
-                  <Image src={miniappOssIcons.verificationUploadCamera} mode="widthFix" style={{ width: '52rpx' }} />
-                  <Text style={{ color: '#999999', fontSize: '22rpx', marginTop: '10rpx' }}>{copy('education_upload_action')}</Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '18rpx' }}>{copy('education_student_upload_notice')}</Text>
-        </>
-      ) : methodCode === 'MATERIAL_UPLOAD' ? (
-        <>
-          <UploadProofBox
-            uploadPath={materialPreviewUrls[0]}
+          <MaterialUploadArea
+            id={isStudent ? 'education-student-upload' : 'education-certificate-upload'}
+            gridId={isStudent ? 'education-student-material-grid' : 'education-certificate-material-grid'}
+            materialUrls={materialUrls}
+            materialPreviewUrls={materialPreviewUrls}
+            maxMaterialCount={maxMaterialCount}
+            uploading={uploading}
+            copy={copy}
             onClick={onUpload}
-            text={uploading
-              ? copy('common_uploading_action')
-              : formatCopy(copy('education_upload_count_template'), { count: materialUrls.length, max: maxMaterialCount })}
           />
-          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '18rpx' }}>{copy('education_upload_notice')}</Text>
+          <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '18rpx' }}>
+            {copy(isStudent ? 'education_student_upload_notice' : 'education_upload_notice')}
+          </Text>
         </>
       ) : null}
       {isDiploma ? (
@@ -293,6 +288,43 @@ function StandardForm({ methodCode, copy, methodLabel, top, schoolName, educatio
           <Text style={{ display: 'block', color: '#0C285A', fontSize: '24rpx', fontWeight: 600 }}>{copy('education_diploma_rules_title')}</Text>
           <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '12rpx' }}>{copy('education_diploma_rule_one')}</Text>
           <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>{copy('education_diploma_rule_two')}</Text>
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+function MaterialUploadArea({ id, gridId, materialUrls, materialPreviewUrls, maxMaterialCount, uploading, copy, onClick }: {
+  id: string
+  gridId: string
+  materialUrls: string[]
+  materialPreviewUrls: string[]
+  maxMaterialCount: number
+  uploading: boolean
+  copy: (key: string) => string
+  onClick: () => void
+}) {
+  if (materialUrls.length === 0) {
+    return (
+      <UploadProofBox
+        id={id}
+        onClick={onClick}
+        text={uploading
+          ? copy('common_uploading_action')
+          : formatCopy(copy('education_upload_count_template'), { count: 0, max: maxMaterialCount })}
+      />
+    )
+  }
+
+  return (
+    <View id={gridId} style={{ display: 'flex', flexWrap: 'wrap', gap: '12rpx', marginTop: '20rpx' }}>
+      {materialPreviewUrls.slice(0, maxMaterialCount).map((url, index) => (
+        <Image key={`${url}-${index}`} src={url} mode="aspectFill" style={{ width: '148rpx', height: '148rpx', borderRadius: '12rpx' }} />
+      ))}
+      {materialUrls.length < maxMaterialCount ? (
+        <View id={`${id}-more`} style={{ width: '148rpx', height: '148rpx', border: '2rpx dashed #D9D9D9', borderRadius: '12rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }} onClick={onClick}>
+          <Image src={miniappOssIcons.verificationUploadCamera} mode="widthFix" style={{ width: '52rpx' }} />
+          <Text style={{ color: '#999999', fontSize: '22rpx', marginTop: '10rpx' }}>{uploading ? copy('common_uploading_action') : copy('education_upload_action')}</Text>
         </View>
       ) : null}
     </View>
@@ -330,7 +362,7 @@ function ChsiForm({ copy, chsiCode, onChsiCode }: {
 function InputRow({ label, value, placeholder, marginTop = '20rpx', onInput }: { label: string; value: string; placeholder: string; marginTop?: string; onInput: (value: string) => void }) {
   return (
     <View style={{ minHeight: '88rpx', borderRadius: '12rpx', background: '#FCFCFC', marginTop, padding: '0 26rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-      <Text style={{ color: '#0C285A', fontSize: '25rpx', fontWeight: 600, width: '220rpx' }}>{label}</Text>
+      <Text style={{ color: '#0C285A', fontSize: '26rpx', fontWeight: 600, lineHeight: '37rpx', width: '220rpx' }}>{label}</Text>
       <Input value={value} placeholder={placeholder} placeholderStyle="color:#999999;font-size:24rpx;text-align:right" onInput={event => { onInput(event.detail.value); return event.detail.value }} style={{ flex: 1, color: '#333333', fontSize: '25rpx', textAlign: 'right' }} />
     </View>
   )
@@ -339,8 +371,8 @@ function InputRow({ label, value, placeholder, marginTop = '20rpx', onInput }: {
 function PickerRow({ label, value, placeholder, onClick }: { label: string; value: string; placeholder: string; onClick: () => void }) {
   return (
     <View style={{ minHeight: '88rpx', borderRadius: '12rpx', background: '#FCFCFC', marginTop: '20rpx', padding: '0 26rpx', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box' }} onClick={onClick}>
-      <Text style={{ color: '#0C285A', fontSize: '25rpx', fontWeight: 600 }}>{label}</Text>
-      <Text style={{ color: value ? '#333333' : '#999999', fontSize: '25rpx' }}>{value || placeholder}</Text>
+      <Text style={{ color: '#0C285A', fontSize: '26rpx', fontWeight: 600, lineHeight: '37rpx' }}>{label}</Text>
+      <Text style={{ color: value ? '#333333' : '#999999', fontSize: '25rpx', lineHeight: '36rpx' }}>{value || placeholder}</Text>
     </View>
   )
 }

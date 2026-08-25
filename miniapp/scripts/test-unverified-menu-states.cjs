@@ -31,7 +31,7 @@ test('共享未认证弹窗只保留一份真实组件实现', () => {
   assert.match(modal, /qianxunVerifyNote/, '共享弹窗必须复用蓝湖未认证插画')
   assert.match(modal, /width: '268rpx', height: '259rpx'/, '蓝湖未认证插画必须按 536×518 的 2x 原始比例渲染')
   assert.doesNotMatch(modal, /opacity:\s*0|transparent.*onClick/s, '共享弹窗禁止使用透明热区冒充可见按钮')
-  assert.match(navigation, /resolveVerificationOnboardingRoute/, '统一认证入口必须进入下一未完成认证步骤')
+  assert.match(navigation, /resolveVerificationOnboardingRoute/, '统一认证入口必须按数据库状态进入下一未完成步骤')
 
   for (const page of [
     'src/features/qianxun/QianxunFamilyPage.tsx',

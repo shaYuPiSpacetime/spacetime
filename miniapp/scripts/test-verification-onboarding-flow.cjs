@@ -68,16 +68,29 @@ test('未认证入口严格按基本资料、头像、自我介绍、三重认�
   )
 })
 
-test('所有立即完善入口都进入基本资料而不是只关闭弹窗', () => {
+test('所有立即完善入口都按数据库状态续接而不是只关闭弹窗', () => {
   const featured = read('src/pages/featured/index.tsx')
   const authModal = featured.slice(featured.indexOf('function AuthModal'))
 
   assert.match(
     featured,
-    /const handleAuthContinue = async[\s\S]*?hideAuthModal\(\)[\s\S]*?Taro\.navigateTo\(\{ url: '\/pages\/verification\/basic' \}\)/
+    /const handleAuthContinue = async[\s\S]*?hideAuthModal\(\)[\s\S]*?navigateToPendingVerification\(\)/
   )
   assert.match(featured, /<AuthModal\s+onClose=\{hideAuthModal\}\s+onContinue=/)
   assert.match(authModal, /onContinue[\s\S]*?onClick=\{onContinue\}[\s\S]*?立即完善/)
+})
+
+test('新账号基础资料入口不依赖尚未生成的后续认证记录', () => {
+  const navigation = read('src/features/verification/navigateToVerification.ts')
+  const navigationUtils = read('src/utils/navigation.ts')
+  const basicPosition = navigation.indexOf('const basic = await prd01Api.getBasicProfile()')
+  const incompletePosition = navigation.indexOf("basic.basicProfileCompleted !== true")
+  const verificationPosition = navigation.indexOf('prd01Api.getVerificationStatus()')
+
+  assert.ok(basicPosition >= 0 && incompletePosition > basicPosition)
+  assert.ok(verificationPosition > incompletePosition, '必须先判断基础资料，再请求后续认证状态')
+  assert.match(navigation, /navigateToOrRedirect\('\/pages\/verification\/basic'\)[\s\S]{0,40}return/)
+  assert.match(navigationUtils, /function navigateToOrRedirect[\s\S]*?Taro\.navigateTo[\s\S]*?Taro\.redirectTo/)
 })
 
 test('部分资料态排除首登轻量字段并由接口字段配置计算', async () => {
@@ -154,8 +167,16 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   assert.match(avatar, /VerificationShell/)
   assert.match(avatar, /stage="avatar"/)
   assert.match(avatar, /AvatarGuide/)
+  assert.match(avatar, /verificationAvatarGuidePortrait/)
+  assert.match(avatar, /verificationAvatarGuideCheck/)
+  assert.match(avatar, /verificationAvatarRuleSelf/)
+  assert.doesNotMatch(avatar, /avatar-good\.webp/)
   assert.match(avatar, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
   assert.doesNotMatch(avatar, /VerificationSubShell/)
+
+  const avatarCrop = read('src/pages/verification/avatar-crop.tsx')
+  assert.match(avatarCrop, /const areaTop = \(windowHeight - areaHeight\) \/ 2/)
+  assert.match(avatarCrop, /maxAreaWidth = windowWidth - 50 \* screenScale/)
 
   assert.match(avatarReview, /pages\/verification\/intro/)
   assert.doesNotMatch(avatarReview, /pages\/verification\/triple/)
@@ -164,6 +185,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   assert.match(intro, /stage="intro"/)
   assert.match(intro, /getIntroduction\(\)/)
   assert.match(intro, /submitIntroduction/)
+  assert.doesNotMatch(intro, /optionLabel\('auditStatus'/, '自我介绍页不得展示“未提交”等审核状态文案')
   assert.match(intro, /pages\/verification\/triple/)
   assert.match(intro, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
   assert.doesNotMatch(intro, /pages\/profile-edit\/intro/)
@@ -252,8 +274,11 @@ test('在校学生学历认证严格保持资料卡、提交、协议、客服�
     educationSubmit.indexOf('<SubmitButton') < educationSubmit.indexOf('<AgreementRow'),
     '提交按钮必须渲染在协议上方'
   )
-  assert.match(educationSubmit, /STUDENT_CARD:\s*'1258rpx'/, '在校学生提交按钮纵坐标必须对齐蓝湖')
-  assert.match(educationSubmit, /STUDENT_CARD:\s*'1382rpx'/, '在校学生协议纵坐标必须对齐蓝湖')
+  assert.match(educationSubmit, /STUDENT_CARD:\s*'1278rpx'/, '在校学生提交按钮纵坐标必须对齐蓝湖')
+  assert.match(educationSubmit, /STUDENT_CARD:\s*'1402rpx'/, '在校学生协议纵坐标必须对齐蓝湖')
+  assert.match(educationSubmit, /methodCode === 'STUDENT_CARD' \? '520rpx'/, '在校学生表单必须与身份切换卡保持蓝湖间距')
+  assert.match(educationShared, /height:\s*'120rpx'[\s\S]{0,80}borderRadius:\s*'18rpx'/, '学历身份切换必须为独立圆角卡片')
+  assert.match(educationShared, /fontSize:\s*'28rpx'[\s\S]{0,100}textShadow:/, '学历身份切换字号和选中阴影必须对齐蓝湖')
   assert.match(educationShared, /position:\s*'absolute'/, '学历提交按钮必须跟随页面内容定位')
   assert.doesNotMatch(
     educationShared,
@@ -262,14 +287,43 @@ test('在校学生学历认证严格保持资料卡、提交、协议、客服�
   )
   assert.match(
     studentForm,
-    /isStudent[\s\S]{0,800}<UploadProofBox/,
+    /isStudent\s*\|\|\s*methodCode === 'MATERIAL_UPLOAD'[\s\S]{0,800}<MaterialUploadArea/,
     '在校学生无材料时必须使用蓝湖大尺寸上传区'
   )
+  assert.match(studentForm, /materialUrls\.length === 0[\s\S]{0,160}<UploadProofBox/)
   assert.match(
     studentForm,
     /minHeight:\s*isStudent\s*\?\s*'725rpx'/,
     '在校学生资料卡必须保留蓝湖背景分割高度'
   )
+})
+
+test('学历证明材料在所有页面都严格限制为最多四张', () => {
+  const educationSubmit = read('src/pages/verification/components/EducationSubmitPage.tsx')
+
+  assert.match(educationSubmit, /const EDUCATION_MATERIAL_MAX_COUNT = 4/)
+  assert.match(educationSubmit, /Math\.min\(\s*EDUCATION_MATERIAL_MAX_COUNT/)
+  assert.match(educationSubmit, /result\.tempFilePaths\.slice\(0, remaining\)/)
+  assert.match(educationSubmit, /materialUrls:\s*materialUrls\.slice\(0, maxMaterialCount\)/)
+  assert.match(educationSubmit, /function MaterialUploadArea/)
+  assert.match(educationSubmit, /education-certificate-material-grid/)
+  assert.match(educationSubmit, /methodCode === 'MATERIAL_UPLOAD'[\s\S]{0,120}\? '上传证书'/)
+})
+
+test('学历提交后进入蓝湖成功页并可直达千寻成家同城', () => {
+  const appConfig = read('src/app.config.ts')
+  const educationSubmit = read('src/pages/verification/components/EducationSubmitPage.tsx')
+  const successPage = read('src/pages/verification/education-submit-success.tsx')
+  const icons = read('src/constants/ossIcons.ts')
+
+  assert.match(appConfig, /'education-submit-success'/)
+  assert.match(educationSubmit, /redirectTo\(\{ url: '\/pages\/verification\/education-submit-success' \}\)/)
+  assert.match(successPage, /miniappOssIcons\.verificationEducationSubmitSuccess/)
+  assert.match(successPage, /Taro\.setStorageSync\(REQUESTED_PRIMARY_TAB_KEY, 'FAMILY'\)/)
+  assert.match(successPage, /Taro\.setStorageSync\(REQUESTED_SCENE_KEY, 'CITY'\)/)
+  assert.match(successPage, /Taro\.switchTab\(\{ url: '\/pages\/index\/index' \}\)/)
+  assert.match(successPage, /id="education-submit-success-city-button"/)
+  assert.match(icons, /verificationEducationSubmitSuccess:\s*'https:\/\//)
 })
 
 test('部分资料态图标全部来自蓝湖官方切图并走 OSS 常量', () => {

@@ -279,7 +279,7 @@ function LoginMethodRow({
     <View
       className={`login-method-row login-method-row--${method.key}`}
       style={{
-        height: '124rpx',
+        height: '98rpx',
         borderRadius: '16rpx',
         background: '#FFFFFF',
         padding: '0 30rpx',
@@ -348,10 +348,10 @@ function LoginMethodSheet({
           left: '0',
           right: '0',
           bottom: '0',
-          minHeight: '596rpx',
+          minHeight: '468rpx',
           borderRadius: '64rpx 64rpx 0 0',
-          background: '#F5F6FA',
-          padding: '54rpx 25rpx calc(40rpx + env(safe-area-inset-bottom))',
+          background: '#F8F9FB',
+          padding: '32rpx 25rpx calc(18rpx + env(safe-area-inset-bottom))',
           boxSizing: 'border-box',
         }}
         onClick={(event) => event.stopPropagation()}
@@ -359,9 +359,9 @@ function LoginMethodSheet({
         <Text style={{ display: 'block', color: '#333333', fontSize: '34rpx', fontWeight: 800, lineHeight: '48rpx', textAlign: 'center' }}>
           选择登录方式
         </Text>
-        <View style={{ marginTop: '64rpx' }}>
+        <View id="login-method-options" style={{ marginTop: '24rpx' }}>
           {LOGIN_METHODS.map((methodKey, index) => (
-            <View key={methodKey} style={{ marginTop: index === 0 ? '0' : '36rpx' }}>
+            <View key={methodKey} style={{ marginTop: index === 0 ? '0' : '20rpx' }}>
               <LoginMethodRow
                 method={{
                   key: methodKey,
@@ -379,7 +379,7 @@ function LoginMethodSheet({
           className="login-agreement-toggle"
           style={{
             height: '52rpx',
-            marginTop: '72rpx',
+            marginTop: '42rpx',
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',

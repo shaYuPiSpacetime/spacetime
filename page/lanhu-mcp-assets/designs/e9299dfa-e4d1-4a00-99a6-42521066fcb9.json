@@ -1,0 +1,286 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "三重认证-学历认证在校学生",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "这里是标题",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#637595"
+    },
+    {
+      "type": "text",
+      "name": "学历认证",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "完成学历认证，和我们一起打造真实靠谱高质",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "icon",
+      "name": "椭圆形",
+      "class": "bg-#2876FF",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng7ca5ba3dafa42a453ffd343fe0c30fd36a95a4177502e866bd06e922fcaa5d7a"
+    },
+    {
+      "type": "text",
+      "name": "在校学生",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "中国大陆",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FCFCFC"
+    },
+    {
+      "type": "text",
+      "name": "学校名称",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "请输入",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FCFCFC"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#E6E6E6 border-solid"
+    },
+    {
+      "type": "text",
+      "name": "上传证明材料(0/4)",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#0C285A"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#0C285A"
+    },
+    {
+      "type": "icon",
+      "name": "相机2",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng40f54c56cea1842ff82441eb9b55b8f2b731d50f93ceb07a83a0baf047ce15ac"
+    },
+    {
+      "type": "text",
+      "name": "不要涂抹，需要露出姓名/学校名称及学历层",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "学历",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "请选择",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#CEE0F8"
+    },
+    {
+      "type": "text",
+      "name": "我已查看并同意《学历信息认证服务协议》",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF border-1px border-#2876FF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "提交",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "头像",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "实名",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "学历",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "联系客服",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#3F84FE"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#3F84FE"
+    }
+  ]
+}

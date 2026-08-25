@@ -219,6 +219,7 @@ public class ProfileServiceImpl implements ProfileService {
         validateMainlandRegion(req);
         applyBasicProfileFields(user, req, settings);
         validateRequiredBasicFields(user, settings);
+        user.setBasicProfileCompleted(1);
 
         appUserDao.updateById(user);
         return toBasicProfileVO(user, settings);
@@ -642,8 +643,10 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setProfileScore(profileCompletenessCalculator.calculate(user));
         List<String> missing = missingRequiredBasicFields(user, settings);
         vo.setMissingRequiredFields(missing);
-        vo.setBasicProfileCompleted(missing.isEmpty());
-        vo.setNextAction(missing.isEmpty() ? "ADD_AVATAR" : "COMPLETE_BASIC_PROFILE");
+        boolean submitted = user.getBasicProfileCompleted() != null && user.getBasicProfileCompleted() == 1;
+        boolean completed = submitted && missing.isEmpty();
+        vo.setBasicProfileCompleted(completed);
+        vo.setNextAction(completed ? "ADD_AVATAR" : "COMPLETE_BASIC_PROFILE");
         vo.setFieldSettings(settings);
         return vo;
     }

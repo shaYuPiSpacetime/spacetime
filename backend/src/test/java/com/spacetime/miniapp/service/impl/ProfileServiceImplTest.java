@@ -256,6 +256,8 @@ class ProfileServiceImplTest {
         assertThat(result.getMinAge()).isEqualTo(18);
         assertThat(result.getMaxAge()).isEqualTo(60);
         assertThat(result.getMissingRequiredFields()).isEmpty();
+        assertThat(result.getBasicProfileCompleted()).isFalse();
+        assertThat(result.getNextAction()).isEqualTo("COMPLETE_BASIC_PROFILE");
         verify(appUserDao).updateById(user);
         assertThat(result.getFieldSettings())
                 .filteredOn(item -> "gender".equals(item.getFieldId()))
@@ -317,6 +319,7 @@ class ProfileServiceImplTest {
         assertThat(user.getOccupation()).isEqualTo("ENGINEER");
         assertThat(user.getAnnualIncome()).isEqualTo("FROM_150K_TO_300K");
         assertThat(user.getCompany()).isEqualTo("星河科技有限公司");
+        assertThat(user.getBasicProfileCompleted()).isEqualTo(1);
         assertThat(result.getBasicProfileCompleted()).isTrue();
         assertThat(result.getNextAction()).isEqualTo("ADD_AVATAR");
         verify(appUserDao).updateById(user);

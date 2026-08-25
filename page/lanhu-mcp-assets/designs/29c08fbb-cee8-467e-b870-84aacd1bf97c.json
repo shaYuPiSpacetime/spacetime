@@ -1,0 +1,419 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "登录-选择登录方式",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "立即使用",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#3333334D"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F8F9FB"
+    },
+    {
+      "type": "text",
+      "name": "选择登录方式",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "阅读并同意 用户服务协议 和 隐私保护政",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF border-1px border-#2876FF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "使用微信登录",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "手机号登录",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#24DB5A"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#24DB5A"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#E0F1FF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "icon",
+      "name": "微信 (1)",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPnge11288e1ea4ff2de8b99131b34cc27dc3f1b9fa6e2be14d6d02a516505c563e9"
+    },
+    {
+      "type": "icon",
+      "name": "手机",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngd318c9581ec0dab0d42e1f22f303d637232c23198af3cb6a48e4d113dc9c3cf6"
+    }
+  ]
+}

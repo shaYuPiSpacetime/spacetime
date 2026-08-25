@@ -91,8 +91,8 @@ export function EducationTabs({ active, copy }: { active: 'student' | 'mainland'
         left: '25rpx',
         top: '382rpx',
         width: '700rpx',
-        height: '144rpx',
-        borderRadius: '18rpx 18rpx 0 0',
+        height: '120rpx',
+        borderRadius: '18rpx',
         background: '#FFFFFF',
         border: '2rpx solid #FFFFFF',
         boxSizing: 'border-box',
@@ -106,9 +106,8 @@ export function EducationTabs({ active, copy }: { active: 'student' | 'mainland'
 
 function TabText({ left, text, active, onClick }: { left: string; text: string; active: boolean; onClick: () => void }) {
   return (
-    <View style={{ position: 'absolute', left, top: '64rpx', width: '112rpx', height: '48rpx' }} onClick={onClick}>
-      {active && <View style={{ position: 'absolute', left: '0', bottom: '0', width: '96rpx', height: '6rpx', borderRadius: '3rpx', background: '#2876FF' }} />}
-      <Text style={{ position: 'absolute', left: '0', top: '0', color: active ? '#0C285A' : '#999999', fontSize: '24rpx', fontWeight: active ? 600 : 400, lineHeight: '33rpx', whiteSpace: 'nowrap' }}>
+    <View style={{ position: 'absolute', left, top: '40rpx', width: '130rpx', height: '48rpx' }} onClick={onClick}>
+      <Text style={{ position: 'absolute', left: '0', top: '0', color: active ? '#0C285A' : '#999999', fontSize: '28rpx', fontWeight: active ? 600 : 400, lineHeight: '40rpx', whiteSpace: 'nowrap', textShadow: active ? '0 10rpx 16rpx rgba(40,118,255,0.30)' : 'none' }}>
         {text}
       </Text>
     </View>

@@ -665,7 +665,7 @@ test('相册、背景图和语音介绍使用真实查询、直传、保存与�
   assert.match(files.voice, /prd01Api\.deleteVoiceIntro/)
 })
 
-test('首登完成页根据资料与认证接口决定下一步，不再进入旧资料页', () => {
+test('认证入口根据资料与认证接口续接下一个未完成步骤', () => {
   const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/index.tsx'), 'utf8')
   const verificationEntry = fs.readFileSync(path.join(miniappRoot, 'src/features/verification/VerificationEntryView.tsx'), 'utf8')
   assert.match(source, /prd01Api\.getBasicProfile/)
