@@ -109,7 +109,7 @@ test('千寻准入页保留蓝湖顶部页签，认证文案由运行时配置�
   assert.match(source, /function TopTabs/)
   assert.match(source, /hoverClass="btn-hover"/)
   assert.match(source, />\s*成家\s*</)
-  assert.match(source, />\s*知音\s*</)
+  assert.match(source, />\s*时空邂逅\s*</)
   assert.match(source, />\s*立业\s*</)
   assert.match(source, /copy\('verification_onboarding_heading'\)/)
   assert.match(source, /copy\('verification_home_initial_heading_line2'\)/)

@@ -211,7 +211,7 @@ export default function QianxunComposePage() {
 
   return (
     <View id="qianxun-compose-page" style={{ height: '100vh', background: '#FFFFFF', overflow: 'hidden' }}>
-      <PageHeader title={postType === 'sincere_post' ? '发布诚意贴' : '发布动态'} onBack={() => void goBack()} />
+      <PageHeader title={postType === 'sincere_post' ? '发布时空站台' : '发布动态'} onBack={() => void goBack()} />
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '184rpx', boxSizing: 'border-box' }} showScrollbar={false}>
         <Textarea
           value={content}

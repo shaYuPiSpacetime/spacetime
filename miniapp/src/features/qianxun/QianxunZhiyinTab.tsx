@@ -51,7 +51,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
   useShareAppMessage(() => ({
-    title: selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻诚意贴',
+    title: selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻时空站台',
     path: selectedPost?.id ? `/pages/qianxun/post-detail?id=${selectedPost.id}` : '/pages/index/index',
   }))
 
@@ -238,7 +238,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
             setSheet(null)
             void navigateToPendingVerification()
           }}
-          description="完成认证即可心动、评论和发布诚意贴"
+          description="完成认证即可心动、评论和发布时空站台"
         />
       ) : null}
     </>
@@ -247,12 +247,12 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
 
 function ZhiyinTabs({ active, top, onChange }: { active: ZhiyinTab; top: number; onChange: (tab: ZhiyinTab) => void }) {
   const tabs: Array<{ id: string; tab: ZhiyinTab; label: string }> = [
-    { id: 'qianxun-zhiyin-yuemu', tab: 'YUEMU', label: '悦目' },
-    { id: 'qianxun-zhiyin-sincere', tab: 'SINCERE', label: '诚意贴' },
+    { id: 'qianxun-zhiyin-yuemu', tab: 'YUEMU', label: '心灵搭子' },
+    { id: 'qianxun-zhiyin-sincere', tab: 'SINCERE', label: '时空站台' },
   ]
   return <View style={{ position: 'absolute', left: '25rpx', top: `${top}rpx`, height: '62rpx', display: 'flex', gap: '10rpx', zIndex: 2 }}>{tabs.map(item => {
     const selected = active === item.tab
-    return <View key={item.tab} id={item.id} onClick={() => onChange(item.tab)} style={{ position: 'relative', width: item.tab === 'YUEMU' ? '108rpx' : '130rpx', height: '62rpx', borderRadius: '12rpx', background: selected ? 'linear-gradient(180deg, #51AEFF 0%, #2876FF 100%)' : '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? '#FFFFFF' : '#8B96A8', fontSize: selected ? '28rpx' : '26rpx', lineHeight: '40rpx', fontWeight: selected ? 600 : 400 }}>{item.label}</Text>{selected ? <View style={{ position: 'absolute', left: '50%', bottom: '-10rpx', width: 0, height: 0, borderLeft: '10rpx solid transparent', borderRight: '10rpx solid transparent', borderTop: `12rpx solid ${QIANXUN_BLUE}`, transform: 'translateX(-50%)' }} /> : null}</View>
+    return <View key={item.tab} id={item.id} onClick={() => onChange(item.tab)} style={{ position: 'relative', width: '140rpx', height: '62rpx', borderRadius: '12rpx', background: selected ? 'linear-gradient(180deg, #51AEFF 0%, #2876FF 100%)' : '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? '#FFFFFF' : '#8B96A8', fontSize: selected ? '28rpx' : '26rpx', lineHeight: '40rpx', fontWeight: selected ? 600 : 400 }}>{item.label}</Text>{selected ? <View style={{ position: 'absolute', left: '50%', bottom: '-10rpx', width: 0, height: 0, borderLeft: '10rpx solid transparent', borderRight: '10rpx solid transparent', borderTop: `12rpx solid ${QIANXUN_BLUE}`, transform: 'translateX(-50%)' }} /> : null}</View>
   })}</View>
 }
 

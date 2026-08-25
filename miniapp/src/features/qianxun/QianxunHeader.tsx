@@ -36,8 +36,8 @@ interface QianxunHeaderProps {
 
 const primaryTabs: Array<{ id: string; tab: QianxunPrimaryTab; label: string; left: number }> = [
   { id: 'qianxun-primary-family', tab: 'FAMILY', label: '成家', left: 32 },
-  { id: 'qianxun-primary-kindred', tab: 'KINDRED', label: '知音', left: 123 },
-  { id: 'qianxun-primary-career', tab: 'CAREER', label: '立业', left: 199 },
+  { id: 'qianxun-primary-kindred', tab: 'KINDRED', label: '时空邂逅', left: 123 },
+  { id: 'qianxun-primary-career', tab: 'CAREER', label: '立业', left: 285 },
 ]
 
 export function QianxunHeader({ active, avatar, unreadCount, metrics, onChange, onProfile }: QianxunHeaderProps) {
@@ -50,10 +50,10 @@ export function QianxunHeader({ active, avatar, unreadCount, metrics, onChange, 
             key={item.tab}
             id={item.id}
             onClick={() => onChange(item.tab)}
-            style={{ position: 'absolute', left: `${item.left - 12}rpx`, top: `${metrics.primaryTop - 22}rpx`, width: '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ position: 'absolute', left: `${item.left - 12}rpx`, top: `${metrics.primaryTop - 22}rpx`, width: item.tab === 'KINDRED' ? '160rpx' : '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <Text style={{ color: selected ? NAVY : '#7F8494', fontSize: selected ? '32rpx' : '28rpx', lineHeight: selected ? '45rpx' : '40rpx', fontWeight: 500 }}>{item.label}</Text>
-            {selected ? <View style={{ position: 'absolute', left: '12rpx', top: '67rpx', width: '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} /> : null}
+            {selected ? <View style={{ position: 'absolute', left: item.tab === 'KINDRED' ? '20rpx' : '12rpx', top: '67rpx', width: item.tab === 'KINDRED' ? '120rpx' : '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} /> : null}
             {item.tab === 'FAMILY' && unreadCount > 0 ? (
               <View style={{ position: 'absolute', left: '55rpx', top: '8rpx', minWidth: '28rpx', height: '28rpx', borderRadius: '14rpx', border: '2rpx solid #FFFFFF', background: '#EE2525', padding: '0 4rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                 <Text style={{ color: '#FFFFFF', fontSize: '18rpx', lineHeight: '25rpx' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>

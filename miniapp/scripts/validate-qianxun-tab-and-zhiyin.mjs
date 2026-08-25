@@ -26,6 +26,7 @@ assert.match(indexSource, /setReady\(true\)[\s\S]{0,180}catch|catch[\s\S]{0,260}
 assert.match(indexSource, /setAccessStatus\(verificationResult\.accessStatus\)/, '千寻应缓存服务端准入状态，减少刷新白屏')
 assert.match(headerSource, /qianxun-primary-family/, '缺少千寻成家一级 Tab 稳定选择器')
 assert.match(headerSource, /qianxun-primary-kindred/, '缺少千寻知音一级 Tab 稳定选择器')
+assert.match(headerSource, /label: '时空邂逅'/, '千寻知音一级 Tab 必须展示新名称“时空邂逅”')
 assert.doesNotMatch(familySource, /navigateTo\(\{\s*url:\s*['"]\/pages\/qianxun\/kindred/, '点击知音不得跳出千寻 Tab 页')
 
 assert.ok(exists('src/features/qianxun/QianxunZhiyinTab.tsx'), '缺少知音 Tab 内容组件')
@@ -34,6 +35,8 @@ const zhiyinSource = exists('src/features/qianxun/QianxunZhiyinTab.tsx')
   : ''
 assert.match(zhiyinSource, /qianxun-zhiyin-yuemu/, '缺少悦目二级 Tab')
 assert.match(zhiyinSource, /qianxun-zhiyin-sincere/, '缺少诚意贴二级 Tab')
+assert.match(zhiyinSource, /label: '心灵搭子'/, '悦目二级 Tab 必须展示新名称“心灵搭子”')
+assert.match(zhiyinSource, /label: '时空站台'/, '诚意贴二级 Tab 必须展示新名称“时空站台”')
 assert.match(zhiyinSource, /getYuemuUsers/, '悦目必须读取用户照片候选，不能从动态首图拼接')
 assert.match(zhiyinSource, /getSincerePosts/, '诚意贴必须按 sincere_post 独立查询')
 assert.match(zhiyinSource, /toggleYuemuLike/, '悦目心动按钮必须绑定真实切换动作')

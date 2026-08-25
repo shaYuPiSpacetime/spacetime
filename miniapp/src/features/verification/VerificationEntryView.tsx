@@ -192,8 +192,8 @@ function TopTabs({ unreadCount }: { unreadCount: number }) {
           <Text style={{ color: '#FFFFFF', fontSize: '18rpx', fontWeight: 500, lineHeight: '25rpx' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
         </View>
       ) : null}
-      <Text style={{ position: 'absolute', left: '123rpx', top: '31rpx', color: '#7F8494', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>知音</Text>
-      <Text style={{ position: 'absolute', left: '199rpx', top: '31rpx', color: '#7F8494', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>立业</Text>
+      <Text style={{ position: 'absolute', left: '123rpx', top: '31rpx', color: '#7F8494', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>时空邂逅</Text>
+      <Text style={{ position: 'absolute', left: '285rpx', top: '31rpx', color: '#7F8494', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>立业</Text>
     </View>
   )
 }
