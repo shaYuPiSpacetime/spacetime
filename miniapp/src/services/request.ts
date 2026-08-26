@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { API_BASE_URL, TOKEN_HEADER, TOKEN_KEY } from '@/constants/config'
+import { API_BASE_URL, TOKEN_HEADER, TOKEN_KEY, USER_INFO_KEY } from '@/constants/config'
 import type { R } from '@/types/api'
 import { getErrorMessage } from '@/utils/errorMessage'
 
@@ -64,6 +64,12 @@ export async function request<T>(options: RequestOptions): Promise<T> {
   // 401: token 过期或无效
   if (code === 401) {
     Taro.removeStorageSync(TOKEN_KEY)
+    Taro.removeStorageSync(USER_INFO_KEY)
+    const pages = Taro.getCurrentPages()
+    const currentRoute = pages[pages.length - 1]?.route || ''
+    if (!currentRoute.startsWith('pages/login/')) {
+      void Taro.reLaunch({ url: '/pages/login/phone' })
+    }
     return Promise.reject(new ApiBusinessError(msg || String(code), code, res.statusCode))
   }
 

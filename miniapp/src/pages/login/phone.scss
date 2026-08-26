@@ -1,127 +1,34 @@
-.phone-login-page {
-  width: 100%;
-  min-height: 100vh;
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%);
-}
-
-.phone-login-back {
-  position: absolute;
-  left: 0;
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-}
-
-.phone-login-heading {
-  position: absolute;
-  left: 0;
-  top: 123.5px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.phone-login-title {
-  color: #0c285a;
-  font-size: 18px;
-  font-weight: 500;
-  line-height: 25px;
-}
-
-.phone-login-notice {
-  margin-top: 14px;
-  color: #999;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.phone-login-error {
-  position: absolute;
-  z-index: 5;
-  left: 58px;
-  top: 196.5px;
-  width: 259px;
-  min-height: 49px;
-  padding: 8px 18px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.32);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-}
-
-.phone-login-error-copy {
-  color: #fff;
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 24px;
-  text-align: center;
-}
-
-.phone-login-field {
-  position: absolute;
-  left: 32px;
-  width: 311px;
-  height: 49px;
-  border-radius: 4px;
-  background: #fff;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-}
-
-.phone-login-field--phone {
-  top: 247px;
-}
-
-.phone-login-field--sms {
-  top: 312px;
-  padding-right: 16px;
-}
-
-.phone-login-method-icon {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.phone-login-input {
-  flex: 1;
-  height: 49px;
-  margin-left: 8px;
-  color: #333;
-  font-size: 16px;
-  line-height: 49px;
-}
-
-.phone-login-code {
-  color: #2876ff;
-  font-size: 16px;
-  line-height: 22.5px;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-}
-
-.phone-login-code-retry {
-  color: #999;
-  margin-left: 6px;
-}
-
-.phone-login-code-countdown {
-  color: #2876ff;
-}
-
-.phone-login-next {
-  position: absolute;
-  left: 156.5px;
-  bottom: 84px;
-}
+.phone-login-page { position: relative; width: 100%; min-height: 100vh; overflow: hidden; background: #061329; }
+.phone-login-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.phone-login-brand { position: absolute; left: 95rpx; top: 300rpx; width: 560rpx; height: 260rpx; }
+.phone-login-panel { position: absolute; left: 70rpx; right: 70rpx; bottom: calc(52rpx + env(safe-area-inset-bottom)); z-index: 2; }
+.phone-login-line { height: 86rpx; display: flex; align-items: center; border-bottom: 2rpx solid rgba(255,255,255,.55); }
+.phone-login-icon { width: 34rpx; height: 44rpx; margin-right: 18rpx; }
+.phone-login-input { flex: 1; height: 86rpx; color: #fff; font-size: 28rpx; }
+.phone-login-placeholder { color: rgba(255,255,255,.78); font-size: 28rpx; }
+.phone-login-code-button { height: 86rpx; margin-top: 24rpx; border-radius: 16rpx; background: #fff; display: flex; align-items: center; justify-content: center; color: #2876ff; font-size: 28rpx; font-weight: 600; opacity: .86; }
+.phone-login-code-button.is-active { opacity: 1; }
+.phone-login-agreement { margin-top: 22rpx; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.82); font-size: 20rpx; white-space: nowrap; }
+.phone-login-check { width: 24rpx; height: 24rpx; margin-right: 8rpx; border: 2rpx solid rgba(255,255,255,.85); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: transparent; font-size: 18rpx; }
+.phone-login-check.is-checked { color: #fff; background: #2876ff; border-color: #2876ff; }
+.phone-login-link { color: #6ba3ff; }
+.phone-login-wechat { width: 66rpx; height: 66rpx; margin: 42rpx auto 0; border-radius: 50%; background: rgba(255,255,255,.24); display: flex; align-items: center; justify-content: center; }
+.phone-login-wechat image { width: 40rpx; height: 40rpx; }
+.phone-login-error { position: absolute; left: 126rpx; right: 126rpx; bottom: 420rpx; z-index: 12; min-height: 72rpx; padding: 0 24rpx; border-radius: 16rpx; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 26rpx; text-align: center; }
+.phone-agreement-mask { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.58); display: flex; align-items: flex-end; }
+.phone-agreement-sheet { width: 100%; padding: 42rpx 36rpx calc(34rpx + env(safe-area-inset-bottom)); border-radius: 36rpx 36rpx 0 0; background: linear-gradient(135deg,#eefbff 0%,#fff 55%,#f8fff1 100%); box-sizing: border-box; }
+.phone-agreement-title { display: block; color: #1a2e53; font-size: 30rpx; font-weight: 700; }
+.phone-agreement-copy { margin-top: 18rpx; color: #64748b; font-size: 23rpx; }
+.phone-agreement-confirm { height: 82rpx; margin-top: 32rpx; border-radius: 12rpx; background: #2876ff; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 26rpx; font-weight: 600; }
+.sms-verify-page { position: relative; width: 100%; min-height: 100vh; background: linear-gradient(90deg,rgba(233,253,251,.7),rgba(234,238,249,.7) 50%,rgba(248,250,239,.7)); overflow: hidden; }
+.sms-verify-back { position: absolute; left: 0; width: 112rpx; padding-left: 28rpx; display: flex; align-items: center; box-sizing: border-box; z-index: 2; }
+.sms-verify-content { padding: 194rpx 50rpx 0; }
+.sms-verify-title { display: block; color: #0c285a; font-size: 34rpx; font-weight: 700; line-height: 48rpx; }
+.sms-verify-tip { display: block; margin-top: 18rpx; color: #999; font-size: 22rpx; }
+.sms-code-boxes { position: relative; margin-top: 50rpx; display: flex; gap: 24rpx; }
+.sms-code-box { width: 132rpx; height: 112rpx; border: 2rpx solid transparent; border-radius: 16rpx; background: #fff; display: flex; align-items: center; justify-content: center; color: #12336b; font-size: 34rpx; font-weight: 600; box-sizing: border-box; }
+.sms-code-box.is-active { border-color: #2876ff; }
+.sms-code-native-input { position: absolute; inset: 0; z-index: 2; width: 100%; height: 112rpx; color: transparent; background: transparent; caret-color: transparent; }
+.sms-resend { margin-top: 38rpx; color: #2876ff; font-size: 22rpx; }
+.sms-resend.is-disabled { color: #999; }
+.sms-login-pending { display: block; margin-top: 40rpx; color: #2876ff; font-size: 24rpx; text-align: center; }

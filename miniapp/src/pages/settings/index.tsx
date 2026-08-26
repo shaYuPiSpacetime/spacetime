@@ -76,7 +76,7 @@ export default function SettingsPage() {
       await settingsApi.logout()
       useAuthStore.getState().logout()
       setLogoutDialogOpen(false)
-      await Taro.reLaunch({ url: '/pages/login/index' })
+      await Taro.reLaunch({ url: '/pages/login/phone' })
     } catch (error) {
       await showError(error, copyConfig['settings.load_failed_text'])
     } finally {

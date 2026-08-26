@@ -182,7 +182,7 @@ test('手机号登录错误只通过页面错误浮层展示一次', () => {
   assert.ok(showError, '手机号页缺少统一错误处理函数')
   assert.match(showError, /setErrorText\(message\)/, '错误信息应交给页面错误浮层展示')
   assert.doesNotMatch(showError, /Taro\.showToast/, '同一错误不得再叠加原生 Toast')
-  assert.match(phone, /\{errorText \? \([\s\S]*phone-login-error/, '页面应保留唯一错误浮层')
+  assert.match(phone, /\{errorText \?[\s\S]{0,120}phone-login-error/, '页面应保留唯一错误浮层')
 })
 
 test('首次勾选协议必须先展示协议弹窗，同意后才更新状态', () => {
@@ -242,7 +242,7 @@ test('微信手机号授权期间只保留静态背景内置品牌避免双层�
   )
 })
 
-test('手机号页和首登资料页共享蓝湖未点亮与点亮两态按钮图标', () => {
+test('首登资料页继续共享蓝湖两态按钮，退出登录手机号页使用设计稿矩形获取验证码按钮', () => {
   const buttonPath = path.join(miniappRoot, 'src/pages/login/components/LoginNextButton.tsx')
   assert.ok(fs.existsSync(buttonPath), '缺少登录链路共享底部按钮')
 
@@ -260,7 +260,8 @@ test('手机号页和首登资料页共享蓝湖未点亮与点亮两态按钮�
   assert.doesNotMatch(button, /login-next-icon__curve/)
   assert.doesNotMatch(button, /login-next-icon__head/)
   assert.match(button, /if \(!active\) return/)
-  assert.match(phone, /<LoginNextButton/)
+  assert.match(phone, /phone-login-code-button/)
+  assert.match(phone, /获取验证码/)
   assert.match(shell, /<LoginNextButton/)
   assert.doesNotMatch(phone, /phone-login-next-arrow/)
   assert.doesNotMatch(phoneStyles, /\.phone-login-next-arrow/)
@@ -275,25 +276,27 @@ test('登录方式、手机号和性别图标在运行态使用真实组件', ()
   assert.match(login, /miniappOssIcons\.loginMethodPhone/)
   assert.match(login, /使用微信登录/)
   assert.match(phone, /miniappOssIcons\.loginPhoneField/)
-  assert.match(phone, /miniappOssIcons\.loginSmsCode/)
+  assert.match(phone, /className="sms-code-native-input"/)
   assert.match(gender, /miniappOssIcons\.genderFemale/)
   assert.match(gender, /miniappOssIcons\.genderMale/)
   assert.match(gender, /我是女生/)
   assert.match(gender, /我是男生/)
 })
 
-test('手机号登录页按蓝湖 375×812 逻辑画布精确落位', () => {
+test('退出登录手机号页按五态设计稿实现星空首屏、协议弹窗和验证码自动登录', () => {
   const phone = read('src/pages/login/phone.tsx')
   const styles = read('src/pages/login/phone.scss')
 
-  assert.match(styles, /linear-gradient\(90deg, rgba\(233,253,251,0\.6\) 0%, rgba\(234,238,249,0\.6\) 48\.5%, rgba\(248,250,239,0\.6\) 100%\)/)
-  assert.match(styles, /\.phone-login-heading\s*\{[\s\S]*?top:\s*123\.5px;/)
-  assert.match(styles, /\.phone-login-title\s*\{[\s\S]*?font-size:\s*18px;[\s\S]*?font-weight:\s*500;[\s\S]*?line-height:\s*25px;/)
-  assert.match(styles, /\.phone-login-field\s*\{[\s\S]*?left:\s*32px;[\s\S]*?width:\s*311px;[\s\S]*?height:\s*49px;/)
-  assert.match(styles, /\.phone-login-field--phone\s*\{[\s\S]*?top:\s*247px;/)
-  assert.match(styles, /\.phone-login-field--sms\s*\{[\s\S]*?top:\s*312px;/)
-  assert.match(styles, /\.phone-login-next\s*\{[\s\S]*?left:\s*156\.5px;[\s\S]*?bottom:\s*84px;/)
-  assert.match(phone, /placeholderStyle="color:#999999;font-size:32rpx"/)
+  assert.match(phone, /loginSceneBg/)
+  assert.match(phone, /showAgreement/)
+  assert.match(phone, /handleAgreeAndContinue/)
+  assert.match(phone, /setAgreementAccepted\(true\)[\s\S]*setShowAgreement\(false\)[\s\S]*sendCodeAndOpenVerify/)
+  assert.match(phone, /nextCode\.length === SMS_CODE_LENGTH[\s\S]*completeLogin\(nextCode\)/)
+  assert.match(phone, /Array\.from\(\{ length: SMS_CODE_LENGTH \}\)/)
+  assert.match(styles, /\.phone-login-bg/)
+  assert.match(styles, /\.phone-agreement-sheet/)
+  assert.match(styles, /\.sms-verify-page/)
+  assert.match(styles, /\.sms-code-box\.is-active/)
 })
 
 test('出生日期已有有效默认值时进入页面即点亮', () => {
