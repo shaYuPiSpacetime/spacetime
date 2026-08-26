@@ -1,9 +1,10 @@
-import { Image, Input, Text, View } from '@tarojs/components'
+import { CoverImage, CoverView, Image, Input, Text, Video, View } from '@tarojs/components'
 import { useEffect, useRef, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { loginByPhone, resolveWechatUsage, sendPhoneSmsCode } from '@/services/auth'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { miniappOssMedia } from '@/constants/ossMedia'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { resolveSmsCountdown } from '@/domain/prd01Runtime'
@@ -28,6 +29,7 @@ export default function PhoneLoginPage() {
   const [loading, setLoading] = useState(false)
   const [codeCountdown, setCodeCountdown] = useState(0)
   const [errorText, setErrorText] = useState('')
+  const [videoUnavailable, setVideoUnavailable] = useState(false)
   const loginPendingRef = useRef(false)
   const agreementContinuationRef = useRef<'sms' | 'wechat' | null>(null)
 
@@ -187,6 +189,27 @@ export default function PhoneLoginPage() {
   return (
     <View className="phone-login-page">
       <Image className="phone-login-bg" src={loginSceneBg} mode="aspectFill" />
+      {!videoUnavailable && !showAgreement ? (
+        <Video
+          className="phone-login-video"
+          src={miniappOssMedia.loginBackgroundVideo}
+          poster={loginSceneBg}
+          autoplay
+          loop
+          muted
+          controls={false}
+          showCenterPlayBtn={false}
+          showFullscreenBtn={false}
+          enableProgressGesture={false}
+          objectFit="cover"
+          onError={() => setVideoUnavailable(true)}
+        />
+      ) : null}
+      {!videoUnavailable && !showAgreement ? (
+        <CoverView className="phone-login-brand">
+          <CoverImage src={miniappOssIcons.loginBrand} />
+        </CoverView>
+      ) : null}
       <View className="phone-login-panel">
         <View className="phone-login-line">
           <Image className="phone-login-icon" src={miniappOssIcons.loginPhoneField} mode="aspectFit" />
