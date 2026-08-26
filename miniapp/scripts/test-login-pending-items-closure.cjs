@@ -300,11 +300,16 @@ test('退出登录手机号页按五态设计稿实现星空首屏、协议弹�
   assert.match(styles, /\.sms-verify-page/)
   assert.match(styles, /\.sms-code-box\.is-active/)
   assert.match(phone, /miniappOssIcons\.loginAgreementUnchecked/)
+  assert.match(phone, /miniappOssIcons\.loginAgreementChecked/)
   assert.match(iconManifest, /loginAgreementUnchecked:\s*'https:\/\//)
+  assert.match(iconManifest, /loginAgreementChecked:\s*'https:\/\//)
   assert.match(styles, /\.phone-login-panel \{[^}]*left: 32rpx; right: 32rpx;/)
   assert.match(styles, /\.phone-login-icon \{[^}]*width: 48rpx; height: 48rpx;/)
   assert.match(styles, /\.phone-login-code-button \{[^}]*height: 98rpx;/)
   assert.match(styles, /\.phone-login-wechat \{[^}]*width: 88rpx; height: 88rpx;/)
+  assert.match(styles, /\.phone-login-line \{[^}]*transform: translateY\(-60rpx\);/)
+  assert.match(styles, /\.phone-login-agreement \{[^}]*justify-content: flex-start;/)
+  assert.match(styles, /\.phone-login-agreement \.phone-login-link \{ color: #fff; \}/)
 })
 
 test('出生日期已有有效默认值时进入页面即点亮', () => {

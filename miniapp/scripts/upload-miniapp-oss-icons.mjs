@@ -68,6 +68,7 @@ const ICON_ASSETS = Object.freeze({
   loginMethodPhone: 'src/assets/lanhu/login/login-method-phone.png',
   loginPhoneField: 'src/assets/lanhu/login/login-phone-field.png',
   loginAgreementUnchecked: 'src/assets/lanhu/login/login-agreement-unchecked.png',
+  loginAgreementChecked: 'src/assets/lanhu/login/login-agreement-checked.png',
   loginSmsCode: 'src/assets/lanhu/login/login-sms-code.png',
   loginBrand: 'src/assets/lanhu/login/login-brand.png',
   loginCityLocation: 'src/assets/lanhu/login/city-location.png',
