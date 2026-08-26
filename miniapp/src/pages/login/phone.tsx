@@ -2,7 +2,7 @@ import { Image, Input, Text, View } from '@tarojs/components'
 import { useEffect, useRef, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
-import { loginByPhone, sendPhoneSmsCode } from '@/services/auth'
+import { loginByPhone, resolveWechatUsage, sendPhoneSmsCode } from '@/services/auth'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
@@ -112,6 +112,32 @@ export default function PhoneLoginPage() {
     if (nextCode.length === SMS_CODE_LENGTH) void completeLogin(nextCode)
   }
 
+  const handleWechatLogin = async () => {
+    if (loginPendingRef.current || loading) return
+    loginPendingRef.current = true
+    setLoading(true)
+    setErrorText('')
+    try {
+      const { code } = await Taro.login()
+      if (!code) throw new Error('微信身份识别失败，请重试')
+      const usage = await resolveWechatUsage(code)
+      if (!usage.provisionalLogin) throw new Error('微信登录状态创建失败，请重试')
+      const loginData = usage.provisionalLogin
+      setLogin(loginData.token, loginData.userId, loginData.nickname || '', normalizeAvatarUrl(loginData.avatar, defaultAvatar), {
+        openid: loginData.openid,
+        phone: loginData.phone,
+        maskedPhone: loginData.maskedPhone,
+        accessStatus: loginData.accessStatus,
+      })
+      await resumeAfterLogin(loginData)
+    } catch (error) {
+      showError('微信登录失败，请稍后重试', error)
+    } finally {
+      loginPendingRef.current = false
+      setLoading(false)
+    }
+  }
+
   const { menuTop, menuHeight } = getNativeNavigationMetrics()
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
   const unit = isWeapp ? 'rpx' : 'px'
@@ -156,7 +182,7 @@ export default function PhoneLoginPage() {
             : <Image className="phone-login-check-image" src={miniappOssIcons.loginAgreementUnchecked} mode="aspectFit" />}
           <Text>阅读并同意</Text><Text className="phone-login-link">《用户服务协议》</Text><Text>和</Text><Text className="phone-login-link">《隐私保护政策》</Text>
         </View>
-        <View className="phone-login-wechat" onClick={() => Taro.redirectTo({ url: '/pages/login/index?variant=methods' })}><Image src={miniappOssIcons.loginMethodWechat} mode="aspectFit" /></View>
+        <View className="phone-login-wechat" onClick={() => void handleWechatLogin()}><Image src={miniappOssIcons.loginMethodWechat} mode="aspectFit" /></View>
       </View>
       {errorText ? <View className="phone-login-error" onClick={() => setErrorText('')}><Text>{errorText}</Text></View> : null}
       {showAgreement ? (

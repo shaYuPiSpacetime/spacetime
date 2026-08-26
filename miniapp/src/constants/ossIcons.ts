@@ -42,7 +42,7 @@ export const miniappOssIcons = Object.freeze({
   memberBenefitStealth: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/1b0f82bf277d1e54/member-slice-stealth.png',
   memberBenefitReplay: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/9e38d370761e9630/member-slice-greeting-b.png',
   memberBenefitDailyHeart: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/a8924076b9c96dbd/member-slice-my-2.png',
-  loginMethodWechat: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/5473586b5bf7ce0b/login-method-wechat.png',
+  loginMethodWechat: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/e0faa91163b5354d/login-method-wechat.png',
   loginMethodPhone: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/571ffa17f16884a1/login-method-phone.png',
   loginPhoneField: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/dbb3f1771470fb81/login-phone-field.png',
   loginAgreementUnchecked: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/2d127e2beb246565/login-agreement-unchecked.png',
