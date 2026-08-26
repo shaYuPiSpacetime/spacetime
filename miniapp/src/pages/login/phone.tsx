@@ -151,7 +151,9 @@ export default function PhoneLoginPage() {
         </View>
         <View className={`phone-login-code-button ${isValidLoginPhone(phoneNumber) ? 'is-active' : ''}`} onClick={() => void handleGetCode()}><Text>{loading ? '获取中...' : '获取验证码'}</Text></View>
         <View className="phone-login-agreement" onClick={() => setAgreementAccepted(value => !value)}>
-          <View className={`phone-login-check ${agreementAccepted ? 'is-checked' : ''}`}><Text>✓</Text></View>
+          {agreementAccepted
+            ? <View className="phone-login-check is-checked"><Text>✓</Text></View>
+            : <Image className="phone-login-check-image" src={miniappOssIcons.loginAgreementUnchecked} mode="aspectFit" />}
           <Text>阅读并同意</Text><Text className="phone-login-link">《用户服务协议》</Text><Text>和</Text><Text className="phone-login-link">《隐私保护政策》</Text>
         </View>
         <View className="phone-login-wechat" onClick={() => Taro.redirectTo({ url: '/pages/login/index?variant=methods' })}><Image src={miniappOssIcons.loginMethodWechat} mode="aspectFit" /></View>

@@ -286,6 +286,7 @@ test('登录方式、手机号和性别图标在运行态使用真实组件', ()
 test('退出登录手机号页按五态设计稿实现星空首屏、协议弹窗和验证码自动登录', () => {
   const phone = read('src/pages/login/phone.tsx')
   const styles = read('src/pages/login/phone.scss')
+  const iconManifest = read('src/constants/ossIcons.ts')
 
   assert.match(phone, /loginSceneBg/)
   assert.doesNotMatch(phone, /className="phone-login-brand"/, '背景切图已包含品牌，不得再叠加独立 Logo')
@@ -298,6 +299,12 @@ test('退出登录手机号页按五态设计稿实现星空首屏、协议弹�
   assert.match(styles, /\.phone-agreement-sheet/)
   assert.match(styles, /\.sms-verify-page/)
   assert.match(styles, /\.sms-code-box\.is-active/)
+  assert.match(phone, /miniappOssIcons\.loginAgreementUnchecked/)
+  assert.match(iconManifest, /loginAgreementUnchecked:\s*'https:\/\//)
+  assert.match(styles, /\.phone-login-panel \{[^}]*left: 32rpx; right: 32rpx;/)
+  assert.match(styles, /\.phone-login-icon \{[^}]*width: 48rpx; height: 48rpx;/)
+  assert.match(styles, /\.phone-login-code-button \{[^}]*height: 98rpx;/)
+  assert.match(styles, /\.phone-login-wechat \{[^}]*width: 88rpx; height: 88rpx;/)
 })
 
 test('出生日期已有有效默认值时进入页面即点亮', () => {
