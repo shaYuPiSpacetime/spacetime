@@ -288,6 +288,7 @@ test('退出登录手机号页按五态设计稿实现星空首屏、协议弹�
   const styles = read('src/pages/login/phone.scss')
 
   assert.match(phone, /loginSceneBg/)
+  assert.doesNotMatch(phone, /className="phone-login-brand"/, '背景切图已包含品牌，不得再叠加独立 Logo')
   assert.match(phone, /showAgreement/)
   assert.match(phone, /handleAgreeAndContinue/)
   assert.match(phone, /setAgreementAccepted\(true\)[\s\S]*setShowAgreement\(false\)[\s\S]*sendCodeAndOpenVerify/)

@@ -144,7 +144,6 @@ export default function PhoneLoginPage() {
   return (
     <View className="phone-login-page">
       <Image className="phone-login-bg" src={loginSceneBg} mode="aspectFill" />
-      <Image className="phone-login-brand" src={miniappOssIcons.loginBrand} mode="aspectFit" />
       <View className="phone-login-panel">
         <View className="phone-login-line">
           <Image className="phone-login-icon" src={miniappOssIcons.loginPhoneField} mode="aspectFit" />

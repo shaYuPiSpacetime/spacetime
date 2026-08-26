@@ -1,6 +1,5 @@
 .phone-login-page { position: relative; width: 100%; min-height: 100vh; overflow: hidden; background: #061329; }
 .phone-login-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.phone-login-brand { position: absolute; left: 95rpx; top: 300rpx; width: 560rpx; height: 260rpx; }
 .phone-login-panel { position: absolute; left: 70rpx; right: 70rpx; bottom: calc(52rpx + env(safe-area-inset-bottom)); z-index: 2; }
 .phone-login-line { height: 86rpx; display: flex; align-items: center; border-bottom: 2rpx solid rgba(255,255,255,.55); }
 .phone-login-icon { width: 34rpx; height: 44rpx; margin-right: 18rpx; }
