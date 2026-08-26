@@ -6,6 +6,7 @@ export const PRD01_API_PATHS = {
   smsCode: '/miniapp/auth/sms-code',
   phoneLogin: '/miniapp/auth/phone-login',
   wechatLogin: '/miniapp/auth/wechat-login',
+  wechatUsage: '/miniapp/auth/wechat-usage',
   initStatus: '/miniapp/profile/init-status',
   initStep: '/miniapp/profile/init-step',
   homeDetail: '/miniapp/profile/home-detail',

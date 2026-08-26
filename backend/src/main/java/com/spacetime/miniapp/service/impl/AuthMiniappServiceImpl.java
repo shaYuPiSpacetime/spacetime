@@ -21,8 +21,10 @@ import com.spacetime.common.util.DefaultNicknameGenerator;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.request.WechatLoginReq;
+import com.spacetime.miniapp.dto.request.WechatUsageReq;
 import com.spacetime.miniapp.dto.response.PhoneSmsCodeVO;
 import com.spacetime.miniapp.dto.response.WechatLoginVO;
+import com.spacetime.miniapp.dto.response.WechatUsageVO;
 import com.spacetime.miniapp.service.AuthMiniappService;
 import com.spacetime.miniapp.service.WechatMiniappClient;
 import lombok.RequiredArgsConstructor;
@@ -171,7 +173,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
                                       String boundPhone,
                                       String unionid,
                                       List<String> promotionTraceNos) {
-        AppUser user = appUserDao.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getOpenid, openId));
+        AppUser user = findWechatUser(openId, unionid);
         boolean isNew = user == null;
         if (isNew) {
             LoginTarget created = createNewUser(
@@ -191,6 +193,16 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             appUserDao.updateById(user);
         }
         return new LoginTarget(user, isNew);
+    }
+
+    /** unionId 可用时优先跨 openId 识别同一微信用户，缺失时回退当前小程序 openId。 */
+    private AppUser findWechatUser(String openId, String unionid) {
+        if (StrUtil.isNotBlank(unionid)) {
+            AppUser byUnionId = appUserDao.selectOne(
+                    new LambdaQueryWrapper<AppUser>().eq(AppUser::getUnionid, unionid));
+            if (byUnionId != null) return byUnionId;
+        }
+        return appUserDao.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getOpenid, openId));
     }
 
     /** 创建用户；认证记录按用户后续真实提交生成，不在登录时默认落库。 */
@@ -394,6 +406,24 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime tomorrow = now.toLocalDate().plusDays(1).atStartOfDay();
         return Duration.between(now, tomorrow);
+    }
+
+    @Override
+    @Transactional
+    public WechatUsageVO resolveWechatUsage(WechatUsageReq req) {
+        WechatMiniappClient.SessionInfo session = wechatMiniappClient.code2Session(req.getLoginCode());
+        if (session == null || StrUtil.isBlank(session.openid())) {
+            throw new BusinessException("微信身份识别失败，请重试");
+        }
+        AppUser existing = findWechatUser(session.openid(), session.unionid());
+        WechatUsageVO result = new WechatUsageVO();
+        result.setUsedBefore(existing != null);
+        if (existing == null) {
+            LoginTarget created = createNewUser(
+                    session.openid(), RegisterSourceEnum.WECHAT.getCode(), null, session.unionid(), List.of());
+            result.setProvisionalLogin(buildLoginVO(created.user(), true));
+        }
+        return result;
     }
 
     /** 登录过程中的用户、认证记录和是否新用户。 */

@@ -1,3 +1,5 @@
+import type { AccessStatus } from './prd01'
+
 /** 小程序用户信息 */
 export interface AppUserVO {
   id: number
@@ -30,6 +32,11 @@ export interface LoginVO {
   accessStatus?: AccessStatus
 }
 
+export interface WechatUsageResult {
+  usedBefore: boolean
+  provisionalLogin?: LoginVO
+}
+
 /** 匹配用户卡片 */
 export interface MatchUserCard {
   id: number
@@ -40,4 +47,3 @@ export interface MatchUserCard {
   tags: string[]
   distance?: string
 }
-import type { AccessStatus } from './prd01'

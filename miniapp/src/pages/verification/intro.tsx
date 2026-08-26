@@ -1,10 +1,14 @@
-import { Text, Textarea, View } from '@tarojs/components'
+import { Button, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { OpenTextDetail } from '@/types/prd01'
 import { navigateBackOrRedirect } from '@/utils/navigation'
+import { loginByWechatPhone } from '@/services/auth'
+import { useAuthStore } from '@/stores/authStore'
+import { normalizeAvatarUrl } from '@/utils/avatar'
+import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import VerificationShell from './components/VerificationShell'
 
@@ -17,6 +21,7 @@ export default function VerificationIntroPage() {
   const [detail, setDetail] = useState<OpenTextDetail>()
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
+  const setLogin = useAuthStore(state => state.setLogin)
   const variant = String(router.params.variant || router.params.voice || '')
   const voiceVariant = VOICE_VARIANTS.has(variant)
 
@@ -33,11 +38,31 @@ export default function VerificationIntroPage() {
     setValue(result.latestContent || '')
   }
 
-  const save = async () => {
+  const save = async (event: { detail?: { code?: string; errMsg?: string } }) => {
     const content = value.trim()
     if (saving || content.length < MIN_INTRODUCTION_LENGTH || detail?.canSubmit === false) return
+    const phoneCode = event.detail?.code
+    if (!phoneCode) {
+      await Taro.showToast({ title: '需要完成微信授权后继续', icon: 'none' })
+      return
+    }
     setSaving(true)
     try {
+      const { code: loginCode } = await Taro.login()
+      if (!loginCode) throw new Error('微信登录凭证获取失败，请重试')
+      const loginData = await loginByWechatPhone({ loginCode, phoneCode, agreeProtocol: true })
+      setLogin(
+        loginData.token,
+        loginData.userId,
+        loginData.nickname || '',
+        normalizeAvatarUrl(loginData.avatar, defaultAvatar),
+        {
+          openid: loginData.openid,
+          phone: loginData.phone,
+          maskedPhone: loginData.maskedPhone,
+          accessStatus: loginData.accessStatus,
+        },
+      )
       await prd01Api.submitIntroduction(content)
       await Taro.redirectTo({ url: '/pages/verification/triple' })
     } catch (error) {
@@ -53,9 +78,6 @@ export default function VerificationIntroPage() {
     <VerificationRuntimeBoundary loadData={loadIntroduction}>
       <VerificationShell
         stage="intro"
-        primaryText={saving ? copy('common_submitting_action') : copy('verification_next_action')}
-        primaryActive={active}
-        onPrimary={save}
         onBack={() => navigateBackOrRedirect('/pages/index/index')}
       >
         <View style={{ position: 'absolute', left: '25rpx', top: '558rpx', width: '700rpx', height: '976rpx', borderRadius: '18rpx', background: '#FFFFFF', padding: '52rpx 30rpx', boxSizing: 'border-box' }}>
@@ -73,6 +95,21 @@ export default function VerificationIntroPage() {
           </View>
           {detail?.rejectReason ? <Text style={{ display: 'block', color: '#E36A6A', fontSize: '24rpx', lineHeight: '36rpx', marginTop: '12rpx' }}>{detail.rejectReason}</Text> : null}
         </View>
+        <Button
+          id="verification-intro-wechat-authorize"
+          openType="getPhoneNumber"
+          disabled={!active}
+          onGetPhoneNumber={save}
+          style={{
+            position: 'fixed', left: '25rpx', right: '25rpx',
+            bottom: 'calc(24rpx + env(safe-area-inset-bottom))', height: '98rpx',
+            borderRadius: '24rpx', border: 0, padding: 0,
+            background: active ? '#2876FF' : '#C9DDF7', color: '#FFFFFF',
+            fontSize: '32rpx', fontWeight: 700, lineHeight: '98rpx', zIndex: 20,
+          }}
+        >
+          {saving ? copy('common_submitting_action') : copy('verification_next_action')}
+        </Button>
       </VerificationShell>
     </VerificationRuntimeBoundary>
   )

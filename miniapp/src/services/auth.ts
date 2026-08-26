@@ -5,6 +5,12 @@ import {
   waitForPromotionAttributionCapture,
 } from './promotionAttribution'
 import type { LoginReq, LoginVO } from '@/types/user'
+import type { WechatUsageResult } from '@/types/user'
+import { post } from './request'
+
+export function resolveWechatUsage(loginCode: string): Promise<WechatUsageResult> {
+  return post<WechatUsageResult>('/miniapp/auth/wechat-usage', { loginCode })
+}
 import type { SmsCodeResult } from '@/types/prd01'
 
 /** 微信授权手机号登录：用 wx.login code + getPhoneNumber code 换取后端 token */

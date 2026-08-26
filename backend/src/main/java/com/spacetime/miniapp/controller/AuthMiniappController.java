@@ -4,8 +4,10 @@ import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.request.WechatLoginReq;
+import com.spacetime.miniapp.dto.request.WechatUsageReq;
 import com.spacetime.miniapp.dto.response.PhoneSmsCodeVO;
 import com.spacetime.miniapp.dto.response.WechatLoginVO;
+import com.spacetime.miniapp.dto.response.WechatUsageVO;
 import com.spacetime.miniapp.service.AuthMiniappService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthMiniappController {
 
     private final AuthMiniappService authMiniappService;
+
+    /** “立即使用”入口：优先通过 unionId 判断是否为历史用户。 */
+    @PostMapping("/wechat-usage")
+    public R<WechatUsageVO> wechatUsage(@Valid @RequestBody WechatUsageReq req) {
+        return R.ok(authMiniappService.resolveWechatUsage(req));
+    }
 
     /** 微信授权登录。 */
     @PostMapping("/wechat-login")

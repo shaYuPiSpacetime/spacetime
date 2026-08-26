@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useLogin } from '@/hooks/useLogin'
 import { useAuthStore } from '@/stores/authStore'
-import { loginByWechatPhone } from '@/services/auth'
+import { loginByWechatPhone, resolveWechatUsage } from '@/services/auth'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { miniappOssMedia } from '@/constants/ossMedia'
 import { normalizeAvatarUrl } from '@/utils/avatar'
@@ -465,11 +465,37 @@ export default function LoginAuthPage() {
 
   })
 
-  const handleUse = () => {
-    setShowMethodSheet(true)
+  const handleUse = async () => {
+    if (loading) return
+    setLoading(true)
     setShowDialog(false)
     setShowError(false)
     setErrorText('')
+    try {
+      const { code } = await Taro.login()
+      if (!code) throw new Error('微信身份识别失败，请重试')
+      const usage = await resolveWechatUsage(code)
+      if (usage.usedBefore || !usage.provisionalLogin) {
+        setShowMethodSheet(true)
+        return
+      }
+      const loginData = usage.provisionalLogin
+      setLogin(
+        loginData.token,
+        loginData.userId,
+        loginData.nickname || '',
+        normalizeAvatarUrl(loginData.avatar, defaultAvatar),
+        { openid: loginData.openid, accessStatus: loginData.accessStatus },
+      )
+      await resumeAfterLogin(loginData)
+    } catch (error) {
+      const nextErrorText = getWechatAuthErrorText(error)
+      setErrorText(nextErrorText)
+      setShowError(true)
+      Taro.showToast({ title: nextErrorText, icon: 'none' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const proceedWithMethod = async (method: LoginMethod) => {
@@ -685,7 +711,7 @@ export default function LoginAuthPage() {
         onClick={handleUse}
       >
         <Text style={{ color: '#2876FF', fontSize: '34rpx', fontWeight: 600, lineHeight: '48rpx' }}>
-          立即使用
+          {loading ? '识别中...' : '立即使用'}
         </Text>
       </View>
 
