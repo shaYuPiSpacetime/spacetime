@@ -616,3 +616,99 @@ CommunityMediaAuditCallbackServiceImplTest  12/12 通过
 ### 29.3 外部配置状态
 
 生产服务器 `112.124.59.146` 不接受当前机器的 SSH 密钥，当前浏览器控制连接也不可用，因此尚未把 Token 写入服务器 `/mnt/data/spacetime-prod/secrets/prod.env`，也未在微信公众平台保存消息推送配置。此项属于外部权限阻塞，不得表述为生产配置完成。
+
+## 30. 微信生产图片、文字、语音审核与公网回调实测（2026-08-24）
+
+> 本节取代第 29.3 节的历史阻塞状态：生产回调 Token 已配置，微信公众平台 URL 校验成功，生产容器已重新部署。本节不记录任何密钥、用户 OpenId、会话 Token 或完整第三方任务编号。
+
+### 30.1 环境与样本
+
+| 项目 | 实际值 |
+|------|--------|
+| 生产域名 | `https://admin.shikongxiehou.com` |
+| 测试用户 | 指定测试账号，`userId=123`；账号正常且已绑定当前小程序 OpenId |
+| 内容安全 Provider | 微信 `msg_sec_check`、`media_check_async`，所有本轮任务 `mocked=0` |
+| 正常文字 | 校园散步、阅读、羽毛球等正常自我介绍 |
+| 风险文字 | 旧版官方测试串，以及诈骗、赌博、暴力等风险关键词组合 |
+| 正常图片 | 640x640 校园生活测试图 |
+| 风险图片 | 640x640 风险文案及二维码图形测试图 |
+| 语音 | 公网可访问的 MP3 测试音频 |
+| 视频 | 当前后端无视频上传/审核接口，本轮只做能力探测 |
+
+### 30.2 小程序接口与真实微信结果
+
+| 类型 | 小程序接口 | 记录/状态 | 微信与数据证据 | 结果 |
+|------|------------|-----------|----------------|------|
+| 正常文字 | `POST /miniapp/profile/introduction` | `1152 / ABOUT_ME / APPROVED` | Provider `311`，`wechat-content-security`，`SUCCESS`，`mocked=0` | 通过 |
+| 风险文字 | 同上 | `1153-1155、1160-1161` 最初均为 `APPROVED` | 微信 V2 对旧版测试串和风险词均返回 `errcode=0、suggest=pass、label=100` | 微信真实放行，非测试伪造 |
+| 正常相册图 | OSS ticket + `POST /miniapp/profile/albums` | `1156、1157 / APPROVED` | `PENDING -> REVIEWING -> APPROVED`，Provider 任务 `315、316` | 回调闭环通过 |
+| 风险相册图 | 同上 | `1158` 先经微信 `APPROVED`，后人工复核为 `REJECTED` | Provider `317` 先 `SUCCESS`；后台补 `MANUAL_REJECT` | 可见驳回数据已生成，但不是微信自动驳回 |
+| 语音介绍 | OSS ticket + `POST /miniapp/profile/voice-intro` | `1159 / VOICE_INTRO / APPROVED` | Provider `318`；`PENDING -> REVIEWING -> APPROVED` | 回调闭环通过 |
+| 风险头像 | OSS ticket + `POST /miniapp/profile/avatar` | `1162 / REJECTED` | 本轮 token 诊断期间未被微信受理，后台人工复核驳回 | 驳回历史可见 |
+| 恢复头像 | 同上 | `1164 / AVATAR / APPROVED` | Provider `323`；微信异步回调通过 | 测试用户最终头像状态已恢复 |
+| 恢复文字 | `POST /miniapp/profile/introduction` | 最新正常文案 `APPROVED` | 测试结束后恢复公开内容 | 测试用户最终资料正常 |
+| 视频探测 | `POST /miniapp/file/upload-ticket/video` | HTTP 200、业务 `code=404`、`资源不存在` | 当前代码只支持图片、文字、语音 | 未实现，不计为通过 |
+
+### 30.3 回调时序证据
+
+| 审核记录 | 状态历史 | 实际耗时 |
+|----------|----------|----------|
+| `1156` 正常相册图 | `SUBMIT -> MACHINE_START -> MACHINE_PASS` | 约 4 秒 |
+| `1157` 正常相册图 | `SUBMIT -> MACHINE_START -> MACHINE_PASS` | 约 1 秒 |
+| `1158` 风险相册图 | `SUBMIT -> MACHINE_START -> MACHINE_PASS -> MANUAL_REJECT` | 微信回调约 4 秒 |
+| `1159` 语音介绍 | `SUBMIT -> MACHINE_START -> MACHINE_PASS` | 约 2 秒 |
+| `1164` 恢复头像 | `SUBMIT -> MACHINE_START -> MACHINE_PASS` | 约 4 秒 |
+
+以上异步最终状态均由公网回调写入，审核历史 `operatorType=PROVIDER`，不是轮询脚本直接改表。
+
+### 30.4 后台可见性验证
+
+使用生产后台真实接口按 `userId=123` 查询：
+
+| 后台接口 | 总数 | 本轮关键数据 |
+|----------|------|--------------|
+| `GET /admin/moderation/photos/list` | 8 | `1158:REJECTED`、`1157:APPROVED`、`1156:APPROVED`，另有 5 条历史逻辑失效记录 |
+| `GET /admin/moderation/texts/list` | 13 | 最新恢复记录 `1165:APPROVED`、风险复核记录 `1155:REJECTED`，其余微信真实通过记录保留 |
+| `GET /admin/verify/avatar/list` | 4 | `1164:APPROVED`、`1163:EXPIRED`、`1162:REJECTED`、历史 `666:APPROVED` |
+| `GET /admin/users/app/123` | 1 个用户详情 | 可见最终正常头像、正常关于我和已通过语音介绍；后台详情保留 3 张非失效相册提交记录，其中 1 张为驳回记录，公开资料查询只取 `APPROVED` 图片 |
+
+### 30.5 过程异常与恢复
+
+为核对微信原始 V2 结论，测试中直接调用了一次微信取 token 接口，导致后端已缓存 token 被微信判为非最新，两个头像任务返回 `wechat_media_err_40001`。这两条记录分别通过后台审核接口标记为 `REJECTED/EXPIRED`，未直接改业务表。随后删除 `wechat:miniapp:access_token:{AppId}` 旧缓存，由后端自行重新取 token，记录 `1164` 已重新获得任务编号并完成公网回调。
+
+该现象同时验证：生产运维不得绕过应用重复获取普通 `access_token`；外部诊断或多服务共享同一 AppId 时必须统一 token 管理。
+
+### 30.6 结论
+
+**部分通过。** 图片、文字、语音的小程序提交、OSS 直传、真实微信调用、Provider 落库、公网回调、状态历史和后台查询均已闭环；测试用户最终公开资料已恢复正常。当前有两项必须如实保留：
+
+1. 微信 V2 对本轮风险文字和风险图片均给出 `PASS`，因此系统不能宣称微信已自动产生驳回样本；后台中的驳回记录来自人工复核，历史链路已准确区分。
+2. 视频不在当前正式需求和代码范围内，接口探测返回业务 `404`。若产品确定新增视频，需单独补 PRD、上传限制、媒体存储、微信/第三方视频审核方案、回调状态机及管理后台展示。
+
+### 30.7 自动化回归
+
+使用本机 Java 21 执行内容安全定向回归：
+
+```text
+WechatAccessTokenCacheIsolationTest             2/2 通过
+WechatContentSafetyProviderTest                 5/5 通过
+AppUserAuditContentServiceTest                  3/3 通过
+CommunityMediaAuditCallbackControllerTest       1/1 通过
+CommunityMediaAuditCallbackServiceImplTest     12/12 通过
+OpenTextAuditServiceImplTest                    8/8 通过
+ProfileMediaServiceImplTest                    13/13 通过
+VoiceIntroServiceImplTest                       1/1 通过
+合计                                           45/45 通过
+```
+
+Maven 结果为 `BUILD SUCCESS`，`Failures: 0`、`Errors: 0`、`Skipped: 0`。覆盖微信 Token 按 AppId 隔离、Provider 结果映射、图片与语音异步回调、文字审核、相册公开范围及资料媒体状态转换。
+
+### 30.8 服务启动与查看入口
+
+| 服务 | 验证结果 |
+|------|----------|
+| 本地后端 `http://127.0.0.1:8080` | `/health` 返回 HTTP 200，响应 `data=ok` |
+| 本地管理前端 `http://127.0.0.1:5173` | 首页返回 HTTP 200，Vite 页面根节点正常 |
+| 生产管理后台 `https://admin.shikongxiehou.com` | 生产审核记录已通过管理接口按 `userId=123` 查询确认 |
+
+本地后端读取 `backend/.env.local` 并连接开发环境数据库；生产真实审核记录位于生产数据库。查看本轮生产记录应进入生产管理后台，本地服务用于代码与开发环境联调，二者数据不混用。

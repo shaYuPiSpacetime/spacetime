@@ -422,3 +422,20 @@
 | L3-WX-SAFETY-006 | L3 | P0 | 微信重复或冲突回调 | 相同 `trace_id`、相同结果幂等成功；已落地最终结果与新结果冲突时拒绝更新 |
 | L3-WX-SAFETY-007 | L3 | P1 | Provider 调用抛异常或未返回 `trace_id` | 当前提交保持 `PENDING`，不替换旧有效资料，不伪造审核通过 |
 | L3-WX-SAFETY-008 | L3 | P0 | 生产配置与数据库迁移 | `prod` 默认 `wechat`；执行 077 后存在 `external_task_id` 和 `idx_provider_task_external` |
+
+## 21. 2026-08-24 微信生产内容安全回调闭环用例
+
+> 本组为生产真实三方联调用例，仅允许使用指定测试用户。Token、AppSecret、OpenId、回调 Token 和完整媒体地址不得写入报告或日志。
+
+| 用例 ID | 层级 | 优先级 | 场景 | 断言 |
+|---------|------|--------|------|------|
+| L1-WX-REAL-001 | L1 | P0 | 通过小程序资料接口提交正常开放文字 | `POST /miniapp/profile/introduction` 返回 `code=200`；审核记录和 Provider 任务落库；`providerCode=wechat-content-security`、`mocked=0`；状态等于微信真实结论 |
+| L1-WX-REAL-002 | L1 | P0 | 提交旧版官方测试串及诈骗、暴力等风险文字 | 不预设微信一定驳回；必须保存微信真实结论，不得由测试脚本伪造机审结果；风险样本若被放行，报告必须登记为策略观察项 |
+| L1-WX-REAL-003 | L1 | P0 | OSS 直传正常图片并提交相册审核 | 上传凭证、OSS 直传和 `POST /miniapp/profile/albums` 均成功；记录经历 `PENDING -> REVIEWING -> APPROVED/REJECTED`；历史操作方为 `PROVIDER` |
+| L1-WX-REAL-004 | L1 | P0 | OSS 直传带风险文案和二维码图形的图片 | 微信返回真实异步任务编号；回调按真实结论更新，`external_provider_task.mocked=0`；不得把“样本看起来有风险”直接等同于微信驳回 |
+| L1-WX-REAL-005 | L1 | P0 | OSS 直传 MP3 并提交语音介绍 | `media_type=1` 异步受理；记录先为 `REVIEWING`，公网回调后进入最终态；未通过前不公开新语音 |
+| L1-WX-REAL-006 | L1 | P0 | 核对微信公网回调状态历史 | 每条媒体记录至少存在 `SUBMIT`、`MACHINE_START`、`MACHINE_PASS/MACHINE_REJECT`；最终历史的 `operatorType=PROVIDER`，回调耗时可追踪 |
+| L1-WX-REAL-007 | L1 | P0 | 后台照片、文字、头像列表查询指定测试用户 | 三个后台列表均可按 `userId` 查到本轮记录；状态、提交时间、驳回原因和历史与数据库一致 |
+| L1-WX-REAL-008 | L1 | P1 | 微信机审通过后由后台人工复核驳回风险样本 | 审核历史保留微信 `MACHINE_PASS` 和管理员 `MANUAL_REJECT` 两段事实；不得篡改为“微信自动驳回” |
+| L1-WX-REAL-009 | L1 | P0 | 探测视频上传与审核接口 | 当前 `POST /miniapp/file/upload-ticket/video` 返回业务 `code=404`；报告明确“当前正式范围仅图片、文字、语音”，不得伪造视频审核数据 |
+| L1-WX-REAL-010 | L1 | P0 | 微信 access token 被外部刷新后重试 | 清理按 AppId 隔离的旧缓存后，由后端重新获取 token；新提交重新获得异步任务编号并完成回调，受影响旧任务按业务接口失效后重提 |
