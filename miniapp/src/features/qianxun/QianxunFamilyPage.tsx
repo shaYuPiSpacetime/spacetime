@@ -179,6 +179,11 @@ export default function RecommendFamilyPage() {
     return false
   }
 
+  const runWithCoreAccess = (action: () => void) => {
+    if (!requireCoreAccess()) return
+    action()
+  }
+
   const toggleFollow = async (post: CommunityPostVO) => {
     if (!requireCoreAccess()) return
     try {
@@ -261,7 +266,7 @@ export default function RecommendFamilyPage() {
         unreadCount={unreadCount}
         metrics={headerMetrics}
         onChange={changePrimaryTab}
-        onProfile={() => void Taro.navigateTo({ url: '/pages/qianxun/interactions?section=mine' })}
+        onProfile={() => runWithCoreAccess(() => void Taro.navigateTo({ url: '/pages/qianxun/interactions?section=mine' }))}
       />
       {primaryTab === 'FAMILY' ? <>
         <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
@@ -273,12 +278,12 @@ export default function RecommendFamilyPage() {
                 key={post.id}
                 post={post}
                 optionLabel={optionLabel}
-                onAuthor={() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` })}
-                onOpen={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
-                onTopic={() => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
-                onComment={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
+                onAuthor={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` }))}
+                onOpen={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` }))}
+                onTopic={() => runWithCoreAccess(() => { if (post.topicId) void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` }) })}
+                onComment={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` }))}
                 onContact={() => openWhisper(post)}
-                onMore={() => openActions(post)}
+                onMore={() => runWithCoreAccess(() => openActions(post))}
                 onFollow={() => void toggleFollow(post)}
                 onLike={() => void toggleLike(post)}
               />

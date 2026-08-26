@@ -422,6 +422,12 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             LoginTarget created = createNewUser(
                     session.openid(), RegisterSourceEnum.WECHAT.getCode(), null, session.unionid(), List.of());
             result.setProvisionalLogin(buildLoginVO(created.user(), true));
+        } else {
+            checkAccountStatus(existing);
+            ensureDefaultNickname(existing);
+            existing.setLastLoginTime(LocalDateTime.now());
+            appUserDao.updateById(existing);
+            result.setProvisionalLogin(buildLoginVO(existing, false));
         }
         return result;
     }

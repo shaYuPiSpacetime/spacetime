@@ -5,13 +5,13 @@
 - 来源：用户提供的登录流程截图，目标端为微信小程序，默认视口 375×812。
 - 点击“立即使用”后通过 `wx.login` 获取临时 code，由服务端换取 openId/unionId。
 - unionId 可用时优先按 unionId 判断是否使用过小程序，缺失时回退 openId。
-- 历史用户继续原有手机号/微信登录流程；首次用户直接进入性别、年龄、身份、学历、地址准入流程。
+- 历史用户按 unionId 恢复会话，首次用户创建续填会话；二者均直接进入当前待完成的性别、年龄、身份、学历、地址准入步骤。
 - 首次用户完成地址后进入现有未认证态；受限操作继续复用项目统一未认证弹窗。
 - 自我介绍填写达到门槛后点亮“下一步”；该真实按钮承载 `getPhoneNumber`，授权成功后进入三重认证。
 
 ## 实现设计
 
-后端新增 `POST /miniapp/auth/wechat-usage`。历史用户仅返回 `usedBefore=true`；首次用户创建仅具备资料续填能力的微信会话并返回登录结构，使现有五步资料接口无需复制一套游客存储逻辑。手机号授权时再次用 unionId 定位同一账号并补齐手机号。
+后端新增 `POST /miniapp/auth/wechat-usage`。历史用户返回恢复后的会话，首次用户创建仅具备资料续填能力的微信会话，使现有五步资料接口无需复制一套游客存储逻辑。手机号授权时再次用 unionId 定位同一账号并补齐手机号。
 
 调用链：`LoginAuthPage -> AuthMiniappController -> AuthMiniappService -> WechatMiniappClient/AppUserDao`。资料保存仍保持 `Controller -> Service -> ServiceImpl -> DAO -> DAOImpl -> Mapper`，未引入 admin/miniapp 交叉依赖。
 

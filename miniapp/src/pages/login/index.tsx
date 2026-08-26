@@ -475,10 +475,7 @@ export default function LoginAuthPage() {
       const { code } = await Taro.login()
       if (!code) throw new Error('微信身份识别失败，请重试')
       const usage = await resolveWechatUsage(code)
-      if (usage.usedBefore || !usage.provisionalLogin) {
-        setShowMethodSheet(true)
-        return
-      }
+      if (!usage.provisionalLogin) throw new Error('微信登录状态创建失败，请重试')
       const loginData = usage.provisionalLogin
       setLogin(
         loginData.token,
