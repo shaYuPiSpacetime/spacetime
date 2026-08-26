@@ -311,7 +311,9 @@ test('退出登录手机号页按五态设计稿实现星空首屏、协议弹�
   assert.match(styles, /\.phone-login-agreement \{[^}]*justify-content: flex-start;/)
   assert.match(styles, /\.phone-login-agreement \.phone-login-link \{ color: #fff; \}/)
   assert.match(phone, /const handleWechatLogin = async \(\) => \{[\s\S]*Taro\.login\(\)[\s\S]*resolveWechatUsage\(code\)[\s\S]*resumeAfterLogin\(loginData\)/)
-  assert.match(phone, /className="phone-login-wechat" onClick=\{\(\) => void handleWechatLogin\(\)\}/)
+  assert.match(phone, /const handleWechatEntry = async \(\) => \{[\s\S]*if \(!agreementAccepted\) \{[\s\S]*agreementContinuationRef\.current = 'wechat'[\s\S]*setShowAgreement\(true\)[\s\S]*await handleWechatLogin\(\)/)
+  assert.match(phone, /const handleAgreeAndContinue = async \(\) => \{[\s\S]*continuation === 'wechat'[\s\S]*await handleWechatLogin\(\)/)
+  assert.match(phone, /className="phone-login-wechat" onClick=\{\(\) => void handleWechatEntry\(\)\}/)
   assert.doesNotMatch(phone, /phone-login-wechat" onClick=\{\(\) => Taro\.redirectTo/)
 })
 

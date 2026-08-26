@@ -29,6 +29,7 @@ export default function PhoneLoginPage() {
   const [codeCountdown, setCodeCountdown] = useState(0)
   const [errorText, setErrorText] = useState('')
   const loginPendingRef = useRef(false)
+  const agreementContinuationRef = useRef<'sms' | 'wechat' | null>(null)
 
   useEffect(() => {
     void bootstrap().catch(error => setErrorText(error instanceof Error ? error.message : String(error)))
@@ -71,6 +72,7 @@ export default function PhoneLoginPage() {
       return
     }
     if (!agreementAccepted) {
+      agreementContinuationRef.current = 'sms'
       setShowAgreement(true)
       return
     }
@@ -78,8 +80,14 @@ export default function PhoneLoginPage() {
   }
 
   const handleAgreeAndContinue = async () => {
+    const continuation = agreementContinuationRef.current
+    agreementContinuationRef.current = null
     setAgreementAccepted(true)
     setShowAgreement(false)
+    if (continuation === 'wechat') {
+      await handleWechatLogin()
+      return
+    }
     await sendCodeAndOpenVerify()
   }
 
@@ -138,6 +146,15 @@ export default function PhoneLoginPage() {
     }
   }
 
+  const handleWechatEntry = async () => {
+    if (!agreementAccepted) {
+      agreementContinuationRef.current = 'wechat'
+      setShowAgreement(true)
+      return
+    }
+    await handleWechatLogin()
+  }
+
   const { menuTop, menuHeight } = getNativeNavigationMetrics()
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
   const unit = isWeapp ? 'rpx' : 'px'
@@ -182,7 +199,7 @@ export default function PhoneLoginPage() {
             : <Image className="phone-login-check-image" src={miniappOssIcons.loginAgreementUnchecked} mode="aspectFit" />}
           <Text>阅读并同意</Text><Text className="phone-login-link">《用户服务协议》</Text><Text>和</Text><Text className="phone-login-link">《隐私保护政策》</Text>
         </View>
-        <View className="phone-login-wechat" onClick={() => void handleWechatLogin()}><Image src={miniappOssIcons.loginMethodWechat} mode="aspectFit" /></View>
+        <View className="phone-login-wechat" onClick={() => void handleWechatEntry()}><Image src={miniappOssIcons.loginMethodWechat} mode="aspectFit" /></View>
       </View>
       {errorText ? <View className="phone-login-error" onClick={() => setErrorText('')}><Text>{errorText}</Text></View> : null}
       {showAgreement ? (
