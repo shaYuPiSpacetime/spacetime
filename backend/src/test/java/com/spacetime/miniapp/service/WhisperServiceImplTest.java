@@ -24,6 +24,7 @@ import com.spacetime.common.entity.CoinSceneConfig;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.entity.VipBenefit;
+import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.WhisperCreateReq;
 import com.spacetime.miniapp.dto.request.WhisperPrecheckReq;
@@ -41,6 +42,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -223,6 +225,34 @@ class WhisperServiceImplTest {
     }
 
     @Test
+    void precheckAllowsNormalReceiverWithoutTripleCertification() {
+        stubEligibleUsers();
+        when(accessProjectionService.project(any(AppUser.class)))
+                .thenAnswer(invocation -> Objects.equals(
+                        ((AppUser) invocation.getArgument(0)).getId(), 7L) ? "OPEN" : "CLOSED");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset(7L, 50, "inactive"));
+        when(quoteStore.issue(any())).thenReturn("wq-normal-receiver");
+
+        WhisperPrecheckVO result = service.precheck(7L, precheckReq());
+
+        assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getQuoteToken()).isEqualTo("wq-normal-receiver");
+    }
+
+    @Test
+    void precheckRejectsReceiverWithAbnormalAccountStatus() {
+        stubEligibleUsers();
+        AppUser receiver = user(8L, "接收者");
+        receiver.setAccountStatus(AccountStatusEnum.FROZEN.getCode());
+        when(appUserDao.selectById(8L)).thenReturn(receiver);
+
+        assertThatThrownBy(() -> service.precheck(7L, precheckReq()))
+                .hasMessageContaining("接收方账号状态异常");
+
+        verify(quoteStore, never()).issue(any());
+    }
+
+    @Test
     void createRejectsChangedPriceInsideAssetLock() {
         stubEligibleUsers();
         when(quoteStore.read("wq-price")).thenReturn(quote("coin", 10, 0));
@@ -254,7 +284,7 @@ class WhisperServiceImplTest {
         lenient().when(ruleVersionDao.selectCurrent("global")).thenReturn(rule());
         when(appUserDao.selectById(7L)).thenReturn(user(7L, "发送者"));
         when(appUserDao.selectById(8L)).thenReturn(user(8L, "接收者"));
-        when(accessProjectionService.project(any(AppUser.class))).thenReturn("OPEN");
+        lenient().when(accessProjectionService.project(any(AppUser.class))).thenReturn("OPEN");
         lenient().when(sceneConfigDao.selectPage(any(), any())).thenReturn(scenePage(12));
     }
 
@@ -337,7 +367,7 @@ class WhisperServiceImplTest {
         AppUser user = new AppUser();
         user.setId(id);
         user.setNickname(nickname);
-        user.setAccountStatus("active");
+        user.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
         return user;
     }
 

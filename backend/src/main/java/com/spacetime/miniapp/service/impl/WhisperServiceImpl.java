@@ -28,6 +28,7 @@ import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.entity.VipBenefit;
 import com.spacetime.common.enums.BizSceneEnum;
+import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.FlowTypeEnum;
 import com.spacetime.common.enums.MessageDeliveryStatusEnum;
@@ -254,7 +255,7 @@ public class WhisperServiceImpl implements WhisperService {
             throw new BusinessException(PARAM_ERROR, "不能给自己发送悄悄话");
         }
         AppUser sender = requireOpenUser(senderUserId, "发送方关系准入未开放");
-        AppUser receiver = requireOpenUser(receiverUserId, "接收方关系准入未开放");
+        AppUser receiver = requireNormalReceiver(receiverUserId);
         long low = Math.min(senderUserId, receiverUserId);
         long high = Math.max(senderUserId, receiverUserId);
         if (matchDao.selectActivePair(low, high) != null) {
@@ -281,6 +282,15 @@ public class WhisperServiceImpl implements WhisperService {
         AppUser user = appUserDao.selectById(userId);
         if (user == null || !"OPEN".equals(accessProjectionService.project(user))) {
             throw new BusinessException(ACCESS_RESTRICTED, message);
+        }
+        return user;
+    }
+
+    /** 接收方只要求账号正常；三重认证是发送方准入条件，不能对接收方对称校验。 */
+    private AppUser requireNormalReceiver(Long userId) {
+        AppUser user = appUserDao.selectById(userId);
+        if (user == null || !AccountStatusEnum.NORMAL.getCode().equals(user.getAccountStatus())) {
+            throw new BusinessException(ACCESS_RESTRICTED, "接收方账号状态异常");
         }
         return user;
     }
