@@ -2,6 +2,7 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
@@ -25,8 +26,10 @@ import {
 } from '@/services/community'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { prd01Api } from '@/services/prd01'
-import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
+import { resolveStableWhisperTargetUserNo, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
+import { createWhisper, precheckWhisper, type RealWhisperPrecheckResult } from '@/services/message'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
+import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import { getQianxunHeaderMetrics, QianxunHeader, type QianxunPrimaryTab } from './QianxunHeader'
@@ -62,6 +65,7 @@ function readRequestedScene(): CommunityScene | undefined {
 }
 
 export default function RecommendFamilyPage() {
+  const currentUserId = useAuthStore(state => state.userId)
   const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
   const [primaryTab, setPrimaryTab] = useState<QianxunPrimaryTab>(() => readRequestedPrimaryTab())
   const [activeTab, setActiveTab] = useState<CommunityScene>(() => readRequestedScene() || 'CITY')
@@ -73,7 +77,12 @@ export default function RecommendFamilyPage() {
   const [config, setConfig] = useState<CommunityConfig | undefined>(readCachedCommunityConfig)
   const [ownerAvatar, setOwnerAvatar] = useState(defaultAvatar)
   const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
-  const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | null>(null)
+  const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | 'whisper' | null>(null)
+  const [whisperContent, setWhisperContent] = useState('')
+  const [whisperPrecheck, setWhisperPrecheck] = useState<RealWhisperPrecheckResult>()
+  const [whisperLoading, setWhisperLoading] = useState(false)
+  const [whisperSubmitting, setWhisperSubmitting] = useState(false)
+  const [whisperIdempotencyKey, setWhisperIdempotencyKey] = useState('')
   const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, HOT: 0 })
   const resumeRefreshRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
@@ -237,23 +246,55 @@ export default function RecommendFamilyPage() {
     }
   }
 
-  const openWhisper = (post: CommunityPostVO) => {
+  const openWhisper = async (post: CommunityPostVO) => {
     if (!requireCoreAccess()) return
+    if (post.authorId === currentUserId) return
     const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
     if (!targetUserNo || !post.postNo) {
       void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
       return
     }
-    const query = [
-      `receiverUserNo=${encodeURIComponent(targetUserNo)}`,
-      `sourceScene=community_post`,
-      `sourceBizNo=${encodeURIComponent(post.postNo)}`,
-      `nickname=${encodeURIComponent(post.authorName || '用户')}`,
-      `avatar=${encodeURIComponent(post.authorAvatar || '')}`,
-      `meta=${encodeURIComponent(formatPostAuthorMeta(post, optionLabel))}`,
-      'compose=1',
-    ].join('&')
-    void Taro.navigateTo({ url: `/pages/message/whisper-detail?${query}` })
+    setSelectedPost(post)
+    setWhisperContent('')
+    setWhisperPrecheck(undefined)
+    setWhisperIdempotencyKey(createWhisperIdempotencyKey())
+    setSheet('whisper')
+    setWhisperLoading(true)
+    try {
+      setWhisperPrecheck(await precheckWhisper({ targetUserNo, sourceScene: 'community_post', sourceBizNo: post.postNo }))
+    } catch (error) {
+      setSheet(null)
+      await Taro.showToast({ title: resolveWhisperErrorMessage(error, '悄悄话预检查失败，请稍后重试'), icon: 'none' })
+    } finally {
+      setWhisperLoading(false)
+    }
+  }
+
+  const submitWhisper = async () => {
+    const post = selectedPost
+    const content = whisperContent.trim()
+    if (!post || !whisperPrecheck || whisperSubmitting) return
+    const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
+    if (!whisperPrecheck.canSend || !whisperPrecheck.quoteToken) {
+      await Taro.showToast({ title: whisperPrecheck.reasonText || '当前暂时无法发送悄悄话', icon: 'none' })
+      return
+    }
+    if (!content || Array.from(content).length > whisperPrecheck.contentMaxLength) {
+      await Taro.showToast({ title: `请输入1-${whisperPrecheck.contentMaxLength}个字`, icon: 'none' })
+      return
+    }
+    setWhisperSubmitting(true)
+    try {
+      const result = await createWhisper({ targetUserNo, sourceScene: 'community_post', sourceBizNo: post.postNo, content, quoteToken: whisperPrecheck.quoteToken }, whisperIdempotencyKey)
+      setSheet(null)
+      setWhisperContent('')
+      setWhisperPrecheck(undefined)
+      await Taro.showToast({ title: result.payType === 'vip_free' ? '悄悄话已发送，本次使用免费权益' : `悄悄话已发送，消耗${result.coinAmount}千寻币`, icon: 'success' })
+    } catch (error) {
+      await Taro.showToast({ title: resolveWhisperErrorMessage(error, '发送失败，请稍后重试'), icon: 'none' })
+    } finally {
+      setWhisperSubmitting(false)
+    }
   }
 
   const headerMetrics = getQianxunHeaderMetrics()
@@ -278,6 +319,7 @@ export default function RecommendFamilyPage() {
                 key={post.id}
                 post={post}
                 optionLabel={optionLabel}
+                isSelf={post.authorId === currentUserId}
                 onAuthor={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` }))}
                 onOpen={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` }))}
                 onTopic={() => runWithCoreAccess(() => { if (post.topicId) void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` }) })}
@@ -306,6 +348,24 @@ export default function RecommendFamilyPage() {
         />
       ) : null}
       {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void report(reason)} /> : null}
+      {sheet === 'whisper' && selectedPost ? (
+        <CommunityWhisperSheet
+          avatar={selectedPost.authorAvatar}
+          nickname={selectedPost.authorName || '用户'}
+          meta={formatPostAuthorMeta(selectedPost, optionLabel)}
+          content={whisperContent}
+          precheck={whisperPrecheck}
+          loading={whisperLoading}
+          submitting={whisperSubmitting}
+          onContentChange={setWhisperContent}
+          onClose={() => {
+            if (whisperSubmitting) return
+            setSheet(null)
+            setWhisperPrecheck(undefined)
+          }}
+          onSubmit={() => void submitWhisper()}
+        />
+      ) : null}
       {sheet === 'uncertified' ? (
         <UnverifiedCertificationModal
           onClose={() => setSheet(null)}
@@ -331,7 +391,7 @@ function FamilyTabs({ active, tabs, top, onChange }: { active: CommunityScene; t
   </View>
 }
 
-function CommunityCard({ post, optionLabel, onAuthor, onOpen, onTopic, onComment, onContact, onMore, onFollow, onLike }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; onAuthor: () => void; onOpen: () => void; onTopic: () => void; onComment: () => void; onContact: () => void; onMore: () => void; onFollow: () => void; onLike: () => void }) {
+function CommunityCard({ post, optionLabel, isSelf, onAuthor, onOpen, onTopic, onComment, onContact, onMore, onFollow, onLike }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; isSelf: boolean; onAuthor: () => void; onOpen: () => void; onTopic: () => void; onComment: () => void; onContact: () => void; onMore: () => void; onFollow: () => void; onLike: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const canExpand = post.content.length > 78
   const meta = formatPostAuthorMeta(post, optionLabel)
@@ -348,7 +408,7 @@ function CommunityCard({ post, optionLabel, onAuthor, onOpen, onTopic, onComment
         <View style={{ display: 'flex', alignItems: 'center', height: '38rpx' }}><Text style={{ maxWidth: '260rpx', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.authorName || '用户'}</Text>{genderIcon ? <Image src={genderIcon} mode="aspectFit" style={{ width: '32rpx', height: '32rpx', marginLeft: '14rpx', flexShrink: 0 }} /> : null}</View>
         <Text style={{ display: 'block', maxWidth: '390rpx', color: BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '9rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text>
       </View>
-      <View className="qianxun-family-follow" onClick={onFollow} style={{ width: post.followingAuthor ? '128rpx' : '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: post.followingAuthor ? '#999999' : BLUE, fontSize: '24rpx', lineHeight: '33rpx', fontWeight: post.followingAuthor ? 400 : 500 }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View>
+      {!isSelf ? <View className="qianxun-family-follow" onClick={onFollow} style={{ width: post.followingAuthor ? '128rpx' : '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: post.followingAuthor ? '#999999' : BLUE, fontSize: '24rpx', lineHeight: '33rpx', fontWeight: post.followingAuthor ? 400 : 500 }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View> : null}
       <View onClick={onMore} style={{ width: '36rpx', height: '52rpx', marginLeft: '4rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '38rpx', lineHeight: '44rpx' }}>⋮</Text></View>
     </View>
     <View className="qianxun-community-card" data-post-id={post.id} onClick={onOpen}>
@@ -362,7 +422,7 @@ function CommunityCard({ post, optionLabel, onAuthor, onOpen, onTopic, onComment
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '28rpx', marginLeft: '7rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
     {post.topicName ? <View onClick={onTopic} style={{ width: 'auto', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#EFF4FC', padding: '0 18rpx', marginTop: '23rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#666666', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: '#229AF8' }}># </Text>{post.topicName}</Text></View> : null}
     <View style={{ height: '92rpx', borderTop: '2rpx solid #EFF4FC', marginTop: post.topicName ? '30rpx' : '32rpx', display: 'flex', alignItems: 'center' }}>
-      <View onClick={onContact} style={{ minHeight: '80rpx', display: 'flex', alignItems: 'center' }}><ActionStat kind="contact" text={contactText} /></View>
+      {!isSelf ? <View onClick={onContact} style={{ minHeight: '80rpx', display: 'flex', alignItems: 'center' }}><ActionStat kind="contact" text={contactText} /></View> : null}
       <View style={{ flex: 1 }} />
       <View onClick={onComment}><ActionStat kind="comment" text={String(post.commentCount || 0)} /></View>
       <View onClick={onLike}><ActionStat kind="like" text={String(post.likeCount || 0)} active={post.liked} /></View>
@@ -454,4 +514,8 @@ function relativeTime(value: string) {
 async function showError(config: CommunityConfig | undefined, error: unknown) {
   const title = resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error)
   if (title) await Taro.showToast({ title, icon: 'none' })
+}
+
+function createWhisperIdempotencyKey() {
+  return `community-whisper-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
 }

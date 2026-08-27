@@ -76,7 +76,7 @@ const SOURCE_EVIDENCE = [
   {
     label: '认证头像切图',
     route: '/pages/verification/avatar',
-    snippets: ['avatar-good.webp', 'chooseAndCropAvatar', 'AvatarExampleCard', "copy('avatar_invalid_title')", 'profileOptions?.avatarSource'],
+    snippets: ['miniappOssIcons.verificationAvatarGuidePortrait', 'chooseAndCropAvatar', 'AvatarExampleCard', "copy('avatar_invalid_title')", 'profileOptions?.avatarSource'],
   },
   {
     label: '实名认证点亮态',

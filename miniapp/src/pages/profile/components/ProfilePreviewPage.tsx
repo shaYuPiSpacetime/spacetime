@@ -85,7 +85,23 @@ export default function ProfilePreviewPage({
 
   return (
     <View style={{ height: '100vh', background: pageBackground, overflow: 'hidden', fontFamily }}>
-      <ScrollView scrollY style={{ height: '100vh', width: '750rpx' }} showScrollbar={false}>
+      {variant === 'owner-preview' ? (
+        <ProfilePreviewTopNav
+          activeTab="preview"
+          onBack={onBack}
+          onTabChange={tab => {
+            if (tab === 'form') onEdit?.()
+          }}
+        />
+      ) : null}
+      <ScrollView
+        data-role="profile-preview-scroll-content"
+        scrollY
+        style={variant === 'owner-preview'
+          ? { position: 'absolute', left: 0, right: 0, top: '182rpx', bottom: 0, width: '750rpx' }
+          : { height: '100vh', width: '750rpx' }}
+        showScrollbar={false}
+      >
         <View
           style={{
             width: '750rpx',
@@ -93,15 +109,7 @@ export default function ProfilePreviewPage({
             boxSizing: 'border-box',
           }}
         >
-          {variant === 'owner-preview' ? (
-            <ProfilePreviewTopNav
-              activeTab="preview"
-              onBack={onBack}
-              onTabChange={tab => {
-                if (tab === 'form') onEdit?.()
-              }}
-            />
-          ) : <HeartMessageHeader title="用户主页" align="center" showBack />}
+          {variant === 'public-profile' ? <HeartMessageHeader title="用户主页" align="center" showBack /> : null}
           <View style={{ width: '700rpx', margin: '0 auto' }}>
             <ProfilePreviewHero model={model} onShare={showShare} onSafetyActions={onSafetyActions} />
             {(variant === 'owner-preview' || model.genderAgeHeight || model.location || model.datingGoal)
@@ -110,6 +118,7 @@ export default function ProfilePreviewPage({
             {model.detailInfo?.length ? <ProfilePreviewDetailInfo items={model.detailInfo} /> : null}
             {visibleContent.tags.length ? <ProfilePreviewTagSection tags={visibleContent.tags} /> : null}
             {visibleContent.introduction ? <ProfilePreviewIntroduction introduction={visibleContent.introduction} /> : null}
+            {visibleContent.aboutMe.length ? <ProfilePreviewAboutMe items={visibleContent.aboutMe} /> : null}
             {visibleContent.photos[0] ? <ProfilePreviewPhoto url={visibleContent.photos[0]} /> : null}
             {visibleContent.showCertification ? <ProfilePreviewCertification certifications={model.certifications} /> : null}
             {visibleContent.photos[1] ? <ProfilePreviewPhoto url={visibleContent.photos[1]} /> : null}
@@ -348,6 +357,24 @@ function ProfilePreviewIntroduction({ introduction }: { introduction: string }) 
       >
         {introduction}
       </Text>
+    </ProfilePreviewCard>
+  )
+}
+
+function ProfilePreviewAboutMe({ items }: { items: ProfilePreviewModel['aboutMe'] }) {
+  return (
+    <ProfilePreviewCard title="关于我" height="auto" padding="30rpx 30rpx 34rpx">
+      <View style={{ marginTop: '14rpx' }}>
+        {items.map((item, index) => (
+          <View
+            key={`${item.title}-${index}`}
+            style={{ padding: '18rpx 0', borderBottom: index === items.length - 1 ? 'none' : '1rpx solid #EEF1F5' }}
+          >
+            <Text style={{ display: 'block', color: '#68758A', fontSize: '23rpx', lineHeight: '34rpx' }}>{item.title}</Text>
+            <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '42rpx', marginTop: '8rpx', whiteSpace: 'pre-wrap' }}>{item.value}</Text>
+          </View>
+        ))}
+      </View>
     </ProfilePreviewCard>
   )
 }

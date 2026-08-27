@@ -749,14 +749,22 @@ export default function ProfileEditPage() {
     <ProfilePreviewPage model={previewModel} onBack={handleBack} onEdit={() => setShowPreview(false)} />
   ) : (
     <View
-      style={{ minHeight: '100vh', background: pageBackground, overflow: 'hidden', fontFamily }}
+      style={{ height: '100vh', background: pageBackground, overflow: 'hidden', fontFamily }}
     >
+      <ProfilePreviewTopNav
+        activeTab="form"
+        onBack={handleBack}
+        onTabChange={tab => {
+          if (tab === 'preview') setShowPreview(true)
+        }}
+      />
       <ScrollView
+        data-role="profile-edit-scroll-content"
         scrollY
         scrollTop={restoredScrollTop}
         scrollWithAnimation={false}
         onScroll={event => { scrollTopRef.current = event.detail.scrollTop }}
-        style={{ height: '100vh', width: '750rpx' }}
+        style={{ position: 'absolute', left: 0, right: 0, top: '182rpx', bottom: 0, width: '750rpx' }}
         showScrollbar={false}
       >
         <View
@@ -767,13 +775,6 @@ export default function ProfileEditPage() {
             boxSizing: 'border-box',
           }}
         >
-          <ProfilePreviewTopNav
-            activeTab="form"
-            onBack={handleBack}
-            onTabChange={tab => {
-              if (tab === 'preview') setShowPreview(true)
-            }}
-          />
           <ProfileScoreCard score={profileScore} onClick={() => handleProfileAction('资料评分')} />
           <TruthNotice />
           <ProfileHeroCard

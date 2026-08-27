@@ -216,8 +216,9 @@ test('发布动态消费预处理结果、展示真实失败原因且不提供�
   assert.match(prd01Service, /uploadAlbum:[\s\S]{0,160}uploadCommunityImageDirectToOss/)
   assert.match(compose, /resolveCommunityImageUploadError/)
   assert.match(compose, /item\.failureMessage/)
-  assert.match(compose, /await uploadImagesWithLimit\(queued\)/)
-  assert.match(compose, /const workerCount = Math\.min\(1, items\.length\)/)
+  assert.match(compose, /choosingImagesRef\.current = false\s+void uploadImagesWithLimit\(queued\)/)
+  assert.match(compose, /const workerCount = Math\.min\(3, items\.length\)/)
+  assert.doesNotMatch(compose, /await uploadImagesWithLimit\(queued\)/)
   assert.doesNotMatch(compose, /COMMUNITY_COPY_KEYS\.uploadRetry/)
 })
 

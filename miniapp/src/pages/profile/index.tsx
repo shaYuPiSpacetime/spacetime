@@ -15,6 +15,7 @@ import { usePrd01Store } from '@/stores/prd01Store'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { navigateToOrRedirect } from '@/utils/navigation'
 import type { MyMembership } from '@/types/membership'
+import type { VerificationStatus } from '@/types/prd01'
 
 import profileBg from '@/assets/profile/profile-bg.webp'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -26,6 +27,7 @@ import vipBannerBg from '@/assets/profile/vip-banner-bg.svg'
  * 我的页面。
  */
 export default function ProfilePage() {
+  const [showCertification, setShowCertification] = useState(false)
   const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
   const runtimeConfig = usePrd01Store(state => state.config)
   const copy = usePrd01Store(state => state.copy)
@@ -159,6 +161,7 @@ export default function ProfilePage() {
           editText="编辑资料"
           certText="三重认证"
           onEdit={goToEditProfile}
+          onCertification={() => setShowCertification(true)}
           onAvatarError={() => setAvatar(defaultAvatar)}
         />
         <>
@@ -178,6 +181,15 @@ export default function ProfilePage() {
           <MenuCard onPost={goToMyPosts} onHelp={goToHelp} onSettings={goToSettings} />
         </>
       </View>
+      {showCertification ? (
+        <CertificationSheet
+          avatar={avatar}
+          nickname={nickname}
+          school={String(basic?.school || '')}
+          verification={verification}
+          onClose={() => setShowCertification(false)}
+        />
+      ) : null}
     </View>
   )
 }
@@ -191,6 +203,7 @@ function HeaderBlock({
   editText,
   certText,
   onEdit,
+  onCertification,
   onAvatarError,
 }: {
   avatar: string
@@ -201,6 +214,7 @@ function HeaderBlock({
   editText: string
   certText: string
   onEdit: () => void
+  onCertification: () => void
   onAvatarError: () => void
 }) {
   return (
@@ -242,7 +256,7 @@ function HeaderBlock({
         >
           {nickname}
         </Text>
-        {showCert && <CertBadge text={certText} />}
+        {showCert && <CertBadge text={certText} onClick={onCertification} />}
       </View>
       <Text
         id="profile-sub-info"
@@ -359,9 +373,14 @@ function ProfileAvatarFrame({
   )
 }
 
-function CertBadge({ text }: { text: string }) {
+function CertBadge({ text, onClick }: { text: string; onClick: () => void }) {
   return (
     <View
+      id="profile-certification-badge"
+      onClick={event => {
+        event.stopPropagation()
+        onClick()
+      }}
       style={{
         width: '138rpx',
         height: '48rpx',
@@ -386,6 +405,94 @@ function CertBadge({ text }: { text: string }) {
       <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx' }}>{text}</Text>
     </View>
   )
+}
+
+function CertificationSheet({
+  avatar,
+  nickname,
+  school,
+  verification,
+  onClose,
+}: {
+  avatar: string
+  nickname: string
+  school: string
+  verification: VerificationStatus | null
+  onClose: () => void
+}) {
+  const rows = [
+    {
+      code: 'AVATAR',
+      title: '头像已认证',
+      subtitle: '平台认证方式',
+      score: '99%',
+      icon: miniappOssIcons.recommendCertAvatar,
+      passed: isCertificationPassed(verification?.avatarVerifyStatus),
+    },
+    {
+      code: 'REAL_NAME',
+      title: '实名已认证',
+      subtitle: '居民身份证方式认证',
+      score: '80%',
+      icon: miniappOssIcons.recommendCertRealName,
+      passed: isCertificationPassed(verification?.realNameStatus),
+    },
+    {
+      code: 'EDUCATION',
+      title: '学历已认证',
+      subtitle: school ? `学历认证 | ${school}` : '学信网学历认证',
+      score: '99%',
+      icon: miniappOssIcons.recommendCertEducation,
+      passed: isCertificationPassed(verification?.educationStatus),
+    },
+  ]
+  const passedCount = rows.filter(row => row.passed).length
+  const totalScore = passedCount === 3 ? '92%' : `${Math.round((passedCount / 3) * 92)}%`
+  return (
+    <View
+      id="profile-certification-sheet"
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,.58)', display: 'flex', alignItems: 'flex-end' }}
+    >
+      <View
+        onClick={event => event.stopPropagation()}
+        style={{ width: '750rpx', padding: '36rpx 30rpx calc(38rpx + env(safe-area-inset-bottom))', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', boxSizing: 'border-box' }}
+      >
+        <View style={{ position: 'relative', minHeight: '116rpx', display: 'flex', alignItems: 'center' }}>
+          <Image src={avatar} mode="aspectFill" style={{ width: '88rpx', height: '88rpx', borderRadius: '44rpx', border: '6rpx solid #FFFFFF', boxSizing: 'border-box' }} />
+          <View style={{ marginLeft: '18rpx' }}>
+            <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx' }}>{nickname}</Text>
+            <Text style={{ display: 'block', marginTop: '4rpx', color: '#333333', fontSize: '30rpx', fontWeight: 600 }}>已通过{passedCount}项认证</Text>
+          </View>
+          <Image src={miniappOssIcons.recommendCertScoreShield} mode="aspectFit" style={{ position: 'absolute', right: '-12rpx', top: '-16rpx', width: '184rpx', height: '184rpx', opacity: 0.22 }} />
+          <Text style={{ position: 'absolute', right: '6rpx', top: '8rpx', color: '#2876FF', fontSize: '66rpx', fontWeight: 600 }}>{totalScore}</Text>
+        </View>
+        <View style={{ marginTop: '8rpx' }}>
+          {rows.map(row => (
+            <View key={row.code} style={{ height: '158rpx', borderBottom: '1rpx solid #EEF1F5', display: 'flex', alignItems: 'center', opacity: row.passed ? 1 : 0.45 }}>
+              <Image src={row.icon} mode="aspectFit" style={{ width: '100rpx', height: '100rpx', marginRight: '30rpx' }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ display: 'block', color: '#333333', fontSize: '29rpx', fontWeight: 600 }}>{row.title}</Text>
+                <Text style={{ display: 'block', marginTop: '14rpx', color: '#777777', fontSize: '23rpx' }}>{row.subtitle}</Text>
+              </View>
+              <View style={{ textAlign: 'right' }}>
+                <Text style={{ display: 'block', color: '#2876FF', fontSize: '36rpx', fontWeight: 600 }}>{row.score}</Text>
+                <Text style={{ display: 'block', marginTop: '10rpx', color: '#777777', fontSize: '22rpx' }}>可信度</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        <Text style={{ display: 'block', marginTop: '28rpx', color: '#777777', fontSize: '22rpx', textAlign: 'center' }}>认证信息以外的资料为用户自主填写，平台不保证真实性</Text>
+        <View onClick={onClose} style={{ height: '88rpx', margin: '34rpx 14rpx 0', borderRadius: '12rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '28rpx' }}>我知道了</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function isCertificationPassed(status?: string) {
+  return ['PASSED', 'APPROVED', 'VERIFIED', 'SUCCESS'].includes(String(status || '').toUpperCase())
 }
 
 function StatsCard({ stats, boostText, onHeart }: { stats: Array<{ value: number; label: string }>; boostText: string; onHeart: () => void }) {

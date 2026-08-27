@@ -2,6 +2,7 @@ import { Image, MovableArea, MovableView, ScrollView, Text, Textarea, View } fro
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   deleteCommunityDraft,
   COMMUNITY_COPY_KEYS,
@@ -20,6 +21,7 @@ import { resolveCommunityImageUploadError } from '@/domain/communityImageUpload'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
+const MAX_COMMUNITY_IMAGES = 9
 interface UploadImage {
   localId: string
   tempPath: string
@@ -113,7 +115,10 @@ export default function QianxunComposePage() {
 
   const chooseImages = async () => {
     if (choosingImagesRef.current) return
-    const maxCount = Math.max(1, Number(config?.postMaxImages || 9))
+    const configuredMax = Number(config?.postMaxImages || MAX_COMMUNITY_IMAGES)
+    const maxCount = Number.isFinite(configuredMax)
+      ? Math.min(MAX_COMMUNITY_IMAGES, Math.max(MAX_COMMUNITY_IMAGES, configuredMax))
+      : MAX_COMMUNITY_IMAGES
     const remaining = maxCount - images.length
     if (remaining <= 0) return
     choosingImagesRef.current = true
@@ -127,7 +132,9 @@ export default function QianxunComposePage() {
         uploadStatus: 'queued' as const,
       }))
       setImages(current => [...current, ...queued].slice(0, maxCount))
-      await uploadImagesWithLimit(queued)
+      // 系统选择器返回后立即释放点击锁；上传在后台进行，期间仍可继续补选图片。
+      choosingImagesRef.current = false
+      void uploadImagesWithLimit(queued)
     } catch (error) {
       if (!/cancel/i.test(String((error as { errMsg?: string })?.errMsg || error))) await showError(config, error)
     } finally {
@@ -137,7 +144,7 @@ export default function QianxunComposePage() {
 
   const uploadImagesWithLimit = async (items: UploadImage[]) => {
     let cursor = 0
-    const workerCount = Math.min(1, items.length)
+    const workerCount = Math.min(3, items.length)
     await Promise.all(Array.from({ length: workerCount }, async () => {
       while (cursor < items.length) {
         const current = items[cursor]
@@ -205,7 +212,10 @@ export default function QianxunComposePage() {
     setTimeout(() => setFailureFeedback(''), 2200)
   }
 
-  const maxImages = Number(config?.postMaxImages || 9)
+  const configuredMaxImages = Number(config?.postMaxImages || MAX_COMMUNITY_IMAGES)
+  const maxImages = Number.isFinite(configuredMaxImages)
+    ? Math.min(MAX_COMMUNITY_IMAGES, Math.max(MAX_COMMUNITY_IMAGES, configuredMaxImages))
+    : MAX_COMMUNITY_IMAGES
   const hasIncompleteImage = images.some(item => item.uploadStatus !== 'success')
   const canPublish = Boolean(content.trim() && !publishing && !hasIncompleteImage)
 
@@ -291,37 +301,15 @@ function TopicChip({ label, active = false, removable = false, onClick }: { labe
 }
 
 function ToolIcon({ kind, onClick }: { kind: 'image' | 'video' | 'smile'; onClick: () => void }) {
+  const icon = kind === 'image'
+    ? miniappOssIcons.qianxunComposePhoto
+    : kind === 'video'
+      ? miniappOssIcons.qianxunComposeVideo
+      : miniappOssIcons.qianxunComposeSmile
+  const width = kind === 'smile' ? '40rpx' : '48rpx'
   return (
     <View id={`qianxun-compose-tool-${kind}`} data-role={`compose-tool-${kind}`} onClick={onClick} hoverClass="btn-hover" style={{ width: '56rpx', height: '56rpx', marginRight: '18rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {kind === 'image' ? <ComposePhotoIcon /> : kind === 'video' ? <ComposeVideoIcon /> : <ComposeSmileIcon />}
-    </View>
-  )
-}
-
-function ComposePhotoIcon() {
-  return (
-    <View data-role="compose-tool-image" aria-hidden style={{ position: 'relative', width: '46rpx', height: '40rpx', border: '4rpx solid #343434', borderRadius: '7rpx', boxSizing: 'border-box' }}>
-      <View style={{ position: 'absolute', left: '7rpx', top: '7rpx', width: '9rpx', height: '9rpx', borderRadius: '50%', background: BLUE }} />
-      <View style={{ position: 'absolute', left: '5rpx', bottom: '7rpx', width: '18rpx', height: '4rpx', borderRadius: '2rpx', background: '#343434', transform: 'rotate(-28deg)', transformOrigin: 'left center' }} />
-      <View style={{ position: 'absolute', left: '19rpx', bottom: '8rpx', width: '18rpx', height: '4rpx', borderRadius: '2rpx', background: '#343434', transform: 'rotate(31deg)', transformOrigin: 'left center' }} />
-    </View>
-  )
-}
-
-function ComposeVideoIcon() {
-  return (
-    <View data-role="compose-tool-video" aria-hidden style={{ position: 'relative', width: '46rpx', height: '40rpx', border: '4rpx solid #343434', borderRadius: '7rpx', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 0, height: 0, borderTop: '10rpx solid transparent', borderBottom: '10rpx solid transparent', borderLeft: `14rpx solid ${BLUE}`, marginLeft: '4rpx' }} />
-    </View>
-  )
-}
-
-function ComposeSmileIcon() {
-  return (
-    <View data-role="compose-tool-smile" aria-hidden style={{ position: 'relative', width: '42rpx', height: '42rpx', border: '4rpx solid #343434', borderRadius: '50%', boxSizing: 'border-box' }}>
-      <View style={{ position: 'absolute', left: '8rpx', top: '10rpx', width: '5rpx', height: '5rpx', borderRadius: '50%', background: '#343434' }} />
-      <View style={{ position: 'absolute', right: '8rpx', top: '10rpx', width: '5rpx', height: '5rpx', borderRadius: '50%', background: '#343434' }} />
-      <View style={{ position: 'absolute', left: '8rpx', bottom: '7rpx', width: '18rpx', height: '9rpx', borderBottom: '4rpx solid #343434', borderRadius: '0 0 18rpx 18rpx', boxSizing: 'border-box' }} />
+      <Image src={icon} mode="aspectFit" style={{ width, height: '40rpx', display: 'block' }} />
     </View>
   )
 }

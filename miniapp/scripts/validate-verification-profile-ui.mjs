@@ -72,8 +72,11 @@ assert.ok(sharedPicker.includes('<OptionColumn options={options}'), '单列弹�
 
 const basicInfoCardSource = read('src/pages/verification/components/BasicInfoCard.tsx')
 assert.ok(basicInfoCardSource.includes('identityScopedRows'), '基础资料缺少按身份控制职业字段的规则')
-assert.ok(basicInfoCardSource.includes("rowId !== 'occupation' && rowId !== 'annualIncome'"), '在校生必须隐藏职业和年收入')
-assert.ok(basicInfoCardSource.includes("String(identity || '').toUpperCase() === 'WORKER'"), '只有职场人才展示职业和年收入')
+assert.ok(basicInfoCardSource.includes('WORKER_PROFILE_ROW_IDS'), '基础资料缺少职场专属字段集合')
+for (const field of ['industry', 'occupation', 'company', 'annualIncome']) {
+  assert.ok(basicInfoCardSource.includes(`'${field}'`), `在校生必须隐藏职场字段 ${field}`)
+}
+assert.ok(basicInfoCardSource.includes("String(identity || '').toUpperCase() === 'WORKER'"), '只有职场人才展示行业、职业、公司和年收入')
 assert.ok(sharedPicker.includes('LanhuDualColumnSheet'), '缺少蓝湖双列选择弹窗')
 assert.ok(sharedPicker.includes('LanhuDateSheet'), '缺少蓝湖日期选择弹窗')
 assert.ok(shellSource.includes("borderRadius: '64rpx 64rpx 0 0'"), '蓝湖选择弹窗圆角不符合稿件')

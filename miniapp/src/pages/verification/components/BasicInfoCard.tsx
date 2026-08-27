@@ -72,6 +72,12 @@ const COMPOSITE_ROW_LABELS: Partial<Record<BasicProfileRowId, string>> = {
 const PROFILE_CARD_GAP_RPX = 24
 const PROFILE_ROW_HEIGHT_RPX = 98
 const PROFILE_CARD_VERTICAL_PADDING_RPX = 36
+const WORKER_PROFILE_ROW_IDS = new Set<BasicProfileRowId>([
+  'industry',
+  'occupation',
+  'company',
+  'annualIncome',
+])
 
 /**
  * 基本资料卡片：字段显隐、标签、范围和枚举均来自运行时接口。
@@ -219,7 +225,7 @@ export default function BasicInfoCard({
           placeholder={resolveFieldPlaceholder(editor.setting, selectPlaceholder, inputPlaceholder)}
           onConfirm={async value => {
             if (editor.setting.fieldId === 'identity' && String(value).toUpperCase() !== 'WORKER') {
-              await applyPatch({ identity: String(value), occupation: '', annualIncome: '' })
+              await applyPatch({ identity: String(value), industry: '', occupation: '', company: '', annualIncome: '' })
             } else {
               await onChange(editor.setting.fieldId, value)
             }
@@ -266,10 +272,10 @@ export default function BasicInfoCard({
   )
 }
 
-/** 职业和年收入只属于职场人；身份未选或为在校生时不展示。 */
+/** 行业、职业、公司和年收入只属于职场人；身份未选或为在校生时不展示。 */
 function identityScopedRows(rows: BasicProfileRowId[], identity: unknown) {
   if (String(identity || '').toUpperCase() === 'WORKER') return rows
-  return rows.filter(rowId => rowId !== 'occupation' && rowId !== 'annualIncome')
+  return rows.filter(rowId => !WORKER_PROFILE_ROW_IDS.has(rowId))
 }
 
 function RuntimeFieldEditor({

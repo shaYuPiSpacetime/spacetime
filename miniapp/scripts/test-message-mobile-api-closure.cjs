@@ -175,8 +175,13 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
   assert.match(postDetail, /precheck\?\.canSend/)
   assert.doesNotMatch(postDetail, /precheck\?\.allowed|whisperPrecheck\.allowed/)
 
+  const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
+  assert.match(family, /sourceScene:\s*'community_post'/)
+  assert.match(family, /sourceBizNo:\s*post\.postNo/)
+  assert.match(family, /resolveStableWhisperTargetUserNo/)
+  assert.doesNotMatch(family, /pages\/message\/whisper-detail/)
+
   for (const relativePath of [
-    'src/features/qianxun/QianxunFamilyPage.tsx',
     'src/features/qianxun/QianxunZhiyinTab.tsx',
     'src/pages/qianxun/topic.tsx',
   ]) {

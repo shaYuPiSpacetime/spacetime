@@ -6,6 +6,7 @@ type ProfilePreviewVisibilityInput = {
   photos: string[]
   certifications: Array<{ passed: boolean }>
   favoriteSong: string
+  aboutMe?: Array<{ title: string; value: string }>
 }
 
 export type ProfilePreviewVisibleContent = {
@@ -14,6 +15,7 @@ export type ProfilePreviewVisibleContent = {
   photos: string[]
   showCertification: boolean
   favoriteSong: string
+  aboutMe: Array<{ title: string; value: string }>
 }
 
 const normalizeText = (value: string) => String(value || '').trim()
@@ -32,5 +34,10 @@ export function buildProfilePreviewVisibility(
     photos: input.photos.map(normalizeText).filter(Boolean).slice(0, 4),
     showCertification: input.certifications.some(item => item.passed),
     favoriteSong: normalizeText(input.favoriteSong),
+    aboutMe: (input.aboutMe || []).flatMap(item => {
+      const title = normalizeText(item.title)
+      const value = normalizeText(item.value)
+      return title && value ? [{ title, value }] : []
+    }),
   }
 }
