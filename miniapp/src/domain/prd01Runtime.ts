@@ -340,6 +340,7 @@ export function buildEducationRequest(
     educationUserType: form.educationUserType,
     educationMethod: method,
     schoolName: form.schoolName.trim(),
+    ...(form.schoolCode?.trim() ? { schoolCode: form.schoolCode.trim() } : {}),
     educationLevel: form.educationLevel,
     educationAgreementChecked: form.educationAgreementChecked,
   }

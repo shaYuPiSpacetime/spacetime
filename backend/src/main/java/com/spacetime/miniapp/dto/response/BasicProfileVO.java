@@ -36,6 +36,7 @@ public class BasicProfileVO {
     private String hometownDistrict;
     private String company;
     private String school;
+    private String schoolCode;
     private String major;
     /** 后台配置的年龄范围 */
     private Integer minAge;

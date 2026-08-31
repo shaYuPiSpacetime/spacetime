@@ -121,6 +121,7 @@ public class VerificationServiceImpl implements VerificationService {
             vo.setEducationUserType(userType);
             vo.setEducationUserTypeLabel(educationUserTypeLabel(userType));
             vo.setSchoolName(user.getSchool());
+            vo.setSchoolCode(user.getSchoolCode());
             vo.setEducationLevel(user.getEducationLevel());
             vo.setEducationLevelLabel(profileDictionaryService.label(
                     ProfileDictType.EDUCATION_LEVEL, user.getEducationLevel()));
@@ -193,6 +194,7 @@ public class VerificationServiceImpl implements VerificationService {
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
         record.setEducationMethod(submission.method());
         record.setSchoolName(req.getSchoolName().trim());
+        record.setSchoolCode(StrUtil.isBlank(req.getSchoolCode()) ? null : req.getSchoolCode().trim());
         record.setRealName(StrUtil.blankToDefault(req.getCertificateName(), realName.getRealName()));
         record.setMaterialJson(educationMaterialJson(req, submission, user));
         auditService.submit(record);
@@ -464,6 +466,7 @@ public class VerificationServiceImpl implements VerificationService {
         vo.setEducationMethod(record.getEducationMethod());
         vo.setEducationMethodLabel(educationMethodLabel(record.getEducationMethod()));
         vo.setSchoolName(record.getSchoolName());
+        vo.setSchoolCode(record.getSchoolCode());
         vo.setEducationLevel(educationLevel);
         vo.setEducationLevelLabel(profileDictionaryService.label(ProfileDictType.EDUCATION_LEVEL, educationLevel));
         vo.setChsiCode(jsonText(material, "chsiCode"));

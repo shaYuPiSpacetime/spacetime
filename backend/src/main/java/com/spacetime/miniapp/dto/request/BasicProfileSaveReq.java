@@ -46,6 +46,8 @@ public class BasicProfileSaveReq {
     private String annualIncome;
     /** 学校名称 */
     private String school;
+    /** 学校字典稳定编码；未命中字典或手动填写时可不传。 */
+    private String schoolCode;
     /** 专业名称 */
     private String major;
     /** 婚姻状况字典 code */

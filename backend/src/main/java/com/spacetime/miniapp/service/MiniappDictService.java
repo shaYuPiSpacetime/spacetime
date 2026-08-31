@@ -3,6 +3,7 @@ package com.spacetime.miniapp.service;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
 import com.spacetime.miniapp.dto.response.DictOptionVO;
 import com.spacetime.miniapp.dto.response.RegionTreeVO;
+import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 
 import java.util.List;
 import java.util.Map;
@@ -19,4 +20,7 @@ public interface MiniappDictService {
 
     /** 获取基础资料、扩展资料使用的字典选项；标签额外返回分组结构。 */
     Map<String, Object> profileOptions();
+
+    /** 搜索中国大陆高校，本地不足一页时自动回源并补全本地字典。 */
+    List<SchoolOptionVO> searchSchools(String keyword, int limit);
 }

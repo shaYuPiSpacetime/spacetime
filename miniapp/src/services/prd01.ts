@@ -23,6 +23,7 @@ import type {
   RealNameSubmitRequest,
   RegionOption,
   RegionTreeOption,
+  SchoolOption,
   SmsCodeResult,
   SongOption,
   VerificationStatus,
@@ -37,6 +38,8 @@ export const prd01Api = {
   getLocations: (parentCode?: string) =>
     get<RegionOption[]>(PRD01_API_PATHS.locations, parentCode ? { parentCode } : undefined),
   getProvinceCities: () => get<RegionTreeOption[]>(PRD01_API_PATHS.provinceCities),
+  searchSchools: (keyword: string, limit = 10) =>
+    get<SchoolOption[]>(PRD01_API_PATHS.schools, { keyword, limit }),
 
   sendSmsCode: (phone: string) => post<SmsCodeResult>(PRD01_API_PATHS.smsCode, { phone }),
   phoneLogin: (

@@ -10,6 +10,7 @@ import {
 } from '@/domain/basicProfilePresentation'
 import { buildRegionPatch } from '@/domain/basicProfileRegion'
 import { usePrd01Store } from '@/stores/prd01Store'
+import SchoolSearchInput from '@/components/SchoolSearchInput'
 import type {
   BasicProfile,
   DictOption,
@@ -223,6 +224,8 @@ export default function BasicInfoCard({
           value={userInfo[editor.setting.fieldId]}
           options={editor.options}
           placeholder={resolveFieldPlaceholder(editor.setting, selectPlaceholder, inputPlaceholder)}
+          schoolCode={String(userInfo.schoolCode || '')}
+          onSchoolConfirm={(name, code) => applyPatch({ school: name, schoolCode: code || '' }).then(closeEditor)}
           onConfirm={async value => {
             if (editor.setting.fieldId === 'identity' && String(value).toUpperCase() !== 'WORKER') {
               await applyPatch({ identity: String(value), industry: '', occupation: '', company: '', annualIncome: '' })
@@ -283,6 +286,8 @@ function RuntimeFieldEditor({
   value,
   options,
   placeholder,
+  schoolCode,
+  onSchoolConfirm,
   onConfirm,
   onClose,
 }: {
@@ -290,10 +295,25 @@ function RuntimeFieldEditor({
   value: unknown
   options: Array<{ code: string; label: string }>
   placeholder: string
+  schoolCode?: string
+  onSchoolConfirm: (name: string, code?: string) => void | Promise<void>
   onConfirm: (value: unknown) => void | Promise<void>
   onClose: () => void
 }) {
   const title = setting.label || setting.fieldId
+
+  if (setting.fieldId === 'school') {
+    return (
+      <SchoolFieldEditor
+        title={title}
+        value={value == null ? '' : String(value)}
+        code={schoolCode}
+        placeholder={placeholder}
+        onConfirm={onSchoolConfirm}
+        onClose={onClose}
+      />
+    )
+  }
 
   if (setting.fieldType === 'date') {
     return (
@@ -334,6 +354,35 @@ function RuntimeFieldEditor({
       }
       onClose={onClose}
     />
+  )
+}
+
+function SchoolFieldEditor({ title, value, code, placeholder, onConfirm, onClose }: {
+  title: string
+  value: string
+  code?: string
+  placeholder: string
+  onConfirm: (name: string, code?: string) => void | Promise<void>
+  onClose: () => void
+}) {
+  const [draftName, setDraftName] = useState(value)
+  const [draftCode, setDraftCode] = useState<string | undefined>(code)
+  return (
+    <BottomPicker title={title} onConfirm={() => void onConfirm(draftName.trim(), draftCode)} onClose={onClose}>
+      <View style={{ marginTop: '26rpx' }}>
+        <SchoolSearchInput
+          value={draftName}
+          placeholder={placeholder}
+          onChange={(name, nextCode) => {
+            setDraftName(name)
+            setDraftCode(nextCode)
+          }}
+        />
+        <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx', marginTop: '16rpx' }}>
+          中国大陆院校支持联想选择；港澳台、海外院校可直接手动输入。
+        </Text>
+      </View>
+    </BottomPicker>
   )
 }
 

@@ -164,6 +164,7 @@ class VerificationServiceImplTest {
         req.setEducationUserType("MAINLAND_GRADUATE");
         req.setEducationMethod("CHSI");
         req.setSchoolName("浙江工业大学");
+        req.setSchoolCode("u-zjut");
         req.setEducationLevel("BACHELOR");
         req.setChsiCode("123456789012");
         req.setEducationAgreementChecked(true);
@@ -175,6 +176,7 @@ class VerificationServiceImplTest {
         AppUserAuditRecord record = recordCaptor.getValue();
         assertThat(record.getEducationMethod()).isEqualTo("CHSI");
         assertThat(record.getSchoolName()).isEqualTo("浙江工业大学");
+        assertThat(record.getSchoolCode()).isEqualTo("u-zjut");
         assertThat(record.getMaterialJson()).contains("\"educationUserType\":\"MAINLAND_GRADUATE\"")
                 .contains("\"educationLevel\":\"BACHELOR\"")
                 .contains("\"identity\":\"WORKER\"")

@@ -27,6 +27,7 @@ public class EducationVerifyDetailVO {
     private String educationMethod;
     private String educationMethodLabel;
     private String schoolName;
+    private String schoolCode;
     private String educationLevel;
     private String educationLevelLabel;
     private String chsiCode;

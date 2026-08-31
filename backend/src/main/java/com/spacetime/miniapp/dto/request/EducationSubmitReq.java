@@ -22,6 +22,9 @@ public class EducationSubmitReq {
     @NotBlank(message = "学校名称不能为空")
     private String schoolName;
 
+    /** 学校字典稳定编码；港澳台、海外或手动填写时可不传。 */
+    private String schoolCode;
+
     /** 学历字典 code，必须命中 app_education_level。 */
     @NotBlank(message = "学历不能为空")
     private String educationLevel;

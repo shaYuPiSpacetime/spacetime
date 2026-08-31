@@ -2,6 +2,7 @@ import { Image, Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import SchoolSearchInput from '@/components/SchoolSearchInput'
 import { buildEducationRequest } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
 import { resolveProtectedFilePreview, resolveProtectedFilePreviews } from '@/services/protectedFile'
@@ -50,6 +51,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
   const optionLabel = usePrd01Store(state => state.optionLabel)
   const [detail, setDetail] = useState<EducationDetail>()
   const [schoolName, setSchoolName] = useState('')
+  const [schoolCode, setSchoolCode] = useState<string>()
   const [educationLevel, setEducationLevel] = useState('')
   const [chsiCode, setChsiCode] = useState('')
   const [diplomaNo, setDiplomaNo] = useState('')
@@ -66,6 +68,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
     const urls = (value.materialUrls || []).slice(0, EDUCATION_MATERIAL_MAX_COUNT)
     setDetail(value)
     setSchoolName(value.schoolName || '')
+    setSchoolCode(value.schoolCode)
     setEducationLevel(value.educationLevel || '')
     setChsiCode(value.chsiCode || '')
     setDiplomaNo(value.diplomaNo || '')
@@ -133,6 +136,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
       await prd01Api.submitEducation(buildEducationRequest(methodCode, {
         educationUserType: userTypeOption.code,
         schoolName,
+        schoolCode,
         educationLevel,
         chsiCode,
         diplomaNo,
@@ -170,7 +174,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
         ) : null}
 
         {methodCode === 'CHSI' ? (
-          <ChsiForm copy={copy} chsiCode={chsiCode} onChsiCode={setChsiCode} />
+          <ChsiForm copy={copy} schoolName={schoolName} onSchool={(name, code) => { setSchoolName(name); setSchoolCode(code) }} chsiCode={chsiCode} onChsiCode={setChsiCode} />
         ) : (
           <StandardForm
             methodCode={methodCode}
@@ -186,7 +190,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
             maxMaterialCount={maxMaterialCount}
             uploading={uploading}
             optionLabel={optionLabel}
-            onSchoolName={setSchoolName}
+            onSchool={(name, code) => { setSchoolName(name); setSchoolCode(code) }}
             onEducationPicker={() => setEducationPickerVisible(true)}
             onCertificateName={setCertificateName}
             onDiplomaNo={setDiplomaNo}
@@ -237,7 +241,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
   )
 }
 
-function StandardForm({ methodCode, copy, methodLabel, top, schoolName, educationLevel, certificateName, diplomaNo, materialUrls, materialPreviewUrls, maxMaterialCount, uploading, optionLabel, onSchoolName, onEducationPicker, onCertificateName, onDiplomaNo, onUpload }: {
+function StandardForm({ methodCode, copy, methodLabel, top, schoolName, educationLevel, certificateName, diplomaNo, materialUrls, materialPreviewUrls, maxMaterialCount, uploading, optionLabel, onSchool, onEducationPicker, onCertificateName, onDiplomaNo, onUpload }: {
   methodCode: EducationMethod
   copy: (key: string) => string
   methodLabel: string
@@ -251,7 +255,7 @@ function StandardForm({ methodCode, copy, methodLabel, top, schoolName, educatio
   maxMaterialCount: number
   uploading: boolean
   optionLabel: (key: 'educationLevel', code?: string) => string
-  onSchoolName: (value: string) => void
+  onSchool: (name: string, code?: string) => void
   onEducationPicker: () => void
   onCertificateName: (value: string) => void
   onDiplomaNo: (value: string) => void
@@ -262,7 +266,7 @@ function StandardForm({ methodCode, copy, methodLabel, top, schoolName, educatio
   return (
     <View id={isStudent ? 'education-student-form' : undefined} style={{ position: 'absolute', left: '25rpx', top, width: '700rpx', minHeight: isStudent ? '725rpx' : undefined, borderRadius: '18rpx', background: '#FFFFFF', padding: '34rpx 30rpx 38rpx', boxSizing: 'border-box' }}>
       {!isStudent ? <Text style={{ display: 'block', color: '#0C285A', fontSize: '29rpx', fontWeight: 600, lineHeight: '42rpx', marginBottom: '18rpx' }}>{methodLabel}</Text> : null}
-      <InputRow marginTop={isStudent ? '0' : '20rpx'} label={copy('education_school_label')} value={schoolName} placeholder={copy('education_school_placeholder')} onInput={onSchoolName} />
+      <SchoolSearchInput marginTop={isStudent ? '0' : '20rpx'} label={copy('education_school_label')} value={schoolName} placeholder={copy('education_school_placeholder')} onChange={onSchool} />
       <PickerRow label={copy('education_level_label')} value={optionLabel('educationLevel', educationLevel)} placeholder={copy('common_select_placeholder')} onClick={onEducationPicker} />
       {isDiploma ? <InputRow label={copy('education_diploma_label')} value={diplomaNo} placeholder={copy('education_diploma_placeholder')} onInput={onDiplomaNo} /> : null}
       {isDiploma ? <InputRow label={copy('education_certificate_name_label')} value={certificateName} placeholder={copy('education_certificate_name_placeholder')} onInput={onCertificateName} /> : null}
@@ -331,8 +335,10 @@ function MaterialUploadArea({ id, gridId, materialUrls, materialPreviewUrls, max
   )
 }
 
-function ChsiForm({ copy, chsiCode, onChsiCode }: {
+function ChsiForm({ copy, schoolName, onSchool, chsiCode, onChsiCode }: {
   copy: (key: string) => string
+  schoolName: string
+  onSchool: (name: string, code?: string) => void
   chsiCode: string
   onChsiCode: (value: string) => void
 }) {
@@ -354,6 +360,7 @@ function ChsiForm({ copy, chsiCode, onChsiCode }: {
           {index === 0 ? <View style={{ height: '68rpx', borderRadius: '34rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '14rpx' }}><Text style={{ color: '#FFFFFF', fontSize: '25rpx' }}>{copy('education_chsi_open_action')}</Text></View> : null}
         </View>
       ))}
+      <SchoolSearchInput label={copy('education_school_label')} value={schoolName} placeholder={copy('education_school_placeholder')} onChange={onSchool} />
       <InputRow label={copy('education_chsi_label')} value={chsiCode} placeholder={copy('education_chsi_placeholder')} onInput={onChsiCode} />
     </View>
   )

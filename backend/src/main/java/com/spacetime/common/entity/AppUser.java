@@ -93,6 +93,8 @@ public class AppUser extends BaseEntity {
     private String wantChild;
     /** 学校全称 */
     private String school;
+    /** 学校字典稳定编码；手动输入学校时为空。 */
+    private String schoolCode;
     /** 专业 */
     private String major;
     /** 学历字典 code */

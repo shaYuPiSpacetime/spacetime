@@ -47,6 +47,7 @@ public class ProfileDetailVO {
     private String hometownDistrict;
     /** 学校全称 */
     private String school;
+    private String schoolCode;
     /** 专业 */
     private String major;
     /** 学历字典 code */

@@ -306,6 +306,8 @@ class ProfileServiceImplTest {
         req.setIndustry("INTERNET");
         req.setAnnualIncome("FROM_150K_TO_300K");
         req.setCompany("星河科技有限公司");
+        req.setSchool("浙江大学");
+        req.setSchoolCode("u-zju");
         req.setLocationProvince("330000");
         req.setLocationCity("330100");
         req.setHometownProvince("410000");
@@ -319,6 +321,8 @@ class ProfileServiceImplTest {
         assertThat(user.getOccupation()).isEqualTo("ENGINEER");
         assertThat(user.getAnnualIncome()).isEqualTo("FROM_150K_TO_300K");
         assertThat(user.getCompany()).isEqualTo("星河科技有限公司");
+        assertThat(user.getSchool()).isEqualTo("浙江大学");
+        assertThat(user.getSchoolCode()).isEqualTo("u-zju");
         assertThat(user.getBasicProfileCompleted()).isEqualTo(1);
         assertThat(result.getBasicProfileCompleted()).isTrue();
         assertThat(result.getNextAction()).isEqualTo("ADD_AVATAR");

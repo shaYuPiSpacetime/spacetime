@@ -37,6 +37,13 @@ prd01:
   content-security:
     provider: ${PRD01_CONTENT_SECURITY_PROVIDER:mock}
 
+gugudata:
+  college:
+    base-url: ${GUGUDATA_COLLEGE_BASE_URL:https://api.gugudata.com/location/college}
+    app-key: ${GUGUDATA_COLLEGE_APP_KEY:}
+    connect-timeout-millis: ${GUGUDATA_COLLEGE_CONNECT_TIMEOUT_MILLIS:3000}
+    request-timeout-millis: ${GUGUDATA_COLLEGE_REQUEST_TIMEOUT_MILLIS:5000}
+
 message:
   tencent-im:
     enabled: ${TENCENT_IM_ENABLED:false}

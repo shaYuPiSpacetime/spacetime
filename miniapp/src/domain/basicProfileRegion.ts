@@ -35,11 +35,13 @@ export function buildBasicProfileSavePayload(
   settings: BasicProfileFieldLike[] | undefined,
   values: Record<string, unknown>
 ): Record<string, unknown> {
-  return Object.fromEntries(
+  const payload = Object.fromEntries(
     normalizeTwoLevelRegionFieldSettings(settings)
       .filter(setting => setting.visible !== false)
       .map(setting => [setting.fieldId, values[setting.fieldId]])
   )
+  if (Object.prototype.hasOwnProperty.call(payload, 'school')) payload.schoolCode = values.schoolCode
+  return payload
 }
 
 /** 地区错误只向用户说明可执行动作。 */

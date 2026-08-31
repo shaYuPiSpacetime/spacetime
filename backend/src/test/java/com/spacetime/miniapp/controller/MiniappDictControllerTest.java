@@ -4,6 +4,7 @@ import com.spacetime.common.exception.GlobalExceptionHandler;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
 import com.spacetime.miniapp.dto.response.DictOptionVO;
 import com.spacetime.miniapp.dto.response.RegionTreeVO;
+import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import com.spacetime.miniapp.service.MiniappDictService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -108,5 +109,30 @@ class MiniappDictControllerTest {
                 .andExpect(jsonPath("$.data.identity[0].code").value("WORKER"))
                 .andExpect(jsonPath("$.data.identity[0].label").value("职场人"))
                 .andExpect(jsonPath("$.data.identity[0].sort").value(1));
+    }
+
+    @Test
+    @DisplayName("按关键词返回C端学校搜索结果")
+    void shouldReturnSchoolOptions() throws Exception {
+        SchoolOptionVO school = new SchoolOptionVO();
+        school.setCode("u-zju");
+        school.setName("浙江大学");
+        school.setShortName("浙大");
+        school.setProvince("浙江省");
+        school.setCity("杭州市");
+        school.setIs985(true);
+        school.setIs211(true);
+        school.setIsDualClass(true);
+        school.setSource("GUGUDATA");
+        when(miniappDictService.searchSchools("浙大", 10)).thenReturn(List.of(school));
+
+        mockMvc.perform(get("/miniapp/dict/schools").param("keyword", "浙大"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].code").value("u-zju"))
+                .andExpect(jsonPath("$.data[0].name").value("浙江大学"))
+                .andExpect(jsonPath("$.data[0].shortName").value("浙大"))
+                .andExpect(jsonPath("$.data[0].is985").value(true))
+                .andExpect(jsonPath("$.data[0].source").value("GUGUDATA"));
     }
 }

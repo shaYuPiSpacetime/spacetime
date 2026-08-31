@@ -51,8 +51,37 @@ X-Auth-Token: <miniapp token>
 - `/miniapp/mobile-config/**`
 - `/miniapp/search/hot-words`
 - `/miniapp/search/config`
+- `/miniapp/dict/**`（地区、基础字典、学校搜索）
 
 说明：`/miniapp/search/results` 是搜索结果主链路，需要登录态。
+
+### 1.3.1 学校搜索
+
+```http
+GET /miniapp/dict/schools?keyword=浙大&limit=10
+```
+
+该接口公开，仅搜索中国大陆高校。`keyword` 至少 2 个字符，`limit` 默认 10、最大 20。服务端先查本地学校字典；本地少于 10 条时查询 GuGuData、幂等写回本地并重新返回。三方失败时返回已有本地结果。港澳台和海外院校由小程序保留手动输入。
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [{
+    "code": "10335",
+    "name": "浙江大学",
+    "shortName": "zju,浙大",
+    "province": "浙江省",
+    "city": "杭州市",
+    "is985": true,
+    "is211": true,
+    "isDualClass": true,
+    "source": "GUGUDATA"
+  }]
+}
+```
+
+对接字段调整：基础资料保存及返回增加可选 `schoolCode`（与 `school` 配套）；学历认证提交及详情增加可选 `schoolCode`（与 `schoolName` 配套）。选择候选时传名称和编码，手动输入时只传名称，旧版客户端无需修改也兼容。
 
 无 token 访问登录态接口时，当前实际返回：
 
@@ -2382,6 +2411,7 @@ Controller 统一返回 `R<T>`：
 | `educationUserType` | String | 是 | `STUDENT`（在校生）或 `MAINLAND_GRADUATE`（中国大陆毕业生） |
 | `educationMethod` | String | 是 | `STUDENT_CARD`、`CHSI`、`DIPLOMA_NO`、`MATERIAL_UPLOAD` |
 | `schoolName` | String | 是 | 学校名称 |
+| `schoolCode` | String | 否 | 学校搜索候选编码；手动输入学校时不传 |
 | `educationLevel` | String | 是 | 学历字典 code |
 | `chsiCode` | String | 条件必填 | 学信网在线验证码 |
 | `diplomaNo` | String | 条件必填 | 毕业证或学位证书编号 |

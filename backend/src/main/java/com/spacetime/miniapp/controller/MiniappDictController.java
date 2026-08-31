@@ -3,6 +3,7 @@ package com.spacetime.miniapp.controller;
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
 import com.spacetime.miniapp.dto.response.RegionTreeVO;
+import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import com.spacetime.miniapp.service.MiniappDictService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,5 +41,17 @@ public class MiniappDictController {
     @GetMapping("/profile-options")
     public R<Map<String, Object>> profileOptions() {
         return R.ok(miniappDictService.profileOptions());
+    }
+
+    /** 搜索中国大陆高校；不足10条时服务端自动查询第三方并写回本地字典。 */
+    @GetMapping("/schools")
+    public R<List<SchoolOptionVO>> schools(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "10") int limit) {
+        String normalized = keyword == null ? "" : keyword.trim();
+        if (normalized.length() < 2) {
+            throw new IllegalArgumentException("学校关键词至少输入2个字符");
+        }
+        return R.ok(miniappDictService.searchSchools(normalized, Math.min(Math.max(limit, 1), 20)));
     }
 }

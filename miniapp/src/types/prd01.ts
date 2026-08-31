@@ -268,6 +268,7 @@ export type EducationMethod = 'STUDENT_CARD' | 'CHSI' | 'DIPLOMA_NO' | 'MATERIAL
 export interface EducationFormValues {
   educationUserType: string
   schoolName: string
+  schoolCode?: string
   educationLevel: string
   chsiCode?: string
   diplomaNo?: string
@@ -357,6 +358,18 @@ export interface SongOption {
   coverUrl?: string
 }
 
+export interface SchoolOption {
+  code: string
+  name: string
+  shortName?: string
+  province?: string
+  city?: string
+  is985?: boolean
+  is211?: boolean
+  isDualClass?: boolean
+  source?: 'LOCAL' | 'GUGUDATA' | string
+}
+
 export interface ProfileDetail extends Record<string, unknown> {
   profileScore?: number
 }
@@ -398,6 +411,7 @@ export interface BasicProfile extends Record<string, unknown> {
   hometownDistrict?: string
   company?: string
   school?: string
+  schoolCode?: string
   major?: string
   minAge?: number
   maxAge?: number

@@ -8,8 +8,10 @@ import com.spacetime.miniapp.dto.response.DictOptionVO;
 import com.spacetime.miniapp.dto.response.ProfileTagGroupVO;
 import com.spacetime.miniapp.dto.response.RegionOptionVO;
 import com.spacetime.miniapp.dto.response.RegionTreeVO;
+import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import com.spacetime.miniapp.service.MiniappDictService;
-import lombok.RequiredArgsConstructor;
+import com.spacetime.miniapp.service.SchoolDictionaryService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -22,13 +24,32 @@ import java.util.Objects;
 
 /** 移动端公开字典服务实现。 */
 @Service
-@RequiredArgsConstructor
 public class MiniappDictServiceImpl implements MiniappDictService {
 
     /** 中国大陆省市区字典类型编码。 */
     private static final String CHINA_REGION_DICT_TYPE = "china_region";
 
     private final DictDataDao dictDataDao;
+    private final SchoolDictionaryService schoolDictionaryService;
+
+    @Autowired
+    public MiniappDictServiceImpl(DictDataDao dictDataDao, SchoolDictionaryService schoolDictionaryService) {
+        this.dictDataDao = dictDataDao;
+        this.schoolDictionaryService = schoolDictionaryService;
+    }
+
+    /** 保留单参构造器供现有字典单测使用。 */
+    public MiniappDictServiceImpl(DictDataDao dictDataDao) {
+        this(dictDataDao, null);
+    }
+
+    @Override
+    public List<SchoolOptionVO> searchSchools(String keyword, int limit) {
+        if (schoolDictionaryService == null) {
+            return List.of();
+        }
+        return schoolDictionaryService.search(keyword, limit);
+    }
 
     /** 每次只读取一个层级，避免首屏返回完整省市区树。 */
     @Override

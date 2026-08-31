@@ -394,6 +394,7 @@ public class ProfileServiceImpl implements ProfileService {
         }
         if (visible(settings, "school")) {
             user.setSchool(validatedText(req.getSchool(), 2, 50, "学校名称需2-50个字符"));
+            user.setSchoolCode(trimToNull(req.getSchoolCode()));
         }
         if (visible(settings, "major")) {
             user.setMajor(validatedText(req.getMajor(), 1, 100, "专业名称不能超过100个字符"));
@@ -578,6 +579,7 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setHometownCity(user.getHometownCity());
         vo.setHometownDistrict(user.getHometownDistrict());
         vo.setSchool(user.getSchool());
+        vo.setSchoolCode(user.getSchoolCode());
         vo.setMajor(user.getMajor());
         vo.setEducationLevel(user.getEducationLevel());
         vo.setEmotionalStatus(user.getEmotionalStatus());
@@ -635,6 +637,7 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setHometownCityLabel(regionLabel(user.getHometownCity()));
         vo.setHometownDistrict(user.getHometownDistrict());
         vo.setSchool(user.getSchool());
+        vo.setSchoolCode(user.getSchoolCode());
         vo.setMajor(user.getMajor());
         vo.setMaritalStatus(user.getMaritalStatus());
         Prd01FieldConfigResolver.AgeRange ageRange = fieldConfigResolver.ageRange();

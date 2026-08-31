@@ -17,6 +17,57 @@
 
 ## 2. 全局配置与字典
 
+### 2.0 学校联想搜索（2026-08-31 新增）
+
+| 项 | 内容 |
+| --- | --- |
+| Method | `GET` |
+| Path | `/miniapp/dict/schools?keyword={keyword}&limit=10` |
+| 鉴权 | 不需要 |
+| 用途 | 基础资料、四种学历认证方式共用的中国大陆高校联想搜索 |
+
+请求约束：`keyword` 必填并至少 2 个字符；`limit` 默认 10，范围 1-20。服务端始终先查本地 `school_dictionary`；本地命中少于 10 条时调用 GuGuData，按三方 UUID 幂等写回本地后重新查询。三方超时或异常时降级返回已有本地结果。港澳台及海外院校不调用该数据源，前端保留手动输入，手动输入时不传 `schoolCode`。
+
+返回 `data[]` 字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `code` | String | 教育部学校代码；无代码时为三方 UUID |
+| `name` | String | 学校全称 |
+| `shortName` | String | 简称/别名，可空 |
+| `province/city` | String | 所在省市，可空 |
+| `is985/is211/isDualClass` | Boolean | 院校标签，可空 |
+| `source` | String | 数据原始来源，当前为 `GUGUDATA` |
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "code": "10335",
+      "name": "浙江大学",
+      "shortName": "zju,浙大",
+      "province": "浙江省",
+      "city": "杭州市",
+      "is985": true,
+      "is211": true,
+      "isDualClass": true,
+      "source": "GUGUDATA"
+    }
+  ]
+}
+```
+
+#### 小程序字段调整
+
+| 场景 | 原字段 | 新增字段 | 兼容规则 |
+| --- | --- | --- | --- |
+| 基础资料保存/查询 | `school` | `schoolCode?: String` | 老客户端只传学校名仍可保存 |
+| 学历认证提交/详情 | `schoolName` | `schoolCode?: String` | 选择搜索候选时同时传名称和编码；手填只传名称 |
+
+小程序此前未调用学校字典接口；现已在基础资料学校编辑器和 `STUDENT_CARD/CHSI/DIPLOMA_NO/MATERIAL_UPLOAD` 四种学历认证表单统一接入 `SchoolSearchInput`。输入 2 个字符后 300ms 防抖查询，选择候选保存 `name + code`，继续手动修改名称会清空 code。
+
 ### 2.1 PRD01 配置
 
 | 项 | 内容 |
@@ -439,6 +490,7 @@
 | `hometownProvince/hometownCity/hometownDistrict` | String | 家乡 code |
 | `company` | String | 公司名称 |
 | `school` | String | 学校 |
+| `schoolCode` | String | 学校搜索候选编码，可选；手动输入学校时为空 |
 | `major` | String | 专业 |
 
 保存规则：
@@ -563,6 +615,7 @@
 | `educationUserType` | String | `STUDENT` 或 `MAINLAND_GRADUATE` |
 | `educationMethod` | String | `STUDENT_CARD/CHSI/DIPLOMA_NO/MATERIAL_UPLOAD` |
 | `schoolName` | String | 学校名称 |
+| `schoolCode` | String | 学校搜索候选编码，可选；手动输入学校时为空 |
 | `educationLevel` | String | 学历字典 code |
 | `chsiCode` | String | 学信网 12-18 位在线验证码 |
 | `diplomaNo` | String | 毕业证/学位证编号 |

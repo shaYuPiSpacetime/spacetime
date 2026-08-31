@@ -320,7 +320,7 @@ const secretLikeChecks = [
   'LTAI',
   'accessKeySecret ',
   'shikongxiehou@',
-  '@Yu8168907',
+  'replace-with-a-strong-password',
 ];
 for (const file of [
   ...workflows,

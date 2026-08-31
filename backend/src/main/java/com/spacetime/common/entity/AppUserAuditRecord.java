@@ -34,6 +34,8 @@ public class AppUserAuditRecord extends BaseEntity {
     private String boundPhone;
     private String educationMethod;
     private String schoolName;
+    /** 学校字典稳定编码；手动输入学校时为空。 */
+    private String schoolCode;
 
     private String materialJson;
     private String machineSignalJson;
