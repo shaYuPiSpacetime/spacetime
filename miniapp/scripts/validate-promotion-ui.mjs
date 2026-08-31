@@ -93,6 +93,10 @@ const checks = [
     assert.doesNotMatch(home, /gridTemplateColumns/)
     assert.match(homeStyle, /--promotion-ladder-inset/)
   }],
+  ['首页阶梯奖励胶囊与轨道垂直居中', () => {
+    assert.match(homeStyle, /\.promotion-ladder__reward\s*\{[^}]*height:\s*19px/s)
+    assert.match(homeStyle, /\.promotion-ladder__rail\s*\{[^}]*top:\s*7px;[^}]*height:\s*5px/s)
+  }],
   ['首页滚动后导航必须遮挡下穿卡片，避免标题重叠', () => {
     assert.match(home, /handleHomeScroll/)
     assert.match(home, /onScroll=\{handleHomeScroll\}/)

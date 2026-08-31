@@ -313,7 +313,8 @@ page {
 
 .promotion-ladder__rail {
   position: absolute;
-  top: 15px;
+  // 19px 奖励胶囊与 5px 轨道共用 9.5px 垂直中心线。
+  top: 7px;
   right: var(--promotion-ladder-inset);
   left: var(--promotion-ladder-inset);
   height: 5px;
