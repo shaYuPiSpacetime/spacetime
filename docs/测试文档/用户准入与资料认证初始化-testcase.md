@@ -439,3 +439,18 @@
 | L1-WX-REAL-008 | L1 | P1 | 微信机审通过后由后台人工复核驳回风险样本 | 审核历史保留微信 `MACHINE_PASS` 和管理员 `MANUAL_REJECT` 两段事实；不得篡改为“微信自动驳回” |
 | L1-WX-REAL-009 | L1 | P0 | 探测视频上传与审核接口 | 当前 `POST /miniapp/file/upload-ticket/video` 返回业务 `code=404`；报告明确“当前正式范围仅图片、文字、语音”，不得伪造视频审核数据 |
 | L1-WX-REAL-010 | L1 | P0 | 微信 access token 被外部刷新后重试 | 清理按 AppId 隔离的旧缓存后，由后端重新获取 token；新提交重新获得异步任务编号并完成回调，受影响旧任务按业务接口失效后重提 |
+
+## 22. 2026-08-31 学历认证转人工审核真实数据闭环增量用例
+
+> 测试模式：增量模式。使用开发环境真实 MySQL/Redis，由接口创建独立测试用户；不调用学历三方 Provider，不直接修改业务表。
+
+| 用例 ID | 层级 | 优先级 | 场景 | 断言 |
+|---------|------|--------|------|------|
+| L1-EDU-MANUAL-001 | L1 | P0 | 小程序用户提交 CHSI 学历认证 | `POST /miniapp/verify/education` 返回 `educationStatus=PENDING`，一次提交只新增一条学历审核记录 |
+| L1-EDU-MANUAL-002 | L1+DB | P0 | 提交后核对审核记录初始值 | `status=PENDING`、`audit_source=MANUAL`、`auditor_id/audit_time/provider_task_id` 均为 `NULL` |
+| L1-EDU-MANUAL-003 | L1+DB | P0 | 核对学历提交未进入三方任务 | 本次用户不存在 `provider_type=EDUCATION_VERIFICATION` 的 `external_provider_task` 记录 |
+| L1-EDU-MANUAL-004 | L1 | P0 | 管理后台按用户查询学历待审核列表和详情 | 列表能定位本次记录，详情状态为 `PENDING`、来源为 `MANUAL`，审核历史包含用户提交记录 |
+| L1-EDU-MANUAL-005 | L1 | P0 | 管理后台人工通过学历认证 | `POST /admin/verify/education/{id}/audit` 成功，详情变为 `APPROVED/MANUAL`，写入管理员和审核时间 |
+| L1-EDU-MANUAL-006 | L1 | P0 | 小程序在后台审核后重新查询认证状态 | `/miniapp/verify/status` 与 `/miniapp/verify/education` 均回显学历已通过，审核人信息不向 C 端泄露 |
+| L3-EDU-MANUAL-001 | L3 | P0 | 学历提交业务回归 | Service 测试断言不调用 `EducationVerificationProvider`、不创建 Provider 任务、不调用机审通过/驳回 |
+| L4-EDU-MANUAL-001 | L4 | P1 | 管理后台学历审核页查看本次真实记录 | 页面能按用户定位记录，显示待审核与人工审核来源，并可进入详情执行审核；若本机 UI 服务不可用则记录为跳过，不以接口结果冒充页面验证 |

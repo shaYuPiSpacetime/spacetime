@@ -8,6 +8,7 @@ import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.ExternalProviderTask;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
+import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.provider.EducationVerificationProvider;
 import com.spacetime.common.provider.ProviderCheckResult;
@@ -39,7 +40,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -151,15 +154,6 @@ class VerificationServiceImplTest {
             record.setId(301L);
             return record;
         });
-        when(educationVerificationProvider.check(any(), any(), any()))
-                .thenReturn(ProviderCheckResult.safe(
-                        "mock-education", "{\"mocked\":true,\"result\":\"pass\"}", true));
-        org.mockito.Mockito.doAnswer(invocation -> {
-            ExternalProviderTask task = invocation.getArgument(0);
-            task.setId(302L);
-            return null;
-        }).when(externalProviderTaskDao).insert(any());
-
         EducationSubmitReq req = new EducationSubmitReq();
         req.setEducationUserType("MAINLAND_GRADUATE");
         req.setEducationMethod("CHSI");
@@ -177,14 +171,19 @@ class VerificationServiceImplTest {
         assertThat(record.getEducationMethod()).isEqualTo("CHSI");
         assertThat(record.getSchoolName()).isEqualTo("浙江工业大学");
         assertThat(record.getSchoolCode()).isEqualTo("u-zjut");
+        assertThat(record.getStatus()).isEqualTo(AppUserAuditStatusEnum.PENDING.getCode());
+        assertThat(record.getAuditSource()).isEqualTo(AuditSourceEnum.MANUAL.getCode());
+        assertThat(record.getAuditorId()).isNull();
+        assertThat(record.getAuditTime()).isNull();
+        assertThat(record.getProviderTaskId()).isNull();
         assertThat(record.getMaterialJson()).contains("\"educationUserType\":\"MAINLAND_GRADUATE\"")
                 .contains("\"educationLevel\":\"BACHELOR\"")
                 .contains("\"identity\":\"WORKER\"")
                 .contains("\"chsiCode\":\"123456789012\"");
-        verify(educationVerificationProvider).check(
-                "CHSI", record.getSchoolName(), record.getMaterialJson());
-        verify(auditService).machineApprove(
-                301L, 302L, "{\"mocked\":true,\"result\":\"pass\"}");
+        verifyNoInteractions(educationVerificationProvider);
+        verify(externalProviderTaskDao, never()).insert(any());
+        verify(auditService, never()).machineApprove(any(), any(), any());
+        verify(auditService, never()).machineReject(any(), any(), any(), any());
         assertThat(result.getEducationCanSubmit()).isTrue();
     }
 
@@ -250,9 +249,6 @@ class VerificationServiceImplTest {
             record.setId(501L);
             return record;
         });
-        when(educationVerificationProvider.check(any(), any(), any()))
-                .thenReturn(ProviderCheckResult.safe("mock-education", "{}", true));
-
         EducationSubmitReq req = studentEducationReq(
                 "/miniapp/file/credential/user-7/20260714/education-proof.jpg");
 

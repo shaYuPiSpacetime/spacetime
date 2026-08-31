@@ -190,7 +190,8 @@ public class VerificationServiceImpl implements VerificationService {
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setUserId(userId);
         record.setAuditType(AppUserAuditTypeEnum.EDUCATION.getCode());
-        record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
+        // 学历三方核验接口尚未开通，当前提交统一进入后台人工审核队列。
+        record.setAuditSource(AuditSourceEnum.MANUAL.getCode());
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
         record.setEducationMethod(submission.method());
         record.setSchoolName(req.getSchoolName().trim());
@@ -198,7 +199,6 @@ public class VerificationServiceImpl implements VerificationService {
         record.setRealName(StrUtil.blankToDefault(req.getCertificateName(), realName.getRealName()));
         record.setMaterialJson(educationMaterialJson(req, submission, user));
         auditService.submit(record);
-        verifyEducationByProvider(record);
         return toStatusVO(userId);
     }
 
