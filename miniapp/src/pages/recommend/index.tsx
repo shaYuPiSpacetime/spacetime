@@ -5,10 +5,13 @@ import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { omitSeenRecommendCandidates } from '@/domain/recommendCandidateQueue'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { getIdealSearchRecords } from '@/services/ideal'
 import {
   getRecommendCandidates,
+  recordRecommendLike,
   recordRecommendSkip,
   recordRecommendView,
   type RecommendCandidatePageVO,
@@ -43,6 +46,8 @@ export default function RecommendPage() {
   const [showCertification, setShowCertification] = useState(false)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
   const viewedCandidates = useRef(new Set<string>())
+  const idealTabSubmitting = useRef(false)
+  const initialIdealTabHandled = useRef(false)
   const access = useAccessStatus('canBrowseCards')
 
   const candidates = page?.items || []
@@ -80,11 +85,45 @@ export default function RecommendPage() {
     void loadCandidates()
   }, [])
 
+  const openIdealTab = async () => {
+    if (idealTabSubmitting.current) return
+    idealTabSubmitting.current = true
+    try {
+      const data = await getIdealSearchRecords()
+      const activeRecord = (data.items || []).find(item => item.status === 'active')
+      if (activeRecord?.snapshotNo) {
+        await Taro.navigateTo({
+          url: `/pages/prd08/ideal/results/index?snapshotNo=${encodeURIComponent(activeRecord.snapshotNo)}`,
+        })
+        return
+      }
+      setActiveTab('ideal')
+    } catch (error) {
+      await Taro.showToast({
+        title: error instanceof Error ? error.message : '筛选记录加载失败，请稍后重试',
+        icon: 'none',
+      })
+    } finally {
+      idealTabSubmitting.current = false
+    }
+  }
+
+  const handleTabChange = (tab: RecommendTab) => {
+    if (tab === 'ideal') {
+      void openIdealTab()
+      return
+    }
+    setActiveTab(tab)
+  }
+
   useDidShow(() => {
     const targetTab = Taro.getStorageSync(RECOMMEND_TAB_STORAGE_KEY)
-    if (targetTab !== 'ideal') return
-    setActiveTab('ideal')
-    Taro.removeStorageSync(RECOMMEND_TAB_STORAGE_KEY)
+    const requestedByRoute =
+      !initialIdealTabHandled.current && router.params.tab === 'ideal'
+    if (targetTab !== 'ideal' && !requestedByRoute) return
+    initialIdealTabHandled.current = true
+    if (targetTab === 'ideal') Taro.removeStorageSync(RECOMMEND_TAB_STORAGE_KEY)
+    void openIdealTab()
   })
 
   usePullDownRefresh(() => {
@@ -108,6 +147,26 @@ export default function RecommendPage() {
       })
   }, [candidate?.candidateNo, candidateIndex, page?.preferenceVersion])
 
+  const showNextCandidate = async () => {
+    if (candidateIndex + 1 < candidates.length) {
+      setCandidateIndex(current => current + 1)
+      return
+    }
+    const response = page?.nextCursor
+      ? await getRecommendCandidates(page.nextCursor)
+      : await getRecommendCandidates()
+    const next = omitSeenRecommendCandidates(
+      response,
+      viewedCandidates.current,
+      candidate?.candidateNo
+    )
+    setPage(next)
+    setCandidateIndex(0)
+    if (next.items?.length) setState('ready')
+    else if (next.waitingReason === 'browse_limit') setState('limit')
+    else setState('empty')
+  }
+
   const advanceCandidate = async () => {
     if (!candidate || actionSubmitting) return
     setActionSubmitting(true)
@@ -117,23 +176,7 @@ export default function RecommendPage() {
         filterVersion: page?.preferenceVersion,
         position: candidateIndex + 1,
       })
-      if (candidateIndex + 1 < candidates.length) {
-        setCandidateIndex(current => current + 1)
-      } else if (page?.nextCursor) {
-        const next = await getRecommendCandidates(page.nextCursor)
-        setPage(next)
-        setCandidateIndex(0)
-        if (next.items?.length) setState('ready')
-        else if (next.waitingReason === 'browse_limit') setState('limit')
-        else setState('empty')
-      } else {
-        const refreshed = await getRecommendCandidates()
-        setPage(refreshed)
-        setCandidateIndex(0)
-        if (refreshed.items?.length) setState('ready')
-        else if (refreshed.waitingReason === 'browse_limit') setState('limit')
-        else setState('empty')
-      }
+      await showNextCandidate()
     } catch (error) {
       await Taro.showToast({
         title: error instanceof Error ? error.message : '跳过失败，请稍后重试',
@@ -146,9 +189,12 @@ export default function RecommendPage() {
 
   const toggleLike = async () => {
     if (!candidate || actionSubmitting) return
+    const wasLiked = candidate.liked
+    const filterVersion = page?.preferenceVersion
+    const position = candidateIndex + 1
     setActionSubmitting(true)
     try {
-      const relation = candidate.liked
+      const relation = wasLiked
         ? await cancelRelationLike(candidate.userId)
         : await sendRelationLike(
             candidate.userId,
@@ -157,20 +203,43 @@ export default function RecommendPage() {
           )
       updateCandidate({
         ...candidate,
-        liked: !candidate.liked,
+        liked: !wasLiked,
         communicationMode: relation.canEnterConversation ? 'PRIVATE_MESSAGE' : 'WHISPER',
         profile: {
           ...candidate.profile,
-          liked: !candidate.liked,
+          liked: !wasLiked,
           matched: Boolean(relation.matched),
           matchNo: relation.matchNo || candidate.profile.matchNo,
           canEnterConversation: Boolean(relation.canEnterConversation),
           communicationMode: relation.canEnterConversation ? 'PRIVATE_MESSAGE' : 'WHISPER',
         },
       })
+      if (wasLiked) {
+        await Taro.showToast({ title: '已取消心动', icon: 'none' })
+        return
+      }
+      let recommendLikeSyncFailed = false
+      try {
+        const requestId = createRequestId('recommend-action-like', candidate.candidateNo)
+        await recordRecommendLike(candidate.candidateNo, { requestId, filterVersion, position })
+      } catch {
+        recommendLikeSyncFailed = true
+      }
+      let nextCandidateFailed = false
+      try {
+        await showNextCandidate()
+      } catch {
+        nextCandidateFailed = true
+      }
       await Taro.showToast({
-        title: candidate.liked ? '已取消心动' : relation.matched ? '匹配成功' : '已心动',
-        icon: candidate.liked ? 'none' : 'success',
+        title: recommendLikeSyncFailed
+          ? '已心动，推荐记录同步稍有延迟'
+          : nextCandidateFailed
+            ? '已心动，下一位加载失败，请稍后重试'
+            : relation.matched
+              ? '匹配成功'
+              : '已心动',
+        icon: recommendLikeSyncFailed || nextCandidateFailed ? 'none' : 'success',
       })
     } catch (error) {
       await Taro.showToast({
@@ -225,7 +294,7 @@ export default function RecommendPage() {
     >
       {activeTab === 'ideal' ? (
         <IdealLanding
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           onHistory={() => runCertifiedAction(() => {
             void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })
           })}
@@ -237,7 +306,7 @@ export default function RecommendPage() {
         <>
           <RecommendHeader
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             onHistory={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
             onPreference={() =>
               void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })

@@ -6,7 +6,9 @@ import ProfilePreviewTopNav from '@/components/ProfilePreviewTopNav'
 import ProfileTagChip from '@/components/ProfileTagChip'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { buildProfilePreviewVisibility } from '@/domain/profilePreviewVisibility'
+import type { CommunityPostVO } from '@/services/community'
 import type { ProfileTagItem } from '@/utils/profileTags'
+import ProfileCommunityPostsSection from './ProfileCommunityPostsSection'
 import ProfileHeroImage from './ProfileHeroImage'
 
 export type ProfilePreviewModel = {
@@ -36,6 +38,7 @@ export type ProfilePreviewModel = {
   favoriteSong: string
   aboutMe: Array<{ title: string; value: string }>
   detailInfo?: string[]
+  communityPosts?: CommunityPostVO[]
 }
 
 type ProfilePreviewPageProps = {
@@ -126,6 +129,7 @@ export default function ProfilePreviewPage({
             {visibleContent.photos.slice(2).map((url, index) => (
               <ProfilePreviewPhoto key={`${url}-${index}`} url={url} />
             ))}
+            <ProfileCommunityPostsSection posts={model.communityPosts || []} />
             {additionalContent}
             {footer ? <View style={{ height: '160rpx' }} /> : null}
           </View>

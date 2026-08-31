@@ -60,7 +60,7 @@ test('主页预览空内容和空图片不生成占位模块', () => {
   })
   assert.deepEqual(filled.tags, [{ code: 'quiet', label: '安静' }])
   assert.equal(filled.introduction, '喜欢阅读和散步')
-  assert.deepEqual(filled.photos, ['one.jpg', 'two.jpg', 'three.jpg', 'four.jpg'])
+  assert.deepEqual(filled.photos, ['one.jpg', 'two.jpg', 'three.jpg', 'four.jpg', 'five.jpg'])
   assert.equal(filled.showCertification, true)
   assert.equal(filled.favoriteSong, '晴天｜周杰伦')
 

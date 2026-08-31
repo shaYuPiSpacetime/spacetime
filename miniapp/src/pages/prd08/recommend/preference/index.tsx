@@ -3,6 +3,10 @@ import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import {
+  normalizeTwoLevelRegionSelection,
+  type TwoLevelRegionSelection,
+} from '@/domain/twoLevelRegionWheel'
 import { prd01Api } from '@/services/prd01'
 import {
   getRecommendPreferences,
@@ -17,10 +21,13 @@ const BLUE = '#2876FF'
 export default function RecommendPreferencePage() {
   const [model, setModel] = useState<RecommendPreferenceVO | null>(null)
   const [cities, setCities] = useState<RegionTreeOption[]>([])
+  const [cityPickerValue, setCityPickerValue] = useState<TwoLevelRegionSelection>([0, 0])
   const [educationOptions, setEducationOptions] = useState<DictOption[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const cityOptions = useMemo(() => cities.flatMap(province => province.children), [cities])
+  const normalizedCityPickerValue = normalizeTwoLevelRegionSelection(cities, cityPickerValue)
+  const cityPickerRange = [cities, cities[normalizedCityPickerValue[0]]?.children || []]
   const load = async () => {
     try {
       const [preference, tree, options] = await Promise.all([
@@ -65,6 +72,25 @@ export default function RecommendPreferencePage() {
       return
     }
     patch({ targetCities: [...model.targetCities, { code: selected.code, name: selected.name }] })
+  }
+  const updateCityPickerColumn = (column: number, value: number) => {
+    if (column === 0) {
+      setCityPickerValue(normalizeTwoLevelRegionSelection(cities, [value, 0]))
+      return
+    }
+    setCityPickerValue(current => {
+      const [provinceIndex] = normalizeTwoLevelRegionSelection(cities, current)
+      return normalizeTwoLevelRegionSelection(cities, [provinceIndex, value])
+    })
+  }
+  const confirmCityPicker = (value: number[]) => {
+    const selection = normalizeTwoLevelRegionSelection(cities, value)
+    setCityPickerValue(selection)
+    const [provinceIndex, cityIndex] = selection
+    const selected = cities[provinceIndex]?.children[cityIndex]
+    if (!selected) return
+    const selectedIndex = cityOptions.findIndex(city => city.code === selected.code)
+    if (selectedIndex >= 0) addCity(selectedIndex)
   }
   const save = async () => {
     if (saving) return
@@ -129,10 +155,14 @@ export default function RecommendPreferencePage() {
             ))}
             {model.targetCities.length < 3 ? (
               <Picker
-                mode="selector"
-                range={cityOptions}
+                mode="multiSelector"
+                range={cityPickerRange}
                 rangeKey="name"
-                onChange={event => addCity(Number(event.detail.value))}
+                value={normalizedCityPickerValue}
+                onColumnChange={event =>
+                  updateCityPickerColumn(event.detail.column, event.detail.value)
+                }
+                onChange={event => confirmCityPicker(event.detail.value)}
               >
                 <View
                   style={{
@@ -456,7 +486,7 @@ function RangeSection({
   return (
     <View style={{ marginTop: '34rpx' }}>
       <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>
-        {title}　{value}
+        {title} {value}
       </Text>
       <View style={{ position: 'relative', height: '70rpx', marginTop: '14rpx' }}>
         <Slider

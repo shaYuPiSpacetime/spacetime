@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LanhuSubNav from '@/components/LanhuSubNav'
 import ProfileTagChip from '@/components/ProfileTagChip'
+import { toggleProfileTagSelection } from '@/domain/profileTagSelection'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { DictOption } from '@/types/prd01'
@@ -41,10 +42,18 @@ export default function ProfileEditTagsPage() {
 
   const toggle = (option: DictOption) => {
     const current = selectedTagsRef.current
-    const next = current.includes(option.code)
-      ? current.filter(code => code !== option.code)
-      : [...current, option.code]
-    if (next.length > 16) {
+    const optionGroup = groups.find(
+      group =>
+        group.categoryCode.trim().toUpperCase() !== 'ALL' &&
+        group.options.some(item => item.code === option.code)
+    )
+    const { codes: next, limitExceeded } = toggleProfileTagSelection(
+      current,
+      option.code,
+      optionGroup?.categoryCode || '',
+      optionGroup?.options.map(item => item.code) || []
+    )
+    if (limitExceeded) {
       void Taro.showToast({ title: '最多选择 16 个标签', icon: 'none' })
       return
     }

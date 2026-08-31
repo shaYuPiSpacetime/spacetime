@@ -31,7 +31,7 @@ export function buildProfilePreviewVisibility(
       return code && label ? [{ code, label }] : []
     }),
     introduction: normalizeText(input.introduction),
-    photos: input.photos.map(normalizeText).filter(Boolean).slice(0, 4),
+    photos: input.photos.map(normalizeText).filter(Boolean),
     showCertification: input.certifications.some(item => item.passed),
     favoriteSong: normalizeText(input.favoriteSong),
     aboutMe: (input.aboutMe || []).flatMap(item => {

@@ -15,6 +15,7 @@ import {
   type ProfileAboutSummaryItem,
 } from '@/domain/profileAboutPresentation'
 import { normalizeOptionalWechatId } from '@/domain/profileWechat'
+import { getMyCommunityPosts, type CommunityPostVO } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, ProfileFieldSetting, ProfileMedia, RegionTreeOption, VerificationStatus, VoiceIntro } from '@/types/prd01'
@@ -216,6 +217,7 @@ export default function ProfileEditPage() {
     buildProfileAboutSummary([])
   )
   const [selectedTags, setSelectedTags] = useState<ProfileTagItem[]>([])
+  const [communityPosts, setCommunityPosts] = useState<CommunityPostVO[]>([])
   const [favoriteSong, setFavoriteSong] = useState('')
   const [goal, setGoal] = useState('')
   const [relationship, setRelationship] = useState('')
@@ -294,6 +296,23 @@ export default function ProfileEditPage() {
       }
     })()
   }, [])
+
+  useEffect(() => {
+    if (!showPreview) return
+    let active = true
+    void getMyCommunityPosts(1, 20)
+      .then(result => {
+        if (active) {
+          setCommunityPosts((result.records || []).filter(post => post.status === 'published'))
+        }
+      })
+      .catch(() => {
+        if (active) setCommunityPosts([])
+      })
+    return () => {
+      active = false
+    }
+  }, [showPreview])
 
   useEffect(() => {
     voiceDetailRef.current = voiceDetail
@@ -742,6 +761,7 @@ export default function ProfileEditPage() {
     relationshipStatus: relationship,
     favoriteSong,
     aboutMe: aboutTopics.flatMap(item => item.value ? [{ title: item.title, value: item.value }] : []),
+    communityPosts,
   }
 
   // 主页预览等价路由：/pages/profile/index?variant=preview；底部 Tab 页面不使用 navigateTo。
@@ -770,8 +790,7 @@ export default function ProfileEditPage() {
         <View
           style={{
             width: '750rpx',
-            minHeight: '5812rpx',
-            paddingBottom: '210rpx',
+            paddingBottom: 'calc(48rpx + env(safe-area-inset-bottom))',
             boxSizing: 'border-box',
           }}
         >
