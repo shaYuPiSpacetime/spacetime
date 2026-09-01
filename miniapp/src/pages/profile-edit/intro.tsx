@@ -8,6 +8,7 @@ import { usePrd01Store } from '@/stores/prd01Store'
 import type { OpenTextDetail } from '@/types/prd01'
 import { navigateBackOrRedirect } from '@/utils/navigation'
 import { emitProfileUpdated } from '@/utils/profileEditEvents'
+import { resolveIntroductionRejectedMessage } from '@/domain/introductionAuditFeedback'
 
 const pageBackground =
   'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 50%, rgba(248,250,239,0.72) 100%)'
@@ -36,9 +37,24 @@ export default function ProfileEditIntroPage() {
     if (saving || detail?.canSubmit === false) return
     setSaving(true)
     try {
-      await prd01Api.submitIntroduction(value.trim())
+      const content = value.trim()
+      const auditResult = await prd01Api.submitIntroduction(content)
+      if (auditResult.auditStatus === 'REJECTED') {
+        const rejectReason = resolveIntroductionRejectedMessage(auditResult.rejectReason)
+        setDetail(current => ({
+          latestContent: content,
+          effectiveContent: current?.effectiveContent,
+          auditStatus: auditResult.auditStatus,
+          auditSource: auditResult.auditSource,
+          rejectReason,
+          submitTime: current?.submitTime,
+          canSubmit: true,
+        }))
+        await Taro.showToast({ title: rejectReason, icon: 'none' })
+        return
+      }
       const result = await prd01Api.getIntroduction()
-      const nextValue = resolveOwnerVisibleText(result) || value.trim()
+      const nextValue = resolveOwnerVisibleText(result) || content
       setDetail(result)
       setValue(nextValue)
       emitProfileUpdated({ type: 'intro', value: nextValue })

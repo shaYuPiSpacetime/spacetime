@@ -8,6 +8,7 @@ import { navigateBackOrRedirect } from '@/utils/navigation'
 import { loginByWechatPhone } from '@/services/auth'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
+import { resolveIntroductionRejectedMessage } from '@/domain/introductionAuditFeedback'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import VerificationShell from './components/VerificationShell'
@@ -65,7 +66,7 @@ export default function VerificationIntroPage() {
       )
       const auditResult = await prd01Api.submitIntroduction(content)
       if (auditResult.auditStatus === 'REJECTED') {
-        const rejectReason = auditResult.rejectReason || '文本内容安全审核未通过，请修改后重试'
+        const rejectReason = resolveIntroductionRejectedMessage(auditResult.rejectReason)
         setDetail(current => ({
           latestContent: content,
           effectiveContent: current?.effectiveContent,

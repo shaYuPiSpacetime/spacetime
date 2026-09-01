@@ -20,6 +20,7 @@ import {
   resolveCommunityFeedback,
   resolveCommunityStatusLabel,
   toggleCommunityFollow,
+  toggleCommunityLike,
   type CommunityConfig,
   type CommunityPostVO,
   type CommunityRelationUserVO,
@@ -67,6 +68,7 @@ interface MyPostSnapshot {
   createdAt: string
   commentCount: number
   likeCount: number
+  liked: boolean
 }
 
 const emptyProfile: ProfileSummary = {
@@ -93,6 +95,7 @@ export default function QianxunInteractionsPage() {
   const [interactorPostId, setInteractorPostId] = useState<string>()
   const [interactorType, setInteractorType] = useState<'liked' | 'commented'>('liked')
   const [likeSummaryVisible, setLikeSummaryVisible] = useState(false)
+  const [likingPostIds, setLikingPostIds] = useState<number[]>([])
   const [config, setConfig] = useState<CommunityConfig>()
 
   useLoad(options => {
@@ -215,6 +218,21 @@ export default function QianxunInteractionsPage() {
     if (selected.tapIndex === 0) await clearHistory()
   }
 
+  const toggleMyPostLike = async (item: MyPostSnapshot) => {
+    if (!item.postId || item.status !== 'published' || likingPostIds.includes(item.postId)) return
+    setLikingPostIds(ids => [...ids, item.postId as number])
+    try {
+      const result = await toggleCommunityLike(item.postId)
+      setMyPosts(posts => posts.map(post => post.id === item.id
+        ? { ...post, liked: result.liked, likeCount: result.likeCount }
+        : post))
+    } catch (error) {
+      await showError(config, error)
+    } finally {
+      setLikingPostIds(ids => ids.filter(id => id !== item.postId))
+    }
+  }
+
   if (interactorPostId) {
     return <View id="qianxun-interactors-page" style={{ minHeight: '100vh', background: '#FFFFFF' }}><SimpleHeader title="互动" onBack={() => void Taro.navigateBack()} /><View style={{ height: '88rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', borderBottom: '1rpx solid #EFF2F6' }}>{(['liked', 'commented'] as const).map(type => <View key={type} onClick={() => setInteractorType(type)} style={{ position: 'relative', width: '150rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: interactorType === type ? NAVY : '#999999', fontSize: '27rpx', fontWeight: interactorType === type ? 600 : 400 }}>{type === 'liked' ? '点赞' : '评论'}</Text>{interactorType === type ? <View style={{ position: 'absolute', bottom: 0, width: '54rpx', height: '6rpx', borderRadius: '3rpx', background: BLUE }} /> : null}</View>)}</View>{rosterLoading ? <LoadingRows /> : rosterUsers.length ? <RosterList users={rosterUsers} onChanged={() => void getCommunityPostInteractors(interactorPostId, interactorType, 1, 50).then(page => setRosterUsers(page.records || [])).catch(error => showError(config, error))} config={config} /> : <InteractorEmpty type={interactorType} config={config} />}</View>
   }
@@ -263,7 +281,7 @@ export default function QianxunInteractionsPage() {
           </ScrollView>
         </View>
         <View id="qianxun-interactions-panel-mine" data-section-panel="mine" style={sectionPanelStyle(section === 'mine')}>
-          <MinePanel loading={loading} posts={myPosts} config={config} />
+          <MinePanel loading={loading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} />
         </View>
       </View>
       {likeSummaryVisible ? <LikeSummary count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} /> : null}
@@ -339,7 +357,7 @@ function sectionPanelStyle(active: boolean) {
   }
 }
 
-function MinePanel({ loading, posts, config }: { loading: boolean; posts: MyPostSnapshot[]; config?: CommunityConfig }) {
+function MinePanel({ loading, posts, likingPostIds, config, onLike }: { loading: boolean; posts: MyPostSnapshot[]; likingPostIds: number[]; config?: CommunityConfig; onLike: (item: MyPostSnapshot) => void }) {
   return (
     <ScrollView scrollY style={{ height: '100%' }} showScrollbar={false}>
       <View style={{ padding: '6rpx 26rpx 54rpx' }}>
@@ -348,13 +366,13 @@ function MinePanel({ loading, posts, config }: { loading: boolean; posts: MyPost
           <Text style={{ position: 'absolute', left: '45rpx', top: '42rpx', color: '#999999', fontSize: '27rpx', lineHeight: '40rpx' }}>记录美好生活 遇上另一半</Text>
           <View onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'absolute', left: '45rpx', top: '102rpx', width: '130rpx', height: '50rpx', borderRadius: '7rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '25rpx', fontWeight: 500 }}>发动态</Text></View>
         </View>
-        {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} config={config} />) : <MineEmpty config={config} />}
+        {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} liking={Boolean(item.postId && likingPostIds.includes(item.postId))} config={config} onLike={() => onLike(item)} />) : <MineEmpty config={config} />}
       </View>
     </ScrollView>
   )
 }
 
-function MyPostSnapshotCard({ item, config }: { item: MyPostSnapshot; config?: CommunityConfig }) {
+function MyPostSnapshotCard({ item, liking, config, onLike }: { item: MyPostSnapshot; liking: boolean; config?: CommunityConfig; onLike: () => void }) {
   const date = splitMyPostDate(item.createdAt)
   const open = () => {
     if (item.postId && item.status === 'published') {
@@ -369,17 +387,52 @@ function MyPostSnapshotCard({ item, config }: { item: MyPostSnapshot; config?: C
         <View style={{ width: '112rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', lineHeight: '42rpx' }}>{item.content}</Text>
-          {item.imageUrls[0] ? <Image src={item.imageUrls[0]} mode="aspectFill" style={{ width: '260rpx', height: '190rpx', borderRadius: '9rpx', background: '#F1F3F6', marginTop: '16rpx' }} /> : null}
+          <MyPostImages images={item.imageUrls} />
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
             {item.status !== 'published' ? <Text style={{ color: item.status === 'rejected' ? '#D44747' : BLUE, fontSize: '21rpx' }}>{resolveCommunityStatusLabel(config, item.status, item.statusName)}</Text> : null}
             <View style={{ flex: 1 }} />
             <QianxunActionStat kind="comment" count={item.commentCount} fontSize="21rpx" />
             <View style={{ width: '30rpx' }} />
-            <QianxunActionStat kind="like" count={item.likeCount} active fontSize="21rpx" />
+            <QianxunActionStat kind="like" count={item.likeCount} active={item.liked} onClick={item.postId && item.status === 'published' && !liking ? onLike : undefined} fontSize="21rpx" />
           </View>
         </View>
       </View>
+    </View>
+  )
+}
+
+function MyPostImages({ images }: { images: string[] }) {
+  const visible = images.filter(Boolean).slice(0, 9)
+  if (!visible.length) return null
+  const single = visible.length === 1
+  const useTwoColumn = visible.length === 2 || visible.length === 4
+  const columns = single ? 1 : useTwoColumn ? 2 : 3
+  const width = single ? '512rpx' : useTwoColumn ? '250rpx' : '164rpx'
+  const height = single ? '332rpx' : useTwoColumn ? '210rpx' : '164rpx'
+  const gap = 10
+  const rows = Math.ceil(visible.length / columns)
+  return (
+    <View style={{ display: 'flex', flexWrap: 'wrap', width: '512rpx', marginTop: '16rpx' }}>
+      {visible.map((url, index) => (
+        <Image
+          key={`${url}-${index}`}
+          src={url}
+          mode="aspectFill"
+          onClick={event => {
+            event.stopPropagation()
+            void Taro.previewImage({ current: url, urls: visible })
+          }}
+          style={{
+            width,
+            height,
+            borderRadius: '9rpx',
+            background: '#F1F3F6',
+            marginRight: (index + 1) % columns === 0 ? 0 : `${gap}rpx`,
+            marginBottom: Math.floor(index / columns) === rows - 1 ? 0 : `${gap}rpx`,
+          }}
+        />
+      ))}
     </View>
   )
 }
@@ -564,6 +617,7 @@ function toMyPostSnapshot(post: CommunityPostVO): MyPostSnapshot {
     createdAt: post.createTime,
     commentCount: readNonNegativeNumber(post.commentCount),
     likeCount: readNonNegativeNumber(post.likeCount),
+    liked: Boolean(post.liked),
   }
 }
 

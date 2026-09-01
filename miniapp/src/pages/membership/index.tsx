@@ -43,6 +43,7 @@ export default function MembershipPage() {
     confirmPay,
     payLoading,
     payState,
+    paymentErrorMessage,
     showUnpaidSheet,
     hidePaymentLayer,
     goToRecords,
@@ -142,6 +143,7 @@ export default function MembershipPage() {
       />
       <MembershipPaymentLayer
         payState={payState}
+        failureMessage={paymentErrorMessage}
         onClose={hidePaymentLayer}
         onConfirmAgreement={handleConfirmAgreement}
       />
@@ -507,10 +509,12 @@ function MemberBenefitIcon({ icon }: { icon: string }) {
 
 function MembershipPaymentLayer({
   payState,
+  failureMessage,
   onClose,
   onConfirmAgreement,
 }: {
   payState: MembershipPayState
+  failureMessage: string
   onClose: () => void
   onConfirmAgreement: () => void
 }) {
@@ -542,8 +546,9 @@ function MembershipPaymentLayer({
         </View>
       )}
       {payState === 'pay-failed' && (
-        <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }} onClick={onClose}>
-          <Text style={{ color: LANHU_DARK, fontSize: '28rpx' }}>支付结果确认中，请稍后查看订单</Text>
+        <View style={{ position: 'absolute', left: '150rpx', top: '500rpx', width: '450rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
+          <Text style={{ color: LANHU_DARK, fontSize: '28rpx', lineHeight: '42rpx', textAlign: 'center' }}>{failureMessage || '支付失败，请稍后重试'}</Text>
+          <View onClick={onClose} style={{ height: '64rpx', borderRadius: '10rpx', background: '#2876FF', padding: '0 38rpx', marginTop: '24rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>知道了</Text></View>
         </View>
       )}
       {payState === 'unpaid-sheet' && (

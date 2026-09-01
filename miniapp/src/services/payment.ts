@@ -125,7 +125,27 @@ export interface WechatPayParams {
   paySign: string
 }
 
+/** 微信虚拟支付参数 */
+export interface WechatVirtualPayParams {
+  signData: string
+  paySig: string
+  signature: string
+  mode: 'short_series_goods'
+}
+
+interface WechatVirtualPaymentOptions extends WechatVirtualPayParams {
+  success: () => void
+  fail: (error: unknown) => void
+}
+
+interface WechatNativePaymentApi {
+  requestVirtualPayment: (options: WechatVirtualPaymentOptions) => void
+}
+
+declare const wx: WechatNativePaymentApi
+
 export type PaymentOrderType = 'vip' | 'coin'
+export type WechatPaymentMode = 'wechat_jsapi' | 'wechat_virtual'
 
 /** 创建订单结果 */
 export interface CreateOrderResult {
@@ -133,7 +153,9 @@ export interface CreateOrderResult {
   orderNo: string
   payAmount: number
   payChannel: string
-  payParams: WechatPayParams
+  paymentMode?: WechatPaymentMode
+  payParams?: WechatPayParams
+  virtualPayParams?: WechatVirtualPayParams
 }
 
 /** 获取 VIP 套餐列表 */
@@ -176,9 +198,15 @@ export function getVipOrders(page = 1, size = 50): Promise<PageVO<VipOrderVO>> {
   return get<PageVO<VipOrderVO>>('/miniapp/vip/orders', { page, size })
 }
 
-/** 创建充值订单 */
-export function createOrder(packageId: number, type: PaymentOrderType): Promise<CreateOrderResult> {
-  return post<CreateOrderResult>('/miniapp/payment/create-order', { packageId, orderType: type })
+/** 创建充值订单，并用本次 wx.login 凭证生成虚拟支付用户签名。 */
+export async function createOrder(packageId: number, type: PaymentOrderType): Promise<CreateOrderResult> {
+  const loginResult = await Taro.login()
+  if (!loginResult.code) throw new Error('微信登录状态刷新失败，请重试')
+  return post<CreateOrderResult>('/miniapp/payment/create-order', {
+    packageId,
+    orderType: type,
+    loginCode: loginResult.code,
+  })
 }
 
 /** 查询当前用户支付订单结果 */
@@ -191,13 +219,36 @@ export function confirmWechatPayment(orderId: number): Promise<PayResultVO> {
   return post<PayResultVO>(`/miniapp/payment/wechat/confirm/${orderId}`)
 }
 
-/** 唤起微信小程序原生支付面板 */
-export async function requestWechatPayment(payParams: WechatPayParams): Promise<void> {
+/** 唤起微信虚拟支付面板。 */
+async function requestWechatVirtualPayment(params: WechatVirtualPayParams): Promise<void> {
+  if (typeof wx === 'undefined' || !Taro.canIUse('requestVirtualPayment')) {
+    throw new Error('当前微信版本暂不支持虚拟支付，请升级微信后重试')
+  }
+  await new Promise<void>((resolve, reject) => {
+    wx.requestVirtualPayment({
+      signData: params.signData,
+      paySig: params.paySig,
+      signature: params.signature,
+      mode: params.mode,
+      success: resolve,
+      fail: reject,
+    })
+  })
+}
+
+/** 按后端返回的支付模式唤起微信原生支付面板。 */
+export async function requestWechatPayment(order: CreateOrderResult): Promise<void> {
+  if (order.paymentMode === 'wechat_virtual' || order.payChannel === 'wechat_virtual') {
+    if (!order.virtualPayParams) throw new Error('微信虚拟支付参数缺失，请稍后重试')
+    await requestWechatVirtualPayment(order.virtualPayParams)
+    return
+  }
+  if (!order.payParams) throw new Error('微信支付参数缺失，请稍后重试')
   await Taro.requestPayment({
-    timeStamp: payParams.timeStamp,
-    nonceStr: payParams.nonceStr,
-    package: payParams.package,
-    signType: payParams.signType as 'RSA',
-    paySign: payParams.paySign,
+    timeStamp: order.payParams.timeStamp,
+    nonceStr: order.payParams.nonceStr,
+    package: order.payParams.package,
+    signType: order.payParams.signType as 'RSA',
+    paySign: order.payParams.paySign,
   })
 }

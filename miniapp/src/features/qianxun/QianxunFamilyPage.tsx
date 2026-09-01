@@ -1,7 +1,8 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
@@ -87,6 +88,10 @@ export default function RecommendFamilyPage() {
   const resumeRefreshRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
+  useShareAppMessage(() => ({
+    title: sheet === 'actions' && selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻时空站台',
+    path: sheet === 'actions' && selectedPost?.id ? `/pages/qianxun/post-detail?id=${selectedPost.id}` : '/pages/index/index',
+  }))
 
   const tabs = useMemo(() => (config?.homeTabs || []).map(item => ({ label: item.entryName, scene: sceneByEntryKey[item.entryKey] })).filter((item): item is { label: string; scene: CommunityScene } => Boolean(item.scene)), [config?.homeTabs])
   const visiblePosts = postsByScene[activeTab] || []
@@ -336,8 +341,9 @@ export default function RecommendFamilyPage() {
       </> : <QianxunZhiyinTab secondaryTop={headerMetrics.secondaryTop} contentTop={headerMetrics.contentTop} />}
 
       {sheet === 'actions' && selectedPost ? (
-        <PostActionSheet
+        <CommunityPostActionSheet
           post={selectedPost}
+          isSelf={selectedPost.authorId === currentUserId}
           onClose={() => setSheet(null)}
           onFollow={() => void toggleFollow(selectedPost)}
           onHide={() => void toggleSelectedAuthorPreference()}
@@ -392,7 +398,6 @@ function FamilyTabs({ active, tabs, top, onChange }: { active: CommunityScene; t
 }
 
 function CommunityCard({ post, optionLabel, isSelf, onAuthor, onOpen, onTopic, onComment, onContact, onMore, onFollow, onLike }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; isSelf: boolean; onAuthor: () => void; onOpen: () => void; onTopic: () => void; onComment: () => void; onContact: () => void; onMore: () => void; onFollow: () => void; onLike: () => void }) {
-  const [expanded, setExpanded] = useState(false)
   const canExpand = post.content.length > 78
   const meta = formatPostAuthorMeta(post, optionLabel)
   const genderIcon = post.authorGender === 'FEMALE'
@@ -414,13 +419,13 @@ function CommunityCard({ post, optionLabel, isSelf, onAuthor, onOpen, onTopic, o
     <View className="qianxun-community-card" data-post-id={post.id} onClick={onOpen}>
     {post.title ? <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginTop: '29rpx' }}>{post.title}</Text> : null}
     <View style={{ position: 'relative', marginTop: post.title ? '12rpx' : '27rpx' }}>
-      <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '48rpx', maxHeight: !expanded && canExpand ? '192rpx' : 'none', overflow: 'hidden' }}>{post.content}</Text>
-      {!expanded && canExpand ? <View onClick={() => setExpanded(true)} style={{ position: 'absolute', right: 0, bottom: 0, height: '48rpx', paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '26rpx', lineHeight: '48rpx' }}>查看全部</Text></View> : null}
+      <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '48rpx', maxHeight: canExpand ? '192rpx' : 'none', overflow: 'hidden' }}>{post.content}</Text>
+      {canExpand ? <View onClick={event => { event.stopPropagation(); onOpen() }} style={{ position: 'absolute', right: 0, bottom: 0, height: '48rpx', paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '26rpx', lineHeight: '48rpx' }}>查看全部</Text></View> : null}
     </View>
     <PostImageGrid images={post.imageUrls || []} />
     </View>
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '28rpx', marginLeft: '7rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
-    {post.topicName ? <View onClick={onTopic} style={{ width: 'auto', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#EFF4FC', padding: '0 18rpx', marginTop: '23rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#666666', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: '#229AF8' }}># </Text>{post.topicName}</Text></View> : null}
+    {post.topicName ? <View onClick={onTopic} style={{ maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#EFF4FC', padding: '0 18rpx', marginTop: '23rpx', marginLeft: '7rpx', display: 'inline-flex', alignItems: 'center', boxSizing: 'border-box' }}><Text style={{ color: '#666666', fontSize: '26rpx', lineHeight: '37rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: '#229AF8' }}># </Text>{post.topicName}</Text></View> : null}
     <View style={{ height: '92rpx', borderTop: '2rpx solid #EFF4FC', marginTop: post.topicName ? '30rpx' : '32rpx', display: 'flex', alignItems: 'center' }}>
       {!isSelf ? <View onClick={onContact} style={{ minHeight: '80rpx', display: 'flex', alignItems: 'center' }}><ActionStat kind="contact" text={contactText} /></View> : null}
       <View style={{ flex: 1 }} />
@@ -434,7 +439,7 @@ function formatPostAuthorMeta(post: CommunityPostVO, optionLabel: (type: string,
   return [
     post.authorBirthYear ? `${String(post.authorBirthYear).slice(-2)}年` : post.authorAge ? `${post.authorAge}岁` : '',
     post.authorCity ? optionLabel('location', post.authorCity) || post.authorCity : '',
-    post.authorProfession || post.authorZodiac || (post.authorAnnualIncome ? optionLabel('annualIncome', post.authorAnnualIncome) : ''),
+    post.authorProfession ? optionLabel('occupation', post.authorProfession) || post.authorProfession : post.authorZodiac || (post.authorAnnualIncome ? optionLabel('annualIncome', post.authorAnnualIncome) : ''),
   ].filter(Boolean).join('·') || '资料待完善'
 }
 
@@ -446,7 +451,8 @@ function PostImageGrid({ images }: { images: string[] }) {
   const height = useTwoColumn ? '348rpx' : '226rpx'
   const columns = useTwoColumn ? 2 : 3
   const gap = useTwoColumn ? 12 : 10
-  return <View style={{ display: 'flex', flexWrap: 'wrap', marginTop: '28rpx' }}>{visible.map((url, index) => <Image key={`${url}-${index}`} src={url} mode="aspectFill" style={{ width, height, borderRadius: '8rpx', background: '#EEF2F7', marginRight: (index + 1) % columns === 0 ? 0 : `${gap}rpx`, marginBottom: index >= visible.length - columns ? 0 : `${gap}rpx` }} />)}</View>
+  const rows = Math.ceil(visible.length / columns)
+  return <View style={{ display: 'flex', flexWrap: 'wrap', marginTop: '28rpx' }}>{visible.map((url, index) => <Image key={`${url}-${index}`} src={url} mode="aspectFill" style={{ width, height, borderRadius: '8rpx', background: '#EEF2F7', marginRight: (index + 1) % columns === 0 ? 0 : `${gap}rpx`, marginBottom: Math.floor(index / columns) === rows - 1 ? 0 : `${gap}rpx` }} />)}</View>
 }
 
 function ActionStat({ kind, text, active = false }: { kind: 'contact' | 'comment' | 'like'; text: string; active?: boolean }) {
@@ -479,19 +485,6 @@ function mapPostsByScene(state: Partial<Record<CommunityScene, CommunityPostVO[]
 
 function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000 }}>{children}</View>
-}
-
-function PostActionSheet({ post, onClose, onFollow, onHide, onReport }: { post: CommunityPostVO; onClose: () => void; onFollow: () => void; onHide: () => void; onReport?: () => void }) {
-  const actions = [
-    { label: '分享', share: true, onClick: () => void Taro.showShareMenu({ withShareTicket: true }) },
-    { label: post.followingAuthor ? '取消关注' : '关注', onClick: onFollow },
-    { label: post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', onClick: onHide },
-    ...(onReport ? [{ label: '举报', onClick: onReport }] : []),
-  ]
-  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '24rpx 24rpx calc(28rpx + env(safe-area-inset-bottom))' }}>
-    {actions.map(action => <View key={action.label} onClick={action.onClick} style={{ position: 'relative', height: '94rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{action.share ? <View style={{ width: '42rpx', height: '42rpx', borderRadius: '10rpx', background: '#14C76A', marginRight: '18rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>微</Text></View> : null}<Text style={{ color: '#333333', fontSize: '28rpx' }}>{action.label}</Text></View>)}
-    <View onClick={onClose} style={{ height: '86rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View>
-  </View></Overlay>
 }
 
 function ReportSheet({ reasons, onClose, onReport }: { reasons: Array<{ code: string; label: string }>; onClose: () => void; onReport: (code: string) => void }) {

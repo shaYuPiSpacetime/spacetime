@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import Taro from '@tarojs/taro'
+import { resolvePaymentFailureFeedback } from '@/domain/paymentFailureFeedback'
 import type { MembershipPlan, MembershipRecord, MyMembership, MemberStatus } from '@/types/membership'
 import {
   confirmWechatPayment,
@@ -89,7 +90,7 @@ function formatDisplayDate(value?: string) {
 }
 
 function payChannelName(channel?: string) {
-  if (channel === 'wechat') return '微信'
+  if (channel === 'wechat' || channel === 'wechat_virtual') return '微信'
   if (channel === 'alipay') return '支付宝'
   return channel || '微信'
 }
@@ -128,11 +129,6 @@ function adaptVipOrder(order: VipOrderVO): MembershipRecord {
   }
 }
 
-function isPaymentCancel(error: unknown) {
-  const message = error instanceof Error ? error.message : String((error as { errMsg?: string })?.errMsg || error || '')
-  return message.includes('cancel') || message.includes('取消')
-}
-
 async function confirmPaidOrder(orderId: number) {
   let lastResult: Awaited<ReturnType<typeof confirmWechatPayment>> | null = null
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -155,6 +151,7 @@ export function useMembership() {
   const [payPopupVisible, setPayPopupVisible] = useState(false)
   const [payLoading, setPayLoading] = useState(false)
   const [payState, setPayState] = useState<MembershipPayState>('idle')
+  const [paymentErrorMessage, setPaymentErrorMessage] = useState('')
   const [activeStatus, setActiveStatus] = useState<MemberStatus | 'all'>('all')
   const [records, setRecords] = useState<MembershipRecord[]>([])
   const [recordsLoading, setRecordsLoading] = useState(false)
@@ -213,16 +210,19 @@ export function useMembership() {
   const closePayPopup = useCallback(() => {
     setPayPopupVisible(false)
     setPayState('idle')
+    setPaymentErrorMessage('')
   }, [])
 
   const showUnpaidSheet = useCallback(() => {
     setPayPopupVisible(true)
     setPayState('unpaid-sheet')
+    setPaymentErrorMessage('')
   }, [])
 
   const hidePaymentLayer = useCallback(() => {
     setPayPopupVisible(false)
     setPayState('idle')
+    setPaymentErrorMessage('')
   }, [])
 
   const confirmPay = useCallback(async (sourcePage = 'membership') => {
@@ -234,14 +234,15 @@ export function useMembership() {
     setPayLoading(true)
     setPayPopupVisible(true)
     setPayState('paying')
+    setPaymentErrorMessage('')
     try {
       const order = await createOrder(selectedPlan.id, 'vip')
       orderId = order.orderId
-      if (!order.payParams) throw new Error('微信支付参数缺失')
-      await requestWechatPayment(order.payParams)
+      await requestWechatPayment(order)
       const payResult = await confirmPaidOrder(order.orderId)
       if (payResult?.orderStatus !== 'success') {
         setPayState('pay-failed')
+        setPaymentErrorMessage('支付结果确认中，请稍后查看订单')
         Taro.showToast({ title: '支付确认中，请稍后刷新', icon: 'none' })
         Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=vip&sourcePage=${sourcePage}&result=processing` })
         return
@@ -251,10 +252,11 @@ export function useMembership() {
       setPayState('pay-success')
       Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=vip&sourcePage=${sourcePage}&result=success` })
     } catch (error) {
-      const cancelled = isPaymentCancel(error)
-      setPayState(cancelled ? 'pay-cancel' : 'pay-failed')
-      if (!cancelled) Taro.showToast({ title: error instanceof Error ? error.message : '支付失败，请重试', icon: 'none' })
-      if (orderId) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=vip&sourcePage=${sourcePage}&result=${cancelled ? 'cancel' : 'failed'}` })
+      const feedback = resolvePaymentFailureFeedback(error)
+      setPaymentErrorMessage(feedback.message)
+      setPayState(feedback.cancelled ? 'pay-cancel' : 'pay-failed')
+      if (!feedback.cancelled) Taro.showToast({ title: feedback.message, icon: 'none' })
+      if (orderId && !feedback.capabilityRestricted) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=vip&sourcePage=${sourcePage}&result=${feedback.cancelled ? 'cancel' : 'failed'}` })
     } finally {
       setPayLoading(false)
     }
@@ -272,6 +274,7 @@ export function useMembership() {
     payPopupVisible,
     payLoading,
     payState,
+    paymentErrorMessage,
     activeStatus,
     records,
     recordsLoading,

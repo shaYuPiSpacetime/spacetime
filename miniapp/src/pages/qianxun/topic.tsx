@@ -1,13 +1,16 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidHide, useDidShow, useLoad } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, useLoad, useShareAppMessage } from '@tarojs/taro'
 import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
+import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { useAuthStore } from '@/stores/authStore'
+import { usePrd01Store } from '@/stores/prd01Store'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
@@ -29,6 +32,8 @@ const BLUE = '#2876FF'
 const NAVY = '#0C285A'
 
 export default function QianxunTopicPage() {
+  const currentUserId = useAuthStore(state => state.userId)
+  const optionLabel = usePrd01Store(state => state.optionLabel)
   const [topicId, setTopicId] = useState<number>()
   const [topic, setTopic] = useState<CommunityTopicDetailVO>()
   const [fallbackName, setFallbackName] = useState(`community.copy.${COMMUNITY_COPY_KEYS.topicDefaultName}`)
@@ -38,10 +43,17 @@ export default function QianxunTopicPage() {
   const [loadError, setLoadError] = useState('')
   const [config, setConfig] = useState<CommunityConfig>()
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
+  const [selectedOwnPost, setSelectedOwnPost] = useState<CommunityPostVO>()
   const access = useAccessStatus('canCommunity')
   const topicIdRef = useRef<number>()
   const resumeRefreshRef = useRef(false)
   const requestSequenceRef = useRef(0)
+  useShareAppMessage(() => ({
+    title: selectedOwnPost?.content ? selectedOwnPost.content.slice(0, 28) : topic?.name || '千寻时空站台',
+    path: selectedOwnPost?.id
+      ? `/pages/qianxun/post-detail?id=${selectedOwnPost.id}`
+      : topicId ? `/pages/qianxun/topic?topicId=${topicId}` : '/pages/index/index',
+  }))
 
   const loadTopic = async (id: number, requestedSort: 'HOT' | 'LATEST' = sort) => {
     const sequence = requestSequenceRef.current + 1
@@ -105,6 +117,10 @@ export default function QianxunTopicPage() {
   }
 
   const openPostActions = async (post: CommunityPostVO) => {
+    if (post.authorId === currentUserId) {
+      setSelectedOwnPost(post)
+      return
+    }
     try {
       const action = await Taro.showActionSheet({ itemList: [
         '分享',
@@ -160,7 +176,7 @@ export default function QianxunTopicPage() {
       </View>
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
         <View style={{ padding: '18rpx 25rpx calc(160rpx + env(safe-area-inset-bottom))' }}>
-          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => {
+          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} optionLabel={optionLabel} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => {
             if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
               setShowUnverifiedModal(true)
               return false
@@ -171,6 +187,7 @@ export default function QianxunTopicPage() {
       </ScrollView>
     </View>
     <View id="qianxun-topic-participate" onClick={() => topicId && void Taro.navigateTo({ url: `/pages/qianxun/compose?topicId=${topicId}&topicName=${encodeURIComponent(topicName)}` })} style={{ position: 'fixed', left: '50%', bottom: 'calc(30rpx + env(safe-area-inset-bottom))', width: '240rpx', height: '82rpx', borderRadius: '41rpx', background: topicId ? BLUE : '#C8D4E8', boxShadow: '0 12rpx 28rpx rgba(40,118,255,0.28)', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx', fontWeight: 600 }}>参与话题</Text></View>
+    {selectedOwnPost ? <CommunityPostActionSheet post={selectedOwnPost} isSelf={selectedOwnPost.authorId === currentUserId} onClose={() => setSelectedOwnPost(undefined)} /> : null}
     {showUnverifiedModal ? <UnverifiedCertificationModal onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
       setShowUnverifiedModal(false)
       void navigateToPendingVerification()
@@ -195,7 +212,7 @@ function SortTab({ label, selected, onClick }: { label: string; selected: boolea
   return <View onClick={onClick} style={{ position: 'relative', height: '82rpx', minWidth: '76rpx', marginRight: '26rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? NAVY : '#9DA3AE', fontSize: '26rpx', fontWeight: selected ? 600 : 400 }}>{label}</Text>{selected ? <View style={{ position: 'absolute', left: '50%', bottom: '3rpx', width: '44rpx', height: '5rpx', borderRadius: '3rpx', background: BLUE, transform: 'translateX(-50%)' }} /> : null}</View>
 }
 
-function TopicPostCard({ post, onLike, onMore, onContact }: { post: CommunityPostVO; onLike: () => void; onMore: () => void; onContact: () => boolean }) {
+function TopicPostCard({ post, optionLabel, onLike, onMore, onContact }: { post: CommunityPostVO; optionLabel: (type: string, code: string) => string; onLike: () => void; onMore: () => void; onContact: () => boolean }) {
   const openPost = () => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })
   const openAuthor = (event: { stopPropagation: () => void }) => {
     event.stopPropagation()
@@ -209,7 +226,7 @@ function TopicPostCard({ post, onLike, onMore, onContact }: { post: CommunityPos
     void Taro.navigateTo({ url: `/pages/message/whisper-detail?receiverUserNo=${encodeURIComponent(targetUserNo)}&sourceScene=community_post&sourceBizNo=${encodeURIComponent(post.postNo)}&nickname=${encodeURIComponent(post.authorName || '用户')}&avatar=${encodeURIComponent(post.authorAvatar || '')}&compose=1` })
   }
   return <View onClick={openPost} style={{ width: '700rpx', borderRadius: '14rpx', background: '#FFFFFF', marginBottom: '18rpx', padding: '24rpx 24rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
-    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={openAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '68rpx', height: '68rpx', borderRadius: '34rpx', background: '#EFF3F7' }} /><View onClick={openAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '14rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#303B4A', fontSize: '24rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: '#7F8EA4', fontSize: '20rpx', marginTop: '5rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{postAuthorMeta(post) || relativeTime(post.createTime)}</Text></View><View id={`qianxun-topic-post-more-${post.id}`} onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '54rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx', lineHeight: '44rpx' }}>⋮</Text></View></View>
+    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={openAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '68rpx', height: '68rpx', borderRadius: '34rpx', background: '#EFF3F7' }} /><View onClick={openAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '14rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#303B4A', fontSize: '24rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: '#7F8EA4', fontSize: '20rpx', marginTop: '5rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{postAuthorMeta(post, optionLabel) || relativeTime(post.createTime)}</Text></View><View id={`qianxun-topic-post-more-${post.id}`} onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '54rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx', lineHeight: '44rpx' }}>⋮</Text></View></View>
     {post.title ? <Text style={{ display: 'block', color: '#283548', fontSize: '27rpx', fontWeight: 600, lineHeight: '42rpx', marginTop: '18rpx' }}>{post.title}</Text> : null}
     <Text style={{ display: 'block', color: '#3E4755', fontSize: '25rpx', lineHeight: '42rpx', marginTop: '16rpx' }}>{post.content}</Text>
     <TopicImages images={post.imageUrls || []} />
@@ -228,10 +245,11 @@ function TopicImages({ images }: { images: string[] }) {
   return <View style={{ display: 'flex', gap: '8rpx', marginTop: '18rpx' }}>{visible.map((url, index) => <Image key={`${url}-${index}`} src={url} mode="aspectFill" onClick={event => { event.stopPropagation(); void Taro.previewImage({ current: url, urls: images }) }} style={{ width: visible.length === 1 ? '652rpx' : visible.length === 2 ? '322rpx' : '212rpx', height: visible.length === 1 ? '410rpx' : '210rpx', borderRadius: '8rpx', background: '#EEF2F6' }} />)}</View>
 }
 
-function postAuthorMeta(post: CommunityPostVO) {
+function postAuthorMeta(post: CommunityPostVO, optionLabel: (type: string, code: string) => string) {
   const birthYear = Number(post.authorBirthYear || 0)
   const year = birthYear > 1900 ? `${String(birthYear).slice(-2)}年` : ''
-  return [year, post.authorCity, post.authorProfession].filter(Boolean).join(' · ')
+  const profession = post.authorProfession ? optionLabel('occupation', post.authorProfession) || post.authorProfession : ''
+  return [year, post.authorCity, profession].filter(Boolean).join(' · ')
 }
 
 function TopicState({ title, onRetry }: { title: string; onRetry?: () => void }) {

@@ -41,6 +41,7 @@ export default function CoinsPage() {
     selectedPackage,
     payLoading,
     payState,
+    paymentErrorMessage,
     fetchBalance,
     fetchPackages,
     fetchScenes,
@@ -123,6 +124,7 @@ export default function CoinsPage() {
       />
       <CoinsPaymentLayer
         payState={visiblePayState}
+        failureMessage={paymentErrorMessage}
         onClose={() => {
           const wasSuccess = visiblePayState === 'pay-success'
           if (payState === 'idle') setRoutePayState('idle')
@@ -402,9 +404,11 @@ function UsageCard({ usages }: { usages: Array<{ code: string; icon: string; lab
 
 function CoinsPaymentLayer({
   payState,
+  failureMessage,
   onClose,
 }: {
   payState: CoinPayState
+  failureMessage: string
   onClose: () => void
 }) {
   if (payState === 'idle') return null
@@ -431,7 +435,7 @@ function CoinsPaymentLayer({
     >
       <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}>
         <Text style={{ color: LANHU_NAVY, fontSize: '28rpx' }}>
-          {payState === 'paying' ? '正在打开微信支付并确认到账...' : '支付未完成，请稍后重试'}
+          {payState === 'paying' ? '正在打开微信支付并确认到账...' : failureMessage || '支付未完成，请稍后重试'}
         </Text>
         {payState !== 'paying' && (
           <View onClick={onClose} style={{ marginTop: '24rpx', padding: '12rpx 36rpx', borderRadius: '10rpx', background: LANHU_BLUE }}>

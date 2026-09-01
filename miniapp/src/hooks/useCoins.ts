@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { miniappOssIcons, type MiniappOssIconKey } from '@/constants/ossIcons'
+import { resolvePaymentFailureFeedback } from '@/domain/paymentFailureFeedback'
 import type { CoinPackage, CoinTransaction, CoinUsage } from '@/types/coin'
 import {
   confirmWechatPayment,
@@ -86,11 +87,6 @@ function adaptCoinScene(scene: CoinSceneVO): CoinUsage {
   }
 }
 
-function isPaymentCancel(error: unknown) {
-  const message = error instanceof Error ? error.message : String((error as { errMsg?: string })?.errMsg || error || '')
-  return message.includes('cancel') || message.includes('取消')
-}
-
 async function confirmPayment(orderId: number) {
   let result = await confirmWechatPayment(orderId)
   for (let attempt = 0; attempt < 2 && result.orderStatus === 'unpaid'; attempt += 1) {
@@ -112,6 +108,7 @@ export function useCoins() {
   const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [payState, setPayState] = useState<CoinPayState>('idle')
+  const [paymentErrorMessage, setPaymentErrorMessage] = useState('')
   const [transactions, setTransactions] = useState<CoinTransaction[]>([])
   const [transactionsLoading, setTransactionsLoading] = useState(false)
   const [usages, setUsages] = useState<CoinUsage[]>([])
@@ -169,16 +166,15 @@ export function useCoins() {
     let orderId: number | null = null
     setPayLoading(true)
     setPayState('paying')
+    setPaymentErrorMessage('')
     try {
       const order = await createOrder(selectedPackage.id, 'coin')
       orderId = order.orderId
-      if (!order.payParams) {
-        throw new Error('支付参数缺失，请稍后重试')
-      }
-      await requestWechatPayment(order.payParams)
+      await requestWechatPayment(order)
       const result = await confirmPayment(order.orderId)
       if (result.orderStatus !== 'success') {
         setPayState('pay-failed')
+        setPaymentErrorMessage('支付结果确认中，请稍后查看订单')
         Taro.showToast({ title: '支付结果确认中，请稍后查看订单', icon: 'none' })
         Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=coin&sourcePage=${sourcePage}&result=processing` })
         return
@@ -190,13 +186,15 @@ export function useCoins() {
         Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=coin&sourcePage=${sourcePage}&result=success` })
       }
     } catch (error) {
-      if (isPaymentCancel(error)) {
+      const feedback = resolvePaymentFailureFeedback(error)
+      setPaymentErrorMessage(feedback.message)
+      if (feedback.cancelled) {
         setPayState('pay-cancel')
         if (orderId) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=cancel` })
       } else {
         setPayState('pay-failed')
-        Taro.showToast({ title: error instanceof Error ? error.message : '支付失败，请重试', icon: 'none' })
-        if (orderId) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=failed` })
+        Taro.showToast({ title: feedback.message, icon: 'none' })
+        if (orderId && !feedback.capabilityRestricted) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=failed` })
       }
     } finally {
       setPayLoading(false)
@@ -205,6 +203,7 @@ export function useCoins() {
 
   const hidePaymentLayer = useCallback(() => {
     setPayState('idle')
+    setPaymentErrorMessage('')
   }, [])
 
   const goToDetail = useCallback(() => {
@@ -219,6 +218,7 @@ export function useCoins() {
     selectedPackage,
     payLoading,
     payState,
+    paymentErrorMessage,
     transactions,
     transactionsLoading,
     usages,

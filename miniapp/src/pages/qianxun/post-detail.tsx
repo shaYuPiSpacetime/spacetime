@@ -1,7 +1,8 @@
 import { Image, Input, ScrollView, Text, Textarea, View } from '@tarojs/components'
-import Taro, { useLoad } from '@tarojs/taro'
+import Taro, { useLoad, useShareAppMessage } from '@tarojs/taro'
 import { useMemo, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
+import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -82,6 +83,10 @@ export default function QianxunPostDetailPage() {
     () => buildCommunityCommentThreads(comments, commentSort),
     [comments, commentSort]
   )
+  useShareAppMessage(() => ({
+    title: post?.content ? post.content.slice(0, 28) : '千寻时空站台',
+    path: post?.id ? `/pages/qianxun/post-detail?id=${post.id}` : '/pages/index/index',
+  }))
 
   const loadPost = async (postId: number) => {
     setLoading(true)
@@ -372,7 +377,7 @@ export default function QianxunPostDetailPage() {
         <View onClick={() => void submitComment()} style={{ width: '68rpx', height: '68rpx', marginLeft: '14rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: comment.trim() && !sendingComment ? BLUE : '#B7BBC3', fontSize: '25rpx', fontWeight: 500 }}>{sendingComment ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.commentSending) : '发送'}</Text></View>
         <View onClick={() => void likePost()} style={{ width: '88rpx', height: '68rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={post?.liked ? miniappOssIcons.qianxunLikeActive : miniappOssIcons.qianxunLike} mode="aspectFit" style={{ width: '36rpx', height: '36rpx' }} /></View>
       </View>
-      {showActions && post ? <ActionSheet post={post} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
+      {showActions && post ? <CommunityPostActionSheet post={post} isSelf={post.authorId === currentUserId} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
       {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: resolveCommentThreadRootId(comments, selectedComment.id), userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
       {showWhisper && post ? (
         <WhisperComposeSheet
@@ -559,17 +564,6 @@ function DetailLoading({ top }: { top: number }) {
 
 function LoadFailure({ text, top }: { text: string; top: number }) {
   return <View style={{ position: 'absolute', left: 0, right: 0, top: `${top + 132}rpx`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '240rpx', height: '190rpx' }} /><Text style={{ color: '#999999', fontSize: '26rpx', marginTop: '20rpx' }}>{text}</Text></View>
-}
-
-function ActionSheet({ post, onClose, onFollow, onHide, onReport }: { post: CommunityPostVO; onClose: () => void; onFollow: () => void; onHide: () => void; onReport: () => void }) {
-  const share = () => {
-    void Taro.showShareMenu({ withShareTicket: true })
-    onClose()
-  }
-  return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(10,18,32,0.45)', zIndex: 100 }}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '24rpx 24rpx 0 0', background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)', overflow: 'hidden' }}>
-    {[{ label: '分享', action: share }, { label: post.followingAuthor ? '取消关注' : '关注', action: onFollow }, { label: post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', action: onHide }, { label: '举报', action: onReport }].map(item => <View key={item.label} onClick={item.action} style={{ height: '92rpx', borderBottom: '1rpx solid #EFF1F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx' }}>{item.label}</Text></View>)}
-    <View onClick={onClose} style={{ height: '94rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7B818B', fontSize: '27rpx' }}>取消</Text></View>
-  </View></View>
 }
 
 function CommentActionSheet({ comment, onClose, onReply, onDelete, onReport }: { comment: CommunityCommentVO; onClose: () => void; onReply: () => void; onDelete?: () => void; onReport: () => void }) {

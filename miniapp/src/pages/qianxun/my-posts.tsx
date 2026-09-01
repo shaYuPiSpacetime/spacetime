@@ -14,6 +14,7 @@ import {
   resolveCommunityCopy,
   resolveCommunityFeedback,
   resolveCommunityStatusLabel,
+  toggleCommunityLike,
   type CommunityConfig,
   type CommunityPostVO,
 } from '@/services/community'
@@ -36,6 +37,7 @@ interface MyPostReceipt {
   createdAt: string
   commentCount: number
   likeCount: number
+  liked: boolean
   failureMessage?: string
 }
 
@@ -68,6 +70,7 @@ export default function QianxunMyPostsPage() {
   const [failureReceipt, setFailureReceipt] = useState<MyPostReceipt>()
   const [deleteReceipt, setDeleteReceipt] = useState<MyPostReceipt>()
   const [config, setConfig] = useState<CommunityConfig>()
+  const [likingPostIds, setLikingPostIds] = useState<number[]>([])
 
   useDidShow(() => {
     void loadPage()
@@ -139,6 +142,21 @@ export default function QianxunMyPostsPage() {
     }
   }
 
+  const toggleReceiptLike = async (receipt: MyPostReceipt) => {
+    if (!receipt.postId || receipt.status !== 'published' || likingPostIds.includes(receipt.postId)) return
+    setLikingPostIds(ids => [...ids, receipt.postId as number])
+    try {
+      const result = await toggleCommunityLike(receipt.postId)
+      setReceipts(items => items.map(item => item.id === receipt.id
+        ? { ...item, liked: result.liked, likeCount: result.likeCount }
+        : item))
+    } catch (error) {
+      await showError(config, error)
+    } finally {
+      setLikingPostIds(ids => ids.filter(id => id !== receipt.postId))
+    }
+  }
+
   return (
     <View id="qianxun-my-posts-page" style={{ height: '100vh', background: 'linear-gradient(105deg, #EEFFFC 0%, #F2F6FF 55%, #FEFFF4 100%)', overflow: 'hidden' }}>
       <ProfileHeader profile={profile} />
@@ -148,7 +166,7 @@ export default function QianxunMyPostsPage() {
           <View style={{ padding: '0 25rpx 60rpx' }}>
             <PublishBanner />
             {loading ? <MyPostsLoading /> : receipts.length ? receipts.map(receipt => (
-              <MyPostCard key={receipt.id} receipt={receipt} config={config} onMore={() => openActions(receipt)} onFailure={() => setFailureReceipt(receipt)} />
+              <MyPostCard key={receipt.id} receipt={receipt} liking={Boolean(receipt.postId && likingPostIds.includes(receipt.postId))} config={config} onMore={() => openActions(receipt)} onFailure={() => setFailureReceipt(receipt)} onLike={() => void toggleReceiptLike(receipt)} />
             )) : <MyPostsEmpty config={config} />}
             {receipts.length ? <Text style={{ display: 'block', color: '#B1B1B1', fontSize: '22rpx', lineHeight: '32rpx', textAlign: 'center', marginTop: '42rpx' }}>— 到底啦 —</Text> : null}
           </View>
@@ -211,7 +229,7 @@ function PublishBanner() {
   )
 }
 
-function MyPostCard({ receipt, config, onMore, onFailure }: { receipt: MyPostReceipt; config?: CommunityConfig; onMore: () => void; onFailure: () => void }) {
+function MyPostCard({ receipt, liking, config, onMore, onFailure, onLike }: { receipt: MyPostReceipt; liking: boolean; config?: CommunityConfig; onMore: () => void; onFailure: () => void; onLike: () => void }) {
   const status = receipt.status !== 'published'
     ? { label: resolveCommunityStatusLabel(config, receipt.status, receipt.statusName), background: receipt.status === 'rejected' ? '#E83333' : '#E7F0FF', color: receipt.status === 'rejected' ? '#FFFFFF' : BLUE }
     : undefined
@@ -234,7 +252,7 @@ function MyPostCard({ receipt, config, onMore, onFailure }: { receipt: MyPostRec
             <View style={{ flex: 1 }} />
             <QianxunActionStat kind="comment" count={receipt.commentCount} />
             <View style={{ width: '30rpx' }} />
-            <QianxunActionStat kind="like" count={receipt.likeCount} active />
+            <QianxunActionStat kind="like" count={receipt.likeCount} active={receipt.liked} onClick={receipt.postId && receipt.status === 'published' && !liking ? onLike : undefined} />
           </View>
           {receipt.status === 'rejected' && receipt.failureMessage ? <View onClick={onFailure} style={{ minHeight: '52rpx', paddingTop: '12rpx' }}><Text style={{ color: '#D44747', fontSize: '22rpx' }}>{receipt.failureMessage}</Text></View> : null}
         </View>
@@ -325,6 +343,7 @@ function toPostReceipt(post: CommunityPostVO): MyPostReceipt {
     createdAt: post.createTime,
     commentCount: readNonNegativeNumber(post.commentCount),
     likeCount: readNonNegativeNumber(post.likeCount),
+    liked: Boolean(post.liked),
     failureMessage: post.auditRemark || post.statusMessage,
   }
 }

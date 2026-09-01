@@ -16,6 +16,7 @@ const zhiyin = read('src/features/qianxun/QianxunZhiyinTab.tsx')
 const heartUser = read('src/pages/heart/user.tsx')
 const topics = read('src/pages/qianxun/topics.tsx')
 const topicSpotlight = read('src/features/qianxun/QianxunTopicSpotlight.tsx')
+const postActionSheet = read('src/components/CommunityPostActionSheet.tsx')
 
 const apiContracts = [
   'getCommunityMeta',
@@ -89,7 +90,9 @@ assert.match(postDetail, /toggleCommunityCommentLike/, '动态详情页必须对
 assert.match(postDetail, /deleteCommunityComment/, '动态详情页必须对接本人评论删除接口')
 assert.match(postDetail, /hideCommunityAuthor/, '动态详情更多操作必须对接作者级不看偏好')
 assert.match(postDetail, /unhideCommunityAuthor/, '动态详情更多操作必须支持取消不看')
-assert.match(postDetail, /取消不看 TA 动态/, '动态详情更多操作必须按最终态展示反向动作')
+assert.match(postDetail, /CommunityPostActionSheet/, '动态详情必须复用按作者身份裁剪的操作弹窗')
+assert.match(postActionSheet, /取消不看 TA 动态/, '动态详情更多操作必须按最终态展示反向动作')
+assert.match(postActionSheet, /const moderationActions = isSelf \? \[\] :/, '本人动态必须隐藏关注、不看和举报操作')
 assert.match(postDetail, /reportTarget\('comment'/, '评论举报必须按 comment 对象提交，不能误报为帖子')
 assert.match(topicDetail, /hideCommunityAuthor/, '话题详情更多操作必须将作者偏好写入服务端')
 assert.match(topicDetail, /unhideCommunityAuthor/, '话题详情更多操作必须支持取消不看')

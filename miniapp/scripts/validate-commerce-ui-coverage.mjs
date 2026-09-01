@@ -1606,10 +1606,10 @@ function assertWechatPaymentFallbackDoesNotDrawNativeKeyboard() {
   assert.ok(paymentServiceSource.includes('export async function requestWechatPayment'), '支付服务必须封装 wx.requestPayment 原生调用')
   assert.ok(paymentServiceSource.includes('timeStamp') && paymentServiceSource.includes('paySign'), '微信支付参数类型必须覆盖 timeStamp/paySign')
   assert.ok(coinsHookSource.includes("createOrder(selectedPackage.id, 'coin')"), '千寻币支付必须先创建订单获取支付参数')
-  assert.ok(coinsHookSource.includes('requestWechatPayment(order.payParams)'), '千寻币支付必须优先调用微信原生支付')
+  assert.ok(coinsHookSource.includes('requestWechatPayment(order)'), '千寻币支付必须按订单模式调用微信原生支付')
   assert.ok(coinsHookSource.includes('openWechatPay()'), '千寻币缺少支付参数时必须保留蓝湖 demo fallback 闭环')
   assert.ok(membershipHookSource.includes("createOrder(selectedPlan.id, 'vip')"), '会员支付必须先创建订单获取支付参数')
-  assert.ok(membershipHookSource.includes('requestWechatPayment(order.payParams)'), '会员支付必须优先调用微信原生支付')
+  assert.ok(membershipHookSource.includes('requestWechatPayment(order)'), '会员支付必须按订单模式调用微信原生支付')
   assert.ok(membershipHookSource.includes('const openWechatPay'), '会员必须保留蓝湖微信支付预览态入口')
 }
 
