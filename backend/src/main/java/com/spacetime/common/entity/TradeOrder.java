@@ -26,7 +26,7 @@ public class TradeOrder extends BaseEntity {
     private String packageName;
     /** 实付金额 */
     private BigDecimal payAmount;
-    /** 支付渠道: mock/wechat/alipay */
+    /** 支付渠道: mock/wechat/wechat_virtual/alipay */
     private String payChannel;
     /** 渠道交易单号 */
     private String channelTradeNo;

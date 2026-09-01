@@ -26,10 +26,20 @@ public class TradeOrderDaoImpl implements TradeOrderDao {
     }
 
     @Override
+    public TradeOrder selectByIdForUpdate(Long id) {
+        return mapper.selectByIdForUpdate(id);
+    }
+
+    @Override
     public TradeOrder selectByOrderNo(String orderNo) {
         LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(TradeOrder::getOrderNo, orderNo);
         return mapper.selectOne(wrapper);
+    }
+
+    @Override
+    public List<TradeOrder> selectPendingVirtualOrders(int limit) {
+        return mapper.selectPendingVirtualOrders(limit);
     }
 
     @Override

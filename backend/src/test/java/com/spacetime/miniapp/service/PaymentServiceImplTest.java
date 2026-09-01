@@ -41,6 +41,8 @@ class PaymentServiceImplTest {
     @Mock private AppUserDao appUserDao;
     @Mock private PaymentNotifyLogDao paymentNotifyLogDao;
     @Mock private WechatPayService wechatPayService;
+    @Mock private WechatVirtualPayService wechatVirtualPayService;
+    @Mock private WechatMiniappClient wechatMiniappClient;
     @Mock private PromotionEventInboxService promotionEventInboxService;
     @Mock private AssetResultMessageNotificationService assetResultNotificationService;
     private final WechatPayProperties wechatPayProperties = new WechatPayProperties();
@@ -65,10 +67,13 @@ class PaymentServiceImplTest {
                 appUserDao,
                 paymentNotifyLogDao,
                 wechatPayService,
+                wechatVirtualPayService,
+                wechatMiniappClient,
                 wechatPayProperties,
                 promotionEventInboxService,
                 assetResultNotificationService
         );
+        lenient().when(wechatVirtualPayService.isEnabled()).thenReturn(false);
         vipPackage = new VipPackage();
         vipPackage.setId(1L);
         vipPackage.setPackageName("月卡");
@@ -133,6 +138,117 @@ class PaymentServiceImplTest {
         assertThat(result.getPayParams()).isEqualTo(payParams);
         verify(tradeOrderDao).insert(argThat(o -> "unpaid".equals(o.getOrderStatus())));
         verify(tradeOrderDao).updateById(argThat(o -> "wx_pre_1".equals(o.getPrepayId())));
+    }
+
+    @Test
+    @DisplayName("创建VIP虚拟支付订单-刷新微信会话并返回道具直购参数")
+    void createVipOrderWithVirtualPayShouldVerifyWechatSession() {
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(1L);
+        req.setLoginCode("fresh-code");
+        WechatVirtualPayParamsVO virtualParams = new WechatVirtualPayParamsVO();
+        virtualParams.setSignData("{\"offerId\":\"offer-1\"}");
+        virtualParams.setPaySig("pay-sig");
+        virtualParams.setSignature("user-sig");
+
+        when(wechatVirtualPayService.isEnabled()).thenReturn(true);
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatMiniappClient.code2Session("fresh-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo(
+                        "openid_1", null, "session-key"));
+        when(wechatVirtualPayService.createPayParams(
+                anyString(), eq("vip_1"), eq(1990), eq("session-key")))
+                .thenReturn(virtualParams);
+
+        CreateOrderVO result = paymentService.createOrder(1L, req);
+
+        assertThat(result.getPaymentMode()).isEqualTo("wechat_virtual");
+        assertThat(result.getVirtualPayParams()).isSameAs(virtualParams);
+        assertThat(result.getPayParams()).isNull();
+        verify(tradeOrderDao).insert(argThat(order ->
+                "wechat_virtual".equals(order.getPayChannel())));
+        verifyNoInteractions(wechatPayService);
+    }
+
+    @Test
+    @DisplayName("创建虚拟支付订单-微信会话与当前账号不一致时拒绝")
+    void createVirtualOrderShouldRejectMismatchedOpenid() {
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(1L);
+        req.setLoginCode("fresh-code");
+
+        when(wechatVirtualPayService.isEnabled()).thenReturn(true);
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatMiniappClient.code2Session("fresh-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo(
+                        "another-openid", null, "session-key"));
+
+        assertThatThrownBy(() -> paymentService.createOrder(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("身份");
+        verify(tradeOrderDao, never()).insert(any());
+        verifyNoInteractions(wechatPayService);
+    }
+
+    @Test
+    @DisplayName("手机号账号首次支付-使用本次微信会话绑定真实 openid")
+    void createVirtualOrderShouldBindWechatIdentityForPhoneAccount() {
+        appUser.setOpenid("phone_17300000000");
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(1L);
+        req.setLoginCode("fresh-code");
+        WechatVirtualPayParamsVO virtualParams = new WechatVirtualPayParamsVO();
+
+        when(wechatVirtualPayService.isEnabled()).thenReturn(true);
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatMiniappClient.code2Session("fresh-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo(
+                        "openid_real", "unionid_real", "session-key"));
+        when(appUserDao.selectOne(any())).thenReturn(null);
+        when(wechatVirtualPayService.createPayParams(
+                anyString(), eq("vip_1"), eq(1990), eq("session-key")))
+                .thenReturn(virtualParams);
+
+        CreateOrderVO result = paymentService.createOrder(1L, req);
+
+        assertThat(result.getPaymentMode()).isEqualTo("wechat_virtual");
+        verify(appUserDao).updateById(argThat(user ->
+                "openid_real".equals(user.getOpenid())
+                        && "unionid_real".equals(user.getUnionid())));
+        verify(tradeOrderDao).insert(any());
+    }
+
+    @Test
+    @DisplayName("手机号账号首次支付-当前微信已绑定其他账号时拒绝覆盖")
+    void createVirtualOrderShouldRejectWechatIdentityOwnedByAnotherAccount() {
+        appUser.setOpenid("phone_17300000000");
+        AppUser existingWechatUser = new AppUser();
+        existingWechatUser.setId(2L);
+        existingWechatUser.setOpenid("openid_real");
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(1L);
+        req.setLoginCode("fresh-code");
+
+        when(wechatVirtualPayService.isEnabled()).thenReturn(true);
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatMiniappClient.code2Session("fresh-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo(
+                        "openid_real", null, "session-key"));
+        when(appUserDao.selectOne(any())).thenReturn(existingWechatUser);
+
+        assertThatThrownBy(() -> paymentService.createOrder(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("其他账号");
+        verify(appUserDao, never()).updateById(any());
+        verify(tradeOrderDao, never()).insert(any());
     }
 
     @Test
@@ -247,7 +363,7 @@ class PaymentServiceImplTest {
         unpaidOrder.setPackageId(2L);
         unpaidOrder.setPayAmount(new BigDecimal("6.00"));
 
-        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
         when(wechatPayService.queryOrder("VIP202605280001"))
                 .thenReturn(new WechatPayService.WechatPayNotifyResult(
                         "VIP202605280001",
@@ -273,7 +389,7 @@ class PaymentServiceImplTest {
     @Test
     @DisplayName("微信支付确认-查单成功后入账会员")
     void confirmWechatPay_successQuery_shouldUpdateAssetAndOrder() {
-        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
         when(wechatPayService.queryOrder("VIP202605280001"))
                 .thenReturn(new WechatPayService.WechatPayNotifyResult(
                         "VIP202605280001",
@@ -302,7 +418,7 @@ class PaymentServiceImplTest {
     @Test
     @DisplayName("微信支付确认-未支付状态不入账")
     void confirmWechatPay_notPaid_shouldKeepUnpaid() {
-        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
         when(wechatPayService.queryOrder("VIP202605280001"))
                 .thenReturn(new WechatPayService.WechatPayNotifyResult(
                         "VIP202605280001",
@@ -318,6 +434,34 @@ class PaymentServiceImplTest {
         verify(paymentNotifyLogDao).insert(argThat(log ->
                 "payment_confirm".equals(log.getNotifyType())
                         && "ignored".equals(log.getProcessStatus())));
+    }
+
+    @Test
+    @DisplayName("虚拟支付确认-已支付待发货时仅入账一次并通知发货")
+    void confirmVirtualPayPaidShouldSettleAndNotifyGoods() {
+        unpaidOrder.setPayChannel("wechat_virtual");
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatVirtualPayService.queryOrder("openid_1", "VIP202605280001"))
+                .thenReturn(new WechatVirtualPayService.VirtualPayOrderResult(
+                        "VIP202605280001",
+                        "wx-order-1",
+                        "wxpay-transaction-1",
+                        2,
+                        1770000000L,
+                        "{\"order\":{\"status\":2}}"
+                ));
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("success");
+        verify(tradeOrderDao).updateById(argThat(order ->
+                "success".equals(order.getOrderStatus())
+                        && "wxpay-transaction-1".equals(order.getChannelTradeNo())));
+        verify(wechatVirtualPayService).notifyProvideGoods(
+                "VIP202605280001", "wx-order-1");
     }
 
 }

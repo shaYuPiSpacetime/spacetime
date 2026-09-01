@@ -15,4 +15,6 @@ public class CreateOrderReq {
     /** 套餐 ID */
     @NotNull(message = "套餐ID不能为空")
     private Long packageId;
+    /** 微信登录临时凭证；启用虚拟支付时用于生成用户签名 */
+    private String loginCode;
 }

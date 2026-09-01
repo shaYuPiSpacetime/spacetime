@@ -7,6 +7,7 @@ on:
       - 'backend/**'
       - 'deploy/**'
       - 'scripts/validate-prod-deploy-config.mjs'
+      - 'scripts/test-prod-wechat-pay-config.mjs'
       - 'scripts/test-prod-tencent-im-config.mjs'
       - '.github/workflows/deploy-backend-prod.yml'
   workflow_dispatch:

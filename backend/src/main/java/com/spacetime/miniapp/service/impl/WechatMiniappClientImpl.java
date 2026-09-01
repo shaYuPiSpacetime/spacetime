@@ -58,7 +58,8 @@ public class WechatMiniappClientImpl implements WechatMiniappClient {
                 throw new BusinessException("微信登录失败，未返回 openid");
             }
             String unionid = root.path("unionid").asText(null);
-            return new SessionInfo(openid, unionid);
+            String sessionKey = root.path("session_key").asText(null);
+            return new SessionInfo(openid, unionid, sessionKey);
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -107,25 +108,34 @@ public class WechatMiniappClientImpl implements WechatMiniappClient {
         }
     }
 
-    private String getAccessToken() throws Exception {
-        String cacheKey = accessTokenCacheKey();
-        String cached = redisTemplate.opsForValue().get(cacheKey);
-        if (cached != null && !cached.isBlank()) {
-            return cached;
+    @Override
+    public String getAccessToken() {
+        assertConfig();
+        try {
+            String cacheKey = accessTokenCacheKey();
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null && !cached.isBlank()) {
+                return cached;
+            }
+            String url = ACCESS_TOKEN_URL
+                    + "?grant_type=client_credential"
+                    + "&appid=" + encode(properties.getAppId())
+                    + "&secret=" + encode(properties.getAppSecret());
+            JsonNode root = sendGet(url);
+            assertWechatSuccess(root, "微信 access_token");
+            String accessToken = root.path("access_token").asText();
+            if (accessToken.isBlank()) {
+                throw new BusinessException("微信 access_token 获取失败");
+            }
+            long expiresIn = Math.max(60, root.path("expires_in").asLong(7200) - 300);
+            redisTemplate.opsForValue().set(cacheKey, accessToken, Duration.ofSeconds(expiresIn));
+            return accessToken;
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("微信 access_token 获取异常", ex);
+            throw new BusinessException("微信服务暂不可用，请稍后重试");
         }
-        String url = ACCESS_TOKEN_URL
-                + "?grant_type=client_credential"
-                + "&appid=" + encode(properties.getAppId())
-                + "&secret=" + encode(properties.getAppSecret());
-        JsonNode root = sendGet(url);
-        assertWechatSuccess(root, "微信 access_token");
-        String accessToken = root.path("access_token").asText();
-        if (accessToken.isBlank()) {
-            throw new BusinessException("微信 access_token 获取失败");
-        }
-        long expiresIn = Math.max(60, root.path("expires_in").asLong(7200) - 300);
-        redisTemplate.opsForValue().set(cacheKey, accessToken, Duration.ofSeconds(expiresIn));
-        return accessToken;
     }
 
     private String accessTokenCacheKey() {

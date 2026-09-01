@@ -14,6 +14,13 @@ import java.util.List;
  */
 @Mapper
 public interface TradeOrderMapper extends BaseMapper<TradeOrder> {
+    @Select("SELECT * FROM app_trade_order WHERE id=#{id} AND deleted=0 LIMIT 1 FOR UPDATE")
+    TradeOrder selectByIdForUpdate(@Param("id") Long id);
+
+    @Select("SELECT * FROM app_trade_order WHERE pay_channel='wechat_virtual' "
+            + "AND order_status='unpaid' AND deleted=0 ORDER BY create_time,id LIMIT #{limit}")
+    List<TradeOrder> selectPendingVirtualOrders(@Param("limit") int limit);
+
     @Select("SELECT o.* FROM app_trade_order o "
             + "LEFT JOIN app_message_event_inbox i ON i.event_key=CONCAT("
             + "'prd04:system_message_create:order:',o.order_no,':',o.order_status,':',o.user_id) "
