@@ -176,8 +176,31 @@ test.describe('PRD-05 管理后台六页前端契约', () => {
     await expect(page.getByText('契约测试内容全文')).toBeVisible();
   });
 
-  test('内容审核处理结果必须真实选择后才可提交', async ({ page }) => {
-    const post = { id: 6, postNo: 'P-0006', authorId: 8, authorNo: 'U-0008', authorName: '测试用户', contentType: 'community_post', sourceScene: 'qianxun_chengjia', mediaType: 'image_text', content: '待审核内容', contentSummary: '待审核内容', likeCount: 0, commentCount: 0, reportCount: 0, machineResult: 'pass', riskLevel: 'low', status: 'pending_manual', version: 1, createTime: '2026-08-03 10:00:00', auditLogs: [] };
+  test('内容审核只显示通过驳回且操作日志不暴露英文技术码', async ({ page }) => {
+    const post = {
+      id: 6,
+      postNo: 'P-0006',
+      authorId: 8,
+      authorNo: 'U-0008',
+      authorName: '测试用户',
+      contentType: 'community_post',
+      sourceScene: 'qianxun_chengjia',
+      mediaType: 'image_text',
+      content: '待审核内容',
+      contentSummary: '待审核内容',
+      likeCount: 0,
+      commentCount: 0,
+      reportCount: 0,
+      machineResult: 'pass',
+      riskLevel: 'low',
+      status: 'pending_manual',
+      version: 1,
+      createTime: '2026-08-03 10:00:00',
+      auditLogs: [
+        { id: 61, operatorName: 'audit_operator_system', action: 'machine_audit', actionName: 'audit_action_machine', remark: 'wechat_media_async_pending', createTime: '2026-09-01 11:03:09' },
+        { id: 62, operatorName: 'audit_operator_wechat', action: 'media_async_callback', actionName: 'audit_action_media_callback', remark: '6a96406d-75fb-3d01-7270544e', createTime: '2026-09-01 11:03:10' },
+      ],
+    };
     let submittedAction = '';
     await page.route('**/api/admin/community/posts/list**', async (route) => {
       await route.fulfill({ json: { code: 200, data: { current: 1, size: 20, total: 1, records: [post] } } });
@@ -197,6 +220,14 @@ test.describe('PRD-05 管理后台六页前端契约', () => {
     await expect(resultSelect).toHaveValue('');
     await expect(resultSelect.locator('option[value=""]')).toHaveText('请选择');
     await expect(resultSelect.locator('option[value=""]')).toHaveAttribute('disabled', '');
+    await expect(resultSelect.locator('option')).toHaveText(['请选择', '通过', '驳回']);
+    await expect(dialog.getByText('系统 · 机器审核')).toBeVisible();
+    await expect(dialog.getByText('微信内容安全 · 微信媒体审核回调')).toBeVisible();
+    await expect(dialog.getByText('等待微信媒体审核结果')).toBeVisible();
+    await expect(dialog.getByText('微信媒体审核结果已返回')).toBeVisible();
+    await expect(dialog.getByText('machine_audit', { exact: true })).toHaveCount(0);
+    await expect(dialog.getByText('media_async_callback', { exact: true })).toHaveCount(0);
+    await expect(dialog.getByText('wechat_media_async_pending', { exact: true })).toHaveCount(0);
 
     await dialog.getByRole('button', { name: '确认处理' }).click();
     await expect(page.getByText(meta.copy.action_required)).toBeVisible();

@@ -85,6 +85,7 @@ for (const expected of [
   "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'",
   'PROD_SERVER_HOST: 112.124.59.146',
   'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy',
+  'node scripts/validate-prod-deploy-config.mjs',
   'bash scripts/migrate-prod-db.sh',
   'deploy/sql/prod/071_prd03_message_mobile_contract.sql',
   'deploy/sql/prod/072_prd03_admin_menu_visibility.sql',
@@ -93,6 +94,9 @@ for (const expected of [
   'deploy/sql/prod/075_prd03_tim_message_lookup_index.sql',
   'deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql',
   'deploy/sql/prod/077_prd01_wechat_content_security.sql',
+  'deploy/sql/prod/078_fix_community_post_max_images.sql',
+  'deploy/sql/prod/079_prd01_school_dictionary_gugudata.sql',
+  'deploy/sql/prod/080_prd05_audit_log_chinese_copy.sql',
   'bash scripts/deploy-prod-local.sh backend',
   'NGINX_IMAGE_TAG: spacetime-nginx-prod',
   'docker pull nginx:1.27-alpine',
@@ -303,13 +307,24 @@ const ossUtil = read('backend/src/main/java/com/spacetime/common/util/OssUtil.ja
 assertIncludes(ossUtil, 'replaceFirst("^https?://", "")', 'backend/src/main/java/com/spacetime/common/util/OssUtil.java');
 
 const prodSqlFiles = listFiles('deploy/sql/prod').filter((file) => file.endsWith('.sql'));
+const legacyDestructiveMigrations = new Set([
+  'deploy/sql/prod/013_prd01_drop_legacy_audit_tables.sql',
+  'deploy/sql/prod/037_prd01_cleanup_legacy_audit_schema.sql',
+]);
 assert.ok(prodSqlFiles.length > 0, 'deploy/sql/prod 缺少生产迁移 SQL');
 for (const file of prodSqlFiles) {
   const content = read(file);
+  if (legacyDestructiveMigrations.has(file)) {
+    assert.ok(/DROP\s+TABLE\s+IF\s+EXISTS/i.test(content), `${file} 必须使用幂等删表语句`);
+    assert.ok(!/DROP\s+TABLE(?!\s+IF\s+EXISTS)/i.test(content), `${file} 禁止使用非幂等删表语句`);
+    continue;
+  }
   assert.ok(
-    /CREATE TABLE IF NOT EXISTS/i.test(content) ||
+      /CREATE TABLE IF NOT EXISTS/i.test(content) ||
       /INSERT\s+IGNORE/i.test(content) ||
+      /WHERE\s+NOT\s+EXISTS/i.test(content) ||
       /ON\s+DUPLICATE\s+KEY\s+UPDATE/i.test(content) ||
+      /UPDATE\s+[`\w]+/i.test(content) ||
       /ALTER TABLE/i.test(content),
     `${file} 缺少幂等迁移语句`
   );

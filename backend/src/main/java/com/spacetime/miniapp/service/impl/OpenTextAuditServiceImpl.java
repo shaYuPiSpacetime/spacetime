@@ -220,11 +220,22 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
             auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
         } else if (Boolean.FALSE.equals(result.getSafe())) {
             auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(),
-                    StrUtil.blankToDefault(result.getRejectReason(), runtimeConfigResolver.copyText(
-                            configSnapshot, "safety_text_failed", "文本内容安全审核未通过")));
+                    userFacingRejectReason(result.getRejectReason(), configSnapshot));
         } else {
             auditService.machineStart(record.getId(), task.getId(), result.getRawResponseJson());
         }
+    }
+
+    /** 供应商英文技术码仅用于内部排查，不直接暴露给用户。 */
+    private String userFacingRejectReason(
+            String providerReason,
+            Prd01RuntimeConfigResolver.RuntimeConfigSnapshot configSnapshot) {
+        if (StrUtil.isNotBlank(providerReason)
+                && providerReason.codePoints().anyMatch(codePoint -> codePoint >= 0x4E00 && codePoint <= 0x9FFF)) {
+            return providerReason;
+        }
+        return runtimeConfigResolver.copyText(
+                configSnapshot, "safety_text_failed", "文本内容安全审核未通过");
     }
 
     private AboutMeQuestionVO toQuestionVO(AboutQuestion question, List<AppUserAuditRecord> records) {
@@ -313,7 +324,7 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
         vo.setFieldName(record.getAuditType());
         vo.setAuditStatus(record.getStatus());
         vo.setAuditSource(record.getAuditSource());
-        vo.setRejectReason(record.getRejectReason());
+        vo.setRejectReason(reason(record));
         return vo;
     }
 
@@ -321,7 +332,11 @@ public class OpenTextAuditServiceImpl implements OpenTextAuditService {
         if (record == null) {
             return null;
         }
-        return StrUtil.blankToDefault(record.getRejectReason(), record.getExpiredReason());
+        String storedReason = StrUtil.blankToDefault(record.getRejectReason(), record.getExpiredReason());
+        if (StrUtil.isBlank(storedReason)) {
+            return null;
+        }
+        return userFacingRejectReason(storedReason, runtimeConfigResolver.snapshot());
     }
 
     private String formatTime(LocalDateTime time) {

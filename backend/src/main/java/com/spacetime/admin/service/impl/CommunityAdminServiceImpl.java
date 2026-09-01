@@ -507,18 +507,22 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     public void auditPost(Long id, CommunityPostAuditReq req) {
         CommunityPost post = requirePost(id);
         CommunityAuditStatusEnum auditStatus = CommunityAuditStatusEnum.getByCode(req.getAuditStatus());
-        if (auditStatus == null) {
+        if (auditStatus != CommunityAuditStatusEnum.APPROVED
+                && auditStatus != CommunityAuditStatusEnum.REJECTED) {
             throw error("unsupported_audit_status");
         }
-        // 设置审核信息
-        post.setAuditStatus(auditStatus.getCode());
-        post.setAuditRemark(StrUtil.blankToDefault(StrUtil.trim(req.getAuditRemark()), null));
-        // 根据审核结果更新发布状态：通过→已发布，驳回→已拒绝
-        post.setStatus(CommunityAuditStatusEnum.APPROVED.equals(auditStatus)
+        String before = post.getStatus();
+        String target = auditStatus == CommunityAuditStatusEnum.APPROVED
                 ? CommunityPostStatusEnum.PUBLISHED.getCode()
-                : CommunityPostStatusEnum.REJECTED.getCode());
-        communityPostDao.updateById(post);
-        // 记录操作日志
+                : CommunityPostStatusEnum.REJECTED.getCode();
+        validateContentTransition(before, target, false, Objects.equals(post.getDeletedByUser(), 1));
+        int version = Objects.requireNonNullElse(post.getVersion(), 0);
+        post.setStatus(target);
+        applyAuditStatus(post, target);
+        post.setAuditRemark(StrUtil.blankToDefault(StrUtil.trim(req.getAuditRemark()), null));
+        post.setHandledAt(LocalDateTime.now());
+        if (communityPostDao.updateCas(post, version) != 1) throw versionConflict();
+        writeAudit("post", post.getPostNo(), post.getId(), target, before, target, req.getAuditRemark());
         writeLog("COMMUNITY_POST", post.getId(), "AUDIT", null, auditStatus.getCode());
         log.info("Community post audited: postId={}, auditStatus={}", id, auditStatus.getCode());
     }
@@ -898,8 +902,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                         CommunityPostStatusEnum.REJECTED.getCode()),
                 CommunityPostStatusEnum.PENDING_MANUAL.getCode(), Set.of(
                         CommunityPostStatusEnum.PUBLISHED.getCode(),
-                        CommunityPostStatusEnum.REJECTED.getCode(),
-                        CommunityPostStatusEnum.BLOCKED.getCode()),
+                        CommunityPostStatusEnum.REJECTED.getCode()),
                 CommunityPostStatusEnum.PUBLISHED.getCode(), Set.of(CommunityPostStatusEnum.BLOCKED.getCode()),
                 CommunityPostStatusEnum.BLOCKED.getCode(), Set.of(CommunityPostStatusEnum.PUBLISHED.getCode())
         );
@@ -1274,14 +1277,105 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityAuditLogVO vo = new CommunityAuditLogVO();
         vo.setId(entity.getId());
         vo.setAction(entity.getAction());
-        vo.setActionName(entity.getAction());
-        vo.setRemark(entity.getReason());
+        vo.setActionName(auditActionName(entity));
+        vo.setRemark(auditRemark(entity));
         vo.setCreateTime(format(entity.getCreateTime()));
-        if (entity.getOperatorId() != null) {
+        String action = normalizedAuditValue(entity.getAction());
+        if ("machine_audit".equals(action)) {
+            vo.setOperatorName(message("audit_operator_system"));
+        } else if ("media_async_callback".equals(action)) {
+            vo.setOperatorName(message("audit_operator_wechat"));
+        } else if (entity.getOperatorId() != null) {
             SysUser operator = userDao.selectById(entity.getOperatorId());
-            vo.setOperatorName(operator == null ? null : operator.getNickname());
+            vo.setOperatorName(operator == null || StrUtil.isBlank(operator.getNickname())
+                    ? message("audit_operator_admin") : operator.getNickname());
+        } else {
+            vo.setOperatorName(message("audit_operator_system"));
         }
         return vo;
+    }
+
+    /** 将审计动作码转换为管理端可读中文，原始动作码仍保留在 action 字段用于排查。 */
+    private String auditActionName(CommunityAuditRecord entity) {
+        String action = normalizedAuditValue(entity.getAction());
+        return switch (action) {
+            case "machine_audit" -> message("audit_action_machine");
+            case "media_async_callback" -> message("audit_action_media_callback");
+            case "publish", "published", "approve" -> "blocked".equals(normalizedAuditValue(entity.getBeforeSnapshot()))
+                    ? message("comment".equals(entity.getBizType())
+                            ? "audit_action_restore_comment" : "audit_action_restore_content")
+                    : message("audit_action_approve");
+            case "restore" -> message("comment".equals(entity.getBizType())
+                    ? "audit_action_restore_comment" : "audit_action_restore_content");
+            case "reject", "rejected" -> message("audit_action_reject");
+            case "block", "blocked", "block_content" -> message("comment".equals(entity.getBizType())
+                    ? "audit_action_block_comment" : "audit_action_block_content");
+            case "block_comment" -> message("audit_action_block_comment");
+            case "pending_manual" -> message("audit_action_pending_manual");
+            case "warn_user" -> message("audit_action_warn_user");
+            case "mute_user" -> message("audit_action_mute_user");
+            case "ip_block" -> message("audit_action_ip_block");
+            case "freeze_user" -> message("audit_action_freeze_user");
+            case "processing" -> message("audit_action_processing");
+            case "valid" -> message("audit_action_report_valid");
+            case "invalid" -> message("audit_action_report_invalid");
+            case "merged" -> message("audit_action_report_merged");
+            case "none" -> message("audit_action_no_punishment");
+            case "create" -> message("topic".equals(entity.getBizType()) ? "audit_action_topic_create"
+                    : ("export".equals(entity.getBizType()) ? "audit_action_export_create" : "audit_action_create"));
+            case "update" -> message("audit_action_update");
+            case "status" -> message("audit_action_status");
+            case "save" -> message("audit_action_save");
+            default -> message("audit_action_system");
+        };
+    }
+
+    /** 技术码、任务号和供应商状态不直接展示，统一转换为中文业务说明。 */
+    private String auditRemark(CommunityAuditRecord entity) {
+        String reason = StrUtil.trim(entity.getReason());
+        String normalizedReason = normalizedAuditValue(reason);
+        if ("wechat_media_async_pending".equals(normalizedReason)) {
+            return message("audit_remark_media_pending");
+        }
+        if ("machine_audit_disabled".equals(normalizedReason)) {
+            return message("audit_remark_machine_disabled");
+        }
+        if ("provider_disabled".equals(normalizedReason)) {
+            return message("audit_remark_provider_disabled");
+        }
+        if ("wechat_risky".equals(normalizedReason)) {
+            return message("audit_remark_wechat_risky");
+        }
+        if (normalizedReason.startsWith("wechat_review")) {
+            return message("audit_remark_wechat_review");
+        }
+        if (normalizedReason.startsWith("wechat_err")) {
+            return message("audit_remark_wechat_error");
+        }
+        String action = normalizedAuditValue(entity.getAction());
+        if ("media_async_callback".equals(action)) {
+            return message("audit_remark_media_callback");
+        }
+        if (StrUtil.isNotBlank(reason) && containsChinese(reason)) {
+            return reason;
+        }
+        if ("machine_audit".equals(action)) {
+            return switch (normalizedAuditValue(entity.getResult())) {
+                case "pass", "published", "success" -> message("audit_remark_machine_pass");
+                case "risky", "reject", "rejected" -> message("audit_remark_machine_reject");
+                case "review", "pending", "pending_manual" -> message("audit_remark_machine_review");
+                default -> message("audit_remark_machine_complete");
+            };
+        }
+        return StrUtil.isBlank(reason) ? null : message("audit_remark_recorded");
+    }
+
+    private String normalizedAuditValue(String value) {
+        return StrUtil.blankToDefault(value, "").trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean containsChinese(String value) {
+        return value.codePoints().anyMatch(codePoint -> codePoint >= 0x4E00 && codePoint <= 0x9FFF);
     }
 
     private List<CommunityAuditLogVO> auditLogs(String bizType, Long bizId) {

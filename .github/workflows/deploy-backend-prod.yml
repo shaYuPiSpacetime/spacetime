@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/**'
       - 'deploy/**'
+      - 'scripts/validate-prod-deploy-config.mjs'
       - 'scripts/test-prod-tencent-im-config.mjs'
       - '.github/workflows/deploy-backend-prod.yml'
   workflow_dispatch:
@@ -36,6 +37,7 @@ jobs:
       - name: Validate production runtime configuration
         run: |
           bash -n deploy/scripts/resolve-oss-endpoint.sh deploy/scripts/migrate-prod-db.sh deploy/scripts/deploy-prod-local.sh
+          node scripts/validate-prod-deploy-config.mjs
           node scripts/test-prod-oss-endpoint.mjs
           node scripts/test-prod-wechat-pay-config.mjs
           node scripts/test-prod-tencent-im-config.mjs
@@ -89,7 +91,7 @@ jobs:
           host: ${{ env.PROD_SERVER_HOST }}
           username: ${{ env.PROD_SERVER_USER }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*,deploy/sql/prod/071_prd03_message_mobile_contract.sql,deploy/sql/prod/072_prd03_admin_menu_visibility.sql,deploy/sql/prod/073_prd03_platform_message_plaintext.sql,deploy/sql/prod/074_prd03_remove_message_kms.sql,deploy/sql/prod/075_prd03_tim_message_lookup_index.sql,deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql,deploy/sql/prod/077_prd01_wechat_content_security.sql,deploy/sql/prod/078_fix_community_post_max_images.sql'
+          source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*,deploy/sql/prod/071_prd03_message_mobile_contract.sql,deploy/sql/prod/072_prd03_admin_menu_visibility.sql,deploy/sql/prod/073_prd03_platform_message_plaintext.sql,deploy/sql/prod/074_prd03_remove_message_kms.sql,deploy/sql/prod/075_prd03_tim_message_lookup_index.sql,deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql,deploy/sql/prod/077_prd01_wechat_content_security.sql,deploy/sql/prod/078_fix_community_post_max_images.sql,deploy/sql/prod/079_prd01_school_dictionary_gugudata.sql,deploy/sql/prod/080_prd05_audit_log_chinese_copy.sql'
           target: '/mnt/data/spacetime-prod'
 
       - name: Deploy backend over SSH
@@ -113,5 +115,7 @@ jobs:
               deploy/sql/prod/075_prd03_tim_message_lookup_index.sql \
               deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql \
               deploy/sql/prod/077_prd01_wechat_content_security.sql \
-              deploy/sql/prod/078_fix_community_post_max_images.sql
+              deploy/sql/prod/078_fix_community_post_max_images.sql \
+              deploy/sql/prod/079_prd01_school_dictionary_gugudata.sql \
+              deploy/sql/prod/080_prd05_audit_log_chinese_copy.sql
             bash scripts/deploy-prod-local.sh backend

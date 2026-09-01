@@ -11,6 +11,7 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
+import com.spacetime.miniapp.dto.request.WechatLoginReq;
 import com.spacetime.miniapp.dto.response.PhoneSmsCodeVO;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.WechatLoginVO;
@@ -235,6 +236,84 @@ class AuthMiniappServiceImplTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("数据库查询失败");
         verify(redisTemplate, never()).delete("miniapp:auth:sms:code:13800138000");
+    }
+
+    @Test
+    @DisplayName("微信临时账号授权已有手机号时复用手机号账号并迁移微信身份")
+    void shouldReusePhoneOwnerWhenProvisionalWechatAccountBindsExistingPhone() {
+        AppUser provisionalUser = new AppUser();
+        provisionalUser.setId(233L);
+        provisionalUser.setOpenid("wechat_openid_current");
+        provisionalUser.setUnionid("wechat_unionid_current");
+        provisionalUser.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+        provisionalUser.setFirstLoginCompleted(1);
+
+        AppUser phoneOwner = new AppUser();
+        phoneOwner.setId(204L);
+        phoneOwner.setOpenid("phone_13800138000");
+        phoneOwner.setPhone("13800138000");
+        phoneOwner.setPhoneHash("existing_phone_hash");
+        phoneOwner.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+        phoneOwner.setFirstLoginCompleted(1);
+
+        when(wechatMiniappClient.code2Session("login-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo(
+                        "wechat_openid_current", "wechat_unionid_current"));
+        when(wechatMiniappClient.getPhoneNumber("phone-code"))
+                .thenReturn(new WechatMiniappClient.PhoneInfo(
+                        "13800138000", "13800138000", "86"));
+        when(appUserDao.selectOne(any())).thenReturn(provisionalUser);
+        when(appUserDao.selectByPhoneHash(anyString())).thenReturn(phoneOwner);
+
+        WechatLoginReq req = new WechatLoginReq();
+        req.setLoginCode("login-code");
+        req.setPhoneCode("phone-code");
+        req.setAgreeProtocol(true);
+
+        WechatLoginVO vo = authService.wechatLogin(req);
+
+        assertThat(vo.getUserId()).isEqualTo(204L);
+        assertThat(vo.getOpenid()).isEqualTo("wechat_openid_current");
+        assertThat(phoneOwner.getUnionid()).isEqualTo("wechat_unionid_current");
+        assertThat(provisionalUser.getOpenid()).startsWith("phone_migrated_");
+        assertThat(provisionalUser.getUnionid()).isEmpty();
+        verify(appUserDao).updateById(provisionalUser);
+        verify(appUserDao).updateById(phoneOwner);
+    }
+
+    @Test
+    @DisplayName("手机号已绑定其他真实微信时拒绝迁移微信身份")
+    void shouldRejectWechatIdentityMigrationWhenPhoneOwnerHasRealWechatIdentity() {
+        AppUser provisionalUser = new AppUser();
+        provisionalUser.setId(233L);
+        provisionalUser.setOpenid("wechat_openid_current");
+        provisionalUser.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+        provisionalUser.setFirstLoginCompleted(1);
+
+        AppUser phoneOwner = new AppUser();
+        phoneOwner.setId(204L);
+        phoneOwner.setOpenid("wechat_openid_other");
+        phoneOwner.setPhone("13800138000");
+        phoneOwner.setPhoneHash("existing_phone_hash");
+        phoneOwner.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+        phoneOwner.setFirstLoginCompleted(1);
+
+        when(wechatMiniappClient.code2Session("login-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo("wechat_openid_current", null));
+        when(wechatMiniappClient.getPhoneNumber("phone-code"))
+                .thenReturn(new WechatMiniappClient.PhoneInfo(
+                        "13800138000", "13800138000", "86"));
+        when(appUserDao.selectOne(any())).thenReturn(provisionalUser);
+        when(appUserDao.selectByPhoneHash(anyString())).thenReturn(phoneOwner);
+
+        WechatLoginReq req = new WechatLoginReq();
+        req.setLoginCode("login-code");
+        req.setPhoneCode("phone-code");
+        req.setAgreeProtocol(true);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.wechatLogin(req))
+                .hasMessageContaining("手机号已绑定其他微信账号");
+        verify(appUserDao, never()).updateById(any(AppUser.class));
     }
 
     private AppConfig config(String value) {

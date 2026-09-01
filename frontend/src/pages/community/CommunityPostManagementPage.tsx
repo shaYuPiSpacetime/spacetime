@@ -63,11 +63,19 @@ function postActionAllowed(status: string | undefined, action: string) {
   const allowed: Record<string, string[]> = {
     draft: ['pending_manual'],
     pending_machine: ['pending_manual', 'published', 'rejected'],
-    pending_manual: ['published', 'rejected', 'blocked'],
+    pending_manual: ['published', 'rejected'],
     published: ['blocked'],
     blocked: ['published'],
   };
   return Boolean(status && allowed[status]?.includes(action));
+}
+
+function postActionLabel(status: string | undefined, action: string, fallback: string) {
+  if (action === 'published') return status === 'blocked' ? '恢复' : '通过';
+  if (action === 'rejected') return '驳回';
+  if (action === 'blocked') return '下架';
+  if (action === 'pending_manual') return '转人工复核';
+  return fallback;
 }
 
 export default function CommunityPostManagementPage({ variant }: { variant: Variant }) {
@@ -99,7 +107,11 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
   const emptyCopyKey = variant === 'content' ? 'content_empty' : 'moment_empty';
   const configuredActions = metaOptions(meta, 'postAction');
   const actionOptions = configuredActions.length ? configuredActions : metaOptions(meta, 'contentStatus').filter((item) => ['published', 'rejected', 'blocked'].includes(item.code));
-  const availableActionOptions = current ? actionOptions.filter((item) => postActionAllowed(current.status, item.code)) : actionOptions;
+  const availableActionOptions = current
+    ? actionOptions
+      .filter((item) => postActionAllowed(current.status, item.code))
+      .map((item) => ({ ...item, label: postActionLabel(current.status, item.code, item.label) }))
+    : actionOptions;
   const selectedAction = availableActionOptions.find((item) => item.code === action);
   const highRisk = Boolean(selectedAction?.extra?.highRisk) || selectedAction?.tone === 'danger' || /block|restore|mute|freeze|reject|remove/i.test(action) || (current?.status === 'blocked' && action === 'published');
 

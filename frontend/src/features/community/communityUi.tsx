@@ -280,6 +280,63 @@ export function DetailSection({ title, children }: { title: string; children: Re
   return <section className="rounded-xl border border-slate-200 p-4"><h3 className="mb-3 text-sm font-semibold text-slate-900">{title}</h3><div className="text-sm leading-6 text-slate-700">{children}</div></section>;
 }
 
+const auditActionLabels: Record<string, string> = {
+  machine_audit: '机器审核',
+  media_async_callback: '微信媒体审核回调',
+  published: '审核通过',
+  publish: '审核通过',
+  approve: '审核通过',
+  restore: '恢复内容',
+  rejected: '审核驳回',
+  reject: '审核驳回',
+  blocked: '下架内容',
+  block: '下架内容',
+  block_content: '下架内容',
+  block_comment: '屏蔽评论',
+  pending_manual: '转人工复核',
+  warn_user: '警告用户',
+  mute_user: '禁言用户',
+  ip_block: '网络地址封禁',
+  freeze_user: '冻结账号',
+  create: '创建记录',
+  update: '更新记录',
+  status: '修改状态',
+  save: '保存配置',
+};
+
+function hasChinese(value: string | undefined) {
+  return Boolean(value && /[\u4e00-\u9fff]/.test(value));
+}
+
+function localizedAuditAction(log: CommunityAuditLogVO) {
+  if (hasChinese(log.actionName)) return log.actionName;
+  return auditActionLabels[String(log.action || '').toLowerCase()] || '系统处理';
+}
+
+function localizedAuditOperator(log: CommunityAuditLogVO) {
+  const operator = String(log.operatorName || '').trim();
+  const normalized = operator.toLowerCase();
+  if (normalized === 'audit_operator_wechat' || normalized === 'provider') return '微信内容安全';
+  if (normalized === 'audit_operator_admin') return '管理员';
+  if (operator && normalized !== '-' && normalized !== 'system' && !normalized.startsWith('audit_')) {
+    return operator;
+  }
+  return String(log.action || '').toLowerCase() === 'media_async_callback' ? '微信内容安全' : '系统';
+}
+
+function localizedAuditRemark(log: CommunityAuditLogVO) {
+  if (hasChinese(log.remark)) return log.remark;
+  const reason = String(log.remark || '').toLowerCase();
+  if (reason === 'wechat_media_async_pending') return '等待微信媒体审核结果';
+  if (reason === 'machine_audit_disabled') return '机器审核未启用，已转人工复核';
+  if (reason === 'provider_disabled') return '内容安全服务未启用，已转人工复核';
+  if (reason === 'wechat_risky') return '微信内容安全审核未通过';
+  if (reason.startsWith('wechat_review')) return '微信内容安全结果需人工复核';
+  if (reason.startsWith('wechat_err')) return '微信内容安全服务异常，已转人工复核';
+  if (String(log.action || '').toLowerCase() === 'media_async_callback') return '微信媒体审核结果已返回';
+  return reason ? '处理说明已记录' : '';
+}
+
 export function AuditTimeline({ logs, emptyText }: { logs?: CommunityAuditLogVO[]; emptyText: string }) {
   if (!logs?.length) return <p className="text-sm text-slate-400">{emptyText}</p>;
   return (
@@ -287,8 +344,8 @@ export function AuditTimeline({ logs, emptyText }: { logs?: CommunityAuditLogVO[
       {logs.map((log, index) => (
         <li key={String(log.id ?? index)} className="relative">
           <span className="absolute -left-[21px] top-2 h-2 w-2 rounded-full bg-primary" />
-          <div className="flex flex-wrap justify-between gap-2"><strong className="text-sm font-medium text-slate-800">{log.operatorName || '-'} · {log.actionName || log.action || '-'}</strong><time className="text-xs text-slate-400">{log.createTime || '-'}</time></div>
-          {log.remark && <p className="mt-1 text-xs text-slate-500">{log.remark}</p>}
+          <div className="flex flex-wrap justify-between gap-2"><strong className="text-sm font-medium text-slate-800">{localizedAuditOperator(log)} · {localizedAuditAction(log)}</strong><time className="text-xs text-slate-400">{log.createTime || '-'}</time></div>
+          {localizedAuditRemark(log) && <p className="mt-1 text-xs text-slate-500">{localizedAuditRemark(log)}</p>}
         </li>
       ))}
     </ol>

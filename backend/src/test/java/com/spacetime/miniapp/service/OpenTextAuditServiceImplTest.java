@@ -70,6 +70,9 @@ class OpenTextAuditServiceImplTest {
                 .thenReturn(true);
         org.mockito.Mockito.lenient().when(runtimeConfigResolver.fieldVisible(configSnapshot, "qaList", true))
                 .thenReturn(true);
+        org.mockito.Mockito.lenient().when(runtimeConfigResolver.copyText(
+                        configSnapshot, "safety_text_failed", "文本内容安全审核未通过"))
+                .thenReturn("文本内容安全审核未通过");
         AppUser user = new AppUser();
         user.setId(7L);
         user.setOpenid("openid-7");
@@ -162,6 +165,43 @@ class OpenTextAuditServiceImplTest {
     }
 
     @Test
+    @DisplayName("风险自我介绍使用中文原因驳回且不暴露供应商技术码")
+    void shouldRejectUnsafeIntroductionWithChineseReason() {
+        String content = "加我的微信135736804668，也可以加我的QQ12345678，方便我们私下联系。";
+        IntroductionSubmitReq req = new IntroductionSubmitReq();
+        req.setAboutMe(content);
+        AppUserAuditRecord rejected = approvedRecord(content);
+        rejected.setStatus(AppUserAuditStatusEnum.REJECTED.getCode());
+        rejected.setRejectReason("文本内容安全审核未通过");
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.ABOUT_ME)).thenReturn(null, rejected);
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0);
+            record.setId(103L);
+            return record;
+        });
+        when(textSafetyProvider.check("openid-7", "ABOUT_ME", content))
+                .thenReturn(ProviderCheckResult.unsafe(
+                        "wechat-text", "{\"suggest\":\"risky\"}", false, "wechat_risky"));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ExternalProviderTask task = invocation.getArgument(0);
+            task.setId(203L);
+            return null;
+        }).when(externalProviderTaskDao).insert(any());
+
+        OpenTextAuditVO result = service.submitIntroduction(7L, req);
+
+        verify(auditService).machineReject(
+                103L,
+                203L,
+                "{\"suggest\":\"risky\"}",
+                "文本内容安全审核未通过");
+        assertThat(result.getAuditStatus()).isEqualTo("REJECTED");
+        assertThat(result.getRejectReason())
+                .isEqualTo("文本内容安全审核未通过")
+                .doesNotContain("wechat_risky");
+    }
+
+    @Test
     @DisplayName("自我介绍少于20字时拒绝提交")
     void shouldRejectShortIntroduction() {
         IntroductionSubmitReq req = new IntroductionSubmitReq();
@@ -219,6 +259,22 @@ class OpenTextAuditServiceImplTest {
         assertThat(result.getEffectiveContent()).isEqualTo("这是当前对外可见的旧版自我介绍，审核通过后才替换。");
         assertThat(result.getAuditStatus()).isEqualTo("PENDING");
         assertThat(result.getCanSubmit()).isFalse();
+    }
+
+    @Test
+    @DisplayName("历史英文技术原因在自我介绍详情中转换为中文提示")
+    void shouldLocalizeHistoricalIntroductionRejectReason() {
+        AppUserAuditRecord rejected = approvedRecord("这是之前提交但未通过审核的自我介绍内容，需要修改后再次提交。");
+        rejected.setStatus(AppUserAuditStatusEnum.REJECTED.getCode());
+        rejected.setRejectReason("wechat_risky");
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.ABOUT_ME)).thenReturn(rejected);
+        when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.ABOUT_ME)).thenReturn(null);
+
+        IntroductionDetailVO result = service.getIntroductionDetail(7L);
+
+        assertThat(result.getRejectReason())
+                .isEqualTo("文本内容安全审核未通过")
+                .doesNotContain("wechat_risky");
     }
 
     @Test

@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.beans.Introspector;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,14 +94,34 @@ class CommunityAdminServiceImplTest {
         CommunityPostAuditReq req = new CommunityPostAuditReq();
         req.setAuditStatus("APPROVED");
         req.setAuditRemark("通过");
+        post.setVersion(1);
 
         when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(communityPostDao.updateCas(any(), eq(1))).thenReturn(1);
 
         communityAdminService.auditPost(100L, req);
 
-        verify(communityPostDao).updateById(argThat(item ->
-                "APPROVED".equals(item.getAuditStatus()) && "published".equals(item.getStatus())));
+        verify(communityPostDao).updateCas(argThat(item ->
+                "APPROVED".equals(item.getAuditStatus()) && "published".equals(item.getStatus())), eq(1));
+        verify(communityExtensionDao).insertAudit(argThat(item ->
+                "published".equals(item.getAction()) && "通过".equals(item.getReason())));
         verify(contentOperationLogDao).insert(any());
+    }
+
+    @Test
+    @DisplayName("旧动态审核入口只允许通过或驳回")
+    void auditPost_pendingStatusShouldReject() {
+        post.setStatus("pending_manual");
+        post.setVersion(1);
+        CommunityPostAuditReq req = new CommunityPostAuditReq();
+        req.setAuditStatus("PENDING");
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+
+        assertThatThrownBy(() -> communityAdminService.auditPost(100L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("unsupported_audit_status");
+        verify(communityPostDao, never()).updateById(any());
+        verify(communityPostDao, never()).updateCas(any(), anyInt());
     }
 
     @Test
@@ -509,6 +530,70 @@ class CommunityAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("内容详情将机器审核、媒体回调和人工动作日志统一转换为中文")
+    void getPostDetail_shouldLocalizeAuditLogs() {
+        post.setPostNo("P-100");
+        post.setContent("待人工复核的动态");
+        post.setStatus("pending_manual");
+        CommunityAuditRecord machineAudit = auditRecord(
+                1L, "machine_audit", "review", null, null, "wechat_media_async_pending", null);
+        CommunityAuditRecord mediaCallback = auditRecord(
+                2L, "media_async_callback", "pass", "pending_manual", "published",
+                "6a96406d-75fb-3d01-7270544e", null);
+        CommunityAuditRecord manualApprove = auditRecord(
+                3L, "published", "success", "pending_manual", "published", "人工核验通过", 9L);
+        SysUser operator = new SysUser();
+        operator.setId(9L);
+        operator.setNickname("审核员小张");
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(dictDataDao.selectByDictType(anyString())).thenReturn(List.of());
+        when(dictDataDao.selectList(any())).thenReturn(List.of());
+        when(communityExtensionDao.selectAudits(any()))
+                .thenReturn(List.of(machineAudit, mediaCallback, manualApprove));
+        when(userDao.selectById(9L)).thenReturn(operator);
+        Map<String, String> auditCopies = Map.ofEntries(
+                Map.entry("community.copy.audit_operator_system", "系统"),
+                Map.entry("community.copy.audit_operator_wechat", "微信内容安全"),
+                Map.entry("community.copy.audit_action_machine", "机器审核"),
+                Map.entry("community.copy.audit_action_media_callback", "微信媒体审核回调"),
+                Map.entry("community.copy.audit_action_approve", "审核通过"),
+                Map.entry("community.copy.audit_remark_media_pending", "等待微信媒体审核结果"),
+                Map.entry("community.copy.audit_remark_media_callback", "微信媒体审核结果已返回")
+        );
+        when(appConfigDao.selectByKey(argThat(auditCopies::containsKey))).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            return configEntity(key, auditCopies.get(key), "TEXT", 0);
+        });
+
+        var result = communityAdminService.getPostDetail(100L);
+
+        assertThat(result.getAuditLogs()).extracting("actionName")
+                .containsExactly("机器审核", "微信媒体审核回调", "审核通过");
+        assertThat(result.getAuditLogs()).extracting("operatorName")
+                .containsExactly("系统", "微信内容安全", "审核员小张");
+        assertThat(result.getAuditLogs()).extracting("remark")
+                .containsExactly("等待微信媒体审核结果", "微信媒体审核结果已返回", "人工核验通过");
+        assertThat(result.getAuditLogs()).extracting("action")
+                .containsExactly("machine_audit", "media_async_callback", "published");
+    }
+
+    @Test
+    @DisplayName("待人工复核内容只允许通过或驳回")
+    void updatePostStatus_pendingManualShouldRejectBlockAction() {
+        post.setStatus("pending_manual");
+        post.setVersion(1);
+        CommunityStatusCommandReq req = new CommunityStatusCommandReq();
+        req.setVersion(1);
+        req.setAction("blocked");
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+
+        assertThatThrownBy(() -> communityAdminService.updatePostStatus(100L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("invalid_status_transition");
+        verify(communityPostDao, never()).updateCas(any(), anyInt());
+    }
+
+    @Test
     @DisplayName("动态与举报筛选请求覆盖页面实际参数")
     void postAndReportPageRequests_shouldExposeFrontendFilterFields() throws Exception {
         List<String> postProperties = Arrays.stream(Introspector.getBeanInfo(CommunityPostPageReq.class)
@@ -519,6 +604,26 @@ class CommunityAdminServiceImplTest {
         assertThat(postProperties).contains("scope", "contentType", "sourceScene", "mediaType",
                 "machineResult", "distributionScene", "reported", "startTime", "endTime");
         assertThat(reportProperties).contains("keyword", "startTime", "endTime");
+    }
+
+    private CommunityAuditRecord auditRecord(
+            Long id,
+            String action,
+            String result,
+            String before,
+            String after,
+            String reason,
+            Long operatorId) {
+        CommunityAuditRecord record = new CommunityAuditRecord();
+        record.setId(id);
+        record.setAction(action);
+        record.setResult(result);
+        record.setBeforeSnapshot(before);
+        record.setAfterSnapshot(after);
+        record.setReason(reason);
+        record.setOperatorId(operatorId);
+        record.setCreateTime(LocalDateTime.of(2026, 9, 1, 11, 3, id.intValue()));
+        return record;
     }
 
     @Test

@@ -13,6 +13,7 @@ import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.RegisterSourceEnum;
+import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.service.AppUserAuditContentService;
@@ -33,6 +34,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
@@ -40,10 +42,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HexFormat;
-import java.util.UUID;
 import java.util.List;
-import java.math.BigDecimal;
-import com.spacetime.common.enums.VipStatusEnum;
+import java.util.Objects;
+import java.util.UUID;
 
 /**
  * 小程序登录服务实现。
@@ -174,6 +175,10 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
                                       String unionid,
                                       List<String> promotionTraceNos) {
         AppUser user = findWechatUser(openId, unionid);
+        AppUser phoneOwner = findPhoneOwner(boundPhone);
+        if (phoneOwner != null && !sameUser(user, phoneOwner)) {
+            return migrateWechatIdentityToPhoneOwner(user, phoneOwner, openId, unionid, boundPhone);
+        }
         boolean isNew = user == null;
         if (isNew) {
             LoginTarget created = createNewUser(
@@ -193,6 +198,59 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             appUserDao.updateById(user);
         }
         return new LoginTarget(user, isNew);
+    }
+
+    /** 手机号是唯一账号标识；微信续填临时账号授权已有手机号时应恢复原手机号账号。 */
+    private AppUser findPhoneOwner(String boundPhone) {
+        if (StrUtil.isBlank(boundPhone)) {
+            return null;
+        }
+        return appUserDao.selectByPhoneHash(hashPhone(boundPhone));
+    }
+
+    /**
+     * 将临时微信身份迁移到原手机号账号。
+     * 仅允许覆盖 phone_ 占位 openid，避免把已绑定的其他真实微信身份静默顶掉。
+     */
+    private LoginTarget migrateWechatIdentityToPhoneOwner(AppUser provisionalUser,
+                                                           AppUser phoneOwner,
+                                                           String openId,
+                                                           String unionid,
+                                                           String boundPhone) {
+        if (provisionalUser != null) {
+            checkAccountStatus(provisionalUser);
+        }
+        checkAccountStatus(phoneOwner);
+        if (!isPhonePlaceholderOpenId(phoneOwner.getOpenid())) {
+            throw new BusinessException("该手机号已绑定其他微信账号，请使用手机号验证码登录或联系客服");
+        }
+
+        if (provisionalUser != null) {
+            provisionalUser.setOpenid("phone_migrated_" + provisionalUser.getId());
+            provisionalUser.setUnionid("");
+            appUserDao.updateById(provisionalUser);
+        }
+
+        ensureDefaultNickname(phoneOwner);
+        phoneOwner.setOpenid(openId);
+        if (StrUtil.isNotBlank(unionid)) {
+            phoneOwner.setUnionid(unionid);
+        }
+        phoneOwner.setPhone(boundPhone);
+        phoneOwner.setPhoneHash(hashPhone(boundPhone));
+        phoneOwner.setLastLoginTime(LocalDateTime.now());
+        appUserDao.updateById(phoneOwner);
+        log.info("微信身份已迁移至手机号账号: provisionalUserId={}, phoneOwnerId={}",
+                provisionalUser == null ? null : provisionalUser.getId(), phoneOwner.getId());
+        return new LoginTarget(phoneOwner, false);
+    }
+
+    private boolean sameUser(AppUser left, AppUser right) {
+        return left != null && right != null && Objects.equals(left.getId(), right.getId());
+    }
+
+    private boolean isPhonePlaceholderOpenId(String openId) {
+        return StrUtil.isBlank(openId) || openId.startsWith("phone_");
     }
 
     /** unionId 可用时优先跨 openId 识别同一微信用户，缺失时回退当前小程序 openId。 */
