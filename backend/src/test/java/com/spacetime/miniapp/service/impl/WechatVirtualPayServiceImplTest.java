@@ -8,6 +8,9 @@ import com.spacetime.miniapp.service.WechatMiniappClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor;
+
+import java.lang.reflect.Constructor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,6 +34,18 @@ class WechatVirtualPayServiceImplTest {
                 mock(WechatMiniappClient.class),
                 new ObjectMapper()
         );
+    }
+
+    @Test
+    @DisplayName("存在测试构造器时仍明确声明 Spring 注入构造器")
+    void shouldExposeOneSpringAutowiredConstructor() {
+        AutowiredAnnotationBeanPostProcessor processor = new AutowiredAnnotationBeanPostProcessor();
+
+        Constructor<?>[] constructors = processor.determineCandidateConstructors(
+                WechatVirtualPayServiceImpl.class, "wechatVirtualPayServiceImpl");
+
+        assertThat(constructors).isNotNull().hasSize(1);
+        assertThat(constructors[0].getParameterCount()).isEqualTo(3);
     }
 
     @Test

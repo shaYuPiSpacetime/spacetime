@@ -9,6 +9,7 @@ import com.spacetime.miniapp.dto.response.WechatVirtualPayParamsVO;
 import com.spacetime.miniapp.service.WechatMiniappClient;
 import com.spacetime.miniapp.service.WechatVirtualPayService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Mac;
@@ -41,6 +42,7 @@ public class WechatVirtualPayServiceImpl implements WechatVirtualPayService {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
+    @Autowired
     public WechatVirtualPayServiceImpl(
             WechatVirtualPayProperties properties,
             WechatMiniappClient wechatMiniappClient,
