@@ -327,6 +327,13 @@ export interface OpenTextDetail {
   canSubmit: boolean
 }
 
+export interface OpenTextAuditResult {
+  fieldName: string
+  auditStatus: string
+  auditSource?: string
+  rejectReason?: string
+}
+
 export interface AboutMeQuestion {
   questionKey: string
   title: string

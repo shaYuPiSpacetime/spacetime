@@ -63,7 +63,21 @@ export default function VerificationIntroPage() {
           accessStatus: loginData.accessStatus,
         },
       )
-      await prd01Api.submitIntroduction(content)
+      const auditResult = await prd01Api.submitIntroduction(content)
+      if (auditResult.auditStatus === 'REJECTED') {
+        const rejectReason = auditResult.rejectReason || '文本内容安全审核未通过，请修改后重试'
+        setDetail(current => ({
+          latestContent: content,
+          effectiveContent: current?.effectiveContent,
+          auditStatus: auditResult.auditStatus,
+          auditSource: auditResult.auditSource,
+          rejectReason,
+          submitTime: current?.submitTime,
+          canSubmit: true,
+        }))
+        await Taro.showToast({ title: rejectReason, icon: 'none' })
+        return
+      }
       await Taro.redirectTo({ url: '/pages/verification/triple' })
     } catch (error) {
       await showError(error)

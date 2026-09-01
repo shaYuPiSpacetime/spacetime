@@ -48,7 +48,7 @@
     "validate:package-size": "node scripts/validate-built-package-size.mjs",
     "validate:prd06-miniapp": "node --test scripts/test-prd06-miniapp-flow.cjs && node scripts/validate-prd06-scope.mjs",
     "validate:prd07-miniapp": "node --test scripts/test-promotion-attribution.cjs && node --test scripts/test-promotion-invite-presentation.cjs && node scripts/validate-promotion-ui.mjs",
-    "validate:prd01-handoff": "node --test scripts/test-prd01-runtime.cjs && node --test scripts/test-avatar-upload-error.cjs && node --test scripts/test-community-image-upload.cjs && node scripts/test-handoff-runtime-sql.cjs && node --test scripts/test-handoff-runtime-gates.cjs && node scripts/test-handoff-profile-closure.cjs && node --test scripts/test-school-search-integration.cjs",
+    "validate:prd01-handoff": "node --test scripts/test-prd01-runtime.cjs && node --test scripts/test-avatar-upload-error.cjs && node --test scripts/test-community-image-upload.cjs && node scripts/test-handoff-runtime-sql.cjs && node --test scripts/test-handoff-runtime-gates.cjs && node scripts/test-handoff-profile-closure.cjs && node --test scripts/test-school-search-integration.cjs && node --test scripts/test-introduction-submit-feedback.cjs",
     "validate:prd02-miniapp": "node --test scripts/test-relation-feedback-flow.cjs && node scripts/validate-relation-feedback-miniapp-closure.mjs",
     "validate:message-closure": "node --test scripts/test-message-domain.cjs scripts/test-message-mobile-api-closure.cjs",
     "lint": "eslint src --ext .ts,.tsx",

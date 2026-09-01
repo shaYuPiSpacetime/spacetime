@@ -10,6 +10,7 @@ import type {
   EducationDetail,
   EducationSubmitRequest,
   LoginResult,
+  OpenTextAuditResult,
   OpenTextDetail,
   Prd01Config,
   ProfileDetail,
@@ -101,7 +102,7 @@ export const prd01Api = {
 
   getIntroduction: () => get<OpenTextDetail>(PRD01_API_PATHS.introduction),
   submitIntroduction: (aboutMe: string) =>
-    post<Record<string, unknown>>(PRD01_API_PATHS.introduction, { aboutMe }),
+    post<OpenTextAuditResult>(PRD01_API_PATHS.introduction, { aboutMe }),
   getAboutMe: () => get<AboutMeDetail>(PRD01_API_PATHS.aboutMe),
   submitAboutMe: (questionKey: string, contentText: string) =>
     post<Record<string, unknown>>(PRD01_API_PATHS.aboutMe, { questionKey, contentText }),
