@@ -13,6 +13,14 @@ spring:
       password: ${REDIS_PASSWORD}
       database: ${REDIS_DATABASE:1}
 
+real-name:
+  provider: ${REAL_NAME_PROVIDER:aliyun}
+  aliyun:
+    endpoint: ${REAL_NAME_ALIYUN_ENDPOINT:dytnsapi.aliyuncs.com}
+    access-key-id: ${REAL_NAME_ALIYUN_ACCESS_KEY_ID:}
+    access-key-secret: ${REAL_NAME_ALIYUN_ACCESS_KEY_SECRET:}
+    auth-code: ${REAL_NAME_ALIYUN_AUTH_CODE:}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

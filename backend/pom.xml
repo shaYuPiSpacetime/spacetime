@@ -20,6 +20,7 @@
         <knife4j.version>4.5.0</knife4j.version>
         <lombok.version>1.18.38</lombok.version>
         <aliyun-sms.version>4.5.1</aliyun-sms.version>
+        <aliyun-dytnsapi.version>3.4.0</aliyun-dytnsapi.version>
     </properties>
 
     <dependencies>
@@ -87,6 +88,13 @@
             <groupId>com.aliyun</groupId>
             <artifactId>dysmsapi20170525</artifactId>
             <version>${aliyun-sms.version}</version>
+        </dependency>
+
+        <!-- 阿里云号码百科：身份证二要素核验 -->
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>dytnsapi20200217</artifactId>
+            <version>${aliyun-dytnsapi.version}</version>
         </dependency>
 
         <!-- 后端确定性生成校园推广员永久二维码，避免本地验收依赖 OSS -->

@@ -23,6 +23,7 @@ frontend/.playwright-browsers/
 # Local runtime artifacts
 /.codex/*.log
 /logs/*.log
+backend/tmp/
 **/__pycache__/
 *.py[cod]
 miniapp/.swc/plugins/*_x86_64_*/

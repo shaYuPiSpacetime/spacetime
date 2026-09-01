@@ -158,7 +158,7 @@
 |---------|------|------|------|
 | L1-MINI-VERIFY-001 | 查询认证状态 | 调用 `/miniapp/verify/status` | 返回实名、头像、学历、提交权限、学历阻断原因和核心准入状态 |
 | L1-MINI-VERIFY-002 | 提交头像认证 | 调用 `/miniapp/profile/avatar` | 更新本人侧头像，生成一条头像待审核记录和提交历史 |
-| L1-MINI-VERIFY-003 | 提交实名认证 | 提交 `realName,idCardNo,singleCommitmentChecked` | 后端读取绑定手机号执行三要素 Provider 核验并写 Provider 任务/审核历史 |
+| L1-MINI-VERIFY-003 | 提交实名认证 | 提交 `realName,idCardNo,singleCommitmentChecked` | 后端执行姓名+身份证号二要素 Provider 核验并写 Provider 任务/审核历史；`IsConsistent=1` 通过、`0` 或身份证参数不合法直接驳回、`2` 待人工；未绑定手机号不影响 |
 | L1-MINI-VERIFY-004 | 身份证号格式错误 | 提交非法身份证号 | 返回 `REALNAME_ID_CARD_INVALID` |
 | L1-MINI-VERIFY-005 | 实名重复校验 | 已存在身份证号再次提交 | 按 hash/明文一致性识别重复并阻断或转人工 |
 | L1-MINI-VERIFY-006 | 提交学历认证 | 调用 `/miniapp/verify/education` | 支持在校证明、学信网验证码、证书编号、上传证书四类；一次提交只生成一条审核记录 |

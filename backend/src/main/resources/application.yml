@@ -11,6 +11,14 @@ spring:
     time-zone: GMT+8
     default-property-inclusion: non_null
 
+real-name:
+  provider: ${REAL_NAME_PROVIDER:mock}
+  aliyun:
+    endpoint: ${REAL_NAME_ALIYUN_ENDPOINT:dytnsapi.aliyuncs.com}
+    access-key-id: ${REAL_NAME_ALIYUN_ACCESS_KEY_ID:}
+    access-key-secret: ${REAL_NAME_ALIYUN_ACCESS_KEY_SECRET:}
+    auth-code: ${REAL_NAME_ALIYUN_AUTH_CODE:}
+
 promotion:
   share:
     # Taro H5 部署基址；生产使用 HTTPS，服务端会拼接 #/pages/promotion/invite-home。

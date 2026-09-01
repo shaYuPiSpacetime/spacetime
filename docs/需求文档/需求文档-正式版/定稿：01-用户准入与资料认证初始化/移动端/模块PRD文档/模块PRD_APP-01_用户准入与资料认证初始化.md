@@ -32,7 +32,7 @@ PRD-01 是小程序的准入层、资料初始化层与信任建立层，目标�
 | APP-01-04 | 性别提交后用户端不可修改；后台客服可特殊修改并重算 | `M01-RULE-gender-lock` |
 | APP-01-05 | 年龄范围默认 18-60，后台可配置；不符合时阻断 | `M01-CFG-age-range` |
 | APP-01-06 | 强引导按蓝湖四步：基本资料 -> 添加头像 -> 自我介绍 -> 三重认证 | `APP-01-PAGE-verify-*` |
-| APP-01-07 | 实名认证不做人脸核身；提交姓名 + 身份证号 + 已绑定手机号 + 单身承诺函勾选，三要素核验后后台人工兜底 | `APP-01-PAGE-real-name` |
+| APP-01-07 | 实名认证不做人脸核身；提交姓名 + 身份证号 + 单身承诺函勾选，二要素核验后后台人工兜底；手机号绑定不影响实名 | `APP-01-PAGE-real-name` |
 | APP-01-08 | 学历认证必须在实名认证已提交后进入；在校生/毕业生分流 | `APP-01-PAGE-education` |
 | APP-01-09 | 核心曝光、喜欢、私信、社区要求实名 + 头像 + 学历三项通过 | `M01-RULE-core-access` |
 | APP-01-10 | 扩展资料与联系方式字段以 `M01-DATA-user-input-fields` 为准；已启用字段均需有页面承载 | 扩展资料页面组 |
@@ -106,7 +106,7 @@ PRD-01 是小程序的准入层、资料初始化层与信任建立层，目标�
 | 用户资料 | 轻量资料、基础资料、扩展资料、联系方式、资料完整度 | 01 | `M01-DATA-user-input-fields` 中轻量资料/基础资料/扩展资料/联系方式字段组、`profileScore` |
 | 用户认证 | 实名、头像、学历三项认证状态 | 01 | `realNameStatus`、`avatarStatus`、`educationStatus`、认证字段组、`rejectReason` |
 | 资料内容审核 | 资料图片、开放文字、语音机审状态 | 01 | `photos`、`profileBgImage`、开放文本字段、`voiceIntroUrl` 及其审核状态 |
-| 用户材料 | 头像原图、学历材料、实名记录 | 01 | `avatarImage`、`studentMaterials`、`certificateMaterials`、实名三要素提交记录、`submitTime`、`auditStatus` |
+| 用户材料 | 头像原图、学历材料、实名记录 | 01 | `avatarImage`、`studentMaterials`、`certificateMaterials`、实名二要素提交记录、`submitTime`、`auditStatus` |
 
 ### 4.2 字段范围
 
@@ -118,7 +118,7 @@ PRD-01 是小程序的准入层、资料初始化层与信任建立层，目标�
 | 扩展资料 | 脱单目标、感情状态、开放文本、标签、相册、背景图、语音、MBTI、歌曲、见面偏好、生活方式、问答等扩展资料字段组 | 展示、必填、计分以用户字段总表和后台字段配置为准；不作为三重认证准入项 | 编辑资料页面组、自我介绍页 |
 | 联系方式 | `wechatId` / `wechat` | 仅平台紧急事件或客服场景使用，不对其他用户公开，固定不计分 | 编辑资料页面组/安全资料区 |
 | 头像认证 | `avatarSource`、`avatarImage` | 认证流程固定采集；头像是否计分以后台配置为准 | 添加头像页、三重认证页 |
-| 实名认证 | `realName`、`idCardNo`、`singleCommitmentChecked`，并取已绑定 `phone` 做三要素核验 | 固定必填，固定不计分；字段文案必须为“身份证号” | 实名认证页、三重认证页 |
+| 实名认证 | `realName`、`idCardNo`、`singleCommitmentChecked`，使用姓名+身份证号做二要素核验；手机号独立 | 固定必填，固定不计分；字段文案必须为“身份证号” | 实名认证页、三重认证页 |
 | 学历认证 | `educationUserType`、`schoolName`、`studentMaterials`、`educationMethod`、`chsiCode`、`diplomaNo`、`certificateName`、`certificateMaterials`、`educationAgreementChecked` | 学历认证流程固定校验，固定不计分 | 学历认证页、三重认证页 |
 
 ---
@@ -146,7 +146,7 @@ PRD-01 是小程序的准入层、资料初始化层与信任建立层，目标�
 
 | 不做的能力 | 原因 | 本期处理方式 |
 |------------|------|--------------|
-| 人脸核身 | 产品确认首版不做 | 姓名 + 身份证号 + 手机号，后台人工审核兜底 |
+| 人脸核身 | 产品确认首版不做 | 姓名 + 身份证号二要素，后台人工审核兜底 |
 | 婚况认证/第四认证 | 产品确认不新增 | 单身承诺函仅协议查看与勾选，不影响准入 |
 | 海外/港澳台学历认证 | 产品确认首版暂不支持 | 学历地区选择后展示暂不支持 |
 | 同性/多元取向匹配 | 产品确认首版只支持异性匹配 | 不采集性取向字段 |

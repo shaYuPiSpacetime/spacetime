@@ -40,6 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -96,11 +98,11 @@ class VerificationServiceImplTest {
     }
 
     @Test
-    @DisplayName("实名认证使用账号绑定手机号执行三要素机审")
-    void shouldSubmitRealNameWithBoundPhone() {
+    @DisplayName("未绑定手机号也可提交身份证二要素实名认证")
+    void shouldSubmitRealNameWithoutBoundPhone() {
         AppUser user = new AppUser();
         user.setId(7L);
-        user.setPhone("13800138000");
+        user.setPhone(null);
         when(appUserDao.selectById(7L)).thenReturn(user);
         AppUserAuditRecord approved = record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED);
         when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(null, approved);
@@ -111,7 +113,7 @@ class VerificationServiceImplTest {
             record.setId(101L);
             return record;
         });
-        when(realNameVerificationProvider.check("张三", "110101199001011234", "13800138000"))
+        when(realNameVerificationProvider.check("张三", "110101199001011234"))
                 .thenReturn(ProviderCheckResult.safe("mock-real-name", "{\"result\":\"pass\"}", true));
         org.mockito.Mockito.doAnswer(invocation -> {
             ExternalProviderTask task = invocation.getArgument(0);
@@ -128,10 +130,46 @@ class VerificationServiceImplTest {
 
         ArgumentCaptor<AppUserAuditRecord> recordCaptor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
         verify(auditService).submit(recordCaptor.capture());
-        assertThat(recordCaptor.getValue().getBoundPhone()).isEqualTo("13800138000");
+        assertThat(recordCaptor.getValue().getBoundPhone()).isNull();
         assertThat(recordCaptor.getValue().getIdCard()).isEqualTo("110101199001011234");
-        verify(realNameVerificationProvider).check("张三", "110101199001011234", "13800138000");
+        verify(realNameVerificationProvider).check("张三", "110101199001011234");
         verify(auditService).machineApprove(101L, 201L, "{\"result\":\"pass\"}");
+    }
+
+    @Test
+    @DisplayName("阿里云 IsConsistent=2 保持待审核并进入人工处理")
+    void shouldKeepRealNamePendingWhenAliyunHasNoRecord() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(null, record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.PENDING));
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(null);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.AVATAR)).thenReturn(null);
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0);
+            record.setId(102L);
+            return record;
+        });
+        when(realNameVerificationProvider.check("张三", "110101199001011234"))
+                .thenReturn(ProviderCheckResult.pending("ALIYUN_ID_2ELEMENT", "{\"IsConsistent\":2}", false, null, "无身份记录"));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ExternalProviderTask task = invocation.getArgument(0);
+            task.setId(202L);
+            return null;
+        }).when(externalProviderTaskDao).insert(any());
+
+        RealNameSubmitReq req = new RealNameSubmitReq();
+        req.setRealName("张三");
+        req.setIdCardNo("110101199001011234");
+        req.setSingleCommitmentChecked(true);
+
+        service.submitRealName(7L, req);
+
+        ArgumentCaptor<ExternalProviderTask> taskCaptor = ArgumentCaptor.forClass(ExternalProviderTask.class);
+        verify(externalProviderTaskDao).insert(taskCaptor.capture());
+        assertThat(taskCaptor.getValue().getTaskStatus()).isEqualTo("PENDING");
+        verify(auditService, never()).machineApprove(anyLong(), anyLong(), anyString());
+        verify(auditService, never()).machineReject(anyLong(), anyLong(), anyString(), anyString());
     }
 
     @Test

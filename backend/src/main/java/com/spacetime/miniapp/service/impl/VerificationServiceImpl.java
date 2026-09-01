@@ -132,17 +132,14 @@ public class VerificationServiceImpl implements VerificationService {
         return vo;
     }
 
-    /** 使用姓名、身份证号和账号绑定手机号提交实名认证。 */
+    /** 使用姓名和身份证号提交实名认证；手机号绑定与实名相互独立。 */
     @Override
     @Transactional
     public VerificationStatusVO submitRealName(Long userId, RealNameSubmitReq req) {
         if (req == null || !Boolean.TRUE.equals(req.getSingleCommitmentChecked())) {
             throw new BusinessException("请先勾选单身承诺和认证协议");
         }
-        AppUser user = requireUser(userId);
-        if (StrUtil.isBlank(user.getPhone())) {
-            throw new BusinessException("当前账号未绑定手机号，无法进行实名认证");
-        }
+        requireUser(userId);
         AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.REAL_NAME);
         if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
             throw new BusinessException("实名认证审核中，请勿重复提交");
@@ -160,7 +157,6 @@ public class VerificationServiceImpl implements VerificationService {
         record.setRealNameHash(sha256(normalize(req.getRealName())));
         record.setIdCard(req.getIdCardNo().trim().toUpperCase(Locale.ROOT));
         record.setIdCardHash(sha256(normalize(req.getIdCardNo())));
-        record.setBoundPhone(user.getPhone());
         auditService.submit(record);
         verifyRealNameByProvider(record);
         return toStatusVO(userId);
@@ -243,14 +239,14 @@ public class VerificationServiceImpl implements VerificationService {
     private void verifyRealNameByProvider(AppUserAuditRecord record) {
         try {
             ProviderCheckResult result = realNameVerificationProvider.check(
-                    record.getRealName(), record.getIdCard(), record.getBoundPhone());
+                    record.getRealName(), record.getIdCard());
             ExternalProviderTask task = realNameProviderTask(record, result);
             externalProviderTaskDao.insert(task);
             if (Boolean.TRUE.equals(result.getSafe())) {
                 auditService.machineApprove(record.getId(), task.getId(), result.getRawResponseJson());
-            } else {
+            } else if (Boolean.FALSE.equals(result.getSafe())) {
                 auditService.machineReject(record.getId(), task.getId(), result.getRawResponseJson(),
-                        StrUtil.blankToDefault(result.getRejectReason(), "实名认证三要素核验未通过"));
+                        StrUtil.blankToDefault(result.getRejectReason(), "实名认证二要素核验未通过"));
             }
         } catch (Exception ignored) {
             // 第三方不可用时保留待审核记录，后台可继续人工审核，不丢失本次提交。
@@ -263,10 +259,10 @@ public class VerificationServiceImpl implements VerificationService {
         task.setProviderCode(result.getProviderCode());
         task.setUserId(record.getUserId());
         task.setRequestPayloadJson("{\"realName\":\"" + json(maskRealName(record.getRealName()))
-                + "\",\"idCardNo\":\"" + json(maskIdCard(record.getIdCard()))
-                + "\",\"phone\":\"" + json(maskPhone(record.getBoundPhone())) + "\"}");
+                + "\",\"idCardNo\":\"" + json(maskIdCard(record.getIdCard())) + "\"}");
         task.setResponsePayloadJson(result.getRawResponseJson());
-        task.setTaskStatus(Boolean.TRUE.equals(result.getSafe()) ? "SUCCESS" : "REJECTED");
+        task.setTaskStatus(Boolean.TRUE.equals(result.getSafe()) ? "SUCCESS"
+                : Boolean.FALSE.equals(result.getSafe()) ? "REJECTED" : "PENDING");
         task.setMocked(Boolean.TRUE.equals(result.getMocked()) ? 1 : 0);
         task.setErrorMessage(result.getRejectReason());
         return task;

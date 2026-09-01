@@ -26,7 +26,7 @@
 | 强引导四步 | 添加头像页 | `APP-01-PAGE-verify-avatar` | 上传/拍摄、裁剪主头像并提交头像认证 | P0 |
 | 强引导四步 | 自我介绍页 | `APP-01-PAGE-verify-intro` | 填写关于我等开放性文本 | P0 |
 | 强引导四步 | 三重认证页 | `APP-01-PAGE-verify-triple` | 展示头像、实名、学历三项认证状态与入口 | P0 |
-| 三重认证 | 实名认证页 | `APP-01-PAGE-real-name` | 填写姓名、身份证号、单身承诺函，结合已绑定手机号提交核验与审核 | P0 |
+| 三重认证 | 实名认证页 | `APP-01-PAGE-real-name` | 填写姓名、身份证号、单身承诺函，提交身份证二要素核验与审核；手机号绑定不影响实名 | P0 |
 | 三重认证 | 学历认证页 | `APP-01-PAGE-education` | 在校生/毕业生分流提交学历材料 | P0 |
 | 资料编辑 | 编辑资料总页 | `APP-01-PAGE-profile-edit-home` | 资料完整度、认证进度、扩展资料入口总览 | P1 |
 | 资料编辑 | 基础资料编辑页 | `APP-01-PAGE-profile-basic-edit` | 编辑 `M01-DATA-user-input-fields` 中基础资料编辑页承载字段 | P1 |
