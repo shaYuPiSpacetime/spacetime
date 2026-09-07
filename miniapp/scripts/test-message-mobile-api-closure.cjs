@@ -172,8 +172,10 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
   assert.doesNotMatch(detail, /\.allowed\b/)
 
   const postDetail = read('src/pages/qianxun/post-detail.tsx')
-  assert.match(postDetail, /precheck\?\.canSend/)
-  assert.doesNotMatch(postDetail, /precheck\?\.allowed|whisperPrecheck\.allowed/)
+  const sharedWhisperSheet = read('src/components/CommunityWhisperSheet.tsx')
+  assert.match(postDetail, /CommunityWhisperSheet/)
+  assert.match(sharedWhisperSheet, /precheck\?\.canSend/)
+  assert.doesNotMatch(`${postDetail}\n${sharedWhisperSheet}`, /precheck\?\.allowed|whisperPrecheck\.allowed/)
 
   const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
   assert.match(family, /sourceScene:\s*'community_post'/)

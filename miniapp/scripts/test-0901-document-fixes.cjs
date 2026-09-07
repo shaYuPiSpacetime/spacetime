@@ -173,3 +173,53 @@ test('文档中已有实现的心动、会员和 MBTI 图标规则保持不回�
     'MBTI 必须保持互斥单选',
   )
 })
+
+test('查看对我心动后立即清除顶部角标并保留本次列表快照', () => {
+  const heart = read('src/pages/community/index.tsx')
+  const acknowledge = functionSource(heart, '  const acknowledgeLikesAfterPaint', '  const loadLikes')
+
+  assert.match(heart, /const \[likesBadgeCount, setLikesBadgeCount\] = useState\(0\)/, '心动页必须单独维护顶部未读角标')
+  assert.match(heart, /setLikesBadgeCount\(pageData\.newCount\)/, '首屏返回后必须先展示服务端未读数')
+  assert.match(acknowledge, /await markLikesMeRead\(readCursor\)[\s\S]*setLikesBadgeCount\(0\)/, '已读回执成功后必须立即清除当前页角标')
+  assert.match(heart, /likesCount=\{likesBadgeCount\}/, '顶部“对我心动”角标必须使用独立未读状态')
+  assert.match(heart, /<LikesPanel[\s\S]{0,180}page=\{likesPage\}/, '列表内容仍需使用接口快照，不能把“新喜欢”分组一并清空')
+})
+
+test('心动单人解锁弹窗恢复已验收的场景文案和信息层级', () => {
+  const heart = read('src/pages/community/index.tsx')
+  const sheet = functionSource(heart, 'function UnlockSheet', 'function MatchPopupSheet')
+
+  assert.match(sheet, /'解锁Ta是谁'/, '弹窗标题必须使用已确认文案且不插入多余空格')
+  assert.match(sheet, /'送出喜欢，即刻开聊'/, '喜欢场景必须展示已确认副标题')
+  assert.match(sheet, /card\?\.avatar \|\| blurredPersonImage/, '弹窗必须展示当前对象的模糊头像')
+  assert.match(sheet, /likeActionCopy/, '弹窗必须展示当前喜欢对象的行为说明')
+  assert.match(sheet, /余额[^\n]*quote\?\.coinBalance/, '取得实时报价后必须展示当前余额')
+  assert.match(sheet, />解锁全部<\/Text>/, '会员按钮文案必须为“解锁全部”')
+  assert.doesNotMatch(sheet, /先查看实时报价，确认后才会扣费/, '首层弹窗不得使用实现说明替代用户场景文案')
+  assert.doesNotMatch(sheet, />开通会员<\/Text>/, '场景弹窗不得把“解锁全部”改写为“开通会员”')
+})
+
+test('悄悄话弹窗使用全局响应式组件并完整适配安全区', () => {
+  const component = read('src/components/CommunityWhisperSheet.tsx')
+  const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
+  const detail = read('src/pages/qianxun/post-detail.tsx')
+
+  assert.match(component, /import \{[^}]*ScrollView[^}]*\} from '@tarojs\/components'/, '弹窗内容必须在短屏和键盘场景下可滚动')
+  assert.match(component, /catchMove/, '弹窗展示时必须阻止手势穿透到底层列表')
+  assert.match(component, /maxHeight:\s*'calc\(100vh - 80rpx\)'/, '弹窗高度必须受当前视口限制')
+  assert.match(component, /env\(safe-area-inset-bottom\)/, '弹窗底部必须适配设备安全区')
+  assert.match(component, /开通<Text[^>]*>时空邂逅会员<\/Text>每天一个悄悄话/, '全局组件必须保留会员权益提示')
+  assert.match(family, /<CommunityWhisperSheet/, '热门动态必须使用全局悄悄话弹窗')
+  assert.match(detail, /<CommunityWhisperSheet/, '动态详情必须复用同一个悄悄话弹窗')
+  assert.doesNotMatch(detail, /function WhisperComposeSheet/, '动态详情不得保留一份会继续漂移的弹窗副本')
+})
+
+test('热门动态关闭悄悄话弹窗后恢复打开前的滚动位置', () => {
+  const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
+
+  assert.match(family, /const feedScrollTopRef = useRef\(0\)/, '热门列表必须记录当前滚动位置')
+  assert.match(family, /scrollTop=\{restoredFeedScrollTop\}/, '列表必须接收关闭弹窗后的恢复位置')
+  assert.match(family, /onScroll=\{event => \{\s*feedScrollTopRef\.current = event\.detail\.scrollTop\s*\}\}/, '滚动时必须仅写入 ref，避免逐帧刷新页面')
+  assert.match(family, /const closeWhisperSheet = async \(\) =>[\s\S]*await Taro\.hideKeyboard\(\)[\s\S]*setRestoredFeedScrollTop\(undefined\)[\s\S]*Taro\.nextTick[\s\S]*setRestoredFeedScrollTop\(preservedScrollTop\)/, '关闭弹窗必须先收起键盘，再强制恢复打开前位置')
+  assert.match(family, /onClose=\{\(\) => void closeWhisperSheet\(\)\}/, '弹窗关闭动作必须统一走滚动恢复逻辑')
+})

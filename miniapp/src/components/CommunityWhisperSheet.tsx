@@ -1,10 +1,11 @@
-import { Image, Text, Textarea, View } from '@tarojs/components'
+import { Image, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import type { RealWhisperPrecheckResult } from '@/services/message'
 
 const BLUE = '#2876FF'
 
 type CommunityWhisperSheetProps = {
+  id?: string
   avatar?: string
   nickname: string
   meta: string
@@ -19,6 +20,7 @@ type CommunityWhisperSheetProps = {
 
 /** 社区来源页内的悄悄话扣费弹窗，不创建独立路由。 */
 export default function CommunityWhisperSheet({
+  id = 'qianxun-family-whisper-sheet',
   avatar,
   nickname,
   meta,
@@ -40,8 +42,15 @@ export default function CommunityWhisperSheet({
       : `${precheck?.coinAmount ?? '--'}`
 
   return (
-    <View id="qianxun-family-whisper-sheet" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 30000, background: 'rgba(21,29,38,.34)' }}>
-      <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '844rpx', borderRadius: '32rpx 32rpx 0 0', background: 'linear-gradient(180deg,#F1FAFF 0%,#FFFFFF 30%)', padding: '54rpx 25rpx calc(36rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+    <View id={id} catchMove onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 30000, background: 'rgba(21,29,38,.34)' }}>
+      <ScrollView
+        scrollY
+        enhanced
+        showScrollbar={false}
+        onClick={event => event.stopPropagation()}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '844rpx', maxHeight: 'calc(100vh - 80rpx)', borderRadius: '32rpx 32rpx 0 0', background: 'linear-gradient(180deg,#F1FAFF 0%,#FFFFFF 30%)', overflow: 'hidden' }}
+      >
+        <View style={{ minHeight: '844rpx', padding: '54rpx 25rpx calc(36rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
         <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: '#333333', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 600 }}>悄悄话</Text>
           <View style={{ width: '48rpx', height: '48rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '8rpx' }}><Text style={{ color: '#9AA1AB', fontSize: '28rpx' }}>?</Text></View>
@@ -68,7 +77,12 @@ export default function CommunityWhisperSheet({
           </View>
         </View>
         {precheck && !precheck.canSend && precheck.reasonText ? <Text style={{ display: 'block', color: '#E35C5C', fontSize: '22rpx', textAlign: 'center', marginTop: '14rpx' }}>{precheck.reasonText}</Text> : null}
-      </View>
+        <View style={{ marginTop: precheck && !precheck.canSend && precheck.reasonText ? '24rpx' : '45rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: '72rpx', height: '38rpx', borderRadius: '20rpx', background: '#333333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#D9A942', fontSize: '22rpx' }}>◇</Text></View>
+          <Text style={{ color: '#333333', fontSize: '26rpx', marginLeft: '12rpx' }}>开通<Text style={{ color: '#E7B64E' }}>时空邂逅会员</Text>每天一个悄悄话</Text>
+        </View>
+        </View>
+      </ScrollView>
     </View>
   )
 }

@@ -1,8 +1,9 @@
-import { Image, Input, ScrollView, Text, Textarea, View } from '@tarojs/components'
+import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useLoad, useShareAppMessage } from '@tarojs/taro'
 import { useMemo, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
+import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -380,8 +381,15 @@ export default function QianxunPostDetailPage() {
       {showActions && post ? <CommunityPostActionSheet post={post} isSelf={post.authorId === currentUserId} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
       {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: resolveCommentThreadRootId(comments, selectedComment.id), userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
       {showWhisper && post ? (
-        <WhisperComposeSheet
-          post={post}
+        <CommunityWhisperSheet
+          id="qianxun-whisper-compose-sheet"
+          avatar={post.authorAvatar}
+          nickname={post.authorName || '用户'}
+          meta={[
+            post.authorAge ? `${post.authorAge}岁` : '',
+            post.authorZodiac || '',
+            post.authorProfession || '',
+          ].filter(Boolean).join('  ') || '资料待完善'}
           content={whisperContent}
           precheck={whisperPrecheck}
           loading={whisperLoading}
@@ -411,97 +419,6 @@ function AuthorRow({ post, isSelf, onMore, onApply }: { post: CommunityPostVO; i
     {!isSelf ? <View id="qianxun-post-apply-whisper" onClick={onApply} style={{ width: '106rpx', height: '44rpx', borderRadius: '22rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '21rpx' }}>申请认识</Text></View> : null}
     <View onClick={onMore} style={{ width: '45rpx', height: '52rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx' }}>⋮</Text></View>
   </View>
-}
-
-function WhisperComposeSheet({
-  post,
-  content,
-  precheck,
-  loading,
-  submitting,
-  onContentChange,
-  onClose,
-  onSubmit,
-}: {
-  post: CommunityPostVO
-  content: string
-  precheck?: RealWhisperPrecheckResult
-  loading: boolean
-  submitting: boolean
-  onContentChange: (value: string) => void
-  onClose: () => void
-  onSubmit: () => void
-}) {
-  const maxLength = precheck?.contentMaxLength || 60
-  const length = Array.from(content).length
-  const disabled = loading || submitting || !precheck?.canSend || length < 1 || length > maxLength
-  const meta = [
-    post.authorAge ? `${post.authorAge}岁` : '',
-    post.authorZodiac || '',
-    post.authorProfession || '',
-  ].filter(Boolean).join('  ')
-  const costText = loading
-    ? '查询中…'
-    : precheck?.free
-      ? '今日免费'
-      : `${precheck?.coinAmount ?? '--'}`
-
-  return (
-    <View
-      id="qianxun-whisper-compose-sheet"
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 30000, background: 'rgba(21,29,38,.34)' }}
-    >
-      <View
-        onClick={event => event.stopPropagation()}
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: '844rpx', borderRadius: '32rpx 32rpx 0 0', background: 'linear-gradient(180deg,#F1FAFF 0%,#FFFFFF 30%)', padding: '54rpx 25rpx calc(36rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}
-      >
-        <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#333333', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 600 }}>悄悄话</Text>
-          <View style={{ width: '48rpx', height: '48rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '8rpx' }}>
-            <Text style={{ color: '#9AA1AB', fontSize: '28rpx' }}>?</Text>
-          </View>
-        </View>
-        <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '40rpx', textAlign: 'center', marginTop: '14rpx' }}>—第一时间抓住ta的目光—</Text>
-
-        <View style={{ display: 'flex', alignItems: 'center', marginTop: '50rpx', padding: '0 4rpx' }}>
-          <Image src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '84rpx', height: '84rpx', borderRadius: '42rpx', background: '#EEF2F6', flexShrink: 0 }} />
-          <View style={{ minWidth: 0, marginLeft: '22rpx' }}>
-            <Text style={{ display: 'block', color: '#333333', fontSize: '30rpx', lineHeight: '42rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text>
-            <Text style={{ display: 'block', color: '#666666', fontSize: '25rpx', lineHeight: '36rpx', marginTop: '8rpx' }}>{meta || '资料待完善'}</Text>
-          </View>
-        </View>
-
-        <View style={{ position: 'relative', height: '238rpx', border: `4rpx solid ${BLUE}`, borderRadius: '16rpx', marginTop: '38rpx', background: '#FFFFFF', boxSizing: 'border-box' }}>
-          <Textarea
-            value={content}
-            maxlength={maxLength}
-            disabled={loading || submitting}
-            placeholder="写点什么···"
-            placeholderStyle="color:#999999"
-            onInput={event => onContentChange(event.detail.value)}
-            style={{ width: '100%', height: '184rpx', padding: '30rpx 34rpx 8rpx', color: '#333333', fontSize: '27rpx', lineHeight: '42rpx', boxSizing: 'border-box' }}
-          />
-          <Text style={{ position: 'absolute', right: '30rpx', bottom: '18rpx', color: length > maxLength ? '#E62828' : '#999999', fontSize: '24rpx' }}>{length}/{maxLength}</Text>
-        </View>
-
-        <View style={{ height: '128rpx', borderRadius: '16rpx', background: '#E7F4FF', marginTop: '34rpx', padding: '0 20rpx 0 28rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ display: 'block', color: BLUE, fontSize: precheck?.free ? '26rpx' : '34rpx', lineHeight: '44rpx' }}>{costText}</Text>
-            <Text style={{ display: 'block', color: '#999999', fontSize: '23rpx', lineHeight: '34rpx', marginTop: '4rpx' }}>悄悄话直达，配对率翻倍</Text>
-          </View>
-          <View onClick={() => { if (!disabled) onSubmit() }} style={{ width: '252rpx', height: '82rpx', borderRadius: '41rpx', background: disabled ? '#A8C8FA' : BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '发送中…' : '发送悄悄话'}</Text>
-          </View>
-        </View>
-        {precheck && !precheck.canSend && precheck.reasonText ? <Text style={{ display: 'block', color: '#E35C5C', fontSize: '22rpx', textAlign: 'center', marginTop: '14rpx' }}>{precheck.reasonText}</Text> : null}
-        <View style={{ marginTop: '45rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: '72rpx', height: '38rpx', borderRadius: '20rpx', background: '#333333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#D9A942', fontSize: '22rpx' }}>◇</Text></View>
-          <Text style={{ color: '#333333', fontSize: '26rpx', marginLeft: '12rpx' }}>开通<Text style={{ color: '#E7B64E' }}>时空邂逅会员</Text>每天一个悄悄话</Text>
-        </View>
-      </View>
-    </View>
-  )
 }
 
 function ImageGrid({ images }: { images: string[] }) {

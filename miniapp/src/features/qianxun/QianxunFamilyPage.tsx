@@ -84,6 +84,9 @@ export default function RecommendFamilyPage() {
   const [whisperLoading, setWhisperLoading] = useState(false)
   const [whisperSubmitting, setWhisperSubmitting] = useState(false)
   const [whisperIdempotencyKey, setWhisperIdempotencyKey] = useState('')
+  const [restoredFeedScrollTop, setRestoredFeedScrollTop] = useState<number>()
+  const feedScrollTopRef = useRef(0)
+  const whisperOriginScrollTopRef = useRef(0)
   const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, HOT: 0 })
   const resumeRefreshRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
@@ -251,6 +254,17 @@ export default function RecommendFamilyPage() {
     }
   }
 
+  const closeWhisperSheet = async () => {
+    if (whisperSubmitting) return
+    const preservedScrollTop = whisperOriginScrollTopRef.current
+    await Taro.hideKeyboard().catch(() => undefined)
+    setSheet(null)
+    setWhisperPrecheck(undefined)
+    setRestoredFeedScrollTop(undefined)
+    await new Promise<void>(resolve => Taro.nextTick(resolve))
+    setRestoredFeedScrollTop(preservedScrollTop)
+  }
+
   const openWhisper = async (post: CommunityPostVO) => {
     if (!requireCoreAccess()) return
     if (post.authorId === currentUserId) return
@@ -263,12 +277,13 @@ export default function RecommendFamilyPage() {
     setWhisperContent('')
     setWhisperPrecheck(undefined)
     setWhisperIdempotencyKey(createWhisperIdempotencyKey())
+    whisperOriginScrollTopRef.current = feedScrollTopRef.current
     setSheet('whisper')
     setWhisperLoading(true)
     try {
       setWhisperPrecheck(await precheckWhisper({ targetUserNo, sourceScene: 'community_post', sourceBizNo: post.postNo }))
     } catch (error) {
-      setSheet(null)
+      await closeWhisperSheet()
       await Taro.showToast({ title: resolveWhisperErrorMessage(error, '悄悄话预检查失败，请稍后重试'), icon: 'none' })
     } finally {
       setWhisperLoading(false)
@@ -291,9 +306,14 @@ export default function RecommendFamilyPage() {
     setWhisperSubmitting(true)
     try {
       const result = await createWhisper({ targetUserNo, sourceScene: 'community_post', sourceBizNo: post.postNo, content, quoteToken: whisperPrecheck.quoteToken }, whisperIdempotencyKey)
+      const preservedScrollTop = whisperOriginScrollTopRef.current
+      await Taro.hideKeyboard().catch(() => undefined)
       setSheet(null)
       setWhisperContent('')
       setWhisperPrecheck(undefined)
+      setRestoredFeedScrollTop(undefined)
+      await new Promise<void>(resolve => Taro.nextTick(resolve))
+      setRestoredFeedScrollTop(preservedScrollTop)
       await Taro.showToast({ title: result.payType === 'vip_free' ? '悄悄话已发送，本次使用免费权益' : `悄悄话已发送，消耗${result.coinAmount}千寻币`, icon: 'success' })
     } catch (error) {
       await Taro.showToast({ title: resolveWhisperErrorMessage(error, '发送失败，请稍后重试'), icon: 'none' })
@@ -316,7 +336,15 @@ export default function RecommendFamilyPage() {
       />
       {primaryTab === 'FAMILY' ? <>
         <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
-        <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
+        <ScrollView
+          scrollY
+          scrollTop={restoredFeedScrollTop}
+          onScroll={event => {
+            feedScrollTopRef.current = event.detail.scrollTop
+          }}
+          style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }}
+          showScrollbar={false}
+        >
           <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>
             {activeTab === 'HOT' ? <QianxunTopicSpotlight home={topicHome} loading={topicHomeLoading} config={config} onRetry={() => void loadTopicHome()} /> : null}
             {initialLoading ? <LoadingCards /> : visiblePosts.length ? visiblePosts.map(post => (
@@ -364,11 +392,7 @@ export default function RecommendFamilyPage() {
           loading={whisperLoading}
           submitting={whisperSubmitting}
           onContentChange={setWhisperContent}
-          onClose={() => {
-            if (whisperSubmitting) return
-            setSheet(null)
-            setWhisperPrecheck(undefined)
-          }}
+          onClose={() => void closeWhisperSheet()}
           onSubmit={() => void submitWhisper()}
         />
       ) : null}

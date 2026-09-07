@@ -55,6 +55,7 @@ export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState<HeartTab>(router.params.tab === 'visitors' ? 'visitors' : 'likes')
   const [unlockStage, setUnlockStage] = useState<UnlockStage>('closed')
   const [likesPage, setLikesPage] = useState<LikesMePageVO | null>(null)
+  const [likesBadgeCount, setLikesBadgeCount] = useState(0)
   const [visitorsPage, setVisitorsPage] = useState<RecentViewersPageVO | null>(null)
   const [likesRecords, setLikesRecords] = useState<LikesMeItemVO[]>([])
   const [visitorRecords, setVisitorRecords] = useState<RecentViewerItemVO[]>([])
@@ -81,11 +82,16 @@ export default function CommunityPage() {
 
   const acknowledgeLikesAfterPaint = async (pageData: LikesMePageVO) => {
     const readCursor = pageData.readCursor
-    if (!readCursor || pageData.newCount <= 0 || acknowledgedCursorRef.current === readCursor) return
+    if (!readCursor || pageData.newCount <= 0) return
+    if (acknowledgedCursorRef.current === readCursor) {
+      setLikesBadgeCount(0)
+      return
+    }
     await new Promise<void>(resolve => Taro.nextTick(resolve))
     try {
       await markLikesMeRead(readCursor)
       acknowledgedCursorRef.current = readCursor
+      setLikesBadgeCount(0)
     } catch (error) {
       await Taro.showToast({ title: error instanceof Error ? error.message : '已读确认失败，请刷新重试', icon: 'none' })
     }
@@ -109,6 +115,7 @@ export default function CommunityPage() {
       setLikesRecords(nextRecords)
       setLikesState(resolveState(nextRecords))
       if (page === 1) {
+        setLikesBadgeCount(pageData.newCount)
         snapshotCursorRef.current = pageData.readCursor || undefined
         await acknowledgeLikesAfterPaint(pageData)
       }
@@ -291,7 +298,7 @@ export default function CommunityPage() {
         <View id="relation-scroll-content" style={{ minHeight: '1624rpx', paddingBottom: showMembershipEntry ? '310rpx' : '180rpx', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
           <HeartTabsHeader
             active={activeTab}
-            likesCount={likesPage?.newCount || 0}
+            likesCount={likesBadgeCount}
             visitorsCount={visitorsPage?.todayVisitorUv || 0}
             onChange={setActiveTab}
           />
@@ -523,20 +530,47 @@ function LoadMoreButton({ loading, onClick }: { loading: boolean; onClick: () =>
 function UnlockSheet({ stage, card, quote, result, submitting, sourceScene, onClose, onQuote, onConfirm }: { stage: Exclude<UnlockStage, 'closed'>; card: RelationCard | null; quote: UnlockQuoteVO | null; result: UnlockConfirmVO | null; submitting: boolean; sourceScene: 'likes_me' | 'recent_viewers'; onClose: () => void; onQuote: () => void; onConfirm: () => void }) {
   const success = stage === 'success'
   const quoteReady = stage === 'quote'
-  const title = success ? '解锁成功' : quoteReady ? '确认解锁 Ta' : '解锁 Ta 是谁'
-  const subtitle = success ? '现在可以查看主页并继续互动' : quoteReady ? `本次消耗 ${quote?.unitPrice ?? 0} 千寻币，余额 ${quote?.coinBalance ?? 0}` : '先查看实时报价，确认后才会扣费'
+  const likesScene = sourceScene === 'likes_me'
+  const title = success ? '解锁成功' : quoteReady ? '确认解锁Ta' : '解锁Ta是谁'
+  const subtitle = success
+    ? '现在可以查看主页并继续互动'
+    : quoteReady
+      ? `本次消耗 ${quote?.unitPrice ?? 0} 千寻币`
+      : likesScene
+        ? '送出喜欢，即刻开聊'
+        : '看看是谁访问了你的主页'
   const shownName = success ? card?.nickname || `用户${result?.targetUserId || ''}` : card?.weakTags?.join('·') || '一位心动用户'
+  const actionCopy = success
+    ? '解锁后可进入主页'
+    : likesScene
+      ? (card && 'likeActionCopy' in card ? card.likeActionCopy : '') || '一看到你，立刻点了喜欢'
+      : card && 'visitCount' in card && card.visitCount > 1
+        ? `最近来访 ${card.visitCount} 次`
+        : '刚刚看过你的主页'
   return (
     <View id="relation-unlock-sheet" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.42)' }}>
       <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: '166rpx', minHeight: '454rpx', overflow: 'hidden', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF' }}>
-        <View style={{ padding: '44rpx 28rpx 24rpx', background: success ? '#FFF3F3' : '#EAF4FF' }}><Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', fontWeight: 600 }}>{title}</Text><Text style={{ display: 'block', marginTop: '8rpx', color: '#7F8494', fontSize: '24rpx' }}>{subtitle}</Text></View>
-        <View style={{ height: '128rpx', margin: '10rpx 28rpx 0', padding: '0 20rpx', borderRadius: '12rpx', background: success ? '#FFFFFF' : '#E3F1FE', display: 'flex', alignItems: 'center' }}><Image src={success ? (card?.avatar || personImage) : blurredPersonImage} mode="aspectFill" style={{ width: '92rpx', height: '92rpx', borderRadius: '50%', filter: success ? 'none' : 'blur(8rpx)' }} /><Text style={{ marginLeft: '20rpx', color: '#333333', fontSize: '28rpx', fontWeight: 500 }}>{shownName}</Text></View>
+        <View style={{ position: 'relative', height: '170rpx', padding: '44rpx 28rpx 0', background: success ? 'linear-gradient(105deg,#FFF3F3,#FFE9F1)' : 'linear-gradient(105deg,#E7F5FF,#EDF4FF)', boxSizing: 'border-box' }}>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', fontWeight: 600, lineHeight: '45rpx' }}>{title}</Text>
+          <Text style={{ display: 'block', marginTop: '8rpx', color: '#7F8494', fontSize: '24rpx', lineHeight: '33rpx' }}>{subtitle}</Text>
+          <View style={{ position: 'absolute', right: '-18rpx', top: '34rpx', width: '170rpx', height: '120rpx', borderRadius: '80rpx', background: success ? 'rgba(255,143,165,0.18)' : 'rgba(96,165,250,0.12)' }}>
+            <Text style={{ position: 'absolute', left: '48rpx', top: '24rpx', color: success ? '#FF8CA6' : '#7EB4F4', fontSize: '62rpx', lineHeight: '70rpx' }}>{success ? '♥' : '▣'}</Text>
+          </View>
+        </View>
+        <View style={{ height: '128rpx', margin: '10rpx 28rpx 0', padding: '0 20rpx', border: success ? '1rpx solid #F4F4F4' : '0', borderRadius: '12rpx', background: success ? '#FFFFFF' : '#E3F1FE', display: 'flex', flexDirection: 'row', alignItems: 'center', boxSizing: 'border-box' }}>
+          <Image src={success ? (card?.avatar || personImage) : (card?.avatar || blurredPersonImage)} mode="aspectFill" style={{ width: '92rpx', height: '92rpx', borderRadius: '50%', filter: success ? 'none' : 'blur(8rpx)' }} />
+          <View style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
+            <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>{shownName}</Text>
+            <Text style={{ display: 'block', marginTop: '8rpx', color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', whiteSpace: 'nowrap' }}>{actionCopy}</Text>
+          </View>
+        </View>
+        {quoteReady ? <Text style={{ display: 'block', margin: '8rpx 30rpx 0', color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', textAlign: 'right' }}>余额 {quote?.coinBalance ?? 0} 千寻币</Text> : null}
         {success ? (
           <View onClick={() => card?.userId && Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${card.userId}&sourceScene=${sourceScene}` })} style={{ height: '98rpx', margin: '18rpx 28rpx 28rpx', borderRadius: '49rpx', background: '#FFF0F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#F06C83', fontSize: '28rpx' }}>查看主页</Text></View>
         ) : (
-          <View style={{ margin: '18rpx 28rpx 28rpx', display: 'flex', gap: '20rpx' }}>
-            <View id="unlock-one-button" onClick={submitting ? undefined : (quoteReady ? onConfirm : onQuote)} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: submitting ? 0.6 : 1 }}><Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '处理中...' : quoteReady ? `确认解锁 ${quote?.unitPrice ?? 0} 千寻币` : '只看 Ta'}</Text></View>
-            <View onClick={() => !submitting && Taro.navigateTo({ url: '/pages/heart/membership-unlock' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#EAD8B6', fontSize: '28rpx' }}>开通会员</Text></View>
+          <View style={{ margin: `${quoteReady ? 8 : 18}rpx 28rpx 28rpx`, display: 'flex', gap: '20rpx' }}>
+            <View id="unlock-one-button" onClick={submitting ? undefined : (quoteReady ? onConfirm : onQuote)} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: submitting ? 0.6 : 1 }}><Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '处理中...' : quoteReady ? `确认解锁 ${quote?.unitPrice ?? 0} 千寻币` : '只看ta'}</Text></View>
+            <View onClick={() => !submitting && Taro.navigateTo({ url: '/pages/heart/membership-unlock' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#EAD8B6', fontSize: '28rpx' }}>解锁全部</Text></View>
           </View>
         )}
       </View>
