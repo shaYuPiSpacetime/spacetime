@@ -11,6 +11,7 @@ FROM nginx:1.27-alpine
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 COPY docs/静态Demo/ /usr/share/nginx/html/demo/
+COPY docs/官网/ /usr/share/nginx/html/website/
 RUN set -eu; \
     index=/usr/share/nginx/html/demo/index.html; \
     { \

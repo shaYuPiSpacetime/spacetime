@@ -6,6 +6,8 @@ on:
     paths:
       - 'frontend/**'
       - 'docs/静态Demo/**'
+      - 'docs/官网/**'
+      - 'scripts/test-official-website.mjs'
       - 'deploy/**'
       - '.github/workflows/deploy-admin-prod.yml'
   workflow_dispatch:
@@ -32,6 +34,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate official website
+        run: node scripts/test-official-website.mjs
 
       - name: Validate ACR password
         env:

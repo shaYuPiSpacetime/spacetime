@@ -42,6 +42,8 @@ services:
     volumes:
       - ./nginx-prod/conf.d:/etc/nginx/conf.d:ro
       - ${ADMIN_SSL_DIR:-/mnt/data/spacetime-prod/ssl}:/etc/nginx/ssl:ro
+      - ${SITE_SSL_DIR:-/mnt/data/spacetime-prod/letsencrypt}:/etc/letsencrypt:ro
+      - ${ACME_WEBROOT:-/mnt/data/spacetime-prod/acme}:/var/www/certbot:ro
     networks:
       - spacetime-prod
 

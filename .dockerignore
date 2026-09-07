@@ -4,5 +4,7 @@
 !docs/
 !docs/静态Demo/
 !docs/静态Demo/**
+!docs/官网/
+!docs/官网/**
 **/.DS_Store
 **/._*

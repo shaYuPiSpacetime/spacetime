@@ -73,6 +73,10 @@ assertIncludes(adminWorkflow, 'Validate static demo bundle', '.github/workflows/
 assertIncludes(adminWorkflow, 'Build admin image with static demos', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'Static demo pages:', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, "'docs/静态Demo/**'", '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, "'docs/官网/**'", '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, "'scripts/test-official-website.mjs'", '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, 'Validate official website', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, 'node scripts/test-official-website.mjs', '.github/workflows/deploy-admin-prod.yml');
 assertNotIncludes(adminWorkflow, "'docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/**'", '.github/workflows/deploy-admin-prod.yml');
 assertNotIncludes(adminWorkflow, "'docs/静态Demo/shared/**'", '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, '-f frontend/Dockerfile', '.github/workflows/deploy-admin-prod.yml');
@@ -136,6 +140,28 @@ for (const expected of [
 ]) {
   assertIncludes(nginx, expected, 'deploy/nginx-prod/conf.d/default.conf');
 }
+assertNotIncludes(nginx, 'listen 443 ssl http2;', 'deploy/nginx-prod/conf.d/default.conf');
+assertIncludes(nginx, 'http2 on;', 'deploy/nginx-prod/conf.d/default.conf');
+for (const expected of [
+  'server_name shikongxiehou.com www.shikongxiehou.com',
+  'server_name shikongxiehou.com;',
+  'server_name www.shikongxiehou.com;',
+  'https://www.shikongxiehou.com$request_uri',
+  '/etc/letsencrypt/live/www.shikongxiehou.com/fullchain.pem',
+  '/etc/letsencrypt/live/www.shikongxiehou.com/privkey.pem',
+  'location ^~ /.well-known/acme-challenge/',
+  'root /var/www/certbot;',
+  'rewrite ^/(.*)$ /website/$1 break;',
+]) {
+  assertIncludes(nginx, expected, 'deploy/nginx-prod/conf.d/default.conf');
+}
+
+for (const expected of [
+  '${SITE_SSL_DIR:-/mnt/data/spacetime-prod/letsencrypt}:/etc/letsencrypt:ro',
+  '${ACME_WEBROOT:-/mnt/data/spacetime-prod/acme}:/var/www/certbot:ro',
+]) {
+  assertIncludes(compose, expected, 'deploy/docker-compose.prod.yml');
+}
 
 const envExample = read('deploy/server.prod.env.example');
 for (const expected of [
@@ -144,6 +170,10 @@ for (const expected of [
   'ALIYUN_REGISTRY_PASSWORD=',
   'ADMIN_IMAGE_NAME=bobo2026',
   'ADMIN_IMAGE_TAG=spacetime-admin-prod',
+  'SITE_DOMAIN=www.shikongxiehou.com',
+  'SITE_APEX_DOMAIN=shikongxiehou.com',
+  'SITE_SSL_DIR=/mnt/data/spacetime-prod/letsencrypt',
+  'ACME_WEBROOT=/mnt/data/spacetime-prod/acme',
   'BACKEND_IMAGE_NAME=bobo2026',
   'BACKEND_IMAGE_TAG=spacetime-backend-prod',
   `NGINX_IMAGE=${acrRegistry}/bobo2026/bobo2026:spacetime-nginx-prod`,
@@ -263,11 +293,37 @@ for (const expected of [
   'TENCENT_IM_ENABLED,,',
   'prod.env 缺少腾讯云 TIM 配置',
   'prod.env 腾讯云 TIM 配置 ${key} 必须为正整数',
+  'SITE_DOMAIN',
+  'SITE_APEX_DOMAIN',
+  'SITE_SSL_DIR',
+  'ACME_WEBROOT',
+  '${SITE_SSL_DIR}:/etc/letsencrypt:ro',
+  '${ACME_WEBROOT}:/var/www/certbot:ro',
+  '等待官网 HTTPS 访问',
+  'https://${SITE_DOMAIN}/',
 ]) {
   assertIncludes(deployScript, expected, 'deploy/scripts/deploy-prod-local.sh');
 }
 assertNotIncludes(deployScript, 'secrets.', 'deploy/scripts/deploy-prod-local.sh');
 assertNotIncludes(deployScript, 'mysql:8.4', 'deploy/scripts/deploy-prod-local.sh');
+
+const renewSiteCertScript = read('deploy/scripts/renew-site-cert.sh');
+for (const expected of [
+  'CERTBOT_BIN="${CERTBOT_BIN:-/opt/spacetime-certbot/bin/certbot}"',
+  'certonly',
+  '--webroot',
+  '--webroot-path "$ACME_WEBROOT"',
+  '--config-dir "$SITE_SSL_DIR"',
+  '--cert-name "$SITE_DOMAIN"',
+  '-d "$SITE_DOMAIN"',
+  '-d "$SITE_APEX_DOMAIN"',
+  'nginx -t',
+  'nginx -s reload',
+]) {
+  assertIncludes(renewSiteCertScript, expected, 'deploy/scripts/renew-site-cert.sh');
+}
+assertNotIncludes(renewSiteCertScript, 'certbot/certbot:latest', 'deploy/scripts/renew-site-cert.sh');
+assertNotIncludes(renewSiteCertScript, 'PRIVATE KEY', 'deploy/scripts/renew-site-cert.sh');
 
 const migrateScript = read('deploy/scripts/migrate-prod-db.sh');
 for (const expected of [
@@ -288,6 +344,7 @@ const frontendDockerfile = read('frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY frontend/package*.json ./', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY frontend/ ./', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY docs/静态Demo/ /usr/share/nginx/html/demo/', 'frontend/Dockerfile');
+assertIncludes(frontendDockerfile, 'COPY docs/官网/ /usr/share/nginx/html/website/', 'frontend/Dockerfile');
 assertNotIncludes(frontendDockerfile, 'COPY docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html /usr/share/nginx/html/demo', 'frontend/Dockerfile');
 assertNotIncludes(frontendDockerfile, 'COPY docs/静态Demo/shared /usr/share/nginx/html/shared', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'index=/usr/share/nginx/html/demo/index.html', 'frontend/Dockerfile');
@@ -295,6 +352,7 @@ assertIncludes(frontendDockerfile, "find /usr/share/nginx/html/demo -mindepth 3 
 
 const dockerignore = read('.dockerignore');
 assertIncludes(dockerignore, '!docs/静态Demo/**', '.dockerignore');
+assertIncludes(dockerignore, '!docs/官网/**', '.dockerignore');
 assertNotIncludes(dockerignore, '!docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/**', '.dockerignore');
 assertIncludes(dockerignore, '**/.DS_Store', '.dockerignore');
 assertIncludes(dockerignore, '**/._*', '.dockerignore');

@@ -44,6 +44,10 @@ load_env() {
   export PROJECT_NAME="${PROJECT_NAME:-spacetime-prod}"
   export ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.shikongxiehou.com}"
   export ADMIN_SSL_DIR="${ADMIN_SSL_DIR:-/mnt/data/spacetime-prod/ssl}"
+  export SITE_DOMAIN="${SITE_DOMAIN:-www.shikongxiehou.com}"
+  export SITE_APEX_DOMAIN="${SITE_APEX_DOMAIN:-shikongxiehou.com}"
+  export SITE_SSL_DIR="${SITE_SSL_DIR:-/mnt/data/spacetime-prod/letsencrypt}"
+  export ACME_WEBROOT="${ACME_WEBROOT:-/mnt/data/spacetime-prod/acme}"
   export ALIYUN_CR_REGISTRY="${ALIYUN_CR_REGISTRY:-crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com}"
   export NGINX_IMAGE="${NGINX_IMAGE:-${ALIYUN_CR_REGISTRY}/bobo2026/bobo2026:spacetime-nginx-prod}"
   export ALIYUN_REGISTRY_USER_NAME="${ALIYUN_REGISTRY_USER_NAME:-393841724@qq.com}"
@@ -149,6 +153,8 @@ load_env() {
 
   require_file "${ADMIN_SSL_DIR}/${ADMIN_DOMAIN}.pem"
   require_file "${ADMIN_SSL_DIR}/${ADMIN_DOMAIN}.key"
+  require_file "${SITE_SSL_DIR}/live/${SITE_DOMAIN}/fullchain.pem"
+  require_file "${SITE_SSL_DIR}/live/${SITE_DOMAIN}/privkey.pem"
 }
 
 write_runtime_env() {
@@ -246,6 +252,19 @@ wait_admin() {
   fail "管理后台 HTTPS 检查失败"
 }
 
+wait_site() {
+  log "等待官网 HTTPS 访问"
+  for _ in $(seq 1 60); do
+    if curl -fsS --resolve "${SITE_DOMAIN}:443:127.0.0.1" "https://${SITE_DOMAIN}/" >/dev/null; then
+      return
+    fi
+    sleep 2
+  done
+  docker logs --tail=200 spacetime-nginx-prod || true
+  docker logs --tail=200 spacetime-admin-prod || true
+  fail "官网 HTTPS 检查失败"
+}
+
 restart_backend() {
   docker rm -f spacetime-backend-prod >/dev/null 2>&1 || true
   docker run -d \
@@ -272,6 +291,7 @@ restart_admin() {
 }
 
 restart_nginx() {
+  mkdir -p "$ACME_WEBROOT"
   docker rm -f spacetime-nginx-prod >/dev/null 2>&1 || true
   docker run -d \
     --name spacetime-nginx-prod \
@@ -281,6 +301,8 @@ restart_nginx() {
     -p 443:443 \
     -v "$ROOT_DIR/deploy/nginx-prod/conf.d:/etc/nginx/conf.d:ro" \
     -v "${ADMIN_SSL_DIR}:/etc/nginx/ssl:ro" \
+    -v "${SITE_SSL_DIR}:/etc/letsencrypt:ro" \
+    -v "${ACME_WEBROOT}:/var/www/certbot:ro" \
     "$NGINX_IMAGE" >/dev/null
 }
 
@@ -291,6 +313,7 @@ deploy_backend() {
   pull_nginx
   restart_nginx
   wait_backend
+  wait_site
 }
 
 deploy_admin() {
@@ -299,6 +322,7 @@ deploy_admin() {
   pull_nginx
   restart_nginx
   wait_admin
+  wait_site
 }
 
 main() {
