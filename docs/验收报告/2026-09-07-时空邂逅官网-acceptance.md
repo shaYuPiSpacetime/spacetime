@@ -14,6 +14,7 @@
 | 范围 | 结果 | 证据 |
 | --- | --- | --- |
 | 蓝白官网 | 已完成 | `docs/官网/index.html`、`styles.css`、`app.js` |
+| 品牌标识 | 已完成 | 页头与页脚统一使用用户提供的 `docs/官网/assets/shikongxiehou-logo.png` |
 | 功能介绍 | 已完成 | 真实认证、智能推荐、社区互动、安全沟通 |
 | 响应式 | 已完成 | 390px 与 1440px 截图，无横向溢出 |
 | 无障碍基础 | 已完成 | 单一 H1、语义地标、跳到主内容、键盘焦点、ARIA 移动导航、减少动态效果 |
@@ -61,6 +62,7 @@ npm --prefix frontend run build
 ### 4.2 浏览器
 
 - 390×844：`documentElement.scrollWidth === documentElement.clientWidth === 390`。
+- 品牌 Logo：2 个实例均加载完成，原始尺寸 1000×1000，展示裁切框 200×76，无横向溢出。
 - 移动导航：`aria-expanded` 从 `false` 切换为 `true`，点击锚点后恢复 `false`。
 - 键盘焦点：链接获得 3px 实线焦点环。
 - 控制台错误：0。
