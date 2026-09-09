@@ -15,7 +15,7 @@ import './invite-home.scss'
 
 const EMPTY_SHARE = {
   title: '邀请好友，一起遇见更好的缘分',
-  path: '/pages/promotion/invite-home',
+  path: '/pages/login/index',
   link: '',
 }
 
@@ -35,6 +35,7 @@ type InviteLadderStage = {
 
 export default function InviteHomePage() {
   const router = useRouter()
+  const isInviteEntry = Boolean(router.params.sourceType || router.params.sourceToken || router.params.scene)
   const [data, setData] = useState<InviteHomeVO>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -54,6 +55,11 @@ export default function InviteHomePage() {
   }))
 
   const loadHome = useCallback(async () => {
+    // 兼容已经发出的旧邀请链接；先分流，避免缓存登录态触发邀请数据请求。
+    if (isInviteEntry) {
+      await Taro.reLaunch({ url: '/pages/login/index' })
+      return
+    }
     const auth = useAuthStore.getState()
     auth.checkLogin()
     if (!useAuthStore.getState().isLoggedIn) {
@@ -70,7 +76,7 @@ export default function InviteHomePage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isInviteEntry])
 
   useEffect(() => {
     const persistForRegistration = !Taro.getStorageSync(TOKEN_KEY)
@@ -84,12 +90,13 @@ export default function InviteHomePage() {
 
   useEffect(() => {
     void loadHome()
+    if (isInviteEntry) return
     if (Taro.getEnv() !== Taro.ENV_TYPE.WEAPP) {
       setShareAvailable(false)
       return
     }
     void Taro.showShareMenu({ withShareTicket: true }).catch(() => setShareAvailable(false))
-  }, [loadHome])
+  }, [isInviteEntry, loadHome])
 
   const copyShareLink = useCallback(async () => {
     if (!shareTarget.attributable || !shareTarget.link) {
@@ -124,6 +131,8 @@ export default function InviteHomePage() {
     [data?.ladders, data?.progressCurrent],
   )
   const showContent = Boolean(data) && !loading && !error
+
+  if (isInviteEntry) return null
 
   return (
     <View className="promotion-home">

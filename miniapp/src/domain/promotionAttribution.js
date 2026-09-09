@@ -122,11 +122,11 @@ function mergeUrlQuery(url, query) {
 }
 
 /**
- * 将后端分享上下文归一成可直接使用的 path/link。
+ * 邀请卡片统一落到“立即使用”页，兼容后端仍返回旧邀请页路径。
  * 来源优先级：query 对象 > path 查询串 > 显式 sourceType/sourceToken。
  */
 export function resolveInviteShareTarget(context = {}) {
-  const rawPath = scalar(context.path) || '/pages/promotion/invite-home'
+  const rawPath = scalar(context.path) || '/pages/login/index'
   const pathQuery = parseQueryString(rawPath)
   const contextQuery = queryObject(context.query)
   const source = validSource(contextQuery)
@@ -145,9 +145,7 @@ export function resolveInviteShareTarget(context = {}) {
     delete mergedQuery.sourceToken
   }
 
-  const rawBasePath = rawPath.split('?')[0] || '/pages/promotion/invite-home'
-  const basePath = rawBasePath.startsWith('/') ? rawBasePath : `/${rawBasePath}`
-  const path = mergeUrlQuery(basePath, mergedQuery)
+  const path = mergeUrlQuery('/pages/login/index', mergedQuery)
   const link = mergeUrlQuery(context.link, mergedQuery)
 
   return {
