@@ -1,17 +1,21 @@
 package com.spacetime.miniapp.service.impl;
 
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.constant.ProfileDictType;
+import com.spacetime.common.dao.AppConfigDao;
+import com.spacetime.common.dao.AppRelationLikeDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
 import com.spacetime.common.dao.RecommendPreferenceDao;
 import com.spacetime.common.dao.RecommendViewLogDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.entity.AppConfig;
+import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserRelationBlock;
 import com.spacetime.common.entity.RecommendPreference;
 import com.spacetime.common.entity.RecommendViewLog;
 import com.spacetime.common.entity.UserAsset;
@@ -19,8 +23,10 @@ import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.GenderEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
+import com.spacetime.common.enums.RelationLikeStatusEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
@@ -32,28 +38,32 @@ import com.spacetime.miniapp.dto.response.RecommendCityVO;
 import com.spacetime.miniapp.dto.response.RecommendPreferenceVO;
 import com.spacetime.miniapp.dto.response.RecommendReplayItemVO;
 import com.spacetime.miniapp.dto.response.RecommendReplayPageVO;
+import com.spacetime.miniapp.dto.response.RecommendReplayProfileVO;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.dto.response.VipBenefitVO;
 import com.spacetime.miniapp.service.MiniappPublicProfileService;
 import com.spacetime.miniapp.service.RecommendService;
 import com.spacetime.miniapp.service.VipService;
-import cn.hutool.core.util.IdUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.Period;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** 推荐业务服务实现。 */
 @Service
@@ -74,10 +84,12 @@ public class RecommendServiceImpl implements RecommendService {
     private final RecommendPreferenceDao preferenceDao;
     private final UserAssetDao userAssetDao;
     private final AppConfigDao appConfigDao;
+    private final AppRelationLikeDao relationLikeDao;
     private final AppUserRelationBlockDao relationBlockDao;
     private final RecommendViewLogDao viewLogDao;
     private final RelationAccessProjectionService accessProjectionService;
     private final ProfileDictionaryService profileDictionaryService;
+    private final AppUserAuditContentService auditContentService;
     private final MiniappPublicProfileService publicProfileService;
     private final VipService vipService;
     private final Prd01AccessEvaluator accessEvaluator;
@@ -235,28 +247,59 @@ public class RecommendServiceImpl implements RecommendService {
                 .orderByDesc(RecommendViewLog::getViewedAt));
         Map<Long, RecommendViewLog> latest = new LinkedHashMap<>();
         for (RecommendViewLog log : raw == null ? List.<RecommendViewLog>of() : raw) {
-            latest.putIfAbsent(log.getCandidateUserId(), log);
+            if (log.getCandidateUserId() != null) {
+                latest.putIfAbsent(log.getCandidateUserId(), log);
+            }
         }
+        List<Long> candidateIds = List.copyOf(latest.keySet());
+        if (candidateIds.isEmpty()) {
+            RecommendReplayPageVO empty = new RecommendReplayPageVO();
+            empty.setItems(List.of());
+            return empty;
+        }
+
+        List<AppUser> targets = safeUsers(appUserDao.selectByIds(candidateIds));
+        Map<Long, AppUser> targetById = targets.stream()
+                .filter(target -> target != null && target.getId() != null)
+                .collect(Collectors.toMap(AppUser::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
+        Map<Long, String> accessById = accessProjectionService.projectAll(targets);
+        Set<Long> blockedCandidateIds = blockedCandidateIds(userId, candidateIds);
+        List<Long> visibleCandidateIds = candidateIds.stream()
+                .filter(candidateId -> targetById.containsKey(candidateId))
+                .filter(candidateId -> "OPEN".equals(accessById.get(candidateId)))
+                .filter(candidateId -> !blockedCandidateIds.contains(candidateId))
+                .toList();
+        Set<Long> visibleCandidateIdSet = new LinkedHashSet<>(visibleCandidateIds);
+
+        Map<Long, String> avatars = auditContentService.publicAvatars(visibleCandidateIds);
+        List<AppUser> visibleTargets = visibleCandidateIds.stream().map(targetById::get).toList();
+        Map<String, String> cityLabels = profileDictionaryService.labels(
+                ProfileDictType.CHINA_REGION,
+                visibleTargets.stream().map(AppUser::getLocationCity)
+                        .filter(StrUtil::isNotBlank).distinct().toList());
+        Map<String, String> occupationLabels = profileDictionaryService.labels(
+                ProfileDictType.OCCUPATION,
+                visibleTargets.stream().map(AppUser::getOccupation)
+                        .filter(StrUtil::isNotBlank).distinct().toList());
+        Set<Long> likedCandidateIds = activeLikedCandidateIds(userId, visibleCandidateIds);
+
         List<RecommendReplayItemVO> items = new ArrayList<>();
         for (RecommendViewLog log : latest.values()) {
-            AppUser target = appUserDao.selectById(log.getCandidateUserId());
-            if (target == null || !"OPEN".equals(accessProjectionService.project(target))
-                    || isBlocked(userId, target.getId())) {
+            AppUser target = targetById.get(log.getCandidateUserId());
+            if (target == null || !visibleCandidateIdSet.contains(target.getId())) {
                 continue;
             }
-            try {
-                PublicProfileVO profile = publicProfileService.getPublicProfile(userId, target.getId());
-                RecommendReplayItemVO item = new RecommendReplayItemVO();
-                item.setCandidateNo(String.valueOf(target.getId()));
-                item.setProfile(profile);
-                item.setViewedAt(log.getViewedAt());
-                item.setLastAction(log.getAction());
-                item.setDateGroup(dateGroup(log.getViewedAt()));
-                item.setLiked(Boolean.TRUE.equals(profile.getLiked()));
-                items.add(item);
-            } catch (BusinessException ignored) {
-                // 实时失效候选不进入回看响应。
-            }
+            boolean liked = likedCandidateIds.contains(target.getId());
+            RecommendReplayItemVO item = new RecommendReplayItemVO();
+            item.setCandidateNo(String.valueOf(target.getId()));
+            item.setProfile(replayProfile(target, avatars.get(target.getId()), cityLabels,
+                    occupationLabels, liked));
+            item.setViewedAt(log.getViewedAt());
+            item.setLastAction(log.getAction());
+            item.setDateGroup(dateGroup(log.getViewedAt()));
+            item.setLiked(liked);
+            items.add(item);
         }
         RecommendReplayPageVO result = new RecommendReplayPageVO();
         result.setItems(items);
@@ -355,6 +398,64 @@ public class RecommendServiceImpl implements RecommendService {
                 RelationBlockTypeEnum.BLACKLIST.getCode()) != null
                 || relationBlockDao.selectActive(userId, candidateId,
                 RelationBlockTypeEnum.NO_RECOMMEND.getCode()) != null;
+    }
+
+    private Set<Long> blockedCandidateIds(Long userId, List<Long> candidateIds) {
+        List<AppUserRelationBlock> blocks = relationBlockDao.selectActiveBetweenUserAndTargets(
+                userId,
+                candidateIds,
+                List.of(RelationBlockTypeEnum.BLACKLIST.getCode(),
+                        RelationBlockTypeEnum.NO_RECOMMEND.getCode()));
+        Set<Long> blocked = new LinkedHashSet<>();
+        for (AppUserRelationBlock block : blocks == null ? List.<AppUserRelationBlock>of() : blocks) {
+            if (Objects.equals(userId, block.getUserId())) {
+                blocked.add(block.getTargetUserId());
+            } else if (Objects.equals(userId, block.getTargetUserId())
+                    && RelationBlockTypeEnum.BLACKLIST.getCode().equals(block.getBlockType())) {
+                blocked.add(block.getUserId());
+            }
+        }
+        return blocked;
+    }
+
+    private Set<Long> activeLikedCandidateIds(Long userId, List<Long> candidateIds) {
+        if (candidateIds.isEmpty()) {
+            return Set.of();
+        }
+        List<AppRelationLike> likes = relationLikeDao.selectList(new LambdaQueryWrapper<AppRelationLike>()
+                .eq(AppRelationLike::getFromUserId, userId)
+                .in(AppRelationLike::getToUserId, candidateIds)
+                .eq(AppRelationLike::getLikeStatus, RelationLikeStatusEnum.ACTIVE.getCode())
+                .eq(AppRelationLike::getActiveMarker, 1));
+        return (likes == null ? List.<AppRelationLike>of() : likes).stream()
+                .map(AppRelationLike::getToUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private RecommendReplayProfileVO replayProfile(AppUser target,
+                                                    String avatar,
+                                                    Map<String, String> cityLabels,
+                                                    Map<String, String> occupationLabels,
+                                                    boolean liked) {
+        RecommendReplayProfileVO profile = new RecommendReplayProfileVO();
+        profile.setUserId(target.getId());
+        profile.setUserNo("USR-" + String.format(Locale.ROOT, "%012d", target.getId()));
+        profile.setNickname(target.getNickname());
+        profile.setAvatar(avatar);
+        profile.setGender(target.getGender());
+        profile.setAge(target.getAge());
+        profile.setCurrentCity(batchLabel(cityLabels, target.getLocationCity()));
+        profile.setOccupationLabel(batchLabel(occupationLabels, target.getOccupation()));
+        profile.setLiked(liked);
+        profile.setMatched(false);
+        profile.setCanEnterConversation(false);
+        profile.setCommunicationMode("WHISPER");
+        return profile;
+    }
+
+    private String batchLabel(Map<String, String> labels, String code) {
+        return StrUtil.isBlank(code) ? null : labels.getOrDefault(code, code);
     }
 
     private int remainingBrowseCount(Long userId, boolean vipEffective) {

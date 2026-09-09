@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @Data
 public class RecommendReplayItemVO {
     private String candidateNo;
-    private PublicProfileVO profile;
+    private RecommendReplayProfileVO profile;
     private LocalDateTime viewedAt;
     private String lastAction;
     private String dateGroup;
