@@ -10,6 +10,7 @@ import UserManagement from '@/pages/admin/UserManagement';
 import RoleManagement from '@/pages/admin/RoleManagement';
 import MenuManagement from '@/pages/admin/MenuManagement';
 import DictTypeManagement from '@/pages/admin/DictTypeManagement';
+import SensitiveWordManagement from '@/pages/sensitive-word/SensitiveWordManagement';
 import DictDataManagement from '@/pages/admin/DictDataManagement';
 import PromotionRulesPage from '@/pages/promotion/PromotionRulesPage';
 import PromotionRelationsPage from '@/pages/promotion/PromotionRelationsPage';
@@ -61,6 +62,7 @@ export default function AppRouter() {
         <Route path="system/role" element={<RoleManagement />} />
         <Route path="system/menu" element={<MenuManagement />} />
         <Route path="system/dict-type" element={<DictTypeManagement />} />
+        <Route path="sensitive-words" element={<SensitiveWordManagement />} />
         <Route path="system/dict-data" element={<DictDataManagement />} />
 
         {/* Promotion */}

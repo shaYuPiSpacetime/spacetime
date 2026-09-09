@@ -6,8 +6,14 @@ package com.spacetime.common.community;
 public record CommunitySecurityResult(
         CommunitySecurityConclusion conclusion,
         String providerCode,
-        String detail
+        String detail,
+        String evidenceJson
 ) {
+    /** 兼容现有三参数结果，默认不带内部证据。 */
+    public CommunitySecurityResult(CommunitySecurityConclusion conclusion, String providerCode, String detail) {
+        this(conclusion, providerCode, detail, null);
+    }
+
     public static CommunitySecurityResult pass(String code) {
         return new CommunitySecurityResult(CommunitySecurityConclusion.PASS, code, null);
     }

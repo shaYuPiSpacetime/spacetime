@@ -37,6 +37,8 @@ public class ModerationDetailVO {
     private String auditSource;
     /** 驳回原因 */
     private String rejectReason;
+    /** 仅管理详情返回的历史本地机审证据，不查询当前词库。 */
+    private com.fasterxml.jackson.databind.JsonNode machineEvidence;
     /** 审核历史分页 */
     private Page<AuditHistoryVO> historyPage;
 }

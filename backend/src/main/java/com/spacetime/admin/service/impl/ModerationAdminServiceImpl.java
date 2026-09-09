@@ -225,6 +225,7 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
         vo.setContentTitle(textContentTitle(record));
         vo.setQuestionKey(textQuestionKey(record));
         vo.setContentFull(record.getContentText());
+        vo.setMachineEvidence(localEvidence(record.getMachineSignalJson()));
         return vo;
     }
 
@@ -381,6 +382,28 @@ public class ModerationAdminServiceImpl implements ModerationAdminService {
             return value == null || value.isNull() ? null : value.asText();
         } catch (Exception ignored) {
             // 历史脏数据不阻断列表和详情展示。
+            return null;
+        }
+    }
+
+    private JsonNode localEvidence(String signal) {
+        if (StrUtil.isBlank(signal)) return null;
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(signal);
+            JsonNode evidence = root == null ? null : root.get("evidence");
+            if (evidence == null || !evidence.isObject()
+                    || !"local-sensitive-word".equals(evidence.path("source").asText())) return null;
+            for (String field : List.of("word", "categoryCode", "categoryName"))
+                if (!evidence.path(field).isTextual()) return null;
+            for (String field : List.of("wordId", "revision"))
+                if (!evidence.path(field).isIntegralNumber() || !evidence.path(field).canConvertToLong()
+                        || evidence.path(field).asLong() < 1) return null;
+            var safe = OBJECT_MAPPER.createObjectNode();
+            for (String field : List.of("source", "wordId", "word", "categoryCode", "categoryName", "revision"))
+                safe.set(field, evidence.get(field));
+            return safe;
+        } catch (Exception ignored) {
+            // Historical invalid JSON must not block an otherwise valid moderation record.
             return null;
         }
     }

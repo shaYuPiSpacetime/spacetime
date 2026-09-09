@@ -103,6 +103,7 @@ export interface VerificationAuditDetailVO {
 }
 
 export interface ModerationDetailVO {
+  machineEvidence?: import('./community').LocalSensitiveWordEvidence | null;
   id: number;
   userId: number;
   nickname: string;

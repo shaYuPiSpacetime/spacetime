@@ -127,6 +127,41 @@ class ModerationAdminServiceImplTest {
         assertThat(detail.getQuestionKey()).isEqualTo("preferredActivities");
     }
 
+    @Test
+    void returnsOnlyHistoricalLocalEvidenceForBothTextTypes() throws Exception {
+        for (var type : List.of(AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditTypeEnum.PROFILE_QA)) {
+            var record = auditRecord(32L,42L,type);
+            record.setRejectReason("内容安全审核未通过");
+            record.setMachineSignalJson("""
+                {"detail":"private-provider-data","evidence":{"source":"local-sensitive-word",
+                "wordId":9,"word":"<img src=x onerror=alert(1)>","categoryCode":"OTHER",
+                "categoryName":"历史分类","revision":3,"privateExtra":"secret"}}
+                """);
+            when(auditRecordDao.selectById(32L)).thenReturn(record);
+            when(historyDao.selectPage(any(Page.class),any(LambdaQueryWrapper.class))).thenReturn(historyPage(32L));
+            var detail=service.getTextDetail(32L);
+            assertThat(detail.getMachineEvidence().path("word").asText()).isEqualTo("<img src=x onerror=alert(1)>");
+            assertThat(detail.getMachineEvidence().path("categoryName").asText()).isEqualTo("历史分类");
+            assertThat(detail.getMachineEvidence().path("revision").asLong()).isEqualTo(3L);
+            assertThat(detail.getMachineEvidence().size()).isEqualTo(6);
+            assertThat(detail.getMachineEvidence().has("privateExtra")).isFalse();
+            assertThat(detail.getRejectReason()).isEqualTo("内容安全审核未通过");
+        }
+    }
+
+    @Test
+    void invalidOrForeignHistoricalSignalsNeverLeakOrBreakDetail() {
+        var record=auditRecord(32L,42L,AppUserAuditTypeEnum.ABOUT_ME);
+        when(auditRecordDao.selectById(32L)).thenReturn(record);
+        when(historyDao.selectPage(any(Page.class),any(LambdaQueryWrapper.class))).thenReturn(historyPage(32L));
+        for (String signal : new String[]{null,"", "{invalid", "null", "[]",
+                "{\"evidence\":{\"source\":\"wechat-content-security\",\"word\":\"secret\"}}",
+                "{\"evidence\":{\"source\":\"local-sensitive-word\",\"word\":{\"html\":\"secret\"}}}"}) {
+            record.setMachineSignalJson(signal);
+            assertThat(service.getTextDetail(32L).getMachineEvidence()).isNull();
+        }
+    }
+
     private AppUserAuditRecord auditRecord(Long id, Long userId, AppUserAuditTypeEnum type) {
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setId(id);

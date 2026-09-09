@@ -89,6 +89,16 @@ class CommunityAdminServiceImplTest {
     }
 
     @Test
+    void localMachineEvidenceIsExposedOnlyFromMachineAuditSnapshot() {
+        var row=new CommunityAuditRecord();row.setAction("machine_audit");row.setAfterSnapshot("{\"source\":\"local-sensitive-word\",\"wordId\":3}");
+        com.spacetime.admin.dto.response.CommunityAuditLogVO vo=org.springframework.test.util.ReflectionTestUtils.invokeMethod(communityAdminService,"toAuditLogVO",row);
+        assertThat(vo.getMachineEvidence().path("wordId").asInt()).isEqualTo(3);
+        row.setAction("update");
+        vo=org.springframework.test.util.ReflectionTestUtils.invokeMethod(communityAdminService,"toAuditLogVO",row);
+        assertThat(vo.getMachineEvidence()).isNull();
+    }
+
+    @Test
     @DisplayName("审核通过内容")
     void auditPost_approve_shouldUpdateStatus() {
         CommunityPostAuditReq req = new CommunityPostAuditReq();

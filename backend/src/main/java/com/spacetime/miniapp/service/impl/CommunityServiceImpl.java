@@ -437,7 +437,7 @@ public class CommunityServiceImpl implements CommunityService {
         consumeUploadTickets(req.getImageUrls());
         persistMediaAuditTasks(entity, req.getImageUrls(), decision.machineCode());
         writeAudit("post", entity.getPostNo(), entity.getId(), "machine_audit",
-                decision.machineConclusion(), decision.detail(), decision.machineCode());
+                decision.machineConclusion(), decision.detail(), decision.machineCode(), securityResult == null ? null : securityResult.evidenceJson());
         writeOutbox("content_submitted", "post", entity.getPostNo(), 0,
                 "{\"postNo\":\"" + entity.getPostNo() + "\",\"authorId\":" + userId + "}");
         if ("published".equals(decision.status())) {
@@ -551,7 +551,7 @@ public class CommunityServiceImpl implements CommunityService {
                     "{\"commentNo\":\"" + entity.getCommentNo() + "\",\"postNo\":\"" + post.getPostNo() + "\"}");
         }
         writeAudit("comment", entity.getCommentNo(), entity.getId(), "machine_audit",
-                decision.machineConclusion(), decision.detail(), decision.machineCode());
+                decision.machineConclusion(), decision.detail(), decision.machineCode(), securityResult == null ? null : securityResult.evidenceJson());
         log.info("Community comment submitted: userId={}, postId={}, commentNo={}, status={}", userId, req.getPostId(), entity.getCommentNo(), entity.getStatus());
         return new CommunityCommentResultVO(entity.getId(), entity.getCommentNo(), entity.getStatus(),
                 resolveStatusLabel("community_comment_status", entity.getStatus()),
@@ -1235,7 +1235,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private void writeAudit(String bizType, String bizNo, Long bizId, String action,
-                            String result, String reason, String providerCode) {
+                            String result, String reason, String providerCode, String evidenceJson) {
         CommunityAuditRecord record = new CommunityAuditRecord();
         record.setBizType(bizType);
         record.setBizNo(bizNo);
@@ -1243,6 +1243,7 @@ public class CommunityServiceImpl implements CommunityService {
         record.setAction(action);
         record.setResult(StrUtil.blankToDefault(result, "unknown"));
         record.setReason(reason);
+        record.setAfterSnapshot(evidenceJson);
         record.setProviderCode(persistableProviderCode(providerCode));
         record.setOperatorId(UserContextHolder.get() == null ? null : UserContextHolder.get().getId());
         record.setOperatorIp(requestIp());

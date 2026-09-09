@@ -3,6 +3,7 @@ package com.spacetime.common.interceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.CorsRegistration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -24,15 +25,20 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOriginPatterns(
+        // Specific mapping must precede /**: only sensitive-word status supports cross-origin PATCH.
+        configureCors(registry.addMapping("/admin/sensitive-words/*/status"), "PATCH", "OPTIONS");
+        configureCors(registry.addMapping("/**"), "GET", "POST", "PUT", "DELETE", "OPTIONS");
+    }
+
+    private void configureCors(CorsRegistration registration, String... methods) {
+        registration.allowedOriginPatterns(
                         "https://admin.shikongxiehou.com",
                         "http://localhost:*",
                         "http://127.0.0.1:*",
                         "https://servicewechat.com",
                         "https://*.servicewechat.com"
                 )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods(methods)
                 .allowedHeaders("*")
                 .exposedHeaders("Authorization")
                 .allowCredentials(true)

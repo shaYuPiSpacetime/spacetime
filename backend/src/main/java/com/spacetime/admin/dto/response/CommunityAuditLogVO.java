@@ -11,4 +11,6 @@ public class CommunityAuditLogVO {
     private String actionName;
     private String remark;
     private String createTime;
+    /** 仅后台机审日志返回的历史内部证据。 */
+    private com.fasterxml.jackson.databind.JsonNode machineEvidence;
 }

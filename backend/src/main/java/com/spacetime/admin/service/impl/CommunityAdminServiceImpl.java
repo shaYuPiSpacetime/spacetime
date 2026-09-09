@@ -1279,6 +1279,15 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setAction(entity.getAction());
         vo.setActionName(auditActionName(entity));
         vo.setRemark(auditRemark(entity));
+        if ("machine_audit".equals(entity.getAction()) && entity.getAfterSnapshot()!=null) {
+            try {
+                var evidence=objectMapper.readTree(entity.getAfterSnapshot());
+                if(evidence!=null && evidence.isObject() && "local-sensitive-word".equals(evidence.path("source").asText()))
+                    vo.setMachineEvidence(evidence);
+            } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+                log.warn("Invalid historical machine evidence, auditId={}",entity.getId());
+            }
+        }
         vo.setCreateTime(format(entity.getCreateTime()));
         String action = normalizedAuditValue(entity.getAction());
         if ("machine_audit".equals(action)) {

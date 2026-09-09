@@ -330,6 +330,7 @@ function localizedAuditRemark(log: CommunityAuditLogVO) {
   if (reason === 'wechat_media_async_pending') return '等待微信媒体审核结果';
   if (reason === 'machine_audit_disabled') return '机器审核未启用，已转人工复核';
   if (reason === 'provider_disabled') return '内容安全服务未启用，已转人工复核';
+  if (reason === 'local_sensitive_word_hit') return '本地敏感词审核未通过';
   if (reason === 'wechat_risky') return '微信内容安全审核未通过';
   if (reason.startsWith('wechat_review')) return '微信内容安全结果需人工复核';
   if (reason.startsWith('wechat_err')) return '微信内容安全服务异常，已转人工复核';
@@ -346,6 +347,12 @@ export function AuditTimeline({ logs, emptyText }: { logs?: CommunityAuditLogVO[
           <span className="absolute -left-[21px] top-2 h-2 w-2 rounded-full bg-primary" />
           <div className="flex flex-wrap justify-between gap-2"><strong className="text-sm font-medium text-slate-800">{localizedAuditOperator(log)} · {localizedAuditAction(log)}</strong><time className="text-xs text-slate-400">{log.createTime || '-'}</time></div>
           {localizedAuditRemark(log) && <p className="mt-1 text-xs text-slate-500">{localizedAuditRemark(log)}</p>}
+          {log.machineEvidence?.source === 'local-sensitive-word' && <dl className="mt-2 space-y-1 rounded-md bg-slate-50 p-3 text-xs text-slate-600">
+            <div><dt className="inline font-medium">审核来源：</dt><dd className="inline">本地敏感词</dd></div>
+            <div><dt className="inline font-medium">命中词：</dt><dd className="inline break-all whitespace-pre-wrap">{log.machineEvidence.word}</dd></div>
+            <div><dt className="inline font-medium">分类：</dt><dd className="inline">{log.machineEvidence.categoryName}</dd></div>
+            <div><dt className="inline font-medium">词库刷新标记：</dt><dd className="inline">{log.machineEvidence.revision}</dd></div>
+          </dl>}
         </li>
       ))}
     </ol>

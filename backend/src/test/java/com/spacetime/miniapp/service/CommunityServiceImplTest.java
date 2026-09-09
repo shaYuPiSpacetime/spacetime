@@ -125,6 +125,40 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    void missingProviderResultKeepsOriginalManualReviewFallback() {
+        CommunityPostCreateReq req=new CommunityPostCreateReq();req.setPostType("community");req.setContent("test");req.setImageUrls(List.of());
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(contentSecurityPort.checkPost(any(),any(),any(),any())).thenReturn(null);
+        assertThat(communityService.createPost(1L,req).getStatus()).isEqualTo("pending_manual");
+    }
+
+    @Test
+    void localRejectedCommentStoresEvidenceButDoesNotIncrementPublicCount() {
+        CommunityCommentCreateReq req=new CommunityCommentCreateReq();req.setPostId(100L);req.setContent("test");
+        when(appUserDao.selectById(1L)).thenReturn(user);when(communityPostDao.selectById(100L)).thenReturn(post);
+        String evidence="{\"source\":\"local-sensitive-word\",\"wordId\":3}";
+        when(contentSecurityPort.checkText(any(),any(),any())).thenReturn(new CommunitySecurityResult(
+            com.spacetime.common.community.CommunitySecurityConclusion.REJECT,"local_sensitive_word:3","local_sensitive_word_hit",evidence));
+        assertThat(communityService.createComment(1L,req).getStatus()).isEqualTo("rejected");
+        verify(communityCommentDao).insert(argThat(row->"rejected".equals(row.getStatus())));
+        verify(communityExtensionDao).insertAudit(argThat(row->evidence.equals(row.getAfterSnapshot())));
+        verify(communityPostDao,never()).updateById(any());
+    }
+
+    @Test
+    void localSensitiveWordRejectPersistsSeparateEvidence() {
+        CommunityPostCreateReq req=new CommunityPostCreateReq();req.setPostType("community");req.setContent("test");req.setImageUrls(List.of());
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        String evidence="{\"source\":\"local-sensitive-word\",\"wordId\":3}";
+        when(contentSecurityPort.checkPost(any(),any(),any(),any())).thenReturn(new CommunitySecurityResult(
+            com.spacetime.common.community.CommunitySecurityConclusion.REJECT,"local_sensitive_word:3","local_sensitive_word_hit",evidence));
+        var result=communityService.createPost(1L,req);
+        assertThat(result.getStatus()).isEqualTo("rejected");
+        verify(communityExtensionDao).insertAudit(argThat(row -> evidence.equals(row.getAfterSnapshot()) && "local_sensitive_word_hit".equals(row.getReason())));
+        verify(communityPostDao).insert(argThat(row -> "local_sensitive_word_hit".equals(row.getMachineDetail())));
+    }
+
+    @Test
     @DisplayName("发布配置缺失-失败关闭")
     void createPost_missingRuntimeConfig_shouldFailClosed() {
         CommunityPostCreateReq req = new CommunityPostCreateReq();

@@ -37,7 +37,17 @@ export interface CommunityStatsVO {
   cards: CommunityStatCard[];
 }
 
+export interface LocalSensitiveWordEvidence {
+  source: 'local-sensitive-word';
+  revision: number;
+  wordId: number;
+  word: string;
+  categoryCode: string;
+  categoryName: string;
+}
+
 export interface CommunityAuditLogVO {
+  machineEvidence?: LocalSensitiveWordEvidence | null;
   id?: number | string;
   operatorName?: string;
   action?: string;

@@ -1,0 +1,132 @@
+{
+  "archiveSha256": "1099308ba86bcc95d8bbd84b7bcc66fcfd7b5057948422a57ad9caff3dd6084a",
+  "categoryCount": 18,
+  "rawRecords": 48244,
+  "categoryUniqueRecords": 48244,
+  "globalUniqueWords": 48244,
+  "sourceCategories": {
+    "SENSITIVE_LEXICON": {
+      "sourceFile": "SensitiveLexicon.json",
+      "rawRecords": 3,
+      "uniqueRecords": 3
+    },
+    "COVID_19": {
+      "sourceFile": "COVID-19词库.txt",
+      "rawRecords": 68,
+      "uniqueRecords": 68
+    },
+    "GFW_SUPPLEMENT": {
+      "sourceFile": "GFW补充词库.txt",
+      "rawRecords": 5906,
+      "uniqueRecords": 5906
+    },
+    "OTHER": {
+      "sourceFile": "其他词库.txt",
+      "rawRecords": 125,
+      "uniqueRecords": 125
+    },
+    "REACTIONARY": {
+      "sourceFile": "反动词库.txt",
+      "rawRecords": 469,
+      "uniqueRecords": 469
+    },
+    "ADVERTISEMENT": {
+      "sourceFile": "广告类型.txt",
+      "rawRecords": 23,
+      "uniqueRecords": 23
+    },
+    "POLITICS": {
+      "sourceFile": "政治类型.txt",
+      "rawRecords": 252,
+      "uniqueRecords": 252
+    },
+    "NEW_THOUGHT": {
+      "sourceFile": "新思想启蒙.txt",
+      "rawRecords": 16,
+      "uniqueRecords": 16
+    },
+    "TERRORISM": {
+      "sourceFile": "暴恐词库.txt",
+      "rawRecords": 178,
+      "uniqueRecords": 178
+    },
+    "LIVELIHOOD": {
+      "sourceFile": "民生词库.txt",
+      "rawRecords": 347,
+      "uniqueRecords": 347
+    },
+    "WEAPONS": {
+      "sourceFile": "涉枪涉爆.txt",
+      "rawRecords": 431,
+      "uniqueRecords": 431
+    },
+    "NETEASE": {
+      "sourceFile": "网易前端过滤敏感词库.txt",
+      "rawRecords": 7235,
+      "uniqueRecords": 7235
+    },
+    "PORNOGRAPHY_TYPE": {
+      "sourceFile": "色情类型.txt",
+      "rawRecords": 304,
+      "uniqueRecords": 304
+    },
+    "PORNOGRAPHY": {
+      "sourceFile": "色情词库.txt",
+      "rawRecords": 250,
+      "uniqueRecords": 250
+    },
+    "SUPPLEMENT": {
+      "sourceFile": "补充词库.txt",
+      "rawRecords": 841,
+      "uniqueRecords": 841
+    },
+    "CORRUPTION": {
+      "sourceFile": "贪腐词库.txt",
+      "rawRecords": 174,
+      "uniqueRecords": 174
+    },
+    "TENCENT": {
+      "sourceFile": "零时-Tencent.txt",
+      "rawRecords": 31622,
+      "uniqueRecords": 31622
+    },
+    "ILLEGAL_URL": {
+      "sourceFile": "非法网址.txt",
+      "rawRecords": 0,
+      "uniqueRecords": 0
+    }
+  },
+  "combinedListVerification": {
+    "sourceFile": "全库合并总表.txt",
+    "rawRecords": 48244,
+    "uniqueRecords": 48244,
+    "matchesCategoryWords": true,
+    "importedSeparately": false
+  },
+  "initialStatus": "ENABLED",
+  "categoryRandomSeed": 20260908,
+  "initializedRecords": 48244,
+  "duplicateActiveOriginalWords": 0,
+  "maxWordUtf16Units": 20,
+  "assignedCategoryCounts": {
+    "SENSITIVE_LEXICON": 3,
+    "COVID_19": 68,
+    "GFW_SUPPLEMENT": 5906,
+    "OTHER": 125,
+    "REACTIONARY": 469,
+    "ADVERTISEMENT": 23,
+    "POLITICS": 252,
+    "NEW_THOUGHT": 16,
+    "TERRORISM": 178,
+    "LIVELIHOOD": 347,
+    "WEAPONS": 431,
+    "NETEASE": 7235,
+    "PORNOGRAPHY_TYPE": 304,
+    "PORNOGRAPHY": 250,
+    "SUPPLEMENT": 841,
+    "CORRUPTION": 174,
+    "TENCENT": 31622,
+    "ILLEGAL_URL": 0
+  },
+  "sqlSha256": "34a1165e22c199d9983c5efff9abd820e3c524630878712427f177e533b86747"
+}

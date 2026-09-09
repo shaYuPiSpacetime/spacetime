@@ -158,7 +158,7 @@ function SidebarSection({ section }: { section: RouterVO }) {
     if (childActive) setExpanded(true);
   }, [childActive]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) return section.path ? <SidebarMenuItem item={section} /> : null;
 
   return (
     <div>

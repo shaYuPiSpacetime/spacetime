@@ -39,7 +39,7 @@ class WechatAccessTokenCacheIsolationTest {
     @Test
     void contentSecurityAccessToken_shouldUseAppIdScopedCacheKey() {
         WechatCommunityContentSecurityAdapter adapter = new WechatCommunityContentSecurityAdapter(
-                properties, redisTemplate, new ObjectMapper());
+                properties, redisTemplate, new ObjectMapper(), org.mockito.Mockito.mock(com.spacetime.common.service.LocalSensitiveWordService.class));
 
         String token = ReflectionTestUtils.invokeMethod(adapter, "accessToken");
 

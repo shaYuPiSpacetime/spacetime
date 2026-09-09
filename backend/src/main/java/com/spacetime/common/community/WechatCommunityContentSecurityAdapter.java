@@ -3,7 +3,8 @@ package com.spacetime.common.community;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.config.WechatMiniappProperties;
-import lombok.RequiredArgsConstructor;
+import com.spacetime.common.service.LocalSensitiveWordService;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -26,7 +27,6 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 @ConditionalOnProperty(name = "community.content-security.provider", havingValue = "wechat", matchIfMissing = true)
 public class WechatCommunityContentSecurityAdapter implements CommunityContentSecurityPort {
     private static final String TOKEN_CACHE_KEY = "wechat:miniapp:access_token";
@@ -37,12 +37,27 @@ public class WechatCommunityContentSecurityAdapter implements CommunityContentSe
     private final WechatMiniappProperties properties;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    /** 本地预检服务，仅文字入口使用。 */
+    private final LocalSensitiveWordService localSensitiveWordService;
+    /** 生产构造器。 */
+    @Autowired
+    public WechatCommunityContentSecurityAdapter(WechatMiniappProperties properties, StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper, LocalSensitiveWordService localSensitiveWordService) {
+        this.properties=properties; this.redisTemplate=redisTemplate; this.objectMapper=objectMapper;
+        this.localSensitiveWordService=localSensitiveWordService;
+    }
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     @Override
     public CommunitySecurityResult checkText(String openId, String content, String scene) {
         if (content == null || content.isBlank()) {
             return CommunitySecurityResult.pass("empty_text");
+        }
+        try {
+            CommunitySecurityResult local = localSensitiveWordService.checkText(content);
+            if (local != null && local.conclusion() == CommunitySecurityConclusion.REJECT) return local;
+        } catch (Exception e) {
+            log.warn("Local sensitive word precheck skipped: {}", e.getClass().getSimpleName());
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("content", content);

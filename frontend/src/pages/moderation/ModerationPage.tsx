@@ -471,6 +471,14 @@ export default function ModerationPage() {
                       <div className="rounded bg-[#F7FAFE] px-3 py-2"><span className="text-muted-foreground">场景标题:</span> {detail.contentTitle || '-'}</div>
                     )}
                   </div>
+                  {detail.machineEvidence?.source === 'local-sensitive-word' && (
+                    <div className="mt-3 space-y-1 break-words rounded bg-[#FFF5F5] px-3 py-2 text-sm">
+                      <div>机审来源: 本地敏感词</div>
+                      <div>命中词: {detail.machineEvidence.word}</div>
+                      <div>分类: {detail.machineEvidence.categoryName} ({detail.machineEvidence.categoryCode})</div>
+                      <div>词库版本: {detail.machineEvidence.revision}</div>
+                    </div>
+                  )}
                   {detail.rejectReason && (
                     <div className="mt-3 rounded bg-[#FFF5F5] px-3 py-2 text-sm">
                       <span className="text-muted-foreground">驳回/失效原因:</span> <span className="text-red-600">{detail.rejectReason}</span>
