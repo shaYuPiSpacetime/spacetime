@@ -587,6 +587,7 @@ function ConfigWorkspace() {
       setConfig(normalizeCommercialConfig(responseData<CommercialConfig>(res, payload)));
       showToast('商业化配置已保存', 'success');
       setSaveOpen(false);
+      setSaveReason('');
     } finally {
       setSaving(false);
     }
@@ -805,13 +806,23 @@ function ConfigWorkspace() {
         open={vipEditOpen}
         initial={vipEditIndex == null ? null : config?.vipPackages[vipEditIndex] || null}
         onClose={() => setVipEditOpen(false)}
-        onSubmit={(value) => { updateConfigList('vipPackages', vipEditIndex, value); setVipEditOpen(false); }}
+        onSubmit={(value) => {
+          updateConfigList('vipPackages', vipEditIndex, value);
+          setVipEditOpen(false);
+          setSaveReason('');
+          setSaveOpen(true);
+        }}
       />
       <CoinPackageModal
         open={coinEditOpen}
         initial={coinEditIndex == null ? null : config?.coinPackages[coinEditIndex] || null}
         onClose={() => setCoinEditOpen(false)}
-        onSubmit={(value) => { saveCoinPackageDraft(coinEditIndex, value); setCoinEditOpen(false); }}
+        onSubmit={(value) => {
+          saveCoinPackageDraft(coinEditIndex, value);
+          setCoinEditOpen(false);
+          setSaveReason('');
+          setSaveOpen(true);
+        }}
       />
     </PageFrame>
   );
@@ -1366,14 +1377,14 @@ function VipPackageModal({
       <div className="form-stack">
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
         <label className="field">套餐类型<input value="普通套餐" readOnly /></label>
-        <label className="field">售价<input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} /></label>
+        <label className="field">优惠价<input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} /></label>
         <label className="field">原价<input type="number" value={form.originPrice ?? ''} onChange={(event) => setForm({ ...form, originPrice: event.target.value ? Number(event.target.value) : undefined })} /></label>
         <label className="field">时长（天）<input type="number" value={form.durationDays} onChange={(event) => setForm({ ...form, durationDays: Number(event.target.value) })} /></label>
         <label className="field">购买方式<input value="一次性购买" readOnly /></label>
         <label className="field">标签<input value={form.packageTag || ''} onChange={(event) => setForm({ ...form, packageTag: event.target.value })} /></label>
       </div>
-      <Notice title="购买方式">固定为普通套餐、一次性购买，不签约自动续费。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || form.price <= 0} onClick={() => onSubmit(normalizeVipPackage(form))}>确认</button></div>
+      <Notice title="保存说明">确认套餐后还需填写变更原因；最终保存成功后，小程序价格才会更新。</Notice>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || form.price <= 0} onClick={() => onSubmit(normalizeVipPackage(form))}>确认并继续保存</button></div>
     </Modal>
   );
 }
@@ -1391,24 +1402,26 @@ function CoinPackageModal({
 }) {
   const [form, setForm] = useState<CoinPackageConfig>({ packageName: '', amount: 0, coinCount: 0, status: 'ENABLED' });
   useEffect(() => {
-    if (open) setForm(initial || { packageName: '', amount: 0, coinCount: 0, status: 'ENABLED' });
+    if (!open) return;
+    const value = initial || { packageName: '', amount: 0, coinCount: 0, status: 'ENABLED' };
+    setForm({ ...value, discountAmount: value.discountAmount ?? value.amount });
   }, [initial, open]);
+  const effectivePrice = form.discountAmount ?? form.amount;
   return (
     <Modal id="coinPackageEditModal" title="千寻币套餐新增/编辑" open={open} onClose={onClose}>
       <div className="form-stack">
         <label className="field">套餐类型<select disabled><option>千寻币套餐</option></select></label>
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
-        <label className="field">售价<input type="number" value={form.amount} onChange={(event) => setForm({ ...form, amount: Number(event.target.value) })} /></label>
         <label className="field">原价<input type="number" value={form.originAmount ?? ''} onChange={(event) => setForm({ ...form, originAmount: event.target.value ? Number(event.target.value) : undefined })} /></label>
-        <label className="field">优惠价<input type="number" value={form.discountAmount ?? ''} onChange={(event) => setForm({ ...form, discountAmount: event.target.value ? Number(event.target.value) : undefined })} /></label>
+        <label className="field">优惠价<input type="number" value={effectivePrice} onChange={(event) => setForm({ ...form, amount: Number(event.target.value), discountAmount: Number(event.target.value) })} /></label>
         <label className="field">到账币数<input type="number" value={form.coinCount} onChange={(event) => setForm({ ...form, coinCount: Number(event.target.value) })} /></label>
         <label className="field">赠送币数<input type="number" value={form.bonusCoinCount ?? 0} onChange={(event) => setForm({ ...form, bonusCoinCount: Number(event.target.value) })} /></label>
         <label className="field">标签<input value={form.packageTag || ''} onChange={(event) => setForm({ ...form, packageTag: event.target.value })} /></label>
         <label className="field">移动端标签<input value={form.mobileTag || ''} onChange={(event) => setForm({ ...form, mobileTag: event.target.value })} /></label>
         <label className="field">是否推荐<select value={form.recommendFlag ? '1' : '0'} onChange={(event) => setForm({ ...form, recommendFlag: Number(event.target.value) })}><option value="1">推荐档</option><option value="0">普通档</option></select></label>
       </div>
-      <Notice title="推荐规则">同一时间最多 1 个推荐档，保存后移动端充值页刷新。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || form.amount <= 0 || form.coinCount <= 0} onClick={() => onSubmit(form)}>确认</button></div>
+      <Notice title="保存说明">同一时间最多 1 个推荐档；确认套餐后还需填写变更原因，最终保存成功后小程序才会更新。</Notice>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || effectivePrice <= 0 || form.coinCount <= 0} onClick={() => onSubmit({ ...form, amount: effectivePrice, discountAmount: effectivePrice })}>确认并继续保存</button></div>
     </Modal>
   );
 }

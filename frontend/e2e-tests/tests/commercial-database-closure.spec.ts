@@ -212,7 +212,6 @@ test.describe('商业化配置数据库闭环', () => {
     await expect(modal.getByLabel('购买方式')).toHaveAttribute('readonly', '');
     await modal.getByRole('button', { name: '确认' }).click();
 
-    await page.getByRole('button', { name: '保存当前配置' }).click();
     await page.locator('#configSaveModal textarea').fill('会员套餐统一改为一次性购买');
     await page.locator('#configSaveModal').getByRole('button', { name: '确认保存' }).click();
     await expect.poll(() => savedBody).not.toBeNull();
@@ -233,6 +232,7 @@ test.describe('商业化配置数据库闭环', () => {
     const modal = page.locator('#coinPackageEditModal.is-open');
     await modal.getByLabel('是否推荐').selectOption('1');
     await modal.getByRole('button', { name: '确认' }).click();
+    await page.locator('#configSaveModal').getByRole('button', { name: '取消' }).click();
 
     await expect(firstRow.locator('td').nth(7)).toContainText('推荐档');
     await expect(secondRow.locator('td').nth(7)).toHaveText('-');
@@ -246,5 +246,63 @@ test.describe('商业化配置数据库闭环', () => {
     await expect(page.locator('[data-render="admin-coin-packages"]')).toContainText('暂无后台返回数据');
     await expect(page.getByRole('button', { name: '保存当前配置' })).toBeDisabled();
     await expect(page.getByText('3000千寻币')).toHaveCount(0);
+  });
+
+  test('L4-09 会员套餐确认后立即进入最终保存并提交新价格', async ({ page, baseURL }) => {
+    await bootstrap(page);
+    let savedBody: typeof configData & { changeSummary?: string } | null = null;
+    await page.route('**/api/admin/commercial/config', async (route) => {
+      if (route.request().method() === 'PUT') {
+        savedBody = route.request().postDataJSON();
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: savedBody }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: configData }) });
+    });
+
+    await page.goto(`${baseURL}/commercial/config?tab=vipPackages`);
+    const row = page.locator('[data-render="admin-vip-packages"] tr', { hasText: '年卡会员' });
+    await row.getByRole('button', { name: '编辑' }).click();
+    const editModal = page.locator('#vipPackageEditModal.is-open');
+    await editModal.getByLabel('优惠价').fill('528');
+    await editModal.getByRole('button', { name: '确认' }).click();
+
+    const saveModal = page.locator('#configSaveModal.is-open');
+    await expect(saveModal).toBeVisible();
+    expect(savedBody).toBeNull();
+    await saveModal.getByLabel('变更原因').fill('调整会员套餐价格');
+    await saveModal.getByRole('button', { name: '确认保存' }).click();
+
+    await expect.poll(() => savedBody).not.toBeNull();
+    expect(savedBody!.vipPackages.find((item) => item.id === 8)?.price).toBe(528);
+  });
+
+  test('L4-10 千寻币套餐确认后立即进入最终保存并提交新优惠价', async ({ page, baseURL }) => {
+    await bootstrap(page);
+    let savedBody: typeof configData & { changeSummary?: string } | null = null;
+    await page.route('**/api/admin/commercial/config', async (route) => {
+      if (route.request().method() === 'PUT') {
+        savedBody = route.request().postDataJSON();
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: savedBody }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: configData }) });
+    });
+
+    await page.goto(`${baseURL}/commercial/config?tab=coinPackages`);
+    const row = page.locator('[data-render="admin-coin-packages"] tr', { hasText: '3000千寻币' });
+    await row.getByRole('button', { name: '编辑' }).click();
+    const editModal = page.locator('#coinPackageEditModal.is-open');
+    await editModal.getByLabel('优惠价').fill('238');
+    await editModal.getByRole('button', { name: '确认' }).click();
+
+    const saveModal = page.locator('#configSaveModal.is-open');
+    await expect(saveModal).toBeVisible();
+    expect(savedBody).toBeNull();
+    await saveModal.getByLabel('变更原因').fill('调整千寻币套餐优惠价');
+    await saveModal.getByRole('button', { name: '确认保存' }).click();
+
+    await expect.poll(() => savedBody).not.toBeNull();
+    expect(savedBody!.coinPackages.find((item) => item.id === 11)?.discountAmount).toBe(238);
   });
 });

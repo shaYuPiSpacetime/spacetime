@@ -65,6 +65,24 @@ class CoinServiceImplTest {
     }
 
     @Test
+    @DisplayName("千寻币套餐存在优惠价时向小程序返回有效支付价")
+    void getPackages_shouldExposeDiscountAmountAsEffectiveAmount() {
+        CoinPackage entity = new CoinPackage();
+        entity.setId(11L);
+        entity.setPackageName("3000千寻币");
+        entity.setAmount(new BigDecimal("268.00"));
+        entity.setDiscountAmount(new BigDecimal("238.00"));
+        entity.setCoinCount(3000);
+        entity.setStatus("ENABLED");
+        when(coinPackageDao.selectPage(any(), any())).thenReturn(page(List.of(entity)));
+
+        CoinPackageVO result = service.getPackages().get(0);
+
+        assertThat(result.getAmount()).isEqualByComparingTo("238.00");
+        assertThat(result.getDiscountAmount()).isEqualByComparingTo("238.00");
+    }
+
+    @Test
     @DisplayName("L3-11 消费场景返回数据库移动端名称和 OSS 图标键")
     void getScenes_shouldExposeDatabaseMobileFields() {
         CoinSceneConfig entity = new CoinSceneConfig();

@@ -313,6 +313,28 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    @DisplayName("创建千寻币订单-优惠价存在时展示金额与实际扣款统一使用优惠价")
+    void createCoinOrder_shouldUseDiscountAmountAsEffectivePrice() {
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("coin");
+        req.setPackageId(2L);
+        coinPackage.setDiscountAmount(new BigDecimal("4.80"));
+
+        when(coinPackageDao.selectById(2L)).thenReturn(coinPackage);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), any(BigDecimal.class)))
+                .thenReturn(payParams);
+
+        CreateOrderVO result = paymentService.createOrder(1L, req);
+
+        assertThat(result.getPayAmount()).isEqualByComparingTo("4.80");
+        verify(tradeOrderDao).insert(argThat(order ->
+                order.getPayAmount().compareTo(new BigDecimal("4.80")) == 0));
+        verify(wechatPayService).createJsapiPayParams(
+                any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("4.80")));
+    }
+
+    @Test
     @DisplayName("创建订单-套餐不存在")
     void createOrder_packageNotFound_shouldThrow() {
         CreateOrderReq req = new CreateOrderReq();

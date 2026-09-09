@@ -22,11 +22,12 @@ import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.FlowTypeEnum;
 import com.spacetime.common.enums.OrderStatusEnum;
 import com.spacetime.common.enums.OrderTypeEnum;
+import com.spacetime.common.enums.PromotionRewardEventEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AssetResultMessageNotificationService;
 import com.spacetime.common.service.PromotionEventInboxService;
-import com.spacetime.common.enums.PromotionRewardEventEnum;
+import com.spacetime.common.util.CoinPackagePriceResolver;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
 import com.spacetime.miniapp.dto.response.CreateOrderVO;
 import com.spacetime.miniapp.dto.response.PayResultVO;
@@ -109,7 +110,7 @@ public class PaymentServiceImpl implements PaymentService {
             if (coinPkg == null || !CommonStatusEnum.ENABLED.getCode().equals(coinPkg.getStatus())) {
                 throw new BusinessException("千寻币套餐不存在或已下架");
             }
-            payAmount = coinPkg.getAmount();
+            payAmount = CoinPackagePriceResolver.resolve(coinPkg);
             packageName = coinPkg.getPackageName();
         } else {
             throw new BusinessException("不支持的订单类型");

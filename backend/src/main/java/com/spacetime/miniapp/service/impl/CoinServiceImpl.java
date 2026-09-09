@@ -13,6 +13,7 @@ import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.PromotionRewardBizSceneEnum;
+import com.spacetime.common.util.CoinPackagePriceResolver;
 import com.spacetime.miniapp.dto.response.CoinBalanceVO;
 import com.spacetime.miniapp.dto.response.CoinFlowVO;
 import com.spacetime.miniapp.dto.response.CoinPackageVO;
@@ -59,7 +60,8 @@ public class CoinServiceImpl implements CoinService {
             CoinPackageVO vo = new CoinPackageVO();
             vo.setId(pkg.getId());
             vo.setPackageName(pkg.getPackageName());
-            vo.setAmount(pkg.getAmount());
+            // amount 是历史客户端读取的展示/支付价字段，必须返回当前有效优惠价。
+            vo.setAmount(CoinPackagePriceResolver.resolve(pkg));
             vo.setOriginAmount(pkg.getOriginAmount());
             vo.setDiscountAmount(pkg.getDiscountAmount());
             vo.setCoinCount(pkg.getCoinCount());

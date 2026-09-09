@@ -13,7 +13,7 @@ public class CoinPackageVO {
     private Long id;
     /** 套餐名称 */
     private String packageName;
-    /** 售价 */
+    /** 当前有效支付价；优惠价存在时返回优惠价，兼容旧版小程序。 */
     private BigDecimal amount;
     /** 原价 */
     private BigDecimal originAmount;
