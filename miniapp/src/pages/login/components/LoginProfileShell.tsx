@@ -199,9 +199,10 @@ export default function LoginProfileShell({
           active={canContinue}
           onClick={onNext}
           style={{
-            position: 'absolute',
+            position: 'fixed',
             left: '312rpx',
             bottom: '164rpx',
+            zIndex: 20,
           }}
         />
       </View>

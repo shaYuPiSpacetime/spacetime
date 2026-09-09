@@ -267,6 +267,21 @@ test('首登资料页继续共享蓝湖两态按钮，退出登录手机号页�
   assert.doesNotMatch(phoneStyles, /\.phone-login-next-arrow/)
 })
 
+test('首登资料页下一步按钮固定在可视窗口内', () => {
+  const shell = read('src/pages/login/components/LoginProfileShell.tsx')
+
+  assert.match(
+    shell,
+    /<LoginNextButton[\s\S]{0,320}position: 'fixed'/,
+    '下一步按钮必须相对可视窗口固定，不能因 1624rpx 设计画布超出短屏'
+  )
+  assert.match(
+    shell,
+    /<LoginNextButton[\s\S]{0,360}zIndex: 20/,
+    '下一步按钮应保持在资料页内容之上'
+  )
+})
+
 test('登录方式、手机号和性别图标在运行态使用真实组件', () => {
   const login = read('src/pages/login/index.tsx')
   const phone = read('src/pages/login/phone.tsx')
