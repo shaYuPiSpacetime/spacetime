@@ -24,7 +24,7 @@ const listFiles = (relativeDir) => {
   const absoluteDir = path.join(root, relativeDir);
   assert.ok(existsSync(absoluteDir), `${relativeDir} 不存在`);
   return readdirSync(absoluteDir)
-    .map((name) => path.join(relativeDir, name))
+    .map((name) => path.posix.join(relativeDir, name))
     .filter((relativePath) => statSync(path.join(root, relativePath)).isFile());
 };
 
@@ -107,6 +107,27 @@ for (const expected of [
 ]) {
   assertIncludes(backendWorkflow, expected, '.github/workflows/deploy-backend-prod.yml');
 }
+// Sensitive-word deployment must copy both migrations and execute them before restart.
+const sensitiveMigrations = [
+  'deploy/sql/prod/081_content_sensitive_word_schema.sql',
+  'deploy/sql/prod/082_content_sensitive_word_seed.sql',
+];
+const backendCopySource = backendWorkflow.match(/source: '([^']+)'/)?.[1].split(',') || [];
+const backendMigrationStep = backendWorkflow.slice(
+  backendWorkflow.indexOf('bash scripts/migrate-prod-db.sh'),
+  backendWorkflow.indexOf('bash scripts/deploy-prod-local.sh backend'),
+);
+for (const migration of sensitiveMigrations) {
+  assert.ok(backendCopySource.includes(migration), `backend SCP must include ${migration}`);
+  assertIncludes(backendMigrationStep, migration, 'backend migration execution');
+}
+assert.ok(backendMigrationStep.indexOf(sensitiveMigrations[0]) < backendMigrationStep.indexOf(sensitiveMigrations[1]),
+  'sensitive-word schema must run before seed');
+const sensitiveSeed = read(sensitiveMigrations[1]);
+assertIncludes(sensitiveSeed, 'IF existing_count = 0 THEN', sensitiveMigrations[1]);
+assertIncludes(sensitiveSeed, 'SKIPPED_NONEMPTY', sensitiveMigrations[1]);
+assertIncludes(sensitiveSeed, "DEFAULT 'ENABLED'", sensitiveMigrations[1]);
+
 for (const forbidden of [
   'secrets.COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN',
   'ENVIRON["COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN"]',
