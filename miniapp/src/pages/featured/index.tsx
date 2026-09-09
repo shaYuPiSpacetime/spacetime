@@ -1,9 +1,8 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useFeatured } from '@/hooks/useFeatured'
+import { useCoins } from '@/hooks/useCoins'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
-import { mockCoinBalance, mockCoinPackages } from '@/services/mock'
-import type { CoinPackage } from '@/types/coin'
 import type { FeaturedGuest } from '@/types/featured'
 import {
   LANHU_BLUE,
@@ -22,17 +21,19 @@ export default function FeaturedPage() {
     authModalVisible,
     showAuthModal,
     hideAuthModal,
-    coinModalVisible,
-    showCoinModal,
-    hideCoinModal,
     unlockModalVisible,
     showUnlockModal,
     hideUnlockModal,
     selectedGuest,
   } = useFeatured()
+  const { balance, fetchBalance } = useCoins()
+
+  useDidShow(() => {
+    void fetchBalance().catch(() => undefined)
+  })
 
   const unlockCost = selectedGuest?.unlockCost ?? 0
-  const balanceInsufficient = mockCoinBalance < unlockCost
+  const balanceInsufficient = balance < unlockCost
 
   const handleCardClick = (guest: FeaturedGuest) => {
     if (guest.isLocked) {
@@ -45,16 +46,11 @@ export default function FeaturedPage() {
   const handleUnlockConfirm = () => {
     if (balanceInsufficient) {
       hideUnlockModal()
-      showCoinModal()
+      void Taro.navigateTo({ url: '/pages/coins/index?sourceScene=featured' })
     } else {
       hideUnlockModal()
       Taro.showToast({ title: '解锁成功', icon: 'success' })
     }
-  }
-
-  const handleBuyPackage = () => {
-    hideCoinModal()
-    Taro.showToast({ title: '支付功能建设中', icon: 'none' })
   }
 
   const handleAuthContinue = async () => {
@@ -103,12 +99,12 @@ export default function FeaturedPage() {
       {unlockModalVisible && selectedGuest && (
         <UnlockModal
           guest={selectedGuest}
+          balance={balance}
           balanceInsufficient={balanceInsufficient}
           onClose={hideUnlockModal}
           onConfirm={handleUnlockConfirm}
         />
       )}
-      {coinModalVisible && <CoinModal onClose={hideCoinModal} onBuy={handleBuyPackage} />}
     </View>
   )
 }
@@ -346,11 +342,13 @@ function AuthModal({ onClose, onContinue }: { onClose: () => void; onContinue: (
 
 function UnlockModal({
   guest,
+  balance,
   balanceInsufficient,
   onClose,
   onConfirm,
 }: {
   guest: FeaturedGuest
+  balance: number
   balanceInsufficient: boolean
   onClose: () => void
   onConfirm: () => void
@@ -404,7 +402,7 @@ function UnlockModal({
           marginTop: '26rpx',
         }}
       >
-        本次消耗 {guest.unlockCost} 千寻币，当前余额 {mockCoinBalance}
+        本次消耗 {guest.unlockCost} 千寻币，当前余额 {balance}
       </Text>
       <View style={{ display: 'flex', flexDirection: 'row', gap: '18rpx', marginTop: '30rpx' }}>
         <View
@@ -437,77 +435,6 @@ function UnlockModal({
             {balanceInsufficient ? '去购买' : '确认解锁'}
           </Text>
         </View>
-      </View>
-    </LanhuBottomModal>
-  )
-}
-
-function CoinModal({ onClose, onBuy }: { onClose: () => void; onBuy: (pkg: CoinPackage) => void }) {
-  return (
-    <LanhuBottomModal onClose={onClose}>
-      <Text
-        style={{
-          display: 'block',
-          textAlign: 'center',
-          color: LANHU_NAVY,
-          fontSize: '34rpx',
-          fontWeight: 700,
-        }}
-      >
-        充值千寻币
-      </Text>
-      <ScrollView scrollX showScrollbar={false} style={{ marginTop: '28rpx', width: '690rpx' }}>
-        <View style={{ display: 'flex', flexDirection: 'row' }}>
-          {mockCoinPackages.map(pkg => (
-            <View
-              key={pkg.id}
-              style={{
-                width: '170rpx',
-                height: '190rpx',
-                borderRadius: '20rpx',
-                border: `3rpx solid ${pkg.id === 2 ? LANHU_BLUE : '#E4E8F0'}`,
-                background: pkg.id === 2 ? '#EEF6FF' : '#FFFFFF',
-                marginRight: '18rpx',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={() => onBuy(pkg)}
-            >
-              <Text style={{ color: LANHU_BLUE, fontSize: '30rpx', fontWeight: 700 }}>
-                {pkg.amount}
-              </Text>
-              <Text style={{ color: '#666666', fontSize: '22rpx', marginTop: '7rpx' }}>
-                {pkg.label}
-              </Text>
-              <Text
-                style={{
-                  color: LANHU_NAVY,
-                  fontSize: '32rpx',
-                  fontWeight: 700,
-                  marginTop: '12rpx',
-                }}
-              >
-                ¥{pkg.price}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-      <View
-        style={{
-          height: '88rpx',
-          borderRadius: '44rpx',
-          background: LANHU_BLUE,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: '30rpx',
-        }}
-        onClick={() => onBuy(mockCoinPackages[1])}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即获取千寻币</Text>
       </View>
     </LanhuBottomModal>
   )

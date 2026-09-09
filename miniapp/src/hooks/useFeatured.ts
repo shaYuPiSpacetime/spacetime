@@ -15,7 +15,6 @@ export function useFeatured() {
 
   // 弹窗显隐状态
   const [authModalVisible, setAuthModalVisible] = useState(false)
-  const [coinModalVisible, setCoinModalVisible] = useState(false)
   const [unlockModalVisible, setUnlockModalVisible] = useState(false)
 
   // 当前选中的嘉宾（用于解锁弹窗展示）
@@ -27,9 +26,6 @@ export function useFeatured() {
   // 弹窗控制方法
   const showAuthModal = () => setAuthModalVisible(true)
   const hideAuthModal = () => setAuthModalVisible(false)
-
-  const showCoinModal = () => setCoinModalVisible(true)
-  const hideCoinModal = () => setCoinModalVisible(false)
 
   /** 显示解锁弹窗，并记录目标嘉宾 */
   const showUnlockModal = (guest: FeaturedGuest) => {
@@ -51,9 +47,6 @@ export function useFeatured() {
     authModalVisible,
     showAuthModal,
     hideAuthModal,
-    coinModalVisible,
-    showCoinModal,
-    hideCoinModal,
     unlockModalVisible,
     showUnlockModal,
     hideUnlockModal,

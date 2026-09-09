@@ -1,6 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import { useEffect, useState } from 'react'
-import Taro, { useRouter } from '@tarojs/taro'
+import { useState } from 'react'
+import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useCoins, type CoinPayState } from '@/hooks/useCoins'
 import type { CoinPackage } from '@/types/coin'
@@ -52,11 +52,11 @@ export default function CoinsPage() {
     usages,
   } = useCoins()
 
-  useEffect(() => {
-    fetchBalance()
-    fetchPackages()
-    fetchScenes()
-  }, [fetchBalance, fetchPackages, fetchScenes])
+  useDidShow(() => {
+    void fetchBalance().catch(() => undefined)
+    void fetchPackages().catch(() => undefined)
+    void fetchScenes().catch(() => undefined)
+  })
 
   const handlePay = async () => {
     if (!agreementChecked) {

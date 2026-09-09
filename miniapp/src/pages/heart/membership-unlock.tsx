@@ -1,5 +1,5 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
 import { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
@@ -10,13 +10,6 @@ import type { MembershipPlan } from '@/types/membership'
 
 const GOLD = '#D5A85F'
 const PAGE_BG = '#121212'
-
-const LANHU_PLANS: MembershipPlan[] = [
-  { id: -1, name: '年卡会员', price: 568, originalPrice: 2376, duration: 365, durationLabel: '12个月', monthlyPriceLabel: '¥47.33/月', tag: '专属2.4折', perks: [] },
-  { id: -2, name: '季卡会员', price: 318, originalPrice: 594, duration: 90, durationLabel: '3个月', monthlyPriceLabel: '¥106.00/月', tag: '专属5.4折', perks: [] },
-  { id: -3, name: '月卡会员', price: 198, originalPrice: 198, duration: 30, durationLabel: '1个月', monthlyPriceLabel: '¥198.00/月', tag: '尝鲜首选', perks: [] },
-  { id: -4, name: '单月会员', price: 218, originalPrice: 218, duration: 30, durationLabel: '1个月', monthlyPriceLabel: '¥218.00/月', tag: '随用随开', perks: [] },
-]
 
 const LANHU_BENEFITS = [
   { icon: miniappOssIcons.memberBenefitMatch, title: '心动名单一键揭晓：123人', desc: '有人对你心动了！看到喜欢的，立即发起对话' },
@@ -39,18 +32,12 @@ export default function HeartMembershipUnlockPage() {
     selectPlan,
     confirmPay,
   } = useMembership()
-  const displayPlans = useMemo(
-    () => plans.length > 0
-      ? [...plans, ...LANHU_PLANS.slice(Math.min(plans.length, LANHU_PLANS.length))]
-      : LANHU_PLANS,
-    [plans],
-  )
-  const [activePlanId, setActivePlanId] = useState(displayPlans[0].id)
+  const [activePlanId, setActivePlanId] = useState<number | null>(null)
   const [agreementChecked, setAgreementChecked] = useState(false)
 
-  useEffect(() => {
+  useDidShow(() => {
     void fetchPlans().catch(() => undefined)
-  }, [fetchPlans])
+  })
 
   useEffect(() => {
     if (!plans.length) return
@@ -60,22 +47,22 @@ export default function HeartMembershipUnlockPage() {
   }, [plans, selectPlan])
 
   const activePlan = useMemo(
-    () => displayPlans.find(plan => plan.id === activePlanId) || displayPlans[0],
-    [activePlanId, displayPlans],
+    () => plans.find(plan => plan.id === activePlanId) || plans[0],
+    [activePlanId, plans],
   )
 
   const handleSelectPlan = (plan: MembershipPlan) => {
     setActivePlanId(plan.id)
-    if (plan.id > 0) selectPlan(plan)
+    selectPlan(plan)
   }
 
   const handlePay = async () => {
-    if (!agreementChecked) {
-      Taro.showToast({ title: '请先阅读并同意会员服务协议', icon: 'none' })
+    if (!activePlan) {
+      Taro.showToast({ title: plansLoading ? '套餐加载中，请稍后重试' : '套餐暂不可用，请稍后重试', icon: 'none' })
       return
     }
-    if (activePlan.id <= 0) {
-      Taro.showToast({ title: plansLoading ? '套餐加载中，请稍后重试' : '套餐暂不可用，请稍后重试', icon: 'none' })
+    if (!agreementChecked) {
+      Taro.showToast({ title: '请先阅读并同意会员服务协议', icon: 'none' })
       return
     }
     await confirmPay('heart_unlock_all')
@@ -87,14 +74,14 @@ export default function HeartMembershipUnlockPage() {
       <ScrollView scrollY enableFlex showScrollbar={false} style={{ flex: 1, height: 0, minHeight: 0 }}>
         <View style={{ width: '750rpx', paddingBottom: '36rpx' }}>
           <MemberHero />
-          <PlanRail plans={displayPlans} activePlanId={activePlan.id} onSelect={handleSelectPlan} />
+          <PlanRail plans={plans} activePlanId={activePlan?.id ?? null} loading={plansLoading} onSelect={handleSelectPlan} />
           <Benefits />
         </View>
       </ScrollView>
       <PaymentBar
         plan={activePlan}
         checked={agreementChecked}
-        loading={payLoading}
+        loading={payLoading || plansLoading}
         onToggle={() => setAgreementChecked(value => !value)}
         onPay={handlePay}
       />
@@ -157,7 +144,14 @@ function SpeechBubble({ left, top, text, tail }: { left: number; top: number; te
   )
 }
 
-function PlanRail({ plans, activePlanId, onSelect }: { plans: MembershipPlan[]; activePlanId: number; onSelect: (plan: MembershipPlan) => void }) {
+function PlanRail({ plans, activePlanId, loading, onSelect }: { plans: MembershipPlan[]; activePlanId: number | null; loading: boolean; onSelect: (plan: MembershipPlan) => void }) {
+  if (!plans.length) {
+    return (
+      <View style={{ width: '700rpx', height: '160rpx', margin: '24rpx auto', borderRadius: '12rpx', background: '#242424', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: '#B8B8B8', fontSize: '26rpx' }}>{loading ? '套餐加载中…' : '暂无可购买套餐，请稍后重试'}</Text>
+      </View>
+    )
+  }
   return (
     <ScrollView scrollX showScrollbar={false} style={{ width: '750rpx', height: '302rpx', whiteSpace: 'nowrap' }}>
       <View style={{ width: `${plans.length * 218 + Math.max(0, plans.length - 1) * 10 + 50}rpx`, height: '284rpx', padding: '24rpx 25rpx 0', display: 'flex', flexDirection: 'row', gap: '10rpx', boxSizing: 'border-box' }}>
@@ -201,12 +195,13 @@ function Benefits() {
   )
 }
 
-function PaymentBar({ plan, checked, loading, onToggle, onPay }: { plan: MembershipPlan; checked: boolean; loading: boolean; onToggle: () => void; onPay: () => void }) {
+function PaymentBar({ plan, checked, loading, onToggle, onPay }: { plan?: MembershipPlan; checked: boolean; loading: boolean; onToggle: () => void; onPay: () => void }) {
+  const unavailable = !plan || loading
   return (
     <View style={{ width: '750rpx', height: '232rpx', padding: '24rpx 25rpx 18rpx', background: '#FFFFFF', boxSizing: 'border-box', flexShrink: 0 }}>
-      <View onClick={onPay} style={{ width: '700rpx', height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
+      <View onClick={() => { if (!unavailable) onPay() }} style={{ width: '700rpx', height: '98rpx', borderRadius: '49rpx', background: unavailable ? '#777777' : '#211F20', display: 'flex', flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
         <View style={{ width: '452rpx', height: '98rpx', display: 'flex', alignItems: 'center', paddingLeft: '32rpx', boxSizing: 'border-box' }}>
-          <Text style={{ color: '#FFD58E', fontSize: '30rpx', lineHeight: '44rpx' }}>{loading ? '支付中…' : `¥${plan.price.toFixed(2)}/${plan.name.replace('连续', '')}`}</Text>
+          <Text style={{ color: '#FFD58E', fontSize: '30rpx', lineHeight: '44rpx' }}>{loading ? '处理中…' : plan ? `¥${plan.price.toFixed(2)}/${plan.name.replace('连续', '')}` : '暂无可购买套餐'}</Text>
         </View>
         <View style={{ width: '248rpx', height: '98rpx', borderRadius: '49rpx', background: '#FFC766', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: '#211F20', fontSize: '32rpx', fontWeight: 600, lineHeight: '46rpx' }}>立即开通</Text>

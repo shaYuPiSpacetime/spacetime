@@ -1,6 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useEffect, useState } from 'react'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useMembership, type MembershipPayState } from '@/hooks/useMembership'
 import { useAuthStore } from '@/stores/authStore'
@@ -52,11 +52,11 @@ export default function MembershipPage() {
   const [activePlanId, setActivePlanId] = useState<number | null>(initialActivePlan?.id ?? null)
   const [agreementChecked, setAgreementChecked] = useState(false)
 
-  useEffect(() => {
-    fetchMyMembership()
-    fetchPlans()
-    fetchBenefits()
-  }, [fetchBenefits, fetchMyMembership, fetchPlans])
+  useDidShow(() => {
+    void fetchMyMembership().catch(() => undefined)
+    void fetchPlans().catch(() => undefined)
+    void fetchBenefits().catch(() => undefined)
+  })
 
   useEffect(() => {
     if (plans.length === 0 || plans.some(plan => plan.id === activePlanId)) return

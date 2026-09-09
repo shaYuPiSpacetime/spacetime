@@ -94,7 +94,9 @@ assert.match(heartMembership, /时空邂逅会员/, '独立会员页标题必须
 assert.match(heartMembership, /免费解锁全部对你心动的人/, '独立会员页主标题必须与蓝湖一致')
 assert.match(heartMembership, /心动名单一键揭晓/, '独立会员页必须还原心动名单权益卡')
 assert.match(heartMembership, /谁来看过你/, '独立会员页必须还原访客权益卡')
-assert.match(heartMembership, /activePlan\.id <= 0/, '蓝湖展示套餐不得使用占位 ID 创建真实支付订单')
+assert.doesNotMatch(heartMembership, /LANHU_PLANS/, '独立会员页不得使用硬编码价格或占位套餐')
+assert.match(heartMembership, /if \(!activePlan\)/, '接口没有返回套餐时必须阻止创建支付订单')
+assert.match(heartMembership, /plans=\{plans\}/, '独立会员页必须直接展示后台返回的套餐')
 assert.doesNotMatch(
   heartMembership,
   /pages\/membership\/index|MembershipHero|MembershipPaymentBar/,

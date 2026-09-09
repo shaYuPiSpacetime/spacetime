@@ -30,7 +30,7 @@ function adaptCoinPackage(pkg: CoinPackageVO): CoinPackage {
   return {
     id: pkg.id,
     amount: coinCount + bonusCount,
-    price: Number(pkg.amount || 0),
+    price: Number(pkg.discountAmount ?? pkg.amount ?? 0),
     label: pkg.packageDesc || pkg.packageName,
     tag: pkg.packageTag,
     originalPrice: originAmount > 0 ? `¥${originAmount.toFixed(2)}` : undefined,
