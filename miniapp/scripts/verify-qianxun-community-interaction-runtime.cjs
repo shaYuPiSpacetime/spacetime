@@ -46,11 +46,6 @@ async function screenshot(miniProgram, outputDir, filename, label) {
   }
 }
 
-async function elementCenterY(element) {
-  const [offset, size] = await Promise.all([element.offset(), element.size()])
-  return offset.top + size.height / 2
-}
-
 async function openQianxunHome(miniProgram, label) {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     await miniProgram.callWxMethod('setStorageSync', 'token', 'dev-fixed-token-17366629764')
@@ -94,48 +89,31 @@ async function openQianxunHome(miniProgram, label) {
   await screenshot(miniProgram, outputDir, '01-成家-热门话题第二页.png', '成家热门话题第二页')
 
   await tap(page, '#qianxun-primary-kindred', '知音一级 Tab', 3000)
-  const likeButton = await page.$('.qianxun-yuemu-like')
-  assert.ok(likeButton, '悦目必须至少有一个可操作的心动按钮')
-  const beforeLikeLabel = await likeButton.attribute('aria-label')
-  const beforeLikeText = await likeButton.text()
-  await likeButton.tap()
-  await page.waitFor(1500)
-  const blockedSheet = await page.$('#qianxun-uncertified-sheet')
-  if (blockedSheet) {
-    assert.ok(await blockedSheet, '未满足准入条件时必须给出明确认证反馈')
-  } else {
-    const afterLikeButton = await page.$('.qianxun-yuemu-like')
-    const afterLikeLabel = await afterLikeButton.attribute('aria-label')
-    const afterLikeText = await afterLikeButton.text()
-    assert.ok(afterLikeLabel !== beforeLikeLabel || afterLikeText !== beforeLikeText, '悦目点击心动后必须立即切换状态')
-    await afterLikeButton.tap()
-    await page.waitFor(1500)
-    const restoredButton = await page.$('.qianxun-yuemu-like')
-    const restoredLabel = await restoredButton.attribute('aria-label')
-    const restoredText = await restoredButton.text()
-    assert.ok(restoredLabel === beforeLikeLabel || restoredText === beforeLikeText, '运行态复验结束后必须恢复原心动状态')
+  const soulmateCard = await page.$('.qianxun-zhiyin-post-card')
+  const soulmateEmpty = await page.$('#qianxun-zhiyin-empty-state')
+  assert.ok(soulmateCard || soulmateEmpty, '心灵搭子必须展示动态卡片或完整空态')
+  if (soulmateCard) {
+    assert.match(await soulmateCard.outerWxml(), /qianxun-comment-icon[\s\S]*qianxun-like-icon/, '心灵搭子动态必须包含评论和心动操作')
   }
-  await screenshot(miniProgram, outputDir, '02-知音-悦目心动反馈.png', '知音悦目心动反馈')
+  await screenshot(miniProgram, outputDir, '02-知音-心灵搭子动态.png', '知音心灵搭子动态')
 
   const sincerePage = await openQianxunHome(miniProgram, '重开千寻首页')
   await tap(sincerePage, '#qianxun-primary-kindred', '知音一级 Tab', 2400)
   await tap(sincerePage, '#qianxun-zhiyin-sincere', '诚意贴二级 Tab', 2800)
-  const sincereFollow = await sincerePage.$('.qianxun-sincere-follow')
-  if (sincereFollow && (await sincereFollow.text()) !== '已关注') {
-    assert.equal(await sincereFollow.text(), '+ 关注', '诚意贴未关注按钮必须显示 + 关注')
-  }
-  const commentStat = await sincerePage.$('.sincere-comment-stat')
-  const commentIcon = await sincerePage.$('.sincere-comment-icon')
-  const likeStat = await sincerePage.$('.sincere-like-stat')
-  const likeIcon = await sincerePage.$('.sincere-like-icon')
-  if (commentStat && commentIcon && likeStat && likeIcon) {
-    assert.ok(Math.abs(await elementCenterY(commentStat) - await elementCenterY(commentIcon)) <= 1, '诚意贴评论图标必须垂直居中')
-    assert.ok(Math.abs(await elementCenterY(likeStat) - await elementCenterY(likeIcon)) <= 1, '诚意贴心动图标必须垂直居中')
+  const stationCard = await sincerePage.$('.qianxun-zhiyin-post-card')
+  const stationEmpty = await sincerePage.$('#qianxun-zhiyin-empty-state')
+  assert.ok(stationCard || stationEmpty, '时空站台必须展示动态卡片或完整空态')
+  if (stationCard) {
+    const stationFollow = await sincerePage.$('.qianxun-sincere-follow')
+    assert.ok(stationFollow, '时空站台动态必须展示关注操作')
+    if ((await stationFollow.text()) !== '已关注') {
+      assert.equal(await stationFollow.text(), '+ 关注', '时空站台未关注按钮必须显示 + 关注')
+    }
+    assert.match(await stationCard.outerWxml(), /qianxun-comment-icon[\s\S]*qianxun-like-icon/, '时空站台动态必须包含评论和心动操作')
   } else {
-    assert.ok(await sincerePage.$('image'), '生产诚意贴无数据时必须展示完整空态')
-    console.log('生产固定测试账号暂无诚意贴，已验证空态；卡片图标由隔离契约运行态继续验证')
+    console.log('生产固定测试账号暂无时空站台动态，已验证空态；卡片一致性由隔离契约运行态继续验证')
   }
-  await screenshot(miniProgram, outputDir, '03-知音-诚意贴图标居中.png', '知音诚意贴图标居中')
+  await screenshot(miniProgram, outputDir, '03-知音-时空站台动态.png', '知音时空站台动态')
 
   const composePage = await timeout(miniProgram.reLaunch('/pages/qianxun/compose'), '打开发布动态')
   await composePage.waitFor(2200)

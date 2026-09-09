@@ -149,6 +149,7 @@ export interface CommunityConfig {
   postMaxImages: number
   postMaxTextLength: number
   reportEntryEnabled: boolean
+  stationPublishAllowed?: boolean
   topics: CommunityDictOption[]
   reportReasons: CommunityDictOption[]
   homeTabs: Array<{ entryKey: string; entryName: string; sort: number }>
@@ -167,6 +168,7 @@ interface CommunityMetaPayloadVO extends Partial<CommunityMetaVO> {
   dictionaries?: Record<string, CommunityDictOption[]>
   copies?: Record<string, string>
   configs?: Record<string, string | number | boolean>
+  capabilities?: Record<string, boolean>
 }
 
 export interface CommunityTopicCardVO {
@@ -350,6 +352,7 @@ export function getCommunityTopicPosts(topicId: number | string, sort: 'HOT' | '
 
 export const getYuemuUsers = (page = 1, size = 20) => get<PageVO<YuemuUserVO>>('/miniapp/community/yuemu', { page, size })
 export const toggleYuemuLike = (targetUserId: number) => post<{ liked: boolean }>(`/miniapp/community/yuemu/${targetUserId}/like`)
+export const getSoulmatePosts = (page = 1, size = 20) => get<PageVO<CommunityPostVO>>('/miniapp/community/soulmate-posts', { page, size })
 export const getSincerePosts = (page = 1, size = 10) => get<PageVO<CommunityPostVO>>('/miniapp/community/posts', { postType: 'sincere_post', page, size })
 
 export const getCommunityPostDetail = (postId: number | string) => get<CommunityPostDetailVO>(`/miniapp/community/posts/${postId}`)
@@ -415,6 +418,7 @@ function normalizeCommunityMeta(raw: CommunityMetaPayloadVO): CommunityMetaVO {
     postMaxImages: Number(raw.postMaxImages ?? config('postMaxImages', 'community.post_max_images')),
     postMaxTextLength: Number(raw.postMaxTextLength ?? config('postMaxTextLength', 'community.post_max_text_length')),
     reportEntryEnabled: toBoolean(raw.reportEntryEnabled ?? config('reportEntryEnabled', 'community.report_entry_enabled')),
+    stationPublishAllowed: toBoolean(raw.stationPublishAllowed ?? raw.capabilities?.stationPublishAllowed),
     topics: raw.topics || dictionary('topics', 'communityTopic', 'community_topic'),
     reportReasons: raw.reportReasons || dictionary('reportReasons', 'communityReportReason', 'community_report_reason'),
     homeTabs: raw.homeTabs || [],
