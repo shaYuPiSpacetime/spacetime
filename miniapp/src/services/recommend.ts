@@ -75,11 +75,27 @@ export interface RecommendViewActionReq extends Record<string, unknown> {
 
 export interface RecommendReplayItemVO {
   candidateNo: string
-  profile: PublicProfileVO
+  profile: RecommendReplayProfileVO
   viewedAt: string
   lastAction: string
   dateGroup: string
   liked: boolean
+}
+
+export interface RecommendReplayProfileVO {
+  userId: number
+  userNo: string
+  nickname: string
+  avatar?: string | null
+  gender?: string | null
+  age?: number | null
+  currentCity?: string | null
+  occupationLabel?: string | null
+  liked?: boolean
+  matched?: boolean
+  matchNo?: string | null
+  canEnterConversation?: boolean
+  communicationMode?: CommunicationMode
 }
 
 export interface RecommendReplayPageVO {

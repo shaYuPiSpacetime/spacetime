@@ -330,7 +330,6 @@ export default function RecommendPage() {
                   url: `/pages/heart/user?targetUserId=${candidate.userId}&sourceScene=fate`,
                 })
               }
-              onShare={() => void Taro.showShareMenu({ withShareTicket: true })}
               onIp={() => setShowIpDialog(true)}
               onCertification={() => setShowCertification(true)}
             />
@@ -493,13 +492,11 @@ function RecommendHeader({
 function RecommendCandidateCard({
   candidate,
   onOpen,
-  onShare,
   onIp,
   onCertification,
 }: {
   candidate: RecommendCandidateVO
   onOpen: () => void
-  onShare: () => void
   onIp: () => void
   onCertification: () => void
 }) {
@@ -567,25 +564,6 @@ function RecommendCandidateCard({
               background: 'linear-gradient(transparent,rgba(0,0,0,0.48))',
             }}
           />
-          <View
-            onClick={event => {
-              event.stopPropagation()
-              onShare()
-            }}
-            style={{
-              position: 'absolute',
-              right: '28rpx',
-              top: '28rpx',
-              width: '58rpx',
-              height: '58rpx',
-            }}
-          >
-            <Image
-              src={miniappOssIcons.profilePreviewShare}
-              mode="aspectFit"
-              style={{ width: '58rpx', height: '58rpx' }}
-            />
-          </View>
           {profile.avatar ? (
             <Image
               src={profile.avatar}

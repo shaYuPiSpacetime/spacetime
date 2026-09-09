@@ -276,7 +276,7 @@ function WaitingHeader({ onIdeal }: { onIdeal: () => void }) {
 function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
   const open = () =>
     post
-      ? void Taro.navigateTo({ url: `/pages/qianxun/post-detail?postId=${post.id}` })
+      ? void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })
       : void Taro.switchTab({ url: '/pages/index/index' })
   return (
     <View

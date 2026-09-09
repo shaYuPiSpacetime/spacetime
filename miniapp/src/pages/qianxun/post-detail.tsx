@@ -111,7 +111,7 @@ export default function QianxunPostDetailPage() {
   }
 
   useLoad(options => {
-    const postId = Number(options.id)
+    const postId = Number(options.id || options.postId)
     if (!Number.isFinite(postId) || postId <= 0) {
       setLoading(false)
       setLoadError(resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.postUnavailable))
