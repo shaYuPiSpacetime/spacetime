@@ -1,5 +1,8 @@
 package com.spacetime.admin.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.admin.dto.request.CoinPackageSaveReq;
@@ -30,6 +33,7 @@ import com.spacetime.common.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -322,6 +326,24 @@ class CommercialAdminServiceImplTest {
         assertThat(item.getChangeReason()).isEqualTo("调整每日专属悄悄话");
         assertThat(item.getBeforeSnapshot()).contains("normalViewQuota");
         assertThat(item.getAfterSnapshot()).contains("normalViewQuota");
+    }
+
+    @Test
+    @DisplayName("L3-15 配置日志倒序分页应使用创建时间与主键的确定性顺序")
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void getConfigLogs_shouldUseStableIndexFriendlyOrder() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), CommercialConfigLog.class);
+        when(commercialConfigLogDao.selectPage(any(), any())).thenReturn(page(List.of()));
+
+        service.getConfigLogs(1, 10);
+
+        ArgumentCaptor<LambdaQueryWrapper<CommercialConfigLog>> captor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(commercialConfigLogDao).selectPage(any(), captor.capture());
+        assertThat(captor.getValue().getSqlSegment())
+                .contains("create_time DESC")
+                .contains("id DESC");
     }
 
     private VipPackageSaveReq vipPackageReq(Long id, String name) {

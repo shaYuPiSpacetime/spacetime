@@ -204,11 +204,63 @@ class CommunityAdminServiceImplTest {
 
         var result = communityAdminService.getConfigVersion();
 
-        assertThat(result.getItems()).hasSize(13);
+        assertThat(result.getItems()).hasSize(14);
         assertThat(result.getSections()).extracting("code")
                 .containsExactly("entry", "audit", "report", "governance");
         assertThat(result.getItems()).filteredOn(item -> CommunityConfigKeys.INTERACTION_GATE_MODE.equals(item.getConfigKey()))
                 .singleElement().extracting("optionsKey").isEqualTo("interactionGateMode");
+        assertThat(result.getItems())
+                .filteredOn(item -> CommunityConfigKeys.SOULMATE_SOURCE_PHONES.equals(item.getConfigKey()))
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.getConfigValue()).isEqualTo("[]");
+                    assertThat(item.getConfigGroup()).isEqualTo("COMMUNITY_PRIVATE");
+                    assertThat(item.getHighRisk()).isTrue();
+                });
+    }
+
+    @Test
+    @DisplayName("旧配置版本读取时自动补齐心灵搭子手机号配置")
+    void getConfigVersion_legacySnapshot_shouldMergeNewCanonicalItem() throws Exception {
+        CommunityConfigVersion latest = new CommunityConfigVersion();
+        latest.setVersion(3);
+        latest.setVersionNo("community-v3");
+        latest.setConfigSnapshot(objectMapper.writeValueAsString(List.of(
+                configSnapshotItem(CommunityConfigKeys.POST_MAX_IMAGES, 9, false)
+        )));
+        when(communityExtensionDao.selectConfigVersionOne(any())).thenReturn(latest);
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of());
+        when(communityExtensionDao.selectAudits(any())).thenReturn(List.of());
+        when(dictDataDao.selectByDictType(anyString())).thenReturn(List.of());
+
+        var result = communityAdminService.getConfigVersion();
+
+        assertThat(result.getItems())
+                .filteredOn(item -> CommunityConfigKeys.SOULMATE_SOURCE_PHONES.equals(item.getConfigKey()))
+                .singleElement()
+                .extracting("configValue")
+                .isEqualTo("[]");
+    }
+
+    @Test
+    @DisplayName("心灵搭子手机号配置拒绝非法号码")
+    void saveConfigVersion_invalidSoulmatePhone_shouldReject() {
+        when(communityExtensionDao.selectConfigVersionOne(any())).thenReturn(null);
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of());
+
+        CommunityConfigVersionSaveReq req = new CommunityConfigVersionSaveReq();
+        req.setVersion(0);
+        req.setHighRiskConfirmed(true);
+        req.setItems(List.of(configRequestItem(
+                CommunityConfigKeys.SOULMATE_SOURCE_PHONES,
+                "[\"13800138000\",\"invalid\"]",
+                true)));
+
+        assertThatThrownBy(() -> communityAdminService.saveConfigVersion(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("invalid_soulmate_source_phone");
+
+        verify(appConfigDao, never()).upsert(any());
     }
 
     @Test

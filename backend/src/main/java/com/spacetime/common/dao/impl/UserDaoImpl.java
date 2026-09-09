@@ -38,6 +38,12 @@ public class UserDaoImpl implements UserDao {
     }
 
     @Override
+    public SysUser selectByPhone(String phone) {
+        return sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getPhone, phone));
+    }
+
+    @Override
     public SysUser selectById(Long id) {
         return sysUserMapper.selectById(id);
     }

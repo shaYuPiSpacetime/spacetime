@@ -387,7 +387,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
     @Override
     public Page<CommercialConfigLogVO> getConfigLogs(long page, long size) {
         LambdaQueryWrapper<CommercialConfigLog> wrapper = new LambdaQueryWrapper<CommercialConfigLog>()
-                .orderByDesc(CommercialConfigLog::getCreateTime);
+                .orderByDesc(CommercialConfigLog::getCreateTime)
+                .orderByDesc(CommercialConfigLog::getId);
         Page<CommercialConfigLog> raw = commercialConfigLogDao.selectPage(new Page<>(page, size), wrapper);
         Page<CommercialConfigLogVO> result = new Page<>(raw.getCurrent(), raw.getSize(), raw.getTotal());
         result.setRecords(raw.getRecords().stream().map(this::toConfigLogVO).toList());

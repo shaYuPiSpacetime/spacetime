@@ -171,7 +171,8 @@ CREATE TABLE IF NOT EXISTS app_commercial_config_log (
     updated_by BIGINT DEFAULT NULL,
     deleted TINYINT DEFAULT 0,
     INDEX idx_version_time (config_version, create_time),
-    INDEX idx_module_time (change_module, create_time)
+    INDEX idx_module_time (change_module, create_time),
+    INDEX `idx_commercial_log_deleted_time_id` (`deleted`, `create_time` DESC, `id` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商业化配置变更审计表';
 
 CREATE TABLE IF NOT EXISTS app_refund_record (

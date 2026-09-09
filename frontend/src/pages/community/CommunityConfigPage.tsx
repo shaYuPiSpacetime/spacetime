@@ -7,6 +7,7 @@ import { showToast } from '@/components/ui/toast';
 import { usePermission } from '@/hooks/usePermission';
 import { AuditTimeline, CommunityPage, CommunityPageHeader, ConfirmActionDialog, Field, Input, NativeSelect, PermissionState, metaCopy, metaOptions, unwrapData, useCommunityMeta } from '@/features/community/communityUi';
 import { cn } from '@/lib/utils';
+import { formatSoulmatePhoneConfig, prepareCommunityConfigItemsForSave, SOULMATE_PHONE_CONFIG_KEY } from './communityPhoneConfig';
 
 function configValueKey(items: CommunityConfigItemVO[]) {
   return JSON.stringify(items.map((item) => [item.configKey, item.configValue]));
@@ -106,6 +107,7 @@ export default function CommunityConfigPage() {
     const disabled = !canEdit || item.editable === false;
     if (type === 'BOOLEAN') return <NativeSelect includeAll={false} value={String(item.configValue)} onChange={(value) => updateItem(item.configKey, value === 'true')} options={metaOptions(meta, 'yesNo')} disabled={disabled} />;
     if (item.optionsKey) return <NativeSelect includeAll={false} value={String(item.configValue ?? '')} onChange={(value) => updateItem(item.configKey, value)} options={metaOptions(meta, item.optionsKey)} disabled={disabled} />;
+    if (item.configKey === SOULMATE_PHONE_CONFIG_KEY) return <div><textarea value={formatSoulmatePhoneConfig(item.configValue)} onChange={(event) => updateItem(item.configKey, event.target.value)} rows={6} disabled={disabled} placeholder="每行输入一个手机号，最多 50 个" className="w-full rounded-md border border-input bg-white px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50" /><p className="mt-2 text-xs leading-5 text-slate-500">仅用于服务端筛选“心灵搭子”动态，不会下发到小程序。</p></div>;
     if (type === 'JSON' || Array.isArray(item.configValue)) return <textarea value={typeof item.configValue === 'string' ? item.configValue : JSON.stringify(item.configValue, null, 2)} onChange={(event) => updateItem(item.configKey, event.target.value)} rows={5} disabled={disabled} className="w-full rounded-md border border-input bg-white px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50" />;
     return <Input type={type === 'NUMBER' ? 'number' : 'text'} value={String(item.configValue ?? '')} onChange={(event) => updateItem(item.configKey, type === 'NUMBER' ? Number(event.target.value) : event.target.value)} disabled={disabled} />;
   }
@@ -115,7 +117,7 @@ export default function CommunityConfigPage() {
   async function save(highRiskConfirmed = false) {
     setSaving(true);
     try {
-      const response = await saveCommunityConfigs({ version: data.version, items: data.items || [], changeSummary: metaCopy(meta, 'config_change_summary'), highRiskConfirmed });
+      const response = await saveCommunityConfigs({ version: data.version, items: prepareCommunityConfigItemsForSave(data.items || []), changeSummary: metaCopy(meta, 'config_change_summary'), highRiskConfirmed });
       const saved = normalizeConfig(response);
       if (!saved.items?.length) {
         await load();
@@ -126,7 +128,9 @@ export default function CommunityConfigPage() {
       setConfirmOpen(false);
       showToast(metaCopy(meta, 'config_save_success'), 'success');
     } catch (cause) {
-      if (cause instanceof Error && /version|版本|conflict/i.test(cause.message)) showToast(metaCopy(meta, 'version_conflict'), 'error');
+      const message = cause instanceof Error ? cause.message : '保存失败';
+      if (/version|版本|conflict/i.test(message)) showToast(metaCopy(meta, 'version_conflict'), 'error');
+      else showToast(message, 'error');
     } finally {
       setSaving(false);
     }

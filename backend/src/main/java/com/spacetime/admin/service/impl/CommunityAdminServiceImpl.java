@@ -373,7 +373,10 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     @Override
     public CommunityConfigVersionVO getConfigVersion() {
         CommunityConfigVersion latest = latestConfigVersion();
-        List<CommunityConfigItemVO> items = latest == null ? defaultConfigItems() : readConfigItems(latest.getConfigSnapshot());
+        List<CommunityConfigItemVO> canonicalItems = defaultConfigItems();
+        List<CommunityConfigItemVO> items = latest == null
+                ? canonicalItems
+                : mergeCanonicalConfigItems(canonicalItems, readConfigItems(latest.getConfigSnapshot()));
         return toConfigVersionVO(latest, items);
     }
 
@@ -387,19 +390,24 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         List<CommunityConfigItemVO> canonicalItems = defaultConfigItems();
         Map<String, CommunityConfigItemVO> canonicalByKey = canonicalItems.stream()
                 .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item));
-        List<CommunityConfigItemVO> previousItems = latest == null ? canonicalItems : readConfigItems(latest.getConfigSnapshot());
+        List<CommunityConfigItemVO> previousItems = latest == null
+                ? canonicalItems
+                : mergeCanonicalConfigItems(canonicalItems, readConfigItems(latest.getConfigSnapshot()));
         Map<String, CommunityConfigItemVO> previousByKey = previousItems.stream()
                 .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item, (left, right) -> left));
         Set<String> requestKeys = new LinkedHashSet<>();
+        Map<String, Object> normalizedValues = new LinkedHashMap<>();
         for (CommunityConfigVersionSaveReq.Item item : req.getItems()) {
             if (!requestKeys.add(item.getConfigKey())) throw error("duplicate_config_key");
             if (!canonicalByKey.containsKey(item.getConfigKey())) throw error("unsupported_config_key");
+            normalizedValues.put(item.getConfigKey(), normalizeConfigValue(item.getConfigKey(), item.getConfigValue()));
         }
         boolean highRiskChanged = req.getItems().stream().anyMatch(item -> {
             CommunityConfigItemVO canonical = canonicalByKey.get(item.getConfigKey());
             CommunityConfigItemVO previous = previousByKey.get(item.getConfigKey());
             return Boolean.TRUE.equals(canonical.getHighRisk())
-                    && !sameConfigValue(previous == null ? null : previous.getConfigValue(), item.getConfigValue());
+                    && !sameConfigValue(previous == null ? null : previous.getConfigValue(),
+                    normalizedValues.get(item.getConfigKey()));
         });
         if (highRiskChanged && !Boolean.TRUE.equals(req.getHighRiskConfirmed())) {
             throw error("high_risk_confirmation_required");
@@ -411,11 +419,13 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                         (left, right) -> left, LinkedHashMap::new));
         for (CommunityConfigVersionSaveReq.Item item : req.getItems()) {
             CommunityConfigItemVO canonical = canonicalByKey.get(item.getConfigKey());
-            CommunityConfigItemVO value = canonicalConfigItem(canonical, item.getConfigValue());
+            Object normalizedValue = normalizedValues.get(item.getConfigKey());
+            CommunityConfigItemVO value = canonicalConfigItem(canonical, normalizedValue);
             merged.put(item.getConfigKey(), value);
             AppConfig config = new AppConfig();
             config.setConfigKey(item.getConfigKey());
-            config.setConfigValue(item.getConfigValue() instanceof String stringValue ? stringValue : json(item.getConfigValue()));
+            config.setConfigValue(normalizedValue instanceof String stringValue
+                    ? stringValue : json(normalizedValue));
             config.setConfigGroup(canonical.getConfigGroup());
             config.setConfigType(canonical.getConfigType());
             config.setPublicVisible(PUBLIC_COMMUNITY_CONFIG_KEYS.contains(item.getConfigKey()) ? 1 : 0);
@@ -673,13 +683,14 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     }
 
     /**
-     * 查询社区配置列表（互动准入、内容规则、审核与治理等 13 项配置）
+     * 查询社区配置列表（互动准入、知音运营、内容规则、审核与治理等 14 项配置）
      * @return 配置列表
      */
     @Override
     public List<AppConfigVO> getCommunityConfigs() {
         Map<String, AppConfig> configMap = appConfigDao.selectByKeys(List.of(
                 CommunityConfigKeys.INTERACTION_GATE_MODE,
+                CommunityConfigKeys.SOULMATE_SOURCE_PHONES,
                 CommunityConfigKeys.POST_MAX_IMAGES,
                 CommunityConfigKeys.POST_MAX_TEXT_LENGTH,
                 CommunityConfigKeys.POST_MAX_MENTIONS,
@@ -696,6 +707,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
 
         return List.of(
                 toConfigVO(configMap, CommunityConfigKeys.INTERACTION_GATE_MODE, ConfigTypeEnum.TEXT.getCode(), null, "COMMUNITY", message("config_name_interaction_gate")),
+                toConfigVO(configMap, CommunityConfigKeys.SOULMATE_SOURCE_PHONES, ConfigTypeEnum.JSON.getCode(), "[]", "COMMUNITY_PRIVATE", message("config_name_soulmate_source_phones")),
                 toConfigVO(configMap, CommunityConfigKeys.POST_MAX_IMAGES, ConfigTypeEnum.NUMBER.getCode(), null, "COMMUNITY", message("config_name_post_max_images")),
                 toConfigVO(configMap, CommunityConfigKeys.POST_MAX_TEXT_LENGTH, ConfigTypeEnum.NUMBER.getCode(), null, "COMMUNITY", message("config_name_post_max_text")),
                 toConfigVO(configMap, CommunityConfigKeys.POST_MAX_MENTIONS, ConfigTypeEnum.NUMBER.getCode(), null, "COMMUNITY", message("config_name_post_max_mentions")),
@@ -1164,6 +1176,48 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         }).toList();
     }
 
+    /** 旧版本快照只保留配置值，展示属性与新增配置项始终以当前标准清单为准。 */
+    private List<CommunityConfigItemVO> mergeCanonicalConfigItems(List<CommunityConfigItemVO> canonicalItems,
+                                                                   List<CommunityConfigItemVO> storedItems) {
+        Map<String, CommunityConfigItemVO> storedByKey = storedItems.stream()
+                .filter(item -> StrUtil.isNotBlank(item.getConfigKey()))
+                .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item,
+                        (left, right) -> left));
+        return canonicalItems.stream().map(canonical -> {
+            CommunityConfigItemVO stored = storedByKey.get(canonical.getConfigKey());
+            return stored == null
+                    ? canonical
+                    : canonicalConfigItem(canonical, stored.getConfigValue());
+        }).toList();
+    }
+
+    private Object normalizeConfigValue(String key, Object value) {
+        if (!CommunityConfigKeys.SOULMATE_SOURCE_PHONES.equals(key)) return value;
+        List<?> rawPhones;
+        if (value == null || value instanceof String stringValue && StrUtil.isBlank(stringValue)) {
+            rawPhones = List.of();
+        } else if (value instanceof Collection<?> collection) {
+            rawPhones = new ArrayList<>(collection);
+        } else if (value instanceof String stringValue) {
+            try {
+                rawPhones = objectMapper.readValue(stringValue, new TypeReference<List<String>>() {});
+            } catch (Exception exception) {
+                throw error("invalid_soulmate_source_phone");
+            }
+        } else {
+            throw error("invalid_soulmate_source_phone");
+        }
+        if (rawPhones.size() > 50) throw error("too_many_soulmate_source_phones");
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        for (Object rawPhone : rawPhones) {
+            if (!(rawPhone instanceof String phone) || !phone.trim().matches("^1[3-9]\\d{9}$")) {
+                throw error("invalid_soulmate_source_phone");
+            }
+            normalized.add(phone.trim());
+        }
+        return json(new ArrayList<>(normalized));
+    }
+
     private void applyConfigPresentation(CommunityConfigItemVO vo) {
         String key = vo.getConfigKey();
         if (CommunityConfigKeys.INTERACTION_GATE_MODE.equals(key)) {
@@ -1171,6 +1225,12 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             vo.setOptionsKey("interactionGateMode");
             vo.setHighRisk(true);
             vo.setSort(10);
+            return;
+        }
+        if (CommunityConfigKeys.SOULMATE_SOURCE_PHONES.equals(key)) {
+            vo.setSectionCode("entry");
+            vo.setHighRisk(true);
+            vo.setSort(20);
             return;
         }
         if (CommunityConfigKeys.REPORT_ENTRY_ENABLED.equals(key)) {
@@ -1855,7 +1915,9 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setConfigValue(entity != null ? entity.getConfigValue() : defaultValue);
         vo.setConfigGroup(entity != null ? entity.getConfigGroup() : group);
         vo.setConfigType(entity != null ? entity.getConfigType() : type);
-        vo.setPublicVisible(entity != null && entity.getPublicVisible() != null ? entity.getPublicVisible() : 1);
+        vo.setPublicVisible(entity != null && entity.getPublicVisible() != null
+                ? entity.getPublicVisible()
+                : (PUBLIC_COMMUNITY_CONFIG_KEYS.contains(key) ? 1 : 0));
         vo.setStatus(entity != null ? entity.getStatus() : CommonStatusEnum.ENABLED.getCode());
         vo.setRemark(entity != null && StrUtil.isNotBlank(entity.getRemark()) ? entity.getRemark() : remark);
         vo.setUpdateTime(entity != null && entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);

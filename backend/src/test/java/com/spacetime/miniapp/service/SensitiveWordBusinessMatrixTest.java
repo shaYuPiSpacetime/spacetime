@@ -195,8 +195,10 @@ class SensitiveWordBusinessMatrixTest {
                 type == CommunityContentSecurityPort.class ? adapter : type == CommunityAuditPolicy.class
                         ? new CommunityAuditPolicy() : dependency(type)).toArray();
         var service = (CommunityServiceImpl) constructor.newInstance(args);
-        AppUser user = new AppUser(); user.setId(1L); user.setOpenid("test-openid");
+        AppUser user = new AppUser(); user.setId(1L); user.setOpenid("test-openid"); user.setPhone("13800000000");
         when(dependency(AppUserDao.class).selectById(1L)).thenReturn(user);
+        SysUser staff = new SysUser(); staff.setPhone(user.getPhone()); staff.setStatus("ENABLED");
+        when(dependency(UserDao.class).selectByPhone(user.getPhone())).thenReturn(staff);
         var configs = Map.of(CommunityConfigKeys.INTERACTION_GATE_MODE, "LOGIN_ONLY",
                 CommunityConfigKeys.POST_MAX_IMAGES, "9", CommunityConfigKeys.POST_MAX_TEXT_LENGTH, "500");
         when(dependency(AppConfigDao.class).selectByKey(anyString())).thenAnswer(call -> {

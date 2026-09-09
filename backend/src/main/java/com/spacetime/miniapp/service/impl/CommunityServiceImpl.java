@@ -31,9 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -68,6 +70,8 @@ public class CommunityServiceImpl implements CommunityService {
     private final DictDataDao dictDataDao;
     /** 小程序用户数据访问 */
     private final AppUserDao appUserDao;
+    /** 后台工作人员数据访问，用于时空站台发布鉴权。 */
+    private final UserDao userDao;
     /** 用户审核内容统一查询 */
     private final AppUserAuditContentService auditContentService;
     /** PRD01 准入状态计算 */
@@ -192,14 +196,7 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(StrUtil.isNotBlank(normalizedPostType), CommunityPost::getPostType, normalizedPostType)
                 .eq(topicId != null, CommunityPost::getTopicId, topicId)
                 .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode());
-        if (userId != null) {
-            List<Long> hiddenAuthorIds = communityExtensionDao.selectPreferences(new LambdaQueryWrapper<CommunityContentPreference>()
-                            .eq(CommunityContentPreference::getUserId, userId)
-                            .eq(CommunityContentPreference::getActionType, "hide_author_posts")
-                            .eq(CommunityContentPreference::getStatus, "enabled"))
-                    .stream().map(CommunityContentPreference::getTargetUserId).filter(Objects::nonNull).toList();
-            if (!hiddenAuthorIds.isEmpty()) wrapper.notIn(CommunityPost::getAuthorId, hiddenAuthorIds);
-        }
+        excludeHiddenAuthors(userId, wrapper);
         String normalizedScene = StrUtil.blankToDefault(scene, "").trim().toUpperCase(Locale.ROOT);
         if ("FOLLOWING".equals(normalizedScene)) {
             requireLoginForScene(userId);
@@ -231,6 +228,45 @@ public class CommunityServiceImpl implements CommunityService {
         }
         Page<CommunityPost> result = communityPostDao.selectPage(new Page<>(safePage, safeSize), wrapper);
         return toPostCardPage(userId, result);
+    }
+
+    @Override
+    public Page<CommunityPostCardVO> getSoulmatePosts(Long userId, int page, int size) {
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        AppConfig sourceConfig = appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES);
+        List<String> phoneHashes = sourceConfig == null ? List.of() : parseJsonList(sourceConfig.getConfigValue()).stream()
+                .map(String::trim)
+                .filter(phone -> phone.matches("^1[3-9]\\d{9}$"))
+                .distinct()
+                .limit(50)
+                .map(this::hashPhone)
+                .toList();
+        if (phoneHashes.isEmpty()) {
+            return emptyPostPage(safePage, safeSize);
+        }
+
+        List<Long> authorIds = appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
+                        .in(AppUser::getPhoneHash, phoneHashes)
+                        .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode()))
+                .stream()
+                .map(AppUser::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (authorIds.isEmpty()) {
+            return emptyPostPage(safePage, safeSize);
+        }
+
+        LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getPostType, CommunityPostTypeEnum.COMMUNITY.getCode())
+                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
+                .in(CommunityPost::getAuthorId, authorIds);
+        excludeHiddenAuthors(userId, wrapper);
+        wrapper.orderByDesc(CommunityPost::getCreateTime)
+                .orderByDesc(CommunityPost::getId);
+        return toPostCardPage(userId,
+                communityPostDao.selectPage(new Page<>(safePage, safeSize), wrapper));
     }
 
     @Override
@@ -392,11 +428,14 @@ public class CommunityServiceImpl implements CommunityService {
     public CommunityPublishResultVO createPost(Long userId, CommunityPostCreateReq req) {
         // 1. 校验交互权限
         ensureCommunityWriteAllowed(userId, "publish_post");
+        String contentType = req.resolvedContentType();
+        AppUser author = requireUser(userId);
+        if (CommunityPostTypeEnum.SINCERE_POST.getCode().equals(contentType)) {
+            ensureStationPublisher(author);
+        }
         // 2. 校验请求参数
         validatePostRequest(userId, req);
 
-        String contentType = req.resolvedContentType();
-        AppUser author = requireUser(userId);
         boolean machineAuditEnabled = defaultBool(CommunityConfigKeys.MACHINE_AUDIT_ENABLED, true);
         CommunitySecurityResult securityResult = machineAuditEnabled
                 ? contentSecurityPort.checkPost(author.getOpenid(), req.getContent(), req.getImageUrls(), "community")
@@ -821,7 +860,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public CommunityMetaVO getMeta() {
+    public CommunityMetaVO getMeta(Long userId) {
         CommunityConfigVO config = getConfig();
         CommunityMetaVO result = new CommunityMetaVO();
         List<String> dictTypes = List.of(
@@ -851,6 +890,7 @@ public class CommunityServiceImpl implements CommunityService {
         result.getConfigs().put("postMaxImages", config.getPostMaxImages());
         result.getConfigs().put("postMaxTextLength", config.getPostMaxTextLength());
         result.getConfigs().put("reportEntryEnabled", config.getReportEntryEnabled());
+        result.getCapabilities().put("stationPublishAllowed", isStationPublisher(userId));
         result.setHomeTabs(config.getHomeTabs());
         return result;
     }
@@ -1750,6 +1790,52 @@ public class CommunityServiceImpl implements CommunityService {
             if (!"CORE_ALLOWED".equals(accessStatus)) {
                 throw error("core_access_required");
             }
+        }
+    }
+
+    /** 将当前用户主动隐藏的作者排除在信息流之外。 */
+    private void excludeHiddenAuthors(Long userId, LambdaQueryWrapper<CommunityPost> wrapper) {
+        if (userId == null) return;
+        List<Long> hiddenAuthorIds = communityExtensionDao.selectPreferences(
+                        new LambdaQueryWrapper<CommunityContentPreference>()
+                                .eq(CommunityContentPreference::getUserId, userId)
+                                .eq(CommunityContentPreference::getActionType, "hide_author_posts")
+                                .eq(CommunityContentPreference::getStatus, "enabled"))
+                .stream()
+                .map(CommunityContentPreference::getTargetUserId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (!hiddenAuthorIds.isEmpty()) {
+            wrapper.notIn(CommunityPost::getAuthorId, hiddenAuthorIds);
+        }
+    }
+
+    /** 时空站台发布人必须同时是启用的后台工作人员。 */
+    private void ensureStationPublisher(AppUser user) {
+        if (!isStationPublisher(user)) {
+            throw error("station_staff_only");
+        }
+    }
+
+    private boolean isStationPublisher(Long userId) {
+        return userId != null && isStationPublisher(appUserDao.selectById(userId));
+    }
+
+    private boolean isStationPublisher(AppUser user) {
+        if (user == null || StrUtil.isBlank(user.getPhone())) return false;
+        SysUser staff = userDao.selectByPhone(user.getPhone().trim());
+        return staff != null
+                && CommonStatusEnum.ENABLED.getCode().equalsIgnoreCase(
+                        StrUtil.blankToDefault(staff.getStatus(), ""));
+    }
+
+    /** 配置手机号仅以 SHA-256 参与账号定位，避免进入查询参数和响应。 */
+    private String hashPhone(String phone) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(phone.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception exception) {
+            throw error("runtime_config_invalid");
         }
     }
 
