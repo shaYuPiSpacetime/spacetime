@@ -1,0 +1,14 @@
+{
+  "date": "2026-09-09T06:11:15.881Z",
+  "base": "http://127.0.0.1:5173",
+  "api": "http://127.0.0.1:8080",
+  "result": "PASS",
+  "originalPermissionStatus": 200,
+  "revokedPermissionStatus": 401,
+  "browserUnauthorizedResponses": 4,
+  "documentsThroughRecoveryAndRelogin": 1,
+  "sensitiveWordTotal": 48243,
+  "reloginSuccess": true,
+  "manualLogoutSuccess": true,
+  "pageErrors": []
+}

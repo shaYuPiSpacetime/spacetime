@@ -196,7 +196,7 @@ export function Sidebar() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) fetchRouters();
+    if (token) void fetchRouters().catch(() => {});
   }, []);
 
   return (
