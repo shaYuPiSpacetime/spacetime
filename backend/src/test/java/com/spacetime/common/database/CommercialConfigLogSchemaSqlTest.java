@@ -19,6 +19,8 @@ class CommercialConfigLogSchemaSqlTest {
     private static final String COMMERCIAL_MIGRATION = "backend/docs/sql/migration-prd04-commercial.sql";
     private static final String QUERY_INDEX_MIGRATION =
             "deploy/sql/prod/083_commercial_config_log_query_index.sql";
+    private static final String COMPACT_SNAPSHOT_MIGRATION =
+            "deploy/sql/prod/085_compact_commercial_config_log_snapshots.sql";
     private static final String BACKEND_DEPLOY_WORKFLOW =
             ".github/workflows/deploy-backend-prod.yml";
 
@@ -42,6 +44,21 @@ class CommercialConfigLogSchemaSqlTest {
 
         assertThat(readProjectFile(BACKEND_DEPLOY_WORKFLOW))
                 .contains(QUERY_INDEX_MIGRATION);
+    }
+
+    @Test
+    @DisplayName("存量配置日志应移除递归嵌套的 latestLogs 快照")
+    void recursiveSnapshotsShouldHaveIdempotentCleanupMigration() throws IOException {
+        Path migrationPath = resolveProjectFile(COMPACT_SNAPSHOT_MIGRATION);
+        assertThat(migrationPath).as("应提供配置日志快照瘦身升级脚本").exists();
+        String migration = Files.readString(migrationPath, StandardCharsets.UTF_8);
+        assertThat(migration)
+                .contains("JSON_VALID")
+                .contains("JSON_REMOVE")
+                .contains("$.latestLogs");
+
+        assertThat(readProjectFile(BACKEND_DEPLOY_WORKFLOW))
+                .contains(COMPACT_SNAPSHOT_MIGRATION);
     }
 
     private static String readProjectFile(String relativePath) throws IOException {

@@ -59,6 +59,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -137,7 +138,10 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         vo.setCoinPackages(listCoinPackages().stream().map(this::toCoinPackageVO).toList());
         vo.setCoinScenes(listSceneConfigs().stream().map(this::toSceneVO).toList());
         vo.setSettings(loadCommercialSettings());
-        vo.setLatestLogs(getConfigLogs(1, 5).getRecords());
+        List<CommercialConfigLog> latestLogs = commercialConfigLogDao.selectLatestSummaries(5);
+        vo.setLatestLogs((latestLogs == null ? List.<CommercialConfigLog>of() : latestLogs).stream()
+                .map(this::toConfigLogSummaryVO)
+                .toList());
         vo.setConfigVersion(vo.getLatestLogs().isEmpty() ? "COMM-INIT" : vo.getLatestLogs().get(0).getConfigVersion());
         return vo;
     }
@@ -561,9 +565,20 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         logEntity.setChangeSummary(StrUtil.blankToDefault(changeSummary, "商业化配置保存"));
         logEntity.setOperatorId(ctx != null ? ctx.getId() : null);
         logEntity.setOperatorName(ctx != null ? ctx.getNickname() : null);
-        logEntity.setBeforeSnapshot(toJson(before));
-        logEntity.setAfterSnapshot(toJson(after));
+        logEntity.setBeforeSnapshot(toJson(toConfigSnapshot(before)));
+        logEntity.setAfterSnapshot(toJson(toConfigSnapshot(after)));
         commercialConfigLogDao.insert(logEntity);
+    }
+
+    private Map<String, Object> toConfigSnapshot(CommercialConfigVO config) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("configVersion", config.getConfigVersion());
+        snapshot.put("vipBenefits", config.getVipBenefits());
+        snapshot.put("vipPackages", config.getVipPackages());
+        snapshot.put("coinPackages", config.getCoinPackages());
+        snapshot.put("coinScenes", config.getCoinScenes());
+        snapshot.put("settings", config.getSettings());
+        return snapshot;
     }
 
     private List<VipBenefit> listBenefits() {
@@ -759,6 +774,13 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         vo.setBeforeSnapshot(entity.getBeforeSnapshot());
         vo.setAfterSnapshot(entity.getAfterSnapshot());
         vo.setCreateTime(entity.getCreateTime());
+        return vo;
+    }
+
+    private CommercialConfigLogVO toConfigLogSummaryVO(CommercialConfigLog entity) {
+        CommercialConfigLogVO vo = toConfigLogVO(entity);
+        vo.setBeforeSnapshot(null);
+        vo.setAfterSnapshot(null);
         return vo;
     }
 

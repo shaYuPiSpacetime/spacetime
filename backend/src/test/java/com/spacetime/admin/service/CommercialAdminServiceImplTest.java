@@ -37,6 +37,7 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -66,7 +67,7 @@ class CommercialAdminServiceImplTest {
     @Mock private TradeOrderDao tradeOrderDao;
     @Mock private UserCoinLogDao userCoinLogDao;
     @Mock private RefundRecordDao refundRecordDao;
-    @Mock private ObjectMapper objectMapper;
+    @Spy private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @InjectMocks
     private CommercialAdminServiceImpl service;
@@ -346,6 +347,37 @@ class CommercialAdminServiceImplTest {
                 .contains("id DESC");
     }
 
+    @Test
+    @DisplayName("L3-16 配置首页不得分页读取包含大快照的审计日志")
+    void getConfig_shouldNotLoadFullAuditSnapshots() {
+        stubReadCatalogs();
+        CommercialConfigLog summary = new CommercialConfigLog();
+        summary.setConfigVersion("COMM-20260910153000");
+        summary.setBeforeSnapshot("x".repeat(1024));
+        summary.setAfterSnapshot("y".repeat(1024));
+        when(commercialConfigLogDao.selectLatestSummaries(5)).thenReturn(List.of(summary));
+
+        com.spacetime.admin.dto.response.CommercialConfigVO result = service.getConfig();
+
+        verify(commercialConfigLogDao, never()).selectPage(any(), any());
+        assertThat(result.getConfigVersion()).isEqualTo("COMM-20260910153000");
+        assertThat(result.getLatestLogs().getFirst().getBeforeSnapshot()).isNull();
+        assertThat(result.getLatestLogs().getFirst().getAfterSnapshot()).isNull();
+    }
+
+    @Test
+    @DisplayName("L3-17 配置审计快照不得递归嵌入历史日志")
+    void saveConfig_shouldStoreCompactAuditSnapshots() {
+        stubReadCatalogs();
+
+        service.saveConfig(new CommercialConfigSaveReq());
+
+        ArgumentCaptor<CommercialConfigLog> captor = ArgumentCaptor.forClass(CommercialConfigLog.class);
+        verify(commercialConfigLogDao).insert(captor.capture());
+        assertThat(captor.getValue().getBeforeSnapshot()).doesNotContain("latestLogs");
+        assertThat(captor.getValue().getAfterSnapshot()).doesNotContain("latestLogs");
+    }
+
     private VipPackageSaveReq vipPackageReq(Long id, String name) {
         VipPackageSaveReq req = new VipPackageSaveReq();
         req.setId(id);
@@ -497,7 +529,6 @@ class CommercialAdminServiceImplTest {
     private void stubReadCatalogs() {
         when(vipBenefitDao.selectPage(any(), any())).thenReturn(page(List.of()));
         when(coinSceneConfigDao.selectPage(any(), any())).thenReturn(page(List.of()));
-        when(commercialConfigLogDao.selectPage(any(), any())).thenReturn(page(List.of()));
         when(vipPackageDao.selectPage(any(), any())).thenReturn(page(List.of()));
         when(coinPackageDao.selectPage(any(), any())).thenReturn(page(List.of()));
     }
