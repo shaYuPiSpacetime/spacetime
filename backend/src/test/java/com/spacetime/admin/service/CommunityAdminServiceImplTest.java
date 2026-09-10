@@ -1,6 +1,9 @@
 package com.spacetime.admin.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.spacetime.admin.dto.request.*;
 import com.spacetime.admin.dto.response.CommunityConfigItemVO;
 import com.spacetime.common.constant.CommunityConfigKeys;
@@ -15,8 +18,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 
 import java.time.LocalDateTime;
 import java.beans.Introspector;
@@ -313,6 +318,88 @@ class CommunityAdminServiceImplTest {
         verify(communityExtensionDao, never()).selectAudits(any());
         verify(dictDataDao, times(2)).selectList(any());
         verify(dictDataDao, never()).selectByDictType(anyString());
+    }
+
+    @Test
+    @DisplayName("内容管理按心灵搭子归属筛选并返回归属标识")
+    void getPostPage_soulmateSection_shouldFilterConfiguredAuthorsAndExposeSection() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), CommunityPost.class);
+        CommunityPostPageReq req = new CommunityPostPageReq();
+        req.setZhiyinSection("soulmate");
+
+        AppConfig sourcePhones = new AppConfig();
+        sourcePhones.setConfigKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES);
+        sourcePhones.setConfigValue("[\"13800138000\"]");
+        AppUser author = new AppUser();
+        author.setId(2L);
+        author.setNickname("心灵搭子作者");
+        author.setAccountStatus("NORMAL");
+        author.setPhoneHash("a6942f9771d67f34034d2f1926988ed3fad3bf1b4e7cedb9a31f31398dea43bc");
+        post.setPostType("community_post");
+        post.setContent("心灵搭子动态");
+        Page<CommunityPost> page = new Page<>(1, 20, 1);
+        page.setRecords(List.of(post));
+
+        lenient().when(appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES)).thenReturn(sourcePhones);
+        lenient().when(appUserDao.selectList(any())).thenReturn(List.of(author));
+        lenient().when(communityPostDao.selectPage(any(), any())).thenReturn(page);
+        lenient().when(appUserDao.selectByIds(any())).thenReturn(List.of(author));
+        lenient().when(dictDataDao.selectList(any())).thenReturn(List.of());
+
+        var result = communityAdminService.getPostPage(req);
+
+        ArgumentCaptor<LambdaQueryWrapper<CommunityPost>> queryCaptor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(communityPostDao).selectPage(any(), queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment())
+                .contains("post_type", "author_id");
+        assertThat(queryCaptor.getValue().getParamNameValuePairs().values())
+                .contains("community_post", 2L);
+        assertThat(result.getRecords().get(0).getZhiyinSection()).isEqualTo("soulmate");
+    }
+
+    @Test
+    @DisplayName("心灵搭子名单为空时列表筛选直接返回空页")
+    void getPostPage_emptySoulmateSection_shouldReturnEmptyWithoutPostQuery() {
+        CommunityPostPageReq req = new CommunityPostPageReq();
+        req.setZhiyinSection("soulmate");
+
+        var result = communityAdminService.getPostPage(req);
+
+        assertThat(result.getTotal()).isZero();
+        assertThat(result.getRecords()).isEmpty();
+        verify(communityPostDao, never()).selectPage(any(), any());
+    }
+
+    @Test
+    @DisplayName("内容管理按时空站台归属筛选并返回归属标识")
+    void getPostPage_stationSection_shouldFilterSincerePostAndExposeSection() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), CommunityPost.class);
+        CommunityPostPageReq req = new CommunityPostPageReq();
+        req.setZhiyinSection("station");
+
+        post.setPostType("sincere_post");
+        post.setContent("时空站台动态");
+        Page<CommunityPost> page = new Page<>(1, 20, 1);
+        page.setRecords(List.of(post));
+        AppUser author = new AppUser();
+        author.setId(2L);
+        author.setNickname("工作人员");
+
+        lenient().when(communityPostDao.selectPage(any(), any())).thenReturn(page);
+        lenient().when(appUserDao.selectByIds(any())).thenReturn(List.of(author));
+        lenient().when(dictDataDao.selectList(any())).thenReturn(List.of());
+
+        var result = communityAdminService.getPostPage(req);
+
+        ArgumentCaptor<LambdaQueryWrapper<CommunityPost>> queryCaptor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(communityPostDao).selectPage(any(), queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment()).contains("post_type");
+        assertThat(queryCaptor.getValue().getParamNameValuePairs().values()).contains("sincere_post");
+        assertThat(result.getRecords().get(0).getZhiyinSection()).isEqualTo("station");
     }
 
     @Test
@@ -622,7 +709,7 @@ class CommunityAdminServiceImplTest {
                 Map.entry("community.copy.audit_remark_media_pending", "等待微信媒体审核结果"),
                 Map.entry("community.copy.audit_remark_media_callback", "微信媒体审核结果已返回")
         );
-        when(appConfigDao.selectByKey(argThat(auditCopies::containsKey))).thenAnswer(invocation -> {
+        lenient().when(appConfigDao.selectByKey(argThat(auditCopies::containsKey))).thenAnswer(invocation -> {
             String key = invocation.getArgument(0);
             return configEntity(key, auditCopies.get(key), "TEXT", 0);
         });
@@ -663,7 +750,7 @@ class CommunityAdminServiceImplTest {
         List<String> reportProperties = Arrays.stream(Introspector.getBeanInfo(CommunityReportPageReq.class)
                         .getPropertyDescriptors()).map(item -> item.getName()).toList();
 
-        assertThat(postProperties).contains("scope", "contentType", "sourceScene", "mediaType",
+        assertThat(postProperties).contains("scope", "contentType", "sourceScene", "zhiyinSection", "mediaType",
                 "machineResult", "distributionScene", "reported", "startTime", "endTime");
         assertThat(reportProperties).contains("keyword", "startTime", "endTime");
     }

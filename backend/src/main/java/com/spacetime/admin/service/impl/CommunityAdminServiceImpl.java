@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -85,6 +87,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         putOptions(vo, "contentType", "community_content_type");
         putOptions(vo, "contentStatus", "community_content_status");
         putOptions(vo, "sourceScene", "community_source_scene");
+        putOptions(vo, "zhiyinSection", "community_zhiyin_section");
         putOptions(vo, "mediaType", "community_media_type");
         putOptions(vo, "machineResult", "community_machine_result");
         putOptions(vo, "riskLevel", "community_risk_level");
@@ -461,12 +464,28 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     @Override
     public Page<CommunityPostAdminVO> getPostPage(CommunityPostPageReq req) {
         Long authorId = req.getUserId() != null ? req.getUserId() : req.getAuthorId();
+        CommunityZhiyinSectionEnum zhiyinSection = CommunityZhiyinSectionEnum.getByCode(req.getZhiyinSection());
+        Set<String> soulmatePhoneHashes = zhiyinSection == CommunityZhiyinSectionEnum.STATION
+                ? Set.of() : resolveSoulmatePhoneHashes();
+        Set<Long> soulmateAuthorIds = zhiyinSection == CommunityZhiyinSectionEnum.SOULMATE
+                ? resolveSoulmateAuthorIds(soulmatePhoneHashes) : Set.of();
+        if (zhiyinSection == CommunityZhiyinSectionEnum.SOULMATE && soulmateAuthorIds.isEmpty()) {
+            Page<CommunityPostAdminVO> empty = new Page<>(req.getPage(), req.getSize(), 0);
+            empty.setRecords(List.of());
+            return empty;
+        }
         String postType = "moments".equalsIgnoreCase(req.getScope())
                 ? CommunityPostTypeEnum.COMMUNITY.getCode()
                 : StrUtil.blankToDefault(req.getContentType(), req.getPostType());
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
                 .eq(authorId != null, CommunityPost::getAuthorId, authorId)
                 .eq(StrUtil.isNotBlank(postType), CommunityPost::getPostType, postType)
+                .eq(zhiyinSection == CommunityZhiyinSectionEnum.SOULMATE,
+                        CommunityPost::getPostType, CommunityPostTypeEnum.COMMUNITY.getCode())
+                .in(zhiyinSection == CommunityZhiyinSectionEnum.SOULMATE,
+                        CommunityPost::getAuthorId, soulmateAuthorIds)
+                .eq(zhiyinSection == CommunityZhiyinSectionEnum.STATION,
+                        CommunityPost::getPostType, CommunityPostTypeEnum.SINCERE_POST.getCode())
                 .eq(StrUtil.isNotBlank(req.getSourceScene()), CommunityPost::getSourceScene, req.getSourceScene())
                 .eq(StrUtil.isNotBlank(req.getStatus()), CommunityPost::getStatus, req.getStatus())
                 .eq(StrUtil.isNotBlank(req.getAuditStatus()), CommunityPost::getAuditStatus, req.getAuditStatus())
@@ -493,7 +512,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                 .orderByDesc(CommunityPost::getUpdateTime);
         Page<CommunityPost> page = communityPostDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<CommunityPostAdminVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(toPostAdminVOs(page.getRecords()));
+        result.setRecords(toPostAdminVOs(page.getRecords(), soulmatePhoneHashes));
         return result;
     }
 
@@ -1614,7 +1633,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         return values.get(0);
     }
 
-    private List<CommunityPostAdminVO> toPostAdminVOs(List<CommunityPost> entities) {
+    private List<CommunityPostAdminVO> toPostAdminVOs(List<CommunityPost> entities,
+                                                       Set<String> soulmatePhoneHashes) {
         if (entities == null || entities.isEmpty()) return List.of();
 
         List<Long> authorIds = entities.stream().map(CommunityPost::getAuthorId)
@@ -1636,6 +1656,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                 entity.getTopicId() == null ? null : topics.get(entity.getTopicId()),
                 statusLabels.getOrDefault(entity.getStatus(), entity.getStatus()),
                 machineLabels.getOrDefault(entity.getMachineResult(), entity.getMachineResult()),
+                soulmatePhoneHashes,
                 false
         )).toList();
     }
@@ -1663,11 +1684,13 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityTopic topic = entity.getTopicId() == null ? null : communityExtensionDao.selectTopicById(entity.getTopicId());
         return toPostAdminVO(entity, author, topic,
                 resolveDictLabel("community_content_status", entity.getStatus()),
-                resolveDictLabel("community_machine_result", entity.getMachineResult()), true);
+                resolveDictLabel("community_machine_result", entity.getMachineResult()),
+                resolveSoulmatePhoneHashes(), true);
     }
 
     private CommunityPostAdminVO toPostAdminVO(CommunityPost entity, AppUser author, CommunityTopic topic,
-                                                String statusLabel, String machineLabel, boolean includeAuditLogs) {
+                                                String statusLabel, String machineLabel,
+                                                Set<String> soulmatePhoneHashes, boolean includeAuditLogs) {
         CommunityPostAdminVO vo = new CommunityPostAdminVO();
         vo.setId(entity.getId());
         vo.setPostNo(entity.getPostNo());
@@ -1678,6 +1701,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setPostType(entity.getPostType());
         vo.setContentType(entity.getPostType());
         vo.setSourceScene(entity.getSourceScene());
+        vo.setZhiyinSection(resolveZhiyinSection(entity, author, soulmatePhoneHashes));
         vo.setTitle(entity.getTitle());
         vo.setContent(entity.getContent());
         vo.setContentSummary(StrUtil.maxLength(entity.getContent(), 100));
@@ -1706,6 +1730,53 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setCreateTime(entity.getCreateTime() != null ? entity.getCreateTime().format(FMT) : null);
         vo.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);
         return vo;
+    }
+
+    /** 心灵搭子名单只在服务端转换为手机号摘要，不向管理列表返回原始配置。 */
+    private Set<String> resolveSoulmatePhoneHashes() {
+        AppConfig sourceConfig = appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES);
+        if (sourceConfig == null) return Set.of();
+        return readStringList(sourceConfig.getConfigValue()).stream()
+                .map(String::trim)
+                .filter(phone -> phone.matches("^1[3-9]\\d{9}$"))
+                .distinct()
+                .limit(50)
+                .map(this::hashPhone)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Long> resolveSoulmateAuthorIds(Set<String> phoneHashes) {
+        if (phoneHashes.isEmpty()) return Set.of();
+        return appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
+                        .in(AppUser::getPhoneHash, phoneHashes)
+                        .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode()))
+                .stream()
+                .map(AppUser::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private String resolveZhiyinSection(CommunityPost post, AppUser author,
+                                        Set<String> soulmatePhoneHashes) {
+        if (CommunityPostTypeEnum.SINCERE_POST.getCode().equals(post.getPostType())) {
+            return CommunityZhiyinSectionEnum.STATION.getCode();
+        }
+        if (CommunityPostTypeEnum.COMMUNITY.getCode().equals(post.getPostType())
+                && author != null
+                && StrUtil.isNotBlank(author.getPhoneHash())
+                && soulmatePhoneHashes.contains(author.getPhoneHash())) {
+            return CommunityZhiyinSectionEnum.SOULMATE.getCode();
+        }
+        return null;
+    }
+
+    private String hashPhone(String phone) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(phone.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception exception) {
+            throw error("runtime_config_invalid");
+        }
     }
 
     private List<CommunityCommentAdminVO> toCommentAdminVOs(List<CommunityComment> entities) {

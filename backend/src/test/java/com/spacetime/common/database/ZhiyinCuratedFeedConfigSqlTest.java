@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ZhiyinCuratedFeedConfigSqlTest {
 
     private static final String MIGRATION = "deploy/sql/prod/084_zhiyin_curated_feed_config.sql";
+    private static final String ADMIN_MIGRATION = "deploy/sql/prod/086_community_zhiyin_admin.sql";
     private static final String WORKFLOW = ".github/workflows/deploy-backend-prod.yml";
 
     @Test
@@ -32,6 +33,25 @@ class ZhiyinCuratedFeedConfigSqlTest {
                 .contains("ON DUPLICATE KEY UPDATE");
         assertThat(Files.readString(resolveProjectFile(WORKFLOW), StandardCharsets.UTF_8))
                 .contains(MIGRATION);
+    }
+
+    @Test
+    @DisplayName("知音归属筛选字典和时空站台文案必须进入生产迁移")
+    void zhiyinSectionOptionsShouldBeDeployable() throws IOException {
+        Path migrationPath = resolveProjectFile(ADMIN_MIGRATION);
+        assertThat(migrationPath).exists();
+        String migration = Files.readString(migrationPath, StandardCharsets.UTF_8);
+
+        assertThat(migration)
+                .contains("community_zhiyin_section")
+                .contains("'心灵搭子'")
+                .contains("'soulmate'")
+                .contains("'时空站台'")
+                .contains("'station'")
+                .contains("community_content_type")
+                .contains("sincere_post");
+        assertThat(Files.readString(resolveProjectFile(WORKFLOW), StandardCharsets.UTF_8))
+                .contains(ADMIN_MIGRATION);
     }
 
     private static Path resolveProjectFile(String relativePath) {

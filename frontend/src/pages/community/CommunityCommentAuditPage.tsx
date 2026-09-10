@@ -161,7 +161,7 @@ export default function CommunityCommentAuditPage() {
         {detailLoading || !current ? <div className="py-20 text-center text-sm text-slate-400">加载中</div> : <div className="space-y-4">
           <DetailGrid items={[{ label: '评论 ID', value: current.commentNo || current.id }, { label: '归属内容', value: hasPostContext(current) ? `${postTypeLabel(current)} / ${current.postNo}` : '内容已变化' }, { label: '用户', value: `${current.authorNo || current.authorId} / ${current.authorName || '-'}` }, { label: '点赞 / 举报', value: `${current.likeCount ?? 0} / ${current.reportCount ?? 0}` }, { label: '当前状态', value: statusPill(meta, 'commentStatus', current.status, current.statusName) }, { label: '机审结果', value: metaLabel(meta, 'machineResult', current.machineResult) }]} />
           <DetailSection title="评论内容"><p className="whitespace-pre-wrap">{current.content}</p>{current.parentContent && <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">{current.parentContent}</div>}</DetailSection>
-          <DetailSection title={hasPostContext(current) && current.postType === 'sincere_post' ? '所属诚意贴' : '所属动态'}>
+          <DetailSection title={hasPostContext(current) && current.postType === 'sincere_post' ? '所属时空站台' : '所属动态'}>
             {hasPostContext(current) ? <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 <span className="rounded bg-blue-50 px-2 py-1 font-medium text-blue-700">{postTypeLabel(current)}</span>

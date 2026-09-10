@@ -104,6 +104,7 @@ for (const expected of [
   'deploy/sql/prod/083_commercial_config_log_query_index.sql',
   'deploy/sql/prod/084_zhiyin_curated_feed_config.sql',
   'deploy/sql/prod/085_compact_commercial_config_log_snapshots.sql',
+  'deploy/sql/prod/086_community_zhiyin_admin.sql',
   'bash scripts/deploy-prod-local.sh backend',
   'NGINX_IMAGE_TAG: spacetime-nginx-prod',
   'docker pull nginx:1.27-alpine',

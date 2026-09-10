@@ -10,9 +10,16 @@ const meta = {
     ],
     contentType: [
       { code: 'community_post', label: '动态' },
-      { code: 'sincere_post', label: '诚意贴' },
+      { code: 'sincere_post', label: '时空站台' },
     ],
-    sourceScene: [{ code: 'qianxun_chengjia', label: '千寻成家动态' }],
+    sourceScene: [
+      { code: 'qianxun_chengjia', label: '千寻成家动态' },
+      { code: 'qianxun_zhiyin_sincere', label: '时空站台' },
+    ],
+    zhiyinSection: [
+      { code: 'soulmate', label: '心灵搭子' },
+      { code: 'station', label: '时空站台' },
+    ],
     mediaType: [{ code: 'image_text', label: '图文' }],
     machineResult: [{ code: 'pass', label: '通过' }],
     postAction: [
@@ -174,6 +181,59 @@ test.describe('PRD-05 管理后台六页前端契约', () => {
     await page.getByRole('button', { name: '详情' }).click();
     await expect(page.getByRole('dialog', { name: '内容详情' })).toBeVisible();
     await expect(page.getByText('契约测试内容全文')).toBeVisible();
+  });
+
+  test('内容列表按归属模块筛选并展示心灵搭子或时空站台', async ({ page }) => {
+    let lastQuery = new URL('http://localhost');
+    await page.route('**/api/admin/community/posts/list**', async (route) => {
+      lastQuery = new URL(route.request().url());
+      const station = lastQuery.searchParams.get('zhiyinSection') === 'station';
+      await route.fulfill({
+        json: {
+          code: 200,
+          data: {
+            current: 1,
+            size: 20,
+            total: 1,
+            records: [{
+              id: station ? 12 : 11,
+              postNo: station ? 'POST-STATION' : 'POST-SOULMATE',
+              auditNo: station ? 'AUDIT-STATION' : 'AUDIT-SOULMATE',
+              authorId: 8,
+              authorNo: 'USR-000000000008',
+              authorName: '测试用户',
+              contentType: station ? 'sincere_post' : 'community_post',
+              sourceScene: station ? 'qianxun_zhiyin_sincere' : 'qianxun_chengjia',
+              zhiyinSection: station ? 'station' : 'soulmate',
+              mediaType: 'text',
+              content: station ? '时空站台内容' : '心灵搭子内容',
+              contentSummary: station ? '时空站台内容' : '心灵搭子内容',
+              likeCount: 0,
+              commentCount: 0,
+              reportCount: 0,
+              machineResult: 'pass',
+              riskLevel: 'low',
+              status: 'published',
+              version: 1,
+              createTime: '2026-09-10 17:11:51',
+            }],
+          },
+        },
+      });
+    });
+
+    await page.goto(`${BASE_URL}/community/content`);
+    await expect(page.getByLabel('归属模块')).toBeVisible();
+    await expect(page.getByText(/统一治理普通动态和时空站台/)).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: 'POST-SOULMATE' }).getByRole('cell').nth(3))
+      .toHaveText('心灵搭子');
+
+    await page.getByLabel('归属模块').selectOption('station');
+    await page.getByRole('button', { name: '查询' }).click();
+
+    await expect.poll(() => lastQuery.searchParams.get('zhiyinSection')).toBe('station');
+    await expect(page.getByRole('row').filter({ hasText: 'POST-STATION' }).getByRole('cell').nth(3))
+      .toHaveText('时空站台');
   });
 
   test('内容审核只显示通过驳回且操作日志不暴露英文技术码', async ({ page }) => {
