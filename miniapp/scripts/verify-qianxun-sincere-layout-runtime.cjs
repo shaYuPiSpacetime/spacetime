@@ -139,6 +139,7 @@ async function setStorageWhenReady(miniProgram, key, value) {
         ...process.env,
         MINIAPP_E2E_MODE: 'true',
         MINIAPP_E2E_API_BASE_URL: `http://127.0.0.1:${mockPort}/api`,
+        MINIAPP_DEV_FIXED_LOGIN: 'true',
       },
       stdio: 'inherit',
     })
@@ -150,7 +151,7 @@ async function setStorageWhenReady(miniProgram, key, value) {
   connectedMiniProgram = miniProgram
   await setStorageWhenReady(miniProgram, 'token', 'qianxun-e2e-token')
   await setStorageWhenReady(miniProgram, 'userInfo', {
-    userId: 1,
+    userId: 50,
     nickname: '运行态复验账号',
     avatar: '',
     accessStatus: accessStatus(),
@@ -164,6 +165,7 @@ async function setStorageWhenReady(miniProgram, key, value) {
   const soulmateContent = await page.$('#qianxun-soulmate-content')
   const soulmateCard = await page.$('.qianxun-zhiyin-post-card')
   assert.ok(soulmateContent && soulmateCard, '心灵搭子必须渲染统一动态卡片')
+  assert.ok(await page.$('#qianxun-soulmate-publish'), '心灵搭子必须向普通用户展示发布入口')
   const soulmateStyle = await soulmateCard.attribute('style')
   const soulmateSize = await soulmateCard.size()
   assert.match(await soulmateCard.outerWxml(), /qianxun-comment-icon[\s\S]*qianxun-like-icon/, '心灵搭子卡片必须包含评论和心动操作')

@@ -230,8 +230,12 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
         )}
       </ScrollView>
 
-      {activeTab === 'SINCERE' && config?.stationPublishAllowed ? (
-        <View id="qianxun-sincere-publish" onClick={() => requireInteraction() && void Taro.navigateTo({ url: '/pages/qianxun/compose?postType=sincere_post' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: QIANXUN_BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
+      {activeTab === 'YUEMU' ? (
+        <View id="qianxun-soulmate-publish" aria-label="发布心灵搭子" onClick={() => requireInteraction() && void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: QIANXUN_BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text>
+        </View>
+      ) : activeTab === 'SINCERE' && config?.stationPublishAllowed ? (
+        <View id="qianxun-sincere-publish" aria-label="发布时空站台" onClick={() => requireInteraction() && void Taro.navigateTo({ url: '/pages/qianxun/compose?postType=sincere_post' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: QIANXUN_BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
           <Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text>
         </View>
       ) : null}

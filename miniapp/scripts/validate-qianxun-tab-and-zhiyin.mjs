@@ -44,6 +44,16 @@ assert.equal((zhiyinSource.match(/function ZhiyinPostContent/g) || []).length, 1
 assert.equal((zhiyinSource.match(/function ZhiyinPostCard/g) || []).length, 1, '知音动态卡片组件只能保留一份实现')
 assert.doesNotMatch(zhiyinSource, /YuemuContent|YuemuCard|getYuemuUsers|toggleYuemuLike|qianxunYuemuHeart/, '心灵搭子不得继续保留旧照片墙实现')
 assert.match(zhiyinSource, /stationPublishAllowed/, '时空站台发布按钮必须消费服务端派生的工作人员能力')
+assert.match(
+  zhiyinSource,
+  /activeTab === 'YUEMU'[\s\S]{0,500}id="qianxun-soulmate-publish"[\s\S]{0,500}url: '\/pages\/qianxun\/compose'/,
+  '心灵搭子必须向所有具备普通发帖资格的用户提供普通动态发布入口',
+)
+assert.match(
+  zhiyinSource,
+  /activeTab === 'SINCERE' && config\?\.stationPublishAllowed[\s\S]{0,500}id="qianxun-sincere-publish"[\s\S]{0,500}postType=sincere_post/,
+  '时空站台必须仅向服务端确认的工作人员提供专属发布入口',
+)
 assert.match(zhiyinSource, /onContact/, '两个知音动态列表的申请认识必须有可执行交互')
 assert.match(zhiyinSource, /onAuthor/, '两个知音动态列表的头像和昵称必须可进入真实用户主页')
 assert.match(zhiyinSource, /CommunityPostActionSheet/, '两个知音动态列表必须复用统一动态操作弹窗')

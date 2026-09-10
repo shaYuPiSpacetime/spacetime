@@ -36,6 +36,8 @@ assert.equal((zhiyin.match(/<ZhiyinPostContent/g) || []).length, 2, '心灵搭�
 assert.match(zhiyin, /className="qianxun-zhiyin-post-card qianxun-sincere-card"/, '两个知音页必须共用同一个动态卡片运行态结构')
 assert.match(zhiyin, /updatePostCollections/, '两个知音页的关注、心动和隐藏状态必须同步更新')
 assert.match(zhiyin, /stationPublishAllowed/, '时空站台发布入口必须受服务端工作人员能力控制')
+assert.match(zhiyin, /id="qianxun-soulmate-publish"/, '心灵搭子必须具备全员普通动态发布入口')
+assert.match(zhiyin, /id="qianxun-sincere-publish"/, '时空站台必须保留工作人员专属发布入口')
 assert.doesNotMatch(zhiyin, /qianxun-yuemu-like-|qianxunYuemuHeart|toggleYuemuLike/, '心灵搭子不得继续使用旧照片墙心动交互')
 assert.match(zhiyin, /UnverifiedCertificationModal/, '知音动态无准入权限时必须提供共享未认证弹窗')
 assert.match(communityIcons, /height:\s*'88rpx'[\s\S]{0,120}alignItems:\s*'center'/, '知音动态图标必须挂载在固定高度且垂直居中的操作区')
