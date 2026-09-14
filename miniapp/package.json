@@ -30,7 +30,7 @@
     "assets:upload-login-video": "node scripts/upload-login-background-video.mjs",
     "assets:verify-icons": "node scripts/verify-miniapp-oss-icons.mjs",
     "validate:heart-message": "node scripts/validate-heart-message-lanhu.mjs",
-    "test:0831-fixes": "node --test scripts/test-0831-miniapp-experience-fixes.cjs",
+    "test:0831-fixes": "node --test scripts/test-0831-miniapp-experience-fixes.cjs scripts/test-profile-preview-photos.cjs",
     "test:0901-document-fixes": "node --test scripts/test-virtual-payment-contract.cjs scripts/test-0901-document-fixes.cjs",
     "test:0909-user-experience": "node --test scripts/test-0909-user-experience-fixes.cjs",
     "test:virtual-payment": "node --test scripts/test-virtual-payment-contract.cjs",

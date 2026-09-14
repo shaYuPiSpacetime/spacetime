@@ -121,7 +121,6 @@ export default function ProfilePreviewPage({
             {model.detailInfo?.length ? <ProfilePreviewDetailInfo items={model.detailInfo} /> : null}
             {visibleContent.tags.length ? <ProfilePreviewTagSection tags={visibleContent.tags} /> : null}
             {visibleContent.introduction ? <ProfilePreviewIntroduction introduction={visibleContent.introduction} /> : null}
-            {visibleContent.aboutMe.length ? <ProfilePreviewAboutMe items={visibleContent.aboutMe} /> : null}
             {visibleContent.photos[0] ? <ProfilePreviewPhoto url={visibleContent.photos[0]} /> : null}
             {visibleContent.showCertification ? <ProfilePreviewCertification certifications={model.certifications} /> : null}
             {visibleContent.photos[1] ? <ProfilePreviewPhoto url={visibleContent.photos[1]} /> : null}
@@ -129,6 +128,7 @@ export default function ProfilePreviewPage({
             {visibleContent.photos.slice(2).map((url, index) => (
               <ProfilePreviewPhoto key={`${url}-${index}`} url={url} />
             ))}
+            {visibleContent.aboutMe.length ? <ProfilePreviewAboutMe items={visibleContent.aboutMe} /> : null}
             <ProfileCommunityPostsSection posts={model.communityPosts || []} />
             {additionalContent}
             {footer ? <View style={{ height: '160rpx' }} /> : null}
