@@ -28,6 +28,7 @@ import {
 import { usePrd01Store } from '@/stores/prd01Store'
 import { prd01Api } from '@/services/prd01'
 import { resolveStableWhisperTargetUserNo, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
+import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { createWhisper, precheckWhisper, type RealWhisperPrecheckResult } from '@/services/message'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -230,12 +231,17 @@ export default function RecommendFamilyPage() {
 
   const toggleSelectedAuthorPreference = async () => {
     if (!selectedPost) return
+    const authorId = selectedPost.authorId
     try {
       const result = selectedPost.hiddenAuthor
         ? await unhideCommunityAuthor(selectedPost.authorUserNo || selectedPost.authorId)
         : await hideCommunityAuthor(selectedPost.authorUserNo || selectedPost.authorId)
-      setPostsByScene(state => mapPostsByScene(state, item => item.authorId === selectedPost.authorId ? { ...item, hiddenAuthor: result.hidden } : item))
-      setSelectedPost(current => current ? { ...current, hiddenAuthor: result.hidden } : current)
+      if (result.hidden) {
+        setPostsByScene(state => removeAuthorPostsFromScene(state, authorId))
+      } else {
+        await loadScene(activeTab)
+      }
+      setSelectedPost(undefined)
       setSheet(null)
       if (result.message) await Taro.showToast({ title: result.message, icon: 'none' })
     } catch (error) {
@@ -353,7 +359,7 @@ export default function RecommendFamilyPage() {
                 post={post}
                 optionLabel={optionLabel}
                 isSelf={post.authorId === currentUserId}
-                onAuthor={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` }))}
+                onAuthor={() => runWithCoreAccess(() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo))}
                 onOpen={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` }))}
                 onTopic={() => runWithCoreAccess(() => { if (post.topicId) void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` }) })}
                 onComment={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` }))}
@@ -438,7 +444,7 @@ function CommunityCard({ post, optionLabel, isSelf, onAuthor, onOpen, onTopic, o
         <Text style={{ display: 'block', maxWidth: '390rpx', color: BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '9rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text>
       </View>
       {!isSelf ? <View className="qianxun-family-follow" onClick={onFollow} style={{ width: post.followingAuthor ? '128rpx' : '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: post.followingAuthor ? '#999999' : BLUE, fontSize: '24rpx', lineHeight: '33rpx', fontWeight: post.followingAuthor ? 400 : 500 }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View> : null}
-      <View onClick={onMore} style={{ width: '36rpx', height: '52rpx', marginLeft: '4rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '38rpx', lineHeight: '44rpx' }}>⋮</Text></View>
+      <View onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '72rpx', height: '72rpx', marginLeft: '4rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '38rpx', lineHeight: '44rpx' }}>⋮</Text></View>
     </View>
     <View className="qianxun-community-card" data-post-id={post.id} onClick={onOpen}>
     {post.title ? <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginTop: '29rpx' }}>{post.title}</Text> : null}
@@ -505,6 +511,12 @@ function LoadingCards() {
 
 function mapPostsByScene(state: Partial<Record<CommunityScene, CommunityPostVO[]>>, mapper: (post: CommunityPostVO) => CommunityPostVO) {
   return Object.fromEntries(Object.entries(state).map(([scene, posts]) => [scene, posts?.map(mapper)])) as Partial<Record<CommunityScene, CommunityPostVO[]>>
+}
+
+function removeAuthorPostsFromScene(state: Partial<Record<CommunityScene, CommunityPostVO[]>>, authorId: number) {
+  return Object.fromEntries(
+    Object.entries(state).map(([scene, posts]) => [scene, posts?.filter(post => post.authorId !== authorId)]),
+  ) as Partial<Record<CommunityScene, CommunityPostVO[]>>
 }
 
 function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {

@@ -27,6 +27,8 @@ const PAGE_BACKGROUND =
   'linear-gradient(90deg, rgba(233,253,251,0.72), rgba(234,238,249,0.72) 49%, rgba(248,250,239,0.72))'
 const BLUE = '#2876FF'
 const RECOMMEND_TAB_STORAGE_KEY = 'prd08RecommendTab'
+const RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY = 'recommendPreferenceRefreshRequired'
+const MAX_EMPTY_CANDIDATE_CONTINUATIONS = 3
 
 function createRequestId(prefix: string, candidateNo: string) {
   return `${prefix}-${candidateNo}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`
@@ -48,6 +50,8 @@ export default function RecommendPage() {
   const viewedCandidates = useRef(new Set<string>())
   const idealTabSubmitting = useRef(false)
   const initialIdealTabHandled = useRef(false)
+  const candidateRequestGenerationRef = useRef(0)
+  const retryCandidateCursorRef = useRef<string | null>(null)
   const access = useAccessStatus('canBrowseCards')
 
   const candidates = page?.items || []
@@ -61,11 +65,46 @@ export default function RecommendPage() {
     setShowUnverifiedModal(true)
   }
 
+  const continueEmptyCandidatePages = async (
+    initialPage: RecommendCandidatePageVO,
+    requestGeneration: number
+  ): Promise<RecommendCandidatePageVO | null> => {
+    let data = initialPage
+    let continuationCount = 0
+    const visitedCursors = new Set<string>()
+    while (
+      !data.items?.length &&
+      data.nextCursor &&
+      data.waitingReason !== 'browse_limit' &&
+      continuationCount < MAX_EMPTY_CANDIDATE_CONTINUATIONS
+    ) {
+      const nextCursor = data.nextCursor
+      if (visitedCursors.has(nextCursor)) break
+      visitedCursors.add(nextCursor)
+      data = await getRecommendCandidates(nextCursor)
+      if (candidateRequestGenerationRef.current !== requestGeneration) return null
+      continuationCount += 1
+    }
+    return data
+  }
+
   const loadCandidates = async () => {
+    const requestGeneration = ++candidateRequestGenerationRef.current
+    const resumeCursor = retryCandidateCursorRef.current
+    retryCandidateCursorRef.current = null
     setState('loading')
     setErrorMessage('')
     try {
-      const data = await getRecommendCandidates()
+      let data = resumeCursor
+        ? await getRecommendCandidates(resumeCursor)
+        : await getRecommendCandidates()
+      if (candidateRequestGenerationRef.current !== requestGeneration) return
+      const continuedPage = await continueEmptyCandidatePages(data, requestGeneration)
+      if (!continuedPage || candidateRequestGenerationRef.current !== requestGeneration) return
+      data = continuedPage
+      retryCandidateCursorRef.current = !data.items?.length && data.nextCursor
+        ? data.nextCursor
+        : null
       setPage(data)
       setCandidateIndex(0)
       if (data.items?.length) {
@@ -76,6 +115,7 @@ export default function RecommendPage() {
         setState('empty')
       }
     } catch (error) {
+      if (candidateRequestGenerationRef.current !== requestGeneration) return
       setErrorMessage(error instanceof Error ? error.message : '推荐加载失败，请稍后再试')
       setState('error')
     }
@@ -117,6 +157,14 @@ export default function RecommendPage() {
   }
 
   useDidShow(() => {
+    const preferencesChanged = Boolean(
+      Taro.getStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY)
+    )
+    if (preferencesChanged) {
+      Taro.removeStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY)
+      retryCandidateCursorRef.current = null
+      void loadCandidates()
+    }
     const targetTab = Taro.getStorageSync(RECOMMEND_TAB_STORAGE_KEY)
     const requestedByRoute =
       !initialIdealTabHandled.current && router.params.tab === 'ideal'
@@ -127,6 +175,7 @@ export default function RecommendPage() {
   })
 
   usePullDownRefresh(() => {
+    retryCandidateCursorRef.current = null
     void loadCandidates().finally(() => Taro.stopPullDownRefresh())
   })
 
@@ -147,28 +196,45 @@ export default function RecommendPage() {
       })
   }, [candidate?.candidateNo, candidateIndex, page?.preferenceVersion])
 
-  const showNextCandidate = async () => {
+  const showNextCandidate = async (
+    expectedGeneration = candidateRequestGenerationRef.current
+  ) => {
+    if (candidateRequestGenerationRef.current !== expectedGeneration) return
     if (candidateIndex + 1 < candidates.length) {
       setCandidateIndex(current => current + 1)
       return
     }
-    const response = page?.nextCursor
-      ? await getRecommendCandidates(page.nextCursor)
-      : await getRecommendCandidates()
-    const next = omitSeenRecommendCandidates(
-      response,
-      viewedCandidates.current,
-      candidate?.candidateNo
-    )
-    setPage(next)
-    setCandidateIndex(0)
-    if (next.items?.length) setState('ready')
-    else if (next.waitingReason === 'browse_limit') setState('limit')
-    else setState('empty')
+    const requestGeneration = ++candidateRequestGenerationRef.current
+    try {
+      let response = page?.nextCursor
+        ? await getRecommendCandidates(page.nextCursor)
+        : await getRecommendCandidates()
+      if (candidateRequestGenerationRef.current !== requestGeneration) return
+      const continuedPage = await continueEmptyCandidatePages(response, requestGeneration)
+      if (!continuedPage || candidateRequestGenerationRef.current !== requestGeneration) return
+      response = continuedPage
+      retryCandidateCursorRef.current = !response.items?.length && response.nextCursor
+        ? response.nextCursor
+        : null
+      const next = omitSeenRecommendCandidates(
+        response,
+        viewedCandidates.current,
+        candidate?.candidateNo
+      )
+      setPage(next)
+      setCandidateIndex(0)
+      if (next.items?.length) setState('ready')
+      else if (next.waitingReason === 'browse_limit') setState('limit')
+      else setState('empty')
+    } catch (error) {
+      if (candidateRequestGenerationRef.current !== requestGeneration) return
+      throw error
+    }
   }
 
   const advanceCandidate = async () => {
     if (!candidate || actionSubmitting) return
+    const candidateGeneration = candidateRequestGenerationRef.current
     setActionSubmitting(true)
     try {
       await recordRecommendSkip(candidate.candidateNo, {
@@ -176,6 +242,7 @@ export default function RecommendPage() {
         filterVersion: page?.preferenceVersion,
         position: candidateIndex + 1,
       })
+      if (candidateRequestGenerationRef.current !== candidateGeneration) return
       await showNextCandidate()
     } catch (error) {
       await Taro.showToast({
@@ -189,6 +256,7 @@ export default function RecommendPage() {
 
   const toggleLike = async () => {
     if (!candidate || actionSubmitting) return
+    const candidateGeneration = candidateRequestGenerationRef.current
     const wasLiked = candidate.liked
     const filterVersion = page?.preferenceVersion
     const position = candidateIndex + 1
@@ -201,6 +269,7 @@ export default function RecommendPage() {
             'fate',
             createRequestId('recommend-like', candidate.candidateNo)
           )
+      if (candidateRequestGenerationRef.current !== candidateGeneration) return
       updateCandidate({
         ...candidate,
         liked: !wasLiked,
@@ -227,6 +296,7 @@ export default function RecommendPage() {
       }
       let nextCandidateFailed = false
       try {
+        if (candidateRequestGenerationRef.current !== candidateGeneration) return
         await showNextCandidate()
       } catch {
         nextCandidateFailed = true
@@ -316,7 +386,12 @@ export default function RecommendPage() {
           {state === 'error' ? (
             <CenteredText text={errorMessage || '推荐加载失败，请下拉刷新'} />
           ) : null}
-          {state === 'empty' ? <RecommendEmpty /> : null}
+          {state === 'empty' ? (
+            <RecommendEmpty
+              onPreference={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })}
+              onRetry={() => void loadCandidates()}
+            />
+          ) : null}
           {state === 'limit' ? (
             <RecommendLimit
               onOpen={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' })}
@@ -828,7 +903,7 @@ function RecommendActions({
   )
 }
 
-function RecommendEmpty() {
+function RecommendEmpty({ onPreference, onRetry }: { onPreference: () => void; onRetry: () => void }) {
   return (
     <View
       style={{
@@ -846,9 +921,30 @@ function RecommendEmpty() {
         mode="aspectFit"
         style={{ width: '334rpx', height: '254rpx' }}
       />
-      <Text style={{ color: '#999999', fontSize: '28rpx', marginTop: '24rpx' }}>
-        暂时还没有推荐
+      <Text style={{ color: '#4A5870', fontSize: '30rpx', fontWeight: 600, marginTop: '24rpx' }}>
+        当前偏好下暂无匹配
       </Text>
+      <Text style={{ color: '#8B96A8', fontSize: '24rpx', marginTop: '16rpx' }}>
+        可调整城市、年龄或高级筛选后再试
+      </Text>
+      <View style={{ display: 'flex', alignItems: 'center', gap: '20rpx', marginTop: '34rpx' }}>
+        <View
+          role="button"
+          aria-label="调整推荐偏好"
+          onClick={onPreference}
+          style={{ width: '210rpx', height: '88rpx', borderRadius: '44rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '26rpx', fontWeight: 500 }}>调整偏好</Text>
+        </View>
+        <View
+          role="button"
+          aria-label="重新加载推荐"
+          onClick={onRetry}
+          style={{ width: '210rpx', height: '88rpx', borderRadius: '44rpx', border: `2rpx solid ${BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}
+        >
+          <Text style={{ color: BLUE, fontSize: '26rpx', fontWeight: 500 }}>重新加载</Text>
+        </View>
+      </View>
     </View>
   )
 }

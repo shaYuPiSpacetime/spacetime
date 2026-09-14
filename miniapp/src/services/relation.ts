@@ -88,6 +88,8 @@ export interface RecentViewersPageVO {
   visitorPv7d: number
   todayVisitorUv: number
   todayVisitPv: number
+  unreadCount?: number
+  readCursor?: string | null
   records: RecentViewerItemVO[]
 }
 
@@ -177,8 +179,12 @@ export function markLikesMeRead(readCursor: string): Promise<null> {
   return post<null>('/miniapp/relation/likes-me/read', { readCursor })
 }
 
-export function getRecentViewersPage(page = 1, size = 20): Promise<RecentViewersPageVO> {
-  return get<RecentViewersPageVO>('/miniapp/relation/recent-viewers', { page, size })
+export function getRecentViewersPage(page = 1, size = 20, snapshotCursor?: string): Promise<RecentViewersPageVO> {
+  return get<RecentViewersPageVO>('/miniapp/relation/recent-viewers', { page, size, snapshotCursor })
+}
+
+export function markRecentViewersRead(readCursor: string): Promise<null> {
+  return post<null>('/miniapp/relation/recent-viewers/read', { readCursor })
 }
 
 export function getMutualMatches(page = 1, size = 20): Promise<MutualMatchPageVO> {

@@ -68,6 +68,10 @@ export default function HeartMembershipUnlockPage() {
     await confirmPay('heart_unlock_all')
   }
 
+  const openMembershipAgreement = () => {
+    void Taro.navigateTo({ url: '/pages/settings/content?contentCode=vip_service_agreement' })
+  }
+
   return (
     <View style={{ height: '100vh', overflow: 'hidden', background: PAGE_BG, color: '#FFFFFF', fontFamily: 'PingFang SC, sans-serif', display: 'flex', flexDirection: 'column' }}>
       <DarkNavigation title="时空邂逅会员" />
@@ -83,6 +87,7 @@ export default function HeartMembershipUnlockPage() {
         checked={agreementChecked}
         loading={payLoading || plansLoading}
         onToggle={() => setAgreementChecked(value => !value)}
+        onOpenAgreement={openMembershipAgreement}
         onPay={handlePay}
       />
     </View>
@@ -195,7 +200,7 @@ function Benefits() {
   )
 }
 
-function PaymentBar({ plan, checked, loading, onToggle, onPay }: { plan?: MembershipPlan; checked: boolean; loading: boolean; onToggle: () => void; onPay: () => void }) {
+function PaymentBar({ plan, checked, loading, onToggle, onOpenAgreement, onPay }: { plan?: MembershipPlan; checked: boolean; loading: boolean; onToggle: () => void; onOpenAgreement: () => void; onPay: () => void }) {
   const unavailable = !plan || loading
   return (
     <View style={{ width: '750rpx', height: '232rpx', padding: '24rpx 25rpx 18rpx', background: '#FFFFFF', boxSizing: 'border-box', flexShrink: 0 }}>
@@ -207,12 +212,14 @@ function PaymentBar({ plan, checked, loading, onToggle, onPay }: { plan?: Member
           <Text style={{ color: '#211F20', fontSize: '32rpx', fontWeight: 600, lineHeight: '46rpx' }}>立即开通</Text>
         </View>
       </View>
-      <View onClick={onToggle} style={{ height: '72rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: '28rpx', height: '28rpx', marginRight: '10rpx', borderRadius: '50%', border: `2rpx solid ${checked ? GOLD : '#A6A6A6'}`, background: checked ? GOLD : '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-          {checked ? <Text style={{ color: '#FFFFFF', fontSize: '20rpx', fontWeight: 700, lineHeight: '24rpx' }}>✓</Text> : null}
+      <View style={{ height: '72rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+        <View onClick={onToggle} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ width: '28rpx', height: '28rpx', marginRight: '10rpx', borderRadius: '50%', border: `2rpx solid ${checked ? GOLD : '#A6A6A6'}`, background: checked ? GOLD : '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+            {checked ? <Text style={{ color: '#FFFFFF', fontSize: '20rpx', fontWeight: 700, lineHeight: '24rpx' }}>✓</Text> : null}
+          </View>
+          <Text style={{ color: '#333333', fontSize: '20rpx', lineHeight: '30rpx' }}>阅读并同意</Text>
         </View>
-        <Text style={{ color: '#333333', fontSize: '20rpx', lineHeight: '30rpx' }}>阅读并同意</Text>
-        <Text style={{ color: '#9B7134', fontSize: '20rpx', lineHeight: '30rpx' }}>《时空邂逅会员服务协议》</Text>
+        <Text onClick={event => { event.stopPropagation(); onOpenAgreement() }} style={{ color: '#9B7134', fontSize: '20rpx', lineHeight: '30rpx' }}>《时空邂逅会员服务协议》</Text>
       </View>
     </View>
   )

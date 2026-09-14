@@ -3,13 +3,13 @@ import {
   PickerView,
   PickerViewColumn,
   ScrollView,
-  Slider,
   Text,
   View,
 } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import AppTabBar from '@/components/AppTabBar'
+import DualRangeSlider from '@/components/DualRangeSlider'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { createIdealSearch, getIdealMeta, type IdealMetaVO } from '@/services/ideal'
@@ -560,28 +560,16 @@ function AgeSheet({
             {low} - {high}
           </Text>
         </View>
-        <View style={{ position: 'relative', height: '80rpx', marginTop: '18rpx' }}>
-          <Slider
+        <View style={{ height: '80rpx', marginTop: '18rpx' }}>
+          <DualRangeSlider
             min={18}
             max={60}
-            value={low}
+            low={low}
+            high={high}
             activeColor={BLUE}
             backgroundColor="#F2F3F5"
-            blockColor="#FFFFFF"
-            blockSize={26}
-            onChanging={event => setLow(Math.min(Number(event.detail.value), high))}
-            style={{ position: 'absolute', left: 0, right: 0, top: 0 }}
-          />
-          <Slider
-            min={18}
-            max={60}
-            value={high}
-            activeColor="transparent"
-            backgroundColor="transparent"
-            blockColor="#FFFFFF"
-            blockSize={26}
-            onChanging={event => setHigh(Math.max(Number(event.detail.value), low))}
-            style={{ position: 'absolute', left: 0, right: 0, top: 0 }}
+            onLowChange={setLow}
+            onHighChange={setHigh}
           />
         </View>
         <View

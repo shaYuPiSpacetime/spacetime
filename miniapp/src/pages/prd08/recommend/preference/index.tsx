@@ -1,6 +1,7 @@
-import { Image, Picker, ScrollView, Slider, Switch, Text, View } from '@tarojs/components'
+import { Image, Picker, ScrollView, Switch, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
+import DualRangeSlider from '@/components/DualRangeSlider'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
@@ -17,6 +18,29 @@ import {
 import type { DictOption, RegionTreeOption } from '@/types/prd01'
 
 const BLUE = '#2876FF'
+const RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY = 'recommendPreferenceRefreshRequired'
+const HEIGHT_MIN = 140
+const HEIGHT_MAX = 220
+const WEIGHT_MIN = 30
+const WEIGHT_MAX = 200
+
+function normalizeOptionalRange(
+  low: number | null | undefined,
+  high: number | null | undefined,
+  min: number,
+  max: number
+) {
+  const clamp = (value: number | null | undefined) => {
+    if (value == null || !Number.isFinite(value)) return null
+    return Math.min(max, Math.max(min, Math.round(value)))
+  }
+  let normalizedLow = clamp(low)
+  let normalizedHigh = clamp(high)
+  if (normalizedLow != null && normalizedHigh != null && normalizedLow > normalizedHigh) {
+    ;[normalizedLow, normalizedHigh] = [normalizedHigh, normalizedLow]
+  }
+  return { low: normalizedLow, high: normalizedHigh }
+}
 
 export default function RecommendPreferencePage() {
   const [model, setModel] = useState<RecommendPreferenceVO | null>(null)
@@ -53,12 +77,31 @@ export default function RecommendPreferencePage() {
       </View>
     )
 
-  const advanced = model.advanced || {
+  const sourceAdvanced = model.advanced || {
     educationCodes: [],
     hometowns: [],
     schoolCodes: [],
     schoolFilterAvailable: false,
     majorNames: [],
+  }
+  const heightRange = normalizeOptionalRange(
+    sourceAdvanced.minHeight,
+    sourceAdvanced.maxHeight,
+    HEIGHT_MIN,
+    HEIGHT_MAX
+  )
+  const weightRange = normalizeOptionalRange(
+    sourceAdvanced.minWeight,
+    sourceAdvanced.maxWeight,
+    WEIGHT_MIN,
+    WEIGHT_MAX
+  )
+  const advanced = {
+    ...sourceAdvanced,
+    minHeight: heightRange.low,
+    maxHeight: heightRange.high,
+    minWeight: weightRange.low,
+    maxWeight: weightRange.high,
   }
   const patch = (value: Partial<RecommendPreferenceVO>) =>
     setModel(current => (current ? { ...current, ...value } : current))
@@ -102,16 +145,17 @@ export default function RecommendPreferencePage() {
         allowNeighborCity: model.allowNeighborCity,
         minAge: model.minAge,
         maxAge: model.maxAge,
-        minHeight: advanced.minHeight || undefined,
-        maxHeight: advanced.maxHeight || undefined,
-        minWeight: advanced.minWeight || undefined,
-        maxWeight: advanced.maxWeight || undefined,
+        minHeight: advanced.minHeight ?? undefined,
+        maxHeight: advanced.maxHeight ?? undefined,
+        minWeight: advanced.minWeight ?? undefined,
+        maxWeight: advanced.maxWeight ?? undefined,
         educationCodes: advanced.educationCodes,
         hometowns: advanced.hometowns,
         schoolCodes: advanced.schoolCodes,
         majorNames: advanced.majorNames,
       })
       setModel(result)
+      Taro.setStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY, true)
       await Taro.showToast({ title: '偏好已保存', icon: 'success' })
       await Taro.navigateBack()
     } catch (error) {
@@ -244,22 +288,22 @@ export default function RecommendPreferencePage() {
           >
             <RangeSection
               title="身高偏好"
-              value={`${advanced.minHeight || '不限'}-${advanced.maxHeight || '不限'}`}
+              value={`${advanced.minHeight ?? '不限'}-${advanced.maxHeight ?? '不限'}`}
               min={140}
-              max={210}
-              low={advanced.minHeight || 140}
-              high={advanced.maxHeight || 210}
+              max={220}
+              low={advanced.minHeight ?? 140}
+              high={advanced.maxHeight ?? 220}
               disabled={!model.vipEffective}
               onLow={value => patchAdvanced({ minHeight: value })}
               onHigh={value => patchAdvanced({ maxHeight: value })}
             />
             <RangeSection
               title="体重偏好"
-              value={`${advanced.minWeight || '不限'}-${advanced.maxWeight || '不限'}`}
-              min={35}
-              max={120}
-              low={advanced.minWeight || 35}
-              high={advanced.maxWeight || 120}
+              value={`${advanced.minWeight ?? '不限'}-${advanced.maxWeight ?? '不限'}`}
+              min={30}
+              max={200}
+              low={advanced.minWeight ?? 30}
+              high={advanced.maxWeight ?? 200}
               disabled={!model.vipEffective}
               onLow={value => patchAdvanced({ minWeight: value })}
               onHigh={value => patchAdvanced({ maxWeight: value })}
@@ -488,30 +532,17 @@ function RangeSection({
       <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>
         {title} {value}
       </Text>
-      <View style={{ position: 'relative', height: '70rpx', marginTop: '14rpx' }}>
-        <Slider
+      <View style={{ height: '70rpx', marginTop: '14rpx' }}>
+        <DualRangeSlider
           min={min}
           max={max}
-          value={low}
+          low={low}
+          high={high}
           disabled={disabled}
           activeColor={BLUE}
           backgroundColor="#F1F2F4"
-          blockColor="#FFFFFF"
-          blockSize={24}
-          onChanging={event => onLow(Number(event.detail.value))}
-          style={{ position: 'absolute', left: 0, right: 0, top: 0 }}
-        />
-        <Slider
-          min={min}
-          max={max}
-          value={high}
-          disabled={disabled}
-          activeColor="transparent"
-          backgroundColor="transparent"
-          blockColor="#FFFFFF"
-          blockSize={24}
-          onChanging={event => onHigh(Number(event.detail.value))}
-          style={{ position: 'absolute', left: 0, right: 0, top: 0 }}
+          onLowChange={onLow}
+          onHighChange={onHigh}
         />
       </View>
     </View>

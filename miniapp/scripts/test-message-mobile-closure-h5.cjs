@@ -93,12 +93,14 @@ async function expectVisible(locator, message) {
     throw new Error('发出的悄悄话不应展示已处理分组')
   }
 
-  // 收到的悄悄话回复后必须开启私信会话。
+  // 收到的悄悄话先进入私信首条回复页，发送成功后再切换为正式会话。
   await open('/pages/message/whisper-detail?whisperNo=whisper-received-pending&mockScene=whisper-compose')
-  await expectVisible(page.getByText('确认回复', { exact: true }), '收到的悄悄话未展示回复动作')
-  await page.locator('.whisper-textarea textarea').fill('愿意认识，很高兴收到你的申请')
-  await page.getByText('确认回复', { exact: true }).click()
-  await page.waitForURL(/pages\/message\/private-chat/)
+  await expectVisible(page.getByText('回复并认识', { exact: true }), '收到的悄悄话未展示回复动作')
+  await page.getByText('回复并认识', { exact: true }).click()
+  await page.waitForURL(/pages\/message\/private-chat\?pendingWhisperNo=/)
+  await page.locator('.chat-input input').fill('愿意认识，很高兴收到你的申请')
+  await page.getByText('发送', { exact: true }).click()
+  await page.waitForURL(/pages\/message\/private-chat\?conversationNo=/)
   await expectVisible(page.locator('.private-chat-page'), '悄悄话回复后未进入私信会话')
 
   // 主动发起悄悄话必须先报价再提交，提交后关闭编辑器。

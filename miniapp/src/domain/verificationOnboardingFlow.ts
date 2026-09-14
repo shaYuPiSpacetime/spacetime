@@ -51,6 +51,14 @@ export function resolveCertificationChecklist({
   }
 }
 
+export function isTripleVerificationComplete(status) {
+  const auditStatuses = [status?.avatarVerifyStatus, status?.realNameStatus, status?.educationStatus]
+  if (auditStatuses.some(value => String(value || '').trim())) {
+    return auditStatuses.every(value => String(value || '').toUpperCase() === 'APPROVED')
+  }
+  return Number(status?.verifyLevel || 0) >= 3
+}
+
 function hasValue(value) {
   if (Array.isArray(value)) return value.length > 0
   if (typeof value === 'string') return value.trim().length > 0

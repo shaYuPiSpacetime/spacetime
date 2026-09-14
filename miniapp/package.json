@@ -33,6 +33,7 @@
     "test:0831-fixes": "node --test scripts/test-0831-miniapp-experience-fixes.cjs scripts/test-profile-preview-photos.cjs",
     "test:0901-document-fixes": "node --test scripts/test-virtual-payment-contract.cjs scripts/test-0901-document-fixes.cjs",
     "test:0909-user-experience": "node --test scripts/test-0909-user-experience-fixes.cjs",
+    "test:0914-bobo-closure": "node --test scripts/test-0914-bobo-bug-closure.cjs",
     "test:virtual-payment": "node --test scripts/test-virtual-payment-contract.cjs",
     "validate:message-15": "node scripts/validate-message-15-lanhu.mjs",
     "validate:message-18": "node scripts/validate-message-18-lanhu.mjs",

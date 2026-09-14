@@ -1,12 +1,13 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { VerificationStatus } from '@/types/prd01'
 import { getErrorMessage } from '@/utils/errorMessage'
 import { navigateBackOrRedirect } from '@/utils/navigation'
+import { isTripleVerificationComplete } from '@/domain/verificationOnboardingFlow'
 import VerificationRuntimeBoundary from './VerificationRuntimeBoundary'
 import VerificationShell from './VerificationShell'
 import VerificationSubShell from './VerificationSubShell'
@@ -21,6 +22,23 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
   const copy = usePrd01Store(state => state.copy)
   const optionLabel = usePrd01Store(state => state.optionLabel)
   const [status, setStatus] = useState<VerificationStatus>()
+  const completionHandledRef = useRef(false)
+  const tripleComplete = isTripleVerificationComplete(status)
+
+  const completeOnboarding = async () => {
+    try {
+      await Taro.switchTab({ url: '/pages/index/index' })
+    } catch {
+      completionHandledRef.current = false
+      await Taro.showToast({ title: '认证已完成，请点击进入首页', icon: 'none' })
+    }
+  }
+
+  useEffect(() => {
+    if (!onboarding || !tripleComplete || completionHandledRef.current) return
+    completionHandledRef.current = true
+    void completeOnboarding()
+  }, [onboarding, tripleComplete])
 
   const enterCertification = async (item: (typeof CERT_ITEMS)[number]) => {
     const auditStatus = status?.[item.statusKey]
@@ -53,6 +71,7 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
       optionLabel={optionLabel}
       top={onboarding ? '558rpx' : '400rpx'}
       onEnter={enterCertification}
+      onComplete={onboarding && tripleComplete ? completeOnboarding : undefined}
     />
   )
 
@@ -77,12 +96,14 @@ function VerificationCenterContent({
   optionLabel,
   top,
   onEnter,
+  onComplete,
 }: {
   status?: VerificationStatus
   copy: (key: string) => string
   optionLabel: (key: 'auditStatus', code?: string) => string
   top: string
   onEnter: (item: (typeof CERT_ITEMS)[number]) => void | Promise<void>
+  onComplete?: () => void | Promise<void>
 }) {
   return (
     <View style={{ position: 'absolute', left: '25rpx', top, width: '700rpx' }}>
@@ -110,6 +131,15 @@ function VerificationCenterContent({
       })}
       <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '38rpx', marginTop: '28rpx' }}>{copy('triple_safety_notice')}</Text>
       {status?.educationEstimatedCompleteTime ? <Text style={{ display: 'block', color: '#697E9C', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '10rpx' }}>{status.educationSlaText} {status.educationEstimatedCompleteTime}</Text> : null}
+      {onComplete ? (
+        <View
+          id="verification-complete-action"
+          onClick={() => void onComplete()}
+          style={{ width: '700rpx', height: '92rpx', borderRadius: '46rpx', background: '#2876FF', marginTop: '34rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>认证完成，进入首页</Text>
+        </View>
+      ) : null}
     </View>
   )
 }

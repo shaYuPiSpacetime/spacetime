@@ -10,6 +10,7 @@ import {
   waitForMessageGatewayReady,
   withMessageTimeout,
 } from '@/domain/messageRuntime'
+import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
 import { loadMessageImGateway } from '@/im/loadMessageImGateway'
 import type { MessageImEvent, MessageImGateway } from '@/im/MessageImGateway'
 import { messageService, mockMessageService } from '@/services/message'
@@ -36,6 +37,135 @@ const SEND_TIMEOUT_MS = 15_000
 type ConnectionState = 'idle' | 'connecting' | 'ready' | 'error'
 
 export default function PrivateChatPage() {
+  const router = useRouter()
+  const pendingWhisperNo = router.params.pendingWhisperNo || ''
+  if (pendingWhisperNo) {
+    return <PendingWhisperChat pendingWhisperNo={pendingWhisperNo} />
+  }
+  return <EstablishedPrivateChatPage />
+}
+
+function PendingWhisperChat({ pendingWhisperNo }: { pendingWhisperNo: string }) {
+  const router = useRouter()
+  const isMockScene = Boolean(router.params.mockScene)
+  const service = isMockScene ? mockMessageService : messageService
+  const nickname = router.params.nickname ? decodeURIComponent(router.params.nickname) : '私信'
+  const avatar = router.params.avatar ? decodeURIComponent(router.params.avatar) : MESSAGE_AVATAR
+  const [inputValue, setInputValue] = useState('')
+  const [sending, setSending] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [createdConversationNo, setCreatedConversationNo] = useState('')
+  const [navigationMessage, setNavigationMessage] = useState('')
+  const idempotencyCache = useRef(createWhisperIdempotencyCache()).current
+
+  const enterCreatedConversation = async (conversationNo: string) => {
+    if (!isMockScene) await messagePlatformRuntime.onForeground()
+    await Taro.redirectTo({
+      url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversationNo)}${isMockScene ? '&mockScene=private-chat-default' : ''}`,
+    })
+  }
+
+  const handleCreatedConversationNavigationFailure = () => {
+    const message = '回复已发送，请点击“进入私信”继续'
+    setNavigationMessage(message)
+    void Taro.showToast({ title: message, icon: 'none' })
+  }
+
+  const retryEnterCreatedConversation = async () => {
+    if (!createdConversationNo || sending) return
+    setSending(true)
+    setNavigationMessage('')
+    try {
+      await enterCreatedConversation(createdConversationNo)
+    } catch {
+      handleCreatedConversationNavigationFailure()
+      setSending(false)
+    }
+  }
+
+  const send = async () => {
+    const content = inputValue.trim()
+    if (!content || sending || createdConversationNo) return
+    setSending(true)
+    setErrorMessage('')
+    setNavigationMessage('')
+    let conversationNo = ''
+    try {
+      const requestId = idempotencyCache.get(`reply:${pendingWhisperNo}`, content)
+      const result = await service.replyWhisper(
+        pendingWhisperNo,
+        { requestId, content },
+        requestId,
+      )
+      if (!result.conversationNo) throw new Error('私信会话创建失败，请稍后重试')
+      conversationNo = result.conversationNo
+    } catch (error) {
+      const message = resolveWhisperErrorMessage(error, '回复失败，请稍后重试')
+      setErrorMessage(message)
+      void Taro.showToast({ title: message, icon: 'none' })
+      setSending(false)
+      return
+    }
+
+    idempotencyCache.clear()
+    setInputValue('')
+    setCreatedConversationNo(conversationNo)
+    try {
+      await enterCreatedConversation(conversationNo)
+    } catch {
+      handleCreatedConversationNavigationFailure()
+      setSending(false)
+    }
+  }
+
+  return (
+    <View className="message-page message-page--gray private-chat-page">
+      <MessageNav title={nickname} avatarUrl={avatar} />
+      <ScrollView scrollY className="private-chat-scroll" showScrollbar={false}>
+        <View className="chat-safety-card">
+          <View className="chat-match-banner">
+            <Image className="chat-match-deco chat-match-deco--left" src={miniappOssIcons.messageChatSafetyDecoLeft} mode="aspectFit" />
+            <Text>回复后双方将开启私信</Text>
+            <Image className="chat-match-deco chat-match-deco--right" src={miniappOssIcons.messageChatSafetyDecoRight} mode="aspectFit" />
+          </View>
+          <Text className="chat-safety-title">聊天小贴士</Text>
+          <Text className="chat-safety-line">建议相互信任后，再交换联系方式</Text>
+          <Text className="chat-safety-line">警惕金钱往来，遇到骚扰请及时举报</Text>
+        </View>
+        {errorMessage ? <Text className="message-inline-error">{errorMessage}</Text> : null}
+        <Text className="message-empty-copy">
+          {navigationMessage || '输入第一条回复，发送后即可开始聊天'}
+        </Text>
+      </ScrollView>
+      <View className="chat-input-bar">
+        <Input
+          className="chat-input"
+          value={inputValue}
+          disabled={sending || Boolean(createdConversationNo)}
+          maxlength={500}
+          placeholder="输入回复内容"
+          adjustPosition
+          cursorSpacing={12}
+          focus
+          onInput={event => setInputValue(event.detail.value)}
+          onConfirm={() => void send()}
+        />
+        <View
+          role="button"
+          aria-label={createdConversationNo ? '进入私信' : '发送回复'}
+          aria-disabled={sending || (!createdConversationNo && !inputValue.trim())}
+          className={`chat-send-button${(createdConversationNo || inputValue.trim()) && !sending ? '' : ' chat-send-button--disabled'}`}
+          onClick={() => void (createdConversationNo ? retryEnterCreatedConversation() : send())}
+          style={{ minHeight: '44px' }}
+        >
+          <Text>{sending ? '发送中' : createdConversationNo ? '进入私信' : '发送'}</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function EstablishedPrivateChatPage() {
   const router = useRouter()
   const isMockScene = Boolean(router.params.mockScene)
   const conversationNo = router.params.conversationNo || 'conversation-lin'

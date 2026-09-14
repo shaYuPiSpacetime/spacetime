@@ -1,5 +1,5 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import HeartMessageHeader, { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
 import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
@@ -16,12 +16,21 @@ import {
 } from '@/domain/relationFeedbackFlow'
 import { getApiErrorCode } from '@/services/request'
 import {
+  acknowledgeVisitorCount,
+  currentLocalDateKey,
+  relationVisitorSnapshotKey,
+  resolveVisitorBadge,
+  shouldApplyVisitorReadResult,
+} from '@/domain/relationVisitorBadge'
+import { useAuthStore } from '@/stores/authStore'
+import {
   confirmRelationUnlock,
   getLikesMePage,
   getPendingMatchPopup,
   getRecentViewersPage,
   markLikesMeRead,
   markMatchPopupRead,
+  markRecentViewersRead,
   quoteRelationUnlock,
   type LikesMeItemVO,
   type LikesMePageVO,
@@ -52,11 +61,13 @@ function resolveState(records: unknown[]): LoadState {
 
 export default function CommunityPage() {
   const router = useRouter()
+  const currentUserId = useAuthStore(state => state.userId)
   const [activeTab, setActiveTab] = useState<HeartTab>(router.params.tab === 'visitors' ? 'visitors' : 'likes')
   const [unlockStage, setUnlockStage] = useState<UnlockStage>('closed')
   const [likesPage, setLikesPage] = useState<LikesMePageVO | null>(null)
   const [likesBadgeCount, setLikesBadgeCount] = useState(0)
   const [visitorsPage, setVisitorsPage] = useState<RecentViewersPageVO | null>(null)
+  const [visitorBadgeCount, setVisitorBadgeCount] = useState(0)
   const [likesRecords, setLikesRecords] = useState<LikesMeItemVO[]>([])
   const [visitorRecords, setVisitorRecords] = useState<RecentViewerItemVO[]>([])
   const [likesPageNo, setLikesPageNo] = useState(1)
@@ -79,6 +90,11 @@ export default function CommunityPage() {
   const unlockAttemptRef = useRef<UnlockAttempt | undefined>(undefined)
   const likesLoadingRef = useRef(false)
   const visitorsLoadingRef = useRef(false)
+  const visitorSnapshotCursorRef = useRef<string | undefined>(undefined)
+  const visitorDisplayedCursorRef = useRef<string | null>(null)
+  const didShowOnceRef = useRef(false)
+  const visitorAcknowledgingCursorRef = useRef<string | null>(null)
+  const visitorAcknowledgedCursorRef = useRef<string | null>(null)
 
   const acknowledgeLikesAfterPaint = async (pageData: LikesMePageVO) => {
     const readCursor = pageData.readCursor
@@ -136,16 +152,39 @@ export default function CommunityPage() {
     if (page === 1) {
       setVisitorsState('loading')
       setVisitorsError('')
+      visitorSnapshotCursorRef.current = undefined
     } else {
       setVisitorsLoadingMore(true)
     }
     try {
-      const pageData = await getRecentViewersPage(page, 20)
+      const pageData = await getRecentViewersPage(
+        page,
+        20,
+        page > 1 ? visitorSnapshotCursorRef.current : undefined,
+      )
       const nextRecords = page === 1 ? (pageData.records || []) : [...visitorRecords, ...(pageData.records || [])]
-      setVisitorsPage(pageData)
+      if (page === 1) {
+        visitorSnapshotCursorRef.current = pageData.readCursor || undefined
+        visitorDisplayedCursorRef.current = pageData.readCursor || null
+        setVisitorsPage(pageData)
+      } else {
+        setVisitorsPage(currentPage => currentPage
+          ? { ...currentPage, current: pageData.current, hasMore: pageData.hasMore }
+          : pageData)
+      }
       setVisitorsPageNo(page)
       setVisitorRecords(nextRecords)
       setVisitorsState(resolveState(nextRecords))
+      if (page === 1) {
+        const dateKey = currentLocalDateKey()
+        const snapshot = Taro.getStorageSync(relationVisitorSnapshotKey(currentUserId))
+        setVisitorBadgeCount(resolveVisitorBadge(
+          pageData.todayVisitorUv,
+          snapshot,
+          dateKey,
+          pageData.unreadCount,
+        ))
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : '访客列表加载失败'
       setVisitorsError(message)
@@ -157,14 +196,74 @@ export default function CommunityPage() {
     }
   }
 
+  const refreshRelationFeedback = async () => {
+    if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') return
+    await Promise.all([
+      loadLikes(1),
+      loadVisitors(1),
+      getPendingMatchPopup()
+        .then(data => setMatchPopup(data || null))
+        .catch(error => Taro.showToast({ title: error instanceof Error ? error.message : '匹配提醒加载失败', icon: 'none' })),
+    ])
+  }
+
   useEffect(() => {
     if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') return
-    void loadLikes(1)
-    void loadVisitors(1)
-    void getPendingMatchPopup()
-      .then(data => setMatchPopup(data || null))
-      .catch(error => Taro.showToast({ title: error instanceof Error ? error.message : '匹配提醒加载失败', icon: 'none' }))
+    void refreshRelationFeedback()
   }, [access.status?.coreAccessStatus])
+
+  useDidShow(() => {
+    if (!didShowOnceRef.current) {
+      didShowOnceRef.current = true
+      return
+    }
+    void refreshRelationFeedback()
+  })
+
+  useEffect(() => {
+    if (activeTab !== 'visitors' || !visitorsPage) return
+    const dateKey = currentLocalDateKey()
+    const total = Number(visitorsPage.todayVisitorUv || 0)
+    const persistFallbackSnapshot = () => Taro.setStorageSync(
+      relationVisitorSnapshotKey(currentUserId),
+      acknowledgeVisitorCount(total, dateKey),
+    )
+
+    if (visitorsPage.unreadCount !== undefined) {
+      const readCursor = visitorsPage.readCursor
+      visitorDisplayedCursorRef.current = readCursor || null
+      if (Number(visitorsPage.unreadCount || 0) <= 0) {
+        setVisitorBadgeCount(0)
+        return
+      }
+      if (!readCursor || visitorAcknowledgingCursorRef.current === readCursor) return
+      if (visitorAcknowledgedCursorRef.current === readCursor) {
+        setVisitorBadgeCount(0)
+        return
+      }
+      visitorAcknowledgingCursorRef.current = readCursor
+      void new Promise<void>(resolve => Taro.nextTick(resolve))
+        .then(() => markRecentViewersRead(readCursor))
+        .then(() => {
+          if (!shouldApplyVisitorReadResult(visitorDisplayedCursorRef.current, readCursor)) return
+          visitorAcknowledgedCursorRef.current = readCursor
+          persistFallbackSnapshot()
+          setVisitorBadgeCount(0)
+        })
+        .catch(error => Taro.showToast({ title: error instanceof Error ? error.message : '访客已读确认失败，请刷新重试', icon: 'none' }))
+        .finally(() => {
+          if (visitorAcknowledgingCursorRef.current === readCursor) {
+            visitorAcknowledgingCursorRef.current = null
+          }
+        })
+      return
+    }
+
+    void new Promise<void>(resolve => Taro.nextTick(resolve)).then(() => {
+      persistFallbackSnapshot()
+      setVisitorBadgeCount(0)
+    })
+  }, [activeTab, currentUserId, visitorsPage?.todayVisitorUv, visitorsPage?.unreadCount, visitorsPage?.readCursor])
 
   const openLockedCard = (card: RelationCard) => {
     setSelectedCard(card)
@@ -299,7 +398,7 @@ export default function CommunityPage() {
           <HeartTabsHeader
             active={activeTab}
             likesCount={likesBadgeCount}
-            visitorsCount={visitorsPage?.todayVisitorUv || 0}
+            visitorsCount={visitorBadgeCount}
             onChange={setActiveTab}
           />
           {activeTab === 'likes'

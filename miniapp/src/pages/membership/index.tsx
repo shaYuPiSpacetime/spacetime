@@ -95,6 +95,10 @@ export default function MembershipPage() {
     await confirmPay()
   }
 
+  const openMembershipAgreement = () => {
+    void Taro.navigateTo({ url: '/pages/settings/content?contentCode=vip_service_agreement' })
+  }
+
   const navTitle = '会员中心'
 
   return (
@@ -139,6 +143,7 @@ export default function MembershipPage() {
         loading={payLoading}
         checked={agreementChecked}
         onToggle={() => setAgreementChecked((checked) => !checked)}
+        onOpenAgreement={openMembershipAgreement}
         onPay={handlePay}
       />
       <MembershipPaymentLayer
@@ -146,6 +151,7 @@ export default function MembershipPage() {
         failureMessage={paymentErrorMessage}
         onClose={hidePaymentLayer}
         onConfirmAgreement={handleConfirmAgreement}
+        onOpenAgreement={openMembershipAgreement}
       />
     </View>
   )
@@ -512,11 +518,13 @@ function MembershipPaymentLayer({
   failureMessage,
   onClose,
   onConfirmAgreement,
+  onOpenAgreement,
 }: {
   payState: MembershipPayState
   failureMessage: string
   onClose: () => void
   onConfirmAgreement: () => void
+  onOpenAgreement: () => void
 }) {
   if (payState === 'idle') return null
 
@@ -530,6 +538,8 @@ function MembershipPaymentLayer({
 
   return (
     <View
+      id="membership-payment-mask"
+      onClick={payState === 'unpaid-sheet' ? onClose : undefined}
       style={{
         position: 'fixed',
         left: 0,
@@ -554,6 +564,8 @@ function MembershipPaymentLayer({
       {payState === 'unpaid-sheet' && (
         <UnpaidBottomSheet
           onPay={onConfirmAgreement}
+          onClose={onClose}
+          onOpenAgreement={onOpenAgreement}
         />
       )}
     </View>
@@ -584,9 +596,11 @@ function PayResultModal({ title, onClose }: { title: string; onClose: () => void
   )
 }
 
-function UnpaidBottomSheet({ onPay }: { onPay: () => void }) {
+function UnpaidBottomSheet({ onPay, onClose, onOpenAgreement }: { onPay: () => void; onClose: () => void; onOpenAgreement: () => void }) {
   return (
     <View
+      id="membership-unpaid-sheet"
+      onClick={event => event.stopPropagation()}
       style={{
         position: 'absolute',
         left: 0,
@@ -599,10 +613,18 @@ function UnpaidBottomSheet({ onPay }: { onPay: () => void }) {
         boxSizing: 'border-box',
       }}
     >
+      <View
+        id="membership-unpaid-close"
+        aria-label="关闭待支付面板"
+        onClick={onClose}
+        style={{ position: 'absolute', right: '28rpx', top: '22rpx', width: '64rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Text style={{ color: '#777777', fontSize: '42rpx', lineHeight: '48rpx' }}>×</Text>
+      </View>
       <Text style={{ display: 'block', color: '#333333', fontSize: '34rpx', fontWeight: 700, lineHeight: '48rpx', textAlign: 'center' }}>确认开通会员</Text>
       <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '30rpx' }}>
         <Text style={{ color: '#A9A9A9', fontSize: '32rpx', lineHeight: '50rpx' }}>我已阅读并同意</Text>
-        <Text style={{ color: '#211D1E', fontSize: '32rpx', fontWeight: 700, lineHeight: '50rpx' }}>《时空邂逅会员服务协议》</Text>
+        <Text onClick={onOpenAgreement} style={{ color: '#211D1E', fontSize: '32rpx', fontWeight: 700, lineHeight: '50rpx' }}>《时空邂逅会员服务协议》</Text>
       </View>
       <View
         style={{
@@ -629,6 +651,7 @@ function PayBar({
   loading,
   checked,
   onToggle,
+  onOpenAgreement,
   onPay,
 }: {
   plan?: MembershipPlan
@@ -637,6 +660,7 @@ function PayBar({
   loading: boolean
   checked: boolean
   onToggle: () => void
+  onOpenAgreement: () => void
   onPay: () => void
 }) {
   const buttonText = getPayButtonText(memberStatus)
@@ -687,8 +711,9 @@ function PayBar({
           <Text style={{ color: '#211D1E', fontSize: '32rpx', fontWeight: 700 }}>{loading ? loadingText : buttonText}</Text>
         </View>
       </View>
-      <View id="membership-agreement-row" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap', marginTop: '26rpx' }} onClick={onToggle}>
-        <View
+      <View id="membership-agreement-row" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap', marginTop: '26rpx' }}>
+        <View onClick={onToggle} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexShrink: 0 }}>
+          <View
           style={{
             width: '28rpx',
             height: '28rpx',
@@ -701,25 +726,28 @@ function PayBar({
             alignItems: 'center',
             justifyContent: 'center',
           }}
-        >
-          {checked && (
-            <View
-              style={{
-                width: '14rpx',
-                height: '8rpx',
-                borderLeft: '3rpx solid #211D1E',
-                borderBottom: '3rpx solid #211D1E',
-                transform: 'rotate(-45deg)',
-                marginTop: '-3rpx',
-              }}
-            />
-          )}
+          >
+            {checked && (
+              <View
+                style={{
+                  width: '14rpx',
+                  height: '8rpx',
+                  borderLeft: '3rpx solid #211D1E',
+                  borderBottom: '3rpx solid #211D1E',
+                  transform: 'rotate(-45deg)',
+                  marginTop: '-3rpx',
+                }}
+              />
+            )}
+          </View>
+          <Text style={{ color: '#666666', fontSize: '22rpx', lineHeight: '30rpx', whiteSpace: 'nowrap' }}>阅读并同意</Text>
         </View>
         <Text
           id="membership-agreement-line"
-          style={{ color: '#666666', fontSize: '22rpx', lineHeight: '30rpx', whiteSpace: 'nowrap' }}
+          onClick={event => { event.stopPropagation(); onOpenAgreement() }}
+          style={{ color: '#C4913F', fontSize: '22rpx', lineHeight: '30rpx', whiteSpace: 'nowrap' }}
         >
-          阅读并同意<Text style={{ color: '#C4913F' }}>《时空邂逅会员服务协议》</Text>
+          《时空邂逅会员服务协议》
         </Text>
       </View>
     </View>

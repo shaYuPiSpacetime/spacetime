@@ -59,8 +59,18 @@ test('推荐首页由真实推荐状态驱动并禁止继续复用家园页', ()
     /waitingReason === 'no_candidate'/,
     '暂无推荐必须由服务端 waitingReason 驱动'
   )
-  assert.match(source, /暂时还没有推荐/, '空态文案必须与蓝湖稿一致')
-  assert.doesNotMatch(source, /重新加载/, '暂无推荐页不得出现重新加载按钮')
+  assert.match(source, /当前偏好下暂无匹配/, '空态必须明确告知用户与当前偏好有关')
+  assert.match(source, /aria-label="调整推荐偏好"/, '空态必须提供调整偏好入口')
+  assert.match(
+    source,
+    /aria-label="重新加载推荐"[\s\S]{0,160}onClick=\{onRetry\}/,
+    '空态必须提供真实可点击的重试入口'
+  )
+  assert.match(
+    source,
+    /<RecommendEmpty[\s\S]{0,260}onRetry=\{\(\) => void loadCandidates\(\)\}/,
+    '空态重试必须重新请求候选人，不能只修改展示状态'
+  )
   assert.match(
     source,
     /communicationMode === 'PRIVATE_MESSAGE'/,
@@ -214,7 +224,97 @@ test('三天回看与偏好设置均由真实接口和会员态驱动', () => {
   assert.match(preference, /getRecommendPreferences/, '偏好页必须加载真实偏好')
   assert.match(preference, /saveRecommendPreferences/, '偏好页必须保存到后端')
   assert.match(preference, /vipEffective/, '高级筛选必须由会员权益控制')
-  assert.match(preference, /<Slider/, '年龄、身高或体重范围必须可滑动')
+  assert.match(preference, /import DualRangeSlider/, '偏好页必须使用双滑块范围组件')
+  assert.match(preference, /<DualRangeSlider/, '年龄、身高或体重范围必须可同时调整上下限')
+  assert.doesNotMatch(preference, /<Slider\b/, '范围筛选不得退化为单滑块')
+})
+
+test('保存偏好触发重载时只有最新的候选请求可以落状态', () => {
+  const source = read('src/pages/recommend/index.tsx')
+  const loadStart = source.indexOf('const loadCandidates = async')
+  const loadEnd = source.indexOf('\n  useEffect(', loadStart)
+  const loadCandidates = source.slice(loadStart, loadEnd)
+
+  assert.ok(loadStart >= 0 && loadEnd > loadStart, '必须能定位候选列表加载函数')
+  assert.match(
+    source,
+    /const candidateRequestGenerationRef = useRef\(0\)/,
+    '候选请求必须使用稳定 ref 记录当前 generation'
+  )
+  assert.match(
+    loadCandidates,
+    /const requestGeneration = \+\+candidateRequestGenerationRef\.current/,
+    '每次加载必须在发请求前领取新 generation'
+  )
+
+  const responseGuard = /candidateRequestGenerationRef\.current !== requestGeneration/g
+  const guards = loadCandidates.match(responseGuard) || []
+  assert.ok(guards.length >= 2, '成功和失败回调都必须拦截过期请求')
+  assert.match(
+    loadCandidates,
+    /await getRecommendCandidates\(\)[\s\S]*?if \(candidateRequestGenerationRef\.current !== requestGeneration\) return[\s\S]*?setPage\(data\)/,
+    '旧响应不得覆盖保存偏好后的新候选列表'
+  )
+  assert.match(
+    loadCandidates,
+    /catch \(error\) \{[\s\S]*?if \(candidateRequestGenerationRef\.current !== requestGeneration\) return[\s\S]*?setErrorMessage/,
+    '旧请求的失败也不得覆盖最新页面状态'
+  )
+  assert.match(
+    source,
+    /RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY[\s\S]{0,360}void loadCandidates\(\)/,
+    '保存偏好回页后必须立即发起新一代候选请求'
+  )
+})
+
+test('双滑块在首次触摸前预量轨道且快速抬手不会丢失本次命中', () => {
+  const source = read('src/components/DualRangeSlider.tsx')
+  const touchStart = source.slice(
+    source.indexOf('const handleTouchStart'),
+    source.indexOf('const handleTouchMove')
+  )
+  const touchEnd = source.slice(
+    source.indexOf('const clearActiveTouch'),
+    source.indexOf('\n\n  return (', source.indexOf('const clearActiveTouch'))
+  )
+
+  assert.match(source, /import \{[^}]*useEffect[^}]*\} from 'react'/, '轨道尺寸必须在挂载后主动预量')
+  assert.match(source, /const measureTrack =/, '轨道测量必须抽成可预加载、可复用的逻辑')
+  assert.match(
+    source,
+    /useEffect\(\(\) => \{[\s\S]{0,320}(?:void )?measureTrack\(\)/,
+    '不能等到用户首次按下时才异步查询轨道尺寸'
+  )
+  assert.match(
+    touchStart,
+    /trackRectRef\.current[\s\S]{0,240}updateFromPointer\(clientX/,
+    '触摸开始必须优先用预量结果同步命中滑块'
+  )
+  assert.doesNotMatch(
+    touchEnd,
+    /touchSequenceRef\.current\s*(?:\+\+|\+=)/,
+    '快速抬手不得在首次异步测量回调前使本次触摸失效'
+  )
+})
+
+test('推荐身高和体重双滑块覆盖后端全量范围并可回显历史值', () => {
+  const source = read('src/pages/prd08/recommend/preference/index.tsx')
+  const heightStart = source.indexOf('title="身高偏好"')
+  const weightStart = source.indexOf('title="体重偏好"')
+  const educationStart = source.indexOf('学历偏好', weightStart)
+  const heightRange = source.slice(heightStart, weightStart)
+  const weightRange = source.slice(weightStart, educationStart)
+
+  assert.ok(heightStart >= 0 && weightStart > heightStart, '必须能定位身高偏好范围')
+  assert.ok(educationStart > weightStart, '必须能定位体重偏好范围')
+  assert.match(heightRange, /min=\{140\}/, '身高最小值必须与后端 140cm 一致')
+  assert.match(heightRange, /max=\{220\}/, '身高最大值必须与后端 220cm 一致')
+  assert.match(heightRange, /low=\{advanced\.minHeight \?\? 140\}/, '必须回显历史身高下限')
+  assert.match(heightRange, /high=\{advanced\.maxHeight \?\? 220\}/, '必须回显历史身高上限')
+  assert.match(weightRange, /min=\{30\}/, '体重最小值必须与后端 30kg 一致')
+  assert.match(weightRange, /max=\{200\}/, '体重最大值必须与后端 200kg 一致')
+  assert.match(weightRange, /low=\{advanced\.minWeight \?\? 30\}/, '必须回显历史体重下限')
+  assert.match(weightRange, /high=\{advanced\.maxWeight \?\? 200\}/, '必须回显历史体重上限')
 })
 
 test('理想型筛选、结果、报价、确认、历史和帮助形成完整闭环', () => {

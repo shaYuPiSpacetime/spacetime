@@ -8,6 +8,7 @@ import UnverifiedCertificationModal from '@/components/UnverifiedCertificationMo
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
+import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import {
   COMMUNITY_COPY_KEYS,
@@ -117,6 +118,11 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
     setSincerePosts(items => items?.map(update))
   }
 
+  const removeAuthorPosts = (authorId: number) => {
+    setSoulmatePosts(items => items?.filter(item => item.authorId !== authorId))
+    setSincerePosts(items => items?.filter(item => item.authorId !== authorId))
+  }
+
   const followPostAuthor = async (post: CommunityPostVO) => {
     if (!requireInteraction()) return
     try {
@@ -140,12 +146,14 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
 
   const toggleSelectedAuthorPreference = async () => {
     if (!selectedPost) return
+    const authorId = selectedPost.authorId
     try {
       const result = selectedPost.hiddenAuthor
         ? await unhideCommunityAuthor(selectedPost.authorUserNo || selectedPost.authorId)
         : await hideCommunityAuthor(selectedPost.authorUserNo || selectedPost.authorId)
-      updatePostCollections(item => item.authorId === selectedPost.authorId ? { ...item, hiddenAuthor: result.hidden } : item)
-      setSelectedPost(current => current ? { ...current, hiddenAuthor: result.hidden } : current)
+      if (result.hidden) removeAuthorPosts(authorId)
+      else await refreshActive()
+      setSelectedPost(undefined)
       setSheet(null)
       if (result.message) await Taro.showToast({ title: result.message, icon: 'none' })
     } catch (hideError) {
@@ -198,7 +206,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
             config={config}
             optionLabel={optionLabel}
             onRetry={() => void loadSoulmate()}
-            onAuthor={post => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` })}
+            onAuthor={post => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)}
             onOpen={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
             onTopic={post => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
             onComment={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
@@ -218,7 +226,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
             config={config}
             optionLabel={optionLabel}
             onRetry={() => void loadSincere()}
-            onAuthor={post => void Taro.navigateTo({ url: `/pages/heart/user?userId=${post.authorId}` })}
+            onAuthor={post => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)}
             onOpen={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
             onTopic={post => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
             onComment={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
@@ -301,7 +309,7 @@ function ZhiyinPostCard({ post, optionLabel, onAuthor, onOpen, onTopic, onCommen
   const canExpand = post.content.length > 78
   const meta = formatPostAuthorMeta(post, optionLabel)
   return <View className="qianxun-zhiyin-post-card qianxun-sincere-card" data-post-id={post.id} style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '28rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
-    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} /><View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: QIANXUN_BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '8rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text></View><View className="qianxun-sincere-follow" onClick={onFollow} style={{ width: '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : QIANXUN_BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post.followingAuthor ? '#999999' : QIANXUN_BLUE, fontSize: '24rpx' }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View><View onClick={onMore} style={{ width: '52rpx', height: '60rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Text style={{ color: '#999999', fontSize: '38rpx' }}>⋮</Text></View></View>
+    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} /><View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: QIANXUN_BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '8rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text></View><View className="qianxun-sincere-follow" onClick={onFollow} style={{ width: '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : QIANXUN_BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post.followingAuthor ? '#999999' : QIANXUN_BLUE, fontSize: '24rpx' }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View><View onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '38rpx' }}>⋮</Text></View></View>
     <View onClick={onOpen} style={{ position: 'relative', marginTop: '26rpx' }}><Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '48rpx', maxHeight: canExpand ? '192rpx' : 'none', overflow: 'hidden' }}>{post.content}</Text>{canExpand ? <View onClick={event => { event.stopPropagation(); onOpen() }} style={{ position: 'absolute', right: 0, bottom: 0, height: '48rpx', paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: QIANXUN_BLUE, fontSize: '26rpx' }}>查看全部</Text></View> : null}<PostImages images={post.imageUrls || []} /></View>
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '26rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
     {post.topicName ? <View onClick={onTopic} style={{ display: 'inline-flex', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#F4F5F7', padding: '0 18rpx', marginTop: '20rpx', alignItems: 'center' }}><Text style={{ color: '#666666', fontSize: '25rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: QIANXUN_BLUE }}># </Text>{post.topicName}</Text></View> : null}

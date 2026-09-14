@@ -350,7 +350,7 @@ function toPostReceipt(post: CommunityPostVO): MyPostReceipt {
 
 function buildProfileDescription(source: Record<string, unknown>, config?: CommunityConfig) {
   const birthYear = source.birthYear || (typeof source.birthday === 'string' ? source.birthday.slice(0, 4) : '')
-  return [birthYear ? `${birthYear}年` : '', source.locationCityName || source.locationCity, source.occupationLabel || source.occupation].filter(Boolean).join(' · ') || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profilePendingDescription)
+  return [birthYear ? `${birthYear}年` : '', source.locationCityName, source.occupationLabel].filter(Boolean).join(' · ') || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profilePendingDescription)
 }
 
 function readNonNegativeNumber(value: unknown) {

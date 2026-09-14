@@ -17,6 +17,7 @@ import {
   type CommunityCommentSort,
   type CommunityCommentThread,
 } from '@/domain/communityCommentThreads'
+import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import {
   COMMUNITY_COPY_KEYS,
   createCommunityComment,
@@ -179,9 +180,15 @@ export default function QianxunPostDetailPage() {
       const result = post.hiddenAuthor
         ? await unhideCommunityAuthor(post.authorUserNo || post.authorId)
         : await hideCommunityAuthor(post.authorUserNo || post.authorId)
-      setPost(current => current ? { ...current, hiddenAuthor: result.hidden } : current)
       setShowActions(false)
       if (result.message) await Taro.showToast({ title: result.message, icon: 'none' })
+      if (result.hidden) {
+        const returnToFeed = () => { void Taro.switchTab({ url: '/pages/index/index' }) }
+        const backResult = Taro.navigateBack({ fail: returnToFeed })
+        void Promise.resolve(backResult).catch(returnToFeed)
+      } else {
+        setPost(current => current ? { ...current, hiddenAuthor: false } : current)
+      }
     } catch (error) {
       await showError(config, error)
     }
@@ -329,7 +336,7 @@ export default function QianxunPostDetailPage() {
         <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
           <View style={{ padding: '18rpx 25rpx 40rpx' }}>
             <View style={{ borderRadius: '16rpx', background: '#FFFFFF', padding: '24rpx 24rpx 0', overflow: 'hidden' }}>
-              <AuthorRow post={post} isSelf={post.authorId === currentUserId} onMore={() => setShowActions(true)} onApply={() => void openWhisper()} />
+              <AuthorRow post={post} isSelf={post.authorId === currentUserId} onAuthor={() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)} onMore={() => setShowActions(true)} onApply={() => void openWhisper()} />
               {post.title ? <Text style={{ display: 'block', color: '#222F45', fontSize: '29rpx', lineHeight: '44rpx', fontWeight: 600, marginTop: '24rpx' }}>{post.title}</Text> : null}
               <Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', lineHeight: '47rpx', marginTop: '22rpx' }}>{post.content}</Text>
               <ImageGrid images={post.imageUrls || []} />
@@ -411,13 +418,13 @@ export default function QianxunPostDetailPage() {
   )
 }
 
-function AuthorRow({ post, isSelf, onMore, onApply }: { post: CommunityPostVO; isSelf: boolean; onMore: () => void; onApply: () => void }) {
+function AuthorRow({ post, isSelf, onAuthor, onMore, onApply }: { post: CommunityPostVO; isSelf: boolean; onAuthor: () => void; onMore: () => void; onApply: () => void }) {
   const meta = [post.authorBirthYear ? `${String(post.authorBirthYear).slice(-2)}年` : post.authorAge ? `${post.authorAge}岁` : '', post.authorCity || '', post.authorProfession || post.authorZodiac || ''].filter(Boolean).join('·')
   return <View style={{ display: 'flex', alignItems: 'center' }}>
-    <Image src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: '#EFF3F7', flexShrink: 0 }} />
-    <View style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#26354A', fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: BLUE, fontSize: '21rpx', lineHeight: '30rpx', marginTop: '4rpx' }}>{meta || '资料待完善'}</Text></View>
+    <Image onClick={onAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: '#EFF3F7', flexShrink: 0 }} />
+    <View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#26354A', fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: BLUE, fontSize: '21rpx', lineHeight: '30rpx', marginTop: '4rpx' }}>{meta || '资料待完善'}</Text></View>
     {!isSelf ? <View id="qianxun-post-apply-whisper" onClick={onApply} style={{ width: '106rpx', height: '44rpx', borderRadius: '22rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '21rpx' }}>申请认识</Text></View> : null}
-    <View onClick={onMore} style={{ width: '45rpx', height: '52rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx' }}>⋮</Text></View>
+    <View onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '72rpx', height: '72rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx' }}>⋮</Text></View>
   </View>
 }
 

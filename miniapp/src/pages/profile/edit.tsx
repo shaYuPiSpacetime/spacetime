@@ -199,7 +199,7 @@ function resolveVoiceSheetVariant(value?: string): VoiceSheetVariant | null {
 
 export default function ProfileEditPage() {
   const router = useRouter()
-  const [showPreview, setShowPreview] = useState(false)
+  const [showPreview, setShowPreview] = useState(router.params.variant === 'preview')
   const bootstrap = usePrd01Store(state => state.bootstrap)
   const config = usePrd01Store(state => state.config)
   const profileOptions = usePrd01Store(state => state.profileOptions)

@@ -39,9 +39,7 @@ export default function WhisperDetailPage() {
   const [record, setRecord] = useState<MessageWhisperDetail>()
   const [quote, setQuote] = useState<WhisperPrecheckResponse>()
   const [messageContent, setMessageContent] = useState('')
-  const [showComposer, setShowComposer] = useState(
-    router.params.mockScene === 'whisper-compose' || directCompose,
-  )
+  const [showComposer, setShowComposer] = useState(directCompose)
   const [showReportSheet, setShowReportSheet] = useState(
     router.params.mockScene === 'whisper-report-sheet',
   )
@@ -121,10 +119,6 @@ export default function WhisperDetailPage() {
   }
 
   const prepareComposer = async () => {
-    if (record?.actions.canReply) {
-      setShowComposer(true)
-      return
-    }
     if (!directCompose && !record?.actions.canReverseApply) return
     try {
       const activeQuote = quote || await precheckCompose()
@@ -146,42 +140,25 @@ export default function WhisperDetailPage() {
     }
     setSubmitting(true)
     try {
-      if (record?.actions.canReply) {
-        const requestId = idempotencyCache.get(`reply:${record.whisperNo}`, normalized)
-        const result = await service.replyWhisper(
-          record.whisperNo,
-          { requestId, content: normalized },
-          requestId,
-        )
-        setShowComposer(false)
-        await Taro.showToast({ title: '回复成功，已开启私信', icon: 'success' })
-        if (result.conversationNo) {
-          await Taro.redirectTo({
-            url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(result.conversationNo)}${isMockScene ? '&mockScene=private-chat-default' : ''}`,
-          })
-        }
-        idempotencyCache.clear()
-      } else {
-        const activeQuote = quote || await precheckCompose()
-        if (!activeQuote.canSend || !activeQuote.quoteToken) throw new Error(activeQuote.reasonText || '当前暂时无法申请')
-        const requestId = idempotencyCache.get(
-          `create:${composeTargetUserNo}:${composeSourceScene}:${composeSourceBizNo || ''}`,
-          `${normalized}:${activeQuote.quoteToken}`,
-        )
-        await service.createWhisper(
-          {
-            targetUserNo: composeTargetUserNo,
-            sourceScene: composeSourceScene,
-            sourceBizNo: composeSourceBizNo,
-            content: normalized,
-            quoteToken: activeQuote.quoteToken,
-          },
-          requestId,
-        )
-        setShowComposer(false)
-        idempotencyCache.clear()
-        await Taro.showToast({ title: '申请已发送', icon: 'success' })
-      }
+      const activeQuote = quote || await precheckCompose()
+      if (!activeQuote.canSend || !activeQuote.quoteToken) throw new Error(activeQuote.reasonText || '当前暂时无法申请')
+      const requestId = idempotencyCache.get(
+        `create:${composeTargetUserNo}:${composeSourceScene}:${composeSourceBizNo || ''}`,
+        `${normalized}:${activeQuote.quoteToken}`,
+      )
+      await service.createWhisper(
+        {
+          targetUserNo: composeTargetUserNo,
+          sourceScene: composeSourceScene,
+          sourceBizNo: composeSourceBizNo,
+          content: normalized,
+          quoteToken: activeQuote.quoteToken,
+        },
+        requestId,
+      )
+      setShowComposer(false)
+      idempotencyCache.clear()
+      await Taro.showToast({ title: '申请已发送', icon: 'success' })
       setErrorMessage('')
       setContent('')
       if (!isMockScene) await messagePlatformRuntime.onForeground()
@@ -210,12 +187,27 @@ export default function WhisperDetailPage() {
     }
   }
 
+  const replyWhisperInPrivateChat = () => {
+    if (!record?.whisperNo) return
+    const params = [
+      `pendingWhisperNo=${encodeURIComponent(record.whisperNo)}`,
+      `nickname=${encodeURIComponent(profileName)}`,
+      `avatar=${encodeURIComponent(avatarUrl)}`,
+      isMockScene ? 'mockScene=private-chat-default' : '',
+    ].filter(Boolean).join('&')
+    void Taro.navigateTo({ url: `/pages/message/private-chat?${params}` })
+  }
+
   const openPrimary = () => {
     if (record?.actions.canEnterConversation && record.conversationNo) {
       void Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(record.conversationNo)}` })
       return
     }
-    if (directCompose || record?.actions.canReply || record?.actions.canReverseApply) void prepareComposer()
+    if (record?.actions.canReply) {
+      replyWhisperInPrivateChat()
+      return
+    }
+    if (directCompose || record?.actions.canReverseApply) void prepareComposer()
   }
 
   const openReport = () => {
@@ -300,9 +292,8 @@ export default function WhisperDetailPage() {
           profileMeta={profileMeta}
           content={content}
           submitting={submitting}
-          maxLength={record?.actions.canReply ? 500 : quote?.contentMaxLength || 60}
-          coinAmount={record?.actions.canReply ? 0 : quote?.coinAmount || 0}
-          isReply={Boolean(record?.actions.canReply)}
+          maxLength={quote?.contentMaxLength || 60}
+          coinAmount={quote?.coinAmount || 0}
           onInput={setContent}
           onClose={() => setShowComposer(false)}
           onSubmit={() => void submit()}
@@ -336,7 +327,7 @@ function TimelineRow({ icon, title, description, date, active = false }: { icon?
   )
 }
 
-function WhisperComposer({ avatarUrl, profileName, profileMeta, content, submitting, maxLength, coinAmount, isReply, onInput, onClose, onSubmit }: { avatarUrl: string; profileName: string; profileMeta: string; content: string; submitting: boolean; maxLength: number; coinAmount: number; isReply: boolean; onInput: (value: string) => void; onClose: () => void; onSubmit: () => void }) {
+function WhisperComposer({ avatarUrl, profileName, profileMeta, content, submitting, maxLength, coinAmount, onInput, onClose, onSubmit }: { avatarUrl: string; profileName: string; profileMeta: string; content: string; submitting: boolean; maxLength: number; coinAmount: number; onInput: (value: string) => void; onClose: () => void; onSubmit: () => void }) {
   const count = useMemo(() => Array.from(content).length, [content])
   return (
     <View className="whisper-composer-mask" onClick={onClose}>
@@ -344,10 +335,10 @@ function WhisperComposer({ avatarUrl, profileName, profileMeta, content, submitt
         <View className="whisper-composer-profile"><Image className="whisper-composer-avatar" src={avatarUrl} mode="aspectFill" /><View><Text className="whisper-composer-name">{profileName}</Text><Text className="whisper-composer-meta">{profileMeta}</Text></View></View>
         <View className="whisper-textarea-shell"><Textarea className="whisper-textarea" value={content} maxlength={maxLength} placeholder="写点什么···" onInput={event => onInput(event.detail.value)} /><Text className="whisper-textarea-count">{count}/{maxLength}</Text></View>
         <View className="whisper-pay-row">
-          {!isReply ? <View><View className="whisper-coin"><Image className="whisper-coin-icon" src={miniappOssIcons.messageQianxunCoin} mode="aspectFit" /><Text>{coinAmount}</Text></View><Text className="whisper-pay-note">私信直达，配对率翻倍</Text></View> : <Text className="whisper-pay-note">回复后双方将开启私信</Text>}
-          <View className="whisper-submit message-primary-button" onClick={onSubmit}><Text>{submitting ? '提交中' : isReply ? '确认回复' : '立即申请'}</Text></View>
+          <View><View className="whisper-coin"><Image className="whisper-coin-icon" src={miniappOssIcons.messageQianxunCoin} mode="aspectFit" /><Text>{coinAmount}</Text></View><Text className="whisper-pay-note">私信直达，配对率翻倍</Text></View>
+          <View className="whisper-submit message-primary-button" onClick={onSubmit}><Text>{submitting ? '提交中' : '立即申请'}</Text></View>
         </View>
-        {!isReply ? <View className="whisper-member-tip"><Image src={miniappOssIcons.messageMemberBadge} className="whisper-member-badge" mode="aspectFit" /><Text>开通时空邂逅会员每天免费申请一次</Text></View> : null}
+        <View className="whisper-member-tip"><Image src={miniappOssIcons.messageMemberBadge} className="whisper-member-badge" mode="aspectFit" /><Text>开通时空邂逅会员每天免费申请一次</Text></View>
       </View>
     </View>
   )
