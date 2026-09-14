@@ -72,9 +72,9 @@ interface MyPostSnapshot {
 }
 
 const emptyProfile: ProfileSummary = {
-  nickname: `community.copy.${COMMUNITY_COPY_KEYS.profilePendingNickname}`,
+  nickname: resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.profilePendingNickname),
   avatar: defaultAvatar,
-  description: `community.copy.${COMMUNITY_COPY_KEYS.profilePendingDescription}`,
+  description: resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.profilePendingDescription),
   postCount: 0,
   followingCount: 0,
   followerCount: 0,

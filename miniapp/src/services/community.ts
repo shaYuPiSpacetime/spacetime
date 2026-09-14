@@ -1,5 +1,14 @@
 import { del, get, post, put } from './request'
 import type { PageVO } from '@/types/api'
+import {
+  COMMUNITY_COPY_KEYS as COMMUNITY_COPY_KEY_DEFINITIONS,
+  resolveCommunityCopy as resolveCommunityCopyFromDomain,
+  resolveCommunityFeedback as resolveCommunityFeedbackFromDomain,
+  type CommunityCopyKey,
+} from '@/domain/communityCopy'
+
+export const COMMUNITY_COPY_KEYS = COMMUNITY_COPY_KEY_DEFINITIONS
+export type { CommunityCopyKey } from '@/domain/communityCopy'
 
 export type CommunityScene = 'FOLLOWING' | 'CITY' | 'HOT'
 export type CommunityContentType = 'community_post' | 'sincere_post'
@@ -8,69 +17,6 @@ export type CommunityUploadStatus = 'queued' | 'uploading' | 'success' | 'failed
 export type CommunityInteractionType = 'commented' | 'liked' | 'unlocked' | 'viewed'
 export type CommunityRelationType = 'following' | 'followers'
 export type CommunityReportTargetType = 'post' | 'comment' | 'user' | 'chat'
-
-export const COMMUNITY_COPY_KEYS = {
-  genericError: 'generic_error',
-  loadFailed: 'load_failed',
-  loading: 'loading',
-  retry: 'retry',
-  emptyFollowingFeed: 'empty_following_feed',
-  emptyFollowingUsers: 'empty_following_users',
-  emptyCityFeed: 'empty_city_feed',
-  emptyFeedDescription: 'empty_feed_description',
-  emptyYuemu: 'empty_yuemu',
-  emptyYuemuDescription: 'empty_yuemu_description',
-  emptySincere: 'empty_sincere',
-  emptySincereDescription: 'empty_sincere_description',
-  emptyTopics: 'empty_topics',
-  emptyTopicPosts: 'empty_topic_posts',
-  topicUnavailable: 'topic_unavailable',
-  topicDefaultName: 'topic_default_name',
-  topicDefaultDescription: 'topic_default_description',
-  topicDefaultUser: 'topic_default_user',
-  listEnd: 'list_end',
-  emptyMyPosts: 'empty_my_posts',
-  emptyUserPosts: 'empty_user_posts',
-  emptyCommented: 'empty_commented',
-  emptyLiked: 'empty_liked',
-  emptyUnlocked: 'empty_unlocked',
-  emptyInteractionDescription: 'empty_interaction_description',
-  emptyHistory: 'empty_history',
-  emptyFollowingRelations: 'empty_following_relations',
-  emptyFollowerRelations: 'empty_follower_relations',
-  emptyPostLikes: 'empty_post_likes',
-  emptyPostComments: 'empty_post_comments',
-  postCommentsUnavailable: 'post_comments_unavailable',
-  postCommentsEmpty: 'post_comments_empty',
-  postUnavailable: 'post_unavailable',
-  profileUnavailable: 'profile_unavailable',
-  reportReasonUnavailable: 'report_reason_unavailable',
-  reportSubmitFailed: 'report_submit_failed',
-  reportSubmitted: 'report_submitted',
-  reportNumberFormat: 'report_number_format',
-  blockUnavailable: 'block_unavailable',
-  uploadIncomplete: 'upload_incomplete',
-  uploadRetry: 'upload_retry',
-  uploading: 'uploading',
-  publishing: 'publishing',
-  publishFailedTitle: 'publish_failed_title',
-  publishFailed: 'publish_failed',
-  publishRejectedDefault: 'publish_rejected_default',
-  publishStatusUnknown: 'publish_status_unknown',
-  composeContentRequired: 'compose_content_required',
-  videoUnavailable: 'video_unavailable',
-  emojiUnavailable: 'emoji_unavailable',
-  careerUnavailable: 'career_unavailable',
-  editPublishedUnavailable: 'edit_published_unavailable',
-  deleteSuccess: 'delete_success',
-  profilePendingNickname: 'profile_pending_nickname',
-  profilePendingDescription: 'profile_pending_description',
-  profileUnknownUser: 'profile_unknown_user',
-  cannotFollowSelf: 'cannot_follow_self',
-  commentSending: 'comment_sending',
-} as const
-
-export type CommunityCopyKey = typeof COMMUNITY_COPY_KEYS[keyof typeof COMMUNITY_COPY_KEYS]
 
 export interface CommunityPostVO {
   id: number
@@ -149,6 +95,7 @@ export interface CommunityConfig {
   postMaxImages: number
   postMaxTextLength: number
   reportEntryEnabled: boolean
+  stationPublishAllowed?: boolean
   topics: CommunityDictOption[]
   reportReasons: CommunityDictOption[]
   homeTabs: Array<{ entryKey: string; entryName: string; sort: number }>
@@ -167,6 +114,7 @@ interface CommunityMetaPayloadVO extends Partial<CommunityMetaVO> {
   dictionaries?: Record<string, CommunityDictOption[]>
   copies?: Record<string, string>
   configs?: Record<string, string | number | boolean>
+  capabilities?: Record<string, boolean>
 }
 
 export interface CommunityTopicCardVO {
@@ -304,16 +252,19 @@ export interface CommunityAuthorPreferenceResultVO {
   message: string
 }
 
-export function resolveCommunityCopy(config: Pick<CommunityConfig, 'copy'> | undefined, key: CommunityCopyKey | string) {
-  const configured = config?.copy?.[key]?.trim()
-  if (configured) return configured
-  const generic = key === COMMUNITY_COPY_KEYS.genericError ? '' : config?.copy?.[COMMUNITY_COPY_KEYS.genericError]?.trim()
-  return generic || `community.copy.${key}`
+export function resolveCommunityCopy(
+  config: Pick<CommunityConfig, 'copy'> | undefined,
+  key: CommunityCopyKey | string,
+) {
+  return resolveCommunityCopyFromDomain(config, key)
 }
 
-export function resolveCommunityFeedback(config: Pick<CommunityConfig, 'copy'> | undefined, key: CommunityCopyKey | string, source?: unknown) {
-  const serverMessage = readCommunityServerMessage(source)
-  return serverMessage || resolveCommunityCopy(config, key)
+export function resolveCommunityFeedback(
+  config: Pick<CommunityConfig, 'copy'> | undefined,
+  key: CommunityCopyKey | string,
+  source?: unknown,
+) {
+  return resolveCommunityFeedbackFromDomain(config, key, source)
 }
 
 export function resolveCommunityStatusLabel(config: CommunityConfig | undefined, status: string, statusName?: string) {
@@ -322,18 +273,6 @@ export function resolveCommunityStatusLabel(config: CommunityConfig | undefined,
   const dictionaryLabel = [...(config?.publishStatuses || []), ...(config?.contentStatuses || [])]
     .find(item => item.code === status)?.label?.trim()
   return dictionaryLabel || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishStatusUnknown)
-}
-
-function readCommunityServerMessage(source: unknown) {
-  if (source instanceof Error) return source.message.trim()
-  if (typeof source === 'string') return source.trim()
-  if (!source || typeof source !== 'object') return ''
-  const value = source as Record<string, unknown>
-  for (const field of ['message', 'statusMessage', 'auditRemark', 'statusName']) {
-    const text = typeof value[field] === 'string' ? value[field].trim() : ''
-    if (text) return text
-  }
-  return ''
 }
 
 export function getCommunityPosts(scene: CommunityScene, page = 1, size = 10) {
@@ -350,6 +289,7 @@ export function getCommunityTopicPosts(topicId: number | string, sort: 'HOT' | '
 
 export const getYuemuUsers = (page = 1, size = 20) => get<PageVO<YuemuUserVO>>('/miniapp/community/yuemu', { page, size })
 export const toggleYuemuLike = (targetUserId: number) => post<{ liked: boolean }>(`/miniapp/community/yuemu/${targetUserId}/like`)
+export const getSoulmatePosts = (page = 1, size = 20) => get<PageVO<CommunityPostVO>>('/miniapp/community/soulmate-posts', { page, size })
 export const getSincerePosts = (page = 1, size = 10) => get<PageVO<CommunityPostVO>>('/miniapp/community/posts', { postType: 'sincere_post', page, size })
 
 export const getCommunityPostDetail = (postId: number | string) => get<CommunityPostDetailVO>(`/miniapp/community/posts/${postId}`)
@@ -415,6 +355,7 @@ function normalizeCommunityMeta(raw: CommunityMetaPayloadVO): CommunityMetaVO {
     postMaxImages: Number(raw.postMaxImages ?? config('postMaxImages', 'community.post_max_images')),
     postMaxTextLength: Number(raw.postMaxTextLength ?? config('postMaxTextLength', 'community.post_max_text_length')),
     reportEntryEnabled: toBoolean(raw.reportEntryEnabled ?? config('reportEntryEnabled', 'community.report_entry_enabled')),
+    stationPublishAllowed: toBoolean(raw.stationPublishAllowed ?? raw.capabilities?.stationPublishAllowed),
     topics: raw.topics || dictionary('topics', 'communityTopic', 'community_topic'),
     reportReasons: raw.reportReasons || dictionary('reportReasons', 'communityReportReason', 'community_report_reason'),
     homeTabs: raw.homeTabs || [],

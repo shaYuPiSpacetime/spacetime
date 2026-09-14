@@ -36,6 +36,9 @@ public interface CommunityService {
      */
     Page<CommunityPostCardVO> getPosts(Long userId, String postType, Long topicId, String scene, int page, int size);
 
+    /** 查询后台配置作者的心灵搭子普通动态。 */
+    Page<CommunityPostCardVO> getSoulmatePosts(Long userId, int page, int size);
+
     /**
      * 查询内容详情
      *
@@ -138,7 +141,9 @@ public interface CommunityService {
      */
     CommunityConfigVO getConfig();
 
-    CommunityMetaVO getMeta();
+    /** 获取社区元数据，并按当前用户派生时空站台发布能力。 */
+    CommunityMetaVO getMeta(Long userId);
+    default CommunityMetaVO getMeta() { return getMeta(null); }
     CommunityDraftVO getDraft(Long userId, String contentType);
     CommunityDraftVO saveDraft(Long userId, String contentType, CommunityDraftSaveReq req);
     void deleteDraft(Long userId, String contentType);

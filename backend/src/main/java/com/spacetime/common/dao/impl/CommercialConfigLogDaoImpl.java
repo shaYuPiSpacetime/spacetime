@@ -8,6 +8,8 @@ import com.spacetime.common.mapper.CommercialConfigLogMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 /**
  * 商业化配置变更审计数据访问实现
  */
@@ -20,6 +22,24 @@ public class CommercialConfigLogDaoImpl implements CommercialConfigLogDao {
     @Override
     public CommercialConfigLog selectById(Long id) {
         return mapper.selectById(id);
+    }
+
+    @Override
+    public List<CommercialConfigLog> selectLatestSummaries(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        LambdaQueryWrapper<CommercialConfigLog> wrapper = new LambdaQueryWrapper<CommercialConfigLog>()
+                .select(
+                        CommercialConfigLog::getId,
+                        CommercialConfigLog::getConfigVersion,
+                        CommercialConfigLog::getChangeModule,
+                        CommercialConfigLog::getChangeSummary,
+                        CommercialConfigLog::getOperatorId,
+                        CommercialConfigLog::getOperatorName,
+                        CommercialConfigLog::getCreateTime)
+                .orderByDesc(CommercialConfigLog::getCreateTime)
+                .orderByDesc(CommercialConfigLog::getId)
+                .last("LIMIT " + safeLimit);
+        return mapper.selectList(wrapper);
     }
 
     @Override

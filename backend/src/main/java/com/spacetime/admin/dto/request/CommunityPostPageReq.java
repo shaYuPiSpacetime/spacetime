@@ -22,6 +22,8 @@ public class CommunityPostPageReq extends PageReq {
     private String postType;
     /** 页面提交的内容类型，兼容 postType */
     private String contentType;
+    /** 千寻知音归属模块：soulmate/station */
+    private String zhiyinSection;
     private String sourceScene;
     private String mediaType;
     private String machineResult;

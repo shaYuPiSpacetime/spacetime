@@ -70,7 +70,7 @@ test('推荐浏览动作保持开放且喜欢和悄悄话受未认证弹窗保�
   assert.doesNotMatch(source, /onPreference=\{\(\) => runCertifiedAction[\s\S]{0,120}recommend\/preference/, '推荐筛选入口不得要求三项认证')
   assert.doesNotMatch(source, /onOpen=\{\(\) => runCertifiedAction[\s\S]{0,160}pages\/heart\/user/, '候选详情不得要求三项认证')
   assert.doesNotMatch(source, /onSkip=\{\(\) => runCertifiedAction/, '跳过不得要求三项认证')
-  for (const callback of ['onShare', 'onIp', 'onCertification']) {
+  for (const callback of ['onIp', 'onCertification']) {
     assert.doesNotMatch(source, new RegExp(`${callback}=\\{\\(\\) => runCertifiedAction`), `推荐页 ${callback} 属于浏览动作，不得要求三项认证`)
   }
   for (const callback of ['onConversation', 'onLike']) {

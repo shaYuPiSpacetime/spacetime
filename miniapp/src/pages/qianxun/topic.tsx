@@ -36,7 +36,7 @@ export default function QianxunTopicPage() {
   const optionLabel = usePrd01Store(state => state.optionLabel)
   const [topicId, setTopicId] = useState<number>()
   const [topic, setTopic] = useState<CommunityTopicDetailVO>()
-  const [fallbackName, setFallbackName] = useState(`community.copy.${COMMUNITY_COPY_KEYS.topicDefaultName}`)
+  const [fallbackName, setFallbackName] = useState(resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.topicDefaultName))
   const [posts, setPosts] = useState<CommunityPostVO[]>([])
   const [sort, setSort] = useState<'HOT' | 'LATEST'>('HOT')
   const [loading, setLoading] = useState(true)

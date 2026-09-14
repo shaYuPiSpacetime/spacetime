@@ -56,7 +56,7 @@ test('长动态保持 28rpx/48rpx 排版，查看全部直接进入详情', () =
     {
       name: '知音动态',
       source: read('src/features/qianxun/QianxunZhiyinTab.tsx'),
-      start: 'function SincereCard',
+      start: 'function ZhiyinPostCard',
       end: 'function PostImages',
     },
   ]

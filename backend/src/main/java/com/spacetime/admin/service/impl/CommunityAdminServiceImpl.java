@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -85,6 +87,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         putOptions(vo, "contentType", "community_content_type");
         putOptions(vo, "contentStatus", "community_content_status");
         putOptions(vo, "sourceScene", "community_source_scene");
+        putOptions(vo, "zhiyinSection", "community_zhiyin_section");
         putOptions(vo, "mediaType", "community_media_type");
         putOptions(vo, "machineResult", "community_machine_result");
         putOptions(vo, "riskLevel", "community_risk_level");
@@ -373,7 +376,10 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     @Override
     public CommunityConfigVersionVO getConfigVersion() {
         CommunityConfigVersion latest = latestConfigVersion();
-        List<CommunityConfigItemVO> items = latest == null ? defaultConfigItems() : readConfigItems(latest.getConfigSnapshot());
+        List<CommunityConfigItemVO> canonicalItems = defaultConfigItems();
+        List<CommunityConfigItemVO> items = latest == null
+                ? canonicalItems
+                : mergeCanonicalConfigItems(canonicalItems, readConfigItems(latest.getConfigSnapshot()));
         return toConfigVersionVO(latest, items);
     }
 
@@ -387,19 +393,24 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         List<CommunityConfigItemVO> canonicalItems = defaultConfigItems();
         Map<String, CommunityConfigItemVO> canonicalByKey = canonicalItems.stream()
                 .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item));
-        List<CommunityConfigItemVO> previousItems = latest == null ? canonicalItems : readConfigItems(latest.getConfigSnapshot());
+        List<CommunityConfigItemVO> previousItems = latest == null
+                ? canonicalItems
+                : mergeCanonicalConfigItems(canonicalItems, readConfigItems(latest.getConfigSnapshot()));
         Map<String, CommunityConfigItemVO> previousByKey = previousItems.stream()
                 .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item, (left, right) -> left));
         Set<String> requestKeys = new LinkedHashSet<>();
+        Map<String, Object> normalizedValues = new LinkedHashMap<>();
         for (CommunityConfigVersionSaveReq.Item item : req.getItems()) {
             if (!requestKeys.add(item.getConfigKey())) throw error("duplicate_config_key");
             if (!canonicalByKey.containsKey(item.getConfigKey())) throw error("unsupported_config_key");
+            normalizedValues.put(item.getConfigKey(), normalizeConfigValue(item.getConfigKey(), item.getConfigValue()));
         }
         boolean highRiskChanged = req.getItems().stream().anyMatch(item -> {
             CommunityConfigItemVO canonical = canonicalByKey.get(item.getConfigKey());
             CommunityConfigItemVO previous = previousByKey.get(item.getConfigKey());
             return Boolean.TRUE.equals(canonical.getHighRisk())
-                    && !sameConfigValue(previous == null ? null : previous.getConfigValue(), item.getConfigValue());
+                    && !sameConfigValue(previous == null ? null : previous.getConfigValue(),
+                    normalizedValues.get(item.getConfigKey()));
         });
         if (highRiskChanged && !Boolean.TRUE.equals(req.getHighRiskConfirmed())) {
             throw error("high_risk_confirmation_required");
@@ -411,11 +422,13 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                         (left, right) -> left, LinkedHashMap::new));
         for (CommunityConfigVersionSaveReq.Item item : req.getItems()) {
             CommunityConfigItemVO canonical = canonicalByKey.get(item.getConfigKey());
-            CommunityConfigItemVO value = canonicalConfigItem(canonical, item.getConfigValue());
+            Object normalizedValue = normalizedValues.get(item.getConfigKey());
+            CommunityConfigItemVO value = canonicalConfigItem(canonical, normalizedValue);
             merged.put(item.getConfigKey(), value);
             AppConfig config = new AppConfig();
             config.setConfigKey(item.getConfigKey());
-            config.setConfigValue(item.getConfigValue() instanceof String stringValue ? stringValue : json(item.getConfigValue()));
+            config.setConfigValue(normalizedValue instanceof String stringValue
+                    ? stringValue : json(normalizedValue));
             config.setConfigGroup(canonical.getConfigGroup());
             config.setConfigType(canonical.getConfigType());
             config.setPublicVisible(PUBLIC_COMMUNITY_CONFIG_KEYS.contains(item.getConfigKey()) ? 1 : 0);
@@ -451,12 +464,28 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     @Override
     public Page<CommunityPostAdminVO> getPostPage(CommunityPostPageReq req) {
         Long authorId = req.getUserId() != null ? req.getUserId() : req.getAuthorId();
+        CommunityZhiyinSectionEnum zhiyinSection = CommunityZhiyinSectionEnum.getByCode(req.getZhiyinSection());
+        Set<String> soulmatePhoneHashes = zhiyinSection == CommunityZhiyinSectionEnum.STATION
+                ? Set.of() : resolveSoulmatePhoneHashes();
+        Set<Long> soulmateAuthorIds = zhiyinSection == CommunityZhiyinSectionEnum.SOULMATE
+                ? resolveSoulmateAuthorIds(soulmatePhoneHashes) : Set.of();
+        if (zhiyinSection == CommunityZhiyinSectionEnum.SOULMATE && soulmateAuthorIds.isEmpty()) {
+            Page<CommunityPostAdminVO> empty = new Page<>(req.getPage(), req.getSize(), 0);
+            empty.setRecords(List.of());
+            return empty;
+        }
         String postType = "moments".equalsIgnoreCase(req.getScope())
                 ? CommunityPostTypeEnum.COMMUNITY.getCode()
                 : StrUtil.blankToDefault(req.getContentType(), req.getPostType());
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
                 .eq(authorId != null, CommunityPost::getAuthorId, authorId)
                 .eq(StrUtil.isNotBlank(postType), CommunityPost::getPostType, postType)
+                .eq(zhiyinSection == CommunityZhiyinSectionEnum.SOULMATE,
+                        CommunityPost::getPostType, CommunityPostTypeEnum.COMMUNITY.getCode())
+                .in(zhiyinSection == CommunityZhiyinSectionEnum.SOULMATE,
+                        CommunityPost::getAuthorId, soulmateAuthorIds)
+                .eq(zhiyinSection == CommunityZhiyinSectionEnum.STATION,
+                        CommunityPost::getPostType, CommunityPostTypeEnum.SINCERE_POST.getCode())
                 .eq(StrUtil.isNotBlank(req.getSourceScene()), CommunityPost::getSourceScene, req.getSourceScene())
                 .eq(StrUtil.isNotBlank(req.getStatus()), CommunityPost::getStatus, req.getStatus())
                 .eq(StrUtil.isNotBlank(req.getAuditStatus()), CommunityPost::getAuditStatus, req.getAuditStatus())
@@ -483,7 +512,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                 .orderByDesc(CommunityPost::getUpdateTime);
         Page<CommunityPost> page = communityPostDao.selectPage(new Page<>(req.getPage(), req.getSize()), wrapper);
         Page<CommunityPostAdminVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(toPostAdminVOs(page.getRecords()));
+        result.setRecords(toPostAdminVOs(page.getRecords(), soulmatePhoneHashes));
         return result;
     }
 
@@ -673,13 +702,14 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     }
 
     /**
-     * 查询社区配置列表（互动准入、内容规则、审核与治理等 13 项配置）
+     * 查询社区配置列表（互动准入、知音运营、内容规则、审核与治理等 14 项配置）
      * @return 配置列表
      */
     @Override
     public List<AppConfigVO> getCommunityConfigs() {
         Map<String, AppConfig> configMap = appConfigDao.selectByKeys(List.of(
                 CommunityConfigKeys.INTERACTION_GATE_MODE,
+                CommunityConfigKeys.SOULMATE_SOURCE_PHONES,
                 CommunityConfigKeys.POST_MAX_IMAGES,
                 CommunityConfigKeys.POST_MAX_TEXT_LENGTH,
                 CommunityConfigKeys.POST_MAX_MENTIONS,
@@ -696,6 +726,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
 
         return List.of(
                 toConfigVO(configMap, CommunityConfigKeys.INTERACTION_GATE_MODE, ConfigTypeEnum.TEXT.getCode(), null, "COMMUNITY", message("config_name_interaction_gate")),
+                toConfigVO(configMap, CommunityConfigKeys.SOULMATE_SOURCE_PHONES, ConfigTypeEnum.JSON.getCode(), "[]", "COMMUNITY_PRIVATE", message("config_name_soulmate_source_phones")),
                 toConfigVO(configMap, CommunityConfigKeys.POST_MAX_IMAGES, ConfigTypeEnum.NUMBER.getCode(), null, "COMMUNITY", message("config_name_post_max_images")),
                 toConfigVO(configMap, CommunityConfigKeys.POST_MAX_TEXT_LENGTH, ConfigTypeEnum.NUMBER.getCode(), null, "COMMUNITY", message("config_name_post_max_text")),
                 toConfigVO(configMap, CommunityConfigKeys.POST_MAX_MENTIONS, ConfigTypeEnum.NUMBER.getCode(), null, "COMMUNITY", message("config_name_post_max_mentions")),
@@ -1164,6 +1195,48 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         }).toList();
     }
 
+    /** 旧版本快照只保留配置值，展示属性与新增配置项始终以当前标准清单为准。 */
+    private List<CommunityConfigItemVO> mergeCanonicalConfigItems(List<CommunityConfigItemVO> canonicalItems,
+                                                                   List<CommunityConfigItemVO> storedItems) {
+        Map<String, CommunityConfigItemVO> storedByKey = storedItems.stream()
+                .filter(item -> StrUtil.isNotBlank(item.getConfigKey()))
+                .collect(Collectors.toMap(CommunityConfigItemVO::getConfigKey, item -> item,
+                        (left, right) -> left));
+        return canonicalItems.stream().map(canonical -> {
+            CommunityConfigItemVO stored = storedByKey.get(canonical.getConfigKey());
+            return stored == null
+                    ? canonical
+                    : canonicalConfigItem(canonical, stored.getConfigValue());
+        }).toList();
+    }
+
+    private Object normalizeConfigValue(String key, Object value) {
+        if (!CommunityConfigKeys.SOULMATE_SOURCE_PHONES.equals(key)) return value;
+        List<?> rawPhones;
+        if (value == null || value instanceof String stringValue && StrUtil.isBlank(stringValue)) {
+            rawPhones = List.of();
+        } else if (value instanceof Collection<?> collection) {
+            rawPhones = new ArrayList<>(collection);
+        } else if (value instanceof String stringValue) {
+            try {
+                rawPhones = objectMapper.readValue(stringValue, new TypeReference<List<String>>() {});
+            } catch (Exception exception) {
+                throw error("invalid_soulmate_source_phone");
+            }
+        } else {
+            throw error("invalid_soulmate_source_phone");
+        }
+        if (rawPhones.size() > 50) throw error("too_many_soulmate_source_phones");
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        for (Object rawPhone : rawPhones) {
+            if (!(rawPhone instanceof String phone) || !phone.trim().matches("^1[3-9]\\d{9}$")) {
+                throw error("invalid_soulmate_source_phone");
+            }
+            normalized.add(phone.trim());
+        }
+        return json(new ArrayList<>(normalized));
+    }
+
     private void applyConfigPresentation(CommunityConfigItemVO vo) {
         String key = vo.getConfigKey();
         if (CommunityConfigKeys.INTERACTION_GATE_MODE.equals(key)) {
@@ -1171,6 +1244,12 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             vo.setOptionsKey("interactionGateMode");
             vo.setHighRisk(true);
             vo.setSort(10);
+            return;
+        }
+        if (CommunityConfigKeys.SOULMATE_SOURCE_PHONES.equals(key)) {
+            vo.setSectionCode("entry");
+            vo.setHighRisk(true);
+            vo.setSort(20);
             return;
         }
         if (CommunityConfigKeys.REPORT_ENTRY_ENABLED.equals(key)) {
@@ -1554,7 +1633,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         return values.get(0);
     }
 
-    private List<CommunityPostAdminVO> toPostAdminVOs(List<CommunityPost> entities) {
+    private List<CommunityPostAdminVO> toPostAdminVOs(List<CommunityPost> entities,
+                                                       Set<String> soulmatePhoneHashes) {
         if (entities == null || entities.isEmpty()) return List.of();
 
         List<Long> authorIds = entities.stream().map(CommunityPost::getAuthorId)
@@ -1576,6 +1656,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                 entity.getTopicId() == null ? null : topics.get(entity.getTopicId()),
                 statusLabels.getOrDefault(entity.getStatus(), entity.getStatus()),
                 machineLabels.getOrDefault(entity.getMachineResult(), entity.getMachineResult()),
+                soulmatePhoneHashes,
                 false
         )).toList();
     }
@@ -1603,11 +1684,13 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityTopic topic = entity.getTopicId() == null ? null : communityExtensionDao.selectTopicById(entity.getTopicId());
         return toPostAdminVO(entity, author, topic,
                 resolveDictLabel("community_content_status", entity.getStatus()),
-                resolveDictLabel("community_machine_result", entity.getMachineResult()), true);
+                resolveDictLabel("community_machine_result", entity.getMachineResult()),
+                resolveSoulmatePhoneHashes(), true);
     }
 
     private CommunityPostAdminVO toPostAdminVO(CommunityPost entity, AppUser author, CommunityTopic topic,
-                                                String statusLabel, String machineLabel, boolean includeAuditLogs) {
+                                                String statusLabel, String machineLabel,
+                                                Set<String> soulmatePhoneHashes, boolean includeAuditLogs) {
         CommunityPostAdminVO vo = new CommunityPostAdminVO();
         vo.setId(entity.getId());
         vo.setPostNo(entity.getPostNo());
@@ -1618,6 +1701,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setPostType(entity.getPostType());
         vo.setContentType(entity.getPostType());
         vo.setSourceScene(entity.getSourceScene());
+        vo.setZhiyinSection(resolveZhiyinSection(entity, author, soulmatePhoneHashes));
         vo.setTitle(entity.getTitle());
         vo.setContent(entity.getContent());
         vo.setContentSummary(StrUtil.maxLength(entity.getContent(), 100));
@@ -1646,6 +1730,53 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setCreateTime(entity.getCreateTime() != null ? entity.getCreateTime().format(FMT) : null);
         vo.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);
         return vo;
+    }
+
+    /** 心灵搭子名单只在服务端转换为手机号摘要，不向管理列表返回原始配置。 */
+    private Set<String> resolveSoulmatePhoneHashes() {
+        AppConfig sourceConfig = appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES);
+        if (sourceConfig == null) return Set.of();
+        return readStringList(sourceConfig.getConfigValue()).stream()
+                .map(String::trim)
+                .filter(phone -> phone.matches("^1[3-9]\\d{9}$"))
+                .distinct()
+                .limit(50)
+                .map(this::hashPhone)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Long> resolveSoulmateAuthorIds(Set<String> phoneHashes) {
+        if (phoneHashes.isEmpty()) return Set.of();
+        return appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
+                        .in(AppUser::getPhoneHash, phoneHashes)
+                        .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode()))
+                .stream()
+                .map(AppUser::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private String resolveZhiyinSection(CommunityPost post, AppUser author,
+                                        Set<String> soulmatePhoneHashes) {
+        if (CommunityPostTypeEnum.SINCERE_POST.getCode().equals(post.getPostType())) {
+            return CommunityZhiyinSectionEnum.STATION.getCode();
+        }
+        if (CommunityPostTypeEnum.COMMUNITY.getCode().equals(post.getPostType())
+                && author != null
+                && StrUtil.isNotBlank(author.getPhoneHash())
+                && soulmatePhoneHashes.contains(author.getPhoneHash())) {
+            return CommunityZhiyinSectionEnum.SOULMATE.getCode();
+        }
+        return null;
+    }
+
+    private String hashPhone(String phone) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(phone.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception exception) {
+            throw error("runtime_config_invalid");
+        }
     }
 
     private List<CommunityCommentAdminVO> toCommentAdminVOs(List<CommunityComment> entities) {
@@ -1855,7 +1986,9 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         vo.setConfigValue(entity != null ? entity.getConfigValue() : defaultValue);
         vo.setConfigGroup(entity != null ? entity.getConfigGroup() : group);
         vo.setConfigType(entity != null ? entity.getConfigType() : type);
-        vo.setPublicVisible(entity != null && entity.getPublicVisible() != null ? entity.getPublicVisible() : 1);
+        vo.setPublicVisible(entity != null && entity.getPublicVisible() != null
+                ? entity.getPublicVisible()
+                : (PUBLIC_COMMUNITY_CONFIG_KEYS.contains(key) ? 1 : 0));
         vo.setStatus(entity != null ? entity.getStatus() : CommonStatusEnum.ENABLED.getCode());
         vo.setRemark(entity != null && StrUtil.isNotBlank(entity.getRemark()) ? entity.getRemark() : remark);
         vo.setUpdateTime(entity != null && entity.getUpdateTime() != null ? entity.getUpdateTime().format(FMT) : null);

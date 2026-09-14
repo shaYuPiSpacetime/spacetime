@@ -25,6 +25,8 @@ public class CommunityPostAdminVO {
     private String postType;
     private String contentType;
     private String sourceScene;
+    /** 千寻知音归属模块：soulmate/station；非知音内容为空 */
+    private String zhiyinSection;
     /** 标题 */
     private String title;
     /** 内容 */

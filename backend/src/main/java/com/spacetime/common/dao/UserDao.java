@@ -14,6 +14,8 @@ public interface UserDao {
     SysUser selectByUsername(String username);
     /** 按用户名或手机号查询用户 */
     SysUser selectByUsernameOrPhone(String account);
+    /** 按手机号精确查询后台工作人员 */
+    SysUser selectByPhone(String phone);
     /** 按 ID 查询用户 */
     SysUser selectById(Long id);
     /** 分页查询用户 */

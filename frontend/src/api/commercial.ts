@@ -1,5 +1,7 @@
 import request from './request';
 
+const COMMERCIAL_CONFIG_TIMEOUT_MS = 60_000;
+
 export interface VipBenefitConfig {
   id?: number;
   benefitCode: string;
@@ -186,7 +188,9 @@ export interface PageResult<T> {
 }
 
 export function getCommercialConfig() {
-  return request.get<CommercialConfig>('/admin/commercial/config');
+  return request.get<CommercialConfig>('/admin/commercial/config', {
+    timeout: COMMERCIAL_CONFIG_TIMEOUT_MS,
+  });
 }
 
 export function getCommercialUserAssetDetail(userId: number) {
@@ -194,11 +198,16 @@ export function getCommercialUserAssetDetail(userId: number) {
 }
 
 export function saveCommercialConfig(data: Partial<CommercialConfig> & { changeSummary?: string }) {
-  return request.put<CommercialConfig>('/admin/commercial/config', data);
+  return request.put<CommercialConfig>('/admin/commercial/config', data, {
+    timeout: COMMERCIAL_CONFIG_TIMEOUT_MS,
+  });
 }
 
 export function getCommercialConfigLogs(params: { page: number; size: number }) {
-  return request.get<PageResult<CommercialConfigLog>>('/admin/commercial/config/logs', { params });
+  return request.get<PageResult<CommercialConfigLog>>('/admin/commercial/config/logs', {
+    params,
+    timeout: COMMERCIAL_CONFIG_TIMEOUT_MS,
+  });
 }
 
 export function getCommercialOrderList(params: Record<string, unknown>) {

@@ -9,7 +9,7 @@ import lombok.Getter;
 public enum CommunityPostTypeEnum {
     COMMUNITY("community_post", "动态"),
     NORMAL_POST("normal_post", "普通动态"),
-    SINCERE_POST("sincere_post", "诚意贴");
+    SINCERE_POST("sincere_post", "时空站台");
 
     /** 枚举编码 */
     private final String code;

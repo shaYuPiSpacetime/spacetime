@@ -81,6 +81,13 @@ public class CommunityController {
         return R.ok(communityService.getYuemuUsers(currentUserId(), page, size));
     }
 
+    /** 查询心灵搭子精选账号的普通动态。 */
+    @GetMapping("/soulmate-posts")
+    public R<Page<CommunityPostCardVO>> soulmatePosts(@RequestParam(defaultValue = "1") int page,
+                                                       @RequestParam(defaultValue = "20") int size) {
+        return R.ok(communityService.getSoulmatePosts(optionalCurrentUserId(), page, size));
+    }
+
     /** 切换悦目用户心动态。 */
     @PostMapping("/yuemu/{targetUserId}/like")
     public R<YuemuLikeToggleVO> toggleYuemuLike(@PathVariable Long targetUserId) {
@@ -230,7 +237,7 @@ public class CommunityController {
 
     @GetMapping("/meta")
     public R<CommunityMetaVO> meta() {
-        return R.ok(communityService.getMeta());
+        return R.ok(communityService.getMeta(optionalCurrentUserId()));
     }
 
     @GetMapping("/drafts/{contentType}")

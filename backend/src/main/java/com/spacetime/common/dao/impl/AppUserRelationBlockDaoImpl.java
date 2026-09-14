@@ -9,6 +9,7 @@ import com.spacetime.common.mapper.AppUserRelationBlockMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -29,6 +30,23 @@ public class AppUserRelationBlockDaoImpl implements AppUserRelationBlockDao {
     @Override
     public List<AppUserRelationBlock> selectActiveByUserId(Long userId, String blockType) {
         return mapper.selectList(activeWrapper(userId, blockType).orderByDesc(AppUserRelationBlock::getCreateTime));
+    }
+
+    @Override
+    public List<AppUserRelationBlock> selectActiveBetweenUserAndTargets(
+            Long userId, Collection<Long> targetUserIds, Collection<String> blockTypes) {
+        if (userId == null || targetUserIds == null || targetUserIds.isEmpty()
+                || blockTypes == null || blockTypes.isEmpty()) {
+            return List.of();
+        }
+        return mapper.selectList(new LambdaQueryWrapper<AppUserRelationBlock>()
+                .eq(AppUserRelationBlock::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .in(AppUserRelationBlock::getBlockType, blockTypes)
+                .and(scope -> scope
+                        .and(outgoing -> outgoing.eq(AppUserRelationBlock::getUserId, userId)
+                                .in(AppUserRelationBlock::getTargetUserId, targetUserIds))
+                        .or(incoming -> incoming.in(AppUserRelationBlock::getUserId, targetUserIds)
+                                .eq(AppUserRelationBlock::getTargetUserId, userId))));
     }
 
     @Override

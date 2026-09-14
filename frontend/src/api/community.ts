@@ -68,6 +68,7 @@ export interface CommunityPostAdminVO {
   contentType?: string;
   contentSourceScene?: string;
   sourceScene?: string;
+  zhiyinSection?: string;
   title?: string;
   content: string;
   contentSummary?: string;

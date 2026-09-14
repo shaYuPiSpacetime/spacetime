@@ -43,6 +43,7 @@ interface PostQuery {
   keyword: string;
   userId: string;
   contentType: string;
+  zhiyinSection: string;
   sourceScene: string;
   mediaType: string;
   status: string;
@@ -55,8 +56,8 @@ interface PostQuery {
 }
 
 const initialQueries: Record<Variant, PostQuery> = {
-  content: { page: 1, size: DEFAULT_PAGE_SIZE, keyword: '', userId: '', contentType: '', sourceScene: '', mediaType: '', status: '', machineResult: '', distributionScene: '', reported: '', startTime: '', endTime: '', scope: 'content' },
-  moments: { page: 1, size: DEFAULT_PAGE_SIZE, keyword: '', userId: '', contentType: 'community_post', sourceScene: '', mediaType: '', status: '', machineResult: '', distributionScene: '', reported: '', startTime: '', endTime: '', scope: 'moments' },
+  content: { page: 1, size: DEFAULT_PAGE_SIZE, keyword: '', userId: '', contentType: '', zhiyinSection: '', sourceScene: '', mediaType: '', status: '', machineResult: '', distributionScene: '', reported: '', startTime: '', endTime: '', scope: 'content' },
+  moments: { page: 1, size: DEFAULT_PAGE_SIZE, keyword: '', userId: '', contentType: 'community_post', zhiyinSection: '', sourceScene: '', mediaType: '', status: '', machineResult: '', distributionScene: '', reported: '', startTime: '', endTime: '', scope: 'moments' },
 };
 
 function postActionAllowed(status: string | undefined, action: string) {
@@ -102,7 +103,7 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
 
   const title = variant === 'content' ? '内容管理' : '动态管理';
   const description = variant === 'content'
-    ? '统一治理普通动态和诚意贴，查看来源场景、机审、风险与审核状态；所有处理动作在详情抽屉内完成。'
+    ? '统一治理普通动态和时空站台，查看归属模块、来源场景、机审、风险与审核状态；所有处理动作在详情抽屉内完成。'
     : '管理普通动态流，查看媒体、关注/同城/热门分发、互动数据与展示状态。';
   const emptyCopyKey = variant === 'content' ? 'content_empty' : 'moment_empty';
   const configuredActions = metaOptions(meta, 'postAction');
@@ -210,6 +211,7 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
         <Field label="关键词"><Input value={list.filters.keyword} onChange={(event) => list.setFilters({ ...list.filters, keyword: event.target.value })} placeholder="编号 / 正文 / 昵称" /></Field>
         <Field label="用户 ID"><Input value={list.filters.userId} onChange={(event) => list.setFilters({ ...list.filters, userId: event.target.value })} placeholder="请输入用户编号" /></Field>
         {variant === 'content' && <Field label="内容类型"><NativeSelect value={list.filters.contentType} onChange={(value) => list.setFilters({ ...list.filters, contentType: value })} options={metaOptions(meta, 'contentType')} /></Field>}
+        {variant === 'content' && <Field label="归属模块"><NativeSelect value={list.filters.zhiyinSection} onChange={(value) => list.setFilters({ ...list.filters, zhiyinSection: value })} options={metaOptions(meta, 'zhiyinSection')} /></Field>}
         {variant === 'content' && <Field label="来源场景"><NativeSelect value={list.filters.sourceScene} onChange={(value) => list.setFilters({ ...list.filters, sourceScene: value })} options={metaOptions(meta, 'sourceScene')} /></Field>}
         <Field label="媒体类型"><NativeSelect value={list.filters.mediaType} onChange={(value) => list.setFilters({ ...list.filters, mediaType: value })} options={metaOptions(meta, 'mediaType')} /></Field>
         {variant === 'content' ? (
@@ -223,19 +225,19 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
         <Field label="结束日期"><Input type="date" value={list.filters.endTime} onChange={(event) => list.setFilters({ ...list.filters, endTime: event.target.value })} /></Field>
       </FilterPanel>
 
-      <TableFrame minWidth={variant === 'content' ? 1260 : 1180}>
+      <TableFrame minWidth={variant === 'content' ? 1360 : 1180}>
         <TableHead><tr>
-          {variant === 'content' ? <><HeaderCell>审核编号</HeaderCell><HeaderCell>内容 ID</HeaderCell><HeaderCell>内容类型</HeaderCell><HeaderCell>来源场景</HeaderCell></> : <><HeaderCell>动态 ID</HeaderCell><HeaderCell>分发场景</HeaderCell><HeaderCell>媒体类型</HeaderCell></>}
+          {variant === 'content' ? <><HeaderCell>审核编号</HeaderCell><HeaderCell>内容 ID</HeaderCell><HeaderCell>内容类型</HeaderCell><HeaderCell>归属模块</HeaderCell><HeaderCell>来源场景</HeaderCell></> : <><HeaderCell>动态 ID</HeaderCell><HeaderCell>分发场景</HeaderCell><HeaderCell>媒体类型</HeaderCell></>}
           <HeaderCell>内容预览</HeaderCell><HeaderCell>用户 ID/昵称</HeaderCell><HeaderCell>{variant === 'content' ? '提交时间' : '发布时间'}</HeaderCell>
           {variant === 'moments' && <HeaderCell>阅读/赞/评</HeaderCell>}
           <HeaderCell>{variant === 'content' ? '机审/风险' : '展示状态'}</HeaderCell><HeaderCell>{variant === 'content' ? '状态/违规标签' : '风险'}</HeaderCell><HeaderCell className="sticky right-0 bg-slate-50">操作</HeaderCell>
         </tr></TableHead>
         {list.loading || list.error || !list.pageData.records.length ? (
-          <DataRowsState colSpan={variant === 'content' ? 10 : 10} loading={list.loading} error={list.error} emptyText={metaCopy(meta, emptyCopyKey)} onRetry={list.load} />
+          <DataRowsState colSpan={variant === 'content' ? 11 : 10} loading={list.loading} error={list.error} emptyText={metaCopy(meta, emptyCopyKey)} onRetry={list.load} />
         ) : (
           <tbody>{list.pageData.records.map((row) => (
             <tr key={row.id} className="transition-colors hover:bg-slate-50/70">
-              {variant === 'content' ? <><BodyCell>{row.auditNo || '-'}</BodyCell><BodyCell>{row.postNo || row.id}</BodyCell><BodyCell>{metaLabel(meta, 'contentType', row.contentType || row.postType)}</BodyCell><BodyCell>{metaLabel(meta, 'sourceScene', row.sourceScene || row.contentSourceScene)}</BodyCell></> : <><BodyCell>{row.postNo || row.id}</BodyCell><BodyCell>{(row.distributionScenes || []).map((code) => metaLabel(meta, 'distributionScene', code, metaLabel(meta, 'sourceScene', code))).join(' / ') || '-'}</BodyCell><BodyCell>{metaLabel(meta, 'mediaType', row.mediaType)}</BodyCell></>}
+              {variant === 'content' ? <><BodyCell>{row.auditNo || '-'}</BodyCell><BodyCell>{row.postNo || row.id}</BodyCell><BodyCell>{metaLabel(meta, 'contentType', row.contentType || row.postType)}</BodyCell><BodyCell>{metaLabel(meta, 'zhiyinSection', row.zhiyinSection)}</BodyCell><BodyCell>{metaLabel(meta, 'sourceScene', row.sourceScene || row.contentSourceScene)}</BodyCell></> : <><BodyCell>{row.postNo || row.id}</BodyCell><BodyCell>{(row.distributionScenes || []).map((code) => metaLabel(meta, 'distributionScene', code, metaLabel(meta, 'sourceScene', code))).join(' / ') || '-'}</BodyCell><BodyCell>{metaLabel(meta, 'mediaType', row.mediaType)}</BodyCell></>}
               <BodyCell className="max-w-[320px]"><div className="flex items-center gap-3">
                 {Boolean(row.imageUrls?.length) && <div className="flex shrink-0 -space-x-2">{row.imageUrls?.slice(0, 3).map((url, index) => (
                   <img key={`${url}-${index}`} src={url} alt={`${row.postNo || row.id} 内容图片 ${index + 1}`} loading="lazy" className="h-11 w-11 rounded-lg border-2 border-white object-cover shadow-sm" />
@@ -266,6 +268,7 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
             { label: '内容 ID', value: current.postNo || current.id },
             { label: '作者', value: `${current.authorNo || current.authorId} / ${current.authorName || '-'}` },
             { label: '内容类型', value: metaLabel(meta, 'contentType', current.contentType || current.postType) },
+            { label: '归属模块', value: metaLabel(meta, 'zhiyinSection', current.zhiyinSection) },
             { label: '来源场景', value: metaLabel(meta, 'sourceScene', current.sourceScene || current.contentSourceScene) },
             { label: '机审 / 风险', value: `${metaLabel(meta, 'machineResult', current.machineResult, current.machineLabel)} / ${metaLabel(meta, 'riskLevel', current.riskLevel)}` },
             { label: '阅读 / 赞 / 评', value: `${current.readCount ?? 0} / ${current.likeCount ?? 0} / ${current.commentCount ?? 0}` },

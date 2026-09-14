@@ -1,7 +1,10 @@
 package com.spacetime.miniapp.service;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.enums.SqlKeyword;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.spacetime.common.constant.CommunityConfigKeys;
 import com.spacetime.common.community.*;
 import com.spacetime.common.config.OssConfig;
@@ -22,13 +25,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 
@@ -54,6 +62,7 @@ class CommunityServiceImplTest {
     @Mock private MobileEntryConfigDao mobileEntryConfigDao;
     @Mock private DictDataDao dictDataDao;
     @Mock private AppUserDao appUserDao;
+    @Mock private UserDao userDao;
     @Mock private AppUserAuditContentService auditContentService;
     @Mock private AppRelationLikeDao appRelationLikeDao;
     @Mock private RelationDomainService relationDomainService;
@@ -335,12 +344,36 @@ class CommunityServiceImplTest {
         req.setTopicId(10L);
 
         when(appUserDao.selectById(1L)).thenReturn(user);
+        user.setPhone("13800138000");
+        SysUser staff = new SysUser();
+        staff.setPhone("13800138000");
+        staff.setStatus("ENABLED");
+        when(userDao.selectByPhone("13800138000")).thenReturn(staff);
         when(contentSecurityPort.checkPost(any(), any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
 
         CommunityPublishResultVO result = communityService.createPost(1L, req);
 
         assertThat(result.getStatus()).isEqualTo("pending_manual");
         verify(communityPostDao).insert(argThat(entity -> "pending_manual".equals(entity.getStatus())));
+    }
+
+    @Test
+    @DisplayName("时空站台-非工作人员不得发布")
+    void createSincerePost_nonStaff_shouldReject() {
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("sincere_post");
+        req.setContent("普通用户不能发布时空站台");
+        req.setImageUrls(List.of());
+        user.setPhone("13900139000");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(userDao.selectByPhone("13900139000")).thenReturn(null);
+
+        assertThatThrownBy(() -> communityService.createPost(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("station_staff_only");
+
+        verifyNoInteractions(contentSecurityPort);
+        verify(communityPostDao, never()).insert(any());
     }
 
     @Test
@@ -697,6 +730,55 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("心灵搭子-仅查询配置手机号对应作者的普通动态且不在查询中使用明文手机号")
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void getSoulmatePosts_shouldFilterConfiguredPhoneAuthorsByHash() throws Exception {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), AppUser.class);
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), CommunityPost.class);
+        AppConfig sourcePhones = appConfig(
+                CommunityConfigKeys.SOULMATE_SOURCE_PHONES,
+                "[\"13800138000\",\"13900139000\"]");
+        when(appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES)).thenReturn(sourcePhones);
+        AppUser firstAuthor = author(7L, "运营一");
+        AppUser secondAuthor = author(9L, "运营二");
+        when(appUserDao.selectList(any())).thenReturn(List.of(firstAuthor, secondAuthor));
+        when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(1, 20, 0));
+
+        communityService.getSoulmatePosts(null, 1, 20);
+
+        ArgumentCaptor<LambdaQueryWrapper<AppUser>> userQueryCaptor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(appUserDao).selectList(userQueryCaptor.capture());
+        String userSql = userQueryCaptor.getValue().getSqlSegment();
+        assertThat(userSql).contains("phone_hash");
+        assertThat(userQueryCaptor.getValue().getParamNameValuePairs().values())
+                .contains(sha256("13800138000"), sha256("13900139000"))
+                .doesNotContain("13800138000", "13900139000");
+
+        ArgumentCaptor<LambdaQueryWrapper<CommunityPost>> postQueryCaptor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(communityPostDao).selectPage(any(), postQueryCaptor.capture());
+        String postSql = postQueryCaptor.getValue().getSqlSegment();
+        assertThat(postSql).contains("post_type", "author_id", "status");
+        assertThat(postQueryCaptor.getValue().getParamNameValuePairs().values())
+                .contains("community_post", "published", 7L, 9L);
+    }
+
+    @Test
+    @DisplayName("心灵搭子-手机号配置为空时返回空页且不得退化为全量动态")
+    void getSoulmatePosts_emptyConfig_shouldFailClosedToEmptyPage() {
+        when(appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES)).thenReturn(null);
+
+        Page<CommunityPostCardVO> result = communityService.getSoulmatePosts(null, 2, 20);
+
+        assertThat(result.getCurrent()).isEqualTo(2);
+        assertThat(result.getRecords()).isEmpty();
+        verifyNoInteractions(communityPostDao);
+    }
+
+    @Test
     @DisplayName("悦目心动-首次点击创建喜欢关系")
     void toggleYuemuLike_firstTime_shouldCreateLike() {
         AppUser target = new AppUser();
@@ -826,6 +908,24 @@ class CommunityServiceImplTest {
         verify(dictDataDao, never()).selectByDictType("community_topic");
     }
 
+    @Test
+    @DisplayName("社区Meta-只返回时空站台发布能力而不返回工作人员手机号")
+    void getMeta_shouldExposeDerivedStationCapabilityOnly() {
+        user.setPhone("13800138000");
+        SysUser staff = new SysUser();
+        staff.setPhone("13800138000");
+        staff.setStatus("ENABLED");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(userDao.selectByPhone("13800138000")).thenReturn(staff);
+        when(communityExtensionDao.selectTopics(any())).thenReturn(List.of());
+        when(dictDataDao.selectByDictType(anyString())).thenReturn(List.of());
+
+        CommunityMetaVO result = communityService.getMeta(1L);
+
+        assertThat(result.getCapabilities()).containsEntry("stationPublishAllowed", true);
+        assertThat(result.toString()).doesNotContain("13800138000");
+    }
+
     private SysDictData topic(Long id, String label, int sort, String remark) {
         SysDictData value = new SysDictData();
         value.setId(id);
@@ -894,6 +994,11 @@ class CommunityServiceImplTest {
         config.setConfigValue(value);
         config.setStatus("ENABLED");
         return config;
+    }
+
+    private String sha256(String value) throws Exception {
+        return HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     }
 
     private CommunityPost post(Long id, Long topicId, Long authorId, String content,

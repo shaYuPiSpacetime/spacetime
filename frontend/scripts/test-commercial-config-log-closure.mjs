@@ -16,6 +16,10 @@ assert.match(pageSource, /buildCommercialLogChanges/, '日志抽屉必须根据�
 assert.match(apiSource, /idealBatchDiscountPercent: number/, '商业化配置接口必须包含理想型解锁全部折扣比例');
 assert.match(helperSource, /理想型解锁全部折扣比例/, '变更日志必须用中文展示折扣配置项');
 assert.match(pageSource, /请填写变更原因/, '保存商业化配置前必须填写变更原因');
+assert.match(apiSource, /COMMERCIAL_CONFIG_TIMEOUT_MS\s*=\s*60_000/, '商业化配置请求等待时间必须延长到 60 秒');
+assert.match(apiSource, /getCommercialConfig\(\)[\s\S]*?timeout:\s*COMMERCIAL_CONFIG_TIMEOUT_MS/, '配置首页请求必须使用延长后的等待时间');
+assert.match(apiSource, /saveCommercialConfig[\s\S]*?timeout:\s*COMMERCIAL_CONFIG_TIMEOUT_MS/, '配置保存请求必须使用延长后的等待时间');
+assert.match(apiSource, /getCommercialConfigLogs[\s\S]*?timeout:\s*COMMERCIAL_CONFIG_TIMEOUT_MS/, '配置日志请求必须使用延长后的等待时间');
 
 const helperJavascript = ts.transpileModule(helperSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },

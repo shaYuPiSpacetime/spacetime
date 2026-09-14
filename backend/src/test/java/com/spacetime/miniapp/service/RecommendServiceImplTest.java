@@ -2,11 +2,13 @@ package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppConfigDao;
+import com.spacetime.common.dao.AppRelationLikeDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
 import com.spacetime.common.dao.RecommendPreferenceDao;
 import com.spacetime.common.dao.RecommendViewLogDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.entity.AppConfig;
+import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppUserRelationBlock;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.RecommendPreference;
@@ -14,6 +16,7 @@ import com.spacetime.common.entity.RecommendViewLog;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
 import com.spacetime.miniapp.dto.request.RecommendViewActionReq;
@@ -43,7 +46,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,10 +61,12 @@ class RecommendServiceImplTest {
     @Mock private RecommendPreferenceDao preferenceDao;
     @Mock private UserAssetDao userAssetDao;
     @Mock private AppConfigDao appConfigDao;
+    @Mock private AppRelationLikeDao relationLikeDao;
     @Mock private AppUserRelationBlockDao relationBlockDao;
     @Mock private RecommendViewLogDao viewLogDao;
     @Mock private RelationAccessProjectionService accessProjectionService;
     @Mock private ProfileDictionaryService profileDictionaryService;
+    @Mock private AppUserAuditContentService auditContentService;
     @Mock private MiniappPublicProfileService publicProfileService;
     @Mock private VipService vipService;
     @Mock private Prd01AccessEvaluator accessEvaluator;
@@ -412,27 +419,121 @@ class RecommendServiceImplTest {
         RecommendViewLog latest = viewLog(7L, 8L, "skip", LocalDateTime.now());
         RecommendViewLog older = viewLog(7L, 8L, "view", LocalDateTime.now().minusHours(2));
         RecommendViewLog another = viewLog(7L, 9L, "detail", LocalDateTime.now().minusDays(1));
+        AppUser firstUser = openUser(8L, 28, "320100");
+        AppUser secondUser = openUser(9L, 29, "320100");
+        AppRelationLike activeLike = new AppRelationLike();
+        activeLike.setFromUserId(7L);
+        activeLike.setToUserId(8L);
+        activeLike.setLikeStatus("ACTIVE");
+        activeLike.setActiveMarker(1);
 
         when(appUserDao.selectById(7L)).thenReturn(current);
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
         when(vipService.getBenefits()).thenReturn(List.of(benefit("three_day_replay")));
         when(viewLogDao.selectList(any())).thenReturn(List.of(latest, older, another));
-        when(appUserDao.selectById(8L)).thenReturn(openUser(8L, 28, "320100"));
-        when(appUserDao.selectById(9L)).thenReturn(openUser(9L, 29, "320100"));
-        when(accessProjectionService.project(any(AppUser.class))).thenReturn("OPEN");
-        PublicProfileVO first = new PublicProfileVO();
-        first.setUserId(8L);
-        PublicProfileVO second = new PublicProfileVO();
-        second.setUserId(9L);
-        when(publicProfileService.getPublicProfile(7L, 8L)).thenReturn(first);
-        when(publicProfileService.getPublicProfile(7L, 9L)).thenReturn(second);
+        when(appUserDao.selectByIds(List.of(8L, 9L))).thenReturn(List.of(firstUser, secondUser));
+        when(accessProjectionService.projectAll(List.of(firstUser, secondUser)))
+                .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
+        when(auditContentService.publicAvatars(List.of(8L, 9L)))
+                .thenReturn(Map.of(8L, "https://example.com/avatar.png"));
+        when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of("320100", "南京"));
+        when(relationLikeDao.selectList(any())).thenReturn(List.of(activeLike));
 
         RecommendReplayPageVO result = service.getReplay(7L);
 
         assertThat(result.getItems()).hasSize(2);
         assertThat(result.getItems().get(0).getLastAction()).isEqualTo("skip");
         assertThat(result.getItems().get(0).getDateGroup()).isEqualTo("今天");
+        assertThat(result.getItems().get(0).getLiked()).isTrue();
+        assertThat(result.getItems().get(0).getProfile().getAvatar())
+                .isEqualTo("https://example.com/avatar.png");
+        assertThat(result.getItems().get(0).getProfile().getCurrentCity()).isEqualTo("南京");
         assertThat(result.getItems().get(1).getDateGroup()).isEqualTo("昨天");
+    }
+
+    @Test
+    @DisplayName("三天回看批量过滤双向拉黑并仅应用当前用户发起的不再推荐")
+    void getReplayShouldPreserveBlockDirectionSemanticsWhenBatchLoading() {
+        AppUser current = openUser(7L, 30, "320100");
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(2));
+        List<Long> candidateIds = List.of(8L, 9L, 10L);
+        List<AppUser> targets = candidateIds.stream()
+                .map(id -> openUser(id, 28, "320100"))
+                .toList();
+        AppUserRelationBlock outgoingNoRecommend = block(7L, 8L, "NO_RECOMMEND");
+        AppUserRelationBlock incomingNoRecommend = block(9L, 7L, "NO_RECOMMEND");
+        AppUserRelationBlock incomingBlacklist = block(10L, 7L, "BLACKLIST");
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(vipService.getBenefits()).thenReturn(List.of(benefit("three_day_replay")));
+        when(viewLogDao.selectList(any())).thenReturn(candidateIds.stream()
+                .map(id -> viewLog(7L, id, "view", LocalDateTime.now().minusMinutes(id)))
+                .toList());
+        when(appUserDao.selectByIds(candidateIds)).thenReturn(targets);
+        when(accessProjectionService.projectAll(targets))
+                .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN", 10L, "OPEN"));
+        when(relationBlockDao.selectActiveBetweenUserAndTargets(any(), any(), any()))
+                .thenReturn(List.of(outgoingNoRecommend, incomingNoRecommend, incomingBlacklist));
+        when(auditContentService.publicAvatars(List.of(9L))).thenReturn(Map.of());
+        when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of("320100", "南京"));
+        when(relationLikeDao.selectList(any())).thenReturn(List.of());
+
+        RecommendReplayPageVO result = service.getReplay(7L);
+
+        assertThat(result.getItems()).extracting(item -> item.getProfile().getUserId())
+                .containsExactly(9L);
+    }
+
+    @Test
+    @DisplayName("三天回看应批量装载列表资料且查询次数不随候选人数线性增长")
+    void getReplayShouldBatchLoadSummaryProfiles() {
+        AppUser current = openUser(7L, 30, "320100");
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(2));
+        List<Long> candidateIds = LongStream.rangeClosed(8L, 27L).boxed().toList();
+        List<RecommendViewLog> logs = candidateIds.stream()
+                .map(id -> viewLog(7L, id, "view", LocalDateTime.now().minusMinutes(id)))
+                .toList();
+        List<AppUser> targets = candidateIds.stream()
+                .map(id -> openUser(id, 28, "320100"))
+                .toList();
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        for (AppUser target : targets) {
+            lenient().when(appUserDao.selectById(target.getId())).thenReturn(target);
+        }
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(vipService.getBenefits()).thenReturn(List.of(benefit("three_day_replay")));
+        when(viewLogDao.selectList(any())).thenReturn(logs);
+        when(appUserDao.selectByIds(candidateIds)).thenReturn(targets);
+        when(accessProjectionService.projectAll(targets)).thenReturn(targets.stream()
+                .collect(java.util.stream.Collectors.toMap(AppUser::getId, ignored -> "OPEN")));
+        lenient().when(accessProjectionService.project(any(AppUser.class))).thenReturn("OPEN");
+        when(auditContentService.publicAvatars(candidateIds)).thenReturn(Map.of());
+        when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of("320100", "南京"));
+        when(relationLikeDao.selectList(any())).thenReturn(List.of());
+        lenient().when(publicProfileService.getPublicProfile(any(), any())).thenAnswer(invocation -> {
+            PublicProfileVO profile = new PublicProfileVO();
+            profile.setUserId(invocation.getArgument(1));
+            return profile;
+        });
+
+        RecommendReplayPageVO result = service.getReplay(7L);
+
+        assertThat(result.getItems()).hasSize(candidateIds.size());
+        verify(appUserDao).selectByIds(candidateIds);
+        verify(appUserDao, times(1)).selectById(7L);
+        verify(accessProjectionService).projectAll(targets);
+        verify(publicProfileService, never()).getPublicProfile(any(), any());
+        verify(relationBlockDao, atMost(3)).selectActive(any(), any(), any());
+        verify(relationBlockDao).selectActiveBetweenUserAndTargets(any(), any(), any());
+        verify(relationLikeDao).selectList(any());
+        verify(auditContentService).publicAvatars(candidateIds);
+        verify(profileDictionaryService, times(2)).labels(any(), any());
     }
 
     private AppUser openUser(Long id, int age, String city) {
@@ -442,6 +543,15 @@ class RecommendServiceImplTest {
         user.setLocationCity(city);
         user.setGender("MALE");
         return user;
+    }
+
+    private AppUserRelationBlock block(Long userId, Long targetUserId, String blockType) {
+        AppUserRelationBlock block = new AppUserRelationBlock();
+        block.setUserId(userId);
+        block.setTargetUserId(targetUserId);
+        block.setBlockType(blockType);
+        block.setStatus("ENABLED");
+        return block;
     }
 
     private AccessStatusVO browsableAccess() {

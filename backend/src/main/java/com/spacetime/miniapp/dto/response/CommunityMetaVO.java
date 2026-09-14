@@ -12,5 +12,7 @@ public class CommunityMetaVO {
     private Map<String, List<DictOptionVO>> dictionaries = new LinkedHashMap<>();
     private Map<String, String> copies = new LinkedHashMap<>();
     private Map<String, Object> configs = new LinkedHashMap<>();
+    /** 当前用户派生能力，不包含私有配置原文。 */
+    private Map<String, Boolean> capabilities = new LinkedHashMap<>();
     private List<MiniappEntryConfigVO> homeTabs;
 }
