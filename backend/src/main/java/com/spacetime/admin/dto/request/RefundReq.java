@@ -15,6 +15,6 @@ public class RefundReq {
     private String reason;
     /** 退款金额，默认取订单实付金额 */
     private BigDecimal refundAmount;
-    /** 资产回退动作 */
+    /** 历史兼容字段，仅用于接收旧版请求；实际权益回收动作始终由订单类型推导。 */
     private String assetRollbackAction;
 }

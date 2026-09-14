@@ -58,6 +58,38 @@ public class AppRelationVisitDaoImpl extends AbstractRelationCrudDao<AppRelation
         return visitMapper.selectVisibleRecentVisitors(userId, vip, windowStart, offset, limit);
     }
 
+    @Override
+    public long countRecentVisitorsAtSnapshot(Long userId, LocalDateTime windowStart,
+                                              LocalDateTime upperVisitTime, Long upperVisitEventId) {
+        return visitMapper.countRecentVisitorsAtSnapshot(
+                userId, windowStart, upperVisitTime, upperVisitEventId);
+    }
+
+    @Override
+    public long countVisibleRecentVisitorsAtSnapshot(Long userId, boolean vip,
+                                                     LocalDateTime windowStart,
+                                                     LocalDateTime upperVisitTime,
+                                                     Long upperVisitEventId) {
+        return visitMapper.countVisibleRecentVisitorsAtSnapshot(
+                userId, vip, windowStart, upperVisitTime, upperVisitEventId);
+    }
+
+    @Override
+    public long countUnlockedRecentVisitorsAtSnapshot(Long userId, LocalDateTime windowStart,
+                                                      LocalDateTime upperVisitTime,
+                                                      Long upperVisitEventId) {
+        return visitMapper.countUnlockedRecentVisitorsAtSnapshot(
+                userId, windowStart, upperVisitTime, upperVisitEventId);
+    }
+
+    @Override
+    public List<RelationVisitListRow> selectVisibleRecentVisitorsAtSnapshot(
+            Long userId, boolean vip, LocalDateTime windowStart,
+            LocalDateTime upperVisitTime, Long upperVisitEventId, long offset, int limit) {
+        return visitMapper.selectVisibleRecentVisitorsAtSnapshot(
+                userId, vip, windowStart, upperVisitTime, upperVisitEventId, offset, limit);
+    }
+
     private LambdaUpdateWrapper<AppRelationVisit> invalidWrapper(String reason, LocalDateTime invalidTime) {
         return new LambdaUpdateWrapper<AppRelationVisit>()
                 .eq(AppRelationVisit::getVisitStatus, RelationVisitStatusEnum.VISIBLE.getCode())

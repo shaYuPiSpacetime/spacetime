@@ -1,6 +1,7 @@
 package com.spacetime.common.dao.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.CommunityFollowDao;
 import com.spacetime.common.entity.CommunityFollow;
 import com.spacetime.common.mapper.CommunityFollowMapper;
@@ -31,6 +32,12 @@ public class CommunityFollowDaoImpl implements CommunityFollowDao {
     @Override
     public List<CommunityFollow> selectList(LambdaQueryWrapper<CommunityFollow> wrapper) {
         return mapper.selectList(wrapper);
+    }
+
+    @Override
+    public Page<CommunityFollow> selectPage(Page<CommunityFollow> page,
+                                            LambdaQueryWrapper<CommunityFollow> wrapper) {
+        return mapper.selectPage(page, wrapper);
     }
 
     @Override

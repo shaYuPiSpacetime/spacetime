@@ -46,6 +46,9 @@ public interface FinanceAdminService {
      */
     void processRefund(Long id, RefundReq req);
 
+    /** 对账一笔微信虚拟支付退款并推进渠道终态。 */
+    void reconcileVirtualRefund(Long refundId);
+
     /**
      * 分页查询退款订单
      * @param req 退款订单分页查询请求

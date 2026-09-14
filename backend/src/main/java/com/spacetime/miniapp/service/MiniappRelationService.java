@@ -4,6 +4,7 @@ import com.spacetime.miniapp.dto.request.MatchPopupReadReq;
 import com.spacetime.miniapp.dto.request.LikesMeReadReq;
 import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
 import com.spacetime.miniapp.dto.request.RelationVisitCreateReq;
+import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
 import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MatchPopupVO;
@@ -18,6 +19,8 @@ public interface MiniappRelationService {
     LikesMeSummaryVO likesMeSummary(Long userId);
     void confirmLikesMeRead(Long userId, LikesMeReadReq req);
     RecentViewersPageVO recentViewers(Long userId, int page, int size);
+    RecentViewersPageVO recentViewers(Long userId, int page, int size, String snapshotCursor);
+    void confirmRecentViewersRead(Long userId, RecentViewersReadReq req);
     MutualMatchPageVO mutualMatches(Long userId, int page, int size);
     RelationLikeActionVO createLike(Long userId, RelationLikeCreateReq req);
     RelationLikeActionVO cancelLike(Long userId, Long targetUserId);

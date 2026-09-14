@@ -36,8 +36,12 @@ public class RefundRecordVO {
     private String refundStatus;
     /** 资产回退动作 */
     private String assetRollbackAction;
+    /** 渠道退款单号 */
+    private String channelRefundNo;
     /** 渠道退款状态 */
     private String channelRefundStatus;
+    /** 渠道响应摘要 */
+    private String channelResponseSummary;
     /** 退款时间 */
     private LocalDateTime refundTime;
     /** 订单创建时间 */

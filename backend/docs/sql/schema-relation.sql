@@ -44,6 +44,25 @@ CREATE TABLE IF NOT EXISTS `app_relation_like_inbox_state` (
     UNIQUE KEY `uk_like_inbox_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='喜欢我的列表用户级已读游标表';
 
+CREATE TABLE IF NOT EXISTS `app_relation_visit_inbox_state` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id` BIGINT NOT NULL COMMENT '被访问用户ID，每个用户唯一一条读取状态',
+    `last_read_visit_time` DATETIME DEFAULT NULL COMMENT '已确认查看到的访问事件时间',
+    `last_read_visit_event_id` BIGINT DEFAULT NULL COMMENT '已确认查看到的访问事件主键ID',
+    `read_at` DATETIME DEFAULT NULL COMMENT '最近一次成功推进读取位置的时间',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID',
+    `updated_by` BIGINT DEFAULT NULL COMMENT '更新人ID',
+    `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_visit_inbox_user` (`user_id`),
+    CONSTRAINT `chk_visit_inbox_cursor_pair` CHECK (
+        (`last_read_visit_time` IS NULL AND `last_read_visit_event_id` IS NULL)
+        OR (`last_read_visit_time` IS NOT NULL AND `last_read_visit_event_id` IS NOT NULL)
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='最近访客用户级已读游标表';
+
 CREATE TABLE IF NOT EXISTS `app_relation_visit` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `visit_no` VARCHAR(64) NOT NULL COMMENT '访客展示记录业务编号，前缀VIS-',
@@ -84,6 +103,7 @@ CREATE TABLE IF NOT EXISTS `app_relation_visit_event` (
     UNIQUE KEY `uk_visit_event_no` (`event_no`),
     KEY `idx_visit_event_pair_time` (`visitor_user_id`, `target_user_id`, `visit_time`),
     KEY `idx_visit_event_target_time_user` (`target_user_id`, `visit_time`, `visitor_user_id`, `visit_id`),
+    KEY `idx_visit_event_target_deleted_time_id_visitor` (`target_user_id`, `deleted`, `visit_time`, `id`, `visitor_user_id`, `visit_id`),
     KEY `idx_visit_event_record` (`visit_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='每次实际主页访问事件表';
 

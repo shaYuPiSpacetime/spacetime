@@ -10,6 +10,8 @@ import com.spacetime.common.constant.CommunityConfigKeys;
 import com.spacetime.common.dao.*;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.admin.service.impl.CommunityAdminServiceImpl;
 import com.spacetime.common.util.OssUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +32,7 @@ import java.util.Map;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -844,6 +847,45 @@ class CommunityAdminServiceImplTest {
                         && "post".equals(event.getAggregateType())
                         && event.getPayload().contains("\"recipientUserId\":2")
                         && event.getPayload().contains("\"result\":\"published\"")));
+    }
+
+    @Test
+    @DisplayName("动态禁言作者时落有效限制且不改变动态公开状态")
+    void updatePostStatus_muteUser_shouldCreateActiveRestrictionAndKeepPostStatus() {
+        post.setPostNo("POST-100");
+        post.setStatus("published");
+        post.setVersion(1);
+        CommunityStatusCommandReq req = new CommunityStatusCommandReq();
+        req.setAction("mute_user");
+        req.setVersion(1);
+        req.setReason("发布违规内容");
+        req.setMutePeriod("3d");
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(communityPostDao.updateCas(any(), eq(1))).thenReturn(1);
+        UserContextHolder.set(new UserContext(
+                9L, "风控审核员", List.of("risk"), List.of("community:post:risk")));
+
+        try {
+            assertThatCode(() -> communityAdminService.updatePostStatus(100L, req))
+                    .doesNotThrowAnyException();
+        } finally {
+            UserContextHolder.clear();
+        }
+
+        assertThat(post.getStatus()).isEqualTo("published");
+        verify(communityExtensionDao).insertRestriction(argThat(restriction ->
+                restriction.getUserId().equals(2L)
+                        && "mute".equals(restriction.getRestrictionType())
+                        && "发布违规内容".equals(restriction.getReason())
+                        && "active".equals(restriction.getStatus())
+                        && Integer.valueOf(1).equals(restriction.getActiveMarker())
+                        && restriction.getEndTime() != null
+                        && restriction.getEndTime().isAfter(LocalDateTime.now().plusHours(71))));
+        verify(communityPostDao).updateCas(argThat(item -> "published".equals(item.getStatus())), eq(1));
+        verify(communityExtensionDao).insertOutbox(argThat(event ->
+                "moderation_result".equals(event.getEventType())
+                        && event.getPayload().contains("\"recipientUserId\":2")
+                        && event.getPayload().contains("\"result\":\"mute_user\"")));
     }
 
     @Test

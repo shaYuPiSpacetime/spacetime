@@ -7,23 +7,33 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.dao.AppRelationLikeDao;
+import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
 import com.spacetime.common.dao.RecommendPreferenceDao;
 import com.spacetime.common.dao.RecommendViewLogDao;
 import com.spacetime.common.dao.UserAssetDao;
+import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppRelationLike;
+import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.AppUserRelationBlock;
 import com.spacetime.common.entity.RecommendPreference;
 import com.spacetime.common.entity.RecommendViewLog;
 import com.spacetime.common.entity.UserAsset;
+import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AccountStatusEnum;
+import com.spacetime.common.enums.AppUserAuditStatusEnum;
+import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.GenderEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.enums.RelationLikeStatusEnum;
+import com.spacetime.common.enums.RelationMatchStatusEnum;
+import com.spacetime.common.enums.UnlockRecordStatusEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
@@ -41,7 +51,6 @@ import com.spacetime.miniapp.dto.response.RecommendReplayPageVO;
 import com.spacetime.miniapp.dto.response.RecommendReplayProfileVO;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.dto.response.VipBenefitVO;
-import com.spacetime.miniapp.service.MiniappPublicProfileService;
 import com.spacetime.miniapp.service.RecommendService;
 import com.spacetime.miniapp.service.VipService;
 import lombok.RequiredArgsConstructor;
@@ -72,6 +81,8 @@ public class RecommendServiceImpl implements RecommendService {
     private static final int DEFAULT_MIN_AGE = 18;
     private static final int DEFAULT_MAX_AGE = 60;
     private static final int PAGE_SIZE = 20;
+    private static final int CANDIDATE_SCAN_BATCH_SIZE = 60;
+    private static final int MAX_CANDIDATE_SCAN_BATCHES = 3;
     private static final Set<String> ACTIONS = Set.of("view", "detail", "skip", "like", "never");
     private static final String NORMAL_QUOTA_KEY = "commercial.view.quota.normal";
     private static final String VIP_QUOTA_KEY = "commercial.view.quota.vip";
@@ -85,12 +96,14 @@ public class RecommendServiceImpl implements RecommendService {
     private final UserAssetDao userAssetDao;
     private final AppConfigDao appConfigDao;
     private final AppRelationLikeDao relationLikeDao;
+    private final AppRelationMatchDao relationMatchDao;
     private final AppUserRelationBlockDao relationBlockDao;
+    private final UserUnlockRecordDao unlockRecordDao;
+    private final AppUserAuditRecordDao auditRecordDao;
     private final RecommendViewLogDao viewLogDao;
     private final RelationAccessProjectionService accessProjectionService;
     private final ProfileDictionaryService profileDictionaryService;
     private final AppUserAuditContentService auditContentService;
-    private final MiniappPublicProfileService publicProfileService;
     private final VipService vipService;
     private final Prd01AccessEvaluator accessEvaluator;
 
@@ -152,39 +165,158 @@ public class RecommendServiceImpl implements RecommendService {
             return result;
         }
 
-        LambdaQueryWrapper<AppUser> wrapper = candidateWrapper(current, preference, vipEffective, cursor);
-        List<AppUser> queried = safeUsers(appUserDao.selectList(wrapper));
-        Map<Long, String> access = accessProjectionService.projectAll(queried);
         List<RecommendCandidateVO> items = new ArrayList<>();
-        for (AppUser candidate : queried) {
-            if (items.size() >= PAGE_SIZE) {
+        AppUser lastAccepted = null;
+        String scanCursor = cursor;
+        String previousScanCursor = null;
+        String continuationCursor = null;
+        int scannedBatches = 0;
+        while (items.size() < PAGE_SIZE && scannedBatches < MAX_CANDIDATE_SCAN_BATCHES) {
+            LambdaQueryWrapper<AppUser> wrapper = candidateWrapper(
+                    current, preference, vipEffective, scanCursor);
+            List<AppUser> queried = safeUsers(appUserDao.selectList(wrapper));
+            scannedBatches++;
+            if (queried.isEmpty()) {
                 break;
             }
-            if (!"OPEN".equals(access.get(candidate.getId())) || isBlocked(userId, candidate.getId())) {
-                continue;
-            }
-            try {
-                PublicProfileVO profile = publicProfileService.getPublicProfile(userId, candidate.getId());
+            Map<Long, String> access = accessProjectionService.projectAll(queried);
+            List<AppUser> openCandidates = queried.stream()
+                    .filter(candidate -> "OPEN".equals(access.get(candidate.getId())))
+                    .toList();
+            List<Long> openCandidateIds = openCandidates.stream().map(AppUser::getId).toList();
+            Set<Long> blockedCandidateIds = blockedCandidateIds(userId, openCandidateIds);
+            List<AppUser> visibleCandidates = openCandidates.stream()
+                    .filter(candidate -> !blockedCandidateIds.contains(candidate.getId()))
+                    .limit(PAGE_SIZE - items.size())
+                    .toList();
+            Map<Long, PublicProfileVO> profiles = batchCandidateProfiles(userId, visibleCandidates);
+            for (AppUser candidate : visibleCandidates) {
+                PublicProfileVO profile = profiles.get(candidate.getId());
+                if (profile == null) {
+                    continue;
+                }
                 RecommendCandidateVO item = new RecommendCandidateVO();
                 item.setCandidateNo(String.valueOf(candidate.getId()));
                 item.setUserId(candidate.getId());
                 item.setProfile(profile);
                 item.setLiked(Boolean.TRUE.equals(profile.getLiked()));
                 item.setCommunicationMode(profile.getCommunicationMode());
-                item.setActualCity(profileDictionaryService.label(ProfileDictType.CHINA_REGION,
-                        candidate.getLocationCity()));
+                item.setActualCity(profile.getCurrentCity());
                 items.add(item);
-            } catch (BusinessException ignored) {
-                // 候选在列表查询后失效时直接剔除，不向用户暴露原因。
+                lastAccepted = candidate;
             }
+
+            if (items.size() >= PAGE_SIZE || queried.size() < CANDIDATE_SCAN_BATCH_SIZE) {
+                break;
+            }
+            String nextScanCursor = encodeCursor(queried.getLast());
+            if (Objects.equals(nextScanCursor, scanCursor)
+                    || Objects.equals(nextScanCursor, previousScanCursor)) {
+                break;
+            }
+            if (scannedBatches >= MAX_CANDIDATE_SCAN_BATCHES) {
+                continuationCursor = nextScanCursor;
+                break;
+            }
+            previousScanCursor = scanCursor;
+            scanCursor = nextScanCursor;
         }
         result.setItems(items);
         result.setWaitingReason(items.isEmpty() ? "no_candidate" : null);
         if (items.size() == PAGE_SIZE) {
-            AppUser last = queried.stream()
-                    .filter(item -> item.getId().equals(items.get(items.size() - 1).getUserId()))
-                    .findFirst().orElse(null);
-            result.setNextCursor(last == null ? null : encodeCursor(last));
+            result.setNextCursor(lastAccepted == null ? null : encodeCursor(lastAccepted));
+        } else if (continuationCursor != null) {
+            result.setNextCursor(continuationCursor);
+        }
+        return result;
+    }
+
+    /**
+     * 批量构造推荐卡片所需公开资料。候选已经过准入和屏蔽过滤，因此这里只做展示投影，
+     * 避免再次逐用户执行完整公开资料查询。
+     */
+    private Map<Long, PublicProfileVO> batchCandidateProfiles(Long currentUserId,
+                                                               List<AppUser> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> candidateIds = candidates.stream().map(AppUser::getId).toList();
+        Map<Long, String> avatars = safeMap(auditContentService.publicAvatars(candidateIds));
+        Map<Long, List<String>> albums = safeMap(auditContentService.publicAlbumPhotos(candidateIds));
+        Map<AuditContentKey, AppUserAuditRecord> supplementalContent =
+                approvedSupplementalContent(candidateIds);
+        Map<String, String> regionLabels = dictionaryLabels(ProfileDictType.CHINA_REGION,
+                candidates.stream()
+                        .flatMap(candidate -> java.util.stream.Stream.of(
+                                candidate.getLocationCity(), candidate.getHometownCity()))
+                        .toList());
+        Map<String, String> identityLabels = dictionaryLabels(ProfileDictType.IDENTITY,
+                candidates.stream().map(AppUser::getIdentity).toList());
+        Map<String, String> industryLabels = dictionaryLabels(ProfileDictType.INDUSTRY,
+                candidates.stream().map(AppUser::getIndustry).toList());
+        Map<String, String> occupationLabels = dictionaryLabels(ProfileDictType.OCCUPATION,
+                candidates.stream().map(AppUser::getOccupation).toList());
+        Map<String, String> incomeLabels = dictionaryLabels(ProfileDictType.ANNUAL_INCOME,
+                candidates.stream().map(AppUser::getAnnualIncome).toList());
+        Map<String, String> datingGoalLabels = dictionaryLabels(ProfileDictType.DATING_GOAL,
+                candidates.stream().map(AppUser::getDatingGoal).toList());
+        Map<String, String> maritalLabels = dictionaryLabels(ProfileDictType.MARITAL_STATUS,
+                candidates.stream().map(AppUser::getMaritalStatus).toList());
+        Map<String, String> emotionalLabels = dictionaryLabels(ProfileDictType.EMOTIONAL_STATUS,
+                candidates.stream().map(AppUser::getEmotionalStatus).toList());
+        Map<Long, List<String>> tagCodes = candidates.stream().collect(Collectors.toMap(
+                AppUser::getId, candidate -> parseTagCodes(candidate.getTags()),
+                (left, right) -> left, LinkedHashMap::new));
+        Map<String, String> tagLabels = dictionaryLabels(ProfileDictType.PROFILE_TAG,
+                tagCodes.values().stream().flatMap(List::stream).toList());
+        Set<Long> likedIds = activeLikedCandidateIds(currentUserId, candidateIds);
+        Map<Long, AppRelationMatch> matches = activeMatches(currentUserId, candidateIds);
+        Set<Long> unlockedIds = activeIdealUnlocks(currentUserId, candidateIds);
+
+        Map<Long, PublicProfileVO> result = new LinkedHashMap<>();
+        for (AppUser candidate : candidates) {
+            Long candidateId = candidate.getId();
+            AppRelationMatch match = matches.get(candidateId);
+            boolean matched = match != null;
+            boolean privateMessage = matched || unlockedIds.contains(candidateId);
+            List<String> photos = albums.getOrDefault(candidateId, List.of());
+            PublicProfileVO profile = new PublicProfileVO();
+            profile.setUserId(candidateId);
+            profile.setUserNo("USR-" + String.format(Locale.ROOT, "%012d", candidateId));
+            profile.setNickname(candidate.getNickname());
+            profile.setAvatar(avatars.get(candidateId));
+            profile.setHeroPhoto(contentMedia(supplementalContent.get(
+                    new AuditContentKey(candidateId, AppUserAuditTypeEnum.PROFILE_BG.getCode()))));
+            profile.setPhotos(photos);
+            profile.setGender(candidate.getGender());
+            profile.setAge(candidate.getAge());
+            profile.setHeight(candidate.getHeight());
+            profile.setZodiac(candidate.getZodiac());
+            profile.setCurrentCity(batchLabel(regionLabels, candidate.getLocationCity()));
+            profile.setHometownCity(batchLabel(regionLabels, candidate.getHometownCity()));
+            profile.setSchool(candidate.getSchool());
+            profile.setIdentityLabel(batchLabel(identityLabels, candidate.getIdentity()));
+            profile.setIndustryLabel(batchLabel(industryLabels, candidate.getIndustry()));
+            profile.setOccupationLabel(batchLabel(occupationLabels, candidate.getOccupation()));
+            profile.setCompany(candidate.getCompany());
+            profile.setAnnualIncomeLabel(batchLabel(incomeLabels, candidate.getAnnualIncome()));
+            profile.setTags(tagCodes.getOrDefault(candidateId, List.of()).stream()
+                    .map(tagLabels::get).filter(StrUtil::isNotBlank).toList());
+            profile.setIntroduction(contentText(supplementalContent.get(
+                    new AuditContentKey(candidateId, AppUserAuditTypeEnum.ABOUT_ME.getCode()))));
+            profile.setDatingGoal(batchLabel(datingGoalLabels, candidate.getDatingGoal()));
+            profile.setMaritalStatus(batchLabel(maritalLabels, candidate.getMaritalStatus()));
+            profile.setEmotionalStatus(batchLabel(emotionalLabels, candidate.getEmotionalStatus()));
+            profile.setFavoriteSongName(candidate.getFavoriteSongName());
+            profile.setFavoriteSongArtist(candidate.getFavoriteSongArtist());
+            profile.setFavoriteSongCoverUrl(candidate.getFavoriteSongCoverUrl());
+            profile.setLiked(likedIds.contains(candidateId));
+            profile.setMatched(matched);
+            profile.setMatchNo(matched ? match.getMatchNo() : null);
+            profile.setCanEnterConversation(privateMessage);
+            profile.setCommunicationMode(privateMessage ? "PRIVATE_MESSAGE" : "WHISPER");
+            profile.setCertifications(List.of("AVATAR", "REAL_NAME", "EDUCATION"));
+            result.put(candidateId, profile);
         }
         return result;
     }
@@ -388,7 +520,7 @@ public class RecommendServiceImpl implements RecommendService {
         }
         return wrapper.orderByDesc(AppUser::getLastLoginTime)
                 .orderByAsc(AppUser::getId)
-                .last("LIMIT 60");
+                .last("LIMIT " + CANDIDATE_SCAN_BATCH_SIZE);
     }
 
     private boolean isBlocked(Long userId, Long candidateId) {
@@ -401,6 +533,9 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private Set<Long> blockedCandidateIds(Long userId, List<Long> candidateIds) {
+        if (candidateIds == null || candidateIds.isEmpty()) {
+            return Set.of();
+        }
         List<AppUserRelationBlock> blocks = relationBlockDao.selectActiveBetweenUserAndTargets(
                 userId,
                 candidateIds,
@@ -416,6 +551,103 @@ public class RecommendServiceImpl implements RecommendService {
             }
         }
         return blocked;
+    }
+
+    private Map<String, String> dictionaryLabels(String dictType, List<String> codes) {
+        List<String> normalized = codes == null ? List.of() : codes.stream()
+                .filter(StrUtil::isNotBlank)
+                .map(StrUtil::trim)
+                .distinct()
+                .toList();
+        return normalized.isEmpty()
+                ? Map.of()
+                : safeMap(profileDictionaryService.labels(dictType, normalized));
+    }
+
+    private Map<AuditContentKey, AppUserAuditRecord> approvedSupplementalContent(
+            List<Long> candidateIds) {
+        List<AppUserAuditRecord> records = auditRecordDao.selectList(
+                new LambdaQueryWrapper<AppUserAuditRecord>()
+                        .in(AppUserAuditRecord::getUserId, candidateIds)
+                        .in(AppUserAuditRecord::getAuditType, List.of(
+                                AppUserAuditTypeEnum.PROFILE_BG.getCode(),
+                                AppUserAuditTypeEnum.ABOUT_ME.getCode()))
+                        .eq(AppUserAuditRecord::getStatus, AppUserAuditStatusEnum.APPROVED.getCode())
+                        .orderByDesc(AppUserAuditRecord::getAuditTime)
+                        .orderByDesc(AppUserAuditRecord::getSubmitTime)
+                        .orderByDesc(AppUserAuditRecord::getId));
+        Map<AuditContentKey, AppUserAuditRecord> result = new LinkedHashMap<>();
+        for (AppUserAuditRecord record : records == null
+                ? List.<AppUserAuditRecord>of() : records) {
+            result.putIfAbsent(new AuditContentKey(record.getUserId(), record.getAuditType()), record);
+        }
+        return result;
+    }
+
+    private Map<Long, AppRelationMatch> activeMatches(Long userId, List<Long> candidateIds) {
+        List<AppRelationMatch> matches = relationMatchDao.selectList(
+                new LambdaQueryWrapper<AppRelationMatch>()
+                        .eq(AppRelationMatch::getMatchStatus, RelationMatchStatusEnum.MATCHED.getCode())
+                        .eq(AppRelationMatch::getActiveMarker, 1)
+                        .and(pair -> pair.nested(low -> low
+                                        .eq(AppRelationMatch::getUserLowId, userId)
+                                        .in(AppRelationMatch::getUserHighId, candidateIds))
+                                .or(high -> high
+                                        .eq(AppRelationMatch::getUserHighId, userId)
+                                        .in(AppRelationMatch::getUserLowId, candidateIds))));
+        Map<Long, AppRelationMatch> result = new LinkedHashMap<>();
+        for (AppRelationMatch match : matches == null ? List.<AppRelationMatch>of() : matches) {
+            Long targetId = Objects.equals(userId, match.getUserLowId())
+                    ? match.getUserHighId() : match.getUserLowId();
+            if (targetId != null) {
+                result.putIfAbsent(targetId, match);
+            }
+        }
+        return result;
+    }
+
+    private Set<Long> activeIdealUnlocks(Long userId, List<Long> candidateIds) {
+        LocalDateTime now = LocalDateTime.now();
+        List<UserUnlockRecord> records = unlockRecordDao.selectList(
+                new LambdaQueryWrapper<UserUnlockRecord>()
+                        .eq(UserUnlockRecord::getUserId, userId)
+                        .eq(UserUnlockRecord::getTargetBizType, "ideal")
+                        .in(UserUnlockRecord::getTargetUserId, candidateIds)
+                        .eq(UserUnlockRecord::getStatus, UnlockRecordStatusEnum.ACTIVE.getCode())
+                        .eq(UserUnlockRecord::getActiveMarker, 1)
+                        .and(active -> active.isNull(UserUnlockRecord::getExpireTime)
+                                .or().gt(UserUnlockRecord::getExpireTime, now)));
+        return (records == null ? List.<UserUnlockRecord>of() : records).stream()
+                .map(UserUnlockRecord::getTargetUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private List<String> parseTagCodes(String tags) {
+        if (StrUtil.isBlank(tags)) {
+            return List.of();
+        }
+        try {
+            return JSONUtil.parseArray(tags).toList(String.class).stream()
+                    .map(StrUtil::trim)
+                    .filter(StrUtil::isNotBlank)
+                    .distinct()
+                    .toList();
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
+    }
+
+    private String contentMedia(AppUserAuditRecord record) {
+        return record == null ? null : record.getMediaUrl();
+    }
+
+    private String contentText(AppUserAuditRecord record) {
+        return record == null ? null : record.getContentText();
+    }
+
+    private <K, V> Map<K, V> safeMap(Map<K, V> values) {
+        return values == null ? Map.of() : values;
     }
 
     private Set<Long> activeLikedCandidateIds(Long userId, List<Long> candidateIds) {
@@ -455,7 +687,7 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private String batchLabel(Map<String, String> labels, String code) {
-        return StrUtil.isBlank(code) ? null : labels.getOrDefault(code, code);
+        return StrUtil.isBlank(code) || labels == null ? null : labels.get(code.trim());
     }
 
     private int remainingBrowseCount(Long userId, boolean vipEffective) {
@@ -532,6 +764,9 @@ public class RecommendServiceImpl implements RecommendService {
     private record CursorValue(LocalDateTime time, Long userId) {
     }
 
+    private record AuditContentKey(Long userId, String auditType) {
+    }
+
     private RecommendPreferenceVO defaultPreference(AppUser user, boolean vipEffective) {
         Integer age = currentAge(user);
         if (age == null || StrUtil.isBlank(user.getLocationCity())) {
@@ -554,16 +789,8 @@ public class RecommendServiceImpl implements RecommendService {
     private RecommendPreferenceVO toPreferenceVO(RecommendPreference entity,
                                                   boolean vipEffective,
                                                   boolean defaulted) {
-        RecommendAdvancedFilterVO advanced = new RecommendAdvancedFilterVO();
-        advanced.setMinHeight(entity.getMinHeight());
-        advanced.setMaxHeight(entity.getMaxHeight());
-        advanced.setMinWeight(entity.getMinWeight());
-        advanced.setMaxWeight(entity.getMaxWeight());
-        advanced.setEducationCodes(parseList(entity.getEducationCodes()));
-        advanced.setHometowns(parseList(entity.getHometowns()));
-        advanced.setSchoolCodes(parseList(entity.getSchoolCodes()));
-        advanced.setSchoolFilterAvailable(false);
-        advanced.setMajorNames(parseList(entity.getMajorNames()));
+        RecommendAdvancedFilterVO advanced = vipEffective
+                ? advancedFrom(entity) : emptyAdvanced();
 
         RecommendPreferenceVO vo = new RecommendPreferenceVO();
         vo.setVersion(entity.getVersion());
@@ -579,6 +806,20 @@ public class RecommendServiceImpl implements RecommendService {
         vo.setAdvancedEffectiveCount(vipEffective ? advancedCount(advanced) : 0);
         vo.setDefaulted(defaulted);
         return vo;
+    }
+
+    private RecommendAdvancedFilterVO advancedFrom(RecommendPreference entity) {
+        RecommendAdvancedFilterVO advanced = new RecommendAdvancedFilterVO();
+        advanced.setMinHeight(entity.getMinHeight());
+        advanced.setMaxHeight(entity.getMaxHeight());
+        advanced.setMinWeight(entity.getMinWeight());
+        advanced.setMaxWeight(entity.getMaxWeight());
+        advanced.setEducationCodes(parseList(entity.getEducationCodes()));
+        advanced.setHometowns(parseList(entity.getHometowns()));
+        advanced.setSchoolCodes(parseList(entity.getSchoolCodes()));
+        advanced.setSchoolFilterAvailable(false);
+        advanced.setMajorNames(parseList(entity.getMajorNames()));
+        return advanced;
     }
 
     private RecommendPreference toEntity(Long userId, RecommendPreferenceSaveReq req, int version) {
@@ -620,7 +861,9 @@ public class RecommendServiceImpl implements RecommendService {
         if (min == null && max == null) {
             return;
         }
-        if (min == null || max == null || min < lower || max > upper || min > max) {
+        if ((min != null && (min < lower || min > upper))
+                || (max != null && (max < lower || max > upper))
+                || (min != null && max != null && min > max)) {
             throw new BusinessException(400, "筛选条件有误，请检查后重试");
         }
     }
@@ -678,8 +921,8 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private int advancedCount(RecommendAdvancedFilterVO advanced) {
-        int count = advanced.getMinHeight() == null ? 0 : 1;
-        count += advanced.getMinWeight() == null ? 0 : 1;
+        int count = advanced.getMinHeight() == null && advanced.getMaxHeight() == null ? 0 : 1;
+        count += advanced.getMinWeight() == null && advanced.getMaxWeight() == null ? 0 : 1;
         count += advanced.getEducationCodes().isEmpty() ? 0 : 1;
         count += advanced.getHometowns().isEmpty() ? 0 : 1;
         count += advanced.getMajorNames().isEmpty() ? 0 : 1;

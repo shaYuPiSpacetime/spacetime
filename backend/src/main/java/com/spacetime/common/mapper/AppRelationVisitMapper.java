@@ -192,4 +192,190 @@ public interface AppRelationVisitMapper extends BaseMapper<AppRelationVisit> {
             @Param("windowStart") LocalDateTime windowStart,
             @Param("offset") long offset,
             @Param("limit") int limit);
+
+    @Select("""
+            SELECT COUNT(DISTINCT e.visitor_user_id)
+              FROM app_relation_visit_event e
+              INNER JOIN app_relation_visit v
+                      ON v.id = e.visit_id
+                     AND v.visit_status = 'visible'
+                     AND v.deleted = 0
+             WHERE e.target_user_id = #{userId}
+               AND e.deleted = 0
+               AND e.visit_time >= #{windowStart}
+               AND (e.visit_time < #{upperVisitTime}
+                    OR (e.visit_time = #{upperVisitTime} AND e.id <= #{upperVisitEventId}))
+            """)
+    long countRecentVisitorsAtSnapshot(
+            @Param("userId") Long userId,
+            @Param("windowStart") LocalDateTime windowStart,
+            @Param("upperVisitTime") LocalDateTime upperVisitTime,
+            @Param("upperVisitEventId") Long upperVisitEventId);
+
+    @Select("""
+            WITH ranked_event AS (
+                SELECT e.id AS event_id,
+                       e.visitor_user_id,
+                       e.visit_time,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY e.visitor_user_id
+                           ORDER BY e.visit_time DESC, e.id DESC
+                       ) AS visitor_rank
+                  FROM app_relation_visit_event e
+                  INNER JOIN app_relation_visit v
+                          ON v.id = e.visit_id
+                         AND v.visit_status = 'visible'
+                         AND v.deleted = 0
+                 WHERE e.target_user_id = #{userId}
+                   AND e.deleted = 0
+                   AND e.visit_time >= #{windowStart}
+                   AND (e.visit_time < #{upperVisitTime}
+                        OR (e.visit_time = #{upperVisitTime} AND e.id <= #{upperVisitEventId}))
+            ),
+            active_unlock AS (
+                SELECT target_user_id, MAX(effective_time) AS unlock_time
+                  FROM app_user_unlock_record
+                 WHERE user_id = #{userId}
+                   AND target_biz_type = 'visit'
+                   AND status = 'active'
+                   AND active_marker = 1
+                   AND deleted = 0
+                 GROUP BY target_user_id
+            ),
+            ranked_access AS (
+                SELECT e.event_id,
+                       e.visitor_user_id,
+                       e.visit_time,
+                       u.unlock_time,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY CASE WHEN u.unlock_time IS NULL THEN 1 ELSE 0 END
+                           ORDER BY e.visit_time DESC, e.event_id DESC
+                       ) AS locked_rank
+                  FROM ranked_event e
+                  LEFT JOIN active_unlock u ON u.target_user_id = e.visitor_user_id
+                 WHERE e.visitor_rank = 1
+            )
+            SELECT COUNT(*)
+              FROM ranked_access
+             WHERE #{vip} = TRUE
+                OR unlock_time IS NOT NULL
+                OR locked_rank <= 10
+            """)
+    long countVisibleRecentVisitorsAtSnapshot(
+            @Param("userId") Long userId,
+            @Param("vip") boolean vip,
+            @Param("windowStart") LocalDateTime windowStart,
+            @Param("upperVisitTime") LocalDateTime upperVisitTime,
+            @Param("upperVisitEventId") Long upperVisitEventId);
+
+    @Select("""
+            SELECT COUNT(DISTINCT e.visitor_user_id)
+              FROM app_relation_visit_event e
+              INNER JOIN app_relation_visit v
+                      ON v.id = e.visit_id
+                     AND v.visit_status = 'visible'
+                     AND v.deleted = 0
+              INNER JOIN app_user_unlock_record u
+                      ON u.target_user_id = e.visitor_user_id
+                     AND u.user_id = #{userId}
+                     AND u.target_biz_type = 'visit'
+                     AND u.status = 'active'
+                     AND u.active_marker = 1
+                     AND u.deleted = 0
+             WHERE e.target_user_id = #{userId}
+               AND e.deleted = 0
+               AND e.visit_time >= #{windowStart}
+               AND (e.visit_time < #{upperVisitTime}
+                    OR (e.visit_time = #{upperVisitTime} AND e.id <= #{upperVisitEventId}))
+            """)
+    long countUnlockedRecentVisitorsAtSnapshot(
+            @Param("userId") Long userId,
+            @Param("windowStart") LocalDateTime windowStart,
+            @Param("upperVisitTime") LocalDateTime upperVisitTime,
+            @Param("upperVisitEventId") Long upperVisitEventId);
+
+    @Select("""
+            WITH ranked_event AS (
+                SELECT e.id AS event_id,
+                       e.visit_id,
+                       v.visit_no,
+                       e.visitor_user_id,
+                       e.source_scene,
+                       e.visit_time,
+                       MIN(e.visit_time) OVER (
+                           PARTITION BY e.visitor_user_id
+                       ) AS first_visit_time,
+                       COUNT(*) OVER (
+                           PARTITION BY e.visitor_user_id
+                       ) AS visit_count,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY e.visitor_user_id
+                           ORDER BY e.visit_time DESC, e.id DESC
+                       ) AS visitor_rank
+                  FROM app_relation_visit_event e
+                  INNER JOIN app_relation_visit v
+                          ON v.id = e.visit_id
+                         AND v.visit_status = 'visible'
+                         AND v.deleted = 0
+                 WHERE e.target_user_id = #{userId}
+                   AND e.deleted = 0
+                   AND e.visit_time >= #{windowStart}
+                   AND (e.visit_time < #{upperVisitTime}
+                        OR (e.visit_time = #{upperVisitTime} AND e.id <= #{upperVisitEventId}))
+            ),
+            active_unlock AS (
+                SELECT target_user_id, MAX(effective_time) AS unlock_time
+                  FROM app_user_unlock_record
+                 WHERE user_id = #{userId}
+                   AND target_biz_type = 'visit'
+                   AND status = 'active'
+                   AND active_marker = 1
+                   AND deleted = 0
+                 GROUP BY target_user_id
+            ),
+            ranked_access AS (
+                SELECT e.event_id,
+                       e.visit_id AS id,
+                       e.visit_no,
+                       e.visitor_user_id,
+                       e.source_scene,
+                       e.first_visit_time,
+                       e.visit_time AS last_visit_time,
+                       e.visit_count,
+                       u.unlock_time,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY CASE WHEN u.unlock_time IS NULL THEN 1 ELSE 0 END
+                           ORDER BY e.visit_time DESC, e.event_id DESC
+                       ) AS locked_rank
+                  FROM ranked_event e
+                  LEFT JOIN active_unlock u ON u.target_user_id = e.visitor_user_id
+                 WHERE e.visitor_rank = 1
+            ),
+            visible_visitor AS (
+                SELECT *
+                  FROM ranked_access
+                 WHERE #{vip} = TRUE
+                    OR unlock_time IS NOT NULL
+                    OR locked_rank <= 10
+            )
+            SELECT id,
+                   visit_no AS visitNo,
+                   visitor_user_id AS visitorUserId,
+                   source_scene AS sourceScene,
+                   first_visit_time AS firstVisitTime,
+                   last_visit_time AS lastVisitTime,
+                   visit_count AS visitCount,
+                   unlock_time AS unlockTime
+              FROM visible_visitor
+             ORDER BY last_visit_time DESC, event_id DESC
+             LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<RelationVisitListRow> selectVisibleRecentVisitorsAtSnapshot(
+            @Param("userId") Long userId,
+            @Param("vip") boolean vip,
+            @Param("windowStart") LocalDateTime windowStart,
+            @Param("upperVisitTime") LocalDateTime upperVisitTime,
+            @Param("upperVisitEventId") Long upperVisitEventId,
+            @Param("offset") long offset,
+            @Param("limit") int limit);
 }

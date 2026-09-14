@@ -5,12 +5,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.config.ProfileScoreConfig;
 import com.spacetime.common.constant.ProfileDictType;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.spacetime.common.dao.AppRelationLikeDao;
+import com.spacetime.common.dao.AppRelationVisitDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
+import com.spacetime.common.enums.RelationLikeStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.provider.SongSearchProvider;
 import com.spacetime.common.service.AppUserAuditService;
@@ -40,6 +45,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +62,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ProfileServiceImpl implements ProfileService {
 
+    private static final int RECENT_VISITOR_DAYS = 7;
+
     private final AppUserDao appUserDao;
+    private final AppRelationLikeDao appRelationLikeDao;
+    private final AppRelationVisitDao appRelationVisitDao;
     private final ProfileScoreConfig scoreConfig;
     private final AppUserAuditService auditService;
     private final AppUserAuditContentService auditContentService;
@@ -604,9 +614,26 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setProfileScore(profileCompletenessCalculator.calculate(user));
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1);
         if (includeAccessStatus) {
+            applyRelationCounts(vo, user.getId());
             vo.setAccessStatus(getAccessStatus(user.getId()));
         }
         return vo;
+    }
+
+    /** 复用关系页口径：有效喜欢，以及最近七天按访问者去重的访客数。 */
+    private void applyRelationCounts(ProfileDetailVO vo, Long userId) {
+        vo.setLikedCount(appRelationLikeDao.count(activeLikes()
+                .eq(AppRelationLike::getFromUserId, userId)));
+        vo.setBeLikedCount(appRelationLikeDao.count(activeLikes()
+                .eq(AppRelationLike::getToUserId, userId)));
+        vo.setVisitorCount(appRelationVisitDao.countRecentVisitors(
+                userId, LocalDateTime.now().minusDays(RECENT_VISITOR_DAYS)));
+    }
+
+    private LambdaQueryWrapper<AppRelationLike> activeLikes() {
+        return new LambdaQueryWrapper<AppRelationLike>()
+                .eq(AppRelationLike::getLikeStatus, RelationLikeStatusEnum.ACTIVE.getCode())
+                .eq(AppRelationLike::getActiveMarker, 1);
     }
 
     /** 将用户实体转换为基础资料页专用响应，避免返回扩展资料和审核字段。 */

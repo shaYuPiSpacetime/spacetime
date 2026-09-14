@@ -25,4 +25,21 @@ public interface AppRelationVisitDao extends RelationCrudDao<AppRelationVisit> {
     /** 按访问者聚合并按最近访问时间倒序查询可见页。 */
     List<RelationVisitListRow> selectVisibleRecentVisitors(
             Long userId, boolean vip, LocalDateTime windowStart, long offset, int limit);
+
+    /** 按访问事件快照统计展示窗口内的有效访客人数。 */
+    long countRecentVisitorsAtSnapshot(Long userId, LocalDateTime windowStart,
+                                       LocalDateTime upperVisitTime, Long upperVisitEventId);
+
+    /** 按访问事件快照和普通/VIP规则统计实际可分页人数。 */
+    long countVisibleRecentVisitorsAtSnapshot(Long userId, boolean vip, LocalDateTime windowStart,
+                                              LocalDateTime upperVisitTime, Long upperVisitEventId);
+
+    /** 按访问事件快照统计已单条解锁的访客人数。 */
+    long countUnlockedRecentVisitorsAtSnapshot(Long userId, LocalDateTime windowStart,
+                                               LocalDateTime upperVisitTime, Long upperVisitEventId);
+
+    /** 在固定访问事件快照内分页，避免后续访问被提前展示或确认。 */
+    List<RelationVisitListRow> selectVisibleRecentVisitorsAtSnapshot(
+            Long userId, boolean vip, LocalDateTime windowStart,
+            LocalDateTime upperVisitTime, Long upperVisitEventId, long offset, int limit);
 }

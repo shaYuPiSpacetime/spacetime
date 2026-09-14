@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.config.ProfileScoreConfig;
 import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.AppRelationLikeDao;
+import com.spacetime.common.dao.AppRelationVisitDao;
 import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppUser;
@@ -63,6 +65,10 @@ class ProfileServiceImplTest {
     private SongSearchProvider songSearchProvider;
     @Mock
     private DictDataDao dictDataDao;
+    @Mock
+    private AppRelationLikeDao appRelationLikeDao;
+    @Mock
+    private AppRelationVisitDao appRelationVisitDao;
 
     @BeforeEach
     void setUpDictionaryDefaults() {
@@ -665,6 +671,23 @@ class ProfileServiceImplTest {
         assertThat(result.getCanMessage()).isFalse();
     }
 
+    @Test
+    @DisplayName("资料主页返回我喜欢、喜欢我和最近七天访客的真实计数")
+    void shouldReturnRelationCountsInProfileDetail() {
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(appRelationLikeDao.count(any())).thenReturn(4L, 5L);
+        when(appRelationVisitDao.countRecentVisitors(org.mockito.ArgumentMatchers.eq(7L), any()))
+                .thenReturn(6L);
+
+        ProfileDetailVO result = newService().getDetail(7L);
+
+        assertThat(result.getLikedCount()).isEqualTo(4L);
+        assertThat(result.getBeLikedCount()).isEqualTo(5L);
+        assertThat(result.getVisitorCount()).isEqualTo(6L);
+    }
+
     private ProfileServiceImpl newService() {
         return newService(profileDictionaryService);
     }
@@ -677,7 +700,8 @@ class ProfileServiceImplTest {
         Prd01AccessEvaluator accessEvaluator = new Prd01AccessEvaluator(scoreConfig, auditService, runtimeConfigResolver);
         Prd01ProfileCompletenessCalculator completenessCalculator =
                 new Prd01ProfileCompletenessCalculator(runtimeConfigResolver, auditService);
-        return new ProfileServiceImpl(appUserDao, scoreConfig, auditService, auditContentService,
+        return new ProfileServiceImpl(appUserDao, appRelationLikeDao, appRelationVisitDao,
+                scoreConfig, auditService, auditContentService,
                 resolver, dictionaryService, mapper, accessEvaluator, completenessCalculator,
                 runtimeConfigResolver, verificationService, songSearchProvider);
     }

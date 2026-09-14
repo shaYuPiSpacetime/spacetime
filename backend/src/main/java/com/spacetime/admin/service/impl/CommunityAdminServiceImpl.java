@@ -137,6 +137,18 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityPost entity = requirePost(id);
         ensureVersion(entity.getVersion(), req.getVersion());
         String before = entity.getStatus();
+        String normalizedAction = StrUtil.blankToDefault(req.getAction(), "").toLowerCase(Locale.ROOT);
+        if ("mute_user".equals(normalizedAction)) {
+            if (StrUtil.isBlank(req.getReason())) throw error("reason_required");
+            requireContextPermission("community:post:risk");
+            createMuteRestriction(entity.getAuthorId(), req.getReason(), req.getMutePeriod(), null);
+            if (communityPostDao.updateCas(entity, req.getVersion()) != 1) throw versionConflict();
+            writeAudit("post", entity.getPostNo(), entity.getId(), normalizedAction,
+                    before, before, req.getReason());
+            writeModerationResult("post", entity.getPostNo(), req.getVersion() + 1,
+                    entity.getAuthorId(), normalizedAction, req.getReason());
+            return;
+        }
         String target = resolveContentAction(req.getAction(), false);
         validateContentTransition(before, target, false, Objects.equals(entity.getDeletedByUser(), 1));
         entity.setStatus(target);
@@ -177,16 +189,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             if (StrUtil.isBlank(req.getReason())) throw error("reason_required");
             if ("mute_user".equals(normalizedAction)) {
                 requireContextPermission("community:comment:risk");
-                CommunityUserRestriction restriction = new CommunityUserRestriction();
-                restriction.setUserId(entity.getAuthorId());
-                restriction.setRestrictionType("mute");
-                restriction.setReason(StrUtil.trim(req.getReason()));
-                restriction.setStartTime(LocalDateTime.now());
-                restriction.setEndTime(resolveUntil(req.getMutePeriod()));
-                restriction.setStatus("active");
-                restriction.setActiveMarker(1);
-                restriction.setVersion(0);
-                communityExtensionDao.insertRestriction(restriction);
+                createMuteRestriction(entity.getAuthorId(), req.getReason(), req.getMutePeriod(), null);
             }
             if (communityCommentDao.updateCas(entity, req.getVersion()) != 1) throw versionConflict();
             writeAudit("comment", entity.getCommentNo(), entity.getId(), normalizedAction,
@@ -1034,17 +1037,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             throw error("trusted_target_user_required");
         }
         if (action == CommunityReportHandleActionEnum.MUTE_USER) {
-            CommunityUserRestriction restriction = new CommunityUserRestriction();
-            restriction.setUserId(report.getTargetUserId());
-            restriction.setRestrictionType("mute");
-            restriction.setReason(req.getHandleRemark());
-            restriction.setStartTime(LocalDateTime.now());
-            restriction.setEndTime(resolveUntil(req.getMutePeriod()));
-            restriction.setStatus("active");
-            restriction.setActiveMarker(1);
-            restriction.setSourceReportId(report.getId());
-            restriction.setVersion(0);
-            communityExtensionDao.insertRestriction(restriction);
+            CommunityUserRestriction restriction = createMuteRestriction(
+                    report.getTargetUserId(), req.getHandleRemark(), req.getMutePeriod(), report.getId());
             report.setPunishmentUntil(restriction.getEndTime());
         } else if (action == CommunityReportHandleActionEnum.IP_BLOCK) {
             if (StrUtil.isBlank(req.getRiskIp())) throw error("risk_ip_required");
@@ -1062,6 +1056,24 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         } else if (action == CommunityReportHandleActionEnum.FREEZE_USER) {
             appUserAdminService.updateUserStatus(report.getTargetUserId(), AccountStatusEnum.FROZEN.getCode());
         }
+    }
+
+    /** 统一落库社区禁言限制，保证动态、评论和举报入口口径一致。 */
+    private CommunityUserRestriction createMuteRestriction(
+            Long userId, String reason, String period, Long sourceReportId) {
+        if (userId == null) throw error("trusted_target_user_required");
+        CommunityUserRestriction restriction = new CommunityUserRestriction();
+        restriction.setUserId(userId);
+        restriction.setRestrictionType("mute");
+        restriction.setReason(StrUtil.trim(reason));
+        restriction.setStartTime(LocalDateTime.now());
+        restriction.setEndTime(resolveUntil(period));
+        restriction.setStatus("active");
+        restriction.setActiveMarker(1);
+        restriction.setSourceReportId(sourceReportId);
+        restriction.setVersion(0);
+        communityExtensionDao.insertRestriction(restriction);
+        return restriction;
     }
 
     private LocalDateTime resolveUntil(String code) {

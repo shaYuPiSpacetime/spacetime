@@ -1,11 +1,12 @@
 package com.spacetime.miniapp.service;
 
 import com.spacetime.miniapp.dto.response.WechatVirtualPayParamsVO;
+import com.spacetime.common.service.WechatVirtualRefundGateway;
 
 /**
  * 微信小程序虚拟支付服务。
  */
-public interface WechatVirtualPayService {
+public interface WechatVirtualPayService extends WechatVirtualRefundGateway {
 
     /** 当前部署是否启用虚拟支付。 */
     boolean isEnabled();

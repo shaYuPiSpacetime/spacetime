@@ -6,6 +6,7 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.constant.CommunityConfigKeys;
+import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.community.*;
 import com.spacetime.common.config.OssConfig;
 import com.spacetime.common.dao.*;
@@ -21,6 +22,7 @@ import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.CommunityService;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ChatReportEvidenceService;
+import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationDomainService;
 import com.spacetime.common.util.OssUtil;
 import lombok.RequiredArgsConstructor;
@@ -74,6 +76,8 @@ public class CommunityServiceImpl implements CommunityService {
     private final UserDao userDao;
     /** 用户审核内容统一查询 */
     private final AppUserAuditContentService auditContentService;
+    /** 用户资料字典标签解析。 */
+    private final ProfileDictionaryService profileDictionaryService;
     /** PRD01 准入状态计算 */
     private final Prd01AccessEvaluator accessEvaluator;
     /** 用户喜欢关系数据访问。 */
@@ -164,6 +168,7 @@ public class CommunityServiceImpl implements CommunityService {
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
                 .eq(CommunityPost::getTopicId, topicId)
                 .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode());
+        excludeHiddenAuthors(userId, wrapper);
         if ("HOT".equals(normalizedSort)) {
             wrapper.orderByDesc(CommunityPost::getLikeCount)
                     .orderByDesc(CommunityPost::getCommentCount)
@@ -1045,15 +1050,32 @@ public class CommunityServiceImpl implements CommunityService {
     public Page<CommunityRelationUserVO> getRelations(Long userId, String relation, int page, int size) {
         requireUser(userId);
         boolean fans = "fans".equalsIgnoreCase(relation) || "followers".equalsIgnoreCase(relation);
-        List<CommunityFollow> follows = communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
+        int current = safePage(page);
+        int limit = safeSize(size, 100);
+        Page<CommunityFollow> follows = communityFollowDao.selectPage(new Page<>(current, limit),
+                new LambdaQueryWrapper<CommunityFollow>()
                 .eq(fans, CommunityFollow::getTargetUserId, userId)
                 .eq(!fans, CommunityFollow::getFollowerId, userId)
                 .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())
                 .orderByDesc(CommunityFollow::getUpdateTime));
-        List<CommunityRelationUserVO> records = follows.stream()
-                .map(item -> toRelationUser(userId, fans ? item.getFollowerId() : item.getTargetUserId(), item.getUpdateTime(), null))
-                .filter(Objects::nonNull).toList();
-        return slice(records, page, size);
+        List<CommunityFollow> pageRecords = follows == null || follows.getRecords() == null
+                ? List.of() : follows.getRecords();
+        List<Long> targetIds = pageRecords.stream()
+                .map(item -> fans ? item.getFollowerId() : item.getTargetUserId())
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        RelationProfileBatch batch = relationProfileBatch(userId, targetIds, fans);
+        List<CommunityRelationUserVO> records = pageRecords.stream()
+                .map(item -> toRelationUser(batch,
+                        fans ? item.getFollowerId() : item.getTargetUserId(),
+                        item.getUpdateTime(), null))
+                .filter(Objects::nonNull)
+                .toList();
+        Page<CommunityRelationUserVO> result = new Page<>(current, limit,
+                follows == null ? 0 : follows.getTotal());
+        result.setRecords(records);
+        return result;
     }
 
     @Override
@@ -1609,6 +1631,83 @@ public class CommunityServiceImpl implements CommunityService {
         return result;
     }
 
+    private RelationProfileBatch relationProfileBatch(Long currentUserId,
+                                                       List<Long> targetUserIds,
+                                                       boolean fans) {
+        if (targetUserIds == null || targetUserIds.isEmpty()) {
+            return RelationProfileBatch.empty();
+        }
+        List<AppUser> users = Optional.ofNullable(appUserDao.selectByIds(targetUserIds))
+                .orElseGet(List::of);
+        Map<Long, AppUser> usersById = users.stream()
+                .filter(item -> item != null && item.getId() != null)
+                .collect(Collectors.toMap(AppUser::getId, item -> item,
+                        (left, right) -> left, LinkedHashMap::new));
+        Map<Long, String> avatars = Optional.ofNullable(
+                        auditContentService.publicAvatars(targetUserIds))
+                .orElseGet(Map::of);
+        Map<String, String> cityLabels = batchProfileLabels(ProfileDictType.CHINA_REGION,
+                users.stream().map(AppUser::getLocationCity).toList());
+        Map<String, String> occupationLabels = batchProfileLabels(ProfileDictType.OCCUPATION,
+                users.stream().map(AppUser::getOccupation).toList());
+
+        Set<Long> followingIds;
+        Set<Long> followedByIds;
+        if (fans) {
+            followingIds = activeFollowTargets(currentUserId, targetUserIds);
+            followedByIds = new LinkedHashSet<>(targetUserIds);
+        } else {
+            followingIds = new LinkedHashSet<>(targetUserIds);
+            followedByIds = activeFollowers(currentUserId, targetUserIds);
+        }
+        return new RelationProfileBatch(usersById, avatars, cityLabels, occupationLabels,
+                followingIds, followedByIds);
+    }
+
+    private CommunityRelationUserVO toRelationUser(RelationProfileBatch batch,
+                                                    Long targetUserId,
+                                                    LocalDateTime time,
+                                                    String commentSummary) {
+        AppUser target = targetUserId == null ? null : batch.users().get(targetUserId);
+        if (target == null) return null;
+        CommunityRelationUserVO result = new CommunityRelationUserVO();
+        result.setUserId(targetUserId);
+        result.setUserNo(userNo(targetUserId));
+        result.setNickname(target.getNickname());
+        result.setAvatar(batch.avatars().get(targetUserId));
+        result.setDescription(profileDescription(target, batch.cityLabels(), batch.occupationLabels()));
+        boolean following = batch.followingIds().contains(targetUserId);
+        result.setFollowing(following);
+        result.setMutualFollowing(following && batch.followedByIds().contains(targetUserId));
+        result.setInteractionTime(formatTime(time));
+        result.setCommentSummary(commentSummary);
+        return result;
+    }
+
+    private Set<Long> activeFollowTargets(Long userId, List<Long> targetUserIds) {
+        List<CommunityFollow> values = communityFollowDao.selectList(
+                new LambdaQueryWrapper<CommunityFollow>()
+                        .eq(CommunityFollow::getFollowerId, userId)
+                        .in(CommunityFollow::getTargetUserId, targetUserIds)
+                        .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode()));
+        return (values == null ? List.<CommunityFollow>of() : values).stream()
+                .map(CommunityFollow::getTargetUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Long> activeFollowers(Long userId, List<Long> targetUserIds) {
+        List<CommunityFollow> values = communityFollowDao.selectList(
+                new LambdaQueryWrapper<CommunityFollow>()
+                        .in(CommunityFollow::getFollowerId, targetUserIds)
+                        .eq(CommunityFollow::getTargetUserId, userId)
+                        .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode()));
+        return (values == null ? List.<CommunityFollow>of() : values).stream()
+                .map(CommunityFollow::getFollowerId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
     private CommunityAuthorPreferenceResultVO setAuthorHidden(Long userId, Long targetUserId, boolean hidden) {
         requireUser(userId);
         requireUser(targetUserId);
@@ -1644,8 +1743,51 @@ public class CommunityServiceImpl implements CommunityService {
 
     private String profileDescription(AppUser user) {
         return java.util.stream.Stream.of(user.getAge() == null ? null : message("age_years", user.getAge()),
-                        user.getLocationCity(), user.getOccupation())
+                        profileLabel(ProfileDictType.CHINA_REGION, user.getLocationCity()),
+                        profileLabel(ProfileDictType.OCCUPATION, user.getOccupation()))
                 .filter(StrUtil::isNotBlank).collect(Collectors.joining(" · "));
+    }
+
+    private String profileDescription(AppUser user,
+                                      Map<String, String> cityLabels,
+                                      Map<String, String> occupationLabels) {
+        return java.util.stream.Stream.of(
+                        user.getAge() == null ? null : message("age_years", user.getAge()),
+                        batchProfileLabel(cityLabels, user.getLocationCity()),
+                        batchProfileLabel(occupationLabels, user.getOccupation()))
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.joining(" · "));
+    }
+
+    private Map<String, String> batchProfileLabels(String dictType, List<String> codes) {
+        List<String> normalized = codes == null ? List.of() : codes.stream()
+                .filter(StrUtil::isNotBlank)
+                .map(StrUtil::trim)
+                .distinct()
+                .toList();
+        if (normalized.isEmpty()) return Map.of();
+        Map<String, String> result = profileDictionaryService.labels(dictType, normalized);
+        return result == null ? Map.of() : result;
+    }
+
+    private String batchProfileLabel(Map<String, String> labels, String code) {
+        return StrUtil.isBlank(code) || labels == null ? null : labels.get(code.trim());
+    }
+
+    /** 将资料 code 转换成展示标签；字典缺项时返回空值，禁止暴露内部编码。 */
+    private String profileLabel(String dictType, String code) {
+        return StrUtil.isBlank(code) ? null : profileDictionaryService.label(dictType, code);
+    }
+
+    private record RelationProfileBatch(Map<Long, AppUser> users,
+                                        Map<Long, String> avatars,
+                                        Map<String, String> cityLabels,
+                                        Map<String, String> occupationLabels,
+                                        Set<Long> followingIds,
+                                        Set<Long> followedByIds) {
+        private static RelationProfileBatch empty() {
+            return new RelationProfileBatch(Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), Set.of());
+        }
     }
 
     private String formatTime(LocalDateTime value) {
@@ -2046,8 +2188,148 @@ public class CommunityServiceImpl implements CommunityService {
      */
     private Page<CommunityPostCardVO> toPostCardPage(Long userId, Page<CommunityPost> page) {
         Page<CommunityPostCardVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(page.getRecords().stream().map(post -> toPostCard(userId, post)).toList());
+        List<CommunityPost> records = page.getRecords() == null ? List.of() : page.getRecords();
+        PostCardBatch batch = postCardBatch(userId, records);
+        result.setRecords(records.stream().map(post -> toPostCard(post, batch)).toList());
         return result;
+    }
+
+    private PostCardBatch postCardBatch(Long userId, List<CommunityPost> posts) {
+        if (posts == null || posts.isEmpty()) return PostCardBatch.empty();
+        List<Long> authorIds = posts.stream().map(CommunityPost::getAuthorId)
+                .filter(Objects::nonNull).distinct().toList();
+        List<AppUser> authors = authorIds.isEmpty() ? List.of()
+                : Optional.ofNullable(appUserDao.selectByIds(authorIds)).orElseGet(List::of);
+        Map<Long, AppUser> authorsById = authors.stream()
+                .filter(item -> item != null && item.getId() != null)
+                .collect(Collectors.toMap(AppUser::getId, item -> item,
+                        (left, right) -> left, LinkedHashMap::new));
+        Map<Long, String> avatars = authorIds.isEmpty() ? Map.of()
+                : Optional.ofNullable(auditContentService.publicAvatars(authorIds)).orElseGet(Map::of);
+        Map<String, String> cityLabels = batchProfileLabels(ProfileDictType.CHINA_REGION,
+                authors.stream().map(AppUser::getLocationCity).toList());
+        Map<String, String> occupationLabels = batchProfileLabels(ProfileDictType.OCCUPATION,
+                authors.stream().map(AppUser::getOccupation).toList());
+
+        List<Long> topicIds = posts.stream().map(CommunityPost::getTopicId)
+                .filter(Objects::nonNull).distinct().toList();
+        List<CommunityTopic> topics = topicIds.isEmpty() ? List.of()
+                : Optional.ofNullable(communityExtensionDao.selectTopics(
+                        new LambdaQueryWrapper<CommunityTopic>().in(CommunityTopic::getId, topicIds)))
+                .orElseGet(List::of);
+        Map<Long, String> topicNames = topics.stream()
+                .filter(topic -> topic.getId() != null)
+                .collect(Collectors.toMap(CommunityTopic::getId, CommunityTopic::getTopicName,
+                        (left, right) -> left, LinkedHashMap::new));
+
+        List<Long> postIds = posts.stream().map(CommunityPost::getId)
+                .filter(Objects::nonNull).distinct().toList();
+        Set<Long> likedPostIds = Set.of();
+        Set<Long> followingAuthorIds = Set.of();
+        Set<Long> hiddenAuthorIds = Set.of();
+        if (userId != null) {
+            List<CommunityLike> likes = postIds.isEmpty() ? List.of()
+                    : Optional.ofNullable(communityLikeDao.selectList(
+                            new LambdaQueryWrapper<CommunityLike>()
+                                    .eq(CommunityLike::getUserId, userId)
+                                    .in(CommunityLike::getPostId, postIds)
+                                    .eq(CommunityLike::getStatus, CommonStatusEnum.ENABLED.getCode())))
+                    .orElseGet(List::of);
+            likedPostIds = likes.stream().map(CommunityLike::getPostId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            followingAuthorIds = activeFollowTargets(userId, authorIds);
+            List<CommunityContentPreference> preferences = authorIds.isEmpty() ? List.of()
+                    : Optional.ofNullable(communityExtensionDao.selectPreferences(
+                            new LambdaQueryWrapper<CommunityContentPreference>()
+                                    .eq(CommunityContentPreference::getUserId, userId)
+                                    .in(CommunityContentPreference::getTargetUserId, authorIds)
+                                    .eq(CommunityContentPreference::getActionType, "hide_author_posts")
+                                    .eq(CommunityContentPreference::getStatus, "enabled")))
+                    .orElseGet(List::of);
+            hiddenAuthorIds = preferences.stream().map(CommunityContentPreference::getTargetUserId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        }
+
+        Map<String, String> statusNames = Optional.ofNullable(
+                        dictDataDao.selectByDictType("community_content_status"))
+                .orElseGet(List::of).stream()
+                .filter(item -> StrUtil.isNotBlank(item.getDictValue()))
+                .collect(Collectors.toMap(item -> item.getDictValue().toLowerCase(Locale.ROOT),
+                        SysDictData::getDictLabel, (left, right) -> left, LinkedHashMap::new));
+        List<String> copyKeys = posts.stream().map(CommunityPost::getStatus)
+                .filter(StrUtil::isNotBlank).distinct()
+                .map(status -> CommunityConfigKeys.COPY_PREFIX + "publish_" + status)
+                .toList();
+        Map<String, String> statusMessages = copyKeys.isEmpty() ? Map.of()
+                : Optional.ofNullable(appConfigDao.selectByKeys(copyKeys)).orElseGet(List::of).stream()
+                .filter(config -> StrUtil.isNotBlank(config.getConfigKey())
+                        && StrUtil.isNotBlank(config.getConfigValue()))
+                .collect(Collectors.toMap(AppConfig::getConfigKey, AppConfig::getConfigValue,
+                        (left, right) -> left, LinkedHashMap::new));
+        return new PostCardBatch(authorsById, avatars, cityLabels, occupationLabels,
+                topicNames, likedPostIds, followingAuthorIds, hiddenAuthorIds,
+                statusNames, statusMessages);
+    }
+
+    private CommunityPostCardVO toPostCard(CommunityPost post, PostCardBatch batch) {
+        CommunityPostCardVO vo = new CommunityPostCardVO();
+        AppUser author = batch.authors().get(post.getAuthorId());
+        vo.setId(post.getId());
+        vo.setPostNo(post.getPostNo());
+        vo.setAuthorId(post.getAuthorId());
+        vo.setAuthorUserNo(userNo(post.getAuthorId()));
+        vo.setAuthorName(author != null ? author.getNickname() : null);
+        vo.setAuthorAvatar(batch.avatars().get(post.getAuthorId()));
+        if (author != null) {
+            vo.setAuthorGender(author.getGender());
+            vo.setAuthorAge(author.getAge());
+            vo.setAuthorCity(batchProfileLabel(batch.cityLabels(), author.getLocationCity()));
+            vo.setAuthorZodiac(author.getZodiac());
+            vo.setAuthorAnnualIncome(author.getAnnualIncome());
+            vo.setAuthorProfession(batchProfileLabel(batch.occupationLabels(), author.getOccupation()));
+        }
+        vo.setPostType(post.getPostType());
+        vo.setContentType(post.getPostType());
+        vo.setTitle(post.getTitle());
+        vo.setContent(post.getContent());
+        vo.setImageUrls(parseJsonList(post.getImageUrls()));
+        vo.setTopicId(post.getTopicId());
+        vo.setTopicCode(post.getTopicCode());
+        vo.setTopicName(batch.topicNames().get(post.getTopicId()));
+        vo.setLikeCount(defaultZero(post.getLikeCount()));
+        vo.setCommentCount(defaultZero(post.getCommentCount()));
+        vo.setReportCount(defaultZero(post.getReportCount()));
+        vo.setLiked(batch.likedPostIds().contains(post.getId()));
+        vo.setFollowingAuthor(batch.followingAuthorIds().contains(post.getAuthorId()));
+        vo.setHiddenAuthor(batch.hiddenAuthorIds().contains(post.getAuthorId()));
+        vo.setStatus(post.getStatus());
+        String statusName = StrUtil.isBlank(post.getStatus()) ? null
+                : batch.statusNames().getOrDefault(post.getStatus().toLowerCase(Locale.ROOT), post.getStatus());
+        vo.setStatusName(statusName);
+        vo.setStatusMessage(batch.statusMessages().getOrDefault(
+                CommunityConfigKeys.COPY_PREFIX + "publish_" + post.getStatus(), statusName));
+        vo.setAuditStatus(post.getAuditStatus());
+        vo.setAuditRemark(post.getAuditRemark());
+        vo.setCreateTime(post.getCreateTime() != null ? post.getCreateTime().format(FMT) : null);
+        return vo;
+    }
+
+    private record PostCardBatch(Map<Long, AppUser> authors,
+                                 Map<Long, String> avatars,
+                                 Map<String, String> cityLabels,
+                                 Map<String, String> occupationLabels,
+                                 Map<Long, String> topicNames,
+                                 Set<Long> likedPostIds,
+                                 Set<Long> followingAuthorIds,
+                                 Set<Long> hiddenAuthorIds,
+                                 Map<String, String> statusNames,
+                                 Map<String, String> statusMessages) {
+        private static PostCardBatch empty() {
+            return new PostCardBatch(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
+                    Set.of(), Set.of(), Set.of(), Map.of(), Map.of());
+        }
     }
 
     /**
@@ -2069,10 +2351,10 @@ public class CommunityServiceImpl implements CommunityService {
         if (author != null) {
             vo.setAuthorGender(author.getGender());
             vo.setAuthorAge(author.getAge());
-            vo.setAuthorCity(author.getLocationCity());
+            vo.setAuthorCity(profileLabel(ProfileDictType.CHINA_REGION, author.getLocationCity()));
             vo.setAuthorZodiac(author.getZodiac());
             vo.setAuthorAnnualIncome(author.getAnnualIncome());
-            vo.setAuthorProfession(author.getOccupation());
+            vo.setAuthorProfession(profileLabel(ProfileDictType.OCCUPATION, author.getOccupation()));
         }
         vo.setPostType(post.getPostType());
         vo.setContentType(post.getPostType());

@@ -9,6 +9,7 @@ import com.spacetime.common.dao.AppRelationMatchPopupDao;
 import com.spacetime.common.dao.AppRelationMatchSourceDao;
 import com.spacetime.common.dao.AppRelationVisitDao;
 import com.spacetime.common.dao.AppRelationVisitEventDao;
+import com.spacetime.common.dao.AppRelationVisitInboxStateDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.constant.ProfileDictType;
@@ -22,6 +23,7 @@ import com.spacetime.common.entity.AppRelationMatchPopup;
 import com.spacetime.common.entity.AppRelationMatchSource;
 import com.spacetime.common.entity.AppRelationVisit;
 import com.spacetime.common.entity.AppRelationVisitEvent;
+import com.spacetime.common.entity.AppRelationVisitInboxState;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.enums.RelationLikeStatusEnum;
@@ -40,6 +42,7 @@ import com.spacetime.miniapp.dto.request.LikesMeReadReq;
 import com.spacetime.miniapp.dto.request.MatchPopupReadReq;
 import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
 import com.spacetime.miniapp.dto.request.RelationVisitCreateReq;
+import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
 import com.spacetime.miniapp.dto.response.LikesMeAvatarPreviewVO;
 import com.spacetime.miniapp.dto.response.LikesMeItemVO;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
@@ -88,6 +91,7 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
     private static final int MOBILE_PAGE_SIZE = 20;
     private static final int NEW_LIKE_PREVIEW_LIMIT = 5;
     private static final String CURSOR_VERSION = "1";
+    private static final String VISITOR_CURSOR_VERSION = "2";
     private static final String CURSOR_EMPTY = "~";
     private static final String DISPLAY_BLUR = "blur";
     private static final String DISPLAY_CLEAR = "clear";
@@ -97,6 +101,7 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
     private final AppRelationLikeInboxStateDao likeInboxStateDao;
     private final AppRelationVisitDao visitDao;
     private final AppRelationVisitEventDao visitEventDao;
+    private final AppRelationVisitInboxStateDao visitInboxStateDao;
     private final AppRelationMatchDao matchDao;
     private final AppRelationMatchSourceDao matchSourceDao;
     private final AppRelationMatchPopupDao matchPopupDao;
@@ -227,18 +232,45 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
 
     @Override
     public RecentViewersPageVO recentViewers(Long userId, int page, int size) {
+        return recentViewers(userId, page, size, null);
+    }
+
+    @Override
+    public RecentViewersPageVO recentViewers(Long userId, int page, int size, String snapshotCursor) {
         AppUser currentUser = requireOpenUser(userId, CURRENT_ACCESS_CLOSED, "关系反馈准入未开放");
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime sevenDayStart = now.minusDays(VISIBLE_DAYS);
-        boolean vip = isVipActive(userAssetDao.selectByUserId(userId), now);
+        LocalDateTime requestNow = LocalDateTime.now();
+        boolean vip = isVipActive(userAssetDao.selectByUserId(userId), requestNow);
         int current = Math.max(page, 1);
         int effectiveSize = Math.min(Math.max(size, 1), MOBILE_PAGE_SIZE);
-        long total = visitDao.countRecentVisitors(userId, sevenDayStart);
-        long visibleTotal = visitDao.countVisibleRecentVisitors(userId, vip, sevenDayStart);
-        long unlockedTotal = vip ? total : visitDao.countUnlockedRecentVisitors(userId, sevenDayStart);
+        boolean firstPage = current == 1;
+        VisitInboxSnapshot visitSnapshot = !firstPage && StringUtils.hasText(snapshotCursor)
+                ? decodeAndValidateVisitSnapshot(snapshotCursor, userId)
+                : resolveVisitInboxSnapshot(userId, requestNow);
+        LocalDateTime snapshotNow = visitSnapshot.requestTime();
+        LocalDateTime sevenDayStart = snapshotNow.minusDays(VISIBLE_DAYS);
+        boolean hasSnapshot = visitSnapshot.snapshotVisitTime() != null
+                && visitSnapshot.snapshotVisitEventId() != null;
+        long total = hasSnapshot ? visitDao.countRecentVisitorsAtSnapshot(
+                userId, sevenDayStart,
+                visitSnapshot.snapshotVisitTime(), visitSnapshot.snapshotVisitEventId())
+                : visitDao.countRecentVisitors(userId, sevenDayStart);
+        long visibleTotal = hasSnapshot ? visitDao.countVisibleRecentVisitorsAtSnapshot(
+                userId, vip, sevenDayStart,
+                visitSnapshot.snapshotVisitTime(), visitSnapshot.snapshotVisitEventId())
+                : visitDao.countVisibleRecentVisitors(userId, vip, sevenDayStart);
+        long unlockedTotal = vip ? total : hasSnapshot
+                ? visitDao.countUnlockedRecentVisitorsAtSnapshot(
+                        userId, sevenDayStart,
+                        visitSnapshot.snapshotVisitTime(), visitSnapshot.snapshotVisitEventId())
+                : visitDao.countUnlockedRecentVisitors(userId, sevenDayStart);
         long offset = (long) (current - 1) * effectiveSize;
-        List<RelationVisitListRow> sourceRows = safeList(visitDao.selectVisibleRecentVisitors(
-                userId, vip, sevenDayStart, offset, effectiveSize));
+        List<RelationVisitListRow> sourceRows = hasSnapshot
+                ? safeList(visitDao.selectVisibleRecentVisitorsAtSnapshot(
+                        userId, vip, sevenDayStart,
+                        visitSnapshot.snapshotVisitTime(), visitSnapshot.snapshotVisitEventId(),
+                        offset, effectiveSize))
+                : safeList(visitDao.selectVisibleRecentVisitors(
+                        userId, vip, sevenDayStart, offset, effectiveSize));
         LinkedHashSet<Long> visitorUserIds = sourceRows.stream()
                 .map(RelationVisitListRow::getVisitorUserId)
                 .filter(Objects::nonNull)
@@ -252,12 +284,14 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         Map<Long, LocalDateTime> fallbackActiveTimes = new LinkedHashMap<>();
         users.values().forEach(user -> fallbackActiveTimes.put(user.getId(), user.getLastLoginTime()));
         Map<Long, MiniappPresenceService.PresenceSnapshot> resolvedPresence =
-                presenceService.resolve(fallbackActiveTimes, now);
+                presenceService.resolve(fallbackActiveTimes, requestNow);
         Map<Long, MiniappPresenceService.PresenceSnapshot> presence =
                 resolvedPresence == null ? Map.of() : resolvedPresence;
         Map<Long, AppRelationMatch> matches = activeMatchesByCounterparty(userId);
         Map<Long, String> avatars = publicAvatars(visitorUserIds);
-        LocalDate today = now.toLocalDate();
+        LocalDate today = snapshotNow.toLocalDate();
+        LocalDateTime dayStart = LocalDateTime.of(today, LocalTime.MIN);
+        LocalDateTime dayEnd = LocalDateTime.of(today.plusDays(1), LocalTime.MIN);
 
         List<RecentViewerItemVO> records = rows.stream()
                 .map(row -> toVisitItem(row, currentUser, users.get(row.getVisitorUserId()),
@@ -266,9 +300,11 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
                         presence.get(row.getVisitorUserId()), profileLabels, today))
                 .toList();
 
-        RelationVisitStats allTime = stats(userId, LocalDateTime.of(1970, 1, 1, 0, 0));
-        RelationVisitStats sevenDays = stats(userId, sevenDayStart);
-        RelationVisitStats todayStats = stats(userId, LocalDateTime.of(today, LocalTime.MIN));
+        RelationVisitStats allTime = statsAtSnapshot(
+                userId, LocalDateTime.of(1970, 1, 1, 0, 0), visitSnapshot);
+        RelationVisitStats sevenDays = statsAtSnapshot(userId, sevenDayStart, visitSnapshot);
+        RelationVisitStats todayStats = statsAtSnapshot(
+                userId, LocalDateTime.of(today, LocalTime.MIN), visitSnapshot);
         RecentViewersPageVO result = new RecentViewersPageVO();
         result.setCurrent((long) current);
         result.setSize((long) effectiveSize);
@@ -284,8 +320,33 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         result.setVisitorPv7d(value(sevenDays.getPv()));
         result.setTodayVisitorUv(value(todayStats.getUv()));
         result.setTodayVisitPv(value(todayStats.getPv()));
+        result.setUnreadCount(!firstPage ? null : !hasSnapshot ? 0L
+                : value(visitEventDao.countDistinctTargetVisitorsBetween(
+                        userId,
+                        dayStart,
+                        dayEnd,
+                        visitSnapshot.lastReadVisitTime(),
+                        visitSnapshot.lastReadVisitEventId(),
+                        visitSnapshot.snapshotVisitTime(),
+                        visitSnapshot.snapshotVisitEventId())));
+        result.setReadCursor(firstPage && hasSnapshot ? encodeVisitSnapshot(visitSnapshot) : null);
         result.setRecords(records);
         return result;
+    }
+
+    @Override
+    @Transactional
+    public void confirmRecentViewersRead(Long userId, RecentViewersReadReq req) {
+        requireOpenUser(userId, CURRENT_ACCESS_CLOSED, "关系反馈准入未开放");
+        VisitInboxSnapshot snapshot = decodeVisitSnapshot(req == null ? null : req.getReadCursor(), userId);
+        validateVisitSnapshotUpperBound(snapshot);
+        LocalDateTime readAt = LocalDateTime.now();
+        int inserted = visitInboxStateDao.insertIgnore(
+                userId, snapshot.snapshotVisitTime(), snapshot.snapshotVisitEventId(), readAt);
+        if (inserted == 0) {
+            visitInboxStateDao.advance(
+                    userId, snapshot.snapshotVisitTime(), snapshot.snapshotVisitEventId(), readAt);
+        }
     }
 
     @Override
@@ -642,6 +703,86 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
                 latest == null ? null : latest.getId());
     }
 
+    private VisitInboxSnapshot resolveVisitInboxSnapshot(Long userId, LocalDateTime requestTime) {
+        AppRelationVisitEvent latest = visitEventDao.selectLatestTargetVisitAtOrBefore(userId, requestTime);
+        AppRelationVisitInboxState state = visitInboxStateDao.selectByUserId(userId);
+        LocalDateTime lastReadTime = state == null ? null : state.getLastReadVisitTime();
+        Long lastReadId = state == null ? null : state.getLastReadVisitEventId();
+        if ((lastReadTime == null) != (lastReadId == null)) {
+            lastReadTime = null;
+            lastReadId = null;
+        }
+        return new VisitInboxSnapshot(
+                userId,
+                requestTime,
+                lastReadTime,
+                lastReadId,
+                latest == null ? null : latest.getVisitTime(),
+                latest == null ? null : latest.getId());
+    }
+
+    private VisitInboxSnapshot decodeAndValidateVisitSnapshot(String cursor, Long userId) {
+        VisitInboxSnapshot snapshot = decodeVisitSnapshot(cursor, userId);
+        validateVisitSnapshotUpperBound(snapshot);
+        return snapshot;
+    }
+
+    private void validateVisitSnapshotUpperBound(VisitInboxSnapshot snapshot) {
+        AppRelationVisitEvent upper = visitEventDao.selectById(snapshot.snapshotVisitEventId());
+        if (upper == null
+                || !Objects.equals(upper.getTargetUserId(), snapshot.userId())
+                || !Objects.equals(upper.getVisitTime(), snapshot.snapshotVisitTime())) {
+            throw new BusinessException(PARAM_ERROR, "最近访客读取游标已失效");
+        }
+    }
+
+    private String encodeVisitSnapshot(VisitInboxSnapshot snapshot) {
+        String raw = String.join("|",
+                "visitor-" + VISITOR_CURSOR_VERSION,
+                String.valueOf(snapshot.userId()),
+                cursorTime(snapshot.requestTime()),
+                cursorTime(snapshot.snapshotVisitTime()),
+                cursorId(snapshot.snapshotVisitEventId()));
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private VisitInboxSnapshot decodeVisitSnapshot(String cursor, Long userId) {
+        if (!StringUtils.hasText(cursor) || cursor.length() > 2048) {
+            throw new BusinessException(PARAM_ERROR, "最近访客读取游标无效");
+        }
+        try {
+            String raw = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+            String[] parts = raw.split("\\|", -1);
+            boolean currentVersion = parts.length == 5
+                    && ("visitor-" + VISITOR_CURSOR_VERSION).equals(parts[0]);
+            boolean legacyVersion = parts.length == 4
+                    && ("visitor-" + CURSOR_VERSION).equals(parts[0]);
+            if (!currentVersion && !legacyVersion) {
+                throw new IllegalArgumentException("unsupported cursor");
+            }
+            Long cursorUserId = Long.valueOf(parts[1]);
+            if (!Objects.equals(cursorUserId, userId)) {
+                throw new IllegalArgumentException("cursor owner mismatch");
+            }
+            LocalDateTime requestTime = parseCursorTime(parts[2]);
+            LocalDateTime snapshotTime = currentVersion
+                    ? parseCursorTime(parts[3]) : parseCursorTime(parts[2]);
+            Long snapshotId = currentVersion ? parseCursorId(parts[4]) : parseCursorId(parts[3]);
+            if (requestTime == null || snapshotTime == null || snapshotId == null || snapshotId <= 0
+                    || snapshotTime.isAfter(requestTime)) {
+                throw new IllegalArgumentException("incomplete cursor");
+            }
+            return new VisitInboxSnapshot(
+                    cursorUserId, requestTime, null, null, snapshotTime, snapshotId);
+        } catch (RuntimeException ex) {
+            if (ex instanceof BusinessException businessException) {
+                throw businessException;
+            }
+            throw new BusinessException(PARAM_ERROR, "最近访客读取游标无效");
+        }
+    }
+
     private void validateSnapshotUpperBound(LikesMeSnapshot snapshot) {
         if (snapshot.snapshotLikedTime() == null || snapshot.snapshotLikeId() == null) {
             throw new BusinessException(PARAM_ERROR, "喜欢列表读取游标无效");
@@ -811,8 +952,15 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
                 && (asset.getVipExpireTime() == null || asset.getVipExpireTime().isAfter(now));
     }
 
-    private RelationVisitStats stats(Long userId, LocalDateTime start) {
-        RelationVisitStats stats = visitEventDao.countTargetStats(userId, start);
+    private RelationVisitStats statsAtSnapshot(Long userId,
+                                               LocalDateTime start,
+                                               VisitInboxSnapshot snapshot) {
+        RelationVisitStats stats = visitEventDao.countTargetStatsAtSnapshot(
+                userId,
+                start,
+                snapshot.requestTime(),
+                snapshot.snapshotVisitTime(),
+                snapshot.snapshotVisitEventId());
         return stats == null ? new RelationVisitStats(0L, 0L) : stats;
     }
 
@@ -870,6 +1018,15 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
             Long lastReadLikeId,
             LocalDateTime snapshotLikedTime,
             Long snapshotLikeId) {
+    }
+
+    private record VisitInboxSnapshot(
+            Long userId,
+            LocalDateTime requestTime,
+            LocalDateTime lastReadVisitTime,
+            Long lastReadVisitEventId,
+            LocalDateTime snapshotVisitTime,
+            Long snapshotVisitEventId) {
     }
 
     private record ProfileLabels(

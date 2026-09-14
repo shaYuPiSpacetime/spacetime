@@ -23,11 +23,21 @@ public class RefundRecordDaoImpl implements RefundRecordDao {
     }
 
     @Override
+    public RefundRecord selectByIdForUpdate(Long id) {
+        return mapper.selectByIdForUpdate(id);
+    }
+
+    @Override
     public RefundRecord selectByOrderId(Long orderId) {
         return mapper.selectOne(new LambdaQueryWrapper<RefundRecord>()
                 .eq(RefundRecord::getOrderId, orderId)
                 .orderByDesc(RefundRecord::getCreateTime)
                 .last("LIMIT 1"));
+    }
+
+    @Override
+    public java.util.List<RefundRecord> selectReconcilableVirtualRefunds(int limit) {
+        return mapper.selectReconcilableVirtualRefunds(limit);
     }
 
     @Override

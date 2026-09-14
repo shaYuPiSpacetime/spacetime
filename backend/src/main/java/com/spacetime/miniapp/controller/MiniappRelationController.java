@@ -8,6 +8,7 @@ import com.spacetime.miniapp.dto.request.MatchPopupReadReq;
 import com.spacetime.miniapp.dto.request.LikesMeReadReq;
 import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
 import com.spacetime.miniapp.dto.request.RelationVisitCreateReq;
+import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
 import com.spacetime.miniapp.dto.response.MatchPopupVO;
 import com.spacetime.miniapp.dto.response.MutualMatchPageVO;
@@ -48,8 +49,15 @@ public class MiniappRelationController {
 
     @GetMapping("/recent-viewers")
     public R<RecentViewersPageVO> recentViewers(@RequestParam(defaultValue = "1") int page,
-                                                @RequestParam(defaultValue = "20") int size) {
-        return R.ok(relationService.recentViewers(currentUserId(), page, size));
+                                                @RequestParam(defaultValue = "20") int size,
+                                                @RequestParam(required = false) String snapshotCursor) {
+        return R.ok(relationService.recentViewers(currentUserId(), page, size, snapshotCursor));
+    }
+
+    @PostMapping("/recent-viewers/read")
+    public R<Void> confirmRecentViewersRead(@Valid @RequestBody RecentViewersReadReq req) {
+        relationService.confirmRecentViewersRead(currentUserId(), req);
+        return R.ok();
     }
 
     @GetMapping("/mutual-matches")

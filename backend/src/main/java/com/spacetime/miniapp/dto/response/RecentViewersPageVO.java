@@ -25,5 +25,9 @@ public class RecentViewersPageVO {
     private Long visitorPv7d;
     private Long todayVisitorUv;
     private Long todayVisitPv;
+    /** 自上次确认查看后新增的当日访客人数。 */
+    private Long unreadCount;
+    /** 本次响应覆盖的稳定访问事件快照，用于渲染成功后确认已读。 */
+    private String readCursor;
     private List<RecentViewerItemVO> records;
 }

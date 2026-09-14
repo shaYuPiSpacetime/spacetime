@@ -29,6 +29,11 @@ public class UserCoinLogDaoImpl implements UserCoinLogDao {
     }
 
     @Override
+    public UserCoinLog selectPurchaseByOrderId(Long orderId) {
+        return mapper.selectPurchaseByOrderId(orderId);
+    }
+
+    @Override
     public Page<UserCoinLog> selectPage(Page<UserCoinLog> page, LambdaQueryWrapper<UserCoinLog> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

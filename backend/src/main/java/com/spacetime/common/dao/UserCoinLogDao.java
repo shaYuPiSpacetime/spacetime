@@ -10,6 +10,8 @@ import com.spacetime.common.entity.UserCoinLog;
 public interface UserCoinLogDao {
     UserCoinLog selectById(Long id);
     UserCoinLog selectByBizIdempotencyKey(String bizIdempotencyKey);
+    /** 按交易订单读取支付成功时写入的千寻币充值流水，作为退款权益归因快照。 */
+    UserCoinLog selectPurchaseByOrderId(Long orderId);
     Page<UserCoinLog> selectPage(Page<UserCoinLog> page, LambdaQueryWrapper<UserCoinLog> wrapper);
     /** 分页查询用户流水 */
     Page<UserCoinLog> selectPageByUserId(Page<UserCoinLog> page, Long userId, String flowType);

@@ -172,10 +172,26 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
             return JSONUtil.parseArray(tags).toList(String.class).stream()
                     .map(StrUtil::trim)
                     .filter(StrUtil::isNotBlank)
+                    .map(this::profileTagLabel)
+                    .filter(StrUtil::isNotBlank)
                     .toList();
         } catch (RuntimeException ignored) {
             return List.of();
         }
+    }
+
+    private String profileTagLabel(String code) {
+        try {
+            String label = profileDictionaryService.label(ProfileDictType.PROFILE_TAG, code);
+            return StrUtil.isNotBlank(label) ? label : legacyChineseTag(code);
+        } catch (RuntimeException ignored) {
+            // 单个历史标签缺少字典映射时隐藏该项，不能向用户暴露内部编码。
+            return legacyChineseTag(code);
+        }
+    }
+
+    private String legacyChineseTag(String value) {
+        return StrUtil.isNotBlank(value) && value.matches(".*[\\p{IsHan}].*") ? value : null;
     }
 
     private String profileLabel(String dictType, String code) {

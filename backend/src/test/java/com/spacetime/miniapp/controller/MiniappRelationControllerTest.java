@@ -62,7 +62,7 @@ class MiniappRelationControllerTest {
         MutualMatchPageVO matches = new MutualMatchPageVO();
         matches.setTotal(4L);
         when(relationService.likesMe(7L, 1, 20, "snapshot-001")).thenReturn(likes);
-        when(relationService.recentViewers(7L, 1, 20)).thenReturn(viewers);
+        when(relationService.recentViewers(7L, 1, 20, "visitor-snapshot-001")).thenReturn(viewers);
         when(relationService.mutualMatches(7L, 1, 20)).thenReturn(matches);
 
         mockMvc.perform(get("/miniapp/relation/likes-me")
@@ -72,12 +72,15 @@ class MiniappRelationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(12))
                 .andExpect(jsonPath("$.data.newCount").value(3));
-        mockMvc.perform(get("/miniapp/relation/recent-viewers"))
+        mockMvc.perform(get("/miniapp/relation/recent-viewers")
+                        .param("snapshotCursor", "visitor-snapshot-001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalPv").value(36));
         mockMvc.perform(get("/miniapp/relation/mutual-matches"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(4));
+
+        verify(relationService).recentViewers(7L, 1, 20, "visitor-snapshot-001");
     }
 
     @Test
@@ -107,6 +110,17 @@ class MiniappRelationControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.visitNo").value("VIS-001"));
+    }
+
+    @Test
+    void exposesRecentViewerReadReceipt() throws Exception {
+        mockMvc.perform(post("/miniapp/relation/recent-viewers/read")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"readCursor\":\"visitor-snapshot-001\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(relationService).confirmRecentViewersRead(eq(7L), any());
     }
 
     @Test

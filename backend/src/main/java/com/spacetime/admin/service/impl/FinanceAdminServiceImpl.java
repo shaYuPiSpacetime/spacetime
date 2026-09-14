@@ -16,37 +16,47 @@ import com.spacetime.admin.dto.response.RefundRecordVO;
 import com.spacetime.admin.dto.response.TradeOrderDetailVO;
 import com.spacetime.admin.dto.response.TradeOrderVO;
 import com.spacetime.admin.service.FinanceAdminService;
-import com.spacetime.common.dao.CoinPackageDao;
+import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.RefundRecordDao;
 import com.spacetime.common.dao.TradeOrderDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserCoinLogDao;
 import com.spacetime.common.dao.UserDao;
-import com.spacetime.common.entity.CoinPackage;
+import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.RefundRecord;
 import com.spacetime.common.entity.SysUser;
 import com.spacetime.common.entity.TradeOrder;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
+import com.spacetime.common.enums.BizSceneEnum;
 import com.spacetime.common.enums.FlowTypeEnum;
 import com.spacetime.common.enums.OrderStatusEnum;
 import com.spacetime.common.enums.OrderTypeEnum;
+import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.service.AssetResultMessageNotificationService;
+import com.spacetime.common.service.WechatVirtualRefundGateway;
+import com.spacetime.common.service.WechatVirtualRefundGateway.RefundQueryMismatchException;
+import com.spacetime.common.service.WechatVirtualRefundGateway.RefundRequestRejectedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * 财务管理后台服务实现
@@ -61,14 +71,18 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
     private final UserCoinLogDao userCoinLogDao;
     /** 用户资产数据访问对象 */
     private final UserAssetDao userAssetDao;
-    /** 成家币套餐数据访问对象 */
-    private final CoinPackageDao coinPackageDao;
     /** 用户数据访问对象 */
     private final UserDao userDao;
     /** 退款记录数据访问对象 */
     private final RefundRecordDao refundRecordDao;
+    /** 小程序用户数据访问对象，用于读取微信 openid。 */
+    private final AppUserDao appUserDao;
+    /** 微信虚拟支付退款共享网关。 */
+    private final WechatVirtualRefundGateway virtualRefundGateway;
     /** 资产结果系统消息适配器 */
     private final AssetResultMessageNotificationService assetResultNotificationService;
+    /** 用于将退款意图、渠道终态和权益回收拆成独立可靠事务。 */
+    private final PlatformTransactionManager transactionManager;
 
     /**
      * 分页查询订单列表，支持多条件筛选
@@ -151,70 +165,432 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
      * @param req 退款请求
      */
     @Override
-    @Transactional
     public void processRefund(Long id, RefundReq req) {
-        TradeOrder order = requireOrder(id);
-
-        // 1. 校验订单状态：只允许已支付订单发起退款
-        String currentStatus = order.getOrderStatus();
-        if (!OrderStatusEnum.SUCCESS.getCode().equals(currentStatus)) {
-            throw new BusinessException("仅支持对已支付订单进行退款");
+        if (!virtualRefundGateway.isEnabled()) {
+            throw new BusinessException("微信虚拟支付退款能力尚未启用");
         }
-        RefundRecord existing = refundRecordDao.selectByOrderId(id);
-        if (existing != null) {
-            throw new BusinessException("订单已存在退款记录");
+        PreparedVirtualRefund prepared = inNewTransaction(() -> prepareRefundIntent(id, req));
+        if (!prepared.requestRequired()) {
+            return;
         }
+        TradeOrder order = prepared.order();
+        RefundRecord refundRecord = prepared.refund();
         log.info("开始处理退款: orderId={}, orderNo={}, reason={}", id, order.getOrderNo(), req.getReason());
 
-        RefundRecord refundRecord = buildRefundRecord(order, req);
-        refundRecordDao.insert(refundRecord);
-
-        String assetRollbackAction = req.getAssetRollbackAction();
-        if (OrderTypeEnum.COIN.getCode().equals(order.getOrderType())) {
-            refundCoin(order, refundRecord.getId());
-            assetRollbackAction = StrUtil.blankToDefault(assetRollbackAction, "coin_balance_rollback");
-        } else {
-            assetRollbackAction = StrUtil.blankToDefault(assetRollbackAction, "vip_order_refund_only");
+        AppUser user;
+        try {
+            user = requireWechatUser(order.getUserId());
+        } catch (RuntimeException exception) {
+            inNewTransaction(() -> {
+                markRequestRejected(prepared, exception.getMessage());
+                return null;
+            });
+            throw exception;
+        }
+        int refundFeeFen = toFen(refundRecord.getRefundAmount());
+        WechatVirtualRefundGateway.VirtualPaymentOrderSnapshot payment;
+        try {
+            payment = virtualRefundGateway.queryPaymentOrder(user.getOpenid(), order.getOrderNo());
+            if (!payment.paid()) {
+                throw new BusinessException("微信虚拟支付原订单不是可退款状态");
+            }
+            if (payment.leftFeeFen() != refundFeeFen) {
+                throw new BusinessException("微信虚拟支付订单剩余可退金额与本地全额不一致");
+            }
+        } catch (RuntimeException exception) {
+            inNewTransaction(() -> {
+                markRequestRejected(prepared, exception.getMessage());
+                return null;
+            });
+            throw exception;
         }
 
-        // 3. 更新退款单与订单为已退款
-        LocalDateTime now = LocalDateTime.now();
-        refundRecord.setRefundStatus("success");
-        refundRecord.setAssetRollbackAction(assetRollbackAction);
-        refundRecord.setChannelRefundStatus("manual_recorded");
-        refundRecord.setChannelResponseSummary("后台特批退款已登记，渠道退款凭证由财务留存");
-        refundRecord.setRefundTime(now);
-        refundRecordDao.updateById(refundRecord);
+        try {
+            WechatVirtualRefundGateway.VirtualRefundRequestResult accepted =
+                    virtualRefundGateway.requestRefund(
+                            user.getOpenid(),
+                            order.getOrderNo(),
+                            refundRecord.getRefundNo(),
+                            payment.leftFeeFen(),
+                            refundFeeFen,
+                            refundRecord.getRefundReason());
+            inNewTransaction(() -> {
+                markRequestAccepted(prepared, accepted);
+                return null;
+            });
+        } catch (RefundRequestRejectedException exception) {
+            inNewTransaction(() -> {
+                markRequestRejected(prepared, exception.getMessage(), "request_rejected");
+                return null;
+            });
+            throw exception;
+        } catch (RuntimeException exception) {
+            inNewTransaction(() -> {
+                markRequestUnknown(prepared, exception.getMessage());
+                return null;
+            });
+            throw exception;
+        }
+        log.info("微信虚拟支付退款已受理，等待渠道终态: orderId={}, orderNo={}, refundNo={}",
+                id, order.getOrderNo(), refundRecord.getRefundNo());
+    }
 
-        order.setOrderStatus(OrderStatusEnum.REFUNDED.getCode());
-        order.setRefundTime(now);
-        order.setRefundReason(req.getReason());
-        tradeOrderDao.updateById(order);
-        assetResultNotificationService.publishOrderAfterCommit(order, now);
-        log.info("退款处理完成: orderId={}, orderNo={}", id, order.getOrderNo());
+    @Override
+    public void reconcileVirtualRefund(Long refundId) {
+        RefundRecord refund = refundRecordDao.selectById(refundId);
+        if (refund == null) {
+            return;
+        }
+        if ("success".equals(refund.getRefundStatus())) {
+            if ("pending".equals(refund.getAssetRollbackAction())) {
+                inNewTransaction(() -> {
+                    rollbackAssetAfterChannelSuccess(refundId);
+                    return null;
+                });
+            }
+            return;
+        }
+        if (!"processing".equals(refund.getRefundStatus())) return;
+        TradeOrder order = requireOrder(refund.getOrderId());
+        if (!OrderStatusEnum.REFUNDING.getCode().equals(order.getOrderStatus())) {
+            throw new BusinessException("退款单与订单状态不一致，请人工核对");
+        }
+        AppUser user = requireWechatUser(order.getUserId());
+        WechatVirtualRefundGateway.VirtualRefundQueryResult result;
+        try {
+            if (isRequestUncertain(refund)) {
+                result = queryOrResubmitUncertainRefund(refund, order, user);
+                if (result == null) {
+                    return;
+                }
+            } else {
+                result = virtualRefundGateway.queryRefund(user.getOpenid(), refund.getRefundNo());
+            }
+        } catch (RefundQueryMismatchException exception) {
+            inNewTransaction(() -> {
+                markChannelMismatchForManualReview(
+                        refundId, null, exception.getRawPayload(), exception.getMessage());
+                return null;
+            });
+            return;
+        }
+        if (!Objects.equals(refund.getRefundNo(), result.refundOrderNo())) {
+            inNewTransaction(() -> {
+                markChannelMismatchForManualReview(
+                        refundId, result.wxRefundOrderNo(), result.rawPayload(),
+                        "微信虚拟支付退款查单返回的商户退款单号与本地不一致");
+                return null;
+            });
+            return;
+        }
+        if (result.pending()) {
+            inNewTransaction(() -> {
+                markChannelProcessing(refundId, result);
+                return null;
+            });
+            return;
+        }
+        if (result.failed()) {
+            inNewTransaction(() -> {
+                markChannelFailed(refundId, result);
+                return null;
+            });
+            return;
+        }
+        if (result.orderType() != 1 || result.refundFeeFen() != toFen(refund.getRefundAmount())) {
+            inNewTransaction(() -> {
+                markChannelMismatchForManualReview(
+                        refundId, result.wxRefundOrderNo(), result.rawPayload(),
+                        "微信虚拟支付退款终态金额或类型与本地退款意图不一致");
+                return null;
+            });
+            return;
+        }
+
+        inNewTransaction(() -> {
+            markChannelSuccess(refundId, result);
+            return null;
+        });
+        inNewTransaction(() -> {
+            rollbackAssetAfterChannelSuccess(refundId);
+            return null;
+        });
     }
 
     /**
-     * 退回成家币：增加用户资产余额并记录流水
+     * 进程可能在调用微信前后中断，此时先查同一退款单号；若微信尚未建单，则用同一单号幂等重提。
      */
-    private void refundCoin(TradeOrder order, Long refundRecordId) {
-        UserAsset asset = userAssetDao.selectByUserId(order.getUserId());
+    private WechatVirtualRefundGateway.VirtualRefundQueryResult queryOrResubmitUncertainRefund(
+            RefundRecord refund,
+            TradeOrder order,
+            AppUser user
+    ) {
+        try {
+            return virtualRefundGateway.queryRefund(user.getOpenid(), refund.getRefundNo());
+        } catch (RefundQueryMismatchException exception) {
+            throw exception;
+        } catch (RuntimeException queryException) {
+            try {
+                int refundFeeFen = toFen(refund.getRefundAmount());
+                WechatVirtualRefundGateway.VirtualPaymentOrderSnapshot payment =
+                        virtualRefundGateway.queryPaymentOrder(user.getOpenid(), order.getOrderNo());
+                if (!payment.paid() || payment.leftFeeFen() != refundFeeFen) {
+                    throw new BusinessException("微信虚拟支付原订单当前无法幂等重提退款");
+                }
+                WechatVirtualRefundGateway.VirtualRefundRequestResult accepted =
+                        virtualRefundGateway.requestRefund(
+                                user.getOpenid(),
+                                order.getOrderNo(),
+                                refund.getRefundNo(),
+                                payment.leftFeeFen(),
+                                refundFeeFen,
+                                refund.getRefundReason());
+                inNewTransaction(() -> {
+                    markRequestAccepted(refund.getId(), refund, accepted);
+                    return null;
+                });
+                return null;
+            } catch (RuntimeException resendException) {
+                inNewTransaction(() -> {
+                    markRequestUnknown(refund.getId(), refund,
+                            "查退款单失败：" + queryException.getMessage()
+                                    + "；同号重提失败：" + resendException.getMessage());
+                    return null;
+                });
+                throw resendException;
+            }
+        }
+    }
+
+    private boolean isRequestUncertain(RefundRecord refund) {
+        return "request_pending".equals(refund.getChannelRefundStatus())
+                || "request_unknown".equals(refund.getChannelRefundStatus());
+    }
+
+    private PreparedVirtualRefund prepareRefundIntent(Long orderId, RefundReq req) {
+        TradeOrder order = requireOrderForUpdate(orderId);
+        RefundRecord existing = refundRecordDao.selectByOrderId(orderId);
+        if (existing != null && ("processing".equals(existing.getRefundStatus())
+                || "success".equals(existing.getRefundStatus()))) {
+            return new PreparedVirtualRefund(order, existing, false);
+        }
+        if (!OrderStatusEnum.SUCCESS.getCode().equals(order.getOrderStatus())) {
+            throw new BusinessException("仅支持对已支付订单进行退款");
+        }
+        if (!"wechat_virtual".equals(order.getPayChannel())) {
+            throw new BusinessException("当前支付渠道尚未接入自动退款，请勿登记为已退款");
+        }
+        RefundRecord refund = buildRefundRecord(order, req, existing != null);
+        validateFullRefund(order, refund.getRefundAmount());
+        refund.setRefundStatus("processing");
+        refund.setAssetRollbackAction("pending");
+        refund.setChannelRefundStatus("request_pending");
+        refund.setChannelResponseSummary(null);
+        refund.setRefundTime(null);
+        refundRecordDao.insert(refund);
+        order.setOrderStatus(OrderStatusEnum.REFUNDING.getCode());
+        order.setRefundTime(null);
+        order.setRefundReason(refund.getRefundReason());
+        tradeOrderDao.updateById(order);
+        return new PreparedVirtualRefund(order, refund, true);
+    }
+
+    private void markRequestAccepted(
+            PreparedVirtualRefund prepared,
+            WechatVirtualRefundGateway.VirtualRefundRequestResult accepted
+    ) {
+        markRequestAccepted(prepared.refund().getId(), prepared.refund(), accepted);
+    }
+
+    private void markRequestAccepted(
+            Long refundId,
+            RefundRecord fallback,
+            WechatVirtualRefundGateway.VirtualRefundRequestResult accepted
+    ) {
+        RefundRecord refund = lockRefund(refundId, fallback);
+        if (!"processing".equals(refund.getRefundStatus())) return;
+        refund.setChannelRefundNo(accepted.wxRefundOrderNo());
+        refund.setChannelRefundStatus("accepted");
+        refund.setChannelResponseSummary(summary(accepted.rawPayload(), 1000));
+        refundRecordDao.updateById(refund);
+    }
+
+    private void markRequestUnknown(PreparedVirtualRefund prepared, String message) {
+        markRequestUnknown(prepared.refund().getId(), prepared.refund(), message);
+    }
+
+    private void markRequestUnknown(Long refundId, RefundRecord fallback, String message) {
+        RefundRecord refund = lockRefund(refundId, fallback);
+        if (!"processing".equals(refund.getRefundStatus())) return;
+        refund.setChannelRefundStatus("request_unknown");
+        refund.setChannelResponseSummary(summary(message, 1000));
+        refundRecordDao.updateById(refund);
+    }
+
+    private void markRequestRejected(PreparedVirtualRefund prepared, String message) {
+        markRequestRejected(prepared, message, "precheck_failed");
+    }
+
+    private void markRequestRejected(
+            PreparedVirtualRefund prepared, String message, String channelRefundStatus) {
+        RefundRecord refund = lockRefund(prepared.refund());
+        if (!"processing".equals(refund.getRefundStatus())) return;
+        refund.setRefundStatus("failed");
+        refund.setChannelRefundStatus(channelRefundStatus);
+        refund.setChannelResponseSummary(summary(message, 1000));
+        refund.setAssetRollbackAction(null);
+        refundRecordDao.updateById(refund);
+        TradeOrder order = lockOrder(prepared.order());
+        order.setOrderStatus(OrderStatusEnum.SUCCESS.getCode());
+        order.setRefundTime(null);
+        tradeOrderDao.updateById(order);
+    }
+
+    private void markChannelProcessing(
+            Long refundId, WechatVirtualRefundGateway.VirtualRefundQueryResult result) {
+        RefundRecord refund = refundRecordDao.selectByIdForUpdate(refundId);
+        if (refund == null || !"processing".equals(refund.getRefundStatus())) return;
+        applyChannelSnapshot(refund, result);
+        refund.setChannelRefundStatus("processing");
+        refundRecordDao.updateById(refund);
+    }
+
+    private void markChannelFailed(
+            Long refundId, WechatVirtualRefundGateway.VirtualRefundQueryResult result) {
+        RefundRecord refund = refundRecordDao.selectByIdForUpdate(refundId);
+        if (refund == null || !"processing".equals(refund.getRefundStatus())) return;
+        applyChannelSnapshot(refund, result);
+        refund.setRefundStatus("failed");
+        refund.setChannelRefundStatus("failed");
+        refund.setAssetRollbackAction(null);
+        refund.setRefundTime(null);
+        refundRecordDao.updateById(refund);
+        TradeOrder order = requireOrderForUpdate(refund.getOrderId());
+        order.setOrderStatus(OrderStatusEnum.SUCCESS.getCode());
+        order.setRefundTime(null);
+        tradeOrderDao.updateById(order);
+    }
+
+    private void markChannelSuccess(
+            Long refundId, WechatVirtualRefundGateway.VirtualRefundQueryResult result) {
+        completeChannelSuccess(refundId, result, "pending", null);
+    }
+
+    private void markChannelMismatchForManualReview(
+            Long refundId,
+            String wxRefundOrderNo,
+            String rawPayload,
+            String reviewReason
+    ) {
+        RefundRecord refund = refundRecordDao.selectByIdForUpdate(refundId);
+        if (refund == null || !"processing".equals(refund.getRefundStatus())) return;
+        refund.setChannelRefundNo(StrUtil.blankToDefault(wxRefundOrderNo, refund.getChannelRefundNo()));
+        refund.setChannelResponseSummary(summary(
+                StrUtil.blankToDefault(rawPayload, "") + " | 人工复核：" + reviewReason, 1000));
+        // 不把不一致的渠道数据解释为退款成功，同时退出自动对账队列，等待人工核验。
+        refund.setRefundStatus("failed");
+        refund.setChannelRefundStatus("manual_review");
+        refund.setAssetRollbackAction("manual_review:channel_mismatch");
+        refund.setRefundTime(null);
+        refundRecordDao.updateById(refund);
+    }
+
+    private void completeChannelSuccess(
+            Long refundId,
+            WechatVirtualRefundGateway.VirtualRefundQueryResult result,
+            String assetRollbackAction,
+            String reviewReason
+    ) {
+        RefundRecord refund = refundRecordDao.selectByIdForUpdate(refundId);
+        if (refund == null || !"processing".equals(refund.getRefundStatus())) return;
+        applyChannelSnapshot(refund, result);
+        if (StrUtil.isNotBlank(reviewReason)) {
+            refund.setChannelResponseSummary(summary(
+                    StrUtil.blankToDefault(refund.getChannelResponseSummary(), "")
+                            + " | 人工复核：" + reviewReason, 1000));
+        }
+        LocalDateTime now = LocalDateTime.now();
+        refund.setRefundStatus("success");
+        refund.setChannelRefundStatus("success");
+        refund.setAssetRollbackAction(assetRollbackAction);
+        refund.setRefundTime(now);
+        refundRecordDao.updateById(refund);
+        TradeOrder order = requireOrderForUpdate(refund.getOrderId());
+        order.setOrderStatus(OrderStatusEnum.REFUNDED.getCode());
+        order.setRefundTime(now);
+        order.setRefundReason(refund.getRefundReason());
+        tradeOrderDao.updateById(order);
+        assetResultNotificationService.publishOrderAfterCommit(order, now);
+    }
+
+    private void rollbackAssetAfterChannelSuccess(Long refundId) {
+        RefundRecord refund = refundRecordDao.selectByIdForUpdate(refundId);
+        if (refund == null || !"success".equals(refund.getRefundStatus())
+                || !"pending".equals(refund.getAssetRollbackAction())) {
+            return;
+        }
+        TradeOrder order = requireOrderForUpdate(refund.getOrderId());
+        try {
+            refund.setAssetRollbackAction(rollbackPurchasedBenefit(order, refund));
+        } catch (BusinessException exception) {
+            refund.setAssetRollbackAction("manual_review:asset_unavailable");
+            refund.setChannelResponseSummary(summary(
+                    StrUtil.blankToDefault(refund.getChannelResponseSummary(), "")
+                            + " | 权益自动回收失败：" + exception.getMessage(), 1000));
+        }
+        refundRecordDao.updateById(refund);
+    }
+
+    private void applyChannelSnapshot(
+            RefundRecord refund, WechatVirtualRefundGateway.VirtualRefundQueryResult result) {
+        refund.setChannelRefundNo(StrUtil.blankToDefault(result.wxRefundOrderNo(), refund.getChannelRefundNo()));
+        refund.setChannelResponseSummary(summary(result.rawPayload(), 1000));
+    }
+
+    private RefundRecord lockRefund(Long refundId, RefundRecord fallback) {
+        RefundRecord locked = refundId == null ? null : refundRecordDao.selectByIdForUpdate(refundId);
+        return locked == null ? fallback : locked;
+    }
+
+    private RefundRecord lockRefund(RefundRecord fallback) {
+        return lockRefund(fallback.getId(), fallback);
+    }
+
+    private TradeOrder lockOrder(TradeOrder fallback) {
+        TradeOrder locked = tradeOrderDao.selectByIdForUpdate(fallback.getId());
+        return locked == null ? fallback : locked;
+    }
+
+    private <T> T inNewTransaction(Supplier<T> work) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return template.execute(status -> work.get());
+    }
+
+    private record PreparedVirtualRefund(
+            TradeOrder order, RefundRecord refund, boolean requestRequired) {
+    }
+
+    /**
+     * 回收退款订单购买的千寻币，并记录负向退款流水。
+     */
+    private void reverseCoinPurchase(TradeOrder order, Long refundRecordId) {
+        UserAsset asset = userAssetDao.selectByUserIdForUpdate(order.getUserId());
         if (asset == null) {
             throw new BusinessException("用户资产不存在");
         }
 
-        // 查询套餐获取应退成家币数量
-        int refundCoinCount = getRefundCoinCount(order);
+        // 使用支付入账流水而非当前套餐配置，避免套餐改价或改币数后回收错误。
+        int refundCoinCount = getPurchasedCoinCount(order);
 
-        // 更新用户资产余额
         int balanceBefore = asset.getCoinBalance() == null ? 0 : asset.getCoinBalance();
-        int updated = userAssetDao.updateCoinBalance(order.getUserId(), refundCoinCount);
-        if (updated != 1) {
-            throw new BusinessException("用户千寻币资产更新失败");
+        if (balanceBefore < refundCoinCount) {
+            throw new BusinessException("用户剩余千寻币不足，无法自动回收退款权益");
         }
-        UserAsset updatedAsset = userAssetDao.selectByUserId(order.getUserId());
-        int newBalance = updatedAsset != null && updatedAsset.getCoinBalance() != null
-                ? updatedAsset.getCoinBalance() : balanceBefore + refundCoinCount;
+        int newBalance = balanceBefore - refundCoinCount;
+        asset.setCoinBalance(newBalance);
+        asset.setTotalRecharge(subtractRecharge(asset.getTotalRecharge(), order.getPayAmount()));
+        userAssetDao.updateById(asset);
 
         // 生成流水号并写入成家币流水
         String flowNo = "REF" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
@@ -223,27 +599,66 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         coinLog.setFlowNo(flowNo);
         coinLog.setUserId(order.getUserId());
         coinLog.setFlowType(FlowTypeEnum.REFUND.getCode());
-        coinLog.setChangeAmount(refundCoinCount);
+        coinLog.setChangeAmount(-refundCoinCount);
         coinLog.setBalanceBefore(balanceBefore);
         coinLog.setBalanceAfter(newBalance);
-        coinLog.setBizScene("订单退款");
-        coinLog.setBizDesc("订单 " + order.getOrderNo() + " 退款退回千寻币");
+        coinLog.setBizScene(BizSceneEnum.REFUND_RETURN.getCode());
+        coinLog.setBizDesc("订单 " + order.getOrderNo() + " 退款回收千寻币");
         coinLog.setRefId(refundRecordId);
         coinLog.setRefType("refund_record");
+        coinLog.setBizIdempotencyKey("refund:coin:" + refundRecordId);
         userCoinLogDao.insert(coinLog);
+    }
+
+    private String rollbackPurchasedBenefit(TradeOrder order, RefundRecord refund) {
+        if (OrderTypeEnum.COIN.getCode().equals(order.getOrderType())) {
+            reverseCoinPurchase(order, refund.getId());
+            return "coin_purchase_reversed";
+        }
+        if (OrderTypeEnum.VIP.getCode().equals(order.getOrderType())) {
+            reverseVipPurchase(order);
+            return "vip_membership_reversed";
+        }
+        throw new BusinessException("不支持的退款订单类型");
+    }
+
+    private void reverseVipPurchase(TradeOrder order) {
+        if (order.getSuccessTime() == null || order.getExpireTime() == null) {
+            throw new BusinessException("订单缺少 VIP 权益归因快照");
+        }
+        long durationDays = ChronoUnit.DAYS.between(order.getSuccessTime(), order.getExpireTime());
+        if (durationDays <= 0) {
+            throw new BusinessException("订单 VIP 权益归因天数不正确");
+        }
+        UserAsset asset = userAssetDao.selectByUserIdForUpdate(order.getUserId());
+        if (asset == null || asset.getVipExpireTime() == null) {
+            throw new BusinessException("用户 VIP 资产不存在");
+        }
+        LocalDateTime adjustedExpireTime = asset.getVipExpireTime().minusDays(durationDays);
+        asset.setVipExpireTime(adjustedExpireTime);
+        asset.setVipStatus(adjustedExpireTime.isAfter(LocalDateTime.now())
+                ? VipStatusEnum.ACTIVE.getCode() : VipStatusEnum.EXPIRED.getCode());
+        asset.setTotalRecharge(subtractRecharge(asset.getTotalRecharge(), order.getPayAmount()));
+        userAssetDao.updateById(asset);
+    }
+
+    private BigDecimal subtractRecharge(BigDecimal totalRecharge, BigDecimal refundAmount) {
+        BigDecimal result = Objects.requireNonNullElse(totalRecharge, BigDecimal.ZERO)
+                .subtract(Objects.requireNonNullElse(refundAmount, BigDecimal.ZERO));
+        return result.max(BigDecimal.ZERO);
     }
 
     /**
      * 获取应退的成家币数量
      */
-    private int getRefundCoinCount(TradeOrder order) {
-        if (order.getPackageId() != null) {
-            CoinPackage coinPackage = coinPackageDao.selectById(order.getPackageId());
-            if (coinPackage != null) {
-                return coinPackage.getCoinCount() + (coinPackage.getBonusCoinCount() != null ? coinPackage.getBonusCoinCount() : 0);
-            }
+    private int getPurchasedCoinCount(TradeOrder order) {
+        UserCoinLog purchaseLog = userCoinLogDao.selectPurchaseByOrderId(order.getId());
+        if (purchaseLog != null
+                && purchaseLog.getChangeAmount() != null
+                && purchaseLog.getChangeAmount() > 0) {
+            return purchaseLog.getChangeAmount();
         }
-        throw new BusinessException("未找到对应的成家币套餐信息");
+        throw new BusinessException("未找到订单对应的千寻币充值流水，无法安全回收退款权益");
     }
 
     /**
@@ -300,7 +715,6 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         List<TradeOrder> orders = page.getRecords();
 
         String successCode = OrderStatusEnum.SUCCESS.getCode();
-        String refundingCode = OrderStatusEnum.REFUNDING.getCode();
         String refundedCode = OrderStatusEnum.REFUNDED.getCode();
         String vipCode = OrderTypeEnum.VIP.getCode();
         String coinCode = OrderTypeEnum.COIN.getCode();
@@ -314,7 +728,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
                 .filter(o -> coinCode.equals(o.getOrderType()) && successCode.equals(o.getOrderStatus()))
                 .count());
         vo.setRefundOrderCount(orders.stream()
-                .filter(o -> refundingCode.equals(o.getOrderStatus()) || refundedCode.equals(o.getOrderStatus()))
+                .filter(o -> refundedCode.equals(o.getOrderStatus()))
                 .count());
         vo.setTotalAmount(orders.stream()
                 .filter(o -> successCode.equals(o.getOrderStatus()))
@@ -349,6 +763,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal refundAmount = refunds.stream()
+                .filter(refund -> "success".equals(refund.getRefundStatus()))
                 .map(RefundRecord::getRefundAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -358,7 +773,9 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         vo.setSuccessOrderCount(orders.stream().filter(o -> successCode.equals(o.getOrderStatus())).count());
         vo.setVipOrderCount(orders.stream().filter(o -> OrderTypeEnum.VIP.getCode().equals(o.getOrderType())).count());
         vo.setCoinOrderCount(orders.stream().filter(o -> OrderTypeEnum.COIN.getCode().equals(o.getOrderType())).count());
-        vo.setRefundOrderCount((long) refunds.size());
+        vo.setRefundOrderCount(refunds.stream()
+                .filter(refund -> "success".equals(refund.getRefundStatus()))
+                .count());
         vo.setOrderAmount(orderAmount);
         vo.setRefundAmount(refundAmount);
         vo.setNetAmount(orderAmount.subtract(refundAmount));
@@ -386,6 +803,46 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
             throw new BusinessException("订单不存在");
         }
         return order;
+    }
+
+    private TradeOrder requireOrderForUpdate(Long id) {
+        TradeOrder order = tradeOrderDao.selectByIdForUpdate(id);
+        if (order == null) {
+            throw new BusinessException("订单不存在");
+        }
+        return order;
+    }
+
+    private AppUser requireWechatUser(Long userId) {
+        AppUser user = appUserDao.selectById(userId);
+        if (user == null || StrUtil.isBlank(user.getOpenid())) {
+            throw new BusinessException("订单用户缺少微信 openid，无法自动退款");
+        }
+        return user;
+    }
+
+    private void validateFullRefund(TradeOrder order, BigDecimal refundAmount) {
+        BigDecimal paid = Objects.requireNonNullElse(order.getPayAmount(), BigDecimal.ZERO);
+        if (refundAmount == null || refundAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("退款金额必须大于 0");
+        }
+        if (refundAmount.compareTo(paid) != 0) {
+            throw new BusinessException("虚拟商品暂不支持部分退款，请按订单实付金额全额退款");
+        }
+        toFen(refundAmount);
+    }
+
+    private int toFen(BigDecimal amount) {
+        try {
+            return amount.movePointRight(2).setScale(0, RoundingMode.UNNECESSARY).intValueExact();
+        } catch (ArithmeticException exception) {
+            throw new BusinessException("退款金额精度不正确");
+        }
+    }
+
+    private String summary(String payload, int maxLength) {
+        if (payload == null) return null;
+        return payload.length() <= maxLength ? payload : payload.substring(0, maxLength);
     }
 
     private TradeOrderVO toOrderVO(TradeOrder entity) {
@@ -433,11 +890,14 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         return vo;
     }
 
-    private RefundRecord buildRefundRecord(TradeOrder order, RefundReq req) {
+    private RefundRecord buildRefundRecord(TradeOrder order, RefundReq req, boolean retryAttempt) {
         UserContext ctx = UserContextHolder.get();
         RefundRecord refund = new RefundRecord();
-        refund.setRefundNo("RF" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                + UUID.randomUUID().toString().substring(0, 6));
+        String refundNo = "RF" + String.format("%018d", order.getId());
+        if (retryAttempt) {
+            refundNo += UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        }
+        refund.setRefundNo(refundNo);
         refund.setOrderId(order.getId());
         refund.setOrderNo(order.getOrderNo());
         refund.setUserId(order.getUserId());
@@ -446,7 +906,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         refund.setRefundStatus("processing");
         refund.setOperatorId(ctx != null ? ctx.getId() : null);
         refund.setOperatorName(ctx != null ? ctx.getNickname() : null);
-        refund.setChannelRefundStatus("mock_pending");
+        refund.setChannelRefundStatus("initiating");
         return refund;
     }
 
@@ -461,7 +921,9 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
         vo.setRefundReason(refund.getRefundReason());
         vo.setRefundStatus(refund.getRefundStatus());
         vo.setAssetRollbackAction(refund.getAssetRollbackAction());
+        vo.setChannelRefundNo(refund.getChannelRefundNo());
         vo.setChannelRefundStatus(refund.getChannelRefundStatus());
+        vo.setChannelResponseSummary(refund.getChannelResponseSummary());
         vo.setRefundTime(refund.getRefundTime());
         vo.setCreateTime(refund.getCreateTime());
         if (order != null) {

@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,6 +43,16 @@ class ProfileDictionaryServiceTest {
         assertThatThrownBy(() -> service.requireCode("app_identity", "职场人", "身份"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("身份编码不存在或已停用");
+    }
+
+    @Test
+    @DisplayName("未知或空字典编码不应作为用户展示文案回传")
+    void shouldHideUnknownDisplayCodes() {
+        ProfileDictionaryService service = new ProfileDictionaryService(dictDataDao);
+
+        assertThat(service.label("app_occupation", "UNKNOWN_JOB")).isNull();
+        assertThat(service.label(Map.of("ENGINEER", "工程师"), "UNKNOWN_JOB")).isNull();
+        assertThat(service.label(Map.of(), " ")).isNull();
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.spacetime.common.dao.AppRelationMatchPopupDao;
 import com.spacetime.common.dao.AppRelationMatchSourceDao;
 import com.spacetime.common.dao.AppRelationVisitDao;
 import com.spacetime.common.dao.AppRelationVisitEventDao;
+import com.spacetime.common.dao.AppRelationVisitInboxStateDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
@@ -18,10 +19,13 @@ import com.spacetime.common.dto.RelationVisitStats;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppRelationVisit;
+import com.spacetime.common.entity.AppRelationVisitEvent;
+import com.spacetime.common.entity.AppRelationVisitInboxState;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.GenderEnum;
+import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.MiniappPresenceService;
 import com.spacetime.common.service.ProfileDictionaryService;
@@ -32,21 +36,29 @@ import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MutualMatchPageVO;
 import com.spacetime.miniapp.dto.response.RecentViewersPageVO;
 import com.spacetime.miniapp.dto.response.RelationLikeActionVO;
+import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
 import com.spacetime.miniapp.service.impl.MiniappRelationServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /** PRD-02 移动端列表展示与字段契约。 */
@@ -57,6 +69,7 @@ class MiniappRelationServiceImplTest {
     @Mock private AppRelationLikeInboxStateDao likeInboxStateDao;
     @Mock private AppRelationVisitDao visitDao;
     @Mock private AppRelationVisitEventDao visitEventDao;
+    @Mock private AppRelationVisitInboxStateDao visitInboxStateDao;
     @Mock private AppRelationMatchDao matchDao;
     @Mock private AppRelationMatchSourceDao matchSourceDao;
     @Mock private AppRelationMatchPopupDao matchPopupDao;
@@ -69,6 +82,163 @@ class MiniappRelationServiceImplTest {
     @Mock private MiniappPresenceService presenceService;
 
     @InjectMocks private MiniappRelationServiceImpl service;
+
+    @Test
+    void recentViewersCapturesUpperSnapshotBeforeLoadingVisibleRecords() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppRelationVisitEvent latest = new AppRelationVisitEvent();
+        latest.setId(103L);
+        latest.setTargetUserId(7L);
+        latest.setVisitorUserId(9L);
+        latest.setVisitTime(LocalDateTime.now().minusMinutes(1));
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(inactiveAsset(7L));
+        when(visitEventDao.selectLatestTargetVisitAtOrBefore(eq(7L), any())).thenReturn(latest);
+        when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any()))
+                .thenReturn(new RelationVisitStats(0L, 0L));
+
+        LocalDateTime beforeRequest = LocalDateTime.now();
+        service.recentViewers(7L, 1, 20);
+        LocalDateTime afterRequest = LocalDateTime.now();
+
+        InOrder order = inOrder(visitEventDao, visitDao);
+        ArgumentCaptor<LocalDateTime> requestTime = ArgumentCaptor.forClass(LocalDateTime.class);
+        order.verify(visitEventDao).selectLatestTargetVisitAtOrBefore(eq(7L), requestTime.capture());
+        order.verify(visitDao).selectVisibleRecentVisitorsAtSnapshot(
+                eq(7L), eq(false), any(), any(), any(), eq(0L), eq(20));
+        assertThat(requestTime.getValue()).isBetween(beforeRequest, afterRequest);
+    }
+
+    @Test
+    void recentViewersDoesNotIssueReadReceiptForLaterPages() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppRelationVisitEvent latest = new AppRelationVisitEvent();
+        latest.setId(103L);
+        latest.setTargetUserId(7L);
+        latest.setVisitorUserId(9L);
+        latest.setVisitTime(LocalDateTime.now().minusMinutes(1));
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(inactiveAsset(7L));
+        when(visitEventDao.selectLatestTargetVisitAtOrBefore(eq(7L), any())).thenReturn(latest);
+        when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any()))
+                .thenReturn(new RelationVisitStats(0L, 0L));
+
+        RecentViewersPageVO result = service.recentViewers(7L, 2, 20);
+
+        assertThat(result.getUnreadCount()).isNull();
+        assertThat(result.getReadCursor()).isNull();
+    }
+
+    @Test
+    void recentViewersTreatsHalfWrittenStoredCursorAsUnreadFromDayStart() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppRelationVisitInboxState incomplete = new AppRelationVisitInboxState();
+        incomplete.setUserId(7L);
+        incomplete.setLastReadVisitTime(LocalDateTime.now().minusHours(1));
+        AppRelationVisitEvent latest = new AppRelationVisitEvent();
+        latest.setId(103L);
+        latest.setTargetUserId(7L);
+        latest.setVisitorUserId(9L);
+        latest.setVisitTime(LocalDateTime.now().minusMinutes(1));
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(inactiveAsset(7L));
+        when(visitInboxStateDao.selectByUserId(7L)).thenReturn(incomplete);
+        when(visitEventDao.selectLatestTargetVisitAtOrBefore(eq(7L), any())).thenReturn(latest);
+        when(visitEventDao.countDistinctTargetVisitorsBetween(eq(7L), any(), any(), any(), any(), any(), any()))
+                .thenReturn(1L);
+        when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any()))
+                .thenReturn(new RelationVisitStats(0L, 0L));
+
+        service.recentViewers(7L, 1, 20);
+
+        verify(visitEventDao).countDistinctTargetVisitorsBetween(
+                eq(7L), any(), any(), eq(null), eq(null), eq(latest.getVisitTime()), eq(103L));
+    }
+
+    @Test
+    void recentViewersReturnsPersistentUnreadSnapshotAndAcknowledgesIt() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppRelationVisitEvent latest = new AppRelationVisitEvent();
+        latest.setId(103L);
+        latest.setTargetUserId(7L);
+        latest.setVisitorUserId(9L);
+        latest.setVisitTime(LocalDateTime.now().minusMinutes(1));
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(inactiveAsset(7L));
+        when(visitEventDao.selectLatestTargetVisitAtOrBefore(eq(7L), any())).thenReturn(latest);
+        when(visitEventDao.countDistinctTargetVisitorsBetween(eq(7L), any(), any(), any(), any(), any(), any()))
+                .thenReturn(3L);
+        when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any()))
+                .thenReturn(new RelationVisitStats(0L, 0L));
+
+        RecentViewersPageVO result = service.recentViewers(7L, 1, 20);
+
+        assertThat(result.getUnreadCount()).isEqualTo(3L);
+        assertThat(result.getReadCursor()).isNotBlank();
+
+        RecentViewersReadReq request = new RecentViewersReadReq();
+        request.setReadCursor(result.getReadCursor());
+        when(visitEventDao.selectById(103L)).thenReturn(latest);
+        when(visitInboxStateDao.insertIgnore(eq(7L), eq(latest.getVisitTime()), eq(103L), any()))
+                .thenReturn(1);
+
+        service.confirmRecentViewersRead(7L, request);
+
+        verify(visitInboxStateDao).insertIgnore(eq(7L), eq(latest.getVisitTime()), eq(103L), any());
+    }
+
+    @Test
+    void recentViewersOnlyCountsEventsAfterPersistedReadCursorWithinToday() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        LocalDateTime readTime = LocalDateTime.now().minusHours(2);
+        AppRelationVisitInboxState state = new AppRelationVisitInboxState();
+        state.setUserId(7L);
+        state.setLastReadVisitTime(readTime);
+        state.setLastReadVisitEventId(90L);
+        AppRelationVisitEvent latest = new AppRelationVisitEvent();
+        latest.setId(103L);
+        latest.setTargetUserId(7L);
+        latest.setVisitTime(LocalDateTime.now().minusMinutes(1));
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(inactiveAsset(7L));
+        when(visitInboxStateDao.selectByUserId(7L)).thenReturn(state);
+        when(visitEventDao.selectLatestTargetVisitAtOrBefore(eq(7L), any())).thenReturn(latest);
+        when(visitEventDao.countDistinctTargetVisitorsBetween(
+                eq(7L), any(), any(), eq(readTime), eq(90L), eq(latest.getVisitTime()), eq(103L)))
+                .thenReturn(2L);
+        when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any()))
+                .thenReturn(new RelationVisitStats(0L, 0L));
+
+        RecentViewersPageVO result = service.recentViewers(7L, 1, 20);
+
+        assertThat(result.getUnreadCount()).isEqualTo(2L);
+    }
+
+    @Test
+    void recentViewersRejectsSnapshotLaterThanItsRequestTimeBeforeDatabaseLookup() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(inactiveAsset(7L));
+        String rawCursor = "visitor-2|7|2026-09-14T10:00:00|2026-09-14T10:00:01|103";
+        String forgedCursor = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(rawCursor.getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> service.recentViewers(7L, 2, 20, forgedCursor))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("无效");
+        verifyNoInteractions(visitEventDao);
+    }
 
     @Test
     void likesMeSummaryUsesSameEffectiveRelationsReadCursorAndUnlockDisplay() {
@@ -226,7 +396,7 @@ class MiniappRelationServiceImplTest {
                 .thenReturn(Map.of("income_30_50", "年收入30-50万"));
         when(presenceService.resolve(any(), any())).thenReturn(Map.of(
                 8L, new MiniappPresenceService.PresenceSnapshot("online", lastActiveTime, "在线")));
-        when(visitEventDao.countTargetStats(eq(7L), any())).thenReturn(
+        when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any())).thenReturn(
                 new RelationVisitStats(30L, 1171L),
                 new RelationVisitStats(12L, 36L),
                 new RelationVisitStats(7L, 9L));
@@ -294,7 +464,7 @@ class MiniappRelationServiceImplTest {
         when(matchDao.selectActiveByUser(7L)).thenReturn(List.of());
         when(auditContentService.publicAvatars(List.of(8L)))
                 .thenReturn(Map.of(8L, "https://cdn.test/visitor-8.jpg"));
-        when(visitEventDao.countTargetStats(eq(7L), any()))
+        when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any()))
                 .thenReturn(new RelationVisitStats(0L, 0L));
 
         RecentViewersPageVO result = service.recentViewers(7L, 1, 20);
@@ -368,7 +538,8 @@ class MiniappRelationServiceImplTest {
         when(matchDao.selectPage(any(), any())).thenReturn(matchPage);
         when(appUserDao.selectList(any())).thenReturn(List.of(target));
         when(matchDao.selectActiveByUser(7L)).thenReturn(List.of());
-        when(visitEventDao.countTargetStats(eq(7L), any())).thenReturn(new RelationVisitStats(0L, 0L));
+        when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any()))
+                .thenReturn(new RelationVisitStats(0L, 0L));
 
         LikesMePageVO likes = service.likesMe(7L, 1, 10);
         RecentViewersPageVO visitors = service.recentViewers(7L, 1, 20);

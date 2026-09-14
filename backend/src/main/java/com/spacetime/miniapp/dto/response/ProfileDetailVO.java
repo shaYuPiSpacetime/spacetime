@@ -94,6 +94,12 @@ public class ProfileDetailVO {
     private String zodiac;
     /** 资料完整度分（系统计算） */
     private Integer profileScore;
+    /** 当前用户主动喜欢且仍有效的人数。 */
+    private Long likedCount;
+    /** 当前用户收到且仍有效的喜欢人数。 */
+    private Long beLikedCount;
+    /** 最近七天访问当前用户的去重人数。 */
+    private Long visitorCount;
     /** 是否已完成首登 */
     private Boolean firstLoginCompleted;
     /** 准入状态 */

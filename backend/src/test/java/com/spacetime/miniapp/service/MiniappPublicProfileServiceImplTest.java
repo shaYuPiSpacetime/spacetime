@@ -147,6 +147,23 @@ class MiniappPublicProfileServiceImplTest {
     }
 
     @Test
+    void returnsChineseProfileTagLabelsInsteadOfStoredCodes() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        target.setTags("[\"HIKING\",\"MOVIE_LOVER\"]");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(profileDictionaryService.label("app_profile_tag", "HIKING")).thenReturn("徒步");
+        when(profileDictionaryService.label("app_profile_tag", "MOVIE_LOVER")).thenReturn("电影爱好者");
+
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
+
+        assertThat(result.getTags()).containsExactly("徒步", "电影爱好者");
+    }
+
+    @Test
     void rejectsSelfProfileBeforeLoadingTarget() {
         AppUser current = user(7L, "当前用户");
         when(appUserDao.selectById(7L)).thenReturn(current);

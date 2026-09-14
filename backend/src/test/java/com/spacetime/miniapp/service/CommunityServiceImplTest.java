@@ -18,6 +18,7 @@ import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.impl.CommunityServiceImpl;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ChatReportEvidenceService;
+import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationDomainService;
 import com.spacetime.common.util.OssUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,6 +65,7 @@ class CommunityServiceImplTest {
     @Mock private AppUserDao appUserDao;
     @Mock private UserDao userDao;
     @Mock private AppUserAuditContentService auditContentService;
+    @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private AppRelationLikeDao appRelationLikeDao;
     @Mock private RelationDomainService relationDomainService;
     @Mock private com.spacetime.miniapp.service.impl.Prd01AccessEvaluator accessEvaluator;
@@ -811,6 +813,83 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("社区卡片与关注列表使用城市、职业中文标签")
+    void communityAuthorSummary_shouldReturnProfileLabelsInsteadOfCodes() {
+        AppUser author = author(2L, "小雨");
+        author.setAge(26);
+        author.setLocationCity("310100");
+        author.setOccupation("SOFTWARE_ENGINEER");
+        Page<CommunityPost> page = new Page<>(1, 10, 1);
+        page.setRecords(List.of(post));
+        CommunityFollow follow = new CommunityFollow();
+        follow.setFollowerId(1L);
+        follow.setTargetUserId(2L);
+        follow.setStatus("FOLLOW");
+
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectByIds(List.of(2L))).thenReturn(List.of(author));
+        when(communityPostDao.selectPage(any(), any())).thenReturn(page);
+        Page<CommunityFollow> followPage = new Page<>(1, 10, 1);
+        followPage.setRecords(List.of(follow));
+        when(communityFollowDao.selectPage(any(), any())).thenReturn(followPage);
+        when(communityFollowDao.selectList(any())).thenReturn(List.of());
+        when(auditContentService.publicAvatars(List.of(2L))).thenReturn(Map.of());
+        when(profileDictionaryService.labels("china_region", List.of("310100"))).thenReturn(Map.of("310100", "上海市"));
+        when(profileDictionaryService.labels("app_occupation", List.of("SOFTWARE_ENGINEER")))
+                .thenReturn(Map.of("SOFTWARE_ENGINEER", "软件工程师"));
+
+        Page<CommunityPostCardVO> posts = communityService.getPosts(null, null, null, null, 1, 10);
+        Page<CommunityRelationUserVO> relations = communityService.getRelations(1L, "following", 1, 10);
+
+        assertThat(posts.getRecords()).singleElement().satisfies(item -> {
+            assertThat(item.getAuthorCity()).isEqualTo("上海市");
+            assertThat(item.getAuthorProfession()).isEqualTo("软件工程师");
+        });
+        assertThat(relations.getRecords()).singleElement()
+                .satisfies(item -> assertThat(item.getDescription())
+                        .contains("上海市", "软件工程师")
+                        .doesNotContain("310100", "SOFTWARE_ENGINEER"));
+        verify(profileDictionaryService, never()).label(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("关注列表分页后只批量装载当前页资料且不泄露未知字典编码")
+    void getRelationsShouldPageBeforeBatchLoadingProfiles() {
+        CommunityFollow first = new CommunityFollow();
+        first.setFollowerId(1L);
+        first.setTargetUserId(2L);
+        first.setStatus("FOLLOW");
+        CommunityFollow second = new CommunityFollow();
+        second.setFollowerId(1L);
+        second.setTargetUserId(3L);
+        second.setStatus("FOLLOW");
+        AppUser unknown = author(2L, "资料未完善用户");
+        unknown.setAge(26);
+        unknown.setLocationCity("UNKNOWN_CITY");
+        unknown.setOccupation("UNKNOWN_JOB");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        Page<CommunityFollow> followPage = new Page<>(1, 1, 2);
+        followPage.setRecords(List.of(first));
+        when(communityFollowDao.selectPage(any(), any())).thenReturn(followPage);
+        when(communityFollowDao.selectList(any())).thenReturn(List.of());
+        when(appUserDao.selectByIds(List.of(2L))).thenReturn(List.of(unknown));
+        when(auditContentService.publicAvatars(List.of(2L))).thenReturn(Map.of());
+        when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of());
+
+        Page<CommunityRelationUserVO> result = communityService.getRelations(1L, "following", 1, 1);
+
+        assertThat(result.getTotal()).isEqualTo(2);
+        assertThat(result.getRecords()).singleElement().satisfies(item -> {
+            assertThat(item.getUserId()).isEqualTo(2L);
+            assertThat(item.getDescription()).doesNotContain("UNKNOWN_CITY", "UNKNOWN_JOB");
+        });
+        verify(appUserDao).selectByIds(List.of(2L));
+        verify(appUserDao, never()).selectById(2L);
+        verify(appUserDao, never()).selectById(3L);
+        verify(profileDictionaryService, never()).label(anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("我的动态-查询层排除已删除和已屏蔽内容")
     void getUserPosts_mine_shouldExcludeDeletedAndBlocked() {
         when(appUserDao.selectById(1L)).thenReturn(user);
@@ -892,6 +971,29 @@ class CommunityServiceImplTest {
         communityService.getTopicPosts(null, 10L, "LATEST", 1, 10);
 
         verify(communityPostDao, times(2)).selectPage(any(), any());
+    }
+
+    @Test
+    @DisplayName("话题动态也排除当前用户已隐藏的作者")
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void getTopicPosts_shouldExcludeHiddenAuthors() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), CommunityPost.class);
+        CommunityContentPreference hidden = new CommunityContentPreference();
+        hidden.setUserId(1L);
+        hidden.setTargetUserId(88L);
+        hidden.setActionType("hide_author_posts");
+        hidden.setStatus("enabled");
+        when(communityExtensionDao.selectPreferences(any())).thenReturn(List.of(hidden));
+        when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(1, 10, 0));
+
+        communityService.getTopicPosts(1L, 10L, "LATEST", 1, 10);
+
+        ArgumentCaptor<LambdaQueryWrapper<CommunityPost>> captor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(communityPostDao).selectPage(any(), captor.capture());
+        assertThat(captor.getValue().getSqlSegment()).contains("author_id", "NOT IN");
+        assertThat(captor.getValue().getParamNameValuePairs().values()).contains(88L);
     }
 
     @Test

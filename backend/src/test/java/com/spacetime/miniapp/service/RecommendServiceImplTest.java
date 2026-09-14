@@ -3,10 +3,13 @@ package com.spacetime.miniapp.service;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppConfigDao;
 import com.spacetime.common.dao.AppRelationLikeDao;
+import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
+import com.spacetime.common.dao.AppUserAuditRecordDao;
 import com.spacetime.common.dao.RecommendPreferenceDao;
 import com.spacetime.common.dao.RecommendViewLogDao;
 import com.spacetime.common.dao.UserAssetDao;
+import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppUserRelationBlock;
@@ -20,7 +23,6 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
 import com.spacetime.miniapp.dto.request.RecommendViewActionReq;
-import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.RecommendCandidatePageVO;
 import com.spacetime.miniapp.dto.response.RecommendPreferenceVO;
@@ -45,6 +47,7 @@ import java.util.stream.LongStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.lenient;
@@ -62,12 +65,14 @@ class RecommendServiceImplTest {
     @Mock private UserAssetDao userAssetDao;
     @Mock private AppConfigDao appConfigDao;
     @Mock private AppRelationLikeDao relationLikeDao;
+    @Mock private AppRelationMatchDao relationMatchDao;
     @Mock private AppUserRelationBlockDao relationBlockDao;
+    @Mock private UserUnlockRecordDao unlockRecordDao;
+    @Mock private AppUserAuditRecordDao auditRecordDao;
     @Mock private RecommendViewLogDao viewLogDao;
     @Mock private RelationAccessProjectionService accessProjectionService;
     @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private AppUserAuditContentService auditContentService;
-    @Mock private MiniappPublicProfileService publicProfileService;
     @Mock private VipService vipService;
     @Mock private Prd01AccessEvaluator accessEvaluator;
 
@@ -211,6 +216,68 @@ class RecommendServiceImplTest {
     }
 
     @Test
+    @DisplayName("会员高级身高体重筛选允许只填写单侧边界")
+    void savePreferencesShouldAllowOneSidedAdvancedRanges() {
+        AppUser user = openUser(7L, 30, "320100");
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(1));
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(accessProjectionService.project(user)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(vipService.getBenefits()).thenReturn(List.of(benefit("advanced_filter")));
+        RecommendPreferenceSaveReq req = basicRequest(0);
+        req.setMinHeight(165);
+        req.setMaxHeight(null);
+        req.setMinWeight(null);
+        req.setMaxWeight(70);
+
+        RecommendPreferenceVO result = service.savePreferences(7L, req);
+
+        assertThat(result.getAdvanced().getMinHeight()).isEqualTo(165);
+        assertThat(result.getAdvanced().getMaxHeight()).isNull();
+        assertThat(result.getAdvanced().getMinWeight()).isNull();
+        assertThat(result.getAdvanced().getMaxWeight()).isEqualTo(70);
+        verify(preferenceDao).insert(any());
+    }
+
+    @Test
+    @DisplayName("会员过期后读取偏好不回传失效高级条件且可原样保存基础条件")
+    void expiredVipPreferenceShouldRoundTripWithoutAdvancedFields() {
+        AppUser user = openUser(7L, 30, "320100");
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("expired");
+        asset.setVipExpireTime(LocalDateTime.now().minusDays(1));
+        RecommendPreference existing = basicPreference(7L, 3);
+        existing.setId(99L);
+        existing.setMinHeight(165);
+        existing.setMaxHeight(180);
+        existing.setMinWeight(45);
+        existing.setMaxWeight(70);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(accessProjectionService.project(user)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(preferenceDao.selectByUserId(7L)).thenReturn(existing);
+        when(profileDictionaryService.label("china_region", "320100")).thenReturn("南京");
+        when(preferenceDao.updateByVersion(any(), any())).thenReturn(1);
+
+        RecommendPreferenceVO read = service.getPreferences(7L);
+        RecommendPreferenceSaveReq req = basicRequest(read.getVersion());
+        req.setMinHeight(read.getAdvanced().getMinHeight());
+        req.setMaxHeight(read.getAdvanced().getMaxHeight());
+        req.setMinWeight(read.getAdvanced().getMinWeight());
+        req.setMaxWeight(read.getAdvanced().getMaxWeight());
+        RecommendPreferenceVO saved = service.savePreferences(7L, req);
+
+        assertThat(read.getAdvanced().getMinHeight()).isNull();
+        assertThat(read.getAdvanced().getMaxHeight()).isNull();
+        assertThat(read.getAdvanced().getMinWeight()).isNull();
+        assertThat(read.getAdvanced().getMaxWeight()).isNull();
+        assertThat(saved.getVersion()).isEqualTo(4);
+        verify(preferenceDao).updateByVersion(any(), org.mockito.ArgumentMatchers.eq(3));
+    }
+
+    @Test
     @DisplayName("目标城市编码不存在时拒绝保存而不是写入脏偏好")
     void savePreferencesShouldValidateTargetCityDictionary() {
         AppUser user = openUser(7L, 30, "320100");
@@ -269,6 +336,7 @@ class RecommendServiceImplTest {
         AppUser current = openUser(7L, 30, "320100");
         AppUser allowed = openUser(8L, 28, "320100");
         allowed.setGender("FEMALE");
+        allowed.setNickname("候选人");
         allowed.setLastLoginTime(LocalDateTime.now().minusMinutes(1));
         AppUser closed = openUser(9L, 27, "320100");
         closed.setGender("FEMALE");
@@ -282,16 +350,10 @@ class RecommendServiceImplTest {
         when(appUserDao.selectList(any())).thenReturn(List.of(allowed, closed, blocked));
         when(accessProjectionService.projectAll(List.of(allowed, closed, blocked)))
                 .thenReturn(Map.of(8L, "OPEN", 9L, "CLOSED", 10L, "OPEN"));
-        when(relationBlockDao.selectActive(7L, 8L, "BLACKLIST")).thenReturn(null);
-        when(relationBlockDao.selectActive(8L, 7L, "BLACKLIST")).thenReturn(null);
-        when(relationBlockDao.selectActive(7L, 8L, "NO_RECOMMEND")).thenReturn(null);
-        when(relationBlockDao.selectActive(7L, 10L, "BLACKLIST")).thenReturn(new AppUserRelationBlock());
+        when(relationBlockDao.selectActiveBetweenUserAndTargets(any(), any(), any()))
+                .thenReturn(List.of(block(7L, 10L, "BLACKLIST")));
         when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", "10")));
         when(viewLogDao.selectList(any())).thenReturn(List.of(viewLog(7L, 11L, "view", LocalDateTime.now())));
-        PublicProfileVO profile = new PublicProfileVO();
-        profile.setUserId(8L);
-        profile.setNickname("候选人");
-        when(publicProfileService.getPublicProfile(7L, 8L)).thenReturn(profile);
 
         RecommendCandidatePageVO result = service.getCandidates(7L, null);
 
@@ -309,10 +371,8 @@ class RecommendServiceImplTest {
         AppUser current = openUser(7L, 30, "320100");
         AppUser candidate = openUser(8L, 28, "320100");
         candidate.setGender("FEMALE");
+        candidate.setNickname("候选人");
         RecommendPreference preference = basicPreference(7L, 2);
-        PublicProfileVO profile = new PublicProfileVO();
-        profile.setUserId(8L);
-        profile.setNickname("候选人");
 
         when(appUserDao.selectById(7L)).thenReturn(current);
         when(accessProjectionService.project(current)).thenReturn("CLOSED");
@@ -322,13 +382,197 @@ class RecommendServiceImplTest {
         when(appConfigDao.selectByKeys(any()))
                 .thenReturn(List.of(config("commercial.view.quota.normal", "10")));
         when(viewLogDao.selectList(any())).thenReturn(List.of());
-        when(publicProfileService.getPublicProfile(7L, 8L)).thenReturn(profile);
 
         RecommendCandidatePageVO result = service.getCandidates(7L, null);
 
         assertThat(result.getItems()).singleElement()
                 .satisfies(item -> assertThat(item.getUserId()).isEqualTo(8L));
         assertThat(result.getWaitingReason()).isNull();
+    }
+
+    @Test
+    @DisplayName("前六十名均不可用时继续扫描并返回第六十一名合格候选")
+    void getCandidatesShouldContinueAfterFirstFilteredBatch() {
+        AppUser current = openUser(7L, 30, "320100");
+        List<AppUser> closedCandidates = LongStream.rangeClosed(8, 67).mapToObj(userId -> {
+            AppUser candidate = openUser(userId, 28, "320100");
+            candidate.setGender("FEMALE");
+            candidate.setLastLoginTime(LocalDateTime.now().minusMinutes(userId));
+            return candidate;
+        }).toList();
+        AppUser valid = openUser(68L, 28, "320100");
+        valid.setGender("FEMALE");
+        valid.setNickname("第六十一名");
+        valid.setLastLoginTime(LocalDateTime.now().minusMinutes(68));
+        Map<Long, String> closedAccess = closedCandidates.stream()
+                .collect(java.util.stream.Collectors.toMap(AppUser::getId, item -> "CLOSED"));
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 2));
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        when(viewLogDao.selectList(any())).thenReturn(List.of());
+        when(appUserDao.selectList(any())).thenReturn(closedCandidates, List.of(valid));
+        when(accessProjectionService.projectAll(closedCandidates)).thenReturn(closedAccess);
+        when(accessProjectionService.projectAll(List.of(valid))).thenReturn(Map.of(68L, "OPEN"));
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).singleElement()
+                .satisfies(item -> assertThat(item.getUserId()).isEqualTo(68L));
+        verify(appUserDao, times(2)).selectList(any());
+    }
+
+    @Test
+    @DisplayName("候选列表应批量过滤屏蔽并批量装载公开资料")
+    void getCandidatesShouldBatchLoadSafetyAndProfiles() {
+        AppUser current = openUser(7L, 30, "320100");
+        AppUser first = openUser(8L, 28, "310100");
+        first.setGender("FEMALE");
+        first.setNickname("小雨");
+        first.setOccupation("SOFTWARE_ENGINEER");
+        AppUser blocked = openUser(9L, 29, "310100");
+        blocked.setGender("FEMALE");
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 2));
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        when(viewLogDao.selectList(any())).thenReturn(List.of());
+        when(appUserDao.selectList(any())).thenReturn(List.of(first, blocked));
+        when(accessProjectionService.projectAll(List.of(first, blocked)))
+                .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
+        when(relationBlockDao.selectActiveBetweenUserAndTargets(any(), any(), any()))
+                .thenReturn(List.of(block(7L, 9L, "BLACKLIST")));
+        when(auditContentService.publicAvatars(List.of(8L)))
+                .thenReturn(Map.of(8L, "https://example.com/avatar.png"));
+        when(auditContentService.publicAlbumPhotos(List.of(8L))).thenReturn(Map.of());
+        when(profileDictionaryService.labels(any(), any())).thenAnswer(invocation -> {
+            String dictType = invocation.getArgument(0);
+            if ("china_region".equals(dictType)) return Map.of("310100", "上海市");
+            if ("app_occupation".equals(dictType)) return Map.of("SOFTWARE_ENGINEER", "软件工程师");
+            return Map.of();
+        });
+        when(relationLikeDao.selectList(any())).thenReturn(List.of());
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getUserId()).isEqualTo(8L);
+            assertThat(item.getProfile().getNickname()).isEqualTo("小雨");
+            assertThat(item.getProfile().getAvatar()).isEqualTo("https://example.com/avatar.png");
+            assertThat(item.getProfile().getCurrentCity()).isEqualTo("上海市");
+            assertThat(item.getProfile().getOccupationLabel()).isEqualTo("软件工程师");
+        });
+        verify(relationBlockDao).selectActiveBetweenUserAndTargets(any(), any(), any());
+        verify(relationBlockDao, never()).selectActive(any(), any(), any());
+        verify(profileDictionaryService, never()).label(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("候选扫描达到预算后应停止继续读取数据库")
+    void getCandidatesShouldStopAtBoundedScanBudget() {
+        AppUser current = openUser(7L, 30, "320100");
+        List<List<AppUser>> batches = LongStream.range(0, 4)
+                .mapToObj(batch -> LongStream.rangeClosed(1, 60)
+                        .mapToObj(offset -> {
+                            long id = 8L + batch * 60 + offset;
+                            AppUser candidate = openUser(id, 28, "320100");
+                            candidate.setGender("FEMALE");
+                            candidate.setLastLoginTime(LocalDateTime.now().minusMinutes(id));
+                            return candidate;
+                        }).toList())
+                .toList();
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 2));
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        when(viewLogDao.selectList(any())).thenReturn(List.of());
+        when(appUserDao.selectList(any())).thenReturn(batches.get(0), batches.get(1), batches.get(2), batches.get(3));
+        for (List<AppUser> batch : batches.subList(0, 3)) {
+            when(accessProjectionService.projectAll(batch)).thenReturn(batch.stream()
+                    .collect(java.util.stream.Collectors.toMap(AppUser::getId, ignored -> "CLOSED")));
+        }
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).isEmpty();
+        verify(appUserDao, times(3)).selectList(any());
+    }
+
+    @Test
+    @DisplayName("候选扫描达到预算但原始数据未结束时返回续扫游标")
+    void getCandidatesShouldReturnContinuationCursorAfterBoundedFilteredScan() {
+        AppUser current = openUser(7L, 30, "320100");
+        List<AppUser> filteredCandidates = LongStream.rangeClosed(8L, 187L)
+                .mapToObj(userId -> {
+                    AppUser candidate = openUser(userId, 28, "320100");
+                    candidate.setGender("FEMALE");
+                    candidate.setLastLoginTime(LocalDateTime.now().minusMinutes(userId));
+                    return candidate;
+                })
+                .toList();
+        List<AppUser> firstBatch = filteredCandidates.subList(0, 60);
+        List<AppUser> secondBatch = filteredCandidates.subList(60, 120);
+        List<AppUser> thirdBatch = filteredCandidates.subList(120, 180);
+        AppUser valid = openUser(188L, 28, "320100");
+        valid.setGender("FEMALE");
+        valid.setNickname("预算后的合格候选");
+        valid.setLastLoginTime(LocalDateTime.now().minusMinutes(188L));
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 2));
+        when(appConfigDao.selectByKeys(any()))
+                .thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        when(viewLogDao.selectList(any())).thenReturn(List.of());
+        when(appUserDao.selectList(any()))
+                .thenReturn(firstBatch, secondBatch, thirdBatch, List.of(valid));
+        for (List<AppUser> batch : List.of(firstBatch, secondBatch, thirdBatch)) {
+            when(accessProjectionService.projectAll(batch)).thenReturn(batch.stream()
+                    .collect(java.util.stream.Collectors.toMap(AppUser::getId, ignored -> "CLOSED")));
+        }
+        lenient().when(accessProjectionService.projectAll(List.of(valid)))
+                .thenReturn(Map.of(188L, "OPEN"));
+
+        RecommendCandidatePageVO first = service.getCandidates(7L, null);
+
+        assertThat(first.getItems()).isEmpty();
+        assertThat(first.getNextCursor()).as("扫描预算耗尽时必须允许从第 181 条继续")
+                .isNotBlank();
+
+        RecommendCandidatePageVO second = service.getCandidates(7L, first.getNextCursor());
+        assertThat(second.getItems()).singleElement()
+                .satisfies(item -> assertThat(item.getUserId()).isEqualTo(188L));
+        verify(appUserDao, times(4)).selectList(any());
+    }
+
+    @Test
+    @DisplayName("三天回看的未知地区和职业编码不得直接展示给用户")
+    void getReplayShouldHideUnknownProfileCodes() {
+        AppUser current = openUser(7L, 30, "320100");
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(2));
+        AppUser target = openUser(8L, 28, "UNKNOWN_CITY");
+        target.setOccupation("UNKNOWN_JOB");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(vipService.getBenefits()).thenReturn(List.of(benefit("three_day_replay")));
+        when(viewLogDao.selectList(any())).thenReturn(List.of(
+                viewLog(7L, 8L, "view", LocalDateTime.now())));
+        when(appUserDao.selectByIds(List.of(8L))).thenReturn(List.of(target));
+        when(accessProjectionService.projectAll(List.of(target))).thenReturn(Map.of(8L, "OPEN"));
+        when(auditContentService.publicAvatars(List.of(8L))).thenReturn(Map.of());
+        when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of());
+        when(relationLikeDao.selectList(any())).thenReturn(List.of());
+
+        RecommendReplayPageVO result = service.getReplay(7L);
+
+        assertThat(result.getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getProfile().getCurrentCity()).isNull();
+            assertThat(item.getProfile().getOccupationLabel()).isNull();
+        });
     }
 
     @Test
@@ -350,12 +594,6 @@ class RecommendServiceImplTest {
         when(accessProjectionService.projectAll(any())).thenReturn(access);
         when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", "30")));
         when(viewLogDao.selectList(any())).thenReturn(List.of());
-        when(publicProfileService.getPublicProfile(org.mockito.ArgumentMatchers.eq(7L), any()))
-                .thenAnswer(invocation -> {
-                    PublicProfileVO profile = new PublicProfileVO();
-                    profile.setUserId(invocation.getArgument(1));
-                    return profile;
-                });
 
         RecommendCandidatePageVO first = service.getCandidates(7L, null);
         RecommendCandidatePageVO second = service.getCandidates(7L, first.getNextCursor());
@@ -516,19 +754,12 @@ class RecommendServiceImplTest {
         when(auditContentService.publicAvatars(candidateIds)).thenReturn(Map.of());
         when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of("320100", "南京"));
         when(relationLikeDao.selectList(any())).thenReturn(List.of());
-        lenient().when(publicProfileService.getPublicProfile(any(), any())).thenAnswer(invocation -> {
-            PublicProfileVO profile = new PublicProfileVO();
-            profile.setUserId(invocation.getArgument(1));
-            return profile;
-        });
-
         RecommendReplayPageVO result = service.getReplay(7L);
 
         assertThat(result.getItems()).hasSize(candidateIds.size());
         verify(appUserDao).selectByIds(candidateIds);
         verify(appUserDao, times(1)).selectById(7L);
         verify(accessProjectionService).projectAll(targets);
-        verify(publicProfileService, never()).getPublicProfile(any(), any());
         verify(relationBlockDao, atMost(3)).selectActive(any(), any(), any());
         verify(relationBlockDao).selectActiveBetweenUserAndTargets(any(), any(), any());
         verify(relationLikeDao).selectList(any());

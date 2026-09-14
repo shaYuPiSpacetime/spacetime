@@ -144,20 +144,20 @@ public class ProfileDictionaryService {
         return new BusinessException("REGION_NOT_SUPPORTED：" + fieldLabel + "必须使用有效的中国大陆省市编码");
     }
 
-    /** 将业务表中的 code 转换为中文标签；历史异常值暂按原值返回，便于排查。 */
+    /** 将业务表中的 code 转换为用户展示标签；未知或空值不暴露内部编码。 */
     public String label(String dictType, String code) {
         if (StrUtil.isBlank(code)) {
-            return "-";
+            return null;
         }
         SysDictData data = dictDataDao.selectEnabledByTypeAndValue(dictType, code.trim());
-        return data == null ? code : data.getDictLabel();
+        return data == null ? null : data.getDictLabel();
     }
 
-    /** 使用已批量加载的映射转换标签。 */
+    /** 使用已批量加载的映射转换用户展示标签，未知或空值不暴露内部编码。 */
     public String label(Map<String, String> labels, String code) {
         if (StrUtil.isBlank(code)) {
-            return "-";
+            return null;
         }
-        return labels.getOrDefault(code, code);
+        return labels == null ? null : labels.get(code.trim());
     }
 }

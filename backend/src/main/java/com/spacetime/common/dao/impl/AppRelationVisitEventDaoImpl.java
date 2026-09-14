@@ -20,8 +20,35 @@ public class AppRelationVisitEventDaoImpl extends AbstractRelationCrudDao<AppRel
     }
 
     @Override
+    public AppRelationVisitEvent selectLatestTargetVisitAtOrBefore(Long targetUserId, LocalDateTime requestTime) {
+        return visitEventMapper.selectLatestTargetVisitAtOrBefore(targetUserId, requestTime);
+    }
+
+    @Override
+    public Long countDistinctTargetVisitorsBetween(Long targetUserId,
+                                                   LocalDateTime dayStart,
+                                                   LocalDateTime dayEnd,
+                                                   LocalDateTime lowerTime,
+                                                   Long lowerId,
+                                                   LocalDateTime upperTime,
+                                                   Long upperId) {
+        return visitEventMapper.countDistinctTargetVisitorsBetween(
+                targetUserId, dayStart, dayEnd, lowerTime, lowerId, upperTime, upperId);
+    }
+
+    @Override
     public RelationVisitStats countTargetStats(Long targetUserId, LocalDateTime startTime) {
         return visitEventMapper.countTargetStats(targetUserId, startTime);
+    }
+
+    @Override
+    public RelationVisitStats countTargetStatsAtSnapshot(Long targetUserId,
+                                                         LocalDateTime startTime,
+                                                         LocalDateTime requestTime,
+                                                         LocalDateTime upperVisitTime,
+                                                         Long upperVisitEventId) {
+        return visitEventMapper.countTargetStatsAtSnapshot(
+                targetUserId, startTime, requestTime, upperVisitTime, upperVisitEventId);
     }
 
     @Override
