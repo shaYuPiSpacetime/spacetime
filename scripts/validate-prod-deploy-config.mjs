@@ -408,6 +408,7 @@ for (const file of prodSqlFiles) {
       /WHERE\s+NOT\s+EXISTS/i.test(content) ||
       /ON\s+DUPLICATE\s+KEY\s+UPDATE/i.test(content) ||
       /UPDATE\s+[`\w]+/i.test(content) ||
+      /DROP\s+PROCEDURE\s+IF\s+EXISTS[\s\S]*CREATE\s+PROCEDURE/i.test(content) ||
       /ALTER TABLE/i.test(content),
     `${file} 缺少幂等迁移语句`
   );
