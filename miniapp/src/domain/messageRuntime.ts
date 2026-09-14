@@ -56,7 +56,7 @@ export function withMessageTimeout<T>(
 
 type MessageGatewayReadyProbe = {
   isReady(): boolean
-  onEvent(listener: (event: { type: string }) => void): () => void
+  onEvent(listener: (event: { type: string; errorMessage?: string }) => void): () => void
 }
 
 /** LiteChat 登录 Promise 可能早于 SDK_READY 完成，历史消息必须等到真正就绪后再拉取。 */
@@ -85,6 +85,7 @@ export function waitForMessageGatewayReady(
     const subscribed = gateway.onEvent(event => {
       if (event.type === 'ready' || gateway.isReady()) finish()
       else if (event.type === 'kicked_out') finish(new Error('私信登录已失效，请重新进入'))
+      else if (event.type === 'error') finish(new Error(event.errorMessage || '私信服务连接异常，请重试'))
     })
     unsubscribe = subscribed
     if (settled) unsubscribe()

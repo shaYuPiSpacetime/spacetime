@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.config.ProfileScoreConfig;
 import com.spacetime.common.constant.ProfileDictType;
@@ -49,12 +50,13 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 用户资料服务实现
  * 核心设计：
  * - 首登五步入门：性别、年龄、身份、学历、地址逐步保存
- * - 性别可在基础资料页修改，并统一保存为 MALE/FEMALE
+ * - 性别和出生日期在实名认证通过前可编辑，通过后由后端锁定
  * - 敏感字段修改（头像/关于我）触发重新审核
  * - 准入状态由 firstLoginCompleted + 账号状态 + 实名、头像、学历三重认证共同决定
  */
@@ -174,12 +176,16 @@ public class ProfileServiceImpl implements ProfileService {
      */
     @Override
     public ProfileDetailVO getDetail(Long userId) {
-        return toDetailVO(requireUser(userId), true);
+        AppUser user = requireUser(userId);
+        projectEffectiveEducation(user, effectiveEducation(userId));
+        return toDetailVO(user, true);
     }
 
     @Override
     public ProfileHomeDetailVO getHomeDetail(Long userId) {
         AppUser user = requireUser(userId);
+        AppUserAuditRecord education = effectiveEducation(userId);
+        projectEffectiveEducation(user, education);
         Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot = runtimeConfigResolver.snapshot();
         Map<String, Object> runtime = new LinkedHashMap<>();
         runtime.put("accessPolicy", runtimeConfigResolver.accessPolicy(snapshot));
@@ -193,7 +199,8 @@ public class ProfileServiceImpl implements ProfileService {
         VerificationStatusVO verificationStatus = verificationService.getStatus(userId);
         ProfileHomeDetailVO vo = new ProfileHomeDetailVO();
         vo.setProfile(toDetailVO(user, true));
-        vo.setFieldSettings(fieldConfigResolver.basicFieldsForMobile());
+        boolean realNameCertified = effectiveRealName(userId);
+        vo.setFieldSettings(basicFieldsForAuditLocks(education, realNameCertified));
         vo.setVerificationStatus(verificationStatus);
         vo.setAccessStatus(verificationStatus.getAccessStatus());
         vo.setProfileOptionsPath("/miniapp/dict/profile-options");
@@ -210,13 +217,16 @@ public class ProfileServiceImpl implements ProfileService {
             user.setNickname(DefaultNicknameGenerator.fromUserId(user.getId()));
             appUserDao.updateById(user);
         }
-        List<BasicProfileFieldVO> settings = fieldConfigResolver.basicFieldsForMobile();
+        AppUserAuditRecord education = effectiveEducation(userId);
+        projectEffectiveEducation(user, education);
+        boolean realNameCertified = effectiveRealName(userId);
+        List<BasicProfileFieldVO> settings = basicFieldsForAuditLocks(education, realNameCertified);
         return toBasicProfileVO(user, settings);
     }
 
     /**
      * 保存基础资料页全部已展示字段。
-     * 隐藏字段不改写；性别不在请求中；动态必填校验失败时不执行数据库更新。
+     * 隐藏或认证锁定字段不改写；动态必填校验失败时不执行数据库更新。
      */
     @Override
     @Transactional
@@ -225,8 +235,13 @@ public class ProfileServiceImpl implements ProfileService {
             throw new BusinessException("基础资料不能为空");
         }
         AppUser user = requireUser(userId);
-        List<BasicProfileFieldVO> settings = fieldConfigResolver.basicFieldsForMobile();
+        AppUserAuditRecord education = effectiveEducation(userId);
+        projectEffectiveEducation(user, education);
+        boolean realNameCertified = effectiveRealName(userId);
+        List<BasicProfileFieldVO> settings = basicFieldsForAuditLocks(education, realNameCertified);
         validateMainlandRegion(req);
+        validateRealNameMutation(req, user, realNameCertified);
+        validateEducationMutation(req, education);
         applyBasicProfileFields(user, req, settings);
         validateRequiredBasicFields(user, settings);
         user.setBasicProfileCompleted(1);
@@ -353,10 +368,10 @@ public class ProfileServiceImpl implements ProfileService {
             if (nickname != null) validateNickname(nickname);
             user.setNickname(nickname);
         }
-        if (visible(settings, "gender")) {
+        if (editable(settings, "gender")) {
             user.setGender(genderCodeOrNull(req.getGender()));
         }
-        if (visible(settings, "birthday")) {
+        if (editable(settings, "birthday")) {
             LocalDate birthday = parseBirthday(req.getBirthday());
             validateAllowedAge(birthday);
             user.setBirthday(birthday);
@@ -371,10 +386,10 @@ public class ProfileServiceImpl implements ProfileService {
             validateRange(req.getWeight(), 30, 200, "体重需在30-200kg之间");
             user.setWeight(req.getWeight());
         }
-        if (visible(settings, "identity")) {
+        if (editable(settings, "identity")) {
             user.setIdentity(dictionaryCodeOrNull(ProfileDictType.IDENTITY, req.getIdentity(), "身份"));
         }
-        if (visible(settings, "educationLevel")) {
+        if (editable(settings, "educationLevel")) {
             user.setEducationLevel(dictionaryCodeOrNull(
                     ProfileDictType.EDUCATION_LEVEL, req.getEducationLevel(), "学历"));
         }
@@ -402,7 +417,7 @@ public class ProfileServiceImpl implements ProfileService {
         if (visible(settings, "company")) {
             user.setCompany(validatedText(req.getCompany(), 2, 50, "公司名称需2-50个字符"));
         }
-        if (visible(settings, "school")) {
+        if (editable(settings, "school")) {
             user.setSchool(validatedText(req.getSchool(), 2, 50, "学校名称需2-50个字符"));
             user.setSchoolCode(trimToNull(req.getSchoolCode()));
         }
@@ -413,6 +428,96 @@ public class ProfileServiceImpl implements ProfileService {
 
     private boolean visible(List<BasicProfileFieldVO> settings, String fieldId) {
         return fieldConfigResolver.isBasicFieldVisible(settings, fieldId);
+    }
+
+    private boolean editable(List<BasicProfileFieldVO> settings, String fieldId) {
+        return settings.stream().anyMatch(item -> fieldId.equals(item.getFieldId())
+                && Boolean.TRUE.equals(item.getVisible())
+                && Boolean.TRUE.equals(item.getEditable()));
+    }
+
+    private AppUserAuditRecord effectiveEducation(Long userId) {
+        return auditService.latestEffectiveRecord(userId, AppUserAuditTypeEnum.EDUCATION);
+    }
+
+    private boolean effectiveRealName(Long userId) {
+        return auditService.hasEffective(userId, AppUserAuditTypeEnum.REAL_NAME);
+    }
+
+    private List<BasicProfileFieldVO> basicFieldsForAuditLocks(
+            AppUserAuditRecord education,
+            boolean realNameCertified) {
+        List<BasicProfileFieldVO> settings = fieldConfigResolver.basicFieldsForMobile();
+        settings.stream()
+                .filter(item -> (education != null
+                        && List.of("identity", "educationLevel", "school").contains(item.getFieldId()))
+                        || (realNameCertified
+                        && List.of("gender", "birthday").contains(item.getFieldId())))
+                .forEach(item -> item.setEditable(false));
+        return settings;
+    }
+
+    /** 已通过的学历快照是展示真值，基础资料只能通过重新认证来更新。 */
+    private void projectEffectiveEducation(AppUser user, AppUserAuditRecord education) {
+        if (education == null) {
+            return;
+        }
+        user.setSchool(trimToNull(education.getSchoolName()));
+        user.setSchoolCode(trimToNull(education.getSchoolCode()));
+        JsonNode material = educationMaterial(education);
+        String educationLevel = jsonText(material, "educationLevel");
+        String identity = jsonText(material, "identity");
+        if (educationLevel != null) user.setEducationLevel(educationLevel);
+        if (identity != null) user.setIdentity(identity);
+    }
+
+    private void validateRealNameMutation(
+            BasicProfileSaveReq req,
+            AppUser user,
+            boolean realNameCertified) {
+        if (!realNameCertified) {
+            return;
+        }
+        String birthday = user.getBirthday() == null ? null : user.getBirthday().toString();
+        if (differsWhenProvided(req.getGender(), user.getGender())
+                || differsWhenProvided(req.getBirthday(), birthday)) {
+            throw new BusinessException("实名认证后性别和出生日期不可修改，如需更正请重新认证或联系平台");
+        }
+    }
+
+    private void validateEducationMutation(BasicProfileSaveReq req, AppUserAuditRecord education) {
+        if (education == null) {
+            return;
+        }
+        JsonNode material = educationMaterial(education);
+        boolean changed = differsWhenProvided(req.getSchool(), education.getSchoolName())
+                || differsWhenProvided(req.getSchoolCode(), education.getSchoolCode())
+                || differsWhenProvided(req.getEducationLevel(), jsonText(material, "educationLevel"))
+                || differsWhenProvided(req.getIdentity(), jsonText(material, "identity"));
+        if (changed) {
+            throw new BusinessException("学历认证信息不可直接修改，请通过学历认证更新");
+        }
+    }
+
+    private boolean differsWhenProvided(String submitted, String approved) {
+        String normalized = trimToNull(submitted);
+        return normalized != null && !Objects.equals(normalized, trimToNull(approved));
+    }
+
+    private JsonNode educationMaterial(AppUserAuditRecord education) {
+        if (education == null || StrUtil.isBlank(education.getMaterialJson())) {
+            return objectMapper.createObjectNode();
+        }
+        try {
+            return objectMapper.readTree(education.getMaterialJson());
+        } catch (JsonProcessingException ex) {
+            throw new BusinessException("学历认证快照解析失败");
+        }
+    }
+
+    private String jsonText(JsonNode node, String fieldName) {
+        String value = node.path(fieldName).asText(null);
+        return trimToNull(value);
     }
 
     private String dictionaryCodeOrNull(String dictType, String code, String label) {

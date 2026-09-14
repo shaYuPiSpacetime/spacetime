@@ -128,7 +128,7 @@ export default function ChatPage() {
   const accessMode = activeHome?.accessMode || 'normal'
   const fixedRows = useMemo<HomeViewRow[]>(() => {
     if (isMockScene) return mockHomeRows
-    if (!activeHome) return unverified ? mockHomeRows.filter(row => row.type === 'assistant' || row.type === 'system') : []
+    if (!activeHome) return []
     const rows: HomeViewRow[] = []
     if (accessMode === 'normal') {
       rows.push({

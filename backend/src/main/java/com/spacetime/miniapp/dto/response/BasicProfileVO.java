@@ -9,7 +9,7 @@ import java.util.List;
 public class BasicProfileVO {
     private Long userId;
     private String nickname;
-    /** 性别编码，允许通过基础资料接口修改 */
+    /** 性别编码；实名认证通过后由字段配置标记为不可编辑 */
     private String gender;
     private String birthday;
     private Integer age;

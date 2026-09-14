@@ -336,6 +336,108 @@ class ProfileServiceImplTest {
     }
 
     @Test
+    @DisplayName("实名认证通过后基础资料锁定性别和出生日期")
+    void shouldLockGenderAndBirthdayAfterRealNameApproval() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setGender("FEMALE");
+        user.setBirthday(LocalDate.of(1997, 3, 6));
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.hasEffective(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(true);
+
+        BasicProfileVO result = newService().getBasicProfile(7L);
+
+        assertThat(result.getFieldSettings())
+                .filteredOn(item -> List.of("gender", "birthday").contains(item.getFieldId()))
+                .allSatisfy(item -> assertThat(item.getEditable()).isFalse());
+    }
+
+    @Test
+    @DisplayName("实名认证通过后基础资料接口拒绝绕过修改性别或出生日期")
+    void shouldRejectRealNameCertifiedGenderOrBirthdayMutation() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setGender("FEMALE");
+        user.setBirthday(LocalDate.of(1997, 3, 6));
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.hasEffective(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(true);
+        BasicProfileSaveReq req = validBasicProfileReq();
+        req.setGender("MALE");
+        req.setBirthday("1998-04-07");
+
+        assertThatThrownBy(() -> newService().saveBasicProfile(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("实名认证后性别和出生日期不可修改");
+        verify(appUserDao, never()).updateById(user);
+    }
+
+    @Test
+    @DisplayName("学历认证通过后基础资料不能绕过认证修改学校或学历")
+    void shouldRejectCertifiedEducationMutation() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setSchool("清华大学");
+        user.setSchoolCode("u-tsinghua");
+        user.setEducationLevel("BACHELOR");
+        user.setIdentity("WORKER");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord approved = new AppUserAuditRecord();
+        approved.setUserId(7L);
+        approved.setAuditType(AppUserAuditTypeEnum.EDUCATION.getCode());
+        approved.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
+        approved.setSchoolName("清华大学");
+        approved.setSchoolCode("u-tsinghua");
+        approved.setMaterialJson("{\"educationLevel\":\"BACHELOR\",\"identity\":\"WORKER\"}");
+        when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(approved);
+
+        BasicProfileSaveReq req = validBasicProfileReq();
+        req.setSchool("华东师范大学");
+        req.setSchoolCode("u-ecnu");
+
+        assertThatThrownBy(() -> newService().saveBasicProfile(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("学历认证信息不可直接修改");
+        verify(appUserDao, never()).updateById(user);
+    }
+
+    @Test
+    @DisplayName("基础资料以已通过学历快照反显并锁定认证字段")
+    void shouldProjectAndLockCertifiedEducationFields() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setSchool("被篡改学校");
+        user.setSchoolCode("tampered");
+        user.setEducationLevel("MASTER");
+        user.setIdentity("WORKER");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord approved = new AppUserAuditRecord();
+        approved.setUserId(7L);
+        approved.setAuditType(AppUserAuditTypeEnum.EDUCATION.getCode());
+        approved.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
+        approved.setSchoolName("清华大学");
+        approved.setSchoolCode("u-tsinghua");
+        approved.setMaterialJson("{\"educationLevel\":\"BACHELOR\",\"identity\":\"WORKER\"}");
+        when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(approved);
+
+        BasicProfileVO result = newService().getBasicProfile(7L);
+
+        assertThat(result.getSchool()).isEqualTo("清华大学");
+        assertThat(result.getSchoolCode()).isEqualTo("u-tsinghua");
+        assertThat(result.getEducationLevel()).isEqualTo("BACHELOR");
+        assertThat(result.getFieldSettings())
+                .filteredOn(item -> List.of("identity", "educationLevel", "school").contains(item.getFieldId()))
+                .allSatisfy(item -> assertThat(item.getEditable()).isFalse());
+    }
+
+    @Test
     @DisplayName("基础资料所选城市没有区县节点时允许条件必填区县为空")
     void shouldAllowEmptyConditionalDistrictWhenCityHasNoDistricts() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))

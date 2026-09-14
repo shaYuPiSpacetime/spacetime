@@ -21,10 +21,12 @@ export type MessageImEventType =
   | 'message_received'
   | 'conversation_updated'
   | 'kicked_out'
+  | 'error'
 
 export interface MessageImEvent {
   type: MessageImEventType
   messages?: ChatMessage[]
+  errorMessage?: string
 }
 
 /** 页面只能依赖标准化网关，不接触腾讯原始消息对象。 */

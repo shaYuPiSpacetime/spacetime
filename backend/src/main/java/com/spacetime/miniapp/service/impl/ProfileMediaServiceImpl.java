@@ -129,7 +129,9 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
             vo.setAuditStatus("NOT_SUBMITTED");
             return vo;
         }
-        return toVo(display, "PROFILE_BG");
+        ProfileMediaVO vo = toVo(display, "PROFILE_BG");
+        vo.setEffectiveMediaUrl(effective == null ? null : effective.getMediaUrl());
+        return vo;
     }
 
     /** 保存媒体审核记录；审核通过前不对外生效。 */

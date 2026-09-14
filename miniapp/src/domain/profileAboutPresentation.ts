@@ -30,6 +30,31 @@ export function resolveOwnerVisibleText(detail?: Pick<OpenTextDetail, 'latestCon
   return String(detail?.latestContent || '').trim() || String(detail?.effectiveContent || '').trim()
 }
 
+/** 主页预览仅展示已审核生效内容，不能回退到待审或驳回稿。 */
+export function resolvePreviewVisibleText(detail?: Pick<OpenTextDetail, 'effectiveContent'>) {
+  return String(detail?.effectiveContent || '').trim()
+}
+
+/** 主页预览仅返回已审核生效的自我介绍问答。 */
+export function buildProfilePreviewAboutSummary(
+  questions: Array<Pick<AboutMeQuestion, 'questionKey' | 'title' | 'placeholder' | 'effectiveContent'>> = []
+): ProfileAboutSummaryItem[] {
+  const definitionByKey = new Map<string, (typeof PROFILE_ABOUT_SUMMARY_DEFINITIONS)[number]>(
+    PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(item => [item.key, item])
+  )
+  return questions.flatMap(question => {
+    const value = resolvePreviewVisibleText(question)
+    if (!value) return []
+    const definition = definitionByKey.get(question.questionKey)
+    return [{
+      key: question.questionKey,
+      title: String(question.title || definition?.title || question.questionKey),
+      placeholder: String(question.placeholder || definition?.placeholder || ''),
+      value,
+    }]
+  })
+}
+
 /**
  * 未填写任何内容时展示蓝湖默认三项；已有填写时按接口顺序展示全部已填写条目。
  */

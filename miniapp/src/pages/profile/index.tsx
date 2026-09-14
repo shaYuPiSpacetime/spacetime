@@ -2,7 +2,7 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
-import { isAccountRestricted } from '@/domain/accessStatus'
+import { isAccountRestricted, isCoreAccessBlocked } from '@/domain/accessStatus'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   hasPartialBasicProfile,
@@ -120,7 +120,7 @@ export default function ProfilePage() {
       />
   )
 
-  if (isAccountRestricted(data.accessStatus)) {
+  if (isAccountRestricted(data.accessStatus) || isCoreAccessBlocked(data.accessStatus)) {
     return <AccessBlockedPage status={data.accessStatus} loading={loading} error={error || ''}
       blockReasons={data.accessStatus?.blockReasons || []} refresh={fetch} />
   }

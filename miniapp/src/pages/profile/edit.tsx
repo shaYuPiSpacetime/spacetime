@@ -11,7 +11,9 @@ import {
 } from '@/domain/basicProfilePresentation'
 import {
   buildProfileAboutSummary,
+  buildProfilePreviewAboutSummary,
   resolveOwnerVisibleText,
+  resolvePreviewVisibleText,
   type ProfileAboutSummaryItem,
 } from '@/domain/profileAboutPresentation'
 import { normalizeOptionalWechatId } from '@/domain/profileWechat'
@@ -41,6 +43,7 @@ type ProfilePhotoSlot = {
   label: string
   imageUrl?: string
   mediaId?: number
+  auditStatus?: string
 }
 
 type VoiceSheetVariant =
@@ -204,7 +207,9 @@ export default function ProfileEditPage() {
   const config = usePrd01Store(state => state.config)
   const profileOptions = usePrd01Store(state => state.profileOptions)
   const [profileAvatar, setProfileAvatar] = useState('')
+  const [previewAvatar, setPreviewAvatar] = useState('')
   const [profileBackground, setProfileBackground] = useState('')
+  const [previewBackground, setPreviewBackground] = useState('')
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
   const [nickname, setNickname] = useState('')
   const [profileScore, setProfileScore] = useState(0)
@@ -213,9 +218,11 @@ export default function ProfileEditPage() {
   const [fieldSettings, setFieldSettings] = useState<ProfileFieldSetting[]>([])
   const [verification, setVerification] = useState<VerificationStatus>({})
   const [intro, setIntro] = useState('')
+  const [previewIntro, setPreviewIntro] = useState('')
   const [aboutTopics, setAboutTopics] = useState<ProfileAboutSummaryItem[]>(() =>
     buildProfileAboutSummary([])
   )
+  const [previewAboutTopics, setPreviewAboutTopics] = useState<ProfileAboutSummaryItem[]>([])
   const [selectedTags, setSelectedTags] = useState<ProfileTagItem[]>([])
   const [communityPosts, setCommunityPosts] = useState<CommunityPostVO[]>([])
   const [favoriteSong, setFavoriteSong] = useState('')
@@ -249,7 +256,7 @@ export default function ProfileEditPage() {
       try {
         await bootstrap()
         const regionTreePromise = usePrd01Store.getState().provinceCities().catch(() => [])
-        const [basicResult, home, albums, wechatId, introDetail, aboutDetail, tags, voice, regions] = await Promise.all([
+        const [basicResult, home, albums, wechatId, introDetail, aboutDetail, tags, voice, regions, avatarDetail, backgroundDetail] = await Promise.all([
           prd01Api.getBasicProfile(),
           prd01Api.getHomeDetail(),
           prd01Api.getAlbums(),
@@ -259,12 +266,15 @@ export default function ProfileEditPage() {
           prd01Api.getTags(),
           prd01Api.getVoiceIntro(),
           regionTreePromise,
+          prd01Api.getAvatar(),
+          prd01Api.getBackground(),
         ])
         const options = usePrd01Store.getState().profileOptions
         const profile = home.profile
         const avatar = String(profile.avatar || '')
         const background = String(profile.profileBgImage || '')
         setProfileBackground(background)
+        setPreviewBackground(String(backgroundDetail?.effectiveMediaUrl || ''))
         const nextGoalCode = String(profile.datingGoal || '')
         const nextRelationshipCode = String(profile.emotionalStatus || '')
         setNickname(String(profile.nickname || basicResult.nickname || ''))
@@ -276,12 +286,15 @@ export default function ProfileEditPage() {
         if (avatar) {
           setProfileAvatar(avatar)
         }
+        setPreviewAvatar(String(avatarDetail.effectiveAvatarUrl || ''))
         setProfilePhotos(mergeAlbumSlots(albums))
         setGoal(options?.datingGoal.find(option => option.code === nextGoalCode)?.label || '')
         setRelationship(options?.emotionalStatus.find(option => option.code === nextRelationshipCode)?.label || '')
         setWechat(wechatId || '')
         setIntro(resolveOwnerVisibleText(introDetail))
+        setPreviewIntro(resolvePreviewVisibleText(introDetail))
         setAboutTopics(buildProfileAboutSummary(aboutDetail.questions))
+        setPreviewAboutTopics(buildProfilePreviewAboutSummary(aboutDetail.questions))
         const tagCodes = parseTagCodes(tags)
         setSelectedTags(tagCodes.map(code => ({
           code,
@@ -698,7 +711,7 @@ export default function ProfileEditPage() {
             fileSizeBytes: uploaded.fileSizeBytes,
             sortOrder: index,
           })
-      setProfilePhotos(items => items.map((item, photoIndex) => photoIndex === index ? { ...item, mediaId: saved.mediaId, imageUrl: saved.mediaUrl } : item))
+      setProfilePhotos(items => items.map((item, photoIndex) => photoIndex === index ? { ...item, mediaId: saved.mediaId, imageUrl: saved.mediaUrl, auditStatus: saved.auditStatus } : item))
     }, profilePhotos[index]?.label || '添加照片')
   }
 
@@ -730,22 +743,24 @@ export default function ProfileEditPage() {
     basic.zodiac ? String(basic.zodiac) : '',
   ].filter(Boolean).join('丨')
   const locationText = buildBasicProfileLocationText(basic, regionTree)
-  const profileHeroImage = profileBackground || editHeroPhoto
-  const photos = profilePhotos.flatMap(item => item.imageUrl ? [item.imageUrl] : [])
+  const profileHeroImage = previewBackground || editHeroPhoto
+  const photos = profilePhotos.flatMap(item =>
+    item.imageUrl && item.auditStatus === 'APPROVED' ? [item.imageUrl] : []
+  )
   const certificationRows = [
     { key: 'avatar' as const, label: '头像', status: verification.avatarVerifyStatus },
     { key: 'realName' as const, label: '实名', status: verification.realNameStatus },
     { key: 'education' as const, label: '学历', status: verification.educationStatus },
   ]
   const previewModel: ProfilePreviewModel = {
-    avatarUrl: profileAvatar || defaultAvatar,
+    avatarUrl: previewAvatar || defaultAvatar,
     heroImageUrl: profileHeroImage,
     nickname,
     gender: String(basic.gender || ''),
     genderAgeHeight,
     location: locationText,
     tags: selectedTags,
-    introduction: intro,
+    introduction: previewIntro,
     photos,
     certifications: certificationRows.map(item => ({
       ...item,
@@ -760,7 +775,7 @@ export default function ProfileEditPage() {
     datingGoal: goal,
     relationshipStatus: relationship,
     favoriteSong,
-    aboutMe: aboutTopics.flatMap(item => item.value ? [{ title: item.title, value: item.value }] : []),
+    aboutMe: previewAboutTopics.map(item => ({ title: item.title, value: item.value })),
     communityPosts,
   }
 
@@ -2845,7 +2860,12 @@ function mergeAlbumSlots(albums: ProfileMedia[]) {
       ? preferredIndex
       : slots.findIndex(slot => !slot.mediaId)
     if (slotIndex < 0) return
-    slots[slotIndex] = { ...slots[slotIndex], mediaId: media.mediaId, imageUrl: media.mediaUrl }
+    slots[slotIndex] = {
+      ...slots[slotIndex],
+      mediaId: media.mediaId,
+      imageUrl: media.mediaUrl,
+      auditStatus: media.auditStatus,
+    }
   })
   return slots
 }

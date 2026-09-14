@@ -8,6 +8,7 @@ import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
@@ -161,6 +162,29 @@ class MiniappPublicProfileServiceImplTest {
         PublicProfileVO result = service.getPublicProfile(7L, 8L);
 
         assertThat(result.getTags()).containsExactly("徒步", "电影爱好者");
+    }
+
+    @Test
+    void projectsCertifiedEducationSnapshotInsteadOfMutableProfileFields() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        target.setSchool("用户自行修改的学校");
+        target.setIdentity("STUDENT");
+        AppUserAuditRecord approved = new AppUserAuditRecord();
+        approved.setSchoolName("认证通过的学校");
+        approved.setMaterialJson("{\"identity\":\"WORKER\",\"educationLevel\":\"BACHELOR\"}");
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(auditService.latestEffectiveRecord(8L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(approved);
+        when(profileDictionaryService.label("app_identity", "WORKER")).thenReturn("职场人");
+
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
+
+        assertThat(result.getSchool()).isEqualTo("认证通过的学校");
+        assertThat(result.getIdentityLabel()).isEqualTo("职场人");
     }
 
     @Test

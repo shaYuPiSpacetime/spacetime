@@ -303,6 +303,7 @@ export interface ProfileMedia {
   mediaId: number
   mediaType?: string
   mediaUrl: string
+  effectiveMediaUrl?: string
   thumbUrl?: string
   fileSizeBytes?: number
   sortOrder?: number

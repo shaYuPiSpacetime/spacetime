@@ -55,7 +55,7 @@ public class Prd01FieldConfigResolver {
             field("occupation", "occupation", "职业", "dict", true, ProfileDictType.OCCUPATION, null, null, null, null),
             field("company", "company", "公司", "input", true, null, null, null, 2, 50),
             field("annualIncome", "annualIncomeRange", "年收入", "dict", true, ProfileDictType.ANNUAL_INCOME, null, null, null, null),
-            field("school", "school", "毕业院校", "input", true, null, null, null, 2, 50),
+            field("school", "school", "所属于院校", "input", true, null, null, null, 2, 50),
             field("major", "major", "专业", "input", true, null, null, null, null, 100),
             field("maritalStatus", "maritalStatus", "婚姻状况", "dict", true, ProfileDictType.MARITAL_STATUS, null, null, null, null)
     );

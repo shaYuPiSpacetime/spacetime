@@ -12,6 +12,7 @@ import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
@@ -90,8 +91,11 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
         result.setZodiac(target.getZodiac());
         result.setCurrentCity(profileLabel(ProfileDictType.CHINA_REGION, target.getLocationCity()));
         result.setHometownCity(profileLabel(ProfileDictType.CHINA_REGION, target.getHometownCity()));
-        result.setSchool(target.getSchool());
-        result.setIdentityLabel(profileLabel(ProfileDictType.IDENTITY, target.getIdentity()));
+        AppUserAuditRecord effectiveEducation = auditService.latestEffectiveRecord(
+                target.getId(), AppUserAuditTypeEnum.EDUCATION);
+        result.setSchool(effectiveEducationSchool(target, effectiveEducation));
+        result.setIdentityLabel(profileLabel(ProfileDictType.IDENTITY,
+                effectiveEducationIdentity(target, effectiveEducation)));
         result.setIndustryLabel(profileLabel(ProfileDictType.INDUSTRY, target.getIndustry()));
         result.setOccupationLabel(profileLabel(ProfileDictType.OCCUPATION, target.getOccupation()));
         result.setCompany(target.getCompany());
@@ -192,6 +196,25 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
 
     private String legacyChineseTag(String value) {
         return StrUtil.isNotBlank(value) && value.matches(".*[\\p{IsHan}].*") ? value : null;
+    }
+
+    private String effectiveEducationSchool(AppUser user, AppUserAuditRecord education) {
+        if (education == null) {
+            return user.getSchool();
+        }
+        return StrUtil.isBlank(education.getSchoolName()) ? null : education.getSchoolName().trim();
+    }
+
+    private String effectiveEducationIdentity(AppUser user, AppUserAuditRecord education) {
+        if (education == null || StrUtil.isBlank(education.getMaterialJson())) {
+            return user.getIdentity();
+        }
+        try {
+            String identity = JSONUtil.parseObj(education.getMaterialJson()).getStr("identity");
+            return StrUtil.isBlank(identity) ? user.getIdentity() : identity.trim();
+        } catch (RuntimeException ignored) {
+            return user.getIdentity();
+        }
     }
 
     private String profileLabel(String dictType, String code) {

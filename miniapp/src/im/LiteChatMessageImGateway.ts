@@ -17,6 +17,36 @@ import type {
 
 type ChatSdk = ReturnType<typeof TencentCloudChat.create>
 
+const IM_LOGIN_TIMEOUT_MS = 10_000
+
+function sdkErrorCode(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const record = error as Record<string, unknown>
+  const nested = record.data && typeof record.data === 'object'
+    ? record.data as Record<string, unknown>
+    : undefined
+  const value = record.code ?? nested?.code
+  const code = Number(value)
+  return Number.isFinite(code) ? code : undefined
+}
+
+function sdkErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>
+    const nested = record.data && typeof record.data === 'object'
+      ? record.data as Record<string, unknown>
+      : undefined
+    const value = record.message ?? nested?.message
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return '私信服务连接异常，请重试'
+}
+
+function isAlreadyLoggedOutError(error: unknown): boolean {
+  return sdkErrorCode(error) === 2024
+}
+
 function parseJsonObject(value: unknown): Record<string, unknown> {
   if (typeof value !== 'string' || !value.trim()) return {}
   try {
@@ -98,7 +128,17 @@ export class LiteChatMessageImGateway implements MessageImGateway {
 
     if (this.initializing) return this.initializing
 
-    const initializing = this.initializeInternal(credentials)
+    const internal = this.initializeInternal(credentials)
+    const initializing = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error('私信登录超时，请重试')),
+        IM_LOGIN_TIMEOUT_MS,
+      )
+      internal.then(
+        () => { clearTimeout(timer); resolve() },
+        error => { clearTimeout(timer); reject(error) },
+      )
+    })
     this.initializing = initializing
     const clearInitializing = () => {
       if (this.initializing === initializing) this.initializing = undefined
@@ -221,11 +261,17 @@ export class LiteChatMessageImGateway implements MessageImGateway {
 
   async logout(): Promise<void> {
     const chat = this.chat
+    const wasReady = this.ready
     this.ready = false
     this.rawMessages.clear()
     this.chat = undefined
     this.currentUserId = undefined
-    if (chat) await chat.logout().catch(() => undefined)
+    if (!chat || !wasReady) return
+    try {
+      await chat.logout()
+    } catch (error) {
+      if (!isAlreadyLoggedOutError(error)) throw error
+    }
   }
 
   private attachEvents(chat: ChatSdk) {
@@ -240,6 +286,10 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     chat.on(TencentCloudChat.EVENT.KICKED_OUT, () => {
       this.ready = false
       this.emit({ type: 'kicked_out' })
+    })
+    chat.on(TencentCloudChat.EVENT.ERROR, event => {
+      this.ready = false
+      this.emit({ type: 'error', errorMessage: sdkErrorMessage(event?.data) })
     })
     chat.on(TencentCloudChat.EVENT.MESSAGE_RECEIVED, event => {
       const rawList = (event?.data || []) as TencentMessage[]

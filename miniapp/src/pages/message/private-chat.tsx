@@ -231,8 +231,9 @@ function EstablishedPrivateChatPage() {
 
   gatewayEventHandlerRef.current = event => {
     if (event.type === 'ready') setConnectionState('ready')
-    if (event.type === 'not_ready' || event.type === 'kicked_out') {
+    if (event.type === 'not_ready' || event.type === 'kicked_out' || event.type === 'error') {
       setConnectionState('error')
+      if (event.errorMessage) setErrorMessage(event.errorMessage)
     }
     if (!event.messages?.length) return
     const currentTimConversationId = timConversationIdRef.current

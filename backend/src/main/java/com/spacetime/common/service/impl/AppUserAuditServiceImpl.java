@@ -1,9 +1,14 @@
 package com.spacetime.common.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.AppUserAuditHistoryDao;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
+import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditHistory;
 import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.enums.AppUserAuditActionEnum;
@@ -42,7 +47,9 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
 
     private final AppUserAuditRecordDao recordDao;
     private final AppUserAuditHistoryDao historyDao;
+    private final AppUserDao appUserDao;
     private final PromotionEventInboxService promotionEventInboxService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public AppUserAuditRecord latestRecord(Long userId, AppUserAuditTypeEnum type) {
@@ -138,6 +145,7 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         record.setRejectReason(null);
         record.setAuditTime(LocalDateTime.now());
         recordDao.updateAuditResult(record);
+        projectApprovedEducation(record);
         appendHistory(record, fromStatus, record.getStatus(), AppUserAuditActionEnum.MACHINE_PASS,
                 null, AuditOperatorTypeEnum.PROVIDER, providerTaskId, "Provider");
         enqueuePromotionAuditEvent(record);
@@ -192,8 +200,34 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         appendHistory(record, fromStatus, targetStatus, historyAction, reason,
                 AuditOperatorTypeEnum.ADMIN, auditorId, auditorName);
         if (AppUserAuditStatusEnum.APPROVED.getCode().equals(targetStatus)) {
+            projectApprovedEducation(record);
             enqueuePromotionAuditEvent(record);
         }
+    }
+
+    /** 学历审核通过后同步权威快照，公开资料与认证标识必须保持一致。 */
+    private void projectApprovedEducation(AppUserAuditRecord record) {
+        if (!AppUserAuditTypeEnum.EDUCATION.getCode().equals(record.getAuditType())) {
+            return;
+        }
+        AppUser user = appUserDao.selectById(record.getUserId());
+        if (user == null) {
+            throw new BusinessException("学历认证用户不存在");
+        }
+        user.setSchool(StrUtil.blankToDefault(record.getSchoolName(), null));
+        user.setSchoolCode(StrUtil.blankToDefault(record.getSchoolCode(), null));
+        try {
+            JsonNode material = StrUtil.isBlank(record.getMaterialJson())
+                    ? objectMapper.createObjectNode()
+                    : objectMapper.readTree(record.getMaterialJson());
+            String educationLevel = material.path("educationLevel").asText(null);
+            String identity = material.path("identity").asText(null);
+            if (StrUtil.isNotBlank(educationLevel)) user.setEducationLevel(educationLevel.trim());
+            if (StrUtil.isNotBlank(identity)) user.setIdentity(identity.trim());
+        } catch (Exception ex) {
+            throw new BusinessException("学历认证快照解析失败");
+        }
+        appUserDao.updateById(user);
     }
 
     @Override

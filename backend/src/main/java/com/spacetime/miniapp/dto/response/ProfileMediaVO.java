@@ -13,6 +13,8 @@ public class ProfileMediaVO {
     private String mediaType;
     /** 原图或原始文件 URL。 */
     private String mediaUrl;
+    /** 最近一次审核通过并已生效的媒体 URL。 */
+    private String effectiveMediaUrl;
     /** 缩略图 URL。 */
     private String thumbUrl;
     /** 展示顺序。 */

@@ -67,7 +67,7 @@ const COMPOSITE_ROW_LABELS: Partial<Record<BasicProfileRowId, string>> = {
   location: '现居地',
   heightWeight: '身高/体重',
   hometown: '家乡',
-  school: '毕业院校',
+  school: '所属于院校',
 }
 
 const PROFILE_CARD_GAP_RPX = 24

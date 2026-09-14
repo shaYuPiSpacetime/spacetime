@@ -6,7 +6,7 @@ import lombok.Data;
  * 基础资料页保存请求。
  *
  * 这是完整表单保存接口：已展示字段传空表示清空；后台关闭展示的字段会被忽略。
- * 性别允许在基础资料页修改，但只接受 MALE/FEMALE。
+ * 性别仅在实名认证通过前允许修改，且只接受 MALE/FEMALE。
  */
 @Data
 public class BasicProfileSaveReq {

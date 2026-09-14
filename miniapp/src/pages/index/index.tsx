@@ -1,7 +1,7 @@
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
-import { isAccountRestricted } from '@/domain/accessStatus'
+import { isAccountRestricted, isCoreAccessBlocked } from '@/domain/accessStatus'
 import QianxunFamilyPage from '@/features/qianxun/QianxunFamilyPage'
 import VerificationEntryView from '@/features/verification/VerificationEntryView'
 import {
@@ -114,7 +114,7 @@ export default function IndexPage() {
     if (reason) await Taro.showToast({ title: reason, icon: 'none' })
   }
 
-  if (isAccountRestricted(cachedAccessStatus)) {
+  if (isAccountRestricted(cachedAccessStatus) || isCoreAccessBlocked(cachedAccessStatus)) {
     return <AccessBlockedPage status={cachedAccessStatus} loading={loading} error={entryError}
       blockReasons={cachedAccessStatus?.blockReasons || []} refresh={loadIndex} />
   }

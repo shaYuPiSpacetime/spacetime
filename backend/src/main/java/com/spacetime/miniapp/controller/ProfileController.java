@@ -83,7 +83,7 @@ public class ProfileController {
 
     /**
      * 保存基础资料页。
-     * 性别允许修改；隐藏字段不更新；展示且必填的字段缺失时整次保存失败。
+     * 实名认证通过后性别和出生日期不可修改；隐藏字段不更新；展示且必填的字段缺失时整次保存失败。
      */
     @PutMapping("/basic")
     public R<BasicProfileVO> saveBasicProfile(@RequestBody BasicProfileSaveReq req) {

@@ -16,6 +16,7 @@ import com.spacetime.common.enums.RegisterSourceEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.common.util.DefaultNicknameGenerator;
@@ -50,8 +51,8 @@ import java.util.UUID;
  * 小程序登录服务实现。
  *
  * 微信登录和手机号登录共用同一响应结构，移动端可以统一处理首登续填、
- * 核心准入拦截和后续跳转。当前无生产环境，手机号验证码固定为 0000，
- * 发送接口仅保留 Redis 频控，不调用短信网关。
+ * 核心准入拦截和后续跳转。手机号验证码由当前环境配置的短信 Provider
+ * 生成并发送，服务端只在有效期内保存用于一次性校验。
  */
 @Slf4j
 @Service
@@ -62,10 +63,10 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private static final String SMS_CODE_PREFIX = "miniapp:auth:sms:code:";
     private static final String SMS_COOLDOWN_PREFIX = "miniapp:auth:sms:cooldown:";
     private static final String SMS_DAILY_PREFIX = "miniapp:auth:sms:daily:";
-    private static final String FIXED_SMS_CODE = "0000";
 
     private final AppUserDao appUserDao;
     private final AppUserAuditContentService auditContentService;
+    private final SmsCodeProvider smsCodeProvider;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final WechatMiniappClient wechatMiniappClient;
@@ -109,7 +110,11 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             throw new BusinessException("AUTH_SMS_DAILY_LIMIT: 今日验证码次数已达上限");
         }
 
-        String code = FIXED_SMS_CODE;
+        String code = smsCodeProvider.generateCode();
+        if (StrUtil.isBlank(code)) {
+            throw new BusinessException("AUTH_SMS_SEND_FAILED: 短信验证码生成失败");
+        }
+        smsCodeProvider.sendLoginCode(phone, code, rules.validMinutes());
 
         redisTemplate.opsForValue().set(SMS_CODE_PREFIX + phone, code, Duration.ofMinutes(rules.validMinutes()));
         redisTemplate.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(rules.sendCountdownSeconds()));
@@ -120,7 +125,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         vo.setValidMinutes(rules.validMinutes());
         vo.setDailyLimit(rules.dailySendLimit());
         vo.setDailyRemaining(Math.max(0, rules.dailySendLimit() - usedCount - 1));
-        vo.setProviderCode("FIXED");
+        vo.setProviderCode(smsCodeProvider.providerCode());
         return vo;
     }
 
@@ -132,7 +137,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         String phone = req.getPhone().trim();
         String codeKey = SMS_CODE_PREFIX + phone;
         String submittedCode = req.getSmsCode().trim();
-        if (!FIXED_SMS_CODE.equals(submittedCode)) {
+        String cachedCode = normalizeRedisScalar(redisTemplate.opsForValue().get(codeKey));
+        if (StrUtil.isBlank(cachedCode) || !cachedCode.equals(submittedCode)) {
             throw new BusinessException("AUTH_SMS_INVALID: 验证码错误或已过期");
         }
         LoginTarget target = loginByPhone(phone, req.getPromotionTraceNos());
