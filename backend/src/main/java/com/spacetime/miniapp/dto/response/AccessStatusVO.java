@@ -9,6 +9,8 @@ import java.util.List;
  */
 @Data
 public class AccessStatusVO {
+    /** 账号状态，供移动端区分账号限制与资料认证拦截。 */
+    private String accountStatus;
     /** 是否可浏览卡片。 */
     private Boolean canBrowseCards;
     /** 是否可发起匹配。 */

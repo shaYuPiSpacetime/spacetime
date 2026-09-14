@@ -136,6 +136,7 @@ export interface Prd01Config {
 }
 
 export interface AccessStatus {
+  accountStatus?: string
   canBrowseCards: boolean
   canMatch: boolean
   canMessage: boolean

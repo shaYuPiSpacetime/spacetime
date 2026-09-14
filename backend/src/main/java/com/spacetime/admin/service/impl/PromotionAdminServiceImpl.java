@@ -131,7 +131,7 @@ public class PromotionAdminServiceImpl implements PromotionAdminService {
         }
         List<PromotionInviteRelation> one = List.of(relation);
         Map<Long, AppUser> users = loadUsers(one);
-        Map<Long, PromotionAgent> agents = loadAgents(List.of(relation.getAgentId()));
+        Map<Long, PromotionAgent> agents = loadAgents(one.stream().map(PromotionInviteRelation::getAgentId).toList());
         Map<Long, List<PromotionRewardItemVO>> rewards = loadRewardItemsByRelations(one, users, agents);
         return toRelationVO(relation, users, agents, rewards.getOrDefault(relation.getId(), List.of()), true);
     }

@@ -1,6 +1,8 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
+import AccessBlockedPage from '@/components/AccessBlockedPage'
+import { isAccountRestricted } from '@/domain/accessStatus'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   hasPartialBasicProfile,
@@ -117,6 +119,11 @@ export default function ProfilePage() {
         onRetry={() => void fetch()}
       />
   )
+
+  if (isAccountRestricted(data.accessStatus)) {
+    return <AccessBlockedPage status={data.accessStatus} loading={loading} error={error || ''}
+      blockReasons={data.accessStatus?.blockReasons || []} refresh={fetch} />
+  }
 
   // 必须等服务端最新准入状态返回后再决定页面，避免缓存曾通过时闪现正常“我的”。
   if (!data.entryResolved) return renderVerificationEntry()

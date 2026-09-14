@@ -593,6 +593,78 @@ class ProfileServiceImplTest {
         assertThat(result.getProfileScore()).isEqualTo(9);
     }
 
+    @Test
+    @DisplayName("冻结账号优先展示账号异常，不被未完成首登覆盖")
+    void shouldPrioritizeFrozenAccountOverIncompleteProfile() {
+        AppUser user = baseUser(1);
+        user.setAccountStatus(AccountStatusEnum.FROZEN.getCode());
+        when(appUserDao.selectById(7L)).thenReturn(user);
+
+        for (Integer completed : new Integer[]{null, 0, 1}) {
+            user.setFirstLoginCompleted(completed);
+            AccessStatusVO result = newService().getAccessStatus(7L);
+            assertThat(result.getCoreAccessStatus()).isEqualTo("CORE_BLOCKED");
+            assertThat(result.getAccountStatus()).isEqualTo("FROZEN");
+            assertThat(result.getBlockReasons()).containsExactly("账号状态异常，暂无法使用该功能，请联系客服");
+            assertThat(result.getCanBrowseCards()).isFalse();
+            assertThat(result.getCanCommunity()).isFalse();
+            assertThat(result.getCanMatch()).isFalse();
+            assertThat(result.getCanMessage()).isFalse();
+            assertThat(result.getCanBeExposed()).isFalse();
+        }
+        verify(auditService, never()).certificationApprovedCount(any());
+    }
+
+    @Test
+    @DisplayName("正常账号资料未完成时保留原准入引导")
+    void shouldKeepIncompleteProfileReasonForNormalAccount() {
+        when(appUserDao.selectById(7L)).thenReturn(baseUser(1));
+
+        AccessStatusVO result = newService().getAccessStatus(7L);
+
+        assertThat(result.getCoreAccessStatus()).isEqualTo("CORE_BLOCKED");
+        assertThat(result.getBlockReasons()).containsExactly("请先完善基础资料后继续使用");
+    }
+
+    @Test
+    @DisplayName("已认证用户解冻后恢复核心准入")
+    void shouldRestoreAccessAfterUnfreeze() {
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setAccountStatus(AccountStatusEnum.FROZEN.getCode());
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        ProfileServiceImpl service = newService();
+        assertThat(service.getAccessStatus(7L).getCoreAccessStatus()).isEqualTo("CORE_BLOCKED");
+
+        user.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+        when(auditService.certificationApprovedCount(7L)).thenReturn(3);
+        AccessStatusVO result = service.getAccessStatus(7L);
+
+        assertThat(result.getCoreAccessStatus()).isEqualTo("CORE_ALLOWED");
+        assertThat(result.getAccountStatus()).isEqualTo("NORMAL");
+        assertThat(result.getBlockReasons()).isEmpty();
+        assertThat(result.getCanBrowseCards()).isTrue();
+        assertThat(result.getCanCommunity()).isTrue();
+        assertThat(result.getCanMatch()).isTrue();
+        assertThat(result.getCanMessage()).isTrue();
+        assertThat(result.getCanBeExposed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("基础资料完整但未认证时保留非核心能力")
+    void shouldKeepNonCoreAccessForUnverifiedNormalAccount() {
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+
+        AccessStatusVO result = newService().getAccessStatus(7L);
+
+        assertThat(result.getCoreAccessStatus()).isEqualTo("NON_CORE_ONLY");
+        assertThat(result.getCanBrowseCards()).isTrue();
+        assertThat(result.getCanCommunity()).isTrue();
+        assertThat(result.getCanMessage()).isFalse();
+    }
+
     private ProfileServiceImpl newService() {
         return newService(profileDictionaryService);
     }

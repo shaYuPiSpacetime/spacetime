@@ -31,21 +31,23 @@ public class Prd01AccessEvaluator {
             throw new BusinessException("用户不存在");
         }
         Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot = runtimeConfigResolver.snapshot();
-        if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() != 1) {
-            return blocked(false, runtimeConfigResolver.copyText(snapshot,
-                    "core_access_profile_incomplete", "请先完善基础资料后继续使用"));
-        }
+        // 账号限制优先于资料进度，冻结账号不能被引导继续认证。
         if (AccountStatusEnum.FROZEN.getCode().equals(user.getAccountStatus())
                 || AccountStatusEnum.CANCELLED.getCode().equals(user.getAccountStatus())) {
-            return blocked(false, runtimeConfigResolver.copyText(snapshot,
+            return blocked(user.getAccountStatus(), runtimeConfigResolver.copyText(snapshot,
                     "core_access_account_abnormal", "账号状态异常，暂无法使用该功能，请联系客服"));
         }
+        if (user.getFirstLoginCompleted() == null || user.getFirstLoginCompleted() != 1) {
+            return blocked(user.getAccountStatus(), runtimeConfigResolver.copyText(snapshot,
+                    "core_access_profile_incomplete", "请先完善基础资料后继续使用"));
+        }
         if (ageOutsidePolicy(user, snapshot)) {
-            return blocked(false, runtimeConfigResolver.copyText(snapshot,
+            return blocked(user.getAccountStatus(), runtimeConfigResolver.copyText(snapshot,
                     "error_age_not_allowed", "年龄不符合平台准入要求"));
         }
         boolean tripleApproved = auditService.certificationApprovedCount(user.getId()) == 3;
         AccessStatusVO vo = new AccessStatusVO();
+        vo.setAccountStatus(user.getAccountStatus());
         vo.setCanBrowseCards(true);
         vo.setCanCommunity(true);
         vo.setCanMatch(tripleApproved);
@@ -84,10 +86,11 @@ public class Prd01AccessEvaluator {
         }
     }
 
-    private AccessStatusVO blocked(boolean canBrowse, String reason) {
+    private AccessStatusVO blocked(String accountStatus, String reason) {
         AccessStatusVO vo = new AccessStatusVO();
-        vo.setCanBrowseCards(canBrowse);
-        vo.setCanCommunity(canBrowse);
+        vo.setAccountStatus(accountStatus);
+        vo.setCanBrowseCards(false);
+        vo.setCanCommunity(false);
         vo.setCanMatch(false);
         vo.setCanMessage(false);
         vo.setCanBeExposed(false);

@@ -44,7 +44,7 @@
     "validate:navigation": "node scripts/validate-native-navigation-and-qianxun-interactions.mjs",
     "validate:login-closure": "node --test scripts/test-login-pending-items-closure.cjs",
     "validate:unverified-menu-states": "node --test scripts/test-unverified-menu-states.cjs",
-    "test:login-profile-unverified": "node --test scripts/test-login-modal-profile-unverified.cjs",
+    "test:login-profile-unverified": "node --test scripts/test-login-modal-profile-unverified.cjs scripts/test-account-frozen-access.cjs",
     "postvalidate:login-closure": "npm run test:login-profile-unverified",
     "verify:login-profile-unverified-runtime": "node scripts/verify-login-profile-unverified-runtime.cjs",
     "validate:package-size": "node scripts/validate-built-package-size.mjs",

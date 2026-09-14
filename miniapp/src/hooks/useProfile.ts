@@ -33,7 +33,7 @@ interface ProfileData {
   zodiac: string;
   /** 是否已认证 */
   isVerified: boolean;
-  /** 核心页面准入状态；未通过时“我的”只展示认证引导节点。 */
+  /** 核心页面准入状态，用于区分账号限制与认证引导。 */
   accessStatus: AccessStatus | null;
   /** 我的未认证节点所需基础资料。 */
   basicProfile: BasicProfile | null;
