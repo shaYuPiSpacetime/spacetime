@@ -49,6 +49,8 @@ import com.spacetime.common.enums.ConfigGroupEnum;
 import com.spacetime.common.enums.ConfigTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
+import com.spacetime.common.util.CoinPackagePriceResolver;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import lombok.RequiredArgsConstructor;
@@ -129,6 +131,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
     /** JSON 序列化器 */
     private final ObjectMapper objectMapper;
     private final AppUserAuditContentService auditContentService;
+    private final WechatVirtualProductCatalog virtualProductCatalog;
 
     @Override
     public CommercialConfigVO getConfig() {
@@ -456,6 +459,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
                 .collect(Collectors.toMap(VipPackage::getPackageName, Function.identity(), (a, b) -> a));
         for (VipPackageSaveReq req : reqList) {
             VipPackage entity = resolveVipPackage(req, existing);
+            guardVipPayability(entity, req);
             fillVipPackage(entity, req);
             if (entity.getId() == null) {
                 vipPackageDao.insert(entity);
@@ -474,6 +478,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
                 .collect(Collectors.toMap(CoinPackage::getPackageName, Function.identity(), (a, b) -> a));
         for (CoinPackageSaveReq req : reqList) {
             CoinPackage entity = resolveCoinPackage(req, existing);
+            guardCoinPayability(entity, req);
             fillCoinPackage(entity, req);
             if (entity.getId() == null) {
                 coinPackageDao.insert(entity);
@@ -517,6 +522,34 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
             throw new BusinessException("千寻币套餐不存在");
         }
         return entity;
+    }
+
+    private void guardVipPayability(VipPackage entity, VipPackageSaveReq req) {
+        if (!virtualProductCatalog.isProductionMode() || !isEnabled(req.getStatus())) {
+            return;
+        }
+        if (entity.getId() == null) {
+            throw new BusinessException("线上虚拟支付新增会员套餐请先创建停用状态，取得商品 ID 后配置线上商品再启用");
+        }
+        boolean priceChanged = entity.getPrice() == null || entity.getPrice().compareTo(req.getPrice()) != 0;
+        if (priceChanged || !CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
+            virtualProductCatalog.assertPayable("vip_" + entity.getId(), req.getPrice());
+        }
+    }
+
+    private void guardCoinPayability(CoinPackage entity, CoinPackageSaveReq req) {
+        if (!virtualProductCatalog.isProductionMode() || !isEnabled(req.getStatus())) {
+            return;
+        }
+        if (entity.getId() == null) {
+            throw new BusinessException("线上虚拟支付新增千寻币套餐请先创建停用状态，取得商品 ID 后配置线上商品再启用");
+        }
+        BigDecimal oldPrice = CoinPackagePriceResolver.resolve(entity);
+        BigDecimal newPrice = req.getDiscountAmount() != null ? req.getDiscountAmount() : req.getAmount();
+        boolean priceChanged = oldPrice == null || oldPrice.compareTo(newPrice) != 0;
+        if (priceChanged || !CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
+            virtualProductCatalog.assertPayable("coin_" + entity.getId(), newPrice);
+        }
     }
 
     private void upsertCoinScenes(List<CoinSceneConfigReq> reqList) {

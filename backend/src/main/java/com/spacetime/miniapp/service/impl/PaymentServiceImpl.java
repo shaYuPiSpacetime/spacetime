@@ -27,6 +27,7 @@ import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AssetResultMessageNotificationService;
 import com.spacetime.common.service.PromotionEventInboxService;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
 import com.spacetime.common.util.CoinPackagePriceResolver;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
 import com.spacetime.miniapp.dto.response.CreateOrderVO;
@@ -80,6 +81,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final PromotionEventInboxService promotionEventInboxService;
     /** 资产结果系统消息适配器 */
     private final AssetResultMessageNotificationService assetResultNotificationService;
+    /** 微信虚拟支付线上商品目录 */
+    private final WechatVirtualProductCatalog virtualProductCatalog;
 
     /**
      * 创建支付订单（VIP套餐或成家币套餐购买）
@@ -115,12 +118,15 @@ public class PaymentServiceImpl implements PaymentService {
         } else {
             throw new BusinessException("不支持的订单类型");
         }
+        boolean virtualPayEnabled = wechatVirtualPayService.isEnabled();
+        if (virtualPayEnabled && virtualProductCatalog.isProductionMode()) {
+            virtualProductCatalog.assertPayable(orderType + "_" + packageId, payAmount);
+        }
         AppUser user = appUserDao.selectById(userId);
         if (user == null) {
             throw new BusinessException("当前用户不存在，无法发起支付");
         }
 
-        boolean virtualPayEnabled = wechatVirtualPayService.isEnabled();
         WechatMiniappClient.SessionInfo paymentSession = refreshPaymentWechatIdentity(
                 user, req.getLoginCode(), virtualPayEnabled);
         if (user.getOpenid() == null || user.getOpenid().isBlank()

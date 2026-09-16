@@ -9,6 +9,7 @@ import com.spacetime.common.dto.PageReq;
 import com.spacetime.common.entity.CoinPackage;
 import com.spacetime.common.entity.CoinSceneConfig;
 import com.spacetime.common.entity.UserCoinLog;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
 import com.spacetime.miniapp.dto.response.CoinFlowVO;
 import com.spacetime.miniapp.dto.response.CoinPackageVO;
 import com.spacetime.miniapp.dto.response.CoinSceneVO;
@@ -36,9 +37,26 @@ class CoinServiceImplTest {
     @Mock private CoinSceneConfigDao coinSceneConfigDao;
     @Mock private UserAssetDao userAssetDao;
     @Mock private UserCoinLogDao userCoinLogDao;
+    @Mock private WechatVirtualProductCatalog virtualProductCatalog;
 
     @InjectMocks
     private CoinServiceImpl service;
+
+    @Test
+    @DisplayName("线上虚拟支付只展示价格与已发布商品一致的千寻币套餐")
+    void getPackagesShouldHideUnpayableVirtualProducts() {
+        CoinPackage valid = new CoinPackage();
+        valid.setId(10L);
+        valid.setAmount(new BigDecimal("99.00"));
+        CoinPackage stale = new CoinPackage();
+        stale.setId(11L);
+        stale.setAmount(new BigDecimal("200.00"));
+        when(coinPackageDao.selectPage(any(), any())).thenReturn(page(List.of(valid, stale)));
+        when(virtualProductCatalog.isProductionMode()).thenReturn(true);
+        when(virtualProductCatalog.matches("coin_10", new BigDecimal("99.00"))).thenReturn(true);
+
+        assertThat(service.getPackages()).extracting("id").containsExactly(10L);
+    }
 
     @Test
     @DisplayName("L3-09 千寻币套餐返回蓝湖价格与标签字段")

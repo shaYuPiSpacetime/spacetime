@@ -13,6 +13,7 @@ import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.PromotionRewardBizSceneEnum;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
 import com.spacetime.common.util.CoinPackagePriceResolver;
 import com.spacetime.miniapp.dto.response.CoinBalanceVO;
 import com.spacetime.miniapp.dto.response.CoinFlowVO;
@@ -42,6 +43,8 @@ public class CoinServiceImpl implements CoinService {
     private final UserAssetDao userAssetDao;
     /** 千寻币流水数据访问 */
     private final UserCoinLogDao userCoinLogDao;
+    /** 线上虚拟支付商品目录 */
+    private final WechatVirtualProductCatalog virtualProductCatalog;
 
     /**
      * 查询已启用千寻币套餐列表
@@ -56,7 +59,10 @@ public class CoinServiceImpl implements CoinService {
                 .orderByAsc(CoinPackage::getSortOrder);
         Page<CoinPackage> page = coinPackageDao.selectPage(new Page<>(1, 100), wrapper);
         // 2. 转换为 VO
-        return page.getRecords().stream().map(pkg -> {
+        return page.getRecords().stream()
+                .filter(pkg -> !virtualProductCatalog.isProductionMode()
+                        || virtualProductCatalog.matches("coin_" + pkg.getId(), CoinPackagePriceResolver.resolve(pkg)))
+                .map(pkg -> {
             CoinPackageVO vo = new CoinPackageVO();
             vo.setId(pkg.getId());
             vo.setPackageName(pkg.getPackageName());

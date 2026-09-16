@@ -10,11 +10,14 @@ import com.spacetime.common.dao.CoinPackageDao;
 import com.spacetime.common.entity.CoinPackage;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
+import com.spacetime.common.util.CoinPackagePriceResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -26,6 +29,7 @@ import java.util.List;
 public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
     /** 成家币套餐数据访问对象 */
     private final CoinPackageDao coinPackageDao;
+    private final WechatVirtualProductCatalog virtualProductCatalog;
 
     /**
      * 查询全部套餐列表，按排序字段升序
@@ -69,6 +73,10 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
         if (StrUtil.isBlank(entity.getStatus())) {
             entity.setStatus(CommonStatusEnum.ENABLED.getCode());
         }
+        if (virtualProductCatalog.isProductionMode()
+                && CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
+            throw new BusinessException("线上虚拟支付新增千寻币套餐请先创建停用状态，取得商品 ID 后配置线上商品再启用");
+        }
         coinPackageDao.insert(entity);
         log.info("创建成家币套餐: id={}, packageName={}, coinCount={}", entity.getId(), entity.getPackageName(), entity.getCoinCount());
         return entity.getId();
@@ -84,6 +92,14 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
     public void update(Long id, CoinPackageSaveReq req) {
         CoinPackage entity = requirePackage(id);
         CoinPackage changed = toEntity(req);
+        if (virtualProductCatalog.isProductionMode() && isEnabled(changed.getStatus())) {
+            BigDecimal oldPrice = CoinPackagePriceResolver.resolve(entity);
+            BigDecimal newPrice = CoinPackagePriceResolver.resolve(changed);
+            boolean priceChanged = oldPrice == null || newPrice == null || oldPrice.compareTo(newPrice) != 0;
+            if (priceChanged || !CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
+                virtualProductCatalog.assertPayable("coin_" + id, newPrice);
+            }
+        }
         entity.setPackageName(changed.getPackageName());
         entity.setAmount(changed.getAmount());
         entity.setOriginAmount(changed.getOriginAmount());
@@ -95,7 +111,7 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
         entity.setMobileTag(changed.getMobileTag());
         entity.setPackageDesc(changed.getPackageDesc());
         entity.setSortOrder(changed.getSortOrder());
-        entity.setStatus(changed.getStatus());
+        entity.setStatus(StrUtil.blankToDefault(changed.getStatus(), CommonStatusEnum.ENABLED.getCode()));
         coinPackageDao.updateById(entity);
         log.info("更新成家币套餐: id={}, packageName={}", id, entity.getPackageName());
     }
@@ -109,6 +125,11 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
     @Transactional
     public void updateStatus(Long id, String status) {
         CoinPackage entity = requirePackage(id);
+        if (virtualProductCatalog.isProductionMode()
+                && CommonStatusEnum.ENABLED.getCode().equals(status)
+                && !CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
+            virtualProductCatalog.assertPayable("coin_" + id, CoinPackagePriceResolver.resolve(entity));
+        }
         entity.setStatus(status);
         coinPackageDao.updateById(entity);
         log.info("变更成家币套餐状态: id={}, status={}", id, status);
@@ -129,6 +150,10 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
         entity.setSortOrder(req.getSortOrder());
         entity.setStatus(req.getStatus());
         return entity;
+    }
+
+    private boolean isEnabled(String status) {
+        return StrUtil.isBlank(status) || CommonStatusEnum.ENABLED.getCode().equals(status);
     }
 
     private CoinPackageVO toVO(CoinPackage entity) {

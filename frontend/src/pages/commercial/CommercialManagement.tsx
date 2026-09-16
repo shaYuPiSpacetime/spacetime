@@ -175,6 +175,36 @@ const CONFIG_TABS: { key: ConfigTabKey; label: string }[] = [
   { key: 'exposure', label: '曝光包预留' },
 ];
 
+// 依据运营提供的微信道具配置截图登记；此处不是微信后台实时查询结果。
+const PUBLISHED_VIRTUAL_GOODS = {
+  coin_12: 428,
+  coin_11: 268,
+  coin_10: 99,
+  vip_10: 1000,
+  vip_7: 0.01,
+  vip_8: 1,
+} as const;
+
+function getPublishedVirtualGood(kind: 'vip' | 'coin', id?: number) {
+  if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0) return null;
+  const productId = `${kind}_${id}`;
+  const price = PUBLISHED_VIRTUAL_GOODS[productId as keyof typeof PUBLISHED_VIRTUAL_GOODS];
+  return price == null ? null : { productId, price };
+}
+
+function virtualGoodProductId(kind: 'vip' | 'coin', id?: number) {
+  return typeof id === 'number' && Number.isSafeInteger(id) && id > 0 ? `${kind}_${id}` : '保存后生成';
+}
+
+function canEnableVirtualGood(kind: 'vip' | 'coin', item: VipPackageConfig | CoinPackageConfig) {
+  const published = getPublishedVirtualGood(kind, item.id);
+  if (!published) return false;
+  const effectivePrice = kind === 'vip'
+    ? (item as VipPackageConfig).price
+    : ((item as CoinPackageConfig).discountAmount ?? (item as CoinPackageConfig).amount);
+  return Math.round(Number(effectivePrice) * 100) === Math.round(published.price * 100);
+}
+
 const ICON_GLYPHS: Record<string, string> = {
   'heart-list': '♥',
   'visitor-eye': '👁',
@@ -604,6 +634,13 @@ function ConfigWorkspace() {
   };
 
   const toggleConfigStatus = (key: 'vipBenefits' | 'vipPackages' | 'coinPackages' | 'coinScenes', index: number) => {
+    if (key === 'vipPackages' || key === 'coinPackages') {
+      const item = key === 'vipPackages' ? config?.vipPackages[index] : config?.coinPackages[index];
+      if (item?.status === 'DISABLED' && !canEnableVirtualGood(key === 'vipPackages' ? 'vip' : 'coin', item)) {
+        showToast('不能上架：请先在微信发布对应道具，并核对商品 ID 与有效支付价', 'error');
+        return;
+      }
+    }
     setConfig((current) => {
       if (!current) return current;
       const list = [...current[key]] as Array<{ status?: string }>;
@@ -700,6 +737,7 @@ function ConfigWorkspace() {
               {!data.vipPackages.length && <EmptyTableRow colSpan={10} />}
             </tbody>
           </TableWrap>
+          <Notice title="微信商品价格约束">已登记商品的有效支付价以运营提供的微信道具截图为准，此处不是实时微信查询。需要调价时，先在微信虚拟支付道具管理发布新价格，再更新本页商品目录和配置；未登记或价格不一致的套餐不能上架。</Notice>
           <Notice title="购买方式">所有会员套餐均为普通套餐，通过微信支付一次性购买；再次购买只延长会员有效期，不会自动扣费。</Notice>
         </ConfigPanel>
 
@@ -727,6 +765,7 @@ function ConfigWorkspace() {
               {!data.coinPackages.length && <EmptyTableRow colSpan={10} />}
             </tbody>
           </TableWrap>
+          <Notice title="微信商品价格约束">已登记商品的有效支付价以运营提供的微信道具截图为准，此处不是实时微信查询。需要调价时，先在微信虚拟支付道具管理发布新价格，再更新本页商品目录和配置；未登记或价格不一致的币包不能上架。</Notice>
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'scenePrices'} name="scenePrices">
@@ -1368,23 +1407,31 @@ function VipPackageModal({
   onClose: () => void;
   onSubmit: (value: VipPackageConfig) => void;
 }) {
-  const [form, setForm] = useState<VipPackageConfig>({ packageName: '', packageType: 'normal', price: 0, durationDays: 30, subscriptionType: 'once', status: 'ENABLED' });
+  const [form, setForm] = useState<VipPackageConfig>({ packageName: '', packageType: 'normal', price: 0, durationDays: 30, subscriptionType: 'once', status: 'DISABLED' });
   useEffect(() => {
-    if (open) setForm(initial || { packageName: '', packageType: 'normal', price: 0, durationDays: 30, subscriptionType: 'once', status: 'ENABLED' });
+    if (open) setForm(initial || { packageName: '', packageType: 'normal', price: 0, durationDays: 30, subscriptionType: 'once', status: 'DISABLED' });
   }, [initial, open]);
+  const published = getPublishedVirtualGood('vip', form.id);
+  const effectivePrice = published?.price ?? form.price;
   return (
     <Modal id="vipPackageEditModal" title="会员套餐新增/编辑" open={open} onClose={onClose}>
       <div className="form-stack">
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
         <label className="field">套餐类型<input value="普通套餐" readOnly /></label>
-        <label className="field">优惠价<input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} /></label>
+        <label className="field">微信商品 ID<input value={virtualGoodProductId('vip', form.id)} readOnly /></label>
+        <label className="field">微信线上价（截图配置）<input value={published ? money(published.price) : '未登记，需在微信发布后核对'} readOnly /></label>
+        <label className="field">有效支付价<input type="number" value={effectivePrice} readOnly={Boolean(published)} onChange={(event) => { if (!published) setForm({ ...form, price: Number(event.target.value) }); }} /></label>
         <label className="field">原价<input type="number" value={form.originPrice ?? ''} onChange={(event) => setForm({ ...form, originPrice: event.target.value ? Number(event.target.value) : undefined })} /></label>
         <label className="field">时长（天）<input type="number" value={form.durationDays} onChange={(event) => setForm({ ...form, durationDays: Number(event.target.value) })} /></label>
         <label className="field">购买方式<input value="一次性购买" readOnly /></label>
         <label className="field">标签<input value={form.packageTag || ''} onChange={(event) => setForm({ ...form, packageTag: event.target.value })} /></label>
       </div>
-      <Notice title="保存说明">确认套餐后还需填写变更原因；最终保存成功后，小程序价格才会更新。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || form.price <= 0} onClick={() => onSubmit(normalizeVipPackage(form))}>确认并继续保存</button></div>
+      {published ? (
+        <Notice title="微信商品价格">{form.price !== published.price ? `当前后台价 ${money(form.price)}；本次保存会对齐为 ${money(published.price)}。` : `已与截图中的 ${published.productId} 价格对齐。`}如需调价，先在微信发布新价格，再更新商品目录和本页配置；此处不实时读取微信后台。</Notice>
+      ) : (
+        <Notice title={form.id ? '未登记商品' : '先下架创建'}>{form.id ? '当前商品尚未列入已核对的微信道具目录；上架前需在微信虚拟支付道具管理发布并核对价格。' : '新增套餐默认下架。保存生成商品 ID 后，先在微信虚拟支付道具管理创建并发布对应道具，再更新商品目录和价格，最后上架。'}</Notice>
+      )}
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || effectivePrice <= 0} onClick={() => onSubmit(normalizeVipPackage({ ...form, price: effectivePrice, status: initial ? form.status : 'DISABLED' }))}>确认并继续保存</button></div>
     </Modal>
   );
 }
@@ -1400,28 +1447,37 @@ function CoinPackageModal({
   onClose: () => void;
   onSubmit: (value: CoinPackageConfig) => void;
 }) {
-  const [form, setForm] = useState<CoinPackageConfig>({ packageName: '', amount: 0, coinCount: 0, status: 'ENABLED' });
+  const [form, setForm] = useState<CoinPackageConfig>({ packageName: '', amount: 0, coinCount: 0, status: 'DISABLED' });
   useEffect(() => {
     if (!open) return;
-    const value = initial || { packageName: '', amount: 0, coinCount: 0, status: 'ENABLED' };
+    const value = initial || { packageName: '', amount: 0, coinCount: 0, status: 'DISABLED' };
     setForm({ ...value, discountAmount: value.discountAmount ?? value.amount });
   }, [initial, open]);
-  const effectivePrice = form.discountAmount ?? form.amount;
+  const published = getPublishedVirtualGood('coin', form.id);
+  const configuredPrice = form.discountAmount ?? form.amount;
+  const effectivePrice = published?.price ?? configuredPrice;
   return (
     <Modal id="coinPackageEditModal" title="千寻币套餐新增/编辑" open={open} onClose={onClose}>
       <div className="form-stack">
         <label className="field">套餐类型<select disabled><option>千寻币套餐</option></select></label>
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
+        <label className="field">微信商品 ID<input value={virtualGoodProductId('coin', form.id)} readOnly /></label>
+        <label className="field">微信线上价（截图配置）<input value={published ? money(published.price) : '未登记，需在微信发布后核对'} readOnly /></label>
         <label className="field">原价<input type="number" value={form.originAmount ?? ''} onChange={(event) => setForm({ ...form, originAmount: event.target.value ? Number(event.target.value) : undefined })} /></label>
-        <label className="field">优惠价<input type="number" value={effectivePrice} onChange={(event) => setForm({ ...form, amount: Number(event.target.value), discountAmount: Number(event.target.value) })} /></label>
+        <label className="field">有效支付价<input type="number" value={effectivePrice} readOnly={Boolean(published)} onChange={(event) => { if (!published) setForm({ ...form, amount: Number(event.target.value), discountAmount: Number(event.target.value) }); }} /></label>
         <label className="field">到账币数<input type="number" value={form.coinCount} onChange={(event) => setForm({ ...form, coinCount: Number(event.target.value) })} /></label>
         <label className="field">赠送币数<input type="number" value={form.bonusCoinCount ?? 0} onChange={(event) => setForm({ ...form, bonusCoinCount: Number(event.target.value) })} /></label>
         <label className="field">标签<input value={form.packageTag || ''} onChange={(event) => setForm({ ...form, packageTag: event.target.value })} /></label>
         <label className="field">移动端标签<input value={form.mobileTag || ''} onChange={(event) => setForm({ ...form, mobileTag: event.target.value })} /></label>
         <label className="field">是否推荐<select value={form.recommendFlag ? '1' : '0'} onChange={(event) => setForm({ ...form, recommendFlag: Number(event.target.value) })}><option value="1">推荐档</option><option value="0">普通档</option></select></label>
       </div>
-      <Notice title="保存说明">同一时间最多 1 个推荐档；确认套餐后还需填写变更原因，最终保存成功后小程序才会更新。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || effectivePrice <= 0 || form.coinCount <= 0} onClick={() => onSubmit({ ...form, amount: effectivePrice, discountAmount: effectivePrice })}>确认并继续保存</button></div>
+      {published ? (
+        <Notice title="微信商品价格">{configuredPrice !== published.price ? `当前后台价 ${money(configuredPrice)}；本次保存会对齐为 ${money(published.price)}。` : `已与截图中的 ${published.productId} 价格对齐。`}如需调价，先在微信发布新价格，再更新商品目录和本页配置；此处不实时读取微信后台。</Notice>
+      ) : (
+        <Notice title={form.id ? '未登记商品' : '先下架创建'}>{form.id ? '当前商品尚未列入已核对的微信道具目录；上架前需在微信虚拟支付道具管理发布并核对价格。' : '新增币包默认下架。保存生成商品 ID 后，先在微信虚拟支付道具管理创建并发布对应道具，再更新商品目录和价格，最后上架。'}</Notice>
+      )}
+      <Notice title="保存说明">同一时间最多 1 个推荐档；确认套餐后还需填写变更原因。</Notice>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || effectivePrice <= 0 || form.coinCount <= 0} onClick={() => onSubmit({ ...form, amount: effectivePrice, discountAmount: effectivePrice, status: initial ? form.status : 'DISABLED' })}>确认并继续保存</button></div>
     </Modal>
   );
 }

@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.*;
 import com.spacetime.common.config.WechatPayProperties;
+import com.spacetime.common.config.WechatVirtualPayProperties;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
@@ -11,6 +12,7 @@ import com.spacetime.miniapp.service.impl.AssetServiceImpl;
 import com.spacetime.miniapp.service.impl.PaymentServiceImpl;
 import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.common.service.AssetResultMessageNotificationService;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +48,7 @@ class PaymentServiceImplTest {
     @Mock private PromotionEventInboxService promotionEventInboxService;
     @Mock private AssetResultMessageNotificationService assetResultNotificationService;
     private final WechatPayProperties wechatPayProperties = new WechatPayProperties();
+    private final WechatVirtualPayProperties virtualPayProperties = new WechatVirtualPayProperties();
     private PaymentServiceImpl paymentService;
 
     private VipPackage vipPackage;
@@ -71,7 +74,8 @@ class PaymentServiceImplTest {
                 wechatMiniappClient,
                 wechatPayProperties,
                 promotionEventInboxService,
-                assetResultNotificationService
+                assetResultNotificationService,
+                new WechatVirtualProductCatalog(virtualPayProperties)
         );
         lenient().when(wechatVirtualPayService.isEnabled()).thenReturn(false);
         vipPackage = new VipPackage();
@@ -118,6 +122,26 @@ class PaymentServiceImplTest {
         payParams.setSignType("RSA");
         payParams.setPaySign("sign");
         payParams.setPrepayId("wx_pre_1");
+    }
+
+    @Test
+    @DisplayName("线上虚拟支付价格不一致时不创建待支付订单")
+    void createVirtualOrderRejectsUnpublishedPriceBeforeOrderInsert() {
+        virtualPayProperties.setEnabled(true);
+        virtualPayProperties.setEnv(0);
+        vipPackage.setId(7L);
+        vipPackage.setPrice(new BigDecimal("1.00"));
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(7L);
+        when(vipPackageDao.selectById(7L)).thenReturn(vipPackage);
+        when(wechatVirtualPayService.isEnabled()).thenReturn(true);
+
+        assertThatThrownBy(() -> paymentService.createOrder(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("vip_7")
+                .hasMessageContaining("0.01");
+        verifyNoInteractions(tradeOrderDao);
     }
 
     @Test
