@@ -551,8 +551,9 @@ function MembershipPaymentLayer({
       }}
     >
       {payState === 'paying' && (
-        <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}>
-          <Text style={{ color: LANHU_DARK, fontSize: '28rpx' }}>正在打开微信支付并确认会员状态...</Text>
+        <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
+          <Text style={{ color: LANHU_DARK, fontSize: '28rpx', lineHeight: '42rpx', textAlign: 'center' }}>正在打开微信支付并确认会员状态...</Text>
+          <View id="membership-paying-close" onClick={onClose} style={{ marginTop: '24rpx', minHeight: '64rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#2876FF', fontSize: '26rpx' }}>关闭等待提示</Text></View>
         </View>
       )}
       {payState === 'pay-failed' && (

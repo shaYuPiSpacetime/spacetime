@@ -145,13 +145,11 @@ export default function DualRangeSlider({
     activeThumbRef.current = null
   }
 
-  const clearActiveTouch = (event: any) => {
+  const clearActiveTouch = () => {
     if (disabled) return
     const pendingTouch = pendingTouchRef.current
-    const clientX = pointerClientX(event)
-    if (pendingTouch && Number.isFinite(clientX)) pendingTouch.clientX = clientX
     if (trackRectRef.current) {
-      if (Number.isFinite(clientX)) updateFromPointer(clientX)
+      // 松手事件的坐标可能被运行容器重置为组件中心，保留最后一次有效移动位置。
       pendingTouchRef.current = null
       activeThumbRef.current = null
       return

@@ -246,7 +246,7 @@ test('编辑资料与主页预览共用同一背景图内容、裁切和高度',
   assert.match(hero, /mode="aspectFill"/, '编辑资料与主页预览必须使用同一 aspectFill 裁切方式')
   assert.match(edit, /<ProfileHeroImage\s+src=\{heroImageUrl\}/, '编辑资料必须复用共享主图组件')
   assert.match(preview, /<ProfileHeroImage\s+src=\{model\.heroImageUrl/, '主页预览必须复用共享主图组件')
-  assert.match(edit, /const profileHeroImage = profileBackground \|\| editHeroPhoto/, '两种状态必须解析为同一背景图来源')
+  assert.match(edit, /const profileHeroImage = previewBackground \|\| editHeroPhoto/, '两种状态必须解析为同一审核生效背景图来源')
   assert.match(edit, /heroImageUrl:\s*profileHeroImage,/, '主页预览模型必须接收编辑资料当前显示的同一背景图')
   assert.match(edit, /heroImageUrl=\{profileHeroImage\}/, '编辑资料主图必须接收与主页预览一致的背景图')
 })
@@ -302,11 +302,11 @@ test('认证、标签和关于我按最新蓝湖稿展示正确入口与间距',
   )
 })
 
-test('编辑资料和主页预览在真实头像与空头像状态都使用同一来源', () => {
+test('编辑资料展示当前头像，主页预览仅展示审核生效头像', () => {
   const edit = read('src/pages/profile/edit.tsx')
 
   assert.match(edit, /profileAvatar=\{profileAvatar \|\| defaultAvatar\}/, '编辑资料圆头像必须使用统一兜底头像')
-  assert.match(edit, /avatarUrl:\s*profileAvatar \|\| defaultAvatar/, '主页预览模型必须复用编辑资料的同一兜底头像')
+  assert.match(edit, /avatarUrl:\s*previewAvatar \|\| defaultAvatar/, '主页预览模型必须复用审核生效头像的兜底')
 })
 
 test('编辑资料背景图与头像分别上传并独立回显', () => {
@@ -329,9 +329,35 @@ test('编辑资料背景图与头像分别上传并独立回显', () => {
 
   assert.match(edit, /dataRole="hero-main-photo"[\s\S]{0,120}onClick=\{onChangeBackground\}/, '主页背景点击必须只触发背景上传')
   assert.match(edit, /data-role="hero-mini-avatar"[\s\S]{0,180}onChangeAvatar\(\)/, '圆头像点击必须只触发头像上传')
-  assert.match(edit, /const profileHeroImage = profileBackground \|\| editHeroPhoto/, '初始化时两页主图必须解析同一背景来源')
+  assert.match(edit, /const profileHeroImage = previewBackground \|\| editHeroPhoto/, '两页主图必须解析同一审核生效背景来源')
   assert.match(edit, /heroImageUrl:\s*profileHeroImage,/, '主页预览背景必须读取当前统一主图')
   assert.doesNotMatch(edit, /heroImageUrl:\s*profileHeroImage[^\n]*profileAvatar/, '头像不得作为主页背景兜底，避免修改头像时连带修改背景')
+})
+
+test('点击实际圆头像只触发头像上传，不落到主图背景或六宫格', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+  const source = ts.createSourceFile('edit.tsx', edit, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  let avatarImage
+  const visit = node => {
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(source) === 'Image') {
+      const id = node.attributes.properties.find(attribute =>
+        ts.isJsxAttribute(attribute) && attribute.name.text === 'id'
+      )
+      if (id?.initializer?.getText(source) === '"profile-edit-avatar"') avatarImage = node
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+
+  assert.ok(avatarImage, '编辑资料页缺少可见的圆头像图片')
+  const frame = avatarImage.parent
+  assert.ok(ts.isJsxElement(frame) && frame.openingElement.tagName.getText(source) === 'View', '圆头像必须由独立容器包裹')
+  const click = frame.openingElement.attributes.properties.find(attribute =>
+    ts.isJsxAttribute(attribute) && attribute.name.text === 'onClick'
+  )
+  assert.ok(click, '真实圆头像容器必须直接绑定点击事件，不能只在遮罩上绑定')
+  assert.match(click.getText(source), /event\.stopPropagation\(\)/, '头像点击必须阻止冒泡到背景图')
+  assert.match(click.getText(source), /onChangeAvatar\(\)/, '头像点击必须调用头像上传，不能调用六宫格上传')
 })
 
 test('语音卡片与录音浮层按蓝湖完成态展示时限、短条、X 和管理入口', () => {

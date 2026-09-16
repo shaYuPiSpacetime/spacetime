@@ -303,6 +303,9 @@ function ScenePaymentLayer({ payState, onClose }: { payState: CoinPayState; onCl
     <View style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
         <Text style={{ color: LANHU_NAVY, fontSize: '28rpx', lineHeight: '40rpx', textAlign: 'center' }}>{payState === 'paying' ? '正在打开微信支付并确认到账...' : '支付未完成，请稍后重试'}</Text>
+        {payState === 'paying' ? (
+          <View id="scene-paying-close" onClick={onClose} style={{ marginTop: '24rpx', minHeight: '64rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: LANHU_BLUE, fontSize: '26rpx' }}>关闭等待提示</Text></View>
+        ) : null}
         {payState === 'pay-failed' ? (
           <View onClick={onClose} style={{ marginTop: '24rpx', padding: '12rpx 36rpx', borderRadius: '10rpx', background: LANHU_BLUE }}>
             <Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>知道了</Text>

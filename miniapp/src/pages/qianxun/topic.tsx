@@ -3,6 +3,7 @@ import Taro, { useDidHide, useDidShow, useLoad, useShareAppMessage } from '@taro
 import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
+import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -45,6 +46,7 @@ export default function QianxunTopicPage() {
   const [config, setConfig] = useState<CommunityConfig>()
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
   const [selectedOwnPost, setSelectedOwnPost] = useState<CommunityPostVO>()
+  const [selectedReportPost, setSelectedReportPost] = useState<CommunityPostVO>()
   const access = useAccessStatus('canCommunity')
   const topicIdRef = useRef<number>()
   const resumeRefreshRef = useRef(false)
@@ -158,13 +160,21 @@ export default function QianxunTopicPage() {
         await Taro.showToast({ title: resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
         return
       }
-      const reasonResult = await Taro.showActionSheet({ itemList: reasons.map(item => item.label) })
-      const reason = reasons[reasonResult.tapIndex]
-      if (!reason) return
-      const result = await reportCommunityPost(post.postNo || post.id, reason.code)
-      await Taro.showToast({ title: resolveCommunityFeedback(runtime, COMMUNITY_COPY_KEYS.reportSubmitted, result), icon: 'none' })
+      setSelectedReportPost(post)
     } catch (error) {
       if (!isActionSheetCancel(error)) await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error), icon: 'none' })
+    }
+  }
+
+  const submitReport = async (reasonCode: string) => {
+    if (!selectedReportPost) return
+    const post = selectedReportPost
+    setSelectedReportPost(undefined)
+    try {
+      const result = await reportCommunityPost(post.postNo || post.id, reasonCode)
+      await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.reportSubmitted, result), icon: 'none' })
+    } catch (error) {
+      await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.reportSubmitFailed, error), icon: 'none' })
     }
   }
 
@@ -190,6 +200,7 @@ export default function QianxunTopicPage() {
     </View>
     <View id="qianxun-topic-participate" onClick={() => topicId && void Taro.navigateTo({ url: `/pages/qianxun/compose?topicId=${topicId}&topicName=${encodeURIComponent(topicName)}` })} style={{ position: 'fixed', left: '50%', bottom: 'calc(30rpx + env(safe-area-inset-bottom))', width: '240rpx', height: '82rpx', borderRadius: '41rpx', background: topicId ? BLUE : '#C8D4E8', boxShadow: '0 12rpx 28rpx rgba(40,118,255,0.28)', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx', fontWeight: 600 }}>参与话题</Text></View>
     {selectedOwnPost ? <CommunityPostActionSheet post={selectedOwnPost} isSelf={selectedOwnPost.authorId === currentUserId} onClose={() => setSelectedOwnPost(undefined)} /> : null}
+    {selectedReportPost ? <CommunityReportReasonSheet reasons={config?.reportReasons || []} onClose={() => setSelectedReportPost(undefined)} onReport={reasonCode => void submitReport(reasonCode)} /> : null}
     {showUnverifiedModal ? <UnverifiedCertificationModal onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
       setShowUnverifiedModal(false)
       void navigateToPendingVerification()

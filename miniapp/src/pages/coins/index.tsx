@@ -1,4 +1,4 @@
-import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { Button, Image, ScrollView, Text, View } from '@tarojs/components'
 import { useState } from 'react'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -433,10 +433,13 @@ function CoinsPaymentLayer({
         zIndex: 60,
       }}
     >
-      <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}>
-        <Text style={{ color: LANHU_NAVY, fontSize: '28rpx' }}>
+      <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
+        <Text style={{ color: LANHU_NAVY, fontSize: '28rpx', lineHeight: '42rpx', textAlign: 'center' }}>
           {payState === 'paying' ? '正在打开微信支付并确认到账...' : failureMessage || '支付未完成，请稍后重试'}
         </Text>
+        {payState === 'paying' && (
+          <View id="coins-paying-close" onClick={onClose} style={{ marginTop: '24rpx', minHeight: '64rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: LANHU_BLUE, fontSize: '26rpx' }}>关闭等待提示</Text></View>
+        )}
         {payState !== 'paying' && (
           <View onClick={onClose} style={{ marginTop: '24rpx', padding: '12rpx 36rpx', borderRadius: '10rpx', background: LANHU_BLUE }}>
             <Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>知道了</Text>
@@ -518,10 +521,14 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
           {`${rechargeNotice.faqTitle}\n${rechargeNotice.items.join('\n')}`}
         </Text>
         <View style={{ display: 'flex', flexDirection: 'row', width: '530rpx', marginTop: '34rpx' }}>
-          <View
+          <Button
+            id="recharge-notice-contact"
+            openType="contact"
             style={{
               width: '253rpx',
               height: '68rpx',
+              padding: 0,
+              border: 'none',
               borderRadius: '8rpx',
               background: '#F9F9FA',
               marginRight: '24rpx',
@@ -529,10 +536,9 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
               alignItems: 'center',
               justifyContent: 'center',
             }}
-            onClick={onClose}
           >
             <Text style={{ color: '#333333', fontSize: '24rpx', fontWeight: 500, lineHeight: '33rpx' }}>{rechargeNotice.contactText}</Text>
-          </View>
+          </Button>
           <View
             style={{
               width: '253rpx',

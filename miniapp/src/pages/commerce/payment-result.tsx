@@ -1,9 +1,9 @@
 import { Button, Text, View } from '@tarojs/components'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
-import { getPaymentOrder, type PayResultVO } from '@/services/payment'
+import { confirmWechatPayment, getPaymentOrder, type PayResultVO } from '@/services/payment'
 
-type ResultState = 'success' | 'processing' | 'cancel' | 'failed' | 'closed' | 'error'
+type ResultState = 'success' | 'processing' | 'unpaid' | 'cancel' | 'failed' | 'closed' | 'error'
 
 const BLUE = '#2876FF'
 const TEXT = '#1F2937'
@@ -23,8 +23,19 @@ function statusLabel(state: ResultState) {
   if (state === 'cancel') return '支付已取消'
   if (state === 'closed') return '订单已关闭'
   if (state === 'failed') return '支付失败'
+  if (state === 'unpaid') return '待支付'
   if (state === 'error') return '订单查询失败'
   return '支付结果确认中'
+}
+
+function statusDescription(state: ResultState, error: string) {
+  if (state === 'success') return '资产已由服务端确认并入账'
+  if (state === 'cancel') return '本次支付已取消，您可以重新选择套餐'
+  if (state === 'closed') return '未支付订单已超过有效期，资产未发生变化'
+  if (state === 'failed') return '本次支付未完成。如微信账单显示已扣款，请先查询订单结果；否则可重新选择套餐'
+  if (state === 'unpaid') return '服务端显示待支付。如微信账单显示已扣款，请先查询订单结果；否则可重新选择套餐'
+  if (state === 'error') return error
+  return '正在从服务端确认订单状态，请稍候；请勿重复支付'
 }
 
 function stateFrom(order: PayResultVO, requested?: string): ResultState {
@@ -32,6 +43,8 @@ function stateFrom(order: PayResultVO, requested?: string): ResultState {
   if (order.orderStatus === 'closed') return 'closed'
   if (requested === 'cancel') return 'cancel'
   if (requested === 'failed') return 'failed'
+  // 客户端收到支付成功但服务端仍在确认时，不提示重新下单，避免重复扣款。
+  if (requested !== 'processing' && requested !== 'success' && order.orderStatus === 'unpaid') return 'unpaid'
   return 'processing'
 }
 
@@ -53,13 +66,23 @@ export default function PaymentResultPage() {
     setLoading(true)
     setError('')
     try {
-      setOrder(await getPaymentOrder(orderId))
+      const snapshot = await getPaymentOrder(orderId)
+      if (snapshot.orderStatus === 'unpaid' && requestedResult === 'processing') {
+        try {
+          setOrder(await confirmWechatPayment(orderId))
+        } catch {
+          // 微信查单暂时失败时仍保留本地状态，用户可稍后再次查询。
+          setOrder(snapshot)
+        }
+      } else {
+        setOrder(snapshot)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '订单查询失败，请重试')
     } finally {
       setLoading(false)
     }
-  }, [orderId])
+  }, [orderId, requestedResult])
 
   useEffect(() => {
     load()
@@ -99,7 +122,7 @@ export default function PaymentResultPage() {
         </View>
         <Text style={{ display: 'block', fontSize: '40rpx', fontWeight: 700 }}>{loading ? '正在查询支付结果' : statusLabel(state)}</Text>
         <Text style={{ display: 'block', marginTop: '16rpx', color: MUTED, fontSize: '26rpx' }}>
-          {state === 'success' ? '资产已由服务端确认并入账' : state === 'cancel' ? '订单未支付，会员和千寻币余额不会变化' : state === 'closed' ? '未支付订单已超过有效期，资产未发生变化' : state === 'error' ? error : '正在从服务端确认订单状态，请稍候'}
+          {statusDescription(state, error)}
         </Text>
       </View>
 
@@ -112,17 +135,18 @@ export default function PaymentResultPage() {
           <InfoRow label="创建时间" value={displayDate(order.createTime)} />
           {state === 'success' && order.orderType === 'coin' && <InfoRow label="本次到账" value={`${order.coinAmount || 0} 千寻币`} emphasize />}
           {state === 'success' && order.orderType === 'vip' && <InfoRow label="会员有效期至" value={displayDate(order.vipExpireTime)} emphasize />}
-          {state === 'processing' && <InfoRow label="当前状态" value="待支付或确认中" />}
+          {state === 'processing' && <InfoRow label="当前状态" value="微信支付结果确认中" />}
+          {state === 'unpaid' && <InfoRow label="当前状态" value="待支付" />}
         </View>
       )}
 
-      {error && (
-        <Button onClick={load} style={{ marginTop: '24rpx', background: '#FFFFFF', color: BLUE, border: '1px solid #D6E3FF', borderRadius: '16rpx' }}>重新查询</Button>
+      {(state === 'processing' || state === 'unpaid' || state === 'error') && (
+        <Button onClick={load} disabled={loading} style={{ marginTop: '24rpx', background: '#FFFFFF', color: BLUE, border: '1px solid #D6E3FF', borderRadius: '16rpx' }}>重新查询支付结果</Button>
       )}
 
       <View style={{ display: 'flex', gap: '20rpx', marginTop: '32rpx' }}>
         <Button onClick={openRecords} style={{ flex: 1, background: '#FFFFFF', color: BLUE, border: '1px solid #D6E3FF', borderRadius: '16rpx' }}>查看记录</Button>
-        <Button onClick={state === 'failed' || state === 'closed' ? goPurchase : backToSource} style={{ flex: 1, background: BLUE, color: '#FFFFFF', borderRadius: '16rpx' }}>{state === 'failed' || state === 'closed' ? '重新选择套餐' : '返回来源页'}</Button>
+        <Button onClick={state === 'unpaid' || state === 'failed' || state === 'closed' || state === 'cancel' ? goPurchase : backToSource} style={{ flex: 1, background: BLUE, color: '#FFFFFF', borderRadius: '16rpx' }}>{state === 'unpaid' ? '重新选择套餐' : state === 'failed' || state === 'closed' || state === 'cancel' ? '重新选择套餐' : '返回来源页'}</Button>
       </View>
     </View>
   )

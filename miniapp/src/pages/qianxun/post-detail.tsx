@@ -3,6 +3,7 @@ import Taro, { useLoad, useShareAppMessage } from '@tarojs/taro'
 import { useMemo, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
+import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
 import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
@@ -70,6 +71,7 @@ export default function QianxunPostDetailPage() {
   const [sendingComment, setSendingComment] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const [selectedComment, setSelectedComment] = useState<CommunityCommentVO>()
+  const [pendingReport, setPendingReport] = useState<{ type: 'post' | 'comment'; id: number | string }>()
   const [commentSort, setCommentSort] = useState<CommunityCommentSort>('latest')
   const [config, setConfig] = useState<CommunityConfig>()
   const [showWhisper, setShowWhisper] = useState(false)
@@ -194,7 +196,7 @@ export default function QianxunPostDetailPage() {
     }
   }
 
-  const reportTarget = async (targetType: 'post' | 'comment', targetId: number | string) => {
+  const openReportReasons = async (targetType: 'post' | 'comment', targetId: number | string) => {
     try {
       const runtime = config || await getCommunityMeta()
       setConfig(runtime)
@@ -203,24 +205,32 @@ export default function QianxunPostDetailPage() {
         await Taro.showToast({ title: resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
         return
       }
-      const result = await Taro.showActionSheet({ itemList: reasons.map(item => item.label) })
-      const reason = reasons[result.tapIndex]
-      if (!reason) return
-      const reportResult = await reportCommunityTarget(targetType, targetId, reason.code)
       setShowActions(false)
       setSelectedComment(undefined)
-      await Taro.showToast({ title: resolveCommunityFeedback(runtime, COMMUNITY_COPY_KEYS.reportSubmitted, reportResult), icon: 'none' })
+      setPendingReport({ type: targetType, id: targetId })
     } catch (error) {
-      if (!String((error as { errMsg?: string })?.errMsg || error).includes('cancel')) await showError(config, error)
+      await showError(config, error)
+    }
+  }
+
+  const submitReport = async (reasonCode: string) => {
+    if (!pendingReport) return
+    const target = pendingReport
+    setPendingReport(undefined)
+    try {
+      const result = await reportCommunityTarget(target.type, target.id, reasonCode)
+      await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.reportSubmitted, result), icon: 'none' })
+    } catch (error) {
+      await Taro.showToast({ title: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.reportSubmitFailed, error), icon: 'none' })
     }
   }
 
   const reportPost = async () => {
-    if (post) await reportTarget('post', post.postNo || post.id)
+    if (post) await openReportReasons('post', post.postNo || post.id)
   }
 
   const reportComment = async (target: CommunityCommentVO) => {
-    await reportTarget('comment', target.commentNo || target.id)
+    await openReportReasons('comment', target.commentNo || target.id)
   }
 
   const likeComment = async (target: CommunityCommentVO) => {
@@ -387,6 +397,7 @@ export default function QianxunPostDetailPage() {
       </View>
       {showActions && post ? <CommunityPostActionSheet post={post} isSelf={post.authorId === currentUserId} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
       {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: resolveCommentThreadRootId(comments, selectedComment.id), userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
+      {pendingReport ? <CommunityReportReasonSheet reasons={config?.reportReasons || []} onClose={() => setPendingReport(undefined)} onReport={reasonCode => void submitReport(reasonCode)} /> : null}
       {showWhisper && post ? (
         <CommunityWhisperSheet
           id="qianxun-whisper-compose-sheet"

@@ -1077,12 +1077,6 @@ function ProfileHeroCard({
         onClick={onChangeBackground}
       >
         <View
-          data-role="hero-mini-avatar"
-          aria-label="更换头像"
-          onClick={event => {
-            event.stopPropagation()
-            onChangeAvatar()
-          }}
           style={{
             position: 'absolute',
             left: '0',
@@ -1094,6 +1088,12 @@ function ProfileHeroCard({
           }}
         />
         <View
+          data-role="hero-mini-avatar"
+          aria-label="更换头像"
+          onClick={event => {
+            event.stopPropagation()
+            onChangeAvatar()
+          }}
           style={{
             position: 'absolute',
             left: '30rpx',
