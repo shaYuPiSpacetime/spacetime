@@ -31,14 +31,15 @@ for (const expected of [
   '社区互动',
   '安全沟通',
   '上海兴家立业网络科技',
-  '备案信息将在审核通过后展示',
+  '沪ICP备2026033427号-1',
+  'href="https://beian.miit.gov.cn/"',
   'aria-expanded="false"',
   'aria-controls="primary-navigation"',
 ]) {
   assert.ok(html.includes(expected), `官网缺少关键内容：${expected}`);
 }
 
-assert.doesNotMatch(html, /[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼]ICP备\d+/u, '不得编造 ICP 备案号');
+assert.doesNotMatch(html, /备案信息将在审核通过后展示/u, '已取得备案号后不得继续展示占位文案');
 for (const imageTag of html.match(/<img\b[^>]*>/giu) || []) {
   assert.match(imageTag, /\balt=(?:"[^"]*"|'[^']*')/iu, `图片必须提供 alt 文本：${imageTag}`);
 }
