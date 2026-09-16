@@ -1202,6 +1202,24 @@
   font-weight: 500;
   line-height: 18.5px;
 }
+.channel-contact-button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+.channel-contact-button::after {
+  border: 0;
+}
+.channel-footer-contact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .channel-footer {
   position: fixed;
   left: 0;

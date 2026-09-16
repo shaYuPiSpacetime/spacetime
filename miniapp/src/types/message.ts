@@ -126,7 +126,7 @@ export interface OfficialChannelMessage {
   title: string
   content: string
   actionText?: string
-  actionType?: 'customer_service' | 'community_rules' | 'navigate'
+  actionType?: 'wechat_service' | 'community_rules' | 'navigate'
   actionUrl?: string
   sentAt: string
   dateText: string

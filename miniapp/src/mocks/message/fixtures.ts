@@ -239,7 +239,7 @@ const assistantMessages: OfficialChannelMessage[] = [
     title: '欢迎来到时空邂逅',
     content: '在这里认真展示自己，真诚地认识同频的人。遇到问题可以随时联系我们。',
     actionText: '联系客服',
-    actionType: 'customer_service',
+    actionType: 'wechat_service',
     sentAt: '2026-07-14T09:00:00+08:00',
     dateText: '今天 09:00',
     read: false,

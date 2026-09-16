@@ -1,4 +1,4 @@
-import { ScrollView, Text, View } from '@tarojs/components'
+import { Button, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { isSafeSystemJump } from '@/domain/messageRuntime'
@@ -109,10 +109,6 @@ export default function MessageChannelPage() {
     const actionType = item.channel === 'assistant' ? item.value.actionType : item.value.jumpType
     const actionValue = item.channel === 'assistant' ? item.value.actionValue : item.value.jumpValue
     if (!actionType || actionType === 'none') return
-    if (actionType === 'customer_service') {
-      await Taro.showModal({ title: '联系客服', content: '客服工作时间：每日 09:00-21:00', showCancel: false })
-      return
-    }
     if (actionType === 'community_rules') {
       await Taro.showModal({ title: '社区规则', content: '请真诚、友善、安全地交流，共同维护社区环境。', showCancel: false })
       return
@@ -138,7 +134,13 @@ export default function MessageChannelPage() {
                 <ChannelCard type={channel}>
                   <Text className="channel-card-title">{item.value.title}</Text>
                   <Text className="channel-card-body channel-card-body--spaced">{item.value.content}</Text>
-                  {actionType && actionType !== 'none' ? <View className="channel-card-action" onClick={() => void openAction(item)}><Text>查看</Text><Text>〉</Text></View> : null}
+                  {actionType === 'wechat_service' ? (
+                    <Button className="channel-card-action channel-contact-button" openType="contact">
+                      <Text>查看</Text><Text>〉</Text>
+                    </Button>
+                  ) : actionType && actionType !== 'none' ? (
+                    <View className="channel-card-action" onClick={() => void openAction(item)}><Text>查看</Text><Text>〉</Text></View>
+                  ) : null}
                 </ChannelCard>
               </View>
             )
@@ -149,7 +151,7 @@ export default function MessageChannelPage() {
         </View>
       </ScrollView>
       <View className="channel-footer">
-        <View onClick={() => void Taro.showModal({ title: '联系客服', content: '客服工作时间：每日 09:00-21:00', showCancel: false })}><Text>联系客服</Text></View>
+        <Button className="channel-contact-button channel-footer-contact" openType="contact"><Text>联系客服</Text></Button>
         <View className="channel-footer-divider" />
         <View onClick={() => void Taro.showModal({ title: '社区规则', content: '请真诚、友善、安全地交流，共同维护社区环境。', showCancel: false })}><Text>社区规则</Text></View>
       </View>
