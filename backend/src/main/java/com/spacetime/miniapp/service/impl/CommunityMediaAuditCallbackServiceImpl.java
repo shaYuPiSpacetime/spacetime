@@ -67,6 +67,12 @@ public class CommunityMediaAuditCallbackServiceImpl implements CommunityMediaAud
         return echoString;
     }
 
+    /** 供同一微信推送入口在分流前复用现有签名校验规则。 */
+    @Override
+    public void validateSignature(String signature, String timestamp, String nonce) {
+        verifySignature(signature, timestamp, nonce);
+    }
+
     @Override
     @Transactional
     public void handleRaw(String signature, String timestamp, String nonce, String contentType, String payload) {
