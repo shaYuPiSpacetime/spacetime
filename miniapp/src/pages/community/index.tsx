@@ -59,6 +59,12 @@ function resolveState(records: unknown[]): LoadState {
   return records.length ? 'ready' : 'empty'
 }
 
+function isInsufficientCoinBalance(error: unknown): boolean {
+  return getApiErrorCode(error) === 5001
+    && error instanceof Error
+    && error.message.includes('千寻币余额不足')
+}
+
 export default function CommunityPage() {
   const router = useRouter()
   const currentUserId = useAuthStore(state => state.userId)
@@ -309,7 +315,7 @@ export default function CommunityPage() {
       )
       setUnlockStage('quote')
     } catch (error) {
-      if (getApiErrorCode(error) === 5001) {
+      if (isInsufficientCoinBalance(error)) {
         goToRecharge()
         return
       }
@@ -334,9 +340,14 @@ export default function CommunityPage() {
       await refreshActiveList()
       setUnlockStage('success')
     } catch (error) {
-      if (getApiErrorCode(error) === 5001) {
+      if (isInsufficientCoinBalance(error)) {
         goToRecharge()
         return
+      }
+      if (error instanceof Error && (error.message.includes('报价已过期') || error.message.includes('价格已变化'))) {
+        setUnlockQuote(null)
+        unlockAttemptRef.current = undefined
+        setUnlockStage('confirm')
       }
       await Taro.showToast({ title: error instanceof Error ? error.message : '解锁失败，请重试', icon: 'none' })
     } finally {
@@ -538,7 +549,7 @@ function LikesPanel({ page, records, state, error, loadingMore, onCard, onRetry,
   const earlier = records.filter(item => item.groupKey !== 'new')
   return (
     <View id="relation-likes-panel" style={{ width: '700rpx', margin: '0 auto' }}>
-      <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 500 }}>{page?.newCount || 0} 个新喜欢</Text>
+      {(page?.newCount || 0) > 0 ? <Text style={{ color: '#0C285A', fontSize: '28rpx', fontWeight: 500 }}>{page?.newCount} 个新喜欢</Text> : null}
       {previewAvatars.length ? (
         <View style={{ width: '670rpx', minHeight: '134rpx', marginTop: '10rpx', display: 'flex', flexDirection: 'row' }}>
           {previewAvatars.slice(0, 5).map(item => (
@@ -665,7 +676,10 @@ function UnlockSheet({ stage, card, quote, result, submitting, sourceScene, onCl
         </View>
         {quoteReady ? <Text style={{ display: 'block', margin: '8rpx 30rpx 0', color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', textAlign: 'right' }}>余额 {quote?.coinBalance ?? 0} 千寻币</Text> : null}
         {success ? (
-          <View onClick={() => card?.userId && Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${card.userId}&sourceScene=${sourceScene}` })} style={{ height: '98rpx', margin: '18rpx 28rpx 28rpx', borderRadius: '49rpx', background: '#FFF0F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#F06C83', fontSize: '28rpx' }}>查看主页</Text></View>
+          <View onClick={() => {
+            const targetUserId = result?.targetUserId || quote?.targetUserId || card?.userId
+            if (targetUserId) void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${targetUserId}&sourceScene=${sourceScene}` })
+          }} style={{ height: '98rpx', margin: '18rpx 28rpx 28rpx', borderRadius: '49rpx', background: '#FFF0F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#F06C83', fontSize: '28rpx' }}>查看主页</Text></View>
         ) : (
           <View style={{ margin: `${quoteReady ? 8 : 18}rpx 28rpx 28rpx`, display: 'flex', gap: '20rpx' }}>
             <View id="unlock-one-button" onClick={submitting ? undefined : (quoteReady ? onConfirm : onQuote)} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: submitting ? 0.6 : 1 }}><Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '处理中...' : quoteReady ? `确认解锁 ${quote?.unitPrice ?? 0} 千寻币` : '只看ta'}</Text></View>

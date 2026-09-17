@@ -3,6 +3,7 @@ import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
+import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -27,6 +28,7 @@ import {
 } from '@/services/community'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { useAuthStore } from '@/stores/authStore'
+import { findConversationByPeerUserId } from '@/services/message'
 import { QIANXUN_BLUE } from './QianxunHeader'
 
 type ZhiyinTab = 'YUEMU' | 'SINCERE'
@@ -47,6 +49,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   const [config, setConfig] = useState<CommunityConfig>()
   const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
   const [sheet, setSheet] = useState<Sheet>(null)
+  const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const resumedRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
@@ -172,23 +175,31 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
     }
   }
 
-  const openContact = (post: CommunityPostVO) => {
+  const openContact = async (post: CommunityPostVO) => {
     if (!requireInteraction()) return
+    if (post.authorId === currentUserId) return
+    if (post.contactAction === 'PRIVATE_MESSAGE') {
+      const conversation = await findConversationByPeerUserId(post.authorId)
+      if (!conversation) {
+        await Taro.showToast({ title: '私信会话暂不可用，请刷新后重试', icon: 'none' })
+        return
+      }
+      await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}` })
+      return
+    }
     const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
     if (!targetUserNo || !post.postNo) {
       void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
       return
     }
-    const query = [
-      `receiverUserNo=${encodeURIComponent(targetUserNo)}`,
-      `sourceScene=community_post`,
-      `sourceBizNo=${encodeURIComponent(post.postNo)}`,
-      `nickname=${encodeURIComponent(post.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser))}`,
-      `avatar=${encodeURIComponent(post.authorAvatar || '')}`,
-      `meta=${encodeURIComponent(formatPostAuthorMeta(post, optionLabel))}`,
-      'compose=1',
-    ].join('&')
-    void Taro.navigateTo({ url: `/pages/message/whisper-detail?${query}` })
+    setWhisperTarget({
+      targetUserNo,
+      sourceScene: 'community_post',
+      sourceBizNo: post.postNo,
+      nickname: post.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser),
+      avatar: post.authorAvatar || undefined,
+      meta: formatPostAuthorMeta(post, optionLabel),
+    })
   }
 
   return (
@@ -263,6 +274,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
           description="完成认证即可互动；时空站台仅工作人员可发布"
         />
       ) : null}
+      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
     </>
   )
 }

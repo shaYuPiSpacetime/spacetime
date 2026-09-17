@@ -24,6 +24,7 @@ export interface RecommendPreferenceVO {
   version: number
   targetCities: RecommendCityVO[]
   allowNeighborCity: boolean
+  onlyCertifiedUsers: boolean
   neighborCityAvailable: boolean
   neighborCityDisabledReason?: string | null
   minAge: number
@@ -38,6 +39,7 @@ export interface RecommendPreferenceSaveReq extends Record<string, unknown> {
   version: number
   targetCityCodes: string[]
   allowNeighborCity: boolean
+  onlyCertifiedUsers: boolean
   minAge: number
   maxAge: number
   minHeight?: number

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
+import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
@@ -53,6 +54,7 @@ export default function HeartUserPage() {
   const [communityConfig, setCommunityConfig] = useState<CommunityConfig>()
   const [showReportReasons, setShowReportReasons] = useState(false)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
+  const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const access = useAccessStatus('canMatch')
   const eventNo = useMemo(() => createEventNo(targetUserId || 0, sourceScene), [targetUserId, sourceScene])
   const visitReported = useRef(false)
@@ -143,15 +145,13 @@ export default function HeartUserPage() {
   const openConversation = async () => {
     if (!profile) return
     if (profile.communicationMode === 'WHISPER') {
-      const whisperSourceScene = resolveWhisperRouteSourceScene(sourceScene)
-      const query = [
-        `receiverUserNo=${profile.userNo}`,
-        `sourceScene=${whisperSourceScene}`,
-        `nickname=${encodeURIComponent(profile.nickname || '用户')}`,
-        `avatar=${encodeURIComponent(profile.avatar || '')}`,
-        'compose=1',
-      ].join('&')
-      await Taro.navigateTo({ url: `/pages/message/whisper-detail?${query}` })
+      setWhisperTarget({
+        targetUserNo: profile.userNo,
+        sourceScene: resolveWhisperRouteSourceScene(sourceScene),
+        nickname: profile.nickname || '用户',
+        avatar: profile.avatar || undefined,
+        meta: [profile.currentCity, profile.age ? `${profile.age}岁` : ''].filter(Boolean).join(' · '),
+      })
       return
     }
     const conversation = await findConversationByPeerUserId(profile.userId)
@@ -274,6 +274,7 @@ export default function HeartUserPage() {
         />
       ) : null}
       {showReportReasons ? <CommunityReportReasonSheet reasons={communityConfig?.reportReasons || []} onClose={() => setShowReportReasons(false)} onReport={reasonCode => void submitUserReport(reasonCode)} /> : null}
+      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
     </View>
   )
 }

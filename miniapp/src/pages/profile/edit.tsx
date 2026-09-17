@@ -202,6 +202,7 @@ function resolveVoiceSheetVariant(value?: string): VoiceSheetVariant | null {
 
 export default function ProfileEditPage() {
   const router = useRouter()
+  const initialProfileScore = Number(router.params.profileScore)
   const [showPreview, setShowPreview] = useState(router.params.variant === 'preview')
   const bootstrap = usePrd01Store(state => state.bootstrap)
   const config = usePrd01Store(state => state.config)
@@ -212,7 +213,9 @@ export default function ProfileEditPage() {
   const [previewBackground, setPreviewBackground] = useState('')
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
   const [nickname, setNickname] = useState('')
-  const [profileScore, setProfileScore] = useState(0)
+  const [profileScore, setProfileScore] = useState(
+    Number.isFinite(initialProfileScore) ? Math.max(0, Math.min(100, initialProfileScore)) : 0,
+  )
   const [basic, setBasic] = useState<BasicProfile>({})
   const [regionTree, setRegionTree] = useState<RegionTreeOption[]>([])
   const [fieldSettings, setFieldSettings] = useState<ProfileFieldSetting[]>([])

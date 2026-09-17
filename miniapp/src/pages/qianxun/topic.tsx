@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
+import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -13,6 +14,7 @@ import { navigateToPendingVerification } from '@/features/verification/navigateT
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
+import { findConversationByPeerUserId } from '@/services/message'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
@@ -45,6 +47,7 @@ export default function QianxunTopicPage() {
   const [loadError, setLoadError] = useState('')
   const [config, setConfig] = useState<CommunityConfig>()
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
+  const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const [selectedOwnPost, setSelectedOwnPost] = useState<CommunityPostVO>()
   const [selectedReportPost, setSelectedReportPost] = useState<CommunityPostVO>()
   const access = useAccessStatus('canCommunity')
@@ -119,6 +122,36 @@ export default function QianxunTopicPage() {
     }
   }
 
+  const openPostContact = async (post: CommunityPostVO) => {
+    if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
+      setShowUnverifiedModal(true)
+      return
+    }
+    if (post.authorId === currentUserId) return
+    if (post.contactAction === 'PRIVATE_MESSAGE') {
+      const conversation = await findConversationByPeerUserId(post.authorId)
+      if (!conversation) {
+        await Taro.showToast({ title: '私信会话暂不可用，请刷新后重试', icon: 'none' })
+        return
+      }
+      await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}` })
+      return
+    }
+    const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
+    if (!targetUserNo || !post.postNo) {
+      await Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
+      return
+    }
+    setWhisperTarget({
+      targetUserNo,
+      sourceScene: 'community_post',
+      sourceBizNo: post.postNo,
+      nickname: post.authorName || '用户',
+      avatar: post.authorAvatar || undefined,
+      meta: postAuthorMeta(post, optionLabel),
+    })
+  }
+
   const openPostActions = async (post: CommunityPostVO) => {
     if (post.authorId === currentUserId) {
       setSelectedOwnPost(post)
@@ -188,13 +221,7 @@ export default function QianxunTopicPage() {
       </View>
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
         <View style={{ padding: '18rpx 25rpx calc(160rpx + env(safe-area-inset-bottom))' }}>
-          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} currentUserId={currentUserId} optionLabel={optionLabel} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => {
-            if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
-              setShowUnverifiedModal(true)
-              return false
-            }
-            return true
-          }} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
+          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} currentUserId={currentUserId} optionLabel={optionLabel} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => void openPostContact(post)} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
         </View>
       </ScrollView>
     </View>
@@ -205,6 +232,7 @@ export default function QianxunTopicPage() {
       setShowUnverifiedModal(false)
       void navigateToPendingVerification()
     }} /> : null}
+    {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
   </View>
 }
 
@@ -225,7 +253,7 @@ function SortTab({ label, selected, onClick }: { label: string; selected: boolea
   return <View onClick={onClick} style={{ position: 'relative', height: '82rpx', minWidth: '76rpx', marginRight: '26rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? NAVY : '#9DA3AE', fontSize: '26rpx', fontWeight: selected ? 600 : 400 }}>{label}</Text>{selected ? <View style={{ position: 'absolute', left: '50%', bottom: '3rpx', width: '44rpx', height: '5rpx', borderRadius: '3rpx', background: BLUE, transform: 'translateX(-50%)' }} /> : null}</View>
 }
 
-function TopicPostCard({ post, currentUserId, optionLabel, onLike, onMore, onContact }: { post: CommunityPostVO; currentUserId: number | null; optionLabel: (type: string, code: string) => string; onLike: () => void; onMore: () => void; onContact: () => boolean }) {
+function TopicPostCard({ post, currentUserId, optionLabel, onLike, onMore, onContact }: { post: CommunityPostVO; currentUserId: number | null; optionLabel: (type: string, code: string) => string; onLike: () => void; onMore: () => void; onContact: () => void }) {
   const openPost = () => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })
   const openAuthor = (event: { stopPropagation: () => void }) => {
     event.stopPropagation()
@@ -233,10 +261,7 @@ function TopicPostCard({ post, currentUserId, optionLabel, onLike, onMore, onCon
   }
   const openContact = (event: { stopPropagation: () => void }) => {
     event.stopPropagation()
-    if (!onContact()) return
-    const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
-    if (!targetUserNo || !post.postNo) return void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
-    void Taro.navigateTo({ url: `/pages/message/whisper-detail?receiverUserNo=${encodeURIComponent(targetUserNo)}&sourceScene=community_post&sourceBizNo=${encodeURIComponent(post.postNo)}&nickname=${encodeURIComponent(post.authorName || '用户')}&avatar=${encodeURIComponent(post.authorAvatar || '')}&compose=1` })
+    onContact()
   }
   return <View onClick={openPost} style={{ width: '700rpx', borderRadius: '14rpx', background: '#FFFFFF', marginBottom: '18rpx', padding: '24rpx 24rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
     <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={openAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '68rpx', height: '68rpx', borderRadius: '34rpx', background: '#EFF3F7' }} /><View onClick={openAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '14rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#303B4A', fontSize: '24rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: '#7F8EA4', fontSize: '20rpx', marginTop: '5rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{postAuthorMeta(post, optionLabel) || relativeTime(post.createTime)}</Text></View><View id={`qianxun-topic-post-more-${post.id}`} onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx', lineHeight: '44rpx' }}>⋮</Text></View></View>

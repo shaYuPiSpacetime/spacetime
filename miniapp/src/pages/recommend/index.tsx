@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
+import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { omitSeenRecommendCandidates } from '@/domain/recommendCandidateQueue'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
@@ -47,6 +48,7 @@ export default function RecommendPage() {
   const [showIpDialog, setShowIpDialog] = useState(false)
   const [showCertification, setShowCertification] = useState(false)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
+  const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const viewedCandidates = useRef(new Set<string>())
   const idealTabSubmitting = useRef(false)
   const initialIdealTabHandled = useRef(false)
@@ -348,8 +350,12 @@ export default function RecommendPage() {
       })
       return
     }
-    await Taro.navigateTo({
-      url: `/pages/message/whisper-detail?receiverUserNo=${profile.userNo}&sourceScene=recommendation&nickname=${encodeURIComponent(profile.nickname || '用户')}&avatar=${encodeURIComponent(profile.avatar || '')}&compose=1`,
+    setWhisperTarget({
+      targetUserNo: profile.userNo,
+      sourceScene: 'recommendation',
+      nickname: profile.nickname || '用户',
+      avatar: profile.avatar || undefined,
+      meta: [profile.currentCity, profile.age ? `${profile.age}岁` : ''].filter(Boolean).join(' · '),
     })
   }
 
@@ -442,6 +448,7 @@ export default function RecommendPage() {
           }}
         />
       ) : null}
+      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
     </View>
   )
 }

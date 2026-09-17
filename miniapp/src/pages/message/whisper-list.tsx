@@ -3,6 +3,7 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
+import { miniappOssIcons } from '@/constants/ossIcons'
 import type {
   MessageWhisperItem,
   MessageWhisperPage,
@@ -56,6 +57,7 @@ export default function WhisperListPage() {
   )
   const [sections, setSections] = useState<Record<WhisperBucket, WhisperSectionState>>(emptySections)
   const [swipedNo, setSwipedNo] = useState('')
+  const [loaded, setLoaded] = useState(false)
   const acknowledgedNos = useRef(new Set<string>())
   const loadingKeys = useRef(new Set<string>())
   const touchStartX = useRef(0)
@@ -126,6 +128,7 @@ export default function WhisperListPage() {
       }))
     } finally {
       loadingKeys.current.delete(key)
+      if (directionRef.current === requestedDirection) setLoaded(true)
     }
   }
 
@@ -144,6 +147,7 @@ export default function WhisperListPage() {
     directionRef.current = direction
     acknowledgedNos.current.clear()
     setSwipedNo('')
+    setLoaded(false)
     setSections(emptySections())
     refresh(direction)
   }, [direction, isMockScene])
@@ -217,6 +221,14 @@ export default function WhisperListPage() {
       void loadSection(direction, bucket, true, section.cursor)
     }
   }
+
+  const showEmptyState = loaded
+    && !sections.pending.loading
+    && !sections.processed.loading
+    && !sections.pending.errorMessage
+    && !sections.processed.errorMessage
+    && sections.pending.list.length === 0
+    && (direction === 'sent' || sections.processed.list.length === 0)
 
   const renderSection = (bucket: WhisperBucket, title: string, first = false) => {
     const section = sections[bucket]
@@ -298,8 +310,17 @@ export default function WhisperListPage() {
           if (direction === 'received') loadMore('processed')
         }}
       >
-        {renderSection('pending', direction === 'received' ? '待回复' : '等待回复', true)}
-        {direction === 'received' ? renderSection('processed', '已处理') : null}
+        {showEmptyState ? (
+          <View id="whisper-list-empty" style={{ minHeight: '720rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '300rpx', height: '250rpx' }} />
+            <Text style={{ color: '#999999', fontSize: '28rpx', marginTop: '24rpx' }}>暂无数据</Text>
+          </View>
+        ) : (
+          <>
+            {renderSection('pending', direction === 'received' ? '待回复' : '等待回复', true)}
+            {direction === 'received' ? renderSection('processed', '已处理') : null}
+          </>
+        )}
       </ScrollView>
     </View>
   )

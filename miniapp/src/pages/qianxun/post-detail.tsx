@@ -4,14 +4,11 @@ import { useMemo, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
-import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
+import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import {
-  resolveStableWhisperTargetUserNo,
-  resolveWhisperErrorMessage,
-} from '@/domain/whisperRuntime'
+import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import {
   buildCommunityCommentThreads,
   resolveCommentThreadRootId,
@@ -39,11 +36,6 @@ import {
   type CommunityConfig,
   type CommunityPostVO,
 } from '@/services/community'
-import {
-  createWhisper,
-  precheckWhisper,
-  type RealWhisperPrecheckResult,
-} from '@/services/message'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
@@ -74,14 +66,9 @@ export default function QianxunPostDetailPage() {
   const [pendingReport, setPendingReport] = useState<{ type: 'post' | 'comment'; id: number | string }>()
   const [commentSort, setCommentSort] = useState<CommunityCommentSort>('latest')
   const [config, setConfig] = useState<CommunityConfig>()
-  const [showWhisper, setShowWhisper] = useState(false)
+  const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
   const access = useAccessStatus('canCommunity')
-  const [whisperContent, setWhisperContent] = useState('')
-  const [whisperPrecheck, setWhisperPrecheck] = useState<RealWhisperPrecheckResult>()
-  const [whisperLoading, setWhisperLoading] = useState(false)
-  const [whisperSubmitting, setWhisperSubmitting] = useState(false)
-  const [whisperIdempotencyKey, setWhisperIdempotencyKey] = useState('')
   const navigationMetrics = getNativeNavigationMetrics()
   const commentThreads = useMemo(
     () => buildCommunityCommentThreads(comments, commentSort),
@@ -264,7 +251,7 @@ export default function QianxunPostDetailPage() {
   }
 
   const openWhisper = async () => {
-    if (!post || whisperLoading) return
+    if (!post) return
     if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
       setShowUnverifiedModal(true)
       return
@@ -278,65 +265,18 @@ export default function QianxunPostDetailPage() {
       await Taro.showToast({ title: '当前用户暂时无法申请认识', icon: 'none' })
       return
     }
-    setShowWhisper(true)
-    setWhisperLoading(true)
-    setWhisperPrecheck(undefined)
-    setWhisperIdempotencyKey(createWhisperIdempotencyKey())
-    try {
-      const result = await precheckWhisper({
-        targetUserNo,
-        sourceBizNo: post.postNo,
-        sourceScene: 'community_post',
-      })
-      setWhisperPrecheck(result)
-    } catch (error) {
-      setShowWhisper(false)
-      await Taro.showToast({
-        title: resolveWhisperErrorMessage(error, '悄悄话预检查失败，请稍后重试'),
-        icon: 'none',
-      })
-    } finally {
-      setWhisperLoading(false)
-    }
-  }
-
-  const submitWhisper = async () => {
-    const content = whisperContent.trim()
-    if (!post || !whisperPrecheck || whisperSubmitting) return
-    if (!whisperPrecheck.canSend || !whisperPrecheck.quoteToken) {
-      await Taro.showToast({ title: whisperPrecheck.reasonText || '当前暂时无法发送悄悄话', icon: 'none' })
-      return
-    }
-    if (!content || Array.from(content).length > whisperPrecheck.contentMaxLength) {
-      await Taro.showToast({ title: `请输入1-${whisperPrecheck.contentMaxLength}个字`, icon: 'none' })
-      return
-    }
-    setWhisperSubmitting(true)
-    try {
-      const result = await createWhisper({
-        targetUserNo: resolveAuthorUserNo(post),
-        sourceBizNo: post.postNo,
-        sourceScene: 'community_post',
-        content,
-        quoteToken: whisperPrecheck.quoteToken,
-      }, whisperIdempotencyKey)
-      setShowWhisper(false)
-      setWhisperContent('')
-      setWhisperPrecheck(undefined)
-      await Taro.showToast({
-        title: result.payType === 'vip_free'
-          ? '悄悄话已发送，本次使用免费权益'
-          : `悄悄话已发送，消耗${result.coinAmount}千寻币`,
-        icon: 'success',
-      })
-    } catch (error) {
-      await Taro.showToast({
-        title: resolveWhisperErrorMessage(error, '发送失败，请稍后重试'),
-        icon: 'none',
-      })
-    } finally {
-      setWhisperSubmitting(false)
-    }
+    setWhisperTarget({
+      targetUserNo,
+      sourceScene: 'community_post',
+      sourceBizNo: post.postNo,
+      nickname: post.authorName || '用户',
+      avatar: post.authorAvatar || undefined,
+      meta: [
+        post.authorAge ? `${post.authorAge}岁` : '',
+        post.authorZodiac || '',
+        post.authorProfession || '',
+      ].filter(Boolean).join('  ') || '资料待完善',
+    })
   }
 
   return (
@@ -398,29 +338,7 @@ export default function QianxunPostDetailPage() {
       {showActions && post ? <CommunityPostActionSheet post={post} isSelf={post.authorId === currentUserId} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
       {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: resolveCommentThreadRootId(comments, selectedComment.id), userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
       {pendingReport ? <CommunityReportReasonSheet reasons={config?.reportReasons || []} onClose={() => setPendingReport(undefined)} onReport={reasonCode => void submitReport(reasonCode)} /> : null}
-      {showWhisper && post ? (
-        <CommunityWhisperSheet
-          id="qianxun-whisper-compose-sheet"
-          avatar={post.authorAvatar}
-          nickname={post.authorName || '用户'}
-          meta={[
-            post.authorAge ? `${post.authorAge}岁` : '',
-            post.authorZodiac || '',
-            post.authorProfession || '',
-          ].filter(Boolean).join('  ') || '资料待完善'}
-          content={whisperContent}
-          precheck={whisperPrecheck}
-          loading={whisperLoading}
-          submitting={whisperSubmitting}
-          onContentChange={setWhisperContent}
-          onClose={() => {
-            if (whisperSubmitting) return
-            setShowWhisper(false)
-            setWhisperPrecheck(undefined)
-          }}
-          onSubmit={() => void submitWhisper()}
-        />
-      ) : null}
+      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
       {showUnverifiedModal ? <UnverifiedCertificationModal onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
         setShowUnverifiedModal(false)
         void navigateToPendingVerification()
@@ -518,9 +436,6 @@ function resolveAuthorUserNo(post: CommunityPostVO) {
   return resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
 }
 
-function createWhisperIdempotencyKey() {
-  return `whisper-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
-}
 
 function relativeTime(value: string) {
   if (!value) return ''

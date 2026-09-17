@@ -252,8 +252,8 @@ export function useProfile(): UseProfileReturn {
 
   /** 跳转编辑资料页 */
   const goToEditProfile = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/profile/edit' });
-  }, []);
+    Taro.navigateTo({ url: `/pages/profile/edit?profileScore=${Math.max(0, Math.min(100, Math.round(data.profileScore)))}` });
+  }, [data.profileScore]);
 
   /** 跳转 VIP 开通/权益页 */
   const goToVip = useCallback(() => {

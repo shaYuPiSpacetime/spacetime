@@ -143,6 +143,7 @@ export default function RecommendPreferencePage() {
         version: model.version,
         targetCityCodes: model.targetCities.map(item => item.code),
         allowNeighborCity: model.allowNeighborCity,
+        onlyCertifiedUsers: model.onlyCertifiedUsers,
         minAge: model.minAge,
         maxAge: model.maxAge,
         minHeight: advanced.minHeight ?? undefined,
@@ -229,10 +230,9 @@ export default function RecommendPreferencePage() {
             subtitle={
               model.neighborCityAvailable
                 ? '仅推荐tab候选不足时生效'
-                : model.neighborCityDisabledReason || '周边城市关系暂未配置'
+                : '周边城市关系配置后生效'
             }
             checked={model.allowNeighborCity}
-            disabled={!model.neighborCityAvailable}
             onChange={checked => patch({ allowNeighborCity: checked })}
           />
           <RangeSection
@@ -247,9 +247,9 @@ export default function RecommendPreferencePage() {
           />
           <SwitchRow
             title="仅认证用户可与我交友"
-            subtitle="完善资料和认证的用户才能心动和认识我"
-            checked={false}
-            disabled
+            subtitle="平台当前仅允许认证用户互动，设置会保存"
+            checked={model.onlyCertifiedUsers}
+            onChange={checked => patch({ onlyCertifiedUsers: checked })}
           />
           <View style={{ height: '10rpx', margin: '30rpx -24rpx 0', background: '#F7F7F7' }} />
           <View style={{ marginTop: '30rpx', display: 'flex', alignItems: 'center', gap: '16rpx' }}>

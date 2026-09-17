@@ -3,7 +3,7 @@ import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
-import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
+import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
@@ -27,9 +27,8 @@ import {
 } from '@/services/community'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { prd01Api } from '@/services/prd01'
-import { resolveStableWhisperTargetUserNo, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
+import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
-import { createWhisper, precheckWhisper, type RealWhisperPrecheckResult } from '@/services/message'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
@@ -79,12 +78,8 @@ export default function RecommendFamilyPage() {
   const [config, setConfig] = useState<CommunityConfig | undefined>(readCachedCommunityConfig)
   const [ownerAvatar, setOwnerAvatar] = useState(defaultAvatar)
   const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
-  const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | 'whisper' | null>(null)
-  const [whisperContent, setWhisperContent] = useState('')
-  const [whisperPrecheck, setWhisperPrecheck] = useState<RealWhisperPrecheckResult>()
-  const [whisperLoading, setWhisperLoading] = useState(false)
-  const [whisperSubmitting, setWhisperSubmitting] = useState(false)
-  const [whisperIdempotencyKey, setWhisperIdempotencyKey] = useState('')
+  const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | null>(null)
+  const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const [restoredFeedScrollTop, setRestoredFeedScrollTop] = useState<number>()
   const feedScrollTopRef = useRef(0)
   const whisperOriginScrollTopRef = useRef(0)
@@ -261,11 +256,8 @@ export default function RecommendFamilyPage() {
   }
 
   const closeWhisperSheet = async () => {
-    if (whisperSubmitting) return
     const preservedScrollTop = whisperOriginScrollTopRef.current
-    await Taro.hideKeyboard().catch(() => undefined)
-    setSheet(null)
-    setWhisperPrecheck(undefined)
+    setWhisperTarget(null)
     setRestoredFeedScrollTop(undefined)
     await new Promise<void>(resolve => Taro.nextTick(resolve))
     setRestoredFeedScrollTop(preservedScrollTop)
@@ -279,53 +271,15 @@ export default function RecommendFamilyPage() {
       void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
       return
     }
-    setSelectedPost(post)
-    setWhisperContent('')
-    setWhisperPrecheck(undefined)
-    setWhisperIdempotencyKey(createWhisperIdempotencyKey())
     whisperOriginScrollTopRef.current = feedScrollTopRef.current
-    setSheet('whisper')
-    setWhisperLoading(true)
-    try {
-      setWhisperPrecheck(await precheckWhisper({ targetUserNo, sourceScene: 'community_post', sourceBizNo: post.postNo }))
-    } catch (error) {
-      await closeWhisperSheet()
-      await Taro.showToast({ title: resolveWhisperErrorMessage(error, '悄悄话预检查失败，请稍后重试'), icon: 'none' })
-    } finally {
-      setWhisperLoading(false)
-    }
-  }
-
-  const submitWhisper = async () => {
-    const post = selectedPost
-    const content = whisperContent.trim()
-    if (!post || !whisperPrecheck || whisperSubmitting) return
-    const targetUserNo = resolveStableWhisperTargetUserNo(post.authorUserNo, post.authorId)
-    if (!whisperPrecheck.canSend || !whisperPrecheck.quoteToken) {
-      await Taro.showToast({ title: whisperPrecheck.reasonText || '当前暂时无法发送悄悄话', icon: 'none' })
-      return
-    }
-    if (!content || Array.from(content).length > whisperPrecheck.contentMaxLength) {
-      await Taro.showToast({ title: `请输入1-${whisperPrecheck.contentMaxLength}个字`, icon: 'none' })
-      return
-    }
-    setWhisperSubmitting(true)
-    try {
-      const result = await createWhisper({ targetUserNo, sourceScene: 'community_post', sourceBizNo: post.postNo, content, quoteToken: whisperPrecheck.quoteToken }, whisperIdempotencyKey)
-      const preservedScrollTop = whisperOriginScrollTopRef.current
-      await Taro.hideKeyboard().catch(() => undefined)
-      setSheet(null)
-      setWhisperContent('')
-      setWhisperPrecheck(undefined)
-      setRestoredFeedScrollTop(undefined)
-      await new Promise<void>(resolve => Taro.nextTick(resolve))
-      setRestoredFeedScrollTop(preservedScrollTop)
-      await Taro.showToast({ title: result.payType === 'vip_free' ? '悄悄话已发送，本次使用免费权益' : `悄悄话已发送，消耗${result.coinAmount}千寻币`, icon: 'success' })
-    } catch (error) {
-      await Taro.showToast({ title: resolveWhisperErrorMessage(error, '发送失败，请稍后重试'), icon: 'none' })
-    } finally {
-      setWhisperSubmitting(false)
-    }
+    setWhisperTarget({
+      targetUserNo,
+      sourceScene: 'community_post',
+      sourceBizNo: post.postNo,
+      nickname: post.authorName || '用户',
+      avatar: post.authorAvatar || undefined,
+      meta: formatPostAuthorMeta(post, optionLabel),
+    })
   }
 
   const headerMetrics = getQianxunHeaderMetrics()
@@ -388,20 +342,7 @@ export default function RecommendFamilyPage() {
         />
       ) : null}
       {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void report(reason)} /> : null}
-      {sheet === 'whisper' && selectedPost ? (
-        <CommunityWhisperSheet
-          avatar={selectedPost.authorAvatar}
-          nickname={selectedPost.authorName || '用户'}
-          meta={formatPostAuthorMeta(selectedPost, optionLabel)}
-          content={whisperContent}
-          precheck={whisperPrecheck}
-          loading={whisperLoading}
-          submitting={whisperSubmitting}
-          onContentChange={setWhisperContent}
-          onClose={() => void closeWhisperSheet()}
-          onSubmit={() => void submitWhisper()}
-        />
-      ) : null}
+      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => void closeWhisperSheet()} /> : null}
       {sheet === 'uncertified' ? (
         <UnverifiedCertificationModal
           onClose={() => setSheet(null)}
@@ -543,8 +484,4 @@ function relativeTime(value: string) {
 async function showError(config: CommunityConfig | undefined, error: unknown) {
   const title = resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.genericError, error)
   if (title) await Taro.showToast({ title, icon: 'none' })
-}
-
-function createWhisperIdempotencyKey() {
-  return `community-whisper-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
 }
