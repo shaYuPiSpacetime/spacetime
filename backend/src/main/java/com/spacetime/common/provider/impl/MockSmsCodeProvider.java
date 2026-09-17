@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 /**
  * mock 短信验证码 Provider。
  *
- * 联调环境固定生成 000000，避免依赖真实短信三方；接入真实通道时替换 Provider。
+ * 联调环境固定生成 0000，避免依赖真实短信三方；接入真实通道时替换 Provider。
  */
 @Slf4j
 @Component
@@ -22,7 +22,7 @@ public class MockSmsCodeProvider implements SmsCodeProvider {
 
     @Override
     public String generateCode() {
-        return "000000";
+        return "0000";
     }
 
     @Override
