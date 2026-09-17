@@ -75,13 +75,30 @@ export function isReadCursorNotFoundError(error: unknown): boolean {
   return error instanceof Error && error.message.includes('最后已读消息不属于当前会话')
 }
 
-/** 私信消息时间由 IM 原始发送时间转换为设备本地时间。 */
-export function formatPrivateChatTime(value: string): string {
+/** 私信时间以设备本地自然日和相邻消息间隔决定是否显示。 */
+export function formatPrivateChatTime(value: string, previousValue?: string, now = new Date()): string {
   if (!value) return ''
   const date = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
   if (Number.isNaN(date.getTime())) return ''
+  const previous = previousValue
+    ? new Date(previousValue.includes('T') ? previousValue : previousValue.replace(' ', 'T'))
+    : undefined
+  if (previous && !Number.isNaN(previous.getTime())) {
+    const sameDay = date.getFullYear() === previous.getFullYear()
+      && date.getMonth() === previous.getMonth()
+      && date.getDate() === previous.getDate()
+    if (sameDay && date.getTime() - previous.getTime() <= 10 * 60 * 1000
+      && date.getTime() >= previous.getTime()) return ''
+  }
+  const today = date.getFullYear() === now.getFullYear()
+    && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate()
+  const hour = date.getHours()
+  const period = hour < 6 ? '凌晨' : hour < 12 ? (today ? '早上' : '上午')
+    : hour < 14 ? '中午' : hour < 19 ? '下午' : '晚上'
   const pad = (part: number) => String(part).padStart(2, '0')
-  return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  const time = `${period} ${hour}:${pad(date.getMinutes())}`
+  return today ? time : `${date.getMonth() + 1}月${date.getDate()}日 ${time}`
 }
 
 type MessageGatewayReadyProbe = {

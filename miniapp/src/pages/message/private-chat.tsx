@@ -185,8 +185,7 @@ function EstablishedPrivateChatPage() {
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [inputFocused, setInputFocused] = useState(false)
-  const keyboardFocusedRef = useRef(false)
-  const restoreKeyboardRef = useRef(false)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const readAckKey = useRef('')
@@ -208,6 +207,10 @@ function EstablishedPrivateChatPage() {
       setScrollTarget(current => current === 'chat-bottom-a' ? 'chat-bottom-b' : 'chat-bottom-a')
     })
   }, [])
+
+  useEffect(() => {
+    if (keyboardHeight > 0 && messages.length > 0) requestScrollToLatest()
+  }, [keyboardHeight, messages.length, requestScrollToLatest])
 
   const acknowledgeRendered = useCallback(
     async (rendered: ChatMessage[]) => {
@@ -421,8 +424,6 @@ function EstablishedPrivateChatPage() {
   const send = async () => {
     const value = inputValue.trim()
     if (!value || sending) return
-    const restoreKeyboard = keyboardFocusedRef.current || restoreKeyboardRef.current
-    restoreKeyboardRef.current = false
     if (!detail || !timConversationId) {
       await Taro.showToast({ title: '会话正在加载，请稍后发送', icon: 'none' })
       return
@@ -441,6 +442,7 @@ function EstablishedPrivateChatPage() {
       )
       setInputValue('')
       setMessages(current => upsertMessages(current, [message]))
+      requestScrollToLatest()
       if (message.sendStatus === 'failed') setRetryTarget(message)
     } catch (error) {
       setInputValue(value)
@@ -449,11 +451,6 @@ function EstablishedPrivateChatPage() {
       await Taro.showToast({ title: resolved.message, icon: 'none' })
     } finally {
       setSending(false)
-      if (restoreKeyboard && canSend) {
-        // 点击发送按钮可能触发原生 input blur，下一帧重新聚焦以便连续输入。
-        setInputFocused(false)
-        setTimeout(() => setInputFocused(true), 0)
-      }
     }
   }
 
@@ -519,6 +516,7 @@ function EstablishedPrivateChatPage() {
       <ScrollView
         scrollY
         className="private-chat-scroll"
+        style={{ height: keyboardHeight > 0 ? `calc(100vh - 137px - ${keyboardHeight}px)` : undefined }}
         showScrollbar={false}
         scrollIntoView={scrollTarget}
         onScrollToUpper={() => void loadEarlier()}
@@ -537,8 +535,8 @@ function EstablishedPrivateChatPage() {
         </View>
         {errorMessage ? <Text className="message-inline-error" onClick={() => void load()}>{errorMessage}，点击重试</Text> : null}
         <View className="chat-messages">
-          {messages.map(message => {
-            const time = formatPrivateChatTime(message.sentAt)
+          {messages.map((message, index) => {
+            const time = formatPrivateChatTime(message.sentAt, messages[index - 1]?.sentAt)
             return (
               <View className="chat-message-item" key={message.clientMsgId}>
                 {time ? <Text className="chat-message-time">{time}</Text> : null}
@@ -564,11 +562,14 @@ function EstablishedPrivateChatPage() {
         <View id="chat-bottom-b" />
       </ScrollView>
 
-      <View className="chat-input-bar">
+      <View
+        className="chat-input-bar"
+        style={{ bottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined, paddingBottom: keyboardHeight > 0 ? '5px' : undefined }}
+      >
         {!detail?.canSend && detail?.sendBlockedReason ? <Text className="chat-reply-label">{resolveConversationSendBlockedReason(detail.sendBlockedReason)}</Text> : null}
         {detail?.canSend && connectionState !== 'ready' ? <Text className="chat-connection-state">{connectionState === 'error' ? '连接失败，发送时重试' : '私信连接中，可先输入'}</Text> : null}
-        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canSend)} maxlength={500} adjustPosition cursorSpacing={12} confirmType="send" confirmHold focus={inputFocused} onFocus={() => { keyboardFocusedRef.current = true; setInputFocused(true) }} onBlur={() => { keyboardFocusedRef.current = false; setInputFocused(false) }} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
-        <View className={`chat-send-button${canSend && !sending ? '' : ' chat-send-button--disabled'}`} onTouchStart={() => { restoreKeyboardRef.current = keyboardFocusedRef.current }} onClick={() => void send()}><Text>{sending ? '发送中' : '发送'}</Text></View>
+        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canSend)} maxlength={500} adjustPosition={false} holdKeyboard cursorSpacing={12} confirmType="send" confirmHold focus={inputFocused} onFocus={event => { setInputFocused(true); setKeyboardHeight(event.detail.height || 0); requestScrollToLatest() }} onBlur={() => { setInputFocused(false); setKeyboardHeight(0) }} onKeyboardHeightChange={event => setKeyboardHeight(Math.max(0, event.detail.height))} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
+        <View className={`chat-send-button${canSend && !sending ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>{sending ? '发送中' : '发送'}</Text></View>
       </View>
 
       {showActions ? (
