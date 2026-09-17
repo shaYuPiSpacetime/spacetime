@@ -58,6 +58,19 @@ test('私信消息时间以本地时间显示，并保持连续输入', () => {
   assert.match(styles, /\.chat-message-time\s*\{/)
 })
 
+test('私信历史首次加载完成后重新定位最新消息，加载更早记录不强制回底', () => {
+  const privateChat = read('src/pages/message/private-chat.tsx')
+  const initialHistory = privateChat.match(/const page = await withMessageTimeout\(\s*gateway\.listHistory\(gatewayId\)[\s\S]*?setHistoryCompleted\(page\.isCompleted\)[\s\S]*?setTimeout\(\(\) => void acknowledgeRendered/)?.[0] || ''
+  const olderHistory = privateChat.match(/const loadEarlier = async \(\) => \{[\s\S]*?\n  \}/)?.[0] || ''
+
+  assert.match(privateChat, /scrollIntoView=\{scrollTarget\}/, '滚动目标不能在异步消息加载前固定为底部')
+  assert.match(privateChat, /Taro\.nextTick\([\s\S]*?setScrollTarget/, '应等历史消息渲染后再改变滚动目标')
+  assert.match(privateChat, /current === 'chat-bottom-a' \? 'chat-bottom-b' : 'chat-bottom-a'/, '重复打开会话时也应改变滚动目标')
+  assert.match(privateChat, /id="chat-bottom-a"[\s\S]*?id="chat-bottom-b"/, '两个滚动锚点必须始终位于消息末尾')
+  assert.match(initialHistory, /requestScrollToLatest\(\)/, '首次历史记录就绪后必须滚到最新消息')
+  assert.doesNotMatch(olderHistory, /requestScrollToLatest\(\)/, '上翻加载历史不能把用户拉回底部')
+})
+
 test('私信已读游标区分平台消息编号与 TIM 定位字段', () => {
   const { resolveConversationReadCursor, isReadCursorNotFoundError } = requireDomain('src/domain/messageRuntime.ts')
   assert.deepEqual(resolveConversationReadCursor({

@@ -177,6 +177,7 @@ function EstablishedPrivateChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [historyCursor, setHistoryCursor] = useState<string>()
   const [historyCompleted, setHistoryCompleted] = useState(false)
+  const [scrollTarget, setScrollTarget] = useState<string>()
   const [inputValue, setInputValue] = useState('')
   const [retryTarget, setRetryTarget] = useState<ChatMessage>()
   const [showActions, setShowActions] = useState(false)
@@ -200,6 +201,13 @@ function EstablishedPrivateChatPage() {
   const timConversationId = isMockScene
     ? conversationNo
     : detail?.timConversationId || ''
+
+  const requestScrollToLatest = useCallback(() => {
+    // 历史消息先渲染，再切换已存在的底部锚点；重复进入同一会话也需要更新 scroll-into-view。
+    Taro.nextTick(() => {
+      setScrollTarget(current => current === 'chat-bottom-a' ? 'chat-bottom-b' : 'chat-bottom-a')
+    })
+  }, [])
 
   const acknowledgeRendered = useCallback(
     async (rendered: ChatMessage[]) => {
@@ -357,6 +365,7 @@ function EstablishedPrivateChatPage() {
         setMessages(current => upsertMessages(current, page.list))
         setHistoryCursor(page.nextCursor)
         setHistoryCompleted(page.isCompleted)
+        requestScrollToLatest()
         setTimeout(() => void acknowledgeRendered(page.list), 0)
       } catch (error) {
         const resolved = resolveMessageError(error)
@@ -365,7 +374,7 @@ function EstablishedPrivateChatPage() {
         setLoading(false)
       }
     }),
-    [acknowledgeRendered, conversationNo, ensureConnected, isMockScene, loadSingleFlight, service],
+    [acknowledgeRendered, conversationNo, ensureConnected, isMockScene, loadSingleFlight, requestScrollToLatest, service],
   )
 
   useEffect(() => {
@@ -511,7 +520,7 @@ function EstablishedPrivateChatPage() {
         scrollY
         className="private-chat-scroll"
         showScrollbar={false}
-        scrollIntoView="chat-bottom"
+        scrollIntoView={scrollTarget}
         onScrollToUpper={() => void loadEarlier()}
       >
         {loading ? <Text className="message-empty-copy">加载中...</Text> : null}
@@ -551,7 +560,8 @@ function EstablishedPrivateChatPage() {
           })}
           {!loading && messages.length === 0 ? <Text className="message-empty-copy">暂无聊天记录</Text> : null}
         </View>
-        <View id="chat-bottom" />
+        <View id="chat-bottom-a" />
+        <View id="chat-bottom-b" />
       </ScrollView>
 
       <View className="chat-input-bar">
