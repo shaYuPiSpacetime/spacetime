@@ -389,10 +389,10 @@ function MyPostSnapshotCard({ item, liking, config, onLike }: { item: MyPostSnap
           <Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', lineHeight: '42rpx' }}>{item.content}</Text>
           <MyPostImages images={item.imageUrls} />
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
-          <View style={{ marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
+          <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
             {item.status !== 'published' ? <Text style={{ color: item.status === 'rejected' ? '#D44747' : BLUE, fontSize: '21rpx' }}>{resolveCommunityStatusLabel(config, item.status, item.statusName)}</Text> : null}
             <View style={{ flex: 1 }} />
-            <QianxunActionStat kind="comment" count={item.commentCount} fontSize="21rpx" />
+            <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? () => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.postId}&focus=comment` }) : undefined} fontSize="21rpx" />
             <View style={{ width: '30rpx' }} />
             <QianxunActionStat kind="like" count={item.likeCount} active={item.liked} onClick={item.postId && item.status === 'published' && !liking ? onLike : undefined} fontSize="21rpx" />
           </View>

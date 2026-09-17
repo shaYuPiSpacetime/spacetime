@@ -47,6 +47,14 @@ type UnlockStage = 'closed' | 'confirm' | 'quote' | 'success'
 type LoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 type RelationCard = LikesMeItemVO | RecentViewerItemVO
 type UnlockAttempt = { quoteToken: string; requestId: string }
+const REQUESTED_TAB_KEY = 'community_requested_tab'
+
+function readRequestedTab(): HeartTab | undefined {
+  const requested = Taro.getStorageSync(REQUESTED_TAB_KEY)
+  if (requested !== 'visitors' && requested !== 'likes') return undefined
+  Taro.removeStorageSync(REQUESTED_TAB_KEY)
+  return requested
+}
 
 const background =
   'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%)'
@@ -68,7 +76,7 @@ function isInsufficientCoinBalance(error: unknown): boolean {
 export default function CommunityPage() {
   const router = useRouter()
   const currentUserId = useAuthStore(state => state.userId)
-  const [activeTab, setActiveTab] = useState<HeartTab>(router.params.tab === 'visitors' ? 'visitors' : 'likes')
+  const [activeTab, setActiveTab] = useState<HeartTab>(() => readRequestedTab() || (router.params.tab === 'visitors' ? 'visitors' : 'likes'))
   const [unlockStage, setUnlockStage] = useState<UnlockStage>('closed')
   const [likesPage, setLikesPage] = useState<LikesMePageVO | null>(null)
   const [likesBadgeCount, setLikesBadgeCount] = useState(0)
@@ -219,6 +227,8 @@ export default function CommunityPage() {
   }, [access.status?.coreAccessStatus])
 
   useDidShow(() => {
+    const requestedTab = readRequestedTab()
+    if (requestedTab) setActiveTab(requestedTab)
     if (!didShowOnceRef.current) {
       didShowOnceRef.current = true
       return

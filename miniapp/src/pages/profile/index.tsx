@@ -62,10 +62,19 @@ export default function ProfilePage() {
   const subInfo = [data.location, ageText, data.zodiac].filter(Boolean).join('丨')
   const membership: MyMembership = data.membership || { status: 'none' }
   const membershipVariant = membership.status
+  const goToVisitors = async () => {
+    Taro.setStorageSync('community_requested_tab', 'visitors')
+    try {
+      await Taro.switchTab({ url: '/pages/community/index' })
+    } catch {
+      Taro.removeStorageSync('community_requested_tab')
+      await Taro.showToast({ title: '最近来访暂时无法打开，请稍后重试', icon: 'none' })
+    }
+  }
   const stats = [
-    { value: data.likedCount, label: '我喜欢的' },
-    { value: data.beLikedCount, label: '喜欢我的' },
-    { value: data.visitorCount, label: '最近来访' },
+    { value: data.likedCount, label: '我喜欢的', onClick: goToHeart },
+    { value: data.beLikedCount, label: '喜欢我的', onClick: goToHeart },
+    { value: data.visitorCount, label: '最近来访', onClick: () => void goToVisitors() },
   ]
 
   useEffect(() => {
@@ -172,7 +181,7 @@ export default function ProfilePage() {
           onAvatarError={() => setAvatar(defaultAvatar)}
         />
         <>
-          <StatsCard stats={stats} boostText="提升人气" onHeart={goToHeart} />
+          <StatsCard stats={stats} onBoost={goToCoin} />
           <VipBanner
             status={membershipVariant}
             expireTime={membership.expireTime}
@@ -502,7 +511,7 @@ function isCertificationPassed(status?: string) {
   return ['PASSED', 'APPROVED', 'VERIFIED', 'SUCCESS'].includes(String(status || '').toUpperCase())
 }
 
-function StatsCard({ stats, boostText, onHeart }: { stats: Array<{ value: number; label: string }>; boostText: string; onHeart: () => void }) {
+function StatsCard({ stats, onBoost }: { stats: Array<{ value: number; label: string; onClick: () => void }>; onBoost: () => void }) {
   return (
     <View
       style={{
@@ -531,7 +540,7 @@ function StatsCard({ stats, boostText, onHeart }: { stats: Array<{ value: number
           <View
             key={item.label}
             id={`profile-stat-${index}`}
-            onClick={onHeart}
+            onClick={item.onClick}
             hoverClass="btn-hover"
             style={{
               width: '176rpx',
@@ -572,7 +581,7 @@ function StatsCard({ stats, boostText, onHeart }: { stats: Array<{ value: number
           borderRadius: '100rpx 0 0 100rpx',
           overflow: 'hidden',
         }}
-        onClick={() => boostText && Taro.showToast({ title: boostText, icon: 'none' })}
+        onClick={onBoost}
         hoverClass="btn-hover"
       >
         <Image
