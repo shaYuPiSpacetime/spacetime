@@ -59,6 +59,7 @@ export default function QianxunPostDetailPage() {
   const [loadError, setLoadError] = useState('')
   const [comment, setComment] = useState('')
   const [commentFocused, setCommentFocused] = useState(false)
+  const [focusComments, setFocusComments] = useState(false)
   const [replyTarget, setReplyTarget] = useState<ReplyTarget>()
   const [sendingComment, setSendingComment] = useState(false)
   const [showActions, setShowActions] = useState(false)
@@ -101,6 +102,7 @@ export default function QianxunPostDetailPage() {
   }
 
   useLoad(options => {
+    setFocusComments(options.focus === 'comment')
     const postId = Number(options.id || options.postId)
     if (!Number.isFinite(postId) || postId <= 0) {
       setLoading(false)
@@ -283,7 +285,7 @@ export default function QianxunPostDetailPage() {
     <View id="qianxun-post-detail-page" style={{ height: '100vh', background: '#F8F9FB', overflow: 'hidden', color: '#333333' }}>
       <NativeNavigation title="动态详情" />
       {loading ? <DetailLoading top={navigationMetrics.navigationHeight} /> : loadError || !post ? <LoadFailure text={loadError} top={navigationMetrics.navigationHeight} /> : (
-        <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
+        <ScrollView scrollY scrollIntoView={focusComments ? 'qianxun-comments-section' : undefined} style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
           <View style={{ padding: '18rpx 25rpx 40rpx' }}>
             <View style={{ borderRadius: '16rpx', background: '#FFFFFF', padding: '24rpx 24rpx 0', overflow: 'hidden' }}>
               <AuthorRow post={post} isSelf={post.authorId === currentUserId} onAuthor={() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)} onMore={() => setShowActions(true)} onApply={() => void openWhisper()} />
@@ -306,7 +308,7 @@ export default function QianxunPostDetailPage() {
               </View>
             </View>
 
-            <View style={{ marginTop: '18rpx', borderRadius: '16rpx', background: '#FFFFFF', minHeight: comments.length ? '490rpx' : '816rpx', padding: '24rpx 27rpx', boxSizing: 'border-box' }}>
+            <View id="qianxun-comments-section" style={{ marginTop: '18rpx', borderRadius: '16rpx', background: '#FFFFFF', minHeight: comments.length ? '490rpx' : '816rpx', padding: '24rpx 27rpx', boxSizing: 'border-box' }}>
               <View style={{ height: '48rpx', display: 'flex', alignItems: 'center' }}>
                 <Text style={{ color: NAVY, fontSize: '28rpx', fontWeight: 600 }}>全部评论 {post.commentCount || 0}</Text>
                 <View style={{ flex: 1 }} />

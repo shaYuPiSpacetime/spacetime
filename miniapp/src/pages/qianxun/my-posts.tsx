@@ -247,10 +247,10 @@ function MyPostCard({ receipt, liking, config, onMore, onFailure, onLike }: { re
         <View style={{ width: '452rpx' }}>
           <PostImages urls={receipt.imageUrls} />
           {receipt.topicName ? <View style={{ height: '48rpx', borderRadius: '24rpx', background: '#F6F7F9', padding: '0 20rpx', marginTop: '18rpx', display: 'inline-flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '23rpx', marginRight: '8rpx' }}>#</Text><Text style={{ color: '#777777', fontSize: '23rpx' }}>{receipt.topicName}</Text></View> : null}
-          <View style={{ height: '54rpx', display: 'flex', alignItems: 'flex-end' }}>
+          <View style={{ height: '88rpx', display: 'flex', alignItems: 'center' }}>
             <View onClick={onMore} style={{ width: '74rpx', height: '52rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '8rpx' }}>···</Text></View>
             <View style={{ flex: 1 }} />
-            <QianxunActionStat kind="comment" count={receipt.commentCount} />
+            <QianxunActionStat kind="comment" count={receipt.commentCount} onClick={receipt.postId && receipt.status === 'published' ? () => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${receipt.postId}&focus=comment` }) : undefined} />
             <View style={{ width: '30rpx' }} />
             <QianxunActionStat kind="like" count={receipt.likeCount} active={receipt.liked} onClick={receipt.postId && receipt.status === 'published' && !liking ? onLike : undefined} />
           </View>
