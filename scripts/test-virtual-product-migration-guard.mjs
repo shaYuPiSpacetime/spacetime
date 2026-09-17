@@ -51,7 +51,7 @@ test('新迁移只扩展商品发布与价格变更结构，不修改既有套�
   for (const table of ['app_coin_package', 'app_trade_order']) {
     assert.match(sql, new RegExp(`${table}[\\s\\S]*wechat_product_id VARCHAR\\(64\\)`), `${table} 缺少商品 ID 快照列`);
   }
-  for (const column of ['package_type', 'package_id', 'old_product_id', 'new_product_id', 'target_price', 'status', 'upload_task_id', 'publish_task_id', 'published_at', 'active_at', 'last_error', 'version', 'create_time', 'update_time', 'created_by', 'updated_by', 'deleted']) {
+  for (const column of ['package_type', 'package_id', 'old_product_id', 'new_product_id', 'target_price', 'status', 'published_at', 'active_at', 'enable_after_publish', 'last_error', 'create_time', 'update_time', 'created_by', 'updated_by', 'deleted']) {
     assert.match(sql, new RegExp(`\\b${column}\\b`), `价格变更表缺少 ${column}`);
   }
   assert.match(sql, /CREATE TABLE IF NOT EXISTS app_virtual_price_change/, '缺少价格变更表');
