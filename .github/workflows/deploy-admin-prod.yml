@@ -38,6 +38,9 @@ jobs:
       - name: Validate official website
         run: node scripts/test-official-website.mjs
 
+      - name: Validate WeChat virtual product prices
+        run: node scripts/test-virtual-product-price-alignment.mjs
+
       - name: Validate ACR password
         env:
           HAS_ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD != '' }}

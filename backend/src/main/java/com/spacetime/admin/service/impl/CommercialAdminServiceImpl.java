@@ -44,11 +44,15 @@ import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.entity.VipBenefit;
 import com.spacetime.common.entity.VipPackage;
+import com.spacetime.common.entity.VirtualPriceChange;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.ConfigGroupEnum;
 import com.spacetime.common.enums.ConfigTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
+import com.spacetime.common.service.VirtualPriceChangeService;
+import com.spacetime.common.util.CoinPackagePriceResolver;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import lombok.RequiredArgsConstructor;
@@ -129,6 +133,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
     /** JSON 序列化器 */
     private final ObjectMapper objectMapper;
     private final AppUserAuditContentService auditContentService;
+    private final WechatVirtualProductCatalog virtualProductCatalog;
+    private final VirtualPriceChangeService virtualPriceChangeService;
 
     @Override
     public CommercialConfigVO getConfig() {
@@ -205,9 +211,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
             if (req.getPrice() == null || req.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException("会员套餐售价必须大于 0");
             }
-            if (req.getOriginPrice() != null && req.getOriginPrice().compareTo(BigDecimal.ZERO) > 0
-                    && req.getPrice().compareTo(req.getOriginPrice()) > 0) {
-                throw new BusinessException("会员套餐优惠价不能高于原价");
+            if (req.getPrice().scale() > 2) {
+                throw new BusinessException("会员套餐售价最多保留两位小数");
             }
             if (req.getDurationDays() == null || req.getDurationDays() <= 0) {
                 throw new BusinessException("会员套餐有效天数必须大于 0");
@@ -228,6 +233,10 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
             if (req.getAmount() == null || req.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException("千寻币套餐售价必须大于 0");
             }
+            if (req.getAmount().scale() > 2 || req.getDiscountAmount() != null
+                    && req.getDiscountAmount().scale() > 2) {
+                throw new BusinessException("千寻币套餐售价最多保留两位小数");
+            }
             if (req.getCoinCount() == null || req.getCoinCount() <= 0) {
                 throw new BusinessException("千寻币到账数量必须大于 0");
             }
@@ -236,11 +245,6 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
             }
             if (req.getDiscountAmount() != null && req.getDiscountAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException("千寻币优惠价必须大于 0");
-            }
-            if (req.getOriginAmount() != null && req.getOriginAmount().compareTo(BigDecimal.ZERO) > 0
-                    && req.getDiscountAmount() != null
-                    && req.getDiscountAmount().compareTo(req.getOriginAmount()) > 0) {
-                throw new BusinessException("千寻币优惠价不能高于原价");
             }
         }
     }
@@ -456,7 +460,16 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
                 .collect(Collectors.toMap(VipPackage::getPackageName, Function.identity(), (a, b) -> a));
         for (VipPackageSaveReq req : reqList) {
             VipPackage entity = resolveVipPackage(req, existing);
+            guardVipPayability(entity, req);
+            BigDecimal activePrice = entity.getPrice();
+            boolean pendingPrice = queueVipPriceChange(entity, req);
             fillVipPackage(entity, req);
+            if (pendingPrice) {
+                entity.setPrice(activePrice);
+                if (entity.getWechatProductId() == null && isEnabled(req.getStatus())) {
+                    entity.setStatus(CommonStatusEnum.DISABLED.getCode());
+                }
+            }
             if (entity.getId() == null) {
                 vipPackageDao.insert(entity);
             } else {
@@ -474,7 +487,18 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
                 .collect(Collectors.toMap(CoinPackage::getPackageName, Function.identity(), (a, b) -> a));
         for (CoinPackageSaveReq req : reqList) {
             CoinPackage entity = resolveCoinPackage(req, existing);
+            guardCoinPayability(entity, req);
+            BigDecimal activeAmount = entity.getAmount();
+            BigDecimal activeDiscount = entity.getDiscountAmount();
+            boolean pendingPrice = queueCoinPriceChange(entity, req);
             fillCoinPackage(entity, req);
+            if (pendingPrice) {
+                entity.setAmount(activeAmount);
+                entity.setDiscountAmount(activeDiscount);
+                if (entity.getWechatProductId() == null && isEnabled(req.getStatus())) {
+                    entity.setStatus(CommonStatusEnum.DISABLED.getCode());
+                }
+            }
             if (entity.getId() == null) {
                 coinPackageDao.insert(entity);
             } else {
@@ -487,7 +511,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         if (req.getId() == null) {
             return existing.getOrDefault(req.getPackageName(), new VipPackage());
         }
-        VipPackage entity = vipPackageDao.selectById(req.getId());
+        VipPackage entity = vipPackageDao.selectForUpdate(req.getId());
         if (entity == null) {
             throw new BusinessException("VIP 套餐不存在");
         }
@@ -512,11 +536,78 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         if (req.getId() == null) {
             return existing.getOrDefault(req.getPackageName(), new CoinPackage());
         }
-        CoinPackage entity = coinPackageDao.selectById(req.getId());
+        CoinPackage entity = coinPackageDao.selectForUpdate(req.getId());
         if (entity == null) {
             throw new BusinessException("千寻币套餐不存在");
         }
         return entity;
+    }
+
+    private void guardVipPayability(VipPackage entity, VipPackageSaveReq req) {
+        if (!virtualProductCatalog.isProductionMode() || !isEnabled(req.getStatus())) {
+            return;
+        }
+        if (entity.getId() == null) {
+            throw new BusinessException("线上虚拟支付新增会员套餐请先创建停用状态，取得商品 ID 后配置线上商品再启用");
+        }
+        if (!CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())
+                && StrUtil.isNotBlank(entity.getWechatProductId())) {
+            virtualProductCatalog.assertPayable(entity.getWechatProductId(), entity.getPrice());
+        }
+    }
+
+    private boolean queueVipPriceChange(VipPackage entity, VipPackageSaveReq req) {
+        if (!virtualProductCatalog.isProductionMode() || entity.getId() == null || entity.getPrice() == null) {
+            return false;
+        }
+        if (StrUtil.isBlank(entity.getWechatProductId())) {
+            virtualPriceChangeService.requestChange("vip", entity.getId(), null,
+                    req.getPrice(), isEnabled(req.getStatus()));
+            return true;
+        }
+        if (entity.getPrice().compareTo(req.getPrice()) == 0) {
+            virtualPriceChangeService.cancelChange("vip", entity.getId());
+            return false;
+        }
+        virtualPriceChangeService.requestChange("vip", entity.getId(),
+                entity.getWechatProductId(), req.getPrice());
+        return true;
+    }
+
+    private void guardCoinPayability(CoinPackage entity, CoinPackageSaveReq req) {
+        if (!virtualProductCatalog.isProductionMode() || !isEnabled(req.getStatus())) {
+            return;
+        }
+        if (entity.getId() == null) {
+            throw new BusinessException("线上虚拟支付新增千寻币套餐请先创建停用状态，取得商品 ID 后配置线上商品再启用");
+        }
+        if (!CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())
+                && StrUtil.isNotBlank(entity.getWechatProductId())) {
+            virtualProductCatalog.assertPayable(entity.getWechatProductId(), CoinPackagePriceResolver.resolve(entity));
+        }
+    }
+
+    private boolean queueCoinPriceChange(CoinPackage entity, CoinPackageSaveReq req) {
+        if (!virtualProductCatalog.isProductionMode() || entity.getId() == null) {
+            return false;
+        }
+        BigDecimal current = CoinPackagePriceResolver.resolve(entity);
+        BigDecimal requested = req.getDiscountAmount() != null ? req.getDiscountAmount() : req.getAmount();
+        if (current == null) {
+            return false;
+        }
+        if (StrUtil.isBlank(entity.getWechatProductId())) {
+            virtualPriceChangeService.requestChange("coin", entity.getId(), null,
+                    requested, isEnabled(req.getStatus()));
+            return true;
+        }
+        if (current.compareTo(requested) == 0) {
+            virtualPriceChangeService.cancelChange("coin", entity.getId());
+            return false;
+        }
+        virtualPriceChangeService.requestChange("coin", entity.getId(),
+                entity.getWechatProductId(), requested);
+        return true;
     }
 
     private void upsertCoinScenes(List<CoinSceneConfigReq> reqList) {
@@ -652,7 +743,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         entity.setDurationDays(req.getDurationDays());
         entity.setRecommendFlag(req.getRecommendFlag());
         entity.setPackageTag(req.getPackageTag());
-        entity.setWechatProductId(req.getWechatProductId());
+        // 微信商品 ID 由发布流程维护，不信任后台请求中的手填值。
         entity.setAgreementConfig(req.getAgreementConfig());
         entity.setPayChannelReserve(req.getPayChannelReserve());
         entity.setSortOrder(req.getSortOrder());
@@ -668,6 +759,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         entity.setBonusCoinCount(req.getBonusCoinCount());
         entity.setRecommendFlag(req.getRecommendFlag());
         entity.setPackageTag(req.getPackageTag());
+        // 微信商品 ID 由发布流程维护。
         entity.setMobileTag(req.getMobileTag());
         entity.setPackageDesc(req.getPackageDesc());
         entity.setSortOrder(req.getSortOrder());
@@ -716,6 +808,9 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         vo.setRecommendFlag(entity.getRecommendFlag());
         vo.setPackageTag(entity.getPackageTag());
         vo.setWechatProductId(entity.getWechatProductId());
+        VirtualPriceChange priceChange = entity.getId() == null ? null
+                : virtualPriceChangeService.latest("vip", entity.getId());
+        applyPriceChange(vo, priceChange);
         vo.setAgreementConfig(entity.getAgreementConfig());
         vo.setPayChannelReserve(entity.getPayChannelReserve());
         vo.setSortOrder(entity.getSortOrder());
@@ -725,6 +820,32 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         return vo;
     }
 
+    private void applyPriceChange(VipPackageVO vo, VirtualPriceChange change) {
+        if (change == null) {
+            return;
+        }
+        vo.setPriceChangeStatus(change.getStatus());
+        vo.setPriceChangeError(change.getLastError());
+        if (!"ACTIVE".equals(change.getStatus()) && !"SUPERSEDED".equals(change.getStatus())
+                && !"CANCELLED".equals(change.getStatus())) {
+            vo.setPendingPrice(change.getTargetPrice());
+            vo.setPendingProductId(change.getNewProductId());
+        }
+    }
+
+    private void applyPriceChange(CoinPackageVO vo, VirtualPriceChange change) {
+        if (change == null) {
+            return;
+        }
+        vo.setPriceChangeStatus(change.getStatus());
+        vo.setPriceChangeError(change.getLastError());
+        if (!"ACTIVE".equals(change.getStatus()) && !"SUPERSEDED".equals(change.getStatus())
+                && !"CANCELLED".equals(change.getStatus())) {
+            vo.setPendingPrice(change.getTargetPrice());
+            vo.setPendingProductId(change.getNewProductId());
+        }
+    }
+
     private CoinPackageVO toCoinPackageVO(CoinPackage entity) {
         CoinPackageVO vo = new CoinPackageVO();
         vo.setId(entity.getId());
@@ -732,6 +853,10 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         vo.setAmount(entity.getAmount());
         vo.setOriginAmount(entity.getOriginAmount());
         vo.setDiscountAmount(entity.getDiscountAmount());
+        vo.setWechatProductId(entity.getWechatProductId());
+        VirtualPriceChange priceChange = entity.getId() == null ? null
+                : virtualPriceChangeService.latest("coin", entity.getId());
+        applyPriceChange(vo, priceChange);
         vo.setCoinCount(entity.getCoinCount());
         vo.setBonusCoinCount(entity.getBonusCoinCount());
         vo.setRecommendFlag(entity.getRecommendFlag());

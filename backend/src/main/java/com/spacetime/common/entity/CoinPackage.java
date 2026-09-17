@@ -29,6 +29,8 @@ public class CoinPackage extends BaseEntity {
     private Integer recommendFlag;
     /** 套餐标签 */
     private String packageTag;
+    /** 当前可支付的微信商品 ID */
+    private String wechatProductId;
     /** 移动端展示标签 */
     private String mobileTag;
     /** 套餐描述 */

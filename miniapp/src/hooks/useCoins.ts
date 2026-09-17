@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { miniappOssIcons, type MiniappOssIconKey } from '@/constants/ossIcons'
 import { resolvePaymentFailureFeedback } from '@/domain/paymentFailureFeedback'
@@ -101,6 +101,8 @@ async function confirmPayment(orderId: number) {
  * 所有余额、套餐、场景、流水和入账结果均来自后端接口。
  */
 export function useCoins() {
+  const paymentInFlight = useRef(false)
+  const paymentLayerDismissed = useRef(false)
   const [balance, setBalance] = useState(0)
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [packages, setPackages] = useState<CoinPackage[]>([])
@@ -159,10 +161,13 @@ export function useCoins() {
     sourcePage = 'coins',
     options: CoinPurchaseOptions = {},
   ) => {
+    if (paymentInFlight.current) return
     if (!selectedPackage) {
       Taro.showToast({ title: '暂无可购买套餐', icon: 'none' })
       return
     }
+    paymentInFlight.current = true
+    paymentLayerDismissed.current = false
     let orderId: number | null = null
     setPayLoading(true)
     setPayState('paying')
@@ -171,37 +176,51 @@ export function useCoins() {
       const order = await createOrder(selectedPackage.id, 'coin')
       orderId = order.orderId
       await requestWechatPayment(order)
-      const result = await confirmPayment(order.orderId)
-      if (result.orderStatus !== 'success') {
-        setPayState('pay-failed')
-        setPaymentErrorMessage('支付结果确认中，请稍后查看订单')
+      let result: Awaited<ReturnType<typeof confirmPayment>> | null = null
+      try {
+        result = await confirmPayment(order.orderId)
+      } catch {
+        // 微信已返回支付成功，查单失败只能视为确认中，不能提示支付失败。
+      }
+      if (result?.orderStatus !== 'success') {
+        if (!paymentLayerDismissed.current) {
+          setPayState('pay-failed')
+          setPaymentErrorMessage('支付结果确认中，请稍后查看订单')
+        }
         Taro.showToast({ title: '支付结果确认中，请稍后查看订单', icon: 'none' })
         Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=coin&sourcePage=${sourcePage}&result=processing` })
         return
       }
       if (result.coinBalance != null) setBalance(Number(result.coinBalance))
-      await fetchTransactions()
-      setPayState('pay-success')
+      try {
+        await fetchTransactions()
+      } catch {
+        // 支付已确认成功，流水刷新失败不改变支付结果。
+      }
+      if (!paymentLayerDismissed.current) setPayState('pay-success')
       if (options.navigateOnSuccess !== false) {
         Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=coin&sourcePage=${sourcePage}&result=success` })
       }
     } catch (error) {
       const feedback = resolvePaymentFailureFeedback(error)
-      setPaymentErrorMessage(feedback.message)
+      if (!paymentLayerDismissed.current) setPaymentErrorMessage(feedback.message)
       if (feedback.cancelled) {
-        setPayState('pay-cancel')
+        if (!paymentLayerDismissed.current) setPayState('pay-cancel')
         if (orderId) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=cancel` })
       } else {
-        setPayState('pay-failed')
+        if (!paymentLayerDismissed.current) setPayState('pay-failed')
         Taro.showToast({ title: feedback.message, icon: 'none' })
         if (orderId && !feedback.capabilityRestricted) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=failed` })
       }
     } finally {
+      paymentInFlight.current = false
       setPayLoading(false)
     }
   }, [fetchTransactions, selectedPackage])
 
   const hidePaymentLayer = useCallback(() => {
+    // 用户关闭的是等待提示，不取消仍在进行的微信支付；晚到回调不得重新弹出遮罩。
+    paymentLayerDismissed.current = true
     setPayState('idle')
     setPaymentErrorMessage('')
   }, [])

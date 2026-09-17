@@ -93,7 +93,7 @@ assert.match(postDetail, /unhideCommunityAuthor/, '动态详情更多操作必�
 assert.match(postDetail, /CommunityPostActionSheet/, '动态详情必须复用按作者身份裁剪的操作弹窗')
 assert.match(postActionSheet, /取消不看 TA 动态/, '动态详情更多操作必须按最终态展示反向动作')
 assert.match(postActionSheet, /const moderationActions = isSelf \? \[\] :/, '本人动态必须隐藏关注、不看和举报操作')
-assert.match(postDetail, /reportTarget\('comment'/, '评论举报必须按 comment 对象提交，不能误报为帖子')
+assert.match(postDetail, /openReportReasons\('comment'/, '评论举报必须按 comment 对象提交，不能误报为帖子')
 assert.match(topicDetail, /hideCommunityAuthor/, '话题详情更多操作必须将作者偏好写入服务端')
 assert.match(topicDetail, /unhideCommunityAuthor/, '话题详情更多操作必须支持取消不看')
 assert.doesNotMatch(topicDetail, /不看此动态/, '话题详情不得伪造单条动态本地隐藏')

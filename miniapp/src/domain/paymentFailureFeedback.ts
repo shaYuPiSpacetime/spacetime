@@ -58,6 +58,17 @@ export function resolvePaymentFailureFeedback(error: unknown): PaymentFailureFee
     }
   }
 
+  const productNotConfigured = /(product\s*_?\s*id|商品\s*id|产品\s*id)/i.test(rawMessage)
+    && (/(not\s+configured|not\s+found|does\s+not\s+exist)/i.test(rawMessage)
+      || /(没有配置|未配置|不存在)/.test(rawMessage))
+  if (productNotConfigured) {
+    return {
+      cancelled: false,
+      capabilityRestricted: false,
+      message: '当前支付商品未完成配置，请联系客服处理',
+    }
+  }
+
   const providerMessage = rawMessage
     .replace(/^requestVirtualPayment:(?:fail|fail\s*)/i, '')
     .replace(/^requestPayment:(?:fail|fail\s*)/i, '')

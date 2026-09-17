@@ -52,6 +52,9 @@ interface VipPackageRow {
   purchaseMode: 'once';
   originalPrice: number;
   price: number;
+  pendingPrice?: number;
+  priceChangeStatus?: string;
+  priceChangeError?: string;
   duration: string;
   tag: string;
   status: 'on' | 'off';
@@ -62,6 +65,9 @@ interface CoinPackageRow {
   name: string;
   originalPrice: number;
   payAmount: number;
+  pendingPrice?: number;
+  priceChangeStatus?: string;
+  priceChangeError?: string;
   coinCount: number;
   bonusCoin: number;
   tag: string;
@@ -174,6 +180,36 @@ const CONFIG_TABS: { key: ConfigTabKey; label: string }[] = [
   { key: 'social', label: '社交与订单参数' },
   { key: 'exposure', label: '曝光包预留' },
 ];
+
+type PriceChangeView = {
+  wechatProductId?: string;
+  pendingPrice?: number;
+  pendingProductId?: string;
+  priceChangeStatus?: string;
+  priceChangeError?: string;
+};
+
+function priceChangeView(item: VipPackageConfig | CoinPackageConfig): PriceChangeView {
+  return item as PriceChangeView;
+}
+
+function activeProductId(_kind: 'vip' | 'coin', item: VipPackageConfig | CoinPackageConfig | null) {
+  if (!item?.id) return '首次上架时生成';
+  return priceChangeView(item).wechatProductId || '尚未发布';
+}
+
+function priceChangeStatusText(status?: string) {
+  switch (status) {
+    case 'QUEUED': return '等待上传微信';
+    case 'UPLOADING': return '上传微信商品中';
+    case 'PUBLISHING': return '微信商品发布中';
+    case 'WAIT_EFFECTIVE': return '等待微信生效';
+    case 'DRAFT': return '待保存';
+    case 'FAILED': return '发布失败';
+    case 'CANCELLED': return '已取消';
+    default: return '待生效';
+  }
+}
 
 const ICON_GLYPHS: Record<string, string> = {
   'heart-list': '♥',
@@ -315,6 +351,7 @@ function benefitConfigType(item: VipBenefitConfig): BenefitRow['configType'] {
 }
 
 function toVipPackageRow(item: VipPackageConfig, index: number): VipPackageRow {
+  const priceChange = priceChangeView(item);
   return {
     id: `VIP-${String(item.id ?? index + 1).padStart(2, '0')}`,
     name: item.packageName,
@@ -322,6 +359,9 @@ function toVipPackageRow(item: VipPackageConfig, index: number): VipPackageRow {
     purchaseMode: 'once',
     originalPrice: Number(item.originPrice ?? item.price),
     price: Number(item.price ?? 0),
+    pendingPrice: priceChange.pendingPrice == null ? undefined : Number(priceChange.pendingPrice),
+    priceChangeStatus: priceChange.priceChangeStatus,
+    priceChangeError: priceChange.priceChangeError,
     duration: `${item.durationDays || 31} 天`,
     tag: item.packageTag || '后台配置',
     status: item.status === 'DISABLED' ? 'off' : 'on',
@@ -329,11 +369,12 @@ function toVipPackageRow(item: VipPackageConfig, index: number): VipPackageRow {
 }
 
 function normalizeVipPackage(item: VipPackageConfig): VipPackageConfig {
+  const legacySubscription = item.packageType !== 'normal' || (item.subscriptionType != null && item.subscriptionType !== 'once');
   return {
     ...item,
     packageType: 'normal',
     subscriptionType: 'once',
-    wechatProductId: undefined,
+    wechatProductId: legacySubscription ? undefined : item.wechatProductId,
     agreementConfig: undefined,
   };
 }
@@ -346,11 +387,15 @@ function normalizeCommercialConfig(value: CommercialConfig): CommercialConfig {
 }
 
 function toCoinPackageRow(item: CoinPackageConfig, index: number): CoinPackageRow {
+  const priceChange = priceChangeView(item);
   return {
     id: `COIN-${item.coinCount || index + 1}`,
     name: item.packageName,
     originalPrice: Number(item.originAmount ?? item.amount),
     payAmount: Number(item.discountAmount ?? item.amount),
+    pendingPrice: priceChange.pendingPrice == null ? undefined : Number(priceChange.pendingPrice),
+    priceChangeStatus: priceChange.priceChangeStatus,
+    priceChangeError: priceChange.priceChangeError,
     coinCount: Number(item.coinCount ?? 0),
     bonusCoin: Number(item.bonusCoinCount ?? 0),
     tag: item.mobileTag || item.packageTag || '-',
@@ -582,10 +627,20 @@ function ConfigWorkspace() {
     }
     setSaving(true);
     try {
-      const payload = normalizeCommercialConfig(config);
+      const payload = normalizeCommercialConfig({
+        ...config,
+        vipPackages: config.vipPackages.map((item) => ({
+          ...item,
+          price: priceChangeView(item).pendingPrice ?? item.price,
+        })),
+        coinPackages: config.coinPackages.map((item) => {
+          const price = priceChangeView(item).pendingPrice ?? item.discountAmount ?? item.amount;
+          return { ...item, amount: price, discountAmount: price };
+        }),
+      });
       const res = await saveCommercialConfig({ ...payload, changeSummary: saveReason });
       setConfig(normalizeCommercialConfig(responseData<CommercialConfig>(res, payload)));
-      showToast('商业化配置已保存', 'success');
+      showToast('配置已保存；调价需等待微信商品生效后自动切换', 'success');
       setSaveOpen(false);
       setSaveReason('');
     } finally {
@@ -681,7 +736,7 @@ function ConfigWorkspace() {
             <button className="btn primary" type="button" onClick={() => { setVipEditIndex(null); setVipEditOpen(true); }}>新增套餐</button>
           </Toolbar>
           <TableWrap minWidth={1120}>
-            <thead><tr><th>套餐编号</th><th>套餐名称</th><th>套餐类型</th><th>购买方式</th><th>原价</th><th>优惠价</th><th>有效天数</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th>套餐编号</th><th>套餐名称</th><th>套餐类型</th><th>购买方式</th><th>原价</th><th>当前支付价</th><th>申请新价</th><th>有效天数</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
             <tbody data-render="admin-vip-packages">
               {data.vipPackages.map((item, index) => (
                 <tr key={item.id}>
@@ -691,15 +746,17 @@ function ConfigWorkspace() {
                   <td>一次性购买</td>
                   <td>{money(item.originalPrice)}</td>
                   <td>{money(item.price)}</td>
+                  <td><PendingPrice price={item.pendingPrice} status={item.priceChangeStatus} error={item.priceChangeError} /></td>
                   <td>{item.duration}</td>
                   <td><Tag>{item.tag}</Tag></td>
                   <td><Tag tone={item.status === 'on' ? 'success' : 'danger'}>{item.status === 'on' ? '上架' : '下架'}</Tag></td>
                   <td><button className="btn" type="button" onClick={() => { setVipEditIndex(index); setVipEditOpen(true); }}>编辑</button> <button className="btn danger" type="button" onClick={() => toggleConfigStatus('vipPackages', index)}>{item.status === 'on' ? '下架' : '上架'}</button></td>
                 </tr>
               ))}
-              {!data.vipPackages.length && <EmptyTableRow colSpan={10} />}
+              {!data.vipPackages.length && <EmptyTableRow colSpan={11} />}
             </tbody>
           </TableWrap>
+          <Notice title="价格生效说明">会员价格可随时申请调整。保存后系统自动创建并发布新微信商品；发布、生效期间，小程序仍按“当前支付价”销售，生效后自动切换。新增套餐先保存为下架，再点击上架并保存，待微信商品生效后自动上架。</Notice>
           <Notice title="购买方式">所有会员套餐均为普通套餐，通过微信支付一次性购买；再次购买只延长会员有效期，不会自动扣费。</Notice>
         </ConfigPanel>
 
@@ -708,7 +765,7 @@ function ConfigWorkspace() {
             <button className="btn primary" type="button" onClick={() => { setCoinEditIndex(null); setCoinEditOpen(true); }}>新增币包</button>
           </Toolbar>
           <TableWrap minWidth={1120}>
-            <thead><tr><th>套餐编号</th><th>名称</th><th>原价</th><th>优惠价</th><th>到账币数</th><th>赠送币</th><th>标签</th><th>推荐</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th>套餐编号</th><th>名称</th><th>原价</th><th>当前支付价</th><th>申请新价</th><th>到账币数</th><th>赠送币</th><th>标签</th><th>推荐</th><th>状态</th><th>操作</th></tr></thead>
             <tbody data-render="admin-coin-packages">
               {data.coinPackages.map((item, index) => (
                 <tr key={item.id}>
@@ -716,6 +773,7 @@ function ConfigWorkspace() {
                   <td>{item.name}</td>
                   <td>{money(item.originalPrice)}</td>
                   <td>{money(item.payAmount)}</td>
+                  <td><PendingPrice price={item.pendingPrice} status={item.priceChangeStatus} error={item.priceChangeError} /></td>
                   <td>{item.coinCount}</td>
                   <td>{item.bonusCoin}</td>
                   <td><Tag>{item.tag}</Tag></td>
@@ -724,9 +782,10 @@ function ConfigWorkspace() {
                   <td><button className="btn" type="button" onClick={() => { setCoinEditIndex(index); setCoinEditOpen(true); }}>编辑</button> <button className="btn danger" type="button" onClick={() => toggleConfigStatus('coinPackages', index)}>{item.status === 'on' ? '下架' : '上架'}</button></td>
                 </tr>
               ))}
-              {!data.coinPackages.length && <EmptyTableRow colSpan={10} />}
+              {!data.coinPackages.length && <EmptyTableRow colSpan={11} />}
             </tbody>
           </TableWrap>
+          <Notice title="价格生效说明">千寻币价格可随时申请调整。保存后系统自动创建并发布新微信商品；发布、生效期间，小程序仍按“当前支付价”销售，生效后自动切换。新增币包先保存为下架，再点击上架并保存，待微信商品生效后自动上架。</Notice>
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'scenePrices'} name="scenePrices">
@@ -797,28 +856,41 @@ function ConfigWorkspace() {
       </Drawer>
 
       <Modal id="configSaveModal" title="保存配置确认" open={saveOpen} onClose={() => setSaveOpen(false)}>
-        <p>本次变更将立即影响移动端套餐、单价或权益展示，并写入审计日志。</p>
+        <p>本次变更会写入审计日志。会员或千寻币的新价格需等待微信商品发布生效；等待期间用户仍按当前价支付。</p>
         <label className="field">变更原因<textarea value={saveReason} onChange={(event) => setSaveReason(event.target.value)} /></label>
         <div className="modal-actions"><button className="btn" type="button" onClick={() => setSaveOpen(false)}>取消</button><button className="btn primary" type="button" disabled={saving || !saveReason.trim()} onClick={save}>确认保存</button></div>
       </Modal>
 
       <VipPackageModal
+        key={`vip-${vipEditIndex ?? 'new'}-${vipEditOpen}`}
         open={vipEditOpen}
         initial={vipEditIndex == null ? null : config?.vipPackages[vipEditIndex] || null}
         onClose={() => setVipEditOpen(false)}
         onSubmit={(value) => {
-          updateConfigList('vipPackages', vipEditIndex, value);
+          const current = vipEditIndex == null ? null : config?.vipPackages[vipEditIndex];
+          const requestedBefore = current ? priceChangeView(current).pendingPrice ?? current.price : null;
+          const edited = current && value.price !== requestedBefore;
+          updateConfigList('vipPackages', vipEditIndex, current
+            ? { ...value, price: current.price, pendingPrice: edited ? value.price : priceChangeView(current).pendingPrice, priceChangeStatus: edited ? 'DRAFT' : priceChangeView(current).priceChangeStatus } as VipPackageConfig
+            : value);
           setVipEditOpen(false);
           setSaveReason('');
           setSaveOpen(true);
         }}
       />
       <CoinPackageModal
+        key={`coin-${coinEditIndex ?? 'new'}-${coinEditOpen}`}
         open={coinEditOpen}
         initial={coinEditIndex == null ? null : config?.coinPackages[coinEditIndex] || null}
         onClose={() => setCoinEditOpen(false)}
         onSubmit={(value) => {
-          saveCoinPackageDraft(coinEditIndex, value);
+          const current = coinEditIndex == null ? null : config?.coinPackages[coinEditIndex];
+          const requestedBefore = current ? priceChangeView(current).pendingPrice ?? current.discountAmount ?? current.amount : null;
+          const requested = value.discountAmount ?? value.amount;
+          const edited = current && requested !== requestedBefore;
+          saveCoinPackageDraft(coinEditIndex, current
+            ? { ...value, amount: current.amount, discountAmount: current.discountAmount, pendingPrice: edited ? requested : priceChangeView(current).pendingPrice, priceChangeStatus: edited ? 'DRAFT' : priceChangeView(current).priceChangeStatus } as CoinPackageConfig
+            : value);
           setCoinEditOpen(false);
           setSaveReason('');
           setSaveOpen(true);
@@ -1280,6 +1352,16 @@ function Tag({ children, tone }: { children: ReactNode; tone?: string }) {
   return <span className={cn('tag', tone || statusClass(String(children)))}>{children}</span>;
 }
 
+function PendingPrice({ price, status, error }: { price?: number; status?: string; error?: string }) {
+  if (price == null) return '-';
+  return (
+    <div>
+      <div>{money(price)} <Tag tone={status === 'FAILED' ? 'danger' : 'brand'}>{priceChangeStatusText(status)}</Tag></div>
+      {error ? <small className="text-red-600" role="alert">{error}</small> : null}
+    </div>
+  );
+}
+
 function MiniSwitch({ on, label, onClick }: { on: boolean; label?: string; onClick?: () => void }) {
   return <button type="button" className={cn('mini-switch', !on && 'off')} onClick={onClick}>{label || (on ? '启用' : '停用')}</button>;
 }
@@ -1368,23 +1450,32 @@ function VipPackageModal({
   onClose: () => void;
   onSubmit: (value: VipPackageConfig) => void;
 }) {
-  const [form, setForm] = useState<VipPackageConfig>({ packageName: '', packageType: 'normal', price: 0, durationDays: 30, subscriptionType: 'once', status: 'ENABLED' });
+  const [form, setForm] = useState<VipPackageConfig>(() => initial
+    ? { ...initial, price: priceChangeView(initial).pendingPrice ?? initial.price }
+    : { packageName: '', packageType: 'normal', price: 0, durationDays: 30, subscriptionType: 'once', status: 'DISABLED' });
   useEffect(() => {
-    if (open) setForm(initial || { packageName: '', packageType: 'normal', price: 0, durationDays: 30, subscriptionType: 'once', status: 'ENABLED' });
+    if (open) setForm(initial
+      ? { ...initial, price: priceChangeView(initial).pendingPrice ?? initial.price }
+      : { packageName: '', packageType: 'normal', price: 0, durationDays: 30, subscriptionType: 'once', status: 'DISABLED' });
   }, [initial, open]);
+  const activePrice = initial?.price;
+  const priceChange = initial ? priceChangeView(initial) : null;
   return (
     <Modal id="vipPackageEditModal" title="会员套餐新增/编辑" open={open} onClose={onClose}>
       <div className="form-stack">
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
         <label className="field">套餐类型<input value="普通套餐" readOnly /></label>
-        <label className="field">优惠价<input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} /></label>
+        <label className="field">当前微信商品 ID<input value={activeProductId('vip', initial)} readOnly /></label>
+        <label className="field">当前可支付价<input value={activePrice == null ? '新套餐待创建' : money(activePrice)} readOnly /></label>
+        <label className="field">优惠价（申请新价）<input type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} /></label>
         <label className="field">原价<input type="number" value={form.originPrice ?? ''} onChange={(event) => setForm({ ...form, originPrice: event.target.value ? Number(event.target.value) : undefined })} /></label>
         <label className="field">时长（天）<input type="number" value={form.durationDays} onChange={(event) => setForm({ ...form, durationDays: Number(event.target.value) })} /></label>
         <label className="field">购买方式<input value="一次性购买" readOnly /></label>
         <label className="field">标签<input value={form.packageTag || ''} onChange={(event) => setForm({ ...form, packageTag: event.target.value })} /></label>
       </div>
-      <Notice title="保存说明">确认套餐后还需填写变更原因；最终保存成功后，小程序价格才会更新。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || form.price <= 0} onClick={() => onSubmit(normalizeVipPackage(form))}>确认并继续保存</button></div>
+      <Notice title="价格切换规则">{initial ? '保存新价格后，系统自动创建并发布微信商品；新价生效前，小程序仍按当前可支付价销售。再次改价会提交最新申请。' : '新增套餐默认下架。首次保存后点击上架并确认保存，系统发布微信商品，生效后自动上架。'}</Notice>
+      {priceChange?.pendingPrice != null ? <Notice title="当前调价进度">申请价 {money(priceChange.pendingPrice)}，{priceChangeStatusText(priceChange.priceChangeStatus)}；新商品 ID：{priceChange.pendingProductId || '待生成'}。{priceChange.priceChangeError || ''}</Notice> : null}
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || !Number.isFinite(form.price) || form.price <= 0} onClick={() => onSubmit(normalizeVipPackage({ ...form, status: initial ? form.status : 'DISABLED' }))}>确认并继续保存</button></div>
     </Modal>
   );
 }
@@ -1400,28 +1491,39 @@ function CoinPackageModal({
   onClose: () => void;
   onSubmit: (value: CoinPackageConfig) => void;
 }) {
-  const [form, setForm] = useState<CoinPackageConfig>({ packageName: '', amount: 0, coinCount: 0, status: 'ENABLED' });
+  const [form, setForm] = useState<CoinPackageConfig>(() => {
+    if (!initial) return { packageName: '', amount: 0, coinCount: 0, status: 'DISABLED' };
+    const price = priceChangeView(initial).pendingPrice ?? initial.discountAmount ?? initial.amount;
+    return { ...initial, amount: price, discountAmount: price };
+  });
   useEffect(() => {
     if (!open) return;
-    const value = initial || { packageName: '', amount: 0, coinCount: 0, status: 'ENABLED' };
-    setForm({ ...value, discountAmount: value.discountAmount ?? value.amount });
+    const value = initial || { packageName: '', amount: 0, coinCount: 0, status: 'DISABLED' };
+    const requestedPrice = initial ? priceChangeView(initial).pendingPrice ?? value.discountAmount ?? value.amount : value.amount;
+    setForm({ ...value, amount: requestedPrice, discountAmount: requestedPrice });
   }, [initial, open]);
-  const effectivePrice = form.discountAmount ?? form.amount;
+  const configuredPrice = form.discountAmount ?? form.amount;
+  const activePrice = initial ? initial.discountAmount ?? initial.amount : null;
+  const priceChange = initial ? priceChangeView(initial) : null;
   return (
     <Modal id="coinPackageEditModal" title="千寻币套餐新增/编辑" open={open} onClose={onClose}>
       <div className="form-stack">
         <label className="field">套餐类型<select disabled><option>千寻币套餐</option></select></label>
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
+        <label className="field">当前微信商品 ID<input value={activeProductId('coin', initial)} readOnly /></label>
+        <label className="field">当前可支付价<input value={activePrice == null ? '新币包待创建' : money(activePrice)} readOnly /></label>
         <label className="field">原价<input type="number" value={form.originAmount ?? ''} onChange={(event) => setForm({ ...form, originAmount: event.target.value ? Number(event.target.value) : undefined })} /></label>
-        <label className="field">优惠价<input type="number" value={effectivePrice} onChange={(event) => setForm({ ...form, amount: Number(event.target.value), discountAmount: Number(event.target.value) })} /></label>
+        <label className="field">优惠价（申请新价）<input type="number" min="0.01" step="0.01" value={configuredPrice} onChange={(event) => setForm({ ...form, amount: Number(event.target.value), discountAmount: Number(event.target.value) })} /></label>
         <label className="field">到账币数<input type="number" value={form.coinCount} onChange={(event) => setForm({ ...form, coinCount: Number(event.target.value) })} /></label>
         <label className="field">赠送币数<input type="number" value={form.bonusCoinCount ?? 0} onChange={(event) => setForm({ ...form, bonusCoinCount: Number(event.target.value) })} /></label>
         <label className="field">标签<input value={form.packageTag || ''} onChange={(event) => setForm({ ...form, packageTag: event.target.value })} /></label>
         <label className="field">移动端标签<input value={form.mobileTag || ''} onChange={(event) => setForm({ ...form, mobileTag: event.target.value })} /></label>
         <label className="field">是否推荐<select value={form.recommendFlag ? '1' : '0'} onChange={(event) => setForm({ ...form, recommendFlag: Number(event.target.value) })}><option value="1">推荐档</option><option value="0">普通档</option></select></label>
       </div>
-      <Notice title="保存说明">同一时间最多 1 个推荐档；确认套餐后还需填写变更原因，最终保存成功后小程序才会更新。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || effectivePrice <= 0 || form.coinCount <= 0} onClick={() => onSubmit({ ...form, amount: effectivePrice, discountAmount: effectivePrice })}>确认并继续保存</button></div>
+      <Notice title="价格切换规则">{initial ? '保存新价格后，系统自动创建并发布微信商品；新价生效前，小程序仍按当前可支付价销售。再次改价会提交最新申请。' : '新增币包默认下架。首次保存后点击上架并确认保存，系统发布微信商品，生效后自动上架。'}</Notice>
+      {priceChange?.pendingPrice != null ? <Notice title="当前调价进度">申请价 {money(priceChange.pendingPrice)}，{priceChangeStatusText(priceChange.priceChangeStatus)}；新商品 ID：{priceChange.pendingProductId || '待生成'}。{priceChange.priceChangeError || ''}</Notice> : null}
+      <Notice title="保存说明">同一时间最多 1 个推荐档；确认套餐后还需填写变更原因。</Notice>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || !Number.isFinite(configuredPrice) || configuredPrice <= 0 || form.coinCount <= 0} onClick={() => onSubmit({ ...form, amount: configuredPrice, discountAmount: configuredPrice, status: initial ? form.status : 'DISABLED' })}>确认并继续保存</button></div>
     </Modal>
   );
 }

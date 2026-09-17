@@ -49,9 +49,10 @@ export default function CommunityPostActionSheet({
           <Image
             src={miniappOssIcons.loginMethodWechat}
             mode="aspectFit"
-            style={{ width: '52rpx', height: '52rpx', marginRight: '18rpx', flexShrink: 0 }}
+            className="community-post-action-sheet__share-icon"
+            style={{ width: '52rpx', height: '52rpx' }}
           />
-          <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>微信分享</Text>
+          <Text className="community-post-action-sheet__share-label" style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>微信分享</Text>
         </Button>
         {moderationActions.map(action => (
           <View

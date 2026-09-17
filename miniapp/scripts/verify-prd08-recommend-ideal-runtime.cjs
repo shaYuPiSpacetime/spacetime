@@ -25,6 +25,7 @@ const onlyAddress = process.env.PRD08_ONLY_ADDRESS === 'true'
 const onlyEmpty = process.env.PRD08_ONLY_EMPTY === 'true'
 const onlyWhisper = process.env.PRD08_ONLY_WHISPER === 'true'
 const onlyRecommend = process.env.PRD08_ONLY_RECOMMEND === 'true'
+const onlyPreferenceSlider = process.env.PRD08_ONLY_PREFERENCE_SLIDER === 'true'
 const privateCommunication = process.env.PRD08_PRIVATE_COMMUNICATION === 'true'
 const skipScreenshots = process.env.PRD08_SKIP_SCREENSHOTS === 'true'
 const outputRoot = path.resolve(
@@ -638,6 +639,10 @@ async function screenshot(miniProgram, outputDir, filename) {
         ...process.env,
         MINIAPP_E2E_MODE: 'true',
         MINIAPP_E2E_API_BASE_URL: `http://127.0.0.1:${mockPort}/api`,
+        ...(onlyPreferenceSlider ? {
+          MINIAPP_DEV_FIXED_LOGIN: 'true',
+          MINIAPP_DEV_FIXED_TOKEN: 'prd08-runtime-token',
+        } : {}),
       },
       stdio: 'inherit',
     })
@@ -663,10 +668,42 @@ async function screenshot(miniProgram, outputDir, filename) {
   const miniProgram = connectedMiniProgram
   const exceptions = []
   miniProgram.on('exception', error => exceptions.push(String(error?.message || error)))
-  await miniProgram.callWxMethod('setStorageSync', 'token', 'prd08-runtime-token')
+  if (!onlyPreferenceSlider) {
+    await miniProgram.callWxMethod('setStorageSync', 'token', 'prd08-runtime-token')
+  }
   const system = await miniProgram.systemInfo()
   const outputDir = path.join(outputRoot, `微信运行-${system.windowWidth}x${system.windowHeight}`)
   fs.mkdirSync(outputDir, { recursive: true })
+
+  if (onlyPreferenceSlider) {
+    const page = await open(miniProgram, '/pages/prd08/recommend/preference/index', '偏好双端滑块')
+    const diagnoseViews = await page.$$('view')
+    const sliderId = (await Promise.all(diagnoseViews.map(element => element.attribute('id'))))
+      .find(id => /^dual-range-slider-\d+$/.test(String(id)))
+    assert.ok(sliderId, '年龄偏好双端滑块未渲染')
+    const slider = await waitForElement(page, `#${sliderId}`, '年龄偏好双端滑块')
+    const track = await waitForElement(page, `#${sliderId}-track`, '年龄偏好轨道')
+    const trackOffset = await track.offset()
+    const trackSize = await track.size()
+    const initialText = await page.$$('text')
+    const initialLabels = await Promise.all(initialText.map(element => element.text()))
+    assert.ok(initialLabels.some(label => label.includes('年龄偏好 24-34')), '年龄偏好初始范围不正确')
+
+    const startX = trackOffset.left + (24 - 18) / (60 - 18) * trackSize.width
+    const moveX = trackOffset.left + (27 - 18) / (60 - 18) * trackSize.width
+    const y = trackOffset.top + trackSize.height / 2
+    const touch = x => ({ identifier: 1, clientX: x, clientY: y, pageX: x, pageY: y })
+    await slider.touchstart({ touches: [touch(startX)], changeTouches: [touch(startX)] })
+    await slider.touchmove({ touches: [touch(moveX)], changeTouches: [touch(moveX)] })
+    await slider.touchend({ touches: [], changeTouches: [touch(moveX)] })
+    await page.waitFor(200)
+    const updatedText = await page.$$('text')
+    const updatedLabels = await Promise.all(updatedText.map(element => element.text()))
+    assert.ok(updatedLabels.some(label => label.includes('年龄偏好 27-34')), '左端滑块向右拖动后年龄下限未更新')
+    assert.equal(exceptions.length, 0, `运行异常：${exceptions.join('；')}`)
+    console.log('推荐偏好左端滑块运行态拖动通过')
+    return
+  }
 
   if (onlyRecommend) {
     const page = await open(miniProgram, '/pages/recommend/index', '推荐私信按钮', 2600)

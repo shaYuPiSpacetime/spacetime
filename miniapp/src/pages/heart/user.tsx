@@ -2,6 +2,7 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
+import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
@@ -50,6 +51,7 @@ export default function HeartUserPage() {
   const [communityPostsLoading, setCommunityPostsLoading] = useState(true)
   const [communityPostsError, setCommunityPostsError] = useState('')
   const [communityConfig, setCommunityConfig] = useState<CommunityConfig>()
+  const [showReportReasons, setShowReportReasons] = useState(false)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
   const access = useAccessStatus('canMatch')
   const eventNo = useMemo(() => createEventNo(targetUserId || 0, sourceScene), [targetUserId, sourceScene])
@@ -168,11 +170,17 @@ export default function HeartUserPage() {
       await Taro.showToast({ title: resolveCommunityCopy(meta, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
       return
     }
-    const selection = await Taro.showActionSheet({ itemList: meta.reportReasons.map(item => item.label) })
-    const reason = meta.reportReasons[selection.tapIndex]
-    if (!reason) return
-    const result = await reportCommunityTarget('user', targetUserId, reason.code)
-    await Taro.showModal({ title: result.statusName || resolveCommunityCopy(meta, COMMUNITY_COPY_KEYS.reportSubmitted), content: result.message || '', showCancel: false, confirmText: '知道了' })
+    setShowReportReasons(true)
+  }
+
+  const submitUserReport = async (reasonCode: string) => {
+    setShowReportReasons(false)
+    try {
+      const result = await reportCommunityTarget('user', targetUserId, reasonCode)
+      await Taro.showModal({ title: result.statusName || resolveCommunityCopy(communityConfig, COMMUNITY_COPY_KEYS.reportSubmitted), content: result.message || '', showCancel: false, confirmText: '知道了' })
+    } catch (error) {
+      await Taro.showToast({ title: resolveCommunityFeedback(communityConfig, COMMUNITY_COPY_KEYS.reportSubmitFailed, error), icon: 'none' })
+    }
   }
 
   const openSafetyActions = async () => {
@@ -265,6 +273,7 @@ export default function HeartUserPage() {
           }}
         />
       ) : null}
+      {showReportReasons ? <CommunityReportReasonSheet reasons={communityConfig?.reportReasons || []} onClose={() => setShowReportReasons(false)} onReport={reasonCode => void submitUserReport(reasonCode)} /> : null}
     </View>
   )
 }

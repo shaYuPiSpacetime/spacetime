@@ -53,7 +53,7 @@ assert.match(preview, /visibleContent\.photos\.slice\(2\)\.map/, '剩余蓝湖�
 assert.doesNotMatch(preview, /暂未添加标签|暂未填写自我介绍|暂未添加照片|暂未添加喜欢的歌曲/, '主页预览空内容不得显示占位模块')
 assert.match(edit, /<ProfilePreviewPage\s+model=\{previewModel\}/, '编辑页必须将完整真实资料模型传给预览页')
 assert.match(edit, /profile\.profileBgImage/, '主页预览背景必须读取 home-detail 的 profileBgImage')
-assert.match(edit, /const profileHeroImage = profileBackground \|\| editHeroPhoto/, '两页主图必须统一解析真实背景和空态兜底')
+assert.match(edit, /const profileHeroImage = previewBackground \|\| editHeroPhoto/, '两页主图必须统一解析审核生效背景和空态兜底')
 assert.match(edit, /heroImageUrl:\s*profileHeroImage/, '主页预览必须接收编辑资料当前展示的同一背景图')
 assert.doesNotMatch(edit + preview, /MbtiSection|ProfilePreviewMbti|MBTI类型/, '产品要求隐藏编辑资料与预览 MBTI 模块')
 assert.match(edit, /prd01Api\.replaceAlbum[\s\S]*fileSizeBytes:\s*uploaded\.fileSizeBytes/, '替换相册必须透传 OSS 返回的文件大小')

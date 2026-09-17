@@ -9,6 +9,8 @@ import com.spacetime.common.entity.VipPackage;
  */
 public interface VipPackageDao {
     VipPackage selectById(Long id);
+    /** 在当前事务内锁住套餐行，防止与商品切换并发。 */
+    VipPackage selectForUpdate(Long id);
     Page<VipPackage> selectPage(Page<VipPackage> page, LambdaQueryWrapper<VipPackage> wrapper);
     void insert(VipPackage entity);
     void updateById(VipPackage entity);

@@ -27,6 +27,7 @@ import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AssetResultMessageNotificationService;
 import com.spacetime.common.service.PromotionEventInboxService;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
 import com.spacetime.common.util.CoinPackagePriceResolver;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
 import com.spacetime.miniapp.dto.response.CreateOrderVO;
@@ -80,6 +81,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final PromotionEventInboxService promotionEventInboxService;
     /** 资产结果系统消息适配器 */
     private final AssetResultMessageNotificationService assetResultNotificationService;
+    /** 微信虚拟支付线上商品目录 */
+    private final WechatVirtualProductCatalog virtualProductCatalog;
 
     /**
      * 创建支付订单（VIP套餐或成家币套餐购买）
@@ -98,6 +101,10 @@ public class PaymentServiceImpl implements PaymentService {
         // 1. 根据订单类型校验套餐存在且已启用
         BigDecimal payAmount;
         String packageName;
+        String productId = null;
+        Integer vipDurationDays = null;
+        Integer coinCount = null;
+        Integer bonusCoinCount = null;
         if (OrderTypeEnum.VIP.getCode().equals(orderType)) {
             VipPackage vipPkg = vipPackageDao.selectById(packageId);
             if (vipPkg == null || !CommonStatusEnum.ENABLED.getCode().equals(vipPkg.getStatus())) {
@@ -105,6 +112,8 @@ public class PaymentServiceImpl implements PaymentService {
             }
             payAmount = vipPkg.getPrice();
             packageName = vipPkg.getPackageName();
+            productId = vipPkg.getWechatProductId();
+            vipDurationDays = vipPkg.getDurationDays();
         } else if (OrderTypeEnum.COIN.getCode().equals(orderType)) {
             CoinPackage coinPkg = coinPackageDao.selectById(packageId);
             if (coinPkg == null || !CommonStatusEnum.ENABLED.getCode().equals(coinPkg.getStatus())) {
@@ -112,15 +121,24 @@ public class PaymentServiceImpl implements PaymentService {
             }
             payAmount = CoinPackagePriceResolver.resolve(coinPkg);
             packageName = coinPkg.getPackageName();
+            productId = coinPkg.getWechatProductId();
+            coinCount = coinPkg.getCoinCount();
+            bonusCoinCount = coinPkg.getBonusCoinCount();
         } else {
             throw new BusinessException("不支持的订单类型");
+        }
+        if ((productId == null || productId.isBlank()) && !virtualProductCatalog.isProductionMode()) {
+            productId = orderType + "_" + packageId;
+        }
+        boolean virtualPayEnabled = wechatVirtualPayService.isEnabled();
+        if (virtualPayEnabled && virtualProductCatalog.isProductionMode()) {
+            virtualProductCatalog.assertPayable(productId, payAmount);
         }
         AppUser user = appUserDao.selectById(userId);
         if (user == null) {
             throw new BusinessException("当前用户不存在，无法发起支付");
         }
 
-        boolean virtualPayEnabled = wechatVirtualPayService.isEnabled();
         WechatMiniappClient.SessionInfo paymentSession = refreshPaymentWechatIdentity(
                 user, req.getLoginCode(), virtualPayEnabled);
         if (user.getOpenid() == null || user.getOpenid().isBlank()
@@ -137,6 +155,10 @@ public class PaymentServiceImpl implements PaymentService {
         order.setPackageId(packageId);
         order.setPackageName(packageName);
         order.setPayAmount(payAmount);
+        order.setWechatProductId(productId);
+        order.setVipDurationDays(vipDurationDays);
+        order.setCoinCount(coinCount);
+        order.setBonusCoinCount(bonusCoinCount);
         order.setPayChannel(virtualPayEnabled ? "wechat_virtual" : "wechat");
         order.setOrderStatus(OrderStatusEnum.UNPAID.getCode());
         order.setExpireTime(LocalDateTime.now().plusMinutes(30));
@@ -148,7 +170,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (virtualPayEnabled) {
             virtualPayParams = wechatVirtualPayService.createPayParams(
                     orderNo,
-                    orderType + "_" + packageId,
+                    productId,
                     toFen(payAmount),
                     paymentSession.sessionKey()
             );
@@ -269,7 +291,15 @@ public class PaymentServiceImpl implements PaymentService {
         if (!order.getUserId().equals(userId)) {
             throw new BusinessException("订单与用户不匹配");
         }
-        closeExpiredOrder(order, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        if ("wechat_virtual".equals(order.getPayChannel())
+                && (OrderStatusEnum.CLOSED.getCode().equals(order.getOrderStatus())
+                || (OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())
+                && order.getExpireTime() != null && !order.getExpireTime().isAfter(now)))) {
+            // 虚拟支付先向微信查单；历史已关闭订单也允许补偿已扣款结果。
+            return confirmWechatPay(userId, orderId);
+        }
+        closeExpiredOrder(order, now);
         return buildPayResult(order);
     }
 
@@ -287,12 +317,15 @@ public class PaymentServiceImpl implements PaymentService {
             log.info("微信支付确认幂等返回: userId={}, orderId={}, orderNo={}", userId, orderId, order.getOrderNo());
             return buildPayResult(order);
         }
+        if ("wechat_virtual".equals(order.getPayChannel())) {
+            if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())
+                    && !OrderStatusEnum.CLOSED.getCode().equals(order.getOrderStatus())) {
+                throw new BusinessException("订单状态不正确，无法确认支付");
+            }
+            return confirmVirtualPayment(userId, order);
+        }
         if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())) {
             throw new BusinessException("订单状态不正确，无法确认支付");
-        }
-
-        if ("wechat_virtual".equals(order.getPayChannel())) {
-            return confirmVirtualPayment(userId, order);
         }
         if (closeExpiredOrder(order, LocalDateTime.now())) {
             return buildPayResult(order);
@@ -471,7 +504,9 @@ public class PaymentServiceImpl implements PaymentService {
         // 2. 更新订单状态
         order.setOrderStatus(OrderStatusEnum.SUCCESS.getCode());
         order.setSuccessTime(now);
-        order.setExpireTime(now.plusDays(vipPkg.getDurationDays() != null ? vipPkg.getDurationDays() : 30));
+        int durationDays = order.getVipDurationDays() != null ? order.getVipDurationDays()
+                : (vipPkg.getDurationDays() != null ? vipPkg.getDurationDays() : 30);
+        order.setExpireTime(now.plusDays(durationDays));
         tradeOrderDao.updateById(order);
 
         // 3. 查询或创建用户资产
@@ -491,9 +526,9 @@ public class PaymentServiceImpl implements PaymentService {
         if (VipStatusEnum.ACTIVE.getCode().equals(asset.getVipStatus())
                 && asset.getVipExpireTime() != null
                 && asset.getVipExpireTime().isAfter(now)) {
-            vipExpireTime = asset.getVipExpireTime().plusDays(vipPkg.getDurationDays() != null ? vipPkg.getDurationDays() : 30);
+            vipExpireTime = asset.getVipExpireTime().plusDays(durationDays);
         } else {
-            vipExpireTime = now.plusDays(vipPkg.getDurationDays() != null ? vipPkg.getDurationDays() : 30);
+            vipExpireTime = now.plusDays(durationDays);
         }
 
         // 5. 更新用户资产
@@ -535,8 +570,10 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         // 4. 计算总币数（基础 + 赠送）
-        int totalCoins = (coinPkg.getCoinCount() != null ? coinPkg.getCoinCount() : 0)
-                + (coinPkg.getBonusCoinCount() != null ? coinPkg.getBonusCoinCount() : 0);
+        int totalCoins = (order.getCoinCount() != null ? order.getCoinCount()
+                : (coinPkg.getCoinCount() != null ? coinPkg.getCoinCount() : 0))
+                + (order.getBonusCoinCount() != null ? order.getBonusCoinCount()
+                : (coinPkg.getBonusCoinCount() != null ? coinPkg.getBonusCoinCount() : 0));
         int newBalance = (asset.getCoinBalance() != null ? asset.getCoinBalance() : 0) + totalCoins;
 
         // 5. 原子更新余额，再单独更新充值统计，避免覆盖并发消费产生的新余额

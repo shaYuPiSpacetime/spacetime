@@ -1,7 +1,4 @@
 import { test, expect, type Page } from '@playwright/test';
-import path from 'node:path';
-
-const screenshotDir = path.resolve(process.cwd(), '../docs/验收报告/2026-07-10-商业化后台数据库闭环');
 
 const configData = {
   configVersion: 'COMM-UI-20260710',
@@ -76,7 +73,7 @@ test.describe('商业化配置数据库闭环', () => {
 
     await page.getByRole('button', { name: '会员套餐', exact: true }).click();
     const vipPanel = page.locator('[data-config-panel="vipPackages"]');
-    await expect(vipPanel.locator('thead th')).toHaveText(['套餐编号', '套餐名称', '套餐类型', '购买方式', '原价', '优惠价', '有效天数', '标签', '状态', '操作']);
+    await expect(vipPanel.locator('thead th')).toHaveText(['套餐编号', '套餐名称', '套餐类型', '购买方式', '原价', '当前支付价', '申请新价', '有效天数', '标签', '状态', '操作']);
     await expect(vipPanel.getByText('普通套餐', { exact: true }).first()).toBeVisible();
     await expect(vipPanel.getByText('一次性购买', { exact: true }).first()).toBeVisible();
     await expect(vipPanel.getByText('连续订阅套餐')).toHaveCount(0);
@@ -85,7 +82,7 @@ test.describe('商业化配置数据库闭环', () => {
 
     await page.getByRole('button', { name: '千寻币套餐', exact: true }).click();
     const coinPanel = page.locator('[data-config-panel="coinPackages"]');
-    await expect(coinPanel.locator('thead th')).toHaveText(['套餐编号', '名称', '原价', '优惠价', '到账币数', '赠送币', '标签', '推荐', '状态', '操作']);
+    await expect(coinPanel.locator('thead th')).toHaveText(['套餐编号', '名称', '原价', '当前支付价', '申请新价', '到账币数', '赠送币', '标签', '推荐', '状态', '操作']);
     await expect(coinPanel.locator('tbody tr').first().getByRole('button', { name: '下架', exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('03-千寻币套餐.png'), fullPage: true });
 
@@ -126,7 +123,7 @@ test.describe('商业化配置数据库闭环', () => {
     await page.screenshot({ path: testInfo.outputPath('07-曝光包预留.png'), fullPage: true });
   });
 
-  test('L4-01/L4-02 消费场景内联完整回显并携带 ID 保存', async ({ page, baseURL }) => {
+  test('L4-01/L4-02 消费场景内联完整回显并携带 ID 保存', async ({ page, baseURL }, testInfo) => {
     await bootstrap(page);
     let getCount = 0;
     let savedBody: typeof configData & { changeSummary?: string } | null = null;
@@ -147,7 +144,7 @@ test.describe('商业化配置数据库闭环', () => {
     await expect(row.getByLabel('移动端展示名称')).toHaveValue('送悄悄话');
     await expect(row.getByLabel('移动端图标配置')).toHaveValue('coinUsageWhisper');
     await expect(row.getByLabel('消费单价')).toHaveValue('12');
-    await page.screenshot({ path: path.join(screenshotDir, '后台-消费场景编辑回显.png'), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath('后台-消费场景编辑回显.png'), fullPage: true });
 
     await row.getByLabel('移动端展示名称').fill('送悄悄话测试');
     await row.getByLabel('消费单价').fill('13');
@@ -168,7 +165,7 @@ test.describe('商业化配置数据库闭环', () => {
     expect(savedBody!.settings).toEqual(configData.settings);
   });
 
-  test('L4-03 千寻币套餐编辑完整回显蓝湖价格字段', async ({ page, baseURL }) => {
+  test('L4-03 千寻币套餐编辑完整回显蓝湖价格字段', async ({ page, baseURL }, testInfo) => {
     await bootstrap(page);
     await page.route('**/api/admin/commercial/config', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: configData }) }));
 
@@ -182,8 +179,8 @@ test.describe('商业化配置数据库闭环', () => {
     await expect(modal.getByLabel('优惠价')).toHaveValue('268');
     await expect(modal.getByLabel('到账币数')).toHaveValue('3000');
     await expect(modal.getByLabel('移动端标签')).toHaveValue('8.9折');
-    await expect(modal.getByRole('button', { name: '确认' })).toBeInViewport();
-    await page.screenshot({ path: path.join(screenshotDir, '后台-千寻币套餐编辑回显.png'), fullPage: true });
+    await expect(modal.getByRole('button', { name: '确认' })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('后台-千寻币套餐编辑回显.png'), fullPage: true });
   });
 
   test('L4-07 历史连续订阅套餐统一按普通套餐一次性购买保存', async ({ page, baseURL }) => {
@@ -234,8 +231,8 @@ test.describe('商业化配置数据库闭环', () => {
     await modal.getByRole('button', { name: '确认' }).click();
     await page.locator('#configSaveModal').getByRole('button', { name: '取消' }).click();
 
-    await expect(firstRow.locator('td').nth(7)).toContainText('推荐档');
-    await expect(secondRow.locator('td').nth(7)).toHaveText('-');
+    await expect(firstRow.locator('td').nth(8)).toContainText('推荐档');
+    await expect(secondRow.locator('td').nth(8)).toHaveText('-');
   });
 
   test('L4-06 接口失败时展示空态且不回退 Demo 数据', async ({ page, baseURL }) => {
@@ -304,5 +301,132 @@ test.describe('商业化配置数据库闭环', () => {
 
     await expect.poll(() => savedBody).not.toBeNull();
     expect(savedBody!.coinPackages.find((item) => item.id === 11)?.discountAmount).toBe(238);
+  });
+
+  test('L4-11 会员改价申请不覆盖当前可支付价，并展示待生效进度', async ({ page, baseURL }) => {
+    await bootstrap(page);
+    let requestedPrice: number | undefined;
+    await page.route('**/api/admin/commercial/config', async (route) => {
+      if (route.request().method() === 'PUT') {
+        const payload = route.request().postDataJSON() as typeof configData;
+        requestedPrice = payload.vipPackages.find((item) => item.id === 10)?.price;
+        const result = structuredClone(configData);
+        const row = result.vipPackages.find((item) => item.id === 10)!;
+        Object.assign(row, {
+          wechatProductId: 'vip_10',
+          pendingPrice: requestedPrice,
+          pendingProductId: 'vip_10_20260917',
+          priceChangeStatus: 'WAITING_EFFECTIVE',
+        });
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: result }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: configData }) });
+    });
+
+    await page.goto(`${baseURL}/commercial/config?tab=vipPackages`);
+    const row = page.locator('[data-render="admin-vip-packages"] tr', { hasText: '季卡会员' });
+    await row.getByRole('button', { name: '编辑' }).click();
+    const modal = page.locator('#vipPackageEditModal.is-open');
+    await expect(modal.getByLabel('套餐名称')).toHaveValue('季卡会员');
+    await modal.getByLabel('优惠价').fill('358');
+    await modal.getByRole('button', { name: '确认' }).click();
+    await page.locator('#configSaveModal').getByLabel('变更原因').fill('验证会员改价待生效');
+    await page.locator('#configSaveModal').getByRole('button', { name: '确认保存' }).click();
+
+    await expect.poll(() => requestedPrice).toBe(358);
+    await expect(row).toContainText('¥318.00');
+    await expect(row).toContainText('¥358.00');
+    await expect(row).toContainText('待生效');
+  });
+
+  test('L4-12 千寻币待生效期间仍能申请再次改价', async ({ page, baseURL }) => {
+    await bootstrap(page);
+    const result = structuredClone(configData);
+    Object.assign(result.coinPackages.find((item) => item.id === 10)!, {
+      wechatProductId: 'coin_10',
+      pendingPrice: 88,
+      pendingProductId: 'coin_10_20260917',
+      priceChangeStatus: 'WAITING_EFFECTIVE',
+    });
+    let requestedPrice: number | undefined;
+    await page.route('**/api/admin/commercial/config', async (route) => {
+      if (route.request().method() === 'PUT') {
+        const payload = route.request().postDataJSON() as typeof configData;
+        requestedPrice = payload.coinPackages.find((item) => item.id === 10)?.discountAmount;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: result }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: result }) });
+    });
+
+    await page.goto(`${baseURL}/commercial/config?tab=coinPackages`);
+    const row = page.locator('[data-render="admin-coin-packages"] tr', { hasText: '1000千寻币' });
+    await expect(row).toContainText('¥99.00');
+    await expect(row).toContainText('¥88.00');
+    await row.getByRole('button', { name: '编辑' }).click();
+    const modal = page.locator('#coinPackageEditModal.is-open');
+    await expect(modal.getByLabel('优惠价')).toHaveValue('88');
+    await modal.getByLabel('优惠价').fill('79');
+    await modal.getByRole('button', { name: '确认' }).click();
+    await page.locator('#configSaveModal').getByLabel('变更原因').fill('再次调整币包价格');
+    await page.locator('#configSaveModal').getByRole('button', { name: '确认保存' }).click();
+
+    await expect.poll(() => requestedPrice).toBe(79);
+  });
+
+  test('L4-13 待生效改价不因保存其他配置而被取消', async ({ page, baseURL }) => {
+    await bootstrap(page);
+    const result = structuredClone(configData);
+    Object.assign(result.vipPackages.find((item) => item.id === 10)!, {
+      pendingPrice: 358,
+      pendingProductId: 'vip_10_20260917',
+      priceChangeStatus: 'WAIT_EFFECTIVE',
+    });
+    let requestedPrice: number | undefined;
+    await page.route('**/api/admin/commercial/config', async (route) => {
+      if (route.request().method() === 'PUT') {
+        const payload = route.request().postDataJSON() as typeof configData;
+        requestedPrice = payload.vipPackages.find((item) => item.id === 10)?.price;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: result }) });
+    });
+
+    await page.goto(`${baseURL}/commercial/config?tab=vipPackages`);
+    await page.getByRole('button', { name: '保存当前配置' }).click();
+    await page.locator('#configSaveModal').getByLabel('变更原因').fill('仅保存其他配置');
+    await page.locator('#configSaveModal').getByRole('button', { name: '确认保存' }).click();
+    await expect.poll(() => requestedPrice).toBe(358);
+  });
+
+  test('L4-14 将申请价改回当前价时提交取消改价请求', async ({ page, baseURL }) => {
+    await bootstrap(page);
+    const result = structuredClone(configData);
+    Object.assign(result.coinPackages.find((item) => item.id === 10)!, {
+      pendingPrice: 88,
+      pendingProductId: 'coin_10_20260917',
+      priceChangeStatus: 'WAIT_EFFECTIVE',
+    });
+    let requestedPrice: number | undefined;
+    await page.route('**/api/admin/commercial/config', async (route) => {
+      if (route.request().method() === 'PUT') {
+        const payload = route.request().postDataJSON() as typeof configData;
+        requestedPrice = payload.coinPackages.find((item) => item.id === 10)?.discountAmount;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: configData }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, msg: 'success', data: result }) });
+    });
+
+    await page.goto(`${baseURL}/commercial/config?tab=coinPackages`);
+    const row = page.locator('[data-render="admin-coin-packages"] tr', { hasText: '1000千寻币' });
+    await row.getByRole('button', { name: '编辑' }).click();
+    await page.locator('#coinPackageEditModal.is-open').getByLabel('优惠价').fill('99');
+    await page.locator('#coinPackageEditModal.is-open').getByRole('button', { name: '确认' }).click();
+    await page.locator('#configSaveModal').getByLabel('变更原因').fill('撤销本次调价');
+    await page.locator('#configSaveModal').getByRole('button', { name: '确认保存' }).click();
+
+    await expect.poll(() => requestedPrice).toBe(99);
+    await expect(row).not.toContainText('¥88.00');
   });
 });

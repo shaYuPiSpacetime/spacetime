@@ -23,6 +23,12 @@ public class CoinPackageDaoImpl implements CoinPackageDao {
     }
 
     @Override
+    public CoinPackage selectForUpdate(Long id) {
+        return mapper.selectOne(new LambdaQueryWrapper<CoinPackage>()
+                .eq(CoinPackage::getId, id).last("FOR UPDATE"));
+    }
+
+    @Override
     public Page<CoinPackage> selectPage(Page<CoinPackage> page, LambdaQueryWrapper<CoinPackage> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

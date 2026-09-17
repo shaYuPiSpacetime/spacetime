@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service;
 
 import com.spacetime.common.dao.*;
 import com.spacetime.common.config.WechatPayProperties;
+import com.spacetime.common.config.WechatVirtualPayProperties;
 import com.spacetime.common.entity.*;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.CreateOrderReq;
@@ -11,6 +12,7 @@ import com.spacetime.miniapp.service.impl.AssetServiceImpl;
 import com.spacetime.miniapp.service.impl.PaymentServiceImpl;
 import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.common.service.AssetResultMessageNotificationService;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +48,7 @@ class PaymentServiceImplTest {
     @Mock private PromotionEventInboxService promotionEventInboxService;
     @Mock private AssetResultMessageNotificationService assetResultNotificationService;
     private final WechatPayProperties wechatPayProperties = new WechatPayProperties();
+    private final WechatVirtualPayProperties virtualPayProperties = new WechatVirtualPayProperties();
     private PaymentServiceImpl paymentService;
 
     private VipPackage vipPackage;
@@ -71,7 +74,8 @@ class PaymentServiceImplTest {
                 wechatMiniappClient,
                 wechatPayProperties,
                 promotionEventInboxService,
-                assetResultNotificationService
+                assetResultNotificationService,
+                new WechatVirtualProductCatalog(virtualPayProperties)
         );
         lenient().when(wechatVirtualPayService.isEnabled()).thenReturn(false);
         vipPackage = new VipPackage();
@@ -121,6 +125,25 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    @DisplayName("线上虚拟支付缺少当前商品 ID 时不创建待支付订单")
+    void createVirtualOrderRejectsMissingProductIdBeforeOrderInsert() {
+        virtualPayProperties.setEnabled(true);
+        virtualPayProperties.setEnv(0);
+        vipPackage.setId(7L);
+        vipPackage.setPrice(new BigDecimal("1.00"));
+        CreateOrderReq req = new CreateOrderReq();
+        req.setOrderType("vip");
+        req.setPackageId(7L);
+        when(vipPackageDao.selectById(7L)).thenReturn(vipPackage);
+        when(wechatVirtualPayService.isEnabled()).thenReturn(true);
+
+        assertThatThrownBy(() -> paymentService.createOrder(1L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("商品 ID");
+        verifyNoInteractions(tradeOrderDao);
+    }
+
+    @Test
     @DisplayName("创建VIP订单-正常")
     void createVipOrder_shouldSucceed() {
         CreateOrderReq req = new CreateOrderReq();
@@ -143,6 +166,7 @@ class PaymentServiceImplTest {
     @Test
     @DisplayName("创建VIP虚拟支付订单-刷新微信会话并返回道具直购参数")
     void createVipOrderWithVirtualPayShouldVerifyWechatSession() {
+        vipPackage.setWechatProductId("v1_flexible");
         CreateOrderReq req = new CreateOrderReq();
         req.setOrderType("vip");
         req.setPackageId(1L);
@@ -159,7 +183,7 @@ class PaymentServiceImplTest {
                 .thenReturn(new WechatMiniappClient.SessionInfo(
                         "openid_1", null, "session-key"));
         when(wechatVirtualPayService.createPayParams(
-                anyString(), eq("vip_1"), eq(1990), eq("session-key")))
+                anyString(), eq("v1_flexible"), eq(1990), eq("session-key")))
                 .thenReturn(virtualParams);
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
@@ -168,7 +192,9 @@ class PaymentServiceImplTest {
         assertThat(result.getVirtualPayParams()).isSameAs(virtualParams);
         assertThat(result.getPayParams()).isNull();
         verify(tradeOrderDao).insert(argThat(order ->
-                "wechat_virtual".equals(order.getPayChannel())));
+                "wechat_virtual".equals(order.getPayChannel())
+                        && "v1_flexible".equals(order.getWechatProductId())
+                        && Integer.valueOf(30).equals(order.getVipDurationDays())));
         verifyNoInteractions(wechatPayService);
     }
 

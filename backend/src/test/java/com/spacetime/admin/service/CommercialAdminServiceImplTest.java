@@ -29,7 +29,10 @@ import com.spacetime.common.entity.CommercialConfigLog;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.VipBenefit;
 import com.spacetime.common.entity.VipPackage;
+import com.spacetime.common.config.WechatVirtualPayProperties;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
+import com.spacetime.common.service.VirtualPriceChangeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,6 +71,9 @@ class CommercialAdminServiceImplTest {
     @Mock private UserCoinLogDao userCoinLogDao;
     @Mock private RefundRecordDao refundRecordDao;
     @Spy private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final WechatVirtualPayProperties payProperties = new WechatVirtualPayProperties();
+    @Spy private WechatVirtualProductCatalog productCatalog = new WechatVirtualProductCatalog(payProperties);
+    @Mock private VirtualPriceChangeService virtualPriceChangeService;
 
     @InjectMocks
     private CommercialAdminServiceImpl service;
@@ -79,7 +85,7 @@ class CommercialAdminServiceImplTest {
         VipPackage existing = vipPackage(7L, "旧会员套餐");
         when(vipPackageDao.selectPage(any(), any())).thenReturn(page(List.of(existing)));
         when(coinPackageDao.selectPage(any(), any())).thenReturn(page(List.of()));
-        when(vipPackageDao.selectById(7L)).thenReturn(existing);
+        when(vipPackageDao.selectForUpdate(7L)).thenReturn(existing);
 
         VipPackageSaveReq changed = vipPackageReq(7L, "蓝湖会员套餐");
         CommercialConfigSaveReq req = new CommercialConfigSaveReq();
@@ -101,7 +107,7 @@ class CommercialAdminServiceImplTest {
         CoinPackage existing = coinPackage(9L, "旧币包");
         when(vipPackageDao.selectPage(any(), any())).thenReturn(page(List.of()));
         when(coinPackageDao.selectPage(any(), any())).thenReturn(page(List.of(existing)));
-        when(coinPackageDao.selectById(9L)).thenReturn(existing);
+        when(coinPackageDao.selectForUpdate(9L)).thenReturn(existing);
 
         CoinPackageSaveReq changed = coinPackageReq(9L, "3000 千寻币");
         CommercialConfigSaveReq req = new CommercialConfigSaveReq();
@@ -212,17 +218,15 @@ class CommercialAdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("L3-07 千寻币套餐价格和币数必须合法")
-    void saveConfig_shouldRejectInvalidCoinPackagePrice() {
-        CoinPackageSaveReq invalid = coinPackageReq(null, "错误币包");
-        invalid.setDiscountAmount(new BigDecimal("399.00"));
+    @DisplayName("L3-07 千寻币有效支付价可高于旧原价")
+    void saveConfig_shouldAllowCoinPriceAboveOldOriginPrice() {
+        CoinPackageSaveReq changed = coinPackageReq(null, "新币包");
+        changed.setDiscountAmount(new BigDecimal("399.00"));
         CommercialConfigSaveReq req = new CommercialConfigSaveReq();
-        req.setCoinPackages(List.of(invalid));
+        req.setCoinPackages(List.of(changed));
 
-        assertThatThrownBy(() -> service.saveConfig(req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("优惠价不能高于原价");
-        verify(coinPackageDao, never()).insert(any());
+        service.saveConfig(req);
+        verify(coinPackageDao).insert(any());
     }
 
     @Test
@@ -378,6 +382,76 @@ class CommercialAdminServiceImplTest {
         assertThat(captor.getValue().getAfterSnapshot()).doesNotContain("latestLogs");
     }
 
+    @Test
+    @DisplayName("线上会员改价时先排队，旧价继续可支付")
+    void saveConfig_shouldQueueChangedVipPriceWithoutChangingActivePrice() {
+        payProperties.setEnabled(true);
+        payProperties.setEnv(0);
+        stubReadCatalogs();
+        VipPackage existing = vipPackage(7L, "月卡");
+        when(vipPackageDao.selectPage(any(), any())).thenReturn(page(List.of(existing)));
+        when(vipPackageDao.selectForUpdate(7L)).thenReturn(existing);
+        VipPackageSaveReq changed = vipPackageReq(7L, "月卡");
+        changed.setPrice(new BigDecimal("0.02"));
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setVipPackages(List.of(changed));
+
+        service.saveConfig(req);
+        verify(virtualPriceChangeService).requestChange("vip", 7L, "vip_7", new BigDecimal("0.02"));
+        assertThat(existing.getPrice()).isEqualByComparingTo("568.00");
+    }
+
+    @Test
+    @DisplayName("线上千寻币改价时先排队，旧价继续可支付")
+    void saveConfig_shouldQueueChangedCoinPriceWithoutChangingActivePrice() {
+        payProperties.setEnabled(true);
+        payProperties.setEnv(0);
+        stubReadCatalogs();
+        CoinPackage existing = coinPackage(11L, "3000 千寻币");
+        when(coinPackageDao.selectPage(any(), any())).thenReturn(page(List.of(existing)));
+        when(coinPackageDao.selectForUpdate(11L)).thenReturn(existing);
+        CoinPackageSaveReq changed = coinPackageReq(11L, "3000 千寻币");
+        changed.setDiscountAmount(new BigDecimal("267.00"));
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setCoinPackages(List.of(changed));
+
+        service.saveConfig(req);
+        verify(virtualPriceChangeService).requestChange("coin", 11L, "coin_11", new BigDecimal("267.00"));
+        assertThat(existing.getAmount()).isEqualByComparingTo("268.00");
+    }
+
+    @Test
+    @DisplayName("旧价格未变时允许保存其他商业化配置")
+    void saveConfig_shouldNotBlockUnrelatedChangeForExistingStalePrice() {
+        payProperties.setEnabled(true);
+        payProperties.setEnv(0);
+        stubReadCatalogs();
+        VipPackage existing = vipPackage(7L, "月卡");
+        when(vipPackageDao.selectPage(any(), any())).thenReturn(page(List.of(existing)));
+        when(vipPackageDao.selectForUpdate(7L)).thenReturn(existing);
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setVipPackages(List.of(vipPackageReq(7L, "月卡新名称")));
+
+        service.saveConfig(req);
+
+        verify(vipPackageDao).updateById(any());
+    }
+
+    @Test
+    @DisplayName("线上虚拟支付新增启用套餐须先取得商品 ID")
+    void saveConfig_shouldRejectNewEnabledPackageWithoutOnlineProductId() {
+        payProperties.setEnabled(true);
+        payProperties.setEnv(0);
+        stubReadCatalogs();
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setVipPackages(List.of(vipPackageReq(null, "新月卡")));
+
+        assertThatThrownBy(() -> service.saveConfig(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("先创建停用");
+        verify(vipPackageDao, never()).insert(any());
+    }
+
     private VipPackageSaveReq vipPackageReq(Long id, String name) {
         VipPackageSaveReq req = new VipPackageSaveReq();
         req.setId(id);
@@ -410,6 +484,7 @@ class CommercialAdminServiceImplTest {
         entity.setPackageType("normal");
         entity.setSubscriptionType("once");
         entity.setPrice(new BigDecimal("568.00"));
+        entity.setWechatProductId("vip_" + id);
         entity.setDurationDays(365);
         entity.setStatus("ENABLED");
         return entity;
@@ -420,6 +495,7 @@ class CommercialAdminServiceImplTest {
         entity.setId(id);
         entity.setPackageName(name);
         entity.setAmount(new BigDecimal("268.00"));
+        entity.setWechatProductId("coin_" + id);
         entity.setCoinCount(3000);
         entity.setStatus("ENABLED");
         return entity;

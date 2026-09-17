@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import Taro from '@tarojs/taro'
 import { resolvePaymentFailureFeedback } from '@/domain/paymentFailureFeedback'
 import type { MembershipPlan, MembershipRecord, MyMembership, MemberStatus } from '@/types/membership'
@@ -143,6 +143,8 @@ async function confirmPaidOrder(orderId: number) {
  * 会员模块 hook，生产路径只消费会员状态、权益、套餐、订单和微信支付接口。
  */
 export function useMembership() {
+  const paymentInFlight = useRef(false)
+  const paymentLayerDismissed = useRef(false)
   const [myMembership, setMyMembership] = useState<MyMembership>({ status: 'none' })
   const [statusLoading, setStatusLoading] = useState(false)
   const [plans, setPlans] = useState<MembershipPlan[]>([])
@@ -220,16 +222,21 @@ export function useMembership() {
   }, [])
 
   const hidePaymentLayer = useCallback(() => {
+    // 仅隐藏等待层；原生支付和服务端查单仍继续，晚到回调不得重新弹出遮罩。
+    paymentLayerDismissed.current = true
     setPayPopupVisible(false)
     setPayState('idle')
     setPaymentErrorMessage('')
   }, [])
 
   const confirmPay = useCallback(async (sourcePage = 'membership') => {
+    if (paymentInFlight.current) return
     if (!selectedPlan) {
       Taro.showToast({ title: '暂无可购买套餐', icon: 'none' })
       return
     }
+    paymentInFlight.current = true
+    paymentLayerDismissed.current = false
     let orderId: number | null = null
     setPayLoading(true)
     setPayPopupVisible(true)
@@ -239,25 +246,37 @@ export function useMembership() {
       const order = await createOrder(selectedPlan.id, 'vip')
       orderId = order.orderId
       await requestWechatPayment(order)
-      const payResult = await confirmPaidOrder(order.orderId)
+      let payResult: Awaited<ReturnType<typeof confirmPaidOrder>> = null
+      try {
+        payResult = await confirmPaidOrder(order.orderId)
+      } catch {
+        // 微信已返回支付成功，查单失败只能视为确认中，不能提示支付失败。
+      }
       if (payResult?.orderStatus !== 'success') {
-        setPayState('pay-failed')
-        setPaymentErrorMessage('支付结果确认中，请稍后查看订单')
+        if (!paymentLayerDismissed.current) setPayState('pay-failed')
+        if (!paymentLayerDismissed.current) setPaymentErrorMessage('支付结果确认中，请稍后查看订单')
         Taro.showToast({ title: '支付确认中，请稍后刷新', icon: 'none' })
         Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=vip&sourcePage=${sourcePage}&result=processing` })
         return
       }
-      setMyMembership(adaptVipStatus(await getVipStatus()))
-      await fetchRecords()
-      setPayState('pay-success')
+      try {
+        setMyMembership(adaptVipStatus(await getVipStatus()))
+        await fetchRecords()
+      } catch {
+        // 支付已确认成功，会员信息刷新失败不改变支付结果。
+      }
+      if (!paymentLayerDismissed.current) setPayState('pay-success')
       Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${order.orderId}&orderType=vip&sourcePage=${sourcePage}&result=success` })
     } catch (error) {
       const feedback = resolvePaymentFailureFeedback(error)
-      setPaymentErrorMessage(feedback.message)
-      setPayState(feedback.cancelled ? 'pay-cancel' : 'pay-failed')
+      if (!paymentLayerDismissed.current) {
+        setPaymentErrorMessage(feedback.message)
+        setPayState(feedback.cancelled ? 'pay-cancel' : 'pay-failed')
+      }
       if (!feedback.cancelled) Taro.showToast({ title: feedback.message, icon: 'none' })
       if (orderId && !feedback.capabilityRestricted) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=vip&sourcePage=${sourcePage}&result=${feedback.cancelled ? 'cancel' : 'failed'}` })
     } finally {
+      paymentInFlight.current = false
       setPayLoading(false)
     }
   }, [fetchRecords, selectedPlan])

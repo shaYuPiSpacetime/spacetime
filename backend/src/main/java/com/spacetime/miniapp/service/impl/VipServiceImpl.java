@@ -14,6 +14,7 @@ import com.spacetime.common.entity.VipPackage;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.OrderStatusEnum;
 import com.spacetime.common.enums.OrderTypeEnum;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
 import com.spacetime.miniapp.dto.response.VipBenefitVO;
 import com.spacetime.miniapp.dto.response.VipOrderVO;
 import com.spacetime.miniapp.dto.response.VipPackageVO;
@@ -43,6 +44,8 @@ public class VipServiceImpl implements VipService {
     private final UserAssetDao userAssetDao;
     /** 交易订单数据访问 */
     private final TradeOrderDao tradeOrderDao;
+    /** 线上虚拟支付商品目录 */
+    private final WechatVirtualProductCatalog virtualProductCatalog;
 
     /**
      * 查询已启用VIP套餐列表
@@ -57,7 +60,10 @@ public class VipServiceImpl implements VipService {
                 .orderByAsc(VipPackage::getSortOrder);
         Page<VipPackage> page = vipPackageDao.selectPage(new Page<>(1, 100), wrapper);
         // 2. 转换为 VO
-        return page.getRecords().stream().map(pkg -> {
+        return page.getRecords().stream()
+                .filter(pkg -> !virtualProductCatalog.isProductionMode()
+                        || virtualProductCatalog.matches(pkg.getWechatProductId(), pkg.getPrice()))
+                .map(pkg -> {
             VipPackageVO vo = new VipPackageVO();
             vo.setId(pkg.getId());
             vo.setPackageName(pkg.getPackageName());

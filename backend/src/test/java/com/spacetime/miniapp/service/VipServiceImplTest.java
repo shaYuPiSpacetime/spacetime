@@ -9,6 +9,7 @@ import com.spacetime.common.dto.PageReq;
 import com.spacetime.common.entity.TradeOrder;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.VipPackage;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
 import com.spacetime.miniapp.dto.response.VipOrderVO;
 import com.spacetime.miniapp.dto.response.VipStatusVO;
 import com.spacetime.miniapp.service.impl.VipServiceImpl;
@@ -35,7 +36,27 @@ class VipServiceImplTest {
     @Mock private VipBenefitDao vipBenefitDao;
     @Mock private UserAssetDao userAssetDao;
     @Mock private TradeOrderDao tradeOrderDao;
+    @Mock private WechatVirtualProductCatalog virtualProductCatalog;
     @InjectMocks private VipServiceImpl vipService;
+
+    @Test
+    @DisplayName("线上虚拟支付只展示价格与已发布商品一致的会员套餐")
+    void getPackagesShouldHideUnpayableVirtualProducts() {
+        VipPackage valid = new VipPackage();
+        valid.setId(7L);
+        valid.setPrice(new BigDecimal("0.01"));
+        valid.setWechatProductId("vip_7");
+        VipPackage stale = new VipPackage();
+        stale.setId(8L);
+        stale.setPrice(new BigDecimal("10.00"));
+        Page<VipPackage> page = new Page<>(1, 100);
+        page.setRecords(List.of(valid, stale));
+        when(vipPackageDao.selectPage(any(Page.class), any())).thenReturn(page);
+        when(virtualProductCatalog.isProductionMode()).thenReturn(true);
+        when(virtualProductCatalog.matches("vip_7", valid.getPrice())).thenReturn(true);
+
+        assertThat(vipService.getPackages()).extracting("id").containsExactly(7L);
+    }
 
     @Test
     @DisplayName("会员状态返回当前生效订单的真实套餐和时间")

@@ -8,8 +8,11 @@ import com.spacetime.admin.dto.response.VipPackageVO;
 import com.spacetime.admin.service.VipPackageAdminService;
 import com.spacetime.common.dao.VipPackageDao;
 import com.spacetime.common.entity.VipPackage;
+import com.spacetime.common.entity.VirtualPriceChange;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.WechatVirtualProductCatalog;
+import com.spacetime.common.service.VirtualPriceChangeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,8 @@ import java.util.List;
 public class VipPackageAdminServiceImpl implements VipPackageAdminService {
     /** VIP 套餐数据访问对象 */
     private final VipPackageDao vipPackageDao;
+    private final WechatVirtualProductCatalog virtualProductCatalog;
+    private final VirtualPriceChangeService priceChangeService;
 
     /**
      * 查询全部套餐列表，按排序字段升序
@@ -57,6 +62,14 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
         return entity;
     }
 
+    private VipPackage requirePackageForUpdate(Long id) {
+        VipPackage entity = vipPackageDao.selectForUpdate(id);
+        if (entity == null) {
+            throw new BusinessException("VIP 套餐不存在");
+        }
+        return entity;
+    }
+
     /**
      * 创建套餐，默认启用
      * @param req 套餐保存请求
@@ -69,6 +82,10 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
         VipPackage entity = toEntity(req);
         if (StrUtil.isBlank(entity.getStatus())) {
             entity.setStatus(CommonStatusEnum.ENABLED.getCode());
+        }
+        if (virtualProductCatalog.isProductionMode()
+                && CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
+            throw new BusinessException("线上虚拟支付新增会员套餐请先创建停用状态，取得商品 ID 后配置线上商品再启用");
         }
         vipPackageDao.insert(entity);
         log.info("创建VIP套餐: id={}, packageName={}, price={}", entity.getId(), entity.getPackageName(), entity.getPrice());
@@ -84,21 +101,46 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
     @Transactional
     public void update(Long id, VipPackageSaveReq req) {
         validateOneTimePurchase(req);
-        VipPackage entity = requirePackage(id);
+        VipPackage entity = requirePackageForUpdate(id);
         VipPackage changed = toEntity(req);
+        boolean production = virtualProductCatalog.isProductionMode();
+        String activeProductId = entity.getWechatProductId();
+        boolean enableAfterPublish = production && isEnabled(changed.getStatus())
+                && !isEnabled(entity.getStatus()) && StrUtil.isBlank(entity.getWechatProductId());
+        if (production && isEnabled(changed.getStatus()) && !enableAfterPublish) {
+            virtualProductCatalog.assertPayable(
+                    StrUtil.blankToDefault(activeProductId, "vip_" + id), entity.getPrice());
+        }
+        boolean priceChanged = entity.getPrice() == null || changed.getPrice() == null
+                || entity.getPrice().compareTo(changed.getPrice()) != 0;
+        if (production && (priceChanged || enableAfterPublish)) {
+            priceChangeService.requestChange("vip", id, activeProductId,
+                    changed.getPrice(), enableAfterPublish);
+        } else if (production) {
+            VirtualPriceChange pending = priceChangeService.latest("vip", id);
+            if (pending != null && isPending(pending.getStatus())
+                    && pending.getTargetPrice() != null
+                    && pending.getTargetPrice().compareTo(entity.getPrice()) != 0) {
+                priceChangeService.cancelChange("vip", id);
+            }
+        }
         entity.setPackageName(changed.getPackageName());
         entity.setPackageType(changed.getPackageType());
         entity.setSubscriptionType(changed.getSubscriptionType());
-        entity.setPrice(changed.getPrice());
+        if (!production || !priceChanged) {
+            entity.setPrice(changed.getPrice());
+        }
         entity.setOriginPrice(changed.getOriginPrice());
         entity.setDurationDays(changed.getDurationDays());
         entity.setRecommendFlag(changed.getRecommendFlag());
         entity.setPackageTag(changed.getPackageTag());
-        entity.setWechatProductId(changed.getWechatProductId());
+        // 线上有效商品 ID 只能由微信商品发布任务切换，普通编辑请求不得覆盖。
         entity.setAgreementConfig(changed.getAgreementConfig());
         entity.setPayChannelReserve(changed.getPayChannelReserve());
         entity.setSortOrder(changed.getSortOrder());
-        entity.setStatus(changed.getStatus());
+        if (!enableAfterPublish) {
+            entity.setStatus(StrUtil.blankToDefault(changed.getStatus(), CommonStatusEnum.ENABLED.getCode()));
+        }
         vipPackageDao.updateById(entity);
         log.info("更新VIP套餐: id={}, packageName={}", id, entity.getPackageName());
     }
@@ -111,7 +153,21 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
     @Override
     @Transactional
     public void updateStatus(Long id, String status) {
-        VipPackage entity = requirePackage(id);
+        VipPackage entity = requirePackageForUpdate(id);
+        if (virtualProductCatalog.isProductionMode()
+                && CommonStatusEnum.DISABLED.getCode().equals(status)) {
+            priceChangeService.cancelChange("vip", id);
+        }
+        if (virtualProductCatalog.isProductionMode()
+                && CommonStatusEnum.ENABLED.getCode().equals(status)
+                && !CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
+            if (StrUtil.isBlank(entity.getWechatProductId())) {
+                priceChangeService.requestChange("vip", id, entity.getWechatProductId(), entity.getPrice(), true);
+                return;
+            }
+            virtualProductCatalog.assertPayable(
+                    StrUtil.blankToDefault(entity.getWechatProductId(), "vip_" + id), entity.getPrice());
+        }
         entity.setStatus(status);
         vipPackageDao.updateById(entity);
         log.info("变更VIP套餐状态: id={}, status={}", id, status);
@@ -141,6 +197,15 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
         }
     }
 
+    private boolean isEnabled(String status) {
+        return StrUtil.isBlank(status) || CommonStatusEnum.ENABLED.getCode().equals(status);
+    }
+
+    private boolean isPending(String status) {
+        return "QUEUED".equals(status) || "UPLOADING".equals(status)
+                || "PUBLISHING".equals(status) || "WAIT_EFFECTIVE".equals(status);
+    }
+
     private VipPackageVO toVO(VipPackage entity) {
         VipPackageVO vo = new VipPackageVO();
         vo.setId(entity.getId());
@@ -153,6 +218,15 @@ public class VipPackageAdminServiceImpl implements VipPackageAdminService {
         vo.setRecommendFlag(entity.getRecommendFlag());
         vo.setPackageTag(entity.getPackageTag());
         vo.setWechatProductId(entity.getWechatProductId());
+        VirtualPriceChange change = priceChangeService.latest("vip", entity.getId());
+        if (change != null) {
+            vo.setPriceChangeStatus(change.getStatus());
+            vo.setPriceChangeError(change.getLastError());
+            if (!"ACTIVE".equals(change.getStatus())) {
+                vo.setPendingPrice(change.getTargetPrice());
+                vo.setPendingProductId(change.getNewProductId());
+            }
+        }
         vo.setAgreementConfig(entity.getAgreementConfig());
         vo.setPayChannelReserve(entity.getPayChannelReserve());
         vo.setSortOrder(entity.getSortOrder());
