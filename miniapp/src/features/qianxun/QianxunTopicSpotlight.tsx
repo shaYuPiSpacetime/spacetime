@@ -75,7 +75,7 @@ function RelatedTopic({ topic }: { topic: CommunityTopicCardVO }) {
   return <View onClick={() => openTopic(topic)} style={{ width: '50%', height: '50rpx', padding: '0 8rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
     <Image src={topicImage(topic)} mode="aspectFill" style={{ width: '38rpx', height: '38rpx', borderRadius: '7rpx', background: '#E9EDF2', flexShrink: 0 }} />
     <Image src={miniappOssIcons.qianxunTopicRelatedHash} mode="aspectFit" style={{ width: '20rpx', height: '20rpx', marginLeft: '10rpx', flexShrink: 0 }} />
-    <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '32rpx', fontWeight: 500, marginLeft: '6rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topic.name}</Text>
+    <Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '32rpx', fontWeight: 500, marginLeft: '6rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topic.name}</Text>
     <Text style={{ color: '#333333', fontSize: '32rpx', lineHeight: '36rpx', marginLeft: 'auto' }}>›</Text>
   </View>
 }
