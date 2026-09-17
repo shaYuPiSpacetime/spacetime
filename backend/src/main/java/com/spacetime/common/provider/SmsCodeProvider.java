@@ -12,9 +12,9 @@ public interface SmsCodeProvider {
     /** Provider 编码，用于移动端配置和服务端日志识别。 */
     String providerCode();
 
-    /** 生成验证码；真实短信通道默认使用 6 位随机数字。 */
+    /** 生成验证码；真实短信通道默认使用 4 位随机数字。 */
     default String generateCode() {
-        return String.format("%06d", ThreadLocalRandom.current().nextInt(0, 1_000_000));
+        return String.format("%04d", ThreadLocalRandom.current().nextInt(0, 10_000));
     }
 
     /**
