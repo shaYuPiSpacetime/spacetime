@@ -5,28 +5,21 @@ const source = readFileSync(new URL('../src/pages/commercial/CommercialManagemen
 const vipModal = source.slice(source.indexOf('function VipPackageModal('), source.indexOf('function CoinPackageModal('));
 const coinModal = source.slice(source.indexOf('function CoinPackageModal('), source.indexOf('function RefundApplyModal('));
 
-for (const [productId, price] of Object.entries({
-  coin_12: 428,
-  coin_11: 268,
-  coin_10: 99,
-  vip_10: 1000,
-  vip_7: 0.01,
-  vip_8: 1,
-})) {
-  assert.ok(new RegExp(`\\b${productId}:\\s*${price}(?![\\d.])`).test(source), `${productId} 应保留提供的微信商品价格`);
+assert.doesNotMatch(source, /PUBLISHED_VIRTUAL_GOODS|getPublishedVirtualGood|canEnableVirtualGood/, '前端不应再用固定截图价格限制调价');
+assert.match(source, /function PendingPrice\(/, '列表必须展示待生效价格和进度');
+assert.match(source, /priceChangeView\(item\)\.pendingPrice \?\? item\.price/, '全量保存会员配置时应保留待生效报价');
+assert.match(source, /priceChangeView\(item\)\.pendingPrice \?\? item\.discountAmount \?\? item\.amount/, '全量保存币包配置时应保留待生效报价');
+assert.match(source, /priceChangeStatusText\(status\)/, '微信商品状态应以中文展示');
+assert.match(source, /新价生效前，小程序仍按当前可支付价销售/, '运营端必须说明切价前旧价继续销售');
+
+for (const [modal, kind] of [[vipModal, '会员'], [coinModal, '千寻币']]) {
+  const priceField = modal.match(/<label className="field">优惠价（申请新价）[\s\S]*?<\/label>/)?.[0];
+  assert.ok(priceField, `${kind} 套餐应提供申请新价输入框`);
+  assert.doesNotMatch(priceField, /readOnly/, `${kind} 套餐新价不能只读`);
+  assert.match(priceField, /type="number"/, `${kind} 套餐新价必须是数字输入`);
+  assert.match(modal, /当前可支付价/, `${kind} 套餐应展示用户当前可支付价`);
+  assert.match(modal, /pendingPrice/, `${kind} 套餐应回显待生效报价`);
+  assert.match(modal, /status: 'DISABLED'/, `${kind} 新套餐应默认下架`);
 }
 
-assert.ok(/function getPublishedVirtualGood\(/.test(source), '编辑应按后端商品 ID 查找已登记微信商品');
-assert.ok(/function canEnableVirtualGood\(/.test(source), '上架应校验已登记商品及有效支付价');
-assert.ok(/!canEnableVirtualGood\(/.test(source), '上架按钮应执行价格约束');
-for (const [modal, kind] of [[vipModal, 'vip'], [coinModal, 'coin']]) {
-  assert.ok(modal.includes(`getPublishedVirtualGood('${kind}', form.id)`), `${kind} 编辑应展示对应商品`);
-  assert.ok(modal.includes('微信商品 ID'), `${kind} 弹窗应展示微信商品 ID`);
-  assert.ok(modal.includes('微信线上价（截图配置）'), `${kind} 弹窗应展示微信线上价来源`);
-  assert.ok(modal.includes('readOnly={Boolean(published)}'), `${kind} 已登记商品有效支付价应为只读`);
-  assert.ok(modal.includes("status: 'DISABLED'"), `${kind} 新套餐应默认下架`);
-  assert.ok(modal.includes('先下架创建'), `${kind} 新套餐应提示先下架创建`);
-  assert.ok(modal.includes('微信虚拟支付道具'), `${kind} 新套餐应提示先配置微信道具`);
-}
-
-console.log('商业化虚拟商品价格约束静态回归通过');
+console.log('商业化虚拟商品灵活调价静态回归通过');

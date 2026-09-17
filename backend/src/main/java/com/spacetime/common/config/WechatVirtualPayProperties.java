@@ -21,4 +21,6 @@ public class WechatVirtualPayProperties {
     private int env;
     /** 待支付订单补偿查单间隔。 */
     private long reconcileDelayMs = 30000L;
+    /** 微信商品上传使用的公网 PNG/JPG 地址。 */
+    private String goodsImageUrl;
 }

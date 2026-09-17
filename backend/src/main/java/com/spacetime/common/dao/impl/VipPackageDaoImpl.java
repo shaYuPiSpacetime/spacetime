@@ -23,6 +23,12 @@ public class VipPackageDaoImpl implements VipPackageDao {
     }
 
     @Override
+    public VipPackage selectForUpdate(Long id) {
+        return mapper.selectOne(new LambdaQueryWrapper<VipPackage>()
+                .eq(VipPackage::getId, id).last("FOR UPDATE"));
+    }
+
+    @Override
     public Page<VipPackage> selectPage(Page<VipPackage> page, LambdaQueryWrapper<VipPackage> wrapper) {
         return mapper.selectPage(page, wrapper);
     }

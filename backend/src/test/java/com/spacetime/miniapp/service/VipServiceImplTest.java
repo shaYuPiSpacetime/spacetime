@@ -45,6 +45,7 @@ class VipServiceImplTest {
         VipPackage valid = new VipPackage();
         valid.setId(7L);
         valid.setPrice(new BigDecimal("0.01"));
+        valid.setWechatProductId("vip_7");
         VipPackage stale = new VipPackage();
         stale.setId(8L);
         stale.setPrice(new BigDecimal("10.00"));

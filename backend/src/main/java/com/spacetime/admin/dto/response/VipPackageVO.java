@@ -30,6 +30,11 @@ public class VipPackageVO {
     private String packageTag;
     /** 微信商品 ID */
     private String wechatProductId;
+    /** 正在同步到微信的新价格，未生效时小程序仍按 price 售卖。 */
+    private BigDecimal pendingPrice;
+    private String pendingProductId;
+    private String priceChangeStatus;
+    private String priceChangeError;
     /** 协议配置 */
     private String agreementConfig;
     /** 支付渠道预留字段 */

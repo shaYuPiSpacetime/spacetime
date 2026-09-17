@@ -9,6 +9,8 @@ import com.spacetime.common.entity.CoinPackage;
  */
 public interface CoinPackageDao {
     CoinPackage selectById(Long id);
+    /** 在当前事务内锁住套餐行，防止与商品切换并发。 */
+    CoinPackage selectForUpdate(Long id);
     Page<CoinPackage> selectPage(Page<CoinPackage> page, LambdaQueryWrapper<CoinPackage> wrapper);
     void insert(CoinPackage entity);
     void updateById(CoinPackage entity);

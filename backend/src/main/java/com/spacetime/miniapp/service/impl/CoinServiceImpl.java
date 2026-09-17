@@ -61,7 +61,7 @@ public class CoinServiceImpl implements CoinService {
         // 2. 转换为 VO
         return page.getRecords().stream()
                 .filter(pkg -> !virtualProductCatalog.isProductionMode()
-                        || virtualProductCatalog.matches("coin_" + pkg.getId(), CoinPackagePriceResolver.resolve(pkg)))
+                        || virtualProductCatalog.matches(pkg.getWechatProductId(), CoinPackagePriceResolver.resolve(pkg)))
                 .map(pkg -> {
             CoinPackageVO vo = new CoinPackageVO();
             vo.setId(pkg.getId());

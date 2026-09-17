@@ -26,6 +26,12 @@ public class TradeOrder extends BaseEntity {
     private String packageName;
     /** 实付金额 */
     private BigDecimal payAmount;
+    /** 创建订单时所用的微信商品 ID 快照 */
+    private String wechatProductId;
+    /** 下单时的权益快照，避免后续改套餐影响未完成订单。 */
+    private Integer vipDurationDays;
+    private Integer coinCount;
+    private Integer bonusCoinCount;
     /** 支付渠道: mock/wechat/wechat_virtual/alipay */
     private String payChannel;
     /** 渠道交易单号 */

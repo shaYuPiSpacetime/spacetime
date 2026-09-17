@@ -5,7 +5,6 @@ import com.spacetime.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -13,30 +12,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class WechatVirtualProductCatalogTest {
 
     @Test
-    void onlineCatalogMatchesSixPublishedProductPrices() {
-        Map<String, String> prices = Map.of(
-                "coin_10", "99.00",
-                "coin_11", "268.00",
-                "coin_12", "428.00",
-                "vip_7", "0.01",
-                "vip_8", "1.00",
-                "vip_10", "1000.00"
-        );
+    void onlineCatalogAcceptsDynamicProductIdAndPositiveExactPrice() {
         WechatVirtualProductCatalog catalog = catalog();
-        prices.forEach((id, expected) ->
-                assertThat(catalog.expectedPrice(id)).as(id).isEqualByComparingTo(expected));
+        assertThat(catalog.matches("v7_0123456789abcdef", new BigDecimal("12.34"))).isTrue();
+        assertThat(catalog.matches("c10_0123456789abcdef0", new BigDecimal("99.00"))).isFalse();
+        assertThat(catalog.matches("vip_7", new BigDecimal("0.01"))).isTrue();
     }
 
     @Test
-    void onlineCatalogRejectsUnknownOrMismatchedProductsWithoutRounding() {
+    void onlineCatalogRejectsInvalidProductIdAndNonFenPrice() {
         WechatVirtualProductCatalog catalog = catalog();
-        assertThatThrownBy(() -> catalog.assertPayable("vip_7", new BigDecimal("0.02")))
+        assertThatThrownBy(() -> catalog.assertPayable(null, new BigDecimal("0.02")))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("vip_7")
-                .hasMessageContaining("0.01");
-        assertThatThrownBy(() -> catalog.assertPayable("coin_999", new BigDecimal("99.00")))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("coin_999");
+                .hasMessageContaining("商品 ID");
+        assertThatThrownBy(() -> catalog.assertPayable("coin_10", new BigDecimal("0.001")))
+                .isInstanceOf(BusinessException.class);
         catalog.assertPayable("vip_7", new BigDecimal("0.01"));
     }
 

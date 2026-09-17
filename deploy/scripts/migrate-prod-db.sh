@@ -48,6 +48,10 @@ quote_identifier() {
   printf '`%s`' "$value"
 }
 
+is_retired_price_migration() {
+  [ "$(basename "$1")" = '092_virtual_product_price_alignment.sql' ]
+}
+
 ensure_database() {
   local client="$1"
   local quoted_db
@@ -77,12 +81,21 @@ run_migrations() {
           fail "Only production migrations under deploy/sql/prod are allowed: ${sql_file}"
           ;;
       esac
+      if is_retired_price_migration "$sql_file"; then
+        fail "禁止执行已退役迁移：$(basename "$sql_file")；该脚本会覆盖运营价格"
+      fi
       require_file "$sql_file"
       sql_files+=("$sql_file")
     done
   else
     shopt -s nullglob
-    sql_files=("$ROOT_DIR"/deploy/sql/prod/*.sql)
+    for sql_file in "$ROOT_DIR"/deploy/sql/prod/*.sql; do
+      if is_retired_price_migration "$sql_file"; then
+        log "跳过已退役迁移：$(basename "$sql_file")"
+        continue
+      fi
+      sql_files+=("$sql_file")
+    done
   fi
   [ "${#sql_files[@]}" -gt 0 ] || fail "未发现生产 SQL：$ROOT_DIR/deploy/sql/prod/*.sql"
 

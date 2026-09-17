@@ -8,9 +8,11 @@ import com.spacetime.admin.dto.response.CoinPackageVO;
 import com.spacetime.admin.service.CoinPackageAdminService;
 import com.spacetime.common.dao.CoinPackageDao;
 import com.spacetime.common.entity.CoinPackage;
+import com.spacetime.common.entity.VirtualPriceChange;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.WechatVirtualProductCatalog;
+import com.spacetime.common.service.VirtualPriceChangeService;
 import com.spacetime.common.util.CoinPackagePriceResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,7 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
     /** 成家币套餐数据访问对象 */
     private final CoinPackageDao coinPackageDao;
     private final WechatVirtualProductCatalog virtualProductCatalog;
+    private final VirtualPriceChangeService priceChangeService;
 
     /**
      * 查询全部套餐列表，按排序字段升序
@@ -55,6 +58,14 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
 
     private CoinPackage requirePackage(Long id) {
         CoinPackage entity = coinPackageDao.selectById(id);
+        if (entity == null) {
+            throw new BusinessException("成家币套餐不存在");
+        }
+        return entity;
+    }
+
+    private CoinPackage requirePackageForUpdate(Long id) {
+        CoinPackage entity = coinPackageDao.selectForUpdate(id);
         if (entity == null) {
             throw new BusinessException("成家币套餐不存在");
         }
@@ -90,20 +101,36 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
     @Override
     @Transactional
     public void update(Long id, CoinPackageSaveReq req) {
-        CoinPackage entity = requirePackage(id);
+        CoinPackage entity = requirePackageForUpdate(id);
         CoinPackage changed = toEntity(req);
-        if (virtualProductCatalog.isProductionMode() && isEnabled(changed.getStatus())) {
-            BigDecimal oldPrice = CoinPackagePriceResolver.resolve(entity);
-            BigDecimal newPrice = CoinPackagePriceResolver.resolve(changed);
-            boolean priceChanged = oldPrice == null || newPrice == null || oldPrice.compareTo(newPrice) != 0;
-            if (priceChanged || !CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
-                virtualProductCatalog.assertPayable("coin_" + id, newPrice);
+        boolean production = virtualProductCatalog.isProductionMode();
+        String activeProductId = entity.getWechatProductId();
+        BigDecimal oldPrice = CoinPackagePriceResolver.resolve(entity);
+        BigDecimal newPrice = CoinPackagePriceResolver.resolve(changed);
+        boolean enableAfterPublish = production && isEnabled(changed.getStatus())
+                && !isEnabled(entity.getStatus()) && StrUtil.isBlank(entity.getWechatProductId());
+        if (production && isEnabled(changed.getStatus()) && !enableAfterPublish) {
+            virtualProductCatalog.assertPayable(
+                    StrUtil.blankToDefault(activeProductId, "coin_" + id), oldPrice);
+        }
+        boolean priceChanged = oldPrice == null || newPrice == null || oldPrice.compareTo(newPrice) != 0;
+        if (production && (priceChanged || enableAfterPublish)) {
+            priceChangeService.requestChange("coin", id, activeProductId,
+                    newPrice, enableAfterPublish);
+        } else if (production) {
+            VirtualPriceChange pending = priceChangeService.latest("coin", id);
+            if (pending != null && isPending(pending.getStatus())
+                    && pending.getTargetPrice() != null
+                    && pending.getTargetPrice().compareTo(oldPrice) != 0) {
+                priceChangeService.cancelChange("coin", id);
             }
         }
         entity.setPackageName(changed.getPackageName());
-        entity.setAmount(changed.getAmount());
+        if (!production || !priceChanged) {
+            entity.setAmount(changed.getAmount());
+            entity.setDiscountAmount(changed.getDiscountAmount());
+        }
         entity.setOriginAmount(changed.getOriginAmount());
-        entity.setDiscountAmount(changed.getDiscountAmount());
         entity.setCoinCount(changed.getCoinCount());
         entity.setBonusCoinCount(changed.getBonusCoinCount());
         entity.setRecommendFlag(changed.getRecommendFlag());
@@ -111,7 +138,9 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
         entity.setMobileTag(changed.getMobileTag());
         entity.setPackageDesc(changed.getPackageDesc());
         entity.setSortOrder(changed.getSortOrder());
-        entity.setStatus(StrUtil.blankToDefault(changed.getStatus(), CommonStatusEnum.ENABLED.getCode()));
+        if (!enableAfterPublish) {
+            entity.setStatus(StrUtil.blankToDefault(changed.getStatus(), CommonStatusEnum.ENABLED.getCode()));
+        }
         coinPackageDao.updateById(entity);
         log.info("更新成家币套餐: id={}, packageName={}", id, entity.getPackageName());
     }
@@ -124,11 +153,22 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
     @Override
     @Transactional
     public void updateStatus(Long id, String status) {
-        CoinPackage entity = requirePackage(id);
+        CoinPackage entity = requirePackageForUpdate(id);
+        if (virtualProductCatalog.isProductionMode()
+                && CommonStatusEnum.DISABLED.getCode().equals(status)) {
+            priceChangeService.cancelChange("coin", id);
+        }
         if (virtualProductCatalog.isProductionMode()
                 && CommonStatusEnum.ENABLED.getCode().equals(status)
                 && !CommonStatusEnum.ENABLED.getCode().equals(entity.getStatus())) {
-            virtualProductCatalog.assertPayable("coin_" + id, CoinPackagePriceResolver.resolve(entity));
+            if (StrUtil.isBlank(entity.getWechatProductId())) {
+                priceChangeService.requestChange("coin", id, entity.getWechatProductId(),
+                        CoinPackagePriceResolver.resolve(entity), true);
+                return;
+            }
+            virtualProductCatalog.assertPayable(
+                    StrUtil.blankToDefault(entity.getWechatProductId(), "coin_" + id),
+                    CoinPackagePriceResolver.resolve(entity));
         }
         entity.setStatus(status);
         coinPackageDao.updateById(entity);
@@ -156,6 +196,11 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
         return StrUtil.isBlank(status) || CommonStatusEnum.ENABLED.getCode().equals(status);
     }
 
+    private boolean isPending(String status) {
+        return "QUEUED".equals(status) || "UPLOADING".equals(status)
+                || "PUBLISHING".equals(status) || "WAIT_EFFECTIVE".equals(status);
+    }
+
     private CoinPackageVO toVO(CoinPackage entity) {
         CoinPackageVO vo = new CoinPackageVO();
         vo.setId(entity.getId());
@@ -163,6 +208,16 @@ public class CoinPackageAdminServiceImpl implements CoinPackageAdminService {
         vo.setAmount(entity.getAmount());
         vo.setOriginAmount(entity.getOriginAmount());
         vo.setDiscountAmount(entity.getDiscountAmount());
+        vo.setWechatProductId(entity.getWechatProductId());
+        VirtualPriceChange change = priceChangeService.latest("coin", entity.getId());
+        if (change != null) {
+            vo.setPriceChangeStatus(change.getStatus());
+            vo.setPriceChangeError(change.getLastError());
+            if (!"ACTIVE".equals(change.getStatus())) {
+                vo.setPendingPrice(change.getTargetPrice());
+                vo.setPendingProductId(change.getNewProductId());
+            }
+        }
         vo.setCoinCount(entity.getCoinCount());
         vo.setBonusCoinCount(entity.getBonusCoinCount());
         vo.setRecommendFlag(entity.getRecommendFlag());

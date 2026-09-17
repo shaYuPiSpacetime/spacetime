@@ -26,6 +26,10 @@ export interface VipPackageConfig {
   recommendFlag?: number;
   packageTag?: string;
   wechatProductId?: string;
+  pendingPrice?: number;
+  pendingProductId?: string;
+  priceChangeStatus?: string;
+  priceChangeError?: string;
   agreementConfig?: string;
   payChannelReserve?: string;
   sortOrder?: number;
@@ -38,6 +42,11 @@ export interface CoinPackageConfig {
   amount: number;
   originAmount?: number;
   discountAmount?: number;
+  wechatProductId?: string;
+  pendingPrice?: number;
+  pendingProductId?: string;
+  priceChangeStatus?: string;
+  priceChangeError?: string;
   coinCount: number;
   bonusCoinCount?: number;
   recommendFlag?: number;

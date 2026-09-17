@@ -48,6 +48,7 @@ class CoinServiceImplTest {
         CoinPackage valid = new CoinPackage();
         valid.setId(10L);
         valid.setAmount(new BigDecimal("99.00"));
+        valid.setWechatProductId("coin_10");
         CoinPackage stale = new CoinPackage();
         stale.setId(11L);
         stale.setAmount(new BigDecimal("200.00"));

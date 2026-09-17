@@ -62,7 +62,7 @@ public class VipServiceImpl implements VipService {
         // 2. 转换为 VO
         return page.getRecords().stream()
                 .filter(pkg -> !virtualProductCatalog.isProductionMode()
-                        || virtualProductCatalog.matches("vip_" + pkg.getId(), pkg.getPrice()))
+                        || virtualProductCatalog.matches(pkg.getWechatProductId(), pkg.getPrice()))
                 .map(pkg -> {
             VipPackageVO vo = new VipPackageVO();
             vo.setId(pkg.getId());
