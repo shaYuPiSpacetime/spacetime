@@ -10,6 +10,7 @@ public class RecommendPreferenceVO {
     private Integer version;
     private List<RecommendCityVO> targetCities;
     private Boolean allowNeighborCity;
+    private Boolean onlyCertifiedUsers;
     private Boolean neighborCityAvailable;
     private String neighborCityDisabledReason;
     private Integer minAge;

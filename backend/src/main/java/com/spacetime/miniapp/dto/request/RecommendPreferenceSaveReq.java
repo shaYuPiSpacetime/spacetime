@@ -20,6 +20,8 @@ public class RecommendPreferenceSaveReq {
     private List<String> targetCityCodes;
     @NotNull(message = "周边城市开关不能为空")
     private Boolean allowNeighborCity;
+    /** 旧版本客户端可能不传，服务端需保留用户现有选择。 */
+    private Boolean onlyCertifiedUsers;
     @NotNull(message = "最小年龄不能为空")
     @Min(value = 18, message = "最小年龄不能小于 18 岁")
     @Max(value = 60, message = "最小年龄不能大于 60 岁")

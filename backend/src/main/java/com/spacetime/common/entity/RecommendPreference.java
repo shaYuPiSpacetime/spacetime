@@ -12,6 +12,7 @@ public class RecommendPreference extends BaseEntity {
     private Long userId;
     private String targetCityCodes;
     private Integer allowNeighborCity;
+    private Integer onlyCertifiedUsers;
     private Integer minAge;
     private Integer maxAge;
     private Integer minHeight;

@@ -89,7 +89,7 @@ public class RecommendServiceImpl implements RecommendService {
     private static final String ADVANCED_FILTER_BENEFIT = "advanced_filter";
     private static final String THREE_DAY_REPLAY_BENEFIT = "three_day_replay";
     private static final String NEIGHBOR_CITY_MAP_KEY = "prd08.recommend.neighbor-city-map";
-    private static final String NEIGHBOR_CITY_DISABLED_REASON = "周边城市关系暂未配置";
+    private static final String NEIGHBOR_CITY_DISABLED_REASON = "周边城市关系暂未配置，偏好可提前保存";
 
     private final AppUserDao appUserDao;
     private final RecommendPreferenceDao preferenceDao;
@@ -134,14 +134,14 @@ public class RecommendServiceImpl implements RecommendService {
             if (req.getVersion() != 0) {
                 throw versionConflict();
             }
-            RecommendPreference created = toEntity(userId, req, 1);
+            RecommendPreference created = toEntity(userId, req, 1, null);
             preferenceDao.insert(created);
             return toPreferenceVO(created, vipEffective, false);
         }
         if (!existing.getVersion().equals(req.getVersion())) {
             throw versionConflict();
         }
-        RecommendPreference changed = toEntity(userId, req, existing.getVersion() + 1);
+        RecommendPreference changed = toEntity(userId, req, existing.getVersion() + 1, existing);
         changed.setId(existing.getId());
         if (preferenceDao.updateByVersion(changed, existing.getVersion()) != 1) {
             throw versionConflict();
@@ -472,6 +472,7 @@ public class RecommendServiceImpl implements RecommendService {
         entity.setTargetCityCodes(JSONUtil.toJsonStr(defaults.getTargetCities().stream()
                 .map(RecommendCityVO::getCode).toList()));
         entity.setAllowNeighborCity(0);
+        entity.setOnlyCertifiedUsers(0);
         entity.setMinAge(defaults.getMinAge());
         entity.setMaxAge(defaults.getMaxAge());
         entity.setEducationCodes("[]");
@@ -776,6 +777,7 @@ public class RecommendServiceImpl implements RecommendService {
         vo.setVersion(0);
         vo.setTargetCities(List.of(city(user.getLocationCity())));
         vo.setAllowNeighborCity(false);
+        vo.setOnlyCertifiedUsers(false);
         applyNeighborCapability(vo, List.of(user.getLocationCity()));
         vo.setMinAge(Math.max(DEFAULT_MIN_AGE, age - 5));
         vo.setMaxAge(Math.min(DEFAULT_MAX_AGE, age + 5));
@@ -797,8 +799,8 @@ public class RecommendServiceImpl implements RecommendService {
         List<String> targetCityCodes = parseList(entity.getTargetCityCodes());
         vo.setTargetCities(targetCityCodes.stream().map(this::city).toList());
         applyNeighborCapability(vo, targetCityCodes);
-        vo.setAllowNeighborCity(Boolean.TRUE.equals(vo.getNeighborCityAvailable())
-                && Integer.valueOf(1).equals(entity.getAllowNeighborCity()));
+        vo.setAllowNeighborCity(Integer.valueOf(1).equals(entity.getAllowNeighborCity()));
+        vo.setOnlyCertifiedUsers(Integer.valueOf(1).equals(entity.getOnlyCertifiedUsers()));
         vo.setMinAge(entity.getMinAge());
         vo.setMaxAge(entity.getMaxAge());
         vo.setAdvanced(advanced);
@@ -822,12 +824,15 @@ public class RecommendServiceImpl implements RecommendService {
         return advanced;
     }
 
-    private RecommendPreference toEntity(Long userId, RecommendPreferenceSaveReq req, int version) {
+    private RecommendPreference toEntity(Long userId, RecommendPreferenceSaveReq req, int version,
+                                          RecommendPreference previous) {
         RecommendPreference entity = new RecommendPreference();
         entity.setUserId(userId);
         entity.setTargetCityCodes(JSONUtil.toJsonStr(normalize(req.getTargetCityCodes())));
-        entity.setAllowNeighborCity(Boolean.TRUE.equals(req.getAllowNeighborCity())
-                && neighborCityAvailable(normalize(req.getTargetCityCodes())) ? 1 : 0);
+        entity.setAllowNeighborCity(Boolean.TRUE.equals(req.getAllowNeighborCity()) ? 1 : 0);
+        entity.setOnlyCertifiedUsers(req.getOnlyCertifiedUsers() == null
+                ? previous == null ? 0 : previous.getOnlyCertifiedUsers()
+                : Boolean.TRUE.equals(req.getOnlyCertifiedUsers()) ? 1 : 0);
         entity.setMinAge(req.getMinAge());
         entity.setMaxAge(req.getMaxAge());
         entity.setMinHeight(req.getMinHeight());
@@ -998,7 +1003,7 @@ public class RecommendServiceImpl implements RecommendService {
             }
             return result;
         } catch (RuntimeException ignored) {
-            // 运行配置异常时按正式口径降级关闭开关，不能猜测城市邻接关系。
+            // 运行配置异常时暂不扩展城市范围，保留用户已保存的开关状态。
             return Map.of();
         }
     }
