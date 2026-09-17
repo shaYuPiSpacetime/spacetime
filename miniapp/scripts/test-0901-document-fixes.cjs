@@ -201,6 +201,7 @@ test('心动单人解锁弹窗恢复已验收的场景文案和信息层级', ()
 
 test('悄悄话弹窗使用全局响应式组件并完整适配安全区', () => {
   const component = read('src/components/CommunityWhisperSheet.tsx')
+  const compose = read('src/components/WhisperComposeSheet.tsx')
   const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
   const detail = read('src/pages/qianxun/post-detail.tsx')
 
@@ -209,17 +210,20 @@ test('悄悄话弹窗使用全局响应式组件并完整适配安全区', () =>
   assert.match(component, /maxHeight:\s*'calc\(100vh - 80rpx\)'/, '弹窗高度必须受当前视口限制')
   assert.match(component, /env\(safe-area-inset-bottom\)/, '弹窗底部必须适配设备安全区')
   assert.match(component, /开通<Text[^>]*>时空邂逅会员<\/Text>每天一个悄悄话/, '全局组件必须保留会员权益提示')
-  assert.match(family, /<CommunityWhisperSheet/, '热门动态必须使用全局悄悄话弹窗')
-  assert.match(detail, /<CommunityWhisperSheet/, '动态详情必须复用同一个悄悄话弹窗')
+  assert.match(compose, /<CommunityWhisperSheet/, '全局流程组件必须复用统一的响应式弹窗')
+  assert.match(family, /<WhisperComposeSheet/, '热门动态必须使用全局悄悄话流程组件')
+  assert.match(detail, /<WhisperComposeSheet/, '动态详情必须复用同一个悄悄话流程组件')
   assert.doesNotMatch(detail, /function WhisperComposeSheet/, '动态详情不得保留一份会继续漂移的弹窗副本')
 })
 
 test('热门动态关闭悄悄话弹窗后恢复打开前的滚动位置', () => {
   const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
+  const compose = read('src/components/WhisperComposeSheet.tsx')
 
   assert.match(family, /const feedScrollTopRef = useRef\(0\)/, '热门列表必须记录当前滚动位置')
   assert.match(family, /scrollTop=\{restoredFeedScrollTop\}/, '列表必须接收关闭弹窗后的恢复位置')
   assert.match(family, /onScroll=\{event => \{\s*feedScrollTopRef\.current = event\.detail\.scrollTop\s*\}\}/, '滚动时必须仅写入 ref，避免逐帧刷新页面')
-  assert.match(family, /const closeWhisperSheet = async \(\) =>[\s\S]*await Taro\.hideKeyboard\(\)[\s\S]*setRestoredFeedScrollTop\(undefined\)[\s\S]*Taro\.nextTick[\s\S]*setRestoredFeedScrollTop\(preservedScrollTop\)/, '关闭弹窗必须先收起键盘，再强制恢复打开前位置')
+  assert.match(compose, /const close = async \(\) =>[\s\S]*await Taro\.hideKeyboard\(\)[\s\S]*onClose\(\)/, '全局流程组件关闭时必须先收起键盘')
+  assert.match(family, /const closeWhisperSheet = async \(\) =>[\s\S]*setRestoredFeedScrollTop\(undefined\)[\s\S]*Taro\.nextTick[\s\S]*setRestoredFeedScrollTop\(preservedScrollTop\)/, '关闭弹窗后必须强制恢复打开前位置')
   assert.match(family, /onClose=\{\(\) => void closeWhisperSheet\(\)\}/, '弹窗关闭动作必须统一走滚动恢复逻辑')
 })

@@ -23,7 +23,7 @@ assert.match(compose, /miniappOssIcons\.qianxunComposeSmile/, '表情工具图�
 assert.match(family, /useAuthStore\(state => state\.userId\)/, '同城动态必须取得当前用户 ID')
 assert.match(family, /isSelf=\{post\.authorId === currentUserId\}/, '动态卡片必须显式标记本人内容')
 assert.doesNotMatch(family, /pages\/message\/whisper-detail/, '动态流发起悄悄话不得跳转独立页面')
-assert.match(family, /CommunityWhisperSheet/, '动态流必须在当前页展示悄悄话扣费弹窗')
+assert.match(family, /WhisperComposeSheet/, '动态流必须在当前页展示全局悄悄话流程弹窗')
 
 assert.match(visibility, /aboutMe:/, '主页预览可见性模型必须包含关于我')
 assert.match(preview, /ProfilePreviewAboutMe/, '主页预览必须渲染关于我内容')

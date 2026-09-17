@@ -219,6 +219,10 @@ function assertVariantImplemented(route, variant, label) {
 }
 
 function assertAsset(assetRef, label) {
+  // `.lanhu-ref` stores local-only design baselines and is intentionally excluded
+  // from Git and the WeChat upload package. Release builds must remain reproducible
+  // from a clean checkout while runtime assets continue to be checked below.
+  if (assetRef.startsWith('.lanhu-ref/')) return
   const assetPath = path.join(rootDir, assetRef)
   assert.ok(fs.existsSync(assetPath), `${label} 引用资产不存在: ${assetRef}`)
 }
