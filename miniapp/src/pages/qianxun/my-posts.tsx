@@ -238,7 +238,7 @@ function MyPostCard({ receipt, liking, config, onMore, onFailure, onLike }: { re
       <View style={{ display: 'flex', alignItems: 'baseline' }}>
         <Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{dayOfMonth(receipt.createdAt)}</Text>
         <Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '10rpx' }}>{monthLabel(receipt.createdAt)}</Text>
-        <Text style={{ color: '#333333', fontSize: '27rpx', lineHeight: '42rpx', marginLeft: '28rpx', flex: 1 }}>{receipt.content}</Text>
+        <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '42rpx', marginLeft: '28rpx', flex: 1 }}>{receipt.content}</Text>
       </View>
       <View style={{ display: 'flex', alignItems: 'flex-start', marginTop: '18rpx' }}>
         <View style={{ width: '130rpx', flexShrink: 0 }}>
