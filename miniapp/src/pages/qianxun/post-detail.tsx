@@ -290,7 +290,7 @@ export default function QianxunPostDetailPage() {
             <View style={{ borderRadius: '16rpx', background: '#FFFFFF', padding: '24rpx 24rpx 0', overflow: 'hidden' }}>
               <AuthorRow post={post} isSelf={post.authorId === currentUserId} onAuthor={() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)} onMore={() => setShowActions(true)} onApply={() => void openWhisper()} />
               {post.title ? <Text style={{ display: 'block', color: '#222F45', fontSize: '29rpx', lineHeight: '44rpx', fontWeight: 600, marginTop: '24rpx' }}>{post.title}</Text> : null}
-              <Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', lineHeight: '47rpx', marginTop: '22rpx' }}>{post.content}</Text>
+              <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '47rpx', marginTop: '22rpx' }}>{post.content}</Text>
               <ImageGrid images={post.imageUrls || []} />
               <View style={{ display: 'flex', alignItems: 'center', marginTop: '25rpx' }}>
                 <Text style={{ color: '#999999', fontSize: '24rpx', lineHeight: '34rpx' }}>{relativeTime(post.createTime)}活跃</Text>
@@ -381,7 +381,7 @@ function CommentThread({ thread, postAuthorId, optionLabel, onReply, onLike, onM
       <View onClick={() => onReply(root, root.id)} onLongPress={() => onMore(root)} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
         <View style={{ display: 'flex', alignItems: 'center', minHeight: '37rpx' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{root.authorName || '用户'}</Text><View style={{ marginLeft: '10rpx', display: 'flex' }}><QianxunGenderIcon gender={root.authorGender} size="28rpx" /></View></View>
         {meta ? <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '5rpx' }}>{meta}</Text> : null}
-        <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '40rpx', marginTop: '24rpx' }}>{root.content}</Text>
+        <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '24rpx' }}>{root.content}</Text>
         <CommentMetaRow comment={root} onLike={() => onLike(root)} />
       </View>
     </View>
@@ -390,7 +390,7 @@ function CommentThread({ thread, postAuthorId, optionLabel, onReply, onLike, onM
         <Image src={reply.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '48rpx', height: '48rpx', borderRadius: '24rpx', background: '#EEF2F6', flexShrink: 0 }} />
         <View onClick={() => onReply(reply, root.id)} onLongPress={() => onMore(reply)} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
           <View style={{ display: 'flex', alignItems: 'center', minHeight: '34rpx' }}><Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 500 }}>{reply.authorName || '用户'}</Text>{reply.authorId === postAuthorId ? <View style={{ height: '30rpx', borderRadius: '8rpx', background: '#E3F1FE', padding: '0 9rpx', marginLeft: '10rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '20rpx', lineHeight: '28rpx' }}>楼主</Text></View> : null}</View>
-          <Text style={{ display: 'block', color: '#333333', fontSize: '24rpx', lineHeight: '38rpx', marginTop: '15rpx' }}>{reply.replyUserName ? <Text style={{ color: '#999999' }}>回复 {reply.replyUserName}： </Text> : null}{reply.content}</Text>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '38rpx', marginTop: '15rpx' }}>{reply.replyUserName ? <Text style={{ color: '#999999' }}>回复 {reply.replyUserName}： </Text> : null}{reply.content}</Text>
           <CommentMetaRow comment={reply} onLike={() => onLike(reply)} />
         </View>
       </View>

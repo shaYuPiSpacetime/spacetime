@@ -386,7 +386,7 @@ function MyPostSnapshotCard({ item, liking, config, onLike }: { item: MyPostSnap
       <View style={{ display: 'flex', alignItems: 'flex-start' }}>
         <View style={{ width: '112rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', lineHeight: '42rpx' }}>{item.content}</Text>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '42rpx' }}>{item.content}</Text>
           <MyPostImages images={item.imageUrls} />
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
