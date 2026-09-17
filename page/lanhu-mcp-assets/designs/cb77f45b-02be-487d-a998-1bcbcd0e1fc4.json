@@ -1,0 +1,708 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "千寻-成家-热门",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FFCC"
+    },
+    {
+      "type": "text",
+      "name": "觅缘",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "时空邂逅",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2525 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "55",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "text",
+      "name": "关注",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "text",
+      "name": "同城",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "热门",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "2小时前活跃",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F8F9FB"
+    },
+    {
+      "type": "text",
+      "name": "关于我们的故事",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "icon",
+      "name": "编组 5",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngf4377028360c5943788a3df5c5bc4e4b9d91f3c416236ffe41cbeeb5be1e7b5b"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#4E8EFF"
+    },
+    {
+      "type": "shape",
+      "name": "Clip 2",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "直线 2",
+      "class": "border-2px border-#EFF4FC border-solid"
+    },
+    {
+      "type": "text",
+      "name": "悄悄话",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "text",
+      "name": "10",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "10",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "杭州互联网大厂程序员，工作稳定。",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FE918E"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FE918E"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FE918E"
+    },
+    {
+      "type": "text",
+      "name": "筱老虎",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "93年·杭州·产品经理",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "text",
+      "name": "千寻",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2051A780"
+    },
+    {
+      "type": "text",
+      "name": "心动",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "text",
+      "name": "消息",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2525 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "55",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#EE2525 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "55",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "我的",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "text",
+      "name": "推荐",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "icon",
+      "name": "编组 3",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng27a00e5e7d410879695e49db260ee4c6d38f5177486f75bbdf64d96742e80cda"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "icon",
+      "name": "参与话题",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngf0e2167870bc75368635002b4227ab05e3f65522ecaa2431c9756bfaa6eb5c9a"
+    },
+    {
+      "type": "text",
+      "name": "我们官宣啦",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "text",
+      "name": "跟双方家长都见过面了，彼此都满意，我们都",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "2.2亿浏览",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-6px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-2px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "社区话题",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "全部话题",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "icon",
+      "name": "编组 5",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngd1d3e0aba01d247e9f61d7fbabf0eb60b8b9777232e356cfe2b980edb6cf8b28"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F8F9FB"
+    },
+    {
+      "type": "text",
+      "name": "新人报道",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "icon",
+      "name": "编组 5",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPnge8a63379b55d9e0f0e0a537867eeaf7d5d3e50fda4bc8d885002d9a21d957ea6"
+    },
+    {
+      "type": "text",
+      "name": "我的快乐与…",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "text",
+      "name": "真诚交友帖",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "text",
+      "name": "偷得浮生半日",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#333333"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#999999"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#2876FF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "关注",
+      "class": "",
+      "text": ""
+    }
+  ]
+}

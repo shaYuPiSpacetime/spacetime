@@ -28,11 +28,11 @@ export default function QianxunTopicSpotlight({ home, loading = false, config, o
   const slides = topics.slice(0, 3)
   return <View id="qianxun-topic-spotlight" style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '32rpx 26rpx 24rpx', boxSizing: 'border-box', overflow: 'hidden' }}>
     <View style={{ height: '50rpx', display: 'flex', alignItems: 'center' }}>
-      <View style={{ width: '38rpx', height: '38rpx', borderRadius: '10rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '31rpx', lineHeight: '36rpx', fontWeight: 700 }}>#</Text></View>
+      <Image src={miniappOssIcons.qianxunTopicSectionHash} mode="aspectFit" style={{ width: '30rpx', height: '30rpx', flexShrink: 0 }} />
       <Text style={{ color: '#333333', fontSize: '30rpx', lineHeight: '42rpx', fontWeight: 600, marginLeft: '12rpx' }}>社区话题</Text>
       <View style={{ flex: 1 }} />
       <View id="qianxun-topic-all" onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/topics' })} style={{ minWidth: '138rpx', height: '50rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-        <Text style={{ color: '#777777', fontSize: '27rpx', lineHeight: '38rpx' }}>全部话题</Text><Text style={{ color: '#999999', fontSize: '39rpx', lineHeight: '42rpx', marginLeft: '7rpx', fontWeight: 200 }}>›</Text>
+        <Text style={{ color: '#777777', fontSize: '28rpx', lineHeight: '38rpx' }}>全部话题</Text><Text style={{ color: '#999999', fontSize: '39rpx', lineHeight: '42rpx', marginLeft: '7rpx', fontWeight: 200 }}>›</Text>
       </View>
     </View>
 
@@ -57,8 +57,8 @@ function TopicSpotlightSlide({ featured, related, config }: { featured: Communit
     <View id={`qianxun-topic-featured-${featured.id}`} className="qianxun-topic-featured" onClick={() => openTopic(featured)} style={{ display: 'flex', marginTop: '28rpx' }}>
       <Image src={topicImage(featured)} mode="aspectFill" style={{ width: '176rpx', height: '176rpx', borderRadius: '12rpx', background: '#EDF1F5', flexShrink: 0 }} />
       <View style={{ minWidth: 0, flex: 1, marginLeft: '18rpx', paddingTop: '3rpx' }}>
-        <Text style={{ display: 'block', color: '#333333', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: BLUE, fontSize: '37rpx' }}>#</Text> {featured.name}</Text>
-        <Text style={{ display: '-webkit-box', color: '#333333', fontSize: '24rpx', lineHeight: '39rpx', height: '78rpx', marginTop: '9rpx', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{featured.description || featured.previewContent || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.topicDefaultDescription)}</Text>
+        <View style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}><Image src={miniappOssIcons.qianxunTopicFeaturedHash} mode="aspectFit" style={{ width: '30rpx', height: '30rpx', flexShrink: 0 }} /><Text style={{ display: 'block', minWidth: 0, color: '#333333', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600, marginLeft: '8rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{featured.name}</Text></View>
+        <Text style={{ display: '-webkit-box', color: '#333333', fontSize: '28rpx', lineHeight: '39rpx', height: '78rpx', marginTop: '9rpx', overflow: 'hidden', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{featured.description || featured.previewContent || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.topicDefaultDescription)}</Text>
         <View style={{ height: '42rpx', display: 'flex', alignItems: 'center', marginTop: '5rpx' }}>
           <TopicAvatars urls={featured.participantAvatars || []} />
           <Text style={{ color: '#AAAAAA', fontSize: '22rpx', marginLeft: '11rpx' }}>{formatBrowseCount(featured.postCount)}</Text>
@@ -74,7 +74,8 @@ function TopicSpotlightSlide({ featured, related, config }: { featured: Communit
 function RelatedTopic({ topic }: { topic: CommunityTopicCardVO }) {
   return <View onClick={() => openTopic(topic)} style={{ width: '50%', height: '50rpx', padding: '0 8rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
     <Image src={topicImage(topic)} mode="aspectFill" style={{ width: '38rpx', height: '38rpx', borderRadius: '7rpx', background: '#E9EDF2', flexShrink: 0 }} />
-    <Text style={{ color: '#333333', fontSize: '23rpx', lineHeight: '32rpx', fontWeight: 500, marginLeft: '10rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}># {topic.name}</Text>
+    <Image src={miniappOssIcons.qianxunTopicRelatedHash} mode="aspectFit" style={{ width: '20rpx', height: '20rpx', marginLeft: '10rpx', flexShrink: 0 }} />
+    <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '32rpx', fontWeight: 500, marginLeft: '6rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topic.name}</Text>
     <Text style={{ color: '#333333', fontSize: '32rpx', lineHeight: '36rpx', marginLeft: 'auto' }}>›</Text>
   </View>
 }
