@@ -51,9 +51,9 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
     return () => { active = false }
   }, [target.targetUserNo, target.sourceScene, target.sourceBizNo])
 
-  const close = () => {
+  const close = async () => {
     if (submitting) return
-    void Taro.hideKeyboard().catch(() => undefined)
+    await Taro.hideKeyboard().catch(() => undefined)
     onClose()
   }
 
@@ -107,7 +107,7 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
     loading={loading}
     submitting={submitting}
     onContentChange={setContent}
-    onClose={close}
+    onClose={() => void close()}
     onSubmit={() => void submit()}
   />
 }
