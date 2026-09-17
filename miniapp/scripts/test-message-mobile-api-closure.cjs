@@ -42,6 +42,34 @@ test('未读角标只使用后端真值并安全格式化', () => {
   assert.equal(formatMessageBadge(Number.NaN), '')
 })
 
+test('私信消息时间以本地时间显示，并保持连续输入', () => {
+  const { formatPrivateChatTime } = requireDomain('src/domain/messageRuntime.ts')
+  assert.match(formatPrivateChatTime('2026-09-17T08:15:00'), /^2026年09月17日 08:15$/)
+  assert.equal(formatPrivateChatTime('invalid'), '')
+  const privateChat = read('src/pages/message/private-chat.tsx')
+  const styles = read('src/pages/message/message.scss')
+  assert.match(privateChat, /chat-message-time/)
+  assert.match(privateChat, /formatPrivateChatTime\(message\.sentAt\)/)
+  assert.match(privateChat, /confirmHold/)
+  assert.match(privateChat, /restoreKeyboardRef\.current = keyboardFocusedRef\.current/)
+  assert.match(privateChat, /setTimeout\(\(\) => setInputFocused\(true\), 0\)/)
+  assert.doesNotMatch(privateChat, /disabled=\{Boolean\(detail && !detail\.canSend\) \|\| sending\}/)
+  assert.match(privateChat, /setMessages\(current => upsertMessages\(current, page\.list\)\)/)
+  assert.match(styles, /\.chat-message-time\s*\{/)
+})
+
+test('私信已读游标区分平台消息编号与 TIM 定位字段', () => {
+  const { resolveConversationReadCursor, isReadCursorNotFoundError } = requireDomain('src/domain/messageRuntime.ts')
+  assert.deepEqual(resolveConversationReadCursor({
+    messageNo: 'sdk-message-42', timMessageId: 'sdk-message-42', timMsgKey: 'sdk-message-42',
+  }), { lastMessageNo: '', timMessageId: 'sdk-message-42', timMsgKey: undefined })
+  assert.deepEqual(resolveConversationReadCursor({
+    messageNo: 'TIM-platform-42', timMessageId: 'sdk-message-42', timMsgKey: 'server-key-42',
+  }), { lastMessageNo: 'TIM-platform-42' })
+  assert.equal(isReadCursorNotFoundError(new Error('最后已读消息不属于当前会话')), true)
+  assert.equal(isReadCursorNotFoundError(new Error('无权操作该私信会话')), false)
+})
+
 test('未知会话状态、协议和系统跳转默认安全降级', () => {
   const {
     isSupportedMessageProtocol,
@@ -172,10 +200,12 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
   assert.doesNotMatch(detail, /\.allowed\b/)
 
   const postDetail = read('src/pages/qianxun/post-detail.tsx')
+  const whisperComposeSheet = read('src/components/WhisperComposeSheet.tsx')
   const sharedWhisperSheet = read('src/components/CommunityWhisperSheet.tsx')
-  assert.match(postDetail, /CommunityWhisperSheet/)
+  assert.match(postDetail, /WhisperComposeSheet/)
+  assert.match(whisperComposeSheet, /CommunityWhisperSheet/)
   assert.match(sharedWhisperSheet, /precheck\?\.canSend/)
-  assert.doesNotMatch(`${postDetail}\n${sharedWhisperSheet}`, /precheck\?\.allowed|whisperPrecheck\.allowed/)
+  assert.doesNotMatch(`${postDetail}\n${whisperComposeSheet}\n${sharedWhisperSheet}`, /precheck\?\.allowed|whisperPrecheck\.allowed/)
 
   const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
   assert.match(family, /sourceScene:\s*'community_post'/)
@@ -188,13 +218,13 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
     'src/pages/qianxun/topic.tsx',
   ]) {
     const source = read(relativePath)
-    assert.match(source, /sourceScene=community_post/)
-    assert.match(source, /sourceBizNo=/)
+    assert.match(source, /sourceScene:\s*'community_post'/)
+    assert.match(source, /sourceBizNo:\s*post\.postNo/)
     assert.match(source, /resolveStableWhisperTargetUserNo/)
   }
 
   const recommendation = read('src/pages/recommend/index.tsx')
-  assert.match(recommendation, /sourceScene=recommendation/)
+  assert.match(recommendation, /sourceScene:\s*'recommendation'/)
 })
 
 test('LiteChat 网关固定精确版本并具备凭证刷新、文本发送、历史、事件和已读', () => {
@@ -338,6 +368,9 @@ test('私信首屏按需加载轻量 TIM 且连接异常不会无限卡住交互
   assert.doesNotMatch(liteChatGateway, /@tencentcloud\/lite-chat\/plugins\/conversation/, '私信页不得引入 50 KiB 完整会话插件')
   assert.match(liteChatGateway, /createLiteChatC2CReadPlugin/, '基础包必须补齐单聊已读能力')
   assert.match(liteChatGateway, /chat\.use\(this\.c2cReadPlugin\)/, '登录前必须注册轻量单聊已读插件')
+  assert.match(liteChatGateway, /await chat\.destroy\(\)/, '未就绪实例必须销毁后再重建')
+  assert.match(liteChatGateway, /if \(!isCurrentSession\(\)\) return/, '旧实例事件不得改变当前登录状态')
+  assert.doesNotMatch(liteChatGateway, /timMsgKey:\s*textOf\([^\n]+\) \|\| message\.ID/, 'SDK 消息 ID 不得冒充 MsgKey')
   assert.match(c2cReadPlugin, /servcmd:\s*['"]openim\.msgreaded['"]/, '轻量插件必须调用 TIM 单聊已读命令')
   assert.match(privateChat, /Promise\.allSettled\(\[\s*gateway\.markRead\(gatewayId\),\s*service\.markConversationRead\(/, 'TIM 与平台已读应独立上报')
   assert.match(appConfig, /preloadRule:[\s\S]*['"]pages\/chat\/index['"][\s\S]*packages:\s*\[['"]pages\/message['"]\]/)
@@ -432,9 +465,9 @@ test('页面移除硬编码私信和退役悄悄话交互，接入受限态与�
   assert.match(home, /accessMode/)
   assert.doesNotMatch(privateList, /const designRows/)
   assert.match(privateChat, /canSend/)
-  assert.match(privateChat, /lastMessageNo/)
-  assert.match(privateChat, /const hasPlatformMessageNo = Boolean\(/, '存在平台 messageNo 时应以平台编号推进已读')
-  assert.match(privateChat, /hasPlatformMessageNo \? undefined : lastIncoming\?\.timMessageId/, '历史迁移消息不得用旧 TIM 定位字段否决平台 messageNo')
+  assert.match(privateChat, /resolveConversationReadCursor\(lastIncoming\)/, '平台编号与 TIM 定位字段必须独立解析')
+  assert.match(privateChat, /cursor\.lastMessageNo/, '存在平台 messageNo 时应以平台编号推进已读')
+  assert.match(privateChat, /cursor\.timMessageId/, '普通消息应使用 TIM 定位字段推进已读')
   assert.match(privateChat, /onLongPress/)
   assert.match(privateChat, /sourceType=private_chat/)
   assert.match(privateChat, /targetId=\$\{encodeURIComponent\(conversationNo\)\}/)

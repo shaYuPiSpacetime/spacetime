@@ -1,4 +1,5 @@
 import type {
+  ChatMessage,
   ConversationStatus,
 } from '../types/message'
 
@@ -54,6 +55,35 @@ export function withMessageTimeout<T>(
   })
 }
 
+/** SDK 普通文本只有 TIM ID；只有自定义载荷给出独立编号时才按平台编号确认。 */
+export function resolveConversationReadCursor(
+  message: Pick<ChatMessage, 'messageNo' | 'timMessageId' | 'timMsgKey'>,
+): { lastMessageNo: string; timMessageId?: string; timMsgKey?: string } {
+  const timMessageId = message.timMessageId?.trim() || undefined
+  const hasPlatformMessageNo = Boolean(message.messageNo && message.messageNo !== timMessageId)
+  if (hasPlatformMessageNo) return { lastMessageNo: message.messageNo }
+  const timMsgKey = message.timMsgKey?.trim() || undefined
+  return {
+    lastMessageNo: '',
+    timMessageId,
+    timMsgKey: timMsgKey && timMsgKey !== timMessageId ? timMsgKey : undefined,
+  }
+}
+
+/** TIM 历史可能跨平台会话，或者刚收到的消息尚未完成服务端归档。 */
+export function isReadCursorNotFoundError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('最后已读消息不属于当前会话')
+}
+
+/** 私信消息时间由 IM 原始发送时间转换为设备本地时间。 */
+export function formatPrivateChatTime(value: string): string {
+  if (!value) return ''
+  const date = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 type MessageGatewayReadyProbe = {
   isReady(): boolean
   onEvent(listener: (event: { type: string; errorMessage?: string }) => void): () => void
@@ -69,7 +99,7 @@ export function waitForMessageGatewayReady(
 
   return new Promise<void>((resolve, reject) => {
     let settled = false
-    let unsubscribe = () => undefined
+    let unsubscribe: () => void = () => undefined
     const finish = (error?: Error) => {
       if (settled) return
       settled = true

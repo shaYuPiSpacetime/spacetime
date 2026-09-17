@@ -938,6 +938,14 @@
 .chat-messages {
   padding: 20px 16px 30px;
 }
+.chat-message-time {
+  display: block;
+  margin: 0 0 12px;
+  color: #999;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
 .chat-row {
   margin-bottom: 18px;
   display: flex;

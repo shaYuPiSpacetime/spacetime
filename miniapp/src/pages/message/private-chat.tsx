@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   createKeyedSingleFlight,
+  formatPrivateChatTime,
+  isReadCursorNotFoundError,
   isTimAccountMissingError,
+  resolveConversationReadCursor,
   resolveConversationSendBlockedReason,
   resolveMessageError,
   waitForMessageGatewayReady,
@@ -30,7 +33,7 @@ function createClientReportId(): string {
 }
 
 const DETAIL_TIMEOUT_MS = 8_000
-const CONNECTION_TIMEOUT_MS = 12_000
+const CONNECTION_TIMEOUT_MS = 25_000
 const HISTORY_TIMEOUT_MS = 10_000
 const SEND_TIMEOUT_MS = 15_000
 
@@ -180,6 +183,9 @@ function EstablishedPrivateChatPage() {
   const [messageReportTarget, setMessageReportTarget] = useState<ChatMessage>()
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false)
+  const keyboardFocusedRef = useRef(false)
+  const restoreKeyboardRef = useRef(false)
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const readAckKey = useRef('')
@@ -201,24 +207,26 @@ function EstablishedPrivateChatPage() {
       const gateway = gatewayRef.current
       if (!gateway || !gatewayId || rendered.length === 0) return
       const lastIncoming = [...rendered].reverse().find(item => item.direction === 'incoming')
-      const lastMessageNo = lastIncoming?.messageNo || lastIncoming?.timMessageId
-      if (!lastMessageNo) return
-      const hasPlatformMessageNo = Boolean(
-        lastIncoming?.messageNo && lastIncoming.messageNo !== lastIncoming.timMessageId,
-      )
-      const ackKey = `${conversationNo}:${lastMessageNo}`
+      if (!lastIncoming) return
+      const cursor = resolveConversationReadCursor(lastIncoming)
+      if (!cursor.lastMessageNo && !cursor.timMessageId && !cursor.timMsgKey) return
+      const ackKey = `${conversationNo}:${lastIncoming.messageNo || lastIncoming.timMessageId}`
       if (readAckKey.current === ackKey) return
       try {
         const [, platformRead] = await Promise.allSettled([
           gateway.markRead(gatewayId),
           service.markConversationRead(
             conversationNo,
-            lastMessageNo,
-            hasPlatformMessageNo ? undefined : lastIncoming?.timMessageId,
-            hasPlatformMessageNo ? undefined : lastIncoming?.timMsgKey,
+            cursor.lastMessageNo,
+            cursor.timMessageId,
+            cursor.timMsgKey,
           ),
         ])
-        if (platformRead.status === 'rejected') throw platformRead.reason
+        if (platformRead.status === 'rejected') {
+          if (!isReadCursorNotFoundError(platformRead.reason)) throw platformRead.reason
+          // 历史 TIM 消息可能属于旧平台会话，或新消息尚未归档；TIM 已读回调会推进后端水位。
+          // 本次不清本地未读，也不把此后台同步竞争显示成聊天故障。
+        }
         readAckKey.current = ackKey
         if (!isMockScene) await messagePlatformRuntime.refreshUnread()
       } catch (error) {
@@ -346,7 +354,7 @@ function EstablishedPrivateChatPage() {
           HISTORY_TIMEOUT_MS,
           '聊天记录加载超时，请重试',
         )
-        setMessages(page.list)
+        setMessages(current => upsertMessages(current, page.list))
         setHistoryCursor(page.nextCursor)
         setHistoryCompleted(page.isCompleted)
         setTimeout(() => void acknowledgeRendered(page.list), 0)
@@ -404,6 +412,8 @@ function EstablishedPrivateChatPage() {
   const send = async () => {
     const value = inputValue.trim()
     if (!value || sending) return
+    const restoreKeyboard = keyboardFocusedRef.current || restoreKeyboardRef.current
+    restoreKeyboardRef.current = false
     if (!detail || !timConversationId) {
       await Taro.showToast({ title: '会话正在加载，请稍后发送', icon: 'none' })
       return
@@ -430,6 +440,11 @@ function EstablishedPrivateChatPage() {
       await Taro.showToast({ title: resolved.message, icon: 'none' })
     } finally {
       setSending(false)
+      if (restoreKeyboard && canSend) {
+        // 点击发送按钮可能触发原生 input blur，下一帧重新聚焦以便连续输入。
+        setInputFocused(false)
+        setTimeout(() => setInputFocused(true), 0)
+      }
     }
   }
 
@@ -513,21 +528,27 @@ function EstablishedPrivateChatPage() {
         </View>
         {errorMessage ? <Text className="message-inline-error" onClick={() => void load()}>{errorMessage}，点击重试</Text> : null}
         <View className="chat-messages">
-          {messages.map(message => (
-            <View className={`chat-row chat-row--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`} key={message.clientMsgId}>
-              {message.direction !== 'outgoing' ? <Image className="chat-avatar" src={detail?.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" /> : null}
-              {message.sendStatus === 'failed' ? <View className="chat-failed" onClick={() => setRetryTarget(message)}><Text>!</Text></View> : null}
-              <View
-                className={`chat-bubble chat-bubble--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`}
-                onLongPress={() => {
-                  if (message.direction === 'incoming') setMessageReportTarget(message)
-                }}
-              >
-                <Text>{message.content}</Text>
+          {messages.map(message => {
+            const time = formatPrivateChatTime(message.sentAt)
+            return (
+              <View className="chat-message-item" key={message.clientMsgId}>
+                {time ? <Text className="chat-message-time">{time}</Text> : null}
+                <View className={`chat-row chat-row--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`}>
+                  {message.direction !== 'outgoing' ? <Image className="chat-avatar" src={detail?.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" /> : null}
+                  {message.sendStatus === 'failed' ? <View className="chat-failed" onClick={() => setRetryTarget(message)}><Text>!</Text></View> : null}
+                  <View
+                    className={`chat-bubble chat-bubble--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`}
+                    onLongPress={() => {
+                      if (message.direction === 'incoming') setMessageReportTarget(message)
+                    }}
+                  >
+                    <Text>{message.content}</Text>
+                  </View>
+                  {message.direction === 'outgoing' ? <Image className="chat-avatar" src={MESSAGE_AVATAR} mode="aspectFill" /> : null}
+                </View>
               </View>
-              {message.direction === 'outgoing' ? <Image className="chat-avatar" src={MESSAGE_AVATAR} mode="aspectFill" /> : null}
-            </View>
-          ))}
+            )
+          })}
           {!loading && messages.length === 0 ? <Text className="message-empty-copy">暂无聊天记录</Text> : null}
         </View>
         <View id="chat-bottom" />
@@ -536,8 +557,8 @@ function EstablishedPrivateChatPage() {
       <View className="chat-input-bar">
         {!detail?.canSend && detail?.sendBlockedReason ? <Text className="chat-reply-label">{resolveConversationSendBlockedReason(detail.sendBlockedReason)}</Text> : null}
         {detail?.canSend && connectionState !== 'ready' ? <Text className="chat-connection-state">{connectionState === 'error' ? '连接失败，发送时重试' : '私信连接中，可先输入'}</Text> : null}
-        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canSend) || sending} maxlength={500} adjustPosition cursorSpacing={12} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
-        <View className={`chat-send-button${canSend && !sending ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>{sending ? '发送中' : '发送'}</Text></View>
+        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canSend)} maxlength={500} adjustPosition cursorSpacing={12} confirmType="send" confirmHold focus={inputFocused} onFocus={() => { keyboardFocusedRef.current = true; setInputFocused(true) }} onBlur={() => { keyboardFocusedRef.current = false; setInputFocused(false) }} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
+        <View className={`chat-send-button${canSend && !sending ? '' : ' chat-send-button--disabled'}`} onTouchStart={() => { restoreKeyboardRef.current = keyboardFocusedRef.current }} onClick={() => void send()}><Text>{sending ? '发送中' : '发送'}</Text></View>
       </View>
 
       {showActions ? (

@@ -2,6 +2,7 @@ import TencentCloudChat, {
   type Conversation as TencentConversation,
   type Message as TencentMessage,
 } from '@tencentcloud/lite-chat/basic'
+import historyMessagePlugin from '@tencentcloud/lite-chat/plugins/history-message'
 import {
   normalizeTimC2CConversationId,
   resolveTimC2CTargetUserId,
@@ -17,7 +18,8 @@ import type {
 
 type ChatSdk = ReturnType<typeof TencentCloudChat.create>
 
-const IM_LOGIN_TIMEOUT_MS = 10_000
+// iOS 微信冷启动时 SDK 握手可能明显慢于 Android；页面等待上限须略大于此值。
+const IM_LOGIN_TIMEOUT_MS = 20_000
 
 function sdkErrorCode(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined
@@ -94,7 +96,7 @@ function normalizeMessage(message: TencentMessage): ChatMessage {
     sendStatus:
       message.status === 'fail' ? 'failed' : message.status === 'unSend' ? 'sending' : 'sent',
     timMessageId: message.ID,
-    timMsgKey: textOf((message as TencentMessage & { key?: string }).key) || message.ID,
+    timMsgKey: textOf((message as TencentMessage & { key?: string }).key),
   }
 }
 
@@ -114,7 +116,10 @@ export class LiteChatMessageImGateway implements MessageImGateway {
   private rawMessages = new Map<string, TencentMessage>()
   private listeners = new Set<(event: MessageImEvent) => void>()
   private initializing?: Promise<void>
+  private session = 0
   private readonly c2cReadPlugin = createLiteChatC2CReadPlugin()
+
+  constructor(private readonly loginTimeoutMs = IM_LOGIN_TIMEOUT_MS) {}
 
   initialize(credentials: ImCredentials): Promise<void> {
     if (
@@ -132,7 +137,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     const initializing = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(
         () => reject(new Error('私信登录超时，请重试')),
-        IM_LOGIN_TIMEOUT_MS,
+        this.loginTimeoutMs,
       )
       internal.then(
         () => { clearTimeout(timer); resolve() },
@@ -149,12 +154,16 @@ export class LiteChatMessageImGateway implements MessageImGateway {
 
   private async initializeInternal(credentials: ImCredentials): Promise<void> {
     if (this.chat) await this.logout()
+    const session = ++this.session
     this.sdkAppId = Number(credentials.sdkAppId)
     this.currentUserId = credentials.imUserId
-    this.chat = TencentCloudChat.create({ SDKAppID: this.sdkAppId })
-    this.chat.use(this.c2cReadPlugin)
-    this.attachEvents(this.chat)
-    await this.chat.login({ userID: credentials.imUserId, userSig: credentials.userSig })
+    const chat = TencentCloudChat.create({ SDKAppID: this.sdkAppId })
+    this.chat = chat
+    // basic 包只提供实时消息；历史记录 API 由插件安装，必须在登录前注册。
+    chat.use(historyMessagePlugin)
+    chat.use(this.c2cReadPlugin)
+    this.attachEvents(chat, session)
+    await chat.login({ userID: credentials.imUserId, userSig: credentials.userSig })
   }
 
   isReady(): boolean {
@@ -262,41 +271,52 @@ export class LiteChatMessageImGateway implements MessageImGateway {
   async logout(): Promise<void> {
     const chat = this.chat
     const wasReady = this.ready
+    this.session += 1
     this.ready = false
     this.rawMessages.clear()
     this.chat = undefined
     this.currentUserId = undefined
-    if (!chat || !wasReady) return
+    this.sdkAppId = undefined
+    if (!chat) return
     try {
-      await chat.logout()
+      // 登录 Promise 超时只结束调用方等待；未就绪实例必须销毁，不能带着旧连接重试。
+      if (wasReady) await chat.logout()
+      else await chat.destroy()
     } catch (error) {
       if (!isAlreadyLoggedOutError(error)) throw error
     }
   }
 
-  private attachEvents(chat: ChatSdk) {
+  private attachEvents(chat: ChatSdk, session: number) {
+    const isCurrentSession = () => this.chat === chat && this.session === session
     chat.on(TencentCloudChat.EVENT.SDK_READY, () => {
+      if (!isCurrentSession()) return
       this.ready = true
       this.emit({ type: 'ready' })
     })
     chat.on(TencentCloudChat.EVENT.SDK_NOT_READY, () => {
+      if (!isCurrentSession()) return
       this.ready = false
       this.emit({ type: 'not_ready' })
     })
     chat.on(TencentCloudChat.EVENT.KICKED_OUT, () => {
+      if (!isCurrentSession()) return
       this.ready = false
       this.emit({ type: 'kicked_out' })
     })
     chat.on(TencentCloudChat.EVENT.ERROR, event => {
+      if (!isCurrentSession()) return
       this.ready = false
       this.emit({ type: 'error', errorMessage: sdkErrorMessage(event?.data) })
     })
     chat.on(TencentCloudChat.EVENT.MESSAGE_RECEIVED, event => {
+      if (!isCurrentSession()) return
       const rawList = (event?.data || []) as TencentMessage[]
       rawList.forEach(message => this.rawMessages.set(message.ID, message))
       this.emit({ type: 'message_received', messages: rawList.map(normalizeMessage) })
     })
     chat.on(TencentCloudChat.EVENT.CONVERSATION_LIST_UPDATED, () => {
+      if (!isCurrentSession()) return
       this.emit({ type: 'conversation_updated' })
     })
   }
