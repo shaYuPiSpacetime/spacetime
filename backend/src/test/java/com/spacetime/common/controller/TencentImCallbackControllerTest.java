@@ -9,6 +9,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import com.spacetime.common.exception.GlobalExceptionHandler;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -52,5 +53,24 @@ class TencentImCallbackControllerTest {
         assertThat(captor.getValue().sdkAppId()).isEqualTo(1400000001L);
         assertThat(captor.getValue().callbackCommand()).isEqualTo("C2C.CallbackAfterSendMsg");
         assertThat(captor.getValue().optPlatform()).isEqualTo("RESTAPI");
+    }
+
+    @Test
+    void shouldReturnTencentProtocolWhenRequiredQueryParameterIsMissing() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(
+                        new TencentImCallbackController(callbackService))
+                .setControllerAdvice(new TencentImCallbackExceptionHandler(),
+                        new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(post("/internal/tencent-im/callback/path-token")
+                        .queryParam("SdkAppid", "1400000001")
+                        .queryParam("CallbackCommand", "C2C.CallbackAfterSendMsg")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"CallbackCommand\":\"C2C.CallbackAfterSendMsg\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ActionStatus").value("FAIL"))
+                .andExpect(jsonPath("$.ErrorCode").value(1))
+                .andExpect(jsonPath("$.code").doesNotExist());
     }
 }

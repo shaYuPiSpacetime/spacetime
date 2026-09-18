@@ -24,6 +24,7 @@ import com.spacetime.common.enums.MessageWhisperStatusEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.model.message.WhisperReplyResult;
+import com.spacetime.common.model.message.PrivateMessageSendResult;
 import com.spacetime.common.provider.InstantMessageAccountProvider;
 import com.spacetime.common.provider.InstantMessageException;
 import com.spacetime.common.service.AppUserAuditContentService;
@@ -35,6 +36,7 @@ import com.spacetime.miniapp.dto.request.AssistantMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.ConversationBlockReq;
 import com.spacetime.miniapp.dto.request.MiniappRelationBlockReq;
 import com.spacetime.miniapp.dto.request.MessageReadReq;
+import com.spacetime.miniapp.dto.request.MessageSendReq;
 import com.spacetime.miniapp.dto.request.SystemMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReplyReq;
@@ -53,6 +55,7 @@ import com.spacetime.miniapp.dto.response.MessageLastMessageVO;
 import com.spacetime.miniapp.dto.response.MessagePeerUserVO;
 import com.spacetime.miniapp.dto.response.MessageReadBatchVO;
 import com.spacetime.miniapp.dto.response.MessageReadVO;
+import com.spacetime.miniapp.dto.response.MessageSendVO;
 import com.spacetime.miniapp.dto.response.MessageReportContextVO;
 import com.spacetime.miniapp.dto.response.MessageUnreadSummaryVO;
 import com.spacetime.miniapp.dto.response.MessageWhisperDetailVO;
@@ -401,6 +404,23 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
                     ? List.of("report_chat", "block", "block_and_report")
                     : List.of("block"))
                 : (canReportChat ? List.of("report_chat") : List.of()));
+        return result;
+    }
+
+    @Override
+    public MessageSendVO sendMessage(Long userId, String conversationNo, MessageSendReq req) {
+        PrivateMessageSendResult sent = messageDomainService.sendPrivateMessage(
+                userId, conversationNo, req.getClientMsgId(), req.getContent(),
+                LocalDateTime.now());
+        MessageSendVO result = new MessageSendVO();
+        result.setConversationNo(sent.conversationNo());
+        result.setMessageNo(sent.messageNo());
+        result.setClientMsgId(sent.clientMsgId());
+        result.setContent(sent.content());
+        result.setSendStatus(sent.sendStatus());
+        result.setTimMessageId(sent.timMessageId());
+        result.setTimMsgKey(sent.timMsgKey());
+        result.setSentAt(sent.sentAt());
         return result;
     }
 

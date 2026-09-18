@@ -8,6 +8,7 @@ import {
 } from '../domain/whisperRuntime'
 import type {
   AssistantMessageItem,
+  ChatMessage,
   AssistantMessagePage,
   ImCredentials,
   MessageConversationBlockResult,
@@ -20,6 +21,7 @@ import type {
   MessageUnreadSummary,
   MessageWhisperDetail,
   MessageWhisperPage,
+  PrivateMessageSendResponse,
   SystemMessageItem,
   SystemMessagePage,
   WhisperCreateResponse,
@@ -102,6 +104,11 @@ export interface MessageService {
   getUnreadSummary(): Promise<MessageUnreadSummary>
   listConversations(cursor?: string, size?: number): Promise<MessageConversationPage>
   getConversation(conversationNo: string): Promise<MessageConversationDetail>
+  sendConversationMessage(
+    conversationNo: string,
+    clientMsgId: string,
+    content: string,
+  ): Promise<ChatMessage>
   markConversationRead(
     conversationNo: string,
     lastMessageNo: string,
@@ -196,6 +203,33 @@ export class RealMessageService implements MessageService {
       conversationStatus: normalizeConversationStatus(result.conversationStatus),
       accessMode: result.accessMode === 'normal' ? 'normal' : 'safety_readonly',
       peerUser: normalizePeerUser(result.peerUser),
+    }
+  }
+
+  async sendConversationMessage(
+    conversationNo: string,
+    clientMsgId: string,
+    content: string,
+  ): Promise<ChatMessage> {
+    const result = await request<PrivateMessageSendResponse>({
+      url: `/miniapp/message/conversations/${encodeURIComponent(conversationNo)}/messages`,
+      method: 'POST',
+      data: { clientMsgId, content },
+      header: { 'Idempotency-Key': clientMsgId },
+    })
+    return {
+      messageNo: result.messageNo,
+      clientMsgId: result.clientMsgId,
+      conversationNo: result.conversationNo,
+      senderUserNo: '',
+      direction: 'outgoing',
+      type: 'text',
+      content: result.content,
+      sentAt: result.sentAt || new Date().toISOString(),
+      timeText: '',
+      sendStatus: result.sendStatus === 'queued' ? 'sending' : result.sendStatus,
+      timMessageId: result.timMessageId || undefined,
+      timMsgKey: result.timMsgKey || undefined,
     }
   }
 
@@ -467,6 +501,26 @@ export class MockMessageService implements MessageService {
     const item = useMessageStore.getState().conversations.find(row => row.conversationNo === conversationNo)
     if (!item) throw new Error('会话不存在')
     return mockConversationDetail(item)
+  }
+
+  async sendConversationMessage(
+    conversationNo: string,
+    clientMsgId: string,
+    content: string,
+  ): Promise<ChatMessage> {
+    return {
+      messageNo: `mock-message-${clientMsgId}`,
+      clientMsgId,
+      conversationNo,
+      senderUserNo: 'mock-user',
+      direction: 'outgoing',
+      type: 'text',
+      content,
+      sentAt: new Date().toISOString(),
+      timeText: '',
+      sendStatus: 'sent',
+      timMessageId: `mock-tim-${clientMsgId}`,
+    }
   }
 
   async markConversationRead(conversationNo: string, lastMessageNo: string) {

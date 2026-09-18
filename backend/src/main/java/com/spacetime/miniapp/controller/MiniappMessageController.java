@@ -7,6 +7,7 @@ import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.request.AssistantMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.ConversationBlockReq;
 import com.spacetime.miniapp.dto.request.MessageReadReq;
+import com.spacetime.miniapp.dto.request.MessageSendReq;
 import com.spacetime.miniapp.dto.request.SystemMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReplyReq;
@@ -18,6 +19,7 @@ import com.spacetime.miniapp.dto.response.MessageConversationPageVO;
 import com.spacetime.miniapp.dto.response.MessageHomeVO;
 import com.spacetime.miniapp.dto.response.MessageReadBatchVO;
 import com.spacetime.miniapp.dto.response.MessageReadVO;
+import com.spacetime.miniapp.dto.response.MessageSendVO;
 import com.spacetime.miniapp.dto.response.MessageUnreadSummaryVO;
 import com.spacetime.miniapp.dto.response.MessageWhisperDetailVO;
 import com.spacetime.miniapp.dto.response.MessageWhisperPageVO;
@@ -108,6 +110,17 @@ public class MiniappMessageController {
     public R<MessageConversationDetailVO> conversationDetail(
             @PathVariable String conversationNo) {
         return R.ok(messageService.conversationDetail(currentUserId(), conversationNo));
+    }
+
+    @PostMapping("/conversations/{conversationNo}/messages")
+    public R<MessageSendVO> sendMessage(
+            @PathVariable String conversationNo,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody MessageSendReq req) {
+        if (!idempotencyKey.equals(req.getClientMsgId())) {
+            throw new BusinessException(30020, "Idempotency-Key必须与clientMsgId一致");
+        }
+        return R.ok(messageService.sendMessage(currentUserId(), conversationNo, req));
     }
 
     @PostMapping("/conversations/{conversationNo}/read")

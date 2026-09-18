@@ -335,6 +335,16 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
             return;
         }
 
+        String platformMessageNo = platformMessageNo(body);
+        if (!isBlank(platformMessageNo)) {
+            AppMessageRecord prepared = recordDao.selectByMessageNo(platformMessageNo);
+            if (prepared != null) {
+                confirmPreparedPrivateText(prepared, pair, conversation, body, content,
+                        timMessageId, timMsgKey, sentAt);
+                return;
+            }
+        }
+
         int sendResult = body.path("SendMsgResult").asInt(0);
         boolean active = MessageConversationStatusEnum.ACTIVE.getCode().equals(
                 conversation.getStatus()) && Integer.valueOf(1).equals(conversation.getActiveMarker());
@@ -568,6 +578,61 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
                 || !Objects.equals(timMessageId, record.getTimMessageId())
                 || !Objects.equals(timMsgKey, record.getTimMsgKey())) {
             throw protocol("duplicate TIM mapping conflicts with archived message");
+        }
+    }
+
+    private void confirmPreparedPrivateText(
+            AppMessageRecord record, ParticipantPair pair,
+            AppMessageConversation conversation, JsonNode body, String content,
+            String timMessageId, String timMsgKey, LocalDateTime sentAt) {
+        if (!MessageTypeEnum.TEXT.getCode().equals(record.getMessageType())
+                || !"private_chat".equals(record.getSourceBizType())
+                || !Objects.equals(content, record.getContentText())
+                || !Objects.equals(pair.senderUserId(), record.getSenderUserId())
+                || !Objects.equals(pair.receiverUserId(), record.getReceiverUserId())
+                || !Objects.equals(conversation.getId(), record.getConversationId())) {
+            throw protocol("prepared private message conflicts with callback");
+        }
+        if (body.path("SendMsgResult").asInt(0) != 0) {
+            throw protocol("prepared private message delivery failed");
+        }
+        if (MessageSendStatusEnum.QUEUED.getCode().equals(record.getSendStatus())) {
+            if (recordDao.confirmTimMapping(record.getId(), valueOrZero(record.getVersion()),
+                    timMessageId, timMsgKey, sentAt) != 1) {
+                AppMessageRecord current = recordDao.selectByMessageNo(record.getMessageNo());
+                requireSameTextMapping(current, pair, conversation, timMessageId, timMsgKey);
+            }
+        } else {
+            requireSameTextMapping(record, pair, conversation, timMessageId, timMsgKey);
+        }
+        AppMessageDeliveryOutbox outbox = outboxDao.selectByAggregate(
+                "message", record.getId(), TIM_CHANNEL);
+        if (outbox == null || !"private_text".equals(outbox.getEventType())
+                || payloadContainsBody(outbox.getPayloadJson())) {
+            throw protocol("private message outbox mapping invalid");
+        }
+        if (outboxDao.confirmCallback(outbox.getId(), timMsgKey, sentAt) != 1) {
+            throw protocol("private message callback confirmation failed");
+        }
+        boolean femaleFirst = Integer.valueOf(1).equals(conversation.getProtectionEnabled())
+                && Objects.equals(pair.senderUserId(), conversation.getFemaleUserId())
+                && conversation.getFemaleFirstMessageAt() == null;
+        if (conversationDao.touchMessage(conversation.getId(), record.getId(), sentAt,
+                femaleFirst) != 1) {
+            throw protocol("conversation projection update failed");
+        }
+    }
+
+    private String platformMessageNo(JsonNode body) {
+        JsonNode cloudData = body == null ? null : body.path("CloudCustomData");
+        if (cloudData == null || !cloudData.isTextual() || cloudData.asText().isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode metadata = objectMapper.readTree(cloudData.asText());
+            return text(metadata, "messageNo");
+        } catch (JsonProcessingException exception) {
+            return null;
         }
     }
 

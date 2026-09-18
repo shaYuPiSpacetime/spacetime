@@ -1,6 +1,7 @@
 package com.spacetime.common.service;
 
 import com.spacetime.common.dao.AppMessageDeliveryOutboxDao;
+import com.spacetime.common.dao.AppMessageConversationDao;
 import com.spacetime.common.dao.AppMessageRecordDao;
 import com.spacetime.common.dao.AppMessageWhisperDao;
 import com.spacetime.common.entity.AppMessageDeliveryOutbox;
@@ -33,6 +34,7 @@ class MessageDeliveryOutboxServiceImplTest {
     @Mock private AppMessageDeliveryOutboxDao outboxDao;
     @Mock private AppMessageRecordDao recordDao;
     @Mock private AppMessageWhisperDao whisperDao;
+    @Mock private AppMessageConversationDao conversationDao;
     @Mock private InstantMessageProvider instantMessageProvider;
 
     private MessageDeliveryOutboxServiceImpl service;
@@ -41,7 +43,7 @@ class MessageDeliveryOutboxServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new MessageDeliveryOutboxServiceImpl(outboxDao, recordDao, whisperDao,
-                instantMessageProvider);
+                conversationDao, instantMessageProvider);
         now = LocalDateTime.of(2026, 8, 10, 12, 0);
     }
 

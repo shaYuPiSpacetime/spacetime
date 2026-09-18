@@ -22,9 +22,18 @@ import type { ChatMessage, MessageConversationDetail } from '@/types/message'
 import { DotsButton, MESSAGE_AVATAR, MessageNav } from './shared'
 import './message.scss'
 
+function messageMergeKey(message: ChatMessage): string {
+  return message.messageNo || message.timMessageId || message.clientMsgId
+}
+
+function messageAnchorId(message: ChatMessage): string {
+  const stable = messageMergeKey(message).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 80)
+  return `chat-message-${stable}`
+}
+
 function upsertMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
-  const byKey = new Map(current.map(item => [item.clientMsgId, item]))
-  incoming.forEach(item => byKey.set(item.clientMsgId, item))
+  const byKey = new Map(current.map(item => [messageMergeKey(item), item]))
+  incoming.forEach(item => byKey.set(messageMergeKey(item), item))
   return [...byKey.values()].sort((left, right) => left.sentAt.localeCompare(right.sentAt))
 }
 
@@ -182,13 +191,18 @@ function EstablishedPrivateChatPage() {
   const [retryTarget, setRetryTarget] = useState<ChatMessage>()
   const [showActions, setShowActions] = useState(false)
   const [messageReportTarget, setMessageReportTarget] = useState<ChatMessage>()
-  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyAnchorId, setHistoryAnchorId] = useState('')
   const [sending, setSending] = useState(false)
   const [inputFocused, setInputFocused] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const readAckKey = useRef('')
+  const messagesRef = useRef<ChatMessage[]>([])
+  const initialPositionedRef = useRef(false)
+  const sendIdempotencyCache = useRef(createWhisperIdempotencyCache()).current
   const timConversationIdRef = useRef(isMockScene ? conversationNo : '')
   const gatewayRef = useRef<MessageImGateway>()
   const gatewayPromiseRef = useRef<Promise<MessageImGateway>>()
@@ -211,6 +225,15 @@ function EstablishedPrivateChatPage() {
   useEffect(() => {
     if (keyboardHeight > 0 && messages.length > 0) requestScrollToLatest()
   }, [keyboardHeight, messages.length, requestScrollToLatest])
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  useEffect(() => {
+    if (!historyAnchorId) return
+    Taro.nextTick(() => setScrollTarget(historyAnchorId))
+  }, [historyAnchorId])
 
   const acknowledgeRendered = useCallback(
     async (rendered: ChatMessage[]) => {
@@ -338,14 +361,17 @@ function EstablishedPrivateChatPage() {
 
   const load = useCallback(
     () => loadSingleFlight.run(conversationNo, async () => {
-      setLoading(true)
+      if (!initialPositionedRef.current) setInitialLoading(true)
       setErrorMessage('')
       try {
-        const nextDetail = await withMessageTimeout(
-          service.getConversation(conversationNo),
-          DETAIL_TIMEOUT_MS,
-          '会话加载超时，请重试',
-        )
+        const [nextDetail, gateway] = await Promise.all([
+          withMessageTimeout(
+            service.getConversation(conversationNo),
+            DETAIL_TIMEOUT_MS,
+            '会话加载超时，请重试',
+          ),
+          ensureConnected(),
+        ])
         const gatewayId = isMockScene ? conversationNo : nextDetail.timConversationId
         setDetail(nextDetail)
         if (!nextDetail.canEnterConversation || !gatewayId) {
@@ -354,27 +380,36 @@ function EstablishedPrivateChatPage() {
           setHistoryCursor(undefined)
           setHistoryCompleted(true)
           setConnectionState('idle')
+          initialPositionedRef.current = true
+          setInitialLoading(false)
           return
         }
         timConversationIdRef.current = gatewayId
-        // 先把会话壳、导航和输入区交给渲染线程，再异步下载与初始化 TIM。
-        await new Promise<void>(resolve => setTimeout(resolve, 0))
-        const gateway = await ensureConnected()
         const page = await withMessageTimeout(
           gateway.listHistory(gatewayId),
           HISTORY_TIMEOUT_MS,
           '聊天记录加载超时，请重试',
         )
         setMessages(current => upsertMessages(current, page.list))
+        messagesRef.current = upsertMessages(messagesRef.current, page.list)
         setHistoryCursor(page.nextCursor)
         setHistoryCompleted(page.isCompleted)
-        requestScrollToLatest()
+        if (page.list.length > 0) {
+          requestScrollToLatest()
+          setTimeout(() => {
+            initialPositionedRef.current = true
+            setInitialLoading(false)
+          }, 80)
+        } else {
+          initialPositionedRef.current = true
+          setInitialLoading(false)
+        }
         setTimeout(() => void acknowledgeRendered(page.list), 0)
       } catch (error) {
         const resolved = resolveMessageError(error)
         setErrorMessage(resolved.message)
-      } finally {
-        setLoading(false)
+        initialPositionedRef.current = true
+        setInitialLoading(false)
       }
     }),
     [acknowledgeRendered, conversationNo, ensureConnected, isMockScene, loadSingleFlight, requestScrollToLatest, service],
@@ -382,6 +417,9 @@ function EstablishedPrivateChatPage() {
 
   useEffect(() => {
     readAckKey.current = ''
+    initialPositionedRef.current = false
+    setInitialLoading(true)
+    setHistoryAnchorId('')
     timConversationIdRef.current = isMockScene ? conversationNo : ''
     setConnectionState('idle')
   }, [conversationNo, isMockScene])
@@ -400,8 +438,10 @@ function EstablishedPrivateChatPage() {
   })
 
   const loadEarlier = async () => {
-    if (!timConversationId || historyCompleted || !historyCursor || loading) return
-    setLoading(true)
+    if (!timConversationId || historyCompleted || !historyCursor
+      || initialLoading || historyLoading) return
+    const anchor = messagesRef.current[0]
+    setHistoryLoading(true)
     try {
       const gateway = await ensureConnected()
       const page = await withMessageTimeout(
@@ -409,13 +449,18 @@ function EstablishedPrivateChatPage() {
         HISTORY_TIMEOUT_MS,
         '聊天记录加载超时，请重试',
       )
-      setMessages(current => upsertMessages(page.list, current))
+      setMessages(current => {
+        const next = upsertMessages(page.list, current)
+        messagesRef.current = next
+        return next
+      })
       setHistoryCursor(page.nextCursor)
       setHistoryCompleted(page.isCompleted)
+      if (anchor) setHistoryAnchorId(messageAnchorId(anchor))
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '历史消息加载失败')
     } finally {
-      setLoading(false)
+      setHistoryLoading(false)
     }
   }
 
@@ -434,12 +479,13 @@ function EstablishedPrivateChatPage() {
     }
     setSending(true)
     try {
-      const gateway = await ensureConnected()
+      const clientMsgId = sendIdempotencyCache.get(`private:${conversationNo}`, value)
       const message = await withMessageTimeout(
-        gateway.sendText(timConversationId, value),
+        service.sendConversationMessage(conversationNo, clientMsgId, value),
         SEND_TIMEOUT_MS,
         '消息发送超时，请稍后确认发送结果',
       )
+      sendIdempotencyCache.clear()
       setInputValue('')
       setMessages(current => upsertMessages(current, [message]))
       requestScrollToLatest()
@@ -515,13 +561,24 @@ function EstablishedPrivateChatPage() {
       />
       <ScrollView
         scrollY
+        scrollAnchoring
         className="private-chat-scroll"
         style={{ height: keyboardHeight > 0 ? `calc(100vh - 137px - ${keyboardHeight}px)` : undefined }}
         showScrollbar={false}
         scrollIntoView={scrollTarget}
         onScrollToUpper={() => void loadEarlier()}
       >
-        {loading ? <Text className="message-empty-copy">加载中...</Text> : null}
+        {initialLoading ? (
+          <View className="private-chat-skeleton">
+            <View className="private-chat-skeleton-card" />
+            <View className="private-chat-skeleton-row" />
+            <View className="private-chat-skeleton-row private-chat-skeleton-row--right" />
+          </View>
+        ) : null}
+        <View className={`private-chat-content${initialLoading ? ' private-chat-content--preparing' : ''}`}>
+        <View className="chat-history-loading">
+          {historyLoading ? <Text>正在加载历史消息...</Text> : null}
+        </View>
         <View className="chat-safety-card">
           <View className="chat-match-banner">
             <Image className="chat-match-deco chat-match-deco--left" src={miniappOssIcons.messageChatSafetyDecoLeft} mode="aspectFit" />
@@ -538,7 +595,7 @@ function EstablishedPrivateChatPage() {
           {messages.map((message, index) => {
             const time = formatPrivateChatTime(message.sentAt, messages[index - 1]?.sentAt)
             return (
-              <View className="chat-message-item" key={message.clientMsgId}>
+              <View id={messageAnchorId(message)} className="chat-message-item" key={messageMergeKey(message)}>
                 {time ? <Text className="chat-message-time">{time}</Text> : null}
                 <View className={`chat-row chat-row--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`}>
                   {message.direction !== 'outgoing' ? <Image className="chat-avatar" src={detail?.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" /> : null}
@@ -556,10 +613,11 @@ function EstablishedPrivateChatPage() {
               </View>
             )
           })}
-          {!loading && messages.length === 0 ? <Text className="message-empty-copy">暂无聊天记录</Text> : null}
+          {!initialLoading && messages.length === 0 ? <Text className="message-empty-copy">暂无聊天记录</Text> : null}
         </View>
         <View id="chat-bottom-a" />
         <View id="chat-bottom-b" />
+        </View>
       </ScrollView>
 
       <View

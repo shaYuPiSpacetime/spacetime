@@ -50,6 +50,7 @@ class MiniappMessageControllerContractTest {
         expected.put("POST /whispers/{whisperNo}/reply", "replyWhisper");
         expected.put("GET /conversations", "conversations");
         expected.put("GET /conversations/{conversationNo}", "conversationDetail");
+        expected.put("POST /conversations/{conversationNo}/messages", "sendMessage");
         expected.put("POST /conversations/{conversationNo}/read", "readConversation");
         expected.put("POST /conversations/{conversationNo}/block", "blockConversation");
         expected.put("GET /assistant/messages", "assistantMessages");
@@ -71,6 +72,7 @@ class MiniappMessageControllerContractTest {
                         || method.getAnnotation(DeleteMapping.class) != null)
                 .forEach(this::assertPreciseResponse);
         assertThat(actual.keySet()).noneMatch(route -> route.contains("/messages")
+                && !route.contains("/conversations/{conversationNo}/messages")
                 && !route.contains("assistant/messages")
                 && !route.contains("system-messages"));
     }

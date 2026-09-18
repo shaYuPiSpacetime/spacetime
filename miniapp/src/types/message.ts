@@ -80,6 +80,18 @@ export interface ChatMessage {
   timMsgKey?: string
 }
 
+/** 平台可靠发送接口返回。 */
+export interface PrivateMessageSendResponse {
+  conversationNo: string
+  messageNo: string
+  clientMsgId: string
+  content: string
+  sendStatus: 'queued' | 'sent' | 'failed'
+  timMessageId?: string | null
+  timMsgKey?: string | null
+  sentAt?: string | null
+}
+
 /** 悄悄话列表方向。 */
 export type WhisperDirection = 'received' | 'sent'
 

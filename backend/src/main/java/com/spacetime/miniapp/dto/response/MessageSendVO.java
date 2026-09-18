@@ -9,6 +9,10 @@ import java.time.LocalDateTime;
 public class MessageSendVO {
     private String conversationNo;
     private String messageNo;
+    private String clientMsgId;
+    private String content;
     private String sendStatus;
+    private String timMessageId;
+    private String timMsgKey;
     private LocalDateTime sentAt;
 }

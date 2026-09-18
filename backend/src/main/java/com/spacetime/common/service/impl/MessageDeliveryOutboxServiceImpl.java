@@ -1,9 +1,11 @@
 package com.spacetime.common.service.impl;
 
 import com.spacetime.common.dao.AppMessageDeliveryOutboxDao;
+import com.spacetime.common.dao.AppMessageConversationDao;
 import com.spacetime.common.dao.AppMessageRecordDao;
 import com.spacetime.common.dao.AppMessageWhisperDao;
 import com.spacetime.common.entity.AppMessageDeliveryOutbox;
+import com.spacetime.common.entity.AppMessageConversation;
 import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.AppMessageWhisper;
 import com.spacetime.common.enums.MessageSendStatusEnum;
@@ -29,6 +31,7 @@ public class MessageDeliveryOutboxServiceImpl implements MessageDeliveryOutboxSe
     private final AppMessageDeliveryOutboxDao outboxDao;
     private final AppMessageRecordDao recordDao;
     private final AppMessageWhisperDao whisperDao;
+    private final AppMessageConversationDao conversationDao;
     private final InstantMessageProvider instantMessageProvider;
 
     @Override
@@ -113,6 +116,23 @@ public class MessageDeliveryOutboxServiceImpl implements MessageDeliveryOutboxSe
                                          AppMessageRecord record, LocalDateTime sentAt) {
         if ("whisper_request".equals(outbox.getEventType())) {
             whisperDao.confirmRequestDelivery(record.getId(), sentAt);
+            return;
+        }
+        if ("private_text".equals(outbox.getEventType()) && record.getConversationId() != null) {
+            AppMessageConversation conversation = conversationDao.selectById(
+                    record.getConversationId());
+            if (conversation == null) {
+                throw new InstantMessageException("CONVERSATION_NOT_FOUND",
+                        "私信会话不存在", false);
+            }
+            boolean femaleFirst = Integer.valueOf(1).equals(conversation.getProtectionEnabled())
+                    && Objects.equals(record.getSenderUserId(), conversation.getFemaleUserId())
+                    && conversation.getFemaleFirstMessageAt() == null;
+            if (conversationDao.touchMessage(conversation.getId(), record.getId(), sentAt,
+                    femaleFirst) != 1) {
+                throw new InstantMessageException("CONVERSATION_PROJECTION_CONFLICT",
+                        "私信会话消息投影更新失败", true);
+            }
         }
     }
 

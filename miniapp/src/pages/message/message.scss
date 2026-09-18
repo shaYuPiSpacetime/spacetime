@@ -874,6 +874,45 @@
 
 .private-chat-scroll {
   height: calc(100vh - 137px - env(safe-area-inset-bottom));
+  position: relative;
+}
+.private-chat-content {
+  opacity: 1;
+  transition: opacity 80ms ease-out;
+}
+.private-chat-content--preparing {
+  opacity: 0;
+  pointer-events: none;
+}
+.private-chat-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 22px 16px;
+  background: #f5f5f5;
+  box-sizing: border-box;
+}
+.private-chat-skeleton-card {
+  height: 232px;
+  border-radius: 16px;
+  background: linear-gradient(100deg, #f0edf2 20%, #fafafa 40%, #f0edf2 60%);
+}
+.private-chat-skeleton-row {
+  width: 42%;
+  height: 44px;
+  margin-top: 24px;
+  border-radius: 8px;
+  background: #e9e9e9;
+}
+.private-chat-skeleton-row--right {
+  margin-left: auto;
+}
+.chat-history-loading {
+  height: 28px;
+  color: #999;
+  font-size: 11px;
+  line-height: 28px;
+  text-align: center;
 }
 .private-chat-date {
   display: block;

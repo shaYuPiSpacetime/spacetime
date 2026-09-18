@@ -3,6 +3,7 @@ package com.spacetime.miniapp.service;
 import com.spacetime.miniapp.dto.request.AssistantMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.ConversationBlockReq;
 import com.spacetime.miniapp.dto.request.MessageReadReq;
+import com.spacetime.miniapp.dto.request.MessageSendReq;
 import com.spacetime.miniapp.dto.request.SystemMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReadBatchReq;
 import com.spacetime.miniapp.dto.request.WhisperReplyReq;
@@ -14,6 +15,7 @@ import com.spacetime.miniapp.dto.response.MessageConversationPageVO;
 import com.spacetime.miniapp.dto.response.MessageHomeVO;
 import com.spacetime.miniapp.dto.response.MessageReadBatchVO;
 import com.spacetime.miniapp.dto.response.MessageReadVO;
+import com.spacetime.miniapp.dto.response.MessageSendVO;
 import com.spacetime.miniapp.dto.response.MessageUnreadSummaryVO;
 import com.spacetime.miniapp.dto.response.MessageWhisperDetailVO;
 import com.spacetime.miniapp.dto.response.MessageWhisperPageVO;
@@ -39,6 +41,7 @@ public interface MiniappMessageService {
     WhisperReplyVO replyWhisper(Long userId, String whisperNo, WhisperReplyReq req);
     MessageConversationPageVO conversations(Long userId, String cursor, int size);
     MessageConversationDetailVO conversationDetail(Long userId, String conversationNo);
+    MessageSendVO sendMessage(Long userId, String conversationNo, MessageSendReq req);
     MessageReadVO readConversation(Long userId, String conversationNo, MessageReadReq req);
     ConversationBlockVO blockConversation(Long userId, String conversationNo,
                                           ConversationBlockReq req);

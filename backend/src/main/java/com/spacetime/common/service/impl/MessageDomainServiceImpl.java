@@ -28,6 +28,7 @@ import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.enums.RelationMatchSourceTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.model.message.WhisperReplyResult;
+import com.spacetime.common.model.message.PrivateMessageSendResult;
 import com.spacetime.common.service.MessageDeliveryOutboxService;
 import com.spacetime.common.service.MessageDomainService;
 import com.spacetime.common.service.RelationAccessProjectionService;
@@ -75,6 +76,181 @@ public class MessageDomainServiceImpl implements MessageDomainService {
     private final MessageDeliveryOutboxService deliveryOutboxService;
     private final TransactionOperations transactionOperations;
     private final ObjectMapper objectMapper;
+
+    @Override
+    public PrivateMessageSendResult sendPrivateMessage(Long senderUserId, String conversationNo,
+                                                        String clientMsgId, String content,
+                                                        LocalDateTime sentAt) {
+        String normalized = normalizePrivateMessageInput(
+                senderUserId, conversationNo, clientMsgId, content);
+        LocalDateTime eventTime = sentAt == null ? LocalDateTime.now() : sentAt;
+        PrivateMessagePreparation preparation = requirePrivatePreparation(
+                transactionOperations.execute(status -> preparePrivateMessage(
+                        senderUserId, conversationNo, clientMsgId, normalized, eventTime)));
+        if (preparation.outboxId() != null) {
+            deliveryOutboxService.process(preparation.outboxId(), eventTime);
+        }
+        AppMessageRecord current = recordDao.selectById(preparation.messageId());
+        if (current == null) {
+            throw new BusinessException(MESSAGE_INTERNAL_ERROR, "私信消息记录不存在");
+        }
+        return privateResult(current);
+    }
+
+    private PrivateMessagePreparation preparePrivateMessage(
+            Long senderUserId, String conversationNo, String clientMsgId,
+            String content, LocalDateTime eventTime) {
+        AppMessageRecord duplicate = recordDao.selectBySenderClientMsgId(senderUserId, clientMsgId);
+        if (duplicate != null) {
+            requireSamePrivateMessage(duplicate, conversationNo, content);
+            return privatePreparation(duplicate);
+        }
+
+        AppMessageConversation conversation = conversationDao.selectByConversationNoForUpdate(
+                conversationNo);
+        if (conversation == null) {
+            throw new BusinessException(MESSAGE_NOT_FOUND, "私信会话不存在");
+        }
+        AppMessageConversationMember member = memberDao.selectByConversationAndUser(
+                conversation.getId(), senderUserId);
+        if (member == null || member.getPeerUserId() == null) {
+            throw new BusinessException(MESSAGE_FORBIDDEN, "无权向该私信会话发送消息");
+        }
+        if (!MessageConversationStatusEnum.ACTIVE.getCode().equals(conversation.getStatus())
+                || !Integer.valueOf(1).equals(conversation.getActiveMarker())) {
+            throw new BusinessException(RELATION_FORBIDDEN, "私信会话已失效");
+        }
+        boolean waitingForFemale = Integer.valueOf(1).equals(conversation.getProtectionEnabled())
+                && Objects.equals(senderUserId, conversation.getMaleUserId())
+                && conversation.getFemaleFirstMessageAt() == null
+                && (conversation.getProtectionUntil() == null
+                    || eventTime.isBefore(conversation.getProtectionUntil()));
+        if (waitingForFemale) {
+            throw new BusinessException(RELATION_FORBIDDEN, "等待女方先发送消息");
+        }
+        requireMatchablePair(senderUserId, member.getPeerUserId());
+
+        AppMessageRecord message = new AppMessageRecord();
+        message.setMessageNo(businessNo("MSG"));
+        message.setClientMsgId(clientMsgId);
+        message.setConversationId(conversation.getId());
+        message.setConversationNo(conversation.getConversationNo());
+        message.setSenderType("user");
+        message.setSenderUserId(senderUserId);
+        message.setReceiverUserId(member.getPeerUserId());
+        message.setMessageType(MessageTypeEnum.TEXT.getCode());
+        message.setContentText(content);
+        message.setSendStatus(MessageSendStatusEnum.QUEUED.getCode());
+        message.setReceiverReadStatus(MessageReadStatusEnum.NOT_APPLICABLE.getCode());
+        message.setSourceBizType("private_chat");
+        message.setSourceBizNo(conversation.getConversationNo());
+        message.setVersion(0);
+        try {
+            recordDao.insert(message);
+        } catch (DuplicateKeyException ex) {
+            AppMessageRecord concurrent = recordDao.selectBySenderClientMsgId(
+                    senderUserId, clientMsgId);
+            if (concurrent == null) {
+                throw new BusinessException(IDEMPOTENCY_CONFLICT,
+                        "消息幂等键已被其他请求使用");
+            }
+            requireSamePrivateMessage(concurrent, conversationNo, content);
+            message = concurrent;
+        }
+        AppMessageDeliveryOutbox outbox = ensurePrivateMessageOutbox(message, eventTime);
+        return new PrivateMessagePreparation(message.getId(), outbox.getId());
+    }
+
+    private AppMessageDeliveryOutbox ensurePrivateMessageOutbox(
+            AppMessageRecord message, LocalDateTime eventTime) {
+        String eventKey = outboxEventKey(message.getMessageNo());
+        AppMessageDeliveryOutbox existing = outboxDao.selectByEventAndChannel(
+                eventKey, "tencent_im");
+        if (existing != null) {
+            return existing;
+        }
+        AppMessageDeliveryOutbox outbox = new AppMessageDeliveryOutbox();
+        outbox.setOutboxNo(businessNo("OBX"));
+        outbox.setEventKey(eventKey);
+        outbox.setAggregateType("message");
+        outbox.setAggregateId(message.getId());
+        outbox.setAggregateNo(message.getMessageNo());
+        outbox.setSenderUserId(message.getSenderUserId());
+        outbox.setReceiverUserId(message.getReceiverUserId());
+        outbox.setChannel("tencent_im");
+        outbox.setEventType("private_text");
+        outbox.setPayloadJson(writeMetadata(Map.of(
+                "messageType", "private_text",
+                "sendMsgControl", List.of("NoMsgCheck"))));
+        outbox.setProtocolVersion(1);
+        outbox.setStatus(MessageReliableStatusEnum.PENDING.getCode());
+        outbox.setRetryCount(0);
+        outbox.setNextRetryTime(eventTime);
+        try {
+            outboxDao.insert(outbox);
+            return outbox;
+        } catch (DuplicateKeyException ex) {
+            AppMessageDeliveryOutbox concurrent = outboxDao.selectByEventAndChannel(
+                    eventKey, "tencent_im");
+            if (concurrent == null) {
+                throw ex;
+            }
+            return concurrent;
+        }
+    }
+
+    private PrivateMessagePreparation privatePreparation(AppMessageRecord message) {
+        if (MessageSendStatusEnum.SENT.getCode().equals(message.getSendStatus())) {
+            return new PrivateMessagePreparation(message.getId(), null);
+        }
+        AppMessageDeliveryOutbox outbox = outboxDao.selectByEventAndChannel(
+                outboxEventKey(message.getMessageNo()), "tencent_im");
+        if (outbox == null) {
+            throw new BusinessException(MESSAGE_INTERNAL_ERROR, "私信投递任务不存在");
+        }
+        return new PrivateMessagePreparation(message.getId(), outbox.getId());
+    }
+
+    private void requireSamePrivateMessage(AppMessageRecord message,
+                                           String conversationNo, String content) {
+        if (!Objects.equals(conversationNo, message.getConversationNo())
+                || !MessageTypeEnum.TEXT.getCode().equals(message.getMessageType())
+                || !Objects.equals(content, message.getContentText())) {
+            throw new BusinessException(IDEMPOTENCY_CONFLICT,
+                    "消息幂等键与首次请求参数不一致");
+        }
+    }
+
+    private String normalizePrivateMessageInput(Long senderUserId, String conversationNo,
+                                                 String clientMsgId, String content) {
+        if (senderUserId == null || isBlank(conversationNo) || isBlank(clientMsgId)) {
+            throw new BusinessException(MESSAGE_PARAM_ERROR, "私信发送参数不完整");
+        }
+        if (clientMsgId.length() < 8 || clientMsgId.length() > 64) {
+            throw new BusinessException(MESSAGE_PARAM_ERROR,
+                    "消息幂等编号长度应为8到64个字符");
+        }
+        String normalized = content == null ? "" : content.trim();
+        int length = normalized.codePointCount(0, normalized.length());
+        if (length < 1 || length > 500) {
+            throw new BusinessException(MESSAGE_PARAM_ERROR, "消息内容长度必须为1至500字");
+        }
+        return normalized;
+    }
+
+    private PrivateMessageSendResult privateResult(AppMessageRecord message) {
+        return new PrivateMessageSendResult(
+                message.getConversationNo(), message.getMessageNo(), message.getClientMsgId(),
+                message.getContentText(), message.getSendStatus(), message.getTimMessageId(),
+                message.getTimMsgKey(), message.getSentAt());
+    }
+
+    private PrivateMessagePreparation requirePrivatePreparation(PrivateMessagePreparation value) {
+        if (value == null || value.messageId() == null) {
+            throw new IllegalStateException("私信发送事务未返回结果");
+        }
+        return value;
+    }
 
     @Override
     public WhisperReplyResult replyWhisper(Long receiverUserId, String whisperNo, String requestId,
@@ -499,5 +675,8 @@ public class MessageDomainServiceImpl implements MessageDomainService {
             Long replyMessageId,
             Long outboxId,
             WhisperReplyResult completedResult) {
+    }
+
+    private record PrivateMessagePreparation(Long messageId, Long outboxId) {
     }
 }

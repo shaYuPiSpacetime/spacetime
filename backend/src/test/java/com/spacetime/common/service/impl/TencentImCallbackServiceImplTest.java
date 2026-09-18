@@ -187,6 +187,47 @@ class TencentImCallbackServiceImplTest {
     }
 
     @Test
+    void shouldConfirmPreparedPrivateMessageWhenCallbackWinsTheRace() {
+        openAccountsAndConversation(false);
+        AppMessageRecord prepared = new AppMessageRecord();
+        prepared.setId(501L);
+        prepared.setMessageNo("MSG-PRIVATE-1");
+        prepared.setSenderUserId(11L);
+        prepared.setReceiverUserId(22L);
+        prepared.setConversationId(30L);
+        prepared.setMessageType("text");
+        prepared.setContentText("你好，认识一下");
+        prepared.setSourceBizType("private_chat");
+        prepared.setSendStatus("queued");
+        prepared.setVersion(0);
+        AppMessageDeliveryOutbox outbox = new AppMessageDeliveryOutbox();
+        outbox.setId(701L);
+        outbox.setAggregateType("message");
+        outbox.setAggregateId(501L);
+        outbox.setEventType("private_text");
+        outbox.setPayloadJson("{\"messageType\":\"private_text\"}");
+        when(recordDao.selectByTimMsgKey("msg-key-1")).thenReturn(null);
+        when(recordDao.selectByMessageNo("MSG-PRIVATE-1")).thenReturn(prepared);
+        when(recordDao.confirmTimMapping(eq(501L), eq(0), eq("msg-id-1"),
+                eq("msg-key-1"), any(LocalDateTime.class))).thenReturn(1);
+        when(outboxDao.selectByAggregate("message", 501L, "tencent_im")).thenReturn(outbox);
+        when(outboxDao.confirmCallback(eq(701L), eq("msg-key-1"), any(LocalDateTime.class)))
+                .thenReturn(1);
+        when(conversationDao.touchMessage(eq(30L), eq(501L), any(LocalDateTime.class), eq(false)))
+                .thenReturn(1);
+
+        TencentImCallbackResponse response = service.handle(signedRequest(
+                "C2C.CallbackAfterSendMsg", textBodyWithMessageNo()));
+
+        assertThat(response.errorCode()).isZero();
+        verify(recordDao, never()).insert(any(AppMessageRecord.class));
+        verify(recordDao).confirmTimMapping(eq(501L), eq(0), eq("msg-id-1"),
+                eq("msg-key-1"), any(LocalDateTime.class));
+        verify(outboxDao).confirmCallback(eq(701L), eq("msg-key-1"),
+                any(LocalDateTime.class));
+    }
+
+    @Test
     void shouldAdvancePlatformUnreadProjectionAfterConversationReadReport() {
         openAccounts();
         AppMessageConversation conversation = new AppMessageConversation();
@@ -462,6 +503,11 @@ class TencentImCallbackServiceImplTest {
                  "MsgKey":"msg-key-image","MsgId":"msg-id-image","SendMsgResult":0,
                  "MsgBody":[{"MsgType":"TIMImageElem","MsgContent":{"UUID":"image-id"}}]}
                 """.formatted(command);
+    }
+
+    private String textBodyWithMessageNo() {
+        return textBody("C2C.CallbackAfterSendMsg").replace(
+                "\"MsgBody\"", "\"CloudCustomData\":\"{\\\"messageNo\\\":\\\"MSG-PRIVATE-1\\\",\\\"messageType\\\":\\\"private_text\\\"}\",\"MsgBody\"");
     }
 
     private String readReportBody() {

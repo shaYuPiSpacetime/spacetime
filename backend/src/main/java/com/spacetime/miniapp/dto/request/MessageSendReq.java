@@ -12,6 +12,6 @@ public class MessageSendReq {
     private String clientMsgId;
 
     @NotBlank(message = "消息正文不能为空")
-    @Size(max = 1000, message = "消息正文不能超过1000个字符")
+    @Size(max = 500, message = "消息正文不能超过500个字符")
     private String content;
 }

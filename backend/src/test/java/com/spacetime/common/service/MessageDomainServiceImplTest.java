@@ -9,17 +9,20 @@ import com.spacetime.common.dao.AppMessageWhisperDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
 import com.spacetime.common.entity.AppMessageConversation;
+import com.spacetime.common.entity.AppMessageConversationMember;
 import com.spacetime.common.entity.AppMessageDeliveryOutbox;
 import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.AppMessageWhisper;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.enums.MessageConversationStatusEnum;
 import com.spacetime.common.enums.MessageDeliveryStatusEnum;
 import com.spacetime.common.enums.MessageSendStatusEnum;
 import com.spacetime.common.enums.MessageTypeEnum;
 import com.spacetime.common.enums.MessageWhisperStatusEnum;
 import com.spacetime.common.enums.RelationMatchSourceTypeEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.model.message.PrivateMessageSendResult;
 import com.spacetime.common.model.message.WhisperReplyResult;
 import com.spacetime.common.service.impl.MessageDomainServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -253,6 +256,89 @@ class MessageDomainServiceImplTest {
         verify(outboxDao, never()).insert(any());
     }
 
+    @Test
+    @DisplayName("普通私信应先写消息和Outbox再投递TIM")
+    void privateMessageShouldPersistBeforeDelivery() {
+        AppMessageConversation conversation = activeConversation();
+        AppMessageConversationMember member = conversationMember();
+        openPair();
+        when(conversationDao.selectByConversationNoForUpdate("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member);
+        when(recordDao.selectBySenderClientMsgId(1L, "client-message-001")).thenReturn(null);
+        doAnswer(invocation -> {
+            ((AppMessageRecord) invocation.getArgument(0)).setId(50L);
+            return null;
+        }).when(recordDao).insert(any(AppMessageRecord.class));
+        doAnswer(invocation -> {
+            ((AppMessageDeliveryOutbox) invocation.getArgument(0)).setId(60L);
+            return null;
+        }).when(outboxDao).insert(any(AppMessageDeliveryOutbox.class));
+
+        AppMessageRecord sent = new AppMessageRecord();
+        sent.setId(50L);
+        sent.setMessageNo("MSG-PRIVATE-1");
+        sent.setClientMsgId("client-message-001");
+        sent.setConversationNo("CV-1");
+        sent.setSenderUserId(1L);
+        sent.setReceiverUserId(2L);
+        sent.setContentText("你好");
+        sent.setMessageType(MessageTypeEnum.TEXT.getCode());
+        sent.setSendStatus(MessageSendStatusEnum.SENT.getCode());
+        sent.setTimMessageId("TIM-ID-PRIVATE-1");
+        sent.setTimMsgKey("TIM-KEY-PRIVATE-1");
+        sent.setSentAt(now);
+        when(recordDao.selectById(50L)).thenReturn(sent);
+
+        PrivateMessageSendResult result = service.sendPrivateMessage(
+                1L, "CV-1", "client-message-001", "你好", now);
+
+        assertThat(result.messageNo()).isEqualTo("MSG-PRIVATE-1");
+        assertThat(result.sendStatus()).isEqualTo(MessageSendStatusEnum.SENT.getCode());
+        assertThat(result.timMessageId()).isEqualTo("TIM-ID-PRIVATE-1");
+
+        ArgumentCaptor<AppMessageRecord> messageCaptor = ArgumentCaptor.forClass(AppMessageRecord.class);
+        verify(recordDao).insert(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getConversationId()).isEqualTo(30L);
+        assertThat(messageCaptor.getValue().getSenderUserId()).isEqualTo(1L);
+        assertThat(messageCaptor.getValue().getReceiverUserId()).isEqualTo(2L);
+        assertThat(messageCaptor.getValue().getContentText()).isEqualTo("你好");
+        assertThat(messageCaptor.getValue().getSendStatus())
+                .isEqualTo(MessageSendStatusEnum.QUEUED.getCode());
+
+        ArgumentCaptor<AppMessageDeliveryOutbox> outboxCaptor =
+                ArgumentCaptor.forClass(AppMessageDeliveryOutbox.class);
+        verify(outboxDao).insert(outboxCaptor.capture());
+        assertThat(outboxCaptor.getValue().getEventType()).isEqualTo("private_text");
+        assertThat(outboxCaptor.getValue().getPayloadJson()).doesNotContain("你好");
+        verify(deliveryOutboxService).process(60L, now);
+    }
+
+    @Test
+    @DisplayName("普通私信相同幂等键重试不得重复建记录或投递")
+    void privateMessageReplayShouldReturnExistingResult() {
+        AppMessageRecord sent = new AppMessageRecord();
+        sent.setId(50L);
+        sent.setMessageNo("MSG-PRIVATE-1");
+        sent.setClientMsgId("client-message-001");
+        sent.setConversationNo("CV-1");
+        sent.setContentText("你好");
+        sent.setMessageType(MessageTypeEnum.TEXT.getCode());
+        sent.setSendStatus(MessageSendStatusEnum.SENT.getCode());
+        sent.setTimMessageId("TIM-ID-PRIVATE-1");
+        sent.setTimMsgKey("TIM-KEY-PRIVATE-1");
+        sent.setSentAt(now.minusSeconds(2));
+        when(recordDao.selectBySenderClientMsgId(1L, "client-message-001")).thenReturn(sent);
+        when(recordDao.selectById(50L)).thenReturn(sent);
+
+        PrivateMessageSendResult result = service.sendPrivateMessage(
+                1L, "CV-1", "client-message-001", "你好", now);
+
+        assertThat(result.messageNo()).isEqualTo("MSG-PRIVATE-1");
+        verify(recordDao, never()).insert(any());
+        verify(outboxDao, never()).insert(any());
+        verify(deliveryOutboxService, never()).process(any(), any());
+    }
+
     private void openPair() {
         AppUser sender = new AppUser();
         sender.setId(1L);
@@ -315,5 +401,27 @@ class MessageDomainServiceImplTest {
         match.setUserLowId(1L);
         match.setUserHighId(2L);
         return match;
+    }
+
+    private AppMessageConversation activeConversation() {
+        AppMessageConversation conversation = new AppMessageConversation();
+        conversation.setId(30L);
+        conversation.setConversationNo("CV-1");
+        conversation.setUserLowId(1L);
+        conversation.setUserHighId(2L);
+        conversation.setStatus(MessageConversationStatusEnum.ACTIVE.getCode());
+        conversation.setActiveMarker(1);
+        conversation.setProtectionEnabled(0);
+        conversation.setVersion(0);
+        return conversation;
+    }
+
+    private AppMessageConversationMember conversationMember() {
+        AppMessageConversationMember member = new AppMessageConversationMember();
+        member.setConversationId(30L);
+        member.setConversationNo("CV-1");
+        member.setUserId(1L);
+        member.setPeerUserId(2L);
+        return member;
     }
 }
