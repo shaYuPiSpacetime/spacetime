@@ -308,7 +308,7 @@ test('LiteChat 单聊会话号严格使用 C2C 加 UserID 且兼容已下发的�
   assert.doesNotMatch(gateway, /retry\(_timConversationId:/)
 })
 
-test('旧聊天页重发遇到 TIM 20003 时先触发账号自愈再安全重发', () => {
+test('SDK 直发重试遇到 TIM 20003 时先触发账号自愈再安全重发', () => {
   const { isTimAccountMissingError } = requireDomain('src/domain/messageRuntime.ts')
   assert.equal(typeof isTimAccountMissingError, 'function')
   assert.equal(isTimAccountMissingError({ code: 20003 }), true)
@@ -391,10 +391,11 @@ test('私信首屏按需加载轻量 TIM 且连接异常不会无限卡住交互
 
   assert.doesNotMatch(privateChat, /from ['"]@\/im['"]/, '私信页面不得在模块加载阶段同步引入 TIM SDK')
   assert.match(privateChat, /loadMessageImGateway/)
-  assert.match(privateChat, /connectionState/)
-  assert.match(privateChat, /connectionPromiseRef/, '初始化与点击发送必须复用同一个连接任务')
-  assert.match(privateChat, /sending \? '发送中' : '发送'/)
-  assert.match(privateChat, /setInputValue\(value\)/, '发送失败必须恢复用户已经输入的正文')
+  assert.doesNotMatch(privateChat, /私信连接中，可先输入/, '后台 IM 初始化不得阻塞或污染输入区')
+  assert.match(privateChat, /connectionPromiseRef/, '历史与实时接收必须复用同一个连接任务')
+  assert.match(privateChat, /gateway\.sendText\(timConversationId, value\)/, '普通私信必须通过 LiteChat SDK 直发')
+  assert.match(privateChat, /setInputValue\(''\)[\s\S]*await ensureConnected\(\)/, '输入框必须在 SDK 网络等待前清空')
+  assert.doesNotMatch(privateChat, /setInputValue\(value\)/, '异步失败不得覆盖用户随后输入的新正文')
   assert.doesNotMatch(channel, /@\/im\/messageRuntime/, '官方频道不得为了刷新未读而提前加载 TIM SDK')
   assert.match(channel, /messagePlatformRuntime/)
   assert.match(gatewayLoader, /import\(['"]\.\/LiteChatMessageImGateway['"]\)/)

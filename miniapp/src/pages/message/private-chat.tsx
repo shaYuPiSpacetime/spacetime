@@ -26,15 +26,34 @@ function messageMergeKey(message: ChatMessage): string {
   return message.messageNo || message.timMessageId || message.clientMsgId
 }
 
+function isSameMessage(left: ChatMessage, right: ChatMessage): boolean {
+  return Boolean(
+    (left.messageNo && right.messageNo && left.messageNo === right.messageNo)
+    || (left.timMessageId && right.timMessageId && left.timMessageId === right.timMessageId)
+    || (left.clientMsgId && right.clientMsgId && left.clientMsgId === right.clientMsgId),
+  )
+}
+
 function messageAnchorId(message: ChatMessage): string {
   const stable = messageMergeKey(message).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 80)
   return `chat-message-${stable}`
 }
 
 function upsertMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
-  const byKey = new Map(current.map(item => [messageMergeKey(item), item]))
-  incoming.forEach(item => byKey.set(messageMergeKey(item), item))
-  return [...byKey.values()].sort((left, right) => left.sentAt.localeCompare(right.sentAt))
+  const merged = [...current]
+  incoming.forEach(item => {
+    const index = merged.findIndex(currentItem => isSameMessage(currentItem, item))
+    if (index >= 0) {
+      const previous = merged[index]
+      merged[index] = {
+        ...previous,
+        ...item,
+        // 并发请求可能乱序返回，保留本地点击发送时刻，避免气泡因回执先后而跳位。
+        sentAt: previous.clientMsgId === item.clientMsgId ? previous.sentAt : item.sentAt,
+      }
+    } else merged.push(item)
+  })
+  return merged.sort((left, right) => left.sentAt.localeCompare(right.sentAt))
 }
 
 function createClientReportId(): string {
@@ -45,8 +64,6 @@ const DETAIL_TIMEOUT_MS = 8_000
 const CONNECTION_TIMEOUT_MS = 25_000
 const HISTORY_TIMEOUT_MS = 10_000
 const SEND_TIMEOUT_MS = 15_000
-
-type ConnectionState = 'idle' | 'connecting' | 'ready' | 'error'
 
 export default function PrivateChatPage() {
   const router = useRouter()
@@ -194,15 +211,12 @@ function EstablishedPrivateChatPage() {
   const [initialLoading, setInitialLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyAnchorId, setHistoryAnchorId] = useState('')
-  const [sending, setSending] = useState(false)
   const [inputFocused, setInputFocused] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
-  const [connectionState, setConnectionState] = useState<ConnectionState>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const readAckKey = useRef('')
   const messagesRef = useRef<ChatMessage[]>([])
   const initialPositionedRef = useRef(false)
-  const sendIdempotencyCache = useRef(createWhisperIdempotencyCache()).current
   const timConversationIdRef = useRef(isMockScene ? conversationNo : '')
   const gatewayRef = useRef<MessageImGateway>()
   const gatewayPromiseRef = useRef<Promise<MessageImGateway>>()
@@ -272,11 +286,6 @@ function EstablishedPrivateChatPage() {
   )
 
   gatewayEventHandlerRef.current = event => {
-    if (event.type === 'ready') setConnectionState('ready')
-    if (event.type === 'not_ready' || event.type === 'kicked_out' || event.type === 'error') {
-      setConnectionState('error')
-      if (event.errorMessage) setErrorMessage(event.errorMessage)
-    }
     if (!event.messages?.length) return
     const currentTimConversationId = timConversationIdRef.current
     const relevant = event.messages.filter(
@@ -313,43 +322,33 @@ function EstablishedPrivateChatPage() {
 
   const ensureConnected = useCallback(async (): Promise<MessageImGateway> => {
     const existing = gatewayRef.current
-    if (existing?.isReady()) {
-      setConnectionState('ready')
-      return existing
-    }
+    if (existing?.isReady()) return existing
     if (connectionPromiseRef.current) return connectionPromiseRef.current
 
-    setConnectionState('connecting')
     const connect = (async () => {
-      try {
-        const gateway = await withMessageTimeout(
-          getGateway(),
-          CONNECTION_TIMEOUT_MS,
-          '私信组件加载超时，请重试',
+      const gateway = await withMessageTimeout(
+        getGateway(),
+        CONNECTION_TIMEOUT_MS,
+        '私信组件加载超时，请重试',
+      )
+      if (!gateway.isReady()) {
+        const credentials = await withMessageTimeout(
+          service.getImCredentials(),
+          DETAIL_TIMEOUT_MS,
+          '私信凭证获取超时，请重试',
         )
-        if (!gateway.isReady()) {
-          const credentials = await withMessageTimeout(
-            service.getImCredentials(),
-            DETAIL_TIMEOUT_MS,
-            '私信凭证获取超时，请重试',
-          )
-          await withMessageTimeout(
-            gateway.initialize(credentials),
-            CONNECTION_TIMEOUT_MS,
-            '私信连接超时，请重试',
-          )
-          await waitForMessageGatewayReady(
-            gateway,
-            CONNECTION_TIMEOUT_MS,
-            '私信连接超时，请重试',
-          )
-        }
-        setConnectionState('ready')
-        return gateway
-      } catch (error) {
-        setConnectionState('error')
-        throw error
+        await withMessageTimeout(
+          gateway.initialize(credentials),
+          CONNECTION_TIMEOUT_MS,
+          '私信连接超时，请重试',
+        )
+        await waitForMessageGatewayReady(
+          gateway,
+          CONNECTION_TIMEOUT_MS,
+          '私信连接超时，请重试',
+        )
       }
+      return gateway
     })()
     connectionPromiseRef.current = connect
     const clearConnection = () => {
@@ -379,7 +378,6 @@ function EstablishedPrivateChatPage() {
           setMessages([])
           setHistoryCursor(undefined)
           setHistoryCompleted(true)
-          setConnectionState('idle')
           initialPositionedRef.current = true
           setInitialLoading(false)
           return
@@ -421,7 +419,6 @@ function EstablishedPrivateChatPage() {
     setInitialLoading(true)
     setHistoryAnchorId('')
     timConversationIdRef.current = isMockScene ? conversationNo : ''
-    setConnectionState('idle')
   }, [conversationNo, isMockScene])
 
   useEffect(() => {
@@ -468,7 +465,7 @@ function EstablishedPrivateChatPage() {
 
   const send = async () => {
     const value = inputValue.trim()
-    if (!value || sending) return
+    if (!value) return
     if (!detail || !timConversationId) {
       await Taro.showToast({ title: '会话正在加载，请稍后发送', icon: 'none' })
       return
@@ -477,26 +474,22 @@ function EstablishedPrivateChatPage() {
       await Taro.showToast({ title: resolveConversationSendBlockedReason(detail?.sendBlockedReason), icon: 'none' })
       return
     }
-    setSending(true)
+    setInputValue('')
+    setErrorMessage('')
     try {
-      const clientMsgId = sendIdempotencyCache.get(`private:${conversationNo}`, value)
+      const gateway = await ensureConnected()
       const message = await withMessageTimeout(
-        service.sendConversationMessage(conversationNo, clientMsgId, value),
+        gateway.sendText(timConversationId, value),
         SEND_TIMEOUT_MS,
         '消息发送超时，请稍后确认发送结果',
       )
-      sendIdempotencyCache.clear()
-      setInputValue('')
       setMessages(current => upsertMessages(current, [message]))
       requestScrollToLatest()
       if (message.sendStatus === 'failed') setRetryTarget(message)
     } catch (error) {
-      setInputValue(value)
       const resolved = resolveMessageError(error)
       setErrorMessage(resolved.message)
       await Taro.showToast({ title: resolved.message, icon: 'none' })
-    } finally {
-      setSending(false)
     }
   }
 
@@ -625,9 +618,8 @@ function EstablishedPrivateChatPage() {
         style={{ bottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined, paddingBottom: keyboardHeight > 0 ? '5px' : undefined }}
       >
         {!detail?.canSend && detail?.sendBlockedReason ? <Text className="chat-reply-label">{resolveConversationSendBlockedReason(detail.sendBlockedReason)}</Text> : null}
-        {detail?.canSend && connectionState !== 'ready' ? <Text className="chat-connection-state">{connectionState === 'error' ? '连接失败，发送时重试' : '私信连接中，可先输入'}</Text> : null}
         <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canSend)} maxlength={500} adjustPosition={false} holdKeyboard cursorSpacing={12} confirmType="send" confirmHold focus={inputFocused} onFocus={event => { setInputFocused(true); setKeyboardHeight(event.detail.height || 0); requestScrollToLatest() }} onBlur={() => { setInputFocused(false); setKeyboardHeight(0) }} onKeyboardHeightChange={event => setKeyboardHeight(Math.max(0, event.detail.height))} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
-        <View className={`chat-send-button${canSend && !sending ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>{sending ? '发送中' : '发送'}</Text></View>
+        <View className={`chat-send-button${canSend ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>发送</Text></View>
       </View>
 
       {showActions ? (
