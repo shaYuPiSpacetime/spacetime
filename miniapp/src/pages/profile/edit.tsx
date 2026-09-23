@@ -17,6 +17,7 @@ import {
   type ProfileAboutSummaryItem,
 } from '@/domain/profileAboutPresentation'
 import { normalizeOptionalWechatId } from '@/domain/profileWechat'
+import { useProfileScore } from '@/hooks/useProfileScore'
 import { getMyCommunityPosts, type CommunityPostVO } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
@@ -202,7 +203,7 @@ function resolveVoiceSheetVariant(value?: string): VoiceSheetVariant | null {
 
 export default function ProfileEditPage() {
   const router = useRouter()
-  const initialProfileScore = Number(router.params.profileScore)
+  const { profileScore, loadBasicProfile, refreshProfileScore } = useProfileScore(router.params.profileScore)
   const [showPreview, setShowPreview] = useState(router.params.variant === 'preview')
   const bootstrap = usePrd01Store(state => state.bootstrap)
   const config = usePrd01Store(state => state.config)
@@ -213,9 +214,6 @@ export default function ProfileEditPage() {
   const [previewBackground, setPreviewBackground] = useState('')
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
   const [nickname, setNickname] = useState('')
-  const [profileScore, setProfileScore] = useState(
-    Number.isFinite(initialProfileScore) ? Math.max(0, Math.min(100, initialProfileScore)) : 0,
-  )
   const [basic, setBasic] = useState<BasicProfile>({})
   const [regionTree, setRegionTree] = useState<RegionTreeOption[]>([])
   const [fieldSettings, setFieldSettings] = useState<ProfileFieldSetting[]>([])
@@ -257,10 +255,11 @@ export default function ProfileEditPage() {
   useEffect(() => {
     void (async () => {
       try {
-        await bootstrap()
+        const basicProfilePromise = loadBasicProfile()
+        await Promise.all([bootstrap(), basicProfilePromise])
         const regionTreePromise = usePrd01Store.getState().provinceCities().catch(() => [])
         const [basicResult, home, albums, wechatId, introDetail, aboutDetail, tags, voice, regions, avatarDetail, backgroundDetail] = await Promise.all([
-          prd01Api.getBasicProfile(),
+          basicProfilePromise,
           prd01Api.getHomeDetail(),
           prd01Api.getAlbums(),
           prd01Api.getWechatId(),
@@ -281,7 +280,6 @@ export default function ProfileEditPage() {
         const nextGoalCode = String(profile.datingGoal || '')
         const nextRelationshipCode = String(profile.emotionalStatus || '')
         setNickname(String(profile.nickname || basicResult.nickname || ''))
-        setProfileScore(Number(profile.profileScore || basicResult.profileScore || 0))
         setBasic(basicResult)
         setRegionTree(regions)
         setFieldSettings(home.fieldSettings || basicResult.fieldSettings || [])
@@ -311,7 +309,7 @@ export default function ProfileEditPage() {
         await showError(error)
       }
     })()
-  }, [])
+  }, [bootstrap, loadBasicProfile])
 
   useEffect(() => {
     if (!showPreview) return
@@ -505,6 +503,7 @@ export default function ProfileEditPage() {
       const uploaded = await prd01Api.uploadVoice(voiceTempPath)
       const saved = await prd01Api.submitVoiceIntro(uploaded.url, voiceTempDuration)
       setVoiceDetail(saved)
+      void refreshProfileScore()
       resetVoiceDraft()
       setVoiceSheet(null)
     } catch (error) {
@@ -544,6 +543,7 @@ export default function ProfileEditPage() {
     void prd01Api.deleteVoiceIntro().then(() => {
       setVoiceDetail(undefined)
       setVoiceSheet('delete-success')
+      void refreshProfileScore()
     }).catch(showError).finally(() => setVoiceSaving(false))
   }
 
@@ -624,6 +624,7 @@ export default function ProfileEditPage() {
       await showError(error)
       return
     }
+    void refreshProfileScore()
     closeSheet()
   }
 
@@ -638,6 +639,7 @@ export default function ProfileEditPage() {
     }
     if (update.type === 'song') setFavoriteSong(update.display)
     if (update.type === 'verification') setVerification(update.status)
+    void refreshProfileScore()
     restoreScrollPosition()
   }
 
@@ -686,6 +688,7 @@ export default function ProfileEditPage() {
       })
       const backgroundUrl = saved.mediaUrl || uploaded.url
       setProfileBackground(backgroundUrl)
+      void refreshProfileScore()
     }, '更换背景')
   }
 
@@ -696,6 +699,7 @@ export default function ProfileEditPage() {
       const uploaded = await prd01Api.uploadAvatar(imagePath)
       await prd01Api.submitAvatar({ avatarSource: source.code, avatarUrl: uploaded.url })
       setProfileAvatar(uploaded.url)
+      void refreshProfileScore()
     }, '更换头像')
   }
 
@@ -715,6 +719,7 @@ export default function ProfileEditPage() {
             sortOrder: index,
           })
       setProfilePhotos(items => items.map((item, photoIndex) => photoIndex === index ? { ...item, mediaId: saved.mediaId, imageUrl: saved.mediaUrl, auditStatus: saved.auditStatus } : item))
+      void refreshProfileScore()
     }, profilePhotos[index]?.label || '添加照片')
   }
 
