@@ -1,0 +1,18 @@
+:root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; color: #213247; background: #f6f8fc; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.compliance-page { width: min(100%, 760px); min-height: 100vh; margin: 0 auto; padding: 28px 22px max(40px, env(safe-area-inset-bottom)); background: #fff; }
+.compliance-header { padding: 10px 0 22px; border-bottom: 1px solid #edf0f4; }
+h1 { margin: 0; font-size: 24px; line-height: 1.4; text-align: center; }
+.compliance-meta { margin: 10px 0 0; color: #738198; text-align: center; font-size: 13px; }
+.compliance-content { padding-top: 20px; font-size: 15px; line-height: 1.85; overflow-wrap: anywhere; }
+.compliance-content p, .compliance-content ul, .compliance-content ol, .compliance-content blockquote { margin: 0 0 16px; }
+.compliance-content h2, .compliance-content h3, .compliance-content h4 { margin: 24px 0 12px; line-height: 1.5; }
+.compliance-content h2 { font-size: 19px; }
+.compliance-content h3 { font-size: 17px; }
+.compliance-content h4 { font-size: 15px; }
+.compliance-content ul, .compliance-content ol { padding-left: 22px; }
+.compliance-content blockquote { padding: 10px 14px; border-left: 3px solid #4b83e7; background: #f6f8fc; }
+.compliance-error, .compliance-loading { padding: 60px 0; color: #627185; text-align: center; }
+.compliance-error button { border: 0; border-radius: 9px; padding: 10px 20px; color: #fff; background: #2876ff; font-size: 14px; cursor: pointer; }
+[hidden] { display: none !important; }

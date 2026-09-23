@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self' https://servicewechat.com https://*.servicewechat.com" />
+    <title>协议与规则</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="compliance-page">
+      <header class="compliance-header">
+        <h1 id="compliance-title">协议与规则</h1>
+        <p id="compliance-meta" class="compliance-meta" hidden></p>
+      </header>
+      <article id="compliance-content" class="compliance-content" hidden></article>
+      <section id="compliance-error" class="compliance-error" hidden aria-live="assertive">
+        <p id="compliance-error-message">内容加载失败，请稍后重试</p>
+        <button id="compliance-retry" type="button">重新加载</button>
+      </section>
+      <p id="compliance-loading" class="compliance-loading" role="status">内容加载中…</p>
+    </main>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

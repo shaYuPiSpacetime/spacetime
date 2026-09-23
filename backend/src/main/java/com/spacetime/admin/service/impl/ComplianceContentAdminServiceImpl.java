@@ -84,13 +84,18 @@ public class ComplianceContentAdminServiceImpl implements ComplianceContentAdmin
         ContentArticle article = requirePreinitialized(id);
         validate(req);
         String nextUrl = req.getContentUrl().trim();
+        String nextBody = req.getContentBody() == null ? article.getContentBody() : req.getContentBody().trim();
+        boolean urlChanged = !Objects.equals(article.getContentUrl(), nextUrl);
         String before = auditValue(article);
-        if (!Objects.equals(article.getContentUrl(), nextUrl)) {
+        if (urlChanged && req.getContentBody() == null) {
+            nextBody = null;
+        }
+        if (urlChanged || !Objects.equals(article.getContentBody(), nextBody)) {
             article.setVersion(nextVersion(article.getVersion()));
         }
         article.setTitle(req.getTitle().trim());
         article.setContentUrl(nextUrl);
-        article.setContentBody(null);
+        article.setContentBody(nextBody);
         article.setStatus(req.getStatus());
         article.setContentType(ContentTypeEnum.H5.getCode());
         article.setEffectiveTime(LocalDateTime.now());
@@ -179,6 +184,7 @@ public class ComplianceContentAdminServiceImpl implements ComplianceContentAdmin
         value.put("title", article.getTitle());
         value.put("version", article.getVersion());
         value.put("contentUrl", article.getContentUrl());
+        value.put("contentBody", article.getContentBody());
         value.put("status", article.getStatus());
         try {
             return objectMapper.writeValueAsString(value);
@@ -198,6 +204,7 @@ public class ComplianceContentAdminServiceImpl implements ComplianceContentAdmin
         vo.setVersion(article.getVersion());
         vo.setLinkType(ContentTypeEnum.H5.getCode());
         vo.setContentUrl(article.getContentUrl());
+        vo.setContentBody(article.getContentBody());
         vo.setEffectiveTime(format(article.getEffectiveTime()));
         vo.setStatus(article.getStatus());
         vo.setUpdateTime(format(article.getUpdateTime()));

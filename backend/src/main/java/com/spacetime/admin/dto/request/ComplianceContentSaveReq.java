@@ -16,6 +16,9 @@ public class ComplianceContentSaveReq {
     /** H5 地址。 */
     @NotBlank(message = "H5地址不能为空")
     private String contentUrl;
+    /** 由平台托管的正文；不传时保留原正文。 */
+    @Size(max = 20000, message = "正文长度不能超过20000个字符")
+    private String contentBody;
     /** 启停状态。 */
     @NotBlank(message = "状态不能为空")
     private String status;

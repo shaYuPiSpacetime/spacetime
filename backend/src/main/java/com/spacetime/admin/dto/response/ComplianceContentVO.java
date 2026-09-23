@@ -18,6 +18,7 @@ public class ComplianceContentVO {
     private String version;
     private String linkType;
     private String contentUrl;
+    private String contentBody;
     private String effectiveTime;
     private String status;
     private String updateTime;

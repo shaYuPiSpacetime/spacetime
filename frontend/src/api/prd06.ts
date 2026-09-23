@@ -55,7 +55,7 @@ export function getComplianceContentList(params?: { page?: number; size?: number
   return request.get('/admin/mobile-config/compliance', { params });
 }
 
-export function updateComplianceContent(id: number, data: Pick<ComplianceContentVO, 'title' | 'status'> & { contentUrl: string }) {
+export function updateComplianceContent(id: number, data: Pick<ComplianceContentVO, 'title' | 'status'> & { contentUrl: string; contentBody?: string }) {
   return request.put(`/admin/mobile-config/compliance/${id}`, data);
 }
 

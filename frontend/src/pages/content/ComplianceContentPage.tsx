@@ -50,7 +50,7 @@ export default function ComplianceContentPage() {
   const [typeOptions, setTypeOptions] = useState<DictOption[]>([]);
   const [statusOptions, setStatusOptions] = useState<DictOption[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(true);
-  const [form, setForm] = useState({ title: '', status: '', contentUrl: '' });
+  const [form, setForm] = useState({ title: '', status: '', contentUrl: '', contentBody: '' });
 
   useEffect(() => {
     let active = true;
@@ -88,12 +88,16 @@ export default function ComplianceContentPage() {
 
   function openEdit(row: ComplianceContentVO) {
     setEditing(row);
-    setForm({ title: row.title, status: row.status, contentUrl: contentUrlOf(row) });
+    setForm({ title: row.title, status: row.status, contentUrl: contentUrlOf(row), contentBody: row.contentBody || '' });
   }
 
   async function handleSave() {
     if (!editing || !form.title.trim() || !form.contentUrl.trim() || !form.status) {
       showToast('请完整填写标题和 H5 链接', 'error');
+      return;
+    }
+    if (form.contentBody.length > 20000) {
+      showToast('正文不能超过 20000 字', 'error');
       return;
     }
     setSaving(true);
@@ -102,6 +106,9 @@ export default function ComplianceContentPage() {
         title: form.title.trim(),
         status: form.status,
         contentUrl: form.contentUrl.trim(),
+        ...(editing.contentCode === 'invite_rules' || (!form.contentBody.trim() && !editing.contentBody)
+          ? {}
+          : { contentBody: form.contentBody.trim() }),
       });
       showToast('公告与协议配置已保存', 'success');
       setEditing(null);
@@ -132,6 +139,7 @@ export default function ComplianceContentPage() {
                   <TableHead className="h-10 text-xs font-semibold">内容类型</TableHead>
                   <TableHead className="h-10 text-xs font-semibold">标题</TableHead>
                   <TableHead className="h-10 text-xs font-semibold">版本</TableHead>
+                  <TableHead className="h-10 text-xs font-semibold">正文</TableHead>
                   <TableHead className="h-10 text-xs font-semibold">状态</TableHead>
                   <TableHead className="h-10 text-xs font-semibold">生效时间</TableHead>
                   <TableHead className="h-10 text-xs font-semibold">操作</TableHead>
@@ -139,14 +147,15 @@ export default function ComplianceContentPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">正在加载配置...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">正在加载配置...</TableCell></TableRow>
                 ) : rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">配置初始化异常，请刷新或联系管理员</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">配置初始化异常，请刷新或联系管理员</TableCell></TableRow>
                 ) : rows.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell className="h-[50px] text-sm">{contentTypeLabel(typeOptions, row)}</TableCell>
                     <TableCell className="h-[50px] text-sm">{row.title}</TableCell>
                     <TableCell className="h-[50px] text-sm">{row.version}</TableCell>
+                    <TableCell className="h-[50px] text-sm text-muted-foreground">{row.contentCode === 'invite_rules' ? '动态规则' : row.contentBody?.trim() && !row.contentBody.trim().startsWith('请配置') ? '已配置' : '待配置'}</TableCell>
                     <TableCell className="h-[50px]">
                       <Badge className="rounded-full px-2.5 py-1" variant={row.status === statusOptions[0]?.value ? 'success' : 'secondary'}>
                         {optionLabel(statusOptions, row.status)}
@@ -176,7 +185,7 @@ export default function ComplianceContentPage() {
           <section role="dialog" aria-modal="true" aria-labelledby="compliance-edit-title">
             <DialogHeader>
               <DialogTitle id="compliance-edit-title" className="text-[22px]">编辑公告与协议</DialogTitle>
-              <DialogDescription className="pt-1 text-sm">替换 H5 地址后版本自动递增；仅修改标题或状态不升级版本。</DialogDescription>
+              <DialogDescription className="pt-1 text-sm">修改 H5 地址或正文后版本自动递增。正式协议正文请使用已审核文案。</DialogDescription>
             </DialogHeader>
             <div className="mt-5 space-y-4">
               <label className="block space-y-1.5 text-sm font-medium" htmlFor="compliance-type">
@@ -201,6 +210,13 @@ export default function ComplianceContentPage() {
                 <span>H5 链接</span>
                 <Input id="compliance-url" type="url" value={form.contentUrl} onChange={(event) => setForm({ ...form, contentUrl: event.target.value })} />
               </label>
+              {editing.contentCode !== 'invite_rules' && (
+                <label className="block space-y-1.5 text-sm font-medium" htmlFor="compliance-body">
+                  <span>协议正文（支持基本 HTML 标签）</span>
+                  <textarea id="compliance-body" rows={12} maxLength={20000} value={form.contentBody} onChange={(event) => setForm({ ...form, contentBody: event.target.value })} className="w-full rounded-md border bg-card px-3 py-2 text-sm leading-6 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="粘贴已审核的正式文案" />
+                  <span className="block text-xs font-normal text-muted-foreground">{form.contentBody.length}/20000 字。邀请规则正文由活动配置自动生成。</span>
+                </label>
+              )}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setEditing(null)}>取消</Button>

@@ -19,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -71,6 +72,7 @@ class ComplianceContentAdminServiceImplTest {
     @DisplayName("仅修改标题或状态时版本保持不变")
     void update_shouldKeepVersionWhenUrlUnchanged() {
         ContentArticle article = complianceArticle("v1.9", "https://m.example.com/privacy/v1");
+        article.setContentBody("已发布的隐私政策正文");
         when(contentArticleDao.selectById(1L)).thenReturn(article);
         when(dictDataDao.selectEnabledByTypeAndValue("common_status", "DISABLED"))
                 .thenReturn(dictStatus("DISABLED"));
@@ -80,6 +82,29 @@ class ComplianceContentAdminServiceImplTest {
         assertThat(article.getVersion()).isEqualTo("v1.9");
         assertThat(article.getTitle()).isEqualTo("隐私政策（更新）");
         assertThat(article.getStatus()).isEqualTo("DISABLED");
+        assertThat(article.getContentBody()).isEqualTo("已发布的隐私政策正文");
+    }
+
+    @Test
+    @DisplayName("修改正文时保存新内容并升级版本")
+    void update_shouldIncreaseVersionWhenBodyChanged() {
+        ContentArticle article = complianceArticle("v1.2", "https://m.example.com/privacy/v1");
+        article.setContentBody("旧正文");
+        when(contentArticleDao.selectById(1L)).thenReturn(article);
+        when(dictDataDao.selectEnabledByTypeAndValue("common_status", "ENABLED"))
+                .thenReturn(dictStatus("ENABLED"));
+        ComplianceContentSaveReq req = new ObjectMapper().convertValue(Map.of(
+                "title", "隐私政策",
+                "contentUrl", "https://m.example.com/privacy/v1",
+                "contentBody", "新版正文",
+                "status", "ENABLED"), ComplianceContentSaveReq.class);
+
+        service.update(1L, req);
+
+        assertThat(article.getVersion()).isEqualTo("v1.3");
+        assertThat(article.getContentBody()).isEqualTo("新版正文");
+        verify(contentOperationLogDao).insert(org.mockito.ArgumentMatchers.argThat(log ->
+                log.getAfterValue().contains("新版正文")));
     }
 
     @Test
@@ -99,6 +124,7 @@ class ComplianceContentAdminServiceImplTest {
     @DisplayName("详情返回内容编码和服务端版本")
     void detail_shouldReturnComplianceFields() {
         ContentArticle article = complianceArticle("v1.3", "https://m.example.com/privacy/v3");
+        article.setContentBody("已发布的隐私政策正文");
         when(contentArticleDao.selectById(1L)).thenReturn(article);
         SysDictData type = dictStatus("PRIVACY_POLICY");
         type.setDictLabel("隐私");
@@ -112,6 +138,8 @@ class ComplianceContentAdminServiceImplTest {
         assertThat(result.getContentTypeLabel()).isEqualTo("隐私");
         assertThat(result.getVersion()).isEqualTo("v1.3");
         assertThat(result.getLinkType()).isEqualTo("H5");
+        assertThat(new ObjectMapper().valueToTree(result).path("contentBody").asText())
+                .isEqualTo(article.getContentBody());
     }
 
     @Test
