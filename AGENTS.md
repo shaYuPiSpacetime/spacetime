@@ -21,6 +21,7 @@ When the user asks for git branch, commit, merge, PR, stash, or similar git work
 
 1. Read `.claude/skills/git-utils/SKILL.md` if present.
 2. Do not run destructive git commands unless explicitly requested.
+3. 在 Windows 上进行 GitHub 拉取、推送或网络故障排查前，读取 `docs/流程规范/Windows-GitHub拉取推送与代理排查.md`。本机已验证使用系统代理 `127.0.0.1:7897`；SSH 代理配置保存在仓库本地 `core.sshCommand`。浏览器能访问但 Git 失败时，先查系统代理、监听端口和 SSH 代理配置，不得仅凭直连 DNS 失败判定 GitHub 不可访问。新克隆或代理端口变更时按文档重新检测和验证。
 
 When the user asks to run a generic test suite or investigate test failures:
 
