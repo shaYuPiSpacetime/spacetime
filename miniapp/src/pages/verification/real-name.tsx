@@ -86,6 +86,7 @@ export default function VerificationRealNamePage() {
           onToggle={() => detail?.canSubmit !== false && setAgreed(value => !value)}
           prefix={copy('agreement_read_prefix')}
           agreementName={copy('agreement_single_commitment_name')}
+          agreementCode="single_commitment"
         />
         <CustomerServiceLink top="912rpx" text={copy('common_customer_service')} />
         {detail?.rejectReason ? <Text style={{ position: 'absolute', left: '50rpx', top: '1040rpx', color: '#E36A6A', fontSize: '23rpx', lineHeight: '34rpx' }}>{detail.rejectReason}</Text> : null}

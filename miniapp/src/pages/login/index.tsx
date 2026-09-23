@@ -14,6 +14,7 @@ import './index.scss'
 type LoginMethod = 'wechat' | 'phone'
 
 const LOGIN_METHODS: LoginMethod[] = ['wechat', 'phone']
+const openLoginAgreement = (code: 'user_agreement' | 'privacy_policy') => void Taro.navigateTo({ url: `/pages/settings/content?contentCode=${code}` })
 
 function getWechatAuthErrorText(error: unknown) {
   const errMsg = (
@@ -151,9 +152,9 @@ function AgreementDialog({
           }}
         >
           更多详细信息，您可以点击查看我们的
-          <Text style={{ color: '#2876FF', textDecoration: 'underline' }}>《用户服务协议》</Text>
+          <Text onClick={(event) => { event.stopPropagation(); openLoginAgreement('user_agreement') }} style={{ color: '#2876FF', textDecoration: 'underline' }}>《用户服务协议》</Text>
           和
-          <Text style={{ color: '#2876FF', textDecoration: 'underline' }}>《隐私保护政策》</Text>
+          <Text onClick={(event) => { event.stopPropagation(); openLoginAgreement('privacy_policy') }} style={{ color: '#2876FF', textDecoration: 'underline' }}>《隐私保护政策》</Text>
           。请您务必仔细阅读并充分理解相关条款，如您同意以上协议和政策，请点击“同意”开始使用我们的产品和服务。
         </Text>
 
@@ -406,13 +407,13 @@ function LoginMethodSheet({
           <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '22rpx' }}>
             阅读并同意
           </Text>
-          <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
+          <Text onClick={(event) => { event.stopPropagation(); openLoginAgreement('user_agreement') }} style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
             用户服务协议
           </Text>
           <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
             和
           </Text>
-          <Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
+          <Text onClick={(event) => { event.stopPropagation(); openLoginAgreement('privacy_policy') }} style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx', marginLeft: '12rpx' }}>
             隐私保护政策
           </Text>
         </View>

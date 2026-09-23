@@ -12,10 +12,9 @@ import {
 } from '@/pages/lanhu/LanhuShell'
 
 
-const COIN_PLAN_CARD_WIDTH_RPX = 240
 const COIN_PLAN_CARD_GAP_RPX = 8
-const COIN_PLAN_SELECTED_LEFT_RPX = 153
 const COIN_AGREEMENT_TITLE = '《时空邂逅充值协议》'
+const openCoinAgreement = () => void Taro.navigateTo({ url: '/pages/settings/content?contentCode=coin_recharge_agreement' })
 const RECHARGE_NOTICE = {
   title: '充值须知',
   faqTitle: '常见问题',
@@ -120,6 +119,7 @@ export default function CoinsPage() {
         loading={payLoading}
         agreementTitle={COIN_AGREEMENT_TITLE}
         onToggle={handleToggleAgreement}
+        onOpenAgreement={openCoinAgreement}
         onPay={handlePay}
       />
       <CoinsPaymentLayer
@@ -135,6 +135,7 @@ export default function CoinsPage() {
       {agreementError && (
         <AgreementConfirmSheet
           agreementTitle={COIN_AGREEMENT_TITLE}
+          onOpenAgreement={openCoinAgreement}
           onContinue={handleAgreementConfirm}
         />
       )}
@@ -196,18 +197,15 @@ function RechargeCard({
   onSelect: (pkg: CoinPackage) => void
   onNotice: () => void
 }) {
-  const selectedIndex = Math.max(0, packages.findIndex((pkg) => pkg.id === selected?.id))
-  const viewportWidth = Taro.getWindowInfo().windowWidth || 375
-  const railScrollLeft = Math.max(
-    0,
-    selectedIndex * (COIN_PLAN_CARD_WIDTH_RPX + COIN_PLAN_CARD_GAP_RPX) - COIN_PLAN_SELECTED_LEFT_RPX,
-  ) * viewportWidth / 750
+  const columns = Math.min(3, Math.max(1, packages.length))
+  const rows = Math.max(1, Math.ceil(packages.length / columns))
+  const cardWidth = (640 - COIN_PLAN_CARD_GAP_RPX * (columns - 1)) / columns
 
   return (
     <View
       style={{
         width: '700rpx',
-        height: '338rpx',
+        minHeight: `${124 + rows * 198}rpx`,
         borderRadius: '12rpx',
         background: '#FFFFFF',
         marginTop: '20rpx',
@@ -223,24 +221,19 @@ function RechargeCard({
           <CoinChevronIcon color="#9D9D9D" size="18rpx" marginLeft="8rpx" />
         </View>
       </View>
-      <ScrollView
-        scrollX
-        scrollLeft={railScrollLeft}
-        scrollWithAnimation
-        showScrollbar={false}
-        style={{ width: '640rpx', marginTop: '25rpx' }}
-      >
+      <View style={{ width: '640rpx', marginTop: '25rpx' }}>
         <View
           style={{
             display: 'flex',
             flexDirection: 'row',
-            width: `${Math.max(640, packages.length * (COIN_PLAN_CARD_WIDTH_RPX + COIN_PLAN_CARD_GAP_RPX) - COIN_PLAN_CARD_GAP_RPX)}rpx`,
-            height: '198rpx',
+            flexWrap: 'wrap',
+            width: '640rpx',
+            minHeight: `${rows * 198}rpx`,
             paddingTop: '16rpx',
             boxSizing: 'border-box',
           }}
         >
-          {packages.map((pkg) => {
+          {packages.map((pkg, index) => {
             const isSelected = selected?.id === pkg.id
             return (
               <View
@@ -248,13 +241,14 @@ function RechargeCard({
                 style={{
                   position: 'relative',
                   flexShrink: 0,
-                  width: '240rpx',
+                  width: `${cardWidth}rpx`,
                   height: '184rpx',
                   borderRadius: '12rpx',
                   border: isSelected ? `4rpx solid ${LANHU_BLUE}` : '2rpx solid #CED2DA',
                   background: isSelected ? '#E3F1FE' : '#F7F8FA',
-                  marginRight: '8rpx',
-                  padding: '33rpx 26rpx 29rpx',
+                  marginRight: (index + 1) % columns === 0 ? 0 : `${COIN_PLAN_CARD_GAP_RPX}rpx`,
+                  marginBottom: index < packages.length - columns ? '14rpx' : 0,
+                  padding: '33rpx 16rpx 29rpx',
                   boxSizing: 'border-box',
                 }}
                 onClick={() => onSelect(pkg)}
@@ -307,7 +301,7 @@ function RechargeCard({
             )
           })}
         </View>
-      </ScrollView>
+      </View>
     </View>
   )
 }
@@ -565,6 +559,7 @@ function PayBar({
   loading,
   agreementTitle,
   onToggle,
+  onOpenAgreement,
   onPay,
 }: {
   checked: boolean
@@ -572,6 +567,7 @@ function PayBar({
   loading: boolean
   agreementTitle: string
   onToggle: () => void
+  onOpenAgreement: () => void
   onPay: () => void
 }) {
   return (
@@ -631,7 +627,7 @@ function PayBar({
           )}
         </View>
         <Text style={{ color: error ? '#B7B7B7' : '#333333', fontSize: '28rpx' }}>阅读并同意</Text>
-        <Text style={{ color: LANHU_BLUE, fontSize: '28rpx' }}>{agreementTitle}</Text>
+        <Text style={{ color: LANHU_BLUE, fontSize: '28rpx' }} onClick={event => { event.stopPropagation(); onOpenAgreement() }}>{agreementTitle}</Text>
       </View>
     </View>
   )
@@ -639,9 +635,11 @@ function PayBar({
 
 function AgreementConfirmSheet({
   agreementTitle,
+  onOpenAgreement,
   onContinue,
 }: {
   agreementTitle: string
+  onOpenAgreement: () => void
   onContinue: () => void
 }) {
   return (
@@ -670,7 +668,7 @@ function AgreementConfirmSheet({
       >
         <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
           <Text style={{ color: '#A9A9A9', fontSize: '32rpx' }}>我已阅读并同意</Text>
-          <Text style={{ color: LANHU_BLUE, fontSize: '32rpx' }}>{agreementTitle}</Text>
+          <Text style={{ color: LANHU_BLUE, fontSize: '32rpx' }} onClick={event => { event.stopPropagation(); onOpenAgreement() }}>{agreementTitle}</Text>
         </View>
         <View
           style={{

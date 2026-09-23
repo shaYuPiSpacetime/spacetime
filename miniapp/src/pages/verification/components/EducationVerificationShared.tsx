@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Image, Text, View } from '@tarojs/components'
+import { Button, Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
 
@@ -166,6 +166,7 @@ export function AgreementRow({
   onToggle,
   prefix,
   agreementName,
+  agreementCode,
 }: {
   id?: string
   top: string
@@ -173,6 +174,7 @@ export function AgreementRow({
   onToggle: () => void
   prefix: string
   agreementName: string
+  agreementCode: string
 }) {
   return (
     <View
@@ -217,15 +219,22 @@ export function AgreementRow({
         )}
       </View>
       <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>{prefix}</Text>
-      <Text style={{ color: '#2876FF', fontSize: '28rpx', lineHeight: '40rpx' }}>《{agreementName}》</Text>
+      <Text
+        style={{ color: '#2876FF', fontSize: '28rpx', lineHeight: '40rpx' }}
+        onClick={event => {
+          event.stopPropagation()
+          void Taro.navigateTo({ url: `/pages/settings/content?contentCode=${encodeURIComponent(agreementCode)}` })
+        }}
+      >《{agreementName}》</Text>
     </View>
   )
 }
 
 export function CustomerServiceLink({ id, top, text }: { id?: string; top: string; text: string }) {
   return (
-    <View
+    <Button
       id={id}
+      openType="contact"
       style={{
         position: 'absolute',
         left: '0',
@@ -236,12 +245,14 @@ export function CustomerServiceLink({ id, top, text }: { id?: string; top: strin
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        padding: 0,
+        border: 'none',
+        background: 'transparent',
       }}
-      onClick={() => Taro.showToast({ title: text, icon: 'none' })}
     >
       <Image src={miniappOssIcons.verificationCustomerService} mode="widthFix" style={{ width: '30rpx', marginRight: '12rpx' }} />
       <Text style={{ color: '#2876FF', fontSize: '28rpx', lineHeight: '40rpx' }}>{text}</Text>
-    </View>
+    </Button>
   )
 }
 

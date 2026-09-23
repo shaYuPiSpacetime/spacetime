@@ -220,6 +220,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
           onToggle={() => detail?.canSubmit !== false && setAgreed(value => !value)}
           prefix={copy('agreement_read_prefix')}
           agreementName={copy('agreement_education_name')}
+          agreementCode="education_verification_agreement"
         />
         <CustomerServiceLink id="education-customer-service" top={`calc(${AGREEMENT_TOP[methodCode]} + 124rpx)`} text={copy('common_customer_service')} />
 

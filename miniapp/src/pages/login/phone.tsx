@@ -16,6 +16,7 @@ import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/Native
 import './phone.scss'
 
 const SMS_CODE_LENGTH = 4
+const openLoginAgreement = (code: 'user_agreement' | 'privacy_policy') => void Taro.navigateTo({ url: `/pages/settings/content?contentCode=${code}` })
 
 export default function PhoneLoginPage() {
   const { bootstrap, resumeAfterLogin } = useLogin()
@@ -220,7 +221,7 @@ export default function PhoneLoginPage() {
           {agreementAccepted
             ? <Image className="phone-login-check-image" src={miniappOssIcons.loginAgreementChecked} mode="aspectFit" />
             : <Image className="phone-login-check-image" src={miniappOssIcons.loginAgreementUnchecked} mode="aspectFit" />}
-          <Text>阅读并同意</Text><Text className="phone-login-link">《用户服务协议》</Text><Text>和</Text><Text className="phone-login-link">《隐私保护政策》</Text>
+          <Text>阅读并同意</Text><Text className="phone-login-link" onClick={(event) => { event.stopPropagation(); openLoginAgreement('user_agreement') }}>《用户服务协议》</Text><Text>和</Text><Text className="phone-login-link" onClick={(event) => { event.stopPropagation(); openLoginAgreement('privacy_policy') }}>《隐私保护政策》</Text>
         </View>
         <View className="phone-login-wechat" onClick={() => void handleWechatEntry()}><Image src={miniappOssIcons.loginMethodWechat} mode="aspectFit" /></View>
       </View>
@@ -229,7 +230,7 @@ export default function PhoneLoginPage() {
         <View className="phone-agreement-mask" onClick={() => setShowAgreement(false)}>
           <View className="phone-agreement-sheet" onClick={event => event.stopPropagation()}>
             <Text className="phone-agreement-title">请同意一下条款</Text>
-            <View className="phone-agreement-copy"><Text className="phone-login-link">《用户协议》</Text><Text> 和 </Text><Text className="phone-login-link">《隐私政策》</Text></View>
+            <View className="phone-agreement-copy"><Text className="phone-login-link" onClick={(event) => { event.stopPropagation(); openLoginAgreement('user_agreement') }}>《用户协议》</Text><Text> 和 </Text><Text className="phone-login-link" onClick={(event) => { event.stopPropagation(); openLoginAgreement('privacy_policy') }}>《隐私政策》</Text></View>
             <View className="phone-agreement-confirm" onClick={() => void handleAgreeAndContinue()}><Text>{loading ? '获取中...' : '同意并继续'}</Text></View>
           </View>
         </View>

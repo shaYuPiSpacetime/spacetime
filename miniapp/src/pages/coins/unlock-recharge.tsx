@@ -9,6 +9,7 @@ import type { CoinPackage } from '@/types/coin'
 const PAGE_BACKGROUND =
   'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.68) 49%, rgba(248,250,239,0.68) 100%)'
 const AGREEMENT_TITLE = '《时空邂逅充值协议》'
+const openCoinAgreement = () => void Taro.navigateTo({ url: '/pages/settings/content?contentCode=coin_recharge_agreement' })
 const PLAN_CARD_WIDTH_RPX = 242
 const PLAN_CARD_GAP_RPX = 6
 const PLAN_SELECTED_LEFT_RPX = 150
@@ -117,9 +118,10 @@ export default function UnlockRechargePage() {
           setAgreementChecked(value => !value)
           setAgreementError(false)
         }}
+        onOpenAgreement={openCoinAgreement}
         onPay={handlePay}
       />
-      {agreementError ? <AgreementConfirmSheet onContinue={handleAgreementConfirm} /> : null}
+      {agreementError ? <AgreementConfirmSheet onContinue={handleAgreementConfirm} onOpenAgreement={openCoinAgreement} /> : null}
       {noticeVisible ? <RechargeNoticeModal onClose={() => setNoticeVisible(false)} /> : null}
       <ScenePaymentLayer payState={payState} onClose={hidePaymentLayer} />
     </View>
@@ -250,7 +252,7 @@ function RechargePackageCard({ pkg, selected, onClick }: { pkg: CoinPackage; sel
   )
 }
 
-function RechargePayBar({ checked, loading, onToggle, onPay }: { checked: boolean; loading: boolean; onToggle: () => void; onPay: () => void }) {
+function RechargePayBar({ checked, loading, onToggle, onOpenAgreement, onPay }: { checked: boolean; loading: boolean; onToggle: () => void; onOpenAgreement: () => void; onPay: () => void }) {
   return (
     <View style={{ width: '750rpx', padding: '20rpx 44rpx max(30rpx, calc(env(safe-area-inset-bottom) - 24rpx))', background: 'rgba(255,255,255,0.96)', flexShrink: 0, boxSizing: 'border-box', zIndex: 20 }}>
       <View onClick={onPay} style={{ width: '664rpx', height: '98rpx', borderRadius: '14rpx', background: LANHU_BLUE, opacity: loading ? 0.72 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -261,19 +263,19 @@ function RechargePayBar({ checked, loading, onToggle, onPay }: { checked: boolea
           {checked ? <Text style={{ color: '#FFFFFF', fontSize: '22rpx', fontWeight: 700, lineHeight: '26rpx' }}>✓</Text> : null}
         </View>
         <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>阅读并同意</Text>
-        <Text style={{ color: LANHU_BLUE, fontSize: '28rpx', lineHeight: '40rpx' }}>{AGREEMENT_TITLE}</Text>
+        <Text style={{ color: LANHU_BLUE, fontSize: '28rpx', lineHeight: '40rpx' }} onClick={event => { event.stopPropagation(); onOpenAgreement() }}>{AGREEMENT_TITLE}</Text>
       </View>
     </View>
   )
 }
 
-function AgreementConfirmSheet({ onContinue }: { onContinue: () => void }) {
+function AgreementConfirmSheet({ onContinue, onOpenAgreement }: { onContinue: () => void; onOpenAgreement: () => void }) {
   return (
     <View style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'flex-end' }}>
       <View style={{ width: '750rpx', height: '388rpx', padding: '107rpx 44rpx 0', borderRadius: '40rpx 40rpx 0 0', background: '#FFFFFF', boxSizing: 'border-box' }}>
         <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
           <Text style={{ color: '#A9A9A9', fontSize: '32rpx', lineHeight: '45rpx' }}>我已阅读并同意</Text>
-          <Text style={{ color: LANHU_BLUE, fontSize: '32rpx', lineHeight: '45rpx' }}>{AGREEMENT_TITLE}</Text>
+          <Text style={{ color: LANHU_BLUE, fontSize: '32rpx', lineHeight: '45rpx' }} onClick={event => { event.stopPropagation(); onOpenAgreement() }}>{AGREEMENT_TITLE}</Text>
         </View>
         <View onClick={onContinue} style={{ height: '98rpx', marginTop: '62rpx', borderRadius: '14rpx', background: LANHU_BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 600, lineHeight: '50rpx' }}>继续支付</Text>
