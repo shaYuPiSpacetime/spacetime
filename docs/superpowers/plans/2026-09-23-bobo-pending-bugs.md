@@ -33,7 +33,7 @@
 
 - 管理端订单状态文案及 200×200 商品图：[spacetime-admin-prod #35938872763](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/35938872763)，发布成功；商品图线上返回 HTTP 200。
 - 后端背景图、理想型和微信商品图修复：[spacetime-backend-prod #35939084561](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/35939084561)，发布成功；33 项定向单测通过。
-- 小程序源码已推送，微信端编译通过，但没有自动上传微信平台的流程；相关条目仍待微信版本发布与真机复验。
+- 小程序源码已推送，微信端编译与发布门禁通过；开发版本 `1.0.20260924.1` 已通过微信开发者工具 CLI 上传（`✔ upload`，总包 2,518,016 字节）。相关条目仍待真机复验、微信审核和正式版发布。
 - 飞书 24 项的验收备注均已在网页回读到写入值，含第 26 行。飞书 CLI 应用缺 `sheets:spreadsheet:read` 与 `sheets:spreadsheet:write_only` 权限，网页开放编辑与 CLI 接口授权相互独立；重复扫码不能补齐应用权限。处理状态仍保持原值，未冒称「已处理」。
 
 ## 处理规则
