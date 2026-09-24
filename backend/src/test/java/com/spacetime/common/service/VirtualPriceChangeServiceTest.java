@@ -54,6 +54,23 @@ class VirtualPriceChangeServiceTest {
     }
 
     @Test
+    void queuedPriceUploadsWechatSizeCompliantProductImage() {
+        VirtualPriceChange change = change("coin", 10L, "coin_10", "c10_new", "1.00", "QUEUED");
+        CoinPackage pkg = new CoinPackage();
+        pkg.setId(10L);
+        pkg.setPackageName("千寻币套餐");
+        when(changeDao.selectPending(1)).thenReturn(List.of(change));
+        when(coinPackageDao.selectById(10L)).thenReturn(pkg);
+
+        service.advanceOne();
+
+        verify(goodsGateway).upload(org.mockito.ArgumentMatchers.eq("c10_new"),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(100),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("https://admin.shikongxiehou.com/assets/wechat-virtual-goods-200.png"));
+    }
+
+    @Test
     void requestingNewPriceSupersedesEarlierUnfinishedChange() {
         VirtualPriceChange old = new VirtualPriceChange();
         old.setId(2L);

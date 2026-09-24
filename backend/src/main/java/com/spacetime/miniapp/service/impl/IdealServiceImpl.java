@@ -332,7 +332,7 @@ public class IdealServiceImpl implements IdealService {
             // 当前资料模型尚无独立户籍城市字段，因此只使用家乡城市稳定编码。
             case "M08-IDEAL-local" -> cities.contains(candidate.getHometownCity());
             case "M08-IDEAL-sports" -> hasAny(tags,
-                    Set.of("sports_habit", "RUNNING", "FITNESS", "HIKING", "CYCLING"));
+                    Set.of("sports_habit", "RUNNING", "FITNESS", "HIKING", "CYCLING", "OUTDOOR_LOVER"));
             case "M08-IDEAL-animals" -> hasAny(tags, Set.of("likes_animals", "PET_LOVER"));
             case "M08-IDEAL-food" -> hasAny(tags, Set.of("foodie", "FOODIE"));
             case "M08-IDEAL-travel" -> hasAny(tags,

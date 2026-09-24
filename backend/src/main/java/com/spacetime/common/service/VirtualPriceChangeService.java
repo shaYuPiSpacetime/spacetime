@@ -28,7 +28,7 @@ public class VirtualPriceChangeService {
     private static final Duration EFFECTIVE_GRACE = Duration.ofMinutes(20);
     private static final Duration TASK_TIMEOUT = Duration.ofMinutes(30);
     private static final String DEFAULT_GOODS_IMAGE =
-            "https://www.shikongxiehou.com/assets/shikongxiehou-logo.png";
+            "https://admin.shikongxiehou.com/assets/wechat-virtual-goods-200.png";
 
     private final VirtualPriceChangeDao changeDao;
     private final VipPackageDao vipPackageDao;

@@ -121,6 +121,31 @@ class IdealServiceImplTest {
     }
 
     @Test
+    void sportsConditionIncludesOutdoorTagConfiguredUnderSportsCategory() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser candidate = openUser(8L, "FEMALE", 28, "320100");
+        candidate.setHeight(170);
+        candidate.setTags("[\"OUTDOOR_LOVER\"]");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
+        when(appUserDao.selectList(any())).thenReturn(List.of(candidate));
+        when(accessProjectionService.projectAll(List.of(candidate)))
+                .thenReturn(Map.of(8L, "OPEN"));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            IdealFilterSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(100L);
+            return null;
+        }).when(snapshotDao).insert(any());
+
+        IdealSearchVO result = service.search(7L, searchReq(
+                List.of("M08-IDEAL-height-165", "M08-IDEAL-sports")));
+
+        assertThat(result.getResultCount()).isEqualTo(1);
+        verify(snapshotCandidateDao).insertBatch(any());
+    }
+
+    @Test
     void localConditionDoesNotTreatTemporaryCurrentCityAsHometown() {
         AppUser current = openUser(7L, "MALE", 30, "320100");
         AppUser nonLocal = openUser(8L, "FEMALE", 28, "320100");

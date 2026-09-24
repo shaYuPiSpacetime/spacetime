@@ -163,6 +163,16 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
             req = new ProfileMediaSubmitReq();
         }
         req.setMediaType("PROFILE_BG");
+        // 更换审核中的背景图时先撤销旧申请；已审核通过的背景图继续展示，直到新图通过审核。
+        List<AppUserAuditRecord> pending = auditRecordDao.selectList(new LambdaQueryWrapper<AppUserAuditRecord>()
+                .eq(AppUserAuditRecord::getUserId, userId)
+                .eq(AppUserAuditRecord::getAuditType, AppUserAuditTypeEnum.PROFILE_BG.getCode())
+                .in(AppUserAuditRecord::getStatus,
+                        AppUserAuditStatusEnum.PENDING.getCode(),
+                        AppUserAuditStatusEnum.REVIEWING.getCode()));
+        for (AppUserAuditRecord record : pending) {
+            auditService.systemExpire(record.getId(), "用户更换待审核背景图");
+        }
         return submitMedia(userId, req);
     }
 

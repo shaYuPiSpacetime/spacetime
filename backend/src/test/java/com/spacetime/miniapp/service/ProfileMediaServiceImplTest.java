@@ -263,6 +263,32 @@ class ProfileMediaServiceImplTest {
     }
 
     @Test
+    @DisplayName("更换审核中的背景图会撤销旧提交并保留已生效背景")
+    void shouldReplacePendingProfileBackground() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord pending = new AppUserAuditRecord();
+        pending.setId(201L);
+        pending.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
+        when(auditRecordDao.selectList(any())).thenReturn(List.of(pending));
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0);
+            record.setId(202L);
+            return record;
+        });
+        when(imageSafetyProvider.check(any(), any(), any(), any()))
+                .thenReturn(ProviderCheckResult.safe("mock-image-safety", "{}", true));
+        ProfileMediaSubmitReq replacement = mediaReq(null, "https://static.example.com/new-bg.jpg");
+
+        profileMediaService.submitProfileBackground(7L, replacement);
+
+        verify(auditService).systemExpire(201L, "用户更换待审核背景图");
+        verify(auditService).submit(org.mockito.ArgumentMatchers.argThat(record ->
+                "https://static.example.com/new-bg.jpg".equals(record.getMediaUrl())));
+    }
+
+    @Test
     @DisplayName("相册达到后台配置张数上限时拒绝新增")
     void shouldRejectAlbumWhenUploadCountReached() {
         AppUser user = new AppUser();
