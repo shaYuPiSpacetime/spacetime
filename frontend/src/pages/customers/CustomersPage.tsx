@@ -2705,7 +2705,7 @@ function ProfileDrawer({
                   <ProfileLogList rows={[
                     [`当前余额`, String(commercial.coinBalance ?? 0), `累计充值 ¥${Number(commercial.totalRecharge ?? 0).toFixed(2)}`, '千寻币'],
                     ...(commercial.recentFlows || []).map((item) => [item.createTime || '-', `${item.flowType} ${item.changeAmount}`, `余额${item.balanceAfter}`, item.bizDesc || item.bizScene || '-']),
-                    ...(commercial.recentOrders || []).map((item) => [item.createTime || '-', item.orderType === 'coin' ? '千寻币订单' : '会员订单', item.orderStatus, item.packageName || '-']),
+                    ...(commercial.recentOrders || []).map((item) => [item.createTime || '-', item.orderType === 'coin' ? '千寻币订单' : '会员订单', { unpaid: '待支付', success: '支付成功', closed: '已关闭', failed: '支付失败', refunding: '退款中', refunded: '已退款' }[item.orderStatus] || item.orderStatus, item.packageName || '-']),
                   ]} />
                 ) : <p className="p-5 text-sm text-[#667085]">暂无商业化资产记录</p>}
               </ProfileConfirmSection>}
