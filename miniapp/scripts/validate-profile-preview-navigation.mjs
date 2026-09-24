@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
 const profileEdit = fs.readFileSync(path.join(rootDir, 'src/pages/profile/edit.tsx'), 'utf8')
+const profileScoreHook = fs.readFileSync(path.join(rootDir, 'src/hooks/useProfileScore.ts'), 'utf8')
 
 assert.doesNotMatch(
   profileEdit,
@@ -13,7 +14,8 @@ assert.doesNotMatch(
   '主页预览禁止通过 navigateTo 打开底部 Tab 页面'
 )
 assert.match(profileEdit, /prd01Api\.getHomeDetail/, '编辑资料页必须读取主页统一详情接口')
-assert.match(profileEdit, /prd01Api\.getBasicProfile/, '编辑资料页必须读取基础资料接口')
+assert.match(profileEdit, /loadBasicProfile\(\)/, '编辑资料页必须读取基础资料接口')
+assert.match(profileScoreHook, /prd01Api\.getBasicProfile\(\)/, '资料评分逻辑必须调用基础资料接口')
 assert.doesNotMatch(profileEdit, /getDemoPageData/, '编辑资料页禁止继续读取蓝湖演示数据')
 
 console.log('编辑资料主页预览导航门禁通过')

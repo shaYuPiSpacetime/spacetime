@@ -573,12 +573,17 @@ test('头像认证从头像来源字典选择，并按上传 URL 提交审核', 
 
 test('资料编辑页按后端字段配置渲染，并使用字典 code 保存', () => {
   const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/profile/edit.tsx'), 'utf8')
+  const scoreHook = fs.readFileSync(
+    path.join(miniappRoot, 'src/hooks/useProfileScore.ts'),
+    'utf8'
+  )
   const basicEditor = fs.readFileSync(
     path.join(miniappRoot, 'src/pages/verification/basic.tsx'),
     'utf8'
   )
   assert.equal(source.includes('getDemoPageData'), false)
-  assert.match(source, /prd01Api\.getBasicProfile/)
+  assert.match(source, /loadBasicProfile\(\)/)
+  assert.match(scoreHook, /prd01Api\.getBasicProfile\(\)/)
   assert.match(source, /fieldSettings/)
   assert.match(source, /option\.code/)
   assert.match(source, /pages\/verification\/basic\?from=profile/)

@@ -63,6 +63,7 @@ async function mountInviteHome(params, token) {
     },
     '@/components/NativeNavigation': {},
     '@/assets/lanhu/promotion/invite-empty.png': '',
+    '@/assets/lanhu/promotion/invite-hero.png': '',
     './invite-home.scss': '',
   }
   const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/promotion/invite-home.tsx'), 'utf8')
