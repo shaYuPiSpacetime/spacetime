@@ -29,7 +29,6 @@ import { usePrd01Store } from '@/stores/prd01Store'
 import { prd01Api } from '@/services/prd01'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
-import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -67,7 +66,6 @@ function readRequestedScene(): CommunityScene | undefined {
 
 export default function RecommendFamilyPage() {
   const currentUserId = useAuthStore(state => state.userId)
-  const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
   const [primaryTab, setPrimaryTab] = useState<QianxunPrimaryTab>(() => readRequestedPrimaryTab())
   const [activeTab, setActiveTab] = useState<CommunityScene>(() => readRequestedScene() || 'CITY')
   const [postsByScene, setPostsByScene] = useState<Partial<Record<CommunityScene, CommunityPostVO[]>>>(emptySceneState)
@@ -289,7 +287,6 @@ export default function RecommendFamilyPage() {
       <QianxunHeader
         active={primaryTab}
         avatar={ownerAvatar}
-        unreadCount={unreadCount}
         metrics={headerMetrics}
         onChange={changePrimaryTab}
         onProfile={() => runWithCoreAccess(() => void Taro.navigateTo({ url: '/pages/qianxun/interactions?section=mine' }))}

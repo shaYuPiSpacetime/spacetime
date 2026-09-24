@@ -1,5 +1,5 @@
 import { Image, Text, View } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
@@ -44,6 +44,11 @@ export default function HeartUserPage() {
   const targetUserId = Number(router.params.targetUserId || router.params.userId || 0)
   const sourceScene = ((router.params.sourceScene as RelationSourceScene | undefined) || 'profile') as RelationSourceScene
   const [profile, setProfile] = useState<PublicProfileVO | null>(null)
+  useShareAppMessage(() => ({
+    title: profile?.nickname ? `${profile.nickname}的主页` : '时空邂逅用户主页',
+    path: `/pages/heart/user?targetUserId=${targetUserId}`,
+    imageUrl: profile?.heroPhoto || profile?.avatar || undefined,
+  }))
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileError, setProfileError] = useState('')
   const [liked, setLiked] = useState(false)

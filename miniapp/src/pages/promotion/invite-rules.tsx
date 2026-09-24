@@ -123,7 +123,7 @@ export default function InviteRulesPage() {
   }
 
   const webUrl = safeWebUrl(content)
-  const showWebView = source === 'current' && !loading && Boolean(webUrl) && !webFailed
+  const showWebView = source === 'current' && !loading && Boolean(webUrl) && !content?.htmlSnapshot && !webFailed
 
   if (showWebView && webUrl) {
     return (

@@ -28,7 +28,6 @@ export function getQianxunHeaderMetrics(): QianxunHeaderMetrics {
 interface QianxunHeaderProps {
   active: QianxunPrimaryTab
   avatar: string
-  unreadCount: number
   metrics: QianxunHeaderMetrics
   onChange: (tab: QianxunPrimaryTab) => void
   onProfile: () => void
@@ -40,7 +39,7 @@ const primaryTabs: Array<{ id: string; tab: QianxunPrimaryTab; label: string; le
   { id: 'qianxun-primary-career', tab: 'CAREER', label: '立业', left: 285 },
 ]
 
-export function QianxunHeader({ active, avatar, unreadCount, metrics, onChange, onProfile }: QianxunHeaderProps) {
+export function QianxunHeader({ active, avatar, metrics, onChange, onProfile }: QianxunHeaderProps) {
   return (
     <View style={{ position: 'relative', width: '750rpx', height: `${metrics.contentTop}rpx` }}>
       {primaryTabs.map(item => {
@@ -54,11 +53,6 @@ export function QianxunHeader({ active, avatar, unreadCount, metrics, onChange, 
           >
             <Text style={{ color: selected ? NAVY : '#7F8494', fontSize: selected ? '32rpx' : '28rpx', lineHeight: selected ? '45rpx' : '40rpx', fontWeight: 500 }}>{item.label}</Text>
             {selected ? <View style={{ position: 'absolute', left: item.tab === 'KINDRED' ? '20rpx' : '12rpx', top: '67rpx', width: item.tab === 'KINDRED' ? '120rpx' : '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} /> : null}
-            {item.tab === 'FAMILY' && unreadCount > 0 ? (
-              <View style={{ position: 'absolute', left: '55rpx', top: '8rpx', minWidth: '28rpx', height: '28rpx', borderRadius: '14rpx', border: '2rpx solid #FFFFFF', background: '#EE2525', padding: '0 4rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-                <Text style={{ color: '#FFFFFF', fontSize: '18rpx', lineHeight: '25rpx' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-              </View>
-            ) : null}
           </View>
         )
       })}

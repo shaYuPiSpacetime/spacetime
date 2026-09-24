@@ -15,6 +15,7 @@ import {
   getCommunityInteractions,
   getCommunityPostInteractors,
   getCommunityProfileSummary,
+  getCommunityComments,
   getMyCommunityPosts,
   resolveCommunityCopy,
   resolveCommunityFeedback,
@@ -22,6 +23,7 @@ import {
   toggleCommunityFollow,
   toggleCommunityLike,
   type CommunityConfig,
+  type CommunityCommentVO,
   type CommunityPostVO,
   type CommunityRelationUserVO,
 } from '@/services/community'
@@ -73,7 +75,7 @@ interface MyPostSnapshot {
 
 const emptyProfile: ProfileSummary = {
   nickname: resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.profilePendingNickname),
-  avatar: defaultAvatar,
+  avatar: '',
   description: resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.profilePendingDescription),
   postCount: 0,
   followingCount: 0,
@@ -148,7 +150,7 @@ export default function QianxunInteractionsPage() {
       const source = home.profile || {}
       setProfile({
         nickname: String(source.nickname || auth.nickname || resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.profilePendingNickname)),
-        avatar: normalizeAvatarUrl(String(source.avatar || auth.avatar || ''), defaultAvatar),
+        avatar: normalizeAvatarUrl(String(source.avatar || auth.avatar || ''), ''),
         description: buildProfileDescription(source, runtime),
         postCount: readNonNegativeNumber(summary.stats?.postCount),
         followingCount: readNonNegativeNumber(summary.stats?.followingCount),
@@ -300,7 +302,9 @@ function ProfileHeader({ profile, onFollowing, onFollowers, onLikes, onMine }: {
     <View style={{ height: '430rpx', position: 'relative' }}>
       <SimpleHeader title="千寻互动" onBack={() => void Taro.navigateBack()} transparent />
       <View style={{ position: 'absolute', left: '33rpx', top: '226rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
-        <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
+        {profile.avatar && profile.avatar !== defaultAvatar
+          ? <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
+          : <View aria-label="头像加载中" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />}
         <View style={{ marginLeft: '20rpx', minWidth: 0 }}>
           <Text style={{ display: 'block', color: '#222222', fontSize: '32rpx', lineHeight: '44rpx', fontWeight: 600 }}>{profile.nickname}</Text>
           <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.description}</Text>
@@ -374,9 +378,23 @@ function MinePanel({ loading, posts, likingPostIds, config, onLike }: { loading:
 
 function MyPostSnapshotCard({ item, liking, config, onLike }: { item: MyPostSnapshot; liking: boolean; config?: CommunityConfig; onLike: () => void }) {
   const date = splitMyPostDate(item.createdAt)
+  const [expanded, setExpanded] = useState(false)
+  const [comments, setComments] = useState<CommunityCommentVO[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentsError, setCommentsError] = useState('')
   const open = () => {
     if (item.postId && item.status === 'published') {
-      void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.postId}` })
+      if (expanded) {
+        setExpanded(false)
+        return
+      }
+      setExpanded(true)
+      setCommentsLoading(true)
+      setCommentsError('')
+      void getCommunityComments(item.postId, 1, 100)
+        .then(page => setComments(page.records || []))
+        .catch(error => setCommentsError(error instanceof Error ? error.message : '评论加载失败'))
+        .finally(() => setCommentsLoading(false))
     } else if (item.statusName) {
       void Taro.showToast({ title: item.statusName, icon: 'none' })
     }
@@ -392,10 +410,18 @@ function MyPostSnapshotCard({ item, liking, config, onLike }: { item: MyPostSnap
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
             {item.status !== 'published' ? <Text style={{ color: item.status === 'rejected' ? '#D44747' : BLUE, fontSize: '21rpx' }}>{resolveCommunityStatusLabel(config, item.status, item.statusName)}</Text> : null}
             <View style={{ flex: 1 }} />
-            <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? () => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.postId}&focus=comment` }) : undefined} fontSize="21rpx" />
+            <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? open : undefined} fontSize="21rpx" />
             <View style={{ width: '30rpx' }} />
             <QianxunActionStat kind="like" count={item.likeCount} active={item.liked} onClick={item.postId && item.status === 'published' && !liking ? onLike : undefined} fontSize="21rpx" />
           </View>
+          {expanded ? <View style={{ marginTop: '8rpx', padding: '20rpx', borderRadius: '12rpx', background: '#F6F9FD' }}>
+            <Text style={{ display: 'block', color: NAVY, fontSize: '24rpx', fontWeight: 600 }}>评论 {item.commentCount}</Text>
+            {commentsLoading ? <Text style={{ display: 'block', marginTop: '14rpx', color: '#8F98A6', fontSize: '22rpx' }}>评论加载中…</Text> : null}
+            {commentsError ? <Text style={{ display: 'block', marginTop: '14rpx', color: '#D44747', fontSize: '22rpx' }}>{commentsError}</Text> : null}
+            {!commentsLoading && !commentsError && !comments.length ? <Text style={{ display: 'block', marginTop: '14rpx', color: '#8F98A6', fontSize: '22rpx' }}>暂无评论</Text> : null}
+            {comments.map(comment => <View key={comment.id} style={{ marginTop: '16rpx' }}><Text style={{ color: BLUE, fontSize: '22rpx' }}>{comment.authorName || '用户'}：</Text><Text style={{ color: '#414957', fontSize: '22rpx', lineHeight: '34rpx' }}>{comment.content}</Text></View>)}
+            {item.commentCount > comments.length && !commentsLoading && !commentsError ? <Text onClick={(event) => { event.stopPropagation(); void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.postId}&focus=comment` }) }} style={{ display: 'block', marginTop: '16rpx', color: BLUE, fontSize: '22rpx' }}>查看全部评论</Text> : null}
+          </View> : null}
         </View>
       </View>
     </View>

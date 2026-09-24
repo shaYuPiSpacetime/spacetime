@@ -7,6 +7,7 @@ import { miniappOssIcons } from '@/constants/ossIcons'
 import { resolveInviteShareTarget } from '@/domain/promotionAttribution'
 import { displayedLadderStage } from '@/domain/promotionInvitePresentation'
 import inviteEmpty from '@/assets/lanhu/promotion/invite-empty.png'
+import inviteHero from '@/assets/lanhu/promotion/invite-hero.png'
 import { getInviteHome } from '@/services/promotion'
 import { capturePromotionSource } from '@/services/promotionAttribution'
 import { useAuthStore } from '@/stores/authStore'
@@ -153,12 +154,15 @@ export default function InviteHomePage() {
         onScroll={handleHomeScroll}
       >
         <View className="promotion-home__canvas">
-          <Image
-            className="promotion-home__background"
-            src={miniappOssIcons.promotionInviteBackground}
-            mode="scaleToFill"
-          />
-          <View className="promotion-hero" />
+          <View className="promotion-hero">
+            <View className="promotion-hero__copy">
+              <Text className="promotion-hero__eyebrow">好友同行 · 奖励加倍</Text>
+              <Text className="promotion-hero__title">一起遇见</Text>
+              <Text className="promotion-hero__title">更好的缘分</Text>
+              <Text className="promotion-hero__subtitle">好友完成注册即邀请成功，关系永久有效</Text>
+            </View>
+            <Image className="promotion-hero__illustration" src={inviteHero} mode="aspectFit" />
+          </View>
 
           <View className="promotion-home__data">
             {loading ? <HomeSkeleton /> : null}
@@ -281,10 +285,9 @@ function RewardCard({
         </View>
         <Text className="promotion-equation__operator">＝</Text>
         <View className="promotion-equation__item">
-          <EquationSprite
-            src={miniappOssIcons.promotionInviteEquationSprite}
-            position="coin"
-          />
+          <View className="promotion-equation__sprite-window promotion-equation__coin-window">
+            <Image className="promotion-equation__coin-icon" src={miniappOssIcons.coinGold} mode="aspectFit" />
+          </View>
           <Text>获得{amount}千寻币</Text>
         </View>
       </View>

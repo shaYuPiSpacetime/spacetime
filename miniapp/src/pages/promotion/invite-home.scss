@@ -23,21 +23,56 @@ page {
   background: linear-gradient(180deg, #ac7efb 0%, #7c66d4 97.02%);
 }
 
-.promotion-home__background {
-  position: absolute;
-  z-index: 0;
-  top: 0;
-  left: 0;
-  width: 375px;
-  height: 1256px;
-  pointer-events: none;
-}
-
 .promotion-hero {
   position: relative;
   z-index: 1;
   height: 242px;
   pointer-events: none;
+}
+
+.promotion-hero__copy {
+  position: absolute;
+  left: 25px;
+  top: 98px;
+  z-index: 2;
+  width: 238px;
+  color: #fff;
+}
+
+.promotion-hero__eyebrow,
+.promotion-hero__subtitle,
+.promotion-hero__title {
+  display: block;
+}
+
+.promotion-hero__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.promotion-hero__title {
+  font-size: 33px;
+  font-weight: 800;
+  line-height: 39px;
+  letter-spacing: -1px;
+  white-space: nowrap;
+  text-shadow: 2px 3px 0 #621aaa;
+}
+
+.promotion-hero__subtitle {
+  margin-top: 7px;
+  font-size: 10px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.promotion-hero__illustration {
+  position: absolute;
+  right: 10px;
+  top: 86px;
+  width: 116px;
+  height: 156px;
 }
 
 .promotion-home__data {
@@ -177,6 +212,18 @@ page {
 
 .promotion-equation__sprite--coin {
   left: -198px;
+}
+
+.promotion-equation__coin-window {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f5ff;
+}
+
+.promotion-equation__coin-icon {
+  width: 31px;
+  height: 31px;
 }
 
 .promotion-equation__item > text {

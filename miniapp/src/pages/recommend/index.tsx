@@ -427,7 +427,7 @@ export default function RecommendPage() {
           ) : null}
         </>
       )}
-      <AppTabBar active="recommend" />
+      <AppTabBar active="recommend" recommendBadgeCount={page?.remainingBrowseCount} />
       {showIpDialog ? (
         <IpLocationDialog
           onClose={() => setShowIpDialog(false)}

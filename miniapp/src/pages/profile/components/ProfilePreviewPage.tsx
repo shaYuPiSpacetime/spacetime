@@ -1,4 +1,4 @@
-import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { Button, Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
@@ -114,7 +114,7 @@ export default function ProfilePreviewPage({
         >
           {variant === 'public-profile' ? <HeartMessageHeader title="用户主页" align="center" showBack /> : null}
           <View style={{ width: '700rpx', margin: '0 auto' }}>
-            <ProfilePreviewHero model={model} onShare={showShare} onSafetyActions={onSafetyActions} />
+            <ProfilePreviewHero model={model} onShare={showShare} shareDirectly={variant === 'public-profile'} onSafetyActions={onSafetyActions} />
             {(variant === 'owner-preview' || model.genderAgeHeight || model.location || model.datingGoal)
               ? <ProfilePreviewBasicInfo model={model} variant={variant} />
               : null}
@@ -140,15 +140,16 @@ export default function ProfilePreviewPage({
   )
 }
 
-function ProfilePreviewHero({ model, onShare, onSafetyActions }: { model: ProfilePreviewModel; onShare: () => void; onSafetyActions?: () => void }) {
+function ProfilePreviewHero({ model, onShare, shareDirectly, onSafetyActions }: { model: ProfilePreviewModel; onShare: () => void; shareDirectly: boolean; onSafetyActions?: () => void }) {
   return (
     <ProfileHeroImage src={model.heroImageUrl || miniappOssIcons.profilePreviewHero}>
-      <Image
-        src={miniappOssIcons.profilePreviewShare}
-        mode="scaleToFill"
-        onClick={onShare}
-        style={{ position: 'absolute', right: '30rpx', top: '28rpx', width: '48rpx', height: '48rpx', borderRadius: '24rpx' }}
-      />
+      {shareDirectly ? (
+        <Button openType="share" aria-label="分享用户主页" style={{ position: 'absolute', right: '20rpx', top: '18rpx', zIndex: 5, width: '68rpx', height: '68rpx', margin: 0, padding: '10rpx', border: 0, borderRadius: '34rpx', background: 'transparent', lineHeight: 1, boxSizing: 'border-box' }}>
+          <Image src={miniappOssIcons.profilePreviewShare} mode="scaleToFill" style={{ width: '48rpx', height: '48rpx', borderRadius: '24rpx' }} />
+        </Button>
+      ) : (
+        <Image src={miniappOssIcons.profilePreviewShare} mode="scaleToFill" onClick={onShare} style={{ position: 'absolute', right: '30rpx', top: '28rpx', width: '48rpx', height: '48rpx', borderRadius: '24rpx' }} />
+      )}
       {onSafetyActions ? (
         <View onClick={onSafetyActions} style={{ position: 'absolute', left: '30rpx', top: '28rpx', zIndex: 4, padding: '10rpx 18rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.28)' }}>
           <Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>举报 · 拉黑</Text>

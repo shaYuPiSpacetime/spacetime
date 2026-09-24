@@ -284,7 +284,7 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
       style={{ marginTop: '20rpx', padding: '30rpx', borderRadius: '12rpx', background: '#FFFFFF' }}
     >
       <Text style={{ color: '#999999', fontSize: '28rpx' }}>千寻动态</Text>
-      <Text style={{ float: 'right', color: '#999999', fontSize: '24rpx' }}>查看更多 ＞</Text>
+      <Text onClick={(event) => { event.stopPropagation(); void Taro.switchTab({ url: '/pages/index/index' }) }} style={{ float: 'right', color: '#999999', fontSize: '24rpx' }}>查看更多 ＞</Text>
       {post ? (
         <>
           <View style={{ display: 'flex', alignItems: 'center', marginTop: '28rpx' }}>

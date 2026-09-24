@@ -69,21 +69,21 @@ const checks = [
     assert.match(homeStyle, /\.promotion-records-card--empty/)
     assert.match(homeStyle, /\.promotion-records-empty__art/)
   }],
-  ['首页使用 OSS 蓝湖背景和三个独立精灵裁窗', () => {
+  ['首页标题使用真实文字、插画独立绘制，奖励图标使用千寻币图形', () => {
     assert.match(home, /inviteEmpty/)
-    assert.match(ossIcons, /promotionInviteBackground:\s*['"]https:\/\//)
     assert.match(ossIcons, /promotionInviteEquationSprite:\s*['"]https:\/\//)
-    assert.match(home, /miniappOssIcons\.promotionInviteBackground/)
+    assert.match(home, /promotion-hero__title/)
+    assert.match(home, /inviteHero/)
+    assert.match(home, /miniappOssIcons\.coinGold/)
     assert.equal(
       (home.match(/miniappOssIcons\.promotionInviteEquationSprite/g) || []).length,
-      3,
-      '分享、用户、千寻币必须分别使用独立 Image 裁窗',
+      2,
+      '分享和用户使用独立 Image 裁窗，千寻币使用实际币图标',
     )
-    assert.match(homeStyle, /\.promotion-home__background/)
+    assert.match(homeStyle, /\.promotion-hero__illustration/)
     assert.match(homeStyle, /pointer-events:\s*none/)
     assert.match(homeStyle, /\.promotion-equation__sprite-window/)
-    assert.doesNotMatch(home, /inviteHero|EquationGlyph|promotion-equation__glyph/)
-    assert.doesNotMatch(homeStyle, /promotion-hero__title|promotion-hero__coin-watermark|promotion-hero__art/)
+    assert.doesNotMatch(homeStyle, /promotion-hero__coin-watermark|promotion-hero__art/)
     assert.doesNotMatch(homeStyle, /promotion-equation__share-arrow|promotion-equation__person-head|promotion-equation__person-body|promotion-equation__glyph/)
     assert.doesNotMatch(home + homeStyle, /lanhuapp\.com|蓝湖基线|SketchCover|design\\.png/)
   }],
@@ -153,10 +153,10 @@ const checks = [
     }
     assert.match(rules, /sanitizeRichTextSnapshot/)
     assert.match(rules, /const showWebView =[\s\S]*Boolean\(webUrl\)/)
-    assert.doesNotMatch(
+    assert.match(
       rules,
       /Boolean\(webUrl\)\s*&&\s*!content\?\.htmlSnapshot/,
-      '后台配置 URL 存在时必须优先打开 H5，旧正文不得继续遮蔽链接',
+      '同版本动态规则快照应优先显示，避免设备 WebView 加载失败造成双导航栏和错误提示',
     )
     assert.doesNotMatch(rules, /dangerouslySetInnerHTML|eval\(/)
   }],
