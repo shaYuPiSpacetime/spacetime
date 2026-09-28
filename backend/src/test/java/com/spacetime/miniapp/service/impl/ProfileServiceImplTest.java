@@ -23,6 +23,7 @@ import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.miniapp.dto.request.ProfileInitStepReq;
 import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
+import com.spacetime.miniapp.dto.request.FavoriteSongSaveReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.BasicProfileVO;
 import com.spacetime.miniapp.dto.response.ProfileDetailVO;
@@ -788,6 +789,40 @@ class ProfileServiceImplTest {
         assertThat(result.getLikedCount()).isEqualTo(4L);
         assertThat(result.getBeLikedCount()).isEqualTo(5L);
         assertThat(result.getVisitorCount()).isEqualTo(6L);
+    }
+
+    @Test
+    @DisplayName("手动保存歌曲名称时清理历史三方歌曲元数据")
+    void shouldSaveManualSongNameAndClearProviderMetadata() {
+        AppUser user = baseUser(null);
+        user.setFavoriteSongId("provider-song-1");
+        user.setFavoriteSongName("旧歌名");
+        user.setFavoriteSongArtist("旧歌手");
+        user.setFavoriteSongCoverUrl("https://img.example.com/old.jpg");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+
+        FavoriteSongSaveReq req = new FavoriteSongSaveReq();
+        req.setSongName("  晴天  ");
+
+        newService().saveFavoriteSong(7L, req);
+
+        assertThat(user.getFavoriteSongName()).isEqualTo("晴天");
+        assertThat(user.getFavoriteSongId()).isNull();
+        assertThat(user.getFavoriteSongArtist()).isNull();
+        assertThat(user.getFavoriteSongCoverUrl()).isNull();
+        verify(appUserDao).updateById(user);
+    }
+
+    @Test
+    @DisplayName("手动歌曲名称为空时拒绝保存")
+    void shouldRejectBlankManualSongName() {
+        when(appUserDao.selectById(7L)).thenReturn(baseUser(null));
+        FavoriteSongSaveReq req = new FavoriteSongSaveReq();
+        req.setSongName("   ");
+
+        assertThatThrownBy(() -> newService().saveFavoriteSong(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("歌曲名称需1-100个字符");
     }
 
     private ProfileServiceImpl newService() {

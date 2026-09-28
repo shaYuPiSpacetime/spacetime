@@ -299,13 +299,14 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional
     public ProfileDetailVO saveFavoriteSong(Long userId, FavoriteSongSaveReq req) {
         AppUser user = requireUser(userId);
-        if (req == null || StrUtil.isBlank(req.getSongId()) || StrUtil.isBlank(req.getSongName())) {
-            throw new BusinessException("请选择歌曲");
+        String songName = trimToNull(req == null ? null : req.getSongName());
+        if (songName == null || songName.length() > 100) {
+            throw new BusinessException("歌曲名称需1-100个字符");
         }
-        user.setFavoriteSongId(req.getSongId().trim());
-        user.setFavoriteSongName(req.getSongName().trim());
-        user.setFavoriteSongArtist(trimToNull(req.getArtistName()));
-        user.setFavoriteSongCoverUrl(trimToNull(req.getCoverUrl()));
+        user.setFavoriteSongId(null);
+        user.setFavoriteSongName(songName);
+        user.setFavoriteSongArtist(null);
+        user.setFavoriteSongCoverUrl(null);
         appUserDao.updateById(user);
         return toDetailVO(user, true);
     }
