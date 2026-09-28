@@ -17,6 +17,7 @@ import com.spacetime.miniapp.dto.response.ConversationBlockVO;
 import com.spacetime.miniapp.dto.response.MessageConversationDetailVO;
 import com.spacetime.miniapp.dto.response.MessageConversationPageVO;
 import com.spacetime.miniapp.dto.response.MessageHomeVO;
+import com.spacetime.miniapp.dto.response.MessageHistoryPageVO;
 import com.spacetime.miniapp.dto.response.MessageReadBatchVO;
 import com.spacetime.miniapp.dto.response.MessageReadVO;
 import com.spacetime.miniapp.dto.response.MessageSendVO;
@@ -110,6 +111,15 @@ public class MiniappMessageController {
     public R<MessageConversationDetailVO> conversationDetail(
             @PathVariable String conversationNo) {
         return R.ok(messageService.conversationDetail(currentUserId(), conversationNo));
+    }
+
+    @GetMapping("/conversations/{conversationNo}/messages")
+    public R<MessageHistoryPageVO> conversationMessages(
+            @PathVariable String conversationNo,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "30") int size) {
+        return R.ok(messageService.conversationMessages(
+                currentUserId(), conversationNo, cursor, size));
     }
 
     @PostMapping("/conversations/{conversationNo}/messages")

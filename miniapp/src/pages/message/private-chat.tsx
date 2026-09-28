@@ -376,52 +376,81 @@ function EstablishedPrivateChatPage() {
     () => loadSingleFlight.run(conversationNo, async () => {
       if (!initialPositionedRef.current) setInitialLoading(true)
       setErrorMessage('')
+      let initialRevealed = initialPositionedRef.current
+      const revealInitial = (items: ChatMessage[]) => {
+        if (initialRevealed) return
+        if (items.length > 0) requestScrollToLatest()
+        initialRevealed = true
+        setTimeout(() => {
+          initialPositionedRef.current = true
+          setInitialLoading(false)
+        }, items.length > 0 ? 80 : 0)
+      }
+      const localHistoryPromise = withMessageTimeout(
+        service.listConversationMessages(conversationNo, undefined, 30),
+        HISTORY_TIMEOUT_MS,
+        '本地聊天记录加载超时',
+      ).then(
+        page => ({ page, error: undefined }),
+        error => ({ page: undefined, error }),
+      )
+      const gatewayPromise = ensureConnected().then(
+        gateway => ({ gateway, error: undefined }),
+        error => ({ gateway: undefined, error }),
+      )
       try {
-        const [nextDetail, gateway] = await Promise.all([
-          withMessageTimeout(
-            service.getConversation(conversationNo),
-            DETAIL_TIMEOUT_MS,
-            '会话加载超时，请重试',
-          ),
-          ensureConnected(),
-        ])
+        const detailPromise = withMessageTimeout(
+          service.getConversation(conversationNo),
+          DETAIL_TIMEOUT_MS,
+          '会话加载超时，请重试',
+        )
+        const localHistory = await localHistoryPromise
+        if (localHistory.page) {
+          const localMessages = localHistory.page.list
+          setMessages(current => {
+            const next = upsertMessages(current, localMessages)
+            messagesRef.current = next
+            return next
+          })
+          setHistoryCursor(localHistory.page.nextCursor || undefined)
+          setHistoryCompleted(!localHistory.page.hasMore)
+          if (localMessages.length > 0) revealInitial(localMessages)
+        } else {
+          setHistoryCursor(undefined)
+          setHistoryCompleted(true)
+        }
+        const nextDetail = await detailPromise
         const gatewayId = isMockScene ? conversationNo : nextDetail.timConversationId
         setDetail(nextDetail)
         if (!nextDetail.canEnterConversation || !gatewayId) {
           timConversationIdRef.current = ''
-          setMessages([])
-          setHistoryCursor(undefined)
-          setHistoryCompleted(true)
-          initialPositionedRef.current = true
-          setInitialLoading(false)
+          if (localHistory.error) {
+            setErrorMessage(localHistory.error instanceof Error
+              ? localHistory.error.message : '历史消息加载失败')
+          }
+          revealInitial(localHistory.page?.list || [])
           return
         }
         timConversationIdRef.current = gatewayId
+        const connected = await gatewayPromise
+        if (!connected.gateway) throw connected.error
         const page = await withMessageTimeout(
-          gateway.listHistory(gatewayId),
+          connected.gateway.listHistory(gatewayId),
           HISTORY_TIMEOUT_MS,
           '聊天记录加载超时，请重试',
         )
-        setMessages(current => upsertMessages(current, page.list))
-        messagesRef.current = upsertMessages(messagesRef.current, page.list)
-        setHistoryCursor(page.nextCursor)
-        setHistoryCompleted(page.isCompleted)
-        if (page.list.length > 0) {
-          requestScrollToLatest()
-          setTimeout(() => {
-            initialPositionedRef.current = true
-            setInitialLoading(false)
-          }, 80)
-        } else {
-          initialPositionedRef.current = true
-          setInitialLoading(false)
-        }
-        setTimeout(() => void acknowledgeRendered(page.list), 0)
+        setMessages(current => {
+          const next = upsertMessages(current, page.list)
+          messagesRef.current = next
+          return next
+        })
+        if (page.list.length > 0) requestScrollToLatest()
+        revealInitial(upsertMessages(localHistory.page?.list || [], page.list))
+        setTimeout(() => void acknowledgeRendered(messagesRef.current), 0)
       } catch (error) {
         const resolved = resolveMessageError(error)
         setErrorMessage(resolved.message)
-        initialPositionedRef.current = true
-        setInitialLoading(false)
+        revealInitial(messagesRef.current)
       }
     }),
     [acknowledgeRendered, conversationNo, ensureConnected, isMockScene, loadSingleFlight, requestScrollToLatest, service],
@@ -449,14 +478,13 @@ function EstablishedPrivateChatPage() {
   })
 
   const loadEarlier = async () => {
-    if (!timConversationId || historyCompleted || !historyCursor
+    if (historyCompleted || !historyCursor
       || initialLoading || historyLoading) return
     const anchor = messagesRef.current[0]
     setHistoryLoading(true)
     try {
-      const gateway = await ensureConnected()
       const page = await withMessageTimeout(
-        gateway.listHistory(timConversationId, historyCursor),
+        service.listConversationMessages(conversationNo, historyCursor, 30),
         HISTORY_TIMEOUT_MS,
         '聊天记录加载超时，请重试',
       )
@@ -465,8 +493,8 @@ function EstablishedPrivateChatPage() {
         messagesRef.current = next
         return next
       })
-      setHistoryCursor(page.nextCursor)
-      setHistoryCompleted(page.isCompleted)
+      setHistoryCursor(page.nextCursor || undefined)
+      setHistoryCompleted(!page.hasMore)
       if (anchor) setHistoryAnchorId(messageAnchorId(anchor))
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '历史消息加载失败')

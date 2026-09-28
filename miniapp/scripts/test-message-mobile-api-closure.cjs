@@ -62,7 +62,7 @@ test('私信时间按本地日期和相邻消息十分钟间隔显示', () => {
   assert.match(privateChat, /formatPrivateChatTime\(message\.sentAt, messages\[index - 1\]\?\.sentAt\)/)
   assert.match(privateChat, /confirmHold/)
   assert.doesNotMatch(privateChat, /disabled=\{Boolean\(detail && !detail\.canSend\) \|\| sending\}/)
-  assert.match(privateChat, /setMessages\(current => upsertMessages\(current, page\.list\)\)/)
+  assert.match(privateChat, /setMessages\(current => \{[\s\S]*?upsertMessages\(current, page\.list\)/)
   assert.match(styles, /\.chat-message-time\s*\{/)
 })
 
@@ -81,7 +81,7 @@ test('私信发送保留键盘，键盘弹出和发送后消息区露出最新�
 
 test('私信历史首次加载完成后重新定位最新消息，加载更早记录不强制回底', () => {
   const privateChat = read('src/pages/message/private-chat.tsx')
-  const initialHistory = privateChat.match(/const page = await withMessageTimeout\(\s*gateway\.listHistory\(gatewayId\)[\s\S]*?setHistoryCompleted\(page\.isCompleted\)[\s\S]*?setTimeout\(\(\) => void acknowledgeRendered/)?.[0] || ''
+  const initialHistory = privateChat.match(/const revealInitial = \(items: ChatMessage\[\]\) => \{[\s\S]*?const localHistoryPromise/)?.[0] || ''
   const olderHistory = privateChat.match(/const loadEarlier = async \(\) => \{[\s\S]*?\n  \}/)?.[0] || ''
 
   assert.match(privateChat, /scrollIntoView=\{scrollTarget\}/, '滚动目标不能在异步消息加载前固定为底部')
@@ -89,6 +89,7 @@ test('私信历史首次加载完成后重新定位最新消息，加载更早�
   assert.match(privateChat, /current === 'chat-bottom-a' \? 'chat-bottom-b' : 'chat-bottom-a'/, '重复打开会话时也应改变滚动目标')
   assert.match(privateChat, /id="chat-bottom-a"[\s\S]*?id="chat-bottom-b"/, '两个滚动锚点必须始终位于消息末尾')
   assert.match(initialHistory, /requestScrollToLatest\(\)/, '首次历史记录就绪后必须滚到最新消息')
+  assert.match(privateChat, /revealInitial\(localHistory\.page\?\.list \|\| \[\]\)/, '本地历史完成后必须结束首屏定位')
   assert.doesNotMatch(olderHistory, /requestScrollToLatest\(\)/, '上翻加载历史不能把用户拉回底部')
 })
 

@@ -17,6 +17,7 @@ import type {
   MessageConversationPage,
   MessageConversationReadResult,
   MessageHomeResponse,
+  MessageHistoryPage,
   MessageReadBatchResult,
   MessageUnreadSummary,
   MessageWhisperDetail,
@@ -104,6 +105,11 @@ export interface MessageService {
   getUnreadSummary(): Promise<MessageUnreadSummary>
   listConversations(cursor?: string, size?: number): Promise<MessageConversationPage>
   getConversation(conversationNo: string): Promise<MessageConversationDetail>
+  listConversationMessages(
+    conversationNo: string,
+    cursor?: string,
+    size?: number,
+  ): Promise<{ list: ChatMessage[]; nextCursor: string | null; hasMore: boolean }>
   sendConversationMessage(
     conversationNo: string,
     clientMsgId: string,
@@ -203,6 +209,35 @@ export class RealMessageService implements MessageService {
       conversationStatus: normalizeConversationStatus(result.conversationStatus),
       accessMode: result.accessMode === 'normal' ? 'normal' : 'safety_readonly',
       peerUser: normalizePeerUser(result.peerUser),
+    }
+  }
+
+  async listConversationMessages(
+    conversationNo: string,
+    cursor?: string,
+    size = 30,
+  ): Promise<{ list: ChatMessage[]; nextCursor: string | null; hasMore: boolean }> {
+    const result = await get<MessageHistoryPage>(
+      `/miniapp/message/conversations/${encodeURIComponent(conversationNo)}/messages`,
+      { cursor, size: Math.min(50, Math.max(1, size)) },
+    )
+    return {
+      nextCursor: result.nextCursor,
+      hasMore: Boolean(result.hasMore),
+      list: (result.list || []).map(item => ({
+        messageNo: item.messageNo || '',
+        clientMsgId: item.clientMsgId || '',
+        conversationNo: item.conversationNo || conversationNo,
+        senderUserNo: '',
+        direction: item.direction,
+        type: item.messageType,
+        content: item.content || '',
+        sentAt: item.sentAt,
+        timeText: '',
+        sendStatus: item.sendStatus === 'sent' ? 'sent' : 'received',
+        timMessageId: item.timMessageId || undefined,
+        timMsgKey: item.timMsgKey || undefined,
+      })),
     }
   }
 
@@ -502,6 +537,14 @@ export class MockMessageService implements MessageService {
     const item = useMessageStore.getState().conversations.find(row => row.conversationNo === conversationNo)
     if (!item) throw new Error('会话不存在')
     return mockConversationDetail(item)
+  }
+
+  async listConversationMessages(): Promise<{
+    list: ChatMessage[]
+    nextCursor: string | null
+    hasMore: boolean
+  }> {
+    return { list: [], nextCursor: null, hasMore: false }
   }
 
   async sendConversationMessage(

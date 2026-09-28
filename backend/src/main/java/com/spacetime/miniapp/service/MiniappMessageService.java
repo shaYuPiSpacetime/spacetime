@@ -13,6 +13,7 @@ import com.spacetime.miniapp.dto.response.ConversationBlockVO;
 import com.spacetime.miniapp.dto.response.MessageConversationDetailVO;
 import com.spacetime.miniapp.dto.response.MessageConversationPageVO;
 import com.spacetime.miniapp.dto.response.MessageHomeVO;
+import com.spacetime.miniapp.dto.response.MessageHistoryPageVO;
 import com.spacetime.miniapp.dto.response.MessageReadBatchVO;
 import com.spacetime.miniapp.dto.response.MessageReadVO;
 import com.spacetime.miniapp.dto.response.MessageSendVO;
@@ -41,6 +42,8 @@ public interface MiniappMessageService {
     WhisperReplyVO replyWhisper(Long userId, String whisperNo, WhisperReplyReq req);
     MessageConversationPageVO conversations(Long userId, String cursor, int size);
     MessageConversationDetailVO conversationDetail(Long userId, String conversationNo);
+    MessageHistoryPageVO conversationMessages(Long userId, String conversationNo,
+                                              String cursor, int size);
     MessageSendVO sendMessage(Long userId, String conversationNo, MessageSendReq req);
     MessageReadVO readConversation(Long userId, String conversationNo, MessageReadReq req);
     ConversationBlockVO blockConversation(Long userId, String conversationNo,
