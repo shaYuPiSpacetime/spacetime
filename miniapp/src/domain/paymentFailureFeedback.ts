@@ -47,6 +47,14 @@ export function resolvePaymentFailureFeedback(error: unknown): PaymentFailureFee
     }
   }
 
+  if (normalized.includes('invalid_platform')) {
+    return {
+      cancelled: false,
+      capabilityRestricted: true,
+      message: '当前设备暂无法发起虚拟支付，请检查微信版本并联系客服确认平台配置',
+    }
+  }
+
   const virtualPayUnsupported = rawMessage.includes('暂不支持虚拟支付')
     || (normalized.includes('requestvirtualpayment')
       && (normalized.includes('not support') || normalized.includes('unsupported')))

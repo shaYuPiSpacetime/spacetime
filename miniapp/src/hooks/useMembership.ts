@@ -273,7 +273,7 @@ export function useMembership() {
         setPaymentErrorMessage(feedback.message)
         setPayState(feedback.cancelled ? 'pay-cancel' : 'pay-failed')
       }
-      if (!feedback.cancelled) Taro.showToast({ title: feedback.message, icon: 'none' })
+      if (!feedback.cancelled && !feedback.capabilityRestricted) Taro.showToast({ title: feedback.message, icon: 'none' })
       if (orderId && !feedback.capabilityRestricted) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=vip&sourcePage=${sourcePage}&result=${feedback.cancelled ? 'cancel' : 'failed'}` })
     } finally {
       paymentInFlight.current = false

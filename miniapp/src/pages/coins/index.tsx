@@ -405,7 +405,7 @@ function CoinsPaymentLayer({
   failureMessage: string
   onClose: () => void
 }) {
-  if (payState === 'idle') return null
+  if (payState === 'idle' || payState === 'paying') return null
 
   if (payState === 'pay-success') {
     return <PayResultModal title="支付成功" onClose={onClose} />
@@ -429,16 +429,11 @@ function CoinsPaymentLayer({
     >
       <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
         <Text style={{ color: LANHU_NAVY, fontSize: '28rpx', lineHeight: '42rpx', textAlign: 'center' }}>
-          {payState === 'paying' ? '正在打开微信支付并确认到账...' : failureMessage || '支付未完成，请稍后重试'}
+          {failureMessage || '支付未完成，请稍后重试'}
         </Text>
-        {payState === 'paying' && (
-          <View id="coins-paying-close" onClick={onClose} style={{ marginTop: '24rpx', minHeight: '64rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: LANHU_BLUE, fontSize: '26rpx' }}>关闭等待提示</Text></View>
-        )}
-        {payState !== 'paying' && (
-          <View onClick={onClose} style={{ marginTop: '24rpx', padding: '12rpx 36rpx', borderRadius: '10rpx', background: LANHU_BLUE }}>
-            <Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>知道了</Text>
-          </View>
-        )}
+        <View onClick={onClose} style={{ marginTop: '24rpx', padding: '12rpx 36rpx', borderRadius: '10rpx', background: LANHU_BLUE }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>知道了</Text>
+        </View>
       </View>
     </View>
   )
@@ -593,7 +588,7 @@ function PayBar({
         }}
         onClick={onPay}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 700 }}>{loading ? '支付中...' : '立即支付'}</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 700 }}>立即支付</Text>
       </View>
       <View
         style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '24rpx' }}

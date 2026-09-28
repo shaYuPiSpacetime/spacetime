@@ -33,6 +33,7 @@ export default function UnlockRechargePage() {
     packagesLoading,
     payLoading,
     payState,
+    paymentErrorMessage,
     fetchBalance,
     fetchPackages,
     selectPackage,
@@ -125,7 +126,7 @@ export default function UnlockRechargePage() {
       />
       {agreementError ? <AgreementConfirmSheet onContinue={handleAgreementConfirm} onOpenAgreement={openCoinAgreement} /> : null}
       {noticeVisible ? <RechargeNoticeModal onClose={() => setNoticeVisible(false)} /> : null}
-      <ScenePaymentLayer payState={payState} onClose={hidePaymentLayer} />
+      <ScenePaymentLayer payState={payState} failureMessage={paymentErrorMessage} onClose={hidePaymentLayer} />
     </View>
   )
 }
@@ -258,7 +259,7 @@ function RechargePayBar({ checked, loading, onToggle, onOpenAgreement, onPay }: 
   return (
     <View style={{ width: '750rpx', padding: '20rpx 44rpx max(30rpx, calc(env(safe-area-inset-bottom) - 24rpx))', background: 'rgba(255,255,255,0.96)', flexShrink: 0, boxSizing: 'border-box', zIndex: 20 }}>
       <View onClick={onPay} style={{ width: '664rpx', height: '98rpx', borderRadius: '14rpx', background: LANHU_BLUE, opacity: loading ? 0.72 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 600, lineHeight: '50rpx' }}>{loading ? '支付中...' : '立即充值'}</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 600, lineHeight: '50rpx' }}>立即充值</Text>
       </View>
       <View onClick={onToggle} style={{ height: '62rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ width: '32rpx', height: '32rpx', marginRight: '16rpx', borderRadius: '50%', border: `2rpx solid ${LANHU_BLUE}`, background: checked ? LANHU_BLUE : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
@@ -301,15 +302,12 @@ function RechargeNoticeModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function ScenePaymentLayer({ payState, onClose }: { payState: CoinPayState; onClose: () => void }) {
-  if (payState === 'idle' || payState === 'pay-success' || payState === 'pay-cancel') return null
+function ScenePaymentLayer({ payState, failureMessage, onClose }: { payState: CoinPayState; failureMessage: string; onClose: () => void }) {
+  if (payState === 'idle' || payState === 'paying' || payState === 'pay-success' || payState === 'pay-cancel') return null
   return (
     <View style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
-        <Text style={{ color: LANHU_NAVY, fontSize: '28rpx', lineHeight: '40rpx', textAlign: 'center' }}>{payState === 'paying' ? '正在打开微信支付并确认到账...' : '支付未完成，请稍后重试'}</Text>
-        {payState === 'paying' ? (
-          <View id="scene-paying-close" onClick={onClose} style={{ marginTop: '24rpx', minHeight: '64rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: LANHU_BLUE, fontSize: '26rpx' }}>关闭等待提示</Text></View>
-        ) : null}
+        <Text style={{ color: LANHU_NAVY, fontSize: '28rpx', lineHeight: '40rpx', textAlign: 'center' }}>{failureMessage || '支付未完成，请稍后重试'}</Text>
         {payState === 'pay-failed' ? (
           <View onClick={onClose} style={{ marginTop: '24rpx', padding: '12rpx 36rpx', borderRadius: '10rpx', background: LANHU_BLUE }}>
             <Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>知道了</Text>

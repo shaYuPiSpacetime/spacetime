@@ -40,14 +40,17 @@ test('待支付结果明确允许返回套餐页重新下单', () => {
   assert.match(result, /if \(state === 'unpaid'\) return '服务端显示待支付/, '待支付不得断言微信账单一定未扣款')
 })
 
-test('会员和千寻币支付等待层均可关闭且关闭不会被当作支付成功', () => {
+test('支付调起期间不显示正在加载或支付中的自定义等待文案', () => {
   const membership = read('src/pages/membership/index.tsx')
   const coins = read('src/pages/coins/index.tsx')
   const scene = read('src/pages/coins/unlock-recharge.tsx')
 
-  assert.match(membership, /id="membership-paying-close" onClick=\{onClose\}/)
-  assert.match(coins, /id="coins-paying-close" onClick=\{onClose\}/)
-  assert.match(scene, /id="scene-paying-close" onClick=\{onClose\}/)
+  assert.match(membership, /if \(payState === 'idle' \|\| payState === 'paying'\) return null/)
+  assert.match(coins, /if \(payState === 'idle' \|\| payState === 'paying'\) return null/)
+  assert.match(scene, /if \(payState === 'idle' \|\| payState === 'paying'/)
+  for (const source of [membership, coins, scene]) {
+    assert.doesNotMatch(source, /正在打开微信支付|支付中\.\.\.|购买中\.\.\.|开通中\.\.\./)
+  }
 })
 
 test('原生支付尚未返回时阻止重复创建订单，失败后仍可再次尝试', () => {
@@ -70,6 +73,20 @@ test('微信商品未配置错误转为用户可理解的客服提示', () => {
     resolve({ errMsg: 'requestVirtualPayment:fail 产品 id 没有配置' }).message,
     '当前支付商品未完成配置，请联系客服处理',
   )
+})
+
+test('平台不支持错误不再直接展示 INVALID_PLATFORM', () => {
+  const resolve = loadPaymentFeedback()
+  const feedback = resolve({ errMsg: 'requestVirtualPayment:fail INVALID_PLATFORM' })
+  const coins = read('src/hooks/useCoins.ts')
+  const membership = read('src/hooks/useMembership.ts')
+
+  assert.equal(feedback.capabilityRestricted, true)
+  assert.equal(feedback.message, '当前设备暂无法发起虚拟支付，请检查微信版本并联系客服确认平台配置')
+  assert.match(coins, /if \(!feedback\.capabilityRestricted\) Taro\.showToast\(/)
+  assert.match(membership, /if \(!feedback\.cancelled && !feedback\.capabilityRestricted\) Taro\.showToast\(/)
+  const scene = read('src/pages/coins/unlock-recharge.tsx')
+  assert.match(scene, /<ScenePaymentLayer payState=\{payState\} failureMessage=\{paymentErrorMessage\}/)
 })
 
 test('微信支付已成功后的查单与资料刷新失败不会误报支付失败', () => {
