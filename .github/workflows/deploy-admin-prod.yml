@@ -100,8 +100,12 @@ jobs:
       - name: Wait for website backend and migration
         run: |
           for attempt in $(seq 1 90); do
-            if curl -fs --max-time 8 'https://www.shikongxiehou.com/api/website/legal/USER_AGREEMENT' \
-              | python3 -c 'import json,sys; result=json.load(sys.stdin); sys.exit(0 if result.get("code")==200 and result.get("data",{}).get("version") else 1)'; then
+            if (
+              for document in USER_AGREEMENT PRIVACY_POLICY; do
+                curl -fs --max-time 8 "https://www.shikongxiehou.com/api/website/legal/${document}" \
+                  | python3 -c 'import json,sys; result=json.load(sys.stdin); sys.exit(0 if result.get("code")==200 and result.get("data",{}).get("version") else 1)' || exit 1
+              done
+            ); then
               exit 0
             fi
             sleep 10

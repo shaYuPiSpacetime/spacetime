@@ -19,6 +19,7 @@ const client = read('frontend/nginx.conf');
 const imageStore = read('backend/src/main/java/com/spacetime/common/util/OssUtil.java');
 const websiteService = read('backend/src/main/java/com/spacetime/website/service/impl/WebsiteServiceImpl.java');
 const backendWorkflow = read('.github/workflows/deploy-backend-prod.yml');
+const frontendWorkflow = read('.github/workflows/deploy-admin-prod.yml');
 
 assert.match(app, /本网站面向大学生提供线下活动信息与报名服务。/);
 assert.match(app, /网站当前不收取报名服务费/);
@@ -42,6 +43,10 @@ assert.match(imageStore, /metadata\.setObjectAcl\(CannedAccessControlList\.Priva
 assert.match(websiteService, /publicMedia\(Long mediaId\)/);
 assert.match(websiteService, /privateMedia\(Long userId, Long mediaId\)/);
 assert.ok(backendWorkflow.includes('deploy/sql/prod/096_website_activity_platform.sql'));
+assert.match(sql, /status VARCHAR\(20\) NOT NULL DEFAULT 'DRAFT'/);
+assert.match(sql, /'DRAFT' WHERE NOT EXISTS\(SELECT 1 FROM website_legal_document WHERE document_type='USER_AGREEMENT'/);
+assert.match(sql, /'DRAFT' WHERE NOT EXISTS\(SELECT 1 FROM website_legal_document WHERE document_type='PRIVACY_POLICY'/);
+assert.match(frontendWorkflow, /for document in USER_AGREEMENT PRIVACY_POLICY/);
 for (const table of ['website_user', 'website_activity', 'website_registration', 'website_conversation', 'website_message', 'website_report', 'website_audit_log', 'website_legal_document']) {
   assert.ok(sql.includes(`CREATE TABLE IF NOT EXISTS ${table}`), `缺少表 ${table}`);
 }
