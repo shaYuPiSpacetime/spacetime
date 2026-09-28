@@ -94,6 +94,7 @@ const BIZ_SCENE_LABELS: Record<string, string> = {
   admin_grant: '后台发放',
   system_deduct: '系统扣减',
   unlock: '解锁嘉宾',
+  replay_unlock: '三天回放主页解锁',
   whisper: '发送悄悄话',
   gift: '系统赠送',
   event_reward: '活动奖励',

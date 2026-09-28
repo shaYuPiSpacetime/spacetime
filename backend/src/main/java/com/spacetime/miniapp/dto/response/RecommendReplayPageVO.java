@@ -9,4 +9,6 @@ import java.util.List;
 public class RecommendReplayPageVO {
     private List<RecommendReplayItemVO> items;
     private String nextCursor;
+    /** 有效会员可直接从回放进入主页。 */
+    private Boolean memberProfileAccess;
 }

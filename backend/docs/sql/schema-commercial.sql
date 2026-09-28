@@ -243,7 +243,7 @@ CREATE TABLE IF NOT EXISTS app_user_unlock_record (
     INDEX idx_expire (expire_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户解锁记录表';
 
--- 默认 8 个千寻币消费场景
+-- 默认 9 个千寻币消费场景
 INSERT INTO app_coin_scene_config (scene_code, mobile_name, mobile_icon, scene_desc, unit_price, retention_days, sort_order, status) VALUES
 ('whisper', '发送悄悄话（单次）', 'icon-whisper', '单次发送悄悄话', 12, 0, 1, 'ENABLED'),
 ('likes_unlock_one', '查看谁喜欢我（单次）', 'icon-heart-unlock', '查看单条喜欢我的清晰信息', 8, 0, 2, 'ENABLED'),
@@ -252,7 +252,8 @@ INSERT INTO app_coin_scene_config (scene_code, mobile_name, mobile_icon, scene_d
 ('ideal_batch_unlock', '批量解锁理想型用户', 'icon-target-batch', '多个理想型用户批量解锁', 15, 90, 5, 'ENABLED'),
 ('compatible_person_unlock_one', '合拍的人（单个）', 'icon-compatible-person', '由测评结果推荐的人', 20, 90, 6, 'ENABLED'),
 ('soulmate_mizhiyin_unlock_one', '解锁知音-觅知音（单个）', 'icon-soulmate', '单个解锁知音对象', 28, 90, 7, 'ENABLED'),
-('career_recommend_unlock_one', '立业-职业推荐', 'icon-career-recommend', '根据职业测评结果推荐职业，单次解锁；重新完成测评时才需再次解锁', 26, 0, 8, 'ENABLED')
+('career_recommend_unlock_one', '立业-职业推荐', 'icon-career-recommend', '根据职业测评结果推荐职业，单次解锁；重新完成测评时才需再次解锁', 26, 0, 8, 'ENABLED'),
+('replay_profile_unlock_one', '三天回放查看主页', 'coinUsageRecommend', '普通用户查看三天回放中的单人主页，解锁后对该用户永久有效；会员免费', 20, 0, 9, 'ENABLED')
 ON DUPLICATE KEY UPDATE
     mobile_name = VALUES(mobile_name),
     mobile_icon = VALUES(mobile_icon),

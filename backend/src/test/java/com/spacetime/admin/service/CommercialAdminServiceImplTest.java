@@ -202,6 +202,37 @@ class CommercialAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("启用的悄悄话场景不能保存零单价")
+    void saveConfig_shouldRejectZeroWhisperPrice() {
+        List<CoinSceneConfigReq> scenes = validSceneCodes().stream()
+                .map(this::sceneReq)
+                .collect(java.util.stream.Collectors.toList());
+        scenes.get(0).setUnitPrice(0);
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setCoinScenes(scenes);
+
+        assertThatThrownBy(() -> service.saveConfig(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("悄悄话单价必须大于 0");
+        verify(coinSceneConfigDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("启用的三天回放主页解锁不能配置零单价")
+    void saveConfig_shouldRejectZeroReplayProfilePrice() {
+        List<CoinSceneConfigReq> scenes = validSceneCodes().stream()
+                .map(this::sceneReq)
+                .collect(java.util.stream.Collectors.toList());
+        scenes.get(scenes.size() - 1).setUnitPrice(0);
+        CommercialConfigSaveReq req = new CommercialConfigSaveReq();
+        req.setCoinScenes(scenes);
+
+        assertThatThrownBy(() -> service.saveConfig(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("回放主页解锁单价必须大于 0");
+    }
+
+    @Test
     @DisplayName("L3-06 千寻币推荐档最多一个")
     void saveConfig_shouldRejectMultipleRecommendedCoinPackages() {
         CoinPackageSaveReq first = coinPackageReq(null, "3000 千寻币");
@@ -220,6 +251,7 @@ class CommercialAdminServiceImplTest {
     @Test
     @DisplayName("L3-07 千寻币有效支付价可高于旧原价")
     void saveConfig_shouldAllowCoinPriceAboveOldOriginPrice() {
+        stubReadCatalogs();
         CoinPackageSaveReq changed = coinPackageReq(null, "新币包");
         changed.setDiscountAmount(new BigDecimal("399.00"));
         CommercialConfigSaveReq req = new CommercialConfigSaveReq();
@@ -520,7 +552,8 @@ class CommercialAdminServiceImplTest {
                 "ideal_batch_unlock",
                 "compatible_person_unlock_one",
                 "soulmate_mizhiyin_unlock_one",
-                "career_recommend_unlock_one"
+                "career_recommend_unlock_one",
+                "replay_profile_unlock_one"
         );
     }
 
