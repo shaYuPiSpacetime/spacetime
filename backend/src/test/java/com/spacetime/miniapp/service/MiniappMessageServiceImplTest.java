@@ -43,6 +43,7 @@ import com.spacetime.miniapp.dto.response.MessageWhisperPageVO;
 import com.spacetime.miniapp.dto.response.AssistantMessagePageVO;
 import com.spacetime.miniapp.dto.response.ConversationBlockVO;
 import com.spacetime.miniapp.dto.response.MessageHomeVO;
+import com.spacetime.miniapp.dto.response.MessageHistoryPageVO;
 import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MessageReadBatchVO;
 import com.spacetime.miniapp.dto.response.MessageReadVO;
@@ -288,6 +289,40 @@ class MiniappMessageServiceImplTest {
         assertThat(result.getFemaleProtection().getEnabled()).isFalse();
         verify(accountProvider).syncAccount(2L, "小月", "avatar-2");
         verify(recordDao, never()).selectHistory(any(), any(), any(Integer.class));
+    }
+
+    @Test
+    @DisplayName("会话历史校验成员后从本地消息表分页并按时间正序返回")
+    void conversationMessagesShouldReadDurableLocalHistory() {
+        AppMessageConversation conversation = conversation();
+        AppMessageRecord newest = historyMessage(43L, 2L, "MSG-43", "client-43", "最近回复",
+                now.minusMinutes(1));
+        AppMessageRecord middle = historyMessage(42L, 1L, "MSG-42", "client-42", "较早发送",
+                now.minusMinutes(2));
+        AppMessageRecord older = historyMessage(41L, 2L, "MSG-41", "client-41", "更早回复",
+                now.minusMinutes(3));
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(recordDao.selectHistory(30L, null, 3))
+                .thenReturn(List.of(newest, middle, older));
+
+        MessageHistoryPageVO first = service.conversationMessages(1L, "CV-1", null, 2);
+
+        assertThat(first.getList()).extracting("messageNo", "direction", "content")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("MSG-42", "outgoing", "较早发送"),
+                        org.assertj.core.groups.Tuple.tuple("MSG-43", "incoming", "最近回复"));
+        assertThat(first.getHasMore()).isTrue();
+        assertThat(first.getNextCursor()).isNotBlank();
+
+        when(recordDao.selectHistory(30L, 42L, 3)).thenReturn(List.of(older));
+        MessageHistoryPageVO second = service.conversationMessages(
+                1L, "CV-1", first.getNextCursor(), 2);
+
+        assertThat(second.getList()).extracting("messageNo", "direction")
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("MSG-41", "incoming"));
+        assertThat(second.getHasMore()).isFalse();
+        assertThat(second.getNextCursor()).isNull();
     }
 
     @Test
@@ -690,6 +725,26 @@ class MiniappMessageServiceImplTest {
         message.setTimMessageId("TIM-ID-2");
         message.setTimMsgKey("TIM-KEY-2");
         message.setSendStatus(MessageSendStatusEnum.SENT.getCode());
+        return message;
+    }
+
+    private AppMessageRecord historyMessage(Long id, Long senderUserId, String messageNo,
+                                             String clientMsgId, String content,
+                                             LocalDateTime sentAt) {
+        AppMessageRecord message = new AppMessageRecord();
+        message.setId(id);
+        message.setConversationId(30L);
+        message.setConversationNo("CV-1");
+        message.setMessageNo(messageNo);
+        message.setClientMsgId(clientMsgId);
+        message.setSenderUserId(senderUserId);
+        message.setReceiverUserId(senderUserId.equals(1L) ? 2L : 1L);
+        message.setMessageType("text");
+        message.setContentText(content);
+        message.setSendStatus(MessageSendStatusEnum.SENT.getCode());
+        message.setTimMessageId("TIM-" + id);
+        message.setTimMsgKey("KEY-" + id);
+        message.setSentAt(sentAt);
         return message;
     }
 

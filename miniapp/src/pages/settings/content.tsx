@@ -15,10 +15,12 @@ export default function SettingsContentPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [copyConfig, setCopyConfig] = useState<Record<string, string>>({})
+  const [webFailed, setWebFailed] = useState(false)
 
   const loadContent = useCallback(async () => {
     setLoading(true)
     setError('')
+    setWebFailed(false)
     try {
       const [detail, copy] = await Promise.all([
         contentCode
@@ -53,8 +55,8 @@ export default function SettingsContentPage() {
       ...article,
       title: article.title || fallbackTitle,
       linkType: 'linkType' in article ? article.linkType : article.contentType,
-    } : undefined),
-    [article, fallbackTitle],
+    } : undefined, { webFailed }),
+    [article, fallbackTitle, webFailed],
   )
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function SettingsContentPage() {
       : ''}`
     : legacyArticle?.createTime || ''
 
-  if (presentation.mode === 'h5') return <WebView src={presentation.url} />
+  if (presentation.mode === 'h5') return <WebView src={presentation.url} onError={() => setWebFailed(true)} />
   return (
     <View className="settings-article-page">
       {presentation.mode === 'native' ? (

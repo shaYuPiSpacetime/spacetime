@@ -80,6 +80,26 @@ export interface ChatMessage {
   timMsgKey?: string
 }
 
+/** 平台本地库返回的持久化私信消息。 */
+export interface MessageHistoryItem {
+  messageNo: string
+  clientMsgId: string | null
+  conversationNo: string
+  messageType: ChatMessageType
+  direction: 'incoming' | 'outgoing' | 'system'
+  content: string | null
+  sentAt: string
+  sendStatus: 'sent' | string
+  timMessageId: string | null
+  timMsgKey: string | null
+}
+
+export interface MessageHistoryPage {
+  list: MessageHistoryItem[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 /** 平台可靠发送接口返回。 */
 export interface PrivateMessageSendResponse {
   conversationNo: string

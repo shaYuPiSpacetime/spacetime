@@ -51,6 +51,8 @@ import com.spacetime.miniapp.dto.response.MessageFemaleProtectionVO;
 import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MessageChannelSummaryVO;
 import com.spacetime.miniapp.dto.response.MessageHomeVO;
+import com.spacetime.miniapp.dto.response.MessageHistoryItemVO;
+import com.spacetime.miniapp.dto.response.MessageHistoryPageVO;
 import com.spacetime.miniapp.dto.response.MessageLastMessageVO;
 import com.spacetime.miniapp.dto.response.MessagePeerUserVO;
 import com.spacetime.miniapp.dto.response.MessageReadBatchVO;
@@ -92,7 +94,7 @@ import java.util.stream.Collectors;
  * 小程序消息业务状态查询。
  *
  * <p>本服务返回平台掌握的消息首页投影、悄悄话业务状态和有效会话白名单。
- * 悄悄话详情在正文留存期内从消息主表返回完整正文；普通私信发送、实时接收和漫游历史
+ * 悄悄话详情和普通私信历史在正文留存期内从消息主表返回；普通私信发送和实时接收
  * 仍由 TIM 承接，平台保存消息明文归档、最新摘要、发送状态和接收方已读事实。</p>
  */
 @Service
@@ -409,6 +411,59 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
                     : List.of("block"))
                 : (canReportChat ? List.of("report_chat") : List.of()));
         return result;
+    }
+
+    @Override
+    public MessageHistoryPageVO conversationMessages(Long userId, String conversationNo,
+                                                      String cursor, int size) {
+        AppMessageConversation conversation = conversationDao.selectByConversationNo(conversationNo);
+        if (conversation == null) {
+            throw new BusinessException(MESSAGE_NOT_FOUND, "私信会话不存在");
+        }
+        if (memberDao.selectByConversationAndUser(conversation.getId(), userId) == null) {
+            throw new BusinessException(MESSAGE_FORBIDDEN, "无权查看该私信会话");
+        }
+
+        int limit = pageSize(size);
+        Long beforeId = decodeCursor(cursor, "message-history", userId, conversationNo);
+        List<AppMessageRecord> rows = recordDao.selectHistory(
+                conversation.getId(), beforeId, limit + 1);
+        boolean hasMore = rows.size() > limit;
+        List<AppMessageRecord> pageRows = hasMore ? rows.subList(0, limit) : rows;
+
+        List<MessageHistoryItemVO> items = new ArrayList<>(pageRows.size());
+        for (int index = pageRows.size() - 1; index >= 0; index--) {
+            items.add(toHistoryItem(pageRows.get(index), userId));
+        }
+
+        MessageHistoryPageVO result = new MessageHistoryPageVO();
+        result.setList(items);
+        result.setHasMore(hasMore);
+        result.setNextCursor(hasMore && !pageRows.isEmpty()
+                ? encodeCursor("message-history", userId, conversationNo,
+                pageRows.getLast().getId()) : null);
+        return result;
+    }
+
+    private MessageHistoryItemVO toHistoryItem(AppMessageRecord record, Long userId) {
+        MessageHistoryItemVO item = new MessageHistoryItemVO();
+        item.setMessageNo(record.getMessageNo());
+        item.setClientMsgId(record.getClientMsgId());
+        item.setConversationNo(record.getConversationNo());
+        item.setMessageType(record.getMessageType());
+        if (record.getSenderUserId() == null) {
+            item.setDirection("system");
+        } else {
+            item.setDirection(Objects.equals(record.getSenderUserId(), userId)
+                    ? "outgoing" : "incoming");
+        }
+        item.setContent(record.getContentText());
+        item.setSentAt(firstNonNull(
+                record.getSentAt(), record.getProviderSentAt(), record.getCreateTime()));
+        item.setSendStatus(record.getSendStatus());
+        item.setTimMessageId(record.getTimMessageId());
+        item.setTimMsgKey(record.getTimMsgKey());
+        return item;
     }
 
     @Override

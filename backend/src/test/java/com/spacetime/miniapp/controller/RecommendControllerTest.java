@@ -5,9 +5,13 @@ import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
 import com.spacetime.miniapp.dto.request.RecommendViewActionReq;
+import com.spacetime.miniapp.dto.request.RecommendReplayUnlockReq;
 import com.spacetime.miniapp.dto.response.RecommendCandidatePageVO;
 import com.spacetime.miniapp.dto.response.RecommendPreferenceVO;
 import com.spacetime.miniapp.dto.response.RecommendReplayPageVO;
+import com.spacetime.miniapp.dto.response.RecommendReplayQuoteVO;
+import com.spacetime.miniapp.dto.response.RecommendReplayUnlockVO;
+import com.spacetime.miniapp.service.RecommendReplayAccessService;
 import com.spacetime.miniapp.service.RecommendService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,13 +41,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class RecommendControllerTest {
     @Mock private RecommendService recommendService;
+    @Mock private RecommendReplayAccessService replayAccessService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         UserContextHolder.set(new UserContext(7L, "移动端用户", List.of(), List.of()));
-        mockMvc = MockMvcBuilders.standaloneSetup(new RecommendController(recommendService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new RecommendController(recommendService, replayAccessService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -113,6 +118,28 @@ class RecommendControllerTest {
             verify(recommendService).recordAction(eq(7L), eq("8"), eq(action),
                     any(RecommendViewActionReq.class));
         }
+    }
+
+    @Test
+    void exposesReplayProfileQuoteAndConfirmedUnlock() throws Exception {
+        RecommendReplayQuoteVO quote = new RecommendReplayQuoteVO();
+        quote.setUnitPrice(20);
+        quote.setCanOpen(false);
+        RecommendReplayUnlockVO unlocked = new RecommendReplayUnlockVO();
+        unlocked.setCanOpen(true);
+        unlocked.setCoinCost(20);
+        when(replayAccessService.quote(7L, 8L)).thenReturn(quote);
+        when(replayAccessService.unlock(eq(7L), eq(8L), any())).thenReturn(unlocked);
+
+        mockMvc.perform(get("/miniapp/recommend/replay/8/profile-quote"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.unitPrice").value(20));
+        mockMvc.perform(post("/miniapp/recommend/replay/8/profile-unlock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"requestId\":\"replay-1\",\"expectedPrice\":20}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.canOpen").value(true));
+        verify(replayAccessService).unlock(eq(7L), eq(8L), any(RecommendReplayUnlockReq.class));
     }
 
     @Test

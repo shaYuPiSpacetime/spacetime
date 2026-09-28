@@ -39,3 +39,16 @@ test('message merge uses stable provider identities', () => {
   assert.match(chat, /function messageMergeKey/)
   assert.match(chat, /message\.messageNo \|\| message\.timMessageId \|\| message\.clientMsgId/)
 })
+
+test('private chat renders durable local history and only uses TIM to supplement recent messages', () => {
+  assert.match(service, /listConversationMessages/)
+  assert.match(service, /\/conversations\/\$\{encodeURIComponent\(conversationNo\)\}\/messages/)
+  assert.match(chat, /const localHistoryPromise/)
+  assert.match(chat, /service\.listConversationMessages\(conversationNo/)
+
+  const loadEarlierStart = chat.indexOf('  const loadEarlier = async () => {')
+  const canSendStart = chat.indexOf('  const canSend = Boolean(detail?.canSend)', loadEarlierStart)
+  const loadEarlierBlock = chat.slice(loadEarlierStart, canSendStart)
+  assert.match(loadEarlierBlock, /service\.listConversationMessages\(conversationNo/)
+  assert.doesNotMatch(loadEarlierBlock, /gateway\.listHistory/)
+})
