@@ -280,8 +280,9 @@ assert.ok(!tagsSource.includes("margin: '22rpx auto 0'"), '我的标签白色内
 assert.ok(!tagsSource.includes('>保存</Text>'), '我的标签底部浮层不应出现保存按钮')
 
 const songsSource = read('src/pages/profile-edit/songs.tsx')
-assert.ok(songsSource.includes('searchKeyword'), '爱听歌曲页面需要搜索框状态')
-assert.ok(songsSource.includes('SongRecord'), '爱听歌曲页面需要列表项组件化还原')
+assert.ok(songsSource.includes("const [songName, setSongName] = useState('')"), '爱听歌曲页面需要用户手输歌曲名状态')
+assert.ok(songsSource.includes('placeholder="请输入你爱听的歌曲名称"'), '爱听歌曲页面需要歌曲名称输入框')
+assert.ok(songsSource.includes('saveFavoriteSong({ songName: normalized })'), '爱听歌曲页面需要保存用户输入的歌曲名称')
 assert.ok(!songsSource.includes("Taro.redirectTo({ url: '/pages/profile-edit"), '爱听歌曲保存/成功态禁止 redirectTo 到 profile-edit 破坏返回栈')
 assert.ok(profileEditSource.includes("justifyContent: 'space-between'"), '编辑资料添加行必须左文案右加号')
 assert.ok(profileEditSource.includes('一段深情的告白'), '语音介绍描述必须对齐蓝湖文案')
