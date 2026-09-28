@@ -10,7 +10,7 @@ import {
 export const COMMUNITY_COPY_KEYS = COMMUNITY_COPY_KEY_DEFINITIONS
 export type { CommunityCopyKey } from '@/domain/communityCopy'
 
-export type CommunityScene = 'FOLLOWING' | 'CITY' | 'HOT'
+export type CommunityScene = 'FOLLOWING' | 'CITY' | 'SCHOOL' | 'HOT'
 export type CommunityContentType = 'community_post' | 'sincere_post'
 export type CommunityContentStatus = 'draft' | 'pending_machine' | 'pending_manual' | 'published' | 'rejected' | 'deleted' | 'blocked'
 export type CommunityUploadStatus = 'queued' | 'uploading' | 'success' | 'failed'

@@ -40,7 +40,7 @@ const BLUE = '#2876FF'
 const COMMUNITY_CONFIG_CACHE_KEY = 'qianxun_community_config'
 const REQUESTED_PRIMARY_TAB_KEY = 'qianxun_requested_primary_tab'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
-const sceneByEntryKey: Record<string, CommunityScene> = { follow: 'FOLLOWING', following: 'FOLLOWING', same_city: 'CITY', city: 'CITY', discover: 'HOT', hot: 'HOT' }
+const sceneByEntryKey: Record<string, CommunityScene> = { follow: 'FOLLOWING', following: 'FOLLOWING', same_city: 'CITY', city: 'CITY', same_school: 'SCHOOL', school: 'SCHOOL', discover: 'HOT', hot: 'HOT' }
 const emptySceneState: Partial<Record<CommunityScene, CommunityPostVO[]>> = {}
 
 function readCachedCommunityConfig() {
@@ -59,7 +59,7 @@ function readRequestedPrimaryTab(): QianxunPrimaryTab {
 
 function readRequestedScene(): CommunityScene | undefined {
   const requested = Taro.getStorageSync(REQUESTED_SCENE_KEY)
-  if (!['FOLLOWING', 'CITY', 'HOT'].includes(String(requested))) return undefined
+  if (!['FOLLOWING', 'CITY', 'SCHOOL', 'HOT'].includes(String(requested))) return undefined
   Taro.removeStorageSync(REQUESTED_SCENE_KEY)
   return requested as CommunityScene
 }
@@ -71,6 +71,7 @@ export default function RecommendFamilyPage() {
   const [postsByScene, setPostsByScene] = useState<Partial<Record<CommunityScene, CommunityPostVO[]>>>(emptySceneState)
   const [loadingByScene, setLoadingByScene] = useState<Partial<Record<CommunityScene, boolean>>>({ CITY: true })
   const [followingCount, setFollowingCount] = useState(0)
+  const [hasSchool, setHasSchool] = useState<boolean | undefined>()
   const [topicHome, setTopicHome] = useState<CommunityTopicHomeVO>()
   const [topicHomeLoading, setTopicHomeLoading] = useState(false)
   const [config, setConfig] = useState<CommunityConfig | undefined>(readCachedCommunityConfig)
@@ -81,7 +82,7 @@ export default function RecommendFamilyPage() {
   const [restoredFeedScrollTop, setRestoredFeedScrollTop] = useState<number>()
   const feedScrollTopRef = useRef(0)
   const whisperOriginScrollTopRef = useRef(0)
-  const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, HOT: 0 })
+  const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
   const resumeRefreshRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
@@ -124,6 +125,7 @@ export default function RecommendFamilyPage() {
       Taro.setStorageSync(COMMUNITY_CONFIG_CACHE_KEY, runtime)
       setFollowingCount(Number(count || 0))
       setOwnerAvatar(normalizeAvatarUrl(String(home.profile.avatar || ''), defaultAvatar))
+      setHasSchool(Boolean(String(home.profile.schoolCode || home.profile.school || '').trim()))
     } catch (error) {
       await showError(config, error)
     }
@@ -319,7 +321,7 @@ export default function RecommendFamilyPage() {
                 onFollow={() => void toggleFollow(post)}
                 onLike={() => void toggleLike(post)}
               />
-            )) : <FeedEmptyState tab={activeTab} hasFollowing={followingCount > 0} config={config} onGoCity={() => changeTab('CITY')} />}
+            )) : <FeedEmptyState tab={activeTab} hasFollowing={followingCount > 0} schoolMissing={hasSchool === false} config={config} onGoCity={() => changeTab('CITY')} onGoProfile={() => void Taro.navigateTo({ url: '/pages/verification/basic?from=profile' })} />}
           </View>
         </ScrollView>
         <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
@@ -354,7 +356,7 @@ export default function RecommendFamilyPage() {
 }
 
 function FamilyTabs({ active, tabs, top, onChange }: { active: CommunityScene; tabs: Array<{ label: string; scene: CommunityScene }>; top: number; onChange: (tab: CommunityScene) => void }) {
-  return <View style={{ position: 'absolute', left: '29rpx', top: `${top}rpx`, width: '344rpx', height: '62rpx', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
+  return <View style={{ position: 'absolute', left: '29rpx', top: `${top}rpx`, width: '462rpx', height: '62rpx', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
     {tabs.map(item => {
       const selected = active === item.scene
       return <View key={item.scene} id={`qianxun-scene-${item.scene}`} data-scene={item.scene} onClick={() => onChange(item.scene)} style={{ position: 'relative', width: '108rpx', height: '62rpx', borderRadius: '12rpx', background: selected ? 'linear-gradient(180deg, #51AEFF 0%, #2876FF 100%)' : '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -429,17 +431,22 @@ function ActionStat({ kind, text, active = false }: { kind: 'contact' | 'comment
   return <View style={{ minWidth: '92rpx', marginLeft: '24rpx', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><Image src={icon} mode="aspectFit" style={{ width: '32rpx', height: '32rpx', marginRight: '8rpx', flexShrink: 0 }} /><Text style={{ color: '#999999', fontSize: '26rpx', lineHeight: '37rpx' }}>{text}</Text></View>
 }
 
-function FeedEmptyState({ tab, hasFollowing, config, onGoCity }: { tab: CommunityScene; hasFollowing: boolean; config?: CommunityConfig; onGoCity: () => void }) {
+function FeedEmptyState({ tab, hasFollowing, schoolMissing, config, onGoCity, onGoProfile }: { tab: CommunityScene; hasFollowing: boolean; schoolMissing: boolean; config?: CommunityConfig; onGoCity: () => void; onGoProfile: () => void }) {
   const following = tab === 'FOLLOWING'
-  const title = resolveCommunityCopy(config, following
+  const schoolNeedsProfile = tab === 'SCHOOL' && schoolMissing
+  const titleKey = following
     ? (hasFollowing ? COMMUNITY_COPY_KEYS.emptyFollowingFeed : COMMUNITY_COPY_KEYS.emptyFollowingUsers)
-    : COMMUNITY_COPY_KEYS.emptyCityFeed)
-  const desc = resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyFeedDescription)
+    : tab === 'SCHOOL'
+      ? (schoolNeedsProfile ? COMMUNITY_COPY_KEYS.emptySchoolMissing : COMMUNITY_COPY_KEYS.emptySchoolFeed)
+      : COMMUNITY_COPY_KEYS.emptyCityFeed
+  const title = resolveCommunityCopy(config, titleKey)
+  const desc = resolveCommunityCopy(config, schoolNeedsProfile ? COMMUNITY_COPY_KEYS.emptySchoolDescription : COMMUNITY_COPY_KEYS.emptyFeedDescription)
   return <View id="qianxun-family-empty-state" style={{ width: '700rpx', paddingTop: '128rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
     <Image src={miniappOssIcons.qianxunEmptyFollowing} mode="aspectFit" style={{ width: '334rpx', height: '254rpx' }} />
     <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 400, marginTop: '30rpx' }}>{title}</Text>
     <Text style={{ color: '#999999', fontSize: '28rpx', lineHeight: '40rpx', marginTop: '20rpx' }}>{desc}</Text>
     {following ? <View onClick={onGoCity} style={{ width: '468rpx', height: '98rpx', borderRadius: '12rpx', background: BLUE, marginTop: '50rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>去千寻同城看看</Text></View> : null}
+    {schoolNeedsProfile ? <View onClick={onGoProfile} style={{ width: '468rpx', height: '98rpx', borderRadius: '12rpx', background: BLUE, marginTop: '50rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 500 }}>去完善学校资料</Text></View> : null}
   </View>
 }
 
