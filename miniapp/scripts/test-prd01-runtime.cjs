@@ -592,7 +592,7 @@ test('资料编辑页按后端字段配置渲染，并使用字典 code 保存',
   assert.match(source, /prd01Api\.saveEmotionalStatus/)
 })
 
-test('标签、关于我、自我介绍和歌曲页面全部读取业务接口', () => {
+test('标签、关于我和自我介绍读取业务接口，歌曲仅提交手动输入名称', () => {
   const files = {
     tags: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile-edit/tags.tsx'), 'utf8'),
     about: fs.readFileSync(path.join(miniappRoot, 'src/pages/profile-edit/about.tsx'), 'utf8'),
@@ -607,7 +607,8 @@ test('标签、关于我、自我介绍和歌曲页面全部读取业务接口',
   assert.match(files.about, /prd01Api\.submitAboutMe/)
   assert.match(files.intro, /prd01Api\.getIntroduction/)
   assert.match(files.intro, /prd01Api\.submitIntroduction/)
-  assert.match(files.songs, /prd01Api\.searchSongs/)
+  assert.doesNotMatch(files.songs, /prd01Api\.searchSongs/)
+  assert.match(files.songs, /placeholder="请输入你爱听的歌曲名称"/)
   assert.match(files.songs, /prd01Api\.saveFavoriteSong/)
 })
 
