@@ -221,7 +221,8 @@ export interface MessageConversationPage {
 
 export interface MessageFemaleProtection {
   enabled: boolean
-  waitingForFemaleFirstMessage: boolean
+  appliesToCurrentUser: boolean
+  waitingForFemaleReply: boolean
   protectionUntil: string | null
 }
 
@@ -237,6 +238,7 @@ export interface MessageConversationDetail {
   conversationStatus: ConversationStatus
   accessMode: 'normal' | 'safety_readonly'
   peerUser: MessagePeerUser
+  selfAvatarUrl: string | null
   canEnterConversation: boolean
   canSend: boolean
   sendBlockedReason: string | null

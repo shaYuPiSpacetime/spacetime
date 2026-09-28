@@ -394,6 +394,7 @@ function mockConversationDetail(item: ReturnType<typeof useMessageStore.getState
     conversationStatus: active ? 'active' : 'invalid',
     accessMode: active ? 'normal' : 'safety_readonly',
     peerUser: mockConversationItem(item).peerUser,
+    selfAvatarUrl: null,
     canEnterConversation: true,
     canSend: active,
     sendBlockedReason: active ? null : 'conversation_invalid',
