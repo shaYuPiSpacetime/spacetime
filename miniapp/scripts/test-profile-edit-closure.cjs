@@ -311,8 +311,8 @@ test('编辑资料展示当前头像，主页预览仅展示审核生效头像',
 
 test('编辑资料背景图与头像分别上传并独立回显', () => {
   const edit = read('src/pages/profile/edit.tsx')
-  const backgroundHandler = edit.match(/const onChangeBackground = \(\) => \{[\s\S]*?\n  \}\n\n  const onChangeAvatar/)?.[0]
-  const avatarHandler = edit.match(/const onChangeAvatar = \(\) => \{[\s\S]*?\n  \}\n\n  const handlePhotoClick/)?.[0]
+  const backgroundHandler = edit.match(/const onChangeBackground = \(\) => \{[\s\S]*?\r?\n  \}\r?\n\r?\n  const onChangeAvatar/)?.[0]
+  const avatarHandler = edit.match(/const onChangeAvatar = \(\) => \{[\s\S]*?\r?\n  \}\r?\n\r?\n  const handlePhotoClick/)?.[0]
 
   assert.ok(backgroundHandler, '缺少独立的背景图上传处理器')
   assert.match(backgroundHandler, /prd01Api\.uploadBackground/, '背景图必须调用背景上传接口')
