@@ -813,6 +813,71 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("同校信息流-未填写学校返回空页且不查询动态")
+    void getPosts_schoolWithoutProfile_shouldReturnEmptyPage() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        Page<CommunityPostCardVO> result = communityService.getPosts(1L, null, null, "SCHOOL", 2, 10);
+
+        assertThat(result.getCurrent()).isEqualTo(2);
+        assertThat(result.getRecords()).isEmpty();
+        verify(appUserDao, never()).selectList(any());
+        verifyNoInteractions(communityPostDao);
+    }
+
+    @Test
+    @DisplayName("同校信息流-学校编码相同或历史资料学校全称相同的正常用户可入选")
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void getPosts_schoolWithCode_shouldIncludeLegacyNameOnlyAuthors() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), AppUser.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), CommunityPost.class);
+        user.setSchoolCode("SCH-001");
+        user.setSchool("同济大学");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        AppUser coded = author(2L, "同校编码用户");
+        AppUser legacy = author(3L, "历史名称用户");
+        when(appUserDao.selectList(any())).thenReturn(List.of(coded, legacy));
+        when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(1, 10, 0));
+
+        communityService.getPosts(1L, null, null, "SCHOOL", 1, 10);
+
+        ArgumentCaptor<LambdaQueryWrapper<AppUser>> userQueryCaptor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(appUserDao).selectList(userQueryCaptor.capture());
+        String userSql = userQueryCaptor.getValue().getSqlSegment();
+        assertThat(userSql).contains("account_status", "school_code", "school", "OR", "IS NULL");
+        assertThat(userQueryCaptor.getValue().getParamNameValuePairs().values())
+                .contains("NORMAL", "SCH-001", "同济大学", "");
+
+        ArgumentCaptor<LambdaQueryWrapper<CommunityPost>> postQueryCaptor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(communityPostDao).selectPage(any(), postQueryCaptor.capture());
+        assertThat(postQueryCaptor.getValue().getSqlSegment()).contains("author_id", "status");
+        assertThat(postQueryCaptor.getValue().getParamNameValuePairs().values())
+                .contains(2L, 3L, "published");
+    }
+
+    @Test
+    @DisplayName("同校信息流-历史用户没有学校编码时按学校全称查询")
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void getPosts_schoolWithoutCode_shouldMatchExactSchoolName() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), AppUser.class);
+        user.setSchool("同济大学");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectList(any())).thenReturn(List.of());
+
+        Page<CommunityPostCardVO> result = communityService.getPosts(1L, null, null, "SCHOOL", 1, 10);
+
+        ArgumentCaptor<LambdaQueryWrapper<AppUser>> userQueryCaptor =
+                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
+        verify(appUserDao).selectList(userQueryCaptor.capture());
+        assertThat(userQueryCaptor.getValue().getSqlSegment()).contains("school").doesNotContain("school_code");
+        assertThat(userQueryCaptor.getValue().getParamNameValuePairs().values()).contains("同济大学");
+        assertThat(result.getRecords()).isEmpty();
+        verifyNoInteractions(communityPostDao);
+    }
+
+    @Test
     @DisplayName("社区卡片与关注列表使用城市、职业中文标签")
     void communityAuthorSummary_shouldReturnProfileLabelsInsteadOfCodes() {
         AppUser author = author(2L, "小雨");

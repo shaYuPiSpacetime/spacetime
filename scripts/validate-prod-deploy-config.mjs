@@ -141,6 +141,10 @@ for (const migration of websiteMigrations) {
 assert.ok(websiteMigrations.every((migration, index) => index === 0
   || backendMigrationStep.indexOf(websiteMigrations[index - 1]) < backendMigrationStep.indexOf(migration)),
   '官网迁移必须先建表、再开放访客反馈、最后发布协议');
+const sameSchoolMigration = 'deploy/sql/prod/101_community_same_school_tab.sql';
+assert.ok(backendCopySource.includes(sameSchoolMigration), `backend SCP must include ${sameSchoolMigration}`);
+assertIncludes(backendMigrationStep, sameSchoolMigration, 'backend migration execution');
+assertIncludes(read(sameSchoolMigration), "'same_school', '同校'", '同校入口迁移');
 const sensitiveSeed = read(sensitiveMigrations[1]);
 assertIncludes(sensitiveSeed, 'IF existing_count = 0 THEN', sensitiveMigrations[1]);
 assertIncludes(sensitiveSeed, 'SKIPPED_NONEMPTY', sensitiveMigrations[1]);

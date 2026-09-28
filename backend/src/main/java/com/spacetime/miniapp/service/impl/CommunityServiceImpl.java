@@ -221,6 +221,31 @@ public class CommunityServiceImpl implements CommunityService {
                     .stream().map(AppUser::getId).filter(Objects::nonNull).toList();
             if (authorIds.isEmpty()) return emptyPostPage(safePage, safeSize);
             wrapper.in(CommunityPost::getAuthorId, authorIds);
+        } else if ("SCHOOL".equals(normalizedScene)) {
+            requireLoginForScene(userId);
+            AppUser currentUser = requireUser(userId);
+            String schoolCode = StrUtil.isBlank(currentUser.getSchoolCode()) ? null : currentUser.getSchoolCode().trim();
+            String schoolName = StrUtil.isBlank(currentUser.getSchool()) ? null : currentUser.getSchool().trim();
+            if (schoolCode == null && schoolName == null) return emptyPostPage(safePage, safeSize);
+            LambdaQueryWrapper<AppUser> schoolUsers = new LambdaQueryWrapper<AppUser>()
+                    .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode());
+            if (schoolCode == null) {
+                schoolUsers.eq(AppUser::getSchool, schoolName);
+            } else {
+                schoolUsers.and(match -> {
+                    match.eq(AppUser::getSchoolCode, schoolCode);
+                    if (schoolName != null) {
+                        match.or(legacy -> legacy
+                                .and(blankCode -> blankCode.isNull(AppUser::getSchoolCode)
+                                        .or().eq(AppUser::getSchoolCode, ""))
+                                .eq(AppUser::getSchool, schoolName));
+                    }
+                });
+            }
+            List<Long> authorIds = appUserDao.selectList(schoolUsers).stream()
+                    .map(AppUser::getId).filter(Objects::nonNull).distinct().toList();
+            if (authorIds.isEmpty()) return emptyPostPage(safePage, safeSize);
+            wrapper.in(CommunityPost::getAuthorId, authorIds);
         } else if (!normalizedScene.isEmpty() && !"HOT".equals(normalizedScene)) {
             throw error("unsupported_feed_scene");
         }
