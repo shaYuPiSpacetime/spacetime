@@ -270,11 +270,14 @@ class MiniappMessageServiceImplTest {
         when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
         when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount(2L, "tu_peer_2"));
         when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+        when(auditContentService.publicAvatar(1L)).thenReturn("avatar-1");
 
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
         assertThat(result.getTimConversationId()).isEqualTo("C2Ctu_peer_2");
         assertThat(result.getAccessMode()).isEqualTo("normal");
+        assertThat(result.getPeerUser().getAvatarUrl()).isEqualTo("avatar-2");
+        assertThat(result.getSelfAvatarUrl()).isEqualTo("avatar-1");
         assertThat(result.getCanSend()).isTrue();
         assertThat(result.getCanReportChat()).isTrue();
         assertThat(result.getReportContext())
@@ -368,8 +371,8 @@ class MiniappMessageServiceImplTest {
     }
 
     @Test
-    @DisplayName("女性保护期内男方只能进入会话但不能先发送普通私信")
-    void femaleProtectionShouldDisableMaleSend() {
+    @DisplayName("女性保护期内尚无消息时男方可以发送第一条消息")
+    void femaleProtectionShouldAllowMaleFirstMessage() {
         AppMessageConversation conversation = conversation();
         conversation.setProtectionEnabled(1);
         conversation.setFemaleUserId(2L);
@@ -383,21 +386,78 @@ class MiniappMessageServiceImplTest {
 
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
-        assertThat(result.getCanSend()).isFalse();
-        assertThat(result.getSendBlockedReason()).isEqualTo("female_protection");
-        assertThat(result.getFemaleProtection().getWaitingForFemaleFirstMessage()).isTrue();
+        assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getSendBlockedReason()).isNull();
+        assertThat(result.getFemaleProtection().getAppliesToCurrentUser()).isTrue();
+        assertThat(result.getFemaleProtection().getWaitingForFemaleReply()).isFalse();
         assertThat(result.getFemaleProtection().getProtectionUntil())
                 .isEqualTo(conversation.getProtectionUntil());
     }
 
     @Test
-    @DisplayName("女性保护已开启但截止时间缺失时按保守策略禁止男方先发消息")
-    void femaleProtectionWithoutDeadlineShouldStillDisableMaleSend() {
+    @DisplayName("女性保护期内最后一条由男方发送时等待女方回复")
+    void femaleProtectionShouldBlockMaleAfterHisMessage() {
         AppMessageConversation conversation = conversation();
         conversation.setProtectionEnabled(1);
         conversation.setFemaleUserId(2L);
         conversation.setMaleUserId(1L);
         conversation.setProtectionUntil(null);
+        conversation.setLastMessageId(41L);
+        AppMessageRecord lastMessage = new AppMessageRecord();
+        lastMessage.setId(41L);
+        lastMessage.setSenderUserId(1L);
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(recordDao.selectById(41L)).thenReturn(lastMessage);
+        when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount(2L, "tu_peer_2"));
+        when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+
+        MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
+
+        assertThat(result.getCanSend()).isFalse();
+        assertThat(result.getSendBlockedReason()).isEqualTo("female_reply_pending");
+        assertThat(result.getFemaleProtection().getAppliesToCurrentUser()).isTrue();
+        assertThat(result.getFemaleProtection().getWaitingForFemaleReply()).isTrue();
+        assertThat(result.getFemaleProtection().getProtectionUntil()).isNull();
+    }
+
+    @Test
+    @DisplayName("女性保护期内女方回复后男方可再发送一条消息")
+    void femaleProtectionShouldAllowMaleAfterFemaleReply() {
+        AppMessageConversation conversation = conversation();
+        conversation.setProtectionEnabled(1);
+        conversation.setFemaleUserId(2L);
+        conversation.setMaleUserId(1L);
+        conversation.setProtectionUntil(LocalDateTime.now().plusDays(1));
+        conversation.setLastMessageId(42L);
+        AppMessageRecord lastMessage = new AppMessageRecord();
+        lastMessage.setId(42L);
+        lastMessage.setSenderUserId(2L);
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(recordDao.selectById(42L)).thenReturn(lastMessage);
+        when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount(2L, "tu_peer_2"));
+        when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+
+        MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
+
+        assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getSendBlockedReason()).isNull();
+        assertThat(result.getFemaleProtection().getAppliesToCurrentUser()).isTrue();
+        assertThat(result.getFemaleProtection().getWaitingForFemaleReply()).isFalse();
+    }
+
+    @Test
+    @DisplayName("女性保护只限制男方，女方始终可以回复")
+    void femaleProtectionShouldNotBlockFemale() {
+        AppMessageConversation conversation = conversation();
+        conversation.setProtectionEnabled(1);
+        conversation.setFemaleUserId(1L);
+        conversation.setMaleUserId(2L);
+        conversation.setProtectionUntil(LocalDateTime.now().plusDays(1));
+        conversation.setLastMessageId(41L);
         when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
         when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
         when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
@@ -406,10 +466,10 @@ class MiniappMessageServiceImplTest {
 
         MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
 
-        assertThat(result.getCanSend()).isFalse();
-        assertThat(result.getSendBlockedReason()).isEqualTo("female_protection");
-        assertThat(result.getFemaleProtection().getWaitingForFemaleFirstMessage()).isTrue();
-        assertThat(result.getFemaleProtection().getProtectionUntil()).isNull();
+        assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getFemaleProtection().getAppliesToCurrentUser()).isFalse();
+        assertThat(result.getFemaleProtection().getWaitingForFemaleReply()).isFalse();
+        verify(recordDao, never()).selectById(any(Long.class));
     }
 
     @Test

@@ -12,6 +12,7 @@ public class MessageConversationDetailVO {
     private String conversationStatus;
     private String accessMode;
     private MessagePeerUserVO peerUser;
+    private String selfAvatarUrl;
     private Boolean canEnterConversation;
     private Boolean canSend;
     private String sendBlockedReason;

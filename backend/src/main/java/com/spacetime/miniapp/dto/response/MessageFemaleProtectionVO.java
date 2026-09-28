@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 @Data
 public class MessageFemaleProtectionVO {
     private Boolean enabled;
-    private Boolean waitingForFemaleFirstMessage;
+    private Boolean appliesToCurrentUser;
+    private Boolean waitingForFemaleReply;
     private LocalDateTime protectionUntil;
 }
