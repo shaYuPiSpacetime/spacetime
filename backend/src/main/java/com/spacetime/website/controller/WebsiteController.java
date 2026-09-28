@@ -15,7 +15,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +32,8 @@ public class WebsiteController {
 
     public record PhoneRequest(String phone) {}
     public record ChatRequest(Long activityId, Long peerId) {}
+    public record ActivityPublishRequest(String title, String content, String startTime,
+                                         String location, BigDecimal estimatedCost, List<Long> imageIds) {}
 
     @GetMapping("/legal/{type}")
     public R<WebsiteService.LegalView> legal(@PathVariable String type) { return R.ok(service.legal(type)); }
@@ -78,8 +84,12 @@ public class WebsiteController {
     }
 
     @PostMapping("/activities")
-    public R<WebsiteService.ActivityView> publish(@RequestBody WebsiteService.ActivityCreateRequest request) {
-        return R.ok(service.publish(currentUserId(), request));
+    public R<WebsiteService.ActivityView> publish(@RequestBody ActivityPublishRequest request) {
+        if (request == null) throw new BusinessException("活动信息不能为空");
+        LocalDateTime startTime = parseActivityStartTime(request.startTime());
+        return R.ok(service.publish(currentUserId(), new WebsiteService.ActivityCreateRequest(
+                request.title(), request.content(), startTime, request.location(),
+                request.estimatedCost(), request.imageIds())));
     }
 
     @PostMapping("/activities/{id}/registrations")
@@ -157,6 +167,20 @@ public class WebsiteController {
         UserContext user = UserContextHolder.get();
         if (user == null || user.getId() == null) throw new BusinessException(401, "请先登录");
         return user.getId();
+    }
+
+    private LocalDateTime parseActivityStartTime(String value) {
+        if (value == null || value.isBlank()) return null;
+        String normalized = value.trim();
+        try {
+            return LocalDateTime.parse(normalized, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (DateTimeParseException ignored) {
+            try {
+                return LocalDateTime.parse(normalized, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            } catch (DateTimeParseException ignoredAgain) {
+                throw new BusinessException("活动时间格式不正确，请重新选择");
+            }
+        }
     }
 
     private ResponseCookie cookie(String value, Duration age, HttpServletRequest request) {
