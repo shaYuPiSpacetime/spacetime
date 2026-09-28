@@ -6,7 +6,6 @@ import {
   normalizePendingSources,
   parsePromotionSource,
   removePendingSource,
-  waitWithinBudget,
 } from '@/domain/promotionAttribution'
 import type { InviteSourceType } from '@/types/promotion'
 import { createInviteSourceTrace } from './promotion'
@@ -156,8 +155,8 @@ export async function capturePromotionSource(
   return true
 }
 
-/** 登录请求发出前等待仍在进行的匿名来源换号，避免快速登录丢失归因。 */
-export async function waitForPromotionAttributionCapture(maxWaitMs = 150) {
+/** 登录请求发出前完成匿名来源换号；归因失败时阻止注册，避免永久丢失邀请关系。 */
+export async function waitForPromotionAttributionCapture() {
   const tasks = Array.from(pendingCaptureTasks)
   const pendingSources = normalizePendingSources(
     readStorage<unknown[]>(PENDING_SOURCES_STORAGE, []),
@@ -166,8 +165,10 @@ export async function waitForPromotionAttributionCapture(maxWaitMs = 150) {
   const allTasks = [...tasks, ...retryTasks]
   if (!allTasks.length) return true
 
-  // 归因最多占用 150ms 登录预算，超时后继续后台完成，不能阻塞手机号登录。
-  return waitWithinBudget(Promise.allSettled(allTasks), maxWaitMs)
+  await Promise.allSettled(allTasks)
+  return normalizePendingSources(
+    readStorage<unknown[]>(PENDING_SOURCES_STORAGE, []),
+  ).length === 0
 }
 
 export function getPendingPromotionTraceNos(): string[] {

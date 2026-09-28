@@ -54,6 +54,11 @@ export default function RecommendPage() {
   const initialIdealTabHandled = useRef(false)
   const candidateRequestGenerationRef = useRef(0)
   const retryCandidateCursorRef = useRef<string | null>(null)
+  const waitingNavigationRef = useRef(false)
+  const currentViewTaskRef = useRef<{
+    candidateNo: string
+    task: Promise<boolean>
+  } | null>(null)
   const access = useAccessStatus('canBrowseCards')
 
   const candidates = page?.items || []
@@ -90,6 +95,17 @@ export default function RecommendPage() {
     return data
   }
 
+  const openWaitingPage = async () => {
+    if (waitingNavigationRef.current) return
+    waitingNavigationRef.current = true
+    setState('limit')
+    try {
+      await Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' })
+    } catch {
+      waitingNavigationRef.current = false
+    }
+  }
+
   const loadCandidates = async () => {
     const requestGeneration = ++candidateRequestGenerationRef.current
     const resumeCursor = retryCandidateCursorRef.current
@@ -110,10 +126,12 @@ export default function RecommendPage() {
       setPage(data)
       setCandidateIndex(0)
       if (data.items?.length) {
+        waitingNavigationRef.current = false
         setState('ready')
       } else if (data.waitingReason === 'browse_limit') {
-        setState('limit')
+        void openWaitingPage()
       } else if (data.waitingReason === 'no_candidate' || !data.items?.length) {
+        waitingNavigationRef.current = false
         setState('empty')
       }
     } catch (error) {
@@ -185,7 +203,7 @@ export default function RecommendPage() {
     if (!candidate || viewedCandidates.current.has(candidate.candidateNo)) return
     viewedCandidates.current.add(candidate.candidateNo)
     const requestId = createRequestId('recommend-view', candidate.candidateNo)
-    void new Promise<void>(resolve => Taro.nextTick(resolve))
+    const task = new Promise<void>(resolve => Taro.nextTick(resolve))
       .then(() =>
         recordRecommendView(candidate.candidateNo, {
           requestId,
@@ -193,15 +211,29 @@ export default function RecommendPage() {
           position: candidateIndex + 1,
         })
       )
+      .then(() => true)
       .catch(() => {
         viewedCandidates.current.delete(candidate.candidateNo)
+        return false
       })
+    currentViewTaskRef.current = { candidateNo: candidate.candidateNo, task }
   }, [candidate?.candidateNo, candidateIndex, page?.preferenceVersion])
+
+  const awaitCurrentCandidateView = async () => {
+    if (!candidate) return true
+    const current = currentViewTaskRef.current
+    if (!current || current.candidateNo !== candidate.candidateNo) return true
+    return current.task
+  }
 
   const showNextCandidate = async (
     expectedGeneration = candidateRequestGenerationRef.current
   ) => {
     if (candidateRequestGenerationRef.current !== expectedGeneration) return
+    if (!await awaitCurrentCandidateView()) {
+      await loadCandidates()
+      return
+    }
     if (candidateIndex + 1 < candidates.length) {
       setCandidateIndex(current => current + 1)
       return
@@ -225,9 +257,15 @@ export default function RecommendPage() {
       )
       setPage(next)
       setCandidateIndex(0)
-      if (next.items?.length) setState('ready')
-      else if (next.waitingReason === 'browse_limit') setState('limit')
-      else setState('empty')
+      if (next.items?.length) {
+        waitingNavigationRef.current = false
+        setState('ready')
+      } else if (next.waitingReason === 'browse_limit') {
+        void openWaitingPage()
+      } else {
+        waitingNavigationRef.current = false
+        setState('empty')
+      }
     } catch (error) {
       if (candidateRequestGenerationRef.current !== requestGeneration) return
       throw error

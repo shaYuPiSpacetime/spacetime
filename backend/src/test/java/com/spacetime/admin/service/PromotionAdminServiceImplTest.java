@@ -8,13 +8,16 @@ import com.spacetime.common.dao.PromotionAgentBonusLogDao;
 import com.spacetime.common.dao.PromotionAgentDao;
 import com.spacetime.common.dao.PromotionInviteRelationDao;
 import com.spacetime.common.dao.PromotionRewardLogDao;
+import com.spacetime.common.dao.PromotionAgentQrCodeDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.PromotionAgent;
 import com.spacetime.common.entity.PromotionAgentBonusLog;
+import com.spacetime.common.entity.PromotionAgentQrCode;
 import com.spacetime.common.entity.PromotionInviteRelation;
 import com.spacetime.common.entity.PromotionRewardLog;
 import com.spacetime.common.enums.PromotionRewardStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.service.WechatMiniappCodeService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -29,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +42,8 @@ class PromotionAdminServiceImplTest {
     @Mock private PromotionAgentDao agentDao;
     @Mock private PromotionRewardLogDao rewardDao;
     @Mock private PromotionAgentBonusLogDao bonusDao;
+    @Mock private PromotionAgentQrCodeDao qrCodeDao;
+    @Mock private WechatMiniappCodeService wechatMiniappCodeService;
     @InjectMocks private PromotionAdminServiceImpl service;
 
     @Test
@@ -115,6 +121,29 @@ class PromotionAdminServiceImplTest {
                 .hasMessage("邀请关系不存在")
                 .extracting("code").isEqualTo(404);
         verifyNoInteractions(appUserDao, agentDao, rewardDao, bonusDao);
+    }
+
+    @Test
+    void agentQrCodeImageUsesOfficialWechatMiniappCode() {
+        PromotionAgent agent = new PromotionAgent();
+        agent.setId(9L);
+        agent.setAgentNo("AGT-9");
+        PromotionAgentQrCode qrCode = new PromotionAgentQrCode();
+        qrCode.setAgentId(9L);
+        qrCode.setQrToken("1a7f66e3d9654c81813f3b2b0dafdb45");
+        when(agentDao.selectByAgentNo("AGT-9")).thenReturn(agent);
+        when(qrCodeDao.selectByAgentId(9L)).thenReturn(qrCode);
+        when(wechatMiniappCodeService.generateUnlimitedCode(
+                "1a7f66e3d9654c81813f3b2b0dafdb45",
+                "pages/promotion/invite-home"))
+                .thenReturn(new byte[]{1, 2, 3});
+
+        byte[] result = service.agentQrCodePng("AGT-9");
+
+        assertThat(result).containsExactly(1, 2, 3);
+        verify(wechatMiniappCodeService).generateUnlimitedCode(
+                "1a7f66e3d9654c81813f3b2b0dafdb45",
+                "pages/promotion/invite-home");
     }
 
     private void stubRelation(PromotionInviteRelation relation) {

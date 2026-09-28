@@ -165,13 +165,14 @@ public class RecommendServiceImpl implements RecommendService {
             return result;
         }
 
+        int resultLimit = Math.min(PAGE_SIZE, remaining);
         List<RecommendCandidateVO> items = new ArrayList<>();
         AppUser lastAccepted = null;
         String scanCursor = cursor;
         String previousScanCursor = null;
         String continuationCursor = null;
         int scannedBatches = 0;
-        while (items.size() < PAGE_SIZE && scannedBatches < MAX_CANDIDATE_SCAN_BATCHES) {
+        while (items.size() < resultLimit && scannedBatches < MAX_CANDIDATE_SCAN_BATCHES) {
             LambdaQueryWrapper<AppUser> wrapper = candidateWrapper(
                     current, preference, vipEffective, scanCursor);
             List<AppUser> queried = safeUsers(appUserDao.selectList(wrapper));
@@ -187,7 +188,7 @@ public class RecommendServiceImpl implements RecommendService {
             Set<Long> blockedCandidateIds = blockedCandidateIds(userId, openCandidateIds);
             List<AppUser> visibleCandidates = openCandidates.stream()
                     .filter(candidate -> !blockedCandidateIds.contains(candidate.getId()))
-                    .limit(PAGE_SIZE - items.size())
+                    .limit(resultLimit - items.size())
                     .toList();
             Map<Long, PublicProfileVO> profiles = batchCandidateProfiles(userId, visibleCandidates);
             for (AppUser candidate : visibleCandidates) {
@@ -206,7 +207,7 @@ public class RecommendServiceImpl implements RecommendService {
                 lastAccepted = candidate;
             }
 
-            if (items.size() >= PAGE_SIZE || queried.size() < CANDIDATE_SCAN_BATCH_SIZE) {
+            if (items.size() >= resultLimit || queried.size() < CANDIDATE_SCAN_BATCH_SIZE) {
                 break;
             }
             String nextScanCursor = encodeCursor(queried.getLast());
@@ -223,7 +224,7 @@ public class RecommendServiceImpl implements RecommendService {
         }
         result.setItems(items);
         result.setWaitingReason(items.isEmpty() ? "no_candidate" : null);
-        if (items.size() == PAGE_SIZE) {
+        if (items.size() == resultLimit) {
             result.setNextCursor(lastAccepted == null ? null : encodeCursor(lastAccepted));
         } else if (continuationCursor != null) {
             result.setNextCursor(continuationCursor);

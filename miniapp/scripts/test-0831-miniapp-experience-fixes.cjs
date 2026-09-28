@@ -98,6 +98,25 @@ test('推荐页首次送出心动后展示下一位且不写入跳过动作', ()
     /omitSeenRecommendCandidates\([\s\S]*?candidate\?\.candidateNo\s*\)/,
     '推荐页必须显式把当前候选交给队列去重规则'
   )
+  assert.match(source, /awaitCurrentCandidateView/, '切换候选前必须等待当前曝光扣减额度')
+  assert.match(
+    source,
+    /navigateTo\(\{\s*url:\s*['"]\/pages\/prd08\/recommend\/waiting\/index['"]\s*\}\)/,
+    '额度用完后必须自动进入推荐等待聚合页'
+  )
+})
+
+test('普通用户高级推荐偏好在交互和提交两层均锁定', () => {
+  const source = read('src/pages/prd08/recommend/preference/index.tsx')
+  const saveStart = source.indexOf('const save = async')
+  const saveFlow = source.slice(saveStart, source.indexOf('  return (', saveStart))
+
+  assert.match(source, /disabled=\{!model\.vipEffective\}/, '非会员高级滑块必须禁用')
+  assert.match(
+    saveFlow,
+    /\.\.\.\(model\.vipEffective\s*\?[\s\S]*minHeight[\s\S]*:\s*\{\}\)/,
+    '非会员提交时必须从请求中剔除全部高级条件'
+  )
 })
 
 test('我的标签中 MBTI 分类保持单选，其他分类仍可多选', () => {

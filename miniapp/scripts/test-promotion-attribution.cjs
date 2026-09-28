@@ -7,6 +7,7 @@ const test = require('node:test')
 
 const miniappRoot = path.resolve(__dirname, '..')
 const domainPath = path.join(miniappRoot, 'src/domain/promotionAttribution.js')
+const read = relativePath => fs.readFileSync(path.join(miniappRoot, relativePath), 'utf8')
 
 async function loadDomainModule() {
   assert.ok(fs.existsSync(domainPath), '缺少推广归因领域层')
@@ -170,6 +171,14 @@ test('启动二维码 scene 支持 URL 编码，非法来源不会触发归因',
     }),
     undefined,
   )
+  assert.deepEqual(
+    parsePromotionSource({ scene: '1a7f66e3d9654c81813f3b2b0dafdb45' }),
+    {
+      sourceType: 'campus_agent',
+      sourceToken: '1a7f66e3d9654c81813f3b2b0dafdb45',
+    },
+    '微信小程序码的 32 位 scene 必须识别为校园代理来源',
+  )
 })
 
 test('待提交 traceNo 去重、过滤非法值并仅保留最近十条', async () => {
@@ -219,22 +228,12 @@ test('换 traceNo 失败时可安全持久化合法 raw source，重试成功后
   assert.deepEqual(removePendingSource([normalSource, agentSource], normalSource), [agentSource])
 })
 
-test('推广归因等待受时间预算约束，不得长期阻塞登录请求', async () => {
-  const { waitWithinBudget } = await loadDomainModule()
-  let completed = false
-  const pendingTask = new Promise(resolve => {
-    setTimeout(() => {
-      completed = true
-      resolve('done')
-    }, 80)
-  })
+test('邀请来源换号完成前不得放行注册请求', () => {
+  const attribution = read('src/services/promotionAttribution.ts')
+  const auth = read('src/services/auth.ts')
 
-  const startedAt = Date.now()
-  const finishedInBudget = await waitWithinBudget(pendingTask, 20)
-  const elapsed = Date.now() - startedAt
-
-  assert.equal(finishedInBudget, false)
-  assert.ok(elapsed < 70, `登录前归因等待超出预算：${elapsed}ms`)
-  await pendingTask
-  assert.equal(completed, true, '超时后归因任务仍应在后台完成')
+  assert.doesNotMatch(attribution, /maxWaitMs\s*=\s*150/, '不得再用 150ms 超时放弃注册归因')
+  assert.match(attribution, /await Promise\.allSettled\(allTasks\)/, '登录前必须等待来源换号结束')
+  assert.match(auth, /const attributionReady = await waitForPromotionAttributionCapture\(\)/)
+  assert.match(auth, /if \(!attributionReady\)[\s\S]*邀请来源/, '换号失败时必须阻止无归因注册')
 })

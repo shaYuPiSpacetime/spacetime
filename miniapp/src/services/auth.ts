@@ -15,7 +15,8 @@ import type { SmsCodeResult } from '@/types/prd01'
 
 /** 微信授权手机号登录：用 wx.login code + getPhoneNumber code 换取后端 token */
 export async function loginByWechatPhone(data: LoginReq): Promise<LoginVO> {
-  await waitForPromotionAttributionCapture(150)
+  const attributionReady = await waitForPromotionAttributionCapture()
+  if (!attributionReady) throw new Error('邀请来源加载失败，请检查网络后重试')
   const promotionTraceNos = getPendingPromotionTraceNos()
   const result = await prd01Api.wechatLogin(
     data.loginCode,
@@ -36,7 +37,8 @@ export async function loginByPhone(
   smsCode: string,
   agreeProtocol: boolean,
 ): Promise<LoginVO> {
-  await waitForPromotionAttributionCapture(150)
+  const attributionReady = await waitForPromotionAttributionCapture()
+  if (!attributionReady) throw new Error('邀请来源加载失败，请检查网络后重试')
   const promotionTraceNos = getPendingPromotionTraceNos()
   const result = await prd01Api.phoneLogin(phone, smsCode, agreeProtocol, promotionTraceNos)
   clearPendingPromotionTraceNos()

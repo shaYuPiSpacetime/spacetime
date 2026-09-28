@@ -366,6 +366,37 @@ class RecommendServiceImplTest {
     }
 
     @Test
+    @DisplayName("候选列表不得超过当天剩余浏览额度")
+    void getCandidatesShouldLimitPageToRemainingQuota() {
+        AppUser current = openUser(7L, 30, "320100");
+        List<AppUser> candidates = LongStream.rangeClosed(8L, 19L).mapToObj(userId -> {
+            AppUser candidate = openUser(userId, 28, "320100");
+            candidate.setGender("FEMALE");
+            candidate.setNickname("候选人" + userId);
+            candidate.setLastLoginTime(LocalDateTime.now().minusMinutes(userId));
+            return candidate;
+        }).toList();
+        RecommendPreference preference = basicPreference(7L, 2);
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference);
+        when(appUserDao.selectList(any())).thenReturn(candidates);
+        when(accessProjectionService.projectAll(candidates)).thenReturn(candidates.stream()
+                .collect(java.util.stream.Collectors.toMap(AppUser::getId, ignored -> "OPEN")));
+        when(appConfigDao.selectByKeys(any()))
+                .thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        when(viewLogDao.selectList(any())).thenReturn(LongStream.rangeClosed(1L, 8L)
+                .mapToObj(index -> viewLog(7L, 100L + index, "view", LocalDateTime.now()))
+                .toList());
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getRemainingBrowseCount()).isEqualTo(2);
+        assertThat(result.getItems()).hasSize(2);
+        assertThat(result.getNextCursor()).isNotBlank();
+    }
+
+    @Test
     @DisplayName("基础资料完成但三项认证未通过时仍返回已认证候选人")
     void getCandidatesShouldAllowNonCoreBrowseUser() {
         AppUser current = openUser(7L, 30, "320100");

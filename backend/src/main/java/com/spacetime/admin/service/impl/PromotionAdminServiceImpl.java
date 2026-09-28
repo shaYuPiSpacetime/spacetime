@@ -7,10 +7,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.client.j2se.MatrixToImageWriter;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
 import com.spacetime.admin.dto.request.*;
 import com.spacetime.admin.dto.response.*;
 import com.spacetime.admin.service.PromotionAdminService;
@@ -36,7 +32,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -70,6 +65,7 @@ public class PromotionAdminServiceImpl implements PromotionAdminService {
     private final PromotionAuditLogDao auditLogDao;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final WechatMiniappCodeService wechatMiniappCodeService;
 
     @Override
     public PromotionRuleConfigVO currentRule(String sourceType) {
@@ -273,14 +269,8 @@ public class PromotionAdminServiceImpl implements PromotionAdminService {
         if (qr == null) {
             throw new BusinessException(404, "校园推广员二维码尚未生成");
         }
-        try {
-            BitMatrix matrix = new QRCodeWriter().encode(qr.getMiniappPath(), BarcodeFormat.QR_CODE, 512, 512);
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            MatrixToImageWriter.writeToStream(matrix, "PNG", output);
-            return output.toByteArray();
-        } catch (Exception ex) {
-            throw new BusinessException(70006, "二维码生成失败，请重试");
-        }
+        return wechatMiniappCodeService.generateUnlimitedCode(
+                qr.getQrToken(), "pages/promotion/invite-home");
     }
 
     @Override

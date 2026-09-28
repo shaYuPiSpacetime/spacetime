@@ -7,6 +7,7 @@ import com.spacetime.common.entity.AppUserAuditRecord;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
+import com.spacetime.common.enums.PromotionRewardEventEnum;
 import com.spacetime.common.service.impl.AppUserAuditServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -109,6 +110,22 @@ class AppUserAuditServiceTest {
         verify(historyDao).insert(historyCaptor.capture());
         assertThat(historyCaptor.getValue().getAction()).isEqualTo("MANUAL_APPROVE");
         assertThat(historyCaptor.getValue().getOperatorType()).isEqualTo("ADMIN");
+    }
+
+    @Test
+    @DisplayName("头像认证审核通过时触发邀请资料完善奖励")
+    void avatarApprovalShouldTriggerProfileCompleteReward() {
+        AppUserAuditRecord current = record(12L, 10L, AppUserAuditTypeEnum.AVATAR,
+                AppUserAuditStatusEnum.PENDING);
+        when(recordDao.selectById(12L)).thenReturn(current);
+
+        auditService.manualAudit(12L, "APPROVE", null, 99L, "admin");
+
+        verify(promotionEventInboxService).enqueueBusinessEvent(
+                "profile:10",
+                PromotionRewardEventEnum.PROFILE_COMPLETE_REWARD.getCode(),
+                10L,
+                "12");
     }
 
     @Test

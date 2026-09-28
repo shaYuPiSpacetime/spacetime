@@ -1,5 +1,6 @@
 const PROMOTION_SOURCE_TYPES = new Set(['normal_user', 'campus_agent'])
 const SOURCE_TOKEN_PATTERN = /^[A-Za-z0-9._~-]{8,160}$/
+const AGENT_SCENE_TOKEN_PATTERN = /^[a-f0-9]{32}$/i
 const TRACE_NO_PATTERN = /^TRC-[A-Za-z0-9]{8,128}$/
 const MAX_PENDING_TRACE_COUNT = 10
 const MAX_PENDING_SOURCE_COUNT = 5
@@ -96,7 +97,12 @@ function validSource(value) {
 export function parsePromotionSource(input = {}) {
   const direct = validSource(queryObject(input))
   if (direct) return direct
-  return validSource(parseQueryString(input?.scene))
+  const sceneSource = validSource(parseQueryString(input?.scene))
+  if (sceneSource) return sceneSource
+  const sceneToken = scalar(input?.scene)
+  return AGENT_SCENE_TOKEN_PATTERN.test(sceneToken)
+    ? { sourceType: 'campus_agent', sourceToken: sceneToken }
+    : undefined
 }
 
 function stringifyQuery(query) {

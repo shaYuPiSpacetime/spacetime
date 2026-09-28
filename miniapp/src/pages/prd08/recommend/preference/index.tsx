@@ -146,14 +146,16 @@ export default function RecommendPreferencePage() {
         onlyCertifiedUsers: model.onlyCertifiedUsers,
         minAge: model.minAge,
         maxAge: model.maxAge,
-        minHeight: advanced.minHeight ?? undefined,
-        maxHeight: advanced.maxHeight ?? undefined,
-        minWeight: advanced.minWeight ?? undefined,
-        maxWeight: advanced.maxWeight ?? undefined,
-        educationCodes: advanced.educationCodes,
-        hometowns: advanced.hometowns,
-        schoolCodes: advanced.schoolCodes,
-        majorNames: advanced.majorNames,
+        ...(model.vipEffective ? {
+          minHeight: advanced.minHeight ?? undefined,
+          maxHeight: advanced.maxHeight ?? undefined,
+          minWeight: advanced.minWeight ?? undefined,
+          maxWeight: advanced.maxWeight ?? undefined,
+          educationCodes: advanced.educationCodes,
+          hometowns: advanced.hometowns,
+          schoolCodes: advanced.schoolCodes,
+          majorNames: advanced.majorNames,
+        } : {}),
       })
       setModel(result)
       Taro.setStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY, true)
