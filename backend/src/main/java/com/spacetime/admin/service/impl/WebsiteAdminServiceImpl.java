@@ -31,7 +31,7 @@ public class WebsiteAdminServiceImpl implements WebsiteAdminService {
         return dao.adminActivities(offset(page, size), normalizedSize(size)).stream().map(item -> {
             WebsiteData.User author = dao.user(item.getAuthorId());
             List<String> images = dao.mediaFor("ACTIVITY", item.getId()).stream()
-                    .map(media -> oss.toSignedUrl(media.getObjectKey())).toList();
+                    .map(media -> oss.toWebsiteSignedUrl(media.getObjectKey())).toList();
             return new AdminActivityView(item, author == null ? "用户已注销" : author.getNickname(), images);
         }).toList();
     }
@@ -67,7 +67,7 @@ public class WebsiteAdminServiceImpl implements WebsiteAdminService {
         String imageUrl = null;
         if (item.getMediaId() != null) {
             WebsiteData.Media media = dao.media(item.getMediaId());
-            if (media != null) imageUrl = oss.toSignedUrl(media.getObjectKey());
+            if (media != null) imageUrl = oss.toWebsiteSignedUrl(media.getObjectKey());
         }
         audit("MESSAGE_CONTENT_VIEW", "MESSAGE", id, reason);
         return new SensitiveMessageView(id, item.getMessageType(), item.getContentText(), imageUrl);

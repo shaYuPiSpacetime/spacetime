@@ -106,7 +106,7 @@ public class OssUtil {
         try {
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setObjectAcl(CannedAccessControlList.Private);
-            PutObjectRequest request = new PutObjectRequest(ossConfig.getBucketName(), key, inputStream, metadata);
+            PutObjectRequest request = new PutObjectRequest(websiteBucketName(), key, inputStream, metadata);
             oss.putObject(request);
         } finally {
             oss.shutdown();
@@ -118,7 +118,7 @@ public class OssUtil {
     public byte[] readWebsiteObject(String key, int maxBytes) {
         OSS oss = new OSSClientBuilder().build(
                 ossConfig.getEndpoint(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
-        try (OSSObject object = oss.getObject(ossConfig.getBucketName(), key)) {
+        try (OSSObject object = oss.getObject(websiteBucketName(), key)) {
             byte[] bytes = object.getObjectContent().readNBytes(maxBytes + 1);
             if (bytes.length > maxBytes) throw new IllegalStateException("官网图片大小超限");
             return bytes;
@@ -182,12 +182,21 @@ public class OssUtil {
      * @return 签名临时 URL
      */
     public String toSignedUrl(String key, int expireSeconds) {
+        return toSignedUrlForBucket(ossConfig.getBucketName(), key, expireSeconds);
+    }
+
+    /** 官网审核后台只能签发私有 Bucket 中的临时访问地址。 */
+    public String toWebsiteSignedUrl(String key) {
+        return toSignedUrlForBucket(websiteBucketName(), key, ossConfig.getUrlExpireSeconds());
+    }
+
+    private String toSignedUrlForBucket(String bucketName, String key, int expireSeconds) {
         OSS oss = new OSSClientBuilder().build(
                 ossConfig.getEndpoint(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
         try {
             Date expiration = new Date(System.currentTimeMillis() + expireSeconds * 1000L);
             GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
-                    ossConfig.getBucketName(), key);
+                    bucketName, key);
             request.setExpiration(expiration);
             URL url = oss.generatePresignedUrl(request);
             // OSS SDK 返回的 URL 默认是 http，强制 https
@@ -195,6 +204,14 @@ public class OssUtil {
         } finally {
             oss.shutdown();
         }
+    }
+
+    private String websiteBucketName() {
+        String websiteBucket = ossConfig.getWebsiteBucketName();
+        if (StrUtil.isBlank(websiteBucket) || websiteBucket.equals(ossConfig.getBucketName())) {
+            throw new IllegalStateException("官网私有 OSS Bucket 未配置或与公共 Bucket 相同");
+        }
+        return websiteBucket;
     }
 
     // ==================== 内部方法 ====================
