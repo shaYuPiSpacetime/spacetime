@@ -118,8 +118,8 @@ public interface WebsiteMapper {
     @Select("SELECT * FROM website_report WHERE deleted=0 ORDER BY id DESC LIMIT #{offset},#{size}")
     List<WebsiteData.Report> reports(@Param("offset") int offset, @Param("size") int size);
 
-    @Insert("INSERT INTO website_report(reporter_id,target_type,target_id,reason,status,create_time,update_time,created_by,deleted) " +
-            "VALUES(#{reporterId},#{targetType},#{targetId},#{reason},'OPEN',NOW(),NOW(),#{reporterId},0)")
+    @Insert("INSERT INTO website_report(reporter_id,target_type,target_id,reason,contact,status,create_time,update_time,created_by,deleted) " +
+            "VALUES(#{reporterId},#{targetType},#{targetId},#{reason},#{contact},'OPEN',NOW(),NOW(),#{reporterId},0)")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insertReport(WebsiteData.Report report);
 

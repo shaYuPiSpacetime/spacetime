@@ -148,6 +148,11 @@ public class WebsiteController {
         return R.ok(Map.of("id", service.report(currentUserId(), request)));
     }
 
+    @PostMapping("/reports/public")
+    public R<Map<String, Long>> publicReport(@RequestBody WebsiteService.PublicReportRequest request) {
+        return R.ok(Map.of("id", service.publicReport(request)));
+    }
+
     private Long currentUserId() {
         UserContext user = UserContextHolder.get();
         if (user == null || user.getId() == null) throw new BusinessException(401, "请先登录");

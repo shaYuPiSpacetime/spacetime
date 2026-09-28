@@ -13,6 +13,8 @@ const app = read('website/src/App.tsx');
 const api = read('website/src/api.ts');
 const css = read('website/src/styles.css');
 const sql = read('deploy/sql/prod/096_website_activity_platform.sql');
+const reportMigration = read('deploy/sql/prod/097_website_public_report_contact.sql');
+const legalMigration = read('deploy/sql/prod/098_website_legal_publication.sql');
 const docker = read('frontend/Dockerfile');
 const gateway = read('deploy/nginx-prod/conf.d/default.conf');
 const client = read('frontend/nginx.conf');
@@ -33,7 +35,7 @@ for (const route of ['/activities', '/publish', '/my', '/chats', '/login', '/bus
 for (const value of ['沪ICP备2026033427号-1', '用户协议', '隐私政策', '不良信息举报', '线下预计费用', '免费报名', 'aria-modal="true"']) {
   assert.ok(app.includes(value), `缺少页面要素 ${value}`);
 }
-for (const operation of ['sendCode:', 'login:', 'publish:', 'register:', 'startConversation:', 'sendMessage:', 'upload:', 'report:']) {
+for (const operation of ['sendCode:', 'login:', 'publish:', 'register:', 'startConversation:', 'sendMessage:', 'upload:', 'report:', 'publicReport:']) {
   assert.ok(api.includes(operation), `缺少真实接口 ${operation}`);
 }
 assert.match(api, /fetch\(`\/api\/website\$\{path\}`/);
@@ -52,7 +54,16 @@ assert.match(prodDeploy, /WEBSITE_OSS_BUCKET_NAME/);
 assert.match(prodDeploy, /\[ "\$WEBSITE_OSS_BUCKET_NAME" != "\$OSS_BUCKET_NAME" \]/);
 assert.match(websiteService, /publicMedia\(Long mediaId\)/);
 assert.match(websiteService, /privateMedia\(Long userId, Long mediaId\)/);
+assert.match(websiteService, /publicReport\(PublicReportRequest request\)/);
+assert.match(app, /无需登录也可举报公开活动或反馈隐私问题/);
+assert.match(reportMigration, /ALTER TABLE website_report MODIFY COLUMN reporter_id BIGINT NULL/);
+assert.match(reportMigration, /ADD COLUMN contact VARCHAR\(120\) NULL/);
+assert.match(legalMigration, /'USER_AGREEMENT','1\.1','官网用户服务协议'/);
+assert.match(legalMigration, /'PRIVACY_POLICY','1\.1','官网隐私政策'/);
+assert.match(legalMigration, /'PUBLISHED'/);
 assert.ok(backendWorkflow.includes('deploy/sql/prod/096_website_activity_platform.sql'));
+assert.ok(backendWorkflow.includes('deploy/sql/prod/097_website_public_report_contact.sql'));
+assert.ok(backendWorkflow.includes('deploy/sql/prod/098_website_legal_publication.sql'));
 assert.match(sql, /status VARCHAR\(20\) NOT NULL DEFAULT 'DRAFT'/);
 assert.match(sql, /'DRAFT' WHERE NOT EXISTS\(SELECT 1 FROM website_legal_document WHERE document_type='USER_AGREEMENT'/);
 assert.match(sql, /'DRAFT' WHERE NOT EXISTS\(SELECT 1 FROM website_legal_document WHERE document_type='PRIVACY_POLICY'/);

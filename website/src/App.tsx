@@ -43,7 +43,7 @@ function Shell({ children }: { children: ReactNode }) {
       <div className="account-area">{session ? <><span className="account-name">{session.user.nickname}</span><button type="button" className="text-button" onClick={() => void signOut().then(() => navigate('/'))}>退出</button></> : <Link className="button button-small" to="/login">注册 / 登录</Link>}</div>
     </div></header>
     <main id="main-content">{children}</main>
-    <footer className="site-footer"><div className="container footer-content"><div><strong>时空邂逅 · 线下活动平台</strong><p>真实活动信息，自主报名，安心沟通。</p></div><div className="footer-links"><Link to="/legal/user-agreement">用户协议</Link><Link to="/legal/privacy-policy">隐私政策</Link><Link to="/report">不良信息举报</Link><a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">沪ICP备2026033427号-1</a></div></div><div className="container copyright">© {new Date().getFullYear()} 上海兴家立业网络科技</div></footer>
+    <footer className="site-footer"><div className="container footer-content"><div><strong>时空邂逅 · 线下活动平台</strong><p>真实活动信息，自主报名，安心沟通。</p></div><div className="footer-links"><Link to="/legal/user-agreement">用户协议</Link><Link to="/legal/privacy-policy">隐私政策</Link><Link to="/report">不良信息举报与隐私联系</Link><a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">沪ICP备2026033427号-1</a></div></div><div className="container copyright">© {new Date().getFullYear()} 上海兴家立业网络科技有限公司</div></footer>
   </>
 }
 
@@ -202,17 +202,17 @@ function LegalPage({ type }: { type: 'USER_AGREEMENT' | 'PRIVACY_POLICY' }) {
 function ReportPage() {
   const { session, loading } = useSession()
   const [search] = useSearchParams()
-  const [reason, setReason] = useState(''), [error, setError] = useState(''), [done, setDone] = useState(false), [busy, setBusy] = useState(false)
+  const [reason, setReason] = useState(''), [contact, setContact] = useState(''), [error, setError] = useState(''), [done, setDone] = useState(false), [busy, setBusy] = useState(false)
   if (loading) return <div className="container content-page">正在确认登录状态…</div>
-  if (!session) return <LoginRequired />
   const rawType = search.get('targetType')
-  const targetType = rawType === 'ACTIVITY' || rawType === 'MESSAGE' || rawType === 'USER' ? rawType : 'OTHER'
+  const targetType = rawType === 'ACTIVITY' || (session && (rawType === 'MESSAGE' || rawType === 'USER')) ? rawType : 'OTHER'
+  const publicTargetType = targetType === 'ACTIVITY' ? 'ACTIVITY' : 'OTHER'
   const targetId = search.get('targetId') ? Number(search.get('targetId')) : undefined
-  const submit = async (event: FormEvent) => { event.preventDefault(); setBusy(true); setError(''); try { await api.report({ targetType, targetId, reason }); setDone(true) } catch (e) { setError(errorText(e)) } finally { setBusy(false) } }
-  return <div className="container content-page form-page"><span className="eyebrow">内容治理</span><h1>不良信息举报</h1><p className="page-intro">如发现违规活动或私聊内容，请说明具体情况。平台将由授权人员处理。</p>{done ? <div className="surface form-card"><h2>举报已提交</h2><p>感谢反馈，我们会按规则核查。</p><Link to="/activities">返回活动列表</Link></div> : <form className="surface form-card" onSubmit={e => void submit(e)}><p>举报对象：{targetType === 'OTHER' ? '网站服务或其他问题' : `${targetType} #${targetId ?? ''}`}</p><label>具体情况<textarea required rows={7} maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} placeholder="请描述发现的问题、发生时间和相关内容" /></label>{error && <p className="notice error">{error}</p>}<button className="button" disabled={busy} type="submit">{busy ? '提交中…' : '提交举报'}</button></form>}</div>
+  const submit = async (event: FormEvent) => { event.preventDefault(); setBusy(true); setError(''); try { if (session) await api.report({ targetType, targetId, reason }); else await api.publicReport({ targetType: publicTargetType, targetId, reason, contact: contact.trim() || undefined }); setDone(true) } catch (e) { setError(errorText(e)) } finally { setBusy(false) } }
+  return <div className="container content-page form-page"><span className="eyebrow">内容治理</span><h1>不良信息举报与隐私联系</h1><p className="page-intro">无需登录也可举报公开活动或反馈隐私问题。请说明具体情况；如需回复，请留下手机号或邮箱。</p>{done ? <div className="surface form-card"><h2>反馈已提交</h2><p>感谢反馈，我们会按规则核查。</p><Link to="/activities">返回活动列表</Link></div> : <form className="surface form-card" onSubmit={e => void submit(e)}><p>反馈对象：{targetType === 'OTHER' ? '网站服务、隐私或其他问题' : `${targetType} #${targetId ?? ''}`}</p><label>具体情况<textarea required rows={7} maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} placeholder="请描述发现的问题、发生时间和相关内容" /></label>{!session && <label>联系方式（选填，申请个人信息处理时请填写）<input type="text" maxLength={120} value={contact} onChange={e => setContact(e.target.value)} placeholder="手机号或邮箱，仅用于回复本次反馈" /></label>}{error && <p className="notice error">{error}</p>}<button className="button" disabled={busy} type="submit">{busy ? '提交中…' : '提交反馈'}</button></form>}</div>
 }
 
-function LoginRequired() { return <div className="container content-page"><div className="surface empty-state"><h1>请先注册或登录</h1><p>发布、报名、私聊及举报需要网站活动账号。</p><Link className="button" to="/login">前往登录</Link></div></div> }
+function LoginRequired() { return <div className="container content-page"><div className="surface empty-state"><h1>请先注册或登录</h1><p>发布、报名和私聊需要网站活动账号。</p><Link className="button" to="/login">前往登录</Link></div></div> }
 
 export default function App() {
   return <SessionProvider><Shell><Routes>

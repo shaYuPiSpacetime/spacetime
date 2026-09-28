@@ -28,6 +28,7 @@ public interface WebsiteService {
     record MediaUploadView(Long id, String previewUrl) {}
     record PublicMediaView(String contentType, byte[] bytes) {}
     record ReportRequest(String targetType, Long targetId, String reason) {}
+    record PublicReportRequest(String targetType, Long targetId, String reason, String contact) {}
 
     LegalView legal(String type);
     void sendCode(String phone);
@@ -49,4 +50,5 @@ public interface WebsiteService {
     PublicMediaView publicMedia(Long mediaId);
     PublicMediaView privateMedia(Long userId, Long mediaId);
     Long report(Long userId, ReportRequest request);
+    Long publicReport(PublicReportRequest request);
 }

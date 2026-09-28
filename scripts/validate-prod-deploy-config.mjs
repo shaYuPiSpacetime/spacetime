@@ -127,6 +127,18 @@ for (const migration of sensitiveMigrations) {
 }
 assert.ok(backendMigrationStep.indexOf(sensitiveMigrations[0]) < backendMigrationStep.indexOf(sensitiveMigrations[1]),
   'sensitive-word schema must run before seed');
+const websiteMigrations = [
+  'deploy/sql/prod/096_website_activity_platform.sql',
+  'deploy/sql/prod/097_website_public_report_contact.sql',
+  'deploy/sql/prod/098_website_legal_publication.sql',
+];
+for (const migration of websiteMigrations) {
+  assert.ok(backendCopySource.includes(migration), `backend SCP must include ${migration}`);
+  assertIncludes(backendMigrationStep, migration, 'backend migration execution');
+}
+assert.ok(websiteMigrations.every((migration, index) => index === 0
+  || backendMigrationStep.indexOf(websiteMigrations[index - 1]) < backendMigrationStep.indexOf(migration)),
+  '官网迁移必须先建表、再开放访客反馈、最后发布协议');
 const sensitiveSeed = read(sensitiveMigrations[1]);
 assertIncludes(sensitiveSeed, 'IF existing_count = 0 THEN', sensitiveMigrations[1]);
 assertIncludes(sensitiveSeed, 'SKIPPED_NONEMPTY', sensitiveMigrations[1]);

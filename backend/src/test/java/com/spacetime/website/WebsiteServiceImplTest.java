@@ -12,10 +12,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import com.spacetime.common.provider.SmsCodeProvider;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.*;
 class WebsiteServiceImplTest {
     @Mock WebsiteDao dao;
     @Mock StringRedisTemplate redis;
+    @Mock ValueOperations<String, String> values;
     @Mock SmsCodeProvider sms;
     @Mock LocalSensitiveWordService sensitiveWords;
     @Mock OssUtil oss;
@@ -86,6 +89,38 @@ class WebsiteServiceImplTest {
         when(dao.user(2L)).thenReturn(user(2L));
         assertThrows(BusinessException.class, () -> service.report(2L,
                 new com.spacetime.website.service.WebsiteService.ReportRequest("ACTIVITY", null, "存在不良内容")));
+        verify(dao, never()).insertReport(any());
+    }
+
+    @Test void 游客可提交隐私联系且留存可回复渠道() {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.setIfAbsent(startsWith("website:report:public:cooldown:"), eq("1"), any(Duration.class)))
+                .thenReturn(true);
+        when(values.increment(startsWith("website:report:public:daily:"))).thenReturn(1L);
+        doAnswer(call -> {
+            WebsiteData.Report report = call.getArgument(0);
+            report.setId(99L);
+            return null;
+        }).when(dao).insertReport(any());
+
+        Long id = service.publicReport(new com.spacetime.website.service.WebsiteService.PublicReportRequest(
+                "OTHER", null, "申请查询我的个人信息", "user@example.com"));
+
+        assertEquals(99L, id);
+        verify(dao).insertReport(argThat(report -> report.getReporterId() == null
+                && "user@example.com".equals(report.getContact())));
+    }
+
+    @Test void 游客举报受限流保护且不能探查私聊() {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.setIfAbsent(startsWith("website:report:public:cooldown:"), eq("1"), any(Duration.class)))
+                .thenReturn(false);
+        assertThrows(BusinessException.class, () -> service.publicReport(
+                new com.spacetime.website.service.WebsiteService.PublicReportRequest(
+                        "OTHER", null, "网页内容有问题", null)));
+        assertThrows(BusinessException.class, () -> service.publicReport(
+                new com.spacetime.website.service.WebsiteService.PublicReportRequest(
+                        "MESSAGE", 1L, "私聊问题", null)));
         verify(dao, never()).insertReport(any());
     }
 

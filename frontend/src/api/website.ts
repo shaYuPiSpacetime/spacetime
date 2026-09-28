@@ -4,7 +4,7 @@ export interface WebsiteActivity { id: number; title: string; content: string; l
 export interface AdminActivity { activity: WebsiteActivity; authorName: string; imageUrls: string[] }
 export interface AdminMessage { id: number; conversationId: number; senderId: number; messageType: string; status: string; createTime: string }
 export interface SensitiveMessage { id: number; messageType: string; content?: string; imageUrl?: string }
-export interface WebsiteReport { id: number; reporterId: number; targetType: string; targetId?: number; reason: string; status: string; resolution?: string; createTime: string }
+export interface WebsiteReport { id: number; reporterId?: number; targetType: string; targetId?: number; reason: string; contact?: string; status: string; resolution?: string; createTime: string }
 export interface WebsiteAudit { id: number; actorType: string; actorId?: number; action: string; targetType?: string; targetId?: number; remark?: string; createTime: string; retainUntil: string }
 type Result<T> = { code: number; data: T; msg?: string };
 

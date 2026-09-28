@@ -70,6 +70,7 @@ public final class WebsiteData {
         private String targetType;
         private Long targetId;
         private String reason;
+        private String contact;
         private String status;
         private String resolution;
     }

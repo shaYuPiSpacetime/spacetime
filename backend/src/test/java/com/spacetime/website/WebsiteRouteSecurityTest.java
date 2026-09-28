@@ -26,6 +26,21 @@ class WebsiteRouteSecurityTest {
         assertEquals(401, privateResponse.getStatus());
     }
 
+    @Test void 游客举报接受同源请求并拒绝跨站提交() throws Exception {
+        WebsiteSessionInterceptor interceptor = new WebsiteSessionInterceptor(mock(StringRedisTemplate.class));
+        MockHttpServletRequest allowed = new MockHttpServletRequest("POST", "/website/reports/public");
+        allowed.setServerName("www.shikongxiehou.com");
+        allowed.addHeader("Origin", "https://www.shikongxiehou.com");
+        assertTrue(interceptor.preHandle(allowed, new MockHttpServletResponse(), new Object()));
+
+        MockHttpServletRequest crossSite = new MockHttpServletRequest("POST", "/website/reports/public");
+        crossSite.setServerName("www.shikongxiehou.com");
+        crossSite.addHeader("Origin", "https://untrusted.example");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        assertFalse(interceptor.preHandle(crossSite, response, new Object()));
+        assertEquals(403, response.getStatus());
+    }
+
     @Test void 管理端查看聊天正文与导出分别需要独立权限() throws Exception {
         RequirePermission view = WebsiteAdminController.class.getMethod("viewMessage", Long.class,
                 WebsiteAdminController.ReasonRequest.class).getAnnotation(RequirePermission.class);

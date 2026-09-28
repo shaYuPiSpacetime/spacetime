@@ -407,6 +407,42 @@ public class WebsiteServiceImpl implements WebsiteService {
         return report.getId();
     }
 
+    @Override
+    @Transactional
+    public Long publicReport(PublicReportRequest request) {
+        if (request == null || request.targetType() == null || !Set.of("ACTIVITY", "OTHER").contains(request.targetType())
+                || request.reason() == null || request.reason().isBlank() || request.reason().length() > 1000) {
+            throw new BusinessException("请填写举报对象和不超过1000字的说明");
+        }
+        if ("ACTIVITY".equals(request.targetType())) {
+            WebsiteData.Activity activity = requireActivity(request.targetId());
+            if (!"APPROVED".equals(activity.getStatus())) throw new BusinessException("活动不存在或未公开");
+        }
+        String contact = request.contact() == null ? null : request.contact().trim();
+        if (contact != null && !contact.isEmpty() && (contact.length() > 120
+                || !contact.matches("1[3-9]\\d{9}|[^@\\s]+@[^@\\s]+\\.[^@\\s]+"))) {
+            throw new BusinessException("联系方式须为手机号或邮箱");
+        }
+        String ip = requestIp() == null ? "unknown" : requestIp();
+        if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(
+                "website:report:public:cooldown:" + ip, "1", Duration.ofSeconds(60)))) {
+            throw new BusinessException("提交过于频繁，请稍后再试");
+        }
+        String dailyKey = "website:report:public:daily:" + LocalDateTime.now().toLocalDate() + ":" + ip;
+        Long count = redis.opsForValue().increment(dailyKey);
+        if (count != null && count == 1) redis.expire(dailyKey, Duration.ofDays(2));
+        if (count == null || count > 10) throw new BusinessException("今日反馈次数已达上限");
+        WebsiteData.Report report = new WebsiteData.Report();
+        report.setTargetType(request.targetType());
+        report.setTargetId(request.targetId());
+        report.setReason(request.reason().trim());
+        report.setContact(contact == null || contact.isEmpty() ? null : contact);
+        report.setStatus("OPEN");
+        dao.insertReport(report);
+        audit("GUEST", null, "PUBLIC_REPORT_SUBMITTED", "REPORT", report.getId());
+        return report.getId();
+    }
+
     private void safe(String text) { WebsitePolicy.requireSafeText(sensitiveWords.checkText(text)); }
 
     private WebsiteData.User requireActiveUser(Long id) {

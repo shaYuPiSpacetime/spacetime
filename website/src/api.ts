@@ -53,4 +53,5 @@ export const api = {
     return call<UploadedMedia>('/media', { method: 'POST', body: form })
   },
   report: (value: { targetType: 'ACTIVITY' | 'MESSAGE' | 'USER' | 'OTHER'; targetId?: number; reason: string }) => post<{ id: number }>('/reports', value),
+  publicReport: (value: { targetType: 'ACTIVITY' | 'OTHER'; targetId?: number; reason: string; contact?: string }) => post<{ id: number }>('/reports/public', value),
 }

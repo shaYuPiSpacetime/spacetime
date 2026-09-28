@@ -25,6 +25,9 @@ public class WebsiteSessionInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String path = request.getRequestURI();
         String method = request.getMethod();
+        if ("POST".equals(method) && path.equals("/website/reports/public")) {
+            return sameOrigin(request) || deny(response, 403, "来源校验失败");
+        }
         if ("OPTIONS".equals(method) || path.startsWith("/website/auth/sms-code")
                 || path.equals("/website/auth/login") || path.startsWith("/website/legal/")
                 || ("GET".equals(method) && path.matches("/website/public-media/[0-9]+"))
@@ -42,9 +45,7 @@ public class WebsiteSessionInterceptor implements HandlerInterceptor {
         if (value == null || !value.matches("[0-9]+\\|[a-f0-9]{32}")) return deny(response, 401, "登录已过期");
         String[] parts = value.split("\\|", 2);
         if (!"GET".equals(method) && !"HEAD".equals(method)) {
-            String origin = request.getHeader("Origin");
-            if (origin != null && !origin.equals("https://" + request.getServerName())
-                    && !origin.equals("http://" + request.getServerName() + ":" + request.getServerPort())) {
+            if (!sameOrigin(request)) {
                 return deny(response, 403, "来源校验失败");
             }
             if (!parts[1].equals(request.getHeader("X-CSRF-Token"))) return deny(response, 403, "请求校验失败");
@@ -53,6 +54,12 @@ public class WebsiteSessionInterceptor implements HandlerInterceptor {
         request.setAttribute("websiteCsrf", parts[1]);
         UserContextHolder.set(new UserContext(Long.valueOf(parts[0]), "网站用户", List.of("website_user"), List.of()));
         return true;
+    }
+
+    private boolean sameOrigin(HttpServletRequest request) {
+        String origin = request.getHeader("Origin");
+        return origin == null || origin.equals("https://" + request.getServerName())
+                || origin.equals("http://" + request.getServerName() + ":" + request.getServerPort());
     }
 
     private boolean deny(HttpServletResponse response, int status, String message) throws Exception {
