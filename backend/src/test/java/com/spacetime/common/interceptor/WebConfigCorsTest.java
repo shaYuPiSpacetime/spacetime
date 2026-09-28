@@ -14,6 +14,8 @@ import org.springframework.data.redis.core.*;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import java.util.List;
@@ -30,6 +32,7 @@ class WebConfigCorsTest {
     private SensitiveWordService service;
     @Configuration @EnableWebMvc @Import(WebConfig.class)
     static class Config {
+        @Bean WebsitePostController websitePostController() { return new WebsitePostController(); }
         @Bean MenuDao menus() { return mock(MenuDao.class); }
         @Bean SensitiveWordService service() { return mock(SensitiveWordService.class); }
         @Bean SensitiveWordController controller(SensitiveWordService s) { return new SensitiveWordController(s); }
@@ -43,6 +46,11 @@ class WebConfigCorsTest {
                 .thenReturn(mapper.writeValueAsString(new UserContext(71L,"test",List.of(),List.of())));
             return new TokenInterceptor(redis,mapper,mock(MiniappPresenceService.class));
         }
+    }
+    @RestController
+    static class WebsitePostController {
+        @PostMapping("/website/cors-check")
+        String check() { return "ok"; }
     }
     @BeforeEach void setup() {
         context=new AnnotationConfigWebApplicationContext();
@@ -80,6 +88,15 @@ class WebConfigCorsTest {
         mvc.perform(options("/admin/sensitive-words/2/status").header("Origin","https://untrusted.invalid")
             .header("Access-Control-Request-Method","PATCH")).andExpect(status().isForbidden());
         verifyNoInteractions(service,menus);
+    }
+    @Test void 官网域名可从浏览器发起同域Post() throws Exception {
+        mvc.perform(post("/website/cors-check").header("Origin", "https://www.shikongxiehou.com"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "https://www.shikongxiehou.com"));
+        mvc.perform(options("/admin/sensitive-words/2/status")
+                .header("Origin", "https://www.shikongxiehou.com")
+                .header("Access-Control-Request-Method", "PATCH"))
+            .andExpect(status().isForbidden());
     }
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder patchRequest() {
         return patch("/admin/sensitive-words/2/status").header("Origin","http://127.0.0.1:5173")

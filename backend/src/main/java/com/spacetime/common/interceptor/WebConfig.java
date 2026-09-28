@@ -25,8 +25,14 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // Specific mapping must precede /**: only sensitive-word status supports cross-origin PATCH.
+        // 更具体的路径先注册，官网域名仅能跨源访问官网业务接口。
         configureCors(registry.addMapping("/admin/sensitive-words/*/status"), "PATCH", "OPTIONS");
+        registry.addMapping("/website/**")
+                .allowedOriginPatterns("https://www.shikongxiehou.com", "http://localhost:*", "http://127.0.0.1:*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
+                .maxAge(3600);
         configureCors(registry.addMapping("/**"), "GET", "POST", "PUT", "DELETE", "OPTIONS");
     }
 
