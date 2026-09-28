@@ -256,6 +256,7 @@ const COIN_SCENE_ADMIN_NAMES: Record<string, string> = {
   compatible_person_unlock_one: '合拍的人',
   soulmate_mizhiyin_unlock_one: '解锁知音-觅知音',
   career_recommend_unlock_one: '立业-职业推荐',
+  replay_profile_unlock_one: '三天回放主页解锁',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -789,7 +790,7 @@ function ConfigWorkspace() {
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'scenePrices'} name="scenePrices">
-          <Notice title="千寻币消费场景">仅展示 8 个消费场景；支持移动端展示名称、说明、单价、启停和移动端图标配置；邀请奖励场景不进入消费配置。</Notice>
+          <Notice title="千寻币消费场景">仅展示 9 个消费场景；支持移动端展示名称、说明、单价、启停和移动端图标配置；三天回放主页单人解锁后永久有效。</Notice>
           <TableWrap minWidth={1120}>
             <thead><tr><th>消费场景</th><th>场景 code</th><th>移动端展示名称</th><th>移动端图标配置</th><th>说明</th><th>单价</th><th>启停</th><th>影响页面</th></tr></thead>
             <tbody data-render="admin-scene-prices">
@@ -800,7 +801,7 @@ function ConfigWorkspace() {
                   <td><input className="icon-config-input scene-name-input" aria-label="移动端展示名称" value={item.mobileDisplayName} onChange={(event) => updateConfigList('coinScenes', index, { ...config!.coinScenes[index], mobileName: event.target.value })} /></td>
                   <td><IconConfigInput value={item.mobileIcon} onChange={(value) => updateConfigList('coinScenes', index, { ...config!.coinScenes[index], mobileIcon: value })} /></td>
                   <td>{item.desc}</td>
-                  <td><input className="number-input" aria-label="消费单价" type="number" min="0" value={item.price} onChange={(event) => updateConfigList('coinScenes', index, { ...config!.coinScenes[index], unitPrice: Number(event.target.value) })} /> 千寻币</td>
+                  <td><input className="number-input" aria-label="消费单价" type="number" min={['whisper', 'replay_profile_unlock_one'].includes(item.code) && item.enabled ? 1 : 0} value={item.price} onChange={(event) => updateConfigList('coinScenes', index, { ...config!.coinScenes[index], unitPrice: Number(event.target.value) })} /> 千寻币</td>
                   <td><MiniSwitch on={item.enabled} onClick={() => toggleConfigStatus('coinScenes', index)} /></td>
                   <td>APP 付费弹窗 / 来源业务页</td>
                 </tr>

@@ -91,3 +91,42 @@ test('合规内容优先使用 H5，缺失链接时回退原生正文', async ()
     message: '',
   })
 })
+
+test('本站协议阅读器直接展示已发布正文，未发布正文不会以摘要冒充协议', async () => {
+  const { resolveCompliancePresentation } = await loadFlowModule()
+  const readerUrl = 'https://admin.shikongxiehou.com/h5/compliance/index.html?code=user_agreement'
+
+  assert.deepEqual(resolveCompliancePresentation({
+    title: '用户协议',
+    linkType: 'H5',
+    contentUrl: readerUrl,
+    contentBody: '请配置用户协议正文或H5地址。',
+  }), {
+    mode: 'missing',
+    title: '用户协议',
+    url: '',
+    body: '',
+    message: '当前协议正文尚未发布',
+  })
+
+  const published = {
+    title: '会员服务协议',
+    linkType: 'H5',
+    contentUrl: 'https://admin.shikongxiehou.com/h5/compliance/index.html?code=vip_service_agreement',
+    contentBody: '<p>正式正文</p>',
+  }
+  assert.equal(resolveCompliancePresentation(published).mode, 'native')
+  assert.deepEqual(resolveCompliancePresentation(published, { webFailed: true }), {
+    mode: 'native',
+    title: '会员服务协议',
+    url: published.contentUrl,
+    body: '<p>正式正文</p>',
+    message: '',
+  })
+  assert.equal(resolveCompliancePresentation({
+    title: '隐私政策',
+    linkType: 'H5',
+    contentUrl: readerUrl,
+    summary: '隐私政策摘要',
+  }).mode, 'missing')
+})

@@ -569,6 +569,7 @@ class RecommendServiceImplTest {
 
         RecommendReplayPageVO result = service.getReplay(7L);
 
+        assertThat(result.getMemberProfileAccess()).isTrue();
         assertThat(result.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getProfile().getCurrentCity()).isNull();
             assertThat(item.getProfile().getOccupationLabel()).isNull();
@@ -648,12 +649,9 @@ class RecommendServiceImplTest {
     }
 
     @Test
-    @DisplayName("三天回看仅会员可用并按候选去重保留最近动作")
-    void getReplayShouldRequireVipAndDeduplicateCandidates() {
+    @DisplayName("非会员可查看三天回看列表并按候选去重保留最近动作")
+    void getReplayShouldAllowNonMemberListAndDeduplicateCandidates() {
         AppUser current = openUser(7L, 30, "320100");
-        UserAsset asset = new UserAsset();
-        asset.setVipStatus("active");
-        asset.setVipExpireTime(LocalDateTime.now().plusDays(2));
         RecommendViewLog latest = viewLog(7L, 8L, "skip", LocalDateTime.now());
         RecommendViewLog older = viewLog(7L, 8L, "view", LocalDateTime.now().minusHours(2));
         RecommendViewLog another = viewLog(7L, 9L, "detail", LocalDateTime.now().minusDays(1));
@@ -666,8 +664,6 @@ class RecommendServiceImplTest {
         activeLike.setActiveMarker(1);
 
         when(appUserDao.selectById(7L)).thenReturn(current);
-        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
-        when(vipService.getBenefits()).thenReturn(List.of(benefit("three_day_replay")));
         when(viewLogDao.selectList(any())).thenReturn(List.of(latest, older, another));
         when(appUserDao.selectByIds(List.of(8L, 9L))).thenReturn(List.of(firstUser, secondUser));
         when(accessProjectionService.projectAll(List.of(firstUser, secondUser)))
@@ -679,6 +675,7 @@ class RecommendServiceImplTest {
 
         RecommendReplayPageVO result = service.getReplay(7L);
 
+        assertThat(result.getMemberProfileAccess()).isFalse();
         assertThat(result.getItems()).hasSize(2);
         assertThat(result.getItems().get(0).getLastAction()).isEqualTo("skip");
         assertThat(result.getItems().get(0).getDateGroup()).isEqualTo("今天");
@@ -706,7 +703,6 @@ class RecommendServiceImplTest {
 
         when(appUserDao.selectById(7L)).thenReturn(current);
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
-        when(vipService.getBenefits()).thenReturn(List.of(benefit("three_day_replay")));
         when(viewLogDao.selectList(any())).thenReturn(candidateIds.stream()
                 .map(id -> viewLog(7L, id, "view", LocalDateTime.now().minusMinutes(id)))
                 .toList());
@@ -745,7 +741,6 @@ class RecommendServiceImplTest {
             lenient().when(appUserDao.selectById(target.getId())).thenReturn(target);
         }
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
-        when(vipService.getBenefits()).thenReturn(List.of(benefit("three_day_replay")));
         when(viewLogDao.selectList(any())).thenReturn(logs);
         when(appUserDao.selectByIds(candidateIds)).thenReturn(targets);
         when(accessProjectionService.projectAll(targets)).thenReturn(targets.stream()

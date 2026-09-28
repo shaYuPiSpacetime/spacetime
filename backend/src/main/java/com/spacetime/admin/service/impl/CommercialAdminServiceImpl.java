@@ -78,7 +78,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class CommercialAdminServiceImpl implements CommercialAdminService {
-    private static final int SCENE_COUNT = 8;
+    private static final int SCENE_COUNT = 9;
     private static final Set<String> BENEFIT_CODES = Set.of(
             "heart_list", "visitor_list", "free_whisper", "extra_browse", "advanced_filter",
             "exposure_score", "privacy", "three_day_replay", "daily_heart_chance"
@@ -86,7 +86,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
     private static final Set<String> SCENE_CODES = Set.of(
             "whisper", "likes_unlock_one", "viewers_unlock_one", "ideal_user_unlock",
             "ideal_batch_unlock", "compatible_person_unlock_one",
-            "soulmate_mizhiyin_unlock_one", "career_recommend_unlock_one"
+            "soulmate_mizhiyin_unlock_one", "career_recommend_unlock_one",
+            "replay_profile_unlock_one"
     );
     private static final Set<String> CONFIG_STATUSES = Set.of(
             CommonStatusEnum.ENABLED.getCode(), CommonStatusEnum.DISABLED.getCode()
@@ -255,12 +256,24 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         }
         Set<String> codes = reqList.stream().map(CoinSceneConfigReq::getSceneCode).collect(Collectors.toSet());
         if (reqList.size() != SCENE_COUNT || !codes.equals(SCENE_CODES)) {
-            throw new BusinessException("千寻币消费场景目录不合法，必须配置固定 8 项");
+            throw new BusinessException("千寻币消费场景目录不合法，必须配置固定 9 项");
         }
         for (CoinSceneConfigReq req : reqList) {
             validateStatus(req.getStatus());
             if (req.getUnitPrice() == null || req.getUnitPrice() < 0) {
                 throw new BusinessException("消费场景单价不能为负数");
+            }
+            if ("whisper".equals(req.getSceneCode()) && isEnabled(req.getStatus())
+                    && req.getUnitPrice() == 0) {
+                throw new BusinessException("启用的悄悄话单价必须大于 0");
+            }
+            if ("replay_profile_unlock_one".equals(req.getSceneCode())
+                    && isEnabled(req.getStatus()) && req.getUnitPrice() == 0) {
+                throw new BusinessException("启用的回放主页解锁单价必须大于 0");
+            }
+            if ("replay_profile_unlock_one".equals(req.getSceneCode())
+                    && req.getRetentionDays() != null && req.getRetentionDays() != 0) {
+                throw new BusinessException("回放主页解锁当前为永久有效，保留期必须为 0");
             }
             if (isEnabled(req.getStatus())
                     && (StrUtil.isBlank(req.getMobileName()) || StrUtil.isBlank(req.getMobileIcon()))) {
@@ -615,7 +628,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
             return;
         }
         if (reqList.size() != SCENE_COUNT) {
-            throw new BusinessException("千寻币消费场景必须配置 8 个");
+            throw new BusinessException("千寻币消费场景必须配置 9 个");
         }
         Map<String, CoinSceneConfig> existing = listSceneConfigs().stream()
                 .filter(item -> StrUtil.isNotBlank(item.getSceneCode()))

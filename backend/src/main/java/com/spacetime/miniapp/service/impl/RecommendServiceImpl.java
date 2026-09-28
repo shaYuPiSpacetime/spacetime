@@ -368,9 +368,6 @@ public class RecommendServiceImpl implements RecommendService {
     @Override
     public RecommendReplayPageVO getReplay(Long userId) {
         requireBrowsableUser(userId);
-        if (!hasEffectiveBenefit(userId, THREE_DAY_REPLAY_BENEFIT)) {
-            throw new BusinessException(403, "开通会员且三天回看权益启用后可查看回看记录");
-        }
         LocalDateTime start = LocalDate.now().minusDays(2).atStartOfDay();
         List<RecommendViewLog> raw = viewLogDao.selectList(new LambdaQueryWrapper<RecommendViewLog>()
                 .eq(RecommendViewLog::getUserId, userId)
@@ -387,6 +384,7 @@ public class RecommendServiceImpl implements RecommendService {
         if (candidateIds.isEmpty()) {
             RecommendReplayPageVO empty = new RecommendReplayPageVO();
             empty.setItems(List.of());
+            empty.setMemberProfileAccess(hasEffectiveBenefit(userId, THREE_DAY_REPLAY_BENEFIT));
             return empty;
         }
 
@@ -435,6 +433,7 @@ public class RecommendServiceImpl implements RecommendService {
         }
         RecommendReplayPageVO result = new RecommendReplayPageVO();
         result.setItems(items);
+        result.setMemberProfileAccess(hasEffectiveBenefit(userId, THREE_DAY_REPLAY_BENEFIT));
         return result;
     }
 
@@ -829,9 +828,11 @@ public class RecommendServiceImpl implements RecommendService {
         RecommendPreference entity = new RecommendPreference();
         entity.setUserId(userId);
         entity.setTargetCityCodes(JSONUtil.toJsonStr(normalize(req.getTargetCityCodes())));
-        entity.setAllowNeighborCity(Boolean.TRUE.equals(req.getAllowNeighborCity()) ? 1 : 0);
+        entity.setAllowNeighborCity(Boolean.TRUE.equals(req.getAllowNeighborCity())
+                && neighborCityAvailable(normalize(req.getTargetCityCodes())) ? 1 : 0);
         entity.setOnlyCertifiedUsers(req.getOnlyCertifiedUsers() == null
-                ? previous == null ? 0 : previous.getOnlyCertifiedUsers()
+                ? previous == null || previous.getOnlyCertifiedUsers() == null
+                        ? 0 : previous.getOnlyCertifiedUsers()
                 : Boolean.TRUE.equals(req.getOnlyCertifiedUsers()) ? 1 : 0);
         entity.setMinAge(req.getMinAge());
         entity.setMaxAge(req.getMaxAge());

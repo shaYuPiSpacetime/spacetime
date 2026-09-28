@@ -6,9 +6,13 @@ import com.spacetime.common.interceptor.UserContextHolder;
 import com.spacetime.common.result.R;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
 import com.spacetime.miniapp.dto.request.RecommendViewActionReq;
+import com.spacetime.miniapp.dto.request.RecommendReplayUnlockReq;
 import com.spacetime.miniapp.dto.response.RecommendCandidatePageVO;
 import com.spacetime.miniapp.dto.response.RecommendPreferenceVO;
 import com.spacetime.miniapp.dto.response.RecommendReplayPageVO;
+import com.spacetime.miniapp.dto.response.RecommendReplayQuoteVO;
+import com.spacetime.miniapp.dto.response.RecommendReplayUnlockVO;
+import com.spacetime.miniapp.service.RecommendReplayAccessService;
 import com.spacetime.miniapp.service.RecommendService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class RecommendController {
     private final RecommendService recommendService;
+    private final RecommendReplayAccessService replayAccessService;
 
     /** 查询已保存偏好，未保存时返回不落库的智能默认值。 */
     @GetMapping("/preferences")
@@ -80,6 +85,19 @@ public class RecommendController {
     @GetMapping("/replay")
     public R<RecommendReplayPageVO> replay() {
         return R.ok(recommendService.getReplay(currentUserId()));
+    }
+
+    /** 报价时校验目标仍在回放中，并返回会员或已解锁状态。 */
+    @GetMapping("/replay/{targetUserId}/profile-quote")
+    public R<RecommendReplayQuoteVO> replayProfileQuote(@PathVariable Long targetUserId) {
+        return R.ok(replayAccessService.quote(currentUserId(), targetUserId));
+    }
+
+    /** 非会员确认单人报价后原子扣币，重复打开同一主页不重复扣费。 */
+    @PostMapping("/replay/{targetUserId}/profile-unlock")
+    public R<RecommendReplayUnlockVO> replayProfileUnlock(@PathVariable Long targetUserId,
+                                                           @Valid @RequestBody RecommendReplayUnlockReq req) {
+        return R.ok(replayAccessService.unlock(currentUserId(), targetUserId, req));
     }
 
     private R<Void> recordAction(String candidateNo,
