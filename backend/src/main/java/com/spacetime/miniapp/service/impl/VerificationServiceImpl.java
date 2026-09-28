@@ -26,6 +26,8 @@ import com.spacetime.miniapp.dto.response.EducationVerifyDetailVO;
 import com.spacetime.miniapp.dto.response.RealNameVerifyDetailVO;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
 import com.spacetime.miniapp.service.VerificationService;
+import com.spacetime.miniapp.service.SchoolDictionaryService;
+import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -68,6 +70,7 @@ public class VerificationServiceImpl implements VerificationService {
     private final ProfileDictionaryService profileDictionaryService;
     private final Prd01RuntimeConfigResolver runtimeConfigResolver;
     private final Prd01AccessEvaluator accessEvaluator;
+    private final SchoolDictionaryService schoolDictionaryService;
 
     /** 查询三重认证状态和页面提交守卫。 */
     @Override
@@ -190,8 +193,8 @@ public class VerificationServiceImpl implements VerificationService {
         record.setAuditSource(AuditSourceEnum.MANUAL.getCode());
         record.setStatus(AppUserAuditStatusEnum.PENDING.getCode());
         record.setEducationMethod(submission.method());
-        record.setSchoolName(req.getSchoolName().trim());
-        record.setSchoolCode(StrUtil.isBlank(req.getSchoolCode()) ? null : req.getSchoolCode().trim());
+        record.setSchoolName(submission.schoolName());
+        record.setSchoolCode(submission.schoolCode());
         record.setRealName(StrUtil.blankToDefault(req.getCertificateName(), realName.getRealName()));
         record.setMaterialJson(educationMaterialJson(req, submission, user));
         auditService.submit(record);
@@ -283,6 +286,8 @@ public class VerificationServiceImpl implements VerificationService {
                 || req.getSchoolName().trim().length() > 100) {
             throw new BusinessException("学校名称需2-100个字符");
         }
+        SchoolOptionVO selectedSchool = schoolDictionaryService.requireSelection(
+                req.getSchoolName(), req.getSchoolCode());
         String educationLevel = profileDictionaryService.requireCode(
                 ProfileDictType.EDUCATION_LEVEL, req.getEducationLevel(), "学历");
         List<String> materials = req.getMaterialUrls() == null
@@ -305,7 +310,8 @@ public class VerificationServiceImpl implements VerificationService {
         } else {
             validateGraduateMethod(req, method, materials);
         }
-        return new EducationSubmission(userType, method, educationLevel, materials);
+        return new EducationSubmission(userType, method, educationLevel, materials,
+                selectedSchool.getName(), selectedSchool.getCode());
     }
 
     /** 学历材料既支持历史公网 URL，也支持 OSS 直传后返回的受保护相对路径。 */
@@ -607,6 +613,7 @@ public class VerificationServiceImpl implements VerificationService {
     }
 
     private record EducationSubmission(String userType, String method, String educationLevel,
-                                       List<String> materialUrls) {
+                                       List<String> materialUrls, String schoolName,
+                                       String schoolCode) {
     }
 }

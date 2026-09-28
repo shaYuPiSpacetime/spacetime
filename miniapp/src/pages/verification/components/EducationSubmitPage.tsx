@@ -87,7 +87,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
       ? chsiCode.trim().length >= 12 && chsiCode.trim().length <= 18
       : diplomaNo.trim().length > 0 && certificateName.trim().length > 0
   const canSubmit = detail?.canSubmit !== false
-    && Boolean(methodOption && userTypeOption && schoolName.trim() && educationLevel && agreed && methodFieldsReady)
+    && Boolean(methodOption && userTypeOption && schoolName.trim() && schoolCode && educationLevel && agreed && methodFieldsReady)
   // 蓝湖学历认证稿固定为 0/4。运行时配置只能收紧限制，不能把页面放宽到 4 张以上。
   const runtimeMaxMaterialCount = config?.uploadLimits.education.maxCount
   const maxMaterialCount = Math.min(

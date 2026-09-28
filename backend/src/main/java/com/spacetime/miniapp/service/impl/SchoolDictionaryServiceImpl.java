@@ -3,6 +3,7 @@ package com.spacetime.miniapp.service.impl;
 import com.spacetime.common.dao.SchoolDictionaryDao;
 import com.spacetime.common.entity.SchoolDictionary;
 import com.spacetime.common.provider.CollegeSearchProvider;
+import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import com.spacetime.miniapp.service.SchoolDictionaryService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,18 @@ public class SchoolDictionaryServiceImpl implements SchoolDictionaryService {
             }
         }
         return local.stream().limit(pageSize).map(this::toOption).toList();
+    }
+
+    @Override
+    public SchoolOptionVO requireSelection(String name, String code) {
+        if (code == null || code.trim().isEmpty()) {
+            throw new BusinessException("请从搜索结果中选择学校");
+        }
+        SchoolDictionary school = schoolDictionaryDao.selectByCode(code.trim());
+        if (school == null || name == null || !school.getSchoolName().equals(name.trim())) {
+            throw new BusinessException("学校信息已更新，请重新选择学校");
+        }
+        return toOption(school);
     }
 
     private SchoolOptionVO toOption(SchoolDictionary school) {

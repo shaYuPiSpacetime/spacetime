@@ -38,8 +38,10 @@ import com.spacetime.miniapp.dto.response.ProfileDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileHomeDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileInitStatusVO;
 import com.spacetime.miniapp.dto.response.SongOptionVO;
+import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import com.spacetime.miniapp.dto.response.VerificationStatusVO;
 import com.spacetime.miniapp.service.ProfileService;
+import com.spacetime.miniapp.service.SchoolDictionaryService;
 import com.spacetime.miniapp.service.VerificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -80,6 +82,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final Prd01RuntimeConfigResolver runtimeConfigResolver;
     private final VerificationService verificationService;
     private final SongSearchProvider songSearchProvider;
+    private final SchoolDictionaryService schoolDictionaryService;
 
     /**
      * 查询首登初始化状态
@@ -419,8 +422,16 @@ public class ProfileServiceImpl implements ProfileService {
             user.setCompany(validatedText(req.getCompany(), 2, 50, "公司名称需2-50个字符"));
         }
         if (editable(settings, "school")) {
-            user.setSchool(validatedText(req.getSchool(), 2, 50, "学校名称需2-50个字符"));
-            user.setSchoolCode(trimToNull(req.getSchoolCode()));
+            String schoolName = trimToNull(req.getSchool());
+            String schoolCode = trimToNull(req.getSchoolCode());
+            if (schoolName == null && schoolCode == null) {
+                user.setSchool(null);
+                user.setSchoolCode(null);
+            } else {
+                SchoolOptionVO selected = schoolDictionaryService.requireSelection(schoolName, schoolCode);
+                user.setSchool(selected.getName());
+                user.setSchoolCode(selected.getCode());
+            }
         }
         if (visible(settings, "major")) {
             user.setMajor(validatedText(req.getMajor(), 1, 100, "专业名称不能超过100个字符"));

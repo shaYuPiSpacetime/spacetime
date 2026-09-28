@@ -22,6 +22,20 @@ public class SchoolDictionaryDaoImpl implements SchoolDictionaryDao {
     }
 
     @Override
+    public SchoolDictionary selectByCode(String code) {
+        if (!StringUtils.hasText(code)) {
+            return null;
+        }
+        String normalized = code.trim();
+        return mapper.selectOne(new LambdaQueryWrapper<SchoolDictionary>()
+                .eq(SchoolDictionary::getStatus, "ENABLED")
+                .and(wrapper -> wrapper.eq(SchoolDictionary::getSchoolCode, normalized)
+                        .or()
+                        .eq(SchoolDictionary::getProviderUuid, normalized))
+                .last("LIMIT 1"));
+    }
+
+    @Override
     @Transactional
     public void upsertAll(List<SchoolDictionary> schools) {
         for (SchoolDictionary incoming : schools) {

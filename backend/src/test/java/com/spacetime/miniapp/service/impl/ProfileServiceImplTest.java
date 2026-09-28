@@ -29,6 +29,8 @@ import com.spacetime.miniapp.dto.response.BasicProfileVO;
 import com.spacetime.miniapp.dto.response.ProfileDetailVO;
 import com.spacetime.miniapp.dto.response.ProfileInitStatusVO;
 import com.spacetime.miniapp.service.VerificationService;
+import com.spacetime.miniapp.service.SchoolDictionaryService;
+import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,8 @@ class ProfileServiceImplTest {
     @Mock
     private SongSearchProvider songSearchProvider;
     @Mock
+    private SchoolDictionaryService schoolDictionaryService;
+    @Mock
     private DictDataDao dictDataDao;
     @Mock
     private AppRelationLikeDao appRelationLikeDao;
@@ -78,6 +82,15 @@ class ProfileServiceImplTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.eq("性别")))
                 .thenAnswer(invocation -> invocation.getArgument(1));
+        org.mockito.Mockito.lenient().when(schoolDictionaryService.requireSelection(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> {
+                    SchoolOptionVO option = new SchoolOptionVO();
+                    option.setName(invocation.getArgument(0));
+                    option.setCode(invocation.getArgument(1));
+                    return option;
+                });
     }
 
     @Test
@@ -814,6 +827,43 @@ class ProfileServiceImplTest {
     }
 
     @Test
+    @DisplayName("基础资料学校保存使用字典规范名称和编码")
+    void shouldNormalizeBasicProfileSchoolFromDictionary() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1);
+        user.setGender("FEMALE");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(profileDictionaryService.requireCode(ProfileDictType.IDENTITY, "WORKER", "身份"))
+                .thenReturn("WORKER");
+        when(profileDictionaryService.requireCode(ProfileDictType.EDUCATION_LEVEL, "BACHELOR", "学历"))
+                .thenReturn("BACHELOR");
+        when(profileDictionaryService.requireCode(ProfileDictType.OCCUPATION, "ENGINEER", "职业"))
+                .thenReturn("ENGINEER");
+        when(profileDictionaryService.requireCode(ProfileDictType.INDUSTRY, "INTERNET", "行业"))
+                .thenReturn("INTERNET");
+        when(profileDictionaryService.requireCode(ProfileDictType.ANNUAL_INCOME, "FROM_150K_TO_300K", "年收入"))
+                .thenReturn("FROM_150K_TO_300K");
+        SchoolOptionVO school = new SchoolOptionVO();
+        school.setName("浙江大学");
+        school.setCode("U-ZJU");
+        when(schoolDictionaryService.requireSelection("浙大", "U-ZJU")).thenReturn(school);
+        BasicProfileSaveReq req = validBasicProfileReq();
+        req.setOccupation("ENGINEER");
+        req.setIndustry("INTERNET");
+        req.setAnnualIncome("FROM_150K_TO_300K");
+        req.setCompany("星河科技有限公司");
+        req.setSchool("浙大");
+        req.setSchoolCode("U-ZJU");
+
+        newService().saveBasicProfile(7L, req);
+
+        assertThat(user.getSchool()).isEqualTo("浙江大学");
+        assertThat(user.getSchoolCode()).isEqualTo("U-ZJU");
+    }
+
+    @Test
     @DisplayName("手动歌曲名称为空时拒绝保存")
     void shouldRejectBlankManualSongName() {
         when(appUserDao.selectById(7L)).thenReturn(baseUser(null));
@@ -840,7 +890,8 @@ class ProfileServiceImplTest {
         return new ProfileServiceImpl(appUserDao, appRelationLikeDao, appRelationVisitDao,
                 scoreConfig, auditService, auditContentService,
                 resolver, dictionaryService, mapper, accessEvaluator, completenessCalculator,
-                runtimeConfigResolver, verificationService, songSearchProvider);
+                runtimeConfigResolver, verificationService, songSearchProvider,
+                schoolDictionaryService);
     }
 
     private AppUser baseUser(Integer nextStep) {

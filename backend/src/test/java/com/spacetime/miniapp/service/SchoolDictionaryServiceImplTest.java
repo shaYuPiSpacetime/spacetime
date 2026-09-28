@@ -3,6 +3,7 @@ package com.spacetime.miniapp.service;
 import com.spacetime.common.dao.SchoolDictionaryDao;
 import com.spacetime.common.entity.SchoolDictionary;
 import com.spacetime.common.provider.CollegeSearchProvider;
+import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import com.spacetime.miniapp.service.impl.SchoolDictionaryServiceImpl;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -90,6 +92,45 @@ class SchoolDictionaryServiceImplTest {
 
         assertThat(result).extracting(SchoolOptionVO::getName).containsExactly("浙江大学");
         verify(schoolDictionaryDao, never()).upsertAll(org.mockito.ArgumentMatchers.anyList());
+    }
+
+    @Test
+    @DisplayName("学校编码和名称匹配时返回字典规范值")
+    void shouldRequireMatchingDictionarySelection() {
+        SchoolDictionary dictionary = school("U-ZJU", "浙江大学", "LOCAL");
+        when(schoolDictionaryDao.selectByCode("U-ZJU")).thenReturn(dictionary);
+        SchoolDictionaryService service = new SchoolDictionaryServiceImpl(schoolDictionaryDao, collegeSearchProvider);
+
+        SchoolOptionVO result = service.requireSelection(" 浙江大学 ", " U-ZJU ");
+
+        assertThat(result.getCode()).isEqualTo("U-ZJU");
+        assertThat(result.getName()).isEqualTo("浙江大学");
+    }
+
+    @Test
+    @DisplayName("未选择学校联想结果时拒绝保存")
+    void shouldRejectManualSchoolWithoutDictionaryCode() {
+        SchoolDictionaryService service = new SchoolDictionaryServiceImpl(schoolDictionaryDao, collegeSearchProvider);
+
+        assertThatThrownBy(() -> service.requireSelection("野鸡大学", null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("请从搜索结果中选择学校");
+    }
+
+    @Test
+    @DisplayName("学校编码不存在或名称不匹配时拒绝保存")
+    void shouldRejectUnknownOrMismatchedDictionarySelection() {
+        when(schoolDictionaryDao.selectByCode("UNKNOWN")).thenReturn(null);
+        when(schoolDictionaryDao.selectByCode("U-ZJU"))
+                .thenReturn(school("U-ZJU", "浙江大学", "LOCAL"));
+        SchoolDictionaryService service = new SchoolDictionaryServiceImpl(schoolDictionaryDao, collegeSearchProvider);
+
+        assertThatThrownBy(() -> service.requireSelection("浙江大学", "UNKNOWN"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("重新选择学校");
+        assertThatThrownBy(() -> service.requireSelection("清华大学", "U-ZJU"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("重新选择学校");
     }
 
     private SchoolDictionary school(String code, String name, String source) {

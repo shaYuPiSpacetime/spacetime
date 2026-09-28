@@ -24,6 +24,8 @@ import com.spacetime.miniapp.dto.response.VerificationStatusVO;
 import com.spacetime.miniapp.service.impl.Prd01AccessEvaluator;
 import com.spacetime.miniapp.service.impl.VerificationServiceImpl;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
+import com.spacetime.miniapp.service.SchoolDictionaryService;
+import com.spacetime.miniapp.dto.response.SchoolOptionVO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,6 +72,8 @@ class VerificationServiceImplTest {
     private Prd01RuntimeConfigResolver runtimeConfigResolver;
     @Mock
     private Prd01AccessEvaluator accessEvaluator;
+    @Mock
+    private SchoolDictionaryService schoolDictionaryService;
 
     @InjectMocks
     private VerificationServiceImpl service;
@@ -95,6 +99,15 @@ class VerificationServiceImplTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString()))
                 .thenAnswer(invocation -> invocation.getArgument(1));
+        org.mockito.Mockito.lenient().when(schoolDictionaryService.requireSelection(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> {
+                    SchoolOptionVO option = new SchoolOptionVO();
+                    option.setName(invocation.getArgument(0));
+                    option.setCode(invocation.getArgument(1));
+                    return option;
+                });
     }
 
     @Test
@@ -466,6 +479,7 @@ class VerificationServiceImplTest {
         req.setEducationUserType("STUDENT");
         req.setEducationMethod("STUDENT_CARD");
         req.setSchoolName("浙江大学");
+        req.setSchoolCode("U-ZJU");
         req.setEducationLevel("BACHELOR");
         req.setMaterialUrls(List.of(materialUrl));
         req.setEducationAgreementChecked(true);
