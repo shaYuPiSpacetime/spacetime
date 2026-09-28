@@ -84,6 +84,17 @@ public class WechatVirtualPayServiceImpl implements WechatVirtualPayService {
             int goodsPriceFen,
             String sessionKey
     ) {
+        return createPayParams(orderNo, productId, goodsPriceFen, goodsPriceFen, sessionKey);
+    }
+
+    @Override
+    public WechatVirtualPayParamsVO createPayParams(
+            String orderNo,
+            String productId,
+            int goodsPriceFen,
+            int activitySellingPriceFen,
+            String sessionKey
+    ) {
         assertConfig();
         if (StrUtil.isBlank(orderNo) || orderNo.length() < 8 || orderNo.length() > 32) {
             throw new BusinessException("虚拟支付订单号格式不正确");
@@ -93,6 +104,9 @@ public class WechatVirtualPayServiceImpl implements WechatVirtualPayService {
         }
         if (goodsPriceFen <= 0) {
             throw new BusinessException("虚拟支付商品价格必须大于 0 分");
+        }
+        if (activitySellingPriceFen <= 0 || activitySellingPriceFen > goodsPriceFen) {
+            throw new BusinessException("虚拟支付优惠价格必须在 1 分到商品标价之间");
         }
         if (StrUtil.isBlank(sessionKey)) {
             throw new BusinessException("微信登录状态已失效，请重试");
@@ -106,6 +120,9 @@ public class WechatVirtualPayServiceImpl implements WechatVirtualPayService {
             signPayload.put("currencyType", "CNY");
             signPayload.put("productId", productId);
             signPayload.put("goodsPrice", goodsPriceFen);
+            if (activitySellingPriceFen < goodsPriceFen) {
+                signPayload.put("activitySellingPrice", activitySellingPriceFen);
+            }
             signPayload.put("outTradeNo", orderNo);
             signPayload.put("attach", orderNo);
             String signData = objectMapper.writeValueAsString(signPayload);

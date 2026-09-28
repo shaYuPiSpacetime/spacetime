@@ -19,6 +19,15 @@ public interface WechatVirtualPayService extends WechatVirtualRefundGateway {
             String sessionKey
     );
 
+    /** 商品标价须与微信已发布商品一致，优惠实付价可用于测试折扣。 */
+    WechatVirtualPayParamsVO createPayParams(
+            String orderNo,
+            String productId,
+            int goodsPriceFen,
+            int activitySellingPriceFen,
+            String sessionKey
+    );
+
     /** 查询微信虚拟支付现金订单。 */
     VirtualPayOrderResult queryOrder(String openid, String orderNo);
 

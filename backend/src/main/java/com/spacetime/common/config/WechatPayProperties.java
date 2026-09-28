@@ -1,5 +1,6 @@
 package com.spacetime.common.config;
 
+import com.spacetime.common.exception.BusinessException;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -34,5 +35,19 @@ public class WechatPayProperties {
     /** 部署环境是否强制使用测试扣款金额 */
     private boolean forceTestAmount;
     /** 部署环境测试扣款金额 */
-    private BigDecimal testPayAmount = new BigDecimal("0.01");
+    private BigDecimal testPayAmount = new BigDecimal("1.00");
+
+    /** 返回当前环境真实扣款金额；订单、页面与网关必须使用同一金额。 */
+    public BigDecimal resolvePaymentAmount(BigDecimal packageAmount) {
+        if (testAmount != null && testAmount.signum() > 0) {
+            return testAmount;
+        }
+        if (!forceTestAmount) {
+            return packageAmount;
+        }
+        if (testPayAmount == null || testPayAmount.signum() <= 0) {
+            throw new BusinessException("微信支付测试金额配置不正确");
+        }
+        return testPayAmount;
+    }
 }
