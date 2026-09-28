@@ -6,6 +6,40 @@ import { showToast } from '@/components/ui/toast';
 type Tab = 'activities' | 'messages' | 'reports' | 'audits';
 const tabNames: Record<Tab, string> = { activities: '活动审核', messages: '聊天审核', reports: '举报处置', audits: '操作日志' };
 const statusNames: Record<string, string> = { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已拒绝', OFFLINE: '已下架', REMOVED: '已移除', OPEN: '待处理', RESOLVED: '已处理' };
+const auditActionNames: Record<string, string> = {
+  SMS_SENT: '发送登录验证码',
+  LOGIN: '登录成功',
+  LOGIN_FAILED: '登录失败',
+  ACTIVITY_PUBLISHED: '发布活动',
+  ACTIVITY_REGISTERED: '报名活动',
+  CHAT_STARTED: '发起私聊',
+  MESSAGE_SENT: '发送聊天消息',
+  MEDIA_UPLOADED: '上传图片',
+  REPORT_SUBMITTED: '提交举报',
+  PUBLIC_REPORT_SUBMITTED: '访客提交举报',
+  ACTIVITY_APPROVED: '审核通过活动',
+  ACTIVITY_REJECTED: '审核拒绝活动',
+  ACTIVITY_OFFLINE: '下架活动',
+  MESSAGE_CONTENT_VIEW: '查看聊天内容',
+  MESSAGE_APPROVED: '审核通过聊天图片',
+  MESSAGE_REJECTED: '审核拒绝聊天图片',
+  MESSAGE_REMOVED: '移除聊天消息',
+  MESSAGE_EXPORT: '导出聊天记录',
+  REPORT_RESOLVED: '处理举报',
+};
+const auditActorNames: Record<string, string> = { USER: '网站用户', GUEST: '访客', ADMIN: '管理员' };
+const auditTargetNames: Record<string, string> = {
+  USER: '用户', ACTIVITY: '活动', CONVERSATION: '私聊会话', MESSAGE: '聊天消息', MEDIA: '图片', REPORT: '举报',
+};
+function auditActorLabel(type: string, id?: number) {
+  const name = type === 'USER' && id == null ? '网站访客' : auditActorNames[type] || '其他操作者';
+  return id == null ? name : `${name}（ID：${id}）`;
+}
+function auditTargetLabel(type?: string, id?: number) {
+  if (!type) return '无';
+  const name = auditTargetNames[type] || '其他对象';
+  return id == null ? name : `${name}（ID：${id}）`;
+}
 function label(status: string) { return statusNames[status] || status; }
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : '操作失败'; }
 function askReason(action: string) { const reason = window.prompt(`请输入${action}原因（必填，最多 500 字）：`); return reason?.trim() || ''; }
@@ -76,7 +110,7 @@ export default function WebsiteManagementPage() {
     {tab === 'activities' && canAccess.activities && <div className="space-y-4">{activities.length === 0 && <p>暂无活动。</p>}{activities.map(({ activity, authorName, imageUrls }) => <article key={activity.id} className="rounded-xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{activity.title}</h2><p className="text-sm text-slate-500">#{activity.id} · {authorName} · {label(activity.status)} · {activity.startTime} · {activity.location} · 线下预计费用 ¥{Number(activity.estimatedCost).toFixed(2)}</p></div><div className="flex gap-2">{activity.status === 'PENDING' && hasPermission('website:activity:audit') && <><button className={btn} disabled={busy} onClick={() => void run('通过活动', reason => websiteAdminApi.moderateActivity(activity.id, 'APPROVED', reason))}>通过</button><button className={danger} disabled={busy} onClick={() => void run('拒绝活动', reason => websiteAdminApi.moderateActivity(activity.id, 'REJECTED', reason))}>拒绝</button></>}{activity.status === 'APPROVED' && hasPermission('website:activity:audit') && <button className={danger} disabled={busy} onClick={() => void run('下架活动', reason => websiteAdminApi.moderateActivity(activity.id, 'OFFLINE', reason))}>下架</button>}</div></div><p className="mt-4 whitespace-pre-wrap text-sm">{activity.content}</p>{imageUrls.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{imageUrls.map(url => <img key={url} src={url} alt={`${activity.title}待审核图片`} className="h-24 w-24 rounded object-cover" />)}</div>}{activity.auditNote && <p className="mt-3 text-sm text-slate-500">审核说明：{activity.auditNote}</p>}</article>)}</div>}
     {tab === 'messages' && canAccess.messages && <div className="space-y-4"><div className="flex justify-end">{hasPermission('website:message:export') && <button className={btn} disabled={busy} onClick={exportMessages}>导出聊天记录</button>}</div>{messages.length === 0 && <p>暂无聊天记录。</p>}{messages.map(message => <article key={message.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4"><div><strong>消息 #{message.id}</strong><p className="mt-1 text-sm text-slate-500">会话 #{message.conversationId} · 发送者 #{message.senderId} · {message.messageType} · {label(message.status)} · {message.createTime}</p></div><div className="flex gap-2">{hasPermission('website:message:content') && <button className={btn} disabled={busy} onClick={() => void run('查看聊天正文', async reason => { setRevealed(await websiteAdminApi.viewMessage(message.id, reason)); })}>查看正文</button>}{hasPermission('website:message:moderate') && message.status === 'PENDING' && <><button className={btn} disabled={busy} onClick={() => void run('通过图片', reason => websiteAdminApi.moderateMessage(message.id, 'APPROVED', reason))}>通过图片</button><button className={danger} disabled={busy} onClick={() => void run('拒绝图片', reason => websiteAdminApi.moderateMessage(message.id, 'REJECTED', reason))}>拒绝图片</button></>}{hasPermission('website:message:moderate') && message.status === 'APPROVED' && <button className={danger} disabled={busy} onClick={() => void run('移除消息', reason => websiteAdminApi.moderateMessage(message.id, 'REMOVED', reason))}>移除</button>}</div></article>)}{revealed && <section className="rounded-xl border border-amber-300 bg-amber-50 p-5"><div className="flex justify-between"><h2 className="font-semibold">消息 #{revealed.id} 正文</h2><button className={btn} onClick={() => setRevealed(null)}>关闭</button></div>{revealed.imageUrl ? <img src={revealed.imageUrl} alt="审核中的聊天图片" className="mt-3 max-h-96 rounded object-contain" /> : <p className="mt-3 whitespace-pre-wrap">{revealed.content}</p>}</section>}</div>}
     {tab === 'reports' && canAccess.reports && <div className="space-y-4">{reports.length === 0 && <p>暂无举报。</p>}{reports.map(report => <article key={report.id} className="flex flex-wrap justify-between gap-3 rounded-xl border bg-white p-4"><div><strong>举报 #{report.id} · {label(report.status)}</strong><p className="mt-1 text-sm text-slate-500">{report.reporterId ? `举报人 #${report.reporterId}` : '访客反馈'} · {report.targetType} #{report.targetId ?? '—'} · {report.createTime}</p><p className="mt-2 whitespace-pre-wrap">{report.reason}</p>{report.contact && <p className="mt-1 text-sm text-slate-500">回复渠道：{report.contact}</p>}{report.resolution && <p className="text-sm text-emerald-700">处理说明：{report.resolution}</p>}</div>{report.status === 'OPEN' && <button className={btn} disabled={busy} onClick={() => void run('处理举报', reason => websiteAdminApi.resolveReport(report.id, reason))}>标记处理</button>}</article>)}</div>}
-    {tab === 'audits' && canAccess.audits && <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50"><tr><th className="p-3">时间</th><th className="p-3">操作者</th><th className="p-3">动作</th><th className="p-3">对象</th><th className="p-3">原因</th><th className="p-3">留存至</th></tr></thead><tbody>{audits.map(item => <tr key={item.id} className="border-t"><td className="p-3">{item.createTime}</td><td className="p-3">{item.actorType} #{item.actorId ?? '—'}</td><td className="p-3">{item.action}</td><td className="p-3">{item.targetType} #{item.targetId ?? '—'}</td><td className="p-3">{item.remark || '—'}</td><td className="p-3">{item.retainUntil}</td></tr>)}</tbody></table>{audits.length === 0 && <p className="p-4">暂无记录。</p>}</div>}
+    {tab === 'audits' && canAccess.audits && <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50"><tr><th className="p-3">时间</th><th className="p-3">操作者</th><th className="p-3">操作内容</th><th className="p-3">操作对象</th><th className="p-3">操作说明</th><th className="p-3">留存至</th></tr></thead><tbody>{audits.map(item => <tr key={item.id} className="border-t"><td className="p-3">{item.createTime}</td><td className="p-3">{auditActorLabel(item.actorType, item.actorId)}</td><td className="p-3">{auditActionNames[item.action] || '其他操作'}</td><td className="p-3">{auditTargetLabel(item.targetType, item.targetId)}</td><td className="p-3">{item.remark || '无'}</td><td className="p-3">{item.retainUntil}</td></tr>)}</tbody></table>{audits.length === 0 && <p className="p-4">暂无记录。</p>}</div>}
     {canAccess[tab] && hasMore && <div className="text-center"><button type="button" className={btn} disabled={busy} onClick={() => void loadMore()}>{busy ? '加载中…' : '加载更多'}</button></div>}
   </div>;
 }
