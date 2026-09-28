@@ -103,6 +103,20 @@ export interface RecommendReplayProfileVO {
 export interface RecommendReplayPageVO {
   items: RecommendReplayItemVO[]
   nextCursor?: string | null
+  memberProfileAccess: boolean
+}
+
+export interface RecommendReplayQuoteVO {
+  canOpen: boolean
+  memberAccess: boolean
+  unitPrice: number
+  coinBalance: number
+}
+
+export interface RecommendReplayUnlockVO {
+  canOpen: boolean
+  coinCost: number
+  coinBalance: number
 }
 
 export interface MeetingPreferenceOptionVO {
@@ -153,6 +167,14 @@ export function neverRecommendCandidate(candidateNo: string, data: RecommendView
 
 export function getRecommendReplay(): Promise<RecommendReplayPageVO> {
   return get<RecommendReplayPageVO>('/miniapp/recommend/replay')
+}
+
+export function quoteRecommendReplayProfile(targetUserId: number): Promise<RecommendReplayQuoteVO> {
+  return get<RecommendReplayQuoteVO>(`/miniapp/recommend/replay/${targetUserId}/profile-quote`)
+}
+
+export function unlockRecommendReplayProfile(targetUserId: number, data: { requestId: string; expectedPrice: number }): Promise<RecommendReplayUnlockVO> {
+  return post<RecommendReplayUnlockVO>(`/miniapp/recommend/replay/${targetUserId}/profile-unlock`, data)
 }
 
 export function getMeetingPreference(): Promise<MeetingPreferenceVO> {

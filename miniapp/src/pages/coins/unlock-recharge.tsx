@@ -23,6 +23,8 @@ export default function UnlockRechargePage() {
   const router = useRouter()
   const sourceScene = String(router.params.sourceScene || 'likes_unlock_one')
   const idealScene = sourceScene === 'ideal_user_unlock'
+  const replayScene = sourceScene === 'replay_profile_unlock_one'
+  const returnAfterRecharge = idealScene || replayScene
   const unlockCost = Math.max(0, Number(router.params.cost || 0))
   const {
     balance,
@@ -60,10 +62,10 @@ export default function UnlockRechargePage() {
   }, [packages, selectPackage])
 
   useEffect(() => {
-    if (!idealScene || payState !== 'pay-success') return
+    if (!returnAfterRecharge || payState !== 'pay-success') return
     const timer = setTimeout(() => void Taro.navigateBack(), 500)
     return () => clearTimeout(timer)
-  }, [idealScene, payState])
+  }, [returnAfterRecharge, payState])
 
   const activePackage = useMemo(
     () => displayPackages.find(pkg => pkg.id === activePackageId)
@@ -88,7 +90,7 @@ export default function UnlockRechargePage() {
       Taro.showToast({ title: packagesLoading ? '套餐加载中，请稍后重试' : '套餐暂不可用，请稍后重试', icon: 'none' })
       return
     }
-    await purchase(sourceScene, idealScene ? { navigateOnSuccess: false } : undefined)
+    await purchase(sourceScene, returnAfterRecharge ? { navigateOnSuccess: false } : undefined)
   }
 
   const handleAgreementConfirm = async () => {
@@ -98,7 +100,7 @@ export default function UnlockRechargePage() {
       Taro.showToast({ title: packagesLoading ? '套餐加载中，请稍后重试' : '套餐暂不可用，请稍后重试', icon: 'none' })
       return
     }
-    await purchase(sourceScene, idealScene ? { navigateOnSuccess: false } : undefined)
+    await purchase(sourceScene, returnAfterRecharge ? { navigateOnSuccess: false } : undefined)
   }
 
   return (
@@ -106,7 +108,7 @@ export default function UnlockRechargePage() {
       <LanhuNav title="千寻币" showBack />
       <ScrollView scrollY enableFlex showScrollbar={false} style={{ flex: 1, height: 0, minHeight: 0 }}>
         <View style={{ width: '750rpx', minHeight: '1170rpx', paddingBottom: '36rpx', boxSizing: 'border-box' }}>
-          <UnlockSceneHero idealScene={idealScene} />
+          <UnlockSceneHero idealScene={idealScene} replayScene={replayScene} />
           <UnlockSummary balance={balance} cost={unlockCost} />
           {displayPackages.length && activePackage ? <RechargePanel packages={displayPackages} activePackage={activePackage} onSelect={handleSelect} onNotice={() => setNoticeVisible(true)} /> : <View style={{ width: '700rpx', height: '220rpx', margin: '52rpx auto 0', borderRadius: '12rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '24rpx' }}>{packagesLoading ? '充值套餐加载中…' : '暂无可用充值套餐'}</Text></View>}
         </View>
@@ -128,16 +130,16 @@ export default function UnlockRechargePage() {
   )
 }
 
-function UnlockSceneHero({ idealScene }: { idealScene: boolean }) {
+function UnlockSceneHero({ idealScene, replayScene }: { idealScene: boolean; replayScene: boolean }) {
   return (
     <View style={{ position: 'relative', width: '700rpx', height: '420rpx', margin: '0 auto' }}>
       <SceneAvatar left={122} top={90} size={120} />
       <SceneAvatar left={458} top={90} size={120} />
       <SceneAvatar left={250} top={50} size={200} featured />
-      <SceneBubble left={210} top={68} text={idealScene ? '理想型' : '心动'} tail="right" />
+      <SceneBubble left={210} top={68} text={idealScene ? '理想型' : replayScene ? '三天回放' : '心动'} tail="right" />
       <SceneBubble left={390} top={150} text={idealScene ? '已匹配' : '待解锁'} tail="left" />
-      <Text style={{ position: 'absolute', left: 0, top: '270rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>{idealScene ? '立即解锁理想型' : 'Ta也喜欢了你!'}</Text>
-      <Text style={{ position: 'absolute', left: 0, top: '326rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>{idealScene ? '只邂逅你想要的人' : '解锁后立即和ta配对聊天'}</Text>
+      <Text style={{ position: 'absolute', left: 0, top: '270rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>{idealScene ? '立即解锁理想型' : replayScene ? '查看三天回放用户主页' : 'Ta也喜欢了你!'}</Text>
+      <Text style={{ position: 'absolute', left: 0, top: '326rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>{idealScene ? '只邂逅你想要的人' : replayScene ? '充值后返回回放列表确认解锁' : '解锁后立即和ta配对聊天'}</Text>
     </View>
   )
 }

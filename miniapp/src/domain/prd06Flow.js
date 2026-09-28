@@ -56,6 +56,7 @@ export function resolveCompliancePresentation(
     summary?: string,
     linkType?: string
   } | undefined} */ (undefined),
+  options = /** @type {{ webFailed?: boolean }} */ ({}),
 ) {
   if (!detail) {
     return {
@@ -68,9 +69,17 @@ export function resolveCompliancePresentation(
   }
   const title = String(detail.title || '内容')
   const url = String(detail.contentUrl || detail.url || '')
-  const body = String(detail.contentBody || detail.nativeContent || detail.summary || '')
   const linkType = String(detail.linkType || '').toUpperCase()
-  if (linkType === 'H5' && url) return { mode: 'h5', title, url, body, message: '' }
+  const ownReader = /\/h5\/compliance\/index\.html(?:\?|$)/i.test(url)
+  const body = String(detail.contentBody || detail.nativeContent || (ownReader ? '' : detail.summary) || '')
+  const unpublished = /^请配置/.test(body.trim())
+  if (ownReader && (!body.trim() || unpublished)) {
+    return { mode: 'missing', title, url: '', body: '', message: '当前协议正文尚未发布' }
+  }
+  if (ownReader) return { mode: 'native', title, url, body, message: '' }
+  if (linkType === 'H5' && url && !options.webFailed) {
+    return { mode: 'h5', title, url, body, message: '' }
+  }
   if (body) return { mode: 'native', title, url, body, message: '' }
-  return { mode: 'missing', title, url: '', body: '', message: '' }
+  return { mode: 'missing', title, url: '', body: '', message: options.webFailed ? '页面加载失败，请稍后重试' : '' }
 }
