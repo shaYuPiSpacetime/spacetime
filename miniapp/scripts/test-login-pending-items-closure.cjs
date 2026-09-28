@@ -95,7 +95,7 @@ test('首登现居地固定为省市两级选择与提交', () => {
   const source = read('src/pages/login/address.tsx')
   const loginHook = read('src/hooks/useLogin.ts')
   const backupSubmit = loginHook.match(
-    /const submit = async \(\) =>[\s\S]*?\n\n  const initField/
+    /const submit = async \(\) =>[\s\S]*?\r?\n\r?\n  const initField/
   )?.[0]
 
   assert.match(source, /loadProvinceCities\(/, '地址页应一次加载省市树')
