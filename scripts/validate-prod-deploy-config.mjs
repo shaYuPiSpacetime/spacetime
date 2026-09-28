@@ -132,6 +132,7 @@ const websiteMigrations = [
   'deploy/sql/prod/097_website_public_report_contact.sql',
   'deploy/sql/prod/098_website_legal_publication.sql',
   'deploy/sql/prod/099_website_legal_copy_update.sql',
+  'deploy/sql/prod/100_website_admin_menu_parent_permission.sql',
 ];
 for (const migration of websiteMigrations) {
   assert.ok(backendCopySource.includes(migration), `backend SCP must include ${migration}`);

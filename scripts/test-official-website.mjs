@@ -16,6 +16,7 @@ const sql = read('deploy/sql/prod/096_website_activity_platform.sql');
 const reportMigration = read('deploy/sql/prod/097_website_public_report_contact.sql');
 const legalMigration = read('deploy/sql/prod/098_website_legal_publication.sql');
 const copyMigration = read('deploy/sql/prod/099_website_legal_copy_update.sql');
+const adminMenuMigration = read('deploy/sql/prod/100_website_admin_menu_parent_permission.sql');
 const docker = read('frontend/Dockerfile');
 const gateway = read('deploy/nginx-prod/conf.d/default.conf');
 const client = read('frontend/nginx.conf');
@@ -69,6 +70,9 @@ assert.ok(backendWorkflow.includes('deploy/sql/prod/096_website_activity_platfor
 assert.ok(backendWorkflow.includes('deploy/sql/prod/097_website_public_report_contact.sql'));
 assert.ok(backendWorkflow.includes('deploy/sql/prod/098_website_legal_publication.sql'));
 assert.ok(backendWorkflow.includes('deploy/sql/prod/099_website_legal_copy_update.sql'));
+assert.ok(backendWorkflow.includes('deploy/sql/prod/100_website_admin_menu_parent_permission.sql'));
+assert.match(adminMenuMigration, /INSERT INTO sys_role_menu\(role_id,menu_id\)/);
+assert.match(adminMenuMigration, /website:activity:list/);
 assert.match(sql, /status VARCHAR\(20\) NOT NULL DEFAULT 'DRAFT'/);
 assert.match(sql, /'DRAFT' WHERE NOT EXISTS\(SELECT 1 FROM website_legal_document WHERE document_type='USER_AGREEMENT'/);
 assert.match(sql, /'DRAFT' WHERE NOT EXISTS\(SELECT 1 FROM website_legal_document WHERE document_type='PRIVACY_POLICY'/);

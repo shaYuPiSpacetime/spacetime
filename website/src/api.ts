@@ -29,6 +29,7 @@ async function call<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 const post = <T,>(path: string, value: unknown) => call<T>(path, { method: 'POST', body: JSON.stringify(value) })
+const toServerDateTime = (value: string) => value.replace('T', ' ').replace(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})$/, '$1:00')
 
 export const api = {
   legal: (type: 'USER_AGREEMENT' | 'PRIVACY_POLICY') => call<Legal>(`/legal/${type}`),
@@ -40,7 +41,7 @@ export const api = {
   activity: (id: number) => call<Activity>(`/activities/${id}`),
   myActivity: (id: number) => call<Activity>(`/me/activities/${id}`),
   myActivities: () => call<Activity[]>('/me/activities'),
-  publish: (value: { title: string; content: string; startTime: string; location: string; estimatedCost: number; imageIds: number[] }) => post<Activity>('/activities', value),
+  publish: (value: { title: string; content: string; startTime: string; location: string; estimatedCost: number; imageIds: number[] }) => post<Activity>('/activities', { ...value, startTime: toServerDateTime(value.startTime) }),
   register: (id: number) => post<Registration>(`/activities/${id}/registrations`, {}),
   myRegistrations: () => call<Registration[]>('/me/registrations'),
   participants: (id: number) => call<User[]>(`/activities/${id}/participants`),
