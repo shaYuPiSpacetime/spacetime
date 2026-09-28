@@ -221,6 +221,7 @@ function EstablishedPrivateChatPage() {
   const gatewayRef = useRef<MessageImGateway>()
   const gatewayPromiseRef = useRef<Promise<MessageImGateway>>()
   const connectionPromiseRef = useRef<Promise<MessageImGateway>>()
+  const sendInFlightRef = useRef(false)
   const unsubscribeGatewayRef = useRef<() => void>()
   const gatewayEventHandlerRef = useRef<(event: MessageImEvent) => void>(() => undefined)
   const loadSingleFlight = useRef(createKeyedSingleFlight()).current
@@ -292,6 +293,19 @@ function EstablishedPrivateChatPage() {
       item => item.conversationNo === currentTimConversationId || item.conversationNo === conversationNo,
     )
     if (!relevant.length) return
+    if (relevant.some(item => item.direction === 'incoming')) {
+      setDetail(current => current?.femaleProtection?.appliesToCurrentUser
+        ? {
+            ...current,
+            canSend: true,
+            sendBlockedReason: null,
+            femaleProtection: {
+              ...current.femaleProtection,
+              waitingForFemaleReply: false,
+            },
+          }
+        : current)
+    }
     setMessages(current => {
       const next = upsertMessages(current, relevant)
       setTimeout(() => void acknowledgeRendered(next), 0)
@@ -466,6 +480,7 @@ function EstablishedPrivateChatPage() {
   const send = async () => {
     const value = inputValue.trim()
     if (!value) return
+    if (sendInFlightRef.current) return
     if (!detail || !timConversationId) {
       await Taro.showToast({ title: '会话正在加载，请稍后发送', icon: 'none' })
       return
@@ -473,6 +488,20 @@ function EstablishedPrivateChatPage() {
     if (!canSend) {
       await Taro.showToast({ title: resolveConversationSendBlockedReason(detail?.sendBlockedReason), icon: 'none' })
       return
+    }
+    const previousDetail = detail
+    const protectionApplies = Boolean(detail.femaleProtection?.appliesToCurrentUser)
+    sendInFlightRef.current = true
+    if (protectionApplies) {
+      setDetail(current => current ? {
+        ...current,
+        canSend: false,
+        sendBlockedReason: 'female_reply_pending',
+        femaleProtection: current.femaleProtection ? {
+          ...current.femaleProtection,
+          waitingForFemaleReply: true,
+        } : null,
+      } : current)
     }
     setInputValue('')
     setErrorMessage('')
@@ -485,11 +514,22 @@ function EstablishedPrivateChatPage() {
       )
       setMessages(current => upsertMessages(current, [message]))
       requestScrollToLatest()
-      if (message.sendStatus === 'failed') setRetryTarget(message)
+      if (message.sendStatus === 'failed') {
+        setRetryTarget(message)
+        if (protectionApplies) setDetail(previousDetail)
+      }
     } catch (error) {
+      if (protectionApplies) {
+        setDetail(current => current?.femaleProtection?.waitingForFemaleReply
+          ? previousDetail
+          : current)
+      }
+      setInputValue(current => current || value)
       const resolved = resolveMessageError(error)
       setErrorMessage(resolved.message)
       await Taro.showToast({ title: resolved.message, icon: 'none' })
+    } finally {
+      sendInFlightRef.current = false
     }
   }
 
@@ -499,6 +539,19 @@ function EstablishedPrivateChatPage() {
       const gateway = await ensureConnected()
       const retried = await gateway.retry(timConversationId, retryTarget.clientMsgId)
       setMessages(current => upsertMessages(current, [retried]))
+      if (retried.sendStatus !== 'failed') {
+        setDetail(current => current?.femaleProtection?.appliesToCurrentUser
+          ? {
+              ...current,
+              canSend: false,
+              sendBlockedReason: 'female_reply_pending',
+              femaleProtection: {
+                ...current.femaleProtection,
+                waitingForFemaleReply: true,
+              },
+            }
+          : current)
+      }
       setRetryTarget(undefined)
     } catch (error) {
       if (!isMockScene && isTimAccountMissingError(error)) {
@@ -514,6 +567,17 @@ function EstablishedPrivateChatPage() {
             retryTarget.clientMsgId,
           )
           setMessages(current => upsertMessages(current, [retried]))
+          if (retried.sendStatus !== 'failed' && recoveredDetail.femaleProtection?.appliesToCurrentUser) {
+            setDetail({
+              ...recoveredDetail,
+              canSend: false,
+              sendBlockedReason: 'female_reply_pending',
+              femaleProtection: {
+                ...recoveredDetail.femaleProtection,
+                waitingForFemaleReply: true,
+              },
+            })
+          }
           setRetryTarget(undefined)
           return
         } catch {
@@ -601,7 +665,7 @@ function EstablishedPrivateChatPage() {
                   >
                     <Text>{message.content}</Text>
                   </View>
-                  {message.direction === 'outgoing' ? <Image className="chat-avatar" src={MESSAGE_AVATAR} mode="aspectFill" /> : null}
+                  {message.direction === 'outgoing' ? <Image className="chat-avatar" src={detail?.selfAvatarUrl || MESSAGE_AVATAR} mode="aspectFill" /> : null}
                 </View>
               </View>
             )
@@ -618,7 +682,7 @@ function EstablishedPrivateChatPage() {
         style={{ bottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined, paddingBottom: keyboardHeight > 0 ? '5px' : undefined }}
       >
         {!detail?.canSend && detail?.sendBlockedReason ? <Text className="chat-reply-label">{resolveConversationSendBlockedReason(detail.sendBlockedReason)}</Text> : null}
-        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canSend)} maxlength={500} adjustPosition={false} holdKeyboard cursorSpacing={12} confirmType="send" confirmHold focus={inputFocused} onFocus={event => { setInputFocused(true); setKeyboardHeight(event.detail.height || 0); requestScrollToLatest() }} onBlur={() => { setInputFocused(false); setKeyboardHeight(0) }} onKeyboardHeightChange={event => setKeyboardHeight(Math.max(0, event.detail.height))} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
+        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canEnterConversation)} maxlength={500} adjustPosition={false} holdKeyboard cursorSpacing={12} confirmType="send" confirmHold focus={inputFocused} onFocus={event => { setInputFocused(true); setKeyboardHeight(event.detail.height || 0); requestScrollToLatest() }} onBlur={() => { setInputFocused(false); setKeyboardHeight(0) }} onKeyboardHeightChange={event => setKeyboardHeight(Math.max(0, event.detail.height))} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
         <View className={`chat-send-button${canSend ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>发送</Text></View>
       </View>
 

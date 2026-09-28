@@ -369,13 +369,16 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
                 conversation.getId(), userId);
         AppUser peer = active ? appUserDao.selectById(peerId) : null;
         String peerAvatar = active ? auditContentService.publicAvatar(peerId) : null;
+        String selfAvatar = active ? auditContentService.publicAvatar(userId) : null;
         String timConversationId = active
                 ? activeTimConversationId(peerId, peer, peerAvatar)
                 : optionalTimConversationId(peerId);
 
         MessageFemaleProtectionVO protection = new MessageFemaleProtectionVO();
         protection.setEnabled(Integer.valueOf(1).equals(conversation.getProtectionEnabled()));
-        protection.setWaitingForFemaleFirstMessage("female_protection".equals(permission.reason()));
+        protection.setAppliesToCurrentUser(protectionActive(conversation, LocalDateTime.now())
+                && Objects.equals(userId, conversation.getMaleUserId()));
+        protection.setWaitingForFemaleReply("female_reply_pending".equals(permission.reason()));
         protection.setProtectionUntil(conversation.getProtectionUntil());
 
         MessageConversationDetailVO result = new MessageConversationDetailVO();
@@ -387,6 +390,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
                 ? toPeerUser(peerId, peer, peerAvatar)
                 : toSafetyReadonlyPeer(peerId);
         result.setPeerUser(peerUser);
+        result.setSelfAvatarUrl(selfAvatar);
         result.setCanEnterConversation(permission.canEnter() && timConversationId != null);
         result.setCanSend(permission.canSend());
         result.setSendBlockedReason(permission.reason());
@@ -789,14 +793,28 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         if (!MessageConversationStatusEnum.ACTIVE.getCode().equals(conversation.getStatus())) {
             return new SendPermission(false, false, "conversation_invalid");
         }
-        boolean waitingForFemale = Integer.valueOf(1).equals(conversation.getProtectionEnabled())
-                && Objects.equals(userId, conversation.getMaleUserId())
-                && conversation.getFemaleFirstMessageAt() == null
+        boolean waitingForFemaleReply = waitingForFemaleReply(conversation, userId, now);
+        return waitingForFemaleReply
+                ? new SendPermission(true, false, "female_reply_pending")
+                : new SendPermission(true, true, null);
+    }
+
+    private boolean waitingForFemaleReply(AppMessageConversation conversation, Long userId,
+                                           LocalDateTime now) {
+        if (!protectionActive(conversation, now)
+                || !Objects.equals(userId, conversation.getMaleUserId())
+                || conversation.getLastMessageId() == null) {
+            return false;
+        }
+        AppMessageRecord lastMessage = recordDao.selectById(conversation.getLastMessageId());
+        return lastMessage != null
+                && Objects.equals(lastMessage.getSenderUserId(), conversation.getMaleUserId());
+    }
+
+    private boolean protectionActive(AppMessageConversation conversation, LocalDateTime now) {
+        return Integer.valueOf(1).equals(conversation.getProtectionEnabled())
                 && (conversation.getProtectionUntil() == null
                     || now.isBefore(conversation.getProtectionUntil()));
-        return waitingForFemale
-                ? new SendPermission(true, false, "female_protection")
-                : new SendPermission(true, true, null);
     }
 
     private MessagePeerUserVO toPeerUser(Long peerId, AppUser user, String avatar) {

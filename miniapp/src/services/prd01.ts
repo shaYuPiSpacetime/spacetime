@@ -121,7 +121,7 @@ export const prd01Api = {
     put<ProfileDetail>(PRD01_API_PATHS.tags, { tagCodes }),
   searchSongs: (keyword: string, limit = 10) =>
     get<SongOption[]>(PRD01_API_PATHS.songSearch, { keyword, limit }),
-  saveFavoriteSong: (data: SongOption) =>
+  saveFavoriteSong: (data: { songName: string }) =>
     put<ProfileDetail>(PRD01_API_PATHS.favoriteSong, data as unknown as Record<string, unknown>),
   getWechatId: () => get<string>(PRD01_API_PATHS.wechatId),
   saveWechatId: (wechatId: string) =>

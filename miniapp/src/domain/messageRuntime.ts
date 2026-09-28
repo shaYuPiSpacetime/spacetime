@@ -143,7 +143,7 @@ export function waitForMessageGatewayReady(
 const ERROR_ACTIONS: Record<number, Omit<MessageErrorResolution, 'code'>> = {
   30001: { action: 'restrict', message: '当前账号暂不可使用消息功能', retryable: false },
   30002: { action: 'refresh_relation', message: '当前关系状态不允许发送', retryable: false },
-  30003: { action: 'protect', message: '当前处于女性保护期，暂不可发送', retryable: false },
+  30003: { action: 'protect', message: '等待女方回复后可继续发送', retryable: false },
   30004: { action: 'read_only', message: '当前会话已失效', retryable: false },
   30005: { action: 'open_existing', message: '已有待处理的悄悄话', retryable: false },
   30006: { action: 'countdown', message: '悄悄话正在冷却中', retryable: false },
@@ -254,7 +254,8 @@ export function resolveTimC2CTargetUserId(timConversationId: unknown): string {
 }
 
 export function resolveConversationSendBlockedReason(reason?: string | null): string {
-  if (reason === 'female_protection') return '等待女方先发消息后即可聊天'
+  if (reason === 'female_reply_pending') return '等待女方回复后可继续发送'
+  if (reason === 'female_protection') return '等待女方回复后可继续发送'
   if (reason === 'conversation_invalid') return '当前会话已失效，仅可查看历史消息'
   return reason?.trim() || '当前会话暂不可发送'
 }

@@ -311,8 +311,8 @@ test('编辑资料展示当前头像，主页预览仅展示审核生效头像',
 
 test('编辑资料背景图与头像分别上传并独立回显', () => {
   const edit = read('src/pages/profile/edit.tsx')
-  const backgroundHandler = edit.match(/const onChangeBackground = \(\) => \{[\s\S]*?\n  \}\n\n  const onChangeAvatar/)?.[0]
-  const avatarHandler = edit.match(/const onChangeAvatar = \(\) => \{[\s\S]*?\n  \}\n\n  const handlePhotoClick/)?.[0]
+  const backgroundHandler = edit.match(/const onChangeBackground = \(\) => \{[\s\S]*?\r?\n  \}\r?\n\r?\n  const onChangeAvatar/)?.[0]
+  const avatarHandler = edit.match(/const onChangeAvatar = \(\) => \{[\s\S]*?\r?\n  \}\r?\n\r?\n  const handlePhotoClick/)?.[0]
 
   assert.ok(backgroundHandler, '缺少独立的背景图上传处理器')
   assert.match(backgroundHandler, /prd01Api\.uploadBackground/, '背景图必须调用背景上传接口')
@@ -758,8 +758,9 @@ test('四个蓝湖二级页具备独立结构和首屏数据', () => {
   assert.match(tags, /width: '206rpx'/, '我的标签页必须为三列布局')
   assert.match(about, /const aboutTabs/, '关于我页面缺少顶部分类')
   assert.match(about, /question\.placeholder/, '关于我卡片必须展示接口副标题')
-  assert.match(songs, /void searchSongs\(''\)/, '歌曲页首屏必须主动加载推荐数据')
-  assert.match(songs, /function SongRecord/, '歌曲列表必须按蓝湖独立组件还原')
+  assert.match(songs, /placeholder="请输入你爱听的歌曲名称"/, '歌曲页必须提供手动名称输入框')
+  assert.match(songs, /saveFavoriteSong\(\{ songName: normalized \}\)/, '歌曲页必须只保存用户输入的名称')
+  assert.doesNotMatch(songs, /searchSongs\s*\(/, '歌曲页首版不再加载推荐或搜索数据')
 })
 
 test('标签在编辑页、选择页和主页预览按完整色块换行', () => {

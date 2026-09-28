@@ -1,4 +1,5 @@
 import { Input, Text, View } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { useMemo, useState } from 'react'
 import {
   BASIC_PROFILE_ROW_FIELDS,
@@ -367,8 +368,15 @@ function SchoolFieldEditor({ title, value, code, placeholder, onConfirm, onClose
 }) {
   const [draftName, setDraftName] = useState(value)
   const [draftCode, setDraftCode] = useState<string | undefined>(code)
+  const confirm = async () => {
+    if (!draftCode) {
+      await Taro.showToast({ title: '请从搜索结果中选择学校', icon: 'none' })
+      return
+    }
+    await onConfirm(draftName.trim(), draftCode)
+  }
   return (
-    <BottomPicker title={title} onConfirm={() => void onConfirm(draftName.trim(), draftCode)} onClose={onClose}>
+    <BottomPicker title={title} onConfirm={() => void confirm()} onClose={onClose}>
       <View style={{ marginTop: '26rpx' }}>
         <SchoolSearchInput
           value={draftName}
@@ -379,7 +387,7 @@ function SchoolFieldEditor({ title, value, code, placeholder, onConfirm, onClose
           }}
         />
         <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx', marginTop: '16rpx' }}>
-          中国大陆院校支持联想选择；港澳台、海外院校可直接手动输入。
+          输入学校名称后，请从联想结果中选择。
         </Text>
       </View>
     </BottomPicker>

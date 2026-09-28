@@ -21,7 +21,7 @@ test('协议弹窗打开时原生视频和 CoverView Logo 退出覆盖层', () =
 
 test('选择微信登录后点击协议同意直接触发原生账号选择', () => {
   const login = read('src/pages/login/index.tsx')
-  const agreementDialog = login.match(/function AgreementDialog[\s\S]*?\n}\n\ninterface LoginMethodSheetProps/)?.[0]
+  const agreementDialog = login.match(/function AgreementDialog[\s\S]*?\r?\n}\r?\n\r?\ninterface LoginMethodSheetProps/)?.[0]
 
   assert.ok(agreementDialog, '无法定位协议弹窗组件')
   assert.match(

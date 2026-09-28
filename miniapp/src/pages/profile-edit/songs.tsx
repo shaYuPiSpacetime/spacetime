@@ -1,89 +1,62 @@
-import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
+import { Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import LanhuSubNav from '@/components/LanhuSubNav'
-import { miniappOssIcons } from '@/constants/ossIcons'
 import { prd01Api } from '@/services/prd01'
-import { usePrd01Store } from '@/stores/prd01Store'
-import type { SongOption } from '@/types/prd01'
 import { navigateBackOrRedirect } from '@/utils/navigation'
 import { emitProfileUpdated } from '@/utils/profileEditEvents'
 
 export default function ProfileEditSongsPage() {
-  const bootstrap = usePrd01Store(state => state.bootstrap)
-  const [searchKeyword, setSearchKeyword] = useState('')
-  const [songs, setSongs] = useState<SongOption[]>([])
-  const [loading, setLoading] = useState(false)
-  const [savingId, setSavingId] = useState('')
+  const [songName, setSongName] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        await bootstrap()
-        void searchSongs('')
-      } catch (error) {
-        await showError(error)
-      }
-    })()
-  }, [])
-
-  const searchSongs = async (keyword = searchKeyword) => {
-    if (loading) return
-    setLoading(true)
-    try {
-      setSongs(await prd01Api.searchSongs(keyword.trim(), 20))
-    } catch (error) {
-      await showError(error)
-    } finally {
-      setLoading(false)
+  const save = async () => {
+    const normalized = songName.trim()
+    if (!normalized) {
+      await Taro.showToast({ title: '请输入歌曲名称', icon: 'none' })
+      return
     }
-  }
-
-  const save = async (song: SongOption) => {
-    if (savingId) return
-    setSavingId(song.songId)
+    if (saving) return
+    setSaving(true)
     try {
-      await prd01Api.saveFavoriteSong(song)
-      emitProfileUpdated({ type: 'song', display: song.artistName ? `${song.songName}｜${song.artistName}` : song.songName })
+      await prd01Api.saveFavoriteSong({ songName: normalized })
+      emitProfileUpdated({ type: 'song', display: normalized })
       await Taro.showToast({ title: '保存成功', icon: 'success' })
       await navigateBackOrRedirect()
     } catch (error) {
       await showError(error)
     } finally {
-      setSavingId('')
+      setSaving(false)
     }
   }
 
   return (
-    <View style={{ height: '100vh', overflow: 'hidden', background: 'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 50%, rgba(248,250,239,0.72) 100%)' }}>
+    <View style={{ minHeight: '100vh', background: 'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 50%, rgba(248,250,239,0.72) 100%)' }}>
       <LanhuSubNav title="爱听的歌曲" onBack={navigateBackOrRedirect} />
-      <View style={{ width: '700rpx', height: '88rpx', borderRadius: '8rpx', background: '#FFFFFF', margin: '0 auto 16rpx', padding: '0 28rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-        <View style={{ position: 'relative', width: '30rpx', height: '30rpx', borderRadius: '18rpx', border: '4rpx solid #858EA0', boxSizing: 'border-box', marginRight: '18rpx' }}>
-          <View style={{ position: 'absolute', right: '-9rpx', bottom: '-7rpx', width: '12rpx', height: '4rpx', borderRadius: '4rpx', background: '#858EA0', transform: 'rotate(45deg)' }} />
+      <View style={{ width: '700rpx', margin: '0 auto', borderRadius: '16rpx', background: '#FFFFFF', padding: '34rpx 30rpx 40rpx', boxSizing: 'border-box' }}>
+        <Text style={{ display: 'block', color: '#0C285A', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600 }}>歌曲名称</Text>
+        <View style={{ height: '92rpx', borderRadius: '12rpx', background: '#F7F9FC', marginTop: '22rpx', padding: '0 26rpx', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+          <Input
+            value={songName}
+            maxlength={100}
+            placeholder="请输入你爱听的歌曲名称"
+            placeholderStyle="color:#A0A7B3;font-size:28rpx"
+            confirmType="done"
+            onInput={event => {
+              setSongName(event.detail.value)
+              return event.detail.value
+            }}
+            onConfirm={() => void save()}
+            style={{ flex: 1, color: '#333333', fontSize: '30rpx' }}
+          />
         </View>
-        <Input value={searchKeyword} placeholder="搜索歌曲名称" placeholderStyle="color:#858EA0;font-size:30rpx" confirmType="search" onInput={event => { setSearchKeyword(event.detail.value); return event.detail.value }} onConfirm={() => void searchSongs()} style={{ flex: 1, height: '88rpx', color: '#333333', fontSize: '30rpx', lineHeight: '88rpx' }} />
-      </View>
-      <ScrollView scrollY style={{ height: 'calc(100vh - 268rpx)' }} showScrollbar={false}>
-        <View style={{ width: '700rpx', minHeight: '980rpx', margin: '0 auto', borderRadius: '8rpx', background: '#FFFFFF', padding: '18rpx 30rpx 80rpx', boxSizing: 'border-box' }}>
-          {songs.map(song => (
-            <SongRecord key={song.songId} song={song} saving={savingId === song.songId} onSelect={() => void save(song)} />
-          ))}
-          {!loading && songs.length === 0 ? <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', textAlign: 'center', marginTop: '120rpx' }}>没有找到相关歌曲</Text> : null}
+        <View
+          onClick={() => void save()}
+          style={{ height: '88rpx', borderRadius: '44rpx', background: songName.trim() && !saving ? '#2876FF' : '#B9CBEF', marginTop: '36rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>{saving ? '保存中...' : '确认保存'}</Text>
         </View>
-      </ScrollView>
-    </View>
-  )
-}
-
-function SongRecord({ song, saving, onSelect }: { song: SongOption; saving: boolean; onSelect: () => void }) {
-  return (
-    <View onClick={onSelect} style={{ minHeight: '118rpx', display: 'flex', alignItems: 'center' }}>
-      <Image src={miniappOssIcons.profilePreviewSong} mode="aspectFit" style={{ width: '88rpx', height: '88rpx', borderRadius: '44rpx', flexShrink: 0 }} />
-      <View style={{ minWidth: 0, flex: 1, marginLeft: '22rpx' }}>
-        <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 700 }}>{song.songName}</Text>
-        <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>{song.artistName || ''}</Text>
       </View>
-      {saving ? <Text style={{ color: '#2876FF', fontSize: '22rpx' }}>保存中...</Text> : null}
     </View>
   )
 }

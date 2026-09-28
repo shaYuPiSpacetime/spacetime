@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface SchoolDictionaryService {
     List<SchoolOptionVO> search(String keyword, int limit);
+    SchoolOptionVO requireSelection(String name, String code);
 }
