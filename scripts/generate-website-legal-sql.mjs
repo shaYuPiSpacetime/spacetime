@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const output = path.join(root, 'deploy/sql/prod/098_website_legal_publication.sql');
+const output = path.join(root, 'deploy/sql/prod/099_website_legal_copy_update.sql');
 const source = [
   ['USER_AGREEMENT', '官网用户服务协议', 'docs/官网/官网用户服务协议.md', '运营主体'],
   ['PRIVACY_POLICY', '官网隐私政策', 'docs/官网/官网隐私政策.md', '个人信息处理者'],

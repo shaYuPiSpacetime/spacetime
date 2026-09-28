@@ -15,6 +15,7 @@ const css = read('website/src/styles.css');
 const sql = read('deploy/sql/prod/096_website_activity_platform.sql');
 const reportMigration = read('deploy/sql/prod/097_website_public_report_contact.sql');
 const legalMigration = read('deploy/sql/prod/098_website_legal_publication.sql');
+const copyMigration = read('deploy/sql/prod/099_website_legal_copy_update.sql');
 const docker = read('frontend/Dockerfile');
 const gateway = read('deploy/nginx-prod/conf.d/default.conf');
 const client = read('frontend/nginx.conf');
@@ -27,8 +28,8 @@ const websiteService = read('backend/src/main/java/com/spacetime/website/service
 const backendWorkflow = read('.github/workflows/deploy-backend-prod.yml');
 const frontendWorkflow = read('.github/workflows/deploy-admin-prod.yml');
 
-assert.match(app, /本网站面向大学生提供线下活动信息与报名服务。/);
-assert.match(app, /网站当前不收取报名服务费/);
+assert.match(app, /时空邂逅面向大学生提供线下活动信息与报名服务。/);
+assert.match(app, /免费报名/);
 for (const route of ['/activities', '/publish', '/my', '/chats', '/login', '/business', '/about', '/report', '/legal/user-agreement', '/legal/privacy-policy']) {
   assert.ok(app.includes(`path="${route}"`) || app.includes(`to="${route}"`), `缺少路由 ${route}`);
 }
@@ -61,15 +62,21 @@ assert.match(reportMigration, /ADD COLUMN contact VARCHAR\(120\) NULL/);
 assert.match(legalMigration, /'USER_AGREEMENT','1\.1','官网用户服务协议'/);
 assert.match(legalMigration, /'PRIVACY_POLICY','1\.1','官网隐私政策'/);
 assert.match(legalMigration, /'PUBLISHED'/);
+assert.match(copyMigration, /'USER_AGREEMENT','1\.2','官网用户服务协议'/);
+assert.match(copyMigration, /'PRIVACY_POLICY','1\.2','官网隐私政策'/);
+assert.doesNotMatch(copyMigration, /小程序账号分别管理|创建独立的网站账号/);
 assert.ok(backendWorkflow.includes('deploy/sql/prod/096_website_activity_platform.sql'));
 assert.ok(backendWorkflow.includes('deploy/sql/prod/097_website_public_report_contact.sql'));
 assert.ok(backendWorkflow.includes('deploy/sql/prod/098_website_legal_publication.sql'));
+assert.ok(backendWorkflow.includes('deploy/sql/prod/099_website_legal_copy_update.sql'));
 assert.match(sql, /status VARCHAR\(20\) NOT NULL DEFAULT 'DRAFT'/);
 assert.match(sql, /'DRAFT' WHERE NOT EXISTS\(SELECT 1 FROM website_legal_document WHERE document_type='USER_AGREEMENT'/);
 assert.match(sql, /'DRAFT' WHERE NOT EXISTS\(SELECT 1 FROM website_legal_document WHERE document_type='PRIVACY_POLICY'/);
 assert.match(frontendWorkflow, /for document in USER_AGREEMENT PRIVACY_POLICY/);
+assert.match(frontendWorkflow, /expectedVersion="1\.2"/);
 for (const table of ['website_user', 'website_activity', 'website_registration', 'website_conversation', 'website_message', 'website_report', 'website_audit_log', 'website_legal_document']) {
   assert.ok(sql.includes(`CREATE TABLE IF NOT EXISTS ${table}`), `缺少表 ${table}`);
 }
 assert.doesNotMatch(app, /支付订单|立即支付|会员权益|智能匹配|婚恋推荐/);
+assert.doesNotMatch(app, /小程序账号分别管理|网站活动账号|不提供线上付费功能|本网站不提供婚恋匹配/);
 console.log('官网活动平台源码与部署契约校验通过');
