@@ -37,6 +37,7 @@ import FinanceManagement from '@/pages/finance/FinanceManagement';
 import CommercialManagement from '@/pages/commercial/CommercialManagement';
 import MessageRecordPage from '@/pages/message/MessageRecordPage';
 import MessageConfigPage from '@/pages/message/MessageConfigPage';
+import WebsiteManagementPage from '@/pages/website/WebsiteManagementPage';
 
 export default function AppRouter() {
   return (
@@ -83,6 +84,7 @@ export default function AppRouter() {
         <Route path="content/operation-logs" element={<ContentOperationLogPage />} />
         <Route path="operation/message-records" element={<MessageRecordPage />} />
         <Route path="mobile-config/message-social" element={<MessageConfigPage />} />
+        <Route path="website/activities" element={<WebsiteManagementPage />} />
 
         {/* Community Management */}
         <Route path="community/content" element={<CommunityPostManagementPage variant="content" />} />

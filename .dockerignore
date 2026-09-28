@@ -1,10 +1,12 @@
 **
 !frontend/
 !frontend/**
+!website/
+!website/**
+website/node_modules/
+website/dist/
 !docs/
 !docs/静态Demo/
 !docs/静态Demo/**
-!docs/官网/
-!docs/官网/**
 **/.DS_Store
 **/._*

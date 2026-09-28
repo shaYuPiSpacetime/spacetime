@@ -5,15 +5,15 @@ on:
     branches: [ master ]
     paths:
       - 'frontend/**'
+      - 'website/**'
       - 'docs/静态Demo/**'
-      - 'docs/官网/**'
       - 'scripts/test-official-website.mjs'
       - 'deploy/**'
       - '.github/workflows/deploy-admin-prod.yml'
   workflow_dispatch:
 
 concurrency:
-  group: spacetime-prod-deploy
+  group: spacetime-admin-prod-deploy
   cancel-in-progress: false
 
 env:
@@ -96,6 +96,22 @@ jobs:
     steps:
       - name: Checkout deploy files
         uses: actions/checkout@v4
+
+      - name: Wait for website backend and migration
+        run: |
+          for attempt in $(seq 1 90); do
+            if (
+              for document in USER_AGREEMENT PRIVACY_POLICY; do
+                curl -fs --max-time 8 "https://www.shikongxiehou.com/api/website/legal/${document}" \
+                  | python3 -c 'import json,sys; result=json.load(sys.stdin); sys.exit(0 if result.get("code")==200 and result.get("data",{}).get("version") else 1)' || exit 1
+              done
+            ); then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo '官网后端或协议迁移尚未就绪，停止网站镜像发布' >&2
+          exit 1
 
       - name: Sync deploy files over SSH
         uses: appleboy/scp-action@v0.1.7

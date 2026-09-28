@@ -73,7 +73,7 @@ assertIncludes(adminWorkflow, 'Validate static demo bundle', '.github/workflows/
 assertIncludes(adminWorkflow, 'Build admin image with static demos', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'Static demo pages:', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, "'docs/静态Demo/**'", '.github/workflows/deploy-admin-prod.yml');
-assertIncludes(adminWorkflow, "'docs/官网/**'", '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, "'website/**'", '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, "'scripts/test-official-website.mjs'", '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'Validate official website', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'node scripts/test-official-website.mjs', '.github/workflows/deploy-admin-prod.yml');
@@ -127,6 +127,18 @@ for (const migration of sensitiveMigrations) {
 }
 assert.ok(backendMigrationStep.indexOf(sensitiveMigrations[0]) < backendMigrationStep.indexOf(sensitiveMigrations[1]),
   'sensitive-word schema must run before seed');
+const websiteMigrations = [
+  'deploy/sql/prod/096_website_activity_platform.sql',
+  'deploy/sql/prod/097_website_public_report_contact.sql',
+  'deploy/sql/prod/098_website_legal_publication.sql',
+];
+for (const migration of websiteMigrations) {
+  assert.ok(backendCopySource.includes(migration), `backend SCP must include ${migration}`);
+  assertIncludes(backendMigrationStep, migration, 'backend migration execution');
+}
+assert.ok(websiteMigrations.every((migration, index) => index === 0
+  || backendMigrationStep.indexOf(websiteMigrations[index - 1]) < backendMigrationStep.indexOf(migration)),
+  '官网迁移必须先建表、再开放访客反馈、最后发布协议');
 const sensitiveSeed = read(sensitiveMigrations[1]);
 assertIncludes(sensitiveSeed, 'IF existing_count = 0 THEN', sensitiveMigrations[1]);
 assertIncludes(sensitiveSeed, 'SKIPPED_NONEMPTY', sensitiveMigrations[1]);
@@ -369,7 +381,7 @@ const frontendDockerfile = read('frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY frontend/package*.json ./', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY frontend/ ./', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY docs/静态Demo/ /usr/share/nginx/html/demo/', 'frontend/Dockerfile');
-assertIncludes(frontendDockerfile, 'COPY docs/官网/ /usr/share/nginx/html/website/', 'frontend/Dockerfile');
+assertIncludes(frontendDockerfile, 'COPY --from=website-build /app/website/dist /usr/share/nginx/html/website/', 'frontend/Dockerfile');
 assertNotIncludes(frontendDockerfile, 'COPY docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html /usr/share/nginx/html/demo', 'frontend/Dockerfile');
 assertNotIncludes(frontendDockerfile, 'COPY docs/静态Demo/shared /usr/share/nginx/html/shared', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'index=/usr/share/nginx/html/demo/index.html', 'frontend/Dockerfile');
@@ -377,7 +389,7 @@ assertIncludes(frontendDockerfile, "find /usr/share/nginx/html/demo -mindepth 3 
 
 const dockerignore = read('.dockerignore');
 assertIncludes(dockerignore, '!docs/静态Demo/**', '.dockerignore');
-assertIncludes(dockerignore, '!docs/官网/**', '.dockerignore');
+assertIncludes(dockerignore, '!website/**', '.dockerignore');
 assertNotIncludes(dockerignore, '!docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/**', '.dockerignore');
 assertIncludes(dockerignore, '**/.DS_Store', '.dockerignore');
 assertIncludes(dockerignore, '**/._*', '.dockerignore');

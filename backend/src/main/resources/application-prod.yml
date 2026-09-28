@@ -33,6 +33,7 @@ oss:
   access-key-id: ${OSS_ACCESS_KEY_ID}
   access-key-secret: ${OSS_ACCESS_KEY_SECRET}
   bucket-name: ${OSS_BUCKET_NAME:shikongxiehou}
+  website-bucket-name: ${WEBSITE_OSS_BUCKET_NAME:}
   cdn-domain: ${OSS_CDN_DOMAIN:}
   url-expire-seconds: ${OSS_URL_EXPIRE_SECONDS:300}
 

@@ -1,6 +1,9 @@
 server:
   port: 8080
 
+oss:
+  website-bucket-name: ${WEBSITE_OSS_BUCKET_NAME:${DEV_WEBSITE_OSS_BUCKET_NAME:}}
+
 spring:
   application:
     name: spacetime
