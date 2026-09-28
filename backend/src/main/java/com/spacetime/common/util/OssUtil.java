@@ -5,11 +5,16 @@ import cn.hutool.core.util.StrUtil;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.GeneratePresignedUrlRequest;
+import com.aliyun.oss.model.CannedAccessControlList;
+import com.aliyun.oss.model.OSSObject;
+import com.aliyun.oss.model.ObjectMetadata;
+import com.aliyun.oss.model.PutObjectRequest;
 import com.spacetime.common.config.OssConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
+import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.Instant;
@@ -91,6 +96,37 @@ public class OssUtil {
     /** 上传敏感文件并返回可持久化的对象 Key。 */
     public String uploadWithKey(InputStream inputStream, String originalFilename) {
         return doUpload(inputStream, originalFilename);
+    }
+
+    /** 官网图片使用独立对象前缀，便于审核归属与后续清理。 */
+    public String uploadWithKey(InputStream inputStream, String originalFilename, String ownerPrefix) {
+        String key = newObjectKey(originalFilename, ownerPrefix);
+        OSS oss = new OSSClientBuilder().build(
+                ossConfig.getEndpoint(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
+        try {
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setObjectAcl(CannedAccessControlList.Private);
+            PutObjectRequest request = new PutObjectRequest(ossConfig.getBucketName(), key, inputStream, metadata);
+            oss.putObject(request);
+        } finally {
+            oss.shutdown();
+        }
+        return key;
+    }
+
+    /** 官网图片始终保持私有；公开访问由业务接口实时核对审核状态。 */
+    public byte[] readWebsiteObject(String key, int maxBytes) {
+        OSS oss = new OSSClientBuilder().build(
+                ossConfig.getEndpoint(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
+        try (OSSObject object = oss.getObject(ossConfig.getBucketName(), key)) {
+            byte[] bytes = object.getObjectContent().readNBytes(maxBytes + 1);
+            if (bytes.length > maxBytes) throw new IllegalStateException("官网图片大小超限");
+            return bytes;
+        } catch (IOException ex) {
+            throw new IllegalStateException("官网图片读取失败", ex);
+        } finally {
+            oss.shutdown();
+        }
     }
 
     /** 为小程序签发 5 分钟有效、限定对象 Key 和文件大小的 OSS 表单直传凭证。 */

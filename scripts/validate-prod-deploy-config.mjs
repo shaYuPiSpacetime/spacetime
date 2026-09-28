@@ -73,7 +73,7 @@ assertIncludes(adminWorkflow, 'Validate static demo bundle', '.github/workflows/
 assertIncludes(adminWorkflow, 'Build admin image with static demos', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'Static demo pages:', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, "'docs/静态Demo/**'", '.github/workflows/deploy-admin-prod.yml');
-assertIncludes(adminWorkflow, "'docs/官网/**'", '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, "'website/**'", '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, "'scripts/test-official-website.mjs'", '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'Validate official website', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'node scripts/test-official-website.mjs', '.github/workflows/deploy-admin-prod.yml');
@@ -369,7 +369,7 @@ const frontendDockerfile = read('frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY frontend/package*.json ./', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY frontend/ ./', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'COPY docs/静态Demo/ /usr/share/nginx/html/demo/', 'frontend/Dockerfile');
-assertIncludes(frontendDockerfile, 'COPY docs/官网/ /usr/share/nginx/html/website/', 'frontend/Dockerfile');
+assertIncludes(frontendDockerfile, 'COPY --from=website-build /app/website/dist /usr/share/nginx/html/website/', 'frontend/Dockerfile');
 assertNotIncludes(frontendDockerfile, 'COPY docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html /usr/share/nginx/html/demo', 'frontend/Dockerfile');
 assertNotIncludes(frontendDockerfile, 'COPY docs/静态Demo/shared /usr/share/nginx/html/shared', 'frontend/Dockerfile');
 assertIncludes(frontendDockerfile, 'index=/usr/share/nginx/html/demo/index.html', 'frontend/Dockerfile');
@@ -377,7 +377,7 @@ assertIncludes(frontendDockerfile, "find /usr/share/nginx/html/demo -mindepth 3 
 
 const dockerignore = read('.dockerignore');
 assertIncludes(dockerignore, '!docs/静态Demo/**', '.dockerignore');
-assertIncludes(dockerignore, '!docs/官网/**', '.dockerignore');
+assertIncludes(dockerignore, '!website/**', '.dockerignore');
 assertNotIncludes(dockerignore, '!docs/静态Demo/04-商业化（VIP、千寻币、解锁与资产中心）/html/**', '.dockerignore');
 assertIncludes(dockerignore, '**/.DS_Store', '.dockerignore');
 assertIncludes(dockerignore, '**/._*', '.dockerignore');
