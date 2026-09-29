@@ -110,7 +110,7 @@ export default function CoinsPage() {
         <View style={{ width: '750rpx', padding: '6rpx 25rpx 48rpx', boxSizing: 'border-box' }}>
           <BalanceCard balance={balance} onDetail={goToDetail} />
           <RechargeCard packages={packages} selected={selectedPackage} onSelect={selectPackage} onNotice={showRechargeNotice} />
-          <UsageCard usages={usages} />
+          <UsageCard usages={usages.filter((usage) => usage.code !== 'replay_profile_unlock_one').slice(0, 8)} />
         </View>
       </ScrollView>
       <PayBar
