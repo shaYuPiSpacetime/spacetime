@@ -9,7 +9,7 @@ import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { getApiErrorCode } from '@/services/request'
-import { findConversationByPeerUserId } from '@/services/message'
+import { resolveConversationByPeerUserId } from '@/services/message'
 import { getPublicProfile, type PublicProfileVO } from '@/services/profile'
 import {
   cancelRelationLike,
@@ -159,12 +159,12 @@ export default function HeartUserPage() {
       })
       return
     }
-    const conversation = await findConversationByPeerUserId(profile.userId)
-    if (!conversation) {
-      await Taro.showToast({ title: '私信会话暂不可用，请刷新后重试', icon: 'none' })
-      return
+    try {
+      const conversation = await resolveConversationByPeerUserId(profile.userId)
+      await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}` })
+    } catch (error) {
+      await Taro.showToast({ title: error instanceof Error ? error.message : '私信会话暂不可用，请刷新后重试', icon: 'none' })
     }
-    await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}` })
   }
 
   const reportUser = async () => {

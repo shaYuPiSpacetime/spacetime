@@ -4,6 +4,7 @@ import type {
   MessageHomeResponse,
   MessageUnreadSummary,
 } from '../types/message'
+import { clearConversationReadCache, rememberConversationRead } from '../domain/conversationReadCache'
 
 const EMPTY_UNREAD: MessageUnreadSummary = {
   privateUnreadCount: 0,
@@ -25,6 +26,7 @@ interface MessageRuntimeState {
   errorMessage: string
   applyHome: (home: MessageHomeResponse) => void
   applyUnread: (summary: MessageUnreadSummary) => void
+  markConversationRead: (conversationNo: string, lastMessageNo?: string) => void
   setImState: (ready: boolean, readOnly?: boolean) => void
   setLoading: (loading: boolean) => void
   setError: (message: string) => void
@@ -50,11 +52,37 @@ export const useMessageRuntimeStore = create<MessageRuntimeState>(set => ({
     }),
 
   applyUnread: unreadSummary => set({ unreadSummary, errorMessage: '' }),
+  markConversationRead: (conversationNo, lastMessageNo = '') =>
+    set(state => {
+      rememberConversationRead(conversationNo, lastMessageNo)
+      const item = state.home?.conversationPage.list.find(row => row.conversationNo === conversationNo)
+      const cleared = Math.max(0, item?.unreadCount || 0)
+      if (!state.home || cleared === 0) return state
+      const unreadSummary = {
+        ...state.unreadSummary,
+        privateUnreadCount: Math.max(0, state.unreadSummary.privateUnreadCount - cleared),
+        messageUnreadCount: Math.max(0, state.unreadSummary.messageUnreadCount - cleared),
+      }
+      return {
+        home: {
+          ...state.home,
+          unreadSummary,
+          conversationPage: {
+            ...state.home.conversationPage,
+            list: state.home.conversationPage.list.map(row =>
+              row.conversationNo === conversationNo ? { ...row, unreadCount: 0 } : row),
+          },
+        },
+        unreadSummary,
+      }
+    }),
   setImState: (imReady, imReadOnly = false) => set({ imReady, imReadOnly }),
   setLoading: loading => set({ loading }),
   setError: errorMessage => set({ errorMessage }),
   clear: (accessMode = 'normal', restrictionPrompt = '') =>
-    set({
+    set(() => {
+      clearConversationReadCache()
+      return {
       accessMode,
       restrictionPrompt,
       home: undefined,
@@ -63,5 +91,6 @@ export const useMessageRuntimeStore = create<MessageRuntimeState>(set => ({
       imReadOnly: false,
       loading: false,
       errorMessage: '',
+      }
     }),
 }))

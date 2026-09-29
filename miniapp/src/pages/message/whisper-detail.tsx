@@ -193,6 +193,7 @@ export default function WhisperDetailPage() {
       `pendingWhisperNo=${encodeURIComponent(record.whisperNo)}`,
       `nickname=${encodeURIComponent(profileName)}`,
       `avatar=${encodeURIComponent(avatarUrl)}`,
+      record.peerUser?.userId ? `targetUserId=${encodeURIComponent(record.peerUser.userId)}` : '',
       isMockScene ? 'mockScene=private-chat-default' : '',
     ].filter(Boolean).join('&')
     void Taro.navigateTo({ url: `/pages/message/private-chat?${params}` })

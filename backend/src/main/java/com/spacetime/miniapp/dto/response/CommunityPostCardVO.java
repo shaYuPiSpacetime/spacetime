@@ -31,6 +31,8 @@ public class CommunityPostCardVO {
     /** 作者年收入字典 code */
     private String authorAnnualIncome;
     private String authorProfession;
+    /** 后端按当前准入字段规则实时计算的资料完整度（0-100）。 */
+    private Integer authorProfileCompletion;
     /** 内容类型 */
     private String postType;
     private String contentType;

@@ -10,7 +10,9 @@ public enum RelationMatchSourceTypeEnum {
     /** 精选心动后回爱心。 */
     FEATURED_HEART_RETURN_LIKE("featured_heart_return_like", "精选心动后回爱心"),
     /** 悄悄话收到回复。 */
-    WHISPER_REPLY("whisper_reply", "悄悄话回复");
+    WHISPER_REPLY("whisper_reply", "悄悄话回复"),
+    /** 理想型付费解锁后获得私信权限。 */
+    IDEAL_UNLOCK("ideal_unlock", "理想型解锁");
 
     /** 数据库存储编码。 */
     private final String code;

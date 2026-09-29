@@ -23,6 +23,7 @@ import com.spacetime.miniapp.service.CommunityService;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ChatReportEvidenceService;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import com.spacetime.common.service.RelationDomainService;
 import com.spacetime.common.util.OssUtil;
 import lombok.RequiredArgsConstructor;
@@ -104,6 +105,7 @@ public class CommunityServiceImpl implements CommunityService {
     private final StringRedisTemplate redisTemplate;
     /** PRD-04 解锁历史只读依赖。 */
     private final UserUnlockRecordDao userUnlockRecordDao;
+    private final Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
 
     @Override
     public CommunityTopicHomeVO getTopicHome(Long userId) {
@@ -2246,6 +2248,11 @@ public class CommunityServiceImpl implements CommunityService {
                 .filter(item -> item != null && item.getId() != null)
                 .collect(Collectors.toMap(AppUser::getId, item -> item,
                         (left, right) -> left, LinkedHashMap::new));
+        Map<Long, Integer> profileCompletionByAuthorId = authors.stream()
+                .filter(item -> item != null && item.getId() != null)
+                .collect(Collectors.toMap(AppUser::getId,
+                        profileCompletenessCalculator::calculate,
+                        (left, right) -> left, LinkedHashMap::new));
         Map<Long, String> avatars = authorIds.isEmpty() ? Map.of()
                 : Optional.ofNullable(auditContentService.publicAvatars(authorIds)).orElseGet(Map::of);
         Map<String, String> cityLabels = batchProfileLabels(ProfileDictType.CHINA_REGION,
@@ -2310,7 +2317,7 @@ public class CommunityServiceImpl implements CommunityService {
                         && StrUtil.isNotBlank(config.getConfigValue()))
                 .collect(Collectors.toMap(AppConfig::getConfigKey, AppConfig::getConfigValue,
                         (left, right) -> left, LinkedHashMap::new));
-        return new PostCardBatch(authorsById, avatars, cityLabels, occupationLabels,
+        return new PostCardBatch(authorsById, avatars, profileCompletionByAuthorId, cityLabels, occupationLabels,
                 topicNames, likedPostIds, followingAuthorIds, hiddenAuthorIds,
                 statusNames, statusMessages);
     }
@@ -2324,6 +2331,7 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setAuthorUserNo(userNo(post.getAuthorId()));
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorAvatar(batch.avatars().get(post.getAuthorId()));
+        vo.setAuthorProfileCompletion(batch.profileCompletionByAuthorId().get(post.getAuthorId()));
         if (author != null) {
             vo.setAuthorGender(author.getGender());
             vo.setAuthorAge(author.getAge());
@@ -2360,6 +2368,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     private record PostCardBatch(Map<Long, AppUser> authors,
                                  Map<Long, String> avatars,
+                                 Map<Long, Integer> profileCompletionByAuthorId,
                                  Map<String, String> cityLabels,
                                  Map<String, String> occupationLabels,
                                  Map<Long, String> topicNames,
@@ -2369,7 +2378,7 @@ public class CommunityServiceImpl implements CommunityService {
                                  Map<String, String> statusNames,
                                  Map<String, String> statusMessages) {
         private static PostCardBatch empty() {
-            return new PostCardBatch(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
+            return new PostCardBatch(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
                     Set.of(), Set.of(), Set.of(), Map.of(), Map.of());
         }
     }
@@ -2390,6 +2399,7 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setAuthorUserNo(userNo(post.getAuthorId()));
         vo.setAuthorName(author != null ? author.getNickname() : null);
         vo.setAuthorAvatar(auditContentService.publicAvatar(post.getAuthorId()));
+        vo.setAuthorProfileCompletion(author == null ? null : profileCompletenessCalculator.calculate(author));
         if (author != null) {
             vo.setAuthorGender(author.getGender());
             vo.setAuthorAge(author.getAge());

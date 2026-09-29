@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { messageService, mockMessageService } from '@/services/message'
 import type { MessageConversationItem } from '@/types/message'
 import { MESSAGE_AVATAR, MessageNav } from './shared'
+import { applyConversationReadCache } from '@/domain/conversationReadCache'
 import './message.scss'
 
 function formatDate(value?: string | null): string {
@@ -31,7 +32,8 @@ export default function PrivateListPage() {
     try {
       const service = isMockScene ? mockMessageService : messageService
       const page = await service.listConversations(append ? cursor : undefined, 20)
-      setConversations(current => (append ? [...current, ...page.list] : page.list))
+      const normalized = applyConversationReadCache(page.list)
+      setConversations(current => (append ? [...current, ...normalized] : normalized))
       setCursor(page.nextCursor || undefined)
       setHasMore(page.hasMore)
     } catch (error) {

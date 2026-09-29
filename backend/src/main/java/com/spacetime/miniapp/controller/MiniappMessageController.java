@@ -113,6 +113,11 @@ public class MiniappMessageController {
         return R.ok(messageService.conversationDetail(currentUserId(), conversationNo));
     }
 
+    @PostMapping("/conversations/resolve")
+    public R<MessageConversationDetailVO> resolveConversation(@RequestParam Long targetUserId) {
+        return R.ok(messageService.resolveConversation(currentUserId(), targetUserId));
+    }
+
     @GetMapping("/conversations/{conversationNo}/messages")
     public R<MessageHistoryPageVO> conversationMessages(
             @PathVariable String conversationNo,

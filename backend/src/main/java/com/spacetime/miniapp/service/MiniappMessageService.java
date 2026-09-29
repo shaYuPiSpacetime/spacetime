@@ -42,6 +42,7 @@ public interface MiniappMessageService {
     WhisperReplyVO replyWhisper(Long userId, String whisperNo, WhisperReplyReq req);
     MessageConversationPageVO conversations(Long userId, String cursor, int size);
     MessageConversationDetailVO conversationDetail(Long userId, String conversationNo);
+    MessageConversationDetailVO resolveConversation(Long userId, Long targetUserId);
     MessageHistoryPageVO conversationMessages(Long userId, String conversationNo,
                                               String cursor, int size);
     MessageSendVO sendMessage(Long userId, String conversationNo, MessageSendReq req);

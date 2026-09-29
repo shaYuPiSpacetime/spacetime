@@ -16,6 +16,8 @@ type ChannelItem =
   | { channel: 'assistant'; value: AssistantMessageItem }
   | { channel: 'system'; value: SystemMessageItem }
 
+const COMMUNITY_RULES_URL = '/pages/message/community-rules'
+
 function formatDate(value: string): string {
   const date = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
   if (Number.isNaN(date.getTime())) return value
@@ -110,7 +112,7 @@ export default function MessageChannelPage() {
     const actionValue = item.channel === 'assistant' ? item.value.actionValue : item.value.jumpValue
     if (!actionType || actionType === 'none') return
     if (actionType === 'community_rules') {
-      await Taro.showModal({ title: '社区规则', content: '请真诚、友善、安全地交流，共同维护社区环境。', showCancel: false })
+      await Taro.navigateTo({ url: COMMUNITY_RULES_URL })
       return
     }
     if (!isSafeSystemJump('miniapp_page', actionValue)) {
@@ -153,7 +155,7 @@ export default function MessageChannelPage() {
       <View className="channel-footer">
         <Button className="channel-contact-button channel-footer-contact" openType="contact"><Text>联系客服</Text></Button>
         <View className="channel-footer-divider" />
-        <View onClick={() => void Taro.showModal({ title: '社区规则', content: '请真诚、友善、安全地交流，共同维护社区环境。', showCancel: false })}><Text>社区规则</Text></View>
+        <View onClick={() => void Taro.navigateTo({ url: COMMUNITY_RULES_URL })}><Text>社区规则</Text></View>
       </View>
     </View>
   )

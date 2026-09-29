@@ -32,6 +32,7 @@ export interface CommunityPostVO {
   authorZodiac?: string
   authorAnnualIncome?: string
   authorProfession?: string
+  authorProfileCompletion?: number
   postType: string
   contentType?: CommunityContentType
   title?: string

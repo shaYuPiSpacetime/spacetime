@@ -8,6 +8,8 @@ import com.spacetime.common.dao.AppAssistantMessageDao;
 import com.spacetime.common.dao.AppSystemMessageDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserImAccountDao;
+import com.spacetime.common.dao.AppRelationMatchDao;
+import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppMessageConversation;
 import com.spacetime.common.entity.AppMessageConversationMember;
 import com.spacetime.common.entity.AppMessageRecord;
@@ -29,6 +31,8 @@ import com.spacetime.common.service.MessageDomainService;
 import com.spacetime.common.service.MessageAnnouncementHydrationService;
 import com.spacetime.common.service.MessageNotificationDomainService;
 import com.spacetime.common.service.RelationAccessProjectionService;
+import com.spacetime.common.service.RelationDomainService;
+import com.spacetime.common.service.MessageConversationLifecycleService;
 import com.spacetime.miniapp.dto.request.AssistantMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.ConversationBlockReq;
 import com.spacetime.miniapp.dto.request.MessageReadReq;
@@ -93,6 +97,10 @@ class MiniappMessageServiceImplTest {
     @Mock private MiniappSettingService settingService;
     @Mock private MiniappRelationService relationService;
     @Mock private InstantMessageAccountProvider accountProvider;
+    @Mock private AppRelationMatchDao relationMatchDao;
+    @Mock private UserUnlockRecordDao userUnlockRecordDao;
+    @Mock private RelationDomainService relationDomainService;
+    @Mock private MessageConversationLifecycleService conversationLifecycleService;
 
     private MiniappMessageServiceImpl service;
     private LocalDateTime now;
@@ -104,7 +112,8 @@ class MiniappMessageServiceImplTest {
                 imAccountDao, assistantMessageDao, systemMessageDao, auditContentService,
                 messageDomainService, notificationDomainService, announcementHydrationService,
                 accessProjectionService,
-                settingService, relationService, accountProvider);
+                settingService, relationService, accountProvider, relationMatchDao,
+                userUnlockRecordDao, relationDomainService, conversationLifecycleService);
         now = LocalDateTime.of(2026, 8, 10, 12, 0);
     }
 
