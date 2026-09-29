@@ -526,7 +526,7 @@ function MembershipPaymentLayer({
   onConfirmAgreement: () => void
   onOpenAgreement: () => void
 }) {
-  if (payState === 'idle') return null
+  if (payState === 'idle' || payState === 'paying') return null
 
   if (payState === 'pay-success') {
     return <PayResultModal title="支付成功" onClose={onClose} />
@@ -550,12 +550,6 @@ function MembershipPaymentLayer({
         zIndex: 60,
       }}
     >
-      {payState === 'paying' && (
-        <View style={{ position: 'absolute', left: '175rpx', top: '500rpx', width: '400rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
-          <Text style={{ color: LANHU_DARK, fontSize: '28rpx', lineHeight: '42rpx', textAlign: 'center' }}>正在打开微信支付并确认会员状态...</Text>
-          <View id="membership-paying-close" onClick={onClose} style={{ marginTop: '24rpx', minHeight: '64rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#2876FF', fontSize: '26rpx' }}>关闭等待提示</Text></View>
-        </View>
-      )}
       {payState === 'pay-failed' && (
         <View style={{ position: 'absolute', left: '150rpx', top: '500rpx', width: '450rpx', padding: '30rpx', borderRadius: '16rpx', background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
           <Text style={{ color: LANHU_DARK, fontSize: '28rpx', lineHeight: '42rpx', textAlign: 'center' }}>{failureMessage || '支付失败，请稍后重试'}</Text>
@@ -668,7 +662,6 @@ function PayBar({
   const price = plan?.price.toFixed(2) ?? '0.00'
   const billingLabel = getBillingLabel(plan, variant)
   const pricePrefix = memberStatus === 'active' ? '再次购买价 ' : memberStatus === 'expired' ? '重新购买价 ' : ''
-  const loadingText = memberStatus === 'active' ? '购买中...' : memberStatus === 'expired' ? '购买中...' : '开通中...'
 
   return (
     <View
@@ -709,7 +702,7 @@ function PayBar({
           }}
           onClick={onPay}
         >
-          <Text style={{ color: '#211D1E', fontSize: '32rpx', fontWeight: 700 }}>{loading ? loadingText : buttonText}</Text>
+          <Text style={{ color: '#211D1E', fontSize: '32rpx', fontWeight: 700 }}>{buttonText}</Text>
         </View>
       </View>
       <View id="membership-agreement-row" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap', marginTop: '26rpx' }}>

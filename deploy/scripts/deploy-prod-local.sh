@@ -72,7 +72,7 @@ load_env() {
   export WECHAT_PAY_MERCHANT_CERT_PATH="${WECHAT_PAY_MERCHANT_CERT_PATH:-cert/apiclient_cert.pem}"
   export WECHAT_PAY_NOTIFY_URL="${WECHAT_PAY_NOTIFY_URL:-https://admin.shikongxiehou.com/api/miniapp/payment/wechat/notify}"
   export WECHAT_PAY_FORCE_TEST_AMOUNT="${WECHAT_PAY_FORCE_TEST_AMOUNT:-false}"
-  export WECHAT_PAY_TEST_PAY_AMOUNT="${WECHAT_PAY_TEST_PAY_AMOUNT:-0.01}"
+  export WECHAT_PAY_TEST_PAY_AMOUNT="${WECHAT_PAY_TEST_PAY_AMOUNT:-1.00}"
   if [ "${WECHAT_PAY_FORCE_TEST_AMOUNT,,}" = "true" ]; then
     export WECHAT_PAY_TEST_AMOUNT="$WECHAT_PAY_TEST_PAY_AMOUNT"
   else

@@ -86,6 +86,28 @@ class WechatVirtualPayServiceImplTest {
     }
 
     @Test
+    @DisplayName("虚拟支付测试价使用优惠实付字段且保留已发布商品价格")
+    void createPayParamsShouldKeepPublishedPriceAndSignActivityPrice() throws Exception {
+        WechatVirtualPayParamsVO result = service.createPayParams(
+                "TO12345678", "coin_10", 9900, 100, "session-key");
+
+        var signed = new ObjectMapper().readTree(result.getSignData());
+        assertThat(signed.path("goodsPrice").asInt()).isEqualTo(9900);
+        assertThat(signed.path("activitySellingPrice").asInt()).isEqualTo(100);
+        assertThat(result.getPaySig()).hasSize(64);
+        assertThat(result.getSignature()).hasSize(64);
+    }
+
+    @Test
+    @DisplayName("优惠实付价不得高于已发布商品标价")
+    void createPayParamsShouldRejectActivityPriceAboveGoodsPrice() {
+        assertThatThrownBy(() -> service.createPayParams(
+                "TO12345678", "coin_10", 100, 101, "session-key"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("优惠价格");
+    }
+
+    @Test
     @DisplayName("启用虚拟支付但缺少现网 AppKey 时拒绝生成参数")
     void createPayParamsShouldRejectMissingAppKey() {
         properties.setAppKey(" ");

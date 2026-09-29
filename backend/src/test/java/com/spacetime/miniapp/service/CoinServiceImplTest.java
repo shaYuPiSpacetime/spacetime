@@ -10,6 +10,7 @@ import com.spacetime.common.entity.CoinPackage;
 import com.spacetime.common.entity.CoinSceneConfig;
 import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.service.WechatVirtualProductCatalog;
+import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.miniapp.dto.response.CoinFlowVO;
 import com.spacetime.miniapp.dto.response.CoinPackageVO;
 import com.spacetime.miniapp.dto.response.CoinSceneVO;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -38,6 +40,7 @@ class CoinServiceImplTest {
     @Mock private UserAssetDao userAssetDao;
     @Mock private UserCoinLogDao userCoinLogDao;
     @Mock private WechatVirtualProductCatalog virtualProductCatalog;
+    @Spy private WechatPayProperties wechatPayProperties = new WechatPayProperties();
 
     @InjectMocks
     private CoinServiceImpl service;
@@ -99,6 +102,24 @@ class CoinServiceImplTest {
 
         assertThat(result.getAmount()).isEqualByComparingTo("238.00");
         assertThat(result.getDiscountAmount()).isEqualByComparingTo("238.00");
+    }
+
+    @Test
+    @DisplayName("一元测试模式下千寻币列表展示实付一元且保留原标价")
+    void getPackagesShouldExposeOneYuanTestPrice() {
+        CoinPackage entity = new CoinPackage();
+        entity.setId(10L);
+        entity.setAmount(new BigDecimal("99.00"));
+        entity.setDiscountAmount(new BigDecimal("99.00"));
+        when(coinPackageDao.selectPage(any(), any())).thenReturn(page(List.of(entity)));
+        wechatPayProperties.setForceTestAmount(true);
+        wechatPayProperties.setTestPayAmount(new BigDecimal("1.00"));
+
+        CoinPackageVO result = service.getPackages().get(0);
+
+        assertThat(result.getAmount()).isEqualByComparingTo("1.00");
+        assertThat(result.getDiscountAmount()).isEqualByComparingTo("1.00");
+        assertThat(result.getOriginAmount()).isEqualByComparingTo("99.00");
     }
 
     @Test

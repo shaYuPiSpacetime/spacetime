@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.common.dao.CoinPackageDao;
 import com.spacetime.common.dao.CoinSceneConfigDao;
 import com.spacetime.common.dao.UserAssetDao;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -45,6 +47,8 @@ public class CoinServiceImpl implements CoinService {
     private final UserCoinLogDao userCoinLogDao;
     /** 线上虚拟支付商品目录 */
     private final WechatVirtualProductCatalog virtualProductCatalog;
+    /** 测试环境真实支付价。 */
+    private final WechatPayProperties wechatPayProperties;
 
     /**
      * 查询已启用千寻币套餐列表
@@ -61,15 +65,22 @@ public class CoinServiceImpl implements CoinService {
         // 2. 转换为 VO
         return page.getRecords().stream()
                 .filter(pkg -> !virtualProductCatalog.isProductionMode()
-                        || virtualProductCatalog.matches(pkg.getWechatProductId(), CoinPackagePriceResolver.resolve(pkg)))
+                        || (virtualProductCatalog.matches(pkg.getWechatProductId(), CoinPackagePriceResolver.resolve(pkg))
+                        && wechatPayProperties.resolvePaymentAmount(CoinPackagePriceResolver.resolve(pkg))
+                        .compareTo(CoinPackagePriceResolver.resolve(pkg)) <= 0))
                 .map(pkg -> {
             CoinPackageVO vo = new CoinPackageVO();
             vo.setId(pkg.getId());
             vo.setPackageName(pkg.getPackageName());
             // amount 是历史客户端读取的展示/支付价字段，必须返回当前有效优惠价。
-            vo.setAmount(CoinPackagePriceResolver.resolve(pkg));
-            vo.setOriginAmount(pkg.getOriginAmount());
-            vo.setDiscountAmount(pkg.getDiscountAmount());
+            BigDecimal catalogAmount = CoinPackagePriceResolver.resolve(pkg);
+            BigDecimal paymentAmount = wechatPayProperties.resolvePaymentAmount(catalogAmount);
+            boolean testDiscount = catalogAmount != null && paymentAmount != null
+                    && paymentAmount.compareTo(catalogAmount) < 0;
+            vo.setAmount(paymentAmount);
+            vo.setOriginAmount(testDiscount && pkg.getOriginAmount() == null
+                    ? catalogAmount : pkg.getOriginAmount());
+            vo.setDiscountAmount(testDiscount ? paymentAmount : pkg.getDiscountAmount());
             vo.setCoinCount(pkg.getCoinCount());
             vo.setBonusCoinCount(pkg.getBonusCoinCount());
             vo.setRecommendFlag(pkg.getRecommendFlag());

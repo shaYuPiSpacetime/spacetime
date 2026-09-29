@@ -1771,8 +1771,6 @@ public class CommunityServiceImpl implements CommunityService {
             entity.setStatus(hidden ? "enabled" : "disabled");
             communityExtensionDao.updatePreference(entity);
         }
-        writeOutbox("content_preference_changed", "user", userNo(targetUserId), hidden ? 1 : 0,
-                "{\"targetUserId\":" + targetUserId + ",\"hidden\":" + hidden + "}");
         return new CommunityAuthorPreferenceResultVO(userNo(targetUserId), hidden,
                 message(hidden ? "author_hidden" : "author_unhidden"));
     }

@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.common.dao.TradeOrderDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.VipBenefitDao;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,6 +48,8 @@ public class VipServiceImpl implements VipService {
     private final TradeOrderDao tradeOrderDao;
     /** 线上虚拟支付商品目录 */
     private final WechatVirtualProductCatalog virtualProductCatalog;
+    /** 测试环境真实支付价。 */
+    private final WechatPayProperties wechatPayProperties;
 
     /**
      * 查询已启用VIP套餐列表
@@ -62,15 +66,20 @@ public class VipServiceImpl implements VipService {
         // 2. 转换为 VO
         return page.getRecords().stream()
                 .filter(pkg -> !virtualProductCatalog.isProductionMode()
-                        || virtualProductCatalog.matches(pkg.getWechatProductId(), pkg.getPrice()))
+                        || (virtualProductCatalog.matches(pkg.getWechatProductId(), pkg.getPrice())
+                        && wechatPayProperties.resolvePaymentAmount(pkg.getPrice()).compareTo(pkg.getPrice()) <= 0))
                 .map(pkg -> {
             VipPackageVO vo = new VipPackageVO();
             vo.setId(pkg.getId());
             vo.setPackageName(pkg.getPackageName());
             vo.setPackageType(pkg.getPackageType());
             vo.setSubscriptionType(pkg.getSubscriptionType());
-            vo.setPrice(pkg.getPrice());
-            vo.setOriginPrice(pkg.getOriginPrice());
+            BigDecimal paymentAmount = wechatPayProperties.resolvePaymentAmount(pkg.getPrice());
+            boolean testDiscount = pkg.getPrice() != null && paymentAmount != null
+                    && paymentAmount.compareTo(pkg.getPrice()) < 0;
+            vo.setPrice(paymentAmount);
+            vo.setOriginPrice(testDiscount && pkg.getOriginPrice() == null
+                    ? pkg.getPrice() : pkg.getOriginPrice());
             vo.setDurationDays(pkg.getDurationDays());
             vo.setRecommendFlag(pkg.getRecommendFlag());
             vo.setPackageTag(pkg.getPackageTag());

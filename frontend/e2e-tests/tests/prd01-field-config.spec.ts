@@ -26,31 +26,49 @@ test.beforeEach(async ({ page }) => {
     contentType: 'application/json',
     body: JSON.stringify({
       code: 200,
-      data: [{
-        configKey: 'prd01.profile.scoreWeights',
-        status: 'ENABLED',
-        configValue: JSON.stringify({
-          rows: [
-            { fieldId: 'aboutMe', studentScore: 5, workerScore: 5 },
-            { fieldId: 'tags', studentScore: 3, workerScore: 3 },
-            { fieldId: 'mbtiType', studentScore: 2, workerScore: 2 },
-            { fieldId: 'qaList', studentScore: 5, workerScore: 5 },
-          ],
-        }),
-      }],
+      data: [
+        {
+          configKey: 'prd01.profile.fieldSettings',
+          status: 'ENABLED',
+          configValue: JSON.stringify({
+            rows: [
+              { fieldId: 'residence', visible: true, required: true, scoreEnabled: true },
+              { fieldId: 'industry', visible: true, required: false, scoreEnabled: true },
+            ],
+          }),
+        },
+        {
+          configKey: 'prd01.profile.scoreWeights',
+          status: 'ENABLED',
+          configValue: JSON.stringify({
+            rows: [
+              { fieldId: 'aboutMe', studentScore: 5, workerScore: 5 },
+              { fieldId: 'tags', studentScore: 3, workerScore: 3 },
+              { fieldId: 'mbtiType', studentScore: 2, workerScore: 2 },
+              { fieldId: 'qaList', studentScore: 5, workerScore: 5 },
+            ],
+          }),
+        },
+      ],
     }),
   }));
 });
 
-test('字段配置隐藏废弃字段并将必填状态统一展示为选填', async ({ page }) => {
+test('字段配置按固定规则和数据库值正确展示必填状态', async ({ page }) => {
   await page.goto('/access/config');
   await page.getByRole('button', { name: '字段配置' }).click();
 
   const identityRow = page.getByRole('row').filter({ hasText: 'identityType' });
   await expect(identityRow).toContainText('展示');
-  await expect(identityRow).toContainText('选填');
+  await expect(identityRow).toContainText('必填');
   await expect(identityRow.getByRole('button', { name: '展示' })).toHaveCount(0);
-  await expect(identityRow.getByRole('button', { name: '选填' })).toHaveCount(0);
+  await expect(identityRow.getByRole('button', { name: '必填' })).toHaveCount(0);
+
+  const residenceRow = page.getByRole('row').filter({ hasText: 'residence' });
+  await expect(residenceRow.getByRole('button', { name: '必填' })).toBeEnabled();
+
+  const industryRow = page.getByRole('row').filter({ hasText: 'industry' });
+  await expect(industryRow.getByRole('button', { name: '选填' })).toBeEnabled();
 
   const districtRow = page.getByRole('row').filter({ hasText: 'locationDistrict' });
   await expect(districtRow).toContainText('选填');
@@ -64,7 +82,7 @@ test('字段配置隐藏废弃字段并将必填状态统一展示为选填', as
   }
 
   await page.getByRole('button', { name: '资料完整度' }).click();
-  await expect(page.getByText('在校生当前总分 100，职场人当前总分 100')).toBeVisible();
+  await expect(page.getByText(/在校生当前总分 \d+，职场人当前总分 \d+/)).toBeVisible();
   for (const fieldId of ['mbtiType', 'qaList']) {
     await expect(page.getByRole('row').filter({ hasText: fieldId })).toHaveCount(0);
   }

@@ -75,7 +75,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final WechatVirtualPayService wechatVirtualPayService;
     /** 微信小程序开放接口客户端 */
     private final WechatMiniappClient wechatMiniappClient;
-    /** 微信支付配置，用于测试环境覆盖网关扣款金额 */
+    /** 微信支付配置，用于测试环境统一订单与网关扣款金额 */
     private final WechatPayProperties wechatPayProperties;
     /** 推广事实事件收件箱 */
     private final PromotionEventInboxService promotionEventInboxService;
@@ -127,12 +127,17 @@ public class PaymentServiceImpl implements PaymentService {
         } else {
             throw new BusinessException("不支持的订单类型");
         }
+        BigDecimal catalogAmount = payAmount;
         if ((productId == null || productId.isBlank()) && !virtualProductCatalog.isProductionMode()) {
             productId = orderType + "_" + packageId;
         }
         boolean virtualPayEnabled = wechatVirtualPayService.isEnabled();
         if (virtualPayEnabled && virtualProductCatalog.isProductionMode()) {
-            virtualProductCatalog.assertPayable(productId, payAmount);
+            virtualProductCatalog.assertPayable(productId, catalogAmount);
+        }
+        payAmount = resolveWechatPaymentAmount(catalogAmount);
+        if (virtualPayEnabled && toFen(payAmount) > toFen(catalogAmount)) {
+            throw new BusinessException("微信商品标价低于测试支付金额，当前套餐暂不可支付，请联系工作人员");
         }
         AppUser user = appUserDao.selectById(userId);
         if (user == null) {
@@ -168,17 +173,19 @@ public class PaymentServiceImpl implements PaymentService {
         WechatPayParamsVO payParams = null;
         WechatVirtualPayParamsVO virtualPayParams = null;
         if (virtualPayEnabled) {
-            virtualPayParams = wechatVirtualPayService.createPayParams(
-                    orderNo,
-                    productId,
-                    toFen(payAmount),
-                    paymentSession.sessionKey()
-            );
+            int catalogPriceFen = toFen(catalogAmount);
+            int paymentPriceFen = toFen(payAmount);
+            virtualPayParams = paymentPriceFen == catalogPriceFen
+                    ? wechatVirtualPayService.createPayParams(
+                            orderNo, productId, catalogPriceFen, paymentSession.sessionKey())
+                    : wechatVirtualPayService.createPayParams(
+                            orderNo, productId, catalogPriceFen, paymentPriceFen,
+                            paymentSession.sessionKey());
         } else {
             payParams = wechatPayService.createJsapiPayParams(
                     order,
                     user.getOpenid(),
-                    resolveWechatPaymentAmount(payAmount)
+                    payAmount
             );
             order.setPrepayId(payParams.getPrepayId());
             tradeOrderDao.updateById(order);
@@ -260,25 +267,12 @@ public class PaymentServiceImpl implements PaymentService {
         return openid == null || openid.isBlank() || openid.matches("^phone_\\d{11}$");
     }
 
-    /**
-     * 仅覆盖微信网关实际扣款金额，订单和页面继续保留套餐原价。
-     */
+    /** 统一订单、网关与页面使用的实际支付价。 */
     private BigDecimal resolveWechatPaymentAmount(BigDecimal packageAmount) {
         if (wechatPayProperties == null) {
             return packageAmount;
         }
-        BigDecimal testAmount = wechatPayProperties.getTestAmount();
-        if (testAmount != null && testAmount.compareTo(BigDecimal.ZERO) > 0) {
-            return testAmount;
-        }
-        if (!wechatPayProperties.isForceTestAmount()) {
-            return packageAmount;
-        }
-        BigDecimal forcedTestAmount = wechatPayProperties.getTestPayAmount();
-        if (forcedTestAmount == null || forcedTestAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("微信支付测试金额配置不正确");
-        }
-        return forcedTestAmount;
+        return wechatPayProperties.resolvePaymentAmount(packageAmount);
     }
 
     @Override

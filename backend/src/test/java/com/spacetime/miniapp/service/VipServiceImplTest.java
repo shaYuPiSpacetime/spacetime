@@ -10,6 +10,7 @@ import com.spacetime.common.entity.TradeOrder;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.entity.VipPackage;
 import com.spacetime.common.service.WechatVirtualProductCatalog;
+import com.spacetime.common.config.WechatPayProperties;
 import com.spacetime.miniapp.dto.response.VipOrderVO;
 import com.spacetime.miniapp.dto.response.VipStatusVO;
 import com.spacetime.miniapp.service.impl.VipServiceImpl;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -37,6 +39,7 @@ class VipServiceImplTest {
     @Mock private UserAssetDao userAssetDao;
     @Mock private TradeOrderDao tradeOrderDao;
     @Mock private WechatVirtualProductCatalog virtualProductCatalog;
+    @Spy private WechatPayProperties wechatPayProperties = new WechatPayProperties();
     @InjectMocks private VipServiceImpl vipService;
 
     @Test
@@ -56,6 +59,42 @@ class VipServiceImplTest {
         when(virtualProductCatalog.matches("vip_7", valid.getPrice())).thenReturn(true);
 
         assertThat(vipService.getPackages()).extracting("id").containsExactly(7L);
+    }
+
+    @Test
+    @DisplayName("一元测试模式下会员列表展示实付一元且保留原标价")
+    void getPackagesShouldExposeOneYuanTestPrice() {
+        VipPackage entity = new VipPackage();
+        entity.setId(10L);
+        entity.setPrice(new BigDecimal("1000.00"));
+        Page<VipPackage> page = new Page<>(1, 100);
+        page.setRecords(List.of(entity));
+        when(vipPackageDao.selectPage(any(Page.class), any())).thenReturn(page);
+        wechatPayProperties.setForceTestAmount(true);
+        wechatPayProperties.setTestPayAmount(new BigDecimal("1.00"));
+
+        var result = vipService.getPackages().get(0);
+
+        assertThat(result.getPrice()).isEqualByComparingTo("1.00");
+        assertThat(result.getOriginPrice()).isEqualByComparingTo("1000.00");
+    }
+
+    @Test
+    @DisplayName("一元测试模式下隐藏微信标价仅一分的会员商品")
+    void getPackagesShouldHideCatalogPriceBelowTestAmount() {
+        VipPackage tooCheap = new VipPackage();
+        tooCheap.setId(7L);
+        tooCheap.setPrice(new BigDecimal("0.01"));
+        tooCheap.setWechatProductId("vip_7");
+        Page<VipPackage> page = new Page<>(1, 100);
+        page.setRecords(List.of(tooCheap));
+        when(vipPackageDao.selectPage(any(Page.class), any())).thenReturn(page);
+        when(virtualProductCatalog.isProductionMode()).thenReturn(true);
+        when(virtualProductCatalog.matches("vip_7", tooCheap.getPrice())).thenReturn(true);
+        wechatPayProperties.setForceTestAmount(true);
+        wechatPayProperties.setTestPayAmount(new BigDecimal("1.00"));
+
+        assertThat(vipService.getPackages()).isEmpty();
     }
 
     @Test

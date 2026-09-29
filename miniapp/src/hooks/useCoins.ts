@@ -209,7 +209,7 @@ export function useCoins() {
         if (orderId) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=cancel` })
       } else {
         if (!paymentLayerDismissed.current) setPayState('pay-failed')
-        Taro.showToast({ title: feedback.message, icon: 'none' })
+        if (!feedback.capabilityRestricted) Taro.showToast({ title: feedback.message, icon: 'none' })
         if (orderId && !feedback.capabilityRestricted) Taro.navigateTo({ url: `/pages/commerce/payment-result?orderId=${orderId}&orderType=coin&sourcePage=${sourcePage}&result=failed` })
       }
     } finally {

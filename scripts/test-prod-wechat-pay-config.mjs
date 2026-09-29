@@ -16,8 +16,8 @@ assert.match(
 )
 assert.match(
   prodConfig,
-  /test-pay-amount:\s*\$\{WECHAT_PAY_TEST_PAY_AMOUNT:0\.01\}/,
-  'prod 配置必须绑定 0.01 元测试扣款金额',
+  /test-pay-amount:\s*\$\{WECHAT_PAY_TEST_PAY_AMOUNT:1\.00\}/,
+  'prod 配置必须绑定 1 元测试扣款金额',
 )
 assert.match(
   deployScript,

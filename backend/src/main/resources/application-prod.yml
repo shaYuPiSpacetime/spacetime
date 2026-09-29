@@ -46,7 +46,7 @@ wechat-pay:
   merchant-cert-path: ${WECHAT_PAY_MERCHANT_CERT_PATH:cert/apiclient_cert.pem}
   notify-url: ${WECHAT_PAY_NOTIFY_URL}
   force-test-amount: ${WECHAT_PAY_FORCE_TEST_AMOUNT:false}
-  test-pay-amount: ${WECHAT_PAY_TEST_PAY_AMOUNT:0.01}
+  test-pay-amount: ${WECHAT_PAY_TEST_PAY_AMOUNT:1.00}
   description-prefix: ${WECHAT_PAY_DESCRIPTION_PREFIX:时空邂逅}
 
 wechat-virtual-pay:
