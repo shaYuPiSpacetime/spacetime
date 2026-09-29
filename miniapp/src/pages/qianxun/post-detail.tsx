@@ -9,6 +9,7 @@ import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommun
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
+import { formatCommunityAuthorMeta } from '@/domain/communityProfile'
 import {
   buildCommunityCommentThreads,
   resolveCommentThreadRootId,
@@ -273,11 +274,7 @@ export default function QianxunPostDetailPage() {
       sourceBizNo: post.postNo,
       nickname: post.authorName || '用户',
       avatar: post.authorAvatar || undefined,
-      meta: [
-        post.authorAge ? `${post.authorAge}岁` : '',
-        post.authorZodiac || '',
-        post.authorProfession || '',
-      ].filter(Boolean).join('  ') || '资料待完善',
+      meta: formatCommunityAuthorMeta(post),
     })
   }
 
@@ -350,10 +347,10 @@ export default function QianxunPostDetailPage() {
 }
 
 function AuthorRow({ post, isSelf, onAuthor, onMore, onApply }: { post: CommunityPostVO; isSelf: boolean; onAuthor: () => void; onMore: () => void; onApply: () => void }) {
-  const meta = [post.authorBirthYear ? `${String(post.authorBirthYear).slice(-2)}年` : post.authorAge ? `${post.authorAge}岁` : '', post.authorCity || '', post.authorProfession || post.authorZodiac || ''].filter(Boolean).join('·')
+  const meta = formatCommunityAuthorMeta(post)
   return <View style={{ display: 'flex', alignItems: 'center' }}>
     <Image onClick={onAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: '#EFF3F7', flexShrink: 0 }} />
-    <View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#26354A', fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: BLUE, fontSize: '21rpx', lineHeight: '30rpx', marginTop: '4rpx' }}>{meta || '资料待完善'}</Text></View>
+    <View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#26354A', fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View>{meta ? <Text style={{ display: 'block', color: BLUE, fontSize: '21rpx', lineHeight: '30rpx', marginTop: '4rpx' }}>{meta}</Text> : null}</View>
     {!isSelf ? <View id="qianxun-post-apply-whisper" onClick={onApply} style={{ width: '106rpx', height: '44rpx', borderRadius: '22rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '21rpx' }}>申请认识</Text></View> : null}
     <View onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '72rpx', height: '72rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx' }}>⋮</Text></View>
   </View>

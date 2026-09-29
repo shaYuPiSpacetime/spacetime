@@ -18,6 +18,7 @@ import { loadMessageImGateway } from '@/im/loadMessageImGateway'
 import type { MessageImEvent, MessageImGateway } from '@/im/MessageImGateway'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
+import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import type { ChatMessage, MessageConversationDetail } from '@/types/message'
 import { DotsButton, MESSAGE_AVATAR, MessageNav } from './shared'
 import './message.scss'
@@ -80,11 +81,14 @@ function PendingWhisperChat({ pendingWhisperNo }: { pendingWhisperNo: string }) 
   const service = isMockScene ? mockMessageService : messageService
   const nickname = router.params.nickname ? decodeURIComponent(router.params.nickname) : '私信'
   const avatar = router.params.avatar ? decodeURIComponent(router.params.avatar) : MESSAGE_AVATAR
+  const targetUserId = router.params.targetUserId || ''
   const [inputValue, setInputValue] = useState('')
   const [sending, setSending] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [createdConversationNo, setCreatedConversationNo] = useState('')
   const [navigationMessage, setNavigationMessage] = useState('')
+  const [inputFocused, setInputFocused] = useState(true)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const idempotencyCache = useRef(createWhisperIdempotencyCache()).current
 
   const enterCreatedConversation = async (conversationNo: string) => {
@@ -149,8 +153,8 @@ function PendingWhisperChat({ pendingWhisperNo }: { pendingWhisperNo: string }) 
 
   return (
     <View className="message-page message-page--gray private-chat-page">
-      <MessageNav title={nickname} avatarUrl={avatar} />
-      <ScrollView scrollY className="private-chat-scroll" showScrollbar={false}>
+      <MessageNav title={nickname} avatarUrl={avatar} onProfileClick={targetUserId ? () => void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${encodeURIComponent(targetUserId)}&sourceScene=profile` }) : undefined} />
+      <ScrollView scrollY className="private-chat-scroll" style={{ height: keyboardHeight > 0 ? `calc(100vh - 137px - ${keyboardHeight}px)` : undefined }} showScrollbar={false}>
         <View className="chat-safety-card">
           <View className="chat-match-banner">
             <Image className="chat-match-deco chat-match-deco--left" src={miniappOssIcons.messageChatSafetyDecoLeft} mode="aspectFit" />
@@ -166,16 +170,21 @@ function PendingWhisperChat({ pendingWhisperNo }: { pendingWhisperNo: string }) 
           {navigationMessage || '输入第一条回复，发送后即可开始聊天'}
         </Text>
       </ScrollView>
-      <View className="chat-input-bar">
+      <View className="chat-input-bar" style={{ bottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined, paddingBottom: keyboardHeight > 0 ? '5px' : undefined }}>
         <Input
           className="chat-input"
           value={inputValue}
           disabled={sending || Boolean(createdConversationNo)}
           maxlength={500}
           placeholder="输入回复内容"
-          adjustPosition
+          adjustPosition={false}
+          holdKeyboard
+          confirmHold
           cursorSpacing={12}
-          focus
+          focus={inputFocused}
+          onFocus={event => { setInputFocused(true); setKeyboardHeight(event.detail.height || 0) }}
+          onBlur={() => { setInputFocused(false); setKeyboardHeight(0) }}
+          onKeyboardHeightChange={event => setKeyboardHeight(Math.max(0, event.detail.height))}
           onInput={event => setInputValue(event.detail.value)}
           onConfirm={() => void send()}
         />
@@ -198,6 +207,7 @@ function EstablishedPrivateChatPage() {
   const router = useRouter()
   const isMockScene = Boolean(router.params.mockScene)
   const conversationNo = router.params.conversationNo || 'conversation-lin'
+  const markConversationRead = useMessageRuntimeStore(state => state.markConversationRead)
   const service = isMockScene ? mockMessageService : messageService
   const [detail, setDetail] = useState<MessageConversationDetail>()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -261,6 +271,7 @@ function EstablishedPrivateChatPage() {
       if (!cursor.lastMessageNo && !cursor.timMessageId && !cursor.timMsgKey) return
       const ackKey = `${conversationNo}:${lastIncoming.messageNo || lastIncoming.timMessageId}`
       if (readAckKey.current === ackKey) return
+      markConversationRead(conversationNo, cursor.lastMessageNo || lastIncoming.messageNo || lastIncoming.timMessageId)
       try {
         const [, platformRead] = await Promise.allSettled([
           gateway.markRead(gatewayId),
@@ -283,7 +294,7 @@ function EstablishedPrivateChatPage() {
         setErrorMessage(error instanceof Error ? error.message : '已读状态同步失败')
       }
     },
-    [conversationNo, isMockScene, service],
+    [conversationNo, isMockScene, markConversationRead, service],
   )
 
   gatewayEventHandlerRef.current = event => {
@@ -642,6 +653,7 @@ function EstablishedPrivateChatPage() {
       <MessageNav
         title={detail?.peerUser.nickname || '私信'}
         avatarUrl={detail?.peerUser.avatarUrl || MESSAGE_AVATAR}
+        onProfileClick={detail?.peerUser.profileAvailable ? () => void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${encodeURIComponent(detail.peerUser.userId)}&sourceScene=profile` }) : undefined}
         rightContent={<DotsButton onClick={() => setShowActions(true)} />}
       />
       <ScrollView
@@ -683,7 +695,7 @@ function EstablishedPrivateChatPage() {
               <View id={messageAnchorId(message)} className="chat-message-item" key={messageMergeKey(message)}>
                 {time ? <Text className="chat-message-time">{time}</Text> : null}
                 <View className={`chat-row chat-row--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`}>
-                  {message.direction !== 'outgoing' ? <Image className="chat-avatar" src={detail?.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" /> : null}
+                  {message.direction !== 'outgoing' ? <Image className="chat-avatar" src={detail?.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" onClick={() => { if (detail?.peerUser.profileAvailable) void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${encodeURIComponent(detail.peerUser.userId)}&sourceScene=profile` }) }} /> : null}
                   {message.sendStatus === 'failed' ? <View className="chat-failed" onClick={() => setRetryTarget(message)}><Text>!</Text></View> : null}
                   <View
                     className={`chat-bubble chat-bubble--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`}

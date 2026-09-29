@@ -19,6 +19,7 @@ import com.spacetime.miniapp.service.impl.CommunityServiceImpl;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ChatReportEvidenceService;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import com.spacetime.common.service.RelationDomainService;
 import com.spacetime.common.util.OssUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +73,7 @@ class CommunityServiceImplTest {
     @Mock private AppRelationLikeDao appRelationLikeDao;
     @Mock private RelationDomainService relationDomainService;
     @Mock private com.spacetime.miniapp.service.impl.Prd01AccessEvaluator accessEvaluator;
+    @Mock private Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
     @Mock private CommunityExtensionDao communityExtensionDao;
     @Mock private CommunityContentSecurityPort contentSecurityPort;
     @Spy private CommunityAuditPolicy auditPolicy = new CommunityAuditPolicy();

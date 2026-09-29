@@ -78,6 +78,7 @@ export default {
         'private-list',
         'private-chat',
         'channel',
+        'community-rules',
         'report',
       ],
     },

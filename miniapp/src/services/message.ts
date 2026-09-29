@@ -105,6 +105,7 @@ export interface MessageService {
   getUnreadSummary(): Promise<MessageUnreadSummary>
   listConversations(cursor?: string, size?: number): Promise<MessageConversationPage>
   getConversation(conversationNo: string): Promise<MessageConversationDetail>
+  resolveConversationByPeerUserId(peerUserId: string | number): Promise<MessageConversationDetail>
   listConversationMessages(
     conversationNo: string,
     cursor?: string,
@@ -201,6 +202,21 @@ export class RealMessageService implements MessageService {
   async getConversation(conversationNo: string): Promise<MessageConversationDetail> {
     const result = await get<MessageConversationDetail>(
       `/miniapp/message/conversations/${encodeURIComponent(conversationNo)}`,
+    )
+    return {
+      ...result,
+      conversationNo: asStringId(result.conversationNo),
+      timConversationId: result.timConversationId ? asStringId(result.timConversationId) : null,
+      conversationStatus: normalizeConversationStatus(result.conversationStatus),
+      accessMode: result.accessMode === 'normal' ? 'normal' : 'safety_readonly',
+      peerUser: normalizePeerUser(result.peerUser),
+    }
+  }
+
+  async resolveConversationByPeerUserId(peerUserId: string | number): Promise<MessageConversationDetail> {
+    const result = await post<MessageConversationDetail>(
+      `/miniapp/message/conversations/resolve?targetUserId=${encodeURIComponent(String(peerUserId))}`,
+      {},
     )
     return {
       ...result,
@@ -539,6 +555,12 @@ export class MockMessageService implements MessageService {
     return mockConversationDetail(item)
   }
 
+  async resolveConversationByPeerUserId(peerUserId: string | number): Promise<MessageConversationDetail> {
+    const item = useMessageStore.getState().conversations.find(row => String(row.peerUserNo) === String(peerUserId))
+    if (!item) throw new Error('会话不存在')
+    return mockConversationDetail(item)
+  }
+
   async listConversationMessages(): Promise<{
     list: ChatMessage[]
     nextCursor: string | null
@@ -774,4 +796,11 @@ export async function findConversationByPeerUserId(
     cursor = page.nextCursor
   }
   return undefined
+}
+
+export async function resolveConversationByPeerUserId(
+  peerUserId: string | number,
+  service: MessageService = messageService,
+): Promise<MessageConversationDetail> {
+  return service.resolveConversationByPeerUserId(peerUserId)
 }

@@ -7,6 +7,8 @@ import com.spacetime.common.dao.AppMessageRecordDao;
 import com.spacetime.common.dao.AppMessageWhisperDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserImAccountDao;
+import com.spacetime.common.dao.AppRelationMatchDao;
+import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.dao.AppSystemMessageDao;
 import com.spacetime.common.entity.AppAssistantMessage;
 import com.spacetime.common.entity.AppMessageConversation;
@@ -15,6 +17,8 @@ import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.AppMessageWhisper;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserImAccount;
+import com.spacetime.common.entity.AppRelationMatch;
+import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.entity.AppSystemMessage;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.ImAccountSyncStatusEnum;
@@ -22,6 +26,7 @@ import com.spacetime.common.enums.MessageConversationStatusEnum;
 import com.spacetime.common.enums.MessageDeliveryStatusEnum;
 import com.spacetime.common.enums.MessageWhisperStatusEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
+import com.spacetime.common.enums.RelationMatchSourceTypeEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.model.message.WhisperReplyResult;
 import com.spacetime.common.model.message.PrivateMessageSendResult;
@@ -32,6 +37,8 @@ import com.spacetime.common.service.MessageDomainService;
 import com.spacetime.common.service.MessageAnnouncementHydrationService;
 import com.spacetime.common.service.MessageNotificationDomainService;
 import com.spacetime.common.service.RelationAccessProjectionService;
+import com.spacetime.common.service.RelationDomainService;
+import com.spacetime.common.service.MessageConversationLifecycleService;
 import com.spacetime.miniapp.dto.request.AssistantMessageReadBatchReq;
 import com.spacetime.miniapp.dto.request.ConversationBlockReq;
 import com.spacetime.miniapp.dto.request.MiniappRelationBlockReq;
@@ -126,6 +133,10 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
     private final MiniappSettingService settingService;
     private final MiniappRelationService relationService;
     private final InstantMessageAccountProvider accountProvider;
+    private final AppRelationMatchDao relationMatchDao;
+    private final UserUnlockRecordDao userUnlockRecordDao;
+    private final RelationDomainService relationDomainService;
+    private final MessageConversationLifecycleService conversationLifecycleService;
 
     @Override
     public MessageHomeVO home(Long userId, String cursor, int size) {
@@ -411,6 +422,39 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
                     : List.of("block"))
                 : (canReportChat ? List.of("report_chat") : List.of()));
         return result;
+    }
+
+    @Override
+    @Transactional
+    public MessageConversationDetailVO resolveConversation(Long userId, Long targetUserId) {
+        if (userId == null || targetUserId == null || Objects.equals(userId, targetUserId)) {
+            throw new BusinessException(MESSAGE_PARAM_ERROR, "私信对象不正确");
+        }
+        long low = Math.min(userId, targetUserId);
+        long high = Math.max(userId, targetUserId);
+        AppMessageConversation conversation = conversationDao.selectActivePair(low, high);
+        if (conversation == null) {
+            AppRelationMatch match = relationMatchDao.selectActivePair(low, high);
+            if (match != null) {
+                conversation = conversationLifecycleService.ensureForMatch(
+                        match, match.getPrimarySource(), LocalDateTime.now());
+            } else {
+                UserUnlockRecord unlock = userUnlockRecordDao.selectActiveByTargetUser(
+                        userId, "ideal", targetUserId);
+                if (unlock == null) {
+                    throw new BusinessException(MESSAGE_FORBIDDEN, "当前尚未获得该用户的私信权限");
+                }
+                match = relationDomainService.addMatchSource(
+                        userId, targetUserId, RelationMatchSourceTypeEnum.IDEAL_UNLOCK.getCode(),
+                        unlock.getUnlockNo(), unlock.getEffectiveTime());
+                conversation = conversationDao.selectActivePair(low, high);
+                if (conversation == null) {
+                    conversation = conversationLifecycleService.ensureForMatch(
+                            match, RelationMatchSourceTypeEnum.IDEAL_UNLOCK.getCode(), LocalDateTime.now());
+                }
+            }
+        }
+        return conversationDetail(userId, conversation.getConversationNo());
     }
 
     @Override

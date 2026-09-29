@@ -13,6 +13,7 @@ type MessageNavProps = {
   children?: ReactNode
   rightContent?: ReactNode
   onBack?: () => void
+  onProfileClick?: () => void
 }
 
 export function MessageNav({
@@ -22,6 +23,7 @@ export function MessageNav({
   children,
   rightContent,
   onBack,
+  onProfileClick,
 }: MessageNavProps) {
   const { menuTop, menuHeight, titleTop, navigationHeight } = getNativeNavigationMetrics()
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
@@ -68,6 +70,7 @@ export function MessageNav({
       ) : (
         <View
           className={center ? 'message-nav-title message-nav-title--center' : 'message-nav-title'}
+          onClick={onProfileClick}
           style={{ top: `${metric(titleTop)}${unit}` }}
         >
           {avatarUrl ? (
