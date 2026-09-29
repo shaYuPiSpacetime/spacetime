@@ -167,6 +167,30 @@ class MessageChatReportContextResolverTest {
         assertThat(result.evidenceMessageIds()).containsExactly(20L);
     }
 
+    @Test
+    @DisplayName("私信SDK把TIM消息ID放入messageNo时仍回退TIM定位举报目标")
+    void privateChatShouldFallbackToTimLocatorWhenMessageNoIsSdkId() {
+        AppMessageRecord target = message(20L, "MSG-20", 2L, 1L);
+        target.setTimMessageId("TIM-20");
+        AppMessageConversation conversation = conversation();
+        when(conversationDao.selectByConversationNo("CV-10")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(10L, 1L)).thenReturn(member());
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount());
+        when(recordDao.selectByMessageNo("TIM-20")).thenReturn(null);
+        when(recordDao.selectByConversationAndTimLocator(10L, "TIM-20", null))
+                .thenReturn(target);
+        when(recordDao.selectSentBefore(10L, 20L, 5)).thenReturn(List.of());
+        when(recordDao.selectSentAfter(10L, 20L, 2)).thenReturn(List.of());
+
+        TrustedChatReportContext result = resolver.resolve(1L, new ChatReportLookup(
+                "private_chat", "CV-10", null, "TIM-20", "CV-10",
+                "C2Ctu_peer_2", "TIM-20", null));
+
+        assertThat(result.targetNo()).isEqualTo("CV-10");
+        assertThat(result.targetMessageId()).isEqualTo(20L);
+        assertThat(result.evidenceMessageIds()).containsExactly(20L);
+    }
+
     private AppMessageConversation conversation() {
         AppMessageConversation value = new AppMessageConversation();
         value.setId(10L);
