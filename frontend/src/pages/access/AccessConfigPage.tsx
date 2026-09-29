@@ -1724,13 +1724,9 @@ function renderFieldSwitch(
   disabled = false,
 ) {
   const mode = field === 'visible' ? row.displayMode : field === 'required' ? row.requiredMode : row.scoreMode;
-  const labels = field === 'required'
-    ? { active: '选填', inactive: '选填' }
-    : fieldControlLabels(field);
+  const labels = fieldControlLabels(field);
   if (mode !== 'configurable') {
-    const fixedLabels = mode === 'conditional' && field !== 'required'
-      ? { active: '条件必填', inactive: '条件选填' }
-      : labels;
+    const fixedLabels = mode === 'conditional' ? { active: '条件必填', inactive: '条件选填' } : labels;
     return <FixedBadge active={Boolean(row[field])} labels={fixedLabels} reason={fixedControlReason(row, field, mode)} />;
   }
   return (
