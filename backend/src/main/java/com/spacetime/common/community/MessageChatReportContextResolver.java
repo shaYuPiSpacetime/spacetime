@@ -102,8 +102,12 @@ public class MessageChatReportContextResolver implements ChatReportContextResolv
         validateTimConversation(lookup.timConversationId(), member.getPeerUserId());
         AppMessageRecord target = StringUtils.hasText(lookup.messageNo())
                 ? recordDao.selectByMessageNo(lookup.messageNo())
-                : recordDao.selectByConversationAndTimLocator(
-                        conversation.getId(), lookup.timMessageId(), lookup.timMsgKey());
+                : null;
+        if (target == null && (StringUtils.hasText(lookup.timMessageId())
+                || StringUtils.hasText(lookup.timMsgKey()))) {
+            target = recordDao.selectByConversationAndTimLocator(
+                    conversation.getId(), lookup.timMessageId(), lookup.timMsgKey());
+        }
         if (target == null || !Objects.equals(target.getConversationId(), conversation.getId())
                 || !Objects.equals(target.getSenderUserId(), member.getPeerUserId())
                 || !Objects.equals(target.getReceiverUserId(), reporterId)) {
