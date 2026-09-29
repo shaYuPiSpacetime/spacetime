@@ -41,6 +41,15 @@ public class AppUserRelationBlockDaoImpl implements AppUserRelationBlockDao {
     }
 
     @Override
+    public List<AppUserRelationBlock> selectActiveInvolvingUser(Long userId, String blockType) {
+        return mapper.selectList(new LambdaQueryWrapper<AppUserRelationBlock>()
+                .eq(AppUserRelationBlock::getBlockType, blockType)
+                .eq(AppUserRelationBlock::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .and(scope -> scope.eq(AppUserRelationBlock::getUserId, userId)
+                        .or().eq(AppUserRelationBlock::getTargetUserId, userId)));
+    }
+
+    @Override
     public List<AppUserRelationBlock> selectActiveBetweenUserAndTargets(
             Long userId, Collection<Long> targetUserIds, Collection<String> blockTypes) {
         if (userId == null || targetUserIds == null || targetUserIds.isEmpty()

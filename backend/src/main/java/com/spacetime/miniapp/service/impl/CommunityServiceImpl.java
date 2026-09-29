@@ -177,6 +177,7 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(CommunityPost::getTopicId, topicId)
                 .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode());
         excludeHiddenAuthors(userId, wrapper);
+        excludeBlockedAuthors(userId, wrapper);
         if ("HOT".equals(normalizedSort)) {
             wrapper.orderByDesc(CommunityPost::getLikeCount)
                     .orderByDesc(CommunityPost::getCommentCount)
@@ -210,6 +211,7 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(topicId != null, CommunityPost::getTopicId, topicId)
                 .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode());
         excludeHiddenAuthors(userId, wrapper);
+        excludeBlockedAuthors(userId, wrapper);
         String normalizedScene = StrUtil.blankToDefault(scene, "").trim().toUpperCase(Locale.ROOT);
         if ("FOLLOWING".equals(normalizedScene)) {
             requireLoginForScene(userId);
@@ -303,6 +305,7 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
                 .in(CommunityPost::getAuthorId, authorIds);
         excludeHiddenAuthors(userId, wrapper);
+        excludeBlockedAuthors(userId, wrapper);
         wrapper.orderByDesc(CommunityPost::getCreateTime)
                 .orderByDesc(CommunityPost::getId);
         return toPostCardPage(userId,
@@ -2058,6 +2061,23 @@ public class CommunityServiceImpl implements CommunityService {
                 .toList();
         if (!hiddenAuthorIds.isEmpty()) {
             wrapper.notIn(CommunityPost::getAuthorId, hiddenAuthorIds);
+        }
+    }
+
+    /** 将与当前用户存在有效黑名单关系的作者排除在动态列表之外。 */
+    private void excludeBlockedAuthors(Long userId, LambdaQueryWrapper<CommunityPost> wrapper) {
+        if (userId == null) return;
+        List<Long> blockedAuthorIds = relationBlockDao.selectActiveInvolvingUser(
+                        userId, RelationBlockTypeEnum.BLACKLIST.getCode())
+                .stream()
+                .map(block -> Objects.equals(userId, block.getUserId())
+                        ? block.getTargetUserId() : block.getUserId())
+                .filter(Objects::nonNull)
+                .filter(authorId -> !Objects.equals(userId, authorId))
+                .distinct()
+                .toList();
+        if (!blockedAuthorIds.isEmpty()) {
+            wrapper.notIn(CommunityPost::getAuthorId, blockedAuthorIds);
         }
     }
 
