@@ -36,6 +36,26 @@ public class SchoolDictionaryDaoImpl implements SchoolDictionaryDao {
     }
 
     @Override
+    public List<SchoolDictionary> selectByCodes(List<String> codes) {
+        if (codes == null || codes.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = codes.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .toList();
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
+        return mapper.selectList(new LambdaQueryWrapper<SchoolDictionary>()
+                .eq(SchoolDictionary::getStatus, "ENABLED")
+                .and(wrapper -> wrapper.in(SchoolDictionary::getSchoolCode, normalized)
+                        .or()
+                        .in(SchoolDictionary::getProviderUuid, normalized)));
+    }
+
+    @Override
     @Transactional
     public void upsertAll(List<SchoolDictionary> schools) {
         for (SchoolDictionary incoming : schools) {

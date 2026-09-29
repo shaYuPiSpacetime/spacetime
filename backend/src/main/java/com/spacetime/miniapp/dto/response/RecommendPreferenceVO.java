@@ -17,6 +17,7 @@ public class RecommendPreferenceVO {
     private Integer maxAge;
     private RecommendAdvancedFilterVO advanced;
     private Boolean vipEffective;
+    private Boolean advancedFilterEffective;
     private Integer advancedEffectiveCount;
     private Boolean defaulted;
 }

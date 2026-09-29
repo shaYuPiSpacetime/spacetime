@@ -6,6 +6,7 @@ import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.entity.SysDictData;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.exception.BusinessException;
+import com.spacetime.common.util.MunicipalityLocationCodes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,8 @@ import java.util.Set;
 public class ProfileDictionaryService {
 
     private static final String CHINA_REGION_DICT_TYPE = "china_region";
+    private static final Set<String> MUNICIPALITY_CODES = Set.of("110000", "120000", "310000", "500000");
+    private static final Set<String> VIRTUAL_CITY_LABELS = Set.of("市辖区", "县");
 
     private final DictDataDao dictDataDao;
 
@@ -39,7 +42,7 @@ public class ProfileDictionaryService {
     public Map<String, String> labels(String dictType) {
         Map<String, String> result = new LinkedHashMap<>();
         for (SysDictData item : options(dictType)) {
-            result.put(item.getDictValue(), item.getDictLabel());
+            result.put(item.getDictValue(), displayLabel(dictType, item));
         }
         return result;
     }
@@ -66,7 +69,7 @@ public class ProfileDictionaryService {
                 .orderByAsc(SysDictData::getId);
         Map<String, String> result = new LinkedHashMap<>();
         for (SysDictData item : dictDataDao.selectList(wrapper)) {
-            result.put(item.getDictValue(), item.getDictLabel());
+            result.put(item.getDictValue(), displayLabel(dictType, item));
         }
         return result;
     }
@@ -107,16 +110,39 @@ public class ProfileDictionaryService {
             return;
         }
         SysDictData city = enabledRegion(cityValue);
-        if (city == null || !Objects.equals(province.getId(), city.getParentId())) {
+        if (city == null) {
             throw unsupportedRegion(fieldLabel);
+        }
+        boolean flattenedMunicipalityDistrict = false;
+        if (!Objects.equals(province.getId(), city.getParentId())) {
+            flattenedMunicipalityDistrict = isMunicipalityDistrict(provinceValue, province, city);
+            if (!flattenedMunicipalityDistrict) {
+                throw unsupportedRegion(fieldLabel);
+            }
         }
         if (StrUtil.isBlank(districtValue)) {
             return;
+        }
+        if (flattenedMunicipalityDistrict) {
+            throw unsupportedRegion(fieldLabel);
         }
         SysDictData district = enabledRegion(districtValue);
         if (district == null || !Objects.equals(city.getId(), district.getParentId())) {
             throw unsupportedRegion(fieldLabel);
         }
+    }
+
+    /** 直辖市两级选择器将真实区县放在城市槽位，旧的市辖区/县节点只用来校验层级。 */
+    private boolean isMunicipalityDistrict(String provinceCode, SysDictData province, SysDictData district) {
+        if (!MUNICIPALITY_CODES.contains(provinceCode) || district.getParentId() == null) {
+            return false;
+        }
+        SysDictData virtualCity = dictDataDao.selectById(district.getParentId());
+        return virtualCity != null
+                && CHINA_REGION_DICT_TYPE.equals(virtualCity.getDictType())
+                && CommonStatusEnum.ENABLED.getCode().equals(virtualCity.getStatus())
+                && VIRTUAL_CITY_LABELS.contains(virtualCity.getDictLabel())
+                && Objects.equals(province.getId(), virtualCity.getParentId());
     }
 
     /** 判断指定省市节点是否存在启用的下一级行政区，供区县条件必填规则使用。 */
@@ -150,7 +176,13 @@ public class ProfileDictionaryService {
             return null;
         }
         SysDictData data = dictDataDao.selectEnabledByTypeAndValue(dictType, code.trim());
-        return data == null ? null : data.getDictLabel();
+        return data == null ? null : displayLabel(dictType, data);
+    }
+
+    private String displayLabel(String dictType, SysDictData data) {
+        return CHINA_REGION_DICT_TYPE.equals(dictType)
+                ? MunicipalityLocationCodes.displayName(data.getDictValue(), data.getDictLabel())
+                : data.getDictLabel();
     }
 
     /** 使用已批量加载的映射转换用户展示标签，未知或空值不暴露内部编码。 */

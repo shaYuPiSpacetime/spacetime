@@ -9,6 +9,7 @@ import { navigateToPendingVerification } from '@/features/verification/navigateT
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import {
   COMMUNITY_COPY_KEYS,
+  deleteCommunityPost,
   getCommunityMeta,
   getCommunityPosts,
   getCommunityTopicHome,
@@ -40,6 +41,7 @@ const BLUE = '#2876FF'
 const COMMUNITY_CONFIG_CACHE_KEY = 'qianxun_community_config'
 const REQUESTED_PRIMARY_TAB_KEY = 'qianxun_requested_primary_tab'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
+const COMMUNITY_PAGE_SIZE = 10
 const sceneByEntryKey: Record<string, CommunityScene> = { follow: 'FOLLOWING', following: 'FOLLOWING', same_city: 'CITY', city: 'CITY', same_school: 'SCHOOL', school: 'SCHOOL', discover: 'HOT', hot: 'HOT' }
 const emptySceneState: Partial<Record<CommunityScene, CommunityPostVO[]>> = {}
 
@@ -70,6 +72,8 @@ export default function RecommendFamilyPage() {
   const [activeTab, setActiveTab] = useState<CommunityScene>(() => readRequestedScene() || 'CITY')
   const [postsByScene, setPostsByScene] = useState<Partial<Record<CommunityScene, CommunityPostVO[]>>>(emptySceneState)
   const [loadingByScene, setLoadingByScene] = useState<Partial<Record<CommunityScene, boolean>>>({ CITY: true })
+  const [loadingMoreByScene, setLoadingMoreByScene] = useState<Partial<Record<CommunityScene, boolean>>>({})
+  const [hasMoreByScene, setHasMoreByScene] = useState<Partial<Record<CommunityScene, boolean>>>({ FOLLOWING: true, CITY: true, SCHOOL: true, HOT: true })
   const [followingCount, setFollowingCount] = useState(0)
   const [hasSchool, setHasSchool] = useState<boolean | undefined>()
   const [topicHome, setTopicHome] = useState<CommunityTopicHomeVO>()
@@ -83,6 +87,10 @@ export default function RecommendFamilyPage() {
   const feedScrollTopRef = useRef(0)
   const whisperOriginScrollTopRef = useRef(0)
   const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
+  const pageBySceneRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
+  const hasMoreBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: true, CITY: true, SCHOOL: true, HOT: true })
+  const loadingBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: false, CITY: false, SCHOOL: false, HOT: false })
+  const loadingMoreBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: false, CITY: false, SCHOOL: false, HOT: false })
   const resumeRefreshRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
@@ -95,21 +103,45 @@ export default function RecommendFamilyPage() {
   const visiblePosts = postsByScene[activeTab] || []
   const initialLoading = Boolean(loadingByScene[activeTab] && postsByScene[activeTab] === undefined)
 
-  const loadScene = async (targetScene: CommunityScene) => {
+  const loadScene = async (targetScene: CommunityScene, append = false) => {
+    if (append && (loadingBySceneRef.current[targetScene]
+      || loadingMoreBySceneRef.current[targetScene]
+      || !hasMoreBySceneRef.current[targetScene])) return
+    const nextPage = append ? pageBySceneRef.current[targetScene] + 1 : 1
     const sequence = requestSequenceRef.current[targetScene] + 1
     requestSequenceRef.current[targetScene] = sequence
-    setLoadingByScene(state => ({ ...state, [targetScene]: true }))
+    if (append) {
+      loadingMoreBySceneRef.current[targetScene] = true
+      setLoadingMoreByScene(state => ({ ...state, [targetScene]: true }))
+    } else {
+      loadingBySceneRef.current[targetScene] = true
+      loadingMoreBySceneRef.current[targetScene] = false
+      setLoadingMoreByScene(state => ({ ...state, [targetScene]: false }))
+      setLoadingByScene(state => ({ ...state, [targetScene]: true }))
+    }
     try {
-      const page = await getCommunityPosts(targetScene)
+      const page = await getCommunityPosts(targetScene, nextPage, COMMUNITY_PAGE_SIZE)
       if (requestSequenceRef.current[targetScene] !== sequence) return
       const records = page.records || []
-      setPostsByScene(state => ({ ...state, [targetScene]: records }))
-      setSelectedPost(current => current || records[0])
+      setPostsByScene(state => ({
+        ...state,
+        [targetScene]: append ? mergeCommunityPosts(state[targetScene] || [], records) : records,
+      }))
+      if (!append) setSelectedPost(current => current || records[0])
+      const currentPage = Number(page.current || nextPage)
+      const totalPages = Number(page.pages || 0)
+      const hasMore = totalPages > 0 ? currentPage < totalPages : records.length >= COMMUNITY_PAGE_SIZE
+      pageBySceneRef.current[targetScene] = currentPage
+      hasMoreBySceneRef.current[targetScene] = hasMore
+      setHasMoreByScene(state => ({ ...state, [targetScene]: hasMore }))
     } catch (error) {
       await showError(config, error)
     } finally {
       if (requestSequenceRef.current[targetScene] === sequence) {
+        loadingBySceneRef.current[targetScene] = false
         setLoadingByScene(state => ({ ...state, [targetScene]: false }))
+        loadingMoreBySceneRef.current[targetScene] = false
+        setLoadingMoreByScene(state => ({ ...state, [targetScene]: false }))
       }
     }
   }
@@ -255,6 +287,45 @@ export default function RecommendFamilyPage() {
     }
   }
 
+  const resetFeedPagination = () => {
+    const scenes: CommunityScene[] = ['FOLLOWING', 'CITY', 'SCHOOL', 'HOT']
+    scenes.forEach(scene => {
+      requestSequenceRef.current[scene] += 1
+      pageBySceneRef.current[scene] = 0
+      hasMoreBySceneRef.current[scene] = true
+      loadingBySceneRef.current[scene] = false
+      loadingMoreBySceneRef.current[scene] = false
+    })
+    setLoadingByScene({})
+    setLoadingMoreByScene({})
+    setHasMoreByScene({ FOLLOWING: true, CITY: true, SCHOOL: true, HOT: true })
+  }
+
+  const deleteSelectedPost = async () => {
+    if (!selectedPost || selectedPost.authorId !== currentUserId) return
+    const confirmation = await Taro.showModal({
+      title: '温馨提示',
+      content: '删除后不可恢复，确定删除这条动态吗？',
+      cancelText: '取消',
+      confirmText: '删除',
+      confirmColor: '#E62828',
+    })
+    if (!confirmation.confirm) return
+    try {
+      await deleteCommunityPost(selectedPost.postNo || selectedPost.id)
+      setPostsByScene(state => removePostFromScenes(state, selectedPost.id))
+      setSelectedPost(undefined)
+      setSheet(null)
+      resetFeedPagination()
+      feedScrollTopRef.current = 0
+      setRestoredFeedScrollTop(0)
+      await loadScene(activeTab)
+      await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.deleteSuccess), icon: 'success' })
+    } catch (error) {
+      await showError(config, error)
+    }
+  }
+
   const closeWhisperSheet = async () => {
     const preservedScrollTop = whisperOriginScrollTopRef.current
     setWhisperTarget(null)
@@ -298,6 +369,8 @@ export default function RecommendFamilyPage() {
         <ScrollView
           scrollY
           scrollTop={restoredFeedScrollTop}
+          lowerThreshold={120}
+          onScrollToLower={() => void loadScene(activeTab, true)}
           onScroll={event => {
             feedScrollTopRef.current = event.detail.scrollTop
           }}
@@ -322,6 +395,8 @@ export default function RecommendFamilyPage() {
                 onLike={() => void toggleLike(post)}
               />
             )) : <FeedEmptyState tab={activeTab} hasFollowing={followingCount > 0} schoolMissing={hasSchool === false} config={config} onGoCity={() => changeTab('CITY')} onGoProfile={() => void Taro.navigateTo({ url: '/pages/verification/basic?from=profile' })} />}
+            {visiblePosts.length && loadingMoreByScene[activeTab] ? <Text style={{ display: 'block', color: '#9AA2AE', fontSize: '23rpx', lineHeight: '72rpx', textAlign: 'center' }}>加载中…</Text> : null}
+            {visiblePosts.length && hasMoreByScene[activeTab] === false ? <Text style={{ display: 'block', color: '#B0B0B0', fontSize: '22rpx', lineHeight: '72rpx', textAlign: 'center' }}>— 到底啦 —</Text> : null}
           </View>
         </ScrollView>
         <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
@@ -332,6 +407,7 @@ export default function RecommendFamilyPage() {
           post={selectedPost}
           isSelf={selectedPost.authorId === currentUserId}
           onClose={() => setSheet(null)}
+          onDelete={selectedPost.authorId === currentUserId ? () => void deleteSelectedPost() : undefined}
           onFollow={() => void toggleFollow(selectedPost)}
           onHide={() => void toggleSelectedAuthorPreference()}
           onReport={config?.reportEntryEnabled === false ? undefined : () => {
@@ -456,6 +532,17 @@ function LoadingCards() {
 
 function mapPostsByScene(state: Partial<Record<CommunityScene, CommunityPostVO[]>>, mapper: (post: CommunityPostVO) => CommunityPostVO) {
   return Object.fromEntries(Object.entries(state).map(([scene, posts]) => [scene, posts?.map(mapper)])) as Partial<Record<CommunityScene, CommunityPostVO[]>>
+}
+
+function mergeCommunityPosts(current: CommunityPostVO[], incoming: CommunityPostVO[]) {
+  const seen = new Set(current.map(post => post.id))
+  return [...current, ...incoming.filter(post => !seen.has(post.id))]
+}
+
+function removePostFromScenes(state: Partial<Record<CommunityScene, CommunityPostVO[]>>, postId: number) {
+  return Object.fromEntries(
+    Object.entries(state).map(([scene, posts]) => [scene, posts?.filter(post => post.id !== postId)]),
+  ) as Partial<Record<CommunityScene, CommunityPostVO[]>>
 }
 
 function removeAuthorPostsFromScene(state: Partial<Record<CommunityScene, CommunityPostVO[]>>, authorId: number) {

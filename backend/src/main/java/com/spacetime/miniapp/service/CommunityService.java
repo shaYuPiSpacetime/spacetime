@@ -58,6 +58,9 @@ public interface CommunityService {
      */
     CommunityPublishResultVO createPost(Long userId, CommunityPostCreateReq req);
 
+    /** 编辑本人已驳回的动态并重新走完整审核。 */
+    CommunityPublishResultVO resubmitRejectedPost(Long userId, String postRef, CommunityPostCreateReq req);
+
     /**
      * 删除自己的社区内容（软删除）
      *

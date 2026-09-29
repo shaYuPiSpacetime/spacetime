@@ -68,14 +68,21 @@ export default function LoginAddressPage() {
     cityCode?: string,
     useFirst = false
   ) => {
+    // 仅无任何历史值的设计预览态允许首项兜底；旧编码失配时必须由用户明确重选。
+    const canUseFirst = useFirst && !provinceCode && !cityCode
     const provinceIndex = tree.findIndex(item => item.code === provinceCode)
-    const nextProvinceIndex = provinceIndex >= 0 ? provinceIndex : useFirst ? 0 : -1
+    const nextProvinceIndex = provinceIndex >= 0 ? provinceIndex : canUseFirst ? 0 : -1
     const province = tree[nextProvinceIndex]
-    if (!province) return
-    const cityIndex = province.children.findIndex(item => item.code === cityCode)
-    const nextCityIndex = cityIndex >= 0 ? cityIndex : useFirst ? 0 : -1
-    const city = province.children[nextCityIndex]
-    if (!city) return
+    const cityIndex = province?.children.findIndex(item => item.code === cityCode) ?? -1
+    const nextCityIndex = cityIndex >= 0 ? cityIndex : canUseFirst ? 0 : -1
+    const city = province?.children[nextCityIndex]
+    if (!province || !city) {
+      setSelectedProvince(undefined)
+      setSelectedCity(undefined)
+      setSelected('')
+      setCityValue([Math.max(nextProvinceIndex, 0), 0])
+      return
+    }
     setSelectedProvince(province)
     setSelectedCity(city)
     setCityValue([nextProvinceIndex, nextCityIndex])
@@ -282,7 +289,7 @@ export default function LoginAddressPage() {
 
 function formatAddressLabel(province: string, city: string) {
   const provinceLabel = province.replace(/[省市区]$/u, '')
-  const cityLabel = city.replace(/[市区县]$/u, '')
+  const cityLabel = city.replace(/[市区]$/u, '')
   return provinceLabel === cityLabel ? cityLabel : `${provinceLabel}${cityLabel}`
 }
 

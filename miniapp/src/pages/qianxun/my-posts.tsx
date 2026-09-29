@@ -114,11 +114,16 @@ export default function QianxunMyPostsPage() {
   const editSelected = async () => {
     if (!selected) return
     setSheetVisible(false)
-    if (selected.status === 'published') {
-      await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.editPublishedUnavailable), icon: 'none' })
+    if (selected.status !== 'rejected') {
+      await Taro.showToast({ title: selected.status === 'published' ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.editPublishedUnavailable) : '仅可编辑已驳回的动态', icon: 'none' })
       return
     }
-    await Taro.navigateTo({ url: '/pages/qianxun/compose' })
+    const postRef = selected.postNo || selected.postId
+    if (!postRef) {
+      await Taro.showToast({ title: '当前动态暂时无法编辑', icon: 'none' })
+      return
+    }
+    await Taro.navigateTo({ url: `/pages/qianxun/compose?editPostId=${encodeURIComponent(String(postRef))}` })
   }
 
   const requestDeleteSelected = () => {
@@ -130,9 +135,9 @@ export default function QianxunMyPostsPage() {
   const confirmDelete = async () => {
     if (!deleteReceipt) return
     try {
-      if (deleteReceipt.postId) {
-        await deleteCommunityPost(deleteReceipt.postId)
-      }
+      const postRef = deleteReceipt.postNo || deleteReceipt.postId
+      if (!postRef) throw new Error('当前动态暂时无法删除')
+      await deleteCommunityPost(postRef)
       setReceipts(items => items.filter(item => item.id !== deleteReceipt.id))
       setSelected(undefined)
       setDeleteReceipt(undefined)
@@ -172,7 +177,7 @@ export default function QianxunMyPostsPage() {
           </View>
         </ScrollView>
       </View>
-      {sheetVisible && selected ? <PostActionSheet onEdit={() => void editSelected()} onDelete={requestDeleteSelected} onClose={() => setSheetVisible(false)} /> : null}
+      {sheetVisible && selected ? <PostActionSheet editable={selected.status === 'rejected'} onEdit={() => void editSelected()} onDelete={requestDeleteSelected} onClose={() => setSheetVisible(false)} /> : null}
       {deleteReceipt ? <DeleteConfirmDialog onCancel={() => setDeleteReceipt(undefined)} onConfirm={() => void confirmDelete()} /> : null}
       {failureReceipt ? <PublishFailureDialog receipt={failureReceipt} config={config} onClose={() => setFailureReceipt(undefined)} /> : null}
     </View>
@@ -289,11 +294,11 @@ function MyPostsLoading() {
   )
 }
 
-function PostActionSheet({ onEdit, onDelete, onClose }: { onEdit: () => void; onDelete: () => void; onClose: () => void }) {
+function PostActionSheet({ editable, onEdit, onDelete, onClose }: { editable: boolean; onEdit: () => void; onDelete: () => void; onClose: () => void }) {
   return (
     <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }}>
       <View onClick={event => event.stopPropagation()} style={{ width: '750rpx', background: '#FFFFFF', borderRadius: '30rpx 30rpx 0 0', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <View onClick={onEdit} style={{ height: '100rpx', borderBottom: '2rpx solid #EEF3F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '28rpx' }}>编辑</Text></View>
+        {editable ? <View onClick={onEdit} style={{ height: '100rpx', borderBottom: '2rpx solid #EEF3F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '28rpx' }}>编辑并重新提交审核</Text></View> : null}
         <View onClick={onDelete} style={{ height: '100rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#E62828', fontSize: '28rpx' }}>删除</Text></View>
         <View style={{ height: '16rpx', background: '#EFF4FC' }} />
         <View onClick={onClose} style={{ height: '100rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '28rpx' }}>取消</Text></View>

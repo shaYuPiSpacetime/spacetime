@@ -526,8 +526,8 @@ function resolveRegionLabel(
   if (!provinceCode && !cityCode) return placeholder
   const province = tree.find(item => item.code === provinceCode)
   const city = province?.children.find(item => item.code === cityCode)
-  const provinceLabel = trimRegionSuffix(province?.name || provinceCode)
-  const cityLabel = trimRegionSuffix(city?.name || cityCode)
+  const provinceLabel = trimRegionSuffix(province?.name || '')
+  const cityLabel = trimRegionSuffix(city?.name || '')
   const districtLabel = trimRegionSuffix(districtCode)
   if (!provinceLabel) return cityLabel || placeholder
   const provinceCityLabel =
@@ -536,7 +536,7 @@ function resolveRegionLabel(
 }
 
 function trimRegionSuffix(value: string) {
-  return value.replace(/[省市区县]$/u, '')
+  return value.replace(/[省市区]$/u, '')
 }
 
 function buildNumericOptions(setting: ProfileFieldSetting) {

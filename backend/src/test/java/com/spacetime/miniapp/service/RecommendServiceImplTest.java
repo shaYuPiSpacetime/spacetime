@@ -216,6 +216,72 @@ class RecommendServiceImplTest {
     }
 
     @Test
+    @DisplayName("会员身份与高级筛选权益分开判定，权益关闭时仍可选第三个城市")
+    void activeVipShouldKeepCityEntitlementWithoutAdvancedFilterBenefit() {
+        AppUser user = openUser(7L, 30, "320100");
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(1));
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(accessProjectionService.project(user)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(preferenceDao.selectByUserId(7L)).thenReturn(null);
+        when(profileDictionaryService.label("china_region", "320100")).thenReturn("南京");
+
+        RecommendPreferenceVO read = service.getPreferences(7L);
+
+        assertThat(read.getVipEffective()).isTrue();
+        assertThat(new org.springframework.beans.BeanWrapperImpl(read)
+                .getPropertyValue("advancedFilterEffective")).isEqualTo(false);
+
+        RecommendPreferenceSaveReq req = basicRequest(0);
+        req.setTargetCityCodes(List.of("320100", "320200", "320400"));
+        RecommendPreferenceVO saved = service.savePreferences(7L, req);
+
+        assertThat(saved.getVipEffective()).isTrue();
+        assertThat(saved.getTargetCities()).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("普通用户不能通过直接调用接口保存第三个目标城市")
+    void normalUserShouldNotSaveThirdTargetCity() {
+        AppUser user = openUser(7L, 30, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(accessProjectionService.project(user)).thenReturn("OPEN");
+        RecommendPreferenceSaveReq req = basicRequest(0);
+        req.setTargetCityCodes(List.of("320100", "320200", "320400"));
+
+        assertThatThrownBy(() -> service.savePreferences(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("会员");
+        verify(preferenceDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("会员每日推荐额度不依赖高级筛选权益开关")
+    void activeVipShouldUseVipQuotaWithoutAdvancedFilterBenefit() {
+        AppUser user = openUser(7L, 30, "320100");
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(1));
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(accessProjectionService.project(user)).thenReturn("OPEN");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 1));
+        when(appConfigDao.selectByKeys(any())).thenAnswer(invocation -> {
+            List<String> keys = invocation.getArgument(0);
+            String key = keys.get(0);
+            return List.of(config(key, key.endsWith(".vip") ? "20" : "10"));
+        });
+        when(viewLogDao.selectList(any())).thenReturn(List.of());
+        when(appUserDao.selectList(any())).thenReturn(List.of());
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getRemainingBrowseCount()).isEqualTo(20);
+    }
+
+    @Test
     @DisplayName("会员高级身高体重筛选允许只填写单侧边界")
     void savePreferencesShouldAllowOneSidedAdvancedRanges() {
         AppUser user = openUser(7L, 30, "320100");
@@ -254,6 +320,10 @@ class RecommendServiceImplTest {
         existing.setMaxHeight(180);
         existing.setMinWeight(45);
         existing.setMaxWeight(70);
+        existing.setEducationCodes("[\"DOCTOR\"]");
+        existing.setHometowns("[\"320100\"]");
+        existing.setSchoolCodes("[\"school-001\"]");
+        existing.setMajorNames("[\"计算机科学\"]");
         when(appUserDao.selectById(7L)).thenReturn(user);
         when(accessProjectionService.project(user)).thenReturn("OPEN");
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
@@ -274,7 +344,16 @@ class RecommendServiceImplTest {
         assertThat(read.getAdvanced().getMinWeight()).isNull();
         assertThat(read.getAdvanced().getMaxWeight()).isNull();
         assertThat(saved.getVersion()).isEqualTo(4);
-        verify(preferenceDao).updateByVersion(any(), org.mockito.ArgumentMatchers.eq(3));
+        ArgumentCaptor<RecommendPreference> updated = ArgumentCaptor.forClass(RecommendPreference.class);
+        verify(preferenceDao).updateByVersion(updated.capture(), org.mockito.ArgumentMatchers.eq(3));
+        assertThat(updated.getValue().getMinHeight()).isEqualTo(165);
+        assertThat(updated.getValue().getMaxHeight()).isEqualTo(180);
+        assertThat(updated.getValue().getMinWeight()).isEqualTo(45);
+        assertThat(updated.getValue().getMaxWeight()).isEqualTo(70);
+        assertThat(updated.getValue().getEducationCodes()).isEqualTo("[\"DOCTOR\"]");
+        assertThat(updated.getValue().getHometowns()).isEqualTo("[\"320100\"]");
+        assertThat(updated.getValue().getSchoolCodes()).isEqualTo("[\"school-001\"]");
+        assertThat(updated.getValue().getMajorNames()).isEqualTo("[\"计算机科学\"]");
     }
 
     @Test

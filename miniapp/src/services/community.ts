@@ -322,6 +322,16 @@ export function publishCommunityPost(content: string, imageUrls: string[], topic
   })
 }
 
+export function resubmitCommunityPost(postId: number | string, content: string, imageUrls: string[], topicId?: number, contentType: CommunityContentType = 'community_post') {
+  return put<CommunityPublishResultVO>(`/miniapp/community/posts/${postId}`, {
+    contentType,
+    postType: contentType,
+    content,
+    imageUrls,
+    topicId,
+  })
+}
+
 export const getCommunityDraft = (contentType: CommunityContentType) => get<CommunityDraftVO | null>(`/miniapp/community/drafts/${contentType}`)
 export const saveCommunityDraft = (contentType: CommunityContentType, command: CommunityDraftSaveCommand) => put<CommunityDraftVO>(`/miniapp/community/drafts/${contentType}`, {
   content: command.content,

@@ -213,7 +213,160 @@ class CommunityServiceImplTest {
         var result=communityService.createPost(1L,req);
         assertThat(result.getStatus()).isEqualTo("rejected");
         verify(communityExtensionDao).insertAudit(argThat(row -> evidence.equals(row.getAfterSnapshot()) && "local_sensitive_word_hit".equals(row.getReason())));
-        verify(communityPostDao).insert(argThat(row -> "local_sensitive_word_hit".equals(row.getMachineDetail())));
+        verify(communityPostDao).insert(argThat(row -> "local_sensitive_word_hit".equals(row.getMachineDetail())
+                && "REJECTED".equals(row.getAuditStatus())
+                && "内容未通过安全审核，请修改后重新提交".equals(row.getAuditRemark())
+                && !row.getAuditRemark().contains("local_sensitive_word")));
+    }
+
+    @Test
+    @DisplayName("历史驳回动态-缺少审核说明时返回安全可读原因")
+    void getPostDetail_rejectedWithoutRemark_shouldReturnSafeReason() {
+        post.setAuthorId(1L);
+        post.setStatus("rejected");
+        post.setAuditStatus("REJECTED");
+        post.setAuditRemark(null);
+        post.setImageUrls("[]");
+        post.setPostNo("POST-OLD-REJECTED");
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        CommunityPostDetailVO result = communityService.getPostDetail(1L, "100");
+
+        assertThat(result.getAuditRemark()).isEqualTo("内容未通过安全审核，请修改后重新提交");
+    }
+
+    @Test
+    @DisplayName("重新提交驳回动态-完整复审后新建并删除旧帖")
+    void resubmitRejectedPost_shouldCreateNewPostAndSoftDeleteOriginal() {
+        CommunityPost rejected = new CommunityPost();
+        rejected.setId(100L);
+        rejected.setPostNo("POST-OLD");
+        rejected.setAuthorId(1L);
+        rejected.setPostType("community_post");
+        rejected.setStatus("rejected");
+        when(communityPostDao.selectById(100L)).thenReturn(rejected);
+        when(communityPostDao.claimRejectedForResubmit(100L, 0)).thenReturn(1);
+        when(communityPostDao.updateCas(any(), eq(1))).thenReturn(1);
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(contentSecurityPort.checkPost(any(), any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
+
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("sincere_post");
+        req.setContent("修改后的动态正文");
+        req.setImageUrls(List.of());
+
+        CommunityPublishResultVO result = communityService.resubmitRejectedPost(1L, "100", req);
+
+        assertThat(result.getStatus()).isEqualTo("published");
+        verify(contentSecurityPort).checkPost(any(), eq("修改后的动态正文"), eq(List.of()), eq("community"));
+        verify(communityPostDao).insert(argThat(row -> "community_post".equals(row.getPostType())
+                && "修改后的动态正文".equals(row.getContent())));
+        assertThat(rejected.getStatus()).isEqualTo("deleted");
+        assertThat(rejected.getDeletedByUser()).isEqualTo(1);
+        var order = inOrder(communityPostDao);
+        order.verify(communityPostDao).selectById(100L);
+        order.verify(communityPostDao).claimRejectedForResubmit(100L, 0);
+        order.verify(communityPostDao).insert(any(CommunityPost.class));
+        order.verify(communityPostDao).updateCas(same(rejected), eq(1));
+        verify(communityExtensionDao, never()).deleteDraft(anyLong());
+    }
+
+    @Test
+    @DisplayName("并发重新提交驳回动态-未抢到旧帖版本时不得创建替代帖")
+    void resubmitRejectedPost_casConflict_shouldNotCreateReplacement() {
+        CommunityPost rejected = new CommunityPost();
+        rejected.setId(100L);
+        rejected.setPostNo("POST-OLD");
+        rejected.setAuthorId(1L);
+        rejected.setPostType("community_post");
+        rejected.setStatus("rejected");
+        rejected.setVersion(3);
+        when(communityPostDao.selectById(100L)).thenReturn(rejected);
+        when(communityPostDao.claimRejectedForResubmit(100L, 3)).thenReturn(0);
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community_post");
+        req.setContent("并发修改");
+
+        assertThatThrownBy(() -> communityService.resubmitRejectedPost(1L, "100", req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("version_conflict");
+
+        verify(communityPostDao, never()).insert(any());
+        verifyNoInteractions(contentSecurityPort);
+        assertThat(rejected.getStatus()).isEqualTo("rejected");
+    }
+
+    @Test
+    @DisplayName("重新提交驳回动态-仅本人且仅驳回状态可编辑")
+    void resubmitRejectedPost_shouldRejectOtherOwnerOrNonRejectedPost() {
+        CommunityPost otherOwner = new CommunityPost();
+        otherOwner.setId(100L);
+        otherOwner.setAuthorId(2L);
+        otherOwner.setStatus("rejected");
+        when(communityPostDao.selectById(100L)).thenReturn(otherOwner);
+        CommunityPostCreateReq req = new CommunityPostCreateReq();
+        req.setPostType("community_post");
+        req.setContent("尝试修改");
+
+        assertThatThrownBy(() -> communityService.resubmitRejectedPost(1L, "100", req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("content_unavailable");
+
+        otherOwner.setAuthorId(1L);
+        otherOwner.setStatus("published");
+        assertThatThrownBy(() -> communityService.resubmitRejectedPost(1L, "100", req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("edit_published_unavailable");
+        verify(communityPostDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("删除待审动态-必须用版本 CAS 阻断迟到审核回调")
+    void deletePendingPost_shouldIncrementVersionWithCas() {
+        CommunityPost pending = new CommunityPost();
+        pending.setId(100L);
+        pending.setAuthorId(1L);
+        pending.setStatus("pending_machine");
+        pending.setVersion(0);
+        when(communityPostDao.selectById(100L)).thenReturn(pending);
+        when(communityPostDao.updateCas(same(pending), eq(0))).thenReturn(1);
+
+        communityService.deletePost(1L, "100");
+
+        verify(communityPostDao).updateCas(argThat(value -> "deleted".equals(value.getStatus())
+                && Integer.valueOf(1).equals(value.getDeletedByUser())), eq(0));
+        verify(communityPostDao, never()).updateById(any());
+        assertThat(pending.getVersion()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("审核回调先抢到版本时-删除应刷新版本后重试并最终优先")
+    void deletePendingPost_callbackWinsFirstCas_shouldReloadAndDelete() {
+        CommunityPost stalePending = new CommunityPost();
+        stalePending.setId(100L);
+        stalePending.setAuthorId(1L);
+        stalePending.setStatus("pending_machine");
+        stalePending.setVersion(0);
+        CommunityPost callbackPublished = new CommunityPost();
+        callbackPublished.setId(100L);
+        callbackPublished.setAuthorId(1L);
+        callbackPublished.setStatus("published");
+        callbackPublished.setVersion(1);
+        when(communityPostDao.selectById(100L)).thenReturn(stalePending);
+        when(communityPostDao.selectByIdForUpdate(100L)).thenReturn(callbackPublished);
+        when(communityPostDao.updateCas(same(stalePending), eq(0))).thenReturn(0);
+        when(communityPostDao.updateCas(same(callbackPublished), eq(1))).thenReturn(1);
+
+        communityService.deletePost(1L, "100");
+
+        var order = inOrder(communityPostDao);
+        order.verify(communityPostDao).selectById(100L);
+        order.verify(communityPostDao).updateCas(same(stalePending), eq(0));
+        order.verify(communityPostDao).selectByIdForUpdate(100L);
+        order.verify(communityPostDao).updateCas(same(callbackPublished), eq(1));
+        assertThat(callbackPublished.getStatus()).isEqualTo("deleted");
+        assertThat(callbackPublished.getVersion()).isEqualTo(2);
     }
 
     @Test

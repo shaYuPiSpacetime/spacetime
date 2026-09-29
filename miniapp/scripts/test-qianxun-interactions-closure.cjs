@@ -109,3 +109,33 @@ test('千寻互动共享字号和筛选色值符合点赞暂无数据蓝湖基�
   assert.match(source, /fontSize:\s*'28rpx',\s*lineHeight:\s*'40rpx'.*model\.subtitle/, '空态说明必须使用蓝湖 28rpx 字号')
   assert.match(source, /fontSize:\s*'32rpx',\s*lineHeight:\s*'44rpx'.*>去千寻同城看看</, '空态主按钮必须使用蓝湖 32rpx 字号')
 })
+
+test('驳回动态编辑必须带入原图文并重新提交审核', () => {
+  const interactions = read('src/pages/qianxun/interactions.tsx')
+  const myPosts = read('src/pages/qianxun/my-posts.tsx')
+  const compose = read('src/pages/qianxun/compose.tsx')
+  const communityService = read('src/services/community.ts')
+
+  assert.match(interactions, /deleteCommunityPost/, '主入口“我的动态”必须接入删除接口')
+  assert.match(interactions, /editPostId=/, '主入口的驳回动态编辑必须携带帖子标识')
+  assert.match(myPosts, /editPostId=/, '独立“我的动态”页的驳回动态编辑必须携带帖子标识')
+  assert.match(compose, /getCommunityPostDetail\(/, '编辑页必须读取原动态详情')
+  assert.match(compose, /setContent\(.*\.content/, '编辑页必须回填原正文')
+  assert.match(compose, /setImages\(/, '编辑页必须回填原图片')
+  assert.match(compose, /resubmitCommunityPost\(/, '编辑完成必须调用重新审核接口')
+  assert.match(compose, /重新提交审核/, '编辑页必须明确告知用户会重新提交审核')
+  assert.match(communityService, /put<CommunityPublishResultVO>\(`\/miniapp\/community\/posts\/\$\{postId\}`/, '重新提交接口必须使用 PUT 更新语义')
+})
+
+test('同城动态支持上拉分页且本人动态可删除', () => {
+  const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
+  const actionSheet = read('src/components/CommunityPostActionSheet.tsx')
+
+  assert.match(family, /onScrollToLower=/, '同城动态必须监听滚动到底部')
+  assert.match(family, /getCommunityPosts\(targetScene,\s*nextPage/, '加载更多必须请求下一页')
+  assert.match(family, /deleteCommunityPost\(/, '首页本人动态必须接入删除接口')
+  assert.match(family, /resetFeedPagination\(\)[\s\S]{0,400}loadScene\(activeTab\)/, '本地删除成功后必须重置并刷新 offset 分页，避免跳过动态')
+  assert.match(family, /onDelete=/, '首页本人动态操作面板必须暴露删除动作')
+  assert.match(actionSheet, /onDelete\?/, '共享动态操作面板必须支持可选删除动作')
+  assert.match(actionSheet, /label:\s*['"]删除['"]/, '本人动态操作面板必须展示删除文案')
+})

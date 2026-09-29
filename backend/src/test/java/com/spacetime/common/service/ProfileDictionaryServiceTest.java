@@ -56,6 +56,22 @@ class ProfileDictionaryServiceTest {
     }
 
     @Test
+    @DisplayName("历史直辖市虚拟节点展示市名而不是市辖区或县")
+    void shouldDisplayMunicipalityNameForLegacyVirtualCity() {
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "500200"))
+                .thenReturn(dict("china_region", "500200", "县"));
+        when(dictDataDao.selectList(any())).thenReturn(List.of(
+                dict("china_region", "500200", "县"),
+                dict("china_region", "500233", "忠县")));
+        ProfileDictionaryService service = new ProfileDictionaryService(dictDataDao);
+
+        assertThat(service.label("china_region", "500200")).isEqualTo("重庆市");
+        assertThat(service.labels("china_region", List.of("500200", "500233")))
+                .containsEntry("500200", "重庆市")
+                .containsEntry("500233", "忠县");
+    }
+
+    @Test
     @DisplayName("中国大陆地区code存在且父子层级匹配时通过")
     void shouldAcceptValidChinaRegionHierarchy() {
         when(dictDataDao.selectEnabledByTypeAndValue("china_region", "330000"))
@@ -69,6 +85,41 @@ class ProfileDictionaryServiceTest {
         org.assertj.core.api.Assertions.assertThatCode(() -> service.requireChinaRegionPath(
                         "330000", "330100", "330106", "现居地"))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("直辖市两级选择器提交真实区县时通过")
+    void shouldAcceptMunicipalityDistrictAsCity() {
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "500000"))
+                .thenReturn(region(1L, 0L, "500000"));
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "500233"))
+                .thenReturn(region(3L, 2L, "500233"));
+        SysDictData virtualCity = region(2L, 1L, "500200");
+        virtualCity.setDictLabel("县");
+        when(dictDataDao.selectById(2L)).thenReturn(virtualCity);
+        ProfileDictionaryService service = new ProfileDictionaryService(dictDataDao);
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> service.requireChinaRegionPath(
+                        "500000", "500233", null, "现居地"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("直辖市区县不属于所选省份时拒绝")
+    void shouldRejectMunicipalityDistrictUnderAnotherProvince() {
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "500000"))
+                .thenReturn(region(1L, 0L, "500000"));
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "500233"))
+                .thenReturn(region(3L, 2L, "500233"));
+        SysDictData virtualCity = region(2L, 9L, "500200");
+        virtualCity.setDictLabel("县");
+        when(dictDataDao.selectById(2L)).thenReturn(virtualCity);
+        ProfileDictionaryService service = new ProfileDictionaryService(dictDataDao);
+
+        assertThatThrownBy(() -> service.requireChinaRegionPath(
+                        "500000", "500233", null, "现居地"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("REGION_NOT_SUPPORTED：现居地必须使用有效的中国大陆省市编码");
     }
 
     @Test

@@ -162,7 +162,7 @@ function UnlockCard({ item }: { item: IdealUnlockRecordVO }) {
           }
           style={{ color: available ? '#4C8BFF' : '#999999', fontSize: '27rpx', fontWeight: 600 }}
         >
-          {available ? '查看主页' : '用户已注销'}
+          {available ? '查看主页' : '暂不可查看'}
         </Text>
       </View>
     </View>

@@ -31,6 +31,7 @@ export interface RecommendPreferenceVO {
   maxAge: number
   advanced: RecommendAdvancedFilterVO
   vipEffective: boolean
+  advancedFilterEffective: boolean
   advancedEffectiveCount: number
   defaulted: boolean
 }

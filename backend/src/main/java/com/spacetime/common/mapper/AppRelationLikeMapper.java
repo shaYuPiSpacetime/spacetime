@@ -222,4 +222,15 @@ public interface AppRelationLikeMapper extends BaseMapper<AppRelationLike> {
             LIMIT 1
             """)
     RelationLikeListRow selectLatestIncomingLike(@Param("userId") Long userId);
+
+    @Select("""
+            SELECT *
+            FROM app_relation_like
+            WHERE from_user_id = #{userId}
+              AND like_status = 'active'
+              AND active_marker = 1
+              AND deleted = 0
+            ORDER BY liked_time DESC, id DESC
+            """)
+    List<AppRelationLike> selectOutgoingLikes(@Param("userId") Long userId);
 }

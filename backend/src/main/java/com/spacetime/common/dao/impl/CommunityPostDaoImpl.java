@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.CommunityPostDao;
 import com.spacetime.common.entity.CommunityPost;
+import com.spacetime.common.enums.CommunityPostStatusEnum;
 import com.spacetime.common.mapper.CommunityPostMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -23,6 +24,13 @@ public class CommunityPostDaoImpl implements CommunityPostDao {
     @Override
     public CommunityPost selectById(Long id) {
         return mapper.selectById(id);
+    }
+
+    @Override
+    public CommunityPost selectByIdForUpdate(Long id) {
+        return mapper.selectOne(new LambdaQueryWrapper<CommunityPost>()
+                .eq(CommunityPost::getId, id)
+                .last("LIMIT 1 FOR UPDATE"));
     }
 
     @Override
@@ -50,6 +58,15 @@ public class CommunityPostDaoImpl implements CommunityPostDao {
         return mapper.update(entity, new LambdaUpdateWrapper<CommunityPost>()
                 .eq(CommunityPost::getId, entity.getId())
                 .eq(CommunityPost::getVersion, expectedVersion)
+                .set(CommunityPost::getVersion, expectedVersion + 1));
+    }
+
+    @Override
+    public int claimRejectedForResubmit(Long id, int expectedVersion) {
+        return mapper.update(null, new LambdaUpdateWrapper<CommunityPost>()
+                .eq(CommunityPost::getId, id)
+                .eq(CommunityPost::getVersion, expectedVersion)
+                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.REJECTED.getCode())
                 .set(CommunityPost::getVersion, expectedVersion + 1));
     }
 }

@@ -13,6 +13,7 @@ import DualRangeSlider from '@/components/DualRangeSlider'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { createIdealSearch, getIdealMeta, type IdealMetaVO } from '@/services/ideal'
+import { getRecommendPreferences, saveRecommendPreferences } from '@/services/recommend'
 import { prd01Api } from '@/services/prd01'
 import type { RegionTreeOption } from '@/types/prd01'
 
@@ -37,7 +38,10 @@ export default function IdealFilterPage() {
       setTargetCities(metaData.targetCities || [])
       setMinAge(metaData.minAge)
       setMaxAge(metaData.maxAge)
-      setSelectedConditionCodes(metaData.lastConditionCodes || [])
+      const availableCodes = new Set(
+        (metaData.conditions || []).filter(condition => condition.available).map(condition => condition.code)
+      )
+      setSelectedConditionCodes((metaData.lastConditionCodes || []).filter(code => availableCodes.has(code)))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '理想型条件加载失败')
     }
@@ -47,18 +51,54 @@ export default function IdealFilterPage() {
   }, [])
   const groups = useMemo(() => {
     const result = new Map<string, NonNullable<IdealMetaVO['conditions']>>()
-    for (const condition of meta?.conditions || [])
+    for (const condition of meta?.conditions || []) {
+      if (!condition.available) continue
       result.set(condition.category, [...(result.get(condition.category) || []), condition])
+    }
     return [...result.entries()]
   }, [meta])
   const submit = async () => {
-    if (!meta || !selectedConditionCodes.length || !targetCities.length || submitting) return
+    if (!meta || !targetCities.length || submitting) return
     setSubmitting(true)
     try {
+      const preference = await getRecommendPreferences()
+      if (preference.version !== meta.preferenceVersion) {
+        await load()
+        throw new Error('推荐偏好已更新，请确认筛选条件后重试')
+      }
+      const targetCityCodes = targetCities.map(item => item.code)
+      const savedCityCodes = preference.targetCities.map(item => item.code)
+      const basicChanged = minAge !== preference.minAge || maxAge !== preference.maxAge
+        || targetCityCodes.length !== savedCityCodes.length
+        || targetCityCodes.some(code => !savedCityCodes.includes(code))
+      let preferenceVersion = preference.version
+      if (basicChanged) {
+        const advanced = preference.advanced
+        const saved = await saveRecommendPreferences({
+          version: preference.version,
+          targetCityCodes,
+          allowNeighborCity: preference.allowNeighborCity,
+          onlyCertifiedUsers: preference.onlyCertifiedUsers,
+          minAge,
+          maxAge,
+          ...(preference.advancedFilterEffective ? {
+            minHeight: advanced.minHeight ?? undefined,
+            maxHeight: advanced.maxHeight ?? undefined,
+            minWeight: advanced.minWeight ?? undefined,
+            maxWeight: advanced.maxWeight ?? undefined,
+            educationCodes: advanced.educationCodes,
+            hometowns: advanced.hometowns,
+            schoolCodes: advanced.schoolCodes,
+            majorNames: advanced.majorNames,
+          } : {}),
+        })
+        preferenceVersion = saved.version
+        setMeta(current => current ? { ...current, preferenceVersion } : current)
+      }
       const result = await createIdealSearch({
         requestId: `ideal-search-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
-        preferenceVersion: meta.preferenceVersion,
-        targetCityCodes: targetCities.map(item => item.code),
+        preferenceVersion,
+        targetCityCodes,
         minAge,
         maxAge,
         conditionCodes: selectedConditionCodes,
@@ -92,8 +132,8 @@ export default function IdealFilterPage() {
         fontFamily: 'PingFang SC, sans-serif',
       }}
     >
-      <ScrollView scrollY showScrollbar={false} style={{ height: '100vh' }}>
-        <View style={{ paddingBottom: '310rpx' }}>
+      <ScrollView scrollY showScrollbar={false} style={{ height: 'calc(100vh - 298rpx)' }}>
+        <View style={{ paddingBottom: '32rpx' }}>
           <IdealFilterHero />
           <View style={{ padding: '50rpx 24rpx 0' }}>
             <Text style={{ color: '#AAAAAA', fontSize: '30rpx' }}>基础筛选</Text>
@@ -122,13 +162,6 @@ export default function IdealFilterPage() {
                       <View
                         key={condition.code}
                         onClick={() => {
-                          if (!condition.available) {
-                            void Taro.showToast({
-                              title: condition.disabledReason || '完善资料后可选择',
-                              icon: 'none',
-                            })
-                            return
-                          }
                           setSelectedConditionCodes(current =>
                             selected
                               ? current.filter(code => code !== condition.code)
@@ -144,7 +177,6 @@ export default function IdealFilterPage() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          opacity: condition.available ? 1 : 0.42,
                           boxSizing: 'border-box',
                         }}
                       >
@@ -163,25 +195,38 @@ export default function IdealFilterPage() {
         </View>
       </ScrollView>
       <View
-        onClick={() => void submit()}
+        id="ideal-filter-action-footer"
         style={{
           position: 'fixed',
-          left: '44rpx',
-          right: '44rpx',
-          bottom: '168rpx',
+          left: 0,
+          right: 0,
+          bottom: '166rpx',
           zIndex: 50,
-          height: '96rpx',
-          borderRadius: '48rpx',
-          background: BLUE,
-          opacity: selectedConditionCodes.length && !submitting ? 1 : 0.45,
+          height: '132rpx',
+          background: '#FFFFFF',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: '34rpx', fontWeight: 600 }}>
-          {submitting ? '筛选中…' : '选好了'}
-        </Text>
+        <View
+          onClick={() => void submit()}
+          style={{
+            height: '96rpx',
+            margin: '0 44rpx',
+            flex: 1,
+            borderRadius: '48rpx',
+            background: BLUE,
+            opacity: !submitting ? 1 : 0.45,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: '34rpx', fontWeight: 600 }}>
+            {submitting ? '筛选中…' : '选好了'}
+          </Text>
+        </View>
       </View>
       <AppTabBar active="recommend" />
       {showAddress ? (

@@ -3,6 +3,7 @@ package com.spacetime.miniapp.controller;
 import com.spacetime.common.exception.GlobalExceptionHandler;
 import com.spacetime.common.interceptor.UserContext;
 import com.spacetime.common.interceptor.UserContextHolder;
+import com.spacetime.miniapp.dto.response.GivenLikesPageVO;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
 import com.spacetime.miniapp.dto.response.MatchPopupVO;
 import com.spacetime.miniapp.dto.response.MutualMatchPageVO;
@@ -53,7 +54,9 @@ class MiniappRelationControllerTest {
     }
 
     @Test
-    void exposesThreeRelationshipLists() throws Exception {
+    void exposesRelationshipLists() throws Exception {
+        GivenLikesPageVO given = new GivenLikesPageVO();
+        given.setTotal(5L);
         LikesMePageVO likes = new LikesMePageVO();
         likes.setTotal(12L);
         likes.setNewCount(3L);
@@ -62,9 +65,13 @@ class MiniappRelationControllerTest {
         MutualMatchPageVO matches = new MutualMatchPageVO();
         matches.setTotal(4L);
         when(relationService.likesMe(7L, 1, 20, "snapshot-001")).thenReturn(likes);
+        when(relationService.givenLikes(7L, 1, 20)).thenReturn(given);
         when(relationService.recentViewers(7L, 1, 20, "visitor-snapshot-001")).thenReturn(viewers);
         when(relationService.mutualMatches(7L, 1, 20)).thenReturn(matches);
 
+        mockMvc.perform(get("/miniapp/relation/likes-given"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(5));
         mockMvc.perform(get("/miniapp/relation/likes-me")
                         .param("page", "1")
                         .param("size", "20")

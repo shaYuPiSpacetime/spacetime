@@ -1,7 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
-import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
 import { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
 import { MiniappBackIcon } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -12,8 +11,8 @@ const GOLD = '#D5A85F'
 const PAGE_BG = '#121212'
 
 const LANHU_BENEFITS = [
-  { icon: miniappOssIcons.memberBenefitMatch, title: '心动名单一键揭晓：123人', desc: '有人对你心动了！看到喜欢的，立即发起对话' },
-  { icon: miniappOssIcons.memberBenefitEyeOpen, title: '谁来看过你：340位访客', desc: '访客全公开，别让在意你的人白等' },
+  { icon: miniappOssIcons.memberBenefitMatch, title: '查看完整心动名单', desc: '查看对你表达心动的用户，遇到合适的人即可发起对话' },
+  { icon: miniappOssIcons.memberBenefitEyeOpen, title: '查看最近来访用户', desc: '了解谁看过你的主页，不错过可能的缘分' },
   { icon: miniappOssIcons.memberBenefitGreeting, title: '每天更多主动开聊机会', desc: '喜欢就勇敢靠近，重要缘分不再错过' },
   { icon: miniappOssIcons.memberBenefitRecommend, title: '优先推荐给心仪的人', desc: '提升展示优先级，让对的人更快看到你' },
   { icon: miniappOssIcons.memberBenefitFilter, title: '高级筛选精准找人', desc: '按理想条件筛选，更快遇见契合对象' },
@@ -114,37 +113,9 @@ function DarkNavigation({ title }: { title: string }) {
 
 function MemberHero() {
   return (
-    <View style={{ width: '700rpx', height: '418rpx', margin: '0 auto', position: 'relative' }}>
-      <HeroAvatar left={122} top={90} size={120} />
-      <HeroAvatar left={458} top={90} size={120} />
-      <HeroAvatar left={250} top={50} size={200} featured />
-      <SpeechBubble left={210} top={68} text="97年" tail="right" />
-      <SpeechBubble left={390} top={150} text="本科" tail="left" />
-      <Text style={{ position: 'absolute', left: 0, top: '288rpx', width: '700rpx', color: '#FFC766', fontSize: '34rpx', fontWeight: 600, lineHeight: '48rpx', textAlign: 'center' }}>免费解锁全部对你心动的人</Text>
-      <View style={{ position: 'absolute', left: 0, top: '356rpx', width: '700rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '42rpx' }}>共有</Text>
-        <View style={{ minWidth: '72rpx', height: '42rpx', margin: '0 12rpx', padding: '0 18rpx', borderRadius: '21rpx', background: 'linear-gradient(135deg,#F4D7A0,#BD8841)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-          <Text style={{ color: '#211F20', fontSize: '26rpx', fontWeight: 600, lineHeight: '38rpx' }}>70</Text>
-        </View>
-        <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '42rpx' }}>人对你心动</Text>
-      </View>
-    </View>
-  )
-}
-
-function HeroAvatar({ left, top, size, featured = false }: { left: number; top: number; size: number; featured?: boolean }) {
-  return (
-    <View style={{ position: 'absolute', left: `${left}rpx`, top: `${top}rpx`, width: `${size}rpx`, height: `${size}rpx`, borderRadius: '50%', border: featured ? '5rpx solid #FFFFFF' : '3rpx solid rgba(255,255,255,0.85)', boxShadow: featured ? '0 6rpx 24rpx rgba(0,0,0,0.46)' : 'none', overflow: 'hidden', boxSizing: 'border-box' }}>
-      <Image src={blurredPersonImage} mode="aspectFill" style={{ width: '100%', height: '100%' }} />
-    </View>
-  )
-}
-
-function SpeechBubble({ left, top, text, tail }: { left: number; top: number; text: string; tail: 'left' | 'right' }) {
-  return (
-    <View style={{ position: 'absolute', left: `${left}rpx`, top: `${top}rpx`, minWidth: '98rpx', height: '58rpx', padding: '0 19rpx', borderRadius: '12rpx', background: '#FFC766', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', zIndex: 4 }}>
-      <View style={{ position: 'absolute', [tail]: '8rpx', bottom: '-12rpx', width: '28rpx', height: '24rpx', background: '#FFC766', clipPath: tail === 'right' ? 'polygon(0 0,100% 100%,28% 64%)' : 'polygon(100% 0,0 100%,72% 64%)' }} />
-      <Text style={{ position: 'relative', color: '#975D08', fontSize: '26rpx', fontWeight: 600, lineHeight: '38rpx', zIndex: 1 }}>{text}</Text>
+    <View style={{ width: '700rpx', minHeight: '250rpx', margin: '0 auto', padding: '58rpx 44rpx', borderRadius: '24rpx', background: 'linear-gradient(135deg,#2B241D,#181716)', border: '1rpx solid #4A3C2B', boxSizing: 'border-box', textAlign: 'center' }}>
+      <Text style={{ display: 'block', color: '#FFC766', fontSize: '36rpx', fontWeight: 600, lineHeight: '52rpx' }}>解锁完整会员权益</Text>
+      <Text style={{ display: 'block', marginTop: '24rpx', color: '#E9E1D5', fontSize: '26rpx', lineHeight: '42rpx' }}>查看心动名单与最近来访，获得更多主动沟通和推荐机会</Text>
     </View>
   )
 }

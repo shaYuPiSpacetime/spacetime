@@ -1,10 +1,11 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getCommunityPosts, type CommunityPostVO } from '@/services/community'
+import { getRecommendPreferences } from '@/services/recommend'
 
 const background =
   'linear-gradient(90deg,rgba(233,253,251,.72),rgba(234,238,249,.68) 49%,rgba(248,250,239,.68))'
@@ -13,11 +14,18 @@ const RECOMMEND_TAB_STORAGE_KEY = 'prd08RecommendTab'
 export default function RecommendWaitingPage() {
   const metrics = getNativeNavigationMetrics()
   const [post, setPost] = useState<CommunityPostVO | null>(null)
+  const [vipEffective, setVipEffective] = useState<boolean | null>(null)
   useEffect(() => {
     void getCommunityPosts('HOT', 1, 1)
       .then(result => setPost(result.records?.[0] || null))
       .catch(() => setPost(null))
   }, [])
+  useDidShow(() => {
+    setVipEffective(null)
+    void getRecommendPreferences()
+      .then(preference => setVipEffective(preference.vipEffective))
+      .catch(() => setVipEffective(null))
+  })
   const openIdeal = () => {
     Taro.setStorageSync(RECOMMEND_TAB_STORAGE_KEY, 'ideal')
     void Taro.switchTab({ url: '/pages/recommend/index' })
@@ -98,6 +106,7 @@ export default function RecommendWaitingPage() {
               onClick={() => void Taro.switchTab({ url: '/pages/index/index' })}
             />
           </View>
+          {vipEffective === false ? (
           <View
             onClick={() =>
               void Taro.navigateTo({ url: '/pages/membership/index?sourcePage=recommend_waiting' })
@@ -163,6 +172,7 @@ export default function RecommendWaitingPage() {
               <Text style={{ color: '#252525', fontSize: '22rpx' }}>立即开通</Text>
             </View>
           </View>
+          ) : null}
           <CommunityPreview post={post} />
         </View>
       </ScrollView>

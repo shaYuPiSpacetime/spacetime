@@ -256,7 +256,9 @@ export default function HeartUserPage() {
   ) : null
   const footer = (
     <View style={{ position: 'fixed', left: '55rpx', right: '55rpx', bottom: '30rpx', zIndex: 50, display: 'flex', gap: '20rpx' }}>
-      <View id="public-profile-like-button" onClick={() => runCertifiedAction(() => void toggleLike())} style={{ width: '210rpx', height: '98rpx', borderRadius: '49rpx', background: liked ? '#FFF0F2' : '#FFFFFF', border: '2rpx solid #FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: likeSubmitting ? 0.6 : 1 }}><Text style={{ color: '#FF5E6E', fontSize: '28rpx', fontWeight: 500 }}>{likeSubmitting ? '处理中' : liked ? '取消喜欢' : '喜欢'}</Text></View>
+      {!profile.matched ? (
+        <View id="public-profile-like-button" onClick={() => runCertifiedAction(() => void toggleLike())} style={{ width: '210rpx', height: '98rpx', borderRadius: '49rpx', background: liked ? '#FFF0F2' : '#FFFFFF', border: '2rpx solid #FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: likeSubmitting ? 0.6 : 1 }}><Text style={{ color: '#FF5E6E', fontSize: '28rpx', fontWeight: 500 }}>{likeSubmitting ? '处理中' : liked ? '取消喜欢' : '喜欢'}</Text></View>
+      ) : null}
       <View id="public-profile-chat-button" onClick={() => runCertifiedAction(() => void openConversation())} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8rpx 22rpx rgba(255,94,110,0.25)' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{profile.communicationMode === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View>
     </View>
   )

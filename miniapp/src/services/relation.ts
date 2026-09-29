@@ -118,6 +118,30 @@ export interface MutualMatchPageVO {
   records: MutualMatchItemVO[]
 }
 
+export interface GivenLikeItemVO {
+  likeNo: string
+  userId: number
+  nickname: string
+  avatar?: string | null
+  age?: number | null
+  height?: number | null
+  currentCity?: string | null
+  hometownCity?: string | null
+  sourceScene?: RelationSourceScene | string
+  likedTime?: string | null
+  matched: boolean
+  canEnterConversation: boolean
+}
+
+export interface GivenLikesPageVO {
+  current: number
+  size: number
+  total: number
+  pages: number
+  hasMore: boolean
+  records: GivenLikeItemVO[]
+}
+
 export interface RelationLikeActionVO {
   likeNo?: string
   likeStatus: 'active' | 'cancelled' | string
@@ -189,6 +213,10 @@ export function markRecentViewersRead(readCursor: string): Promise<null> {
 
 export function getMutualMatches(page = 1, size = 20): Promise<MutualMatchPageVO> {
   return get<MutualMatchPageVO>('/miniapp/relation/mutual-matches', { page, size })
+}
+
+export function getGivenLikes(page = 1, size = 20): Promise<GivenLikesPageVO> {
+  return get<GivenLikesPageVO>('/miniapp/relation/likes-given', { page, size })
 }
 
 export function sendRelationLike(

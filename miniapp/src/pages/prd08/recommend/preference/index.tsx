@@ -146,7 +146,7 @@ export default function RecommendPreferencePage() {
         onlyCertifiedUsers: model.onlyCertifiedUsers,
         minAge: model.minAge,
         maxAge: model.maxAge,
-        ...(model.vipEffective ? {
+        ...(model.advancedFilterEffective ? {
           minHeight: advanced.minHeight ?? undefined,
           maxHeight: advanced.maxHeight ?? undefined,
           minWeight: advanced.minWeight ?? undefined,
@@ -280,12 +280,16 @@ export default function RecommendPreferencePage() {
             时空邂逅会员专属权益，优先看到更加符合你的偏好用户
           </Text>
           <View
-            onClick={() =>
-              !model.vipEffective &&
+            onClick={() => {
+              if (model.advancedFilterEffective) return
+              if (model.vipEffective) {
+                void Taro.showToast({ title: '高级筛选暂不可用，请稍后重试', icon: 'none' })
+                return
+              }
               void Taro.navigateTo({
                 url: '/pages/membership/index?sourcePage=recommend_preference',
               })
-            }
+            }}
             style={{ opacity: 1 }}
           >
             <RangeSection
@@ -295,7 +299,7 @@ export default function RecommendPreferencePage() {
               max={220}
               low={advanced.minHeight ?? 140}
               high={advanced.maxHeight ?? 220}
-              disabled={!model.vipEffective}
+              disabled={!model.advancedFilterEffective}
               onLow={value => patchAdvanced({ minHeight: value })}
               onHigh={value => patchAdvanced({ maxHeight: value })}
             />
@@ -306,7 +310,7 @@ export default function RecommendPreferencePage() {
               max={200}
               low={advanced.minWeight ?? 30}
               high={advanced.maxWeight ?? 200}
-              disabled={!model.vipEffective}
+              disabled={!model.advancedFilterEffective}
               onLow={value => patchAdvanced({ minWeight: value })}
               onHigh={value => patchAdvanced({ maxWeight: value })}
             />
@@ -328,7 +332,7 @@ export default function RecommendPreferencePage() {
                   <View
                     key={option.code}
                     onClick={() =>
-                      model.vipEffective &&
+                      model.advancedFilterEffective &&
                       patchAdvanced({
                         educationCodes: selected
                           ? advanced.educationCodes.filter(code => code !== option.code)
@@ -368,7 +372,7 @@ export default function RecommendPreferencePage() {
               range={cityOptions}
               rangeKey="name"
               onChange={event => {
-                if (!model.vipEffective) return
+                if (!model.advancedFilterEffective) return
                 const city = cityOptions[Number(event.detail.value)]
                 if (city) patchAdvanced({ hometowns: [city.code] })
               }}

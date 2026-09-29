@@ -10,6 +10,7 @@ import { prd01Api } from '@/services/prd01'
 import {
   COMMUNITY_COPY_KEYS,
   clearCommunityViewHistory,
+  deleteCommunityPost,
   getCommunityMeta,
   getCommunityFollowRelations,
   getCommunityInteractions,
@@ -64,6 +65,7 @@ interface InteractionRecord {
 interface MyPostSnapshot {
   id: string
   postId?: number
+  postNo?: string
   status: string
   statusName?: string
   content: string
@@ -73,6 +75,7 @@ interface MyPostSnapshot {
   commentCount: number
   likeCount: number
   liked: boolean
+  failureMessage?: string
 }
 
 const emptyProfile: ProfileSummary = {
@@ -268,6 +271,36 @@ export default function QianxunInteractionsPage() {
     }
   }
 
+  const manageMyPost = async (item: MyPostSnapshot) => {
+    const editable = item.status === 'rejected'
+    try {
+      const actions = editable ? ['编辑并重新提交审核', '删除'] : ['删除']
+      const selected = await Taro.showActionSheet({ itemList: actions, alertText: editable ? '修改后将重新提交审核' : undefined })
+      if (editable && selected.tapIndex === 0) {
+        const postRef = item.postNo || item.postId
+        if (!postRef) throw new Error('当前动态暂时无法编辑')
+        await Taro.navigateTo({ url: `/pages/qianxun/compose?editPostId=${encodeURIComponent(String(postRef))}` })
+        return
+      }
+      const postRef = item.postNo || item.postId
+      if (!postRef) throw new Error('当前动态暂时无法删除')
+      const confirmation = await Taro.showModal({
+        title: '温馨提示',
+        content: '删除后不可恢复，确定删除这条动态吗？',
+        cancelText: '取消',
+        confirmText: '删除',
+        confirmColor: '#E62828',
+      })
+      if (!confirmation.confirm) return
+      await deleteCommunityPost(postRef)
+      setMyPosts(posts => posts.filter(post => post.id !== item.id))
+      await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.deleteSuccess), icon: 'success' })
+    } catch (error) {
+      if (/cancel/i.test(String((error as { errMsg?: string })?.errMsg || error))) return
+      await showError(config, error)
+    }
+  }
+
   if (interactorPostId) {
     return <View id="qianxun-interactors-page" style={{ minHeight: '100vh', background: '#FFFFFF' }}><SimpleHeader title="互动" onBack={() => void Taro.navigateBack()} /><View style={{ height: '88rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', borderBottom: '1rpx solid #EFF2F6' }}>{(['liked', 'commented'] as const).map(type => <View key={type} onClick={() => setInteractorType(type)} style={{ position: 'relative', width: '150rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: interactorType === type ? NAVY : '#999999', fontSize: '27rpx', fontWeight: interactorType === type ? 600 : 400 }}>{type === 'liked' ? '点赞' : '评论'}</Text>{interactorType === type ? <View style={{ position: 'absolute', bottom: 0, width: '54rpx', height: '6rpx', borderRadius: '3rpx', background: BLUE }} /> : null}</View>)}</View>{rosterLoading ? <LoadingRows /> : rosterUsers.length ? <RosterList users={rosterUsers} onChanged={() => void getCommunityPostInteractors(interactorPostId, interactorType, 1, 50).then(page => setRosterUsers(page.records || [])).catch(error => showError(config, error))} config={config} /> : <InteractorEmpty type={interactorType} config={config} />}</View>
   }
@@ -316,7 +349,7 @@ export default function QianxunInteractionsPage() {
           </ScrollView>
         </View>
         <View id="qianxun-interactions-panel-mine" data-section-panel="mine" style={sectionPanelStyle(section === 'mine')}>
-          <MinePanel loading={loading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} onManageHiddenAuthors={() => void openHiddenAuthors()} />
+          <MinePanel loading={loading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} onManagePost={item => void manageMyPost(item)} onManageHiddenAuthors={() => void openHiddenAuthors()} />
         </View>
       </View>
       {likeSummaryVisible ? <LikeSummary count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} /> : null}
@@ -395,7 +428,7 @@ function sectionPanelStyle(active: boolean) {
   }
 }
 
-function MinePanel({ loading, posts, likingPostIds, config, onLike, onManageHiddenAuthors }: { loading: boolean; posts: MyPostSnapshot[]; likingPostIds: number[]; config?: CommunityConfig; onLike: (item: MyPostSnapshot) => void; onManageHiddenAuthors: () => void }) {
+function MinePanel({ loading, posts, likingPostIds, config, onLike, onManagePost, onManageHiddenAuthors }: { loading: boolean; posts: MyPostSnapshot[]; likingPostIds: number[]; config?: CommunityConfig; onLike: (item: MyPostSnapshot) => void; onManagePost: (item: MyPostSnapshot) => void; onManageHiddenAuthors: () => void }) {
   return (
     <ScrollView scrollY style={{ height: '100%' }} showScrollbar={false}>
       <View style={{ padding: '6rpx 26rpx 54rpx' }}>
@@ -408,7 +441,7 @@ function MinePanel({ loading, posts, likingPostIds, config, onLike, onManageHidd
           <Text style={{ position: 'absolute', left: '45rpx', top: '42rpx', color: '#999999', fontSize: '27rpx', lineHeight: '40rpx' }}>记录美好生活 遇上另一半</Text>
           <View onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'absolute', left: '45rpx', top: '102rpx', width: '130rpx', height: '50rpx', borderRadius: '7rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '25rpx', fontWeight: 500 }}>发动态</Text></View>
         </View>
-        {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} liking={Boolean(item.postId && likingPostIds.includes(item.postId))} config={config} onLike={() => onLike(item)} />) : <MineEmpty config={config} />}
+        {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} liking={Boolean(item.postId && likingPostIds.includes(item.postId))} config={config} onLike={() => onLike(item)} onManage={() => onManagePost(item)} />) : <MineEmpty config={config} />}
       </View>
     </ScrollView>
   )
@@ -441,7 +474,7 @@ function HiddenAuthorsSheet({ users, loading, restoringUserIds, onRestore, onClo
   )
 }
 
-function MyPostSnapshotCard({ item, liking, config, onLike }: { item: MyPostSnapshot; liking: boolean; config?: CommunityConfig; onLike: () => void }) {
+function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: MyPostSnapshot; liking: boolean; config?: CommunityConfig; onLike: () => void; onManage: () => void }) {
   const date = splitMyPostDate(item.createdAt)
   const [expanded, setExpanded] = useState(false)
   const [comments, setComments] = useState<CommunityCommentVO[]>([])
@@ -475,10 +508,12 @@ function MyPostSnapshotCard({ item, liking, config, onLike }: { item: MyPostSnap
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
             {item.status !== 'published' ? <Text style={{ color: item.status === 'rejected' ? '#D44747' : BLUE, fontSize: '21rpx' }}>{resolveCommunityStatusLabel(config, item.status, item.statusName)}</Text> : null}
             <View style={{ flex: 1 }} />
+            <View onClick={event => { event.stopPropagation(); onManage() }} style={{ width: '64rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '4rpx' }}>···</Text></View>
             <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? open : undefined} fontSize="21rpx" />
             <View style={{ width: '30rpx' }} />
             <QianxunActionStat kind="like" count={item.likeCount} active={item.liked} onClick={item.postId && item.status === 'published' && !liking ? onLike : undefined} fontSize="21rpx" />
           </View>
+          {item.status === 'rejected' && item.failureMessage ? <Text style={{ display: 'block', color: '#D44747', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '-8rpx' }}>{item.failureMessage}</Text> : null}
           {expanded ? <View style={{ marginTop: '8rpx', padding: '20rpx', borderRadius: '12rpx', background: '#F6F9FD' }}>
             <Text style={{ display: 'block', color: NAVY, fontSize: '24rpx', fontWeight: 600 }}>评论 {item.commentCount}</Text>
             {commentsLoading ? <Text style={{ display: 'block', marginTop: '14rpx', color: '#8F98A6', fontSize: '22rpx' }}>评论加载中…</Text> : null}
@@ -700,6 +735,7 @@ function toMyPostSnapshot(post: CommunityPostVO): MyPostSnapshot {
   return {
     id: post.postNo || String(post.id),
     postId: post.id,
+    postNo: post.postNo,
     status: post.status || 'published',
     statusName: post.statusName,
     content: post.content,
@@ -709,6 +745,7 @@ function toMyPostSnapshot(post: CommunityPostVO): MyPostSnapshot {
     commentCount: readNonNegativeNumber(post.commentCount),
     likeCount: readNonNegativeNumber(post.likeCount),
     liked: Boolean(post.liked),
+    failureMessage: post.auditRemark || post.statusMessage,
   }
 }
 

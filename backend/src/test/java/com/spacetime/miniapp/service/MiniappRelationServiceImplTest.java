@@ -31,6 +31,7 @@ import com.spacetime.common.service.MiniappPresenceService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.common.service.RelationDomainService;
+import com.spacetime.miniapp.dto.response.GivenLikesPageVO;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
 import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MutualMatchPageVO;
@@ -496,6 +497,115 @@ class MiniappRelationServiceImplTest {
         assertThat(result.getLikeStatus()).isEqualTo("cancelled");
         assertThat(result.getCanEnterConversation()).isFalse();
         verify(relationDomainService).cancelLike(eq(7L), eq(8L), any());
+    }
+
+    @Test
+    void givenLikesUsesActiveOutgoingRelationsAndMarksMutualMatches() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppUser target = activeUser(8L, "喜欢的人", GenderEnum.FEMALE.getCode());
+        target.setAge(25);
+        target.setHeight(168);
+        target.setLocationCity("310100");
+        AppRelationLike like = incomingLike(7L, 8L, "LIK-001");
+        AppRelationMatch match = new AppRelationMatch();
+        match.setUserLowId(7L);
+        match.setUserHighId(8L);
+        match.setMatchStatus("matched");
+        Map<String, String> regionLabels = Map.of("310100", "上海市");
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(likeDao.selectOutgoingLikes(7L)).thenReturn(List.of(like));
+        when(appUserDao.selectList(any())).thenReturn(List.of(target));
+        when(accessProjectionService.projectAll(any())).thenReturn(Map.of(8L, "OPEN"));
+        when(matchDao.selectActiveByUser(7L)).thenReturn(List.of(match));
+        when(auditContentService.publicAvatars(any())).thenReturn(Map.of(8L, "https://cdn.test/8.jpg"));
+        when(profileDictionaryService.labels(eq(ProfileDictType.CHINA_REGION), any()))
+                .thenReturn(regionLabels);
+        when(profileDictionaryService.label(regionLabels, "310100")).thenReturn("上海市");
+
+        GivenLikesPageVO result = service.givenLikes(7L, 1, 20);
+
+        assertThat(result.getTotal()).isEqualTo(1L);
+        assertThat(result.getRecords()).singleElement().satisfies(item -> {
+            assertThat(item.getUserId()).isEqualTo(8L);
+            assertThat(item.getNickname()).isEqualTo("喜欢的人");
+            assertThat(item.getCurrentCity()).isEqualTo("上海市");
+            assertThat(item.getMatched()).isTrue();
+            assertThat(item.getCanEnterConversation()).isTrue();
+        });
+    }
+
+    @Test
+    void givenLikesFiltersClosedTargetsBeforePaginationAndCountsOnlyVisibleTargets() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppUser firstOpenTarget = activeUser(8L, "公开用户一", GenderEnum.FEMALE.getCode());
+        AppUser closedTarget = activeUser(9L, "关闭用户", GenderEnum.FEMALE.getCode());
+        AppUser secondOpenTarget = activeUser(10L, "公开用户二", GenderEnum.FEMALE.getCode());
+        AppRelationLike firstOpenLike = incomingLike(7L, 8L, "LIK-OPEN-1");
+        AppRelationLike closedLike = incomingLike(7L, 9L, "LIK-CLOSED");
+        AppRelationLike secondOpenLike = incomingLike(7L, 10L, "LIK-OPEN-2");
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(likeDao.selectOutgoingLikes(7L))
+                .thenReturn(List.of(firstOpenLike, closedLike, secondOpenLike));
+        when(appUserDao.selectList(any())).thenReturn(List.of(
+                firstOpenTarget, closedTarget, secondOpenTarget));
+        when(accessProjectionService.projectAll(any())).thenReturn(Map.of(
+                8L, "OPEN",
+                9L, "CLOSED",
+                10L, "OPEN"));
+        when(matchDao.selectActiveByUser(7L)).thenReturn(List.of());
+        when(auditContentService.publicAvatars(any())).thenReturn(Map.of());
+
+        GivenLikesPageVO result = service.givenLikes(7L, 1, 1);
+
+        assertThat(result.getTotal()).isEqualTo(2L);
+        assertThat(result.getPages()).isEqualTo(2L);
+        assertThat(result.getHasMore()).isTrue();
+        assertThat(result.getRecords()).singleElement()
+                .extracting(item -> item.getLikeNo())
+                .isEqualTo("LIK-OPEN-1");
+    }
+
+    @Test
+    void mutualMatchesConvertsRegionCodesToChineseLabels() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppUser target = activeUser(8L, "匹配用户", GenderEnum.FEMALE.getCode());
+        target.setLocationCity("310100");
+        target.setHometownCity("330100");
+        AppRelationMatch match = new AppRelationMatch();
+        match.setId(20L);
+        match.setMatchNo("MAT-001");
+        match.setUserLowId(7L);
+        match.setUserHighId(8L);
+        match.setMatchStatus("matched");
+        match.setActiveMarker(1);
+        match.setMatchedTime(LocalDateTime.now());
+        Map<String, String> regionLabels = Map.of("310100", "上海市", "330100", "杭州市");
+        Page<AppRelationMatch> matchPage = new Page<>(1, 20, 1);
+        matchPage.setRecords(List.of(match));
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(matchDao.selectPage(any(), any())).thenReturn(matchPage);
+        when(appUserDao.selectList(any())).thenReturn(List.of(target));
+        when(accessProjectionService.projectAll(any())).thenReturn(Map.of(8L, "OPEN"));
+        when(matchSourceDao.selectList(any())).thenReturn(List.of());
+        when(auditContentService.publicAvatars(any())).thenReturn(Map.of(8L, "https://cdn.test/8.jpg"));
+        when(profileDictionaryService.labels(eq(ProfileDictType.CHINA_REGION), any()))
+                .thenReturn(regionLabels);
+        when(profileDictionaryService.label(regionLabels, "310100")).thenReturn("上海市");
+        when(profileDictionaryService.label(regionLabels, "330100")).thenReturn("杭州市");
+
+        MutualMatchPageVO result = service.mutualMatches(7L, 1, 20);
+
+        assertThat(result.getRecords()).singleElement().satisfies(item -> {
+            assertThat(item.getCurrentCity()).isEqualTo("上海市");
+            assertThat(item.getHometownCity()).isEqualTo("杭州市");
+            assertThat(item.getCurrentCity()).doesNotContain("310100");
+        });
     }
 
     @Test

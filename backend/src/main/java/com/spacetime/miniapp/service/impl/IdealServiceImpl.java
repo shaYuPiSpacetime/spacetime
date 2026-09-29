@@ -8,20 +8,25 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
+import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.dao.IdealFilterSnapshotDao;
 import com.spacetime.common.dao.IdealSnapshotCandidateDao;
 import com.spacetime.common.dao.RecommendPreferenceDao;
+import com.spacetime.common.dao.SchoolDictionaryDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.IdealFilterSnapshot;
 import com.spacetime.common.entity.IdealSnapshotCandidate;
 import com.spacetime.common.entity.RecommendPreference;
+import com.spacetime.common.entity.SchoolDictionary;
+import com.spacetime.common.entity.SysDictData;
 import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.enums.UnlockRecordStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.util.MunicipalityLocationCodes;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.IdealSearchReq;
 import com.spacetime.miniapp.dto.response.IdealConditionSummaryVO;
@@ -46,9 +51,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -99,6 +106,8 @@ public class IdealServiceImpl implements IdealService {
     private final IdealSnapshotCandidateDao snapshotCandidateDao;
     private final AppUserRelationBlockDao relationBlockDao;
     private final UserUnlockRecordDao unlockRecordDao;
+    private final DictDataDao dictDataDao;
+    private final SchoolDictionaryDao schoolDictionaryDao;
     private final RelationAccessProjectionService accessProjectionService;
     private final ProfileDictionaryService profileDictionaryService;
     private final MiniappPublicProfileService publicProfileService;
@@ -114,7 +123,7 @@ public class IdealServiceImpl implements IdealService {
                 .map(this::city).toList());
         result.setMinAge(preference.getMinAge());
         result.setMaxAge(preference.getMaxAge());
-        result.setConditions(conditionVOs(current));
+        result.setConditions(conditionVOs(current, tagScopes()));
         Page<IdealFilterSnapshot> recent = snapshotDao.selectPage(new Page<>(1, 1),
                 new LambdaQueryWrapper<IdealFilterSnapshot>()
                         .eq(IdealFilterSnapshot::getUserId, userId)
@@ -136,7 +145,8 @@ public class IdealServiceImpl implements IdealService {
     public IdealSearchVO search(Long userId, IdealSearchReq req) {
         AppUser current = requireOpenUser(userId);
         RecommendPreference preference = requirePreference(current);
-        SearchValues values = validateSearch(current, preference, req);
+        TagScopes scopes = tagScopes();
+        SearchValues values = validateSearch(current, preference, req, scopes);
         String digest = digest(values);
         IdealFilterSnapshot idempotent = snapshotDao.selectByUserAndRequestId(userId, req.getRequestId());
         if (idempotent != null) {
@@ -169,10 +179,11 @@ public class IdealServiceImpl implements IdealService {
         List<AppUser> queried = safeUsers(appUserDao.selectList(candidateWrapper(current, values)));
         Map<Long, String> access = accessProjectionService.projectAll(queried);
         List<IdealSnapshotCandidate> candidates = new ArrayList<>();
+        Map<String, Boolean> schoolTierByCode = schoolTierByCode(values, queried);
         for (AppUser candidate : queried) {
             if (!"OPEN".equals(access.get(candidate.getId()))
                     || isBlocked(userId, candidate.getId())
-                    || !matchesAll(current, candidate, values)) {
+                    || !matchesAll(current, candidate, values, scopes, schoolTierByCode)) {
                 continue;
             }
             IdealSnapshotCandidate item = new IdealSnapshotCandidate();
@@ -254,7 +265,8 @@ public class IdealServiceImpl implements IdealService {
 
     private SearchValues validateSearch(AppUser current,
                                         RecommendPreference preference,
-                                        IdealSearchReq req) {
+                                        IdealSearchReq req,
+                                        TagScopes scopes) {
         if (req == null || StrUtil.isBlank(req.getRequestId())
                 || req.getPreferenceVersion() == null
                 || req.getMinAge() == null || req.getMaxAge() == null
@@ -275,7 +287,7 @@ public class IdealServiceImpl implements IdealService {
         for (String city : cities) {
             profileDictionaryService.requireCode(ProfileDictType.CHINA_REGION, city, "目标城市");
         }
-        Map<String, IdealConditionVO> availability = conditionVOs(current).stream()
+        Map<String, IdealConditionVO> availability = conditionVOs(current, scopes).stream()
                 .collect(java.util.stream.Collectors.toMap(IdealConditionVO::getCode, item -> item));
         for (String code : conditions) {
             IdealConditionVO condition = availability.get(code);
@@ -291,36 +303,41 @@ public class IdealServiceImpl implements IdealService {
 
     private LambdaQueryWrapper<AppUser> candidateWrapper(AppUser current, SearchValues values) {
         String opposite = "MALE".equals(current.getGender()) ? "FEMALE" : "MALE";
-        return new LambdaQueryWrapper<AppUser>()
+        LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
                 .ne(AppUser::getId, current.getId())
                 .eq(AppUser::getGender, opposite)
                 .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode())
-                .in(AppUser::getLocationCity, values.cities())
-                .between(AppUser::getAge, values.minAge(), values.maxAge())
+                .between(AppUser::getAge, values.minAge(), values.maxAge());
+        MunicipalityLocationCodes.applyCityFilter(wrapper, values.cities());
+        return wrapper
                 .orderByDesc(AppUser::getLastLoginTime)
                 .orderByAsc(AppUser::getId)
                 .last("LIMIT 500");
     }
 
-    private boolean matchesAll(AppUser current, AppUser candidate, SearchValues values) {
+    private boolean matchesAll(AppUser current, AppUser candidate, SearchValues values,
+                               TagScopes scopes, Map<String, Boolean> schoolTierByCode) {
         if (candidate.getAge() == null || candidate.getAge() < values.minAge()
                 || candidate.getAge() > values.maxAge()
-                || !values.cities().contains(candidate.getLocationCity())) {
+                || !MunicipalityLocationCodes.matchesAny(values.cities(), candidate.getLocationCity())) {
             return false;
         }
         for (String code : values.conditions()) {
-            if (!matchesCondition(code, current, candidate, values.cities())) {
+            if (!matchesCondition(code, current, candidate, values.cities(), scopes, schoolTierByCode)) {
                 return false;
             }
         }
         return true;
     }
 
-    private boolean matchesCondition(String code, AppUser current, AppUser candidate, List<String> cities) {
+    private boolean matchesCondition(String code, AppUser current, AppUser candidate, List<String> cities,
+                                     TagScopes scopes, Map<String, Boolean> schoolTierByCode) {
         Set<String> tags = tags(candidate);
         return switch (code) {
             case "M08-IDEAL-height-165" -> candidate.getHeight() != null && candidate.getHeight() >= 165;
-            case "M08-IDEAL-school-tier", "M08-IDEAL-alumni" -> false;
+            case "M08-IDEAL-school-tier" -> schoolTierMatches(candidate, schoolTierByCode);
+            case "M08-IDEAL-alumni" -> StrUtil.isNotBlank(current.getSchoolCode())
+                    && current.getSchoolCode().trim().equals(StrUtil.trim(candidate.getSchoolCode()));
             case "M08-IDEAL-doctor" -> "DOCTOR".equalsIgnoreCase(candidate.getEducationLevel());
             case "M08-IDEAL-overseas" -> hasAny(tags, Set.of("overseas_returnee", "OVERSEAS_RETURNEE"));
             case "M08-IDEAL-home-owner" -> hasAny(tags, Set.of("home_owner", "HOME_OWNER"));
@@ -330,34 +347,103 @@ public class IdealServiceImpl implements IdealService {
                     Set.of("public_sector_family", "PUBLIC_SECTOR_FAMILY"));
             // 现居城市已经是所有理想型结果的基础条件，不能再拿它判定“本地人”。
             // 当前资料模型尚无独立户籍城市字段，因此只使用家乡城市稳定编码。
-            case "M08-IDEAL-local" -> cities.contains(candidate.getHometownCity());
+            case "M08-IDEAL-local" -> MunicipalityLocationCodes.matchesAny(cities, candidate.getHometownCity());
             case "M08-IDEAL-sports" -> hasAny(tags,
                     Set.of("sports_habit", "RUNNING", "FITNESS", "HIKING", "CYCLING", "OUTDOOR_LOVER"));
             case "M08-IDEAL-animals" -> hasAny(tags, Set.of("likes_animals", "PET_LOVER"));
             case "M08-IDEAL-food" -> hasAny(tags, Set.of("foodie", "FOODIE"));
             case "M08-IDEAL-travel" -> hasAny(tags,
                     Set.of("travel_lover", "LOVE_TRAVEL", "TRAVEL_MEMORY"));
-            case "M08-IDEAL-interest-similar" -> intersects(tags(current), tags, INTEREST_TAGS);
-            case "M08-IDEAL-view-compatible" -> intersects(tags(current), tags, RELATIONSHIP_TAGS);
+            case "M08-IDEAL-interest-similar" -> intersects(tags(current), tags, scopes.interest());
+            case "M08-IDEAL-view-compatible" -> intersects(tags(current), tags, scopes.relationship());
             case "M08-IDEAL-marry-2y" -> "ONE_TO_TWO_YEARS".equals(candidate.getDatingGoal());
             default -> false;
         };
     }
 
-    private List<IdealConditionVO> conditionVOs(AppUser current) {
+    private boolean schoolTierMatches(AppUser candidate, Map<String, Boolean> schoolTierByCode) {
+        if (StrUtil.isBlank(candidate.getSchoolCode())) {
+            return false;
+        }
+        return schoolTierByCode.getOrDefault(candidate.getSchoolCode().trim(), false);
+    }
+
+    private Map<String, Boolean> schoolTierByCode(SearchValues values, List<AppUser> queried) {
+        if (!values.conditions().contains("M08-IDEAL-school-tier")) {
+            return Map.of();
+        }
+        List<String> codes = queried.stream()
+                .map(AppUser::getSchoolCode)
+                .filter(StrUtil::isNotBlank)
+                .map(String::trim)
+                .distinct()
+                .toList();
+        if (codes.isEmpty()) {
+            return Map.of();
+        }
+        List<SchoolDictionary> schools = schoolDictionaryDao.selectByCodes(codes);
+        Map<String, Boolean> tiers = new HashMap<>();
+        for (SchoolDictionary school : schools == null ? List.<SchoolDictionary>of() : schools) {
+            boolean selected = Boolean.TRUE.equals(school.getIs985()) || Boolean.TRUE.equals(school.getIs211());
+            if (StrUtil.isNotBlank(school.getSchoolCode())) {
+                tiers.put(school.getSchoolCode().trim(), selected);
+            }
+            if (StrUtil.isNotBlank(school.getProviderUuid())) {
+                tiers.put(school.getProviderUuid().trim(), selected);
+            }
+        }
+        return tiers;
+    }
+
+    private List<IdealConditionVO> conditionVOs(AppUser current, TagScopes scopes) {
         Set<String> currentTags = tags(current);
         return CONDITIONS.stream().map(definition -> {
             String reason = switch (definition.code()) {
-                case "M08-IDEAL-school-tier", "M08-IDEAL-alumni" -> "学校结构化数据暂未配置";
-                case "M08-IDEAL-interest-similar" -> hasAny(currentTags, INTEREST_TAGS)
+                case "M08-IDEAL-alumni" -> StrUtil.isNotBlank(current.getSchoolCode())
+                        ? null : "请先选择字典中的学校";
+                case "M08-IDEAL-interest-similar" -> hasAny(currentTags, scopes.interest())
                         ? null : "请先完善兴趣标签";
-                case "M08-IDEAL-view-compatible" -> hasAny(currentTags, RELATIONSHIP_TAGS)
+                case "M08-IDEAL-view-compatible" -> hasAny(currentTags, scopes.relationship())
                         ? null : "请先完善感情观标签";
                 default -> null;
             };
             return new IdealConditionVO(definition.code(), definition.category(), definition.name(),
                     reason == null, reason);
         }).toList();
+    }
+
+    private TagScopes tagScopes() {
+        List<SysDictData> items = dictDataDao.selectByDictType(ProfileDictType.PROFILE_TAG);
+        if (items == null || items.isEmpty()) {
+            // 旧环境尚无资料标签字典时兼容历史数据；字典一旦启用，必须服从后台启停状态。
+            return new TagScopes(INTEREST_TAGS, RELATIONSHIP_TAGS);
+        }
+        Set<String> interest = new LinkedHashSet<>();
+        Set<String> relationship = new LinkedHashSet<>();
+        Map<Long, SysDictData> categories = new HashMap<>();
+        for (SysDictData item : items) {
+            if (Long.valueOf(0L).equals(item.getParentId())) {
+                categories.put(item.getId(), item);
+            }
+        }
+        for (SysDictData item : items) {
+            SysDictData category = categories.get(item.getParentId());
+            if (category == null || StrUtil.isBlank(item.getDictValue())) {
+                continue;
+            }
+            String categoryCode = StrUtil.nullToEmpty(category.getDictValue()).trim().toUpperCase(Locale.ROOT);
+            String categoryLabel = StrUtil.nullToEmpty(category.getDictLabel());
+            if (Set.of("HOBBY", "SPORT", "FOOTPRINT", "INTEREST").contains(categoryCode)
+                    || categoryLabel.contains("兴趣") || categoryLabel.contains("运动")) {
+                interest.add(item.getDictValue());
+            }
+            if (Set.of("LOVE", "RELATIONSHIP", "RELATIONSHIP_VIEW").contains(categoryCode)
+                    || categoryLabel.contains("爱情") || categoryLabel.contains("感情观")
+                    || categoryLabel.contains("恋爱")) {
+                relationship.add(item.getDictValue());
+            }
+        }
+        return new TagScopes(interest, relationship);
     }
 
     private RecommendPreference requirePreference(AppUser user) {
@@ -491,8 +577,8 @@ public class IdealServiceImpl implements IdealService {
     }
 
     private RecommendCityVO city(String code) {
-        return new RecommendCityVO(code,
-                profileDictionaryService.label(ProfileDictType.CHINA_REGION, code));
+        return new RecommendCityVO(code, MunicipalityLocationCodes.displayName(code,
+                profileDictionaryService.label(ProfileDictType.CHINA_REGION, code)));
     }
 
     private String ageBand(Integer age) {
@@ -582,5 +668,8 @@ public class IdealServiceImpl implements IdealService {
 
     private record SearchValues(List<String> cities, List<String> conditions,
                                 Integer minAge, Integer maxAge) {
+    }
+
+    private record TagScopes(Set<String> interest, Set<String> relationship) {
     }
 }

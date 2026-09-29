@@ -51,6 +51,8 @@ import java.io.StringReader;
 @Service
 @RequiredArgsConstructor
 public class CommunityMediaAuditCallbackServiceImpl implements CommunityMediaAuditCallbackService {
+    /** 面向用户的统一机审驳回说明，禁止暴露微信标签。 */
+    private static final String SAFE_MACHINE_REJECTION_REASON = "内容未通过安全审核，请修改后重新提交";
     private final CommunityContentSecurityProperties properties;
     private final CommunityExtensionDao extensionDao;
     private final CommunityPostDao postDao;
@@ -279,6 +281,11 @@ public class CommunityMediaAuditCallbackServiceImpl implements CommunityMediaAud
         if (tasks == null || tasks.isEmpty() || tasks.stream().anyMatch(item -> "pending".equals(item.getStatus()))) return;
         CommunityPost post = postDao.selectById(postId);
         if (post == null) throw new BusinessException("content_not_found");
+        // 用户删除、后台下架或已完成审核均为终态；迟到/重复回调只落任务结果，绝不能复活内容。
+        if (!CommunityPostStatusEnum.PENDING.getCode().equals(post.getStatus())
+                && !CommunityPostStatusEnum.PENDING_MANUAL.getCode().equals(post.getStatus())) {
+            return;
+        }
         int expectedVersion = post.getVersion() == null ? 0 : post.getVersion();
         String before = post.getStatus();
         CommunityAuditDecision decision;
@@ -291,14 +298,29 @@ public class CommunityMediaAuditCallbackServiceImpl implements CommunityMediaAud
         }
         post.setStatus(decision.status());
         post.setAuditStatus(CommunityPostStatusEnum.PUBLISHED.getCode().equals(decision.status())
-                ? CommunityAuditStatusEnum.APPROVED.getCode() : CommunityAuditStatusEnum.PENDING.getCode());
+                ? CommunityAuditStatusEnum.APPROVED.getCode()
+                : CommunityPostStatusEnum.REJECTED.getCode().equals(decision.status())
+                ? CommunityAuditStatusEnum.REJECTED.getCode() : CommunityAuditStatusEnum.PENDING.getCode());
+        post.setAuditRemark(CommunityPostStatusEnum.REJECTED.getCode().equals(decision.status())
+                ? SAFE_MACHINE_REJECTION_REASON : null);
         post.setMachineResult(decision.machineConclusion());
         post.setMachineCode(decision.machineCode());
         post.setMachineDetail(decision.detail());
         post.setMachineCheckedAt(LocalDateTime.now());
         post.setSampleRequired(decision.sampleRequired() ? 1 : 0);
         post.setPublishedAt(CommunityPostStatusEnum.PUBLISHED.getCode().equals(decision.status()) ? LocalDateTime.now() : null);
-        if (postDao.updateCas(post, expectedVersion) != 1) throw new BusinessException("media_post_version_conflict");
+        if (postDao.updateCas(post, expectedVersion) != 1) {
+            // 当前读避免 MySQL REPEATABLE READ 返回删除前的旧快照。
+            CommunityPost latest = postDao.selectByIdForUpdate(postId);
+            // 回调读取待审帖子后，用户可能已删除，或后台已终结审核。
+            // 此时保留新状态并正常接收任务回调，不再写审核记录和发布事件。
+            if (latest == null
+                    || (!CommunityPostStatusEnum.PENDING.getCode().equals(latest.getStatus())
+                    && !CommunityPostStatusEnum.PENDING_MANUAL.getCode().equals(latest.getStatus()))) {
+                return;
+            }
+            throw new BusinessException("media_post_version_conflict");
+        }
         writeAudit(post, traceId, before, decision.status());
         writeOutbox(post, expectedVersion + 1, decision.status());
     }

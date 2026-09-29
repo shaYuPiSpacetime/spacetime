@@ -6,6 +6,7 @@ import { DEV_FIXED_LOGIN, MOCK_ENABLED, TOKEN_KEY, USER_INFO_KEY } from './const
 import { capturePromotionSource } from './services/promotionAttribution'
 import { messagePlatformRuntime } from './services/messagePlatformRuntime'
 import { MESSAGE_RUNTIME_BACKGROUND_EVENT } from './domain/messageLifecycle'
+import { PENDING_SHARE_ROUTE_KEY, resolvePendingShareRoute } from './domain/pendingShareRoute'
 
 import './app.scss'
 
@@ -25,6 +26,16 @@ function captureEntryPromotionSource(query?: Record<string, unknown>) {
   })
 }
 
+function rememberPendingShareRoute(path?: string, query?: Record<string, unknown>) {
+  const target = resolvePendingShareRoute(path, query)
+  if (!target) return
+  try {
+    Taro.setStorageSync(PENDING_SHARE_ROUTE_KEY, target)
+  } catch {
+    // 本地存储失败不阻断登录；登录后仍可从分享卡片重新进入。
+  }
+}
+
 function App({ children }: PropsWithChildren<object>) {
   const { setLogin, checkLogin } = useAuthStore()
   const bootstrapPrd01 = usePrd01Store(state => state.bootstrap)
@@ -32,6 +43,9 @@ function App({ children }: PropsWithChildren<object>) {
 
   useLaunch((options) => {
     captureEntryPromotionSource(options.query)
+    if (!DEV_FIXED_LOGIN.enabled && !Taro.getStorageSync(TOKEN_KEY)) {
+      rememberPendingShareRoute(options.path, options.query)
+    }
 
     // 本地开发：注入固定登录态，跳过微信授权
     if (DEV_FIXED_LOGIN.enabled) {
@@ -79,7 +93,10 @@ function App({ children }: PropsWithChildren<object>) {
     }
 
     const pages = Taro.getCurrentPages()
-    const currentRoute = pages[pages.length - 1]?.route || ''
+    const currentPage = pages[pages.length - 1]
+    const currentRoute = currentPage?.route || ''
+    rememberPendingShareRoute(options?.path, options?.query)
+    rememberPendingShareRoute(currentRoute, currentPage?.options)
     if (currentRoute.startsWith('pages/login/')) return
     if (loginRedirectingRef.current) return
 

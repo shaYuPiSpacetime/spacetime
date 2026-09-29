@@ -5,6 +5,7 @@ import com.spacetime.miniapp.dto.request.LikesMeReadReq;
 import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
 import com.spacetime.miniapp.dto.request.RelationVisitCreateReq;
 import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
+import com.spacetime.miniapp.dto.response.GivenLikesPageVO;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
 import com.spacetime.miniapp.dto.response.LikesMeSummaryVO;
 import com.spacetime.miniapp.dto.response.MatchPopupVO;
@@ -16,6 +17,7 @@ import com.spacetime.miniapp.dto.response.RelationVisitActionVO;
 /** PRD-02 移动端关系反馈服务。 */
 public interface MiniappRelationService {
     LikesMePageVO likesMe(Long userId, int page, int size, String snapshotCursor);
+    GivenLikesPageVO givenLikes(Long userId, int page, int size);
     LikesMeSummaryVO likesMeSummary(Long userId);
     void confirmLikesMeRead(Long userId, LikesMeReadReq req);
     RecentViewersPageVO recentViewers(Long userId, int page, int size);

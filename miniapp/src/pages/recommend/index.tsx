@@ -227,12 +227,16 @@ export default function RecommendPage() {
   }
 
   const showNextCandidate = async (
-    expectedGeneration = candidateRequestGenerationRef.current
+    expectedGeneration = candidateRequestGenerationRef.current,
+    currentCandidateHandled = false,
   ) => {
     if (candidateRequestGenerationRef.current !== expectedGeneration) return
     if (!await awaitCurrentCandidateView()) {
-      await loadCandidates()
-      return
+      if (!currentCandidateHandled) {
+        await loadCandidates()
+        return
+      }
+      if (candidate) viewedCandidates.current.add(candidate.candidateNo)
     }
     if (candidateIndex + 1 < candidates.length) {
       setCandidateIndex(current => current + 1)
@@ -337,7 +341,7 @@ export default function RecommendPage() {
       let nextCandidateFailed = false
       try {
         if (candidateRequestGenerationRef.current !== candidateGeneration) return
-        await showNextCandidate()
+        await showNextCandidate(candidateGeneration, true)
       } catch {
         nextCandidateFailed = true
       }
@@ -465,7 +469,10 @@ export default function RecommendPage() {
           ) : null}
         </>
       )}
-      <AppTabBar active="recommend" recommendBadgeCount={page?.remainingBrowseCount} />
+      <AppTabBar
+        active="recommend"
+        recommendBadgeCount={state === 'ready' && candidate ? page?.remainingBrowseCount : 0}
+      />
       {showIpDialog ? (
         <IpLocationDialog
           onClose={() => setShowIpDialog(false)}
@@ -1405,17 +1412,6 @@ function CertificationSheet({
             </View>
           ))}
         </View>
-        <Text
-          style={{
-            display: 'block',
-            marginTop: '28rpx',
-            color: '#777777',
-            fontSize: '22rpx',
-            textAlign: 'center',
-          }}
-        >
-          认证信息以外的资料为用户自主填写，平台不保证真实性
-        </Text>
         <View
           onClick={onClose}
           style={{

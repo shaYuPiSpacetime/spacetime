@@ -11,6 +11,7 @@ interface CommunityPostActionSheetProps {
   onFollow?: () => void
   onHide?: () => void
   onReport?: () => void
+  onDelete?: () => void
 }
 
 export default function CommunityPostActionSheet({
@@ -20,8 +21,11 @@ export default function CommunityPostActionSheet({
   onFollow,
   onHide,
   onReport,
+  onDelete,
 }: CommunityPostActionSheetProps) {
-  const moderationActions = isSelf ? [] : [
+  const moderationActions = isSelf ? [
+    ...(onDelete ? [{ label: '删除', onClick: onDelete, danger: true }] : []),
+  ] : [
     ...(onFollow ? [{ label: post.followingAuthor ? '取消关注' : '关注', onClick: onFollow }] : []),
     ...(onHide ? [{ label: post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', onClick: onHide }] : []),
     ...(onReport ? [{ label: '举报', onClick: onReport }] : []),
@@ -66,7 +70,7 @@ export default function CommunityPostActionSheet({
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: '#333333', fontSize: '28rpx' }}>{action.label}</Text>
+            <Text style={{ color: 'danger' in action && action.danger ? '#E62828' : '#333333', fontSize: '28rpx' }}>{action.label}</Text>
           </View>
         ))}
         <View style={{ height: '14rpx', background: '#F4F5F7' }} />

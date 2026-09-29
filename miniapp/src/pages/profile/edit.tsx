@@ -629,7 +629,10 @@ export default function ProfileEditPage() {
   }
 
   const applyProfileUpdate = (update: ProfileEditUpdate) => {
-    if (update.type === 'basic') setBasic(update.basic)
+    if (update.type === 'basic') {
+      setBasic(update.basic)
+      setNickname(String(update.basic.nickname || ''))
+    }
     if (update.type === 'intro') setIntro(update.value)
     if (update.type === 'tags') {
       setSelectedTags(update.items)

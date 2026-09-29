@@ -3,14 +3,18 @@ package com.spacetime.miniapp.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
+import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.dao.IdealFilterSnapshotDao;
 import com.spacetime.common.dao.IdealSnapshotCandidateDao;
 import com.spacetime.common.dao.RecommendPreferenceDao;
+import com.spacetime.common.dao.SchoolDictionaryDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.IdealFilterSnapshot;
 import com.spacetime.common.entity.IdealSnapshotCandidate;
 import com.spacetime.common.entity.RecommendPreference;
+import com.spacetime.common.entity.SchoolDictionary;
+import com.spacetime.common.entity.SysDictData;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
@@ -49,6 +53,8 @@ class IdealServiceImplTest {
     @Mock private IdealSnapshotCandidateDao snapshotCandidateDao;
     @Mock private AppUserRelationBlockDao relationBlockDao;
     @Mock private UserUnlockRecordDao unlockRecordDao;
+    @Mock private DictDataDao dictDataDao;
+    @Mock private SchoolDictionaryDao schoolDictionaryDao;
     @Mock private RelationAccessProjectionService accessProjectionService;
     @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private MiniappPublicProfileService publicProfileService;
@@ -57,7 +63,7 @@ class IdealServiceImplTest {
     @InjectMocks private IdealServiceImpl service;
 
     @Test
-    void metaReturnsExactlySeventeenConditionsAndDisablesMissingStructuredSchool() {
+    void metaOffersSchoolTierAndDisablesAlumniWithoutOwnSchoolCode() {
         AppUser current = openUser(7L, "MALE", 30, "320100");
         when(appUserDao.selectById(7L)).thenReturn(current);
         when(accessProjectionService.project(current)).thenReturn("OPEN");
@@ -71,14 +77,149 @@ class IdealServiceImplTest {
                 .filteredOn(item -> "M08-IDEAL-school-tier".equals(item.getCode()))
                 .singleElement()
                 .satisfies(item -> {
-                    assertThat(item.getAvailable()).isFalse();
-                    assertThat(item.getDisabledReason()).contains("学校结构化数据");
+                    assertThat(item.getAvailable()).isTrue();
+                    assertThat(item.getDisabledReason()).isNull();
                 });
+        assertThat(result.getConditions())
+                .filteredOn(item -> "M08-IDEAL-alumni".equals(item.getCode()))
+                .singleElement()
+                .satisfies(item -> assertThat(item.getAvailable()).isFalse());
         assertThat(result.getPreferenceVersion()).isEqualTo(2);
         assertThat(result.getTargetCities()).singleElement()
                 .satisfies(city -> assertThat(city.getName()).isEqualTo("南京"));
         assertThat(result.getOverseasAddressAvailable()).isFalse();
         assertThat(result.getOverseasAddressDisabledReason()).contains("海外地区字典");
+    }
+
+    @Test
+    void alumniBecomesAvailableWhenOwnSchoolHasStableCode() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        current.setSchoolCode("school-001");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
+
+        IdealMetaVO result = service.getMeta(7L);
+
+        assertThat(result.getConditions())
+                .filteredOn(item -> "M08-IDEAL-alumni".equals(item.getCode()))
+                .singleElement()
+                .satisfies(item -> assertThat(item.getAvailable()).isTrue());
+    }
+
+    @Test
+    void schoolTierMatchesDictionaryFlagsButNeverGuessesFromFreeText() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser classified = openUser(8L, "FEMALE", 28, "320100");
+        classified.setSchoolCode("school-001");
+        AppUser freeText = openUser(9L, "FEMALE", 27, "320100");
+        freeText.setSchool("某985大学");
+        SchoolDictionary school = new SchoolDictionary();
+        school.setSchoolCode("school-001");
+        school.setIs211(true);
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
+        when(appUserDao.selectList(any())).thenReturn(List.of(classified, freeText));
+        when(accessProjectionService.projectAll(List.of(classified, freeText)))
+                .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
+        when(schoolDictionaryDao.selectByCodes(List.of("school-001"))).thenReturn(List.of(school));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            IdealFilterSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(100L);
+            return null;
+        }).when(snapshotDao).insert(any());
+
+        IdealSearchVO result = service.search(7L, searchReq(List.of("M08-IDEAL-school-tier")));
+
+        assertThat(result.getResultCount()).isEqualTo(1);
+        ArgumentCaptor<List<IdealSnapshotCandidate>> captor = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(captor.capture());
+        assertThat(captor.getValue()).singleElement()
+                .satisfies(item -> assertThat(item.getCandidateUserId()).isEqualTo(8L));
+        verify(schoolDictionaryDao).selectByCodes(List.of("school-001"));
+    }
+
+    @Test
+    void alumniMatchesEqualStableSchoolCodesOnly() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        current.setSchoolCode("school-001");
+        AppUser classmate = openUser(8L, "FEMALE", 28, "320100");
+        classmate.setSchoolCode("school-001");
+        AppUser sameNameWithoutCode = openUser(9L, "FEMALE", 27, "320100");
+        sameNameWithoutCode.setSchool("同名大学");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
+        when(appUserDao.selectList(any())).thenReturn(List.of(classmate, sameNameWithoutCode));
+        when(accessProjectionService.projectAll(List.of(classmate, sameNameWithoutCode)))
+                .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            IdealFilterSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(100L);
+            return null;
+        }).when(snapshotDao).insert(any());
+
+        IdealSearchVO result = service.search(7L, searchReq(List.of("M08-IDEAL-alumni")));
+
+        assertThat(result.getResultCount()).isEqualTo(1);
+        ArgumentCaptor<List<IdealSnapshotCandidate>> captor = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(captor.capture());
+        assertThat(captor.getValue()).singleElement()
+                .satisfies(item -> assertThat(item.getCandidateUserId()).isEqualTo(8L));
+    }
+
+    @Test
+    void newAdminInterestAndLoveTagsParticipateInSimilarity() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        current.setTags("[\"NEW_INTEREST\",\"NEW_LOVE\"]");
+        AppUser candidate = openUser(8L, "FEMALE", 28, "320100");
+        candidate.setTags("[\"NEW_INTEREST\",\"NEW_LOVE\"]");
+        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+                tag(10L, 0L, "HOBBY", "兴趣"),
+                tag(20L, 0L, "LOVE", "爱情"),
+                tag(11L, 10L, "NEW_INTEREST", "新兴趣"),
+                tag(21L, 20L, "NEW_LOVE", "新爱情观")));
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
+        when(appUserDao.selectList(any())).thenReturn(List.of(candidate));
+        when(accessProjectionService.projectAll(List.of(candidate))).thenReturn(Map.of(8L, "OPEN"));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            IdealFilterSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(100L);
+            return null;
+        }).when(snapshotDao).insert(any());
+
+        IdealMetaVO meta = service.getMeta(7L);
+        assertThat(meta.getConditions())
+                .filteredOn(item -> "M08-IDEAL-interest-similar".equals(item.getCode())
+                        || "M08-IDEAL-view-compatible".equals(item.getCode()))
+                .allSatisfy(item -> assertThat(item.getAvailable()).isTrue());
+
+        IdealSearchVO result = service.search(7L, searchReq(List.of(
+                "M08-IDEAL-interest-similar", "M08-IDEAL-view-compatible")));
+
+        assertThat(result.getResultCount()).isEqualTo(1);
+    }
+
+    @Test
+    void disabledLegacyTagDoesNotEnableSimilarityWhenDictionaryExists() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        current.setTags("[\"FOODIE\"]");
+        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+                tag(10L, 0L, "HOBBY", "兴趣"),
+                tag(11L, 10L, "NEW_INTEREST", "新兴趣")));
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
+
+        IdealMetaVO meta = service.getMeta(7L);
+
+        assertThat(meta.getConditions())
+                .filteredOn(item -> "M08-IDEAL-interest-similar".equals(item.getCode()))
+                .singleElement()
+                .satisfies(item -> assertThat(item.getAvailable()).isFalse());
     }
 
     @Test
@@ -377,6 +518,15 @@ class IdealServiceImplTest {
         user.setAge(age);
         user.setLocationCity(city);
         return user;
+    }
+
+    private SysDictData tag(Long id, Long parentId, String code, String label) {
+        SysDictData data = new SysDictData();
+        data.setId(id);
+        data.setParentId(parentId);
+        data.setDictValue(code);
+        data.setDictLabel(label);
+        return data;
     }
 
     private IdealFilterSnapshot snapshot(Long id, Long userId, LocalDateTime expiresAt) {

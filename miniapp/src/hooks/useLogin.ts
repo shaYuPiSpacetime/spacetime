@@ -12,6 +12,7 @@ import type {
   RegionTreeOption,
 } from '@/types/prd01'
 import type { LoginVO } from '@/types/user'
+import { PENDING_SHARE_ROUTE_KEY, resolvePendingShareRoute } from '@/domain/pendingShareRoute'
 
 interface LoginFlowState {
   step: LoginStep
@@ -38,9 +39,28 @@ function loginStepFromNumber(step?: number): LoginStep {
   return 'verification'
 }
 
+async function navigateAfterAuthentication(fallbackRoute: string) {
+  let pendingRoute: string | null = null
+  try {
+    pendingRoute = resolvePendingShareRoute(Taro.getStorageSync(PENDING_SHARE_ROUTE_KEY))
+  } catch {
+    // 本地分享目标不可读时继续正常登录流程。
+  }
+  if (pendingRoute) {
+    await Taro.reLaunch({ url: pendingRoute })
+    try {
+      Taro.removeStorageSync(PENDING_SHARE_ROUTE_KEY)
+    } catch {
+      // 清理分享目标失败不影响已经完成的页面跳转。
+    }
+    return
+  }
+  await Taro.switchTab({ url: fallbackRoute })
+}
+
 async function navigateByInitStatus(status: ProfileInitStatus) {
   if (status.firstLoginCompleted) {
-    await Taro.switchTab({ url: '/pages/index/index' })
+    await navigateAfterAuthentication('/pages/index/index')
     return
   }
   const route = resolveInitStepRoute(status.nextStep)
@@ -74,7 +94,7 @@ export function useLogin() {
 
   const enterHome = async () => {
     reset()
-    await Taro.switchTab({ url: '/pages/index/index' })
+    await navigateAfterAuthentication('/pages/index/index')
   }
 
   const resumeInit = async () => {
@@ -96,7 +116,7 @@ export function useLogin() {
     if (!route) return resumeInit()
     if (firstLoginCompleted) {
       reset()
-      await Taro.switchTab({ url: route })
+      await navigateAfterAuthentication(route)
       return undefined
     }
     useLoginFlowStore.getState().setStep(loginStepFromNumber(result.nextStep))

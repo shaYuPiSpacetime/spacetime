@@ -68,7 +68,7 @@ export default {
     },
     {
       root: 'pages/heart',
-      pages: ['mutual', 'user', 'membership-unlock'],
+      pages: ['mutual', 'my-likes', 'user', 'membership-unlock'],
     },
     {
       root: 'pages/message',

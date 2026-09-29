@@ -33,4 +33,7 @@ public interface AppRelationLikeDao extends RelationCrudDao<AppRelationLike> {
 
     /** 查询当前最新一条有效入向喜欢及单条解锁状态。 */
     RelationLikeListRow selectLatestIncomingLike(Long userId);
+
+    /** 按喜欢时间倒序查询当前用户发出的有效喜欢，由服务层按关系准入投影过滤后分页。 */
+    List<AppRelationLike> selectOutgoingLikes(Long userId);
 }

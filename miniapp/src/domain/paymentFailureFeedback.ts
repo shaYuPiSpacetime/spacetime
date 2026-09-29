@@ -37,6 +37,18 @@ export function resolvePaymentFailureFeedback(error: unknown): PaymentFailureFee
     }
   }
 
+  const iosMerchantCapabilityMissing = /ios/i.test(rawMessage)
+    && rawMessage.includes('商户')
+    && /(未开启|未开通)/.test(rawMessage)
+    && rawMessage.includes('支付')
+  if (iosMerchantCapabilityMissing) {
+    return {
+      cancelled: false,
+      capabilityRestricted: true,
+      message: '当前微信商户尚未开通 iOS 虚拟支付，iPhone 暂时无法购买；请使用支持的设备支付，或联系客服确认开通进度',
+    }
+  }
+
   const capabilityRestricted = rawMessage.includes('支付能力')
     && (rawMessage.includes('限制') || rawMessage.includes('受限'))
   if (capabilityRestricted) {

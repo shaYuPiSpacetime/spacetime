@@ -45,7 +45,6 @@ export default function ProfilePage() {
     goToMyPosts,
     goToHelp,
     goToSettings,
-    goToHeart,
   } = useProfile()
   useEffect(() => {
     fetch()
@@ -72,8 +71,24 @@ export default function ProfilePage() {
     }
   }
   const stats = [
-    { value: data.likedCount, label: '我喜欢的', onClick: goToHeart },
-    { value: data.beLikedCount, label: '喜欢我的', onClick: goToHeart },
+    {
+      value: data.likedCount,
+      label: '我喜欢的',
+      onClick: () => void Taro.navigateTo({ url: '/pages/heart/my-likes' }),
+    },
+    {
+      value: data.beLikedCount,
+      label: '喜欢我的',
+      onClick: async () => {
+        Taro.setStorageSync('community_requested_tab', 'likes')
+        try {
+          await Taro.switchTab({ url: '/pages/community/index' })
+        } catch {
+          Taro.removeStorageSync('community_requested_tab')
+          await Taro.showToast({ title: '喜欢我的暂时无法打开，请稍后重试', icon: 'none' })
+        }
+      },
+    },
     { value: data.visitorCount, label: '最近来访', onClick: () => void goToVisitors() },
   ]
 

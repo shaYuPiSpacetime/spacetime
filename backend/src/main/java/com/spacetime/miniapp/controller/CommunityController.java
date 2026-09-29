@@ -125,6 +125,15 @@ public class CommunityController {
         return R.ok(communityService.createPost(userId, req));
     }
 
+    /** 编辑本人已驳回的动态，并作为新内容重新提交完整审核。 */
+    @PutMapping("/posts/{id}")
+    public R<CommunityPublishResultVO> resubmitRejectedPost(@PathVariable String id,
+                                                             @Valid @RequestBody CommunityPostCreateReq req) {
+        Long userId = currentUserId();
+        log.info("重新提交驳回内容: userId={}, postId={}", userId, id);
+        return R.ok(communityService.resubmitRejectedPost(userId, id, req));
+    }
+
     /**
      * 删除自己的社区内容（软删除）
      *

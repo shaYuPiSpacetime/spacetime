@@ -27,6 +27,7 @@ import java.util.HexFormat;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -98,7 +99,56 @@ class CommunityMediaAuditCallbackServiceImplTest {
         service.handle(signature("2", "m"), "2", "m",
                 objectMapper.readTree("{\"trace_id\":\"t2\",\"result\":{\"suggest\":\"risky\",\"label\":\"100\"}}"));
 
-        verify(postDao).updateCas(argThat(value -> "rejected".equals(value.getStatus())), eq(0));
+        verify(postDao).updateCas(argThat(value -> "rejected".equals(value.getStatus())
+                && "REJECTED".equals(value.getAuditStatus())
+                && "内容未通过安全审核，请修改后重新提交".equals(value.getAuditRemark())
+                && !value.getAuditRemark().contains("100")), eq(0));
+    }
+
+    @Test
+    void deletedPost_lateImageCallback_shouldNeverRepublishPost() throws Exception {
+        CommunityMediaAuditTask task = task("late-pass");
+        CommunityPost post = post("community_post");
+        post.setStatus("deleted");
+        post.setDeletedByUser(1);
+        when(extensionDao.selectMediaTaskOne(any())).thenReturn(task);
+        when(extensionDao.updateMediaTaskCas(any(), eq(0))).thenReturn(1);
+        when(extensionDao.selectMediaTasks(any())).thenAnswer(invocation -> List.of(task));
+        when(postDao.selectById(10L)).thenReturn(post);
+
+        service.handle(signature("21", "late"), "21", "late",
+                objectMapper.readTree("{\"trace_id\":\"late-pass\",\"result\":{\"suggest\":\"pass\"}}"));
+
+        verify(postDao, never()).updateCas(any(), anyInt());
+        verify(extensionDao, never()).insertOutbox(any());
+        assertThat(post.getStatus()).isEqualTo("deleted");
+    }
+
+    @Test
+    void deleteWinsWhenCallbackReadPendingBeforeDeleteCommitted() throws Exception {
+        CommunityMediaAuditTask task = task("delete-race");
+        CommunityPost stalePending = post("community_post");
+        CommunityPost deleted = post("community_post");
+        deleted.setStatus("deleted");
+        deleted.setDeletedByUser(1);
+        deleted.setVersion(1);
+        when(extensionDao.selectMediaTaskOne(any())).thenReturn(task);
+        when(extensionDao.updateMediaTaskCas(any(), eq(0))).thenReturn(1);
+        when(extensionDao.selectMediaTasks(any())).thenAnswer(invocation -> List.of(task));
+        when(postDao.selectById(10L)).thenReturn(stalePending);
+        when(postDao.selectByIdForUpdate(10L)).thenReturn(deleted);
+        // 回调读到 v0 pending 后，用户删除已先将数据库推进到 v1 deleted。
+        when(postDao.updateCas(same(stalePending), eq(0))).thenReturn(0);
+
+        assertThatCode(() -> service.handle(signature("22", "race"), "22", "race",
+                objectMapper.readTree("{\"trace_id\":\"delete-race\",\"result\":{\"suggest\":\"pass\"}}")))
+                .doesNotThrowAnyException();
+
+        verify(postDao).selectById(10L);
+        verify(postDao).selectByIdForUpdate(10L);
+        verify(extensionDao, never()).insertOutbox(any());
+        verify(extensionDao, never()).insertAudit(any());
+        assertThat(deleted.getStatus()).isEqualTo("deleted");
     }
 
     @Test

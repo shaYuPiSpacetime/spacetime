@@ -43,6 +43,8 @@ import com.spacetime.miniapp.dto.request.MatchPopupReadReq;
 import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
 import com.spacetime.miniapp.dto.request.RelationVisitCreateReq;
 import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
+import com.spacetime.miniapp.dto.response.GivenLikeItemVO;
+import com.spacetime.miniapp.dto.response.GivenLikesPageVO;
 import com.spacetime.miniapp.dto.response.LikesMeAvatarPreviewVO;
 import com.spacetime.miniapp.dto.response.LikesMeItemVO;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
@@ -111,6 +113,53 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
     private final AppUserAuditContentService auditContentService;
     private final ProfileDictionaryService profileDictionaryService;
     private final MiniappPresenceService presenceService;
+
+    @Override
+    public GivenLikesPageVO givenLikes(Long userId, int page, int size) {
+        requireOpenUser(userId, CURRENT_ACCESS_CLOSED, "关系反馈准入未开放");
+        int current = Math.max(page, 1);
+        int effectiveSize = Math.min(Math.max(size, 1), MOBILE_PAGE_SIZE);
+        List<AppRelationLike> sourceRows = safeList(likeDao.selectOutgoingLikes(userId));
+        LinkedHashSet<Long> targetUserIds = sourceRows.stream()
+                .map(AppRelationLike::getToUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, AppUser> users = loadUsers(targetUserIds);
+        Set<Long> openUserIds = openUserIds(users);
+        List<AppRelationLike> rows = sourceRows.stream()
+                .filter(row -> openUserIds.contains(row.getToUserId()))
+                .toList();
+        long total = rows.size();
+        long offset = (long) (current - 1) * effectiveSize;
+        int fromIndex = offset >= total ? rows.size() : (int) offset;
+        int toIndex = Math.min(fromIndex + effectiveSize, rows.size());
+        List<AppRelationLike> pageRows = rows.subList(fromIndex, toIndex);
+        List<Long> pageTargetUserIds = pageRows.stream()
+                .map(AppRelationLike::getToUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, AppRelationMatch> matches = activeMatchesByCounterparty(userId);
+        Map<Long, String> avatars = publicAvatars(pageTargetUserIds);
+        Map<String, String> regionLabels = regionLabels(pageTargetUserIds.stream()
+                .map(users::get)
+                .filter(Objects::nonNull)
+                .toList());
+
+        List<GivenLikeItemVO> records = pageRows.stream()
+                .map(row -> toGivenLikeItem(row, users.get(row.getToUserId()),
+                        matches.containsKey(row.getToUserId()),
+                        avatars.get(row.getToUserId()), regionLabels))
+                .toList();
+        GivenLikesPageVO result = new GivenLikesPageVO();
+        result.setCurrent((long) current);
+        result.setSize((long) effectiveSize);
+        result.setTotal(total);
+        result.setPages(pages(total, effectiveSize));
+        result.setHasMore(toIndex < total);
+        result.setRecords(records);
+        return result;
+    }
 
     @Override
     public LikesMePageVO likesMe(Long userId, int page, int size, String snapshotCursor) {
@@ -373,11 +422,12 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         Map<Long, List<String>> sources = activeSources(rows.stream().map(AppRelationMatch::getId).toList());
         Map<Long, String> avatars = publicAvatars(rows.stream()
                 .map(row -> counterparties.get(row.getId())).toList());
+        Map<String, String> regionLabels = regionLabels(users.values());
 
         List<MutualMatchItemVO> records = rows.stream()
                 .map(row -> toMatchItem(row, users.get(counterparties.get(row.getId())),
                         sources.getOrDefault(row.getId(), List.of()),
-                        avatars.get(counterparties.get(row.getId()))))
+                        avatars.get(counterparties.get(row.getId())), regionLabels))
                 .toList();
         long total = source.getTotal();
         MutualMatchPageVO result = new MutualMatchPageVO();
@@ -609,8 +659,28 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         return item;
     }
 
+    private GivenLikeItemVO toGivenLikeItem(AppRelationLike row, AppUser target,
+                                            boolean matched, String avatar,
+                                            Map<String, String> regionLabels) {
+        GivenLikeItemVO item = new GivenLikeItemVO();
+        item.setLikeNo(row.getLikeNo());
+        item.setUserId(target.getId());
+        item.setNickname(displayName(target));
+        item.setAvatar(avatar);
+        item.setAge(target.getAge());
+        item.setHeight(target.getHeight());
+        item.setCurrentCity(profileDictionaryService.label(regionLabels, target.getLocationCity()));
+        item.setHometownCity(profileDictionaryService.label(regionLabels, target.getHometownCity()));
+        item.setSourceScene(row.getSourceScene());
+        item.setLikedTime(row.getLikedTime());
+        item.setMatched(matched);
+        item.setCanEnterConversation(matched);
+        return item;
+    }
+
     private MutualMatchItemVO toMatchItem(AppRelationMatch row, AppUser target,
-                                          List<String> activeSources, String avatar) {
+                                          List<String> activeSources, String avatar,
+                                          Map<String, String> regionLabels) {
         MutualMatchItemVO item = new MutualMatchItemVO();
         item.setMatchNo(row.getMatchNo());
         item.setUserId(target.getId());
@@ -618,8 +688,8 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         item.setAvatar(avatar);
         item.setAge(target.getAge());
         item.setHeight(target.getHeight());
-        item.setCurrentCity(target.getLocationCity());
-        item.setHometownCity(target.getHometownCity());
+        item.setCurrentCity(profileDictionaryService.label(regionLabels, target.getLocationCity()));
+        item.setHometownCity(profileDictionaryService.label(regionLabels, target.getHometownCity()));
         item.setPrimarySource(row.getPrimarySource());
         item.setActiveSources(activeSources);
         item.setMatchStatus(row.getMatchStatus());
@@ -881,6 +951,17 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         }
         return safeList(appUserDao.selectList(new LambdaQueryWrapper<AppUser>().in(AppUser::getId, ids)))
                 .stream().collect(Collectors.toMap(AppUser::getId, Function.identity(), (left, right) -> left));
+    }
+
+    private Map<String, String> regionLabels(Collection<AppUser> users) {
+        List<String> codes = users == null ? List.of() : users.stream()
+                .flatMap(user -> java.util.stream.Stream.of(
+                        user.getLocationCity(), user.getHometownCity()))
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList();
+        Map<String, String> labels = profileDictionaryService.labels(ProfileDictType.CHINA_REGION, codes);
+        return labels == null ? Map.of() : labels;
     }
 
     private Set<Long> openUserIds(Map<Long, AppUser> users) {

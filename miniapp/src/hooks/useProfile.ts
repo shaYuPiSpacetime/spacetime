@@ -165,11 +165,10 @@ async function loadLocationLabel(home: ProfileHomeDetail) {
   const cityCode = String(home.profile.locationCity || '');
   if (!provinceCode) return '';
   const store = usePrd01Store.getState();
-  const provinces = await store.locations();
+  const provinces = await store.provinceCities();
   const province = provinces.find(item => item.code === provinceCode);
-  if (!cityCode) return province?.label || '';
-  const cities = await store.locations(provinceCode);
-  return cities.find(item => item.code === cityCode)?.label || province?.label || '';
+  if (!cityCode) return province?.name || '';
+  return province?.children.find(item => item.code === cityCode)?.name || province?.name || '';
 }
 
 /**

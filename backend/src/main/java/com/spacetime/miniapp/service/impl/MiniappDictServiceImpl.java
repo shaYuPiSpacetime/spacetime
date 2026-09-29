@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** 移动端公开字典服务实现。 */
 @Service
@@ -28,6 +29,10 @@ public class MiniappDictServiceImpl implements MiniappDictService {
 
     /** 中国大陆省市区字典类型编码。 */
     private static final String CHINA_REGION_DICT_TYPE = "china_region";
+
+    /** 直辖市的字典含有“市辖区/县”虚拟中间层，两级选择器应直接展示其区县。 */
+    private static final Set<String> MUNICIPALITY_CODES = Set.of("110000", "120000", "310000", "500000");
+    private static final Set<String> VIRTUAL_CITY_LABELS = Set.of("市辖区", "县");
 
     private final DictDataDao dictDataDao;
     private final SchoolDictionaryService schoolDictionaryService;
@@ -80,7 +85,9 @@ public class MiniappDictServiceImpl implements MiniappDictService {
     public List<RegionTreeVO> twoLevelLocations() {
         List<SysDictData> regions = dictDataDao.selectByDictType(CHINA_REGION_DICT_TYPE);
         Map<Long, RegionTreeVO> provincesById = new LinkedHashMap<>();
+        Map<Long, List<SysDictData>> childrenByParent = new LinkedHashMap<>();
         for (SysDictData item : regions) {
+            childrenByParent.computeIfAbsent(item.getParentId(), ignored -> new ArrayList<>()).add(item);
             if (Objects.equals(item.getParentId(), 0L)) {
                 provincesById.put(item.getId(), toTreeNode(item, "PROVINCE"));
             }
@@ -88,7 +95,14 @@ public class MiniappDictServiceImpl implements MiniappDictService {
         for (SysDictData item : regions) {
             RegionTreeVO province = provincesById.get(item.getParentId());
             if (province != null) {
-                province.getChildren().add(toTreeNode(item, "CITY"));
+                if (MUNICIPALITY_CODES.contains(province.getCode())
+                        && VIRTUAL_CITY_LABELS.contains(item.getDictLabel())) {
+                    childrenByParent.getOrDefault(item.getId(), List.of()).stream()
+                            .map(district -> toTreeNode(district, "CITY"))
+                            .forEach(province.getChildren()::add);
+                } else {
+                    province.getChildren().add(toTreeNode(item, "CITY"));
+                }
             }
         }
         return List.copyOf(provincesById.values());

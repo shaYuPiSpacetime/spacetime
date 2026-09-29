@@ -101,6 +101,32 @@ class MiniappDictServiceImplTest {
     }
 
     @Test
+    @DisplayName("直辖市两级选择器展示真实区县而不是市辖区或县中间节点")
+    void shouldFlattenMunicipalityVirtualCityNodes() {
+        when(dictDataDao.selectByDictType("china_region")).thenReturn(List.of(
+                region(1L, 0L, "重庆市", "500000", true),
+                region(2L, 1L, "市辖区", "500100", true),
+                region(3L, 2L, "渝中区", "500103", false),
+                region(4L, 1L, "县", "500200", true),
+                region(5L, 4L, "忠县", "500233", false),
+                region(6L, 0L, "河南省", "410000", true),
+                region(7L, 6L, "郑州市", "410100", true),
+                region(8L, 7L, "金水区", "410105", false)
+        ));
+        MiniappDictService service = new MiniappDictServiceImpl(dictDataDao);
+
+        List<RegionTreeVO> result = service.twoLevelLocations();
+
+        assertThat(result.get(0).getChildren()).extracting(RegionTreeVO::getCode)
+                .containsExactly("500103", "500233");
+        assertThat(result.get(0).getChildren()).extracting(RegionTreeVO::getName)
+                .containsExactly("渝中区", "忠县");
+        assertThat(result.get(0).getChildren()).allMatch(item -> "CITY".equals(item.getLevel()));
+        assertThat(result.get(1).getChildren()).extracting(RegionTreeVO::getCode)
+                .containsExactly("410100");
+    }
+
+    @Test
     @DisplayName("一次返回资料页需要的字典选项，标签分类按父子关系读取")
     void shouldReturnProfileOptions() {
         when(dictDataDao.selectByDictType("app_identity")).thenReturn(List.of(dict("app_identity", "WORKER", "职场人")));

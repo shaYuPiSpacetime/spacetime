@@ -1,6 +1,6 @@
 import { Image, View, Text } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import tabHomeIcon from '@/assets/icons/tab-home.png'
 import tabHomeActiveIcon from '@/assets/icons/tab-home-active.png'
@@ -13,6 +13,7 @@ import tabProfileIcon from '@/assets/icons/tab-profile.png'
 import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'
 import type { NativeNavigationMetrics } from '@/components/NativeNavigation'
 import { formatMessageBadge } from '@/domain/messageRuntime'
+import { resolveRecommendBadgeCount } from '@/domain/recommendBadge'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { getRecommendCandidates } from '@/services/recommend'
 
@@ -91,16 +92,31 @@ export function getCapsuleLeftActionsLayout({
  */
 export default function AppTabBar({ active, onActiveChange, recommendBadgeCount }: Props) {
   const [fetchedRecommendCount, setFetchedRecommendCount] = useState(0)
-  useEffect(() => {
+  const recommendRequestGenerationRef = useRef(0)
+  const mountedRef = useRef(true)
+
+  const refreshRecommendCount = () => {
     if (recommendBadgeCount != null) return
-    let mounted = true
+    const requestGeneration = ++recommendRequestGenerationRef.current
     void getRecommendCandidates().then(page => {
-      if (mounted) setFetchedRecommendCount(Math.max(0, page.remainingBrowseCount || 0))
+      if (mountedRef.current && requestGeneration === recommendRequestGenerationRef.current) {
+        setFetchedRecommendCount(resolveRecommendBadgeCount(page))
+      }
     }).catch(() => {
-      if (mounted) setFetchedRecommendCount(0)
+      if (mountedRef.current && requestGeneration === recommendRequestGenerationRef.current) {
+        setFetchedRecommendCount(0)
+      }
     })
-    return () => { mounted = false }
-  }, [recommendBadgeCount])
+  }
+  useEffect(() => {
+    mountedRef.current = true
+    refreshRecommendCount()
+    return () => {
+      mountedRef.current = false
+      recommendRequestGenerationRef.current += 1
+    }
+  }, [])
+  useDidShow(refreshRecommendCount)
   const visibleRecommendCount = Math.max(0, recommendBadgeCount ?? fetchedRecommendCount)
   const messageUnreadCount = useMessageRuntimeStore(
     state => state.unreadSummary.messageUnreadCount,

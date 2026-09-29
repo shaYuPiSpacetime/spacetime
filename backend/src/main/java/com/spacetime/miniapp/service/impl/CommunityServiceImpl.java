@@ -54,6 +54,10 @@ public class CommunityServiceImpl implements CommunityService {
 
     /** 时间格式化器：yyyy-MM-dd HH:mm:ss */
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    /** 删除与异步审核回调冲突时的有界 CAS 重试次数。 */
+    private static final int DELETE_POST_CAS_ATTEMPTS = 3;
+    /** 面向用户的统一机审驳回说明，禁止暴露命中的敏感词或供应商标签。 */
+    private static final String SAFE_MACHINE_REJECTION_REASON = "内容未通过安全审核，请修改后重新提交";
 
     /** 社区内容（帖子）数据访问 */
     private final CommunityPostDao communityPostDao;
@@ -256,9 +260,11 @@ public class CommunityServiceImpl implements CommunityService {
         if ("HOT".equals(normalizedScene)) {
             wrapper.orderByDesc(CommunityPost::getLikeCount)
                     .orderByDesc(CommunityPost::getCommentCount)
-                    .orderByDesc(CommunityPost::getCreateTime);
+                    .orderByDesc(CommunityPost::getCreateTime)
+                    .orderByDesc(CommunityPost::getId);
         } else {
-            wrapper.orderByDesc(CommunityPost::getCreateTime);
+            wrapper.orderByDesc(CommunityPost::getCreateTime)
+                    .orderByDesc(CommunityPost::getId);
         }
         Page<CommunityPost> result = communityPostDao.selectPage(new Page<>(safePage, safeSize), wrapper);
         return toPostCardPage(userId, result);
@@ -461,6 +467,11 @@ public class CommunityServiceImpl implements CommunityService {
     @Override
     @Transactional
     public CommunityPublishResultVO createPost(Long userId, CommunityPostCreateReq req) {
+        return createPostInternal(userId, req, true);
+    }
+
+    private CommunityPublishResultVO createPostInternal(Long userId, CommunityPostCreateReq req,
+                                                        boolean deleteDraftAfterSuccess) {
         // 1. 校验交互权限
         ensureCommunityWriteAllowed(userId, "publish_post");
         String contentType = req.resolvedContentType();
@@ -493,7 +504,10 @@ public class CommunityServiceImpl implements CommunityService {
         entity.setMentionUserIds(null);
         entity.setStatus(decision.status());
         entity.setAuditStatus("published".equals(decision.status()) ? CommunityAuditStatusEnum.APPROVED.getCode()
-                : CommunityAuditStatusEnum.PENDING.getCode());
+                : CommunityPostStatusEnum.REJECTED.getCode().equals(decision.status())
+                ? CommunityAuditStatusEnum.REJECTED.getCode() : CommunityAuditStatusEnum.PENDING.getCode());
+        entity.setAuditRemark(CommunityPostStatusEnum.REJECTED.getCode().equals(decision.status())
+                ? SAFE_MACHINE_REJECTION_REASON : null);
         entity.setMachineResult(decision.machineConclusion());
         entity.setMachineCode(persistableProviderCode(decision.machineCode()));
         entity.setMachineDetail(decision.detail());
@@ -518,12 +532,50 @@ public class CommunityServiceImpl implements CommunityService {
             writeOutbox("content_published", "post", entity.getPostNo(), 0,
                     "{\"postNo\":\"" + entity.getPostNo() + "\"}");
         }
-        deleteDraft(userId, contentType);
+        if (deleteDraftAfterSuccess) deleteDraft(userId, contentType);
         log.info("Community post submitted: userId={}, contentType={}, postNo={}, status={}",
                 userId, contentType, entity.getPostNo(), entity.getStatus());
         return new CommunityPublishResultVO(entity.getId(), entity.getPostNo(), entity.getStatus(),
                 resolveStatusLabel("community_content_status", entity.getStatus()),
                 copy("publish_" + entity.getStatus(), resolveStatusLabel("community_content_status", entity.getStatus())));
+    }
+
+    /**
+     * 驳回内容不原地复用，避免旧媒体审核任务串入新内容；新帖成功后再软删除旧帖。
+     */
+    @Override
+    @Transactional
+    public CommunityPublishResultVO resubmitRejectedPost(Long userId, String postRef, CommunityPostCreateReq req) {
+        CommunityPost original = requirePostRef(postRef);
+        if (!Objects.equals(original.getAuthorId(), userId)) throw error("content_unavailable");
+        if (!CommunityPostStatusEnum.REJECTED.getCode().equals(original.getStatus())) {
+            throw error("edit_published_unavailable");
+        }
+
+        int expectedVersion = original.getVersion() == null ? 0 : original.getVersion();
+        // 先以数据库版本抢占本次重提；同一旧帖并发请求只有一个能进入新帖创建。
+        if (communityPostDao.claimRejectedForResubmit(original.getId(), expectedVersion) != 1) {
+            throw error("version_conflict");
+        }
+        original.setVersion(expectedVersion + 1);
+
+        // 内容类型沿用原帖，客户端不能借编辑入口切换到其他发布权限域。
+        req.setContentType(original.getPostType());
+        req.setPostType(original.getPostType());
+        CommunityPublishResultVO result = createPostInternal(userId, req, false);
+
+        original.setStatus(CommunityPostStatusEnum.DELETED.getCode());
+        original.setDeletedByUser(1);
+        if (communityPostDao.updateCas(original, expectedVersion + 1) != 1) {
+            throw error("version_conflict");
+        }
+        original.setVersion(expectedVersion + 2);
+        writeAudit("post", original.getPostNo(), original.getId(), "resubmit",
+                "success", "replacement_created", null,
+                result.getPostNo() == null ? null : "{\"replacementPostNo\":\"" + jsonSafe(result.getPostNo()) + "\"}");
+        log.info("Rejected community post resubmitted: userId={}, oldPostNo={}, newPostNo={}",
+                userId, original.getPostNo(), result.getPostNo());
+        return result;
     }
 
     /**
@@ -537,14 +589,27 @@ public class CommunityServiceImpl implements CommunityService {
     public void deletePost(Long userId, String postId) {
         // 1. 校验内容存在且为本人所发
         CommunityPost post = requirePostRef(postId);
-        if (!Objects.equals(post.getAuthorId(), userId)) {
-            throw error("delete_own_content_only");
+        // 2. 用版本 CAS 推进到删除终态。若审核回调先抢到旧版本，重读后再删除，保证删除最终优先。
+        for (int attempt = 0; attempt < DELETE_POST_CAS_ATTEMPTS; attempt++) {
+            if (!Objects.equals(post.getAuthorId(), userId)) {
+                throw error("delete_own_content_only");
+            }
+            if (CommunityPostStatusEnum.DELETED.getCode().equals(post.getStatus())) return;
+
+            int expectedVersion = post.getVersion() == null ? 0 : post.getVersion();
+            post.setStatus(CommunityPostStatusEnum.DELETED.getCode());
+            post.setDeletedByUser(1);
+            if (communityPostDao.updateCas(post, expectedVersion) == 1) {
+                post.setVersion(expectedVersion + 1);
+                log.info("Community post deleted: userId={}, postId={}", userId, postId);
+                return;
+            }
+
+            // REPEATABLE READ 下普通 SELECT 可能仍读到事务旧快照，必须用当前读拿到回调已提交的新版本。
+            post = communityPostDao.selectByIdForUpdate(post.getId());
+            if (post == null) throw error("content_not_found");
         }
-        // 2. 软删除：更新状态
-        post.setStatus(CommunityPostStatusEnum.DELETED.getCode());
-        post.setDeletedByUser(1);
-        communityPostDao.updateById(post);
-        log.info("Community post deleted: userId={}, postId={}", userId, postId);
+        throw error("version_conflict");
     }
 
     /**
@@ -2361,7 +2426,7 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setStatusMessage(batch.statusMessages().getOrDefault(
                 CommunityConfigKeys.COPY_PREFIX + "publish_" + post.getStatus(), statusName));
         vo.setAuditStatus(post.getAuditStatus());
-        vo.setAuditRemark(post.getAuditRemark());
+        vo.setAuditRemark(publicAuditRemark(post));
         vo.setCreateTime(post.getCreateTime() != null ? post.getCreateTime().format(FMT) : null);
         return vo;
     }
@@ -2426,7 +2491,7 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setStatusName(resolveStatusLabel("community_content_status", post.getStatus()));
         vo.setStatusMessage(copy("publish_" + post.getStatus(), vo.getStatusName()));
         vo.setAuditStatus(post.getAuditStatus());
-        vo.setAuditRemark(post.getAuditRemark());
+        vo.setAuditRemark(publicAuditRemark(post));
         vo.setCreateTime(post.getCreateTime() != null ? post.getCreateTime().format(FMT) : null);
         return vo;
     }
@@ -2465,8 +2530,16 @@ public class CommunityServiceImpl implements CommunityService {
         vo.setStatusName(resolveStatusLabel("community_content_status", post.getStatus()));
         vo.setStatusMessage(copy("publish_" + post.getStatus(), vo.getStatusName()));
         vo.setAuditStatus(post.getAuditStatus());
-        vo.setAuditRemark(post.getAuditRemark());
+        vo.setAuditRemark(publicAuditRemark(post));
         vo.setCreateTime(post.getCreateTime() != null ? post.getCreateTime().format(FMT) : null);
+    }
+
+    private String publicAuditRemark(CommunityPost post) {
+        if (CommunityPostStatusEnum.REJECTED.getCode().equals(post.getStatus())
+                && StrUtil.isBlank(post.getAuditRemark())) {
+            return SAFE_MACHINE_REJECTION_REASON;
+        }
+        return post.getAuditRemark();
     }
 
     /**

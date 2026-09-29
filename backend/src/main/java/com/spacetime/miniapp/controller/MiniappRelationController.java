@@ -9,6 +9,7 @@ import com.spacetime.miniapp.dto.request.LikesMeReadReq;
 import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
 import com.spacetime.miniapp.dto.request.RelationVisitCreateReq;
 import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
+import com.spacetime.miniapp.dto.response.GivenLikesPageVO;
 import com.spacetime.miniapp.dto.response.LikesMePageVO;
 import com.spacetime.miniapp.dto.response.MatchPopupVO;
 import com.spacetime.miniapp.dto.response.MutualMatchPageVO;
@@ -33,6 +34,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MiniappRelationController {
     private final MiniappRelationService relationService;
+
+    @GetMapping("/likes-given")
+    public R<GivenLikesPageVO> givenLikes(@RequestParam(defaultValue = "1") int page,
+                                          @RequestParam(defaultValue = "20") int size) {
+        return R.ok(relationService.givenLikes(currentUserId(), page, size));
+    }
 
     @GetMapping("/likes-me")
     public R<LikesMePageVO> likesMe(@RequestParam(defaultValue = "1") int page,

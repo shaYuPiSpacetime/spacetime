@@ -38,6 +38,7 @@ import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.util.MunicipalityLocationCodes;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
 import com.spacetime.miniapp.dto.request.RecommendViewActionReq;
@@ -111,11 +112,12 @@ public class RecommendServiceImpl implements RecommendService {
     public RecommendPreferenceVO getPreferences(Long userId) {
         AppUser user = requireBrowsableUser(userId);
         RecommendPreference preference = preferenceDao.selectByUserId(userId);
-        boolean vipEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
+        boolean vipEffective = isVipEffective(userId);
+        boolean advancedFilterEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
         if (preference == null) {
-            return defaultPreference(user, vipEffective);
+            return defaultPreference(user, vipEffective, advancedFilterEffective);
         }
-        return toPreferenceVO(preference, vipEffective, false);
+        return toPreferenceVO(preference, vipEffective, advancedFilterEffective, false);
     }
 
     @Override
@@ -124,8 +126,12 @@ public class RecommendServiceImpl implements RecommendService {
         requireBrowsableUser(userId);
         validateRequest(req);
         validateDictionaries(req);
-        boolean vipEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
-        if (!vipEffective && hasAdvanced(req)) {
+        boolean vipEffective = isVipEffective(userId);
+        boolean advancedFilterEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
+        if (!vipEffective && normalize(req.getTargetCityCodes()).size() > 2) {
+            throw new BusinessException(403, "开通会员后可选择第三个目标城市");
+        }
+        if (!advancedFilterEffective && hasAdvanced(req)) {
             throw new BusinessException(403, "开通会员且高级筛选权益启用后可保存高级条件");
         }
 
@@ -136,23 +142,35 @@ public class RecommendServiceImpl implements RecommendService {
             }
             RecommendPreference created = toEntity(userId, req, 1, null);
             preferenceDao.insert(created);
-            return toPreferenceVO(created, vipEffective, false);
+            return toPreferenceVO(created, vipEffective, advancedFilterEffective, false);
         }
         if (!existing.getVersion().equals(req.getVersion())) {
             throw versionConflict();
         }
         RecommendPreference changed = toEntity(userId, req, existing.getVersion() + 1, existing);
+        if (!advancedFilterEffective) {
+            // 权益失效期间允许修改基础偏好，但保留已保存的高级条件供权益恢复后继续使用。
+            changed.setMinHeight(existing.getMinHeight());
+            changed.setMaxHeight(existing.getMaxHeight());
+            changed.setMinWeight(existing.getMinWeight());
+            changed.setMaxWeight(existing.getMaxWeight());
+            changed.setEducationCodes(existing.getEducationCodes());
+            changed.setHometowns(existing.getHometowns());
+            changed.setSchoolCodes(existing.getSchoolCodes());
+            changed.setMajorNames(existing.getMajorNames());
+        }
         changed.setId(existing.getId());
         if (preferenceDao.updateByVersion(changed, existing.getVersion()) != 1) {
             throw versionConflict();
         }
-        return toPreferenceVO(changed, vipEffective, false);
+        return toPreferenceVO(changed, vipEffective, advancedFilterEffective, false);
     }
 
     @Override
     public RecommendCandidatePageVO getCandidates(Long userId, String cursor) {
         AppUser current = requireBrowsableUser(userId);
-        boolean vipEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
+        boolean vipEffective = isVipEffective(userId);
+        boolean advancedFilterEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
         RecommendPreference preference = resolvePreference(current);
         int remaining = remainingBrowseCount(userId, vipEffective);
 
@@ -174,7 +192,7 @@ public class RecommendServiceImpl implements RecommendService {
         int scannedBatches = 0;
         while (items.size() < resultLimit && scannedBatches < MAX_CANDIDATE_SCAN_BATCHES) {
             LambdaQueryWrapper<AppUser> wrapper = candidateWrapper(
-                    current, preference, vipEffective, scanCursor);
+                    current, preference, advancedFilterEffective, scanCursor);
             List<AppUser> queried = safeUsers(appUserDao.selectList(wrapper));
             scannedBatches++;
             if (queried.isEmpty()) {
@@ -465,6 +483,7 @@ public class RecommendServiceImpl implements RecommendService {
             return existing;
         }
         RecommendPreferenceVO defaults = defaultPreference(user,
+                isVipEffective(user.getId()),
                 hasEffectiveBenefit(user.getId(), ADVANCED_FILTER_BENEFIT));
         RecommendPreference entity = new RecommendPreference();
         entity.setUserId(user.getId());
@@ -484,7 +503,7 @@ public class RecommendServiceImpl implements RecommendService {
 
     private LambdaQueryWrapper<AppUser> candidateWrapper(AppUser current,
                                                           RecommendPreference preference,
-                                                          boolean vipEffective,
+                                                          boolean advancedFilterEffective,
                                                           String cursor) {
         String opposite = GenderEnum.MALE.getCode().equals(current.getGender())
                 ? GenderEnum.FEMALE.getCode() : GenderEnum.MALE.getCode();
@@ -492,19 +511,18 @@ public class RecommendServiceImpl implements RecommendService {
                 .ne(AppUser::getId, current.getId())
                 .eq(AppUser::getGender, opposite)
                 .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode())
-                .in(AppUser::getLocationCity, effectiveTargetCities(preference))
                 .between(AppUser::getAge, preference.getMinAge(), preference.getMaxAge());
-        if (vipEffective) {
+        MunicipalityLocationCodes.applyCityFilter(wrapper, effectiveTargetCities(preference));
+        if (advancedFilterEffective) {
             wrapper.ge(preference.getMinHeight() != null, AppUser::getHeight, preference.getMinHeight())
                     .le(preference.getMaxHeight() != null, AppUser::getHeight, preference.getMaxHeight())
                     .ge(preference.getMinWeight() != null, AppUser::getWeight, preference.getMinWeight())
                     .le(preference.getMaxWeight() != null, AppUser::getWeight, preference.getMaxWeight())
                     .in(!parseList(preference.getEducationCodes()).isEmpty(), AppUser::getEducationLevel,
                             parseList(preference.getEducationCodes()))
-                    .in(!parseList(preference.getHometowns()).isEmpty(), AppUser::getHometownCity,
-                            parseList(preference.getHometowns()))
                     .in(!parseList(preference.getMajorNames()).isEmpty(), AppUser::getMajor,
                             parseList(preference.getMajorNames()));
+            MunicipalityLocationCodes.applyHometownFilter(wrapper, parseList(preference.getHometowns()));
         }
         CursorValue cursorValue = decodeCursor(cursor);
         if (cursorValue != null) {
@@ -768,7 +786,8 @@ public class RecommendServiceImpl implements RecommendService {
     private record AuditContentKey(Long userId, String auditType) {
     }
 
-    private RecommendPreferenceVO defaultPreference(AppUser user, boolean vipEffective) {
+    private RecommendPreferenceVO defaultPreference(AppUser user, boolean vipEffective,
+                                                    boolean advancedFilterEffective) {
         Integer age = currentAge(user);
         if (age == null || StrUtil.isBlank(user.getLocationCity())) {
             throw new BusinessException(409, "请先完善现居城市和出生日期");
@@ -783,6 +802,7 @@ public class RecommendServiceImpl implements RecommendService {
         vo.setMaxAge(Math.min(DEFAULT_MAX_AGE, age + 5));
         vo.setAdvanced(emptyAdvanced());
         vo.setVipEffective(vipEffective);
+        vo.setAdvancedFilterEffective(advancedFilterEffective);
         vo.setAdvancedEffectiveCount(0);
         vo.setDefaulted(true);
         return vo;
@@ -790,8 +810,9 @@ public class RecommendServiceImpl implements RecommendService {
 
     private RecommendPreferenceVO toPreferenceVO(RecommendPreference entity,
                                                   boolean vipEffective,
+                                                  boolean advancedFilterEffective,
                                                   boolean defaulted) {
-        RecommendAdvancedFilterVO advanced = vipEffective
+        RecommendAdvancedFilterVO advanced = advancedFilterEffective
                 ? advancedFrom(entity) : emptyAdvanced();
 
         RecommendPreferenceVO vo = new RecommendPreferenceVO();
@@ -805,7 +826,8 @@ public class RecommendServiceImpl implements RecommendService {
         vo.setMaxAge(entity.getMaxAge());
         vo.setAdvanced(advanced);
         vo.setVipEffective(vipEffective);
-        vo.setAdvancedEffectiveCount(vipEffective ? advancedCount(advanced) : 0);
+        vo.setAdvancedFilterEffective(advancedFilterEffective);
+        vo.setAdvancedEffectiveCount(advancedFilterEffective ? advancedCount(advanced) : 0);
         vo.setDefaulted(defaulted);
         return vo;
     }
@@ -937,7 +959,8 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private RecommendCityVO city(String code) {
-        return new RecommendCityVO(code, profileDictionaryService.label(ProfileDictType.CHINA_REGION, code));
+        return new RecommendCityVO(code, MunicipalityLocationCodes.displayName(code,
+                profileDictionaryService.label(ProfileDictType.CHINA_REGION, code)));
     }
 
     private Integer currentAge(AppUser user) {
@@ -974,7 +997,8 @@ public class RecommendServiceImpl implements RecommendService {
 
     private boolean neighborCityAvailable(List<String> targetCityCodes) {
         Map<String, List<String>> mapping = neighborCityMapping();
-        return targetCityCodes.stream().anyMatch(code -> !mapping.getOrDefault(code, List.of()).isEmpty());
+        return targetCityCodes.stream().anyMatch(code -> !mapping.getOrDefault(
+                MunicipalityLocationCodes.cityGroupCode(code), List.of()).isEmpty());
     }
 
     private List<String> effectiveTargetCities(RecommendPreference preference) {
@@ -984,7 +1008,8 @@ public class RecommendServiceImpl implements RecommendService {
         }
         Map<String, List<String>> mapping = neighborCityMapping();
         LinkedHashSet<String> effective = new LinkedHashSet<>(targetCities);
-        targetCities.forEach(code -> effective.addAll(mapping.getOrDefault(code, List.of())));
+        targetCities.forEach(code -> effective.addAll(mapping.getOrDefault(
+                MunicipalityLocationCodes.cityGroupCode(code), List.of())));
         return new ArrayList<>(effective);
     }
 

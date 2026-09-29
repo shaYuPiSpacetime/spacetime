@@ -75,7 +75,6 @@ export default function SchoolSearchInput({
               }}
             >
               <Text style={{ display: 'block', color: '#0C285A', fontSize: '25rpx', lineHeight: '34rpx' }}>{option.name}</Text>
-              <Text style={{ display: 'block', color: '#999999', fontSize: '20rpx', lineHeight: '28rpx' }}>{[option.province, option.city, option.shortName].filter(Boolean).join(' · ')}</Text>
             </View>
           ))}
         </View>

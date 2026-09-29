@@ -156,6 +156,10 @@ export function LanhuRegionSheet({
     initialProvince?.children.findIndex(item => item.code === cityCode) ?? 0,
     initialProvince?.children.length || 0
   )
+  const staleCitySelection = Boolean(cityCode)
+    && !initialProvince?.children.some(item => item.code === cityCode)
+  const citySelectedByUser = useRef(false)
+  const cityScrollTouched = useRef(false)
   const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
   const [cityIndex, setCityIndex] = useState(initialCityIndex)
   const [districts, setDistricts] = useState<RegionOption[]>([])
@@ -235,6 +239,8 @@ export function LanhuRegionSheet({
     const normalized = clampRegionIndex(nextIndex, regions.length)
     setProvinceIndex(normalized)
     setCityIndex(0)
+    citySelectedByUser.current = false
+    cityScrollTouched.current = false
     setDistricts([])
     setDistrictIndex(0)
     setProvinceScrollTop(regionScrollTop(normalized))
@@ -246,6 +252,7 @@ export function LanhuRegionSheet({
   const selectCity = (nextIndex: number) => {
     const normalized = clampRegionIndex(nextIndex, cities.length)
     setCityIndex(normalized)
+    citySelectedByUser.current = true
     setDistricts([])
     setDistrictIndex(0)
     setCityScrollTop(regionScrollTop(normalized))
@@ -264,6 +271,10 @@ export function LanhuRegionSheet({
     <BottomPicker
       title={title}
       onConfirm={() => {
+        if (staleCitySelection && !citySelectedByUser.current) {
+          void Taro.showToast({ title: '地区选项已更新，请重新选择区县', icon: 'none' })
+          return
+        }
         if (includeDistrict && districtLoading) {
           void Taro.showToast({ title: '区县加载中，请稍候', icon: 'none' })
           return
@@ -338,6 +349,8 @@ export function LanhuRegionSheet({
             if (nextIndex !== provinceIndex) {
               setProvinceIndex(nextIndex)
               setCityIndex(0)
+              citySelectedByUser.current = false
+              cityScrollTouched.current = false
               setDistricts([])
               setDistrictIndex(0)
               setCityScrollTop(regionScrollTop(0))
@@ -392,9 +405,14 @@ export function LanhuRegionSheet({
           scrollWithAnimation
           enhanced
           showScrollbar={false}
-          onScroll={event =>
-            setCityIndex(regionIndexFromScrollTop(event.detail.scrollTop, cities.length))
-          }
+          onTouchStart={() => { cityScrollTouched.current = true }}
+          onScroll={event => {
+            const nextIndex = regionIndexFromScrollTop(event.detail.scrollTop, cities.length)
+            if (cityScrollTouched.current && nextIndex !== cityIndex) {
+              citySelectedByUser.current = true
+            }
+            setCityIndex(nextIndex)
+          }}
           style={{
             position: 'absolute',
             left: includeDistrict ? '228rpx' : '358rpx',
@@ -529,7 +547,7 @@ function regionRpxToPx(value: number) {
 }
 
 function trimRegionName(value: string) {
-  return value.replace(/[省市区县]$/u, '')
+  return value.replace(/[省市区]$/u, '')
 }
 
 function OptionColumn({

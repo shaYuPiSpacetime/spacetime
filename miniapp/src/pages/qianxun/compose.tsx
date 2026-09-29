@@ -8,7 +8,9 @@ import {
   COMMUNITY_COPY_KEYS,
   getCommunityDraft,
   getCommunityMeta,
+  getCommunityPostDetail,
   publishCommunityPost,
+  resubmitCommunityPost,
   resolveCommunityCopy,
   resolveCommunityFeedback,
   saveCommunityDraft,
@@ -43,13 +45,20 @@ export default function QianxunComposePage() {
   const [topicSheetVisible, setTopicSheetVisible] = useState(false)
   const [failureFeedback, setFailureFeedback] = useState('')
   const [previewImageUrl, setPreviewImageUrl] = useState('')
+  const [editPostId, setEditPostId] = useState('')
   const hydratedRef = useRef(false)
   const choosingImagesRef = useRef(false)
   const postTypeRef = useRef<CommunityContentType>('community_post')
   const draftVersionRef = useRef<number>()
   const saveSequenceRef = useRef(0)
+  const editPostIdRef = useRef('')
 
   useLoad(params => {
+    if (params.editPostId) {
+      const postId = decodeURIComponent(String(params.editPostId))
+      editPostIdRef.current = postId
+      setEditPostId(postId)
+    }
     const initialTopicId = Number(params.topicId)
     if (Number.isFinite(initialTopicId) && initialTopicId > 0) setTopicId(initialTopicId)
     if (params.topicName) setInitialTopicName(decodeURIComponent(params.topicName))
@@ -66,6 +75,31 @@ export default function QianxunComposePage() {
 
   const loadRuntimeAndDraft = async () => {
     try {
+      const editingPostId = editPostIdRef.current
+      if (editingPostId) {
+        const [runtime, original] = await Promise.all([getCommunityMeta(), getCommunityPostDetail(editingPostId)])
+        setConfig(runtime)
+        if (original.status !== 'rejected') {
+          await Taro.showToast({ title: '仅可编辑已驳回的动态', icon: 'none' })
+          await Taro.navigateBack()
+          return
+        }
+        const originalType: CommunityContentType = original.contentType === 'sincere_post' || original.postType === 'sincere_post'
+          ? 'sincere_post'
+          : 'community_post'
+        postTypeRef.current = originalType
+        setPostType(originalType)
+        setContent(original.content || '')
+        setImages((original.imageUrls || []).filter(Boolean).map((url, index) => ({
+          localId: `post-${editingPostId}-${index}`,
+          tempPath: url,
+          url,
+          uploadStatus: 'success',
+        })))
+        setTopicId(original.topicId)
+        setInitialTopicName(original.topicName || '')
+        return
+      }
       const contentType = postTypeRef.current
       const [runtime, draft] = await Promise.all([getCommunityMeta(), getCommunityDraft(contentType)])
       setConfig(runtime)
@@ -89,7 +123,7 @@ export default function QianxunComposePage() {
   }
 
   useEffect(() => {
-    if (!hydratedRef.current || publishing) return undefined
+    if (!hydratedRef.current || publishing || editPostIdRef.current) return undefined
     const successfulImages = images.filter(item => item.uploadStatus === 'success' && item.url)
     if (!content.trim() && !topicId && !successfulImages.length) return undefined
     const sequence = saveSequenceRef.current + 1
@@ -175,6 +209,10 @@ export default function QianxunComposePage() {
   }
 
   const goBack = async () => {
+    if (editPostIdRef.current) {
+      await Taro.navigateBack()
+      return
+    }
     try {
       await deleteCommunityDraft(postType)
     } catch (error) {
@@ -197,8 +235,11 @@ export default function QianxunComposePage() {
     if (publishing) return
     setPublishing(true)
     try {
-      const publishResult = await publishCommunityPost(content.trim(), images.map(item => item.url!).filter(Boolean), topicId, postType)
-      await deleteCommunityDraft(postType).catch(() => undefined)
+      const imageUrls = images.map(item => item.url!).filter(Boolean)
+      const publishResult = editPostIdRef.current
+        ? await resubmitCommunityPost(editPostIdRef.current, content.trim(), imageUrls, topicId, postType)
+        : await publishCommunityPost(content.trim(), imageUrls, topicId, postType)
+      if (!editPostIdRef.current) await deleteCommunityDraft(postType).catch(() => undefined)
       await Taro.redirectTo({ url: `/pages/qianxun/interactions?section=mine&postNo=${encodeURIComponent(publishResult.postNo)}&status=${encodeURIComponent(publishResult.status)}` })
     } catch (error) {
       showFailureFeedback(COMMUNITY_COPY_KEYS.publishFailed, error)
@@ -221,7 +262,7 @@ export default function QianxunComposePage() {
 
   return (
     <View id="qianxun-compose-page" style={{ height: '100vh', background: '#FFFFFF', overflow: 'hidden' }}>
-      <PageHeader title={postType === 'sincere_post' ? '发布时空站台' : '发布动态'} onBack={() => void goBack()} />
+      <PageHeader title={editPostId ? '编辑动态' : postType === 'sincere_post' ? '发布时空站台' : '发布动态'} onBack={() => void goBack()} />
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '184rpx', boxSizing: 'border-box' }} showScrollbar={false}>
         <Textarea
           value={content}
@@ -275,7 +316,7 @@ export default function QianxunComposePage() {
           <ToolIcon kind="video" onClick={() => void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.videoUnavailable), icon: 'none' })} />
           <ToolIcon kind="smile" onClick={() => void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emojiUnavailable), icon: 'none' })} />
           <View style={{ flex: 1 }} />
-          <View onClick={() => void handlePublish()} style={{ width: '148rpx', height: '66rpx', borderRadius: '8rpx', background: canPublish ? BLUE : '#F4F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: canPublish ? '#FFFFFF' : '#999999', fontSize: '28rpx', fontWeight: 500 }}>{publishing ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishing) : '发布'}</Text></View>
+          <View onClick={() => void handlePublish()} style={{ minWidth: editPostId ? '210rpx' : '148rpx', height: '66rpx', padding: '0 20rpx', borderRadius: '8rpx', background: canPublish ? BLUE : '#F4F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: canPublish ? '#FFFFFF' : '#999999', fontSize: '28rpx', fontWeight: 500 }}>{publishing ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishing) : editPostId ? '重新提交审核' : '发布'}</Text></View>
         </View>
       </View>
 
