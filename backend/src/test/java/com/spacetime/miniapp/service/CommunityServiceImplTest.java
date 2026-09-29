@@ -30,6 +30,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -37,9 +38,11 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -133,6 +136,48 @@ class CommunityServiceImplTest {
             return keys.stream().map(key -> appConfig(key, runtimeConfigs.get(key))).toList();
         });
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    }
+
+    @Test
+    void differentUsersCanHideSameAuthorWithoutOutboxUniqueKeyCollision() {
+        AppUser target = author(2L, "target");
+        AppUser anotherUser = author(3L, "another");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(2L)).thenReturn(target);
+        when(appUserDao.selectById(3L)).thenReturn(anotherUser);
+
+        Set<String> outboxBusinessKeys = new HashSet<>();
+        lenient().doAnswer(invocation -> {
+            CommunityEventOutbox event = invocation.getArgument(0);
+            String key = event.getEventType() + ":" + event.getAggregateNo() + ":" + event.getAggregateVersion();
+            if (!outboxBusinessKeys.add(key)) {
+                throw new DuplicateKeyException("社区事件业务键重复");
+            }
+            return null;
+        }).when(communityExtensionDao).insertOutbox(any());
+
+        assertThat(communityService.hideAuthor(1L, "USR-000000000002").getHidden()).isTrue();
+        assertThat(communityService.hideAuthor(3L, "USR-000000000002").getHidden()).isTrue();
+        verify(communityExtensionDao, times(2)).insertPreference(any());
+        verify(communityExtensionDao, never()).insertOutbox(any());
+    }
+
+    @Test
+    void unhideAuthorUpdatesPreferenceWithoutUnsupportedOutboxEvent() {
+        AppUser target = author(2L, "target");
+        CommunityContentPreference preference = new CommunityContentPreference();
+        preference.setUserId(1L);
+        preference.setTargetUserId(2L);
+        preference.setActionType("hide_author_posts");
+        preference.setStatus("enabled");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(2L)).thenReturn(target);
+        when(communityExtensionDao.selectPreferenceOne(any())).thenReturn(preference);
+
+        assertThat(communityService.unhideAuthor(1L, "USR-000000000002").getHidden()).isFalse();
+        assertThat(preference.getStatus()).isEqualTo("disabled");
+        verify(communityExtensionDao).updatePreference(preference);
+        verify(communityExtensionDao, never()).insertOutbox(any());
     }
 
     @Test
