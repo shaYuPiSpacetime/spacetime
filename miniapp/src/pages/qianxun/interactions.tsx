@@ -16,12 +16,14 @@ import {
   getCommunityPostInteractors,
   getCommunityProfileSummary,
   getCommunityComments,
+  getHiddenCommunityAuthors,
   getMyCommunityPosts,
   resolveCommunityCopy,
   resolveCommunityFeedback,
   resolveCommunityStatusLabel,
   toggleCommunityFollow,
   toggleCommunityLike,
+  unhideCommunityAuthor,
   type CommunityConfig,
   type CommunityCommentVO,
   type CommunityPostVO,
@@ -97,6 +99,10 @@ export default function QianxunInteractionsPage() {
   const [interactorPostId, setInteractorPostId] = useState<string>()
   const [interactorType, setInteractorType] = useState<'liked' | 'commented'>('liked')
   const [likeSummaryVisible, setLikeSummaryVisible] = useState(false)
+  const [hiddenAuthorsVisible, setHiddenAuthorsVisible] = useState(false)
+  const [hiddenAuthorsLoading, setHiddenAuthorsLoading] = useState(false)
+  const [hiddenAuthors, setHiddenAuthors] = useState<CommunityRelationUserVO[]>([])
+  const [restoringAuthorIds, setRestoringAuthorIds] = useState<number[]>([])
   const [likingPostIds, setLikingPostIds] = useState<number[]>([])
   const [config, setConfig] = useState<CommunityConfig>()
 
@@ -182,6 +188,33 @@ export default function QianxunInteractionsPage() {
       await showError(config, error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const openHiddenAuthors = async () => {
+    setHiddenAuthorsVisible(true)
+    setHiddenAuthorsLoading(true)
+    try {
+      const page = await getHiddenCommunityAuthors(1, 100)
+      setHiddenAuthors(page.records || [])
+    } catch (error) {
+      await showError(config, error)
+    } finally {
+      setHiddenAuthorsLoading(false)
+    }
+  }
+
+  const restoreHiddenAuthor = async (user: CommunityRelationUserVO) => {
+    if (restoringAuthorIds.includes(user.userId)) return
+    setRestoringAuthorIds(ids => [...ids, user.userId])
+    try {
+      await unhideCommunityAuthor(user.userNo || user.userId)
+      setHiddenAuthors(items => items.filter(item => item.userId !== user.userId))
+      await Taro.showToast({ title: '已恢复查看 TA 的动态', icon: 'none' })
+    } catch (error) {
+      await showError(config, error)
+    } finally {
+      setRestoringAuthorIds(ids => ids.filter(id => id !== user.userId))
     }
   }
 
@@ -283,10 +316,11 @@ export default function QianxunInteractionsPage() {
           </ScrollView>
         </View>
         <View id="qianxun-interactions-panel-mine" data-section-panel="mine" style={sectionPanelStyle(section === 'mine')}>
-          <MinePanel loading={loading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} />
+          <MinePanel loading={loading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} onManageHiddenAuthors={() => void openHiddenAuthors()} />
         </View>
       </View>
       {likeSummaryVisible ? <LikeSummary count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} /> : null}
+      {hiddenAuthorsVisible ? <HiddenAuthorsSheet users={hiddenAuthors} loading={hiddenAuthorsLoading} restoringUserIds={restoringAuthorIds} onRestore={user => void restoreHiddenAuthor(user)} onClose={() => setHiddenAuthorsVisible(false)} /> : null}
     </View>
   )
 }
@@ -361,10 +395,14 @@ function sectionPanelStyle(active: boolean) {
   }
 }
 
-function MinePanel({ loading, posts, likingPostIds, config, onLike }: { loading: boolean; posts: MyPostSnapshot[]; likingPostIds: number[]; config?: CommunityConfig; onLike: (item: MyPostSnapshot) => void }) {
+function MinePanel({ loading, posts, likingPostIds, config, onLike, onManageHiddenAuthors }: { loading: boolean; posts: MyPostSnapshot[]; likingPostIds: number[]; config?: CommunityConfig; onLike: (item: MyPostSnapshot) => void; onManageHiddenAuthors: () => void }) {
   return (
     <ScrollView scrollY style={{ height: '100%' }} showScrollbar={false}>
       <View style={{ padding: '6rpx 26rpx 54rpx' }}>
+        <View id="qianxun-hidden-authors-entry" onClick={onManageHiddenAuthors} style={{ height: '82rpx', marginBottom: '18rpx', padding: '0 24rpx', borderRadius: '12rpx', background: '#F5F8FC', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ color: '#333333', fontSize: '25rpx' }}>不看 TA 动态的用户</Text>
+          <Text style={{ color: '#8A93A2', fontSize: '23rpx' }}>管理 ›</Text>
+        </View>
         <View id="qianxun-post-guide" style={{ position: 'relative', width: '650rpx', height: '188rpx', borderRadius: '12rpx', overflow: 'hidden' }}>
           <Image src={miniappOssIcons.qianxunPostGuideBg} mode="scaleToFill" style={{ position: 'absolute', left: 0, top: 0, width: '650rpx', height: '188rpx' }} />
           <Text style={{ position: 'absolute', left: '45rpx', top: '42rpx', color: '#999999', fontSize: '27rpx', lineHeight: '40rpx' }}>记录美好生活 遇上另一半</Text>
@@ -373,6 +411,33 @@ function MinePanel({ loading, posts, likingPostIds, config, onLike }: { loading:
         {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} liking={Boolean(item.postId && likingPostIds.includes(item.postId))} config={config} onLike={() => onLike(item)} />) : <MineEmpty config={config} />}
       </View>
     </ScrollView>
+  )
+}
+
+function HiddenAuthorsSheet({ users, loading, restoringUserIds, onRestore, onClose }: { users: CommunityRelationUserVO[]; loading: boolean; restoringUserIds: number[]; onRestore: (user: CommunityRelationUserVO) => void; onClose: () => void }) {
+  return (
+    <View onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,28,38,.38)', display: 'flex', alignItems: 'flex-end' }}>
+      <View onClick={event => event.stopPropagation()} style={{ width: '100%', maxHeight: '72vh', borderRadius: '30rpx 30rpx 0 0', background: '#FFFFFF', overflow: 'hidden', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <View style={{ height: '100rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1rpx solid #EFF2F6' }}>
+          <Text style={{ color: '#222222', fontSize: '30rpx', fontWeight: 600 }}>不看 TA 动态的用户</Text>
+          <Text onClick={onClose} style={{ color: '#8A93A2', fontSize: '25rpx' }}>关闭</Text>
+        </View>
+        <ScrollView scrollY style={{ maxHeight: 'calc(72vh - 100rpx)' }} showScrollbar={false}>
+          {loading ? <LoadingRows /> : users.length ? users.map(user => (
+            <View key={user.userNo || user.userId} style={{ minHeight: '112rpx', padding: '12rpx 30rpx', display: 'flex', alignItems: 'center', borderBottom: '1rpx solid #F3F5F8', boxSizing: 'border-box' }}>
+              <Image src={normalizeAvatarUrl(user.avatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: '#EEF1F5' }} />
+              <View style={{ minWidth: 0, flex: 1, marginLeft: '18rpx' }}>
+                <Text style={{ display: 'block', color: '#292929', fontSize: '26rpx', lineHeight: '38rpx', fontWeight: 600 }}>{user.nickname}</Text>
+                <Text style={{ display: 'block', color: '#A1A1A1', fontSize: '22rpx', lineHeight: '32rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.description}</Text>
+              </View>
+              <View onClick={() => onRestore(user)} style={{ minWidth: '136rpx', height: '56rpx', marginLeft: '16rpx', borderRadius: '28rpx', border: '1rpx solid #2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', opacity: restoringUserIds.includes(user.userId) ? 0.55 : 1 }}>
+                <Text style={{ color: '#2876FF', fontSize: '23rpx' }}>{restoringUserIds.includes(user.userId) ? '处理中' : '恢复查看'}</Text>
+              </View>
+            </View>
+          )) : <View style={{ padding: '72rpx 30rpx', display: 'flex', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '25rpx' }}>暂无不看动态的用户</Text></View>}
+        </ScrollView>
+      </View>
+    </View>
   )
 }
 

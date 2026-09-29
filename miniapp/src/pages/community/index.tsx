@@ -317,6 +317,13 @@ export default function CommunityPage() {
         setUnlockStage('success')
         return
       }
+      if (quote.coinBalance < quote.unitPrice) {
+        setUnlockStage('closed')
+        void Taro.navigateTo({
+          url: `/pages/coins/unlock-recharge?sourceScene=${currentUnlockScene}&cost=${quote.unitPrice}&balance=${quote.coinBalance}`,
+        })
+        return
+      }
       if (!quote.quoteToken) throw new Error('报价已失效，请重试')
       unlockAttemptRef.current = ensureUnlockAttempt(
         undefined,

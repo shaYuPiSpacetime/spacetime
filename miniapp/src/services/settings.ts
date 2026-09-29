@@ -1,7 +1,9 @@
-import { get, post } from './request'
+import { del, get, post } from './request'
+import type { PageVO } from '@/types/api'
 import type {
   AccountCancelCheck,
   AccountCancelStatus,
+  BlockedUserVO,
   ComplianceContentDetail,
   ContentArticleDetail,
   ContentArticleSummary,
@@ -37,4 +39,8 @@ export const settingsApi = {
   ) => get<SearchResultPage>('/miniapp/search/results', { keyword, type, page, size, sourceScene }),
   addBlacklist: (targetUserId: number, sourceScene: string) =>
     post<number>('/miniapp/settings/blocks/blacklist', { targetUserId, sourceScene }),
+  blacklist: (page = 1, size = 20) =>
+    get<PageVO<BlockedUserVO>>('/miniapp/settings/blocks/blacklist', { page, size }),
+  removeBlacklist: (id: number) =>
+    del<void>(`/miniapp/settings/blocks/blacklist/${id}`),
 }

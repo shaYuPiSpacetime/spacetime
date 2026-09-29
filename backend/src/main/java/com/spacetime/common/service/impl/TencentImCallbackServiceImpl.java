@@ -562,11 +562,20 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
 
     private boolean femaleProtectionBlocks(AppMessageConversation conversation,
                                              Long senderUserId, LocalDateTime now) {
-        return Integer.valueOf(1).equals(conversation.getProtectionEnabled())
-                && Objects.equals(senderUserId, conversation.getMaleUserId())
-                && conversation.getFemaleFirstMessageAt() == null
-                && (conversation.getProtectionUntil() == null
-                || now.isBefore(conversation.getProtectionUntil()));
+        if (!Integer.valueOf(1).equals(conversation.getProtectionEnabled())
+                || !Objects.equals(senderUserId, conversation.getMaleUserId())
+                || (conversation.getProtectionUntil() != null
+                    && !now.isBefore(conversation.getProtectionUntil()))
+                || conversation.getLastMessageId() == null) {
+            return false;
+        }
+        AppMessageRecord lastMessage = recordDao.selectById(conversation.getLastMessageId());
+        return lastMessage != null
+                && Objects.equals(lastMessage.getConversationId(), conversation.getId())
+                && Objects.equals(lastMessage.getSenderUserId(), conversation.getMaleUserId())
+                && MessageSendStatusEnum.SENT.getCode().equals(lastMessage.getSendStatus())
+                && Set.of(MessageTypeEnum.TEXT.getCode(), MessageTypeEnum.WHISPER.getCode(),
+                        MessageTypeEnum.WHISPER_REPLY.getCode()).contains(lastMessage.getMessageType());
     }
 
     private void requireSameTextMapping(AppMessageRecord record, ParticipantPair pair,

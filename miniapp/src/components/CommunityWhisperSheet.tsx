@@ -16,6 +16,7 @@ type CommunityWhisperSheetProps = {
   onContentChange: (value: string) => void
   onClose: () => void
   onSubmit: () => void
+  onRecharge: () => void
 }
 
 /** 社区来源页内的悄悄话扣费弹窗，不创建独立路由。 */
@@ -31,10 +32,12 @@ export default function CommunityWhisperSheet({
   onContentChange,
   onClose,
   onSubmit,
+  onRecharge,
 }: CommunityWhisperSheetProps) {
   const maxLength = precheck?.contentMaxLength || 60
   const length = Array.from(content).length
-  const disabled = loading || submitting || !precheck?.canSend || length < 1 || length > maxLength
+  const insufficientBalance = Boolean(precheck && !precheck.free && precheck.coinBalance < precheck.coinAmount)
+  const disabled = loading || submitting || (!insufficientBalance && (!precheck?.canSend || length < 1 || length > maxLength))
   const costText = loading
     ? '查询中…'
     : precheck?.free
@@ -75,8 +78,8 @@ export default function CommunityWhisperSheet({
             <Text style={{ display: 'block', color: BLUE, fontSize: precheck?.free ? '26rpx' : '34rpx', lineHeight: '44rpx' }}>{costText}</Text>
             <Text style={{ display: 'block', color: '#999999', fontSize: '23rpx', lineHeight: '34rpx', marginTop: '4rpx' }}>悄悄话直达，配对率翻倍</Text>
           </View>
-          <View onClick={() => { if (!disabled) onSubmit() }} style={{ width: '252rpx', height: '82rpx', borderRadius: '41rpx', background: disabled ? '#A8C8FA' : BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '发送中…' : '发送悄悄话'}</Text>
+          <View onClick={() => { if (disabled) return; if (insufficientBalance) onRecharge(); else onSubmit() }} style={{ width: '252rpx', height: '82rpx', borderRadius: '41rpx', background: disabled ? '#A8C8FA' : BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '发送中…' : insufficientBalance ? '去充值' : '发送悄悄话'}</Text>
           </View>
         </View>
         {precheck && !precheck.canSend && precheck.reasonText ? <Text style={{ display: 'block', color: '#E35C5C', fontSize: '22rpx', textAlign: 'center', marginTop: '14rpx' }}>{precheck.reasonText}</Text> : null}

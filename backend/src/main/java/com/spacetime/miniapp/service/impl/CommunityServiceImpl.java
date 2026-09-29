@@ -72,6 +72,8 @@ public class CommunityServiceImpl implements CommunityService {
     private final DictDataDao dictDataDao;
     /** 小程序用户数据访问 */
     private final AppUserDao appUserDao;
+    /** 用户黑名单关系数据访问。 */
+    private final AppUserRelationBlockDao relationBlockDao;
     /** 后台工作人员数据访问，用于时空站台发布鉴权。 */
     private final UserDao userDao;
     /** 用户审核内容统一查询 */
@@ -437,6 +439,7 @@ public class CommunityServiceImpl implements CommunityService {
     @Override
     public CommunityPostDetailVO getPostDetail(Long userId, String postId) {
         CommunityPost post = requirePostRef(postId);
+        requireNotBlockedFromPosts(userId, post.getAuthorId());
         if (!CommunityPostStatusEnum.PUBLISHED.getCode().equals(post.getStatus())
                 && !Objects.equals(userId, post.getAuthorId())) {
             throw error("content_unavailable");
@@ -979,6 +982,9 @@ public class CommunityServiceImpl implements CommunityService {
     public Page<CommunityPostCardVO> getUserPosts(Long currentUserId, String targetUserRef, boolean mine, int page, int size) {
         Long targetUserId = resolveUserRef(targetUserRef);
         requireUser(targetUserId);
+        if (!mine) {
+            requireNotBlockedFromPosts(currentUserId, targetUserId);
+        }
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
                 .eq(CommunityPost::getAuthorId, targetUserId)
                 .eq(!mine, CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
@@ -986,6 +992,19 @@ public class CommunityServiceImpl implements CommunityService {
                 .orderByDesc(CommunityPost::getCreateTime);
         Page<CommunityPost> data = communityPostDao.selectPage(new Page<>(safePage(page), safeSize(size, 100)), wrapper);
         return toPostCardPage(currentUserId, data);
+    }
+
+    /** 黑名单任一方都不能通过动态列表或详情读取对方动态。 */
+    private void requireNotBlockedFromPosts(Long currentUserId, Long authorId) {
+        if (currentUserId == null || authorId == null || Objects.equals(currentUserId, authorId)) {
+            return;
+        }
+        String blockType = RelationBlockTypeEnum.BLACKLIST.getCode();
+        boolean blocked = relationBlockDao.selectActive(currentUserId, authorId, blockType) != null
+                || relationBlockDao.selectActive(authorId, currentUserId, blockType) != null;
+        if (blocked) {
+            throw error("content_unavailable");
+        }
     }
 
     @Override

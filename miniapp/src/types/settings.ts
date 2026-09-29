@@ -114,3 +114,13 @@ export interface ContentPage<T> {
   current: number
   pages: number
 }
+
+export interface BlockedUserVO {
+  id: number
+  targetUserId: number
+  targetNickname: string
+  targetAvatar?: string | null
+  blockType: string
+  sourceScene?: string | null
+  createTime?: string | null
+}

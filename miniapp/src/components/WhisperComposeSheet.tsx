@@ -1,4 +1,4 @@
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
 import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
@@ -27,6 +27,25 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const idempotencyCache = useRef(createWhisperIdempotencyCache()).current
+  const refreshAfterRecharge = useRef(false)
+
+  const refreshPrecheck = async () => {
+    const result = await precheckWhisper({
+      targetUserNo: target.targetUserNo,
+      sourceScene: target.sourceScene,
+      sourceBizNo: target.sourceBizNo,
+    })
+    setPrecheck(result)
+  }
+
+  useDidShow(() => {
+    if (!refreshAfterRecharge.current) return
+    refreshAfterRecharge.current = false
+    setLoading(true)
+    void refreshPrecheck().catch(error => {
+      void Taro.showToast({ title: resolveWhisperErrorMessage(error, '余额刷新失败，请重试'), icon: 'none' })
+    }).finally(() => setLoading(false))
+  })
 
   useEffect(() => {
     let active = true
@@ -55,6 +74,17 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
     if (submitting) return
     await Taro.hideKeyboard().catch(() => undefined)
     onClose()
+  }
+
+  const recharge = () => {
+    if (refreshAfterRecharge.current) return
+    refreshAfterRecharge.current = true
+    setLoading(true)
+    void Taro.navigateTo({ url: '/pages/coins/index?sourceScene=whisper' }).catch(error => {
+      refreshAfterRecharge.current = false
+      setLoading(false)
+      void Taro.showToast({ title: resolveWhisperErrorMessage(error, '无法打开充值页，请稍后重试'), icon: 'none' })
+    })
   }
 
   const submit = async () => {
@@ -109,5 +139,6 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
     onContentChange={setContent}
     onClose={() => void close()}
     onSubmit={() => void submit()}
+    onRecharge={recharge}
   />
 }

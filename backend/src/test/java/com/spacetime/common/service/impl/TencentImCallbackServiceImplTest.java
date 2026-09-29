@@ -128,14 +128,13 @@ class TencentImCallbackServiceImplTest {
     }
 
     @Test
-    void shouldReturnTencentCustomCodeWhenMaleIsBlockedByFemaleProtection() {
+    void shouldAllowMaleFirstMessageDuringFemaleProtection() {
         openTextConversation(true);
 
         TencentImCallbackResponse response = service.handle(signedRequest(
                 "C2C.CallbackBeforeSendMsg", textBody("C2C.CallbackBeforeSendMsg")));
 
-        assertThat(response.errorCode()).isEqualTo(120003);
-        assertThat(response.errorInfo()).contains("30003");
+        assertThat(response.errorCode()).isZero();
     }
 
     @Test
