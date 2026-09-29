@@ -211,7 +211,9 @@ export default function HeartUserPage() {
       await Taro.showToast({ title: '已拉黑', icon: 'success' })
       await Taro.navigateBack()
     } catch (error) {
-      if (!String((error as { errMsg?: string })?.errMsg || error).includes('cancel')) await Taro.showToast({ title: '操作失败，请重试', icon: 'none' })
+      if (!String((error as { errMsg?: string })?.errMsg || error).includes('cancel')) {
+        await Taro.showToast({ title: error instanceof Error ? error.message : '操作失败，请重试', icon: 'none' })
+      }
     }
   }
 

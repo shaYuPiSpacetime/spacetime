@@ -28,6 +28,14 @@ public class AppUserRelationBlockDaoImpl implements AppUserRelationBlockDao {
     }
 
     @Override
+    public AppUserRelationBlock selectByUserAndTargetAndType(Long userId, Long targetUserId, String blockType) {
+        return mapper.selectOne(new LambdaQueryWrapper<AppUserRelationBlock>()
+                .eq(AppUserRelationBlock::getUserId, userId)
+                .eq(AppUserRelationBlock::getTargetUserId, targetUserId)
+                .eq(AppUserRelationBlock::getBlockType, blockType));
+    }
+
+    @Override
     public List<AppUserRelationBlock> selectActiveByUserId(Long userId, String blockType) {
         return mapper.selectList(activeWrapper(userId, blockType).orderByDesc(AppUserRelationBlock::getCreateTime));
     }

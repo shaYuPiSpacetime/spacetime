@@ -143,22 +143,34 @@ public class MiniappSettingServiceImpl extends UserSecurityBaseSupport implement
         if (userId.equals(req.getTargetUserId())) {
             throw new BusinessException("不能屏蔽自己");
         }
-        AppUserRelationBlock existing = relationBlockDao.selectActive(userId, req.getTargetUserId(), blockType);
-        if (existing != null) {
+        AppUserRelationBlock existing = relationBlockDao.selectByUserAndTargetAndType(
+                userId, req.getTargetUserId(), blockType);
+        if (existing != null && CommonStatusEnum.ENABLED.getCode().equals(existing.getStatus())) {
             return existing.getId();
         }
-        AppUserRelationBlock entity = new AppUserRelationBlock();
-        entity.setUserId(userId);
-        entity.setTargetUserId(req.getTargetUserId());
-        entity.setBlockType(blockType);
-        entity.setSourceScene(req.getSourceScene());
-        entity.setStatus(CommonStatusEnum.ENABLED.getCode());
-        relationBlockDao.insert(entity);
+        AppUserRelationBlock entity = existing;
+        boolean reactivated = entity != null;
+        if (reactivated) {
+            entity.setStatus(CommonStatusEnum.ENABLED.getCode());
+            entity.setSourceScene(req.getSourceScene());
+            relationBlockDao.updateById(entity);
+        } else {
+            entity = new AppUserRelationBlock();
+            entity.setUserId(userId);
+            entity.setTargetUserId(req.getTargetUserId());
+            entity.setBlockType(blockType);
+            entity.setSourceScene(req.getSourceScene());
+            entity.setStatus(CommonStatusEnum.ENABLED.getCode());
+            relationBlockDao.insert(entity);
+        }
         if (RelationBlockTypeEnum.BLACKLIST.getCode().equals(blockType)) {
             relationLifecycleService.invalidateByPair(userId, req.getTargetUserId(),
                     RelationInvalidReasonEnum.BLOCKED, LocalDateTime.now());
         }
-        writeAudit(auditLogDao, userId, userId, "RELATION_BLOCK", entity.getId(), "CREATE", null, blockType + ":" + req.getTargetUserId());
+        writeAudit(auditLogDao, userId, userId, "RELATION_BLOCK", entity.getId(),
+                reactivated ? "ENABLE" : "CREATE",
+                reactivated ? CommonStatusEnum.DISABLED.getCode() : null,
+                CommonStatusEnum.ENABLED.getCode() + ":" + blockType + ":" + req.getTargetUserId());
         return entity.getId();
     }
 

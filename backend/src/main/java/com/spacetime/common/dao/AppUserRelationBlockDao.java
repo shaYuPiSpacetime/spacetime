@@ -9,6 +9,7 @@ import java.util.List;
 public interface AppUserRelationBlockDao {
     AppUserRelationBlock selectById(Long id);
     AppUserRelationBlock selectActive(Long userId, Long targetUserId, String blockType);
+    AppUserRelationBlock selectByUserAndTargetAndType(Long userId, Long targetUserId, String blockType);
     List<AppUserRelationBlock> selectActiveByUserId(Long userId, String blockType);
     /** 批量查询当前用户与候选用户之间的有效屏蔽关系，供列表场景消除逐行查询。 */
     List<AppUserRelationBlock> selectActiveBetweenUserAndTargets(
