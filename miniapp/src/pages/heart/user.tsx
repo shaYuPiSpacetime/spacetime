@@ -1,5 +1,5 @@
 import { Image, Text, View } from '@tarojs/components'
-import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
+import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
@@ -103,7 +103,7 @@ export default function HeartUserPage() {
     void loadProfile()
   }, [targetUserId, sourceScene, eventNo])
 
-  useEffect(() => {
+  useDidShow(() => {
     setCommunityPostsLoading(true)
     setCommunityPostsError('')
     void getCommunityMeta().then(async runtime => {
@@ -115,7 +115,7 @@ export default function HeartUserPage() {
       setCommunityPosts([])
       setCommunityPostsError(resolveCommunityFeedback(communityConfig, COMMUNITY_COPY_KEYS.loadFailed, error))
     }).finally(() => setCommunityPostsLoading(false))
-  }, [targetUserId])
+  })
 
   const toggleLike = async () => {
     if (!profile || likeSubmitting) return

@@ -268,7 +268,7 @@ public class CommunityController {
     public R<Page<CommunityPostCardVO>> userPosts(@PathVariable String userId,
                                                    @RequestParam(defaultValue = "1") int page,
                                                    @RequestParam(defaultValue = "10") int size) {
-        return R.ok(communityService.getUserPosts(optionalCurrentUserId(), userId, false, page, size));
+        return R.ok(communityService.getUserPosts(currentUserId(), userId, false, page, size));
     }
 
     @GetMapping("/me/interactions")
