@@ -2,6 +2,12 @@
 
 This repository keeps its original Claude Code workflow under `.claude/`. Codex should treat those files as project workflow references and must read the relevant file before doing matching work.
 
+## 固定分支规则
+
+- 本项目后续只在 `master` 分支修改、提交和 Push 代码；开始修改前先核对并同步 `origin/master`，不得新建或切换到其他功能分支开展工作。
+- 历史分支如有尚未合入的必要改动，应在 `master` 上选择性合入，保留用户未提交的文件；不得因此继续沿用历史分支。
+- 若 `master` 受到保护、远端冲突或其他门禁阻止直推，应说明阻碍并等待用户决定，不得擅自改用新分支或 PR 绕过。
+
 ## Required Routing
 
 When the user asks for technical design, architecture design, implementation plan, `tcdesign`, or PRD technical方案:
