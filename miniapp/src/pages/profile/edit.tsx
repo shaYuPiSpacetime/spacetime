@@ -1,5 +1,5 @@
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import ProfilePreviewTopNav from '@/components/ProfilePreviewTopNav'
@@ -21,6 +21,7 @@ import { useProfileScore } from '@/hooks/useProfileScore'
 import { getMyCommunityPosts, type CommunityPostVO } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
+import { useAuthStore } from '@/stores/authStore'
 import type { BasicProfile, ProfileFieldSetting, ProfileMedia, RegionTreeOption, VerificationStatus, VoiceIntro } from '@/types/prd01'
 import { PROFILE_UPDATED_EVENT, type ProfileEditUpdate } from '@/utils/profileEditEvents'
 import type { ProfileTagItem } from '@/utils/profileTags'
@@ -203,6 +204,7 @@ function resolveVoiceSheetVariant(value?: string): VoiceSheetVariant | null {
 
 export default function ProfileEditPage() {
   const router = useRouter()
+  const currentUserId = useAuthStore(state => state.userId)
   const { profileScore, loadBasicProfile, refreshProfileScore } = useProfileScore(router.params.profileScore)
   const [showPreview, setShowPreview] = useState(router.params.variant === 'preview')
   const bootstrap = usePrd01Store(state => state.bootstrap)
@@ -210,10 +212,14 @@ export default function ProfileEditPage() {
   const profileOptions = usePrd01Store(state => state.profileOptions)
   const [profileAvatar, setProfileAvatar] = useState('')
   const [previewAvatar, setPreviewAvatar] = useState('')
-  const [profileBackground, setProfileBackground] = useState('')
   const [previewBackground, setPreviewBackground] = useState('')
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
   const [nickname, setNickname] = useState('')
+  useShareAppMessage(() => ({
+    title: nickname ? `${nickname}的主页` : '时空邂逅用户主页',
+    path: currentUserId ? `/pages/heart/user?targetUserId=${currentUserId}` : '/pages/profile/index',
+    imageUrl: previewBackground || previewAvatar || undefined,
+  }))
   const [basic, setBasic] = useState<BasicProfile>({})
   const [regionTree, setRegionTree] = useState<RegionTreeOption[]>([])
   const [fieldSettings, setFieldSettings] = useState<ProfileFieldSetting[]>([])
@@ -274,8 +280,6 @@ export default function ProfileEditPage() {
         const options = usePrd01Store.getState().profileOptions
         const profile = home.profile
         const avatar = String(profile.avatar || '')
-        const background = String(profile.profileBgImage || '')
-        setProfileBackground(background)
         setPreviewBackground(String(backgroundDetail?.effectiveMediaUrl || ''))
         const nextGoalCode = String(profile.datingGoal || '')
         const nextRelationshipCode = String(profile.emotionalStatus || '')
@@ -331,6 +335,10 @@ export default function ProfileEditPage() {
   useEffect(() => {
     voiceDetailRef.current = voiceDetail
   }, [voiceDetail])
+
+  useDidShow(() => {
+    void prd01Api.getVoiceIntro().then(setVoiceDetail).catch(() => undefined)
+  })
 
   const setRecordingElapsed = (seconds: number) => {
     recordingSecondsRef.current = seconds
@@ -514,6 +522,14 @@ export default function ProfileEditPage() {
     }
   }
 
+  const openVoiceRecorder = () => {
+    if (voiceDetail?.canSubmit === false) {
+      void Taro.showToast({ title: '语音审核中，请稍后查看', icon: 'none' })
+      return
+    }
+    setVoiceSheet(voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')
+  }
+
   const cancelVoiceConfirm = () => {
     setVoiceSheet(current => current === 'exit' ? 'recording' : 'complete')
   }
@@ -690,7 +706,7 @@ export default function ProfileEditPage() {
         sortOrder: 0,
       })
       const backgroundUrl = saved.mediaUrl || uploaded.url
-      setProfileBackground(backgroundUrl)
+      setPreviewBackground(backgroundUrl)
       void refreshProfileScore()
     }, '更换背景')
   }
@@ -875,7 +891,7 @@ export default function ProfileEditPage() {
           </ProfileSection>
           <VoiceSection
             voice={voiceDetail}
-            onRecord={() => setVoiceSheet(voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')}
+            onRecord={openVoiceRecorder}
             onDelete={() => setVoiceSheet('delete')}
           />
           <AboutDetailSection
@@ -1765,11 +1781,21 @@ function AboutMeSection({ value, onEdit }: { value: string; onEdit: () => void }
 }
 
 function VoiceSection({ voice, onRecord, onDelete }: { voice?: VoiceIntro; onRecord: () => void; onDelete: () => void }) {
+  const voiceUnderReview = voice?.voiceIntroAuditStatus === 'PENDING' || voice?.voiceIntroAuditStatus === 'REVIEWING'
   const hasVoice = Boolean(voice?.voiceIntroUrl)
   const duration = voice ? voice.voiceIntroDuration || 0 : 0
   return (
-    <ProfileSection title="语音介绍" action={hasVoice ? '管理' : '录音'} actionId="voice-intro-manage" onAction={onRecord} padding={hasVoice ? '30rpx 26rpx 36rpx' : undefined}>
-      {hasVoice ? (
+    <ProfileSection title="语音介绍" action={voiceUnderReview ? '审核中' : hasVoice ? '管理' : '录音'} actionId="voice-intro-manage" onAction={onRecord} padding={hasVoice ? '30rpx 26rpx 36rpx' : undefined}>
+      {voiceUnderReview ? (
+        <View data-role="voice-intro-under-review" style={{ marginTop: '24rpx', borderRadius: '12rpx', background: '#F7FAFF', padding: '24rpx 26rpx' }}>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '38rpx' }}>
+            语音已提交，审核通过后展示
+          </Text>
+          <Text style={{ display: 'block', color: '#9AA1AF', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '8rpx' }}>
+            {duration > 0 ? `已录制 ${duration} 秒 · 审核中` : '正在审核中'}
+          </Text>
+        </View>
+      ) : hasVoice ? (
         <View data-role="voice-intro-echo" style={{ marginTop: '24rpx', display: 'flex', alignItems: 'center' }}>
           <View
             id="voice-intro-saved-bar"

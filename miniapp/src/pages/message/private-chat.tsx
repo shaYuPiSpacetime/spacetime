@@ -19,6 +19,7 @@ import type { MessageImEvent, MessageImGateway } from '@/im/MessageImGateway'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
+import { useAuthStore } from '@/stores/authStore'
 import type { ChatMessage, MessageConversationDetail } from '@/types/message'
 import { DotsButton, MESSAGE_AVATAR, MessageNav } from './shared'
 import './message.scss'
@@ -705,7 +706,7 @@ function EstablishedPrivateChatPage() {
                   >
                     <Text>{message.content}</Text>
                   </View>
-                  {message.direction === 'outgoing' ? <Image className="chat-avatar" src={detail?.selfAvatarUrl || MESSAGE_AVATAR} mode="aspectFill" /> : null}
+                  {message.direction === 'outgoing' ? <Image className="chat-avatar" src={detail?.selfAvatarUrl || MESSAGE_AVATAR} mode="aspectFill" onClick={() => { const selfUserId = useAuthStore.getState().userId; if (selfUserId) void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${selfUserId}&sourceScene=profile` }) }} /> : null}
                 </View>
               </View>
             )

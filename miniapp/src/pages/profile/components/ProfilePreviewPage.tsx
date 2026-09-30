@@ -80,11 +80,6 @@ export default function ProfilePreviewPage({
   footer,
 }: ProfilePreviewPageProps) {
   const visibleContent = buildProfilePreviewVisibility(model)
-  const showShare = () => {
-    void Taro.showShareMenu({ withShareTicket: true }).catch(() => {
-      Taro.showToast({ title: '请使用右上角分享', icon: 'none' })
-    })
-  }
 
   return (
     <View style={{ height: '100vh', background: pageBackground, overflow: 'hidden', fontFamily }}>
@@ -114,7 +109,7 @@ export default function ProfilePreviewPage({
         >
           {variant === 'public-profile' ? <HeartMessageHeader title="用户主页" align="center" showBack /> : null}
           <View style={{ width: '700rpx', margin: '0 auto' }}>
-            <ProfilePreviewHero model={model} onShare={showShare} shareDirectly={variant === 'public-profile'} onSafetyActions={onSafetyActions} />
+            <ProfilePreviewHero model={model} onSafetyActions={onSafetyActions} />
             {(variant === 'owner-preview' || model.genderAgeHeight || model.location || model.datingGoal)
               ? <ProfilePreviewBasicInfo model={model} variant={variant} />
               : null}
@@ -140,16 +135,12 @@ export default function ProfilePreviewPage({
   )
 }
 
-function ProfilePreviewHero({ model, onShare, shareDirectly, onSafetyActions }: { model: ProfilePreviewModel; onShare: () => void; shareDirectly: boolean; onSafetyActions?: () => void }) {
+function ProfilePreviewHero({ model, onSafetyActions }: { model: ProfilePreviewModel; onSafetyActions?: () => void }) {
   return (
     <ProfileHeroImage src={model.heroImageUrl || miniappOssIcons.profilePreviewHero}>
-      {shareDirectly ? (
-        <Button openType="share" aria-label="分享用户主页" style={{ position: 'absolute', right: '20rpx', top: '18rpx', zIndex: 5, width: '68rpx', height: '68rpx', margin: 0, padding: '10rpx', border: 0, borderRadius: '34rpx', background: 'transparent', lineHeight: 1, boxSizing: 'border-box' }}>
-          <Image src={miniappOssIcons.profilePreviewShare} mode="scaleToFill" style={{ width: '48rpx', height: '48rpx', borderRadius: '24rpx' }} />
-        </Button>
-      ) : (
-        <Image src={miniappOssIcons.profilePreviewShare} mode="scaleToFill" onClick={onShare} style={{ position: 'absolute', right: '30rpx', top: '28rpx', width: '48rpx', height: '48rpx', borderRadius: '24rpx' }} />
-      )}
+      <Button openType="share" aria-label="分享用户主页" style={{ position: 'absolute', right: '20rpx', top: '18rpx', zIndex: 5, width: '68rpx', height: '68rpx', margin: 0, padding: '10rpx', border: 0, borderRadius: '34rpx', background: 'transparent', lineHeight: 1, boxSizing: 'border-box' }}>
+        <Image src={miniappOssIcons.profilePreviewShare} mode="scaleToFill" style={{ width: '48rpx', height: '48rpx', borderRadius: '24rpx' }} />
+      </Button>
       {onSafetyActions ? (
         <View onClick={onSafetyActions} style={{ position: 'absolute', left: '30rpx', top: '28rpx', zIndex: 4, padding: '10rpx 18rpx', borderRadius: '24rpx', background: 'rgba(0,0,0,0.28)' }}>
           <Text style={{ color: '#FFFFFF', fontSize: '22rpx' }}>举报 · 拉黑</Text>
@@ -159,6 +150,11 @@ function ProfilePreviewHero({ model, onShare, shareDirectly, onSafetyActions }: 
         id="profile-preview-avatar"
         src={model.avatarUrl || miniappOssIcons.profilePreviewAvatar}
         mode="aspectFill"
+        onClick={() => {
+          // 点击头像放大查看，编辑预览与他人主页行为一致。
+          const url = model.avatarUrl || miniappOssIcons.profilePreviewAvatar
+          void Taro.previewImage({ current: url, urls: [url] })
+        }}
         style={{
           position: 'absolute',
           zIndex: 3,

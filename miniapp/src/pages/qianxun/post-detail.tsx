@@ -322,6 +322,7 @@ export default function QianxunPostDetailPage() {
                   onReply={(target, rootId) => beginReply({ commentId: rootId, userId: target.authorId, name: target.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })}
                   onLike={target => void likeComment(target)}
                   onMore={target => setSelectedComment(target)}
+                  onAuthor={authorId => void openCommunityAuthorProfile(authorId, currentUserId, Taro.navigateTo)}
                 />
               )) : <CommentEmpty hasRemoteCount={post.commentCount > 0} config={config} />}
             </View>
@@ -369,12 +370,12 @@ function CommentEmpty({ hasRemoteCount, config }: { hasRemoteCount: boolean; con
   </View>
 }
 
-function CommentThread({ thread, postAuthorId, optionLabel, onReply, onLike, onMore }: { thread: CommunityCommentThread<CommunityCommentVO>; postAuthorId: number; optionLabel: (type: 'occupation', code?: string) => string; onReply: (target: CommunityCommentVO, rootId: number) => void; onLike: (target: CommunityCommentVO) => void; onMore: (target: CommunityCommentVO) => void }) {
+function CommentThread({ thread, postAuthorId, optionLabel, onReply, onLike, onMore, onAuthor }: { thread: CommunityCommentThread<CommunityCommentVO>; postAuthorId: number; optionLabel: (type: 'occupation', code?: string) => string; onReply: (target: CommunityCommentVO, rootId: number) => void; onLike: (target: CommunityCommentVO) => void; onMore: (target: CommunityCommentVO) => void; onAuthor: (userId: number) => void }) {
   const root = thread.root
   const meta = formatCommentAuthorMeta(root, optionLabel)
   return <View className="qianxun-comment-thread" style={{ padding: '24rpx 0', borderBottom: '1rpx solid #EFF4FC' }}>
     <View style={{ display: 'flex', alignItems: 'flex-start' }}>
-      <Image src={root.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF2F6', flexShrink: 0 }} />
+      <Image onClick={() => onAuthor(root.authorId)} src={root.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF2F6', flexShrink: 0 }} />
       <View onClick={() => onReply(root, root.id)} onLongPress={() => onMore(root)} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
         <View style={{ display: 'flex', alignItems: 'center', minHeight: '37rpx' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{root.authorName || '用户'}</Text><View style={{ marginLeft: '10rpx', display: 'flex' }}><QianxunGenderIcon gender={root.authorGender} size="28rpx" /></View></View>
         {meta ? <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', marginTop: '5rpx' }}>{meta}</Text> : null}
@@ -384,7 +385,7 @@ function CommentThread({ thread, postAuthorId, optionLabel, onReply, onLike, onM
     </View>
     {thread.replies.map(reply => (
       <View key={reply.id} className="qianxun-comment-child" style={{ display: 'flex', alignItems: 'flex-start', marginLeft: '100rpx', marginTop: '26rpx' }}>
-        <Image src={reply.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '48rpx', height: '48rpx', borderRadius: '24rpx', background: '#EEF2F6', flexShrink: 0 }} />
+        <Image onClick={() => onAuthor(reply.authorId)} src={reply.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '48rpx', height: '48rpx', borderRadius: '24rpx', background: '#EEF2F6', flexShrink: 0 }} />
         <View onClick={() => onReply(reply, root.id)} onLongPress={() => onMore(reply)} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
           <View style={{ display: 'flex', alignItems: 'center', minHeight: '34rpx' }}><Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '34rpx', fontWeight: 500 }}>{reply.authorName || '用户'}</Text>{reply.authorId === postAuthorId ? <View style={{ height: '30rpx', borderRadius: '8rpx', background: '#E3F1FE', padding: '0 9rpx', marginLeft: '10rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '20rpx', lineHeight: '28rpx' }}>楼主</Text></View> : null}</View>
           <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '38rpx', marginTop: '15rpx' }}>{reply.replyUserName ? <Text style={{ color: '#999999' }}>回复 {reply.replyUserName}： </Text> : null}{reply.content}</Text>
