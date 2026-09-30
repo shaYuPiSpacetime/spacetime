@@ -387,7 +387,7 @@ export function LanhuRegionSheet({
                       : index < provinceIndex
                         ? '#D7D7D7'
                         : '#999999',
-                  fontSize: '28rpx',
+                  fontSize: item.name.length > 7 ? '24rpx' : '28rpx',
                   fontWeight: 500,
                   lineHeight: '40rpx',
                 }}
@@ -547,6 +547,7 @@ function regionRpxToPx(value: number) {
 }
 
 function trimRegionName(value: string) {
+  if (value.endsWith('自治区') || value.endsWith('特别行政区')) return value
   return value.replace(/[省市区]$/u, '')
 }
 

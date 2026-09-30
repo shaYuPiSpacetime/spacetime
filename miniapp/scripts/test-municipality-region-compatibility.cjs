@@ -72,6 +72,7 @@ function loadRegionSheet(showToast) {
 }
 
 function findNodes(node, predicate) {
+  if (Array.isArray(node)) return node.flatMap(child => findNodes(child, predicate))
   if (!node || typeof node !== 'object') return []
   const children = node.props?.children
   const nested = (Array.isArray(children) ? children : [children])
@@ -158,6 +159,56 @@ test('登录地址确认文案完整显示忠县', () => {
   )
   assert.equal(formatAddressLabel('重庆市', '忠县'), '重庆忠县')
   assert.equal(formatAddressLabel('北京市', '北京市'), '北京')
+})
+
+test('自治区及特别行政区在地区选择和地址回显中保留完整名称', () => {
+  const { trimRegionName } = loadFunctions(
+    'src/pages/verification/components/LanhuPickerSheet.tsx', ['trimRegionName']
+  )
+  const { trimRegionSuffix } = loadFunctions(
+    'src/pages/verification/components/BasicInfoCard.tsx', ['trimRegionSuffix']
+  )
+  const { formatAddressLabel } = loadFunctions(
+    'src/pages/login/address.tsx', ['formatAddressLabel']
+  )
+  const regions = [
+    '内蒙古自治区',
+    '广西壮族自治区',
+    '西藏自治区',
+    '宁夏回族自治区',
+    '新疆维吾尔自治区',
+    '香港特别行政区',
+    '澳门特别行政区',
+  ]
+
+  for (const name of regions) {
+    assert.equal(trimRegionName(name), name)
+    assert.equal(trimRegionSuffix(name), name)
+    assert.equal(formatAddressLabel(name, ''), name)
+    assert.equal(formatAddressLabel(name, '银川市'), `${name}银川`)
+  }
+})
+
+test('最长自治区名称在省份滚轮内使用可容纳的字号', () => {
+  const name = '新疆维吾尔自治区'
+  const LanhuRegionSheet = loadRegionSheet(() => {})
+  const sheet = LanhuRegionSheet({
+    title: '家乡',
+    regions: [{
+      code: '650000', name, level: 'PROVINCE',
+      children: [{ code: '650100', name: '乌鲁木齐市', level: 'CITY', children: [] }],
+    }],
+    provinceCode: '650000',
+    cityCode: '650100',
+    districtCode: '',
+    loadDistricts: async () => [],
+    onConfirm: () => {},
+    onClose: () => {},
+  })
+  const label = findNodes(sheet, node => node.type === 'Text' && node.props?.children === name)[0]
+
+  assert.ok(label, '省份滚轮必须展示完整自治区名称')
+  assert.equal(label.props.style.fontSize, '24rpx')
 })
 
 test('我的页面按扁平省市树回显新保存的区县', async () => {

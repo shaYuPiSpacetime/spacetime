@@ -288,7 +288,9 @@ export default function LoginAddressPage() {
 }
 
 function formatAddressLabel(province: string, city: string) {
-  const provinceLabel = province.replace(/[省市区]$/u, '')
+  const provinceLabel = province.endsWith('自治区') || province.endsWith('特别行政区')
+    ? province
+    : province.replace(/[省市区]$/u, '')
   const cityLabel = city.replace(/[市区]$/u, '')
   return provinceLabel === cityLabel ? cityLabel : `${provinceLabel}${cityLabel}`
 }
@@ -471,7 +473,7 @@ function ManualAddressSheet({
                 return (
                   <AddressPickerItem
                     key={item.code}
-                    label={item.name.replace(/[省市区]$/u, '')}
+                    label={formatAddressLabel(item.name, '')}
                     active={isActive}
                     before={index < provinceIndex}
                   />

@@ -536,6 +536,7 @@ function resolveRegionLabel(
 }
 
 function trimRegionSuffix(value: string) {
+  if (value.endsWith('自治区') || value.endsWith('特别行政区')) return value
   return value.replace(/[省市区]$/u, '')
 }
 
