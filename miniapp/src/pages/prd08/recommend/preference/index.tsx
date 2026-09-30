@@ -1,6 +1,6 @@
 import { Image, Picker, ScrollView, Switch, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useEffect, useMemo, useState } from 'react'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useMemo, useRef, useState } from 'react'
 import DualRangeSlider from '@/components/DualRangeSlider'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -49,6 +49,9 @@ export default function RecommendPreferencePage() {
   const [educationOptions, setEducationOptions] = useState<DictOption[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const hasShownRef = useRef(false)
+  const advancedGestureStartRef = useRef<{ x: number; y: number } | null>(null)
+  const advancedGestureMovedRef = useRef(false)
   const cityOptions = useMemo(() => cities.flatMap(province => province.children), [cities])
   const normalizedCityPickerValue = normalizeTwoLevelRegionSelection(cities, cityPickerValue)
   const cityPickerRange = [cities, cities[normalizedCityPickerValue[0]]?.children || []]
@@ -62,13 +65,30 @@ export default function RecommendPreferencePage() {
       setModel(preference)
       setCities(tree)
       setEducationOptions(options.educationLevel || [])
+      setMessage('')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '偏好加载失败')
     }
   }
-  useEffect(() => {
-    void load()
-  }, [])
+  useDidShow(() => {
+    if (!hasShownRef.current) {
+      hasShownRef.current = true
+      void load()
+      return
+    }
+    // 从会员中心返回时只刷新权益，保留当前尚未保存的城市、开关与年龄草稿。
+    void getRecommendPreferences()
+      .then(preference => setModel(current => current ? {
+        ...current,
+        vipEffective: preference.vipEffective,
+        advancedFilterEffective: preference.advancedFilterEffective,
+        advancedEffectiveCount: preference.advancedEffectiveCount,
+        advanced: !current.advancedFilterEffective && preference.advancedFilterEffective
+          ? preference.advanced
+          : current.advanced,
+      } : preference))
+      .catch(() => void Taro.showToast({ title: '会员权益刷新失败，请稍后重试', icon: 'none' }))
+  })
   if (!model)
     return (
       <View style={{ minHeight: '100vh', background: '#FFFFFF' }}>
@@ -109,12 +129,25 @@ export default function RecommendPreferencePage() {
     patch({ advanced: { ...advanced, ...value } })
   const addCity = (index: number) => {
     const selected = cityOptions[index]
-    if (!selected || model.targetCities.some(item => item.code === selected.code)) return
-    if (!model.vipEffective && model.targetCities.length >= 2) {
-      void Taro.navigateTo({ url: '/pages/membership/index?sourcePage=recommend_preference' })
-      return
-    }
+    if (!selected || model.targetCities.length >= 3
+      || model.targetCities.some(item => item.code === selected.code)) return
     patch({ targetCities: [...model.targetCities, { code: selected.code, name: selected.name }] })
+  }
+  const rememberAdvancedGestureStart = (event: any) => {
+    const touch = event.touches?.[0]
+    advancedGestureStartRef.current = touch
+      ? { x: Number(touch.clientX), y: Number(touch.clientY) }
+      : null
+    advancedGestureMovedRef.current = false
+  }
+  const markAdvancedGestureMove = (event: any) => {
+    const start = advancedGestureStartRef.current
+    const touch = event.touches?.[0]
+    if (!start || !touch) return
+    if (Math.abs(Number(touch.clientX) - start.x) > 8
+      || Math.abs(Number(touch.clientY) - start.y) > 8) {
+      advancedGestureMovedRef.current = true
+    }
   }
   const updateCityPickerColumn = (column: number, value: number) => {
     if (column === 0) {
@@ -255,7 +288,7 @@ export default function RecommendPreferencePage() {
           />
           <View style={{ height: '10rpx', margin: '30rpx -24rpx 0', background: '#F7F7F7' }} />
           <View style={{ marginTop: '30rpx', display: 'flex', alignItems: 'center', gap: '16rpx' }}>
-            <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>高级筛选</Text>
+            <Text style={{ color: model.advancedFilterEffective ? '#333333' : '#999999', fontSize: '28rpx', fontWeight: 600 }}>高级筛选</Text>
             <View
               style={{
                 height: '44rpx',
@@ -264,6 +297,7 @@ export default function RecommendPreferencePage() {
                 background: '#333333',
                 display: 'flex',
                 alignItems: 'center',
+                opacity: model.advancedFilterEffective ? 1 : 0.45,
               }}
             >
               <Image
@@ -280,7 +314,10 @@ export default function RecommendPreferencePage() {
             时空邂逅会员专属权益，优先看到更加符合你的偏好用户
           </Text>
           <View
+            onTouchStart={rememberAdvancedGestureStart}
+            onTouchMove={markAdvancedGestureMove}
             onClick={() => {
+              if (advancedGestureMovedRef.current) return
               if (model.advancedFilterEffective) return
               if (model.vipEffective) {
                 void Taro.showToast({ title: '高级筛选暂不可用，请稍后重试', icon: 'none' })
@@ -290,7 +327,7 @@ export default function RecommendPreferencePage() {
                 url: '/pages/membership/index?sourcePage=recommend_preference',
               })
             }}
-            style={{ opacity: 1 }}
+            style={{ opacity: model.advancedFilterEffective ? 1 : 0.45 }}
           >
             <RangeSection
               title="身高偏好"
@@ -458,6 +495,8 @@ function CityChip({
         height: '68rpx',
         borderRadius: '34rpx',
         background: '#F7F8FA',
+        overflow: 'hidden',
+        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -470,7 +509,7 @@ function CityChip({
           style={{ width: '24rpx', height: '24rpx', marginRight: '8rpx', opacity: 0.48 }}
         />
       ) : null}
-      <Text style={{ color: '#333333', fontSize: '25rpx' }}>{city.name}</Text>
+      <Text style={{ color: '#333333', fontSize: '25rpx', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{city.name}</Text>
       {removable ? (
         <Text
           onClick={onRemove}

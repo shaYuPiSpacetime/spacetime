@@ -14,6 +14,7 @@ import { useAccessStatus } from '@/hooks/useAccessStatus'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
+  getCommunityPostDetail,
   getSoulmatePosts,
   getSincerePosts,
   hideCommunityAuthor,
@@ -51,6 +52,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   const [sheet, setSheet] = useState<Sheet>(null)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const resumedRef = useRef(false)
+  const returnFromPostDetailRef = useRef<number>()
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
   useShareAppMessage(() => ({
@@ -88,6 +90,21 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
 
   const refreshActive = () => activeTab === 'YUEMU' ? loadSoulmate() : loadSincere()
 
+  const refreshReturnedPost = async (postId: number) => {
+    try {
+      const current = await getCommunityPostDetail(postId)
+      const update = (items?: CommunityPostVO[]) => current.hiddenAuthor
+        ? items?.filter(item => item.authorId !== current.authorId)
+        : items?.map(item => item.id === postId
+          ? { ...item, ...current }
+          : item.authorId === current.authorId ? { ...item, followingAuthor: current.followingAuthor } : item)
+      setSoulmatePosts(update)
+      setSincerePosts(update)
+    } catch {
+      // 详情同步失败时保留原列表快照及滚动位置。
+    }
+  }
+
   useEffect(() => {
     void getCommunityMeta().then(setConfig).catch(() => undefined)
     void loadSoulmate()
@@ -100,8 +117,25 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   useDidShow(() => {
     if (!resumedRef.current) return
     resumedRef.current = false
+    const returnFromPostDetail = returnFromPostDetailRef.current
+    if (returnFromPostDetail) {
+      // 详情返回时保留动态顺序，避免同一滚动偏移显示另一条动态。
+      returnFromPostDetailRef.current = undefined
+      void refreshReturnedPost(returnFromPostDetail)
+      return
+    }
     void refreshActive()
   })
+
+  const openPostDetail = async (postId: number, focusComments = false) => {
+    returnFromPostDetailRef.current = postId
+    try {
+      await Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${postId}${focusComments ? '&focus=comment' : ''}` })
+    } catch (error) {
+      returnFromPostDetailRef.current = undefined
+      await showError(config, error)
+    }
+  }
 
   const changeTab = (tab: ZhiyinTab) => {
     if (tab === activeTab) return
@@ -218,9 +252,9 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
             optionLabel={optionLabel}
             onRetry={() => void loadSoulmate()}
             onAuthor={post => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)}
-            onOpen={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
+            onOpen={post => void openPostDetail(post.id)}
             onTopic={post => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
-            onComment={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
+            onComment={post => void openPostDetail(post.id, true)}
             onContact={openContact}
             onFollow={post => void followPostAuthor(post)}
             onLike={post => void likePost(post)}
@@ -238,9 +272,9 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
             optionLabel={optionLabel}
             onRetry={() => void loadSincere()}
             onAuthor={post => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)}
-            onOpen={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })}
+            onOpen={post => void openPostDetail(post.id)}
             onTopic={post => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
-            onComment={post => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` })}
+            onComment={post => void openPostDetail(post.id, true)}
             onContact={openContact}
             onFollow={post => void followPostAuthor(post)}
             onLike={post => void likePost(post)}

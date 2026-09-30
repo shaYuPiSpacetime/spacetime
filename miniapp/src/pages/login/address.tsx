@@ -3,12 +3,14 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { toTwoLevelRegionErrorMessage } from '@/domain/basicProfileRegion'
+import { matchLocationRegion } from '@/domain/locationRegion'
 import {
   normalizeTwoLevelRegionSelection,
   type TwoLevelRegionSelection,
 } from '@/domain/twoLevelRegionWheel'
 import { useLogin } from '@/hooks/useLogin'
 import type { RegionTreeOption } from '@/types/prd01'
+import { prd01Api } from '@/services/prd01'
 import LoginProfileShell from './components/LoginProfileShell'
 import './address.scss'
 
@@ -151,9 +153,18 @@ export default function LoginAddressPage() {
       if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
         throw new Error('INVALID_LOCATION')
       }
-      setShowLocationSheet(false)
-      setShowManualSheet(true)
-      await Taro.showToast({ title: '定位成功，请选择所在城市', icon: 'none' })
+      const resolved = await prd01Api.reverseGeocode({
+        latitude: location.latitude,
+        longitude: location.longitude,
+      })
+      const tree = provinces.length > 0 ? provinces : await loadProvinceCities()
+      if (provinces.length === 0) setProvinces(tree)
+      const match = matchLocationRegion(tree, resolved.province, resolved.city)
+      if (!match) {
+        handleLocationFail('未识别到对应城市，请手动选择')
+        return
+      }
+      handleManualConfirm(match.province, match.city, tree)
     } catch {
       handleLocationFail()
     } finally {
@@ -161,10 +172,14 @@ export default function LoginAddressPage() {
     }
   }
 
-  const handleManualConfirm = (province: RegionTreeOption, city: RegionTreeOption) => {
+  const handleManualConfirm = (
+    province: RegionTreeOption,
+    city: RegionTreeOption,
+    tree = provinces
+  ) => {
     const provinceIndex = Math.max(
       0,
-      provinces.findIndex(item => item.code === province.code)
+      tree.findIndex(item => item.code === province.code)
     )
     const cityIndex = Math.max(
       0,

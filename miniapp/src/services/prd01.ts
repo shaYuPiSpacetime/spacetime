@@ -24,6 +24,7 @@ import type {
   RealNameSubmitRequest,
   RegionOption,
   RegionTreeOption,
+  ReverseGeocodeResult,
   SchoolOption,
   SmsCodeResult,
   SongOption,
@@ -39,6 +40,8 @@ export const prd01Api = {
   getLocations: (parentCode?: string) =>
     get<RegionOption[]>(PRD01_API_PATHS.locations, parentCode ? { parentCode } : undefined),
   getProvinceCities: () => get<RegionTreeOption[]>(PRD01_API_PATHS.provinceCities),
+  reverseGeocode: (coordinates: { latitude: number; longitude: number }) =>
+    post<ReverseGeocodeResult>(PRD01_API_PATHS.reverseGeocode, coordinates),
   searchSchools: (keyword: string, limit = 10) =>
     get<SchoolOption[]>(PRD01_API_PATHS.schools, { keyword, limit }),
 

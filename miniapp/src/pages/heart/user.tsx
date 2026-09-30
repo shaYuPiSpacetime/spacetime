@@ -2,9 +2,11 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
+import NativeNavigation from '@/components/NativeNavigation'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
+import { resolveReplayProfileStep } from '@/domain/recommendReplay'
 import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
@@ -27,10 +29,15 @@ import {
   type CommunityConfig,
   type CommunityPostVO,
 } from '@/services/community'
-import { neverRecommendCandidate } from '@/services/recommend'
+import {
+  neverRecommendCandidate,
+  quoteRecommendReplayProfile,
+  unlockRecommendReplayProfile,
+} from '@/services/recommend'
 import { settingsApi } from '@/services/settings'
 
 const background = 'linear-gradient(90deg, rgba(233,253,251,0.6), rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6))'
+const PROFILE_ACCESS_REQUIRED = '查看该主页需要先解锁'
 function createRequestId(prefix: string, targetUserId: number): string {
   return `${prefix}-${targetUserId}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`
 }
@@ -64,6 +71,7 @@ export default function HeartUserPage() {
   const eventNo = useMemo(() => createEventNo(targetUserId || 0, sourceScene), [targetUserId, sourceScene])
   const visitReported = useRef(false)
   const likeRequestId = useRef<string | null>(null)
+  const unlockRequestRef = useRef<{ targetUserId: number; expectedPrice: number; requestId: string } | null>(null)
 
   const runCertifiedAction = (action: () => void) => {
     if (access.status?.coreAccessStatus === 'CORE_ALLOWED') {
@@ -71,6 +79,59 @@ export default function HeartUserPage() {
       return
     }
     setShowUnverifiedModal(true)
+  }
+
+  const requestProfileAccess = async (): Promise<boolean> => {
+    let quotedPrice = 0
+    try {
+      const quote = await quoteRecommendReplayProfile(targetUserId)
+      quotedPrice = quote.unitPrice || 0
+      const step = resolveReplayProfileStep(quote.memberAccess, quote)
+      if (step === 'open') return true
+      if (step === 'unavailable') throw new Error('当前暂不能解锁该主页，请稍后重试')
+      if (step === 'recharge') {
+        const modal = await Taro.showModal({
+          title: '千寻币余额不足',
+          content: `查看主页需 ${quote.unitPrice} 千寻币，当前余额 ${quote.coinBalance} 千寻币。`,
+          confirmText: '去充值',
+        })
+        if (modal.confirm) {
+          await Taro.navigateTo({ url: `/pages/coins/unlock-recharge?sourceScene=replay_profile_unlock_one&cost=${quotedPrice}` })
+        }
+        return false
+      }
+      const modal = await Taro.showModal({
+        title: '解锁用户主页',
+        content: `将消耗 ${quote.unitPrice} 千寻币，解锁后再次查看该用户不重复扣费。`,
+        confirmText: '确认解锁',
+      })
+      if (!modal.confirm) return false
+      if (unlockRequestRef.current?.targetUserId !== targetUserId || unlockRequestRef.current.expectedPrice !== quote.unitPrice) {
+        unlockRequestRef.current = {
+          targetUserId,
+          expectedPrice: quote.unitPrice,
+          requestId: createRequestId('profile-unlock', targetUserId),
+        }
+      }
+      const result = await unlockRecommendReplayProfile(targetUserId, {
+        requestId: unlockRequestRef.current.requestId,
+        expectedPrice: quote.unitPrice,
+      })
+      if (!result.canOpen) throw new Error('主页尚未解锁，请稍后重试')
+      unlockRequestRef.current = null
+      return true
+    } catch (error) {
+      if (getApiErrorCode(error) !== 5001) throw error
+      const modal = await Taro.showModal({
+        title: '千寻币余额不足',
+        content: '余额不足，充值后可继续解锁该主页。',
+        confirmText: '去充值',
+      })
+      if (modal.confirm) {
+        await Taro.navigateTo({ url: `/pages/coins/unlock-recharge?sourceScene=replay_profile_unlock_one&cost=${quotedPrice}` })
+      }
+      return false
+    }
   }
 
   const loadProfile = async () => {
@@ -81,8 +142,24 @@ export default function HeartUserPage() {
     }
     setProfileLoading(true)
     setProfileError('')
+    setProfile(null)
     try {
-      const data = await getPublicProfile(targetUserId)
+      let data: PublicProfileVO | null
+      try {
+        data = await getPublicProfile(targetUserId)
+      } catch (error) {
+        if (getApiErrorCode(error) !== 20003) throw error
+        if (!await requestProfileAccess()) {
+          setProfileError(PROFILE_ACCESS_REQUIRED)
+          return
+        }
+        try {
+          data = await getPublicProfile(targetUserId)
+        } catch (retryError) {
+          if (getApiErrorCode(retryError) === 20003) throw new Error('主页解锁状态同步中，请稍后重试')
+          throw retryError
+        }
+      }
       setProfile(data)
       setLiked(Boolean(data.liked))
       await new Promise<void>(resolve => Taro.nextTick(resolve))
@@ -218,7 +295,7 @@ export default function HeartUserPage() {
   }
 
   if (profileLoading && !profile) return <ProfileState id="public-profile-loading" text="正在加载公开资料" />
-  if (profileError && !profile) return <ProfileState id="public-profile-error" text={profileError} action="重新加载" onAction={() => void loadProfile()} />
+  if (profileError && !profile) return <ProfileState id="public-profile-error" text={profileError} action={profileError === PROFILE_ACCESS_REQUIRED ? '查看解锁方式' : '重新加载'} onAction={() => void loadProfile()} />
   if (!profile) return <ProfileState id="public-profile-empty" text="该用户暂不可展示" />
 
   const basicInfo = [genderText(profile.gender), profile.age ? `${profile.age}岁` : '', profile.height ? `${profile.height}cm` : '', profile.zodiac || ''].filter(Boolean).join('丨')
@@ -288,7 +365,7 @@ export default function HeartUserPage() {
 }
 
 function ProfileState({ id, text, action, onAction }: { id: string; text: string; action?: string; onAction?: () => void }) {
-  return <View id={id} style={{ minHeight: '100vh', background, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7F8494', fontSize: '26rpx' }}>{text}</Text>{action && onAction ? <View onClick={onAction} style={{ marginTop: '28rpx', padding: '18rpx 48rpx', borderRadius: '40rpx', background: '#2876FF' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>{action}</Text></View> : null}</View>
+  return <View id={id} style={{ minHeight: '100vh', background, display: 'flex', flexDirection: 'column' }}><NativeNavigation title="用户主页" background="transparent" /><View style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingBottom: '160rpx' }}><Text style={{ color: '#7F8494', fontSize: '26rpx' }}>{text}</Text>{action && onAction ? <View onClick={onAction} style={{ marginTop: '28rpx', padding: '18rpx 48rpx', borderRadius: '40rpx', background: '#2876FF' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>{action}</Text></View> : null}</View></View>
 }
 
 function genderText(gender?: string | null) {

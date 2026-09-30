@@ -378,6 +378,7 @@ export interface WhisperPrecheckResponse {
   free: boolean
   coinBalance: number
   freeWhisperRemain: number
+  freeWhisperDailyQuota: number
   quoteToken: string | null
   quoteExpireTime: string | null
   whisperExpireDays: number

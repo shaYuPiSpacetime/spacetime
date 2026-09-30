@@ -3,7 +3,7 @@ import Taro, { usePullDownRefresh } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import { buildReplayGroups, resolveReplayProfileStep } from '@/domain/recommendReplay'
+import { buildReplayGroups, resolveReplayProfileStep, shouldBlurReplayAvatar } from '@/domain/recommendReplay'
 import { cancelRelationLike, sendRelationLike } from '@/services/relation'
 import { getApiErrorCode } from '@/services/request'
 import {
@@ -147,7 +147,7 @@ export default function RecommendReplayPage() {
       {state === 'ready' ? (
         <ScrollView scrollY showScrollbar={false} style={{ height: 'calc(100vh - 160rpx)' }}>
           <View style={{ padding: '18rpx 24rpx 80rpx' }}>
-            {groups.map(group => <ReplayGroup key={group.date} date={group.date} items={group.items} submittingCandidateNo={submittingCandidateNo} openingCandidateNo={openingCandidateNo} onLike={item => void toggleLike(item)} onOpen={item => void openProfile(item)} />)}
+            {groups.map(group => <ReplayGroup key={group.date} date={group.date} items={group.items} blurAvatar={shouldBlurReplayAvatar(group.date, groups[0]?.date, memberProfileAccess)} submittingCandidateNo={submittingCandidateNo} openingCandidateNo={openingCandidateNo} onLike={item => void toggleLike(item)} onOpen={item => void openProfile(item)} />)}
             <Text style={{ display: 'block', color: '#AAAAAA', fontSize: '24rpx', textAlign: 'center', marginTop: '48rpx' }}>{memberProfileAccess ? '会员可直接查看最近3天回放用户主页' : '最近3天回放列表免费查看，打开主页需按单人解锁'}</Text>
           </View>
         </ScrollView>
@@ -156,25 +156,26 @@ export default function RecommendReplayPage() {
   )
 }
 
-function ReplayGroup({ date, items, submittingCandidateNo, openingCandidateNo, onLike, onOpen }: {
+function ReplayGroup({ date, items, blurAvatar, submittingCandidateNo, openingCandidateNo, onLike, onOpen }: {
   date: string
   items: RecommendReplayItemVO[]
+  blurAvatar: boolean
   submittingCandidateNo: string
   openingCandidateNo: string
   onLike: (item: RecommendReplayItemVO) => void
   onOpen: (item: RecommendReplayItemVO) => void
 }) {
-  const skipped = items.filter(item => item.lastAction === 'skip').length
-  return <View style={{ marginBottom: '28rpx' }}><View style={{ height: '58rpx', display: 'flex', alignItems: 'center' }}><View style={{ width: '7rpx', height: '30rpx', borderRadius: '4rpx', background: '#6095FF', marginRight: '12rpx' }} /><Text style={{ flex: 1, color: '#333333', fontSize: '29rpx', fontWeight: 500 }}>{date}</Text><Text style={{ color: '#777777', fontSize: '24rpx' }}>推荐 {items.length}人　跳过 {skipped}人</Text></View>{items.length ? items.map(item => <ReplayRow key={item.candidateNo} item={item} submitting={submittingCandidateNo === item.candidateNo || openingCandidateNo === item.candidateNo} onLike={() => onLike(item)} onOpen={() => onOpen(item)} />) : <Text style={{ display: 'block', color: '#777777', fontSize: '24rpx', margin: '18rpx 0' }}>这一天暂无回放记录</Text>}</View>
+  const skipped = items.filter(item => item.skipped === true).length
+  return <View style={{ marginBottom: '28rpx' }}><View style={{ height: '58rpx', display: 'flex', alignItems: 'center' }}><View style={{ width: '7rpx', height: '30rpx', borderRadius: '4rpx', background: '#6095FF', marginRight: '12rpx' }} /><Text style={{ flex: 1, color: '#333333', fontSize: '29rpx', fontWeight: 500 }}>{date}</Text><Text style={{ color: '#777777', fontSize: '24rpx' }}>推荐 {items.length}人　跳过 {skipped}人</Text></View>{items.length ? items.map(item => <ReplayRow key={item.candidateNo} item={item} blurAvatar={blurAvatar} submitting={submittingCandidateNo === item.candidateNo || openingCandidateNo === item.candidateNo} onLike={() => onLike(item)} onOpen={() => onOpen(item)} />) : <Text style={{ display: 'block', color: '#777777', fontSize: '24rpx', margin: '18rpx 0' }}>这一天暂无回放记录</Text>}</View>
 }
 
-function ReplayRow({ item, submitting, onLike, onOpen }: { item: RecommendReplayItemVO; submitting: boolean; onLike: () => void; onOpen: () => void }) {
+function ReplayRow({ item, blurAvatar, submitting, onLike, onOpen }: { item: RecommendReplayItemVO; blurAvatar: boolean; submitting: boolean; onLike: () => void; onOpen: () => void }) {
   const profile = item.profile
   const desc = [profile.age ? `${profile.age}岁` : '', profile.currentCity || '', profile.occupationLabel || ''].filter(Boolean).join('·')
   return (
     <View style={{ height: '128rpx', display: 'flex', alignItems: 'center', opacity: submitting ? .62 : 1 }}>
       <View onClick={onOpen} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-        {profile.avatar ? <Image src={profile.avatar} mode="aspectFill" style={{ width: '78rpx', height: '78rpx', borderRadius: '39rpx' }} /> : <View style={{ width: '78rpx', height: '78rpx', borderRadius: '39rpx', background: '#E8EEF7' }} />}
+        {profile.avatar ? <Image src={profile.avatar} mode="aspectFill" style={{ width: '78rpx', height: '78rpx', borderRadius: '39rpx', filter: blurAvatar ? 'blur(8rpx)' : 'none' }} /> : <View style={{ width: '78rpx', height: '78rpx', borderRadius: '39rpx', background: '#E8EEF7' }} />}
         <View style={{ flex: 1, marginLeft: '20rpx' }}><Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', fontWeight: 600 }}>{profile.nickname}</Text><Text style={{ display: 'block', color: '#AAAAAA', fontSize: '23rpx', marginTop: '10rpx' }}>{desc}</Text></View>
       </View>
       <Image onClick={onLike} src={miniappOssIcons.recommendLike} mode="aspectFit" style={{ width: '58rpx', height: '58rpx', marginRight: '20rpx', opacity: item.liked ? 1 : .42, filter: item.liked ? 'none' : 'grayscale(1)' }} />

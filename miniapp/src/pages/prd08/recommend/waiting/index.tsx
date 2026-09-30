@@ -3,6 +3,7 @@ import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { shouldShowRecommendWaiting } from '@/domain/recommendBrowseCycle'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getCommunityPosts, type CommunityPostVO } from '@/services/community'
 import { getRecommendCandidates, getRecommendPreferences } from '@/services/recommend'
@@ -11,6 +12,7 @@ const background =
   'linear-gradient(90deg,rgba(233,253,251,.72),rgba(234,238,249,.68) 49%,rgba(248,250,239,.68))'
 const RECOMMEND_TAB_STORAGE_KEY = 'prd08RecommendTab'
 const RECOMMEND_REFRESH_STORAGE_KEY = 'recommendRefreshRequired'
+const RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY = 'recommendExhaustedCycle'
 
 export default function RecommendWaitingPage() {
   const metrics = getNativeNavigationMetrics()
@@ -38,7 +40,11 @@ export default function RecommendWaitingPage() {
       ])
       if (generation !== refreshGeneration.current) return
       setVipEffective(preference.vipEffective)
-      if (candidates.waitingReason !== 'browse_limit') {
+      if (!shouldShowRecommendWaiting(
+        candidates,
+        Taro.getStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY)
+      )) {
+        Taro.removeStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY)
         Taro.setStorageSync(RECOMMEND_REFRESH_STORAGE_KEY, true)
         await Taro.switchTab({ url: '/pages/recommend/index' })
         return
@@ -219,7 +225,7 @@ export default function RecommendWaitingPage() {
           <CommunityPreview post={post} />
         </View>
       </ScrollView>
-      <AppTabBar active="recommend" />
+      <AppTabBar active="recommend" recommendBadgeCount={0} />
     </View>
   )
 }

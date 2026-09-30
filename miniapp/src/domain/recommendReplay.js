@@ -23,3 +23,8 @@ export function resolveReplayProfileStep(memberProfileAccess, quote) {
   if (!Number.isInteger(quote.unitPrice) || quote.unitPrice <= 0) return 'unavailable'
   return (quote.coinBalance || 0) < quote.unitPrice ? 'recharge' : 'confirm'
 }
+
+/** 非会员仅能清晰查看今天的回看头像，过往自然日保持模糊。 */
+export function shouldBlurReplayAvatar(groupDate, today, memberProfileAccess) {
+  return !memberProfileAccess && Boolean(groupDate) && groupDate !== today
+}

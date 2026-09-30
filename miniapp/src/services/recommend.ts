@@ -82,6 +82,7 @@ export interface RecommendReplayItemVO {
   profile: RecommendReplayProfileVO
   viewedAt: string
   lastAction: string
+  skipped?: boolean
   dateGroup: string
   liked: boolean
 }

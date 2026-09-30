@@ -675,7 +675,7 @@ export class MockMessageService implements MessageService {
   async precheckWhisper(input: WhisperPrecheckCommand): Promise<WhisperPrecheckResponse> {
     return {
       canSend: true, reasonCode: null, reasonText: null, contentMaxLength: 60,
-      payType: 'coin', coinAmount: 100, free: false, coinBalance: 520, freeWhisperRemain: 0,
+      payType: 'coin', coinAmount: 100, free: false, coinBalance: 520, freeWhisperRemain: 0, freeWhisperDailyQuota: 1,
       quoteToken: `mock-quote-${input.targetUserNo}`, quoteExpireTime: '2099-01-01 00:00:00',
       whisperExpireDays: 7, cooldownDays: 3, confirmText: '确认发送悄悄话',
       targetUserNo: input.targetUserNo, targetNickname: '对方',

@@ -51,6 +51,12 @@ export interface RegionTreeOption {
   children: RegionTreeOption[]
 }
 
+/** 腾讯地图逆地址解析后的省市名称，由小程序映射到本平台地区编码。 */
+export interface ReverseGeocodeResult {
+  province: string
+  city: string
+}
+
 export interface CopywritingItem {
   group?: string
   scene?: string

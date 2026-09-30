@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useMembership, type MembershipPayState } from '@/hooks/useMembership'
 import { useAuthStore } from '@/stores/authStore'
+import { prd01Api } from '@/services/prd01'
 import type { MembershipPlan, MemberStatus, MyMembership } from '@/types/membership'
 import {
   LANHU_DARK,
@@ -32,6 +33,7 @@ export default function MembershipPage() {
   const variant: MembershipPageVariant = 'default'
   const authNickname = useAuthStore(state => state.nickname)
   const authAvatar = useAuthStore(state => state.avatar)
+  const [approvedAvatar, setApprovedAvatar] = useState('')
   const {
     myMembership,
     plans,
@@ -56,6 +58,9 @@ export default function MembershipPage() {
     void fetchMyMembership().catch(() => undefined)
     void fetchPlans().catch(() => undefined)
     void fetchBenefits().catch(() => undefined)
+    void prd01Api.getAvatar()
+      .then(detail => setApprovedAvatar(String(detail.effectiveAvatarUrl || '')))
+      .catch(() => setApprovedAvatar(''))
   })
 
   useEffect(() => {
@@ -69,7 +74,7 @@ export default function MembershipPage() {
   const activePlan = plans.find((plan) => plan.id === activePlanId)
   const currentMembership = myMembership
   const heroNickname = authNickname.trim() || '时空用户'
-  const heroAvatar = authAvatar.trim() || defaultAvatar
+  const heroAvatar = approvedAvatar.trim() || authAvatar.trim() || defaultAvatar
   // 隐身/隐藏访问为后续预留权益，一期 Demo 不展示也不可启用。
   const visibleBenefits = benefits.filter(item => item.icon !== 'stealth')
 

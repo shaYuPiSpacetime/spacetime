@@ -3,6 +3,7 @@ export const PRD01_API_PATHS = {
   profileOptions: '/miniapp/dict/profile-options',
   locations: '/miniapp/dict/locations',
   provinceCities: '/miniapp/dict/locations/two-level',
+  reverseGeocode: '/miniapp/location/reverse-geocode',
   schools: '/miniapp/dict/schools',
   smsCode: '/miniapp/auth/sms-code',
   phoneLogin: '/miniapp/auth/phone-login',
