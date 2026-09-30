@@ -36,6 +36,9 @@ export async function uploadCommunityImageDirectToOss(
   return uploadPreparedFile(ticketPath, prepared)
 }
 
+/** 学历材料上传复用社区图片压缩策略（目标 3MB），与后端学历材料单张 3MB 限制匹配。 */
+export const uploadEducationImageDirectToOss = uploadCommunityImageDirectToOss
+
 async function uploadPreparedFile(
   ticketPath: string,
   prepared: PreparedCommunityImage,

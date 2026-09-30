@@ -1,5 +1,5 @@
 import { del, get, post, put } from './request'
-import { uploadCommunityImageDirectToOss, uploadDirectToOss } from './ossUpload'
+import { uploadCommunityImageDirectToOss, uploadDirectToOss, uploadEducationImageDirectToOss } from './ossUpload'
 import { PRD01_API_PATHS } from '@/constants/prd01ApiPaths'
 import type {
   AboutMeDetail,
@@ -128,7 +128,7 @@ export const prd01Api = {
     put<ProfileDetail>(PRD01_API_PATHS.wechatId, { wechatId }),
   getAccessStatus: () => get<AccessStatus>(PRD01_API_PATHS.accessStatus),
   uploadAvatar: (filePath: string) => uploadDirectToOss(PRD01_API_PATHS.uploadAvatarTicket, filePath),
-  uploadEducation: (filePath: string) => uploadDirectToOss(PRD01_API_PATHS.uploadEducationTicket, filePath),
+  uploadEducation: (filePath: string) => uploadEducationImageDirectToOss(PRD01_API_PATHS.uploadEducationTicket, filePath),
   uploadAlbum: (filePath: string) => uploadCommunityImageDirectToOss(PRD01_API_PATHS.uploadAlbumTicket, filePath),
   uploadBackground: (filePath: string) => uploadDirectToOss(PRD01_API_PATHS.uploadBackgroundTicket, filePath),
   uploadVoice: (filePath: string) => uploadDirectToOss(PRD01_API_PATHS.uploadVoiceTicket, filePath),
