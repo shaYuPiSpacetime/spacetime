@@ -369,6 +369,7 @@ export default function RecommendPreferencePage() {
             </Text>
             <Picker
               mode="selector"
+              disabled={!model.advancedFilterEffective}
               range={cityOptions}
               rangeKey="name"
               onChange={event => {
