@@ -13,6 +13,7 @@ import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.request.WechatLoginReq;
+import com.spacetime.miniapp.dto.request.WechatUsageReq;
 import com.spacetime.miniapp.dto.response.PhoneSmsCodeVO;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.WechatLoginVO;
@@ -31,6 +32,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,6 +43,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -92,6 +96,63 @@ class AuthMiniappServiceImplTest {
                 accessEvaluator,
                 userAssetDao,
                 promotionEventInboxService);
+    }
+
+    @Test
+    @DisplayName("立即使用首次建号保留校园代理追踪号")
+    void shouldKeepPromotionTracesWhenWechatUsageCreatesUser() throws Exception {
+        WechatUsageReq req = objectMapper.readValue(
+                "{\"loginCode\":\"usage-code\",\"promotionTraceNos\":[\"TRC-agent12345678\"]}",
+                WechatUsageReq.class);
+        stubNewWechatUsageUser();
+
+        var result = authService.resolveWechatUsage(req);
+
+        assertThat(result.getProvisionalLogin().getIsNewUser()).isTrue();
+        verify(promotionEventInboxService).enqueueRegister(233L, List.of("TRC-agent12345678"));
+    }
+
+    @Test
+    @DisplayName("已有微信账号携带推广来源不重新注册归因")
+    void shouldNotAttributeExistingWechatUsageUser() throws Exception {
+        WechatUsageReq req = objectMapper.readValue(
+                "{\"loginCode\":\"usage-code\",\"promotionTraceNos\":[\"TRC-agent12345678\"]}",
+                WechatUsageReq.class);
+        when(wechatMiniappClient.code2Session("usage-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo("usage-openid", null));
+        AppUser user = new AppUser();
+        user.setId(233L);
+        user.setNickname("已有用户");
+        user.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+        when(appUserDao.selectOne(any())).thenReturn(user);
+
+        var result = authService.resolveWechatUsage(req);
+
+        assertThat(result.getProvisionalLogin().getIsNewUser()).isFalse();
+        verify(appUserDao, never()).insert(any(AppUser.class));
+        verifyNoInteractions(promotionEventInboxService);
+    }
+
+    @Test
+    @DisplayName("无推广来源的立即使用兼容旧请求")
+    void shouldCreateWechatUsageUserWithoutPromotionSource() throws Exception {
+        WechatUsageReq req = objectMapper.readValue("{\"loginCode\":\"usage-code\"}", WechatUsageReq.class);
+        stubNewWechatUsageUser();
+
+        var result = authService.resolveWechatUsage(req);
+
+        assertThat(result.getProvisionalLogin().getUserId()).isEqualTo(233L);
+        verify(promotionEventInboxService).enqueueRegister(eq(233L), any());
+    }
+
+    private void stubNewWechatUsageUser() {
+        when(wechatMiniappClient.code2Session("usage-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo("usage-openid", null));
+        doAnswer(invocation -> {
+            AppUser user = invocation.getArgument(0);
+            user.setId(233L);
+            return null;
+        }).when(appUserDao).insert(any(AppUser.class));
     }
 
     @Test

@@ -8,8 +8,16 @@ import type { LoginReq, LoginVO } from '@/types/user'
 import type { WechatUsageResult } from '@/types/user'
 import { post } from './request'
 
-export function resolveWechatUsage(loginCode: string): Promise<WechatUsageResult> {
-  return post<WechatUsageResult>('/miniapp/auth/wechat-usage', { loginCode })
+export async function resolveWechatUsage(loginCode: string): Promise<WechatUsageResult> {
+  const attributionReady = await waitForPromotionAttributionCapture()
+  if (!attributionReady) throw new Error('邀请来源加载失败，请检查网络后重试')
+  const promotionTraceNos = getPendingPromotionTraceNos()
+  const result = await post<WechatUsageResult>('/miniapp/auth/wechat-usage', {
+    loginCode,
+    ...(promotionTraceNos.length ? { promotionTraceNos } : {}),
+  })
+  clearPendingPromotionTraceNos()
+  return result
 }
 import type { SmsCodeResult } from '@/types/prd01'
 

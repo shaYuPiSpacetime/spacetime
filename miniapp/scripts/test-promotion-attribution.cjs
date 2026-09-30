@@ -237,3 +237,67 @@ test('邀请来源换号完成前不得放行注册请求', () => {
   assert.match(auth, /const attributionReady = await waitForPromotionAttributionCapture\(\)/)
   assert.match(auth, /if \(!attributionReady\)[\s\S]*邀请来源/, '换号失败时必须阻止无归因注册')
 })
+
+function mountWechatUsageAuth({ capture, post }) {
+  const ts = require('typescript')
+  const vm = require('node:vm')
+  const calls = []
+  const mocks = {
+    './prd01': { prd01Api: {} },
+    './promotionAttribution': {
+      waitForPromotionAttributionCapture: capture,
+      getPendingPromotionTraceNos: () => ['TRC-agent12345678'],
+      clearPendingPromotionTraceNos: () => calls.push('clear'),
+    },
+    './request': {
+      post: async (url, body) => {
+        calls.push({ url, body })
+        return post(body)
+      },
+    },
+  }
+  const compiled = ts.transpileModule(read('src/services/auth.ts'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017 },
+  }).outputText
+  const exports = {}
+  vm.runInNewContext(compiled, {
+    exports,
+    require: name => {
+      assert.ok(Object.hasOwn(mocks, name), `缺少服务依赖桩：${name}`)
+      return mocks[name]
+    },
+  })
+  return { resolveWechatUsage: exports.resolveWechatUsage, calls }
+}
+
+test('BUG0930-P0-04 立即使用等待来源换号并随首次建号请求提交，成功后清理', async () => {
+  let finishCapture
+  const captureTask = new Promise(resolve => { finishCapture = resolve })
+  const expected = { provisionalLogin: { userId: 233 } }
+  const auth = mountWechatUsageAuth({ capture: () => captureTask, post: async () => expected })
+  const task = auth.resolveWechatUsage('usage-code')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(auth.calls.length, 0, '归因完成前不得发送建号请求')
+  finishCapture(true)
+  assert.equal(await task, expected)
+  assert.equal(auth.calls[0].url, '/miniapp/auth/wechat-usage')
+  assert.equal(auth.calls[0].body.loginCode, 'usage-code')
+  assert.deepEqual(auth.calls[0].body.promotionTraceNos, ['TRC-agent12345678'])
+  assert.equal(auth.calls[1], 'clear')
+})
+
+test('BUG0930-P1-05 来源换号失败时阻止立即使用建号并保留待重试来源', async () => {
+  const auth = mountWechatUsageAuth({ capture: async () => false, post: async () => ({}) })
+  await assert.rejects(auth.resolveWechatUsage('usage-code'), /邀请来源加载失败/)
+  assert.equal(auth.calls.length, 0)
+})
+
+test('BUG0930-P1-06 立即使用建号请求失败时保留推广来源', async () => {
+  const auth = mountWechatUsageAuth({
+    capture: async () => true,
+    post: async () => { throw new Error('网络请求失败') },
+  })
+  await assert.rejects(auth.resolveWechatUsage('usage-code'), /网络请求失败/)
+  assert.equal(auth.calls.length, 1)
+  assert.equal(auth.calls[0].body.promotionTraceNos[0], 'TRC-agent12345678')
+})

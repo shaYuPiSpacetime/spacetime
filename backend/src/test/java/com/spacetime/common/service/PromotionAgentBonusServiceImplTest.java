@@ -6,6 +6,7 @@ import com.spacetime.common.dao.PromotionAgentStatDao;
 import com.spacetime.common.dao.PromotionInviteCounterDao;
 import com.spacetime.common.entity.PromotionAgent;
 import com.spacetime.common.entity.PromotionAgentBonusLog;
+import com.spacetime.common.entity.PromotionAgentStat;
 import com.spacetime.common.entity.PromotionInviteCounter;
 import com.spacetime.common.entity.PromotionInviteRelation;
 import com.spacetime.common.service.impl.PromotionAgentBonusServiceImpl;
@@ -19,6 +20,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 /**
  * 校园推广员基础和阶梯奖金测试。
@@ -71,6 +74,40 @@ class PromotionAgentBonusServiceImplTest {
         assertThat(service.createForEvent(
                 relation(), "profile_complete_reward", rule(), LocalDateTime.now()))
                 .isEmpty();
+    }
+
+    @Test
+    void 注册事件立即更新代理统计且重复处理不再累计() {
+        PromotionAgent agent = new PromotionAgent();
+        agent.setId(9L);
+        agent.setStatus("enabled");
+        when(agentDao.selectById(9L)).thenReturn(agent);
+        PromotionAgentStat stat = new PromotionAgentStat();
+        stat.setAgentId(9L);
+        stat.setClickCnt(3);
+        stat.setSuccessInviteCount(0);
+        stat.setTotalBonusAmount(BigDecimal.ZERO);
+        stat.setPendingBonusAmount(BigDecimal.ZERO);
+        stat.setConfirmedBonusAmount(BigDecimal.ZERO);
+        stat.setStatVersion(1);
+        when(statDao.selectByAgentIdForUpdate(9L)).thenReturn(stat);
+
+        List<PromotionAgentBonusLog> result = service.createForEvent(
+                relation(), "register_reward", rule(), LocalDateTime.now());
+
+        assertThat(stat.getClickCnt()).isEqualTo(3);
+        assertThat(stat.getSuccessInviteCount()).isEqualTo(1);
+        assertThat(stat.getTotalBonusAmount()).isEqualByComparingTo("20.00");
+        assertThat(stat.getPendingBonusAmount()).isEqualByComparingTo("20.00");
+        assertThat(stat.getConfirmedBonusAmount()).isEqualByComparingTo("0.00");
+        when(bonusDao.selectByIdempotencyKey("agent:55:register_reward")).thenReturn(result.get(0));
+
+        service.createForEvent(relation(), "register_reward", rule(), LocalDateTime.now());
+
+        assertThat(stat.getSuccessInviteCount()).isEqualTo(1);
+        assertThat(stat.getTotalBonusAmount()).isEqualByComparingTo("20.00");
+        assertThat(stat.getPendingBonusAmount()).isEqualByComparingTo("20.00");
+        verify(statDao, times(1)).updateById(stat);
     }
 
     private PromotionInviteRelation relation() {

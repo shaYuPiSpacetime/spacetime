@@ -484,7 +484,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         result.setUsedBefore(existing != null);
         if (existing == null) {
             LoginTarget created = createNewUser(
-                    session.openid(), RegisterSourceEnum.WECHAT.getCode(), null, session.unionid(), List.of());
+                    session.openid(), RegisterSourceEnum.WECHAT.getCode(), null, session.unionid(),
+                    req.getPromotionTraceNos());
             result.setProvisionalLogin(buildLoginVO(created.user(), true));
         } else {
             checkAccountStatus(existing);

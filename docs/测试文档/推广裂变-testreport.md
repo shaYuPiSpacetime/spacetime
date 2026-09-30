@@ -267,3 +267,50 @@ Playwright 报告：frontend/playwright-report/index.html
 | 编号 | 问题 | 影响 | 优先级 | 处置 |
 |---|---|---|---|---|
 | 1 | 完整 `prebuild:weapp` 缺会员中心蓝湖基线图 | 全仓前置资产门禁无法完成 | P1（非本页） | 由会员中心资产维护任务补齐；本页直接 Taro 微信编译及 3 项产物门禁已通过 |
+
+## 11. 2026-09-30 扫码首次建号归因修复
+
+### 11.1 范围与结论
+
+- 对应测试设计：本模块 testcase 第 12 节，BUG0930-P0-01 至 BUG0930-M-08。
+- 分支与基线：`master`，`86488ba0`；修改前通过 HTTPS 拉取并快进同步 `origin/master`，保留用户已有配置改动。
+- 修复：`wechat-usage` 在客户端等待推广来源采集并提交追踪号；服务端首次建号传入注册事件；仅请求成功后清理本地来源。既有账号不重新注册归因，无来源请求继续兼容。
+- 统计核验：原有代理统计在匿名来源记录时更新点击数，在注册奖金事务中更新注册数、应发与待结算奖金；重复注册事件不重复累计。列表重新查询读取最新统计，月结规则不变。
+- **结论：本地回归通过，发布验收待完成。** 未提交、未部署、未上传体验版，未修复线上历史数据；不能据此宣称该手机号的线上关系已恢复。
+
+### 11.2 执行结果
+
+| 检查 | 结果 | 证据 |
+|---|---|---|
+| 修复前复现 | 符合预期失败 | 小程序新增 3 项均失败；后端 16 项中 2 项因 WechatUsageReq 不接收 promotionTraceNos 报错 |
+| 后端 L3 定向回归 | 32/32 通过 | AuthMiniappServiceImplTest 13、PromotionAttributionServiceImplTest 6、PromotionAgentBonusServiceImplTest 3、PromotionEventProcessorImplTest 1、PromotionEventInboxServiceImplTest 4、PromotionAdminServiceImplTest 5；失败/错误/跳过均为 0 |
+| 推广小程序单测与门禁 | 30/30 通过 | 归因 11、阶梯展示 3、静态门禁 16 |
+| 登录回归 | 37/37 通过 | 登录闭环 23、登录/未认证/冻结 14 |
+| 标准微信构建前置检查 | 阻断 | test-0901-document-fixes.cjs 中动态菜单、热门动态滚动位置 2 个旧断言失败；相关源码与脚本相对 master 无本次改动 |
+| 直接微信编译 | 通过 | Webpack Compiled successfully，12.18s；保留私信页体积告警 |
+| 构建产物门禁 | 3/3 通过 | 页面注册、无开发 Token、包体；主包 1.45 MiB，总包 2.54 MiB |
+| git diff --check | 通过 | 无空白错误 |
+
+执行命令：
+
+```bash
+cd backend
+JAVA_HOME=/Users/peter/Library/Java/JavaVirtualMachines/openjdk-22/Contents/Home mvn test -Dtest=AuthMiniappServiceImplTest,PromotionAttributionServiceImplTest,PromotionAgentBonusServiceImplTest,PromotionEventProcessorImplTest,PromotionEventInboxServiceImplTest,PromotionAdminServiceImplTest -q
+
+cd ../miniapp
+npm run validate:prd07-miniapp
+npm run validate:login-closure
+npm run build:weapp:dev
+MINIAPP_DEV_FIXED_LOGIN=false npx taro build --type weapp --no-check
+MINIAPP_DEV_FIXED_LOGIN=false npm run postbuild:weapp
+```
+
+直接编译未执行标准构建的前置脚本，显式记录上述两项未通过；`--no-check` 仅关闭 Taro 环境诊断，不跳过 Webpack 业务编译。未改动社区功能或其断言来绕过问题。
+
+### 11.3 跳过与遗留
+
+| 用例/事项 | 状态 | 原因与后续 |
+|---|---|---|
+| BUG0930-M-08：手机扫码注册及后台真实统计验收（P0） | 未执行 | 后端与体验版尚未发布；缺少本次可用微信 code、验收账号凭据，实际 RDS 连接超时；发布后用受控新用户补验关系和四列统计 |
+| 标准构建前置门禁 | 未通过 | 最新 master 的两项社区旧断言与当前实现不一致，需在对应社区变更范围内处理 |
+| 本次已注册用户的历史归因 | 未处理 | 尚未取得实际注册事件与来源证据；现有修复不会重新归因已有账号，需核实后单独确认数据修复范围 |
