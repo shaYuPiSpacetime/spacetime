@@ -924,19 +924,18 @@ export default function ProfileEditPage() {
         </View>
       </ScrollView>
 
-      {sheet ? (
-        <OptionSheet
-          title={sheet.title}
-          value={sheet.value}
-          options={sheet.options}
-          onCancel={closeSheet}
-          onConfirm={confirmOption}
-        />
-      ) : null}
-      {voiceSheet ? (
-        <VoiceIntroSheet
-          variant={voiceSheet}
-          voiceIntro={{ ...editProfileDemo.voiceIntro, duration: voiceDetail?.voiceIntroDuration ? `${voiceDetail.voiceIntroDuration}s` : editProfileDemo.voiceIntro.duration }}
+      <OptionSheet
+        visible={sheet !== null}
+        title={sheet?.title || ''}
+        value={sheet?.value || ''}
+        options={sheet?.options || []}
+        onCancel={closeSheet}
+        onConfirm={confirmOption}
+      />
+      <VoiceIntroSheet
+        visible={voiceSheet !== null}
+        variant={voiceSheet || 'voice'}
+        voiceIntro={{ ...editProfileDemo.voiceIntro, duration: voiceDetail?.voiceIntroDuration ? `${voiceDetail.voiceIntroDuration}s` : editProfileDemo.voiceIntro.duration }}
           recordingSeconds={recordingSeconds}
           recordedDurationSeconds={voiceTempDuration || voiceDetail?.voiceIntroDuration || 0}
           minDuration={config?.uploadLimits.voiceMinDuration || 10}
@@ -948,8 +947,7 @@ export default function ProfileEditPage() {
           onCancelConfirm={cancelVoiceConfirm}
           onConfirmExit={confirmDiscardRecording}
           onConfirmDelete={confirmDeleteVoice}
-        />
-      ) : null}
+      />
     </View>
   )
 }
@@ -2154,6 +2152,7 @@ function WechatSection({ value, onInput, onSave }: { value: string; onInput: (va
 }
 
 function VoiceIntroSheet({
+  visible = true,
   variant,
   voiceIntro,
   recordingSeconds,
@@ -2168,6 +2167,7 @@ function VoiceIntroSheet({
   onConfirmExit,
   onConfirmDelete,
 }: {
+  visible?: boolean
   variant: VoiceSheetVariant
   voiceIntro: ProfileDemo['editProfile']['voiceIntro']
   recordingSeconds: number
@@ -2235,8 +2235,10 @@ function VoiceIntroSheet({
         bottom: '0',
         background: 'rgba(0,0,0,0.38)',
         zIndex: 80,
+        visibility: visible ? 'visible' : 'hidden',
+        pointerEvents: visible ? 'auto' : 'none',
       }}
-      onClick={handleBackdrop}
+      onClick={visible ? handleBackdrop : undefined}
     >
       {variant === 'delete-success' ? (
         <VoiceToast text={voiceIntro.successText || '语音介绍已删除'} />
@@ -2794,12 +2796,14 @@ function VoiceToast({ text }: { text: string }) {
 }
 
 function OptionSheet({
+  visible = true,
   title,
   value,
   options,
   onCancel,
   onConfirm,
 }: {
+  visible?: boolean
   title: string
   value: string
   options: string[]
@@ -2818,10 +2822,12 @@ function OptionSheet({
         bottom: '0',
         background: 'rgba(8, 20, 43, 0.42)',
         zIndex: 20,
+        visibility: visible ? 'visible' : 'hidden',
+        pointerEvents: visible ? 'auto' : 'none',
       }}
-      onClick={onCancel}
+      onClick={visible ? onCancel : undefined}
     >
-      <View
+      {visible ? <View
         style={{
           position: 'absolute',
           left: '0',
@@ -2884,7 +2890,7 @@ function OptionSheet({
             )
           })}
         </View>
-      </View>
+      </View> : null}
     </View>
   )
 }
