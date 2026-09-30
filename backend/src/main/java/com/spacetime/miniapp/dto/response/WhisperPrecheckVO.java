@@ -14,6 +14,8 @@ public class WhisperPrecheckVO {
     private Boolean free;
     private Integer coinBalance;
     private Integer freeWhisperRemain;
+    /** 后台配置的会员每日免费悄悄话总次数，未开通会员时也返回，供页面正确展示权益。 */
+    private Integer freeWhisperDailyQuota;
     private String quoteToken;
     private java.time.LocalDateTime quoteExpireTime;
     private Integer whisperExpireDays;

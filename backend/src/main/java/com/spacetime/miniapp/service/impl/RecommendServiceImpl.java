@@ -57,6 +57,7 @@ import com.spacetime.miniapp.service.RecommendService;
 import com.spacetime.miniapp.service.VipService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -91,6 +92,10 @@ public class RecommendServiceImpl implements RecommendService {
     private static final String THREE_DAY_REPLAY_BENEFIT = "three_day_replay";
     private static final String NEIGHBOR_CITY_MAP_KEY = "prd08.recommend.neighbor-city-map";
     private static final String NEIGHBOR_CITY_DISABLED_REASON = "周边城市关系暂未配置，偏好可提前保存";
+    private static final String BLURRED_REPLAY_AVATAR =
+            "https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/7607b8cd85521572/avatar-liked-blurred.png";
+    private static final String ISSUED_ACTION = "issued";
+    private static final java.time.ZoneId BEIJING = java.time.ZoneId.of("Asia/Shanghai");
 
     private final AppUserDao appUserDao;
     private final RecommendPreferenceDao preferenceDao;
@@ -128,9 +133,6 @@ public class RecommendServiceImpl implements RecommendService {
         validateDictionaries(req);
         boolean vipEffective = isVipEffective(userId);
         boolean advancedFilterEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
-        if (!vipEffective && normalize(req.getTargetCityCodes()).size() > 2) {
-            throw new BusinessException(403, "开通会员后可选择第三个目标城市");
-        }
         if (!advancedFilterEffective && hasAdvanced(req)) {
             throw new BusinessException(403, "开通会员且高级筛选权益启用后可保存高级条件");
         }
@@ -167,6 +169,7 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     @Override
+    @Transactional
     public RecommendCandidatePageVO getCandidates(Long userId, String cursor) {
         AppUser current = requireBrowsableUser(userId);
         boolean vipEffective = isVipEffective(userId);
@@ -254,7 +257,60 @@ public class RecommendServiceImpl implements RecommendService {
         } else if (continuationCursor != null) {
             result.setNextCursor(continuationCursor);
         }
+        recordIssuedCandidates(userId, items, preference.getVersion(),
+                RecommendBrowseCycle.current().currentTime());
         return result;
+    }
+
+    private void recordIssuedCandidates(Long userId, List<RecommendCandidateVO> items,
+                                        Integer filterVersion, LocalDateTime issuedAt) {
+        if (items.isEmpty()) {
+            return;
+        }
+        LocalDate issueDate = issuedAt.toLocalDate();
+        LocalDateTime dayStart = issueDate.atStartOfDay();
+        List<Long> candidateIds = items.stream().map(RecommendCandidateVO::getUserId)
+                .filter(Objects::nonNull).distinct().toList();
+        if (candidateIds.isEmpty()) {
+            return;
+        }
+        List<RecommendViewLog> existing = viewLogDao.selectList(
+                new LambdaQueryWrapper<RecommendViewLog>()
+                        .eq(RecommendViewLog::getUserId, userId)
+                        .eq(RecommendViewLog::getAction, ISSUED_ACTION)
+                        .in(RecommendViewLog::getCandidateUserId, candidateIds)
+                        .ge(RecommendViewLog::getViewedAt, dayStart)
+                        .lt(RecommendViewLog::getViewedAt, dayStart.plusDays(1)));
+        Set<Long> issuedIds = (existing == null ? List.<RecommendViewLog>of() : existing).stream()
+                .filter(log -> ISSUED_ACTION.equals(log.getAction()))
+                .map(RecommendViewLog::getCandidateUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        for (int index = 0; index < items.size(); index++) {
+            Long candidateId = items.get(index).getUserId();
+            if (candidateId == null || !issuedIds.add(candidateId)) {
+                continue;
+            }
+            String requestId = "issued:" + issueDate + ":" + userId + ":" + candidateId;
+            RecommendViewLog issued = new RecommendViewLog();
+            issued.setEventNo("RVL-" + IdUtil.getSnowflakeNextIdStr());
+            issued.setRequestId(requestId);
+            issued.setUserId(userId);
+            issued.setCandidateUserId(candidateId);
+            issued.setScene("recommend");
+            issued.setFilterVersion(filterVersion);
+            issued.setAction(ISSUED_ACTION);
+            issued.setPosition(index + 1);
+            issued.setViewedAt(issuedAt);
+            try {
+                viewLogDao.insert(issued);
+            } catch (DuplicateKeyException duplicate) {
+                // 同日并发请求可能同时发放同一人，只有发放键已存在时才视为幂等。
+                if (viewLogDao.selectByRequestAction(userId, requestId, ISSUED_ACTION) == null) {
+                    throw duplicate;
+                }
+            }
+        }
     }
 
     /**
@@ -399,23 +455,35 @@ public class RecommendServiceImpl implements RecommendService {
     @Override
     public RecommendReplayPageVO getReplay(Long userId) {
         requireBrowsableUser(userId);
-        LocalDateTime start = LocalDate.now().minusDays(2).atStartOfDay();
+        boolean memberProfileAccess = hasEffectiveBenefit(userId, THREE_DAY_REPLAY_BENEFIT);
+        LocalDateTime start = LocalDate.now(BEIJING).minusDays(2).atStartOfDay();
         List<RecommendViewLog> raw = viewLogDao.selectList(new LambdaQueryWrapper<RecommendViewLog>()
                 .eq(RecommendViewLog::getUserId, userId)
                 .ge(RecommendViewLog::getViewedAt, start)
                 .in(RecommendViewLog::getAction, List.of("view", "skip", "detail", "like"))
                 .orderByDesc(RecommendViewLog::getViewedAt));
-        Map<Long, RecommendViewLog> latest = new LinkedHashMap<>();
+        Map<ReplayDayCandidate, RecommendViewLog> latest = new LinkedHashMap<>();
+        Set<ReplayDayCandidate> skipped = new LinkedHashSet<>();
         for (RecommendViewLog log : raw == null ? List.<RecommendViewLog>of() : raw) {
-            if (log.getCandidateUserId() != null) {
-                latest.putIfAbsent(log.getCandidateUserId(), log);
+            if (List.of("view", "skip", "detail", "like").contains(log.getAction())
+                    && log.getCandidateUserId() != null && log.getViewedAt() != null) {
+                // 同一天的重复动作只保留最近一次；同一用户跨天出现时，三天回看应分别保留。
+                ReplayDayCandidate key = new ReplayDayCandidate(
+                        log.getViewedAt().toLocalDate(), log.getCandidateUserId());
+                latest.putIfAbsent(key, log);
+                if ("skip".equals(log.getAction())) {
+                    skipped.add(key);
+                }
             }
         }
-        List<Long> candidateIds = List.copyOf(latest.keySet());
+        List<Long> candidateIds = latest.values().stream()
+                .map(RecommendViewLog::getCandidateUserId)
+                .distinct()
+                .toList();
         if (candidateIds.isEmpty()) {
             RecommendReplayPageVO empty = new RecommendReplayPageVO();
             empty.setItems(List.of());
-            empty.setMemberProfileAccess(hasEffectiveBenefit(userId, THREE_DAY_REPLAY_BENEFIT));
+            empty.setMemberProfileAccess(memberProfileAccess);
             return empty;
         }
 
@@ -454,17 +522,22 @@ public class RecommendServiceImpl implements RecommendService {
             boolean liked = likedCandidateIds.contains(target.getId());
             RecommendReplayItemVO item = new RecommendReplayItemVO();
             item.setCandidateNo(String.valueOf(target.getId()));
-            item.setProfile(replayProfile(target, avatars.get(target.getId()), cityLabels,
+            boolean pastDay = log.getViewedAt().toLocalDate().isBefore(LocalDate.now(BEIJING));
+            String avatar = !memberProfileAccess && pastDay
+                    ? BLURRED_REPLAY_AVATAR : avatars.get(target.getId());
+            item.setProfile(replayProfile(target, avatar, cityLabels,
                     occupationLabels, liked));
             item.setViewedAt(log.getViewedAt());
             item.setLastAction(log.getAction());
             item.setDateGroup(dateGroup(log.getViewedAt()));
+            item.setSkipped(skipped.contains(new ReplayDayCandidate(
+                    log.getViewedAt().toLocalDate(), target.getId())));
             item.setLiked(liked);
             items.add(item);
         }
         RecommendReplayPageVO result = new RecommendReplayPageVO();
         result.setItems(items);
-        result.setMemberProfileAccess(hasEffectiveBenefit(userId, THREE_DAY_REPLAY_BENEFIT));
+        result.setMemberProfileAccess(memberProfileAccess);
         return result;
     }
 
@@ -733,7 +806,12 @@ public class RecommendServiceImpl implements RecommendService {
             }
         }
         List<RecommendViewLog> views = viewLogDao.selectList(browseViewsInCycle(userId, cycle));
-        return Math.max(0, quota - (views == null ? 0 : views.size()));
+        long uniqueCandidates = views == null ? 0 : views.stream()
+                .map(RecommendViewLog::getCandidateUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+        return (int) Math.max(0, quota - uniqueCandidates);
     }
 
     private boolean alreadyViewedInCycle(Long userId, Long candidateId, RecommendBrowseCycle cycle) {
@@ -776,10 +854,10 @@ public class RecommendServiceImpl implements RecommendService {
 
     private String dateGroup(LocalDateTime time) {
         LocalDate date = time.toLocalDate();
-        if (date.equals(LocalDate.now())) {
+        if (date.equals(LocalDate.now(BEIJING))) {
             return "今天";
         }
-        if (date.equals(LocalDate.now().minusDays(1))) {
+        if (date.equals(LocalDate.now(BEIJING).minusDays(1))) {
             return "昨天";
         }
         return "前天";
@@ -810,6 +888,9 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private record CursorValue(LocalDateTime time, Long userId) {
+    }
+
+    private record ReplayDayCandidate(LocalDate date, Long candidateId) {
     }
 
     private record AuditContentKey(Long userId, String auditType) {

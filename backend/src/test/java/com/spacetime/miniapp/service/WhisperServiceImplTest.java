@@ -100,6 +100,7 @@ class WhisperServiceImplTest {
         assertThat(result.getPayType()).isEqualTo("vip_free");
         assertThat(result.getCoinAmount()).isZero();
         assertThat(result.getFreeWhisperRemain()).isEqualTo(1);
+        assertThat(result.getFreeWhisperDailyQuota()).isEqualTo(2);
         assertThat(result.getQuoteToken()).isEqualTo("wq-token");
         assertThat(result.getWhisperExpireDays()).isEqualTo(7);
         assertThat(result.getCooldownDays()).isEqualTo(7);
@@ -231,11 +232,14 @@ class WhisperServiceImplTest {
                 .thenAnswer(invocation -> Objects.equals(
                         ((AppUser) invocation.getArgument(0)).getId(), 7L) ? "OPEN" : "CLOSED");
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset(7L, 50, "inactive"));
+        when(vipBenefitDao.selectPage(any(), any())).thenReturn(benefitPage(2));
         when(quoteStore.issue(any())).thenReturn("wq-normal-receiver");
 
         WhisperPrecheckVO result = service.precheck(7L, precheckReq());
 
         assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getFreeWhisperDailyQuota()).isEqualTo(2);
+        assertThat(result.getFreeWhisperRemain()).isZero();
         assertThat(result.getQuoteToken()).isEqualTo("wq-normal-receiver");
     }
 

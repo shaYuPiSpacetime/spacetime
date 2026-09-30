@@ -10,6 +10,7 @@ import com.spacetime.common.dao.AppRelationVisitDao;
 import com.spacetime.common.dao.AppRelationVisitEventDao;
 import com.spacetime.common.dao.AppRelationVisitInboxStateDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.AppUserRelationBlockDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.constant.ProfileDictType;
@@ -22,6 +23,7 @@ import com.spacetime.common.entity.AppRelationVisit;
 import com.spacetime.common.entity.AppRelationVisitEvent;
 import com.spacetime.common.entity.AppRelationVisitInboxState;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserRelationBlock;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.enums.GenderEnum;
@@ -38,6 +40,7 @@ import com.spacetime.miniapp.dto.response.MutualMatchPageVO;
 import com.spacetime.miniapp.dto.response.RecentViewersPageVO;
 import com.spacetime.miniapp.dto.response.RelationLikeActionVO;
 import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
+import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
 import com.spacetime.miniapp.service.impl.MiniappRelationServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,6 +69,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MiniappRelationServiceImplTest {
     @Mock private AppUserDao appUserDao;
+    @Mock private AppUserRelationBlockDao relationBlockDao;
     @Mock private AppRelationLikeDao likeDao;
     @Mock private AppRelationLikeInboxStateDao likeInboxStateDao;
     @Mock private AppRelationVisitDao visitDao;
@@ -497,6 +501,28 @@ class MiniappRelationServiceImplTest {
         assertThat(result.getLikeStatus()).isEqualTo("cancelled");
         assertThat(result.getCanEnterConversation()).isFalse();
         verify(relationDomainService).cancelLike(eq(7L), eq(8L), any());
+    }
+
+    @Test
+    void createLikeRejectsActiveBlacklistInEitherDirection() {
+        AppUser current = activeUser(7L, "当前用户", GenderEnum.MALE.getCode());
+        AppUser target = activeUser(8L, "目标用户", GenderEnum.FEMALE.getCode());
+        AppUserRelationBlock block = new AppUserRelationBlock();
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(relationBlockDao.selectActive(7L, 8L, "BLACKLIST")).thenReturn(null);
+        when(relationBlockDao.selectActive(8L, 7L, "BLACKLIST")).thenReturn(block);
+        RelationLikeCreateReq req = new RelationLikeCreateReq();
+        req.setRequestId("like-after-block");
+        req.setTargetUserId(8L);
+        req.setSourceScene("profile");
+
+        assertThatThrownBy(() -> service.createLike(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("拉黑");
+        verifyNoInteractions(relationDomainService);
     }
 
     @Test

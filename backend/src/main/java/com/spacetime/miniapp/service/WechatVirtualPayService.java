@@ -41,6 +41,8 @@ public interface WechatVirtualPayService extends WechatVirtualRefundGateway {
             String transactionId,
             int status,
             long paidTime,
+            int paidFeeFen,
+            int orderType,
             String rawPayload
     ) {
         /** 2：已支付待发货；3：发货中；4：已发货。 */

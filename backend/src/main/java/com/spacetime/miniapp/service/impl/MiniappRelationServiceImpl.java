@@ -11,6 +11,7 @@ import com.spacetime.common.dao.AppRelationVisitDao;
 import com.spacetime.common.dao.AppRelationVisitEventDao;
 import com.spacetime.common.dao.AppRelationVisitInboxStateDao;
 import com.spacetime.common.dao.AppUserDao;
+import com.spacetime.common.dao.AppUserRelationBlockDao;
 import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.common.dto.RelationLikeListRow;
@@ -27,6 +28,7 @@ import com.spacetime.common.entity.AppRelationVisitInboxState;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.UserAsset;
 import com.spacetime.common.enums.RelationLikeStatusEnum;
+import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.enums.RelationMatchPopupStatusEnum;
 import com.spacetime.common.enums.RelationMatchSourceStatusEnum;
 import com.spacetime.common.enums.RelationMatchStatusEnum;
@@ -99,6 +101,7 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
     private static final String DISPLAY_CLEAR = "clear";
 
     private final AppUserDao appUserDao;
+    private final AppUserRelationBlockDao relationBlockDao;
     private final AppRelationLikeDao likeDao;
     private final AppRelationLikeInboxStateDao likeInboxStateDao;
     private final AppRelationVisitDao visitDao;
@@ -446,6 +449,7 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         AppUser current = requireOpenUser(userId, CURRENT_ACCESS_CLOSED, "关系反馈准入未开放");
         AppUser target = requireOpenUser(req.getTargetUserId(), TARGET_UNAVAILABLE, "目标用户当前不可互动");
         requireRelationshipPair(current, target);
+        requireNotBlacklisted(userId, req.getTargetUserId());
 
         AppRelationLike sameRequest = likeDao.selectOne(new LambdaQueryWrapper<AppRelationLike>()
                 .eq(AppRelationLike::getFromUserId, userId)
@@ -724,6 +728,14 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         if (!StringUtils.hasText(current.getGender()) || !StringUtils.hasText(target.getGender())
                 || current.getGender().equals(target.getGender())) {
             throw new BusinessException(TARGET_UNAVAILABLE, "目标用户不在当前关系范围");
+        }
+    }
+
+    private void requireNotBlacklisted(Long userId, Long targetUserId) {
+        String type = RelationBlockTypeEnum.BLACKLIST.getCode();
+        if (relationBlockDao.selectActive(userId, targetUserId, type) != null
+                || relationBlockDao.selectActive(targetUserId, userId, type) != null) {
+            throw new BusinessException(TARGET_UNAVAILABLE, "双方存在拉黑关系，解除后才能喜欢");
         }
     }
 

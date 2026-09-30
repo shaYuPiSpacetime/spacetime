@@ -43,6 +43,9 @@ public interface WechatPayService {
             String outTradeNo,
             String transactionId,
             String tradeState,
+            int totalFeeFen,
+            String appId,
+            String mchId,
             String rawPayload
     ) {}
 }

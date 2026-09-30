@@ -286,14 +286,23 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException("订单与用户不匹配");
         }
         LocalDateTime now = LocalDateTime.now();
-        if ("wechat_virtual".equals(order.getPayChannel())
-                && (OrderStatusEnum.CLOSED.getCode().equals(order.getOrderStatus())
-                || (OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())
-                && order.getExpireTime() != null && !order.getExpireTime().isAfter(now)))) {
-            // 虚拟支付先向微信查单；历史已关闭订单也允许补偿已扣款结果。
-            return confirmWechatPay(userId, orderId);
+        boolean expiredUnpaid = OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())
+                && order.getExpireTime() != null && !order.getExpireTime().isAfter(now);
+        boolean closed = OrderStatusEnum.CLOSED.getCode().equals(order.getOrderStatus());
+        if (expiredUnpaid || closed) {
+            if ("wechat".equals(order.getPayChannel()) || "wechat_virtual".equals(order.getPayChannel())) {
+                // 微信渠道先在行锁下查单，避免本地超时状态覆盖并发支付结果。
+                return confirmWechatPay(userId, orderId);
+            }
+            if (expiredUnpaid) {
+                TradeOrder lockedOrder = tradeOrderDao.selectByIdForUpdate(orderId);
+                if (lockedOrder == null || !Objects.equals(lockedOrder.getUserId(), userId)) {
+                    throw new BusinessException("订单不存在或与用户不匹配");
+                }
+                closeExpiredOrder(lockedOrder, now);
+                return buildPayResult(lockedOrder);
+            }
         }
-        closeExpiredOrder(order, now);
         return buildPayResult(order);
     }
 
@@ -318,27 +327,29 @@ public class PaymentServiceImpl implements PaymentService {
             }
             return confirmVirtualPayment(userId, order);
         }
-        if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())) {
-            throw new BusinessException("订单状态不正确，无法确认支付");
+        if (!"wechat".equals(order.getPayChannel())) {
+            throw new BusinessException("订单支付渠道不正确，无法确认支付");
         }
-        if (closeExpiredOrder(order, LocalDateTime.now())) {
-            return buildPayResult(order);
+        if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())
+                && !OrderStatusEnum.CLOSED.getCode().equals(order.getOrderStatus())) {
+            throw new BusinessException("订单状态不正确，无法确认支付");
         }
 
         WechatPayService.WechatPayNotifyResult payResult = wechatPayService.queryOrder(order.getOrderNo());
         LocalDateTime now = LocalDateTime.now();
         PaymentNotifyLog confirmLog = new PaymentNotifyLog();
         confirmLog.setPayChannel("wechat");
-        confirmLog.setOrderNo(payResult.outTradeNo());
+        confirmLog.setOrderNo(order.getOrderNo());
         confirmLog.setChannelTradeNo(payResult.transactionId());
         confirmLog.setNotifyType("payment_confirm");
         confirmLog.setNotifyPayload(payResult.rawPayload());
         confirmLog.setNotifyTime(now);
 
         if (!"SUCCESS".equalsIgnoreCase(payResult.tradeState())) {
-            order.setPayChannel("wechat");
             order.setNotifySummary(summary(payResult.rawPayload()));
-            tradeOrderDao.updateById(order);
+            if (!closeExpiredOrder(order, now)) {
+                tradeOrderDao.updateById(order);
+            }
             confirmLog.setProcessStatus("ignored");
             confirmLog.setProcessMessage("微信查单未支付成功: " + payResult.tradeState());
             paymentNotifyLogDao.insert(confirmLog);
@@ -347,7 +358,7 @@ public class PaymentServiceImpl implements PaymentService {
             return buildPayResult(order);
         }
 
-        order.setPayChannel("wechat");
+        assertVerifiedWechatPayment(order, payResult);
         order.setChannelTradeNo(payResult.transactionId());
         order.setNotifySummary(summary(payResult.rawPayload()));
         applySuccessfulPayment(order, now);
@@ -390,6 +401,7 @@ public class PaymentServiceImpl implements PaymentService {
             return buildPayResult(order);
         }
 
+        assertVerifiedVirtualPayment(order, payResult);
         order.setChannelTradeNo(payResult.transactionId());
         order.setNotifySummary(summary(payResult.rawPayload()));
         applySuccessfulPayment(order, now);
@@ -425,9 +437,17 @@ public class PaymentServiceImpl implements PaymentService {
                 return;
             }
 
-            TradeOrder order = tradeOrderDao.selectByOrderNo(notify.outTradeNo());
-            if (order == null) {
+            TradeOrder candidate = tradeOrderDao.selectByOrderNo(notify.outTradeNo());
+            if (candidate == null) {
                 throw new BusinessException("支付回调订单不存在");
+            }
+            // 先锁定订单，再核对状态，避免回调与主动查单并发重复发放权益。
+            TradeOrder order = tradeOrderDao.selectByIdForUpdate(candidate.getId());
+            if (order == null || !Objects.equals(order.getOrderNo(), notify.outTradeNo())) {
+                throw new BusinessException("支付回调订单不存在");
+            }
+            if (!"wechat".equals(order.getPayChannel())) {
+                throw new BusinessException("订单支付渠道不匹配，无法处理支付通知");
             }
             if (OrderStatusEnum.SUCCESS.getCode().equals(order.getOrderStatus())) {
                 notifyLog.setProcessStatus("ignored");
@@ -435,23 +455,62 @@ public class PaymentServiceImpl implements PaymentService {
                 paymentNotifyLogDao.insert(notifyLog);
                 return;
             }
-            if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())) {
+            if (!OrderStatusEnum.UNPAID.getCode().equals(order.getOrderStatus())
+                    && !OrderStatusEnum.CLOSED.getCode().equals(order.getOrderStatus())) {
                 throw new BusinessException("订单状态不正确，无法支付");
             }
 
-            order.setPayChannel("wechat");
-            order.setChannelTradeNo(notify.transactionId());
-            order.setNotifySummary(summary(notify.rawPayload()));
+            // 回调内容只能触发查单，权益发放必须以微信查询到的实际支付结果为准。
+            WechatPayService.WechatPayNotifyResult confirmed = wechatPayService.queryOrder(order.getOrderNo());
+            if (!"SUCCESS".equalsIgnoreCase(confirmed.tradeState())) {
+                notifyLog.setProcessStatus("ignored");
+                notifyLog.setProcessMessage("微信查单未支付成功: " + confirmed.tradeState());
+                paymentNotifyLogDao.insert(notifyLog);
+                return;
+            }
+            assertVerifiedWechatPayment(order, confirmed);
+            order.setChannelTradeNo(confirmed.transactionId());
+            order.setNotifySummary(summary(confirmed.rawPayload()));
             applySuccessfulPayment(order, now);
+            notifyLog.setChannelTradeNo(confirmed.transactionId());
             notifyLog.setProcessStatus("success");
-            notifyLog.setProcessMessage("处理成功");
+            notifyLog.setProcessMessage("微信查单确认后处理成功");
             paymentNotifyLogDao.insert(notifyLog);
-            log.info("微信支付回调处理成功: orderNo={}, transactionId={}", notify.outTradeNo(), notify.transactionId());
+            log.info("微信支付回调查单确认成功: orderNo={}, transactionId={}",
+                    order.getOrderNo(), confirmed.transactionId());
         } catch (BusinessException ex) {
             notifyLog.setProcessStatus("failed");
             notifyLog.setProcessMessage(ex.getMessage());
             paymentNotifyLogDao.insert(notifyLog);
             throw ex;
+        }
+    }
+
+    /** 普通微信支付只有渠道订单、身份和实付订单金额均匹配时才能入账。 */
+    private void assertVerifiedWechatPayment(
+            TradeOrder order, WechatPayService.WechatPayNotifyResult result) {
+        if (result == null
+                || !"SUCCESS".equalsIgnoreCase(result.tradeState())
+                || !Objects.equals(order.getOrderNo(), result.outTradeNo())
+                || result.transactionId() == null || result.transactionId().isBlank()
+                || result.totalFeeFen() != toFen(order.getPayAmount())
+                || !Objects.equals(wechatPayProperties.getAppId(), result.appId())
+                || !Objects.equals(wechatPayProperties.getMchId(), result.mchId())) {
+            log.warn("微信支付查单结果与本地订单不匹配: orderNo={}", order.getOrderNo());
+            throw new BusinessException("支付结果未通过核验，暂未发放权益，请联系客服");
+        }
+    }
+
+    /** 虚拟支付仅接受渠道已支付、原支付单且用户实付金额与订单一致的结果。 */
+    private void assertVerifiedVirtualPayment(
+            TradeOrder order, WechatVirtualPayService.VirtualPayOrderResult result) {
+        if (!Objects.equals(order.getOrderNo(), result.orderNo())
+                || (result.orderType() != 0 && result.orderType() != 7)
+                || result.transactionId() == null || result.transactionId().isBlank()
+                || result.paidFeeFen() != toFen(order.getPayAmount())) {
+            log.warn("微信虚拟支付查单结果与本地订单不匹配: orderNo={}, status={}, orderType={}",
+                    order.getOrderNo(), result.status(), result.orderType());
+            throw new BusinessException("支付结果未通过核验，暂未发放权益，请联系客服");
         }
     }
 
@@ -504,7 +563,7 @@ public class PaymentServiceImpl implements PaymentService {
         tradeOrderDao.updateById(order);
 
         // 3. 查询或创建用户资产
-        UserAsset asset = userAssetDao.selectByUserId(order.getUserId());
+        UserAsset asset = userAssetDao.selectByUserIdForUpdate(order.getUserId());
         if (asset == null) {
             asset = new UserAsset();
             asset.setUserId(order.getUserId());

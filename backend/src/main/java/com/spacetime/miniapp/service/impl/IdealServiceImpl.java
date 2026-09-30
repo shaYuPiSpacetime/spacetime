@@ -35,11 +35,9 @@ import com.spacetime.miniapp.dto.response.IdealMetaVO;
 import com.spacetime.miniapp.dto.response.IdealResultItemVO;
 import com.spacetime.miniapp.dto.response.IdealResultPageVO;
 import com.spacetime.miniapp.dto.response.IdealSearchVO;
-import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.dto.response.RecommendCityVO;
 import com.spacetime.miniapp.service.IdealService;
 import com.spacetime.miniapp.service.IdealUnlockService;
-import com.spacetime.miniapp.service.MiniappPublicProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -110,7 +108,6 @@ public class IdealServiceImpl implements IdealService {
     private final SchoolDictionaryDao schoolDictionaryDao;
     private final RelationAccessProjectionService accessProjectionService;
     private final ProfileDictionaryService profileDictionaryService;
-    private final MiniappPublicProfileService publicProfileService;
     private final IdealUnlockService idealUnlockService;
 
     @Override
@@ -196,6 +193,22 @@ public class IdealServiceImpl implements IdealService {
             candidates.add(item);
         }
         if (!candidates.isEmpty()) {
+            List<Long> candidateIds = candidates.stream()
+                    .map(IdealSnapshotCandidate::getCandidateUserId).distinct().toList();
+            List<UserUnlockRecord> activeRecords = unlockRecordDao.selectList(
+                    new LambdaQueryWrapper<UserUnlockRecord>()
+                            .eq(UserUnlockRecord::getUserId, userId)
+                            .eq(UserUnlockRecord::getTargetBizType, "ideal")
+                            .in(UserUnlockRecord::getTargetUserId, candidateIds)
+                            .eq(UserUnlockRecord::getStatus, UnlockRecordStatusEnum.ACTIVE.getCode())
+                            .eq(UserUnlockRecord::getActiveMarker, 1));
+            Set<Long> unlockedIds = (activeRecords == null ? List.<UserUnlockRecord>of() : activeRecords)
+                    .stream().filter(this::active)
+                    .map(UserUnlockRecord::getTargetUserId)
+                    .collect(java.util.stream.Collectors.toSet());
+            candidates.removeIf(candidate -> unlockedIds.contains(candidate.getCandidateUserId()));
+        }
+        if (!candidates.isEmpty()) {
             snapshotCandidateDao.insertBatch(candidates);
         }
         snapshot.setResultCount(candidates.size());
@@ -213,44 +226,33 @@ public class IdealServiceImpl implements IdealService {
                         Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(IdealSnapshotCandidate::getSortTieBreaker,
                         Comparator.nullsLast(Comparator.naturalOrder())));
+        Map<Long, UserUnlockRecord> unlocks = activeUnlocks(userId, ordered);
         int offset = decodeOffset(cursor);
         if (offset > ordered.size()) {
             throw new BusinessException(400, "理想型结果游标无效");
         }
-        int end = Math.min(ordered.size(), offset + PAGE_SIZE);
-        List<IdealSnapshotCandidate> page = ordered.subList(offset, end);
-        Map<Long, UserUnlockRecord> unlocks = activeUnlocks(userId, ordered);
         List<IdealResultItemVO> items = new ArrayList<>();
-        for (IdealSnapshotCandidate row : page) {
+        int nextIndex = offset;
+        while (nextIndex < ordered.size() && items.size() < PAGE_SIZE) {
+            IdealSnapshotCandidate row = ordered.get(nextIndex++);
+            if (unlocks.containsKey(row.getCandidateUserId())) {
+                continue;
+            }
             AppUser candidate = appUserDao.selectById(row.getCandidateUserId());
             if (candidate == null || !"OPEN".equals(accessProjectionService.project(candidate))
                     || isBlocked(userId, candidate.getId())) {
                 continue;
             }
-            UserUnlockRecord unlock = unlocks.get(row.getCandidateUserId());
-            if (unlock != null && active(unlock)) {
-                PublicProfileVO profile = publicProfileService.getPublicProfile(userId, candidate.getId());
-                IdealResultItemVO item = new IdealResultItemVO();
-                item.setItemNo(row.getItemNo());
-                item.setUnlocked(true);
-                item.setCandidateNo(String.valueOf(candidate.getId()));
-                item.setProfile(profile);
-                item.setCommunicationMode("PRIVATE_MESSAGE");
-                item.setUnlockExpiresAt(unlock.getExpireTime());
-                item.setEducationLabel(profileDictionaryService.label(
-                        ProfileDictType.EDUCATION_LEVEL, candidate.getEducationLevel()));
-                item.setSchoolSummary(candidate.getSchool());
-                items.add(item);
-            } else {
-                items.add(lockedItem(row, candidate));
-            }
+            items.add(lockedItem(row, candidate));
         }
 
         IdealResultPageVO result = new IdealResultPageVO();
         result.setSnapshotNo(snapshot.getSnapshotNo());
         result.setStatus(snapshot.getStatus());
         result.setSummary(summary(snapshot));
-        result.setResultCount(snapshot.getResultCount());
+        result.setResultCount((int) ordered.stream()
+                .filter(row -> !unlocks.containsKey(row.getCandidateUserId()))
+                .count());
         result.setUnlockableCount((int) ordered.stream()
                 .map(IdealSnapshotCandidate::getCandidateUserId)
                 .filter(java.util.Objects::nonNull)
@@ -258,7 +260,7 @@ public class IdealServiceImpl implements IdealService {
                 .filter(targetUserId -> !unlocks.containsKey(targetUserId))
                 .count());
         result.setItems(items);
-        result.setNextCursor(end < ordered.size() ? encodeOffset(end) : null);
+        result.setNextCursor(nextIndex < ordered.size() ? encodeOffset(nextIndex) : null);
         result.setPricing(idealUnlockService.getPricing());
         return result;
     }

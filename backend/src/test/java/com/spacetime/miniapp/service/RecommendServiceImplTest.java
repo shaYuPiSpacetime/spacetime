@@ -40,6 +40,7 @@ import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,7 @@ import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -244,18 +246,18 @@ class RecommendServiceImplTest {
     }
 
     @Test
-    @DisplayName("普通用户不能通过直接调用接口保存第三个目标城市")
-    void normalUserShouldNotSaveThirdTargetCity() {
+    @DisplayName("普通用户也能保存第三个目标城市")
+    void normalUserCanSaveThirdTargetCity() {
         AppUser user = openUser(7L, 30, "320100");
         when(appUserDao.selectById(7L)).thenReturn(user);
         when(accessProjectionService.project(user)).thenReturn("OPEN");
         RecommendPreferenceSaveReq req = basicRequest(0);
         req.setTargetCityCodes(List.of("320100", "320200", "320400"));
 
-        assertThatThrownBy(() -> service.savePreferences(7L, req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("会员");
-        verify(preferenceDao, never()).insert(any());
+        RecommendPreferenceVO result = service.savePreferences(7L, req);
+
+        assertThat(result.getTargetCities()).hasSize(3);
+        verify(preferenceDao).insert(any());
     }
 
     @Test
@@ -280,6 +282,25 @@ class RecommendServiceImplTest {
         RecommendCandidatePageVO result = service.getCandidates(7L, null);
 
         assertThat(result.getRemainingBrowseCount()).isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("历史重复曝光日志只按不同候选扣推荐额度")
+    void duplicateCandidateViewsShouldCountOnceAgainstQuota() {
+        AppUser user = openUser(7L, 30, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(accessProjectionService.project(user)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 1));
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        when(viewLogDao.selectList(any())).thenReturn(List.of(
+                viewLog(7L, 8L, "view", LocalDateTime.now()),
+                viewLog(7L, 8L, "view", LocalDateTime.now()),
+                viewLog(7L, 9L, "view", LocalDateTime.now())));
+        when(appUserDao.selectList(any())).thenReturn(List.of());
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getRemainingBrowseCount()).isEqualTo(8);
     }
 
     @Test
@@ -443,6 +464,12 @@ class RecommendServiceImplTest {
         });
         assertThat(result.getRemainingBrowseCount()).isEqualTo(9);
         assertThat(result.getPreferenceVersion()).isEqualTo(2);
+        ArgumentCaptor<RecommendViewLog> issued = ArgumentCaptor.forClass(RecommendViewLog.class);
+        verify(viewLogDao).insert(issued.capture());
+        assertThat(issued.getValue().getAction()).isEqualTo("issued");
+        assertThat(issued.getValue().getUserId()).isEqualTo(7L);
+        assertThat(issued.getValue().getCandidateUserId()).isEqualTo(8L);
+        assertThat(issued.getValue().getScene()).isEqualTo("recommend");
     }
 
     @Test
@@ -806,6 +833,20 @@ class RecommendServiceImplTest {
     }
 
     @Test
+    @DisplayName("客户端不能把服务端候选发放动作伪造成浏览动作提交")
+    void recordActionRejectsIssuedActionFromClient() {
+        AppUser current = openUser(7L, 30, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        RecommendViewActionReq req = new RecommendViewActionReq();
+        req.setRequestId("forged-issued");
+
+        assertThatThrownBy(() -> service.recordAction(7L, "8", "issued", req))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("推荐动作参数有误");
+        verify(viewLogDao, never()).insert(any());
+    }
+
+    @Test
     @DisplayName("当天已浏览过的候选不再出现在推荐队列")
     void getCandidatesShouldExcludeCandidatesViewedToday() {
         AppUser current = openUser(7L, 30, "320100");
@@ -859,6 +900,7 @@ class RecommendServiceImplTest {
         RecommendViewLog latest = viewLog(7L, 8L, "skip", LocalDateTime.now());
         RecommendViewLog older = viewLog(7L, 8L, "view", LocalDateTime.now().minusHours(2));
         RecommendViewLog another = viewLog(7L, 9L, "detail", LocalDateTime.now().minusDays(1));
+        RecommendViewLog issued = viewLog(7L, 10L, "issued", LocalDateTime.now());
         AppUser firstUser = openUser(8L, 28, "320100");
         AppUser secondUser = openUser(9L, 29, "320100");
         AppRelationLike activeLike = new AppRelationLike();
@@ -868,12 +910,13 @@ class RecommendServiceImplTest {
         activeLike.setActiveMarker(1);
 
         when(appUserDao.selectById(7L)).thenReturn(current);
-        when(viewLogDao.selectList(any())).thenReturn(List.of(latest, older, another));
+        when(viewLogDao.selectList(any())).thenReturn(List.of(latest, older, another, issued));
         when(appUserDao.selectByIds(List.of(8L, 9L))).thenReturn(List.of(firstUser, secondUser));
         when(accessProjectionService.projectAll(List.of(firstUser, secondUser)))
                 .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
         when(auditContentService.publicAvatars(List.of(8L, 9L)))
-                .thenReturn(Map.of(8L, "https://example.com/avatar.png"));
+                .thenReturn(Map.of(8L, "https://example.com/avatar.png",
+                        9L, "https://example.com/avatar-9.png"));
         when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of("320100", "南京"));
         when(relationLikeDao.selectList(any())).thenReturn(List.of(activeLike));
 
@@ -888,6 +931,39 @@ class RecommendServiceImplTest {
                 .isEqualTo("https://example.com/avatar.png");
         assertThat(result.getItems().get(0).getProfile().getCurrentCity()).isEqualTo("南京");
         assertThat(result.getItems().get(1).getDateGroup()).isEqualTo("昨天");
+        assertThat(result.getItems().get(1).getProfile().getAvatar())
+                .doesNotContain("avatar-9.png").contains("blurred");
+    }
+
+    @Test
+    @DisplayName("三天回看同一候选跨自然日应分别展示，同一天重复动作只保留最近一次")
+    void getReplayShouldDeduplicateCandidateWithinEachCalendarDay() {
+        AppUser current = openUser(7L, 30, "320100");
+        AppUser target = openUser(8L, 28, "320100");
+        LocalDate today = LocalDate.now();
+        RecommendViewLog todayDetail = viewLog(7L, 8L, "detail", today.atTime(11, 0));
+        RecommendViewLog todaySkip = viewLog(7L, 8L, "skip", today.atTime(10, 30));
+        RecommendViewLog todayView = viewLog(7L, 8L, "view", today.atTime(10, 0));
+        RecommendViewLog yesterdayView = viewLog(7L, 8L, "view",
+                today.minusDays(1).atTime(18, 0));
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(viewLogDao.selectList(any())).thenReturn(List.of(
+                todayDetail, todaySkip, todayView, yesterdayView));
+        when(appUserDao.selectByIds(List.of(8L))).thenReturn(List.of(target));
+        when(accessProjectionService.projectAll(List.of(target))).thenReturn(Map.of(8L, "OPEN"));
+        when(auditContentService.publicAvatars(List.of(8L)))
+                .thenReturn(Map.of(8L, "https://example.com/avatar.png"));
+        when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of());
+        when(relationLikeDao.selectList(any())).thenReturn(List.of());
+
+        RecommendReplayPageVO result = service.getReplay(7L);
+
+        assertThat(result.getItems()).hasSize(2);
+        assertThat(result.getItems()).extracting("dateGroup", "lastAction")
+                .containsExactly(tuple("今天", "detail"), tuple("昨天", "view"));
+        assertThat(result.getItems()).extracting("skipped")
+                .containsExactly(true, false);
+        verify(appUserDao).selectByIds(List.of(8L));
     }
 
     @Test

@@ -160,6 +160,8 @@ public class WechatVirtualPayServiceImpl implements WechatVirtualPayService {
                     ),
                     order.path("status").asInt(0),
                     order.path("paid_time").asLong(0),
+                    order.path("paid_fee").asInt(-1),
+                    order.path("order_type").asInt(-1),
                     root.toString()
             );
         } catch (BusinessException ex) {

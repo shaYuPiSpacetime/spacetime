@@ -361,7 +361,7 @@ class IdealServiceImplTest {
     }
 
     @Test
-    void resultRecognizesActiveUnlockFromAnotherSnapshotByTargetUser() {
+    void resultOmitsPreviouslyUnlockedUserFromAnotherSnapshot() {
         AppUser current = openUser(7L, "MALE", 30, "320100");
         AppUser target = openUser(8L, "FEMALE", 28, "320100");
         IdealFilterSnapshot snapshot = snapshot(100L, 7L, LocalDateTime.now().plusDays(1));
@@ -382,21 +382,48 @@ class IdealServiceImplTest {
         when(snapshotDao.selectBySnapshotNo("IDS-001")).thenReturn(snapshot);
         when(snapshotCandidateDao.selectBySnapshotId(100L)).thenReturn(List.of(item));
         when(unlockRecordDao.selectActiveByTargetUser(7L, "ideal", 8L)).thenReturn(unlock);
-        when(appUserDao.selectById(8L)).thenReturn(target);
-        when(accessProjectionService.project(target)).thenReturn("OPEN");
-        com.spacetime.miniapp.dto.response.PublicProfileVO profile = new com.spacetime.miniapp.dto.response.PublicProfileVO();
-        profile.setUserId(8L);
-        when(publicProfileService.getPublicProfile(7L, 8L)).thenReturn(profile);
         when(idealUnlockService.getPricing()).thenReturn(new IdealPricingVO());
 
         IdealResultPageVO result = service.getResults(7L, "IDS-001", null);
 
-        assertThat(result.getItems()).singleElement().satisfies(unlocked -> {
-            assertThat(unlocked.getUnlocked()).isTrue();
-            assertThat(unlocked.getCommunicationMode()).isEqualTo("PRIVATE_MESSAGE");
-            assertThat(unlocked.getProfile()).isSameAs(profile);
-        });
+        assertThat(result.getItems()).isEmpty();
+        assertThat(result.getResultCount()).isZero();
         assertThat(result.getUnlockableCount()).isZero();
+        verify(publicProfileService, never()).getPublicProfile(any(), any());
+    }
+
+    @Test
+    void searchExcludesPreviouslyUnlockedUserFromNewSnapshot() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser unlocked = openUser(8L, "FEMALE", 28, "320100");
+        unlocked.setHeight(168);
+        AppUser fresh = openUser(9L, "FEMALE", 29, "320100");
+        fresh.setHeight(169);
+        com.spacetime.common.entity.UserUnlockRecord record = new com.spacetime.common.entity.UserUnlockRecord();
+        record.setTargetUserId(8L);
+        record.setStatus("active");
+        record.setActiveMarker(1);
+        record.setExpireTime(LocalDateTime.now().plusDays(1));
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
+        when(appUserDao.selectList(any())).thenReturn(List.of(unlocked, fresh));
+        when(accessProjectionService.projectAll(List.of(unlocked, fresh)))
+                .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
+        when(unlockRecordDao.selectList(any())).thenReturn(List.of(record));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            IdealFilterSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(100L);
+            return null;
+        }).when(snapshotDao).insert(any());
+
+        IdealSearchVO result = service.search(7L, searchReq(List.of("M08-IDEAL-height-165")));
+
+        assertThat(result.getResultCount()).isEqualTo(1);
+        ArgumentCaptor<List<IdealSnapshotCandidate>> captor = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(captor.capture());
+        assertThat(captor.getValue()).singleElement()
+                .satisfies(item -> assertThat(item.getCandidateUserId()).isEqualTo(9L));
     }
 
     @Test
@@ -422,6 +449,43 @@ class IdealServiceImplTest {
         assertThat(result.getItems()).hasSize(20);
         assertThat(result.getUnlockableCount()).isEqualTo(21);
         assertThat(result.getNextCursor()).isNotBlank();
+    }
+
+    @Test
+    void unlockingFirstPageItemDoesNotSkipCandidatesOnNextPage() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        IdealFilterSnapshot snapshot = snapshot(100L, 7L, LocalDateTime.now().plusDays(1));
+        snapshot.setResultCount(22);
+        List<IdealSnapshotCandidate> candidates = LongStream.rangeClosed(8, 29)
+                .mapToObj(userId -> {
+                    IdealSnapshotCandidate row = candidate(100L, "IDI-" + userId, userId, "[]");
+                    row.setSortTime(LocalDateTime.of(2026, 9, 30, 12, 0));
+                    row.setSortTieBreaker(String.format("%020d", userId));
+                    return row;
+                })
+                .toList();
+        com.spacetime.common.entity.UserUnlockRecord unlock = new com.spacetime.common.entity.UserUnlockRecord();
+        unlock.setStatus("active");
+        unlock.setActiveMarker(1);
+        unlock.setExpireTime(LocalDateTime.now().plusDays(1));
+        when(appUserDao.selectById(any())).thenAnswer(invocation -> {
+            long userId = invocation.getArgument(0);
+            return userId == 7L ? current : openUser(userId, "FEMALE", 28, "320100");
+        });
+        when(accessProjectionService.project(any())).thenReturn("OPEN");
+        when(snapshotDao.selectBySnapshotNo("IDS-001")).thenReturn(snapshot);
+        when(snapshotCandidateDao.selectBySnapshotId(100L)).thenReturn(candidates);
+        when(unlockRecordDao.selectActiveByTargetUser(7L, "ideal", 8L)).thenReturn(null, unlock);
+        when(idealUnlockService.getPricing()).thenReturn(new IdealPricingVO());
+
+        IdealResultPageVO first = service.getResults(7L, "IDS-001", null);
+        IdealResultPageVO second = service.getResults(7L, "IDS-001", first.getNextCursor());
+
+        assertThat(first.getItems()).hasSize(20);
+        assertThat(first.getNextCursor()).isNotBlank();
+        assertThat(second.getItems()).hasSize(2);
+        assertThat(second.getItems()).extracting(item -> item.getItemNo())
+                .containsExactly("IDI-28", "IDI-29");
     }
 
     @Test

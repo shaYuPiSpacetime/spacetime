@@ -115,7 +115,7 @@ public class WechatPayServiceImpl implements WechatPayService {
         try {
             JsonNode root = objectMapper.readTree(body);
             if (root.hasNonNull("out_trade_no")) {
-                return directNotifyResult(root, body);
+                throw new BusinessException("微信支付回调格式无效");
             }
 
             JsonNode resource = root.path("resource");
@@ -128,12 +128,7 @@ public class WechatPayServiceImpl implements WechatPayService {
                     resource.path("associated_data").asText("")
             );
             JsonNode trade = objectMapper.readTree(decryptedPayload);
-            return new WechatPayNotifyResult(
-                    trade.path("out_trade_no").asText(),
-                    trade.path("transaction_id").asText(),
-                    trade.path("trade_state").asText(),
-                    decryptedPayload
-            );
+            return parseTradeResult(trade, decryptedPayload);
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -171,7 +166,7 @@ public class WechatPayServiceImpl implements WechatPayService {
                 throw new BusinessException("微信支付查单失败，请稍后重试");
             }
             JsonNode root = objectMapper.readTree(response.body());
-            return directNotifyResult(root, response.body());
+            return parseTradeResult(root, response.body());
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -180,11 +175,14 @@ public class WechatPayServiceImpl implements WechatPayService {
         }
     }
 
-    private WechatPayNotifyResult directNotifyResult(JsonNode root, String body) {
+    WechatPayNotifyResult parseTradeResult(JsonNode root, String body) {
         return new WechatPayNotifyResult(
                 root.path("out_trade_no").asText(),
                 root.path("transaction_id").asText(),
-                root.path("trade_state").asText("SUCCESS"),
+                root.path("trade_state").asText(""),
+                root.path("amount").path("total").asInt(-1),
+                root.path("appid").asText(null),
+                root.path("mchid").asText(null),
                 body
         );
     }

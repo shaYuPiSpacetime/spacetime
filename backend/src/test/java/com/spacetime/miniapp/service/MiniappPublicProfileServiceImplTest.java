@@ -4,11 +4,13 @@ import com.spacetime.common.dao.AppRelationLikeDao;
 import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
+import com.spacetime.common.dao.RecommendViewLogDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.entity.RecommendViewLog;
 import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
@@ -29,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,6 +55,8 @@ class MiniappPublicProfileServiceImplTest {
     @Mock private AppUserAuditService auditService;
     @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private UserUnlockRecordDao unlockRecordDao;
+    @Mock private RecommendViewLogDao recommendViewLogDao;
+    @Mock private RecommendReplayAccessService recommendReplayAccessService;
     @Mock private Prd01AccessEvaluator accessEvaluator;
 
     @InjectMocks private MiniappPublicProfileServiceImpl service;
@@ -316,6 +321,131 @@ class MiniappPublicProfileServiceImplTest {
 
         assertThat(result.getCanEnterConversation()).isFalse();
         assertThat(result.getCommunicationMode()).isEqualTo("WHISPER");
+    }
+
+    @Test
+    void rejectsRecentRecommendedTargetWithoutMemberOrPaidUnlock() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        RecommendViewLog viewed = new RecommendViewLog();
+        viewed.setUserId(7L);
+        viewed.setCandidateUserId(8L);
+        viewed.setViewedAt(LocalDate.now().minusDays(1).atTime(12, 0));
+        when(recommendViewLogDao.selectList(any())).thenReturn(List.of(viewed));
+        when(recommendReplayAccessService.canOpenRecommendedProfile(7L, 8L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getPublicProfile(7L, 8L))
+                .isInstanceOfSatisfying(BusinessException.class, error -> {
+                    assertThat(error.getCode()).isEqualTo(20003);
+                    assertThat(error.getMessage()).isEqualTo("查看该用户主页需先解锁");
+                });
+        verifyNoInteractions(likeDao, auditContentService);
+        verify(recommendReplayAccessService, never()).quote(7L, 8L);
+    }
+
+    @Test
+    void allowsRecentRecommendedTargetWithMemberOrPaidUnlock() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        RecommendViewLog viewed = new RecommendViewLog();
+        viewed.setUserId(7L);
+        viewed.setCandidateUserId(8L);
+        viewed.setViewedAt(LocalDate.now().minusDays(1).atTime(12, 0));
+        when(recommendViewLogDao.selectList(any())).thenReturn(List.of(viewed));
+        when(recommendReplayAccessService.canOpenRecommendedProfile(7L, 8L)).thenReturn(true);
+
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
+
+        assertThat(result.getUserId()).isEqualTo(8L);
+    }
+
+    @Test
+    void keepsAlreadyPaidIdealProfileAccessibleWhenAlsoRecommended() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        RecommendViewLog viewed = new RecommendViewLog();
+        viewed.setUserId(7L);
+        viewed.setCandidateUserId(8L);
+        viewed.setViewedAt(LocalDate.now().minusDays(1).atTime(12, 0));
+        when(recommendViewLogDao.selectList(any())).thenReturn(List.of(viewed));
+        UserUnlockRecord idealUnlock = new UserUnlockRecord();
+        idealUnlock.setStatus("active");
+        idealUnlock.setActiveMarker(1);
+        when(unlockRecordDao.selectActiveByTargetUser(7L, "ideal", 8L)).thenReturn(idealUnlock);
+
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
+
+        assertThat(result.getUserId()).isEqualTo(8L);
+        assertThat(result.getCanEnterConversation()).isTrue();
+        verify(recommendReplayAccessService, never()).canOpenRecommendedProfile(7L, 8L);
+    }
+
+    @Test
+    void currentDayRecommendationProfileRemainsFree() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(recommendReplayAccessService.isTodayIssuedCandidate(7L, 8L)).thenReturn(true);
+
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
+
+        assertThat(result.getUserId()).isEqualTo(8L);
+        verifyNoInteractions(recommendViewLogDao);
+        verify(recommendReplayAccessService, never()).canOpenRecommendedProfile(7L, 8L);
+    }
+
+    @Test
+    void targetRecommendedBothTodayAndYesterdayRemainsFreeToday() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(recommendReplayAccessService.isTodayIssuedCandidate(7L, 8L)).thenReturn(true);
+
+        PublicProfileVO result = service.getPublicProfile(7L, 8L);
+
+        assertThat(result.getUserId()).isEqualTo(8L);
+        verifyNoInteractions(recommendViewLogDao);
+        verify(recommendReplayAccessService, never()).canOpenRecommendedProfile(7L, 8L);
+    }
+
+    @Test
+    void forgedTodayActionCannotMakeYesterdayRecommendedTargetFree() {
+        AppUser current = user(7L, "当前用户");
+        AppUser target = user(8L, "目标用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        RecommendViewLog forgedTodayView = new RecommendViewLog();
+        forgedTodayView.setAction("view");
+        forgedTodayView.setViewedAt(LocalDateTime.now());
+        RecommendViewLog yesterday = new RecommendViewLog();
+        yesterday.setAction("view");
+        yesterday.setViewedAt(LocalDate.now().minusDays(1).atTime(12, 0));
+        when(recommendViewLogDao.selectList(any()))
+                .thenReturn(List.of(forgedTodayView, yesterday));
+
+        assertThatThrownBy(() -> service.getPublicProfile(7L, 8L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(20003));
     }
 
     private AppUser user(Long id, String nickname) {

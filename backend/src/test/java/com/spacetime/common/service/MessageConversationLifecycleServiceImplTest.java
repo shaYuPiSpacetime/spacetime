@@ -11,6 +11,7 @@ import com.spacetime.common.entity.AppMessageRuleVersion;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.enums.GenderEnum;
+import com.spacetime.common.enums.MessageConversationStatusEnum;
 import com.spacetime.common.enums.RelationMatchSourceTypeEnum;
 import com.spacetime.common.service.impl.MessageConversationLifecycleServiceImpl;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.time.LocalDateTime;
 
@@ -56,7 +58,7 @@ class MessageConversationLifecycleServiceImplTest {
                 match, RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode(), now);
 
         assertThat(result.getMatchId()).isEqualTo(20L);
-        assertThat(result.getTimConversationId()).isEqualTo("C2C_PAIR_1_2");
+        assertThat(result.getTimConversationId()).isEqualTo("C2C_PAIR_1_2_MATCH_20");
         assertThat(result.getProtectionEnabled()).isEqualTo(1);
         assertThat(result.getFemaleUserId()).isEqualTo(1L);
         assertThat(result.getMaleUserId()).isEqualTo(2L);
@@ -66,6 +68,41 @@ class MessageConversationLifecycleServiceImplTest {
         verify(memberDao, org.mockito.Mockito.times(2)).insert(memberCaptor.capture());
         assertThat(memberCaptor.getAllValues()).extracting(AppMessageConversationMember::getUserId)
                 .containsExactlyInAnyOrder(1L, 2L);
+    }
+
+    @Test
+    void shouldCreateNewConversationWhenSamePairMatchesAgainAfterOldConversationInvalidated() {
+        AppMessageConversation oldConversation = new AppMessageConversation();
+        oldConversation.setId(30L);
+        oldConversation.setMatchId(20L);
+        oldConversation.setMatchNo("MAT-1");
+        oldConversation.setUserLowId(1L);
+        oldConversation.setUserHighId(2L);
+        oldConversation.setTimConversationId("C2C_PAIR_1_2");
+        oldConversation.setStatus(MessageConversationStatusEnum.INVALID.getCode());
+        oldConversation.setActiveMarker(null);
+
+        AppRelationMatch newMatch = match();
+        newMatch.setId(21L);
+        newMatch.setMatchNo("MAT-2");
+        doAnswer(invocation -> {
+            AppMessageConversation created = invocation.getArgument(0);
+            if (oldConversation.getTimConversationId().equals(created.getTimConversationId())) {
+                throw new DuplicateKeyException("旧会话映射键已存在");
+            }
+            created.setId(31L);
+            return null;
+        }).when(conversationDao).insert(any(AppMessageConversation.class));
+
+        AppMessageConversation created = service().ensureForMatch(
+                newMatch, RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode(), LocalDateTime.now());
+
+        assertThat(created.getId()).isEqualTo(31L);
+        assertThat(created.getMatchId()).isEqualTo(21L);
+        assertThat(created.getTimConversationId()).isEqualTo("C2C_PAIR_1_2_MATCH_21");
+        assertThat(oldConversation.getTimConversationId()).isEqualTo("C2C_PAIR_1_2");
+        assertThat(oldConversation.getStatus()).isEqualTo(MessageConversationStatusEnum.INVALID.getCode());
+        verify(memberDao, org.mockito.Mockito.times(2)).insert(any(AppMessageConversationMember.class));
     }
 
     @Test

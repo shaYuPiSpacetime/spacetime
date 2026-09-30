@@ -55,6 +55,13 @@ gugudata:
     connect-timeout-millis: ${GUGUDATA_COLLEGE_CONNECT_TIMEOUT_MILLIS:3000}
     request-timeout-millis: ${GUGUDATA_COLLEGE_REQUEST_TIMEOUT_MILLIS:5000}
 
+tencent:
+  map:
+    # 仅服务端 WebService Key；需在腾讯地图控制台允许后端来源，不要写入小程序包。
+    key: ${TENCENT_MAP_KEY:}
+    connect-timeout-millis: ${TENCENT_MAP_CONNECT_TIMEOUT_MILLIS:3000}
+    request-timeout-millis: ${TENCENT_MAP_REQUEST_TIMEOUT_MILLIS:5000}
+
 message:
   tencent-im:
     enabled: ${TENCENT_IM_ENABLED:false}

@@ -33,6 +33,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionOperations;
@@ -84,11 +85,16 @@ class MessageDomainServiceImplTest {
     }
 
     @Test
-    @DisplayName("回复应先明文入主表和元数据Outbox，TIM成功后才创建匹配并迁移状态")
+    @DisplayName("旧会话失效后回复仍可创建新会话，且先投递TIM再创建匹配并迁移状态")
     void replyShouldDeliverBeforeCreatingMatchAndConversation() {
         AppMessageWhisper whisper = pendingWhisper();
         AppMessageRecord request = requestMessage();
         AppRelationMatch match = match();
+        AppMessageConversation oldConversation = new AppMessageConversation();
+        oldConversation.setId(29L);
+        oldConversation.setMatchId(19L);
+        oldConversation.setTimConversationId("C2C_PAIR_1_2");
+        oldConversation.setStatus(MessageConversationStatusEnum.INVALID.getCode());
         openPair();
         when(whisperDao.selectByReceiverReplyRequestId(2L, "reply-001")).thenReturn(null);
         when(whisperDao.selectByWhisperNoForUpdate("WSP-1")).thenReturn(whisper);
@@ -115,6 +121,9 @@ class MessageDomainServiceImplTest {
         }).when(outboxDao).insert(any(AppMessageDeliveryOutbox.class));
         doAnswer(invocation -> {
             AppMessageConversation conversation = invocation.getArgument(0);
+            if (oldConversation.getTimConversationId().equals(conversation.getTimConversationId())) {
+                throw new DuplicateKeyException("旧会话映射键已存在");
+            }
             conversation.setId(30L);
             return null;
         }).when(conversationDao).insert(any(AppMessageConversation.class));
@@ -167,6 +176,10 @@ class MessageDomainServiceImplTest {
         verify(conversationDao).insert(conversationCaptor.capture());
         assertThat(conversationCaptor.getValue().getConfigVersion())
                 .isEqualTo("MSG-CFG-INIT-001");
+        assertThat(conversationCaptor.getValue().getTimConversationId())
+                .isEqualTo("C2C_PAIR_1_2_MATCH_20");
+        assertThat(oldConversation.getTimConversationId()).isEqualTo("C2C_PAIR_1_2");
+        assertThat(oldConversation.getStatus()).isEqualTo(MessageConversationStatusEnum.INVALID.getCode());
     }
 
     @Test

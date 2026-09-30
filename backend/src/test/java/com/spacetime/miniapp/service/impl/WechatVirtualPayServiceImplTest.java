@@ -6,6 +6,7 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.WechatVirtualRefundGateway.RefundRequestUnknownException;
 import com.spacetime.miniapp.dto.response.WechatVirtualPayParamsVO;
 import com.spacetime.miniapp.service.WechatMiniappClient;
+import com.spacetime.miniapp.service.WechatVirtualPayService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -125,6 +126,32 @@ class WechatVirtualPayServiceImplTest {
                 "TO12345678", "vip_7", 0, "session-key"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("价格");
+    }
+
+    @Test
+    @DisplayName("虚拟支付查单保留 iOS 原支付单类型和用户实付金额")
+    void queryOrderShouldParseIosPaidFeeWithoutConfusingMerchantSettlement() throws Exception {
+        HttpClient httpClient = mock(HttpClient.class);
+        @SuppressWarnings("unchecked")
+        HttpResponse<String> response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn(200);
+        when(response.body()).thenReturn("{\"errcode\":0,\"order\":{"
+                + "\"order_id\":\"TO12345678\",\"wx_order_id\":\"WX-1\","
+                + "\"status\":4,\"order_type\":7,\"paid_fee\":100,"
+                + "\"paid_time\":1780000000,\"sett_state\":0}}");
+        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(response);
+        WechatMiniappClient miniappClient = mock(WechatMiniappClient.class);
+        when(miniappClient.getAccessToken()).thenReturn("access-token");
+        service = new WechatVirtualPayServiceImpl(properties, miniappClient, new ObjectMapper(), httpClient);
+
+        WechatVirtualPayService.VirtualPayOrderResult result = service.queryOrder("openid-1", "TO12345678");
+
+        assertThat(result.orderNo()).isEqualTo("TO12345678");
+        assertThat(result.orderType()).isEqualTo(7);
+        assertThat(result.paidFeeFen()).isEqualTo(100);
+        assertThat(result.paid()).isTrue();
+        assertThat(result.delivered()).isTrue();
     }
 
     @Test

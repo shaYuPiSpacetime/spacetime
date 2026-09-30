@@ -12,5 +12,6 @@ public class RecommendReplayItemVO {
     private LocalDateTime viewedAt;
     private String lastAction;
     private String dateGroup;
+    private Boolean skipped;
     private Boolean liked;
 }

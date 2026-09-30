@@ -142,6 +142,8 @@ public class WhisperServiceImpl implements WhisperService {
         result.setFree(PAY_VIP_FREE.equals(payment.payType()));
         result.setCoinBalance(coinBalance(asset));
         result.setFreeWhisperRemain(payment.freeRemain());
+        result.setFreeWhisperDailyQuota(payment.quotaSnapshot() > 0
+                ? payment.quotaSnapshot() : configuredDailyFreeQuota());
         result.setQuoteToken(quoteToken);
         result.setQuoteExpireTime(canSend ? quoteExpireAt : null);
         result.setWhisperExpireDays(rule.getWhisperExpireDays());
@@ -344,6 +346,10 @@ public class WhisperServiceImpl implements WhisperService {
         if (!active) {
             return 0;
         }
+        return configuredDailyFreeQuota();
+    }
+
+    private int configuredDailyFreeQuota() {
         Page<VipBenefit> page = vipBenefitDao.selectPage(new Page<>(1, 1),
                 new LambdaQueryWrapper<VipBenefit>()
                         .eq(VipBenefit::getBenefitCode, "free_whisper")

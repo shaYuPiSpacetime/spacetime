@@ -105,6 +105,46 @@ class ProfileDictionaryServiceTest {
     }
 
     @Test
+    @DisplayName("省及自治区直辖县级地区可作为城市保存且兼容旧地区路径")
+    void shouldAcceptDirectAdminDistrictAsCityAndLegacyPath() {
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "410000"))
+                .thenReturn(region(1L, 0L, "410000"));
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "419000"))
+                .thenReturn(region(2L, 1L, "419000"));
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "419001"))
+                .thenReturn(region(3L, 2L, "419001"));
+        SysDictData virtualCity = region(2L, 1L, "419000");
+        virtualCity.setDictLabel("省直辖县级行政区划");
+        when(dictDataDao.selectById(2L)).thenReturn(virtualCity);
+        ProfileDictionaryService service = new ProfileDictionaryService(dictDataDao);
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> service.requireChinaRegionPath(
+                        "410000", "419001", null, "家乡"))
+                .doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThatCode(() -> service.requireChinaRegionPath(
+                        "410000", "419000", "419001", "家乡"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("省及自治区直辖县级地区不属于所选省份时拒绝")
+    void shouldRejectDirectAdminDistrictUnderAnotherProvince() {
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "410000"))
+                .thenReturn(region(1L, 0L, "410000"));
+        when(dictDataDao.selectEnabledByTypeAndValue("china_region", "429004"))
+                .thenReturn(region(3L, 2L, "429004"));
+        SysDictData virtualCity = region(2L, 9L, "429000");
+        virtualCity.setDictLabel("省直辖县级行政区划");
+        when(dictDataDao.selectById(2L)).thenReturn(virtualCity);
+        ProfileDictionaryService service = new ProfileDictionaryService(dictDataDao);
+
+        assertThatThrownBy(() -> service.requireChinaRegionPath(
+                        "410000", "429004", null, "家乡"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("REGION_NOT_SUPPORTED：家乡必须使用有效的中国大陆省市编码");
+    }
+
+    @Test
     @DisplayName("直辖市区县不属于所选省份时拒绝")
     void shouldRejectMunicipalityDistrictUnderAnotherProvince() {
         when(dictDataDao.selectEnabledByTypeAndValue("china_region", "500000"))

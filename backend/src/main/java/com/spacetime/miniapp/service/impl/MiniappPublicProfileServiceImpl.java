@@ -8,11 +8,13 @@ import com.spacetime.common.dao.AppRelationLikeDao;
 import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
+import com.spacetime.common.dao.RecommendViewLogDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.entity.RecommendViewLog;
 import com.spacetime.common.entity.UserUnlockRecord;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
@@ -26,14 +28,17 @@ import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.service.MiniappPublicProfileService;
+import com.spacetime.miniapp.service.RecommendReplayAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Objects;
-import java.util.Locale;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 /** 小程序公开资料查询实现。 */
 @Service
@@ -41,6 +46,8 @@ import java.time.LocalDateTime;
 public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileService {
     private static final int CURRENT_ACCESS_CLOSED = 20001;
     private static final int TARGET_UNAVAILABLE = 20002;
+    private static final int RECOMMEND_PROFILE_UNLOCK_REQUIRED = 20003;
+    private static final ZoneId BEIJING = ZoneId.of("Asia/Shanghai");
 
     private final AppUserDao appUserDao;
     private final AppRelationLikeDao likeDao;
@@ -51,6 +58,8 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
     private final AppUserAuditService auditService;
     private final ProfileDictionaryService profileDictionaryService;
     private final UserUnlockRecordDao unlockRecordDao;
+    private final RecommendViewLogDao recommendViewLogDao;
+    private final RecommendReplayAccessService recommendReplayAccessService;
     private final Prd01AccessEvaluator accessEvaluator;
 
     @Override
@@ -61,6 +70,10 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
         }
         AppUser target = requireOpenUser(targetUserId, TARGET_UNAVAILABLE, "目标用户当前不可访问");
         requireNotBlocked(current.getId(), target.getId());
+        UserUnlockRecord idealUnlock = unlockRecordDao.selectActiveByTargetUser(
+                current.getId(), "ideal", target.getId());
+        boolean idealUnlocked = activeUnlock(idealUnlock);
+        requireRecommendProfileAccess(current.getId(), target.getId(), idealUnlocked);
 
         AppRelationLike like = likeDao.selectOne(new LambdaQueryWrapper<AppRelationLike>()
                 .eq(AppRelationLike::getFromUserId, current.getId())
@@ -73,9 +86,6 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
                 Math.max(current.getId(), target.getId()));
         boolean matched = match != null
                 && RelationMatchStatusEnum.MATCHED.getCode().equals(match.getMatchStatus());
-        UserUnlockRecord idealUnlock = unlockRecordDao.selectActiveByTargetUser(
-                current.getId(), "ideal", target.getId());
-        boolean idealUnlocked = activeUnlock(idealUnlock);
         boolean privateMessage = matched || idealUnlocked;
 
         PublicProfileVO result = new PublicProfileVO();
@@ -115,6 +125,30 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
         result.setCommunicationMode(privateMessage ? "PRIVATE_MESSAGE" : "WHISPER");
         result.setCertifications(certifications(target.getId()));
         return result;
+    }
+
+    private void requireRecommendProfileAccess(Long currentUserId, Long targetUserId, boolean idealUnlocked) {
+        if (recommendReplayAccessService.isTodayIssuedCandidate(currentUserId, targetUserId)) {
+            return;
+        }
+        LocalDate today = LocalDate.now(BEIJING);
+        LocalDateTime replayStart = today.minusDays(2).atStartOfDay();
+        LocalDateTime todayStart = today.atStartOfDay();
+        List<RecommendViewLog> recentRecommendation = recommendViewLogDao.selectList(
+                new LambdaQueryWrapper<RecommendViewLog>()
+                        .eq(RecommendViewLog::getUserId, currentUserId)
+                        .eq(RecommendViewLog::getCandidateUserId, targetUserId)
+                        .ge(RecommendViewLog::getViewedAt, replayStart)
+                        .lt(RecommendViewLog::getViewedAt, todayStart)
+                        .in(RecommendViewLog::getAction, List.of("view", "skip", "detail", "like"))
+                        .orderByDesc(RecommendViewLog::getViewedAt)
+                        .last("LIMIT 1"));
+        if (recentRecommendation == null || recentRecommendation.isEmpty() || idealUnlocked) {
+            return;
+        }
+        if (!recommendReplayAccessService.canOpenRecommendedProfile(currentUserId, targetUserId)) {
+            throw new BusinessException(RECOMMEND_PROFILE_UNLOCK_REQUIRED, "查看该用户主页需先解锁");
+        }
     }
 
     private List<String> certifications(Long userId) {

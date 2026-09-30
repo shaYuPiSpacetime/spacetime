@@ -127,6 +127,42 @@ class MiniappDictServiceImplTest {
     }
 
     @Test
+    @DisplayName("省与自治区直辖县级行政区划展示真实城市并保留行政编码")
+    void shouldFlattenProvinceDirectAdminVirtualCityNodes() {
+        when(dictDataDao.selectByDictType("china_region")).thenReturn(List.of(
+                region(1L, 0L, "河南省", "410000", true),
+                region(2L, 1L, "郑州市", "410100", true),
+                region(3L, 1L, "省直辖县级行政区划", "419000", true),
+                region(4L, 3L, "济源市", "419001", false),
+                region(5L, 0L, "湖北省", "420000", true),
+                region(6L, 5L, "省直辖县级行政区划", "429000", true),
+                region(7L, 6L, "仙桃市", "429004", false),
+                region(8L, 0L, "海南省", "460000", true),
+                region(9L, 8L, "省直辖县级行政区划", "469000", true),
+                region(10L, 9L, "五指山市", "469001", false),
+                region(11L, 0L, "新疆维吾尔自治区", "650000", true),
+                region(12L, 11L, "自治区直辖县级行政区划", "659000", true),
+                region(13L, 12L, "石河子市", "659001", false)
+        ));
+        MiniappDictService service = new MiniappDictServiceImpl(dictDataDao);
+
+        List<RegionTreeVO> result = service.twoLevelLocations();
+
+        assertThat(result.get(0).getChildren()).extracting(RegionTreeVO::getCode)
+                .containsExactly("410100", "419001");
+        assertThat(result.get(0).getChildren()).extracting(RegionTreeVO::getName)
+                .containsExactly("郑州市", "济源市");
+        assertThat(result.get(1).getChildren()).extracting(RegionTreeVO::getCode)
+                .containsExactly("429004");
+        assertThat(result.get(2).getChildren()).extracting(RegionTreeVO::getCode)
+                .containsExactly("469001");
+        assertThat(result.get(3).getChildren()).extracting(RegionTreeVO::getCode)
+                .containsExactly("659001");
+        assertThat(result).flatExtracting(RegionTreeVO::getChildren)
+                .allMatch(item -> "CITY".equals(item.getLevel()));
+    }
+
+    @Test
     @DisplayName("一次返回资料页需要的字典选项，标签分类按父子关系读取")
     void shouldReturnProfileOptions() {
         when(dictDataDao.selectByDictType("app_identity")).thenReturn(List.of(dict("app_identity", "WORKER", "职场人")));

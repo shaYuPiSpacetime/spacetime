@@ -61,6 +61,8 @@ class PaymentServiceImplTest {
     @BeforeEach
     void setUp() {
         wechatPayProperties.setTestAmount(null);
+        wechatPayProperties.setAppId("test-app");
+        wechatPayProperties.setMchId("test-merchant");
         paymentService = new PaymentServiceImpl(
                 vipPackageDao,
                 coinPackageDao,
@@ -102,6 +104,7 @@ class PaymentServiceImplTest {
         unpaidOrder.setPackageId(1L);
         unpaidOrder.setPackageName("月卡");
         unpaidOrder.setPayAmount(new BigDecimal("19.90"));
+        unpaidOrder.setPayChannel("wechat");
         unpaidOrder.setOrderStatus("unpaid");
 
         userAsset = new UserAsset();
@@ -472,18 +475,92 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    @DisplayName("查询支付结果-超过30分钟未支付自动关闭")
-    void getOrderResult_expiredUnpaid_shouldCloseWithoutWechatQuery() {
+    @DisplayName("查询支付结果-超过30分钟后查单确认未支付才关闭")
+    void getOrderResult_expiredUnpaid_shouldQueryBeforeClosing() {
         unpaidOrder.setExpireTime(LocalDateTime.now().minusMinutes(1));
         when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        lenient().when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        lenient().when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "", "NOTPAY", -1,
+                        "test-app", "test-merchant", "{}"));
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
 
         PayResultVO result = paymentService.getOrderResult(1L, 100L);
 
         assertThat(result.getOrderStatus()).isEqualTo("closed");
         verify(tradeOrderDao).updateById(argThat(order -> "closed".equals(order.getOrderStatus())));
-        verifyNoInteractions(wechatPayService);
+        verify(wechatPayService).queryOrder("VIP202605280001");
         verify(userAssetDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("过期查询不能用旧待支付快照覆盖并发完成的支付订单")
+    void getOrderResultMustNotCloseOrderPaidByConcurrentCallback() {
+        unpaidOrder.setExpireTime(LocalDateTime.now().minusMinutes(1));
+        TradeOrder paidOrder = new TradeOrder();
+        paidOrder.setId(100L);
+        paidOrder.setOrderNo("VIP202605280001");
+        paidOrder.setUserId(1L);
+        paidOrder.setOrderType("vip");
+        paidOrder.setPayChannel("wechat");
+        paidOrder.setOrderStatus("success");
+        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        lenient().when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(paidOrder);
+        when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        PayResultVO result = paymentService.getOrderResult(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("success");
+        verify(tradeOrderDao, never()).updateById(unpaidOrder);
+    }
+
+    @Test
+    @DisplayName("历史非微信渠道已关闭订单仍可查询结果")
+    void getOrderResultKeepsClosedLegacyOrderReadable() {
+        unpaidOrder.setPayChannel("legacy");
+        unpaidOrder.setOrderStatus("closed");
+        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        PayResultVO result = paymentService.getOrderResult(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("closed");
+        verifyNoInteractions(wechatPayService, wechatVirtualPayService);
+    }
+
+    @Test
+    @DisplayName("历史非微信渠道超时订单仍须在锁内关闭")
+    void getOrderResultClosesExpiredLegacyOrderUnderLock() {
+        unpaidOrder.setPayChannel("legacy");
+        unpaidOrder.setExpireTime(LocalDateTime.now().minusMinutes(1));
+        when(tradeOrderDao.selectById(100L)).thenReturn(unpaidOrder);
+        lenient().when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        PayResultVO result = paymentService.getOrderResult(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("closed");
+        verify(tradeOrderDao).selectByIdForUpdate(100L);
+    }
+
+    @Test
+    @DisplayName("本地已关闭但微信确认已支付时补发会员权益")
+    void confirmWechatPayRecoversClosedPaidOrder() {
+        unpaidOrder.setOrderStatus("closed");
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        lenient().when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "verified-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        lenient().when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        lenient().when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        lenient().when(userAssetDao.selectByUserIdForUpdate(1L)).thenReturn(userAsset);
+
+        PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("success");
+        verify(userAssetDao).updateById(argThat(asset -> "active".equals(asset.getVipStatus())));
     }
 
     @Test
@@ -499,6 +576,9 @@ class PaymentServiceImplTest {
                         "VIP202605280001",
                         "420000000120260709000001",
                         "SUCCESS",
+                        600,
+                        "test-app",
+                        "test-merchant",
                         "{\"trade_state\":\"SUCCESS\"}"
                 ));
         when(coinPackageDao.selectById(2L)).thenReturn(coinPackage);
@@ -525,10 +605,14 @@ class PaymentServiceImplTest {
                         "VIP202605280001",
                         "420000000120260709000001",
                         "SUCCESS",
+                        1990,
+                        "test-app",
+                        "test-merchant",
                         "{\"trade_state\":\"SUCCESS\"}"
                 ));
         when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        when(userAssetDao.selectByUserIdForUpdate(1L)).thenReturn(userAsset);
 
         PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
 
@@ -554,6 +638,9 @@ class PaymentServiceImplTest {
                         "VIP202605280001",
                         "",
                         "NOTPAY",
+                        -1,
+                        "test-app",
+                        "test-merchant",
                         "{\"trade_state\":\"NOTPAY\"}"
                 ));
 
@@ -564,6 +651,238 @@ class PaymentServiceImplTest {
         verify(paymentNotifyLogDao).insert(argThat(log ->
                 "payment_confirm".equals(log.getNotifyType())
                         && "ignored".equals(log.getProcessStatus())));
+    }
+
+    @Test
+    @DisplayName("普通微信支付通知不能代替渠道查单发放会员")
+    void wechatNotifyMustConfirmChannelPaymentBeforeGrantingVip() {
+        when(wechatPayService.parseNotify(anyString()))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "claimed-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        when(tradeOrderDao.selectByOrderNo("VIP202605280001")).thenReturn(unpaidOrder);
+        lenient().when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        lenient().when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "", "NOTPAY", -1,
+                        "test-app", "test-merchant", "{\"trade_state\":\"NOTPAY\"}"));
+        lenient().when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        lenient().when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        paymentService.handleWechatNotify("{\"resource\":{}}");
+
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("unpaid");
+        verify(wechatPayService).queryOrder("VIP202605280001");
+        verify(userAssetDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("普通微信支付通知不能给虚拟支付订单发放会员")
+    void wechatNotifyMustNotChangeVirtualOrderChannel() {
+        unpaidOrder.setPayChannel("wechat_virtual");
+        when(wechatPayService.parseNotify(anyString()))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "claimed-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        when(tradeOrderDao.selectByOrderNo("VIP202605280001")).thenReturn(unpaidOrder);
+        lenient().when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        lenient().when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        lenient().when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        assertThatThrownBy(() -> paymentService.handleWechatNotify("{\"resource\":{}}"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("支付渠道");
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("unpaid");
+        verify(userAssetDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("普通微信支付查单的商户订单号不匹配时不能发放会员")
+    void confirmWechatPayRejectsMismatchedChannelOrderNumber() {
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "ANOTHER-ORDER", "channel-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        lenient().when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        lenient().when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        assertThatThrownBy(() -> paymentService.confirmWechatPay(1L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("支付结果");
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("unpaid");
+        verify(userAssetDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("普通微信支付查单实付订单金额不匹配时不能发放会员")
+    void confirmWechatPayRejectsMismatchedChannelAmount() {
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "channel-transaction", "SUCCESS",
+                        100, "test-app", "test-merchant", "{}"));
+
+        assertThatThrownBy(() -> paymentService.confirmWechatPay(1L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("支付结果");
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("unpaid");
+        verify(userAssetDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("普通微信支付查单商户身份不匹配时不能发放会员")
+    void confirmWechatPayRejectsMismatchedMerchant() {
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "channel-transaction", "SUCCESS",
+                        1990, "test-app", "other-merchant", "{}"));
+
+        assertThatThrownBy(() -> paymentService.confirmWechatPay(1L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("支付结果");
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("unpaid");
+        verify(userAssetDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("普通微信支付通知须由查单确认后入账且重复通知只入账一次")
+    void wechatNotifyConfirmedPaymentOnlyGrantsOnce() {
+        when(wechatPayService.parseNotify(anyString()))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "claimed-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        when(tradeOrderDao.selectByOrderNo("VIP202605280001")).thenReturn(unpaidOrder);
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "verified-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(userAssetDao.selectByUserIdForUpdate(1L)).thenReturn(userAsset);
+
+        paymentService.handleWechatNotify("{\"resource\":{}}");
+        paymentService.handleWechatNotify("{\"resource\":{}}");
+
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("success");
+        assertThat(unpaidOrder.getChannelTradeNo()).isEqualTo("verified-transaction");
+        verify(tradeOrderDao, times(2)).selectByIdForUpdate(100L);
+        verify(wechatPayService, times(1)).queryOrder("VIP202605280001");
+        verify(userAssetDao, times(1)).updateById(any());
+    }
+
+    @Test
+    @DisplayName("延迟到达的支付通知可凭渠道查单补偿已关闭订单")
+    void wechatNotifyRecoversClosedPaidOrder() {
+        unpaidOrder.setOrderStatus("closed");
+        when(wechatPayService.parseNotify(anyString()))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "claimed-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        when(tradeOrderDao.selectByOrderNo("VIP202605280001")).thenReturn(unpaidOrder);
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        lenient().when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "verified-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        lenient().when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        lenient().when(userAssetDao.selectByUserIdForUpdate(1L)).thenReturn(userAsset);
+
+        paymentService.handleWechatNotify("{\"resource\":{}}");
+
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("success");
+        verify(userAssetDao).updateById(argThat(asset -> "active".equals(asset.getVipStatus())));
+    }
+
+    @Test
+    @DisplayName("不同会员订单入账须锁定同一用户资产以串行累加有效期")
+    void confirmWechatPayVipShouldLockUserAssetBeforeExtendingExpiry() {
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(wechatPayService.queryOrder("VIP202605280001"))
+                .thenReturn(new WechatPayService.WechatPayNotifyResult(
+                        "VIP202605280001", "verified-transaction", "SUCCESS",
+                        1990, "test-app", "test-merchant", "{}"));
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        lenient().when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        lenient().when(userAssetDao.selectByUserIdForUpdate(1L)).thenReturn(userAsset);
+
+        PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("success");
+        verify(userAssetDao).selectByUserIdForUpdate(1L);
+    }
+
+    @Test
+    @DisplayName("虚拟支付显示已发货但用户实付为零时不能发放会员")
+    void confirmVirtualPayRejectsZeroPaidFeeForIosOrder() {
+        unpaidOrder.setPayChannel("wechat_virtual");
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatVirtualPayService.queryOrder("openid_1", "VIP202605280001"))
+                .thenReturn(new WechatVirtualPayService.VirtualPayOrderResult(
+                        "VIP202605280001", "wx-order-1", "apple-transaction-1",
+                        4, 1770000000L, 0, 7,
+                        "{\"order\":{\"order_id\":\"VIP202605280001\",\"status\":4,"
+                                + "\"order_type\":7,\"paid_fee\":0}}"));
+        lenient().when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        lenient().when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+
+        assertThatThrownBy(() -> paymentService.confirmWechatPay(1L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("支付结果");
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("unpaid");
+        verify(userAssetDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("虚拟支付实付金额小于千寻币订单金额时不能充值")
+    void confirmVirtualPayRejectsUnderpaidCoinOrder() {
+        unpaidOrder.setPayChannel("wechat_virtual");
+        unpaidOrder.setOrderType("coin");
+        unpaidOrder.setPackageId(2L);
+        unpaidOrder.setPayAmount(new BigDecimal("6.00"));
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatVirtualPayService.queryOrder("openid_1", "VIP202605280001"))
+                .thenReturn(new WechatVirtualPayService.VirtualPayOrderResult(
+                        "VIP202605280001", "wx-order-1", "wxpay-transaction-1",
+                        2, 1770000000L, 100, 0,
+                        "{\"order\":{\"order_id\":\"VIP202605280001\",\"status\":2,"
+                                + "\"order_type\":0,\"paid_fee\":100}}"));
+        lenient().when(coinPackageDao.selectById(2L)).thenReturn(coinPackage);
+        lenient().when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        lenient().when(userAssetDao.updateCoinBalance(1L, 70)).thenReturn(1);
+
+        assertThatThrownBy(() -> paymentService.confirmWechatPay(1L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("支付结果");
+        assertThat(unpaidOrder.getOrderStatus()).isEqualTo("unpaid");
+        verify(userAssetDao, never()).updateCoinBalance(anyLong(), anyInt());
+    }
+
+    @Test
+    @DisplayName("iOS 虚拟支付渠道已付且金额匹配时可发放会员，不等待商户结算")
+    void confirmVirtualPayAllowsVerifiedIosPaymentBeforeMerchantSettlement() {
+        unpaidOrder.setPayChannel("wechat_virtual");
+        when(tradeOrderDao.selectByIdForUpdate(100L)).thenReturn(unpaidOrder);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatVirtualPayService.queryOrder("openid_1", "VIP202605280001"))
+                .thenReturn(new WechatVirtualPayService.VirtualPayOrderResult(
+                        "VIP202605280001", "wx-order-1", "apple-transaction-1",
+                        4, 1770000000L, 1990, 7,
+                        "{\"order\":{\"status\":4,\"paid_fee\":1990,"
+                                + "\"order_type\":7,\"sett_state\":0}}"));
+        when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
+        when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        when(userAssetDao.selectByUserIdForUpdate(1L)).thenReturn(userAsset);
+
+        PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
+
+        assertThat(result.getOrderStatus()).isEqualTo("success");
+        verify(userAssetDao).updateById(argThat(asset ->
+                "active".equals(asset.getVipStatus())));
+        verify(wechatVirtualPayService, never()).notifyProvideGoods(anyString(), anyString());
     }
 
     @Test
@@ -579,10 +898,13 @@ class PaymentServiceImplTest {
                         "wxpay-transaction-1",
                         2,
                         1770000000L,
-                        "{\"order\":{\"status\":2}}"
+                        1990,
+                        0,
+                        "{\"order\":{\"status\":2,\"paid_fee\":1990,\"order_type\":0}}"
                 ));
         when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
         when(userAssetDao.selectByUserId(1L)).thenReturn(userAsset);
+        when(userAssetDao.selectByUserIdForUpdate(1L)).thenReturn(userAsset);
 
         PayResultVO result = paymentService.confirmWechatPay(1L, 100L);
 

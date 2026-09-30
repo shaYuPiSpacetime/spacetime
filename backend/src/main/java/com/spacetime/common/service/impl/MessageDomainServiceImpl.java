@@ -521,7 +521,9 @@ public class MessageDomainServiceImpl implements MessageDomainService {
 
         AppMessageConversation created = new AppMessageConversation();
         created.setConversationNo(businessNo("CV"));
-        created.setTimConversationId("C2C_PAIR_" + whisper.getUserLowId() + "_" + whisper.getUserHighId());
+        // 失效会话保留历史映射键；悄悄话回复重建匹配时按新匹配生命周期生成唯一键。
+        created.setTimConversationId("C2C_PAIR_" + whisper.getUserLowId() + "_"
+                + whisper.getUserHighId() + "_MATCH_" + match.getId());
         created.setMatchId(match.getId());
         created.setMatchNo(match.getMatchNo());
         created.setUserLowId(whisper.getUserLowId());

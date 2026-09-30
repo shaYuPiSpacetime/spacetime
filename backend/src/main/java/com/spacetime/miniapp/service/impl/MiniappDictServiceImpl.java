@@ -33,6 +33,9 @@ public class MiniappDictServiceImpl implements MiniappDictService {
     /** 直辖市的字典含有“市辖区/县”虚拟中间层，两级选择器应直接展示其区县。 */
     private static final Set<String> MUNICIPALITY_CODES = Set.of("110000", "120000", "310000", "500000");
     private static final Set<String> VIRTUAL_CITY_LABELS = Set.of("市辖区", "县");
+    /** 省及自治区直辖县级行政区划同样是虚拟中间层，应展示其下的真实地区。 */
+    private static final Set<String> DIRECT_ADMIN_VIRTUAL_CITY_CODES = Set.of(
+            "419000", "429000", "469000", "659000");
 
     private final DictDataDao dictDataDao;
     private final SchoolDictionaryService schoolDictionaryService;
@@ -95,8 +98,9 @@ public class MiniappDictServiceImpl implements MiniappDictService {
         for (SysDictData item : regions) {
             RegionTreeVO province = provincesById.get(item.getParentId());
             if (province != null) {
-                if (MUNICIPALITY_CODES.contains(province.getCode())
-                        && VIRTUAL_CITY_LABELS.contains(item.getDictLabel())) {
+                if ((MUNICIPALITY_CODES.contains(province.getCode())
+                        && VIRTUAL_CITY_LABELS.contains(item.getDictLabel()))
+                        || DIRECT_ADMIN_VIRTUAL_CITY_CODES.contains(item.getDictValue())) {
                     childrenByParent.getOrDefault(item.getId(), List.of()).stream()
                             .map(district -> toTreeNode(district, "CITY"))
                             .forEach(province.getChildren()::add);
