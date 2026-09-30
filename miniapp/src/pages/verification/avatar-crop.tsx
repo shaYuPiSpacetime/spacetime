@@ -82,7 +82,12 @@ export default function VerificationAvatarCropPage() {
       const croppedPath = await exportCroppedAvatar(path, geometry, transformRef.current, copy('avatar_crop_export_failed'))
       const uploaded = await prd01Api.uploadAvatar(croppedPath)
       await prd01Api.submitAvatar({ avatarSource: sourceOption.code, avatarUrl: uploaded.url })
-      await Taro.redirectTo({ url: '/pages/verification/avatar-review' })
+      if (router.params.from === 'profile') {
+        // 编辑资料页更换头像：返回编辑页刷新头像，不进入认证审核页。
+        await Taro.navigateBack()
+      } else {
+        await Taro.redirectTo({ url: '/pages/verification/avatar-review' })
+      }
     } catch (error) {
       await showError(error)
     } finally {

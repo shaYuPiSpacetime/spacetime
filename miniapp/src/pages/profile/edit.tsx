@@ -338,6 +338,11 @@ export default function ProfileEditPage() {
 
   useDidShow(() => {
     void prd01Api.getVoiceIntro().then(setVoiceDetail).catch(() => undefined)
+    // 从裁剪页返回后刷新头像展示（认证通过前展示上传中占位，与认证流程一致）。
+    void prd01Api.getAvatar().then(detail => {
+      setProfileAvatar(String(detail.latestAvatarUrl || ''))
+      setPreviewAvatar(String(detail.effectiveAvatarUrl || ''))
+    }).catch(() => undefined)
   })
 
   const setRecordingElapsed = (seconds: number) => {
@@ -715,10 +720,10 @@ export default function ProfileEditPage() {
     void chooseProfileImage(async imagePath => {
       const source = usePrd01Store.getState().profileOptions?.avatarSource[0]
       if (!source) throw new Error('头像来源字典为空，请联系管理员')
-      const uploaded = await prd01Api.uploadAvatar(imagePath)
-      await prd01Api.submitAvatar({ avatarSource: source.code, avatarUrl: uploaded.url })
-      setProfileAvatar(uploaded.url)
-      void refreshProfileScore()
+      // 进入裁剪页选取图片区域，确认后上传并返回本页刷新头像。
+      await Taro.navigateTo({
+        url: `/pages/verification/avatar-crop?source=${encodeURIComponent(source.code)}&path=${encodeURIComponent(imagePath)}&from=profile`,
+      })
     }, '更换头像')
   }
 
