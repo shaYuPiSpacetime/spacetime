@@ -40,6 +40,7 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -1086,12 +1087,15 @@ public class CommunityServiceImpl implements CommunityService {
         }
         List<CommunityInteractionRecordVO> records = new ArrayList<>();
         if ("commented".equals(normalized)) {
-            for (CommunityComment item : communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
+            List<CommunityComment> comments = communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
                     .eq(CommunityComment::getAuthorId, userId)
                     .eq(CommunityComment::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
-                    .orderByDesc(CommunityComment::getCreateTime))) {
-                CommunityPost post = communityPostDao.selectById(item.getPostId());
-                if (isPublishedPost(post)) {
+                    .orderByDesc(CommunityComment::getCreateTime));
+            Map<Long, CommunityPost> postsById = postsById(comments.stream()
+                    .map(CommunityComment::getPostId).filter(Objects::nonNull).distinct().toList());
+            for (CommunityComment item : comments) {
+                CommunityPost post = postsById.get(item.getPostId());
+                if (post != null && isPublishedPost(post)) {
                     CommunityInteractionRecordVO record = interactionRecord("commented", "comment-" + item.getId(), item.getCreateTime(), userId, post);
                     // 互动记录展示本次评论内容，避免同一动态的多条评论显示为相同卡片。
                     record.setDescription(item.getContent());
@@ -1099,17 +1103,23 @@ public class CommunityServiceImpl implements CommunityService {
                 }
             }
         } else if ("liked".equals(normalized)) {
-            for (CommunityLike item : communityLikeDao.selectList(new LambdaQueryWrapper<CommunityLike>()
+            List<CommunityLike> likes = communityLikeDao.selectList(new LambdaQueryWrapper<CommunityLike>()
                     .eq(CommunityLike::getUserId, userId).eq(CommunityLike::getStatus, CommonStatusEnum.ENABLED.getCode())
-                    .orderByDesc(CommunityLike::getUpdateTime))) {
-                CommunityPost post = communityPostDao.selectById(item.getPostId());
-                if (isPublishedPost(post)) records.add(interactionRecord("liked", "like-" + item.getId(), item.getUpdateTime(), userId, post));
+                    .orderByDesc(CommunityLike::getUpdateTime));
+            Map<Long, CommunityPost> postsById = postsById(likes.stream()
+                    .map(CommunityLike::getPostId).filter(Objects::nonNull).distinct().toList());
+            for (CommunityLike item : likes) {
+                CommunityPost post = postsById.get(item.getPostId());
+                if (post != null && isPublishedPost(post)) records.add(interactionRecord("liked", "like-" + item.getId(), item.getUpdateTime(), userId, post));
             }
         } else if ("viewed".equals(normalized)) {
-            for (CommunityViewHistory item : communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
-                    .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt))) {
-                CommunityPost post = communityPostDao.selectById(item.getPostId());
-                if (isPublishedPost(post)) records.add(interactionRecord("viewed", "view-" + item.getId(), item.getViewedAt(), userId, post));
+            List<CommunityViewHistory> views = communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
+                    .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt));
+            Map<Long, CommunityPost> postsById = postsById(views.stream()
+                    .map(CommunityViewHistory::getPostId).filter(Objects::nonNull).distinct().toList());
+            for (CommunityViewHistory item : views) {
+                CommunityPost post = postsById.get(item.getPostId());
+                if (post != null && isPublishedPost(post)) records.add(interactionRecord("viewed", "view-" + item.getId(), item.getViewedAt(), userId, post));
             }
         } else {
             for (UserUnlockRecord item : userUnlockRecordDao.selectList(new LambdaQueryWrapper<UserUnlockRecord>()
@@ -1133,11 +1143,26 @@ public class CommunityServiceImpl implements CommunityService {
     @Override
     public Page<CommunityPostCardVO> getViewHistory(Long userId, int page, int size) {
         requireUser(userId);
-        List<CommunityPostCardVO> records = communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
-                        .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt))
-                .stream().map(item -> communityPostDao.selectById(item.getPostId())).filter(Objects::nonNull)
+        List<CommunityViewHistory> views = communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
+                .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt));
+        Map<Long, CommunityPost> postsById = postsById(views.stream()
+                .map(CommunityViewHistory::getPostId).filter(Objects::nonNull).distinct().toList());
+        List<CommunityPostCardVO> records = views.stream()
+                .map(item -> postsById.get(item.getPostId()))
+                .filter(Objects::nonNull)
                 .map(item -> toPostCard(userId, item)).toList();
         return slice(records, page, size);
+    }
+
+    /** 按 ID 列表批量查询帖子，消除浏览/互动记录的逐条查询。 */
+    private Map<Long, CommunityPost> postsById(List<Long> postIds) {
+        if (postIds == null || postIds.isEmpty()) return Map.of();
+        List<CommunityPost> posts = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
+                .in(CommunityPost::getId, postIds));
+        return (posts == null ? List.<CommunityPost>of() : posts).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(CommunityPost::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
     }
 
     @Override
