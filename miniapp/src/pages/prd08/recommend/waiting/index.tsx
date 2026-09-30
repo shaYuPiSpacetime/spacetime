@@ -1,30 +1,66 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
+import { useEffect, useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getCommunityPosts, type CommunityPostVO } from '@/services/community'
-import { getRecommendPreferences } from '@/services/recommend'
+import { getRecommendCandidates, getRecommendPreferences } from '@/services/recommend'
 
 const background =
   'linear-gradient(90deg,rgba(233,253,251,.72),rgba(234,238,249,.68) 49%,rgba(248,250,239,.68))'
 const RECOMMEND_TAB_STORAGE_KEY = 'prd08RecommendTab'
+const RECOMMEND_REFRESH_STORAGE_KEY = 'recommendRefreshRequired'
 
 export default function RecommendWaitingPage() {
   const metrics = getNativeNavigationMetrics()
   const [post, setPost] = useState<CommunityPostVO | null>(null)
   const [vipEffective, setVipEffective] = useState<boolean | null>(null)
+  const [nextResetAt, setNextResetAt] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState('')
+  const refreshGeneration = useRef(0)
   useEffect(() => {
     void getCommunityPosts('HOT', 1, 1)
       .then(result => setPost(result.records?.[0] || null))
       .catch(() => setPost(null))
   }, [])
-  useDidShow(() => {
+  const refreshRecommendation = async () => {
+    const generation = ++refreshGeneration.current
+    setRefreshing(true)
+    setRefreshError('')
+    setNextResetAt(null)
     setVipEffective(null)
-    void getRecommendPreferences()
-      .then(preference => setVipEffective(preference.vipEffective))
-      .catch(() => setVipEffective(null))
+    try {
+      const [preference, candidates] = await Promise.all([
+        getRecommendPreferences(),
+        getRecommendCandidates(),
+      ])
+      if (generation !== refreshGeneration.current) return
+      setVipEffective(preference.vipEffective)
+      if (candidates.waitingReason !== 'browse_limit') {
+        Taro.setStorageSync(RECOMMEND_REFRESH_STORAGE_KEY, true)
+        await Taro.switchTab({ url: '/pages/recommend/index' })
+        return
+      }
+      if (!candidates.nextResetAt) {
+        setRefreshError('更新时间获取失败，点击重试')
+        return
+      }
+      setNextResetAt(candidates.nextResetAt)
+    } catch {
+      if (generation === refreshGeneration.current) {
+        setRefreshError('推荐状态获取失败，点击重试')
+      }
+    } finally {
+      if (generation === refreshGeneration.current) setRefreshing(false)
+    }
+  }
+  useDidShow(() => {
+    void refreshRecommendation()
+  })
+  useDidHide(() => {
+    refreshGeneration.current += 1
   })
   const openIdeal = () => {
     Taro.setStorageSync(RECOMMEND_TAB_STORAGE_KEY, 'ideal')
@@ -55,7 +91,14 @@ export default function RecommendWaitingPage() {
             }}
           >
             <Text style={{ color: '#0C285A', fontSize: '36rpx', fontWeight: 600 }}>
-              每日12点准时推荐
+              每日中午12点更新
+            </Text>
+            <Text
+              onClick={() => { if (refreshError && !refreshing) void refreshRecommendation() }}
+              style={{ color: refreshError ? '#4B8BFF' : '#7F8494', fontSize: '24rpx', marginTop: '8rpx' }}
+            >
+              {refreshing ? '正在获取更新时间…' : refreshError ||
+                (nextResetAt ? `下次更新：${nextResetAt.slice(0, 16)}（北京时间）` : '')}
             </Text>
             <Text
               onClick={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}

@@ -7,6 +7,7 @@ import UnverifiedCertificationModal from '@/components/UnverifiedCertificationMo
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { omitSeenRecommendCandidates } from '@/domain/recommendCandidateQueue'
+import { hasRecommendCycleExpired } from '@/domain/recommendBrowseCycle'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { getIdealSearchRecords } from '@/services/ideal'
@@ -29,6 +30,7 @@ const PAGE_BACKGROUND =
 const BLUE = '#2876FF'
 const RECOMMEND_TAB_STORAGE_KEY = 'prd08RecommendTab'
 const RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY = 'recommendPreferenceRefreshRequired'
+const RECOMMEND_REFRESH_STORAGE_KEY = 'recommendRefreshRequired'
 const MAX_EMPTY_CANDIDATE_CONTINUATIONS = 3
 
 function createRequestId(prefix: string, candidateNo: string) {
@@ -50,6 +52,7 @@ export default function RecommendPage() {
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const viewedCandidates = useRef(new Set<string>())
+  const browseCycleRef = useRef<string | null>(null)
   const idealTabSubmitting = useRef(false)
   const initialIdealTabHandled = useRef(false)
   const candidateRequestGenerationRef = useRef(0)
@@ -63,6 +66,17 @@ export default function RecommendPage() {
 
   const candidates = page?.items || []
   const candidate = candidates[candidateIndex] || null
+
+  const syncBrowseCycle = (data: RecommendCandidatePageVO) => {
+    const nextResetAt = data.nextResetAt || null
+    const changed = browseCycleRef.current !== nextResetAt
+    if (changed) {
+      viewedCandidates.current.clear()
+      currentViewTaskRef.current = null
+      browseCycleRef.current = nextResetAt
+    }
+    return changed
+  }
 
   const runCertifiedAction = (action: () => void) => {
     if (access.status?.coreAccessStatus === 'CORE_ALLOWED') {
@@ -120,6 +134,7 @@ export default function RecommendPage() {
       const continuedPage = await continueEmptyCandidatePages(data, requestGeneration)
       if (!continuedPage || candidateRequestGenerationRef.current !== requestGeneration) return
       data = continuedPage
+      syncBrowseCycle(data)
       retryCandidateCursorRef.current = !data.items?.length && data.nextCursor
         ? data.nextCursor
         : null
@@ -180,8 +195,10 @@ export default function RecommendPage() {
     const preferencesChanged = Boolean(
       Taro.getStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY)
     )
-    if (preferencesChanged) {
+    const refreshRequired = Boolean(Taro.getStorageSync(RECOMMEND_REFRESH_STORAGE_KEY))
+    if (preferencesChanged || refreshRequired || hasRecommendCycleExpired(page?.nextResetAt)) {
       Taro.removeStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY)
+      Taro.removeStorageSync(RECOMMEND_REFRESH_STORAGE_KEY)
       retryCandidateCursorRef.current = null
       void loadCandidates()
     }
@@ -202,6 +219,7 @@ export default function RecommendPage() {
   useEffect(() => {
     if (!candidate || viewedCandidates.current.has(candidate.candidateNo)) return
     viewedCandidates.current.add(candidate.candidateNo)
+    const browseCycle = browseCycleRef.current
     const requestId = createRequestId('recommend-view', candidate.candidateNo)
     const task = new Promise<void>(resolve => Taro.nextTick(resolve))
       .then(() =>
@@ -213,11 +231,13 @@ export default function RecommendPage() {
       )
       .then(() => true)
       .catch(() => {
-        viewedCandidates.current.delete(candidate.candidateNo)
+        if (browseCycleRef.current === browseCycle) {
+          viewedCandidates.current.delete(candidate.candidateNo)
+        }
         return false
       })
     currentViewTaskRef.current = { candidateNo: candidate.candidateNo, task }
-  }, [candidate?.candidateNo, candidateIndex, page?.preferenceVersion])
+  }, [candidate?.candidateNo, candidateIndex, page?.preferenceVersion, page?.nextResetAt])
 
   const awaitCurrentCandidateView = async () => {
     if (!candidate) return true
@@ -231,6 +251,11 @@ export default function RecommendPage() {
     currentCandidateHandled = false,
   ) => {
     if (candidateRequestGenerationRef.current !== expectedGeneration) return
+    if (hasRecommendCycleExpired(page?.nextResetAt)) {
+      retryCandidateCursorRef.current = null
+      await loadCandidates()
+      return
+    }
     if (!await awaitCurrentCandidateView()) {
       if (!currentCandidateHandled) {
         await loadCandidates()
@@ -251,13 +276,14 @@ export default function RecommendPage() {
       const continuedPage = await continueEmptyCandidatePages(response, requestGeneration)
       if (!continuedPage || candidateRequestGenerationRef.current !== requestGeneration) return
       response = continuedPage
+      const cycleChanged = syncBrowseCycle(response)
       retryCandidateCursorRef.current = !response.items?.length && response.nextCursor
         ? response.nextCursor
         : null
       const next = omitSeenRecommendCandidates(
         response,
         viewedCandidates.current,
-        candidate?.candidateNo
+        cycleChanged ? undefined : candidate?.candidateNo
       )
       setPage(next)
       setCandidateIndex(0)

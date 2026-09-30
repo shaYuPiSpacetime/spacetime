@@ -66,6 +66,7 @@ export interface RecommendCandidatePageVO {
   items: RecommendCandidateVO[]
   nextCursor?: string | null
   remainingBrowseCount?: number | null
+  nextResetAt?: string | null
   waitingReason?: 'no_candidate' | 'browse_limit' | null
   preferenceVersion: number
 }

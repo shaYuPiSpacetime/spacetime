@@ -39,6 +39,7 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.util.MunicipalityLocationCodes;
+import com.spacetime.common.util.RecommendBrowseCycle;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
 import com.spacetime.miniapp.dto.request.RecommendViewActionReq;
@@ -61,7 +62,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -172,11 +172,13 @@ public class RecommendServiceImpl implements RecommendService {
         boolean vipEffective = isVipEffective(userId);
         boolean advancedFilterEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
         RecommendPreference preference = resolvePreference(current);
-        int remaining = remainingBrowseCount(userId, vipEffective);
+        RecommendBrowseCycle cycle = RecommendBrowseCycle.current();
+        int remaining = remainingBrowseCount(userId, vipEffective, cycle);
 
         RecommendCandidatePageVO result = new RecommendCandidatePageVO();
         result.setPreferenceVersion(preference.getVersion());
         result.setRemainingBrowseCount(remaining);
+        result.setNextResetAt(cycle.nextResetAt());
         if (remaining == 0) {
             result.setItems(List.of());
             result.setWaitingReason("browse_limit");
@@ -205,11 +207,11 @@ public class RecommendServiceImpl implements RecommendService {
             List<Long> openCandidateIds = openCandidates.stream().map(AppUser::getId).toList();
             Set<Long> blockedCandidateIds = blockedCandidateIds(userId, openCandidateIds);
             Set<Long> likedCandidateIds = activeLikedCandidateIds(userId, openCandidateIds);
-            Set<Long> viewedTodayCandidateIds = viewedTodayCandidateIds(userId);
+            Set<Long> viewedCandidateIds = viewedCandidateIdsInCycle(userId, cycle);
             List<AppUser> visibleCandidates = openCandidates.stream()
                     .filter(candidate -> !blockedCandidateIds.contains(candidate.getId()))
                     .filter(candidate -> !likedCandidateIds.contains(candidate.getId()))
-                    .filter(candidate -> !viewedTodayCandidateIds.contains(candidate.getId()))
+                    .filter(candidate -> !viewedCandidateIds.contains(candidate.getId()))
                     .limit(resultLimit - items.size())
                     .toList();
             Map<Long, PublicProfileVO> profiles = batchCandidateProfiles(
@@ -360,11 +362,12 @@ public class RecommendServiceImpl implements RecommendService {
         if (viewLogDao.selectByRequestAction(userId, req.getRequestId(), action) != null) {
             return;
         }
-        // 同一候选当天已产生过曝光记录时不再重复写入，避免跨会话重复展示消耗每日浏览配额。
-        if ("view".equals(action) && alreadyViewedToday(userId, candidateId)) {
+        RecommendBrowseCycle cycle = RecommendBrowseCycle.current();
+        // 同一候选在本次中午至次日中午的周期内只扣一次浏览额度。
+        if ("view".equals(action) && alreadyViewedInCycle(userId, candidateId, cycle)) {
             return;
         }
-        if ("view".equals(action) && remainingBrowseCount(userId, isVipEffective(userId)) == 0) {
+        if ("view".equals(action) && remainingBrowseCount(userId, isVipEffective(userId), cycle) == 0) {
             throw new BusinessException(429, "今天的推荐已看完");
         }
         RecommendViewLog entity = new RecommendViewLog();
@@ -376,7 +379,7 @@ public class RecommendServiceImpl implements RecommendService {
         entity.setFilterVersion(req.getFilterVersion());
         entity.setAction(action);
         entity.setPosition(req.getPosition());
-        entity.setViewedAt(LocalDateTime.now());
+        entity.setViewedAt(cycle.currentTime());
         viewLogDao.insert(entity);
 
         if ("never".equals(action)
@@ -718,7 +721,7 @@ public class RecommendServiceImpl implements RecommendService {
         return StrUtil.isBlank(code) || labels == null ? null : labels.get(code.trim());
     }
 
-    private int remainingBrowseCount(Long userId, boolean vipEffective) {
+    private int remainingBrowseCount(Long userId, boolean vipEffective, RecommendBrowseCycle cycle) {
         String key = vipEffective ? VIP_QUOTA_KEY : NORMAL_QUOTA_KEY;
         List<AppConfig> configs = appConfigDao.selectByKeys(List.of(key));
         int quota = vipEffective ? 20 : 10;
@@ -729,37 +732,30 @@ public class RecommendServiceImpl implements RecommendService {
                 // 配置异常时使用安全默认值，不把错误误判为额度为零。
             }
         }
-        LocalDateTime start = LocalDate.now().atStartOfDay();
-        LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
-        List<RecommendViewLog> views = viewLogDao.selectList(new LambdaQueryWrapper<RecommendViewLog>()
-                .eq(RecommendViewLog::getUserId, userId)
-                .eq(RecommendViewLog::getAction, "view")
-                .between(RecommendViewLog::getViewedAt, start, end));
+        List<RecommendViewLog> views = viewLogDao.selectList(browseViewsInCycle(userId, cycle));
         return Math.max(0, quota - (views == null ? 0 : views.size()));
     }
 
-    private boolean alreadyViewedToday(Long userId, Long candidateId) {
-        LocalDateTime start = LocalDate.now().atStartOfDay();
-        LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
-        List<RecommendViewLog> views = viewLogDao.selectList(new LambdaQueryWrapper<RecommendViewLog>()
-                .eq(RecommendViewLog::getUserId, userId)
-                .eq(RecommendViewLog::getCandidateUserId, candidateId)
-                .eq(RecommendViewLog::getAction, "view")
-                .between(RecommendViewLog::getViewedAt, start, end));
+    private boolean alreadyViewedInCycle(Long userId, Long candidateId, RecommendBrowseCycle cycle) {
+        List<RecommendViewLog> views = viewLogDao.selectList(browseViewsInCycle(userId, cycle)
+                .eq(RecommendViewLog::getCandidateUserId, candidateId));
         return views != null && !views.isEmpty();
     }
 
-    private Set<Long> viewedTodayCandidateIds(Long userId) {
-        LocalDateTime start = LocalDate.now().atStartOfDay();
-        LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
-        List<RecommendViewLog> views = viewLogDao.selectList(new LambdaQueryWrapper<RecommendViewLog>()
-                .eq(RecommendViewLog::getUserId, userId)
-                .eq(RecommendViewLog::getAction, "view")
-                .between(RecommendViewLog::getViewedAt, start, end));
+    private Set<Long> viewedCandidateIdsInCycle(Long userId, RecommendBrowseCycle cycle) {
+        List<RecommendViewLog> views = viewLogDao.selectList(browseViewsInCycle(userId, cycle));
         return (views == null ? List.<RecommendViewLog>of() : views).stream()
                 .map(RecommendViewLog::getCandidateUserId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private LambdaQueryWrapper<RecommendViewLog> browseViewsInCycle(Long userId, RecommendBrowseCycle cycle) {
+        return new LambdaQueryWrapper<RecommendViewLog>()
+                .eq(RecommendViewLog::getUserId, userId)
+                .eq(RecommendViewLog::getAction, "view")
+                .ge(RecommendViewLog::getViewedAt, cycle.start())
+                .lt(RecommendViewLog::getViewedAt, cycle.nextResetAt());
     }
 
     private List<AppUser> safeUsers(List<AppUser> users) {
