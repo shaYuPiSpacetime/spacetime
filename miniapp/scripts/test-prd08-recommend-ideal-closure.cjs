@@ -340,6 +340,13 @@ test('理想型筛选、结果、报价、确认、历史和帮助形成完整�
   assert.doesNotMatch(help, />200</, '帮助页不得写死单价')
 })
 
+test('理想型结果页重新显示时刷新已解锁候选', () => {
+  const results = read('src/pages/prd08/ideal/results/index.tsx')
+  const onShow = results.slice(results.indexOf('useDidShow(() => {'), results.indexOf('const confirmQuote ='))
+
+  assert.match(onShow, /void load\(\)/, '从其他页面返回后必须重新读取服务端结果，不能保留已解锁的旧卡片')
+})
+
 test('理想型结果首卡不被原生滚动容器裁剪且筛选面板尺寸对齐设计稿', () => {
   const filter = read('src/pages/prd08/ideal/filter/index.tsx')
   const results = read('src/pages/prd08/ideal/results/index.tsx')

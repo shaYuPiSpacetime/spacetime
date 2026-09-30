@@ -134,3 +134,12 @@ export function resolveWhisperStatusDescription(
 export function shouldInlineWhisperSubmitError(code?: number): boolean {
   return code === 30015
 }
+
+/** 会员免费次数由预检接口决定，尚未加载或未开放时不显示固定次数承诺。 */
+export function resolveWhisperMemberTip(dailyQuota?: number | null): string {
+  const quota = Number(dailyQuota)
+  if (Number.isFinite(quota) && quota > 0) {
+    return `开通时空邂逅会员每天免费申请${Math.trunc(quota)}次`
+  }
+  return '开通时空邂逅会员享受更多权益'
+}

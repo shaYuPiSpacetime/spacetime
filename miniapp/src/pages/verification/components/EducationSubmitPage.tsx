@@ -3,11 +3,13 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import SchoolSearchInput from '@/components/SchoolSearchInput'
+import { resolveCommunityImageUploadError } from '@/domain/communityImageUpload'
 import { buildEducationRequest } from '@/domain/prd01Runtime'
 import { prd01Api } from '@/services/prd01'
-import { resolveProtectedFilePreview, resolveProtectedFilePreviews } from '@/services/protectedFile'
+import { resolveProtectedFilePreviews } from '@/services/protectedFile'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { EducationDetail, EducationMethod } from '@/types/prd01'
+import { getErrorMessage } from '@/utils/errorMessage'
 import VerificationRuntimeBoundary from './VerificationRuntimeBoundary'
 import VerificationSubShell from './VerificationSubShell'
 import { LanhuOptionSheet } from './LanhuPickerSheet'
@@ -105,17 +107,18 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
     setUploading(true)
     try {
       const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album', 'camera'] })
-      const uploaded: string[] = []
-      const uploadedPreviews: string[] = []
       for (const filePath of result.tempFilePaths.slice(0, remaining)) {
         const item = await prd01Api.uploadEducation(filePath)
-        uploaded.push(item.url)
-        uploadedPreviews.push(await resolveProtectedFilePreview(item.url))
+        // 上传成功即记录材料；本机临时图片可直接预览，不再让二次下载失败回滚上传结果。
+        setMaterialUrls(current => [...current, item.url].slice(0, maxMaterialCount))
+        setMaterialPreviewUrls(current => [...current, filePath].slice(0, maxMaterialCount))
       }
-      setMaterialUrls(current => [...current, ...uploaded].slice(0, maxMaterialCount))
-      setMaterialPreviewUrls(current => [...current, ...uploadedPreviews].slice(0, maxMaterialCount))
     } catch (error) {
-      await showError(error)
+      const pickerError = error && typeof error === 'object' && 'errMsg' in error
+        ? (error as { errMsg?: unknown }).errMsg
+        : undefined
+      if (typeof pickerError === 'string' && /chooseImage:fail cancel/i.test(pickerError)) return
+      await Taro.showToast({ title: resolveCommunityImageUploadError(error), icon: 'none' })
     } finally {
       setUploading(false)
     }
@@ -390,6 +393,6 @@ function formatCopy(template: string, values: Record<string, string | number>) {
 }
 
 async function showError(error: unknown) {
-  const title = error instanceof Error ? error.message : String(error)
+  const title = getErrorMessage(error)
   if (title) await Taro.showToast({ title, icon: 'none' })
 }

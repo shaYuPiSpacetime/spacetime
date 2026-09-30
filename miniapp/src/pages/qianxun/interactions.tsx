@@ -97,6 +97,7 @@ export default function QianxunInteractionsPage() {
   const [records, setRecords] = useState<InteractionRecord[]>([])
   const [history, setHistory] = useState<InteractionRecord[]>([])
   const [myPosts, setMyPosts] = useState<MyPostSnapshot[]>([])
+  const [myPostsLoading, setMyPostsLoading] = useState(true)
   const [roster, setRoster] = useState<RosterKind | null>(null)
   const [rosterUsers, setRosterUsers] = useState<CommunityRelationUserVO[]>([])
   const [rosterLoading, setRosterLoading] = useState(false)
@@ -124,6 +125,7 @@ export default function QianxunInteractionsPage() {
 
   useDidShow(() => {
     void loadPage()
+    void loadMyPosts()
   })
 
   useEffect(() => {
@@ -145,7 +147,7 @@ export default function QianxunInteractionsPage() {
   const loadPage = async () => {
     setLoading(true)
     try {
-      const [runtime, home, summary, commented, liked, unlocked, viewHistory, myPostPage] = await Promise.all([
+      const [runtime, home, summary, commented, liked, unlocked, viewHistory] = await Promise.all([
         getCommunityMeta(),
         prd01Api.getHomeDetail(),
         getCommunityProfileSummary(),
@@ -153,7 +155,6 @@ export default function QianxunInteractionsPage() {
         getCommunityInteractions('liked', 1, 50),
         getCommunityInteractions('unlocked', 1, 50),
         getCommunityInteractions('viewed', 1, 50),
-        getMyCommunityPosts(1, 50),
       ])
       setConfig(runtime)
       const auth = useAuthStore.getState()
@@ -187,11 +188,22 @@ export default function QianxunInteractionsPage() {
         interactionTime: item.interactionTime,
         post: item.post,
       })))
-      setMyPosts((myPostPage.records || []).filter(item => shouldDisplayMyCommunityPost(item.status)).map(toMyPostSnapshot))
     } catch (error) {
       await showError(config, error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMyPosts = async () => {
+    setMyPostsLoading(true)
+    try {
+      const page = await getMyCommunityPosts(1, 50)
+      setMyPosts((page.records || []).filter(item => shouldDisplayMyCommunityPost(item.status)).map(toMyPostSnapshot))
+    } catch (error) {
+      await showError(config, error)
+    } finally {
+      setMyPostsLoading(false)
     }
   }
 
@@ -367,7 +379,7 @@ export default function QianxunInteractionsPage() {
           </ScrollView>
         </View>
         <View id="qianxun-interactions-panel-mine" data-section-panel="mine" style={sectionPanelStyle(section === 'mine')}>
-          <MinePanel loading={loading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} onManagePost={item => void manageMyPost(item)} onManageHiddenAuthors={() => void openHiddenAuthors()} />
+          <MinePanel loading={myPostsLoading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} onManagePost={item => void manageMyPost(item)} onManageHiddenAuthors={() => void openHiddenAuthors()} />
         </View>
       </View>
       {likeSummaryVisible ? <LikeSummary count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} /> : null}

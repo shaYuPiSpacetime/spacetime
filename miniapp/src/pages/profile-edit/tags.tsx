@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LanhuSubNav from '@/components/LanhuSubNav'
 import ProfileTagChip from '@/components/ProfileTagChip'
-import { toggleProfileTagSelection } from '@/domain/profileTagSelection'
+import { normalizeProfileTagCodes, toggleProfileTagSelection, uniqueProfileTagOptions } from '@/domain/profileTagSelection'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { DictOption } from '@/types/prd01'
@@ -24,7 +24,10 @@ export default function ProfileEditTagsPage() {
     void (async () => {
       try {
         await bootstrap()
-        const initialTags = parseTagCodes(await prd01Api.getTags())
+        const initialTags = normalizeProfileTagCodes(
+          parseTagCodes(await prd01Api.getTags()),
+          (usePrd01Store.getState().profileOptions?.profileTagGroups || []).flatMap(group => group.options),
+        )
         selectedTagsRef.current = initialTags
         setSelectedTags(initialTags)
       } catch (error) {
@@ -33,11 +36,12 @@ export default function ProfileEditTagsPage() {
     })()
   }, [])
 
-  const allOptions = useMemo(() => uniqueOptions(groups.flatMap(group => group.options)), [groups])
+  const allOptions = useMemo(() => uniqueProfileTagOptions(groups.flatMap(group => group.options)), [groups])
   const visibleGroups = useMemo(() => groups.filter(group => group.categoryCode !== 'ALL'), [groups])
   const options = activeCategory === 'ALL'
     ? allOptions
-    : groups.find(group => group.categoryCode === activeCategory)?.options || []
+    : uniqueProfileTagOptions(groups.find(group => group.categoryCode === activeCategory)?.options || [])
+      .filter(option => allOptions.some(item => item.code === option.code))
   const selectedOptions = allOptions.filter(option => selectedTags.includes(option.code))
 
   const toggle = (option: DictOption) => {
@@ -72,7 +76,10 @@ export default function ProfileEditTagsPage() {
     void saveTask.catch(async error => {
       if (selectedTagsRef.current === next) {
         try {
-          const serverTags = parseTagCodes(await prd01Api.getTags())
+          const serverTags = normalizeProfileTagCodes(
+            parseTagCodes(await prd01Api.getTags()),
+            (usePrd01Store.getState().profileOptions?.profileTagGroups || []).flatMap(group => group.options),
+          )
           selectedTagsRef.current = serverTags
           setSelectedTags(serverTags)
         } catch {
@@ -167,10 +174,6 @@ function DrawerChevron({ expanded }: { expanded: boolean }) {
       ))}
     </View>
   )
-}
-
-function uniqueOptions(options: DictOption[]) {
-  return Array.from(new Map(options.map(option => [option.code, option])).values())
 }
 
 function parseTagCodes(value: string) {

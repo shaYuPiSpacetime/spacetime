@@ -24,6 +24,7 @@ import com.spacetime.common.constant.ProfileDictType;
 import com.spacetime.miniapp.dto.request.ProfileInitStepReq;
 import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
 import com.spacetime.miniapp.dto.request.FavoriteSongSaveReq;
+import com.spacetime.miniapp.dto.request.ProfileTagsSaveReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.BasicProfileVO;
 import com.spacetime.miniapp.dto.response.ProfileDetailVO;
@@ -40,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -658,6 +660,28 @@ class ProfileServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("REGION_NOT_SUPPORTED");
         verify(appUserDao, never()).updateById(user);
+    }
+
+    @Test
+    @DisplayName("不同编码的同名标签只保存一次")
+    void shouldSaveOnlyOneCodeForDuplicateTagLabels() {
+        AppUser user = baseUser(null);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(profileDictionaryService.requireCode(ProfileDictType.PROFILE_TAG, "DETAIL_CONTROL", "标签"))
+                .thenReturn("DETAIL_CONTROL");
+        when(profileDictionaryService.requireCode(ProfileDictType.PROFILE_TAG, "LEGACY_DETAIL", "标签"))
+                .thenReturn("LEGACY_DETAIL");
+        when(profileDictionaryService.requireCode(ProfileDictType.PROFILE_TAG, "RUNNING", "标签"))
+                .thenReturn("RUNNING");
+        when(profileDictionaryService.labels(ProfileDictType.PROFILE_TAG,
+                List.of("DETAIL_CONTROL", "LEGACY_DETAIL", "RUNNING")))
+                .thenReturn(Map.of("DETAIL_CONTROL", "细节控", "LEGACY_DETAIL", " 细节控 ", "RUNNING", "跑步"));
+        ProfileTagsSaveReq req = new ProfileTagsSaveReq();
+        req.setTagCodes(List.of("DETAIL_CONTROL", "LEGACY_DETAIL", "RUNNING"));
+
+        newService().saveTags(7L, req);
+
+        assertThat(user.getTags()).isEqualTo("[\"DETAIL_CONTROL\",\"RUNNING\"]");
     }
 
     @Test
