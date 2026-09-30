@@ -25,6 +25,7 @@ import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
 import com.spacetime.miniapp.dto.request.RecommendViewActionReq;
 import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.RecommendCandidatePageVO;
+import com.spacetime.miniapp.dto.response.RecommendCandidateVO;
 import com.spacetime.miniapp.dto.response.RecommendPreferenceVO;
 import com.spacetime.miniapp.dto.response.RecommendReplayPageVO;
 import com.spacetime.miniapp.dto.response.VipBenefitVO;
@@ -778,6 +779,54 @@ class RecommendServiceImplTest {
         service.recordAction(7L, "8", "view", req);
 
         verify(viewLogDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("同一候选当天跨会话重复曝光不得重复写入浏览记录")
+    void recordViewShouldNotDuplicateViewLogForSameCandidateAcrossSessions() {
+        AppUser current = openUser(7L, 30, "320100");
+        AppUser target = openUser(8L, 28, "320100");
+        target.setGender("FEMALE");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(viewLogDao.selectByRequestAction(7L, "req-2", "view")).thenReturn(null);
+        // 当天已存在同一候选的 view 记录（来自上一个会话，requestId 不同）
+        when(viewLogDao.selectList(any())).thenReturn(List.of(
+                viewLog(7L, 8L, "view", LocalDateTime.now().minusHours(1))));
+
+        RecommendViewActionReq req = new RecommendViewActionReq();
+        req.setRequestId("req-2");
+        req.setFilterVersion(2);
+        req.setPosition(1);
+        service.recordAction(7L, "8", "view", req);
+
+        verify(viewLogDao, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("当天已浏览过的候选不再出现在推荐队列")
+    void getCandidatesShouldExcludeCandidatesViewedToday() {
+        AppUser current = openUser(7L, 30, "320100");
+        AppUser viewed = openUser(8L, 28, "320100");
+        viewed.setGender("FEMALE");
+        AppUser fresh = openUser(9L, 29, "320100");
+        fresh.setGender("FEMALE");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 2));
+        when(appUserDao.selectList(any())).thenReturn(List.of(viewed, fresh));
+        when(accessProjectionService.projectAll(any())).thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of());
+        // 当天已浏览 8 号候选，只剩 9 号可继续推荐
+        when(viewLogDao.selectList(any())).thenReturn(List.of(
+                viewLog(7L, 8L, "view", LocalDateTime.now())));
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).singleElement()
+                .extracting(RecommendCandidateVO::getUserId).isEqualTo(9L);
     }
 
     @Test

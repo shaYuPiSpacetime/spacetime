@@ -205,9 +205,11 @@ public class RecommendServiceImpl implements RecommendService {
             List<Long> openCandidateIds = openCandidates.stream().map(AppUser::getId).toList();
             Set<Long> blockedCandidateIds = blockedCandidateIds(userId, openCandidateIds);
             Set<Long> likedCandidateIds = activeLikedCandidateIds(userId, openCandidateIds);
+            Set<Long> viewedTodayCandidateIds = viewedTodayCandidateIds(userId);
             List<AppUser> visibleCandidates = openCandidates.stream()
                     .filter(candidate -> !blockedCandidateIds.contains(candidate.getId()))
                     .filter(candidate -> !likedCandidateIds.contains(candidate.getId()))
+                    .filter(candidate -> !viewedTodayCandidateIds.contains(candidate.getId()))
                     .limit(resultLimit - items.size())
                     .toList();
             Map<Long, PublicProfileVO> profiles = batchCandidateProfiles(
@@ -356,6 +358,10 @@ public class RecommendServiceImpl implements RecommendService {
             throw new BusinessException(410, "该嘉宾暂时无法查看");
         }
         if (viewLogDao.selectByRequestAction(userId, req.getRequestId(), action) != null) {
+            return;
+        }
+        // 同一候选当天已产生过曝光记录时不再重复写入，避免跨会话重复展示消耗每日浏览配额。
+        if ("view".equals(action) && alreadyViewedToday(userId, candidateId)) {
             return;
         }
         if ("view".equals(action) && remainingBrowseCount(userId, isVipEffective(userId)) == 0) {
@@ -730,6 +736,30 @@ public class RecommendServiceImpl implements RecommendService {
                 .eq(RecommendViewLog::getAction, "view")
                 .between(RecommendViewLog::getViewedAt, start, end));
         return Math.max(0, quota - (views == null ? 0 : views.size()));
+    }
+
+    private boolean alreadyViewedToday(Long userId, Long candidateId) {
+        LocalDateTime start = LocalDate.now().atStartOfDay();
+        LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
+        List<RecommendViewLog> views = viewLogDao.selectList(new LambdaQueryWrapper<RecommendViewLog>()
+                .eq(RecommendViewLog::getUserId, userId)
+                .eq(RecommendViewLog::getCandidateUserId, candidateId)
+                .eq(RecommendViewLog::getAction, "view")
+                .between(RecommendViewLog::getViewedAt, start, end));
+        return views != null && !views.isEmpty();
+    }
+
+    private Set<Long> viewedTodayCandidateIds(Long userId) {
+        LocalDateTime start = LocalDate.now().atStartOfDay();
+        LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
+        List<RecommendViewLog> views = viewLogDao.selectList(new LambdaQueryWrapper<RecommendViewLog>()
+                .eq(RecommendViewLog::getUserId, userId)
+                .eq(RecommendViewLog::getAction, "view")
+                .between(RecommendViewLog::getViewedAt, start, end));
+        return (views == null ? List.<RecommendViewLog>of() : views).stream()
+                .map(RecommendViewLog::getCandidateUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private List<AppUser> safeUsers(List<AppUser> users) {
