@@ -1,6 +1,6 @@
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useLoad, useShareAppMessage } from '@tarojs/taro'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
@@ -41,6 +41,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
@@ -70,6 +71,22 @@ export default function QianxunPostDetailPage() {
   const [config, setConfig] = useState<CommunityConfig>()
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
+  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
+  const hasOpenSheet = showActions || selectedComment !== undefined
+    || pendingReport !== undefined || whisperTarget !== null || showUnverifiedModal
+  const { scrollTop: feedScrollTop, onScroll: onFeedScroll } = useFeedScrollRestore(hasOpenSheet)
+  const hadOpenSheetRef = useRef(false)
+  useEffect(() => {
+    // 面板关闭恢复滚动位置时，清除聚焦评论的 scrollIntoView，避免两个滚动属性互相干扰；
+    // 仅在面板从打开变为关闭后清除，不影响进入页面时的首次评论聚焦。
+    if (hasOpenSheet) {
+      hadOpenSheetRef.current = true
+      return
+    }
+    if (!hadOpenSheetRef.current) return
+    hadOpenSheetRef.current = false
+    setFocusComments(false)
+  }, [hasOpenSheet])
   const access = useAccessStatus('canCommunity')
   const navigationMetrics = getNativeNavigationMetrics()
   const commentThreads = useMemo(
@@ -282,7 +299,7 @@ export default function QianxunPostDetailPage() {
     <View id="qianxun-post-detail-page" style={{ height: '100vh', background: '#F8F9FB', overflow: 'hidden', color: '#333333' }}>
       <NativeNavigation title="动态详情" />
       {loading ? <DetailLoading top={navigationMetrics.navigationHeight} /> : loadError || !post ? <LoadFailure text={loadError} top={navigationMetrics.navigationHeight} /> : (
-        <ScrollView scrollY scrollIntoView={focusComments ? 'qianxun-comments-section' : undefined} style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
+        <ScrollView scrollY scrollTop={feedScrollTop} onScroll={onFeedScroll} scrollIntoView={focusComments ? 'qianxun-comments-section' : undefined} style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
           <View style={{ padding: '18rpx 25rpx 40rpx' }}>
             <View style={{ borderRadius: '16rpx', background: '#FFFFFF', padding: '24rpx 24rpx 0', overflow: 'hidden' }}>
               <AuthorRow post={post} isSelf={post.authorId === currentUserId} onAuthor={() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)} onMore={() => setShowActions(true)} onApply={() => void openWhisper()} />

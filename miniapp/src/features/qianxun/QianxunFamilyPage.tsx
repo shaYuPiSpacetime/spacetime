@@ -7,6 +7,7 @@ import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/Whi
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 import {
   COMMUNITY_COPY_KEYS,
   deleteCommunityPost,
@@ -83,9 +84,10 @@ export default function RecommendFamilyPage() {
   const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
   const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | null>(null)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
-  const [restoredFeedScrollTop, setRestoredFeedScrollTop] = useState<number>()
-  const feedScrollTopRef = useRef(0)
-  const whisperOriginScrollTopRef = useRef(0)
+  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
+  const { scrollTop: feedScrollTop, onScroll: onFeedScroll, resetToTop: resetFeedToTop } = useFeedScrollRestore(
+    sheet !== null || whisperTarget !== null,
+  )
   const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
   const pageBySceneRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
   const hasMoreBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: true, CITY: true, SCHOOL: true, HOT: true })
@@ -317,8 +319,7 @@ export default function RecommendFamilyPage() {
       setSelectedPost(undefined)
       setSheet(null)
       resetFeedPagination()
-      feedScrollTopRef.current = 0
-      setRestoredFeedScrollTop(0)
+      resetFeedToTop()
       await loadScene(activeTab)
       await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.deleteSuccess), icon: 'success' })
     } catch (error) {
@@ -327,11 +328,7 @@ export default function RecommendFamilyPage() {
   }
 
   const closeWhisperSheet = async () => {
-    const preservedScrollTop = whisperOriginScrollTopRef.current
     setWhisperTarget(null)
-    setRestoredFeedScrollTop(undefined)
-    await new Promise<void>(resolve => Taro.nextTick(resolve))
-    setRestoredFeedScrollTop(preservedScrollTop)
   }
 
   const openWhisper = async (post: CommunityPostVO) => {
@@ -342,7 +339,6 @@ export default function RecommendFamilyPage() {
       void Taro.showToast({ title: '当前动态暂时无法申请认识', icon: 'none' })
       return
     }
-    whisperOriginScrollTopRef.current = feedScrollTopRef.current
     setWhisperTarget({
       targetUserNo,
       sourceScene: 'community_post',
@@ -368,12 +364,10 @@ export default function RecommendFamilyPage() {
         <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
         <ScrollView
           scrollY
-          scrollTop={restoredFeedScrollTop}
+          scrollTop={feedScrollTop}
+          onScroll={onFeedScroll}
           lowerThreshold={120}
           onScrollToLower={() => void loadScene(activeTab, true)}
-          onScroll={event => {
-            feedScrollTopRef.current = event.detail.scrollTop
-          }}
           style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }}
           showScrollbar={false}
         >

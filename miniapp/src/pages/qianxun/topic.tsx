@@ -12,6 +12,7 @@ import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { findConversationByPeerUserId } from '@/services/message'
@@ -50,6 +51,11 @@ export default function QianxunTopicPage() {
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const [selectedOwnPost, setSelectedOwnPost] = useState<CommunityPostVO>()
   const [selectedReportPost, setSelectedReportPost] = useState<CommunityPostVO>()
+  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
+  const { scrollTop: feedScrollTop, onScroll: onFeedScroll } = useFeedScrollRestore(
+    selectedOwnPost !== undefined || selectedReportPost !== undefined
+    || whisperTarget !== null || showUnverifiedModal,
+  )
   const access = useAccessStatus('canCommunity')
   const topicIdRef = useRef<number>()
   const resumeRefreshRef = useRef(false)
@@ -219,7 +225,7 @@ export default function QianxunTopicPage() {
         <SortTab label="热门" selected={sort === 'HOT'} onClick={() => changeSort('HOT')} />
         <SortTab label="最新" selected={sort === 'LATEST'} onClick={() => changeSort('LATEST')} />
       </View>
-      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
+      <ScrollView scrollY scrollTop={feedScrollTop} onScroll={onFeedScroll} style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
         <View style={{ padding: '18rpx 25rpx calc(160rpx + env(safe-area-inset-bottom))' }}>
           {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} currentUserId={currentUserId} optionLabel={optionLabel} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => void openPostContact(post)} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
         </View>

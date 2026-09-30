@@ -11,6 +11,7 @@ import { navigateToPendingVerification } from '@/features/verification/navigateT
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
@@ -53,6 +54,10 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   const resumedRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
+  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
+  const { scrollTop: feedScrollTop, onScroll: onFeedScroll } = useFeedScrollRestore(
+    sheet !== null || whisperTarget !== null,
+  )
   useShareAppMessage(() => ({
     title: sheet === 'actions' && selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻时空站台',
     path: sheet === 'actions' && selectedPost?.id ? `/pages/qianxun/post-detail?id=${selectedPost.id}` : '/pages/index/index',
@@ -205,7 +210,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   return (
     <>
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
-      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
+      <ScrollView scrollY scrollTop={feedScrollTop} onScroll={onFeedScroll} style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
         {activeTab === 'YUEMU' ? (
           <ZhiyinPostContent
             contentId="qianxun-soulmate-content"

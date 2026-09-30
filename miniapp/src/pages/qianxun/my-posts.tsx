@@ -20,6 +20,7 @@ import {
 } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 import { useAuthStore } from '@/stores/authStore'
+import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
@@ -71,6 +72,10 @@ export default function QianxunMyPostsPage() {
   const [deleteReceipt, setDeleteReceipt] = useState<MyPostReceipt>()
   const [config, setConfig] = useState<CommunityConfig>()
   const [likingPostIds, setLikingPostIds] = useState<number[]>([])
+  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
+  const { scrollTop: feedScrollTop, onScroll: onFeedScroll } = useFeedScrollRestore(
+    sheetVisible || deleteReceipt !== undefined || failureReceipt !== undefined,
+  )
 
   useDidShow(() => {
     void loadPage()
@@ -167,7 +172,7 @@ export default function QianxunMyPostsPage() {
       <ProfileHeader profile={profile} />
       <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '430rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
         <MainTabs />
-        <ScrollView scrollY style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
+        <ScrollView scrollY scrollTop={feedScrollTop} onScroll={onFeedScroll} style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
           <View style={{ padding: '0 25rpx 60rpx' }}>
             <PublishBanner />
             {loading ? <MyPostsLoading /> : receipts.length ? receipts.map(receipt => (
