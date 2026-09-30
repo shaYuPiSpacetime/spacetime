@@ -6,8 +6,9 @@ import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { applyRecommendViewToPage } from '@/domain/recommendBadge'
 import { omitSeenRecommendCandidates } from '@/domain/recommendCandidateQueue'
-import { hasRecommendCycleExpired } from '@/domain/recommendBrowseCycle'
+import { hasRecommendCycleExpired, shouldShowRecommendWaiting } from '@/domain/recommendBrowseCycle'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { getIdealSearchRecords } from '@/services/ideal'
@@ -31,6 +32,7 @@ const BLUE = '#2876FF'
 const RECOMMEND_TAB_STORAGE_KEY = 'prd08RecommendTab'
 const RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY = 'recommendPreferenceRefreshRequired'
 const RECOMMEND_REFRESH_STORAGE_KEY = 'recommendRefreshRequired'
+const RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY = 'recommendExhaustedCycle'
 const MAX_EMPTY_CANDIDATE_CONTINUATIONS = 3
 
 function createRequestId(prefix: string, candidateNo: string) {
@@ -58,6 +60,7 @@ export default function RecommendPage() {
   const candidateRequestGenerationRef = useRef(0)
   const retryCandidateCursorRef = useRef<string | null>(null)
   const waitingNavigationRef = useRef(false)
+  const profileOpeningRef = useRef(false)
   const currentViewTaskRef = useRef<{
     candidateNo: string
     task: Promise<boolean>
@@ -116,6 +119,9 @@ export default function RecommendPage() {
     try {
       await Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' })
     } catch {
+      setErrorMessage('等待页打开失败，请下拉刷新重试')
+      setState('error')
+    } finally {
       waitingNavigationRef.current = false
     }
   }
@@ -140,10 +146,11 @@ export default function RecommendPage() {
         : null
       setPage(data)
       setCandidateIndex(0)
+      const exhaustedCycle = Taro.getStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY)
       if (data.items?.length) {
         waitingNavigationRef.current = false
         setState('ready')
-      } else if (data.waitingReason === 'browse_limit') {
+      } else if (shouldShowRecommendWaiting(data, exhaustedCycle)) {
         void openWaitingPage()
       } else if (data.waitingReason === 'no_candidate' || !data.items?.length) {
         waitingNavigationRef.current = false
@@ -196,11 +203,20 @@ export default function RecommendPage() {
       Taro.getStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY)
     )
     const refreshRequired = Boolean(Taro.getStorageSync(RECOMMEND_REFRESH_STORAGE_KEY))
-    if (preferencesChanged || refreshRequired || hasRecommendCycleExpired(page?.nextResetAt)) {
+    const cycleExpired = hasRecommendCycleExpired(page?.nextResetAt)
+    if (preferencesChanged || refreshRequired || cycleExpired) {
       Taro.removeStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY)
       Taro.removeStorageSync(RECOMMEND_REFRESH_STORAGE_KEY)
+      if (preferencesChanged || cycleExpired) {
+        Taro.removeStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY)
+      }
       retryCandidateCursorRef.current = null
       void loadCandidates()
+    } else if (shouldShowRecommendWaiting(
+      page,
+      Taro.getStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY)
+    )) {
+      void openWaitingPage()
     }
     const targetTab = Taro.getStorageSync(RECOMMEND_TAB_STORAGE_KEY)
     const requestedByRoute =
@@ -216,34 +232,73 @@ export default function RecommendPage() {
     void loadCandidates().finally(() => Taro.stopPullDownRefresh())
   })
 
-  useEffect(() => {
-    if (!candidate || viewedCandidates.current.has(candidate.candidateNo)) return
-    viewedCandidates.current.add(candidate.candidateNo)
+  const ensureCandidateView = (currentCandidate: RecommendCandidateVO, position: number, filterVersion?: number): Promise<boolean> => {
+    const current = currentViewTaskRef.current
+    if (current?.candidateNo === currentCandidate.candidateNo) return current.task
+    if (viewedCandidates.current.has(currentCandidate.candidateNo)) return Promise.resolve(true)
+    viewedCandidates.current.add(currentCandidate.candidateNo)
     const browseCycle = browseCycleRef.current
-    const requestId = createRequestId('recommend-view', candidate.candidateNo)
+    const requestGeneration = candidateRequestGenerationRef.current
+    const requestId = createRequestId('recommend-view', currentCandidate.candidateNo)
     const task = new Promise<void>(resolve => Taro.nextTick(resolve))
       .then(() =>
-        recordRecommendView(candidate.candidateNo, {
+        recordRecommendView(currentCandidate.candidateNo, {
           requestId,
-          filterVersion: page?.preferenceVersion,
-          position: candidateIndex + 1,
+          filterVersion,
+          position,
         })
       )
-      .then(() => true)
+      .then(() => {
+        if (browseCycleRef.current === browseCycle
+          && candidateRequestGenerationRef.current === requestGeneration) {
+          setPage(previous => applyRecommendViewToPage(previous, currentCandidate.candidateNo))
+        }
+        return true
+      })
       .catch(() => {
         if (browseCycleRef.current === browseCycle) {
-          viewedCandidates.current.delete(candidate.candidateNo)
+          viewedCandidates.current.delete(currentCandidate.candidateNo)
+          if (currentViewTaskRef.current?.candidateNo === currentCandidate.candidateNo) {
+            currentViewTaskRef.current = null
+          }
         }
         return false
       })
-    currentViewTaskRef.current = { candidateNo: candidate.candidateNo, task }
+    currentViewTaskRef.current = { candidateNo: currentCandidate.candidateNo, task }
+    return task
+  }
+
+  useEffect(() => {
+    if (!candidate) return
+    void ensureCandidateView(candidate, candidateIndex + 1, page?.preferenceVersion)
   }, [candidate?.candidateNo, candidateIndex, page?.preferenceVersion, page?.nextResetAt])
 
   const awaitCurrentCandidateView = async () => {
-    if (!candidate) return true
-    const current = currentViewTaskRef.current
-    if (!current || current.candidateNo !== candidate.candidateNo) return true
-    return current.task
+    if (!candidate) return false
+    return ensureCandidateView(candidate, candidateIndex + 1, page?.preferenceVersion)
+  }
+
+  const openCandidateProfile = async () => {
+    if (!candidate || profileOpeningRef.current) return
+    const requestGeneration = candidateRequestGenerationRef.current
+    profileOpeningRef.current = true
+    try {
+      if (!await awaitCurrentCandidateView()) {
+        await Taro.showToast({ title: '浏览记录同步失败，请重试', icon: 'none' })
+        return
+      }
+      if (candidateRequestGenerationRef.current !== requestGeneration) return
+      await Taro.navigateTo({
+        url: `/pages/heart/user?targetUserId=${candidate.userId}&sourceScene=fate`,
+      })
+    } catch (error) {
+      await Taro.showToast({
+        title: error instanceof Error ? error.message : '用户主页打开失败，请重试',
+        icon: 'none',
+      })
+    } finally {
+      profileOpeningRef.current = false
+    }
   }
 
   const showNextCandidate = async (
@@ -291,6 +346,9 @@ export default function RecommendPage() {
         waitingNavigationRef.current = false
         setState('ready')
       } else if (next.waitingReason === 'browse_limit') {
+        void openWaitingPage()
+      } else if (!next.nextCursor && next.nextResetAt) {
+        Taro.setStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY, next.nextResetAt)
         void openWaitingPage()
       } else {
         waitingNavigationRef.current = false
@@ -456,7 +514,7 @@ export default function RecommendPage() {
               void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })
             }
           />
-          {state === 'loading' ? <CenteredText text="正在为你寻找合适的人…" /> : null}
+          {state === 'loading' ? <CenteredText text="加载中…" /> : null}
           {state === 'error' ? (
             <CenteredText text={errorMessage || '推荐加载失败，请下拉刷新'} />
           ) : null}
@@ -466,19 +524,10 @@ export default function RecommendPage() {
               onRetry={() => void loadCandidates()}
             />
           ) : null}
-          {state === 'limit' ? (
-            <RecommendLimit
-              onOpen={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' })}
-            />
-          ) : null}
           {state === 'ready' && candidate ? (
             <RecommendCandidateCard
               candidate={candidate}
-              onOpen={() =>
-                void Taro.navigateTo({
-                  url: `/pages/heart/user?targetUserId=${candidate.userId}&sourceScene=fate`,
-                })
-              }
+              onOpen={() => void openCandidateProfile()}
               onIp={() => setShowIpDialog(true)}
               onCertification={() => setShowCertification(true)}
             />
@@ -1022,40 +1071,6 @@ function RecommendEmpty({ onPreference, onRetry }: { onPreference: () => void; o
           <Text style={{ color: BLUE, fontSize: '26rpx', fontWeight: 500 }}>重新加载</Text>
         </View>
       </View>
-    </View>
-  )
-}
-
-function RecommendLimit({ onOpen }: { onOpen: () => void }) {
-  return (
-    <View
-      onClick={onOpen}
-      style={{
-        position: 'absolute',
-        left: '50rpx',
-        right: '50rpx',
-        top: '330rpx',
-        padding: '48rpx 36rpx',
-        borderRadius: '32rpx',
-        background: '#FFFFFF',
-        boxShadow: '0 12rpx 40rpx rgba(57,83,119,.08)',
-        textAlign: 'center',
-      }}
-    >
-      <Text style={{ display: 'block', color: '#0C285A', fontSize: '34rpx', fontWeight: 600 }}>
-        今日推荐已看完
-      </Text>
-      <Text
-        style={{
-          display: 'block',
-          color: '#8D96A6',
-          fontSize: '24rpx',
-          lineHeight: '38rpx',
-          marginTop: '16rpx',
-        }}
-      >
-        点击查看往日推荐和更多邂逅方式
-      </Text>
     </View>
   )
 }

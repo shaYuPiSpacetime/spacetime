@@ -270,8 +270,11 @@ export default function QianxunComposePage() {
           placeholder="记录生活，展现真实的你"
           placeholderStyle="color:#999999;font-size:28rpx;line-height:40rpx"
           onInput={event => setContent(event.detail.value)}
-          style={{ width: '700rpx', minHeight: '218rpx', margin: '22rpx 25rpx 0', color: '#333333', fontSize: '28rpx', lineHeight: '44rpx', boxSizing: 'border-box' }}
+          style={{ width: '700rpx', minHeight: '420rpx', margin: '22rpx 25rpx 0', color: '#333333', fontSize: '28rpx', lineHeight: '44rpx', boxSizing: 'border-box' }}
         />
+        <View style={{ display: 'flex', justifyContent: 'flex-end', padding: '12rpx 30rpx 0' }}>
+          <Text style={{ color: '#999999', fontSize: '24rpx', lineHeight: '34rpx' }}>{Array.from(content).length}/{Number(config?.postMaxTextLength || 500)}</Text>
+        </View>
         <View style={{ display: 'flex', flexWrap: 'wrap', gap: '10rpx', padding: '26rpx 25rpx' }}>
           {images.map((item, index) => (
             <View key={item.localId} style={{ position: 'relative', width: '226rpx', height: '226rpx' }}>

@@ -1,4 +1,4 @@
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
 import { isAccountRestricted, isCoreAccessBlocked } from '@/domain/accessStatus'
@@ -73,6 +73,14 @@ export default function IndexPage() {
 
   useDidShow(() => {
     void loadIndex()
+  })
+
+  useLoad(options => {
+    // 分享卡片进入：透传栏目与动态定位参数，由千寻信息流读取后滚动定位。
+    const scene = options.scene
+    if (scene) Taro.setStorageSync('qianxun_requested_scene', scene)
+    const postId = options.postId
+    if (postId) Taro.setStorageSync('qianxun_requested_post_id', postId)
   })
 
   const runtimeConfig = usePrd01Store.getState().config

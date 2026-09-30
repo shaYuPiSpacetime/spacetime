@@ -410,6 +410,7 @@ export function BottomPicker({
   const copy = usePrd01Store(state => state.copy)
   return (
     <View
+      catchMove
       style={{
         position: 'fixed',
         left: 0,

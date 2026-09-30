@@ -11,6 +11,7 @@ import {
   COMMUNITY_COPY_KEYS,
   deleteCommunityPost,
   getCommunityMeta,
+  getCommunityPostDetail,
   getCommunityPosts,
   getCommunityTopicHome,
   getFollowingCount,
@@ -41,6 +42,7 @@ const BLUE = '#2876FF'
 const COMMUNITY_CONFIG_CACHE_KEY = 'qianxun_community_config'
 const REQUESTED_PRIMARY_TAB_KEY = 'qianxun_requested_primary_tab'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
+const REQUESTED_POST_ID_KEY = 'qianxun_requested_post_id'
 const COMMUNITY_PAGE_SIZE = 10
 const sceneByEntryKey: Record<string, CommunityScene> = { follow: 'FOLLOWING', following: 'FOLLOWING', same_city: 'CITY', city: 'CITY', same_school: 'SCHOOL', school: 'SCHOOL', discover: 'HOT', hot: 'HOT' }
 const emptySceneState: Partial<Record<CommunityScene, CommunityPostVO[]>> = {}
@@ -66,6 +68,14 @@ function readRequestedScene(): CommunityScene | undefined {
   return requested as CommunityScene
 }
 
+function readRequestedPostId(): number | undefined {
+  const requested = Taro.getStorageSync(REQUESTED_POST_ID_KEY)
+  if (!requested) return undefined
+  Taro.removeStorageSync(REQUESTED_POST_ID_KEY)
+  const id = Number(requested)
+  return Number.isFinite(id) && id > 0 ? id : undefined
+}
+
 export default function RecommendFamilyPage() {
   const currentUserId = useAuthStore(state => state.userId)
   const [primaryTab, setPrimaryTab] = useState<QianxunPrimaryTab>(() => readRequestedPrimaryTab())
@@ -85,17 +95,22 @@ export default function RecommendFamilyPage() {
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   // 删除动态等主动回顶场景使用受控 scrollTop；其余时间非受控，避免干扰渲染层滚动位置。
   const [feedScrollTop, setFeedScrollTop] = useState<number>()
+  // 分享落地定位到指定动态卡片（scrollIntoView 目标 id）。
+  const [focusPostId, setFocusPostId] = useState<string>()
   const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
   const pageBySceneRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
   const hasMoreBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: true, CITY: true, SCHOOL: true, HOT: true })
   const loadingBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: false, CITY: false, SCHOOL: false, HOT: false })
   const loadingMoreBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: false, CITY: false, SCHOOL: false, HOT: false })
   const resumeRefreshRef = useRef(false)
+  const returnFromPostDetailRef = useRef<number>()
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
   useShareAppMessage(() => ({
     title: sheet === 'actions' && selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻时空站台',
-    path: sheet === 'actions' && selectedPost?.id ? `/pages/qianxun/post-detail?id=${selectedPost.id}` : '/pages/index/index',
+    path: sheet === 'actions' && selectedPost?.id
+      ? `/pages/index/index?scene=${activeTab}&postId=${selectedPost.id}`
+      : '/pages/index/index',
   }))
 
   const tabs = useMemo(() => (config?.homeTabs || []).map(item => ({ label: item.entryName, scene: sceneByEntryKey[item.entryKey] })).filter((item): item is { label: string; scene: CommunityScene } => Boolean(item.scene)), [config?.homeTabs])
@@ -179,6 +194,19 @@ export default function RecommendFamilyPage() {
     if (activeTab === 'HOT') void loadTopicHome()
   }
 
+  const refreshReturnedPost = async (postId: number) => {
+    try {
+      const current = await getCommunityPostDetail(postId)
+      setPostsByScene(state => current.hiddenAuthor
+        ? removeAuthorPostsFromScene(state, current.authorId)
+        : mapPostsByScene(state, item => item.id === postId
+          ? { ...item, ...current }
+          : item.authorId === current.authorId ? { ...item, followingAuthor: current.followingAuthor } : item))
+    } catch {
+      // 详情同步失败时保留原列表快照及滚动位置。
+    }
+  }
+
   useEffect(() => {
     refreshFamily()
   }, [])
@@ -197,10 +225,34 @@ export default function RecommendFamilyPage() {
       void loadScene(requestedScene)
       if (requestedScene === 'HOT') void loadTopicHome()
     }
+    // 分享卡片进入：定位到分享的动态卡片。
+    const requestedPostId = readRequestedPostId()
+    if (requestedPostId) {
+      setFocusPostId(`qianxun-post-${requestedPostId}`)
+    }
     if (!resumeRefreshRef.current) return
     resumeRefreshRef.current = false
-    if (primaryTab === 'FAMILY') refreshFamily()
+    const returnFromPostDetail = returnFromPostDetailRef.current
+    returnFromPostDetailRef.current = undefined
+    if (primaryTab === 'FAMILY') {
+      // 详情返回时保持当前列表及分页顺序；重拉第一页会让原滚动偏移指向另一条动态。
+      if (returnFromPostDetail) {
+        void loadContext()
+        void refreshReturnedPost(returnFromPostDetail)
+      }
+      else refreshFamily()
+    }
   })
+
+  const openPostDetail = async (postId: number, focusComments = false) => {
+    returnFromPostDetailRef.current = postId
+    try {
+      await Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${postId}${focusComments ? '&focus=comment' : ''}` })
+    } catch (error) {
+      returnFromPostDetailRef.current = undefined
+      await showError(config, error)
+    }
+  }
 
   const changeTab = (tab: CommunityScene) => {
     if (tab === activeTab) return
@@ -362,6 +414,7 @@ export default function RecommendFamilyPage() {
         <ScrollView
           scrollY
           scrollTop={feedScrollTop}
+          scrollIntoView={focusPostId}
           lowerThreshold={120}
           onScrollToLower={() => void loadScene(activeTab, true)}
           style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }}
@@ -376,9 +429,9 @@ export default function RecommendFamilyPage() {
                 optionLabel={optionLabel}
                 isSelf={post.authorId === currentUserId}
                 onAuthor={() => runWithCoreAccess(() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo))}
-                onOpen={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` }))}
+                onOpen={() => runWithCoreAccess(() => void openPostDetail(post.id))}
                 onTopic={() => runWithCoreAccess(() => { if (post.topicId) void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` }) })}
-                onComment={() => runWithCoreAccess(() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}&focus=comment` }))}
+                onComment={() => runWithCoreAccess(() => void openPostDetail(post.id, true))}
                 onContact={() => openWhisper(post)}
                 onMore={() => runWithCoreAccess(() => openActions(post))}
                 onFollow={() => void toggleFollow(post)}
@@ -440,7 +493,7 @@ function CommunityCard({ post, optionLabel, isSelf, onAuthor, onOpen, onTopic, o
       ? miniappOssIcons.qianxunGenderMale
       : undefined
   const contactText = post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'
-  return <View style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '33rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
+  return <View id={`qianxun-post-${post.id}`} style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '33rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
     <View style={{ display: 'flex', alignItems: 'center' }}>
       <Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} />
       <View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>

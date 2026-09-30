@@ -44,7 +44,11 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
     const auditStatus = status?.[item.statusKey]
     const canSubmit = status?.[item.canSubmitKey] !== false
     const blockedReason = item.key === 'education' ? status?.educationBlockedReason : undefined
-    if (auditStatus === 'APPROVED') return
+    if (auditStatus === 'APPROVED') {
+      // 已通过的认证项点击给出明确反馈，避免"点不动"的观感。
+      await Taro.showToast({ title: '该认证已通过', icon: 'none' })
+      return
+    }
     if (!canSubmit) {
       await Taro.showToast({ title: blockedReason || status?.[item.reasonKey] || optionLabel('auditStatus', auditStatus), icon: 'none' })
       return
