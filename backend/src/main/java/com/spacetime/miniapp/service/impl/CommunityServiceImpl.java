@@ -1091,7 +1091,12 @@ public class CommunityServiceImpl implements CommunityService {
                     .eq(CommunityComment::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
                     .orderByDesc(CommunityComment::getCreateTime))) {
                 CommunityPost post = communityPostDao.selectById(item.getPostId());
-                if (isPublishedPost(post)) records.add(interactionRecord("commented", "comment-" + item.getId(), item.getCreateTime(), userId, post));
+                if (isPublishedPost(post)) {
+                    CommunityInteractionRecordVO record = interactionRecord("commented", "comment-" + item.getId(), item.getCreateTime(), userId, post);
+                    // 互动记录展示本次评论内容，避免同一动态的多条评论显示为相同卡片。
+                    record.setDescription(item.getContent());
+                    records.add(record);
+                }
             }
         } else if ("liked".equals(normalized)) {
             for (CommunityLike item : communityLikeDao.selectList(new LambdaQueryWrapper<CommunityLike>()
