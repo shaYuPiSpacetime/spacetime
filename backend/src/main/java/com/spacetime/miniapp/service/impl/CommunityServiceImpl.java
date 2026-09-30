@@ -1166,6 +1166,14 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
+    public void deleteViewHistory(Long userId, String postRef) {
+        CommunityPost post = requirePostRef(postRef);
+        communityExtensionDao.deleteViews(new LambdaQueryWrapper<CommunityViewHistory>()
+                .eq(CommunityViewHistory::getUserId, userId)
+                .eq(CommunityViewHistory::getPostId, post.getId()));
+    }
+
+    @Override
     public Page<CommunityRelationUserVO> getRelations(Long userId, String relation, int page, int size) {
         requireUser(userId);
         boolean fans = "fans".equalsIgnoreCase(relation) || "followers".equalsIgnoreCase(relation);

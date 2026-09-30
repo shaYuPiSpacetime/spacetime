@@ -154,6 +154,7 @@ public interface CommunityService {
     Page<CommunityInteractionRecordVO> getInteractionHistory(Long userId, String type, int page, int size);
     Page<CommunityPostCardVO> getViewHistory(Long userId, int page, int size);
     void clearViewHistory(Long userId);
+    void deleteViewHistory(Long userId, String postRef);
     Page<CommunityRelationUserVO> getRelations(Long userId, String relation, int page, int size);
     Page<CommunityRelationUserVO> getPostInteractors(Long userId, String postRef, String type, int page, int size);
     Page<CommunityRelationUserVO> getHiddenAuthors(Long userId, int page, int size);

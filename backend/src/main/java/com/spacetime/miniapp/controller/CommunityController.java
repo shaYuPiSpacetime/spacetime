@@ -299,6 +299,12 @@ public class CommunityController {
         return R.ok();
     }
 
+    @DeleteMapping("/me/view-history/{postId}")
+    public R<Void> deleteViewHistory(@PathVariable String postId) {
+        communityService.deleteViewHistory(currentUserId(), postId);
+        return R.ok();
+    }
+
     @GetMapping("/me/follows")
     public R<Page<CommunityRelationUserVO>> relations(@RequestParam(defaultValue = "following") String relation,
                                                        @RequestParam(defaultValue = "1") int page,

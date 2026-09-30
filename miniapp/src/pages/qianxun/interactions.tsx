@@ -10,6 +10,7 @@ import { prd01Api } from '@/services/prd01'
 import {
   COMMUNITY_COPY_KEYS,
   clearCommunityViewHistory,
+  deleteCommunityViewHistory,
   deleteCommunityPost,
   getCommunityMeta,
   getCommunityFollowRelations,
@@ -256,6 +257,23 @@ export default function QianxunInteractionsPage() {
     if (selected.tapIndex === 0) await clearHistory()
   }
 
+  const deleteHistoryItem = async (postId: number) => {
+    const confirmation = await Taro.showModal({
+      title: '删除浏览记录',
+      content: '确定删除这条浏览记录吗？',
+      cancelText: '取消',
+      confirmText: '删除',
+      confirmColor: '#E62828',
+    })
+    if (!confirmation.confirm) return
+    try {
+      await deleteCommunityViewHistory(postId)
+      setHistory(current => current.filter(item => item.post?.id !== postId))
+    } catch (error) {
+      await showError(config, error)
+    }
+  }
+
   const toggleMyPostLike = async (item: MyPostSnapshot) => {
     if (!item.postId || item.status !== 'published' || likingPostIds.includes(item.postId)) return
     setLikingPostIds(ids => [...ids, item.postId as number])
@@ -344,7 +362,7 @@ export default function QianxunInteractionsPage() {
           {history.length && !loading ? <View id="qianxun-history-more" role="button" onClick={() => void openHistoryActions()} style={{ position: 'absolute', right: '20rpx', top: '4rpx', width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}><Text style={{ color: '#8D929B', fontSize: '32rpx', letterSpacing: '3rpx' }}>···</Text></View> : null}
           <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : historyGroups.length ? (
-              <InteractionPostGroups groups={historyGroups} />
+              <InteractionPostGroups groups={historyGroups} onDelete={postId => void deleteHistoryItem(postId)} />
             ) : <HistoryEmpty config={config} />}
           </ScrollView>
         </View>
@@ -629,22 +647,22 @@ function InteractionRow({ item, config }: { item: InteractionRecord; config?: Co
   )
 }
 
-function InteractionPostGroups({ groups }: { groups: Array<{ key: string; label: string; items: InteractionRecord[] }> }) {
+function InteractionPostGroups({ groups, onDelete }: { groups: Array<{ key: string; label: string; items: InteractionRecord[] }>; onDelete?: (postId: number) => void }) {
   return (
     <View style={{ padding: '18rpx 26rpx 52rpx' }}>
       {groups.map((group, groupIndex) => (
         <View key={group.key} style={{ paddingTop: groupIndex ? '38rpx' : 0 }}>
           <Text className="qianxun-interaction-date-group" data-date-label={group.label} style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '36rpx', marginBottom: '28rpx' }}>{group.label}</Text>
-          {group.items.map(item => item.post ? <InteractionPostCard key={item.id} post={item.post} /> : null)}
+          {group.items.map(item => item.post ? <InteractionPostCard key={item.id} post={item.post} onDelete={onDelete ? () => onDelete(item.post!.id) : undefined} /> : null)}
         </View>
       ))}
     </View>
   )
 }
 
-function InteractionPostCard({ post }: { post: CommunityPostVO }) {
+function InteractionPostCard({ post, onDelete }: { post: CommunityPostVO; onDelete?: () => void }) {
   return (
-    <View className="qianxun-interaction-post-card" onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} style={{ padding: '0 0 32rpx', marginBottom: '38rpx', borderBottom: '2rpx solid #F0F3F8' }}>
+    <View className="qianxun-interaction-post-card" onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} onLongPress={onDelete} style={{ padding: '0 0 32rpx', marginBottom: '38rpx', borderBottom: '2rpx solid #F0F3F8' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}>
         <Image src={normalizeAvatarUrl(post.authorAvatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }} />
         <View style={{ marginLeft: '16rpx', flex: 1, minWidth: 0 }}>

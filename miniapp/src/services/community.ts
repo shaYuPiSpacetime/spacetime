@@ -348,6 +348,7 @@ export const getCommunityProfileSummary = () => get<CommunityProfileSummaryVO>('
 export const getCommunityInteractions = (interactionType: CommunityInteractionType, page = 1, size = 20) => get<PageVO<CommunityInteractionRecordVO>>('/miniapp/community/me/interactions', { type: interactionType, page, size })
 export const getCommunityViewHistory = (page = 1, size = 20) => get<PageVO<CommunityPostVO>>('/miniapp/community/me/view-history', { page, size })
 export const clearCommunityViewHistory = () => del<void>('/miniapp/community/me/view-history')
+export const deleteCommunityViewHistory = (postId: number | string) => del<void>(`/miniapp/community/me/view-history/${postId}`)
 export const recordCommunityView = (postId: number | string) => post<void>(`/miniapp/community/posts/${postId}/view`)
 
 export const getCommunityFollowRelations = (relationType: CommunityRelationType, page = 1, size = 20) => get<PageVO<CommunityRelationUserVO>>('/miniapp/community/me/follows', { relation: relationType === 'followers' ? 'fans' : 'following', page, size })
