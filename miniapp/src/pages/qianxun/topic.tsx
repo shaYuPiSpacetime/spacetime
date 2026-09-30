@@ -12,7 +12,6 @@ import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
-import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { findConversationByPeerUserId } from '@/services/message'
@@ -51,11 +50,6 @@ export default function QianxunTopicPage() {
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const [selectedOwnPost, setSelectedOwnPost] = useState<CommunityPostVO>()
   const [selectedReportPost, setSelectedReportPost] = useState<CommunityPostVO>()
-  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
-  const { scrollTop: feedScrollTop, onScroll: onFeedScroll } = useFeedScrollRestore(
-    selectedOwnPost !== undefined || selectedReportPost !== undefined
-    || whisperTarget !== null || showUnverifiedModal,
-  )
   const access = useAccessStatus('canCommunity')
   const topicIdRef = useRef<number>()
   const resumeRefreshRef = useRef(false)
@@ -225,20 +219,20 @@ export default function QianxunTopicPage() {
         <SortTab label="热门" selected={sort === 'HOT'} onClick={() => changeSort('HOT')} />
         <SortTab label="最新" selected={sort === 'LATEST'} onClick={() => changeSort('LATEST')} />
       </View>
-      <ScrollView scrollY scrollTop={feedScrollTop} onScroll={onFeedScroll} style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
+      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
         <View style={{ padding: '18rpx 25rpx calc(160rpx + env(safe-area-inset-bottom))' }}>
           {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} currentUserId={currentUserId} optionLabel={optionLabel} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => void openPostContact(post)} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
         </View>
       </ScrollView>
     </View>
     <View id="qianxun-topic-participate" onClick={() => topicId && void Taro.navigateTo({ url: `/pages/qianxun/compose?topicId=${topicId}&topicName=${encodeURIComponent(topicName)}` })} style={{ position: 'fixed', left: '50%', bottom: 'calc(30rpx + env(safe-area-inset-bottom))', width: '240rpx', height: '82rpx', borderRadius: '41rpx', background: topicId ? BLUE : '#C8D4E8', boxShadow: '0 12rpx 28rpx rgba(40,118,255,0.28)', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx', fontWeight: 600 }}>参与话题</Text></View>
-    {selectedOwnPost ? <CommunityPostActionSheet post={selectedOwnPost} isSelf={selectedOwnPost.authorId === currentUserId} onClose={() => setSelectedOwnPost(undefined)} /> : null}
-    {selectedReportPost ? <CommunityReportReasonSheet reasons={config?.reportReasons || []} onClose={() => setSelectedReportPost(undefined)} onReport={reasonCode => void submitReport(reasonCode)} /> : null}
-    {showUnverifiedModal ? <UnverifiedCertificationModal onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
+    <CommunityPostActionSheet visible={selectedOwnPost !== undefined} post={selectedOwnPost} isSelf={selectedOwnPost ? selectedOwnPost.authorId === currentUserId : false} onClose={() => setSelectedOwnPost(undefined)} />
+    <CommunityReportReasonSheet visible={selectedReportPost !== undefined} reasons={config?.reportReasons || []} onClose={() => setSelectedReportPost(undefined)} onReport={reasonCode => void submitReport(reasonCode)} />
+    <UnverifiedCertificationModal visible={showUnverifiedModal} onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
       setShowUnverifiedModal(false)
       void navigateToPendingVerification()
-    }} /> : null}
-    {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
+    }} />
+    <WhisperComposeSheet visible={whisperTarget !== null} target={whisperTarget} onClose={() => setWhisperTarget(null)} />
   </View>
 }
 

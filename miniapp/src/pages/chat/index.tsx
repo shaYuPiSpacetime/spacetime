@@ -202,16 +202,15 @@ export default function ChatPage() {
           </View>
         </View>
       </ScrollView>
-      {showUnverifiedModal ? (
-        <UnverifiedCertificationModal
-          onClose={() => setShowUnverifiedModal(false)}
-          onConfirm={() => {
-            setShowUnverifiedModal(false)
-            void navigateToPendingVerification()
-          }}
-          description="完成认证即可查看悄悄话并与心动用户私信"
-        />
-      ) : null}
+      <UnverifiedCertificationModal
+        visible={showUnverifiedModal}
+        onClose={() => setShowUnverifiedModal(false)}
+        onConfirm={() => {
+          setShowUnverifiedModal(false)
+          void navigateToPendingVerification()
+        }}
+        description="完成认证即可查看悄悄话并与心动用户私信"
+      />
     </View>
   )
 }

@@ -1,15 +1,16 @@
 import { ScrollView, Text, View } from '@tarojs/components'
 
 interface CommunityReportReasonSheetProps {
+  visible?: boolean
   reasons: Array<{ code: string; label: string }>
   onClose: () => void
   onReport: (code: string) => void
 }
 
-export default function CommunityReportReasonSheet({ reasons, onClose, onReport }: CommunityReportReasonSheetProps) {
+export default function CommunityReportReasonSheet({ visible = true, reasons, onClose, onReport }: CommunityReportReasonSheetProps) {
   return (
-    <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000 }}>
-      <View
+    <View onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
+      {visible ? <View
         onClick={event => event.stopPropagation()}
         style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1190rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}
       >
@@ -24,7 +25,7 @@ export default function CommunityReportReasonSheet({ reasons, onClose, onReport 
         <View onClick={onClose} style={{ height: '78rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text>
         </View>
-      </View>
+      </View> : null}
     </View>
   )
 }

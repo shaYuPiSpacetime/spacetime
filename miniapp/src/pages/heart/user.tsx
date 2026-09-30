@@ -273,17 +273,16 @@ export default function HeartUserPage() {
         additionalContent={communityContent}
         footer={footer}
       />
-      {showUnverifiedModal ? (
-        <UnverifiedCertificationModal
-          onClose={() => setShowUnverifiedModal(false)}
-          onConfirm={() => {
-            setShowUnverifiedModal(false)
-            void navigateToPendingVerification()
-          }}
-        />
-      ) : null}
-      {showReportReasons ? <CommunityReportReasonSheet reasons={communityConfig?.reportReasons || []} onClose={() => setShowReportReasons(false)} onReport={reasonCode => void submitUserReport(reasonCode)} /> : null}
-      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
+      <UnverifiedCertificationModal
+        visible={showUnverifiedModal}
+        onClose={() => setShowUnverifiedModal(false)}
+        onConfirm={() => {
+          setShowUnverifiedModal(false)
+          void navigateToPendingVerification()
+        }}
+      />
+      <CommunityReportReasonSheet visible={showReportReasons} reasons={communityConfig?.reportReasons || []} onClose={() => setShowReportReasons(false)} onReport={reasonCode => void submitUserReport(reasonCode)} />
+      <WhisperComposeSheet visible={whisperTarget !== null} target={whisperTarget} onClose={() => setWhisperTarget(null)} />
     </View>
   )
 }

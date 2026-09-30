@@ -1,4 +1,5 @@
 import Taro, { useDidShow } from '@tarojs/taro'
+import { View } from '@tarojs/components'
 import { useEffect, useRef, useState } from 'react'
 import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
 import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
@@ -16,12 +17,13 @@ export interface WhisperComposeTarget extends WhisperPrecheckCommand {
 }
 
 interface WhisperComposeSheetProps {
-  target: WhisperComposeTarget
+  target?: WhisperComposeTarget | null
+  visible?: boolean
   onClose: () => void
 }
 
 /** 所有发起悄悄话入口复用同一个页内弹窗与预检查、发送流程。 */
-export default function WhisperComposeSheet({ target, onClose }: WhisperComposeSheetProps) {
+export default function WhisperComposeSheet({ target, visible = true, onClose }: WhisperComposeSheetProps) {
   const [content, setContent] = useState('')
   const [precheck, setPrecheck] = useState<WhisperPrecheckResponse>()
   const [loading, setLoading] = useState(true)
@@ -30,6 +32,7 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
   const refreshAfterRecharge = useRef(false)
 
   const refreshPrecheck = async () => {
+    if (!target) return
     const result = await precheckWhisper({
       targetUserNo: target.targetUserNo,
       sourceScene: target.sourceScene,
@@ -48,6 +51,7 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
   })
 
   useEffect(() => {
+    if (!target) return
     let active = true
     setLoading(true)
     setPrecheck(undefined)
@@ -68,7 +72,7 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
       if (active) setLoading(false)
     })
     return () => { active = false }
-  }, [target.targetUserNo, target.sourceScene, target.sourceBizNo])
+  }, [target?.targetUserNo, target?.sourceScene, target?.sourceBizNo])
 
   const close = async () => {
     if (submitting) return
@@ -88,6 +92,7 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
   }
 
   const submit = async () => {
+    if (!target) return
     const normalizedContent = content.trim()
     if (submitting || !precheck) return
     if (!precheck.canSend || !precheck.quoteToken) {
@@ -127,6 +132,10 @@ export default function WhisperComposeSheet({ target, onClose }: WhisperComposeS
     }
   }
 
+  // 遮罩节点常驻：面板开关只切换可见性，避免 fixed 节点增删触发列表滚动位置重置。
+  if (!visible || !target) {
+    return <View style={{ position: 'fixed', inset: 0, zIndex: 30000, visibility: 'hidden', pointerEvents: 'none' }} />
+  }
   return <CommunityWhisperSheet
     id="global-whisper-compose-sheet"
     avatar={target.avatar}

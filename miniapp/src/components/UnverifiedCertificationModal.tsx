@@ -2,6 +2,7 @@ import { Image, Text, View } from '@tarojs/components'
 import { miniappOssIcons } from '@/constants/ossIcons'
 
 interface UnverifiedCertificationModalProps {
+  visible?: boolean
   onClose: () => void
   onConfirm: () => void
   description?: string
@@ -10,8 +11,10 @@ interface UnverifiedCertificationModalProps {
 /**
  * 基础准入已完成、核心认证未完成时的全局统一弹窗。
  * 可见按钮自身承接事件，禁止用透明热区覆盖设计稿。
+ * 遮罩节点常驻：开关只切换可见性，避免 fixed 节点增删触发列表滚动位置重置。
  */
 export default function UnverifiedCertificationModal({
+  visible = true,
   onClose,
   onConfirm,
   description = '完成认证即可关注、心动和私信感兴趣的用户',
@@ -20,10 +23,17 @@ export default function UnverifiedCertificationModal({
     <View
       id="common-unverified-modal"
       data-role="common-unverified-modal"
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(8,20,43,0.46)' }}
+      onClick={visible ? onClose : undefined}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 20000,
+        background: 'rgba(8,20,43,0.46)',
+        visibility: visible ? 'visible' : 'hidden',
+        pointerEvents: visible ? 'auto' : 'none',
+      }}
     >
-      <View
+      {visible ? <View
         onClick={event => event.stopPropagation()}
         style={{
           position: 'absolute',
@@ -56,7 +66,7 @@ export default function UnverifiedCertificationModal({
         >
           <Text style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 700 }}>立即认证</Text>
         </View>
-      </View>
+      </View> : null}
     </View>
   )
 }

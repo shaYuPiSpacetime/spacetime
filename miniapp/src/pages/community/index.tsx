@@ -467,21 +467,20 @@ export default function CommunityPage() {
         </View>
       ) : null}
 
-      {unlockStage !== 'closed' ? (
-        <UnlockSheet
-          stage={unlockStage}
-          card={selectedCard}
-          quote={unlockQuote}
-          result={unlockResult}
-          submitting={unlockSubmitting}
-          sourceScene={activeTab === 'likes' ? 'likes_me' : 'recent_viewers'}
-          onClose={() => !unlockSubmitting && setUnlockStage('closed')}
-          onQuote={() => void requestUnlockQuote()}
-          onConfirm={() => void confirmUnlock()}
-        />
-      ) : null}
+      <UnlockSheet
+        visible={unlockStage !== 'closed'}
+        stage={unlockStage === 'closed' ? 'quote' : unlockStage}
+        card={selectedCard}
+        quote={unlockQuote}
+        result={unlockResult}
+        submitting={unlockSubmitting}
+        sourceScene={activeTab === 'likes' ? 'likes_me' : 'recent_viewers'}
+        onClose={() => !unlockSubmitting && setUnlockStage('closed')}
+        onQuote={() => void requestUnlockQuote()}
+        onConfirm={() => void confirmUnlock()}
+      />
 
-      {matchPopup ? <MatchPopupSheet popup={matchPopup} submitting={matchSubmitting} onAction={action => void handleMatchAction(action)} /> : null}
+      <MatchPopupSheet visible={matchPopup !== undefined} popup={matchPopup} submitting={matchSubmitting} onAction={action => void handleMatchAction(action)} />
     </View>
   )
 }
@@ -654,7 +653,7 @@ function LoadMoreButton({ loading, onClick }: { loading: boolean; onClick: () =>
   return <View id="relation-load-more" onClick={loading ? undefined : onClick} style={{ width: '260rpx', height: '64rpx', margin: '28rpx auto 0', borderRadius: '32rpx', background: 'rgba(255,255,255,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#2876FF', fontSize: '24rpx' }}>{loading ? '加载中...' : '加载更多'}</Text></View>
 }
 
-function UnlockSheet({ stage, card, quote, result, submitting, sourceScene, onClose, onQuote, onConfirm }: { stage: Exclude<UnlockStage, 'closed'>; card: RelationCard | null; quote: UnlockQuoteVO | null; result: UnlockConfirmVO | null; submitting: boolean; sourceScene: 'likes_me' | 'recent_viewers'; onClose: () => void; onQuote: () => void; onConfirm: () => void }) {
+function UnlockSheet({ visible = true, stage, card, quote, result, submitting, sourceScene, onClose, onQuote, onConfirm }: { visible?: boolean; stage: Exclude<UnlockStage, 'closed'>; card: RelationCard | null; quote: UnlockQuoteVO | null; result: UnlockConfirmVO | null; submitting: boolean; sourceScene: 'likes_me' | 'recent_viewers'; onClose: () => void; onQuote: () => void; onConfirm: () => void }) {
   const success = stage === 'success'
   const quoteReady = stage === 'quote'
   const likesScene = sourceScene === 'likes_me'
@@ -675,8 +674,8 @@ function UnlockSheet({ stage, card, quote, result, submitting, sourceScene, onCl
         ? `最近来访 ${card.visitCount} 次`
         : '刚刚看过你的主页'
   return (
-    <View id="relation-unlock-sheet" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.42)' }}>
-      <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: '166rpx', minHeight: '454rpx', overflow: 'hidden', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF' }}>
+    <View id="relation-unlock-sheet" onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.42)', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
+      {visible ? <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: '166rpx', minHeight: '454rpx', overflow: 'hidden', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF' }}>
         <View style={{ position: 'relative', height: '170rpx', padding: '44rpx 28rpx 0', background: success ? 'linear-gradient(105deg,#FFF3F3,#FFE9F1)' : 'linear-gradient(105deg,#E7F5FF,#EDF4FF)', boxSizing: 'border-box' }}>
           <Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', fontWeight: 600, lineHeight: '45rpx' }}>{title}</Text>
           <Text style={{ display: 'block', marginTop: '8rpx', color: '#7F8494', fontSize: '24rpx', lineHeight: '33rpx' }}>{subtitle}</Text>
@@ -703,15 +702,18 @@ function UnlockSheet({ stage, card, quote, result, submitting, sourceScene, onCl
             <View onClick={() => !submitting && Taro.navigateTo({ url: '/pages/heart/membership-unlock' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#EAD8B6', fontSize: '28rpx' }}>解锁全部</Text></View>
           </View>
         )}
-      </View>
+      </View> : null}
     </View>
   )
 }
 
-function MatchPopupSheet({ popup, submitting, onAction }: { popup: MatchPopupVO; submitting: boolean; onAction: (action: MatchPopupAction) => void }) {
+function MatchPopupSheet({ visible = true, popup, submitting, onAction }: { visible?: boolean; popup?: MatchPopupVO | null; submitting: boolean; onAction: (action: MatchPopupAction) => void }) {
+  if (!popup) {
+    return <View style={{ position: 'fixed', inset: 0, zIndex: 9000, visibility: 'hidden', pointerEvents: 'none' }} />
+  }
   return (
-    <View id="relation-match-popup" onClick={() => !submitting && onAction('close')} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '42rpx 34rpx 34rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
+    <View id="relation-match-popup" onClick={() => !submitting && onAction('close')} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
+      {visible ? <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '42rpx 34rpx 34rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
         <Image src={popup.avatar || personImage} mode="aspectFill" style={{ width: '132rpx', height: '132rpx', borderRadius: '50%' }} />
         <Text style={{ marginTop: '24rpx', color: '#0C285A', fontSize: '34rpx', fontWeight: 700 }}>匹配成功</Text>
         <Text style={{ marginTop: '12rpx', color: '#7F8494', fontSize: '24rpx' }}>你和{popup.nickname}互相喜欢了</Text>
@@ -720,7 +722,7 @@ function MatchPopupSheet({ popup, submitting, onAction }: { popup: MatchPopupVO;
           <View id="match-chat-button" onClick={() => !submitting && onAction('chat')} style={{ flex: 1, height: '82rpx', borderRadius: '41rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>去聊天</Text></View>
         </View>
         <Text onClick={() => !submitting && onAction('later')} style={{ marginTop: '24rpx', color: '#A0A6B2', fontSize: '24rpx' }}>{submitting ? '正在确认...' : '稍后再说'}</Text>
-      </View>
+      </View> : null}
     </View>
   )
 }

@@ -484,16 +484,15 @@ export default function RecommendPage() {
           onClose={() => setShowCertification(false)}
         />
       ) : null}
-      {showUnverifiedModal ? (
-        <UnverifiedCertificationModal
-          onClose={() => setShowUnverifiedModal(false)}
-          onConfirm={() => {
-            setShowUnverifiedModal(false)
-            void navigateToPendingVerification()
-          }}
-        />
-      ) : null}
-      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
+      <UnverifiedCertificationModal
+        visible={showUnverifiedModal}
+        onClose={() => setShowUnverifiedModal(false)}
+        onConfirm={() => {
+          setShowUnverifiedModal(false)
+          void navigateToPendingVerification()
+        }}
+      />
+      <WhisperComposeSheet visible={whisperTarget !== null} target={whisperTarget} onClose={() => setWhisperTarget(null)} />
     </View>
   )
 }

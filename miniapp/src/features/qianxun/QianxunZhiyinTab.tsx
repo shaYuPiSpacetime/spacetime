@@ -11,7 +11,6 @@ import { navigateToPendingVerification } from '@/features/verification/navigateT
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
-import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
@@ -54,10 +53,6 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   const resumedRef = useRef(false)
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
-  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
-  const { scrollTop: feedScrollTop, onScroll: onFeedScroll } = useFeedScrollRestore(
-    sheet !== null || whisperTarget !== null,
-  )
   useShareAppMessage(() => ({
     title: sheet === 'actions' && selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻时空站台',
     path: sheet === 'actions' && selectedPost?.id ? `/pages/qianxun/post-detail?id=${selectedPost.id}` : '/pages/index/index',
@@ -210,7 +205,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   return (
     <>
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
-      <ScrollView scrollY scrollTop={feedScrollTop} onScroll={onFeedScroll} style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
+      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
         {activeTab === 'YUEMU' ? (
           <ZhiyinPostContent
             contentId="qianxun-soulmate-content"
@@ -264,22 +259,29 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
         </View>
       ) : null}
 
-      {sheet === 'actions' && selectedPost ? <CommunityPostActionSheet post={selectedPost} isSelf={selectedPost.authorId === currentUserId} onClose={() => setSheet(null)} onFollow={() => void followPostAuthor(selectedPost)} onHide={() => void toggleSelectedAuthorPreference()} onReport={() => {
-        if (config?.reportReasons?.length) setSheet('report')
-        else void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
-      }} /> : null}
-      {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void reportSelectedPost(reason)} /> : null}
-      {sheet === 'uncertified' ? (
-        <UnverifiedCertificationModal
-          onClose={() => setSheet(null)}
-          onConfirm={() => {
-            setSheet(null)
-            void navigateToPendingVerification()
-          }}
-          description="完成认证即可互动；时空站台仅工作人员可发布"
-        />
-      ) : null}
-      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
+      <CommunityPostActionSheet
+        visible={sheet === 'actions' && selectedPost !== undefined}
+        post={selectedPost}
+        isSelf={selectedPost ? selectedPost.authorId === currentUserId : false}
+        onClose={() => setSheet(null)}
+        onFollow={selectedPost ? () => void followPostAuthor(selectedPost) : undefined}
+        onHide={selectedPost ? () => void toggleSelectedAuthorPreference() : undefined}
+        onReport={selectedPost ? () => {
+          if (config?.reportReasons?.length) setSheet('report')
+          else void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
+        } : undefined}
+      />
+      <ReportSheet visible={sheet === 'report'} reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void reportSelectedPost(reason)} />
+      <UnverifiedCertificationModal
+        visible={sheet === 'uncertified'}
+        onClose={() => setSheet(null)}
+        onConfirm={() => {
+          setSheet(null)
+          void navigateToPendingVerification()
+        }}
+        description="完成认证即可互动；时空站台仅工作人员可发布"
+      />
+      <WhisperComposeSheet visible={whisperTarget !== null} target={whisperTarget} onClose={() => setWhisperTarget(null)} />
     </>
   )
 }
@@ -354,12 +356,14 @@ function EmptyState({ title, description, action, onAction }: { title: string; d
   return <View id="qianxun-zhiyin-empty-state" style={{ paddingTop: '120rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyHeart} mode="aspectFit" style={{ width: '292rpx', height: '224rpx' }} /><Text style={{ color: '#999999', fontSize: '28rpx', marginTop: '24rpx' }}>{title}</Text><Text style={{ color: '#A7A7A7', fontSize: '24rpx', marginTop: '16rpx' }}>{description}</Text>{action && onAction ? <View onClick={onAction} style={{ width: '300rpx', height: '82rpx', borderRadius: '12rpx', background: QIANXUN_BLUE, marginTop: '38rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx' }}>{action}</Text></View> : null}</View>
 }
 
-function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000 }}>{children}</View>
+function Overlay({ visible, onClose, children }: { visible: boolean; onClose: () => void; children?: ReactNode }) {
+  // 遮罩节点常驻：面板开关只切换可见性，避免 fixed 节点挂载/卸载触发
+  // 渲染层重置列表滚动位置（表现为关闭面板后信息流弹回顶部）。
+  return <View onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>{visible ? children : null}</View>
 }
 
-function ReportSheet({ reasons, onClose, onReport }: { reasons: Array<{ code: string; label: string }>; onClose: () => void; onReport: (code: string) => void }) {
-  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1080rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))' }}><ScrollView scrollY style={{ maxHeight: '850rpx' }}>{reasons.map(reason => <View key={reason.code} onClick={() => onReport(reason.code)} style={{ height: '82rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx' }}>{reason.label}</Text></View>)}</ScrollView><View onClick={onClose} style={{ height: '82rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View></View></Overlay>
+function ReportSheet({ visible, reasons, onClose, onReport }: { visible: boolean; reasons: Array<{ code: string; label: string }>; onClose: () => void; onReport: (code: string) => void }) {
+  return <Overlay visible={visible} onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1080rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))' }}><ScrollView scrollY style={{ maxHeight: '850rpx' }}>{reasons.map(reason => <View key={reason.code} onClick={() => onReport(reason.code)} style={{ height: '82rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx' }}>{reason.label}</Text></View>)}</ScrollView><View onClick={onClose} style={{ height: '82rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View></View></Overlay>
 }
 
 function relativeTime(value: string) {

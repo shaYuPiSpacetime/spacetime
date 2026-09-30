@@ -1,6 +1,6 @@
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useLoad, useShareAppMessage } from '@tarojs/taro'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
@@ -41,7 +41,6 @@ import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
-import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
@@ -71,22 +70,6 @@ export default function QianxunPostDetailPage() {
   const [config, setConfig] = useState<CommunityConfig>()
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
-  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
-  const hasOpenSheet = showActions || selectedComment !== undefined
-    || pendingReport !== undefined || whisperTarget !== null || showUnverifiedModal
-  const { scrollTop: feedScrollTop, onScroll: onFeedScroll } = useFeedScrollRestore(hasOpenSheet)
-  const hadOpenSheetRef = useRef(false)
-  useEffect(() => {
-    // 面板关闭恢复滚动位置时，清除聚焦评论的 scrollIntoView，避免两个滚动属性互相干扰；
-    // 仅在面板从打开变为关闭后清除，不影响进入页面时的首次评论聚焦。
-    if (hasOpenSheet) {
-      hadOpenSheetRef.current = true
-      return
-    }
-    if (!hadOpenSheetRef.current) return
-    hadOpenSheetRef.current = false
-    setFocusComments(false)
-  }, [hasOpenSheet])
   const access = useAccessStatus('canCommunity')
   const navigationMetrics = getNativeNavigationMetrics()
   const commentThreads = useMemo(
@@ -299,7 +282,7 @@ export default function QianxunPostDetailPage() {
     <View id="qianxun-post-detail-page" style={{ height: '100vh', background: '#F8F9FB', overflow: 'hidden', color: '#333333' }}>
       <NativeNavigation title="动态详情" />
       {loading ? <DetailLoading top={navigationMetrics.navigationHeight} /> : loadError || !post ? <LoadFailure text={loadError} top={navigationMetrics.navigationHeight} /> : (
-        <ScrollView scrollY scrollTop={feedScrollTop} onScroll={onFeedScroll} scrollIntoView={focusComments ? 'qianxun-comments-section' : undefined} style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
+        <ScrollView scrollY scrollIntoView={focusComments ? 'qianxun-comments-section' : undefined} style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '104rpx' }} showScrollbar={false}>
           <View style={{ padding: '18rpx 25rpx 40rpx' }}>
             <View style={{ borderRadius: '16rpx', background: '#FFFFFF', padding: '24rpx 24rpx 0', overflow: 'hidden' }}>
               <AuthorRow post={post} isSelf={post.authorId === currentUserId} onAuthor={() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)} onMore={() => setShowActions(true)} onApply={() => void openWhisper()} />
@@ -351,14 +334,14 @@ export default function QianxunPostDetailPage() {
         <View onClick={() => void submitComment()} style={{ width: '68rpx', height: '68rpx', marginLeft: '14rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: comment.trim() && !sendingComment ? BLUE : '#B7BBC3', fontSize: '25rpx', fontWeight: 500 }}>{sendingComment ? resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.commentSending) : '发送'}</Text></View>
         <View onClick={() => void likePost()} style={{ width: '88rpx', height: '68rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={post?.liked ? miniappOssIcons.qianxunLikeActive : miniappOssIcons.qianxunLike} mode="aspectFit" style={{ width: '36rpx', height: '36rpx' }} /></View>
       </View>
-      {showActions && post ? <CommunityPostActionSheet post={post} isSelf={post.authorId === currentUserId} onClose={() => setShowActions(false)} onFollow={() => void toggleFollow()} onHide={() => void toggleAuthorPreference()} onReport={() => void reportPost()} /> : null}
-      {selectedComment ? <CommentActionSheet comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={() => beginReply({ commentId: resolveCommentThreadRootId(comments, selectedComment.id), userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) })} onDelete={selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={() => void reportComment(selectedComment)} /> : null}
-      {pendingReport ? <CommunityReportReasonSheet reasons={config?.reportReasons || []} onClose={() => setPendingReport(undefined)} onReport={reasonCode => void submitReport(reasonCode)} /> : null}
-      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => setWhisperTarget(null)} /> : null}
-      {showUnverifiedModal ? <UnverifiedCertificationModal onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
+      <CommunityPostActionSheet visible={showActions && post !== undefined} post={post} isSelf={post ? post.authorId === currentUserId : false} onClose={() => setShowActions(false)} onFollow={post ? () => void toggleFollow() : undefined} onHide={post ? () => void toggleAuthorPreference() : undefined} onReport={post ? () => void reportPost() : undefined} />
+      <CommentActionSheet visible={selectedComment !== undefined} comment={selectedComment} onClose={() => setSelectedComment(undefined)} onReply={selectedComment ? () => beginReply({ commentId: resolveCommentThreadRootId(comments, selectedComment.id), userId: selectedComment.authorId, name: selectedComment.authorName || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnknownUser) }) : () => undefined} onDelete={selectedComment && selectedComment.authorId === currentUserId ? () => void deleteSelectedComment(selectedComment) : undefined} onReport={selectedComment ? () => void reportComment(selectedComment) : undefined} />
+      <CommunityReportReasonSheet visible={pendingReport !== undefined} reasons={config?.reportReasons || []} onClose={() => setPendingReport(undefined)} onReport={reasonCode => void submitReport(reasonCode)} />
+      <WhisperComposeSheet visible={whisperTarget !== null} target={whisperTarget} onClose={() => setWhisperTarget(null)} />
+      <UnverifiedCertificationModal visible={showUnverifiedModal} onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
         setShowUnverifiedModal(false)
         void navigateToPendingVerification()
-      }} /> : null}
+      }} />
     </View>
   )
 }
@@ -435,7 +418,10 @@ function LoadFailure({ text, top }: { text: string; top: number }) {
   return <View style={{ position: 'absolute', left: 0, right: 0, top: `${top + 132}rpx`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunEmptyMessage} mode="aspectFit" style={{ width: '240rpx', height: '190rpx' }} /><Text style={{ color: '#999999', fontSize: '26rpx', marginTop: '20rpx' }}>{text}</Text></View>
 }
 
-function CommentActionSheet({ comment, onClose, onReply, onDelete, onReport }: { comment: CommunityCommentVO; onClose: () => void; onReply: () => void; onDelete?: () => void; onReport: () => void }) {
+function CommentActionSheet({ visible = true, comment, onClose, onReply, onDelete, onReport }: { visible?: boolean; comment?: CommunityCommentVO; onClose: () => void; onReply: () => void; onDelete?: () => void; onReport?: () => void }) {
+  if (!comment) {
+    return <View style={{ position: 'fixed', inset: 0, zIndex: 100, visibility: 'hidden', pointerEvents: 'none' }} />
+  }
   const copy = async () => {
     await Taro.setClipboardData({ data: comment.content })
     onClose()
@@ -444,8 +430,8 @@ function CommentActionSheet({ comment, onClose, onReply, onDelete, onReport }: {
     onClose()
     onReply()
   }
-  const actions = [{ label: '回复', action: reply }, { label: '复制', action: () => void copy() }, ...(onDelete ? [{ label: '删除', action: onDelete }] : []), { label: '举报', action: onReport }]
-  return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(10,18,32,0.45)', zIndex: 100 }}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '24rpx 24rpx 0 0', background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)', overflow: 'hidden' }}>{actions.map(item => <View key={item.label} onClick={item.action} style={{ height: '92rpx', borderBottom: '1rpx solid #EFF1F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: item.label === '删除' ? '#E62828' : '#333333', fontSize: '27rpx' }}>{item.label}</Text></View>)}<View onClick={onClose} style={{ height: '94rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7B818B', fontSize: '27rpx' }}>取消</Text></View></View></View>
+  const actions = [{ label: '回复', action: reply }, { label: '复制', action: () => void copy() }, ...(onDelete ? [{ label: '删除', action: onDelete }] : []), ...(onReport ? [{ label: '举报', action: onReport }] : [])]
+  return <View onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, background: 'rgba(10,18,32,0.45)', zIndex: 100, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>{visible ? <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: '24rpx 24rpx 0 0', background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)', overflow: 'hidden' }}>{actions.map(item => <View key={item.label} onClick={item.action} style={{ height: '92rpx', borderBottom: '1rpx solid #EFF1F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: item.label === '删除' ? '#E62828' : '#333333', fontSize: '27rpx' }}>{item.label}</Text></View>)}<View onClick={onClose} style={{ height: '94rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7B818B', fontSize: '27rpx' }}>取消</Text></View></View> : null}</View>
 }
 
 function resolveAuthorUserNo(post: CommunityPostVO) {

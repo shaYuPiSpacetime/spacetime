@@ -5,8 +5,9 @@ import type { CommunityPostVO } from '@/services/community'
 import './CommunityPostActionSheet.scss'
 
 interface CommunityPostActionSheetProps {
-  post: CommunityPostVO
+  post?: CommunityPostVO
   isSelf: boolean
+  visible?: boolean
   onClose: () => void
   onFollow?: () => void
   onHide?: () => void
@@ -17,22 +18,23 @@ interface CommunityPostActionSheetProps {
 export default function CommunityPostActionSheet({
   post,
   isSelf,
+  visible = true,
   onClose,
   onFollow,
   onHide,
   onReport,
   onDelete,
 }: CommunityPostActionSheetProps) {
-  const moderationActions = isSelf ? [
+  const moderationActions: Array<{ label: string; onClick: () => void; danger?: boolean }> = post ? (isSelf ? [
     ...(onDelete ? [{ label: '删除', onClick: onDelete, danger: true }] : []),
   ] : [
     ...(onFollow ? [{ label: post.followingAuthor ? '取消关注' : '关注', onClick: onFollow }] : []),
     ...(onHide ? [{ label: post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态', onClick: onHide }] : []),
     ...(onReport ? [{ label: '举报', onClick: onReport }] : []),
-  ]
+  ]) : []
 
   return (
-    <Overlay onClose={onClose}>
+    <Overlay visible={visible} onClose={onClose}>
       <View
         onClick={event => event.stopPropagation()}
         style={{
@@ -85,13 +87,22 @@ export default function CommunityPostActionSheet({
   )
 }
 
-function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+function Overlay({ visible, onClose, children }: { visible: boolean; onClose: () => void; children?: ReactNode }) {
+  // 遮罩节点常驻：面板开关只切换可见性，避免 fixed 节点挂载/卸载触发
+  // 渲染层重置列表滚动位置（表现为关闭面板后信息流弹回顶部）。
   return (
     <View
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000 }}
+      onClick={visible ? onClose : undefined}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(8,20,43,0.46)',
+        zIndex: 10000,
+        visibility: visible ? 'visible' : 'hidden',
+        pointerEvents: visible ? 'auto' : 'none',
+      }}
     >
-      {children}
+      {visible ? children : null}
     </View>
   )
 }

@@ -7,7 +7,6 @@ import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/Whi
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
-import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 import {
   COMMUNITY_COPY_KEYS,
   deleteCommunityPost,
@@ -84,10 +83,8 @@ export default function RecommendFamilyPage() {
   const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
   const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | null>(null)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
-  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
-  const { scrollTop: feedScrollTop, onScroll: onFeedScroll, resetToTop: resetFeedToTop } = useFeedScrollRestore(
-    sheet !== null || whisperTarget !== null,
-  )
+  // 删除动态等主动回顶场景使用受控 scrollTop；其余时间非受控，避免干扰渲染层滚动位置。
+  const [feedScrollTop, setFeedScrollTop] = useState<number>()
   const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
   const pageBySceneRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
   const hasMoreBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: true, CITY: true, SCHOOL: true, HOT: true })
@@ -319,7 +316,7 @@ export default function RecommendFamilyPage() {
       setSelectedPost(undefined)
       setSheet(null)
       resetFeedPagination()
-      resetFeedToTop()
+      setFeedScrollTop(0)
       await loadScene(activeTab)
       await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.deleteSuccess), icon: 'success' })
     } catch (error) {
@@ -365,7 +362,6 @@ export default function RecommendFamilyPage() {
         <ScrollView
           scrollY
           scrollTop={feedScrollTop}
-          onScroll={onFeedScroll}
           lowerThreshold={120}
           onScrollToLower={() => void loadScene(activeTab, true)}
           style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }}
@@ -396,31 +392,29 @@ export default function RecommendFamilyPage() {
         <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
       </> : <QianxunZhiyinTab secondaryTop={headerMetrics.secondaryTop} contentTop={headerMetrics.contentTop} />}
 
-      {sheet === 'actions' && selectedPost ? (
-        <CommunityPostActionSheet
-          post={selectedPost}
-          isSelf={selectedPost.authorId === currentUserId}
-          onClose={() => setSheet(null)}
-          onDelete={selectedPost.authorId === currentUserId ? () => void deleteSelectedPost() : undefined}
-          onFollow={() => void toggleFollow(selectedPost)}
-          onHide={() => void toggleSelectedAuthorPreference()}
-          onReport={config?.reportEntryEnabled === false ? undefined : () => {
-            if (config?.reportReasons?.length) setSheet('report')
-            else void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
-          }}
-        />
-      ) : null}
-      {sheet === 'report' ? <ReportSheet reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void report(reason)} /> : null}
-      {whisperTarget ? <WhisperComposeSheet target={whisperTarget} onClose={() => void closeWhisperSheet()} /> : null}
-      {sheet === 'uncertified' ? (
-        <UnverifiedCertificationModal
-          onClose={() => setSheet(null)}
-          onConfirm={() => {
-            setSheet(null)
-            void navigateToPendingVerification()
-          }}
-        />
-      ) : null}
+      <CommunityPostActionSheet
+        visible={sheet === 'actions' && selectedPost !== undefined}
+        post={selectedPost}
+        isSelf={selectedPost ? selectedPost.authorId === currentUserId : false}
+        onClose={() => setSheet(null)}
+        onDelete={selectedPost && selectedPost.authorId === currentUserId ? () => void deleteSelectedPost() : undefined}
+        onFollow={selectedPost ? () => void toggleFollow(selectedPost) : undefined}
+        onHide={selectedPost ? () => void toggleSelectedAuthorPreference() : undefined}
+        onReport={selectedPost && config?.reportEntryEnabled !== false ? () => {
+          if (config?.reportReasons?.length) setSheet('report')
+          else void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.reportReasonUnavailable), icon: 'none' })
+        } : undefined}
+      />
+      <ReportSheet visible={sheet === 'report'} reasons={config?.reportReasons || []} onClose={() => setSheet(null)} onReport={reason => void report(reason)} />
+      <WhisperComposeSheet visible={whisperTarget !== null} target={whisperTarget} onClose={() => void closeWhisperSheet()} />
+      <UnverifiedCertificationModal
+        visible={sheet === 'uncertified'}
+        onClose={() => setSheet(null)}
+        onConfirm={() => {
+          setSheet(null)
+          void navigateToPendingVerification()
+        }}
+      />
     </View>
   )
 }
@@ -545,12 +539,13 @@ function removeAuthorPostsFromScene(state: Partial<Record<CommunityScene, Commun
   ) as Partial<Record<CommunityScene, CommunityPostVO[]>>
 }
 
-function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000 }}>{children}</View>
+function Overlay({ visible, onClose, children }: { visible: boolean; onClose: () => void; children?: ReactNode }) {
+  // 遮罩节点常驻：面板开关只切换可见性，避免 fixed 节点挂载/卸载触发渲染层重置列表滚动位置。
+  return <View onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, background: 'rgba(8,20,43,0.46)', zIndex: 10000, visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>{visible ? children : null}</View>
 }
 
-function ReportSheet({ reasons, onClose, onReport }: { reasons: Array<{ code: string; label: string }>; onClose: () => void; onReport: (code: string) => void }) {
-  return <Overlay onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1190rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+function ReportSheet({ visible, reasons, onClose, onReport }: { visible: boolean; reasons: Array<{ code: string; label: string }>; onClose: () => void; onReport: (code: string) => void }) {
+  return <Overlay visible={visible} onClose={onClose}><View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '1190rpx', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', padding: '28rpx 30rpx calc(26rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
     <ScrollView scrollY style={{ maxHeight: '920rpx' }}>{reasons.map(reason => <View key={reason.code} onClick={() => onReport(reason.code)} style={{ height: '82rpx', borderBottom: '1rpx solid #F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '27rpx', textAlign: 'center' }}>{reason.label}</Text></View>)}</ScrollView>
     <View style={{ height: '14rpx', background: '#F4F5F7', margin: '0 -30rpx' }} /><View onClick={onClose} style={{ height: '78rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#777F8B', fontSize: '28rpx' }}>取消</Text></View>
   </View></Overlay>

@@ -20,7 +20,6 @@ import {
 } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 import { useAuthStore } from '@/stores/authStore'
-import { useFeedScrollRestore } from '@/hooks/useFeedScrollRestore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 
@@ -72,10 +71,6 @@ export default function QianxunMyPostsPage() {
   const [deleteReceipt, setDeleteReceipt] = useState<MyPostReceipt>()
   const [config, setConfig] = useState<CommunityConfig>()
   const [likingPostIds, setLikingPostIds] = useState<number[]>([])
-  // 面板打开/关闭会触发内容重渲染并把 ScrollView 弹回顶部，关闭后恢复原滚动位置。
-  const { scrollTop: feedScrollTop, onScroll: onFeedScroll } = useFeedScrollRestore(
-    sheetVisible || deleteReceipt !== undefined || failureReceipt !== undefined,
-  )
 
   useDidShow(() => {
     void loadPage()
@@ -172,7 +167,7 @@ export default function QianxunMyPostsPage() {
       <ProfileHeader profile={profile} />
       <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '430rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
         <MainTabs />
-        <ScrollView scrollY scrollTop={feedScrollTop} onScroll={onFeedScroll} style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
+        <ScrollView scrollY style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
           <View style={{ padding: '0 25rpx 60rpx' }}>
             <PublishBanner />
             {loading ? <MyPostsLoading /> : receipts.length ? receipts.map(receipt => (
@@ -182,9 +177,9 @@ export default function QianxunMyPostsPage() {
           </View>
         </ScrollView>
       </View>
-      {sheetVisible && selected ? <PostActionSheet editable={selected.status === 'rejected'} onEdit={() => void editSelected()} onDelete={requestDeleteSelected} onClose={() => setSheetVisible(false)} /> : null}
-      {deleteReceipt ? <DeleteConfirmDialog onCancel={() => setDeleteReceipt(undefined)} onConfirm={() => void confirmDelete()} /> : null}
-      {failureReceipt ? <PublishFailureDialog receipt={failureReceipt} config={config} onClose={() => setFailureReceipt(undefined)} /> : null}
+      <PostActionSheet visible={sheetVisible && selected !== undefined} editable={selected ? selected.status === 'rejected' : false} onEdit={() => void editSelected()} onDelete={requestDeleteSelected} onClose={() => setSheetVisible(false)} />
+      <DeleteConfirmDialog visible={deleteReceipt !== undefined} onCancel={() => setDeleteReceipt(undefined)} onConfirm={() => void confirmDelete()} />
+      <PublishFailureDialog visible={failureReceipt !== undefined} receipt={failureReceipt} config={config} onClose={() => setFailureReceipt(undefined)} />
     </View>
   )
 }
@@ -299,43 +294,46 @@ function MyPostsLoading() {
   )
 }
 
-function PostActionSheet({ editable, onEdit, onDelete, onClose }: { editable: boolean; onEdit: () => void; onDelete: () => void; onClose: () => void }) {
+function PostActionSheet({ visible = true, editable, onEdit, onDelete, onClose }: { visible?: boolean; editable: boolean; onEdit: () => void; onDelete: () => void; onClose: () => void }) {
   return (
-    <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }}>
-      <View onClick={event => event.stopPropagation()} style={{ width: '750rpx', background: '#FFFFFF', borderRadius: '30rpx 30rpx 0 0', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <View onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 30, display: 'flex', alignItems: 'flex-end', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
+      {visible ? <View onClick={event => event.stopPropagation()} style={{ width: '750rpx', background: '#FFFFFF', borderRadius: '30rpx 30rpx 0 0', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {editable ? <View onClick={onEdit} style={{ height: '100rpx', borderBottom: '2rpx solid #EEF3F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '28rpx' }}>编辑并重新提交审核</Text></View> : null}
         <View onClick={onDelete} style={{ height: '100rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#E62828', fontSize: '28rpx' }}>删除</Text></View>
         <View style={{ height: '16rpx', background: '#EFF4FC' }} />
         <View onClick={onClose} style={{ height: '100rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '28rpx' }}>取消</Text></View>
-      </View>
+      </View> : null}
     </View>
   )
 }
 
-function DeleteConfirmDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+function DeleteConfirmDialog({ visible = true, onCancel, onConfirm }: { visible?: boolean; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <View style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 31, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: '520rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '48rpx 50rpx 54rpx', boxSizing: 'border-box' }}>
+    <View style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 31, display: 'flex', alignItems: 'center', justifyContent: 'center', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
+      {visible ? <View style={{ width: '520rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '48rpx 50rpx 54rpx', boxSizing: 'border-box' }}>
         <Text style={{ display: 'block', color: '#222222', fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 600 }}>温馨提示</Text>
         <Text style={{ display: 'block', color: '#333333', fontSize: '27rpx', lineHeight: '40rpx', marginTop: '30rpx' }}>是否确认删除？</Text>
         <View style={{ display: 'flex', marginTop: '48rpx' }}>
           <View onClick={onCancel} style={{ width: '196rpx', height: '70rpx', borderRadius: '8rpx', background: '#FAFAFB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: NAVY, fontSize: '27rpx', fontWeight: 600 }}>取消</Text></View>
           <View onClick={onConfirm} style={{ width: '196rpx', height: '70rpx', borderRadius: '8rpx', background: BLUE, marginLeft: '28rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx', fontWeight: 600 }}>确定</Text></View>
         </View>
-      </View>
+      </View> : null}
     </View>
   )
 }
 
-function PublishFailureDialog({ receipt, config, onClose }: { receipt: MyPostReceipt; config?: CommunityConfig; onClose: () => void }) {
+function PublishFailureDialog({ visible = true, receipt, config, onClose }: { visible?: boolean; receipt?: MyPostReceipt; config?: CommunityConfig; onClose: () => void }) {
+  if (!receipt) {
+    return <View style={{ position: 'fixed', inset: 0, zIndex: 31, visibility: 'hidden', pointerEvents: 'none' }} />
+  }
   return (
-    <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 31, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '46rpx 50rpx 28rpx', boxSizing: 'border-box' }}>
+    <View onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 31, display: 'flex', alignItems: 'center', justifyContent: 'center', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
+      {visible ? <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '46rpx 50rpx 28rpx', boxSizing: 'border-box' }}>
         <View style={{ position: 'relative', height: '126rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={miniappOssIcons.qianxunEmptyChart} mode="aspectFit" style={{ width: '180rpx', height: '126rpx', filter: 'grayscale(1)' }} /><View style={{ position: 'absolute', right: '176rpx', bottom: '17rpx', width: '42rpx', height: '42rpx', borderRadius: '21rpx', background: '#E60012', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '29rpx', fontWeight: 700 }}>!</Text></View></View>
         <Text style={{ display: 'block', color: '#222222', fontSize: '31rpx', fontWeight: 600, textAlign: 'center', marginTop: '18rpx' }}>{resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishFailedTitle)}</Text>
         <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '39rpx', marginTop: '18rpx' }}>{resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.publishRejectedDefault, receipt.failureMessage)}</Text>
         <View onClick={onClose} style={{ height: '70rpx', borderRadius: '7rpx', background: BLUE, marginTop: '38rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx' }}>我知道了</Text></View>
-      </View>
+      </View> : null}
     </View>
   )
 }
