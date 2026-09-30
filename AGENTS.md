@@ -8,6 +8,12 @@ This repository keeps its original Claude Code workflow under `.claude/`. Codex 
 - 历史分支如有尚未合入的必要改动，应在 `master` 上选择性合入，保留用户未提交的文件；不得因此继续沿用历史分支。
 - 若 `master` 受到保护、远端冲突或其他门禁阻止直推，应说明阻碍并等待用户决定，不得擅自改用新分支或 PR 绕过。
 
+## 默认代码交付闭环
+
+- 用户要求修改代码时，默认在开始前拉取并核对 `origin/master`；完成本次改动后再核对远端变化，只提交本次任务文件，Push 到 `master`，并上传小程序新体验版。无需每次重复询问；当次用户明确要求仅本地修改或暂不发布时，以当次要求为准。
+- 工作区有其他任务或用户的未提交内容时，不混入本次提交；远端冲突、发布权限或构建产物缺失时，说明阻碍，不强行覆盖或声称已发布。
+- 提交、Push 和发布阶段不重复执行全量测试；若修改涉及后端或管理端，还须核对相应自动部署结果，不能把“小程序已上传”当成服务端已生效。
+
 ## Required Routing
 
 When the user asks for technical design, architecture design, implementation plan, `tcdesign`, or PRD technical方案:
