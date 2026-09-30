@@ -117,7 +117,9 @@ export default function ProfilePreviewPage({
             {visibleContent.tags.length ? <ProfilePreviewTagSection tags={visibleContent.tags} /> : null}
             {visibleContent.introduction ? <ProfilePreviewIntroduction introduction={visibleContent.introduction} /> : null}
             {visibleContent.photos[0] ? <ProfilePreviewPhoto url={visibleContent.photos[0]} /> : null}
-            {visibleContent.showCertification ? <ProfilePreviewCertification certifications={model.certifications} /> : null}
+            {(variant === 'public-profile' ? model.certifications.length > 0 : visibleContent.showCertification)
+              ? <ProfilePreviewCertification certifications={model.certifications} showTrustPercent={variant === 'owner-preview'} />
+              : null}
             {visibleContent.photos[1] ? <ProfilePreviewPhoto url={visibleContent.photos[1]} /> : null}
             {visibleContent.favoriteSong ? <ProfilePreviewSong favoriteSong={visibleContent.favoriteSong} /> : null}
             {visibleContent.photos.slice(2).map((url, index) => (
@@ -136,6 +138,9 @@ export default function ProfilePreviewPage({
 }
 
 function ProfilePreviewHero({ model, onSafetyActions }: { model: ProfilePreviewModel; onSafetyActions?: () => void }) {
+  const tripleCertified = ['avatar', 'realName', 'education'].every(key =>
+    model.certifications.some(item => item.key === key && item.passed)
+  )
   return (
     <ProfileHeroImage src={model.heroImageUrl || miniappOssIcons.profilePreviewHero}>
       <Button openType="share" aria-label="分享用户主页" style={{ position: 'absolute', right: '20rpx', top: '18rpx', zIndex: 5, width: '68rpx', height: '68rpx', margin: 0, padding: '10rpx', border: 0, borderRadius: '34rpx', background: 'transparent', lineHeight: 1, boxSizing: 'border-box' }}>
@@ -183,10 +188,10 @@ function ProfilePreviewHero({ model, onSafetyActions }: { model: ProfilePreviewM
         }}
       >
         <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: '#FFFFFF', fontSize: '38rpx', lineHeight: '53rpx', fontWeight: 500, textShadow: '0 3rpx 4rpx rgba(0,0,0,0.5)', whiteSpace: 'nowrap' }}>
+          <Text style={{ maxWidth: tripleCertified ? '254rpx' : '432rpx', overflow: 'hidden', textOverflow: 'ellipsis', color: '#FFFFFF', fontSize: '38rpx', lineHeight: '53rpx', fontWeight: 500, textShadow: '0 3rpx 4rpx rgba(0,0,0,0.5)', whiteSpace: 'nowrap' }}>
             {model.nickname || '昵称待完善'}
           </Text>
-          {model.certifications.length ? <View style={{ width: '168rpx', height: '48rpx', borderRadius: '24rpx', background: '#E3F1FE', marginLeft: '10rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+          {tripleCertified ? <View style={{ flexShrink: 0, width: '168rpx', height: '48rpx', borderRadius: '24rpx', background: '#E3F1FE', marginLeft: '10rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
             <Image src={miniappOssIcons.profileCertification} mode="aspectFit" style={{ width: '30rpx', height: '30rpx', marginRight: '8rpx' }} />
             <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx', fontWeight: 500 }}>
               三重认证
@@ -388,11 +393,12 @@ function ProfilePreviewPhoto({ url }: { url: string }) {
   )
 }
 
-function ProfilePreviewCertification({ certifications }: { certifications: ProfilePreviewModel['certifications'] }) {
+function ProfilePreviewCertification({ certifications, showTrustPercent }: { certifications: ProfilePreviewModel['certifications']; showTrustPercent: boolean }) {
   const verifiedCount = certifications.filter(item => item.passed).length
   const trustPercent = certifications.length ? Math.round((verifiedCount / certifications.length) * 100) : 0
   return (
     <View
+      data-role="profile-preview-certifications"
       style={{
         position: 'relative',
         width: '700rpx',
@@ -410,6 +416,8 @@ function ProfilePreviewCertification({ certifications }: { certifications: Profi
         {certifications.map((item, index) => (
           <View
             key={item.key}
+            data-certification={item.key}
+            data-certified={item.passed ? 'true' : 'false'}
             style={{
               width: '148rpx',
               height: '58rpx',
@@ -423,14 +431,14 @@ function ProfilePreviewCertification({ certifications }: { certifications: Profi
               justifyContent: 'space-between',
             }}
           >
-            <Image src={certificationIcons[item.key]} mode="aspectFit" style={{ width: '42rpx', height: '42rpx' }} />
+            <Image src={certificationIcons[item.key]} mode="aspectFit" style={{ width: '42rpx', height: '42rpx', borderRadius: item.passed ? '0' : '50%', filter: item.passed ? 'none' : 'grayscale(1)', opacity: item.passed ? 1 : 0.45 }} />
             <Text style={{ color: item.passed ? '#FFFFFF' : '#697E9C', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 400 }}>
               {item.label}
             </Text>
           </View>
         ))}
       </View>
-      <View style={{ position: 'absolute', right: '0', top: '0', width: '185rpx', height: '198rpx', background: 'linear-gradient(180deg, rgba(40,118,255,0.10) 0%, rgba(255,255,255,0.3) 100%)', clipPath: 'polygon(50% 0, 65% 12%, 100% 16%, 100% 55%, 86% 78%, 50% 100%, 14% 78%, 0 55%, 0 16%, 35% 12%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {showTrustPercent ? <View style={{ position: 'absolute', right: '0', top: '0', width: '185rpx', height: '198rpx', background: 'linear-gradient(180deg, rgba(40,118,255,0.10) 0%, rgba(255,255,255,0.3) 100%)', clipPath: 'polygon(50% 0, 65% 12%, 100% 16%, 100% 55%, 86% 78%, 50% 100%, 14% 78%, 0 55%, 0 16%, 35% 12%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '39rpx' }}>
           <View style={{ width: '22rpx', height: '22rpx', borderRadius: '11rpx', border: '2rpx solid #999999', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#999999', fontSize: '16rpx', lineHeight: '18rpx' }}>?</Text>
@@ -438,7 +446,7 @@ function ProfilePreviewCertification({ certifications }: { certifications: Profi
           <Text style={{ color: mainBlue, fontSize: '22rpx', lineHeight: '30rpx', marginLeft: '8rpx' }}>可信度</Text>
         </View>
         <Text style={{ color: mainBlue, fontSize: '48rpx', lineHeight: '67rpx', fontWeight: 600, marginTop: '-3rpx' }}>{trustPercent}%</Text>
-      </View>
+      </View> : null}
     </View>
   )
 }

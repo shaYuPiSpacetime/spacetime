@@ -8,6 +8,7 @@ import UnverifiedCertificationModal from '@/components/UnverifiedCertificationMo
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { resolveReplayProfileStep } from '@/domain/recommendReplay'
 import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
+import { buildPublicProfileCertifications } from '@/domain/publicProfileCertification'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { getApiErrorCode } from '@/services/request'
@@ -314,7 +315,7 @@ export default function HeartUserPage() {
     tags: (profile.tags || []).map((label, index) => ({ code: `public-${index}-${label}`, label })),
     introduction: profile.introduction || '',
     photos: profile.photos || [],
-    certifications: [],
+    certifications: buildPublicProfileCertifications(profile.certifications),
     voice: { url: '' },
     datingGoal: profile.datingGoal || '',
     relationshipStatus: profile.emotionalStatus || '',
