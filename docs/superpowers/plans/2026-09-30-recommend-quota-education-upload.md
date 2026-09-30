@@ -30,6 +30,16 @@
 
 ## 发布
 
-- 后端 `6d78cefd` + 小程序 `ad0ab379` 已推送 `master`；后端生产流水线自动部署。
+- 后端 `6d78cefd` + 小程序 `ad0ab379` 已推送 `master`；后端生产流水线于 09-30 完成（success），公网健康接口返回 `code=200`。
 - 小程序需在微信开发者工具中上传新体验版（`miniapp/dist` 已构建完成）。
 - 遗留：全量测试存在 9 个既有失败（CommunityServiceImplTest 6 个、AppUserAuditServiceTest 1 个、CommunityCopyLiteralGuardTest 1 个、MiniappMessageControllerContractTest 1 个），与本次改动无关，建议后续单独处理。
+
+## 追加：关闭操作面板后信息流弹回顶部（提交 `fbe4b582`）
+
+**现象：** 时空站台滑到底部 → 点三个点弹面板 → 点空白关闭 → 页面弹回顶端。
+
+**根因：** 操作面板开关触发页面内容重渲染，渲染层将 ScrollView 弹回顶部；此前仅"悄悄话"面板有手动恢复逻辑，三个点操作面板未覆盖。
+
+**修复：** 新增 `useFeedScrollRestore` hook（滚动记录位置 + 面板关闭后受控 scrollTop 恢复，删除动态等主动回顶场景可跳过/重置），统一接入千寻时空站台/心灵搭子、成家信息流、话题页、动态详情、我的动态列表 5 个页面；动态详情兼容评论聚焦 scrollIntoView 互斥。
+
+**验证：** tsc 类型检查通过、taro build 编译通过；真机弹顶行为需上传体验版后复测。
