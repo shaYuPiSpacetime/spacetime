@@ -1,5 +1,4 @@
 import Taro, { useDidShow } from '@tarojs/taro'
-import { View } from '@tarojs/components'
 import { useEffect, useRef, useState } from 'react'
 import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
 import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
@@ -132,15 +131,14 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
     }
   }
 
-  // 遮罩节点常驻：面板开关只切换可见性，避免 fixed 节点增删触发列表滚动位置重置。
-  if (!visible || !target) {
-    return <View style={{ position: 'fixed', inset: 0, zIndex: 30000, visibility: 'hidden', pointerEvents: 'none' }} />
-  }
+  // 遮罩节点常驻：始终渲染同一根组件，仅切换 visible，避免面板开关时
+  // 遮罩节点增删触发列表滚动位置重置（表现为信息流弹回顶部）。
   return <CommunityWhisperSheet
     id="global-whisper-compose-sheet"
-    avatar={target.avatar}
-    nickname={target.nickname}
-    meta={target.meta || ''}
+    visible={visible && target != null}
+    avatar={target?.avatar}
+    nickname={target?.nickname || ''}
+    meta={target?.meta || ''}
     content={content}
     precheck={precheck}
     loading={loading}

@@ -6,6 +6,7 @@ const BLUE = '#2876FF'
 
 type CommunityWhisperSheetProps = {
   id?: string
+  visible?: boolean
   avatar?: string
   nickname: string
   meta: string
@@ -19,9 +20,10 @@ type CommunityWhisperSheetProps = {
   onRecharge: () => void
 }
 
-/** 社区来源页内的悄悄话扣费弹窗，不创建独立路由。 */
+/** 社区来源页内的悄悄话扣费弹窗，不创建独立路由。遮罩节点常驻，避免面板开关重置列表滚动位置。 */
 export default function CommunityWhisperSheet({
   id = 'qianxun-family-whisper-sheet',
+  visible = true,
   avatar,
   nickname,
   meta,
@@ -38,15 +40,18 @@ export default function CommunityWhisperSheet({
   const length = Array.from(content).length
   const insufficientBalance = Boolean(precheck && !precheck.free && precheck.coinBalance < precheck.coinAmount)
   const disabled = loading || submitting || (!insufficientBalance && (!precheck?.canSend || length < 1 || length > maxLength))
+  const configuredDailyQuota = Math.max(0, Number(precheck?.freeWhisperDailyQuota || 0))
   const costText = loading
     ? '查询中…'
     : precheck?.free
-      ? '今日免费'
+      ? configuredDailyQuota > 0
+        ? `今日免费 · 剩余${precheck.freeWhisperRemain}/${configuredDailyQuota}次`
+        : '今日免费'
       : `${precheck?.coinAmount ?? '--'}`
 
   return (
-    <View id={id} catchMove onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 30000, background: 'rgba(21,29,38,.34)' }}>
-      <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '844rpx', maxHeight: 'calc(100vh - 80rpx)', borderRadius: '32rpx 32rpx 0 0', background: 'linear-gradient(180deg,#F1FAFF 0%,#FFFFFF 30%)', overflow: 'hidden' }}>
+    <View id={id} catchMove onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, zIndex: 30000, background: 'rgba(21,29,38,.34)', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
+      {visible ? <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '844rpx', maxHeight: 'calc(100vh - 80rpx)', borderRadius: '32rpx 32rpx 0 0', background: 'linear-gradient(180deg,#F1FAFF 0%,#FFFFFF 30%)', overflow: 'hidden' }}>
         <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '136rpx', zIndex: 2, paddingTop: '54rpx', boxSizing: 'border-box' }}>
           <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#333333', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 600 }}>悄悄话</Text>
@@ -85,11 +90,11 @@ export default function CommunityWhisperSheet({
         {precheck && !precheck.canSend && precheck.reasonText ? <Text style={{ display: 'block', color: '#E35C5C', fontSize: '22rpx', textAlign: 'center', marginTop: '14rpx' }}>{precheck.reasonText}</Text> : null}
         <View style={{ marginTop: precheck && !precheck.canSend && precheck.reasonText ? '24rpx' : '45rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: '72rpx', height: '38rpx', borderRadius: '20rpx', background: '#333333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#D9A942', fontSize: '22rpx' }}>◇</Text></View>
-          <Text style={{ color: '#333333', fontSize: '26rpx', marginLeft: '12rpx' }}>开通<Text style={{ color: '#E7B64E' }}>时空邂逅会员</Text>每天一个悄悄话</Text>
+          <Text style={{ color: '#333333', fontSize: '26rpx', marginLeft: '12rpx' }}>开通<Text style={{ color: '#E7B64E' }}>时空邂逅会员</Text>{configuredDailyQuota > 0 ? `每天${configuredDailyQuota}个悄悄话` : '享受每日免费悄悄话'}</Text>
         </View>
         </View>
       </ScrollView>
-      </View>
+      </View> : null}
     </View>
   )
 }
