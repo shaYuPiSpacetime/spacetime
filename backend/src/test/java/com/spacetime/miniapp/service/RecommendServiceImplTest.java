@@ -534,6 +534,51 @@ class RecommendServiceImplTest {
     }
 
     @Test
+    @DisplayName("推荐应跳过已喜欢的整批用户并从下一批补位")
+    void getCandidatesShouldSkipAlreadyLikedUsersAndContinueScanning() {
+        AppUser current = openUser(7L, 30, "320100");
+        List<AppUser> likedCandidates = LongStream.rangeClosed(8L, 67L).mapToObj(userId -> {
+            AppUser candidate = openUser(userId, 28, "320100");
+            candidate.setGender("FEMALE");
+            candidate.setLastLoginTime(LocalDateTime.now().minusMinutes(userId));
+            return candidate;
+        }).toList();
+        AppUser available = openUser(68L, 28, "320100");
+        available.setGender("FEMALE");
+        available.setLastLoginTime(LocalDateTime.now().minusMinutes(68));
+        List<AppRelationLike> activeLikes = likedCandidates.stream().map(candidate -> {
+            AppRelationLike like = new AppRelationLike();
+            like.setFromUserId(7L);
+            like.setToUserId(candidate.getId());
+            like.setLikeStatus("ACTIVE");
+            like.setActiveMarker(1);
+            return like;
+        }).toList();
+
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 2));
+        when(appConfigDao.selectByKeys(any()))
+                .thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        when(viewLogDao.selectList(any())).thenReturn(List.of());
+        when(appUserDao.selectList(any())).thenReturn(likedCandidates, List.of(available));
+        when(accessProjectionService.projectAll(likedCandidates)).thenReturn(likedCandidates.stream()
+                .collect(java.util.stream.Collectors.toMap(AppUser::getId, ignored -> "OPEN")));
+        when(accessProjectionService.projectAll(List.of(available)))
+                .thenReturn(Map.of(68L, "OPEN"));
+        when(relationLikeDao.selectList(any())).thenReturn(activeLikes, List.of());
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getUserId()).isEqualTo(68L);
+            assertThat(item.getLiked()).isFalse();
+        });
+        verify(appUserDao, times(2)).selectList(any());
+        verify(relationLikeDao, times(2)).selectList(any());
+    }
+
+    @Test
     @DisplayName("候选列表应批量过滤屏蔽并批量装载公开资料")
     void getCandidatesShouldBatchLoadSafetyAndProfiles() {
         AppUser current = openUser(7L, 30, "320100");

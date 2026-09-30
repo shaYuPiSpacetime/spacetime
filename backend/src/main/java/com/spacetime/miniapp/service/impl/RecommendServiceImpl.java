@@ -204,11 +204,14 @@ public class RecommendServiceImpl implements RecommendService {
                     .toList();
             List<Long> openCandidateIds = openCandidates.stream().map(AppUser::getId).toList();
             Set<Long> blockedCandidateIds = blockedCandidateIds(userId, openCandidateIds);
+            Set<Long> likedCandidateIds = activeLikedCandidateIds(userId, openCandidateIds);
             List<AppUser> visibleCandidates = openCandidates.stream()
                     .filter(candidate -> !blockedCandidateIds.contains(candidate.getId()))
+                    .filter(candidate -> !likedCandidateIds.contains(candidate.getId()))
                     .limit(resultLimit - items.size())
                     .toList();
-            Map<Long, PublicProfileVO> profiles = batchCandidateProfiles(userId, visibleCandidates);
+            Map<Long, PublicProfileVO> profiles = batchCandidateProfiles(
+                    userId, visibleCandidates, likedCandidateIds);
             for (AppUser candidate : visibleCandidates) {
                 PublicProfileVO profile = profiles.get(candidate.getId());
                 if (profile == null) {
@@ -251,11 +254,12 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     /**
-     * 批量构造推荐卡片所需公开资料。候选已经过准入和屏蔽过滤，因此这里只做展示投影，
+     * 批量构造推荐卡片所需公开资料。候选已经过准入、屏蔽和已喜欢过滤，因此这里只做展示投影，
      * 避免再次逐用户执行完整公开资料查询。
      */
     private Map<Long, PublicProfileVO> batchCandidateProfiles(Long currentUserId,
-                                                               List<AppUser> candidates) {
+                                                               List<AppUser> candidates,
+                                                               Set<Long> likedIds) {
         if (candidates == null || candidates.isEmpty()) {
             return Map.of();
         }
@@ -288,7 +292,6 @@ public class RecommendServiceImpl implements RecommendService {
                 (left, right) -> left, LinkedHashMap::new));
         Map<String, String> tagLabels = dictionaryLabels(ProfileDictType.PROFILE_TAG,
                 tagCodes.values().stream().flatMap(List::stream).toList());
-        Set<Long> likedIds = activeLikedCandidateIds(currentUserId, candidateIds);
         Map<Long, AppRelationMatch> matches = activeMatches(currentUserId, candidateIds);
         Set<Long> unlockedIds = activeIdealUnlocks(currentUserId, candidateIds);
 
