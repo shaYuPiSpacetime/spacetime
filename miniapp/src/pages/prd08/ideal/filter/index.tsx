@@ -52,8 +52,11 @@ export default function IdealFilterPage() {
   const groups = useMemo(() => {
     const result = new Map<string, NonNullable<IdealMetaVO['conditions']>>()
     for (const condition of meta?.conditions || []) {
-      if (!condition.available) continue
-      result.set(condition.category, [...(result.get(condition.category) || []), condition])
+      if (result.has(condition.category)) {
+        result.get(condition.category)!.push(condition)
+      } else {
+        result.set(condition.category, [condition])
+      }
     }
     return [...result.entries()]
   }, [meta])
@@ -158,10 +161,18 @@ export default function IdealFilterPage() {
                 >
                   {conditions.map(condition => {
                     const selected = selectedConditionCodes.includes(condition.code)
+                    const disabled = !condition.available
                     return (
                       <View
                         key={condition.code}
                         onClick={() => {
+                          if (disabled) {
+                            void Taro.showToast({
+                              title: condition.disabledReason || '当前条件暂不可选',
+                              icon: 'none',
+                            })
+                            return
+                          }
                           setSelectedConditionCodes(current =>
                             selected
                               ? current.filter(code => code !== condition.code)
@@ -173,15 +184,16 @@ export default function IdealFilterPage() {
                           height: '68rpx',
                           padding: '0 24rpx',
                           borderRadius: '34rpx',
-                          background: selected ? BLUE : '#F7F8FA',
+                          background: disabled ? '#F2F3F5' : selected ? BLUE : '#F7F8FA',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           boxSizing: 'border-box',
+                          opacity: disabled ? 0.55 : 1,
                         }}
                       >
                         <Text
-                          style={{ color: selected ? '#FFFFFF' : '#0C285A', fontSize: '25rpx' }}
+                          style={{ color: disabled ? '#AAAAAA' : selected ? '#FFFFFF' : '#0C285A', fontSize: '25rpx' }}
                         >
                           {condition.name}
                         </Text>
