@@ -60,7 +60,9 @@ public class MessageConversationLifecycleServiceImpl implements MessageConversat
         AppMessageRuleVersion rule = ruleDao.selectCurrent("global");
         AppMessageConversation created = new AppMessageConversation();
         created.setConversationNo("CV-" + IdUtil.getSnowflakeNextIdStr());
-        created.setTimConversationId("C2C_PAIR_" + match.getUserLowId() + "_" + match.getUserHighId());
+        // 失效会话仍保留历史映射键；新匹配必须使用独立键，避免同一用户对再次匹配时撞唯一索引。
+        created.setTimConversationId("C2C_PAIR_" + match.getUserLowId() + "_"
+                + match.getUserHighId() + "_MATCH_" + match.getId());
         created.setMatchId(match.getId());
         created.setMatchNo(match.getMatchNo());
         created.setUserLowId(match.getUserLowId());

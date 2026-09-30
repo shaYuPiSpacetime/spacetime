@@ -30,6 +30,8 @@ public class ProfileDictionaryService {
     private static final String CHINA_REGION_DICT_TYPE = "china_region";
     private static final Set<String> MUNICIPALITY_CODES = Set.of("110000", "120000", "310000", "500000");
     private static final Set<String> VIRTUAL_CITY_LABELS = Set.of("市辖区", "县");
+    private static final Set<String> DIRECT_ADMIN_VIRTUAL_CITY_CODES = Set.of(
+            "419000", "429000", "469000", "659000");
 
     private final DictDataDao dictDataDao;
 
@@ -113,17 +115,17 @@ public class ProfileDictionaryService {
         if (city == null) {
             throw unsupportedRegion(fieldLabel);
         }
-        boolean flattenedMunicipalityDistrict = false;
+        boolean flattenedVirtualCityDistrict = false;
         if (!Objects.equals(province.getId(), city.getParentId())) {
-            flattenedMunicipalityDistrict = isMunicipalityDistrict(provinceValue, province, city);
-            if (!flattenedMunicipalityDistrict) {
+            flattenedVirtualCityDistrict = isFlattenedVirtualCityChild(provinceValue, province, city);
+            if (!flattenedVirtualCityDistrict) {
                 throw unsupportedRegion(fieldLabel);
             }
         }
         if (StrUtil.isBlank(districtValue)) {
             return;
         }
-        if (flattenedMunicipalityDistrict) {
+        if (flattenedVirtualCityDistrict) {
             throw unsupportedRegion(fieldLabel);
         }
         SysDictData district = enabledRegion(districtValue);
@@ -132,16 +134,18 @@ public class ProfileDictionaryService {
         }
     }
 
-    /** 直辖市两级选择器将真实区县放在城市槽位，旧的市辖区/县节点只用来校验层级。 */
-    private boolean isMunicipalityDistrict(String provinceCode, SysDictData province, SysDictData district) {
-        if (!MUNICIPALITY_CODES.contains(provinceCode) || district.getParentId() == null) {
+    /** 两级选择器将虚拟中间层下的真实地区放在城市槽位，校验时仍须确认完整父子关系。 */
+    private boolean isFlattenedVirtualCityChild(String provinceCode, SysDictData province, SysDictData district) {
+        if (district.getParentId() == null) {
             return false;
         }
         SysDictData virtualCity = dictDataDao.selectById(district.getParentId());
         return virtualCity != null
                 && CHINA_REGION_DICT_TYPE.equals(virtualCity.getDictType())
                 && CommonStatusEnum.ENABLED.getCode().equals(virtualCity.getStatus())
-                && VIRTUAL_CITY_LABELS.contains(virtualCity.getDictLabel())
+                && ((MUNICIPALITY_CODES.contains(provinceCode)
+                        && VIRTUAL_CITY_LABELS.contains(virtualCity.getDictLabel()))
+                        || DIRECT_ADMIN_VIRTUAL_CITY_CODES.contains(virtualCity.getDictValue()))
                 && Objects.equals(province.getId(), virtualCity.getParentId());
     }
 
