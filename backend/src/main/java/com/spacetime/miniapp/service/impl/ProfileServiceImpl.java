@@ -49,10 +49,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 用户资料服务实现
@@ -280,14 +283,23 @@ public class ProfileServiceImpl implements ProfileService {
     public ProfileDetailVO saveTags(Long userId, ProfileTagsSaveReq req) {
         AppUser user = requireUser(userId);
         List<String> codes = req == null || req.getTagCodes() == null ? List.of() : req.getTagCodes();
-        if (codes.size() > 16) {
-            throw new BusinessException("标签最多选择16个");
-        }
         List<String> normalized = codes.stream()
                 .map(code -> profileDictionaryService.requireCode(ProfileDictType.PROFILE_TAG, code, "标签"))
                 .distinct()
                 .toList();
-        user.setTags(toJson(normalized));
+        Map<String, String> labels = profileDictionaryService.labels(ProfileDictType.PROFILE_TAG, normalized);
+        Set<String> seenLabels = new HashSet<>();
+        List<String> uniqueCodes = new ArrayList<>();
+        for (String code : normalized) {
+            String label = StrUtil.trim(labels.get(code));
+            if (seenLabels.add(StrUtil.isBlank(label) ? code : label)) {
+                uniqueCodes.add(code);
+            }
+        }
+        if (uniqueCodes.size() > 16) {
+            throw new BusinessException("标签最多选择16个");
+        }
+        user.setTags(toJson(uniqueCodes));
         appUserDao.updateById(user);
         return toDetailVO(user, true);
     }

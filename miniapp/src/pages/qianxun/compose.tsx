@@ -240,7 +240,13 @@ export default function QianxunComposePage() {
         ? await resubmitCommunityPost(editPostIdRef.current, content.trim(), imageUrls, topicId, postType)
         : await publishCommunityPost(content.trim(), imageUrls, topicId, postType)
       if (!editPostIdRef.current) await deleteCommunityDraft(postType).catch(() => undefined)
-      await Taro.redirectTo({ url: `/pages/qianxun/interactions?section=mine&postNo=${encodeURIComponent(publishResult.postNo)}&status=${encodeURIComponent(publishResult.status)}` })
+      const pages = Taro.getCurrentPages()
+      if (pages.length > 1 && pages[pages.length - 2].route === 'pages/qianxun/interactions') {
+        // 已有互动页时直接返回，避免连续发帖反复叠加互动页。
+        await Taro.navigateBack()
+      } else {
+        await Taro.redirectTo({ url: `/pages/qianxun/interactions?section=mine&postNo=${encodeURIComponent(publishResult.postNo)}&status=${encodeURIComponent(publishResult.status)}` })
+      }
     } catch (error) {
       showFailureFeedback(COMMUNITY_COPY_KEYS.publishFailed, error)
     } finally {

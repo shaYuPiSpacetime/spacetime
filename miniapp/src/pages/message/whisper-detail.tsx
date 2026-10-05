@@ -6,6 +6,7 @@ import {
   createWhisperIdempotencyCache,
   resolveStableWhisperTargetUserNo,
   resolveWhisperErrorMessage,
+  resolveWhisperMemberTip,
   resolveWhisperRouteSourceScene,
   resolveWhisperStatusDescription,
   shouldInlineWhisperSubmitError,
@@ -295,6 +296,7 @@ export default function WhisperDetailPage() {
           submitting={submitting}
           maxLength={quote?.contentMaxLength || 60}
           coinAmount={quote?.coinAmount || 0}
+          freeWhisperDailyQuota={quote?.freeWhisperDailyQuota}
           onInput={setContent}
           onClose={() => setShowComposer(false)}
           onSubmit={() => void submit()}
@@ -328,7 +330,7 @@ function TimelineRow({ icon, title, description, date, active = false }: { icon?
   )
 }
 
-function WhisperComposer({ avatarUrl, profileName, profileMeta, content, submitting, maxLength, coinAmount, onInput, onClose, onSubmit }: { avatarUrl: string; profileName: string; profileMeta: string; content: string; submitting: boolean; maxLength: number; coinAmount: number; onInput: (value: string) => void; onClose: () => void; onSubmit: () => void }) {
+function WhisperComposer({ avatarUrl, profileName, profileMeta, content, submitting, maxLength, coinAmount, freeWhisperDailyQuota, onInput, onClose, onSubmit }: { avatarUrl: string; profileName: string; profileMeta: string; content: string; submitting: boolean; maxLength: number; coinAmount: number; freeWhisperDailyQuota?: number; onInput: (value: string) => void; onClose: () => void; onSubmit: () => void }) {
   const count = useMemo(() => Array.from(content).length, [content])
   return (
     <View className="whisper-composer-mask" onClick={onClose}>
@@ -339,7 +341,7 @@ function WhisperComposer({ avatarUrl, profileName, profileMeta, content, submitt
           <View><View className="whisper-coin"><Image className="whisper-coin-icon" src={miniappOssIcons.messageQianxunCoin} mode="aspectFit" /><Text>{coinAmount}</Text></View><Text className="whisper-pay-note">私信直达，配对率翻倍</Text></View>
           <View className="whisper-submit message-primary-button" onClick={onSubmit}><Text>{submitting ? '提交中' : '立即申请'}</Text></View>
         </View>
-        <View className="whisper-member-tip"><Image src={miniappOssIcons.messageMemberBadge} className="whisper-member-badge" mode="aspectFit" /><Text>开通时空邂逅会员每天免费申请一次</Text></View>
+        <View className="whisper-member-tip"><Image src={miniappOssIcons.messageMemberBadge} className="whisper-member-badge" mode="aspectFit" /><Text>{resolveWhisperMemberTip(freeWhisperDailyQuota)}</Text></View>
       </View>
     </View>
   )

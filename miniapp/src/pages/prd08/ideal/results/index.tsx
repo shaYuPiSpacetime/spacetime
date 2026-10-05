@@ -1,6 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -38,6 +38,7 @@ export default function IdealResultsPage() {
     else setLoading(true)
     try {
       const data = await getIdealResults(snapshotNo, cursor)
+      setMessage('')
       setPage(data)
       setItems(current => (cursor ? [...current, ...(data.items || [])] : data.items || []))
     } catch (error) {
@@ -47,21 +48,23 @@ export default function IdealResultsPage() {
       setLoadingMore(false)
     }
   }
-  useEffect(() => {
-    void load()
-  }, [snapshotNo])
   useDidShow(() => {
     if (pendingCheck.current) return
     const pending = Taro.getStorageSync(PENDING_QUOTE_KEY) as
       | { snapshotNo?: string; quoteToken?: string; requestId?: string }
       | undefined
-    if (!pending?.quoteToken || pending.snapshotNo !== snapshotNo) return
+    if (!pending?.quoteToken || pending.snapshotNo !== snapshotNo) {
+      // 页面重新显示时以服务端实时结果替换旧卡片，避免其他入口解锁后仍显示。
+      void load()
+      return
+    }
     pendingCheck.current = true
     void confirmQuote(
       pending.quoteToken,
       pending.requestId || createRequestId('ideal-confirm')
     ).finally(() => {
       pendingCheck.current = false
+      void load()
     })
   })
   const confirmQuote = async (quoteToken: string, requestId: string) => {
