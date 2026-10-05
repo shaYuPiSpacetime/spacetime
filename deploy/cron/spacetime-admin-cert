@@ -1,0 +1,4 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+23 3,15 * * * root /bin/bash /mnt/data/spacetime-prod/deploy/scripts/renew-admin-cert.sh >> /var/log/spacetime/admin-cert-renew.log 2>&1

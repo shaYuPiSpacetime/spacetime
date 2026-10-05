@@ -327,6 +327,12 @@ deploy_admin() {
   wait_site
 }
 
+install_admin_cert_cron() {
+  require_file "$ROOT_DIR/deploy/cron/spacetime-admin-cert"
+  mkdir -p /var/log/spacetime
+  install -m 644 "$ROOT_DIR/deploy/cron/spacetime-admin-cert" /etc/cron.d/spacetime-admin-cert
+}
+
 main() {
   cd "$ROOT_DIR"
   load_env
@@ -351,6 +357,7 @@ main() {
       ;;
   esac
 
+  install_admin_cert_cron
   log "部署完成：$TARGET"
 }
 

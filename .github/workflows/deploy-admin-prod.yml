@@ -120,7 +120,7 @@ jobs:
           host: ${{ env.PROD_SERVER_HOST }}
           username: ${{ env.PROD_SERVER_USER }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*'
+          source: 'deploy/cron/*,deploy/scripts/*,deploy/nginx-prod/conf.d/*'
           target: '/mnt/data/spacetime-prod'
 
       - name: Deploy admin over SSH
