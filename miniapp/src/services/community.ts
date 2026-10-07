@@ -344,6 +344,8 @@ export const deleteCommunityDraft = (contentType: CommunityContentType) => del<v
 
 export const getMyCommunityPosts = (page = 1, size = 20) => get<PageVO<CommunityPostVO>>('/miniapp/community/me/posts', { page, size })
 export const getUserCommunityPosts = (userNo: string, page = 1, size = 20) => get<PageVO<CommunityPostVO>>(`/miniapp/community/users/${userNo}/posts`, { page, size })
+/** 分享主页游客只读已发布动态。 */
+export const getSharedUserCommunityPosts = (userId: number, page = 1, size = 20) => get<PageVO<CommunityPostVO>>(`/miniapp/profile/shared/${userId}/posts`, { page, size })
 export const getCommunityProfileSummary = () => get<CommunityProfileSummaryVO>('/miniapp/community/me/profile-summary')
 export const getCommunityInteractions = (interactionType: CommunityInteractionType, page = 1, size = 20) => get<PageVO<CommunityInteractionRecordVO>>('/miniapp/community/me/interactions', { type: interactionType, page, size })
 export const getCommunityViewHistory = (page = 1, size = 20) => get<PageVO<CommunityPostVO>>('/miniapp/community/me/view-history', { page, size })

@@ -13,7 +13,9 @@ import { navigateToPendingVerification } from '@/features/verification/navigateT
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { getApiErrorCode } from '@/services/request'
 import { resolveConversationByPeerUserId } from '@/services/message'
-import { getPublicProfile, type PublicProfileVO } from '@/services/profile'
+import { getPublicProfile, getSharedProfile, type PublicProfileVO } from '@/services/profile'
+import { useAuthStore } from '@/stores/authStore'
+import { PENDING_SHARE_ROUTE_KEY } from '@/domain/pendingShareRoute'
 import {
   cancelRelationLike,
   reportRelationVisit,
@@ -24,6 +26,7 @@ import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
   getUserCommunityPosts,
+  getSharedUserCommunityPosts,
   reportCommunityTarget,
   resolveCommunityCopy,
   resolveCommunityFeedback,
@@ -49,6 +52,7 @@ function createEventNo(targetUserId: number, sourceScene: string): string {
 
 export default function HeartUserPage() {
   const router = useRouter()
+  const isLoggedIn = useAuthStore(state => state.isLoggedIn)
   const targetUserId = Number(router.params.targetUserId || router.params.userId || 0)
   const sourceScene = ((router.params.sourceScene as RelationSourceScene | undefined) || 'profile') as RelationSourceScene
   const [profile, setProfile] = useState<PublicProfileVO | null>(null)
@@ -68,13 +72,28 @@ export default function HeartUserPage() {
   const [showReportReasons, setShowReportReasons] = useState(false)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
-  const access = useAccessStatus('canMatch')
+  const access = useAccessStatus('canMatch', isLoggedIn)
   const eventNo = useMemo(() => createEventNo(targetUserId || 0, sourceScene), [targetUserId, sourceScene])
   const visitReported = useRef(false)
   const likeRequestId = useRef<string | null>(null)
   const unlockRequestRef = useRef<{ targetUserId: number; expectedPrice: number; requestId: string } | null>(null)
 
+  const openLogin = async () => {
+    Taro.setStorageSync(PENDING_SHARE_ROUTE_KEY, `/pages/heart/user?targetUserId=${targetUserId}`)
+    await Taro.navigateTo({ url: '/pages/login/index' })
+  }
+
+  const goBack = () => {
+    if (Taro.getCurrentPages().length > 1) void Taro.navigateBack()
+    else if (isLoggedIn) void Taro.switchTab({ url: '/pages/index/index' })
+    else void openLogin()
+  }
+
   const runCertifiedAction = (action: () => void) => {
+    if (!isLoggedIn) {
+      void openLogin()
+      return
+    }
     if (access.status?.coreAccessStatus === 'CORE_ALLOWED') {
       action()
       return
@@ -147,7 +166,7 @@ export default function HeartUserPage() {
     try {
       let data: PublicProfileVO | null
       try {
-        data = await getPublicProfile(targetUserId)
+        data = await (isLoggedIn ? getPublicProfile(targetUserId) : getSharedProfile(targetUserId))
       } catch (error) {
         if (getApiErrorCode(error) !== 20003) throw error
         if (!await requestProfileAccess()) {
@@ -164,7 +183,7 @@ export default function HeartUserPage() {
       setProfile(data)
       setLiked(Boolean(data.liked))
       await new Promise<void>(resolve => Taro.nextTick(resolve))
-      if (!visitReported.current) {
+      if (isLoggedIn && !visitReported.current) {
         await reportRelationVisit(targetUserId, sourceScene, eventNo)
         visitReported.current = true
       }
@@ -179,11 +198,20 @@ export default function HeartUserPage() {
 
   useEffect(() => {
     void loadProfile()
-  }, [targetUserId, sourceScene, eventNo])
+  }, [targetUserId, sourceScene, eventNo, isLoggedIn])
 
   useDidShow(() => {
     setCommunityPostsLoading(true)
     setCommunityPostsError('')
+    if (!isLoggedIn) {
+      void getSharedUserCommunityPosts(targetUserId).then(page => {
+        setCommunityPosts(page.records || [])
+      }).catch(error => {
+        setCommunityPosts([])
+        setCommunityPostsError(error instanceof Error ? error.message : '个人动态加载失败')
+      }).finally(() => setCommunityPostsLoading(false))
+      return
+    }
     void getCommunityMeta().then(async runtime => {
       setCommunityConfig(runtime)
       if (!targetUserId) throw new Error(resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.profileUnavailable))
@@ -267,6 +295,10 @@ export default function HeartUserPage() {
   }
 
   const openSafetyActions = async () => {
+    if (!isLoggedIn) {
+      await openLogin()
+      return
+    }
     try {
       const selection = await Taro.showActionSheet({ itemList: ['举报该用户', '不再推荐', '拉黑该用户'] })
       if (selection.tapIndex === 0) {
@@ -329,7 +361,7 @@ export default function HeartUserPage() {
         ? <CommunityPostLoading />
         : communityPostsError
           ? <CommunityPostEmpty text={communityPostsError} />
-          : communityPosts.map(post => <CommunityPostCard key={post.postNo || post.id} post={post} />)}
+          : communityPosts.map(post => <CommunityPostCard key={post.postNo || post.id} post={post} onOpen={!isLoggedIn ? () => void openLogin() : undefined} />)}
     </View>
   ) : null
   const footer = (
@@ -346,7 +378,7 @@ export default function HeartUserPage() {
       <ProfilePreviewPage
         variant="public-profile"
         model={previewModel}
-        onBack={() => void Taro.navigateBack()}
+        onBack={goBack}
         onSafetyActions={() => void openSafetyActions()}
         additionalContent={communityContent}
         footer={footer}
@@ -375,8 +407,8 @@ function genderText(gender?: string | null) {
   return gender || ''
 }
 
-function CommunityPostCard({ post }: { post: CommunityPostVO }) {
-  return <View onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} style={{ padding: '24rpx 0 20rpx', borderBottom: '1rpx solid #EEF1F5' }}><Text style={{ display: 'block', color: '#596273', fontSize: '24rpx', lineHeight: '38rpx' }}>{post.content}</Text>{post.imageUrls?.length ? <View style={{ display: 'flex', flexWrap: 'wrap', gap: '8rpx', marginTop: '16rpx' }}>{post.imageUrls.slice(0, 3).map((url, index) => <Image key={`${post.id}-${index}`} src={url} mode="aspectFill" style={{ width: '202rpx', height: '202rpx', borderRadius: '8rpx' }} />)}</View> : null}<Text style={{ display: 'block', marginTop: '12rpx', color: '#A0A6B2', fontSize: '20rpx' }}>{relativeTime(post.createTime)}</Text></View>
+function CommunityPostCard({ post, onOpen }: { post: CommunityPostVO; onOpen?: () => void }) {
+  return <View onClick={onOpen || (() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` }))} style={{ padding: '24rpx 0 20rpx', borderBottom: '1rpx solid #EEF1F5' }}><Text style={{ display: 'block', color: '#596273', fontSize: '24rpx', lineHeight: '38rpx' }}>{post.content}</Text>{post.imageUrls?.length ? <View style={{ display: 'flex', flexWrap: 'wrap', gap: '8rpx', marginTop: '16rpx' }}>{post.imageUrls.slice(0, 3).map((url, index) => <Image key={`${post.id}-${index}`} src={url} mode="aspectFill" style={{ width: '202rpx', height: '202rpx', borderRadius: '8rpx' }} />)}</View> : null}<Text style={{ display: 'block', marginTop: '12rpx', color: '#A0A6B2', fontSize: '20rpx' }}>{relativeTime(post.createTime)}</Text></View>
 }
 
 function CommunityPostLoading() {

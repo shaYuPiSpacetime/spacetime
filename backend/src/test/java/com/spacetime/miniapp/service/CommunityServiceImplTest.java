@@ -36,11 +36,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -71,6 +68,7 @@ class CommunityServiceImplTest {
     @Mock private AppUserAuditContentService auditContentService;
     @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private AppRelationLikeDao appRelationLikeDao;
+    @Mock private AppUserRelationBlockDao relationBlockDao;
     @Mock private RelationDomainService relationDomainService;
     @Mock private com.spacetime.miniapp.service.impl.Prd01AccessEvaluator accessEvaluator;
     @Mock private Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
@@ -932,9 +930,9 @@ class CommunityServiceImplTest {
     }
 
     @Test
-    @DisplayName("心灵搭子-仅查询配置手机号对应作者的普通动态且不在查询中使用明文手机号")
+    @DisplayName("心灵搭子展示全员普通动态，不使用工作人员手机号名单筛选")
     @SuppressWarnings({"rawtypes", "unchecked"})
-    void getSoulmatePosts_shouldFilterConfiguredPhoneAuthorsByHash() throws Exception {
+    void getSoulmatePosts_shouldQueryAllAuthorsWithoutStaffPhoneFilter() {
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), AppUser.class);
         TableInfoHelper.initTableInfo(
@@ -942,42 +940,36 @@ class CommunityServiceImplTest {
         AppConfig sourcePhones = appConfig(
                 CommunityConfigKeys.SOULMATE_SOURCE_PHONES,
                 "[\"13800138000\",\"13900139000\"]");
-        when(appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES)).thenReturn(sourcePhones);
+        lenient().when(appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES)).thenReturn(sourcePhones);
         AppUser firstAuthor = author(7L, "运营一");
         AppUser secondAuthor = author(9L, "运营二");
-        when(appUserDao.selectList(any())).thenReturn(List.of(firstAuthor, secondAuthor));
+        lenient().when(appUserDao.selectList(any())).thenReturn(List.of(firstAuthor, secondAuthor));
         when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(1, 20, 0));
 
         communityService.getSoulmatePosts(null, 1, 20);
 
-        ArgumentCaptor<LambdaQueryWrapper<AppUser>> userQueryCaptor =
-                ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
-        verify(appUserDao).selectList(userQueryCaptor.capture());
-        String userSql = userQueryCaptor.getValue().getSqlSegment();
-        assertThat(userSql).contains("phone_hash");
-        assertThat(userQueryCaptor.getValue().getParamNameValuePairs().values())
-                .contains(sha256("13800138000"), sha256("13900139000"))
-                .doesNotContain("13800138000", "13900139000");
+        verify(appUserDao, never()).selectList(any());
 
         ArgumentCaptor<LambdaQueryWrapper<CommunityPost>> postQueryCaptor =
                 ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
         verify(communityPostDao).selectPage(any(), postQueryCaptor.capture());
         String postSql = postQueryCaptor.getValue().getSqlSegment();
-        assertThat(postSql).contains("post_type", "author_id", "status");
+        assertThat(postSql).contains("post_type", "status").doesNotContain("author_id IN");
         assertThat(postQueryCaptor.getValue().getParamNameValuePairs().values())
-                .contains("community_post", "published", 7L, 9L);
+                .contains("community_post", "published");
     }
 
     @Test
-    @DisplayName("心灵搭子-手机号配置为空时返回空页且不得退化为全量动态")
-    void getSoulmatePosts_emptyConfig_shouldFailClosedToEmptyPage() {
-        when(appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES)).thenReturn(null);
+    @DisplayName("心灵搭子在工作人员名单为空时仍查询全员普通动态")
+    void getSoulmatePosts_emptyStaffConfig_shouldStillQueryPosts() {
+        lenient().when(appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES)).thenReturn(null);
+        when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(2, 20, 0));
 
         Page<CommunityPostCardVO> result = communityService.getSoulmatePosts(null, 2, 20);
 
         assertThat(result.getCurrent()).isEqualTo(2);
         assertThat(result.getRecords()).isEmpty();
-        verifyNoInteractions(communityPostDao);
+        verify(communityPostDao).selectPage(any(), any());
     }
 
     @Test
@@ -1276,6 +1268,22 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("社区入口配置名单中的账号可以发布时空站台")
+    void getMeta_shouldAllowConfiguredStationPublisher() {
+        user.setPhone("13800138000");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES))
+                .thenReturn(appConfig(CommunityConfigKeys.SOULMATE_SOURCE_PHONES, "[\"13800138000\"]"));
+        when(communityExtensionDao.selectTopics(any())).thenReturn(List.of());
+        when(dictDataDao.selectByDictType(anyString())).thenReturn(List.of());
+
+        CommunityMetaVO result = communityService.getMeta(1L);
+
+        assertThat(result.getCapabilities()).containsEntry("stationPublishAllowed", true);
+        assertThat(result.toString()).doesNotContain("13800138000");
+    }
+
+    @Test
     @DisplayName("社区Meta-只返回时空站台发布能力而不返回工作人员手机号")
     void getMeta_shouldExposeDerivedStationCapabilityOnly() {
         user.setPhone("13800138000");
@@ -1361,11 +1369,6 @@ class CommunityServiceImplTest {
         config.setConfigValue(value);
         config.setStatus("ENABLED");
         return config;
-    }
-
-    private String sha256(String value) throws Exception {
-        return HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     }
 
     private CommunityPost post(Long id, Long topicId, Long authorId, String content,

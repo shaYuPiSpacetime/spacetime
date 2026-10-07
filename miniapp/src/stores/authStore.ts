@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import Taro from '@tarojs/taro'
 import { TOKEN_KEY, USER_INFO_KEY } from '@/constants/config'
 import type { AccessStatus } from '@/types/prd01'
+import { resetRecommendBadge } from './recommendBadgeStore'
 
 interface AuthState {
   token: string
@@ -22,6 +23,7 @@ interface AuthState {
     extra?: { openid?: string; phone?: string; maskedPhone?: string; accessStatus?: AccessStatus }
   ) => void
   setAccessStatus: (accessStatus: AccessStatus) => void
+  updateIdentity: (userId: number | null, nickname: string, avatar: string) => void
   logout: () => void
   checkLogin: () => void
 }
@@ -39,6 +41,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   /** 保存登录信息 */
   setLogin: (token, userId, nickname, avatar, extra = {}) => {
+    const previous = Taro.getStorageSync(USER_INFO_KEY)
+    if (previous?.userId !== userId) resetRecommendBadge()
     const userInfo = {
       userId,
       nickname,
@@ -59,8 +63,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ accessStatus })
   },
 
+  /** 缓存本人最新资料，避免页面加载时先显示旧昵称或旧头像。 */
+  updateIdentity: (userId, nickname, avatar) => {
+    const current = Taro.getStorageSync(USER_INFO_KEY) || {}
+    if (!userId || current.userId !== userId) return
+    Taro.setStorageSync(USER_INFO_KEY, { ...current, nickname, avatar })
+    set({ nickname, avatar })
+  },
+
   /** 退出登录 */
   logout: () => {
+    resetRecommendBadge()
     Taro.removeStorageSync(TOKEN_KEY)
     Taro.removeStorageSync(USER_INFO_KEY)
     set({ token: '', userId: null, nickname: '', avatar: '', openid: '', phone: '', maskedPhone: '', accessStatus: null, isLoggedIn: false })
@@ -74,6 +87,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (userInfo) {
         set({ token, ...userInfo, isLoggedIn: true })
       }
+    } else {
+      resetRecommendBadge()
+      set({ token: '', userId: null, nickname: '', avatar: '', openid: '', phone: '', maskedPhone: '', accessStatus: null, isLoggedIn: false })
     }
   }
 }))

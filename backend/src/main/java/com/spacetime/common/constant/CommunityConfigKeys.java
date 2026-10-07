@@ -8,7 +8,7 @@ public final class CommunityConfigKeys {
     }
 
     public static final String INTERACTION_GATE_MODE = "community.interaction_gate_mode";
-    /** 心灵搭子精选动态作者手机号列表，仅后台可见。 */
+    /** 时空站台工作人员手机号名单，仅后台可见；旧配置键保留以兼容已有号码。 */
     public static final String SOULMATE_SOURCE_PHONES = "community.soulmate_source_phones";
     public static final String POST_MAX_IMAGES = "community.post_max_images";
     public static final String POST_MAX_TEXT_LENGTH = "community.post_max_text_length";

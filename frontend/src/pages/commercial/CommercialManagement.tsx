@@ -911,7 +911,7 @@ function OrderWorkspace() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ orderNo: '', userId: '', orderType: '', orderStatus: '', payDate: '' });
+  const [filters, setFilters] = useState({ orderNo: '', userId: '', orderType: '', orderStatus: 'success', payDate: '' });
   const [selected, setSelected] = useState<OrderRow | null>(null);
   const [refundOpen, setRefundOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -987,11 +987,11 @@ function OrderWorkspace() {
   return (
     <PageFrame workspace="orders" action={<button className="btn primary" type="button" onClick={() => setExportOpen(true)}>导出订单</button>}>
       <SummaryGrid items={orderSummary(orders, total)} />
-      <QueryPanel title="查询条件" actions={<><button className="btn primary" type="button" onClick={() => { setPage(1); load(); }}>查询</button><button className="btn" type="button" onClick={() => { setPage(1); setFilters({ orderNo: '', userId: '', orderType: '', orderStatus: '', payDate: '' }); }}>重置</button></>}>
+      <QueryPanel title="查询条件" actions={<><button className="btn primary" type="button" onClick={() => { setPage(1); load(); }}>查询</button><button className="btn" type="button" onClick={() => { setPage(1); setFilters({ orderNo: '', userId: '', orderType: '', orderStatus: 'success', payDate: '' }); }}>重置</button></>}>
         <ControlField label="订单号"><input value={filters.orderNo} onChange={(event) => setFilters({ ...filters, orderNo: event.target.value })} /></ControlField>
         <ControlField label="用户 ID"><input inputMode="numeric" value={filters.userId} onChange={(event) => setFilters({ ...filters, userId: event.target.value.replace(/\D/g, '') })} /></ControlField>
         <ControlField label="订单类型"><select value={filters.orderType} onChange={(event) => setFilters({ ...filters, orderType: event.target.value })}><option value="">全部</option><option value="vip">会员订单</option><option value="coin">千寻币充值订单</option></select></ControlField>
-        <ControlField label="订单状态"><select value={filters.orderStatus} onChange={(event) => setFilters({ ...filters, orderStatus: event.target.value })}><option value="">全部</option><option value="success">支付成功</option><option value="unpaid">待支付</option><option value="refunded">已退款</option></select></ControlField>
+        <ControlField label="订单状态"><select value="success" disabled><option value="success">已支付</option></select></ControlField>
         <ControlField label="支付时间"><input type="date" value={filters.payDate} onChange={(event) => setFilters({ ...filters, payDate: event.target.value })} /></ControlField>
       </QueryPanel>
       <TableWrap minWidth={1120}>
@@ -1277,9 +1277,9 @@ function orderSummary(rows: OrderRow[], total: number): [string, ReactNode][] {
     .reduce((sum, row) => sum + parseAmount(row.amount), 0)
     .toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return [
-    ['订单总数', String(total)],
+    ['已支付订单总数', String(total)],
     ['当前页支付成功金额', successAmount],
-    ['当前页已退款', rows.filter((row) => row.status === '已退款').length],
+    ['当前页会员订单', rows.filter((row) => row.type.includes('会员')).length],
     ['当前页订单', rows.length],
   ];
 }

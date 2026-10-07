@@ -64,6 +64,9 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
 
     @Override
     public PublicProfileVO getPublicProfile(Long currentUserId, Long targetUserId) {
+        if (currentUserId == null) {
+            return projectApprovedProfile(requireOpenUser(targetUserId, TARGET_UNAVAILABLE, "目标用户当前不可访问"));
+        }
         AppUser current = requireBrowsableUser(currentUserId, CURRENT_ACCESS_CLOSED, "公开资料浏览准入未开放");
         if (targetUserId == null || Objects.equals(current.getId(), targetUserId)) {
             throw new BusinessException(TARGET_UNAVAILABLE, "不能访问自己的公开资料");
@@ -88,6 +91,17 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
                 && RelationMatchStatusEnum.MATCHED.getCode().equals(match.getMatchStatus());
         boolean privateMessage = matched || idealUnlocked;
 
+        PublicProfileVO result = projectApprovedProfile(target);
+        result.setLiked(like != null);
+        result.setMatched(matched);
+        result.setMatchNo(matched ? match.getMatchNo() : null);
+        result.setCanEnterConversation(privateMessage);
+        result.setCommunicationMode(privateMessage ? "PRIVATE_MESSAGE" : "WHISPER");
+        return result;
+    }
+
+    /** 游客和登录用户共用已审核公开字段，关系状态仅由登录入口补充。 */
+    private PublicProfileVO projectApprovedProfile(AppUser target) {
         PublicProfileVO result = new PublicProfileVO();
         result.setUserId(target.getId());
         result.setUserNo("USR-" + String.format(Locale.ROOT, "%012d", target.getId()));
@@ -118,11 +132,10 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
         result.setFavoriteSongName(target.getFavoriteSongName());
         result.setFavoriteSongArtist(target.getFavoriteSongArtist());
         result.setFavoriteSongCoverUrl(target.getFavoriteSongCoverUrl());
-        result.setLiked(like != null);
-        result.setMatched(matched);
-        result.setMatchNo(matched ? match.getMatchNo() : null);
-        result.setCanEnterConversation(privateMessage);
-        result.setCommunicationMode(privateMessage ? "PRIVATE_MESSAGE" : "WHISPER");
+        result.setLiked(false);
+        result.setMatched(false);
+        result.setCanEnterConversation(false);
+        result.setCommunicationMode("WHISPER");
         result.setCertifications(certifications(target.getId()));
         return result;
     }

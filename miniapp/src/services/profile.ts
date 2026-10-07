@@ -39,3 +39,8 @@ export interface PublicProfileVO {
 export function getPublicProfile(userId: number): Promise<PublicProfileVO> {
   return get<PublicProfileVO>(`/miniapp/profile/public/${userId}`)
 }
+
+/** 游客浏览分享主页的已审核公开资料。 */
+export function getSharedProfile(userId: number): Promise<PublicProfileVO> {
+  return get<PublicProfileVO>(`/miniapp/profile/shared/${userId}`)
+}

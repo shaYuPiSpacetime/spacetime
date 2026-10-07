@@ -6,6 +6,12 @@ import com.spacetime.admin.service.SensitiveWordService;
 import com.spacetime.common.constant.AuthConstant;
 import com.spacetime.common.dao.MenuDao;
 import com.spacetime.common.service.MiniappPresenceService;
+import com.spacetime.miniapp.controller.MiniappProfileController;
+import com.spacetime.miniapp.service.MiniappProfileService;
+import com.spacetime.miniapp.service.MiniappPublicProfileService;
+import com.spacetime.miniapp.service.CommunityService;
+import com.spacetime.miniapp.dto.response.PublicProfileVO;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -36,6 +42,12 @@ class WebConfigCorsTest {
         @Bean MenuDao menus() { return mock(MenuDao.class); }
         @Bean SensitiveWordService service() { return mock(SensitiveWordService.class); }
         @Bean SensitiveWordController controller(SensitiveWordService s) { return new SensitiveWordController(s); }
+        @Bean MiniappProfileService profileService() { return mock(MiniappProfileService.class); }
+        @Bean MiniappPublicProfileService publicProfileService() { return mock(MiniappPublicProfileService.class); }
+        @Bean CommunityService communityService() { return mock(CommunityService.class); }
+        @Bean MiniappProfileController sharedProfileController(MiniappProfileService p, MiniappPublicProfileService s, CommunityService c) {
+            return new MiniappProfileController(p, s, c);
+        }
         @Bean PermissionInterceptor permissionInterceptor(MenuDao m) { return new PermissionInterceptor(m); }
         @Bean @SuppressWarnings("unchecked") TokenInterceptor tokenInterceptor() throws Exception {
             StringRedisTemplate redis=mock(StringRedisTemplate.class);
@@ -97,6 +109,23 @@ class WebConfigCorsTest {
                 .header("Origin", "https://www.shikongxiehou.com")
                 .header("Access-Control-Request-Method", "PATCH"))
             .andExpect(status().isForbidden());
+    }
+    @Test void 分享主页与已发布动态可匿名读取且其他资料接口仍需登录() throws Exception {
+        MiniappPublicProfileService profiles = context.getBean(MiniappPublicProfileService.class);
+        CommunityService community = context.getBean(CommunityService.class);
+        PublicProfileVO profile = new PublicProfileVO();
+        profile.setUserId(8L);
+        profile.setNickname("分享用户");
+        when(profiles.getPublicProfile(null, 8L)).thenReturn(profile);
+        when(community.getUserPosts(null, "8", false, 1, 20)).thenReturn(new Page<>(1, 20, 0));
+
+        mvc.perform(get("/miniapp/profile/shared/8"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.nickname").value("分享用户"));
+        mvc.perform(get("/miniapp/profile/shared/8/posts"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(0));
+        mvc.perform(get("/miniapp/profile/public/8")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/miniapp/profile/home")).andExpect(status().isUnauthorized());
+        verify(profiles, times(2)).getPublicProfile(null, 8L);
     }
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder patchRequest() {
         return patch("/admin/sensitive-words/2/status").header("Origin","http://127.0.0.1:5173")

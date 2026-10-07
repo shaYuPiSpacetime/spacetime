@@ -30,7 +30,7 @@ assert.deepEqual(
 );
 
 assert.match(pageSource, /SOULMATE_PHONE_CONFIG_KEY/, '社区配置页必须识别心灵搭子手机号配置');
-assert.match(pageSource, /每行输入一个手机号，最多 50 个/, '手机号配置必须提供运营可理解的输入提示');
+assert.match(pageSource, /每行输入一个工作人员手机号，最多 50 个/, '工作人员名单必须提供运营可理解的输入提示');
 assert.match(pageSource, /不会下发到小程序/, '手机号配置必须明确隐私边界');
 assert.match(pageSource, /updateItem\(item\.configKey, event\.target\.value\)/, '逐行编辑时必须保留原始换行');
 assert.match(pageSource, /prepareCommunityConfigItemsForSave/, '保存前必须统一序列化手机号配置');

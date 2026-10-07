@@ -225,7 +225,7 @@ export default function RecommendWaitingPage() {
           <CommunityPreview post={post} />
         </View>
       </ScrollView>
-      <AppTabBar active="recommend" recommendBadgeCount={0} />
+      <AppTabBar active="recommend" />
     </View>
   )
 }

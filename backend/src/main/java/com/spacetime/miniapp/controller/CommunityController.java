@@ -81,7 +81,7 @@ public class CommunityController {
         return R.ok(communityService.getYuemuUsers(currentUserId(), page, size));
     }
 
-    /** 查询心灵搭子精选账号的普通动态。 */
+    /** 查询全员已发布的心灵搭子普通动态。 */
     @GetMapping("/soulmate-posts")
     public R<Page<CommunityPostCardVO>> soulmatePosts(@RequestParam(defaultValue = "1") int page,
                                                        @RequestParam(defaultValue = "20") int size) {

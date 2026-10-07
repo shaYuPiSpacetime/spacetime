@@ -107,7 +107,7 @@ export default function ProfilePreviewPage({
             boxSizing: 'border-box',
           }}
         >
-          {variant === 'public-profile' ? <HeartMessageHeader title="用户主页" align="center" showBack /> : null}
+          {variant === 'public-profile' ? <HeartMessageHeader title="用户主页" align="center" showBack onBack={onBack} /> : null}
           <View style={{ width: '700rpx', margin: '0 auto' }}>
             <ProfilePreviewHero model={model} onSafetyActions={onSafetyActions} />
             {(variant === 'owner-preview' || model.genderAgeHeight || model.location || model.datingGoal)

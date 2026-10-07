@@ -89,8 +89,17 @@ const emptyProfile: ProfileSummary = {
   receivedLikeCount: 0,
 }
 
+/** 本人头像没有加载好时保留中性占位，不使用默认人物照片。 */
+function resolveOwnAvatar(value?: string | null) {
+  const avatar = normalizeAvatarUrl(value, '')
+  return avatar === defaultAvatar || /(?:^|\/)default[-_]avatar(?:[.\-/]|$)/i.test(avatar) ? '' : avatar
+}
+
 export default function QianxunInteractionsPage() {
-  const [profile, setProfile] = useState<ProfileSummary>(emptyProfile)
+  const [profile, setProfile] = useState<ProfileSummary>(() => {
+    const auth = useAuthStore.getState()
+    return { ...emptyProfile, nickname: auth.nickname || emptyProfile.nickname, avatar: resolveOwnAvatar(auth.avatar) }
+  })
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState<MainSection>('interaction')
   const [filter, setFilter] = useState<InteractionFilter>('commented')
@@ -124,6 +133,7 @@ export default function QianxunInteractionsPage() {
   })
 
   useDidShow(() => {
+    void loadIdentity()
     void loadPage()
     void loadMyPosts()
   })
@@ -147,9 +157,8 @@ export default function QianxunInteractionsPage() {
   const loadPage = async () => {
     setLoading(true)
     try {
-      const [runtime, home, summary, commented, liked, unlocked, viewHistory] = await Promise.all([
+      const [runtime, summary, commented, liked, unlocked, viewHistory] = await Promise.all([
         getCommunityMeta(),
-        prd01Api.getHomeDetail(),
         getCommunityProfileSummary(),
         getCommunityInteractions('commented', 1, 50),
         getCommunityInteractions('liked', 1, 50),
@@ -157,17 +166,13 @@ export default function QianxunInteractionsPage() {
         getCommunityInteractions('viewed', 1, 50),
       ])
       setConfig(runtime)
-      const auth = useAuthStore.getState()
-      const source = home.profile || {}
-      setProfile({
-        nickname: String(source.nickname || auth.nickname || resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.profilePendingNickname)),
-        avatar: normalizeAvatarUrl(String(source.avatar || auth.avatar || ''), ''),
-        description: buildProfileDescription(source, runtime),
+      setProfile(current => ({
+        ...current,
         postCount: readNonNegativeNumber(summary.stats?.postCount),
         followingCount: readNonNegativeNumber(summary.stats?.followingCount),
         followerCount: readNonNegativeNumber(summary.stats?.followerCount),
         receivedLikeCount: readNonNegativeNumber(summary.stats?.receivedLikeCount),
-      })
+      }))
       setRecords([...commented.records, ...liked.records, ...unlocked.records].map(item => ({
         id: String(item.id),
         kind: item.interactionType as InteractionFilter,
@@ -192,6 +197,22 @@ export default function QianxunInteractionsPage() {
       await showError(config, error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadIdentity = async () => {
+    try {
+      const ownerId = useAuthStore.getState().userId
+      const home = await prd01Api.getHomeDetail()
+      const auth = useAuthStore.getState()
+      if (auth.userId !== ownerId) return
+      const source = home.profile || {}
+      const nickname = String(source.nickname || auth.nickname || emptyProfile.nickname)
+      const avatar = resolveOwnAvatar(String(source.avatar || auth.avatar || ''))
+      setProfile(current => ({ ...current, nickname, avatar, description: buildProfileDescription(source, config) }))
+      auth.updateIdentity(ownerId, nickname, avatar)
+    } catch {
+      // 资料刷新失败时继续展示本人缓存，互动记录可独立加载。
     }
   }
 

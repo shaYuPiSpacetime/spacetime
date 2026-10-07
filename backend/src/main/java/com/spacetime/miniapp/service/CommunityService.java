@@ -36,7 +36,7 @@ public interface CommunityService {
      */
     Page<CommunityPostCardVO> getPosts(Long userId, String postType, Long topicId, String scene, int page, int size);
 
-    /** 查询后台配置作者的心灵搭子普通动态。 */
+    /** 查询全员已发布的心灵搭子普通动态。 */
     Page<CommunityPostCardVO> getSoulmatePosts(Long userId, int page, int size);
 
     /**

@@ -1,7 +1,7 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
-import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
+import { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
@@ -22,6 +22,8 @@ import {
 } from '@/services/recommend'
 import { findConversationByPeerUserId } from '@/services/message'
 import { cancelRelationLike, sendRelationLike } from '@/services/relation'
+import { useAuthStore } from '@/stores/authStore'
+import { publishRecommendBadge } from '@/stores/recommendBadgeStore'
 
 type RecommendTab = 'recommend' | 'ideal'
 type LoadState = 'loading' | 'ready' | 'empty' | 'limit' | 'error'
@@ -49,6 +51,7 @@ export default function RecommendPage() {
   const [state, setState] = useState<LoadState>('loading')
   const [errorMessage, setErrorMessage] = useState('')
   const [actionSubmitting, setActionSubmitting] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [showIpDialog, setShowIpDialog] = useState(false)
   const [showCertification, setShowCertification] = useState(false)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
@@ -69,6 +72,11 @@ export default function RecommendPage() {
 
   const candidates = page?.items || []
   const candidate = candidates[candidateIndex] || null
+
+  useEffect(() => {
+    const userId = useAuthStore.getState().userId
+    if (page && userId) publishRecommendBadge(userId, { ...page, items: page.items.slice(candidateIndex) })
+  }, [page, candidateIndex])
 
   const syncBrowseCycle = (data: RecommendCandidatePageVO) => {
     const nextResetAt = data.nextResetAt || null
@@ -130,7 +138,8 @@ export default function RecommendPage() {
     const requestGeneration = ++candidateRequestGenerationRef.current
     const resumeCursor = retryCandidateCursorRef.current
     retryCandidateCursorRef.current = null
-    setState('loading')
+    setRefreshing(true)
+    if (!page?.items.length) setState('loading')
     setErrorMessage('')
     try {
       let data = resumeCursor
@@ -160,6 +169,8 @@ export default function RecommendPage() {
       if (candidateRequestGenerationRef.current !== requestGeneration) return
       setErrorMessage(error instanceof Error ? error.message : '推荐加载失败，请稍后再试')
       setState('error')
+    } finally {
+      if (candidateRequestGenerationRef.current === requestGeneration) setRefreshing(false)
     }
   }
 
@@ -536,7 +547,7 @@ export default function RecommendPage() {
             <RecommendActions
               communicationMode={candidate.communicationMode}
               liked={candidate.liked}
-              disabled={actionSubmitting}
+              disabled={actionSubmitting || refreshing}
               onSkip={() => void advanceCandidate()}
               onConversation={() => runCertifiedAction(() => void openConversation())}
               onLike={() => runCertifiedAction(() => void toggleLike())}
@@ -544,10 +555,6 @@ export default function RecommendPage() {
           ) : null}
         </>
       )}
-      <AppTabBar
-        active="recommend"
-        recommendBadgeCount={state === 'ready' && candidate ? page?.remainingBrowseCount : 0}
-      />
       {showIpDialog ? (
         <IpLocationDialog
           onClose={() => setShowIpDialog(false)}

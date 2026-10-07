@@ -40,13 +40,7 @@ const ORDER_TYPE_OPTIONS = [
 ];
 
 const ORDER_STATUS_OPTIONS = [
-  { value: '', label: '全部状态' },
-  { value: 'unpaid', label: '待支付' },
   { value: 'success', label: '已支付' },
-  { value: 'closed', label: '已关闭' },
-  { value: 'failed', label: '支付失败' },
-  { value: 'refunding', label: '退款中' },
-  { value: 'refunded', label: '已退款' },
 ];
 
 const FLOW_TYPE_OPTIONS = [
@@ -224,7 +218,7 @@ function OrdersPanel() {
   const [filters, setFilters] = useState({
     orderNo: '',
     orderType: '',
-    orderStatus: '',
+    orderStatus: 'success',
     startTime: '',
     endTime: '',
   });
@@ -265,7 +259,7 @@ function OrdersPanel() {
   }
 
   function handleReset() {
-    const empty = { orderNo: '', orderType: '', orderStatus: '', startTime: '', endTime: '' };
+    const empty = { orderNo: '', orderType: '', orderStatus: 'success', startTime: '', endTime: '' };
     setFilters(empty);
     setPage(1);
     setQuery(empty);

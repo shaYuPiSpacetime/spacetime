@@ -20,5 +20,5 @@ export function setActiveTabKey(key: TabKey) {
 
 export function subscribeActiveTabKey(listener: ActiveTabListener) {
   listeners.add(listener)
-  return () => listeners.delete(listener)
+  return () => { listeners.delete(listener) }
 }
